@@ -15,7 +15,7 @@ namespace bb {
 
 /**
  * @brief Internal prover for one per-kernel multilinear batching proof of fixed width.
- * @details Templated on the flavor, whose MAX_NUM_CLAIMS fixes the batching width at compile time. A family of widths
+ * @details Templated on the flavor, whose NUM_CLAIMS fixes the batching width at compile time. A family of widths
  * (2 .. CHONK_MAX_CLAIMS_PER_KERNEL) is instantiated so each kernel uses the circuit that exactly fits its group. Not
  * called directly: the public MultilinearBatchingProver routes to the correctly-instantiated internal prover
  * based on the runtime claim count.

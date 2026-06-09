@@ -11,25 +11,20 @@
 
 namespace bb {
 
-template <size_t MaxNumClaims>
-MultilinearBatchingFlavor_<MaxNumClaims>::ProvingKey::ProvingKey(std::vector<ProverClaim>&& claims)
+template <size_t NumClaims>
+MultilinearBatchingFlavor_<NumClaims>::ProvingKey::ProvingKey(std::vector<ProverClaim>&& claims)
 {
     BB_BENCH();
-    BB_ASSERT_GT(claims.size(), 0UL, "MultilinearBatchingProver: at least one claim is required");
-    BB_ASSERT_LTE(
-        claims.size(), MAX_NUM_CLAIMS, "MultilinearBatchingProver: more claims than the fixed batching width");
+    BB_ASSERT_EQ(claims.size(), NUM_CLAIMS, "MultilinearBatchingProver: claim count must equal the batching width");
 
-    num_claims = claims.size();
     for (const auto& claim : claims) {
         circuit_size = std::max(circuit_size, claim.dyadic_size);
     }
-    const size_t virtual_circuit_size = 1 << MultilinearBatchingFlavor_<MaxNumClaims>::VIRTUAL_LOG_N;
+    const size_t virtual_circuit_size = 1 << MultilinearBatchingFlavor_<NumClaims>::VIRTUAL_LOG_N;
     const size_t log_circuit_size = bb::numeric::get_msb(circuit_size);
 
-    for (size_t idx = 0; idx < num_claims; ++idx) {
+    for (size_t idx = 0; idx < NUM_CLAIMS; ++idx) {
         auto& claim = claims[idx];
-        active_slots[idx] = true;
-        polynomials.active_slots[idx] = true;
 
         polynomials.non_shifted(idx) = std::move(claim.non_shifted_polynomial);
         preshifted_polynomials[idx] = std::move(claim.shifted_polynomial);
@@ -44,31 +39,19 @@ MultilinearBatchingFlavor_<MaxNumClaims>::ProvingKey::ProvingKey(std::vector<Pro
         shifted_commitments[idx] = claim.shifted_commitment;
     }
 
-    for (size_t idx = num_claims; idx < MAX_NUM_CLAIMS; ++idx) {
-        non_shifted_evaluations[idx] = FF(0);
-        shifted_evaluations[idx] = FF(0);
-        non_shifted_commitments[idx] = Commitment::infinity();
-        shifted_commitments[idx] = Commitment::infinity();
-        polynomials.claim_challenges[idx] =
-            std::vector<FF>(MultilinearBatchingFlavor_<MaxNumClaims>::VIRTUAL_LOG_N, FF(0));
-        polynomials.non_shifted(idx) = Polynomial(1, virtual_circuit_size);
-        polynomials.shifted(idx) = Polynomial(1, virtual_circuit_size);
-        polynomials.eq(idx) = Polynomial(1, virtual_circuit_size);
-    }
-
     polynomials.increase_polynomials_virtual_size(virtual_circuit_size);
 }
 
-template <size_t MaxNumClaims>
-void MultilinearBatchingFlavor_<MaxNumClaims>::ProvingKey::apply_slot_batching_challenge(const FF& challenge)
+template <size_t NumClaims>
+void MultilinearBatchingFlavor_<NumClaims>::ProvingKey::apply_slot_batching_challenge(const FF& challenge)
 {
-    std::vector<FF> scalars(MAX_NUM_CLAIMS);
+    std::vector<FF> scalars(NUM_CLAIMS);
     scalars[0] = FF(1);
-    for (size_t idx = 1; idx < MAX_NUM_CLAIMS; ++idx) {
+    for (size_t idx = 1; idx < NUM_CLAIMS; ++idx) {
         scalars[idx] = scalars[idx - 1] * challenge;
     }
 
-    for (size_t idx = 0; idx < num_claims; ++idx) {
+    for (size_t idx = 0; idx < NUM_CLAIMS; ++idx) {
         polynomials.non_shifted(idx) *= scalars[idx];
         preshifted_polynomials[idx] *= scalars[idx];
         polynomials.shifted(idx) = preshifted_polynomials[idx].shifted();
@@ -107,9 +90,9 @@ template <typename Flavor> MultilinearBatchingProverClaim MultilinearBatchingPro
 {
     BB_BENCH();
 
-    std::vector<FF> scalars(Flavor::MAX_NUM_CLAIMS);
+    std::vector<FF> scalars(Flavor::NUM_CLAIMS);
     scalars[0] = FF(1);
-    for (size_t idx = 1; idx < Flavor::MAX_NUM_CLAIMS; ++idx) {
+    for (size_t idx = 1; idx < Flavor::NUM_CLAIMS; ++idx) {
         scalars[idx] = scalars[idx - 1] * claim_batching_challenge;
     }
 
@@ -120,7 +103,7 @@ template <typename Flavor> MultilinearBatchingProverClaim MultilinearBatchingPro
 
     size_t largest_non_shifted_idx = 0;
     size_t largest_shifted_idx = 0;
-    for (size_t idx = 0; idx < key.num_claims; ++idx) {
+    for (size_t idx = 0; idx < Flavor::NUM_CLAIMS; ++idx) {
         if (key.polynomials.non_shifted(idx).end_index() >
             key.polynomials.non_shifted(largest_non_shifted_idx).end_index()) {
             largest_non_shifted_idx = idx;
@@ -134,14 +117,14 @@ template <typename Flavor> MultilinearBatchingProverClaim MultilinearBatchingPro
     }
 
     new_non_shifted_polynomial = std::move(key.polynomials.non_shifted(largest_non_shifted_idx));
-    for (size_t idx = 0; idx < key.num_claims; ++idx) {
+    for (size_t idx = 0; idx < Flavor::NUM_CLAIMS; ++idx) {
         if (idx != largest_non_shifted_idx) {
             new_non_shifted_polynomial += key.polynomials.non_shifted(idx);
         }
     }
 
     new_shifted_polynomial = std::move(key.preshifted_polynomials[largest_shifted_idx]);
-    for (size_t idx = 0; idx < key.num_claims; ++idx) {
+    for (size_t idx = 0; idx < Flavor::NUM_CLAIMS; ++idx) {
         if (idx != largest_shifted_idx) {
             new_shifted_polynomial += key.preshifted_polynomials[idx];
         }
@@ -149,11 +132,11 @@ template <typename Flavor> MultilinearBatchingProverClaim MultilinearBatchingPro
 
     std::vector<Commitment> non_shifted_commitments;
     std::vector<Commitment> shifted_commitments;
-    non_shifted_commitments.reserve(key.num_claims);
-    shifted_commitments.reserve(key.num_claims);
+    non_shifted_commitments.reserve(Flavor::NUM_CLAIMS);
+    shifted_commitments.reserve(Flavor::NUM_CLAIMS);
     std::vector<FF> active_scalars;
-    active_scalars.reserve(key.num_claims);
-    for (size_t idx = 0; idx < key.num_claims; ++idx) {
+    active_scalars.reserve(Flavor::NUM_CLAIMS);
+    for (size_t idx = 0; idx < Flavor::NUM_CLAIMS; ++idx) {
         non_shifted_commitments.emplace_back(key.non_shifted_commitments[idx]);
         shifted_commitments.emplace_back(key.shifted_commitments[idx]);
         active_scalars.emplace_back(scalars[idx]);

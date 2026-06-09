@@ -431,38 +431,10 @@ template <typename Flavor> class SumcheckProver {
         // If required, extend prover's multilinear polynomials in `multivariate_d` variables by zero to get multilinear
         // polynomials in `virtual_log_n` variables.
         for (size_t k = multivariate_d; k < virtual_log_n; ++k) {
-            if constexpr (requires {
-                              Flavor::extend_eq_polynomials_for_virtual_round(
-                                  partially_evaluated_polynomials, multivariate_challenge, k);
-                          }) {
+            if constexpr (isMultilinearBatchingFlavor) {
+                // We need to specify the evaluation at index 1 for eq polynomials
                 Flavor::extend_eq_polynomials_for_virtual_round(
                     partially_evaluated_polynomials, multivariate_challenge, k);
-            } else if constexpr (isMultilinearBatchingFlavor) {
-                // We need to specify the evaluation at index 1 for eq polynomials
-                std::vector<FF> index_1_challenge(virtual_log_n);
-                for (size_t i = 0; i < k; i++) {
-                    index_1_challenge[i] = multivariate_challenge[i];
-                }
-                index_1_challenge[k] = FF(1);
-                if (partially_evaluated_polynomials.eq_accumulator.size() == 1) {
-
-                    // We need to reallocate the polynomials
-                    auto new_polynomial =
-                        Polynomial<FF>(2, partially_evaluated_polynomials.eq_accumulator.virtual_size());
-                    new_polynomial.at(0) = partially_evaluated_polynomials.eq_accumulator.at(0);
-                    partially_evaluated_polynomials.eq_accumulator = new_polynomial;
-                }
-                if (partially_evaluated_polynomials.eq_instance.size() == 1) {
-                    // We need to reallocate the polynomials
-                    auto new_polynomial = Polynomial<FF>(2, partially_evaluated_polynomials.eq_instance.virtual_size());
-                    new_polynomial.at(0) = partially_evaluated_polynomials.eq_instance.at(0);
-                    partially_evaluated_polynomials.eq_instance = new_polynomial;
-                }
-                partially_evaluated_polynomials.eq_accumulator.at(1) =
-                    VerifierEqPolynomial<FF>::eval(accumulator_challenge, index_1_challenge);
-                partially_evaluated_polynomials.eq_instance.at(1) =
-                    VerifierEqPolynomial<FF>::eval(instance_challenge, index_1_challenge);
-                index_1_challenge[k] = FF(0);
             }
             // Compute the contribution from the extensions by zero. It is sufficient to evaluate the main constraint at
             // `MAX_PARTIAL_RELATION_LENGTH` points.

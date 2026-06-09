@@ -25,7 +25,7 @@ typename MultilinearBatchingVerifierInternal<Flavor_>::FF MultilinearBatchingVer
 {
     FF non_shifted_target(0);
     FF shifted_target(0);
-    for (size_t idx = 0; idx < MAX_NUM_CLAIMS; ++idx) {
+    for (size_t idx = 0; idx < NUM_CLAIMS; ++idx) {
         non_shifted_target += claims[idx].non_shifted_evaluation * slot_scalars[idx];
         shifted_target += claims[idx].shifted_evaluation * slot_scalars[idx];
     }
@@ -40,9 +40,9 @@ typename MultilinearBatchingVerifierInternal<Flavor_>::VerifierClaim Multilinear
 {
     std::vector<Commitment> non_shifted_commitments;
     std::vector<Commitment> shifted_commitments;
-    non_shifted_commitments.reserve(MAX_NUM_CLAIMS);
-    shifted_commitments.reserve(MAX_NUM_CLAIMS);
-    for (size_t idx = 0; idx < MAX_NUM_CLAIMS; ++idx) {
+    non_shifted_commitments.reserve(NUM_CLAIMS);
+    shifted_commitments.reserve(NUM_CLAIMS);
+    for (size_t idx = 0; idx < NUM_CLAIMS; ++idx) {
         non_shifted_commitments.emplace_back(claims[idx].non_shifted_commitment);
         shifted_commitments.emplace_back(claims[idx].shifted_commitment);
     }
@@ -54,7 +54,7 @@ typename MultilinearBatchingVerifierInternal<Flavor_>::VerifierClaim Multilinear
     // yields the evaluation of the batched polynomial P = Σ γ^i P_i at the sumcheck challenge point.
     FF non_shifted_evaluation(0);
     FF shifted_evaluation(0);
-    for (size_t idx = 0; idx < MAX_NUM_CLAIMS; ++idx) {
+    for (size_t idx = 0; idx < NUM_CLAIMS; ++idx) {
         non_shifted_evaluation += sumcheck_result.claimed_evaluations.non_shifted(idx);
         shifted_evaluation += sumcheck_result.claimed_evaluations.shifted(idx);
     }
@@ -71,7 +71,7 @@ bool MultilinearBatchingVerifierInternal<Flavor_>::check_eq_consistency(const Su
                                                                         const std::vector<VerifierClaim>& claims)
 {
     bool verified = true;
-    for (size_t idx = 0; idx < MAX_NUM_CLAIMS; ++idx) {
+    for (size_t idx = 0; idx < NUM_CLAIMS; ++idx) {
         auto eq_diff = sumcheck_result.claimed_evaluations.eq(idx) -
                        VerifierEqPolynomial<FF>::eval(claims[idx].challenge, sumcheck_result.challenge);
         if constexpr (IsRecursive) {
@@ -89,14 +89,14 @@ std::pair<bool, typename MultilinearBatchingVerifierInternal<Flavor_>::VerifierC
 MultilinearBatchingVerifierInternal<Flavor_>::verify_proof(const std::vector<VerifierClaim>& claims)
 {
     BB_BENCH_NAME("MultilinearBatchingVerifier::verify_proof");
-    BB_ASSERT_EQ(claims.size(), MAX_NUM_CLAIMS, "MultilinearBatchingVerifier: claim count must equal the width");
+    BB_ASSERT_EQ(claims.size(), NUM_CLAIMS, "MultilinearBatchingVerifier: claim count must equal the width");
 
     // The batching sumcheck is read from the shared transcript, which already holds the group's instance sumchecks
     // followed by the loaded batching proof.
     const FF claim_batching_challenge = transcript->template get_challenge<FF>("claim_batching_challenge");
-    std::vector<FF> slot_scalars(MAX_NUM_CLAIMS);
+    std::vector<FF> slot_scalars(NUM_CLAIMS);
     slot_scalars[0] = FF(1);
-    for (size_t idx = 1; idx < MAX_NUM_CLAIMS; ++idx) {
+    for (size_t idx = 1; idx < NUM_CLAIMS; ++idx) {
         slot_scalars[idx] = slot_scalars[idx - 1] * claim_batching_challenge;
     }
     if constexpr (IsRecursive) {

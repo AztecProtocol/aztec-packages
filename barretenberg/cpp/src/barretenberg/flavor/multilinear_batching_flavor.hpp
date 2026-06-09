@@ -7,7 +7,6 @@
 
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
 #include "barretenberg/common/ref_array.hpp"
-#include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/constants.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/partially_evaluated_multivariates.hpp"
@@ -23,15 +22,12 @@
 
 namespace bb {
 
-template <typename FF, typename Polynomial, size_t MaxNumClaims> struct MultilinearBatchingProverPolynomials;
+template <typename FF, typename Polynomial, size_t NumClaims> struct MultilinearBatchingProverPolynomials;
 
 /**
- * @brief Native flavor for one fixed-width multilinear batching sumcheck.
- * @details One such batching is run per kernel, combining the accumulator carried in from the previous kernel with the
- * sumcheck claims of the proofs the kernel recursively verifies. The width therefore defaults to
- * CHONK_MAX_CLAIMS_PER_KERNEL rather than the total number of circuits in the IVC.
+ * @brief Native flavor for multilinear batching sumcheck with NumClaims polynomials.
  */
-template <size_t MaxNumClaims = CHONK_MAX_CLAIMS_PER_KERNEL> class MultilinearBatchingFlavor_ {
+template <size_t NumClaims> class MultilinearBatchingFlavor_ {
   public:
     using Curve = curve::BN254;
     using FF = Curve::ScalarField;
@@ -44,40 +40,46 @@ template <size_t MaxNumClaims = CHONK_MAX_CLAIMS_PER_KERNEL> class MultilinearBa
     using Transcript = NativeTranscript;
     using Codec = FrCodec;
 
-    static constexpr size_t MAX_NUM_CLAIMS = MaxNumClaims;
+    // The number of claims batched using this flavor
+    static constexpr size_t NUM_CLAIMS = NumClaims;
+    // An upper bound on the size of the MultilinearBatching-circuits. `CONST_FOLDING_LOG_N` bounds the log circuit
+    // sizes in the Chonk context.
     static constexpr size_t VIRTUAL_LOG_N = CONST_FOLDING_LOG_N;
     static constexpr bool USE_SHORT_MONOMIALS = false;
     static constexpr bool HasZK = false;
     static constexpr size_t TRACE_OFFSET = 0;
     static constexpr bool IS_MULTILINEAR_BATCHING = true;
+    // To achieve fixed proof size and that the recursive verifier circuit is constant, we are using padding in Sumcheck
+    // and Shplemini
     static constexpr bool USE_PADDING = true;
 
-    static constexpr size_t NUM_CLAIM_COMMITMENTS = 2;
-    static constexpr size_t NUM_CLAIM_EVALUATIONS = 2;
-    static constexpr size_t NUM_CLAIM_CHALLENGES = VIRTUAL_LOG_N;
+    // Entities = Unshifted polys + Shifted polys + Eq polys
+    static constexpr size_t NUM_ALL_ENTITIES = 3 * NUM_CLAIMS;
 
-    static constexpr size_t NUM_ALL_ENTITIES = 3 * MAX_NUM_CLAIMS;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = MAX_NUM_CLAIMS;
-
-    template <typename FF_> using Relations_ = std::tuple<bb::MultilinearBatchingRelation<FF_, MAX_NUM_CLAIMS>>;
+    template <typename FF_> using Relations_ = std::tuple<bb::MultilinearBatchingRelation<FF_, NUM_CLAIMS>>;
     using Relations = Relations_<FF>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
-    static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
+    // There is no gating polynomial in the relation (the only relation is linearly dependent), so the batched relation
+    // partial length is equal to max partial relation length
+    static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH;
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
     static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
     using SubrelationSeparator = FF;
 
+    /**
+     * @brief Define a bespoke AllEntities holding all the values: [unshifted values, shifted values, eq values]
+     */
     template <typename DataType> class AllEntities {
       public:
         std::array<DataType, NUM_ALL_ENTITIES> values;
 
         DataType& non_shifted(size_t idx) { return values[idx]; }
         const DataType& non_shifted(size_t idx) const { return values[idx]; }
-        DataType& shifted(size_t idx) { return values[MAX_NUM_CLAIMS + idx]; }
-        const DataType& shifted(size_t idx) const { return values[MAX_NUM_CLAIMS + idx]; }
-        DataType& eq(size_t idx) { return values[2 * MAX_NUM_CLAIMS + idx]; }
-        const DataType& eq(size_t idx) const { return values[2 * MAX_NUM_CLAIMS + idx]; }
+        DataType& shifted(size_t idx) { return values[NUM_CLAIMS + idx]; }
+        const DataType& shifted(size_t idx) const { return values[NUM_CLAIMS + idx]; }
+        DataType& eq(size_t idx) { return values[(2 * NUM_CLAIMS) + idx]; }
+        const DataType& eq(size_t idx) const { return values[(2 * NUM_CLAIMS) + idx]; }
 
         auto get_all() { return RefArray<DataType, NUM_ALL_ENTITIES>(values); }
         auto get_all() const
@@ -96,13 +98,13 @@ template <size_t MaxNumClaims = CHONK_MAX_CLAIMS_PER_KERNEL> class MultilinearBa
             static const std::vector<std::string> labels = [] {
                 std::vector<std::string> result;
                 result.reserve(NUM_ALL_ENTITIES);
-                for (size_t idx = 0; idx < MAX_NUM_CLAIMS; ++idx) {
+                for (size_t idx = 0; idx < NUM_CLAIMS; ++idx) {
                     result.emplace_back("non_shifted_" + std::to_string(idx));
                 }
-                for (size_t idx = 0; idx < MAX_NUM_CLAIMS; ++idx) {
+                for (size_t idx = 0; idx < NUM_CLAIMS; ++idx) {
                     result.emplace_back("shifted_" + std::to_string(idx));
                 }
-                for (size_t idx = 0; idx < MAX_NUM_CLAIMS; ++idx) {
+                for (size_t idx = 0; idx < NUM_CLAIMS; ++idx) {
                     result.emplace_back("eq_" + std::to_string(idx));
                 }
                 return result;
@@ -121,8 +123,7 @@ template <size_t MaxNumClaims = CHONK_MAX_CLAIMS_PER_KERNEL> class MultilinearBa
 
     class ProverPolynomials : public AllEntities<Polynomial> {
       public:
-        std::array<std::vector<FF>, MAX_NUM_CLAIMS> claim_challenges;
-        std::array<bool, MAX_NUM_CLAIMS> active_slots{};
+        std::array<std::vector<FF>, NUM_CLAIMS> claim_challenges;
 
         [[nodiscard]] size_t get_polynomial_size() const
         {
@@ -145,16 +146,29 @@ template <size_t MaxNumClaims = CHONK_MAX_CLAIMS_PER_KERNEL> class MultilinearBa
 
     using ProverClaim = MultilinearBatchingProverClaim;
 
+    /**
+     * @brief The proving key for multilinear batching sumcheck.
+     *
+     * @details In HyperNova folding, we reduce NumClaims polynomial evaluation claims to one via sumcheck.
+     *
+     * Each claim asserts: "polynomial P evaluated at point r equals v", i.e., P(r) = v.
+     *
+     * The multilinear batching sumcheck proves all claims simultaneously by checking:
+     *   sum_x [ sum_i \gamma^i P_i(x) * eq(x, r_i) ] = \sum_i \gamma^i v_i
+     *
+     * where eq(x, r) is the equality polynomial that is 1 when x = r and 0 elsewhere on the hypercube.
+     *
+     * After sumcheck, all claims are reduced to evaluations at a new random point u, producing a
+     * single combined claim that can be verified with one polynomial opening.
+     */
     class ProvingKey {
       public:
         ProverPolynomials polynomials;
-        std::array<Polynomial, MAX_NUM_CLAIMS> preshifted_polynomials;
-        std::array<Commitment, MAX_NUM_CLAIMS> non_shifted_commitments;
-        std::array<Commitment, MAX_NUM_CLAIMS> shifted_commitments;
-        std::array<FF, MAX_NUM_CLAIMS> non_shifted_evaluations;
-        std::array<FF, MAX_NUM_CLAIMS> shifted_evaluations;
-        std::array<bool, MAX_NUM_CLAIMS> active_slots{};
-        size_t num_claims = 0;
+        std::array<Polynomial, NUM_CLAIMS> preshifted_polynomials;
+        std::array<Commitment, NUM_CLAIMS> non_shifted_commitments;
+        std::array<Commitment, NUM_CLAIMS> shifted_commitments;
+        std::array<FF, NUM_CLAIMS> non_shifted_evaluations;
+        std::array<FF, NUM_CLAIMS> shifted_evaluations;
         size_t circuit_size = 0;
 
         ProvingKey() = default;
@@ -163,25 +177,32 @@ template <size_t MaxNumClaims = CHONK_MAX_CLAIMS_PER_KERNEL> class MultilinearBa
         void apply_slot_batching_challenge(const FF& challenge);
     };
 
-    class PartiallyEvaluatedMultivariates : public AllEntities<Polynomial> {
+    class PartiallyEvaluatedMultivariates
+        : public PartiallyEvaluatedMultivariatesBase<AllEntities<Polynomial>, ProverPolynomials, Polynomial> {
       public:
-        std::array<std::vector<FF>, MAX_NUM_CLAIMS> claim_challenges;
-        std::array<bool, MAX_NUM_CLAIMS> active_slots{};
+        using Base = PartiallyEvaluatedMultivariatesBase<AllEntities<Polynomial>, ProverPolynomials, Polynomial>;
+        std::array<std::vector<FF>, NUM_CLAIMS> claim_challenges;
 
         PartiallyEvaluatedMultivariates(const ProverPolynomials& full_polynomials, size_t circuit_size)
-        {
-            claim_challenges = full_polynomials.claim_challenges;
-            active_slots = full_polynomials.active_slots;
-            for (auto [poly, full_poly] : zip_view(this->get_all(), full_polynomials.get_all())) {
-                size_t desired_size = (full_poly.end_index() / 2) + (full_poly.end_index() % 2);
-                poly = Polynomial(desired_size, circuit_size / 2, 0, Polynomial::DontZeroMemory::FLAG);
-            }
-        }
+            : Base(full_polynomials, circuit_size)
+            , claim_challenges(full_polynomials.claim_challenges)
+        {}
     };
 
     template <size_t LENGTH> using ProverUnivariates = AllEntities<bb::Univariate<FF, LENGTH>>;
     using ExtendedEdges = ProverUnivariates<MAX_PARTIAL_RELATION_LENGTH>;
 
+    /**
+     * @brief Given the eq polynomial at (u_1, .., u_N, 0, .., 0) compute its value at (u_1, .., u_N, 1, 0, .., 0) for
+     * use in the virtual rounds.
+     *
+     * @details Witness polynomials of length N < VIRTUAL_LOG_N are extended by zero via multiplication by
+     *      \prod_{i = N + 1}^{VIRTUAL_LOG_N} (1 - X_i).
+     * In this way, we run sumcheck on a fixed number of VIRTUAL_LOG_N rounds. For eq polynomials, this extension is not
+     * correct. Eq polynomials eq(X, Y) are defined as
+     *      \prod_{i = 1}^{VIRTUAL_LOG_N} ((1 - X_i) (1 - Y_i) + X_i Y_i)
+     * so their extensions at a new edge require their true value at 0 and 1
+     */
     template <typename PartiallyEvaluatedPolynomials>
     static void extend_eq_polynomials_for_virtual_round(PartiallyEvaluatedPolynomials& partially_evaluated_polynomials,
                                                         const std::vector<FF>& multivariate_challenge,
@@ -193,10 +214,7 @@ template <size_t MaxNumClaims = CHONK_MAX_CLAIMS_PER_KERNEL> class MultilinearBa
         }
         index_1_challenge[round_idx] = FF(1);
 
-        for (size_t slot = 0; slot < MAX_NUM_CLAIMS; ++slot) {
-            if (!partially_evaluated_polynomials.active_slots[slot]) {
-                continue;
-            }
+        for (size_t slot = 0; slot < NUM_CLAIMS; ++slot) {
             auto force_virtual_extension_shape = [](Polynomial& polynomial) {
                 if (polynomial.size() <= 1) {
                     return;
@@ -212,7 +230,6 @@ template <size_t MaxNumClaims = CHONK_MAX_CLAIMS_PER_KERNEL> class MultilinearBa
             auto& eq_polynomial = partially_evaluated_polynomials.eq(slot);
             auto new_eq_polynomial = Polynomial(2, eq_polynomial.virtual_size());
             new_eq_polynomial.at(0) = eq_polynomial.at(0);
-            index_1_challenge[round_idx] = FF(1);
             new_eq_polynomial.at(1) = VerifierEqPolynomial<FF>::eval(
                 partially_evaluated_polynomials.claim_challenges[slot], index_1_challenge);
             eq_polynomial = new_eq_polynomial;
@@ -222,9 +239,9 @@ template <size_t MaxNumClaims = CHONK_MAX_CLAIMS_PER_KERNEL> class MultilinearBa
 
 using MultilinearBatchingFlavor = MultilinearBatchingFlavor_<CHONK_MAX_CLAIMS_PER_KERNEL>;
 
-template <size_t MaxNumClaims = CHONK_MAX_CLAIMS_PER_KERNEL> class MultilinearBatchingRecursiveFlavor_ {
+template <size_t NumClaims> class MultilinearBatchingRecursiveFlavor_ {
   public:
-    using NativeFlavor = MultilinearBatchingFlavor_<MaxNumClaims>;
+    using NativeFlavor = MultilinearBatchingFlavor_<NumClaims>;
     using Builder = MegaCircuitBuilder;
     using Curve = stdlib::bn254<Builder>;
     using PCS = KZG<Curve>;
@@ -233,15 +250,12 @@ template <size_t MaxNumClaims = CHONK_MAX_CLAIMS_PER_KERNEL> class MultilinearBa
     using Transcript = StdlibTranscript<Builder>;
     using Codec = stdlib::StdlibCodec<FF>;
 
-    static constexpr size_t MAX_NUM_CLAIMS = NativeFlavor::MAX_NUM_CLAIMS;
+    static constexpr size_t NUM_CLAIMS = NativeFlavor::NUM_CLAIMS;
     static constexpr size_t VIRTUAL_LOG_N = NativeFlavor::VIRTUAL_LOG_N;
     static constexpr bool HasZK = NativeFlavor::HasZK;
     static constexpr bool IS_MULTILINEAR_BATCHING = NativeFlavor::IS_MULTILINEAR_BATCHING;
     static constexpr bool USE_PADDING = NativeFlavor::USE_PADDING;
     static constexpr size_t NUM_ALL_ENTITIES = NativeFlavor::NUM_ALL_ENTITIES;
-    static constexpr size_t NUM_CLAIM_COMMITMENTS = NativeFlavor::NUM_CLAIM_COMMITMENTS;
-    static constexpr size_t NUM_CLAIM_EVALUATIONS = NativeFlavor::NUM_CLAIM_EVALUATIONS;
-    static constexpr size_t NUM_CLAIM_CHALLENGES = NativeFlavor::NUM_CLAIM_CHALLENGES;
 
     using Relations = typename NativeFlavor::template Relations_<FF>;
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = NativeFlavor::MAX_PARTIAL_RELATION_LENGTH;

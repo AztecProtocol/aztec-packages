@@ -13,7 +13,7 @@ namespace bb {
 /**
  * @brief Relation for the multilinear batching sumcheck.
  *
- * @details The prover supplies up to MaxNumClaims accumulator claims, already scaled by a Fiat-Shamir slot batching
+ * @details The prover supplies exactly NumClaims accumulator claims, already scaled by a Fiat-Shamir slot batching
  * challenge. The sumcheck proves
  *
  *   Σ_i γ^i · P_i(r_i)       = Σ_x Σ_i (γ^i · P_i(x))       · eq(x, r_i)
@@ -21,7 +21,7 @@ namespace bb {
  *
  * and the sumcheck verifier batches the two identities with its standard alpha separator.
  */
-template <typename FF_, size_t MaxNumClaims> class MultilinearBatchingRelationImpl {
+template <typename FF_, size_t NumClaims> class MultilinearBatchingRelationImpl {
   public:
     using FF = FF_;
 
@@ -34,7 +34,7 @@ template <typename FF_, size_t MaxNumClaims> class MultilinearBatchingRelationIm
 
     template <typename AllEntities> static bool skip(const AllEntities& in)
     {
-        for (size_t idx = 0; idx < MaxNumClaims; ++idx) {
+        for (size_t idx = 0; idx < NumClaims; ++idx) {
             if (!(in.non_shifted(idx).is_zero() && in.shifted(idx).is_zero()) && !in.eq(idx).is_zero()) {
                 return false;
             }
@@ -50,7 +50,7 @@ template <typename FF_, size_t MaxNumClaims> class MultilinearBatchingRelationIm
     {
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
 
-        for (size_t idx = 0; idx < MaxNumClaims; ++idx) {
+        for (size_t idx = 0; idx < NumClaims; ++idx) {
             if constexpr (!requires { typename FF::Builder; }) {
                 if ((in.non_shifted(idx).is_zero() && in.shifted(idx).is_zero()) || in.eq(idx).is_zero()) {
                     continue;
@@ -63,7 +63,7 @@ template <typename FF_, size_t MaxNumClaims> class MultilinearBatchingRelationIm
     };
 };
 
-template <typename FF, size_t MaxNumClaims>
-using MultilinearBatchingRelation = Relation<MultilinearBatchingRelationImpl<FF, MaxNumClaims>>;
+template <typename FF, size_t NumClaims>
+using MultilinearBatchingRelation = Relation<MultilinearBatchingRelationImpl<FF, NumClaims>>;
 
 } // namespace bb

@@ -15,7 +15,7 @@
 namespace bb {
 
 /**
- * @brief Internal verifier for one per-kernel multilinear batching sumcheck of fixed width MAX_NUM_CLAIMS.
+ * @brief Internal verifier for one per-kernel multilinear batching sumcheck of fixed width NUM_CLAIMS.
  * @details The claims being batched are supplied in memory (the caller produced them via instance_to_accumulator);
  * they are not read from the proof. The batching challenge is drawn from the shared transcript, whose state already
  * commits to those claims via the group's instance sumchecks, so no separate hashing is required. The proof carries
@@ -33,7 +33,7 @@ template <typename Flavor_> class MultilinearBatchingVerifierInternal {
     using VerifierClaim = MultilinearBatchingVerifierClaim<Curve>;
     using Proof = std::conditional_t<Curve::is_stdlib_type, stdlib::Proof<MegaCircuitBuilder>, HonkProof>;
 
-    static constexpr size_t MAX_NUM_CLAIMS = Flavor::MAX_NUM_CLAIMS;
+    static constexpr size_t NUM_CLAIMS = Flavor::NUM_CLAIMS;
     static constexpr bool IsRecursive = Curve::is_stdlib_type;
 
     explicit MultilinearBatchingVerifierInternal(const std::shared_ptr<Transcript>& transcript);
