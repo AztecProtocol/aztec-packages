@@ -15,9 +15,6 @@ use crate::{
     protocol::{address::AztecAddress, constants::MAX_TX_LIFETIME, hash::sha256_to_field},
 };
 
-/// Ephemeral array slot used by [`sync_inbox`] to collect messages ready for processing.
-global OFFCHAIN_READY_MESSAGES_SLOT: Field = sha256_to_field("AZTEC_NR::OFFCHAIN_READY_MESSAGES_SLOT".as_bytes());
-
 /// Maximum number of offchain messages accepted by `offchain_receive` in a single call.
 pub global MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL: u32 = 16;
 
@@ -125,8 +122,7 @@ pub unconstrained fn sync_inbox(
     contract_address: AztecAddress,
     scope: AztecAddress,
 ) -> EphemeralArray<OffchainMessageWithContext> {
-    let ready_to_process: EphemeralArray<OffchainMessageWithContext> =
-        EphemeralArray::empty_at(OFFCHAIN_READY_MESSAGES_SLOT);
+    let ready_to_process: EphemeralArray<OffchainMessageWithContext> = EphemeralArray::empty();
 
     let entities = active_entities(contract_address, scope, OFFCHAIN_RECEPTION_ENTITY);
     let entities_len = entities.len();
