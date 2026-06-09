@@ -40,6 +40,20 @@ pub trait EntityBody {
     fn entity_id(self) -> Field;
 }
 
+impl<T> Entity<T>
+where
+    T: EntityBody,
+{
+    /// Returns the entity ids of every currently active entity of kind `T` ([`EntityBody::entity_type_id`]).
+    ///
+    /// Read each entity's payload and facts with [`get_entity`]. The query is keyed by entity type, so it returns
+    /// active entities of this kind regardless of how they were created (retractable or not). The retractable and
+    /// non-retractable handle types forward to this via their own `read_all_active`.
+    pub unconstrained fn read_all_active(contract_address: AztecAddress, scope: AztecAddress) -> EphemeralArray<Field> {
+        active_entities_oracle(contract_address, scope, T::entity_type_id())
+    }
+}
+
 /// A handle to a non-retractable entity in the store.
 ///
 /// Non-retractable entities survive reorgs; only their own retractable facts are pruned. Build one with
@@ -67,12 +81,9 @@ where
         Self { body }
     }
 
-    /// Returns the entity ids of every currently active entity of this kind ([`EntityBody::entity_type_id`]).
-    ///
-    /// Read each entity's payload and facts with [`get_entity`]. The query is keyed by entity type, so it returns
-    /// active entities of this kind regardless of how they were created.
+    /// Returns the entity ids of every active entity of this kind. Forwards to [`Entity::read_all_active`].
     pub unconstrained fn read_all_active(contract_address: AztecAddress, scope: AztecAddress) -> EphemeralArray<Field> {
-        active_entities_oracle(contract_address, scope, T::entity_type_id())
+        Entity::<T>::read_all_active(contract_address, scope)
     }
 }
 
@@ -113,12 +124,9 @@ where
         Self { body }
     }
 
-    /// Returns the entity ids of every currently active entity of this kind ([`EntityBody::entity_type_id`]).
-    ///
-    /// Read each entity's payload and facts with [`get_entity`]. The query is keyed by entity type, so it returns
-    /// active entities of this kind regardless of how they were created.
+    /// Returns the entity ids of every active entity of this kind. Forwards to [`Entity::read_all_active`].
     pub unconstrained fn read_all_active(contract_address: AztecAddress, scope: AztecAddress) -> EphemeralArray<Field> {
-        active_entities_oracle(contract_address, scope, T::entity_type_id())
+        Entity::<T>::read_all_active(contract_address, scope)
     }
 }
 
