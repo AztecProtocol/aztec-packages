@@ -1231,8 +1231,7 @@ size_t compute_arena_bytes_for_msm(size_t n_input, bool external_glv_provided, b
     const size_t dedup_bytes = dedup_active ? ((size_t{ 4 } * n) + (size_t{ sizeof(typename Curve::AffineElement) } *
                                                                     round_parallel_detail::DEDUP_MAX_CLUSTERS))
                                             : size_t{ 0 };
-    auto arena_bytes_for_window_layout = [&](size_t bit_budget) {
-        const size_t wb = round_parallel_detail::choose_window_bits(n, bit_budget, n_input, num_logical_threads_for_c);
+    auto arena_bytes_for_window_layout = [&](size_t bit_budget, size_t wb) {
         const auto layout_sched = round_parallel_detail::build_var_window_schedule(bit_budget, wb);
         size_t B_eff_layout = (size_t{ 1 } << (wb - 1)) + 1;
         for (size_t w = 0; w < layout_sched.num_windows; ++w) {
@@ -1258,14 +1257,27 @@ size_t compute_arena_bytes_for_msm(size_t n_input, bool external_glv_provided, b
     // first-touch cost regardless of how much of the arena the small MSM_fast actually uses.
     size_t arena_bytes = fixed_overhead + (windows_per_batch * per_window_bytes) + 32768 + dedup_bytes;
 
-    // The live pipeline shrinks NUM_BITS to the observed max scalar bit before choosing
-    // window_bits. GLV MSMs and large non-GLV MSMs can therefore select a different
-    // schedule/zone layout than the full-bit pre-sizer. Keep the common Chonk wire/IPA
-    // non-GLV sizes on the original tight path.
-    if (use_glv || n_input >= (size_t{ 1 } << 17)) {
-        for (size_t bit_budget = 1; bit_budget <= NUM_BITS; ++bit_budget) {
-            arena_bytes = std::max(arena_bytes, arena_bytes_for_window_layout(bit_budget));
-        }
+    // The live pipeline chooses window_bits from the *effective* (nonzero) scalar count and the
+    // observed bit budget after Phase 1: c = choose_window_bits(n_active, effective_num_bits) with
+    // n_active <= n and effective_num_bits <= NUM_BITS. Fewer active points => smaller c => more
+    // windows => a larger arena (most sharply once fixed_overhead has eaten the batch budget and
+    // every window runs in a single batch). Size for the worst reachable c so the bound holds for
+    // any scalar density, with no extra scalar scan.
+    //
+    // For a fixed c, bit_budget = NUM_BITS maximizes the window count (effective_num_bits <=
+    // NUM_BITS) and 2^(c-1)+1 caps B_eff, so arena_bytes_for_window_layout(NUM_BITS, c) dominates
+    // every live (effective_num_bits, c) layout. The reachable c span is [2, c_max]: choose is
+    // non-decreasing in the point count (n_active <= n bounds it above), but the ceil() in the round
+    // count makes it non-monotonic in the bit budget by ±1, so c_max is the max over bit budgets,
+    // not simply choose(n, NUM_BITS).
+    size_t c_max_reachable = window_bits;
+    for (size_t bit_budget = 1; bit_budget <= NUM_BITS; ++bit_budget) {
+        c_max_reachable = std::max(c_max_reachable,
+                                   static_cast<size_t>(round_parallel_detail::choose_window_bits(
+                                       n, bit_budget, n_input, num_logical_threads_for_c)));
+    }
+    for (size_t wb = 2; wb <= c_max_reachable; ++wb) {
+        arena_bytes = std::max(arena_bytes, arena_bytes_for_window_layout(NUM_BITS, wb));
     }
     return arena_bytes;
 }
