@@ -4,6 +4,7 @@
 #include "./pippenger_constantine.hpp"
 #include "./pippenger_dedup.hpp"
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/log.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
@@ -16,6 +17,7 @@
 #include <bit>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <limits>
 #include <memory>
 #include <span>
@@ -1205,6 +1207,24 @@ size_t compute_arena_bytes_for_msm(size_t n_input, bool external_glv_provided, b
         (BATCH_MEM_BUDGET > fixed_overhead) ? (BATCH_MEM_BUDGET - fixed_overhead) : size_t{ 0 };
     const size_t windows_per_batch =
         round_parallel_detail::solve_wpb(per_window_bytes, available_budget_outer, num_windows);
+    if (std::getenv("BB_MSM_DEBUG_PLAN") != nullptr) {
+        info("[plan] n=",
+             n,
+             " c=",
+             window_bits,
+             " num_windows=",
+             num_windows,
+             " num_threads=",
+             num_threads,
+             " wpb=",
+             windows_per_batch,
+             " batches=",
+             (num_windows + windows_per_batch - 1) / windows_per_batch,
+             " per_window_bytes=",
+             per_window_bytes,
+             " avail_budget=",
+             available_budget_outer);
+    }
     // Dedup state lives in the arena (allocated post-Phase-1, retained through Stage 6a).
     // Worst-case sizes: redirect_lookup is one uint32 per working scalar (4n bytes);
     // extra_points is the fixed DEDUP_MAX_CLUSTERS cap (≈1 MB) regardless of n.
@@ -1489,6 +1509,9 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     const size_t window_bits = round_parallel_detail::choose_window_bits(
         n_active_early, effective_num_bits, n_input, num_logical_threads_for_c);
     const size_t num_buckets = (size_t{ 1 } << (window_bits - 1)) + 1;
+    if (std::getenv("BB_MSM_DEBUG_PLAN") != nullptr) {
+        info("[realc] n_nominal=", n, " n_active=", n_active_early, " c=", window_bits);
+    }
 
     // Schedule-based dedup state. The two arrays are allocated from the per-MSM_fast arena
     // *from the arena after Phase 1.

@@ -28,6 +28,7 @@
 #include <bit>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <utility>
 
 namespace bb::scalar_multiplication::round_parallel_detail {
@@ -80,6 +81,14 @@ template <typename Curve> struct ChunkOutput {
 {
     constexpr uint32_t MAX_C = 20;
     uint32_t best = 2;
+
+    // TEMP (investigation): force window_bits via BB_MSM_FORCE_C to probe the 2^20 c-plateau dip.
+    if (const char* fc = std::getenv("BB_MSM_FORCE_C")) {
+        const auto c = static_cast<uint32_t>(std::atoi(fc));
+        if (c >= 2 && c < MAX_C) {
+            return c;
+        }
+    }
 
 #ifdef __wasm__
     static_cast<void>(num_bits);

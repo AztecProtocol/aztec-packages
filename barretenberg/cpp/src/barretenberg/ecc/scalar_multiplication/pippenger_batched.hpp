@@ -70,6 +70,23 @@ void pippenger_round_parallel_batched(std::span<std::span<typename Curve::Scalar
         n_input[m] = std::min(scalar_arrays[m].size(), point_arrays[m].size());
     }
 
+    // TEMP (investigation): dump per-batch_commit composition (K + per-MSM size and nonzero
+    // density) to check whether real chonk batches are size-homogeneous. Gated by env.
+    if (std::getenv("BB_MSM_DEBUG_BATCH") != nullptr) {
+        std::string parts;
+        for (size_t m = 0; m < K; ++m) {
+            size_t nz = 0;
+            for (size_t i = 0; i < n_input[m]; ++i) {
+                if (!scalar_arrays[m][i].is_zero()) {
+                    ++nz;
+                }
+            }
+            const size_t pct = n_input[m] == 0 ? 0 : (100 * nz / n_input[m]);
+            parts += " n=" + std::to_string(n_input[m]) + "(nz%=" + std::to_string(pct) + ")";
+        }
+        info("[batch] K=", K, parts);
+    }
+
     // Group MSMs by shared SRS pointer; one shared GLV-doubled buffer per group, sized to
     // group_max_n. group_uses_glv is a per-group bool but the per-MSM_fast internal dispatch keeps
     // each MSM_fast's own GLV decision in case shared doubling is skipped.

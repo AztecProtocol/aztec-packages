@@ -1,4 +1,5 @@
 import type { AvmStat } from '@aztec/bb.js';
+import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import {
   PublicTxSimulationTester,
@@ -32,7 +33,10 @@ const provingConfig: PublicSimulatorConfig = PublicSimulatorConfig.from({
 });
 
 export class AvmProvingTester extends PublicTxSimulationTester {
-  private readonly bbJsFactory = new BBJsFactory(BB_PATH);
+  private readonly bbJsFactory = new BBJsFactory(BB_PATH, {
+    debugDir: process.env.BB_DEBUG_OUTPUT_DIR,
+    logger: createLogger('avm-bb-js-debug'),
+  });
 
   constructor(
     private checkCircuitOnly: boolean,
