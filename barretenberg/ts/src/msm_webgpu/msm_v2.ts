@@ -129,7 +129,7 @@ export function arenaColourSizes(p: {
       a(16) +
       a(2 * sT * sS * 16) +
       a(4) +
-      a(2 * sT * sS * 4) +
+      a(2 * sT * sS * 4 + 8) + // walkerPartialDest: +2 u32 residency-counter slots (live, peak)
       a(rowPtrLen * 4) +
       a(redM * 4) +
       a(soa),
@@ -189,7 +189,34 @@ function chooseBudgetMpw(g: {
     }).reduce((acc, b) => acc + b, 0);
     if (g.srsBytes + arenaBytes + standalone <= g.budget) return mpw;
   }
-  return 4;
+  return STREAM_MPW_FLOOR;
+}
+
+// Planner workgroups per walker workgroup. The planner partitions work at
+// STREAM_PLANNER_TPB, but the walker runs at STREAM_WALKER_TPB, so the walker's
+// indirect launch emits `mpw · WALKERS_PER_MPW` workgroups (currently 4×).
+const WALKERS_PER_MPW = STREAM_PLANNER_TPB / STREAM_WALKER_TPB;
+// Smallest planner cap the working-set sizing supports (Plan §8 floor); also the
+// fallback chooseBudgetMpw returns when nothing fits the budget.
+const STREAM_MPW_FLOOR = 4;
+
+// Peak resident walker workgroups (R) measured by the kernel's atomic residency
+// counter on THIS GPU. 0 until the first calibrating run fills it; reused by every
+// later create() so the planner cap fits one resident wave with no re-measure.
+// Process-scoped because residency is a property of the GPU, not of the MSM.
+let cachedResidentWalkerWg = 0;
+
+/**
+ * Largest planner cap that keeps the walker's launch within a single resident
+ * wave. The indirect dispatch emits `mpw · WALKERS_PER_MPW` workgroups; capping
+ * `mpw` at `⌊R / WALKERS_PER_MPW⌋` keeps that ≤ R, so every workgroup is resident
+ * at once and there is no straggler second wave (the tail). Returns `budgetMpw`
+ * unchanged until R is known — the first run then calibrates and caches it.
+ */
+function residencyFitMpw(budgetMpw: number): number {
+  if (cachedResidentWalkerWg <= 0) return budgetMpw;
+  const rFit = Math.floor(cachedResidentWalkerWg / WALKERS_PER_MPW);
+  return Math.max(STREAM_MPW_FLOOR, Math.min(budgetMpw, rFit));
 }
 
 // Defaults for the size-independent knobs (see MsmConfig). `c`, `s` and
@@ -337,6 +364,13 @@ export interface MsmConfig {
    * alone is `512 · sT · 8` B, so 32→8 reclaims ~24 MiB. ARENA_LAYOUT.md §8.
    */
   maxPlannerWorkgroups?: number;
+  /**
+   * Override the measured resident-workgroup count R used by the residency fit
+   * (see {@link MsmV2.calibrateResidency}). 0 (default) measures R on-device via
+   * the walker's atomic probe. Set it to skip the probe and force a specific R —
+   * for tests exercising the refit path, or to pin a known device R.
+   */
+  residentWgOverride?: number;
   /**
    * Force ≥ this many window-batches, overriding the budget-driven count (never
    * below the 65k-workgroup minimum). Default 0 (budget-driven). The MSM result
@@ -1460,7 +1494,7 @@ export class MsmV2Pool {
     ptMeta = carve(1, 16);
     ptTasks = carve(1, 2 * sT * sS * 16);
     ptTotalTasks = carve(1, 4);
-    walkerPartialDest = carve(1, 2 * sT * sS * 4);
+    walkerPartialDest = carve(1, 2 * sT * sS * 4 + 8); // +2 u32 residency-counter slots (live, peak)
     rowPtrBuf = carve(1, cur.rowPtrLen * 4);
     isPresentBuf = carve(1, cur.redM * 4);
     redBuf = carve(1, soaSize(cur.redM));
@@ -1967,6 +2001,15 @@ export class MsmV2 {
   private size1Binds: GPUBindGroup[] = [];
   private streamNumThreads = STREAM_NUM_THREADS;
   private maxPlannerWorkgroups = MAX_STREAM_WORKGROUPS;
+  // The planner cap before the residency fit (budget pick, or the explicit config
+  // cap). calibrateResidency re-fits against this, never against the live value.
+  private budgetMpw = MAX_STREAM_WORKGROUPS;
+  // Config pinned the cap (?mpw= / explicit) — honor it; skip the residency fit.
+  private mpwPinned = false;
+  // Override the measured residency R (0 = measure on-device). Lets a test force a
+  // specific R to exercise the refit path, or pin a known device R without the
+  // throwaway probe run.
+  private residentWgOverride = 0;
   private streamS = 8;
   private numRadixTiles = 1;
   // layouts (needed by prepare to build bind groups)
@@ -2017,6 +2060,10 @@ export class MsmV2 {
   private streamWalkerPipe!: GPUComputePipeline;
   private streamWalkerLayout!: GPUBindGroupLayout;
   private streamWalkerBinds: GPUBindGroup[] = [];
+  // The walker's arena_off uniform (binding 12). Its spare .z lane is the
+  // residency-measure flag: 1 on the throwaway calibration dispatch (enables the
+  // RMW counter overlaid on partial_dest's tail), 0 on every real run.
+  private walkerArenaOffBuf!: GPUBuffer;
   // Optimal walker_combine pipeline (5 kernels).
   private combineCountPipe!: GPUComputePipeline;
   private combineCountLayout!: GPUBindGroupLayout;
@@ -2318,12 +2365,20 @@ export class MsmV2 {
       m.redM = envW * m.stride;
       m.bTotal = envW * m.BW;
     }
-    // Walker thread-count lever (sT = MPW·256). Budget-aware by default so a
-    // working set that would exceed the 160 MB budget drops sT — the §8
-    // priority-1 lever — before anything else; an explicit config overrides.
-    // Resolved here (before shader compile) because the cap is baked into the
-    // cumsum/partition_wg kernels and must match the per-thread buffer sizing.
-    m.maxPlannerWorkgroups =
+    // Walker thread-count lever (sT = MPW·256). Two caps compose:
+    //   • budget — chooseBudgetMpw drops sT (the §8 priority-1 lever) before
+    //     anything else if the working set would exceed the memory budget;
+    //   • residency — residencyFitMpw caps it so the walker's indirect launch
+    //     (MPW·WALKERS_PER_MPW workgroups) fits one resident wave, removing the
+    //     straggler tail. R is measured by the kernel's atomic counter and cached
+    //     per process; until then this is the budget cap and the first run
+    //     calibrates (see calibrateResidency).
+    // The cap is a runtime uniform (cumsum's params.x) plus host buffer sizing —
+    // NOT baked into any shader — so it can be lowered without a recompile. An
+    // explicit config cap pins MPW and bypasses the residency fit (A/B control).
+    m.mpwPinned = config?.maxPlannerWorkgroups !== undefined;
+    m.residentWgOverride = config?.residentWgOverride ?? 0;
+    m.budgetMpw =
       config?.maxPlannerWorkgroups ??
       chooseBudgetMpw({
         maxMpw: MAX_STREAM_WORKGROUPS,
@@ -2337,6 +2392,7 @@ export class MsmV2 {
         srsBytes: pool.poolX.size + pool.poolY.size,
         budget: m.memBudget,
       });
+    m.maxPlannerWorkgroups = m.mpwPinned ? m.budgetMpw : residencyFitMpw(m.budgetMpw);
     const misc = compute_misc_params(FP, 13);
     m.R = misc.r;
     m.rinv = misc.rinv;
@@ -3052,6 +3108,9 @@ export class MsmV2 {
           dummy[k * 32 + 31] &= 0x1f;
         }
         m.prepare(dummy);
+        // Fit the planner to one resident wave before the timed runs: a throwaway
+        // probe run measures R, then the cap is refit (see calibrateResidency).
+        await m.calibrateResidency(dummy);
         for (let w = 0; w < warmupRuns; w++) await m.run();
       } catch (e) {
         console.warn(`[MsmV2] warm-up run threw (ignored): ${e instanceof Error ? e.message : String(e)}`);
@@ -4218,6 +4277,7 @@ export class MsmV2 {
         throw new Error('stream_walker: sorted_count_list and l0_index must share arena A0');
       }
       const walkerArenaOff = ubuf(new Uint32Array([slotOff(sc) / 4, slotOff(l0IdxBuf) / 4, 0, 0]));
+      this.walkerArenaOffBuf = walkerArenaOff;
       this.streamWalkerBinds = batchWindowBaseBufs.map(bwb =>
         mkBind(this.streamWalkerLayout, [
           sb,
@@ -4951,7 +5011,10 @@ export class MsmV2 {
     // Timestamp resources sized for ALL reps (the per-prepare querySet only holds
     // one run); resolved and mapped exactly once.
     const qs = device.createQuerySet({ type: 'timestamp', count: total * 2 });
-    const resolveBuf = device.createBuffer({ size: total * 16, usage: GPUBufferUsage.QUERY_RESOLVE | GPUBufferUsage.COPY_SRC });
+    const resolveBuf = device.createBuffer({
+      size: total * 16,
+      usage: GPUBufferUsage.QUERY_RESOLVE | GPUBufferUsage.COPY_SRC,
+    });
     const staging = device.createBuffer({ size: total * 16, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ });
     const savedQs = this.querySet;
     this.querySet = qs; // encodeIntoBatch writes timestampWrites into this.querySet
@@ -5121,6 +5184,83 @@ export class MsmV2 {
     const summary = await readbackU32(this.device, this.decideSummaryBuf, 16 * 4);
     const idxLarge = await readbackU32(this.device, this.idxLargeBuf, this.n * 4);
     return { count, idxLarge, summary };
+  }
+
+  /** Byte offset of the 2 residency-counter u32 (live, peak) overlaid on the tail
+   *  of `partial_dest`, just past its `M_partials = 2·sT·sS` partial-id slots. */
+  private occCounterOffset(): { buffer: GPUBuffer; offset: number } {
+    const pd = this.pool.scratch!.walkerPartialDest;
+    return { buffer: pd.buffer, offset: (pd.offset ?? 0) + 2 * this.streamNumThreads * this.streamS * 4 };
+  }
+
+  /** Enable/disable the residency probe (the walker's arena_off.z gate). Enabled
+   *  only for the throwaway calibration dispatch — a real run keeps it 0 so the
+   *  RMW counter never executes and the partial path is byte-identical. */
+  private setResidencyMeasure(on: boolean): void {
+    this.device.queue.writeBuffer(this.walkerArenaOffBuf, 8, new Uint32Array([on ? 1 : 0]));
+  }
+
+  /** Zero the live/peak residency counters before a calibrating walker run. */
+  resetOcc(): void {
+    const { buffer, offset } = this.occCounterOffset();
+    this.device.queue.writeBuffer(buffer, offset, new Uint32Array([0, 0]));
+  }
+
+  /** Read back the peak resident walker workgroups (R) measured by the kernel's
+   *  atomic counter — a hardware-independent residency probe overlaid on the tail
+   *  of `partial_dest`, no extra binding (within the 10-storage-buffer cap). */
+  async readOccPeak(): Promise<number> {
+    const { buffer, offset } = this.occCounterOffset();
+    const staging = this.device.createBuffer({ size: 8, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+    const enc = this.device.createCommandEncoder();
+    enc.copyBufferToBuffer(buffer, offset, staging, 0, 8);
+    this.device.queue.submit([enc.finish()]);
+    await staging.mapAsync(GPUMapMode.READ);
+    const peak = new Uint32Array(staging.getMappedRange().slice(0))[1];
+    staging.unmap();
+    staging.destroy();
+    return peak;
+  }
+
+  /**
+   * After a calibrating walker run, read the residency R the kernel measured and —
+   * if it implies a smaller planner cap than the one in force — refit to a single
+   * resident wave and rebuild the bind groups so every later run is tail-free.
+   *
+   * Cheap and one-shot: the refit only rebuilds bind groups + uniforms (no shader
+   * recompile — pipelines are cap-agnostic), the grow-only arena is untouched when
+   * the cap shrinks (so no realloc and no memory regression), and the measured R
+   * is cached process-wide so subsequent create()s fit from the first prepare and
+   * never reach this path. No-op when the cap is config-pinned or already fits.
+   */
+  async calibrateResidency(scalarsBuf: Uint8Array, srsOffset = 0): Promise<void> {
+    if (this.mpwPinned) return;
+    let peak = this.residentWgOverride;
+    if (peak <= 0) {
+      // One throwaway run with the residency probe enabled (arena_off.z = 1). The
+      // RMW counter races with the partial path, so this run's MSM output may be
+      // wrong — but it is discarded, and R = peak resident workgroups is exact
+      // (independent of the partial data). The probe is then disabled so every
+      // real run does no RMW and is byte-identical to the non-atomic buffer.
+      this.setResidencyMeasure(true);
+      this.resetOcc();
+      try {
+        await this.run();
+      } catch {
+        // A corrupted calibration run can throw in the host combine; ignore — the
+        // workgroup counter was written before any combine work.
+      }
+      this.setResidencyMeasure(false);
+      peak = await this.readOccPeak();
+    }
+    if (peak <= 0) return;
+    cachedResidentWalkerWg = peak;
+    const fit = residencyFitMpw(this.budgetMpw);
+    if (fit >= this.maxPlannerWorkgroups) return; // already one wave
+    this.maxPlannerWorkgroups = fit;
+    this.streamNumThreads = fit * STREAM_PLANNER_TPB;
+    this.preparedFor = null; // force the bind-group rebuild to pick up the new cap
+    this.prepare(scalarsBuf, srsOffset);
   }
 
   async run(): Promise<{ x: bigint; y: bigint; profile: ProfileBreakdown | null; windowSums: Pt[]; c: number }> {

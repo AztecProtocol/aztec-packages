@@ -68,7 +68,13 @@ const WBID_MAG_MASK: u32 = 0x7fffu;
 @group(0) @binding(5) var<storage, read>       point_y:            array<vec4<u32>>;
 @group(0) @binding(6) var<storage, read_write> red_buf:            array<vec4<u32>>;
 @group(0) @binding(7) var<storage, read_write> partials_buf:       array<vec4<u32>>;
-@group(0) @binding(8) var<storage, read_write> partial_dest:       array<u32>;
+// partial_dest is atomic so a residency probe can overlay two counters on its
+// tail (slots M_partials, M_partials+1) WITHOUT an 11th storage binding (Apple
+// caps maxStorageBuffersPerShaderStage at 10, and the walker already uses 10).
+// The probe's read-modify-write atomics run ONLY during the throwaway calibration
+// dispatch (arena_off.z == 1); real runs use plain atomicStore writes only, which
+// are byte-identical to the non-atomic buffer and never perturb the combine.
+@group(0) @binding(8) var<storage, read_write> partial_dest:       array<atomic<u32>>;
 // WindowDesc as a STORAGE array<u32> (full stride-8 rows): work_off = +3,
 // reduce_off = +4. Storage (not a fixed uniform) ⇒ the global window count is
 // unbounded. The A0-monolith bind above freed the slot for this.
@@ -165,7 +171,7 @@ fn store_partial(pslot: u32, bucket_id: u32, M: u32, x_val: array<u32, 8>, y_val
     let by = PG * M + PG * pslot;
     partials_buf[by + 0u] = vec4<u32>(y_val[0], y_val[1], y_val[2], y_val[3]);
     partials_buf[by + 1u] = vec4<u32>(y_val[4], y_val[5], y_val[6], y_val[7]);
-    partial_dest[pslot] = bucket_id;
+    atomicStore(&partial_dest[pslot], bucket_id);
 }
 
 @compute @workgroup_size({{ workgroup_size }})
@@ -179,6 +185,17 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
     let M_partials = params.w;
 
     if (t >= NUM_THREADS) { return; }
+
+    // RESIDENCY PROBE (calibration only, arena_off.z == 1): thread 0 marks this
+    // workgroup resident and records the peak concurrent count R = the device's
+    // resident-wave capacity for this kernel. Gated so the RMW atomics run only on
+    // the throwaway calibration dispatch — a real run (flag 0) does no RMW here, so
+    // its partial stores are byte-identical to the plain-buffer path. R is read off
+    // a single calibration run whose MSM output is discarded.
+    if (arena_off.z == 1u && l == 0u) {
+        let nlive = atomicAdd(&partial_dest[M_partials], 1u) + 1u;
+        atomicMax(&partial_dest[M_partials + 1u], nlive);
+    }
 
     let cut_base = t * CUTS * 2u;
     // Coalesced pref_scratch addressing:
@@ -205,8 +222,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
 
     // Initialise slots from precomputed task cuts (KNOB 2).
     for (var k: u32 = 0u; k < S; k = k + 1u) {
-        partial_dest[2u * (t * S + k) + 0u] = NO_BUCKET;
-        partial_dest[2u * (t * S + k) + 1u] = NO_BUCKET;
+        atomicStore(&partial_dest[2u * (t * S + k) + 0u], NO_BUCKET);
+        atomicStore(&partial_dest[2u * (t * S + k) + 1u], NO_BUCKET);
 
         let sb = task_cuts[cut_base + k * 2u + 0u];
         let so = task_cuts[cut_base + k * 2u + 1u];
@@ -449,4 +466,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
     }
 
     {{{ recompile }}}
+
+    // RESIDENCY PROBE (calibration only): workgroup retiring — release its live
+    // slot (peak already captured). Pairs the entry increment.
+    if (arena_off.z == 1u && l == 0u) { atomicSub(&partial_dest[M_partials], 1u); }
 }

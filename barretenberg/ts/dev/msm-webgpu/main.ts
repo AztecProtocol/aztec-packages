@@ -136,6 +136,7 @@ const gpuKnobs: MsmConfig = (() => {
     convChunk: optInt('convc'),
     convertBound: optInt('convbound'),
     maxPlannerWorkgroups: optInt('mpw'),
+    residentWgOverride: optInt('force_r'),
     numBatchesOverride: optInt('nb'),
     budgetMiB: optInt('budgetmib'),
     varSched: q.get('varsched') === '1' || undefined,
@@ -149,7 +150,8 @@ const gpuKnobs: MsmConfig = (() => {
       const parts = f.split(',').map(x => parseInt(x, 10));
       return parts.length === 3 && parts.every(x => x > 0) ? (parts as [number, number, number]) : undefined;
     })(),
-    profile: q.get('profile') === '1' || q.get('autorun') === 'msm-bench' || q.get('autorun') === 'msm-trace' || undefined,
+    profile:
+      q.get('profile') === '1' || q.get('autorun') === 'msm-bench' || q.get('autorun') === 'msm-trace' || undefined,
   };
 })();
 
@@ -2123,25 +2125,27 @@ function hideProgress(): void {
   const qp = new URLSearchParams(window.location.search);
   const autorun = qp.get('autorun');
   if (autorun === 'msm-trace') {
-    // Perfetto trace capture: `reps` WARM MSM runs in window.__lastPassTimes
-    // (consumed by the webgpu-gpu-trace-mac skill / join_passtimes.py). One
-    // discarded warm-up reaches steady-state GPU, then captureWarmRuns records
-    // `reps` runs in ONE submit + ONE mapAsync — no per-run host readback whose
-    // mapAsync polling latency would otherwise stall (seconds) between runs.
+    // Perfetto trace capture: `reps` measured warm MSM runs via NORMAL run()
+    // calls. The batched captureWarmRuns command stream (swapped queryset +
+    // deferred resolve) crashes Xcode 26.5's GPU profiler when the .gputrace is
+    // counter-profiled; plain run() calls — the same shape as traces that
+    // profile cleanly — do not. One discarded warm-up, then `reps` measured
+    // run()s, each appending its per-pass timeline to window.__lastPassTimes.
     // GPU-only (no WASM/noble). Emits `[bench] DONE`.
     const traceLogN = parseInt(qp.get('logn') ?? '17', 10);
-    const traceReps = Math.max(1, parseInt(qp.get('reps') ?? '5', 10));
+    const traceReps = Math.max(1, parseInt(qp.get('reps') ?? '2', 10));
     void (async () => {
       try {
         // generateInputs needs the SRS (srsBuf); wait for it (no WASM needed).
         for (let i = 0; i < 1200 && srsBuf === null; i++) await new Promise(r => setTimeout(r, 500));
-        log('info', `[trace] msm-trace logN=${traceLogN} reps=${traceReps} (warm runs)`);
+        log('info', `[trace] msm-trace logN=${traceLogN} reps=${traceReps} (normal warm runs)`);
         const inputs = await generateInputs(traceLogN, false);
         const msm = await ensureWebGpuWarmed(inputs);
         msm.prepare(inputs.scalarsBuf);
         await msm.run(); // warm-up to steady state (discarded)
-        const timeline = await msm.captureWarmRuns(traceReps); // N warm runs, ONE submit + ONE mapAsync
-        (window as unknown as { __lastPassTimes?: Array<[string, string, string]> }).__lastPassTimes = timeline;
+        const W = window as unknown as { __lastPassTimes?: Array<[string, string, string]> };
+        W.__lastPassTimes = []; // capture only the measured runs below
+        for (let r = 0; r < traceReps; r++) await msm.run(); // each measured run() appends its timeline
         log('ok', `[bench] DONE — ${traceReps} warm runs`);
       } catch (e) {
         log('err', `[trace] ${e instanceof Error ? e.message : String(e)}`);
@@ -2214,6 +2218,15 @@ function hideProgress(): void {
       if (qp.get('trace') === '1') {
         const msm = await ensureWebGpuWarmed(inputs);
         msm.prepare(inputs.scalarsBuf);
+        // Calibrate the GPU<->CPU clock FIRST (setup phase), so calibrateClock's 96 tiny no-op
+        // dispatches land before the visible warm-up + profiled MSMs instead of cluttering the
+        // trace after them. The clock rate is constant, so calibrating early is equivalent.
+        let traceCalib: Array<[string, string, string, string]> = [];
+        try {
+          traceCalib = gpuDevice ? await calibrateClock(gpuDevice) : [];
+        } catch {
+          /* ignore */
+        }
         log('info', '[trace] warming buffers (prepare + 3 runs, outside capture)');
         await msm.run();
         await msm.run();
@@ -2237,18 +2250,12 @@ function hideProgress(): void {
           log('info', `[trace] rep ${r + 1}/${reps}: wall=${wallMs.toFixed(1)}ms passes=${pt.length}`);
           await new Promise(res => setTimeout(res, 60));
         }
-        let traceCalib: Array<[string, string, string, string]> = [];
-        try {
-          traceCalib = gpuDevice ? await calibrateClock(gpuDevice) : [];
-        } catch {
-          /* ignore */
-        }
         (window as unknown as { __benchSamples?: typeof traceSamples }).__benchSamples = traceSamples;
         const traceLog: string[] = [];
         for (let i = 0; i < $log.children.length; i++) traceLog.push($log.children[i].textContent ?? '');
         await client.postResults({
           state: 'done',
-          params: { logN: autorunLogN, reps, page: 'msm-bench' },
+          params: { logN: autorunLogN, reps, page: 'msm-bench', dev: qp.get('dev') ?? '' },
           results: { samples: traceSamples, calib: traceCalib },
           log: traceLog.slice(-60),
           userAgent: navigator.userAgent,

@@ -46,6 +46,10 @@ PROFILE="${PROFILE:-A}"
 # packed-14-bit safegcd inverse, walker-only). Env var so the positional-arg
 # interface is unchanged. Composes with montmul=cios_native.
 PK14_Q=""; [ "${PK14:-}" = "1" ] && PK14_Q="&pk14=1"
+# MSM_EXTRA appends arbitrary query params to the cross-check + timing URLs (e.g.
+# MSM_EXTRA="&mpw=32" pins the planner cap to baseline, bypassing the residency
+# fit, for an A/B against the default one-resident-wave path).
+EXTRA_Q="${MSM_EXTRA:-}"
 RF="$HOME/localclaudebox/phonetests/fastbench_results_${PORT}.jsonl"
 PKG=com.android.chrome; ACT="$PKG/com.google.android.apps.chrome.Main"
 # Device targeting: ADB_SERIAL selects which phone (required when >1 is attached).
@@ -132,7 +136,7 @@ fi
 
 # --- 1) cross-check (correctness) ---
 echo "[phone-bench] cross-check ${MM}..."
-CCROW=$(launch_and_wait "autorun=msm-cross-check&logn=$LOGN&montmul=$MM&wordsize=${MSM_WS:-13}$PK14_Q" cc 240)
+CCROW=$(launch_and_wait "autorun=msm-cross-check&logn=$LOGN&montmul=$MM&wordsize=${MSM_WS:-13}$PK14_Q$EXTRA_Q" cc 240)
 if [ -z "${CCROW:-}" ]; then
   echo "PHONE_BENCH cross_ok=timeout montmul=$MM"
 else
@@ -142,7 +146,7 @@ fi
 
 # --- 2) timing (GPU-only, warm SRS, no WASM) ---
 echo "[phone-bench] timing ${MM} profile=${PROFILE}..."
-TROW=$(launch_and_wait "autorun=msm-bench&no_wasm=1&logn=$LOGN&reps=$REPS&scalar_dist=profile&profile=$PROFILE&montmul=$MM&wordsize=${MSM_WS:-13}$PK14_Q" time 240)
+TROW=$(launch_and_wait "autorun=msm-bench&no_wasm=1&logn=$LOGN&reps=$REPS&scalar_dist=profile&profile=$PROFILE&montmul=$MM&wordsize=${MSM_WS:-13}$PK14_Q$EXTRA_Q" time 240)
 if [ -z "${TROW:-}" ]; then
   echo "PHONE_BENCH median_ms=timeout montmul=$MM"
 else
