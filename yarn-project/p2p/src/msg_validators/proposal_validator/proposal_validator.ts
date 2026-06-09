@@ -1,6 +1,7 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { NoCommitteeError } from '@aztec/ethereum/contracts';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { MAX_ATTESTABLE_BLOCKS_PER_CHECKPOINT } from '@aztec/stdlib/deserialization';
 import {
   type BlockProposal,
   type CheckpointProposalCore,
@@ -106,15 +107,13 @@ export class ProposalValidator {
         return { result: 'reject', severity: PeerErrorSeverity.MidToleranceError };
       }
 
-      if (
-        this.maxBlocksPerCheckpoint !== undefined &&
-        'indexWithinCheckpoint' in proposal &&
-        proposal.indexWithinCheckpoint >= this.maxBlocksPerCheckpoint
-      ) {
-        this.logger.warn(
-          `Penalizing peer for proposal with indexWithinCheckpoint ${proposal.indexWithinCheckpoint} >= max ${this.maxBlocksPerCheckpoint}`,
-        );
-        return { result: 'reject', severity: PeerErrorSeverity.MidToleranceError };
+      // A block proposal whose index lands beyond the checkpoint block limit can never be part of a
+      // checkpoint we would attest to, so reject it immediately at ingress.
+      if ('indexWithinCheckpoint' in proposal) {
+        const indexResult = this.validateBlockIndexWithinCheckpoint(proposal);
+        if (indexResult.result !== 'accept') {
+          return indexResult;
+        }
       }
 
       return { result: 'accept' };
@@ -124,6 +123,27 @@ export class ProposalValidator {
       }
       throw e;
     }
+  }
+
+  /**
+   * Rejects a block proposal whose index within its checkpoint lands at or beyond the per-checkpoint
+   * block limit. `MAX_ATTESTABLE_BLOCKS_PER_CHECKPOINT` is a hard ceiling applied even when
+   * `maxBlocksPerCheckpoint` is unset; a lower configured value tightens it further.
+   * `indexWithinCheckpoint` is 0-based, so a ceiling of 72 rejects the 73rd block. Applies to standalone
+   * block proposals and to the terminal block embedded in a checkpoint proposal.
+   */
+  public validateBlockIndexWithinCheckpoint(proposal: BlockProposal): ValidationResult {
+    const maxBlocksPerCheckpoint = Math.min(
+      this.maxBlocksPerCheckpoint ?? MAX_ATTESTABLE_BLOCKS_PER_CHECKPOINT,
+      MAX_ATTESTABLE_BLOCKS_PER_CHECKPOINT,
+    );
+    if (proposal.indexWithinCheckpoint >= maxBlocksPerCheckpoint) {
+      this.logger.warn(
+        `Penalizing peer for proposal with indexWithinCheckpoint ${proposal.indexWithinCheckpoint} >= max ${maxBlocksPerCheckpoint}`,
+      );
+      return { result: 'reject', severity: PeerErrorSeverity.MidToleranceError };
+    }
+    return { result: 'accept' };
   }
 
   /** Validates transaction-related fields of a block proposal. */

@@ -61,6 +61,7 @@ cli-wallet/test/data
 cli/src/config/generated
 ethereum/src/generated
 slasher/src/generated
+tmp/
 
 .claude/settings.local.json
 .yarn/*
