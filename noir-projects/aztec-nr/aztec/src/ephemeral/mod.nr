@@ -126,7 +126,7 @@ impl<T> EphemeralArray<T> {
     /// Reads each element in order, transforms it with `f`, and pushes the result onto a new array at a freshly
     /// allocated slot (see [`EphemeralArray::empty`]). The source array is left unchanged, and the result is isolated
     /// from it, so `map` can be chained.
-    pub unconstrained fn map<U>(self, f: unconstrained fn(T) -> U) -> EphemeralArray<U>
+    pub unconstrained fn map<U, Env>(self, f: unconstrained fn[Env](T) -> U) -> EphemeralArray<U>
     where
         T: Deserialize,
         U: Serialize,

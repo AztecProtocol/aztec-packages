@@ -15,9 +15,6 @@ use crate::{
     protocol::{address::AztecAddress, constants::MAX_TX_LIFETIME, hash::sha256_to_field},
 };
 
-/// Ephemeral array slot used by [`sync_inbox`] to pass tx hash resolution requests to PXE.
-global OFFCHAIN_CONTEXT_REQUESTS_SLOT: Field = sha256_to_field("AZTEC_NR::OFFCHAIN_CONTEXT_REQUESTS_SLOT".as_bytes());
-
 /// Ephemeral array slot used by [`sync_inbox`] to collect messages ready for processing.
 global OFFCHAIN_READY_MESSAGES_SLOT: Field = sha256_to_field("AZTEC_NR::OFFCHAIN_READY_MESSAGES_SLOT".as_bytes());
 
@@ -77,7 +74,7 @@ impl OffchainReceptionState {
 
 /// Folds an entity's fact set into an [`OffchainReceptionState`].
 ///
-/// A `OFFHCAIN_MESSAGE_PROCESSED` fact advances the entity to `processed`; with no such fact the entity is `received`.
+/// A `OFFCHAIN_MESSAGE_PROCESSED` fact advances the entity to `processed`; with no such fact the entity is `received`.
 pub unconstrained fn fold(facts: EphemeralArray<Fact>) -> OffchainReceptionState {
     let mut has_processed = false;
     let facts_len = facts.len();
@@ -158,7 +155,6 @@ pub unconstrained fn sync_inbox(
     contract_address: AztecAddress,
     scope: AztecAddress,
 ) -> EphemeralArray<OffchainMessageWithContext> {
-    let context_resolution_requests: EphemeralArray<Field> = EphemeralArray::empty_at(OFFCHAIN_CONTEXT_REQUESTS_SLOT);
     let ready_to_process: EphemeralArray<OffchainMessageWithContext> =
         EphemeralArray::empty_at(OFFCHAIN_READY_MESSAGES_SLOT);
 
@@ -167,12 +163,10 @@ pub unconstrained fn sync_inbox(
 
     // Build a tx-hash request list aligned with the active-entity indices, so the resolved contexts returned by the
     // oracle can be matched back to each entity positionally.
-    for i in 0..entities_len {
-        let key = entities.get(i);
+    let context_resolution_requests = entities.map(|key| {
         let entity = get_entity::<OffchainMessage>(contract_address, scope, OFFCHAIN_RECEPTION_ENTITY, key);
-        let msg = entity.payload;
-        context_resolution_requests.push(msg.tx_hash.unwrap_or(0));
-    }
+        entity.payload.tx_hash.unwrap_or(0)
+    });
 
     // Ask PXE to resolve contexts for all requested tx hashes. The oracle returns responses in a new ephemeral array,
     // aligned with the request (and therefore entity) indices.
