@@ -2,7 +2,6 @@
 source: tests/snapshots.rs
 expression: stdout
 ---
-
 use aztec::macros::aztec;
 use aztec::macros::aztec;
 
@@ -163,7 +162,7 @@ pub contract PublicFnsWithEmitRepro {
     /// For more details, see `aztec::messages::processing::offchain::receive`.
     /// 
     /// This function is automatically injected by the `#[aztec]` macro.
-    unconstrained fn offchain_receive(messages: BoundedVec<aztec::messages::processing::offchain::OffchainMessage, 16>) {
+    unconstrained fn offchain_receive(messages: BoundedVec<aztec::messages::processing::offchain::message::OffchainMessage, 16>) {
         let address: aztec::protocol::address::AztecAddress = aztec::context::UtilityContext::new().this_address();
         aztec::messages::processing::offchain::receive(address, messages);
     }
@@ -275,8 +274,8 @@ pub contract PublicFnsWithEmitRepro {
             aztec::context::calls::PublicCall::<5, 1, ()>::new(self.target_contract, selector, "fn_09", serialized_params)
         }
 
-        pub fn offchain_receive(self, messages: BoundedVec<aztec::messages::processing::offchain::OffchainMessage, 16>) -> aztec::context::calls::UtilityCall<16, 321, ()> {
-            let serialized_params: [Field; 321] = <BoundedVec<aztec::messages::processing::offchain::OffchainMessage, 16> as aztec::protocol::traits::Serialize>::serialize(messages);
+        pub fn offchain_receive(self, messages: BoundedVec<aztec::messages::processing::offchain::message::OffchainMessage, 16>) -> aztec::context::calls::UtilityCall<16, 321, ()> {
+            let serialized_params: [Field; 321] = <BoundedVec<aztec::messages::processing::offchain::message::OffchainMessage, 16> as aztec::protocol::traits::Serialize>::serialize(messages);
             let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(1396850735_Field);
             aztec::context::calls::UtilityCall::<16, 321, ()>::new(self.target_contract, selector, "offchain_receive", serialized_params)
         }
@@ -312,7 +311,7 @@ pub contract PublicFnsWithEmitRepro {
     }
 
     pub struct offchain_receive_parameters {
-        pub messages: BoundedVec<aztec::messages::processing::offchain::OffchainMessage, 16>,
+        pub messages: BoundedVec<aztec::messages::processing::offchain::message::OffchainMessage, 16>,
     }
 
     #[abi(functions)]

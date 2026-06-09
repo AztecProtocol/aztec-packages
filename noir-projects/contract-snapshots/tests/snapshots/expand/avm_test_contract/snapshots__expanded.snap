@@ -2,7 +2,6 @@
 source: tests/snapshots.rs
 expression: stdout
 ---
-
 use aztec::macros::aztec;
 use aztec::macros::aztec;
 
@@ -732,7 +731,7 @@ pub contract AvmTest {
     /// For more details, see `aztec::messages::processing::offchain::receive`.
     /// 
     /// This function is automatically injected by the `#[aztec]` macro.
-    unconstrained fn offchain_receive(messages: BoundedVec<aztec::messages::processing::offchain::OffchainMessage, 16>) {
+    unconstrained fn offchain_receive(messages: BoundedVec<aztec::messages::processing::offchain::message::OffchainMessage, 16>) {
         let address: AztecAddress = aztec::context::UtilityContext::new().this_address();
         aztec::messages::processing::offchain::receive(address, messages);
     }
@@ -1685,7 +1684,7 @@ pub contract AvmTest {
             aztec::context::calls::PublicCall::<46, 23, ()>::new(self.target_contract, selector, "nested_call_to_add_n_times_different_addresses", serialized_params)
         }
 
-        pub fn offchain_receive(self, messages: BoundedVec<aztec::messages::processing::offchain::OffchainMessage, 16>) -> aztec::context::calls::UtilityCall<16, 321, ()> {
+        pub fn offchain_receive(self, messages: BoundedVec<aztec::messages::processing::offchain::message::OffchainMessage, 16>) -> aztec::context::calls::UtilityCall<16, 321, ()> {
             let serialized_params: [Field; 321] = messages.serialize();
             let selector: FunctionSelector = FunctionSelector::from_field(1396850735_Field);
             aztec::context::calls::UtilityCall::<16, 321, ()>::new(self.target_contract, selector, "offchain_receive", serialized_params)
@@ -1722,7 +1721,7 @@ pub contract AvmTest {
     }
 
     pub struct offchain_receive_parameters {
-        pub messages: BoundedVec<aztec::messages::processing::offchain::OffchainMessage, 16>,
+        pub messages: BoundedVec<aztec::messages::processing::offchain::message::OffchainMessage, 16>,
     }
 
     #[abi(functions)]
