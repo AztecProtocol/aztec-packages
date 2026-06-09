@@ -21,7 +21,6 @@ fn with_everything_empty_except_for_first_nullifier_hint() {
     assert_eq(pi.fee_payer, AztecAddress::empty());
     assert_eq(pi.expiration_timestamp, 0);
     assert_eq(pi.is_private_only, false);
-    assert_eq(pi.claimed_first_nullifier, 1234);
     assert_eq(pi.claimed_revertible_counter, 0);
 
     assert_claimed_length_array_eq(pi.end.note_hashes, []);
@@ -55,9 +54,6 @@ fn with_protocol_nullifier_injected() {
     let pi = builder.execute();
     builder.assert_expected_public_inputs(pi);
 
-    // The claimed value is propagated from the hint.
-    assert_eq(pi.claimed_first_nullifier, protocol_nullifier);
-
     // The nullifiers array contains the protocol nullifier.
     assert_claimed_length_array_eq(pi.end.nullifiers, [scoped_protocol_nullifier]);
 }
@@ -77,9 +73,6 @@ fn with_nullifiers_emitted_and_protocol_nullifier_injected() {
     let private_call_nullifiers = builder.private_call.nullifiers.storage();
 
     let pi = builder.execute();
-
-    // The claimed value is propagated from the hint.
-    assert_eq(pi.claimed_first_nullifier, protocol_nullifier);
 
     // The nullifiers array contains the protocol nullifier and the private call's nullifier.
     assert_claimed_length_array_eq(
@@ -140,7 +133,6 @@ fn with_everything_non_empty() {
     assert_eq(pi.fee_payer, builder.private_call.contract_address);
     assert_eq(pi.expiration_timestamp, 7890);
     assert_eq(pi.is_private_only, true);
-    assert_eq(pi.claimed_first_nullifier, 1234);
     assert_eq(pi.claimed_revertible_counter, 567);
 
     let note_hashes = builder.private_call.note_hashes.storage();

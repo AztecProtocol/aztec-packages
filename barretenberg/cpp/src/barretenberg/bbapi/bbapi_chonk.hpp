@@ -17,10 +17,8 @@
 #include "barretenberg/chonk/batch_verifier_types.hpp"
 #include "barretenberg/chonk/chonk_batch_verifier.hpp"
 #include "barretenberg/chonk/chonk_proof.hpp"
-#include <condition_variable>
+#include <atomic>
 #include <mutex>
-#include <queue>
-#include <thread>
 #endif
 
 #include <string>
@@ -132,7 +130,10 @@ struct ChonkProve {
 
 /**
  * @struct ChonkVerify
- * @brief Verify a Chonk proof with its verification key
+ * @brief Verify a Chonk proof with its verification key.
+ *
+ * @note valid=true proves that the supplied proof is consistent with the supplied VK. Callers that need canonical
+ * protocol-circuit binding must choose the VK from the protocol artifact selected by the transaction/public inputs.
  */
 struct ChonkVerify {
     static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkVerify";
@@ -289,7 +290,7 @@ struct ChonkStats {
 
 /**
  * @struct ChonkBatchVerify
- * @brief Batch-verify multiple Chonk proofs with a single IPA SRS MSM
+ * @brief Batch-verify multiple Chonk proofs with batched IPA SRS MSMs.
  */
 struct ChonkBatchVerify {
     static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkBatchVerify";
@@ -374,21 +375,23 @@ class ChonkBatchVerifierService {
                uint32_t batch_size,
                const std::string& fifo_path);
     void enqueue(VerifyRequest request);
+    void fail_request(uint64_t request_id, std::string error_message);
     void stop();
-    bool is_running() const { return running_; }
+    bool is_running() const { return running_.load(); }
 
   private:
-    void writer_loop(const std::string& fifo_path);
+    bool write_result(VerifyResult result);
+    bool ensure_fifo_open();
+    void close_fifo_locked();
+    bool fail_fifo_locked(const std::string& message);
 
     ChonkBatchVerifier verifier_;
 
-    std::mutex result_mutex_;
-    std::condition_variable result_cv_;
-    std::queue<VerifyResult> result_queue_;
-    bool writer_shutdown_ = false;
-    std::thread writer_thread_;
-
-    bool running_ = false;
+    std::mutex fifo_mutex_;
+    std::string fifo_path_;
+    int fifo_fd_ = -1;
+    std::atomic_bool running_ = false;
+    std::atomic_bool fifo_failed_ = false;
 };
 #endif // __wasm__
 

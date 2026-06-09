@@ -8,6 +8,7 @@ on:
 
 jobs:
   close-stale-drafts:
+    if: ${{ github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read

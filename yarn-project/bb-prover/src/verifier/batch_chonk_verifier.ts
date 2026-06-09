@@ -9,8 +9,8 @@ import type { Tx } from '@aztec/stdlib/tx';
 
 import { Unpackr } from 'msgpackr';
 import { execFile } from 'node:child_process';
-import { unlinkSync } from 'node:fs';
-import { unlink } from 'node:fs/promises';
+import { rmSync } from 'node:fs';
+import { mkdtemp, rm } from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
@@ -18,6 +18,8 @@ import { promisify } from 'node:util';
 import type { BBConfig } from '../config.js';
 
 const execFileAsync = promisify(execFile);
+const RESULT_TIMEOUT_MS = 5 * 60 * 1000;
+const STOP_DRAIN_TIMEOUT_MS = 5_000;
 
 /** Result from the FIFO, matching the C++ VerifyResult struct. */
 interface FifoVerifyResult {
@@ -34,11 +36,12 @@ interface PendingRequest {
   resolve: (result: IVCProofVerificationResult) => void;
   reject: (error: Error) => void;
   totalTimer: Timer;
+  timeout: ReturnType<typeof setTimeout>;
 }
 
 /**
  * Batch verifier for Chonk IVC proofs. Uses the bb batch verifier service
- * which batches IPA verification into a single SRS MSM for better throughput.
+ * which batches IPA verification into a constant number of SRS MSMs for better throughput.
  *
  * Architecture:
  * - Spawns a persistent `bb msgpack run` process via Barretenberg (native backend)
@@ -48,7 +51,8 @@ interface PendingRequest {
  */
 export class BatchChonkVerifier implements ClientProtocolCircuitVerifier {
   private bb!: Barretenberg;
-  private fifoPath: string;
+  private fifoDir: string | undefined;
+  private fifoPath = '';
   private nextRequestId = 0;
   private pendingRequests = new Map<number, PendingRequest>();
   private sendQueue: SerialQueue;
@@ -58,6 +62,9 @@ export class BatchChonkVerifier implements ClientProtocolCircuitVerifier {
   private vkIndexMap = new Map<string, number>();
   /** Bound cleanup handler for process exit signals. */
   private exitCleanup: (() => void) | null = null;
+  private stopped = false;
+  private fatalError: Error | undefined;
+  private pendingDrainedResolvers = new Set<() => void>();
 
   private constructor(
     private config: Pick<BBConfig, 'bbChonkVerifyConcurrency'> & Partial<Pick<BBConfig, 'bbBinaryPath'>>,
@@ -65,7 +72,6 @@ export class BatchChonkVerifier implements ClientProtocolCircuitVerifier {
     private batchSize: number,
     private label: string,
   ) {
-    this.fifoPath = path.join(os.tmpdir(), `bb-batch-${label}-${process.pid}-${Date.now()}.fifo`);
     this.fifoReader = new FifoFrameReader();
     this.sendQueue = new SerialQueue();
     this.sendQueue.start(1);
@@ -106,48 +112,87 @@ export class BatchChonkVerifier implements ClientProtocolCircuitVerifier {
   private async start(): Promise<void> {
     this.logger.info('Starting BatchChonkVerifier');
 
-    this.bb = await Barretenberg.new({
-      bbPath: this.config.bbBinaryPath,
-      backend: BackendType.NativeUnixSocket,
-    });
-    await this.bb.initSRSChonk();
+    try {
+      this.bb = await Barretenberg.new({
+        bbPath: this.config.bbBinaryPath,
+        backend: BackendType.NativeUnixSocket,
+      });
+      await this.bb.initSRSChonk();
 
-    await execFileAsync('mkfifo', [this.fifoPath]);
-    this.registerExitCleanup();
+      // Keep the FIFO in a private directory so cleanup has a single owner.
+      this.fifoDir = await mkdtemp(path.join(os.tmpdir(), `bb-batch-${this.label}-${process.pid}-`));
+      this.fifoPath = path.join(this.fifoDir, 'results.fifo');
+      await execFileAsync('mkfifo', [this.fifoPath]);
+      this.registerExitCleanup();
+      this.startFifoReader();
 
-    await this.bb.chonkBatchVerifierStart({
-      vks: this.vkBuffers,
-      numCores: this.config.bbChonkVerifyConcurrency || 0,
-      batchSize: this.batchSize,
-      fifoPath: this.fifoPath,
-    });
-
-    this.startFifoReader();
+      await this.bb.chonkBatchVerifierStart({
+        vks: this.vkBuffers,
+        numCores: this.config.bbChonkVerifyConcurrency || 0,
+        batchSize: this.batchSize,
+        fifoPath: this.fifoPath,
+      });
+    } catch (err) {
+      this.fifoReader.stop();
+      this.deregisterExitCleanup();
+      await this.cleanupFifo();
+      await this.bb?.destroy().catch(() => {});
+      throw err;
+    }
     this.logger.info('BatchChonkVerifier started', { fifoPath: this.fifoPath });
   }
 
   public verifyProof(tx: Tx): Promise<IVCProofVerificationResult> {
-    const circuit = tx.data.forPublic ? 'HidingKernelToPublic' : 'HidingKernelToRollup';
-    const vkIndex = this.vkIndexMap.get(circuit);
-    if (vkIndex === undefined) {
-      throw new Error(`No VK index for circuit ${circuit}`);
-    }
-    const proofWithPubInputs = tx.chonkProof.attachPublicInputs(tx.data.publicInputs().toFields());
-    const proofFields = proofWithPubInputs.fieldsWithPublicInputs.map(f => f.toBuffer());
-    return this.enqueueProof(vkIndex, proofFields);
+    const totalTimer = new Timer();
+    return (async () => {
+      const circuit = tx.data.forPublic ? 'HidingKernelToPublic' : 'HidingKernelToRollup';
+      const vkIndex = this.vkIndexMap.get(circuit);
+      if (vkIndex === undefined) {
+        throw new Error(`No VK index for circuit ${circuit}`);
+      }
+      const proofWithPubInputs = tx.chonkProof.attachPublicInputs(tx.data.publicInputs().toFields());
+      const proofFields = proofWithPubInputs.fieldsWithPublicInputs.map(f => f.toBuffer());
+      return await this.enqueueProof(vkIndex, proofFields);
+    })().catch(err => {
+      this.logger.warn(`Failed to verify Chonk proof for tx ${tx.getTxHash().toString()}: ${String(err)}`);
+      return { valid: false, durationMs: 0, totalDurationMs: totalTimer.ms() };
+    });
   }
 
   /** Enqueue raw proof fields for verification. Used directly by tests with custom VKs. */
   public enqueueProof(vkIndex: number, proofFields: Uint8Array[]): Promise<IVCProofVerificationResult> {
+    if (this.stopped) {
+      return Promise.reject(new Error('BatchChonkVerifier stopped'));
+    }
+    if (this.fatalError) {
+      return Promise.reject(this.fatalError);
+    }
+
     const totalTimer = new Timer();
     const requestId = this.nextRequestId++;
 
     const resultPromise = new Promise<IVCProofVerificationResult>((resolve, reject) => {
-      this.pendingRequests.set(requestId, { resolve, reject, totalTimer });
+      const timeout = setTimeout(() => {
+        const pending = this.pendingRequests.get(requestId);
+        if (!pending) {
+          return;
+        }
+        this.pendingRequests.delete(requestId);
+        pending.reject(new Error(`BatchChonkVerifier result timed out for request_id=${requestId}`));
+        this.notifyPendingDrained();
+      }, RESULT_TIMEOUT_MS);
+      // A pending result timer must never keep the host process alive on its own (e.g. an
+      // orphaned request at process exit); the FIFO reader keeps the loop alive while results
+      // are genuinely awaited.
+      timeout.unref();
+      this.pendingRequests.set(requestId, { resolve, reject, totalTimer, timeout });
     });
 
     void this.sendQueue
       .put(async () => {
+        if (this.fatalError) {
+          throw this.fatalError;
+        }
         await this.bb.chonkBatchVerifierQueue({
           requestId,
           vkIndex,
@@ -158,7 +203,9 @@ export class BatchChonkVerifier implements ClientProtocolCircuitVerifier {
         const pending = this.pendingRequests.get(requestId);
         if (pending) {
           this.pendingRequests.delete(requestId);
+          clearTimeout(pending.timeout);
           pending.reject(err instanceof Error ? err : new Error(String(err)));
+          this.notifyPendingDrained();
         }
       });
 
@@ -167,34 +214,58 @@ export class BatchChonkVerifier implements ClientProtocolCircuitVerifier {
 
   public async stop(): Promise<void> {
     this.logger.info('Stopping BatchChonkVerifier');
+    this.stopped = true;
 
-    // Stop accepting new proofs
-    await this.sendQueue.end();
-
-    // Stop the bb service (flushes remaining proofs)
     try {
-      await this.bb.chonkBatchVerifierStop({});
+      // Stop accepting new proofs and flush the send queue. Bound it so an unresponsive
+      // native process can't block teardown of our own event-loop handles indefinitely.
+      await this.withTimeout(this.sendQueue.end(), STOP_DRAIN_TIMEOUT_MS, 'send queue flush');
+
+      // Stop the bb service (flushes remaining proofs).
+      await this.withTimeout(this.bb.chonkBatchVerifierStop({}), STOP_DRAIN_TIMEOUT_MS, 'chonkBatchVerifierStop');
+
+      // Native stop flushes callbacks; keep the FIFO open until those frames are observed.
+      const drained = await this.waitForPendingRequestsToDrain(STOP_DRAIN_TIMEOUT_MS);
+      if (!drained) {
+        this.rejectPendingRequests(new Error('Timed out waiting for BatchChonkVerifier results during stop'));
+      }
     } catch (err) {
-      this.logger.warn(`Error stopping batch verifier service: ${err}`);
+      this.logger.warn(`Error during BatchChonkVerifier graceful stop: ${err}`);
+      this.rejectPendingRequests(err instanceof Error ? err : new Error(String(err)));
+    } finally {
+      // Always release our own event-loop handles — the FIFO read stream (a blocking
+      // threadpool read that can't be unref'd), the unix socket, the native process, and the
+      // exit handler — so the host process exits cleanly even if the native backend is wedged.
+      this.fifoReader.stop();
+      this.deregisterExitCleanup();
+      await this.cleanupFifo();
+      await this.bb.destroy().catch(err => this.logger.warn(`Error destroying bb backend during stop: ${err}`));
     }
-
-    // Stop FIFO reader
-    this.fifoReader.stop();
-
-    // Clean up FIFO file and deregister exit handler
-    await unlink(this.fifoPath).catch(() => {});
-    this.deregisterExitCleanup();
-
-    // Reject any remaining pending requests
-    for (const [id, pending] of this.pendingRequests) {
-      pending.reject(new Error('BatchChonkVerifier stopped'));
-      this.pendingRequests.delete(id);
-    }
-
-    // Destroy bb process
-    await this.bb.destroy();
 
     this.logger.info('BatchChonkVerifier stopped');
+  }
+
+  /**
+   * Races a promise against a timeout so a wedged native backend can't block teardown. The
+   * timer is unref'd so it never keeps the process alive; the underlying promise stays handled
+   * by the race even if the timeout wins, so it cannot surface as an unhandled rejection.
+   */
+  private async withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T | void> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<void>((_, reject) => {
+      timer = setTimeout(
+        () => reject(new Error(`BatchChonkVerifier ${label} timed out after ${timeoutMs}ms`)),
+        timeoutMs,
+      );
+      timer.unref();
+    });
+    try {
+      return await Promise.race([promise, timeout]);
+    } finally {
+      if (timer) {
+        clearTimeout(timer);
+      }
+    }
   }
 
   private startFifoReader(): void {
@@ -206,18 +277,20 @@ export class BatchChonkVerifier implements ClientProtocolCircuitVerifier {
         this.handleResult(result);
       } catch (err) {
         this.logger.error(`FIFO: failed to decode msgpack result: ${err}`);
+        // A corrupt result stream cannot safely be matched to outstanding requests.
+        this.failVerifier(err instanceof Error ? err : new Error(String(err)));
       }
     });
 
     this.fifoReader.on('error', (err: Error) => {
       this.logger.error(`FIFO reader error: ${err}`);
+      this.failVerifier(err);
     });
 
     this.fifoReader.on('end', () => {
       this.logger.debug('FIFO reader: stream ended');
-      for (const [id, pending] of this.pendingRequests) {
-        pending.reject(new Error('FIFO stream ended unexpectedly'));
-        this.pendingRequests.delete(id);
+      if (!this.stopped) {
+        this.failVerifier(new Error('FIFO stream ended unexpectedly'));
       }
     });
 
@@ -231,6 +304,7 @@ export class BatchChonkVerifier implements ClientProtocolCircuitVerifier {
       return;
     }
     this.pendingRequests.delete(result.request_id);
+    clearTimeout(pending.timeout);
 
     const valid = result.status === 0; // VerifyStatus::OK
     const durationMs = result.time_in_verify_ms;
@@ -249,28 +323,93 @@ export class BatchChonkVerifier implements ClientProtocolCircuitVerifier {
     }
 
     pending.resolve(ivcResult);
+    this.notifyPendingDrained();
   }
 
   private registerExitCleanup(): void {
-    // Signal handlers must be synchronous — unlinkSync is intentional here
     this.exitCleanup = () => {
-      try {
-        unlinkSync(this.fifoPath);
-      } catch {
-        /* ignore */
-      }
+      this.cleanupFifoSync();
     };
     process.on('exit', this.exitCleanup);
-    process.on('SIGINT', this.exitCleanup);
-    process.on('SIGTERM', this.exitCleanup);
   }
 
   private deregisterExitCleanup(): void {
     if (this.exitCleanup) {
       process.removeListener('exit', this.exitCleanup);
-      process.removeListener('SIGINT', this.exitCleanup);
-      process.removeListener('SIGTERM', this.exitCleanup);
       this.exitCleanup = null;
+    }
+  }
+
+  private rejectPendingRequests(error: Error): void {
+    for (const [id, pending] of Array.from(this.pendingRequests)) {
+      pending.reject(error);
+      clearTimeout(pending.timeout);
+      this.pendingRequests.delete(id);
+    }
+    this.notifyPendingDrained();
+  }
+
+  private failVerifier(error: Error): void {
+    if (!this.fatalError) {
+      this.fatalError = error;
+    }
+    this.rejectPendingRequests(error);
+  }
+
+  private waitForPendingRequestsToDrain(timeoutMs: number): Promise<boolean> {
+    if (this.pendingRequests.size === 0) {
+      return Promise.resolve(true);
+    }
+
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    let onDrain: (() => void) | undefined;
+    const drained = new Promise<boolean>(resolve => {
+      onDrain = () => resolve(true);
+      this.pendingDrainedResolvers.add(onDrain);
+    });
+    const timedOut = new Promise<boolean>(resolve => {
+      timeout = setTimeout(() => resolve(false), timeoutMs);
+      timeout.unref();
+    });
+
+    return Promise.race([drained, timedOut]).finally(() => {
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+      if (onDrain) {
+        this.pendingDrainedResolvers.delete(onDrain);
+      }
+    });
+  }
+
+  private notifyPendingDrained(): void {
+    if (this.pendingRequests.size > 0) {
+      return;
+    }
+    for (const resolve of Array.from(this.pendingDrainedResolvers)) {
+      resolve();
+    }
+  }
+
+  private async cleanupFifo(): Promise<void> {
+    if (this.fifoDir) {
+      await rm(this.fifoDir, { recursive: true, force: true }).catch(() => {});
+    } else if (this.fifoPath) {
+      await rm(this.fifoPath, { force: true }).catch(() => {});
+    }
+    this.fifoDir = undefined;
+    this.fifoPath = '';
+  }
+
+  private cleanupFifoSync(): void {
+    try {
+      if (this.fifoDir) {
+        rmSync(this.fifoDir, { recursive: true, force: true });
+      } else if (this.fifoPath) {
+        rmSync(this.fifoPath, { force: true });
+      }
+    } catch {
+      /* ignore */
     }
   }
 }

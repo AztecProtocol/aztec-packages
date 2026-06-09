@@ -1,5 +1,5 @@
 # Aztec TypeScript API Summary
-Version: v4.3.0
+Version: v4.3.1
 Generated: 2026-05-18T14:24:59.459Z
 
 This file provides an index of the Aztec TypeScript API packages.

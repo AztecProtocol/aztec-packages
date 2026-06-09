@@ -28,10 +28,8 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
         let mut output = FixtureBuilder::new();
         let tx_request = output.to_tx_request();
 
-        output.claimed_first_nullifier = 27;
         output.claimed_revertible_counter = 42;
 
-        previous_kernel.claimed_first_nullifier = 27;
         previous_kernel.claimed_revertible_counter = 42;
 
         previous_kernel = previous_kernel.in_vk_tree(PRIVATE_KERNEL_INIT_VK_INDEX);
@@ -56,8 +54,6 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
             protocol_nullifier.contract_address,
             protocol_nullifier.innermost().value,
         );
-        self.previous_kernel.claimed_first_nullifier = self.first_nullifier_hint;
-        self.output.claimed_first_nullifier = self.first_nullifier_hint;
     }
 
     pub fn with_previous_kernel_vk_index(&mut self, vk_index: u32) {

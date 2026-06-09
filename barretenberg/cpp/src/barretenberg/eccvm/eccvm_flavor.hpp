@@ -323,8 +323,7 @@ class ECCVMFlavor {
     };
 
     /**
-     * @brief Containter for transcript accumulators, they stand out as the only to-be-shifted wires that are always
-     * populated until the dyadic size of the circuit.
+     * @brief Container for transcript accumulator wires that need shifted views.
      */
     template <typename DataType> class WireToBeShiftedAccumulatorEntities {
       public:
@@ -362,6 +361,96 @@ class ECCVMFlavor {
             return concatenate(WireNonShiftedEntities<DataType>::get_all(),
                                WireToBeShiftedWithoutAccumulatorsEntities<DataType>::get_all());
         }
+        // The following getters group the wires by execution subtable (transcript / precompute / msm) plus the
+        // lookup read counts. ProverPolynomials uses these groups to physically allocate each subtable's columns to
+        // that subtable's actual row count, rather than zero-padding every column to the full (virtual) dyadic
+        // circuit size. The subtables have different lengths, so per-table sizing saves substantial prover memory.
+        auto get_transcript_wires()
+        {
+            return RefArray{ this->transcript_add,
+                             this->transcript_eq,
+                             this->transcript_msm_transition,
+                             this->transcript_Px,
+                             this->transcript_Py,
+                             this->transcript_z1,
+                             this->transcript_z2,
+                             this->transcript_z1zero,
+                             this->transcript_z2zero,
+                             this->transcript_op,
+                             this->transcript_msm_x,
+                             this->transcript_msm_y,
+                             this->transcript_reset_accumulator,
+                             this->transcript_base_infinity,
+                             this->transcript_base_x_inverse,
+                             this->transcript_base_y_inverse,
+                             this->transcript_add_x_equal,
+                             this->transcript_add_y_equal,
+                             this->transcript_add_lambda,
+                             this->transcript_msm_intermediate_x,
+                             this->transcript_msm_intermediate_y,
+                             this->transcript_msm_infinity,
+                             this->transcript_msm_x_inverse,
+                             this->transcript_msm_count_zero_at_transition,
+                             this->transcript_msm_count_at_transition_inverse };
+        }
+        auto get_shifted_transcript_wires()
+        {
+            return RefArray{ this->transcript_mul, this->transcript_msm_count, this->transcript_pc };
+        }
+        auto get_precompute_wires()
+        {
+            return RefArray{ this->precompute_point_transition,
+                             this->precompute_s1lo,
+                             this->precompute_s2hi,
+                             this->precompute_s2lo,
+                             this->precompute_s3hi,
+                             this->precompute_s3lo,
+                             this->precompute_s4hi,
+                             this->precompute_s4lo,
+                             this->precompute_skew };
+        }
+        auto get_shifted_precompute_wires()
+        {
+            return RefArray{ this->precompute_scalar_sum, this->precompute_s1hi,  this->precompute_dx,
+                             this->precompute_dy,         this->precompute_tx,    this->precompute_ty,
+                             this->precompute_pc,         this->precompute_round, this->precompute_select };
+        }
+        auto get_msm_wires()
+        {
+            return RefArray{ this->msm_size_of_msm,
+                             this->msm_add2,
+                             this->msm_add3,
+                             this->msm_add4,
+                             this->msm_x1,
+                             this->msm_y1,
+                             this->msm_x2,
+                             this->msm_y2,
+                             this->msm_x3,
+                             this->msm_y3,
+                             this->msm_x4,
+                             this->msm_y4,
+                             this->msm_collision_x1,
+                             this->msm_collision_x2,
+                             this->msm_collision_x3,
+                             this->msm_collision_x4,
+                             this->msm_lambda1,
+                             this->msm_lambda2,
+                             this->msm_lambda3,
+                             this->msm_lambda4,
+                             this->msm_slice1,
+                             this->msm_slice2,
+                             this->msm_slice3,
+                             this->msm_slice4,
+                             this->msm_round_minus_31_inv };
+        }
+        auto get_shifted_msm_wires()
+        {
+            return RefArray{ this->msm_transition, this->msm_add,           this->msm_double,
+                             this->msm_skew,       this->msm_accumulator_x, this->msm_accumulator_y,
+                             this->msm_count,      this->msm_round,         this->msm_add1,
+                             this->msm_pc };
+        }
+        auto get_lookup_read_counts() { return RefArray{ this->lookup_read_counts_0, this->lookup_read_counts_1 }; }
     };
 
     /**
@@ -495,6 +584,7 @@ class ECCVMFlavor {
         ProverPolynomials(ProverPolynomials&& o) noexcept = default;
         ProverPolynomials& operator=(ProverPolynomials&& o) noexcept = default;
         ~ProverPolynomials() = default;
+        size_t row_skip_active_prefix_end = 0;
         [[nodiscard]] size_t get_polynomial_size() const { return this->lagrange_first.size(); }
 
         /**
@@ -505,7 +595,9 @@ class ECCVMFlavor {
         {
             AllValues result;
             for (auto [result_field, polynomial] : zip_view(result.get_all(), this->get_all())) {
-                result_field = polynomial[row_idx];
+                // .get() returns 0 past the polynomial's end_index; operator[] would be UB on the unallocated
+                // virtual tail, since columns are physically sized to their subtable (see the get_*_wires getters).
+                result_field = polynomial.get(row_idx);
             }
             return result;
         }
@@ -655,20 +747,49 @@ class ECCVMFlavor {
             // The first TRACE_OFFSET rows are disabled.
             // Trace data starts at row TRACE_OFFSET. lagrange_last goes to dyadic end.
             constexpr size_t trace_offset = TRACE_OFFSET;
-            const size_t alloc_size = trace_offset + num_rows;
+            const auto offset_size = [](const size_t size) { return TRACE_OFFSET + size; };
+            const size_t transcript_alloc_size = offset_size(transcript_rows.size());
+            const size_t point_table_alloc_size = offset_size(point_table_rows.size());
+            const size_t msm_alloc_size = offset_size(msm_rows.size());
+            const size_t read_counts_alloc_size = offset_size(point_table_read_counts[0].size() + 1);
 
-            // 1. Wire non-shifted polys: allocate with offset, add masking at {1,2,3}
-            for (auto& poly : WireNonShiftedEntities<Polynomial>::get_all()) {
-                poly = Polynomial(alloc_size, dyadic_num_rows);
+            // Active trace data occupies the single contiguous range [TRACE_OFFSET, num_rows) -- the union of the
+            // subtable ranges above, with no inactive rows in between -- so it is a tight row-skip prefix: every row
+            // beyond num_rows is relation-trivial. The sumcheck prover takes this directly as its static row-skip
+            // manifest (num_rows already includes the TRACE_OFFSET shift). See
+            // SumcheckProverRound::HAS_STATIC_ROW_SKIP_MANIFEST.
+            row_skip_active_prefix_end = num_rows;
+
+            // 1. Wires backed by their active table range, with virtual zeros beyond that range.
+            for (auto& poly : get_transcript_wires()) {
+                poly = Polynomial(transcript_alloc_size, dyadic_num_rows);
+                poly.add_masking();
+            }
+            for (auto& poly : get_precompute_wires()) {
+                poly = Polynomial(point_table_alloc_size, dyadic_num_rows);
+                poly.add_masking();
+            }
+            for (auto& poly : get_msm_wires()) {
+                poly = Polynomial(msm_alloc_size, dyadic_num_rows);
+                poly.add_masking();
+            }
+            for (auto& poly : get_lookup_read_counts()) {
+                poly = Polynomial(read_counts_alloc_size, dyadic_num_rows);
                 poly.add_masking();
             }
 
-            // 2. Wire to-be-shifted polys: shiftable with masking
-            for (auto& poly : WireToBeShiftedWithoutAccumulatorsEntities<Polynomial>::get_all()) {
-                poly = Polynomial::shiftable(alloc_size, dyadic_num_rows, /*masked=*/true);
+            // 2. To-be-shifted wires retain one leading zero row for their shifted views.
+            for (auto& poly : get_shifted_transcript_wires()) {
+                poly = Polynomial::shiftable(transcript_alloc_size, dyadic_num_rows, /*masked=*/true);
+            }
+            for (auto& poly : get_shifted_precompute_wires()) {
+                poly = Polynomial::shiftable(point_table_alloc_size, dyadic_num_rows, /*masked=*/true);
+            }
+            for (auto& poly : get_shifted_msm_wires()) {
+                poly = Polynomial::shiftable(msm_alloc_size, dyadic_num_rows, /*masked=*/true);
             }
             for (auto& poly : WireToBeShiftedAccumulatorEntities<Polynomial>::get_all()) {
-                poly = Polynomial::shiftable(alloc_size, dyadic_num_rows, /*masked=*/true);
+                poly = Polynomial::shiftable(transcript_alloc_size, dyadic_num_rows, /*masked=*/true);
             }
 
             // 3. z_perm: shiftable with masking (grand product starts after disabled region)
@@ -976,6 +1097,18 @@ class ECCVMFlavor {
             Base::lagrange_third = "__LAGRANGE_THIRD";
             Base::lagrange_last = "__LAGRANGE_LAST";
         };
+
+        // Used in pippenger_unsafe to activate duplicate stripping.
+        // Dups need to be > ~14 bits to be worth stripping.
+        // Empirical tests showed these polys had high duplicate counts under these conditions
+        static bool wire_has_high_duplicate_density(const std::string& label) noexcept
+        {
+            return label == "MSM_X1" || label == "MSM_X2" || label == "MSM_X3" || label == "MSM_X4" ||
+                   label == "MSM_Y1" || label == "MSM_Y2" || label == "MSM_Y3" || label == "MSM_Y4" ||
+                   label == "MSM_ROUND_MINUS_31_INV" || label == "PRECOMPUTE_DX" || label == "PRECOMPUTE_DY" ||
+                   label == "PRECOMPUTE_TX" || label == "PRECOMPUTE_TY" || label == "TRANSCRIPT_ACCUMULATOR_X" ||
+                   label == "TRANSCRIPT_ACCUMULATOR_Y" || label == "TRANSCRIPT_PX" || label == "TRANSCRIPT_PY";
+        }
     };
 
     template <typename Commitment, typename VerificationKey>
@@ -1043,44 +1176,10 @@ class ECCVMFlavor {
         }
     };
 
-    /**
-     * @brief   When evaluating the sumcheck protocol - can we skip evaluation of _all_ relations for a given row? This
-     *          is purely a prover-side optimization.
-     *
-     * @details When used in Chonk, the ECCVM has a large fixed size, which is often not fully utilized.
-     *          If a row is completely empty, the values of `z_perm` and `z_perm_shift` will match,
-     *          we can use this as a proxy to determine if we can skip `Sumcheck::compute_univariate_with_row_skipping`.
-     *          In fact, here are several other conditions that need to be checked to see if we can skip the computation
-     *          of all relations in the row.
-     **/
-    template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates, typename EdgeType>
-    static bool skip_entire_row([[maybe_unused]] const ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
-                                [[maybe_unused]] const EdgeType edge_idx)
+    template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
+    static size_t row_skip_active_prefix_end(const ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials)
     {
-        // SKIP CONDITIONS:
-        // The most important skip condition is that `z_perm == z_perm_shift`. This implies that none of the wire values
-        // for the present input are involved in non-trivial copy constraints. Edge cases where nonzero rows do not
-        // contribute to permutation:
-        //
-        // 1: If `lagrange_last != 0`, the permutation polynomial identity is updated even if
-        //    z_perm == z_perm_shift. Therefore, we must force it to be zero.
-        //
-        // 2: The final MSM row won't add to the permutation but still has polynomial identitiy
-        //    contributions. This is because the permutation argument uses the SHIFTED msm columns when performing
-        //    lookups i.e. `msm_accumulator_x[last_edge_idx]` will change `z_perm[last_edge_idx - 1]` and
-        //    `z_perm_shift[last_edge_idx - 1]`
-        //
-        // 3. The value of `transcript_mul` is non-zero at the end of an MSM of points-at-infinity, which will
-        //    cause `full_msm_count` to be non-zero while `transcript_msm_count` vanishes. We therefore force
-        //    transcript_mul == 0 as a skip-row condition.
-        //
-        // 4: We also force that `transcript_op==0`.
-        return (polynomials.z_perm[edge_idx] == polynomials.z_perm_shift[edge_idx]) &&
-               (polynomials.z_perm[edge_idx + 1] == polynomials.z_perm_shift[edge_idx + 1]) &&
-               (polynomials.lagrange_last[edge_idx] == 0 && polynomials.lagrange_last[edge_idx + 1] == 0) &&
-               (polynomials.msm_transition[edge_idx] == 0 && polynomials.msm_transition[edge_idx + 1] == 0) &&
-               (polynomials.transcript_mul[edge_idx] == 0 && polynomials.transcript_mul[edge_idx + 1] == 0) &&
-               (polynomials.transcript_op[edge_idx] == 0 && polynomials.transcript_op[edge_idx + 1] == 0);
+        return polynomials.row_skip_active_prefix_end;
     }
 };
 } // namespace bb

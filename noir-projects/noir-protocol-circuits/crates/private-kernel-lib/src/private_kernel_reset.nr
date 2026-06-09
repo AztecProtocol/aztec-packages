@@ -134,8 +134,9 @@ pub global ALLOWED_PREVIOUS_CIRCUITS: [u32; 7] = [
 ///
 /// The vk indexes of all the reset variants are allocated after the PRIVATE_KERNEL_RESET_VK_INDEX.
 ///
-/// TODO(https://github.com/AztecProtocol/aztec-packages-private/issues/147): siloing should live in its own component
-/// so it's syntactically obvious it's only invoked from the terminal path.
+/// TODO(https://github.com/AztecProtocol/aztec-packages-private/issues/147): "siloing only runs in
+/// the terminal path" is enforced by static_asserts and runtime branches, not by the type system.
+/// A real simplification needs a type-level Unsiloed/Siloed split. See issue.
 
 pub struct PrivateKernelResetCircuitPrivateInputs<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32, let NullifierPendingReadHintsLen: u32, let NullifierSettledReadHintsLen: u32, let KeyValidationHintsLen: u32, let TransientDataSquashingHintsLen: u32> {
     previous_kernel: PrivateKernelData,

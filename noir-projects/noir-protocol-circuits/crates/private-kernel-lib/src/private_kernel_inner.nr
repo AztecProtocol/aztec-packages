@@ -58,7 +58,7 @@ unconstrained fn generate_output(
 /// - Appends arrays of new nonempty side effects (note hashes, nullifiers, logs, etc.) from the current call to
 ///   the larger, cumulative arrays that are propagated by each kernel iteration.
 /// - Similarly appends any new validation requests (read requests, key validation requests) for later processing.
-/// - Ensures the hints `is_private_only`, `claimed_first_nullifier`, `claimed_revertible_counter` remain consistent.
+/// - Ensures the hints `is_private_only`, `claimed_revertible_counter` remain consistent.
 ///
 /// Each Inner circuit consumes one private call request and may add new ones to the stack.
 /// The output feeds into subsequent Private Kernel Inner circuits if there are more private calls,
