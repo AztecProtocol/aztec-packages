@@ -396,6 +396,32 @@ describe('L2BlockStream', () => {
         { type: 'chain-pruned', block: makeBlockId(25), checkpoint: makeCheckpointId(25) },
       ]);
     });
+
+    // Regression test for the checkpoint-replay storm: pruning to an uncheckpointed block ahead of
+    // the checkpointed tip must not reset the checkpointed cursor, otherwise the next work() replays
+    // every checkpoint from 1 to the source tip.
+    it('does not replay checkpoints after pruning to an uncheckpointed block ahead of the checkpointed tip', async () => {
+      // Sync blocks 1-7: blocks 1-5 are checkpointed (checkpoints 1-5), blocks 6-7 uncheckpointed.
+      setRemoteTips(7, 5);
+      await blockStream.work();
+      const checkpointEventsOnSync = handler.events.filter(e => e.type === 'chain-checkpointed');
+      expect(checkpointEventsOnSync).toHaveLength(5);
+      handler.clearEvents();
+
+      // Source drops its proposed tip to block 6 (uncheckpointed, still ahead of checkpointed=5).
+      // The stream prunes the local proposed tip from 7 back to 6.
+      setRemoteTips(6, 5);
+      await blockStream.work();
+      expect(handler.events).toEqual([
+        { type: 'chain-pruned', block: makeBlockId(6), checkpoint: makeCheckpointId(5) },
+      ]);
+      handler.clearEvents();
+
+      // The next sync must NOT re-emit any chain-checkpointed events: the checkpointed cursor was
+      // left at block 5 / checkpoint 5, so there is nothing to replay.
+      await blockStream.work();
+      expect(handler.events.filter(e => e.type === 'chain-checkpointed')).toEqual([]);
+    });
   });
 
   describe('multiple blocks per checkpoint', () => {

@@ -186,12 +186,16 @@ export abstract class L2TipsStoreBase implements L2BlockStreamEventHandler, L2Bl
       return;
     }
     await this.runInTransaction(async () => {
+      // A prune is a rollback: the proposed tip moves to the prune target unconditionally, but
+      // checkpoint-bearing cursors may only move backward. Forward-advancing them onto an
+      // uncheckpointed block leaves them on a block with no checkpoint mapping, which getCheckpointId
+      // would otherwise resolve to checkpoint zero and drive a replay storm.
       await this.saveTag('proposed', event.block);
-      await this.saveTag('checkpointed', event.block);
-      await this.saveTag('proposedCheckpoint', event.block);
-      const storeProven = await this.getBlockId('proven');
-      if (storeProven.number > event.block.number) {
-        await this.saveTag('proven', event.block);
+      for (const tag of ['checkpointed', 'proposedCheckpoint', 'proven'] as const) {
+        const current = await this.getTip(tag);
+        if (current !== undefined && current > event.block.number) {
+          await this.saveTag(tag, event.block);
+        }
       }
     });
   }
