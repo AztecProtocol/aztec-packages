@@ -76,14 +76,7 @@ impl OffchainReceptionState {
 ///
 /// A `OFFCHAIN_MESSAGE_PROCESSED` fact advances the entity to `processed`; with no such fact the entity is `received`.
 pub unconstrained fn fold(facts: EphemeralArray<Fact>) -> OffchainReceptionState {
-    let mut has_processed = false;
-    let facts_len = facts.len();
-    for i in 0..facts_len {
-        if facts.get(i).fact_type_id == OFFCHAIN_MESSAGE_PROCESSED {
-            has_processed = true;
-        }
-    }
-    if has_processed {
+    if facts.any(|f: Fact| f.fact_type_id == OFFCHAIN_MESSAGE_PROCESSED) {
         OffchainReceptionState::processed()
     } else {
         OffchainReceptionState::received()
