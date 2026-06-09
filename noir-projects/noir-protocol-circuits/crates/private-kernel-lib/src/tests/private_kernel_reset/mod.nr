@@ -254,12 +254,36 @@ impl TestBuilder {
         note_hash: Scoped<Counted<NoteHash>>,
         note_hash_index: u32,
     ) -> Scoped<Counted<NoteHash>> {
-        let siloed_note_hash = self.compute_output_siloed_note_hash(note_hash);
-        uniquify_siloed_note_hash(
-            siloed_note_hash,
-            self.previous_kernel.claimed_first_nullifier,
+        // The note-nonce base is the tx's first *surviving* nullifier. For setups that don't squash
+        // the first nullifier, that is the input's first nullifier.
+        let first_nullifier = self.previous_kernel.nullifiers.get_unchecked(0);
+        self.compute_output_unique_siloed_note_hash_with_first_nullifier(
+            note_hash,
             note_hash_index,
+            first_nullifier,
         )
+    }
+
+    /// Like `compute_output_unique_siloed_note_hash`, but lets a test name the first nullifier
+    /// explicitly. Needed when the input's first nullifier is squashed, so the surviving first
+    /// nullifier (the real note-nonce base, i.e. the output's `end.nullifiers[0]`) is a different one.
+    pub fn compute_output_unique_siloed_note_hash_with_first_nullifier(
+        self,
+        note_hash: Scoped<Counted<NoteHash>>,
+        note_hash_index: u32,
+        first_nullifier: Scoped<Counted<Nullifier>>,
+    ) -> Scoped<Counted<NoteHash>> {
+        let siloed_note_hash = self.compute_output_siloed_note_hash(note_hash);
+        // Mirror the circuit: an empty first nullifier siloes to 0 (see `assert_correctly_siloed_nullifier`).
+        let siloed_first_nullifier = if first_nullifier.contract_address.is_zero() {
+            0
+        } else {
+            compute_siloed_nullifier(
+                first_nullifier.contract_address,
+                first_nullifier.innermost().value,
+            )
+        };
+        uniquify_siloed_note_hash(siloed_note_hash, siloed_first_nullifier, note_hash_index)
     }
 
     pub fn compute_output_nullifiers<let N: u32>(

@@ -200,7 +200,6 @@ impl PrivateKernelCircuitOutputComposer {
             fee_payer,
             expiration_timestamp,
             is_private_only: inputs.is_private_only,
-            claimed_first_nullifier: inputs.first_nullifier_hint,
             claimed_revertible_counter: inputs.revertible_counter_hint,
         };
 
@@ -223,7 +222,6 @@ impl PrivateKernelCircuitOutputComposer {
             fee_payer: previous_kernel.fee_payer,
             expiration_timestamp: previous_kernel.expiration_timestamp,
             is_private_only: previous_kernel.is_private_only,
-            claimed_first_nullifier: previous_kernel.claimed_first_nullifier,
             claimed_revertible_counter: previous_kernel.claimed_revertible_counter,
         };
 

@@ -49,22 +49,12 @@ fn is_not_private_only() {
     let _ = builder.execute();
 }
 
-// --- claimed_first_nullifier ---
+// --- first nullifier ---
 
 #[test(should_fail_with = "TX must create at least one nullifier")]
 fn no_nullifiers() {
     let mut builder = TestBuilder::new();
     builder.previous_kernel.nullifiers = BoundedVec::new();
-    builder.previous_kernel.claimed_first_nullifier = 0;
-    let _ = builder.execute();
-}
-
-#[test(should_fail_with = "First nullifier claim was not satisfied")]
-fn first_nullifier_validation() {
-    let mut builder = TestBuilder::new();
-    let mut first_nullifier = builder.previous_kernel.nullifiers.get(0);
-    first_nullifier.inner.inner.value += 1;
-    builder.previous_kernel.nullifiers.set(0, first_nullifier);
     let _ = builder.execute();
 }
 
