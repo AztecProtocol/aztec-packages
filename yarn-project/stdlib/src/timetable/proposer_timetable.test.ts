@@ -354,3 +354,52 @@ describe('e2e multi-block-per-checkpoint capacity', () => {
     },
   );
 });
+
+describe('ProposerTimetable explicit network maxBlocksPerCheckpoint', () => {
+  // Production profile derives 10 locally achievable blocks.
+  const productionOpts = {
+    l1Constants: l1Constants(72, 12),
+    blockDuration: 6,
+    minBlockDuration: 2,
+    p2pPropagationTime: 2,
+    checkpointProposalPrepareTime: 1,
+  };
+
+  it('uses the network value when below the locally achievable count', () => {
+    const timetable = makeProposerTimetable({ ...productionOpts, maxBlocksPerCheckpoint: 4 });
+    expect(timetable.getMaxBlocksPerCheckpoint()).toBe(4);
+    expect(timetable.locallyAchievableBlocksPerCheckpoint).toBe(10);
+    expect(timetable.isClampedByLocalBudgets()).toBe(false);
+  });
+
+  it('clamps the network value down to the locally achievable count', () => {
+    const timetable = makeProposerTimetable({ ...productionOpts, maxBlocksPerCheckpoint: 20 });
+    expect(timetable.getMaxBlocksPerCheckpoint()).toBe(10);
+    expect(timetable.isClampedByLocalBudgets()).toBe(true);
+  });
+
+  it('keeps every offered sub-slot build deadline within the last block build time when clamped', () => {
+    const timetable = makeProposerTimetable({ ...productionOpts, maxBlocksPerCheckpoint: 20 });
+    const slot = SlotNumber(5);
+    const effective = timetable.getMaxBlocksPerCheckpoint();
+    expect(timetable.getBlockBuildDeadline(slot, effective - 1)).toBeLessThanOrEqual(
+      timetable.getLastBlockBuildTime(slot),
+    );
+  });
+
+  it('uses the locally achievable count when no network value is given', () => {
+    const timetable = makeProposerTimetable(productionOpts);
+    expect(timetable.getMaxBlocksPerCheckpoint()).toBe(10);
+    expect(timetable.isClampedByLocalBudgets()).toBe(false);
+  });
+
+  it('throws when local budgets cannot fit a single block even with an explicit network value', () => {
+    expect(() =>
+      makeProposerTimetable({
+        l1Constants: l1Constants(72, 12),
+        blockDuration: 72,
+        maxBlocksPerCheckpoint: 5,
+      }),
+    ).toThrow(/blocks per checkpoint/);
+  });
+});

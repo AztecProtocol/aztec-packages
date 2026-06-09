@@ -118,6 +118,29 @@ import type {
 } from '../service.js';
 import { P2PInstrumentation } from './instrumentation.js';
 
+/**
+ * Builds the proposer timetable used by both the gossip validators (for receive-window bounds) and
+ * gossipsub topic scoring (for max-blocks-per-checkpoint). Operational budgets come from p2p config,
+ * falling back to the shared stdlib defaults. `checkpointProposalInitTime` is not config-mapped, so the
+ * stdlib default is used here, the same way the sequencer sources it.
+ */
+function buildProposerTimetable(
+  config: P2PConfig,
+  l1Constants: ReturnType<EpochCacheInterface['getL1Constants']>,
+): ProposerTimetable {
+  return new ProposerTimetable({
+    l1Constants,
+    blockDuration: config.blockDurationMs / 1000,
+    minBlockDuration: config.minBlockDuration ?? DEFAULT_MIN_BLOCK_DURATION,
+    p2pPropagationTime: config.attestationPropagationTime ?? DEFAULT_P2P_PROPAGATION_TIME,
+    checkpointProposalPrepareTime: config.checkpointProposalPrepareTime ?? DEFAULT_CHECKPOINT_PROPOSAL_PREPARE_TIME,
+    checkpointProposalInitTime: DEFAULT_CHECKPOINT_PROPOSAL_INIT_TIME,
+    checkpointProposalSyncGrace: config.checkpointProposalSyncGraceSeconds,
+    maxBlocksPerCheckpoint: config.maxBlocksPerCheckpoint,
+  });
+}
+
+
 interface ValidationResult {
   name: string;
   isValid: TxValidationResult;

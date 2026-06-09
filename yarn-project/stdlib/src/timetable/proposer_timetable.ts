@@ -32,8 +32,18 @@ export class ProposerTimetable extends ConsensusTimetable {
   /** Proposer initialization budget (`checkpoint_proposal_init_time`) reserved before the first sub-slot, in seconds. */
   public readonly checkpointProposalInitTime: number;
 
-  /** Maximum number of full-duration block sub-slots derivable from this timing config. */
+  /**
+   * Effective maximum number of block sub-slots per checkpoint: the explicit network value clamped down to
+   * what the local operational budgets can achieve, or the locally achievable count when no network value is
+   * given.
+   */
   public readonly maxBlocksPerCheckpoint: number;
+
+  /** Maximum number of full-duration block sub-slots the local operational budgets can achieve. */
+  public readonly locallyAchievableBlocksPerCheckpoint: number;
+
+  /** Whether the explicit network max blocks per checkpoint was reduced to fit the local operational budgets. */
+  private readonly clampedByLocalBudgets: boolean;
 
   constructor(opts: {
     l1Constants: SlotTimingConstants;
@@ -43,6 +53,8 @@ export class ProposerTimetable extends ConsensusTimetable {
     checkpointProposalPrepareTime: number;
     checkpointProposalInitTime: number;
     checkpointProposalSyncGrace?: number;
+    /** Explicit network max blocks per checkpoint; the effective value is clamped down to the locally achievable count. */
+    maxBlocksPerCheckpoint?: number;
   }) {
     super({
       l1Constants: opts.l1Constants,
@@ -66,13 +78,25 @@ export class ProposerTimetable extends ConsensusTimetable {
     // Clamp min block duration to the block duration so a single sub-slot is always startable.
     this.minBlockDuration = Math.min(budgets.minBlockDuration, this.blockDuration);
 
-    this.maxBlocksPerCheckpoint = this.computeMaxBlocksPerCheckpoint();
+    this.locallyAchievableBlocksPerCheckpoint = this.computeMaxBlocksPerCheckpoint();
+    this.clampedByLocalBudgets =
+      opts.maxBlocksPerCheckpoint !== undefined &&
+      opts.maxBlocksPerCheckpoint > this.locallyAchievableBlocksPerCheckpoint;
+    this.maxBlocksPerCheckpoint =
+      opts.maxBlocksPerCheckpoint !== undefined
+        ? Math.min(opts.maxBlocksPerCheckpoint, this.locallyAchievableBlocksPerCheckpoint)
+        : this.locallyAchievableBlocksPerCheckpoint;
     if (this.maxBlocksPerCheckpoint < 1) {
       throw new Error(
         `Invalid timing configuration: derived ${this.maxBlocksPerCheckpoint} blocks per checkpoint for ` +
           `slot duration ${this.aztecSlotDuration}s and block duration ${this.blockDuration}s.`,
       );
     }
+  }
+
+  /** Whether the explicit network max blocks per checkpoint was clamped down by the local operational budgets. */
+  public isClampedByLocalBudgets(): boolean {
+    return this.clampedByLocalBudgets;
   }
 
   /**

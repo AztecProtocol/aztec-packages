@@ -1,4 +1,6 @@
 import { type NetworkConfig, NetworkConfigMapSchema, type NetworkNames } from '@aztec/foundation/config';
+import { createLogger } from '@aztec/foundation/log';
+import { applyNetworkConsensusConfigToEnv } from '@aztec/stdlib/config';
 
 import { readFile } from 'fs/promises';
 import { join } from 'path';
@@ -116,6 +118,12 @@ async function fetchNetworkConfigFromUrl(
  * Does not throw if the network simply doesn't exist in the config - just returns without enriching
  */
 export async function enrichEnvironmentWithNetworkConfig(networkName: NetworkNames) {
+  // Apply in-code consensus presets first so they are authoritative for consensus-critical vars. This throws
+  // if an operator env override conflicts with the preset (unless ALLOW_OVERRIDING_NETWORK_CONFIG is set), and
+  // makes the remote JSON's enrichVar calls below no-op for vars the preset already populated.
+  const log = createLogger('cli:network_config');
+  applyNetworkConsensusConfigToEnv(networkName, process.env, msg => log.warn(msg));
+
   if (networkName === 'local') {
     return; // No remote config for local development
   }

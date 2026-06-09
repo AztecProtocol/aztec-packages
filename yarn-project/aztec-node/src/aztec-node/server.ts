@@ -18,6 +18,7 @@ import {
   SlotNumber,
 } from '@aztec/foundation/branded-types';
 import { chunkBy, compactArray, pick, unique } from '@aztec/foundation/collection';
+import { getActiveNetworkName } from '@aztec/foundation/config';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { BadRequestError } from '@aztec/foundation/json-rpc';
@@ -80,6 +81,14 @@ import {
   L1PublishedData,
   type PublishedCheckpoint,
 } from '@aztec/stdlib/checkpoint';
+import {
+  DEFAULT_MAX_BLOCKS_PER_CHECKPOINT,
+  MIN_PER_BLOCK_ALLOCATION_MULTIPLIER,
+  MIN_PER_BLOCK_DA_ALLOCATION_MULTIPLIER,
+  type NetworkConsensusConfig,
+  getNetworkConsensusConfig,
+  validateNetworkConsensusConfig,
+} from '@aztec/stdlib/config';
 import type {
   ContractClassPublic,
   ContractDataSource,
@@ -623,6 +632,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
           : 2 * DEFAULT_MIN_BLOCK_DURATION;
       config.skipOrphanProposedBlockPruning ||= !!config.useAutomineSequencer;
 
+      AztecNodeService.validateConsensusConfig(config, Number(slotDuration), log);
+
       // Create world-state first so we can retrieve the initial header before constructing the archiver.
       const nativeWs = await createWorldState(config, options.genesis);
       const initialHeader = nativeWs.getInitialHeader();
@@ -1050,6 +1061,48 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
         await tryStop(resource);
       }
       throw err;
+    }
+  }
+
+  /**
+   * Validates the consensus-critical configuration against the rollup contract and (when a known network is
+   * selected) its in-code preset. Throws on hard inconsistencies, warns on suspicious or unachievable values.
+   * Runs for every node role since it sits in the shared startup path.
+   */
+  private static validateConsensusConfig(config: AztecNodeConfig, slotDuration: number, log: Logger): void {
+    const consensusConfig: NetworkConsensusConfig = {
+      aztecSlotDuration: slotDuration,
+      ethereumSlotDuration: config.ethereumSlotDuration,
+      blockDurationMs: config.blockDurationMs,
+      maxBlocksPerCheckpoint: config.maxBlocksPerCheckpoint ?? DEFAULT_MAX_BLOCKS_PER_CHECKPOINT,
+      checkpointProposalSyncGraceSeconds: config.checkpointProposalSyncGraceSeconds!,
+      minPerBlockAllocationMultiplier: MIN_PER_BLOCK_ALLOCATION_MULTIPLIER,
+      minPerBlockDAAllocationMultiplier: MIN_PER_BLOCK_DA_ALLOCATION_MULTIPLIER,
+    };
+
+    const { errors, warnings } = validateNetworkConsensusConfig(consensusConfig);
+    for (const warning of warnings) {
+      log.warn(`Consensus config warning: ${warning}`, { warning });
+    }
+    if (errors.length > 0) {
+      throw new Error(`Invalid consensus configuration: ${errors.join('; ')}`);
+    }
+
+    const networkName = getActiveNetworkName();
+    const preset = getNetworkConsensusConfig(networkName);
+    if (preset && preset.aztecSlotDuration !== slotDuration) {
+      const message =
+        `Network ${networkName} preset expects aztecSlotDuration ${preset.aztecSlotDuration}s but the rollup ` +
+        `contract reports ${slotDuration}s. This usually means a stale preset or a node pointed at the wrong ` +
+        `rollup. Set ALLOW_OVERRIDING_NETWORK_CONFIG=1 to override.`;
+      if (
+        process.env.ALLOW_OVERRIDING_NETWORK_CONFIG === '1' ||
+        process.env.ALLOW_OVERRIDING_NETWORK_CONFIG === 'true'
+      ) {
+        log.warn(message, { networkName, presetSlotDuration: preset.aztecSlotDuration, slotDuration });
+      } else {
+        throw new Error(message);
+      }
     }
   }
 

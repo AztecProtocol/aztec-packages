@@ -19,7 +19,7 @@ import type {
   ValidateCheckpointResult,
 } from '@aztec/stdlib/block';
 import type { Checkpoint, ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
-import type { ChainConfig } from '@aztec/stdlib/config';
+import { type ChainConfig, MIN_PER_BLOCK_ALLOCATION_MULTIPLIER } from '@aztec/stdlib/config';
 import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import {
   MIN_PER_BLOCK_ALLOCATION_MULTIPLIER,
@@ -198,11 +198,11 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       maxNumberOfBlocks,
     });
 
-    if (maxNumberOfBlocks < 1) {
-      throw new Error(
-        `Invalid timing configuration: derived ${maxNumberOfBlocks} blocks per checkpoint for slot duration ` +
-          `${timetable.aztecSlotDuration}s and block duration ${timetable.blockDuration}s.`,
-      );
+    if (timetable.isClampedByLocalBudgets()) {
+      this.log.warn(`Network maxBlocksPerCheckpoint clamped down by local operational budgets`, {
+        networkMaxBlocksPerCheckpoint: this.config.maxBlocksPerCheckpoint,
+        locallyAchievableBlocksPerCheckpoint: timetable.locallyAchievableBlocksPerCheckpoint,
+      });
     }
 
     this.assertConfigMeetsNetworkTxLimits(config, maxNumberOfBlocks);
