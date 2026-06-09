@@ -1,8 +1,11 @@
 use crate::{
     messages::encoding::MESSAGE_CIPHERTEXT_LEN,
     oracle::entity_store::EntityBody,
-    protocol::{address::AztecAddress, hash::poseidon2_hash, traits::{Deserialize, Serialize}},
+    protocol::{address::AztecAddress, hash::{poseidon2_hash, sha256_to_field}, traits::{Deserialize, Serialize}},
 };
+
+/// Entity type id shared by every offchain message reception entity in the entity store.
+pub(crate) global OFFCHAIN_RECEPTION_ENTITY: Field = sha256_to_field("AZTEC_NR::OFFCHAIN_RECEPTION_ENTITY".as_bytes());
 
 /// A message delivered via the `offchain_receive` utility function.
 #[derive(Serialize, Deserialize)]
@@ -26,7 +29,7 @@ global SERIALIZED_CIPHERTEXT_LEN: u32 = MESSAGE_CIPHERTEXT_LEN + 1;
 impl EntityBody for OffchainMessage {
     /// All offchain messages share the reception state-machine entity type.
     fn entity_type_id() -> Field {
-        super::OFFCHAIN_RECEPTION_ENTITY
+        OFFCHAIN_RECEPTION_ENTITY
     }
 
     /// Computes the entity id that identifies this message's reception entity in the entity store.

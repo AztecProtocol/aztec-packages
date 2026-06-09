@@ -17,13 +17,11 @@ use crate::{
 /// Maximum number of offchain messages accepted by `offchain_receive` in a single call.
 pub global MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL: u32 = 16;
 
-/// Tolerance added to the `MAX_TX_LIFETIME` cap for message expiration.
-global TX_EXPIRATION_TOLERANCE: u64 = 7200; // 2 hours
-
 /// Maximum time-to-live for a tx-bound offchain message.
 ///
 /// After `anchor_block_timestamp + MAX_MSG_TTL`, the message is evicted from the inbox.
-global MAX_MSG_TTL: u64 = MAX_TX_LIFETIME + TX_EXPIRATION_TOLERANCE;
+/// (7200 == 2 hours)
+global MAX_MSG_TTL: u64 = MAX_TX_LIFETIME + 7200;
 
 /// A function that manages offchain-delivered messages for processing during sync.
 ///
@@ -43,10 +41,6 @@ pub type OffchainInboxSync = unconstrained fn(
 /* contract_address */AztecAddress, /* scope */ AztecAddress) -> EphemeralArray<OffchainMessageWithContext>;
 
 // ===================== EntityStore data model =====================
-
-/// Entity type id for the offchain reception state machine.
-pub(crate) global OFFCHAIN_RECEPTION_ENTITY: Field =
-    sha256_to_field("AZTEC_NR::OFFCHAIN_RECEPTION_ENTITY_TYPE".as_bytes());
 
 /// Fact type id for a processed offchain message (retractable; anchored at processing block).
 global OFFCHAIN_MESSAGE_PROCESSED: Field = sha256_to_field("AZTEC_NR::OFFCHAIN_MESSAGE_PROCESSED".as_bytes());
@@ -190,8 +184,8 @@ mod test {
         test::helpers::test_environment::TestEnvironment,
     };
     use super::{
-        MAX_MSG_TTL, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL, OFFCHAIN_MESSAGE_PROCESSED, OFFCHAIN_RECEPTION_ENTITY,
-        OffchainMessage, OffchainReceptionState, receive, state, sync_inbox,
+        MAX_MSG_TTL, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL, OFFCHAIN_MESSAGE_PROCESSED, OffchainMessage,
+        OffchainReceptionState, receive, state, sync_inbox,
     };
 
     global TEST_FACTS_SLOT: Field = 0xfac75;
@@ -241,7 +235,7 @@ mod test {
 
     /// Computes the state of the reception entity with the given entity id.
     unconstrained fn state_of(c: AztecAddress, s: AztecAddress, key: Field) -> OffchainReceptionState {
-        let facts = get_entity::<OffchainMessage>(c, s, OFFCHAIN_RECEPTION_ENTITY, key).facts;
+        let facts = get_entity::<OffchainMessage>(c, s, OffchainMessage::entity_type_id(), key).facts;
         state(reception_with_facts(facts))
     }
 
@@ -259,7 +253,7 @@ mod test {
             let key = msg.entity_id();
             assert(is_active(address, scope, key), "created entity should be active");
 
-            let stored = get_entity::<OffchainMessage>(address, scope, OFFCHAIN_RECEPTION_ENTITY, key);
+            let stored = get_entity::<OffchainMessage>(address, scope, OffchainMessage::entity_type_id(), key);
             assert_eq(stored.payload.tx_hash, msg.tx_hash);
             assert_eq(stored.payload.anchor_block_timestamp, msg.anchor_block_timestamp);
         });
@@ -284,7 +278,7 @@ mod test {
             assert_eq(active.len(), 1);
             assert_eq(active.get(0).body.entity_id(), key);
 
-            let stored = get_entity::<OffchainMessage>(address, scope, OFFCHAIN_RECEPTION_ENTITY, key);
+            let stored = get_entity::<OffchainMessage>(address, scope, OffchainMessage::entity_type_id(), key);
             assert_eq(stored.payload.tx_hash, msg.tx_hash);
             assert_eq(stored.payload.anchor_block_timestamp, msg.anchor_block_timestamp);
         });
