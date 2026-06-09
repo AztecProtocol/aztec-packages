@@ -1,3 +1,4 @@
+export * from './legacy_node_rpc_namespaces.js';
 export * from './aztec-node.js';
 export * from './aztec-node-admin.js';
 export * from './aztec-node-debug.js';

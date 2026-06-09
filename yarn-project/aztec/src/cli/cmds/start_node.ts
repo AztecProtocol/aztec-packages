@@ -16,7 +16,7 @@ import {
 } from '@aztec/prover-client/broker';
 import { type CliPXEOptions, type PXEConfig, allPxeConfigMappings } from '@aztec/pxe/config';
 import { AztecNodeAdminApiSchema, AztecNodeApiSchema } from '@aztec/stdlib/interfaces/client';
-import { ProverNodeApiSchema, type ProvingJobBroker } from '@aztec/stdlib/interfaces/server';
+import { P2PApiSchema, ProverNodeApiSchema, type ProvingJobBroker } from '@aztec/stdlib/interfaces/server';
 import {
   type TelemetryClientConfig,
   initTelemetryClient,
@@ -156,8 +156,9 @@ export async function startNode(
   // Create and start Aztec Node
   const node = await createAztecNode(nodeConfig, { telemetry, proverBroker: broker }, { genesis });
 
-  // Add node to services list
   services.aztec = [node, AztecNodeApiSchema];
+  // TODO: Legacy support. New namespaces introduced in v5. Remove on future release. A-1169
+  services.p2p = [node.getP2P(), P2PApiSchema];
   adminServices.aztecAdmin = [node, AztecNodeAdminApiSchema];
 
   // Register prover-node services if the prover node subsystem is running

@@ -7,7 +7,13 @@ import {
 } from '@aztec/foundation/json-rpc/server';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import type { ChainConfig } from '@aztec/stdlib/config';
-import { AztecNodeAdminApiSchema, AztecNodeApiSchema, AztecNodeDebugApiSchema } from '@aztec/stdlib/interfaces/client';
+import {
+  AztecNodeAdminApiSchema,
+  AztecNodeApiSchema,
+  AztecNodeDebugApiSchema,
+  addLegacyNodeRpcNamespaces,
+} from '@aztec/stdlib/interfaces/client';
+import { P2PApiSchema } from '@aztec/stdlib/interfaces/server';
 import { getPackageVersion } from '@aztec/stdlib/update-checker';
 import { getVersioningMiddleware } from '@aztec/stdlib/versioning';
 import { getOtelJsonRpcDiagnosticsMiddleware, getOtelJsonRpcPropagationMiddleware } from '@aztec/telemetry-client';
@@ -49,6 +55,7 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
     // Start Node and PXE JSON-RPC server
     signalHandlers.push(stop);
     services.aztec = [node, AztecNodeApiSchema];
+    services.p2p = [node.getP2P(), P2PApiSchema];
     adminServices.aztecAdmin = [node, AztecNodeAdminApiSchema];
     services.aztecDebug = [node, AztecNodeDebugApiSchema];
   } else {
@@ -91,6 +98,8 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
   installSignalHandlers(debugLogger.info, signalHandlers);
   const versions = getVersions(config);
   const versioningOpts = { packageVersion };
+
+  addLegacyNodeRpcNamespaces(services, adminServices);
 
   // Start the main JSON-RPC server
   if (Object.entries(services).length > 0) {
