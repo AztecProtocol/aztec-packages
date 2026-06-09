@@ -1,3 +1,7 @@
+import { execFileSync } from 'node:child_process';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import { PassThrough } from 'node:stream';
 
 import { FifoFrameReader } from './fifo_frame_reader.js';
@@ -205,5 +209,29 @@ describe('FifoFrameReader', () => {
     expect(frames[0].length).toBe(1024 * 1024);
     expect(frames[0][0]).toBe(0x42);
     reader.stop();
+  });
+
+  it('reads frames from a real named FIFO via start()', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fifo-reader-test-'));
+    const fifoPath = path.join(dir, 'results.fifo');
+    execFileSync('mkfifo', [fifoPath]);
+
+    const reader = new FifoFrameReader();
+    reader.start(fifoPath);
+
+    // Open a writer that outlives stop(), mimicking a native process that survives teardown. The
+    // reader must still release its handle so the host process can exit (covered by start() using a
+    // non-blocking pipe handle rather than a blocking fs read).
+    const writeFd = fs.openSync(fifoPath, fs.constants.O_WRONLY);
+    try {
+      const framesPromise = collectFrames(reader, 2);
+      fs.writeSync(writeFd, Buffer.concat([buildFrame(Buffer.from('one')), buildFrame(Buffer.from('two'))]));
+      const frames = await framesPromise;
+      expect(frames.map(f => f.toString())).toEqual(['one', 'two']);
+    } finally {
+      reader.stop();
+      fs.closeSync(writeFd);
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

@@ -18,11 +18,6 @@ unconstrained fn generate_tail_output(
 
 /// Composes and validates rollup-bound terminal public inputs. The caller must recursively verify the
 /// predecessor and run `validate_previous_kernel_for_tail`.
-///
-/// TODO(https://github.com/AztecProtocol/aztec-packages-private/issues/147): this generates a fresh tail
-/// output even though `execute_as_terminal` already produced an output inside the same circuit, and runs
-/// validation that partially overlaps with `reset_output_validator.nr`. Fold the two output composers
-/// together and dedupe the validation.
 pub(crate) fn tail_finalize(
     previous_kernel_public_inputs: PrivateKernelCircuitPublicInputs,
     expiration_timestamp_upper_bound: u64,

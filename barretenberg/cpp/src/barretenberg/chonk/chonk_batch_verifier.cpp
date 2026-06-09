@@ -5,6 +5,7 @@
 #include "barretenberg/commitment_schemes/verification_key.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/thread.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
 
 namespace bb {
@@ -14,11 +15,20 @@ void ChonkBatchVerifier::start(std::vector<std::shared_ptr<MegaZKFlavor::VKAndHa
                                uint32_t batch_size,
                                ResultCallback on_result)
 {
-    vks_ = std::move(vks);
-    num_cores_ = std::max(1u, num_cores);
-    batch_size_ = std::max(1u, batch_size);
-    on_result_ = std::move(on_result);
-    shutdown_ = false;
+    {
+        std::lock_guard lock(mutex_);
+        if (running_ || stopping_) {
+            throw_or_abort("ChonkBatchVerifier: already started");
+        }
+        vks_ = std::move(vks);
+        num_cores_ = std::max(1u, num_cores);
+        batch_size_ = std::max(1u, batch_size);
+        on_result_ = std::move(on_result);
+        queue_.clear();
+        in_flight_ids_.clear();
+        shutdown_ = false;
+        running_ = true;
+    }
 
     coordinator_thread_ = std::thread([this]() { coordinator_loop(); });
     info("ChonkBatchVerifier started with ", num_cores_, " cores, batch_size=", batch_size_);
@@ -26,32 +36,109 @@ void ChonkBatchVerifier::start(std::vector<std::shared_ptr<MegaZKFlavor::VKAndHa
 
 void ChonkBatchVerifier::enqueue(VerifyRequest request)
 {
+    VerifyResult failure;
+    bool has_failure = false;
     {
         std::lock_guard lock(mutex_);
+        if (!running_ || shutdown_) {
+            throw_or_abort("ChonkBatchVerifier: enqueue called while verifier is not running");
+        }
+        if (in_flight_ids_.contains(request.request_id)) {
+            throw_or_abort("ChonkBatchVerifier: duplicate request_id: " + std::to_string(request.request_id));
+        }
+        if (queue_.size() >= MAX_QUEUE_SIZE) {
+            throw_or_abort("ChonkBatchVerifier: queue is full");
+        }
+
         request.enqueue_time = std::chrono::steady_clock::now();
-        queue_.push_back(std::move(request));
+        in_flight_ids_.insert(request.request_id);
+
+        if (request.vk_index >= vks_.size()) {
+            failure = VerifyResult::failed(request.request_id, "invalid vk_index: " + std::to_string(request.vk_index));
+            has_failure = true;
+        } else if (vks_[request.vk_index] == nullptr || vks_[request.vk_index]->vk == nullptr) {
+            failure = VerifyResult::failed(request.request_id, "missing verification key");
+            has_failure = true;
+        } else {
+            const size_t expected_proof_size = static_cast<size_t>(vks_[request.vk_index]->vk->num_public_inputs) +
+                                               ChonkProof::PROOF_LENGTH_WITHOUT_PUB_INPUTS;
+            if (request.proof.size() != expected_proof_size) {
+                failure = VerifyResult::failed(request.request_id,
+                                               "proof has wrong size: expected " + std::to_string(expected_proof_size) +
+                                                   ", got " + std::to_string(request.proof.size()));
+                has_failure = true;
+            } else {
+                queue_.push_back(std::move(request));
+            }
+        }
     }
-    cv_.notify_one();
+    if (has_failure) {
+        dispatch(std::move(failure));
+    } else {
+        cv_.notify_one();
+    }
 }
 
 void ChonkBatchVerifier::stop()
 {
+    std::thread coordinator_thread;
     {
-        std::lock_guard lock(mutex_);
+        std::unique_lock lock(mutex_);
+        if (stopping_) {
+            stopped_cv_.wait(lock, [this] { return !stopping_; });
+            return;
+        }
+        if (!running_ && !coordinator_thread_.joinable()) {
+            return;
+        }
+        stopping_ = true;
         shutdown_ = true;
+        if (coordinator_thread_.joinable()) {
+            coordinator_thread = std::move(coordinator_thread_);
+        }
     }
     cv_.notify_one();
-    if (coordinator_thread_.joinable()) {
-        coordinator_thread_.join();
+    if (coordinator_thread.joinable()) {
+        coordinator_thread.join();
     }
+    {
+        std::lock_guard lock(mutex_);
+        running_ = false;
+        queue_.clear();
+        in_flight_ids_.clear();
+        stopping_ = false;
+    }
+    stopped_cv_.notify_all();
     info("ChonkBatchVerifier stopped");
 }
 
 ChonkBatchVerifier::~ChonkBatchVerifier()
 {
-    if (!shutdown_) {
+    bool should_stop = false;
+    {
+        std::lock_guard lock(mutex_);
+        should_stop = running_ || coordinator_thread_.joinable() || stopping_;
+    }
+    if (should_stop) {
         stop();
     }
+}
+
+void ChonkBatchVerifier::dispatch(VerifyResult result)
+{
+    const uint64_t request_id = result.request_id;
+    try {
+        // Result delivery owns the request id until the callback completes.
+        if (on_result_) {
+            on_result_(std::move(result));
+        }
+    } catch (const std::exception& e) {
+        info("ChonkBatchVerifier: result callback threw: ", e.what());
+    } catch (...) {
+        info("ChonkBatchVerifier: result callback threw unknown exception");
+    }
+    std::lock_guard lock(mutex_);
+    in_flight_ids_.erase(request_id);
 }
 
 void ChonkBatchVerifier::coordinator_loop()
@@ -82,17 +169,7 @@ void ChonkBatchVerifier::coordinator_loop()
                 continue;
             }
 
-            // Filter invalid-VK requests before releasing the lock
-            auto it = batch.begin();
-            while (it != batch.end()) {
-                if (it->vk_index >= vks_.size()) {
-                    on_result_(
-                        VerifyResult::failed(it->request_id, "invalid vk_index: " + std::to_string(it->vk_index)));
-                    it = batch.erase(it);
-                } else {
-                    ++it;
-                }
-            }
+            // Invalid VK indices and malformed proof sizes are rejected at enqueue time.
         }
 
         if (batch.empty()) {
@@ -112,7 +189,7 @@ void ChonkBatchVerifier::coordinator_loop()
                 auto result = VerifyResult::failed(rr.request_id, rr.error_message);
                 result.time_in_queue_ms = ms_between(rr.enqueue_time, reduce_start);
                 result.time_in_verify_ms = rr.reduce_ms;
-                on_result_(std::move(result));
+                dispatch(std::move(result));
             } else {
                 passed_indices.push_back(i);
             }
@@ -184,6 +261,8 @@ std::vector<ChonkBatchVerifier::ReduceResult> ChonkBatchVerifier::parallel_reduc
                 } catch (const std::exception& e) {
                     results[idx] = ReduceResult{
                         .request_id = req.request_id,
+                        .ipa_claim = {},
+                        .ipa_proof = {},
                         .all_checks_passed = false,
                         .error_message = std::string("reduce_to_ipa_claim threw: ") + e.what(),
                         .enqueue_time = req.enqueue_time,
@@ -192,6 +271,8 @@ std::vector<ChonkBatchVerifier::ReduceResult> ChonkBatchVerifier::parallel_reduc
                 } catch (...) {
                     results[idx] = ReduceResult{
                         .request_id = req.request_id,
+                        .ipa_claim = {},
+                        .ipa_proof = {},
                         .all_checks_passed = false,
                         .error_message = "reduce_to_ipa_claim threw unknown exception",
                         .enqueue_time = req.enqueue_time,
@@ -247,7 +328,7 @@ void ChonkBatchVerifier::bisect(std::vector<ReduceResult>& results,
         result.time_in_queue_ms = ms_between(rr.enqueue_time, std::chrono::steady_clock::now());
         result.time_in_verify_ms = rr.reduce_ms;
         result.batch_failure_count = depth + 1;
-        on_result_(std::move(result));
+        dispatch(std::move(result));
         return;
     }
 
@@ -290,9 +371,10 @@ void ChonkBatchVerifier::emit_ok(const std::vector<ReduceResult>& results,
 {
     for (size_t idx : indices) {
         auto& rr = results[idx];
-        on_result_(VerifyResult{
+        dispatch(VerifyResult{
             .request_id = rr.request_id,
             .status = static_cast<uint8_t>(VerifyStatus::OK),
+            .error_message = "",
             .time_in_queue_ms = ms_between(rr.enqueue_time, reduce_start),
             .time_in_verify_ms = rr.reduce_ms + ipa_ms,
             .batch_failure_count = depth,

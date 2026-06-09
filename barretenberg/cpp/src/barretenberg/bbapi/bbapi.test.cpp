@@ -117,6 +117,24 @@ TEST(BBApiInputValidation, VkWithCorrectSizeAccepted)
     EXPECT_NO_THROW(bbapi::validate_vk_size<VK>(good_vk));
 }
 
+TEST(BBApiInputValidation, ChonkVerifyWrongVkSizeReturnsInvalid)
+{
+    auto response = bbapi::ChonkVerify{ .proof = {}, .vk = { 0 } }.execute();
+    EXPECT_FALSE(response.valid);
+}
+
+TEST(BBApiInputValidation, ChonkVerifyFromFieldsWrongVkSizeReturnsInvalid)
+{
+    auto response = bbapi::ChonkVerifyFromFields{ .proof = {}, .vk = { 0 } }.execute();
+    EXPECT_FALSE(response.valid);
+}
+
+TEST(BBApiInputValidation, ChonkBatchVerifyWrongVkSizeReturnsInvalid)
+{
+    auto response = bbapi::ChonkBatchVerify{ .proofs = { ChonkProof{} }, .vks = { { 0 } } }.execute();
+    EXPECT_FALSE(response.valid);
+}
+
 // Helper: pack a vector of PrivateExecutionStepRaw into a byte buffer via msgpack.
 namespace {
 std::vector<uint8_t> pack_steps(const std::vector<PrivateExecutionStepRaw>& steps)

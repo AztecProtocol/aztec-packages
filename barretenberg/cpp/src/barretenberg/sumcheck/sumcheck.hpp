@@ -676,6 +676,15 @@ template <typename Flavor> class SumcheckProver {
             }
             dest_view[j].shrink_end_index((limit / 2) + (limit % 2));
         });
+        // Halve the active-row prefix to track the folded trace; the loop above leaves the member untouched, so this
+        // reads the pre-round value even when source and dest alias (see partially_evaluate_in_place).
+        if constexpr (requires {
+                          source_polynomials.row_skip_active_prefix_end;
+                          dest_polynomials.row_skip_active_prefix_end;
+                      }) {
+            dest_polynomials.row_skip_active_prefix_end = (source_polynomials.row_skip_active_prefix_end / 2) +
+                                                          (source_polynomials.row_skip_active_prefix_end % 2);
+        }
     };
 
     /**

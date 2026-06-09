@@ -17,7 +17,6 @@ use types::{
         nullifier::Nullifier, private_log::PrivateLogData,
         validation_requests::PrivateValidationRequests,
     },
-    address::AztecAddress,
     constants::{
         MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
         MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_LOGS_PER_TX,
@@ -31,23 +30,10 @@ use types::{
     utils::arrays::ClaimedLengthArray,
 };
 
-// TODO(https://github.com/AztecProtocol/aztec-packages-private/issues/147): the
-// "contract_address == 0 means already siloed" convention used by `silo_note_hash`,
-// `silo_nullifier`, and `silo_private_log` below (and read by `reset_output_validator.nr` when it
-// branches on `contract_address.is_zero()`) was needed when an inner reset could feed siloed
-// values into a later reset. Siloing now only runs in the terminal reset path, so the input to
-// these functions is always un-siloed and the is_zero() branch in the validator is dead. Drop the
-// convention and the branch together.
 pub fn silo_note_hash(note_hash: Scoped<Counted<NoteHash>>) -> Scoped<Counted<NoteHash>> {
     let mut siloed = note_hash;
     siloed.inner.inner =
         compute_siloed_note_hash(note_hash.contract_address, note_hash.innermost());
-
-    // We set the contract address to zero to indicate that the note hash has been siloed.
-    // The reset output validator will check the contract address of the first note hash to ensure that siloing has not
-    // been performed in a previous reset.
-    siloed.contract_address = AztecAddress::zero();
-
     siloed
 }
 
@@ -69,12 +55,6 @@ pub fn silo_nullifier(nullifier: Scoped<Counted<Nullifier>>) -> Scoped<Counted<N
     let mut siloed = nullifier;
     siloed.inner.inner.value =
         compute_siloed_nullifier(nullifier.contract_address, nullifier.innermost().value);
-
-    // We set the contract address to zero to indicate that the nullifier has been siloed.
-    // The reset output validator will check the contract address of the first nullifier to ensure that siloing has not
-    // been performed in a previous reset.
-    siloed.contract_address = AztecAddress::zero();
-
     siloed
 }
 
@@ -84,12 +64,6 @@ pub fn silo_private_log(
     let mut siloed = private_log;
     siloed.inner.inner.log =
         compute_siloed_private_log(private_log.contract_address, private_log.innermost().log);
-
-    // We set the contract address to zero to indicate that the private log has been siloed.
-    // The reset output validator will check the contract address of the first private log to ensure that siloing has not
-    // been performed in a previous reset.
-    siloed.contract_address = AztecAddress::zero();
-
     siloed
 }
 
@@ -142,18 +116,23 @@ impl ResetOutputComposer {
         // "Siloing" is the act of hashing the side-effect with the contract_address which emitted
         // it, effectively "siloing" one contract's state and logs from another's, to prevent
         // cross-contamination.
-        output.end.note_hashes = if NoteHashSiloingAmount == 0 {
-            // Some transient note_hashes have been removed (squashed).
-            self.squashed_output_array_hints.kept_note_hashes
-        } else {
-            self.get_padded_unique_siloed_sorted_kept_note_hashes::<NoteHashSiloingAmount>()
-        };
-
         output.end.nullifiers = if NullifierSiloingAmount == 0 {
             // Some transient nullifiers have been removed (squashed).
             self.squashed_output_array_hints.kept_nullifiers
         } else {
             self.get_padded_siloed_sorted_kept_nullifiers::<NullifierSiloingAmount>()
+        };
+
+        // Compute note hashes after nullifiers: uniquifying a note hash uses the tx's first
+        // nullifier (`end.nullifiers[0]`) as the note-nonce base, taken from the settled (squashed,
+        // sorted, siloed) nullifier output. See `get_padded_unique_siloed_sorted_kept_note_hashes`.
+        output.end.note_hashes = if NoteHashSiloingAmount == 0 {
+            // Some transient note_hashes have been removed (squashed).
+            self.squashed_output_array_hints.kept_note_hashes
+        } else {
+            self.get_padded_unique_siloed_sorted_kept_note_hashes::<NoteHashSiloingAmount>(
+                output.end.nullifiers,
+            )
         };
 
         output.end.private_logs = if PrivateLogSiloingAmount == 0 {
@@ -195,6 +174,7 @@ impl ResetOutputComposer {
 
     unconstrained fn get_padded_unique_siloed_sorted_kept_note_hashes<let NoteHashSiloingAmount: u32>(
         self,
+        siloed_nullifiers: ClaimedLengthArray<Scoped<Counted<Nullifier>>, MAX_NULLIFIERS_PER_TX>,
     ) -> ClaimedLengthArray<Scoped<Counted<NoteHash>>, MAX_NOTE_HASHES_PER_TX> {
         // Sort:
         let sorted_kept_note_hashes = ClaimedLengthArray {
@@ -214,6 +194,13 @@ impl ResetOutputComposer {
         );
 
         let mut padded_unique_siloed_sorted_kept_note_hashes = sorted_kept_note_hashes;
+
+        // The note-nonce base is the tx's first nullifier: `end.nullifiers[0]` of the settled
+        // (squashed, sorted, siloed) output, passed in here. It must be a surviving nullifier - only
+        // survivors are inserted into the nullifier tree, where uniqueness is enforced - so deriving
+        // the nonce from it makes the resulting note hashes globally unique (preventing Faerie-Gold).
+        // The tail circuit guarantees at least one nullifier survives, so this is always present.
+        let siloed_first_nullifier = siloed_nullifiers.array[0].innermost().value;
 
         for i in 0..num_kept_note_hashes + num_padded_items {
             // Push padding:
@@ -240,11 +227,8 @@ impl ResetOutputComposer {
             let siloed_note_hash = silo_note_hash(note_hash);
 
             // Unique:
-            let unique_siloed_note_hash = uniquify_siloed_note_hash(
-                siloed_note_hash,
-                self.previous_kernel.claimed_first_nullifier,
-                i,
-            );
+            let unique_siloed_note_hash =
+                uniquify_siloed_note_hash(siloed_note_hash, siloed_first_nullifier, i);
 
             // We don't silo revertible note hashes with a note_nonce, since we don't know their final position in the tx.
             //

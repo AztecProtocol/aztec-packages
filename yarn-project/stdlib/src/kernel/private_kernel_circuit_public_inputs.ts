@@ -47,10 +47,6 @@ export class PrivateKernelCircuitPublicInputs {
      */
     public isPrivateOnly: boolean,
     /**
-     * The nullifier that will be used for nonce generation
-     */
-    public claimedFirstNullifier: Fr,
-    /**
      * A claim to the final min revertible side effect counter of a tx.
      */
     public claimedRevertibleCounter: number,
@@ -74,7 +70,6 @@ export class PrivateKernelCircuitPublicInputs {
       this.feePayer,
       bigintToUInt64BE(this.expirationTimestamp),
       this.isPrivateOnly,
-      this.claimedFirstNullifier,
       this.claimedRevertibleCounter,
     );
   }
@@ -95,7 +90,6 @@ export class PrivateKernelCircuitPublicInputs {
       reader.readObject(AztecAddress),
       reader.readUInt64(),
       reader.readBoolean(),
-      reader.readObject(Fr),
       reader.readNumber(),
     );
   }
@@ -110,7 +104,6 @@ export class PrivateKernelCircuitPublicInputs {
       AztecAddress.ZERO,
       0n,
       false,
-      Fr.zero(),
       0,
     );
   }
