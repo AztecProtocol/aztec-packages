@@ -63,6 +63,8 @@ export const EPOCH_SIZE = 'aztec.epoch.size';
 export const BLOCK_PROPOSER = 'aztec.block.proposer';
 /** The epoch number */
 export const EPOCH_NUMBER = 'aztec.epoch.number';
+/** Kind of an EpochSession: 'full' or 'partial'. */
+export const EPOCH_SESSION_KIND = 'aztec.epoch_session.kind';
 /** The tx hash */
 export const TX_HASH = 'aztec.tx.hash';
 /** Generic attribute representing whether the action was successful or not */

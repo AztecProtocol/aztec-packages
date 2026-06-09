@@ -16,7 +16,15 @@ services:
       - ../../../:/root/aztec-packages
       - ${HOME}/.bb-crs:/root/.bb-crs
     working_dir: /root/aztec-packages/yarn-project/aztec
+<<<<<<< HEAD
     command: 'node ./dest/bin start --local-network'
+=======
+    entrypoint: >
+      bash -c '
+        set -o pipefail
+        node ./dest/bin start --local-network 2>&1 | tee /logs/local-network.log
+      '
+>>>>>>> 7baab8368b0 (feat: merge-train/spartan-v5 (#23965))
     environment:
       LOG_LEVEL: ${LOG_LEVEL:-verbose}
       ETHEREUM_HOSTS: http://fork:8545
@@ -78,6 +86,14 @@ services:
         trap "kill -SIGTERM -$$pgid" SIGTERM
         while kill -0 -$$pgid 2>/dev/null; do sleep 0.1; done
         wait $$pid
+<<<<<<< HEAD
+=======
+        rc=$$?
+        echo "===== local-network logs ====="
+        cat /logs/local-network.log || true
+        echo "===== end local-network logs ====="
+        exit $$rc
+>>>>>>> 7baab8368b0 (feat: merge-train/spartan-v5 (#23965))
       '
     depends_on:
       - local-network

@@ -68,7 +68,8 @@ export const specificProverNodeConfigMappings: ConfigMappingsType<SpecificProver
     defaultValue: undefined,
   },
   proverNodeEpochProvingDelayMs: {
-    description: 'Optional delay in milliseconds to wait before proving a new epoch',
+    description:
+      'Optional delay in milliseconds to wait for late-arriving events (e.g. reorgs) to settle before starting top-tree proving for an epoch',
     defaultValue: undefined,
   },
   txGatheringIntervalMs: {

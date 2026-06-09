@@ -1232,12 +1232,6 @@ export const PROVER_NODE_BLOB_PROCESSING_LAST_DURATION: MetricDefinition = {
   unit: 'ms',
   valueType: ValueType.INT,
 };
-export const PROVER_NODE_CHONK_VERIFIER_LAST_DURATION: MetricDefinition = {
-  name: 'aztec.prover_node.chonk_verifier.last_duration',
-  description: 'Duration of chonk verifier enqueuing in epoch proving job',
-  unit: 'ms',
-  valueType: ValueType.INT,
-};
 export const PROVER_NODE_BLOCK_PROCESSING_DURATION: MetricDefinition = {
   name: 'aztec.prover_node.block_processing.duration',
   description: 'Duration of processing a single block in epoch proving job',
@@ -1250,10 +1244,14 @@ export const PROVER_NODE_CHECKPOINT_PROCESSING_DURATION: MetricDefinition = {
   unit: 'ms',
   valueType: ValueType.INT,
 };
-export const PROVER_NODE_ALL_CHECKPOINTS_PROCESSING_LAST_DURATION: MetricDefinition = {
-  name: 'aztec.prover_node.all_checkpoints_processing.last_duration',
-  description: 'Duration of processing all checkpoints in epoch proving job',
-  unit: 'ms',
+export const PROVER_NODE_ACTIVE_CHECKPOINTS: MetricDefinition = {
+  name: 'aztec.prover_node.active_checkpoints',
+  description: 'Current number of canonical CheckpointProvers in the store (i.e. checkpoints currently being proven)',
+  valueType: ValueType.INT,
+};
+export const PROVER_NODE_ACTIVE_EPOCH_SESSIONS: MetricDefinition = {
+  name: 'aztec.prover_node.active_epoch_sessions',
+  description: 'Current number of live EpochSessions, broken down by kind (full|partial)',
   valueType: ValueType.INT,
 };
 export const PROVER_NODE_REWARDS_TOTAL: MetricDefinition = {

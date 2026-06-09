@@ -45,4 +45,8 @@ docker logs -f "$cid" &
 # Block until the target container exits; exit status is the container's exit code.
 rc=$(docker wait "$cid")
 
+# Give the backgrounded `docker logs -f` a moment to flush the container's final output
+# (e.g. the trailing local-network logs) before the EXIT trap tears the container down.
+sleep 1
+
 exit "$rc"
