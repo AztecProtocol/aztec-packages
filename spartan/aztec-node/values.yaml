@@ -11,8 +11,8 @@ podManagementPolicy: Parallel
 
 # global config for all Aztec nodes in an instalation
 global:
-  # Which rollup contract we want to follow from the registry
-  aztecRollupVersion: "canonical"
+  # -- Environment variables shared by all Aztec nodes. Overridden by node.env.
+  aztecEnv: {}
   # -- Network name - this is a predefined network - alpha-testnet, devnet
   aztecNetwork: ""
   # -- Custom network - (not recommended) - Only for custom testnet usecases, (must have deployed your own protocol contracts first)
