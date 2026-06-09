@@ -408,7 +408,7 @@ export const PrivateEventSchema: z.ZodType<any> = zodFor<PrivateEvent<AbiDecoded
   }),
 );
 
-export const PublicEventSchema = zodFor<PublicEvent<AbiDecoded>>()(
+export const PublicEventSchema: z.ZodType<PublicEvent<AbiDecoded>> = zodFor<PublicEvent<AbiDecoded>>()(
   z.object({
     event: AbiDecodedSchema,
     metadata: z.intersection(inTxSchema(), z.object({ contractAddress: schemas.AztecAddress })),

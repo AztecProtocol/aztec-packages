@@ -49,8 +49,6 @@ const logger = createLogger('local-network');
 // P2P node"). Wait for the checkpoint so each setup tx is durably included before the next is sent.
 const setupWaitOpts = { waitForStatus: TxStatus.CHECKPOINTED };
 
-const localAnvil = foundry;
-
 /**
  * Function to deploy our L1 contracts to the local network L1
  * @param aztecNodeConfig - The Aztec Node Config

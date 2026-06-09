@@ -35,7 +35,7 @@ export type TXEForeignCallInput = {
   inputs: ForeignCallArgs;
 };
 
-export const TXEForeignCallInputSchema = zodFor<TXEForeignCallInput>()(
+export const TXEForeignCallInputSchema: z.ZodType<TXEForeignCallInput> = zodFor<TXEForeignCallInput>()(
   z.object({
     // Nargo generates session_id as a u64, which may exceed Number.MAX_SAFE_INTEGER.
     // Zod 4's `.int()` enforces the safe-integer bound, so we drop it here and only require
