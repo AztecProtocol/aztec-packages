@@ -90,4 +90,4 @@ else
   done
 fi
 
-FLEET_OVERRIDES="$overrides" aws_request_instance_type "$name" "$ami" "$state_dir"
+FLEET_OVERRIDES="${overrides# }" aws_request_instance_type "$name" "$ami" "$state_dir"
