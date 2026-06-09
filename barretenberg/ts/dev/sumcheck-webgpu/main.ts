@@ -238,6 +238,10 @@ $benchRun.addEventListener('click', () => void (async () => {
 const autorun = new URLSearchParams(window.location.search).get('autorun');
 if (autorun === 'bench') {
   (document.getElementById('tab-btn-bench') as HTMLButtonElement).click();
+  // Let `?logn=N` (LOGN=N via drive.mjs) raise the sweep's upper bound, e.g. to
+  // probe 2^17+ where the per-round sync amortizes further against compute.
+  const lognParam = new URLSearchParams(window.location.search).get('logn');
+  if (lognParam) $benchMax.value = lognParam;
   $benchRun.click();
 } else if (autorun === 'wgsweep') {
   void runWgSweepAuto();
