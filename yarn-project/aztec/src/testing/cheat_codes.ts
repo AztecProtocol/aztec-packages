@@ -2,7 +2,7 @@ import { EthCheatCodes, RollupCheatCodes } from '@aztec/ethereum/test';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import { createLogger } from '@aztec/foundation/log';
 import type { DateProvider } from '@aztec/foundation/timer';
-import type { AutomineSequencer } from '@aztec/sequencer-client';
+import type { AutomineSequencer } from '@aztec/sequencer-client/automine';
 import type { AztecNode, AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
 
 /**

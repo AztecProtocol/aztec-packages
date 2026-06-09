@@ -11,7 +11,6 @@ import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
 import { NULL_KEY } from '@aztec/ethereum/constants';
 import { deployAztecL1Contracts } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
-import { EthCheatCodes } from '@aztec/ethereum/test';
 import { SecretValue } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { LogFn } from '@aztec/foundation/log';
@@ -37,7 +36,6 @@ import { foundry } from 'viem/chains';
 
 import { createAccountLogs } from '../cli/util.js';
 import { DefaultMnemonic } from '../mnemonic.js';
-import { EpochTestSettler } from '../testing/epoch_test_settler.js';
 import { getTokenAllowedSetupFunctions } from '../testing/token_allowed_setup.js';
 import { publishStandardAuthRegistry } from './auth_registry.js';
 import { getBananaFPCAddress, setupBananaFPC } from './banana_fpc.js';
@@ -113,15 +111,29 @@ export async function createLocalNetwork(config: Partial<LocalNetworkConfig> = {
   // in the setup allowlist so FPC-based fee payments work out of the box.
   const tokenAllowList = await getTokenAllowedSetupFunctions();
 
+  const envConfig = getConfigEnvVars();
   const aztecNodeConfig: AztecNodeConfig = {
-    ...getConfigEnvVars(),
+    ...envConfig,
     ...config,
     skipOrphanProposedBlockPruning: true,
     txPublicSetupAllowListExtend: [...tokenAllowList, ...(config.txPublicSetupAllowListExtend ?? [])],
-    // The local network runs against anvil with no committee, so it uses the deterministic
-    // AutomineSequencer, which owns L1 time control (warps the dateProvider and L1 timestamps to
-    // slot boundaries as it builds), replacing the deleted AnvilTestWatcher.
-    useAutomineSequencer: true,
+    // The local network runs against anvil with no committee, so it defaults to the deterministic
+    // AutomineSequencer, which owns L1 time control (warps the dateProvider and L1 timestamps to slot
+    // boundaries as it builds), replacing the deleted AnvilTestWatcher. This remains true when p2p is
+    // enabled for local peer testing; local-network is not a mode for connecting to an existing network.
+    useAutomineSequencer: config.useAutomineSequencer ?? true,
+    // The AutomineSequencer owns epoch proving in the local network — it writes epoch out hashes to
+    // the L1 Outbox and advances the proven tip as checkpoints land, through the same serial queue as
+    // its builds — replacing the standalone EpochTestSettler that used to race the build loop.
+    automineEnableProveEpoch: config.automineEnableProveEpoch ?? true,
+    // Defaults for the local network / sandbox; callers (e.g. the CLI) may override. No real proving
+    // happens here — the AutomineSequencer synthetically settles epochs. Short epochs let it write out
+    // hashes quickly (so users can consume L2-to-L1 messages without a long wait), with a wider
+    // proof-submission window so the synthetic settler has headroom before the rollup would prune an
+    // unproven checkpoint.
+    realProofs: config.realProofs ?? false,
+    aztecEpochDuration: config.aztecEpochDuration ?? 4,
+    aztecProofSubmissionEpochs: config.aztecProofSubmissionEpochs ?? 2,
   };
   const hdAccount = mnemonicToAccount(config.l1Mnemonic || DefaultMnemonic);
   if (
@@ -145,7 +157,7 @@ export async function createLocalNetwork(config: Partial<LocalNetworkConfig> = {
   const initialAccounts = await (async () => {
     if (config.testAccounts === true || config.testAccounts === undefined) {
       if (aztecNodeConfig.p2pEnabled) {
-        userLog(`Not setting up test accounts as we are connecting to a network`);
+        userLog(`Not setting up test accounts when p2p is enabled`);
       } else {
         userLog(`Setting up test accounts`);
         return await getInitialTestAccountsData();
@@ -166,37 +178,17 @@ export async function createLocalNetwork(config: Partial<LocalNetworkConfig> = {
 
   const dateProvider = new TestDateProvider();
 
-  let cheatcodes: EthCheatCodes | undefined;
-  let rollupAddress: EthAddress | undefined;
   if (!aztecNodeConfig.p2pEnabled) {
-    ({ rollupAddress } = await deployContractsToL1(
-      aztecNodeConfig,
-      aztecNodeConfig.validatorPrivateKeys.getValue()[0],
-      {
-        genesisArchiveRoot,
-        feeJuicePortalInitialBalance: fundingNeeded,
-      },
-    ));
-
-    cheatcodes = new EthCheatCodes([l1RpcUrl], dateProvider);
+    await deployContractsToL1(aztecNodeConfig, aztecNodeConfig.validatorPrivateKeys.getValue()[0], {
+      genesisArchiveRoot,
+      feeJuicePortalInitialBalance: fundingNeeded,
+    });
   }
 
   const telemetry = await initTelemetryClient(getTelemetryClientConfig());
   // Create a local blob client client inside the local network, no http connectivity
   const blobClient = createBlobClient();
   const node = await createAztecNode(aztecNodeConfig, { telemetry, blobClient, dateProvider }, { genesis });
-
-  let epochTestSettler: EpochTestSettler | undefined;
-  if (!aztecNodeConfig.p2pEnabled) {
-    epochTestSettler = new EpochTestSettler(
-      cheatcodes!,
-      rollupAddress!,
-      node.getBlockSource(),
-      logger.createChild('epoch-settler'),
-      { pollingIntervalMs: 200 },
-    );
-    await epochTestSettler.start();
-  }
 
   if (initialAccounts.length) {
     const wallet = await EmbeddedWallet.create(node, {
@@ -222,7 +214,6 @@ export async function createLocalNetwork(config: Partial<LocalNetworkConfig> = {
 
   const stop = async () => {
     await node.stop();
-    await epochTestSettler?.stop();
   };
 
   return { node, stop };
