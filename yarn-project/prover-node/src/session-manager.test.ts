@@ -9,7 +9,7 @@ import type { EpochProvingJobState } from '@aztec/stdlib/interfaces/server';
 import { mock } from 'jest-mock-extended';
 
 import type { CheckpointStore } from './checkpoint-store.js';
-import type { CheckpointProver } from './job/checkpoint-prover.js';
+import { CheckpointProver } from './job/checkpoint-prover.js';
 import { EpochSession, type SessionSpec } from './job/epoch-session.js';
 import { ProverNodeJobMetrics } from './metrics.js';
 import type { ProofPublishingService } from './proof-publishing-service.js';
@@ -112,10 +112,7 @@ describe('SessionManager', () => {
   it('does not open a full session when archiver checkpoints are not all in the store', async () => {
     const epoch = EpochNumber(3);
     l2BlockSource.isEpochComplete.mockResolvedValue(true);
-    l2BlockSource.getCheckpoints.mockResolvedValue([
-      { checkpoint: { number: 1 } } as any,
-      { checkpoint: { number: 2 } } as any,
-    ]);
+    l2BlockSource.getCheckpoints.mockResolvedValue([archiverCp(1, 6), archiverCp(2, 7)]);
     // Store only has checkpoint 1.
     store.listCanonicalInSlotRange.mockReturnValue([proverForCheckpoint(1, 6)]);
     await manager.onCheckpointAdded(epoch);
@@ -128,10 +125,7 @@ describe('SessionManager', () => {
     // Two canonical checkpoints at distinct slots within epoch 3's range [6, 7].
     const provers = [proverForCheckpoint(1, 6), proverForCheckpoint(2, 7)];
     l2BlockSource.isEpochComplete.mockResolvedValue(true);
-    l2BlockSource.getCheckpoints.mockResolvedValue([
-      { checkpoint: { number: 1 } } as any,
-      { checkpoint: { number: 2 } } as any,
-    ]);
+    l2BlockSource.getCheckpoints.mockResolvedValue([archiverCp(1, 6), archiverCp(2, 7)]);
     store.listCanonicalInSlotRange.mockReturnValue(provers);
 
     await manager.onCheckpointAdded(epoch);
@@ -178,7 +172,7 @@ describe('SessionManager', () => {
     l2BlockSource.getCheckpoints.mockImplementation(({ epoch }: { epoch: EpochNumber }) =>
       Promise.resolve(
         (Number(epoch) === 3 ? epoch3Provers : Number(epoch) === 4 ? epoch4Provers : []).map(
-          p => ({ checkpoint: { number: p.checkpoint.number } }) as any,
+          p => ({ checkpoint: p.checkpoint }) as any,
         ),
       ),
     );
@@ -208,7 +202,7 @@ describe('SessionManager', () => {
     mockNextUnprovenSlot(2, 6);
     const provers = [proverForCheckpoint(1, 6)];
     l2BlockSource.isEpochComplete.mockResolvedValue(true);
-    l2BlockSource.getCheckpoints.mockResolvedValue([{ checkpoint: { number: 1 } } as any]);
+    l2BlockSource.getCheckpoints.mockResolvedValue([archiverCp(1, 6)]);
     store.listCanonicalInSlotRange.mockReturnValue(provers);
 
     await manager.onTick();
@@ -234,7 +228,7 @@ describe('SessionManager', () => {
     mockNextUnprovenSlot(2, 6);
     const provers = [proverForCheckpoint(1, 6)];
     l2BlockSource.isEpochComplete.mockResolvedValue(true);
-    l2BlockSource.getCheckpoints.mockResolvedValue([{ checkpoint: { number: 1 } } as any]);
+    l2BlockSource.getCheckpoints.mockResolvedValue([archiverCp(1, 6)]);
     store.listCanonicalInSlotRange.mockReturnValue(provers);
 
     await manager.onTick();
@@ -251,7 +245,7 @@ describe('SessionManager', () => {
     mockNextUnprovenSlot(2, 6);
     const provers = [proverForCheckpoint(1, 6)];
     l2BlockSource.isEpochComplete.mockResolvedValue(true);
-    l2BlockSource.getCheckpoints.mockResolvedValue([{ checkpoint: { number: 1 } } as any]);
+    l2BlockSource.getCheckpoints.mockResolvedValue([archiverCp(1, 6)]);
     store.listCanonicalInSlotRange.mockReturnValue(provers);
 
     await manager.onTick();
@@ -272,7 +266,7 @@ describe('SessionManager', () => {
     // and the next tick must try again rather than skip the epoch.
     mockNextUnprovenSlot(2, 6);
     l2BlockSource.isEpochComplete.mockResolvedValue(true);
-    l2BlockSource.getCheckpoints.mockResolvedValue([{ checkpoint: { number: 1 } } as any]);
+    l2BlockSource.getCheckpoints.mockResolvedValue([archiverCp(1, 6)]);
     store.listCanonicalInSlotRange.mockReturnValue([]); // store hasn't indexed it yet
 
     await manager.onTick();
@@ -405,8 +399,7 @@ describe('SessionManager', () => {
     expect(manager.getPartialSession(original.spec)).toBe(recreated as unknown as EpochSession);
     expect(stubs).toHaveLength(2);
 
-    // startProof was awaiting original.whenDone; cancel resolved it as 'cancelled' so the
-    // outer promise resolves cleanly without surfacing an unhandled rejection.
+    // startProof resolves with the scheduled job id as soon as the session is constructed.
     await startPromise;
   });
 
@@ -536,9 +529,9 @@ describe('SessionManager', () => {
     expect(partial.isTerminal()).toBe(false);
     expect(manager.getPartialSession(partial.spec)).toBe(partial as unknown as EpochSession);
 
-    // startProof awaits whenDone — settle the stub so the test can finish.
-    partial.terminate('completed');
+    // startProof returns the job id without awaiting completion; await the resolved id.
     await done;
+    partial.terminate('completed');
   });
 
   it('startProof throws when the epoch has no canonical content', async () => {
@@ -546,19 +539,32 @@ describe('SessionManager', () => {
     await expect(manager.startProof(EpochNumber(7))).rejects.toThrow(/No blocks found/);
   });
 
+  it('startProof refuses to re-prove an epoch the proven chain already encompasses', async () => {
+    const epoch = EpochNumber(7);
+    // proverForCheckpoint builds a checkpoint whose single block number equals the checkpoint
+    // number (1 here). A proven tip at or beyond that block means the epoch is already proven.
+    store.listCanonicalForEpoch.mockResolvedValue([proverForCheckpoint(1, 14)]);
+    l2BlockSource.getBlockNumber.mockResolvedValue(BlockNumber(1));
+
+    await expect(manager.startProof(epoch)).rejects.toThrow(/already proven/i);
+    expect(stubs).toHaveLength(0);
+  });
+
   it('startProof dedupes against an existing full session with the same range', async () => {
     const epoch = EpochNumber(7);
-    const provers = [proverForCheckpoint(1, 14)];
+    // Checkpoint at the epoch's last slot (15) so the partial range startProof derives ([14,15])
+    // matches the full session's range — otherwise the dedup guard wouldn't fire.
+    const provers = [proverForCheckpoint(1, 15)];
     await openCanonicalFullSession(epoch, provers);
     expect(stubs.length).toBe(1);
     const fullSession = stubs[0];
 
     store.listCanonicalForEpoch.mockResolvedValue(provers);
-    const done = manager.startProof(epoch);
+    const doneId = await manager.startProof(epoch);
     fullSession.terminate('completed');
-    await done;
 
-    // No new session opened; startProof just awaited the full's whenDone.
+    // No new session opened; startProof returned the existing full session's id.
+    expect(doneId).toBe(fullSession.uuid);
     expect(stubs.length).toBe(1);
   });
 
@@ -568,28 +574,19 @@ describe('SessionManager', () => {
     store.listCanonicalForEpoch.mockResolvedValue(canonical);
     store.listCanonicalInSlotRange.mockReturnValue(canonical);
 
-    const stubPromise = awaitNextStub();
-    const first = manager.startProof(epoch);
-    const partial = await stubPromise;
+    const firstId = await manager.startProof(epoch);
     expect(stubs).toHaveLength(1);
+    const partial = stubs[0];
+    expect(firstId).toBe(partial.uuid);
 
-    // Wait for first.startProof's final `await created.whenDone()` to land, then arm a
-    // fresh trigger for the next whenDone — which can only be second.startProof's dedup
-    // branch (`await existingPartial.whenDone()`). This guarantees the dedup check has
-    // fired before we terminate, removing the race that would otherwise let second fall
-    // through to construct a fresh stub.
-    await awaitNextWhenDoneCall(partial);
-    expect(partial.whenDoneCalls).toBe(1);
-
-    const dedupAwaited = awaitNextWhenDoneCall(partial);
-    const second = manager.startProof(epoch);
-    await dedupAwaited;
-    expect(partial.whenDoneCalls).toBe(2);
-
-    partial.terminate('completed');
-    await Promise.all([first, second]);
+    // A second startProof for the same spec returns the existing partial's id without
+    // constructing a new session or cancelling the existing one.
+    const secondId = await manager.startProof(epoch);
+    expect(secondId).toBe(partial.uuid);
     expect(stubs).toHaveLength(1); // no second stub ever constructed
     expect(partial.cancelReasons).toEqual([]); // dedup path never cancels the existing partial
+
+    partial.terminate('completed');
   });
 
   // ---------------- stop ----------------
@@ -604,7 +601,7 @@ describe('SessionManager', () => {
     l2BlockSource.getCheckpoints.mockImplementation(({ epoch }: { epoch: EpochNumber }) =>
       Promise.resolve(
         (Number(epoch) === 3 ? epoch3Provers : Number(epoch) === 4 ? epoch4Provers : []).map(
-          p => ({ checkpoint: { number: p.checkpoint.number } }) as any,
+          p => ({ checkpoint: p.checkpoint }) as any,
         ),
       ),
     );
@@ -670,9 +667,7 @@ describe('SessionManager', () => {
 
   async function openCanonicalFullSession(epoch: EpochNumber, provers: CheckpointProver[]): Promise<void> {
     l2BlockSource.isEpochComplete.mockResolvedValueOnce(true);
-    l2BlockSource.getCheckpoints.mockResolvedValueOnce(
-      provers.map(p => ({ checkpoint: { number: p.checkpoint.number } }) as any),
-    );
+    l2BlockSource.getCheckpoints.mockResolvedValueOnce(provers.map(p => ({ checkpoint: p.checkpoint }) as any));
     store.listCanonicalInSlotRange.mockReturnValueOnce(provers);
     await manager.onCheckpointAdded(epoch);
   }
@@ -688,20 +683,6 @@ describe('SessionManager', () => {
     onConstruct = stub => {
       onConstruct = undefined;
       resolve(stub);
-    };
-    return promise;
-  }
-
-  /**
-   * Single-shot trigger: resolves on the next `stub.whenDone()` invocation. Lets tests
-   * wait for an `await session.whenDone()` callsite (e.g. startProof's final await, or
-   * the dedup branch) to land without polling or sleeping.
-   */
-  function awaitNextWhenDoneCall(stub: StubSession): Promise<void> {
-    const { promise, resolve } = promiseWithResolvers<void>();
-    stub.onWhenDone = () => {
-      stub.onWhenDone = undefined;
-      resolve();
     };
     return promise;
   }
@@ -752,10 +733,6 @@ type StubSession = {
   cancelBlocker?: Promise<void>;
   /** Resolves the first time cancel() is invoked — tests use it to know when stop's cancel call lands. */
   cancelStarted: ReturnType<typeof promiseWithResolvers<void>>;
-  /** Number of times whenDone() has been invoked. Lets tests deterministically detect dedup awaits. */
-  whenDoneCalls: number;
-  /** Fires every time whenDone() is invoked — useful for "wait until the dedup branch awaits". */
-  onWhenDone?: () => void;
   donePromise: Promise<EpochProvingJobState>;
   resolveDone: (s: EpochProvingJobState) => void;
   terminate(state: EpochProvingJobState): void;
@@ -783,7 +760,6 @@ function makeStubSession(spec: SessionSpec, provers: readonly CheckpointProver[]
     cancelled: false,
     cancelReasons: [],
     cancelStarted: promiseWithResolvers<void>(),
-    whenDoneCalls: 0,
     donePromise: promise,
     resolveDone: resolve,
     terminate(state) {
@@ -829,22 +805,40 @@ function makeStubSession(spec: SessionSpec, provers: readonly CheckpointProver[]
       return this.donePromise;
     },
     whenDone() {
-      this.whenDoneCalls++;
-      this.onWhenDone?.();
       return this.donePromise;
     },
   };
   return stub;
 }
 
-function proverForCheckpoint(number: number, slot: number): CheckpointProver {
+/**
+ * Minimal checkpoint content carrying just enough for `CheckpointProver.idFor` (number, slot,
+ * archive root). The archive root is derived from (number, slot) so identical (number, slot) pairs
+ * produce identical content-addressed ids — letting archiver-side and store-side stubs match.
+ */
+function makeCheckpointContent(number: number, slot: number) {
   return {
-    id: `${number}:${slot}`,
-    checkpoint: { number, blocks: [{ number }] } as any,
+    number,
+    header: { slotNumber: SlotNumber(slot) },
+    archive: { root: { toString: () => `root-${number}-${slot}` } },
+    blocks: [{ number }],
+  } as any;
+}
+
+function proverForCheckpoint(number: number, slot: number): CheckpointProver {
+  const checkpoint = makeCheckpointContent(number, slot);
+  return {
+    id: CheckpointProver.idFor(checkpoint),
+    checkpoint,
     slotNumber: SlotNumber(slot),
     isPruned: () => false,
     isCancelled: () => false,
   } as unknown as CheckpointProver;
+}
+
+/** Archiver-side PublishedCheckpoint stub whose content matches `proverForCheckpoint(number, slot)`. */
+function archiverCp(number: number, slot: number) {
+  return { checkpoint: makeCheckpointContent(number, slot) } as any;
 }
 
 function proverWithSlot(slot: number): CheckpointProver {

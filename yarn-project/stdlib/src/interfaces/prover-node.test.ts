@@ -94,8 +94,8 @@ class MockProverNode implements ProverNodeApi {
     ]);
   }
 
-  startProof(epochNumber: number): Promise<void> {
+  startProof(epochNumber: number): Promise<string> {
     expect(typeof epochNumber).toBe('number');
-    return Promise.resolve();
+    return Promise.resolve(`job-${epochNumber}`);
   }
 }

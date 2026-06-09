@@ -333,6 +333,8 @@ export class ProofPublishingService {
       proof: candidate.proof,
       batchedBlobInputs: candidate.batchedBlobInputs,
       attestations: candidate.attestations,
+      // Stop the L1 tx retrying past the candidate's submission-window deadline.
+      deadline: candidate.deadline,
     };
 
     if (this.deps.config.skipSubmitProof) {

@@ -56,6 +56,23 @@ describe('e2e_epochs/epochs_optimistic_proving', () => {
   };
 
   /**
+   * Returns the canonical checkpoint numbers that fall within `epoch`, considering checkpoints
+   * `1..upTo`. Retries until the archiver has indexed the whole range so the count is stable.
+   */
+  const checkpointsInEpoch = async (epoch: EpochNumber, upTo: CheckpointNumber): Promise<CheckpointNumber[]> => {
+    const cps = await retryUntil(
+      async () => {
+        const all = await node.getCheckpoints(CheckpointNumber(1), Number(upTo));
+        return all.length >= Number(upTo) ? all : undefined;
+      },
+      `archiver indexes checkpoints up to ${upTo}`,
+      30,
+      0.2,
+    );
+    return cps.filter(cp => getEpochAtSlot(cp.header.slotNumber, test.constants) === epoch).map(cp => cp.number);
+  };
+
+  /**
    * Background sampler proving the prover-node works an epoch *optimistically* — i.e. it
    * spawns a checkpoint's sub-tree before the epoch is over on L1, not just after the
    * last checkpoint lands.
@@ -463,12 +480,27 @@ describe('e2e_epochs/epochs_optimistic_proving', () => {
     });
 
     it('removes a checkpoint mid-epoch via reorg and proves with survivors', async () => {
+      // Anchor on a freshly-started epoch so the checkpoints we reorg over (and the survivor)
+      // are guaranteed to live in the same epoch. Without this, setup landing near an epoch
+      // boundary could leave the survivor in the previous epoch, passing the test without
+      // actually exercising in-epoch checkpoint removal (see #22990).
+      await test.waitUntilNextEpochStarts();
+
       // Wait for 2 checkpoints mid-epoch.
       const initialCheckpoint = (await test.monitor.run(true)).checkpointNumber;
       const midCheckpoint = CheckpointNumber(initialCheckpoint + 2);
       await test.waitUntilCheckpointNumber(midCheckpoint, L2_SLOT_DURATION_IN_S * 6);
       const checkpointBeforeReorg = test.monitor.checkpointNumber;
       logger.info(`Reached checkpoint ${checkpointBeforeReorg}`);
+
+      // Capture the epoch we're reorging within so we can assert the survivor stays in it.
+      const epochBeforeReorg = await epochOfCheckpoint(checkpointBeforeReorg);
+
+      // (1) The epoch must hold multiple checkpoints, with checkpointBeforeReorg as its latest —
+      // otherwise removing the last one wouldn't leave any in-epoch survivors to prove with.
+      const epochCheckpointsBeforeReorg = await checkpointsInEpoch(epochBeforeReorg, checkpointBeforeReorg);
+      expect(epochCheckpointsBeforeReorg.length).toBeGreaterThanOrEqual(2);
+      expect(epochCheckpointsBeforeReorg.at(-1)).toEqual(checkpointBeforeReorg);
 
       // Stop block production so no replacement is proposed.
       await context.aztecNodeAdmin!.setConfig({ skipPublishingCheckpointsPercent: 100 });
@@ -478,7 +510,8 @@ describe('e2e_epochs/epochs_optimistic_proving', () => {
       await context.cheatCodes.eth.reorgWithReplacement(1);
 
       const afterReorgCheckpoint = (await test.monitor.run(true)).checkpointNumber;
-      expect(afterReorgCheckpoint).toBeLessThan(checkpointBeforeReorg);
+      // (2) The reorg removed exactly the last checkpoint, leaving N-1.
+      expect(afterReorgCheckpoint).toEqual(CheckpointNumber(checkpointBeforeReorg - 1));
       logger.info(`After reorg: checkpoint ${afterReorgCheckpoint} (was ${checkpointBeforeReorg})`);
 
       // Verify node detects the reorg.
@@ -489,12 +522,21 @@ describe('e2e_epochs/epochs_optimistic_proving', () => {
         0.5,
       );
 
-      // Wait for the epoch to end and proof to land with the surviving checkpoints.
-      // Use the surviving checkpoint to look up which epoch we're in.
+      // The survivor must still be in the epoch we reorged within — otherwise the reorg removed
+      // the only in-epoch checkpoint and the test isn't exercising mid-epoch removal.
       const currentEpoch = await epochOfCheckpoint(afterReorgCheckpoint);
+      expect(currentEpoch).toEqual(epochBeforeReorg);
+
+      // The epoch now holds exactly N-1 checkpoints — the survivors of the removal.
+      const survivingCheckpoints = await checkpointsInEpoch(epochBeforeReorg, afterReorgCheckpoint);
+      expect(survivingCheckpoints.length).toEqual(epochCheckpointsBeforeReorg.length - 1);
+      expect(survivingCheckpoints.at(-1)).toEqual(afterReorgCheckpoint);
+
+      // Wait for the epoch to end and proof to land with the surviving checkpoints.
       await test.waitUntilEpochStarts(currentEpoch + 1);
       const epochEndCheckpoint = (await test.monitor.run(true)).checkpointNumber;
 
+      // (3) The epoch proved up to and including the last surviving checkpoint (the (N-1)th).
       expect(epochEndCheckpoint).toEqual(afterReorgCheckpoint);
 
       await test.waitUntilProvenCheckpointNumber(epochEndCheckpoint, 240);

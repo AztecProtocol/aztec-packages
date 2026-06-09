@@ -187,9 +187,11 @@ describe('ProverNode', () => {
     expect(reapSpy).not.toHaveBeenCalled();
   });
 
-  it('updates the tips store in finally even when the inner handler throws', async () => {
+  it('propagates a checkpoint registration failure and leaves the tips store unadvanced (A-1041)', async () => {
     setupNotFullyProven();
-    // Make the checkpoint handler throw by having worldState.syncImmediate reject.
+    // Registration fails: worldState.syncImmediate (inside collectRegisterData) rejects. The
+    // failure propagates rather than being swallowed, so the checkpoint is never registered and
+    // the tips stay put for the L2BlockStream to retry.
     worldState.syncImmediate.mockRejectedValue(new Error('boom'));
 
     const event: L2BlockStreamEvent = {
@@ -198,26 +200,42 @@ describe('ProverNode', () => {
       block: { number: BlockNumber(1), hash: '0x01' },
     };
 
-    // The handler swallows the inner error (logs warn), so this shouldn't throw.
-    await proverNode.handleBlockStreamEvent(event);
+    await expect(proverNode.handleBlockStreamEvent(event)).rejects.toThrow('boom');
 
-    // Confirm the tipsStore observed the event despite the inner failure.
-    expect(await proverNode.getTipsStore().getL2BlockHash(1)).toBe('0x01');
-    // Inner failure is swallowed: the store stays empty and the session manager is NOT
-    // notified — otherwise downstream would see a notification for content that was never
-    // actually registered.
+    // Tips left unadvanced; nothing was registered and the session manager wasn't notified.
+    expect(await proverNode.getTipsStore().getL2BlockHash(1)).toBeUndefined();
     expect(proverNode.getCheckpointStore().listAll()).toHaveLength(0);
     expect(sessionManager.onCheckpointAdded).not.toHaveBeenCalled();
+  });
+
+  it('leaves the tips store unadvanced when a handler propagates an error (A-1041)', async () => {
+    setupNotFullyProven();
+    // Registration succeeds, but the expiry sweep throws — a failure that propagates before the
+    // tips-store update, so the error surfaces to the L2BlockStream and the tips stay put.
+    l2BlockSource.getSyncedL2SlotNumber.mockRejectedValue(new Error('archiver down'));
+
+    const event: L2BlockStreamEvent = {
+      type: 'chain-checkpointed',
+      checkpoint: makePublishedCheckpoint(makeCheckpoint(1, 1, 1)),
+      block: { number: BlockNumber(1), hash: '0x01' },
+    };
+
+    await expect(proverNode.handleBlockStreamEvent(event)).rejects.toThrow('archiver down');
+
+    // Tips left unadvanced so the L2BlockStream re-emits this event on its next poll.
+    expect(await proverNode.getTipsStore().getL2BlockHash(1)).toBeUndefined();
   });
 
   // ---------------- handleCheckpointEvent gating ----------------
 
   it('skips registration when the epoch is already fully proven on L1', async () => {
-    // Proven block sits at the last block of epoch 1 (epochDuration=1, slot=1).
+    // Proven block sits at the last block of epoch 1 (epochDuration=1, slot=1). Block 2 must be
+    // absent so isProvenBlockLastOfItsEpoch falls through to isEpochComplete and reports the
+    // proven tip as the epoch's last block.
     l2BlockSource.getBlockNumber.mockResolvedValue(BlockNumber(1));
-    l2BlockSource.getBlockData.mockResolvedValue({
-      header: { getSlot: () => SlotNumber(1) },
-    } as any);
+    l2BlockSource.getBlockData.mockImplementation((query: any) =>
+      Promise.resolve(Number(query.number) === 1 ? ({ header: { getSlot: () => SlotNumber(1) } } as any) : undefined),
+    );
     l2BlockSource.isEpochComplete.mockResolvedValue(true);
 
     await proverNode.handleBlockStreamEvent({
@@ -246,9 +264,9 @@ describe('ProverNode', () => {
 
   // ---------------- forwarders ----------------
 
-  it('startProof forwards to the session manager', async () => {
-    sessionManager.startProof.mockResolvedValue(undefined);
-    await proverNode.startProof(EpochNumber(5));
+  it('startProof forwards to the session manager and returns the job id', async () => {
+    sessionManager.startProof.mockResolvedValue('job-5');
+    await expect(proverNode.startProof(EpochNumber(5))).resolves.toBe('job-5');
     expect(sessionManager.startProof).toHaveBeenCalledWith(EpochNumber(5));
   });
 
