@@ -68,6 +68,44 @@ where
     }
 }
 
+/// A handle to a retractable entity in the store.
+///
+/// Retractable entities are tied to a block anchor; if that block is reorg'd away the entire entity - its payload and
+/// every fact recorded against it - is pruned from the store. Build one with [`RetractableEntity::create`], which
+/// performs the underlying store write. See [`NonRetractableEntity`] for the reorg-surviving variant.
+pub struct RetractableEntity<T> {
+    pub body: T,
+}
+
+impl<T> RetractableEntity<T>
+where
+    T: EntityBody + Serialize,
+{
+    /// Creates a retractable entity for `body`, anchored at the given block, and returns a handle to it.
+    ///
+    /// The entity's type id and id are derived from `body` via [`EntityBody`], so callers never pass them. This writes
+    /// to the store (hence `create`, not `new`); re-creating the same `body` records into the same entity. If the
+    /// anchor block (`block_number`, `block_hash`) is later reorg'd away, the entity is pruned.
+    pub unconstrained fn create(
+        contract_address: AztecAddress,
+        scope: AztecAddress,
+        body: T,
+        block_number: u32,
+        block_hash: Field,
+    ) -> Self {
+        create_retractable_entity(
+            contract_address,
+            scope,
+            T::entity_type_id(),
+            body.entity_id(),
+            body,
+            block_number,
+            block_hash,
+        );
+        Self { body }
+    }
+}
+
 // Oracle declarations
 
 #[oracle(aztec_utl_recordRetractableFact)]

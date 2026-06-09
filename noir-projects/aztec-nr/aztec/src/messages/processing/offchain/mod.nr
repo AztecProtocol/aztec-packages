@@ -202,7 +202,10 @@ mod test {
     use crate::{
         ephemeral::EphemeralArray,
         messages::encoding::MESSAGE_CIPHERTEXT_LEN,
-        oracle::{entity_store::{active_entities, EntityBody, Fact, get_entity, NonRetractableEntity}, random::random},
+        oracle::{
+            entity_store::{active_entities, EntityBody, Fact, get_entity, NonRetractableEntity, RetractableEntity},
+            random::random,
+        },
         protocol::{address::AztecAddress, traits::{Deserialize, FromField, Serialize}},
         test::helpers::test_environment::TestEnvironment,
     };
@@ -269,6 +272,29 @@ mod test {
 
             let key = msg.entity_id();
             assert(is_active(address, scope, key), "created entity should be active");
+
+            let stored = get_entity::<OffchainMessage>(address, scope, OFFCHAIN_RECEPTION_ENTITY, key);
+            assert_eq(stored.payload.tx_hash, msg.tx_hash);
+            assert_eq(stored.payload.anchor_block_timestamp, msg.anchor_block_timestamp);
+        });
+    }
+
+    #[test]
+    unconstrained fn create_retractable_makes_an_active_retrievable_entity() {
+        let (env, scope) = setup();
+        let anchor_ts = advance_by(env, 10);
+        let tx_hash = random();
+        let msg = make_msg(scope, Option::some(tx_hash), anchor_ts);
+
+        let block_number = env.last_block_number();
+        let block_hash = random();
+
+        env.utility_context(|context| {
+            let address = context.this_address();
+            let _ = RetractableEntity::create(address, scope, msg, block_number, block_hash);
+
+            let key = msg.entity_id();
+            assert(is_active(address, scope, key), "created retractable entity should be active");
 
             let stored = get_entity::<OffchainMessage>(address, scope, OFFCHAIN_RECEPTION_ENTITY, key);
             assert_eq(stored.payload.tx_hash, msg.tx_hash);
