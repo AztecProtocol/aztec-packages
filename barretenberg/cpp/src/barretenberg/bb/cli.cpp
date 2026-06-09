@@ -579,7 +579,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
      ***************************************************************************************************************/
     std::filesystem::path batch_verify_proofs_dir{ "./proofs" };
     CLI::App* batch_verify =
-        app.add_subcommand("batch_verify", "Batch-verify multiple Chonk proofs with a single IPA SRS MSM.");
+        app.add_subcommand("batch_verify", "Batch-verify multiple Chonk proofs with batched IPA SRS MSMs.");
 
     add_help_extended_flag(batch_verify);
     add_scheme_option(batch_verify);

@@ -1,5 +1,6 @@
 import EventEmitter from 'node:events';
 import * as fs from 'node:fs';
+import * as net from 'node:net';
 import type { Readable } from 'node:stream';
 
 /**
@@ -36,8 +37,22 @@ export class FifoFrameReader extends EventEmitter<FifoFrameReaderEvents> {
   }
 
   /** Open a FIFO at the given path and start reading frames. */
-  start(fifoPath: string, highWaterMark = 64 * 1024): void {
-    this.startFromStream(fs.createReadStream(fifoPath, { highWaterMark }));
+  start(fifoPath: string): void {
+    // Read the FIFO through a libuv pipe handle (net.Socket) rather than fs.createReadStream.
+    // An fs read stream services the pipe with a blocking threadpool read that destroy() cannot
+    // cancel: if a writer never closes, that read stays parked and keeps the host process alive
+    // (manifesting as Jest "did not exit"). Opening O_NONBLOCK and wrapping the fd in a pipe
+    // handle makes reads epoll-based, so stop()'s destroy() releases the handle immediately,
+    // regardless of whether the writer is still attached.
+    const fd = fs.openSync(fifoPath, fs.constants.O_RDONLY | fs.constants.O_NONBLOCK);
+    let socket: net.Socket;
+    try {
+      socket = new net.Socket({ fd, readable: true, writable: false });
+    } catch (err) {
+      fs.closeSync(fd);
+      throw err;
+    }
+    this.startFromStream(socket);
   }
 
   /** Start reading frames from an existing readable stream. */

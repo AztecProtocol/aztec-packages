@@ -441,4 +441,5 @@ reentrancy
 variadic
 Wonderland
 indistinguishability
+llmstxt
 nightlies

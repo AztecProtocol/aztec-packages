@@ -25,6 +25,7 @@ concurrency:
 
 jobs:
   get-image-tag:
+    if: ${{ github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' }}
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.determine_tag.outputs.TAG }}
@@ -69,6 +70,7 @@ jobs:
 
   deploy-next-net:
     needs: get-image-tag
+    if: ${{ github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' }}
     uses: ./.github/workflows/deploy-network.yml
     with:
       network: next-net
