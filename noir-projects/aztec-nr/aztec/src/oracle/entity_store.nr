@@ -22,6 +22,7 @@ struct RawEntity {
 ///
 /// `T` is the deserialized payload type (e.g. an offchain message). `facts` is a nested
 /// [`EphemeralArray`] so an entity can carry any number of facts without a fixed maximum.
+#[derive(Deserialize, Serialize)]
 pub struct Entity<T> {
     pub payload: T,
     pub facts: EphemeralArray<Fact>,
@@ -42,34 +43,42 @@ pub trait EntityBody {
 
 impl<T> Entity<T>
 where
-    T: EntityBody,
+    T: EntityBody + Serialize + Deserialize,
 {
-    /// Returns the entity ids of every currently active entity of kind `T` ([`EntityBody::entity_type_id`]).
+    /// Returns every currently active entity of kind `T` ([`EntityBody::entity_type_id`]), payload and facts included.
     ///
-    /// Read each entity's payload and facts with [`get_entity`]. The query is keyed by entity type, so it returns
-    /// active entities of this kind regardless of how they were created (retractable or not). The retractable and
-    /// non-retractable handle types forward to this via their own `read_all_active`.
-    pub unconstrained fn read_all_active(contract_address: AztecAddress, scope: AztecAddress) -> EphemeralArray<Field> {
-        active_entities_oracle(contract_address, scope, T::entity_type_id())
+    /// Eagerly fetches each active entity. The query is keyed by entity type, so it returns active entities of this
+    /// kind regardless of how they were created (retractable or not). The retractable and non-retractable handle types
+    /// forward to this via their own `read_all_active`, re-wrapping each entity as the matching handle.
+    pub unconstrained fn read_all_active(
+        contract_address: AztecAddress,
+        scope: AztecAddress,
+    ) -> EphemeralArray<Entity<T>> {
+        let keys = active_entities_oracle(contract_address, scope, T::entity_type_id());
+        keys.map(|key| get_entity::<T>(contract_address, scope, T::entity_type_id(), key))
     }
 }
 
 /// A handle to a non-retractable entity in the store.
 ///
 /// Non-retractable entities survive reorgs; only their own retractable facts are pruned. Build one with
-/// [`NonRetractableEntity::create`], which performs the underlying store write.
+/// [`NonRetractableEntity::create`], which performs the underlying store write, or obtain populated handles for every
+/// active entity with [`NonRetractableEntity::read_all_active`].
+#[derive(Deserialize, Serialize)]
 pub struct NonRetractableEntity<T> {
     pub body: T,
+    pub facts: EphemeralArray<Fact>,
 }
 
 impl<T> NonRetractableEntity<T>
 where
-    T: EntityBody + Serialize,
+    T: EntityBody + Serialize + Deserialize,
 {
     /// Creates a non-retractable entity for `body` and returns a handle to it.
     ///
     /// The entity's type id and id are derived from `body` via [`EntityBody`], so callers never pass them. This writes
-    /// to the store (hence `create`, not `new`); re-creating the same `body` records into the same entity.
+    /// to the store (hence `create`, not `new`); re-creating the same `body` records into the same entity. The returned
+    /// handle carries no facts, matching the freshly created entity.
     pub unconstrained fn create(contract_address: AztecAddress, scope: AztecAddress, body: T) -> Self {
         create_non_retractable_entity(
             contract_address,
@@ -78,12 +87,19 @@ where
             body.entity_id(),
             body,
         );
-        Self { body }
+        Self { body, facts: EphemeralArray::empty() }
     }
 
-    /// Returns the entity ids of every active entity of this kind. Forwards to [`Entity::read_all_active`].
-    pub unconstrained fn read_all_active(contract_address: AztecAddress, scope: AztecAddress) -> EphemeralArray<Field> {
-        Entity::<T>::read_all_active(contract_address, scope)
+    /// Returns a populated handle for every active entity of this kind, each carrying its `body` and `facts`.
+    ///
+    /// Forwards to [`Entity::read_all_active`] and re-wraps each entity as a [`NonRetractableEntity`].
+    pub unconstrained fn read_all_active(
+        contract_address: AztecAddress,
+        scope: AztecAddress,
+    ) -> EphemeralArray<NonRetractableEntity<T>> {
+        Entity::<T>::read_all_active(contract_address, scope).map(|entity| {
+            Self { body: entity.payload, facts: entity.facts }
+        })
     }
 }
 
@@ -91,20 +107,24 @@ where
 ///
 /// Retractable entities are tied to a block anchor; if that block is reorg'd away the entire entity - its payload and
 /// every fact recorded against it - is pruned from the store. Build one with [`RetractableEntity::create`], which
-/// performs the underlying store write. See [`NonRetractableEntity`] for the reorg-surviving variant.
+/// performs the underlying store write, or obtain populated handles for every active entity with
+/// [`RetractableEntity::read_all_active`]. See [`NonRetractableEntity`] for the reorg-surviving variant.
+#[derive(Deserialize, Serialize)]
 pub struct RetractableEntity<T> {
     pub body: T,
+    pub facts: EphemeralArray<Fact>,
 }
 
 impl<T> RetractableEntity<T>
 where
-    T: EntityBody + Serialize,
+    T: EntityBody + Serialize + Deserialize,
 {
     /// Creates a retractable entity for `body`, anchored at the given block, and returns a handle to it.
     ///
     /// The entity's type id and id are derived from `body` via [`EntityBody`], so callers never pass them. This writes
     /// to the store (hence `create`, not `new`); re-creating the same `body` records into the same entity. If the
-    /// anchor block (`block_number`, `block_hash`) is later reorg'd away, the entity is pruned.
+    /// anchor block (`block_number`, `block_hash`) is later reorg'd away, the entity is pruned. The returned handle
+    /// carries no facts, matching the freshly created entity.
     pub unconstrained fn create(
         contract_address: AztecAddress,
         scope: AztecAddress,
@@ -121,12 +141,19 @@ where
             block_number,
             block_hash,
         );
-        Self { body }
+        Self { body, facts: EphemeralArray::empty() }
     }
 
-    /// Returns the entity ids of every active entity of this kind. Forwards to [`Entity::read_all_active`].
-    pub unconstrained fn read_all_active(contract_address: AztecAddress, scope: AztecAddress) -> EphemeralArray<Field> {
-        Entity::<T>::read_all_active(contract_address, scope)
+    /// Returns a populated handle for every active entity of this kind, each carrying its `body` and `facts`.
+    ///
+    /// Forwards to [`Entity::read_all_active`] and re-wraps each entity as a [`RetractableEntity`].
+    pub unconstrained fn read_all_active(
+        contract_address: AztecAddress,
+        scope: AztecAddress,
+    ) -> EphemeralArray<RetractableEntity<T>> {
+        Entity::<T>::read_all_active(contract_address, scope).map(|entity| {
+            Self { body: entity.payload, facts: entity.facts }
+        })
     }
 }
 

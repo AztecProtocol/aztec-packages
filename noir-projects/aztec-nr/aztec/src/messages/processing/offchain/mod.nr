@@ -8,7 +8,7 @@ use crate::{
     messages::processing::OffchainMessageWithContext,
     oracle::{
         contract_sync::set_contract_sync_cache_invalid,
-        entity_store::{Fact, get_entity, NonRetractableEntity, record_retractable_fact, terminate_entity},
+        entity_store::{EntityBody, Fact, NonRetractableEntity, record_retractable_fact, terminate_entity},
     },
     protocol::{address::AztecAddress, constants::MAX_TX_LIFETIME, hash::sha256_to_field},
 };
@@ -126,10 +126,7 @@ pub unconstrained fn sync_inbox(
 
     // Build a tx-hash request list aligned with the active-entity indices, so the resolved contexts returned by the
     // oracle can be matched back to each entity positionally.
-    let context_resolution_requests = entities.map(|key| {
-        let entity = get_entity::<OffchainMessage>(contract_address, scope, OFFCHAIN_RECEPTION_ENTITY, key);
-        entity.payload.tx_hash.unwrap_or(0)
-    });
+    let context_resolution_requests = entities.map(|entity| entity.body.tx_hash.unwrap_or(0));
 
     // Ask PXE to resolve contexts for all requested tx hashes. The oracle returns responses in a new ephemeral array,
     // aligned with the request (and therefore entity) indices.
@@ -160,9 +157,9 @@ pub unconstrained fn sync_inbox(
         //
         // - Already processed (and not expired): we skip the message to avoid re-pushing it, but keep it active
         //   until expiration.
-        let key = entities.get(i);
-        let entity = get_entity::<OffchainMessage>(contract_address, scope, OFFCHAIN_RECEPTION_ENTITY, key);
-        let msg = entity.payload;
+        let entity = entities.get(i);
+        let msg = entity.body;
+        let key = msg.entity_id();
         let state = fold(entity.facts);
         let maybe_ctx = resolved_contexts.get(i);
 
@@ -227,7 +224,7 @@ mod test {
 
     /// Returns the entity ids of the reception entities currently active for the given scope.
     unconstrained fn active_keys(c: AztecAddress, s: AztecAddress) -> EphemeralArray<Field> {
-        NonRetractableEntity::<OffchainMessage>::read_all_active(c, s)
+        NonRetractableEntity::<OffchainMessage>::read_all_active(c, s).map(|e| e.body.entity_id())
     }
 
     /// Returns `true` if a reception entity with the given entity id is currently active.
@@ -286,7 +283,7 @@ mod test {
             let key = msg.entity_id();
             let active = RetractableEntity::<OffchainMessage>::read_all_active(address, scope);
             assert_eq(active.len(), 1);
-            assert_eq(active.get(0), key);
+            assert_eq(active.get(0).body.entity_id(), key);
 
             let stored = get_entity::<OffchainMessage>(address, scope, OFFCHAIN_RECEPTION_ENTITY, key);
             assert_eq(stored.payload.tx_hash, msg.tx_hash);
