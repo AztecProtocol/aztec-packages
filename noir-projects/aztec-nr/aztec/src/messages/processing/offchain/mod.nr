@@ -125,7 +125,7 @@ pub unconstrained fn receive(
 ///
 /// - Received-but-unresolved (or tx-less, which never resolves), or already processed: left active for a future sync,
 ///   returning `None`.
-unconstrained fn process_message(
+unconstrained fn process_reception(
     contract_address: AztecAddress,
     scope: AztecAddress,
     reception: NonRetractableEntity<OffchainMessage>,
@@ -185,7 +185,7 @@ pub unconstrained fn sync_inbox(
     let now = UtilityContext::new().timestamp();
 
     active_receptions.for_each(|i, reception| {
-        let maybe_ready = process_message(
+        let maybe_ready = process_reception(
             contract_address,
             scope,
             reception,
