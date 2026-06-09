@@ -3,7 +3,6 @@ import { NO_FROM } from '@aztec/aztec.js/account';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { MinedTxReceipt, type TxReceipt } from '@aztec/aztec.js/tx';
-import { DeployAccountMethod } from '@aztec/aztec.js/wallet';
 import type { CheatCodes } from '@aztec/aztec/testing';
 import {
   AmmBot,
@@ -151,19 +150,19 @@ describe('e2e_bot', () => {
       };
 
       {
-        using deploy = jest.spyOn(DeployAccountMethod.prototype, 'send');
-
-        deploy.mockImplementation(() => {
+        using sendTx = jest.spyOn(EmbeddedWallet.prototype, 'sendTx');
+        // Fail the fee juice top-up tx, which runs after the bridge claim has been persisted.
+        sendTx.mockImplementation(() => {
           throw new Error('test error');
         });
 
         await expect(Bot.create(config, wallet, aztecNode, aztecNodeAdmin, store)).rejects.toThrow('test error');
-        expect(deploy).toHaveBeenCalledOnce();
         expect(saveSpy).toHaveBeenCalledOnce();
       }
 
       {
         saveSpy.mockClear();
+        // The persisted claim is reused for the top-up, so no new claim is bridged or saved.
         await expect(Bot.create(config, wallet, aztecNode, aztecNodeAdmin, store)).resolves.toBeDefined();
         expect(saveSpy).not.toHaveBeenCalled();
       }
@@ -193,8 +192,8 @@ describe('e2e_bot', () => {
       };
 
       {
-        using deploy = jest.spyOn(DeployAccountMethod.prototype, 'send');
-        deploy.mockImplementation(() => {
+        using sendTx = jest.spyOn(EmbeddedWallet.prototype, 'sendTx');
+        sendTx.mockImplementation(() => {
           throw new Error('test error');
         });
         await expect(Bot.create(config, wallet, aztecNode, aztecNodeAdmin, store)).rejects.toThrow('test error');
@@ -203,7 +202,8 @@ describe('e2e_bot', () => {
       {
         saveSpy.mockClear();
 
-        // same private key, but different salt derives a different L2 address
+        // same private key, but different salt derives a different L2 address, so the persisted claim does
+        // not apply and a fresh claim is bridged and saved
         config.senderSalt = config.senderSalt!.add(Fr.ONE);
         await expect(Bot.create(config, wallet, aztecNode, aztecNodeAdmin, store)).resolves.toBeDefined();
         expect(saveSpy).toHaveBeenCalledOnce();

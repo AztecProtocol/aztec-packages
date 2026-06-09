@@ -1,5 +1,4 @@
 import { getInitialTestAccountsData } from '@aztec/accounts/testing';
-import { NO_FROM } from '@aztec/aztec.js/account';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import {
   BatchCall,
@@ -17,20 +16,17 @@ import { createLogger } from '@aztec/aztec.js/log';
 import { waitForL1ToL2MessageReady } from '@aztec/aztec.js/messaging';
 import { waitForTx } from '@aztec/aztec.js/node';
 import { getFeeJuiceBalance } from '@aztec/aztec.js/utils';
-import { ContractInitializationStatus } from '@aztec/aztec.js/wallet';
 import { createEthereumChain } from '@aztec/ethereum/chain';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Timer } from '@aztec/foundation/timer';
 import { AMMContract } from '@aztec/noir-contracts.js/AMM';
 import { PrivateTokenContract } from '@aztec/noir-contracts.js/PrivateToken';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
-import { GasFees, GasSettings, ManaUsageEstimate } from '@aztec/stdlib/gas';
 import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { EmbeddedWallet } from '@aztec/wallets/embedded';
@@ -43,7 +39,6 @@ import { getBalances, getPrivateBalance, isStandardTokenContract } from './utils
 const MINT_BALANCE = 1e12;
 const MIN_BALANCE = 1e3;
 const FEE_JUICE_TOP_UP_THRESHOLD = 100n * 10n ** 18n;
-const FEE_JUICE_TOP_UP_TARGET = 10_000n * 10n ** 18n;
 
 export class BotFactory {
   private log = createLogger('bot');
@@ -73,8 +68,8 @@ export class BotFactory {
   }> {
     const defaultAccountAddress = await this.setupAccount();
     const recipient = (await this.wallet.createSchnorrAccount(Fr.random(), Fr.random())).address;
-    const token = await this.setupTokenWithOptionalEarlyRefuel(defaultAccountAddress);
-    await this.ensureFeeJuiceBalance(defaultAccountAddress, token);
+    await this.ensureFeeJuiceBalance(defaultAccountAddress);
+    const token = await this.setupToken(defaultAccountAddress);
     await this.mintTokens(token, defaultAccountAddress);
     return { wallet: this.wallet, defaultAccountAddress, token, node: this.aztecNode, recipient };
   }
@@ -88,13 +83,8 @@ export class BotFactory {
     node: AztecNode;
   }> {
     const defaultAccountAddress = await this.setupAccount();
-    const token0 = await this.setupTokenContractWithOptionalEarlyRefuel(
-      defaultAccountAddress,
-      this.config.tokenSalt,
-      'BotToken0',
-      'BOT0',
-    );
-    await this.ensureFeeJuiceBalance(defaultAccountAddress, token0);
+    await this.ensureFeeJuiceBalance(defaultAccountAddress);
+    const token0 = await this.setupTokenContract(defaultAccountAddress, this.config.tokenSalt, 'BotToken0', 'BOT0');
     const token1 = await this.setupTokenContract(defaultAccountAddress, this.config.tokenSalt, 'BotToken1', 'BOT1');
     const liquidityToken = await this.setupTokenContract(
       defaultAccountAddress,
@@ -129,6 +119,7 @@ export class BotFactory {
     rollupVersion: bigint;
   }> {
     const defaultAccountAddress = await this.setupAccount();
+    await this.ensureFeeJuiceBalance(defaultAccountAddress);
 
     // Create L1 client (same pattern as bridgeL1FeeJuice)
     const l1RpcUrls = this.config.l1RpcUrls;
@@ -147,7 +138,7 @@ export class BotFactory {
     const rollupContract = new RollupContract(l1Client, l1ContractAddresses.rollupAddress.toString());
     const rollupVersion = await rollupContract.getVersion();
 
-    // Deploy TestContract
+    // Deploy TestContract (pays from the standing balance funded above).
     const contract = await this.setupTestContract(defaultAccountAddress);
 
     // Recover any pending messages from store (clean up stale ones first)
@@ -210,45 +201,12 @@ export class BotFactory {
     }
   }
 
-  private async setupAccountWithPrivateKey(secret: Fr) {
-    const salt = this.config.senderSalt ?? Fr.ONE;
-    const signingKey = deriveSigningKey(secret);
-    const accountManager = await this.wallet.createSchnorrAccount(secret, salt, signingKey);
-    const metadata = await this.wallet.getContractMetadata(accountManager.address);
-    if (metadata.initializationStatus === ContractInitializationStatus.INITIALIZED) {
-      this.log.info(`Account at ${accountManager.address.toString()} already initialized`);
-      const timer = new Timer();
-      const address = accountManager.address;
-      this.log.info(`Account at ${address} registered. duration=${timer.ms()}`);
-      await this.store.deleteBridgeClaim(address);
-      return address;
-    } else {
-      const address = accountManager.address;
-      this.log.info(`Deploying account at ${address}`);
-
-      const claim = await this.getOrCreateBridgeClaim(address);
-
-      const paymentMethod = new FeeJuicePaymentMethodWithClaim(accountManager.address, claim);
-      const deployMethod = await accountManager.getDeployMethod();
-
-      await this.withNoMinTxsPerBlock(async () => {
-        const { txHash } = await deployMethod.send({
-          from: NO_FROM,
-          fee: { paymentMethod },
-          wait: NO_WAIT,
-        });
-        this.log.info(`Sent tx for account deployment with hash ${txHash.toString()}`);
-        return waitForTx(this.aztecNode, txHash, { timeout: this.config.txMinedWaitSeconds });
-      });
-      this.log.info(`Account deployed at ${address}`);
-
-      // Clean up the consumed bridge claim
-      await this.store.deleteBridgeClaim(address);
-
-      return accountManager.address;
-    }
-  }
-
+  /**
+   * Keyless fallback for tests and local dev: reuses the first genesis test account, whose schnorr address
+   * is pre-funded with fee juice via `initialFundedAccounts`. It must be a (non-initializerless) schnorr
+   * account so the address matches the funded one. Production bots set a sender private key and fund the
+   * resulting initializerless account from L1 instead; see setupAccountWithPrivateKey.
+   */
   private async setupTestAccount() {
     const [initialAccountData] = await getInitialTestAccountsData();
     const accountManager = await this.wallet.createSchnorrAccount(
@@ -259,62 +217,11 @@ export class BotFactory {
     return accountManager.address;
   }
 
-  /**
-   * Setup token and refuel first: if the token already exists (restart scenario),
-   * run ensureFeeJuiceBalance before any step that might need fee juice. When deploying,
-   * use a bridge claim if balance is below threshold.
-   */
-  private async setupTokenWithOptionalEarlyRefuel(sender: AztecAddress): Promise<TokenContract | PrivateTokenContract> {
-    const token = await this.getTokenInstance(sender);
-    const address = token.address;
-    const metadata = await this.wallet.getContractMetadata(address);
-    if (metadata.isContractPublished) {
-      this.log.info(`Token at ${address.toString()} already deployed, refueling before setup`);
-      await this.ensureFeeJuiceBalance(sender, token);
-    }
-    return this.setupToken(sender);
-  }
-
-  /**
-   * Setup token0 for AMM with refuel-first behaviour when token already exists.
-   */
-  private async setupTokenContractWithOptionalEarlyRefuel(
-    deployer: AztecAddress,
-    salt: Fr,
-    name: string,
-    ticker: string,
-    decimals = 18,
-  ): Promise<TokenContract> {
-    const deploy = TokenContract.deploy(this.wallet, deployer, name, ticker, decimals, { salt, universalDeploy: true });
-    const instance = await deploy.getInstance();
-    const metadata = await this.wallet.getContractMetadata(instance.address);
-    if (metadata.isContractPublished) {
-      this.log.info(`Token ${name} at ${instance.address.toString()} already deployed, refueling before setup`);
-      const token = TokenContract.at(instance.address, this.wallet);
-      await this.ensureFeeJuiceBalance(deployer, token);
-    }
-    return this.setupTokenContract(deployer, salt, name, ticker, decimals);
-  }
-
-  private async getTokenInstance(sender: AztecAddress): Promise<TokenContract | PrivateTokenContract> {
-    const salt = this.config.tokenSalt;
-    if (this.config.contract === SupportedTokenContracts.TokenContract) {
-      const deploy = TokenContract.deploy(this.wallet, sender, 'BotToken', 'BOT', 18, { salt, universalDeploy: true });
-      const instance = await deploy.getInstance();
-      return TokenContract.at(instance.address, this.wallet);
-    }
-    if (this.config.contract === SupportedTokenContracts.PrivateTokenContract) {
-      const tokenSecretKey = Fr.random();
-      const tokenPublicKeys = (await deriveKeys(tokenSecretKey)).publicKeys;
-      const deploy = PrivateTokenContract.deploy(this.wallet, MINT_BALANCE, sender, {
-        salt,
-        universalDeploy: true,
-        publicKeys: tokenPublicKeys,
-      });
-      const instance = await deploy.getInstance();
-      return PrivateTokenContract.at(instance.address, this.wallet);
-    }
-    throw new Error(`Unsupported token contract type: ${this.config.contract}`);
+  private async setupAccountWithPrivateKey(secret: Fr) {
+    const salt = this.config.senderSalt ?? Fr.ONE;
+    const signingKey = deriveSigningKey(secret);
+    const accountManager = await this.wallet.createSchnorrInitializerlessAccount(secret, salt, signingKey);
+    return accountManager.address;
   }
 
   /**
@@ -511,66 +418,39 @@ export class BotFactory {
     if (metadata.isContractPublished) {
       this.log.info(`Contract ${name} at ${address.toString()} already deployed`);
       await deploy.register();
-    } else {
-      const sender = deployOpts.from === NO_FROM ? undefined : deployOpts.from;
-      const balance = sender ? await getFeeJuiceBalance(sender, this.aztecNode) : 0n;
-      const useClaim =
-        sender &&
-        balance < FEE_JUICE_TOP_UP_THRESHOLD &&
-        this.config.feePaymentMethod === 'fee_juice' &&
-        !!this.config.l1RpcUrls?.length;
-      const mnemonicOrPrivateKey = this.config.l1PrivateKey?.getValue() ?? this.config.l1Mnemonic?.getValue();
-
-      if (useClaim && mnemonicOrPrivateKey) {
-        const claim = await this.getOrCreateBridgeClaim(sender!);
-        const paymentMethod = new FeeJuicePaymentMethodWithClaim(sender!, claim);
-        const { estimatedGas } = await deploy.simulate({ ...deployOpts, fee: { estimateGas: true, paymentMethod } });
-        const maxFeesPerGas = (await this.getMinFees()).mul(1 + this.config.minFeePadding);
-        const gasSettings = GasSettings.from({
-          ...estimatedGas!,
-          maxFeesPerGas,
-          maxPriorityFeesPerGas: GasFees.empty(),
-        });
-        await this.withNoMinTxsPerBlock(async () => {
-          const { txHash } = await deploy.send({ ...deployOpts, fee: { gasSettings, paymentMethod }, wait: NO_WAIT });
-          this.log.info(
-            `Sent contract ${name} deploy tx ${txHash.toString()} (using bridge claim, balance was ${balance})`,
-          );
-          return waitForTx(this.aztecNode, txHash, { timeout: this.config.txMinedWaitSeconds });
-        });
-        await this.store.deleteBridgeClaim(sender!);
-      } else {
-        const { estimatedGas } = await deploy.simulate({ ...deployOpts, fee: { estimateGas: true } });
-        this.log.info(`Deploying contract ${name} at ${address.toString()}`, { estimatedGas });
-        await this.withNoMinTxsPerBlock(async () => {
-          const { txHash } = await deploy.send({ ...deployOpts, fee: { gasSettings: estimatedGas }, wait: NO_WAIT });
-          this.log.info(`Sent contract ${name} setup tx with hash ${txHash.toString()}`);
-          return waitForTx(this.aztecNode, txHash, { timeout: this.config.txMinedWaitSeconds });
-        });
-      }
+      return instance;
     }
+
+    // Setup always runs ensureFeeJuiceBalance before any deploy, so the account pays from its standing
+    // balance here. No manual gas estimation: the embedded wallet simulates before sending and derives
+    // the gas limits and padded maxFeesPerGas itself.
+    this.log.info(`Deploying contract ${name} at ${address.toString()}`);
+    await this.withNoMinTxsPerBlock(async () => {
+      const { txHash } = await deploy.send({ ...deployOpts, wait: NO_WAIT });
+      this.log.info(`Sent contract ${name} deploy tx ${txHash.toString()}`);
+      return waitForTx(this.aztecNode, txHash, { timeout: this.config.txMinedWaitSeconds });
+    });
+
     return instance;
   }
 
-  /**
-   * Mints private and public tokens for the sender if their balance is below the minimum.
-   * @param token - Token contract.
-   */
-  /**
-   * Ensures the account has sufficient fee juice by bridging from L1 if balance is below threshold.
-   * Bridges repeatedly until balance reaches the target (10k FJ).
-   * Used on startup/restart to top up when the account has run out after previous runs.
-   */
-  private async ensureFeeJuiceBalance(
-    account: AztecAddress,
-    token: TokenContract | PrivateTokenContract,
-  ): Promise<void> {
-    const { feePaymentMethod, l1RpcUrls } = this.config;
-    if (feePaymentMethod !== 'fee_juice' || !l1RpcUrls?.length) {
-      return;
-    }
+  /** True when the config allows bridging fee juice from L1 (fee_juice mode, an L1 RPC, and an L1 key). */
+  private isL1BridgingConfigured(): boolean {
     const mnemonicOrPrivateKey = this.config.l1PrivateKey?.getValue() ?? this.config.l1Mnemonic?.getValue();
-    if (!mnemonicOrPrivateKey) {
+    return this.config.feePaymentMethod === 'fee_juice' && !!this.config.l1RpcUrls?.length && !!mnemonicOrPrivateKey;
+  }
+
+  /**
+   * Ensures the account holds enough fee juice before any other setup step. The account starts empty
+   * (initializerless accounts have no deployment tx) and the runtime loop pays fees from this balance and
+   * never refuels itself, so every flow funds the account up front. Bridges claims from L1 and consumes
+   * each with a claim-only tx until the balance clears the threshold, working from a zero (fresh run) or
+   * drained (restart) balance. Each bridge mints a fixed amount well above the threshold, so this is a
+   * single bridge in practice. No-op when L1 bridging is not configured or the balance is already above
+   * the threshold.
+   */
+  private async ensureFeeJuiceBalance(account: AztecAddress): Promise<void> {
+    if (!this.isL1BridgingConfigured()) {
       return;
     }
 
@@ -580,36 +460,21 @@ export class BotFactory {
       return;
     }
 
-    this.log.info(
-      `Fee juice balance ${balance} below threshold ${FEE_JUICE_TOP_UP_THRESHOLD}, bridging from L1 until ${FEE_JUICE_TOP_UP_TARGET}`,
-    );
-    const maxFeesPerGas = (await this.getMinFees()).mul(1 + this.config.minFeePadding);
-    const minimalInteraction = isStandardTokenContract(token)
-      ? token.methods.transfer_in_public(account, account, 0n, 0)
-      : token.methods.transfer(0n, account, account);
+    this.log.info(`Fee juice balance ${balance} below threshold ${FEE_JUICE_TOP_UP_THRESHOLD}, bridging from L1`);
 
-    while (balance < FEE_JUICE_TOP_UP_TARGET) {
-      const claim = await this.bridgeL1FeeJuice(account);
+    while (balance < FEE_JUICE_TOP_UP_THRESHOLD) {
+      // Persist the claim before consuming it: if the top-up tx fails or the bot crashes mid-loop, the
+      // next run reuses the pending claim instead of bridging again (and wasting the bridged funds).
+      const claim = await this.getOrCreateBridgeClaim(account);
       const paymentMethod = new FeeJuicePaymentMethodWithClaim(account, claim);
-      const { estimatedGas } = await minimalInteraction.simulate({
-        from: account,
-        fee: { estimateGas: true, paymentMethod },
-      });
-      const gasSettings = GasSettings.from({
-        ...estimatedGas!,
-        maxFeesPerGas,
-        maxPriorityFeesPerGas: GasFees.empty(),
-      });
 
       await this.withNoMinTxsPerBlock(async () => {
-        const { txHash } = await minimalInteraction.send({
-          from: account,
-          fee: { gasSettings, paymentMethod },
-          wait: NO_WAIT,
-        });
+        const executionPayload = await paymentMethod.getExecutionPayload();
+        const { txHash } = await this.wallet.sendTx(executionPayload, { from: account, wait: NO_WAIT });
         this.log.info(`Sent fee juice top-up tx ${txHash.toString()}`);
         return waitForTx(this.aztecNode, txHash, { timeout: this.config.txMinedWaitSeconds });
       });
+      await this.store.deleteBridgeClaim(account);
       balance = await getFeeJuiceBalance(account, this.aztecNode);
       this.log.info(`Fee juice balance after top-up: ${balance}`);
     }
@@ -661,17 +526,14 @@ export class BotFactory {
   }
 
   /**
-   * Gets or creates a bridge claim for the recipient.
-   * Checks if a claim already exists in the store and reuses it if valid.
-   * Only creates a new bridge if fee juice balance is below threshold.
+   * Returns a usable bridge claim for the recipient, reusing a persisted one when its L1→L2 message is
+   * still available (resuming a top-up that failed or crashed before the claim was consumed) and bridging
+   * a fresh claim otherwise. The caller deletes the claim from the store once it has been consumed.
    */
   private async getOrCreateBridgeClaim(recipient: AztecAddress): Promise<L2AmountClaim> {
-    // Check if we have an existing claim in the store
     const existingClaim = await this.store.getBridgeClaim(recipient);
     if (existingClaim) {
       this.log.info(`Found existing bridge claim for ${recipient.toString()}, checking validity...`);
-
-      // Check if the message is ready on L2
       try {
         const messageHash = Fr.fromHexString(existingClaim.claim.messageHash);
         await this.withNoMinTxsPerBlock(() =>
@@ -688,7 +550,6 @@ export class BotFactory {
 
     const claim = await this.bridgeL1FeeJuice(recipient);
     await this.store.saveBridgeClaim(recipient, claim);
-
     return claim;
   }
 
@@ -721,19 +582,6 @@ export class BotFactory {
     this.log.info(`Created a claim for ${mintAmount} L1 fee juice to ${recipient}.`, claim);
 
     return claim as L2AmountClaim;
-  }
-
-  /** Returns worst-case min fees across predicted slots, with fallback to current min fees. */
-  private async getMinFees(): Promise<GasFees> {
-    try {
-      const predicted = await this.aztecNode.getPredictedMinFees(ManaUsageEstimate.Limit);
-      if (predicted.length === 0) {
-        return this.aztecNode.getCurrentMinFees();
-      }
-      return predicted.reduce((worst, fees) => (fees.feePerL2Gas > worst.feePerL2Gas ? fees : worst));
-    } catch {
-      return this.aztecNode.getCurrentMinFees();
-    }
   }
 
   private async withNoMinTxsPerBlock<T>(fn: () => Promise<T>): Promise<T> {

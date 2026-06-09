@@ -27,19 +27,13 @@ pub contract SchnorrInitializerlessAccount {
         oracle::{auth_witness::get_auth_witness, capsules::{load, store}, get_contract_instance::get_contract_instance},
         protocol::{hash::{poseidon2_hash, poseidon2_hash_bytes}, traits::{Deserialize, Serialize}},
     };
-
-    #[derive(Eq, Serialize, Deserialize)]
-    pub struct PublicKey {
-        pub x: Field,
-        pub y: Field,
-    }
+    use std::embedded_curve_ops::EmbeddedCurvePoint;
 
     global PUB_KEY_SLOT: Field = comptime { poseidon2_hash_bytes("INITIALIZERLESS_ACCOUNT_PUB_KEY".as_bytes()) };
 
     #[external("utility")]
-    unconstrained fn constructor(public_key: PublicKey) {
-        let serialized_pub_key = public_key.serialize();
-        let expected = poseidon2_hash(public_key.serialize());
+    unconstrained fn constructor(signing_pub_key_x: Field, signing_pub_key_y: Field) {
+        let expected = poseidon2_hash([signing_pub_key_x, signing_pub_key_y]);
         let instance = aztec::oracle::get_contract_instance::get_contract_instance(self.address);
         assert_eq(
             expected,
@@ -47,7 +41,12 @@ pub contract SchnorrInitializerlessAccount {
             "Public key hash does not match the immutables hash, refusing to store",
         );
 
-        store(self.address, PUB_KEY_SLOT, serialized_pub_key, self.address);
+        store(
+            self.address,
+            PUB_KEY_SLOT,
+            [signing_pub_key_x, signing_pub_key_y],
+            self.address,
+        );
     }
 
     #[external("private")]
@@ -68,7 +67,7 @@ pub contract SchnorrInitializerlessAccount {
     fn is_valid_impl(context: &mut PrivateContext, outer_hash: Field) -> bool {
         // Safety: The public key inside the capsule is checked to match the immutables_hash of this instance
         let public_key = unsafe { load(context.this_address(), PUB_KEY_SLOT, context.this_address()) }
-            .map(|data| PublicKey::deserialize(data))
+            .map(|data| EmbeddedCurvePoint::deserialize(data))
             .unwrap_or_else(|| panic(
                 "Public key was not stored in this PXE. Please call `constructor` first",
             ));
@@ -86,8 +85,6 @@ pub contract SchnorrInitializerlessAccount {
             std::embedded_curve_ops::EmbeddedCurveScalar::new(limbs[2], limbs[3]),
         );
 
-        let pub_key = std::embedded_curve_ops::EmbeddedCurvePoint { x: public_key.x, y: public_key.y };
-
-        schnorr::verify_signature(pub_key, signature, outer_hash)
+        schnorr::verify_signature(public_key, signature, outer_hash)
     }
 }
