@@ -19,7 +19,11 @@ import type {
   ValidateCheckpointResult,
 } from '@aztec/stdlib/block';
 import type { Checkpoint, ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
-import { type ChainConfig, MIN_PER_BLOCK_ALLOCATION_MULTIPLIER } from '@aztec/stdlib/config';
+import {
+  type ChainConfig,
+  DEFAULT_MAX_BLOCKS_PER_CHECKPOINT,
+  MIN_PER_BLOCK_ALLOCATION_MULTIPLIER,
+} from '@aztec/stdlib/config';
 import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import {
   MIN_PER_BLOCK_ALLOCATION_MULTIPLIER,
@@ -199,7 +203,13 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     });
 
     if (timetable.isClampedByLocalBudgets()) {
-      this.log.warn(`Network maxBlocksPerCheckpoint clamped down by local operational budgets`, {
+      // The default cap is intentionally above what most geometries can achieve, so clamping it to the local
+      // budgets is expected and not worth warning about; an explicitly configured network value is.
+      const logFn =
+        this.config.maxBlocksPerCheckpoint === DEFAULT_MAX_BLOCKS_PER_CHECKPOINT
+          ? this.log.debug.bind(this.log)
+          : this.log.warn.bind(this.log);
+      logFn(`Network maxBlocksPerCheckpoint clamped down by local operational budgets`, {
         networkMaxBlocksPerCheckpoint: this.config.maxBlocksPerCheckpoint,
         locallyAchievableBlocksPerCheckpoint: timetable.locallyAchievableBlocksPerCheckpoint,
       });

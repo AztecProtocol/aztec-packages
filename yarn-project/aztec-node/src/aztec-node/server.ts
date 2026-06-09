@@ -86,6 +86,7 @@ import {
   MIN_PER_BLOCK_ALLOCATION_MULTIPLIER,
   MIN_PER_BLOCK_DA_ALLOCATION_MULTIPLIER,
   type NetworkConsensusConfig,
+  allowsNetworkConfigOverride,
   getNetworkConsensusConfig,
   validateNetworkConsensusConfig,
 } from '@aztec/stdlib/config';
@@ -1095,10 +1096,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
         `Network ${networkName} preset expects aztecSlotDuration ${preset.aztecSlotDuration}s but the rollup ` +
         `contract reports ${slotDuration}s. This usually means a stale preset or a node pointed at the wrong ` +
         `rollup. Set ALLOW_OVERRIDING_NETWORK_CONFIG=1 to override.`;
-      if (
-        process.env.ALLOW_OVERRIDING_NETWORK_CONFIG === '1' ||
-        process.env.ALLOW_OVERRIDING_NETWORK_CONFIG === 'true'
-      ) {
+      if (allowsNetworkConfigOverride()) {
         log.warn(message, { networkName, presetSlotDuration: preset.aztecSlotDuration, slotDuration });
       } else {
         throw new Error(message);

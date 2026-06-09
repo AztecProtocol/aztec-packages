@@ -171,7 +171,7 @@ export function applyNetworkConsensusConfigToEnv(
     return;
   }
 
-  const allowOverride = isTruthyEnv(env.ALLOW_OVERRIDING_NETWORK_CONFIG);
+  const allowOverride = allowsNetworkConfigOverride(env);
 
   for (const { env: envVar, field } of CONSENSUS_ENV_VARS) {
     const presetValue = preset[field];
@@ -197,6 +197,8 @@ export function applyNetworkConsensusConfigToEnv(
   }
 }
 
-function isTruthyEnv(value: string | undefined): boolean {
+/** Whether the env opts into overriding network-wide consensus values (`ALLOW_OVERRIDING_NETWORK_CONFIG`). */
+export function allowsNetworkConfigOverride(env: { [key: string]: string | undefined } = process.env): boolean {
+  const value = env.ALLOW_OVERRIDING_NETWORK_CONFIG;
   return value === '1' || value?.toLowerCase() === 'true';
 }
