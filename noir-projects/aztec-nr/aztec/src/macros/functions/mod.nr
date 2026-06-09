@@ -5,7 +5,10 @@ pub(crate) mod auth_registry;
 
 use crate::macros::{
     internals_functions_generation::{external_functions_registry, internal_functions_registry},
-    utils::{assert_params_serializable, assert_return_type_serializable, is_fn_external, module_has_initializer},
+    utils::{
+        assert_params_serializable, assert_return_type_serializable, emit_error, is_fn_external,
+        module_has_initializer,
+    },
 };
 use super::utils::{fn_has_allow_phase_change, fn_has_noinitcheck, is_fn_initializer, is_fn_only_self, is_fn_view};
 use auth_registry::AUTHORIZE_ONCE_REGISTRY;
@@ -97,8 +100,9 @@ pub comptime fn initializer(f: FunctionDefinition) {
         // getting arguments passed to attributes. For this reason, we will check for this when the utility macro
         // function is run.
         let name = f.name();
-        panic(
+        emit_error(
             f"The #[initializer] attribute can only be applied to #[external(\"private\")] or #[external(\"public\")] functions - {name} is neither",
+            f.location(),
         );
     }
 }
@@ -125,14 +129,16 @@ pub comptime fn noinitcheck(f: FunctionDefinition) {
         // getting arguments passed to attributes. For this reason, we will check for this when the utility macro
         // function is run.
         let name = f.name();
-        panic(
+        emit_error(
             f"The #[noinitcheck] attribute can only be applied to #[external(\"private\")] or #[external(\"public\")] functions - {name} is neither",
+            f.location(),
         );
     }
 
     if !module_has_initializer(f.module()) {
-        panic(
+        emit_error(
             f"The #[noinitcheck] attribute is unnecessary for contracts with no #[initializer] functions",
+            f.location(),
         );
     }
 }
@@ -163,8 +169,9 @@ pub comptime fn allow_phase_change(f: FunctionDefinition) {
         // support getting arguments passed to attributes. For this reason, we will check for this when the utility and
         // public macro functions are run.
         let name = f.name();
-        panic(
+        emit_error(
             f"The #[allow_phase_change] attribute can only be applied to #[external(\"private\")] functions - {name} is not",
+            f.location(),
         );
     }
 }
@@ -241,8 +248,9 @@ pub comptime fn only_self(f: FunctionDefinition) {
         // getting arguments passed to attributes. For this reason, we will check for this when the utility macro
         // function is run.
         let name = f.name();
-        panic(
+        emit_error(
             f"The #[only_self] attribute can only be applied to #[external(\"private\")] or #[external(\"public\")] functions - {name} is neither",
+            f.location(),
         );
     }
 }
@@ -280,8 +288,9 @@ pub comptime fn view(f: FunctionDefinition) {
         // getting arguments passed to attributes. For this reason, we will check for this when the utility macro
         // function is run.
         let name = f.name();
-        panic(
+        emit_error(
             f"The #[view] attribute can only be applied to #[external(\"private\")] or #[external(\"public\")] functions - {name} is neither",
+            f.location(),
         );
     }
 }
@@ -317,8 +326,9 @@ pub comptime fn authorize_once(f: FunctionDefinition, from_arg_name: CtString, n
         // getting arguments passed to attributes. For this reason, we will check for this when the utility macro
         // function is run.
         let name = f.name();
-        panic(
+        emit_error(
             f"The #[authorize_once] attribute can only be applied to #[external(\"private\")] or #[external(\"public\")] functions - {name} is neither",
+            f.location(),
         );
     }
 
@@ -356,8 +366,9 @@ pub comptime fn external(f: FunctionDefinition, f_type: CtString) {
         external_functions_registry::add_utility(f);
     } else {
         let function_name = f.name();
-        panic(
+        emit_error(
             f"Function '{function_name}' is marked as #[external(\"{f_type}\")], but '{f_type}' is not a valid external function type. External functions must be one of 'private', 'public' or 'utility'",
+            f.location(),
         );
     }
 }
@@ -372,8 +383,9 @@ pub comptime fn external(f: FunctionDefinition, f_type: CtString) {
 pub comptime fn internal(f: FunctionDefinition, f_type: CtString) {
     let function_name = f.name();
     if is_fn_external(f) {
-        panic(
+        emit_error(
             f"The #[internal] attribute cannot be applied to external functions - {function_name} is marked as both #[external] and #[internal(\"{f_type}\")]",
+            f.location(),
         );
     }
 
@@ -385,8 +397,9 @@ pub comptime fn internal(f: FunctionDefinition, f_type: CtString) {
         internal_functions_registry::add_public(f);
     } else {
         let function_name = f.name();
-        panic(
+        emit_error(
             f"Function '{function_name}' is marked as #[internal(\"{f_type}\")], but '{f_type}' is not a valid internal function type. Internal functions must be one of 'private', 'public'",
+            f.location(),
         );
     }
 }
@@ -395,15 +408,17 @@ comptime fn assert_valid_private(f: FunctionDefinition) {
     let visibility = f.visibility();
     if visibility != quote {} {
         let name = f.name();
-        panic(
+        emit_error(
             f"A function marked as #[external(\"private\")] or #[internal(\"private\")] must not have public Noir visibility - {name}'s visibility is '{visibility}'",
+            f.location(),
         );
     }
 
     if f.is_unconstrained() {
         let name = f.name();
-        panic(
+        emit_error(
             f"#[external(\"private\")] or #[internal(\"private\")] functions must not be unconstrained - {name} is",
+            f.location(),
         );
     }
 }
@@ -412,34 +427,39 @@ comptime fn assert_valid_public(f: FunctionDefinition) {
     let visibility = f.visibility();
     if visibility != quote {} {
         let name = f.name();
-        panic(
+        emit_error(
             f"A function marked as #[external(\"public\")] or #[internal(\"public\")] must not have public Noir visibility - {name}'s visibility is '{visibility}'",
+            f.location(),
         );
     }
 
     if f.is_unconstrained() {
         let name = f.name();
-        panic(
+        emit_error(
             f"#[external(\"public\")] or #[internal(\"public\")] functions must not be unconstrained - {name} is",
+            f.location(),
         );
     }
 
     if fn_has_allow_phase_change(f) {
         let name = f.name();
-        panic(
+        emit_error(
             f"The #[allow_phase_change] attribute cannot be applied to #[external(\"public\")] functions - {name}",
+            f.location(),
         );
     }
 
     if f.name() == EMIT_PUBLIC_INIT_NULLIFIER_FN_NAME {
-        panic(
+        emit_error(
             f"Function name '{EMIT_PUBLIC_INIT_NULLIFIER_FN_NAME}' is reserved for internal use",
+            f.location(),
         );
     }
 
     if f.name() == quote { public_dispatch } {
-        panic(
+        emit_error(
             f"Function name 'public_dispatch' is reserved for internal use",
+            f.location(),
         );
     }
 }
@@ -448,15 +468,17 @@ comptime fn assert_valid_utility(f: FunctionDefinition) {
     let visibility = f.visibility();
     if visibility != quote {} {
         let name = f.name();
-        panic(
+        emit_error(
             f"A function marked as #[external(\"utility\")] must not have public Noir visibility - {name}'s visibility is '{visibility}'",
+            f.location(),
         );
     }
 
     if !f.is_unconstrained() {
         let name = f.name();
-        panic(
+        emit_error(
             f"#[external(\"utility\")] must be unconstrained - {name} isn't",
+            f.location(),
         );
     }
 
@@ -467,43 +489,49 @@ comptime fn assert_valid_utility(f: FunctionDefinition) {
     // compatibility checks here in the utility macro.
     if AUTHORIZE_ONCE_REGISTRY.get(f).is_some() {
         let name = f.name();
-        panic(
+        emit_error(
             f"The #[authorize_once] attribute cannot be applied to #[external(\"utility\")] functions - {name}",
+            f.location(),
         );
     }
 
     if is_fn_only_self(f) {
         let name = f.name();
-        panic(
+        emit_error(
             f"The #[only_self] attribute cannot be applied to #[external(\"utility\")] functions - {name}",
+            f.location(),
         );
     }
 
     if is_fn_view(f) {
         let name = f.name();
-        panic(
+        emit_error(
             f"The #[view] attribute cannot be applied to #[external(\"utility\")] functions - {name}",
+            f.location(),
         );
     }
 
     if is_fn_initializer(f) {
         let name = f.name();
-        panic(
+        emit_error(
             f"The #[initializer] attribute cannot be applied to #[external(\"utility\")] functions - {name}",
+            f.location(),
         );
     }
 
     if fn_has_noinitcheck(f) {
         let name = f.name();
-        panic(
+        emit_error(
             f"The #[noinitcheck] attribute cannot be applied to #[external(\"utility\")] functions - {name}",
+            f.location(),
         );
     }
 
     if fn_has_allow_phase_change(f) {
         let name = f.name();
-        panic(
+        emit_error(
             f"The #[allow_phase_change] attribute cannot be applied to #[external(\"utility\")] functions - {name}",
+            f.location(),
         );
     }
 }

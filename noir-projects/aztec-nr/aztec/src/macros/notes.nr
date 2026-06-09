@@ -1,3 +1,4 @@
+use crate::macros::utils::emit_error;
 use crate::note::note_getter_options::PropertySelector;
 use std::{collections::bounded_vec::BoundedVec, meta::type_of};
 
@@ -276,8 +277,10 @@ comptime fn assert_has_packable(note: TypeDefinition) {
     let packable_constraint = quote { crate::protocol::traits::Packable }.as_trait_constraint();
     let note_name = note.name();
 
-    assert(
-        note.as_type().implements(packable_constraint),
-        f"{note_name} does not implement Packable trait. Either implement it manually or place #[derive(Packable)] on the note struct before #[note] macro invocation.",
-    );
+    if !note.as_type().implements(packable_constraint) {
+        emit_error(
+            f"{note_name} does not implement Packable trait. Either implement it manually or place #[derive(Packable)] on the note struct before #[note] macro invocation.",
+            note.location(),
+        );
+    }
 }

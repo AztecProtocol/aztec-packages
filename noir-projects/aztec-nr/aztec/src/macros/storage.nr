@@ -1,3 +1,4 @@
+use crate::macros::utils::emit_error;
 use crate::utils::cmap::CHashMap;
 use std::meta::unquote;
 
@@ -20,15 +21,18 @@ pub comptime mut global STORAGE_LAYOUT_NAME: CHashMap<Module, Quoted> = CHashMap
 pub comptime fn storage(s: TypeDefinition) -> Quoted {
     let struct_name = s.name();
     if struct_name != quote { Storage } {
-        panic(
+        emit_error(
             f"The #[storage] macro can only be applied to a struct with name 'Storage', got '{struct_name}' instead.",
+            s.location(),
         )
     }
 
-    assert(
-        !s.has_named_attribute("storage_no_init"),
-        f"Only one of #[storage] and #[storage_no_init] can be applied to the Storage struct.",
-    );
+    if s.has_named_attribute("storage_no_init") {
+        emit_error(
+            f"Only one of #[storage] and #[storage_no_init] can be applied to the Storage struct.",
+            s.location(),
+        );
+    }
 
     let mut slot: u32 = 1;
     let mut storage_vars_constructors = @[];
@@ -130,13 +134,16 @@ pub comptime fn storage_no_init(s: TypeDefinition) {
 
     if s.name() != quote { Storage } {
         let name = s.name();
-        panic(
+        emit_error(
             f"The #[storage_no_init] macro can only be applied to a struct with name 'Storage', got '{name}' instead.",
+            s.location(),
         )
     }
 
-    assert(
-        !s.has_named_attribute("storage"),
-        f"Only one of #[storage] and #[storage_no_init] can be applied to the Storage struct.",
-    );
+    if s.has_named_attribute("storage") {
+        emit_error(
+            f"Only one of #[storage] and #[storage_no_init] can be applied to the Storage struct.",
+            s.location(),
+        );
+    }
 }

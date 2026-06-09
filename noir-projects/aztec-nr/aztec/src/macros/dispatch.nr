@@ -2,8 +2,7 @@ use crate::macros::internals_functions_generation::external_functions_registry::
 use crate::protocol::meta::utils::get_params_len_quote;
 use crate::utils::cmap::CHashMap;
 use super::functions::initialization_utils::EMIT_PUBLIC_INIT_NULLIFIER_FN_NAME;
-use super::utils::compute_fn_selector;
-use std::panic;
+use super::utils::{compute_fn_selector, emit_error};
 
 /// Minimum number of public functions that must share a parameter-type signature before we extract a shared
 /// unpack helper. See [compute_unpack_prelude] for the rationale behind the chosen value.
@@ -52,8 +51,9 @@ pub comptime fn generate_public_dispatch(m: Module, generate_emit_public_init_nu
         let existing_fn = seen_selectors.get(selector);
         if existing_fn.is_some() {
             let existing_fn = existing_fn.unwrap();
-            panic(
+            emit_error(
                 f"Public function selector collision detected between functions '{fn_name}' and '{existing_fn}'",
+                function.location(),
             );
         }
         seen_selectors.insert(selector, fn_name);

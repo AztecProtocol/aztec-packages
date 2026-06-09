@@ -14,7 +14,10 @@ use crate::{
             OFFCHAIN_RECEIVE_RETURN_TYPE,
         },
         storage::STORAGE_LAYOUT_NAME,
-        utils::{is_fn_contract_library_method, is_fn_external, is_fn_internal, is_fn_test, module_has_storage},
+        utils::{
+            emit_error, is_fn_contract_library_method, is_fn_external, is_fn_internal, is_fn_test,
+            module_has_storage,
+        },
     },
     messages::discovery::{CustomMessageHandler, CustomSyncHandler},
 };
@@ -102,7 +105,8 @@ pub comptime fn aztec(m: Module, args: [AztecConfig]) -> Quoted {
     } else if num_args == 1 {
         args[0]
     } else {
-        panic(f"#[aztec] expects 0 or 1 arguments, got {num_args}")
+        emit_error(f"#[aztec] expects 0 or 1 arguments, got {num_args}", m.location());
+        AztecConfig::new()
     };
 
     // Functions that don't have #[external(...)], #[contract_library_method], or #[test] are not allowed in contracts.
@@ -145,8 +149,9 @@ pub comptime fn aztec(m: Module, args: [AztecConfig]) -> Quoted {
     };
 
     if m.functions().any(|f| f.name() == quote { sync_state }) {
-        panic(
-            "User-defined 'sync_state' is not allowed. Use AztecConfig::custom_sync_state() to customize sync behavior.",
+        emit_error(
+            f"User-defined 'sync_state' is not allowed. Use AztecConfig::custom_sync_state() to customize sync behavior.",
+            m.location(),
         );
     }
 
@@ -164,8 +169,9 @@ pub comptime fn aztec(m: Module, args: [AztecConfig]) -> Quoted {
     );
 
     if m.functions().any(|f| f.name() == quote { offchain_receive }) {
-        panic(
-            "User-defined 'offchain_receive' is not allowed. The function is auto-injected by the #[aztec] macro. See https://docs.aztec.network/errors/7",
+        emit_error(
+            f"User-defined 'offchain_receive' is not allowed. The function is auto-injected by the #[aztec] macro. See https://docs.aztec.network/errors/7",
+            m.location(),
         );
     }
     let offchain_receive_fn_and_abi_export = generate_offchain_receive();
@@ -343,9 +349,8 @@ comptime fn check_each_fn_macroified(m: Module) {
         if !is_fn_external(f) & !is_fn_contract_library_method(f) & !is_fn_internal(f) & !is_fn_test(f) {
             // We  don't suggest that #[contract_library_method] is allowed because we don't want to introduce another
             // concept
-            std::meta::error(
+            emit_error(
                 f"Function {name} must be marked as either #[external(...)], #[internal(...)], or #[test]",
-                Option::none(),
                 f.location(),
             );
         }

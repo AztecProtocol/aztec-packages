@@ -3,75 +3,110 @@ source: tests/snapshots.rs
 expression: stderr
 ---
 error: Contract function 'bad_private_return' returns a value of type NotDeserializable, which does not implement the Deserialize trait. Add #[derive(Deserialize)] to NotDeserializable's declaration.
-    ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/utils.nr:<line>:<col>
-    │
-    │             return_type.implements(deserialize_constraint),
-    │             ---------------------------------------------- Assertion failed
-    │
-    = Call stack:
-      1: ?
-              at src/main.nr:15:5
-      2: external
-              at <repo>/noir-projects/aztec-nr/aztec/src/macros/functions/mod.nr:<line>:<col>
+   ┌─ src/main.nr:16:8
+   │
+16 │     fn bad_private_return() -> pub NotDeserializable {
+   │        ------------------
+   │
 
 error: Parameter '_p' of contract function 'bad_private_param' has type NotDeserializable, which does not implement the Deserialize trait. Add #[derive(Deserialize)] to NotDeserializable's declaration.
-    ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/utils.nr:<line>:<col>
-    │
-    │             param_type.implements(deserialize_constraint),
-    │             --------------------------------------------- Assertion failed
-    │
-    = Call stack:
-      1: ?
-              at src/main.nr:20:5
-      2: external
-              at <repo>/noir-projects/aztec-nr/aztec/src/macros/functions/mod.nr:<line>:<col>
+   ┌─ src/main.nr:21:8
+   │
+21 │     fn bad_private_param(_p: NotDeserializable) {}
+   │        -----------------
+   │
 
 error: Contract function 'bad_public_return' returns a value of type NotDeserializable, which does not implement the Deserialize trait. Add #[derive(Deserialize)] to NotDeserializable's declaration.
-    ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/utils.nr:<line>:<col>
-    │
-    │             return_type.implements(deserialize_constraint),
-    │             ---------------------------------------------- Assertion failed
-    │
-    = Call stack:
-      1: ?
-              at src/main.nr:23:5
-      2: external
-              at <repo>/noir-projects/aztec-nr/aztec/src/macros/functions/mod.nr:<line>:<col>
+   ┌─ src/main.nr:24:8
+   │
+24 │     fn bad_public_return() -> pub NotDeserializable {
+   │        -----------------
+   │
 
 error: Parameter '_p' of contract function 'bad_public_param' has type NotDeserializable, which does not implement the Deserialize trait. Add #[derive(Deserialize)] to NotDeserializable's declaration.
-    ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/utils.nr:<line>:<col>
-    │
-    │             param_type.implements(deserialize_constraint),
-    │             --------------------------------------------- Assertion failed
-    │
-    = Call stack:
-      1: ?
-              at src/main.nr:28:5
-      2: external
-              at <repo>/noir-projects/aztec-nr/aztec/src/macros/functions/mod.nr:<line>:<col>
+   ┌─ src/main.nr:29:8
+   │
+29 │     fn bad_public_param(_p: NotDeserializable) {}
+   │        ----------------
+   │
 
 error: Contract function 'bad_utility_return' returns a value of type NotDeserializable, which does not implement the Deserialize trait. Add #[derive(Deserialize)] to NotDeserializable's declaration.
-    ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/utils.nr:<line>:<col>
-    │
-    │             return_type.implements(deserialize_constraint),
-    │             ---------------------------------------------- Assertion failed
-    │
-    = Call stack:
-      1: ?
-              at src/main.nr:31:5
-      2: external
-              at <repo>/noir-projects/aztec-nr/aztec/src/macros/functions/mod.nr:<line>:<col>
+   ┌─ src/main.nr:32:22
+   │
+32 │     unconstrained fn bad_utility_return() -> pub NotDeserializable {
+   │                      ------------------
+   │
 
 error: Parameter '_p' of contract function 'bad_utility_param' has type NotDeserializable, which does not implement the Deserialize trait. Add #[derive(Deserialize)] to NotDeserializable's declaration.
-    ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/utils.nr:<line>:<col>
-    │
-    │             param_type.implements(deserialize_constraint),
-    │             --------------------------------------------- Assertion failed
-    │
-    = Call stack:
-      1: ?
-              at src/main.nr:36:5
-      2: external
-              at <repo>/noir-projects/aztec-nr/aztec/src/macros/functions/mod.nr:<line>:<col>
+   ┌─ src/main.nr:37:22
+   │
+37 │     unconstrained fn bad_utility_param(_p: NotDeserializable) {}
+   │                      -----------------
+   │
 
-Aborting due to 6 previous errors
+error: No matching impl found for `NotDeserializable: Deserialize<N = _>`
+    ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/dispatch.nr:<line>:<col>
+    │
+    │                 let $arg_name: $param_type = aztec::protocol::traits::Deserialize::stream_deserialize(&mut reader);
+    │                                              -------------------------------------------------------- No impl for `NotDeserializable: Deserialize<N = _>`
+    │
+    ┌─ src/main.nr:5:1
+    │
+  5 │ #[aztec]
+    │ -------- While running this function attribute
+    │
+
+error: No matching impl found for `NotDeserializable: Deserialize<N = _>`
+    ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/calls_generation/external_functions_stubs.nr:<line>:<col>
+    │  
+    │ ╭                 aztec::context::calls::PublicCall::new(
+    │ │                     self.address,
+    │ │                     selector,
+    │ │                     $fn_name_str,
+    │ │                     $serialized_args_array_name,
+    │ │                 ).call(self.context)
+    │ ╰──────────────────────' No impl for `NotDeserializable: Deserialize<N = _>`
+    │  
+    ┌─ src/main.nr:5:1
+    │
+  5 │ #[aztec]
+    │ -------- While running this function attribute
+    │
+
+error: No matching impl found for `NotDeserializable: Deserialize<N = _>`
+    ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/calls_generation/external_functions_stubs.nr:<line>:<col>
+    │
+    │             returns_hash.get_preimage()
+    │             ------------------------- No impl for `NotDeserializable: Deserialize<N = _>`
+    │
+    ┌─ src/main.nr:5:1
+    │
+  5 │ #[aztec]
+    │ -------- While running this function attribute
+    │
+
+error: No matching impl found for `NotDeserializable: Deserialize<N = _>`
+    ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/calls_generation/external_functions_stubs.nr:<line>:<col>
+    │
+    │             aztec::protocol::traits::Deserialize::deserialize(returns)
+    │             ------------------------------------------------- No impl for `NotDeserializable: Deserialize<N = _>`
+    │
+    ┌─ src/main.nr:5:1
+    │
+  5 │ #[aztec]
+    │ -------- While running this function attribute
+    │
+
+error: Type annotation needed
+    ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/calls_generation/external_functions_stubs.nr:<line>:<col>
+    │
+    │             let returns = aztec::oracle::call_utility_function::call_utility_function(
+    │                                                                 --------------------- Could not determine the value of the generic argument `N` declared on the function `call_utility_function`
+    │
+    ┌─ src/main.nr:5:1
+    │
+  5 │ #[aztec]
+    │ -------- While running this function attribute
+    │
+
+Aborting due to 11 previous errors

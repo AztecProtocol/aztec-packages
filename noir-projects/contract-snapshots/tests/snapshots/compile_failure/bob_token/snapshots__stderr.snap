@@ -3,56 +3,32 @@ source: tests/snapshots.rs
 expression: stderr
 ---
 error: The #[internal] attribute cannot be applied to external functions - transfer_public is marked as both #[external] and #[internal("public")]
-  ┌─ std/panic.nr:8:12
-  │
-8 │     assert(false, message);
-  │            ----- Assertion failed
-  │
-  = Call stack:
-    1: ?
-            at src/main.nr:53:5
-    2: internal
-            at <repo>/noir-projects/aztec-nr/aztec/src/macros/functions/mod.nr:<line>:<col>
+   ┌─ src/main.nr:54:8
+   │
+54 │     fn transfer_public(to: AztecAddress, amount: u128) {
+   │        ---------------
+   │
 
 error: A function marked as #[external("private")] or #[internal("private")] must not have public Noir visibility - transfer_private's visibility is 'pub'
-  ┌─ std/panic.nr:8:12
-  │
-8 │     assert(false, message);
-  │            ----- Assertion failed
-  │
-  = Call stack:
-    1: ?
-            at src/main.nr:85:5
-    2: external
-            at <repo>/noir-projects/aztec-nr/aztec/src/macros/functions/mod.nr:<line>:<col>
-    3: assert_valid_private
-            at <repo>/noir-projects/aztec-nr/aztec/src/macros/functions/mod.nr:<line>:<col>
+   ┌─ src/main.nr:86:12
+   │
+86 │     pub fn transfer_private(to: AztecAddress, amount: u128) {
+   │            ----------------
+   │
 
 error: The #[view] attribute can only be applied to #[external("private")] or #[external("public")] functions - _assert_is_owner is neither
-  ┌─ std/panic.nr:8:12
-  │
-8 │     assert(false, message);
-  │            ----- Assertion failed
-  │
-  = Call stack:
-    1: ?
-            at src/main.nr:107:5
-    2: view
-            at <repo>/noir-projects/aztec-nr/aztec/src/macros/functions/mod.nr:<line>:<col>
+    ┌─ src/main.nr:108:8
+    │
+108 │     fn _assert_is_owner(address: AztecAddress) {
+    │        ----------------
+    │
 
 error: #[external("private")] or #[internal("private")] functions must not be unconstrained - mint_private is
-  ┌─ std/panic.nr:8:12
-  │
-8 │     assert(false, message);
-  │            ----- Assertion failed
-  │
-  = Call stack:
-    1: ?
-            at src/main.nr:113:5
-    2: external
-            at <repo>/noir-projects/aztec-nr/aztec/src/macros/functions/mod.nr:<line>:<col>
-    3: assert_valid_private
-            at <repo>/noir-projects/aztec-nr/aztec/src/macros/functions/mod.nr:<line>:<col>
+    ┌─ src/main.nr:114:22
+    │
+114 │     unconstrained fn mint_private(employee: AztecAddress, amount: u128) {
+    │                      ------------
+    │
 
 error: Function _assert_is_owner must be marked as either #[external(...)], #[internal(...)], or #[test]
     ┌─ src/main.nr:108:8
@@ -61,25 +37,11 @@ error: Function _assert_is_owner must be marked as either #[external(...)], #[in
     │        ----------------
     │
 
-error: cannot find `self` in this scope
-   ┌─ src/main.nr:87:22
+error: Function already resolved
+   ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/internals_functions_generation/internal.nr:<line>:<col>
    │
-87 │         let sender = self.msg_sender();
-   │                      ---- not found in this scope
-   │
-
-error: cannot find `self` in this scope
-   ┌─ src/main.nr:88:9
-   │
-88 │         self.storage.private_balances.at(sender).sub(amount).deliver(
-   │         ---- not found in this scope
-   │
-
-error: cannot find `self` in this scope
-   ┌─ src/main.nr:91:9
-   │
-91 │         self.storage.private_balances.at(to).add(amount).deliver(
-   │         ---- not found in this scope
+   │     let body = f.body();
+   │                -------- The function was previously called at compile-time or is in another crate
    │
 
 error: cannot find `self` in this scope
@@ -89,18 +51,4 @@ error: cannot find `self` in this scope
     │                            ---- not found in this scope
     │
 
-error: cannot find `self` in this scope
-    ┌─ src/main.nr:115:9
-    │
-115 │         self.enqueue_self._assert_is_owner(self.msg_sender());
-    │         ---- not found in this scope
-    │
-
-error: cannot find `self` in this scope
-    ┌─ src/main.nr:116:9
-    │
-116 │         self.storage.private_balances.at(employee).add(amount).deliver(
-    │         ---- not found in this scope
-    │
-
-Aborting due to 11 previous errors
+Aborting due to 7 previous errors
