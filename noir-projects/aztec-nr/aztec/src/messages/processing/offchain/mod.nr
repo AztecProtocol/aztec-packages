@@ -109,25 +109,51 @@ pub unconstrained fn receive(
     set_contract_sync_cache_invalid(contract_address, messages.map(|msg| msg.recipient));
 }
 
-/// Decides whether an active reception is ready to be processed, given its resolved tx context.
+/// Processes one active reception: applies the store side effect implied by its state and returns the message to hand
+/// off this sync, if any. We decide readiness before expiration, so a message whose context resolves on the same sync
+/// it would otherwise be evicted is still handed off. The caller's only remaining job is to collect the `Some` result.
 ///
-/// Returns `Some` with the message and the context to hand off when the reception is `received` - its tx context has
-/// resolved and it has not yet been processed. Returns `None` otherwise: when it is still unresolved (the originating
-/// TX is not yet known to PXE, or the message is tx-less and never resolves) or has already been processed. The
-/// reception's state is derived by folding its facts, so an already-processed reception is never handed off again,
-/// keeping processing idempotent. This decision is pure: applying its consequences (recording the `Processed` fact,
-/// evicting expired receptions) is the caller's responsibility.
+/// - Received and resolved: the originating TX has been found by PXE, giving the context needed to process the
+///   message. We record a `Processed` fact anchored at the resolving block - so a reorg of that block retracts the
+///   guard and the message is re-processed - and return the message as `Some`. The reception stays active; a later
+///   sync evicts it.
+///
+/// - Expired (and not processable this sync): the message's effective expiration
+///   (`anchor_block_timestamp + MAX_MSG_TTL`) has passed and it is not being handed off now, so we terminate the
+///   reception to stop tracking it. An expired-but-resolved message is processed this sync and terminated on the next
+///   one, once it has folded to processed.
+///
+/// - Received-but-unresolved (or tx-less, which never resolves), or already processed: left active for a future sync,
+///   returning `None`.
 unconstrained fn process_message(
+    contract_address: AztecAddress,
+    scope: AztecAddress,
     reception: NonRetractableEntity<OffchainMessage>,
     maybe_ctx: Option<MessageContext>,
+    now: u64,
 ) -> Option<OffchainMessageWithContext> {
+    let expired = now > reception.body.anchor_block_timestamp + MAX_MSG_TTL;
+
     if (state(reception) == OffchainReceptionState::received()) & maybe_ctx.is_some() {
+        let ctx = maybe_ctx.unwrap();
+        reception.log(
+            contract_address,
+            scope,
+            OFFCHAIN_MESSAGE_PROCESSED,
+            [],
+            Option::some((ctx.tx_block_number, ctx.tx_block_hash)),
+        );
         Option::some(
-            OffchainMessageWithContext {
-                message_ciphertext: reception.body.ciphertext,
-                message_context: maybe_ctx.unwrap(),
-            },
+            OffchainMessageWithContext { message_ciphertext: reception.body.ciphertext, message_context: ctx },
         )
+    } else if expired {
+        terminate_entity(
+            contract_address,
+            scope,
+            OFFCHAIN_RECEPTION_ENTITY,
+            reception.body.entity_id(),
+        );
+        Option::none()
     } else {
         Option::none()
     }
@@ -159,24 +185,15 @@ pub unconstrained fn sync_inbox(
     let now = UtilityContext::new().timestamp();
 
     active_receptions.for_each(|i, reception| {
-        let key = reception.body.entity_id();
-        let expired = now > reception.body.anchor_block_timestamp + MAX_MSG_TTL;
-
-        let maybe_ready = process_message(reception, resolved_contexts.get(i));
+        let maybe_ready = process_message(
+            contract_address,
+            scope,
+            reception,
+            resolved_contexts.get(i),
+            now,
+        );
         if maybe_ready.is_some() {
-            let ready = maybe_ready.unwrap();
-            ready_to_process.push(ready);
-            reception.log(
-                contract_address,
-                scope,
-                OFFCHAIN_MESSAGE_PROCESSED,
-                [],
-                Option::some(
-                    (ready.message_context.tx_block_number, ready.message_context.tx_block_hash),
-                ),
-            );
-        } else if expired {
-            terminate_entity(contract_address, scope, OFFCHAIN_RECEPTION_ENTITY, key);
+            ready_to_process.push(maybe_ready.unwrap());
         }
     });
 
