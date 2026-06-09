@@ -226,7 +226,7 @@ pub unconstrained fn record_non_retractable_fact<let N: u32>(
 ///
 /// Retractable entities are tied to a block anchor (`block_number`, `block_hash`); if that block is reorg'd away the
 /// entire entity - its payload and every fact recorded against it - is pruned from the store.
-pub unconstrained fn create_retractable_entity<T>(
+pub(crate) unconstrained fn create_retractable_entity<T>(
     contract_address: AztecAddress,
     scope: AztecAddress,
     entity_type_id: Field,
@@ -252,7 +252,7 @@ where
 /// Creates a non-retractable (permanent) entity with the given payload.
 ///
 /// Non-retractable entities survive reorgs; only their own retractable facts are pruned.
-pub unconstrained fn create_non_retractable_entity<T>(
+pub(crate) unconstrained fn create_non_retractable_entity<T>(
     contract_address: AztecAddress,
     scope: AztecAddress,
     entity_type_id: Field,
