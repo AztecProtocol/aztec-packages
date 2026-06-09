@@ -66,6 +66,14 @@ where
         );
         Self { body }
     }
+
+    /// Returns the entity ids of every currently active entity of this kind ([`EntityBody::entity_type_id`]).
+    ///
+    /// Read each entity's payload and facts with [`get_entity`]. The query is keyed by entity type, so it returns
+    /// active entities of this kind regardless of how they were created.
+    pub unconstrained fn read_all_active(contract_address: AztecAddress, scope: AztecAddress) -> EphemeralArray<Field> {
+        active_entities_oracle(contract_address, scope, T::entity_type_id())
+    }
 }
 
 /// A handle to a retractable entity in the store.
@@ -103,6 +111,14 @@ where
             block_hash,
         );
         Self { body }
+    }
+
+    /// Returns the entity ids of every currently active entity of this kind ([`EntityBody::entity_type_id`]).
+    ///
+    /// Read each entity's payload and facts with [`get_entity`]. The query is keyed by entity type, so it returns
+    /// active entities of this kind regardless of how they were created.
+    pub unconstrained fn read_all_active(contract_address: AztecAddress, scope: AztecAddress) -> EphemeralArray<Field> {
+        active_entities_oracle(contract_address, scope, T::entity_type_id())
     }
 }
 
@@ -269,15 +285,6 @@ where
         entity_id,
         payload.serialize(),
     );
-}
-
-/// Returns the entity ids of all currently active entities of the given type.
-pub unconstrained fn active_entities(
-    contract_address: AztecAddress,
-    scope: AztecAddress,
-    entity_type_id: Field,
-) -> EphemeralArray<Field> {
-    active_entities_oracle(contract_address, scope, entity_type_id)
 }
 
 /// Returns the given entity: its deserialized payload together with its fact set.
