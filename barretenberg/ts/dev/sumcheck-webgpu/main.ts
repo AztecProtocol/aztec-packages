@@ -30,7 +30,7 @@ import { databusSuite } from './suite_databus.js';
 import { integrationSuite } from './suite_integration.js';
 import { foldSuite } from './suite_fold.js';
 import { roundsSuite } from './suite_rounds.js';
-import { runBenchmark, type BenchRow } from './bench.js';
+import { runBenchmark, runWgSweep, type BenchRow } from './bench.js';
 
 const REGISTRY: Suite[] = [
   frSuite, monoSuite, arithSuite, deltaSuite, eccSuite, pos2InitSuite,
@@ -113,6 +113,37 @@ allBtn.style.fontWeight = '600';
 allBtn.addEventListener('click', () => void runSuites(REGISTRY));
 $controls.appendChild(allBtn);
 
+// Occupancy experiment: sweep the accumulate-kernel workgroup size at the current
+// size to find the GPU-compute sweet spot for the register-heavy relations.
+const WG_SWEEP = [32, 64, 96, 128, 192, 256];
+async function runWgSweepAuto(): Promise<boolean> {
+  if (running) return false;
+  running = true;
+  setButtonsDisabled(true);
+  $log.replaceChildren();
+  const logN = Math.max(4, Math.min(20, parseInt($logn.value, 10) || 14));
+  log('info', `WG occupancy sweep · 2^${logN} · accumulate workgroup size ∈ {${WG_SWEEP.join(', ')}}`);
+  let ok = true;
+  try {
+    const device = await getDevice();
+    await runWgSweep(device, logN, WG_SWEEP, log);
+  } catch (e) {
+    ok = false;
+    log('err', `error: ${(e as Error).message}`);
+    // eslint-disable-next-line no-console
+    console.error(e);
+  } finally {
+    running = false;
+    setButtonsDisabled(false);
+    log('muted', `[autorun] state=${ok ? 'ok' : 'err'}`);
+  }
+  return ok;
+}
+const wgBtn = document.createElement('button');
+wgBtn.textContent = 'WG sweep';
+wgBtn.addEventListener('click', () => void runWgSweepAuto());
+$controls.appendChild(wgBtn);
+
 // ===== Tab switching =====
 document.querySelectorAll<HTMLButtonElement>('.tabbar button').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -176,11 +207,13 @@ $benchRun.addEventListener('click', () => void (async () => {
   }
 })());
 
-// Autorun: ?autorun=all | <suite id> | bench
+// Autorun: ?autorun=all | <suite id> | bench | wgsweep
 const autorun = new URLSearchParams(window.location.search).get('autorun');
 if (autorun === 'bench') {
   (document.getElementById('tab-btn-bench') as HTMLButtonElement).click();
   $benchRun.click();
+} else if (autorun === 'wgsweep') {
+  void runWgSweepAuto();
 } else if (autorun) {
   const suites = autorun === 'all' ? REGISTRY : REGISTRY.filter(s => s.id === autorun);
   if (suites.length > 0) void runSuites(suites);

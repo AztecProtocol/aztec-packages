@@ -93,6 +93,7 @@ export async function runResidentGpuSumcheck(
   relParamBytes: (Uint8Array | undefined)[],
   initColBytes: Uint8Array[],
   shared?: Shared,
+  accWG: number = WG,
 ): Promise<ResidentSumcheckResult> {
   const d = Math.round(Math.log2(n));
   const relCache: PipelineCache = shared?.cache ?? new Map();
@@ -125,13 +126,16 @@ export async function runResidentGpuSumcheck(
   // resident columns itself, so there is no separate gather pass / edge buffer.
   const accPipeline = async (desc: RelationDescriptor) => {
     const hasParams = relParamBufs[desc.relationIndex] !== undefined;
-    const key = `acc:${desc.entry}|${hasParams ? 5 : 4}`;
+    const key = `acc:${desc.entry}|${hasParams ? 5 : 4}|wg${accWG}`;
     let p = relCache.get(key);
     if (!p) {
       const types = ['read-only-storage', 'storage', 'uniform', 'read-only-storage'];
       if (hasParams) types.push('read-only-storage');
       const layout = create_bind_group_layout(device, types);
-      const pipeline = await create_compute_pipeline(device, [layout], desc.shader(), desc.entry, desc.entry);
+      // The relation shaders render at the global WG; retarget only the accumulate
+      // kernel's workgroup size so the benchmark can sweep occupancy in isolation.
+      const code = accWG === WG ? desc.shader() : desc.shader().replace(`@workgroup_size(${WG})`, `@workgroup_size(${accWG})`);
+      const pipeline = await create_compute_pipeline(device, [layout], code, desc.entry, desc.entry);
       p = { layout, pipeline };
       relCache.set(key, p);
     }
@@ -164,7 +168,7 @@ export async function runResidentGpuSumcheck(
         const aBufs: GPUBuffer[] = [colBuf[r], perEdge, create_and_write_ub(device, u32x4(pairs)), scalBuf];
         if (relParamBufs[r]) aBufs.push(relParamBufs[r]!);
         const aBg = create_bind_group(device, acc.layout, aBufs);
-        await execute_pipeline(enc, acc.pipeline, aBg, Math.ceil(pairs / WG));
+        await execute_pipeline(enc, acc.pipeline, aBg, Math.ceil(pairs / accWG));
         // reduce: per-edge output -> partials (into the shared buffer at outBase)
         const rBg = create_bind_group(device, reduceRunner.layout, [
           perEdge, partialsAll, create_and_write_ub(device, u32x4(pairs, desc.outLen, chunk, outBase)),

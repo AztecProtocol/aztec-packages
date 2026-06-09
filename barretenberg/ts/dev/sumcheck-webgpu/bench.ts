@@ -126,3 +126,51 @@ export async function runBenchmark(device: GPUDevice, logNs: number[], log: Logg
   await wasm?.destroy();
   return rows;
 }
+
+export interface WgSweepRow {
+  wg: number;
+  gpuMs: number;
+  wallMs: number;
+}
+
+/**
+ * Sweep the accumulate-kernel workgroup size at a fixed size. The relation
+ * accumulate kernels are register-heavy (many live Mono/Lag values), so their
+ * occupancy — how many edges run concurrently per SM — is sensitive to the
+ * workgroup size; this finds the sweet spot on the actual device. Only the
+ * accumulate kernel's WG varies (fold/reduce are fixed), isolating occupancy.
+ * Each WG gets a fresh pipeline cache and a warmup run so timing excludes
+ * shader compilation.
+ */
+export async function runWgSweep(
+  device: GPUDevice,
+  logN: number,
+  wgs: number[],
+  log: Logger,
+  onRow?: (row: WgSweepRow) => void,
+): Promise<WgSweepRow[]> {
+  const alpha = makeRng(0xb0_07_5eedn)();
+  const foldRunner: FoldRunner = await makeFoldRunner(device);
+  const reduceRunner: ReduceRunner = await makeReduceRunner(device);
+  const n = 1 << logN;
+  const betas = Array.from({ length: logN }, (_, i) => makeRng(0xbe7a_77n + BigInt(i))());
+  const challenges = Array.from({ length: logN }, (_, i) => makeRng(0xc4a1_77n + BigInt(i))());
+  const { initColBytes, relParamBytes } = buildInputs(n);
+
+  const rows: WgSweepRow[] = [];
+  for (const wg of wgs) {
+    const cache: PipelineCache = new Map();
+    const shared = { cache, foldRunner, reduceRunner };
+    await runResidentGpuSumcheck(device, n, alpha, betas, challenges, relParamBytes, initColBytes, shared, wg); // warmup/compile
+    const r = await runResidentGpuSumcheck(device, n, alpha, betas, challenges, relParamBytes, initColBytes, shared, wg);
+    const row: WgSweepRow = { wg, gpuMs: r.gpuMs, wallMs: r.totalMs };
+    rows.push(row);
+    onRow?.(row);
+    log('ok', `  WG ${String(wg).padStart(3)}: GPU ${r.gpuMs.toFixed(1)} ms · wall ${r.totalMs.toFixed(1)} ms`);
+  }
+  if (rows.length) {
+    const best = rows.reduce((a, b) => (b.gpuMs < a.gpuMs ? b : a));
+    log('info', `  best: WG ${best.wg} @ GPU ${best.gpuMs.toFixed(1)} ms (baseline WG 64: ${(rows.find(r => r.wg === 64)?.gpuMs ?? NaN).toFixed(1)} ms)`);
+  }
+  return rows;
+}
