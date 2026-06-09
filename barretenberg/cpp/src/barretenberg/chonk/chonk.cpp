@@ -218,14 +218,14 @@ Chonk::PublicInputsResult Chonk::process_app_public_inputs(std::vector<StdlibFF>
  * @param accumulation_recursive_transcript Transcript shared across recursive verification of the sumchecks of
  * K_{i-1} (kernel), A_{i,1} (app), .., A_{i, n} (app)
  */
-std::tuple<std::optional<Chonk::RecursiveVerifierAccumulator>, std::vector<Chonk::PairingPoints>, Chonk::StdlibFF>
-Chonk::recursive_verification_and_consistency_checks(
-    ClientCircuit& circuit,
-    const StdlibVerifierInputs& verifier_inputs,
-    const std::optional<RecursiveVerifierAccumulator>& carried_accumulator,
-    const std::optional<StdlibFF>& running_ecc_op_hash,
-    const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript,
-    bool explain_batch_merge_hash_repetition)
+std::tuple<Chonk::RecursiveVerifierAccumulator, std::vector<Chonk::PairingPoints>, Chonk::StdlibFF> Chonk::
+    recursive_verification_and_consistency_checks(
+        ClientCircuit& circuit,
+        const StdlibVerifierInputs& verifier_inputs,
+        const std::optional<RecursiveVerifierAccumulator>& carried_accumulator,
+        const std::optional<StdlibFF>& running_ecc_op_hash,
+        const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript,
+        bool explain_batch_merge_hash_repetition)
 {
     BB_BENCH_NAME("Chonk::recursive_verification_and_consistency_checks");
     (void)circuit;
