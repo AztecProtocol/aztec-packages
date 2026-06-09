@@ -173,14 +173,20 @@ export abstract class L2TipsStoreBase implements L2BlockStreamEventHandler, L2Bl
       // would then throw on.
       await this.saveTag('proposed', event.block);
 
-      // Clamp any checkpoint-bearing cursor that leads the source's confirmed checkpointed tip down to
-      // that tip. The event always carries a valid (block, id) pair for the checkpointed boundary, so the
-      // clamped cursor always resolves to a recorded id.
-      for (const tag of ['checkpointed', 'proven'] as const) {
+      // Clamp each checkpoint-bearing cursor down to its OWN source tip when it leads it. Clamping the proven
+      // cursor onto the checkpointed tip would transiently report unproven blocks as proven (the source's proven
+      // tip can sit below its checkpointed tip after a proof-tx reorg), until the corrective chain-proven event
+      // lands at the end of the same sync iteration. The event carries a valid (block, id) pair for each
+      // boundary, so the clamped cursor always resolves to a recorded id. The source guarantees proven <=
+      // checkpointed, so clamping each cursor to its own tip preserves the local proven <= checkpointed invariant.
+      for (const { tag, sourceTip } of [
+        { tag: 'checkpointed', sourceTip: event.checkpointed },
+        { tag: 'proven', sourceTip: event.proven },
+      ] as const) {
         const current = await this.getTip(tag);
-        if (current !== undefined && current > event.checkpointed.block.number) {
-          await this.saveTag(tag, event.checkpointed.block);
-          await this.setTipCheckpoint(tag, event.checkpointed.checkpoint);
+        if (current !== undefined && current > sourceTip.block.number) {
+          await this.saveTag(tag, sourceTip.block);
+          await this.setTipCheckpoint(tag, sourceTip.checkpoint);
         }
       }
     });

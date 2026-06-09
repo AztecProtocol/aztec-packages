@@ -106,6 +106,7 @@ export class L2BlockStream {
           type: 'chain-pruned',
           block: makeL2BlockId(latestBlockNumber, hash),
           checkpointed: sourceTips.checkpointed,
+          proven: sourceTips.proven,
         });
       }
 

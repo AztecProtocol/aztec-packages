@@ -265,6 +265,7 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
       type: 'chain-pruned',
       block: makeBlockId(5),
       checkpointed: makeTipId(0),
+      proven: makeTipId(0),
     });
 
     const tips = await tipsStore.getL2Tips();
@@ -289,6 +290,7 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
       type: 'chain-pruned',
       block: makeTip(0),
       checkpointed: makeTipId(0),
+      proven: makeTipId(0),
     });
 
     tips = await tipsStore.getL2Tips();
@@ -354,6 +356,7 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
       type: 'chain-pruned',
       block: makeBlockId(5),
       checkpointed: makeTipId(5),
+      proven: makeTipId(0),
     });
 
     tips = await tipsStore.getL2Tips();
@@ -418,6 +421,7 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
       type: 'chain-pruned',
       block: makeBlockId(3),
       checkpointed: makeTipId(3),
+      proven: makeTipId(0),
     });
 
     tips = await tipsStore.getL2Tips();
@@ -500,6 +504,7 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
       type: 'chain-pruned',
       block: makeBlockId(3),
       checkpointed: makeTipId(3),
+      proven: makeTipId(3),
     });
 
     tips = await tipsStore.getL2Tips();
@@ -625,14 +630,16 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
       checkpoint: { number: CheckpointNumber(2), hash: new Fr(202).toString() },
     });
 
-    // Prune to block 7, carrying the source's confirmed checkpointed tip (block 5 / ckpt 1).
+    // Prune to block 7, carrying the source's confirmed checkpointed and proven tips (both block 5 / ckpt 1
+    // here, the source's proven tip having rolled back together with its checkpointed tip).
     await tipsStore.handleBlockStreamEvent({
       type: 'chain-pruned',
       block: makeBlockId(7),
       checkpointed: makeTipId(5),
+      proven: makeTipId(5),
     });
 
-    // Must not throw; the proven cursor is clamped to the carried checkpointed tip, resolving to ckpt 1.
+    // Must not throw; the proven cursor is clamped to the carried proven tip, resolving to ckpt 1.
     const tips = await tipsStore.getL2Tips();
     expect(tips.proposed).toEqual(makeTip(7));
     expect(tips.proven.block).toEqual(makeTip(5));
@@ -654,11 +661,57 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
       type: 'chain-pruned',
       block: makeBlockId(6),
       checkpointed: makeTipId(5),
+      proven: makeTipId(0),
     });
 
     const tips = await tipsStore.getL2Tips();
     expect(tips.proposed).toEqual(makeTip(6));
     expect(tips.checkpointed.block).toEqual(makeTip(5));
     expect(tips.checkpointed.checkpoint.number).toEqual(CheckpointNumber(1)); // must NOT be zero
+  });
+
+  // Per-cursor clamping on prune: when the source rolls back its proven tip below its checkpointed tip
+  // (e.g. a proof tx dropped by an L1 reorg), the prune event carries both source tips and each local
+  // cursor must clamp to its OWN source tip. Clamping the proven cursor onto the (higher) checkpointed
+  // tip would transiently report unproven blocks as proven until the corrective chain-proven event lands.
+  it('clamps the proven cursor to the source proven tip, separately from the checkpointed cursor, on prune', async () => {
+    // Checkpoint blocks 1-15 across three checkpoints (ckpt 1 = 1-5, ckpt 2 = 6-10, ckpt 3 = 11-15).
+    const blocks1to5 = await Promise.all(times(5, i => makeBlock(i + 1)));
+    await tipsStore.handleBlockStreamEvent({ type: 'blocks-added', blocks: blocks1to5 });
+    await tipsStore.handleBlockStreamEvent(await makeCheckpointedEvent(await makeCheckpoint(1, blocks1to5)));
+    const blocks6to10 = await Promise.all(times(5, i => makeBlock(i + 6)));
+    await tipsStore.handleBlockStreamEvent({ type: 'blocks-added', blocks: blocks6to10 });
+    await tipsStore.handleBlockStreamEvent(await makeCheckpointedEvent(await makeCheckpoint(2, blocks6to10)));
+    const blocks11to15 = await Promise.all(times(5, i => makeBlock(i + 11)));
+    await tipsStore.handleBlockStreamEvent({ type: 'blocks-added', blocks: blocks11to15 });
+    await tipsStore.handleBlockStreamEvent(await makeCheckpointedEvent(await makeCheckpoint(3, blocks11to15)));
+
+    // Prove the whole chain up to block 15 (ckpt 3), so the local proven cursor leads both source tips below.
+    await tipsStore.handleBlockStreamEvent({
+      type: 'chain-proven',
+      block: makeBlockId(15),
+      checkpoint: makeCheckpointIdForBlock(15),
+    });
+
+    let tips = await tipsStore.getL2Tips();
+    expect(tips.checkpointed.block).toEqual(makeTip(15));
+    expect(tips.proven.block).toEqual(makeTip(15));
+
+    // Prune arrives with the source's proven tip (block 5 / ckpt 1) BELOW its checkpointed tip (block 10 /
+    // ckpt 2) and below the local proven cursor (block 15). Each cursor must clamp to its own source tip.
+    await tipsStore.handleBlockStreamEvent({
+      type: 'chain-pruned',
+      block: makeBlockId(10),
+      checkpointed: makeTipId(10),
+      proven: makeTipId(5),
+    });
+
+    tips = await tipsStore.getL2Tips();
+    // The proven cursor lands exactly on the source proven tip, NOT on the (higher) checkpointed tip.
+    expect(tips.proven.block).toEqual(makeTip(5));
+    expect(tips.proven.checkpoint.number).toEqual(CheckpointNumber(1));
+    // The checkpointed cursor lands on the source checkpointed tip.
+    expect(tips.checkpointed.block).toEqual(makeTip(10));
+    expect(tips.checkpointed.checkpoint.number).toEqual(CheckpointNumber(2));
   });
 }
