@@ -11,13 +11,29 @@ import {
   execute_pipeline, read_from_gpu,
 } from '../../src/msm_webgpu/cuzk/gpu.js';
 import { runSumcheckRounds } from '../../src/msm_webgpu/multiround.js';
-import { NUM_RELATIONS, assembleAccumulator, reduceEdges } from '../../src/msm_webgpu/accumulator.js';
+import { NUM_RELATIONS, assembleAccumulator } from '../../src/msm_webgpu/accumulator.js';
 import { ALL_RELATIONS } from './descriptors.js';
 import {
-  type PipelineCache, WG, sm, dispatchRelation, packParams, toMont, fromMont, writeLe32, le32ToBi,
+  type PipelineCache, type RelationDescriptor,
+  WG, sm, mod, packParams, toMont, fromMont, writeLe32, le32ToBi,
 } from './harness.js';
 
+// The edge-reduction kernel runs one thread per output column, so its workgroup
+// size must be >= the largest relation out_len (90 for DatabusLookup). Each round
+// is reduced into at most REDUCE_GROUPS workgroup partials, read back and summed
+// on the host — turning the readback from O(edges) to O(REDUCE_GROUPS).
+const REDUCE_WG = 128;
+const REDUCE_GROUPS = 64;
+
 export interface FoldRunner { layout: GPUBindGroupLayout; pipeline: GPUComputePipeline }
+export interface ReduceRunner { layout: GPUBindGroupLayout; pipeline: GPUComputePipeline }
+
+/** Compile the edge-reduction kernel once; reused for every round and relation. */
+export async function makeReduceRunner(device: GPUDevice): Promise<ReduceRunner> {
+  const layout = create_bind_group_layout(device, ['read-only-storage', 'storage', 'uniform']);
+  const pipeline = await create_compute_pipeline(device, [layout], sm.gen_reduce_test_shader(REDUCE_WG), 'reduce_main', 'reduce_main');
+  return { layout, pipeline };
+}
 
 /** Compile the fold kernel once; reused for every round and every relation. */
 export async function makeFoldRunner(device: GPUDevice): Promise<FoldRunner> {
@@ -72,15 +88,61 @@ export function packEdgesFromBytes(
   return inB;
 }
 
-/** Decode a relation kernel's per-edge output and sum over edges into its slice. */
-export function decodeAndReduce(bytes: Uint8Array, numPairs: number, outLen: number): bigint[] {
-  const perEdge: bigint[][] = [];
-  for (let i = 0; i < numPairs; i++) {
-    const row: bigint[] = [];
-    for (let k = 0; k < outLen; k++) row.push(fromMont(le32ToBi(bytes, (i * outLen + k) * 32)));
-    perEdge.push(row);
+/**
+ * Dispatch one relation's accumulate kernel then reduce its per-edge output over
+ * edges on the GPU, reading back only the workgroup partials and finishing the sum
+ * on the host. The per-edge buffer stays in VRAM (never transferred). Returns the
+ * relation's 345-Fr slice contribution and the GPU compute+readback time.
+ */
+async function dispatchAccumulateReduced(
+  device: GPUDevice, numPairs: number, desc: RelationDescriptor, inBytes: Uint8Array,
+  relParams: Uint8Array | undefined, cache: PipelineCache, reduce: ReduceRunner,
+): Promise<{ slice: bigint[]; ms: number }> {
+  const outLen = desc.outLen;
+  // Accumulate pipeline (cached): same binding scheme as dispatchRelation.
+  const types = ['read-only-storage', 'storage', 'uniform'];
+  if (relParams) types.push('read-only-storage');
+  const accKey = `acc:${desc.entry}|${types.length}`;
+  let acc = cache.get(accKey);
+  if (!acc) {
+    const layout = create_bind_group_layout(device, types);
+    const pipeline = await create_compute_pipeline(device, [layout], desc.shader(), desc.entry, desc.entry);
+    acc = { layout, pipeline };
+    cache.set(accKey, acc);
   }
-  return reduceEdges(perEdge, outLen);
+  const inBuf = create_and_write_sb(device, inBytes);
+  const accOut = create_sb(device, numPairs * outLen * 32); // per-edge output; stays on GPU
+  const accParams = new Uint8Array(16);
+  new DataView(accParams.buffer).setUint32(0, numPairs, true);
+  const accBufs = [inBuf, accOut, create_and_write_ub(device, accParams)];
+  if (relParams) accBufs.push(create_and_write_sb(device, relParams));
+  const accBg = create_bind_group(device, acc.layout, accBufs);
+
+  // Reduce: G workgroups, each summing `chunk` edges into out_len partials.
+  const chunk = Math.max(1, Math.ceil(numPairs / REDUCE_GROUPS));
+  const groups = Math.ceil(numPairs / chunk);
+  const partials = create_sb(device, groups * outLen * 32);
+  const rParams = new Uint8Array(16);
+  const rdv = new DataView(rParams.buffer);
+  rdv.setUint32(0, numPairs, true);
+  rdv.setUint32(4, outLen, true);
+  rdv.setUint32(8, chunk, true);
+  const rBg = create_bind_group(device, reduce.layout, [accOut, partials, create_and_write_ub(device, rParams)]);
+
+  const t0 = performance.now();
+  const enc = device.createCommandEncoder();
+  await execute_pipeline(enc, acc.pipeline, accBg, Math.ceil(numPairs / WG));
+  await execute_pipeline(enc, reduce.pipeline, rBg, groups);
+  const [pbytes] = await read_from_gpu(device, enc, [partials]);
+  const ms = performance.now() - t0;
+
+  const slice = new Array<bigint>(outLen).fill(0n);
+  for (let g = 0; g < groups; g++) {
+    for (let k = 0; k < outLen; k++) {
+      slice[k] = mod(slice[k] + fromMont(le32ToBi(pbytes, (g * outLen + k) * 32)));
+    }
+  }
+  return { slice, ms };
 }
 
 /** Encode canonical bigint columns to column-major Montgomery bytes (length n). */
@@ -117,12 +179,13 @@ export async function runResidentGpuSumcheck(
   challenges: bigint[],
   relParamBytes: (Uint8Array | undefined)[],
   initColBytes: Uint8Array[],
-  shared?: { cache?: PipelineCache; foldRunner?: FoldRunner },
+  shared?: { cache?: PipelineCache; foldRunner?: FoldRunner; reduceRunner?: ReduceRunner },
 ): Promise<ResidentSumcheckResult> {
   const d = Math.round(Math.log2(n));
   const colBytes = initColBytes;
   const relCache: PipelineCache = shared?.cache ?? new Map();
   const foldRunner = shared?.foldRunner ?? (await makeFoldRunner(device));
+  const reduceRunner = shared?.reduceRunner ?? (await makeReduceRunner(device));
   let curLen = n;
   let gpuMs = 0;
 
@@ -139,9 +202,9 @@ export async function runResidentGpuSumcheck(
       for (const desc of ALL_RELATIONS) {
         const r = desc.relationIndex;
         const inB = packEdgesFromBytes(colBytes[r], desc.numEdges, m, desc.inLen, pairs, scal);
-        const { bytes, ms } = await dispatchRelation(device, pairs, desc.shader(), desc.entry, inB, desc.outLen, relParamBytes[r], relCache);
+        const { slice, ms } = await dispatchAccumulateReduced(device, pairs, desc, inB, relParamBytes[r], relCache, reduceRunner);
         gpuMs += ms;
-        slices[r] = decodeAndReduce(bytes, pairs, desc.outLen);
+        slices[r] = slice;
       }
       return assembleAccumulator(slices);
     },

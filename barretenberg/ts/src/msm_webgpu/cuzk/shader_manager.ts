@@ -39,6 +39,7 @@ import {
   field as field_funcs,
   field8 as field8_funcs,
   fold_test as fold_test_shader,
+  reduce_test as reduce_test_shader,
   fr_ops_test as fr_ops_test_shader,
   fr_pow as fr_pow_funcs,
   lag as lag_funcs,
@@ -437,6 +438,16 @@ ${packLines.join('\n')}
    */
   public gen_fold_test_shader(workgroup_size: number): string {
     return mustache.render(fold_test_shader, this.relationView(workgroup_size), this.relationPartials);
+  }
+
+  /**
+   * Edge-reduction kernel for the sumcheck accumulate: sums a relation's per-edge
+   * output (num_edges x out_len Fr) over edges into G workgroup partials on the
+   * GPU, so only the partials are read back. workgroup_size must be >= the largest
+   * relation out_len (90).
+   */
+  public gen_reduce_test_shader(workgroup_size: number): string {
+    return mustache.render(reduce_test_shader, this.relationView(workgroup_size), this.relationPartials);
   }
 
   /** Common Mustache view shared by every relation-accumulate test shader. */

@@ -7,7 +7,10 @@
 // wasm is rebuilt with that command, it returns null and the table shows "rebuild
 // wasm". Both run in the same browser, so the GPU is whatever drives the page.
 
-import { runResidentGpuSumcheck, encodeColumnsToBytes, makeFoldRunner, type FoldRunner } from './gpu_pipeline.js';
+import {
+  runResidentGpuSumcheck, encodeColumnsToBytes, makeFoldRunner, makeReduceRunner,
+  type FoldRunner, type ReduceRunner,
+} from './gpu_pipeline.js';
 import { ALL_RELATIONS } from './descriptors.js';
 import { type PipelineCache, type Logger, makeRng, packParams } from './harness.js';
 import { Barretenberg } from '../../src/barretenberg/index.js';
@@ -85,7 +88,8 @@ export async function runBenchmark(device: GPUDevice, logNs: number[], log: Logg
   const alpha = makeRng(0xb0_07_5eedn)();
   const cache: PipelineCache = new Map();
   const foldRunner: FoldRunner = await makeFoldRunner(device);
-  const shared = { cache, foldRunner };
+  const reduceRunner: ReduceRunner = await makeReduceRunner(device);
+  const shared = { cache, foldRunner, reduceRunner };
   const wasm = await initWasm(log);
   if (wasm) log('info', `  WASM backend ready (bb.js threads)`);
 
