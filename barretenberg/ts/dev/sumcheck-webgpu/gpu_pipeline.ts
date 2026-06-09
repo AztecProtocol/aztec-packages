@@ -18,7 +18,7 @@
 import {
   create_and_write_sb, create_and_write_ub, create_sb,
   create_bind_group_layout, create_bind_group, create_compute_pipeline,
-  execute_pipeline, read_from_gpu, Profiler,
+  execute_pipeline, read_from_gpu, create_readback_buffer, Profiler,
 } from '../../src/msm_webgpu/cuzk/gpu.js';
 import { runSumcheckRounds } from '../../src/msm_webgpu/multiround.js';
 import { NUM_RELATIONS, assembleAccumulator } from '../../src/msm_webgpu/accumulator.js';
@@ -141,6 +141,10 @@ export async function runResidentGpuSumcheck(
   const finalParts = create_sb(device, totalOutLen * 32);
   const finalBase: number[] = new Array(NUM_RELATIONS); // each relation's Fr offset in finalParts
   { let b = 0; for (const desc of ALL_RELATIONS) { finalBase[desc.relationIndex] = b; b += desc.outLen; } }
+  // Reused per-round readback staging (one round-trip: a bare mapAsync waits for the
+  // copy that fills it — no onSubmittedWorkDone fence, no per-round allocation).
+  const readbackBytes = totalOutLen * 32;
+  const stagingBuf = create_readback_buffer(device, readbackBytes);
 
   // Cached accumulate pipeline per relation. Bindings: col_buf (resident columns),
   // out_buf (per-edge output), params, scaling, and param_buf for the four
@@ -203,7 +207,11 @@ export async function runResidentGpuSumcheck(
         await execute_pipeline(enc, reduceRunner.pipeline, r2, 1, 1, 1, prof(_round, `r2:${desc.id}`));
       }
       const tg = performance.now();
-      const [pbytes] = await read_from_gpu(device, enc, [finalParts], totalOutLen * 32);
+      enc.copyBufferToBuffer(finalParts, 0, stagingBuf, 0, readbackBytes);
+      device.queue.submit([enc.finish()]);
+      await stagingBuf.mapAsync(GPUMapMode.READ, 0, readbackBytes);
+      const pbytes = new Uint8Array(stagingBuf.getMappedRange(0, readbackBytes).slice(0));
+      stagingBuf.unmap();
       gpuMs += performance.now() - tg;
 
       // finalParts already holds the cross-edge sum (one Fr per column), so the host

@@ -147,6 +147,14 @@ export const create_sb = (device: GPUDevice, size: number) => {
 // `mapAsync` already waits for the same fence the GPU uses to signal
 // queue completion, so we're inserting a checkpoint into a wait we
 // would do anyway.
+// A MAP_READ | COPY_DST buffer for reading results back to the host. Callers that
+// read the same-sized result every iteration (e.g. a per-round sumcheck readback)
+// can create one of these once and reuse it, avoiding a per-iteration allocation
+// and the redundant onSubmittedWorkDone fence in read_from_gpu (a bare mapAsync
+// already waits for the copy that fills the buffer).
+export const create_readback_buffer = (device: GPUDevice, size: number): GPUBuffer =>
+  device.createBuffer({ size, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+
 export const read_from_gpu = async (
   device: GPUDevice,
   commandEncoder: GPUCommandEncoder,
