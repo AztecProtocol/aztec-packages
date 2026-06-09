@@ -630,5 +630,4 @@ mod test {
         assert_eq(roundtripped.anchor_block_timestamp, msg.anchor_block_timestamp);
         assert_eq(roundtripped.ciphertext.len(), msg.ciphertext.len());
     }
-
 }
