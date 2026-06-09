@@ -102,9 +102,12 @@ where
 ///
 /// Non-retractable entities survive reorgs; only their own retractable facts are pruned. Build one with
 /// [`NonRetractableEntity::create`], which performs the underlying store write, or obtain populated handles for every
-/// active entity with [`NonRetractableEntity::read_all_active`].
+/// active entity with [`NonRetractableEntity::read_all_active`]. The handle carries the `(contract_address, scope)` it
+/// lives at, so [`log`](Self::log) and [`terminate`](Self::terminate) take no location arguments.
 #[derive(Deserialize, Serialize)]
 pub struct NonRetractableEntity<T> {
+    pub contract_address: AztecAddress,
+    pub scope: AztecAddress,
     pub body: T,
     pub facts: EphemeralArray<Fact>,
 }
@@ -126,7 +129,7 @@ where
             body.entity_id(),
             body,
         );
-        Self { body, facts: EphemeralArray::empty() }
+        Self { contract_address, scope, body, facts: EphemeralArray::empty() }
     }
 
     /// Returns a populated handle for every active entity of this kind, each carrying its `body` and `facts`.
@@ -137,21 +140,30 @@ where
         scope: AztecAddress,
     ) -> EphemeralArray<NonRetractableEntity<T>> {
         Entity::<T>::read_all_active(contract_address, scope).map(|entity| {
-            Self { body: entity.payload, facts: entity.facts }
+            Self { contract_address, scope, body: entity.payload, facts: entity.facts }
         })
     }
 
-    /// Records a fact about this entity. See [`Entity::log`] for how `block_anchor` controls the fact's lifetime.
+    /// Records a fact about this entity at its `(contract_address, scope)`. See [`Entity::log`] for how `block_anchor`
+    /// controls the fact's lifetime.
     pub unconstrained fn log<let N: u32>(
         self,
-        contract_address: AztecAddress,
-        scope: AztecAddress,
         fact_type_id: Field,
         payload: [Field; N],
         block_anchor: Option<(u32, Field)>,
     ) {
         let entity = Entity { payload: self.body, facts: self.facts };
-        entity.log(contract_address, scope, fact_type_id, payload, block_anchor);
+        entity.log(self.contract_address, self.scope, fact_type_id, payload, block_anchor);
+    }
+
+    /// Terminates this entity, preventing new facts from being recorded for it. See [`terminate_entity`].
+    pub unconstrained fn terminate(self) {
+        terminate_entity(
+            self.contract_address,
+            self.scope,
+            T::entity_type_id(),
+            self.body.entity_id(),
+        );
     }
 }
 
@@ -160,9 +172,13 @@ where
 /// Retractable entities are tied to a block anchor; if that block is reorg'd away the entire entity - its payload and
 /// every fact recorded against it - is pruned from the store. Build one with [`RetractableEntity::create`], which
 /// performs the underlying store write, or obtain populated handles for every active entity with
-/// [`RetractableEntity::read_all_active`]. See [`NonRetractableEntity`] for the reorg-surviving variant.
+/// [`RetractableEntity::read_all_active`]. See [`NonRetractableEntity`] for the reorg-surviving variant. The handle
+/// carries the `(contract_address, scope)` it lives at, so [`log`](Self::log) and [`terminate`](Self::terminate) take
+/// no location arguments.
 #[derive(Deserialize, Serialize)]
 pub struct RetractableEntity<T> {
+    pub contract_address: AztecAddress,
+    pub scope: AztecAddress,
     pub body: T,
     pub facts: EphemeralArray<Fact>,
 }
@@ -193,7 +209,7 @@ where
             block_number,
             block_hash,
         );
-        Self { body, facts: EphemeralArray::empty() }
+        Self { contract_address, scope, body, facts: EphemeralArray::empty() }
     }
 
     /// Returns a populated handle for every active entity of this kind, each carrying its `body` and `facts`.
@@ -204,21 +220,30 @@ where
         scope: AztecAddress,
     ) -> EphemeralArray<RetractableEntity<T>> {
         Entity::<T>::read_all_active(contract_address, scope).map(|entity| {
-            Self { body: entity.payload, facts: entity.facts }
+            Self { contract_address, scope, body: entity.payload, facts: entity.facts }
         })
     }
 
-    /// Records a fact about this entity. See [`Entity::log`] for how `block_anchor` controls the fact's lifetime.
+    /// Records a fact about this entity at its `(contract_address, scope)`. See [`Entity::log`] for how `block_anchor`
+    /// controls the fact's lifetime.
     pub unconstrained fn log<let N: u32>(
         self,
-        contract_address: AztecAddress,
-        scope: AztecAddress,
         fact_type_id: Field,
         payload: [Field; N],
         block_anchor: Option<(u32, Field)>,
     ) {
         let entity = Entity { payload: self.body, facts: self.facts };
-        entity.log(contract_address, scope, fact_type_id, payload, block_anchor);
+        entity.log(self.contract_address, self.scope, fact_type_id, payload, block_anchor);
+    }
+
+    /// Terminates this entity, preventing new facts from being recorded for it. See [`terminate_entity`].
+    pub unconstrained fn terminate(self) {
+        terminate_entity(
+            self.contract_address,
+            self.scope,
+            T::entity_type_id(),
+            self.body.entity_id(),
+        );
     }
 }
 

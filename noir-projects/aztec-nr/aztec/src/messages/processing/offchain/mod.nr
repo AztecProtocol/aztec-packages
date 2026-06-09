@@ -8,7 +8,7 @@ use crate::{
     messages::processing::{MessageContext, OffchainMessageWithContext},
     oracle::{
         contract_sync::set_contract_sync_cache_invalid,
-        entity_store::{EntityBody, Fact, NonRetractableEntity, terminate_entity},
+        entity_store::{Fact, NonRetractableEntity},
         message_processing,
     },
     protocol::{address::AztecAddress, constants::MAX_TX_LIFETIME, hash::sha256_to_field},
@@ -126,8 +126,6 @@ pub unconstrained fn receive(
 /// - Received-but-unresolved (or tx-less, which never resolves), or already processed: left active for a future sync,
 ///   returning `None`.
 unconstrained fn process_reception(
-    contract_address: AztecAddress,
-    scope: AztecAddress,
     reception: NonRetractableEntity<OffchainMessage>,
     maybe_ctx: Option<MessageContext>,
     now: u64,
@@ -136,23 +134,12 @@ unconstrained fn process_reception(
 
     if (state(reception) == OffchainReceptionState::received()) & maybe_ctx.is_some() {
         let ctx = maybe_ctx.unwrap();
-        reception.log(
-            contract_address,
-            scope,
-            OFFCHAIN_MESSAGE_PROCESSED,
-            [],
-            Option::some((ctx.tx_block_number, ctx.tx_block_hash)),
-        );
+        reception.log(OFFCHAIN_MESSAGE_PROCESSED, [], Option::some((ctx.tx_block_number, ctx.tx_block_hash)));
         Option::some(
             OffchainMessageWithContext { message_ciphertext: reception.body.ciphertext, message_context: ctx },
         )
     } else if expired {
-        terminate_entity(
-            contract_address,
-            scope,
-            OFFCHAIN_RECEPTION_ENTITY,
-            reception.body.entity_id(),
-        );
+        reception.terminate();
         Option::none()
     } else {
         Option::none()
@@ -185,13 +172,7 @@ pub unconstrained fn sync_inbox(
     let now = UtilityContext::new().timestamp();
 
     active_receptions.for_each(|i, reception| {
-        let maybe_ready = process_reception(
-            contract_address,
-            scope,
-            reception,
-            resolved_contexts.get(i),
-            now,
-        );
+        let maybe_ready = process_reception(reception, resolved_contexts.get(i), now);
         if maybe_ready.is_some() {
             ready_to_process.push(maybe_ready.unwrap());
         }
@@ -252,12 +233,16 @@ mod test {
         found
     }
 
+    /// Wraps a fact set into a reception handle with a dummy location, for `state` checks that only read the facts.
+    unconstrained fn reception_with_facts(facts: EphemeralArray<Fact>) -> NonRetractableEntity<OffchainMessage> {
+        let dummy = AztecAddress::from_field(0);
+        NonRetractableEntity { contract_address: dummy, scope: dummy, body: make_msg(dummy, Option::none(), 0), facts }
+    }
+
     /// Computes the state of the reception entity with the given entity id.
     unconstrained fn state_of(c: AztecAddress, s: AztecAddress, key: Field) -> OffchainReceptionState {
-        let entity = get_entity::<OffchainMessage>(c, s, OFFCHAIN_RECEPTION_ENTITY, key);
-        state(
-            NonRetractableEntity { body: entity.payload, facts: entity.facts },
-        )
+        let facts = get_entity::<OffchainMessage>(c, s, OFFCHAIN_RECEPTION_ENTITY, key).facts;
+        state(reception_with_facts(facts))
     }
 
     #[test]
@@ -316,7 +301,7 @@ mod test {
         env.utility_context(|context| {
             let address = context.this_address();
             let reception = NonRetractableEntity::create(address, scope, msg);
-            reception.log(address, scope, OFFCHAIN_MESSAGE_PROCESSED, [], Option::some((block_number, block_hash)));
+            reception.log(OFFCHAIN_MESSAGE_PROCESSED, [], Option::some((block_number, block_hash)));
 
             let key = msg.entity_id();
             assert(
@@ -335,7 +320,7 @@ mod test {
         env.utility_context(|context| {
             let address = context.this_address();
             let reception = NonRetractableEntity::create(address, scope, msg);
-            reception.log(address, scope, OFFCHAIN_MESSAGE_PROCESSED, [], Option::none());
+            reception.log(OFFCHAIN_MESSAGE_PROCESSED, [], Option::none());
 
             let key = msg.entity_id();
             assert(
@@ -620,8 +605,7 @@ mod test {
         let env = TestEnvironment::new();
         env.utility_context(|_| {
             let facts = EphemeralArray::<Fact>::empty_at(TEST_FACTS_SLOT);
-            let body = make_msg(AztecAddress::from_field(0), Option::none(), 0);
-            assert(state(NonRetractableEntity { body, facts }) == OffchainReceptionState::received());
+            assert(state(reception_with_facts(facts)) == OffchainReceptionState::received());
         });
     }
 
@@ -632,8 +616,7 @@ mod test {
             let payload = EphemeralArray::<Field>::empty_at(TEST_PAYLOAD_SLOT);
             let facts = EphemeralArray::<Fact>::empty_at(TEST_FACTS_SLOT);
             facts.push(Fact { fact_type_id: OFFCHAIN_MESSAGE_PROCESSED, payload });
-            let body = make_msg(AztecAddress::from_field(0), Option::none(), 0);
-            assert(state(NonRetractableEntity { body, facts }) == OffchainReceptionState::processed());
+            assert(state(reception_with_facts(facts)) == OffchainReceptionState::processed());
         });
     }
 
