@@ -104,7 +104,11 @@ template <typename Curve> struct ChunkOutput {
         const uint64_t rounds = (num_bits + 2 + window_bits - 1) / window_bits;
         const uint64_t buckets = (uint64_t{ 1 } << (window_bits - 1)) + 1;
         const uint64_t n = num_points;
-        constexpr uint64_t BUCKET_ACC_COST = 15;
+        // Per-bucket cost relative to a per-point op. Recalibrated 15 -> 3 against measured
+        // native HC2/4/8 sweeps (2^17..2^21): the round-parallel accumulator's real per-bucket
+        // cost is much lower than the old 15, which under-sized c by ~3 and left 13-20% on the
+        // table at every size. c only changes the MSM's internal schedule, not the result.
+        constexpr uint64_t BUCKET_ACC_COST = 3;
         const uint64_t cost = rounds * (n + (buckets * BUCKET_ACC_COST));
         if (cost < best_cost) {
             best_cost = cost;

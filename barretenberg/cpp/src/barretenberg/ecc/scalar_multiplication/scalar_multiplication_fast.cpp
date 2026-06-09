@@ -1481,8 +1481,13 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     if (effective_num_bits == 0 || effective_num_bits > NUM_BITS) {
         effective_num_bits = NUM_BITS;
     }
-    const size_t window_bits =
-        round_parallel_detail::choose_window_bits(n, effective_num_bits, n_input, num_logical_threads_for_c);
+    // Drive window selection by the count of *nonzero* working scalars (n_active_early), not the
+    // nominal size n. The native cost model rounds*(num_points + BUCKET_ACC_COST*buckets) charges
+    // num_points for bucket accumulation, which only touches nonzero scalars; feeding nominal n for
+    // a sparse MSM (e.g. a chonk commit at ~20% density) inflates that term ~5x and overshoots c.
+    // Using the effective count picks the right window for sparse and dense MSMs alike.
+    const size_t window_bits = round_parallel_detail::choose_window_bits(
+        n_active_early, effective_num_bits, n_input, num_logical_threads_for_c);
     const size_t num_buckets = (size_t{ 1 } << (window_bits - 1)) + 1;
 
     // Schedule-based dedup state. The two arrays are allocated from the per-MSM_fast arena
