@@ -123,7 +123,6 @@ pub unconstrained fn sync_inbox(
     let ready_to_process: EphemeralArray<OffchainMessageWithContext> = EphemeralArray::empty();
 
     let entities = NonRetractableEntity::<OffchainMessage>::read_all_active(contract_address, scope);
-    let entities_len = entities.len();
 
     // Build a tx-hash request list aligned with the active-entity indices, so the resolved contexts returned by the
     // oracle can be matched back to each entity positionally.
@@ -137,11 +136,11 @@ pub unconstrained fn sync_inbox(
     let resolved_contexts =
         crate::oracle::message_processing::get_message_contexts_by_tx_hash(context_resolution_requests);
 
-    assert_eq(resolved_contexts.len(), entities_len);
+    assert_eq(resolved_contexts.len(), entities.len());
 
     let now = UtilityContext::new().timestamp();
 
-    for i in 0..entities_len {
+    for i in 0..entities.len() {
         // This loop decides what to do with each active message reception workflow. We check readiness to process
         // before expiration, so a message whose context resolves on the same sync it would otherwise be evicted
         // still gets handed off. We handle the following scenarios:
