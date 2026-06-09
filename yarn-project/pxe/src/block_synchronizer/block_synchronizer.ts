@@ -10,7 +10,7 @@ import type { BlockHeader } from '@aztec/stdlib/tx';
 import type { BlockSynchronizerConfig } from '../config/index.js';
 import type { ContractSyncService } from '../contract_sync/contract_sync_service.js';
 import type { AnchorBlockStore } from '../storage/anchor_block_store/index.js';
-import type { FactStore } from '../storage/fact_store/fact_store.js';
+import type { EntityStore } from '../storage/entity_store/entity_store.js';
 import type { NoteStore } from '../storage/note_store/index.js';
 import type { PrivateEventStore } from '../storage/private_event_store/private_event_store.js';
 import { blockStreamSourceFromAztecNode } from './block_stream_source.js';
@@ -32,7 +32,7 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
     private anchorBlockStore: AnchorBlockStore,
     private noteStore: NoteStore,
     private privateEventStore: PrivateEventStore,
-    private factStore: FactStore,
+    private entityStore: EntityStore,
     private l2TipsStore: L2TipsKVStore,
     private contractSyncService: ContractSyncService,
     private config: Partial<BlockSynchronizerConfig> = {},
@@ -133,7 +133,7 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
         await this.store.transactionAsync(async () => {
           await this.noteStore.rollback(event.block.number);
           await this.privateEventStore.rollback(event.block.number);
-          await this.factStore.rollback(event.block.number);
+          await this.entityStore.rollback(event.block.number);
           await this.updateAnchorBlockHeader(newAnchorBlockHeader);
         });
         break;

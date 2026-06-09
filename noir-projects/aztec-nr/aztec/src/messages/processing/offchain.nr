@@ -4,7 +4,7 @@ use crate::{
     messages::{encoding::MESSAGE_CIPHERTEXT_LEN, processing::OffchainMessageWithContext},
     oracle::{
         contract_sync::set_contract_sync_cache_invalid,
-        fact_store::{
+        entity_store::{
             active_entities, create_non_retractable_entity, Fact, get_entity, record_retractable_fact, terminate_entity,
         },
     },
@@ -63,7 +63,7 @@ pub struct OffchainMessage {
     pub anchor_block_timestamp: u64,
 }
 
-// ===================== FactStore data model =====================
+// ===================== EntityStore data model =====================
 
 /// Entity type id for the offchain reception state machine.
 global OFFCHAIN_RECEPTION_ENTITY: Field = sha256_to_field("AZTEC_NR::OFFCHAIN_RECEPTION_ENTITY_TYPE".as_bytes());
@@ -77,7 +77,7 @@ global OFFCHAIN_MESSAGE_PROCESSED: Field = sha256_to_field("AZTEC_NR::OFFCHAIN_M
 /// `MESSAGE_CIPHERTEXT_LEN + 1`.
 global SERIALIZED_CIPHERTEXT_LEN: u32 = MESSAGE_CIPHERTEXT_LEN + 1;
 
-/// Computes the per-message entity id used to identify the reception entity in the fact store.
+/// Computes the per-message entity id used to identify the reception entity in the entity store.
 ///
 /// The id is a poseidon2 hash over the serialized ciphertext fields and the normalized tx hash (0 when absent).
 /// Re-delivering the same (ciphertext, tx_hash) pair therefore maps to the same entity, making receive idempotent.
@@ -127,7 +127,7 @@ pub unconstrained fn fold(facts: EphemeralArray<Fact>) -> OffchainReceptionState
     }
 }
 
-// ===================== End FactStore data model =====================
+// ===================== End EntityStore data model =====================
 
 /// Delivers offchain messages to the given contract's offchain inbox for subsequent processing.
 ///
@@ -272,7 +272,7 @@ mod test {
     use crate::{
         ephemeral::EphemeralArray,
         messages::encoding::MESSAGE_CIPHERTEXT_LEN,
-        oracle::{fact_store::{active_entities, Fact, get_entity}, random::random},
+        oracle::{entity_store::{active_entities, Fact, get_entity}, random::random},
         protocol::{address::AztecAddress, traits::{Deserialize, FromField, Serialize}},
         test::helpers::test_environment::TestEnvironment,
     };
@@ -594,7 +594,7 @@ mod test {
         });
     }
 
-    // ---- Pure FactStore fold/pack tests (no TXE) ----
+    // ---- Pure EntityStore fold/pack tests (no TXE) ----
 
     #[test]
     unconstrained fn fold_empty_is_received() {

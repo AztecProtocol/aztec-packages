@@ -31,8 +31,8 @@ type StagedOp =
  * Non-retractable facts (anchor === undefined) survive reorgs as external inputs. Writes are staged per-job and
  * flushed atomically on commit.
  */
-export class FactStore implements StagedStore {
-  readonly storeName: string = 'fact';
+export class EntityStore implements StagedStore {
+  readonly storeName: string = 'entity';
 
   #store: AztecAsyncKVStore;
   /** Primary entity records, keyed by entityKey; holds the entity payload and optional anchor. */
@@ -51,7 +51,7 @@ export class FactStore implements StagedStore {
   #opsForJob: Map<JobId, StagedOp[]>;
   #jobLocks: Map<JobId, Semaphore>;
 
-  logger = createLogger('fact_store');
+  logger = createLogger('entity_store');
 
   constructor(store: AztecAsyncKVStore) {
     this.#store = store;
@@ -287,7 +287,7 @@ export class FactStore implements StagedStore {
    */
   async rollback(toBlock: number): Promise<void> {
     if (this.#opsForJob.size > 0) {
-      throw new Error('PXE fact store rollback is not allowed while jobs are running');
+      throw new Error('PXE entity store rollback is not allowed while jobs are running');
     }
 
     // Pass 1: delete retractable entities anchored above toBlock wholesale. Snapshot before mutating so we never
@@ -337,7 +337,7 @@ export class FactStore implements StagedStore {
       await this.#factsByEntity.deleteValue(eKey, rowKey);
       removedFacts++;
     }
-    this.logger.verbose('rolled back fact store', { removedEntities, removedFacts, toBlock });
+    this.logger.verbose('rolled back entity store', { removedEntities, removedFacts, toBlock });
   }
 
   // ---- private helpers ----

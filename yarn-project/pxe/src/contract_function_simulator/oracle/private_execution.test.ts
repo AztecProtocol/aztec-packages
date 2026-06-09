@@ -56,7 +56,7 @@ import type { MessageContextService } from '../../messages/message_context_servi
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
-import type { FactStore } from '../../storage/fact_store/fact_store.js';
+import type { EntityStore } from '../../storage/entity_store/entity_store.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../../storage/private_event_store/private_event_store.js';
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
@@ -110,7 +110,7 @@ describe('Private Execution test suite', () => {
   let aztecNode: MockProxy<AztecNode>;
   let capsuleStore: MockProxy<CapsuleStore>;
   let privateEventStore: MockProxy<PrivateEventStore>;
-  let factStore: MockProxy<FactStore>;
+  let entityStore: MockProxy<EntityStore>;
   let contractSyncService: MockProxy<ContractSyncService>;
   let messageContextService: MockProxy<MessageContextService>;
   let l2TipsStore: MockProxy<L2TipsProvider>;
@@ -285,9 +285,9 @@ describe('Private Execution test suite', () => {
     aztecNode = mock<AztecNode>();
     keyStore = mock<KeyStore>();
     capsuleStore = mock<CapsuleStore>();
-    factStore = mock<FactStore>();
-    factStore.activeEntities.mockResolvedValue([]);
-    factStore.getEntity.mockResolvedValue({ payload: [], facts: [] });
+    entityStore = mock<EntityStore>();
+    entityStore.activeEntities.mockResolvedValue([]);
+    entityStore.getEntity.mockResolvedValue({ payload: [], facts: [] });
     l2TipsStore = mock<L2TipsProvider>();
     privateEventStore = mock<PrivateEventStore>();
     senderAddressBookStore = mock<SenderAddressBookStore>();
@@ -459,7 +459,7 @@ describe('Private Execution test suite', () => {
       senderAddressBookStore,
       capsuleStore,
       privateEventStore,
-      factStore,
+      entityStore,
       simulator,
       contractSyncService,
       messageContextService,

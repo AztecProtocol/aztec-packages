@@ -39,7 +39,7 @@ import { AddressStore } from '../address_store/address_store.js';
 import { AnchorBlockStore } from '../anchor_block_store/index.js';
 import { CapsuleStore } from '../capsule_store/capsule_store.js';
 import { ContractStore } from '../contract_store/contract_store.js';
-import { FactStore } from '../fact_store/fact_store.js';
+import { EntityStore } from '../entity_store/entity_store.js';
 import { NoteStore } from '../note_store/note_store.js';
 import { PrivateEventStore } from '../private_event_store/private_event_store.js';
 import { RecipientTaggingStore, SenderAddressBookStore, SenderTaggingStore } from '../tagging_store/index.js';
@@ -216,9 +216,9 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
   },
 
   {
-    name: 'FactStore',
+    name: 'EntityStore',
     writeToStore: async kvStore => {
-      const factStore = new FactStore(kvStore);
+      const entityStore = new EntityStore(kvStore);
       const jobId = 'fixture-job';
       const contract = AztecAddress.fromBigInt(100n);
       const scope = AztecAddress.fromBigInt(1n);
@@ -226,7 +226,7 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
       const corrA = new Fr(0xaan);
       const corrB = new Fr(0xbbn);
       // Retractable entity (anchored at block 6): the entity and all its facts are pruned on a reorg above block 6.
-      await factStore.createEntity(
+      await entityStore.createEntity(
         contract,
         scope,
         entityTypeId,
@@ -236,9 +236,9 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
         jobId,
       );
       // Non-retractable entity carrying a payload, with a non-retractable and a retractable fact.
-      await factStore.createEntity(contract, scope, entityTypeId, corrB, [new Fr(8n)], undefined, jobId);
-      await factStore.recordFact(contract, scope, entityTypeId, corrB, new Fr(1n), [new Fr(9n)], undefined, jobId);
-      await factStore.recordFact(
+      await entityStore.createEntity(contract, scope, entityTypeId, corrB, [new Fr(8n)], undefined, jobId);
+      await entityStore.recordFact(contract, scope, entityTypeId, corrB, new Fr(1n), [new Fr(9n)], undefined, jobId);
+      await entityStore.recordFact(
         contract,
         scope,
         entityTypeId,
@@ -248,7 +248,7 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
         { blockNumber: 5, blockHash: new Fr(1n) },
         jobId,
       );
-      await kvStore.transactionAsync(() => factStore.commit(jobId));
+      await kvStore.transactionAsync(() => entityStore.commit(jobId));
     },
     snapshotStore: async kvStore => ({
       entities: await snapshotMap(kvStore.openMap<string, Buffer>('entities')),

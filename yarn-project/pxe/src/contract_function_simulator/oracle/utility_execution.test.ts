@@ -40,7 +40,7 @@ import type { AddressStore } from '../../storage/address_store/address_store.js'
 import { CapsuleService } from '../../storage/capsule_store/capsule_service.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
-import { FactStore } from '../../storage/fact_store/fact_store.js';
+import { EntityStore } from '../../storage/entity_store/entity_store.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../../storage/private_event_store/private_event_store.js';
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
@@ -67,8 +67,8 @@ describe('Utility Execution test suite', () => {
   let senderAddressBookStore: ReturnType<typeof mock<SenderAddressBookStore>>;
   let capsuleStore: ReturnType<typeof mock<CapsuleStore>>;
   let privateEventStore: ReturnType<typeof mock<PrivateEventStore>>;
-  let factStoreKv: AztecAsyncKVStore;
-  let factStore: FactStore;
+  let entityStoreKv: AztecAsyncKVStore;
+  let entityStore: EntityStore;
   let contractSyncService: ReturnType<typeof mock<ContractSyncService>>;
   let l2TipsStore: ReturnType<typeof mock<L2TipsProvider>>;
   let messageContextService: MessageContextService;
@@ -93,8 +93,8 @@ describe('Utility Execution test suite', () => {
     senderAddressBookStore = mock<SenderAddressBookStore>();
     capsuleStore = mock<CapsuleStore>();
     privateEventStore = mock<PrivateEventStore>();
-    factStoreKv = await openTmpStore('utility-execution-fact-store-test');
-    factStore = new FactStore(factStoreKv);
+    entityStoreKv = await openTmpStore('utility-execution-fact-store-test');
+    entityStore = new EntityStore(entityStoreKv);
     contractSyncService = mock<ContractSyncService>();
     l2TipsStore = mock<L2TipsProvider>();
     messageContextService = new MessageContextService(aztecNode);
@@ -128,7 +128,7 @@ describe('Utility Execution test suite', () => {
       senderAddressBookStore,
       capsuleStore,
       privateEventStore,
-      factStore,
+      entityStore,
       simulator,
       contractSyncService,
       messageContextService,
@@ -162,7 +162,7 @@ describe('Utility Execution test suite', () => {
   });
 
   afterEach(async () => {
-    await factStoreKv.close();
+    await entityStoreKv.close();
   });
 
   it('should run the summed_values function on StatefulTestContractArtifact', async () => {
@@ -607,7 +607,7 @@ describe('Utility Execution test suite', () => {
       });
     });
 
-    describe('factStore', () => {
+    describe('entityStore', () => {
       const service = new EphemeralArrayService();
       const ENTITY = new Fr(7n);
       const CORR = new Fr(0xaan);
@@ -630,7 +630,7 @@ describe('Utility Execution test suite', () => {
           5,
           new Fr(1n),
         );
-        await factStoreKv.transactionAsync(() => factStore.commit(JOB));
+        await entityStoreKv.transactionAsync(() => entityStore.commit(JOB));
 
         const entity = await utilityExecutionOracle.getEntity(contractAddress, scope, ENTITY, CORR);
         expect(entity.payload.readAll(service)).toEqual([new Fr(42n)]);
@@ -650,14 +650,14 @@ describe('Utility Execution test suite', () => {
 
       it('enumerates active entities and terminates them through the handlers', async () => {
         await utilityExecutionOracle.createNonRetractableEntity(contractAddress, scope, ENTITY, CORR, [new Fr(9n)]);
-        await factStoreKv.transactionAsync(() => factStore.commit(JOB));
+        await entityStoreKv.transactionAsync(() => entityStore.commit(JOB));
 
         const activeArray = await utilityExecutionOracle.activeEntities(contractAddress, scope, ENTITY);
         const activeKeys = activeArray.readAll(service);
         expect(activeKeys).toEqual([CORR]);
 
         await utilityExecutionOracle.terminateEntity(contractAddress, scope, ENTITY, CORR);
-        await factStoreKv.transactionAsync(() => factStore.commit(JOB));
+        await entityStoreKv.transactionAsync(() => entityStore.commit(JOB));
 
         // After termination both the active set and the entity's payload and fact set are empty.
         const afterKeys = (await utilityExecutionOracle.activeEntities(contractAddress, scope, ENTITY)).readAll(
@@ -694,7 +694,7 @@ describe('Utility Execution test suite', () => {
         senderAddressBookStore,
         capsuleService: new CapsuleService(capsuleStore, scopes),
         privateEventStore,
-        factStore,
+        entityStore,
         messageContextService,
         contractSyncService,
         jobId: 'test-job-id',

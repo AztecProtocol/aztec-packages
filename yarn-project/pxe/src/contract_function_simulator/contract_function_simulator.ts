@@ -97,7 +97,7 @@ import type { AddressStore } from '../storage/address_store/address_store.js';
 import { CapsuleService } from '../storage/capsule_store/capsule_service.js';
 import type { CapsuleStore } from '../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../storage/contract_store/contract_store.js';
-import type { FactStore } from '../storage/fact_store/fact_store.js';
+import type { EntityStore } from '../storage/entity_store/entity_store.js';
 import type { NoteStore } from '../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../storage/private_event_store/private_event_store.js';
 import type { RecipientTaggingStore } from '../storage/tagging_store/recipient_tagging_store.js';
@@ -144,7 +144,7 @@ export type ContractFunctionSimulatorArgs = {
   senderAddressBookStore: SenderAddressBookStore;
   capsuleStore: CapsuleStore;
   privateEventStore: PrivateEventStore;
-  factStore: FactStore;
+  entityStore: EntityStore;
   simulator: CircuitSimulator;
   contractSyncService: ContractSyncService;
   messageContextService: MessageContextService;
@@ -167,7 +167,7 @@ export class ContractFunctionSimulator {
   private readonly senderAddressBookStore: SenderAddressBookStore;
   private readonly capsuleStore: CapsuleStore;
   private readonly privateEventStore: PrivateEventStore;
-  private readonly factStore: FactStore;
+  private readonly entityStore: EntityStore;
   private readonly simulator: CircuitSimulator;
   private readonly contractSyncService: ContractSyncService;
   private readonly messageContextService: MessageContextService;
@@ -185,7 +185,7 @@ export class ContractFunctionSimulator {
     this.senderAddressBookStore = args.senderAddressBookStore;
     this.capsuleStore = args.capsuleStore;
     this.privateEventStore = args.privateEventStore;
-    this.factStore = args.factStore;
+    this.entityStore = args.entityStore;
     this.simulator = args.simulator;
     this.contractSyncService = args.contractSyncService;
     this.messageContextService = args.messageContextService;
@@ -265,7 +265,7 @@ export class ContractFunctionSimulator {
       senderAddressBookStore: this.senderAddressBookStore,
       capsuleService: new CapsuleService(this.capsuleStore, scopes),
       privateEventStore: this.privateEventStore,
-      factStore: this.factStore,
+      entityStore: this.entityStore,
       messageContextService: this.messageContextService,
       contractSyncService: this.contractSyncService,
       jobId,
@@ -367,7 +367,7 @@ export class ContractFunctionSimulator {
       senderAddressBookStore: this.senderAddressBookStore,
       capsuleService: new CapsuleService(this.capsuleStore, scopes),
       privateEventStore: this.privateEventStore,
-      factStore: this.factStore,
+      entityStore: this.entityStore,
       messageContextService: this.messageContextService,
       contractSyncService: this.contractSyncService,
       l2TipsStore: this.l2TipsStore,

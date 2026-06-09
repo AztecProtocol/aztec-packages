@@ -54,7 +54,7 @@ import { ORACLE_VERSION_MAJOR } from '../../oracle_version.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import { type CapsuleService, assertAllowedScope } from '../../storage/capsule_store/capsule_service.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
-import type { FactStore } from '../../storage/fact_store/fact_store.js';
+import type { EntityStore } from '../../storage/entity_store/entity_store.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../../storage/private_event_store/private_event_store.js';
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
@@ -93,7 +93,7 @@ export type UtilityExecutionOracleArgs = {
   senderAddressBookStore: SenderAddressBookStore;
   capsuleService: CapsuleService;
   privateEventStore: PrivateEventStore;
-  factStore: FactStore;
+  entityStore: EntityStore;
   messageContextService: MessageContextService;
   contractSyncService: ContractSyncService;
   l2TipsStore: L2TipsProvider;
@@ -136,7 +136,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   protected readonly senderAddressBookStore: SenderAddressBookStore;
   protected readonly capsuleService: CapsuleService;
   protected readonly privateEventStore: PrivateEventStore;
-  protected readonly factStore: FactStore;
+  protected readonly entityStore: EntityStore;
   protected readonly messageContextService: MessageContextService;
   protected readonly contractSyncService: ContractSyncService;
   protected readonly l2TipsStore: L2TipsProvider;
@@ -161,7 +161,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     this.senderAddressBookStore = args.senderAddressBookStore;
     this.capsuleService = args.capsuleService;
     this.privateEventStore = args.privateEventStore;
-    this.factStore = args.factStore;
+    this.entityStore = args.entityStore;
     this.messageContextService = args.messageContextService;
     this.contractSyncService = args.contractSyncService;
     this.l2TipsStore = args.l2TipsStore;
@@ -853,7 +853,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     blockHash: Fr,
   ): Promise<void> {
     assertAllowedScope(scope, this.scopes);
-    return this.factStore.recordFact(
+    return this.entityStore.recordFact(
       contractAddress,
       scope,
       entityTypeId,
@@ -878,7 +878,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     payload: Fr[],
   ): Promise<void> {
     assertAllowedScope(scope, this.scopes);
-    return this.factStore.recordFact(
+    return this.entityStore.recordFact(
       contractAddress,
       scope,
       entityTypeId,
@@ -904,7 +904,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     blockHash: Fr,
   ): Promise<void> {
     assertAllowedScope(scope, this.scopes);
-    return this.factStore.createEntity(
+    return this.entityStore.createEntity(
       contractAddress,
       scope,
       entityTypeId,
@@ -926,7 +926,15 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     payload: Fr[],
   ): Promise<void> {
     assertAllowedScope(scope, this.scopes);
-    return this.factStore.createEntity(contractAddress, scope, entityTypeId, entityId, payload, undefined, this.jobId);
+    return this.entityStore.createEntity(
+      contractAddress,
+      scope,
+      entityTypeId,
+      entityId,
+      payload,
+      undefined,
+      this.jobId,
+    );
   }
 
   /** Returns the entity ids of all active entities under (contract, scope, entityTypeId). */
@@ -936,7 +944,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     entityTypeId: Fr,
   ): Promise<EphemeralArray<Fr>> {
     assertAllowedScope(scope, this.scopes);
-    const entityIds = await this.factStore.activeEntities(contractAddress, scope, entityTypeId, this.jobId);
+    const entityIds = await this.entityStore.activeEntities(contractAddress, scope, entityTypeId, this.jobId);
     return EphemeralArray.fromValues(this.ephemeralArrayService, entityIds);
   }
 
@@ -951,7 +959,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     entityId: Fr,
   ): Promise<EntityOutput> {
     assertAllowedScope(scope, this.scopes);
-    const { payload, facts } = await this.factStore.getEntity(
+    const { payload, facts } = await this.entityStore.getEntity(
       contractAddress,
       scope,
       entityTypeId,
@@ -978,7 +986,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     entityId: Fr,
   ): Promise<void> {
     assertAllowedScope(scope, this.scopes);
-    return this.factStore.terminateEntity(contractAddress, scope, entityTypeId, entityId, this.jobId);
+    return this.entityStore.terminateEntity(contractAddress, scope, entityTypeId, entityId, this.jobId);
   }
 
   /** Executes another utility function from within this one and returns its serialized return values. */
@@ -1049,7 +1057,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       senderAddressBookStore: this.senderAddressBookStore,
       capsuleService: this.capsuleService,
       privateEventStore: this.privateEventStore,
-      factStore: this.factStore,
+      entityStore: this.entityStore,
       messageContextService: this.messageContextService,
       contractSyncService: this.contractSyncService,
       l2TipsStore: this.l2TipsStore,

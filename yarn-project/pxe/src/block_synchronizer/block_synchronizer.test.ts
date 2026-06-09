@@ -27,7 +27,7 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import type { BlockSynchronizerConfig } from '../config/index.js';
 import type { ContractSyncService } from '../contract_sync/contract_sync_service.js';
 import { AnchorBlockStore } from '../storage/anchor_block_store/anchor_block_store.js';
-import { FactStore } from '../storage/fact_store/fact_store.js';
+import { EntityStore } from '../storage/entity_store/entity_store.js';
 import { NoteStore } from '../storage/note_store/note_store.js';
 import { PrivateEventStore } from '../storage/private_event_store/private_event_store.js';
 import { BlockSynchronizer } from './block_synchronizer.js';
@@ -45,7 +45,7 @@ describe('BlockSynchronizer', () => {
   let anchorBlockStore: AnchorBlockStore;
   let noteStore: NoteStore;
   let privateEventStore: PrivateEventStore;
-  let factStore: FactStore;
+  let entityStore: EntityStore;
   let aztecNode: MockProxy<AztecNode>;
   let getBlock: NodeGetBlockMock;
   let blockStream: MockProxy<L2BlockStream>;
@@ -64,7 +64,7 @@ describe('BlockSynchronizer', () => {
       anchorBlockStore,
       noteStore,
       privateEventStore,
-      factStore,
+      entityStore,
       tipsStore,
       contractSyncService,
       config,
@@ -113,7 +113,7 @@ describe('BlockSynchronizer', () => {
     anchorBlockStore = new AnchorBlockStore(store);
     noteStore = new NoteStore(store);
     privateEventStore = new PrivateEventStore(store);
-    factStore = new FactStore(store);
+    entityStore = new EntityStore(store);
     contractSyncService = mock<ContractSyncService>();
     synchronizer = createSynchronizer();
   });
@@ -293,8 +293,8 @@ describe('BlockSynchronizer', () => {
       const block5 = makeL2BlockId(forkBlock.number, (await forkBlock.hash()).toString());
 
       // Seed: one non-retractable (unanchored) fact and one anchored above the fork.
-      await factStore.recordFact(contract, scope, entityTypeId, entityId, RECEIVED, [Fr.random()], undefined, jobId);
-      await factStore.recordFact(
+      await entityStore.recordFact(contract, scope, entityTypeId, entityId, RECEIVED, [Fr.random()], undefined, jobId);
+      await entityStore.recordFact(
         contract,
         scope,
         entityTypeId,
@@ -304,10 +304,10 @@ describe('BlockSynchronizer', () => {
         { blockNumber: 10, blockHash: Fr.random() },
         jobId,
       );
-      await store.transactionAsync(() => factStore.commit(jobId));
+      await store.transactionAsync(() => entityStore.commit(jobId));
 
       // Both facts must be present before the prune.
-      expect(await factStore.getEntityFacts(contract, scope, entityTypeId, entityId, jobId)).toHaveLength(2);
+      expect(await entityStore.getEntityFacts(contract, scope, entityTypeId, entityId, jobId)).toHaveLength(2);
 
       // Set the anchor to block 10 so the prune guard passes (anchor is above the fork point).
       const anchorBlock10 = await L2Block.random(BlockNumber(10));
@@ -327,7 +327,7 @@ describe('BlockSynchronizer', () => {
       });
 
       // The anchored PROCESSED fact must be gone; the unanchored RECEIVED fact must survive.
-      const remaining = await factStore.getEntityFacts(contract, scope, entityTypeId, entityId, jobId);
+      const remaining = await entityStore.getEntityFacts(contract, scope, entityTypeId, entityId, jobId);
       expect(remaining).toHaveLength(1);
       expect(remaining[0].factTypeId.equals(RECEIVED)).toBe(true);
     });

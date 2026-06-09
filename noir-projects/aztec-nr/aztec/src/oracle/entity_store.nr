@@ -11,7 +11,7 @@ pub struct Fact {
 
 /// Raw entity as returned by the oracle: payload + facts as slot-backed ephemeral arrays.
 ///
-/// Internal to the FactStore. Consumers use the typed [`Entity`], built by [`get_entity`].
+/// Internal to the EntityStore. Consumers use the typed [`Entity`], built by [`get_entity`].
 #[derive(Deserialize, Serialize)]
 struct RawEntity {
     payload: EphemeralArray<Field>,

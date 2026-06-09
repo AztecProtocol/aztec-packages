@@ -3,9 +3,9 @@ import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
-import { FactStore } from './fact_store.js';
+import { EntityStore } from './entity_store.js';
 
-describe('FactStore', () => {
+describe('EntityStore', () => {
   const contract = AztecAddress.fromBigInt(100n);
   const scope = AztecAddress.fromBigInt(1n);
   const ENTITY = new Fr(7n);
@@ -16,11 +16,11 @@ describe('FactStore', () => {
   const JOB = 'fact-store-test-job';
 
   let kv: AztecAsyncKVStore;
-  let store: FactStore;
+  let store: EntityStore;
 
   beforeEach(async () => {
     kv = await openTmpStore('fact-store-test');
-    store = new FactStore(kv);
+    store = new EntityStore(kv);
   });
   afterEach(async () => {
     await kv.close();
@@ -336,7 +336,7 @@ describe('FactStore', () => {
   it('rollback throws while a job has staged writes', async () => {
     await store.createEntity(contract, scope, ENTITY, corrA, [], undefined, 'uncommitted-job');
     await expect(kv.transactionAsync(() => store.rollback(0))).rejects.toThrow(
-      'PXE fact store rollback is not allowed while jobs are running',
+      'PXE entity store rollback is not allowed while jobs are running',
     );
     await store.discardStaged('uncommitted-job');
     await expect(kv.transactionAsync(() => store.rollback(0))).resolves.not.toThrow();

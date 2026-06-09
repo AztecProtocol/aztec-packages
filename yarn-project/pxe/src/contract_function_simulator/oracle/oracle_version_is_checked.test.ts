@@ -20,7 +20,7 @@ import type { AddressStore } from '../../storage/address_store/address_store.js'
 import { CapsuleService } from '../../storage/capsule_store/capsule_service.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
-import type { FactStore } from '../../storage/fact_store/fact_store.js';
+import type { EntityStore } from '../../storage/entity_store/entity_store.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../../storage/private_event_store/private_event_store.js';
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
@@ -44,7 +44,7 @@ describe('Oracle Version Check test suite', () => {
   let senderAddressBookStore: ReturnType<typeof mock<SenderAddressBookStore>>;
   let capsuleStore: ReturnType<typeof mock<CapsuleStore>>;
   let privateEventStore: ReturnType<typeof mock<PrivateEventStore>>;
-  let factStore: ReturnType<typeof mock<FactStore>>;
+  let entityStore: ReturnType<typeof mock<EntityStore>>;
   let contractSyncService: ReturnType<typeof mock<ContractSyncService>>;
   let messageContextService: ReturnType<typeof mock<MessageContextService>>;
   let l2TipsStore: ReturnType<typeof mock<L2TipsProvider>>;
@@ -66,7 +66,7 @@ describe('Oracle Version Check test suite', () => {
     senderAddressBookStore = mock<SenderAddressBookStore>();
     capsuleStore = mock<CapsuleStore>();
     privateEventStore = mock<PrivateEventStore>();
-    factStore = mock<FactStore>();
+    entityStore = mock<EntityStore>();
     contractSyncService = mock<ContractSyncService>();
     messageContextService = mock<MessageContextService>();
     l2TipsStore = mock<L2TipsProvider>();
@@ -112,7 +112,7 @@ describe('Oracle Version Check test suite', () => {
       senderAddressBookStore,
       capsuleStore,
       privateEventStore,
-      factStore,
+      entityStore,
       simulator,
       contractSyncService,
       messageContextService,
@@ -213,7 +213,7 @@ describe('Oracle Version Check test suite', () => {
         senderAddressBookStore,
         capsuleService: new CapsuleService(capsuleStore, []),
         privateEventStore,
-        factStore,
+        entityStore,
         messageContextService,
         contractSyncService,
         jobId: 'test',
