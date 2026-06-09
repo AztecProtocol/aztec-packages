@@ -1381,54 +1381,57 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
         }
     }
 
-    if (use_glv) {
-        // Convert each input scalar from-Mont into a stack local, GLV-split it, store both
-        // 128-bit halves and their msb into the profile buffer. input_scalars is read-only on
-        // this path so the user's buffer is preserved (no Montgomery restore needed). Inline
-        // path additionally GLV-doubles the points in the same parallel pass; external path
-        // aliases the caller-supplied doubled buffer.
-        const BaseField beta = inline_glv_double ? BaseField::cube_root_of_unity() : BaseField{};
-        bb::parallel_for(bb::get_num_cpus(), [&](const ThreadChunk& chunk) {
-            auto& th_hist = per_thread_msb_hist[chunk.thread_index];
-            for (size_t i : chunk.range(n_input)) {
-                const ScalarField canonical = input_scalars[i].from_montgomery_form_reduced();
-                const auto split = ScalarField::split_into_endomorphism_scalars(canonical);
-                const auto& k1 = split.first;
-                const auto& k2 = split.second;
-                glv_scalars_storage[2 * i].data[0] = k1[0];
-                glv_scalars_storage[2 * i].data[1] = k1[1];
-                glv_scalars_storage[2 * i].data[2] = 0;
-                glv_scalars_storage[2 * i].data[3] = 0;
-                glv_scalars_storage[(2 * i) + 1].data[0] = k2[0];
-                glv_scalars_storage[(2 * i) + 1].data[1] = k2[1];
-                glv_scalars_storage[(2 * i) + 1].data[2] = 0;
-                glv_scalars_storage[(2 * i) + 1].data[3] = 0;
-                if (inline_glv_double) {
-                    glv_points_storage[2 * i] = input_points[i];
-                    glv_points_storage[(2 * i) + 1].x = input_points[i].x * beta;
-                    glv_points_storage[(2 * i) + 1].y = -input_points[i].y;
+    {
+        BB_BENCH_NAME("MSM_fast::Phase1_from_montgomery");
+        if (use_glv) {
+            // Convert each input scalar from-Mont into a stack local, GLV-split it, store both
+            // 128-bit halves and their msb into the profile buffer. input_scalars is read-only on
+            // this path so the user's buffer is preserved (no Montgomery restore needed). Inline
+            // path additionally GLV-doubles the points in the same parallel pass; external path
+            // aliases the caller-supplied doubled buffer.
+            const BaseField beta = inline_glv_double ? BaseField::cube_root_of_unity() : BaseField{};
+            bb::parallel_for(bb::get_num_cpus(), [&](const ThreadChunk& chunk) {
+                auto& th_hist = per_thread_msb_hist[chunk.thread_index];
+                for (size_t i : chunk.range(n_input)) {
+                    const ScalarField canonical = input_scalars[i].from_montgomery_form_reduced();
+                    const auto split = ScalarField::split_into_endomorphism_scalars(canonical);
+                    const auto& k1 = split.first;
+                    const auto& k2 = split.second;
+                    glv_scalars_storage[2 * i].data[0] = k1[0];
+                    glv_scalars_storage[2 * i].data[1] = k1[1];
+                    glv_scalars_storage[2 * i].data[2] = 0;
+                    glv_scalars_storage[2 * i].data[3] = 0;
+                    glv_scalars_storage[(2 * i) + 1].data[0] = k2[0];
+                    glv_scalars_storage[(2 * i) + 1].data[1] = k2[1];
+                    glv_scalars_storage[(2 * i) + 1].data[2] = 0;
+                    glv_scalars_storage[(2 * i) + 1].data[3] = 0;
+                    if (inline_glv_double) {
+                        glv_points_storage[2 * i] = input_points[i];
+                        glv_points_storage[(2 * i) + 1].x = input_points[i].x * beta;
+                        glv_points_storage[(2 * i) + 1].y = -input_points[i].y;
+                    }
+                    round_parallel_detail::record_msb(
+                        round_parallel_detail::msb_of_2limb(k1[0], k1[1]), msb_per_scalar[2 * i], th_hist);
+                    round_parallel_detail::record_msb(
+                        round_parallel_detail::msb_of_2limb(k2[0], k2[1]), msb_per_scalar[(2 * i) + 1], th_hist);
                 }
-                round_parallel_detail::record_msb(
-                    round_parallel_detail::msb_of_2limb(k1[0], k1[1]), msb_per_scalar[2 * i], th_hist);
-                round_parallel_detail::record_msb(
-                    round_parallel_detail::msb_of_2limb(k2[0], k2[1]), msb_per_scalar[(2 * i) + 1], th_hist);
-            }
-        });
-        points =
-            inline_glv_double ? std::span<const AffineElement>(glv_points_storage.data(), n) : external_glv_doubled;
-        scalars = glv_scalars_storage;
-    } else {
-        // Non-GLV path: in-place from-Mont (later restored in the Stage-7 epilogue).
-        bb::parallel_for(bb::get_num_cpus(), [&](const ThreadChunk& chunk) {
-            auto& th_hist = per_thread_msb_hist[chunk.thread_index];
-            for (size_t i : chunk.range(n_input)) {
-                input_scalars[i].self_from_montgomery_form_reduced();
-                round_parallel_detail::record_msb(
-                    round_parallel_detail::msb_of_4limb(input_scalars[i].data), msb_per_scalar[i], th_hist);
-            }
-        });
-        scalars = input_scalars;
-        points = input_points;
+            });
+            points =
+                inline_glv_double ? std::span<const AffineElement>(glv_points_storage.data(), n) : external_glv_doubled;
+            scalars = glv_scalars_storage;
+        } else {
+            // Non-GLV path: in-place from-Mont (later restored in the Stage-7 epilogue).
+            bb::parallel_for(bb::get_num_cpus(), [&](const ThreadChunk& chunk) {
+                auto& th_hist = per_thread_msb_hist[chunk.thread_index];
+                for (size_t i : chunk.range(n_input)) {
+                    input_scalars[i].self_from_montgomery_form_reduced();
+                    round_parallel_detail::record_msb(
+                        round_parallel_detail::msb_of_4limb(input_scalars[i].data), msb_per_scalar[i], th_hist);
+                }
+            });
+            scalars = input_scalars;
+            points = input_points;
+        }
     }
 
     std::array<uint64_t, 256> msb_hist{};
@@ -2150,10 +2153,14 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
                 }
             }
         };
-        if (dedup_known_for_batch) {
-            bb::parallel_for(num_threads, [&](size_t tid) { stage1_digit_extract.template operator()<true>(tid); });
-        } else {
-            bb::parallel_for(num_threads, [&](size_t tid) { stage1_digit_extract.template operator()<false>(tid); });
+        {
+            BB_BENCH_NAME("MSM_fast::Stage1_digit_extract");
+            if (dedup_known_for_batch) {
+                bb::parallel_for(num_threads, [&](size_t tid) { stage1_digit_extract.template operator()<true>(tid); });
+            } else {
+                bb::parallel_for(num_threads,
+                                 [&](size_t tid) { stage1_digit_extract.template operator()<false>(tid); });
+            }
         }
 
         // Stage 2 (bucket histogram): per-window per-digit totals + per-thread within-digit
@@ -2166,26 +2173,29 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
         // `bucket_start_all[w][d+1]` (one cell past where Stage 3 will read), so Stage 3 can
         // prefix-sum in place without a separate `bucket_total_counts` buffer. The size_t
         // bucket_start cell widens the uint32_t total implicitly.
-        bb::parallel_for(num_threads, [&](size_t tid) {
-            const size_t d_start = tid * B_R / num_threads;
-            const size_t d_end = (tid + 1) * B_R / num_threads;
-            for (size_t w = 0; w < windows_in_batch; ++w) {
-                size_t* const bucket_start_w = bucket_start_all.data() + (w * (bucket_stride + 1));
-                for (size_t d = d_start; d < d_end; ++d) {
-                    if (d == 0) {
-                        continue;
+        {
+            BB_BENCH_NAME("MSM_fast::Stage2_bucket_histogram");
+            bb::parallel_for(num_threads, [&](size_t tid) {
+                const size_t d_start = tid * B_R / num_threads;
+                const size_t d_end = (tid + 1) * B_R / num_threads;
+                for (size_t w = 0; w < windows_in_batch; ++w) {
+                    size_t* const bucket_start_w = bucket_start_all.data() + (w * (bucket_stride + 1));
+                    for (size_t d = d_start; d < d_end; ++d) {
+                        if (d == 0) {
+                            continue;
+                        }
+                        uint32_t running = 0;
+                        for (size_t t = 0; t < num_threads; ++t) {
+                            const size_t k = (((w * num_threads) + t) * bucket_stride) + d;
+                            const uint32_t cnt = digit_cursors[k];
+                            digit_cursors[k] = running;
+                            running += cnt;
+                        }
+                        bucket_start_w[d + 1] = running;
                     }
-                    uint32_t running = 0;
-                    for (size_t t = 0; t < num_threads; ++t) {
-                        const size_t k = (((w * num_threads) + t) * bucket_stride) + d;
-                        const uint32_t cnt = digit_cursors[k];
-                        digit_cursors[k] = running;
-                        running += cnt;
-                    }
-                    bucket_start_w[d + 1] = running;
                 }
-            }
-        });
+            });
+        }
 
         // Stage 3 (bucket offsets / prefix sum): per-window serial prefix sum in place.
         // Stage 2 already deposited each digit's per-window total at bucket_start[d+1];
@@ -2340,10 +2350,13 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
             }
         };
 
-        if (dedup_known_for_batch) {
-            bb::parallel_for(num_threads, [&](size_t tid) { stage4_emit.template operator()<true>(tid); });
-        } else {
-            bb::parallel_for(num_threads, [&](size_t tid) { stage4_emit.template operator()<false>(tid); });
+        {
+            BB_BENCH_NAME("MSM_fast::Stage4_digit_scatter");
+            if (dedup_known_for_batch) {
+                bb::parallel_for(num_threads, [&](size_t tid) { stage4_emit.template operator()<true>(tid); });
+            } else {
+                bb::parallel_for(num_threads, [&](size_t tid) { stage4_emit.template operator()<false>(tid); });
+            }
         }
 
         // Phase A: schedule-based dedup detection on window 0. Each thread owns a
@@ -2785,14 +2798,21 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
                 }
             };
 
-            bb::parallel_for(num_threads, bucket_partials_per_thread_lambda);
-            bb::parallel_for(num_threads, bucket_reduce_cross_thread_lambda);
+            {
+                BB_BENCH_NAME("MSM_fast::Stage6a_bucket_partials");
+                bb::parallel_for(num_threads, bucket_partials_per_thread_lambda);
+            }
+            {
+                BB_BENCH_NAME("MSM_fast::Stage6b_reduce_cross_thread");
+                bb::parallel_for(num_threads, bucket_reduce_cross_thread_lambda);
+            }
         }
 
         // Stage 7 (cross-window combine): per-window reduce of `num_threads` per-thread partials.
         // (Algebraic identity: `Σ_t (L_t + (lo_t − 1) · R_t) = window's bucket sum`,
         // with the per-chunk contributions already accumulated above.)
         {
+            BB_BENCH_NAME("MSM_fast::Stage7_combine");
             const size_t reduce_threads = std::min(num_threads, windows_in_batch);
             bb::parallel_for(reduce_threads, [&](size_t rid) {
                 const size_t lo = rid * windows_in_batch / reduce_threads;
