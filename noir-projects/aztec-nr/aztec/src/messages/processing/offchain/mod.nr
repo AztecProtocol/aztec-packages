@@ -69,11 +69,11 @@ impl OffchainReceptionState {
     }
 }
 
-/// Folds an entity's fact set into an [`OffchainReceptionState`].
+/// Computes the [`OffchainReceptionState`] of a reception by folding its facts.
 ///
-/// A `OFFCHAIN_MESSAGE_PROCESSED` fact advances the entity to `processed`; with no such fact the entity is `received`.
-pub unconstrained fn fold(facts: EphemeralArray<Fact>) -> OffchainReceptionState {
-    if facts.any(|f: Fact| f.fact_type_id == OFFCHAIN_MESSAGE_PROCESSED) {
+/// A `OFFCHAIN_MESSAGE_PROCESSED` fact advances the reception to `processed`; with no such fact it is `received`.
+pub unconstrained fn state(reception: NonRetractableEntity<OffchainMessage>) -> OffchainReceptionState {
+    if reception.facts.any(|f: Fact| f.fact_type_id == OFFCHAIN_MESSAGE_PROCESSED) {
         OffchainReceptionState::processed()
     } else {
         OffchainReceptionState::received()
@@ -121,8 +121,7 @@ unconstrained fn process_message(
     reception: NonRetractableEntity<OffchainMessage>,
     maybe_ctx: Option<MessageContext>,
 ) -> Option<OffchainMessageWithContext> {
-    let state = fold(reception.facts);
-    if (state == OffchainReceptionState::received()) & maybe_ctx.is_some() {
+    if (state(reception) == OffchainReceptionState::received()) & maybe_ctx.is_some() {
         Option::some(
             OffchainMessageWithContext {
                 message_ciphertext: reception.body.ciphertext,
@@ -160,13 +159,6 @@ pub unconstrained fn sync_inbox(
     let now = UtilityContext::new().timestamp();
 
     active_receptions.for_each(|i, reception| {
-        // Apply the consequence of each reception's readiness. A ready message (`Some`) is collected for processing
-        // and recorded as `Processed`, anchored at the resolving block - so a reorg of that block retracts the guard
-        // and the message is re-processed; the reception stays active and a later sync evicts it. An unready message
-        // that has expired (its effective expiration `anchor_block_timestamp + MAX_MSG_TTL` has passed) is terminated
-        // to stop tracking it. Readiness is decided before expiration, so an expired-but-resolved message is still
-        // handed off this sync and terminated on a later one, once it has folded to processed. Otherwise the reception
-        // is left active for a future sync to pick up.
         let key = reception.body.entity_id();
         let expired = now > reception.body.anchor_block_timestamp + MAX_MSG_TTL;
 
@@ -201,8 +193,8 @@ mod test {
         test::helpers::test_environment::TestEnvironment,
     };
     use super::{
-        fold, MAX_MSG_TTL, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL, OFFCHAIN_MESSAGE_PROCESSED,
-        OFFCHAIN_RECEPTION_ENTITY, OffchainMessage, OffchainReceptionState, receive, sync_inbox,
+        MAX_MSG_TTL, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL, OFFCHAIN_MESSAGE_PROCESSED, OFFCHAIN_RECEPTION_ENTITY,
+        OffchainMessage, OffchainReceptionState, receive, state, sync_inbox,
     };
 
     global TEST_FACTS_SLOT: Field = 0xfac75;
@@ -244,10 +236,12 @@ mod test {
         found
     }
 
-    /// Folds the fact set of the reception entity with the given entity id into its state.
+    /// Computes the state of the reception entity with the given entity id.
     unconstrained fn state_of(c: AztecAddress, s: AztecAddress, key: Field) -> OffchainReceptionState {
-        let facts = get_entity::<OffchainMessage>(c, s, OFFCHAIN_RECEPTION_ENTITY, key).facts;
-        fold(facts)
+        let entity = get_entity::<OffchainMessage>(c, s, OFFCHAIN_RECEPTION_ENTITY, key);
+        state(
+            NonRetractableEntity { body: entity.payload, facts: entity.facts },
+        )
     }
 
     #[test]
@@ -563,25 +557,27 @@ mod test {
         });
     }
 
-    // ---- Pure EntityStore fold/pack tests (no TXE) ----
+    // ---- Pure EntityStore state/pack tests (no TXE) ----
 
     #[test]
-    unconstrained fn fold_empty_is_received() {
+    unconstrained fn empty_reception_is_received() {
         let env = TestEnvironment::new();
         env.utility_context(|_| {
             let facts = EphemeralArray::<Fact>::empty_at(TEST_FACTS_SLOT);
-            assert(fold(facts) == OffchainReceptionState::received());
+            let body = make_msg(AztecAddress::from_field(0), Option::none(), 0);
+            assert(state(NonRetractableEntity { body, facts }) == OffchainReceptionState::received());
         });
     }
 
     #[test]
-    unconstrained fn fold_with_processed_is_processed() {
+    unconstrained fn reception_with_processed_fact_is_processed() {
         let env = TestEnvironment::new();
         env.utility_context(|_| {
             let payload = EphemeralArray::<Field>::empty_at(TEST_PAYLOAD_SLOT);
             let facts = EphemeralArray::<Fact>::empty_at(TEST_FACTS_SLOT);
             facts.push(Fact { fact_type_id: OFFCHAIN_MESSAGE_PROCESSED, payload });
-            assert(fold(facts) == OffchainReceptionState::processed());
+            let body = make_msg(AztecAddress::from_field(0), Option::none(), 0);
+            assert(state(NonRetractableEntity { body, facts }) == OffchainReceptionState::processed());
         });
     }
 
