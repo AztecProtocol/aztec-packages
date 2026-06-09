@@ -30,6 +30,7 @@ import { databusSuite } from './suite_databus.js';
 import { integrationSuite } from './suite_integration.js';
 import { foldSuite } from './suite_fold.js';
 import { roundsSuite } from './suite_rounds.js';
+import { runBenchmark, type BenchRow } from './bench.js';
 
 const REGISTRY: Suite[] = [
   frSuite, monoSuite, arithSuite, deltaSuite, eccSuite, pos2InitSuite,
@@ -112,9 +113,75 @@ allBtn.style.fontWeight = '600';
 allBtn.addEventListener('click', () => void runSuites(REGISTRY));
 $controls.appendChild(allBtn);
 
-// Autorun: ?autorun=all | <suite id>
+// ===== Tab switching =====
+document.querySelectorAll<HTMLButtonElement>('.tabbar button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const which = btn.dataset.tab;
+    document.querySelectorAll('.tabbar button').forEach(b => b.classList.toggle('active', b === btn));
+    document.querySelectorAll('.tab').forEach(s => s.classList.toggle('active', s.id === `tab-${which}`));
+  });
+});
+
+// ===== Benchmark tab =====
+const $benchLog = document.getElementById('bench-log') as HTMLDivElement;
+const $benchTbody = document.getElementById('bench-tbody') as HTMLTableSectionElement;
+const $benchRun = document.getElementById('bench-run') as HTMLButtonElement;
+const $benchMin = document.getElementById('bench-min') as HTMLInputElement;
+const $benchMax = document.getElementById('bench-max') as HTMLInputElement;
+
+function benchLog(level: Level, msg: string): void {
+  const div = document.createElement('div');
+  if (level !== 'info') div.className = level;
+  div.textContent = msg;
+  $benchLog.appendChild(div);
+  // eslint-disable-next-line no-console
+  console.log(msg);
+}
+
+function appendBenchRow(r: BenchRow): void {
+  const tr = document.createElement('tr');
+  const wasm = r.wasmMs === null ? '<span class="pending">— rebuild wasm</span>' : r.wasmMs.toFixed(1);
+  let speed = '<span class="pending">—</span>';
+  if (r.speedup !== null) {
+    const cls = r.speedup >= 1 ? 'faster' : 'slower';
+    speed = `<span class="${cls}">${r.speedup.toFixed(2)}×</span>`;
+  }
+  tr.innerHTML = `<td>2^${r.logN}</td><td>${r.webgpuGpuMs.toFixed(1)}</td><td>${r.webgpuWallMs.toFixed(1)}</td><td>${wasm}</td><td>${speed}</td>`;
+  $benchTbody.appendChild(tr);
+}
+
+$benchRun.addEventListener('click', () => void (async () => {
+  if (running) return;
+  running = true;
+  $benchRun.disabled = true;
+  $benchTbody.replaceChildren();
+  $benchLog.replaceChildren();
+  const lo = Math.max(2, Math.min(20, parseInt($benchMin.value, 10) || 10));
+  const hi = Math.max(lo, Math.min(22, parseInt($benchMax.value, 10) || 16));
+  const logNs = Array.from({ length: hi - lo + 1 }, (_, i) => lo + i);
+  benchLog('info', `sweeping 2^${lo} … 2^${hi}   ·   full multi-round MegaFlavor sumcheck`);
+  try {
+    const device = await getDevice();
+    await runBenchmark(device, logNs, benchLog, appendBenchRow);
+    benchLog('ok', '✓ benchmark complete');
+  } catch (e) {
+    benchLog('err', `error: ${(e as Error).message}`);
+    // eslint-disable-next-line no-console
+    console.error(e);
+  } finally {
+    running = false;
+    $benchRun.disabled = false;
+    benchLog('muted', 'done');
+    log('muted', '[autorun] state=ok'); // mirror to #log so the headless driver detects completion
+  }
+})());
+
+// Autorun: ?autorun=all | <suite id> | bench
 const autorun = new URLSearchParams(window.location.search).get('autorun');
-if (autorun) {
+if (autorun === 'bench') {
+  (document.getElementById('tab-btn-bench') as HTMLButtonElement).click();
+  $benchRun.click();
+} else if (autorun) {
   const suites = autorun === 'all' ? REGISTRY : REGISTRY.filter(s => s.id === autorun);
   if (suites.length > 0) void runSuites(suites);
   else log('err', `unknown autorun target "${autorun}" (have: ${REGISTRY.map(s => s.id).join(', ')}, all)`);

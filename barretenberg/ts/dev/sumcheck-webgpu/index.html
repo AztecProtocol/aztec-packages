@@ -2,32 +2,77 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>sumcheck-webgpu — F_r / Mono / relation test dashboard</title>
+    <title>sumcheck-webgpu — tests & benchmark</title>
     <style>
       body { font-family: ui-sans-serif, system-ui, sans-serif; max-width: 960px; margin: 2rem auto; padding: 0 1rem; line-height: 1.45; }
-      h1 { font-size: 1.4rem; }
+      h1 { font-size: 1.4rem; margin-bottom: 0.3rem; }
       .controls { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; margin: 1rem 0; }
       #controls { display: flex; gap: 0.5rem; flex-wrap: wrap; }
       input[type="number"] { width: 9ch; padding: 0.25rem 0.4rem; }
       button { padding: 0.4rem 0.9rem; cursor: pointer; }
       button:disabled { opacity: 0.5; cursor: not-allowed; }
-      #log { background: #0b1020; color: #e6e6e6; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; padding: 0.75rem; border-radius: 6px; white-space: pre-wrap; overflow-x: auto; min-height: 16rem; }
+      #log, #bench-log { background: #0b1020; color: #e6e6e6; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; padding: 0.75rem; border-radius: 6px; white-space: pre-wrap; overflow-x: auto; min-height: 12rem; }
       .ok { color: #6ee7b7; } .err { color: #fca5a5; } .warn { color: #fde68a; } .muted { color: #93a4c3; }
       code { background: #f1f5f9; padding: 0.05rem 0.3rem; border-radius: 3px; }
+      /* tabs */
+      .tabbar { display: flex; gap: 0.3rem; border-bottom: 2px solid #e2e8f0; margin: 1rem 0 1.2rem; }
+      .tabbar button { background: none; border: none; border-bottom: 2px solid transparent; margin-bottom: -2px; padding: 0.5rem 0.9rem; font-size: 0.95rem; color: #475569; }
+      .tabbar button.active { color: #0f172a; border-bottom-color: #2563eb; font-weight: 600; }
+      .tab { display: none; } .tab.active { display: block; }
+      /* bench table */
+      table.bench { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 13px; }
+      table.bench th, table.bench td { border: 1px solid #e2e8f0; padding: 0.4rem 0.6rem; text-align: right; }
+      table.bench th { background: #f8fafc; text-align: right; }
+      table.bench td:first-child, table.bench th:first-child { text-align: left; }
+      table.bench tr:nth-child(even) td { background: #fafafa; }
+      .pending { color: #94a3b8; }
+      .faster { color: #16a34a; font-weight: 600; } .slower { color: #dc2626; font-weight: 600; }
     </style>
   </head>
   <body>
-    <h1>sumcheck-webgpu test dashboard <span class="muted" style="font-size:0.8rem">(BN254 F<sub>r</sub>)</span></h1>
-    <p class="muted">
-      WebGPU correctness checks for the sumcheck port, diffed against CPU references: the F<sub>r</sub> Montgomery
-      primitives, the short-monomial (<code>Mono</code>) arithmetic, and the relation accumulate kernels. Pick a suite
-      or <strong>Run All</strong>. Runs on the shared GPU device; needs no WASM build.
-    </p>
-    <div class="controls">
-      <label>count 2^<input id="logn" type="number" value="14" min="4" max="20" /></label>
-      <div id="controls"></div>
+    <h1>sumcheck-webgpu <span class="muted" style="font-size:0.8rem">(BN254 F<sub>r</sub>, MegaFlavor)</span></h1>
+
+    <div class="tabbar">
+      <button id="tab-btn-testing" class="active" data-tab="testing">Testing</button>
+      <button id="tab-btn-bench" data-tab="bench">Benchmark (WebGPU vs WASM)</button>
     </div>
-    <div id="log"></div>
+
+    <!-- ===== Testing tab ===== -->
+    <section id="tab-testing" class="tab active">
+      <p class="muted">
+        WebGPU correctness checks diffed against CPU references: the F<sub>r</sub> Montgomery primitives, the
+        short-monomial (<code>Mono</code>) arithmetic, the relation accumulate kernels, the fold, and the
+        full multi-round sumcheck. Pick a suite or <strong>Run All</strong>. Needs no WASM build.
+      </p>
+      <div class="controls">
+        <label>count 2^<input id="logn" type="number" value="14" min="4" max="20" /></label>
+        <div id="controls"></div>
+      </div>
+      <div id="log"></div>
+    </section>
+
+    <!-- ===== Benchmark tab ===== -->
+    <section id="tab-bench" class="tab">
+      <p class="muted">
+        Times the full multi-round sumcheck across sizes: the resident-byte <strong>WebGPU</strong> engine
+        vs the <strong>WASM</strong> prover (bb.js bbapi <code>SumcheckBench</code>). Both run in this browser.
+        WebGPU shows GPU dispatch and end-to-end wall (the latter includes the CPU tail + per-round decode).
+        The WASM column is empty until <code>barretenberg.wasm</code> is rebuilt with the command.
+      </p>
+      <div class="controls">
+        <label>from 2^<input id="bench-min" type="number" value="10" min="2" max="20" /></label>
+        <label>to 2^<input id="bench-max" type="number" value="16" min="2" max="22" /></label>
+        <button id="bench-run">Run benchmark</button>
+      </div>
+      <table class="bench">
+        <thead>
+          <tr><th>size</th><th>WebGPU GPU (ms)</th><th>WebGPU wall (ms)</th><th>WASM (ms)</th><th>speedup (wall)</th></tr>
+        </thead>
+        <tbody id="bench-tbody"></tbody>
+      </table>
+      <div id="bench-log"></div>
+    </section>
+
     <script type="module" src="/dev/sumcheck-webgpu/main.ts"></script>
   </body>
 </html>

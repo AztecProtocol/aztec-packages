@@ -8,6 +8,7 @@
 #include "barretenberg/bbapi/bbapi_schnorr.hpp"
 #include "barretenberg/bbapi/bbapi_shared.hpp"
 #include "barretenberg/bbapi/bbapi_srs.hpp"
+#include "barretenberg/bbapi/bbapi_sumcheck.hpp"
 #include "barretenberg/bbapi/bbapi_ultra_honk.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include <vector>
@@ -74,6 +75,7 @@ using Command = NamedUnion<AvmProve,
                            ChonkBatchVerifierQueue,
                            ChonkBatchVerifierStop,
                            SrsInitGrumpkinSrs,
+                           SumcheckBench,
                            Shutdown>;
 
 using CommandResponse = NamedUnion<ErrorResponse,
@@ -137,6 +139,7 @@ using CommandResponse = NamedUnion<ErrorResponse,
                                    ChonkBatchVerifierQueue::Response,
                                    ChonkBatchVerifierStop::Response,
                                    SrsInitGrumpkinSrs::Response,
+                                   SumcheckBench::Response,
                                    Shutdown::Response>;
 
 /**
