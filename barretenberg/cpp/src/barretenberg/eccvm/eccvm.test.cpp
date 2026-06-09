@@ -12,6 +12,13 @@
 #include "barretenberg/flavor/test_utils/proof_structures.hpp"
 #include "barretenberg/honk/library/grand_product_delta.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/relations/ecc_vm/ecc_bools_relation_impl.hpp"
+#include "barretenberg/relations/ecc_vm/ecc_lookup_relation_impl.hpp"
+#include "barretenberg/relations/ecc_vm/ecc_msm_relation_impl.hpp"
+#include "barretenberg/relations/ecc_vm/ecc_point_table_relation_impl.hpp"
+#include "barretenberg/relations/ecc_vm/ecc_set_relation_impl.hpp"
+#include "barretenberg/relations/ecc_vm/ecc_transcript_relation_impl.hpp"
+#include "barretenberg/relations/ecc_vm/ecc_wnaf_relation_impl.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/srs/global_crs.hpp"
@@ -237,6 +244,147 @@ TEST_F(ECCVMTests, PointAtInfinity)
 
     ASSERT_TRUE(ipa_verified && eccvm_result.reduction_succeeded);
 }
+
+TEST_F(ECCVMTests, ShortMonomialProverVerifies)
+{
+    ECCVMCircuitBuilder builder = generate_circuit(&engine);
+
+    std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
+    ECCVMProver prover(builder, prover_transcript);
+    auto [proof, opening_claim] = prover.construct_proof();
+
+    EXPECT_EQ(proof.size(), ECCVMFlavor::PROOF_LENGTH);
+
+    auto ipa_transcript = std::make_shared<Transcript>();
+    PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript);
+
+    std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>();
+    ECCVMVerifier verifier(verifier_transcript, proof);
+    auto eccvm_result = verifier.reduce_to_ipa_opening();
+
+    auto ipa_verifier_transcript = std::make_shared<Transcript>(ipa_transcript->export_proof());
+    auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
+    bool ipa_verified = IPA<curve::Grumpkin>::reduce_verify(ipa_vk, eccvm_result.ipa_claim, ipa_verifier_transcript);
+
+    ASSERT_TRUE(ipa_verified && eccvm_result.reduction_succeeded);
+}
+
+namespace {
+// Build a length-2 edge input (one ProverUnivariate per entity), mirroring the translator equivalence test.
+ECCVMFlavor::ProverUnivariates<2> get_short_edge_input(bool random_inputs)
+{
+    ECCVMFlavor::ProverUnivariates<2> result;
+    FF value = 0;
+    for (auto& edge : result.get_all()) {
+        if (random_inputs) {
+            edge = bb::Univariate<FF, 2>({ FF::random_element(), FF::random_element() });
+        } else {
+            value += 1;
+            edge = bb::Univariate<FF, 2>({ value, value + 1 });
+            value += 1;
+        }
+    }
+    return result;
+}
+
+template <typename ShortRelation>
+auto accumulate_short_relation(const ECCVMFlavor::ProverUnivariates<2>& in,
+                               const RelationParameters<FF>& params,
+                               const FF& scaling_factor)
+{
+    typename ShortRelation::SumcheckTupleOfUnivariatesOverSubrelations accumulators{};
+    ShortRelation::accumulate(accumulators, in, params, scaling_factor);
+    return accumulators;
+}
+
+// Compare one short relation's subrelations against the full relation's subrelations starting at `Offset`. ECCVM
+// legacy relations over-provision every subrelation to a uniform length while the short relations declare the true
+// (smaller) per-subrelation degree, so each short subrelation is extended up to the legacy length before comparison.
+template <size_t Offset, typename FullTuple, typename ShortTuple, size_t... Js>
+void compare_subrelation_block(const FullTuple& full_acc, const ShortTuple& short_acc, std::index_sequence<Js...>)
+{
+    (
+        [&] {
+            constexpr size_t full_idx = Offset + Js;
+            constexpr size_t full_length = std::tuple_element_t<full_idx, FullTuple>::LENGTH;
+            EXPECT_EQ(std::get<Js>(short_acc).template extend_to<full_length>(), std::get<full_idx>(full_acc));
+        }(),
+        ...);
+}
+
+// Base case: every legacy subrelation must have been covered by exactly one short subrelation.
+template <size_t Offset, typename FullTuple> void compare_short_blocks(const FullTuple&)
+{
+    static_assert(Offset == std::tuple_size_v<FullTuple>,
+                  "short relations must cover exactly the legacy relation's subrelations");
+}
+
+// Walk the short relations in flavor order, matching each against the corresponding contiguous slice of the full
+// relation's subrelations. Index-aligned equality also confirms the split short relations reproduce the legacy
+// global subrelation ordering (and hence the alpha batching).
+template <size_t Offset, typename FullTuple, typename ShortHead, typename... ShortTail>
+void compare_short_blocks(const FullTuple& full_acc, const ShortHead& head, const ShortTail&... tail)
+{
+    constexpr size_t head_size = std::tuple_size_v<ShortHead>;
+    compare_subrelation_block<Offset>(full_acc, head, std::make_index_sequence<head_size>{});
+    compare_short_blocks<Offset + head_size>(full_acc, tail...);
+}
+
+template <typename FullRelation, typename... ShortRelations>
+void expect_short_relations_match_full_edges(const ECCVMFlavor::ProverUnivariates<2>& in,
+                                             const RelationParameters<FF>& params,
+                                             const FF& scaling_factor)
+{
+    ECCVMFlavor::ExtendedEdges extended_edges;
+    for (auto [extended_edge, short_edge] : zip_view(extended_edges.get_all(), in.get_all())) {
+        extended_edge = short_edge.template extend_to<ECCVMFlavor::MAX_PARTIAL_RELATION_LENGTH>();
+    }
+
+    typename FullRelation::SumcheckTupleOfUnivariatesOverSubrelations full_acc{};
+    FullRelation::accumulate(full_acc, extended_edges, params, scaling_factor);
+
+    compare_short_blocks<0>(full_acc, accumulate_short_relation<ShortRelations>(in, params, scaling_factor)...);
+}
+} // namespace
+
+// Each ECCVM short relation (some of which split a single legacy relation across several short relations) must
+// produce, edge-for-edge, the same per-subrelation contributions as its legacy counterpart. This is the soundness
+// guard for the prover-only short path: the legacy verifier (native and recursive) only ever evaluates the full
+// relations, so a divergence here would make the short-prover's proof unverifiable.
+TEST_F(ECCVMTests, ShortMonomialRelationsMatchFullEdgeRelations)
+{
+    const auto run_test = [&](bool random_inputs) {
+        const auto input = get_short_edge_input(random_inputs);
+        const auto params = RelationParameters<FF>::get_random();
+        const FF scaling_factor = random_inputs ? FF::random_element() : FF(7);
+
+        expect_short_relations_match_full_edges<ECCVMTranscriptRelation<FF>,
+                                                ECCVMTranscriptShortRelation<FF>,
+                                                ECCVMTranscriptMsmTransitionShortRelation<FF>>(
+            input, params, scaling_factor);
+        expect_short_relations_match_full_edges<ECCVMPointTableRelation<FF>,
+                                                ECCVMPointTableDoubleShortRelation<FF>,
+                                                ECCVMPointTableShortRelation<FF>>(input, params, scaling_factor);
+        expect_short_relations_match_full_edges<ECCVMWnafRelation<FF>, ECCVMWnafShortRelation<FF>>(
+            input, params, scaling_factor);
+        expect_short_relations_match_full_edges<ECCVMMSMRelation<FF>,
+                                                ECCVMMSMAddShortRelation<FF>,
+                                                ECCVMMSMDoubleShortRelation<FF>,
+                                                ECCVMMSMSkewShortRelation<FF>,
+                                                ECCVMMSMShortRelation<FF>>(input, params, scaling_factor);
+        expect_short_relations_match_full_edges<ECCVMSetRelation<FF>, ECCVMSetShortRelation<FF>>(
+            input, params, scaling_factor);
+        expect_short_relations_match_full_edges<ECCVMLookupRelation<FF>, ECCVMLookupShortRelation<FF>>(
+            input, params, scaling_factor);
+        expect_short_relations_match_full_edges<ECCVMBoolsRelation<FF>,
+                                                ECCVMBoolsTranscriptShortRelation<FF>,
+                                                ECCVMBoolsMsmShortRelation<FF>>(input, params, scaling_factor);
+    };
+
+    run_test(/*random_inputs=*/false);
+    run_test(/*random_inputs=*/true);
+}
+
 TEST_F(ECCVMTests, ScalarEdgeCase)
 {
     using Curve = curve::BN254;

@@ -71,34 +71,43 @@ template <typename FF_> class ECCVMTranscriptRelationImpl {
         ACCUMULATOR_X_UPDATE = 15,
         // Accumulator y-coordinate update
         ACCUMULATOR_Y_UPDATE = 16,
-        // MSM offset generator subtraction: x-coordinate
-        OFFSET_GENERATOR_X = 17,
-        // MSM offset generator subtraction: y-coordinate
-        OFFSET_GENERATOR_Y = 18,
-        // MSM infinity x-diff check
-        MSM_INFINITY_X_DIFF = 19,
-        // MSM infinity y-sum check
-        MSM_INFINITY_Y_SUM = 20,
-        // MSM infinity inverse check
-        MSM_INFINITY_INVERSE = 21,
         // Accumulator empty flag update
-        ACCUMULATOR_EMPTY_UPDATE = 22,
+        ACCUMULATOR_EMPTY_UPDATE = 17,
         // x-equal flag validation
-        ADD_X_EQUAL_CHECK = 23,
+        ADD_X_EQUAL_CHECK = 18,
         // y-equal flag validation
-        ADD_Y_EQUAL_CHECK = 24,
+        ADD_Y_EQUAL_CHECK = 19,
         // Hiding op row: q_eq must be 1
-        HIDING_ROW_EQ = 25,
+        HIDING_ROW_EQ = 20,
         // Hiding op row: q_reset must be 1
-        HIDING_ROW_RESET = 26,
+        HIDING_ROW_RESET = 21,
         // Infinity flag consistency: Px = 0 when base infinity
-        INFINITY_BASE_PX = 27,
+        INFINITY_BASE_PX = 22,
         // Infinity flag consistency: Py = 0 when base infinity
-        INFINITY_BASE_PY = 28,
+        INFINITY_BASE_PY = 23,
         // Infinity flag consistency: acc_x = 0 when accumulator empty
-        INFINITY_ACC_X = 29,
+        INFINITY_ACC_X = 24,
         // Infinity flag consistency: acc_y = 0 when accumulator empty
+<<<<<<< HEAD
         INFINITY_ACC_Y = 30,
+=======
+        INFINITY_ACC_Y = 25,
+        // Boundary: accumulator_not_empty must be 0 at lagrange_first row
+        ACCUMULATOR_NOT_EMPTY_INIT = 26,
+        // The following subrelations are gated entirely by `msm_transition` and are grouped contiguously at the end so
+        // the short-monomial flavor can split them into a separately-skippable relation (skip when msm_transition ==
+        // 0).
+        // MSM offset generator subtraction: x-coordinate
+        OFFSET_GENERATOR_X = 27,
+        // MSM offset generator subtraction: y-coordinate
+        OFFSET_GENERATOR_Y = 28,
+        // MSM infinity x-diff check
+        MSM_INFINITY_X_DIFF = 29,
+        // MSM infinity y-sum check
+        MSM_INFINITY_Y_SUM = 30,
+        // MSM infinity inverse check
+        MSM_INFINITY_INVERSE = 31,
+>>>>>>> origin/public-next
         NUM_SUBRELATIONS,
     };
 

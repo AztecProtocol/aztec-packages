@@ -6,6 +6,9 @@
 
 #include "translator_proving_key.hpp"
 #include "barretenberg/common/assert.hpp"
+
+#include <algorithm>
+
 namespace bb {
 /**
  * @brief Construct a set of polynomials that are the result of concatenating a group of polynomials into one.
@@ -354,4 +357,5 @@ void TranslatorProvingKey::compute_extra_range_constraint_numerator()
     // Fill polynomials with a sequence, where each element is repeated NUM_FACTORS_IN_NUMERATOR times
     parallel_for(NUM_FACTORS_IN_NUMERATOR, fill_with_shift);
 }
+
 } // namespace bb

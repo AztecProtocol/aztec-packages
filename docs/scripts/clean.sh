@@ -5,4 +5,4 @@ rm -rf \
     docs/reference/developer_references/aztecjs \
     docs/reference/developer_references/smart_contract_reference/aztec-nr
 
-docusaurus clear
+yarn docusaurus clear

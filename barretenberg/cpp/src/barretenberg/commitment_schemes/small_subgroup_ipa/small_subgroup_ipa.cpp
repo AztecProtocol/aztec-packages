@@ -9,6 +9,7 @@
 #include "barretenberg/constants.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
+#include "barretenberg/eccvm/eccvm_short_monomial_flavor.hpp"
 #include "barretenberg/eccvm/eccvm_translation_data.hpp"
 #include "barretenberg/ext/starknet/flavor/ultra_starknet_zk_flavor.hpp"
 #include "barretenberg/flavor/mega_zk_flavor.hpp"
@@ -21,6 +22,7 @@
 #include "barretenberg/translator_vm/translator_flavor.hpp"
 
 #include <array>
+#include <type_traits>
 #include <vector>
 
 namespace bb {
@@ -99,7 +101,7 @@ SmallSubgroupIPAProver<Flavor>::SmallSubgroupIPAProver(TranslationData<typename 
 
 {
     // TranslationData is Grumpkin-specific
-    if constexpr (IsAnyOf<Flavor, ECCVMFlavor, GrumpkinSettings>) {
+    if constexpr (std::is_base_of_v<ECCVMFlavor, Flavor> || std::is_same_v<Flavor, GrumpkinSettings>) {
         label_prefix = "Translation:";
         interpolation_domain = translation_data.interpolation_domain;
         concatenated_polynomial = translation_data.masked_concatenated_polynomial;
@@ -411,7 +413,7 @@ typename Flavor::Curve::ScalarField SmallSubgroupIPAProver<Flavor>::compute_clai
     TranslationData<typename Flavor::Transcript>& translation_data)
 {
     FF claimed_inner_product{ 0 };
-    if constexpr (IsAnyOf<Flavor, ECCVMFlavor, GrumpkinSettings>) {
+    if constexpr (std::is_base_of_v<ECCVMFlavor, Flavor> || std::is_same_v<Flavor, GrumpkinSettings>) {
         for (size_t idx = 0; idx < SUBGROUP_SIZE; idx++) {
             claimed_inner_product +=
                 translation_data.concatenated_polynomial_lagrange.at(idx) * challenge_polynomial_lagrange.at(idx);
@@ -444,7 +446,9 @@ Polynomial<typename Flavor::Curve::ScalarField> SmallSubgroupIPAProver<Flavor>::
 
 // Instantiate with ZK Flavors
 template class SmallSubgroupIPAProver<ECCVMFlavor>;
+template class SmallSubgroupIPAProver<ECCVMShortMonomialFlavor>;
 template class SmallSubgroupIPAProver<TranslatorFlavor>;
+template class SmallSubgroupIPAProver<TranslatorShortMonomialFlavor>;
 template class SmallSubgroupIPAProver<MegaZKFlavor>;
 template class SmallSubgroupIPAProver<UltraZKFlavor>;
 template class SmallSubgroupIPAProver<UltraKeccakZKFlavor>;

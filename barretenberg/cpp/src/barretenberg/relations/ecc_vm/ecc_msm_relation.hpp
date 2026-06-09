@@ -55,74 +55,71 @@ template <typename FF_> class ECCVMMSMRelationImpl {
         ADD_ACC_X = 0,
         ADD_ACC_Y = 1,
         ADD_SLOPE_1 = 2,
-        // Skew round: accumulator update and slope constraint
-        SKEW_ACC_X = 3,
-        SKEW_ACC_Y = 4,
-        SKEW_SLOPE_1 = 5,
-        // Collision checks: x-coordinate non-equality for point additions
-        COLLISION_CHECK_1 = 6,
-        COLLISION_CHECK_2 = 7,
-        COLLISION_CHECK_3 = 8,
-        COLLISION_CHECK_4 = 9,
+        ADD_SLOPE_2 = 3,
+        ADD_SLOPE_3 = 4,
+        ADD_SLOPE_4 = 5,
         // Doubling round: accumulator update and slope constraint
-        DOUBLE_ACC_X = 10,
-        DOUBLE_ACC_Y = 11,
-        DOUBLE_SLOPE_1 = 12,
+        DOUBLE_ACC_X = 6,
+        DOUBLE_ACC_Y = 7,
+        DOUBLE_SLOPE_1 = 8,
+        DOUBLE_SLOPE_2 = 9,
+        DOUBLE_SLOPE_3 = 10,
+        DOUBLE_SLOPE_4 = 11,
+        // Skew round: accumulator update and slope constraint
+        SKEW_ACC_X = 12,
+        SKEW_ACC_Y = 13,
+        SKEW_SLOPE_1 = 14,
+        SKEW_SLOPE_2 = 15,
+        SKEW_SLOPE_3 = 16,
+        SKEW_SLOPE_4 = 17,
+        // Collision checks: x-coordinate non-equality for point additions
+        COLLISION_CHECK_1 = 18,
+        COLLISION_CHECK_2 = 19,
+        COLLISION_CHECK_3 = 20,
+        COLLISION_CHECK_4 = 21,
         // Inactive slice zeroing: force slice_i = 0 when add_i = 0
-        INACTIVE_SLICE_1 = 13,
-        INACTIVE_SLICE_2 = 14,
-        INACTIVE_SLICE_3 = 15,
-        INACTIVE_SLICE_4 = 16,
+        INACTIVE_SLICE_1 = 22,
+        INACTIVE_SLICE_2 = 23,
+        INACTIVE_SLICE_3 = 24,
+        INACTIVE_SLICE_4 = 25,
         // Phase selector mutual exclusivity: at most one of q_add, q_double, q_skew active
-        PHASE_SELECTOR_MUTUAL_EXCLUSIVITY = 17,
+        PHASE_SELECTOR_MUTUAL_EXCLUSIVITY = 26,
         // Round transition forces round_delta == 1
-        ROUND_TRANSITION_FORCES_DELTA_ONE = 18,
+        ROUND_TRANSITION_FORCES_DELTA_ONE = 27,
         // Round transition with skew implies round == 31
-        ROUND_TRANSITION_SKEW_IMPLIES_ROUND_31 = 19,
+        ROUND_TRANSITION_SKEW_IMPLIES_ROUND_31 = 28,
         // Round transition requires exactly one of double or skew on next row
-        ROUND_TRANSITION_EXACTLY_ONE_DOUBLE_OR_SKEW = 20,
+        ROUND_TRANSITION_EXACTLY_ONE_DOUBLE_OR_SKEW = 29,
         // Round transition needs double or skew (cannot have neither)
-        ROUND_TRANSITION_NEEDS_DOUBLE_OR_SKEW = 21,
+        ROUND_TRANSITION_NEEDS_DOUBLE_OR_SKEW = 30,
         // Double implies next row is an add row
-        DOUBLE_IMPLIES_NEXT_IS_ADD = 22,
+        DOUBLE_IMPLIES_NEXT_IS_ADD = 31,
         // Count shift must be zero when round changes
-        COUNT_SHIFT_ZERO_ON_ROUND_CHANGE = 23,
+        COUNT_SHIFT_ZERO_ON_ROUND_CHANGE = 32,
         // Count increments within the same round by number of active adds
-        COUNT_INCREMENT_WITHIN_ROUND = 24,
+        COUNT_INCREMENT_WITHIN_ROUND = 33,
         // Count must be zero at round boundary or MSM transition
-        COUNT_ZERO_AT_ROUND_BOUNDARY_OR_TRANSITION = 25,
+        COUNT_ZERO_AT_ROUND_BOUNDARY_OR_TRANSITION = 34,
         // MSM transition implies round = 0
-        MSM_TRANSITION_ROUND_ZERO = 26,
+        MSM_TRANSITION_ROUND_ZERO = 35,
         // MSM transition: pc = pc_shift + msm_size
-        MSM_TRANSITION_PC = 27,
+        MSM_TRANSITION_PC = 36,
         // Addition continuity: add2 requires add1
-        ADD_CONTINUITY_2 = 28,
+        ADD_CONTINUITY_2 = 37,
         // Addition continuity: add3 requires add2
-        ADD_CONTINUITY_3 = 29,
+        ADD_CONTINUITY_3 = 38,
         // Addition continuity: add4 requires add3
-        ADD_CONTINUITY_4 = 30,
+        ADD_CONTINUITY_4 = 39,
         // Cross-row continuity: if add spans two rows, add4 must be 1
-        ADD_CROSS_ROW_CONTINUITY = 31,
+        ADD_CROSS_ROW_CONTINUITY = 40,
         // add1 = q_add + q_skew
-        ADD1_DECOMPOSITION = 32,
+        ADD1_DECOMPOSITION = 41,
         // q_skew persists until MSM transition: q_skew && !msm_transition_shift => q_skew_shift
-        SKEW_PERSISTS_UNTIL_MSM_TRANSITION = 33,
+        SKEW_PERSISTS_UNTIL_MSM_TRANSITION = 42,
         // q_skew implies round == 32
-        SKEW_IMPLIES_ROUND_32 = 34,
+        SKEW_IMPLIES_ROUND_32 = 43,
         // Doubling requires a round change (round_delta must be 1 if q_double_shift)
-        DOUBLE_REQUIRES_ROUND_CHANGE = 35,
-        // Additional addition slope constraints (split to prevent cancellation)
-        ADD_SLOPE_2 = 36,
-        ADD_SLOPE_3 = 37,
-        ADD_SLOPE_4 = 38,
-        // Additional doubling slope constraints (split to prevent cancellation)
-        DOUBLE_SLOPE_2 = 39,
-        DOUBLE_SLOPE_3 = 40,
-        DOUBLE_SLOPE_4 = 41,
-        // Additional skew slope constraints (split to prevent cancellation)
-        SKEW_SLOPE_2 = 42,
-        SKEW_SLOPE_3 = 43,
-        SKEW_SLOPE_4 = 44,
+        DOUBLE_REQUIRES_ROUND_CHANGE = 44,
         // Idle row: accumulator preserved when no phase selector is active
         IDLE_ROW_PRESERVES_ACC_X = 45,
         IDLE_ROW_PRESERVES_ACC_Y = 46,

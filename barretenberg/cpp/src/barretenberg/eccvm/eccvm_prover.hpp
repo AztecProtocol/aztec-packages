@@ -7,6 +7,7 @@
 #pragma once
 #include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
+#include "barretenberg/eccvm/eccvm_short_monomial_flavor.hpp"
 #include "barretenberg/goblin/translation_evaluations.hpp"
 #include "barretenberg/honk/library/grand_product_library.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
@@ -17,11 +18,10 @@
 
 namespace bb {
 
-// We won't compile this class with Standard, but we will like want to compile it (at least for testing)
-// with a flavor that uses the curve Grumpkin, or a flavor that does/does not have zk, etc.
+// The prover always runs sumcheck with the short-monomial flavor (faster sumcheck).
 class ECCVMProver {
   public:
-    using Flavor = ECCVMFlavor;
+    using Flavor = ECCVMShortMonomialFlavor;
     using FF = Flavor::FF;
     using BF = Flavor::BF;
     using Commitment = Flavor::Commitment;

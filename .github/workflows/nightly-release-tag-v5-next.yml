@@ -12,7 +12,12 @@ concurrency:
   group: ${{ github.workflow }}-v5-next
 
 jobs:
+<<<<<<< HEAD:.github/workflows/nightly-release-tag-v5-next.yml
   nightly-release-tag-v5-next:
+=======
+  nightly-release-tag-v4-next:
+    if: ${{ github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' }}
+>>>>>>> origin/public-next:.github/workflows/nightly-release-tag-v4-next.yml
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
