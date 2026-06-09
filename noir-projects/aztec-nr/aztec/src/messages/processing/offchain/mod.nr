@@ -121,19 +121,20 @@ pub unconstrained fn sync_inbox(
     contract_address: AztecAddress,
     scope: AztecAddress,
 ) -> EphemeralArray<OffchainMessageWithContext> {
-    let entities = NonRetractableEntity::<OffchainMessage>::read_all_active(contract_address, scope);
+    let active_receptions = NonRetractableEntity::<OffchainMessage>::read_all_active(contract_address, scope);
 
-    // Ask PXE to resolve a tx context for each message. We pass the tx hashes in active-entity order, so the
-    // resolved contexts come back aligned with the entity indices and can be matched back positionally.
-    let resolved_contexts =
-        message_processing::get_message_contexts_by_tx_hash(entities.map(|entity| entity.body.tx_hash.unwrap_or(0)));
+    // Ask PXE to resolve a tx context for each message. We pass the tx hashes in active-reception order, so the
+    // resolved contexts come back aligned with the reception indices and can be matched back positionally.
+    let resolved_contexts = message_processing::get_message_contexts_by_tx_hash(active_receptions.map(|reception| {
+        reception.body.tx_hash.unwrap_or(0)
+    }));
 
-    assert_eq(resolved_contexts.len(), entities.len());
+    assert_eq(resolved_contexts.len(), active_receptions.len());
 
     let ready_to_process: EphemeralArray<OffchainMessageWithContext> = EphemeralArray::empty();
     let now = UtilityContext::new().timestamp();
 
-    for i in 0..entities.len() {
+    for i in 0..active_receptions.len() {
         // This loop decides what to do with each active message reception workflow. We check readiness to process
         // before expiration, so a message whose context resolves on the same sync it would otherwise be evicted
         // still gets handed off. We handle the following scenarios:
@@ -141,22 +142,22 @@ pub unconstrained fn sync_inbox(
         // - Received and resolved: the originating TX has been found by PXE, giving us the context needed to
         //   process the message. We add it to `ready_to_process` and record a `Processed` fact anchored at the
         //   resolving block. If the block gets reorg'd, the `Processed` fact is retracted, effectively rewinding
-        //   the message's lifecycle. The entity stays active; a later sync evicts it.
+        //   the message's lifecycle. The reception stays active; a later sync evicts it.
         //
         // - Expired (and not processable this sync): the message's effective expiration
         //   (`anchor_block_timestamp + MAX_MSG_TTL`) has passed and it is not being handed off now, so we
-        //   terminate the entity to stop tracking it. An expired-but-resolved message is processed this sync and
+        //   terminate the reception to stop tracking it. An expired-but-resolved message is processed this sync and
         //   terminated on the next one, once it has folded to processed.
         //
         // - Received and unresolved: the originating TX is not yet known to PXE (or the message is tx-less, which
-        //   never resolves) and it has not expired. We leave the entity active so future syncs can pick it up.
+        //   never resolves) and it has not expired. We leave the reception active so future syncs can pick it up.
         //
         // - Already processed (and not expired): we skip the message to avoid re-pushing it, but keep it active
         //   until expiration.
-        let entity = entities.get(i);
-        let msg = entity.body;
+        let reception = active_receptions.get(i);
+        let msg = reception.body;
         let key = msg.entity_id();
-        let state = fold(entity.facts);
+        let state = fold(reception.facts);
         let maybe_ctx = resolved_contexts.get(i);
 
         let expired = now > msg.anchor_block_timestamp + MAX_MSG_TTL;
