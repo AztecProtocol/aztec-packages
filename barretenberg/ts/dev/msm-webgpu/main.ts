@@ -149,7 +149,7 @@ const gpuKnobs: MsmConfig = (() => {
       const parts = f.split(',').map(x => parseInt(x, 10));
       return parts.length === 3 && parts.every(x => x > 0) ? (parts as [number, number, number]) : undefined;
     })(),
-    profile: q.get('profile') === '1' || q.get('autorun') === 'msm-bench' || undefined,
+    profile: q.get('profile') === '1' || q.get('autorun') === 'msm-bench' || q.get('autorun') === 'msm-trace' || undefined,
   };
 })();
 
@@ -2122,6 +2122,36 @@ function hideProgress(): void {
   // can pick them up from JSONL.
   const qp = new URLSearchParams(window.location.search);
   const autorun = qp.get('autorun');
+  if (autorun === 'msm-trace') {
+    // Perfetto trace capture: leave exactly `reps` WARM MSM runs in
+    // window.__lastPassTimes (consumed by the webgpu-gpu-trace-mac skill /
+    // join_passtimes.py). One discarded warm-up run reaches steady-state GPU,
+    // then the accumulator is reset and `reps` measured runs append their
+    // per-pass timings. GPU-only (no WASM/noble). Emits `[bench] DONE`.
+    const traceLogN = parseInt(qp.get('logn') ?? '17', 10);
+    const traceReps = Math.max(1, parseInt(qp.get('reps') ?? '5', 10));
+    void (async () => {
+      try {
+        // generateInputs needs the SRS (srsBuf); wait for it (no WASM needed).
+        for (let i = 0; i < 1200 && srsBuf === null; i++) await new Promise(r => setTimeout(r, 500));
+        log('info', `[trace] msm-trace logN=${traceLogN} reps=${traceReps} (warm runs)`);
+        const inputs = await generateInputs(traceLogN, false);
+        const msm = await ensureWebGpuWarmed(inputs);
+        msm.prepare(inputs.scalarsBuf);
+        await msm.run(); // warm-up to steady state (discarded)
+        const W = window as unknown as { __lastPassTimes?: Array<[string, string, string]> };
+        W.__lastPassTimes = []; // capture only the warm runs below
+        for (let i = 0; i < traceReps; i++) {
+          await msm.run(); // each run() appends its per-pass GPU timings
+        }
+        log('ok', `[bench] DONE — ${traceReps} warm runs`);
+      } catch (e) {
+        log('err', `[trace] ${e instanceof Error ? e.message : String(e)}`);
+        log('err', 'state=error');
+      }
+    })();
+    return;
+  }
   if (autorun === 'msm-bench' && qp.get('no_wasm') === '1') {
     // FAST GPU-ONLY BENCH (fastbench harness).
     // ONE page load → generateInputs once → `reps` timed GPU runs via
