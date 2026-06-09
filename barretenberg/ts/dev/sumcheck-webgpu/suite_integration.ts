@@ -21,7 +21,7 @@ import {
 import { ALL_RELATIONS } from './descriptors.js';
 import {
   type Suite, type SuiteCtx,
-  WG, makeRng, dispatchRelation, packEdgeRows, packParams, fromMont, le32ToBi,
+  WG, makeRng, dispatchRelation, packColEdges, packParams, fromMont, le32ToBi,
 } from './harness.js';
 
 async function run({ device, n, log }: SuiteCtx): Promise<boolean> {
@@ -40,11 +40,11 @@ async function run({ device, n, log }: SuiteCtx): Promise<boolean> {
     const rng = makeRng(desc.seed);
     const params = desc.makeParams ? desc.makeParams(rng) : [];
     const relParams = desc.makeParams ? packParams(params) : undefined;
-    const { inBytes, inputs } = packEdgeRows(n, desc.inLen, desc.numEdges, i => {
+    const { colBytes, scalBytes, inputs } = packColEdges(n, desc.numEdges, i => {
       const row = desc.build(rng, i);
       return { e: row.e, s: gs.edgeScaling(i) }; // per-edge gate-separator scaling
     });
-    const { bytes, ms } = await dispatchRelation(device, n, desc.shader(), desc.entry, inBytes, desc.outLen, relParams);
+    const { bytes, ms } = await dispatchRelation(device, n, desc.shader(), desc.entry, colBytes, scalBytes, desc.numEdges, desc.outLen, relParams);
     totalMs += ms;
 
     // Decode the GPU per-edge output and sum over edges into this relation's slice.

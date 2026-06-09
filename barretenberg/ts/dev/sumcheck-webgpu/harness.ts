@@ -121,18 +121,22 @@ export type Logger = (level: Level, msg: string) => void;
 // compiled once rather than recompiled every call. Key by entry + binding arity.
 export type PipelineCache = Map<string, { layout: GPUBindGroupLayout; pipeline: GPUComputePipeline }>;
 
-// Run a single-entry relation kernel: one read-only input SB, one storage output
-// SB (n*outLen Fr), one Params{n} uniform; one thread per edge. When `relParams`
-// is given (the relation_parameters, e.g. beta/gamma — Montgomery 8x u32, one
-// per Fr) it is bound at @group(0) @binding(3) as a read-only SB. Returns the raw
-// output bytes and the GPU compute+readback time. Pass a `cache` to reuse the
-// compiled pipeline across calls.
+// Run a single-entry relation kernel. The kernel gathers its edges directly from
+// the resident column-major columns (`colBytes`: numEdges columns of length 2n)
+// plus the per-edge scaling (`scalBytes`: n Fr) — the same input contract as the
+// resident sumcheck engine. Bindings: col_buf at binding(0), storage output SB
+// (n*outLen Fr) at binding(1), Params{n} uniform at binding(2), scaling SB at
+// binding(3); when `relParams` is given (relation_parameters, e.g. beta/gamma) it
+// is bound at binding(4). One thread per edge. Returns the raw output bytes and
+// the GPU compute+readback time. Pass a `cache` to reuse the compiled pipeline.
 export async function dispatchRelation(
   device: GPUDevice,
   n: number,
   code: string,
   entry: string,
-  inBytes: Uint8Array,
+  colBytes: Uint8Array,
+  scalBytes: Uint8Array,
+  numEdges: number,
   outLen: number,
   relParams?: Uint8Array,
   cache?: PipelineCache,
@@ -144,12 +148,20 @@ export async function dispatchRelation(
   if (outConst && Number(outConst[1]) !== outLen) {
     throw new Error(`OUT_LEN mismatch: kernel ${outConst[1]} vs suite ${outLen}`);
   }
+  const inLen = 2 * numEdges + 1;
   const inConst = /const\s+IN_LEN\s*:\s*u32\s*=\s*(\d+)u/.exec(code);
-  if (inConst && inBytes.length !== n * Number(inConst[1]) * 32) {
-    throw new Error(`IN_LEN mismatch: kernel ${inConst[1]} expects ${n * Number(inConst[1]) * 32} input bytes, got ${inBytes.length}`);
+  if (inConst && Number(inConst[1]) !== inLen) {
+    throw new Error(`IN_LEN mismatch: kernel ${inConst[1]} vs suite ${inLen} (numEdges ${numEdges})`);
+  }
+  const colLen = 2 * n;
+  if (colBytes.length !== numEdges * colLen * 32) {
+    throw new Error(`col bytes mismatch: expected ${numEdges * colLen * 32}, got ${colBytes.length}`);
+  }
+  if (scalBytes.length !== n * 32) {
+    throw new Error(`scaling bytes mismatch: expected ${n * 32}, got ${scalBytes.length}`);
   }
 
-  const types = ['read-only-storage', 'storage', 'uniform'];
+  const types = ['read-only-storage', 'storage', 'uniform', 'read-only-storage'];
   if (relParams) types.push('read-only-storage');
   const cacheKey = `${entry}|${types.length}`;
   let compiled = cache?.get(cacheKey);
@@ -160,7 +172,7 @@ export async function dispatchRelation(
     cache?.set(cacheKey, compiled);
   }
   const { layout, pipeline } = compiled;
-  const inBuf = create_and_write_sb(device, inBytes);
+  const colBuf = create_and_write_sb(device, colBytes);
   // Pre-fill the output with a sentinel (0xff bytes = 2^256-1, larger than any
   // Montgomery field value a kernel can write) so a row the kernel fails to write
   // reads back as detectably "unwritten" rather than as a valid 0 — which would
@@ -168,7 +180,8 @@ export async function dispatchRelation(
   const outBuf = create_and_write_sb(device, new Uint8Array(n * outLen * 32).fill(0xff));
   const params = new Uint8Array(16);
   new DataView(params.buffer).setUint32(0, n, true);
-  const bufs = [inBuf, outBuf, create_and_write_ub(device, params)];
+  const scalBuf = create_and_write_sb(device, scalBytes);
+  const bufs = [colBuf, outBuf, create_and_write_ub(device, params), scalBuf];
   if (relParams) bufs.push(create_and_write_sb(device, relParams));
   const bg = create_bind_group(device, layout, bufs);
   const t0 = performance.now();
@@ -211,26 +224,30 @@ export interface RelationDescriptor {
   polyRef: (e: bigint[][], s: bigint, params: bigint[]) => bigint[];
 }
 
-// Pack n rows of (numEdges edges {v0,v1} + 1 scaling scalar) into a Montgomery
-// 8x u32 input buffer of stride inLen Fr: edge j at slots 2j/2j+1, scaling last.
-export function packEdgeRows(
+// Pack n test edges into the resident column layout the relation kernels read:
+// numEdges columns (column-major, length 2n each) with edge i's entity j at column
+// rows 2i/2i+1, plus the per-edge scaling (n Fr). Mirrors encodeColumnsToBytes +
+// the gate-separator scaling, so the standalone/integration suites exercise the
+// exact input contract of the resident sumcheck engine.
+export function packColEdges(
   n: number,
-  inLen: number,
   numEdges: number,
   build: (i: number) => EdgeRow,
-): { inBytes: Uint8Array; inputs: EdgeRow[] } {
-  const inBytes = new Uint8Array(n * inLen * 32);
+): { colBytes: Uint8Array; scalBytes: Uint8Array; inputs: EdgeRow[] } {
+  const colLen = 2 * n;
+  const colBytes = new Uint8Array(numEdges * colLen * 32);
+  const scalBytes = new Uint8Array(n * 32);
   const inputs: EdgeRow[] = [];
   for (let i = 0; i < n; i++) {
     const row = build(i);
     inputs.push(row);
     for (let j = 0; j < numEdges; j++) {
-      writeLe32(inBytes, (i * inLen + 2 * j) * 32, toMont(row.e[j][0]));
-      writeLe32(inBytes, (i * inLen + 2 * j + 1) * 32, toMont(row.e[j][1]));
+      writeLe32(colBytes, (j * colLen + 2 * i) * 32, toMont(row.e[j][0]));
+      writeLe32(colBytes, (j * colLen + 2 * i + 1) * 32, toMont(row.e[j][1]));
     }
-    writeLe32(inBytes, (i * inLen + numEdges * 2) * 32, toMont(row.s));
+    writeLe32(scalBytes, i * 32, toMont(row.s));
   }
-  return { inBytes, inputs };
+  return { colBytes, scalBytes, inputs };
 }
 
 // Diff a relation kernel's output (Montgomery, 8x u32) against a per-row Fr
@@ -281,8 +298,8 @@ export interface Suite {
 export async function runRelationStandalone(d: RelationDescriptor, ctx: SuiteCtx): Promise<boolean> {
   const rng = makeRng(d.seed);
   const params = d.makeParams ? d.makeParams(rng) : [];
-  const { inBytes, inputs } = packEdgeRows(ctx.n, d.inLen, d.numEdges, i => d.build(rng, i));
+  const { colBytes, scalBytes, inputs } = packColEdges(ctx.n, d.numEdges, i => d.build(rng, i));
   const relParams = d.makeParams ? packParams(params) : undefined;
-  const { bytes, ms } = await dispatchRelation(ctx.device, ctx.n, d.shader(), d.entry, inBytes, d.outLen, relParams);
+  const { bytes, ms } = await dispatchRelation(ctx.device, ctx.n, d.shader(), d.entry, colBytes, scalBytes, d.numEdges, d.outLen, relParams);
   return diffRelation(bytes, ctx.n, d.outLen, i => d.polyRef(inputs[i].e, inputs[i].s, params), ctx.log, d.id, ms);
 }

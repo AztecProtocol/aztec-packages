@@ -3,16 +3,16 @@
 //
 // The polynomial columns live in GPU buffers for the whole run and never come back
 // to the host between rounds. Per round:
-//   - one command encoder runs, for all 14 relations: a gather kernel (builds the
-//     packed edge-row input from the resident column-major columns + the per-edge
-//     scaling), the relation accumulate kernel, and the edge-reduction kernel
-//     (sums per-edge outputs into <=64 workgroup partials). All relations write
-//     into ONE partials buffer, read back in a SINGLE transfer (~0.7 MB) — the
-//     only per-round data trip.
+//   - one command encoder runs, for all 14 relations: the relation accumulate
+//     kernel (which gathers each edge straight from the resident column-major
+//     columns + the per-edge scaling — no separate gather pass / edge buffer), then
+//     the edge-reduction kernel (sums per-edge outputs into <=64 workgroup
+//     partials). All relations write into ONE partials buffer, read back in a
+//     SINGLE transfer (~0.7 MB) — the only per-round data trip.
 //   - the host finishes the partial sums, forms the round univariate, draws the
 //     challenge, and a second encoder folds every column resident->resident (no
 //     readback, just a fence).
-// One edge/per-edge scratch buffer is reused across relations to bound VRAM
+// One per-edge scratch buffer is reused across relations to bound VRAM
 // (WebGPU serializes passes within an encoder, so reuse is safe).
 
 import {
@@ -33,7 +33,6 @@ const REDUCE_GROUPS = 64;
 
 export interface FoldRunner { layout: GPUBindGroupLayout; pipeline: GPUComputePipeline }
 export interface ReduceRunner { layout: GPUBindGroupLayout; pipeline: GPUComputePipeline }
-export interface GatherRunner { layout: GPUBindGroupLayout; pipeline: GPUComputePipeline }
 
 export async function makeFoldRunner(device: GPUDevice): Promise<FoldRunner> {
   const layout = create_bind_group_layout(device, ['read-only-storage', 'storage', 'uniform', 'read-only-storage']);
@@ -43,11 +42,6 @@ export async function makeFoldRunner(device: GPUDevice): Promise<FoldRunner> {
 export async function makeReduceRunner(device: GPUDevice): Promise<ReduceRunner> {
   const layout = create_bind_group_layout(device, ['read-only-storage', 'storage', 'uniform']);
   const pipeline = await create_compute_pipeline(device, [layout], sm.gen_reduce_test_shader(REDUCE_WG), 'reduce_main', 'reduce_main');
-  return { layout, pipeline };
-}
-export async function makeGatherRunner(device: GPUDevice): Promise<GatherRunner> {
-  const layout = create_bind_group_layout(device, ['read-only-storage', 'read-only-storage', 'storage', 'uniform']);
-  const pipeline = await create_compute_pipeline(device, [layout], sm.gen_gather_test_shader(WG), 'gather_main', 'gather_main');
   return { layout, pipeline };
 }
 
@@ -81,7 +75,6 @@ interface Shared {
   cache?: PipelineCache;
   foldRunner?: FoldRunner;
   reduceRunner?: ReduceRunner;
-  gatherRunner?: GatherRunner;
 }
 
 /**
@@ -105,7 +98,6 @@ export async function runResidentGpuSumcheck(
   const relCache: PipelineCache = shared?.cache ?? new Map();
   const foldRunner = shared?.foldRunner ?? (await makeFoldRunner(device));
   const reduceRunner = shared?.reduceRunner ?? (await makeReduceRunner(device));
-  const gatherRunner = shared?.gatherRunner ?? (await makeGatherRunner(device));
 
   // Upload relation parameters once; columns become resident GPU buffers.
   const relParamBufs: (GPUBuffer | undefined)[] = new Array(NUM_RELATIONS).fill(undefined);
@@ -119,23 +111,24 @@ export async function runResidentGpuSumcheck(
 
   // Scratch buffers sized for round 0, reused for every relation and round.
   const pairs0 = n >> 1;
-  let maxEdge = 0, maxPerEdge = 0, totalOutLen = 0;
+  let maxPerEdge = 0, totalOutLen = 0;
   for (const desc of ALL_RELATIONS) {
-    maxEdge = Math.max(maxEdge, pairs0 * desc.inLen);
     maxPerEdge = Math.max(maxPerEdge, pairs0 * desc.outLen);
     totalOutLen += desc.outLen;
   }
-  const edgeBuf = create_sb(device, maxEdge * 32);
   const perEdge = create_sb(device, maxPerEdge * 32);
   const partialsAll = create_sb(device, REDUCE_GROUPS * totalOutLen * 32);
 
-  // Cached accumulate pipeline per relation (same binding scheme as dispatchRelation).
+  // Cached accumulate pipeline per relation. Bindings: col_buf (resident columns),
+  // out_buf (per-edge output), params, scaling, and param_buf for the four
+  // parameter-bearing relations — the accumulate kernel gathers edges from the
+  // resident columns itself, so there is no separate gather pass / edge buffer.
   const accPipeline = async (desc: RelationDescriptor) => {
     const hasParams = relParamBufs[desc.relationIndex] !== undefined;
-    const key = `acc:${desc.entry}|${hasParams ? 4 : 3}`;
+    const key = `acc:${desc.entry}|${hasParams ? 5 : 4}`;
     let p = relCache.get(key);
     if (!p) {
-      const types = ['read-only-storage', 'storage', 'uniform'];
+      const types = ['read-only-storage', 'storage', 'uniform', 'read-only-storage'];
       if (hasParams) types.push('read-only-storage');
       const layout = create_bind_group_layout(device, types);
       const pipeline = await create_compute_pipeline(device, [layout], desc.shader(), desc.entry, desc.entry);
@@ -166,14 +159,9 @@ export async function runResidentGpuSumcheck(
       let outBase = 0; // Fr offset into partialsAll
       for (const desc of ALL_RELATIONS) {
         const r = desc.relationIndex;
-        // gather: resident columns + scaling -> packed edge rows (edgeBuf)
-        const gBg = create_bind_group(device, gatherRunner.layout, [
-          colBuf[r], scalBuf, edgeBuf, create_and_write_ub(device, u32x4(desc.numEdges, m, desc.inLen, pairs)),
-        ]);
-        await execute_pipeline(enc, gatherRunner.pipeline, gBg, Math.ceil((pairs * desc.inLen) / WG));
-        // accumulate: edgeBuf -> per-edge output (perEdge)
+        // accumulate: gather edges from resident columns + scaling -> per-edge output (perEdge)
         const acc = await accPipeline(desc);
-        const aBufs: GPUBuffer[] = [edgeBuf, perEdge, create_and_write_ub(device, u32x4(pairs))];
+        const aBufs: GPUBuffer[] = [colBuf[r], perEdge, create_and_write_ub(device, u32x4(pairs)), scalBuf];
         if (relParamBufs[r]) aBufs.push(relParamBufs[r]!);
         const aBg = create_bind_group(device, acc.layout, aBufs);
         await execute_pipeline(enc, acc.pipeline, aBg, Math.ceil(pairs / WG));

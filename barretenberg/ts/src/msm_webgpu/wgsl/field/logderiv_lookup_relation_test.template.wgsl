@@ -3,7 +3,7 @@
 // USE_SHORT_MONOMIALS. Three subrelations (5, 5, 3): inverse-correctness, the
 // log-derivative lookup identity, and the read_tag boolean check. Subrelation 1
 // (the lookup identity) is linearly dependent and is NOT multiplied by the
-// scaling factor. gamma/beta/beta^2/beta^3 are degree-0 params at binding(3).
+// scaling factor. gamma/beta/beta^2/beta^3 are degree-0 params at binding(4).
 //
 // One thread = one edge. Inputs (37 Fr, Montgomery, 8x u32 each): 18 entity edges
 // {v0,v1} (table_1..4, w_l/r/o, w_l/r/o_shift, q_o, q_r, q_m, q_c,
@@ -23,20 +23,29 @@ struct Params {
   n: u32,
 }
 
-@group(0) @binding(0) var<storage, read> in_buf: array<u32>;
+@group(0) @binding(0) var<storage, read> col_buf: array<u32>;  // num_edges columns, column-major, length 2*n each
 @group(0) @binding(1) var<storage, read_write> out_buf: array<u32>;
 @group(0) @binding(2) var<uniform> params: Params;
-@group(0) @binding(3) var<storage, read> param_buf: array<u32>; // [gamma, beta, beta_sqr, beta_cube]
+@group(0) @binding(3) var<storage, read> scaling: array<u32>;  // per-pair gate-separator scaling
+@group(0) @binding(4) var<storage, read> param_buf: array<u32>; // [gamma, beta, beta_sqr, beta_cube]
 
 const IN_LEN: u32 = 37u;   // 18 entities x 2 evals + scaling
 const OUT_LEN: u32 = 13u;  // 5 + 5 + 3
 
 fn ld(row: u32, j: u32) -> array<u32, 8> {
-  let base = (row * IN_LEN + j) * 8u;
   var v: array<u32, 8>;
+  if (j + 1u < IN_LEN) {
+    let col_len = 2u * params.n;
+    let base = ((j >> 1u) * col_len + 2u * row + (j & 1u)) * 8u;
 {{#f8_words}}
-  v[{{i}}] = in_buf[base + {{i}}u];
+    v[{{i}}] = col_buf[base + {{i}}u];
 {{/f8_words}}
+  } else {
+    let base = row * 8u;
+{{#f8_words}}
+    v[{{i}}] = scaling[base + {{i}}u];
+{{/f8_words}}
+  }
   return v;
 }
 

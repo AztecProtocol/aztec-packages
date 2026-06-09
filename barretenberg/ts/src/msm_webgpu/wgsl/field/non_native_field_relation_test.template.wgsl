@@ -25,19 +25,28 @@ struct Params {
   n: u32,
 }
 
-@group(0) @binding(0) var<storage, read> in_buf: array<u32>;
+@group(0) @binding(0) var<storage, read> col_buf: array<u32>;  // num_edges columns, column-major, length 2*n each
 @group(0) @binding(1) var<storage, read_write> out_buf: array<u32>;
 @group(0) @binding(2) var<uniform> params: Params;
+@group(0) @binding(3) var<storage, read> scaling: array<u32>;  // per-pair gate-separator scaling
 
 const IN_LEN: u32 = 27u;  // 13 entities x 2 evals + scaling
 const OUT_LEN: u32 = 6u;  // 1 subrelation x 6
 
 fn ld(row: u32, j: u32) -> array<u32, 8> {
-  let base = (row * IN_LEN + j) * 8u;
   var v: array<u32, 8>;
+  if (j + 1u < IN_LEN) {
+    let col_len = 2u * params.n;
+    let base = ((j >> 1u) * col_len + 2u * row + (j & 1u)) * 8u;
 {{#f8_words}}
-  v[{{i}}] = in_buf[base + {{i}}u];
+    v[{{i}}] = col_buf[base + {{i}}u];
 {{/f8_words}}
+  } else {
+    let base = row * 8u;
+{{#f8_words}}
+    v[{{i}}] = scaling[base + {{i}}u];
+{{/f8_words}}
+  }
   return v;
 }
 

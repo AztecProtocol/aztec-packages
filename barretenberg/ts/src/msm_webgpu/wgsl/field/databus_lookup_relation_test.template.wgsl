@@ -6,7 +6,7 @@
 //   (2)  (is_read*T - count*L) * I   [linearly dependent: NO scaling]
 // where L = lookup_term (shared), T = table_term (per bus), is_read = q_busread *
 // column_selector, I = inverses, count = read_counts. All factors are degree-1,
-// so every product is exact in length-6 Lagrange. beta/gamma at binding(3).
+// so every product is exact in length-6 Lagrange. beta/gamma at binding(4).
 //
 // One thread = one edge. Inputs (49 Fr, Montgomery, 8x u32 each): 24 entity edges
 // {v0,v1} (w_l, w_r, databus_id, q_busread, then per bus: value, selector,
@@ -27,20 +27,29 @@ struct Params {
   n: u32,
 }
 
-@group(0) @binding(0) var<storage, read> in_buf: array<u32>;
+@group(0) @binding(0) var<storage, read> col_buf: array<u32>;  // num_edges columns, column-major, length 2*n each
 @group(0) @binding(1) var<storage, read_write> out_buf: array<u32>;
 @group(0) @binding(2) var<uniform> params: Params;
-@group(0) @binding(3) var<storage, read> param_buf: array<u32>; // [beta, gamma]
+@group(0) @binding(3) var<storage, read> scaling: array<u32>;  // per-pair gate-separator scaling
+@group(0) @binding(4) var<storage, read> param_buf: array<u32>; // [beta, gamma]
 
 const IN_LEN: u32 = 49u;   // 24 entities x 2 evals + scaling
 const OUT_LEN: u32 = 90u;  // 5 buses x 3 subrelations x 6
 
 fn ld(row: u32, j: u32) -> array<u32, 8> {
-  let base = (row * IN_LEN + j) * 8u;
   var v: array<u32, 8>;
+  if (j + 1u < IN_LEN) {
+    let col_len = 2u * params.n;
+    let base = ((j >> 1u) * col_len + 2u * row + (j & 1u)) * 8u;
 {{#f8_words}}
-  v[{{i}}] = in_buf[base + {{i}}u];
+    v[{{i}}] = col_buf[base + {{i}}u];
 {{/f8_words}}
+  } else {
+    let base = row * 8u;
+{{#f8_words}}
+    v[{{i}}] = scaling[base + {{i}}u];
+{{/f8_words}}
+  }
   return v;
 }
 

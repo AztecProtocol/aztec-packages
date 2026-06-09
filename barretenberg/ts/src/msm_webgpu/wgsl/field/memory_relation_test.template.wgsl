@@ -2,7 +2,7 @@
 // transcription of relations/memory_relation.hpp under USE_SHORT_MONOMIALS. Six
 // length-6 subrelations: the combined RAM/ROM memory identity plus the ROM (x2)
 // and RAM (x3) consistency checks. eta/eta_two/eta_three are degree-0 params at
-// binding(3). Degree-2 factors assemble in the Mono basis (mixed-degree folds
+// binding(4). Degree-2 factors assemble in the Mono basis (mixed-degree folds
 // via mono_add_lin/sub_lin), promoted to length-6 Lagrange via ptr<Lag>.
 //
 // One thread = one edge. Inputs (31 Fr, Montgomery, 8x u32 each): 15 entity edges
@@ -24,20 +24,29 @@ struct Params {
   n: u32,
 }
 
-@group(0) @binding(0) var<storage, read> in_buf: array<u32>;
+@group(0) @binding(0) var<storage, read> col_buf: array<u32>;  // num_edges columns, column-major, length 2*n each
 @group(0) @binding(1) var<storage, read_write> out_buf: array<u32>;
 @group(0) @binding(2) var<uniform> params: Params;
-@group(0) @binding(3) var<storage, read> param_buf: array<u32>; // [eta, eta_two, eta_three]
+@group(0) @binding(3) var<storage, read> scaling: array<u32>;  // per-pair gate-separator scaling
+@group(0) @binding(4) var<storage, read> param_buf: array<u32>; // [eta, eta_two, eta_three]
 
 const IN_LEN: u32 = 31u;   // 15 entities x 2 evals + scaling
 const OUT_LEN: u32 = 36u;  // 6 subrelations x 6
 
 fn ld(row: u32, j: u32) -> array<u32, 8> {
-  let base = (row * IN_LEN + j) * 8u;
   var v: array<u32, 8>;
+  if (j + 1u < IN_LEN) {
+    let col_len = 2u * params.n;
+    let base = ((j >> 1u) * col_len + 2u * row + (j & 1u)) * 8u;
 {{#f8_words}}
-  v[{{i}}] = in_buf[base + {{i}}u];
+    v[{{i}}] = col_buf[base + {{i}}u];
 {{/f8_words}}
+  } else {
+    let base = row * 8u;
+{{#f8_words}}
+    v[{{i}}] = scaling[base + {{i}}u];
+{{/f8_words}}
+  }
   return v;
 }
 
