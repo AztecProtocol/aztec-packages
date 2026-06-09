@@ -2,22 +2,36 @@
 source $(git rev-parse --show-toplevel)/ci3/source
 
 name=$1
-instance_type=$2
-price=$3
-ami=$4
-state_dir=$5
+ami=$2
+state_dir=$3
 
-spec_path=$state_dir/spec.json
-sir_path=$state_dir/sir
+# Space-separated "instanceType:priority" tokens describing the spot pools to
+# diversify across (set by aws_request_instance).
+overrides_spec=${FLEET_OVERRIDES:?FLEET_OVERRIDES must be set}
+
+spec_path=$state_dir/lt_data.json
 iid_path=$state_dir/iid
 ip_path=$state_dir/ip
-
-function cleanup {
-  aws_terminate_instance $state_dir
-}
-trap 'cleanup' SIGINT SIGTERM
+lt_path=$state_dir/launch_template_id
 
 export AWS_DEFAULT_REGION=us-east-2
+
+# Delete the ephemeral launch template. Safe once instances are launched (they
+# no longer reference it) and idempotent, so we run it on every exit.
+function delete_lt {
+  [ -f "$lt_path" ] || return 0
+  aws ec2 delete-launch-template --launch-template-id "$(cat "$lt_path")" >/dev/null 2>&1 || true
+  rm -f "$lt_path"
+}
+
+# On interrupt, tear down whatever we acquired. On normal exit we only drop the
+# launch template (the instance must survive for the caller).
+function cleanup {
+  delete_lt
+  aws_terminate_instance "$state_dir"
+}
+trap 'cleanup' SIGINT SIGTERM
+trap 'delete_lt' EXIT
 
 # KeyName is optional: omit when KEY_NAME is empty (SSM-only mode).
 key_name_json=""
@@ -27,7 +41,6 @@ fi
 
 # Always attach the instance profile so containers can use instance-profile credentials.
 CI3_INSTANCE_PROFILE_NAME=${CI3_INSTANCE_PROFILE_NAME:-ci3-build-instance-profile}
-iam_profile_json="\"IamInstanceProfile\": { \"Name\": \"$CI3_INSTANCE_PROFILE_NAME\" },"
 
 # In SSM mode use the CI3 security group; in SSH mode use the original SG (allows port 22).
 if [ -z "${KEY_NAME:-}" ]; then
@@ -36,13 +49,35 @@ else
   sg_id="sg-0ccd4e5df0dcca0c9"
 fi
 
-launch_spec=$(cat <<EOF
+# create-fleet spreads across AZs via subnet overrides, which must live in the
+# same VPC as the security group. Pick one subnet per AZ.
+vpc_id=$(aws ec2 describe-security-groups --group-ids "$sg_id" \
+  --query 'SecurityGroups[0].VpcId' --output text)
+mapfile -t subnets < <(aws ec2 describe-subnets \
+  --filters "Name=vpc-id,Values=$vpc_id" \
+  --query 'Subnets[].[AvailabilityZone,SubnetId]' --output text | sort -k1,1 -u | awk '{print $2}')
+if [ "${#subnets[@]}" -eq 0 ]; then
+  echo_stderr "No subnets found in VPC $vpc_id for security group $sg_id."
+  exit 1
+fi
+
+# Instance tags, applied at launch via the launch template (propagate to fleet instances).
+tags_json="{\"Key\":\"Name\",\"Value\":\"$name\"},{\"Key\":\"Group\",\"Value\":\"build-instance\"}"
+[ -n "${GITHUB_ACTOR:-}" ] && tags_json+=",{\"Key\":\"GithubActor\",\"Value\":\"${GITHUB_ACTOR//[\[\]]/}\"}"
+[ -n "${CI_MODE:-}" ] && tags_json+=",{\"Key\":\"CICommand\",\"Value\":\"$CI_MODE\"}"
+[ -n "${CI_DASHBOARD:-}" ] && tags_json+=",{\"Key\":\"Dashboard\",\"Value\":\"$CI_DASHBOARD\"}"
+if [ "${UNSAFE_AWS_KEEP_ALIVE:-0}" -eq 1 ]; then
+  echo_stderr "You have set UNSAFE_AWS_KEEP_ALIVE=1, so the instance will not be terminated after 1.5 hours by the reaper script. Make sure you shut the machine down when done."
+  tags_json+=",{\"Key\":\"Keep-Alive\",\"Value\":\"true\"}"
+fi
+
+# Common launch config shared by every pool. Sizes/AZs vary per fleet override.
+lt_data=$(cat <<EOF
 {
   "ImageId": "$ami",
   $key_name_json
-  $iam_profile_json
+  "IamInstanceProfile": { "Name": "$CI3_INSTANCE_PROFILE_NAME" },
   "SecurityGroupIds": ["$sg_id"],
-  "InstanceType": "$instance_type",
   "BlockDeviceMappings": [
     {
       "DeviceName": "/dev/sda1",
@@ -53,75 +88,101 @@ launch_spec=$(cat <<EOF
         "Iops": 4000
       }
     }
+  ],
+  "TagSpecifications": [
+    { "ResourceType": "instance", "Tags": [ $tags_json ] }
   ]
 }
 EOF
 )
+echo "$lt_data" > "$spec_path"
 
-# Save the launch specification to a temporary file.
-echo "$launch_spec" > "$spec_path"
+lt_name="ci3-${name}-$$-$(date +%s)"
+lt_id=$(aws ec2 create-launch-template \
+  --launch-template-name "$lt_name" \
+  --launch-template-data "$lt_data" \
+  --query 'LaunchTemplate.LaunchTemplateId' --output text)
+echo "$lt_id" > "$lt_path"
 
-info="(name: $name) (type: $instance_type) (ami: $ami) (bid: $price)"
-
-if [ "${NO_SPOT:-0}" -ne 1 ]; then
-  echo "Requesting $instance_type spot instance $info..."
-  sir=$(aws ec2 request-spot-instances \
-    --spot-price "$price" \
-    --instance-count 1 \
-    --type "one-time" \
-    --launch-specification file://$spec_path \
-    --query "SpotInstanceRequests[*].[SpotInstanceRequestId]" \
-    --output text)
-  echo $sir > $sir_path
-
-  echo "Waiting for instance id for spot request: $sir..."
-  sleep 5
-  for i in {1..6}; do
-    iid=$(aws ec2 describe-spot-instance-requests \
-      --spot-instance-request-ids $sir \
-      --query "SpotInstanceRequests[*].[InstanceId]" \
-      --output text)
-    [ -z "$iid" -o "$iid" == "None" ] || break
-
-    if [ $i -eq 6 ]; then
-      echo "Timeout waiting for spot request."
-      # Cancel spot request. We may still get allocated an instance if it's *just* happened.
-      aws ec2 cancel-spot-instance-requests --spot-instance-request-ids $sir > /dev/null
-    fi
-
-    sleep 5
+# Cross every pool with every AZ. Priority biases capacity-optimized toward the
+# preferred sizes (see aws_request_instance) while still optimizing for depth.
+overrides_json=""
+for tok in $overrides_spec; do
+  itype=${tok%%:*}
+  prio=${tok##*:}
+  for sn in "${subnets[@]}"; do
+    overrides_json+="{\"InstanceType\":\"$itype\",\"SubnetId\":\"$sn\",\"Priority\":$prio},"
   done
-  echo $iid > $iid_path
+done
+ltc="[{\"LaunchTemplateSpecification\":{\"LaunchTemplateId\":\"$lt_id\",\"Version\":\"\$Latest\"},\"Overrides\":[${overrides_json%,}]}]"
+
+info="(name: $name) (pools: ${overrides_spec// /,}) (ami: $ami)"
+
+iid=""
+instance_type=""
+lifecycle=""
+
+# Try spot first, retrying the whole diversified fleet until the time budget
+# expires (preserves the historical "give spot ~1 min, then on-demand" pattern).
+if [ "${NO_SPOT:-0}" -ne 1 ]; then
+  spot_timeout=${CI_SPOT_TIMEOUT:-60}
+  spot_poll=${CI_SPOT_POLL:-10}
+  SECONDS=0
+  while true; do
+    echo "Requesting spot fleet $info (capacity-optimized-prioritized, ${spot_timeout}s budget)..."
+    resp=$(aws ec2 create-fleet \
+      --type instant \
+      --target-capacity-specification "TotalTargetCapacity=1,DefaultTargetCapacityType=spot" \
+      --spot-options "AllocationStrategy=capacity-optimized-prioritized" \
+      --launch-template-configs "$ltc" \
+      --output json 2>"$state_dir/fleet_err") || true
+    iid=$(echo "$resp" | jq -r '.Instances[0].InstanceIds[0] // empty' 2>/dev/null || true)
+    if [ -n "$iid" ]; then
+      instance_type=$(echo "$resp" | jq -r '.Instances[0].InstanceType // empty')
+      lifecycle=spot
+      break
+    fi
+    if (( SECONDS + spot_poll >= spot_timeout )); then
+      echo "Spot fleet unfulfilled after ${spot_timeout}s; falling back to on-demand."
+      break
+    fi
+    sleep "$spot_poll"
+  done
 fi
 
-if [ -z "${iid:-}" -o "${iid:-}" == "None" ]; then
-  # Request on-demand instance (with tags at launch for IAM RequestTag conditions).
-  echo "Requesting $instance_type on-demand instance $info..."
-  iid=$(aws ec2 run-instances \
-    --cli-input-json file://$spec_path \
-    --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=$name},{Key=Group,Value=build-instance}]" \
-    --query "Instances[*].[InstanceId]" \
-    --output text)
-  echo $iid > $iid_path
+# On-demand fallback (cheapest pool) only if spot couldn't be had.
+if [ -z "$iid" ]; then
+  echo "Requesting on-demand fleet $info..."
+  resp=$(aws ec2 create-fleet \
+    --type instant \
+    --target-capacity-specification "TotalTargetCapacity=1,DefaultTargetCapacityType=on-demand" \
+    --on-demand-options "AllocationStrategy=lowest-price" \
+    --launch-template-configs "$ltc" \
+    --output json 2>"$state_dir/fleet_err") || true
+  iid=$(echo "$resp" | jq -r '.Instances[0].InstanceIds[0] // empty' 2>/dev/null || true)
+  instance_type=$(echo "$resp" | jq -r '.Instances[0].InstanceType // empty')
+  lifecycle=ondemand
 fi
 
-echo "Instance id: $iid"
-
-tags="Key=Name,Value=$name Key=Group,Value=build-instance"
-[ -n "${GITHUB_ACTOR:-}" ] && tags+=" Key=GithubActor,Value=${GITHUB_ACTOR//[\[\]]/}"
-[ -n "${CI_MODE:-}" ] && tags+=" Key=CICommand,Value=$CI_MODE"
-[ -n "${CI_DASHBOARD:-}" ] && tags+=" Key=Dashboard,Value=$CI_DASHBOARD"
-if [ "${UNSAFE_AWS_KEEP_ALIVE:-0}" -eq 1 ]; then
-  echo_stderr "You have set UNSAFE_AWS_KEEP_ALIVE=1, so the instance will not be terminated after 1.5 hours by the reaper script. Make sure you shut the machine down when done."
-  tags+=" Key=Keep-Alive,Value=true"
+if [ -z "$iid" ]; then
+  echo_stderr "Failed to acquire any instance (spot or on-demand)."
+  echo "$resp" | jq -r '.Errors[]? | "  \(.ErrorCode): \(.ErrorMessage)"' >&2 2>/dev/null || true
+  cat "$state_dir/fleet_err" >&2 2>/dev/null || true
+  exit 1
 fi
-aws ec2 create-tags --resources $iid --tags $tags
+
+echo "Instance id: $iid ($instance_type, $lifecycle)"
+echo "$iid" > "$iid_path"
+
+# Instances are launched; the launch template is no longer needed.
+delete_lt
 
 # Record the instance type so callers can pass it downstream (e.g. into Docker).
-echo $instance_type > $state_dir/instance_type
+echo "$instance_type" > "$state_dir/instance_type"
 # Record whether this is spot or on-demand.
-[ -f "$sir_path" ] && echo spot > $state_dir/spot || echo ondemand > $state_dir/spot
+echo "$lifecycle" > "$state_dir/spot"
 
+ip=""
 while [ -z "${ip:-}" ]; do
   sleep 1
   ip=$(aws ec2 describe-instances \
@@ -171,10 +232,4 @@ else
     fi
     sleep 1
   done
-fi
-
-# For spot instances, tags must be applied post-launch (launch-specification doesn't support TagSpecifications).
-# On-demand instances are tagged at launch via --tag-specifications.
-if [ -n "${sir:-}" ]; then
-  aws ec2 create-tags --resources $iid --tags "Key=Name,Value=$name" "Key=Group,Value=build-instance"
 fi
