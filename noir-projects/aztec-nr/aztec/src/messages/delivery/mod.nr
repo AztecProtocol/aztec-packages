@@ -53,14 +53,14 @@ where
     // This function relies on `mode` being a constant in order to reduce circuit constraints when
     // unconstrained usage is requested. If it were a runtime value the compiler would be unable to perform
     // dead-code elimination.
-    assert_constant(mode.inner);
+    mode.assert_is_constant();
 
     let onchain_mode = mode.onchain_mode();
     let deliver_as_offchain_message = mode == DeliveryMode::offchain();
     let is_constrained = mode == DeliveryMode::onchain_constrained();
 
     let tag_secret_derivation = delivery.tag_secret_derivation();
-    assert_constant(tag_secret_derivation.inner);
+    tag_secret_derivation.assert_is_constant();
 
     if deliver_as_offchain_message {
         std::static_assert(
@@ -69,7 +69,7 @@ where
         );
     } else {
         let resolved_tag_secret_derivation = tag_secret_derivation.resolve_for_mode(onchain_mode.unwrap());
-        assert_constant(resolved_tag_secret_derivation.inner);
+        resolved_tag_secret_derivation.assert_is_constant();
 
         if is_constrained {
             // Constrained tagging derives the tag from a handshake-registry secret and emits a chain nullifier.

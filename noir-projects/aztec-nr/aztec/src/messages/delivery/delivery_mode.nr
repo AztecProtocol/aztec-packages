@@ -2,7 +2,7 @@ use crate::protocol::{traits::{Deserialize, Serialize, ToField}, utils::reader::
 
 /// Noir does not support enums, so this wrapper models delivery variants while keeping raw discriminants private.
 pub(crate) struct DeliveryMode {
-    pub(crate) inner: u8,
+    inner: u8,
 }
 
 impl DeliveryMode {
@@ -16,6 +16,10 @@ impl DeliveryMode {
 
     pub(crate) fn onchain_constrained() -> Self {
         OnchainDeliveryMode::onchain_constrained().into()
+    }
+
+    pub(crate) fn assert_is_constant(self) {
+        assert_constant(self.inner);
     }
 
     pub(crate) fn onchain_mode(self) -> Option<OnchainDeliveryMode> {
@@ -65,7 +69,7 @@ impl OnchainDeliveryMode {
     }
 
     /// Whether `self` is one of the valid on-chain delivery modes.
-    pub(crate) fn is_valid(self) -> bool {
+    fn is_valid(self) -> bool {
         (self == Self::onchain_unconstrained()) | (self == Self::onchain_constrained())
     }
 }

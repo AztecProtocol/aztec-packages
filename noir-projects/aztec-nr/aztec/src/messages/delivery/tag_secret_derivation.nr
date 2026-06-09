@@ -2,7 +2,7 @@ use super::delivery_mode::OnchainDeliveryMode;
 
 /// Noir does not support enums, so this wrapper models tag-secret derivation variants.
 pub(crate) struct TagSecretDerivation {
-    pub(crate) inner: u8,
+    inner: u8,
 }
 
 impl TagSecretDerivation {
@@ -16,6 +16,10 @@ impl TagSecretDerivation {
 
     pub(crate) fn non_interactive_handshake() -> Self {
         Self { inner: 2 }
+    }
+
+    pub(crate) fn assert_is_constant(self) {
+        assert_constant(self.inner);
     }
 
     pub(crate) fn resolve_for_mode(self, mode: OnchainDeliveryMode) -> Self {
