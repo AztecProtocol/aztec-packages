@@ -101,6 +101,43 @@ BENCHMARK_DEFINE_F(PippengerBench, PippengerUnsafeThreads)(benchmark::State& sta
     bb::set_parallel_for_concurrency(original_concurrency);
 }
 
+// ===== Per-stage scaling sweep (single MSM, native concurrency) =====
+// A single round-parallel MSM at the runtime's native concurrency (bb::get_num_cpus()
+// natively; HARDWARE_CONCURRENCY under wasmtime), swept over 2^17..2^21. Unlike
+// PippengerRoundParallel this fixes a single thread axis, so the per-stage BB_BENCH
+// breakdown is clean. Run with BB_BENCH=1 to dump the Stage1..Stage7 hierarchical timings
+// per size; comparing native vs wasmtime per-stage scaling isolates which stage fails to
+// scale natively. Under wasm the breakdown requires ENABLE_WASM_BENCH=ON at build time.
+BENCHMARK_DEFINE_F(PippengerBench, PippengerRoundParallelScaling)(benchmark::State& state)
+{
+    const size_t num_points = static_cast<size_t>(state.range(0));
+    std::span<const G1> points = srs->get_monomial_points().subspan(0, num_points);
+    std::span<Fr> span(&scalars[0], num_points);
+    bb::PolynomialSpan<Fr> poly_scalars(0, span);
+
+    for (auto _ : state) {
+        GOOGLE_BB_BENCH_REPORTER(state);
+        bb::scalar_multiplication::pippenger_round_parallel<Curve>(poly_scalars, points);
+    }
+}
+
+// Legacy counterpart of the scaling sweep: byte-identical merge-train MSM
+// (legacy::pippenger_unsafe) over the same points/sizes, with the legacy stage markers
+// (MSM::build_point_schedule / sort_point_schedule / batch_accumulate_into_buckets /
+// accumulate_buckets) so its BB_BENCH breakdown maps onto the rewrite's stages.
+BENCHMARK_DEFINE_F(PippengerBench, PippengerScalingLegacy)(benchmark::State& state)
+{
+    const size_t num_points = static_cast<size_t>(state.range(0));
+    std::span<const G1> points = srs->get_monomial_points().subspan(0, num_points);
+    std::span<Fr> span(&scalars[0], num_points);
+    bb::PolynomialSpan<Fr> poly_scalars(0, span);
+
+    for (auto _ : state) {
+        GOOGLE_BB_BENCH_REPORTER(state);
+        bb::scalar_multiplication::legacy::pippenger_unsafe<Curve>(poly_scalars, points);
+    }
+}
+
 // ===================== Batch MSM =====================
 
 BENCHMARK_DEFINE_F(PippengerBench, BatchMSM)(benchmark::State& state)
@@ -447,6 +484,24 @@ BENCHMARK_REGISTER_F(PippengerBench, PippengerRoundParallel)
                       1 << 19,
                       1 << 20,
                       1 << 21 } });
+
+// Focused per-stage scaling sweep at native concurrency. Run with BB_BENCH=1 for the
+// Stage1..Stage7 hierarchical breakdown; filter with --benchmark_filter=PippengerRoundParallelScaling.
+BENCHMARK_REGISTER_F(PippengerBench, PippengerRoundParallelScaling)
+    ->Unit(benchmark::kMillisecond)
+    ->Arg(1 << 17)
+    ->Arg(1 << 18)
+    ->Arg(1 << 19)
+    ->Arg(1 << 20)
+    ->Arg(1 << 21);
+
+BENCHMARK_REGISTER_F(PippengerBench, PippengerScalingLegacy)
+    ->Unit(benchmark::kMillisecond)
+    ->Arg(1 << 17)
+    ->Arg(1 << 18)
+    ->Arg(1 << 19)
+    ->Arg(1 << 20)
+    ->Arg(1 << 21);
 
 BENCHMARK_REGISTER_F(PippengerBench, PippengerUnsafeThreads)
     ->Unit(benchmark::kMillisecond)
