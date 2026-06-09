@@ -1,5 +1,6 @@
 use crate::{
     messages::encoding::MESSAGE_CIPHERTEXT_LEN,
+    oracle::entity_store::EntityBody,
     protocol::{address::AztecAddress, hash::poseidon2_hash, traits::{Deserialize, Serialize}},
 };
 
@@ -22,14 +23,19 @@ pub struct OffchainMessage {
 /// `MESSAGE_CIPHERTEXT_LEN + 1`.
 global SERIALIZED_CIPHERTEXT_LEN: u32 = MESSAGE_CIPHERTEXT_LEN + 1;
 
-impl OffchainMessage {
+impl EntityBody for OffchainMessage {
+    /// All offchain messages share the reception state-machine entity type.
+    fn entity_type_id() -> Field {
+        super::OFFCHAIN_RECEPTION_ENTITY
+    }
+
     /// Computes the entity id that identifies this message's reception entity in the entity store.
     ///
     /// The id is a poseidon2 hash over the serialized ciphertext fields and the normalized tx hash (0 when absent).
     /// Re-delivering the same `(ciphertext, tx_hash)` pair therefore maps to the same entity, making receive
     /// idempotent. The `recipient` and `anchor_block_timestamp` fields are intentionally excluded, so identity
     /// depends only on the message content and its originating transaction.
-    pub(crate) unconstrained fn entity_id(self) -> Field {
+    fn entity_id(self) -> Field {
         let serialized_ciphertext: [Field; SERIALIZED_CIPHERTEXT_LEN] = self.ciphertext.serialize();
         let mut inputs: [Field; SERIALIZED_CIPHERTEXT_LEN + 1] = [0; SERIALIZED_CIPHERTEXT_LEN + 1];
         for i in 0..SERIALIZED_CIPHERTEXT_LEN {

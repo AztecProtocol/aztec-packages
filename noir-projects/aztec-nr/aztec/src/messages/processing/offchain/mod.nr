@@ -9,7 +9,7 @@ use crate::{
     oracle::{
         contract_sync::set_contract_sync_cache_invalid,
         entity_store::{
-            active_entities, create_non_retractable_entity, Fact, get_entity, record_retractable_fact, terminate_entity,
+            active_entities, Fact, get_entity, NonRetractableEntity, record_retractable_fact, terminate_entity,
         },
     },
     protocol::{address::AztecAddress, constants::MAX_TX_LIFETIME, hash::sha256_to_field},
@@ -49,7 +49,8 @@ pub type OffchainInboxSync = unconstrained fn(
 // ===================== EntityStore data model =====================
 
 /// Entity type id for the offchain reception state machine.
-global OFFCHAIN_RECEPTION_ENTITY: Field = sha256_to_field("AZTEC_NR::OFFCHAIN_RECEPTION_ENTITY_TYPE".as_bytes());
+pub(crate) global OFFCHAIN_RECEPTION_ENTITY: Field =
+    sha256_to_field("AZTEC_NR::OFFCHAIN_RECEPTION_ENTITY_TYPE".as_bytes());
 
 /// Fact type id for a processed offchain message (retractable; anchored at processing block).
 global OFFCHAIN_MESSAGE_PROCESSED: Field = sha256_to_field("AZTEC_NR::OFFCHAIN_MESSAGE_PROCESSED".as_bytes());
@@ -106,15 +107,7 @@ pub unconstrained fn receive(
     contract_address: AztecAddress,
     messages: BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL>,
 ) {
-    messages.for_each(|msg| {
-        create_non_retractable_entity(
-            contract_address,
-            msg.recipient,
-            OFFCHAIN_RECEPTION_ENTITY,
-            msg.entity_id(),
-            msg,
-        );
-    });
+    messages.for_each(|msg| { let _ = NonRetractableEntity::create(contract_address, msg.recipient, msg); });
 
     // Clear cache for message recipients so next sync runs
     set_contract_sync_cache_invalid(contract_address, messages.map(|msg| msg.recipient));
@@ -209,7 +202,7 @@ mod test {
     use crate::{
         ephemeral::EphemeralArray,
         messages::encoding::MESSAGE_CIPHERTEXT_LEN,
-        oracle::{entity_store::{active_entities, Fact, get_entity}, random::random},
+        oracle::{entity_store::{active_entities, EntityBody, Fact, get_entity, NonRetractableEntity}, random::random},
         protocol::{address::AztecAddress, traits::{Deserialize, FromField, Serialize}},
         test::helpers::test_environment::TestEnvironment,
     };
@@ -261,6 +254,26 @@ mod test {
     unconstrained fn state_of(c: AztecAddress, s: AztecAddress, key: Field) -> OffchainReceptionState {
         let facts = get_entity::<OffchainMessage>(c, s, OFFCHAIN_RECEPTION_ENTITY, key).facts;
         fold(facts)
+    }
+
+    #[test]
+    unconstrained fn create_makes_an_active_retrievable_entity() {
+        let (env, scope) = setup();
+        let anchor_ts = advance_by(env, 10);
+        let tx_hash = random();
+        let msg = make_msg(scope, Option::some(tx_hash), anchor_ts);
+
+        env.utility_context(|context| {
+            let address = context.this_address();
+            let _ = NonRetractableEntity::create(address, scope, msg);
+
+            let key = msg.entity_id();
+            assert(is_active(address, scope, key), "created entity should be active");
+
+            let stored = get_entity::<OffchainMessage>(address, scope, OFFCHAIN_RECEPTION_ENTITY, key);
+            assert_eq(stored.payload.tx_hash, msg.tx_hash);
+            assert_eq(stored.payload.anchor_block_timestamp, msg.anchor_block_timestamp);
+        });
     }
 
     #[test]

@@ -27,6 +27,47 @@ pub struct Entity<T> {
     pub facts: EphemeralArray<Fact>,
 }
 
+/// The identity a value carries when stored as an entity body.
+///
+/// Implementors supply the two ids the store needs to address an entity: a per-type `entity_type_id` shared by every
+/// entity of the same kind, and a per-instance `entity_id` derived from the value's content. Implement this to store a
+/// type via [`NonRetractableEntity::create`] without passing those ids by hand.
+pub trait EntityBody {
+    /// The type id shared by all entities of this kind.
+    fn entity_type_id() -> Field;
+
+    /// The id that uniquely identifies this entity within its type, derived from its content.
+    fn entity_id(self) -> Field;
+}
+
+/// A handle to a non-retractable entity in the store.
+///
+/// Non-retractable entities survive reorgs; only their own retractable facts are pruned. Build one with
+/// [`NonRetractableEntity::create`], which performs the underlying store write.
+pub struct NonRetractableEntity<T> {
+    pub body: T,
+}
+
+impl<T> NonRetractableEntity<T>
+where
+    T: EntityBody + Serialize,
+{
+    /// Creates a non-retractable entity for `body` and returns a handle to it.
+    ///
+    /// The entity's type id and id are derived from `body` via [`EntityBody`], so callers never pass them. This writes
+    /// to the store (hence `create`, not `new`); re-creating the same `body` records into the same entity.
+    pub unconstrained fn create(contract_address: AztecAddress, scope: AztecAddress, body: T) -> Self {
+        create_non_retractable_entity(
+            contract_address,
+            scope,
+            T::entity_type_id(),
+            body.entity_id(),
+            body,
+        );
+        Self { body }
+    }
+}
+
 // Oracle declarations
 
 #[oracle(aztec_utl_recordRetractableFact)]
