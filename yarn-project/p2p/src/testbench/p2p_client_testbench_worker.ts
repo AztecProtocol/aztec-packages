@@ -17,6 +17,7 @@ import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
+import { EmptyL1RollupConstants, type L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { ClientProtocolCircuitVerifier, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
@@ -83,6 +84,25 @@ export interface BenchReadyMessage {
   type: 'BENCH_READY';
 }
 const txCache = new Map<number, Tx[]>();
+
+const BENCH_L1_CONSTANTS: L1RollupConstants = {
+  ...EmptyL1RollupConstants,
+  slotDuration: 12,
+  ethereumSlotDuration: 4,
+};
+
+class TestbenchL2BlockSource extends MockL2BlockSource {
+  public override getL1Constants(): Promise<L1RollupConstants> {
+    return Promise.resolve(BENCH_L1_CONSTANTS);
+  }
+}
+
+function createBenchmarkEpochCache(): EpochCacheInterface {
+  return {
+    ...createMockEpochCache(),
+    getL1Constants: () => BENCH_L1_CONSTANTS,
+  };
+}
 
 class TestLibP2PService extends LibP2PService {
   private disableTxValidation: boolean;
@@ -370,9 +390,9 @@ process.on('message', async msg => {
       workerConfig = config;
       workerTxPool = new InMemoryTxPool();
       workerAttestationPool = new InMemoryAttestationPool();
-      const epochCache = createMockEpochCache();
+      const epochCache = createBenchmarkEpochCache();
       const worldState = createMockWorldStateSynchronizer();
-      const l2BlockSource = new MockL2BlockSource();
+      const l2BlockSource = new TestbenchL2BlockSource();
 
       const proofVerifier = new AlwaysTrueCircuitVerifier();
       kvStore = await openTmpStore(`test-${clientIndex}`, true, BENCHMARK_CONSTANTS.KV_STORE_MAP_SIZE_KB);

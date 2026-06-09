@@ -5,6 +5,11 @@ import { Metrics } from '@aztec/telemetry-client';
 import type { EndToEndContext } from '../fixtures/utils.js';
 import { benchmarkSetup, sendTxs, waitTxs } from './utils.js';
 
+const AZTEC_SLOT_DURATION_SECONDS = 600;
+const ETHEREUM_SLOT_DURATION_SECONDS = 12;
+const BLOCK_DURATION_MS = 200_000;
+const L1_TX_TIMEOUT_MS = 30 * 60 * 1000;
+
 describe('benchmarks/build_block', () => {
   let context: EndToEndContext;
   let contract: BenchmarkingContract;
@@ -21,9 +26,12 @@ describe('benchmarks/build_block', () => {
       //   => 600 - 1 - (1 + 4 + 200) = 394 >= 200, giving maxBlocksPerSlot = floor(394/200) = 1.
       // The first (and only) sub-slot's build deadline is init + D = 201s into the slot, far more
       // than 32 txs need.
-      aztecSlotDuration: 600,
-      ethereumSlotDuration: 12,
-      blockDurationMs: 200_000,
+      aztecSlotDuration: AZTEC_SLOT_DURATION_SECONDS,
+      ethereumSlotDuration: ETHEREUM_SLOT_DURATION_SECONDS,
+      blockDurationMs: BLOCK_DURATION_MS,
+      enableDelayer: false,
+      txTimeoutMs: L1_TX_TIMEOUT_MS,
+      txCancellationFinalTimeoutMs: L1_TX_TIMEOUT_MS,
       metrics: [
         Metrics.SEQUENCER_BLOCK_BUILD_DURATION,
         {
