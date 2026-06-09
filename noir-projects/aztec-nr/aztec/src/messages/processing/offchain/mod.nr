@@ -1,19 +1,18 @@
+pub mod message;
+
+pub use message::OffchainMessage;
+
 use crate::{
     context::UtilityContext,
     ephemeral::EphemeralArray,
-    messages::{encoding::MESSAGE_CIPHERTEXT_LEN, processing::OffchainMessageWithContext},
+    messages::processing::OffchainMessageWithContext,
     oracle::{
         contract_sync::set_contract_sync_cache_invalid,
         entity_store::{
             active_entities, create_non_retractable_entity, Fact, get_entity, record_retractable_fact, terminate_entity,
         },
     },
-    protocol::{
-        address::AztecAddress,
-        constants::MAX_TX_LIFETIME,
-        hash::{poseidon2_hash, sha256_to_field},
-        traits::{Deserialize, Serialize},
-    },
+    protocol::{address::AztecAddress, constants::MAX_TX_LIFETIME, hash::sha256_to_field},
 };
 
 /// Ephemeral array slot used by [`sync_inbox`] to pass tx hash resolution requests to PXE.
@@ -50,19 +49,6 @@ global MAX_MSG_TTL: u64 = MAX_TX_LIFETIME + TX_EXPIRATION_TOLERANCE;
 pub type OffchainInboxSync = unconstrained fn(
 /* contract_address */AztecAddress, /* scope */ AztecAddress) -> EphemeralArray<OffchainMessageWithContext>;
 
-/// A message delivered via the `offchain_receive` utility function.
-#[derive(Serialize, Deserialize)]
-pub struct OffchainMessage {
-    /// The encrypted message payload.
-    pub ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN>,
-    /// The intended recipient of the message.
-    pub recipient: AztecAddress,
-    /// The hash of the transaction that produced this message. `Option::none` indicates a tx-less message.
-    pub tx_hash: Option<Field>,
-    /// Anchor block timestamp at message emission.
-    pub anchor_block_timestamp: u64,
-}
-
 // ===================== EntityStore data model =====================
 
 /// Entity type id for the offchain reception state machine.
@@ -70,30 +56,6 @@ global OFFCHAIN_RECEPTION_ENTITY: Field = sha256_to_field("AZTEC_NR::OFFCHAIN_RE
 
 /// Fact type id for a processed offchain message (retractable; anchored at processing block).
 global OFFCHAIN_MESSAGE_PROCESSED: Field = sha256_to_field("AZTEC_NR::OFFCHAIN_MESSAGE_PROCESSED".as_bytes());
-
-/// Number of fields produced by serializing a `BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN>`.
-///
-/// A `BoundedVec` serializes as its storage fields followed by a trailing length field, so the total is
-/// `MESSAGE_CIPHERTEXT_LEN + 1`.
-global SERIALIZED_CIPHERTEXT_LEN: u32 = MESSAGE_CIPHERTEXT_LEN + 1;
-
-impl OffchainMessage {
-    /// Computes the entity id that identifies this message's reception entity in the entity store.
-    ///
-    /// The id is a poseidon2 hash over the serialized ciphertext fields and the normalized tx hash (0 when absent).
-    /// Re-delivering the same `(ciphertext, tx_hash)` pair therefore maps to the same entity, making receive
-    /// idempotent. The `recipient` and `anchor_block_timestamp` fields are intentionally excluded, so identity
-    /// depends only on the message content and its originating transaction.
-    unconstrained fn entity_id(self) -> Field {
-        let serialized_ciphertext: [Field; SERIALIZED_CIPHERTEXT_LEN] = self.ciphertext.serialize();
-        let mut inputs: [Field; SERIALIZED_CIPHERTEXT_LEN + 1] = [0; SERIALIZED_CIPHERTEXT_LEN + 1];
-        for i in 0..SERIALIZED_CIPHERTEXT_LEN {
-            inputs[i] = serialized_ciphertext[i];
-        }
-        inputs[SERIALIZED_CIPHERTEXT_LEN] = self.tx_hash.unwrap_or(0);
-        poseidon2_hash(inputs)
-    }
-}
 
 /// The computed state of an offchain reception entity, derived by folding its facts.
 #[derive(Eq)]
