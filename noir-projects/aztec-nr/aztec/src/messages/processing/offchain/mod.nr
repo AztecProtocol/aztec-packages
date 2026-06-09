@@ -106,7 +106,7 @@ pub unconstrained fn receive(
     contract_address: AztecAddress,
     messages: BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL>,
 ) {
-    messages.for_each(|msg: OffchainMessage| {
+    messages.for_each(|msg| {
         create_non_retractable_entity(
             contract_address,
             msg.recipient,
@@ -116,11 +116,8 @@ pub unconstrained fn receive(
         );
     });
 
-    // The scope list is just the recipients. It may contain duplicates if multiple messages target the same
-    // recipient, which is harmless since cache invalidation on the TS side is idempotent (deleting an
-    // already-deleted key is a no-op).
-    let scopes = messages.map(|msg: OffchainMessage| msg.recipient);
-    set_contract_sync_cache_invalid(contract_address, scopes);
+    // Clear cache for message recipients so next sync runs
+    set_contract_sync_cache_invalid(contract_address, messages.map(|msg| msg.recipient));
 }
 
 /// Returns offchain-delivered messages to process during sync.
