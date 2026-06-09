@@ -7,8 +7,24 @@ export interface L2TipsProvider {
   getL2Tips(): Promise<LocalL2Tips>;
 }
 
-/** Interface to the local view of the chain. Implemented by world-state and l2-tips-store. */
-export interface L2BlockStreamLocalDataProvider extends L2TipsProvider {
+/**
+ * Minimal local view of the chain the block stream needs to drive sync. `checkpointed` is only required when the
+ * stream emits checkpoint events (i.e. `ignoreCheckpoints` is off).
+ */
+export type LocalChainTips = {
+  proposed: L2BlockId;
+  checkpointed?: { checkpoint: CheckpointId };
+  proven: { block: L2BlockId };
+  finalized: { block: L2BlockId };
+};
+
+/**
+ * Interface to the local view of the chain. Implemented by world-state and l2-tips-store. Anything implementing
+ * {@link L2TipsProvider} also satisfies this contract structurally, since {@link LocalL2Tips} is assignable to
+ * {@link LocalChainTips}.
+ */
+export interface L2BlockStreamLocalDataProvider {
+  getL2Tips(): Promise<LocalChainTips>;
   getL2BlockHash(number: number): Promise<string | undefined>;
 }
 
@@ -51,4 +67,6 @@ export type L2BlockStreamEvent =
       checkpoint: CheckpointId;
     };
 
-export type L2TipsStore = L2BlockStreamEventHandler & L2BlockStreamLocalDataProvider;
+export type L2TipsStore = L2BlockStreamEventHandler &
+  L2TipsProvider &
+  Pick<L2BlockStreamLocalDataProvider, 'getL2BlockHash'>;

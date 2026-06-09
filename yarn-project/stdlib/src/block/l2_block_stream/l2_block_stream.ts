@@ -70,6 +70,13 @@ export class L2BlockStream {
       const localTips = await this.localData.getL2Tips();
       this.log.trace(`Running L2 block stream`, { sourceTips, localTips });
 
+      if (!this.opts.ignoreCheckpoints && localTips.checkpointed === undefined) {
+        throw new Error(
+          'Local data provider does not expose a checkpointed tip; checkpoint events require one ' +
+            '(set ignoreCheckpoints or provide checkpointed tips).',
+        );
+      }
+
       // Check if there was a reorg and emit a chain-pruned event if so.
       let latestBlockNumber = localTips.proposed.number;
       const sourceCache = new BlockHashCache([sourceTips.proposed]);
@@ -123,7 +130,12 @@ export class L2BlockStream {
       }
 
       let nextBlockNumber = latestBlockNumber + 1;
-      let nextCheckpointToEmit = CheckpointNumber(localTips.checkpointed.checkpoint.number + 1);
+      // When checkpoints are ignored the local provider may omit `checkpointed`; in that case the fallback to
+      // CheckpointNumber.ZERO is harmless because `nextCheckpointToEmit` is never consumed for emission (Loop 1 and
+      // the startingBlock/skipFinalized adjustments below only feed checkpoint emission, which is gated off).
+      let nextCheckpointToEmit = CheckpointNumber(
+        (localTips.checkpointed?.checkpoint.number ?? CheckpointNumber.ZERO) + 1,
+      );
 
       // When startingBlock is set, also skip ahead for checkpoints.
       if (

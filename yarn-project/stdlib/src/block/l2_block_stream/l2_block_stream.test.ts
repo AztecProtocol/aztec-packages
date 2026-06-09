@@ -1,6 +1,7 @@
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { compactArray } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import type { Logger } from '@aztec/foundation/log';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -18,7 +19,12 @@ import {
   type L2BlockSource,
   type LocalL2Tips,
 } from '../l2_block_source.js';
-import type { L2BlockStreamEvent, L2BlockStreamEventHandler, L2BlockStreamLocalDataProvider } from './interfaces.js';
+import type {
+  L2BlockStreamEvent,
+  L2BlockStreamEventHandler,
+  L2BlockStreamLocalDataProvider,
+  LocalChainTips,
+} from './interfaces.js';
 import { L2BlockStream } from './l2_block_stream.js';
 import { L2TipsMemoryStore } from './l2_tips_memory_store.js';
 
@@ -1807,6 +1813,50 @@ describe('L2BlockStream', () => {
       ]);
     });
   });
+
+  describe('local provider without checkpointed tip', () => {
+    let localData: TestLocalChainTipsProvider;
+    let handler: TestL2BlockStreamEventHandler;
+
+    beforeEach(() => {
+      localData = new TestLocalChainTipsProvider();
+      handler = new TestL2BlockStreamEventHandler();
+    });
+
+    it('syncs blocks with ignoreCheckpoints when no checkpointed tip is provided', async () => {
+      setRemoteTips(5, 5);
+      const blockStream = new TestL2BlockStream(blockSource, localData, handler, undefined, {
+        batchSize: 10,
+        ignoreCheckpoints: true,
+      });
+
+      await blockStream.work();
+
+      // All 5 blocks are synced (one per checkpoint in the mock) and no checkpoint events are emitted.
+      expect(handler.events).toEqual([
+        expectBlocksAdded([1]),
+        expectBlocksAdded([2]),
+        expectBlocksAdded([3]),
+        expectBlocksAdded([4]),
+        expectBlocksAdded([5]),
+      ]);
+      expect(handler.events.every(e => e.type === 'blocks-added')).toBe(true);
+    });
+
+    it('surfaces a loud error when checkpoint emission is enabled without a checkpointed tip', async () => {
+      setRemoteTips(5, 5);
+      const log = mock<Logger>();
+      const blockStream = new TestL2BlockStream(blockSource, localData, handler, log, { batchSize: 10 });
+
+      await blockStream.work();
+
+      expect(handler.events).toEqual([]);
+      expect(log.error).toHaveBeenCalledWith(
+        `Error processing block stream`,
+        expect.objectContaining({ message: expect.stringContaining('does not expose a checkpointed tip') }),
+      );
+    });
+  });
 });
 
 class TestL2BlockStreamEventHandler implements L2BlockStreamEventHandler {
@@ -1859,6 +1909,29 @@ class TestL2BlockStreamLocalDataProvider implements L2BlockStreamLocalDataProvid
     return Promise.resolve({
       proposed: this.proposed,
       checkpointed: this.checkpointed,
+      proven: this.proven,
+      finalized: this.finalized,
+    });
+  }
+}
+
+/** Local provider that omits `checkpointed`, mirroring world-state's `ignoreCheckpoints` configuration. */
+class TestLocalChainTipsProvider implements L2BlockStreamLocalDataProvider {
+  public readonly blockHashes: Record<number, string> = {};
+
+  public proposed = { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() };
+  public proven = { block: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() } };
+  public finalized = { block: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() } };
+
+  public getL2BlockHash(number: number): Promise<string | undefined> {
+    return Promise.resolve(
+      number > this.proposed.number ? undefined : (this.blockHashes[number] ?? new Fr(number).toString()),
+    );
+  }
+
+  public getL2Tips(): Promise<LocalChainTips> {
+    return Promise.resolve({
+      proposed: this.proposed,
       proven: this.proven,
       finalized: this.finalized,
     });

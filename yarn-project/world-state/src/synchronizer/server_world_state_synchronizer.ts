@@ -1,4 +1,3 @@
-import { INITIAL_CHECKPOINT_NUMBER } from '@aztec/constants';
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -6,7 +5,6 @@ import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { elapsed } from '@aztec/foundation/timer';
 import {
   type BlockHash,
-  GENESIS_CHECKPOINT_HEADER_HASH,
   type L2Block,
   type L2BlockId,
   type L2BlockSource,
@@ -14,7 +12,7 @@ import {
   type L2BlockStreamEvent,
   type L2BlockStreamEventHandler,
   type L2BlockStreamLocalDataProvider,
-  type LocalL2Tips,
+  type LocalChainTips,
 } from '@aztec/stdlib/block';
 import {
   WorldStateRunningState,
@@ -266,8 +264,12 @@ export class ServerWorldStateSynchronizer
     return this.merkleTreeCommitted.getLeafValue(MerkleTreeId.ARCHIVE, BigInt(number)).then(leaf => leaf?.toString());
   }
 
-  /** Returns the latest L2 block number for each tip of the chain (latest, proven, finalized). */
-  public async getL2Tips(): Promise<LocalL2Tips> {
+  /**
+   * Returns the proposed, proven, and finalized block tips of the chain. World state drives its block stream with
+   * `ignoreCheckpoints`, so it does not track checkpointed blocks or checkpoints and omits `checkpointed` from the tips
+   * it reports.
+   */
+  public async getL2Tips(): Promise<LocalChainTips> {
     const status = await this.merkleTreeDb.getStatusSummary();
     const unfinalizedBlockHashPromise = this.getL2BlockHash(status.unfinalizedBlockNumber);
     const finalizedBlockHashPromise = this.getL2BlockHash(status.finalizedBlockNumber);
@@ -283,24 +285,13 @@ export class ServerWorldStateSynchronizer
     ]);
     const latestBlockId: L2BlockId = { number: status.unfinalizedBlockNumber, hash: unfinalizedBlockHash! };
 
-    // World state doesn't track checkpointed blocks or checkpoints themselves.
-    // but we use a block stream so we need to provide 'local' L2Tips.
-    // We configure the block stream to ignore checkpoints and set checkpoint values to genesis here.
-    const genesisCheckpointHeaderHash = GENESIS_CHECKPOINT_HEADER_HASH.toString();
-    const initialBlockHash = (await this.merkleTreeCommitted.getInitialHeader().hash()).toString();
     return {
       proposed: latestBlockId,
-      checkpointed: {
-        block: { number: BlockNumber.ZERO, hash: initialBlockHash },
-        checkpoint: { number: INITIAL_CHECKPOINT_NUMBER, hash: genesisCheckpointHeaderHash },
-      },
       finalized: {
         block: { number: status.finalizedBlockNumber, hash: finalizedBlockHash ?? '' },
-        checkpoint: { number: INITIAL_CHECKPOINT_NUMBER, hash: genesisCheckpointHeaderHash },
       },
       proven: {
         block: { number: provenBlockNumber, hash: provenBlockHash ?? '' },
-        checkpoint: { number: INITIAL_CHECKPOINT_NUMBER, hash: genesisCheckpointHeaderHash },
       },
     };
   }
