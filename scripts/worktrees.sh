@@ -7,7 +7,10 @@
 # from a shared read-only store (CACHE_LINK_DIR) instead of extracted in place.
 set -euo pipefail
 
-ROOT=$(git rev-parse --show-toplevel)
+# For create, the SOURCE checkout is the one this script lives in — not the CWD's repo, which could
+# be a different (possibly unbuilt) checkout of the same project. Other commands operate on CWD.
+SCRIPT_ROOT=$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)
+ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo "$SCRIPT_ROOT")
 
 # Store locations (overridable via env). CACHE_LOCAL_DIR holds downloaded tarballs (existing ci3
 # behavior); CACHE_LINK_DIR holds the extracted, frozen, content-addressed entries we symlink into.
@@ -171,7 +174,9 @@ function cmd_create {
   done
   [[ -n "$name" ]] || { usage; die "create requires <name>"; }
 
-  local source="$ROOT"
+  local source="$SCRIPT_ROOT"
+  [[ -d "$source/yarn-project/node_modules" ]] \
+    || die "Source checkout $source has no yarn-project/node_modules — bootstrap it before creating worktrees."
   local wt_path="$HOME/Projects/$name"
   [[ -e "$wt_path" ]] && die "Path already exists: $wt_path"
   branch=${branch:-spl/$name}

@@ -110,6 +110,13 @@ function ensure_store_entry {
 # store symlink: if noir-repo/target is a symlink, paths beneath it resolve through it to real store
 # dirs, but noir-repo/target is not descendable so noir-repo/target stays the single link root.
 #
+# A link root must also be IGNORED by git once created: gitignore patterns with a trailing slash
+# (e.g. barretenberg/cpp's "build*/") match directories only, so a symlink at that path would show
+# up as untracked, dirtying git status and disabling content-hash caching for the whole checkout.
+# When the would-be symlink is not ignored and the store side is a directory, we degrade: create a
+# real directory there and push the link root one level deeper, repeating until the path is ignored
+# (a real dir DOES match dir-only patterns, and everything beneath an ignored dir is ignored).
+#
 # Performance: yarn-project-sized tarballs list tens of thousands of files, but most share a handful
 # of link roots. We walk each path top-down, memoising the descendable decision per directory prefix
 # and recording each link root once, so the work is roughly proportional to the number of distinct
@@ -131,42 +138,61 @@ function graft_from_store {
     p="${p%/}"
     [[ -z "$p" ]] && continue
 
-    # Walk components top-down until we hit the first non-descendable prefix (the link root).
-    local acc="" comp link_root="" decided=0
-    IFS='/' read -ra parts <<<"$p"
-    for comp in "${parts[@]}"; do
-      acc="${acc:+$acc/}$comp"
-      local d="${descendable[$acc]:-}"
-      if [[ -z "$d" ]]; then
-        if [[ -d "$out_dir/$acc" && ! -L "$out_dir/$acc" ]]; then
-          d=1
-        else
-          d=0
+    # Re-walk the same path after each ignore-degradation; bounded by the path's depth.
+    while :; do
+      # Walk components top-down until we hit the first non-descendable prefix (the link root).
+      local acc="" comp link_root="" decided=0
+      IFS='/' read -ra parts <<<"$p"
+      for comp in "${parts[@]}"; do
+        acc="${acc:+$acc/}$comp"
+        local d="${descendable[$acc]:-}"
+        if [[ -z "$d" ]]; then
+          if [[ -d "$out_dir/$acc" && ! -L "$out_dir/$acc" ]]; then
+            d=1
+          else
+            d=0
+          fi
+          descendable["$acc"]=$d
         fi
-        descendable["$acc"]=$d
-      fi
-      if [[ "$d" -eq 0 ]]; then
-        link_root="$acc"
-        decided=1
+        if [[ "$d" -eq 0 ]]; then
+          link_root="$acc"
+          decided=1
+          break
+        fi
+      done
+      # Whole path is descendable (all components are real dirs already) -> nothing to link.
+      [[ "$decided" -eq 0 ]] && break
+      [[ -n "${seen_root[$link_root]:-}" ]] && break
+
+      local dest="$out_dir/$link_root"
+      local target="$entry_dir/$link_root"
+      if [[ -e "$dest" && ! -L "$dest" ]]; then
+        echo_stderr "Not grafting $link_root: a real file/dir already exists in $out_dir (local override)."
+        seen_root["$link_root"]=1
         break
       fi
-    done
-    # Whole path is descendable (all components are real dirs already) -> nothing to link.
-    [[ "$decided" -eq 0 ]] && continue
-    [[ -n "${seen_root[$link_root]:-}" ]] && continue
-    seen_root["$link_root"]=1
 
-    local dest="$out_dir/$link_root"
-    local target="$entry_dir/$link_root"
-    if [[ -L "$dest" ]]; then
-      rm -f "$dest"
-      ln -s "$target" "$dest"
-    elif [[ -e "$dest" ]]; then
-      echo_stderr "Not grafting $link_root: a real file/dir already exists in $out_dir (local override)."
-    else
+      # check-ignore exits 0 = ignored, 1 = not ignored, 128 = error (e.g. not in a git repo).
+      # Run from the link root's parent so paths inside an initialised submodule (noir-repo) are
+      # checked against the submodule's own ignore rules, not the parent repo's. A nonexistent path
+      # is evaluated as a file, so dir-only patterns report "not ignored" and we degrade below.
+      local ignore_rc=0
+      git -C "$out_dir/$(dirname "$link_root")" check-ignore -q "$(basename "$link_root")" 2>/dev/null || ignore_rc=$?
+      if [[ "$ignore_rc" -eq 1 && -d "$target" ]]; then
+        # Degrade: real dir at the link root (matches dir-only ignore patterns), link one level deeper.
+        [[ -L "$dest" ]] && rm -f "$dest"
+        mkdir -p "$dest"
+        descendable["$link_root"]=1
+        continue
+      fi
+      if [[ "$ignore_rc" -eq 1 ]]; then
+        echo_stderr "WARNING: grafted $link_root is not gitignored; it will show as untracked."
+      fi
       mkdir -p "$(dirname "$dest")"
-      ln -s "$target" "$dest"
-    fi
+      ln -sfn "$target" "$dest"
+      seen_root["$link_root"]=1
+      break
+    done
   done <<<"$listing"
 
   # Record the linked entry for gc, crash-safe append (one entry name per line).
