@@ -6,7 +6,9 @@ import { jest } from '@jest/globals';
 
 import { EpochsTestContext } from './epochs_test.js';
 
-jest.setTimeout(1000 * 60 * 10);
+jest.setTimeout(1000 * 60 * 15);
+
+const MAX_JOB_COUNT = 20;
 
 describe('e2e_epochs/epochs_long_proving_time', () => {
   let logger: Logger;
@@ -24,11 +26,14 @@ describe('e2e_epochs/epochs_long_proving_time', () => {
     const { aztecSlotDuration } = EpochsTestContext.getSlotDurations({ aztecEpochDuration });
     const epochDurationInSeconds = aztecSlotDuration * aztecEpochDuration;
     const proverTestDelayMs = (epochDurationInSeconds * 1000 * 3) / 4;
+    // Each epoch takes ~3 epochs to prove, so the broker needs to keep results for
+    // at least that many epochs to avoid rejecting jobs as stale.
     test = await EpochsTestContext.setup({
       aztecEpochDuration,
       aztecProofSubmissionEpochs: 1000, // Effectively don't re-org
       proverTestDelayMs,
-      proverNodeMaxPendingJobs: 1, // We test for only a single job at once
+      proverNodeMaxPendingJobs: MAX_JOB_COUNT, // Prove multiple epochs concurrently
+      proverBrokerMaxEpochsToKeepResultsFor: 10,
     });
     ({ logger, monitor, L1_BLOCK_TIME_IN_S } = test);
     logger.warn(`Initialized with prover delay set to ${proverTestDelayMs}ms (epoch is ${epochDurationInSeconds}s)`);
@@ -58,10 +63,7 @@ describe('e2e_epochs/epochs_long_proving_time', () => {
     // At least 3 epochs should have passed after the proven one (though we add a -1 just in case)
     expect(monitor.checkpointNumber).toBeGreaterThanOrEqual(targetProvenEpochs * test.epochDuration * 3 - 1);
 
-    // We expect maxJobCount to equal 1, since the prover node epoch monitor defines an epoch as ready to be proven
-    // only if the previous one has already been proven. We can relax this check if we want to support multiple epochs
-    // to be proven in parallel, in which case we should update the assertion below.
-    expect(maxJobCount).toEqual(1);
-    logger.info(`Test succeeded`);
+    expect(maxJobCount).toBeLessThanOrEqual(MAX_JOB_COUNT);
+    logger.info(`Test succeeded, max prover jobs ${maxJobCount}`);
   });
 });

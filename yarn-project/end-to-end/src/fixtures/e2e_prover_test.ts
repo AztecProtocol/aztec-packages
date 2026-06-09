@@ -248,7 +248,10 @@ export class FullProverTest {
       txGatheringIntervalMs: 1000,
       txGatheringBatchSize: 10,
       txGatheringMaxParallelRequestsPerNode: 100,
-      txGatheringTimeoutMs: 24_000,
+      // The test warps the L1 clock forward a full epoch via cheatcodes; the prover-node
+      // tracks L1 time, so an in-flight tx-gather would see its deadline jump into the
+      // past. Use a generous window so the deadline survives the warp.
+      txGatheringTimeoutMs: 10 * 60 * 1000,
       proverNodeFailedEpochStore: undefined,
       proverNodeEpochProvingDelayMs: undefined,
       validatorPrivateKeys: new SecretValue([]),

@@ -10,7 +10,7 @@ import { type Sequencer, type SequencerEvents, SequencerState } from '@aztec/seq
 import { computeL2ToL1MessageHash } from '@aztec/stdlib/hash';
 import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { type L2ToL1MembershipWitness, getL2ToL1MessageLeafId } from '@aztec/stdlib/messaging';
-import { type TxHash, TxStatus } from '@aztec/stdlib/tx';
+import { TxExecutionResult, type TxHash, TxStatus } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import { type Hex, decodeEventLog } from 'viem';
@@ -112,6 +112,73 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
     await expectConsumeMessageToSucceed(messages[0], txReceipt.txHash);
     // Consume messages[1].
     await expectConsumeMessageToSucceed(messages[1], txReceipt.txHash);
+  });
+
+  // A message-bearing tx that gets reorged out of its checkpoint and remined into a fresh
+  // one must still prove correctly — the message has to follow the tx into its new home and
+  // end up in the epoch out-hash. A successful outbox consume after `advanceToEpochProven`
+  // proves the message survived the reorg+remine all the way through to a valid epoch proof.
+  it('proves an L2-to-L1 message whose tx is reorged out and remined', async () => {
+    const recipient = msgSender;
+    const content = Fr.random();
+    const message = makeL2ToL1Message(recipient, content);
+
+    // One tx per block so the message-bearing tx owns its checkpoint.
+    await aztecNodeAdmin.setConfig({ minTxsPerBlock: 1 });
+    await waitForSequencerIdle(t.context.sequencer!.getSequencer());
+
+    // Send the message-bearing tx and note where it first landed.
+    const { receipt: txReceipt } = await contract.methods
+      .create_l2_to_l1_message_arbitrary_recipient_private(content, recipient)
+      .send({ from: user1Address });
+    const originalBlock = (await aztecNode.getBlock(txReceipt.blockNumber!))!;
+    const originalCheckpoint = originalBlock.checkpointNumber;
+    t.logger.info(`Message tx landed in checkpoint ${originalCheckpoint} (block ${txReceipt.blockNumber})`);
+
+    // Reorg L1 deeply enough to drop the L1 block that published this checkpoint.
+    const [cp] = await aztecNode.getCheckpoints(originalCheckpoint, 1, { includeL1PublishInfo: true });
+    if (!cp.l1.published) {
+      throw new Error(`Expected checkpoint ${originalCheckpoint} to have L1 publish info`);
+    }
+    const checkpointL1Block = Number(cp.l1.blockNumber);
+    const currentL1Block = await t.context.cheatCodes.eth.blockNumber();
+    const reorgDepth = currentL1Block - checkpointL1Block + 1;
+    t.logger.info(`Reorging ${reorgDepth} L1 blocks to remove checkpoint ${originalCheckpoint}`);
+    await t.context.cheatCodes.eth.reorgWithReplacement(reorgDepth);
+
+    // The node detects the prune and drops back below the reorged-out checkpoint.
+    await retryUntil(
+      () => aztecNode.getCheckpointNumber('checkpointed').then(cpNum => cpNum < originalCheckpoint),
+      'node detects reorg',
+      60,
+      0.5,
+    );
+    t.logger.info(`Node observed the reorg removing checkpoint ${originalCheckpoint}`);
+
+    // The tx returns to the mempool and is remined. Poll for a successful receipt whose
+    // checkpoint is at or beyond the reorged-out one (i.e. the freshly-mined instance,
+    // not a stale read of the removed block).
+    const reminedReceipt = await retryUntil(
+      async () => {
+        const r = await aztecNode.getTxReceipt(txReceipt.txHash);
+        if (r.executionResult !== TxExecutionResult.SUCCESS || !r.blockNumber) {
+          return undefined;
+        }
+        const block = await aztecNode.getBlock(r.blockNumber);
+        return block && block.checkpointNumber >= originalCheckpoint ? r : undefined;
+      },
+      'tx remined after reorg',
+      120,
+      0.5,
+    );
+    const reminedBlock = (await aztecNode.getBlock(reminedReceipt.blockNumber!))!;
+    t.logger.info(
+      `Message tx remined into checkpoint ${reminedBlock.checkpointNumber} (block ${reminedReceipt.blockNumber})`,
+    );
+
+    // Prove the epoch containing the remined tx, then consume its message from the outbox.
+    await t.advanceToEpochProven(reminedReceipt);
+    await expectConsumeMessageToSucceed(message, txReceipt.txHash);
   });
 
   // When the block contains a tx with no messages, the zero txOutHash is skipped and won't be included in the top tree.

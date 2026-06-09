@@ -12,12 +12,13 @@ export const MAX_TXS_PER_BLOCK = 2 ** 16;
 export const MAX_COMMITTEE_SIZE = 2048;
 
 /**
- * Physical maximum number of L2 blocks a single checkpoint can hold.
+ * Maximum number of L2 blocks in a provable checkpoint. Used for deserialization and when ingesting
+ * checkpoints already accepted by L1.
  *
- * This MUST be >= the number of blocks the proving system can actually carry. If it were lower, a
- * structurally-valid checkpoint that L1 accepts and that can be proven would be rejected on ingest
- * (`validateCheckpoint`) and wedge the archiver. The circuits and L1 impose no explicit per-checkpoint
- * block count; the real ceiling is the blob-field budget:
+ * This MUST be >= the number of blocks the proving system can carry, or a structurally-valid, provable
+ * checkpoint that L1 accepts would be rejected on ingest (`validateCheckpoint`) and wedge the archiver.
+ * The circuits and L1 impose no explicit per-checkpoint block count; the ceiling comes from the
+ * blob-field budget:
  *
  *   budget = BLOBS_PER_CHECKPOINT * FIELDS_PER_BLOB = 6 * 4096 = 24,576 fields
  *
@@ -30,10 +31,12 @@ export const MAX_COMMITTEE_SIZE = 2048;
  *
  *   max N:  7 + 10*(N - 1) + 1 <= 24,576  =>  10*(N - 1) <= 24,568  =>  N <= 2,457
  *
- * Only the first block may be empty; all other blocks require >= 1 tx (the circuits have no empty-tx
- * variant for non-first blocks). 2457 is exactly this ceiling: any checkpoint above the blob budget
- * cannot be encoded, so it can never be posted to L1. Invariant checked by the unit test in
- * deserialization.test.ts. Used for deserialization and when ingesting checkpoints already on L1.
+ * Only the first block may be empty; every other block needs >= 1 tx (the circuits have no empty-tx
+ * variant for non-first blocks), so 2457 is the largest provable checkpoint. The blob format can encode
+ * more blocks than this (up to ~4095 with all-empty blocks), but such a checkpoint is unprovable and
+ * can only reach L1 with a malicious committee supermajority — a terminal network compromise where a
+ * wedged archiver is an acceptable outcome. We therefore bound ingest to the provable maximum.
+ * Invariant checked by the unit test in deserialization.test.ts.
  */
 export const MAX_CAPACITY_BLOCKS_PER_CHECKPOINT = 2457;
 
