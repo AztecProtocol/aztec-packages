@@ -10,6 +10,11 @@ on:
         description: Complete docker image to use (e.g., aztecprotocol/aztec:some-tag)
         required: true
         type: string
+      ref:
+        description: Git ref to checkout for the scenario runner.
+        required: false
+        type: string
+        default: next
       namespace:
         description: Kubernetes namespace to use (will be sanitized for k8s naming)
         required: true
@@ -39,6 +44,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          ref: ${{ inputs.ref }}
 
       - name: Run Network Scenarios
         timeout-minutes: 350
