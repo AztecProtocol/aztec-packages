@@ -394,9 +394,8 @@ Chonk::recursive_verification_and_consistency_checks(
         // barretenberg/cpp/src/barretenberg/boomerang_value_detection/WITNESS_DUPLICATE_DETECTION.md. The hiding
         // kernel's running ECC-op hash is intentionally recomputed by the batch-merge transcript hash. Scope this
         // Poseidon2 call as the running-hash side of that cryptographic binding.
-        auto duplicate_binding_scope =
-            circuit.scoped_duplicate_cryptographic_binding(
-                batch_merge_ecc_op_hash_binding_local_id(DuplicateCryptographicBindingRole::RUNNING_HASH));
+        auto duplicate_binding_scope = circuit.scoped_duplicate_cryptographic_binding(
+            batch_merge_ecc_op_hash_binding_local_id(DuplicateCryptographicBindingRole::RUNNING_HASH));
         updated_hash = update_ecc_op_hash();
     } else {
         updated_hash = update_ecc_op_hash();

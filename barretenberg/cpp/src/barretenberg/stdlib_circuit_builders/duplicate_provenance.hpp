@@ -68,9 +68,8 @@ inline DuplicateProvenanceLocalId duplicate_provenance_local_id(std::initializer
     return DuplicateProvenanceLocalId(identities);
 }
 
-inline DuplicateProvenanceLocalId batch_merge_ecc_op_hash_binding_local_id(
-    DuplicateCryptographicBindingRole role,
-    std::initializer_list<uint64_t> suffix = {})
+inline DuplicateProvenanceLocalId batch_merge_ecc_op_hash_binding_local_id(DuplicateCryptographicBindingRole role,
+                                                                           std::initializer_list<uint64_t> suffix = {})
 {
     DuplicateProvenanceLocalId identities;
     identities.reserve(DUPLICATE_CRYPTOGRAPHIC_BINDING_SCOPE_SIZE + suffix.size());
@@ -87,8 +86,8 @@ inline std::optional<DuplicateCryptographicBindingRole> get_duplicate_cryptograp
         return std::nullopt;
     }
 
-    const auto role = static_cast<DuplicateCryptographicBindingRole>(
-        identities[DUPLICATE_CRYPTOGRAPHIC_BINDING_ROLE_INDEX]);
+    const auto role =
+        static_cast<DuplicateCryptographicBindingRole>(identities[DUPLICATE_CRYPTOGRAPHIC_BINDING_ROLE_INDEX]);
     switch (role) {
     case DuplicateCryptographicBindingRole::RUNNING_HASH:
     case DuplicateCryptographicBindingRole::TRANSCRIPT_HASH:

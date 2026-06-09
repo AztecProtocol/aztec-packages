@@ -96,9 +96,9 @@ class MockDatabusProducer {
     void populate_kernel_databus(ClientCircuit& circuit)
     {
         // Populate kernel calldata from previous kernel return data (if it exists)
-        const BusDataArray& kernel_calldata =
-            kernel_return_data.empty() ? generate_default_commitment_bus_array(BusId::KERNEL_CALLDATA)
-                                       : kernel_return_data;
+        const BusDataArray& kernel_calldata = kernel_return_data.empty()
+                                                  ? generate_default_commitment_bus_array(BusId::KERNEL_CALLDATA)
+                                                  : kernel_return_data;
         append_calldata(circuit, BusId::KERNEL_CALLDATA, kernel_calldata);
         exercise_calldata_lookup(circuit, BusId::KERNEL_CALLDATA, kernel_calldata.size());
 
