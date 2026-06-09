@@ -29,7 +29,7 @@ use crate::protocol::{
 /// [`MessageDelivery::onchain_unconstrained`]. If the sender cannot be trusted to send the message to the recipient,
 /// use [`MessageDelivery::onchain_constrained`].
 pub struct MessageDelivery {
-    variant: u8,
+    mode: DeliveryMode,
     tag_secret_derivation: TagSecretDerivation,
     sender_override: Option<AztecAddress>,
 }
@@ -39,6 +39,47 @@ global OFFCHAIN: u8 = 1;
 global ONCHAIN_UNCONSTRAINED: u8 = 2;
 /// Delivery variant identifier for on-chain message delivery with constrained encryption/tagging.
 global ONCHAIN_CONSTRAINED: u8 = 3;
+
+/// Private delivery-mode discriminator.
+struct DeliveryMode {
+    inner: u8,
+}
+
+impl DeliveryMode {
+    fn offchain() -> Self {
+        Self { inner: OFFCHAIN }
+    }
+
+    fn onchain_unconstrained() -> Self {
+        Self { inner: ONCHAIN_UNCONSTRAINED }
+    }
+
+    fn onchain_constrained() -> Self {
+        Self { inner: ONCHAIN_CONSTRAINED }
+    }
+
+    fn is_offchain(self) -> bool {
+        self == Self::offchain()
+    }
+
+    fn is_constrained(self) -> bool {
+        self == Self::onchain_constrained()
+    }
+
+    fn onchain_mode(self) -> Option<OnchainDeliveryMode> {
+        if self.is_offchain() {
+            Option::none()
+        } else {
+            Option::some(OnchainDeliveryMode::from_u8(self.inner))
+        }
+    }
+}
+
+impl Eq for DeliveryMode {
+    fn eq(self, other: Self) -> bool {
+        self.inner == other.inner
+    }
+}
 
 /// The mode of an on-chain message delivery: unconstrained or constrained tagging.
 ///
@@ -322,11 +363,7 @@ impl MessageDelivery {
 
     /// The on-chain delivery mode, or `None` for an offchain delivery (which has no mode).
     fn onchain_mode(self) -> Option<OnchainDeliveryMode> {
-        if self.variant == OFFCHAIN {
-            Option::none()
-        } else {
-            Option::some(OnchainDeliveryMode::from_u8(self.variant))
-        }
+        self.mode.onchain_mode()
     }
 }
 
@@ -358,14 +395,14 @@ where
 {
     let delivery = delivery_mode.build_message_delivery();
 
-    // This function relies on `delivery.variant` being a constant in order to reduce circuit constraints when
+    // This function relies on `delivery.mode` being a constant in order to reduce circuit constraints when
     // unconstrained usage is requested. If it were a runtime value the compiler would be unable to perform
     // dead-code elimination.
-    assert_constant(delivery.variant);
+    assert_constant(delivery.mode.inner);
 
-    let mode = delivery.onchain_mode();
-    let deliver_as_offchain_message = mode.is_none();
-    let is_constrained = mode.map(|m| m.is_constrained()).unwrap_or(false);
+    let onchain_mode = delivery.onchain_mode();
+    let deliver_as_offchain_message = delivery.mode.is_offchain();
+    let is_constrained = delivery.mode.is_constrained();
 
     let tag_secret_derivation = delivery.tag_secret_derivation;
     assert_constant(tag_secret_derivation.inner);
@@ -376,7 +413,7 @@ where
             "offchain delivery does not use tag secret derivation",
         );
     } else {
-        let resolved_tag_secret_derivation = tag_secret_derivation.resolve_for_mode(mode.unwrap());
+        let resolved_tag_secret_derivation = tag_secret_derivation.resolve_for_mode(onchain_mode.unwrap());
         assert_constant(resolved_tag_secret_derivation.inner);
 
         if is_constrained {
@@ -443,7 +480,7 @@ pub struct OffchainDelivery {}
 impl MessageDeliveryBuilder for OffchainDelivery {
     fn build_message_delivery(self) -> MessageDelivery {
         MessageDelivery {
-            variant: OFFCHAIN,
+            mode: DeliveryMode::offchain(),
             tag_secret_derivation: TagSecretDerivation::wallet_default(),
             sender_override: Option::none(),
         }
@@ -492,7 +529,7 @@ impl OnchainUnconstrainedDelivery {
 impl MessageDeliveryBuilder for OnchainUnconstrainedDelivery {
     fn build_message_delivery(self) -> MessageDelivery {
         MessageDelivery {
-            variant: ONCHAIN_UNCONSTRAINED,
+            mode: DeliveryMode::onchain_unconstrained(),
             tag_secret_derivation: self.tag_secret_derivation,
             sender_override: self.sender_override,
         }
@@ -541,7 +578,7 @@ impl OnchainConstrainedDelivery {
 impl MessageDeliveryBuilder for OnchainConstrainedDelivery {
     fn build_message_delivery(self) -> MessageDelivery {
         MessageDelivery {
-            variant: ONCHAIN_CONSTRAINED,
+            mode: DeliveryMode::onchain_constrained(),
             tag_secret_derivation: self.tag_secret_derivation,
             sender_override: self.sender_override,
         }
@@ -557,7 +594,7 @@ impl From<OnchainConstrainedDelivery> for OnchainDeliveryMode {
 mod test {
     use crate::protocol::address::AztecAddress;
     use crate::protocol::traits::{Deserialize, FromField, Serialize};
-    use super::{MessageDelivery, MessageDeliveryBuilder, OnchainDeliveryMode, TagSecretDerivation};
+    use super::{DeliveryMode, MessageDelivery, MessageDeliveryBuilder, OnchainDeliveryMode, TagSecretDerivation};
 
     #[test]
     fn onchain_deliveries_default_to_wallet_default_and_no_sender() {
@@ -638,9 +675,16 @@ mod test {
     }
 
     #[test]
-    fn built_delivery_mode_matches_the_variant() {
+    fn built_delivery_mode_matches_the_mode() {
+        assert(MessageDelivery::offchain().build_message_delivery().mode == DeliveryMode::offchain());
         assert(MessageDelivery::offchain().build_message_delivery().onchain_mode().is_none());
-        assert(MessageDelivery::onchain_constrained().build_message_delivery().onchain_mode().unwrap().is_constrained());
+        assert(
+            MessageDelivery::onchain_unconstrained().build_message_delivery().mode
+                == DeliveryMode::onchain_unconstrained(),
+        );
+        assert(
+            MessageDelivery::onchain_constrained().build_message_delivery().onchain_mode().unwrap().is_constrained(),
+        );
         assert(
             !MessageDelivery::onchain_unconstrained().build_message_delivery().onchain_mode().unwrap().is_constrained(),
         );
