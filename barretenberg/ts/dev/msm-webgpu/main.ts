@@ -2123,11 +2123,12 @@ function hideProgress(): void {
   const qp = new URLSearchParams(window.location.search);
   const autorun = qp.get('autorun');
   if (autorun === 'msm-trace') {
-    // Perfetto trace capture: leave exactly `reps` WARM MSM runs in
-    // window.__lastPassTimes (consumed by the webgpu-gpu-trace-mac skill /
-    // join_passtimes.py). One discarded warm-up run reaches steady-state GPU,
-    // then the accumulator is reset and `reps` measured runs append their
-    // per-pass timings. GPU-only (no WASM/noble). Emits `[bench] DONE`.
+    // Perfetto trace capture: `reps` WARM MSM runs in window.__lastPassTimes
+    // (consumed by the webgpu-gpu-trace-mac skill / join_passtimes.py). One
+    // discarded warm-up reaches steady-state GPU, then captureWarmRuns records
+    // `reps` runs in ONE submit + ONE mapAsync — no per-run host readback whose
+    // mapAsync polling latency would otherwise stall (seconds) between runs.
+    // GPU-only (no WASM/noble). Emits `[bench] DONE`.
     const traceLogN = parseInt(qp.get('logn') ?? '17', 10);
     const traceReps = Math.max(1, parseInt(qp.get('reps') ?? '5', 10));
     void (async () => {
@@ -2139,11 +2140,8 @@ function hideProgress(): void {
         const msm = await ensureWebGpuWarmed(inputs);
         msm.prepare(inputs.scalarsBuf);
         await msm.run(); // warm-up to steady state (discarded)
-        const W = window as unknown as { __lastPassTimes?: Array<[string, string, string]> };
-        W.__lastPassTimes = []; // capture only the warm runs below
-        for (let i = 0; i < traceReps; i++) {
-          await msm.run(); // each run() appends its per-pass GPU timings
-        }
+        const timeline = await msm.captureWarmRuns(traceReps); // N warm runs, ONE submit + ONE mapAsync
+        (window as unknown as { __lastPassTimes?: Array<[string, string, string]> }).__lastPassTimes = timeline;
         log('ok', `[bench] DONE — ${traceReps} warm runs`);
       } catch (e) {
         log('err', `[trace] ${e instanceof Error ? e.message : String(e)}`);

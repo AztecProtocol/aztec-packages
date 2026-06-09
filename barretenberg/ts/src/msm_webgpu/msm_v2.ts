@@ -4539,10 +4539,16 @@ export class MsmV2 {
     dstByteOff: number,
     scalarsSrcBuf?: GPUBuffer,
     scalarsSrcByteOff: number = 0,
+    // Profiling-batch knobs (defaults = single-run behaviour). `passBase` starts
+    // the timestamp-query write index (and keeps passPhases accumulating — reset
+    // only when passBase===0); `resolveTs=false` skips the internal queryset
+    // resolve so a caller can encode N runs into one encoder and resolve once.
+    passBase: number = 0,
+    resolveTs: boolean = true,
   ): void {
     if (this.preparedFor === null) throw new Error('MsmV2.encodeIntoBatch: call prepare() first');
     const { wgi: WGI } = this;
-    let passIdx = 0;
+    let passIdx = passBase;
     const splitDiag = this.splitSubmitDiag;
     const device = this.device;
     if (splitDiag) this.splitCmdBuffers = [];
@@ -4558,7 +4564,7 @@ export class MsmV2 {
       enc = device.createCommandEncoder();
     };
     const profEnabled = this.profile && this.querySet && !splitDiag;
-    if (profEnabled) this.passPhases = [];
+    if (profEnabled && passBase === 0) this.passPhases = [];
     let curPhase = 'misc';
     const setPhase = (p: string) => {
       flushIfSplit();
@@ -4919,12 +4925,60 @@ export class MsmV2 {
         32,
       );
     }
-    if (this.profile && this.querySet && this.tsResolveBuf && this.tsStagingBuf && !splitDiag) {
+    if (this.profile && this.querySet && this.tsResolveBuf && this.tsStagingBuf && !splitDiag && resolveTs) {
       enc.resolveQuerySet(this.querySet, 0, this.passCount * 2, this.tsResolveBuf, 0);
       enc.copyBufferToBuffer(this.tsResolveBuf, 0, this.tsStagingBuf, 0, this.passCount * 16);
     }
     // Final per-phase flush: submit the last phase (reduce + result gather).
     flushIfSplit();
+  }
+
+  /**
+   * Capture `reps` back-to-back WARM MSM runs in ONE submit + ONE mapAsync and
+   * return their per-pass GPU timeline (`reps × passCount` `[phase, beginNs,
+   * endNs]` tuples). Encoding every run into a single command encoder removes the
+   * per-run host readback — whose mapAsync polling latency is the dominant, and
+   * occasionally multi-second, per-MSM cost — so there is exactly one readback
+   * for the whole capture. The runs execute sequentially on the GPU (WebGPU
+   * hazard barriers serialise reuse of the scratch buffers). Call after
+   * `prepare()` + a warm-up `run()`. No-op unless profile mode is on.
+   */
+  async captureWarmRuns(reps: number): Promise<Array<[string, string, string]>> {
+    if (!this.profile || this.preparedFor === null || this.passCount === 0) return [];
+    const device = this.device;
+    const passes = this.passCount;
+    const total = reps * passes;
+    // Timestamp resources sized for ALL reps (the per-prepare querySet only holds
+    // one run); resolved and mapped exactly once.
+    const qs = device.createQuerySet({ type: 'timestamp', count: total * 2 });
+    const resolveBuf = device.createBuffer({ size: total * 16, usage: GPUBufferUsage.QUERY_RESOLVE | GPUBufferUsage.COPY_SRC });
+    const staging = device.createBuffer({ size: total * 16, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ });
+    const savedQs = this.querySet;
+    this.querySet = qs; // encodeIntoBatch writes timestampWrites into this.querySet
+    try {
+      const enc = device.createCommandEncoder();
+      for (let r = 0; r < reps; r++) {
+        // passBase keeps query indices + passPhases continuous across runs;
+        // resolveTs=false defers to the single resolve below.
+        this.encodeIntoBatch(enc, this.redStaging, 0, undefined, 0, r * passes, false);
+      }
+      enc.resolveQuerySet(qs, 0, total * 2, resolveBuf, 0);
+      enc.copyBufferToBuffer(resolveBuf, 0, staging, 0, total * 16);
+      device.queue.submit([enc.finish()]);
+      await staging.mapAsync(GPUMapMode.READ);
+      const ts = new BigUint64Array(staging.getMappedRange().slice(0));
+      staging.unmap();
+      const out: Array<[string, string, string]> = new Array(total);
+      for (let p = 0; p < total; p++) {
+        out[p] = [this.passPhases[p] ?? 'misc', ts[2 * p].toString(), ts[2 * p + 1].toString()];
+      }
+      return out;
+    } finally {
+      this.querySet = savedQs;
+      qs.destroy();
+      resolveBuf.destroy();
+      staging.destroy();
+    }
   }
 
   /**
