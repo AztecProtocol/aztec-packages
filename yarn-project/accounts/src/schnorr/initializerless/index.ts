@@ -13,7 +13,7 @@ import { loadContractArtifact } from '@aztec/stdlib/abi';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import type { NoirCompiledContract } from '@aztec/stdlib/noir';
 
-import SchnorrInitializerlessAccountContractJson from '../../../artifacts/SchnorrAccount.json' with { type: 'json' };
+import SchnorrInitializerlessAccountContractJson from '../../../artifacts/SchnorrInitializerlessAccount.json' with { type: 'json' };
 import { SchnorrBaseAccountContract } from '../account_contract.js';
 
 export const SchnorrInitializerlessAccountContractArtifact = loadContractArtifact(
