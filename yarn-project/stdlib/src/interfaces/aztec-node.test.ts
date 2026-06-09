@@ -186,7 +186,7 @@ describe('AztecNodeApiSchema', () => {
 
   it('getPredictedMinFees', async () => {
     const response = await context.client.getPredictedMinFees();
-    expect(response).toEqual([GasFees.empty()]);
+    expect(response).toEqual([new GasFees(1, 2), new GasFees(3, 4)]);
   });
 
   it('getMaxPriorityFees', async () => {
@@ -697,7 +697,7 @@ class MockAztecNode implements AztecNode {
     return Promise.resolve(GasFees.empty());
   }
   getPredictedMinFees(): Promise<GasFees[]> {
-    return Promise.resolve([GasFees.empty()]);
+    return Promise.resolve([new GasFees(1, 2), new GasFees(3, 4)]);
   }
   getMaxPriorityFees(): Promise<GasFees> {
     return Promise.resolve(GasFees.empty());

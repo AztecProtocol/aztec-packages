@@ -329,7 +329,7 @@ export interface AztecNode {
    * Each entry accounts for the L1 gas oracle transition and congestion growth based on the
    * given mana usage estimate. Defaults to target usage (steady state).
    * @param manaUsage - Expected mana usage per checkpoint (none, target, or limit).
-   * @returns An array of GasFees, one per slot in the prediction window.
+   * @returns An array of GasFees with current min fees first, followed by one entry per predicted slot.
    */
   getPredictedMinFees(manaUsage?: ManaUsageEstimate): Promise<GasFees[]>;
 
