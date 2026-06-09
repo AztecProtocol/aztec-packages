@@ -215,6 +215,35 @@ void LMDBTreeStore::delete_block_index(const index_t& sizeAtBlock,
     tx.put_value<LeafIndexKeyType>(key, encoded, *_indexToBlockDatabase);
 }
 
+void LMDBTreeStore::delete_oldest_block_index(const index_t& sizeAtBlock,
+                                              const block_number_t& blockNumber,
+                                              WriteTransaction& tx)
+{
+    // The mirror of delete_block_index: remove the oldest block number at this index rather than the latest.
+    LeafIndexKeyType key(sizeAtBlock);
+    std::vector<uint8_t> data;
+    // Retrieve the data
+    bool success = tx.get_value<LeafIndexKeyType>(key, data, *_indexToBlockDatabase);
+    if (!success) {
+        return;
+    }
+    BlockIndexPayload payload;
+    msgpack::unpack((const char*)data.data(), data.size()).get().convert(payload);
+
+    payload.delete_oldest_block(blockNumber);
+
+    // if it's now empty, delete it
+    if (payload.is_empty()) {
+        tx.delete_value(key, *_indexToBlockDatabase);
+        return;
+    }
+    // not empty write it back
+    msgpack::sbuffer buffer;
+    msgpack::pack(buffer, payload);
+    std::vector<uint8_t> encoded(buffer.data(), buffer.data() + buffer.size());
+    tx.put_value<LeafIndexKeyType>(key, encoded, *_indexToBlockDatabase);
+}
+
 void LMDBTreeStore::write_meta_data(const TreeMeta& metaData, LMDBTreeStore::WriteTransaction& tx)
 {
     msgpack::sbuffer buffer;

@@ -586,6 +586,79 @@ TEST_F(LMDBTreeStoreTest, can_write_and_retrieve_block_numbers_with_duplicate_in
     }
 }
 
+TEST_F(LMDBTreeStoreTest, can_delete_oldest_block_number_at_duplicate_index)
+{
+    struct BlockAndIndex {
+        block_number_t blockNumber;
+        index_t index;
+    };
+
+    // Blocks 2, 3, 4 share index 60 (size 61), so that key holds the range [2, 4].
+    std::vector<BlockAndIndex> blocks{ BlockAndIndex{ .blockNumber = 1, .index = 25 },
+                                       BlockAndIndex{ .blockNumber = 2, .index = 60 },
+                                       BlockAndIndex{ .blockNumber = 3, .index = 60 },
+                                       BlockAndIndex{ .blockNumber = 4, .index = 60 },
+                                       BlockAndIndex{ .blockNumber = 5, .index = 130 } };
+    LMDBTreeStore store(_directory, "DB1", _mapSize, _maxReaders);
+    {
+        LMDBWriteTransaction::Ptr transaction = store.create_write_transaction();
+        for (auto block : blocks) {
+            // the arg is block size so add 1
+            store.write_block_index_data(block.blockNumber, block.index + 1, *transaction);
+        }
+        transaction->commit();
+    }
+
+    {
+        // find returns the lowest block at this index
+        LMDBReadTransaction::Ptr transaction = store.create_read_transaction();
+        block_number_t readBack = 0;
+        EXPECT_TRUE(store.find_block_for_index(30, readBack, *transaction));
+        EXPECT_EQ(readBack, 2);
+    }
+
+    {
+        // removing a block that is not the oldest at the index is a no-op (an older block still holds the min)
+        LMDBWriteTransaction::Ptr transaction = store.create_write_transaction();
+        store.delete_oldest_block_index(60 + 1, 4, *transaction);
+        transaction->commit();
+    }
+    {
+        LMDBReadTransaction::Ptr transaction = store.create_read_transaction();
+        block_number_t readBack = 0;
+        EXPECT_TRUE(store.find_block_for_index(30, readBack, *transaction));
+        EXPECT_EQ(readBack, 2);
+    }
+
+    {
+        // remove the two oldest blocks at index 60; the min advances each time
+        LMDBWriteTransaction::Ptr transaction = store.create_write_transaction();
+        store.delete_oldest_block_index(60 + 1, 2, *transaction);
+        store.delete_oldest_block_index(60 + 1, 3, *transaction);
+        transaction->commit();
+    }
+    {
+        LMDBReadTransaction::Ptr transaction = store.create_read_transaction();
+        block_number_t readBack = 0;
+        EXPECT_TRUE(store.find_block_for_index(30, readBack, *transaction));
+        EXPECT_EQ(readBack, 4);
+    }
+
+    {
+        // removing the last block at index 60 deletes the entry entirely
+        LMDBWriteTransaction::Ptr transaction = store.create_write_transaction();
+        store.delete_oldest_block_index(60 + 1, 4, *transaction);
+        transaction->commit();
+    }
+    {
+        // index 30 now resolves to the next-greater index, held by block 5
+        LMDBReadTransaction::Ptr transaction = store.create_read_transaction();
+        block_number_t readBack = 0;
+        EXPECT_TRUE(store.find_block_for_index(30, readBack, *transaction));
+        EXPECT_EQ(readBack, 5);
+    }
+}
+
 TEST_F(LMDBTreeStoreTest, reports_physical_file_size)
 {
     LMDBTreeStore store(_directory, "DB1", _mapSize, _maxReaders);

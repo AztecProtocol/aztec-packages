@@ -1094,6 +1094,8 @@ void ContentAddressedCachedTreeStore<LeafValueType>::remove_historical_block(con
             }
             // remove the block's entry in the block table
             dataStore_->delete_block_data(blockNumber, *writeTx);
+            // remove the block's entry from the index-to-block table (it is the oldest block at that index)
+            dataStore_->delete_oldest_block_index(blockData.size, blockData.blockNumber, *writeTx);
             // increment the oldest historical block number as committed data
             committedMeta.oldestHistoricBlock++;
             persist_meta(committedMeta, *writeTx);

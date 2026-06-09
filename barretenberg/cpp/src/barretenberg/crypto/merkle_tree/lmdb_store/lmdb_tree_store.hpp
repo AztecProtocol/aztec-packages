@@ -108,6 +108,30 @@ struct BlockIndexPayload {
         }
     }
 
+    // The mirror of delete_block, used when removing the oldest (historical) block rather than the latest.
+    // The minimum (index 0) is the oldest block still present at this index, and is what find_block_for_index
+    // returns. Only advance it when that exact block is removed; otherwise an older block still holds the
+    // minimum (e.g. the genesis block, which is never pruned but shares its size with trailing empty blocks),
+    // so the entry stays valid as-is.
+    void delete_oldest_block(const block_number_t& blockNumber)
+    {
+        if (blockNumbers.empty() || blockNumbers[0] != blockNumber) {
+            return;
+        }
+
+        // Removing the current minimum. If it is the only entry, the index is now empty.
+        if (blockNumbers.size() == 1) {
+            blockNumbers.pop_back();
+            return;
+        }
+
+        // Advance the minimum to the next block; collapse to a singleton once it meets the maximum.
+        ++blockNumbers[0];
+        if (blockNumbers[0] == blockNumbers[1]) {
+            blockNumbers.pop_back();
+        }
+    }
+
     void add_block(const block_number_t& blockNumber)
     {
         // If empty, just add the block number
@@ -183,6 +207,8 @@ class LMDBTreeStore : public LMDBStoreBase {
     bool find_block_for_index(const index_t& index, block_number_t& blockNumber, ReadTransaction& tx);
 
     void delete_block_index(const index_t& sizeAtBlock, const block_number_t& blockNumber, WriteTransaction& tx);
+
+    void delete_oldest_block_index(const index_t& sizeAtBlock, const block_number_t& blockNumber, WriteTransaction& tx);
 
     void write_meta_data(const TreeMeta& metaData, WriteTransaction& tx);
 
