@@ -541,4 +541,26 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
     // No checkpoint for block 3 since it wasn't checkpointed
     expect(tips.proven.checkpoint.number).toEqual(CheckpointNumber.ZERO);
   });
+
+  it('keeps the checkpointed tip when pruning to an uncheckpointed block ahead of it', async () => {
+    const blocks1to5 = await Promise.all(times(5, i => makeBlock(i + 1)));
+    await tipsStore.handleBlockStreamEvent({ type: 'blocks-added', blocks: blocks1to5 });
+    const checkpoint1 = await makeCheckpoint(1, blocks1to5);
+    await tipsStore.handleBlockStreamEvent(await makeCheckpointedEvent(checkpoint1)); // checkpointed = block 5 / ckpt 1
+
+    const blocks6to7 = await Promise.all(times(2, i => makeBlock(i + 6)));
+    await tipsStore.handleBlockStreamEvent({ type: 'blocks-added', blocks: blocks6to7 }); // proposed = 7
+
+    // Prune to block 6: an uncheckpointed block AHEAD of the checkpointed tip (block 5).
+    await tipsStore.handleBlockStreamEvent({
+      type: 'chain-pruned',
+      block: makeBlockId(6),
+      checkpoint: makeCheckpointIdForBlock(5),
+    });
+
+    const tips = await tipsStore.getL2Tips();
+    expect(tips.proposed).toEqual(makeTip(6));
+    expect(tips.checkpointed.block).toEqual(makeTip(5));
+    expect(tips.checkpointed.checkpoint.number).toEqual(CheckpointNumber(1)); // must NOT be zero
+  });
 }
