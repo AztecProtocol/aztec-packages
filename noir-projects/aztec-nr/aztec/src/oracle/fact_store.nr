@@ -9,13 +9,21 @@ pub struct Fact {
     pub payload: EphemeralArray<Field>,
 }
 
-/// An entity's stored state: its own payload, plus the set of facts recorded against it.
+/// Raw entity as returned by the oracle: payload + facts as slot-backed ephemeral arrays.
 ///
-/// Both fields are nested [`EphemeralArray`]s so an entity can carry an arbitrary-length payload and any number of
-/// facts without a fixed maximum.
-#[derive(Serialize, Deserialize)]
-pub struct Entity {
-    pub payload: EphemeralArray<Field>,
+/// Internal to the FactStore. Consumers use the typed [`Entity`], built by [`get_entity`].
+#[derive(Deserialize, Serialize)]
+struct RawEntity {
+    payload: EphemeralArray<Field>,
+    facts: EphemeralArray<Fact>,
+}
+
+/// An entity's stored state: its typed payload, plus the set of facts recorded against it.
+///
+/// `T` is the deserialized payload type (e.g. an offchain message). `facts` is a nested
+/// [`EphemeralArray`] so an entity can carry any number of facts without a fixed maximum.
+pub struct Entity<T> {
+    pub payload: T,
     pub facts: EphemeralArray<Fact>,
 }
 
@@ -76,7 +84,7 @@ unconstrained fn get_entity_oracle(
     scope: AztecAddress,
     entity_type_id: Field,
     correlation_key: Field,
-) -> Entity {}
+) -> RawEntity {}
 
 #[oracle(aztec_utl_terminateEntity)]
 unconstrained fn terminate_entity_oracle(
@@ -139,21 +147,24 @@ pub unconstrained fn record_non_retractable_fact<let N: u32>(
 ///
 /// Retractable entities are tied to a block anchor (`block_number`, `block_hash`); if that block is reorg'd away the
 /// entire entity - its payload and every fact recorded against it - is pruned from the store.
-pub unconstrained fn create_retractable_entity<let N: u32>(
+pub unconstrained fn create_retractable_entity<T>(
     contract_address: AztecAddress,
     scope: AztecAddress,
     entity_type_id: Field,
     correlation_key: Field,
-    payload: [Field; N],
+    payload: T,
     block_number: u32,
     block_hash: Field,
-) {
+)
+where
+    T: Serialize,
+{
     create_retractable_entity_oracle(
         contract_address,
         scope,
         entity_type_id,
         correlation_key,
-        payload,
+        payload.serialize(),
         block_number,
         block_hash,
     );
@@ -162,19 +173,22 @@ pub unconstrained fn create_retractable_entity<let N: u32>(
 /// Creates a non-retractable (permanent) entity with the given payload.
 ///
 /// Non-retractable entities survive reorgs; only their own retractable facts are pruned.
-pub unconstrained fn create_non_retractable_entity<let N: u32>(
+pub unconstrained fn create_non_retractable_entity<T>(
     contract_address: AztecAddress,
     scope: AztecAddress,
     entity_type_id: Field,
     correlation_key: Field,
-    payload: [Field; N],
-) {
+    payload: T,
+)
+where
+    T: Serialize,
+{
     create_non_retractable_entity_oracle(
         contract_address,
         scope,
         entity_type_id,
         correlation_key,
-        payload,
+        payload.serialize(),
     );
 }
 
@@ -187,14 +201,18 @@ pub unconstrained fn active_entities(
     active_entities_oracle(contract_address, scope, entity_type_id)
 }
 
-/// Returns the given entity: its payload together with its fact set.
-pub unconstrained fn get_entity(
+/// Returns the given entity: its deserialized payload together with its fact set.
+pub unconstrained fn get_entity<T>(
     contract_address: AztecAddress,
     scope: AztecAddress,
     entity_type_id: Field,
     correlation_key: Field,
-) -> Entity {
-    get_entity_oracle(contract_address, scope, entity_type_id, correlation_key)
+) -> Entity<T>
+where
+    T: Deserialize,
+{
+    let raw = get_entity_oracle(contract_address, scope, entity_type_id, correlation_key);
+    Entity { payload: raw.payload.read_as(), facts: raw.facts }
 }
 
 /// Marks an entity as terminated, preventing new facts from being recorded for it.

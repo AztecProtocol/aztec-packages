@@ -5,8 +5,7 @@ use crate::{
     oracle::{
         contract_sync::set_contract_sync_cache_invalid,
         fact_store::{
-            active_entities, create_non_retractable_entity, Entity, Fact, get_entity, record_retractable_fact,
-            terminate_entity,
+            active_entities, create_non_retractable_entity, Fact, get_entity, record_retractable_fact, terminate_entity,
         },
     },
     protocol::{
@@ -95,11 +94,6 @@ pub unconstrained fn correlation_key(
     poseidon2_hash(inputs)
 }
 
-/// Decodes the [`OffchainMessage`] stored as the reception entity's payload.
-pub unconstrained fn message_of(entity: Entity) -> OffchainMessage {
-    entity.payload.read_as()
-}
-
 /// The computed state of an offchain reception entity, derived by folding its facts.
 #[derive(Eq)]
 pub struct OffchainReceptionState {
@@ -175,13 +169,12 @@ pub unconstrained fn receive(
             anchor_block_timestamp: msg.anchor_block_timestamp,
         };
         let key = correlation_key(normalized.ciphertext, normalized.tx_hash);
-        let payload = normalized.serialize();
         create_non_retractable_entity(
             contract_address,
             msg.recipient,
             OFFCHAIN_RECEPTION_ENTITY,
             key,
-            payload,
+            normalized,
         );
         scopes.push(msg.recipient);
         i += 1;
@@ -213,8 +206,8 @@ pub unconstrained fn sync_inbox(
     // oracle can be matched back to each entity positionally.
     for i in 0..entities_len {
         let key = entities.get(i);
-        let entity = get_entity(contract_address, scope, OFFCHAIN_RECEPTION_ENTITY, key);
-        let msg = message_of(entity);
+        let entity = get_entity::<OffchainMessage>(contract_address, scope, OFFCHAIN_RECEPTION_ENTITY, key);
+        let msg = entity.payload;
         context_resolution_requests.push(msg.tx_hash.unwrap_or(0));
     }
 
@@ -248,8 +241,8 @@ pub unconstrained fn sync_inbox(
         // - Already processed (and not expired): we skip the message to avoid re-pushing it, but keep it active
         //   until expiration.
         let key = entities.get(i);
-        let entity = get_entity(contract_address, scope, OFFCHAIN_RECEPTION_ENTITY, key);
-        let msg = message_of(entity);
+        let entity = get_entity::<OffchainMessage>(contract_address, scope, OFFCHAIN_RECEPTION_ENTITY, key);
+        let msg = entity.payload;
         let state = fold(entity.facts);
         let maybe_ctx = resolved_contexts.get(i);
 
@@ -282,14 +275,13 @@ mod test {
     use crate::{
         ephemeral::EphemeralArray,
         messages::encoding::MESSAGE_CIPHERTEXT_LEN,
-        oracle::{fact_store::{active_entities, Entity, Fact, get_entity}, random::random},
+        oracle::{fact_store::{active_entities, Fact, get_entity}, random::random},
         protocol::{address::AztecAddress, traits::{Deserialize, FromField, Serialize}},
         test::helpers::test_environment::TestEnvironment,
     };
     use super::{
-        correlation_key, fold, MAX_MSG_TTL, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL, message_of,
-        OFFCHAIN_MESSAGE_PROCESSED, OFFCHAIN_RECEPTION_ENTITY, OffchainMessage, OffchainReceptionState, receive,
-        sync_inbox,
+        correlation_key, fold, MAX_MSG_TTL, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL, OFFCHAIN_MESSAGE_PROCESSED,
+        OFFCHAIN_RECEPTION_ENTITY, OffchainMessage, OffchainReceptionState, receive, sync_inbox,
     };
 
     global TEST_FACTS_SLOT: Field = 0xfac75;
@@ -333,7 +325,7 @@ mod test {
 
     /// Folds the fact set of the reception entity with the given correlation key into its state.
     unconstrained fn state_of(c: AztecAddress, s: AztecAddress, key: Field) -> OffchainReceptionState {
-        let facts = get_entity(c, s, OFFCHAIN_RECEPTION_ENTITY, key).facts;
+        let facts = get_entity::<OffchainMessage>(c, s, OFFCHAIN_RECEPTION_ENTITY, key).facts;
         fold(facts)
     }
 
@@ -644,29 +636,4 @@ mod test {
         assert_eq(roundtripped.ciphertext.len(), msg.ciphertext.len());
     }
 
-    #[test]
-    unconstrained fn message_of_returns_packed_message() {
-        let env = TestEnvironment::new();
-        env.utility_context(|_| {
-            let ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN> = BoundedVec::new();
-            let expected = OffchainMessage {
-                ciphertext,
-                recipient: AztecAddress::from_field(7),
-                tx_hash: Option::none(),
-                anchor_block_timestamp: 100,
-            };
-            let packed_fields = expected.serialize();
-
-            let payload = EphemeralArray::<Field>::empty_at(TEST_PAYLOAD_SLOT);
-            for i in 0..packed_fields.len() {
-                payload.push(packed_fields[i]);
-            }
-            let facts = EphemeralArray::<Fact>::empty_at(TEST_FACTS_SLOT);
-
-            let retrieved = message_of(Entity { payload, facts });
-            assert_eq(retrieved.recipient, expected.recipient);
-            assert_eq(retrieved.tx_hash, expected.tx_hash);
-            assert_eq(retrieved.anchor_block_timestamp, expected.anchor_block_timestamp);
-        });
-    }
 }
