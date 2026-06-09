@@ -134,7 +134,7 @@ unconstrained fn process_reception(
 
     if (state(reception) == OffchainReceptionState::received()) & maybe_ctx.is_some() {
         let ctx = maybe_ctx.unwrap();
-        reception.log(OFFCHAIN_MESSAGE_PROCESSED, [], Option::some((ctx.tx_block_number, ctx.tx_block_hash)));
+        reception.log_retractable_fact(OFFCHAIN_MESSAGE_PROCESSED, [], ctx.tx_block_number, ctx.tx_block_hash);
         Option::some(
             OffchainMessageWithContext { message_ciphertext: reception.body.ciphertext, message_context: ctx },
         )
@@ -301,7 +301,7 @@ mod test {
         env.utility_context(|context| {
             let address = context.this_address();
             let reception = NonRetractableEntity::create(address, scope, msg);
-            reception.log(OFFCHAIN_MESSAGE_PROCESSED, [], Option::some((block_number, block_hash)));
+            reception.log_retractable_fact(OFFCHAIN_MESSAGE_PROCESSED, [], block_number, block_hash);
 
             let key = msg.entity_id();
             assert(
@@ -320,7 +320,7 @@ mod test {
         env.utility_context(|context| {
             let address = context.this_address();
             let reception = NonRetractableEntity::create(address, scope, msg);
-            reception.log(OFFCHAIN_MESSAGE_PROCESSED, [], Option::none());
+            reception.log_non_retractable_fact(OFFCHAIN_MESSAGE_PROCESSED, []);
 
             let key = msg.entity_id();
             assert(

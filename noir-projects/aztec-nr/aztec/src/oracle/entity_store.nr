@@ -57,45 +57,6 @@ where
         let keys = active_entities_oracle(contract_address, scope, T::entity_type_id());
         keys.map(|key| get_entity::<T>(contract_address, scope, T::entity_type_id(), key))
     }
-
-    /// Records a fact about this entity, hiding the underlying retractable/non-retractable record primitives.
-    ///
-    /// `block_anchor` controls the fact's lifetime: `Some((block_number, block_hash))` records a retractable fact
-    /// anchored at that block - pruned from the store if the block is reorg'd away - while `None` records a permanent
-    /// fact that survives reorgs. The entity's type and id are derived from its body via [`EntityBody`], so a fact's
-    /// retractability is independent of the entity's: a non-retractable entity may still carry retractable facts.
-    pub unconstrained fn log<let N: u32>(
-        self,
-        contract_address: AztecAddress,
-        scope: AztecAddress,
-        fact_type_id: Field,
-        payload: [Field; N],
-        block_anchor: Option<(u32, Field)>,
-    ) {
-        let entity_id = self.payload.entity_id();
-        if block_anchor.is_some() {
-            let (block_number, block_hash) = block_anchor.unwrap();
-            record_retractable_fact(
-                contract_address,
-                scope,
-                T::entity_type_id(),
-                entity_id,
-                fact_type_id,
-                payload,
-                block_number,
-                block_hash,
-            );
-        } else {
-            record_non_retractable_fact(
-                contract_address,
-                scope,
-                T::entity_type_id(),
-                entity_id,
-                fact_type_id,
-                payload,
-            );
-        }
-    }
 }
 
 /// A handle to a non-retractable entity in the store.
@@ -103,7 +64,8 @@ where
 /// Non-retractable entities survive reorgs; only their own retractable facts are pruned. Build one with
 /// [`NonRetractableEntity::create`], which performs the underlying store write, or obtain populated handles for every
 /// active entity with [`NonRetractableEntity::read_all_active`]. The handle carries the `(contract_address, scope)` it
-/// lives at, so [`log`](Self::log) and [`terminate`](Self::terminate) take no location arguments.
+/// lives at, so its `log_retractable_fact`, `log_non_retractable_fact`, and [`terminate`](Self::terminate) methods take
+/// no location arguments.
 #[derive(Deserialize, Serialize)]
 pub struct NonRetractableEntity<T> {
     pub contract_address: AztecAddress,
@@ -144,16 +106,39 @@ where
         })
     }
 
-    /// Records a fact about this entity at its `(contract_address, scope)`. See [`Entity::log`] for how `block_anchor`
-    /// controls the fact's lifetime.
-    pub unconstrained fn log<let N: u32>(
+    /// Records a retractable fact about this entity, anchored at `(block_number, block_hash)`.
+    ///
+    /// The fact is pruned from the store if that block is reorg'd away. A fact's retractability is independent of the
+    /// entity's, so this non-retractable entity may still carry retractable facts.
+    pub unconstrained fn log_retractable_fact<let N: u32>(
         self,
         fact_type_id: Field,
         payload: [Field; N],
-        block_anchor: Option<(u32, Field)>,
+        block_number: u32,
+        block_hash: Field,
     ) {
-        let entity = Entity { payload: self.body, facts: self.facts };
-        entity.log(self.contract_address, self.scope, fact_type_id, payload, block_anchor);
+        record_retractable_fact(
+            self.contract_address,
+            self.scope,
+            T::entity_type_id(),
+            self.body.entity_id(),
+            fact_type_id,
+            payload,
+            block_number,
+            block_hash,
+        );
+    }
+
+    /// Records a permanent (non-retractable) fact about this entity, which survives reorgs and is never pruned.
+    pub unconstrained fn log_non_retractable_fact<let N: u32>(self, fact_type_id: Field, payload: [Field; N]) {
+        record_non_retractable_fact(
+            self.contract_address,
+            self.scope,
+            T::entity_type_id(),
+            self.body.entity_id(),
+            fact_type_id,
+            payload,
+        );
     }
 
     /// Terminates this entity, preventing new facts from being recorded for it. See [`terminate_entity`].
@@ -173,8 +158,8 @@ where
 /// every fact recorded against it - is pruned from the store. Build one with [`RetractableEntity::create`], which
 /// performs the underlying store write, or obtain populated handles for every active entity with
 /// [`RetractableEntity::read_all_active`]. See [`NonRetractableEntity`] for the reorg-surviving variant. The handle
-/// carries the `(contract_address, scope)` it lives at, so [`log`](Self::log) and [`terminate`](Self::terminate) take
-/// no location arguments.
+/// carries the `(contract_address, scope)` it lives at, so its `log_retractable_fact`, `log_non_retractable_fact`, and
+/// [`terminate`](Self::terminate) methods take no location arguments.
 #[derive(Deserialize, Serialize)]
 pub struct RetractableEntity<T> {
     pub contract_address: AztecAddress,
@@ -224,16 +209,42 @@ where
         })
     }
 
-    /// Records a fact about this entity at its `(contract_address, scope)`. See [`Entity::log`] for how `block_anchor`
-    /// controls the fact's lifetime.
-    pub unconstrained fn log<let N: u32>(
+    /// Records a retractable fact about this entity, anchored at `(block_number, block_hash)`.
+    ///
+    /// The fact is pruned if that block is reorg'd away - and, like every fact on a retractable entity, if the
+    /// entity's own anchor block is reorg'd away.
+    pub unconstrained fn log_retractable_fact<let N: u32>(
         self,
         fact_type_id: Field,
         payload: [Field; N],
-        block_anchor: Option<(u32, Field)>,
+        block_number: u32,
+        block_hash: Field,
     ) {
-        let entity = Entity { payload: self.body, facts: self.facts };
-        entity.log(self.contract_address, self.scope, fact_type_id, payload, block_anchor);
+        record_retractable_fact(
+            self.contract_address,
+            self.scope,
+            T::entity_type_id(),
+            self.body.entity_id(),
+            fact_type_id,
+            payload,
+            block_number,
+            block_hash,
+        );
+    }
+
+    /// Records a non-retractable fact about this entity.
+    ///
+    /// The fact has no block anchor of its own, but a retractable entity is pruned wholesale - together with all its
+    /// facts - if its anchor block is reorg'd away.
+    pub unconstrained fn log_non_retractable_fact<let N: u32>(self, fact_type_id: Field, payload: [Field; N]) {
+        record_non_retractable_fact(
+            self.contract_address,
+            self.scope,
+            T::entity_type_id(),
+            self.body.entity_id(),
+            fact_type_id,
+            payload,
+        );
     }
 
     /// Terminates this entity, preventing new facts from being recorded for it. See [`terminate_entity`].
@@ -316,7 +327,7 @@ unconstrained fn terminate_entity_oracle(
 
 // Public wrappers
 
-/// Records a retractable fact for an entity. Hidden behind [`Entity::log`] (`block_anchor` = `Some`).
+/// Records a retractable fact for an entity. Hidden behind the entity handles' `log_retractable_fact`.
 ///
 /// Retractable facts are tied to a block anchor (`block_number`, `block_hash`) and are pruned from the store if
 /// that block is reorg'd away.
@@ -342,7 +353,7 @@ pub(crate) unconstrained fn record_retractable_fact<let N: u32>(
     );
 }
 
-/// Records a non-retractable (permanent) fact for an entity. Hidden behind [`Entity::log`] (`block_anchor` = `None`).
+/// Records a non-retractable (permanent) fact for an entity. Hidden behind the handles' `log_non_retractable_fact`.
 ///
 /// Non-retractable facts survive reorgs and are never pruned by the store.
 pub(crate) unconstrained fn record_non_retractable_fact<let N: u32>(
