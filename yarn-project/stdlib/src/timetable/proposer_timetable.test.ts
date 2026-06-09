@@ -49,7 +49,6 @@ describe('ProposerTimetable', () => {
       minBlockDuration: 2,
       p2pPropagationTime: 2,
       checkpointProposalPrepareTime: 1,
-      enforce: true,
     });
 
     it('derives max_blocks = 10', () => {
@@ -92,7 +91,6 @@ describe('ProposerTimetable', () => {
       minBlockDuration: 1,
       p2pPropagationTime: 0.5,
       checkpointProposalPrepareTime: 0.5,
-      enforce: true,
     });
     const slot = SlotNumber(3);
     const targetSlotStart = 36 * slot;
@@ -117,7 +115,6 @@ describe('ProposerTimetable', () => {
       minBlockDuration: 1,
       p2pPropagationTime: 0.5,
       checkpointProposalPrepareTime: 0.5,
-      enforce: true,
     });
 
     it('derives max_blocks = 3', () => {
@@ -139,7 +136,6 @@ describe('ProposerTimetable', () => {
       minBlockDuration: 2,
       p2pPropagationTime: 2,
       checkpointProposalPrepareTime: 1,
-      enforce: true,
     });
 
     it('selects the first sub-slot at the build frame start', () => {
@@ -192,7 +188,6 @@ describe('ProposerTimetable', () => {
         minBlockDuration: 2,
         p2pPropagationTime: 2,
         checkpointProposalPrepareTime: 1,
-        enforce: true,
       });
 
       it('clamps budgets to the fast profile', () => {
@@ -226,70 +221,6 @@ describe('ProposerTimetable', () => {
       });
     });
   });
-
-  describe('non-enforced mode', () => {
-    const timetable = makeProposerTimetable({
-      l1Constants: l1Constants(72, 12),
-      blockDuration: 6,
-      enforce: false,
-    });
-
-    it('always allows starting a single last block with no deadline', () => {
-      const result = timetable.selectNextSubslot(SlotNumber(5), Number.MAX_SAFE_INTEGER);
-      expect(result.canStart).toBe(true);
-      expect(result.isLastBlock).toBe(true);
-      expect(result.deadline).toBeUndefined();
-    });
-  });
-
-  describe('single-block enforced mode (no blockDuration)', () => {
-    const S = 72;
-    const E = 12;
-    const slot = SlotNumber(5);
-    const targetSlotStart = S * slot;
-
-    const timetable = makeProposerTimetable({
-      l1Constants: l1Constants(S, E),
-      blockDuration: undefined,
-      minBlockDuration: 2,
-      enforce: true,
-    });
-
-    it('reports a single block per checkpoint', () => {
-      expect(timetable.getMaxBlocksPerCheckpoint()).toBe(1);
-    });
-
-    it('splits the remaining time until the attestation deadline between execution and re-execution', () => {
-      const now = targetSlotStart - 20;
-      const attestationDeadline = targetSlotStart + 48;
-      const available = (attestationDeadline - now) / 2;
-      const result = timetable.selectNextSubslot(slot, now);
-      expect(result.canStart).toBe(true);
-      expect(result.isLastBlock).toBe(true);
-      expect(result.deadline).toBe(now + available);
-    });
-
-    it('refuses to start when the split time falls below minD', () => {
-      const attestationDeadline = targetSlotStart + 48;
-      const now = attestationDeadline - 2 * 2 + 0.1; // less than 2*minD remaining
-      const result = timetable.selectNextSubslot(slot, now);
-      expect(result.canStart).toBe(false);
-    });
-
-    it('keeps the start deadline at attestation_deadline - 2*minD (matching selectNextSubslot)', () => {
-      const attestationDeadline = targetSlotStart + 48;
-      expect(timetable.getBuildStartDeadline(slot)).toBe(attestationDeadline - 2 * 2);
-    });
-
-    it('never abandons a slot that selectNextSubslot would still allow to start', () => {
-      // The latest now at which the single-block branch still allows a start: now <= attestationDeadline
-      // - 2*minD. The build-entry gate must not give up before then, so getBuildStartDeadline must be >= it.
-      const startDeadline = timetable.getBuildStartDeadline(slot);
-      expect(timetable.selectNextSubslot(slot, startDeadline).canStart).toBe(true);
-      // Just past the start deadline both must agree the slot is gone.
-      expect(timetable.selectNextSubslot(slot, startDeadline + 0.001).canStart).toBe(false);
-    });
-  });
 });
 
 describe('ProposerTimetable.getMaxBlocksPerCheckpoint', () => {
@@ -299,7 +230,6 @@ describe('ProposerTimetable.getMaxBlocksPerCheckpoint', () => {
       blockDuration: 6,
       p2pPropagationTime: 2,
       checkpointProposalPrepareTime: 1,
-      enforce: true,
     });
     expect(timetable.getMaxBlocksPerCheckpoint()).toBe(10);
   });
@@ -310,7 +240,6 @@ describe('ProposerTimetable.getMaxBlocksPerCheckpoint', () => {
       blockDuration: 6,
       p2pPropagationTime: 0.5,
       checkpointProposalPrepareTime: 0.5,
-      enforce: true,
     });
     expect(timetable.getMaxBlocksPerCheckpoint()).toBe(4);
   });
@@ -321,16 +250,14 @@ describe('ProposerTimetable.getMaxBlocksPerCheckpoint', () => {
       blockDuration: 8,
       p2pPropagationTime: 0.5,
       checkpointProposalPrepareTime: 0.5,
-      enforce: true,
     });
     expect(timetable.getMaxBlocksPerCheckpoint()).toBe(3);
   });
 
-  it('returns 1 for single-block mode', () => {
+  it('can derive one block per checkpoint with a concrete block duration', () => {
     const timetable = makeProposerTimetable({
       l1Constants: l1Constants(72, 12),
-      blockDuration: undefined,
-      enforce: true,
+      blockDuration: 24,
     });
     expect(timetable.getMaxBlocksPerCheckpoint()).toBe(1);
   });
@@ -344,7 +271,6 @@ describe('ProposerTimetable.getMaxBlocksPerCheckpoint', () => {
       blockDuration: 8,
       p2pPropagationTime: 2,
       checkpointProposalPrepareTime: 1,
-      enforce: true,
     });
     expect(timetable.getMaxBlocksPerCheckpoint()).toBe(3);
   });
@@ -356,7 +282,6 @@ describe('ProposerTimetable.getMaxBlocksPerCheckpoint', () => {
       blockDuration: 6,
       p2pPropagationTime: 2,
       checkpointProposalPrepareTime: 1,
-      enforce: true,
     });
     expect(timetable.getMaxBlocksPerCheckpoint()).toBe(4);
   });
@@ -421,7 +346,6 @@ describe('e2e multi-block-per-checkpoint capacity', () => {
       const timetable = makeProposerTimetable({
         l1Constants: l1Constants(S, E),
         blockDuration: D,
-        enforce: true,
         ...budgets,
       });
       const derived = timetable.getMaxBlocksPerCheckpoint();

@@ -42,7 +42,6 @@ export interface P2PConfig
     TxFileStoreConfig,
     Pick<
       SequencerConfig,
-      | 'blockDurationMs'
       | 'expectedBlockProposalsPerSlot'
       | 'maxTxsPerBlock'
       | 'attestationPropagationTime'
@@ -50,7 +49,10 @@ export interface P2PConfig
       | 'checkpointProposalSyncGraceSeconds'
       | 'minBlockDuration'
       | 'maxBlocksPerCheckpoint'
-    > {
+    >,
+    // `blockDurationMs` is optional on the loose `SequencerConfig` but is always populated for p2p via
+    // the shared `numberConfigHelper(3000)` mapping, so it is required here.
+    Required<Pick<SequencerConfig, 'blockDurationMs'>> {
   /** Maximum transactions per block for validation. Overrides maxTxsPerBlock for gossip validation when set. */
   validateMaxTxsPerBlock?: number;
 

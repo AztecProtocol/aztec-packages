@@ -13,6 +13,9 @@ import {
   getDefaultCheckpointProposalSyncGrace,
 } from '../timetable/index.js';
 
+/** Default duration per block in milliseconds, used to derive how many blocks fit in a slot. */
+export const DEFAULT_BLOCK_DURATION_MS = 3000;
+
 /** Default maximum number of transactions per block. */
 export const DEFAULT_MAX_TXS_PER_BLOCK = 32;
 
@@ -40,10 +43,8 @@ export const sharedSequencerConfigMappings: ConfigMappingsType<
 > = {
   blockDurationMs: {
     env: 'SEQ_BLOCK_DURATION_MS',
-    description:
-      'Duration per block in milliseconds when building multiple blocks per slot. ' +
-      'If undefined (default), builds a single block per slot using the full slot duration.',
-    ...optionalNumberConfigHelper(),
+    description: 'Duration per block in milliseconds, used to derive how many blocks fit in a slot.',
+    ...numberConfigHelper(DEFAULT_BLOCK_DURATION_MS),
   },
   expectedBlockProposalsPerSlot: {
     env: 'SEQ_EXPECTED_BLOCK_PROPOSALS_PER_SLOT',
@@ -57,7 +58,7 @@ export const sharedSequencerConfigMappings: ConfigMappingsType<
     description:
       'Consensus grace in seconds for a received checkpoint proposal to materialize into local proposed state. ' +
       'Defaults to twice the block duration.',
-    defaultValue: getDefaultCheckpointProposalSyncGrace(undefined),
+    defaultValue: getDefaultCheckpointProposalSyncGrace(DEFAULT_BLOCK_DURATION_MS / 1000),
     ...optionalNumberConfigHelper(),
   },
   maxTxsPerBlock: {

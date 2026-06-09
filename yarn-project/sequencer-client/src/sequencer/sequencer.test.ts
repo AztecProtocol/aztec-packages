@@ -377,9 +377,12 @@ describe('sequencer', () => {
 
     signatureContext = { chainId: chainId.toNumber(), rollupAddress: EthAddress.random() };
     const config: SequencerConfig & Pick<ChainConfig, 'l1ChainId' | 'rollupAddress'> = {
-      enforceTimeTable: true,
       maxTxsPerBlock: 4,
       l1ChainId: signatureContext.chainId,
+      // With aztecSlotDuration=8 and ethereumSlotDuration=4 (fast profile), a 2s block duration derives
+      // exactly one valid block sub-slot. The production default (3s) would derive zero blocks for this
+      // slot duration and make ProposerTimetable throw on construction.
+      blockDurationMs: 2000,
       rollupAddress: signatureContext.rollupAddress,
     };
     sequencer = new TestSequencer(
@@ -676,7 +679,7 @@ describe('sequencer', () => {
           nowSeconds: 1000n,
         });
 
-      sequencer.updateConfig({ enforceTimeTable: false, maxTxsPerBlock: 4 });
+      sequencer.updateConfig({ maxTxsPerBlock: 4 });
 
       // Build and publish 2 blocks, the sequencer should request a new publisher each time
       for (let i = 0; i < 2; i++) {
@@ -1136,8 +1139,8 @@ describe('sequencer', () => {
   });
 
   describe('modes', () => {
-    it('non-enforced mode', async () => {
-      sequencer.updateConfig({ enforceTimeTable: false, maxTxsPerBlock: 4 });
+    it('builds with the default real timetable', async () => {
+      sequencer.updateConfig({ maxTxsPerBlock: 4 });
 
       await setupSingleTxBlock();
 
@@ -1151,7 +1154,7 @@ describe('sequencer', () => {
     });
 
     it('single block mode', async () => {
-      sequencer.updateConfig({ enforceTimeTable: true, maxTxsPerBlock: 4 });
+      sequencer.updateConfig({ maxTxsPerBlock: 4 });
 
       await setupSingleTxBlock();
 
@@ -1166,7 +1169,7 @@ describe('sequencer', () => {
     });
 
     it('multi block mode', async () => {
-      sequencer.updateConfig({ enforceTimeTable: true, maxTxsPerBlock: 4, blockDurationMs: 500 });
+      sequencer.updateConfig({ maxTxsPerBlock: 4, blockDurationMs: 500 });
 
       const txs = await timesParallel(8, i => makeTx(i * 0x10000));
       block = await makeBlock(txs.slice(0, 4));

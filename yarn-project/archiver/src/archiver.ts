@@ -163,7 +163,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
       checkpointProposalSyncGrace: number;
       orphanPruneNoProposalTolerance: number;
       skipOrphanProposedBlockPruning: boolean;
-      blockDuration: number | undefined;
+      blockDuration: number;
     },
     private readonly blobClient: BlobClientInterface,
     instrumentation: ArchiverInstrumentation,
