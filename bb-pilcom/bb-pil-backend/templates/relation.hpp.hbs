@@ -6,7 +6,6 @@
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
-#include "barretenberg/common/bb_bench.hpp"
 
 namespace bb::{{snakeCase root_name}} {
 
@@ -50,12 +49,14 @@ template <typename FF> class {{name}} : public Relation<{{name}}Impl<FF>> {
         {{/each}}
 
         static std::string get_subrelation_label(size_t index) {
+            #ifdef AVM_INCLUDE_COLUMN_INFORMATION
             switch (index) {
                 {{#each labels as |label|}}
                 case SR_{{label.1}}:
                     return "{{label.1}}";
                 {{/each}}
             }
+            #endif
             return std::to_string(index);
         }
 };

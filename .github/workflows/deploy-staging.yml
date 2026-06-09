@@ -1,0 +1,88 @@
+name: Deploy to staging
+
+on:
+  schedule:
+    - cron: "0 7 * * *"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to deploy (v5.0.0 or any v5.0.0 prerelease). Leave empty to use today's 5.0.0 nightly tag."
+        required: false
+        type: string
+      deploy_contracts:
+        description: "Redeploy rollup contracts before deploying infra."
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: true
+
+env:
+  GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+
+jobs:
+  determine-tag:
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'schedule'
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
+      semver: ${{ steps.resolve.outputs.semver }}
+    steps:
+      - name: Checkout v5-next
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          ref: v5-next
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Resolve nightly tag
+        id: resolve
+        run: |
+          if [[ -n "${{ inputs.tag }}" ]]; then
+            TAG="${{ inputs.tag }}"
+            echo "Using manually specified tag: $TAG"
+          else
+            TAG="v5.0.0-nightly.$(date -u +%Y%m%d)"
+            echo "Using today's nightly tag: $TAG"
+          fi
+
+          if [[ ! "$TAG" =~ ^v5\.0\.0($|-.*) ]]; then
+            echo "Error: Staging deploys require a v5.0.0 tag or prerelease, got '$TAG'"
+            exit 1
+          fi
+
+          SEMVER="${TAG#v}"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "semver=$SEMVER" >> $GITHUB_OUTPUT
+
+  wait-for-ci3:
+    needs: determine-tag
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        with:
+          node-version: 22
+
+      - name: Wait for CI3
+        run: spartan/scripts/wait_for_ci3.ts "${{ needs.determine-tag.outputs.tag }}"
+
+  deploy:
+    needs: [determine-tag, wait-for-ci3]
+    uses: ./.github/workflows/deploy-network.yml
+    with:
+      network: staging
+      semver: ${{ needs.determine-tag.outputs.semver }}
+      use_internal_docker_registry: true
+      source_tag: ${{ needs.determine-tag.outputs.tag }}
+      deploy_contracts: ${{ inputs.deploy_contracts == true }}
+    secrets: inherit

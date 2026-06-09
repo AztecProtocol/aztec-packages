@@ -100,7 +100,7 @@ impl TailOutputValidator {
         assert_transformed_array(
             self.previous_kernel.end.private_logs,
             self.output.end.private_logs,
-            |prev, out| assert_eq(out, prev.innermost().log, "mismatch private_logs"),
+            |prev, out| assert_eq(out, prev.expose_to_public(), "mismatch private_logs"),
         );
     }
 

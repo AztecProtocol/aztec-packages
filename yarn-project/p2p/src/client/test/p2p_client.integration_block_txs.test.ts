@@ -7,7 +7,7 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { emptyChainConfig } from '@aztec/stdlib/config';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import { BlockProposal } from '@aztec/stdlib/p2p';
+import { BlockProposal, PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { makeBlockHeader, makeBlockProposal } from '@aztec/stdlib/testing';
 import { Tx, TxHash, TxHashArray } from '@aztec/stdlib/tx';
 
@@ -152,14 +152,19 @@ describe('p2p client integration block txs protocol ', () => {
     );
   };
 
-  it('responds with NOT_FOUND when peer does not have the requested block proposal', async () => {
+  it('responds with an empty, block-less response when peer does not have the requested block proposal', async () => {
     attestationPool.getBlockProposalByArchive.mockResolvedValue(undefined);
     const missing = new TxHashArray(...Array.from({ length: 4 }, () => TxHash.random()));
 
     const blockProposal = await createBlockProposal(blockNumber, Fr.random(), missing);
     const response = await sendBlockTxsRequest(blockProposal, missing);
 
-    expect(response.status).toBe(ReqRespStatus.NOT_FOUND);
+    // The responder never returns NOT_FOUND: it services what it can and signals it lacks the block via
+    // an empty bitvector. With no proposal and no explicit hashes, there is nothing to serve.
+    expect(response.status).toBe(ReqRespStatus.SUCCESS);
+    const blockTxsResponse = BlockTxsResponse.fromBuffer(response.data);
+    expect(blockTxsResponse.peerHasBlock()).toBe(false);
+    expect(blockTxsResponse.txs.length).toBe(0);
   });
 
   it('responds with all requested txs when the peer has them', async () => {
@@ -178,11 +183,10 @@ describe('p2p client integration block txs protocol ', () => {
       blockProposal,
       txHashes.filter((_, i) => requestedIndices.includes(i)),
     );
-    //const response = await sendBlockTxsRequest(archiveRoot, requestedIndices, txs.length);
 
     expect(response.status).toBe(ReqRespStatus.SUCCESS);
     const blockTxsResponse = BlockTxsResponse.fromBuffer(response.data);
-    expect(blockTxsResponse.archiveRoot.equals(archiveRoot)).toBe(true);
+    expect(blockTxsResponse.peerHasBlock()).toBe(true);
     expect(blockTxsResponse.txs.length).toBe(requestedIndices.length);
     expect(blockTxsResponse.txIndices.getTrueIndices()).toEqual([0, 1, 2, 3, 4]);
 
@@ -218,7 +222,7 @@ describe('p2p client integration block txs protocol ', () => {
 
     expect(response.status).toBe(ReqRespStatus.SUCCESS);
     const blockTxsResponse = BlockTxsResponse.fromBuffer(response.data);
-    expect(blockTxsResponse.archiveRoot.equals(archiveRoot)).toBe(true);
+    expect(blockTxsResponse.peerHasBlock()).toBe(true);
     expect(blockTxsResponse.txs.length).toBe(2); // Only txs at indices 0 and 2 are returned
     expect(blockTxsResponse.txIndices.getTrueIndices()).toEqual([0, 2, 3]);
 
@@ -242,7 +246,7 @@ describe('p2p client integration block txs protocol ', () => {
 
     expect(response.status).toBe(ReqRespStatus.SUCCESS);
     const blockTxsResponse = BlockTxsResponse.fromBuffer(response.data);
-    expect(blockTxsResponse.archiveRoot.equals(archiveRoot)).toBe(true);
+    expect(blockTxsResponse.peerHasBlock()).toBe(true);
     expect(blockTxsResponse.txs.length).toBe(0);
     expect(blockTxsResponse.txIndices.getTrueIndices()).toEqual([]);
   });
@@ -267,7 +271,7 @@ describe('p2p client integration block txs protocol ', () => {
 
     expect(response.status).toBe(ReqRespStatus.SUCCESS);
     const blockTxsResponse = BlockTxsResponse.fromBuffer(response.data);
-    expect(blockTxsResponse.archiveRoot.equals(archiveRoot)).toBe(true);
+    expect(blockTxsResponse.peerHasBlock()).toBe(true);
     expect(blockTxsResponse.txs.length).toBe(requestedIndices.length);
     expect(blockTxsResponse.txIndices.getTrueIndices()).toEqual([0, 1, 2, 3, 4]);
 
@@ -304,7 +308,7 @@ describe('p2p client integration block txs protocol ', () => {
 
     expect(response.status).toBe(ReqRespStatus.SUCCESS);
     const blockTxsResponse = BlockTxsResponse.fromBuffer(response.data);
-    expect(blockTxsResponse.archiveRoot.equals(archiveRoot)).toBe(true);
+    expect(blockTxsResponse.peerHasBlock()).toBe(true);
     expect(blockTxsResponse.txs.length).toBe(2); // Only 2 txs returned
     expect(blockTxsResponse.txIndices.getTrueIndices()).toEqual([1, 3]); // Only indices 1 and 3 available
 
@@ -344,8 +348,8 @@ describe('p2p client integration block txs protocol ', () => {
     expect(response.status).toBe(ReqRespStatus.SUCCESS);
     const blockTxsResponse = BlockTxsResponse.fromBuffer(response.data);
 
-    // When peer doesn't have proposal but has txs, it returns Fr.ZERO as archive root
-    expect(blockTxsResponse.archiveRoot.equals(Fr.ZERO)).toBe(true);
+    // When the peer doesn't have the proposal but has txs, it signals so with an empty bitvector.
+    expect(blockTxsResponse.peerHasBlock()).toBe(false);
     expect(blockTxsResponse.txs.length).toBe(2); // Only 2 txs available
     expect(blockTxsResponse.txIndices.getLength()).toBe(0); // Empty BitVector when no proposal
 
@@ -374,7 +378,7 @@ describe('p2p client integration block txs protocol ', () => {
     expect(response.status).toBe(ReqRespStatus.SUCCESS);
     const blockTxsResponse = BlockTxsResponse.fromBuffer(response.data);
 
-    expect(blockTxsResponse.archiveRoot.equals(Fr.ZERO)).toBe(true);
+    expect(blockTxsResponse.peerHasBlock()).toBe(false);
     expect(blockTxsResponse.txs.length).toBe(1); // Only 1 tx available
     expect(blockTxsResponse.txIndices.getLength()).toBe(0);
 
@@ -396,12 +400,12 @@ describe('p2p client integration block txs protocol ', () => {
     expect(response.status).toBe(ReqRespStatus.SUCCESS);
     const blockTxsResponse = BlockTxsResponse.fromBuffer(response.data);
 
-    expect(blockTxsResponse.archiveRoot.equals(Fr.ZERO)).toBe(true);
+    expect(blockTxsResponse.peerHasBlock()).toBe(false);
     expect(blockTxsResponse.txs.length).toBe(0); // No txs available
     expect(blockTxsResponse.txIndices.getLength()).toBe(0);
   });
 
-  it('still responds with NOT_FOUND when peer does not have proposal and includeFullTxHashes=false', async () => {
+  it('responds with an empty, block-less response when peer does not have proposal and includeFullTxHashes=false', async () => {
     // Peer doesn't have the block proposal
     attestationPool.getBlockProposalByArchive.mockResolvedValue(undefined);
 
@@ -415,7 +419,55 @@ describe('p2p client integration block txs protocol ', () => {
     const differentBlockProposal = await createBlockProposal(blockNumber, Fr.random(), txHashes);
     const response = await sendBlockTxsRequest(differentBlockProposal, requestedHashes, false); // includeFullTxHashes=false
 
-    // Should get NOT_FOUND because without full tx hashes, handler can't return txs without proposal
-    expect(response.status).toBe(ReqRespStatus.NOT_FOUND);
+    // Without the proposal AND without explicit tx hashes (includeFullTxHashes=false), the responder has
+    // nothing to serve by index, so it returns an empty response signalling it lacks the block rather
+    // than NOT_FOUND. The requester learns this via peerHasBlock().
+    expect(response.status).toBe(ReqRespStatus.SUCCESS);
+    const blockTxsResponse = BlockTxsResponse.fromBuffer(response.data);
+    expect(blockTxsResponse.peerHasBlock()).toBe(false);
+    expect(blockTxsResponse.txs.length).toBe(0);
+  });
+
+  // When the responder takes the "no proposal/archived block locally, but matched the requested
+  // hashes against its tx pool" branch it is acting correctly per block_txs_handler.ts:54-58, and
+  // signals so with an empty bitvector. Drive the response back through the requester's real
+  // validation and confirm it does NOT apply a peer penalty — this is an "I don't have the block"
+  // signal, not misbehavior.
+  it('requester does not penalize peer that lacks the proposal but matched txs by hash', async () => {
+    attestationPool.getBlockProposalByArchive.mockResolvedValue(undefined);
+    const hashToTx = new Map(txs.map((tx, i) => [txHashes[i].toString(), tx]));
+    txPool.getTxsByHash.mockImplementation((hashes: TxHash[]) =>
+      Promise.resolve(hashes.map(h => hashToTx.get(h.toString())!)),
+    );
+
+    const [client1, client2] = clients as any;
+    const peerManager = client1.p2pService.peerManager;
+    const penalizeSpy = jest.spyOn(peerManager, 'penalizePeer');
+
+    // Build and send a real reqresp BLOCK_TXS request over libp2p (includeFullTxHashes=true so
+    // the responder hits the "matched by hash" branch instead of NOT_FOUND).
+    const requestedHashes = [txHashes[1], txHashes[3]];
+    const sourceProposal = await createBlockProposal(blockNumber, Fr.random(), txHashes);
+    const request = BlockTxsRequest.fromTxsSourceAndMissingTxs(sourceProposal, requestedHashes, true)!;
+    const response = await client1.p2pService.reqresp.sendRequestToPeer(
+      client2.p2pService.node.peerId,
+      ReqRespSubProtocol.BLOCK_TXS,
+      request.toBuffer(),
+    );
+
+    expect(response.status).toBe(ReqRespStatus.SUCCESS);
+    const decoded = BlockTxsResponse.fromBuffer(response.data);
+    expect(decoded.peerHasBlock()).toBe(false);
+
+    // Run the response through client1's real validation — this is what BatchTxRequester does in
+    // production. The peer must not be penalized.
+    await (client1.p2pService as any).validateRequestedBlockTxsConsistency(
+      request,
+      decoded,
+      client2.p2pService.node.peerId,
+    );
+
+    expect(penalizeSpy).not.toHaveBeenCalledWith(expect.anything(), PeerErrorSeverity.MidToleranceError);
+    expect(penalizeSpy).not.toHaveBeenCalledWith(expect.anything(), PeerErrorSeverity.LowToleranceError);
   });
 });

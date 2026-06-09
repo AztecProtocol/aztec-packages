@@ -12,7 +12,7 @@ pub fn compute_public_data_leaf_slot(contract_address: AztecAddress, storage_slo
 }
 
 #[test]
-unconstrained fn public_data_leaf_slot_matches_typescript() {
+fn public_data_leaf_slot_matches_typescript() {
     let contract_address = AztecAddress::from_field(987);
     let storage_slot = 123;
     let hash = compute_public_data_leaf_slot(contract_address, storage_slot);

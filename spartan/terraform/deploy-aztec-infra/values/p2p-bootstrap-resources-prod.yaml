@@ -5,22 +5,14 @@ nodeSelector:
 node:
   resources:
     requests:
-      cpu: "0.5"
+      cpu: "0.1"
       memory: "0.5Gi"
     limits:
       cpu: "1"
       memory: "1Gi"
 
 persistence:
-  enabled: true
+  enabled: false
 
 statefulSet:
-  enabled: true
-  volumeClaimTemplates:
-    - metadata:
-        name: data
-      spec:
-        accessModes: [ReadWriteOnce]
-        resources:
-          requests:
-            storage: 4Gi
+  enabled: false

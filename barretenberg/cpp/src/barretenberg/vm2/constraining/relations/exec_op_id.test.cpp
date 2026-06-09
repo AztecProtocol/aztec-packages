@@ -135,12 +135,12 @@ TEST(ExecOpIdConstrainingTest, Decomposition)
         // Negative test: untoggle the selector
         trace.set(SELECTOR_COLUMNS.at(i), 0, 0);
         EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_EXEC_OP_ID_DECOMPOSITION),
-                                  "EXEC_OP_ID_DECOMPOSITION");
+                                  execution::get_subrelation_label(execution::SR_EXEC_OP_ID_DECOMPOSITION));
 
         // Negative test: toggle another selector
         trace.set(SELECTOR_COLUMNS.at((i + INCREMENT_FOR_NEGATIVE_TEST) % WIRE_OPCODES.size()), 0, 1);
         EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_EXEC_OP_ID_DECOMPOSITION),
-                                  "EXEC_OP_ID_DECOMPOSITION");
+                                  execution::get_subrelation_label(execution::SR_EXEC_OP_ID_DECOMPOSITION));
     }
 }
 

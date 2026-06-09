@@ -37,19 +37,28 @@ import {
 } from '../contract/index.js';
 import { ManaUsageEstimate } from '../gas/fee_math.js';
 import { GasFees } from '../gas/gas_fees.js';
-import { SiloedTag, Tag, TxScopedL2Log } from '../logs/index.js';
-import { type LogFilter, LogFilterSchema } from '../logs/log_filter.js';
+import { type LogResult, LogResultSchema } from '../logs/log_result.js';
+import {
+  type PrivateLogsQuery,
+  PrivateLogsQuerySchema,
+  type PublicLogsQuery,
+  PublicLogsQuerySchema,
+} from '../logs/logs_query.js';
+import { type L2ToL1MembershipWitness, L2ToL1MembershipWitnessSchema } from '../messaging/l2_to_l1_membership.js';
 import { type ApiSchemaFor, optional, schemas } from '../schemas/schemas.js';
 import { MerkleTreeId } from '../trees/merkle_tree_id.js';
 import { NullifierMembershipWitness } from '../trees/nullifier_membership_witness.js';
 import { PublicDataWitness } from '../trees/public_data_witness.js';
 import {
+  type GetTxReceiptOptions,
+  GetTxReceiptOptionsSchema,
   type IndexedTxEffect,
   PublicSimulationOutput,
   SimulationOverrides,
   Tx,
   TxHash,
-  TxReceipt,
+  type TxReceipt,
+  TxReceiptSchema,
   type TxValidationResult,
   TxValidationResultSchema,
   indexedTxSchema,
@@ -75,12 +84,6 @@ import {
   type CheckpointResponse,
   CheckpointResponseSchema,
 } from './checkpoint_response.js';
-import {
-  type GetContractClassLogsResponse,
-  GetContractClassLogsResponseSchema,
-  type GetPublicLogsResponse,
-  GetPublicLogsResponseSchema,
-} from './get_logs_response.js';
 import { type WorldStateSyncStatus, WorldStateSyncStatusSchema } from './world_state.js';
 
 /**
@@ -187,11 +190,37 @@ export interface AztecNode {
 
   /**
    * Returns all the L2 to L1 messages in an epoch.
+   *
+   * @deprecated Use {@link getL2ToL1MembershipWitness} to get an L2-to-L1 message witness directly.
+   *
    * @param epoch - The epoch at which to get the data.
    * @returns A nested array of the L2 to L1 messages in each tx of each block in each checkpoint in the epoch (empty
    * array if the epoch is not found).
    */
   getL2ToL1Messages(epoch: EpochNumber): Promise<Fr[][][][]>;
+
+  /**
+   * Returns the L2-to-L1 membership witness for `message` emitted by tx `txHash`. The node selects
+   * the smallest partial-proof root on the Outbox that covers the tx's checkpoint and builds the
+   * witness against it.
+   *
+   * The node reads the Outbox roots lazily, pinned to its synced L1 block, so the witness reflects
+   * the node's synced view. Returns `undefined` if the tx isn't yet in a block/epoch or no covering
+   * root has landed on L1 as of the synced block.
+   *
+   * Caveat: cached roots that are sealed and L1-finalized are not re-validated. A reorg deeper than
+   * L1 finality could leave the node serving a witness against a no-longer-canonical root.
+   *
+   * @param txHash - The tx whose L2-to-L1 message we want a witness for.
+   * @param message - The message hash to prove inclusion of.
+   * @param messageIndexInTx - Optional index of the message within the tx's L2-to-L1 messages; pass
+   *   this when the same message hash appears multiple times in the tx.
+   */
+  getL2ToL1MembershipWitness(
+    txHash: TxHash,
+    message: Fr,
+    messageIndexInTx?: number,
+  ): Promise<L2ToL1MembershipWitness | undefined>;
 
   /**
    * Returns the block number at a given chain tip, or the latest proposed block number when
@@ -335,52 +364,25 @@ export interface AztecNode {
   registerContractFunctionSignatures(functionSignatures: string[]): Promise<void>;
 
   /**
-   * Gets public logs based on the provided filter.
-   * @param filter - The filter to apply to the logs.
-   * @returns The requested logs.
+   * Gets private logs matching the given tags. Returns one inner array per element of `query.tags`, in
+   * input order. An empty inner array means no logs matched that tag. Set `query.includeEffects` to also
+   * receive the tx's note hashes and nullifiers.
+   *
+   * The return type is the widest {@link LogResult} shape — `noteHashes`/`nullifiers` are typed as
+   * optional even when `includeEffects: true` is set. JSON-RPC validation can't preserve a stricter
+   * narrowing across the wire. Callers that want a narrowed type at the call site should use the typed
+   * helpers in `pxe/src/tagging/get_all_logs_by_tags.ts`.
    */
-  getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse>;
+  getPrivateLogsByTags(query: PrivateLogsQuery): Promise<LogResult[][]>;
 
   /**
-   * Gets contract class logs based on the provided filter.
-   * @param filter - The filter to apply to the logs.
-   * @returns The requested logs.
+   * Gets public logs matching the given tags for the given contract. Returns one inner array per element
+   * of `query.tags`, in input order. An empty inner array means no logs matched that tag. Set
+   * `query.includeEffects` to also receive the tx's note hashes and nullifiers.
+   *
+   * The return type is the widest {@link LogResult} shape — see {@link getPrivateLogsByTags}.
    */
-  getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse>;
-
-  /**
-   * Gets private logs that match any of the `tags`. For each tag, an array of matching logs is returned. An empty
-   * array implies no logs match that tag.
-   * @param tags - The tags to search for.
-   * @param page - The page number (0-indexed) for pagination.
-   * @param referenceBlock - Optional block hash used to ensure the block still exists before logs are retrieved.
-   * This block is expected to represent the latest block to which the client has synced (called anchor block in PXE).
-   * If specified and the block is not found, an error is thrown. This helps detect reorgs, which could result in
-   * undefined behavior in the client's code.
-   * @returns An array of log arrays, one per tag. Returns at most 10 logs per tag per page. If 10 logs are returned
-   * for a tag, the caller should fetch the next page to check for more logs.
-   */
-  getPrivateLogsByTags(tags: SiloedTag[], page?: number, referenceBlock?: BlockHash): Promise<TxScopedL2Log[][]>;
-
-  /**
-   * Gets public logs that match any of the `tags` from the specified contract. For each tag, an array of matching
-   * logs is returned. An empty array implies no logs match that tag.
-   * @param contractAddress - The contract address to search logs for.
-   * @param tags - The tags to search for.
-   * @param page - The page number (0-indexed) for pagination.
-   * @param referenceBlock - Optional block hash used to ensure the block still exists before logs are retrieved.
-   * This block is expected to represent the latest block to which the client has synced (called anchor block in PXE).
-   * If specified and the block is not found, an error is thrown. This helps detect reorgs, which could result in
-   * undefined behavior in the client's code.
-   * @returns An array of log arrays, one per tag. Returns at most 10 logs per tag per page. If 10 logs are returned
-   * for a tag, the caller should fetch the next page to check for more logs.
-   */
-  getPublicLogsByTagsFromContract(
-    contractAddress: AztecAddress,
-    tags: Tag[],
-    page?: number,
-    referenceBlock?: BlockHash,
-  ): Promise<TxScopedL2Log[][]>;
+  getPublicLogsByTags(query: PublicLogsQuery): Promise<LogResult[][]>;
 
   /**
    * Method to submit a transaction to the p2p pool.
@@ -390,19 +392,26 @@ export interface AztecNode {
   sendTx(tx: Tx): Promise<void>;
 
   /**
-   * Fetches a transaction receipt for a given transaction hash. Returns a mined receipt if it was added
-   * to the chain, a pending receipt if it's still in the mempool of the connected Aztec node, or a dropped
-   * receipt if not found in the connected Aztec node.
+   * Fetches a transaction receipt for a given transaction hash. Always resolves to one of the lifecycle variants of
+   * the {@link TxReceipt} union: a {@link MinedTxReceipt} if the tx was included in a block, a {@link PendingTxReceipt}
+   * if it's still in the mempool of the connected Aztec node, or a {@link DroppedTxReceipt} if not found.
    *
    * @param txHash - The transaction hash.
+   * @param options - Optional flags controlling which extra data is attached: `includeTxEffect` attaches the full
+   * {@link TxEffect} to a mined receipt, `includePendingTx` attaches the pending {@link Tx} to a pending receipt, and
+   * `includeProof` keeps the proof on that attached pending tx (only meaningful with `includePendingTx`).
    * @returns A receipt of the transaction.
    */
-  getTxReceipt(txHash: TxHash): Promise<TxReceipt>;
+  getTxReceipt<TGetTxReceiptOptions extends GetTxReceiptOptions = {}>(
+    txHash: TxHash,
+    options?: TGetTxReceiptOptions,
+  ): Promise<TxReceipt<TGetTxReceiptOptions>>;
 
   /**
    * Gets a tx effect.
    * @param txHash - The hash of the tx corresponding to the tx effect.
    * @returns The requested tx effect with block info (or undefined if not found).
+   * @deprecated Use `getTxReceipt(txHash, { includeTxEffect: true })` and read the `.txEffect` field instead.
    */
   getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined>;
 
@@ -551,6 +560,14 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
     output: z.array(z.array(z.array(z.array(schemas.Fr)))),
   }),
 
+  // Reads Outbox roots lazily, pinned to the node's synced L1 block. Caveat: cached roots that are
+  // sealed and L1-finalized are not re-validated, so a reorg deeper than L1 finality could leave the
+  // node serving a witness against a no-longer-canonical root.
+  getL2ToL1MembershipWitness: z.function({
+    input: z.tuple([TxHash.schema, schemas.Fr, optional(schemas.Integer)]),
+    output: L2ToL1MembershipWitnessSchema.optional(),
+  }),
+
   getBlockNumber: z.function({ input: z.tuple([optional(ChainTipSchema)]), output: BlockNumberSchema }),
 
   getCheckpointNumber: z.function({ input: z.tuple([optional(ChainTipSchema)]), output: CheckpointNumberSchema }),
@@ -617,32 +634,22 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
     output: z.void(),
   }),
 
-  getPublicLogs: z.function({ input: z.tuple([LogFilterSchema]), output: GetPublicLogsResponseSchema }),
-
-  getContractClassLogs: z.function({ input: z.tuple([LogFilterSchema]), output: GetContractClassLogsResponseSchema }),
-
   getPrivateLogsByTags: z.function({
-    input: z.tuple([
-      z.array(SiloedTag.schema).max(MAX_RPC_LEN),
-      optional(z.number().gte(0)),
-      optional(BlockHash.schema),
-    ]),
-    output: z.array(z.array(TxScopedL2Log.schema)),
+    input: z.tuple([PrivateLogsQuerySchema]),
+    output: z.array(z.array(LogResultSchema)),
   }),
 
-  getPublicLogsByTagsFromContract: z.function({
-    input: z.tuple([
-      schemas.AztecAddress,
-      z.array(Tag.schema).max(MAX_RPC_LEN),
-      optional(z.number().gte(0)),
-      optional(BlockHash.schema),
-    ]),
-    output: z.array(z.array(TxScopedL2Log.schema)),
+  getPublicLogsByTags: z.function({
+    input: z.tuple([PublicLogsQuerySchema]),
+    output: z.array(z.array(LogResultSchema)),
   }),
 
   sendTx: z.function({ input: z.tuple([Tx.schema]), output: z.void() }),
 
-  getTxReceipt: z.function({ input: z.tuple([TxHash.schema]), output: TxReceipt.schema }),
+  getTxReceipt: z.function({
+    input: z.tuple([TxHash.schema, optional(GetTxReceiptOptionsSchema)]),
+    output: TxReceiptSchema,
+  }),
 
   getTxEffect: z.function({ input: z.tuple([TxHash.schema]), output: indexedTxSchema().optional() }),
 

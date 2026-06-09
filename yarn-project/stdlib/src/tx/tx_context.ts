@@ -1,7 +1,7 @@
 import { TX_CONTEXT_LENGTH } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { schemas } from '@aztec/foundation/schemas';
-import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
+import { BufferReader, BufferSink, FieldReader, serializeToFields, serializeToSink } from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
@@ -49,8 +49,13 @@ export class TxContext {
    * Serialize as a buffer.
    * @returns The buffer.
    */
-  toBuffer() {
-    return serializeToBuffer(...TxContext.getFields(this));
+  toBuffer(): Buffer;
+  toBuffer(sink: BufferSink): void;
+  toBuffer(sink?: BufferSink): Buffer | void {
+    if (!sink) {
+      return BufferSink.serialize(this);
+    }
+    serializeToSink(sink, ...TxContext.getFields(this));
   }
 
   static fromFields(fields: Fr[] | FieldReader): TxContext {

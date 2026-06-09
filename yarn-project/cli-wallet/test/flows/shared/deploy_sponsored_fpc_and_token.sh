@@ -19,7 +19,7 @@ messageLeafIndex=$(retrieve messageLeafIndex)
 # The following produces two blocks, allowing the claim to be used in the next block.
 source $flows/shared/deploy_token.sh $TOKEN_ALIAS test1
 
-# Claim the fee juice by calling the fee juice contract directly (address = 5).
-feeJuice=0x0000000000000000000000000000000000000000000000000000000000000005
+# Claim the fee juice by calling the fee juice contract directly. Reference it via the registered
+# protocol-contract alias rather than a hardcoded address, which moves when protocol addresses are renumbered.
 # Using a pre-funded test account because SponsoredFPC is not an account contract and can't be used to send a tx.
-aztec-wallet send claim -ca $feeJuice -c fee_juice_contract@FeeJuice --args contracts:$FPC_ALIAS $claimAmount $claimSecret $messageLeafIndex -f test0
+aztec-wallet send claim -ca contracts:FeeJuice -c fee_juice_contract@FeeJuice --args contracts:$FPC_ALIAS $claimAmount $claimSecret $messageLeafIndex -f test0

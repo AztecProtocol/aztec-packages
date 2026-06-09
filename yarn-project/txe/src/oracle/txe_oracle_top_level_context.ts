@@ -80,13 +80,14 @@ import {
   collectNested,
 } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
-import { ForkCheckpoint } from '@aztec/world-state';
+import { ForkCheckpoint } from '@aztec/world-state/native';
 
-import { DEFAULT_ADDRESS } from '../constants.js';
+import { DEFAULT_ADDRESS, MAX_PRIVATE_EVENTS_PER_TXE_QUERY, MAX_PRIVATE_EVENT_LEN } from '../constants.js';
 import type { TXEStateMachine } from '../state_machine/index.js';
-import type { TXEAccountStore } from '../util/txe_account_store.js';
-import { TXEPublicContractDataSource } from '../util/txe_public_contract_data_source.js';
 import { getSingleTxBlockRequestHash, insertTxEffectIntoWorldTrees, makeTXEBlock } from '../utils/block_creation.js';
+import type { TXEAccountStore } from '../utils/txe_account_store.js';
+import type { TXEArtifactResolver } from '../utils/txe_artifact_resolver.js';
+import { TXEPublicContractDataSource } from '../utils/txe_public_contract_data_source.js';
 import type { ITxeExecutionOracle } from './interfaces.js';
 
 export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracle {
@@ -111,6 +112,9 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     private version: Fr,
     private chainId: Fr,
     private authwits: Map<string, AuthWitness>,
+    private readonly artifactResolver: TXEArtifactResolver,
+    private readonly rootPath: string,
+    private readonly packageName: string,
   ) {
     this.logger = createLogger('txe:top_level_context');
     this.logger.debug('Entering Top Level Context');
@@ -143,7 +147,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
   }
 
   // We instruct users to debug contracts via this oracle, so it makes sense that they'd expect it to also work in tests
-  log(level: number, message: string, fields: Fr[]): Promise<void> {
+  log(level: number, message: string, _fieldsSize: number, fields: Fr[]): Promise<void> {
     if (!LogLevels[level]) {
       throw new Error(`Invalid log level: ${level}`);
     }
@@ -213,7 +217,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
   }
 
   async getPrivateEvents(selector: EventSelector, contractAddress: AztecAddress, scope: AztecAddress) {
-    return (
+    const events = (
       await this.privateEventStore.getPrivateEvents(selector, {
         contractAddress,
         scopes: [scope],
@@ -221,6 +225,15 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
         toBlock: (await this.getLastBlockNumber()) + 1,
       })
     ).map(e => e.packedEvent);
+
+    if (events.length > MAX_PRIVATE_EVENTS_PER_TXE_QUERY) {
+      throw new Error(`Array of length ${events.length} larger than maxLen ${MAX_PRIVATE_EVENTS_PER_TXE_QUERY}`);
+    }
+    if (events.some(e => e.length > MAX_PRIVATE_EVENT_LEN)) {
+      throw new Error(`Some private event has length larger than maxLen ${MAX_PRIVATE_EVENT_LEN}`);
+    }
+
+    return events;
   }
 
   async advanceBlocksBy(blocks: number) {
@@ -236,47 +249,71 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     this.nextBlockTimestamp += duration;
   }
 
-  private deploymentNullifier(instance: ContractInstanceWithAddress): Promise<Fr> {
-    return siloNullifier(
-      AztecAddress.fromNumber(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS),
-      instance.address.toField(),
-    );
+  private deploymentNullifier(address: AztecAddress): Promise<Fr> {
+    return siloNullifier(AztecAddress.fromNumber(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS), address.toField());
   }
 
-  async deploy(artifact: ContractArtifact, instance: ContractInstanceWithAddress, secret: Fr) {
+  async deploy(
+    contractPath: string,
+    initializer: string,
+    args: Fr[],
+    secret: Fr,
+    salt: Fr,
+    deployer: AztecAddress,
+  ): Promise<Fr[]> {
+    const { artifact, instance } = await this.artifactResolver.resolveDeployArtifact({
+      rootPath: this.rootPath,
+      packageName: this.packageName,
+      contractPath,
+      initializer,
+      args,
+      secret,
+      salt,
+      deployer,
+    });
+
     // Emit deployment nullifier
     await this.mineBlock({
-      nullifiers: [await this.deploymentNullifier(instance)],
+      nullifiers: [await this.deploymentNullifier(instance.address)],
     });
 
     if (!secret.equals(Fr.ZERO)) {
-      await this.addAccount(artifact, instance, secret);
+      await this.registerContractAndAddAccount(artifact, instance, secret);
     } else {
       await this.contractStore.addContractInstance(instance);
       await this.contractStore.addContractArtifact(artifact);
       this.logger.debug(`Deployed ${artifact.name} at ${instance.address}`);
     }
+
+    return [
+      instance.salt,
+      instance.deployer.toField(),
+      instance.currentContractClassId,
+      instance.initializationHash,
+      instance.immutablesHash,
+      ...instance.publicKeys.toFields(),
+    ];
   }
 
   /**
-   * Deploys several contracts within a single mined block: all of their deployment nullifiers are inserted into one
-   * block's tx effects, and their instances/artifacts are registered in the contract store. Used at session init to
-   * publish the standard contracts (auth registry, public checks) into the same baseline block TXE already mines on
-   * startup, so they are available to every test without advancing the test-visible block counter.
+   * Mines a single block containing only the deployment nullifiers for the contracts at the given addresses.
    */
-  async deployManyInSingleBlock(contracts: { artifact: ContractArtifact; instance: ContractInstanceWithAddress }[]) {
+  async mineDeploymentNullifiers(addresses: AztecAddress[]) {
     await this.mineBlock({
-      nullifiers: await Promise.all(contracts.map(({ instance }) => this.deploymentNullifier(instance))),
+      nullifiers: await Promise.all(addresses.map(address => this.deploymentNullifier(address))),
     });
-
-    for (const { artifact, instance } of contracts) {
-      await this.contractStore.addContractInstance(instance);
-      await this.contractStore.addContractArtifact(artifact);
-      this.logger.debug(`Deployed ${artifact.name} at ${instance.address}`);
-    }
   }
 
-  async addAccount(artifact: ContractArtifact, instance: ContractInstanceWithAddress, secret: Fr) {
+  async addAccount(secret: Fr) {
+    const { artifact, instance } = await this.artifactResolver.resolveAccountArtifact(secret);
+    return this.registerContractAndAddAccount(artifact, instance, secret);
+  }
+
+  private async registerContractAndAddAccount(
+    artifact: ContractArtifact,
+    instance: ContractInstanceWithAddress,
+    secret: Fr,
+  ) {
     const partialAddress = await computePartialAddress(instance);
 
     this.logger.debug(`Deployed ${artifact.name} at ${instance.address}`);
@@ -431,7 +468,10 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       messageContextService: this.stateMachine.messageContextService,
       l2TipsStore: this.stateMachine.l2TipsProvider,
       hooks: composeHooks({
-        authorizeUtilityCall: this.buildAuthorizeUtilityCallHook('private', authorizedUtilityCallTargets),
+        authorizeUtilityCall: this.buildAuthorizeUtilityCallHook(
+          isStaticCall ? 'private view' : 'private',
+          authorizedUtilityCallTargets,
+        ),
       }),
     });
 
@@ -783,6 +823,9 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     try {
       const anchorBlockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
       const simulator = new WASMSimulator();
+      const utilityExecutor = async (syncCall: FunctionCall, execScopes: AztecAddress[]) => {
+        await this.executeUtilityCall(syncCall, execScopes, jobId, authorizedUtilityCallTargets);
+      };
       const oracle = new UtilityExecutionOracle({
         contractAddress: call.to,
         authWitnesses: [],
@@ -803,6 +846,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
         jobId,
         scopes,
         simulator,
+        utilityExecutor,
         hooks: composeHooks({
           authorizeUtilityCall: this.buildAuthorizeUtilityCallHook('utility', authorizedUtilityCallTargets),
         }),
@@ -840,7 +884,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
   }
 
   private buildAuthorizeUtilityCallHook(
-    callerContext: 'private' | 'utility',
+    callerContext: 'private' | 'private view' | 'utility',
     authorizedTargets: AztecAddress[],
   ): ExecutionHooks['authorizeUtilityCall'] | undefined {
     if (authorizedTargets.length === 0) {

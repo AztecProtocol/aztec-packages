@@ -70,7 +70,6 @@ describe('e2e_epochs/epochs_ha_sync', () => {
       minTxsPerBlock: 1,
       maxTxsPerBlock: 2,
       pxeOpts: { syncChainTip: 'proposed' },
-      enableProposerPipelining: true,
       inboxLag: 2,
     });
 

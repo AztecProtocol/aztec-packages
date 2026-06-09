@@ -1,5 +1,5 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, BufferSink, serializeToSink } from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
@@ -48,8 +48,13 @@ export class HashedValues {
     return new HashedValues([Fr.random(), Fr.random()], Fr.random());
   }
 
-  toBuffer() {
-    return serializeToBuffer(new Vector(this.values), this.hash);
+  toBuffer(): Buffer;
+  toBuffer(sink: BufferSink): void;
+  toBuffer(sink?: BufferSink): Buffer | void {
+    if (!sink) {
+      return BufferSink.serialize(this);
+    }
+    serializeToSink(sink, new Vector(this.values), this.hash);
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): HashedValues {

@@ -1,6 +1,5 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
-import type { EpochCache, EpochCommitteeInfo } from '@aztec/epoch-cache';
-import { RollupContract } from '@aztec/ethereum/contracts';
+import { type OutboxContract, RollupContract } from '@aztec/ethereum/contracts';
 import type { ViemPublicClient } from '@aztec/ethereum/types';
 import {
   BlockNumber,
@@ -12,8 +11,9 @@ import {
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { DateProvider } from '@aztec/foundation/timer';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
-import { L2Block } from '@aztec/stdlib/block';
+import { GENESIS_BLOCK_HEADER_HASH, L2Block } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { makeStateReference } from '@aztec/stdlib/testing';
@@ -43,7 +43,6 @@ describe('Archiver Store', () => {
   let debugClient: MockProxy<ViemPublicClient>;
   let instrumentation: MockProxy<ArchiverInstrumentation>;
   let blobClient: MockProxy<BlobClientInterface>;
-  let epochCache: MockProxy<EpochCache>;
   let archiverStore: ArchiverDataStores;
   let l1Constants: L1RollupConstants & { l1StartBlockHash: Buffer32; genesisArchiveRoot: Fr };
   let initialHeader: BlockHeader;
@@ -61,8 +60,6 @@ describe('Archiver Store', () => {
     publicClient = mock<ViemPublicClient>();
     debugClient = publicClient;
     blobClient = mock<BlobClientInterface>();
-    epochCache = mock<EpochCache>();
-    epochCache.getCommitteeForEpoch.mockResolvedValue({ committee: [] as EthAddress[] } as EpochCommitteeInfo);
 
     const rollupContract = mock<RollupContract>();
     Object.defineProperty(rollupContract, 'address', { value: rollupAddress.toString(), writable: true });
@@ -70,7 +67,7 @@ describe('Archiver Store', () => {
     const tracer = getTelemetryClient().getTracer('');
     instrumentation = mock<ArchiverInstrumentation>({ isEnabled: () => true, tracer });
 
-    archiverStore = createArchiverDataStores(await openTmpStore('archiver_test'), { logsMaxPageSize: 1000 });
+    archiverStore = createArchiverDataStores(await openTmpStore('archiver_test'), GENESIS_BLOCK_HEADER_HASH);
 
     l1Constants = {
       l1GenesisTime: BigInt(now),
@@ -98,6 +95,8 @@ describe('Archiver Store', () => {
       batchSize: 1000,
       maxAllowedEthClientDriftSeconds: 300,
       ethereumAllowNoDebugHosts: true,
+      orphanProposedBlockPruneGraceSeconds: 2,
+      enableOrphanProposedBlockPruning: true,
     };
 
     const events = new EventEmitter() as ArchiverEmitter;
@@ -109,6 +108,7 @@ describe('Archiver Store', () => {
       publicClient,
       debugClient,
       rollupContract,
+      mock<OutboxContract>(),
       contractAddresses,
       archiverStore,
       config,
@@ -120,6 +120,7 @@ describe('Archiver Store', () => {
       initialHeader,
       initialBlockHash,
       l2TipsCache,
+      new DateProvider(),
     );
   });
 

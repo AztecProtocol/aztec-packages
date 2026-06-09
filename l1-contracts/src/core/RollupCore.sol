@@ -34,7 +34,7 @@ import {GSE} from "@aztec/governance/GSE.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
-import {RewardExtLib, RewardConfig} from "@aztec/core/libraries/rollup/RewardExtLib.sol";
+import {RewardExtLib, RewardConfig, MutableRewardConfig} from "@aztec/core/libraries/rollup/RewardExtLib.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {FeeConfigLib, CompressedFeeConfig} from "@aztec/core/libraries/compressed-data/fees/FeeConfig.sol";
 import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
@@ -222,11 +222,16 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
     GenesisState memory _genesisState,
     RollupConfigInput memory _config
   ) Ownable(_governance) {
-    // We do not allow the `normalFlushSizeMin` to be 0 when deployed as it would lock deposits (which is never desired
-    // from the onset). It might be updated later to 0 by governance in order to close the validator set for this
-    // instance. For details see `StakingLib.getEntryQueueFlushSize` function.
-    require(_config.stakingQueueConfig.normalFlushSizeMin > 0, Errors.Staking__InvalidStakingQueueConfig());
-    require(_config.stakingQueueConfig.normalFlushSizeQuotient > 0, Errors.Staking__InvalidNormalFlushSizeQuotient());
+    StakingLib.assertValidQueueConfig(_config.stakingQueueConfig);
+
+    // queueSetSlasher schedules the replacement slasher to land at `block.timestamp +
+    // SLASHER_EXECUTION_DELAY`. If a validator's exit delay is longer, an objecting validator
+    // cannot finish withdrawal before the new slasher takes over, so the rollup cannot honor
+    // its end of the replacement opt-out window for the configured exit delay.
+    require(
+      _config.exitDelaySeconds <= StakingLib.SLASHER_EXECUTION_DELAY,
+      Errors.Staking__ExitDelayAboveSlasherDelay(_config.exitDelaySeconds, StakingLib.SLASHER_EXECUTION_DELAY)
+    );
 
     TimeLib.initialize(
       block.timestamp, _config.aztecSlotDuration, _config.aztecEpochDuration, _config.aztecProofSubmissionEpochs
@@ -256,12 +261,15 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
   }
 
   /**
-   * @notice Updates the reward configuration for sequencers and provers
-   * @dev Only callable by the contract owner. Updates how rewards are calculated and distributed.
-   * @param _config The new reward configuration including rates and booster settings
+   * @notice Updates the mutable reward configuration (sequencer/prover split and checkpoint reward).
+   * @dev Only callable by the contract owner. The `rewardDistributor` and `booster` addresses are
+   *      deliberately NOT exposed by this setter -- they are written exactly once at construction
+   *      by {_initializeRewards} and immutable thereafter. Rotating either address requires
+   *      redeploying the rollup via `Registry.addRollup`.
+   * @param _config The new mutable reward configuration
    */
-  function setRewardConfig(RewardConfig memory _config) external override(IRollupCore) onlyOwner {
-    RewardExtLib.setConfig(_config);
+  function setRewardConfig(MutableRewardConfig memory _config) external override(IRollupCore) onlyOwner {
+    RewardExtLib.updateConfig(_config);
     emit RewardConfigUpdated(_config);
   }
 
@@ -281,22 +289,27 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
   }
 
   /**
-   * @notice Updates the slasher contract address
-   * @dev Only callable by owner. The slasher handles punishment for validator misbehavior.
+   * @notice Queues a slasher replacement. Takes effect only after a 60-day delay via
+   *         {finalizeSetSlasher}. Validators who object to the change have time to exit
+   *         before it lands. Overwrites any pending change, resetting the timer.
+   * @dev The zero address is permissible. Setting to this would imply that the rollup has
+   *      at least temporarily relinquished their ability to slash.
    * @param _slasher The address of the new slasher contract
    */
-  function setSlasher(address _slasher) external override(IStakingCore) onlyOwner {
-    ValidatorOperationsExtLib.setSlasher(_slasher);
+  function queueSetSlasher(address _slasher) external override(IStakingCore) onlyOwner {
+    ValidatorOperationsExtLib.queueSetSlasher(_slasher);
   }
 
-  /**
-   * @notice Updates the local ejection threshold
-   * @dev Only callable by owner. The local ejection threshold is the minimum amount of stake that a validator can have
-   *      after being slashed.
-   * @param _localEjectionThreshold The new local ejection threshold
-   */
-  function setLocalEjectionThreshold(uint256 _localEjectionThreshold) external override(IStakingCore) onlyOwner {
-    ValidatorOperationsExtLib.setLocalEjectionThreshold(_localEjectionThreshold);
+  /// @notice Cancels the pending slasher replacement. Reverts if nothing is pending.
+  function cancelSetSlasher() external override(IStakingCore) onlyOwner {
+    ValidatorOperationsExtLib.cancelSetSlasher();
+  }
+
+  /// @notice Applies the pending slasher replacement once the 60-day delay has elapsed.
+  /// @dev Permissionless: the queued payload and the elapsed delay are the authorization.
+  ///      Anyone may poke the transaction through.
+  function finalizeSetSlasher() external override(IStakingCore) {
+    ValidatorOperationsExtLib.finalizeSetSlasher();
   }
 
   /**
@@ -318,14 +331,16 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
   }
 
   /**
-   * @notice Sets the escape hatch contract address
-   * @dev Only callable by owner. Set to address(0) to disable escape hatch functionality.
-   *      The escape hatch provides an alternative block production path when the committee is unavailable.
-   * @param _escapeHatch The address of the EscapeHatch contract, or address(0) to disable
+   * @notice Sets the escape hatch contract address. One-shot: callable at most once per rollup.
+   * @dev Only callable by owner. The escape hatch provides an alternative block production path
+   *      when the committee is unavailable. Once set, the address is immutable for the life of
+   *      the rollup -- there is no replacement path. To launch without an escape hatch, simply
+   *      never call this function.
+   * @param _escapeHatch The address of the EscapeHatch contract (must be non-zero)
    */
-  function updateEscapeHatch(address _escapeHatch) external override(IValidatorSelectionCore) onlyOwner {
-    ValidatorOperationsExtLib.updateEscapeHatch(_escapeHatch);
-    emit IValidatorSelectionCore.EscapeHatchUpdated(_escapeHatch);
+  function setEscapeHatch(address _escapeHatch) external override(IValidatorSelectionCore) onlyOwner {
+    ValidatorOperationsExtLib.setEscapeHatch(_escapeHatch);
+    emit IValidatorSelectionCore.EscapeHatchSet(_escapeHatch);
   }
 
   /**
@@ -587,7 +602,8 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
       rewardConfig.booster = RewardExtLib.deployRewardBooster(_config.rewardBoostConfig);
     }
 
-    RewardExtLib.setConfig(rewardConfig);
+    // Constructor-only writer; post-deployment updates go through {setRewardConfig}.
+    RewardExtLib.initializeConfig(rewardConfig);
   }
 
   function _initializeStore(

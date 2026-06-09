@@ -239,10 +239,9 @@ pub global CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE: Field =
 // Chosen to be a multiple of 3 (-1 to account for the separator), to optimize the poseidon2 hash.
 pub global MAX_PROTOCOL_CONTRACTS: u32 = 11;
 // Address 0 is not a protocol contract.
+pub global CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS: AztecAddress = AztecAddress::from_field(1);
 pub global CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS: AztecAddress = AztecAddress::from_field(2);
-pub global CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS: AztecAddress = AztecAddress::from_field(3);
-pub global MULTI_CALL_ENTRYPOINT_ADDRESS: AztecAddress = AztecAddress::from_field(4);
-pub global FEE_JUICE_ADDRESS: AztecAddress = AztecAddress::from_field(5);
+pub global FEE_JUICE_ADDRESS: AztecAddress = AztecAddress::from_field(3);
 
 // `SIDE_EFFECT_MASKING_ADDRESS` is used by the protocol circuits to silo the padding side effects. It's not a protocol
 // contract (hence its address is greater than `MAX_PROTOCOL_CONTRACTS`).
@@ -516,6 +515,7 @@ pub global PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = TX_CONSTANT_DATA_L
     + PRIVATE_ACCUMULATED_DATA_LENGTH
     + PUBLIC_CALL_REQUEST_LENGTH
     + AZTEC_ADDRESS_LENGTH
+    + 1 /* expiration_timestamp */
     + 1 /* is private only */
     + 1 /* claimed_first_nullifier */
     + 1 /* claimed_revertible_counter */;
@@ -1374,7 +1374,7 @@ mod test {
     };
 
     #[test]
-    unconstrained fn test_grumpkin_point() {
+    fn test_grumpkin_point() {
         assert_eq(
             super::GRUMPKIN_ONE_X,
             std::embedded_curve_ops::EmbeddedCurvePoint::generator().x,
@@ -1386,7 +1386,7 @@ mod test {
     }
 
     #[test]
-    unconstrained fn test_avm_written_public_data_slots_tree_height() {
+    fn test_avm_written_public_data_slots_tree_height() {
         assert_eq(
             1 << AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT,
             MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX + 1,
@@ -1394,7 +1394,7 @@ mod test {
     }
 
     #[test]
-    unconstrained fn test_avm_retrieved_bytecodes_tree_height() {
+    fn test_avm_retrieved_bytecodes_tree_height() {
         assert(
             1 << AVM_RETRIEVED_BYTECODES_TREE_HEIGHT
                 >= MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS + 1,
@@ -1406,7 +1406,7 @@ mod test {
     }
 
     #[test]
-    unconstrained fn test_side_effect_masking_address() {
+    fn test_side_effect_masking_address() {
         assert(
             (MAX_PROTOCOL_CONTRACTS as Field).lt(SIDE_EFFECT_MASKING_ADDRESS.to_field()),
             "Side effect masking address cannot overlap with protocol contract addresses",
@@ -1414,7 +1414,7 @@ mod test {
     }
 
     #[test]
-    unconstrained fn parity_covers_all_l1_to_l2_msgs() {
+    fn parity_covers_all_l1_to_l2_msgs() {
         assert_eq(
             NUM_BASE_PARITY_PER_ROOT_PARITY * NUM_MSGS_PER_BASE_PARITY,
             NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,

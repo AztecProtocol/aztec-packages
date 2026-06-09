@@ -38,7 +38,8 @@ using tx_context = bb::avm2::tx_context<FF>;
 
 TEST(TxExecutionConstrainingTest, NegativeEmptyTrace)
 {
-    EXPECT_THROW_WITH_MESSAGE(check_relation<tx>(testing::empty_trace()), "START_WITH_SEL");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<tx>(testing::empty_trace()),
+                              tx::get_subrelation_label(tx::SR_START_WITH_SEL));
 }
 
 TEST(TxExecutionConstrainingTest, NegativeEarlyEnd)
@@ -53,7 +54,8 @@ TEST(TxExecutionConstrainingTest, NegativeEarlyEnd)
             { C::tx_sel, 1 },
         },
     });
-    EXPECT_THROW_WITH_MESSAGE(check_relation<tx>(trace, tx::SR_NO_EARLY_END), "NO_EARLY_END");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<tx>(trace, tx::SR_NO_EARLY_END),
+                              tx::get_subrelation_label(tx::SR_NO_EARLY_END));
 }
 
 TEST(TxExecutionConstrainingTest, NegativeNoExtraneousRows)
@@ -72,7 +74,8 @@ TEST(TxExecutionConstrainingTest, NegativeNoExtraneousRows)
             { C::tx_sel, 1 },
         },
     });
-    EXPECT_THROW_WITH_MESSAGE(check_relation<tx>(trace, tx::SR_TRACE_CONTINUITY), "TRACE_CONTINUITY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<tx>(trace, tx::SR_TRACE_CONTINUITY),
+                              tx::get_subrelation_label(tx::SR_TRACE_CONTINUITY));
 }
 
 class TxExecutionConstrainingTestHelper : public ::testing::Test {
@@ -738,30 +741,32 @@ TEST(TxExecutionConstrainingTest, NegativeTreePaddingChecks)
     // Negative test: change note hash root in tree padding
     trace.set(C::tx_next_note_hash_tree_root, 1, 999);
     EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_NOTE_HASH_ROOT_IMMUTABILITY),
-                              "NOTE_HASH_ROOT_IMMUTABILITY");
+                              tx_context::get_subrelation_label(tx_context::SR_NOTE_HASH_ROOT_IMMUTABILITY));
 
     // Negative test: change num emitted note hashes in tree padding
     trace.set(C::tx_next_num_note_hashes_emitted, 1, 999);
     EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_NOTE_HASH_COUNT_IMMUTABILITY),
-                              "NOTE_HASH_COUNT_IMMUTABILITY");
+                              tx_context::get_subrelation_label(tx_context::SR_NOTE_HASH_COUNT_IMMUTABILITY));
 
     // Negative test: change nullifier tree root in tree padding
     trace.set(C::tx_next_nullifier_tree_root, 1, 999);
     EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_NULLIFIER_ROOT_IMMUTABILITY),
-                              "NULLIFIER_ROOT_IMMUTABILITY");
+                              tx_context::get_subrelation_label(tx_context::SR_NULLIFIER_ROOT_IMMUTABILITY));
 
     // Negative test: change num emitted nullifiers in tree padding
     trace.set(C::tx_next_num_nullifiers_emitted, 1, 999);
     EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_NULLIFIER_COUNT_IMMUTABILITY),
-                              "NULLIFIER_COUNT_IMMUTABILITY");
+                              tx_context::get_subrelation_label(tx_context::SR_NULLIFIER_COUNT_IMMUTABILITY));
 
     // Negative test: wrong note hash padding check
     trace.set(C::tx_next_note_hash_tree_size, 1, MAX_NOTE_HASHES_PER_TX - 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<tx>(trace, tx::SR_PAD_NOTE_HASH_TREE), "PAD_NOTE_HASH_TREE");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<tx>(trace, tx::SR_PAD_NOTE_HASH_TREE),
+                              tx::get_subrelation_label(tx::SR_PAD_NOTE_HASH_TREE));
 
     // Negative test: wrong nullifier padding check
     trace.set(C::tx_next_nullifier_tree_size, 1, MAX_NULLIFIERS_PER_TX - 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<tx>(trace, tx::SR_PAD_NULLIFIER_TREE), "PAD_NULLIFIER_TREE");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<tx>(trace, tx::SR_PAD_NULLIFIER_TREE),
+                              tx::get_subrelation_label(tx::SR_PAD_NULLIFIER_TREE));
 }
 
 class TxExecutionConstrainingWithCalldataTest : public TxExecutionConstrainingTestHelper {
@@ -878,11 +883,11 @@ TEST(TxExecutionConstrainingTest, NegativeNullifierStateIncrementIsUnconditional
 
     // Tree size must increment unconditionally.
     EXPECT_THROW_WITH_MESSAGE(check_relation<tx>(trace, tx::SR_NULLIFIER_TREE_SIZE_INCREMENT),
-                              "NULLIFIER_TREE_SIZE_INCREMENT");
+                              tx::get_subrelation_label(tx::SR_NULLIFIER_TREE_SIZE_INCREMENT));
     // Fix tree size, break emitted count.
     trace.set(C::tx_next_nullifier_tree_size, 1, 6);
     EXPECT_THROW_WITH_MESSAGE(check_relation<tx>(trace, tx::SR_NULLIFIER_EMITTED_COUNT_INCREMENT),
-                              "NULLIFIER_EMITTED_COUNT_INCREMENT");
+                              tx::get_subrelation_label(tx::SR_NULLIFIER_EMITTED_COUNT_INCREMENT));
     // Fix emitted count — both should pass now.
     trace.set(C::tx_next_num_nullifiers_emitted, 1, 4);
     check_relation<tx>(trace, tx::SR_NULLIFIER_TREE_SIZE_INCREMENT, tx::SR_NULLIFIER_EMITTED_COUNT_INCREMENT);
@@ -916,7 +921,7 @@ TEST(TxExecutionConstrainingTest, MaxNullifierWritesReachedForcesReverted)
     // Mutate: prover tries to skip the revert despite being at the limit.
     trace.set(C::tx_reverted, 1, 0);
     EXPECT_THROW_WITH_MESSAGE(check_relation<tx>(trace, tx::SR_MAX_NULLIFIER_WRITES_REACHED),
-                              "MAX_NULLIFIER_WRITES_REACHED");
+                              tx::get_subrelation_label(tx::SR_MAX_NULLIFIER_WRITES_REACHED));
 }
 
 // A malicious prover cannot toggle `reverted = 1` when REMAINING_NULLIFIER_WRITES > 0:
@@ -949,7 +954,7 @@ TEST(TxExecutionConstrainingTest, NegativeCannotRevertWhenNullifierWritesAvailab
     // Mutate: prover maliciously toggles reverted = 1 despite slots remaining.
     trace.set(C::tx_reverted, 1, 1);
     EXPECT_THROW_WITH_MESSAGE(check_relation<tx>(trace, tx::SR_MAX_NULLIFIER_WRITES_REACHED),
-                              "MAX_NULLIFIER_WRITES_REACHED");
+                              tx::get_subrelation_label(tx::SR_MAX_NULLIFIER_WRITES_REACHED));
 }
 
 } // namespace bb::avm2::constraining

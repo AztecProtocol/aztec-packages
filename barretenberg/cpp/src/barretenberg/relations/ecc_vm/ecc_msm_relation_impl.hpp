@@ -633,6 +633,11 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     std::get<MSM_PC_CONTINUITY>(accumulator) +=
         is_not_first_row * active_phase * (-msm_transition_shift + 1) * (pc_shift - pc) * scaling_factor;
 
+    // Pin `msm_pc` across consecutive SKEW rows of a segment. The skew round spans `ceil(msm_size/4)`
+    // rows; for msm_size >= 9 it has interior skew rows that `MSM_PC_CONTINUITY` leaves free (its
+    // `active_phase` excludes q_skew, and `MSM_TRANSITION_PC` only pins the last skew row).
+    std::get<MSM_PC_SKEW_CONTINUITY>(accumulator) += q_skew * q_skew_shift * (pc_shift - pc) * scaling_factor;
+
     // Addition continuity checks
     // We want to RULE OUT the following scenarios:
     // Case 1: add2 = 1, add1 = 0

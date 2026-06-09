@@ -4,7 +4,11 @@ import type { AppTaggingSecret } from '@aztec/stdlib/logs';
 
 import type { SenderTaggingStore } from '../../storage/tagging_store/sender_tagging_store.js';
 import { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN } from '../constants.js';
-import { getStatusChangeOfPending } from './utils/get_status_change_of_pending.js';
+import {
+  EMPTY_STATUS_CHANGE,
+  getStatusChangeOfPending,
+  mergeStatusChanges,
+} from './utils/get_status_change_of_pending.js';
 import { loadAndStoreNewTaggingIndexes } from './utils/load_and_store_new_tagging_indexes.js';
 
 /**
@@ -51,36 +55,55 @@ export async function syncSenderTaggingIndexes(
   let newFinalizedIndex = undefined;
 
   while (true) {
-    // Load and store indexes for the current window. These indexes may already exist in the database if txs using
-    // them were previously sent from this PXE. Any duplicates are handled by the tagging data provider.
-    await loadAndStoreNewTaggingIndexes(secret, start, end, aztecNode, taggingStore, anchorBlockHash, jobId);
+    // Pending tx hashes already in the store for this window (from prior syncs or txs this PXE itself sent).
+    // Reading these before issuing any RPC lets us fetch their receipts in parallel with the logs query below.
+    const knownPendingTxHashes = await taggingStore.getTxHashesOfPendingIndexes(secret, start, end, jobId);
 
-    // Retrieve all indexes within the current window from storage and update their status accordingly.
-    const pendingTxHashes = await taggingStore.getTxHashesOfPendingIndexes(secret, start, end, jobId);
-    if (pendingTxHashes.length === 0) {
+    // Fire the logs query and the known-pending receipts query in parallel
+    const [, statusOfKnown] = await Promise.all([
+      loadAndStoreNewTaggingIndexes(secret, start, end, aztecNode, taggingStore, anchorBlockHash, jobId),
+      knownPendingTxHashes.length > 0
+        ? getStatusChangeOfPending(knownPendingTxHashes, aztecNode)
+        : Promise.resolve(EMPTY_STATUS_CHANGE),
+    ]);
+
+    // Re-read pending tx hashes after the logs query writes any newly-discovered ones to the store.
+    const allPendingTxHashes = await taggingStore.getTxHashesOfPendingIndexes(secret, start, end, jobId);
+    if (allPendingTxHashes.length === 0) {
       break;
     }
 
-    const { txHashesToFinalize, txHashesToDrop, txHashesWithExecutionReverted } = await getStatusChangeOfPending(
-      pendingTxHashes,
-      aztecNode,
+    // Receipts for pending tx hashes that the logs query just surfaced still need a sequential follow-up call.
+    // `storePendingIndexes` is idempotent on (secret, txHash), so a re-discovered hash stays classified as known
+    // and is not re-fetched here.
+    const knownSet = new Set(knownPendingTxHashes.map(h => h.toString()));
+    const newPendingTxHashes = allPendingTxHashes.filter(h => !knownSet.has(h.toString()));
+
+    const statusOfNew =
+      newPendingTxHashes.length > 0
+        ? await getStatusChangeOfPending(newPendingTxHashes, aztecNode)
+        : EMPTY_STATUS_CHANGE;
+
+    const { txHashesToFinalize, txHashesToDrop, txHashesWithExecutionReverted } = mergeStatusChanges(
+      statusOfKnown,
+      statusOfNew,
     );
 
     await taggingStore.dropPendingIndexes(txHashesToDrop, jobId);
     await taggingStore.finalizePendingIndexes(txHashesToFinalize, jobId);
 
     if (txHashesWithExecutionReverted.length > 0) {
-      const indexedTxEffects = await Promise.all(
-        txHashesWithExecutionReverted.map(txHash => aztecNode.getTxEffect(txHash)),
+      const receipts = await Promise.all(
+        txHashesWithExecutionReverted.map(txHash => aztecNode.getTxReceipt(txHash, { includeTxEffect: true })),
       );
-      for (const indexedTxEffect of indexedTxEffects) {
-        if (indexedTxEffect === undefined) {
+      for (const receipt of receipts) {
+        if (!receipt.isMined() || !receipt.txEffect) {
           throw new Error(
             'TxEffect not found for execution-reverted tx. This is either a bug or a reorg has occurred.',
           );
         }
 
-        await taggingStore.finalizePendingIndexesOfAPartiallyRevertedTx(indexedTxEffect.data, jobId);
+        await taggingStore.finalizePendingIndexesOfAPartiallyRevertedTx(receipt.txEffect, jobId);
       }
     }
 

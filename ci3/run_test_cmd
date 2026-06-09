@@ -50,12 +50,13 @@ if [ "$CI" -eq 1 ]; then
     track_test_history=1
   fi
 
-  # Notify on flakes if in merge queue, backport-to-v2-staging, or merge-train/spartan.
-  # merge-train/spartan runs its full test suite on pull_request (via ci-full-no-test-cache),
-  # not just merge_group, so without this case the spartan PR's flakes are never reported.
+  # Notify on flakes if in merge queue, backport-to-v2-staging, or a spartan merge-train.
+  # The spartan trains run their full test suite on pull_request (via ci-full-no-test-cache),
+  # not just merge_group, so without these cases the spartan PR's flakes are never reported.
   [[ "$is_merge_queue" -eq 1 \
       || "$REF_NAME" == "backport-to-v2-staging" \
-      || "$REF_NAME" == "merge-train/spartan" ]] && slack_notify_flake=1
+      || "$REF_NAME" == "merge-train/spartan" \
+      || "$REF_NAME" == "merge-train/spartan-v5" ]] && slack_notify_flake=1
 
   # Notify on fails for scenario tests.
   [[ ${SCENARIO_TESTS:-0} -eq 1 ]] && slack_notify_fail=1
@@ -83,7 +84,8 @@ test_hash=$(hash_str_orig "$test_cmd")
 
 # We can skip the test if it's already been successfully run.
 # We actually pre-filter tests in CI runs so this is rarely hit.
-if [ "${USE_TEST_CACHE:-0}" -eq 1 ]; then
+# Commands marked 'disabled-cache' must never be served a cached result (mirrors filter_cached_test_cmd).
+if [ "${USE_TEST_CACHE:-0}" -eq 1 ] && [[ "$cmd" != *disabled-cache* ]]; then
   log_key=$(redis_cli GET $key)
   if [ -n "$log_key" ]; then
     log_info=" ($(ci_term_link $log_key))"
@@ -353,7 +355,7 @@ function flake_slack_channel {
   fi
   local channel=""
   case "$head_branch" in
-    merge-train/spartan) channel="#team-alpha-ci" ;;
+    merge-train/spartan | merge-train/spartan-v5) channel="#team-alpha-ci" ;;
   esac
   echo "$channel" > "$cache"
   echo "$channel"

@@ -6,7 +6,7 @@ on:
   workflow_call:
     inputs:
       network:
-        description: "Network to deploy (e.g., staging-public, testnet, next-net)"
+        description: "Network to deploy (e.g., staging, testnet, next-net)"
         required: true
         type: string
       semver:
@@ -17,6 +17,15 @@ on:
         description: "Full Aztec docker image (e.g., aztecprotocol/aztec:2.3.4). If not set, constructed from semver."
         required: false
         type: string
+      prover_docker_image:
+        description: "Full Prover docker image URL. If not set defaults to aztec_docker_image."
+        required: false
+        type: string
+      use_internal_docker_registry:
+        description: "Construct Aztec docker images from INTERNAL_DOCKER_REGISTRY and semver."
+        required: false
+        type: boolean
+        default: false
       ref:
         description: "Git ref to checkout"
         required: false
@@ -46,12 +55,12 @@ on:
   workflow_dispatch:
     inputs:
       network:
-        description: "Network to deploy (e.g., staging-public, testnet, next-net)"
+        description: "Network to deploy (e.g., staging, testnet, next-net)"
         required: true
         type: choice
         options:
           - next-net
-          - staging-public
+          - staging
           - testnet
           - mainnet
       semver:
@@ -62,6 +71,15 @@ on:
         description: "Full Aztec docker image (e.g., aztecprotocol/aztec:2.3.4). If not set, constructed from semver."
         required: false
         type: string
+      prover_docker_image:
+        description: "Full Prover docker image URL. If not set defaults to aztec_docker_image."
+        required: false
+        type: string
+      use_internal_docker_registry:
+        description: "Construct Aztec docker images from INTERNAL_DOCKER_REGISTRY and semver."
+        required: false
+        type: boolean
+        default: false
       namespace:
         description: "Kubernetes namespace override (optional, defaults to env file value)"
         required: false
@@ -108,7 +126,7 @@ jobs:
           fi
 
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           ref: ${{ steps.checkout-ref.outputs.ref }}
           # Full history so recursive submodules can checkout pinned commits (not only branch tips).
@@ -123,6 +141,8 @@ jobs:
           node-version: 22
 
       - name: Validate inputs
+        env:
+          INTERNAL_DOCKER_REGISTRY: ${{ secrets.INTERNAL_DOCKER_REGISTRY }}
         run: |
           # Validate network
           if [[ ! -f "spartan/environments/${{ inputs.network }}.env" ]]; then
@@ -146,27 +166,41 @@ jobs:
             fi
           fi
 
-          # Resolve the docker image
-          if [[ -n "${{ inputs.aztec_docker_image }}" ]]; then
-            AZTEC_DOCKER_IMAGE="${{ inputs.aztec_docker_image }}"
-          else
-            AZTEC_DOCKER_IMAGE="aztecprotocol/aztec:${{ inputs.semver }}"
+          if [[ "${{ inputs.use_internal_docker_registry }}" == "true" && -z "${{ inputs.semver }}" ]]; then
+            echo "Error: semver must be provided when use_internal_docker_registry is true"
+            exit 1
           fi
-          echo "AZTEC_DOCKER_IMAGE=$AZTEC_DOCKER_IMAGE" >> $GITHUB_ENV
 
-          # Use the CRS-baked prover-agent image when it exists; otherwise let the
-          # deploy script fall back to AZTEC_DOCKER_IMAGE and download CRS on startup.
-          if [[ -n "${{ inputs.semver }}" ]]; then
-            PROVER_AGENT_DOCKER_IMAGE="aztecprotocol/aztec-prover-agent:${{ inputs.semver }}"
+          # Resolve the docker image
+          AZTEC_DOCKER_IMAGE="${{ inputs.aztec_docker_image }}"
+          PROVER_AGENT_DOCKER_IMAGE="${{ inputs.prover_docker_image }}"
+          INTERNAL_REGISTRY_BASE_URL=""
 
-            echo "Checking if prover agent image exists: $PROVER_AGENT_DOCKER_IMAGE"
-            if docker manifest inspect "$PROVER_AGENT_DOCKER_IMAGE" > /dev/null 2>&1; then
-              echo "PROVER_AGENT_DOCKER_IMAGE=$PROVER_AGENT_DOCKER_IMAGE" >> $GITHUB_ENV
+          if [[ "${{ inputs.use_internal_docker_registry }}" == "true" ]]; then
+            INTERNAL_REGISTRY_BASE_URL="${INTERNAL_DOCKER_REGISTRY%/}"
+            echo "::add-mask::$INTERNAL_REGISTRY_BASE_URL"
+          fi
+
+          if [[ -z "$AZTEC_DOCKER_IMAGE" ]]; then
+            if [[ -n "$INTERNAL_REGISTRY_BASE_URL" ]]; then
+              AZTEC_DOCKER_IMAGE="$INTERNAL_REGISTRY_BASE_URL/aztec:${{ inputs.semver }}"
+              echo "::add-mask::$AZTEC_DOCKER_IMAGE"
             else
-              echo "Prover agent image does not exist: $PROVER_AGENT_DOCKER_IMAGE"
-              echo "Falling back to AZTEC_DOCKER_IMAGE for prover agents."
+              AZTEC_DOCKER_IMAGE="aztecprotocol/aztec:${{ inputs.semver }}"
             fi
           fi
+
+          if [[ -z "$PROVER_AGENT_DOCKER_IMAGE" ]]; then
+            if [[ -n "$INTERNAL_REGISTRY_BASE_URL" ]]; then
+              PROVER_AGENT_DOCKER_IMAGE="$INTERNAL_REGISTRY_BASE_URL/aztec-prover-agent:${{ inputs.semver }}"
+              echo "::add-mask::$PROVER_AGENT_DOCKER_IMAGE"
+            elif [[ -z "${{ inputs.aztec_docker_image }}" && -n "${{ inputs.semver }}" ]]; then
+              PROVER_AGENT_DOCKER_IMAGE="aztecprotocol/aztec-prover-agent:${{ inputs.semver }}"
+            fi
+          fi
+
+          echo "AZTEC_DOCKER_IMAGE=$AZTEC_DOCKER_IMAGE" >> $GITHUB_ENV
+          echo "PROVER_AGENT_DOCKER_IMAGE=$PROVER_AGENT_DOCKER_IMAGE" >> $GITHUB_ENV
 
       - name: Store the GCP key in a file
         env:

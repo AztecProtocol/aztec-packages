@@ -99,6 +99,9 @@ resource "kubernetes_job_v1" "deploy_rollup_contracts" {
 
       spec {
         restart_policy = "Never"
+        node_selector = {
+          "node-type" = "network"
+        }
 
         container {
           name              = "deploy-rollup-contracts"

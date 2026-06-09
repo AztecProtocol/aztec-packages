@@ -337,35 +337,50 @@ function start_txes {
   # Until Kev's kzg lib stops using Tokio.
   export TOKIO_WORKER_THREADS=1
 
-  # Starting txe servers with incrementing port numbers.
-  # Base port is below the Linux ephemeral range (32768-60999) to avoid conflicts.
-  local txe_base_port=14730
-  for i in $(seq 0 $((NUM_TXES-1))); do
-    port=$((txe_base_port + i))
-    existing_pid=$(lsof -ti :$port || true)
+  kill_port() {
+    local port=$1
+    local existing_pid=$(lsof -ti :$port || true)
     if [ -n "$existing_pid" ]; then
       echo "Killing existing process $existing_pid on port: $port"
       check_port $port
       kill -9 $existing_pid &>/dev/null || true
       while kill -0 $existing_pid &>/dev/null; do sleep 0.1; done
     fi
+  }
+
+  # Starting txe servers with incrementing port numbers.
+  # Base port is below the Linux ephemeral range (32768-60999) to avoid conflicts.
+  local txe_base_port=14730
+  for i in $(seq 0 $((NUM_TXES-1))); do
+    port=$((txe_base_port + i))
+    kill_port $port
     dump_fail "LOG_LEVEL=info TXE_PORT=$port retry 'node --no-warnings ./yarn-project/txe/dest/bin/index.js'" &
     txe_pids+="$! "
   done
 
-  echo "Waiting for TXE's to start..."
+  # Start the oracle test resolver for __oracle_test__-prefixed tests.
+  local resolver_port=14830
+  kill_port $resolver_port
+  dump_fail "LOG_LEVEL=error ORACLE_TEST_PORT=$resolver_port node --no-warnings ./yarn-project/txe/dest/bin/oracle_test_server.js" &
+  txe_pids+="$! "
+
+  wait_for_port() {
+    local port=$1 name=$2 j=0
+    echo "Waiting for $name to start..."
+    while ! nc -z 127.0.0.1 $port &>/dev/null; do
+      if [ $j == 60 ]; then
+        echo_stderr "$name failed to start on port $port after 60s."
+        check_port $port
+        exit 1
+      fi
+      sleep 1
+      j=$((j+1))
+    done
+  }
   for i in $(seq 0 $((NUM_TXES-1))); do
-      local j=0
-      while ! nc -z 127.0.0.1 $((txe_base_port + i)) &>/dev/null; do
-        if [ $j == 60 ]; then
-          echo_stderr "TXE $i failed to start on port $((txe_base_port + i)) after 60s."
-          check_port $((txe_base_port + i))
-          exit 1
-        fi
-        sleep 1
-        j=$((j+1))
-      done
+    wait_for_port $((txe_base_port + i)) "TXE $i"
   done
+  wait_for_port $resolver_port "oracle test resolver"
 }
 
 function stop_txes {
@@ -515,6 +530,17 @@ function release {
   echo_header "release all"
   set -x
 
+  # A private release publishes only to our internal GCP Artifact Registry (the docker image and our
+  # npm packages) — see private_release. ci3_labels_to_env.sh sets PRIVATE_RELEASE for every release in
+  # the private repo; we ALSO backstop on the repo name here so the public release flow (DockerHub,
+  # npmjs, crates.io, github) can never run in the private fork, even if that env var is missing or this
+  # is invoked outside ci3.yml.
+  if [ "${PRIVATE_RELEASE:-0}" = 1 ] ||
+     [ "$(printf '%s' "${GITHUB_REPOSITORY:-}" | tr 'A-Z' 'a-z')" = "aztecprotocol/aztec-packages-private" ]; then
+    private_release
+    return
+  fi
+
   # Ensure we have a github release in AztecProtocol/barretenberg for bb artifacts.
   # Users can create aztec-packages releases manually via the GitHub "Create a release" button.
   release_bb_github
@@ -545,6 +571,165 @@ function release {
 
 function release_dryrun {
   DRY_RUN=1 release
+}
+
+function private_release {
+  # Release flow for the private repo, run on a (nightly) ci-private-release PR. We publish only to our
+  # internal GCP Artifact Registry: the docker image (release-image -> INTERNAL_DOCKER_REGISTRY that
+  # GKE/staging pulls from) and the npm packages (barretenberg/ts, noir, yarn-project -> the
+  # INTERNAL_NPM_REGISTRY npm repo). We run the release step for real on exactly those components and do
+  # not invoke the others — the remaining release sources publish public artifacts (github releases,
+  # crates.io, the aztec-up/playground S3 installers) and are not interrelated with these.
+  echo_header "private release"
+
+  # Default to the private staging Artifact Registry; override via the INTERNAL_*_REGISTRY env vars.
+  # Exported so the child project bootstraps and gcp_artifact_login inherit them.
+  export INTERNAL_DOCKER_REGISTRY=${INTERNAL_DOCKER_REGISTRY:-us-west1-docker.pkg.dev/testnet-440309/aztec}
+  export INTERNAL_NPM_REGISTRY=${INTERNAL_NPM_REGISTRY:-https://us-west1-npm.pkg.dev/testnet-440309/aztec-npm}
+
+  # Activate the CI service account (gcp_artifact_login registers the docker credential helper and
+  # activates the SA globally) and mint a short-lived access token for npm auth against the AR npm repo.
+  ci3/gcp_artifact_login
+  set +x  # Never echo the access token.
+  export NPM_TOKEN=$(gcloud auth print-access-token)
+  # Route our scope to the internal npm registry; public deps still resolve from the default registry
+  # (npmjs), so publishes and yarn-project's install smoke-test both work. Everything we publish is
+  # @aztec-scoped — the noir packages are renamed @noir-lang/* -> @aztec/noir-* on release. Exported so
+  # deploy_npm and that smoke-test share one config.
+  local npmrc reg
+  reg="${INTERNAL_NPM_REGISTRY%/}/"
+  npmrc=$(mktemp)
+  (umask 077; {
+    echo "@aztec:registry=$reg"
+    echo "${reg#https:}:_authToken=\${NPM_TOKEN}"
+  } > "$npmrc")
+  export NPM_CONFIG_GLOBALCONFIG="$npmrc"
+  set -x
+
+  # Mirror external @aztec-scoped fork dependencies (e.g. the vendored "viem": "npm:@aztec/viem@x")
+  # from public npm into our internal registry. Because we scope ALL of @aztec to the internal registry,
+  # these forks — which we don't build/publish ourselves — must also live there, or installs of our
+  # published packages 404 (this is what yarn-project's release smoke-test exercises). amd64 only; the
+  # registry is shared across arches.
+  if [ "$(arch)" != arm64 ]; then
+    local spec name ver td
+    for spec in $(grep -rhoE 'npm:@aztec/[a-zA-Z0-9_.-]+@[0-9][^"]*' yarn-project --include=package.json \
+                  | sed 's/^npm://' | sort -u); do
+      name="${spec%@*}"; ver="${spec##*@}"
+      if npm view "${name}@${ver}" version >/dev/null 2>&1; then
+        echo "Mirror: ${spec} already present in internal registry; skipping."
+        continue
+      fi
+      echo "Mirror: copying ${spec} from public npm to internal registry."
+      td=$(mktemp -d)
+      # Override the @aztec scope registry for the fetch (our .npmrc points @aztec at the internal
+      # registry, which doesn't have the fork yet); publish then uses the inherited @aztec->internal config.
+      npm pack "${spec}" --@aztec:registry=https://registry.npmjs.org/ --pack-destination "$td" --quiet
+      npm publish "$td"/*.tgz
+      rm -rf "$td"
+    done
+  fi
+
+  # Publish for real, in dependency order: bb.js and the noir packages must be on the registry before
+  # yarn-project's release smoke-tests installing the @aztec packages that depend on them. npm packages
+  # are platform-independent, so only the docker image is published on arm64.
+  local publish=(barretenberg/ts noir yarn-project release-image)
+  if [ $(arch) == arm64 ]; then
+    publish=(release-image)
+  fi
+  for project in "${publish[@]}"; do
+    $project/bootstrap.sh release
+  done
+}
+
+function release_compat_e2e {
+  # Runs e2e tests with contract artifacts from every prior stable release since 4.2.0 (the version
+  # where we committed to backwards compatibility). Validates that old contract artifacts work on the
+  # current release. Blocking for stable/RC releases; observational (non-blocking) for nightlies.
+  # Set SKIP_COMPAT_E2E=1 to bypass (escape hatch via the ci-skip-compat-e2e label).
+  if [ "${SKIP_COMPAT_E2E:-0}" = "1" ]; then
+    echo "SKIP_COMPAT_E2E=1, skipping backwards compatibility e2e tests."
+    return 0
+  fi
+
+  # Compat e2e only runs on amd64 — the arm64 release job just builds and publishes release-image.
+  if [ "$(arch)" == arm64 ]; then
+    echo "Skipping backwards compatibility e2e tests on arm64 (amd64 only)."
+    return 0
+  fi
+
+  # TODO: bump when v5 commits to backwards-compatible contract artifacts.
+  #   compat_major:       major version that has compat guarantees today.
+  #   compat_min_version: earliest stable tag of that major to test against
+  #                       (artifacts before this are incompatible due to oracle interface changes).
+  local compat_major="4"
+  local compat_min_version="4.2.0"
+
+  local current_version major
+  current_version=$(jq -r '."."' .release-please-manifest.json)
+  major=$(semver major "$current_version")
+  if [ "$major" != "$compat_major" ]; then
+    echo "Compat e2e tests only apply to v${compat_major}. Current major: v${major}. Skipping."
+    return 0
+  fi
+
+  # Fetch tags (EC2 clone may not have them). Fail loud: a silent fetch failure plus an empty
+  # tag list would publish a real release with zero compat coverage.
+  if ! git fetch origin 'refs/tags/v*:refs/tags/v*'; then
+    echo "ERROR: failed to fetch release tags." >&2
+    return 1
+  fi
+
+  # Discover stable tags for this major version (no prerelease suffixes).
+  local versions=()
+  local tag ver
+  while IFS= read -r tag; do
+    ver=${tag#v}
+    # Include only versions >= compat_min_version (sort -V puts smaller first).
+    if [ "$(printf '%s\n%s' "$compat_min_version" "$ver" | sort -V | head -1)" = "$compat_min_version" ]; then
+      versions+=("$ver")
+    fi
+  done < <(git tag -l "v${major}.*" | grep -E "^v[0-9]+\.[0-9]+\.[0-9]+$" | sort -V)
+
+  # Exclude the current tag when running on a release tag push.
+  if [[ "${REF_NAME:-}" =~ ^v?([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+    local current_tag="${BASH_REMATCH[1]}"
+    local filtered=()
+    local v
+    for v in "${versions[@]}"; do
+      [ "$v" != "$current_tag" ] && filtered+=("$v")
+    done
+    versions=("${filtered[@]}")
+  fi
+
+  if [ ${#versions[@]} -eq 0 ]; then
+    echo "No prior stable versions found for v${major}.x (>= $compat_min_version). Skipping compat tests."
+    return 0
+  fi
+
+  echo_header "Backwards compatibility e2e tests"
+  echo "Testing against ${#versions[@]} prior stable version(s): ${versions[*]}"
+
+  # Pre-populate the legacy contract cache on the host. Test containers run with --net=none, so the
+  # jest resolver's on-demand npm install would fail with EAI_AGAIN. Install here where we have network.
+  for ver in "${versions[@]}"; do
+    node yarn-project/end-to-end/src/install_legacy_contracts.cjs "$ver"
+  done
+
+  # Build and run the compat test commands in an isolated subshell so the bespoke test settings
+  # (no test cache, no fast-fail short-circuit) don't leak into the release build/publish that follows.
+  # set -e re-enables errexit inside this subshell: the caller invokes release_compat_e2e with errexit
+  # disabled (to capture its exit code), so without this a failed build/install would be masked.
+  (
+    set -e
+    export USE_TEST_CACHE=0
+    export CI_FULL=0
+    export NO_FAIL_FAST=1
+    build
+    for ver in "${versions[@]}"; do
+      yarn-project/end-to-end/bootstrap.sh compat_test_cmds "$ver"
+    done | filter_test_cmds | parallelize
+  )
 }
 
 ### SELF TESTING #######################################################################################################
@@ -846,26 +1031,39 @@ case "$cmd" in
   # RELEASES #
   ############
   "ci-release")
-    # Verification build for a release tag. Does NOT publish — publishing happens in
-    # ci-release-publish, gated on ci-compat-e2e so a compat regression blocks the release.
+    # Single command that tests and publishes a release. Runs the backwards-compatibility e2e
+    # checks (blocking for stable/RC, observational for nightlies), then builds and publishes.
+    # DRY_RUN=1 exercises the whole flow without publishing — this is how releases are tested in CI.
     export CI=1
     export USE_TEST_CACHE=1
     if ! semver check $REF_NAME; then
       exit 1
     fi
-    build
-    ;;
-  "ci-release-publish")
-    # Actual publish step. `build` cache-hits against ci-release's build of the same commit.
-    export CI=1
-    export USE_TEST_CACHE=1
-    if ! semver check $REF_NAME; then
-      exit 1
+
+    # Backwards-compatibility e2e checks. A failure blocks stable/RC releases, but only warns on
+    # nightlies (where compat coverage is observational) so the nightly publish still proceeds.
+    # Toggle errexit explicitly rather than `release_compat_e2e || compat_rc=$?`: calling under `||`
+    # suspends errexit for the whole function (and its subshell), masking build/setup failures there.
+    compat_rc=0
+    set +e
+    release_compat_e2e
+    compat_rc=$?
+    set -e
+    if [ "$compat_rc" -ne 0 ]; then
+      if [[ "${REF_NAME:-}" == *-nightly.* ]]; then
+        run_url="https://github.com/${GITHUB_REPOSITORY:-AztecProtocol/aztec-packages}/actions/runs/${RUN_ID:-unknown}"
+        "$ci3/slack_notify" "Backwards compatibility e2e tests FAILED on nightly tag <${run_url}|${REF_NAME}>" "#team-fairies" || true
+        echo "Compat e2e failed on nightly tag — continuing (non-blocking)."
+      else
+        echo "ERROR: backwards compatibility e2e tests failed — blocking release." >&2
+        exit 1
+      fi
     fi
+
     if [[ "$(semver prerelease $REF_NAME)" == private* ]]; then
       echo_header "Private fork release: $REF_NAME"
       echo "Creating GitHub release from public repo context (COMMIT_HASH=$COMMIT_HASH)..."
-      release_github
+      release_bb_github
       echo "Fetching private source from aztec-packages-private..."
       git remote add private "https://x-access-token:${GITHUB_TOKEN}@github.com/AztecProtocol/aztec-packages-private.git"
       git fetch --depth 1 private "refs/tags/$REF_NAME"
@@ -879,6 +1077,23 @@ case "$cmd" in
       unset COMMIT_HASH root
     fi
     ./bootstrap.sh build release
+    ./bootstrap.sh release
+    ;;
+
+  "ci-private-release")
+    # Local/dev entrypoint for the PRIVATE_RELEASE flow (see private_release): dry-run every project
+    # except release-image, then publish release-image for real to the internal GCP Artifact Registry.
+    # Same publishing path the private-release.yml workflow runs, minus EC2 and the compat-e2e gating.
+    # Build first so the release-image (and the artifacts the dry-runs pack) exist; set SKIP_BUILD=1 to
+    # reuse an existing build. Requires INTERNAL_DOCKER_REGISTRY + GCP creds (GCP_SA_KEY or
+    # GOOGLE_APPLICATION_CREDENTIALS) in the environment.
+    export CI=${CI:-1}
+    export PRIVATE_RELEASE=1
+    export REF_NAME=${REF_NAME:-v0.0.1-commit.$(git rev-parse --short HEAD)}
+    # Local convenience: default GCP creds to ~/sa.json (the CI service-account key) when present.
+    [ -z "${GCP_SA_KEY:-}" ] && [ -z "${GOOGLE_APPLICATION_CREDENTIALS:-}" ] && [ -f "$HOME/sa.json" ] && \
+      export GOOGLE_APPLICATION_CREDENTIALS="$HOME/sa.json"
+    [ "${SKIP_BUILD:-0}" = 1 ] || ./bootstrap.sh build release
     ./bootstrap.sh release
     ;;
 
@@ -936,82 +1151,6 @@ case "$cmd" in
     build
     yarn-project/end-to-end/bootstrap.sh avm_check_circuit
     ;;
-  #############################################
-  # BACKWARDS COMPATIBILITY E2E TESTS         #
-  #############################################
-  "ci-compat-e2e")
-    # Runs e2e tests with contract artifacts from every prior stable release since 4.2.0 (version where we committed to
-    # backwards compatibility). This Validates that old contract artifacts work on current release.
-    export CI=1
-    export USE_TEST_CACHE=0
-    export CI_FULL=0
-    export NO_FAIL_FAST=1
-
-    build
-
-    # TODO: bump when v5 commits to backwards-compatible contract artifacts.
-    #   compat_major:       major version that has compat guarantees today.
-    #   compat_min_version: earliest stable tag of that major to test against
-    #                       (artifacts before this are incompatible due to oracle interface changes).
-    compat_major="4"
-    compat_min_version="4.2.0"
-
-    # Get current major version.
-    current_version=$(jq -r '."."' .release-please-manifest.json)
-    major=$(semver major "$current_version")
-    if [ "$major" != "$compat_major" ]; then
-      echo "Compat e2e tests only apply to v${compat_major}. Current major: v${major}. Skipping."
-      exit 0
-    fi
-    min_version="$compat_min_version"
-
-    # Fetch tags (EC2 clone may not have them). Fail loud: a silent fetch failure plus an empty
-    # tag list would publish a real release with zero compat coverage.
-    if ! git fetch origin 'refs/tags/v*:refs/tags/v*'; then
-      echo "ERROR: failed to fetch release tags." >&2
-      exit 1
-    fi
-
-    # Discover stable tags for this major version (no prerelease suffixes).
-    versions=()
-    while IFS= read -r tag; do
-      ver=${tag#v}
-      # Include only versions >= min_version (sort -V puts smaller first).
-      if [ "$(printf '%s\n%s' "$min_version" "$ver" | sort -V | head -1)" = "$min_version" ]; then
-        versions+=("$ver")
-      fi
-    done < <(git tag -l "v${major}.*" | grep -E "^v[0-9]+\.[0-9]+\.[0-9]+$" | sort -V)
-
-    # Exclude the current tag when running on a release tag push.
-    if [[ "${REF_NAME:-}" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
-      current_tag="${BASH_REMATCH[1]}"
-      filtered=()
-      for v in "${versions[@]}"; do
-        [ "$v" != "$current_tag" ] && filtered+=("$v")
-      done
-      versions=("${filtered[@]}")
-    fi
-
-    if [ ${#versions[@]} -eq 0 ]; then
-      echo "No prior stable versions found for v${major}.x (>= $min_version). Skipping compat tests."
-      exit 0
-    fi
-
-    echo_header "Backwards compatibility e2e tests"
-    echo "Testing against ${#versions[@]} prior stable version(s): ${versions[*]}"
-
-    # Pre-populate the legacy contract cache on the host. Test containers run with --net=none, so the
-    # jest resolver's on-demand npm install would fail with EAI_AGAIN. Install here where we have network.
-    for ver in "${versions[@]}"; do
-      node yarn-project/end-to-end/src/install_legacy_contracts.cjs "$ver"
-    done
-
-    # Generate compat test commands for all versions and run them in parallel.
-    for ver in "${versions[@]}"; do
-      yarn-project/end-to-end/bootstrap.sh compat_test_cmds "$ver"
-    done | filter_test_cmds | parallelize
-    ;;
-
   ##########################################
   # ROLLUP UPGRADE DEPLOYMENT              #
   ##########################################

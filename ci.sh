@@ -36,9 +36,9 @@ function print_usage {
   echo_cmd "network-teardown"      "Spin up an EC2 instance to teardown a network deployment."
   echo_cmd "network-tests-kind"    "Spin up an EC2 instance to run a KIND-based spartan test."
   echo_cmd "deploy-rollup-upgrade" "Spin up an EC2 instance to deploy a rollup upgrade."
-  echo_cmd "compat-e2e"            "Spin up an EC2 instance and run backwards compat e2e tests."
   echo_cmd "chonk-input-update"    "Spin up an EC2 instance to update pinned Chonk IVC inputs and push the diff."
   echo_cmd "release"               "Spin up an EC2 instance and run bootstrap release."
+  echo_cmd "ci-private-release"     "Locally dry-run the release of every project except release-image, then publish release-image to the internal GCP Artifact Registry."
   echo_cmd "shell-new"             "Spin up an EC2 instance, clone the repo, and drop into a shell."
   echo_cmd "shell"                 "Drop into a shell in the current running build instance container."
   echo_cmd "shell-host"            "Drop into a shell in the current running build host."
@@ -166,7 +166,7 @@ case "$cmd" in
       'a1-fast arm64 ci-fast'
     ;;
   merge-queue-heavy)
-    # Heavy merge queue with 10 parallel grind runs, used for merge-train/spartan PRs.
+    # Heavy merge queue with 10 parallel grind runs, used for merge-train/spartan and merge-train/spartan-v5 PRs.
     multi_job_run \
       'x'{1..10}'-full amd64 ci-full-no-test-cache' \
       'a1-fast arm64 ci-fast'
@@ -322,49 +322,29 @@ case "$cmd" in
     bootstrap_ec2 "./bootstrap.sh ci-deploy-rollup-upgrade $*"
     ;;
 
-  ##############################
-  # BACKWARDS COMPATIBILITY   #
-  ##############################
-  compat-e2e)
-    # Spin up an EC2 instance and run backwards compatibility e2e tests
-    # against contract artifacts from prior stable releases.
-    export CI_DASHBOARD="releases"
-    export JOB_ID="x-compat-e2e"
-    export AWS_SHUTDOWN_TIME=60
-    rc=0
-    bootstrap_ec2 "./bootstrap.sh ci-compat-e2e" || rc=$?
-    # On nightly tags compat-e2e is non-blocking (continue-on-error in ci3.yml), so
-    # failures otherwise go unnoticed. Notify #team-fairies so they get picked up.
-    if [ "$rc" -ne 0 ] && [[ "${REF_NAME:-}" == *-nightly.* ]]; then
-      run_url="https://github.com/${GITHUB_REPOSITORY:-AztecProtocol/aztec-packages}/actions/runs/${GITHUB_RUN_ID:-unknown}"
-      "$ci3/slack_notify" "Backwards compatibility e2e tests FAILED on nightly tag <${run_url}|${REF_NAME}>" "#team-fairies"
-    fi
-    exit "$rc"
-    ;;
-
   ############
   # RELEASES #
   ############
   release)
-    # Spin up ec2 instance and run the release-tag verification build (no publish).
+    # Spin up ec2 instances (amd64 + arm64) and run the full release flow: backwards-compat e2e
+    # checks, build, and publish. Set DRY_RUN=1 to exercise the whole flow without publishing.
     export CI_DASHBOARD="releases"
+    # Roomier instance lifetime than a standard run: the amd64 job builds, runs the backwards-compat
+    # e2e suite, and then publishes, which together exceed the default 75 min shutdown.
+    export AWS_SHUTDOWN_TIME=${AWS_SHUTDOWN_TIME:-180}
     multi_job_run \
       'x-release amd64 ci-release' \
       'a-release arm64 ci-release'
     ;;
-  release-publish)
-    # Spin up ec2 instance and run the actual publish flow. Gated in ci3.yml on ci + ci-compat-e2e.
-    export CI_DASHBOARD="releases"
-    export DENOISE=1
-    export DENOISE_WIDTH=32
-    run() {
-      PARENT_LOG_ID=$RUN_ID JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh ci-release-publish'"
-    }
-    export -f run
-
-    parallel --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
-      'run x-release-publish amd64' \
-      'run a-release-publish arm64' | DUP=1 cache_log "Release Publish CI run" $RUN_ID
+  ci-private-release)
+    # Run the private release flow LOCALLY (no EC2): dry-run every project except release-image, then
+    # publish release-image for real to the internal GCP Artifact Registry. Override
+    # INTERNAL_DOCKER_REGISTRY / GOOGLE_APPLICATION_CREDENTIALS as needed; SKIP_BUILD=1 reuses a build.
+    export INTERNAL_DOCKER_REGISTRY=${INTERNAL_DOCKER_REGISTRY:-us-west1-docker.pkg.dev/testnet-440309/aztec}
+    # Default to the local SA key if no GCP creds are set (a no-op in CI, where GCP_SA_KEY is used).
+    [ -z "${GCP_SA_KEY:-}" ] && [ -z "${GOOGLE_APPLICATION_CREDENTIALS:-}" ] && [ -f "$HOME/sa.json" ] && \
+      export GOOGLE_APPLICATION_CREDENTIALS="$HOME/sa.json"
+    ./bootstrap.sh ci-private-release
     ;;
 
   ##################

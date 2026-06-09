@@ -3,7 +3,6 @@
 
 #include <string_view>
 
-#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -53,6 +52,7 @@ template <typename FF> class contract_instance_retrieval : public Relation<contr
 
     static std::string get_subrelation_label(size_t index)
     {
+#ifdef AVM_INCLUDE_COLUMN_INFORMATION
         switch (index) {
         case SR_DEPLOYER_PROTOCOL_CONTRACT_ADDRESS_CONSTANT:
             return "DEPLOYER_PROTOCOL_CONTRACT_ADDRESS_CONSTANT";
@@ -83,6 +83,7 @@ template <typename FF> class contract_instance_retrieval : public Relation<contr
         case SR_PROTOCOL_CONTRACT_CLASS_ID_IS_ORIGINAL:
             return "PROTOCOL_CONTRACT_CLASS_ID_IS_ORIGINAL";
         }
+#endif
         return std::to_string(index);
     }
 };

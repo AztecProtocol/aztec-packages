@@ -1,10 +1,11 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
-import type { RollupContract } from '@aztec/ethereum/contracts';
+import type { OutboxContract, RollupContract } from '@aztec/ethereum/contracts';
 import type { ViemPublicClient, ViemPublicDebugClient } from '@aztec/ethereum/types';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { DateProvider } from '@aztec/foundation/timer';
 import type { FunctionsOf } from '@aztec/foundation/types';
 import type { ArchiverEmitter, BlockHash } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
@@ -56,11 +57,13 @@ export class NoopL1Archiver extends Archiver {
     initialHeader: BlockHeader,
     initialBlockHash: BlockHash,
     l2TipsCache: L2TipsCache,
+    dateProvider: DateProvider = new DateProvider(),
   ) {
     // Create mocks for L1 clients
     const publicClient = mock<ViemPublicClient>();
     const debugClient = mock<ViemPublicDebugClient>();
     const rollup = mock<RollupContract>();
+    const outbox = mock<OutboxContract>();
     const blobClient = mock<BlobClientInterface>();
 
     // Mock methods called during start()
@@ -74,6 +77,7 @@ export class NoopL1Archiver extends Archiver {
       publicClient,
       debugClient,
       rollup,
+      outbox,
       {
         rollupAddress: EthAddress.ZERO,
         registryAddress: EthAddress.ZERO,
@@ -89,6 +93,8 @@ export class NoopL1Archiver extends Archiver {
         maxAllowedEthClientDriftSeconds: 300,
         ethereumAllowNoDebugHosts: true, // Skip trace validation
         skipHistoricalLogsCheck: true, // Skip historical logs validation
+        orphanProposedBlockPruneGraceSeconds: 2,
+        enableOrphanProposedBlockPruning: true,
       },
       blobClient,
       instrumentation,
@@ -98,6 +104,7 @@ export class NoopL1Archiver extends Archiver {
       initialHeader,
       initialBlockHash,
       l2TipsCache,
+      dateProvider,
     );
   }
 
@@ -120,6 +127,7 @@ export async function createNoopL1Archiver(
   l1Constants: L1RollupConstants & { genesisArchiveRoot: Fr },
   telemetry: TelemetryClient = getTelemetryClient(),
   initialHeader: BlockHeader,
+  dateProvider?: DateProvider,
 ): Promise<NoopL1Archiver> {
   const instrumentation = await ArchiverInstrumentation.new(telemetry, () => dataStores.db.estimateSize());
   // Mirror the production factory: precompute the dynamic genesis block hash from the injected
@@ -128,5 +136,13 @@ export async function createNoopL1Archiver(
   // with default empty genesis.
   const initialBlockHash = await initialHeader.hash();
   const l2TipsCache = new L2TipsCache(dataStores.blocks, initialBlockHash);
-  return new NoopL1Archiver(dataStores, l1Constants, instrumentation, initialHeader, initialBlockHash, l2TipsCache);
+  return new NoopL1Archiver(
+    dataStores,
+    l1Constants,
+    instrumentation,
+    initialHeader,
+    initialBlockHash,
+    l2TipsCache,
+    dateProvider,
+  );
 }

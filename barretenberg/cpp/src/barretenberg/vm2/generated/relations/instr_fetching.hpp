@@ -3,7 +3,6 @@
 
 #include <string_view>
 
-#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -52,6 +51,7 @@ template <typename FF> class instr_fetching : public Relation<instr_fetchingImpl
 
     static std::string get_subrelation_label(size_t index)
     {
+#ifdef AVM_INCLUDE_COLUMN_INFORMATION
         switch (index) {
         case SR_PC_OUT_OF_RANGE_TOGGLE:
             return "PC_OUT_OF_RANGE_TOGGLE";
@@ -80,6 +80,7 @@ template <typename FF> class instr_fetching : public Relation<instr_fetchingImpl
         case SR_OP7_BYTES_DECOMPOSITION:
             return "OP7_BYTES_DECOMPOSITION";
         }
+#endif
         return std::to_string(index);
     }
 };

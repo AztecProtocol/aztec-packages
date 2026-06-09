@@ -3,7 +3,6 @@
 
 #include <string_view>
 
-#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -52,6 +51,7 @@ template <typename FF> class sha256 : public Relation<sha256Impl<FF>> {
 
     static std::string get_subrelation_label(size_t index)
     {
+#ifdef AVM_INCLUDE_COLUMN_INFORMATION
         switch (index) {
         case SR_ROUNDS_REM_INIT:
             return "ROUNDS_REM_INIT";
@@ -74,6 +74,7 @@ template <typename FF> class sha256 : public Relation<sha256Impl<FF>> {
         case SR_PROPAGATE_INIT_H:
             return "PROPAGATE_INIT_H";
         }
+#endif
         return std::to_string(index);
     }
 };

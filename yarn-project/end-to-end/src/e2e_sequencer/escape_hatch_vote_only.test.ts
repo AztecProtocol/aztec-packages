@@ -79,7 +79,6 @@ describe('e2e_escape_hatch_vote_only', () => {
       automineL1Setup: true,
       // Pipelining opts — exercise the §6 B5 fix (tryVoteWhenEscapeHatchOpen signing/submitting for targetSlot).
       // inboxLag: 2 so the sequencer sources L1->L2 messages from a sealed checkpoint when building for slot+1.
-      enableProposerPipelining: true,
       inboxLag: 2,
     });
 
@@ -140,7 +139,7 @@ describe('e2e_escape_hatch_vote_only', () => {
 
     // Wire escape hatch into the rollup (owner-only).
     await cheatCodes.rollup.asOwner(async (owner, rollupAsOwner) => {
-      const hash = await rollupAsOwner.write.updateEscapeHatch([escapeHatchAddress.toString()], { account: owner });
+      const hash = await rollupAsOwner.write.setEscapeHatch([escapeHatchAddress.toString()], { account: owner });
       await l1Client.waitForTransactionReceipt({ hash });
     });
   });

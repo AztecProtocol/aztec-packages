@@ -84,6 +84,7 @@ import {
 import { PublicDataRead } from '../avm/public_data_read.js';
 import { PublicDataWrite } from '../avm/public_data_write.js';
 import { AztecAddress } from '../aztec-address/index.js';
+import { BlockHash } from '../block/block_hash.js';
 import type { L2Tips } from '../block/l2_block_source.js';
 import {
   type ContractClassPublic,
@@ -127,9 +128,9 @@ import { PublicKey, PublicKeys, computeAddress, hashPublicKey } from '../keys/in
 import { AppTaggingSecret } from '../logs/app_tagging_secret.js';
 import { AppTaggingSecretKind } from '../logs/app_tagging_secret_kind.js';
 import { ContractClassLog, ContractClassLogFields } from '../logs/index.js';
+import type { LogResult } from '../logs/log_result.js';
 import { PrivateLog } from '../logs/private_log.js';
 import { FlatPublicLogs, PublicLog } from '../logs/public_log.js';
-import { TxScopedL2Log } from '../logs/tx_scoped_l2_log.js';
 import { CountedL2ToL1Message, L2ToL1Message, ScopedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
 import { ParityBasePrivateInputs } from '../parity/parity_base_private_inputs.js';
 import { ParityPublicInputs } from '../parity/parity_public_inputs.js';
@@ -1638,47 +1639,71 @@ export function fr(n: number): Fr {
   return new Fr(BigInt(n));
 }
 
-/**
- * Creates a random TxScopedL2Log with private log data.
- */
-export function randomTxScopedPrivateL2Log(opts?: {
+/** Creates a random {@link LogResult} with private-log-shaped data. `includeEffects` populates `noteHashes` + `nullifiers`. */
+export function randomPrivateLogResult(opts?: {
   tag?: Fr;
   txHash?: TxHash;
   blockNumber?: number;
+  blockHash?: BlockHash;
   blockTimestamp?: bigint;
+  txIndexWithinBlock?: number;
+  logIndexWithinTx?: number;
   noteHashes?: Fr[];
-  firstNullifier?: Fr;
-}) {
+  nullifiers?: Fr[];
+  includeEffects?: boolean;
+}): LogResult {
   const log = PrivateLog.random(opts?.tag);
-  return new TxScopedL2Log(
-    opts?.txHash ?? TxHash.random(),
-    BlockNumber(opts?.blockNumber ?? 1),
-    opts?.blockTimestamp ?? 1n,
-    log.getEmittedFields(),
-    opts?.noteHashes ?? [Fr.random(), Fr.random()],
-    opts?.firstNullifier ?? Fr.random(),
-  );
+  const includeEffects = opts?.includeEffects ?? (opts?.noteHashes !== undefined || opts?.nullifiers !== undefined);
+  const base: LogResult = {
+    logData: log.getEmittedFields(),
+    blockNumber: BlockNumber(opts?.blockNumber ?? 1),
+    blockHash: opts?.blockHash ?? BlockHash.random(),
+    blockTimestamp: opts?.blockTimestamp ?? 1n,
+    txHash: opts?.txHash ?? TxHash.random(),
+    txIndexWithinBlock: opts?.txIndexWithinBlock ?? 0,
+    logIndexWithinTx: opts?.logIndexWithinTx ?? 0,
+  };
+  if (includeEffects) {
+    return {
+      ...base,
+      noteHashes: opts?.noteHashes ?? [Fr.random(), Fr.random()],
+      nullifiers: opts?.nullifiers ?? [Fr.random()],
+    };
+  }
+  return base;
 }
 
-/**
- * Creates a random TxScopedL2Log with public log data.
- */
-export async function randomTxScopedPublicL2Log(opts?: {
+/** Creates a random {@link LogResult} with public-log-shaped data. `includeEffects` populates `noteHashes` + `nullifiers`. */
+export async function randomPublicLogResult(opts?: {
   txHash?: TxHash;
   blockNumber?: number;
+  blockHash?: BlockHash;
   blockTimestamp?: bigint;
+  txIndexWithinBlock?: number;
+  logIndexWithinTx?: number;
   noteHashes?: Fr[];
-  firstNullifier?: Fr;
-}) {
+  nullifiers?: Fr[];
+  includeEffects?: boolean;
+}): Promise<LogResult> {
   const log = await PublicLog.random();
-  return new TxScopedL2Log(
-    opts?.txHash ?? TxHash.random(),
-    BlockNumber(opts?.blockNumber ?? 1),
-    opts?.blockTimestamp ?? 1n,
-    log.getEmittedFields(),
-    opts?.noteHashes ?? [Fr.random(), Fr.random()],
-    opts?.firstNullifier ?? Fr.random(),
-  );
+  const includeEffects = opts?.includeEffects ?? (opts?.noteHashes !== undefined || opts?.nullifiers !== undefined);
+  const base: LogResult = {
+    logData: log.getEmittedFields(),
+    blockNumber: BlockNumber(opts?.blockNumber ?? 1),
+    blockHash: opts?.blockHash ?? BlockHash.random(),
+    blockTimestamp: opts?.blockTimestamp ?? 1n,
+    txHash: opts?.txHash ?? TxHash.random(),
+    txIndexWithinBlock: opts?.txIndexWithinBlock ?? 0,
+    logIndexWithinTx: opts?.logIndexWithinTx ?? 0,
+  };
+  if (includeEffects) {
+    return {
+      ...base,
+      noteHashes: opts?.noteHashes ?? [Fr.random(), Fr.random()],
+      nullifiers: opts?.nullifiers ?? [Fr.random()],
+    };
+  }
+  return base;
 }
 
 /**
