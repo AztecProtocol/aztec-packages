@@ -34,7 +34,7 @@ unconstrained fn record_retractable_fact_oracle<let N: u32>(
     contract_address: AztecAddress,
     scope: AztecAddress,
     entity_type_id: Field,
-    correlation_key: Field,
+    entity_id: Field,
     fact_type_id: Field,
     payload: [Field; N],
     block_number: u32,
@@ -46,7 +46,7 @@ unconstrained fn record_non_retractable_fact_oracle<let N: u32>(
     contract_address: AztecAddress,
     scope: AztecAddress,
     entity_type_id: Field,
-    correlation_key: Field,
+    entity_id: Field,
     fact_type_id: Field,
     payload: [Field; N],
 ) {}
@@ -56,7 +56,7 @@ unconstrained fn create_retractable_entity_oracle<let N: u32>(
     contract_address: AztecAddress,
     scope: AztecAddress,
     entity_type_id: Field,
-    correlation_key: Field,
+    entity_id: Field,
     payload: [Field; N],
     block_number: u32,
     block_hash: Field,
@@ -67,7 +67,7 @@ unconstrained fn create_non_retractable_entity_oracle<let N: u32>(
     contract_address: AztecAddress,
     scope: AztecAddress,
     entity_type_id: Field,
-    correlation_key: Field,
+    entity_id: Field,
     payload: [Field; N],
 ) {}
 
@@ -83,7 +83,7 @@ unconstrained fn get_entity_oracle(
     contract_address: AztecAddress,
     scope: AztecAddress,
     entity_type_id: Field,
-    correlation_key: Field,
+    entity_id: Field,
 ) -> RawEntity {}
 
 #[oracle(aztec_utl_terminateEntity)]
@@ -91,7 +91,7 @@ unconstrained fn terminate_entity_oracle(
     contract_address: AztecAddress,
     scope: AztecAddress,
     entity_type_id: Field,
-    correlation_key: Field,
+    entity_id: Field,
 ) {}
 
 // Public wrappers
@@ -104,7 +104,7 @@ pub unconstrained fn record_retractable_fact<let N: u32>(
     contract_address: AztecAddress,
     scope: AztecAddress,
     entity_type_id: Field,
-    correlation_key: Field,
+    entity_id: Field,
     fact_type_id: Field,
     payload: [Field; N],
     block_number: u32,
@@ -114,7 +114,7 @@ pub unconstrained fn record_retractable_fact<let N: u32>(
         contract_address,
         scope,
         entity_type_id,
-        correlation_key,
+        entity_id,
         fact_type_id,
         payload,
         block_number,
@@ -129,7 +129,7 @@ pub unconstrained fn record_non_retractable_fact<let N: u32>(
     contract_address: AztecAddress,
     scope: AztecAddress,
     entity_type_id: Field,
-    correlation_key: Field,
+    entity_id: Field,
     fact_type_id: Field,
     payload: [Field; N],
 ) {
@@ -137,7 +137,7 @@ pub unconstrained fn record_non_retractable_fact<let N: u32>(
         contract_address,
         scope,
         entity_type_id,
-        correlation_key,
+        entity_id,
         fact_type_id,
         payload,
     );
@@ -151,7 +151,7 @@ pub unconstrained fn create_retractable_entity<T>(
     contract_address: AztecAddress,
     scope: AztecAddress,
     entity_type_id: Field,
-    correlation_key: Field,
+    entity_id: Field,
     payload: T,
     block_number: u32,
     block_hash: Field,
@@ -163,7 +163,7 @@ where
         contract_address,
         scope,
         entity_type_id,
-        correlation_key,
+        entity_id,
         payload.serialize(),
         block_number,
         block_hash,
@@ -177,7 +177,7 @@ pub unconstrained fn create_non_retractable_entity<T>(
     contract_address: AztecAddress,
     scope: AztecAddress,
     entity_type_id: Field,
-    correlation_key: Field,
+    entity_id: Field,
     payload: T,
 )
 where
@@ -187,12 +187,12 @@ where
         contract_address,
         scope,
         entity_type_id,
-        correlation_key,
+        entity_id,
         payload.serialize(),
     );
 }
 
-/// Returns the correlation keys of all currently active entities of the given type.
+/// Returns the entity ids of all currently active entities of the given type.
 pub unconstrained fn active_entities(
     contract_address: AztecAddress,
     scope: AztecAddress,
@@ -206,12 +206,12 @@ pub unconstrained fn get_entity<T>(
     contract_address: AztecAddress,
     scope: AztecAddress,
     entity_type_id: Field,
-    correlation_key: Field,
+    entity_id: Field,
 ) -> Entity<T>
 where
     T: Deserialize,
 {
-    let raw = get_entity_oracle(contract_address, scope, entity_type_id, correlation_key);
+    let raw = get_entity_oracle(contract_address, scope, entity_type_id, entity_id);
     Entity { payload: raw.payload.read_as(), facts: raw.facts }
 }
 
@@ -220,7 +220,7 @@ pub unconstrained fn terminate_entity(
     contract_address: AztecAddress,
     scope: AztecAddress,
     entity_type_id: Field,
-    correlation_key: Field,
+    entity_id: Field,
 ) {
-    terminate_entity_oracle(contract_address, scope, entity_type_id, correlation_key);
+    terminate_entity_oracle(contract_address, scope, entity_type_id, entity_id);
 }

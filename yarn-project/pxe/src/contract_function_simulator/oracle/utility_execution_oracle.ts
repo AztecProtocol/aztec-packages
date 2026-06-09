@@ -846,7 +846,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     contractAddress: AztecAddress,
     scope: AztecAddress,
     entityTypeId: Fr,
-    correlationKey: Fr,
+    entityId: Fr,
     factTypeId: Fr,
     payload: Fr[],
     blockNumber: number,
@@ -857,7 +857,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       contractAddress,
       scope,
       entityTypeId,
-      correlationKey,
+      entityId,
       factTypeId,
       payload,
       { blockNumber, blockHash },
@@ -873,7 +873,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     contractAddress: AztecAddress,
     scope: AztecAddress,
     entityTypeId: Fr,
-    correlationKey: Fr,
+    entityId: Fr,
     factTypeId: Fr,
     payload: Fr[],
   ): Promise<void> {
@@ -882,7 +882,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       contractAddress,
       scope,
       entityTypeId,
-      correlationKey,
+      entityId,
       factTypeId,
       payload,
       undefined,
@@ -898,7 +898,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     contractAddress: AztecAddress,
     scope: AztecAddress,
     entityTypeId: Fr,
-    correlationKey: Fr,
+    entityId: Fr,
     payload: Fr[],
     blockNumber: number,
     blockHash: Fr,
@@ -908,7 +908,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       contractAddress,
       scope,
       entityTypeId,
-      correlationKey,
+      entityId,
       payload,
       { blockNumber, blockHash },
       this.jobId,
@@ -922,30 +922,22 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     contractAddress: AztecAddress,
     scope: AztecAddress,
     entityTypeId: Fr,
-    correlationKey: Fr,
+    entityId: Fr,
     payload: Fr[],
   ): Promise<void> {
     assertAllowedScope(scope, this.scopes);
-    return this.factStore.createEntity(
-      contractAddress,
-      scope,
-      entityTypeId,
-      correlationKey,
-      payload,
-      undefined,
-      this.jobId,
-    );
+    return this.factStore.createEntity(contractAddress, scope, entityTypeId, entityId, payload, undefined, this.jobId);
   }
 
-  /** Returns the correlation keys of all active entities under (contract, scope, entityTypeId). */
+  /** Returns the entity ids of all active entities under (contract, scope, entityTypeId). */
   public async activeEntities(
     contractAddress: AztecAddress,
     scope: AztecAddress,
     entityTypeId: Fr,
   ): Promise<EphemeralArray<Fr>> {
     assertAllowedScope(scope, this.scopes);
-    const correlationKeys = await this.factStore.activeEntities(contractAddress, scope, entityTypeId, this.jobId);
-    return EphemeralArray.fromValues(this.ephemeralArrayService, correlationKeys);
+    const entityIds = await this.factStore.activeEntities(contractAddress, scope, entityTypeId, this.jobId);
+    return EphemeralArray.fromValues(this.ephemeralArrayService, entityIds);
   }
 
   /**
@@ -956,14 +948,14 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     contractAddress: AztecAddress,
     scope: AztecAddress,
     entityTypeId: Fr,
-    correlationKey: Fr,
+    entityId: Fr,
   ): Promise<EntityOutput> {
     assertAllowedScope(scope, this.scopes);
     const { payload, facts } = await this.factStore.getEntity(
       contractAddress,
       scope,
       entityTypeId,
-      correlationKey,
+      entityId,
       this.jobId,
     );
     return {
@@ -983,10 +975,10 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     contractAddress: AztecAddress,
     scope: AztecAddress,
     entityTypeId: Fr,
-    correlationKey: Fr,
+    entityId: Fr,
   ): Promise<void> {
     assertAllowedScope(scope, this.scopes);
-    return this.factStore.terminateEntity(contractAddress, scope, entityTypeId, correlationKey, this.jobId);
+    return this.factStore.terminateEntity(contractAddress, scope, entityTypeId, entityId, this.jobId);
   }
 
   /** Executes another utility function from within this one and returns its serialized return values. */

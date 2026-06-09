@@ -282,7 +282,7 @@ describe('BlockSynchronizer', () => {
       const contract = await AztecAddress.random();
       const scope = await AztecAddress.random();
       const entityTypeId = Fr.random();
-      const correlationKey = Fr.random();
+      const entityId = Fr.random();
       // Two distinct fact-type ids stand in for RECEIVED (non-retractable) and PROCESSED (anchored).
       const RECEIVED = Fr.random();
       const PROCESSED = Fr.random();
@@ -293,21 +293,12 @@ describe('BlockSynchronizer', () => {
       const block5 = makeL2BlockId(forkBlock.number, (await forkBlock.hash()).toString());
 
       // Seed: one non-retractable (unanchored) fact and one anchored above the fork.
+      await factStore.recordFact(contract, scope, entityTypeId, entityId, RECEIVED, [Fr.random()], undefined, jobId);
       await factStore.recordFact(
         contract,
         scope,
         entityTypeId,
-        correlationKey,
-        RECEIVED,
-        [Fr.random()],
-        undefined,
-        jobId,
-      );
-      await factStore.recordFact(
-        contract,
-        scope,
-        entityTypeId,
-        correlationKey,
+        entityId,
         PROCESSED,
         [],
         { blockNumber: 10, blockHash: Fr.random() },
@@ -316,7 +307,7 @@ describe('BlockSynchronizer', () => {
       await store.transactionAsync(() => factStore.commit(jobId));
 
       // Both facts must be present before the prune.
-      expect(await factStore.getEntityFacts(contract, scope, entityTypeId, correlationKey, jobId)).toHaveLength(2);
+      expect(await factStore.getEntityFacts(contract, scope, entityTypeId, entityId, jobId)).toHaveLength(2);
 
       // Set the anchor to block 10 so the prune guard passes (anchor is above the fork point).
       const anchorBlock10 = await L2Block.random(BlockNumber(10));
@@ -336,7 +327,7 @@ describe('BlockSynchronizer', () => {
       });
 
       // The anchored PROCESSED fact must be gone; the unanchored RECEIVED fact must survive.
-      const remaining = await factStore.getEntityFacts(contract, scope, entityTypeId, correlationKey, jobId);
+      const remaining = await factStore.getEntityFacts(contract, scope, entityTypeId, entityId, jobId);
       expect(remaining).toHaveLength(1);
       expect(remaining[0].factTypeId.equals(RECEIVED)).toBe(true);
     });

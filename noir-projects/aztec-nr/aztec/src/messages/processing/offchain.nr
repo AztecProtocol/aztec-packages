@@ -77,14 +77,11 @@ global OFFCHAIN_MESSAGE_PROCESSED: Field = sha256_to_field("AZTEC_NR::OFFCHAIN_M
 /// `MESSAGE_CIPHERTEXT_LEN + 1`.
 global SERIALIZED_CIPHERTEXT_LEN: u32 = MESSAGE_CIPHERTEXT_LEN + 1;
 
-/// Computes the per-message correlation key used as the entity identity in the fact store.
+/// Computes the per-message entity id used to identify the reception entity in the fact store.
 ///
-/// The key is a poseidon2 hash over the serialized ciphertext fields and the normalized tx hash (0 when absent).
+/// The id is a poseidon2 hash over the serialized ciphertext fields and the normalized tx hash (0 when absent).
 /// Re-delivering the same (ciphertext, tx_hash) pair therefore maps to the same entity, making receive idempotent.
-pub unconstrained fn correlation_key(
-    ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN>,
-    tx_hash: Option<Field>,
-) -> Field {
+pub unconstrained fn entity_id(ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN>, tx_hash: Option<Field>) -> Field {
     let serialized_ciphertext: [Field; SERIALIZED_CIPHERTEXT_LEN] = ciphertext.serialize();
     let mut inputs: [Field; SERIALIZED_CIPHERTEXT_LEN + 1] = [0; SERIALIZED_CIPHERTEXT_LEN + 1];
     for i in 0..SERIALIZED_CIPHERTEXT_LEN {
@@ -161,14 +158,14 @@ pub unconstrained fn receive(
     while i < messages_len {
         let msg = messages.get(i);
         // Normalize a tx-less message to tx_hash 0 so the same (ciphertext, tx_hash) pair maps to a stable
-        // correlation key and re-delivery is idempotent (records into the same entity).
+        // entity id and re-delivery is idempotent (records into the same entity).
         let normalized = OffchainMessage {
             ciphertext: msg.ciphertext,
             recipient: msg.recipient,
             tx_hash: Option::some(msg.tx_hash.unwrap_or(0)),
             anchor_block_timestamp: msg.anchor_block_timestamp,
         };
-        let key = correlation_key(normalized.ciphertext, normalized.tx_hash);
+        let key = entity_id(normalized.ciphertext, normalized.tx_hash);
         create_non_retractable_entity(
             contract_address,
             msg.recipient,
@@ -280,7 +277,7 @@ mod test {
         test::helpers::test_environment::TestEnvironment,
     };
     use super::{
-        correlation_key, fold, MAX_MSG_TTL, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL, OFFCHAIN_MESSAGE_PROCESSED,
+        entity_id, fold, MAX_MSG_TTL, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL, OFFCHAIN_MESSAGE_PROCESSED,
         OFFCHAIN_RECEPTION_ENTITY, OffchainMessage, OffchainReceptionState, receive, sync_inbox,
     };
 
@@ -305,12 +302,12 @@ mod test {
         env.last_block_timestamp()
     }
 
-    /// Returns the correlation keys of the reception entities currently active for the given scope.
+    /// Returns the entity ids of the reception entities currently active for the given scope.
     unconstrained fn active_keys(c: AztecAddress, s: AztecAddress) -> EphemeralArray<Field> {
         active_entities(c, s, OFFCHAIN_RECEPTION_ENTITY)
     }
 
-    /// Returns `true` if a reception entity with the given correlation key is currently active.
+    /// Returns `true` if a reception entity with the given entity id is currently active.
     unconstrained fn is_active(c: AztecAddress, s: AztecAddress, key: Field) -> bool {
         let keys = active_keys(c, s);
         let mut found = false;
@@ -323,7 +320,7 @@ mod test {
         found
     }
 
-    /// Folds the fact set of the reception entity with the given correlation key into its state.
+    /// Folds the fact set of the reception entity with the given entity id into its state.
     unconstrained fn state_of(c: AztecAddress, s: AztecAddress, key: Field) -> OffchainReceptionState {
         let facts = get_entity::<OffchainMessage>(c, s, OFFCHAIN_RECEPTION_ENTITY, key).facts;
         fold(facts)
@@ -353,7 +350,7 @@ mod test {
             receive(context.this_address(), msgs);
         });
 
-        let key = correlation_key(BoundedVec::new(), Option::some(tx_hash));
+        let key = entity_id(BoundedVec::new(), Option::some(tx_hash));
 
         // Advance past anchor_ts + MAX_MSG_TTL.
         let _now = advance_by(env, MAX_MSG_TTL + 1);
@@ -379,7 +376,7 @@ mod test {
             receive(context.this_address(), msgs);
         });
 
-        let key = correlation_key(BoundedVec::new(), Option::some(tx_hash));
+        let key = entity_id(BoundedVec::new(), Option::some(tx_hash));
 
         // Advance, but not past anchor_ts + MAX_MSG_TTL.
         let _now = advance_by(env, 100);
@@ -406,7 +403,7 @@ mod test {
         });
 
         // A tx-less message normalizes to tx_hash 0.
-        let key = correlation_key(BoundedVec::new(), Option::some(0));
+        let key = entity_id(BoundedVec::new(), Option::some(0));
 
         // Advance past anchor_ts + MAX_MSG_TTL.
         let _now = advance_by(env, MAX_MSG_TTL + 1);
@@ -432,7 +429,7 @@ mod test {
             receive(context.this_address(), msgs);
         });
 
-        let key = correlation_key(BoundedVec::new(), Option::some(tx_hash));
+        let key = entity_id(BoundedVec::new(), Option::some(tx_hash));
 
         let _now = advance_by(env, 100);
 
@@ -466,9 +463,9 @@ mod test {
             receive(address, msgs);
         });
 
-        let expired_a_key = correlation_key(BoundedVec::new(), Option::some(expired_a_tx_hash));
-        let survivor_key = correlation_key(BoundedVec::new(), Option::some(survivor_tx_hash));
-        let expired_b_key = correlation_key(BoundedVec::new(), Option::some(0));
+        let expired_a_key = entity_id(BoundedVec::new(), Option::some(expired_a_tx_hash));
+        let survivor_key = entity_id(BoundedVec::new(), Option::some(survivor_tx_hash));
+        let expired_b_key = entity_id(BoundedVec::new(), Option::some(0));
 
         // Advance past MAX_MSG_TTL for anchor=0, but not for anchor_ts.
         let _now = advance_by(env, MAX_MSG_TTL);
@@ -502,7 +499,7 @@ mod test {
             receive(context.this_address(), msgs);
         });
 
-        let key = correlation_key(BoundedVec::new(), Option::some(known_tx_hash));
+        let key = entity_id(BoundedVec::new(), Option::some(known_tx_hash));
 
         let _now = advance_by(env, 100);
 
@@ -535,7 +532,7 @@ mod test {
             receive(context.this_address(), msgs);
         });
 
-        let key = correlation_key(BoundedVec::new(), Option::some(known_tx_hash));
+        let key = entity_id(BoundedVec::new(), Option::some(known_tx_hash));
 
         let _now = advance_by(env, 100);
 
@@ -571,7 +568,7 @@ mod test {
             receive(context.this_address(), msgs);
         });
 
-        let key = correlation_key(BoundedVec::new(), Option::some(known_tx_hash));
+        let key = entity_id(BoundedVec::new(), Option::some(known_tx_hash));
 
         // Advance past anchor_ts + MAX_MSG_TTL so the message is expired on the next sync.
         let _now = advance_by(env, MAX_MSG_TTL + 1);

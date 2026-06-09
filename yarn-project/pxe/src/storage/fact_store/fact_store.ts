@@ -22,10 +22,10 @@ type JobId = string;
 type StagedOp =
   | { kind: 'createEntity'; entity: StoredEntity }
   | { kind: 'record'; fact: StoredFact }
-  | { kind: 'terminate'; contract: AztecAddress; scope: AztecAddress; entityTypeId: Fr; correlationKey: Fr };
+  | { kind: 'terminate'; contract: AztecAddress; scope: AztecAddress; entityTypeId: Fr; entityId: Fr };
 
 /**
- * Stores immutable facts about entities, grouped by contract, scope, entity type, and correlation key.
+ * Stores immutable facts about entities, grouped by contract, scope, entity type, and entity id.
  *
  * Append-only within a job commit. Retractable facts (those with a block anchor) are deleted on block prune.
  * Non-retractable facts (anchor === undefined) survive reorgs as external inputs. Writes are staged per-job and
@@ -43,7 +43,7 @@ export class FactStore implements StagedStore {
   #facts: AztecAsyncMap<string, Buffer>;
   /** Index from entityKey to factRowKey for efficient entity-level fold. */
   #factsByEntity: AztecAsyncMultiMap<string, string>;
-  /** Index from scopeKey to correlationKey string for active-entity enumeration. */
+  /** Index from scopeKey to entityId string for active-entity enumeration. */
   #entitiesByScope: AztecAsyncMultiMap<string, string>;
   /** Index from blockNumber to factRowKey, for delete-on-prune (retractable facts only). */
   #factsByBlock: AztecAsyncMultiMap<number, string>;
@@ -75,13 +75,13 @@ export class FactStore implements StagedStore {
     contract: AztecAddress,
     scope: AztecAddress,
     entityTypeId: Fr,
-    correlationKey: Fr,
+    entityId: Fr,
     payload: Fr[],
     anchor: FactAnchor | undefined,
     jobId: string,
   ): Promise<void> {
     return this.#withJobLock(jobId, () => {
-      const entity = new StoredEntity(contract, scope, entityTypeId, correlationKey, payload, anchor);
+      const entity = new StoredEntity(contract, scope, entityTypeId, entityId, payload, anchor);
       this.#opsFor(jobId).push({ kind: 'createEntity', entity });
       return Promise.resolve();
     });
@@ -96,14 +96,14 @@ export class FactStore implements StagedStore {
     contract: AztecAddress,
     scope: AztecAddress,
     entityTypeId: Fr,
-    correlationKey: Fr,
+    entityId: Fr,
     factTypeId: Fr,
     payload: Fr[],
     anchor: FactAnchor | undefined,
     jobId: string,
   ): Promise<void> {
     return this.#withJobLock(jobId, () => {
-      const fact = new StoredFact(contract, scope, entityTypeId, correlationKey, factTypeId, payload, anchor);
+      const fact = new StoredFact(contract, scope, entityTypeId, entityId, factTypeId, payload, anchor);
       this.#opsFor(jobId).push({ kind: 'record', fact });
       return Promise.resolve();
     });
@@ -114,11 +114,11 @@ export class FactStore implements StagedStore {
     contract: AztecAddress,
     scope: AztecAddress,
     entityTypeId: Fr,
-    correlationKey: Fr,
+    entityId: Fr,
     jobId: string,
   ): Promise<void> {
     return this.#withJobLock(jobId, () => {
-      this.#opsFor(jobId).push({ kind: 'terminate', contract, scope, entityTypeId, correlationKey });
+      this.#opsFor(jobId).push({ kind: 'terminate', contract, scope, entityTypeId, entityId });
       return Promise.resolve();
     });
   }
@@ -129,17 +129,17 @@ export class FactStore implements StagedStore {
    * @param contract - The contract address owning the entity.
    * @param scope - The scope (recipient address) under which facts were recorded.
    * @param entityTypeId - Discriminates entity kinds within a contract+scope.
-   * @param correlationKey - Identifies the specific entity instance.
+   * @param entityId - Identifies the specific entity instance.
    * @param jobId - The job whose staged writes are layered over committed state.
    */
   async getEntityFacts(
     contract: AztecAddress,
     scope: AztecAddress,
     entityTypeId: Fr,
-    correlationKey: Fr,
+    entityId: Fr,
     jobId: string,
   ): Promise<StoredFact[]> {
-    const eKey = entityKey(contract, scope, entityTypeId, correlationKey);
+    const eKey = entityKey(contract, scope, entityTypeId, entityId);
     const byRow = await this.#store.transactionAsync(() => this.#loadCommittedFacts(eKey));
     this.#replayFactOps(byRow, eKey, jobId);
     return Array.from(byRow.values());
@@ -155,17 +155,17 @@ export class FactStore implements StagedStore {
    * @param contract - The contract address owning the entity.
    * @param scope - The scope (recipient address) under which the entity was created.
    * @param entityTypeId - Discriminates entity kinds within a contract+scope.
-   * @param correlationKey - Identifies the specific entity instance.
+   * @param entityId - Identifies the specific entity instance.
    * @param jobId - The job whose staged writes are layered over committed state.
    */
   async getEntity(
     contract: AztecAddress,
     scope: AztecAddress,
     entityTypeId: Fr,
-    correlationKey: Fr,
+    entityId: Fr,
     jobId: string,
   ): Promise<{ payload: Fr[]; facts: StoredFact[] }> {
-    const eKey = entityKey(contract, scope, entityTypeId, correlationKey);
+    const eKey = entityKey(contract, scope, entityTypeId, entityId);
     const { payload, byRow } = await this.#store.transactionAsync(async () => {
       const entityBuf = await this.#entities.getAsync(eKey);
       return {
@@ -185,7 +185,7 @@ export class FactStore implements StagedStore {
         if (entityKeyOf(op.fact) === eKey) {
           byRow.set(factRowKeyOf(op.fact), op.fact);
         }
-      } else if (entityKey(op.contract, op.scope, op.entityTypeId, op.correlationKey) === eKey) {
+      } else if (entityKey(op.contract, op.scope, op.entityTypeId, op.entityId) === eKey) {
         currentPayload = [];
         byRow.clear();
       }
@@ -194,7 +194,7 @@ export class FactStore implements StagedStore {
   }
 
   /**
-   * Returns the correlation keys of all active entities under (contract, scope, entityTypeId) — entities that have an
+   * Returns the entity ids of all active entities under (contract, scope, entityTypeId) — entities that have an
    * entity record and have not been terminated. Entity presence is independent of whether the entity owns any facts.
    */
   async activeEntities(contract: AztecAddress, scope: AztecAddress, entityTypeId: Fr, jobId: string): Promise<Fr[]> {
@@ -202,16 +202,16 @@ export class FactStore implements StagedStore {
     const active = await this.#store.transactionAsync(async () => {
       const seen = new Set<string>();
       const result = new Set<string>();
-      for await (const correlation of this.#entitiesByScope.getValuesAsync(sKey)) {
-        if (seen.has(correlation)) {
+      for await (const entityId of this.#entitiesByScope.getValuesAsync(sKey)) {
+        if (seen.has(entityId)) {
           continue;
         }
-        seen.add(correlation);
-        // Guard against stale index entries: once terminate/rollback delete an entity record, its correlation key
+        seen.add(entityId);
+        // Guard against stale index entries: once terminate/rollback delete an entity record, its entity id
         // should be gone from #entitiesByScope, but we re-check the entity record exists so a missed index update
         // can never surface a ghost entity as active.
-        if (await this.#entities.getAsync(`${sKey}:${correlation}`)) {
-          result.add(correlation);
+        if (await this.#entities.getAsync(`${sKey}:${entityId}`)) {
+          result.add(entityId);
         }
       }
       return result;
@@ -220,10 +220,10 @@ export class FactStore implements StagedStore {
     for (const op of this.#stagedOps(jobId)) {
       if (op.kind === 'createEntity') {
         if (scopeKeyOf(op.entity) === sKey) {
-          active.add(op.entity.correlationKey.toString());
+          active.add(op.entity.entityId.toString());
         }
       } else if (op.kind === 'terminate' && scopeKey(op.contract, op.scope, op.entityTypeId) === sKey) {
-        active.delete(op.correlationKey.toString());
+        active.delete(op.entityId.toString());
       }
     }
     return Array.from(active, Fr.fromString);
@@ -252,7 +252,7 @@ export class FactStore implements StagedStore {
           }
         }
         await this.#entities.set(eKey, entity.toBuffer());
-        await this.#entitiesByScope.set(scopeKeyOf(entity), entity.correlationKey.toString());
+        await this.#entitiesByScope.set(scopeKeyOf(entity), entity.entityId.toString());
         if (entity.anchor !== undefined) {
           await this.#entitiesByBlock.set(entity.anchor.blockNumber, eKey);
         }
@@ -265,7 +265,7 @@ export class FactStore implements StagedStore {
           await this.#factsByBlock.set(fact.anchor.blockNumber, rowKey);
         }
       } else {
-        await this.#deleteEntity(op.contract, op.scope, op.entityTypeId, op.correlationKey);
+        await this.#deleteEntity(op.contract, op.scope, op.entityTypeId, op.entityId);
       }
     }
     this.#clearJobData(jobId);
@@ -306,7 +306,7 @@ export class FactStore implements StagedStore {
         throw new Error(`Entity not found for entityKey ${eKey}`);
       }
       const entity = StoredEntity.fromBuffer(buf);
-      await this.#deleteEntity(entity.contractAddress, entity.scope, entity.entityTypeId, entity.correlationKey);
+      await this.#deleteEntity(entity.contractAddress, entity.scope, entity.entityTypeId, entity.entityId);
       deletedEntities.add(eKey);
       removedEntities++;
     }
@@ -365,10 +365,7 @@ export class FactStore implements StagedStore {
         if (entityKeyOf(op.fact) === eKey) {
           byRow.set(factRowKeyOf(op.fact), op.fact);
         }
-      } else if (
-        op.kind === 'terminate' &&
-        entityKey(op.contract, op.scope, op.entityTypeId, op.correlationKey) === eKey
-      ) {
+      } else if (op.kind === 'terminate' && entityKey(op.contract, op.scope, op.entityTypeId, op.entityId) === eKey) {
         byRow.clear();
       }
     }
@@ -378,13 +375,8 @@ export class FactStore implements StagedStore {
    * Deletes an entity wholesale from every index: its record, all its facts, and the scope/block index entries.
    * Called during commit for 'terminate' ops and during pass 1 of rollback for pruned retractable entities.
    */
-  async #deleteEntity(
-    contract: AztecAddress,
-    scope: AztecAddress,
-    entityTypeId: Fr,
-    correlationKey: Fr,
-  ): Promise<void> {
-    const eKey = entityKey(contract, scope, entityTypeId, correlationKey);
+  async #deleteEntity(contract: AztecAddress, scope: AztecAddress, entityTypeId: Fr, entityId: Fr): Promise<void> {
+    const eKey = entityKey(contract, scope, entityTypeId, entityId);
     const rowKeys: string[] = [];
     for await (const rowKey of this.#factsByEntity.getValuesAsync(eKey)) {
       rowKeys.push(rowKey);
@@ -411,7 +403,7 @@ export class FactStore implements StagedStore {
         await this.#entitiesByBlock.deleteValue(entity.anchor.blockNumber, eKey);
       }
     }
-    await this.#entitiesByScope.deleteValue(scopeKey(contract, scope, entityTypeId), correlationKey.toString());
+    await this.#entitiesByScope.deleteValue(scopeKey(contract, scope, entityTypeId), entityId.toString());
   }
 
   #opsFor(jobId: string): StagedOp[] {

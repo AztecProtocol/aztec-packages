@@ -811,12 +811,12 @@ export class RPCTranslator {
     return callTxeHandler({
       oracle: 'aztec_utl_recordRetractableFact',
       inputs,
-      handler: ([contractAddress, scope, entityTypeId, correlationKey, factTypeId, payload, blockNumber, blockHash]) =>
+      handler: ([contractAddress, scope, entityTypeId, entityId, factTypeId, payload, blockNumber, blockHash]) =>
         this.handlerAsUtility().recordRetractableFact(
           contractAddress,
           scope,
           entityTypeId,
-          correlationKey,
+          entityId,
           factTypeId,
           payload,
           blockNumber,
@@ -830,12 +830,12 @@ export class RPCTranslator {
     return callTxeHandler({
       oracle: 'aztec_utl_recordNonRetractableFact',
       inputs,
-      handler: ([contractAddress, scope, entityTypeId, correlationKey, factTypeId, payload]) =>
+      handler: ([contractAddress, scope, entityTypeId, entityId, factTypeId, payload]) =>
         this.handlerAsUtility().recordNonRetractableFact(
           contractAddress,
           scope,
           entityTypeId,
-          correlationKey,
+          entityId,
           factTypeId,
           payload,
         ),
@@ -847,12 +847,12 @@ export class RPCTranslator {
     return callTxeHandler({
       oracle: 'aztec_utl_createRetractableEntity',
       inputs,
-      handler: ([contractAddress, scope, entityTypeId, correlationKey, payload, blockNumber, blockHash]) =>
+      handler: ([contractAddress, scope, entityTypeId, entityId, payload, blockNumber, blockHash]) =>
         this.handlerAsUtility().createRetractableEntity(
           contractAddress,
           scope,
           entityTypeId,
-          correlationKey,
+          entityId,
           payload,
           blockNumber,
           blockHash,
@@ -865,14 +865,8 @@ export class RPCTranslator {
     return callTxeHandler({
       oracle: 'aztec_utl_createNonRetractableEntity',
       inputs,
-      handler: ([contractAddress, scope, entityTypeId, correlationKey, payload]) =>
-        this.handlerAsUtility().createNonRetractableEntity(
-          contractAddress,
-          scope,
-          entityTypeId,
-          correlationKey,
-          payload,
-        ),
+      handler: ([contractAddress, scope, entityTypeId, entityId, payload]) =>
+        this.handlerAsUtility().createNonRetractableEntity(contractAddress, scope, entityTypeId, entityId, payload),
     });
   }
 
@@ -891,8 +885,8 @@ export class RPCTranslator {
     return callTxeHandler({
       oracle: 'aztec_utl_getEntity',
       inputs,
-      handler: ([contractAddress, scope, entityTypeId, correlationKey]) =>
-        this.handlerAsUtility().getEntity(contractAddress, scope, entityTypeId, correlationKey),
+      handler: ([contractAddress, scope, entityTypeId, entityId]) =>
+        this.handlerAsUtility().getEntity(contractAddress, scope, entityTypeId, entityId),
     });
   }
 
@@ -901,8 +895,8 @@ export class RPCTranslator {
     return callTxeHandler({
       oracle: 'aztec_utl_terminateEntity',
       inputs,
-      handler: ([contractAddress, scope, entityTypeId, correlationKey]) =>
-        this.handlerAsUtility().terminateEntity(contractAddress, scope, entityTypeId, correlationKey),
+      handler: ([contractAddress, scope, entityTypeId, entityId]) =>
+        this.handlerAsUtility().terminateEntity(contractAddress, scope, entityTypeId, entityId),
     });
   }
 

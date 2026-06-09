@@ -15,7 +15,7 @@ export class StoredFact {
     public readonly contractAddress: AztecAddress,
     public readonly scope: AztecAddress,
     public readonly entityTypeId: Fr,
-    public readonly correlationKey: Fr,
+    public readonly entityId: Fr,
     public readonly factTypeId: Fr,
     public readonly payload: Fr[],
     public readonly anchor: FactAnchor | undefined,
@@ -37,7 +37,7 @@ export class StoredFact {
       this.contractAddress,
       this.scope,
       this.entityTypeId,
-      this.correlationKey,
+      this.entityId,
       this.factTypeId,
       this.payload.length,
       ...this.payload,
@@ -52,7 +52,7 @@ export class StoredFact {
     const contractAddress = reader.readObject(AztecAddress);
     const scope = reader.readObject(AztecAddress);
     const entityTypeId = reader.readObject(Fr);
-    const correlationKey = reader.readObject(Fr);
+    const entityId = reader.readObject(Fr);
     const factTypeId = reader.readObject(Fr);
     const payloadLen = reader.readNumber();
     const payload = reader.readArray(payloadLen, Fr);
@@ -60,7 +60,7 @@ export class StoredFact {
     const blockNumber = reader.readNumber();
     const blockHash = reader.readObject(Fr);
     const anchor = anchorTag === 1 ? { blockNumber, blockHash } : undefined;
-    return new StoredFact(contractAddress, scope, entityTypeId, correlationKey, factTypeId, [...payload], anchor);
+    return new StoredFact(contractAddress, scope, entityTypeId, entityId, factTypeId, [...payload], anchor);
   }
 }
 
@@ -74,7 +74,7 @@ export class StoredEntity {
     public readonly contractAddress: AztecAddress,
     public readonly scope: AztecAddress,
     public readonly entityTypeId: Fr,
-    public readonly correlationKey: Fr,
+    public readonly entityId: Fr,
     public readonly payload: Fr[],
     public readonly anchor: FactAnchor | undefined,
   ) {}
@@ -90,7 +90,7 @@ export class StoredEntity {
       this.contractAddress,
       this.scope,
       this.entityTypeId,
-      this.correlationKey,
+      this.entityId,
       this.payload.length,
       ...this.payload,
       anchorTag,
@@ -104,14 +104,14 @@ export class StoredEntity {
     const contractAddress = reader.readObject(AztecAddress);
     const scope = reader.readObject(AztecAddress);
     const entityTypeId = reader.readObject(Fr);
-    const correlationKey = reader.readObject(Fr);
+    const entityId = reader.readObject(Fr);
     const payloadLen = reader.readNumber();
     const payload = reader.readArray(payloadLen, Fr);
     const anchorTag = reader.readNumber();
     const blockNumber = reader.readNumber();
     const blockHash = reader.readObject(Fr);
     const anchor = anchorTag === 1 ? { blockNumber, blockHash } : undefined;
-    return new StoredEntity(contractAddress, scope, entityTypeId, correlationKey, [...payload], anchor);
+    return new StoredEntity(contractAddress, scope, entityTypeId, entityId, [...payload], anchor);
   }
 }
 
@@ -121,16 +121,16 @@ export function scopeKey(contract: AztecAddress, scope: AztecAddress, entityType
 }
 
 /** Key that uniquely identifies a single entity (all its facts share this key prefix). */
-export function entityKey(contract: AztecAddress, scope: AztecAddress, entityTypeId: Fr, correlationKey: Fr): string {
-  return `${scopeKey(contract, scope, entityTypeId)}:${correlationKey}`;
+export function entityKey(contract: AztecAddress, scope: AztecAddress, entityTypeId: Fr, entityId: Fr): string {
+  return `${scopeKey(contract, scope, entityTypeId)}:${entityId}`;
 }
 
-/** The contract+scope+entityType+correlationKey coordinates shared by facts and entity records. */
+/** The contract+scope+entityType+entityId coordinates shared by facts and entity records. */
 type EntityCoords = {
   contractAddress: AztecAddress;
   scope: AztecAddress;
   entityTypeId: Fr;
-  correlationKey: Fr;
+  entityId: Fr;
 };
 
 /** Key that groups all entities of the same type within a contract+scope. */
@@ -140,7 +140,7 @@ export function scopeKeyOf(coords: EntityCoords): string {
 
 /** Key that uniquely identifies a single entity (all its facts share this key prefix). */
 export function entityKeyOf(coords: EntityCoords): string {
-  return entityKey(coords.contractAddress, coords.scope, coords.entityTypeId, coords.correlationKey);
+  return entityKey(coords.contractAddress, coords.scope, coords.entityTypeId, coords.entityId);
 }
 
 /** Dedup row key for a specific fact; incorporates a payload hash to bound key size for large payloads. */
