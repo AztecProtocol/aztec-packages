@@ -30,9 +30,9 @@ typename BatchMergeVerifier_<Curve, MaxMergeSize>::ReductionResult BatchMergeVer
     const FF num_subtables_for_duplicate_scope = proof[NUM_SUBTABLES_OFFSET];
     const size_t selected_hash_idx = [&]() {
         if constexpr (IsRecursive) {
-            return static_cast<size_t>(num_subtables_for_duplicate_scope.get_value()) - 1;
+            return static_cast<size_t>(static_cast<uint64_t>(num_subtables_for_duplicate_scope.get_value())) - 1;
         } else {
-            return static_cast<size_t>(num_subtables_for_duplicate_scope) - 1;
+            return static_cast<size_t>(static_cast<uint64_t>(num_subtables_for_duplicate_scope)) - 1;
         }
     }();
 
