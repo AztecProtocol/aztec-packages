@@ -3,12 +3,16 @@ import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, PAIRING_POINTS_SIZE } from '@aztec
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { timesAsync } from '@aztec/foundation/collection';
 import { parseBooleanEnv } from '@aztec/foundation/config';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { getTestData, isGenerateTestDataEnabled } from '@aztec/foundation/testing';
 import { writeTestData } from '@aztec/foundation/testing/files';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
-import { TestContext } from '../mocks/test_context.js';
+import { TestContext, makeTestDeferredJobQueue } from '../mocks/test_context.js';
+import { CheckpointSubTreeOrchestrator } from '../orchestrator/checkpoint-sub-tree-orchestrator.js';
+import { ChonkCache } from '../orchestrator/chonk-cache.js';
+import { type CheckpointTopTreeData, TopTreeOrchestrator } from '../orchestrator/top-tree-orchestrator.js';
 
 describe('prover/bb_prover/full-rollup', () => {
   const FAKE_PROOFS = parseBooleanEnv(process.env.FAKE_PROOFS);
@@ -53,49 +57,80 @@ describe('prover/bb_prover/full-rollup', () => {
       );
 
       const finalBlobChallenges = await context.getFinalBlobChallenges();
-      context.orchestrator.startNewEpoch(EpochNumber(1), numCheckpoints, finalBlobChallenges);
+      const chonkCache = new ChonkCache();
+      const subTrees: CheckpointSubTreeOrchestrator[] = [];
+      const topTreeData: CheckpointTopTreeData[] = [];
 
-      for (let checkpointIndex = 0; checkpointIndex < numCheckpoints; checkpointIndex++) {
-        const { constants, blocks, l1ToL2Messages, previousBlockHeader } = checkpoints[checkpointIndex];
+      try {
+        // Drive each checkpoint through its own sub-tree, mirroring the production
+        // CheckpointProver flow. The top tree starts proving as each sub-tree completes.
+        for (let checkpointIndex = 0; checkpointIndex < numCheckpoints; checkpointIndex++) {
+          const { constants, blocks, l1ToL2Messages, previousBlockHeader, checkpoint } = checkpoints[checkpointIndex];
 
-        log.info(`Starting new checkpoint #${checkpointIndex}`);
-        await context.orchestrator.startNewCheckpoint(
-          checkpointIndex,
-          constants,
-          l1ToL2Messages,
-          EpochNumber(1),
-          previousBlockHeader,
-        );
+          log.info(`Starting new checkpoint #${checkpointIndex}`);
+          const subTree = await CheckpointSubTreeOrchestrator.start(
+            context.worldState,
+            context.prover,
+            EthAddress.ZERO,
+            chonkCache,
+            EpochNumber(1),
+            /* cancelJobsOnStop */ false,
+            makeTestDeferredJobQueue(),
+            constants,
+            l1ToL2Messages,
+            numBlockPerCheckpoint,
+            previousBlockHeader,
+          );
+          subTrees.push(subTree);
 
-        for (let i = 0; i < numBlockPerCheckpoint; i++) {
-          const { header, txs } = blocks[i];
-          const { blockNumber, timestamp } = header.globalVariables;
+          for (let i = 0; i < numBlockPerCheckpoint; i++) {
+            const { header, txs } = blocks[i];
+            const { blockNumber, timestamp } = header.globalVariables;
 
-          log.info(`Starting new block #${blockNumber}`);
-          await context.orchestrator.startNewBlock(blockNumber, timestamp, txs.length);
-          await context.orchestrator.addTxs(txs);
+            log.info(`Starting new block #${blockNumber}`);
+            await subTree.startNewBlock(blockNumber, timestamp, txs.length);
+            if (txs.length > 0) {
+              await subTree.addTxs(txs);
+            }
 
-          log.info(`Setting block as completed`);
-          await context.orchestrator.setBlockCompleted(blockNumber, header);
+            log.info(`Setting block as completed`);
+            await subTree.setBlockCompleted(blockNumber, header);
+          }
+
+          topTreeData.push({
+            blockProofs: subTree.getSubTreeResult().then(r => r.blockProofOutputs),
+            l2ToL1MsgsPerBlock: blocks.map(b => b.txs.map(tx => tx.txEffect.l2ToL1Msgs)),
+            blobFields: checkpoint.toBlobFields(),
+            previousBlockHeader,
+            previousArchiveSiblingPath: subTree.getPreviousArchiveSiblingPath(),
+          });
         }
-      }
 
-      log.info(`Awaiting proofs`);
-      const epochResult = await context.orchestrator.finalizeEpoch();
+        log.info(`Awaiting top-tree proof`);
+        const topTree = new TopTreeOrchestrator(context.prover, EthAddress.ZERO, makeTestDeferredJobQueue());
+        let epochResult;
+        try {
+          epochResult = await topTree.prove(EpochNumber(1), numCheckpoints, finalBlobChallenges, topTreeData);
+        } finally {
+          await topTree.stop();
+        }
 
-      if (prover) {
-        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/13188): Handle the pairing point object without these hacks.
-        epochResult.proof.numPublicInputs -= PAIRING_POINTS_SIZE;
-        await expect(prover.verifyProof('RootRollupArtifact', epochResult.proof)).resolves.not.toThrow();
-      }
+        if (prover) {
+          // TODO(https://github.com/AztecProtocol/aztec-packages/issues/13188): Handle the pairing point object without these hacks.
+          epochResult.proof.numPublicInputs -= PAIRING_POINTS_SIZE;
+          await expect(prover.verifyProof('RootRollupArtifact', epochResult.proof)).resolves.not.toThrow();
+        }
 
-      // Generate test data for the 1/1 blocks epoch scenario
-      if (numCheckpoints === 1 && numBlockPerCheckpoint === 1 && isGenerateTestDataEnabled()) {
-        const epochProof = getTestData('epochProofResult').at(-1);
-        writeTestData(
-          'yarn-project/end-to-end/src/fixtures/dumps/epoch_proof_result.json',
-          JSON.stringify(epochProof!),
-        );
+        // Generate test data for the 1/1 blocks epoch scenario.
+        if (numCheckpoints === 1 && numBlockPerCheckpoint === 1 && isGenerateTestDataEnabled()) {
+          const epochProof = getTestData('epochProofResult').at(-1);
+          writeTestData(
+            'yarn-project/end-to-end/src/fixtures/dumps/epoch_proof_result.json',
+            JSON.stringify(epochProof!),
+          );
+        }
+      } finally {
+        await Promise.all(subTrees.map(s => s.stop()));
       }
     },
     FAKE_PROOFS ? undefined : 900_000,

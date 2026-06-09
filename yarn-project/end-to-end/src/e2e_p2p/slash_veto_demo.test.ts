@@ -94,6 +94,7 @@ describe('veto slash', () => {
         slashingDisableDuration: SLASHING_DISABLE_DURATION_SECONDS,
         slashingVetoer: VETOER_ADDRESS,
         slashInactivityTargetPercentage: SLASH_INACTIVITY_TARGET_PERCENTAGE,
+        proverBrokerMaxEpochsToKeepResultsFor: 20,
       },
     });
 
