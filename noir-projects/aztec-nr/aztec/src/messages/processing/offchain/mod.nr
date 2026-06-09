@@ -106,13 +106,7 @@ pub unconstrained fn receive(
     contract_address: AztecAddress,
     messages: BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL>,
 ) {
-    // May contain duplicates if multiple messages target the same recipient. This is harmless since
-    // cache invalidation on the TS side is idempotent (deleting an already-deleted key is a no-op).
-    let mut scopes: BoundedVec<AztecAddress, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL> = BoundedVec::new();
-    let mut i = 0;
-    let messages_len = messages.len();
-    while i < messages_len {
-        let msg = messages.get(i);
+    messages.for_each(|msg: OffchainMessage| {
         // Normalize a tx-less message to tx_hash 0 so the same (ciphertext, tx_hash) pair maps to a stable
         // entity id and re-delivery is idempotent (records into the same entity).
         let normalized = OffchainMessage {
@@ -121,18 +115,19 @@ pub unconstrained fn receive(
             tx_hash: Option::some(msg.tx_hash.unwrap_or(0)),
             anchor_block_timestamp: msg.anchor_block_timestamp,
         };
-        let key = normalized.entity_id();
         create_non_retractable_entity(
             contract_address,
             msg.recipient,
             OFFCHAIN_RECEPTION_ENTITY,
-            key,
+            normalized.entity_id(),
             normalized,
         );
-        scopes.push(msg.recipient);
-        i += 1;
-    }
+    });
 
+    // The scope list is just the recipients. It may contain duplicates if multiple messages target the same
+    // recipient, which is harmless since cache invalidation on the TS side is idempotent (deleting an
+    // already-deleted key is a no-op).
+    let scopes = messages.map(|msg: OffchainMessage| msg.recipient);
     set_contract_sync_cache_invalid(contract_address, scopes);
 }
 
