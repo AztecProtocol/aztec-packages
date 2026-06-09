@@ -468,11 +468,19 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
       }
     });
 
-    // Wait for both checkpoints to be mined
+    // Wait for both checkpoints to be mined. The bad-slot search above can skip several candidates,
+    // leaving `expectedSecondSlot` many slots ahead of the current slot, so size the timeout to how
+    // far ahead that slot actually is (plus a buffer) rather than a fixed slot count that a far-ahead
+    // selection would always exceed.
+    const slotsUntilSecondBadSlot = Number(expectedSecondSlot) - Number(test.epochCache.getEpochAndSlotNow().slot);
+    const waitSlots = Math.max(8, slotsUntilSecondBadSlot + 4);
     logger.warn(`Waiting for two checkpoints to be mined on slots ${expectedFirstSlot} and ${expectedSecondSlot}`);
     const [firstCheckpoint, secondCheckpoint] = await Promise.race([
       Promise.all([firstCheckpointPromise.promise, secondCheckpointPromise.promise]),
-      timeoutPromise(test.L2_SLOT_DURATION_IN_S * 8 * 1000).then(() => [CheckpointNumber(0), CheckpointNumber(0)]),
+      timeoutPromise(
+        test.L2_SLOT_DURATION_IN_S * waitSlots * 1000,
+        `Timed out waiting for bad checkpoints at slots ${expectedFirstSlot} and ${expectedSecondSlot}`,
+      ),
     ]);
 
     // Sanity check: verify that both bad checkpoints landed on L1 with insufficient attestations.
