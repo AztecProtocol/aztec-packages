@@ -853,12 +853,8 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
         hooks: composeHooks({
           authorizeUtilityCall: this.buildAuthorizeUtilityCallHook('utility', authorizedUtilityCallTargets),
         }),
-<<<<<<< HEAD
-=======
-        utilityExecutor,
         // Execution-tree root (top-level utility run or contract sync): own store; nested frames inherit it.
         transientArrayService: new TransientArrayService(),
->>>>>>> origin/public-v5-next
       });
       const acirExecutionResult = await simulator
         .executeUserCircuit(toACVMWitness(0, call.args), entryPointArtifact, buildACIRCallback(oracle))
