@@ -12,8 +12,11 @@ import type { ContractStore } from '../storage/contract_store/contract_store.js'
 import type { NoteStore } from '../storage/note_store/note_store.js';
 import { syncScope, verifyCurrentClassId } from './helpers.js';
 
-/** Maximum number of scope syncs running concurrently across the PXE. */
-const MAX_CONCURRENT_SCOPE_SYNCS = 5;
+/**
+ * Maximum number of scope syncs running concurrently within a single sync call. Sized to trade off parallelism
+ * on non-ACIR work (node RPC, note store reads) against memory pressure from concurrent circuit execution.
+ */
+export const MAX_CONCURRENT_SCOPE_SYNCS = 5;
 
 /**
  * Service for syncing the private state of contracts and verifying that the PXE holds the current class artifact.
@@ -32,11 +35,6 @@ export class ContractSyncService implements StagedStore {
   // Tracks class ID verification per contract. Keyed by contract address only (no scope), since
   // class ID verification is scope-independent. Cleared on wipe/discard.
   private classIdVerificationCache: Map<string, Promise<void>> = new Map();
-
-  // Bounds the number of scope syncs running concurrently. Scopes beyond this limit queue here. Sized to trade off
-  // parallelism on non-ACIR work (node RPC, note store reads) against memory pressure from concurrent circuit
-  // execution.
-  #syncSlot = new Semaphore(MAX_CONCURRENT_SCOPE_SYNCS);
 
   constructor(
     private aztecNode: AztecNode,
@@ -119,9 +117,17 @@ export class ContractSyncService implements StagedStore {
     const verifyPromise = this.#verifyClassId(contractAddress, anchorBlockHeader);
     const syncNullifiersPromise = this.#syncNoteNullifiers(contractAddress, anchorBlockHeader, jobId, scopesToSync);
 
+    // We build a new semaphore for each sync call, so it rate-limits the scopes within that single call. We do
+    // this so that if these scope syncs trigger nested syncs, the nested ones can execute without causing a deadlock.
+    const syncSlot = new Semaphore(MAX_CONCURRENT_SCOPE_SYNCS);
+
     for (const scope of scopesToSync) {
       const key = toKey(contractAddress, scope);
-      const promise = Promise.all([verifyPromise, syncNullifiersPromise, this.#runBounded(() => syncScopeFn(scope))])
+      const promise = Promise.all([
+        verifyPromise,
+        syncNullifiersPromise,
+        runBounded(syncSlot, () => syncScopeFn(scope)),
+      ])
         .then(() => {})
         .catch(err => {
           this.syncedContracts.delete(key);
@@ -165,16 +171,6 @@ export class ContractSyncService implements StagedStore {
     await noteService.syncNoteNullifiers(contractAddress, scopes);
   }
 
-  /** Runs fn while holding a slot in #syncSlot, bounding total concurrent scope syncs. */
-  async #runBounded<T>(fn: () => Promise<T>): Promise<T> {
-    await this.#syncSlot.acquire();
-    try {
-      return await fn();
-    } finally {
-      this.#syncSlot.release();
-    }
-  }
-
   /** Collects all relevant scope promises (including in-flight ones from concurrent calls) and awaits them. */
   async #awaitSync(contractAddress: AztecAddress, scopes: AztecAddress[]): Promise<void> {
     const promises = scopes
@@ -186,4 +182,14 @@ export class ContractSyncService implements StagedStore {
 
 function toKey(contract: AztecAddress, scope: AztecAddress) {
   return `${contract.toString()}:${scope.toString()}`;
+}
+
+/** Runs fn while holding a slot in the given semaphore, bounding concurrent scope syncs within a single call. */
+async function runBounded<T>(syncSlot: Semaphore, fn: () => Promise<T>): Promise<T> {
+  await syncSlot.acquire();
+  try {
+    return await fn();
+  } finally {
+    syncSlot.release();
+  }
 }
