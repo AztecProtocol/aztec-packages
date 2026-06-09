@@ -158,6 +158,18 @@ impl<T> EphemeralArray<T> {
         }
         dest
     }
+
+    /// Returns `true` if at least one element satisfies the predicate `f`.
+    ///
+    /// Matches the `any` combinator on Noir's [`array`](std::array), slice, and `BoundedVec` collections. Defined in
+    /// terms of [`EphemeralArray::filter`]: it keeps the matching elements and checks whether any survived. This is
+    /// not short-circuiting — every element is tested even after the first match.
+    pub unconstrained fn any<Env>(self, f: unconstrained fn[Env](T) -> bool) -> bool
+    where
+        T: Serialize + Deserialize,
+    {
+        self.filter(f).len() != 0
+    }
 }
 
 impl EphemeralArray<Field> {
@@ -686,6 +698,41 @@ mod test {
             assert_eq(evens.len(), 2);
             assert_eq(evens.get(0), 2);
             assert_eq(evens.get(1), 4);
+        });
+    }
+
+    #[test]
+    unconstrained fn any_is_true_when_an_element_matches() {
+        let env = TestEnvironment::new();
+        env.utility_context(|_| {
+            let array: EphemeralArray<Field> = EphemeralArray::empty_at(SLOT);
+            array.push(1);
+            array.push(2);
+            array.push(3);
+
+            assert(array.any(|x| x == 2));
+        });
+    }
+
+    #[test]
+    unconstrained fn any_is_false_when_no_element_matches() {
+        let env = TestEnvironment::new();
+        env.utility_context(|_| {
+            let array: EphemeralArray<Field> = EphemeralArray::empty_at(SLOT);
+            array.push(1);
+            array.push(2);
+            array.push(3);
+
+            assert(!array.any(|x| x == 9));
+        });
+    }
+
+    #[test]
+    unconstrained fn any_on_empty_array_is_false() {
+        let env = TestEnvironment::new();
+        env.utility_context(|_| {
+            let array: EphemeralArray<Field> = EphemeralArray::empty_at(SLOT);
+            assert(!array.any(|_| true));
         });
     }
 }
