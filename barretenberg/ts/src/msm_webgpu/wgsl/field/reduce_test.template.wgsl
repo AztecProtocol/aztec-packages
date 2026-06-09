@@ -20,7 +20,8 @@
 struct Params {
   num_edges: u32,
   out_len: u32,
-  chunk: u32, // edges summed per workgroup
+  chunk: u32,    // edges summed per workgroup
+  out_base: u32, // Fr offset into partials (lets all relations share one buffer)
 }
 
 @group(0) @binding(0) var<storage, read> in_buf: array<u32>;        // num_edges * out_len Fr
@@ -58,5 +59,5 @@ fn reduce_main(@builtin(workgroup_id) wid: vec3<u32>, @builtin(local_invocation_
   for (var e = start; e < end; e = e + 1u) {
     acc = fr_add_f8(acc, ld(e * params.out_len + k));
   }
-  st(wid.x * params.out_len + k, acc);
+  st(params.out_base + wid.x * params.out_len + k, acc);
 }

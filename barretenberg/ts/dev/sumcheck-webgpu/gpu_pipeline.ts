@@ -1,9 +1,19 @@
-// Shared resident-byte GPU sumcheck engine, used by both the validation suite
-// (suite_rounds.ts) and the benchmark tab (bench.ts). Runs all d = log2(n) rounds
-// with the polynomial columns kept GPU-resident in Montgomery byte form: columns
-// are encoded once, each round's accumulate input is assembled by byte-copy, and
-// the fold kernel's byte output IS the next round's columns (no per-round
-// toMont/fromMont). See suite_rounds.ts for the validation rationale.
+// Shared GPU sumcheck engine — fully GPU-resident across rounds, used by both the
+// validation suite (suite_rounds.ts) and the benchmark (bench.ts).
+//
+// The polynomial columns live in GPU buffers for the whole run and never come back
+// to the host between rounds. Per round:
+//   - one command encoder runs, for all 14 relations: a gather kernel (builds the
+//     packed edge-row input from the resident column-major columns + the per-edge
+//     scaling), the relation accumulate kernel, and the edge-reduction kernel
+//     (sums per-edge outputs into <=64 workgroup partials). All relations write
+//     into ONE partials buffer, read back in a SINGLE transfer (~0.7 MB) — the
+//     only per-round data trip.
+//   - the host finishes the partial sums, forms the round univariate, draws the
+//     challenge, and a second encoder folds every column resident->resident (no
+//     readback, just a fence).
+// One edge/per-edge scratch buffer is reused across relations to bound VRAM
+// (WebGPU serializes passes within an encoder, so reuse is safe).
 
 import {
   create_and_write_sb, create_and_write_ub, create_sb,
@@ -18,131 +28,27 @@ import {
   WG, sm, mod, packParams, toMont, fromMont, writeLe32, le32ToBi,
 } from './harness.js';
 
-// The edge-reduction kernel runs one thread per output column, so its workgroup
-// size must be >= the largest relation out_len (90 for DatabusLookup). Each round
-// is reduced into at most REDUCE_GROUPS workgroup partials, read back and summed
-// on the host — turning the readback from O(edges) to O(REDUCE_GROUPS).
-const REDUCE_WG = 128;
+const REDUCE_WG = 128; // >= largest relation out_len (90)
 const REDUCE_GROUPS = 64;
 
 export interface FoldRunner { layout: GPUBindGroupLayout; pipeline: GPUComputePipeline }
 export interface ReduceRunner { layout: GPUBindGroupLayout; pipeline: GPUComputePipeline }
+export interface GatherRunner { layout: GPUBindGroupLayout; pipeline: GPUComputePipeline }
 
-/** Compile the edge-reduction kernel once; reused for every round and relation. */
-export async function makeReduceRunner(device: GPUDevice): Promise<ReduceRunner> {
-  const layout = create_bind_group_layout(device, ['read-only-storage', 'storage', 'uniform']);
-  const pipeline = await create_compute_pipeline(device, [layout], sm.gen_reduce_test_shader(REDUCE_WG), 'reduce_main', 'reduce_main');
-  return { layout, pipeline };
-}
-
-/** Compile the fold kernel once; reused for every round and every relation. */
 export async function makeFoldRunner(device: GPUDevice): Promise<FoldRunner> {
   const layout = create_bind_group_layout(device, ['read-only-storage', 'storage', 'uniform', 'read-only-storage']);
   const pipeline = await create_compute_pipeline(device, [layout], sm.gen_fold_test_shader(WG), 'fold_main', 'fold_main');
   return { layout, pipeline };
 }
-
-/**
- * Fold `numCols` column-major Montgomery-byte columns of length `len` on the GPU,
- * returning the folded columns as Montgomery bytes (numCols x len/2). No canonical
- * conversion: the bytes go straight back in as the next round's columns.
- */
-export async function gpuFoldBytes(
-  device: GPUDevice, fold: FoldRunner, inBytes: Uint8Array, numCols: number, len: number, uBytes: Uint8Array,
-): Promise<Uint8Array> {
-  const half = len >> 1;
-  const numOut = numCols * half;
-  const inBuf = create_and_write_sb(device, inBytes);
-  const outBuf = create_sb(device, numOut * 32);
-  const params = new Uint8Array(16);
-  const dv = new DataView(params.buffer);
-  dv.setUint32(0, numOut, true);
-  dv.setUint32(4, half, true);
-  const bg = create_bind_group(device, fold.layout, [
-    inBuf, outBuf, create_and_write_ub(device, params), create_and_write_sb(device, uBytes),
-  ]);
-  const enc = device.createCommandEncoder();
-  await execute_pipeline(enc, fold.pipeline, bg, Math.ceil(numOut / WG));
-  const [bytes] = await read_from_gpu(device, enc, [outBuf]);
-  return bytes;
+export async function makeReduceRunner(device: GPUDevice): Promise<ReduceRunner> {
+  const layout = create_bind_group_layout(device, ['read-only-storage', 'storage', 'uniform']);
+  const pipeline = await create_compute_pipeline(device, [layout], sm.gen_reduce_test_shader(REDUCE_WG), 'reduce_main', 'reduce_main');
+  return { layout, pipeline };
 }
-
-/**
- * Assemble a relation's packed edge-row input (numPairs x inLen Fr) from its
- * resident column-major Montgomery bytes by byte-copy — entity j's pair at slots
- * 2j/2j+1, the round's edge scaling at the last slot. No toMont.
- */
-export function packEdgesFromBytes(
-  colBytes: Uint8Array, numEdges: number, len: number, inLen: number, numPairs: number, scal: Uint8Array,
-): Uint8Array {
-  const inB = new Uint8Array(numPairs * inLen * 32);
-  for (let p = 0; p < numPairs; p++) {
-    const rowBase = p * inLen;
-    for (let j = 0; j < numEdges; j++) {
-      const src = (j * len + 2 * p) * 32;
-      inB.set(colBytes.subarray(src, src + 32), (rowBase + 2 * j) * 32);
-      inB.set(colBytes.subarray(src + 32, src + 64), (rowBase + 2 * j + 1) * 32);
-    }
-    inB.set(scal.subarray(p * 32, p * 32 + 32), (rowBase + 2 * numEdges) * 32);
-  }
-  return inB;
-}
-
-/**
- * Dispatch one relation's accumulate kernel then reduce its per-edge output over
- * edges on the GPU, reading back only the workgroup partials and finishing the sum
- * on the host. The per-edge buffer stays in VRAM (never transferred). Returns the
- * relation's 345-Fr slice contribution and the GPU compute+readback time.
- */
-async function dispatchAccumulateReduced(
-  device: GPUDevice, numPairs: number, desc: RelationDescriptor, inBytes: Uint8Array,
-  relParams: Uint8Array | undefined, cache: PipelineCache, reduce: ReduceRunner,
-): Promise<{ slice: bigint[]; ms: number }> {
-  const outLen = desc.outLen;
-  // Accumulate pipeline (cached): same binding scheme as dispatchRelation.
-  const types = ['read-only-storage', 'storage', 'uniform'];
-  if (relParams) types.push('read-only-storage');
-  const accKey = `acc:${desc.entry}|${types.length}`;
-  let acc = cache.get(accKey);
-  if (!acc) {
-    const layout = create_bind_group_layout(device, types);
-    const pipeline = await create_compute_pipeline(device, [layout], desc.shader(), desc.entry, desc.entry);
-    acc = { layout, pipeline };
-    cache.set(accKey, acc);
-  }
-  const inBuf = create_and_write_sb(device, inBytes);
-  const accOut = create_sb(device, numPairs * outLen * 32); // per-edge output; stays on GPU
-  const accParams = new Uint8Array(16);
-  new DataView(accParams.buffer).setUint32(0, numPairs, true);
-  const accBufs = [inBuf, accOut, create_and_write_ub(device, accParams)];
-  if (relParams) accBufs.push(create_and_write_sb(device, relParams));
-  const accBg = create_bind_group(device, acc.layout, accBufs);
-
-  // Reduce: G workgroups, each summing `chunk` edges into out_len partials.
-  const chunk = Math.max(1, Math.ceil(numPairs / REDUCE_GROUPS));
-  const groups = Math.ceil(numPairs / chunk);
-  const partials = create_sb(device, groups * outLen * 32);
-  const rParams = new Uint8Array(16);
-  const rdv = new DataView(rParams.buffer);
-  rdv.setUint32(0, numPairs, true);
-  rdv.setUint32(4, outLen, true);
-  rdv.setUint32(8, chunk, true);
-  const rBg = create_bind_group(device, reduce.layout, [accOut, partials, create_and_write_ub(device, rParams)]);
-
-  const t0 = performance.now();
-  const enc = device.createCommandEncoder();
-  await execute_pipeline(enc, acc.pipeline, accBg, Math.ceil(numPairs / WG));
-  await execute_pipeline(enc, reduce.pipeline, rBg, groups);
-  const [pbytes] = await read_from_gpu(device, enc, [partials]);
-  const ms = performance.now() - t0;
-
-  const slice = new Array<bigint>(outLen).fill(0n);
-  for (let g = 0; g < groups; g++) {
-    for (let k = 0; k < outLen; k++) {
-      slice[k] = mod(slice[k] + fromMont(le32ToBi(pbytes, (g * outLen + k) * 32)));
-    }
-  }
-  return { slice, ms };
+export async function makeGatherRunner(device: GPUDevice): Promise<GatherRunner> {
+  const layout = create_bind_group_layout(device, ['read-only-storage', 'read-only-storage', 'storage', 'uniform']);
+  const pipeline = await create_compute_pipeline(device, [layout], sm.gen_gather_test_shader(WG), 'gather_main', 'gather_main');
+  return { layout, pipeline };
 }
 
 /** Encode canonical bigint columns to column-major Montgomery bytes (length n). */
@@ -153,23 +59,37 @@ export function encodeColumnsToBytes(cols: bigint[][], n: number): Uint8Array {
   return buf;
 }
 
+function u32x4(a: number, b = 0, c = 0, d = 0): Uint8Array {
+  const out = new Uint8Array(16);
+  const dv = new DataView(out.buffer);
+  dv.setUint32(0, a, true); dv.setUint32(4, b, true); dv.setUint32(8, c, true); dv.setUint32(12, d, true);
+  return out;
+}
+
 export interface ResidentSumcheckResult {
   univariates: bigint[][];
   challenges: bigint[];
   /** Per relation, the fully folded length-1 columns as Montgomery bytes. */
   finalColBytes: Uint8Array[];
-  /** Sum of per-dispatch (accumulate) compute+readback time, ms. */
+  /** GPU-bound time: per round, the accumulate readback + the fold fence, summed. */
   gpuMs: number;
-  /** Wall time for the whole multi-round run (rounds only, not the initial encode), ms. */
+  /** Wall time for the whole multi-round run (rounds only, not setup/upload). */
   totalMs: number;
 }
 
+interface Shared {
+  cache?: PipelineCache;
+  foldRunner?: FoldRunner;
+  reduceRunner?: ReduceRunner;
+  gatherRunner?: GatherRunner;
+}
+
 /**
- * Run a full d = log2(n) round MegaFlavor sumcheck on the GPU over resident
- * Montgomery-byte columns. `initColBytes[relationIndex]` are column-major Montgomery
- * bytes of length n (encode with encodeColumnsToBytes); they are replaced in place
- * by the folded bytes each round. Only the multi-round work is timed, not the
- * caller's one-time column encode.
+ * Run a full d = log2(n) round MegaFlavor sumcheck on the GPU with the columns
+ * GPU-resident across rounds. `initColBytes[relationIndex]` are column-major
+ * Montgomery bytes of length n (encode with encodeColumnsToBytes); they are
+ * uploaded once and never read back until the final length-1 columns (for the
+ * caller's purported-value anchor).
  */
 export async function runResidentGpuSumcheck(
   device: GPUDevice,
@@ -179,16 +99,54 @@ export async function runResidentGpuSumcheck(
   challenges: bigint[],
   relParamBytes: (Uint8Array | undefined)[],
   initColBytes: Uint8Array[],
-  shared?: { cache?: PipelineCache; foldRunner?: FoldRunner; reduceRunner?: ReduceRunner },
+  shared?: Shared,
 ): Promise<ResidentSumcheckResult> {
   const d = Math.round(Math.log2(n));
-  const colBytes = initColBytes;
   const relCache: PipelineCache = shared?.cache ?? new Map();
   const foldRunner = shared?.foldRunner ?? (await makeFoldRunner(device));
   const reduceRunner = shared?.reduceRunner ?? (await makeReduceRunner(device));
+  const gatherRunner = shared?.gatherRunner ?? (await makeGatherRunner(device));
+
+  // Upload relation parameters once; columns become resident GPU buffers.
+  const relParamBufs: (GPUBuffer | undefined)[] = new Array(NUM_RELATIONS).fill(undefined);
+  let colBuf: GPUBuffer[] = new Array(NUM_RELATIONS);
+  for (const desc of ALL_RELATIONS) {
+    const r = desc.relationIndex;
+    const rp = relParamBytes[r];
+    if (rp) relParamBufs[r] = create_and_write_sb(device, rp);
+    colBuf[r] = create_and_write_sb(device, initColBytes[r]);
+  }
+
+  // Scratch buffers sized for round 0, reused for every relation and round.
+  const pairs0 = n >> 1;
+  let maxEdge = 0, maxPerEdge = 0, totalOutLen = 0;
+  for (const desc of ALL_RELATIONS) {
+    maxEdge = Math.max(maxEdge, pairs0 * desc.inLen);
+    maxPerEdge = Math.max(maxPerEdge, pairs0 * desc.outLen);
+    totalOutLen += desc.outLen;
+  }
+  const edgeBuf = create_sb(device, maxEdge * 32);
+  const perEdge = create_sb(device, maxPerEdge * 32);
+  const partialsAll = create_sb(device, REDUCE_GROUPS * totalOutLen * 32);
+
+  // Cached accumulate pipeline per relation (same binding scheme as dispatchRelation).
+  const accPipeline = async (desc: RelationDescriptor) => {
+    const hasParams = relParamBufs[desc.relationIndex] !== undefined;
+    const key = `acc:${desc.entry}|${hasParams ? 4 : 3}`;
+    let p = relCache.get(key);
+    if (!p) {
+      const types = ['read-only-storage', 'storage', 'uniform'];
+      if (hasParams) types.push('read-only-storage');
+      const layout = create_bind_group_layout(device, types);
+      const pipeline = await create_compute_pipeline(device, [layout], desc.shader(), desc.entry, desc.entry);
+      p = { layout, pipeline };
+      relCache.set(key, p);
+    }
+    return p;
+  };
+
   let curLen = n;
   let gpuMs = 0;
-
   const t0 = performance.now();
   const { univariates, challenges: used } = await runSumcheckRounds(betas, d, {
     numRounds: d,
@@ -196,29 +154,87 @@ export async function runResidentGpuSumcheck(
     accumulate: async (_round, gs) => {
       const m = curLen;
       const pairs = m >> 1;
+      const chunk = Math.max(1, Math.ceil(pairs / REDUCE_GROUPS));
+      const groups = Math.ceil(pairs / chunk);
+
       const scal = new Uint8Array(pairs * 32);
       for (let p = 0; p < pairs; p++) writeLe32(scal, p * 32, toMont(gs.edgeScaling(p)));
+      const scalBuf = create_and_write_sb(device, scal);
+
+      const enc = device.createCommandEncoder();
+      const outBases: number[] = new Array(NUM_RELATIONS);
+      let outBase = 0; // Fr offset into partialsAll
+      for (const desc of ALL_RELATIONS) {
+        const r = desc.relationIndex;
+        // gather: resident columns + scaling -> packed edge rows (edgeBuf)
+        const gBg = create_bind_group(device, gatherRunner.layout, [
+          colBuf[r], scalBuf, edgeBuf, create_and_write_ub(device, u32x4(desc.numEdges, m, desc.inLen, pairs)),
+        ]);
+        await execute_pipeline(enc, gatherRunner.pipeline, gBg, Math.ceil((pairs * desc.inLen) / WG));
+        // accumulate: edgeBuf -> per-edge output (perEdge)
+        const acc = await accPipeline(desc);
+        const aBufs: GPUBuffer[] = [edgeBuf, perEdge, create_and_write_ub(device, u32x4(pairs))];
+        if (relParamBufs[r]) aBufs.push(relParamBufs[r]!);
+        const aBg = create_bind_group(device, acc.layout, aBufs);
+        await execute_pipeline(enc, acc.pipeline, aBg, Math.ceil(pairs / WG));
+        // reduce: per-edge output -> partials (into the shared buffer at outBase)
+        const rBg = create_bind_group(device, reduceRunner.layout, [
+          perEdge, partialsAll, create_and_write_ub(device, u32x4(pairs, desc.outLen, chunk, outBase)),
+        ]);
+        await execute_pipeline(enc, reduceRunner.pipeline, rBg, groups);
+        outBases[r] = outBase;
+        outBase += groups * desc.outLen;
+      }
+      const tg = performance.now();
+      const [pbytes] = await read_from_gpu(device, enc, [partialsAll], groups * totalOutLen * 32);
+      gpuMs += performance.now() - tg;
+
       const slices: (bigint[] | null)[] = new Array(NUM_RELATIONS).fill(null);
       for (const desc of ALL_RELATIONS) {
         const r = desc.relationIndex;
-        const inB = packEdgesFromBytes(colBytes[r], desc.numEdges, m, desc.inLen, pairs, scal);
-        const { slice, ms } = await dispatchAccumulateReduced(device, pairs, desc, inB, relParamBytes[r], relCache, reduceRunner);
-        gpuMs += ms;
+        const base = outBases[r];
+        const slice = new Array<bigint>(desc.outLen).fill(0n);
+        for (let g = 0; g < groups; g++) {
+          for (let k = 0; k < desc.outLen; k++) {
+            slice[k] = mod(slice[k] + fromMont(le32ToBi(pbytes, (base + g * desc.outLen + k) * 32)));
+          }
+        }
         slices[r] = slice;
       }
       return assembleAccumulator(slices);
     },
     roundUnivariate: (acc, gs) => gs.roundUnivariate(acc, alpha),
     fold: async (_round, u) => {
-      const uBytes = packParams([u]);
+      const m = curLen;
+      const half = m >> 1;
+      const uBuf = create_and_write_sb(device, packParams([u]));
+      const enc = device.createCommandEncoder();
+      const newCol: GPUBuffer[] = new Array(NUM_RELATIONS);
       for (const desc of ALL_RELATIONS) {
         const r = desc.relationIndex;
-        colBytes[r] = await gpuFoldBytes(device, foldRunner, colBytes[r], desc.numEdges, curLen, uBytes);
+        const numOut = desc.numEdges * half;
+        const nb = create_sb(device, numOut * 32);
+        const fBg = create_bind_group(device, foldRunner.layout, [
+          colBuf[r], nb, create_and_write_ub(device, u32x4(numOut, half)), uBuf,
+        ]);
+        await execute_pipeline(enc, foldRunner.pipeline, fBg, Math.ceil(numOut / WG));
+        newCol[r] = nb;
       }
-      curLen >>= 1;
+      const tf = performance.now();
+      device.queue.submit([enc.finish()]);
+      await device.queue.onSubmittedWorkDone();
+      gpuMs += performance.now() - tf;
+      colBuf = newCol;
+      curLen = half;
     },
   });
   const totalMs = performance.now() - t0;
 
-  return { univariates, challenges: used, finalColBytes: colBytes, gpuMs, totalMs };
+  // Final (length-1) columns for the purported-value anchor — one small readback.
+  const finalEnc = device.createCommandEncoder();
+  const finalBytes = await read_from_gpu(device, finalEnc, ALL_RELATIONS.map(desc => colBuf[desc.relationIndex]));
+  const finalColBytes: Uint8Array[] = new Array(NUM_RELATIONS);
+  ALL_RELATIONS.forEach((desc, i) => { finalColBytes[desc.relationIndex] = finalBytes[i]; });
+
+  return { univariates, challenges: used, finalColBytes, gpuMs, totalMs };
 }

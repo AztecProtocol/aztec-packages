@@ -40,6 +40,7 @@ import {
   field8 as field8_funcs,
   fold_test as fold_test_shader,
   reduce_test as reduce_test_shader,
+  gather_test as gather_test_shader,
   fr_ops_test as fr_ops_test_shader,
   fr_pow as fr_pow_funcs,
   lag as lag_funcs,
@@ -448,6 +449,15 @@ ${packLines.join('\n')}
    */
   public gen_reduce_test_shader(workgroup_size: number): string {
     return mustache.render(reduce_test_shader, this.relationView(workgroup_size), this.relationPartials);
+  }
+
+  /**
+   * Gather kernel: builds a relation's packed edge-row input from its GPU-resident
+   * column-major columns + the per-edge scaling, so the sumcheck columns stay on
+   * the GPU across rounds. One thread per output Fr.
+   */
+  public gen_gather_test_shader(workgroup_size: number): string {
+    return mustache.render(gather_test_shader, this.relationView(workgroup_size), this.relationPartials);
   }
 
   /** Common Mustache view shared by every relation-accumulate test shader. */

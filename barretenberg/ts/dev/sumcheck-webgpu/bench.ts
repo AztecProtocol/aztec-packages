@@ -8,8 +8,8 @@
 // wasm". Both run in the same browser, so the GPU is whatever drives the page.
 
 import {
-  runResidentGpuSumcheck, encodeColumnsToBytes, makeFoldRunner, makeReduceRunner,
-  type FoldRunner, type ReduceRunner,
+  runResidentGpuSumcheck, encodeColumnsToBytes, makeFoldRunner, makeReduceRunner, makeGatherRunner,
+  type FoldRunner, type ReduceRunner, type GatherRunner,
 } from './gpu_pipeline.js';
 import { ALL_RELATIONS } from './descriptors.js';
 import { type PipelineCache, type Logger, makeRng, packParams } from './harness.js';
@@ -89,7 +89,8 @@ export async function runBenchmark(device: GPUDevice, logNs: number[], log: Logg
   const cache: PipelineCache = new Map();
   const foldRunner: FoldRunner = await makeFoldRunner(device);
   const reduceRunner: ReduceRunner = await makeReduceRunner(device);
-  const shared = { cache, foldRunner, reduceRunner };
+  const gatherRunner: GatherRunner = await makeGatherRunner(device);
+  const shared = { cache, foldRunner, reduceRunner, gatherRunner };
   const wasm = await initWasm(log);
   if (wasm) log('info', `  WASM backend ready (bb.js threads)`);
 
