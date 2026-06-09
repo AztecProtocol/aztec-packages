@@ -40,7 +40,7 @@ pub contract SchnorrInitializerlessAccount {
     unconstrained fn constructor(public_key: PublicKey) {
         let serialized_pub_key = public_key.serialize();
         let expected = poseidon2_hash(public_key.serialize());
-        let instance = aztec::oracle::get_contract_instance::get_contract_instance(self.address);
+        let instance = get_contract_instance(self.address);
         assert_eq(
             expected,
             instance.immutables_hash,
@@ -70,7 +70,7 @@ pub contract SchnorrInitializerlessAccount {
         let public_key = unsafe { load(context.this_address(), PUB_KEY_SLOT, context.this_address()) }
             .map(|data| PublicKey::deserialize(data))
             .unwrap_or_else(|| panic(
-                "Public key was not stored in this PXE. Please call `constructor` first",
+                "Public key was not stored in the Private eXecution Environment. Please call `constructor` first",
             ));
 
         let expected = poseidon2_hash(public_key.serialize());
