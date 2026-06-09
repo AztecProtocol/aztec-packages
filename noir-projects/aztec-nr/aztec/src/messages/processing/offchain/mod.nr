@@ -8,7 +8,7 @@ use crate::{
     messages::processing::{MessageContext, OffchainMessageWithContext},
     oracle::{
         contract_sync::set_contract_sync_cache_invalid,
-        entity_store::{EntityBody, Fact, NonRetractableEntity, record_retractable_fact, terminate_entity},
+        entity_store::{EntityBody, Fact, NonRetractableEntity, terminate_entity},
         message_processing,
     },
     protocol::{address::AztecAddress, constants::MAX_TX_LIFETIME, hash::sha256_to_field},
@@ -166,15 +166,14 @@ pub unconstrained fn sync_inbox(
         if maybe_ready.is_some() {
             let ready = maybe_ready.unwrap();
             ready_to_process.push(ready);
-            record_retractable_fact(
+            reception.log(
                 contract_address,
                 scope,
-                OFFCHAIN_RECEPTION_ENTITY,
-                key,
                 OFFCHAIN_MESSAGE_PROCESSED,
                 [],
-                ready.message_context.tx_block_number,
-                ready.message_context.tx_block_hash,
+                Option::some(
+                    (ready.message_context.tx_block_number, ready.message_context.tx_block_hash),
+                ),
             );
         } else if expired {
             terminate_entity(contract_address, scope, OFFCHAIN_RECEPTION_ENTITY, key);
@@ -286,6 +285,46 @@ mod test {
             let stored = get_entity::<OffchainMessage>(address, scope, OFFCHAIN_RECEPTION_ENTITY, key);
             assert_eq(stored.payload.tx_hash, msg.tx_hash);
             assert_eq(stored.payload.anchor_block_timestamp, msg.anchor_block_timestamp);
+        });
+    }
+
+    #[test]
+    unconstrained fn log_records_a_retractable_fact() {
+        let (env, scope) = setup();
+        let anchor_ts = advance_by(env, 10);
+        let msg = make_msg(scope, Option::some(random()), anchor_ts);
+        let block_number = env.last_block_number();
+        let block_hash = random();
+
+        env.utility_context(|context| {
+            let address = context.this_address();
+            let reception = NonRetractableEntity::create(address, scope, msg);
+            reception.log(address, scope, OFFCHAIN_MESSAGE_PROCESSED, [], Option::some((block_number, block_hash)));
+
+            let key = msg.entity_id();
+            assert(
+                state_of(address, scope, key) == OffchainReceptionState::processed(),
+                "logged retractable fact should fold to processed",
+            );
+        });
+    }
+
+    #[test]
+    unconstrained fn log_records_a_non_retractable_fact() {
+        let (env, scope) = setup();
+        let anchor_ts = advance_by(env, 10);
+        let msg = make_msg(scope, Option::some(random()), anchor_ts);
+
+        env.utility_context(|context| {
+            let address = context.this_address();
+            let reception = NonRetractableEntity::create(address, scope, msg);
+            reception.log(address, scope, OFFCHAIN_MESSAGE_PROCESSED, [], Option::none());
+
+            let key = msg.entity_id();
+            assert(
+                state_of(address, scope, key) == OffchainReceptionState::processed(),
+                "logged non-retractable fact should fold to processed",
+            );
         });
     }
 
