@@ -5,7 +5,7 @@ import { BlockNumber, CheckpointNumber, EpochNumber } from '@aztec/foundation/br
 import { assertRequired, compact, pick } from '@aztec/foundation/collection';
 import { memoize } from '@aztec/foundation/decorators';
 import { createLogger } from '@aztec/foundation/log';
-import { DateProvider } from '@aztec/foundation/timer';
+import { DateProvider, executeTimeout } from '@aztec/foundation/timer';
 import type { EpochProverFactory } from '@aztec/prover-client';
 import { getLastSiblingPath } from '@aztec/prover-client/helpers';
 import { ChonkCache } from '@aztec/prover-client/orchestrator';
@@ -20,7 +20,7 @@ import {
 import type { Checkpoint, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type { ChainConfig } from '@aztec/stdlib/config';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
-import { type L1RollupConstants, getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
+import { type L1RollupConstants, getEpochAtSlot, getProofSubmissionDeadlineEpoch } from '@aztec/stdlib/epoch-helpers';
 import {
   type EpochProverManager,
   type EpochProvingJobState,
@@ -54,6 +54,13 @@ import { SessionManager } from './session-manager.js';
 
 type ProverNodeOptions = SpecificProverNodeConfig & Partial<DataStoreOptions>;
 type DataStoreOptions = Pick<DataStoreConfig, 'dataDirectory'> & Pick<ChainConfig, 'l1ChainId' | 'rollupVersion'>;
+
+/**
+ * Grace period for the proof-publishing service to settle during shutdown. The service waits for
+ * any in-flight L1 proof-submission tx to finish; that tx can take a long time to mine, so we cap
+ * the wait rather than letting `stop()` hang indefinitely.
+ */
+const PUBLISHING_SERVICE_STOP_TIMEOUT_MS = 30_000;
 
 /**
  * An Aztec Prover Node is a standalone process that monitors the chain for new checkpoints,
@@ -210,28 +217,26 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
   // ---------------- L2BlockStream handler ----------------
 
   public async handleBlockStreamEvent(event: L2BlockStreamEvent): Promise<void> {
-    try {
-      switch (event.type) {
-        case 'chain-checkpointed':
-          await this.handleCheckpointEvent(event.checkpoint);
-          break;
-        case 'chain-pruned':
-          await this.handlePruneEvent(event.checkpoint);
-          break;
-        case 'chain-proven':
-          this.publishingService?.onChainProven(BlockNumber(event.block.number));
-          break;
-        case 'chain-finalized':
-        case 'blocks-added':
-          break;
-      }
-      // Expiry is driven by the archiver's latest synced L2 slot
-      await this.checkEpochExpiry();
-    } finally {
-      // Update the local tips store *after* the handler ran. A throwing handler shouldn't
-      // leave the tipsStore claiming progress that didn't happen (A-1041).
-      await this.tipsStore.handleBlockStreamEvent(event);
+    switch (event.type) {
+      case 'chain-checkpointed':
+        await this.handleCheckpointEvent(event.checkpoint);
+        break;
+      case 'chain-pruned':
+        await this.handlePruneEvent(event.checkpoint);
+        break;
+      case 'chain-proven':
+        this.publishingService?.onChainProven(BlockNumber(event.block.number));
+        break;
+      case 'chain-finalized':
+      case 'blocks-added':
+        break;
     }
+    // Expiry is driven by the archiver's latest synced L2 slot
+    await this.checkEpochExpiry();
+    // Advance the local tips store only after the proving-side handling has succeeded. Any
+    // failure above propagates to the L2BlockStream (which logs and stops this poll pass) and
+    // skips this update, so the event is re-emitted on the next poll rather than skipped (A-1041).
+    await this.tipsStore.handleBlockStreamEvent(event);
   }
 
   /** Register a new checkpoint with the store and notify the session manager. */
@@ -246,20 +251,21 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
       return;
     }
 
+    if (await this.isEpochPastProofSubmissionWindow(epochNumber, l1Constants)) {
+      this.log.debug(
+        `Skipping checkpoint ${checkpoint.number} for epoch ${epochNumber} past its proof-submission window`,
+      );
+      return;
+    }
+
     this.log.info(`New checkpoint ${checkpoint.number} for epoch ${epochNumber}`, {
       checkpointNumber: checkpoint.number,
       epochNumber,
       slotNumber,
     });
 
-    try {
-      const registerData = await this.collectRegisterData(checkpoint, publishedCheckpoint.attestations);
-      await this.checkpointStore.addOrUpdate(checkpoint, registerData);
-    } catch (err) {
-      this.log.warn(`Could not register checkpoint ${checkpoint.number} for epoch ${epochNumber}`, err);
-      return;
-    }
-
+    const registerData = await this.collectRegisterData(checkpoint, publishedCheckpoint.attestations);
+    await this.checkpointStore.addOrUpdate(checkpoint, registerData);
     await this.sessionManager?.onCheckpointAdded(epochNumber);
   }
 
@@ -307,6 +313,25 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
   }
 
   /**
+   * Returns true once the chain has advanced past the given epoch's proof-submission window.
+   * Used to ignore checkpoints whose epoch can no longer be proven in time — chiefly while the
+   * archiver replays old blocks after a restart. Compares the archiver's latest synced L2 slot
+   * against the epoch's submission-deadline epoch; conservatively returns false if the slot can't
+   * be read yet.
+   */
+  private async isEpochPastProofSubmissionWindow(
+    epochNumber: EpochNumber,
+    l1Constants: L1RollupConstants,
+  ): Promise<boolean> {
+    const latestSlot = await this.l2BlockSource.getSyncedL2SlotNumber();
+    if (latestSlot === undefined) {
+      return false;
+    }
+    const latestEpoch = getEpochAtSlot(latestSlot, l1Constants);
+    return latestEpoch >= getProofSubmissionDeadlineEpoch(epochNumber, l1Constants);
+  }
+
+  /**
    * Compares the archiver's latest synced L2 slot against `lastExpiredEpoch` and, for each
    * newly-expired epoch, releases the chonk-cache entries for its blocks and reaps any
    * CheckpointProvers in the store. An epoch E is expired once the chain reaches the start
@@ -341,16 +366,9 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
    */
   private async expireEpoch(epoch: EpochNumber): Promise<void> {
     try {
-      const checkpoints = await this.l2BlockSource.getCheckpointsData({ epoch });
-      if (checkpoints.length > 0) {
-        const firstBlock = checkpoints[0].startBlock;
-        const last = checkpoints[checkpoints.length - 1];
-        const lastBlock = BlockNumber(last.startBlock + last.blockCount - 1);
-        const limit = lastBlock - firstBlock + 1;
-        const blocks = await this.l2BlockSource.getBlocks({ from: firstBlock, limit });
-        if (blocks.length > 0) {
-          this.chonkCache.releaseForBlocks(blocks);
-        }
+      const blocks = await this.l2BlockSource.getBlocks({ epoch, onlyCheckpointed: true });
+      if (blocks.length > 0) {
+        this.chonkCache.releaseForBlocks(blocks);
       }
     } catch (err) {
       this.log.warn(`Could not release chonk-cache entries for expired epoch ${epoch}`, err);
@@ -360,11 +378,14 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
 
   // ---------------- public API ----------------
 
-  public async startProof(epochNumber: EpochNumber): Promise<void> {
+  /**
+   * Schedules proving for the given epoch and returns the job id without waiting for completion.
+   */
+  public async startProof(epochNumber: EpochNumber): Promise<string> {
     if (!this.sessionManager) {
       throw new Error('ProverNode not started');
     }
-    await this.sessionManager.startProof(epochNumber);
+    return await this.sessionManager.startProof(epochNumber);
   }
 
   // ---------------- Service lifecycle ----------------
@@ -409,7 +430,15 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
       await this.sessionManager.stop();
     }
     if (this.publishingService) {
-      await this.publishingService.stop();
+      // Bound the wait: the publishing service blocks until any in-flight L1 proof-submission tx
+      // settles, which can outlast a reasonable shutdown window. On timeout we log and move on —
+      // the tx may still mine, but shutdown must not hang on it.
+      const publishingService = this.publishingService;
+      await executeTimeout(
+        () => publishingService.stop(),
+        PUBLISHING_SERVICE_STOP_TIMEOUT_MS,
+        'prover-node publishing-service stop',
+      ).catch(err => this.log.warn(`Timed out stopping proof publishing service`, err));
     }
     await this.checkpointStore.stop();
     this.chonkCache.stop();
@@ -439,7 +468,6 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
         maxPendingJobs: this.config.proverNodeMaxPendingJobs,
         tickIntervalMs: this.config.proverNodePollingIntervalMs,
         finalizationDelayMs: this.config.proverNodeEpochProvingDelayMs,
-        provingDelayMs: this.config.proverNodeEpochProvingDelayMs,
       },
       onSessionFailed: async session => {
         await this.tryUploadSessionFailure(session);

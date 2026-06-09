@@ -19,10 +19,16 @@ export interface ProvingStateLike {
  * Common scheduling infrastructure shared by every orchestrator that drives broker
  * proving jobs:
  *
- *   - A shared `SerialQueue` (`deferredJobQueue`) acting as the enqueue-throttle. The
- *     queue is owned by the `ProverClient` and shared across every orchestrator (every
- *     sub-tree and top-tree across every concurrent epoch session), so the total rate
- *     of job submission to the broker is bounded once, not once-per-orchestrator.
+ *   - A shared `SerialQueue` (`deferredJobQueue`) that serialises the *act of handing a
+ *     job to the broker*, one initiation per event-loop tick. Each queue task kicks off
+ *     `safeJob` (which submits to the broker) without awaiting it, then yields with
+ *     `sleep(0)`; the next task therefore runs on the following macrotask. This does NOT
+ *     cap how many broker jobs are concurrently in flight — the broker's own queue absorbs
+ *     that. What it bounds is the burst rate: a sub-tree that synchronously discovers
+ *     thousands of ready jobs can't flood the broker (and monopolise the event loop) in a
+ *     single tick. The queue is owned by the `ProverClient` and shared across every
+ *     orchestrator (every sub-tree and top-tree across every concurrent epoch session), so
+ *     this pacing is applied once globally rather than once-per-orchestrator.
  *   - A list of `AbortController`s (`pendingProvingJobs`) so a `cancel()` can abort
  *     in-flight broker jobs when needed.
  *   - A `deferredProving<T>(state, request, callback, isCancelled?)` method that wraps
@@ -143,9 +149,11 @@ export abstract class ProvingScheduler {
     };
 
     void this.deferredJobQueue.put(async () => {
+      // Kick off the broker submission without awaiting it — awaiting here would serialise all
+      // proving (one job at a time) and kill parallelism. The `sleep(0)` yields the event loop
+      // so the next queued job initiates on the following macrotask, pacing bursts rather than
+      // bounding in-flight broker concurrency (the broker's own queue handles that).
       void safeJob();
-      // Yield to the macrotask queue so Node has a chance to interleave other work
-      // between enqueues.
       await sleep(0);
     });
   }

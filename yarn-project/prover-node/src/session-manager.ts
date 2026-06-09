@@ -4,7 +4,6 @@ import type { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { RunningPromise } from '@aztec/foundation/running-promise';
-import { sleep } from '@aztec/foundation/sleep';
 import type { DateProvider } from '@aztec/foundation/timer';
 import type { EpochProverFactory } from '@aztec/prover-client';
 import type { L2BlockSource } from '@aztec/stdlib/block';
@@ -18,7 +17,7 @@ import {
 import type { EpochProvingJobState } from '@aztec/stdlib/interfaces/server';
 
 import type { CheckpointStore } from './checkpoint-store.js';
-import type { CheckpointProver } from './job/checkpoint-prover.js';
+import { CheckpointProver } from './job/checkpoint-prover.js';
 import type { EpochProvingJobData } from './job/epoch-proving-job-data.js';
 import {
   EpochSession,
@@ -44,10 +43,8 @@ export type SessionManagerConfig = {
   maxPendingJobs: number;
   /** Interval at which the internal periodic tick fires `reconcile({ kind: 'tick' })`. */
   tickIntervalMs: number;
-  /** Forwarded to every session. */
+  /** Forwarded to every session: delay before top-tree proving, letting late reorgs settle. */
   finalizationDelayMs: number | undefined;
-  /** Debug-only: delay before opening a full session once its epoch is ready to prove. */
-  provingDelayMs?: number;
 };
 
 export type SessionManagerDeps = {
@@ -181,22 +178,28 @@ export class SessionManager {
   // ---------------- public API ----------------
 
   /**
-   * Begins a proof attempt for the supplied epoch. Every session — full or partial —
-   * begins at the epoch's first slot; the partial's spec stops at the last canonical
-   * slot, while the full's stops at the epoch's last slot. Dedupes against any
-   * existing session covering the same range; awaits completion.
+   * Schedules a proof attempt for the supplied epoch and returns the job id without waiting for
+   * the proof to complete — proving can far outlast an HTTP request, so callers poll `getJobs()`
+   * for the outcome. Every session — full or partial — begins at the epoch's first slot; the
+   * partial's spec stops at the last canonical slot, while the full's stops at the epoch's last
+   * slot. Dedupes against any existing session covering the same range, returning its id.
    */
-  public async startProof(epoch: EpochNumber): Promise<void> {
+  public async startProof(epoch: EpochNumber): Promise<string> {
     const canonical = await this.deps.checkpointStore.listCanonicalForEpoch(epoch);
     if (canonical.length === 0) {
       throw new EmptyEpochError(epoch);
+    }
+    // Don't re-prove an epoch the L1 proven chain already encompasses — it was already proven
+    // (possibly by another prover node), so a fresh proof would be wasted work.
+    if (await this.isProvenChainEncompassing(canonical)) {
+      throw new EpochAlreadyProvenError(epoch);
     }
     const l1Constants = await this.getL1Constants();
     const [fromSlot] = getSlotRangeForEpoch(epoch, l1Constants);
     const toSlot = canonical[canonical.length - 1].slotNumber;
     const spec: SessionSpec = { kind: 'partial', epochNumber: epoch, fromSlot, toSlot };
 
-    // Are there any sessions that cover this exact range already
+    // Reuse a session already covering this exact range rather than scheduling a duplicate.
     const existingFull = this.getFullSession(epoch);
     if (
       existingFull &&
@@ -204,20 +207,19 @@ export class SessionManager {
       existingFull.getSpec().fromSlot === fromSlot &&
       existingFull.getSpec().toSlot === toSlot
     ) {
-      await existingFull.whenDone();
-      return;
+      return existingFull.getId();
     }
     const existingPartial = this.getPartialSession(spec);
     if (existingPartial && !existingPartial.isTerminal()) {
-      await existingPartial.whenDone();
-      return;
+      return existingPartial.getId();
     }
 
     await this.scheduleReconcile({ kind: 'start-proof', spec });
     const created = this.getPartialSession(spec);
-    if (created) {
-      await created.whenDone();
+    if (!created) {
+      throw new Error(`Failed to schedule partial proof for epoch ${epoch}`);
     }
+    return created.getId();
   }
 
   /** Stops the tick, drains the reconcile queue, and cancels every live session. */
@@ -327,15 +329,24 @@ export class SessionManager {
   }
 
   private openPartialSession(spec: SessionSpec): void {
-    if (this.getPartialSession(spec)?.isTerminal() === false) {
+    const canonical = this.deps.checkpointStore.listCanonicalInSlotRange(spec.fromSlot, spec.toSlot);
+    if (canonical.length === 0) {
+      return;
+    }
+    // Reuse a live partial session for this epoch whose checkpoint set already matches the
+    // canonical content — e.g. a repeated `startProof` with no new checkpoints mined since the
+    // last one. Reconstructing would re-prove identical content and burn a pending-job slot.
+    const existing = Array.from(this.partialSessions.values()).find(
+      s =>
+        s.getSpec().epochNumber === spec.epochNumber &&
+        !s.isTerminal() &&
+        this.checkpointsMatch(s.getCheckpoints(), canonical),
+    );
+    if (existing) {
       return;
     }
     if (this.atMaxSessionLimit()) {
       throw new Error(`Maximum pending proving jobs ${this.deps.config.maxPendingJobs} reached.`);
-    }
-    const canonical = this.deps.checkpointStore.listCanonicalInSlotRange(spec.fromSlot, spec.toSlot);
-    if (canonical.length === 0) {
-      return;
     }
     const session = this.constructSession(spec, canonical);
     this.partialSessions.set(specKey(spec), session);
@@ -383,16 +394,7 @@ export class SessionManager {
   }
 
   private async runSession(session: EpochSession): Promise<void> {
-    // Debug-only knob — delay actual proving start without blocking the reconcile queue
-    // (the alternative, sleeping inside openFullSessionIfReady, would stall every other
-    // tick / checkpoint / prune for the configured duration).
-    if (this.deps.config.provingDelayMs) {
-      this.log.warn(
-        `Waiting ${this.deps.config.provingDelayMs}ms before proving epoch ${session.getSpec().epochNumber}`,
-      );
-      await sleep(this.deps.config.provingDelayMs);
-    }
-    // A reconcile may have cancelled this session during the delay (content-change
+    // A reconcile may have cancelled this session before it starts (content-change
     // recreation). Don't proceed — start() would build a TopTreeJob that should never run.
     if (session.isTerminal()) {
       this.log.debug(`Skipping start for ${session.getId()}: already terminal (${session.getState()})`);
@@ -506,8 +508,25 @@ export class SessionManager {
     if (storeCps.length < archiverCps.length) {
       return false;
     }
-    const storeNumbers = new Set(storeCps.map(p => p.checkpoint.number));
-    return archiverCps.every(cp => storeNumbers.has(cp.checkpoint.number));
+    // Compare by content-addressed id (number, slot, archive root) rather than checkpoint number:
+    // a reorg can keep the number while changing the checkpoint's post-state archive root.
+    const storeIds = new Set(storeCps.map(p => p.id));
+    return archiverCps.every(cp => storeIds.has(CheckpointProver.idFor(cp.checkpoint)));
+  }
+
+  /**
+   * Returns true if the L1 proven tip already covers every canonical checkpoint in the set — i.e.
+   * the epoch has already been fully proven, so there is no point starting a new proof for it.
+   * Conservatively returns false when nothing is proven yet.
+   */
+  private async isProvenChainEncompassing(canonical: readonly CheckpointProver[]): Promise<boolean> {
+    const provenBlock = await this.deps.l2BlockSource.getBlockNumber({ tag: 'proven' });
+    if (!provenBlock || provenBlock <= 0) {
+      return false;
+    }
+    const lastCheckpoint = canonical[canonical.length - 1].checkpoint;
+    const lastBlock = lastCheckpoint.blocks[lastCheckpoint.blocks.length - 1].number;
+    return provenBlock >= lastBlock;
   }
 
   private async getL1Constants(): Promise<L1RollupConstants> {
@@ -522,5 +541,12 @@ class EmptyEpochError extends Error {
   constructor(epochNumber: EpochNumber) {
     super(`No blocks found for epoch ${epochNumber}`);
     this.name = 'EmptyEpochError';
+  }
+}
+
+class EpochAlreadyProvenError extends Error {
+  constructor(epochNumber: EpochNumber) {
+    super(`Epoch ${epochNumber} is already proven on L1`);
+    this.name = 'EpochAlreadyProvenError';
   }
 }

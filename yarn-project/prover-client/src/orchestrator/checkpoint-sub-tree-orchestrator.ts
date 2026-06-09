@@ -8,6 +8,7 @@ import {
 } from '@aztec/constants';
 import { BlockNumber, type EpochNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { AbortError } from '@aztec/foundation/error';
 import type { LoggerBindings } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, promiseWithResolvers } from '@aztec/foundation/promise';
 import type { SerialQueue } from '@aztec/foundation/queue';
@@ -82,6 +83,17 @@ export type SubTreeResult = {
 };
 
 type TreeSnapshots = Map<MerkleTreeId, AppendOnlyTreeSnapshot>;
+
+/**
+ * Base rollup hints as produced before proving: `PrivateBaseRollupHints` / `PublicBaseRollupHints`
+ * deliberately carry no recursive proof or verification key. The proof + VK are supplied later, when
+ * `TxProvingState.getBaseRollupTypeAndInputs` wraps these hints into the "with proof + VK" types —
+ * `PrivateTxBaseRollupPrivateInputs` (a `ChonkProofData`) or `PublicTxBaseRollupPrivateInputs` (a
+ * chonk-verifier proof + AVM proof). Those proofs are *required constructor arguments* of the wrapper
+ * types, so the only way to obtain a provable input is to populate them — they cannot be silently
+ * omitted. Naming the proof-less hints type here makes that boundary explicit at `prepareBaseRollupInputs`.
+ */
+type BaseRollupHintsWithoutProofAndVK = BaseRollupHints;
 
 /**
  * Orchestrates block-level proving for a single checkpoint, stopping at the boundary
@@ -457,6 +469,9 @@ export class CheckpointSubTreeOrchestrator extends ProvingScheduler {
   public cancel() {
     this.cancelled = true;
     this.resetSchedulerState(this.cancelJobsOnStop);
+    // Reject the proving state (and hence subTreeResult) so anyone awaiting the sub-tree result
+    // is released rather than hanging — matching TopTreeOrchestrator.cancel().
+    this.provingState?.cancel();
 
     for (const [blockNumber, db] of this.dbs.entries()) {
       void db.close().catch(err => this.logger.error(`Error closing db for block ${blockNumber}`, err));
@@ -556,9 +571,11 @@ export class CheckpointSubTreeOrchestrator extends ProvingScheduler {
     newL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
     startSpongeBlob: SpongeBlob,
     db: MerkleTreeWriteOperations,
-  ): Promise<[BaseRollupHints, TreeSnapshots]> {
-    // We build the base rollup inputs using a mock proof and verification key.
-    // These will be overwritten later once we have proven the chonk verifier circuit and any public kernels.
+  ): Promise<[BaseRollupHintsWithoutProofAndVK, TreeSnapshots]> {
+    // These hints deliberately carry no recursive proof or verification key — see
+    // BaseRollupHintsWithoutProofAndVK. The tx's proof + VK are attached later in
+    // TxProvingState.getBaseRollupTypeAndInputs from the proven chonk-verifier / kernel / AVM
+    // proofs, which are required there and so cannot be silently omitted.
     const start = performance.now();
     const hints = await insertSideEffectsAndBuildBaseRollupHints(
       tx,
@@ -660,9 +677,16 @@ export class CheckpointSubTreeOrchestrator extends ProvingScheduler {
         this.epochNumber,
       ),
     );
-    void promise.then(handleResult).catch(() => {
-      // The cache self-cleans on rejection; a future call (replacement sub-tree
-      // for this tx) will see the miss and re-enqueue. No action needed here.
+    void promise.then(handleResult).catch(err => {
+      // The cache self-cleans on rejection, so a replacement sub-tree for this tx will see the
+      // miss and re-enqueue. But if this proving state is still active, the failure must abort
+      // it: otherwise the base rollup for this tx is never enqueued and the checkpoint (and
+      // epoch) orchestrators hang forever waiting for a proof that will never arrive.
+      if (err instanceof AbortError || !provingState.verifyState()) {
+        return;
+      }
+      this.logger.error(`Chonk verifier proof failed for tx ${txHash}`, err);
+      provingState.reject(`Chonk verifier proof failed for tx ${txHash}: ${err}`);
     });
   }
 
