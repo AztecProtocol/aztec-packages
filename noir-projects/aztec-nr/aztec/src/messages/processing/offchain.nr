@@ -78,21 +78,6 @@ global OFFCHAIN_MESSAGE_PROCESSED: Field = sha256_to_field("AZTEC_NR::OFFCHAIN_M
 /// `MESSAGE_CIPHERTEXT_LEN + 1`.
 global SERIALIZED_CIPHERTEXT_LEN: u32 = MESSAGE_CIPHERTEXT_LEN + 1;
 
-/// Deserializes the leading `<T as Deserialize>::N` fields of an entity's `Field`-typed payload array into a `T`.
-///
-/// The generic `T` is what makes this work: the serialized length resolves through the `Deserialize` bound, whereas a
-/// concrete type's `<OffchainMessage as Deserialize>::N` cannot be used in array-length position.
-unconstrained fn deserialize_from_payload<T>(payload: EphemeralArray<Field>) -> T
-where
-    T: Deserialize,
-{
-    let mut fields: [Field; <T as Deserialize>::N] = [0; <T as Deserialize>::N];
-    for i in 0..<T as Deserialize>::N {
-        fields[i] = payload.get(i);
-    }
-    Deserialize::deserialize(fields)
-}
-
 /// Computes the per-message correlation key used as the entity identity in the fact store.
 ///
 /// The key is a poseidon2 hash over the serialized ciphertext fields and the normalized tx hash (0 when absent).
@@ -112,7 +97,7 @@ pub unconstrained fn correlation_key(
 
 /// Decodes the [`OffchainMessage`] stored as the reception entity's payload.
 pub unconstrained fn message_of(entity: Entity) -> OffchainMessage {
-    deserialize_from_payload(entity.payload)
+    entity.payload.read_as()
 }
 
 /// The computed state of an offchain reception entity, derived by folding its facts.

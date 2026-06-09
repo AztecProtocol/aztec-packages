@@ -112,6 +112,25 @@ impl<T> EphemeralArray<T> {
     }
 }
 
+impl EphemeralArray<Field> {
+    /// Deserializes the whole array into a `T`.
+    ///
+    /// Asserts the array holds exactly `<T as Deserialize>::N` fields, then reconstructs a `T` from them. This is the
+    /// read-back counterpart to pushing a value's serialized fields onto the array, and is defined only on
+    /// `EphemeralArray<Field>` because deserialization reconstructs a type from raw fields.
+    pub unconstrained fn read_as<T>(self) -> T
+    where
+        T: Deserialize,
+    {
+        assert_eq(self.len(), <T as Deserialize>::N, "EphemeralArray length mismatch for read_as");
+        let mut fields: [Field; <T as Deserialize>::N] = [0; <T as Deserialize>::N];
+        for i in 0..<T as Deserialize>::N {
+            fields[i] = self.get(i);
+        }
+        Deserialize::deserialize(fields)
+    }
+}
+
 /// Serializes an `EphemeralArray` as its slot identifier, allowing oracle function signatures to use
 /// `EphemeralArray<T>` instead of opaque `Field` slots.
 impl<T> Serialize for EphemeralArray<T> {
@@ -141,6 +160,7 @@ impl<T> Deserialize for EphemeralArray<T> {
 }
 
 mod test {
+    use crate::protocol::traits::Serialize;
     use crate::test::helpers::test_environment::TestEnvironment;
     use crate::test::mocks::MockStruct;
     use super::EphemeralArray;
@@ -369,6 +389,35 @@ mod test {
             let popped: MockStruct = array.pop();
             assert_eq(popped, b);
             assert_eq(array.len(), 1);
+        });
+    }
+
+    #[test]
+    unconstrained fn read_as_reconstructs_serialized_value() {
+        let env = TestEnvironment::new();
+        env.utility_context(|_| {
+            let array: EphemeralArray<Field> = EphemeralArray::empty_at(SLOT);
+
+            let value = MockStruct::new(5, 6);
+            let serialized = value.serialize();
+            for i in 0..serialized.len() {
+                array.push(serialized[i]);
+            }
+
+            let reconstructed: MockStruct = array.read_as();
+            assert_eq(reconstructed, value);
+        });
+    }
+
+    #[test(should_fail_with = "length mismatch")]
+    unconstrained fn read_as_rejects_length_mismatch() {
+        let env = TestEnvironment::new();
+        env.utility_context(|_| {
+            let array: EphemeralArray<Field> = EphemeralArray::empty_at(SLOT);
+            // MockStruct deserializes from 2 fields, so a single field is too short.
+            array.push(1);
+
+            let _: MockStruct = array.read_as();
         });
     }
 
