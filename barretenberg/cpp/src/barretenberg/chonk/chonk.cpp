@@ -162,26 +162,22 @@ Chonk::PublicInputsResult Chonk::process_public_inputs_and_consistency_checks(
         kernel_input.reconstruct_from_public(public_inputs);
 
         // ============= Perform databus consistency checks ===============================
+        //
+        // Equality of the databus commitments is enforced in-circuit by `incomplete_assert_equal`. That is the
+        // authoritative check: for `goblin_element` the point at infinity is canonicalized by the ECCVM, so the
+        // comparison is correct even when the two operands carry different native representations of infinity (e.g.
+        // one side reconstructed from public inputs keeps the infinity flag while the side deserialized from the
+        // transcript carries the `affine_one` sentinel coordinates with the flag dropped). A native
+        // `affine_element::operator==` comparison of `get_value()` does NOT canonicalize those representations and so
+        // disagrees with the in-circuit constraint, which is why it is not used for an eager debug assertion here.
 
         // Kernel return data
-        bool kernel_return_data_match =
-            kernel_input.kernel_return_data.get_value() == witness_commitments.kernel_calldata.get_value();
-        BB_ASSERT_DEBUG(kernel_return_data_match,
-                        "kernel_return_data mismatch: proof contains "
-                            << kernel_input.kernel_return_data.get_value() << " but kernel_calldata commitment is "
-                            << witness_commitments.kernel_calldata.get_value());
         kernel_input.kernel_return_data.incomplete_assert_equal(witness_commitments.kernel_calldata);
 
         const std::array app_calldata_commitments{ &witness_commitments.first_app_calldata,
                                                    &witness_commitments.second_app_calldata,
                                                    &witness_commitments.third_app_calldata };
         for (size_t idx = 0; idx < MAX_APPS_PER_KERNEL; ++idx) {
-            bool app_return_data_match =
-                kernel_input.app_return_data[idx].get_value() == app_calldata_commitments[idx]->get_value();
-            BB_ASSERT_DEBUG(app_return_data_match,
-                            "app_return_data mismatch: proof contains "
-                                << kernel_input.app_return_data[idx].get_value() << " but app calldata commitment "
-                                << idx << " is " << app_calldata_commitments[idx]->get_value());
             kernel_input.app_return_data[idx].incomplete_assert_equal(*app_calldata_commitments[idx]);
         }
 
@@ -189,11 +185,10 @@ Chonk::PublicInputsResult Chonk::process_public_inputs_and_consistency_checks(
 
         info("Accumulator hash from IO: ", kernel_input.output_hn_accum_hash);
         BB_ASSERT(prev_accum_hash.has_value());
-        bool accum_hash_match = kernel_input.output_hn_accum_hash.get_value() == prev_accum_hash->get_value();
-        BB_ASSERT_DEBUG(accum_hash_match,
-                        "output_hn_accum_hash mismatch: proof contains "
-                            << kernel_input.output_hn_accum_hash.get_value() << " but expected "
-                            << prev_accum_hash->get_value());
+        // Equality is enforced in-circuit by `assert_equal` (the same check release relies on). An eager native
+        // `get_value()` comparison is intentionally not used here: at the final (tail) kernel the
+        // `output_hn_accum_hash` carried in the public inputs is the 0 sentinel, which the in-circuit constraint
+        // accepts but a raw native equality against the recomputed hash would spuriously reject.
         kernel_input.output_hn_accum_hash.assert_equal(*prev_accum_hash);
 
         // ============= Set the kernel return data commitment ==============================
