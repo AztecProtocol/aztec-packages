@@ -183,6 +183,9 @@ container_script=$(
   git fetch --depth 1 origin $current_commit
   git checkout FETCH_HEAD
   git checkout -b \$REF_NAME
+  if [ -n "\${TARGET_BRANCH:-}" ]; then
+    git fetch --depth 1 origin "\${TARGET_BRANCH}:refs/remotes/origin/\${TARGET_BRANCH}"
+  fi
   source ci3/source
   ci_log_id=\$CI_LOG_ID
   log_ci_run \$ci_log_id
