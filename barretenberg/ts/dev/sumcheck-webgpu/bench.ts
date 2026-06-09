@@ -12,7 +12,7 @@ import {
   type FoldRunner, type ReduceRunner,
 } from './gpu_pipeline.js';
 import { ALL_RELATIONS } from './descriptors.js';
-import { type PipelineCache, type Logger, makeRng, packParams } from './harness.js';
+import { type PipelineCache, type Logger, WG, makeRng, packParams } from './harness.js';
 import { Barretenberg } from '../../src/barretenberg/index.js';
 
 // The bb.js async API once initialized; null if the WASM backend is unavailable.
@@ -125,6 +125,34 @@ export async function runBenchmark(device: GPUDevice, logNs: number[], log: Logg
   }
   await wasm?.destroy();
   return rows;
+}
+
+/**
+ * Per-kernel GPU profile of round 0 at one size, to confirm where GPU time goes
+ * (the ceiling argument rests on accumulate dominating reduce + fold). Needs
+ * timestamp-query (Chrome/Metal has it; logs a warning and exits if absent).
+ */
+export async function runProfile(device: GPUDevice, logN: number, log: Logger): Promise<void> {
+  const alpha = makeRng(0xb0_07_5eedn)();
+  const cache: PipelineCache = new Map();
+  const shared = { cache, foldRunner: await makeFoldRunner(device), reduceRunner: await makeReduceRunner(device) };
+  const n = 1 << logN;
+  const betas = Array.from({ length: logN }, (_, i) => makeRng(0xbe7a_77n + BigInt(i))());
+  const challenges = Array.from({ length: logN }, (_, i) => makeRng(0xc4a1_77n + BigInt(i))());
+  const { initColBytes, relParamBytes } = buildInputs(n);
+  await runResidentGpuSumcheck(device, n, alpha, betas, challenges, relParamBytes, initColBytes, shared, WG); // warmup/compile
+  const r = await runResidentGpuSumcheck(device, n, alpha, betas, challenges, relParamBytes, initColBytes, shared, WG, true);
+
+  log('info', `  per-kernel GPU profile · round 0 · 2^${logN} (edges = ${n >> 1})`);
+  if (!r.profile) { log('warn', '  timestamp-query unavailable — no per-kernel timing on this device.'); return; }
+  const sum = (pfx: string) => r.profile!.filter(e => e.label.startsWith(pfx)).reduce((s, e) => s + e.ms, 0);
+  const acc = sum('acc:'), r1 = sum('r1:'), r2 = sum('r2:'), fold = sum('fold:');
+  const tot = acc + r1 + r2 + fold;
+  const pct = (x: number) => (tot ? (100 * x / tot).toFixed(1) : '0') + '%';
+  log('ok', `  accumulate ${acc.toFixed(2)} ms (${pct(acc)}) · reduce ${(r1 + r2).toFixed(2)} ms (${pct(r1 + r2)}) · fold ${fold.toFixed(2)} ms (${pct(fold)})  [round-0 GPU passes]`);
+  const accByRel = r.profile.filter(e => e.label.startsWith('acc:')).sort((a, b) => b.ms - a.ms);
+  for (const e of accByRel.slice(0, 6)) log('info', `    ${e.label.padEnd(18)} ${e.ms.toFixed(3)} ms`);
+  log('info', `  host: decode ${r.decodeMs.toFixed(1)} ms · scaling ${r.scalingMs.toFixed(1)} ms · wall ${r.totalMs.toFixed(1)} ms · gpuMs ${r.gpuMs.toFixed(1)} ms`);
 }
 
 export interface WgSweepRow {

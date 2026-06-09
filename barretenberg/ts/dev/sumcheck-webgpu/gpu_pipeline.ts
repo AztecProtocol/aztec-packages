@@ -18,7 +18,7 @@
 import {
   create_and_write_sb, create_and_write_ub, create_sb,
   create_bind_group_layout, create_bind_group, create_compute_pipeline,
-  execute_pipeline, read_from_gpu,
+  execute_pipeline, read_from_gpu, Profiler,
 } from '../../src/msm_webgpu/cuzk/gpu.js';
 import { runSumcheckRounds } from '../../src/msm_webgpu/multiround.js';
 import { NUM_RELATIONS, assembleAccumulator } from '../../src/msm_webgpu/accumulator.js';
@@ -72,6 +72,9 @@ export interface ResidentSumcheckResult {
   /** Host-side per-phase diagnostics (ms, summed over rounds). */
   scalingMs: number;
   decodeMs: number;
+  /** Per-kernel GPU timing for round 0 (only when `profile` is set and the device
+   * supports timestamp-query); null otherwise. Labels: acc:/r1:/r2:/fold:<id>. */
+  profile: { label: string; ms: number }[] | null;
 }
 
 interface Shared {
@@ -97,11 +100,18 @@ export async function runResidentGpuSumcheck(
   initColBytes: Uint8Array[],
   shared?: Shared,
   accWG: number = WG,
+  profile = false,
 ): Promise<ResidentSumcheckResult> {
   const d = Math.round(Math.log2(n));
   const relCache: PipelineCache = shared?.cache ?? new Map();
   const foldRunner = shared?.foldRunner ?? (await makeFoldRunner(device));
   const reduceRunner = shared?.reduceRunner ?? (await makeReduceRunner(device));
+
+  // Opt-in per-kernel GPU timing, round 0 only (its acc+reduce+fold passes total
+  // 14*3 + 14 = 56 stages, under the 64 default and Metal's sample-buffer limit).
+  // No-ops (stage() -> undefined) when the device lacks timestamp-query.
+  const profiler = profile ? new Profiler(device, 64) : null;
+  const prof = (round: number, label: string) => (round === 0 ? profiler?.stage(label) : undefined);
 
   // Upload relation parameters once; columns become resident GPU buffers.
   const relParamBufs: (GPUBuffer | undefined)[] = new Array(NUM_RELATIONS).fill(undefined);
@@ -179,17 +189,17 @@ export async function runResidentGpuSumcheck(
         const aBufs: GPUBuffer[] = [colBuf[r], perEdge, create_and_write_ub(device, u32x4(pairs)), scalBuf];
         if (relParamBufs[r]) aBufs.push(relParamBufs[r]!);
         const aBg = create_bind_group(device, acc.layout, aBufs);
-        await execute_pipeline(enc, acc.pipeline, aBg, Math.ceil(pairs / accWG));
+        await execute_pipeline(enc, acc.pipeline, aBg, Math.ceil(pairs / accWG), 1, 1, prof(_round, `acc:${desc.id}`));
         // reduce pass 1: per-edge output -> up to `groups` partials per column (partsScratch, offset 0)
         const r1 = create_bind_group(device, reduceRunner.layout, [
           perEdge, partsScratch, create_and_write_ub(device, u32x4(pairs, desc.outLen, chunk, 0)),
         ]);
-        await execute_pipeline(enc, reduceRunner.pipeline, r1, groups);
+        await execute_pipeline(enc, reduceRunner.pipeline, r1, groups, 1, 1, prof(_round, `r1:${desc.id}`));
         // reduce pass 2: those `groups` partials -> ONE Fr per column, into finalParts at finalBase[r]
         const r2 = create_bind_group(device, reduceRunner.layout, [
           partsScratch, finalParts, create_and_write_ub(device, u32x4(groups, desc.outLen, groups, finalBase[r])),
         ]);
-        await execute_pipeline(enc, reduceRunner.pipeline, r2, 1);
+        await execute_pipeline(enc, reduceRunner.pipeline, r2, 1, 1, 1, prof(_round, `r2:${desc.id}`));
       }
       const tg = performance.now();
       const [pbytes] = await read_from_gpu(device, enc, [finalParts], totalOutLen * 32);
@@ -223,9 +233,12 @@ export async function runResidentGpuSumcheck(
         const fBg = create_bind_group(device, foldRunner.layout, [
           colBuf[r], nb, create_and_write_ub(device, u32x4(numOut, half)), uBuf,
         ]);
-        await execute_pipeline(enc, foldRunner.pipeline, fBg, Math.ceil(numOut / WG));
+        await execute_pipeline(enc, foldRunner.pipeline, fBg, Math.ceil(numOut / WG), 1, 1, prof(_round, `fold:${desc.id}`));
         newCol[r] = nb;
       }
+      // Round 0 is the only profiled round; resolve its query set into this (the
+      // last round-0) encoder before submit, so report() can read it afterwards.
+      if (_round === 0) profiler?.resolve(enc);
       const tf = performance.now();
       device.queue.submit([enc.finish()]);
       await device.queue.onSubmittedWorkDone();
@@ -235,6 +248,8 @@ export async function runResidentGpuSumcheck(
     },
   });
   const totalMs = performance.now() - t0;
+  const profileReport = profiler ? (await profiler.report())?.map(e => ({ label: e.label, ms: e.ms })) ?? null : null;
+  profiler?.destroy();
 
   // Final (length-1) columns for the purported-value anchor — one small readback.
   const finalEnc = device.createCommandEncoder();
@@ -242,5 +257,5 @@ export async function runResidentGpuSumcheck(
   const finalColBytes: Uint8Array[] = new Array(NUM_RELATIONS);
   ALL_RELATIONS.forEach((desc, i) => { finalColBytes[desc.relationIndex] = finalBytes[i]; });
 
-  return { univariates, challenges: used, finalColBytes, gpuMs, totalMs, scalingMs, decodeMs };
+  return { univariates, challenges: used, finalColBytes, gpuMs, totalMs, scalingMs, decodeMs, profile: profileReport };
 }

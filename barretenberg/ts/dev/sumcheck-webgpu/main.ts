@@ -30,7 +30,7 @@ import { databusSuite } from './suite_databus.js';
 import { integrationSuite } from './suite_integration.js';
 import { foldSuite } from './suite_fold.js';
 import { roundsSuite } from './suite_rounds.js';
-import { runBenchmark, runWgSweep, type BenchRow } from './bench.js';
+import { runBenchmark, runWgSweep, runProfile, type BenchRow } from './bench.js';
 
 const REGISTRY: Suite[] = [
   frSuite, monoSuite, arithSuite, deltaSuite, eccSuite, pos2InitSuite,
@@ -144,6 +144,33 @@ wgBtn.textContent = 'WG sweep';
 wgBtn.addEventListener('click', () => void runWgSweepAuto());
 $controls.appendChild(wgBtn);
 
+// Per-kernel GPU profile (round 0) to see where GPU time actually goes.
+async function runProfileAuto(): Promise<boolean> {
+  if (running) return false;
+  running = true;
+  setButtonsDisabled(true);
+  $log.replaceChildren();
+  const logN = Math.max(4, Math.min(20, parseInt($logn.value, 10) || 14));
+  let ok = true;
+  try {
+    await runProfile(await getDevice(), logN, log);
+  } catch (e) {
+    ok = false;
+    log('err', `error: ${(e as Error).message}`);
+    // eslint-disable-next-line no-console
+    console.error(e);
+  } finally {
+    running = false;
+    setButtonsDisabled(false);
+    log('muted', `[autorun] state=${ok ? 'ok' : 'err'}`);
+  }
+  return ok;
+}
+const profBtn = document.createElement('button');
+profBtn.textContent = 'Profile';
+profBtn.addEventListener('click', () => void runProfileAuto());
+$controls.appendChild(profBtn);
+
 // ===== Tab switching =====
 document.querySelectorAll<HTMLButtonElement>('.tabbar button').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -214,6 +241,8 @@ if (autorun === 'bench') {
   $benchRun.click();
 } else if (autorun === 'wgsweep') {
   void runWgSweepAuto();
+} else if (autorun === 'profile') {
+  void runProfileAuto();
 } else if (autorun) {
   const suites = autorun === 'all' ? REGISTRY : REGISTRY.filter(s => s.id === autorun);
   if (suites.length > 0) void runSuites(suites);
