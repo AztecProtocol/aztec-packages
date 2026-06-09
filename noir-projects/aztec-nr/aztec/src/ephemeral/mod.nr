@@ -138,6 +138,26 @@ impl<T> EphemeralArray<T> {
         }
         dest
     }
+
+    /// Collects every element satisfying the predicate `f` into a fresh ephemeral array.
+    ///
+    /// Reads each element in order, keeps those for which `f` returns `true`, and pushes them onto a new array at a
+    /// freshly allocated slot (see [`EphemeralArray::empty`]). Relative order is preserved. The source array is left
+    /// unchanged, and the result is isolated from it, so `filter` can be chained.
+    pub unconstrained fn filter<Env>(self, f: unconstrained fn[Env](T) -> bool) -> Self
+    where
+        T: Serialize + Deserialize,
+    {
+        let dest: Self = EphemeralArray::empty();
+        let n = self.len();
+        for i in 0..n {
+            let value = self.get(i);
+            if f(value) {
+                dest.push(value);
+            }
+        }
+        dest
+    }
 }
 
 impl EphemeralArray<Field> {
@@ -577,6 +597,95 @@ mod test {
             assert_eq(doubled.get(2), 6);
             assert_eq(tripled.get(0), 3);
             assert_eq(tripled.get(2), 9);
+        });
+    }
+
+    #[test]
+    unconstrained fn filter_keeps_matching_elements_in_order() {
+        let env = TestEnvironment::new();
+        env.utility_context(|_| {
+            let source: EphemeralArray<Field> = EphemeralArray::empty_at(SLOT);
+            source.push(1);
+            source.push(2);
+            source.push(3);
+            source.push(2);
+            source.push(5);
+
+            let kept: EphemeralArray<Field> = source.filter(|x| x != 2);
+
+            assert_eq(kept.len(), 3);
+            assert_eq(kept.get(0), 1);
+            assert_eq(kept.get(1), 3);
+            assert_eq(kept.get(2), 5);
+
+            // The source array is left untouched.
+            assert_eq(source.len(), 5);
+            assert_eq(source.get(1), 2);
+        });
+    }
+
+    #[test]
+    unconstrained fn filter_empty_source_gives_empty_dest() {
+        let env = TestEnvironment::new();
+        env.utility_context(|_| {
+            let source: EphemeralArray<Field> = EphemeralArray::empty_at(SLOT);
+            let kept: EphemeralArray<Field> = source.filter(|_| true);
+            assert_eq(kept.len(), 0);
+        });
+    }
+
+    #[test]
+    unconstrained fn filter_none_match_gives_empty_dest() {
+        let env = TestEnvironment::new();
+        env.utility_context(|_| {
+            let source: EphemeralArray<Field> = EphemeralArray::empty_at(SLOT);
+            source.push(1);
+            source.push(2);
+            source.push(3);
+
+            let kept: EphemeralArray<Field> = source.filter(|_| false);
+            assert_eq(kept.len(), 0);
+        });
+    }
+
+    #[test]
+    unconstrained fn filter_works_with_multi_field_type() {
+        let env = TestEnvironment::new();
+        env.utility_context(|_| {
+            let source: EphemeralArray<MockStruct> = EphemeralArray::empty_at(SLOT);
+            source.push(MockStruct::new(1, 10));
+            source.push(MockStruct::new(2, 20));
+            source.push(MockStruct::new(3, 30));
+
+            let kept: EphemeralArray<MockStruct> = source.filter(|s: MockStruct| s.a != 2);
+
+            assert_eq(kept.len(), 2);
+            assert_eq(kept.get(0), MockStruct::new(1, 10));
+            assert_eq(kept.get(1), MockStruct::new(3, 30));
+        });
+    }
+
+    #[test]
+    unconstrained fn filter_results_are_isolated() {
+        let env = TestEnvironment::new();
+        env.utility_context(|_| {
+            let source: EphemeralArray<Field> = EphemeralArray::empty_at(SLOT);
+            source.push(1);
+            source.push(2);
+            source.push(3);
+            source.push(4);
+
+            // Each filter allocates its own fresh slot, so two filters of the same source do not clobber each other.
+            let odds: EphemeralArray<Field> = source.filter(|x| (x != 2) & (x != 4));
+            let evens: EphemeralArray<Field> = source.filter(|x| (x != 1) & (x != 3));
+
+            assert(odds.slot != evens.slot, "each filter should land in a distinct slot");
+            assert_eq(odds.len(), 2);
+            assert_eq(odds.get(0), 1);
+            assert_eq(odds.get(1), 3);
+            assert_eq(evens.len(), 2);
+            assert_eq(evens.get(0), 2);
+            assert_eq(evens.get(1), 4);
         });
     }
 }
