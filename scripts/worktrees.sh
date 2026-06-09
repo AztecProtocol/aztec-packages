@@ -190,6 +190,12 @@ function cmd_create {
     git -C "$source" worktree add -b "$branch" "$wt_path" "$base_ref"
   fi
 
+  # An uninitialized noir-repo makes `git -C noir-repo rev-parse HEAD` resolve to the PARENT repo's
+  # HEAD (git walks up from the empty dir), corrupting the noir content hash and, through the
+  # dependency chain, every downstream component hash — turning cache hits into misses.
+  log "Initializing noir/noir-repo submodule..."
+  git -C "$wt_path" submodule update --init noir/noir-repo || die "submodule init failed"
+
   # Chicken-and-egg: only graft if the worktree's own cache_download honors CACHE_LINK_DIR.
   local link_supported=1
   if ! grep -q CACHE_LINK_DIR "$wt_path/ci3/cache_download" 2>/dev/null; then
