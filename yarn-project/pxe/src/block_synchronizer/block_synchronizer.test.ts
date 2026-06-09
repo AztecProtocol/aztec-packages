@@ -265,6 +265,7 @@ describe('BlockSynchronizer', () => {
       await synchronizer.handleBlockStreamEvent({
         type: 'chain-finalized',
         block: block9,
+        checkpoint: makeL2CheckpointId(CheckpointNumber(1), Fr.random().toString()),
       });
 
       // Finalization is a no-op for storage under delete-on-prune, every row at and below the tip survives.
@@ -408,6 +409,7 @@ describe('BlockSynchronizer', () => {
       await synchronizer.handleBlockStreamEvent({
         type: 'chain-proven',
         block: { number: BlockNumber(5), hash: '0x789' },
+        checkpoint: { number: CheckpointNumber(1), hash: '0x789c' },
       });
 
       const obtainedHeader = await anchorBlockStore.getBlockHeader();
@@ -428,6 +430,7 @@ describe('BlockSynchronizer', () => {
       await synchronizer.handleBlockStreamEvent({
         type: 'chain-finalized',
         block: { number: BlockNumber(10), hash: '0xabc' },
+        checkpoint: { number: CheckpointNumber(2), hash: '0xabcc' },
       });
 
       const obtainedHeader = await anchorBlockStore.getBlockHeader();

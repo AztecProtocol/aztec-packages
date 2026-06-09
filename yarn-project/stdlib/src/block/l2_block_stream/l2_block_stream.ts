@@ -261,10 +261,15 @@ export class L2BlockStream {
         await this.emitEvent({
           type: 'chain-proven',
           block: sourceTips.proven.block,
+          checkpoint: sourceTips.proven.checkpoint,
         });
       }
       if (localTips.finalized !== undefined && sourceTips.finalized.block.number !== localTips.finalized.block.number) {
-        await this.emitEvent({ type: 'chain-finalized', block: sourceTips.finalized.block });
+        await this.emitEvent({
+          type: 'chain-finalized',
+          block: sourceTips.finalized.block,
+          checkpoint: sourceTips.finalized.checkpoint,
+        });
       }
     } catch (err: any) {
       if (err.name === 'AbortError') {

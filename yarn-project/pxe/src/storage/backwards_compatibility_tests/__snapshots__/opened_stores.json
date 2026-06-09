@@ -98,6 +98,10 @@
       "kind": "map"
     },
     {
+      "name": "pxe_l2_tip_checkpoints",
+      "kind": "map"
+    },
+    {
       "name": "pxe_l2_tips",
       "kind": "map"
     }

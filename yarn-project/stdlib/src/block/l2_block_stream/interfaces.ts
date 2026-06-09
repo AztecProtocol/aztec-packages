@@ -39,10 +39,12 @@ export type L2BlockStreamEvent =
   | /** Reports new proven block. */ {
       type: 'chain-proven';
       block: L2BlockId;
+      checkpoint: CheckpointId;
     }
   | /** Reports new finalized block (proven and finalized on L1). */ {
       type: 'chain-finalized';
       block: L2BlockId;
+      checkpoint: CheckpointId;
     };
 
 export type L2TipsStore = L2BlockStreamEventHandler & L2BlockStreamLocalDataProvider;

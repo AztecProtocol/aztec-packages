@@ -256,8 +256,8 @@ describe('L2BlockStream', () => {
       await blockStream.work();
       expect(handler.events).toEqual([
         { type: 'blocks-added', blocks: times(5, i => makeBlock(i + 41)) },
-        { type: 'chain-proven', block: makeBlockId(40) },
-        { type: 'chain-finalized', block: makeBlockId(35) },
+        { type: 'chain-proven', block: makeBlockId(40), checkpoint: makeCheckpointId(40) },
+        { type: 'chain-finalized', block: makeBlockId(35), checkpoint: makeCheckpointId(35) },
       ] satisfies L2BlockStreamEvent[]);
     });
 
@@ -384,8 +384,8 @@ describe('L2BlockStream', () => {
         expectBlocksAdded([30]),
         expectCheckpointed(30),
         { type: 'blocks-added', blocks: times(5, i => makeBlock(i + 31)) },
-        { type: 'chain-proven', block: makeBlockId(25) },
-        { type: 'chain-finalized', block: makeBlockId(10) },
+        { type: 'chain-proven', block: makeBlockId(25), checkpoint: makeCheckpointId(25) },
+        { type: 'chain-finalized', block: makeBlockId(10), checkpoint: makeCheckpointId(10) },
       ]);
       handler.clearEvents();
 
@@ -1135,7 +1135,7 @@ describe('L2BlockStream', () => {
           expectBlocksAdded([7, 8, 9]),
           expectCheckpointed(3),
           expectBlocksAdded([10, 11, 12]),
-          { type: 'chain-proven', block: makeBlockId(6) },
+          { type: 'chain-proven', block: makeBlockId(6), checkpoint: makeCheckpointId(2) },
         ]);
 
         handler.clearEvents();
@@ -1191,7 +1191,7 @@ describe('L2BlockStream', () => {
           expectCheckpointed(4),
           expectBlocksAdded([13, 14, 15]),
           expectCheckpointed(5),
-          { type: 'chain-proven', block: makeBlockId(9) },
+          { type: 'chain-proven', block: makeBlockId(9), checkpoint: makeCheckpointId(3) },
         ]);
       });
 
@@ -1508,8 +1508,8 @@ describe('L2BlockStream', () => {
           expectBlocksAdded([1, 2, 3]),
           expectBlocksAdded([4, 5, 6]),
           expectBlocksAdded([7, 8, 9]),
-          { type: 'chain-proven', block: makeBlockId(6) },
-          { type: 'chain-finalized', block: makeBlockId(3) },
+          { type: 'chain-proven', block: makeBlockId(6), checkpoint: makeCheckpointId(2) },
+          { type: 'chain-finalized', block: makeBlockId(3), checkpoint: makeCheckpointId(1) },
         ]);
       });
 
@@ -1541,8 +1541,8 @@ describe('L2BlockStream', () => {
           expectBlocksAdded([6]),
           expectBlocksAdded([7, 8, 9]),
           expectBlocksAdded([10, 11, 12]),
-          { type: 'chain-proven', block: makeBlockId(9) },
-          { type: 'chain-finalized', block: makeBlockId(6) },
+          { type: 'chain-proven', block: makeBlockId(9), checkpoint: makeCheckpointId(3) },
+          { type: 'chain-finalized', block: makeBlockId(6), checkpoint: makeCheckpointId(2) },
         ]);
       });
 
@@ -1629,8 +1629,8 @@ describe('L2BlockStream', () => {
       // Instead of fetching the next local block (6), we skip ahead to the latest finalized (35) and go from there.
       expect(handler.events).toEqual([
         { type: 'blocks-added', blocks: times(6, i => makeBlock(i + 35)) },
-        { type: 'chain-proven', block: makeBlockId(38) },
-        { type: 'chain-finalized', block: makeBlockId(35) },
+        { type: 'chain-proven', block: makeBlockId(38), checkpoint: makeCheckpointId(38) },
+        { type: 'chain-finalized', block: makeBlockId(35), checkpoint: makeCheckpointId(35) },
       ] satisfies L2BlockStreamEvent[]);
     });
 
@@ -1689,8 +1689,8 @@ describe('L2BlockStream', () => {
         expectBlocksAdded([9]),
         expectCheckpointed(9),
         { type: 'blocks-added', blocks: times(3, i => makeBlock(i + 10)) },
-        { type: 'chain-proven', block: makeBlockId(9) },
-        { type: 'chain-finalized', block: makeBlockId(6) },
+        { type: 'chain-proven', block: makeBlockId(9), checkpoint: makeCheckpointId(9) },
+        { type: 'chain-finalized', block: makeBlockId(6), checkpoint: makeCheckpointId(6) },
       ]);
     });
 
@@ -1760,8 +1760,8 @@ describe('L2BlockStream', () => {
           }),
         }),
         { type: 'blocks-added', blocks: times(2, i => makeBlock(i + 39)) },
-        { type: 'chain-proven', block: makeBlockId(38) },
-        { type: 'chain-finalized', block: makeBlockId(35) },
+        { type: 'chain-proven', block: makeBlockId(38), checkpoint: makeCheckpointId(38) },
+        { type: 'chain-finalized', block: makeBlockId(35), checkpoint: makeCheckpointId(35) },
       ]);
     });
   });

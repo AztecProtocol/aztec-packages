@@ -2,7 +2,7 @@ import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 
 import type { PublishedCheckpoint } from '../../checkpoint/published_checkpoint.js';
 import type { BlockHash } from '../block_hash.js';
-import type { L2BlockTag } from '../l2_block_source.js';
+import type { CheckpointId, L2BlockTag } from '../l2_block_source.js';
 import { L2TipsStoreBase } from './l2_tips_store_base.js';
 
 /**
@@ -15,6 +15,7 @@ export class L2TipsMemoryStore extends L2TipsStoreBase {
   }
 
   private readonly tips = new Map<L2BlockTag, BlockNumber>();
+  private readonly tipCheckpoints = new Map<L2BlockTag, CheckpointId>();
   private readonly blockHashes = new Map<number, string>();
   private readonly blockToCheckpoint = new Map<number, CheckpointNumber>();
   private readonly checkpoints = new Map<number, PublishedCheckpoint>();
@@ -25,6 +26,15 @@ export class L2TipsMemoryStore extends L2TipsStoreBase {
 
   protected setTip(tag: L2BlockTag, blockNumber: BlockNumber): Promise<void> {
     this.tips.set(tag, blockNumber);
+    return Promise.resolve();
+  }
+
+  protected getTipCheckpoint(tag: L2BlockTag): Promise<CheckpointId | undefined> {
+    return Promise.resolve(this.tipCheckpoints.get(tag));
+  }
+
+  protected setTipCheckpoint(tag: L2BlockTag, checkpoint: CheckpointId): Promise<void> {
+    this.tipCheckpoints.set(tag, checkpoint);
     return Promise.resolve();
   }
 

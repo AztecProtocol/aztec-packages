@@ -1,9 +1,12 @@
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
-import { type BlockHash, type L2BlockTag, L2TipsStoreBase } from '@aztec/stdlib/block';
+import { type BlockHash, type CheckpointId, type L2BlockTag, L2TipsStoreBase } from '@aztec/stdlib/block';
 import { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 
 import type { AztecAsyncMap } from '../interfaces/map.js';
 import type { AztecAsyncKVStore } from '../interfaces/store.js';
+
+/** Serialized form of a per-tip checkpoint id stored in the KV store. */
+type StoredCheckpointId = { number: number; hash: string };
 
 /**
  * Persistent implementation of L2 tips store backed by a KV store.
@@ -11,6 +14,7 @@ import type { AztecAsyncKVStore } from '../interfaces/store.js';
  */
 export class L2TipsKVStore extends L2TipsStoreBase {
   private readonly l2TipsStore: AztecAsyncMap<L2BlockTag, BlockNumber>;
+  private readonly l2TipCheckpointsStore: AztecAsyncMap<L2BlockTag, StoredCheckpointId>;
   private readonly l2BlockHashesStore: AztecAsyncMap<BlockNumber, string>;
   private readonly l2BlockNumberToCheckpointNumberStore: AztecAsyncMap<BlockNumber, CheckpointNumber>;
   private readonly l2CheckpointStore: AztecAsyncMap<CheckpointNumber, Buffer>;
@@ -22,6 +26,7 @@ export class L2TipsKVStore extends L2TipsStoreBase {
   ) {
     super(initialBlockHash);
     this.l2TipsStore = store.openMap([namespace, 'l2_tips'].join('_'));
+    this.l2TipCheckpointsStore = store.openMap([namespace, 'l2_tip_checkpoints'].join('_'));
     this.l2BlockHashesStore = store.openMap([namespace, 'l2_block_hashes'].join('_'));
     this.l2BlockNumberToCheckpointNumberStore = store.openMap(
       [namespace, 'l2_block_number_to_checkpoint_number'].join('_'),
@@ -35,6 +40,18 @@ export class L2TipsKVStore extends L2TipsStoreBase {
 
   protected setTip(tag: L2BlockTag, blockNumber: BlockNumber): Promise<void> {
     return this.l2TipsStore.set(tag, blockNumber);
+  }
+
+  protected async getTipCheckpoint(tag: L2BlockTag): Promise<CheckpointId | undefined> {
+    const stored = await this.l2TipCheckpointsStore.getAsync(tag);
+    if (stored === undefined) {
+      return undefined;
+    }
+    return { number: CheckpointNumber(stored.number), hash: stored.hash };
+  }
+
+  protected setTipCheckpoint(tag: L2BlockTag, checkpoint: CheckpointId): Promise<void> {
+    return this.l2TipCheckpointsStore.set(tag, { number: checkpoint.number, hash: checkpoint.hash });
   }
 
   protected getStoredBlockHash(blockNumber: BlockNumber): Promise<string | undefined> {
