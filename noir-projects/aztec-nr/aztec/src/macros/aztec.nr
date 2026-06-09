@@ -343,8 +343,10 @@ comptime fn check_each_fn_macroified(m: Module) {
         if !is_fn_external(f) & !is_fn_contract_library_method(f) & !is_fn_internal(f) & !is_fn_test(f) {
             // We  don't suggest that #[contract_library_method] is allowed because we don't want to introduce another
             // concept
-            panic(
+            std::meta::error(
                 f"Function {name} must be marked as either #[external(...)], #[internal(...)], or #[test]",
+                Option::none(),
+                f.location(),
             );
         }
     }
