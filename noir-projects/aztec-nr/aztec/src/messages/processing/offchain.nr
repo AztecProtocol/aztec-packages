@@ -70,7 +70,7 @@ pub struct OffchainMessage {
 pub global OFFCHAIN_RECEPTION_ENTITY: Field = sha256_to_field("AZTEC_NR::OFFCHAIN_RECEPTION_ENTITY_TYPE".as_bytes());
 
 /// Fact type id for a processed offchain message (retractable; anchored at processing block).
-pub global MESSAGE_PROCESSED: Field = sha256_to_field("AZTEC_NR::MESSAGE_PROCESSED".as_bytes());
+pub global OFFCHAIN_MESSAGE_PROCESSED: Field = sha256_to_field("AZTEC_NR::OFFCHAIN_MESSAGE_PROCESSED".as_bytes());
 
 /// Number of fields produced by serializing a `BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN>`.
 ///
@@ -140,12 +140,12 @@ impl OffchainReceptionState {
 
 /// Folds an entity's fact set into an [`OffchainReceptionState`].
 ///
-/// A `MESSAGE_PROCESSED` fact advances the entity to `processed`; with no such fact the entity is `received`.
+/// A `OFFHCAIN_MESSAGE_PROCESSED` fact advances the entity to `processed`; with no such fact the entity is `received`.
 pub unconstrained fn fold(facts: EphemeralArray<Fact>) -> OffchainReceptionState {
     let mut has_processed = false;
     let facts_len = facts.len();
     for i in 0..facts_len {
-        if facts.get(i).fact_type_id == MESSAGE_PROCESSED {
+        if facts.get(i).fact_type_id == OFFCHAIN_MESSAGE_PROCESSED {
             has_processed = true;
         }
     }
@@ -285,7 +285,7 @@ pub unconstrained fn sync_inbox(
                 scope,
                 OFFCHAIN_RECEPTION_ENTITY,
                 key,
-                MESSAGE_PROCESSED,
+                OFFCHAIN_MESSAGE_PROCESSED,
                 [],
                 ctx.tx_block_number,
                 ctx.tx_block_hash,
@@ -307,9 +307,9 @@ mod test {
         test::helpers::test_environment::TestEnvironment,
     };
     use super::{
-        correlation_key, fold, MAX_MSG_TTL, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL, message_of, MESSAGE_PROCESSED,
-        OFFCHAIN_RECEPTION_ENTITY, OffchainMessage, OffchainReceptionState, pack_offchain_message, receive,
-        SERIALIZED_OFFCHAIN_MESSAGE_LEN, sync_inbox, unpack_offchain_message,
+        correlation_key, fold, MAX_MSG_TTL, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL, message_of,
+        OFFCHAIN_MESSAGE_PROCESSED, OFFCHAIN_RECEPTION_ENTITY, OffchainMessage, OffchainReceptionState,
+        pack_offchain_message, receive, SERIALIZED_OFFCHAIN_MESSAGE_LEN, sync_inbox, unpack_offchain_message,
     };
 
     global TEST_FACTS_SLOT: Field = 0xfac75;
@@ -642,7 +642,7 @@ mod test {
         env.utility_context(|_| {
             let payload = EphemeralArray::<Field>::empty_at(TEST_PAYLOAD_SLOT);
             let facts = EphemeralArray::<Fact>::empty_at(TEST_FACTS_SLOT);
-            facts.push(Fact { fact_type_id: MESSAGE_PROCESSED, payload });
+            facts.push(Fact { fact_type_id: OFFCHAIN_MESSAGE_PROCESSED, payload });
             assert(fold(facts) == OffchainReceptionState::processed());
         });
     }
