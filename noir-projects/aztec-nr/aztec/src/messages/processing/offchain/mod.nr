@@ -9,6 +9,7 @@ use crate::{
     oracle::{
         contract_sync::set_contract_sync_cache_invalid,
         entity_store::{EntityBody, Fact, NonRetractableEntity, record_retractable_fact, terminate_entity},
+        message_processing,
     },
     protocol::{address::AztecAddress, constants::MAX_TX_LIFETIME, hash::sha256_to_field},
 };
@@ -120,18 +121,16 @@ pub unconstrained fn sync_inbox(
     contract_address: AztecAddress,
     scope: AztecAddress,
 ) -> EphemeralArray<OffchainMessageWithContext> {
-    let ready_to_process: EphemeralArray<OffchainMessageWithContext> = EphemeralArray::empty();
-
     let entities = NonRetractableEntity::<OffchainMessage>::read_all_active(contract_address, scope);
 
-    // Ask PXE to resolve a tx context for each active entity. We pass the tx hashes in active-entity order, so the
+    // Ask PXE to resolve a tx context for each message. We pass the tx hashes in active-entity order, so the
     // resolved contexts come back aligned with the entity indices and can be matched back positionally.
-    let resolved_contexts = crate::oracle::message_processing::get_message_contexts_by_tx_hash(entities.map(|entity| {
-        entity.body.tx_hash.unwrap_or(0)
-    }));
+    let resolved_contexts =
+        message_processing::get_message_contexts_by_tx_hash(entities.map(|entity| entity.body.tx_hash.unwrap_or(0)));
 
     assert_eq(resolved_contexts.len(), entities.len());
 
+    let ready_to_process: EphemeralArray<OffchainMessageWithContext> = EphemeralArray::empty();
     let now = UtilityContext::new().timestamp();
 
     for i in 0..entities.len() {
