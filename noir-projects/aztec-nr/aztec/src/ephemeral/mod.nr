@@ -170,6 +170,35 @@ impl<T> EphemeralArray<T> {
     {
         self.filter(f).len() != 0
     }
+
+    /// Returns `true` if every element satisfies the predicate `f` (vacuously `true` for an empty array).
+    ///
+    /// Matches the `all` combinator on Noir's [`array`](std::array) and slice collections. Defined in terms of
+    /// [`EphemeralArray::filter`]: every element matches exactly when filtering keeps all of them. This is not
+    /// short-circuiting — every element is tested even after the first failure.
+    pub unconstrained fn all<Env>(self, f: unconstrained fn[Env](T) -> bool) -> bool
+    where
+        T: Serialize + Deserialize,
+    {
+        self.filter(f).len() == self.len()
+    }
+
+    /// Returns the first element satisfying the predicate `f`, or `Option::none` if none do.
+    ///
+    /// Mirrors Rust's `Iterator::find`. Defined in terms of [`EphemeralArray::filter`], which preserves order, so the
+    /// first kept element is the first match. This is not short-circuiting — every element is tested even after the
+    /// match is found.
+    pub unconstrained fn find<Env>(self, f: unconstrained fn[Env](T) -> bool) -> Option<T>
+    where
+        T: Serialize + Deserialize,
+    {
+        let matches = self.filter(f);
+        if matches.len() != 0 {
+            Option::some(matches.get(0))
+        } else {
+            Option::none()
+        }
+    }
 }
 
 impl EphemeralArray<Field> {
@@ -733,6 +762,80 @@ mod test {
         env.utility_context(|_| {
             let array: EphemeralArray<Field> = EphemeralArray::empty_at(SLOT);
             assert(!array.any(|_| true));
+        });
+    }
+
+    #[test]
+    unconstrained fn all_is_true_when_every_element_matches() {
+        let env = TestEnvironment::new();
+        env.utility_context(|_| {
+            let array: EphemeralArray<Field> = EphemeralArray::empty_at(SLOT);
+            array.push(1);
+            array.push(2);
+            array.push(3);
+
+            assert(array.all(|x| x != 0));
+        });
+    }
+
+    #[test]
+    unconstrained fn all_is_false_when_one_element_fails() {
+        let env = TestEnvironment::new();
+        env.utility_context(|_| {
+            let array: EphemeralArray<Field> = EphemeralArray::empty_at(SLOT);
+            array.push(1);
+            array.push(2);
+            array.push(3);
+
+            assert(!array.all(|x| x != 2));
+        });
+    }
+
+    #[test]
+    unconstrained fn all_on_empty_array_is_true() {
+        let env = TestEnvironment::new();
+        env.utility_context(|_| {
+            let array: EphemeralArray<Field> = EphemeralArray::empty_at(SLOT);
+            assert(array.all(|_| false));
+        });
+    }
+
+    #[test]
+    unconstrained fn find_returns_first_matching_element() {
+        let env = TestEnvironment::new();
+        env.utility_context(|_| {
+            let array: EphemeralArray<Field> = EphemeralArray::empty_at(SLOT);
+            array.push(1);
+            array.push(2);
+            array.push(3);
+            array.push(4);
+
+            // Both 2 and 4 match; find must return the first one in order.
+            let found = array.find(|x| (x == 2) | (x == 4));
+            assert(found.is_some());
+            assert_eq(found.unwrap(), 2);
+        });
+    }
+
+    #[test]
+    unconstrained fn find_returns_none_when_no_element_matches() {
+        let env = TestEnvironment::new();
+        env.utility_context(|_| {
+            let array: EphemeralArray<Field> = EphemeralArray::empty_at(SLOT);
+            array.push(1);
+            array.push(2);
+            array.push(3);
+
+            assert(array.find(|x| x == 9).is_none());
+        });
+    }
+
+    #[test]
+    unconstrained fn find_on_empty_array_is_none() {
+        let env = TestEnvironment::new();
+        env.utility_context(|_| {
+            let array: EphemeralArray<Field> = EphemeralArray::empty_at(SLOT);
+            assert(array.find(|_| true).is_none());
         });
     }
 }
