@@ -168,17 +168,17 @@ pub unconstrained fn sync_inbox(
 
     assert_eq(resolved_contexts.len(), active_receptions.len());
 
-    let ready_to_process: EphemeralArray<OffchainMessageWithContext> = EphemeralArray::empty();
+    let processable_messages: EphemeralArray<OffchainMessageWithContext> = EphemeralArray::empty();
     let now = UtilityContext::new().timestamp();
 
     active_receptions.for_each(|i, reception| {
         let maybe_ready = process_reception(reception, resolved_contexts.get(i), now);
         if maybe_ready.is_some() {
-            ready_to_process.push(maybe_ready.unwrap());
+            processable_messages.push(maybe_ready.unwrap());
         }
     });
 
-    ready_to_process
+    processable_messages
 }
 
 mod test {
