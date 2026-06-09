@@ -8,17 +8,17 @@ use crate::{
     utils::remove_constraints::remove_constraints_if,
 };
 use crate::protocol::{address::AztecAddress, constants::DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG, hash::compute_log_tag};
-use delivery_mode::DeliveryMode;
+use mode::DeliveryMode;
 use tag_secret_derivation::TagSecretDerivation;
 
 mod builder;
-mod delivery_mode;
+mod mode;
 mod tag_secret_derivation;
 
 pub use builder::{
     MessageDelivery, MessageDeliveryBuilder, OffchainDelivery, OnchainConstrainedDelivery, OnchainUnconstrainedDelivery,
 };
-pub use delivery_mode::OnchainDeliveryMode;
+pub use mode::OnchainDeliveryMode;
 
 /// Performs private delivery of a message to `recipient` according to `delivery_mode`.
 ///

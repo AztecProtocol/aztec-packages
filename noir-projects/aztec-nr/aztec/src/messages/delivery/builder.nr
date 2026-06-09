@@ -1,5 +1,5 @@
 use crate::protocol::address::AztecAddress;
-use super::delivery_mode::{DeliveryMode, OnchainDeliveryMode};
+use super::mode::{DeliveryMode, OnchainDeliveryMode};
 use super::tag_secret_derivation::TagSecretDerivation;
 
 /// Specifies how to deliver a message to a recipient.

@@ -1,4 +1,4 @@
-use super::delivery_mode::OnchainDeliveryMode;
+use super::mode::OnchainDeliveryMode;
 
 /// Noir does not support enums, so this wrapper models tag-secret derivation variants.
 pub(crate) struct TagSecretDerivation {
