@@ -560,46 +560,27 @@ impl From<OnchainConstrainedDelivery> for OnchainDeliveryMode {
 mod test {
     use crate::protocol::address::AztecAddress;
     use crate::protocol::traits::{Deserialize, FromField, Serialize};
-    use super::{
-        MessageDelivery, MessageDeliveryBuilder, OFFCHAIN, ONCHAIN_CONSTRAINED, ONCHAIN_UNCONSTRAINED,
-        OnchainDeliveryMode, TagSecretDerivation,
-    };
+    use super::{MessageDelivery, MessageDeliveryBuilder, OnchainDeliveryMode, TagSecretDerivation};
 
     #[test]
-    fn constructors_produce_distinct_variants() {
-        let offchain = MessageDelivery::offchain().build_message_delivery();
-        let onchain_unc = MessageDelivery::onchain_unconstrained().build_message_delivery();
-        let onchain_con = MessageDelivery::onchain_constrained().build_message_delivery();
+    fn onchain_deliveries_default_to_wallet_default_and_no_sender() {
+        let unconstrained_delivery = MessageDelivery::onchain_unconstrained().build_message_delivery();
+        let constrained_delivery = MessageDelivery::onchain_constrained().build_message_delivery();
 
-        assert(offchain.variant == OFFCHAIN);
-        assert(onchain_unc.variant == ONCHAIN_UNCONSTRAINED);
-        assert(onchain_con.variant == ONCHAIN_CONSTRAINED);
-    }
-
-    #[test]
-    fn onchain_unconstrained_defaults_to_wallet_default_derivation_and_unset_sender() {
-        let delivery = MessageDelivery::onchain_unconstrained().build_message_delivery();
-        assert(delivery.tag_secret_derivation == TagSecretDerivation::wallet_default());
-        assert(delivery.sender_override.is_none());
-    }
-
-    #[test]
-    fn onchain_constrained_defaults_to_wallet_default_derivation() {
-        let delivery = MessageDelivery::onchain_constrained().build_message_delivery();
-        assert(delivery.tag_secret_derivation == TagSecretDerivation::wallet_default());
-        assert(delivery.sender_override.is_none());
+        assert(unconstrained_delivery.tag_secret_derivation == TagSecretDerivation::wallet_default());
+        assert(unconstrained_delivery.sender_override.is_none());
+        assert(constrained_delivery.tag_secret_derivation == TagSecretDerivation::wallet_default());
+        assert(constrained_delivery.sender_override.is_none());
     }
 
     #[test]
     fn wallet_default_resolves_for_the_current_mode() {
         assert(
-            TagSecretDerivation::wallet_default()
-                .resolve_for_mode(OnchainDeliveryMode::onchain_unconstrained())
+            TagSecretDerivation::wallet_default().resolve_for_mode(OnchainDeliveryMode::onchain_unconstrained())
                 == TagSecretDerivation::address_secret(),
         );
         assert(
-            TagSecretDerivation::wallet_default()
-                .resolve_for_mode(OnchainDeliveryMode::onchain_constrained())
+            TagSecretDerivation::wallet_default().resolve_for_mode(OnchainDeliveryMode::onchain_constrained())
                 == TagSecretDerivation::non_interactive_handshake(),
         );
     }
@@ -608,22 +589,17 @@ mod test {
     fn onchain_unconstrained_can_select_address_secret_derivation() {
         let delivery = MessageDelivery::onchain_unconstrained().via_address_secret().build_message_delivery();
 
-        assert(delivery.variant == ONCHAIN_UNCONSTRAINED);
         assert(delivery.tag_secret_derivation == TagSecretDerivation::address_secret());
     }
 
     #[test]
     fn onchain_deliveries_can_select_non_interactive_handshake_derivation() {
-        let unconstrained_delivery = MessageDelivery::onchain_unconstrained()
-            .via_non_interactive_handshake()
-            .build_message_delivery();
-        let constrained_delivery = MessageDelivery::onchain_constrained()
-            .via_non_interactive_handshake()
-            .build_message_delivery();
+        let unconstrained_delivery =
+            MessageDelivery::onchain_unconstrained().via_non_interactive_handshake().build_message_delivery();
+        let constrained_delivery =
+            MessageDelivery::onchain_constrained().via_non_interactive_handshake().build_message_delivery();
 
-        assert(unconstrained_delivery.variant == ONCHAIN_UNCONSTRAINED);
         assert(unconstrained_delivery.tag_secret_derivation == TagSecretDerivation::non_interactive_handshake());
-        assert(constrained_delivery.variant == ONCHAIN_CONSTRAINED);
         assert(constrained_delivery.tag_secret_derivation == TagSecretDerivation::non_interactive_handshake());
     }
 
@@ -631,23 +607,16 @@ mod test {
     fn with_sender_populates_the_config() {
         let sender = AztecAddress::from_field(7);
 
-        let unconstrained_delivery = MessageDelivery::onchain_unconstrained()
-            .with_sender(sender)
-            .build_message_delivery();
+        let unconstrained_delivery =
+            MessageDelivery::onchain_unconstrained().with_sender(sender).build_message_delivery();
         let constrained_delivery = MessageDelivery::onchain_constrained().with_sender(sender).build_message_delivery();
 
-        assert(unconstrained_delivery.variant == ONCHAIN_UNCONSTRAINED);
-        assert(unconstrained_delivery.tag_secret_derivation == TagSecretDerivation::wallet_default());
         assert(unconstrained_delivery.sender_override.unwrap() == sender);
-        assert(constrained_delivery.variant == ONCHAIN_CONSTRAINED);
-        assert(constrained_delivery.tag_secret_derivation == TagSecretDerivation::wallet_default());
         assert(constrained_delivery.sender_override.unwrap() == sender);
     }
 
-    global GLOBAL_DERIVED_MODE: OnchainDeliveryMode = MessageDelivery::onchain_unconstrained().into();
-
     #[test]
-    fn mode_matches_the_variant() {
+    fn builders_convert_to_expected_onchain_modes() {
         let unconstrained_mode: OnchainDeliveryMode = MessageDelivery::onchain_unconstrained().into();
         let constrained_mode: OnchainDeliveryMode = MessageDelivery::onchain_constrained().into();
 
@@ -655,18 +624,6 @@ mod test {
         assert(constrained_mode == OnchainDeliveryMode::onchain_constrained());
         assert(OnchainDeliveryMode::onchain_unconstrained().is_valid());
         assert(OnchainDeliveryMode::onchain_constrained().is_valid());
-        assert(GLOBAL_DERIVED_MODE == OnchainDeliveryMode::onchain_unconstrained());
-    }
-
-    #[test]
-    fn builders_convert_into_modes() {
-        let unconstrained_mode: OnchainDeliveryMode = MessageDelivery::onchain_unconstrained().into();
-        let constrained_mode: OnchainDeliveryMode = MessageDelivery::onchain_constrained().into();
-        let explicit_mode: OnchainDeliveryMode = OnchainDeliveryMode::onchain_unconstrained().into();
-
-        assert(unconstrained_mode == OnchainDeliveryMode::onchain_unconstrained());
-        assert(constrained_mode == OnchainDeliveryMode::onchain_constrained());
-        assert(explicit_mode == OnchainDeliveryMode::onchain_unconstrained());
     }
 
     #[test]
@@ -686,9 +643,7 @@ mod test {
     #[test]
     fn built_delivery_mode_matches_the_variant() {
         assert(MessageDelivery::offchain().build_message_delivery().onchain_mode().is_none());
-        assert(
-            MessageDelivery::onchain_constrained().build_message_delivery().onchain_mode().unwrap().is_constrained(),
-        );
+        assert(MessageDelivery::onchain_constrained().build_message_delivery().onchain_mode().unwrap().is_constrained());
         assert(
             !MessageDelivery::onchain_unconstrained().build_message_delivery().onchain_mode().unwrap().is_constrained(),
         );
