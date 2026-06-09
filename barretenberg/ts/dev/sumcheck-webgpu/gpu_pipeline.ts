@@ -25,7 +25,7 @@ import { NUM_RELATIONS, assembleAccumulator } from '../../src/msm_webgpu/accumul
 import { ALL_RELATIONS } from './descriptors.js';
 import {
   type PipelineCache, type RelationDescriptor,
-  WG, sm, mod, packParams, toMont, fromMont, writeLe32, le32ToBi,
+  WG, sm, packParams, toMont, fromMont, writeLe32, le32ToBi,
 } from './harness.js';
 
 const REDUCE_WG = 128; // >= largest relation out_len (90)
@@ -69,6 +69,9 @@ export interface ResidentSumcheckResult {
   gpuMs: number;
   /** Wall time for the whole multi-round run (rounds only, not setup/upload). */
   totalMs: number;
+  /** Host-side per-phase diagnostics (ms, summed over rounds). */
+  scalingMs: number;
+  decodeMs: number;
 }
 
 interface Shared {
@@ -112,13 +115,21 @@ export async function runResidentGpuSumcheck(
 
   // Scratch buffers sized for round 0, reused for every relation and round.
   const pairs0 = n >> 1;
-  let maxPerEdge = 0, totalOutLen = 0;
+  let maxPerEdge = 0, totalOutLen = 0, maxOutLen = 0;
   for (const desc of ALL_RELATIONS) {
     maxPerEdge = Math.max(maxPerEdge, pairs0 * desc.outLen);
+    maxOutLen = Math.max(maxOutLen, desc.outLen);
     totalOutLen += desc.outLen;
   }
   const perEdge = create_sb(device, maxPerEdge * 32);
-  const partialsAll = create_sb(device, REDUCE_GROUPS * totalOutLen * 32);
+  // Two-level on-GPU reduction: pass 1 sums edges -> up to REDUCE_GROUPS partials per
+  // column (partsScratch, reused per relation); pass 2 sums those -> ONE Fr per column
+  // into finalParts (the whole 345-Fr accumulator). Only finalParts (~11 KB) is read
+  // back, so the host decodes totalOutLen Fr/round instead of REDUCE_GROUPS*totalOutLen.
+  const partsScratch = create_sb(device, REDUCE_GROUPS * maxOutLen * 32);
+  const finalParts = create_sb(device, totalOutLen * 32);
+  const finalBase: number[] = new Array(NUM_RELATIONS); // each relation's Fr offset in finalParts
+  { let b = 0; for (const desc of ALL_RELATIONS) { finalBase[desc.relationIndex] = b; b += desc.outLen; } }
 
   // Cached accumulate pipeline per relation. Bindings: col_buf (resident columns),
   // out_buf (per-edge output), params, scaling, and param_buf for the four
@@ -143,7 +154,7 @@ export async function runResidentGpuSumcheck(
   };
 
   let curLen = n;
-  let gpuMs = 0;
+  let gpuMs = 0, scalingMs = 0, decodeMs = 0;
   const t0 = performance.now();
   const { univariates, challenges: used } = await runSumcheckRounds(betas, d, {
     numRounds: d,
@@ -154,13 +165,13 @@ export async function runResidentGpuSumcheck(
       const chunk = Math.max(1, Math.ceil(pairs / REDUCE_GROUPS));
       const groups = Math.ceil(pairs / chunk);
 
+      const ts = performance.now();
       const scal = new Uint8Array(pairs * 32);
       for (let p = 0; p < pairs; p++) writeLe32(scal, p * 32, toMont(gs.edgeScaling(p)));
       const scalBuf = create_and_write_sb(device, scal);
+      scalingMs += performance.now() - ts;
 
       const enc = device.createCommandEncoder();
-      const outBases: number[] = new Array(NUM_RELATIONS);
-      let outBase = 0; // Fr offset into partialsAll
       for (const desc of ALL_RELATIONS) {
         const r = desc.relationIndex;
         // accumulate: gather edges from resident columns + scaling -> per-edge output (perEdge)
@@ -169,30 +180,33 @@ export async function runResidentGpuSumcheck(
         if (relParamBufs[r]) aBufs.push(relParamBufs[r]!);
         const aBg = create_bind_group(device, acc.layout, aBufs);
         await execute_pipeline(enc, acc.pipeline, aBg, Math.ceil(pairs / accWG));
-        // reduce: per-edge output -> partials (into the shared buffer at outBase)
-        const rBg = create_bind_group(device, reduceRunner.layout, [
-          perEdge, partialsAll, create_and_write_ub(device, u32x4(pairs, desc.outLen, chunk, outBase)),
+        // reduce pass 1: per-edge output -> up to `groups` partials per column (partsScratch, offset 0)
+        const r1 = create_bind_group(device, reduceRunner.layout, [
+          perEdge, partsScratch, create_and_write_ub(device, u32x4(pairs, desc.outLen, chunk, 0)),
         ]);
-        await execute_pipeline(enc, reduceRunner.pipeline, rBg, groups);
-        outBases[r] = outBase;
-        outBase += groups * desc.outLen;
+        await execute_pipeline(enc, reduceRunner.pipeline, r1, groups);
+        // reduce pass 2: those `groups` partials -> ONE Fr per column, into finalParts at finalBase[r]
+        const r2 = create_bind_group(device, reduceRunner.layout, [
+          partsScratch, finalParts, create_and_write_ub(device, u32x4(groups, desc.outLen, groups, finalBase[r])),
+        ]);
+        await execute_pipeline(enc, reduceRunner.pipeline, r2, 1);
       }
       const tg = performance.now();
-      const [pbytes] = await read_from_gpu(device, enc, [partialsAll], groups * totalOutLen * 32);
+      const [pbytes] = await read_from_gpu(device, enc, [finalParts], totalOutLen * 32);
       gpuMs += performance.now() - tg;
 
+      // finalParts already holds the cross-edge sum (one Fr per column), so the host
+      // just decodes totalOutLen Fr — no per-group summing.
+      const td = performance.now();
       const slices: (bigint[] | null)[] = new Array(NUM_RELATIONS).fill(null);
       for (const desc of ALL_RELATIONS) {
         const r = desc.relationIndex;
-        const base = outBases[r];
-        const slice = new Array<bigint>(desc.outLen).fill(0n);
-        for (let g = 0; g < groups; g++) {
-          for (let k = 0; k < desc.outLen; k++) {
-            slice[k] = mod(slice[k] + fromMont(le32ToBi(pbytes, (base + g * desc.outLen + k) * 32)));
-          }
-        }
+        const base = finalBase[r];
+        const slice = new Array<bigint>(desc.outLen);
+        for (let k = 0; k < desc.outLen; k++) slice[k] = fromMont(le32ToBi(pbytes, (base + k) * 32));
         slices[r] = slice;
       }
+      decodeMs += performance.now() - td;
       return assembleAccumulator(slices);
     },
     roundUnivariate: (acc, gs) => gs.roundUnivariate(acc, alpha),
@@ -228,5 +242,5 @@ export async function runResidentGpuSumcheck(
   const finalColBytes: Uint8Array[] = new Array(NUM_RELATIONS);
   ALL_RELATIONS.forEach((desc, i) => { finalColBytes[desc.relationIndex] = finalBytes[i]; });
 
-  return { univariates, challenges: used, finalColBytes, gpuMs, totalMs };
+  return { univariates, challenges: used, finalColBytes, gpuMs, totalMs, scalingMs, decodeMs };
 }

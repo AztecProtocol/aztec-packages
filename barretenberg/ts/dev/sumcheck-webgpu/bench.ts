@@ -121,7 +121,7 @@ export async function runBenchmark(device: GPUDevice, logNs: number[], log: Logg
     };
     rows.push(row);
     onRow?.(row);
-    log('ok', `  2^${logN}: WebGPU ${gpu.totalMs.toFixed(1)} ms (GPU ${gpu.gpuMs.toFixed(1)} ms) · WASM ${wasmMs === null ? '—' : wasmMs.toFixed(1) + ' ms'}${row.speedup ? `  →  ${row.speedup.toFixed(2)}× ` : ''}`);
+    log('ok', `  2^${logN}: WebGPU ${gpu.totalMs.toFixed(1)} ms (GPU ${gpu.gpuMs.toFixed(1)} ms · host: decode ${gpu.decodeMs.toFixed(0)}, scaling ${gpu.scalingMs.toFixed(0)}) · WASM ${wasmMs === null ? '—' : wasmMs.toFixed(1) + ' ms'}${row.speedup ? `  →  ${row.speedup.toFixed(2)}× ` : ''}`);
   }
   await wasm?.destroy();
   return rows;
