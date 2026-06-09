@@ -25,10 +25,10 @@ import { ProposalValidator } from './proposal_validator.js';
 const TEST_CLOCK_DISPARITY_MS = 500;
 
 /** Builds a multi-block timetable (S=72, E=12, D=6) matching the test's mocked l1 constants. */
-function makeTimetable(blockDurationMs: number | undefined = 6000) {
+function makeTimetable(blockDurationMs = 6000) {
   return new ConsensusTimetable({
     l1Constants: { l1GenesisTime: 0n, slotDuration: 72, ethereumSlotDuration: 12 },
-    blockDuration: blockDurationMs !== undefined ? blockDurationMs / 1000 : undefined,
+    blockDuration: blockDurationMs / 1000,
   });
 }
 
@@ -370,38 +370,6 @@ describe('ProposalValidator', () => {
 
       const result = await validator.validate(proposal);
       expect(result).toEqual({ result: 'reject', severity: PeerErrorSeverity.HighToleranceError });
-    });
-
-    it('does not throw and accepts a checkpoint proposal in single-block mode (no blockDuration)', async () => {
-      // Single-block mode: blockDuration undefined → receive deadline drops the D term to
-      // target_slot_start - E = 7188s. Window [7116, 7188]; now = 7150 is inside.
-      validator = new ProposalValidator(
-        epochCache,
-        makeTimetable(undefined),
-        {
-          txsPermitted: true,
-          signatureContext: TEST_COORDINATION_SIGNATURE_CONTEXT,
-          clockDisparityMs: TEST_CLOCK_DISPARITY_MS,
-        },
-        'test',
-      );
-      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
-
-      const proposal = await makeCheckpointProposal({
-        checkpointHeader: makeCheckpointHeader(0, { slotNumber: currentSlot }),
-        signer,
-      });
-
-      epochCache.getEpochAndSlotNow.mockReturnValue({
-        epoch: EpochNumber(1),
-        slot: currentSlot,
-        ts: 7150n,
-        nowMs: 7150_000n,
-      });
-
-      // validate must not throw in single-block mode (the receive deadline drops the D term instead of
-      // calling the old requireBlockDuration); a thrown error would fail this await directly.
-      await expect(validator.validate(proposal)).resolves.toEqual({ result: 'accept' });
     });
   });
 

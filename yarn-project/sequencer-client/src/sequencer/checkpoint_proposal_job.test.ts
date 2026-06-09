@@ -332,7 +332,6 @@ describe('CheckpointProposalJob', () => {
 
     config = {
       ...DefaultSequencerConfig,
-      enforceTimeTable: true,
       maxTxsPerBlock: 4,
       minTxsPerBlock: 1,
       publishTxsWithProposals: false,
@@ -347,7 +346,6 @@ describe('CheckpointProposalJob', () => {
 
     timetable = makeProposerTimetable({
       l1Constants,
-      enforce: config.enforceTimeTable,
     });
 
     job = createCheckpointProposalJob();
@@ -375,11 +373,11 @@ describe('CheckpointProposalJob', () => {
 
   describe('single block mode', () => {
     beforeEach(() => {
-      // Single block mode: no blockDurationMs set
+      // Single block mode: a 9s block duration in a 24s slot derives exactly one block sub-slot.
       job.setTimetable(
         makeProposerTimetable({
           l1Constants,
-          enforce: config.enforceTimeTable,
+          blockDurationMs: 9000,
         }),
       );
     });
@@ -390,6 +388,8 @@ describe('CheckpointProposalJob', () => {
 
       validatorClient.collectAttestations.mockResolvedValue(getAttestations(block));
 
+      // Start building at the build-frame opening so the single block sub-slot is still selectable.
+      dateProvider.setTime(buildFrameStartSeconds() * 1000);
       const checkpoint = await job.executeAndAwait();
 
       expect(checkpoint).toBeDefined();
@@ -463,6 +463,8 @@ describe('CheckpointProposalJob', () => {
 
       job.updateConfig({ buildCheckpointIfEmpty: true, minTxsPerBlock: 1 });
 
+      // Start building at the build-frame opening so the single block sub-slot is still selectable.
+      dateProvider.setTime(buildFrameStartSeconds() * 1000);
       const checkpoint = await job.executeAndAwait();
 
       expect(checkpoint).toBeDefined();
@@ -484,6 +486,8 @@ describe('CheckpointProposalJob', () => {
 
       validatorClient.collectAttestations.mockResolvedValue(getAttestations(block));
 
+      // Start building at the build-frame opening so the single block sub-slot is still selectable.
+      dateProvider.setTime(buildFrameStartSeconds() * 1000);
       await job.executeAndAwait();
 
       expect(validatorClient.collectAttestations).toHaveBeenCalledTimes(1);
@@ -506,7 +510,7 @@ describe('CheckpointProposalJob', () => {
       job.setTimetable(
         makeProposerTimetable({
           l1Constants,
-          enforce: config.enforceTimeTable,
+          blockDurationMs: 9000,
         }),
       );
 
@@ -541,7 +545,7 @@ describe('CheckpointProposalJob', () => {
       job.setTimetable(
         makeProposerTimetable({
           l1Constants,
-          enforce: config.enforceTimeTable,
+          blockDurationMs: 9000,
         }),
       );
 
@@ -583,7 +587,7 @@ describe('CheckpointProposalJob', () => {
       job.setTimetable(
         makeProposerTimetable({
           l1Constants,
-          enforce: config.enforceTimeTable,
+          blockDurationMs: 9000,
         }),
       );
 
@@ -626,7 +630,7 @@ describe('CheckpointProposalJob', () => {
       job.setTimetable(
         makeProposerTimetable({
           l1Constants,
-          enforce: config.enforceTimeTable,
+          blockDurationMs: 9000,
         }),
       );
 
@@ -670,7 +674,7 @@ describe('CheckpointProposalJob', () => {
       job.setTimetable(
         makeProposerTimetable({
           l1Constants,
-          enforce: config.enforceTimeTable,
+          blockDurationMs: 9000,
         }),
       );
 
@@ -1336,7 +1340,6 @@ describe('CheckpointProposalJob', () => {
         makeProposerTimetable({
           l1Constants,
           blockDurationMs: 3000,
-          enforce: true,
         }),
       );
     });
@@ -1606,6 +1609,13 @@ describe('CheckpointProposalJob', () => {
   });
 
   describe('timing edge cases', () => {
+    beforeEach(() => {
+      // Single-block timetable started at the build-frame opening, so the real timetable selects exactly
+      // one block. Tests that mock selectNextSubslot below override this.
+      job.setTimetable(makeProposerTimetable({ l1Constants, blockDurationMs: 9000 }));
+      dateProvider.setTime(buildFrameStartSeconds() * 1000);
+    });
+
     it('handles insufficient time remaining in slot', async () => {
       // Mock selectNextSubslot to return false (not enough time)
       jest.spyOn(job.getTimetable(), 'selectNextSubslot').mockReturnValue(noSubslot());
@@ -1664,6 +1674,12 @@ describe('CheckpointProposalJob', () => {
   });
 
   describe('error handling', () => {
+    beforeEach(() => {
+      // Single-block timetable started at the build-frame opening, so the real timetable selects exactly one block.
+      job.setTimetable(makeProposerTimetable({ l1Constants, blockDurationMs: 9000 }));
+      dateProvider.setTime(buildFrameStartSeconds() * 1000);
+    });
+
     it('handles block build failure gracefully', async () => {
       const txs = await Promise.all([makeTx(1, chainId)]);
       p2p.getPendingTxCount.mockResolvedValue(txs.length);
@@ -1771,6 +1787,12 @@ describe('CheckpointProposalJob', () => {
   });
 
   describe('attestation collection', () => {
+    beforeEach(() => {
+      // Single-block timetable started at the build-frame opening, so the real timetable selects exactly one block.
+      job.setTimetable(makeProposerTimetable({ l1Constants, blockDurationMs: 9000 }));
+      dateProvider.setTime(buildFrameStartSeconds() * 1000);
+    });
+
     it('collects attestations in normal flow', async () => {
       const { txs, block } = await setupTxsAndBlock(p2p, globalVariables, 1, chainId);
       checkpointBuilder.seedBlocks([block], [txs]);
@@ -1808,7 +1830,6 @@ describe('CheckpointProposalJob', () => {
         makeProposerTimetable({
           l1Constants,
           blockDurationMs: 3000,
-          enforce: true,
         }),
       );
 
@@ -1847,7 +1868,6 @@ describe('CheckpointProposalJob', () => {
         makeProposerTimetable({
           l1Constants,
           blockDurationMs: 3000,
-          enforce: true,
         }),
       );
 

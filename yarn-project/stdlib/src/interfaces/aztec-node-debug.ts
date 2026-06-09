@@ -1,8 +1,9 @@
+import { type CheckpointNumber, CheckpointNumberSchema } from '@aztec/foundation/branded-types';
 import { createSafeJsonRpcClient, defaultFetch } from '@aztec/foundation/json-rpc/client';
 
 import { z } from 'zod';
 
-import type { ApiSchemaFor } from '../schemas/schemas.js';
+import { type ApiSchemaFor, optional } from '../schemas/schemas.js';
 import { type ComponentsVersions, getVersioningResponseHandler } from '../versioning/index.js';
 
 /**
@@ -19,10 +20,24 @@ export interface AztecNodeDebug {
    * @throws If no sequencer is running.
    */
   mineBlock(): Promise<void>;
+
+  /**
+   * Synthetically proves the L2 chain up to the given checkpoint (default: the latest checkpointed
+   * checkpoint), writing epoch out hashes into the L1 Outbox so L2-to-L1 messages become consumable
+   * and advancing the rollup's proven tip. There is no real proof — this is the local-network
+   * equivalent of an epoch proof landing on L1. The target is clamped to the latest checkpointed
+   * checkpoint and the call no-ops when it is already proven.
+   *
+   * @param upToCheckpoint - Checkpoint to prove up to; defaults to the latest checkpointed checkpoint.
+   * @returns The proven checkpoint number after the call.
+   * @throws If no automine sequencer is running (only the automine sequencer supports synthetic proving).
+   */
+  prove(upToCheckpoint?: CheckpointNumber): Promise<CheckpointNumber>;
 }
 
 export const AztecNodeDebugApiSchema: ApiSchemaFor<AztecNodeDebug> = {
   mineBlock: z.function({ input: z.tuple([]), output: z.void() }),
+  prove: z.function({ input: z.tuple([optional(CheckpointNumberSchema)]), output: CheckpointNumberSchema }),
 };
 
 export function createAztecNodeDebugClient(

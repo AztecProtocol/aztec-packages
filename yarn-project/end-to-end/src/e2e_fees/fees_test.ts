@@ -132,10 +132,6 @@ export class FeesTest {
     await teardown(this.context);
   }
 
-  setIsMarkingAsProven(b: boolean) {
-    this.context.watcher.setIsMarkingAsProven(b);
-  }
-
   async catchUpProvenChain() {
     const bn = await this.aztecNode.getBlockNumber();
     while ((await this.aztecNode.getBlockNumber('proven')) < bn) {

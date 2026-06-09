@@ -205,7 +205,7 @@ This ensures P3 max penalty (-34) exceeds P1 + P2 max (+33), causing mesh prunin
 | Topic | Expected/Slot | Decay Window | Notes |
 |-------|--------------|--------------|-------|
 | `tx` | Unpredictable | N/A | P3/P3b disabled |
-| `block_proposal` | N-1 | 3 slots | N = blocks per slot (MBPS mode) |
+| `block_proposal` | N-1 | 3 slots | N = blocks per slot |
 | `checkpoint_proposal` | 1 | 5 slots | One per slot |
 | `checkpoint_attestation` | C (~48) | 2 slots | C = committee size |
 
@@ -223,15 +223,15 @@ Block proposal scoring is controlled by the `expectedBlockProposalsPerSlot` conf
 |-------------|----------|
 | `0` (current default) | Block proposal P3 scoring is **disabled** |
 | Positive number | Uses the provided value as expected proposals per slot |
-| `undefined` | Falls back to `blocksPerSlot - 1` (MBPS mode: N-1, single block: 0) |
+| `undefined` | Falls back to `blocksPerSlot - 1` (N-1 when the slot fits multiple blocks, 0 when it fits one) |
 
 **Current behavior note:** In the current implementation, if `SEQ_EXPECTED_BLOCK_PROPOSALS_PER_SLOT` is not set, config mapping applies `0` by default (scoring disabled). The `undefined` fallback above is currently reachable only if the value is explicitly provided as `undefined` in code.
 
 **Future intent:** Once throughput is stable, we may change env parsing/defaults so an unset env var resolves to `undefined` again (re-enabling automatic fallback to `blocksPerSlot - 1`).
 
-**Why disabled by default?** In MBPS mode, gossipsub expects N-1 block proposals per slot. When transaction throughput is low (as expected at launch), fewer blocks are actually built, causing peers to be incorrectly penalized for under-delivering block proposals. The default of 0 disables this scoring. Set to a positive value when throughput increases and block production is consistent.
+**Why disabled by default?** Gossipsub expects N-1 block proposals per slot. When transaction throughput is low (as expected at launch), fewer blocks are actually built, causing peers to be incorrectly penalized for under-delivering block proposals. The default of 0 disables this scoring. Set to a positive value when throughput increases and block production is consistent.
 
-In MBPS mode (when enabled), N-1 block proposals are gossiped per slot (the last block is bundled with the checkpoint). In single-block mode, this is 0.
+When a slot fits multiple blocks, N-1 block proposals are gossiped per slot (the last block is bundled with the checkpoint). When the slot fits exactly one block, this is 0.
 
 ### Checkpoint Proposals (checkpoint_proposal)
 
@@ -254,7 +254,7 @@ The scoring parameters depend on:
 | `slotDuration` | L1RollupConstants | 72s |
 | `targetCommitteeSize` | L1RollupConstants | 48 |
 | `heartbeatInterval` | P2PConfig.gossipsubInterval | 700ms |
-| `blockDurationMs` | P2PConfig.blockDurationMs | undefined (single block) |
+| `blockDurationMs` | P2PConfig.blockDurationMs | 3000ms |
 | `expectedBlockProposalsPerSlot` | P2PConfig.expectedBlockProposalsPerSlot | 0 (disabled; current unset-env behavior) |
 
 ## Invalid Message Handling (P4)

@@ -1,3 +1,4 @@
+import { DEFAULT_BLOCK_DURATION_MS } from '@aztec/stdlib/config';
 import { TopicType, createTopicString } from '@aztec/stdlib/p2p';
 import {
   DEFAULT_CHECKPOINT_PROPOSAL_INIT_TIME,
@@ -24,7 +25,7 @@ import {
 
 /**
  * Builds a {@link ProposerTimetable} for scoring tests, mirroring how p2p builds it from config:
- * operational budgets fall back to the shared stdlib defaults and `enforce` is true.
+ * operational budgets fall back to the shared stdlib defaults.
  */
 function makeTimetable(opts: {
   slotDurationMs: number;
@@ -39,30 +40,31 @@ function makeTimetable(opts: {
       slotDuration: opts.slotDurationMs / 1000,
       ethereumSlotDuration: opts.ethereumSlotDuration,
     },
-    blockDuration: opts.blockDurationMs ? opts.blockDurationMs / 1000 : undefined,
+    blockDuration: (opts.blockDurationMs ?? DEFAULT_BLOCK_DURATION_MS) / 1000,
     minBlockDuration: DEFAULT_MIN_BLOCK_DURATION,
     p2pPropagationTime: opts.p2pPropagationTime ?? DEFAULT_P2P_PROPAGATION_TIME,
     checkpointProposalPrepareTime: opts.checkpointProposalPrepareTime ?? DEFAULT_CHECKPOINT_PROPOSAL_PREPARE_TIME,
     checkpointProposalInitTime: DEFAULT_CHECKPOINT_PROPOSAL_INIT_TIME,
-    enforce: true,
   });
 }
 
 describe('Topic Score Params', () => {
-  // Standard network parameters for testing (matching production values). The timetable defaults to
-  // single-block mode, so blocksPerSlot is 1 unless a test supplies a multi-block timetable.
+  // Standard network parameters for testing (matching production values).
   const standardParams = {
     slotDurationMs: 72000, // 72 seconds
     heartbeatIntervalMs: 700, // 700ms gossipsub heartbeat
     targetCommitteeSize: 48,
-    timetable: makeTimetable({ slotDurationMs: 72000, ethereumSlotDuration: 12, checkpointProposalPrepareTime: 1 }),
+    // 30s block duration in a 72s slot derives exactly one block per checkpoint, so these tests exercise
+    // single-block-mode scoring without relying on the removed "no blockDurationMs = single block" default.
+    timetable: makeTimetable({
+      slotDurationMs: 72000,
+      ethereumSlotDuration: 12,
+      blockDurationMs: 30000,
+      checkpointProposalPrepareTime: 1,
+    }),
   };
 
   describe('max blocks per checkpoint from the proposer timetable', () => {
-    it('returns 1 when blockDuration is undefined (single block mode)', () => {
-      expect(makeTimetable({ slotDurationMs: 72000, ethereumSlotDuration: 12 }).getMaxBlocksPerCheckpoint()).toBe(1);
-    });
-
     it('matches the production worked example (10 blocks)', () => {
       // floor((72 - 6 - 2*2 - 1) / 6) = floor(61/6) = 10
       const timetable = makeTimetable({
@@ -246,7 +248,7 @@ describe('Topic Score Params', () => {
     it('computes shared values once', () => {
       const factory = new TopicScoreParamsFactory(standardParams);
 
-      expect(factory.blocksPerSlot).toBe(1); // undefined blockDuration = single block
+      expect(factory.blocksPerSlot).toBe(1); // 30s block duration in a 72s slot = single block
       expect(factory.heartbeatsPerSlot).toBeCloseTo(72000 / 700);
       expect(factory.invalidDecay).toBeGreaterThan(0);
       expect(factory.invalidDecay).toBeLessThan(1);

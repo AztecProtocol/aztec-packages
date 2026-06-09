@@ -35,13 +35,12 @@ import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { type ProverNode, type ProverNodeDeps, createProverNode } from '@aztec/prover-node';
 import { createKeyStoreForProver } from '@aztec/prover-node/config';
 import {
-  AutomineSequencer,
   FeeProviderImpl,
   GlobalVariableBuilder,
   SequencerClient,
   type SequencerPublisher,
-  createAutomineSequencer,
 } from '@aztec/sequencer-client';
+import { AutomineSequencer, createAutomineSequencer } from '@aztec/sequencer-client/automine';
 import { PublicContractsDB, PublicProcessorFactory } from '@aztec/simulator/server';
 import {
   AttestationsBlockWatcher,
@@ -127,6 +126,7 @@ import {
   type FeeProvider,
   type GetTxReceiptOptions,
   type GlobalVariableBuilder as GlobalVariableBuilderInterface,
+  GlobalVariables,
   type IndexedTxEffect,
   MinedTxReceipt,
   type MinedTxStatus,
@@ -923,6 +923,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
               ethereumSlotDuration: config.ethereumSlotDuration,
               rollupManaLimit,
             },
+            autoSettle: config.automineEnableProveEpoch,
             log,
           });
         } else {
@@ -1591,11 +1592,34 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     const coinbase = EthAddress.ZERO;
     const feeRecipient = AztecAddress.ZERO;
 
-    const newGlobalVariables = await this.globalVariableBuilder.buildGlobalVariables(
-      blockNumber,
+    // Define the slot for simulation as the max of the next L1 timestamp slot, the slot after the proposed
+    // checkpoint, and the latest proposed block's slot.
+    const proposedCheckpointBlockData = await this.blockSource.getBlockData({
+      number: l2Tips.proposedCheckpoint.block.number,
+    });
+    const proposedCheckpointSlot = proposedCheckpointBlockData?.header.getSlot();
+    let slotAfterProposedCheckpoint: SlotNumber | undefined;
+    if (proposedCheckpointSlot !== undefined) {
+      slotAfterProposedCheckpoint = SlotNumber.fromBigInt(BigInt(proposedCheckpointSlot) + 1n);
+    }
+
+    let latestProposedBlockSlot: SlotNumber | undefined;
+    if (l2Tips.proposed.number > l2Tips.proposedCheckpoint.block.number) {
+      latestProposedBlockSlot = (
+        await this.blockSource.getBlockData({ number: l2Tips.proposed.number })
+      )?.header.getSlot();
+    }
+    const slotFromNextL1Timestamp = this.epochCache.getEpochAndSlotInNextL1Slot().slot;
+    const targetSlot = SlotNumber(
+      Math.max(...compactArray([slotFromNextL1Timestamp, slotAfterProposedCheckpoint, latestProposedBlockSlot])),
+    );
+
+    const checkpointGlobalVariables = await this.globalVariableBuilder.buildCheckpointGlobalVariables(
       coinbase,
       feeRecipient,
+      targetSlot,
     );
+    const newGlobalVariables = GlobalVariables.from({ blockNumber, ...checkpointGlobalVariables });
 
     const publicProcessorFactory = new PublicProcessorFactory(
       this.contractDataSource,
@@ -2056,6 +2080,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     } finally {
       this.sequencer.updateConfig({ minTxsPerBlock: originalMinTxsPerBlock });
     }
+  }
+
+  public async prove(upToCheckpoint?: CheckpointNumber): Promise<CheckpointNumber> {
+    if (!this.automineSequencer) {
+      throw new BadRequestError('Cannot prove checkpoint: no automine sequencer is running');
+    }
+    return await this.automineSequencer.prove(upToCheckpoint);
   }
 
   /**

@@ -59,17 +59,6 @@ describe('ConsensusTimetable', () => {
     expect(timetable.getAttestationDeadline(slot)).toBe(targetSlotStart + 48);
   });
 
-  it('does not require a block duration for the attestation deadline', () => {
-    const single = new ConsensusTimetable({ l1Constants: l1Constants(S, E), blockDuration: undefined });
-    expect(single.getAttestationDeadline(slot)).toBe(targetSlotStart + 48);
-  });
-
-  it('drops the D term from the checkpoint proposal receive deadline in single-block mode', () => {
-    const single = new ConsensusTimetable({ l1Constants: l1Constants(S, E), blockDuration: undefined });
-    expect(() => single.getCheckpointProposalReceiveDeadline(slot)).not.toThrow();
-    expect(single.getCheckpointProposalReceiveDeadline(slot)).toBe(targetSlotStart - E);
-  });
-
   it('handles slot 0 without throwing (p2p validators evaluate windows for peer-supplied slots)', () => {
     const zero = SlotNumber.ZERO;
     expect(() => timetable.getBuildFrameStart(zero)).not.toThrow();

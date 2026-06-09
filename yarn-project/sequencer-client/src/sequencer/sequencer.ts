@@ -167,30 +167,25 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   private buildTimetable(): ProposerTimetable {
     const timetable = new ProposerTimetable({
       l1Constants: this.l1Constants,
-      blockDuration: this.config.blockDurationMs !== undefined ? this.config.blockDurationMs / 1000 : undefined,
+      blockDuration: this.config.blockDurationMs / 1000,
       minBlockDuration: this.config.minBlockDuration ?? DEFAULT_MIN_BLOCK_DURATION,
       p2pPropagationTime: this.config.attestationPropagationTime ?? DEFAULT_P2P_PROPAGATION_TIME,
       checkpointProposalPrepareTime:
         this.config.checkpointProposalPrepareTime ?? DEFAULT_CHECKPOINT_PROPOSAL_PREPARE_TIME,
       checkpointProposalInitTime: DEFAULT_CHECKPOINT_PROPOSAL_INIT_TIME,
       checkpointProposalSyncGrace: this.config.checkpointProposalSyncGraceSeconds,
-      enforce: this.config.enforceTimeTable,
     });
 
     const maxNumberOfBlocks = timetable.getMaxBlocksPerCheckpoint();
-    this.log.info(
-      `Sequencer timetable initialized with ${maxNumberOfBlocks} blocks per slot (${timetable.enforce ? 'enforced' : 'not enforced'})`,
-      {
-        aztecSlotDuration: timetable.aztecSlotDuration,
-        ethereumSlotDuration: timetable.ethereumSlotDuration,
-        blockDuration: timetable.blockDuration,
-        minBlockDuration: timetable.minBlockDuration,
-        p2pPropagationTime: timetable.p2pPropagationTime,
-        checkpointProposalPrepareTime: timetable.checkpointProposalPrepareTime,
-        maxNumberOfBlocks,
-        enforce: timetable.enforce,
-      },
-    );
+    this.log.info(`Sequencer timetable initialized with ${maxNumberOfBlocks} blocks per slot`, {
+      aztecSlotDuration: timetable.aztecSlotDuration,
+      ethereumSlotDuration: timetable.ethereumSlotDuration,
+      blockDuration: timetable.blockDuration,
+      minBlockDuration: timetable.minBlockDuration,
+      p2pPropagationTime: timetable.p2pPropagationTime,
+      checkpointProposalPrepareTime: timetable.checkpointProposalPrepareTime,
+      maxNumberOfBlocks,
+    });
 
     if (maxNumberOfBlocks < 1) {
       throw new Error(
@@ -323,14 +318,8 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     ts: bigint,
     nowSeconds: bigint,
   ): Promise<CheckpointProposalJob | undefined> {
-    // Check we have not already processed this target slot (cheapest check)
-    // We only check this if enforce timetable is set, since we want to keep processing the same slot if we are not
-    // running against actual time (eg when we use sandbox-style automining)
-    if (
-      this.lastSlotForCheckpointProposalJob &&
-      this.lastSlotForCheckpointProposalJob >= targetSlot &&
-      this.config.enforceTimeTable
-    ) {
+    // Check we have not already processed this target slot (cheapest check).
+    if (this.lastSlotForCheckpointProposalJob && this.lastSlotForCheckpointProposalJob >= targetSlot) {
       this.log.trace(`Target slot ${targetSlot} has already been processed`);
       return undefined;
     }
@@ -407,7 +396,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // still run when block building is abandoned.
     const startDeadline = this.timetable.getBuildStartDeadline(targetSlot);
     const nowForStartGate = this.dateProvider.now() / 1000;
-    if (this.config.enforceTimeTable && nowForStartGate > startDeadline) {
+    if (nowForStartGate > startDeadline) {
       this.log.debug(`Past start deadline for slot ${targetSlot}, abandoning block building`, {
         targetSlot,
         nowForStartGate,

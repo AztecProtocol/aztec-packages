@@ -29,8 +29,7 @@ let db: Database | undefined;
 let dbPath: string | undefined;
 
 async function ensurePool(directory: string): Promise<SAHPoolUtil> {
-  sqlite3 ??= await sqlite3InitModule();
-  const s = sqlite3;
+  const s = (sqlite3 ??= await sqlite3InitModule());
   if (!pool) {
     pool = await s.installOpfsSAHPoolVfs({
       name: SAH_POOL_VFS_NAME,
@@ -68,8 +67,7 @@ async function handleInit(
   directory?: string,
   encryptionKey?: Uint8Array,
 ): Promise<void> {
-  sqlite3 ??= await sqlite3InitModule();
-  const s = sqlite3;
+  const s = (sqlite3 ??= await sqlite3InitModule());
   if (encryptionKey !== undefined && ephemeral) {
     throw new SqliteEncryptionError(
       'encryption_not_supported_for_ephemeral',
@@ -79,13 +77,14 @@ async function handleInit(
   if (ephemeral) {
     db = new s.oo1.DB(':memory:', 'c');
   } else {
-    await ensurePool(directory ?? DEFAULT_SAH_POOL_DIRECTORY);
+    const activePool = await ensurePool(directory ?? DEFAULT_SAH_POOL_DIRECTORY);
     dbPath = normalizeDbPath(dbName);
     if (encryptionKey !== undefined) {
-      db = new s.oo1.DB({ filename: dbPath, flags: 'c', vfs: MC_SAH_POOL_VFS_NAME });
-      applyEncryptionKey(db, encryptionKey);
+      const conn = new s.oo1.DB({ filename: dbPath, flags: 'c', vfs: MC_SAH_POOL_VFS_NAME });
+      db = conn;
+      applyEncryptionKey(conn, encryptionKey);
     } else {
-      db = new pool!.OpfsSAHPoolDb(dbPath);
+      db = new activePool.OpfsSAHPoolDb(dbPath);
     }
   }
   runSql(SCHEMA_SQL);

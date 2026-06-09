@@ -72,10 +72,10 @@ describe('e2e_escape_hatch_vote_only', () => {
       // Override PIPELINING_SETUP_OPTS slot durations for the longer cadence this test needs.
       ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
       aztecSlotDuration: AZTEC_SLOT_DURATION,
+      blockDurationMs: 12000,
       aztecEpochDuration: AZTEC_EPOCH_DURATION,
       // Keep pruning far away for this test.
       aztecProofSubmissionEpochs: 15, // needed so ACTIVE_DURATION=2 is a valid EscapeHatch config
-      enforceTimeTable: true,
       automineL1Setup: true,
       // Pipelining opts — exercise the §6 B5 fix (tryVoteWhenEscapeHatchOpen signing/submitting for targetSlot).
       // inboxLag: 2 so the sequencer sources L1->L2 messages from a sealed checkpoint when building for slot+1.
