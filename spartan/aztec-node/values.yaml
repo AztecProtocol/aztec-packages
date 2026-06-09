@@ -204,6 +204,7 @@ service:
     enabled: true
     nodePortEnabled: false
     publicIP: true
+    hostPortEnabled: true
     port: 40400
     announcePort: 40400
 
