@@ -496,7 +496,8 @@ TEST(EccAddConstrainingTest, EccNegativeBadAdd)
 
     } });
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<ecc>(trace, ecc::SR_OUTPUT_X_COORD), "OUTPUT_X_COORD");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<ecc>(trace, ecc::SR_OUTPUT_X_COORD),
+                              ecc::get_subrelation_label(ecc::SR_OUTPUT_X_COORD));
 }
 
 TEST(EccAddConstrainingTest, EccNegativeBadDouble)
@@ -539,7 +540,8 @@ TEST(EccAddConstrainingTest, EccNegativeBadDouble)
 
     } });
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<ecc>(trace, ecc::SR_OUTPUT_X_COORD), "OUTPUT_X_COORD");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<ecc>(trace, ecc::SR_OUTPUT_X_COORD),
+                              ecc::get_subrelation_label(ecc::SR_OUTPUT_X_COORD));
 }
 
 TEST(ScalarMulConstrainingTest, ScalarMulEmptyRow)
@@ -895,7 +897,8 @@ TEST(ScalarMulConstrainingTest, NegativeDisableSel)
     builder.process_scalar_mul(scalar_mul_event_emitter.dump_events(), trace);
     // Disable the selector in one of the rows between start and end
     trace.set(Column::scalar_mul_sel, 5, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<scalar_mul>(trace, scalar_mul::SR_TRACE_CONTINUITY), "TRACE_CONTINUITY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<scalar_mul>(trace, scalar_mul::SR_TRACE_CONTINUITY),
+                              scalar_mul::get_subrelation_label(scalar_mul::SR_TRACE_CONTINUITY));
 }
 
 TEST(ScalarMulConstrainingTest, NegativeEnableStartFirstRow)
@@ -927,7 +930,7 @@ TEST(ScalarMulConstrainingTest, NegativeEnableStartFirstRow)
     // Enable the start in the first row
     trace.set(Column::scalar_mul_start, 0, 1);
     EXPECT_THROW_WITH_MESSAGE(check_relation<scalar_mul>(trace, scalar_mul::SR_SEL_ON_START_OR_END),
-                              "SEL_ON_START_OR_END");
+                              scalar_mul::get_subrelation_label(scalar_mul::SR_SEL_ON_START_OR_END));
 }
 
 TEST(ScalarMulConstrainingTest, NegativeMutateScalarOnEnd)
@@ -959,7 +962,7 @@ TEST(ScalarMulConstrainingTest, NegativeMutateScalarOnEnd)
     // Mutate the scalar on the end row
     trace.set(Column::scalar_mul_scalar, 254, 27);
     EXPECT_THROW_WITH_MESSAGE(check_relation<scalar_mul>(trace, scalar_mul::SR_INPUT_CONSISTENCY_SCALAR),
-                              "INPUT_CONSISTENCY_SCALAR");
+                              scalar_mul::get_subrelation_label(scalar_mul::SR_INPUT_CONSISTENCY_SCALAR));
 }
 
 TEST(ScalarMulConstrainingTest, NegativeMutatePointXOnEnd)
@@ -992,7 +995,7 @@ TEST(ScalarMulConstrainingTest, NegativeMutatePointXOnEnd)
     trace.set(Column::scalar_mul_point_x, 254, q.x());
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<scalar_mul>(trace, scalar_mul::SR_INPUT_CONSISTENCY_X),
-                              "INPUT_CONSISTENCY_X");
+                              scalar_mul::get_subrelation_label(scalar_mul::SR_INPUT_CONSISTENCY_X));
 }
 
 TEST(ScalarMulConstrainingTest, NegativeMutatePointYOnEnd)
@@ -1025,7 +1028,7 @@ TEST(ScalarMulConstrainingTest, NegativeMutatePointYOnEnd)
     trace.set(Column::scalar_mul_point_y, 254, q.y());
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<scalar_mul>(trace, scalar_mul::SR_INPUT_CONSISTENCY_Y),
-                              "INPUT_CONSISTENCY_Y");
+                              scalar_mul::get_subrelation_label(scalar_mul::SR_INPUT_CONSISTENCY_Y));
 }
 
 TEST(ScalarMulConstrainingTest, NegativeMutatePointInfOnEnd)
@@ -1058,7 +1061,7 @@ TEST(ScalarMulConstrainingTest, NegativeMutatePointInfOnEnd)
     trace.set(Column::scalar_mul_point_inf, 254, 1);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<scalar_mul>(trace, scalar_mul::SR_INPUT_CONSISTENCY_INF),
-                              "INPUT_CONSISTENCY_INF");
+                              scalar_mul::get_subrelation_label(scalar_mul::SR_INPUT_CONSISTENCY_INF));
 }
 
 ///////////////////////////
@@ -1347,13 +1350,16 @@ TEST(EccAddMemoryConstrainingTest, InfinityRepresentations)
 
     // The derived is_inf column must be true if the coordinates are (0, 0):
     trace.set(C::ecc_add_mem_p_is_inf, 0, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<mem_aware_ecc>(trace, mem_aware_ecc::SR_P_CURVE_EQN), "P_CURVE_EQN");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<mem_aware_ecc>(trace, mem_aware_ecc::SR_P_CURVE_EQN),
+                              mem_aware_ecc::get_subrelation_label(mem_aware_ecc::SR_P_CURVE_EQN));
 
     // If is_inf is set, the coordinates must be (0, 0):
     trace.set(C::ecc_add_mem_q_x, 0, 1);
     trace.set(C::ecc_add_mem_q_y, 0, 2);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<mem_aware_ecc>(trace, mem_aware_ecc::SR_Q_INF_X_CHECK), "Q_INF_X_CHECK");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<mem_aware_ecc>(trace, mem_aware_ecc::SR_Q_INF_Y_CHECK), "Q_INF_Y_CHECK");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<mem_aware_ecc>(trace, mem_aware_ecc::SR_Q_INF_X_CHECK),
+                              mem_aware_ecc::get_subrelation_label(mem_aware_ecc::SR_Q_INF_X_CHECK));
+    EXPECT_THROW_WITH_MESSAGE(check_relation<mem_aware_ecc>(trace, mem_aware_ecc::SR_Q_INF_Y_CHECK),
+                              mem_aware_ecc::get_subrelation_label(mem_aware_ecc::SR_Q_INF_Y_CHECK));
 }
 
 // Exercises the new #[P/Q_NOT_INF_CHECK] relations which enforce
@@ -1433,14 +1439,14 @@ TEST(EccAddMemoryConstrainingTest, EccAddMemoryNegativeClaimInfPIsNotInf)
     // Attack: claim the infinity P is not infinity.
     trace.set(C::ecc_add_mem_p_is_inf, 0, 0);
     EXPECT_THROW_WITH_MESSAGE(check_relation<mem_aware_ecc>(trace, mem_aware_ecc::SR_P_NOT_INF_CHECK),
-                              "P_NOT_INF_CHECK");
+                              mem_aware_ecc::get_subrelation_label(mem_aware_ecc::SR_P_NOT_INF_CHECK));
 
     // Even arbitrary cheater witnesses cannot rescue the attack: both diffs are zero,
     // so multiplying them by any inverse witness still yields zero indicators of 1.
     trace.set(C::ecc_add_mem_p_x_inf_diff_inv, 0, FF(123));
     trace.set(C::ecc_add_mem_p_y_inf_diff_inv, 0, FF(456));
     EXPECT_THROW_WITH_MESSAGE(check_relation<mem_aware_ecc>(trace, mem_aware_ecc::SR_P_NOT_INF_CHECK),
-                              "P_NOT_INF_CHECK");
+                              mem_aware_ecc::get_subrelation_label(mem_aware_ecc::SR_P_NOT_INF_CHECK));
 }
 
 TEST(EccAddMemoryConstrainingTest, EccAddMemoryNegativeClaimInfQIsNotInf)
@@ -1474,12 +1480,12 @@ TEST(EccAddMemoryConstrainingTest, EccAddMemoryNegativeClaimInfQIsNotInf)
 
     trace.set(C::ecc_add_mem_q_is_inf, 0, 0);
     EXPECT_THROW_WITH_MESSAGE(check_relation<mem_aware_ecc>(trace, mem_aware_ecc::SR_Q_NOT_INF_CHECK),
-                              "Q_NOT_INF_CHECK");
+                              mem_aware_ecc::get_subrelation_label(mem_aware_ecc::SR_Q_NOT_INF_CHECK));
 
     trace.set(C::ecc_add_mem_q_x_inf_diff_inv, 0, FF(123));
     trace.set(C::ecc_add_mem_q_y_inf_diff_inv, 0, FF(456));
     EXPECT_THROW_WITH_MESSAGE(check_relation<mem_aware_ecc>(trace, mem_aware_ecc::SR_Q_NOT_INF_CHECK),
-                              "Q_NOT_INF_CHECK");
+                              mem_aware_ecc::get_subrelation_label(mem_aware_ecc::SR_Q_NOT_INF_CHECK));
 }
 
 } // namespace

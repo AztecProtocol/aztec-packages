@@ -58,8 +58,9 @@ export class BitVector {
   }
 
   /**
-   * Returns all indices which are set to true
-   * */
+   * Returns all indices which are set to true.
+   * Ordered by index. No duplicates.
+   */
   getTrueIndices(): number[] {
     return Array.from({ length: this.length }, (_, i) => i).filter(i => this.isSet(i));
   }

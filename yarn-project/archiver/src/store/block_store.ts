@@ -30,7 +30,6 @@ import {
   type ProposedCheckpointInput,
   PublishedCheckpoint,
 } from '@aztec/stdlib/checkpoint';
-import { type L1RollupConstants, getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import {
@@ -38,8 +37,6 @@ import {
   type IndexedTxEffect,
   TxEffect,
   TxHash,
-  TxReceipt,
-  TxStatus,
   deserializeIndexedTxEffect,
   serializeIndexedTxEffect,
 } from '@aztec/stdlib/tx';
@@ -61,7 +58,7 @@ import {
   ProposedCheckpointPromotionNotSequentialError,
 } from '../errors.js';
 
-export { TxReceipt, type TxEffect, type TxHash } from '@aztec/stdlib/tx';
+export type { TxEffect, TxHash, TxReceipt } from '@aztec/stdlib/tx';
 
 type BlockIndexValue = [blockNumber: number, index: number];
 
@@ -521,6 +518,7 @@ export class BlockStore {
         l2BlockNumber: block.number,
         l2BlockHash: blockHash,
         txIndexInBlock: i,
+        slotNumber: block.header.globalVariables.slotNumber,
       };
       await this.#txEffects.set(txEffect.data.txHash.toString(), serializeIndexedTxEffect(txEffect));
     }
@@ -1093,56 +1091,6 @@ export class BlockStore {
   }
 
   /**
-   * Gets a receipt of a settled tx.
-   * @param txHash - The hash of a tx we try to get the receipt for.
-   * @returns The requested tx receipt (or undefined if not found).
-   */
-  async getSettledTxReceipt(
-    txHash: TxHash,
-    l1Constants?: Pick<L1RollupConstants, 'epochDuration'>,
-  ): Promise<TxReceipt | undefined> {
-    const txEffect = await this.getTxEffect(txHash);
-    if (!txEffect) {
-      return undefined;
-    }
-
-    const blockNumber = BlockNumber(txEffect.l2BlockNumber);
-
-    // Use existing archiver methods to determine finalization level
-    const [provenBlockNumber, checkpointedBlockNumber, finalizedBlockNumber, blockData] = await Promise.all([
-      this.getProvenBlockNumber(),
-      this.getCheckpointedL2BlockNumber(),
-      this.getFinalizedL2BlockNumber(),
-      this.getBlockData({ number: blockNumber }),
-    ]);
-
-    let status: TxStatus;
-    if (blockNumber <= finalizedBlockNumber) {
-      status = TxStatus.FINALIZED;
-    } else if (blockNumber <= provenBlockNumber) {
-      status = TxStatus.PROVEN;
-    } else if (blockNumber <= checkpointedBlockNumber) {
-      status = TxStatus.CHECKPOINTED;
-    } else {
-      status = TxStatus.PROPOSED;
-    }
-
-    const epochNumber =
-      blockData && l1Constants ? getEpochAtSlot(blockData.header.globalVariables.slotNumber, l1Constants) : undefined;
-
-    return new TxReceipt(
-      txHash,
-      status,
-      TxReceipt.executionResultFromRevertCode(txEffect.data.revertCode),
-      undefined,
-      txEffect.data.transactionFee.toBigInt(),
-      txEffect.l2BlockHash,
-      blockNumber,
-      epochNumber,
-    );
-  }
-
-  /**
    * Looks up which block included the requested tx effect.
    * @param txHash - The txHash of the tx.
    * @returns The block number and index of the tx.
@@ -1152,8 +1100,43 @@ export class BlockStore {
     if (!txEffect) {
       return undefined;
     }
-    const { l2BlockNumber, txIndexInBlock } = deserializeIndexedTxEffect(txEffect);
+    // Read only the IndexedTxEffect header (`blockHash(32) + l2BlockNumber(4) + txIndexInBlock(4)`); the
+    // large tail (the full TxEffect with logs etc.) is irrelevant here.
+    const view = Buffer.from(txEffect.buffer, txEffect.byteOffset, txEffect.byteLength);
+    const l2BlockNumber = view.readUInt32BE(32);
+    const txIndexInBlock = view.readUInt32BE(36);
     return [l2BlockNumber, txIndexInBlock];
+  }
+
+  /**
+   * Batched, partial deserializer that fetches `noteHashes` and `nullifiers` (all of them) for the given
+   * txs. For each input txHash, returns a `[noteHashes, nullifiers]` tuple. Returns `[[], []]` for any
+   * unknown txHash. Preserves input order. Used by the log read path when `includeEffects` is set to
+   * attach effect data on demand without paying for a full {@link TxEffect} deserialization.
+   *
+   * The on-disk `IndexedTxEffect` layout starts with a fixed-length header
+   * (`blockHash(32) + l2BlockNumber(4) + txIndexInBlock(4) + slotNumber(4) + revertCode(1) + txHash(32) +
+   * transactionFee(32)` = 109 bytes), followed by `noteHashes` and `nullifiers` (both u8-length-prefixed `Fr`
+   * vectors). We
+   * skip the header, then read the two vectors, and stop — the large tail (`l2ToL1Msgs`,
+   * `publicDataWrites`, `privateLogs`, `publicLogs`, `contractClassLogs`) is never touched.
+   */
+  public getNoteHashesAndNullifiers(txHashes: TxHash[]): Promise<[Fr[], Fr[]][]> {
+    return Promise.all(
+      txHashes.map(async (txHash): Promise<[Fr[], Fr[]]> => {
+        const buffer = await this.#txEffects.getAsync(txHash.toString());
+        if (!buffer) {
+          return [[], []];
+        }
+        const reader = BufferReader.asReader(buffer);
+        // Skip the fixed-length header: blockHash + l2BlockNumber + txIndexInBlock + slotNumber + revertCode +
+        // txHash + transactionFee.
+        reader.readBytes(32 + 4 + 4 + 4 + 1 + 32 + 32);
+        const noteHashes = reader.readVectorUint8Prefix(Fr);
+        const nullifiers = reader.readVectorUint8Prefix(Fr);
+        return [noteHashes, nullifiers];
+      }),
+    );
   }
 
   /**

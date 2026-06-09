@@ -19,7 +19,7 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 6. `hypernova/hypernova_verifier.hpp`
 7. `hypernova/hypernova_decider_verifier.cpp`
 8. `hypernova/hypernova_decider_verifier.hpp`
-9. `hypernova/types.hpp`
+9. `hypernova/hypernova_batching_challenges.hpp`
 
 ### Multilinear Batching Components
 10. `multilinear_batching/multilinear_batching_prover.cpp`
@@ -33,44 +33,50 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 16. `goblin/merge_prover.hpp`
 17. `goblin/merge_verifier.cpp`
 18. `goblin/merge_verifier.hpp`
+19. `goblin/batch_merge_prover.cpp`
+20. `goblin/batch_merge_prover.hpp`
+21. `goblin/batch_merge_verifier.cpp`
+22. `goblin/batch_merge_verifier.hpp`
 
 ### Chonk Core
-19. `chonk/chonk.cpp`
-20. `chonk/chonk.hpp`
-21. `chonk/chonk_base.hpp`
-22. `chonk/private_execution_steps.hpp`
-23. `chonk/private_execution_steps.cpp`
-24. `chonk/chonk_proof.cpp`
-25. `chonk/chonk_proof.hpp`
-26. `chonk/proof_compression.hpp`
+23. `chonk/chonk.cpp`
+24. `chonk/chonk.hpp`
+25. `chonk/private_execution_steps.hpp`
+26. `chonk/private_execution_steps.cpp`
+27. `chonk/chonk_proof.cpp`
+28. `chonk/chonk_proof.hpp`
+29. `chonk/chonk_step_processor.cpp`
+30. `chonk/chonk_step_processor.hpp`
+31. `chonk/proof_compression.hpp`
 
 ### Batched Honk Translator
-27. `chonk/batched_honk_translator/batched_honk_translator_prover.hpp`
-28. `chonk/batched_honk_translator/batched_honk_translator_prover.cpp`
+32. `chonk/batched_honk_translator/batched_honk_translator_prover.hpp`
+33. `chonk/batched_honk_translator/batched_honk_translator_prover.cpp`
 
 ### Relations
-29. `relations/multilinear_batching/multilinear_batching_relation.hpp`
+34. `relations/multilinear_batching/multilinear_batching_relation.hpp`
+35. `relations/databus_lookup_relation.hpp`
 
 ### Special Public Inputs
-30. `special_public_inputs/special_public_inputs.hpp`
-31. `stdlib/primitives/public_input_component/public_input_component.hpp`
+36. `special_public_inputs/special_public_inputs.hpp`
+37. `stdlib/primitives/public_input_component/public_input_component.hpp`
 
 ### Flavor
-32. `flavor/multilinear_batching_flavor.hpp`
-33. `flavor/multilinear_batching_flavor.cpp`
-34. `flavor/multilinear_batching_recursive_flavor.hpp`
+38. `flavor/multilinear_batching_flavor.hpp`
+39. `flavor/multilinear_batching_flavor.cpp`
+40. `flavor/multilinear_batching_recursive_flavor.hpp`
 
 ### Databus
-35. `stdlib/primitives/databus/databus.hpp`
-36. `stdlib/primitives/databus/databus.cpp`
-37. `dsl/acir_format/block_constraint.cpp` (only the databus parts: `CallData`/`ReturnData` handling. The RAM/ROM parts are covered by the RAM/ROM audit scope.)
+41. `stdlib/primitives/databus/databus.hpp`
+42. `stdlib/primitives/databus/databus.cpp`
+43. `dsl/acir_format/block_constraint.cpp` (only the databus parts: `CallData`/`ReturnData` handling. The RAM/ROM parts are covered by the RAM/ROM audit scope.)
 
 ### ACIR Integration
-38. `dsl/acir_format/hypernova_recursion_constraint.hpp`
-39. `dsl/acir_format/hypernova_recursion_constraint.cpp`
-40. `dsl/acir_format/recursion_constraint.cpp` (only `process_hn_recursion_constraints()` method)
-41. `dsl/acir_format/chonk_recursion_constraints.hpp`
-42. `dsl/acir_format/chonk_recursion_constraints.cpp`
+44. `dsl/acir_format/hypernova_recursion_constraint.hpp`
+45. `dsl/acir_format/hypernova_recursion_constraint.cpp`
+46. `dsl/acir_format/recursion_constraint.cpp` (only `process_hn_recursion_constraints()` method)
+47. `dsl/acir_format/chonk_recursion_constraints.hpp`
+48. `dsl/acir_format/chonk_recursion_constraints.cpp`
 ---
 
 ## Critical Files
@@ -84,11 +90,14 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 | `multilinear_batching/multilinear_batching_verifier.*` | Batches polynomial claims with transcript-derived challenges |
 | `goblin/merge_prover.*` | Merge protocol prover for ECC op table concatenation |
 | `goblin/merge_verifier.*` | `reduce_to_pairing_check()` - validates ECC op table degree/concatenation |
+| `goblin/batch_merge_prover.*` | Batch merge protocol prover (delayed merge of ECC op tables across multiple circuits) |
+| `goblin/batch_merge_verifier.*` | Unified batch verifier for the batch Goblin ECC op queue merge protocol |
 | `relations/databus_lookup_relation.hpp` | Log-derivative lookup ensuring read/write consistency across circuits |
 | `relations/multilinear_batching/multilinear_batching_relation.hpp` | Relation for batched polynomial claim verification |
 | `special_public_inputs/special_public_inputs.hpp` | `KernelIO`/`HidingKernelIO` - binds accumulators, ECC op tables, databus across circuits |
 | `chonk/chonk.*` | Chonk state machine, `complete_kernel_circuit_logic()` |
 | `chonk/private_execution_steps.cpp` | Main entry point, `accumulate()` orchestration |
+| `chonk/chonk_step_processor.*` | Per-step orchestration: VK policy/check/recompute, deserialization, proof emission |
 | `chonk/chonk_proof.*` | Proof serialization/deserialization (field elements, msgpack) |
 
 ---
@@ -100,9 +109,10 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 | `chonk/chonk.test.cpp` | Chonk orchestration, QUEUE_TYPE state machine, accumulation flow |
 | `hypernova/hypernova_prover.test.cpp` | HyperNova folding prover tests |
 | `hypernova/hypernova_verifier.test.cpp` | Folding proof verification, accumulator batching |
-| `multilinear_batching/multilinear_batching_prover.test.cpp` | Polynomial claim batching, eq consistency |
+| `relations/multilinear_batching/multilinear_batching_relation_consistency.test.cpp` | Polynomial claim batching, eq consistency |
 | `relations/databus_lookup_relation_consistency.test.cpp` | Databus lookup relation soundness |
 | `stdlib/primitives/databus/databus.test.cpp` | Databus read/write tests |
+| `goblin/batch_merge.test.cpp` | Batch merge protocol correctness |
 
 ---
 

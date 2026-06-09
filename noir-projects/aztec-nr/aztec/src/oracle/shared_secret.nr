@@ -43,7 +43,7 @@ pub unconstrained fn get_shared_secrets<let N: u32>(
     eph_pks: BoundedVec<EmbeddedCurvePoint, N>,
     contract_address: AztecAddress,
 ) -> BoundedVec<Field, N> {
-    let request_array: EphemeralArray<EmbeddedCurvePoint> = EphemeralArray::at(GET_SHARED_SECRETS_REQUEST_SLOT).clear();
+    let request_array: EphemeralArray<EmbeddedCurvePoint> = EphemeralArray::empty_at(GET_SHARED_SECRETS_REQUEST_SLOT);
     eph_pks.for_each(|pk| request_array.push(pk));
 
     let response_array = get_shared_secrets_oracle(address, request_array, contract_address);

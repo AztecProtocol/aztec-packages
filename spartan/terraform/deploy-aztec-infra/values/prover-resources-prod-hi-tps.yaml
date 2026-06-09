@@ -14,6 +14,12 @@ node:
     cores: "8"
     hi-mem: "true"
 
+  tolerations:
+    - key: "hi-mem"
+      operator: "Equal"
+      value: "true"
+      effect: "NoSchedule"
+
   persistence:
     enabled: true
   statefulSet:
@@ -34,6 +40,12 @@ broker:
     node-type: "network"
     cores: "8"
     hi-mem: "true"
+
+  tolerations:
+    - key: "hi-mem"
+      operator: "Equal"
+      value: "true"
+      effect: "NoSchedule"
 
   persistence:
     enabled: true

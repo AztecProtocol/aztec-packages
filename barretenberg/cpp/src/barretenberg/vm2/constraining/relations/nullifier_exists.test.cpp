@@ -95,7 +95,7 @@ TEST(NullifierExistsConstrainingTest, NegativeInvalidOutputTag)
                                  { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_NULLIFIER_EXISTS } } });
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<nullifier_exists>(trace, nullifier_exists::SR_NULLIFIER_EXISTS_U1_OUTPUT_TAG),
-        "NULLIFIER_EXISTS_U1_OUTPUT_TAG");
+        nullifier_exists::get_subrelation_label(nullifier_exists::SR_NULLIFIER_EXISTS_U1_OUTPUT_TAG));
 }
 
 TEST(NullifierExistsConstrainingTest, NegativeNullifierExistsSuccess)
@@ -106,7 +106,7 @@ TEST(NullifierExistsConstrainingTest, NegativeNullifierExistsSuccess)
     } });
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_INFALLIBLE_OPCODES_SUCCESS),
-                              "INFALLIBLE_OPCODES_SUCCESS");
+                              execution::get_subrelation_label(execution::SR_INFALLIBLE_OPCODES_SUCCESS));
 }
 
 TEST(NullifierExistsConstrainingTest, Interactions)

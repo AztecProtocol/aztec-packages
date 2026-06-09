@@ -2039,8 +2039,7 @@ void StaticAnalyzer_<FF, CircuitBuilder>::fill_witness_duplicate_map(
         return;
     }
     const auto databus_read_value_variables = get_databus_read_value_variables();
-    std::unordered_map<uint32_t,
-                       std::pair<DuplicateIdentityKey, DuplicateCryptographicBindingRole>>
+    std::unordered_map<uint32_t, std::pair<DuplicateIdentityKey, DuplicateCryptographicBindingRole>>
         cryptographic_binding_by_variable;
     for (const auto& [real_index, group_key] : circuit_builder.get_duplicate_provenance()) {
         auto binding_group_key = cryptographic_binding_group_key(group_key);

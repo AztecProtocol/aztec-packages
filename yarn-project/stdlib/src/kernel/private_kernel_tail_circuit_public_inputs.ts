@@ -1,6 +1,6 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { bufferSchemaFor } from '@aztec/foundation/schemas';
-import { BufferReader, bigintToUInt64BE, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, BufferSink, serializeToSink } from '@aztec/foundation/serialize';
 
 import { AztecAddress } from '../aztec-address/index.js';
 import { Gas } from '../gas/gas.js';
@@ -60,8 +60,14 @@ export class PartialPrivateTailPublicInputsForPublic {
     );
   }
 
-  toBuffer() {
-    return serializeToBuffer(
+  toBuffer(): Buffer;
+  toBuffer(sink: BufferSink): void;
+  toBuffer(sink?: BufferSink): Buffer | void {
+    if (!sink) {
+      return BufferSink.serialize(this);
+    }
+    serializeToSink(
+      sink,
       this.nonRevertibleAccumulatedData,
       this.revertibleAccumulatedData,
       this.publicTeardownCallRequest,
@@ -89,8 +95,13 @@ export class PartialPrivateTailPublicInputsForRollup {
     return this.end.getSize();
   }
 
-  toBuffer() {
-    return serializeToBuffer(this.end);
+  toBuffer(): Buffer;
+  toBuffer(sink: BufferSink): void;
+  toBuffer(sink?: BufferSink): Buffer | void {
+    if (!sink) {
+      return BufferSink.serialize(this);
+    }
+    serializeToSink(sink, this.end);
   }
 
   static empty() {
@@ -300,16 +311,20 @@ export class PrivateKernelTailCircuitPublicInputs {
     );
   }
 
-  toBuffer() {
+  toBuffer(): Buffer;
+  toBuffer(sink: BufferSink): void;
+  toBuffer(sink?: BufferSink): Buffer | void {
+    if (!sink) {
+      return BufferSink.serialize(this);
+    }
     const isForPublic = !!this.forPublic;
-    return serializeToBuffer(
-      isForPublic,
-      this.constants,
-      this.gasUsed,
-      this.feePayer,
-      bigintToUInt64BE(this.expirationTimestamp),
-      isForPublic ? this.forPublic!.toBuffer() : this.forRollup!.toBuffer(),
-    );
+    serializeToSink(sink, isForPublic, this.constants, this.gasUsed, this.feePayer);
+    sink.writeUInt64(this.expirationTimestamp);
+    if (isForPublic) {
+      this.forPublic!.toBuffer(sink);
+    } else {
+      this.forRollup!.toBuffer(sink);
+    }
   }
 
   static empty() {

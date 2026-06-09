@@ -98,7 +98,7 @@ TEST(GreaterThanConstrainingTest, NegativeGT)
     auto wrong_b = res ? FF(a) + 1 : FF(a) - 1;
     trace.set(Column::gt_input_b, 0, wrong_b);
     // The absolute diff is now wrong:
-    EXPECT_THROW_WITH_MESSAGE(check_relation<gt>(trace), "GT_RESULT");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<gt>(trace), gt::get_subrelation_label(gt::SR_GT_RESULT));
     // Correct the diff based on incorrect input:
     auto new_abs_diff = res ? FF(a) - wrong_b - 1 : wrong_b - FF(a);
     trace.set(Column::gt_abs_diff, 0, new_abs_diff);
@@ -132,7 +132,7 @@ TEST(GreaterThanConstrainingTest, NegativeGTResult)
     check_relation<gt>(trace);
     trace.set(Column::gt_res, 0, static_cast<uint8_t>(!res));
     // The absolute diff is now wrong:
-    EXPECT_THROW_WITH_MESSAGE(check_relation<gt>(trace), "GT_RESULT");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<gt>(trace), gt::get_subrelation_label(gt::SR_GT_RESULT));
     // Correct the diff based on incorrect res:
     auto new_abs_diff = res ? FF(b) - FF(a) : FF(a) - FF(b) - 1;
     trace.set(Column::gt_abs_diff, 0, new_abs_diff);

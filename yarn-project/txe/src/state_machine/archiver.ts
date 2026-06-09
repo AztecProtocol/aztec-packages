@@ -13,7 +13,7 @@ import {
   type ValidateCheckpointResult,
 } from '@aztec/stdlib/block';
 import type { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
-import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
+import { EmptyL1RollupConstants, type L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { BlockHeader } from '@aztec/stdlib/tx';
 
 /**
@@ -26,7 +26,7 @@ export class TXEArchiver extends ArchiverDataSourceBase {
 
   constructor(db: AztecAsyncKVStore) {
     super(
-      createArchiverDataStores(db, { logsMaxPageSize: 9999 }),
+      createArchiverDataStores(db, GENESIS_BLOCK_HEADER_HASH),
       undefined,
       BlockHeader.empty(),
       GENESIS_BLOCK_HEADER_HASH,
@@ -47,7 +47,9 @@ export class TXEArchiver extends ArchiverDataSourceBase {
   }
 
   public getL1Constants(): Promise<L1RollupConstants> {
-    throw new Error('TXE Archiver does not implement "getL1Constants"');
+    // The TXE has no L1, so it serves the empty constants (epochDuration=1) used throughout the TXE state machine
+    // (see mock_epoch_cache). The node calls this when assembling a mined tx receipt to derive the epoch number.
+    return Promise.resolve(EmptyL1RollupConstants);
   }
 
   public getGenesisValues(): Promise<{ genesisArchiveRoot: Fr }> {
@@ -108,5 +110,10 @@ export class TXEArchiver extends ArchiverDataSourceBase {
 
   public syncImmediate(): Promise<void> {
     throw new Error('TXE Archiver does not implement "syncImmediate"');
+  }
+
+  public getL2ToL1MembershipWitness(): Promise<undefined> {
+    // TXE doesn't drive the L2-to-L1 message flow through this archiver.
+    return Promise.resolve(undefined);
   }
 }

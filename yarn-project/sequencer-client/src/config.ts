@@ -15,10 +15,8 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type ChainConfig,
   DEFAULT_MAX_BLOCKS_PER_CHECKPOINT,
-  type PipelineConfig,
   type SequencerConfig,
   chainConfigMappings,
-  pipelineConfigMappings,
   sharedSequencerConfigMappings,
 } from '@aztec/stdlib/config';
 import type { ResolvedSequencerConfig } from '@aztec/stdlib/interfaces/server';
@@ -75,7 +73,6 @@ export type SequencerClientConfig = SequencerPublisherConfig &
   SequencerConfig &
   L1ReaderConfig &
   ChainConfig &
-  PipelineConfig &
   Pick<P2PConfig, 'txPublicSetupAllowListExtend'> &
   Pick<L1ContractsConfig, 'ethereumSlotDuration' | 'aztecSlotDuration' | 'aztecEpochDuration'>;
 
@@ -252,6 +249,12 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     description: 'Skip broadcasting checkpoint and block proposals via gossipsub when proposer (for testing only)',
     ...booleanConfigHelper(false),
   },
+  skipBroadcastCheckpointProposal: {
+    description:
+      'Skip broadcasting only the CheckpointProposal via gossipsub when proposer; the held last block is broadcast ' +
+      'standalone instead so peers still receive it as a proposed-but-uncheckpointed tip (for testing only)',
+    ...booleanConfigHelper(false),
+  },
   pauseProposingForSlots: {
     description:
       'List of slots for which the sequencer will not produce a proposal (for testing only). Attestation paths are unaffected.',
@@ -267,7 +270,6 @@ export const sequencerClientConfigMappings: ConfigMappingsType<SequencerClientCo
   ...l1ReaderConfigMappings,
   ...sequencerTxSenderConfigMappings,
   ...sequencerPublisherConfigMappings,
-  ...pipelineConfigMappings,
   ...pickConfigMappings(l1ContractsConfigMappings, ['ethereumSlotDuration', 'aztecSlotDuration', 'aztecEpochDuration']),
 };
 

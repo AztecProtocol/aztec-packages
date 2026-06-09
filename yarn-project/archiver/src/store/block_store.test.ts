@@ -1853,6 +1853,7 @@ describe('BlockStore', () => {
         l2BlockNumber: block.number,
         l2BlockHash: await block.header.hash(),
         txIndexInBlock,
+        slotNumber: block.header.globalVariables.slotNumber,
       };
       const actualTx = await blockStore.getTxEffect(data.txHash);
       expect(actualTx).toEqual(expectedTx);
@@ -1892,6 +1893,75 @@ describe('BlockStore', () => {
       await blockStore.removeCheckpointsAfter(CheckpointNumber(0));
       done = true;
       expect(await blockStore.getTxEffect(txEffect.txHash)).toEqual(undefined);
+    });
+  });
+
+  describe('getTxLocation', () => {
+    beforeEach(async () => {
+      await blockStore.addCheckpoints(publishedCheckpoints);
+    });
+
+    it.each([
+      [1, 0],
+      [3, 1],
+      [9, 3],
+      [5, 2],
+    ])('returns (blockNumber, txIndex) for known tx at block %i tx-index %i', async (blockIdx, txIdx) => {
+      const block = publishedCheckpoints[blockIdx - 1].checkpoint.blocks[0];
+      const txEffect = block.body.txEffects[txIdx];
+
+      const loc = await blockStore.getTxLocation(txEffect.txHash);
+      expect(loc).toEqual([block.number, txIdx]);
+    });
+
+    it('returns undefined for an unknown tx hash', async () => {
+      await expect(blockStore.getTxLocation(TxHash.random())).resolves.toBeUndefined();
+    });
+  });
+
+  describe('getNoteHashesAndNullifiers', () => {
+    beforeEach(async () => {
+      await blockStore.addCheckpoints(publishedCheckpoints);
+    });
+
+    it('returns one [noteHashes, nullifiers] tuple per input txHash in input order', async () => {
+      const txEffects = [
+        publishedCheckpoints[0].checkpoint.blocks[0].body.txEffects[0],
+        publishedCheckpoints[5].checkpoint.blocks[0].body.txEffects[2],
+        publishedCheckpoints[9].checkpoint.blocks[0].body.txEffects[1],
+      ];
+      const result = await blockStore.getNoteHashesAndNullifiers(txEffects.map(tx => tx.txHash));
+
+      expect(result.length).toBe(txEffects.length);
+      for (let i = 0; i < txEffects.length; i++) {
+        const [noteHashes, nullifiers] = result[i];
+        expect(noteHashes).toEqual(txEffects[i].noteHashes);
+        expect(nullifiers).toEqual(txEffects[i].nullifiers);
+      }
+    });
+
+    it('returns [[], []] for unknown txHashes (preserves input order)', async () => {
+      const known = publishedCheckpoints[2].checkpoint.blocks[0].body.txEffects[0];
+      const unknown = TxHash.random();
+      const result = await blockStore.getNoteHashesAndNullifiers([unknown, known.txHash, unknown]);
+
+      expect(result.length).toBe(3);
+      expect(result[0]).toEqual([[], []]);
+      expect(result[1][0]).toEqual(known.noteHashes);
+      expect(result[1][1]).toEqual(known.nullifiers);
+      expect(result[2]).toEqual([[], []]);
+    });
+
+    it('returns [] for an empty input array', async () => {
+      await expect(blockStore.getNoteHashesAndNullifiers([])).resolves.toEqual([]);
+    });
+
+    it('the partial deserializer matches the full getTxEffect for noteHashes/nullifiers', async () => {
+      const tx = publishedCheckpoints[4].checkpoint.blocks[0].body.txEffects[2];
+      const [[noteHashes, nullifiers]] = await blockStore.getNoteHashesAndNullifiers([tx.txHash]);
+      const full = await blockStore.getTxEffect(tx.txHash);
+      expect(noteHashes).toEqual(full!.data.noteHashes);
+      expect(nullifiers).toEqual(full!.data.nullifiers);
     });
   });
 

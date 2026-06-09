@@ -101,6 +101,14 @@ export interface SequencerConfig {
   skipPublishingCheckpointsPercent?: number;
   /** Skip broadcasting checkpoint and block proposals via gossipsub when proposer (for testing only) */
   skipBroadcastProposals?: boolean;
+  /**
+   * Skip broadcasting only the CheckpointProposal via gossipsub when proposer; the held last block is still broadcast
+   * standalone so peers receive it as a proposed-but-uncheckpointed tip. Used to exercise the orphan-proposed-block
+   * prune path (for testing only). Narrower variant of `skipBroadcastProposals`: when only this flag is set the held
+   * last block is still broadcast standalone, but when `skipBroadcastProposals` is also set neither the block nor the
+   * checkpoint proposal is broadcast.
+   */
+  skipBroadcastCheckpointProposal?: boolean;
   /** List of slots for which the sequencer will not produce a proposal (for testing only). Attestation paths are unaffected. */
   pauseProposingForSlots?: SlotNumber[];
 }
@@ -149,6 +157,7 @@ export const SequencerConfigSchema = zodFor<SequencerConfig>()(
     minBlocksForCheckpoint: z.number().positive().optional(),
     skipPublishingCheckpointsPercent: z.number().gte(0).lte(100).optional(),
     skipBroadcastProposals: z.boolean().optional(),
+    skipBroadcastCheckpointProposal: z.boolean().optional(),
     pauseProposingForSlots: z.array(SlotNumberSchema).optional(),
   }),
 );
@@ -174,6 +183,7 @@ type SequencerConfigOptionalKeys =
   | 'maxDABlockGas'
   | 'redistributeCheckpointBudget'
   | 'skipBroadcastProposals'
+  | 'skipBroadcastCheckpointProposal'
   | 'pauseProposingForSlots';
 
 export type ResolvedSequencerConfig = Prettify<

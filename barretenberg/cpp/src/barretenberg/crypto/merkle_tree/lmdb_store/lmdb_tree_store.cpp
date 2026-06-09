@@ -54,8 +54,9 @@ int index_key_cmp(const MDB_val* a, const MDB_val* b)
     return value_cmp<uint64_t>(a, b);
 }
 
-LMDBTreeStore::LMDBTreeStore(std::string directory, std::string name, uint64_t mapSizeKb, uint64_t maxNumReaders)
-    : LMDBStoreBase(directory, mapSizeKb, maxNumReaders, 5)
+LMDBTreeStore::LMDBTreeStore(
+    std::string directory, std::string name, uint64_t mapSizeKb, uint64_t maxNumReaders, bool ephemeral)
+    : LMDBStoreBase(directory, mapSizeKb, maxNumReaders, 5, ephemeral)
     , _name(std::move(name))
 {
 

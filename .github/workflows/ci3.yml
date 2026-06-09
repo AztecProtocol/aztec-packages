@@ -56,14 +56,22 @@ jobs:
           GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
         run: gh pr edit ${{ github.event.pull_request.number }} --remove-label ci-wakeup-pr-after-merge --repo ${{ github.repository }} || true
 
+      # Do NOT bump actions/checkout to v6 here. v6 ("persist creds to a separate file", #2286)
+      # stores the persisted github.token in a temp credentials file pulled in via includeIf, which
+      # `git config --unset-all http....extraheader` cannot clear. Our runner-side pushes (ci3.sh
+      # release-pr tag, ci3_success.sh squash-and-merge) rely on swapping that header for a bot-PAT
+      # remote, so under v6 they push as github-actions[bot] (contents: read) and 403. v5.0.1 is still
+      # node24 but keeps the credential as a removable local extraheader.
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           # The commit to checkout. We want our actual commit, and not the result of merging the PR to the target.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           # Fetch PR commits depth (we'll deepen by 1 in squash script if needed)
           fetch-depth: ${{ github.event.pull_request.commits || 1 }}
-          persist-credentials: true   # Required for bootstrap_ec2's git fetch
+          # Persisted for authenticated reads (e.g. the aztec-packages-private mirror); pushes swap in
+          # a bot-PAT remote at each push site.
+          persist-credentials: true
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
@@ -109,6 +117,9 @@ jobs:
           EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY: ${{ secrets.GCP_SEPOLIA_API_KEY }}
           EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER: "X-goog-api-key"
           GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          # Internal GCP Artifact Registry the private repo's release pushes the docker image to (see
+          # bootstrap.sh::private_release). Empty in the public repo, where releases publish normally.
+          INTERNAL_DOCKER_REGISTRY: ${{ vars.INTERNAL_DOCKER_REGISTRY }}
           MERGE_GROUP_BASE_REF: ${{ github.event.merge_group.base_ref }}
           PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
           PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
@@ -116,6 +127,8 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           GITHUB_REF_NAME: ${{ github.ref_name }}
           GITHUB_ACTOR: ${{ github.actor }}
+          # Forwarded to EC2 so release_compat_e2e's nightly-failure Slack alert can build a real run URL.
+          RUN_ID: ${{ github.run_id }}
           CI3_INSTANCE_PROFILE_NAME: ${{ secrets.CI3_INSTANCE_PROFILE_NAME }}
           CI3_SECURITY_GROUP_ID: ${{ secrets.CI3_SECURITY_GROUP_ID }}
           AWS_OIDC_ROLE_ARN: ${{ secrets.AWS_OIDC_ROLE_ARN }}
@@ -151,7 +164,7 @@ jobs:
 
       - name: Upload benchmarks
         if: env.SHOULD_UPLOAD_BENCHMARKS == '1'
-        uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
+        uses: benchmark-action/github-action-benchmark@52576c92bccf6ac60c8223ec7eb2565637cae9ba # v1.22.1
         with: &ci_benchmark_args
           name: Aztec Benchmarks
           benchmark-data-dir-path: "bench/${{ env.BENCH_BRANCH }}"
@@ -201,11 +214,10 @@ jobs:
       matrix:
         test_set: ["1", "2"]
     # We run on current nightly tags only, or when the ci-network-scenario label is present in a PR.
-    needs: [ci, validate-nightly-tag, ci-release-publish]
+    needs: [ci, validate-nightly-tag]
     if: |
       always()
       && (needs.ci.result == 'success' || needs.ci.result == 'skipped')
-      && (needs.ci-release-publish.result == 'success' || needs.ci-release-publish.result == 'skipped')
       && github.event.pull_request.head.repo.fork != true
       && github.event.pull_request.draft == false
       && (
@@ -220,7 +232,7 @@ jobs:
         run: gh pr edit ${{ github.event.pull_request.number }} --remove-label ci-network-scenario --repo ${{ github.repository }} || true
 
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
@@ -294,7 +306,7 @@ jobs:
 
       - name: Upload benchmarks
         if: env.ENABLE_DEPLOY_BENCH == '1'
-        uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
+        uses: benchmark-action/github-action-benchmark@52576c92bccf6ac60c8223ec7eb2565637cae9ba # v1.22.1
         with: *ci_benchmark_args
 
       - name: Notify Slack and dispatch ClaudeBox on failure
@@ -343,7 +355,7 @@ jobs:
         run: gh pr edit ${{ github.event.pull_request.number }} --remove-label ci-network-bench --repo ${{ github.repository }} || true
 
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
@@ -393,7 +405,7 @@ jobs:
 
       - name: Upload benchmarks
         if: always() && env.ENABLE_DEPLOY_BENCH == '1'
-        uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
+        uses: benchmark-action/github-action-benchmark@52576c92bccf6ac60c8223ec7eb2565637cae9ba # v1.22.1
         with:
           name: Spartan
           benchmark-data-dir-path: "bench/pr-${{ github.event.pull_request.number }}"
@@ -425,7 +437,7 @@ jobs:
         run: gh pr edit ${{ github.event.pull_request.number }} --remove-label ci-network-kind --repo ${{ github.repository }}
 
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
@@ -451,99 +463,3 @@ jobs:
           AWS_SHUTDOWN_TIME: 180
         run: |
           ./.github/ci3.sh network-tests-kind
-
-  # Backwards compatibility e2e tests.
-  # Runs e2e tests with contract artifacts from every prior stable release to validate
-  # that new client code works with old contract artifacts ("new pxe / old contracts").
-  # Blocking for stable/RC releases: ci-release-publish requires this job to pass before
-  # publishing. Observational for nightlies: runs, but continue-on-error keeps the workflow
-  # green and ci-release-publish's condition publishes nightlies regardless of the result.
-  # Escape hatch: ci-skip-compat-e2e label makes failures non-blocking on release PRs.
-  ci-compat-e2e:
-    runs-on: ubuntu-latest
-    needs: [ci]
-    if: |
-      always()
-      && (needs.ci.result == 'success' || needs.ci.result == 'skipped')
-      && github.event.pull_request.head.repo.fork != true
-      && github.event.pull_request.draft == false
-      && (
-        (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-commit.'))
-        || contains(github.event.pull_request.labels.*.name, 'ci-compat-e2e')
-        || contains(github.event.pull_request.labels.*.name, 'ci-release-pr')
-      )
-    # Non-blocking for nightlies and when ci-skip-compat-e2e escape hatch is applied.
-    continue-on-error: ${{ contains(github.ref_name, '-nightly.') || contains(github.event.pull_request.labels.*.name, 'ci-skip-compat-e2e') }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-        with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-
-      - name: Run Backwards Compatibility E2E Tests
-        timeout-minutes: 60
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
-          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
-          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-          CI3_INSTANCE_PROFILE_NAME: ${{ secrets.CI3_INSTANCE_PROFILE_NAME }}
-          CI3_SECURITY_GROUP_ID: ${{ secrets.CI3_SECURITY_GROUP_ID }}
-          RUN_ID: ${{ github.run_id }}
-          AWS_SHUTDOWN_TIME: 60
-        run: ./.github/ci3.sh compat-e2e
-
-  # Publishes the release (npm, Docker, GitHub release, aztec-up scripts, etc.).
-  # Gated on ci-compat-e2e: a compat regression blocks stable/RC publishing. Nightlies
-  # publish regardless — compat-e2e runs there observationally. Dev `-commit.` tags from
-  # the ci-release-pr flow never reach this job (they are not real releases).
-  ci-release-publish:
-    runs-on: ubuntu-latest
-    environment: master
-    permissions:
-      id-token: write
-      contents: read
-    needs: [ci, ci-compat-e2e]
-    if: |
-      startsWith(github.ref, 'refs/tags/v')
-      && !contains(github.ref_name, '-commit.')
-      && needs.ci.result == 'success'
-      && (
-        contains(github.ref_name, '-nightly.')
-        || needs.ci-compat-e2e.result == 'success'
-      )
-    steps:
-      - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-        with:
-          ref: ${{ github.sha }}
-
-      - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
-          aws-region: us-east-2
-          role-session-name: ci3-release-publish-${{ github.run_id }}
-          role-duration-seconds: 21600
-
-      - name: Run Release Publish
-        env:
-          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
-          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
-          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
-          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-          CI3_INSTANCE_PROFILE_NAME: ${{ secrets.CI3_INSTANCE_PROFILE_NAME }}
-          CI3_SECURITY_GROUP_ID: ${{ secrets.CI3_SECURITY_GROUP_ID }}
-          RUN_ID: ${{ github.run_id }}
-        run: ./.github/ci3.sh release-publish

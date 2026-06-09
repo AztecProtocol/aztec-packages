@@ -2,7 +2,7 @@ import type { ContractArtifact } from '@aztec/aztec.js/abi';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import type { Aliased } from '@aztec/aztec.js/wallet';
 import type { AuthWitness } from '@aztec/aztec.js/authorization';
-import { type TxHash, TxReceipt, TxStatus } from '@aztec/aztec.js/tx';
+import { type TxHash, type TxReceipt, TxStatus } from '@aztec/aztec.js/tx';
 import type { LogFn } from '@aztec/foundation/log';
 import { type AztecAsyncMap, type AztecAsyncKVStore, type AztecAsyncMultiMap } from '@aztec/kv-store';
 import { stringify } from 'buffer-json';

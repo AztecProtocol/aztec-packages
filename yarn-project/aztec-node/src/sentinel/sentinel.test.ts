@@ -98,7 +98,6 @@ describe('sentinel', () => {
     });
     epochCache.getSlotNow.mockReturnValue(slot);
     epochCache.getEpochNow.mockReturnValue(epoch);
-    epochCache.isProposerPipeliningEnabled.mockReturnValue(false);
     epochCache.getL1Constants.mockReturnValue(l1Constants);
 
     sentinel = new TestSentinel(epochCache, archiver, p2p, store, reexecutionTracker, config, blockStream);

@@ -4,7 +4,7 @@ import type { KeyStore } from '@aztec/key-store';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { BlockHash, L2TipsProvider } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
-import { AppTaggingSecret, PendingTaggedLog, SiloedTag, type TxScopedL2Log } from '@aztec/stdlib/logs';
+import { AppTaggingSecret, type LogResult, PendingTaggedLog, SiloedTag } from '@aztec/stdlib/logs';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 
 import {
@@ -20,6 +20,10 @@ import {
   getAllPublicLogsByTagsFromContract,
   syncTaggedPrivateLogs,
 } from '../tagging/index.js';
+
+/** Key used to group requests by their (fromBlock, toBlock) range so each group becomes a single node call. */
+type RangeKey = string;
+const rangeKey = (fromBlock?: BlockNumber, toBlock?: BlockNumber): RangeKey => `${fromBlock ?? ''}-${toBlock ?? ''}`;
 
 export class LogService {
   private log: Logger;
@@ -55,14 +59,14 @@ export class LogService {
 
     const anchorBlockHash = await this.anchorBlockHeader.hash();
 
-    const [publicLogsPerTag, privateLogsPerTag] = await Promise.all([
+    const [publicLogsPerRequest, privateLogsPerRequest] = await Promise.all([
       this.#fetchPublicLogs(contractAddress, logRetrievalRequests, anchorBlockHash),
       this.#fetchPrivateLogs(logRetrievalRequests, anchorBlockHash),
     ]);
 
-    return logRetrievalRequests.map((request, i) => [
-      ...this.#extractLogs(publicLogsPerTag[i], request.fromBlock, request.toBlock),
-      ...this.#extractLogs(privateLogsPerTag[i], request.fromBlock, request.toBlock),
+    return logRetrievalRequests.map((_request, i) => [
+      ...publicLogsPerRequest[i].map(LogService.#toLogRetrievalResponse),
+      ...privateLogsPerRequest[i].map(LogService.#toLogRetrievalResponse),
     ]);
   }
 
@@ -70,73 +74,109 @@ export class LogService {
     contractAddress: AztecAddress,
     requests: LogRetrievalRequest[],
     anchorBlockHash: BlockHash,
-  ): Promise<TxScopedL2Log[][]> {
+  ): Promise<LogResult[][]> {
     const indices = requests.flatMap((r, i) => (r.source !== LogSource.PRIVATE ? [i] : []));
     if (indices.length === 0) {
       return requests.map(() => []);
     }
 
-    const results = await getAllPublicLogsByTagsFromContract(
-      this.aztecNode,
-      contractAddress,
-      indices.map(i => requests[i].tag),
-      anchorBlockHash,
+    const resultsPerRequest: LogResult[][] = requests.map(() => []);
+    const groups = LogService.#groupByRange(indices.map(i => ({ index: i, request: requests[i] })));
+
+    await Promise.all(
+      Array.from(groups.values()).map(async group => {
+        const tags = group.entries.map(e => e.request.tag);
+        const results = await getAllPublicLogsByTagsFromContract(
+          this.aztecNode,
+          contractAddress,
+          tags,
+          anchorBlockHash,
+          { fromBlock: group.fromBlock, toBlock: group.toBlock, includeEffects: true },
+        );
+        group.entries.forEach((entry, i) => {
+          resultsPerRequest[entry.index] = results[i];
+        });
+      }),
     );
 
-    const logsPerTag: TxScopedL2Log[][] = requests.map(() => []);
-    indices.forEach((originalIdx, resultIdx) => {
-      logsPerTag[originalIdx] = results[resultIdx];
-    });
-    return logsPerTag;
+    return resultsPerRequest;
   }
 
-  async #fetchPrivateLogs(requests: LogRetrievalRequest[], anchorBlockHash: BlockHash): Promise<TxScopedL2Log[][]> {
+  async #fetchPrivateLogs(requests: LogRetrievalRequest[], anchorBlockHash: BlockHash): Promise<LogResult[][]> {
     const indices = requests.flatMap((r, i) => (r.source !== LogSource.PUBLIC ? [i] : []));
     if (indices.length === 0) {
       return requests.map(() => []);
     }
 
-    const siloedTags = await Promise.all(
-      indices.map(i => SiloedTag.computeFromTagAndApp(requests[i].tag, requests[i].contractAddress)),
+    const resultsPerRequest: LogResult[][] = requests.map(() => []);
+    const groups = LogService.#groupByRange(indices.map(i => ({ index: i, request: requests[i] })));
+
+    await Promise.all(
+      Array.from(groups.values()).map(async group => {
+        const siloedTags = await Promise.all(
+          group.entries.map(e => SiloedTag.computeFromTagAndApp(e.request.tag, e.request.contractAddress)),
+        );
+        const results = await getAllPrivateLogsByTags(this.aztecNode, siloedTags, anchorBlockHash, {
+          fromBlock: group.fromBlock,
+          toBlock: group.toBlock,
+          includeEffects: true,
+        });
+        group.entries.forEach((entry, i) => {
+          resultsPerRequest[entry.index] = results[i];
+        });
+      }),
     );
 
-    const results = await getAllPrivateLogsByTags(this.aztecNode, siloedTags, anchorBlockHash);
-
-    const logsPerTag: TxScopedL2Log[][] = requests.map(() => []);
-    indices.forEach((originalIdx, resultIdx) => {
-      logsPerTag[originalIdx] = results[resultIdx];
-    });
-    return logsPerTag;
+    return resultsPerRequest;
   }
 
-  #extractLogs(logsForTag: TxScopedL2Log[], fromBlock?: BlockNumber, toBlock?: BlockNumber): LogRetrievalResponse[] {
-    // TODO(F-650): push the block range filter down to the node query instead of filtering in memory.
-    const filtered =
-      fromBlock !== undefined || toBlock !== undefined
-        ? logsForTag.filter(
-            log =>
-              (fromBlock === undefined || log.blockNumber >= fromBlock) &&
-              (toBlock === undefined || log.blockNumber < toBlock),
-          )
-        : logsForTag;
+  /**
+   * Groups requests by their (fromBlock, toBlock) range so each distinct range becomes a single node call with
+   * the range pushed down into the query (no in-memory filter).
+   */
+  static #groupByRange(
+    entries: Array<{ index: number; request: LogRetrievalRequest }>,
+  ): Map<RangeKey, { fromBlock?: BlockNumber; toBlock?: BlockNumber; entries: typeof entries }> {
+    const groups = new Map<RangeKey, { fromBlock?: BlockNumber; toBlock?: BlockNumber; entries: typeof entries }>();
+    for (const entry of entries) {
+      const key = rangeKey(entry.request.fromBlock, entry.request.toBlock);
+      const existing = groups.get(key);
+      if (existing) {
+        existing.entries.push(entry);
+      } else {
+        groups.set(key, { fromBlock: entry.request.fromBlock, toBlock: entry.request.toBlock, entries: [entry] });
+      }
+    }
+    return groups;
+  }
 
-    return filtered.map(
-      scopedLog =>
-        new LogRetrievalResponse(
-          scopedLog.logData.slice(1), // Skip the tag
-          scopedLog.txHash,
-          scopedLog.noteHashes,
-          scopedLog.firstNullifier,
-        ),
+  static #toLogRetrievalResponse(log: LogResult): LogRetrievalResponse {
+    // includeEffects: true was used, so noteHashes and nullifiers are populated. Every tx has at least one nullifier
+    // (the first nullifier derived from the tx hash); empty here would indicate a buggy node.
+    const noteHashes = log.noteHashes!;
+    const nullifiers = log.nullifiers!;
+    if (nullifiers.length === 0) {
+      throw new Error(`Log for tx ${log.txHash} returned no nullifiers from the node`);
+    }
+    return new LogRetrievalResponse(
+      log.logData.slice(1), // Skip the tag
+      log.txHash,
+      noteHashes,
+      nullifiers[0],
     );
   }
 
-  public async fetchTaggedLogs(contractAddress: AztecAddress, recipient: AztecAddress): Promise<PendingTaggedLog[]> {
+  public async fetchTaggedLogs(
+    contractAddress: AztecAddress,
+    recipient: AztecAddress,
+    providedSecrets: AppTaggingSecret[],
+  ): Promise<PendingTaggedLog[]> {
     this.log.verbose(`Fetching tagged logs for ${contractAddress.toString()}`);
 
     const l2Tips = await this.l2TipsStore.getL2Tips();
-    // Get all secrets for this recipient (one per sender)
-    const secrets = await this.#getSecretsForSenders(contractAddress, recipient);
+    // The secrets PXE derives or stores internally, plus any the app supplies explicitly for secrets PXE cannot
+    // enumerate itself (e.g. handshake-derived ones).
+    const secrets = [...(await this.#getSecretsForSenders(contractAddress, recipient)), ...providedSecrets];
 
     const logs = await syncTaggedPrivateLogs(
       secrets,
@@ -147,10 +187,14 @@ export class LogService {
       this.jobId,
     );
 
-    return logs.map(
-      scopedLog =>
-        new PendingTaggedLog(scopedLog.logData, scopedLog.txHash, scopedLog.noteHashes, scopedLog.firstNullifier),
-    );
+    return logs.map(log => {
+      const noteHashes = log.noteHashes!;
+      const nullifiers = log.nullifiers!;
+      if (nullifiers.length === 0) {
+        throw new Error(`Log for tx ${log.txHash} returned no nullifiers from the node`);
+      }
+      return new PendingTaggedLog(log.logData, log.txHash, noteHashes, nullifiers[0]);
+    });
   }
 
   async #getSecretsForSenders(contractAddress: AztecAddress, recipient: AztecAddress): Promise<AppTaggingSecret[]> {

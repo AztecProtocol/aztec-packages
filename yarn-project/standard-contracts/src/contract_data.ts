@@ -59,7 +59,17 @@ export const STANDARD_CONTRACT_DEPLOYER = AztecAddress.zero();
  */
 export const standardContracts: { name: string; src: string; nrConst: string | null }[] = [
   { name: 'AuthRegistry', src: 'auth_registry_contract-AuthRegistry', nrConst: 'STANDARD_AUTH_REGISTRY_ADDRESS' },
+  {
+    name: 'MultiCallEntrypoint',
+    src: 'multi_call_entrypoint_contract-MultiCallEntrypoint',
+    nrConst: 'STANDARD_MULTI_CALL_ENTRYPOINT_ADDRESS',
+  },
   { name: 'PublicChecks', src: 'public_checks_contract-PublicChecks', nrConst: 'STANDARD_PUBLIC_CHECKS_ADDRESS' },
+  {
+    name: 'HandshakeRegistry',
+    src: 'handshake_registry_contract-HandshakeRegistry',
+    nrConst: 'STANDARD_HANDSHAKE_REGISTRY_ADDRESS',
+  },
 ];
 
 /** Everything derived from a compiled standard-contract artifact that the generator emits. */

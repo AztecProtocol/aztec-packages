@@ -19,7 +19,7 @@ void txImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     const auto constants_MAX_NOTE_HASHES_PER_TX = FF(64);
     const auto constants_MAX_NULLIFIERS_PER_TX = FF(64);
     const auto constants_MAX_L2_TO_L1_MSGS_PER_TX = FF(8);
-    const auto constants_FEE_JUICE_ADDRESS = FF(5);
+    const auto constants_FEE_JUICE_ADDRESS = FF(3);
     const auto constants_FEE_JUICE_BALANCES_SLOT = FF(1);
     const auto constants_AVM_TX_PHASE_VALUE_START = FF(0);
     const auto constants_AVM_TX_PHASE_VALUE_LAST = FF(11);

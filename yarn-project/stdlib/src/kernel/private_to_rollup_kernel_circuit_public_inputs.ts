@@ -2,7 +2,7 @@ import { DomainSeparator, PRIVATE_TO_ROLLUP_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH 
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { bufferSchemaFor } from '@aztec/foundation/schemas';
-import { BufferReader, bigintToUInt64BE, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
+import { BufferReader, BufferSink, serializeToFields, serializeToSink } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import type { FieldsOf } from '@aztec/foundation/types';
 
@@ -44,14 +44,14 @@ export class PrivateToRollupKernelCircuitPublicInputs {
     return this.end.nullifiers.filter(n => !n.isZero());
   }
 
-  toBuffer() {
-    return serializeToBuffer(
-      this.constants,
-      this.end,
-      this.gasUsed,
-      this.feePayer,
-      bigintToUInt64BE(this.expirationTimestamp),
-    );
+  toBuffer(): Buffer;
+  toBuffer(sink: BufferSink): void;
+  toBuffer(sink?: BufferSink): Buffer | void {
+    if (!sink) {
+      return BufferSink.serialize(this);
+    }
+    serializeToSink(sink, this.constants, this.end, this.gasUsed, this.feePayer);
+    sink.writeUInt64(this.expirationTimestamp);
   }
 
   /**

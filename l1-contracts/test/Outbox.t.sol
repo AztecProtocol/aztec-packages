@@ -3,7 +3,7 @@
 pragma solidity >=0.8.27;
 
 import {Test} from "forge-std/Test.sol";
-import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
+import {Outbox, MAX_CHECKPOINTS_PER_EPOCH} from "@aztec/core/messagebridge/Outbox.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Epoch} from "@aztec/core/libraries/TimeLib.sol";
@@ -25,6 +25,9 @@ contract OutboxTest is Test {
 
   uint256 internal constant AZTEC_VERSION = 1;
   Epoch internal constant DEFAULT_EPOCH = Epoch.wrap(1);
+
+  // Most tests insert a single root for an epoch. Use K = 1 to identify it.
+  uint256 internal constant K1 = 1;
 
   address internal ROLLUP_CONTRACT;
   Outbox internal outbox;
@@ -51,6 +54,7 @@ contract OutboxTest is Test {
 
   function _consumeMessageAtEpoch(
     Epoch epoch,
+    uint256 numCheckpointsInEpoch,
     NaiveMerkle tree,
     uint256 leafIndex,
     bytes32 leaf,
@@ -65,19 +69,20 @@ contract OutboxTest is Test {
     assertEq(abi.encode(0), abi.encode(statusBeforeConsumption));
 
     vm.expectEmit(true, true, true, true, address(outbox));
-    emit IOutbox.MessageConsumed(epoch, root, leaf, leafId);
-    outbox.consume(message, epoch, leafIndex, path);
+    emit IOutbox.MessageConsumed(epoch, root, leaf, leafId, numCheckpointsInEpoch);
+    outbox.consume(message, epoch, numCheckpointsInEpoch, leafIndex, path);
 
     bool statusAfterConsumption = outbox.hasMessageBeenConsumedAtEpoch(epoch, leafId);
     assertEq(abi.encode(1), abi.encode(statusAfterConsumption));
   }
 
   function _consumeMessage(uint256 leafIndex, bytes32 leaf, DataStructures.L2ToL1Msg memory message) internal {
-    _consumeMessageAtEpoch(DEFAULT_EPOCH, epochTree, leafIndex, leaf, message);
+    _consumeMessageAtEpoch(DEFAULT_EPOCH, K1, epochTree, leafIndex, leaf, message);
   }
 
   function _consumeNullifiedMessageAtEpoch(
     Epoch epoch,
+    uint256 numCheckpointsInEpoch,
     NaiveMerkle tree,
     uint256 leafIndex,
     DataStructures.L2ToL1Msg memory message
@@ -86,11 +91,11 @@ contract OutboxTest is Test {
     (bytes32[] memory path,) = tree.computeSiblingPath(leafIndex);
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__AlreadyNullified.selector, epoch, leafId));
-    outbox.consume(message, epoch, leafIndex, path);
+    outbox.consume(message, epoch, numCheckpointsInEpoch, leafIndex, path);
   }
 
   function _consumeNullifiedMessage(uint256 leafIndex, DataStructures.L2ToL1Msg memory message) internal {
-    _consumeNullifiedMessageAtEpoch(DEFAULT_EPOCH, epochTree, leafIndex, message);
+    _consumeNullifiedMessageAtEpoch(DEFAULT_EPOCH, K1, epochTree, leafIndex, message);
   }
 
   function testRevertIfInsertingFromNonRollup(address _caller) public {
@@ -99,14 +104,29 @@ contract OutboxTest is Test {
 
     vm.prank(_caller);
     vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__Unauthorized.selector));
-    outbox.insert(DEFAULT_EPOCH, root);
+    outbox.insert(DEFAULT_EPOCH, K1, root);
+  }
+
+  function testRevertIfInsertingNumCheckpointsZero() public {
+    bytes32 root = epochTree.computeRoot();
+    vm.prank(ROLLUP_CONTRACT);
+    vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__InvalidNumCheckpointsInEpoch.selector, 0));
+    outbox.insert(DEFAULT_EPOCH, 0, root);
+  }
+
+  function testRevertIfInsertingNumCheckpointsAboveMax(uint256 _n) public {
+    uint256 n = bound(_n, MAX_CHECKPOINTS_PER_EPOCH + 1, type(uint256).max);
+    bytes32 root = epochTree.computeRoot();
+    vm.prank(ROLLUP_CONTRACT);
+    vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__InvalidNumCheckpointsInEpoch.selector, n));
+    outbox.insert(DEFAULT_EPOCH, n, root);
   }
 
   function testRevertIfPathTooLong() public {
     DataStructures.L2ToL1Msg memory fakeMessage = _fakeMessage(address(this), 123);
     bytes32[] memory path = new bytes32[](256);
     vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__PathTooLong.selector));
-    outbox.consume(fakeMessage, DEFAULT_EPOCH, 0, path);
+    outbox.consume(fakeMessage, DEFAULT_EPOCH, K1, 0, path);
   }
 
   function testRevertIfLeafIndexOutOfBounds(uint256 _leafIndex) public {
@@ -114,10 +134,9 @@ contract OutboxTest is Test {
     bytes32[] memory path = new bytes32[](4);
     uint256 leafIndex = bound(_leafIndex, 1 << path.length, type(uint256).max);
     vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__LeafIndexOutOfBounds.selector, leafIndex, path.length));
-    outbox.consume(fakeMessage, DEFAULT_EPOCH, leafIndex, path);
+    outbox.consume(fakeMessage, DEFAULT_EPOCH, K1, leafIndex, path);
   }
 
-  // This function tests the insertion of random arrays of L2 to L1 messages
   // We make a naive tree with a computed height, insert the leafs into it, and compute a root. We then add the root as
   // the root of the L2 to L1 message tree, expect for the correct event to be emitted, and then query for the root in
   // the contract, making sure the roots match.
@@ -133,12 +152,16 @@ contract OutboxTest is Test {
     bytes32 root = tree.computeRoot();
 
     vm.expectEmit(true, true, true, true, address(outbox));
-    emit IOutbox.RootAdded(DEFAULT_EPOCH, root);
+    emit IOutbox.RootAdded(DEFAULT_EPOCH, K1, root);
     vm.prank(ROLLUP_CONTRACT);
-    outbox.insert(DEFAULT_EPOCH, root);
+    outbox.insert(DEFAULT_EPOCH, K1, root);
 
-    bytes32 actualRoot = outbox.getRootData(DEFAULT_EPOCH);
-    assertEq(root, actualRoot);
+    assertEq(root, outbox.getRootData(DEFAULT_EPOCH, K1));
+    bytes32[MAX_CHECKPOINTS_PER_EPOCH] memory roots = outbox.getRoots(DEFAULT_EPOCH);
+    assertEq(roots[0], root);
+    for (uint256 i = 1; i < MAX_CHECKPOINTS_PER_EPOCH; i++) {
+      assertEq(roots[i], bytes32(0));
+    }
   }
 
   function testRevertIfConsumingMessageBelongingToOther() public {
@@ -148,7 +171,7 @@ contract OutboxTest is Test {
 
     vm.prank(NOT_RECIPIENT);
     vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__InvalidRecipient.selector, address(this), NOT_RECIPIENT));
-    outbox.consume(fakeMessage, DEFAULT_EPOCH, 1, path);
+    outbox.consume(fakeMessage, DEFAULT_EPOCH, K1, 1, path);
   }
 
   function testRevertIfConsumingMessageWithInvalidChainId() public {
@@ -159,7 +182,7 @@ contract OutboxTest is Test {
     fakeMessage.recipient.chainId = block.chainid + 1;
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__InvalidChainId.selector));
-    outbox.consume(fakeMessage, DEFAULT_EPOCH, 1, path);
+    outbox.consume(fakeMessage, DEFAULT_EPOCH, K1, 1, path);
   }
 
   function testRevertIfVersionMismatch() public {
@@ -170,7 +193,7 @@ contract OutboxTest is Test {
     vm.expectRevert(
       abi.encodeWithSelector(Errors.Outbox__VersionMismatch.selector, message.sender.version, AZTEC_VERSION)
     );
-    outbox.consume(message, DEFAULT_EPOCH, 1, path);
+    outbox.consume(message, DEFAULT_EPOCH, K1, 1, path);
   }
 
   function testRevertIfNothingInsertedAtEpoch() public {
@@ -179,7 +202,54 @@ contract OutboxTest is Test {
     (bytes32[] memory path,) = epochTree.computeSiblingPath(0);
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__NothingToConsumeAtEpoch.selector, DEFAULT_EPOCH));
-    outbox.consume(fakeMessage, DEFAULT_EPOCH, 1, path);
+    outbox.consume(fakeMessage, DEFAULT_EPOCH, K1, 1, path);
+  }
+
+  function testRevertIfConsumingAtNumCheckpointsWithoutRoot() public {
+    DataStructures.L2ToL1Msg memory fakeMessage = _fakeMessage(address(this), 123);
+    bytes32 leaf = fakeMessage.sha256ToField();
+    epochTree.insertLeaf(leaf);
+    bytes32 root = epochTree.computeRoot();
+
+    // Insert at K=1, but try to consume at K=2 (no root there).
+    vm.prank(ROLLUP_CONTRACT);
+    outbox.insert(DEFAULT_EPOCH, K1, root);
+
+    (bytes32[] memory path,) = epochTree.computeSiblingPath(0);
+
+    vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__NothingToConsumeAtEpoch.selector, DEFAULT_EPOCH));
+    outbox.consume(fakeMessage, DEFAULT_EPOCH, 2, 0, path);
+  }
+
+  function testRevertIfConsumingAtNumCheckpointsZero() public {
+    DataStructures.L2ToL1Msg memory fakeMessage = _fakeMessage(address(this), 123);
+    bytes32 leaf = fakeMessage.sha256ToField();
+    epochTree.insertLeaf(leaf);
+    bytes32 root = epochTree.computeRoot();
+
+    vm.prank(ROLLUP_CONTRACT);
+    outbox.insert(DEFAULT_EPOCH, K1, root);
+
+    (bytes32[] memory path,) = epochTree.computeSiblingPath(0);
+
+    vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__NothingToConsumeAtEpoch.selector, DEFAULT_EPOCH));
+    outbox.consume(fakeMessage, DEFAULT_EPOCH, 0, 0, path);
+  }
+
+  function testRevertIfConsumingAtNumCheckpointsAboveMax(uint256 _n) public {
+    uint256 n = bound(_n, MAX_CHECKPOINTS_PER_EPOCH + 1, type(uint256).max);
+    DataStructures.L2ToL1Msg memory fakeMessage = _fakeMessage(address(this), 123);
+    bytes32 leaf = fakeMessage.sha256ToField();
+    epochTree.insertLeaf(leaf);
+    bytes32 root = epochTree.computeRoot();
+
+    vm.prank(ROLLUP_CONTRACT);
+    outbox.insert(DEFAULT_EPOCH, K1, root);
+
+    (bytes32[] memory path,) = epochTree.computeSiblingPath(0);
+
+    vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__NothingToConsumeAtEpoch.selector, DEFAULT_EPOCH));
+    outbox.consume(fakeMessage, DEFAULT_EPOCH, n, 0, path);
   }
 
   function testValidInsertAndConsume() public {
@@ -190,7 +260,7 @@ contract OutboxTest is Test {
     bytes32 root = epochTree.computeRoot();
 
     vm.prank(ROLLUP_CONTRACT);
-    outbox.insert(DEFAULT_EPOCH, root);
+    outbox.insert(DEFAULT_EPOCH, K1, root);
 
     uint256 leafIndex = 0;
     _consumeMessage(leafIndex, leaf, fakeMessage);
@@ -204,7 +274,7 @@ contract OutboxTest is Test {
     bytes32 root = epochTree.computeRoot();
 
     vm.prank(ROLLUP_CONTRACT);
-    outbox.insert(DEFAULT_EPOCH, root);
+    outbox.insert(DEFAULT_EPOCH, K1, root);
 
     uint256 leafIndex = 0;
     _consumeMessage(leafIndex, leaf, fakeMessage);
@@ -220,7 +290,7 @@ contract OutboxTest is Test {
     bytes32 root = epochTree.computeRoot();
 
     vm.prank(ROLLUP_CONTRACT);
-    outbox.insert(DEFAULT_EPOCH, root);
+    outbox.insert(DEFAULT_EPOCH, K1, root);
 
     NaiveMerkle smallerTree = new NaiveMerkle(DEFAULT_TREE_HEIGHT - 1);
     smallerTree.insertLeaf(leaf);
@@ -228,7 +298,7 @@ contract OutboxTest is Test {
 
     (bytes32[] memory path,) = smallerTree.computeSiblingPath(0);
     vm.expectRevert(abi.encodeWithSelector(Errors.MerkleLib__InvalidRoot.selector, root, smallerTreeRoot, leaf, 0));
-    outbox.consume(fakeMessage, DEFAULT_EPOCH, 0, path);
+    outbox.consume(fakeMessage, DEFAULT_EPOCH, K1, 0, path);
   }
 
   function testRevertIfTryingToConsumeMessageNotInTree() public {
@@ -245,12 +315,12 @@ contract OutboxTest is Test {
     bytes32 modifiedRoot = modifiedTree.computeRoot();
 
     vm.prank(ROLLUP_CONTRACT);
-    outbox.insert(DEFAULT_EPOCH, root);
+    outbox.insert(DEFAULT_EPOCH, K1, root);
 
     (bytes32[] memory path,) = modifiedTree.computeSiblingPath(0);
 
     vm.expectRevert(abi.encodeWithSelector(Errors.MerkleLib__InvalidRoot.selector, root, modifiedRoot, modifiedLeaf, 0));
-    outbox.consume(fakeMessage, DEFAULT_EPOCH, 0, path);
+    outbox.consume(fakeMessage, DEFAULT_EPOCH, K1, 0, path);
   }
 
   // This test takes awhile so to keep it somewhat reasonable we've set a limit on the amount of fuzz runs
@@ -278,18 +348,18 @@ contract OutboxTest is Test {
     bytes32 root = tree.computeRoot();
 
     vm.expectEmit(true, true, true, true, address(outbox));
-    emit IOutbox.RootAdded(epoch, root);
+    emit IOutbox.RootAdded(epoch, K1, root);
     vm.prank(ROLLUP_CONTRACT);
-    outbox.insert(epoch, root);
+    outbox.insert(epoch, K1, root);
 
     for (uint256 i = 0; i < numberOfMessages; i++) {
       (bytes32[] memory path, bytes32 leaf) = tree.computeSiblingPath(i);
       uint256 leafId = 2 ** treeHeight + i;
 
       vm.expectEmit(true, true, true, true, address(outbox));
-      emit IOutbox.MessageConsumed(epoch, root, leaf, leafId);
+      emit IOutbox.MessageConsumed(epoch, root, leaf, leafId, K1);
       vm.prank(_recipients[i]);
-      outbox.consume(messages[i], epoch, i, path);
+      outbox.consume(messages[i], epoch, K1, i, path);
     }
   }
 
@@ -302,18 +372,276 @@ contract OutboxTest is Test {
     bytes32 root = epochTree.computeRoot();
 
     vm.startPrank(ROLLUP_CONTRACT);
-    outbox.insert(DEFAULT_EPOCH, root);
-    outbox.insert(DEFAULT_EPOCH, root);
+    outbox.insert(DEFAULT_EPOCH, 1, root);
+    outbox.insert(DEFAULT_EPOCH, 2, root);
     vm.stopPrank();
 
-    {
-      bytes32 actualRoot = outbox.getRootData(DEFAULT_EPOCH);
-      assertEq(root, actualRoot);
+    assertEq(root, outbox.getRootData(DEFAULT_EPOCH, 1));
+    assertEq(root, outbox.getRootData(DEFAULT_EPOCH, 2));
+
+    // numCheckpointsInEpoch=0 and >MAX both return zero, no revert.
+    assertEq(bytes32(0), outbox.getRootData(DEFAULT_EPOCH, 0));
+    assertEq(bytes32(0), outbox.getRootData(DEFAULT_EPOCH, 3));
+    assertEq(bytes32(0), outbox.getRootData(DEFAULT_EPOCH, MAX_CHECKPOINTS_PER_EPOCH + 1));
+
+    // Unrelated epoch returns zero for any K.
+    Epoch otherEpoch = DEFAULT_EPOCH + Epoch.wrap(1);
+    assertEq(bytes32(0), outbox.getRootData(otherEpoch, 1));
+    bytes32[MAX_CHECKPOINTS_PER_EPOCH] memory otherRoots = outbox.getRoots(otherEpoch);
+    for (uint256 i = 0; i < MAX_CHECKPOINTS_PER_EPOCH; i++) {
+      assertEq(otherRoots[i], bytes32(0));
+    }
+  }
+
+  function testGetRootsReturnsAllSlots() public {
+    bytes32 r1 = bytes32(uint256(0xa));
+    bytes32 r3 = bytes32(uint256(0xb));
+    bytes32 rMax = bytes32(uint256(0xc));
+
+    vm.startPrank(ROLLUP_CONTRACT);
+    outbox.insert(DEFAULT_EPOCH, 1, r1);
+    outbox.insert(DEFAULT_EPOCH, 3, r3);
+    outbox.insert(DEFAULT_EPOCH, MAX_CHECKPOINTS_PER_EPOCH, rMax);
+    vm.stopPrank();
+
+    bytes32[MAX_CHECKPOINTS_PER_EPOCH] memory roots = outbox.getRoots(DEFAULT_EPOCH);
+    assertEq(roots[0], r1);
+    assertEq(roots[1], bytes32(0));
+    assertEq(roots[2], r3);
+    for (uint256 i = 3; i < MAX_CHECKPOINTS_PER_EPOCH - 1; i++) {
+      assertEq(roots[i], bytes32(0));
+    }
+    assertEq(roots[MAX_CHECKPOINTS_PER_EPOCH - 1], rMax);
+  }
+
+  function testMessageConsumedEventCarriesNumCheckpoints() public {
+    // Insert two distinct roots at K=1 and K=2 for the same epoch. Consume one message against
+    // each root and verify the emitted MessageConsumed carries the exact numCheckpointsInEpoch
+    // the caller proved against, so a log-only indexer can recover the AZIP-14 root slot without
+    // decoding calldata or replaying RootAdded state. The two messages live at different
+    // positions so their leaf ids are distinct (the bitmap is shared across roots in the epoch).
+    DataStructures.L2ToL1Msg memory m0 = _fakeMessage(address(this), 700);
+    DataStructures.L2ToL1Msg memory m1 = _fakeMessage(address(this), 701);
+
+    bytes32 leaf0 = m0.sha256ToField();
+    bytes32 leaf1 = m1.sha256ToField();
+
+    NaiveMerkle tree0 = new NaiveMerkle(1);
+    tree0.insertLeaf(leaf0);
+    tree0.insertLeaf(bytes32(uint256(0)));
+    bytes32 root0 = tree0.computeRoot();
+
+    NaiveMerkle tree1 = new NaiveMerkle(1);
+    tree1.insertLeaf(bytes32(uint256(0)));
+    tree1.insertLeaf(leaf1);
+    bytes32 root1 = tree1.computeRoot();
+
+    vm.startPrank(ROLLUP_CONTRACT);
+    outbox.insert(DEFAULT_EPOCH, 1, root0);
+    outbox.insert(DEFAULT_EPOCH, 2, root1);
+    vm.stopPrank();
+
+    uint256 leafId0 = (1 << 1) + 0;
+    uint256 leafId1 = (1 << 1) + 1;
+    (bytes32[] memory path0,) = tree0.computeSiblingPath(0);
+    (bytes32[] memory path1,) = tree1.computeSiblingPath(1);
+
+    vm.expectEmit(true, true, true, true, address(outbox));
+    emit IOutbox.MessageConsumed(DEFAULT_EPOCH, root0, leaf0, leafId0, 1);
+    outbox.consume(m0, DEFAULT_EPOCH, 1, 0, path0);
+
+    vm.expectEmit(true, true, true, true, address(outbox));
+    emit IOutbox.MessageConsumed(DEFAULT_EPOCH, root1, leaf1, leafId1, 2);
+    outbox.consume(m1, DEFAULT_EPOCH, 2, 1, path1);
+  }
+
+  function testRootAddedEventCarriesNumCheckpoints() public {
+    bytes32 r1 = bytes32(uint256(0xa));
+    bytes32 r2 = bytes32(uint256(0xb));
+    bytes32 r3 = bytes32(uint256(0xc));
+
+    vm.startPrank(ROLLUP_CONTRACT);
+    vm.expectEmit(true, true, true, true, address(outbox));
+    emit IOutbox.RootAdded(DEFAULT_EPOCH, 1, r1);
+    outbox.insert(DEFAULT_EPOCH, 1, r1);
+
+    vm.expectEmit(true, true, true, true, address(outbox));
+    emit IOutbox.RootAdded(DEFAULT_EPOCH, 2, r2);
+    outbox.insert(DEFAULT_EPOCH, 2, r2);
+
+    vm.expectEmit(true, true, true, true, address(outbox));
+    emit IOutbox.RootAdded(DEFAULT_EPOCH, 3, r3);
+    outbox.insert(DEFAULT_EPOCH, 3, r3);
+    vm.stopPrank();
+
+    assertEq(outbox.getRootData(DEFAULT_EPOCH, 1), r1);
+    assertEq(outbox.getRootData(DEFAULT_EPOCH, 2), r2);
+    assertEq(outbox.getRootData(DEFAULT_EPOCH, 3), r3);
+  }
+
+  function testConsumeAgainstFirstRootOfMultiple() public {
+    // Single message included in the first (smaller) root, then a second root is inserted on top.
+    // Consuming against the first root must still succeed.
+    DataStructures.L2ToL1Msg memory fakeMessage = _fakeMessage(address(this), 123);
+    bytes32 leaf = fakeMessage.sha256ToField();
+    epochTree.insertLeaf(leaf);
+    bytes32 firstRoot = epochTree.computeRoot();
+
+    // Insert a second (different) root for the same epoch at K=2.
+    bytes32 secondRoot = bytes32(uint256(uint256(firstRoot) ^ 0x1));
+
+    vm.startPrank(ROLLUP_CONTRACT);
+    outbox.insert(DEFAULT_EPOCH, 1, firstRoot);
+    outbox.insert(DEFAULT_EPOCH, 2, secondRoot);
+    vm.stopPrank();
+
+    uint256 leafIndex = 0;
+    uint256 leafId = 2 ** DEFAULT_TREE_HEIGHT + leafIndex;
+    (bytes32[] memory path,) = epochTree.computeSiblingPath(leafIndex);
+
+    vm.expectEmit(true, true, true, true, address(outbox));
+    emit IOutbox.MessageConsumed(DEFAULT_EPOCH, firstRoot, leaf, leafId, 1);
+    outbox.consume(fakeMessage, DEFAULT_EPOCH, 1, leafIndex, path);
+
+    assertTrue(outbox.hasMessageBeenConsumedAtEpoch(DEFAULT_EPOCH, leafId));
+  }
+
+  function testReplayAcrossRootsRejected() public {
+    // Build a wonky tree so the leaf id of an earlier-checkpoint message is preserved when the tree grows.
+    // After consuming against the first root, attempting to replay against a second root with the same leaf id
+    // must revert with Outbox__AlreadyNullified.
+    DataStructures.L2ToL1Msg[] memory msgs = new DataStructures.L2ToL1Msg[](3);
+    bytes32[] memory leaves = new bytes32[](3);
+    for (uint256 i = 0; i < 3; i++) {
+      msgs[i] = _fakeMessage(address(this), i + 123);
+      leaves[i] = msgs[i].sha256ToField();
     }
 
+    // First root (K=1): wonky tree with the first 2 messages.
+    //    firstRoot
+    //     /    \
+    //   m0      m1
+    bytes32 firstRoot;
     {
-      bytes32 actualRoot = outbox.getRootData(DEFAULT_EPOCH + Epoch.wrap(1));
-      assertEq(bytes32(0), actualRoot);
+      NaiveMerkle firstTree = new NaiveMerkle(1);
+      firstTree.insertLeaf(leaves[0]);
+      firstTree.insertLeaf(leaves[1]);
+      firstRoot = firstTree.computeRoot();
+    }
+
+    // Second root (K=2): an extended wonky tree that still has m0 at the top-left position.
+    //    secondRoot
+    //     /    \
+    //   m0    subtree(m1,m2)
+    bytes32 secondRoot;
+    bytes32 subtreeRoot;
+    {
+      NaiveMerkle subtree = new NaiveMerkle(1);
+      subtree.insertLeaf(leaves[1]);
+      subtree.insertLeaf(leaves[2]);
+      subtreeRoot = subtree.computeRoot();
+      NaiveMerkle secondTree = new NaiveMerkle(1);
+      secondTree.insertLeaf(leaves[0]);
+      secondTree.insertLeaf(subtreeRoot);
+      secondRoot = secondTree.computeRoot();
+    }
+
+    vm.startPrank(ROLLUP_CONTRACT);
+    outbox.insert(DEFAULT_EPOCH, 1, firstRoot);
+    outbox.insert(DEFAULT_EPOCH, 2, secondRoot);
+    vm.stopPrank();
+
+    // leaves[0]'s leaf id is the same against either root because its position in the wonky tree is preserved.
+    uint256 leafId = (1 << 1);
+
+    // Consume against the first root: sibling is leaves[1].
+    {
+      bytes32[] memory path = new bytes32[](1);
+      path[0] = leaves[1];
+      outbox.consume(msgs[0], DEFAULT_EPOCH, 1, 0, path);
+      assertTrue(outbox.hasMessageBeenConsumedAtEpoch(DEFAULT_EPOCH, leafId));
+    }
+
+    // Attempt to replay against the second root: must revert because the bitmap is shared.
+    // Against the second root, m0's sibling is `subtreeRoot`.
+    {
+      bytes32[] memory path = new bytes32[](1);
+      path[0] = subtreeRoot;
+      vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__AlreadyNullified.selector, DEFAULT_EPOCH, leafId));
+      outbox.consume(msgs[0], DEFAULT_EPOCH, 2, 0, path);
+    }
+
+    // A message that only exists in the second root can still be consumed against K=2.
+    // leaves[2] sits at leafIndex=3 (depth 2): subtree(m1,m2) right child.
+    {
+      uint256 m2LeafIndex = 3;
+      uint256 m2LeafId = (1 << 2) + m2LeafIndex;
+      bytes32[] memory m2Path = new bytes32[](2);
+      m2Path[0] = leaves[1];
+      m2Path[1] = leaves[0];
+
+      vm.expectEmit(true, true, true, true, address(outbox));
+      emit IOutbox.MessageConsumed(DEFAULT_EPOCH, secondRoot, leaves[2], m2LeafId, 2);
+      outbox.consume(msgs[2], DEFAULT_EPOCH, 2, m2LeafIndex, m2Path);
+    }
+  }
+
+  // Companion to testReplayAcrossRootsRejected. Consumes msgs[0] against the K=2 root first
+  // (forcing MerkleLib to actually accept the path against the second root, proving it's a valid
+  // proof), and then attempts to replay against K=1. The replay must revert.
+  function testReplayAcrossRootsRejectedReverseOrder() public {
+    DataStructures.L2ToL1Msg[] memory msgs = new DataStructures.L2ToL1Msg[](3);
+    bytes32[] memory leaves = new bytes32[](3);
+    for (uint256 i = 0; i < 3; i++) {
+      msgs[i] = _fakeMessage(address(this), i + 200);
+      leaves[i] = msgs[i].sha256ToField();
+    }
+
+    bytes32 firstRoot;
+    {
+      NaiveMerkle firstTree = new NaiveMerkle(1);
+      firstTree.insertLeaf(leaves[0]);
+      firstTree.insertLeaf(leaves[1]);
+      firstRoot = firstTree.computeRoot();
+    }
+
+    bytes32 secondRoot;
+    bytes32 subtreeRoot;
+    {
+      NaiveMerkle subtree = new NaiveMerkle(1);
+      subtree.insertLeaf(leaves[1]);
+      subtree.insertLeaf(leaves[2]);
+      subtreeRoot = subtree.computeRoot();
+      NaiveMerkle secondTree = new NaiveMerkle(1);
+      secondTree.insertLeaf(leaves[0]);
+      secondTree.insertLeaf(subtreeRoot);
+      secondRoot = secondTree.computeRoot();
+    }
+
+    vm.startPrank(ROLLUP_CONTRACT);
+    outbox.insert(DEFAULT_EPOCH, 1, firstRoot);
+    outbox.insert(DEFAULT_EPOCH, 2, secondRoot);
+    vm.stopPrank();
+
+    uint256 leafId = (1 << 1);
+
+    // Consume msgs[0] against the SECOND root first. This goes through MerkleLib verification
+    // and only succeeds if the (path, leafIndex) genuinely proves m0 against secondRoot.
+    {
+      bytes32[] memory path = new bytes32[](1);
+      path[0] = subtreeRoot;
+      vm.expectEmit(true, true, true, true, address(outbox));
+      emit IOutbox.MessageConsumed(DEFAULT_EPOCH, secondRoot, leaves[0], leafId, 2);
+      outbox.consume(msgs[0], DEFAULT_EPOCH, 2, 0, path);
+      assertTrue(outbox.hasMessageBeenConsumedAtEpoch(DEFAULT_EPOCH, leafId));
+    }
+
+    // Now replay against K=1 with a valid first-root path. Must revert at the shared bitmap check.
+    {
+      bytes32[] memory path = new bytes32[](1);
+      path[0] = leaves[1];
+      vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__AlreadyNullified.selector, DEFAULT_EPOCH, leafId));
+      outbox.consume(msgs[0], DEFAULT_EPOCH, 1, 0, path);
     }
   }
 
@@ -325,7 +653,7 @@ contract OutboxTest is Test {
     bytes32 root = leaf;
 
     vm.prank(ROLLUP_CONTRACT);
-    outbox.insert(DEFAULT_EPOCH, leaf);
+    outbox.insert(DEFAULT_EPOCH, K1, leaf);
 
     uint256 leafIndex = 0;
     uint256 leafId = 1;
@@ -334,9 +662,9 @@ contract OutboxTest is Test {
     assertEq(abi.encode(0), abi.encode(statusBeforeConsumption));
 
     vm.expectEmit(true, true, true, true, address(outbox));
-    emit IOutbox.MessageConsumed(DEFAULT_EPOCH, root, leaf, leafId);
+    emit IOutbox.MessageConsumed(DEFAULT_EPOCH, root, leaf, leafId, K1);
     bytes32[] memory path = new bytes32[](0);
-    outbox.consume(fakeMessage, DEFAULT_EPOCH, leafIndex, path);
+    outbox.consume(fakeMessage, DEFAULT_EPOCH, K1, leafIndex, path);
 
     bool statusAfterConsumption = outbox.hasMessageBeenConsumedAtEpoch(DEFAULT_EPOCH, leafId);
     assertEq(abi.encode(1), abi.encode(statusAfterConsumption));
@@ -357,26 +685,18 @@ contract OutboxTest is Test {
     //  /   \
     // tx0 tx1
 
-    // First, build the left subtree with 2 leaves.
-    // subtreeRoot
-    //  /  \
-    // tx0 tx1
     NaiveMerkle subtree = new NaiveMerkle(1);
     subtree.insertLeaf(leaves[0]);
     subtree.insertLeaf(leaves[1]);
     bytes32 subtreeRoot = subtree.computeRoot();
 
-    // Then, build the top tree with the subtree root and the last leaf.
-    //      outHash
-    //   /          \
-    // subtreeRoot tx2
     NaiveMerkle topTree = new NaiveMerkle(1);
     topTree.insertLeaf(subtreeRoot);
     topTree.insertLeaf(leaves[2]);
     bytes32 root = topTree.computeRoot();
 
     vm.prank(ROLLUP_CONTRACT);
-    outbox.insert(DEFAULT_EPOCH, root);
+    outbox.insert(DEFAULT_EPOCH, K1, root);
 
     // Consume the message of tx0.
     {
@@ -390,10 +710,10 @@ contract OutboxTest is Test {
         path[0] = subtreePath[0];
         path[1] = topTreePath[0];
       }
-      outbox.consume(fakeMessages[msgIndex], DEFAULT_EPOCH, leafIndex, path);
+      outbox.consume(fakeMessages[msgIndex], DEFAULT_EPOCH, K1, leafIndex, path);
 
       vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__AlreadyNullified.selector, DEFAULT_EPOCH, leafId));
-      outbox.consume(fakeMessages[msgIndex], DEFAULT_EPOCH, leafIndex, path);
+      outbox.consume(fakeMessages[msgIndex], DEFAULT_EPOCH, K1, leafIndex, path);
     }
 
     // Consume the message of tx1.
@@ -408,10 +728,10 @@ contract OutboxTest is Test {
         path[0] = subtreePath[0];
         path[1] = topTreePath[0];
       }
-      outbox.consume(fakeMessages[msgIndex], DEFAULT_EPOCH, leafIndex, path);
+      outbox.consume(fakeMessages[msgIndex], DEFAULT_EPOCH, K1, leafIndex, path);
 
       vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__AlreadyNullified.selector, DEFAULT_EPOCH, leafId));
-      outbox.consume(fakeMessages[msgIndex], DEFAULT_EPOCH, leafIndex, path);
+      outbox.consume(fakeMessages[msgIndex], DEFAULT_EPOCH, K1, leafIndex, path);
     }
 
     // Consume the message of tx2.
@@ -420,10 +740,10 @@ contract OutboxTest is Test {
       uint256 leafIndex = 1;
       uint256 leafId = 2 ** 1 + 1;
       (bytes32[] memory path,) = topTree.computeSiblingPath(1);
-      outbox.consume(fakeMessages[msgIndex], DEFAULT_EPOCH, leafIndex, path);
+      outbox.consume(fakeMessages[msgIndex], DEFAULT_EPOCH, K1, leafIndex, path);
 
       vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__AlreadyNullified.selector, DEFAULT_EPOCH, leafId));
-      outbox.consume(fakeMessages[msgIndex], DEFAULT_EPOCH, leafIndex, path);
+      outbox.consume(fakeMessages[msgIndex], DEFAULT_EPOCH, K1, leafIndex, path);
     }
   }
 
@@ -442,10 +762,8 @@ contract OutboxTest is Test {
 
     bytes32[] memory txOutHashes = new bytes32[](3);
 
-    // tx0 has 1 message, the message leaf is the root.
     txOutHashes[0] = leaves[0];
 
-    // Build the subtree of tx1 with 3 message.
     bytes32 tx1SubtreeRoot;
     {
       NaiveMerkle subtree = new NaiveMerkle(1);
@@ -458,7 +776,6 @@ contract OutboxTest is Test {
       txOutHashes[1] = topTree.computeRoot();
     }
 
-    // Build the subtree of tx2 with 3 messages.
     bytes32 tx2SubtreeRoot;
     {
       NaiveMerkle tx2Subtree = new NaiveMerkle(1);
@@ -471,17 +788,6 @@ contract OutboxTest is Test {
       txOutHashes[2] = tx2TopTree.computeRoot();
     }
 
-    // Build a wonky tree of 3 txs.
-    //    outHash
-    //     /  \
-    //    .   tx2
-    //  /  \
-    // tx0 tx1
-
-    // First, build the left subtree with 2 txOutHashes.
-    // subtreeRoot
-    //  /  \
-    // tx0 tx1
     bytes32 subtreeRoot;
     {
       NaiveMerkle subtree = new NaiveMerkle(1);
@@ -490,10 +796,6 @@ contract OutboxTest is Test {
       subtreeRoot = subtree.computeRoot();
     }
 
-    // Then, build the top tree with the subtree root and the last txOutHash.
-    //      outHash
-    //    /        \
-    // subtreeRoot tx2
     {
       NaiveMerkle topTree = new NaiveMerkle(1);
       topTree.insertLeaf(subtreeRoot);
@@ -501,98 +803,72 @@ contract OutboxTest is Test {
       bytes32 root = topTree.computeRoot();
 
       vm.prank(ROLLUP_CONTRACT);
-      outbox.insert(DEFAULT_EPOCH, root);
+      outbox.insert(DEFAULT_EPOCH, K1, root);
     }
 
     // Consume messages[0] in tx0.
     {
-      //    outHash
-      //     /  \
-      //    .   tx2
-      //   /  \
-      //  m0  tx1
       uint256 msgIndex = 0;
       uint256 leafIndex = 0;
       uint256 leafId = 2 ** 2;
       bytes32[] memory path = new bytes32[](2);
       path[0] = txOutHashes[1];
       path[1] = txOutHashes[2];
-      outbox.consume(fakeMessages[msgIndex], DEFAULT_EPOCH, leafIndex, path);
+      outbox.consume(fakeMessages[msgIndex], DEFAULT_EPOCH, K1, leafIndex, path);
 
       vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__AlreadyNullified.selector, DEFAULT_EPOCH, leafId));
-      outbox.consume(fakeMessages[msgIndex], DEFAULT_EPOCH, leafIndex, path);
+      outbox.consume(fakeMessages[msgIndex], DEFAULT_EPOCH, K1, leafIndex, path);
     }
 
     // Consume messages[2] in tx1.
     {
-      //    outHash
-      //     /  \
-      //    .   tx2
-      //   /  \
-      // tx0  tx1
-      //      / \
-      //    .   m3
-      //   / \
-      //  m1 m2
       uint256 msgIndex = 2;
-      uint256 leafIndex = 5; // Leaf at index 5 in a balanced tree of height 4.
+      uint256 leafIndex = 5;
       uint256 leafId = 2 ** 4 + leafIndex;
       bytes32[] memory path = new bytes32[](4);
       path[0] = leaves[1];
       path[1] = leaves[3];
       path[2] = txOutHashes[0];
       path[3] = txOutHashes[2];
-      outbox.consume(fakeMessages[msgIndex], DEFAULT_EPOCH, leafIndex, path);
+      outbox.consume(fakeMessages[msgIndex], DEFAULT_EPOCH, K1, leafIndex, path);
 
       vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__AlreadyNullified.selector, DEFAULT_EPOCH, leafId));
-      outbox.consume(fakeMessages[msgIndex], DEFAULT_EPOCH, leafIndex, path);
+      outbox.consume(fakeMessages[msgIndex], DEFAULT_EPOCH, K1, leafIndex, path);
     }
 
     // Consume messages[4] in tx2.
     {
-      //    outHash
-      //     /  \
-      //    .   tx2
-      //        /  \
-      //       .   m6
-      //     /  \
-      //    m4 m5
       uint256 msgIndex = 4;
-      uint256 leafIndex = 4; // Leaf at index 4 in a balanced tree of height 3.
+      uint256 leafIndex = 4;
       uint256 leafId = 2 ** 3 + leafIndex;
       bytes32[] memory path = new bytes32[](3);
       path[0] = leaves[5];
       path[1] = leaves[6];
       path[2] = subtreeRoot;
-      outbox.consume(fakeMessages[msgIndex], DEFAULT_EPOCH, leafIndex, path);
+      outbox.consume(fakeMessages[msgIndex], DEFAULT_EPOCH, K1, leafIndex, path);
 
       vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__AlreadyNullified.selector, DEFAULT_EPOCH, leafId));
-      outbox.consume(fakeMessages[msgIndex], DEFAULT_EPOCH, leafIndex, path);
+      outbox.consume(fakeMessages[msgIndex], DEFAULT_EPOCH, K1, leafIndex, path);
     }
 
     // Consume messages[6] in tx2.
     {
-      //    outHash
-      //     /  \
-      //    .   tx2
-      //        /  \
-      //       .   m6
       uint256 msgIndex = 6;
-      uint256 leafIndex = 3; // Leaf at index 3 in a balanced tree of height 2.
+      uint256 leafIndex = 3;
       uint256 leafId = 2 ** 2 + leafIndex;
       bytes32[] memory path = new bytes32[](2);
       path[0] = tx2SubtreeRoot;
       path[1] = subtreeRoot;
-      outbox.consume(fakeMessages[msgIndex], DEFAULT_EPOCH, leafIndex, path);
+      outbox.consume(fakeMessages[msgIndex], DEFAULT_EPOCH, K1, leafIndex, path);
 
       vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__AlreadyNullified.selector, DEFAULT_EPOCH, leafId));
-      outbox.consume(fakeMessages[msgIndex], DEFAULT_EPOCH, leafIndex, path);
+      outbox.consume(fakeMessages[msgIndex], DEFAULT_EPOCH, K1, leafIndex, path);
     }
   }
 
-  // This test checks that the status of existing messages is preserved when the root for an epoch is overwritten.
+  // This test checks that the status of existing messages is preserved when a new (extending) root is inserted
+  // for the same epoch.
   function testConsumeAgainFailAfterChainProgressed() public {
-    // Create 3 messages to be inserted into the epoch tree.
     DataStructures.L2ToL1Msg[] memory fakeMessages = new DataStructures.L2ToL1Msg[](3);
     bytes32[] memory leaves = new bytes32[](3);
     for (uint256 i = 0; i < 3; i++) {
@@ -600,51 +876,53 @@ contract OutboxTest is Test {
       leaves[i] = fakeMessages[i].sha256ToField();
     }
 
-    // First, insert the root of a short epoch containing 2 checkpoints, each has 1 message.
+    // First, insert the root of a short partial proof covering 2 checkpoints (K=2).
     epochTree.insertLeaf(leaves[0]);
     epochTree.insertLeaf(leaves[1]);
 
-    bytes32 rootForShortEpoch = epochTree.computeRoot();
+    bytes32 rootForShortProof = epochTree.computeRoot();
 
     vm.prank(ROLLUP_CONTRACT);
-    outbox.insert(DEFAULT_EPOCH, rootForShortEpoch);
+    outbox.insert(DEFAULT_EPOCH, 2, rootForShortProof);
 
-    // Consume leaves[1]
+    // Consume leaves[1] against K=2.
     {
       uint256 leafIndex = 1;
-      _consumeMessage(leafIndex, leaves[leafIndex], fakeMessages[leafIndex]);
+      _consumeMessageAtEpoch(DEFAULT_EPOCH, 2, epochTree, leafIndex, leaves[leafIndex], fakeMessages[leafIndex]);
     }
 
-    // Then, insert the root of a long epoch containing 3 checkpoints, including the existing 2 checkpoints, plus a new
-    // checkpoint with 1 tx/message.
+    // Then, insert the root of an extending proof covering 3 checkpoints (K=3).
     epochTree.insertLeaf(leaves[2]);
-    bytes32 rootForLongEpoch = epochTree.computeRoot();
+    bytes32 rootForLongProof = epochTree.computeRoot();
 
     vm.prank(ROLLUP_CONTRACT);
-    outbox.insert(DEFAULT_EPOCH, rootForLongEpoch);
+    outbox.insert(DEFAULT_EPOCH, 3, rootForLongProof);
 
-    // Cannot to consume leaves[1] again.
+    assertEq(outbox.getRootData(DEFAULT_EPOCH, 2), rootForShortProof);
+    assertEq(outbox.getRootData(DEFAULT_EPOCH, 3), rootForLongProof);
+
+    // Cannot consume leaves[1] again against either root: the bitmap is shared.
     {
       uint256 leafIndex = 1;
-      _consumeNullifiedMessage(leafIndex, fakeMessages[leafIndex]);
+      _consumeNullifiedMessageAtEpoch(DEFAULT_EPOCH, 2, epochTree, leafIndex, fakeMessages[leafIndex]);
+      _consumeNullifiedMessageAtEpoch(DEFAULT_EPOCH, 3, epochTree, leafIndex, fakeMessages[leafIndex]);
     }
 
-    // leaves[0] can still be consumed.
+    // leaves[0] can still be consumed against either root.
     {
       uint256 leafIndex = 0;
-      _consumeMessage(leafIndex, leaves[leafIndex], fakeMessages[leafIndex]);
+      _consumeMessageAtEpoch(DEFAULT_EPOCH, 3, epochTree, leafIndex, leaves[leafIndex], fakeMessages[leafIndex]);
     }
 
-    // New leaf leaves[2] can be consumed.
+    // New leaf leaves[2] can be consumed against K=3.
     {
       uint256 leafIndex = 2;
-      _consumeMessage(leafIndex, leaves[leafIndex], fakeMessages[leafIndex]);
+      _consumeMessageAtEpoch(DEFAULT_EPOCH, 3, epochTree, leafIndex, leaves[leafIndex], fakeMessages[leafIndex]);
     }
   }
 
   // This test checks that the status of existing messages is preserved when the root for a new epoch is inserted.
   function testConsumeMessagesInTwoEpochs() public {
-    // Insert 2 checkpoints to the epoch tree, each has 1 message.
     DataStructures.L2ToL1Msg[] memory fakeMessages = new DataStructures.L2ToL1Msg[](2);
     bytes32[] memory leaves = new bytes32[](2);
     for (uint256 i = 0; i < 2; i++) {
@@ -655,38 +933,148 @@ contract OutboxTest is Test {
     epochTree.insertLeaf(leaves[1]);
     bytes32 root = epochTree.computeRoot();
 
-    // First, insert the root for the first epoch.
     Epoch epoch1 = DEFAULT_EPOCH;
     vm.prank(ROLLUP_CONTRACT);
-    outbox.insert(epoch1, root);
+    outbox.insert(epoch1, K1, root);
 
-    // Consume leaves[1] in the first epoch
     {
       uint256 leafIndex = 1;
-      _consumeMessageAtEpoch(epoch1, epochTree, leafIndex, leaves[leafIndex], fakeMessages[leafIndex]);
+      _consumeMessageAtEpoch(epoch1, K1, epochTree, leafIndex, leaves[leafIndex], fakeMessages[leafIndex]);
     }
 
-    // Then, insert the root of the same epoch tree for the second epoch.
     Epoch epoch2 = epoch1 + Epoch.wrap(1);
     vm.prank(ROLLUP_CONTRACT);
-    outbox.insert(epoch2, root);
+    outbox.insert(epoch2, K1, root);
 
     // Cannot consume leaves[1] again in the first epoch.
     {
       uint256 leafIndex = 1;
-      _consumeNullifiedMessageAtEpoch(epoch1, epochTree, leafIndex, fakeMessages[leafIndex]);
+      _consumeNullifiedMessageAtEpoch(epoch1, K1, epochTree, leafIndex, fakeMessages[leafIndex]);
     }
 
     // The same leaf leaves[1] in the second epoch can be consumed.
     {
       uint256 leafIndex = 1;
-      _consumeMessageAtEpoch(epoch2, epochTree, leafIndex, leaves[leafIndex], fakeMessages[leafIndex]);
+      _consumeMessageAtEpoch(epoch2, K1, epochTree, leafIndex, leaves[leafIndex], fakeMessages[leafIndex]);
     }
 
     // leaves[0] in the first epoch can still be consumed.
     {
       uint256 leafIndex = 0;
-      _consumeMessageAtEpoch(epoch1, epochTree, leafIndex, leaves[leafIndex], fakeMessages[leafIndex]);
+      _consumeMessageAtEpoch(epoch1, K1, epochTree, leafIndex, leaves[leafIndex], fakeMessages[leafIndex]);
+    }
+  }
+
+  // Inserting the same root value at two distinct K values produces two addressable entries.
+  // Consuming against either marks the shared bitmap, blocking a second consume against the other
+  // for the same leaf id.
+  function testDuplicateRootInsertedAtDistinctIndices() public {
+    DataStructures.L2ToL1Msg memory fakeMessage = _fakeMessage(address(this), 123);
+    bytes32 leaf = fakeMessage.sha256ToField();
+    epochTree.insertLeaf(leaf);
+    bytes32 root = epochTree.computeRoot();
+
+    vm.startPrank(ROLLUP_CONTRACT);
+    outbox.insert(DEFAULT_EPOCH, 1, root);
+    outbox.insert(DEFAULT_EPOCH, 2, root);
+    vm.stopPrank();
+
+    assertEq(outbox.getRootData(DEFAULT_EPOCH, 1), root);
+    assertEq(outbox.getRootData(DEFAULT_EPOCH, 2), root);
+
+    _consumeMessageAtEpoch(DEFAULT_EPOCH, 1, epochTree, 0, leaf, fakeMessage);
+    _consumeNullifiedMessageAtEpoch(DEFAULT_EPOCH, 2, epochTree, 0, fakeMessage);
+  }
+
+  // Different leaf ids within the same epoch but across different roots can each be consumed
+  // independently — the bitmap only blocks a given leaf id, not arbitrary leaves on the same root.
+  function testDistinctLeafIdsAcrossRootsConsumeIndependently() public {
+    DataStructures.L2ToL1Msg memory msgA = _fakeMessage(address(this), 1);
+    DataStructures.L2ToL1Msg memory msgB = _fakeMessage(address(this), 2);
+    bytes32 leafA = msgA.sha256ToField();
+    bytes32 leafB = msgB.sha256ToField();
+
+    NaiveMerkle treeA = new NaiveMerkle(DEFAULT_TREE_HEIGHT);
+    treeA.insertLeaf(leafA);
+    bytes32 rootA = treeA.computeRoot();
+
+    NaiveMerkle treeB = new NaiveMerkle(1);
+    treeB.insertLeaf(leafB);
+    bytes32 rootB = treeB.computeRoot();
+
+    vm.startPrank(ROLLUP_CONTRACT);
+    outbox.insert(DEFAULT_EPOCH, 1, rootA);
+    outbox.insert(DEFAULT_EPOCH, 2, rootB);
+    vm.stopPrank();
+
+    uint256 leafIdA = (1 << DEFAULT_TREE_HEIGHT) + 0;
+    uint256 leafIdB = (1 << 1) + 0;
+    assertTrue(leafIdA != leafIdB);
+
+    _consumeMessageAtEpoch(DEFAULT_EPOCH, 1, treeA, 0, leafA, msgA);
+    _consumeMessageAtEpoch(DEFAULT_EPOCH, 2, treeB, 0, leafB, msgB);
+
+    assertTrue(outbox.hasMessageBeenConsumedAtEpoch(DEFAULT_EPOCH, leafIdA));
+    assertTrue(outbox.hasMessageBeenConsumedAtEpoch(DEFAULT_EPOCH, leafIdB));
+  }
+
+  // Bitmap state and roots must be isolated between epochs even when both have multiple inserts.
+  function testMultiRootEpochsAreIsolated() public {
+    Epoch epoch1 = DEFAULT_EPOCH;
+    Epoch epoch2 = DEFAULT_EPOCH + Epoch.wrap(1);
+
+    DataStructures.L2ToL1Msg memory fakeMessage = _fakeMessage(address(this), 7);
+    bytes32 leaf = fakeMessage.sha256ToField();
+    epochTree.insertLeaf(leaf);
+    bytes32 root = epochTree.computeRoot();
+
+    bytes32 sentinel = bytes32(uint256(0xdead));
+
+    vm.startPrank(ROLLUP_CONTRACT);
+    outbox.insert(epoch1, 1, root);
+    outbox.insert(epoch1, 2, sentinel);
+    outbox.insert(epoch2, 1, root);
+    outbox.insert(epoch2, 2, sentinel);
+    vm.stopPrank();
+
+    uint256 leafIndex = 0;
+    uint256 leafId = (1 << DEFAULT_TREE_HEIGHT) + leafIndex;
+
+    _consumeMessageAtEpoch(epoch1, 1, epochTree, leafIndex, leaf, fakeMessage);
+
+    assertTrue(outbox.hasMessageBeenConsumedAtEpoch(epoch1, leafId));
+    assertFalse(outbox.hasMessageBeenConsumedAtEpoch(epoch2, leafId));
+
+    _consumeMessageAtEpoch(epoch2, 1, epochTree, leafIndex, leaf, fakeMessage);
+
+    _consumeNullifiedMessageAtEpoch(epoch2, 1, epochTree, leafIndex, fakeMessage);
+  }
+
+  // Fuzz: inserting N non-zero roots at arbitrary distinct K values in [1, MAX] keeps each
+  // (K, root) pair retrievable via getRootData/getRoots and emits matching RootAdded events.
+  function testFuzzInsertManyRootsIndexingAndEvents(bytes32[] calldata _roots) public {
+    uint256 n = _roots.length;
+    vm.assume(n > 0 && n <= MAX_CHECKPOINTS_PER_EPOCH);
+
+    vm.startPrank(ROLLUP_CONTRACT);
+    for (uint256 i = 0; i < n; i++) {
+      vm.assume(_roots[i] != bytes32(0));
+      uint256 k = i + 1;
+      vm.expectEmit(true, true, true, true, address(outbox));
+      emit IOutbox.RootAdded(DEFAULT_EPOCH, k, _roots[i]);
+      outbox.insert(DEFAULT_EPOCH, k, _roots[i]);
+    }
+    vm.stopPrank();
+
+    for (uint256 i = 0; i < n; i++) {
+      assertEq(outbox.getRootData(DEFAULT_EPOCH, i + 1), _roots[i]);
+    }
+    bytes32[MAX_CHECKPOINTS_PER_EPOCH] memory roots = outbox.getRoots(DEFAULT_EPOCH);
+    for (uint256 i = 0; i < n; i++) {
+      assertEq(roots[i], _roots[i]);
+    }
+    for (uint256 i = n; i < MAX_CHECKPOINTS_PER_EPOCH; i++) {
+      assertEq(roots[i], bytes32(0));
     }
   }
 }

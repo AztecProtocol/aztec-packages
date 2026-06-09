@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 
+# Force-rewrite $PUBLIC_BRANCH so it exactly matches upstream aztec-packages:$UPSTREAM_BRANCH.
+#
+# $PUBLIC_BRANCH is a pure mirror of the public repo: it carries no private commits, so the sync is
+# a hard reset rather than a merge. Bringing upstream into the private $TARGET_BRANCH is a separate
+# step (merge-public-next.sh), run after this one.
+
 set -euo pipefail
 
 REMOTE="${REMOTE:-origin}"
@@ -27,54 +33,26 @@ function configure_upstream_remote {
 
 require_command git
 
-if [[ -n "$(git status --porcelain)" ]]; then
-  echo "Working tree is dirty; refusing to sync $PUBLIC_BRANCH" >&2
-  exit 1
-fi
-
 configure_upstream_remote
-git fetch "$REMOTE" "$PUBLIC_BRANCH" --no-tags
 git fetch "$UPSTREAM_REMOTE" "$UPSTREAM_BRANCH" --no-tags
+git fetch "$REMOTE" "$PUBLIC_BRANCH" --no-tags || true
 
-public_ref="${REMOTE}/${PUBLIC_BRANCH}"
-upstream_ref="${UPSTREAM_REMOTE}/${UPSTREAM_BRANCH}"
-public_sha=$(git rev-parse "$public_ref")
-upstream_sha=$(git rev-parse "$upstream_ref")
+upstream_sha=$(git rev-parse "${UPSTREAM_REMOTE}/${UPSTREAM_BRANCH}")
+public_sha=$(git rev-parse "${REMOTE}/${PUBLIC_BRANCH}" 2>/dev/null || echo "")
 
-if git merge-base --is-ancestor "$upstream_sha" "$public_ref"; then
-  echo "$PUBLIC_BRANCH already contains ${UPSTREAM_REMOTE}/${UPSTREAM_BRANCH} ($upstream_sha)"
+if [[ "$public_sha" == "$upstream_sha" ]]; then
+  echo "$PUBLIC_BRANCH already matches ${UPSTREAM_REMOTE}/${UPSTREAM_BRANCH} ($upstream_sha)"
   exit 0
 fi
 
-git checkout --force -B "$PUBLIC_BRANCH" "$public_ref"
-
-echo "Merging ${UPSTREAM_REMOTE}/${UPSTREAM_BRANCH} into $PUBLIC_BRANCH:"
-echo "  public:   $public_sha"
+echo "Force-syncing $PUBLIC_BRANCH to ${UPSTREAM_REMOTE}/${UPSTREAM_BRANCH}:"
+echo "  public:   ${public_sha:-<none>}"
 echo "  upstream: $upstream_sha"
 
 if [[ "$DRY_RUN" == "1" ]]; then
-  if git merge "$upstream_ref" --no-edit --no-commit; then
-    echo "DRY_RUN=1; merge applies cleanly, not committing or pushing"
-    git merge --abort >/dev/null 2>&1 || git reset --hard "$public_ref" >/dev/null
-    exit 0
-  fi
-
-  conflicts=$(git diff --name-only --diff-filter=U)
-  git merge --abort || true
-  echo "DRY_RUN=1; merge conflicts detected:"
-  echo "$conflicts"
-  exit 1
-fi
-
-if git merge "$upstream_ref" --no-edit -m "chore: sync public-next with upstream next"; then
-  git push "$REMOTE" "$PUBLIC_BRANCH"
-  echo "Pushed $PUBLIC_BRANCH sync commit $(git rev-parse HEAD)"
+  echo "DRY_RUN=1; would force-push $PUBLIC_BRANCH -> $upstream_sha"
   exit 0
 fi
 
-conflicts=$(git diff --name-only --diff-filter=U)
-git merge --abort || true
-
-echo "Merge conflicts detected while syncing ${UPSTREAM_REMOTE}/${UPSTREAM_BRANCH} into $PUBLIC_BRANCH:"
-echo "$conflicts"
-exit 1
+git push --force "$REMOTE" "${upstream_sha}:refs/heads/${PUBLIC_BRANCH}"
+echo "Force-pushed $PUBLIC_BRANCH to $upstream_sha"

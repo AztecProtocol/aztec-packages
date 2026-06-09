@@ -25,6 +25,7 @@ import { keccak256, parseTransaction } from 'viem';
 
 import { sendL1ToL2Message } from '../fixtures/l1_to_l2_messaging.js';
 import type { EndToEndContext } from '../fixtures/utils.js';
+import { waitForL1ToL2MessageSeen } from '../shared/wait_for_l1_to_l2_message.js';
 import { proveInteraction } from '../test-wallet/utils.js';
 import { EpochsTestContext } from './epochs_test.js';
 
@@ -78,7 +79,6 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       anvilSlotsInAnEpoch: 32,
       // Pipelining + multi-blocks-per-slot: 8s blocks fit ~4 blocks per 36s slot, and TX_COUNT=8
       // ensures multiple checkpoints have multiple blocks
-      enableProposerPipelining: true,
       inboxLag: 2,
     });
     ({ proverDelayer, sequencerDelayer, context, logger, monitor, L1_BLOCK_TIME_IN_S, L2_SLOT_DURATION_IN_S } = test);
@@ -350,12 +350,12 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       const CHECKPOINT_NUMBER = CheckpointNumber(initialCheckpoint + 3);
       await test.waitUntilCheckpointNumber(CHECKPOINT_NUMBER, L2_SLOT_DURATION_IN_S * 10);
       expect(monitor.checkpointNumber).toEqual(CHECKPOINT_NUMBER);
+      const l1BlockNumber = monitor.l1BlockNumber;
       // Stop the sequencer immediately so any in-flight pipelined publish for CHECKPOINT_NUMBER+1
-      // doesn't extend l1BlockNumber before we capture it. setConfig alone is not enough under
+      // doesn't extend the reorg range before we calculate it. setConfig alone is not enough under
       // pipelining because already-constructed jobs snapshot the old config.
       await context.sequencer!.stop();
       logger.warn(`Sequencer stopped`);
-      const l1BlockNumber = monitor.l1BlockNumber;
       // Wait for node to sync to the checkpoint.
       await retryUntil(() => getCheckpointNumber(node).then(b => b === CHECKPOINT_NUMBER), 'node sync', 10, 0.1);
       logger.warn(`Reached checkpoint ${CHECKPOINT_NUMBER}`);
@@ -364,8 +364,7 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       await test.assertMultipleBlocksPerSlot(2);
 
       // Remove the L2 block from L1
-      const l1BlocksToReorg = monitor.l1BlockNumber - l1BlockNumber + 1;
-      await context.cheatCodes.eth.reorgWithReplacement(l1BlocksToReorg);
+      await context.cheatCodes.eth.reorgTo(l1BlockNumber - 1);
       expect(await monitor.run(true).then(monitor => monitor.checkpointNumber)).toEqual(
         CheckpointNumber(CHECKPOINT_NUMBER - 1),
       );
@@ -472,7 +471,7 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       });
       logger.warn(`Sent messages on L1 blocks ${msgs.map(m => m.txReceipt.blockNumber)}`);
 
-      await waitForL1ToL2MessageReady(node, msgs.at(-1)!.msgHash, {
+      await waitForL1ToL2MessageSeen(node, msgs.at(-1)!.msgHash, {
         timeoutSeconds: msgs.length * L1_BLOCK_TIME_IN_S * 2,
       });
 
@@ -485,7 +484,7 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       logger.warn(`Sent new message on L1 block ${newMsg.txReceipt.blockNumber}`);
 
       // New msg gets synced, and old one is out
-      await waitForL1ToL2MessageReady(node, newMsg.msgHash, { timeoutSeconds: L1_BLOCK_TIME_IN_S * 6 });
+      await waitForL1ToL2MessageReady(node, newMsg.msgHash, { timeoutSeconds: L2_SLOT_DURATION_IN_S * 5 });
       expect(await isL1ToL2MessageReady(node, msgs[0].msgHash)).toBe(true);
       expect(await isL1ToL2MessageReady(node, msgs.at(-1)!.msgHash)).toBe(false);
 
@@ -502,7 +501,7 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       logger.warn(`Sending first cross chain message`);
       const firstMsg = await sendMessage();
       logger.warn(`Sent first message on L1 block ${firstMsg.txReceipt.blockNumber}`);
-      await waitForL1ToL2MessageReady(node, firstMsg.msgHash, { timeoutSeconds: L1_BLOCK_TIME_IN_S * 3 });
+      await waitForL1ToL2MessageSeen(node, firstMsg.msgHash, { timeoutSeconds: L1_BLOCK_TIME_IN_S * 3 });
       logger.warn(`Synced first message`);
 
       // Next message shall not land
@@ -524,11 +523,12 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       const reorgDepth = (await monitor.run(true).then(m => m.l1BlockNumber)) - l1BlockNumber;
       await context.cheatCodes.eth.reorgWithReplacement(reorgDepth, [[l1ClientDelayer.getCancelledTxs()[0]]]);
       const secondMsg = await secondMsgPromise;
+      await waitForL1ToL2MessageSeen(node, secondMsg.msgHash, { timeoutSeconds: L1_BLOCK_TIME_IN_S * 3 });
 
       // Archiver should see the new message and should be able to accept a third one on top, without any rolling hash issues
       logger.warn(`Reorged-in second message on L1 block ${secondMsg.txReceipt.blockNumber}. Sending third message.`);
       const thirdMsg = await sendMessage();
-      await waitForL1ToL2MessageReady(node, thirdMsg.msgHash, { timeoutSeconds: L1_BLOCK_TIME_IN_S * 3 });
+      await waitForL1ToL2MessageSeen(node, thirdMsg.msgHash, { timeoutSeconds: L1_BLOCK_TIME_IN_S * 3 });
 
       // Verify multi-block checkpoints were built
       await test.assertMultipleBlocksPerSlot(2);

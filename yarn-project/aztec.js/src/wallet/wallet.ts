@@ -13,7 +13,7 @@ import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type ContractInstanceWithAddress, ContractInstanceWithAddressSchema } from '@aztec/stdlib/contract';
 import { Gas, ManaUsageEstimate } from '@aztec/stdlib/gas';
-import { LogId } from '@aztec/stdlib/logs';
+import { LogCursor, refineTxHashAndRange } from '@aztec/stdlib/logs';
 import {
   AbiDecodedSchema,
   type ApiSchemaFor,
@@ -30,7 +30,7 @@ import {
   SimulationOverrides,
   TxHash,
   TxProfileResult,
-  TxReceipt,
+  TxReceiptSchema,
   UtilityExecutionResult,
   inTxSchema,
 } from '@aztec/stdlib/tx';
@@ -164,8 +164,8 @@ export type EventFilterBase = {
    * Optional. If provided, it must be greater than fromBlock.
    */
   toBlock?: BlockNumber;
-  /** Log id after which to start fetching logs. Used for pagination. */
-  afterLog?: LogId;
+  /** Log cursor after which to start fetching logs. Used for pagination. */
+  afterLog?: LogCursor;
 };
 
 /**
@@ -179,11 +179,12 @@ export type PrivateEventFilter = EventFilterBase & {
 };
 
 /**
- * Filter options when querying public events.
+ * Filter options when querying public events. The contract address is required because the public log index is
+ * keyed on `(contract, tag)`; tag-only queries are not supported.
  */
 export type PublicEventFilter = EventFilterBase & {
-  /** The address of the contract that emitted the events. */
-  contractAddress?: AztecAddress;
+  /** The address of the contract that emitted the events. Required. */
+  contractAddress: AztecAddress;
 };
 
 /**
@@ -374,21 +375,31 @@ export const EventMetadataDefinitionSchema = z.object({
   fieldNames: z.array(z.string()),
 });
 
-const EventFilterBaseSchema = z.object({
+// Event filters share `txHash ⊕ block-range` semantics with `LogsQueryBase` (see stdlib `logs_query.ts`)
+// but diverge structurally: wallet filters are scoped to a single ABI event so they carry one optional
+// `afterLog` cursor inline, whereas the stdlib query batches many tags and stores cursors per-tag inside
+// `TagQuery`. We share only the refinement helper from stdlib; the field schemas stay local.
+const eventFilterBaseShape = {
   txHash: optional(TxHash.schema),
   fromBlock: optional(BlockNumberPositiveSchema),
   toBlock: optional(BlockNumberPositiveSchema),
-  afterLog: optional(LogId.schema),
-});
+  afterLog: optional(LogCursor.schema),
+};
 
-export const PrivateEventFilterSchema = EventFilterBaseSchema.extend({
-  contractAddress: schemas.AztecAddress,
-  scopes: z.array(schemas.AztecAddress),
-});
+export const PrivateEventFilterSchema = refineTxHashAndRange(
+  z.object({
+    ...eventFilterBaseShape,
+    contractAddress: schemas.AztecAddress,
+    scopes: z.array(schemas.AztecAddress),
+  }),
+);
 
-export const PublicEventFilterSchema = EventFilterBaseSchema.extend({
-  contractAddress: optional(schemas.AztecAddress),
-});
+export const PublicEventFilterSchema = refineTxHashAndRange(
+  z.object({
+    ...eventFilterBaseShape,
+    contractAddress: schemas.AztecAddress,
+  }),
+);
 
 export const PrivateEventSchema: z.ZodType<any> = zodFor<PrivateEvent<AbiDecoded>>()(
   z.object({
@@ -599,7 +610,7 @@ const WalletMethodSchemas = {
     input: z.tuple([ExecutionPayloadSchema, SendOptionsSchema]),
     output: z.union([
       z.object({ txHash: TxHash.schema }).merge(OffchainOutputSchema),
-      z.object({ receipt: TxReceipt.schema }).merge(OffchainOutputSchema),
+      z.object({ receipt: TxReceiptSchema }).merge(OffchainOutputSchema),
     ]),
   }),
   createAuthWit: z.function({

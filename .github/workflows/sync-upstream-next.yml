@@ -1,26 +1,31 @@
-# Sync public-next to upstream next while preserving private automation.
+# Mirror upstream aztec-packages:next onto public-next, then merge it into the private next.
 #
-# Uses AZTEC_BOT_GITHUB_TOKEN (PAT) because GITHUB_TOKEN cannot push
-# commits that modify .github/workflows/ files.
+# public-next is force-rewritten to exactly match upstream (it holds no private commits). The private
+# automation that drives this lives only on next, so we check out next to get the scripts. Uses
+# AZTEC_BOT_GITHUB_TOKEN (PAT) because GITHUB_TOKEN cannot push commits that modify .github/workflows/.
 name: Sync Upstream Next
 
 on:
-  schedule:
-    - cron: "*/15 * * * *"
+  # Primary trigger: dispatched by the PUBLIC repo's "Notify Private Sync" workflow on every push to
+  # upstream next (replaces the old 15-minute poll). The daily cron is only a safety net in case a
+  # dispatch is missed.
   workflow_dispatch:
+  schedule:
+    - cron: "0 7 * * *"
 
 jobs:
   sync:
-    name: Sync public-next
+    name: Sync public-next and next
     runs-on: ubuntu-latest
+    if: github.repository == 'AztecProtocol/aztec-packages-private'
     concurrency:
       group: sync-public-next
       cancel-in-progress: false
     steps:
-      - name: Checkout public-next
+      - name: Checkout automation from next
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          ref: public-next
+          ref: next
           fetch-depth: 0
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           persist-credentials: true
@@ -30,5 +35,13 @@ jobs:
           git config user.name "AztecBot"
           git config user.email "tech@aztecprotocol.com"
 
-      - name: Sync public-next with upstream
+      - name: Force-sync public-next to upstream
         run: ./scripts/merge-train/sync-public-next.sh
+
+      - name: Merge public-next into next
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          SOURCE_BRANCH: public-next
+          TARGET_BRANCH: next
+          CONFLICT_EXIT_CODE: 1
+        run: ./scripts/merge-train/merge-public-next.sh

@@ -57,14 +57,14 @@ describe('e2e_deploy_contract contract class registration', () => {
       const { receipt: publicationTxReceipt } = await publishContractClass(wallet, TestContract.artifact).then(c =>
         c.send({ from: defaultAccountAddress }),
       );
-      const logs = await aztecNode.getContractClassLogs({ txHash: publicationTxReceipt.txHash });
-      expect(logs.logs.length).toEqual(1);
+      const txEffect = await aztecNode.getTxEffect(publicationTxReceipt.txHash);
+      expect(txEffect?.data.contractClassLogs.length).toEqual(1);
     });
 
     it('registers the contract class on the node', async () => {
-      const logs = await aztecNode.getContractClassLogs({ txHash: publicationTxReceipt.txHash });
-      expect(logs.logs.length).toEqual(1);
-      const logData = logs.logs[0].log.toBuffer();
+      const txEffect = await aztecNode.getTxEffect(publicationTxReceipt.txHash);
+      expect(txEffect?.data.contractClassLogs.length).toEqual(1);
+      const logData = txEffect!.data.contractClassLogs[0].toBuffer();
 
       // To actually trigger this write:
       // From `yarn-project/end-to-end/`

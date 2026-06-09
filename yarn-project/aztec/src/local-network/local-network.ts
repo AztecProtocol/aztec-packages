@@ -22,6 +22,7 @@ import { protocolContractsHash } from '@aztec/protocol-contracts';
 import { SequencerState } from '@aztec/sequencer-client';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ProvingJobBroker } from '@aztec/stdlib/interfaces/server';
+import { TxStatus } from '@aztec/stdlib/tx';
 import type { GenesisData } from '@aztec/stdlib/world-state';
 import {
   type TelemetryClient,
@@ -46,6 +47,12 @@ import { getBananaFPCAddress, setupBananaFPC } from './banana_fpc.js';
 import { getSponsoredFPCAddress } from './sponsored_fpc.js';
 
 const logger = createLogger('local-network');
+
+// The embedded wallet defaults to waiting for PROPOSED, which returns as soon as a tx lands in a
+// proposed L2 block. That is flaky for the serial sandbox setup below: a proposed block can be
+// pruned before its checkpoint is published, dropping a tx we already moved on from ("Tx dropped by
+// P2P node"). Wait for the checkpoint so each setup tx is durably included before the next is sent.
+const setupWaitOpts = { waitForStatus: TxStatus.CHECKPOINTED };
 
 const localAnvil = foundry;
 
@@ -243,14 +250,14 @@ export async function createLocalNetwork(config: Partial<LocalNetworkConfig> = {
     });
 
     userLog('Setting up funded test accounts...');
-    const accountManagers = await deployFundedSchnorrAccounts(wallet, initialAccounts);
+    const accountManagers = await deployFundedSchnorrAccounts(wallet, initialAccounts, setupWaitOpts);
     const accLogs = await createAccountLogs(accountManagers, wallet);
     userLog(accLogs.join(''));
 
     userLog('Publishing standard AuthRegistry contract...');
-    await publishStandardAuthRegistry(wallet, initialAccounts[0].address);
+    await publishStandardAuthRegistry(wallet, initialAccounts[0].address, setupWaitOpts);
 
-    await setupBananaFPC(initialAccounts, wallet, userLog);
+    await setupBananaFPC(initialAccounts, wallet, userLog, setupWaitOpts);
 
     userLog(`SponsoredFPC: ${await getSponsoredFPCAddress()}`);
 

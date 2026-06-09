@@ -52,7 +52,6 @@ describe('e2e_debug_trace_transaction', () => {
       maxSpeedUpAttempts: 0, // Disable speed ups, so that cancellation txs never make it through
       minTxsPerBlock: 0,
       coinbase: coinbase,
-      enableProposerPipelining: true,
       aztecSlotDuration: 12,
       ethereumSlotDuration: 4,
       aztecProofSubmissionEpochs: 640,

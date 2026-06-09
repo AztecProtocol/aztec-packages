@@ -86,7 +86,7 @@ mod tests {
     }
 
     #[test]
-    unconstrained fn infinity_point_compression() {
+    fn infinity_point_compression() {
         let point = BLSPoint::point_at_infinity();
         let (flags, x) = get_flags(point);
         // is_compressed = true
@@ -105,7 +105,7 @@ mod tests {
     }
 
     #[test]
-    unconstrained fn test_point_compression_greater() {
+    fn test_point_compression_greater() {
         // Note that this p is the negation of p from the test test_point_compression_not_greater...
         let p = BLSPoint {
             x: BLS12_381_Fq::from_limbs([
@@ -135,7 +135,7 @@ mod tests {
     }
 
     #[test]
-    unconstrained fn test_point_compression_not_greater() {
+    fn test_point_compression_not_greater() {
         // Note that this p is the negation of p from the test test_point_compression_greater...
         let p = BLSPoint {
             x: BLS12_381_Fq::from_limbs([
