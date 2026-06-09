@@ -242,12 +242,6 @@ void ECCVMSetShortRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumu
     const auto z_perm_shift_short = LeftShiftableView(in.z_perm_shift);
     std::get<Base::LEFT_SHIFTABLE>(accumulator) +=
         LeftShiftableAccumulator((lagrange_last_short * z_perm_shift_short) * scaling_factor);
-
-    using InitAccumulator = std::tuple_element_t<Base::Z_PERM_INIT, ContainerOverSubrelations>;
-    using InitView = ECCVMShortMonomialView<InitAccumulator>;
-    const auto lagrange_first_init = InitView(in.lagrange_first);
-    const auto z_perm_init = InitView(in.z_perm);
-    std::get<Base::Z_PERM_INIT>(accumulator) += InitAccumulator((lagrange_first_init * z_perm_init) * scaling_factor);
 }
 
 } // namespace bb

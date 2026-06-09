@@ -17,7 +17,7 @@ namespace bb {
  *
  * @details The offset-generator subtraction and MSM-infinity checks (transcript subrelations OFFSET_GENERATOR_X/Y,
  * MSM_INFINITY_X_DIFF/Y_SUM/INVERSE) are each multiplied by `msm_transition`, which is 1 on at most one row per MSM.
- * They are grouped contiguously at the end of the base transcript subrelation enum (indices 27..31) so that pulling
+ * They are grouped contiguously at the end of the base transcript subrelation enum (indices 26..30) so that pulling
  * them into this separate short relation preserves the global subrelation ordering — and therefore the alpha batching
  * — expected by the (monolithic) verifier. The prover then skips this relation entirely on the (overwhelming
  * majority of) edge-pairs where `msm_transition` is identically zero.

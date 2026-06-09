@@ -12,6 +12,7 @@
 #include "barretenberg/relations/ecc_vm/ecc_msm_short_relation_impl.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_point_table_short_relation_impl.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_set_short_relation_impl.hpp"
+#include "barretenberg/relations/ecc_vm/ecc_shiftable_init_relation_impl.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_transcript_msm_transition_short_relation_impl.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_transcript_short_relation_impl.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_wnaf_short_relation_impl.hpp"
@@ -33,7 +34,7 @@ class ECCVMShortMonomialFlavor : public ECCVMFlavor {
     // legacy verifier rejects.
     //
     // ECCVMTranscriptMsmTransitionShortRelation immediately follows the main transcript relation: together they cover
-    // the same global subrelation index range (0..31) as the verifier's monolithic ECCVMTranscriptRelation, so the
+    // the same global subrelation index range (0..30) as the verifier's monolithic ECCVMTranscriptRelation, so the
     // alpha batching is unchanged.
     template <typename FF_>
     using Relations_ = std::tuple<ECCVMTranscriptShortRelation<FF_>,
@@ -48,7 +49,8 @@ class ECCVMShortMonomialFlavor : public ECCVMFlavor {
                                   ECCVMSetShortRelation<FF_>,
                                   ECCVMLookupShortRelation<FF_>,
                                   ECCVMBoolsTranscriptShortRelation<FF_>,
-                                  ECCVMBoolsMsmShortRelation<FF_>>;
+                                  ECCVMBoolsMsmShortRelation<FF_>,
+                                  ECCVMShiftableInitRelation<FF_>>;
     using Relations = Relations_<FF>;
     using LookupRelation = ECCVMLookupShortRelation<FF>;
 

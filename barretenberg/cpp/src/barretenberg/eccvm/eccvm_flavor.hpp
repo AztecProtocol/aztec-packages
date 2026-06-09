@@ -417,14 +417,31 @@ class ECCVMFlavor {
         }
         auto get_msm_wires()
         {
-            return RefArray{ this->msm_size_of_msm,  this->msm_add2,         this->msm_add3,
-                             this->msm_add4,         this->msm_x1,           this->msm_y1,
-                             this->msm_x2,           this->msm_y2,           this->msm_x3,
-                             this->msm_y3,           this->msm_x4,           this->msm_y4,
-                             this->msm_collision_x1, this->msm_collision_x2, this->msm_collision_x3,
-                             this->msm_collision_x4, this->msm_lambda1,      this->msm_lambda2,
-                             this->msm_lambda3,      this->msm_lambda4,      this->msm_slice1,
-                             this->msm_slice2,       this->msm_slice3,       this->msm_slice4 };
+            return RefArray{ this->msm_size_of_msm,
+                             this->msm_add2,
+                             this->msm_add3,
+                             this->msm_add4,
+                             this->msm_x1,
+                             this->msm_y1,
+                             this->msm_x2,
+                             this->msm_y2,
+                             this->msm_x3,
+                             this->msm_y3,
+                             this->msm_x4,
+                             this->msm_y4,
+                             this->msm_collision_x1,
+                             this->msm_collision_x2,
+                             this->msm_collision_x3,
+                             this->msm_collision_x4,
+                             this->msm_lambda1,
+                             this->msm_lambda2,
+                             this->msm_lambda3,
+                             this->msm_lambda4,
+                             this->msm_slice1,
+                             this->msm_slice2,
+                             this->msm_slice3,
+                             this->msm_slice4,
+                             this->msm_round_minus_31_inv };
         }
         auto get_shifted_msm_wires()
         {
