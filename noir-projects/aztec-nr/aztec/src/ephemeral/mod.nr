@@ -1,4 +1,5 @@
 use crate::oracle::ephemeral;
+use crate::oracle::random::random;
 use crate::protocol::traits::{Deserialize, Serialize};
 use crate::protocol::utils::{reader::Reader, writer::Writer};
 
@@ -37,6 +38,15 @@ impl<T> EphemeralArray<T> {
     /// Returns an empty ephemeral array at the given slot, clearing any pre-existing data.
     pub unconstrained fn empty_at(slot: Field) -> Self {
         Self::at(slot).clear()
+    }
+
+    /// Returns an empty ephemeral array at a fresh, randomly allocated slot.
+    ///
+    /// Use this when the caller does not need a specific slot: the random slot is isolated from every other ephemeral
+    /// array with overwhelming probability. Prefer [`EphemeralArray::empty_at`] when the slot must be a known value
+    /// (e.g. one shared with an oracle).
+    pub unconstrained fn empty() -> Self {
+        Self::empty_at(random())
     }
 
     /// Returns the number of elements stored in the array.
@@ -111,18 +121,17 @@ impl<T> EphemeralArray<T> {
         }
     }
 
-    /// Applies `f` to every element and collects the results into a fresh ephemeral array at `dest_slot`.
+    /// Applies `f` to every element and collects the results into a fresh ephemeral array.
     ///
-    /// Reads each element in order, transforms it with `f`, and pushes the result onto a new array at `dest_slot`
-    /// (emptied first). The source array is left unchanged. `dest_slot` must differ from this array's slot, otherwise
-    /// emptying the destination would wipe the source before it is read.
-    pub unconstrained fn map<U, Env>(self, dest_slot: Field, f: unconstrained fn[Env](T) -> U) -> EphemeralArray<U>
+    /// Reads each element in order, transforms it with `f`, and pushes the result onto a new array at a freshly
+    /// allocated slot (see [`EphemeralArray::empty`]). The source array is left unchanged, and the result is isolated
+    /// from it, so `map` can be chained.
+    pub unconstrained fn map<U>(self, f: unconstrained fn(T) -> U) -> EphemeralArray<U>
     where
         T: Deserialize,
         U: Serialize,
     {
-        assert(dest_slot != self.slot, "EphemeralArray::map dest_slot must differ from the source slot");
-        let dest: EphemeralArray<U> = EphemeralArray::empty_at(dest_slot);
+        let dest: EphemeralArray<U> = EphemeralArray::empty();
         let n = self.len();
         for i in 0..n {
             dest.push(f(self.get(i)));
@@ -485,6 +494,24 @@ mod test {
     }
 
     #[test]
+    unconstrained fn empty_allocates_distinct_slots() {
+        let env = TestEnvironment::new();
+        env.utility_context(|_| {
+            let a: EphemeralArray<Field> = EphemeralArray::empty();
+            let b: EphemeralArray<Field> = EphemeralArray::empty();
+
+            assert(a.slot != b.slot, "empty() should allocate a fresh slot each time");
+
+            a.push(1);
+            b.push(2);
+            assert_eq(a.len(), 1);
+            assert_eq(a.get(0), 1);
+            assert_eq(b.len(), 1);
+            assert_eq(b.get(0), 2);
+        });
+    }
+
+    #[test]
     unconstrained fn map_transforms_each_element() {
         let env = TestEnvironment::new();
         env.utility_context(|_| {
@@ -493,7 +520,7 @@ mod test {
             source.push(2);
             source.push(3);
 
-            let doubled: EphemeralArray<Field> = source.map(OTHER_SLOT, |x| x * 2);
+            let doubled: EphemeralArray<Field> = source.map(|x| x * 2);
 
             assert_eq(doubled.len(), 3);
             assert_eq(doubled.get(0), 2);
@@ -506,24 +533,12 @@ mod test {
         });
     }
 
-    #[test(should_fail_with = "must differ")]
-    unconstrained fn map_dest_slot_must_differ() {
-        let env = TestEnvironment::new();
-        env.utility_context(|_| {
-            let source: EphemeralArray<Field> = EphemeralArray::empty_at(SLOT);
-            source.push(1);
-
-            // Mapping into the source's own slot would clear the source before reading it.
-            let _: EphemeralArray<Field> = source.map(SLOT, |x| x * 2);
-        });
-    }
-
     #[test]
     unconstrained fn map_empty_source_gives_empty_dest() {
         let env = TestEnvironment::new();
         env.utility_context(|_| {
             let source: EphemeralArray<Field> = EphemeralArray::empty_at(SLOT);
-            let mapped: EphemeralArray<Field> = source.map(OTHER_SLOT, |x| x * 2);
+            let mapped: EphemeralArray<Field> = source.map(|x| x * 2);
             assert_eq(mapped.len(), 0);
         });
     }
@@ -536,7 +551,7 @@ mod test {
             source.push(5);
             source.push(7);
 
-            let structs: EphemeralArray<MockStruct> = source.map(OTHER_SLOT, |x| MockStruct::new(x, x + 1));
+            let structs: EphemeralArray<MockStruct> = source.map(|x| MockStruct::new(x, x + 1));
 
             assert_eq(structs.len(), 2);
             assert_eq(structs.get(0), MockStruct::new(5, 6));
@@ -545,22 +560,23 @@ mod test {
     }
 
     #[test]
-    unconstrained fn map_empties_dest_slot_first() {
+    unconstrained fn map_results_are_isolated() {
         let env = TestEnvironment::new();
         env.utility_context(|_| {
-            // Pre-load the destination slot with stale data.
-            let stale: EphemeralArray<Field> = EphemeralArray::empty_at(OTHER_SLOT);
-            stale.push(99);
-            stale.push(99);
-
             let source: EphemeralArray<Field> = EphemeralArray::empty_at(SLOT);
             source.push(1);
+            source.push(2);
+            source.push(3);
 
-            let mapped: EphemeralArray<Field> = source.map(OTHER_SLOT, |x| x * 2);
+            // Each map allocates its own fresh slot, so two maps of the same source do not clobber each other.
+            let doubled: EphemeralArray<Field> = source.map(|x| x * 2);
+            let tripled: EphemeralArray<Field> = source.map(|x| x * 3);
 
-            // Only the mapped element remains; the stale destination data was wiped.
-            assert_eq(mapped.len(), 1);
-            assert_eq(mapped.get(0), 2);
+            assert(doubled.slot != tripled.slot, "each map should land in a distinct slot");
+            assert_eq(doubled.get(0), 2);
+            assert_eq(doubled.get(2), 6);
+            assert_eq(tripled.get(0), 3);
+            assert_eq(tripled.get(2), 9);
         });
     }
 }
