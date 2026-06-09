@@ -107,20 +107,12 @@ pub unconstrained fn receive(
     messages: BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL>,
 ) {
     messages.for_each(|msg: OffchainMessage| {
-        // Normalize a tx-less message to tx_hash 0 so the same (ciphertext, tx_hash) pair maps to a stable
-        // entity id and re-delivery is idempotent (records into the same entity).
-        let normalized = OffchainMessage {
-            ciphertext: msg.ciphertext,
-            recipient: msg.recipient,
-            tx_hash: Option::some(msg.tx_hash.unwrap_or(0)),
-            anchor_block_timestamp: msg.anchor_block_timestamp,
-        };
         create_non_retractable_entity(
             contract_address,
             msg.recipient,
             OFFCHAIN_RECEPTION_ENTITY,
-            normalized.entity_id(),
-            normalized,
+            msg.entity_id(),
+            msg,
         );
     });
 
