@@ -286,6 +286,8 @@ describe('Private Execution test suite', () => {
     keyStore = mock<KeyStore>();
     capsuleStore = mock<CapsuleStore>();
     factStore = mock<FactStore>();
+    factStore.activeEntities.mockResolvedValue([]);
+    factStore.getEntity.mockResolvedValue({ payload: [], facts: [] });
     l2TipsStore = mock<L2TipsProvider>();
     privateEventStore = mock<PrivateEventStore>();
     senderAddressBookStore = mock<SenderAddressBookStore>();
