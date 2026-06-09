@@ -172,9 +172,9 @@ pub unconstrained fn sync_inbox(
     let now = UtilityContext::new().timestamp();
 
     active_receptions.for_each(|i, reception| {
-        let maybe_ready = process_reception(reception, resolved_contexts.get(i), now);
-        if maybe_ready.is_some() {
-            processable_messages.push(maybe_ready.unwrap());
+        let maybe_message = process_reception(reception, resolved_contexts.get(i), now);
+        if maybe_message.is_some() {
+            processable_messages.push(maybe_message.unwrap());
         }
     });
 
