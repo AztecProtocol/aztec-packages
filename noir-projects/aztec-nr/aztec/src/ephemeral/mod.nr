@@ -110,6 +110,25 @@ impl<T> EphemeralArray<T> {
             f(i, self.get(i));
         }
     }
+
+    /// Applies `f` to every element and collects the results into a fresh ephemeral array at `dest_slot`.
+    ///
+    /// Reads each element in order, transforms it with `f`, and pushes the result onto a new array at `dest_slot`
+    /// (emptied first). The source array is left unchanged. `dest_slot` must differ from this array's slot, otherwise
+    /// emptying the destination would wipe the source before it is read.
+    pub unconstrained fn map<U, Env>(self, dest_slot: Field, f: unconstrained fn[Env](T) -> U) -> EphemeralArray<U>
+    where
+        T: Deserialize,
+        U: Serialize,
+    {
+        assert(dest_slot != self.slot, "EphemeralArray::map dest_slot must differ from the source slot");
+        let dest: EphemeralArray<U> = EphemeralArray::empty_at(dest_slot);
+        let n = self.len();
+        for i in 0..n {
+            dest.push(f(self.get(i)));
+        }
+        dest
+    }
 }
 
 impl EphemeralArray<Field> {
@@ -462,6 +481,86 @@ mod test {
             assert_eq(fresh.len(), 0);
             fresh.push(4);
             assert_eq(fresh.get(0), 4);
+        });
+    }
+
+    #[test]
+    unconstrained fn map_transforms_each_element() {
+        let env = TestEnvironment::new();
+        env.utility_context(|_| {
+            let source: EphemeralArray<Field> = EphemeralArray::empty_at(SLOT);
+            source.push(1);
+            source.push(2);
+            source.push(3);
+
+            let doubled: EphemeralArray<Field> = source.map(OTHER_SLOT, |x| x * 2);
+
+            assert_eq(doubled.len(), 3);
+            assert_eq(doubled.get(0), 2);
+            assert_eq(doubled.get(1), 4);
+            assert_eq(doubled.get(2), 6);
+
+            // The source array is left untouched.
+            assert_eq(source.len(), 3);
+            assert_eq(source.get(0), 1);
+        });
+    }
+
+    #[test(should_fail_with = "must differ")]
+    unconstrained fn map_dest_slot_must_differ() {
+        let env = TestEnvironment::new();
+        env.utility_context(|_| {
+            let source: EphemeralArray<Field> = EphemeralArray::empty_at(SLOT);
+            source.push(1);
+
+            // Mapping into the source's own slot would clear the source before reading it.
+            let _: EphemeralArray<Field> = source.map(SLOT, |x| x * 2);
+        });
+    }
+
+    #[test]
+    unconstrained fn map_empty_source_gives_empty_dest() {
+        let env = TestEnvironment::new();
+        env.utility_context(|_| {
+            let source: EphemeralArray<Field> = EphemeralArray::empty_at(SLOT);
+            let mapped: EphemeralArray<Field> = source.map(OTHER_SLOT, |x| x * 2);
+            assert_eq(mapped.len(), 0);
+        });
+    }
+
+    #[test]
+    unconstrained fn map_to_different_type() {
+        let env = TestEnvironment::new();
+        env.utility_context(|_| {
+            let source: EphemeralArray<Field> = EphemeralArray::empty_at(SLOT);
+            source.push(5);
+            source.push(7);
+
+            let structs: EphemeralArray<MockStruct> = source.map(OTHER_SLOT, |x| MockStruct::new(x, x + 1));
+
+            assert_eq(structs.len(), 2);
+            assert_eq(structs.get(0), MockStruct::new(5, 6));
+            assert_eq(structs.get(1), MockStruct::new(7, 8));
+        });
+    }
+
+    #[test]
+    unconstrained fn map_empties_dest_slot_first() {
+        let env = TestEnvironment::new();
+        env.utility_context(|_| {
+            // Pre-load the destination slot with stale data.
+            let stale: EphemeralArray<Field> = EphemeralArray::empty_at(OTHER_SLOT);
+            stale.push(99);
+            stale.push(99);
+
+            let source: EphemeralArray<Field> = EphemeralArray::empty_at(SLOT);
+            source.push(1);
+
+            let mapped: EphemeralArray<Field> = source.map(OTHER_SLOT, |x| x * 2);
+
+            // Only the mapped element remains; the stale destination data was wiped.
+            assert_eq(mapped.len(), 1);
+            assert_eq(mapped.get(0), 2);
         });
     }
 }
