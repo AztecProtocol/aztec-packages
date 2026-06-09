@@ -4,6 +4,7 @@ import {
   type NetworkConsensusConfig,
   applyNetworkConsensusConfigToEnv,
   getNetworkConsensusConfig,
+  getPresetMismatches,
   validateNetworkConsensusConfig,
 } from './network-consensus-config.js';
 
@@ -59,13 +60,35 @@ describe('validateNetworkConsensusConfig', () => {
     );
   });
 
-  it('reports an error for multipliers below 1', () => {
-    expect(validateNetworkConsensusConfig({ ...base, minPerBlockAllocationMultiplier: 0.5 }).errors).toContainEqual(
+  it('reports an error for multipliers below the network minimums', () => {
+    expect(validateNetworkConsensusConfig({ ...base, minPerBlockAllocationMultiplier: 1.1 }).errors).toContainEqual(
       expect.stringContaining('minPerBlockAllocationMultiplier'),
     );
-    expect(validateNetworkConsensusConfig({ ...base, minPerBlockDAAllocationMultiplier: 0.5 }).errors).toContainEqual(
+    expect(validateNetworkConsensusConfig({ ...base, minPerBlockDAAllocationMultiplier: 1.4 }).errors).toContainEqual(
       expect.stringContaining('minPerBlockDAAllocationMultiplier'),
     );
+  });
+
+  it('reports an error for non-finite values instead of silently passing', () => {
+    expect(validateNetworkConsensusConfig({ ...base, blockDurationMs: NaN }).errors).toContainEqual(
+      expect.stringContaining('blockDurationMs'),
+    );
+    expect(
+      validateNetworkConsensusConfig({ ...base, blockDurationMs: undefined as unknown as number }).errors,
+    ).toContainEqual(expect.stringContaining('blockDurationMs'));
+  });
+
+  it('warns instead of throwing when not even one block is achievable at default budgets', () => {
+    // 60s blocks pass the basic sub-slot <= slot check, but the timetable derives < 1 achievable block.
+    const { errors, warnings } = validateNetworkConsensusConfig({ ...base, blockDurationMs: 60_000 });
+    expect(errors).toEqual([]);
+    expect(warnings).toContainEqual(expect.stringContaining('exceeds the 0 blocks achievable'));
+  });
+
+  it('skips the achievability warning when maxBlocksPerCheckpoint equals the default cap', () => {
+    const config = { ...base, maxBlocksPerCheckpoint: 24 };
+    expect(validateNetworkConsensusConfig(config).warnings).not.toEqual([]);
+    expect(validateNetworkConsensusConfig(config, { defaultCapMaxBlocks: 24 }).warnings).toEqual([]);
   });
 
   it('warns when the slot duration is not a multiple of the ethereum slot duration', () => {
@@ -115,9 +138,47 @@ describe('applyNetworkConsensusConfigToEnv', () => {
     expect(logs.some(msg => msg.includes('SEQ_BLOCK_DURATION_MS'))).toBe(true);
   });
 
+  it('canonicalizes operator values that match numerically but parse differently downstream', () => {
+    // parseInt-based config parsers read '6e3' as 6, so the matching value must be rewritten canonically.
+    const env: Record<string, string | undefined> = { SEQ_BLOCK_DURATION_MS: '6e3' };
+    applyNetworkConsensusConfigToEnv('mainnet', env);
+    expect(env.SEQ_BLOCK_DURATION_MS).toBe('6000');
+  });
+
+  it('records the network name into NETWORK without overriding an existing value', () => {
+    const env: Record<string, string | undefined> = {};
+    applyNetworkConsensusConfigToEnv('mainnet', env);
+    expect(env.NETWORK).toBe('mainnet');
+
+    const preset: Record<string, string | undefined> = { NETWORK: 'alpha-testnet' };
+    applyNetworkConsensusConfigToEnv('testnet', preset);
+    expect(preset.NETWORK).toBe('alpha-testnet');
+  });
+
   it('is a no-op for networks without a preset', () => {
     const env: Record<string, string | undefined> = {};
     applyNetworkConsensusConfigToEnv('local', env);
     expect(env).toEqual({});
+  });
+});
+
+describe('getPresetMismatches', () => {
+  const mainnet = getNetworkConsensusConfig('mainnet')!;
+
+  it('returns no mismatches for a config equal to the preset', () => {
+    expect(getPresetMismatches(mainnet, mainnet)).toEqual([]);
+  });
+
+  it('describes every diverging consensus field', () => {
+    const config = { ...mainnet, blockDurationMs: 3000, maxBlocksPerCheckpoint: 24 };
+    const mismatches = getPresetMismatches(config, mainnet);
+    expect(mismatches).toHaveLength(2);
+    expect(mismatches).toContainEqual(expect.stringContaining('blockDurationMs'));
+    expect(mismatches).toContainEqual(expect.stringContaining('maxBlocksPerCheckpoint'));
+  });
+
+  it('ignores the multiplier fields, which are constants rather than env-derived values', () => {
+    const config = { ...mainnet, minPerBlockAllocationMultiplier: 9 };
+    expect(getPresetMismatches(config, mainnet)).toEqual([]);
   });
 });

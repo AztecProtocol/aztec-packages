@@ -14,7 +14,11 @@ import { ProposerTimetable } from '../timetable/proposer_timetable.js';
  */
 export const MIN_PER_BLOCK_ALLOCATION_MULTIPLIER = 1.2;
 
-/** Network-minimum per-block budget multiplier for DA gas / blob fields. See {@link MIN_PER_BLOCK_ALLOCATION_MULTIPLIER}. */
+/**
+ * Network-minimum per-block budget multiplier for DA gas / blob fields. See
+ * {@link MIN_PER_BLOCK_ALLOCATION_MULTIPLIER}. The DA-specific operator knob and its runtime enforcement land
+ * with the network tx admission limits (#23947); until then this only constrains the in-code presets.
+ */
 export const MIN_PER_BLOCK_DA_ALLOCATION_MULTIPLIER = 1.5;
 
 /** Consensus-critical configuration that must be identical across all nodes of a network. */
@@ -38,6 +42,10 @@ export type NetworkConsensusConfig = {
 /**
  * In-code consensus presets keyed by network name. Networks without a preset (e.g. `local`, `devnet`) return
  * `undefined` from {@link getNetworkConsensusConfig} and are not subject to override enforcement.
+ *
+ * Related sources of these values exist in the remote `network_config.json` (AztecProtocol/networks) and the
+ * spartan environment defaults; these presets are authoritative for the consensus-critical vars on named
+ * networks, since they are applied to the env before any other enrichment runs.
  */
 const NETWORK_CONSENSUS_PRESETS: Partial<Record<NetworkNames, NetworkConsensusConfig>> = {
   mainnet: {
@@ -76,18 +84,33 @@ const CONSENSUS_ENV_VARS = [
 /**
  * Validates a {@link NetworkConsensusConfig} for self-consistency, independent of any node's local budgets.
  *
- * Errors are conditions that make the config impossible (non-positive durations, sub-slot longer than the
- * slot, fewer than one block per checkpoint, negative grace, multipliers below 1). Warnings are conditions
- * that are merely suspicious or unachievable at the production operational budgets: a non-divisible
- * slot/ethereum-slot ratio, or a `maxBlocksPerCheckpoint` exceeding what a {@link ProposerTimetable} built
- * from the same slot timings and the default budgets can achieve.
+ * Errors are conditions that make the config impossible (non-finite or non-positive durations, sub-slot longer
+ * than the slot, fewer than one block per checkpoint, negative grace, multipliers below the network minimums).
+ * Warnings are conditions that are merely suspicious or unachievable at the production operational budgets: a
+ * non-divisible slot/ethereum-slot ratio, or a `maxBlocksPerCheckpoint` exceeding what a
+ * {@link ProposerTimetable} built from the same slot timings and the default budgets can achieve. The
+ * achievability warning is heuristic (a node's configured budgets may differ from the defaults) and is skipped
+ * when `maxBlocksPerCheckpoint` equals `opts.defaultCapMaxBlocks`, since the default cap is intentionally
+ * above what most geometries can achieve.
  */
-export function validateNetworkConsensusConfig(config: NetworkConsensusConfig): {
+export function validateNetworkConsensusConfig(
+  config: NetworkConsensusConfig,
+  opts: { defaultCapMaxBlocks?: number } = {},
+): {
   errors: string[];
   warnings: string[];
 } {
   const errors: string[] = [];
   const warnings: string[] = [];
+
+  for (const [field, value] of Object.entries(config)) {
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+      errors.push(`${field} must be a finite number (got ${value})`);
+    }
+  }
+  if (errors.length > 0) {
+    return { errors, warnings };
+  }
 
   if (config.ethereumSlotDuration <= 0) {
     errors.push(`ethereumSlotDuration must be positive (got ${config.ethereumSlotDuration})`);
@@ -108,12 +131,16 @@ export function validateNetworkConsensusConfig(config: NetworkConsensusConfig): 
       `checkpointProposalSyncGraceSeconds must be non-negative (got ${config.checkpointProposalSyncGraceSeconds})`,
     );
   }
-  if (config.minPerBlockAllocationMultiplier < 1) {
-    errors.push(`minPerBlockAllocationMultiplier must be at least 1 (got ${config.minPerBlockAllocationMultiplier})`);
-  }
-  if (config.minPerBlockDAAllocationMultiplier < 1) {
+  if (config.minPerBlockAllocationMultiplier < MIN_PER_BLOCK_ALLOCATION_MULTIPLIER) {
     errors.push(
-      `minPerBlockDAAllocationMultiplier must be at least 1 (got ${config.minPerBlockDAAllocationMultiplier})`,
+      `minPerBlockAllocationMultiplier must be at least ${MIN_PER_BLOCK_ALLOCATION_MULTIPLIER} ` +
+        `(got ${config.minPerBlockAllocationMultiplier})`,
+    );
+  }
+  if (config.minPerBlockDAAllocationMultiplier < MIN_PER_BLOCK_DA_ALLOCATION_MULTIPLIER) {
+    errors.push(
+      `minPerBlockDAAllocationMultiplier must be at least ${MIN_PER_BLOCK_DA_ALLOCATION_MULTIPLIER} ` +
+        `(got ${config.minPerBlockDAAllocationMultiplier})`,
     );
   }
 
@@ -125,22 +152,28 @@ export function validateNetworkConsensusConfig(config: NetworkConsensusConfig): 
   }
 
   // Achievability check: a config whose maxBlocksPerCheckpoint exceeds what the production operational budgets
-  // can pack is a warning rather than an error, since the default MAX_BLOCKS_PER_CHECKPOINT combined with local
-  // geometry routinely exceeds achievable and local/sandbox startup must not break.
-  if (errors.length === 0) {
-    const achievable = new ProposerTimetable({
-      l1Constants: {
-        l1GenesisTime: 0n,
-        slotDuration: config.aztecSlotDuration,
-        ethereumSlotDuration: config.ethereumSlotDuration,
-      },
-      blockDuration: config.blockDurationMs / 1000,
-      minBlockDuration: DEFAULT_MIN_BLOCK_DURATION,
-      p2pPropagationTime: DEFAULT_P2P_PROPAGATION_TIME,
-      checkpointProposalPrepareTime: DEFAULT_CHECKPOINT_PROPOSAL_PREPARE_TIME,
-      checkpointProposalInitTime: DEFAULT_CHECKPOINT_PROPOSAL_INIT_TIME,
-      checkpointProposalSyncGrace: config.checkpointProposalSyncGraceSeconds,
-    }).getMaxBlocksPerCheckpoint();
+  // can pack is a warning rather than an error, since a node's configured budgets may be tighter than the
+  // defaults and local/sandbox startup must not break.
+  if (errors.length === 0 && config.maxBlocksPerCheckpoint !== opts.defaultCapMaxBlocks) {
+    let achievable: number | undefined;
+    try {
+      achievable = new ProposerTimetable({
+        l1Constants: {
+          l1GenesisTime: 0n,
+          slotDuration: config.aztecSlotDuration,
+          ethereumSlotDuration: config.ethereumSlotDuration,
+        },
+        blockDuration: config.blockDurationMs / 1000,
+        minBlockDuration: DEFAULT_MIN_BLOCK_DURATION,
+        p2pPropagationTime: DEFAULT_P2P_PROPAGATION_TIME,
+        checkpointProposalPrepareTime: DEFAULT_CHECKPOINT_PROPOSAL_PREPARE_TIME,
+        checkpointProposalInitTime: DEFAULT_CHECKPOINT_PROPOSAL_INIT_TIME,
+        checkpointProposalSyncGrace: config.checkpointProposalSyncGraceSeconds,
+      }).getMaxBlocksPerCheckpoint();
+    } catch {
+      // The timetable constructor throws when not even one block fits; report instead of crashing.
+      achievable = 0;
+    }
     if (config.maxBlocksPerCheckpoint > achievable) {
       warnings.push(
         `maxBlocksPerCheckpoint (${config.maxBlocksPerCheckpoint}) exceeds the ${achievable} blocks achievable ` +
@@ -153,13 +186,37 @@ export function validateNetworkConsensusConfig(config: NetworkConsensusConfig): 
   return { errors, warnings };
 }
 
+/** Consensus fields cross-checked between a node's effective config and its network preset. */
+const PRESET_CROSS_CHECK_FIELDS = [
+  'aztecSlotDuration',
+  'ethereumSlotDuration',
+  'blockDurationMs',
+  'maxBlocksPerCheckpoint',
+  'checkpointProposalSyncGraceSeconds',
+] as const satisfies ReadonlyArray<keyof NetworkConsensusConfig>;
+
+/**
+ * Compares a node's effective consensus config against a network preset and returns a description of every
+ * mismatching consensus field. Used at node startup to catch nodes that bypassed env-level enforcement (e.g.
+ * launched via the standalone node binary or programmatically) with values diverging from their network.
+ */
+export function getPresetMismatches(config: NetworkConsensusConfig, preset: NetworkConsensusConfig): string[] {
+  return PRESET_CROSS_CHECK_FIELDS.filter(field => config[field] !== preset[field]).map(
+    field => `${field} is ${config[field]} but the network preset expects ${preset[field]}`,
+  );
+}
+
 /**
  * Writes a network's consensus preset into the given env, enforcing that operators do not silently override
  * consensus-critical values.
  *
  * For each enforced env var: if it is set to a value numerically different from the preset, this throws unless
  * `ALLOW_OVERRIDING_NETWORK_CONFIG` is truthy (in which case it warns and keeps the operator's value). If it is
- * unset or already equal, the preset value is written into the env. No-op for networks without a preset.
+ * unset or numerically equal, the canonical preset value is written into the env — canonicalization matters
+ * because the config layer parses some of these vars with `parseInt`, which disagrees with `Number` on forms
+ * like `6e3` or `0x1770`; without it an operator value that passes the equality check here could still parse to
+ * a different number downstream. Also records the network name into `NETWORK` (when unset) so later startup
+ * checks know which preset applies. No-op for networks without a preset.
  */
 export function applyNetworkConsensusConfigToEnv(
   networkName: NetworkNames,
@@ -179,22 +236,23 @@ export function applyNetworkConsensusConfigToEnv(
 
     if (current !== undefined && current !== '') {
       const parsed = Number(current);
-      if (!Number.isNaN(parsed) && parsed === presetValue) {
-        continue;
+      if (Number.isNaN(parsed) || parsed !== presetValue) {
+        const message =
+          `Environment variable ${envVar}=${current} conflicts with the ${networkName} network value ${presetValue}. ` +
+          `Consensus-critical values must match across the network. Set ALLOW_OVERRIDING_NETWORK_CONFIG=1 to override ` +
+          `(only do this if you know what you are doing).`;
+        if (allowOverride) {
+          log?.(message);
+          continue;
+        }
+        throw new Error(message);
       }
-      const message =
-        `Environment variable ${envVar}=${current} conflicts with the ${networkName} network value ${presetValue}. ` +
-        `Consensus-critical values must match across the network. Set ALLOW_OVERRIDING_NETWORK_CONFIG=1 to override ` +
-        `(only do this if you know what you are doing).`;
-      if (allowOverride) {
-        log?.(message);
-        continue;
-      }
-      throw new Error(message);
     }
 
     env[envVar] = String(presetValue);
   }
+
+  env.NETWORK ??= networkName;
 }
 
 /** Whether the env opts into overriding network-wide consensus values (`ALLOW_OVERRIDING_NETWORK_CONFIG`). */

@@ -82,12 +82,14 @@ import {
   type PublishedCheckpoint,
 } from '@aztec/stdlib/checkpoint';
 import {
+  DEFAULT_BLOCK_DURATION_MS,
   DEFAULT_MAX_BLOCKS_PER_CHECKPOINT,
   MIN_PER_BLOCK_ALLOCATION_MULTIPLIER,
   MIN_PER_BLOCK_DA_ALLOCATION_MULTIPLIER,
   type NetworkConsensusConfig,
   allowsNetworkConfigOverride,
   getNetworkConsensusConfig,
+  getPresetMismatches,
   validateNetworkConsensusConfig,
 } from '@aztec/stdlib/config';
 import type {
@@ -1068,20 +1070,25 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   /**
    * Validates the consensus-critical configuration against the rollup contract and (when a known network is
    * selected) its in-code preset. Throws on hard inconsistencies, warns on suspicious or unachievable values.
-   * Runs for every node role since it sits in the shared startup path.
+   * Runs for every node role since it sits in the shared startup path, which also makes it the enforcement
+   * layer for nodes that bypass the cli env enrichment (standalone node binary, programmatic embedders).
    */
   private static validateConsensusConfig(config: AztecNodeConfig, slotDuration: number, log: Logger): void {
     const consensusConfig: NetworkConsensusConfig = {
       aztecSlotDuration: slotDuration,
       ethereumSlotDuration: config.ethereumSlotDuration,
-      blockDurationMs: config.blockDurationMs,
+      blockDurationMs: config.blockDurationMs ?? DEFAULT_BLOCK_DURATION_MS,
       maxBlocksPerCheckpoint: config.maxBlocksPerCheckpoint ?? DEFAULT_MAX_BLOCKS_PER_CHECKPOINT,
       checkpointProposalSyncGraceSeconds: config.checkpointProposalSyncGraceSeconds!,
       minPerBlockAllocationMultiplier: MIN_PER_BLOCK_ALLOCATION_MULTIPLIER,
       minPerBlockDAAllocationMultiplier: MIN_PER_BLOCK_DA_ALLOCATION_MULTIPLIER,
     };
 
-    const { errors, warnings } = validateNetworkConsensusConfig(consensusConfig);
+    // The default cap is intentionally above what most geometries can achieve, so skip the achievability
+    // warning for it; an explicitly configured value still warns.
+    const { errors, warnings } = validateNetworkConsensusConfig(consensusConfig, {
+      defaultCapMaxBlocks: DEFAULT_MAX_BLOCKS_PER_CHECKPOINT,
+    });
     for (const warning of warnings) {
       log.warn(`Consensus config warning: ${warning}`, { warning });
     }
@@ -1089,17 +1096,27 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       throw new Error(`Invalid consensus configuration: ${errors.join('; ')}`);
     }
 
-    const networkName = getActiveNetworkName();
-    const preset = getNetworkConsensusConfig(networkName);
-    if (preset && preset.aztecSlotDuration !== slotDuration) {
-      const message =
-        `Network ${networkName} preset expects aztecSlotDuration ${preset.aztecSlotDuration}s but the rollup ` +
-        `contract reports ${slotDuration}s. This usually means a stale preset or a node pointed at the wrong ` +
-        `rollup. Set ALLOW_OVERRIDING_NETWORK_CONFIG=1 to override.`;
-      if (allowsNetworkConfigOverride()) {
-        log.warn(message, { networkName, presetSlotDuration: preset.aztecSlotDuration, slotDuration });
-      } else {
-        throw new Error(message);
+    // An unrecognized NETWORK value is not an error here: this path ignored NETWORK before, and programmatic
+    // embedders may have unrelated values in scope.
+    let networkName: ReturnType<typeof getActiveNetworkName> | undefined;
+    try {
+      networkName = getActiveNetworkName();
+    } catch {
+      networkName = undefined;
+    }
+    const preset = networkName !== undefined ? getNetworkConsensusConfig(networkName) : undefined;
+    if (preset) {
+      const mismatches = getPresetMismatches(consensusConfig, preset);
+      if (mismatches.length > 0) {
+        const message =
+          `Consensus config for network ${networkName} does not match its preset: ${mismatches.join('; ')}. ` +
+          `This usually means an env override, a stale preset, or a node pointed at the wrong rollup. ` +
+          `Set ALLOW_OVERRIDING_NETWORK_CONFIG=1 to override.`;
+        if (allowsNetworkConfigOverride()) {
+          log.warn(message, { networkName, mismatches });
+        } else {
+          throw new Error(message);
+        }
       }
     }
   }
