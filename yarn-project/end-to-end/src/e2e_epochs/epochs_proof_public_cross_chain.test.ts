@@ -31,7 +31,6 @@ describe('e2e_epochs/epochs_proof_public_cross_chain', () => {
     test = await EpochsTestContext.setup({
       numberOfAccounts: 1,
       minTxsPerBlock: 1,
-      disableAnvilTestWatcher: true,
       sequencerPublisherAllowInvalidStates: true,
     });
     ({ context, logger } = test);

@@ -13,7 +13,17 @@ describe('benchmarks/build_block', () => {
   beforeEach(async () => {
     ({ context, contract, sequencer } = await benchmarkSetup({
       maxTxsPerBlock: 1024,
-      enforceTimeTable: false, // Let the sequencer take as much time as it needs
+      // The timetable is now always enforced, so give the single bench block enough headroom that
+      // it never hits a sub-slot build deadline (we want to measure pure build time, not a
+      // deadline-truncated block). With aztecSlotDuration=600s and ethereumSlotDuration=12s there is
+      // no sub-8s normalization, so init=1s, assemble=1s, P=2s. The model requires
+      //   timeAvailableForBlocks = S - init - (assemble + 2P + D) >= D
+      //   => 600 - 1 - (1 + 4 + 200) = 394 >= 200, giving maxBlocksPerSlot = floor(394/200) = 1.
+      // The first (and only) sub-slot's build deadline is init + D = 201s into the slot, far more
+      // than 32 txs need.
+      aztecSlotDuration: 600,
+      ethereumSlotDuration: 12,
+      blockDurationMs: 200_000,
       metrics: [
         Metrics.SEQUENCER_BLOCK_BUILD_DURATION,
         {

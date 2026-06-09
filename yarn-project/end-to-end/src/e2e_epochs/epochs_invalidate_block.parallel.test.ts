@@ -60,17 +60,15 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
       return { attester, withdrawer: attester, privateKey, bn254SecretKey: new SecretValue(Fr.random().toBigInt()) };
     });
 
-    // Setup context with the given set of validators, mocked gossip sub network, and no anvil test watcher.
+    // Setup context with the given set of validators and a mocked gossip sub network.
     // Uses multiple-blocks-per-slot timing configuration.
     test = await EpochsTestContext.setup({
       ethereumSlotDuration: 8,
       aztecSlotDuration: 32,
       blockDurationMs: 6000,
-      enforceTimeTable: true,
       numberOfAccounts: 0,
       initialValidators: validators,
       mockGossipSubNetwork: true,
-      disableAnvilTestWatcher: true,
       aztecProofSubmissionEpochs: 1024,
       startProverNode: false,
       aztecTargetCommitteeSize: VALIDATOR_COUNT,

@@ -141,9 +141,6 @@ export class FullProverTest {
 
     this.logger.info(`Enabling proving`, { realProofs: this.realProofs });
 
-    // We don't wish to mark as proven automatically, so we set the flag to false
-    this.context.watcher.setIsMarkingAsProven(false);
-
     this.simulatedProverAztecNode = this.context.proverNode!;
     ({
       aztecNode: this.aztecNode,
