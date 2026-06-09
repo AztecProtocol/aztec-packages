@@ -652,6 +652,22 @@ function release_compat_e2e {
   )
 }
 
+function checkout_private_worktree {
+  # Fetch the private fork source at $REF_NAME and cd into a worktree built from it. The same tag
+  # must exist in aztec-packages-private. Used by the private-fork and private-nightly release paths.
+  echo "Fetching private source from aztec-packages-private for $REF_NAME..."
+  git remote add private "https://x-access-token:${GITHUB_TOKEN}@github.com/AztecProtocol/aztec-packages-private.git"
+  git fetch --depth 1 private "refs/tags/$REF_NAME"
+  git worktree add aztec-private FETCH_HEAD
+  cd aztec-private
+  echo "Initializing submodules in private worktree..."
+  git submodule update --init --recursive
+  echo "Private worktree ready at $(pwd) (HEAD=$(git rev-parse --short HEAD)). Cache uploads disabled."
+  export NO_CACHE_UPLOAD=1
+  # Unset so child bootstrap.sh re-derives these from the worktree.
+  unset COMMIT_HASH root
+}
+
 ### SELF TESTING #######################################################################################################
 function test_bootstrap_linux {
   local name=linux-bootstrap-test-ubuntu
@@ -960,6 +976,23 @@ case "$cmd" in
       exit 1
     fi
 
+    # Private nightly series (docker images only). A `*-private-nightly.<date>` tag builds from the
+    # private fork and publishes just the aztec docker image — no npm/cargo/github release, no compat
+    # gate. next-net deploys consume these. Checked before the generic private* path below.
+    if [[ "$(semver prerelease $REF_NAME)" == private-nightly* ]]; then
+      # Only build in the public repo. The tagger creates the build-source tag in the private repo
+      # too; if that fires ci-release in the private mirror it would self-fetch and race the image.
+      if [[ "${GITHUB_REPOSITORY:-}" == "AztecProtocol/aztec-packages-private" ]]; then
+        echo "Skipping private-nightly build in the private mirror (handled by the public repo)."
+        exit 0
+      fi
+      echo_header "Private nightly (docker images only): $REF_NAME"
+      checkout_private_worktree
+      ./bootstrap.sh build release
+      release-image/bootstrap.sh release
+      exit 0
+    fi
+
     # Backwards-compatibility e2e checks. A failure blocks stable/RC releases, but only warns on
     # nightlies (where compat coverage is observational) so the nightly publish still proceeds.
     # Toggle errexit explicitly rather than `release_compat_e2e || compat_rc=$?`: calling under `||`
@@ -984,17 +1017,7 @@ case "$cmd" in
       echo_header "Private fork release: $REF_NAME"
       echo "Creating GitHub release from public repo context (COMMIT_HASH=$COMMIT_HASH)..."
       release_bb_github
-      echo "Fetching private source from aztec-packages-private..."
-      git remote add private "https://x-access-token:${GITHUB_TOKEN}@github.com/AztecProtocol/aztec-packages-private.git"
-      git fetch --depth 1 private "refs/tags/$REF_NAME"
-      git worktree add aztec-private FETCH_HEAD
-      cd aztec-private
-      echo "Initializing submodules in private worktree..."
-      git submodule update --init --recursive
-      echo "Private worktree ready at $(pwd) (HEAD=$(git rev-parse --short HEAD)). Cache uploads disabled."
-      export NO_CACHE_UPLOAD=1
-      # Unset so child bootstrap.sh re-derives these from the worktree.
-      unset COMMIT_HASH root
+      checkout_private_worktree
     fi
     ./bootstrap.sh build release
     ./bootstrap.sh release

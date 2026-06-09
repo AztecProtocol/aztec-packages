@@ -36,6 +36,8 @@ jobs:
 
       - name: Determine image tag
         id: determine_tag
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
         run: |
           if [[ -n "${{ inputs.image_tag }}" ]]; then
             # Manual trigger with specified tag
@@ -45,12 +47,14 @@ jobs:
             # Extract semver (remove -amd64 suffix if present)
             SEMVER=$(echo "$TAG" | sed 's/-amd64$//')
           else
-            # Scheduled nightly run - get latest nightly tag
-            current_version=$(jq -r '."."' .release-please-manifest.json)
-            echo "Current version: $current_version"
+            # Scheduled run - deploy the latest PRIVATE nightly (the embargoed v5 line that next-net
+            # tracks). Version comes from aztec-packages-private/v5-next, not the public manifest.
+            current_version=$(gh api "repos/AztecProtocol/aztec-packages-private/contents/.release-please-manifest.json?ref=v5-next" \
+                                --jq '.content' | base64 -d | jq -r '."."')
+            echo "Private v5-next version: $current_version"
 
-            # Format the tag as: <current_version>-nightly.<YYYYMMDD>-amd64
-            nightly_semver="${current_version}-nightly.$(date -u +%Y%m%d)"
+            # Format the tag as: <current_version>-private-nightly.<YYYYMMDD>-amd64
+            nightly_semver="${current_version}-private-nightly.$(date -u +%Y%m%d)"
             nightly_tag="${nightly_semver}-amd64"
 
             # Check if the tag exists on docker hub
@@ -58,7 +62,7 @@ jobs:
             if [[ "$TAGS" != *"not found"* ]]; then
               TAG="$nightly_tag"
               SEMVER="$nightly_semver"
-              echo "Using nightly tag: $TAG"
+              echo "Using private nightly tag: $TAG"
             else
               echo "Error: Tag $nightly_tag not published to docker hub"
               exit 1

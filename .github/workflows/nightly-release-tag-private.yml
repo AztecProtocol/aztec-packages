@@ -1,0 +1,72 @@
+name: Nightly Release Tag (private)
+# Private nightly series, sourced from aztec-packages-private/v5-next (the embargoed v5 line).
+# Tags v{version}-private-nightly.<date> in BOTH repos: the private tag is the build source, the
+# public tag is the trigger (its push fires ci3.yml -> ci-release, which detects the private-nightly
+# prerelease, fetches the private tag, and publishes the aztec docker image only). next-net deploys
+# consume the resulting image.
+on:
+  schedule:
+    # 1:00 AM UTC — well ahead of the next-net scheduled deploy so the image is ready.
+    - cron: "0 1 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}
+
+jobs:
+  private-nightly-tag:
+    runs-on: ubuntu-latest
+    # Only run in the canonical public repo. In the private mirror, origin is private, so the
+    # public-trigger push below would misfire.
+    if: github.repository == 'AztecProtocol/aztec-packages'
+    env:
+      PRIVATE_REPO: AztecProtocol/aztec-packages-private
+      PRIVATE_BRANCH: v5-next
+    steps:
+      - name: Tag private v5-next (build source)
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          sha=$(gh api "repos/${PRIVATE_REPO}/branches/${PRIVATE_BRANCH}" --jq '.commit.sha')
+          ver=$(gh api "repos/${PRIVATE_REPO}/contents/.release-please-manifest.json?ref=${PRIVATE_BRANCH}" \
+                  --jq '.content' | base64 -d | jq -r '."."')
+          tag="v${ver}-private-nightly.$(date -u +%Y%m%d)"
+          echo "Private nightly tag: $tag  (source ${PRIVATE_REPO}@${sha})"
+          # Create the build-source tag. A same-day re-run (tag already present) is fine; any other
+          # failure must abort here in the cheap tagger rather than push a public trigger for a source
+          # tag that doesn't exist. RELEASE_TAG is set only after the source tag is confirmed.
+          if gh api --method POST "repos/${PRIVATE_REPO}/git/refs" \
+               -f "ref=refs/tags/${tag}" -f "sha=${sha}" --jq '.ref'; then
+            echo "Created ${tag}."
+          elif gh api "repos/${PRIVATE_REPO}/git/ref/tags/${tag}" --jq '.ref' >/dev/null 2>&1; then
+            echo "Private tag ${tag} already exists, continuing."
+          else
+            echo "ERROR: failed to create private tag ${tag}." >&2
+            exit 1
+          fi
+          echo "RELEASE_TAG=$tag" >> "$GITHUB_ENV"
+
+      - name: Checkout public next
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          ref: next
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+
+      - name: Push public trigger tag
+        run: |
+          set -euo pipefail
+          git config user.email "tech@aztecprotocol.com"
+          git config user.name "AztecBot"
+          # Push with the bot PAT so the tag push triggers ci3.yml (GITHUB_TOKEN pushes do not).
+          # ci-release runs from this public commit but builds the fetched private worktree.
+          git tag -a "${RELEASE_TAG}" -m "${RELEASE_TAG}"
+          # Idempotent: a same-day re-run finds the tag already pushed (and ci-release already fired).
+          if git push origin "${RELEASE_TAG}"; then
+            echo "Pushed ${RELEASE_TAG}; ci-release will build the private source and publish the docker image."
+          else
+            echo "Public tag ${RELEASE_TAG} already present; ci-release already triggered."
+          fi

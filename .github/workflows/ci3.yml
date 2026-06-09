@@ -178,7 +178,10 @@ jobs:
   # Prevents stale or replayed nightly tags from triggering scenario tests.
   validate-nightly-tag:
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v') && contains(github.ref_name, '-nightly.')
+    # `-private-nightly.` contains `-nightly.` as a substring — exclude it so the private docker-only
+    # nightly series does not spin up the network-scenario matrices (ci-network-scenario gates on this
+    # job's is_current output).
+    if: startsWith(github.ref, 'refs/tags/v') && contains(github.ref_name, '-nightly.') && !contains(github.ref_name, '-private-nightly.')
     outputs:
       is_current: ${{ steps.check.outputs.is_current }}
     steps:
