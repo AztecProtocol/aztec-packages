@@ -271,7 +271,7 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
     await tipsStore.handleBlockStreamEvent({
       type: 'chain-pruned',
       block: makeBlockId(5),
-      checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
+      checkpointed: makeTipId(0),
     });
 
     const tips = await tipsStore.getL2Tips();
@@ -295,7 +295,7 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
     await tipsStore.handleBlockStreamEvent({
       type: 'chain-pruned',
       block: makeTip(0),
-      checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
+      checkpointed: makeTipId(0),
     });
 
     tips = await tipsStore.getL2Tips();
@@ -360,7 +360,7 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
     await tipsStore.handleBlockStreamEvent({
       type: 'chain-pruned',
       block: makeBlockId(5),
-      checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
+      checkpointed: makeTipId(5),
     });
 
     tips = await tipsStore.getL2Tips();
@@ -424,7 +424,7 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
     await tipsStore.handleBlockStreamEvent({
       type: 'chain-pruned',
       block: makeBlockId(3),
-      checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
+      checkpointed: makeTipId(3),
     });
 
     tips = await tipsStore.getL2Tips();
@@ -506,7 +506,7 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
     await tipsStore.handleBlockStreamEvent({
       type: 'chain-pruned',
       block: makeBlockId(3),
-      checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
+      checkpointed: makeTipId(3),
     });
 
     tips = await tipsStore.getL2Tips();
@@ -611,10 +611,11 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
     await expect(tipsStore.getL2Tips()).rejects.toThrow(/checkpoint/i);
   });
 
-  // Skipped-history prune: a cursor clamped to a synced-but-unmapped prune target (no local
-  // block->checkpoint mapping, no resolvable id) must clamp to genesis and re-sync, NOT throw at read
-  // time. This is the exact failure mode that caused PR 1's scoped throw to be dropped.
-  it('clamps a checkpoint cursor to genesis (without throwing) when pruning to a synced-but-unmapped block', async () => {
+  // Backward prune of a leading cursor: a checkpoint-bearing cursor that legitimately leads the source's
+  // confirmed checkpointed tip is clamped down to that tip, resolving to the id the prune event carries
+  // (never genesis, never a throw). This is the skipped-history shape where the cursor sits on a block
+  // ahead of the checkpointed frontier.
+  it('clamps a leading checkpoint cursor down to the source checkpointed tip carried by the prune event', async () => {
     // Checkpoint blocks 1-5 (checkpointed = block 5 / ckpt 1), then add uncheckpointed blocks 6-10.
     const blocks1to5 = await Promise.all(times(5, i => makeBlock(i + 1)));
     await tipsStore.handleBlockStreamEvent({ type: 'blocks-added', blocks: blocks1to5 });
@@ -623,26 +624,26 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
     const blocks6to10 = await Promise.all(times(5, i => makeBlock(i + 6)));
     await tipsStore.handleBlockStreamEvent({ type: 'blocks-added', blocks: blocks6to10 });
 
-    // Advance the proven cursor onto an uncheckpointed block (8) via a carried id, so it is AHEAD of
-    // the prune target and will be clamped, but block 7 (the prune target) has no local mapping.
+    // Advance the proven cursor onto an uncheckpointed block (8) via a carried id, so it LEADS the
+    // source checkpointed tip (block 5) and will be clamped down to it on prune.
     await tipsStore.handleBlockStreamEvent({
       type: 'chain-proven',
       block: makeBlockId(8),
       checkpoint: { number: CheckpointNumber(2), hash: new Fr(202).toString() },
     });
 
-    // Prune to block 7, an uncheckpointed (unmapped) block, with a genesis checkpoint id on the event.
+    // Prune to block 7, carrying the source's confirmed checkpointed tip (block 5 / ckpt 1).
     await tipsStore.handleBlockStreamEvent({
       type: 'chain-pruned',
       block: makeBlockId(7),
-      checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
+      checkpointed: makeTipId(5),
     });
 
-    // Must not throw; the proven cursor is clamped to genesis since block 7 has no resolvable id.
+    // Must not throw; the proven cursor is clamped to the carried checkpointed tip, resolving to ckpt 1.
     const tips = await tipsStore.getL2Tips();
     expect(tips.proposed).toEqual(makeTip(7));
-    expect(tips.proven.block).toEqual(makeTip(0));
-    expect(tips.proven.checkpoint.number).toEqual(CheckpointNumber.ZERO);
+    expect(tips.proven.block).toEqual(makeTip(5));
+    expect(tips.proven.checkpoint.number).toEqual(CheckpointNumber(1));
   });
 
   it('keeps the checkpointed tip when pruning to an uncheckpointed block ahead of it', async () => {
@@ -654,11 +655,12 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
     const blocks6to7 = await Promise.all(times(2, i => makeBlock(i + 6)));
     await tipsStore.handleBlockStreamEvent({ type: 'blocks-added', blocks: blocks6to7 }); // proposed = 7
 
-    // Prune to block 6: an uncheckpointed block AHEAD of the checkpointed tip (block 5).
+    // Prune to block 6: an uncheckpointed block AHEAD of the checkpointed tip (block 5). The source
+    // checkpointed tip is still block 5 / ckpt 1, so the checkpointed cursor must not move.
     await tipsStore.handleBlockStreamEvent({
       type: 'chain-pruned',
       block: makeBlockId(6),
-      checkpoint: makeCheckpointIdForBlock(5),
+      checkpointed: makeTipId(5),
     });
 
     const tips = await tipsStore.getL2Tips();

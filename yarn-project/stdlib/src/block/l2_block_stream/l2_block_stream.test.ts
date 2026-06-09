@@ -242,7 +242,7 @@ describe('L2BlockStream', () => {
 
       await blockStream.work();
       expect(handler.events).toEqual([
-        { type: 'chain-pruned', block: makeBlockId(36), checkpoint: makeCheckpointId(0) },
+        { type: 'chain-pruned', block: makeBlockId(36), checkpointed: makeTipId(0) },
         { type: 'blocks-added', blocks: times(9, i => makeBlock(i + 37)) },
       ] satisfies L2BlockStreamEvent[]);
     });
@@ -323,7 +323,7 @@ describe('L2BlockStream', () => {
       expect(handler.events[0]).toEqual({
         type: 'chain-pruned',
         block: makeBlockId(3),
-        checkpoint: makeCheckpointId(3),
+        checkpointed: makeTipId(3),
       });
     });
 
@@ -392,9 +392,7 @@ describe('L2BlockStream', () => {
       // And then we reorg
       setRemoteTips(25, 25, 25, 10);
       await blockStream.work();
-      expect(handler.events).toEqual([
-        { type: 'chain-pruned', block: makeBlockId(25), checkpoint: makeCheckpointId(25) },
-      ]);
+      expect(handler.events).toEqual([{ type: 'chain-pruned', block: makeBlockId(25), checkpointed: makeTipId(25) }]);
     });
 
     // Regression test for the checkpoint-replay storm: pruning to an uncheckpointed block ahead of
@@ -412,9 +410,7 @@ describe('L2BlockStream', () => {
       // The stream prunes the local proposed tip from 7 back to 6.
       setRemoteTips(6, 5);
       await blockStream.work();
-      expect(handler.events).toEqual([
-        { type: 'chain-pruned', block: makeBlockId(6), checkpoint: makeCheckpointId(5) },
-      ]);
+      expect(handler.events).toEqual([{ type: 'chain-pruned', block: makeBlockId(6), checkpointed: makeTipId(5) }]);
       handler.clearEvents();
 
       // The next sync must NOT re-emit any chain-checkpointed events: the checkpointed cursor was
@@ -1095,7 +1091,9 @@ describe('L2BlockStream', () => {
           {
             type: 'chain-pruned',
             block: makeBlockId(6),
-            checkpoint: expect.objectContaining({ number: CheckpointNumber(2) }),
+            checkpointed: expect.objectContaining({
+              checkpoint: expect.objectContaining({ number: CheckpointNumber(2) }),
+            }),
           },
         ]);
 
@@ -1163,7 +1161,9 @@ describe('L2BlockStream', () => {
           {
             type: 'chain-pruned',
             block: makeBlockId(6),
-            checkpoint: expect.objectContaining({ number: CheckpointNumber(2) }),
+            checkpointed: expect.objectContaining({
+              checkpoint: expect.objectContaining({ number: CheckpointNumber(2) }),
+            }),
           },
         ]);
 
@@ -1229,7 +1229,9 @@ describe('L2BlockStream', () => {
           {
             type: 'chain-pruned',
             block: makeBlockId(3),
-            checkpoint: expect.objectContaining({ number: CheckpointNumber(1) }),
+            checkpointed: expect.objectContaining({
+              checkpoint: expect.objectContaining({ number: CheckpointNumber(1) }),
+            }),
           },
         ]);
 
@@ -1284,7 +1286,9 @@ describe('L2BlockStream', () => {
           {
             type: 'chain-pruned',
             block: makeBlockId(0),
-            checkpoint: expect.objectContaining({ number: CheckpointNumber(0) }),
+            checkpointed: expect.objectContaining({
+              checkpoint: expect.objectContaining({ number: CheckpointNumber(0) }),
+            }),
           },
         ]);
 
@@ -1344,7 +1348,9 @@ describe('L2BlockStream', () => {
           {
             type: 'chain-pruned',
             block: makeBlockId(0),
-            checkpoint: expect.objectContaining({ number: CheckpointNumber(0) }),
+            checkpointed: expect.objectContaining({
+              checkpoint: expect.objectContaining({ number: CheckpointNumber(0) }),
+            }),
           },
         ]);
 
@@ -1451,7 +1457,9 @@ describe('L2BlockStream', () => {
           {
             type: 'chain-pruned',
             block: makeBlockId(6),
-            checkpoint: expect.objectContaining({ number: CheckpointNumber(2) }),
+            checkpointed: expect.objectContaining({
+              checkpoint: expect.objectContaining({ number: CheckpointNumber(2) }),
+            }),
           },
         ]);
       });
@@ -1492,7 +1500,9 @@ describe('L2BlockStream', () => {
           {
             type: 'chain-pruned',
             block: makeBlockId(3),
-            checkpoint: expect.objectContaining({ number: CheckpointNumber(1) }),
+            checkpointed: expect.objectContaining({
+              checkpoint: expect.objectContaining({ number: CheckpointNumber(1) }),
+            }),
           },
         ]);
       });
@@ -1578,7 +1588,9 @@ describe('L2BlockStream', () => {
           {
             type: 'chain-pruned',
             block: makeBlockId(6),
-            checkpoint: expect.objectContaining({ number: CheckpointNumber(2) }),
+            checkpointed: expect.objectContaining({
+              checkpoint: expect.objectContaining({ number: CheckpointNumber(2) }),
+            }),
           },
         ]);
 

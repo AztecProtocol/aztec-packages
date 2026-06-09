@@ -136,7 +136,10 @@ describe('BlockSynchronizer', () => {
     await synchronizer.handleBlockStreamEvent({
       type: 'chain-pruned',
       block: makeL2BlockId(reorgBlock.number, reorgResponse.hash.toString()),
-      checkpoint: makeL2CheckpointId(CheckpointNumber.ZERO, GENESIS_CHECKPOINT_HEADER_HASH.toString()),
+      checkpointed: {
+        block: makeL2BlockId(BlockNumber.ZERO, GENESIS_BLOCK_HEADER_HASH.toString()),
+        checkpoint: makeL2CheckpointId(CheckpointNumber.ZERO, GENESIS_CHECKPOINT_HEADER_HASH.toString()),
+      },
     });
 
     // The anchor block should be updated to the reorg block header.
@@ -230,7 +233,10 @@ describe('BlockSynchronizer', () => {
       await synchronizer.handleBlockStreamEvent({
         type: 'chain-pruned',
         block: block3,
-        checkpoint: makeL2CheckpointId(CheckpointNumber.ZERO, GENESIS_CHECKPOINT_HEADER_HASH.toString()),
+        checkpointed: {
+          block: makeL2BlockId(BlockNumber.ZERO, GENESIS_BLOCK_HEADER_HASH.toString()),
+          checkpoint: makeL2CheckpointId(CheckpointNumber.ZERO, GENESIS_CHECKPOINT_HEADER_HASH.toString()),
+        },
       });
 
       // Rows at blocks 4 and 5 must be gone.
@@ -305,7 +311,10 @@ describe('BlockSynchronizer', () => {
       await synchronizer.handleBlockStreamEvent({
         type: 'chain-pruned',
         block: block1,
-        checkpoint: makeL2CheckpointId(CheckpointNumber.ZERO, GENESIS_CHECKPOINT_HEADER_HASH.toString()),
+        checkpointed: {
+          block: makeL2BlockId(BlockNumber.ZERO, GENESIS_BLOCK_HEADER_HASH.toString()),
+          checkpoint: makeL2CheckpointId(CheckpointNumber.ZERO, GENESIS_CHECKPOINT_HEADER_HASH.toString()),
+        },
       });
 
       // Blocks 2 and 3 deleted.
@@ -448,7 +457,10 @@ describe('BlockSynchronizer', () => {
       await synchronizer.handleBlockStreamEvent({
         type: 'chain-pruned',
         block: { number: BlockNumber(3), hash: '0x3' },
-        checkpoint: makeL2CheckpointId(CheckpointNumber.ZERO, GENESIS_CHECKPOINT_HEADER_HASH.toString()),
+        checkpointed: {
+          block: makeL2BlockId(BlockNumber.ZERO, GENESIS_BLOCK_HEADER_HASH.toString()),
+          checkpoint: makeL2CheckpointId(CheckpointNumber.ZERO, GENESIS_CHECKPOINT_HEADER_HASH.toString()),
+        },
       });
 
       // Anchor should be unchanged

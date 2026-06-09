@@ -105,7 +105,7 @@ export class L2BlockStream {
         await this.emitEvent({
           type: 'chain-pruned',
           block: makeL2BlockId(latestBlockNumber, hash),
-          checkpoint: sourceTips.checkpointed.checkpoint,
+          checkpointed: sourceTips.checkpointed,
         });
       }
 

@@ -174,7 +174,7 @@ export class P2PClient extends WithTracer implements P2P {
         break;
       case 'chain-pruned':
         this.txCollection.stopCollectingForBlocksAfter(event.block.number);
-        await this.handlePruneL2Blocks(event.block, event.checkpoint);
+        await this.handlePruneL2Blocks(event.block, event.checkpointed.checkpoint);
         break;
       case 'chain-checkpointed':
         break;
