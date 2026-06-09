@@ -1,7 +1,7 @@
 import { EcdsaKAccountContract, EcdsaRAccountContract } from '@aztec/accounts/ecdsa';
+import { StubEcdsaAccountContractArtifact, createStubEcdsaAccount } from '@aztec/accounts/ecdsa/stub';
 import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
-import { StubEcdsaAccountContractArtifact, createStubEcdsaAccount } from '@aztec/accounts/stub/ecdsa';
-import { StubSchnorrAccountContractArtifact, createStubSchnorrAccount } from '@aztec/accounts/stub/schnorr';
+import { StubSchnorrAccountContractArtifact, createStubSchnorrAccount } from '@aztec/accounts/schnorr/stub';
 import type { Account, AccountContract } from '@aztec/aztec.js/account';
 import type { Fq } from '@aztec/foundation/curves/bn254';
 import type { ContractArtifact } from '@aztec/stdlib/abi';

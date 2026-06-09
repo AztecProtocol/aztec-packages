@@ -6,7 +6,7 @@
 import { Fr } from '@aztec/aztec.js/fields';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 
-import { getSchnorrAccountContractAddress } from '../schnorr/lazy.js';
+import { getSchnorrAccountContractAddress } from '../schnorr/private_immutable/lazy.js';
 import {
   INITIAL_TEST_ACCOUNT_SALTS,
   INITIAL_TEST_ENCRYPTION_KEYS,
