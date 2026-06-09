@@ -134,10 +134,10 @@ pub unconstrained fn sync_inbox(
     let ready_to_process: EphemeralArray<OffchainMessageWithContext> = EphemeralArray::empty();
     let now = UtilityContext::new().timestamp();
 
-    for i in 0..active_receptions.len() {
-        // This loop decides what to do with each active message reception workflow. We check readiness to process
-        // before expiration, so a message whose context resolves on the same sync it would otherwise be evicted
-        // still gets handed off. We handle the following scenarios:
+    active_receptions.for_each(|i, reception| {
+        // For each active message reception workflow, decide what to do. We check readiness to process before
+        // expiration, so a message whose context resolves on the same sync it would otherwise be evicted still gets
+        // handed off. We handle the following scenarios:
         //
         // - Received and resolved: the originating TX has been found by PXE, giving us the context needed to
         //   process the message. We add it to `ready_to_process` and record a `Processed` fact anchored at the
@@ -154,7 +154,6 @@ pub unconstrained fn sync_inbox(
         //
         // - Already processed (and not expired): we skip the message to avoid re-pushing it, but keep it active
         //   until expiration.
-        let reception = active_receptions.get(i);
         let msg = reception.body;
         let key = msg.entity_id();
         let state = fold(reception.facts);
@@ -180,7 +179,7 @@ pub unconstrained fn sync_inbox(
         } else if expired {
             terminate_entity(contract_address, scope, OFFCHAIN_RECEPTION_ENTITY, key);
         }
-    }
+    });
 
     ready_to_process
 }
