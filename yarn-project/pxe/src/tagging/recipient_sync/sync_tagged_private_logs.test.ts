@@ -43,6 +43,18 @@ describe('syncTaggedPrivateLogs', () => {
     return query.tags.map((entry: TagQuery<SiloedTag>) => (entry instanceof SiloedTag ? entry : entry.tag));
   }
 
+  function mockNodeWithLogs(logTags: SiloedTag[], blockNumber: number, blockTimestamp: bigint) {
+    aztecNode.getPrivateLogsByTags.mockImplementation((query: PrivateLogsQuery) => {
+      const tags = extractTags(query);
+      return Promise.resolve(
+        tags.map((t: SiloedTag) => {
+          const match = logTags.find(tag => tag.equals(t));
+          return match ? [makeLog(blockNumber, blockTimestamp, match.value)] : [];
+        }),
+      );
+    });
+  }
+
   beforeEach(async () => {
     aztecNode.getPrivateLogsByTags.mockReset();
     taggingStore = new RecipientTaggingStore(await openTmpStore('test'));
@@ -56,7 +68,7 @@ describe('syncTaggedPrivateLogs', () => {
   });
 
   it('returns empty array when no logs found for any secret', async () => {
-    const secrets = await makeSecrets(3);
+    const secrets = await makeSecrets(3, AppTaggingSecretKind.UNCONSTRAINED);
     aztecNode.getPrivateLogsByTags.mockImplementation((query: PrivateLogsQuery) => {
       const tags = extractTags(query);
       return Promise.resolve(tags.map(() => []));
@@ -75,7 +87,7 @@ describe('syncTaggedPrivateLogs', () => {
   });
 
   it('batches tags from multiple secrets into a single RPC call', async () => {
-    const secrets = await makeSecrets(3);
+    const secrets = await makeSecrets(3, AppTaggingSecretKind.UNCONSTRAINED);
     const finalizedBlockNumber = BlockNumber(10);
 
     aztecNode.getPrivateLogsByTags.mockImplementation((query: PrivateLogsQuery) => {
@@ -89,7 +101,7 @@ describe('syncTaggedPrivateLogs', () => {
   });
 
   it('syncs logs and updates store independently per secret', async () => {
-    const secrets = await makeSecrets(3);
+    const secrets = await makeSecrets(3, AppTaggingSecretKind.UNCONSTRAINED);
     const finalizedBlockNumber = BlockNumber(10);
     const logBlockTimestamp = CURRENT_TIMESTAMP - BigInt(MAX_TX_LIFETIME) - 1000n;
 
@@ -98,19 +110,7 @@ describe('syncTaggedPrivateLogs', () => {
     const log1Tag = await computeSiloedTagForIndex(secrets[0], log1Index);
     const log2Tag = await computeSiloedTagForIndex(secrets[1], log2Index);
 
-    aztecNode.getPrivateLogsByTags.mockImplementation((query: PrivateLogsQuery) => {
-      const tags = extractTags(query);
-      return Promise.resolve(
-        tags.map((t: SiloedTag) => {
-          if (t.equals(log1Tag)) {
-            return [makeLog(Number(finalizedBlockNumber), logBlockTimestamp, log1Tag.value)];
-          } else if (t.equals(log2Tag)) {
-            return [makeLog(Number(finalizedBlockNumber), logBlockTimestamp, log2Tag.value)];
-          }
-          return [];
-        }),
-      );
-    });
+    mockNodeWithLogs([log1Tag, log2Tag], Number(finalizedBlockNumber), logBlockTimestamp);
 
     const logs = await syncTaggedPrivateLogs(
       secrets,
@@ -132,21 +132,14 @@ describe('syncTaggedPrivateLogs', () => {
   });
 
   it('does not advance aged index for recent logs', async () => {
-    const [secret] = await makeSecrets(1);
+    const [secret] = await makeSecrets(1, AppTaggingSecretKind.UNCONSTRAINED);
     const finalizedBlockNumber = BlockNumber(10);
     const logBlockTimestamp = CURRENT_TIMESTAMP - 5000n; // not aged
 
     const logIndex = 5;
     const logTag = await computeSiloedTagForIndex(secret, logIndex);
 
-    aztecNode.getPrivateLogsByTags.mockImplementation((query: PrivateLogsQuery) => {
-      const tags = extractTags(query);
-      return Promise.resolve(
-        tags.map((t: SiloedTag) =>
-          t.equals(logTag) ? [makeLog(Number(finalizedBlockNumber), logBlockTimestamp, logTag.value)] : [],
-        ),
-      );
-    });
+    mockNodeWithLogs([logTag], Number(finalizedBlockNumber), logBlockTimestamp);
 
     await syncTaggedPrivateLogs([secret], aztecNode, taggingStore, ANCHOR_BLOCK_HEADER, finalizedBlockNumber, JOB_ID);
 
@@ -155,7 +148,7 @@ describe('syncTaggedPrivateLogs', () => {
   });
 
   it('updates store correctly when multiple iterations are needed', async () => {
-    const [secret] = await makeSecrets(1);
+    const [secret] = await makeSecrets(1, AppTaggingSecretKind.UNCONSTRAINED);
     const finalizedBlockNumber = BlockNumber(10);
     const agedBlockTimestamp = CURRENT_TIMESTAMP - BigInt(MAX_TX_LIFETIME) - 1000n;
 
@@ -168,19 +161,7 @@ describe('syncTaggedPrivateLogs', () => {
     const newWindowIndex = lastIndexInInitialWindow + 3;
     const log2Tag = await computeSiloedTagForIndex(secret, newWindowIndex);
 
-    aztecNode.getPrivateLogsByTags.mockImplementation((query: PrivateLogsQuery) => {
-      const tags = extractTags(query);
-      return Promise.resolve(
-        tags.map((t: SiloedTag) => {
-          if (t.equals(log1Tag)) {
-            return [makeLog(Number(finalizedBlockNumber), agedBlockTimestamp, log1Tag.value)];
-          } else if (t.equals(log2Tag)) {
-            return [makeLog(Number(finalizedBlockNumber), agedBlockTimestamp, log2Tag.value)];
-          }
-          return [];
-        }),
-      );
-    });
+    mockNodeWithLogs([log1Tag, log2Tag], Number(finalizedBlockNumber), agedBlockTimestamp);
 
     const logs = await syncTaggedPrivateLogs(
       [secret],
@@ -197,7 +178,7 @@ describe('syncTaggedPrivateLogs', () => {
   });
 
   it('respects pre-existing store indexes', async () => {
-    const [secret] = await makeSecrets(1);
+    const [secret] = await makeSecrets(1, AppTaggingSecretKind.UNCONSTRAINED);
     const finalizedBlockNumber = BlockNumber(10);
 
     const existingAgedIndex = 5;
@@ -226,7 +207,7 @@ describe('syncTaggedPrivateLogs', () => {
   });
 
   it('handles multiple logs at the same tag index', async () => {
-    const [secret] = await makeSecrets(1);
+    const [secret] = await makeSecrets(1, AppTaggingSecretKind.UNCONSTRAINED);
     const finalizedBlockNumber = BlockNumber(10);
     const logBlockTimestamp = CURRENT_TIMESTAMP - BigInt(MAX_TX_LIFETIME) - 1000n;
 
@@ -260,8 +241,159 @@ describe('syncTaggedPrivateLogs', () => {
     expect(logs).toHaveLength(2);
   });
 
+  describe('constrained secrets', () => {
+    it('stops at first gap and does not track aged index', async () => {
+      const [secret] = await makeSecrets(1, AppTaggingSecretKind.CONSTRAINED);
+      const finalizedBlockNumber = BlockNumber(10);
+      const logBlockTimestamp = CURRENT_TIMESTAMP - BigInt(MAX_TX_LIFETIME) - 1000n;
+
+      const logTags = await Promise.all([0, 1, 2].map(i => computeSiloedTagForIndex(secret, i)));
+      mockNodeWithLogs(logTags, Number(finalizedBlockNumber), logBlockTimestamp);
+
+      const logs = await syncTaggedPrivateLogs(
+        [secret],
+        aztecNode,
+        taggingStore,
+        ANCHOR_BLOCK_HEADER,
+        finalizedBlockNumber,
+        JOB_ID,
+      );
+
+      expect(logs).toHaveLength(3);
+      expect(await taggingStore.getHighestFinalizedIndex(secret, JOB_ID)).toBe(2);
+      expect(await taggingStore.getHighestAgedIndex(secret, JOB_ID)).toBeUndefined();
+    });
+
+    it('continues when all indexes in the batch have logs', async () => {
+      const [secret] = await makeSecrets(1, AppTaggingSecretKind.CONSTRAINED);
+      const finalizedBlockNumber = BlockNumber(10);
+      const logBlockTimestamp = CURRENT_TIMESTAMP - BigInt(MAX_TX_LIFETIME) - 1000n;
+
+      const totalLogs = UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 2;
+      const logTags = await Promise.all(
+        Array.from({ length: totalLogs }, (_, i) => computeSiloedTagForIndex(secret, i)),
+      );
+
+      mockNodeWithLogs(logTags, Number(finalizedBlockNumber), logBlockTimestamp);
+
+      const logs = await syncTaggedPrivateLogs(
+        [secret],
+        aztecNode,
+        taggingStore,
+        ANCHOR_BLOCK_HEADER,
+        finalizedBlockNumber,
+        JOB_ID,
+      );
+
+      expect(logs).toHaveLength(totalLogs);
+      expect(aztecNode.getPrivateLogsByTags).toHaveBeenCalledTimes(2);
+    });
+
+    it('persists cursor only up to finalized block', async () => {
+      const [secret] = await makeSecrets(1, AppTaggingSecretKind.CONSTRAINED);
+      const finalizedBlockNumber = BlockNumber(5);
+      const oldTimestamp = CURRENT_TIMESTAMP - BigInt(MAX_TX_LIFETIME) - 1000n;
+      const recentTimestamp = CURRENT_TIMESTAMP - 5000n;
+
+      const finalizedTags = await Promise.all([0, 1, 2, 3].map(i => computeSiloedTagForIndex(secret, i)));
+      const unfinalizedTags = await Promise.all([4, 5].map(i => computeSiloedTagForIndex(secret, i)));
+
+      aztecNode.getPrivateLogsByTags.mockImplementation((query: PrivateLogsQuery) => {
+        const tags = extractTags(query);
+        return Promise.resolve(
+          tags.map((t: SiloedTag) => {
+            if (finalizedTags.find(tag => tag.equals(t))) {
+              return [makeLog(Number(finalizedBlockNumber), oldTimestamp, t.value)];
+            }
+            if (unfinalizedTags.find(tag => tag.equals(t))) {
+              return [makeLog(8, recentTimestamp, t.value)];
+            }
+            return [];
+          }),
+        );
+      });
+
+      const logs = await syncTaggedPrivateLogs(
+        [secret],
+        aztecNode,
+        taggingStore,
+        ANCHOR_BLOCK_HEADER,
+        finalizedBlockNumber,
+        JOB_ID,
+      );
+
+      expect(logs).toHaveLength(6);
+      expect(await taggingStore.getHighestFinalizedIndex(secret, JOB_ID)).toBe(3);
+      expect(aztecNode.getPrivateLogsByTags).toHaveBeenCalledTimes(1);
+    });
+
+    it('respects pre-existing finalized index', async () => {
+      const [secret] = await makeSecrets(1, AppTaggingSecretKind.CONSTRAINED);
+      const existingFinalizedIndex = 5;
+      await taggingStore.updateHighestFinalizedIndex(secret, existingFinalizedIndex, JOB_ID);
+
+      aztecNode.getPrivateLogsByTags.mockImplementation((query: PrivateLogsQuery) =>
+        Promise.resolve(query.tags.map(() => [])),
+      );
+
+      await syncTaggedPrivateLogs([secret], aztecNode, taggingStore, ANCHOR_BLOCK_HEADER, BlockNumber(10), JOB_ID);
+
+      const calledTags = extractTags(aztecNode.getPrivateLogsByTags.mock.calls[0][0]);
+
+      const expectedStart = existingFinalizedIndex + 1;
+      const expectedEnd = existingFinalizedIndex + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN;
+      const expectedTags = await Promise.all(
+        Array.from({ length: expectedEnd - expectedStart + 1 }, (_, i) =>
+          computeSiloedTagForIndex(secret, expectedStart + i),
+        ),
+      );
+
+      expect(calledTags).toEqual(expectedTags);
+    });
+  });
+
+  describe('mixed constrained and unconstrained secrets', () => {
+    it('batches both kinds into a single RPC call with different stop conditions', async () => {
+      const [constrainedSecret] = await makeSecrets(1, AppTaggingSecretKind.CONSTRAINED);
+      const [unconstrainedSecret] = await makeSecrets(1, AppTaggingSecretKind.UNCONSTRAINED);
+      const finalizedBlockNumber = BlockNumber(10);
+      const logBlockTimestamp = CURRENT_TIMESTAMP - BigInt(MAX_TX_LIFETIME) - 1000n;
+
+      const constrainedLogTags = await Promise.all([0, 1].map(i => computeSiloedTagForIndex(constrainedSecret, i)));
+      const unconstrainedLogTags = await Promise.all([0, 5].map(i => computeSiloedTagForIndex(unconstrainedSecret, i)));
+
+      aztecNode.getPrivateLogsByTags.mockImplementation((query: PrivateLogsQuery) => {
+        const tags = extractTags(query);
+        return Promise.resolve(
+          tags.map((t: SiloedTag) => {
+            const cMatch = constrainedLogTags.find(tag => tag.equals(t));
+            const uMatch = unconstrainedLogTags.find(tag => tag.equals(t));
+            if (cMatch || uMatch) {
+              return [makeLog(Number(finalizedBlockNumber), logBlockTimestamp, t.value)];
+            }
+            return [];
+          }),
+        );
+      });
+
+      const logs = await syncTaggedPrivateLogs(
+        [constrainedSecret, unconstrainedSecret],
+        aztecNode,
+        taggingStore,
+        ANCHOR_BLOCK_HEADER,
+        finalizedBlockNumber,
+        JOB_ID,
+      );
+
+      expect(logs).toHaveLength(4);
+      expect(await taggingStore.getHighestFinalizedIndex(constrainedSecret, JOB_ID)).toBe(1);
+      expect(await taggingStore.getHighestAgedIndex(constrainedSecret, JOB_ID)).toBeUndefined();
+      expect(await taggingStore.getHighestFinalizedIndex(unconstrainedSecret, JOB_ID)).toBe(5);
+    });
+  });
+
   it('caps the node query at anchorBlockNumber + 1 (toBlock exclusive)', async () => {
-    const [secret] = await makeSecrets(1);
+    const [secret] = await makeSecrets(1, AppTaggingSecretKind.UNCONSTRAINED);
     const anchorBlock = BlockNumber(10);
     const header = BlockHeader.random({ blockNumber: anchorBlock, timestamp: CURRENT_TIMESTAMP });
     const finalizedBlockNumber = BlockNumber(10);
@@ -296,6 +428,6 @@ describe('syncTaggedPrivateLogs', () => {
   });
 });
 
-function makeSecrets(count: number): Promise<AppTaggingSecret[]> {
-  return Promise.all(Array.from({ length: count }, () => randomAppTaggingSecret(AppTaggingSecretKind.UNCONSTRAINED)));
+function makeSecrets(count: number, kind: AppTaggingSecretKind): Promise<AppTaggingSecret[]> {
+  return Promise.all(Array.from({ length: count }, () => randomAppTaggingSecret(kind)));
 }

@@ -7,7 +7,7 @@ pub contract Crowdfunding {
     use crate::config::Config;
     use aztec::{
         macros::{events::event, functions::{external, initializer, only_self}, storage::storage},
-        messages::message_delivery::MessageDelivery,
+        messages::delivery::MessageDelivery,
         protocol::address::AztecAddress,
         state_vars::{Owned, PrivateSet, PublicImmutable, StateVariable},
         utils::{array, comparison::Comparator},

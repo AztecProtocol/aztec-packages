@@ -4,7 +4,7 @@ use aztec::macros::aztec;
 /// doesn't use notes.
 #[aztec]
 contract EventOnly {
-    use aztec::{macros::{events::event, functions::external}, messages::message_delivery::MessageDelivery};
+    use aztec::{macros::{events::event, functions::external}, messages::delivery::MessageDelivery};
 
     #[event]
     struct TestEvent {

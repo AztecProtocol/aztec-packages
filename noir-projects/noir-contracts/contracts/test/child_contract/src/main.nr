@@ -7,7 +7,7 @@ pub contract Child {
 
     use aztec::{
         macros::{functions::external, storage::storage},
-        messages::message_delivery::MessageDelivery,
+        messages::delivery::MessageDelivery,
         note::{note_getter_options::NoteGetterOptions, note_interface::NoteProperties},
         state_vars::{Owned, PrivateSet, PublicMutable},
         utils::comparison::Comparator,

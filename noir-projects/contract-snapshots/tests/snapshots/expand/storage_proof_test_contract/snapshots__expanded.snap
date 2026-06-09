@@ -2,6 +2,7 @@
 source: tests/snapshots.rs
 expression: stdout
 ---
+
 use aztec::macros::aztec;
 use aztec::macros::aztec;
 
@@ -139,55 +140,37 @@ contract StorageProofTest {
             let serialized_member: [Field; 1] = num_processed_nodes.serialize();
             let serialized_member_len: u32 = <u32 as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = num_total_nodes.serialize();
             let serialized_member_len: u32 = <u32 as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = start_nibble_index.serialize();
             let serialized_member_len: u32 = <u32 as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_2: u32 = i + offset;
-                    serialized_params[i_2] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 4 * 1] = parent_hash.serialize();
             let serialized_member_len: u32 = <[u64; 4] as Serialize<N = 4 * 1>>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_3: u32 = i + offset;
-                    serialized_params[i_3] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 64 * 1] = storage_trie_key_nibbles.serialize();
             let serialized_member_len: u32 = <[u8; 64] as Serialize<N = 64 * 1>>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_4: u32 = i + offset;
-                    serialized_params[i_4] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = storage_proof_capsule_key.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_5: u32 = i + offset;
-                    serialized_params[i_5] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(2237949917_Field);
@@ -200,37 +183,25 @@ contract StorageProofTest {
             let serialized_member: [Field; 1] = address.serialize();
             let serialized_member_len: u32 = <EthAddress as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 32 * 1] = slot_key.serialize();
             let serialized_member_len: u32 = <[u8; 32] as Serialize<N = 32 * 1>>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 33] = slot_contents.serialize();
             let serialized_member_len: u32 = <StorageSlot as Serialize<N = 33>>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_2: u32 = i + offset;
-                    serialized_params[i_2] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 4 * 1] = eth_storage_root.serialize();
             let serialized_member_len: u32 = <[u64; 4] as Serialize<N = 4 * 1>>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_3: u32 = i + offset;
-                    serialized_params[i_3] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(2067008734_Field);
@@ -243,37 +214,25 @@ contract StorageProofTest {
             let serialized_member: [Field; 70] = account.serialize();
             let serialized_member_len: u32 = <Account as Serialize<N = 70>>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 4 * 1] = root.serialize();
             let serialized_member_len: u32 = <[u64; 4] as Serialize<N = 4 * 1>>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 15 * 81] = nodes.serialize();
             let serialized_member_len: u32 = <[Node; 15] as Serialize<N = 15 * 81>>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_2: u32 = i + offset;
-                    serialized_params[i_2] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = node_length.serialize();
             let serialized_member_len: u32 = <u32 as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_3: u32 = i + offset;
-                    serialized_params[i_3] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(693284113_Field);
@@ -332,37 +291,25 @@ contract StorageProofTest {
             let serialized_member: [Field; 1] = address.serialize();
             let serialized_member_len: u32 = <EthAddress as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 32 * 1] = slot_key.serialize();
             let serialized_member_len: u32 = <[u8; 32] as Serialize<N = 32 * 1>>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 33] = slot_contents.serialize();
             let serialized_member_len: u32 = <StorageSlot as Serialize<N = 33>>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_2: u32 = i + offset;
-                    serialized_params[i_2] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 4 * 1] = eth_storage_root.serialize();
             let serialized_member_len: u32 = <[u64; 4] as Serialize<N = 4 * 1>>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_3: u32 = i + offset;
-                    serialized_params[i_3] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(2067008734_Field);
@@ -378,55 +325,37 @@ contract StorageProofTest {
             let serialized_member: [Field; 1] = num_processed_nodes.serialize();
             let serialized_member_len: u32 = <u32 as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = num_total_nodes.serialize();
             let serialized_member_len: u32 = <u32 as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = start_nibble_index.serialize();
             let serialized_member_len: u32 = <u32 as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_2: u32 = i + offset;
-                    serialized_params[i_2] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 4 * 1] = parent_hash.serialize();
             let serialized_member_len: u32 = <[u64; 4] as Serialize<N = 4 * 1>>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_3: u32 = i + offset;
-                    serialized_params[i_3] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 64 * 1] = storage_trie_key_nibbles.serialize();
             let serialized_member_len: u32 = <[u8; 64] as Serialize<N = 64 * 1>>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_4: u32 = i + offset;
-                    serialized_params[i_4] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = storage_proof_capsule_key.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_5: u32 = i + offset;
-                    serialized_params[i_5] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(2237949917_Field);
@@ -449,37 +378,25 @@ contract StorageProofTest {
             let serialized_member: [Field; 70] = account.serialize();
             let serialized_member_len: u32 = <Account as Serialize<N = 70>>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 4 * 1] = root.serialize();
             let serialized_member_len: u32 = <[u64; 4] as Serialize<N = 4 * 1>>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 15 * 81] = nodes.serialize();
             let serialized_member_len: u32 = <[Node; 15] as Serialize<N = 15 * 81>>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_2: u32 = i + offset;
-                    serialized_params[i_2] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = node_length.serialize();
             let serialized_member_len: u32 = <u32 as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_3: u32 = i + offset;
-                    serialized_params[i_3] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(693284113_Field);
@@ -507,37 +424,25 @@ contract StorageProofTest {
             let serialized_member: [Field; 70] = account.serialize();
             let serialized_member_len: u32 = <Account as Serialize<N = 70>>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 4 * 1] = root.serialize();
             let serialized_member_len: u32 = <[u64; 4] as Serialize<N = 4 * 1>>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 15 * 81] = nodes.serialize();
             let serialized_member_len: u32 = <[Node; 15] as Serialize<N = 15 * 81>>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_2: u32 = i + offset;
-                    serialized_params[i_2] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = node_length.serialize();
             let serialized_member_len: u32 = <u32 as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_3: u32 = i + offset;
-                    serialized_params[i_3] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(693284113_Field);
@@ -617,37 +522,25 @@ contract StorageProofTest {
             let serialized_member: [Field; 1] = address.serialize();
             let serialized_member_len: u32 = <EthAddress as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 32 * 1] = slot_key.serialize();
             let serialized_member_len: u32 = <[u8; 32] as Serialize<N = 32 * 1>>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 33] = slot_contents.serialize();
             let serialized_member_len: u32 = <StorageSlot as Serialize<N = 33>>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_2: u32 = i + offset;
-                    serialized_params[i_2] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 4 * 1] = eth_storage_root.serialize();
             let serialized_member_len: u32 = <[u64; 4] as Serialize<N = 4 * 1>>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_3: u32 = i + offset;
-                    serialized_params[i_3] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let args_hash: Field = aztec::hash::hash_args(serialized_params);
@@ -697,55 +590,37 @@ contract StorageProofTest {
             let serialized_member: [Field; 1] = num_processed_nodes.serialize();
             let serialized_member_len: u32 = <u32 as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = num_total_nodes.serialize();
             let serialized_member_len: u32 = <u32 as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = start_nibble_index.serialize();
             let serialized_member_len: u32 = <u32 as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_2: u32 = i + offset;
-                    serialized_params[i_2] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 4 * 1] = parent_hash.serialize();
             let serialized_member_len: u32 = <[u64; 4] as Serialize<N = 4 * 1>>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_3: u32 = i + offset;
-                    serialized_params[i_3] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 64 * 1] = storage_trie_key_nibbles.serialize();
             let serialized_member_len: u32 = <[u8; 64] as Serialize<N = 64 * 1>>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_4: u32 = i + offset;
-                    serialized_params[i_4] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = storage_proof_capsule_key.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_5: u32 = i + offset;
-                    serialized_params[i_5] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let args_hash: Field = aztec::hash::hash_args(serialized_params);
@@ -1568,10 +1443,7 @@ mod storage_proofs {
             #[inline_always]
             fn apply_padding(&mut self) {
                 self.state[self.limb_index_to_write] = self.state[self.limb_index_to_write] ^ (self.current_limb + (1_u64 << self.current_limb_shift));
-                {
-                    let i_0: u32 = LIMBS_PER_BLOCK - 1_u32;
-                    self.state[i_0] = self.state[LIMBS_PER_BLOCK - 1_u32] ^ (128_u64 << 56_u64);
-                }
+                self.state[LIMBS_PER_BLOCK - 1_u32] = self.state[LIMBS_PER_BLOCK - 1_u32] ^ (128_u64 << 56_u64);
             }
 
             pub fn finish_to_limbs(mut self) -> [u64; 4] {
@@ -1588,10 +1460,7 @@ mod storage_proofs {
                     let lane: Field = self.state[i] as Field;
                     let lane_le: [u8; 8] = lane.to_be_bytes();
                     for j in 0_u32..8_u32 {
-                        {
-                            let i_0: u32 = (8_u32 * i) + j;
-                            result[i_0] = lane_le[7_u32 - j];
-                        }
+                        result[(8_u32 * i) + j] = lane_le[7_u32 - j];
                     }
                 };
                 result
@@ -2111,14 +1980,8 @@ mod storage_proofs {
             let mut nibbles: [u8; K] = [0_u8; K];
             for i in 0_u32..N {
                 let byte: u8 = bytes[i];
-                {
-                    let i_0: u32 = i * 2_u32;
-                    nibbles[i_0] = byte >> 4_u8;
-                };
-                {
-                    let i_1: u32 = (i * 2_u32) + 1_u32;
-                    nibbles[i_1] = (byte << 4_u8) >> 4_u8;
-                }
+                nibbles[i * 2_u32] = byte >> 4_u8;
+                nibbles[(i * 2_u32) + 1_u32] = (byte << 4_u8) >> 4_u8;
             };
             nibbles
         }

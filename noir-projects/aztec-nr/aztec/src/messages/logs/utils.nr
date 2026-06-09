@@ -1,4 +1,4 @@
-use crate::messages::message_delivery::ONCHAIN_UNCONSTRAINED;
+use crate::messages::delivery::ONCHAIN_UNCONSTRAINED;
 use crate::oracle::{notes::{get_app_tagging_secret, get_next_tagging_index, get_sender_for_tags}, random::random};
 use crate::protocol::{address::AztecAddress, hash::poseidon2_hash};
 
@@ -65,7 +65,7 @@ mod test {
         let random_tag = 42;
         let _ = OracleMock::mock("aztec_prv_getSenderForTags").returns(Option::some(sender));
         let _ = OracleMock::mock("aztec_prv_getAppTaggingSecret").returns(Option::<Field>::none());
-        let _ = OracleMock::mock("aztec_utl_getRandomField").returns(random_tag);
+        let _ = OracleMock::mock("aztec_misc_getRandomField").returns(random_tag);
         assert_eq(compute_discovery_tag(recipient, Option::none()), random_tag);
     }
 

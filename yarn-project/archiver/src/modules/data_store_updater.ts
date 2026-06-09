@@ -18,6 +18,7 @@ import {
   computeContractAddressFromInstance,
   computeContractClassId,
 } from '@aztec/stdlib/contract';
+import { MAX_CAPACITY_BLOCKS_PER_CHECKPOINT } from '@aztec/stdlib/deserialization';
 import type { ContractClassLog, PrivateLog, PublicLog } from '@aztec/stdlib/logs';
 import type { UInt64 } from '@aztec/stdlib/types';
 
@@ -103,11 +104,19 @@ export class ArchiverDataStoreUpdater {
     },
     evictProposedFrom?: CheckpointNumber,
   ): Promise<ReconcileCheckpointsResult> {
+    // Checkpoints here are already accepted by L1, so tolerate up to the physical blob-capacity
+    // ceiling rather than the conservative attestable limit used when building/attesting.
     for (const checkpoint of checkpoints) {
-      validateCheckpoint(checkpoint.checkpoint, { rollupManaLimit: this.opts?.rollupManaLimit });
+      validateCheckpoint(checkpoint.checkpoint, {
+        rollupManaLimit: this.opts?.rollupManaLimit,
+        maxBlocksPerCheckpoint: MAX_CAPACITY_BLOCKS_PER_CHECKPOINT,
+      });
     }
     if (promoteProposed) {
-      validateCheckpoint(promoteProposed.checkpoint.checkpoint, { rollupManaLimit: this.opts?.rollupManaLimit });
+      validateCheckpoint(promoteProposed.checkpoint.checkpoint, {
+        rollupManaLimit: this.opts?.rollupManaLimit,
+        maxBlocksPerCheckpoint: MAX_CAPACITY_BLOCKS_PER_CHECKPOINT,
+      });
     }
 
     const result = await this.stores.db.transactionAsync(async () => {

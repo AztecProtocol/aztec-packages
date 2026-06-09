@@ -572,7 +572,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
     // Ignore proposals from ourselves (may happen in HA setups)
     if (proposer && this.getValidatorAddresses().some(addr => addr.equals(proposer))) {
-      this.log.debug(`Ignoring block proposal from self for slot ${proposalSlotNumber}`, {
+      this.log.debug(`Not attesting to block proposal from self for slot ${proposalSlotNumber}`, {
         proposer: proposer.toString(),
         proposalSlotNumber,
       });

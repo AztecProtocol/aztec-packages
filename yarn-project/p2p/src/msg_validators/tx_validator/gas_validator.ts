@@ -1,6 +1,7 @@
 import {
   MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT,
   MAX_PROCESSABLE_L2_GAS,
+  MAX_TX_DA_GAS,
   PRIVATE_TX_L2_GAS_OVERHEAD,
   PUBLIC_TX_L2_GAS_OVERHEAD,
   TX_DA_GAS_OVERHEAD,
@@ -79,7 +80,9 @@ export class GasLimitsValidator<T extends HasGasLimitData> implements TxValidato
     this.#maxBlockL2Gas = opts?.maxBlockL2Gas ?? Infinity;
     this.#maxBlockDAGas = opts?.maxBlockDAGas ?? Infinity;
     this.#effectiveMaxL2Gas = Math.min(MAX_PROCESSABLE_L2_GAS, this.#rollupManaLimit, this.#maxBlockL2Gas);
-    this.#effectiveMaxDAGas = Math.min(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, this.#maxBlockDAGas);
+    // MAX_TX_DA_GAS bounds the limit by what a single tx can actually post to a blob; declaring more is
+    // meaningless and would let a tx reserve checkpoint/block DA budget during proposal building it can't use.
+    this.#effectiveMaxDAGas = Math.min(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, this.#maxBlockDAGas, MAX_TX_DA_GAS);
   }
 
   validateTx(tx: T): Promise<TxValidationResult> {
