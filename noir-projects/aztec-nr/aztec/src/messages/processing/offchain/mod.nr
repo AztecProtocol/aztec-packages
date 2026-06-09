@@ -124,14 +124,11 @@ pub unconstrained fn sync_inbox(
 
     let entities = NonRetractableEntity::<OffchainMessage>::read_all_active(contract_address, scope);
 
-    // Build a tx-hash request list aligned with the active-entity indices, so the resolved contexts returned by the
-    // oracle can be matched back to each entity positionally.
-    let context_resolution_requests = entities.map(|entity| entity.body.tx_hash.unwrap_or(0));
-
-    // Ask PXE to resolve contexts for all requested tx hashes. The oracle returns responses in a new ephemeral array,
-    // aligned with the request (and therefore entity) indices.
-    let resolved_contexts =
-        crate::oracle::message_processing::get_message_contexts_by_tx_hash(context_resolution_requests);
+    // Ask PXE to resolve a tx context for each active entity. We pass the tx hashes in active-entity order, so the
+    // resolved contexts come back aligned with the entity indices and can be matched back positionally.
+    let resolved_contexts = crate::oracle::message_processing::get_message_contexts_by_tx_hash(entities.map(|entity| {
+        entity.body.tx_hash.unwrap_or(0)
+    }));
 
     assert_eq(resolved_contexts.len(), entities.len());
 
