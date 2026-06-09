@@ -65,7 +65,8 @@ export interface ResidentSumcheckResult {
   challenges: bigint[];
   /** Per relation, the fully folded length-1 columns as Montgomery bytes. */
   finalColBytes: Uint8Array[];
-  /** GPU-bound time: per round, the accumulate readback + the fold fence, summed. */
+  /** GPU-bound blocking time: the per-round accumulate readback await, summed. The
+   * fold is no longer fenced (its execution is absorbed by the next readback). */
   gpuMs: number;
   /** Wall time for the whole multi-round run (rounds only, not setup/upload). */
   totalMs: number;
@@ -236,13 +237,17 @@ export async function runResidentGpuSumcheck(
         await execute_pipeline(enc, foldRunner.pipeline, fBg, Math.ceil(numOut / WG), 1, 1, prof(_round, `fold:${desc.id}`));
         newCol[r] = nb;
       }
-      // Round 0 is the only profiled round; resolve its query set into this (the
-      // last round-0) encoder before submit, so report() can read it afterwards.
+      // Round 0 is the only profiled round; resolve its query set into this encoder
+      // before submit so report() can read it afterwards.
       if (_round === 0) profiler?.resolve(enc);
-      const tf = performance.now();
+      // No fence here. Fold and the next round's accumulate share device.queue, which
+      // serializes fold-before-read and tracks the colBuf write->read hazard, so the
+      // next readback's await already covers fold's execution. The per-round fold
+      // fence was pure blocking CPU<->GPU sync latency — the profiler showed sync,
+      // not compute, dominates the wall (~4 ms/await x 28 awaits/run) — so dropping
+      // it removes one of the two blocking syncs per round. The final length-1
+      // readback after the loop awaits, covering the last round's fold.
       device.queue.submit([enc.finish()]);
-      await device.queue.onSubmittedWorkDone();
-      gpuMs += performance.now() - tf;
       colBuf = newCol;
       curLen = half;
     },
