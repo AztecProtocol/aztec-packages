@@ -19,48 +19,99 @@
 
 alias Lag = array<array<u32, 8>, 7>;
 
-// degree-1 Mono -> L Lagrange evals: P(k) = c0 + k*c1.
+// degree-1 Mono -> L Lagrange evals: P(k) = c0 + k*c1. Unrolled over the fixed MAX
+// (7) slots with a runtime `if (k < L)` guard — see the note on lag_from_mono3.
 fn lag_from_mono2(m: Mono, L: u32, out: ptr<function, Lag>) {
   var prev = m.c0;
   (*out)[0] = prev;
-  for (var k: u32 = 1u; k < L; k = k + 1u) {
-    prev = fr_add_f8(prev, m.c1);
-    (*out)[k] = prev;
-  }
+  if (1u < L) { prev = fr_add_f8(prev, m.c1); (*out)[1] = prev; }
+  if (2u < L) { prev = fr_add_f8(prev, m.c1); (*out)[2] = prev; }
+  if (3u < L) { prev = fr_add_f8(prev, m.c1); (*out)[3] = prev; }
+  if (4u < L) { prev = fr_add_f8(prev, m.c1); (*out)[4] = prev; }
+  if (5u < L) { prev = fr_add_f8(prev, m.c1); (*out)[5] = prev; }
+  if (6u < L) { prev = fr_add_f8(prev, m.c1); (*out)[6] = prev; }
 }
 
 // degree-2 Mono (packed c1 = X-coeff + X^2-coeff) -> L Lagrange evals, via the
 // second-difference recurrence (mirrors univariate.hpp's deg-2 constructor).
+//
+// All lag_* helpers below are unrolled over the fixed MAX (7) slots with a runtime
+// guard `if (k < L)` rather than a `for k < L` loop. The loop variant indexes the
+// Lag with a *runtime* k, which forces the (address-taken) Lag into thread-local
+// memory; the unrolled constant indices let the Tint->Metal compiler SROA an
+// intermediate Lag into registers when none of its accesses are dynamic. Only
+// individual `(*a)[k]` element reads/writes are used — never a whole-Lag copy,
+// which would hit the nested-array by-value miscompile — so this is purely a
+// register-allocation hint, semantically identical to the loop form.
+//
+// In lag_from_mono3 the original interior loop runs k in [1, L-1) then writes the
+// last eval without advancing `to_add`; doing the advance uniformly for every k is
+// equivalent because the final advance is dead (its result is never read).
 fn lag_from_mono3(m: Mono, L: u32, out: ptr<function, Lag>) {
   var prev = m.c0;
   var to_add = m.c1;
   let deriv = fr_add_f8(m.c2, m.c2);
   (*out)[0] = prev;
-  for (var k: u32 = 1u; k < L - 1u; k = k + 1u) {
-    prev = fr_add_f8(prev, to_add);
-    (*out)[k] = prev;
-    to_add = fr_add_f8(to_add, deriv);
-  }
-  prev = fr_add_f8(prev, to_add);
-  (*out)[L - 1u] = prev;
+  if (1u < L) { prev = fr_add_f8(prev, to_add); (*out)[1] = prev; to_add = fr_add_f8(to_add, deriv); }
+  if (2u < L) { prev = fr_add_f8(prev, to_add); (*out)[2] = prev; to_add = fr_add_f8(to_add, deriv); }
+  if (3u < L) { prev = fr_add_f8(prev, to_add); (*out)[3] = prev; to_add = fr_add_f8(to_add, deriv); }
+  if (4u < L) { prev = fr_add_f8(prev, to_add); (*out)[4] = prev; to_add = fr_add_f8(to_add, deriv); }
+  if (5u < L) { prev = fr_add_f8(prev, to_add); (*out)[5] = prev; to_add = fr_add_f8(to_add, deriv); }
+  if (6u < L) { prev = fr_add_f8(prev, to_add); (*out)[6] = prev; }
 }
 
 fn lag_mul(a: ptr<function, Lag>, b: ptr<function, Lag>, L: u32, out: ptr<function, Lag>) {
-  for (var k: u32 = 0u; k < L; k = k + 1u) { (*out)[k] = montgomery_product_f8((*a)[k], (*b)[k]); }
+  (*out)[0] = montgomery_product_f8((*a)[0], (*b)[0]);
+  if (1u < L) { (*out)[1] = montgomery_product_f8((*a)[1], (*b)[1]); }
+  if (2u < L) { (*out)[2] = montgomery_product_f8((*a)[2], (*b)[2]); }
+  if (3u < L) { (*out)[3] = montgomery_product_f8((*a)[3], (*b)[3]); }
+  if (4u < L) { (*out)[4] = montgomery_product_f8((*a)[4], (*b)[4]); }
+  if (5u < L) { (*out)[5] = montgomery_product_f8((*a)[5], (*b)[5]); }
+  if (6u < L) { (*out)[6] = montgomery_product_f8((*a)[6], (*b)[6]); }
 }
 fn lag_sqr(a: ptr<function, Lag>, L: u32, out: ptr<function, Lag>) {
-  for (var k: u32 = 0u; k < L; k = k + 1u) { (*out)[k] = montgomery_product_f8((*a)[k], (*a)[k]); }
+  (*out)[0] = montgomery_product_f8((*a)[0], (*a)[0]);
+  if (1u < L) { (*out)[1] = montgomery_product_f8((*a)[1], (*a)[1]); }
+  if (2u < L) { (*out)[2] = montgomery_product_f8((*a)[2], (*a)[2]); }
+  if (3u < L) { (*out)[3] = montgomery_product_f8((*a)[3], (*a)[3]); }
+  if (4u < L) { (*out)[4] = montgomery_product_f8((*a)[4], (*a)[4]); }
+  if (5u < L) { (*out)[5] = montgomery_product_f8((*a)[5], (*a)[5]); }
+  if (6u < L) { (*out)[6] = montgomery_product_f8((*a)[6], (*a)[6]); }
 }
 fn lag_scale(a: ptr<function, Lag>, s: array<u32, 8>, L: u32, out: ptr<function, Lag>) {
-  for (var k: u32 = 0u; k < L; k = k + 1u) { (*out)[k] = montgomery_product_f8((*a)[k], s); }
+  (*out)[0] = montgomery_product_f8((*a)[0], s);
+  if (1u < L) { (*out)[1] = montgomery_product_f8((*a)[1], s); }
+  if (2u < L) { (*out)[2] = montgomery_product_f8((*a)[2], s); }
+  if (3u < L) { (*out)[3] = montgomery_product_f8((*a)[3], s); }
+  if (4u < L) { (*out)[4] = montgomery_product_f8((*a)[4], s); }
+  if (5u < L) { (*out)[5] = montgomery_product_f8((*a)[5], s); }
+  if (6u < L) { (*out)[6] = montgomery_product_f8((*a)[6], s); }
 }
 fn lag_add(a: ptr<function, Lag>, b: ptr<function, Lag>, L: u32, out: ptr<function, Lag>) {
-  for (var k: u32 = 0u; k < L; k = k + 1u) { (*out)[k] = fr_add_f8((*a)[k], (*b)[k]); }
+  (*out)[0] = fr_add_f8((*a)[0], (*b)[0]);
+  if (1u < L) { (*out)[1] = fr_add_f8((*a)[1], (*b)[1]); }
+  if (2u < L) { (*out)[2] = fr_add_f8((*a)[2], (*b)[2]); }
+  if (3u < L) { (*out)[3] = fr_add_f8((*a)[3], (*b)[3]); }
+  if (4u < L) { (*out)[4] = fr_add_f8((*a)[4], (*b)[4]); }
+  if (5u < L) { (*out)[5] = fr_add_f8((*a)[5], (*b)[5]); }
+  if (6u < L) { (*out)[6] = fr_add_f8((*a)[6], (*b)[6]); }
 }
 fn lag_sub(a: ptr<function, Lag>, b: ptr<function, Lag>, L: u32, out: ptr<function, Lag>) {
-  for (var k: u32 = 0u; k < L; k = k + 1u) { (*out)[k] = fr_sub_f8((*a)[k], (*b)[k]); }
+  (*out)[0] = fr_sub_f8((*a)[0], (*b)[0]);
+  if (1u < L) { (*out)[1] = fr_sub_f8((*a)[1], (*b)[1]); }
+  if (2u < L) { (*out)[2] = fr_sub_f8((*a)[2], (*b)[2]); }
+  if (3u < L) { (*out)[3] = fr_sub_f8((*a)[3], (*b)[3]); }
+  if (4u < L) { (*out)[4] = fr_sub_f8((*a)[4], (*b)[4]); }
+  if (5u < L) { (*out)[5] = fr_sub_f8((*a)[5], (*b)[5]); }
+  if (6u < L) { (*out)[6] = fr_sub_f8((*a)[6], (*b)[6]); }
 }
 fn lag_neg(a: ptr<function, Lag>, L: u32, out: ptr<function, Lag>) {
   var z: array<u32, 8>;
-  for (var k: u32 = 0u; k < L; k = k + 1u) { (*out)[k] = fr_sub_f8(z, (*a)[k]); }
+  (*out)[0] = fr_sub_f8(z, (*a)[0]);
+  if (1u < L) { (*out)[1] = fr_sub_f8(z, (*a)[1]); }
+  if (2u < L) { (*out)[2] = fr_sub_f8(z, (*a)[2]); }
+  if (3u < L) { (*out)[3] = fr_sub_f8(z, (*a)[3]); }
+  if (4u < L) { (*out)[4] = fr_sub_f8(z, (*a)[4]); }
+  if (5u < L) { (*out)[5] = fr_sub_f8(z, (*a)[5]); }
+  if (6u < L) { (*out)[6] = fr_sub_f8(z, (*a)[6]); }
 }
