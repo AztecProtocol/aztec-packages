@@ -44,9 +44,11 @@ export interface P2PConfig
       SequencerConfig,
       | 'blockDurationMs'
       | 'expectedBlockProposalsPerSlot'
-      | 'l1PublishingTime'
       | 'maxTxsPerBlock'
       | 'attestationPropagationTime'
+      | 'checkpointProposalPrepareTime'
+      | 'checkpointProposalSyncGraceSeconds'
+      | 'minBlockDuration'
       | 'maxBlocksPerCheckpoint'
     > {
   /** Maximum transactions per block for validation. Overrides maxTxsPerBlock for gossip validation when set. */
@@ -149,6 +151,13 @@ export interface P2PConfig
 
   /** How long to keep message IDs in the seen cache (ms). */
   gossipsubSeenTTL: number;
+
+  /**
+   * Maximum clock-disparity tolerance (ms) applied to proposal/attestation gossip receive windows. Both
+   * ends of each acceptance window are widened by this much so peers are not penalized for messages valid
+   * when sent but arriving slightly early or late due to clock skew (Ethereum's MAXIMUM_GOSSIP_CLOCK_DISPARITY).
+   */
+  maxGossipClockDisparityMs: number;
 
   /** The 'age' (in # of L2 blocks) of a processed tx after which we heavily penalize a peer for re-sending it. */
   doubleSpendSeverePeerPenaltyWindow: number;
@@ -439,6 +448,12 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description: 'How long to keep message IDs in the seen cache.',
     ...numberConfigHelper(20 * 60 * 1000),
   },
+  maxGossipClockDisparityMs: {
+    env: 'P2P_MAX_GOSSIP_CLOCK_DISPARITY_MS',
+    description:
+      'Maximum clock-disparity tolerance (ms) applied to both ends of proposal/attestation gossip receive windows.',
+    ...numberConfigHelper(500),
+  },
   gossipsubTxTopicWeight: {
     env: 'P2P_GOSSIPSUB_TX_TOPIC_WEIGHT',
     description: 'The weight of the tx topic for the gossipsub protocol.',
@@ -562,11 +577,6 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     env: 'DEBUG_P2P_INSTRUMENT_MESSAGES',
     description: 'Alters the format of p2p messages to include things like broadcast timestamp FOR TESTING ONLY',
     ...booleanConfigHelper(false),
-  },
-  l1PublishingTime: {
-    env: 'SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT',
-    description: 'How much time (in seconds) we allow in the slot for publishing the L1 tx (defaults to 1 L1 slot).',
-    ...optionalNumberConfigHelper(),
   },
   fishermanMode: {
     env: 'FISHERMAN_MODE',

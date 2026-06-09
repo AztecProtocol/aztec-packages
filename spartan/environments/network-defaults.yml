@@ -176,8 +176,6 @@ _prodlike: &prodlike
   SEQ_BUILD_CHECKPOINT_IF_EMPTY: true
   # 6 second block times
   SEQ_BLOCK_DURATION_MS: 6000
-  # Time allocated for publishing to L1
-  SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT: 36 # 3 Ethereum slots
 
   #---------------------------------------------------------------------------
   # Database Map Sizes (in KB)

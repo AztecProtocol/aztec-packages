@@ -3,6 +3,7 @@ members = [
     "contracts/account/ecdsa_k_account_contract",
     "contracts/account/ecdsa_r_account_contract",
     "contracts/account/schnorr_account_contract",
+    "contracts/account/schnorr_initializerless_account_contract",
     "contracts/account/schnorr_hardcoded_account_contract",
     "contracts/account/simulated_schnorr_account_contract",
     "contracts/account/simulated_ecdsa_account_contract",
@@ -81,6 +82,8 @@ members = [
     "contracts/test/test_contract",
     "contracts/test/test_log_contract",
     "contracts/test/tx_effect_oracle_test_contract",
+    "contracts/test/transient_child_contract",
+    "contracts/test/transient_parent_contract",
     "contracts/test/unit_return_type_contract",
     "contracts/test/updatable_contract",
     "contracts/test/updated_contract"

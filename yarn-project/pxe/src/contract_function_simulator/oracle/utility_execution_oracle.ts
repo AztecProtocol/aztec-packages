@@ -70,9 +70,10 @@ import { Option } from '../noir-structs/option.js';
 import type { ProvidedSecret } from '../noir-structs/provided_secret.js';
 import { UtilityContext } from '../noir-structs/utility_context.js';
 import { pickNotes } from '../pick_notes.js';
+import type { TransientArrayService } from '../transient_array_service.js';
+import { buildACIRCallback } from './acir_callback.js';
 import type { IMiscOracle, IUtilityExecutionOracle } from './interfaces.js';
 import { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
-import { Oracle } from './oracle.js';
 
 /** Args for UtilityExecutionOracle constructor. */
 export type UtilityExecutionOracleArgs = {
@@ -100,6 +101,7 @@ export type UtilityExecutionOracleArgs = {
   hooks?: ExecutionHooks;
   /** Needed to trigger contract synchronization before nested cross-contract calls. */
   utilityExecutor: (call: FunctionCall, scopes: AztecAddress[]) => Promise<void>;
+  transientArrayService: TransientArrayService;
 };
 
 /**
@@ -113,6 +115,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   private aztecnrLogger: Logger | undefined;
   private offchainEffects: OffchainEffect[] = [];
   private readonly ephemeralArrayService = new EphemeralArrayService();
+  protected readonly transientArrayService: TransientArrayService;
 
   // We store oracle version to be able to show a nice error message when an oracle handler is missing.
   private contractOracleVersion: { major: number; minor: number } | undefined;
@@ -163,6 +166,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     this.simulator = args.simulator;
     this.hooks = args.hooks;
     this.utilityExecutor = args.utilityExecutor;
+    this.transientArrayService = args.transientArrayService;
   }
 
   public assertCompatibleOracleVersion(major: number, minor: number): void {
@@ -796,6 +800,34 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     this.ephemeralArrayService.clear(slot);
   }
 
+  public pushTransient(slot: Fr, elements: Fr[]): number {
+    return this.transientArrayService.push(this.contractAddress, slot, elements);
+  }
+
+  public popTransient(slot: Fr): Fr[] {
+    return this.transientArrayService.pop(this.contractAddress, slot);
+  }
+
+  public getTransient(slot: Fr, index: number): Fr[] {
+    return this.transientArrayService.get(this.contractAddress, slot, index);
+  }
+
+  public setTransient(slot: Fr, index: number, elements: Fr[]): void {
+    this.transientArrayService.set(this.contractAddress, slot, index, elements);
+  }
+
+  public getTransientLen(slot: Fr): number {
+    return this.transientArrayService.len(this.contractAddress, slot);
+  }
+
+  public removeTransient(slot: Fr, index: number): void {
+    this.transientArrayService.remove(this.contractAddress, slot, index);
+  }
+
+  public clearTransient(slot: Fr): void {
+    this.transientArrayService.clear(this.contractAddress, slot);
+  }
+
   public emitOffchainEffect(data: Fr[]): Promise<void> {
     this.offchainEffects.push({ data, contractAddress: this.contractAddress });
     return Promise.resolve();
@@ -878,12 +910,13 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       hooks: this.hooks,
       utilityExecutor: this.utilityExecutor,
       log: this.logger,
+      // Shared across the whole execution tree: nested utility frames inherit the caller's transient-array store.
+      transientArrayService: this.transientArrayService,
     });
 
     const initialWitness = toACVMWitness(0, args);
-    const acvmCallback = new Oracle(nestedOracle);
     const acirExecutionResult = await this.simulator
-      .executeUserCircuit(initialWitness, targetArtifact, acvmCallback.toACIRCallback())
+      .executeUserCircuit(initialWitness, targetArtifact, buildACIRCallback(nestedOracle))
       .catch((err: Error) => {
         err.message = resolveAssertionMessageFromError(err, targetArtifact);
         throw new ExecutionError(

@@ -95,8 +95,10 @@ describe('Archiver Store', () => {
       batchSize: 1000,
       maxAllowedEthClientDriftSeconds: 300,
       ethereumAllowNoDebugHosts: true,
-      orphanProposedBlockPruneGraceSeconds: 2,
-      enableOrphanProposedBlockPruning: true,
+      checkpointProposalSyncGrace: 4,
+      orphanPruneNoProposalTolerance: 1,
+      skipOrphanProposedBlockPruning: false,
+      blockDuration: 2,
     };
 
     const events = new EventEmitter() as ArchiverEmitter;

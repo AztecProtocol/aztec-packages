@@ -25,6 +25,7 @@ import type { SenderTaggingStore } from '../../storage/tagging_store/sender_tagg
 import { ExecutionNoteCache } from '../execution_note_cache.js';
 import { ExecutionTaggingIndexCache } from '../execution_tagging_index_cache.js';
 import { HashedValuesCache } from '../hashed_values_cache.js';
+import { TransientArrayService } from '../transient_array_service.js';
 import { PrivateExecutionOracle, type PrivateExecutionOracleArgs } from './private_execution_oracle.js';
 
 describe('PrivateExecutionOracle', () => {
@@ -92,6 +93,7 @@ describe('PrivateExecutionOracle', () => {
       jobId: 'test',
       scopes: [],
       simulator: new WASMSimulator(),
+      transientArrayService: new TransientArrayService(),
       ...overrides,
     });
   };

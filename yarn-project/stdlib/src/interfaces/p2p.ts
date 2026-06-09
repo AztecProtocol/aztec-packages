@@ -78,6 +78,9 @@ export interface P2PClient extends P2PApi {
     blockProposals: BlockProposal[];
     checkpointProposals: CheckpointProposalCore[];
   }>;
+
+  /** Returns whether a checkpoint proposal was retained for a slot. */
+  hasCheckpointProposalForSlot(slot: SlotNumber): Promise<boolean>;
 }
 
 export const P2PApiSchema: ApiSchemaFor<P2PApi> = {
