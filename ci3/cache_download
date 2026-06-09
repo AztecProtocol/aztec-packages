@@ -23,12 +23,21 @@ out_dir="${2:-.}"
 # Link mode: when CACHE_LINK_DIR points at an extracted, read-only, content-addressed store,
 # extract each tarball into the store once and graft symlinks into out_dir instead of extracting
 # in place. Never on CI (the store is a local-dev convenience; CI always extracts in place).
-# yarn-project tarballs are excluded: their contents interleave with tracked src/ files and the
-# generated outputs must stay writable for incremental rebuilds, so they always extract in place.
+# Excluded tarballs always extract in place:
+# - yarn-project: contents interleave with tracked src/ files and the generated outputs must stay
+#   writable for incremental rebuilds.
+# - bb.js / noir-packages: their contents are loaded as Node.js modules. Node resolves imports from
+#   a module's REAL path, so store-resident JS cannot see the checkout's node_modules and runtime
+#   dependencies (msgpackr, pako, ...) fail to resolve.
 link_mode=0
-if [[ -n "${CACHE_LINK_DIR:-}" && "${CI:-0}" -ne 1 && "$tar_file" != yarn-project* ]]; then
-  link_mode=1
-fi
+case "$tar_file" in
+  yarn-project*|bb.js-*|noir-packages-*) ;;
+  *)
+    if [[ -n "${CACHE_LINK_DIR:-}" && "${CI:-0}" -ne 1 ]]; then
+      link_mode=1
+    fi
+    ;;
+esac
 
 # Strip the compression suffix to derive the store entry name.
 entry_name="$tar_file"
