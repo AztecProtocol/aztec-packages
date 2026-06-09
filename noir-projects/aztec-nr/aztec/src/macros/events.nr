@@ -21,13 +21,12 @@ comptime fn generate_event_interface_and_get_selector(s: TypeDefinition) -> (Quo
 
     (
         quote {
-        impl aztec::event::event_interface::EventInterface for $name {
-            fn get_event_type_id() -> aztec::event::EventSelector {
-                $from_field($event_selector)
+            impl aztec::event::event_interface::EventInterface for $name {
+                fn get_event_type_id() -> aztec::event::EventSelector {
+                    $from_field($event_selector)
+                }
             }
-        }
-    },
-        event_selector,
+        }, event_selector,
     )
 }
 

@@ -30,7 +30,7 @@ pub contract SideEffect {
             functions::{external, initializer, noinitcheck},
             storage::storage,
         },
-        messages::message_delivery::MessageDelivery,
+        messages::delivery::MessageDelivery,
         note::{
             ConfirmedNote,
             constants::MAX_NOTES_PER_PAGE,

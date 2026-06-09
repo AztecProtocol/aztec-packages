@@ -2,7 +2,7 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { AztecLMDBStoreV2, openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { BlockHash } from '@aztec/stdlib/block';
+import { BlockHash, type DataInBlock } from '@aztec/stdlib/block';
 import { NoteDao, NoteStatus } from '@aztec/stdlib/note';
 
 import { NoteStore } from './note_store.js';
@@ -63,8 +63,8 @@ describe('NoteStore', () => {
     return { store, noteStore, note1, note2, note3 };
   }
 
-  // Helper to create a nullifier object matching a given note.
-  function mkNullifier(note: NoteDao, blockNumber?: BlockNumber) {
+  // Helper to create a DataInBlock nullifier matching a given note.
+  function mkNullifier(note: NoteDao, blockNumber?: BlockNumber): DataInBlock<Fr> {
     return {
       data: note.siloedNullifier,
       l2BlockNumber: blockNumber ?? note.l2BlockNumber,
@@ -424,7 +424,7 @@ describe('NoteStore', () => {
       );
     });
 
-    it('throws error when nullifier is not found', async () => {
+    it('throws when applying a nullifier whose note is not in the store', async () => {
       const fakeNullifier = {
         data: Fr.random(),
         l2BlockNumber: BlockNumber(999),
@@ -464,20 +464,22 @@ describe('NoteStore', () => {
       });
     });
 
-    it('is atomic - fails entirely if any nullifier is invalid', async () => {
-      // Should fail entirely: note1 remains active because transaction is atomic.
+    it('is atomic — a batch containing an unknown nullifier aborts without recording any emission', async () => {
       const nullifiers = [
         mkNullifier(note2),
         {
-          data: Fr.random(), // Invalid
+          data: Fr.random(), // not in the store
           l2BlockNumber: BlockNumber(999),
           l2BlockHash: BlockHash.random(),
         },
       ];
 
-      await expect(noteStore.applyNullifiers(nullifiers, 'test')).rejects.toThrow();
+      await expect(noteStore.applyNullifiers(nullifiers, 'test')).rejects.toThrow(
+        'Attempted to mark a note as nullified which does not exist in PXE DB',
+      );
 
-      // Verify notes are still active (transaction rolled back)
+      // The known nullifier (note2) must NOT have been recorded: the throw happens before any emission is staged, so
+      // both notes stay active across the staged job and after committing it.
       await verifyAndCommitForEachJob(['test', 'after-job-commit'], noteStore, async (jobId: string) => {
         const activeNotes = await noteStore.getNotes(
           { contractAddress: CONTRACT_A, scopes: [SCOPE_1, SCOPE_2] },
@@ -490,10 +492,13 @@ describe('NoteStore', () => {
     // This test ensures applyNullifiers is idempotent: the same nullifier can be applied multiple times
     // without error. This relaxes constraints on usage of NoteService#validateAndStoreNote, which can then be
     // run concurrently in a Promise.all context without risking unnecessarily defensive checks failing.
-    it('applying nullifier a second time is a no-op', async () => {
-      await noteStore.applyNullifiers([mkNullifier(note1)], 'test'); // First application should succeed
+    it('applying nullifier a second time is a no-op and returns no transitioned notes', async () => {
+      await noteStore.applyNullifiers([mkNullifier(note1)], 'test');
+      await noteStore.commit('test');
 
-      // Second attempt is silently skipped (idempotent behavior)
+      // Second application is idempotent: the emission is already recorded, so no note transitions to nullified. The
+      // result is empty (only notes that flip active -> nullified in this call are returned) and visibility is
+      // unchanged (note1 stays nullified).
       const result = await noteStore.applyNullifiers([mkNullifier(note1)], 'test');
       expect(result).toEqual([]);
 
@@ -630,9 +635,10 @@ describe('NoteStore', () => {
       // (causing the note to be "re-activated")
       expect(notesAfterSecondAttempt.filter(n => n.siloedNullifier.equals(duplicateNullifier))).toEqual([]);
 
-      // The second applyNullifiers is silently skipped since the note is already nullified (idempotent)
-      const result = await noteStore.applyNullifiers([mkNullifier(duplicateNote)], 'duplicate-job');
-      expect(result).toEqual([]);
+      // The second applyNullifiers is a no-op: the emission is already staged, so nothing transitions to nullified and
+      // visibility is unchanged.
+      const secondApply = await noteStore.applyNullifiers([mkNullifier(duplicateNote)], 'duplicate-job');
+      expect(secondApply).toEqual([]);
 
       // Verify the note is nullified and has both scopes
       await verifyAndCommitForEachJob(['duplicate-job', 'after-job-commit'], noteStore, async (jobId: string) => {
@@ -645,12 +651,14 @@ describe('NoteStore', () => {
     });
   });
 
-  describe('NoteStore.rollback', () => {
-    let noteStore: NoteStore;
+  describe('commit, staging, and discard', () => {
     let store: AztecLMDBStoreV2;
+    let noteStore: NoteStore;
+    const JOB = 'note-store-test-job';
+    const activeFilter = { contractAddress: CONTRACT_A, scopes: [SCOPE_1], status: NoteStatus.ACTIVE };
 
     beforeEach(async () => {
-      store = await openTmpStore('note_store_rollback_test');
+      store = await openTmpStore('note_store_visibility');
       noteStore = new NoteStore(store);
     });
 
@@ -658,236 +666,228 @@ describe('NoteStore', () => {
       await store.close();
     });
 
-    describe('rewind nullifications happy path', () => {
-      let noteBlock1: NoteDao;
-      let noteBlock2: NoteDao;
-      let noteBlock3: NoteDao;
-      let noteBlock5: NoteDao;
+    it('shows a note as soon as it is committed', async () => {
+      const note = await mkNote({ l2BlockNumber: BlockNumber(10) });
+      await noteStore.addNotes([note], SCOPE_1, JOB);
+      await noteStore.commit(JOB);
 
-      async function setupRollbackScenario() {
-        noteBlock1 = await mkNote({ siloedNullifier: SILOED_NULLIFIER_1, l2BlockNumber: BlockNumber(1) }); // Nullified at block 2
-        noteBlock2 = await mkNote({ siloedNullifier: SILOED_NULLIFIER_2, l2BlockNumber: BlockNumber(2) }); // Never nullified
-        noteBlock3 = await mkNote({ siloedNullifier: SILOED_NULLIFIER_3, l2BlockNumber: BlockNumber(3) }); // Nullified at block 4
-        const noteBlock5Nullifier = Fr.random();
-        noteBlock5 = await mkNote({ siloedNullifier: noteBlock5Nullifier, l2BlockNumber: BlockNumber(5) }); // Created after rollback block 3
-
-        await noteStore.addNotes([noteBlock1, noteBlock2, noteBlock3, noteBlock5], SCOPE_1, 'rollback-scenario-setup');
-
-        const nullifiers = [
-          mkNullifier(noteBlock1, BlockNumber(2)),
-          mkNullifier(noteBlock3, BlockNumber(4)),
-          mkNullifier(noteBlock5, BlockNumber(6)),
-        ];
-
-        // Apply nullifiers and rollback to block 3
-        // - should restore noteBlock3 (nullified at block 4) and preserve noteBlock1 (nullified at block 2)
-        await noteStore.applyNullifiers(nullifiers, 'rollback-scenario-setup');
-        await noteStore.commit('rollback-scenario-setup');
-
-        await noteStore.rollback(3, 6);
-      }
-
-      beforeEach(async () => {
-        await setupRollbackScenario();
-      });
-
-      it('restores notes that were nullified after the rollback block', async () => {
-        // noteBlock2 remains active, noteBlock3 was nullified at block 4 should be restored
-        const activeNotes = await noteStore.getNotes(
-          { contractAddress: CONTRACT_A, scopes: [SCOPE_1, SCOPE_2] },
-          'test',
-        );
-        expect(nullifierSet(activeNotes)).toEqual(nullifierSet([noteBlock2, noteBlock3]));
-      });
-
-      it('preserves nullification of notes nullified at or before the rollback block', async () => {
-        const allNotes = await noteStore.getNotes(
-          {
-            contractAddress: CONTRACT_A,
-            status: NoteStatus.ACTIVE_OR_NULLIFIED,
-            scopes: [SCOPE_1, SCOPE_2],
-          },
-          'test',
-        );
-
-        // Should contain noteBlock1 (nullified), noteBlock2 (active), and noteBlock3 (restored)
-        expect(nullifierSet(allNotes)).toEqual(nullifierSet([noteBlock1, noteBlock2, noteBlock3]));
-
-        // Verify noteBlock1 is not in active notes
-        const activeNotes = await noteStore.getNotes(
-          { contractAddress: CONTRACT_A, scopes: [SCOPE_1, SCOPE_2] },
-          'test',
-        );
-        expect(nullifierSet(activeNotes)).not.toContain(noteBlock1.siloedNullifier.toBigInt());
-      });
-
-      it('preserves active notes created before the rollback block that were never nullified', async () => {
-        // noteBlock2 was created at block 2 (before rollback block 3) and never nullified
-        const activeNotes = await noteStore.getNotes(
-          { contractAddress: CONTRACT_A, scopes: [SCOPE_1, SCOPE_2] },
-          'test',
-        );
-        expect(nullifierSet(activeNotes)).toEqual(nullifierSet([noteBlock2, noteBlock3]));
-      });
-
-      it('deletes notes created after the rollback block', async () => {
-        const allNotes = await noteStore.getNotes(
-          {
-            contractAddress: CONTRACT_A,
-            status: NoteStatus.ACTIVE_OR_NULLIFIED,
-            scopes: [SCOPE_1, SCOPE_2],
-          },
-          'test',
-        );
-
-        // noteBlock5 was created at block 5, which is after rollback block 3, should be deleted
-        expect(nullifierSet(allNotes)).toEqual(nullifierSet([noteBlock1, noteBlock2, noteBlock3]));
-        expect(nullifierSet(allNotes)).not.toContain(noteBlock5.siloedNullifier.toBigInt());
-      });
+      const found = await noteStore.getNotes(activeFilter, 'read-job');
+      expect(found).toHaveLength(1);
+      expect(found[0].siloedNullifier.equals(note.siloedNullifier)).toBe(true);
     });
 
-    describe('rewind nullifications edge cases', () => {
-      it('handles rollback when blockNumber equals synchedBlockNumber', async () => {
-        const noteNullifier = Fr.random();
-        const note = await mkNote({ siloedNullifier: noteNullifier, l2BlockNumber: BlockNumber(5) });
-        await noteStore.addNotes([note], SCOPE_1, 'test');
+    it('marks a note nullified once a nullification origin is recorded for it', async () => {
+      const note = await mkNote({ l2BlockNumber: BlockNumber(10) });
+      await noteStore.addNotes([note], SCOPE_1, JOB);
 
-        const nullifiers = [
-          {
-            data: note.siloedNullifier,
-            l2BlockNumber: BlockNumber(5),
-            l2BlockHash: BlockHash.fromString(note.l2BlockHash),
-          },
-        ];
-        await noteStore.applyNullifiers(nullifiers, 'test');
+      await noteStore.applyNullifiers(
+        [{ data: note.siloedNullifier, l2BlockNumber: BlockNumber(11), l2BlockHash: BlockHash.random() }],
+        JOB,
+      );
+      await noteStore.commit(JOB);
 
-        // Since nullification happened at block 5 (not after), it should stay nullified
-        // The rewind loop processes blocks (blockNumber+1) to synchedBlockNumber = 6 to 5 = no iterations
-        await noteStore.commit('test');
-        await noteStore.rollback(5, 5);
-
-        const activeNotes = await noteStore.getNotes(
-          { contractAddress: CONTRACT_A, scopes: [SCOPE_1, SCOPE_2] },
-          'test',
-        );
-        expect(activeNotes).toHaveLength(0);
-
-        const allNotes = await noteStore.getNotes(
-          {
-            contractAddress: CONTRACT_A,
-            status: NoteStatus.ACTIVE_OR_NULLIFIED,
-            scopes: [SCOPE_1, SCOPE_2],
-          },
-          'test',
-        );
-        expect(nullifierSet(allNotes)).toEqual(nullifierSet([noteNullifier]));
-      });
-
-      it('handles rollback when synchedBlockNumber < blockNumber', async () => {
-        const noteNullifier = Fr.random();
-        const note = await mkNote({ siloedNullifier: noteNullifier, l2BlockNumber: BlockNumber(3) });
-        await noteStore.addNotes([note], SCOPE_1, 'test');
-
-        const nullifiers = [
-          {
-            data: note.siloedNullifier,
-            l2BlockNumber: BlockNumber(4),
-            l2BlockHash: BlockHash.fromString(note.l2BlockHash),
-          },
-        ];
-        await noteStore.applyNullifiers(nullifiers, 'test');
-
-        // blockNumber=6, synchedBlockNumber=4 therefore no nullifications to rewind
-        await noteStore.commit('test');
-        await noteStore.rollback(6, 4);
-
-        const activeNotes = await noteStore.getNotes(
-          { contractAddress: CONTRACT_A, scopes: [SCOPE_1, SCOPE_2] },
-          'test',
-        );
-        expect(activeNotes).toHaveLength(0);
-
-        const allNotes = await noteStore.getNotes(
-          {
-            contractAddress: CONTRACT_A,
-            status: NoteStatus.ACTIVE_OR_NULLIFIED,
-            scopes: [SCOPE_1, SCOPE_2],
-          },
-          'test',
-        );
-        expect(nullifierSet(allNotes)).toEqual(nullifierSet([noteNullifier]));
-      });
-
-      it('handles rollback with a large block gap', async () => {
-        const note1Nullifier = Fr.random();
-        const note2Nullifier = Fr.random();
-        const note1 = await mkNote({ siloedNullifier: note1Nullifier, l2BlockNumber: BlockNumber(5) });
-        const note2 = await mkNote({ siloedNullifier: note2Nullifier, l2BlockNumber: BlockNumber(10) });
-        await noteStore.addNotes([note1, note2], SCOPE_1, 'test');
-
-        const nullifiers = [
-          {
-            data: note1.siloedNullifier,
-            l2BlockNumber: BlockNumber(7),
-            l2BlockHash: BlockHash.fromString(note1.l2BlockHash),
-          },
-        ];
-        await noteStore.applyNullifiers(nullifiers, 'test');
-        await noteStore.commit('test');
-        await noteStore.rollback(5, 100);
-
-        // note1 should be restored (nullified at block 7 > rollback block 5)
-        // note2 should be deleted (created at block 10 > rollback block 5)
-        const activeNotes = await noteStore.getNotes(
-          { contractAddress: CONTRACT_A, scopes: [SCOPE_1, SCOPE_2] },
-          'test',
-        );
-        expect(nullifierSet(activeNotes)).toEqual(nullifierSet([note1Nullifier]));
-      });
-
-      it('handles rollback on empty PXE database gracefully', async () => {
-        await expect(noteStore.rollback(10, 20)).resolves.not.toThrow();
-        const notes = await noteStore.getNotes({ contractAddress: CONTRACT_A, scopes: [SCOPE_1, SCOPE_2] }, 'test');
-        expect(notes).toHaveLength(0);
-      });
-
-      it('throws when rollback is called while jobs are running', async () => {
-        const note = await mkNote({ siloedNullifier: Fr.random(), l2BlockNumber: BlockNumber(1) });
-
-        // Add a note but don't commit, i.e., job running
-        await noteStore.addNotes([note], SCOPE_1, 'uncommitted-job');
-
-        await expect(noteStore.rollback(0, 10)).rejects.toThrow(
-          'PXE note store rollback is not allowed while jobs are running',
-        );
-
-        // After discarding the staged data, rollback should succeed
-        await noteStore.discardStaged('uncommitted-job');
-        await expect(noteStore.rollback(0, 10)).resolves.not.toThrow();
-      });
-
-      it('throws integrity error when nullification index references missing note', async () => {
-        const nullifier = Fr.random();
-        const note = await mkNote({ siloedNullifier: nullifier, l2BlockNumber: BlockNumber(1) });
-
-        {
-          await noteStore.addNotes([note], SCOPE_1, 'test');
-          await noteStore.applyNullifiers([mkNullifier(note, BlockNumber(5))], 'test');
-          await noteStore.commit('test');
-        }
-
-        // Corrupt the database by deleting the note but leaving the nullification index.
-        // Arguably overkill, but since we go to the trouble of detecting and throwing the error it's at least useful
-        // to show what case it is defending against.
-        // This condition is only reachable if we mess up the store logic (or data migration).
-        const notesMap = store.openMap<string, Buffer>('notes');
-        await notesMap.delete(nullifier.toString());
-
-        // Rollback should detect the missing note and throw
-        await expect(noteStore.rollback(3, 6)).rejects.toThrow(
-          `PXE DB integrity error: no note found with nullifier ${nullifier.toString()}`,
-        );
-      });
+      expect(await noteStore.getNotes(activeFilter, 'read-job')).toHaveLength(0);
+      expect(
+        await noteStore.getNotes({ ...activeFilter, status: NoteStatus.ACTIVE_OR_NULLIFIED }, 'read-job'),
+      ).toHaveLength(1);
     });
+
+    it('layers staged writes over committed state within a job', async () => {
+      const note = await mkNote({ l2BlockNumber: BlockNumber(10) });
+      await noteStore.addNotes([note], SCOPE_1, JOB);
+      expect(await noteStore.getNotes(activeFilter, JOB)).toHaveLength(1);
+      expect(await noteStore.getNotes(activeFilter, 'other-job')).toHaveLength(0);
+    });
+
+    it('discardStaged drops staged notes and nullifications', async () => {
+      const note = await mkNote({ l2BlockNumber: BlockNumber(10) });
+
+      await noteStore.addNotes([note], SCOPE_1, JOB);
+      await noteStore.applyNullifiers(
+        [{ data: note.siloedNullifier, l2BlockNumber: BlockNumber(11), l2BlockHash: BlockHash.random() }],
+        JOB,
+      );
+
+      await noteStore.discardStaged(JOB);
+
+      // A fresh job sees nothing committed — both the note and the nullification were discarded.
+      expect(await noteStore.getNotes(activeFilter, 'fresh-job')).toHaveLength(0);
+      expect(
+        await noteStore.getNotes({ ...activeFilter, status: NoteStatus.ACTIVE_OR_NULLIFIED }, 'fresh-job'),
+      ).toHaveLength(0);
+    });
+  });
+
+  describe('nullifiersOfNotesAtBlock', () => {
+    let store: AztecLMDBStoreV2;
+    let noteStore: NoteStore;
+    const JOB = 'note-store-test-job';
+
+    beforeEach(async () => {
+      store = await openTmpStore('note_store_block_index');
+      noteStore = new NoteStore(store);
+    });
+
+    afterEach(async () => {
+      await store.close();
+    });
+
+    it('indexes note nullifiers by creation block number', async () => {
+      const note = await mkNote({ l2BlockNumber: BlockNumber(9) });
+      await noteStore.addNotes([note], SCOPE_1, JOB);
+      await noteStore.commit(JOB);
+      const nullifiers = await noteStore.nullifiersOfNotesAtBlock(9);
+      expect(nullifiers).toEqual([note.siloedNullifier.toString()]);
+    });
+
+    it('indexes multiple notes created at the same block', async () => {
+      const a = await mkNote({ l2BlockNumber: BlockNumber(9) });
+      const b = await mkNote({ l2BlockNumber: BlockNumber(9) });
+      await noteStore.addNotes([a, b], SCOPE_1, JOB);
+      await noteStore.commit(JOB);
+      const nullifiers = await noteStore.nullifiersOfNotesAtBlock(9);
+      expect(new Set(nullifiers)).toEqual(new Set([a.siloedNullifier.toString(), b.siloedNullifier.toString()]));
+    });
+  });
+});
+
+describe('NoteStore.rollback', () => {
+  const JOB = 'note-store-test-job';
+  const scope = AztecAddress.fromBigInt(1n);
+  const contract = AztecAddress.fromBigInt(100n);
+
+  let kv: Awaited<ReturnType<typeof openTmpStore>>;
+  let store: NoteStore;
+
+  const activeFilter = { contractAddress: contract, scopes: [scope], status: NoteStatus.ACTIVE };
+  const FIXED_BLOCK_HASH = Fr.fromString('0x0c').toString();
+
+  beforeEach(async () => {
+    kv = await openTmpStore('note-store-reorg-test');
+    store = new NoteStore(kv);
+  });
+
+  it('deletes notes and nullifier emissions above the target block, leaving lower blocks intact', async () => {
+    // Note A created at block 9 (at/below the rollback target — must survive).
+    const noteA = await NoteDao.random({
+      contractAddress: contract,
+      l2BlockNumber: BlockNumber(9),
+      l2BlockHash: FIXED_BLOCK_HASH,
+    });
+    // Note B created at block 10 (above the target — must be deleted).
+    const noteB = await NoteDao.random({
+      contractAddress: contract,
+      l2BlockNumber: BlockNumber(10),
+      l2BlockHash: FIXED_BLOCK_HASH,
+    });
+    await store.addNotes([noteA, noteB], scope, JOB);
+    // Nullify B at block 11 (also above the target).
+    const nullBlockHash = BlockHash.fromString(Fr.fromString('0x0b').toString());
+    await store.applyNullifiers(
+      [{ data: noteB.siloedNullifier, l2BlockNumber: BlockNumber(11), l2BlockHash: nullBlockHash }],
+      JOB,
+    );
+    await store.commit(JOB);
+
+    await kv.transactionAsync(() => store.rollback(9));
+
+    // Only note A survives.
+    expect(await store.nullifiersOfNotesAtBlock(9)).toEqual([noteA.siloedNullifier.toString()]);
+    expect(await store.nullifiersOfNotesAtBlock(10)).toHaveLength(0);
+    expect(await store.nullifiersOfNotesAtBlock(11)).toHaveLength(0);
+
+    const found = await store.getNotes(activeFilter, 'read-job');
+    expect(found).toHaveLength(1);
+    expect(found[0].siloedNullifier.equals(noteA.siloedNullifier)).toBe(true);
+  });
+
+  it('sweeps every block above the target, including non-contiguous ones', async () => {
+    // Notes at blocks 10 and 50 with a gap between them: rolling back to 9 must delete both, proving the scan
+    // covers everything above the target rather than a contiguous expected range.
+    const noteLow = await NoteDao.random({
+      contractAddress: contract,
+      l2BlockNumber: BlockNumber(10),
+      l2BlockHash: FIXED_BLOCK_HASH,
+    });
+    const noteHigh = await NoteDao.random({
+      contractAddress: contract,
+      l2BlockNumber: BlockNumber(50),
+      l2BlockHash: FIXED_BLOCK_HASH,
+    });
+    await store.addNotes([noteLow, noteHigh], scope, JOB);
+    await store.commit(JOB);
+
+    await kv.transactionAsync(() => store.rollback(9));
+
+    expect(await store.nullifiersOfNotesAtBlock(10)).toHaveLength(0);
+    expect(await store.nullifiersOfNotesAtBlock(50)).toHaveLength(0);
+    expect(await store.getNotes(activeFilter, 'read-job')).toHaveLength(0);
+  });
+
+  it('restores notes that were nullified after the rollback block', async () => {
+    // Note B created at block 10; nullified at block 20. Rolling back to block 16 orphans the nullification while
+    // leaving the creation row intact — so B becomes active again with no inversion logic.
+    const noteB = await NoteDao.random({
+      contractAddress: contract,
+      l2BlockNumber: BlockNumber(10),
+      l2BlockHash: FIXED_BLOCK_HASH,
+    });
+    await store.addNotes([noteB], scope, JOB);
+    const nullBlockHash = BlockHash.fromString(Fr.fromString('0x14').toString());
+    await store.applyNullifiers(
+      [{ data: noteB.siloedNullifier, l2BlockNumber: BlockNumber(20), l2BlockHash: nullBlockHash }],
+      JOB,
+    );
+    await store.commit(JOB);
+
+    await kv.transactionAsync(() => store.rollback(16));
+
+    // The creation row at block 10 is untouched.
+    expect(await store.nullifiersOfNotesAtBlock(10)).toEqual([noteB.siloedNullifier.toString()]);
+
+    // The note should read back ACTIVE again (nullification row gone).
+    const found = await store.getNotes(activeFilter, 'read-job');
+    expect(found).toHaveLength(1);
+    expect(found[0].siloedNullifier.equals(noteB.siloedNullifier)).toBe(true);
+  });
+
+  it('is idempotent — re-running an already-applied rollback is a no-op', async () => {
+    const noteB = await NoteDao.random({
+      contractAddress: contract,
+      l2BlockNumber: BlockNumber(10),
+      l2BlockHash: FIXED_BLOCK_HASH,
+    });
+    await store.addNotes([noteB], scope, JOB);
+    await store.commit(JOB);
+
+    await kv.transactionAsync(() => store.rollback(9));
+    expect(await store.nullifiersOfNotesAtBlock(10)).toHaveLength(0);
+
+    // Second run hits the missing-row guard: no throw, state unchanged.
+    await kv.transactionAsync(() => store.rollback(9));
+    expect(await store.nullifiersOfNotesAtBlock(10)).toHaveLength(0);
+  });
+
+  it('throws when rollback is called while jobs are running', async () => {
+    // Stage a note under a job but never commit it, so the store still holds in-flight job data. Rolling back now
+    // could later let the job commit notes anchored to blocks the rollback just deleted.
+    const staged = await NoteDao.random({
+      contractAddress: contract,
+      l2BlockNumber: BlockNumber(10),
+      l2BlockHash: FIXED_BLOCK_HASH,
+    });
+    await store.addNotes([staged], scope, 'uncommitted-job');
+
+    await expect(kv.transactionAsync(() => store.rollback(0))).rejects.toThrow(
+      'PXE note store rollback is not allowed while jobs are running',
+    );
+
+    await store.discardStaged('uncommitted-job');
+
+    await expect(kv.transactionAsync(() => store.rollback(0))).resolves.not.toThrow();
+  });
+
+  afterEach(async () => {
+    await kv.close();
   });
 });

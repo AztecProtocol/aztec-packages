@@ -17,6 +17,7 @@ export {
   isWrappedFieldStruct,
   isFunctionSelectorStruct,
   loadContractArtifact,
+  loadContractArtifactWithValidation,
   loadContractArtifactForPublic,
   getAllFunctionAbis,
   contractArtifactToBuffer,

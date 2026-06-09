@@ -14,12 +14,12 @@ import {
   generateUnrecoverableSignature,
 } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { InterruptError, TimeoutError } from '@aztec/foundation/error';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { filter } from '@aztec/foundation/iterator';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
-import { retryUntil } from '@aztec/foundation/retry';
-import { sleep, sleepUntil } from '@aztec/foundation/sleep';
+import { InterruptibleSleep } from '@aztec/foundation/sleep';
 import { type DateProvider, Timer } from '@aztec/foundation/timer';
 import { type TypedEventEmitter, isErrorClass, unfreeze } from '@aztec/foundation/types';
 import type { P2P } from '@aztec/p2p';
@@ -79,6 +79,7 @@ import { SequencerState } from './utils.js';
 
 /** How much time to sleep while waiting for min transactions to accumulate for a block */
 const TXS_POLLING_MS = 500;
+const ARCHIVER_SYNC_POLLING_MS = 200;
 
 /** Result from proposeCheckpoint when a checkpoint was successfully built and broadcast. */
 type CheckpointProposalBroadcast = {
@@ -106,6 +107,8 @@ export class CheckpointProposalJob implements Traceable {
 
   /** Tracks the fire-and-forget L1 submission promise so it can be awaited during shutdown. */
   private pendingL1Submission: Promise<void> | undefined;
+  private readonly interruptibleSleep = new InterruptibleSleep();
+  private interrupted = false;
 
   /**
    * Chain state overrides built once per slot in proposeCheckpoint after the checkpoint is
@@ -184,6 +187,29 @@ export class CheckpointProposalJob implements Traceable {
   public async awaitPendingSubmission(): Promise<void> {
     this.log.info('Awaiting pending L1 payload submission');
     await this.pendingL1Submission;
+  }
+
+  /** Interrupts job-owned waits so shutdown can finish. */
+  public interrupt(): void {
+    this.interrupted = true;
+    this.interruptibleSleep.interrupt(true);
+  }
+
+  private async awaitInterruptibleSleep(ms: number): Promise<void> {
+    if (this.interrupted) {
+      throw new SequencerInterruptedError();
+    }
+    if (ms <= 0) {
+      return;
+    }
+    try {
+      await this.interruptibleSleep.sleep(ms);
+    } catch (err) {
+      if (err instanceof InterruptError) {
+        throw new SequencerInterruptedError();
+      }
+      throw err;
+    }
   }
 
   private logCheckpointEvent(eventName: string, message: string, fields: Record<string, unknown>): void {
@@ -388,16 +414,21 @@ export class CheckpointProposalJob implements Traceable {
     const timeoutSeconds = Math.max(0.1, (targetSlotEndMs + syncDelayTolerance - this.dateProvider.now()) / 1000);
 
     try {
-      return await retryUntil(
-        async () => {
-          const syncedSlot = await this.l2BlockSource.getSyncedL2SlotNumber();
-          return syncedSlot !== undefined && syncedSlot >= waitForSlot;
-        },
-        `archiver sync past slot ${waitForSlot}`,
-        timeoutSeconds,
-        0.2,
-      );
-    } catch {
+      const timer = new Timer();
+      while (true) {
+        const syncedSlot = await this.l2BlockSource.getSyncedL2SlotNumber();
+        if (syncedSlot !== undefined && syncedSlot >= waitForSlot) {
+          return true;
+        }
+        if (timeoutSeconds && timer.s() > timeoutSeconds) {
+          throw new TimeoutError(`Timeout awaiting archiver sync past slot ${waitForSlot}`);
+        }
+        await this.awaitInterruptibleSleep(ARCHIVER_SYNC_POLLING_MS);
+      }
+    } catch (err) {
+      if (err instanceof SequencerInterruptedError) {
+        throw err;
+      }
       this.log.warn(
         `Archiver did not sync L1 past slot ${waitForSlot} before slot ${this.targetSlot} expired, discarding pipelined work`,
         { checkpointNumber: this.checkpointNumber },
@@ -992,7 +1023,7 @@ export class CheckpointProposalJob implements Traceable {
     this.log.verbose(`Waiting until time for the next block at ${nextSubslotStart}s`, {
       slot: this.targetSlot,
     });
-    await sleepUntil(new Date(nextSubslotStart * 1000), this.dateProvider.nowAsDate());
+    await this.awaitInterruptibleSleep(Math.max(0, nextSubslotStart * 1000 - this.dateProvider.now()));
   }
 
   /** Builds a single block. Called from the main block building loop. */
@@ -1608,7 +1639,7 @@ export class CheckpointProposalJob implements Traceable {
 
   /** Waits the polling interval for transactions. Extracted for test overriding. */
   protected async waitForTxsPollingInterval(): Promise<void> {
-    await sleep(TXS_POLLING_MS);
+    await this.awaitInterruptibleSleep(TXS_POLLING_MS);
   }
 
   public getPublisher() {

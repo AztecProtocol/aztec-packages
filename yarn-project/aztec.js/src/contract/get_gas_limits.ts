@@ -1,6 +1,9 @@
-import { MAX_PROCESSABLE_L2_GAS } from '@aztec/constants';
+import { MAX_PROCESSABLE_L2_GAS, MAX_TX_DA_GAS } from '@aztec/constants';
 import { Gas } from '@aztec/stdlib/gas';
 import type { TxSimulationResult } from '@aztec/stdlib/tx';
+
+/** Max gas limits for a single transaction. */
+const MAX_GAS = new Gas(MAX_TX_DA_GAS, MAX_PROCESSABLE_L2_GAS);
 
 /**
  * Returns suggested total and teardown gas limits for a simulated tx.
@@ -19,15 +22,26 @@ export function getGasLimits(
    */
   teardownGasLimits: Gas;
 } {
-  // Total gas does not use the teardown gas limit, but the actual total gas used by the tx.
-  const gasLimits = simulationResult.gasUsed.totalGas.mul(1 + pad);
-  const teardownGasLimits = simulationResult.gasUsed.teardownGas.mul(1 + pad);
+  const { totalGas, teardownGas } = simulationResult.gasUsed;
 
-  if (gasLimits.l2Gas > MAX_PROCESSABLE_L2_GAS) {
+  // The simulated usage must fit within the per-tx maxima, otherwise the tx can never be included.
+  if (totalGas.l2Gas > MAX_PROCESSABLE_L2_GAS) {
     throw new Error('Transaction consumes more l2 gas than the maximum processable gas');
   }
+  if (totalGas.daGas > MAX_TX_DA_GAS) {
+    throw new Error('Transaction consumes more da gas than a single tx can post to a blob');
+  }
+
+  // Pad the limits by the buffer, then cap each dimension at its per-tx maximum so the buffer cannot
+  // push a limit past what inbound validation accepts.
   return {
-    gasLimits,
-    teardownGasLimits,
+    gasLimits: padGas(totalGas, pad, MAX_GAS),
+    teardownGasLimits: padGas(teardownGas, pad, MAX_GAS),
   };
+}
+
+/** Pads each gas dimension capping it at its per-tx maximum. */
+function padGas(gas: Gas, pad: number, cap: Gas): Gas {
+  const padded = gas.mul(1 + pad);
+  return new Gas(Math.min(padded.daGas, cap.daGas), Math.min(padded.l2Gas, cap.l2Gas));
 }

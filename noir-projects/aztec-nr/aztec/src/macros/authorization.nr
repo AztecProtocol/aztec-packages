@@ -38,13 +38,12 @@ pub comptime fn generate_authorization_interface_and_get_selector(s: TypeDefinit
 
     (
         quote {
-        impl $authorization_interface for $name {
-            fn get_authorization_selector(self) -> $authorization_selector_type {
-                $from_field($authorization_selector)
+            impl $authorization_interface for $name {
+                fn get_authorization_selector(self) -> $authorization_selector_type {
+                    $from_field($authorization_selector)
+                }
             }
-        }
-    },
-        authorization_selector,
+        }, authorization_selector,
     )
 }
 

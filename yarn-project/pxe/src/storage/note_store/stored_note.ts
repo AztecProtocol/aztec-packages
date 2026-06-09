@@ -1,48 +1,26 @@
-import { BlockNumber } from '@aztec/foundation/branded-types';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { NoteDao } from '@aztec/stdlib/note';
 
+/** A note as stored by the PXE: the note DAO plus the scopes that observed it. Append-only — never mutated. */
 export class StoredNote {
   constructor(
     readonly noteDao: NoteDao,
     readonly scopes: Set<string>,
-    private _nullifiedAt: BlockNumber | undefined = undefined,
   ) {}
 
-  static fromBuffer(buffer: Buffer) {
+  static fromBuffer(buffer: Buffer): StoredNote {
     const reader = BufferReader.asReader(buffer);
-
     const noteDao = NoteDao.fromBuffer(reader);
     const scopes = reader.readVector({ fromBuffer: (r: BufferReader) => r.readString() });
-
-    const nullifiedAtRaw = reader.readNumber();
-    const nullifiedAt = nullifiedAtRaw === 0 ? undefined : (nullifiedAtRaw as BlockNumber);
-
-    return new StoredNote(noteDao, new Set(scopes), nullifiedAt);
+    return new StoredNote(noteDao, new Set(scopes));
   }
 
   toBuffer(): Buffer {
     const scopesArray = [...this.scopes];
-    return serializeToBuffer(this.noteDao, scopesArray.length, ...scopesArray, this._nullifiedAt ?? 0);
+    return serializeToBuffer(this.noteDao, scopesArray.length, ...scopesArray);
   }
 
-  addScope(scope: string) {
+  addScope(scope: string): void {
     this.scopes.add(scope);
-  }
-
-  markAsNullified(blockNumber: BlockNumber) {
-    this._nullifiedAt = blockNumber;
-  }
-
-  markAsActive() {
-    this._nullifiedAt = undefined;
-  }
-
-  isNullified() {
-    return this._nullifiedAt !== undefined;
-  }
-
-  get nullifiedAt() {
-    return this._nullifiedAt;
   }
 }
