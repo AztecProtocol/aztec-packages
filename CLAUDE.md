@@ -53,6 +53,10 @@ Follow Conventional Commits: `fix:`, `feat:`, `chore:`, `refactor:`, `docs:`, `t
 When staging files, prefer `git add -u` or name specific files rather than `git add -A` or `git add .`. The aggregate flags will pick up unrelated untracked working directories (e.g. personal scratch projects at the repo root) and quietly stage them. Subagents must always name specific files in `git add` — never `-u`, `-A`, or `.` — because they lack the main conversation's context for judging which changes belong to the current task.
 </git_staging>
 
+<worktrees>
+To create a git worktree, use `scripts/worktrees.sh create <name> [base-ref]` instead of bare `git worktree add` followed by a full bootstrap: it seeds the worktree from cached build artifacts (shared read-only store + copies of the yarn layer) in minutes. Upstream artifacts in such worktrees are read-only symlinks — run `scripts/worktrees.sh thaw <path>` before rebuilding an upstream component locally. See `scripts/worktrees.sh --help`.
+</worktrees>
+
 <lockfile_discipline>
 Never bulk-update lockfiles (`Cargo.lock`, `yarn.lock`). Use targeted updates only: `cargo update --precise <version> --package <name>` for Rust, and `yarn up <package>@<version>` in the relevant workspace for TypeScript. Bulk updates drag in unrelated transitive changes that make review impossible and frequently break reproducibility.
 </lockfile_discipline>
