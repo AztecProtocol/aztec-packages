@@ -9,10 +9,6 @@
       "value": "num:179"
     },
     {
-      "key": "utf8:proposedCheckpoint",
-      "value": "num:71"
-    },
-    {
       "key": "utf8:proven",
       "value": "num:79"
     }
@@ -20,10 +16,6 @@
   "pxe_l2_tip_checkpoints": [
     {
       "key": "utf8:checkpointed",
-      "value": "{\"number\":47,\"hash\":\"0x00a21eaf943186f15f609a8a76fb0bee7ce3e78c86ef95f5466614e59546eb19\"}"
-    },
-    {
-      "key": "utf8:proposedCheckpoint",
       "value": "{\"number\":47,\"hash\":\"0x00a21eaf943186f15f609a8a76fb0bee7ce3e78c86ef95f5466614e59546eb19\"}"
     },
     {

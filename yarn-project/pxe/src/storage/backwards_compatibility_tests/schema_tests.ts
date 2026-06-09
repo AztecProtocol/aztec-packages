@@ -256,8 +256,7 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
       );
 
       // `'blocks-added'` writes to `pxe_l2_tips` (proposed tag) and `pxe_l2_block_hashes`.
-      // `'chain-checkpointed'` writes the tips ('checkpointed' and 'proposedCheckpoint' tags) and their checkpoint ids
-      // (`pxe_l2_tip_checkpoints`).
+      // `'chain-checkpointed'` writes the 'checkpointed' tip and its checkpoint id (`pxe_l2_tip_checkpoints`).
       await l2TipsStore.handleBlockStreamEvent({ type: 'blocks-added', blocks: [block] });
       await l2TipsStore.handleBlockStreamEvent({
         type: 'chain-checkpointed',

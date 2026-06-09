@@ -14,7 +14,7 @@ import {
   type L2BlockStreamEvent,
   type L2BlockStreamEventHandler,
   type L2BlockStreamLocalDataProvider,
-  type L2Tips,
+  type LocalL2Tips,
 } from '@aztec/stdlib/block';
 import {
   WorldStateRunningState,
@@ -267,7 +267,7 @@ export class ServerWorldStateSynchronizer
   }
 
   /** Returns the latest L2 block number for each tip of the chain (latest, proven, finalized). */
-  public async getL2Tips(): Promise<L2Tips> {
+  public async getL2Tips(): Promise<LocalL2Tips> {
     const status = await this.merkleTreeDb.getStatusSummary();
     const unfinalizedBlockHashPromise = this.getL2BlockHash(status.unfinalizedBlockNumber);
     const finalizedBlockHashPromise = this.getL2BlockHash(status.finalizedBlockNumber);
@@ -291,10 +291,6 @@ export class ServerWorldStateSynchronizer
     return {
       proposed: latestBlockId,
       checkpointed: {
-        block: { number: BlockNumber.ZERO, hash: initialBlockHash },
-        checkpoint: { number: INITIAL_CHECKPOINT_NUMBER, hash: genesisCheckpointHeaderHash },
-      },
-      proposedCheckpoint: {
         block: { number: BlockNumber.ZERO, hash: initialBlockHash },
         checkpoint: { number: INITIAL_CHECKPOINT_NUMBER, hash: genesisCheckpointHeaderHash },
       },

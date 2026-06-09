@@ -1,10 +1,10 @@
 import type { PublishedCheckpoint } from '../../checkpoint/published_checkpoint.js';
 import type { L2Block } from '../l2_block.js';
-import type { CheckpointId, L2BlockId, L2TipId, L2Tips } from '../l2_block_source.js';
+import type { CheckpointId, L2BlockId, L2TipId, LocalL2Tips } from '../l2_block_source.js';
 
 /** Provides the current chain tips. Implemented by world-state, l2-tips-store, and AztecNode. */
 export interface L2TipsProvider {
-  getL2Tips(): Promise<L2Tips>;
+  getL2Tips(): Promise<LocalL2Tips>;
 }
 
 /** Interface to the local view of the chain. Implemented by world-state and l2-tips-store. */

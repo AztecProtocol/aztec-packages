@@ -16,7 +16,7 @@ import {
   GENESIS_CHECKPOINT_HEADER_HASH,
   type L2BlockId,
   type L2BlockSource,
-  type L2Tips,
+  type LocalL2Tips,
 } from '../l2_block_source.js';
 import type { L2BlockStreamEvent, L2BlockStreamEventHandler, L2BlockStreamLocalDataProvider } from './interfaces.js';
 import { L2BlockStream } from './l2_block_stream.js';
@@ -1810,10 +1810,6 @@ class TestL2BlockStreamLocalDataProvider implements L2BlockStreamLocalDataProvid
     block: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
     checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
   };
-  public proposedCheckpointed = {
-    block: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
-    checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
-  };
   public proven = {
     block: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
     checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
@@ -1829,11 +1825,10 @@ class TestL2BlockStreamLocalDataProvider implements L2BlockStreamLocalDataProvid
     );
   }
 
-  public getL2Tips(): Promise<L2Tips> {
+  public getL2Tips(): Promise<LocalL2Tips> {
     return Promise.resolve({
       proposed: this.proposed,
       checkpointed: this.checkpointed,
-      proposedCheckpoint: this.proposedCheckpointed,
       proven: this.proven,
       finalized: this.finalized,
     });

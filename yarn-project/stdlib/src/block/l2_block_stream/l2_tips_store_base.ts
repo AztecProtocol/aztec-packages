@@ -7,7 +7,7 @@ import {
   GENESIS_CHECKPOINT_HEADER_HASH,
   type L2BlockId,
   type L2BlockTag,
-  type L2Tips,
+  type LocalL2Tips,
 } from '../l2_block_source.js';
 import type { L2BlockStreamEvent, L2BlockStreamEventHandler, L2BlockStreamLocalDataProvider } from './interfaces.js';
 
@@ -52,31 +52,26 @@ export abstract class L2TipsStoreBase implements L2BlockStreamEventHandler, L2Bl
     return this.getStoredBlockHash(number);
   }
 
-  public getL2Tips(): Promise<L2Tips> {
+  public getL2Tips(): Promise<LocalL2Tips> {
     return this.runInTransaction(async () => {
-      const [proposedBlockId, finalizedBlockId, provenBlockId, checkpointedBlockId, proposedCheckpointBlockId] =
-        await Promise.all([
-          this.getBlockId('proposed'),
-          this.getBlockId('finalized'),
-          this.getBlockId('proven'),
-          this.getBlockId('checkpointed'),
-          this.getBlockId('proposedCheckpoint'),
-        ]);
+      const [proposedBlockId, finalizedBlockId, provenBlockId, checkpointedBlockId] = await Promise.all([
+        this.getBlockId('proposed'),
+        this.getBlockId('finalized'),
+        this.getBlockId('proven'),
+        this.getBlockId('checkpointed'),
+      ]);
 
-      const [finalizedCheckpointId, provenCheckpointId, checkpointedCheckpointId, proposedCheckpointId] =
-        await Promise.all([
-          this.getCheckpointId('finalized'),
-          this.getCheckpointId('proven'),
-          this.getCheckpointId('checkpointed'),
-          this.getCheckpointId('proposedCheckpoint'),
-        ]);
+      const [finalizedCheckpointId, provenCheckpointId, checkpointedCheckpointId] = await Promise.all([
+        this.getCheckpointId('finalized'),
+        this.getCheckpointId('proven'),
+        this.getCheckpointId('checkpointed'),
+      ]);
 
       return {
         proposed: proposedBlockId,
         finalized: { block: finalizedBlockId, checkpoint: finalizedCheckpointId },
         proven: { block: provenBlockId, checkpoint: provenCheckpointId },
         checkpointed: { block: checkpointedBlockId, checkpoint: checkpointedCheckpointId },
-        proposedCheckpoint: { block: proposedCheckpointBlockId, checkpoint: proposedCheckpointId },
       };
     });
   }
@@ -164,13 +159,6 @@ export abstract class L2TipsStoreBase implements L2BlockStreamEventHandler, L2Bl
       };
       await this.saveTag('checkpointed', event.block);
       await this.setTipCheckpoint('checkpointed', checkpointId);
-      // proposedCheckpoint is always >= checkpointed. If checkpointed has caught up
-      // or surpassed it, advance proposedCheckpoint to match.
-      const proposedCheckpointBlock = await this.getBlockId('proposedCheckpoint');
-      if (event.block.number > proposedCheckpointBlock.number) {
-        await this.saveTag('proposedCheckpoint', event.block);
-        await this.setTipCheckpoint('proposedCheckpoint', checkpointId);
-      }
     });
   }
 
@@ -188,7 +176,7 @@ export abstract class L2TipsStoreBase implements L2BlockStreamEventHandler, L2Bl
       // Clamp any checkpoint-bearing cursor that leads the source's confirmed checkpointed tip down to
       // that tip. The event always carries a valid (block, id) pair for the checkpointed boundary, so the
       // clamped cursor always resolves to a recorded id.
-      for (const tag of ['checkpointed', 'proposedCheckpoint', 'proven'] as const) {
+      for (const tag of ['checkpointed', 'proven'] as const) {
         const current = await this.getTip(tag);
         if (current !== undefined && current > event.checkpointed.block.number) {
           await this.saveTag(tag, event.checkpointed.block);
@@ -220,12 +208,7 @@ export abstract class L2TipsStoreBase implements L2BlockStreamEventHandler, L2Bl
       // than the finalized tip alone: this should always be the finalized tip, but we have hit bugs where
       // this is not the case. Deleting the block hash for a live tip would dangle subsequent `getBlockId`
       // lookups and lock the block stream into an error loop.
-      const tips = await Promise.all([
-        this.getTip('proposed'),
-        this.getTip('proposedCheckpoint'),
-        this.getTip('checkpointed'),
-        this.getTip('proven'),
-      ]);
+      const tips = await Promise.all([this.getTip('proposed'), this.getTip('checkpointed'), this.getTip('proven')]);
       const liveTipBlocks = tips.filter((t): t is BlockNumber => t !== undefined && t > 0);
       const safeBlockBound = BlockNumber(Math.min(event.block.number, ...liveTipBlocks));
       await this.deleteBlockHashesBefore(safeBlockBound);

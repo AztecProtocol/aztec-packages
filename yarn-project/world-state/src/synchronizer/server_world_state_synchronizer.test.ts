@@ -306,7 +306,6 @@ class TestWorldStateSynchronizer extends ServerWorldStateSynchronizer {
       checkpointed: makeTipId(this.latest),
       proven: makeTipId(this.proven),
       finalized: makeTipId(this.finalized),
-      proposedCheckpoint: makeTipId(this.latest),
     });
   }
 }
