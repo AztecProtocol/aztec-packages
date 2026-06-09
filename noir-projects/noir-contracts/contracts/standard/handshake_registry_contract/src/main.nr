@@ -38,13 +38,13 @@ pub contract HandshakeRegistry {
             constants::DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG,
             hash::compute_log_tag,
             point::EmbeddedCurvePoint,
-            traits::{Deserialize, Packable, Serialize, ToField},
+            traits::{Deserialize, Serialize, ToField},
         },
         state_vars::{Map, Owned, PrivateMutable},
     };
 
     /// A handshake discovered during sync: the sender's ephemeral public key and the delivery mode.
-    #[derive(Deserialize, Eq, Packable, Serialize)]
+    #[derive(Deserialize, Eq, Serialize)]
     pub struct DiscoveredHandshake {
         pub eph_pk: EmbeddedCurvePoint,
         pub mode: OnchainDeliveryMode,
