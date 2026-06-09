@@ -69,6 +69,9 @@ impl Eq for DeliveryMode {
 
 /// The mode of an on-chain message delivery: unconstrained or constrained tagging.
 ///
+/// This is kept separate from the private [`DeliveryMode`] wrapper because it is used in external ABIs and therefore
+/// owns the serialization and validation for the on-chain-only subset.
+///
 /// Consumers derive modes through the delivery API, e.g.
 /// `let mode: OnchainDeliveryMode = MessageDelivery::onchain_unconstrained().into()`.
 #[derive(Serialize)]
@@ -96,7 +99,7 @@ impl OnchainDeliveryMode {
     }
 
     /// Whether `self` is one of the valid on-chain delivery modes.
-    pub fn is_valid(self) -> bool {
+    fn is_valid(self) -> bool {
         (self == Self::onchain_unconstrained()) | (self == Self::onchain_constrained())
     }
 
@@ -332,10 +335,6 @@ impl MessageDelivery {
         }
     }
 
-    /// The on-chain delivery mode, or `None` for an offchain delivery (which has no mode).
-    fn onchain_mode(self) -> Option<OnchainDeliveryMode> {
-        self.mode.onchain_mode()
-    }
 }
 
 /// Performs private delivery of a message to `recipient` according to `delivery_mode`.
@@ -371,7 +370,7 @@ where
     // dead-code elimination.
     assert_constant(delivery.mode.inner);
 
-    let onchain_mode = delivery.onchain_mode();
+    let onchain_mode = delivery.mode.onchain_mode();
     let deliver_as_offchain_message = delivery.mode == DeliveryMode::offchain();
     let is_constrained = delivery.mode == DeliveryMode::onchain_constrained();
 
@@ -648,17 +647,17 @@ mod test {
     #[test]
     fn built_delivery_mode_matches_the_mode() {
         assert(MessageDelivery::offchain().build_message_delivery().mode == DeliveryMode::offchain());
-        assert(MessageDelivery::offchain().build_message_delivery().onchain_mode().is_none());
+        assert(MessageDelivery::offchain().build_message_delivery().mode.onchain_mode().is_none());
         assert(
             MessageDelivery::onchain_unconstrained().build_message_delivery().mode
                 == DeliveryMode::onchain_unconstrained(),
         );
         assert(
-            MessageDelivery::onchain_constrained().build_message_delivery().onchain_mode().unwrap()
+            MessageDelivery::onchain_constrained().build_message_delivery().mode.onchain_mode().unwrap()
                 == OnchainDeliveryMode::onchain_constrained(),
         );
         assert(
-            MessageDelivery::onchain_unconstrained().build_message_delivery().onchain_mode().unwrap()
+            MessageDelivery::onchain_unconstrained().build_message_delivery().mode.onchain_mode().unwrap()
                 == OnchainDeliveryMode::onchain_unconstrained(),
         );
     }
