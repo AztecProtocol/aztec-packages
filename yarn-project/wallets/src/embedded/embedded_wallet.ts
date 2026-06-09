@@ -284,6 +284,7 @@ export class EmbeddedWallet extends BaseWallet {
     await this.pxe.registerContractClass(ecdsaArtifact);
 
     this.stubClassIds.set('schnorr', schnorrClassId);
+    this.stubClassIds.set('schnorr_initializerless', schnorrClassId);
     this.stubClassIds.set('ecdsasecp256k1', ecdsaClassId);
     this.stubClassIds.set('ecdsasecp256r1', ecdsaClassId);
   }
@@ -391,6 +392,10 @@ export class EmbeddedWallet extends BaseWallet {
     switch (type) {
       case 'schnorr': {
         contract = await this.accountContracts.getSchnorrAccountContract(Fq.fromBuffer(signingKey));
+        break;
+      }
+      case 'schnorr_initializerless': {
+        contract = await this.accountContracts.getSchnorrInitializerlessAccountContract(Fq.fromBuffer(signingKey));
         break;
       }
       case 'ecdsasecp256k1': {
