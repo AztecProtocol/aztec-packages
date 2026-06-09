@@ -9,19 +9,7 @@ state_dir=$4
 
 cd $(dirname $0)
 
-bid_per_cpu_hour=0.0433
-
-instance_types_amd64=(
-  m6a
-  m7a
-  m7i
-)
-
-instance_types_arm64=(
-  r7g
-)
-
-# Declare an associative array to map CPU counts to instance type suffixes.
+# Map a cpu count to its instance size suffix.
 declare -A cpu_map
 cpu_map=(
   [2]="large"
@@ -37,32 +25,69 @@ cpu_map=(
   [0192]="metal"
 )
 
+# Spot pool preference by cpu count (lower number = tried first). 128 is the
+# known-good build size, then 192, then 64 as a last resort before on-demand.
+declare -A cpu_priority=([128]=1 [192]=2 [64]=3)
+
+# Capacity-diverse spot pools per cpu count. Restricted to families with
+# >=4 GB/vCPU (m/r) so the build's measured ~1.9 GB/vCPU peak keeps ~2x
+# headroom; c-series (2 GB/vCPU) is opt-in via CI_SPOT_INCLUDE_C. All entries
+# are confirmed offered as spot across every us-east-2 AZ.
+function spot_pools_for {
+  local cpu=$1
+  case "$arch" in
+    x86_64|amd64)
+      case "$cpu" in
+        128) echo "m6a.32xlarge m7a.32xlarge m6i.32xlarge r6a.32xlarge r7a.32xlarge" ;;
+        192) echo "m6a.48xlarge m7a.48xlarge m7i.48xlarge r6a.48xlarge r7a.48xlarge" ;;
+        64)  echo "m6a.16xlarge m7a.16xlarge m7i.16xlarge m6i.16xlarge m5.16xlarge r6a.16xlarge" ;;
+        *)   local s=${cpu_map[$cpu]:?Unknown cpu count: $cpu}; echo "m6a.$s m7a.$s m6i.$s r6a.$s" ;;
+      esac ;;
+    arm64)
+      case "$cpu" in
+        64) echo "r7g.16xlarge r8g.16xlarge m7g.16xlarge m8g.16xlarge" ;;
+        *)  local s=${cpu_map[$cpu]:?Unknown cpu count: $cpu}; echo "r7g.$s r8g.$s m7g.$s m8g.$s" ;;
+      esac ;;
+  esac
+}
+
+# Optional c-series pools (2 GB/vCPU). Gated behind CI_SPOT_INCLUDE_C until
+# build-phase parallelism is throttled to fit the lower memory headroom.
+function spot_pools_c_for {
+  local cpu=$1
+  case "$arch" in
+    x86_64|amd64)
+      case "$cpu" in
+        128) echo "c6a.32xlarge c6i.32xlarge" ;;
+        192) echo "c6a.48xlarge c7a.48xlarge" ;;
+        64)  echo "c6a.16xlarge c6i.16xlarge" ;;
+      esac ;;
+  esac
+}
+
 if [ "$arch" == "x86_64" ] || [ "$arch" == "amd64" ]; then
-  instances=("${instance_types_amd64[@]}")
   ami=${AMI:-$(cat ./aws/ami_id_amd64)}
 elif [ "$arch" == "arm64" ]; then
-  instances=("${instance_types_arm64[@]}")
   ami=${AMI:-$(cat ./aws/ami_id_arm64)}
 else
   echo "Unsupported arch: $arch" >&2
   exit 1
 fi
 
+# Build the fleet override set as space-separated "instanceType:priority" tokens.
+# AWS_INSTANCE pins a single pool (e.g. for debugging); otherwise diversify
+# across every requested size.
+overrides=""
 if [ -n "${AWS_INSTANCE:-}" ]; then
-  instances=("$AWS_INSTANCE")
+  overrides="$AWS_INSTANCE:1"
+else
+  IFS=',' read -ra cpu_list <<< "$cpus"
+  for cpu in "${cpu_list[@]}"; do
+    prio=${cpu_priority[$cpu]:-9}
+    types="$(spot_pools_for "$cpu")"
+    [ "${CI_SPOT_INCLUDE_C:-0}" -eq 1 ] && types+=" $(spot_pools_c_for "$cpu")"
+    for t in $types; do overrides+=" $t:$prio"; done
+  done
 fi
 
-set +e
-IFS=',' read -ra cpu_list <<< "$cpus"
-for cpu in "${cpu_list[@]}"; do
-  price=$(jq -n "$bid_per_cpu_hour*$cpu*100000 | round / 100000")
-  suffix=${cpu_map[$cpu]}
-  for inst in "${instances[@]}"; do
-    instance_type="$inst.$suffix"
-    aws_request_instance_type $name $instance_type $price $ami $state_dir
-    code=$?
-    [[ "$code" -eq 0 || "$code" -eq 143 || "$code" -eq 130 ]] && exit $code
-    echo "Instance request exited with code: $code"
-  done
-done
-exit 1
+FLEET_OVERRIDES="${overrides# }" aws_request_instance_type "$name" "$ami" "$state_dir"
