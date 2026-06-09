@@ -40,10 +40,7 @@ global ONCHAIN_UNCONSTRAINED: u8 = 2;
 /// Delivery variant identifier for on-chain message delivery with constrained encryption/tagging.
 global ONCHAIN_CONSTRAINED: u8 = 3;
 
-/// The tagging/index namespace for on-chain delivery.
-///
-/// Off-chain delivery has no mode. The handshake registry and tagging index oracle consume this typed discriminant
-/// rather than raw delivery constants.
+/// The mode of an on-chain message delivery: unconstrained or constrained tagging.
 ///
 /// Consumers derive modes through the delivery API, e.g.
 /// `let mode: OnchainDeliveryMode = MessageDelivery::onchain_unconstrained().into()`.
