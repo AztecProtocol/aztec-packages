@@ -5,7 +5,7 @@ pub use message::OffchainMessage;
 use crate::{
     context::UtilityContext,
     ephemeral::EphemeralArray,
-    messages::processing::OffchainMessageWithContext,
+    messages::processing::{MessageContext, OffchainMessageWithContext},
     oracle::{
         contract_sync::set_contract_sync_cache_invalid,
         entity_store::{EntityBody, Fact, NonRetractableEntity, record_retractable_fact, terminate_entity},
@@ -109,6 +109,31 @@ pub unconstrained fn receive(
     set_contract_sync_cache_invalid(contract_address, messages.map(|msg| msg.recipient));
 }
 
+/// Decides whether an active reception is ready to be processed, given its resolved tx context.
+///
+/// Returns `Some` with the message and the context to hand off when the reception is `received` - its tx context has
+/// resolved and it has not yet been processed. Returns `None` otherwise: when it is still unresolved (the originating
+/// TX is not yet known to PXE, or the message is tx-less and never resolves) or has already been processed. The
+/// reception's state is derived by folding its facts, so an already-processed reception is never handed off again,
+/// keeping processing idempotent. This decision is pure: applying its consequences (recording the `Processed` fact,
+/// evicting expired receptions) is the caller's responsibility.
+unconstrained fn process_message(
+    reception: NonRetractableEntity<OffchainMessage>,
+    maybe_ctx: Option<MessageContext>,
+) -> Option<OffchainMessageWithContext> {
+    let state = fold(reception.facts);
+    if (state == OffchainReceptionState::received()) & maybe_ctx.is_some() {
+        Option::some(
+            OffchainMessageWithContext {
+                message_ciphertext: reception.body.ciphertext,
+                message_context: maybe_ctx.unwrap(),
+            },
+        )
+    } else {
+        Option::none()
+    }
+}
+
 /// Returns offchain-delivered messages to process during sync.
 ///
 /// Each active reception entity is advanced based on its folded state, its message's expiration, and whether its
@@ -135,37 +160,20 @@ pub unconstrained fn sync_inbox(
     let now = UtilityContext::new().timestamp();
 
     active_receptions.for_each(|i, reception| {
-        // For each active message reception workflow, decide what to do. We check readiness to process before
-        // expiration, so a message whose context resolves on the same sync it would otherwise be evicted still gets
-        // handed off. We handle the following scenarios:
-        //
-        // - Received and resolved: the originating TX has been found by PXE, giving us the context needed to
-        //   process the message. We add it to `ready_to_process` and record a `Processed` fact anchored at the
-        //   resolving block. If the block gets reorg'd, the `Processed` fact is retracted, effectively rewinding
-        //   the message's lifecycle. The reception stays active; a later sync evicts it.
-        //
-        // - Expired (and not processable this sync): the message's effective expiration
-        //   (`anchor_block_timestamp + MAX_MSG_TTL`) has passed and it is not being handed off now, so we
-        //   terminate the reception to stop tracking it. An expired-but-resolved message is processed this sync and
-        //   terminated on the next one, once it has folded to processed.
-        //
-        // - Received and unresolved: the originating TX is not yet known to PXE (or the message is tx-less, which
-        //   never resolves) and it has not expired. We leave the reception active so future syncs can pick it up.
-        //
-        // - Already processed (and not expired): we skip the message to avoid re-pushing it, but keep it active
-        //   until expiration.
-        let msg = reception.body;
-        let key = msg.entity_id();
-        let state = fold(reception.facts);
-        let maybe_ctx = resolved_contexts.get(i);
+        // Apply the consequence of each reception's readiness. A ready message (`Some`) is collected for processing
+        // and recorded as `Processed`, anchored at the resolving block - so a reorg of that block retracts the guard
+        // and the message is re-processed; the reception stays active and a later sync evicts it. An unready message
+        // that has expired (its effective expiration `anchor_block_timestamp + MAX_MSG_TTL` has passed) is terminated
+        // to stop tracking it. Readiness is decided before expiration, so an expired-but-resolved message is still
+        // handed off this sync and terminated on a later one, once it has folded to processed. Otherwise the reception
+        // is left active for a future sync to pick up.
+        let key = reception.body.entity_id();
+        let expired = now > reception.body.anchor_block_timestamp + MAX_MSG_TTL;
 
-        let expired = now > msg.anchor_block_timestamp + MAX_MSG_TTL;
-
-        if (state == OffchainReceptionState::received()) & maybe_ctx.is_some() {
-            let ctx = maybe_ctx.unwrap();
-            ready_to_process.push(
-                OffchainMessageWithContext { message_ciphertext: msg.ciphertext, message_context: ctx },
-            );
+        let maybe_ready = process_message(reception, resolved_contexts.get(i));
+        if maybe_ready.is_some() {
+            let ready = maybe_ready.unwrap();
+            ready_to_process.push(ready);
             record_retractable_fact(
                 contract_address,
                 scope,
@@ -173,8 +181,8 @@ pub unconstrained fn sync_inbox(
                 key,
                 OFFCHAIN_MESSAGE_PROCESSED,
                 [],
-                ctx.tx_block_number,
-                ctx.tx_block_hash,
+                ready.message_context.tx_block_number,
+                ready.message_context.tx_block_hash,
             );
         } else if expired {
             terminate_entity(contract_address, scope, OFFCHAIN_RECEPTION_ENTITY, key);
