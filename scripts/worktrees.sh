@@ -137,12 +137,14 @@ function yp_same_state {
   if [[ -n "$hs" && -n "$hw" ]]; then
     [[ "$hs" == "$hw" ]] && return 0 || return 1
   fi
-  # Hashes disabled (uncommitted changes somewhere): fall back to commit + clean tree.
+  # Hashes disabled (uncommitted changes somewhere): fall back to commit + clean tracked files.
+  # -uno: untracked scratch files can't change build outputs (nothing tracked references them), and
+  # blocking on them would force a full rebuild in every worktree made from a mildly messy checkout.
   local cs cw
   cs=$(git -C "$src" rev-parse HEAD)
   cw=$(git -C "$wt" rev-parse HEAD)
   [[ "$cs" == "$cw" ]] || return 1
-  [[ -z "$(git -C "$src" status --porcelain -- yarn-project)" ]] || return 1
+  [[ -z "$(git -C "$src" status --porcelain -uno -- yarn-project)" ]] || return 1
   return 0
 }
 

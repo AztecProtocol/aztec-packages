@@ -100,10 +100,16 @@ export -f get_contract_path
 # ci3/release_prep_package_json for npm packages, release-image/Dockerfile for the docker image.
 function stamp_dev_aztec_version {
   local json_path=$1
+  if [ "$(jq -r '.aztec_version // empty' "$json_path")" == "dev" ]; then
+    return 0
+  fi
   local tmp=$(mktemp)
   jq '.aztec_version = "dev"' "$json_path" > "$tmp"
-  cat "$tmp" > "$json_path"
-  rm "$tmp"
+  chmod 644 "$tmp"
+  # Replace by rename rather than writing through the path: when the artifact is a symlink into a
+  # frozen cached store (CACHE_LINK_DIR worktrees), this swaps the symlink for a real stamped copy
+  # instead of failing to write the read-only store file.
+  mv -f "$tmp" "$json_path"
 }
 export -f stamp_dev_aztec_version
 

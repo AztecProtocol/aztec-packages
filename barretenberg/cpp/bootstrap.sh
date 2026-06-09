@@ -15,6 +15,12 @@ export native_build_dir=$(scripts/preset-build-dir $native_preset)
 # Uses a sentinel prefix to reliably find the version location, enabling re-injection on cached binaries.
 function inject_version {
   local binary=$1
+  # Read-only binaries are frozen cached-store artifacts (CACHE_LINK_DIR worktrees); stamping them
+  # would mutate state shared across checkouts, so leave them with their as-built version.
+  if [ ! -w "$binary" ]; then
+    echo "Skipping version injection into read-only cached binary $binary." >&2
+    return 0
+  fi
   if semver check "$REF_NAME"; then
     local version=${REF_NAME#v}
   else

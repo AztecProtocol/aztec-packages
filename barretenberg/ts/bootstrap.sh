@@ -28,14 +28,20 @@ function build {
 
   # We copy snapshot dirs to dest so we can run tests from dest.
   # This is because web-workers run into issues with transpilation.
-  for snapshot_dir in src/**/__snapshots__; do
-    dest_dir="${snapshot_dir/src\//dest\/node\/}"
-    rm -rf "$dest_dir"
-    cp -r "$snapshot_dir" "$dest_dir"
-    for file in $dest_dir/*.test.ts.snap; do
-      mv "$file" "${file/.test.ts.snap/.test.js.snap}"
+  # Skipped when dest is a read-only cached-store symlink (CACHE_LINK_DIR worktrees): bb.js's own
+  # tests can't run from such a checkout anyway, and consumers don't need the snapshots.
+  if [ -w dest/node ]; then
+    for snapshot_dir in src/**/__snapshots__; do
+      dest_dir="${snapshot_dir/src\//dest\/node\/}"
+      rm -rf "$dest_dir"
+      cp -r "$snapshot_dir" "$dest_dir"
+      for file in $dest_dir/*.test.ts.snap; do
+        mv "$file" "${file/.test.ts.snap/.test.js.snap}"
+      done
     done
-  done
+  else
+    echo "Skipping snapshot copy into read-only cached dest." >&2
+  fi
 }
 
 function test_cmds {
