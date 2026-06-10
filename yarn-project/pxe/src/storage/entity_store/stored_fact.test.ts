@@ -1,7 +1,8 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
-import { StoredEntity, StoredFact, entityKeyOf, factRowKeyOf, scopeKeyOf } from './stored_fact.js';
+import { entityKeyOf, scopeKeyOf } from './entity_keys.js';
+import { StoredFact, factRowKeyOf } from './stored_fact.js';
 
 describe('StoredFact', () => {
   const contract = AztecAddress.fromBigInt(100n);
@@ -40,36 +41,5 @@ describe('StoredFact', () => {
     const c = new StoredFact(contract, scope, entityType, entityId, factType, [new Fr(1n)], undefined);
     expect(a.payloadHash()).not.toEqual(b.payloadHash());
     expect(a.payloadHash()).toEqual(c.payloadHash());
-  });
-});
-
-describe('StoredEntity', () => {
-  const contract = AztecAddress.fromBigInt(100n);
-  const scope = AztecAddress.fromBigInt(1n);
-  const entityType = new Fr(7n);
-  const entityId = new Fr(42n);
-
-  it('round-trips a retractable entity through buffer serialization', () => {
-    const entity = new StoredEntity(contract, scope, entityType, entityId, [new Fr(9n), new Fr(10n)], {
-      blockNumber: 12,
-      blockHash: new Fr(0xabcn),
-    });
-    const back = StoredEntity.fromBuffer(entity.toBuffer());
-    expect(back).toEqual(entity);
-    expect(back.isRetractable).toBe(true);
-  });
-
-  it('round-trips a non-retractable entity (no origin block)', () => {
-    const entity = new StoredEntity(contract, scope, entityType, entityId, [new Fr(9n)], undefined);
-    const back = StoredEntity.fromBuffer(entity.toBuffer());
-    expect(back).toEqual(entity);
-    expect(back.isRetractable).toBe(false);
-  });
-
-  it('round-trips an entity with an empty payload', () => {
-    const entity = new StoredEntity(contract, scope, entityType, entityId, [], undefined);
-    const back = StoredEntity.fromBuffer(entity.toBuffer());
-    expect(back).toEqual(entity);
-    expect(back.payload).toEqual([]);
   });
 });

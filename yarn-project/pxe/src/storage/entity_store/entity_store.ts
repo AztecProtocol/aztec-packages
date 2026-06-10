@@ -5,16 +5,9 @@ import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap } from '@azte
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import type { StagedStore } from '../../job_coordinator/job_coordinator.js';
-import {
-  type OriginBlock,
-  StoredEntity,
-  StoredFact,
-  entityKey,
-  entityKeyOf,
-  factRowKeyOf,
-  scopeKey,
-  scopeKeyOf,
-} from './stored_fact.js';
+import { type OriginBlock, entityKey, entityKeyOf, scopeKey, scopeKeyOf } from './entity_keys.js';
+import { StoredEntity } from './stored_entity.js';
+import { StoredFact, factRowKeyOf } from './stored_fact.js';
 
 type JobId = string;
 
