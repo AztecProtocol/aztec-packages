@@ -88,6 +88,11 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         wi_idx_args[3] = (num_dense + alloc_grain - 1u) / alloc_grain;
         wi_idx_args[4] = 1u;
         wi_idx_args[5] = 1u;
+        // Task-wide kernels (idx_cuts / idx_place, analytic path): one
+        // thread per task, num_tasks = S * num_active_threads.
+        wi_idx_args[9] = (S * num_active_threads + IDX_TPB - 1u) / IDX_TPB;
+        wi_idx_args[10] = 1u;
+        wi_idx_args[11] = 1u;
     }
 
     if (t >= num_active_threads) { return; }

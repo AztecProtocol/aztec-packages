@@ -37,6 +37,8 @@ import {
   ba_walker_idx_epilogue as ba_walker_idx_epilogue_shader,
   ba_walker_idx_scatter as ba_walker_idx_scatter_shader,
   ba_walker_idx_sort as ba_walker_idx_sort_shader,
+  ba_walker_idx_cuts as ba_walker_idx_cuts_shader,
+  ba_walker_idx_place as ba_walker_idx_place_shader,
   ba_walker_pt_init_scan as ba_walker_pt_init_scan_shader,
   ba_walker_pt_init_copy as ba_walker_pt_init_copy_shader,
   ba_walker_pt_build as ba_walker_pt_build_shader,
@@ -1391,6 +1393,17 @@ ${packLines.join('\n')}
 
   public gen_ba_walker_idx_sort_shader(workgroup_size: number): string {
     return mustache.render(ba_walker_idx_sort_shader, { workgroup_size, recompile: this.recompile });
+  }
+
+  // walker_index analytic (wi3): cut-driven count + placement, replacing the
+  // partial_dest passes. Ports stream_walker's init rules — see the templates.
+
+  public gen_ba_walker_idx_cuts_shader(workgroup_size: number, s: number, thread_tpb: number): string {
+    return mustache.render(ba_walker_idx_cuts_shader, { workgroup_size, s, thread_tpb, recompile: this.recompile });
+  }
+
+  public gen_ba_walker_idx_place_shader(workgroup_size: number, s: number, thread_tpb: number): string {
+    return mustache.render(ba_walker_idx_place_shader, { workgroup_size, s, thread_tpb, recompile: this.recompile });
   }
 
   // Per-sorted-bucket l0-base precompute: resolves the walker's unprefetchable

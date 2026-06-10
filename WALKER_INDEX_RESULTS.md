@@ -134,3 +134,31 @@ Full walker-emission model derived from ba_stream_walker init/retire rules
 Verdict: shipped through Stage 3; Stage 4 documented with the worked model
 for a follow-up session (or the walker owner — if the index goes
 cut-driven, stream_walker can stop writing partial_dest entirely).
+
+## Stage 4 — task-driven analytic path (?wi3=1): implemented, validated, REJECTED on perf
+
+Implemented idx_cuts/idx_place (the ported emission rules; arrival counted
+atomically too, so idx_alloc runs unchanged). Equivalence gates ALL GREEN on
+M4: wi2==wi3 window sums at logn 10/14 (+noble), 16/17 uniform, 14/17 E,
+17 D, 17 B, 17 clustered(64) — the emission-model port is bit-faithful.
+
+Perf: M4 72 µs (flat vs wi2's 73). Mali: cuts 94 + alloc 124 + epi 24 +
+place 138 + sort 28 ≈ 407 µs busy, span ~500 µs — REGRESSES wi2 (~437 µs).
+The task-wide kernels swap partial_dest's coalesced reads + 123K atomics for
+~4 scattered sorted_count/bucket_list gathers per task; on Mali the gathers
+cost more than the atomics saved. Adreno not captured (moot after Mali).
+
+Verdict: wi2 (Stage 3) is the shipping configuration. wi3 stays behind its
+flag as a validated experiment; if it ever wins, it also lets stream_walker
+stop writing partial_dest (handoff note for the walker owner).
+
+## Final scorecard (logn=17 uniform, walker_index phase)
+
+| device | baseline | shipped (wi2) | speedup |
+|---|---:|---:|---:|
+| M4 | 244 µs | 73 µs | **3.3×** |
+| Adreno (S25+) | 332 µs | ~156 µs | **2.1×** |
+| Mali (Pixel 9A) | 1035 µs | ~437 µs | **2.4×** |
+
+(Adreno final from the wi2-v2c capture — pre is_present-hoist; the hoist
+moved ~10 µs of scattered stores into classify's existing pass.)

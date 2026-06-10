@@ -142,6 +142,7 @@ const gpuKnobs: MsmConfig = (() => {
     varSched: q.get('varsched') === '1' || undefined,
     splitC: q.get('split') === '1' || q.get('autorun') === 'msm-msbhist' || undefined,
     walkerIndexV2: q.get('wi2') === '1' || undefined,
+    walkerIndexAnalytic: q.get('wi3') === '1' || undefined,
     sparseReduce: q.get('sparse_reduce') === '1' || undefined,
     reduceCostWeight: optNum('reduce_cost_weight'),
     maxCLo: optInt('max_clo'),
@@ -742,10 +743,12 @@ const BATCH_STAGE_ORDER = [
   // v1: count/scan/scatter/filter/sort_count/sort_scan/sort_scatter.
   // v2 (?wi2=1): count/alloc/epilogue/scatter/sort.
   'wi_count',
+  'wi_cuts',
   'wi_scan',
   'wi_alloc',
   'wi_epilogue',
   'wi_scatter',
+  'wi_place',
   'wi_filter',
   'wi_sort_count',
   'wi_sort_scan',
@@ -2458,12 +2461,18 @@ function hideProgress(): void {
       if (gpuDevice === null) gpuDevice = await get_device();
       const failures: string[] = [];
       const summary: Record<string, string> = {};
+      // Default compares v1 vs v2; ?against=wi3 compares v2 vs the analytic
+      // path (both sides then run the v2 alloc/epilogue/sort).
+      const againstWi3 = qp.get('against') === 'wi3';
       for (const logN of logNs) {
         const nobleHere = useNoble && logN <= 14;
         const inp = await generateInputs(logN, nobleHere);
         const runOne = async (v2: boolean): Promise<{ x: bigint; y: bigint; ws: { x: bigint; y: bigint }[] }> => {
           const pool = await MsmV2Pool.create(gpuDevice!, inp.pointsBuf);
-          const inst = await MsmV2.create(gpuDevice!, inp.n, pool, { ...gpuKnobs, walkerIndexV2: v2 });
+          const cfg: MsmConfig = againstWi3
+            ? { ...gpuKnobs, walkerIndexV2: true, walkerIndexAnalytic: v2 }
+            : { ...gpuKnobs, walkerIndexV2: v2 };
+          const inst = await MsmV2.create(gpuDevice!, inp.n, pool, cfg);
           try {
             inst.prepare(inp.scalarsBuf);
             const r = await inst.run();
