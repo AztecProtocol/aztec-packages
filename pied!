@@ -1,0 +1,68 @@
+[1mdiff --git a/noir-projects/aztec-nr/aztec/src/messages/delivery/builder.nr b/noir-projects/aztec-nr/aztec/src/messages/delivery/builder.nr[m
+[1mindex 642f77ee50..aacfbcd373 100644[m
+[1m--- a/noir-projects/aztec-nr/aztec/src/messages/delivery/builder.nr[m
+[1m+++ b/noir-projects/aztec-nr/aztec/src/messages/delivery/builder.nr[m
+[36m@@ -19,7 +19,7 @@[m [muse super::tag_secret_derivation::TagSecretDerivation;[m
+ /// ## Construction[m
+ ///[m
+ /// The fields are private and there is no public constructor: a `MessageDelivery` can only be produced by a[m
+[31m-/// [`MessageDeliveryBuilder`] that enforces valid configurations, so invalid field combinations cannot be [m
+[32m+[m[32m/// [`MessageDeliveryBuilder`] that enforces valid configurations, so invalid field combinations cannot be[m
+ /// represented to the consumer.[m
+ pub struct MessageDelivery {[m
+     mode: DeliveryMode,[m
+[36m@@ -223,10 +223,7 @@[m [mpub struct OnchainUnconstrainedDelivery {[m
+ [m
+ impl OnchainUnconstrainedDelivery {[m
+     fn new() -> Self {[m
+[31m-        Self {[m
+[31m-            tag_secret_derivation: TagSecretDerivation::wallet_default(),[m
+[31m-            sender_override: Option::none(),[m
+[31m-        }[m
+[32m+[m[32m        Self { tag_secret_derivation: TagSecretDerivation::wallet_default(), sender_override: Option::none() }[m
+     }[m
+ [m
+     /// Overrides the sender address used for discovery tag derivation.[m
+[36m@@ -285,10 +282,7 @@[m [mpub struct OnchainConstrainedDelivery {[m
+ [m
+ impl OnchainConstrainedDelivery {[m
+     fn new() -> Self {[m
+[31m-        Self {[m
+[31m-            tag_secret_derivation: TagSecretDerivation::wallet_default(),[m
+[31m-            sender_override: Option::none(),[m
+[31m-        }[m
+[32m+[m[32m        Self { tag_secret_derivation: TagSecretDerivation::wallet_default(), sender_override: Option::none() }[m
+     }[m
+ [m
+     /// Overrides the sender address used for discovery tag derivation.[m
+[36m@@ -370,12 +364,8 @@[m [mmod test {[m
+         let constrained_delivery =[m
+             MessageDelivery::onchain_constrained().via_non_interactive_handshake().build_message_delivery();[m
+ [m
+[31m-        assert([m
+[31m-            unconstrained_delivery.tag_secret_derivation() == TagSecretDerivation::non_interactive_handshake(),[m
+[31m-        );[m
+[31m-        assert([m
+[31m-            constrained_delivery.tag_secret_derivation() == TagSecretDerivation::non_interactive_handshake(),[m
+[31m-        );[m
+[32m+[m[32m        assert(unconstrained_delivery.tag_secret_derivation() == TagSecretDerivation::non_interactive_handshake());[m
+[32m+[m[32m        assert(constrained_delivery.tag_secret_derivation() == TagSecretDerivation::non_interactive_handshake());[m
+     }[m
+ [m
+     #[test][m
+[1mdiff --git a/noir-projects/noir-contracts/contracts/standard/handshake_registry_contract/src/sync.nr b/noir-projects/noir-contracts/contracts/standard/handshake_registry_contract/src/sync.nr[m
+[1mindex 3edf27f41e..a9d544a40a 100644[m
+[1m--- a/noir-projects/noir-contracts/contracts/standard/handshake_registry_contract/src/sync.nr[m
+[1m+++ b/noir-projects/noir-contracts/contracts/standard/handshake_registry_contract/src/sync.nr[m
+[36m@@ -72,10 +72,7 @@[m [mpub(crate) unconstrained fn handshake_registry_sync([m
+             let _ = AES128::decrypt(ciphertext, scope, contract_address)[m
+                 .and_then(|pt| {[m
+                     point_from_x_coord_and_sign(pt.get(0), true).map(|pk| {[m
+[31m-                        DiscoveredHandshake {[m
+[31m-                            eph_pk: pk,[m
+[31m-                            mode: OnchainDeliveryMode::deserialize([pt.get(1)]),[m
+[31m-                        }[m
+[32m+[m[32m                        DiscoveredHandshake { eph_pk: pk, mode: OnchainDeliveryMode::deserialize([pt.get(1)]) }[m
+                     })[m
+                 })[m
+                 .map(|h| handshakes.push(h));[m
