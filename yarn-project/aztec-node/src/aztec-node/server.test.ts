@@ -85,6 +85,17 @@ import { AztecNodeService } from './server.js';
 const NOW_MS = 1718745600000;
 const NOW_S = NOW_MS / 1000;
 
+// EmptyL1RollupConstants uses a 1s slot duration, which cannot fit a single block under the default 3s
+// block duration the node config carries — buildProposerTimetable would derive a negative
+// blocks-per-checkpoint and throw. Use a fast-profile geometry sized to one block per checkpoint (S=9, E=4)
+// so the network per-tx gas admission limit equals the per-tx protocol maximum, leaving the maximal-gas mock
+// txs these validation tests use admissible while still exercising the gas-limits validator at RPC.
+const testL1Constants: L1RollupConstants = {
+  ...EmptyL1RollupConstants,
+  slotDuration: 9,
+  ethereumSlotDuration: 4,
+};
+
 // We create a mock date provider to have control over the next slot timestamp.
 class MockDateProvider extends DateProvider {
   public override now(): number {
@@ -185,7 +196,7 @@ describe('aztec node', () => {
       }
       return Promise.resolve(undefined);
     }) as L2BlockSource['getBlockNumber']);
-    l2BlockSource.getL1Constants.mockResolvedValue(EmptyL1RollupConstants);
+    l2BlockSource.getL1Constants.mockResolvedValue(testL1Constants);
     l2BlockSource.getGenesisBlockHash.mockReturnValue(BlockHash.random());
 
     const l2LogsSource = mock<L2LogsSource>();

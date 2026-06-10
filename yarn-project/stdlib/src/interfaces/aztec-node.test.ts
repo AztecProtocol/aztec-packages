@@ -725,6 +725,7 @@ class MockAztecNode implements AztecNode {
       ) as L1ContractAddresses,
       protocolContractAddresses: Object.fromEntries(protocolContracts) as ProtocolContractAddresses,
       realProofs: true,
+      txsLimits: { gas: { daGas: 117_668, l2Gas: 6_540_000 } },
     };
   }
   getNodeVersion(): Promise<string> {

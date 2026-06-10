@@ -7,7 +7,7 @@ import { AztecLMDBStoreV2, createStore } from '@aztec/kv-store/lmdb-v2';
 import type { BlockHash, L2BlockSource } from '@aztec/stdlib/block';
 import type { ChainConfig } from '@aztec/stdlib/config';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
-import type { BlockMinFeesProvider } from '@aztec/stdlib/gas';
+import { type BlockMinFeesProvider, getNetworkTxGasLimits } from '@aztec/stdlib/gas';
 import type { AztecNode, ClientProtocolCircuitVerifier, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
@@ -109,14 +109,14 @@ export async function createP2PClient(
           const { ts: nextSlotTimestamp } = epochCache.getEpochAndSlotInNextL1Slot();
           const l1Constants = await archiver.getL1Constants();
           const gasFees = await blockMinFeesProvider.getCurrentMinFees();
+          const networkTxGasLimits = getNetworkTxGasLimits(config, l1Constants);
           return createTxValidatorForTransactionsEnteringPendingTxPool(
             worldStateSynchronizer,
             nextSlotTimestamp,
             BlockNumber(currentBlockNumber + 1),
             {
-              rollupManaLimit: l1Constants.rollupManaLimit,
-              maxBlockL2Gas: config.validateMaxL2BlockGas,
-              maxBlockDAGas: config.validateMaxDABlockGas,
+              maxTxL2Gas: networkTxGasLimits.l2Gas,
+              maxTxDAGas: networkTxGasLimits.daGas,
             },
             gasFees,
           );
