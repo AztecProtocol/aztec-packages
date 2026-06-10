@@ -195,3 +195,13 @@ Verdict: v2 stands as the shipped algorithm. The probes (?wiprobe=1) and
 the Phase-0 validator (?deep=1) remain in-tree so the negative result is
 reproducible. M4 would gain ~1.6x from wi4 — on record if M4-only wins
 ever matter enough to carry a Mali-neutral second path.
+
+## Cleanup (final state)
+
+The parallel pipeline is now the ONLY walker_index path: the v1 kernels
+(combine count/scan/scatter/filter + the 3-kernel counting sort) and the
+wi3 analytic experiment are deleted; the flags are gone. wi2-check now
+validates determinism (two fresh instances, identical window sums) + the
+noble reference. The ?wiprobe=1 cost probes and ?deep=1 validator remain.
+Full gate matrix green on the single-path build; M4 logn=17: phase 75 µs,
+wall 31.8 ms.

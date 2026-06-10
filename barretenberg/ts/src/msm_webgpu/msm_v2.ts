@@ -406,29 +406,10 @@ export interface MsmConfig {
    */
   splitC?: boolean;
   /**
-   * walker_index v2: the fully-parallel 5-dispatch index pipeline (bump-alloc
-   * offsets, fused filter+histogram, workgroup-aggregated atomics, exact-width
-   * indirect dispatches) in place of the v1 7-dispatch pipeline with its
-   * single-workgroup scan. Same outputs for everything downstream; offsets are
-   * allocation-ordered rather than prefix-sum-ordered (final red_buf bytes
-   * unchanged — per-bucket sums are order-independent). See WALKER_INDEX_PLAN.md.
-   */
-  walkerIndexV2?: boolean;
-  /**
-   * walker_index analytic (implies {@link walkerIndexV2}): derive the partials
-   * index from the planner's task_cuts instead of scanning partial_dest — the
-   * walker's partial slots are a pure function of the cuts. Replaces the two
-   * slot-wide passes (idx_count / idx_scatter) with two task-wide kernels
-   * (idx_cuts / idx_place); alloc/epilogue/sort run unchanged. Gated on the
-   * wi2-check equivalence gate across profiles. See WALKER_INDEX_PLAN.md §S4.
-   */
-  walkerIndexAnalytic?: boolean;
-  /**
    * wi4 Phase-1 probes (WALKER_INDEX_PLAN.md): dispatch the two
    * cost-model kernels (sorted-runs sweep + build) between stream_walker
    * and the real index pipeline, labelled wi_p1/wi_p2. They write only to
    * pair-tree scratch (rewritten afterwards) — correctness-neutral.
-   * Requires walkerIndexV2.
    */
   wiProbe?: boolean;
   /**
@@ -1057,11 +1038,10 @@ interface SharedScratch {
   ptCombineDispatchArgs: GPUBuffer; // 3 × u32 — pt_dispatch_compute writes per-level (ceil(total_tasks/S/TPB),1,1)
   ptBuildLoopArgs: GPUBuffer; // 3 × u32 — dispatch_chain writes hot_wgs while any pair-tasks remain, else 0; build's level-by-level indirect dispatch reads this
   cbDispatchArgs: GPUBuffer; // 3 × u32 — sort_scan writes (ceil(cb_active / (CB_TPB*CB_S)), 1, 1); combine_batched indirect-dispatched off it
-  // walker_index v2 indirect args: [0..2] slot-wide (idx_count/idx_scatter,
+  // walker_index indirect args: [0..2] slot-wide (idx_count/idx_scatter,
   // written by partition_task), [3..5] dense-wide (idx_alloc, partition_task),
-  // [6..8] active-wide (idx_sort, written by idx_epilogue), [9..11] task-wide
-  // (idx_cuts/idx_place on the analytic path, partition_task).
-  wiIdxArgs: GPUBuffer; // 12 × u32
+  // [6..8] active-wide (idx_sort, written by idx_epilogue).
+  wiIdxArgs: GPUBuffer; // 9 × u32
   ptPersistentDispatchArgs: GPUBuffer; // 3 × u32 — packer writes (NUM_WGS, 1, 1)
   ptBucketWg: GPUBuffer; // sBTotal × u32 — per-bucket WG assignment (packer intermediate)
   ptWgMeta: GPUBuffer; // MAX_WGS × 4 × u32 — (scratch_off, count, total_partials, _) per WG
@@ -1619,9 +1599,9 @@ export class MsmV2Pool {
         size: 12,
         usage: GPUBufferUsage.STORAGE | GPUBufferUsage.INDIRECT | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
       });
-      // walker_index v2 indirect args (4 triples — see SharedScratch).
+      // walker_index indirect args (3 triples — see SharedScratch).
       wiIdxArgs = device.createBuffer({
-        size: 12 * 4,
+        size: 9 * 4,
         usage: GPUBufferUsage.STORAGE | GPUBufferUsage.INDIRECT | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
       });
       // Packer outputs. MAX_WGS = 64 caps the bin-packing.
@@ -1927,8 +1907,6 @@ export class MsmV2 {
   private windowCs!: number[];
   /** split-c (Phase 1): build the MSB histogram + run the variable-window decision. */
   private splitC = false;
-  private walkerIndexV2 = false;
-  private walkerIndexAnalytic = false;
   private wiProbe = false;
   private sparseReduce = false;
   private reduceSparsePipe?: GPUComputePipeline;
@@ -2111,30 +2089,9 @@ export class MsmV2 {
   // RMW counter overlaid on partial_dest's tail), 0 on every real run.
   private walkerArenaOffBuf!: GPUBuffer;
   // Optimal walker_combine pipeline (5 kernels).
-  private combineCountPipe!: GPUComputePipeline;
-  private combineCountLayout!: GPUBindGroupLayout;
-  private combineCountBind!: GPUBindGroup;
-  private combineScanPipe!: GPUComputePipeline;
-  private combineScanLayout!: GPUBindGroupLayout;
-  private combineScanBind!: GPUBindGroup;
-  private combineScatterPipe!: GPUComputePipeline;
-  private combineScatterLayout!: GPUBindGroupLayout;
-  private combineScatterBind!: GPUBindGroup;
-  private combineFilterPipe!: GPUComputePipeline;
-  private combineFilterLayout!: GPUBindGroupLayout;
-  private combineFilterBinds: GPUBindGroup[] = [];
   private combineBatchedPipe!: GPUComputePipeline;
   private combineBatchedLayout!: GPUBindGroupLayout;
   private combineBatchedBinds: GPUBindGroup[] = [];
-  private sortCountPipe!: GPUComputePipeline;
-  private sortCountLayout!: GPUBindGroupLayout;
-  private sortCountBind!: GPUBindGroup;
-  private sortScanPipe!: GPUComputePipeline;
-  private sortScanLayout!: GPUBindGroupLayout;
-  private sortScanBind!: GPUBindGroup;
-  private sortScatterPipe!: GPUComputePipeline;
-  private sortScatterLayout!: GPUBindGroupLayout;
-  private sortScatterBind!: GPUBindGroup;
   // walker_index v2 (WALKER_INDEX_PLAN.md) — 5-dispatch parallel index pipeline.
   private idxCountPipe!: GPUComputePipeline;
   private idxCountLayout!: GPUBindGroupLayout;
@@ -2151,12 +2108,6 @@ export class MsmV2 {
   private idxSortPipe!: GPUComputePipeline;
   private idxSortLayout!: GPUBindGroupLayout;
   private idxSortBind!: GPUBindGroup;
-  private idxCutsPipe!: GPUComputePipeline;
-  private idxCutsLayout!: GPUBindGroupLayout;
-  private idxCutsBind!: GPUBindGroup;
-  private idxPlacePipe!: GPUComputePipeline;
-  private idxPlaceLayout!: GPUBindGroupLayout;
-  private idxPlaceBind!: GPUBindGroup;
   private idxP1Pipe!: GPUComputePipeline;
   private idxP2Pipe!: GPUComputePipeline;
   private idxProbeLayout!: GPUBindGroupLayout;
@@ -2403,9 +2354,7 @@ export class MsmV2 {
     m.convertBound = config?.convertBound && config.convertBound > 0 ? config.convertBound : 150000;
     m.combineOnHost = config?.combineOnHost ?? true;
     m.splitC = config?.splitC ?? false;
-    m.walkerIndexAnalytic = config?.walkerIndexAnalytic ?? false;
-    m.walkerIndexV2 = (config?.walkerIndexV2 ?? false) || m.walkerIndexAnalytic;
-    m.wiProbe = (config?.wiProbe ?? false) && m.walkerIndexV2;
+    m.wiProbe = config?.wiProbe ?? false;
     m.sparseReduce = config?.sparseReduce ?? false;
     m.forceSplit = config?.forceSplit;
     m.reduceCostWeight = config?.reduceCostWeight ?? 4;
@@ -2793,32 +2742,6 @@ export class MsmV2 {
       'uniform',
     ]);
     // === Optimal walker_combine pipeline layouts ===
-    //   count: partial_dest, partial_count(rw), params
-    m.combineCountLayout = lt(['read-only-storage', 'storage', 'uniform']);
-    //   scan: partial_count, partial_offset(rw), params
-    m.combineScanLayout = lt(['read-only-storage', 'storage', 'uniform']);
-    //   scatter: partial_dest, partial_offset, partial_write_pos(rw), partial_layout(rw), params
-    m.combineScatterLayout = lt(['read-only-storage', 'read-only-storage', 'storage', 'storage', 'uniform']);
-    //   filter: sorted_bucket_list, partial_count, partial_offset, partial_layout, partials_buf, bucket_sums(rw), active_buckets(rw), active_count(rw), params, planner_meta
-    // sorted_bucket_list, arena_a2 (monolith — partial_count + partial_layout),
-    // partial_offset, partials_buf (ro); red_buf, active_buckets, active_count (rw);
-    // params; planner_meta (ro); is_present (rw); batch_offset; window_desc (ro
-    // storage — no cap); arena_off. 10 storage = the cap.
-    m.combineFilterLayout = lt([
-      'read-only-storage',
-      'read-only-storage',
-      'read-only-storage',
-      'read-only-storage',
-      'storage',
-      'storage',
-      'storage',
-      'uniform',
-      'read-only-storage',
-      'storage',
-      'uniform',
-      'read-only-storage',
-      'uniform',
-    ]);
     //   batched: active_buckets, active_count, partial_count, partial_offset, partial_layout, l0_index, point_x, point_y, partials_buf(rw), bucket_sums(rw), params
     // active_buckets, active_count, arena_a2 (monolith — partial_count +
     // partial_layout), partial_offset, l0_index, point_x, point_y (ro); partials_buf,
@@ -2837,20 +2760,6 @@ export class MsmV2 {
       'uniform',
       'uniform',
       'uniform',
-      'uniform',
-    ]);
-    //   sort-count:   active_buckets, active_count, partial_count, count_histogram(rw)
-    m.sortCountLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'uniform']);
-    //   sort-scan:    count_histogram, bin_offsets(rw), bin_write_pos(rw), pt_dispatch_args(rw), pt_persistent_args(rw)
-    m.sortScanLayout = lt(['read-only-storage', 'storage', 'storage', 'storage', 'storage', 'storage']);
-    //   sort-scatter: active_buckets, active_count, partial_count, bin_offsets, bin_write_pos(rw), sorted_active_buckets(rw)
-    m.sortScatterLayout = lt([
-      'read-only-storage',
-      'read-only-storage',
-      'read-only-storage',
-      'read-only-storage',
-      'storage',
-      'storage',
       'uniform',
     ]);
     // === walker_index v2 layouts (WALKER_INDEX_PLAN.md). ===
@@ -2908,31 +2817,8 @@ export class MsmV2 {
       'storage',
       'storage',
     ]);
-    //   idx_cuts (wi3): task_cuts + partial_count are A2 colour-mates — both
-    //   bound as 'storage' (task_cuts never written); scl/sbl/planner_meta ro.
-    m.idxCutsLayout = lt([
-      'storage',
-      'storage',
-      'read-only-storage',
-      'read-only-storage',
-      'read-only-storage',
-      'uniform',
-    ]);
     //   wi4 probes: partial_dest (A1 ro), pt_scratch (A4 rw), planner_meta, params.
     m.idxProbeLayout = lt(['read-only-storage', 'storage', 'read-only-storage', 'uniform']);
-    //   idx_place (wi3): task_cuts + partial_layout (A2, storage),
-    //   partial_offset ro (A5), write_pos (A0, storage) + sorted_count_list
-    //   (A0 — bound 'storage' to match its colour-mate), sbl/planner_meta ro.
-    m.idxPlaceLayout = lt([
-      'storage',
-      'storage',
-      'read-only-storage',
-      'storage',
-      'storage',
-      'read-only-storage',
-      'read-only-storage',
-      'uniform',
-    ]);
     // === Pair-tree v2 (multi-dispatch). ===
     //   pt-init-scan: sorted_active, bin_offsets, active_count, partial_count, pt_off(rw), pt_count(rw), pt_meta(rw)
     m.ptInitScanLayout = lt([
@@ -3180,41 +3066,13 @@ export class MsmV2 {
       `stream-walker`,
       m.streamWalkerLayout,
     );
-    // === Optimal walker_combine pipeline. ===
-    m.combineCountPipe = await compile(
-      sm.gen_ba_walker_combine_count_shader(256, m.BW),
-      `combine-count`,
-      m.combineCountLayout,
-    );
-    m.combineScanPipe = await compile(sm.gen_ba_walker_combine_scan_shader(256), `combine-scan`, m.combineScanLayout);
-    m.combineScatterPipe = await compile(
-      sm.gen_ba_walker_combine_scatter_shader(256, m.BW),
-      `combine-scatter`,
-      m.combineScatterLayout,
-    );
-    m.combineFilterPipe = await compile(
-      sm.gen_ba_walker_combine_filter_shader(256, m.BW, m.stride, m.redM),
-      `combine-filter`,
-      m.combineFilterLayout,
-    );
     m.combineBatchedPipe = await compile(
       sm.gen_ba_walker_combine_batched_shader(STREAM_WALKER_TPB, STREAM_S, m.BW, m.stride, m.redM, INV_VARIANT),
       `combine-batched`,
       m.combineBatchedLayout,
     );
-    m.sortCountPipe = await compile(
-      sm.gen_ba_walker_combine_sort_count_shader(256, m.BW),
-      `sort-count`,
-      m.sortCountLayout,
-    );
-    m.sortScanPipe = await compile(sm.gen_ba_walker_combine_sort_scan_shader(), `sort-scan`, m.sortScanLayout);
-    m.sortScatterPipe = await compile(
-      sm.gen_ba_walker_combine_sort_scatter_shader(256, m.BW),
-      `sort-scatter`,
-      m.sortScatterLayout,
-    );
-    // === walker_index v2 pipeline (WALKER_INDEX_PLAN.md). ===
-    if (m.walkerIndexV2) {
+    // === walker_index pipeline (WALKER_INDEX_PLAN.md). ===
+    {
       m.idxCountPipe = await compile(
         sm.gen_ba_walker_idx_count_shader(WI_IDX_TPB, STREAM_S, STREAM_PLANNER_TPB),
         `wi-count`,
@@ -3232,18 +3090,6 @@ export class MsmV2 {
         m.idxScatterLayout,
       );
       m.idxSortPipe = await compile(sm.gen_ba_walker_idx_sort_shader(WI_IDX_TPB), `wi-sort`, m.idxSortLayout);
-      if (m.walkerIndexAnalytic) {
-        m.idxCutsPipe = await compile(
-          sm.gen_ba_walker_idx_cuts_shader(WI_IDX_TPB, STREAM_S, STREAM_PLANNER_TPB),
-          `wi-cuts`,
-          m.idxCutsLayout,
-        );
-        m.idxPlacePipe = await compile(
-          sm.gen_ba_walker_idx_place_shader(WI_IDX_TPB, STREAM_S, STREAM_PLANNER_TPB),
-          `wi-place`,
-          m.idxPlaceLayout,
-        );
-      }
       if (m.wiProbe) {
         m.idxP1Pipe = await compile(
           sm.gen_ba_walker_idx_p1_shader(WI_IDX_TPB, STREAM_S, STREAM_PLANNER_TPB),
@@ -4505,22 +4351,13 @@ export class MsmV2 {
       this.resolveL0BaseBinds = batchWindowBaseBufs.map(bwb =>
         mkBind(this.resolveL0BaseLayout, [sb, l0BaseBuf, offsetsBufs[0], windowDescBuf, sp, l0bParams, bwb]),
       );
-      const numPartialSlots = M_partials_walker;
-      // === Optimal walker_combine bind groups. ===
+      // === walker_combine bind groups. ===
       const pcount = scratch.partialCount;
       const poffset = scratch.partialOffset;
       const pwpos = scratch.partialWritePos;
       const playout = scratch.partialLayout;
       const abkts = scratch.activeBuckets;
       const acnt = scratch.activeCount;
-      // count: params.x = num_partial_slots = M_partials_walker.
-      const countParams = ubuf(new Uint32Array([numPartialSlots, this.BW, 0, 0]));
-      this.combineCountBind = mkBind(this.combineCountLayout, [pdest, pcount, countParams]);
-      // scan: params.x = num_dense (read from planner_meta at dispatch time? we use B_TOTAL as upper bound)
-      const combineScanParams = ubuf(new Uint32Array([B_TOTAL, 0, 0, 0]));
-      this.combineScanBind = mkBind(this.combineScanLayout, [pcount, poffset, combineScanParams]);
-      // scatter: params.x = num_partial_slots
-      this.combineScatterBind = mkBind(this.combineScatterLayout, [pdest, poffset, pwpos, playout, countParams]);
       // arena_a2 monolith: partial_count + partial_layout are A2 sub-ranges; bind
       // the whole arena once and address them by offset (shared by both at-cap
       // combine kernels), freeing the slot that lets window_desc be storage (no cap).
@@ -4529,25 +4366,6 @@ export class MsmV2 {
         throw new Error('combine: partial_count and partial_layout must share arena A2');
       }
       const combineArenaOff = ubuf(new Uint32Array([slotOff(pcount) / 4, slotOff(playout) / 4, 0, 0]));
-      // filter: params = (num_dense, M_buckets, M_partials, _)
-      const filterParams = ubuf(new Uint32Array([B_TOTAL, batchSlots, M_partials_walker, this.BW]));
-      this.combineFilterBinds = batchWindowBaseBufs.map(bwb =>
-        mkBind(this.combineFilterLayout, [
-          sb,
-          a2Buf,
-          poffset,
-          wp,
-          scratch.redBuf,
-          abkts,
-          acnt,
-          filterParams,
-          scratch.streamPlannerMeta,
-          scratch.isPresentBuf,
-          bwb,
-          windowDescBuf,
-          combineArenaOff,
-        ]),
-      );
       // batched: params = (NUM_ACTIVE — dynamic, set at runtime, IDLE_ANCHOR, M_buckets, M_partials)
       // For now, we'll use 0 for NUM_ACTIVE here and update before dispatch (or dispatch ceil(B_TOTAL/S) and gate internally).
       // Walker params include IDLE_ANCHOR at param.y of the walker uniform — reuse the same value (batchSlots).
@@ -4558,18 +4376,8 @@ export class MsmV2 {
       const boffs = scratch.binOffsets;
       const bwpos = scratch.binWritePos;
       const sabkts = scratch.sortedActiveBuckets;
-      this.sortCountBind = mkBind(this.sortCountLayout, [abkts, acnt, pcount, chist, bwBuf]);
-      this.sortScanBind = mkBind(this.sortScanLayout, [
-        chist,
-        boffs,
-        bwpos,
-        scratch.ptDispatchArgs,
-        scratch.ptPersistentDispatchArgs,
-        scratch.cbDispatchArgs,
-      ]);
-      this.sortScatterBind = mkBind(this.sortScatterLayout, [abkts, acnt, pcount, boffs, bwpos, sabkts, bwBuf]);
-      // === walker_index v2 bind groups (WALKER_INDEX_PLAN.md). ===
-      if (this.walkerIndexV2) {
+      // === walker_index bind groups (WALKER_INDEX_PLAN.md). ===
+      {
         const wiArgs = scratch.wiIdxArgs;
         // idx_count / idx_scatter params: (BW, M_partials, _, _).
         const wiParams = ubuf(new Uint32Array([this.BW, M_partials_walker, 0, 0]));
@@ -4611,19 +4419,6 @@ export class MsmV2 {
           ]),
         );
         this.idxSortBind = mkBind(this.idxSortLayout, [abkts, acnt, boffs, bwpos, sabkts]);
-        if (this.walkerIndexAnalytic) {
-          this.idxCutsBind = mkBind(this.idxCutsLayout, [taskc, pcount, sc, sb, scratch.streamPlannerMeta, wiParams]);
-          this.idxPlaceBind = mkBind(this.idxPlaceLayout, [
-            taskc,
-            playout,
-            poffset,
-            pwpos,
-            sc,
-            sb,
-            scratch.streamPlannerMeta,
-            wiParams,
-          ]);
-        }
         if (this.wiProbe) {
           // Probe scratch regions inside ptScratch (u32 elements): exports at
           // 0, layout-model at 1024, fb-keyed model after 3×M cap (layout +
@@ -5053,17 +4848,9 @@ export class MsmV2 {
       clearSlot(enc, this.pool.scratch!.partialWritePos);
       clearSlot(enc, this.pool.scratch!.activeCount);
       clearSlot(enc, this.pool.scratch!.countHistogram);
-      // walkerPartialDest must also be per-batch on the v1 path. Walker only
-      // initializes its own dispatched slots to NO_BUCKET (=0xFFFFFFFF); slots
-      // beyond that would otherwise leak the previous batch's partial mapping
-      // into combine_count/scatter, whose dispatch covers the full slot CAP.
-      // clearBuffer writes zeros — combine_count and combine_scatter accept
-      // both 0 and NO_BUCKET as "no partial here" since the classifier's
-      // magnitude filter guarantees no real bid is 0. The v2 index kernels
-      // bound their reads by the walker's true range (2*S*num_active_threads
-      // from planner_meta[3]) — every slot they read is walker-initialised,
-      // so the 512 KB clear is dead weight there.
-      if (!this.walkerIndexV2) clearSlot(enc, this.pool.scratch!.walkerPartialDest);
+      // walkerPartialDest needs no per-batch clear: the index kernels bound
+      // their reads by the walker's true range (2*S*num_active_threads from
+      // planner_meta[3]) and the walker initialises every slot in that range.
       dispatch(this.classifyPipe, this.classifyBinds[bi], Math.ceil(this.BW / 256), this.batchWindows);
       dispatch(this.metaFixupPipe, this.metaFixupBind, 1, 1);
       for (let rpass = 0; rpass < 3; rpass++) {
@@ -5114,68 +4901,32 @@ export class MsmV2 {
       // (= byte offset 60 = 15 * 4).
       setPhase('stream_walker');
       indirectDispatch(this.streamWalkerPipe, this.streamWalkerBinds[bi], spMeta, 15 * 4);
-      // === Optimal walker_combine: cross-bucket batched-inversion pipeline. ===
-      // Phase A: count partials per bucket.
-      // Phase B: prefix-sum partial_count → partial_offset; scatter dense layout.
-      // Phase C: filter into active_buckets, copy 1-partial buckets straight to sums.
-      // Phase D: batched-inversion combine for count>=2 buckets.
-      // walker_index phase — one wi_* label per dispatch so traces and the
-      // per-phase breakdown attribute each sub-kernel individually.
-      const M_partials_walker = 2 * this.streamNumThreads * this.streamS;
-      if (this.walkerIndexV2) {
-        // v2 (WALKER_INDEX_PLAN.md): 5 exact-width dispatches — count,
-        // fused alloc+filter+histogram, bins/args epilogue, scatter (+inline
-        // singles copy), aggregated counting-sort scatter. Widths come from
-        // wiIdxArgs (partition_task wrote [0..5]; the epilogue writes [6..8]).
+      // === walker_index: cross-bucket partials index (WALKER_INDEX_PLAN.md). ===
+      // 5 exact-width dispatches, one wi_* label per dispatch so traces and
+      // the per-phase breakdown attribute each sub-kernel individually:
+      // count, fused alloc+filter+histogram, bins/args epilogue, scatter
+      // (+inline singles copy), aggregated counting-sort scatter. Widths come
+      // from wiIdxArgs (partition_task wrote [0..5]; the epilogue writes [6..8]).
+      {
         const wiArgs = this.pool.scratch!.wiIdxArgs;
         if (this.wiProbe) {
-          // Phase-1 cost probes (one workgroup per 4096-slot block =
+          // Cost probes (one workgroup per 4096-slot block =
           // planner_meta[12..14], the cumsum-emitted (nwg,1,1)).
           setPhase('wi_p1');
           indirectDispatch(this.idxP1Pipe, this.idxP1Bind, spMeta, 12 * 4);
           setPhase('wi_p2');
           indirectDispatch(this.idxP2Pipe, this.idxP2Bind, spMeta, 12 * 4);
         }
-        if (this.walkerIndexAnalytic) {
-          // Analytic (wi3): cut-driven count + placement — no partial_dest
-          // passes at all. task_cuts is the planner's materialized cut table.
-          setPhase('wi_cuts');
-          indirectDispatch(this.idxCutsPipe, this.idxCutsBind, wiArgs, 36);
-        } else {
-          setPhase('wi_count');
-          indirectDispatch(this.idxCountPipe, this.idxCountBind, wiArgs, 0);
-        }
+        setPhase('wi_count');
+        indirectDispatch(this.idxCountPipe, this.idxCountBind, wiArgs, 0);
         setPhase('wi_alloc');
         indirectDispatch(this.idxAllocPipe, this.idxAllocBind, wiArgs, 12);
         setPhase('wi_epilogue');
         dispatch(this.idxEpiloguePipe, this.idxEpilogueBind, 1, 1);
-        if (this.walkerIndexAnalytic) {
-          setPhase('wi_place');
-          indirectDispatch(this.idxPlacePipe, this.idxPlaceBind, wiArgs, 36);
-        } else {
-          setPhase('wi_scatter');
-          indirectDispatch(this.idxScatterPipe, this.idxScatterBinds[bi], wiArgs, 0);
-        }
+        setPhase('wi_scatter');
+        indirectDispatch(this.idxScatterPipe, this.idxScatterBinds[bi], wiArgs, 0);
         setPhase('wi_sort');
         indirectDispatch(this.idxSortPipe, this.idxSortBind, wiArgs, 24);
-      } else {
-        setPhase('wi_count');
-        dispatch(this.combineCountPipe, this.combineCountBind, Math.ceil(M_partials_walker / 256), 1);
-        setPhase('wi_scan');
-        dispatch(this.combineScanPipe, this.combineScanBind, 1, 1);
-        setPhase('wi_scatter');
-        dispatch(this.combineScatterPipe, this.combineScatterBind, Math.ceil(M_partials_walker / 256), 1);
-        setPhase('wi_filter');
-        dispatch(this.combineFilterPipe, this.combineFilterBinds[bi], Math.ceil(this.bTotal / 256), 1);
-        // Counting-sort prepass: group active_buckets by partial_count so each
-        // combine_batched thread's S=8 slots have matching N (zero tail
-        // divergence). Validated to claw back ~6.5 ms at logn=17 / M2.
-        setPhase('wi_sort_count');
-        dispatch(this.sortCountPipe, this.sortCountBind, Math.ceil(this.bTotal / 256), 1);
-        setPhase('wi_sort_scan');
-        dispatch(this.sortScanPipe, this.sortScanBind, 1, 1);
-        setPhase('wi_sort_scatter');
-        dispatch(this.sortScatterPipe, this.sortScatterBind, Math.ceil(this.bTotal / 256), 1);
       }
       setPhase('combine_batched');
       // combine_batched handles cool (N≤8) buckets. Pair-tree handles hot.

@@ -24,21 +24,12 @@ import {
   ba_planner_partition_task as ba_planner_partition_task_shader,
   ba_planner_resolve_l0base as ba_planner_resolve_l0base_shader,
   ba_stream_walker as ba_stream_walker_shader,
-  ba_walker_combine_count as ba_walker_combine_count_shader,
-  ba_walker_combine_scan as ba_walker_combine_scan_shader,
-  ba_walker_combine_scatter as ba_walker_combine_scatter_shader,
-  ba_walker_combine_filter as ba_walker_combine_filter_shader,
   ba_walker_combine_batched as ba_walker_combine_batched_shader,
-  ba_walker_combine_sort_count as ba_walker_combine_sort_count_shader,
-  ba_walker_combine_sort_scan as ba_walker_combine_sort_scan_shader,
-  ba_walker_combine_sort_scatter as ba_walker_combine_sort_scatter_shader,
   ba_walker_idx_count as ba_walker_idx_count_shader,
   ba_walker_idx_alloc as ba_walker_idx_alloc_shader,
   ba_walker_idx_epilogue as ba_walker_idx_epilogue_shader,
   ba_walker_idx_scatter as ba_walker_idx_scatter_shader,
   ba_walker_idx_sort as ba_walker_idx_sort_shader,
-  ba_walker_idx_cuts as ba_walker_idx_cuts_shader,
-  ba_walker_idx_place as ba_walker_idx_place_shader,
   ba_walker_idx_p1 as ba_walker_idx_p1_shader,
   ba_walker_idx_p2 as ba_walker_idx_p2_shader,
   ba_walker_pt_init_scan as ba_walker_pt_init_scan_shader,
@@ -1397,16 +1388,8 @@ ${packLines.join('\n')}
     return mustache.render(ba_walker_idx_sort_shader, { workgroup_size, recompile: this.recompile });
   }
 
-  // walker_index analytic (wi3): cut-driven count + placement, replacing the
-  // partial_dest passes. Ports stream_walker's init rules — see the templates.
 
-  public gen_ba_walker_idx_cuts_shader(workgroup_size: number, s: number, thread_tpb: number): string {
-    return mustache.render(ba_walker_idx_cuts_shader, { workgroup_size, s, thread_tpb, recompile: this.recompile });
-  }
 
-  public gen_ba_walker_idx_place_shader(workgroup_size: number, s: number, thread_tpb: number): string {
-    return mustache.render(ba_walker_idx_place_shader, { workgroup_size, s, thread_tpb, recompile: this.recompile });
-  }
 
   // wi4 Phase-1 probes (WALKER_INDEX_PLAN.md): price the sweep/build
   // primitives on-device before the real kernels are built.
@@ -1504,44 +1487,12 @@ ${packLines.join('\n')}
 
   // === Optimal walker_combine — cross-bucket batched-inversion pipeline. ===
 
-  public gen_ba_walker_combine_count_shader(workgroup_size: number, bw: number): string {
-    return mustache.render(ba_walker_combine_count_shader, { workgroup_size, bw, recompile: this.recompile });
-  }
 
-  public gen_ba_walker_combine_scan_shader(tpb: number): string {
-    return mustache.render(ba_walker_combine_scan_shader, { tpb, recompile: this.recompile });
-  }
 
-  public gen_ba_walker_combine_scatter_shader(workgroup_size: number, bw: number): string {
-    return mustache.render(ba_walker_combine_scatter_shader, { workgroup_size, bw, recompile: this.recompile });
-  }
 
-  public gen_ba_walker_combine_filter_shader(
-    workgroup_size: number,
-    bw: number,
-    stride: number,
-    m_red: number,
-  ): string {
-    return mustache.render(ba_walker_combine_filter_shader, {
-      workgroup_size,
-      bw,
-      stride,
-      m_red,
-      recompile: this.recompile,
-    });
-  }
 
-  public gen_ba_walker_combine_sort_count_shader(workgroup_size: number, bw: number): string {
-    return mustache.render(ba_walker_combine_sort_count_shader, { workgroup_size, bw, recompile: this.recompile });
-  }
 
-  public gen_ba_walker_combine_sort_scan_shader(): string {
-    return mustache.render(ba_walker_combine_sort_scan_shader, { recompile: this.recompile });
-  }
 
-  public gen_ba_walker_combine_sort_scatter_shader(workgroup_size: number, bw: number): string {
-    return mustache.render(ba_walker_combine_sort_scatter_shader, { workgroup_size, bw, recompile: this.recompile });
-  }
 
   public gen_ba_walker_pt_init_scan_shader(bw: number): string {
     return mustache.render(ba_walker_pt_init_scan_shader, { bw, recompile: this.recompile });

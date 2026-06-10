@@ -141,8 +141,6 @@ const gpuKnobs: MsmConfig = (() => {
     budgetMiB: optInt('budgetmib'),
     varSched: q.get('varsched') === '1' || undefined,
     splitC: q.get('split') === '1' || q.get('autorun') === 'msm-msbhist' || undefined,
-    walkerIndexV2: q.get('wi2') === '1' || undefined,
-    walkerIndexAnalytic: q.get('wi3') === '1' || undefined,
     wiProbe: q.get('wiprobe') === '1' || undefined,
     sparseReduce: q.get('sparse_reduce') === '1' || undefined,
     reduceCostWeight: optNum('reduce_cost_weight'),
@@ -740,22 +738,14 @@ const BATCH_STAGE_ORDER = [
   'stream_walker',
   'walker_index',
   // walker_index sub-kernels (encodeIntoBatch labels each of the phase's
-  // dispatches individually; 'walker_index' itself remains for old traces).
-  // v1: count/scan/scatter/filter/sort_count/sort_scan/sort_scatter.
-  // v2 (?wi2=1): count/alloc/epilogue/scatter/sort.
+  // dispatches individually; 'walker_index' itself remains for old traces;
+  // wi_p1/wi_p2 are the ?wiprobe=1 cost probes).
   'wi_p1',
   'wi_p2',
   'wi_count',
-  'wi_cuts',
-  'wi_scan',
   'wi_alloc',
   'wi_epilogue',
   'wi_scatter',
-  'wi_place',
-  'wi_filter',
-  'wi_sort_count',
-  'wi_sort_scan',
-  'wi_sort_scatter',
   'wi_sort',
   'combine_batched',
   'pt_init',
@@ -2464,17 +2454,16 @@ function hideProgress(): void {
       if (gpuDevice === null) gpuDevice = await get_device();
       const failures: string[] = [];
       const summary: Record<string, string> = {};
-      // Default compares v1 vs v2; ?against=wi3 compares v2 vs the analytic
-      // path (both sides then run the v2 alloc/epilogue/sort).
-      const againstWi3 = qp.get('against') === 'wi3';
+      // Two fresh instances on the same inputs: identical window sums prove
+      // run-to-run determinism of the final sums (offsets/layout order are
+      // allocation-ordered and may differ); noble (logn<=14) anchors absolute
+      // correctness.
       for (const logN of logNs) {
         const nobleHere = useNoble && logN <= 14;
         const inp = await generateInputs(logN, nobleHere);
-        const runOne = async (v2: boolean): Promise<{ x: bigint; y: bigint; ws: { x: bigint; y: bigint }[] }> => {
+        const runOne = async (_second: boolean): Promise<{ x: bigint; y: bigint; ws: { x: bigint; y: bigint }[] }> => {
           const pool = await MsmV2Pool.create(gpuDevice!, inp.pointsBuf);
-          const cfg: MsmConfig = againstWi3
-            ? { ...gpuKnobs, walkerIndexV2: true, walkerIndexAnalytic: v2 }
-            : { ...gpuKnobs, walkerIndexV2: v2 };
+          const cfg: MsmConfig = { ...gpuKnobs };
           const inst = await MsmV2.create(gpuDevice!, inp.n, pool, cfg);
           try {
             inst.prepare(inp.scalarsBuf);
