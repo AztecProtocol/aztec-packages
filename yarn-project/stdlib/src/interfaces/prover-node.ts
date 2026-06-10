@@ -6,24 +6,26 @@ import { type WorldStateSyncStatus, WorldStateSyncStatusSchema } from './world_s
 
 const EpochProvingJobState = [
   'initialized',
-  'processing',
-  'awaiting-prover',
+  'awaiting-checkpoints',
+  'awaiting-predecessor',
   'publishing-proof',
   'completed',
+  'superseded',
   'failed',
   'stopped',
+  'cancelled',
   'timed-out',
-  'reorg',
 ] as const;
 
 export type EpochProvingJobState = (typeof EpochProvingJobState)[number];
 
 export const EpochProvingJobTerminalState: EpochProvingJobState[] = [
   'completed',
+  'superseded',
   'failed',
   'stopped',
+  'cancelled',
   'timed-out',
-  'reorg',
 ] as const;
 
 export type EpochProvingJobTerminalState = (typeof EpochProvingJobTerminalState)[number];
@@ -32,7 +34,12 @@ export type EpochProvingJobTerminalState = (typeof EpochProvingJobTerminalState)
 export interface ProverNodeApi {
   getJobs(): Promise<{ uuid: string; status: EpochProvingJobState; epochNumber: number }[]>;
 
-  startProof(epochNumber: number): Promise<void>;
+  /**
+   * Schedules proving for the given epoch and returns the job id immediately, without waiting for
+   * the proof to complete (proving can take far longer than an HTTP request). Poll `getJobs()` to
+   * track the returned job's progress.
+   */
+  startProof(epochNumber: number): Promise<string>;
 
   getL2Tips(): Promise<L2Tips>;
 
@@ -46,7 +53,7 @@ export const ProverNodeApiSchema: ApiSchemaFor<ProverNodeApi> = {
     output: z.array(z.object({ uuid: z.string(), status: z.enum(EpochProvingJobState), epochNumber: z.number() })),
   }),
 
-  startProof: z.function({ input: z.tuple([schemas.Integer]), output: z.void() }),
+  startProof: z.function({ input: z.tuple([schemas.Integer]), output: z.string() }),
 
   getL2Tips: z.function({ input: z.tuple([]), output: L2TipsSchema }),
 
