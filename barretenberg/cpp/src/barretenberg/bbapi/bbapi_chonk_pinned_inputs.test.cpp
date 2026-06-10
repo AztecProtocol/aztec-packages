@@ -109,6 +109,12 @@ class ChonkPinnedIvcInputsTest : public ::testing::Test {
     }
 };
 
+// Proves every pinned Chonk flow with assertions enabled, so this is the canary for drift between
+// the pinned IVC inputs and the current circuits/VKs. It only fails in debug builds, because the
+// Chonk databus consistency checks are BB_ASSERT_DEBUG: that is why the nightly debug build catches
+// stale inputs that release CI and `chonk_inputs.sh check` (run with --disable_asserts) do not.
+// When it fails after intentional circuit changes, refresh the pinned inputs via the
+// `ci-refresh-chonk` PR label or `--ci-refresh-chonk` in the head commit message.
 TEST_F(ChonkPinnedIvcInputsTest, AllPinnedFlows)
 {
     const auto inputs_root = pinned_inputs_root();
