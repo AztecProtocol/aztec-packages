@@ -39,6 +39,7 @@ pub mod nullifier;
 pub mod oracle;
 pub mod state_vars;
 pub mod capsules;
+pub mod oracle_array;
 pub mod ephemeral;
 pub mod transient;
 pub mod event;

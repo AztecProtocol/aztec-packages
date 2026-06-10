@@ -1,7 +1,5 @@
 use crate::oracle::ephemeral;
-use crate::oracle::random::random;
-use crate::protocol::traits::{Deserialize, Serialize};
-use crate::protocol::utils::{reader::Reader, writer::Writer};
+use crate::oracle_array::{ArrayOracle, OracleArray};
 
 /// A dynamically sized array that exists only during a single contract call frame.
 ///
@@ -24,227 +22,49 @@ use crate::protocol::utils::{reader::Reader, writer::Writer};
 /// For data that must be shared across all frames of the same contract (private and utility) within one top-level PXE
 /// call (transaction simulation or utility call) but not persisted, use
 /// [`TransientArray`](crate::transient::TransientArray).
-pub struct EphemeralArray<T> {
-    pub slot: Field,
-}
+pub type EphemeralArray<T> = OracleArray<T, EphemeralOracle>;
 
-impl<T> EphemeralArray<T> {
-    /// Returns a handle to an ephemeral array at the given slot, which may already contain data (e.g. populated
-    /// by an oracle).
-    pub unconstrained fn at(slot: Field) -> Self {
-        Self { slot }
+/// Routes [`OracleArray`] operations to the ephemeral array oracles, scoping arrays to a single contract call frame.
+pub struct EphemeralOracle {}
+
+impl ArrayOracle for EphemeralOracle {
+    unconstrained fn len_oracle(slot: Field) -> u32 {
+        ephemeral::len_oracle(slot)
     }
 
+    unconstrained fn push_oracle<let N: u32>(slot: Field, values: [Field; N]) -> u32 {
+        ephemeral::push_oracle(slot, values)
+    }
+
+    unconstrained fn pop_oracle<let N: u32>(slot: Field) -> [Field; N] {
+        ephemeral::pop_oracle(slot)
+    }
+
+    unconstrained fn get_oracle<let N: u32>(slot: Field, index: u32) -> [Field; N] {
+        ephemeral::get_oracle(slot, index)
+    }
+
+    unconstrained fn set_oracle<let N: u32>(slot: Field, index: u32, values: [Field; N]) {
+        ephemeral::set_oracle(slot, index, values)
+    }
+
+    unconstrained fn remove_oracle(slot: Field, index: u32) {
+        ephemeral::remove_oracle(slot, index)
+    }
+
+    unconstrained fn clear_oracle(slot: Field) {
+        ephemeral::clear_oracle(slot)
+    }
+}
+
+impl<T> OracleArray<T, EphemeralOracle> {
     /// Returns an empty ephemeral array at the given slot, clearing any pre-existing data.
+    ///
+    /// This is deliberately ephemeral-only: a [`TransientArray`](crate::transient::TransientArray) slot may hold data
+    /// written by another frame of the same contract, so wiping a known slot there stays explicit via
+    /// `TransientArray::at(slot).clear()`.
     pub unconstrained fn empty_at(slot: Field) -> Self {
         Self::at(slot).clear()
-    }
-
-    /// Returns an empty ephemeral array at a fresh, randomly allocated slot.
-    ///
-    /// Use this when the caller does not need a specific slot: the random slot is isolated from every other ephemeral
-    /// array with overwhelming probability. Prefer [`EphemeralArray::empty_at`] when the slot must be a known value
-    /// (e.g. one shared with an oracle).
-    pub unconstrained fn empty() -> Self {
-        Self::empty_at(random())
-    }
-
-    /// Returns the number of elements stored in the array.
-    pub unconstrained fn len(self) -> u32 {
-        ephemeral::len_oracle(self.slot)
-    }
-
-    /// Stores a value at the end of the array.
-    pub unconstrained fn push(self, value: T)
-    where
-        T: Serialize,
-    {
-        let serialized = value.serialize();
-        let _ = ephemeral::push_oracle(self.slot, serialized);
-    }
-
-    /// Removes and returns the last element. Panics if the array is empty.
-    pub unconstrained fn pop(self) -> T
-    where
-        T: Deserialize,
-    {
-        let serialized = ephemeral::pop_oracle(self.slot);
-        Deserialize::deserialize(serialized)
-    }
-
-    /// Retrieves the value stored at `index`. Panics if the index is out of bounds.
-    pub unconstrained fn get(self, index: u32) -> T
-    where
-        T: Deserialize,
-    {
-        let serialized = ephemeral::get_oracle(self.slot, index);
-        Deserialize::deserialize(serialized)
-    }
-
-    /// Overwrites the value stored at `index`. Panics if the index is out of bounds.
-    pub unconstrained fn set(self, index: u32, value: T)
-    where
-        T: Serialize,
-    {
-        let serialized = value.serialize();
-        ephemeral::set_oracle(self.slot, index, serialized);
-    }
-
-    /// Removes the element at `index`, shifting subsequent elements backward. Panics if out of bounds.
-    pub unconstrained fn remove(self, index: u32) {
-        ephemeral::remove_oracle(self.slot, index);
-    }
-
-    /// Removes all elements from the array and returns self for chaining.
-    ///
-    /// Prefer [`EphemeralArray::empty_at`] when the intent is to start with a fresh array.
-    pub unconstrained fn clear(self) -> Self {
-        ephemeral::clear_oracle(self.slot);
-        self
-    }
-
-    /// Calls a function on each element of the array.
-    ///
-    /// The function `f` is called once with each array value and its corresponding index. Iteration proceeds
-    /// backwards so that it is safe to remove the current element (and only the current element) inside the
-    /// callback.
-    ///
-    /// It is **not** safe to push new elements from inside the callback.
-    pub unconstrained fn for_each<Env>(self, f: unconstrained fn[Env](u32, T) -> ())
-    where
-        T: Deserialize,
-    {
-        let mut i = self.len();
-        while i > 0 {
-            i -= 1;
-            f(i, self.get(i));
-        }
-    }
-
-    /// Applies `f` to every element and collects the results into a fresh ephemeral array.
-    ///
-    /// Reads each element in order, transforms it with `f`, and pushes the result onto a new array at a freshly
-    /// allocated slot (see [`EphemeralArray::empty`]). The source array is left unchanged, and the result is isolated
-    /// from it, so `map` can be chained.
-    pub unconstrained fn map<U, Env>(self, f: unconstrained fn[Env](T) -> U) -> EphemeralArray<U>
-    where
-        T: Deserialize,
-        U: Serialize,
-    {
-        let dest: EphemeralArray<U> = EphemeralArray::empty();
-        let n = self.len();
-        for i in 0..n {
-            dest.push(f(self.get(i)));
-        }
-        dest
-    }
-
-    /// Collects every element satisfying the predicate `f` into a fresh ephemeral array.
-    ///
-    /// Reads each element in order, keeps those for which `f` returns `true`, and pushes them onto a new array at a
-    /// freshly allocated slot (see [`EphemeralArray::empty`]). Relative order is preserved. The source array is left
-    /// unchanged, and the result is isolated from it, so `filter` can be chained.
-    pub unconstrained fn filter<Env>(self, f: unconstrained fn[Env](T) -> bool) -> Self
-    where
-        T: Serialize + Deserialize,
-    {
-        let dest: Self = EphemeralArray::empty();
-        let n = self.len();
-        for i in 0..n {
-            let value = self.get(i);
-            if f(value) {
-                dest.push(value);
-            }
-        }
-        dest
-    }
-
-    /// Returns `true` if at least one element satisfies the predicate `f`.
-    ///
-    /// Matches the `any` combinator on Noir's [`array`](std::array), slice, and `BoundedVec` collections. Defined in
-    /// terms of [`EphemeralArray::filter`]: it keeps the matching elements and checks whether any survived. This is
-    /// not short-circuiting — every element is tested even after the first match.
-    pub unconstrained fn any<Env>(self, f: unconstrained fn[Env](T) -> bool) -> bool
-    where
-        T: Serialize + Deserialize,
-    {
-        self.filter(f).len() != 0
-    }
-
-    /// Returns `true` if every element satisfies the predicate `f` (vacuously `true` for an empty array).
-    ///
-    /// Matches the `all` combinator on Noir's [`array`](std::array) and slice collections. Defined in terms of
-    /// [`EphemeralArray::filter`]: every element matches exactly when filtering keeps all of them. This is not
-    /// short-circuiting — every element is tested even after the first failure.
-    pub unconstrained fn all<Env>(self, f: unconstrained fn[Env](T) -> bool) -> bool
-    where
-        T: Serialize + Deserialize,
-    {
-        self.filter(f).len() == self.len()
-    }
-
-    /// Returns the first element satisfying the predicate `f`, or `Option::none` if none do.
-    ///
-    /// Mirrors Rust's `Iterator::find`. Defined in terms of [`EphemeralArray::filter`], which preserves order, so the
-    /// first kept element is the first match. This is not short-circuiting — every element is tested even after the
-    /// match is found.
-    pub unconstrained fn find<Env>(self, f: unconstrained fn[Env](T) -> bool) -> Option<T>
-    where
-        T: Serialize + Deserialize,
-    {
-        let matches = self.filter(f);
-        if matches.len() != 0 {
-            Option::some(matches.get(0))
-        } else {
-            Option::none()
-        }
-    }
-}
-
-impl EphemeralArray<Field> {
-    /// Deserializes the whole array into a `T`.
-    ///
-    /// Asserts the array holds exactly `<T as Deserialize>::N` fields, then reconstructs a `T` from them. This is the
-    /// read-back counterpart to pushing a value's serialized fields onto the array, and is defined only on
-    /// `EphemeralArray<Field>` because deserialization reconstructs a type from raw fields.
-    pub unconstrained fn read_as<T>(self) -> T
-    where
-        T: Deserialize,
-    {
-        assert_eq(self.len(), <T as Deserialize>::N, "EphemeralArray length mismatch for read_as");
-        let mut fields: [Field; <T as Deserialize>::N] = [0; <T as Deserialize>::N];
-        for i in 0..<T as Deserialize>::N {
-            fields[i] = self.get(i);
-        }
-        Deserialize::deserialize(fields)
-    }
-}
-
-/// Serializes an `EphemeralArray` as its slot identifier, allowing oracle function signatures to use
-/// `EphemeralArray<T>` instead of opaque `Field` slots.
-impl<T> Serialize for EphemeralArray<T> {
-    let N: u32 = 1;
-
-    fn serialize(self) -> [Field; Self::N] {
-        [self.slot]
-    }
-
-    fn stream_serialize<let K: u32>(self, writer: &mut Writer<K>) {
-        writer.write(self.slot);
-    }
-}
-
-/// Deserializes a single Field into an `EphemeralArray` handle, treating the field value as the slot identifier.
-/// This is the inverse of [`Serialize`].
-impl<T> Deserialize for EphemeralArray<T> {
-    let N: u32 = 1;
-
-    fn deserialize(fields: [Field; Self::N]) -> Self {
-        Self { slot: fields[0] }
-    }
-
-    fn stream_deserialize<let K: u32>(reader: &mut Reader<K>) -> Self {
-        Self { slot: reader.read() }
     }
 }
 
