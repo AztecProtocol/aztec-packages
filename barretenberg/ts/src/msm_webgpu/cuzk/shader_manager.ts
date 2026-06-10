@@ -486,24 +486,23 @@ ${packLines.join('\n')}
     windowCs: number[],
     binShift: number,
     binsP: number,
-    writeDigits = true,
+    writeDigits: 'none' | 'u32' | 'u16' = 'u32',
   ): string {
     const nw = windowCs.length;
     const histLen = nw * binsP;
     if (histLen > 4096) {
       throw new Error(`gen_pp2_digit_count_shader: hist ${nw}x${binsP} exceeds the 16KB shared budget`);
     }
-    const wname = (k: number): string => (k < 4 ? `sa.${'xyzw'[k]}` : `sb.${'xyzw'[k - 4]}`);
-    let bitBase = 0;
-    const windows = windowCs.map((cw, w) => {
-      if (cw < 2 || cw > 15) throw new Error(`gen_pp2_digit_count_shader: window ${w} width ${cw} out of range`);
-      const maskC1 = (1 << (cw + 1)) - 1;
-      const maskC = (1 << cw) - 1;
-      let rawExpr: string;
-      if (bitBase === 0) {
-        // Bottom window: synthetic 0 lookback — bits [0, cw) shifted up one.
-        rawExpr = `((${wname(0)} << 1u) & ${maskC1}u)`;
-      } else {
+    // Two register naming schemes: (sa, sb) for the thread's first point and
+    // (sc, sd) for its pair partner in u16 mode.
+    const mkRaw = (lo4: string, hi4: string): ((cw: number, bitBase: number) => string) => {
+      const wname = (k: number): string => (k < 4 ? `${lo4}.${'xyzw'[k]}` : `${hi4}.${'xyzw'[k - 4]}`);
+      return (cw: number, bitBase: number): string => {
+        const maskC1 = (1 << (cw + 1)) - 1;
+        if (bitBase === 0) {
+          // Bottom window: synthetic 0 lookback — bits [0, cw) shifted up one.
+          return `((${wname(0)} << 1u) & ${maskC1}u)`;
+        }
         const lo = bitBase - 1; // lookback bit position
         const wordLo = lo >> 5;
         const off = lo & 31;
@@ -511,9 +510,23 @@ ${packLines.join('\n')}
         if (off + cw + 1 > 32 && wordLo + 1 < 8) {
           e = `(${e} | (${wname(wordLo + 1)} << ${32 - off}u))`;
         }
-        rawExpr = `(${e} & ${maskC1}u)`;
-      }
-      const ctx = { w, c: cw, bit_lo: Math.max(0, bitBase - 1), bit_hi: bitBase + cw, mask_c: maskC, raw_expr: rawExpr };
+        return `(${e} & ${maskC1}u)`;
+      };
+    };
+    const raw0 = mkRaw('sa', 'sb');
+    const raw1 = mkRaw('sc', 'sd');
+    let bitBase = 0;
+    const windows = windowCs.map((cw, w) => {
+      if (cw < 2 || cw > 15) throw new Error(`gen_pp2_digit_count_shader: window ${w} width ${cw} out of range`);
+      const ctx = {
+        w,
+        c: cw,
+        bit_lo: Math.max(0, bitBase - 1),
+        bit_hi: bitBase + cw,
+        mask_c: (1 << cw) - 1,
+        raw_expr: raw0(cw, bitBase),
+        raw_expr2: raw1(cw, bitBase),
+      };
       bitBase += cw;
       return ctx;
     });
@@ -526,7 +539,8 @@ ${packLines.join('\n')}
         bin_shift: binShift,
         hist_len: histLen,
         windows,
-        write_digits: writeDigits,
+        write_digits: writeDigits === 'u32',
+        digits_u16: writeDigits === 'u16',
         recompile: this.recompile,
       },
       {},
@@ -571,7 +585,14 @@ ${packLines.join('\n')}
    * (Mali), where the staging machinery costs more than the line efficiency
    * it buys.
    */
-  public gen_pp2_bin_scatter_direct_shader(workgroup_size: number, binsP: number, binShift: number, c: number): string {
+  public gen_pp2_bin_scatter_direct_shader(
+    workgroup_size: number,
+    binsP: number,
+    binShift: number,
+    c: number,
+    leanMeta = false,
+    fromDigits = false,
+  ): string {
     if (c < 2 || c > 15) {
       throw new Error(`gen_pp2_bin_scatter_direct_shader: c ${c} out of range`);
     }
@@ -584,6 +605,8 @@ ${packLines.join('\n')}
         c,
         mask_c: (1 << c) - 1,
         mask_c1: (1 << (c + 1)) - 1,
+        lean_meta: leanMeta,
+        from_digits: fromDigits,
         recompile: this.recompile,
       },
       {},
@@ -612,14 +635,14 @@ ${packLines.join('\n')}
   }
 
   /** pp2 K3 — per-(window, bin) counting sort + final l0/meta emit. */
-  public gen_pp2_bin_sort_emit_shader(workgroup_size: number, binShift: number): string {
+  public gen_pp2_bin_sort_emit_shader(workgroup_size: number, binShift: number, leanMeta = false): string {
     const lows = 1 << binShift;
     if (lows > workgroup_size) {
       throw new Error(`gen_pp2_bin_sort_emit_shader: 2^${binShift} low buckets exceed workgroup_size ${workgroup_size}`);
     }
     return mustache.render(
       pp2_bin_sort_emit_shader,
-      { workgroup_size, bin_shift: binShift, lows, recompile: this.recompile },
+      { workgroup_size, bin_shift: binShift, lows, lean_meta: leanMeta, recompile: this.recompile },
       {},
     );
   }

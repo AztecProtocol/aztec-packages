@@ -143,8 +143,9 @@ const gpuKnobs: MsmConfig = (() => {
     preprocessV2: q.get('ppv2') === '1' || undefined,
     preprocessV2Variant: (() => {
       const v = q.get('ppv2k2');
-      return v === 'fused' || v === 'materialized' || v === 'direct' ? v : undefined;
+      return v === 'fused' || v === 'materialized' || v === 'direct' || v === 'dmat' ? v : undefined;
     })(),
+    preprocessV2LeanMeta: q.get('ppv2lean') === '1' || undefined,
     splitC: q.get('split') === '1' || q.get('autorun') === 'msm-msbhist' || undefined,
     sparseReduce: q.get('sparse_reduce') === '1' || undefined,
     reduceCostWeight: optNum('reduce_cost_weight'),

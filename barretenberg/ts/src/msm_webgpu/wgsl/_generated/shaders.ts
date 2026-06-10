@@ -6857,12 +6857,22 @@ const C: u32 = {{ c }}u;
 const MASK_C: u32 = {{ mask_c }}u;
 const MASK_C1: u32 = {{ mask_c1 }}u;
 
+// from_digits mode: binding 0 is the digit array K1 materialized (coalesced
+// 4 B reads, traffic bounded on every device) instead of the raw scalars,
+// whose per-window re-reads depend on L2 keeping the tile hot.
 @group(0) @binding(0) var<storage, read>       scalars:    array<u32>;
 @group(0) @binding(1) var<storage, read>       bin_counts: array<u32>;
 @group(0) @binding(2) var<storage, read_write> binned:     array<u32>;
 // params[0] = [n, num_tiles, tile_pts, bins_p]
-// params[1] = [base_offset, scan_len, BW, 0] (unused here)
+// params[1] = [base_offset, scan_len, BW, 0]
 @group(0) @binding(3) var<uniform>             params:     array<vec4<u32>, 2>;
+{{#lean_meta}}
+// Lean meta: this kernel also accumulates the per-(window, bucket) counts
+// (host clears the buffer per batch, so pad buckets read 0), letting K3 skip
+// its whole histogram phase — one fewer full stream over \`binned\` plus 2 *
+// entries shared atomics, in exchange for one global atomic per point here.
+@group(0) @binding(4) var<storage, read_write> counts_out: array<atomic<u32>>;
+{{/lean_meta}}
 
 var<workgroup> cursors: array<atomic<u32>, {{ bins_p }}>;
 
@@ -6877,10 +6887,12 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     let num_tiles = params[0].y;
     let tile_pts = params[0].z;
 
+{{^from_digits}}
     let lo_bit = select(w * C - 1u, 0u, w == 0u);
     let word = lo_bit >> 5u;
     let off = lo_bit & 31u;
     let spans = off + C + 1u > 32u && word + 1u < 8u;
+{{/from_digits}}
 
     for (var s: u32 = tid; s < BINS_P; s = s + WG) {
         atomicStore(&cursors[s], bin_counts[(w * BINS_P + s) * num_tiles + tile]);
@@ -6891,7 +6903,19 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     var p_hi = p_lo + tile_pts;
     if (p_hi > n) { p_hi = n; }
 
+{{#from_digits}}
+    let half_n = (n + 1u) >> 1u;
+{{/from_digits}}
     for (var p: u32 = p_lo + tid; p < p_hi; p = p + WG) {
+{{#from_digits}}
+        // u16-packed digit pair: bucket in bits [0..15), sign at bit 15;
+        // adjacent threads read the same u32 (warp-broadcast, half traffic).
+        let e2 = scalars[w * half_n + (p >> 1u)];
+        let e = select(e2 & 0xFFFFu, e2 >> 16u, (p & 1u) == 1u);
+        let bkt = e & 0x7FFFu;
+        let neg = e >> 15u;
+{{/from_digits}}
+{{^from_digits}}
         var raw: u32;
         if (w == 0u) {
             raw = (scalars[p * 8u] << 1u) & MASK_C1;
@@ -6905,8 +6929,12 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
         let neg = (raw >> C) & 1u;
         let enc = (raw + 1u) >> 1u;
         let bkt = ((enc - neg) ^ (0u - neg)) & MASK_C;
+{{/from_digits}}
         let pos = atomicAdd(&cursors[bkt >> BIN_SHIFT], 1u);
         binned[pos] = p | (neg << 21u) | ((bkt & LOW_MASK) << 22u);
+{{#lean_meta}}
+        atomicAdd(&counts_out[w * params[1].z + bkt], 1u);
+{{/lean_meta}}
     }
 
     {{{ recompile }}}
@@ -7120,13 +7148,24 @@ const LOW_MASK: u32 = LOWS - 1u;
 @group(0) @binding(0) var<storage, read>       binned:      array<u32>;
 @group(0) @binding(1) var<storage, read>       bin_counts:  array<u32>;
 @group(0) @binding(2) var<storage, read_write> l0_out:      array<u32>;
+{{#lean_meta}}
+// Lean meta: K2-direct already accumulated the per-(window, bucket) counts
+// (pads cleared to 0 by the host), so this kernel reads them instead of
+// streaming the segment a first time — phase A and its shared histogram are
+// gone entirely.
+@group(0) @binding(3) var<storage, read_write> counts_out:  array<atomic<u32>>;
+{{/lean_meta}}
+{{^lean_meta}}
 @group(0) @binding(3) var<storage, read_write> counts_out:  array<u32>;
+{{/lean_meta}}
 @group(0) @binding(4) var<storage, read_write> offsets_out: array<u32>;
 // params[0] = [n, num_tiles, tile_pts, bins_p]
 // params[1] = [base_offset, scan_len, BW, 0]
 @group(0) @binding(5) var<uniform>             params:      array<vec4<u32>, 2>;
 
+{{^lean_meta}}
 var<workgroup> hist: array<atomic<u32>, {{ lows }}>;
+{{/lean_meta}}
 var<workgroup> hcount: array<u32, {{ lows }}>;
 var<workgroup> scan_buf: array<u32, {{ lows }}>;
 var<workgroup> cursor: array<atomic<u32>, {{ lows }}>;
@@ -7148,6 +7187,7 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     let seg_base = bin_counts[(w * bins_p + bin) * num_tiles];
     let seg_end = bin_counts[(w * bins_p + bin + 1u) * num_tiles];
 
+{{^lean_meta}}
     for (var s: u32 = tid; s < LOWS; s = s + WG) {
         atomicStore(&hist[s], 0u);
     }
@@ -7167,6 +7207,21 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
         scan_buf[s] = h;
     }
     workgroupBarrier();
+{{/lean_meta}}
+{{#lean_meta}}
+    // Counts come straight from K2's global accumulation; pads beyond the
+    // real bucket range stayed 0 since the host's per-batch clear.
+    for (var s: u32 = tid; s < LOWS; s = s + WG) {
+        let bucket = (bin << BIN_SHIFT) + s;
+        var h: u32 = 0u;
+        if (bucket < bw) {
+            h = atomicLoad(&counts_out[w * bw + bucket]);
+        }
+        hcount[s] = h;
+        scan_buf[s] = h;
+    }
+    workgroupBarrier();
+{{/lean_meta}}
     for (var stride: u32 = 1u; stride < LOWS; stride = stride * 2u) {
         var x: u32 = 0u;
         if (tid < LOWS) {
@@ -7186,11 +7241,14 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
         let start = scan_buf[s] - hcount[s];
         atomicStore(&cursor[s], start);
         // Bucket meta: counts and GLOBAL slot offsets, every bucket this bin
-        // covers (pads beyond the real bucket range emit count 0).
+        // covers (pads beyond the real bucket range emit count 0). In lean
+        // mode the counts were already accumulated by K2 — only offsets here.
         let bucket = (bin << BIN_SHIFT) + s;
         if (bucket < bw) {
             let id = w * bw + bucket;
+{{^lean_meta}}
             counts_out[id] = hcount[s];
+{{/lean_meta}}
             offsets_out[id] = seg_base + start;
         }
     }
@@ -7260,6 +7318,7 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     }
     workgroupBarrier();
 
+{{^digits_u16}}
     let p_lo = tile * tile_pts;
     var p_hi = p_lo + tile_pts;
     if (p_hi > n) { p_hi = n; }
@@ -7281,6 +7340,51 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
 {{/windows}}
     }
     workgroupBarrier();
+{{/digits_u16}}
+{{#digits_u16}}
+    // u16 digit mode: each thread owns a PAIR of consecutive points and
+    // writes one packed u32 per window — bucket in bits [0..15) and sign at
+    // bit 15 per half (bucket ≤ 2^14, so 15+1 bits fit exactly). Halves the
+    // digit-array traffic here and in the K2 reader on every device.
+    let half_n = (n + 1u) >> 1u;
+    let pr_lo = (tile * tile_pts) >> 1u; // tile_pts is even by construction
+    var pr_hi = pr_lo + (tile_pts >> 1u);
+    if (pr_hi > half_n) { pr_hi = half_n; }
+    for (var pr: u32 = pr_lo + tid; pr < pr_hi; pr = pr + WG) {
+        let p0 = 2u * pr;
+        let p1 = p0 + 1u;
+        let sa = scalars[2u * p0];
+        let sb = scalars[2u * p0 + 1u];
+        let has_p1 = p1 < n;
+        var sc = vec4<u32>(0u, 0u, 0u, 0u);
+        var sd = vec4<u32>(0u, 0u, 0u, 0u);
+        if (has_p1) {
+            sc = scalars[2u * p1];
+            sd = scalars[2u * p1 + 1u];
+        }
+{{#windows}}
+        {
+            // window {{ w }}: c={{ c }}, scalar bits [{{ bit_lo }}, {{ bit_hi }})
+            let raw = {{{ raw_expr }}};
+            let neg = (raw >> {{ c }}u) & 1u;
+            let enc = (raw + 1u) >> 1u;
+            let bkt = ((enc - neg) ^ (0u - neg)) & {{ mask_c }}u;
+            atomicAdd(&hist[{{ w }}u * BINS_P + (bkt >> BIN_SHIFT)], 1u);
+            var d1: u32 = 0u;
+            if (has_p1) {
+                let raw1 = {{{ raw_expr2 }}};
+                let neg1 = (raw1 >> {{ c }}u) & 1u;
+                let enc1 = (raw1 + 1u) >> 1u;
+                let bkt1 = ((enc1 - neg1) ^ (0u - neg1)) & {{ mask_c }}u;
+                atomicAdd(&hist[{{ w }}u * BINS_P + (bkt1 >> BIN_SHIFT)], 1u);
+                d1 = bkt1 | (neg1 << 15u);
+            }
+            digits[{{ w }}u * half_n + pr] = (bkt | (neg << 15u)) | (d1 << 16u);
+        }
+{{/windows}}
+    }
+    workgroupBarrier();
+{{/digits_u16}}
 
     for (var s: u32 = tid; s < HIST_LEN; s = s + WG) {
         bin_counts[s * num_tiles + tile] = atomicLoad(&hist[s]);

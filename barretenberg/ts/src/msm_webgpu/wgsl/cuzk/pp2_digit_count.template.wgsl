@@ -49,6 +49,7 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     }
     workgroupBarrier();
 
+{{^digits_u16}}
     let p_lo = tile * tile_pts;
     var p_hi = p_lo + tile_pts;
     if (p_hi > n) { p_hi = n; }
@@ -70,6 +71,51 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
 {{/windows}}
     }
     workgroupBarrier();
+{{/digits_u16}}
+{{#digits_u16}}
+    // u16 digit mode: each thread owns a PAIR of consecutive points and
+    // writes one packed u32 per window — bucket in bits [0..15) and sign at
+    // bit 15 per half (bucket ≤ 2^14, so 15+1 bits fit exactly). Halves the
+    // digit-array traffic here and in the K2 reader on every device.
+    let half_n = (n + 1u) >> 1u;
+    let pr_lo = (tile * tile_pts) >> 1u; // tile_pts is even by construction
+    var pr_hi = pr_lo + (tile_pts >> 1u);
+    if (pr_hi > half_n) { pr_hi = half_n; }
+    for (var pr: u32 = pr_lo + tid; pr < pr_hi; pr = pr + WG) {
+        let p0 = 2u * pr;
+        let p1 = p0 + 1u;
+        let sa = scalars[2u * p0];
+        let sb = scalars[2u * p0 + 1u];
+        let has_p1 = p1 < n;
+        var sc = vec4<u32>(0u, 0u, 0u, 0u);
+        var sd = vec4<u32>(0u, 0u, 0u, 0u);
+        if (has_p1) {
+            sc = scalars[2u * p1];
+            sd = scalars[2u * p1 + 1u];
+        }
+{{#windows}}
+        {
+            // window {{ w }}: c={{ c }}, scalar bits [{{ bit_lo }}, {{ bit_hi }})
+            let raw = {{{ raw_expr }}};
+            let neg = (raw >> {{ c }}u) & 1u;
+            let enc = (raw + 1u) >> 1u;
+            let bkt = ((enc - neg) ^ (0u - neg)) & {{ mask_c }}u;
+            atomicAdd(&hist[{{ w }}u * BINS_P + (bkt >> BIN_SHIFT)], 1u);
+            var d1: u32 = 0u;
+            if (has_p1) {
+                let raw1 = {{{ raw_expr2 }}};
+                let neg1 = (raw1 >> {{ c }}u) & 1u;
+                let enc1 = (raw1 + 1u) >> 1u;
+                let bkt1 = ((enc1 - neg1) ^ (0u - neg1)) & {{ mask_c }}u;
+                atomicAdd(&hist[{{ w }}u * BINS_P + (bkt1 >> BIN_SHIFT)], 1u);
+                d1 = bkt1 | (neg1 << 15u);
+            }
+            digits[{{ w }}u * half_n + pr] = (bkt | (neg << 15u)) | (d1 << 16u);
+        }
+{{/windows}}
+    }
+    workgroupBarrier();
+{{/digits_u16}}
 
     for (var s: u32 = tid; s < HIST_LEN; s = s + WG) {
         bin_counts[s * num_tiles + tile] = atomicLoad(&hist[s]);

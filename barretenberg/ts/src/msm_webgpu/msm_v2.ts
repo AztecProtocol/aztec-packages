@@ -454,8 +454,21 @@ export interface MsmConfig {
    * - 'direct': fused digits + one shared-cursor claim and one direct global
    *   write per point — no staging. Targets GPUs whose workgroup memory is
    *   cache-emulated (Mali), where the staging machinery itself dominates.
+   * - 'dmat': direct claims + the materialized digit array. The
+   *   device-independent composition — pure coalesced streams plus one shared
+   *   atomic per point; no bet on L2 capacity (fused) or on workgroup memory
+   *   being real SRAM (staged). The universal-default candidate.
    */
-  preprocessV2Variant?: 'fused' | 'materialized' | 'direct';
+  preprocessV2Variant?: 'fused' | 'materialized' | 'direct' | 'dmat';
+  /**
+   * pp2 lean meta (only with the 'direct' variant): K2 also accumulates the
+   * per-(window, bucket) counts with one global atomic per point, and K3
+   * skips its histogram phase — one fewer full stream over the binned buffer
+   * plus two fewer shared atomics per entry. Degenerate distributions whose
+   * points pile into one bucket serialize that bucket's global counter, so
+   * this is a measured per-device choice, not a universal win. Default false.
+   */
+  preprocessV2LeanMeta?: boolean;
 }
 
 /** Per-pass GPU time (ms) for one `run()`, returned when `profile` is set. */
@@ -2013,7 +2026,9 @@ export class MsmV2 {
   // create() only when the flag is on AND the create-time schedule is uniform;
   // pp2Active gates dispatch per prepare (single batch, no region split).
   private pp2Enabled = false;
-  private pp2Variant: 'fused' | 'materialized' | 'direct' = 'fused';
+  private pp2Variant: 'fused' | 'materialized' | 'direct' | 'dmat' = 'fused';
+  private pp2LeanMeta = false;
+  private pp2CountsClearBuf?: GPUBuffer;
   private pp2Active = false;
   private pp2DigitCountPipe?: GPUComputePipeline;
   private pp2ScanPipe?: GPUComputePipeline;
@@ -2099,6 +2114,7 @@ export class MsmV2 {
   private pp2DigitCountLayout!: GPUBindGroupLayout;
   private pp2ScanLayout!: GPUBindGroupLayout;
   private pp2ScatterLayout!: GPUBindGroupLayout;
+  private pp2ScatterLeanLayout!: GPUBindGroupLayout;
   private pp2SortEmitLayout!: GPUBindGroupLayout;
   private reduceLevelLayout!: GPUBindGroupLayout;
   private zInitLayout!: GPUBindGroupLayout;
@@ -2436,10 +2452,16 @@ export class MsmV2 {
       if (m.pp2Enabled) {
         m.pp2BinShift = shift;
         m.pp2BinsP = binsP;
-        // 'direct' measured best-or-tied on every target (M4 420 µs vs 403
-        // materialized; Adreno 1761 vs 1983 fused; Mali 5843 vs 6570/6705) and
-        // is the simplest kernel — no staging, no digit array.
-        m.pp2Variant = config?.preprocessV2Variant ?? 'direct';
+        // 'dmat' (direct claims + u16-packed digit array) is the
+        // device-INDEPENDENT composition: pure coalesced streams plus one
+        // shared atomic per point — no bet on L2 capacity (fused) or on
+        // workgroup memory being real SRAM (staged). Measured logn=17: M4 324
+        // µs (best), Adreno 1810 (within 3% of best), Mali ~5900 (tie within
+        // thermal noise). WebGPU can't identify hardware, so the default must
+        // be one algorithm that is near-optimal everywhere — this is it.
+        m.pp2Variant = config?.preprocessV2Variant ?? 'dmat';
+        m.pp2LeanMeta =
+          (m.pp2Variant === 'direct' || m.pp2Variant === 'dmat') && (config?.preprocessV2LeanMeta ?? false);
         console.log(
           `[MsmV2] preprocessV2 enabled: shift=${shift} binsP=${binsP} k2=${m.pp2Variant} (n=${n} c=${m.c} NW=${m.numWindows})`,
         );
@@ -2718,8 +2740,10 @@ export class MsmV2 {
     m.pp2DigitCountLayout = lt(['read-only-storage', 'storage', 'storage', 'uniform']);
     //   bin-scan: bin_counts(rw, in-place), point_offsets(ro), params.
     m.pp2ScanLayout = lt(['storage', 'read-only-storage', 'uniform']);
-    //   bin-scatter: digits(ro), bin_counts(ro), binned(rw), params.
+    //   bin-scatter: digits-or-scalars(ro), bin_counts(ro), binned(rw), params
+    //   [+ counts_out(rw atomic) in lean-meta mode].
     m.pp2ScatterLayout = lt(['read-only-storage', 'read-only-storage', 'storage', 'uniform']);
+    m.pp2ScatterLeanLayout = lt(['read-only-storage', 'read-only-storage', 'storage', 'uniform', 'storage']);
     //   bin-sort-emit: binned(ro), bin_counts(ro), l0_out(rw), counts(rw), offsets(rw), params.
     m.pp2SortEmitLayout = lt([
       'read-only-storage',
@@ -2991,8 +3015,9 @@ export class MsmV2 {
       // every n of the same c. K1 bakes the window schedule (one compile per c).
       // Fused mode (default): K1 is count-only and K2 recomputes digits from
       // the scalars — the 10.5 MB digit array is never materialized.
+      const digitMode = m.pp2Variant === 'materialized' ? 'u32' : m.pp2Variant === 'dmat' ? 'u16' : 'none';
       m.pp2DigitCountPipe = await compile(
-        sm.gen_pp2_digit_count_shader(256, m.windowCs, m.pp2BinShift, m.pp2BinsP, m.pp2Variant === 'materialized'),
+        sm.gen_pp2_digit_count_shader(256, m.windowCs, m.pp2BinShift, m.pp2BinsP, digitMode),
         `pp2-digit-count`,
         m.pp2DigitCountLayout,
       );
@@ -3000,12 +3025,23 @@ export class MsmV2 {
       const scatterSrc =
         m.pp2Variant === 'materialized'
           ? sm.gen_pp2_bin_scatter_shader(256, m.pp2BinsP, m.pp2BinShift)
-          : m.pp2Variant === 'direct'
-            ? sm.gen_pp2_bin_scatter_direct_shader(256, m.pp2BinsP, m.pp2BinShift, m.c)
-            : sm.gen_pp2_bin_scatter_fused_shader(256, m.pp2BinsP, m.pp2BinShift, m.c);
-      m.pp2ScatterPipe = await compile(scatterSrc, `pp2-bin-scatter`, m.pp2ScatterLayout);
+          : m.pp2Variant === 'fused'
+            ? sm.gen_pp2_bin_scatter_fused_shader(256, m.pp2BinsP, m.pp2BinShift, m.c)
+            : sm.gen_pp2_bin_scatter_direct_shader(
+                256,
+                m.pp2BinsP,
+                m.pp2BinShift,
+                m.c,
+                m.pp2LeanMeta,
+                m.pp2Variant === 'dmat',
+              );
+      m.pp2ScatterPipe = await compile(
+        scatterSrc,
+        `pp2-bin-scatter`,
+        m.pp2LeanMeta ? m.pp2ScatterLeanLayout : m.pp2ScatterLayout,
+      );
       m.pp2SortEmitPipe = await compile(
-        sm.gen_pp2_bin_sort_emit_shader(256, m.pp2BinShift),
+        sm.gen_pp2_bin_sort_emit_shader(256, m.pp2BinShift, m.pp2LeanMeta),
         `pp2-bin-sort-emit`,
         m.pp2SortEmitLayout,
       );
@@ -4124,13 +4160,23 @@ export class MsmV2 {
       this.pp2DigitCountBind = mkBind(this.pp2DigitCountLayout, [scalarsRawBuf, bucketAndSignBuf, binCounts, pp2Params]);
       this.pp2ScanBind = mkBind(this.pp2ScanLayout, [binCounts, pointOffsetsBuf, pp2Params]);
       // fused/direct: K2 reads the scalars and recomputes digits;
-      // materialized: K2 reads the digit array K1 wrote.
-      this.pp2ScatterBind = mkBind(this.pp2ScatterLayout, [
-        this.pp2Variant === 'materialized' ? bucketAndSignBuf : scalarsRawBuf,
-        binCounts,
-        valIdxBuf,
-        pp2Params,
-      ]);
+      // materialized/dmat: K2 reads the digit array K1 wrote. Lean-meta
+      // additionally accumulates active_counts (cleared per batch in encode).
+      const scatterIn =
+        this.pp2Variant === 'materialized' || this.pp2Variant === 'dmat' ? bucketAndSignBuf : scalarsRawBuf;
+      if (this.pp2LeanMeta) {
+        this.pp2ScatterBind = mkBind(this.pp2ScatterLeanLayout, [
+          scatterIn,
+          binCounts,
+          valIdxBuf,
+          pp2Params,
+          countsBufs[0],
+        ]);
+        this.pp2CountsClearBuf = countsBufs[0];
+      } else {
+        this.pp2ScatterBind = mkBind(this.pp2ScatterLayout, [scatterIn, binCounts, valIdxBuf, pp2Params]);
+        this.pp2CountsClearBuf = undefined;
+      }
       this.pp2SortEmitBind = mkBind(this.pp2SortEmitLayout, [
         valIdxBuf,
         binCounts,
@@ -4917,9 +4963,15 @@ export class MsmV2 {
       if (this.pp2Active) {
         dispatch(this.pp2DigitCountPipe!, this.pp2DigitCountBind!, this.pp2NumTiles, 1);
         dispatch(this.pp2ScanPipe!, this.pp2ScanBind!, tbw, 1);
-        // fused/direct scatter dispatches windows on x (the fast axis) so the
-        // ~NW workgroups sharing one point-tile's scalars run adjacently and
-        // hit L2; the materialized variant keeps tiles on x.
+        // Lean meta: K2 accumulates active_counts atomically — zero it first
+        // (also zeroes the pad buckets K2 never touches).
+        if (this.pp2LeanMeta && this.pp2CountsClearBuf) {
+          enc.clearBuffer(this.pp2CountsClearBuf);
+        }
+        // The staged materialized kernel maps (tile, window) = (x, y); the
+        // direct-family template (direct/dmat) and the fused kernel map
+        // (window, tile) = (x, y) — windows on the fast axis, which also
+        // keeps a point-tile's scalars L2-adjacent for the recompute modes.
         if (this.pp2Variant === 'materialized') {
           dispatch(this.pp2ScatterPipe!, this.pp2ScatterBind!, this.pp2NumTiles, tbw);
         } else {

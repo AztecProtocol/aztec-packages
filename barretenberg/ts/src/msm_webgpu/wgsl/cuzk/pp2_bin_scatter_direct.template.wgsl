@@ -25,12 +25,22 @@ const C: u32 = {{ c }}u;
 const MASK_C: u32 = {{ mask_c }}u;
 const MASK_C1: u32 = {{ mask_c1 }}u;
 
+// from_digits mode: binding 0 is the digit array K1 materialized (coalesced
+// 4 B reads, traffic bounded on every device) instead of the raw scalars,
+// whose per-window re-reads depend on L2 keeping the tile hot.
 @group(0) @binding(0) var<storage, read>       scalars:    array<u32>;
 @group(0) @binding(1) var<storage, read>       bin_counts: array<u32>;
 @group(0) @binding(2) var<storage, read_write> binned:     array<u32>;
 // params[0] = [n, num_tiles, tile_pts, bins_p]
-// params[1] = [base_offset, scan_len, BW, 0] (unused here)
+// params[1] = [base_offset, scan_len, BW, 0]
 @group(0) @binding(3) var<uniform>             params:     array<vec4<u32>, 2>;
+{{#lean_meta}}
+// Lean meta: this kernel also accumulates the per-(window, bucket) counts
+// (host clears the buffer per batch, so pad buckets read 0), letting K3 skip
+// its whole histogram phase — one fewer full stream over `binned` plus 2 *
+// entries shared atomics, in exchange for one global atomic per point here.
+@group(0) @binding(4) var<storage, read_write> counts_out: array<atomic<u32>>;
+{{/lean_meta}}
 
 var<workgroup> cursors: array<atomic<u32>, {{ bins_p }}>;
 
@@ -45,10 +55,12 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     let num_tiles = params[0].y;
     let tile_pts = params[0].z;
 
+{{^from_digits}}
     let lo_bit = select(w * C - 1u, 0u, w == 0u);
     let word = lo_bit >> 5u;
     let off = lo_bit & 31u;
     let spans = off + C + 1u > 32u && word + 1u < 8u;
+{{/from_digits}}
 
     for (var s: u32 = tid; s < BINS_P; s = s + WG) {
         atomicStore(&cursors[s], bin_counts[(w * BINS_P + s) * num_tiles + tile]);
@@ -59,7 +71,19 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     var p_hi = p_lo + tile_pts;
     if (p_hi > n) { p_hi = n; }
 
+{{#from_digits}}
+    let half_n = (n + 1u) >> 1u;
+{{/from_digits}}
     for (var p: u32 = p_lo + tid; p < p_hi; p = p + WG) {
+{{#from_digits}}
+        // u16-packed digit pair: bucket in bits [0..15), sign at bit 15;
+        // adjacent threads read the same u32 (warp-broadcast, half traffic).
+        let e2 = scalars[w * half_n + (p >> 1u)];
+        let e = select(e2 & 0xFFFFu, e2 >> 16u, (p & 1u) == 1u);
+        let bkt = e & 0x7FFFu;
+        let neg = e >> 15u;
+{{/from_digits}}
+{{^from_digits}}
         var raw: u32;
         if (w == 0u) {
             raw = (scalars[p * 8u] << 1u) & MASK_C1;
@@ -73,8 +97,12 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
         let neg = (raw >> C) & 1u;
         let enc = (raw + 1u) >> 1u;
         let bkt = ((enc - neg) ^ (0u - neg)) & MASK_C;
+{{/from_digits}}
         let pos = atomicAdd(&cursors[bkt >> BIN_SHIFT], 1u);
         binned[pos] = p | (neg << 21u) | ((bkt & LOW_MASK) << 22u);
+{{#lean_meta}}
+        atomicAdd(&counts_out[w * params[1].z + bkt], 1u);
+{{/lean_meta}}
     }
 
     {{{ recompile }}}
