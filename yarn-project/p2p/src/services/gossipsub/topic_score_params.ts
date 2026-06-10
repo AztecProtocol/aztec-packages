@@ -1,5 +1,4 @@
 import { TopicType, createTopicString } from '@aztec/stdlib/p2p';
-import type { ProposerTimetable } from '@aztec/stdlib/timetable';
 
 import { createTopicScoreParams } from '@chainsafe/libp2p-gossipsub/score';
 
@@ -14,10 +13,10 @@ export type TopicScoringNetworkParams = {
   /** Target committee size (number of validators expected to attest per slot) */
   targetCommitteeSize: number;
   /**
-   * Proposer timetable, shared with the gossip validators. Provides the max-blocks-per-checkpoint used to
-   * derive expected per-slot message rates, so scoring stays consistent with block production.
+   * Max blocks per checkpoint, the network-wide config value. Used to derive expected per-slot message rates
+   * for scoring; it is a peer-rate threshold input, not a consensus deadline.
    */
-  timetable: ProposerTimetable;
+  maxBlocksPerCheckpoint: number;
   /** Expected number of block proposals per slot for scoring override. 0 disables scoring, undefined falls back to blocksPerSlot - 1. */
   expectedBlockProposalsPerSlot?: number;
 };
@@ -269,9 +268,9 @@ export class TopicScoreParamsFactory {
   constructor(private readonly params: TopicScoringNetworkParams) {
     const { slotDurationMs, heartbeatIntervalMs } = params;
 
-    // Compute values that are the same for all topics. The block count comes straight from the shared
-    // proposer timetable, so gossipsub scoring agrees with the proposer's max blocks per checkpoint.
-    this.blocksPerSlot = params.timetable.getMaxBlocksPerCheckpoint();
+    // Compute values that are the same for all topics. The block count comes straight from the network-wide
+    // max-blocks-per-checkpoint config value.
+    this.blocksPerSlot = params.maxBlocksPerCheckpoint;
     this.heartbeatsPerSlot = slotDurationMs / heartbeatIntervalMs;
     this.invalidDecay = computeDecay(heartbeatIntervalMs, slotDurationMs, INVALID_DECAY_WINDOW_SLOTS);
 

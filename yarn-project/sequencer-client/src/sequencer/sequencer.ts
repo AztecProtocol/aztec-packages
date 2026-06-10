@@ -1,4 +1,5 @@
 import { getKzg } from '@aztec/blob-lib';
+import { MIN_PER_BLOCK_ALLOCATION_MULTIPLIER } from '@aztec/constants';
 import { type EpochCache, PROPOSER_PIPELINING_SLOT_OFFSET } from '@aztec/epoch-cache';
 import { NoCommitteeError, type RollupContract } from '@aztec/ethereum/contracts';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
@@ -19,7 +20,7 @@ import type {
   ValidateCheckpointResult,
 } from '@aztec/stdlib/block';
 import type { Checkpoint, ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
-import { type ChainConfig, MIN_PER_BLOCK_ALLOCATION_MULTIPLIER } from '@aztec/stdlib/config';
+import type { ChainConfig } from '@aztec/stdlib/config';
 import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import {
   MIN_PER_BLOCK_ALLOCATION_MULTIPLIER,

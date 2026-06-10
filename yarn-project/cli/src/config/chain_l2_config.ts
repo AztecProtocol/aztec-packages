@@ -15,7 +15,7 @@ const NetworkConfigs: Partial<Record<NetworkNames, NetworkConfigEnv>> = {
 };
 
 /** Every generated network config must define every consensus-critical env var. */
-type ConsensusComplete = Record<ConsensusEnvVar, string | number | boolean>;
+export type ConsensusComplete = Record<ConsensusEnvVar, string | number | boolean>;
 ({ devnetConfig, testnetConfig, mainnetConfig }) satisfies Record<string, ConsensusComplete>;
 
 const log = createLogger('cli:chain_l2_config');
@@ -59,7 +59,9 @@ export function enrichEnvironmentWithChainName(networkName: NetworkNames) {
   const configKey = /^v\d+-devnet-\d+$/.test(networkName) ? 'devnet' : networkName;
   const generatedConfig = NetworkConfigs[configKey];
   if (generatedConfig) {
-    checkConsensusEnvOverrides(generatedConfig, process.env, msg => log.warn(msg));
+    // The check is pure; this layer owns env mutation, so apply its canonical writes before enriching.
+    const canonical = checkConsensusEnvOverrides(generatedConfig, process.env, msg => log.warn(msg));
+    Object.assign(process.env, canonical);
     enrichEnvironmentWithNetworkConfig(generatedConfig);
   }
 

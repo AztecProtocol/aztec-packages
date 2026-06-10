@@ -127,7 +127,6 @@ import {
 } from '@aztec/stdlib/messaging';
 import type { CheckpointAttestation } from '@aztec/stdlib/p2p';
 import type { Offense } from '@aztec/stdlib/slashing';
-import { DEFAULT_MIN_BLOCK_DURATION } from '@aztec/stdlib/timetable';
 import type { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
 import { MerkleTreeId, NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import {
@@ -616,12 +615,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     // Track started resources so we can clean up on partial failure during node creation.
     const started: { stop?(): Promise<void> | void }[] = [];
     try {
-      // Default the consensus materialization grace from the block build duration when unset, so the archiver
-      // gives received checkpoint proposals roughly two build slots to validate and enter proposed state.
-      config.checkpointProposalSyncGraceSeconds ??=
-        config.blockDurationMs !== undefined
-          ? 2 * Math.ceil(config.blockDurationMs / 1000)
-          : 2 * DEFAULT_MIN_BLOCK_DURATION;
       config.skipOrphanProposedBlockPruning ||= !!config.useAutomineSequencer;
 
       AztecNodeService.checkConfigMatchesRollup(config, {

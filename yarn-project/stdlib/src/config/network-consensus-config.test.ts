@@ -1,9 +1,13 @@
+import { l1ContractsConfigMappings } from '@aztec/ethereum/config';
+
 import {
+  NETWORK_CONSENSUS_ENV_VARS,
   type NetworkConsensusConfig,
   checkConsensusEnvOverrides,
   getConsensusConfigFromNetworkEnv,
   validateNetworkConsensusConfig,
 } from './network-consensus-config.js';
+import { sharedSequencerConfigMappings } from './sequencer-config.js';
 
 describe('validateNetworkConsensusConfig', () => {
   // Production geometry: the default budgets derive exactly 10 blocks per checkpoint.
@@ -89,6 +93,19 @@ describe('getConsensusConfigFromNetworkEnv', () => {
       checkpointProposalSyncGraceSeconds: 12,
     });
   });
+
+  it('uses env names that are all consensus-critical', () => {
+    const pickedEnvNames = [
+      l1ContractsConfigMappings.aztecSlotDuration.env,
+      l1ContractsConfigMappings.ethereumSlotDuration.env,
+      sharedSequencerConfigMappings.blockDurationMs.env,
+      sharedSequencerConfigMappings.maxBlocksPerCheckpoint.env,
+      sharedSequencerConfigMappings.checkpointProposalSyncGraceSeconds.env,
+    ];
+    for (const env of pickedEnvNames) {
+      expect(NETWORK_CONSENSUS_ENV_VARS).toContain(env);
+    }
+  });
 });
 
 describe('checkConsensusEnvOverrides', () => {
@@ -98,17 +115,19 @@ describe('checkConsensusEnvOverrides', () => {
     L1_CHAIN_ID: 1,
   };
 
-  it('leaves unset vars untouched', () => {
+  it('returns no canonical writes for unset vars', () => {
     const env: Record<string, string | undefined> = {};
-    checkConsensusEnvOverrides(networkConfig, env);
+    expect(checkConsensusEnvOverrides(networkConfig, env)).toEqual({});
     expect(env.SEQ_BLOCK_DURATION_MS).toBeUndefined();
     expect(env.L1_CHAIN_ID).toBeUndefined();
   });
 
-  it('canonicalizes a numerically-equal value', () => {
+  it('returns the canonical form of a numerically-equal value without mutating env', () => {
     const env: Record<string, string | undefined> = { SEQ_BLOCK_DURATION_MS: '6e3' };
-    checkConsensusEnvOverrides(networkConfig, env);
-    expect(env.SEQ_BLOCK_DURATION_MS).toBe('6000');
+    const canonical = checkConsensusEnvOverrides(networkConfig, env);
+    expect(canonical).toEqual({ SEQ_BLOCK_DURATION_MS: '6000' });
+    // The check itself is pure: env is untouched.
+    expect(env.SEQ_BLOCK_DURATION_MS).toBe('6e3');
   });
 
   it('throws naming the var on a conflicting value', () => {
@@ -122,7 +141,9 @@ describe('checkConsensusEnvOverrides', () => {
       ALLOW_OVERRIDING_NETWORK_CONFIG: '1',
     };
     const logs: string[] = [];
-    checkConsensusEnvOverrides(networkConfig, env, msg => logs.push(msg));
+    const canonical = checkConsensusEnvOverrides(networkConfig, env, msg => logs.push(msg));
+    // A genuine override is not canonicalized: the operator value is kept and absent from the writes.
+    expect(canonical).toEqual({});
     expect(env.SEQ_BLOCK_DURATION_MS).toBe('3000');
     expect(logs.some(msg => msg.includes('SEQ_BLOCK_DURATION_MS'))).toBe(true);
   });
@@ -131,8 +152,8 @@ describe('checkConsensusEnvOverrides', () => {
     const matching: Record<string, string | undefined> = {
       AZTEC_SLASHING_VETOER: '0x0000000000000000000000000000000000000000',
     };
-    expect(() => checkConsensusEnvOverrides(networkConfig, matching)).not.toThrow();
-    // Non-numeric values are not canonicalized.
+    // Non-numeric values are never canonicalized, so no writes are returned.
+    expect(checkConsensusEnvOverrides(networkConfig, matching)).toEqual({});
     expect(matching.AZTEC_SLASHING_VETOER).toBe('0x0000000000000000000000000000000000000000');
 
     const conflicting: Record<string, string | undefined> = {
@@ -143,7 +164,7 @@ describe('checkConsensusEnvOverrides', () => {
 
   it('ignores vars absent from the network config', () => {
     const env: Record<string, string | undefined> = { AZTEC_SLASHING_QUORUM: '99' };
-    expect(() => checkConsensusEnvOverrides(networkConfig, env)).not.toThrow();
+    expect(checkConsensusEnvOverrides(networkConfig, env)).toEqual({});
     expect(env.AZTEC_SLASHING_QUORUM).toBe('99');
   });
 });

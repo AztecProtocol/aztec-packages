@@ -7,7 +7,7 @@ import {
   ProposerTimetable,
 } from '@aztec/stdlib/timetable';
 
-import { enrichEnvironmentWithChainName } from './chain_l2_config.js';
+import { type ConsensusComplete, enrichEnvironmentWithChainName } from './chain_l2_config.js';
 import { devnetConfig, mainnetConfig, testnetConfig } from './generated/networks.js';
 
 const generatedConfigs = {
@@ -44,6 +44,18 @@ describe('generated network configs', () => {
   }
 });
 
+// Compile-time gate: tsc itself enforces that a complete config satisfies ConsensusComplete while a config
+// missing a consensus-critical var does not. If the negative assertion ever stops erroring, the unused
+// `@ts-expect-error` directive turns into a build error, flagging that the gate has silently weakened. This
+// function is never called; its name is `_`-prefixed so lint ignores it as an intentionally unused binding.
+function _consensusCompleteCompileGate() {
+  const _complete: ConsensusComplete = mainnetConfig satisfies ConsensusComplete;
+
+  const { MAX_BLOCKS_PER_CHECKPOINT: _dropped, ...incomplete } = mainnetConfig;
+  // @ts-expect-error a config missing a consensus-critical var must not satisfy ConsensusComplete
+  const _incomplete: ConsensusComplete = incomplete satisfies ConsensusComplete;
+}
+
 describe('enrichEnvironmentWithChainName', () => {
   const originalEnv = { ...process.env };
 
@@ -68,5 +80,12 @@ describe('enrichEnvironmentWithChainName', () => {
     process.env.ALLOW_OVERRIDING_NETWORK_CONFIG = '1';
     expect(() => enrichEnvironmentWithChainName('testnet')).not.toThrow();
     expect(process.env.SEQ_BLOCK_DURATION_MS).toBe('3000');
+  });
+
+  it('canonicalizes a numerically-equal consensus value to the network form', () => {
+    // '6e3' equals the network's SEQ_BLOCK_DURATION_MS=6000 numerically; enrichment applies the canonical form.
+    process.env.SEQ_BLOCK_DURATION_MS = '6e3';
+    enrichEnvironmentWithChainName('testnet');
+    expect(process.env.SEQ_BLOCK_DURATION_MS).toBe('6000');
   });
 });

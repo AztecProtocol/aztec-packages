@@ -1,5 +1,7 @@
-import type { EnvVar } from '@aztec/foundation/config';
+import { type L1ContractsConfig, l1ContractsConfigMappings } from '@aztec/ethereum/config';
+import { type EnvVar, pickConfigMappings } from '@aztec/foundation/config';
 
+import type { SequencerConfig } from '../interfaces/configs.js';
 import {
   DEFAULT_CHECKPOINT_PROPOSAL_INIT_TIME,
   DEFAULT_CHECKPOINT_PROPOSAL_PREPARE_TIME,
@@ -7,20 +9,7 @@ import {
   DEFAULT_P2P_PROPAGATION_TIME,
 } from '../timetable/budgets.js';
 import { ProposerTimetable } from '../timetable/proposer_timetable.js';
-
-/**
- * Network-minimum per-block budget multiplier for L2 gas / tx count. Operators may configure a higher value,
- * but never lower: a node admitting txs under a smaller multiplier would accept work it can never pack.
- */
-export const MIN_PER_BLOCK_ALLOCATION_MULTIPLIER = 1.2;
-
-/**
- * Network-minimum per-block budget multiplier for DA gas / blob fields. See
- * {@link MIN_PER_BLOCK_ALLOCATION_MULTIPLIER}. The DA-specific operator knob and its runtime enforcement land
- * with the network tx admission limits (#23947); until then this constant is documentation of the network
- * minimum only.
- */
-export const MIN_PER_BLOCK_DA_ALLOCATION_MULTIPLIER = 1.5;
+import { sharedSequencerConfigMappings } from './sequencer-config.js';
 
 /**
  * Environment variables whose values must be identical across every node of a network. They fall into three
@@ -99,35 +88,51 @@ export const NETWORK_CONSENSUS_ENV_VARS = [
 /** A consensus-critical environment variable name; see {@link NETWORK_CONSENSUS_ENV_VARS}. */
 export type ConsensusEnvVar = (typeof NETWORK_CONSENSUS_ENV_VARS)[number];
 
-/** The subset of consensus-critical timing config whose geometry can be validated in isolation. */
-export type NetworkConsensusConfig = {
-  /** Aztec L2 slot duration in seconds. */
-  aztecSlotDuration: number;
-  /** Ethereum L1 slot duration in seconds. */
-  ethereumSlotDuration: number;
-  /** Duration of a block sub-slot in milliseconds. */
-  blockDurationMs: number;
-  /** Explicit network max blocks per checkpoint (the value the production default budgets must derive). */
-  maxBlocksPerCheckpoint: number;
-  /** Consensus grace for received checkpoint proposals to materialize locally, in seconds. */
-  checkpointProposalSyncGraceSeconds: number;
+/**
+ * The subset of consensus-critical timing config whose geometry can be validated in isolation. Composed by
+ * picking the canonical fields from their owning config types so the field set never drifts from the config
+ * layer: slot durations from {@link L1ContractsConfig}, block sub-slot/checkpoint timings from
+ * {@link SequencerConfig} (whose fields are optional there, hence `Required`).
+ */
+export type NetworkConsensusConfig = Pick<L1ContractsConfig, 'aztecSlotDuration' | 'ethereumSlotDuration'> &
+  Required<Pick<SequencerConfig, 'blockDurationMs' | 'maxBlocksPerCheckpoint' | 'checkpointProposalSyncGraceSeconds'>>;
+
+/** Config mappings for the slot-timing fields of {@link NetworkConsensusConfig}, picked from their owners. */
+const networkConsensusConfigMappings = {
+  ...pickConfigMappings(l1ContractsConfigMappings, ['aztecSlotDuration', 'ethereumSlotDuration']),
+  ...pickConfigMappings(sharedSequencerConfigMappings, [
+    'blockDurationMs',
+    'maxBlocksPerCheckpoint',
+    'checkpointProposalSyncGraceSeconds',
+  ]),
 };
 
 /**
- * Extracts the timing {@link NetworkConsensusConfig} from a generated network config object. Reads the relevant
- * env-var keys and coerces them with `Number()`; missing keys become `NaN`, which
- * {@link validateNetworkConsensusConfig} reports as an error.
+ * Extracts the timing {@link NetworkConsensusConfig} from a generated network config object. The env-var names
+ * and the per-field parsing both come from the canonical config mappings (`l1ContractsConfigMappings` and
+ * `sharedSequencerConfigMappings`), so each field is parsed exactly as the node's config layer would parse it.
+ * A field whose env var is absent becomes `NaN`, which {@link validateNetworkConsensusConfig} reports as an
+ * error. Never throws: parse helpers that would throw or yield `undefined` are coerced to `NaN`.
  */
 export function getConsensusConfigFromNetworkEnv(
   values: Record<string, string | number | boolean>,
 ): NetworkConsensusConfig {
-  return {
-    aztecSlotDuration: Number(values['AZTEC_SLOT_DURATION']),
-    ethereumSlotDuration: Number(values['ETHEREUM_SLOT_DURATION']),
-    blockDurationMs: Number(values['SEQ_BLOCK_DURATION_MS']),
-    maxBlocksPerCheckpoint: Number(values['MAX_BLOCKS_PER_CHECKPOINT']),
-    checkpointProposalSyncGraceSeconds: Number(values['CHECKPOINT_PROPOSAL_SYNC_GRACE_SECONDS']),
-  };
+  const result = {} as Record<keyof NetworkConsensusConfig, number>;
+  for (const [field, mapping] of Object.entries(networkConsensusConfigMappings)) {
+    const raw = mapping.env !== undefined ? values[mapping.env] : undefined;
+    if (raw === undefined) {
+      result[field as keyof NetworkConsensusConfig] = NaN;
+      continue;
+    }
+    let parsed: number | undefined;
+    try {
+      parsed = mapping.parseEnv ? mapping.parseEnv(String(raw)) : Number(raw);
+    } catch {
+      parsed = NaN;
+    }
+    result[field as keyof NetworkConsensusConfig] = parsed ?? NaN;
+  }
+  return result;
 }
 
 /**
@@ -224,16 +229,24 @@ export function validateNetworkConsensusConfig(config: NetworkConsensusConfig): 
  *
  * For each var in {@link NETWORK_CONSENSUS_ENV_VARS} present in `networkConfig`: if the operator set it in `env`
  * to a conflicting value, this throws unless `ALLOW_OVERRIDING_NETWORK_CONFIG` is truthy (in which case it logs
- * and keeps the operator value). On a numeric match, the env value is canonicalized to the network value's
- * string form. This function does not populate unset vars (the caller's enrichment loop does that) and never
- * touches `NETWORK`.
+ * and keeps the operator value).
+ *
+ * This function is pure: it never writes to `env`. Instead it returns the canonical env writes the caller
+ * should apply — a map of env-var name to canonical string value for every numeric var whose env value matched
+ * the network value numerically. Applying these closes a bypass where the config layer parses some vars with
+ * `parseInt` (which reads '6e3' as 6); rewriting them to the network value's string form keeps the operator's
+ * numerically-equal value but in canonical form. Vars kept under `ALLOW_OVERRIDING_NETWORK_CONFIG` (genuine
+ * conflicts) are not included, so the operator value is preserved untouched.
+ *
+ * @returns Canonical env writes (env-var name -> canonical string value) for the caller to apply.
  */
 export function checkConsensusEnvOverrides(
   networkConfig: Record<string, string | number | boolean>,
   env: { [key: string]: string | undefined } = process.env,
   log?: (msg: string) => void,
-): void {
+): Record<string, string> {
   const allowOverride = allowsNetworkConfigOverride(env);
+  const canonical: Record<string, string> = {};
 
   for (const envVar of NETWORK_CONSENSUS_ENV_VARS) {
     const networkValue = networkConfig[envVar];
@@ -249,10 +262,8 @@ export function checkConsensusEnvOverrides(
     const networkIsNumeric = typeof networkValue === 'number';
     const matches = networkIsNumeric ? Number(current) === networkValue : current === String(networkValue);
     if (matches) {
-      // Canonicalize numeric matches: the config layer parses some vars with parseInt, which reads '6e3' as 6.
-      // Rewriting to the network value's string form closes that bypass.
       if (networkIsNumeric) {
-        env[envVar] = String(networkValue);
+        canonical[envVar] = String(networkValue);
       }
       continue;
     }
@@ -267,6 +278,8 @@ export function checkConsensusEnvOverrides(
     }
     throw new Error(message);
   }
+
+  return canonical;
 }
 
 /** Whether the env opts into overriding network-wide consensus values (`ALLOW_OVERRIDING_NETWORK_CONFIG`). */
