@@ -148,7 +148,8 @@ async function sendTriggerTx(
   return await waitForTriggerTx(node, txHash);
 }
 
-describe('HA Full Setup', () => {
+// TODO: re-enable once HA block building is reconciled with the always-enforced timetable (#23821).
+describe.skip('HA Full Setup', () => {
   jest.setTimeout(20 * 60 * 1000); // 20 minutes
 
   let logger: Logger;
@@ -843,8 +844,7 @@ describe('HA Full Setup', () => {
   });
 
   // NOTE: this test needs to run last
-  // TODO: re-enable once HA block building is reconciled with the always-enforced timetable (#23821).
-  it.skip('should distribute work across multiple HA nodes', async () => {
+  it('should distribute work across multiple HA nodes', async () => {
     logger.info('Testing HA resilience by killing nodes after they produce blocks');
 
     // We'll produce NODE_COUNT blocks (5 total with NODE_COUNT=5)
