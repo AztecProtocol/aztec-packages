@@ -1,6 +1,12 @@
 import { ARCHIVE_HEIGHT, L1_TO_L2_MSG_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT } from '@aztec/constants';
 import { type L1ContractAddresses, L1ContractsNames } from '@aztec/ethereum/l1-contract-addresses';
-import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import {
+  BlockNumber,
+  CheckpointNumber,
+  CheckpointProposalHash,
+  EpochNumber,
+  SlotNumber,
+} from '@aztec/foundation/branded-types';
 import { randomInt } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { memoize } from '@aztec/foundation/decorators';
@@ -26,12 +32,14 @@ import {
   ProtocolContractsNames,
   getContractClassFromArtifact,
 } from '../contract/index.js';
+import { EmptyL1RollupConstants, type L1RollupConstants } from '../epoch-helpers/index.js';
 import { GasFees } from '../gas/gas_fees.js';
 import { PublicKeys } from '../keys/public_keys.js';
 import { type LogResult, randomLogResult } from '../logs/log_result.js';
 import type { PrivateLogsQuery, PublicLogsQuery } from '../logs/logs_query.js';
 import { SiloedTag } from '../logs/siloed_tag.js';
 import { Tag } from '../logs/tag.js';
+import { CheckpointAttestation } from '../p2p/checkpoint_attestation.js';
 import { getTokenContractArtifact } from '../tests/fixtures.js';
 import { MerkleTreeId } from '../trees/merkle_tree_id.js';
 import { NullifierMembershipWitness } from '../trees/nullifier_membership_witness.js';
@@ -60,6 +68,7 @@ import type { ChainTip, ChainTips } from './chain_tips.js';
 import type { CheckpointParameter } from './checkpoint_parameter.js';
 import type { CheckpointIncludeOptions, CheckpointResponse } from './checkpoint_response.js';
 import type { SequencerConfig } from './configs.js';
+import type { PeerInfo, ProposalsForSlot } from './p2p.js';
 import type { ProverConfig } from './prover-client.js';
 import type { WorldStateSyncStatus } from './world_state.js';
 
@@ -101,6 +110,31 @@ describe('AztecNodeApiSchema', () => {
       proven: expectedTipId,
       finalized: expectedTipId,
     });
+  });
+
+  it('getL1Constants', async () => {
+    const result = await context.client.getL1Constants();
+    expect(result).toEqual(EmptyL1RollupConstants);
+  });
+
+  it('getSyncedL2SlotNumber', async () => {
+    const result = await context.client.getSyncedL2SlotNumber();
+    expect(result).toEqual(SlotNumber(1));
+  });
+
+  it('getSyncedL2EpochNumber', async () => {
+    const result = await context.client.getSyncedL2EpochNumber();
+    expect(result).toEqual(EpochNumber(1));
+  });
+
+  it('getSyncedL1Timestamp', async () => {
+    const result = await context.client.getSyncedL1Timestamp();
+    expect(result).toEqual(1n);
+  });
+
+  it('getProposalsForSlot', async () => {
+    const result = await context.client.getProposalsForSlot(SlotNumber(1));
+    expect(result).toEqual({ blockProposals: [], checkpointProposals: [] });
   });
 
   it('findLeavesIndexes', async () => {
@@ -526,6 +560,19 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toEqual([]);
   });
 
+  it('getPeers', async () => {
+    const response = await context.client.getPeers();
+    expect(response).toEqual([{ status: 'connected', score: 1, id: 'peer-id' }]);
+  });
+
+  it('getCheckpointAttestationsForSlot', async () => {
+    const response = await context.client.getCheckpointAttestationsForSlot(
+      SlotNumber(1),
+      CheckpointProposalHash('0xdeadbeef'),
+    );
+    expect(response[0]).toBeInstanceOf(CheckpointAttestation);
+  });
+
   it('getWorldStateSyncStatus', async () => {
     const response = await context.client.getWorldStateSyncStatus();
     expect(response).toEqual(await handler.getWorldStateSyncStatus());
@@ -560,6 +607,22 @@ class MockAztecNode implements AztecNode {
       proven: tipId,
       finalized: tipId,
     });
+  }
+
+  getL1Constants(): Promise<L1RollupConstants> {
+    return Promise.resolve(EmptyL1RollupConstants);
+  }
+
+  getSyncedL2SlotNumber(): Promise<SlotNumber | undefined> {
+    return Promise.resolve(SlotNumber(1));
+  }
+
+  getSyncedL2EpochNumber(): Promise<EpochNumber | undefined> {
+    return Promise.resolve(EpochNumber(1));
+  }
+
+  getSyncedL1Timestamp(): Promise<bigint | undefined> {
+    return Promise.resolve(1n);
   }
 
   getBlock<Opts extends BlockIncludeOptions = {}>(
@@ -879,5 +942,23 @@ class MockAztecNode implements AztecNode {
   }
   getAllowedPublicSetup(): Promise<AllowedElement[]> {
     return Promise.resolve([]);
+  }
+  getPeers(_includePending?: boolean): Promise<PeerInfo[]> {
+    return Promise.resolve([{ status: 'connected', score: 1, id: 'peer-id' }]);
+  }
+  getCheckpointAttestationsForSlot(
+    slot: SlotNumber,
+    proposalPayloadHash?: CheckpointProposalHash,
+  ): Promise<CheckpointAttestation[]> {
+    expect(typeof slot).toBe('number');
+    if (proposalPayloadHash !== undefined) {
+      expect(typeof proposalPayloadHash).toBe('string');
+    }
+    return Promise.resolve([CheckpointAttestation.empty()]);
+  }
+
+  getProposalsForSlot(slot: SlotNumber): Promise<ProposalsForSlot> {
+    expect(typeof slot).toBe('number');
+    return Promise.resolve({ blockProposals: [], checkpointProposals: [] });
   }
 }

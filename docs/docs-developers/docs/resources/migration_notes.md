@@ -18,6 +18,19 @@ The `message_delivery` module has been renamed to `delivery`. Update imports acc
 + use aztec::messages::delivery::MessageDelivery;
 ```
 
+### [Node JSON-RPC] Method prefixes changed to `aztec_*` and `aztecAdmin_*`
+
+All Aztec node JSON-RPC method prefixes have changed:
+
+- `node_*` → `aztec_*` (public node methods, port 8080)
+- `nodeAdmin_*` → `aztecAdmin_*` (admin methods, port 8880)
+- `nodeDebug_*` → `aztecDebug_*` (debug methods, port 8080, local-network or `--node-debug` only)
+- `p2p_*` namespace removed; P2P queries are on `aztec_*`: `getPeers`, `getCheckpointAttestationsForSlot`, `getProposalsForSlot`
+- New archiver sync helpers on `aztec_*`: `getL1Constants`, `getSyncedL2SlotNumber`, `getSyncedL2EpochNumber`, `getSyncedL1Timestamp`
+
+If you call the node RPC directly (e.g. via `curl` or a custom client), update all method names accordingly.
+Clients created via `createAztecNodeClient`, `createAztecNodeAdminClient`, and `createAztecNodeDebugClient` are updated automatically.
+
 ### [Aztec.nr] `get_pending_tagged_logs` oracle interface updated (oracle version 28)
 
 The `aztec_utl_getPendingTaggedLogs` oracle now takes an additional `provided_secrets` parameter of type `EphemeralArray<ProvidedSecret>`. This lets apps pass tagging secrets that PXE cannot derive on its own (e.g. handshake-derived secrets) alongside the secrets PXE manages internally.
@@ -100,7 +113,7 @@ After the `auth_registry`, `public_checks`, and `multi_call_entrypoint` demotion
 
 ### [Aztec.nr] `multi_call_entrypoint` demoted from protocol contract
 
-`multi_call_entrypoint` is no longer a protocol contract; its address is derived from its artifact rather than hardcoded at `6`, and PXE no longer auto-registers it. It is now a standard contract that PXE *preloads*: both `createPXE` and `EmbeddedWallet` preload the standard MultiCallEntrypoint automatically (and `EmbeddedWallet` additionally preloads `AuthRegistry`). **If you use the standard PXE or `EmbeddedWallet`, no changes are needed** — multicall keeps working out of the box.
+`multi_call_entrypoint` is no longer a protocol contract; its address is derived from its artifact rather than hardcoded at `6`, and PXE no longer auto-registers it. It is now a standard contract that PXE _preloads_: both `createPXE` and `EmbeddedWallet` preload the standard MultiCallEntrypoint automatically (and `EmbeddedWallet` additionally preloads `AuthRegistry`). **If you use the standard PXE or `EmbeddedWallet`, no changes are needed** — multicall keeps working out of the box.
 
 To preload a different set of standard contracts (for example to also preload `PublicChecks`, which is not preloaded by default), a wallet or app passes its own `preloadedContractsProvider` through the wallet's PXE options:
 
@@ -121,7 +134,7 @@ const wallet = await EmbeddedWallet.create(node, {
 });
 ```
 
-The provider *replaces* the default list (it is not additive), so include every standard contract you want available.
+The provider _replaces_ the default list (it is not additive), so include every standard contract you want available.
 
 ### [Aztec.nr] `public_checks` demoted from protocol contract
 

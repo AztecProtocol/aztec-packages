@@ -30,7 +30,7 @@ Fetch node info from the provided RPC URL:
 
 ```bash
 curl -s -X POST -H 'Content-Type: application/json' \
-  -d '{"method":"node_getNodeInfo"}' <RPC_URL> | jq .result
+  -d '{"method":"aztec_getNodeInfo"}' <RPC_URL> | jq .result
 ```
 
 Parse the response to extract:
@@ -214,7 +214,7 @@ These files are auto-generated — do not hand-edit them.
 
 Regenerate the Node JSON-RPC API reference documentation. This script parses the
 TypeScript interface definitions and Zod schemas in `yarn-project/stdlib/src/interfaces/`
-to produce a complete markdown reference for the `node_` and `nodeAdmin_` RPC methods.
+to produce a complete markdown reference for the `aztec_` and `aztecAdmin_` RPC methods.
 
 **Prerequisite:** `yarn-project` must be built (already done in Step 6 prerequisites).
 
@@ -259,7 +259,7 @@ docs (Step 13), the generated content is included in the snapshot automatically.
 ### Step 9: Resolve Missing Contract Addresses & Update Network Info
 
 The `networks.md` L1 table includes contracts that are **not** returned by
-`node_getNodeInfo`. Before updating the tables, resolve these in three tiers.
+`aztec_getNodeInfo`. Before updating the tables, resolve these in three tiers.
 
 Determine the L1 RPC URL from the `l1ChainId`: `1` → Ethereum mainnet,
 `11155111` → Sepolia. The Rollup and Registry addresses are already known from

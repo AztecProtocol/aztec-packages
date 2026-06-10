@@ -10,7 +10,13 @@ import { getPublicClient, makeL1HttpTransport } from '@aztec/ethereum/client';
 import { RegistryContract, RollupContract } from '@aztec/ethereum/contracts';
 import { type L1ContractAddresses, pickL1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import type { L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
-import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import {
+  BlockNumber,
+  CheckpointNumber,
+  type CheckpointProposalHash,
+  EpochNumber,
+  SlotNumber,
+} from '@aztec/foundation/branded-types';
 import { chunkBy, compactArray, pick, unique } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -98,6 +104,8 @@ import type {
   CheckpointParameter,
   CheckpointResponse,
   GetTxByHashOptions,
+  PeerInfo,
+  ProposalsForSlot,
 } from '@aztec/stdlib/interfaces/client';
 import { AztecNodeAdminConfigSchema } from '@aztec/stdlib/interfaces/client';
 import {
@@ -117,6 +125,7 @@ import {
   type L2ToL1MembershipWitness,
   appendL1ToL2MessagesToTree,
 } from '@aztec/stdlib/messaging';
+import type { CheckpointAttestation } from '@aztec/stdlib/p2p';
 import type { Offense } from '@aztec/stdlib/slashing';
 import { DEFAULT_MIN_BLOCK_DURATION } from '@aztec/stdlib/timetable';
 import type { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
@@ -244,6 +253,22 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   public async getChainTips(): Promise<ChainTips> {
     const { proposed, checkpointed, proven, finalized } = await this.blockSource.getL2Tips();
     return { proposed, checkpointed, proven, finalized };
+  }
+
+  public getL1Constants() {
+    return this.blockSource.getL1Constants();
+  }
+
+  public getSyncedL2SlotNumber() {
+    return this.blockSource.getSyncedL2SlotNumber();
+  }
+
+  public getSyncedL2EpochNumber() {
+    return this.blockSource.getSyncedL2EpochNumber();
+  }
+
+  public getSyncedL1Timestamp() {
+    return this.blockSource.getL1Timestamp();
   }
 
   public getCheckpointsData(query: CheckpointsQuery) {
@@ -1311,6 +1336,21 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
 
   public getPendingTxCount(): Promise<number> {
     return this.p2pClient!.getPendingTxCount();
+  }
+
+  public getPeers(includePending?: boolean): Promise<PeerInfo[]> {
+    return this.p2pClient!.getPeers(includePending);
+  }
+
+  public getCheckpointAttestationsForSlot(
+    slot: SlotNumber,
+    proposalPayloadHash?: CheckpointProposalHash,
+  ): Promise<CheckpointAttestation[]> {
+    return this.p2pClient!.getCheckpointAttestationsForSlot(slot, proposalPayloadHash);
+  }
+
+  public getProposalsForSlot(slot: SlotNumber): Promise<ProposalsForSlot> {
+    return this.p2pClient!.getProposalsForSlot(slot);
   }
 
   /**

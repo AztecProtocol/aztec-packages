@@ -47,7 +47,7 @@ export function createAztecNodeDebugClient(
   apiKey?: string,
 ): AztecNodeDebug {
   return createSafeJsonRpcClient<AztecNodeDebug>(url, AztecNodeDebugApiSchema, {
-    namespaceMethods: 'nodeDebug',
+    namespaceMethods: 'aztecDebug',
     fetch,
     onResponse: getVersioningResponseHandler(versions),
     ...(apiKey ? { extraHeaders: { 'x-api-key': apiKey } } : {}),
