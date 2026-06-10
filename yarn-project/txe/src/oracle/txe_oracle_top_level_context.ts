@@ -827,7 +827,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       const anchorBlockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
       const simulator = new WASMSimulator();
       const utilityExecutor = async (syncCall: FunctionCall, execScopes: AztecAddress[]) => {
-        await this.executeUtilityCall(syncCall, execScopes, jobId, authorizedUtilityCallTargets);
+        await this.executeUtilityCall(syncCall, execScopes, jobId);
       };
       const oracle = new UtilityExecutionOracle({
         contractAddress: call.to,
@@ -849,16 +849,12 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
         jobId,
         scopes,
         simulator,
-        utilityExecutor,
         hooks: composeHooks({
           authorizeUtilityCall: this.buildAuthorizeUtilityCallHook('utility', authorizedUtilityCallTargets),
         }),
-<<<<<<< HEAD
-=======
         utilityExecutor,
         // Execution-tree root (top-level utility run or contract sync): own store; nested frames inherit it.
         transientArrayService: new TransientArrayService(),
->>>>>>> b8ac769b12d (feat: merge-train/fairies-v5 (#23881))
       });
       const acirExecutionResult = await simulator
         .executeUserCircuit(toACVMWitness(0, call.args), entryPointArtifact, buildACIRCallback(oracle))

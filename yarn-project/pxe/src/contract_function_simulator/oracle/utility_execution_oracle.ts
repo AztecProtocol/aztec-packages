@@ -70,11 +70,8 @@ import { Option } from '../noir-structs/option.js';
 import type { ProvidedSecret } from '../noir-structs/provided_secret.js';
 import { UtilityContext } from '../noir-structs/utility_context.js';
 import { pickNotes } from '../pick_notes.js';
-<<<<<<< HEAD
-=======
 import type { TransientArrayService } from '../transient_array_service.js';
 import { buildACIRCallback } from './acir_callback.js';
->>>>>>> b8ac769b12d (feat: merge-train/fairies-v5 (#23881))
 import type { IMiscOracle, IUtilityExecutionOracle } from './interfaces.js';
 import { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
 
