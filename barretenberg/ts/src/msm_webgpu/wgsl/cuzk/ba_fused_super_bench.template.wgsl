@@ -74,10 +74,10 @@ fn load_active_y(idx: u32, M: u32) -> array<u32, 8> {
     if ((packed & L0_SIGN_BIT) == 0u) {
         return y;
     }
-    // Lever D: negate y on the fly (-y = 0 - y mod p) — the level-0 point
-    // pool carries no precomputed -y plane.
-    let zero: array<u32, 8> = array<u32, 8>(0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u);
-    return fr_sub_f8(zero, y);
+    // Lever D: negate y on the fly — the level-0 point pool carries no
+    // precomputed -y plane. Pool y is a curve point's coordinate
+    // (y ≢ 0 mod p, < 2p), so the unconditional 2p - y stays in (0, 2p).
+    return fr_neg_wide_f8(y);
 }
 {{/l0_index_mode}}
 {{^l0_index_mode}}
@@ -147,7 +147,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         let idx_r = pair_block_plan[block_base + 2u * k + 1u];
         let p_lx: array<u32, 8> = load_active_x(idx_l, M_old);
         let p_rx: array<u32, 8> = load_active_x(idx_r, M_old);
-        let dx: array<u32, 8> = fr_sub_f8(p_rx, p_lx);
+        // Wide (< 4p): dx feeds only the prefix montmuls; pref_scratch's
+        // sole consumer is montmul, and the inverse canonicalizes its input.
+        let dx: array<u32, 8> = fr_sub_wide_f8(p_rx, p_lx);
         if (k == 0u) {
             acc = dx;
         } else {
@@ -181,7 +183,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             let idx_r = pair_block_plan[block_base + 2u * k + 1u];
             let p_lx: array<u32, 8> = load_active_x(idx_l, M_old);
             let p_rx: array<u32, 8> = load_active_x(idx_r, M_old);
-            let dx_back: array<u32, 8> = fr_sub_f8(p_rx, p_lx);
+            // Wide (< 4p): feeds the running-inverse montmul only.
+            let dx_back: array<u32, 8> = fr_sub_wide_f8(p_rx, p_lx);
             inv = montgomery_product_f8(inv, dx_back);
         }
         store_pref(pref_base + k, inv_dx);
@@ -201,7 +204,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         // lambda = (p_ry - p_ly) / dx_k.
         let p_ly: array<u32, 8> = load_active_y(idx_l, M_old);
         let p_ry: array<u32, 8> = load_active_y(idx_r, M_old);
-        var lambda: array<u32, 8> = fr_sub_f8(p_ry, p_ly);
+        // Wide (< 4p, montmul-input only).
+        var lambda: array<u32, 8> = fr_sub_wide_f8(p_ry, p_ly);
         lambda = montgomery_product_f8(lambda, inv_dx);
 
         // r_x = lambda^2 - p_lx - p_rx.
@@ -212,7 +216,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         r_x = fr_sub_f8(r_x, x_sum);
 
         // r_y = lambda * (p_lx - r_x) - p_ly.
-        var r_y: array<u32, 8> = fr_sub_f8(p_lx, r_x);
+        // Wide (< 4p, montmul-input only); r_x was just reduced to < 2p.
+        var r_y: array<u32, 8> = fr_sub_wide_f8(p_lx, r_x);
         r_y = montgomery_product_f8(lambda, r_y);
         r_y = fr_sub_f8(r_y, p_ly);
 

@@ -73,8 +73,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         var w: array<u32, 8>;
         w[0] = q0.x; w[1] = q0.y; w[2] = q0.z; w[3] = q0.w;
         w[4] = q1.x; w[5] = q1.y; w[6] = q1.z; w[7] = q1.w;
-        var zw: array<u32, 8>;
-        let nw = fr_sub_f8(zw, w);
+        // Pool y is a curve point's coordinate (y ≢ 0 mod p, < 2p), so the
+        // unconditional 2p - y stays in (0, 2p).
+        let nw = fr_neg_wide_f8(w);
         active_sums_new[dst_y + 0u] = vec4<u32>(nw[0], nw[1], nw[2], nw[3]);
         active_sums_new[dst_y + 1u] = vec4<u32>(nw[4], nw[5], nw[6], nw[7]);
     }
@@ -380,13 +381,15 @@ fn ld8(q0: vec4<u32>, q1: vec4<u32>) -> array<u32, 8> {
 
 // Incomplete affine addition P + Q (Montgomery 8×u32), one inversion.
 fn affine_add(x1: array<u32, 8>, y1: array<u32, 8>, x2: array<u32, 8>, y2: array<u32, 8>) -> array<array<u32, 8>, 2> {
-    let dx = fr_sub_f8(x2, x1);
-    let dy = fr_sub_f8(y2, y1);
+    // dx / dy / the inner x1 - x3 are wide (< 4p): dx feeds the inverse
+    // (which canonicalizes its input), the others feed montmuls.
+    let dx = fr_sub_wide_f8(x2, x1);
+    let dy = fr_sub_wide_f8(y2, y1);
     let dx_inv = {{ inv_fn }}(dx);
     let lambda = montgomery_product_f8(dy, dx_inv);
     let l2 = montgomery_product_f8(lambda, lambda);
     let x3 = fr_sub_f8(fr_sub_f8(l2, x1), x2);
-    let y3 = fr_sub_f8(montgomery_product_f8(lambda, fr_sub_f8(x1, x3)), y1);
+    let y3 = fr_sub_f8(montgomery_product_f8(lambda, fr_sub_wide_f8(x1, x3)), y1);
     return array<array<u32, 8>, 2>(x3, y3);
 }
 
@@ -416,8 +419,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     if ((packed & 0x80000000u) == 0u) {
         ny = yraw;
     } else {
-        let zero = array<u32, 8>(0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u);
-        ny = fr_sub_f8(zero, yraw);
+        // Pool y is a curve point's coordinate (y ≢ 0 mod p, < 2p), so the
+        // unconditional 2p - y stays in (0, 2p).
+        ny = fr_neg_wide_f8(yraw);
     }
 {{/l0_index_mode}}
 {{^l0_index_mode}}
@@ -525,8 +529,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         var w: array<u32, 8>;
         w[0] = q0.x; w[1] = q0.y; w[2] = q0.z; w[3] = q0.w;
         w[4] = q1.x; w[5] = q1.y; w[6] = q1.z; w[7] = q1.w;
-        var zw: array<u32, 8>;
-        let nw = fr_sub_f8(zw, w);
+        // Pool y is a curve point's coordinate (y ≢ 0 mod p, < 2p), so the
+        // unconditional 2p - y stays in (0, 2p).
+        let nw = fr_neg_wide_f8(w);
         bucket_result[dst_y + 0u] = vec4<u32>(nw[0], nw[1], nw[2], nw[3]);
         bucket_result[dst_y + 1u] = vec4<u32>(nw[4], nw[5], nw[6], nw[7]);
     }
@@ -620,10 +625,10 @@ fn load_active_y(idx: u32, M: u32) -> array<u32, 8> {
     if ((packed & L0_SIGN_BIT) == 0u) {
         return y;
     }
-    // Lever D: negate y on the fly (-y = 0 - y mod p) — the level-0 point
-    // pool carries no precomputed -y plane.
-    let zero: array<u32, 8> = array<u32, 8>(0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u);
-    return fr_sub_f8(zero, y);
+    // Lever D: negate y on the fly — the level-0 point pool carries no
+    // precomputed -y plane. Pool y is a curve point's coordinate
+    // (y ≢ 0 mod p, < 2p), so the unconditional 2p - y stays in (0, 2p).
+    return fr_neg_wide_f8(y);
 }
 {{/l0_index_mode}}
 {{^l0_index_mode}}
@@ -693,7 +698,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         let idx_r = pair_block_plan[block_base + 2u * k + 1u];
         let p_lx: array<u32, 8> = load_active_x(idx_l, M_old);
         let p_rx: array<u32, 8> = load_active_x(idx_r, M_old);
-        let dx: array<u32, 8> = fr_sub_f8(p_rx, p_lx);
+        // Wide (< 4p): dx feeds only the prefix montmuls; pref_scratch's
+        // sole consumer is montmul, and the inverse canonicalizes its input.
+        let dx: array<u32, 8> = fr_sub_wide_f8(p_rx, p_lx);
         if (k == 0u) {
             acc = dx;
         } else {
@@ -727,7 +734,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             let idx_r = pair_block_plan[block_base + 2u * k + 1u];
             let p_lx: array<u32, 8> = load_active_x(idx_l, M_old);
             let p_rx: array<u32, 8> = load_active_x(idx_r, M_old);
-            let dx_back: array<u32, 8> = fr_sub_f8(p_rx, p_lx);
+            // Wide (< 4p): feeds the running-inverse montmul only.
+            let dx_back: array<u32, 8> = fr_sub_wide_f8(p_rx, p_lx);
             inv = montgomery_product_f8(inv, dx_back);
         }
         store_pref(pref_base + k, inv_dx);
@@ -747,7 +755,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         // lambda = (p_ry - p_ly) / dx_k.
         let p_ly: array<u32, 8> = load_active_y(idx_l, M_old);
         let p_ry: array<u32, 8> = load_active_y(idx_r, M_old);
-        var lambda: array<u32, 8> = fr_sub_f8(p_ry, p_ly);
+        // Wide (< 4p, montmul-input only).
+        var lambda: array<u32, 8> = fr_sub_wide_f8(p_ry, p_ly);
         lambda = montgomery_product_f8(lambda, inv_dx);
 
         // r_x = lambda^2 - p_lx - p_rx.
@@ -758,7 +767,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         r_x = fr_sub_f8(r_x, x_sum);
 
         // r_y = lambda * (p_lx - r_x) - p_ly.
-        var r_y: array<u32, 8> = fr_sub_f8(p_lx, r_x);
+        // Wide (< 4p, montmul-input only); r_x was just reduced to < 2p.
+        var r_y: array<u32, 8> = fr_sub_wide_f8(p_lx, r_x);
         r_y = montgomery_product_f8(lambda, r_y);
         r_y = fr_sub_f8(r_y, p_ly);
 
@@ -831,6 +841,8 @@ fn fr_select_f8(a: array<u32, 8>, b: array<u32, 8>, cond: bool) -> array<u32, 8>
         select(a[6], b[6], cond), select(a[7], b[7], cond));
 }
 fn fr_dbl_f8(a: array<u32, 8>) -> array<u32, 8> { return fr_add_f8(a, a); }
+// Unreduced double — montmul-input use only, operand < 2p.
+fn fr_dbl_wide_f8(a: array<u32, 8>) -> array<u32, 8> { return fr_add_wide_f8(a, a); }
 
 struct Jac { x: array<u32, 8>, y: array<u32, 8>, z: array<u32, 8>, }
 
@@ -842,17 +854,20 @@ fn jac_add_raw(p1: Jac, p2: Jac) -> Jac {
     let U2 = montgomery_product_f8(p2.x, Z1Z1);
     let S1 = montgomery_product_f8(montgomery_product_f8(p1.y, p2.z), Z2Z2);
     let S2 = montgomery_product_f8(montgomery_product_f8(p2.y, p1.z), Z1Z1);
+    // Same wide bound chain as ba_reduce_level_jacobian's jac_add_raw:
+    // twoH / r / ZpZ < 4p (montmul-input only); V - X3 < 3.34p; the Z3
+    // inner pair reaches 5.19p, just under the 2^256 = 5.29p cap.
     let H = fr_sub_f8(U2, U1);
-    let twoH = fr_dbl_f8(H);
+    let twoH = fr_dbl_wide_f8(H);
     let I = montgomery_product_f8(twoH, twoH);
     let J = montgomery_product_f8(H, I);
-    let r = fr_dbl_f8(fr_sub_f8(S2, S1));
+    let r = fr_dbl_wide_f8(fr_sub_f8(S2, S1));
     let V = montgomery_product_f8(U1, I);
     let X3 = fr_sub_f8(fr_sub_f8(montgomery_product_f8(r, r), J), fr_dbl_f8(V));
     let S1J = montgomery_product_f8(S1, J);
-    let Y3 = fr_sub_f8(montgomery_product_f8(r, fr_sub_f8(V, X3)), fr_dbl_f8(S1J));
-    let ZpZ = fr_add_f8(p1.z, p2.z);
-    let Z3 = montgomery_product_f8(fr_sub_f8(fr_sub_f8(montgomery_product_f8(ZpZ, ZpZ), Z1Z1), Z2Z2), H);
+    let Y3 = fr_sub_f8(montgomery_product_f8(r, fr_sub_wide_f8(V, X3)), fr_dbl_f8(S1J));
+    let ZpZ = fr_add_wide_f8(p1.z, p2.z);
+    let Z3 = montgomery_product_f8(fr_sub_wide_f8(fr_sub_wide_f8(montgomery_product_f8(ZpZ, ZpZ), Z1Z1), Z2Z2), H);
     return Jac(X3, Y3, Z3);
 }
 
@@ -872,13 +887,16 @@ fn jac_add(dst: Jac, src: Jac) -> Jac {
 // Incomplete affine addition P + Q (one inversion) — for the touched-accumulate
 // path when a later chunk adds into an already-written bucket_result.
 fn affine_add(x1: array<u32, 8>, y1: array<u32, 8>, x2: array<u32, 8>, y2: array<u32, 8>) -> array<array<u32, 8>, 2> {
-    let dx = fr_sub_f8(x2, x1);
-    let dy = fr_sub_f8(y2, y1);
+    // Wide (< 4p): dx feeds the inverse (which canonicalizes its input)
+    // and dy feeds the lambda montmul.
+    let dx = fr_sub_wide_f8(x2, x1);
+    let dy = fr_sub_wide_f8(y2, y1);
     let dx_inv = {{ inv_fn }}(dx);
     let lambda = montgomery_product_f8(dy, dx_inv);
     let l2 = montgomery_product_f8(lambda, lambda);
     let x3 = fr_sub_f8(fr_sub_f8(l2, x1), x2);
-    let y3 = fr_sub_f8(montgomery_product_f8(lambda, fr_sub_f8(x1, x3)), y1);
+    // Inner x1 - x3 is wide (< 4p, montmul-input only).
+    let y3 = fr_sub_f8(montgomery_product_f8(lambda, fr_sub_wide_f8(x1, x3)), y1);
     return array<array<u32, 8>, 2>(x3, y3);
 }
 
@@ -2405,7 +2423,9 @@ fn main(@builtin(workgroup_id) wgid: vec3<u32>, @builtin(local_invocation_id) li
             let slot = base + (j2 + 1u) * pa;
             present = in_range && (is_present[slot] != 0u);
             let yv = load_y(slot, M);
-            real_denom = fr_add_f8(yv, yv); // 2y
+            // Wide (< 4p): the denominator feeds only the prefix montmuls;
+            // the inverse canonicalizes its own input.
+            real_denom = fr_add_wide_f8(yv, yv); // 2y
         } else {
             var src: u32;
             var dst: u32;
@@ -2420,7 +2440,8 @@ fn main(@builtin(workgroup_id) wgid: vec3<u32>, @builtin(local_invocation_id) li
             present = in_range && (is_present[src] != 0u) && (is_present[dst] != 0u);
             let x_s = load_x(src, M);
             let x_d = load_x(dst, M);
-            real_denom = fr_sub_f8(x_s, x_d); // x_s - x_d (nonzero: no collisions)
+            // Wide (< 4p): montmul-input only.
+            real_denom = fr_sub_wide_f8(x_s, x_d); // x_s - x_d (nonzero: no collisions)
         }
         let denom: array<u32, 8> = fr_select_f8(R, real_denom, present);
         acc = montgomery_product_f8(acc, denom);
@@ -2444,15 +2465,18 @@ fn main(@builtin(workgroup_id) wgid: vec3<u32>, @builtin(local_invocation_id) li
             let present = in_range && (is_present[slot] != 0u);
             let xv: array<u32, 8> = load_x(slot, M);
             let yv: array<u32, 8> = load_y(slot, M);
-            let real_denom: array<u32, 8> = fr_add_f8(yv, yv); // 2y
+            // All wide, montmul-input only: 2y < 4p; 3x² < 4.03p (x² is a
+            // montmul output < 1.34p), both under the 2^256 = 5.29p cap.
+            let real_denom: array<u32, 8> = fr_add_wide_f8(yv, yv); // 2y
             let x2: array<u32, 8> = montgomery_product_f8(xv, xv);
-            var num: array<u32, 8> = fr_add_f8(x2, x2);
-            num = fr_add_f8(num, x2); // 3x^2
+            var num: array<u32, 8> = fr_add_wide_f8(x2, x2);
+            num = fr_add_wide_f8(num, x2); // 3x^2
             let lambda: array<u32, 8> = montgomery_product_f8(num, inv_denom);
             let two_x: array<u32, 8> = fr_add_f8(xv, xv);
             var r_x: array<u32, 8> = montgomery_product_f8(lambda, lambda);
             r_x = fr_sub_f8(r_x, two_x);
-            var r_y: array<u32, 8> = fr_sub_f8(xv, r_x);
+            // Wide (< 4p, montmul-input only); r_x was just reduced < 2p.
+            var r_y: array<u32, 8> = fr_sub_wide_f8(xv, r_x);
             r_y = montgomery_product_f8(lambda, r_y);
             r_y = fr_sub_f8(r_y, yv);
             let out_x: array<u32, 8> = fr_select_f8(xv, r_x, present);
@@ -2481,13 +2505,16 @@ fn main(@builtin(workgroup_id) wgid: vec3<u32>, @builtin(local_invocation_id) li
             let x_s: array<u32, 8> = load_x(src, M);
             let y_d: array<u32, 8> = load_y(dst, M);
             let y_s: array<u32, 8> = load_y(src, M);
-            let dx: array<u32, 8> = fr_sub_f8(x_s, x_d);
-            var lambda: array<u32, 8> = fr_sub_f8(y_s, y_d);
+            // dx and lambda are wide (< 4p, montmul-input only — dx via the
+            // denom_k select into the running-inverse montmul).
+            let dx: array<u32, 8> = fr_sub_wide_f8(x_s, x_d);
+            var lambda: array<u32, 8> = fr_sub_wide_f8(y_s, y_d);
             lambda = montgomery_product_f8(lambda, inv_denom);
             var add_rx: array<u32, 8> = montgomery_product_f8(lambda, lambda);
             let x_sum: array<u32, 8> = fr_add_f8(x_d, x_s);
             add_rx = fr_sub_f8(add_rx, x_sum);
-            var add_ry: array<u32, 8> = fr_sub_f8(x_d, add_rx);
+            // Wide (< 4p, montmul-input only); add_rx was just reduced < 2p.
+            var add_ry: array<u32, 8> = fr_sub_wide_f8(x_d, add_rx);
             add_ry = montgomery_product_f8(lambda, add_ry);
             add_ry = fr_sub_f8(add_ry, y_d);
             var out_x: array<u32, 8> = fr_select_f8(x_d, x_s, copy);
@@ -2591,8 +2618,10 @@ fn fr_select_f8(a: array<u32, 8>, b: array<u32, 8>, cond: bool) -> array<u32, 8>
         select(a[6], b[6], cond), select(a[7], b[7], cond));
 }
 
-// 2x, 3x, 8x by repeated modular add (cheap vs a multiply).
+// 2x, 3x, 8x by repeated modular add (cheap vs a multiply). The _wide
+// double skips the conditional reduce — montmul-input use only, operand < 2p.
 fn fr_dbl_f8(a: array<u32, 8>) -> array<u32, 8> { return fr_add_f8(a, a); }
+fn fr_dbl_wide_f8(a: array<u32, 8>) -> array<u32, 8> { return fr_add_wide_f8(a, a); }
 
 struct Jac { x: array<u32, 8>, y: array<u32, 8>, z: array<u32, 8>, }
 
@@ -2602,14 +2631,19 @@ fn jac_double(p: Jac) -> Jac {
     let A = montgomery_product_f8(p.x, p.x);
     let B = montgomery_product_f8(p.y, p.y);
     let C = montgomery_product_f8(B, B);
-    let XpB = fr_add_f8(p.x, B);
+    // Wide bound chain (montmul inputs only; cap is 2^256 = 5.29p):
+    // XpB < 2p + 1.34p = 3.34p; E = 3A < 4.03p; D - X3 < 4p. The reducing
+    // ops keep every stored coordinate and every fr_sub_f8 operand < 2p.
+    let XpB = fr_add_wide_f8(p.x, B);
     let s = fr_sub_f8(montgomery_product_f8(XpB, XpB), fr_add_f8(A, C));
     let D = fr_dbl_f8(s);
-    let E = fr_add_f8(fr_dbl_f8(A), A);          // 3A
+    let E = fr_add_wide_f8(fr_dbl_wide_f8(A), A); // 3A
     let F = montgomery_product_f8(E, E);
     let X3 = fr_sub_f8(F, fr_dbl_f8(D));
     let C8 = fr_dbl_f8(fr_dbl_f8(fr_dbl_f8(C))); // 8C
-    let Y3 = fr_sub_f8(montgomery_product_f8(E, fr_sub_f8(D, X3)), C8);
+    let Y3 = fr_sub_f8(montgomery_product_f8(E, fr_sub_wide_f8(D, X3)), C8);
+    // Z3 stays reducing: it is stored, and an exact-zero Z (infinity) must
+    // propagate as the exact-zero bit pattern (mm(y, 0) = 0; 0 + 0 = 0).
     let Z3 = fr_dbl_f8(montgomery_product_f8(p.y, p.z));
     return Jac(X3, Y3, Z3);
 }
@@ -2623,17 +2657,23 @@ fn jac_add_raw(p1: Jac, p2: Jac) -> Jac {
     let U2 = montgomery_product_f8(p2.x, Z1Z1);
     let S1 = montgomery_product_f8(montgomery_product_f8(p1.y, p2.z), Z2Z2);
     let S2 = montgomery_product_f8(montgomery_product_f8(p2.y, p1.z), Z1Z1);
+    // H stays reducing (< 2p) so twoH = 2H < 4p; r < 4p. Both feed only
+    // montmuls. rr = mm(r,r) < 1.19p, so the reducing X3/Y3 chains keep
+    // every fr_sub_f8 operand and stored coordinate < 2p.
     let H = fr_sub_f8(U2, U1);
-    let twoH = fr_dbl_f8(H);
+    let twoH = fr_dbl_wide_f8(H);
     let I = montgomery_product_f8(twoH, twoH);
     let J = montgomery_product_f8(H, I);
-    let r = fr_dbl_f8(fr_sub_f8(S2, S1));
+    let r = fr_dbl_wide_f8(fr_sub_f8(S2, S1));
     let V = montgomery_product_f8(U1, I);
     let X3 = fr_sub_f8(fr_sub_f8(montgomery_product_f8(r, r), J), fr_dbl_f8(V));
     let S1J = montgomery_product_f8(S1, J);
-    let Y3 = fr_sub_f8(montgomery_product_f8(r, fr_sub_f8(V, X3)), fr_dbl_f8(S1J));
-    let ZpZ = fr_add_f8(p1.z, p2.z);
-    let Z3 = montgomery_product_f8(fr_sub_f8(fr_sub_f8(montgomery_product_f8(ZpZ, ZpZ), Z1Z1), Z2Z2), H);
+    let Y3 = fr_sub_f8(montgomery_product_f8(r, fr_sub_wide_f8(V, X3)), fr_dbl_f8(S1J));
+    let ZpZ = fr_add_wide_f8(p1.z, p2.z);
+    // TIGHTEST wide chain in the codebase: mm(ZpZ,ZpZ) < 1.19p (ZpZ < 4p),
+    // first wide sub < 3.19p (minuend cap is 3.29p), second < 5.19p — just
+    // under the 2^256 = 5.292p representability cap — then into the montmul.
+    let Z3 = montgomery_product_f8(fr_sub_wide_f8(fr_sub_wide_f8(montgomery_product_f8(ZpZ, ZpZ), Z1Z1), Z2Z2), H);
     return Jac(X3, Y3, Z3);
 }
 
@@ -2762,13 +2802,16 @@ fn finv(a: array<u32, 8>) -> array<u32, 8> {
 
 // Affine add: a + b, distinct x assumed (no point collisions). Both present.
 fn aff_add(a: Pt, b: Pt) -> Pt {
-    let dx = fr_sub_f8(b.x, a.x);
-    let dy = fr_sub_f8(b.y, a.y);
+    // dx / dy / the pre-multiply ry are wide (< 4p): dx feeds the inverse
+    // (which canonicalizes its input), the others feed montmuls. rx and the
+    // final ry are stored and stay < 2p via the reducing ops.
+    let dx = fr_sub_wide_f8(b.x, a.x);
+    let dy = fr_sub_wide_f8(b.y, a.y);
     let lambda = montgomery_product_f8(dy, finv(dx));
     var rx = montgomery_product_f8(lambda, lambda);
     rx = fr_sub_f8(rx, a.x);
     rx = fr_sub_f8(rx, b.x);
-    var ry = fr_sub_f8(a.x, rx);
+    var ry = fr_sub_wide_f8(a.x, rx);
     ry = montgomery_product_f8(lambda, ry);
     ry = fr_sub_f8(ry, a.y);
     return Pt(rx, ry, 1u);
@@ -2776,15 +2819,18 @@ fn aff_add(a: Pt, b: Pt) -> Pt {
 
 // Affine double: 2a.
 fn aff_dbl(a: Pt) -> Pt {
+    // num = 3x² < 4.03p and den = 2y < 4p are wide (montmul / inverse
+    // inputs only — the inverse canonicalizes); two_x stays reducing so the
+    // stored rx chain keeps every fr_sub_f8 operand < 2p.
     let x2 = montgomery_product_f8(a.x, a.x);
-    var num = fr_add_f8(x2, x2);
-    num = fr_add_f8(num, x2);            // 3x^2
-    let den = fr_add_f8(a.y, a.y);       // 2y
+    var num = fr_add_wide_f8(x2, x2);
+    num = fr_add_wide_f8(num, x2);       // 3x^2
+    let den = fr_add_wide_f8(a.y, a.y);  // 2y
     let lambda = montgomery_product_f8(num, finv(den));
     let two_x = fr_add_f8(a.x, a.x);
     var rx = montgomery_product_f8(lambda, lambda);
     rx = fr_sub_f8(rx, two_x);
-    var ry = fr_sub_f8(a.x, rx);
+    var ry = fr_sub_wide_f8(a.x, rx);
     ry = montgomery_product_f8(lambda, ry);
     ry = fr_sub_f8(ry, a.y);
     return Pt(rx, ry, 1u);
@@ -2992,8 +3038,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     var y_val: array<u32, 8> = array<u32, 8>(q0y.x, q0y.y, q0y.z, q0y.w, q1y.x, q1y.y, q1y.z, q1y.w);
 
     if (sign) {
-        let zero: array<u32, 8> = array<u32, 8>(0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u);
-        y_val = fr_sub_f8(zero, y_val);
+        // Pool y is a curve point's coordinate (y ≢ 0 mod p, < 2p), so the
+        // unconditional 2p - y stays in (0, 2p).
+        y_val = fr_neg_wide_f8(y_val);
     }
 
     let window = bucket_idx >> WBID_SHIFT;
@@ -3139,8 +3186,9 @@ fn load_pt_y(cursor: u32) -> array<u32, 8> {
     let q1 = point_y[2u * pt + 1u];
     let y = array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
     if ((packed & L0_SIGN_BIT) == 0u) { return y; }
-    let zero = array<u32, 8>(0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u);
-    return fr_sub_f8(zero, y);
+    // Pool y is a curve point's coordinate (y ≢ 0 mod p, < 2p), so the
+    // unconditional 2p - y stays in (0, 2p).
+    return fr_neg_wide_f8(y);
 }
 
 fn store_pref(k: u32, t: u32, pref_off: u32, k_stride: u32, val: array<u32, 8>) {
@@ -3355,7 +3403,10 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             } else {
                 p_lx = acc_x[k];
             }
-            let dx = fr_sub_f8(p_rx, p_lx);
+            // Wide (< 4p: both coords < 2p): dx feeds only the prefix
+            // montmuls, and pref_scratch's sole consumer is montmul. The
+            // inverse canonicalizes its own input.
+            let dx = fr_sub_wide_f8(p_rx, p_lx);
             if (k == 0u) { acc = dx; } else { acc = montgomery_product_f8(acc, dx); }
             // OPTIMIZATION (c): the final prefix (k = S-1) is consumed only
             // by the inverter below, in-register. Skip its store_pref.
@@ -3406,7 +3457,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             } else {
                 let pp = load_pref(k - 1u, t, pref_off, k_stride);
                 inv_dx = montgomery_product_f8(inv, pp);
-                let dx_b = fr_sub_f8(p_rx, p_lx);
+                // Wide (< 4p): feeds the running-inverse montmul only.
+                let dx_b = fr_sub_wide_f8(p_rx, p_lx);
                 inv = montgomery_product_f8(inv, dx_b);
             }
 
@@ -3427,11 +3479,14 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             cursor[k] = cursor[k] + select(1u, 2u, isf_b == 1u);
 
             // Affine add using inv_dx (in register). p_rx already consumed.
-            var lambda = fr_sub_f8(p_ry, p_ly);
+            // lambda and the pre-multiply r_y are wide (< 4p, montmul-input
+            // only); r_x and the final r_y are stored coordinates and stay
+            // under the [0, 2p) invariant via the reducing ops.
+            var lambda = fr_sub_wide_f8(p_ry, p_ly);
             lambda = montgomery_product_f8(lambda, inv_dx);
             var r_x = montgomery_product_f8(lambda, lambda);
             r_x = fr_sub_f8(r_x, x_sum);
-            var r_y = fr_sub_f8(p_lx, r_x);
+            var r_y = fr_sub_wide_f8(p_lx, r_x);
             r_y = montgomery_product_f8(lambda, r_y);
             r_y = fr_sub_f8(r_y, p_ly);
 
@@ -3575,7 +3630,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         if (kind[k] == KIND_PAIR) {
             let lxk = load_x(L_idx[k]);
             let rxk = load_x(R_idx[k]);
-            dx = fr_sub_f8(rxk, lxk);
+            // Wide (< 4p): dx feeds only the prefix montmuls; the inverse
+            // canonicalizes its own input.
+            dx = fr_sub_wide_f8(rxk, lxk);
         } else {
             dx = get_r_f8();
         }
@@ -3616,7 +3673,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             inv_dx = montgomery_product_f8(inv, pref[k - 1u]);
             var dx_b: array<u32, 8>;
             if (kind[k] == KIND_PAIR) {
-                dx_b = fr_sub_f8(rxk, lxk);
+                // Wide (< 4p): feeds the running-inverse montmul only.
+                dx_b = fr_sub_wide_f8(rxk, lxk);
             } else {
                 dx_b = get_r_f8();
             }
@@ -3630,13 +3688,15 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             continue;
         }
 
-        // KIND_PAIR
-        var lambda = fr_sub_f8(ryk, lyk);
+        // KIND_PAIR. lambda and the pre-multiply new_y are wide (< 4p,
+        // montmul-input only); new_x and the final new_y are stored and
+        // stay < 2p via the reducing ops.
+        var lambda = fr_sub_wide_f8(ryk, lyk);
         lambda = montgomery_product_f8(lambda, inv_dx);
         var new_x = montgomery_product_f8(lambda, lambda);
         let x_sum = fr_add_f8(lxk, rxk);
         new_x = fr_sub_f8(new_x, x_sum);
-        var new_y = fr_sub_f8(lxk, new_x);
+        var new_y = fr_sub_wide_f8(lxk, new_x);
         new_y = montgomery_product_f8(lambda, new_y);
         new_y = fr_sub_f8(new_y, lyk);
         store_x(O_idx[k], new_x);
@@ -3827,7 +3887,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
                 p_lx = acc_x[k];
                 p_rx = load_partial_x(pl_at(off[k] + pos[k] + 1u));
             }
-            let dx = fr_sub_f8(p_rx, p_lx);
+            // Wide (< 4p): dx feeds only the prefix montmuls; the inverse
+            // canonicalizes its own input.
+            let dx = fr_sub_wide_f8(p_rx, p_lx);
             if (k == 0u) {
                 prefix = dx;
             } else {
@@ -3863,7 +3925,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             } else {
                 let pp = pref[k - 1u];
                 inv_dx = montgomery_product_f8(inv, pp);
-                let dx_b = fr_sub_f8(p_rx, p_lx);
+                // Wide (< 4p): feeds the running-inverse montmul only.
+                let dx_b = fr_sub_wide_f8(p_rx, p_lx);
                 inv = montgomery_product_f8(inv, dx_b);
             }
 
@@ -3875,13 +3938,15 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             let p_ly = acc_y[k];
             let p_ry = load_partial_y(next_slot, M_partials);
 
-            // Phase 5: affine add using inv_dx (in register).
-            var lambda = fr_sub_f8(p_ry, p_ly);
+            // Phase 5: affine add using inv_dx (in register). lambda and the
+            // pre-multiply r_y are wide (< 4p, montmul-input only); r_x and
+            // the final r_y are stored and stay < 2p via the reducing ops.
+            var lambda = fr_sub_wide_f8(p_ry, p_ly);
             lambda = montgomery_product_f8(lambda, inv_dx);
             var r_x = montgomery_product_f8(lambda, lambda);
             let x_sum = fr_add_f8(p_lx, p_rx);
             r_x = fr_sub_f8(r_x, x_sum);
-            var r_y = fr_sub_f8(p_lx, r_x);
+            var r_y = fr_sub_wide_f8(p_lx, r_x);
             r_y = montgomery_product_f8(lambda, r_y);
             r_y = fr_sub_f8(r_y, p_ly);
 
@@ -4735,7 +4800,8 @@ fn main() {
 export const convert_points_only = `// Point-only variant of the SRS upload conversion. Reads raw affine (x, y)
 // pairs from two packed u32 buffers and writes Montgomery-form packed 8x u32
 // coordinates: x·R = montgomery_product_f8(x, R²) — one packed multiply per
-// coordinate (inputs are canonical field elements, so no extra reduction).
+// coordinate. Under the lazy contract the stored pool coordinates are the
+// raw montmul outputs, < 1.04p (within the [0, 2p) invariant).
 //
 // Purpose. When the caller holds a persistent GPU context and the base
 // points are SRS-backed (i.e. stable across many MSM calls), we want to
@@ -5334,17 +5400,21 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let y_mont: array<u32, 8> = fr_pow_f8(y_sq_mont, get_sqrt_exp_f8());
 
     // Convert y back to native: mp(y_mont, 1) = y_mont · 1 · R^-1 = y.
+    // This multiply-by-one is self-canonicalizing even under the lazy
+    // montmul (no final reduce): t < p + y_mont/R <= p, and t ≡ y with
+    // 0 < y < p forces t = y exactly. The parity test below depends on
+    // this — do not replace it with a cheaper conversion.
     var one: array<u32, 8>;
     one[0] = 1u;
     var y: array<u32, 8> = montgomery_product_f8(y_mont, one);
 
     // Parity flip: if the recovered parity disagrees with the encoded
-    // bit, negate mod q. SRS points are non-zero affine, so y != 0 and
-    // q - y (= 0 - y under the borrow path) is canonical.
+    // bit, negate mod q. SRS points are non-zero affine, so y != 0; the
+    // canon keeps the decompressed-SRS contract (x, y < q) that the
+    // validate-srs audit and the parity convention rely on.
     let parity: u32 = y[0] & 1u;
     if (parity != y_bit) {
-        var zero: array<u32, 8>;
-        y = fr_sub_f8(zero, y);
+        y = fr_canon_f8(fr_neg_wide_f8(y));
     }
 
     // Write 8 LE u32s for x, then 8 for y — 16 u32s per point.
@@ -6366,6 +6436,11 @@ fn pk_r_squared() -> array<u32, 10> {
 fn fr_inv_by_loop_pk(a8: array<u32, 8>) -> array<u32, 8> {
     var f: array<u32, 10> = pk_q();
     var g: array<u32, 10> = pk_from_packed(a8);
+    // Lazy-reduction inputs arrive in [0, 4q) (stored values are < 2q; a
+    // wide dx fed straight to the inverse is < 4q). The 735-divstep budget
+    // assumes g < q, so canonicalize first — pk_reduce_to_canonical handles
+    // (-4q, 5q), and a 256-bit value is non-negative in this 266-bit space.
+    pk_reduce_to_canonical_inplace(&g);
     var d: array<u32, 10>;                 // zero-initialised
     var e: array<u32, 10> = pk_r_squared();   // Bezout seed e0 = R^2 mod q (-> Montgomery-form result)
     var delta: i32 = 1;
@@ -6396,11 +6471,31 @@ export const field8 = `// === The 8x u32 field representation — the ONE field 
 // Live values cost 8 registers each. The multiply (the injected
 // montgomery_product_f8 body) extracts its 13-bit limbs internally with
 // compile-time shifts; add / sub / is_zero run natively on the 8 words.
+//
+// LAZY-REDUCTION CONTRACT (BN254: p = 0.189*2^256, R = 2^260, R/p = 84.6):
+//   - STORED field elements (buffers and cross-iteration registers) lie in
+//     [0, 2p). Canonical [0, p) holds only at the algorithm boundary: the
+//     decompressed SRS coming in, and the host decode (which multiplies by
+//     R^-1 mod p) going out.
+//   - montgomery_product_f8 has NO final reduce: for ANY 8x u32 inputs the
+//     result t < p + a*b/R <= p(1 + 28/84.6) < 1.34p. Inputs k1*p x k2*p
+//     give t < p(1 + k1*k2/84.6).
+//   - fr_add_f8 / fr_sub_f8 reduce against 2p: [0,2p) x [0,2p) -> [0,2p).
+//   - fr_add_wide_f8 / fr_sub_wide_f8 / fr_neg_wide_f8 skip the conditional
+//     reduce entirely; every call site carries a bound comment proving the
+//     value stays below 2^256 (= 5.29p) and feeds a width-tolerant consumer
+//     (montgomery_product_f8, or the safegcd inverse which canonicalizes its
+//     input).
+//   - The all-zero bit pattern stays reserved for infinity sentinels: the
+//     wide ops cannot produce it (results are strictly positive), and
+//     montgomery_product_f8 maps exact-zero inputs to exact zero.
 
-// p as eight 32-bit words, for fr_add_f8 / fr_sub_f8 / montgomery_product_f8's
-// conditional reduce.
+// p and 2p as eight 32-bit words (p < 2^255, so 2p fits in 256 bits).
 {{#p8_consts}}
 const P8_{{idx}}: u32 = {{val}}u;
+{{/p8_consts}}
+{{#p8_consts}}
+const TWOP8_{{idx}}: u32 = {{val2}}u;
 {{/p8_consts}}
 
 // R mod p (Montgomery one) as 8x u32 — the montgomery_product identity.
@@ -6408,7 +6503,9 @@ fn get_r_f8() -> array<u32, 8> {
     return array<u32, 8>({{ r8_csv }});
 }
 
-// is_zero on the 8x u32 form.
+// is_zero on the 8x u32 form. Valid on sentinels (exact zero stores) — a
+// [0,2p) value that is ≡ 0 mod p but represented as p does NOT match; see
+// the contract note above for why no live value ever needs that test.
 fn is_zero_f8(v: array<u32, 8>) -> bool {
     return (v[0] | v[1] | v[2] | v[3] | v[4] | v[5] | v[6] | v[7]) == 0u;
 }
@@ -6417,9 +6514,9 @@ fn is_zero_f8(v: array<u32, 8>) -> bool {
 // montgomery_product_f8 symbol, selected by ShaderManager's montmul).
 {{> montgomery_product_f8_native }}
 
-// Native 8x u32 fr_add / fr_sub — 8-word modular add / sub. WGSL has no
-// add-with-carry, so the carry out of each word is \`u32(sum < operand)\`
-// (one compare, no branch). a, b are canonical in [0, p).
+// Native 8x u32 fr_add / fr_sub — 8-word add / sub, reduced against 2p.
+// WGSL has no add-with-carry, so the carry out of each word is
+// \`u32(sum < operand)\` (one compare, no branch). a, b in [0, 2p).
 fn fr_add_f8(a: array<u32, 8>, b: array<u32, 8>) -> array<u32, 8> {
     var s: array<u32, 8>;
     var carry: u32 = 0u;
@@ -6431,16 +6528,16 @@ fn fr_add_f8(a: array<u32, 8>, b: array<u32, 8>) -> array<u32, 8> {
         carry = select(0u, 1u, lo < a[{{i}}]) + select(0u, 1u, v < lo);
     }
 {{/f8_words}}
-    // s = a + b in [0, 2p); subtract p iff s >= p — the s - p borrow
-    // chain underflows exactly when s < p.
+    // s = a + b in [0, 4p); subtract 2p iff s >= 2p — the s - 2p borrow
+    // chain underflows exactly when s < 2p.
     var d: array<u32, 8>;
     var borrow: u32 = 0u;
 {{#f8_words}}
     {
-        let t1: u32 = s[{{i}}] - P8_{{i}};
+        let t1: u32 = s[{{i}}] - TWOP8_{{i}};
         let v: u32 = t1 - borrow;
         d[{{i}}] = v;
-        borrow = select(0u, 1u, s[{{i}}] < P8_{{i}}) + select(0u, 1u, t1 < borrow);
+        borrow = select(0u, 1u, s[{{i}}] < TWOP8_{{i}}) + select(0u, 1u, t1 < borrow);
     }
 {{/f8_words}}
     var out: array<u32, 8>;
@@ -6461,18 +6558,101 @@ fn fr_sub_f8(a: array<u32, 8>, b: array<u32, 8>) -> array<u32, 8> {
         borrow = select(0u, 1u, a[{{i}}] < b[{{i}}]) + select(0u, 1u, t1 < borrow);
     }
 {{/f8_words}}
-    // d = a - b; on borrow (a < b) the canonical result is d + p, with the
-    // 2^256 wrap discarded (a - b + p lands in (0, p)).
+    // d = a - b; on borrow (a < b) the result is d + 2p, with the 2^256
+    // wrap discarded (a - b + 2p lands in (0, 2p) since a, b < 2p).
     var out: array<u32, 8>;
     var carry: u32 = 0u;
 {{#f8_words}}
     {
-        let pw: u32 = select(0u, P8_{{i}}, borrow != 0u);
+        let pw: u32 = select(0u, TWOP8_{{i}}, borrow != 0u);
         let lo: u32 = d[{{i}}] + pw;
         let v: u32 = lo + carry;
         out[{{i}}] = v;
         carry = select(0u, 1u, lo < d[{{i}}]) + select(0u, 1u, v < lo);
     }
+{{/f8_words}}
+    return out;
+}
+
+// a + b with NO reduction — a plain 8-word add. Caller must ensure
+// a + b < 2^256 (= 5.29p) and route the result only into width-tolerant
+// consumers (montgomery_product_f8 / the inverse).
+fn fr_add_wide_f8(a: array<u32, 8>, b: array<u32, 8>) -> array<u32, 8> {
+    var s: array<u32, 8>;
+    var carry: u32 = 0u;
+{{#f8_words}}
+    {
+        let lo: u32 = a[{{i}}] + b[{{i}}];
+        let v: u32 = lo + carry;
+        s[{{i}}] = v;
+        carry = select(0u, 1u, lo < a[{{i}}]) + select(0u, 1u, v < lo);
+    }
+{{/f8_words}}
+    return s;
+}
+
+// a - b + 2p with NO conditional. Requires b < 2p (result strictly
+// positive) and a < 3.29p (a + 2p must not wrap 2^256). Result ≡ a - b
+// (mod p), bounded by a + 2p — montmul/inverse-input use only.
+fn fr_sub_wide_f8(a: array<u32, 8>, b: array<u32, 8>) -> array<u32, 8> {
+    var t: array<u32, 8>;
+    var carry: u32 = 0u;
+{{#f8_words}}
+    {
+        let lo: u32 = a[{{i}}] + TWOP8_{{i}};
+        let v: u32 = lo + carry;
+        t[{{i}}] = v;
+        carry = select(0u, 1u, lo < a[{{i}}]) + select(0u, 1u, v < lo);
+    }
+{{/f8_words}}
+    var out: array<u32, 8>;
+    var borrow: u32 = 0u;
+{{#f8_words}}
+    {
+        let t1: u32 = t[{{i}}] - b[{{i}}];
+        let v: u32 = t1 - borrow;
+        out[{{i}}] = v;
+        borrow = select(0u, 1u, t[{{i}}] < b[{{i}}]) + select(0u, 1u, t1 < borrow);
+    }
+{{/f8_words}}
+    return out;
+}
+
+// -y as 2p - y: a single subtract chain, NO conditional. Requires
+// 0 < y < 2p — true for curve-point y coordinates (y ≢ 0 mod p on BN254,
+// no 2-torsion) loaded from the pool or running sums; the all-zero infinity
+// sentinel never reaches a negate. Result in (0, 2p).
+fn fr_neg_wide_f8(y: array<u32, 8>) -> array<u32, 8> {
+    var out: array<u32, 8>;
+    var borrow: u32 = 0u;
+{{#f8_words}}
+    {
+        let t1: u32 = TWOP8_{{i}} - y[{{i}}];
+        let v: u32 = t1 - borrow;
+        out[{{i}}] = v;
+        borrow = select(0u, 1u, TWOP8_{{i}} < y[{{i}}]) + select(0u, 1u, t1 < borrow);
+    }
+{{/f8_words}}
+    return out;
+}
+
+// Canonicalize [0, 2p) -> [0, p): one conditional subtract of p. Boundary
+// use only (e.g. the decompressed-SRS y, whose canonicality the parity
+// selection and validate-srs audit rely on).
+fn fr_canon_f8(a: array<u32, 8>) -> array<u32, 8> {
+    var d: array<u32, 8>;
+    var borrow: u32 = 0u;
+{{#f8_words}}
+    {
+        let t1: u32 = a[{{i}}] - P8_{{i}};
+        let v: u32 = t1 - borrow;
+        d[{{i}}] = v;
+        borrow = select(0u, 1u, a[{{i}}] < P8_{{i}}) + select(0u, 1u, t1 < borrow);
+    }
+{{/f8_words}}
+    var out: array<u32, 8>;
+{{#f8_words}}
+    out[{{i}}] = select(d[{{i}}], a[{{i}}], borrow != 0u);
 {{/f8_words}}
     return out;
 }
@@ -7091,25 +7271,9 @@ fn montgomery_product_f8(x: array<u32, 8>, y: array<u32, 8>) -> array<u32, 8> {
     out[5u] = (s12 >> 4u) | (s13 << 9u) | (s14 << 22u);
     out[6u] = (s14 >> 10u) | (s15 << 3u) | (s16 << 16u) | (s17 << 29u);
     out[7u] = (s17 >> 3u) | ((s18 & MASK) << 10u) | (((s18 >> WORD_SIZE) & MASK) << 23u);
-    // Conditional reduce in place: out in [0, 2p), subtract p if out >= p.
-    var d: array<u32, 8>;
-    d[0u] = out[0u] - P8_0; c = u32(out[0u] < P8_0);
-    t = out[1u] - P8_1; d[1u] = t - c; c = u32(out[1u] < P8_1) | u32(t < c);
-    t = out[2u] - P8_2; d[2u] = t - c; c = u32(out[2u] < P8_2) | u32(t < c);
-    t = out[3u] - P8_3; d[3u] = t - c; c = u32(out[3u] < P8_3) | u32(t < c);
-    t = out[4u] - P8_4; d[4u] = t - c; c = u32(out[4u] < P8_4) | u32(t < c);
-    t = out[5u] - P8_5; d[5u] = t - c; c = u32(out[5u] < P8_5) | u32(t < c);
-    t = out[6u] - P8_6; d[6u] = t - c; c = u32(out[6u] < P8_6) | u32(t < c);
-    t = out[7u] - P8_7; d[7u] = t - c; c = u32(out[7u] < P8_7) | u32(t < c);
-    let reduce: bool = c == 0u;
-    out[0u] = select(out[0u], d[0u], reduce);
-    out[1u] = select(out[1u], d[1u], reduce);
-    out[2u] = select(out[2u], d[2u], reduce);
-    out[3u] = select(out[3u], d[3u], reduce);
-    out[4u] = select(out[4u], d[4u], reduce);
-    out[5u] = select(out[5u], d[5u], reduce);
-    out[6u] = select(out[6u], d[6u], reduce);
-    out[7u] = select(out[7u], d[7u], reduce);
+    // NO final conditional reduce (lazy contract, field8 header): with
+    // R = 2^260 and p ≈ 0.189*2^256, out < p + a*b/R < 1.34p for ANY 8x u32
+    // inputs, which satisfies the [0, 2p) storage invariant directly.
     return out;
 }`;
 
@@ -7236,8 +7400,10 @@ fn montgomery_product_f8(x: array<u32, 8>, y: array<u32, 8>) -> array<u32, 8> {
     }
 {{/final_drain}}
 
-    // === Pack canonical limbs straight into 8x u32, conditional reduce in
-    // place (subtract p when out >= p; P8_* from field8). BN254 @ 20x13. ===
+    // === Pack the carry-normalised limbs straight into 8x u32. BN254 @
+    // 20x13. NO final conditional reduce (lazy contract, field8 header):
+    // with R = 2^260 and p ≈ 0.189*2^256 the value here is < 1.34p for ANY
+    // 8x u32 inputs, satisfying the [0, 2p) storage invariant. ===
     var out: array<u32, 8>;
     out[0u] = t20 | (t21 << 13u) | (t22 << 26u);
     out[1u] = (t22 >> 6u) | (t23 << 7u) | (t24 << 20u);
@@ -7247,26 +7413,6 @@ fn montgomery_product_f8(x: array<u32, 8>, y: array<u32, 8>) -> array<u32, 8> {
     out[5u] = (t32 >> 4u) | (t33 << 9u) | (t34 << 22u);
     out[6u] = (t34 >> 10u) | (t35 << 3u) | (t36 << 16u) | (t37 << 29u);
     out[7u] = (t37 >> 3u) | (t38 << 10u) | (t39 << 23u);
-    var d: array<u32, 8>;
-    var rc: u32;
-    var rt: u32;
-    d[0u] = out[0u] - P8_0; rc = u32(out[0u] < P8_0);
-    rt = out[1u] - P8_1; d[1u] = rt - rc; rc = u32(out[1u] < P8_1) | u32(rt < rc);
-    rt = out[2u] - P8_2; d[2u] = rt - rc; rc = u32(out[2u] < P8_2) | u32(rt < rc);
-    rt = out[3u] - P8_3; d[3u] = rt - rc; rc = u32(out[3u] < P8_3) | u32(rt < rc);
-    rt = out[4u] - P8_4; d[4u] = rt - rc; rc = u32(out[4u] < P8_4) | u32(rt < rc);
-    rt = out[5u] - P8_5; d[5u] = rt - rc; rc = u32(out[5u] < P8_5) | u32(rt < rc);
-    rt = out[6u] - P8_6; d[6u] = rt - rc; rc = u32(out[6u] < P8_6) | u32(rt < rc);
-    rt = out[7u] - P8_7; d[7u] = rt - rc; rc = u32(out[7u] < P8_7) | u32(rt < rc);
-    let dored: bool = rc == 0u;
-    out[0u] = select(out[0u], d[0u], dored);
-    out[1u] = select(out[1u], d[1u], dored);
-    out[2u] = select(out[2u], d[2u], dored);
-    out[3u] = select(out[3u], d[3u], dored);
-    out[4u] = select(out[4u], d[4u], dored);
-    out[5u] = select(out[5u], d[5u], dored);
-    out[6u] = select(out[6u], d[6u], dored);
-    out[7u] = select(out[7u], d[7u], dored);
     return out;
 }
 `;

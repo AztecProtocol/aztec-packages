@@ -74,8 +74,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         var w: array<u32, 8>;
         w[0] = q0.x; w[1] = q0.y; w[2] = q0.z; w[3] = q0.w;
         w[4] = q1.x; w[5] = q1.y; w[6] = q1.z; w[7] = q1.w;
-        var zw: array<u32, 8>;
-        let nw = fr_sub_f8(zw, w);
+        // Pool y is a curve point's coordinate (y ≢ 0 mod p, < 2p), so the
+        // unconditional 2p - y stays in (0, 2p).
+        let nw = fr_neg_wide_f8(w);
         bucket_result[dst_y + 0u] = vec4<u32>(nw[0], nw[1], nw[2], nw[3]);
         bucket_result[dst_y + 1u] = vec4<u32>(nw[4], nw[5], nw[6], nw[7]);
     }

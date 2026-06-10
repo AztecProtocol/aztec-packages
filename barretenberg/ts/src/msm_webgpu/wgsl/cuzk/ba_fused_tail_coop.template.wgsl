@@ -58,6 +58,8 @@ fn fr_select_f8(a: array<u32, 8>, b: array<u32, 8>, cond: bool) -> array<u32, 8>
         select(a[6], b[6], cond), select(a[7], b[7], cond));
 }
 fn fr_dbl_f8(a: array<u32, 8>) -> array<u32, 8> { return fr_add_f8(a, a); }
+// Unreduced double — montmul-input use only, operand < 2p.
+fn fr_dbl_wide_f8(a: array<u32, 8>) -> array<u32, 8> { return fr_add_wide_f8(a, a); }
 
 struct Jac { x: array<u32, 8>, y: array<u32, 8>, z: array<u32, 8>, }
 
@@ -69,17 +71,20 @@ fn jac_add_raw(p1: Jac, p2: Jac) -> Jac {
     let U2 = montgomery_product_f8(p2.x, Z1Z1);
     let S1 = montgomery_product_f8(montgomery_product_f8(p1.y, p2.z), Z2Z2);
     let S2 = montgomery_product_f8(montgomery_product_f8(p2.y, p1.z), Z1Z1);
+    // Same wide bound chain as ba_reduce_level_jacobian's jac_add_raw:
+    // twoH / r / ZpZ < 4p (montmul-input only); V - X3 < 3.34p; the Z3
+    // inner pair reaches 5.19p, just under the 2^256 = 5.29p cap.
     let H = fr_sub_f8(U2, U1);
-    let twoH = fr_dbl_f8(H);
+    let twoH = fr_dbl_wide_f8(H);
     let I = montgomery_product_f8(twoH, twoH);
     let J = montgomery_product_f8(H, I);
-    let r = fr_dbl_f8(fr_sub_f8(S2, S1));
+    let r = fr_dbl_wide_f8(fr_sub_f8(S2, S1));
     let V = montgomery_product_f8(U1, I);
     let X3 = fr_sub_f8(fr_sub_f8(montgomery_product_f8(r, r), J), fr_dbl_f8(V));
     let S1J = montgomery_product_f8(S1, J);
-    let Y3 = fr_sub_f8(montgomery_product_f8(r, fr_sub_f8(V, X3)), fr_dbl_f8(S1J));
-    let ZpZ = fr_add_f8(p1.z, p2.z);
-    let Z3 = montgomery_product_f8(fr_sub_f8(fr_sub_f8(montgomery_product_f8(ZpZ, ZpZ), Z1Z1), Z2Z2), H);
+    let Y3 = fr_sub_f8(montgomery_product_f8(r, fr_sub_wide_f8(V, X3)), fr_dbl_f8(S1J));
+    let ZpZ = fr_add_wide_f8(p1.z, p2.z);
+    let Z3 = montgomery_product_f8(fr_sub_wide_f8(fr_sub_wide_f8(montgomery_product_f8(ZpZ, ZpZ), Z1Z1), Z2Z2), H);
     return Jac(X3, Y3, Z3);
 }
 
@@ -99,13 +104,16 @@ fn jac_add(dst: Jac, src: Jac) -> Jac {
 // Incomplete affine addition P + Q (one inversion) — for the touched-accumulate
 // path when a later chunk adds into an already-written bucket_result.
 fn affine_add(x1: array<u32, 8>, y1: array<u32, 8>, x2: array<u32, 8>, y2: array<u32, 8>) -> array<array<u32, 8>, 2> {
-    let dx = fr_sub_f8(x2, x1);
-    let dy = fr_sub_f8(y2, y1);
+    // Wide (< 4p): dx feeds the inverse (which canonicalizes its input)
+    // and dy feeds the lambda montmul.
+    let dx = fr_sub_wide_f8(x2, x1);
+    let dy = fr_sub_wide_f8(y2, y1);
     let dx_inv = {{ inv_fn }}(dx);
     let lambda = montgomery_product_f8(dy, dx_inv);
     let l2 = montgomery_product_f8(lambda, lambda);
     let x3 = fr_sub_f8(fr_sub_f8(l2, x1), x2);
-    let y3 = fr_sub_f8(montgomery_product_f8(lambda, fr_sub_f8(x1, x3)), y1);
+    // Inner x1 - x3 is wide (< 4p, montmul-input only).
+    let y3 = fr_sub_f8(montgomery_product_f8(lambda, fr_sub_wide_f8(x1, x3)), y1);
     return array<array<u32, 8>, 2>(x3, y3);
 }
 

@@ -55,13 +55,16 @@ fn finv(a: array<u32, 8>) -> array<u32, 8> {
 
 // Affine add: a + b, distinct x assumed (no point collisions). Both present.
 fn aff_add(a: Pt, b: Pt) -> Pt {
-    let dx = fr_sub_f8(b.x, a.x);
-    let dy = fr_sub_f8(b.y, a.y);
+    // dx / dy / the pre-multiply ry are wide (< 4p): dx feeds the inverse
+    // (which canonicalizes its input), the others feed montmuls. rx and the
+    // final ry are stored and stay < 2p via the reducing ops.
+    let dx = fr_sub_wide_f8(b.x, a.x);
+    let dy = fr_sub_wide_f8(b.y, a.y);
     let lambda = montgomery_product_f8(dy, finv(dx));
     var rx = montgomery_product_f8(lambda, lambda);
     rx = fr_sub_f8(rx, a.x);
     rx = fr_sub_f8(rx, b.x);
-    var ry = fr_sub_f8(a.x, rx);
+    var ry = fr_sub_wide_f8(a.x, rx);
     ry = montgomery_product_f8(lambda, ry);
     ry = fr_sub_f8(ry, a.y);
     return Pt(rx, ry, 1u);
@@ -69,15 +72,18 @@ fn aff_add(a: Pt, b: Pt) -> Pt {
 
 // Affine double: 2a.
 fn aff_dbl(a: Pt) -> Pt {
+    // num = 3x² < 4.03p and den = 2y < 4p are wide (montmul / inverse
+    // inputs only — the inverse canonicalizes); two_x stays reducing so the
+    // stored rx chain keeps every fr_sub_f8 operand < 2p.
     let x2 = montgomery_product_f8(a.x, a.x);
-    var num = fr_add_f8(x2, x2);
-    num = fr_add_f8(num, x2);            // 3x^2
-    let den = fr_add_f8(a.y, a.y);       // 2y
+    var num = fr_add_wide_f8(x2, x2);
+    num = fr_add_wide_f8(num, x2);       // 3x^2
+    let den = fr_add_wide_f8(a.y, a.y);  // 2y
     let lambda = montgomery_product_f8(num, finv(den));
     let two_x = fr_add_f8(a.x, a.x);
     var rx = montgomery_product_f8(lambda, lambda);
     rx = fr_sub_f8(rx, two_x);
-    var ry = fr_sub_f8(a.x, rx);
+    var ry = fr_sub_wide_f8(a.x, rx);
     ry = montgomery_product_f8(lambda, ry);
     ry = fr_sub_f8(ry, a.y);
     return Pt(rx, ry, 1u);

@@ -122,8 +122,9 @@ fn load_pt_y(cursor: u32) -> array<u32, 8> {
     let q1 = point_y[2u * pt + 1u];
     let y = array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
     if ((packed & L0_SIGN_BIT) == 0u) { return y; }
-    let zero = array<u32, 8>(0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u);
-    return fr_sub_f8(zero, y);
+    // Pool y is a curve point's coordinate (y ≢ 0 mod p, < 2p), so the
+    // unconditional 2p - y stays in (0, 2p).
+    return fr_neg_wide_f8(y);
 }
 
 fn store_pref(k: u32, t: u32, pref_off: u32, k_stride: u32, val: array<u32, 8>) {
@@ -338,7 +339,10 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             } else {
                 p_lx = acc_x[k];
             }
-            let dx = fr_sub_f8(p_rx, p_lx);
+            // Wide (< 4p: both coords < 2p): dx feeds only the prefix
+            // montmuls, and pref_scratch's sole consumer is montmul. The
+            // inverse canonicalizes its own input.
+            let dx = fr_sub_wide_f8(p_rx, p_lx);
             if (k == 0u) { acc = dx; } else { acc = montgomery_product_f8(acc, dx); }
             // OPTIMIZATION (c): the final prefix (k = S-1) is consumed only
             // by the inverter below, in-register. Skip its store_pref.
@@ -389,7 +393,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             } else {
                 let pp = load_pref(k - 1u, t, pref_off, k_stride);
                 inv_dx = montgomery_product_f8(inv, pp);
-                let dx_b = fr_sub_f8(p_rx, p_lx);
+                // Wide (< 4p): feeds the running-inverse montmul only.
+                let dx_b = fr_sub_wide_f8(p_rx, p_lx);
                 inv = montgomery_product_f8(inv, dx_b);
             }
 
@@ -410,11 +415,14 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             cursor[k] = cursor[k] + select(1u, 2u, isf_b == 1u);
 
             // Affine add using inv_dx (in register). p_rx already consumed.
-            var lambda = fr_sub_f8(p_ry, p_ly);
+            // lambda and the pre-multiply r_y are wide (< 4p, montmul-input
+            // only); r_x and the final r_y are stored coordinates and stay
+            // under the [0, 2p) invariant via the reducing ops.
+            var lambda = fr_sub_wide_f8(p_ry, p_ly);
             lambda = montgomery_product_f8(lambda, inv_dx);
             var r_x = montgomery_product_f8(lambda, lambda);
             r_x = fr_sub_f8(r_x, x_sum);
-            var r_y = fr_sub_f8(p_lx, r_x);
+            var r_y = fr_sub_wide_f8(p_lx, r_x);
             r_y = montgomery_product_f8(lambda, r_y);
             r_y = fr_sub_f8(r_y, p_ly);
 

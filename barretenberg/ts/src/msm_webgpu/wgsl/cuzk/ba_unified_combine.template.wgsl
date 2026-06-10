@@ -92,7 +92,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         if (kind[k] == KIND_PAIR) {
             let lxk = load_x(L_idx[k]);
             let rxk = load_x(R_idx[k]);
-            dx = fr_sub_f8(rxk, lxk);
+            // Wide (< 4p): dx feeds only the prefix montmuls; the inverse
+            // canonicalizes its own input.
+            dx = fr_sub_wide_f8(rxk, lxk);
         } else {
             dx = get_r_f8();
         }
@@ -133,7 +135,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             inv_dx = montgomery_product_f8(inv, pref[k - 1u]);
             var dx_b: array<u32, 8>;
             if (kind[k] == KIND_PAIR) {
-                dx_b = fr_sub_f8(rxk, lxk);
+                // Wide (< 4p): feeds the running-inverse montmul only.
+                dx_b = fr_sub_wide_f8(rxk, lxk);
             } else {
                 dx_b = get_r_f8();
             }
@@ -147,13 +150,15 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             continue;
         }
 
-        // KIND_PAIR
-        var lambda = fr_sub_f8(ryk, lyk);
+        // KIND_PAIR. lambda and the pre-multiply new_y are wide (< 4p,
+        // montmul-input only); new_x and the final new_y are stored and
+        // stay < 2p via the reducing ops.
+        var lambda = fr_sub_wide_f8(ryk, lyk);
         lambda = montgomery_product_f8(lambda, inv_dx);
         var new_x = montgomery_product_f8(lambda, lambda);
         let x_sum = fr_add_f8(lxk, rxk);
         new_x = fr_sub_f8(new_x, x_sum);
-        var new_y = fr_sub_f8(lxk, new_x);
+        var new_y = fr_sub_wide_f8(lxk, new_x);
         new_y = montgomery_product_f8(lambda, new_y);
         new_y = fr_sub_f8(new_y, lyk);
         store_x(O_idx[k], new_x);

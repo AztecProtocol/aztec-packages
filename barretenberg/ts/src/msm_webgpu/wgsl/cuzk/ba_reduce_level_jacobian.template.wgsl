@@ -80,8 +80,10 @@ fn fr_select_f8(a: array<u32, 8>, b: array<u32, 8>, cond: bool) -> array<u32, 8>
         select(a[6], b[6], cond), select(a[7], b[7], cond));
 }
 
-// 2x, 3x, 8x by repeated modular add (cheap vs a multiply).
+// 2x, 3x, 8x by repeated modular add (cheap vs a multiply). The _wide
+// double skips the conditional reduce — montmul-input use only, operand < 2p.
 fn fr_dbl_f8(a: array<u32, 8>) -> array<u32, 8> { return fr_add_f8(a, a); }
+fn fr_dbl_wide_f8(a: array<u32, 8>) -> array<u32, 8> { return fr_add_wide_f8(a, a); }
 
 struct Jac { x: array<u32, 8>, y: array<u32, 8>, z: array<u32, 8>, }
 
@@ -91,14 +93,19 @@ fn jac_double(p: Jac) -> Jac {
     let A = montgomery_product_f8(p.x, p.x);
     let B = montgomery_product_f8(p.y, p.y);
     let C = montgomery_product_f8(B, B);
-    let XpB = fr_add_f8(p.x, B);
+    // Wide bound chain (montmul inputs only; cap is 2^256 = 5.29p):
+    // XpB < 2p + 1.34p = 3.34p; E = 3A < 4.03p; D - X3 < 4p. The reducing
+    // ops keep every stored coordinate and every fr_sub_f8 operand < 2p.
+    let XpB = fr_add_wide_f8(p.x, B);
     let s = fr_sub_f8(montgomery_product_f8(XpB, XpB), fr_add_f8(A, C));
     let D = fr_dbl_f8(s);
-    let E = fr_add_f8(fr_dbl_f8(A), A);          // 3A
+    let E = fr_add_wide_f8(fr_dbl_wide_f8(A), A); // 3A
     let F = montgomery_product_f8(E, E);
     let X3 = fr_sub_f8(F, fr_dbl_f8(D));
     let C8 = fr_dbl_f8(fr_dbl_f8(fr_dbl_f8(C))); // 8C
-    let Y3 = fr_sub_f8(montgomery_product_f8(E, fr_sub_f8(D, X3)), C8);
+    let Y3 = fr_sub_f8(montgomery_product_f8(E, fr_sub_wide_f8(D, X3)), C8);
+    // Z3 stays reducing: it is stored, and an exact-zero Z (infinity) must
+    // propagate as the exact-zero bit pattern (mm(y, 0) = 0; 0 + 0 = 0).
     let Z3 = fr_dbl_f8(montgomery_product_f8(p.y, p.z));
     return Jac(X3, Y3, Z3);
 }
@@ -112,17 +119,23 @@ fn jac_add_raw(p1: Jac, p2: Jac) -> Jac {
     let U2 = montgomery_product_f8(p2.x, Z1Z1);
     let S1 = montgomery_product_f8(montgomery_product_f8(p1.y, p2.z), Z2Z2);
     let S2 = montgomery_product_f8(montgomery_product_f8(p2.y, p1.z), Z1Z1);
+    // H stays reducing (< 2p) so twoH = 2H < 4p; r < 4p. Both feed only
+    // montmuls. rr = mm(r,r) < 1.19p, so the reducing X3/Y3 chains keep
+    // every fr_sub_f8 operand and stored coordinate < 2p.
     let H = fr_sub_f8(U2, U1);
-    let twoH = fr_dbl_f8(H);
+    let twoH = fr_dbl_wide_f8(H);
     let I = montgomery_product_f8(twoH, twoH);
     let J = montgomery_product_f8(H, I);
-    let r = fr_dbl_f8(fr_sub_f8(S2, S1));
+    let r = fr_dbl_wide_f8(fr_sub_f8(S2, S1));
     let V = montgomery_product_f8(U1, I);
     let X3 = fr_sub_f8(fr_sub_f8(montgomery_product_f8(r, r), J), fr_dbl_f8(V));
     let S1J = montgomery_product_f8(S1, J);
-    let Y3 = fr_sub_f8(montgomery_product_f8(r, fr_sub_f8(V, X3)), fr_dbl_f8(S1J));
-    let ZpZ = fr_add_f8(p1.z, p2.z);
-    let Z3 = montgomery_product_f8(fr_sub_f8(fr_sub_f8(montgomery_product_f8(ZpZ, ZpZ), Z1Z1), Z2Z2), H);
+    let Y3 = fr_sub_f8(montgomery_product_f8(r, fr_sub_wide_f8(V, X3)), fr_dbl_f8(S1J));
+    let ZpZ = fr_add_wide_f8(p1.z, p2.z);
+    // TIGHTEST wide chain in the codebase: mm(ZpZ,ZpZ) < 1.19p (ZpZ < 4p),
+    // first wide sub < 3.19p (minuend cap is 3.29p), second < 5.19p — just
+    // under the 2^256 = 5.292p representability cap — then into the montmul.
+    let Z3 = montgomery_product_f8(fr_sub_wide_f8(fr_sub_wide_f8(montgomery_product_f8(ZpZ, ZpZ), Z1Z1), Z2Z2), H);
     return Jac(X3, Y3, Z3);
 }
 

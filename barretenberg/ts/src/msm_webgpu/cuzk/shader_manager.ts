@@ -377,8 +377,12 @@ export class ShaderManager {
    * fr_sub_f8 and the get_r_f8 seed, plus the 0..7 unroll index list.
    */
   private f8Context() {
+    // val2 = the matching word of 2p (p < 2^255, so 2p fits 256 bits) —
+    // WGSL const-eval rejects `P8 << 1` when a set bit shifts out, so the
+    // TWOP8 constants are emitted as literals alongside P8.
+    const twop8 = words8(2n * this.p);
     return {
-      p8_consts: words8(this.p).map((val, idx) => ({ idx, val })),
+      p8_consts: words8(this.p).map((val, idx) => ({ idx, val, val2: twop8[idx] })),
       r8_csv: words8Csv(this.r),
       f8_words: [0, 1, 2, 3, 4, 5, 6, 7].map(i => ({ i })),
     };

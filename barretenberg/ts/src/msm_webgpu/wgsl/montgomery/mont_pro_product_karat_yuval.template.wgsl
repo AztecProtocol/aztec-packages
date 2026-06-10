@@ -121,8 +121,10 @@ fn montgomery_product_f8(x: array<u32, 8>, y: array<u32, 8>) -> array<u32, 8> {
     }
 {{/final_drain}}
 
-    // === Pack canonical limbs straight into 8x u32, conditional reduce in
-    // place (subtract p when out >= p; P8_* from field8). BN254 @ 20x13. ===
+    // === Pack the carry-normalised limbs straight into 8x u32. BN254 @
+    // 20x13. NO final conditional reduce (lazy contract, field8 header):
+    // with R = 2^260 and p ≈ 0.189*2^256 the value here is < 1.34p for ANY
+    // 8x u32 inputs, satisfying the [0, 2p) storage invariant. ===
     var out: array<u32, 8>;
     out[0u] = t20 | (t21 << 13u) | (t22 << 26u);
     out[1u] = (t22 >> 6u) | (t23 << 7u) | (t24 << 20u);
@@ -132,25 +134,5 @@ fn montgomery_product_f8(x: array<u32, 8>, y: array<u32, 8>) -> array<u32, 8> {
     out[5u] = (t32 >> 4u) | (t33 << 9u) | (t34 << 22u);
     out[6u] = (t34 >> 10u) | (t35 << 3u) | (t36 << 16u) | (t37 << 29u);
     out[7u] = (t37 >> 3u) | (t38 << 10u) | (t39 << 23u);
-    var d: array<u32, 8>;
-    var rc: u32;
-    var rt: u32;
-    d[0u] = out[0u] - P8_0; rc = u32(out[0u] < P8_0);
-    rt = out[1u] - P8_1; d[1u] = rt - rc; rc = u32(out[1u] < P8_1) | u32(rt < rc);
-    rt = out[2u] - P8_2; d[2u] = rt - rc; rc = u32(out[2u] < P8_2) | u32(rt < rc);
-    rt = out[3u] - P8_3; d[3u] = rt - rc; rc = u32(out[3u] < P8_3) | u32(rt < rc);
-    rt = out[4u] - P8_4; d[4u] = rt - rc; rc = u32(out[4u] < P8_4) | u32(rt < rc);
-    rt = out[5u] - P8_5; d[5u] = rt - rc; rc = u32(out[5u] < P8_5) | u32(rt < rc);
-    rt = out[6u] - P8_6; d[6u] = rt - rc; rc = u32(out[6u] < P8_6) | u32(rt < rc);
-    rt = out[7u] - P8_7; d[7u] = rt - rc; rc = u32(out[7u] < P8_7) | u32(rt < rc);
-    let dored: bool = rc == 0u;
-    out[0u] = select(out[0u], d[0u], dored);
-    out[1u] = select(out[1u], d[1u], dored);
-    out[2u] = select(out[2u], d[2u], dored);
-    out[3u] = select(out[3u], d[3u], dored);
-    out[4u] = select(out[4u], d[4u], dored);
-    out[5u] = select(out[5u], d[5u], dored);
-    out[6u] = select(out[6u], d[6u], dored);
-    out[7u] = select(out[7u], d[7u], dored);
     return out;
 }

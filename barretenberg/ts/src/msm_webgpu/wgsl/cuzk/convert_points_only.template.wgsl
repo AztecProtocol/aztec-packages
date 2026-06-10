@@ -1,7 +1,8 @@
 // Point-only variant of the SRS upload conversion. Reads raw affine (x, y)
 // pairs from two packed u32 buffers and writes Montgomery-form packed 8x u32
 // coordinates: x·R = montgomery_product_f8(x, R²) — one packed multiply per
-// coordinate (inputs are canonical field elements, so no extra reduction).
+// coordinate. Under the lazy contract the stored pool coordinates are the
+// raw montmul outputs, < 1.04p (within the [0, 2p) invariant).
 //
 // Purpose. When the caller holds a persistent GPU context and the base
 // points are SRS-backed (i.e. stable across many MSM calls), we want to

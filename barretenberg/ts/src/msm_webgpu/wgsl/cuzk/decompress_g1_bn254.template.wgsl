@@ -104,17 +104,21 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let y_mont: array<u32, 8> = fr_pow_f8(y_sq_mont, get_sqrt_exp_f8());
 
     // Convert y back to native: mp(y_mont, 1) = y_mont · 1 · R^-1 = y.
+    // This multiply-by-one is self-canonicalizing even under the lazy
+    // montmul (no final reduce): t < p + y_mont/R <= p, and t ≡ y with
+    // 0 < y < p forces t = y exactly. The parity test below depends on
+    // this — do not replace it with a cheaper conversion.
     var one: array<u32, 8>;
     one[0] = 1u;
     var y: array<u32, 8> = montgomery_product_f8(y_mont, one);
 
     // Parity flip: if the recovered parity disagrees with the encoded
-    // bit, negate mod q. SRS points are non-zero affine, so y != 0 and
-    // q - y (= 0 - y under the borrow path) is canonical.
+    // bit, negate mod q. SRS points are non-zero affine, so y != 0; the
+    // canon keeps the decompressed-SRS contract (x, y < q) that the
+    // validate-srs audit and the parity convention rely on.
     let parity: u32 = y[0] & 1u;
     if (parity != y_bit) {
-        var zero: array<u32, 8>;
-        y = fr_sub_f8(zero, y);
+        y = fr_canon_f8(fr_neg_wide_f8(y));
     }
 
     // Write 8 LE u32s for x, then 8 for y — 16 u32s per point.

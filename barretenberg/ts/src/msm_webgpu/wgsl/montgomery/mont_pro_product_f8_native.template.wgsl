@@ -611,24 +611,8 @@ fn montgomery_product_f8(x: array<u32, 8>, y: array<u32, 8>) -> array<u32, 8> {
     out[5u] = (s12 >> 4u) | (s13 << 9u) | (s14 << 22u);
     out[6u] = (s14 >> 10u) | (s15 << 3u) | (s16 << 16u) | (s17 << 29u);
     out[7u] = (s17 >> 3u) | ((s18 & MASK) << 10u) | (((s18 >> WORD_SIZE) & MASK) << 23u);
-    // Conditional reduce in place: out in [0, 2p), subtract p if out >= p.
-    var d: array<u32, 8>;
-    d[0u] = out[0u] - P8_0; c = u32(out[0u] < P8_0);
-    t = out[1u] - P8_1; d[1u] = t - c; c = u32(out[1u] < P8_1) | u32(t < c);
-    t = out[2u] - P8_2; d[2u] = t - c; c = u32(out[2u] < P8_2) | u32(t < c);
-    t = out[3u] - P8_3; d[3u] = t - c; c = u32(out[3u] < P8_3) | u32(t < c);
-    t = out[4u] - P8_4; d[4u] = t - c; c = u32(out[4u] < P8_4) | u32(t < c);
-    t = out[5u] - P8_5; d[5u] = t - c; c = u32(out[5u] < P8_5) | u32(t < c);
-    t = out[6u] - P8_6; d[6u] = t - c; c = u32(out[6u] < P8_6) | u32(t < c);
-    t = out[7u] - P8_7; d[7u] = t - c; c = u32(out[7u] < P8_7) | u32(t < c);
-    let reduce: bool = c == 0u;
-    out[0u] = select(out[0u], d[0u], reduce);
-    out[1u] = select(out[1u], d[1u], reduce);
-    out[2u] = select(out[2u], d[2u], reduce);
-    out[3u] = select(out[3u], d[3u], reduce);
-    out[4u] = select(out[4u], d[4u], reduce);
-    out[5u] = select(out[5u], d[5u], reduce);
-    out[6u] = select(out[6u], d[6u], reduce);
-    out[7u] = select(out[7u], d[7u], reduce);
+    // NO final conditional reduce (lazy contract, field8 header): with
+    // R = 2^260 and p ≈ 0.189*2^256, out < p + a*b/R < 1.34p for ANY 8x u32
+    // inputs, which satisfies the [0, 2p) storage invariant directly.
     return out;
 }
