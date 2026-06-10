@@ -27,6 +27,7 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import type { BlockSynchronizerConfig } from '../config/index.js';
 import type { ContractSyncService } from '../contract_sync/contract_sync_service.js';
 import { AnchorBlockStore } from '../storage/anchor_block_store/anchor_block_store.js';
+import { EntityStore } from '../storage/entity_store/entity_store.js';
 import { NoteStore } from '../storage/note_store/note_store.js';
 import { PrivateEventStore } from '../storage/private_event_store/private_event_store.js';
 import { BlockSynchronizer } from './block_synchronizer.js';
@@ -44,6 +45,7 @@ describe('BlockSynchronizer', () => {
   let anchorBlockStore: AnchorBlockStore;
   let noteStore: NoteStore;
   let privateEventStore: PrivateEventStore;
+  let entityStore: EntityStore;
   let aztecNode: MockProxy<AztecNode>;
   let getBlock: NodeGetBlockMock;
   let blockStream: MockProxy<L2BlockStream>;
@@ -62,6 +64,7 @@ describe('BlockSynchronizer', () => {
       anchorBlockStore,
       noteStore,
       privateEventStore,
+      entityStore,
       tipsStore,
       contractSyncService,
       config,
@@ -110,6 +113,7 @@ describe('BlockSynchronizer', () => {
     anchorBlockStore = new AnchorBlockStore(store);
     noteStore = new NoteStore(store);
     privateEventStore = new PrivateEventStore(store);
+    entityStore = new EntityStore(store);
     contractSyncService = mock<ContractSyncService>();
     synchronizer = createSynchronizer();
   });
@@ -287,6 +291,60 @@ describe('BlockSynchronizer', () => {
       expect(await noteStore.nullifiersOfNotesAtBlock(9)).toEqual([note9.siloedNullifier.toString()]);
       expect(await privateEventStore.eventIdsAtBlock(8)).toEqual([eventId8.toString()]);
       expect(await privateEventStore.eventIdsAtBlock(9)).toEqual([eventId9.toString()]);
+    });
+
+    it('chain-pruned deletes anchored facts and keeps unanchored ones via the synchronizer', async () => {
+      const contract = await AztecAddress.random();
+      const scope = await AztecAddress.random();
+      const entityTypeId = Fr.random();
+      const entityId = Fr.random();
+      // Two distinct fact-type ids stand in for RECEIVED (non-retractable) and PROCESSED (anchored).
+      const RECEIVED = Fr.random();
+      const PROCESSED = Fr.random();
+      const jobId = 'fact-job';
+
+      // Block 5 is the fork point; block 10 is on the abandoned fork (above the fork).
+      const forkBlock = await L2Block.random(BlockNumber(5));
+      const block5 = makeL2BlockId(forkBlock.number, (await forkBlock.hash()).toString());
+
+      // Seed: one non-retractable (unanchored) fact and one anchored above the fork.
+      await entityStore.recordFact(contract, scope, entityTypeId, entityId, RECEIVED, [Fr.random()], undefined, jobId);
+      await entityStore.recordFact(
+        contract,
+        scope,
+        entityTypeId,
+        entityId,
+        PROCESSED,
+        [],
+        { blockNumber: 10, blockHash: Fr.random() },
+        jobId,
+      );
+      await store.transactionAsync(() => entityStore.commit(jobId));
+
+      // Both facts must be present before the prune.
+      expect(await entityStore.getEntityFacts(contract, scope, entityTypeId, entityId, jobId)).toHaveLength(2);
+
+      // Set the anchor to block 10 so the prune guard passes (anchor is above the fork point).
+      const anchorBlock10 = await L2Block.random(BlockNumber(10));
+      await anchorBlockStore.setHeader(anchorBlock10.header);
+
+      // The node serves the fork-point block; it becomes the new anchor after the prune.
+      const forkResponse = await blockResponse(forkBlock);
+      getBlock.mockImplementation(param =>
+        Promise.resolve(param instanceof BlockHash && param.equals(forkResponse.hash) ? forkResponse : undefined),
+      );
+
+      // Prune back to block 5 (orphaning block 10 where the PROCESSED fact is anchored).
+      await synchronizer.handleBlockStreamEvent({
+        type: 'chain-pruned',
+        block: block5,
+        checkpoint: makeL2CheckpointId(CheckpointNumber.ZERO, GENESIS_CHECKPOINT_HEADER_HASH.toString()),
+      });
+
+      // The anchored PROCESSED fact must be gone; the unanchored RECEIVED fact must survive.
+      const remaining = await entityStore.getEntityFacts(contract, scope, entityTypeId, entityId, jobId);
+      expect(remaining).toHaveLength(1);
+      expect(remaining[0].factTypeId.equals(RECEIVED)).toBe(true);
     });
 
     it('notes below the fork survive and remain queryable after a prune', async () => {
