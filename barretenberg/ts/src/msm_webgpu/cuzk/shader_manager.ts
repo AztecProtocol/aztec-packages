@@ -61,6 +61,7 @@ import {
   pp2_digit_count as pp2_digit_count_shader,
   pp2_bin_scan as pp2_bin_scan_shader,
   pp2_bin_scatter as pp2_bin_scatter_shader,
+  pp2_bin_scatter_fused as pp2_bin_scatter_fused_shader,
   pp2_bin_sort_emit as pp2_bin_sort_emit_shader,
   ba_fused_super_bench as ba_fused_super_bench_shader,
   ba_fused_tail_coop as ba_fused_tail_coop_shader,
@@ -479,7 +480,13 @@ ${packLines.join('\n')}
    * `windowCs` is the per-window bit-width schedule (uniform fill = c
    * repeated); bit bases are its prefix sums, i.e. a single-MSM scalar layout.
    */
-  public gen_pp2_digit_count_shader(workgroup_size: number, windowCs: number[], binShift: number, binsP: number): string {
+  public gen_pp2_digit_count_shader(
+    workgroup_size: number,
+    windowCs: number[],
+    binShift: number,
+    binsP: number,
+    writeDigits = true,
+  ): string {
     const nw = windowCs.length;
     const histLen = nw * binsP;
     if (histLen > 4096) {
@@ -518,6 +525,39 @@ ${packLines.join('\n')}
         bin_shift: binShift,
         hist_len: histLen,
         windows,
+        write_digits: writeDigits,
+        recompile: this.recompile,
+      },
+      {},
+    );
+  }
+
+  /**
+   * pp2 K2 (fused) — bin scatter that recomputes the Booth digit from the
+   * scalar bits (uniform width `c` baked as a constant) instead of reading a
+   * materialized digit array. Pairs with the count-only K1 (writeDigits=false).
+   */
+  public gen_pp2_bin_scatter_fused_shader(workgroup_size: number, binsP: number, binShift: number, c: number): string {
+    const ppt = 1024 / workgroup_size;
+    if (!Number.isInteger(ppt) || ppt < 1) {
+      throw new Error(`gen_pp2_bin_scatter_fused_shader: workgroup_size ${workgroup_size} must divide 1024`);
+    }
+    if (binsP > workgroup_size) {
+      throw new Error(`gen_pp2_bin_scatter_fused_shader: bins_p ${binsP} exceeds workgroup_size ${workgroup_size}`);
+    }
+    if (c < 2 || c > 15) {
+      throw new Error(`gen_pp2_bin_scatter_fused_shader: c ${c} out of range`);
+    }
+    return mustache.render(
+      pp2_bin_scatter_fused_shader,
+      {
+        workgroup_size,
+        bins_p: binsP,
+        bin_shift: binShift,
+        ppt,
+        c,
+        mask_c: (1 << c) - 1,
+        mask_c1: (1 << (c + 1)) - 1,
         recompile: this.recompile,
       },
       {},

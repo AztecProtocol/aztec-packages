@@ -62,7 +62,9 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
             let neg = (raw >> {{ c }}u) & 1u;
             let enc = (raw + 1u) >> 1u;
             let bkt = ((enc - neg) ^ (0u - neg)) & {{ mask_c }}u;
+{{#write_digits}}
             digits[{{ w }}u * n + p] = bkt | (neg << 31u);
+{{/write_digits}}
             atomicAdd(&hist[{{ w }}u * BINS_P + (bkt >> BIN_SHIFT)], 1u);
         }
 {{/windows}}
