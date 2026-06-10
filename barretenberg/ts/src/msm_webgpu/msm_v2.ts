@@ -5815,6 +5815,7 @@ export class MsmV2 {
     const wallT0 = performance.now();
     const enc = device.createCommandEncoder();
     this.encodeIntoBatch(enc, this.redStaging, 0);
+    const tEncoded = performance.now();
     if (!this.splitSubmitDiag) {
       if (this.profile && this.querySet && this.tsResolveBuf && this.tsStagingBuf) {
         enc.resolveQuerySet(this.querySet, 0, this.passCount * 2, this.tsResolveBuf, 0);
@@ -5841,14 +5842,32 @@ export class MsmV2 {
     }
     // walker_combine runs the split-bucket reduce on the GPU within the
     // same encoder, so there's no host fixup to interleave any more.
+    const tSubmitted = performance.now();
     await this.redStaging.mapAsync(GPUMapMode.READ);
+    const tMapped = performance.now();
     const stagingBytes = new Uint8Array(this.redStaging.getMappedRange());
     const L = this.decodeWindowSumsFromBytes(stagingBytes, 0);
     this.redStaging.unmap();
     this.windowSums = L;
+    const tDecoded = performance.now();
     // The bridge ships these per-window sums to the C++ hook for a native
     // bb::g1 combine; the benchmark harness (combineOnHost) does it here.
     const result = this.combineOnHost ? hostWindowCombine(L, this.windowCs) : { x: 0n, y: 0n };
+    // Host-stage wall breakdown (profile mode): encode, submit→map-resolved
+    // (GPU execution + readback latency), decode, and the dev-bench-only JS
+    // combine. Ring-bounded; the dev page's trace driver reads it per rep.
+    if (this.profile && typeof window !== 'undefined') {
+      const g = window as unknown as { __hostBreakdowns?: Record<string, number>[] };
+      g.__hostBreakdowns ??= [];
+      if (g.__hostBreakdowns.length > 64) g.__hostBreakdowns.shift();
+      g.__hostBreakdowns.push({
+        encode: tEncoded - wallT0,
+        submit: tSubmitted - tEncoded,
+        gpuAndMapWait: tMapped - tSubmitted,
+        decode: tDecoded - tMapped,
+        combine: performance.now() - tDecoded,
+      });
+    }
 
     // Per-pass GPU timestamps were tracked here pre-refactor; the new
     // encodeIntoBatch path doesn't capture category labels (the dev page's
