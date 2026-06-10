@@ -5,7 +5,7 @@ import { openEphemeralStore } from '@aztec/kv-store/lmdb-v2';
 import { LazyProtocolContractsProvider } from '@aztec/protocol-contracts/providers/lazy';
 import { ContractStore } from '@aztec/pxe/client/lazy';
 import { getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry';
-import { getStandardHandshakeRegistry } from '@aztec/standard-contracts/handshake-registry';
+import { getStandardHandshakeRegistry } from '@aztec/standard-contracts/handshake-registry/lazy';
 import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
 
 import { existsSync } from 'node:fs';

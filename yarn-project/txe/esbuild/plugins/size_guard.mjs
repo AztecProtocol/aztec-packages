@@ -11,11 +11,10 @@
 
 // Bump log:
 // - 2026-05-27: initial limits.
-// - 2026-06-08: 2200 -> 2300 KB split chunk (HandshakeRegistry artifact preloaded in PXE).
 export const sizeLimits = [
   // Shared chunks emitted by code-splitting; carry the simulator + PXE + world-state graph.
   // Spikes here usually mean a heavy dep crept into the eager import path.
-  { pattern: /^dest\/chunk-.*\.js$/, maxKB: 2300, description: 'split chunk' },
+  { pattern: /^dest\/chunk-.*\.js$/, maxKB: 2200, description: 'split chunk' },
   // Per-protocol-contract artifact chunks (loaded lazily via LazyProtocolContractsProvider).
   { pattern: /^dest\/[A-Z][A-Za-z]+-[A-Z0-9]+\.js$/, maxKB: 800, description: 'contract artifact chunk' },
   // Tiny entry stubs that just re-export from the shared chunks.
