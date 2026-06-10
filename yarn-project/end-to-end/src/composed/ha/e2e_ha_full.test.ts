@@ -234,25 +234,26 @@ describe.skip('HA Full Setup', () => {
   };
 
   /**
-   * Waits for the trigger tx to be checkpointed while emulating a self-advancing L1, nudging chain
-   * time and archiver sync once per L1 slot of wall time. Without the heartbeat, L1 time freezes
-   * while the test thread is blocked here (nothing mines on the on-demand compose anvil), the
-   * proposers' archiver-sync gate — whose deadline runs on the free-running test clock — can then
-   * never pass, and a single missed slot becomes an unrecoverable stall until the jest timeout.
+   * Runs `fn` while emulating a self-advancing L1, nudging chain time and archiver sync once per L1
+   * slot of wall time. Without the heartbeat, L1 time freezes while the test thread is blocked
+   * (nothing mines on the on-demand compose anvil) and any retry loop scheduled on the free-running
+   * test clock — the proposers' archiver-sync gate, or per-slot governance signals that must mine in
+   * a block whose timestamp matches the signed slot — can then never succeed, turning a single missed
+   * slot into an unrecoverable stall until the jest timeout.
    */
-  const waitForTriggerTxWithL1Heartbeat = async (txHash: TxHash): Promise<TxReceipt> => {
-    let waiting = true;
+  const withL1Heartbeat = async <T>(fn: () => Promise<T>): Promise<T> => {
+    let running = true;
     const heartbeatSleep = new InterruptibleSleep();
     const heartbeat = (async () => {
-      while (waiting) {
+      while (running) {
         await heartbeatSleep.sleep(config.ethereumSlotDuration * 1000);
-        if (!waiting) {
+        if (!running) {
           break;
         }
         try {
           await syncHAL1Data();
         } catch (error) {
-          logger.debug('Error advancing L1 time while awaiting trigger tx', {
+          logger.debug('Error advancing L1 time on heartbeat', {
             error: error instanceof Error ? error.message : String(error),
           });
         }
@@ -260,13 +261,16 @@ describe.skip('HA Full Setup', () => {
     })();
 
     try {
-      return await waitForTriggerTx(aztecNode, txHash);
+      return await fn();
     } finally {
-      waiting = false;
+      running = false;
       heartbeatSleep.interrupt();
       await heartbeat;
     }
   };
+
+  const waitForTriggerTxWithL1Heartbeat = (txHash: TxHash): Promise<TxReceipt> =>
+    withL1Heartbeat(() => waitForTriggerTx(aztecNode, txHash));
 
   const sendTriggerTx = async (): Promise<TxReceipt> => {
     await alignDateProviderToNextBlockSlot();
@@ -719,44 +723,50 @@ describe.skip('HA Full Setup', () => {
     const govProposerAddr =
       deployL1ContractsValues.l1ContractAddresses.governanceProposerAddress.toString() as `0x${string}`;
 
-    const { l1VoteCount, lastSignalSlot, payloadWithMostSignals } = await retryUntil(
-      async () => {
-        const snapshotBlock = await deployL1ContractsValues.l1Client.getBlockNumber();
-        const [roundData, l1VoteCountBig] = await Promise.all([
-          deployL1ContractsValues.l1Client.readContract({
-            address: govProposerAddr,
-            abi: GovernanceProposerAbi,
-            functionName: 'getRoundData',
-            args: [rollupAddr, round],
-            blockNumber: snapshotBlock,
-          }),
-          deployL1ContractsValues.l1Client.readContract({
-            address: govProposerAddr,
-            abi: GovernanceProposerAbi,
-            functionName: 'signalCount',
-            args: [rollupAddr, round, mockGovernancePayload.toString() as `0x${string}`],
-            blockNumber: snapshotBlock,
-          }),
-        ]);
-        const lastSignalSlot = Number(roundData.lastSignalSlot);
-        const l1VoteCount = Number(l1VoteCountBig);
-        logger.info(
-          `L1 round ${round}: lastSignalSlot=${lastSignalSlot}, l1VoteCount=${l1VoteCount}, ` +
-            `payloadWithMostSignals=${roundData.payloadWithMostSignals} ` +
-            `(snapshot at L1 block ${snapshotBlock})`,
-        );
-        if (l1VoteCount === 0) {
-          return undefined;
-        }
-        return {
-          l1VoteCount,
-          lastSignalSlot,
-          payloadWithMostSignals: roundData.payloadWithMostSignals,
-        };
-      },
-      `L1 governance round to land >= 1 signal`,
-      120,
-      0.5,
+    // Run the poll under the L1 heartbeat: a signal can only land when its L1 block's timestamp falls
+    // within the slot it was signed for, so if the bundled propose+signal publish lost the duty race
+    // (signal flushed standalone one block early), the per-slot retries need L1 chain time to keep
+    // tracking the test clock or they would sign slots a frozen L1 never reaches.
+    const { l1VoteCount, lastSignalSlot, payloadWithMostSignals } = await withL1Heartbeat(() =>
+      retryUntil(
+        async () => {
+          const snapshotBlock = await deployL1ContractsValues.l1Client.getBlockNumber();
+          const [roundData, l1VoteCountBig] = await Promise.all([
+            deployL1ContractsValues.l1Client.readContract({
+              address: govProposerAddr,
+              abi: GovernanceProposerAbi,
+              functionName: 'getRoundData',
+              args: [rollupAddr, round],
+              blockNumber: snapshotBlock,
+            }),
+            deployL1ContractsValues.l1Client.readContract({
+              address: govProposerAddr,
+              abi: GovernanceProposerAbi,
+              functionName: 'signalCount',
+              args: [rollupAddr, round, mockGovernancePayload.toString() as `0x${string}`],
+              blockNumber: snapshotBlock,
+            }),
+          ]);
+          const lastSignalSlot = Number(roundData.lastSignalSlot);
+          const l1VoteCount = Number(l1VoteCountBig);
+          logger.info(
+            `L1 round ${round}: lastSignalSlot=${lastSignalSlot}, l1VoteCount=${l1VoteCount}, ` +
+              `payloadWithMostSignals=${roundData.payloadWithMostSignals} ` +
+              `(snapshot at L1 block ${snapshotBlock})`,
+          );
+          if (l1VoteCount === 0) {
+            return undefined;
+          }
+          return {
+            l1VoteCount,
+            lastSignalSlot,
+            payloadWithMostSignals: roundData.payloadWithMostSignals,
+          };
+        },
+        `L1 governance round to land >= 1 signal`,
+        120,
+        0.5,
+      ),
     );
 
     // Outcome 1: the round leader payload is the one we configured all HA nodes to vote for.
