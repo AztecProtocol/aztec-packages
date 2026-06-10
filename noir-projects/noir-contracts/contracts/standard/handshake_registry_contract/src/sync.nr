@@ -72,10 +72,7 @@ pub(crate) unconstrained fn handshake_registry_sync(
             let _ = AES128::decrypt(ciphertext, scope, contract_address)
                 .and_then(|pt| {
                     point_from_x_coord_and_sign(pt.get(0), true).map(|pk| {
-                        DiscoveredHandshake {
-                            eph_pk: pk,
-                            mode: OnchainDeliveryMode::deserialize([pt.get(1)]),
-                        }
+                        DiscoveredHandshake { eph_pk: pk, mode: OnchainDeliveryMode::deserialize([pt.get(1)]) }
                     })
                 })
                 .map(|h| handshakes.push(h));
