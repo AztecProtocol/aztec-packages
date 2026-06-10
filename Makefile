@@ -319,7 +319,7 @@ noir-projects-txe-tests:
 	$(call test,$@,noir-projects/aztec-nr)
 	$(call test,$@,noir-projects/noir-contracts)
 
-contract-snapshots-tests: noir
+contract-snapshots-tests: noir noir-projects-format-check
 	$(call test,$@,noir-projects/contract-snapshots)
 
 # Noir Projects - Aggregate target (builds all sub-projects)
