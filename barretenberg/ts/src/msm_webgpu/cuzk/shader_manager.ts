@@ -1034,17 +1034,47 @@ export class ShaderManager {
       const emitSb = (out: string, xp: string, yp: string, bases: number[]): void => {
         for (let k = 0; k < 5; k++) {
           mb.push(`        let ${xp}${k}: u32 = ${chunkSum(xlimb, bases, k)};`);
-          if (!square) mb.push(`        let ${yp}${k}: u32 = ${chunkSum(ylimb, bases, k)};`);
+          mb.push(`        let ${yp}${k}: u32 = ${chunkSum(ylimb, bases, k)};`);
         }
-        const cols = square ? sqCol(xp) : sbCol(xp, yp);
+        const cols = sbCol(xp, yp);
         for (let m = 0; m < 9; m++) mb.push(`        let ${out}${m}: u32 = ${cols[m]};`);
       };
-      emitSb('ll', `x${g.tag}l`, `y${g.tag}l`, g.llB);
-      emitSb('hh', `x${g.tag}h`, `y${g.tag}h`, g.hhB);
-      emitSb('c', `x${g.tag}c`, `y${g.tag}c`, g.cB);
-      for (let k = 0; k < 19; k++) {
-        const folds = g.folds.map(f => `t${k + f.off} = t${k + f.off} ${f.sign} p;`).join(' ');
-        mb.push(`        { let p: u32 = ${pExpr(k)}; ${folds} }`);
+      if (square) {
+        // Temporaries-lean square emit. Two structural cuts vs the multiply
+        // emitter: (1) the c-schoolbook chunks are the sums of the ll/hh
+        // chunk lets already in registers (cB = llB ∪ hhB for every group),
+        // not re-extractions; (2) the c columns are consumed exactly once
+        // (by fold k+5), so they are fused inline into the fold expressions
+        // instead of being materialized — 9 fewer simultaneously-live lets
+        // per group on top of the 40-slot accumulator.
+        const xl = `x${g.tag}l`;
+        const xh = `x${g.tag}h`;
+        const xc = `x${g.tag}c`;
+        for (let k = 0; k < 5; k++) mb.push(`        let ${xl}${k}: u32 = ${chunkSum(xlimb, g.llB, k)};`);
+        sqCol(xl).forEach((e, m) => mb.push(`        let ll${m}: u32 = ${e};`));
+        for (let k = 0; k < 5; k++) mb.push(`        let ${xh}${k}: u32 = ${chunkSum(xlimb, g.hhB, k)};`);
+        sqCol(xh).forEach((e, m) => mb.push(`        let hh${m}: u32 = ${e};`));
+        for (let k = 0; k < 5; k++) mb.push(`        let ${xc}${k}: u32 = ${xl}${k} + ${xh}${k};`);
+        const cCols = sqCol(xc);
+        const pSq = (k: number): string => {
+          if (k <= 4) return `ll${k}`;
+          if (k <= 8) return `ll${k} + (${cCols[k - 5]}) - ll${k - 5} - hh${k - 5}`;
+          if (k === 9) return `(${cCols[4]}) - ll4 - hh4`;
+          if (k <= 13) return `(${cCols[k - 5]}) - ll${k - 5} - hh${k - 5} + hh${k - 10}`;
+          return `hh${k - 10}`;
+        };
+        for (let k = 0; k < 19; k++) {
+          const folds = g.folds.map(f => `t${k + f.off} = t${k + f.off} ${f.sign} p;`).join(' ');
+          mb.push(`        { let p: u32 = ${pSq(k)}; ${folds} }`);
+        }
+      } else {
+        emitSb('ll', `x${g.tag}l`, `y${g.tag}l`, g.llB);
+        emitSb('hh', `x${g.tag}h`, `y${g.tag}h`, g.hhB);
+        emitSb('c', `x${g.tag}c`, `y${g.tag}c`, g.cB);
+        for (let k = 0; k < 19; k++) {
+          const folds = g.folds.map(f => `t${k + f.off} = t${k + f.off} ${f.sign} p;`).join(' ');
+          mb.push(`        { let p: u32 = ${pExpr(k)}; ${folds} }`);
+        }
       }
       mb.push('    }');
     }
