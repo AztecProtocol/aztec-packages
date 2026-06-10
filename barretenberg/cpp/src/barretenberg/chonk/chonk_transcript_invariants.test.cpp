@@ -62,18 +62,18 @@ class ChonkTranscriptInvariantTests : public ::testing::Test {
  * hiding kernel's decider) continue on the shared accumulation transcript, so they create no additional transcripts:
  * - App circuits (0, 1, 2): 0 transcripts - use native HN folding prover
  * - Init kernel (3): 3 transcripts:
- *     1. accumulation_recursive_transcript (also carries the batching sumcheck for multi-app init kernels)
+ *     1. accumulation_recursive_transcript
  *     2. PairingPoints::aggregate_multiple - for batching pairing points with Fiat-Shamir separator
  *     3. hash_transcript - for computing accumulator hash to propagate in public inputs
  * - Intermediate kernel (5): 3 transcripts:
- *     1. accumulation_recursive_transcript - shared across recursive verification and the batching sumcheck
+ *     1. accumulation_recursive_transcript - shared across recursive verification
  *     2. PairingPoints::aggregate_multiple - for batching pairing points with Fiat-Shamir separator
  *     3. hash_transcript - for computing accumulator hash to propagate in public inputs
  * - Reset and tail kernels (6, 7): 2 transcripts each:
- *     1. accumulation_recursive_transcript (also carries the batching sumcheck)
+ *     1. accumulation_recursive_transcript
  *     2. hash_transcript - for computing accumulator hash to propagate in public inputs
  * - Hiding kernel (8): 3 transcripts:
- *     1. accumulation_recursive_transcript (also carries the batching sumcheck and the decider)
+ *     1. accumulation_recursive_transcript
  *     2. batch_merge_transcript - for final batch merge verification
  *     3. PairingPoints::aggregate_multiple
  *

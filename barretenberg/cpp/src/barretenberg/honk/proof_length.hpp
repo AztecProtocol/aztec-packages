@@ -170,7 +170,7 @@ template <typename Flavor> struct MultilinearBatching : CodecConstants<Flavor> {
  *          Contains: instance-to-accumulator proof (Oink + Sumcheck) + MultilinearBatching proof.
  *          Note: gate challenges are derived, not sent in the proof.
  * @tparam Flavor The outer flavor (e.g., MegaFlavor)
- * @tparam BatchingFlavor The batching flavor (e.g., MultilinearBatchingFlavor_<2>)
+ * @tparam BatchingFlavor The batching flavor (MultilinearBatchingFlavor_<NumClaims>)
  */
 template <typename Flavor, typename BatchingFlavor> struct HypernovaFolding {
     static constexpr size_t LENGTH_WITHOUT_PUB_INPUTS(size_t log_n)

@@ -451,11 +451,12 @@ INSTANTIATE_TEST_SUITE_P(All,
 /**
  * @brief Demonstrates that the HN accumulator chain cannot be broken
  *
- * @details We construct a Chonk instance using a first app with 1 << SMALL_LOG_2_NUM_GATES gates, accumulate it to get
- * a valid accumulator, then construct another Chonk instance where we accumulate a first app with 1 <<
- * (SMALL_LOG_2_NUM_GATES + 1) gates but substitute the accumulator after the first accumulation. We then check
- * that the final proof fails verification, demonstrating that the accumulator is bound to the circuits that were
- * accumulated and cannot be substituted with an accumulator from a different execution trace.
+ * @details We construct a Chonk instance using a first app with 1 << SMALL_LOG_2_NUM_GATES gates, accumulate this app
+ * and another MAX_APPS_PER_KERNEL - 1 to get a valid accumulator, then construct another Chonk instance where we
+ * accumulate a first app with 1 << (SMALL_LOG_2_NUM_GATES + 1) gates but substitute the accumulator after
+ * MAX_APPS_PER_KERNEL accumulations. We then check that the final proof fails verification, demonstrating that the
+ * accumulator is bound to the circuits that were accumulated and cannot be substituted with an accumulator from a
+ * different execution trace.
  */
 TEST_F(ChonkTests, AccumulatorBinding)
 {
@@ -464,18 +465,18 @@ TEST_F(ChonkTests, AccumulatorBinding)
     TestSettings settings_one{ .log2_num_gates = SMALL_LOG_2_NUM_GATES };
 
     // ── Step 1: Run a parallel VALID IVC to capture a valid accumulator ──────
-    // We need a valid accumulator after the first app (circuit_index=0).
 
-    const size_t num_app_circuits = 5;
+    // We need to have more than MAX_APPS_PER_KERNEL apps to reach a kernel
+    const size_t num_app_circuits = MAX_APPS_PER_KERNEL + 1;
     CircuitProducer producer_one(num_app_circuits);
     const size_t num_circuits = producer_one.total_num_circuits;
     Chonk chonk_one{ num_circuits };
 
-    // Accumulate only the first circuit (app_0) to capture the valid accumulator. With per-kernel batching the
-    // running prover_accumulator is only produced at the kernel boundary; the app's sumcheck claim is collected in
-    // multilinear_batch_prover_accumulators until then.
-    producer_one.construct_and_accumulate_next_circuit(chonk_one, settings_one);
-    auto valid_accumulator_after_app0 = chonk_one.multilinear_batch_prover_accumulators.at(0);
+    // Accumulate the first MAX_APPS_PER_KERNEL apps and the kernel
+    for (size_t idx = 0; idx < MAX_APPS_PER_KERNEL + 1; idx++) {
+        producer_one.construct_and_accumulate_next_circuit(chonk_one, settings_one);
+    }
+    auto valid_accumulator = chonk_one.prover_accumulator;
 
     // ── Step 2: Run the IVC with an INVALID first app + accumulator substitution ─
 
@@ -488,14 +489,13 @@ TEST_F(ChonkTests, AccumulatorBinding)
         producer_two.construct_and_accumulate_next_circuit(invalid_chonk, settings_two);
 
         // *** ACCUMULATOR SUBSTITUTION ***
-        // After the first app is accumulated, replace its collected sumcheck claim with the one from the parallel
-        // (valid but distinct) IVC. The substituted claim is fed into the init kernel's batching proof, but the
-        // recursive verifier recomputes app_0's claim from its real proof, so the batching hash check must reject it.
-        if (circuit_idx == 0) {
-            BB_ASSERT_NEQ(valid_accumulator_after_app0.non_shifted_commitment,
-                          invalid_chonk.multilinear_batch_prover_accumulators.at(0).non_shifted_commitment,
+        // After MAX_APPS_PER_KERNEL apps and a kernel have been accumulated, replace the prover accumulator with the
+        // one from the parallel (valid but distinct) IVC.
+        if (circuit_idx == MAX_APPS_PER_KERNEL) {
+            BB_ASSERT_NEQ(valid_accumulator.non_shifted_commitment,
+                          invalid_chonk.prover_accumulator.non_shifted_commitment,
                           "Accumulators should be different.");
-            invalid_chonk.multilinear_batch_prover_accumulators.at(0) = valid_accumulator_after_app0;
+            invalid_chonk.prover_accumulator = valid_accumulator;
         }
     }
 
