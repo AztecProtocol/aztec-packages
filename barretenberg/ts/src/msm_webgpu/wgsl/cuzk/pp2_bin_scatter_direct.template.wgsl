@@ -10,7 +10,9 @@
 // lanes land on adjacent addresses, so L2 write combining recovers most of
 // the line efficiency staging bought explicitly.
 //
-// Dispatch (num_windows, num_tiles). Destination cursors come from the
+// Dispatch (num_tiles, num_windows) — tiles on the fast axis, so adjacent
+// workgroups stream adjacent digit tiles of the same window. Destination
+// cursors come from the
 // K1.5-scanned bin_counts matrix at [window][bin][tile] — this tile's
 // exclusive start within each (window, bin) segment — so tiles never
 // contend and the segment partition is deterministic. In-bin order is
@@ -48,8 +50,8 @@ var<workgroup> cursors: array<atomic<u32>, {{ bins_p }}>;
 fn main(@builtin(local_invocation_id) lid: vec3<u32>,
         @builtin(workgroup_id) wid: vec3<u32>) {
     let tid = lid.x;
-    let w = wid.x;
-    let tile = wid.y;
+    let tile = wid.x;
+    let w = wid.y;
     let num_tiles = params[0].y;
     let tile_pts = params[0].z;
     // This window's point range (even base: the pp2 gate requires even

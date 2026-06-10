@@ -2972,10 +2972,8 @@ export class MsmV2 {
     );
     m.convMetaPipe = await compile(sm.gen_csr_to_v2_meta_shader(WGI), `csr2v2-meta`, m.convMetaLayout);
     if (m.pp2Enabled) {
-      // K2/K3 sources depend only on (bins_p, bin_shift[, c]) — shared across
+      // K2/K3 sources depend only on (bins_p, bin_shift) — shared across
       // every n of the same c. K1 bakes the window schedule (one compile per c).
-      // Fused mode (default): K1 is count-only and K2 recomputes digits from
-      // the scalars — the 10.5 MB digit array is never materialized.
       m.pp2DigitCountPipe = await compile(
         sm.gen_pp2_digit_count_shader(256, m.windowCs, m.pp2BinShift, m.pp2BinsP),
         `pp2-digit-count`,
@@ -4161,7 +4159,14 @@ export class MsmV2 {
         pp2Params,
       ]);
     } else {
+      // Fallback prepare: drop the previous pp2 binds too — they reference
+      // prepBuffers destroyed at slow-path entry, and while pp2Active=false
+      // never dispatches them, keeping dead bind groups around is a trap.
       this.pp2ParamsBuf = undefined;
+      this.pp2DigitCountBind = undefined;
+      this.pp2ScanBind = undefined;
+      this.pp2ScatterBind = undefined;
+      this.pp2SortEmitBind = undefined;
     }
     this.rowPtrBuf = rowPtrBuf;
     this.nXposePts = Math.ceil(n / WGI);
@@ -4938,7 +4943,7 @@ export class MsmV2 {
       if (this.pp2Active) {
         dispatch(this.pp2DigitCountPipe!, this.pp2DigitCountBind!, this.pp2NumTiles, this.pp2MemberCount);
         dispatch(this.pp2ScanPipe!, this.pp2ScanBind!, tbw, 1);
-        dispatch(this.pp2ScatterPipe!, this.pp2ScatterBind!, tbw, this.pp2NumTiles);
+        dispatch(this.pp2ScatterPipe!, this.pp2ScatterBind!, this.pp2NumTiles, tbw);
         dispatch(this.pp2SortEmitPipe!, this.pp2SortEmitBind!, this.pp2BinsP, tbw);
       } else
       // Region-split (Phase 2C-ii, numBatches==1 only): decompose + count +
