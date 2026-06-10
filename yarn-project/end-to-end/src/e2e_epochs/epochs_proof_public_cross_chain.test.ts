@@ -3,6 +3,7 @@ import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import { isL1ToL2MessageReady, waitForL1ToL2MessageReady } from '@aztec/aztec.js/messaging';
 import { TxExecutionResult } from '@aztec/aztec.js/tx';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { retryUntil } from '@aztec/foundation/retry';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
@@ -134,14 +135,17 @@ describe('e2e_epochs/epochs_proof_public_cross_chain readiness at proven tip', (
     // Deploy the consuming contract while proving runs so the proven-synced PXE has an anchor and the
     // contract is itself proven.
     logger.warn(`Deploying test contract`);
-    const { contract: testContract } = await TestContract.deploy(context.wallet).send({ from: context.accounts[0] });
-    logger.warn(`Test contract deployed at ${testContract.address}`);
+    const { contract: testContract, receipt: deployReceipt } = await TestContract.deploy(context.wallet).send({
+      from: context.accounts[0],
+    });
+    logger.warn(`Test contract deployed at ${testContract.address} in block ${deployReceipt.blockNumber}`);
 
-    await retryUntil(
-      async () => (await context.aztecNode.getBlockNumber('proven')) > 0,
-      'initial proven block',
-      test.L2_SLOT_DURATION_IN_S * test.epochDuration * 3,
-    );
+    // Before freezing proving, wait until the proven tip covers the contract deployment block. That block is
+    // at or after the account-deploy block, so this guarantees both the SchnorrAccount and the TestContract are
+    // proven and visible to the proven-synced PXE. Otherwise the entrypoint simulation panics because the
+    // account's signing-key note is not yet present at the proven tip.
+    logger.warn(`Waiting for proven tip to cover deployment block ${deployReceipt.blockNumber}`);
+    await test.waitForNodeToSync(BlockNumber(deployReceipt.blockNumber!), 'proven');
     const provenBeforeFreeze = await context.aztecNode.getBlockNumber('proven');
     logger.warn(`Proven tip established at block ${provenBeforeFreeze}`);
 
