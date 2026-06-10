@@ -131,10 +131,14 @@ function compile {
   if ! cache_download contract-$contract_hash.tar.gz; then
     $NARGO compile --package $contract --inliner-aggressiveness 0 --deny-warnings
     $BB aztec_process -i $json_path
+    # Stamp before upload so every cached tarball already carries aztec_version "dev". This lets the
+    # post-block stamp below fast-path to a no-op on a cache hit, preserving CACHE_LINK_DIR symlinks.
+    stamp_dev_aztec_version "$json_path"
     cache_upload contract-$contract_hash.tar.gz $json_path
   fi
-  # Stamp the version after the cache block so the field is always present, whether the artifact came from a fresh
-  # compile or a cache hit.
+  # Stamp the version after the cache block so the field is always present. For tarballs predating the
+  # pre-upload stamp the field is absent and this writes it; for newer tarballs (already "dev") it
+  # fast-paths to a no-op, which leaves a grafted store symlink untouched in CACHE_LINK_DIR worktrees.
   stamp_dev_aztec_version "$json_path"
 }
 export -f compile
