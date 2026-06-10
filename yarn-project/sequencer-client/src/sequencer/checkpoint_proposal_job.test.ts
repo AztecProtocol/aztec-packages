@@ -14,6 +14,7 @@ import { TimeoutError } from '@aztec/foundation/error';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { createLogger } from '@aztec/foundation/log';
+import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
 import { type P2P, P2PClientState } from '@aztec/p2p';
@@ -1701,6 +1702,39 @@ describe('CheckpointProposalJob', () => {
       checkpointBuilder.seedBlocks([block], [txs]);
       validatorClient.collectAttestations.mockResolvedValue(getAttestations(block));
       l2BlockSource.getSyncedL2SlotNumber.mockResolvedValue(undefined);
+
+      const checkpoint = await job.execute();
+      expect(checkpoint).toBeDefined();
+
+      const pendingSubmission = job.awaitPendingSubmission().then(() => 'stopped' as const);
+      job.interrupt();
+
+      let timeout: NodeJS.Timeout | undefined;
+      try {
+        const result = await Promise.race([
+          pendingSubmission,
+          new Promise<'timed-out'>(resolve => {
+            timeout = setTimeout(() => resolve('timed-out'), 1000);
+          }),
+        ]);
+        expect(result).toBe('stopped');
+      } finally {
+        if (timeout) {
+          clearTimeout(timeout);
+        }
+      }
+    });
+
+    it('interrupts a pending L1 submission sleeping in the publisher', async () => {
+      const { txs, block } = await setupTxsAndBlock(p2p, globalVariables, 1, chainId);
+      checkpointBuilder.seedBlocks([block], [txs]);
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(block));
+
+      // Simulate sendRequestsAt sleeping until the target slot: the promise only resolves once
+      // the publisher itself is interrupted.
+      const sendDeferred = promiseWithResolvers<undefined>();
+      publisher.sendRequestsAt.mockReturnValue(sendDeferred.promise);
+      publisher.interrupt.mockImplementation(() => sendDeferred.resolve(undefined));
 
       const checkpoint = await job.execute();
       expect(checkpoint).toBeDefined();
