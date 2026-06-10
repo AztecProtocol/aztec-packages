@@ -176,6 +176,9 @@ export interface P2PConfig
   /** The values for the peer scoring system. Passed as a comma separated list of values in order: low, mid, high tolerance errors. */
   peerPenaltyValues: number[];
 
+  /** How long (in seconds) a peer is banned for once its score drops below the ban threshold. */
+  peerBanDurationSeconds: number;
+
   /** Limit of transactions to archive in the tx pool. Once the archived tx limit is reached, the oldest archived txs will be purged. */
   archivedTxLimit: number;
 
@@ -477,6 +480,11 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description:
       'The values for the peer scoring system. Passed as a comma separated list of values in order: low, mid, high tolerance errors.',
     defaultValue: [2, 10, 50],
+  },
+  peerBanDurationSeconds: {
+    env: 'P2P_PEER_BAN_DURATION_SECONDS',
+    description: 'How long (in seconds) a peer is banned for once its score drops below the ban threshold.',
+    ...numberConfigHelper(24 * 60 * 60),
   },
   doubleSpendSeverePeerPenaltyWindow: {
     env: 'P2P_DOUBLE_SPEND_SEVERE_PEER_PENALTY_WINDOW',

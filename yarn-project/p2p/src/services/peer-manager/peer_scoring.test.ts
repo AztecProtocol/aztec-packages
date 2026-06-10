@@ -1,6 +1,8 @@
 import { ManualDateProvider } from '@aztec/foundation/timer';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 
+import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
+
 import { getP2PDefaultConfig } from '../../config.js';
 import { PeerScoreState, PeerScoring } from './peer_scoring.js';
 
@@ -109,19 +111,56 @@ describe('PeerScoring', () => {
     const testPeerId = 'testPeerState';
 
     // Test Healthy state (default)
+    expect(peerScoring.getScore(testPeerId)).toBe(0);
     expect(peerScoring.getScoreState(testPeerId)).toBe(PeerScoreState.Healthy);
 
     // Test Disconnect state (score between -100 and -50)
     peerScoring.updateScore(testPeerId, -60);
+    expect(peerScoring.getScore(testPeerId)).toBe(-60);
     expect(peerScoring.getScoreState(testPeerId)).toBe(PeerScoreState.Disconnect);
 
     // Test Banned state (score below -100)
     peerScoring.updateScore(testPeerId, -50); // Total now -110
+    expect(peerScoring.getScore(testPeerId)).toBe(-110);
     expect(peerScoring.getScoreState(testPeerId)).toBe(PeerScoreState.Banned);
 
-    // Test return to Healthy state
-    peerScoring.updateScore(testPeerId, 120); // Total now +10
+    // Improving the score does not lift the ban: getScore returns the ban floor (-110), not the
+    // recovered live score, for the full ban window.
+    peerScoring.updateScore(testPeerId, 120); // Live score now +10, but the ban floor still applies
+    expect(peerScoring.getScore(testPeerId)).toBe(-110);
+    expect(peerScoring.getScoreState(testPeerId)).toBe(PeerScoreState.Banned);
+
+    // Once the ban expires, the live (improved) score takes over and the peer is Healthy again.
+    dateProvider.advanceTimeMs(24 * 60 * 60 * 1000 + 1);
+    expect(peerScoring.getScore(testPeerId)).toBe(10);
     expect(peerScoring.getScoreState(testPeerId)).toBe(PeerScoreState.Healthy);
+  });
+
+  test('honours peerBanDurationSeconds for the ban window', () => {
+    const banDurationSeconds = 60;
+    const localDateProvider = new ManualDateProvider();
+    const scoring = new PeerScoring(
+      { ...getP2PDefaultConfig(), peerPenaltyValues: [2, 10, 50], peerBanDurationSeconds: banDurationSeconds },
+      undefined,
+      localDateProvider,
+    );
+    const bannedPeerId = 'bannedPeer';
+
+    scoring.updateScore(bannedPeerId, -150);
+    expect(scoring.getScore(bannedPeerId)).toBe(-150);
+    expect(scoring.getScoreState(bannedPeerId)).toBe(PeerScoreState.Banned);
+    // Recover the live score so only the ban floor keeps it banned.
+    scoring.updateScore(bannedPeerId, 300); // live score now +150
+
+    // Still banned just before the configured window elapses: getScore returns the ban floor.
+    localDateProvider.advanceTimeMs(banDurationSeconds * 1000 - 1);
+    expect(scoring.getScore(bannedPeerId)).toBe(-150);
+    expect(scoring.getScoreState(bannedPeerId)).toBe(PeerScoreState.Banned);
+
+    // Unbanned once it elapses: the recovered live score takes over.
+    localDateProvider.advanceTimeMs(2);
+    expect(scoring.getScore(bannedPeerId)).toBe(150);
+    expect(scoring.getScoreState(bannedPeerId)).toBe(PeerScoreState.Healthy);
   });
 
   test('should handle score state transitions with decay', () => {
@@ -165,5 +204,75 @@ describe('PeerScoring', () => {
 
     const stats = peerScoring.getStats();
     expect(stats.healthyCount).toBe(1);
+  });
+
+  test('re-bans a peer whose previous ban has expired', () => {
+    const reBanPeerId = 'reBanPeer';
+    const DAY_MS = 24 * 60 * 60 * 1000;
+
+    // Initial ban.
+    peerScoring.updateScore(reBanPeerId, -150);
+    expect(peerScoring.getScoreState(reBanPeerId)).toBe(PeerScoreState.Banned);
+
+    // Let the ban expire without anyone reading the peer's score, so the stale record lingers in the
+    // ban map (expired bans are only pruned lazily on read).
+    dateProvider.advanceTimeMs(DAY_MS + 1);
+
+    // A fresh offence after expiry must start a new ban window despite the stale record.
+    peerScoring.updateScore(reBanPeerId, -150);
+    // Recover the live score above the ban threshold so only a fresh ban floor can keep it banned.
+    peerScoring.updateScore(reBanPeerId, 200);
+
+    expect(peerScoring.getScore(reBanPeerId)).toBe(-150);
+    expect(peerScoring.getScoreState(reBanPeerId)).toBe(PeerScoreState.Banned);
+  });
+
+  test('pruneExpiredBans removes expired bans but keeps active ones', () => {
+    const expiredPeer = 'expiredBanPeer';
+    const activePeer = 'activeBanPeer';
+
+    // Ban the first peer at t0 (expires at t0 + 24h).
+    peerScoring.updateScore(expiredPeer, -150);
+
+    // 23h later, ban the second peer (expires at t0 + 47h).
+    dateProvider.advanceTimeMs(23 * 60 * 60 * 1000);
+    peerScoring.updateScore(activePeer, -150);
+
+    // Advance to t0 + 25h: the first ban has expired, the second is still active. Neither has been
+    // read, so both records still linger in the map.
+    dateProvider.advanceTimeMs(2 * 60 * 60 * 1000);
+
+    peerScoring.pruneExpiredBans();
+
+    // The sweep dropped the expired ban from the map proactively, without a getScore read, and kept
+    // the active one.
+    const bannedPeers = (peerScoring as any).bannedPeers as Map<string, unknown>;
+    expect(bannedPeers.has(expiredPeer)).toBe(false);
+    expect(bannedPeers.has(activePeer)).toBe(true);
+  });
+
+  // Regression test for the original advisory (GHSA-h4vv-85x5-6hmh): decayAllScores used to delete a
+  // banned peer's decayed score entry, after which getScore returned 0 and the peer was silently
+  // restored to Healthy — an effective ~66-minute ban. The ban must keep it Banned.
+  test('does not silently restore a banned peer to Healthy after decay (GHSA-h4vv-85x5-6hmh)', async () => {
+    const peer = await createSecp256k1PeerId();
+
+    // Ban the peer: 3 x LowToleranceError (50 each) = -150, below MIN_SCORE_BEFORE_BAN (-100).
+    peerScoring.penalizePeer(peer, PeerErrorSeverity.LowToleranceError);
+    peerScoring.penalizePeer(peer, PeerErrorSeverity.LowToleranceError);
+    peerScoring.penalizePeer(peer, PeerErrorSeverity.LowToleranceError);
+    expect(peerScoring.getScore(peer.toString())).toBe(-150);
+    expect(peerScoring.getScoreState(peer.toString())).toBe(PeerScoreState.Banned);
+
+    // Stay idle long enough that decay drives the live score below SCORE_CLEANUP_THRESHOLD, so
+    // decayAllScores removes the entry (the exact mechanism the advisory exploited) — but still
+    // within the ban window.
+    dateProvider.advanceTimeMs(2 * 60 * 60 * 1000); // 2 hours
+    peerScoring.decayAllScores();
+
+    // Previously the decayed live score would have been cleaned up and getScore would have read back
+    // 0 (Healthy). The persisted ban score (-150) is returned instead, keeping the peer Banned.
+    expect(peerScoring.getScore(peer.toString())).toBe(-150);
+    expect(peerScoring.getScoreState(peer.toString())).toBe(PeerScoreState.Banned);
   });
 });
