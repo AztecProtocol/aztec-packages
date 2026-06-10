@@ -80,7 +80,10 @@ store. Three sites were made store-tolerant:
   harmless for development).
 - `noir-contracts` `stamp_dev_aztec_version` rewrites every contract JSON with
   `aztec_version: "dev"`; it now **replaces by rename**, so in a worktree the store symlink is
-  swapped for a real stamped copy (the store stays pristine), and it is idempotent.
+  swapped for a real stamped copy (the store stays pristine), and it is idempotent. Freshly-built
+  contracts are additionally **stamped before `cache_upload`**, so newly-cached tarballs already
+  carry the field and the post-hit stamp fast-paths to a no-op, leaving the symlink in place; only
+  tarballs predating that change get materialized as real copies.
 - `bb.js` copies test snapshots into `dest/` so its own tests can run from there; it now **skips
   when dest is read-only** (moot anyway now that bb.js extracts in place).
 
@@ -96,7 +99,10 @@ hit, follow one of these patterns or the step will fail with `EACCES` in linked 
   bootstraps manually in a fresh worktree.
 - **Editing a component's `bootstrap.sh`** (or anything matched by its `.rebuild_patterns`) changes
   its content hash — the recipe is part of the input. Worktrees based on such a branch rebuild that
-  component locally until CI builds the branch and uploads tarballs at the new hashes.
+  component locally until CI builds the branch and uploads tarballs at the new hashes. The pain is
+  one-time per machine: `cache_upload` saves locally-built artifacts into `CACHE_LOCAL_DIR` even
+  with `CI=0`, so the first local build at a new hash populates the cache and later worktrees link
+  from it.
 - **Untracked, non-ignored files** under a component flip its hash to `disabled-cache`. Keep
   checkouts clean of stray scratch files, or expect local rebuilds.
 
@@ -112,9 +118,11 @@ symlink-scan safety net before each deletion, and stale tarballs older than `--k
 ## Day-to-day
 
 ```bash
-# create (from your built main checkout; ~2-5 min on cache hits)
-scripts/worktrees.sh create my-feature            # ~/Projects/my-feature, branch spl/my-feature
+# create (run from anywhere inside your built checkout; ~2-5 min on cache hits). The worktree lands
+# as a sibling of the checkout (<parent>/my-feature) on branch <initials>/my-feature.
+scripts/worktrees.sh create my-feature
 scripts/worktrees.sh create my-feature origin/next
+scripts/worktrees.sh create my-feature --dry-run   # print resolved source/path/branch, no changes
 
 # work: yarn build / yarn test in the worktree's yarn-project is fully isolated (local copies)
 
@@ -123,11 +131,11 @@ scripts/worktrees.sh thaw barretenberg/cpp/build
 
 # after rebasing the worktree across upstream changes: re-run that component's bootstrap in link
 # mode to repoint at the new content
-(cd ~/Projects/my-feature/noir && CACHE_LINK_DIR=... CACHE_LOCAL_DIR=... ./bootstrap.sh)
+(cd <worktree>/noir && CACHE_LINK_DIR=... CACHE_LOCAL_DIR=... ./bootstrap.sh)
 
 # inspect / clean up
 scripts/worktrees.sh status
-git worktree remove ~/Projects/my-feature && scripts/worktrees.sh gc
+git worktree remove <worktree> && scripts/worktrees.sh gc
 ```
 
 Set `CACHE_LOCAL_DIR` consistently (e.g. export it from a profile that non-interactive shells also

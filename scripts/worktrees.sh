@@ -7,8 +7,9 @@
 # from a shared read-only store (CACHE_LINK_DIR) instead of extracted in place.
 set -euo pipefail
 
-# For create, the SOURCE checkout is the one this script lives in — not the CWD's repo, which could
-# be a different (possibly unbuilt) checkout of the same project. Other commands operate on CWD.
+# SCRIPT_ROOT is the checkout this script lives in (resolved via the script's own path, not CWD,
+# which could point at a different — possibly unbuilt — checkout). It is the fallback source for
+# `create` and the anchor for the other commands when CWD is not inside a repo.
 SCRIPT_ROOT=$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)
 ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo "$SCRIPT_ROOT")
 
@@ -37,7 +38,7 @@ function usage {
 worktrees.sh — fast git worktrees for aztec-packages backed by a shared frozen deps store.
 
 USAGE
-  scripts/worktrees.sh create <name> [base-ref] [--branch <branch>] [--frozen-only]
+  scripts/worktrees.sh create <name> [base-ref] [--branch <branch>] [--frozen-only] [--dry-run]
   scripts/worktrees.sh status [path]
   scripts/worktrees.sh thaw <path>...
   scripts/worktrees.sh gc [--dry-run] [--keep-days N]
@@ -46,12 +47,28 @@ USAGE
 COMMANDS
 
   create <name> [base-ref]
-      Create a worktree at ~/Projects/<name> on branch spl/<name> (override with --branch),
-      based on <base-ref> (default: the source checkout's current HEAD). The source checkout is
-      whichever checkout you invoke this from.
+      Create a worktree as a sibling of the source checkout (<parent-of-source>/<name>), on a new
+      branch, based on <base-ref> (default: the source checkout's current HEAD).
+
+      SOURCE CHECKOUT
+        The source is the aztec-packages checkout containing your current directory (so you can run
+        this from anywhere inside your checkout). If CWD is not inside such a checkout, the checkout
+        this script lives in is used instead.
+
+      BRANCH NAME (first match wins)
+        --branch <branch>     use <branch> verbatim.
+        <name> contains a /   <name> IS the branch; the worktree dir is its last segment
+                                (e.g. create ab/fix-thing -> branch ab/fix-thing, dir fix-thing).
+        otherwise             prefix <name> with your initials from the source checkout's git config:
+                                user.initials if set, else initials derived from user.name
+                                ("Jane van Doe" -> jvd). With neither set, <name> is used unprefixed.
+
+      --dry-run
+        Resolve and print the source checkout, worktree path, branch, and base-ref, then exit
+        without fetching, creating the worktree, or touching the store.
 
       What happens:
-        1. git worktree add ~/Projects/<name>  (git fetch first if base-ref looks like a remote ref).
+        1. git worktree add <parent-of-source>/<name>  (git fetch first if base-ref looks remote).
         2. Copy the WRITABLE yarn layer from the source checkout (real copies, ext4 has no reflink):
              - yarn-project/.yarn/cache + .yarn/install-state.gz
              - root + per-workspace node_modules (preserves the relative @aztec/* symlinks so they
@@ -159,16 +176,59 @@ function yarn_lock_hash {
   sha256sum "$lock" | cut -d' ' -f1
 }
 
+# True if the given directory looks like an aztec-packages checkout root.
+function is_aztec_checkout {
+  local d="$1"
+  [[ -n "$d" && -f "$d/scripts/worktrees.sh" && -d "$d/yarn-project" ]]
+}
+
+# Resolve the SOURCE checkout for `create`. Prefer the aztec-packages checkout containing CWD; fall
+# back to SCRIPT_ROOT (the checkout this script lives in). If both resolve, differ, and CWD wins,
+# note which source is used so a teammate isn't surprised when they invoke the script by an absolute
+# path from inside a different checkout.
+function resolve_source {
+  local cwd_root=""
+  cwd_root=$(git rev-parse --show-toplevel 2>/dev/null) || cwd_root=""
+  if [[ -n "$cwd_root" ]] && is_aztec_checkout "$cwd_root"; then
+    [[ "$cwd_root" != "$SCRIPT_ROOT" ]] && log "Using source checkout from CWD: $cwd_root"
+    echo "$cwd_root"
+    return 0
+  fi
+  echo "$SCRIPT_ROOT"
+}
+
+# Derive the default branch name for a worktree from the source checkout's git config, following the
+# repo convention (yarn-project/CLAUDE.md): user.initials if set, else initials derived from
+# user.name (lowercased first letter of each word), else the bare name.
+function default_branch {
+  local source="$1" name="$2"
+  local initials
+  initials=$(git -C "$source" config user.initials 2>/dev/null || true)
+  if [[ -z "$initials" ]]; then
+    local fullname
+    fullname=$(git -C "$source" config user.name 2>/dev/null || true)
+    if [[ -n "$fullname" ]]; then
+      initials=$(echo "$fullname" | awk '{ out=""; for (i=1;i<=NF;i++) out=out tolower(substr($i,1,1)); print out }')
+    fi
+  fi
+  if [[ -n "$initials" ]]; then
+    echo "$initials/$name"
+  else
+    echo "$name"
+  fi
+}
+
 # ---------------------------------------------------------------------------------------------------
 # create
 # ---------------------------------------------------------------------------------------------------
 
 function cmd_create {
-  local name="" base_ref="" branch="" frozen_only=0
+  local name="" base_ref="" branch="" frozen_only=0 dry_run=0
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --branch) branch="$2"; shift 2 ;;
       --frozen-only) frozen_only=1; shift ;;
+      --dry-run) dry_run=1; shift ;;
       --help|-h) usage; exit 0 ;;
       -*) die "Unknown option: $1" ;;
       *)
@@ -180,13 +240,33 @@ function cmd_create {
   done
   [[ -n "$name" ]] || { usage; die "create requires <name>"; }
 
-  local source="$SCRIPT_ROOT"
+  local source
+  source=$(resolve_source)
+
+  # A <name> containing a slash IS the full branch name; the worktree dir is its last path segment.
+  local dir_name="$name"
+  if [[ "$name" == */* ]]; then
+    branch=${branch:-$name}
+    dir_name="${name##*/}"
+  fi
+  branch=${branch:-$(default_branch "$source" "$name")}
+
+  local wt_path
+  wt_path="$(dirname "$source")/$dir_name"
+  base_ref=${base_ref:-HEAD}
+
+  if [[ "$dry_run" -eq 1 ]]; then
+    log "Dry run (no changes made):"
+    log "  source:   $source"
+    log "  path:     $wt_path"
+    log "  branch:   $branch"
+    log "  base-ref: $base_ref"
+    return 0
+  fi
+
   [[ -d "$source/yarn-project/node_modules" ]] \
     || die "Source checkout $source has no yarn-project/node_modules — bootstrap it before creating worktrees."
-  local wt_path="$HOME/Projects/$name"
   [[ -e "$wt_path" ]] && die "Path already exists: $wt_path"
-  branch=${branch:-spl/$name}
-  base_ref=${base_ref:-HEAD}
 
   # Fetch first if base-ref looks like a remote ref (origin/... or a remote-tracking name).
   if [[ "$base_ref" == origin/* || "$base_ref" == */* ]]; then

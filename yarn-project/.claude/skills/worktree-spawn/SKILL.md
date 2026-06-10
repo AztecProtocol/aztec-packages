@@ -18,18 +18,25 @@ Spawn an independent Claude instance in a separate git worktree to work on a tas
 
 1. Choose a short worktree name from the task description (e.g. `fix-bug-123`)
 2. Create the worktree with `scripts/worktrees.sh create` — NOT with bare `git worktree add`. The script
-   creates the worktree at `~/Projects/<name>` on branch `spl/<name>`, initializes the `noir/noir-repo`
-   submodule, copies the writable yarn layer (`node_modules`, build outputs) from the current checkout, and
-   links upstream build artifacts (bb, nargo, contract artifacts, l1 out) from the shared read-only store —
-   leaving the worktree ready to build and test in minutes instead of a full bootstrap
+   creates the worktree as a sibling of the source checkout (`<parent-of-checkout>/<name>`) on a new branch
+   (`<initials>/<name>`, from the checkout's git `user.initials`/`user.name`), initializes the
+   `noir/noir-repo` submodule, copies the writable yarn layer (`node_modules`, build outputs) from the
+   source checkout, and links upstream build artifacts (bb, nargo, contract artifacts, l1 out) from the
+   shared read-only store — leaving the worktree ready to build and test in minutes instead of a full
+   bootstrap. The source checkout is whichever aztec-packages checkout you run the script from.
 3. Spawn Claude in the worktree with a detailed task prompt
 
 ## Command Template
 
+The worktree path and branch are derived by the script (sibling dir of the checkout, branch prefixed with
+your git initials). Use `--dry-run` first to learn the resolved path, then create and spawn in it. Run from
+anywhere inside the checkout — no `cd` to the git root needed.
+
 ```bash
-cd $(git rev-parse --show-toplevel) && \
+# Resolve where the worktree will land (no changes made), then create it and spawn Claude there.
+WT_PATH=$(scripts/worktrees.sh create <name> [base-ref] --dry-run 2>&1 | awk '/^  path:/{print $2}') && \
 scripts/worktrees.sh create <name> [base-ref] && \
-cd ~/Projects/<name>/yarn-project && \
+cd "$WT_PATH/yarn-project" && \
 claude "$(cat <<'EOF'
 Task: [Brief task description]
 
@@ -42,7 +49,6 @@ IMPORTANT: Read CLAUDE.md first to understand the project structure and workflow
 
 [Any additional context or requirements]
 - Working directory: yarn-project in the worktree
-- Branch: spl/<name>
 - PR target: next (unless specified otherwise)
 EOF
 )"
@@ -50,7 +56,9 @@ EOF
 
 - `base-ref` defaults to the current checkout's HEAD. Pass `origin/next` (or another CI-built ref) when the
   task should start from the latest base instead.
-- Use `--branch <branch>` to override the default `spl/<name>` branch name.
+- The default branch is `<initials>/<name>` (initials from the checkout's `user.initials`, else derived from
+  `user.name`). To set the branch explicitly, either pass `--branch <branch>`, or give `<name>` itself with a
+  slash — e.g. `create ab/fix-thing` makes branch `ab/fix-thing` with the worktree dir `fix-thing`.
 - If the script reports upstream cache misses, the affected components compile locally — slower but correct.
   `--frozen-only` aborts instead of building on a miss.
 
@@ -59,9 +67,9 @@ EOF
 For a task "Fix bug #123 in the sequencer":
 
 ```bash
-cd $(git rev-parse --show-toplevel) && \
+WT_PATH=$(scripts/worktrees.sh create fix-bug-123 --dry-run 2>&1 | awk '/^  path:/{print $2}') && \
 scripts/worktrees.sh create fix-bug-123 && \
-cd ~/Projects/fix-bug-123/yarn-project && \
+cd "$WT_PATH/yarn-project" && \
 claude "$(cat <<'EOF'
 Task: Fix bug #123 in the sequencer
 
@@ -85,7 +93,7 @@ EOF
   rebuild upstream components or run codegen in the worktree without `scripts/worktrees.sh thaw` first
 - Rebuilding yarn-project workspaces (`yarn build`, `yarn workspace ... build`) is safe — those are
   worktree-local copies
-- When done, remove with `git worktree remove ~/Projects/<name>`; run `scripts/worktrees.sh gc` occasionally
-  to clean orphaned store entries
+- When done, remove with `git worktree remove <worktree-path>` (the sibling dir printed at create time); run
+  `scripts/worktrees.sh gc` occasionally to clean orphaned store entries
 - The spawned Claude instance works independently from the current session
 - PR target is `next` unless specified otherwise
