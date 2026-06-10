@@ -9,6 +9,54 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.js] `getGasLimits` signature changed — now requires network tx gas limits
+
+`getGasLimits` in `@aztec/aztec.js` now takes the network's per-tx admission limit as a second argument and clamps the padded estimates to it. If the simulated gas usage already exceeds the network limit, it throws immediately rather than returning a limit the node would reject.
+
+**Migration:**
+
+```diff
+- import { getGasLimits } from '@aztec/aztec.js';
+- const { gasLimits, teardownGasLimits } = getGasLimits(simulationResult, 0.1);
++ import { getGasLimits } from '@aztec/aztec.js';
++ const maxTxGasLimits = await wallet.getMaxTxGasLimits();
++ const { gasLimits, teardownGasLimits } = getGasLimits(simulationResult, maxTxGasLimits, 0.1);
+```
+
+**Impact**: Any direct call to `getGasLimits` must pass the wallet-advertised `maxTxGasLimits`. Code that goes through `ContractFunctionInteraction.send()` / `estimate()` is unaffected — those paths call `wallet.getMaxTxGasLimits()` automatically.
+
+### [Aztec.js] `Wallet` interface gains `getMaxTxGasLimits()`
+
+The `Wallet` type in `@aztec/aztec.js` now requires a `getMaxTxGasLimits(): Promise<Gas>` method. `BaseWallet` provides it by reading `nodeInfo.txsLimits.gas` once and caching the result.
+
+**Impact**: Custom `Wallet` implementations that do not extend `BaseWallet` must add this method.
+
+### [Aztec.js / PXE] `NodeInfo.txsLimits` is now required
+
+`NodeInfo` now carries a required `txsLimits` field: every node advertises the maximum gas a single tx may declare (`{ gas: { daGas, l2Gas } }`) and wallets rely on it for fallback gas limits. Clients built against this version cannot talk to nodes that predate the field.
+
+### [Aztec.js] `GasSettings.fallback` requires explicit `gasLimits`
+
+`GasSettings.fallback` no longer supplies a default value for `gasLimits`. Callers must pass the network's per-tx admission limit explicitly — typically `wallet.getMaxTxGasLimits()`.
+
+**Migration:**
+
+```diff
+- const settings = GasSettings.fallback({ maxFeesPerGas });
++ const maxGas = await wallet.getMaxTxGasLimits();
++ const settings = GasSettings.fallback({ gasLimits: maxGas, maxFeesPerGas });
+```
+
+### [Aztec.js / stdlib] Removed legacy fallback gas constants
+
+The following exports have been removed from `@aztec/stdlib`:
+
+- `APPROXIMATE_MAX_DA_GAS_PER_BLOCK`
+- `FALLBACK_TEARDOWN_L2_GAS_LIMIT`
+- `FALLBACK_TEARDOWN_DA_GAS_LIMIT`
+
+**Impact**: Any code that imported these symbols must switch to the live node-advertised limits via `wallet.getMaxTxGasLimits()`.
+
 ### [Aztec.nr] `messages::message_delivery` module moved to `messages::delivery`
 
 The `message_delivery` module has been renamed to `delivery`. Update imports accordingly:

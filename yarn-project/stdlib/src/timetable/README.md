@@ -281,6 +281,8 @@ The maximum number of full-duration block sub-slots is:
 max_blocks_per_checkpoint = floor((last_block_build_time - first_subslot_start) / block_duration)
 ```
 
+`max_blocks_per_checkpoint` is also an input to the network tx admission limits (it divides the per-checkpoint gas budgets into a per-block share); see [`../gas/README.md`](../gas/README.md) under "Gas and Data Limits".
+
 The start deadline is the latest time at which the proposer can still squeeze one minimum-duration block and make the ideal L1 publish path:
 
 ```text
