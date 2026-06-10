@@ -18,8 +18,10 @@
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 
 #ifndef __wasm__
+#include <algorithm>
 #include <cerrno>
 #include <chrono>
+#include <climits>
 #include <csignal>
 #include <cstring>
 #include <fcntl.h>
@@ -404,7 +406,10 @@ namespace {
 bool write_all(int fd, const uint8_t* ptr, size_t len)
 {
     while (len > 0) {
-        const ssize_t written = ::write(fd, ptr, len);
+        // ::write takes a size_t count on POSIX but an unsigned int on Windows (MinGW _write), so cap each
+        // call to INT_MAX and cast explicitly to keep the count in range and the return value representable.
+        const auto chunk = static_cast<unsigned int>(std::min(len, static_cast<size_t>(INT_MAX)));
+        const ssize_t written = ::write(fd, ptr, chunk);
         if (written > 0) {
             ptr += written;
             len -= static_cast<size_t>(written);
