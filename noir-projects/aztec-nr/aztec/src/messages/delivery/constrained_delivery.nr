@@ -80,9 +80,8 @@ pub fn calculate_secret_and_index(
     } else {
         let secret = maybe_secret.unwrap_unchecked();
 
-        // Safety: the returned index is untrusted; it is constrained below either by re-validating the registry
-        // handshake (`index == 0`) or by proving the prior nullifier exists (`index > 0`), which transitively
-        // chains back to the index-0 handshake.
+        // Safety: the returned index is untrusted. `index == 0` proves current registry membership;
+        // `index > 0` proves chain continuity, not current registry membership.
         let index = unsafe { get_next_tagging_index(secret, MessageDelivery::onchain_constrained()) };
 
         if index == 0 {
