@@ -38,24 +38,13 @@ const LOW_MASK: u32 = LOWS - 1u;
 @group(0) @binding(0) var<storage, read>       binned:      array<u32>;
 @group(0) @binding(1) var<storage, read>       bin_counts:  array<u32>;
 @group(0) @binding(2) var<storage, read_write> l0_out:      array<u32>;
-{{#lean_meta}}
-// Lean meta: K2-direct already accumulated the per-(window, bucket) counts
-// (pads cleared to 0 by the host), so this kernel reads them instead of
-// streaming the segment a first time — phase A and its shared histogram are
-// gone entirely.
-@group(0) @binding(3) var<storage, read_write> counts_out:  array<atomic<u32>>;
-{{/lean_meta}}
-{{^lean_meta}}
 @group(0) @binding(3) var<storage, read_write> counts_out:  array<u32>;
-{{/lean_meta}}
 @group(0) @binding(4) var<storage, read_write> offsets_out: array<u32>;
 // params[0] = [n, num_tiles, tile_pts, bins_p]
 // params[1] = [base_offset, scan_len, BW, 0]
 @group(0) @binding(5) var<uniform>             params:      array<vec4<u32>, 2>;
 
-{{^lean_meta}}
 var<workgroup> hist: array<atomic<u32>, {{ lows }}>;
-{{/lean_meta}}
 var<workgroup> hcount: array<u32, {{ lows }}>;
 var<workgroup> scan_buf: array<u32, {{ lows }}>;
 var<workgroup> cursor: array<atomic<u32>, {{ lows }}>;
@@ -77,7 +66,6 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     let seg_base = bin_counts[(w * bins_p + bin) * num_tiles];
     let seg_end = bin_counts[(w * bins_p + bin + 1u) * num_tiles];
 
-{{^lean_meta}}
     for (var s: u32 = tid; s < LOWS; s = s + WG) {
         atomicStore(&hist[s], 0u);
     }
@@ -97,21 +85,6 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
         scan_buf[s] = h;
     }
     workgroupBarrier();
-{{/lean_meta}}
-{{#lean_meta}}
-    // Counts come straight from K2's global accumulation; pads beyond the
-    // real bucket range stayed 0 since the host's per-batch clear.
-    for (var s: u32 = tid; s < LOWS; s = s + WG) {
-        let bucket = (bin << BIN_SHIFT) + s;
-        var h: u32 = 0u;
-        if (bucket < bw) {
-            h = atomicLoad(&counts_out[w * bw + bucket]);
-        }
-        hcount[s] = h;
-        scan_buf[s] = h;
-    }
-    workgroupBarrier();
-{{/lean_meta}}
     for (var stride: u32 = 1u; stride < LOWS; stride = stride * 2u) {
         var x: u32 = 0u;
         if (tid < LOWS) {
@@ -131,14 +104,11 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
         let start = scan_buf[s] - hcount[s];
         atomicStore(&cursor[s], start);
         // Bucket meta: counts and GLOBAL slot offsets, every bucket this bin
-        // covers (pads beyond the real bucket range emit count 0). In lean
-        // mode the counts were already accumulated by K2 — only offsets here.
+        // covers (pads beyond the real bucket range emit count 0).
         let bucket = (bin << BIN_SHIFT) + s;
         if (bucket < bw) {
             let id = w * bw + bucket;
-{{^lean_meta}}
             counts_out[id] = hcount[s];
-{{/lean_meta}}
             offsets_out[id] = seg_base + start;
         }
     }

@@ -60,8 +60,6 @@ import {
   transpose_scatter_tiled as transpose_scatter_tiled_shader,
   pp2_digit_count as pp2_digit_count_shader,
   pp2_bin_scan as pp2_bin_scan_shader,
-  pp2_bin_scatter as pp2_bin_scatter_shader,
-  pp2_bin_scatter_fused as pp2_bin_scatter_fused_shader,
   pp2_bin_scatter_direct as pp2_bin_scatter_direct_shader,
   pp2_bin_sort_emit as pp2_bin_sort_emit_shader,
   ba_fused_super_bench as ba_fused_super_bench_shader,
@@ -486,7 +484,6 @@ ${packLines.join('\n')}
     windowCs: number[],
     binShift: number,
     binsP: number,
-    writeDigits: 'none' | 'u32' | 'u16' = 'u32',
   ): string {
     const nw = windowCs.length;
     const histLen = nw * binsP;
@@ -539,8 +536,6 @@ ${packLines.join('\n')}
         bin_shift: binShift,
         hist_len: histLen,
         windows,
-        write_digits: writeDigits === 'u32',
-        digits_u16: writeDigits === 'u16',
         recompile: this.recompile,
       },
       {},
@@ -548,101 +543,36 @@ ${packLines.join('\n')}
   }
 
   /**
-   * pp2 K2 (fused) — bin scatter that recomputes the Booth digit from the
-   * scalar bits (uniform width `c` baked as a constant) instead of reading a
-   * materialized digit array. Pairs with the count-only K1 (writeDigits=false).
+   * pp2 K2 — direct bin-cursor scatter over the u16 digit array: one shared
+   * atomic claim + one coalesced write per point, no reorder staging. The
+   * device-independent composition (see the template header).
    */
-  public gen_pp2_bin_scatter_fused_shader(workgroup_size: number, binsP: number, binShift: number, c: number): string {
-    const ppt = 1024 / workgroup_size;
-    if (!Number.isInteger(ppt) || ppt < 1) {
-      throw new Error(`gen_pp2_bin_scatter_fused_shader: workgroup_size ${workgroup_size} must divide 1024`);
-    }
+  public gen_pp2_bin_scatter_direct_shader(workgroup_size: number, binsP: number, binShift: number): string {
     if (binsP > workgroup_size) {
-      throw new Error(`gen_pp2_bin_scatter_fused_shader: bins_p ${binsP} exceeds workgroup_size ${workgroup_size}`);
-    }
-    if (c < 2 || c > 15) {
-      throw new Error(`gen_pp2_bin_scatter_fused_shader: c ${c} out of range`);
-    }
-    return mustache.render(
-      pp2_bin_scatter_fused_shader,
-      {
-        workgroup_size,
-        bins_p: binsP,
-        bin_shift: binShift,
-        ppt,
-        c,
-        mask_c: (1 << c) - 1,
-        mask_c1: (1 << (c + 1)) - 1,
-        recompile: this.recompile,
-      },
-      {},
-    );
-  }
-
-  /**
-   * pp2 K2 (direct) — fused digit recompute + direct bin-cursor scatter, no
-   * reorder staging. Targets GPUs whose workgroup memory is cache-emulated
-   * (Mali), where the staging machinery costs more than the line efficiency
-   * it buys.
-   */
-  public gen_pp2_bin_scatter_direct_shader(
-    workgroup_size: number,
-    binsP: number,
-    binShift: number,
-    c: number,
-    leanMeta = false,
-    fromDigits = false,
-  ): string {
-    if (c < 2 || c > 15) {
-      throw new Error(`gen_pp2_bin_scatter_direct_shader: c ${c} out of range`);
+      throw new Error(`gen_pp2_bin_scatter_direct_shader: bins_p ${binsP} exceeds workgroup_size ${workgroup_size}`);
     }
     return mustache.render(
       pp2_bin_scatter_direct_shader,
-      {
-        workgroup_size,
-        bins_p: binsP,
-        bin_shift: binShift,
-        c,
-        mask_c: (1 << c) - 1,
-        mask_c1: (1 << (c + 1)) - 1,
-        lean_meta: leanMeta,
-        from_digits: fromDigits,
-        recompile: this.recompile,
-      },
+      { workgroup_size, bins_p: binsP, bin_shift: binShift, recompile: this.recompile },
       {},
     );
   }
 
-  /** pp2 K1.5 — single-workgroup flat exclusive scan of the bin-count matrix. */
+  /** pp2 K1.5 — per-window exclusive scan of the bin-count matrix (one
+   * workgroup per window; bases come from point_offsets). */
   public gen_pp2_bin_scan_shader(): string {
     return mustache.render(pp2_bin_scan_shader, { recompile: this.recompile }, {});
   }
 
-  /** pp2 K2 — coarse-bin scatter via workgroup reorder staging. */
-  public gen_pp2_bin_scatter_shader(workgroup_size: number, binsP: number, binShift: number): string {
-    const ppt = 1024 / workgroup_size;
-    if (!Number.isInteger(ppt) || ppt < 1) {
-      throw new Error(`gen_pp2_bin_scatter_shader: workgroup_size ${workgroup_size} must divide 1024`);
-    }
-    if (binsP > workgroup_size) {
-      throw new Error(`gen_pp2_bin_scatter_shader: bins_p ${binsP} exceeds workgroup_size ${workgroup_size}`);
-    }
-    return mustache.render(
-      pp2_bin_scatter_shader,
-      { workgroup_size, bins_p: binsP, bin_shift: binShift, ppt, recompile: this.recompile },
-      {},
-    );
-  }
-
   /** pp2 K3 — per-(window, bin) counting sort + final l0/meta emit. */
-  public gen_pp2_bin_sort_emit_shader(workgroup_size: number, binShift: number, leanMeta = false): string {
+  public gen_pp2_bin_sort_emit_shader(workgroup_size: number, binShift: number): string {
     const lows = 1 << binShift;
     if (lows > workgroup_size) {
       throw new Error(`gen_pp2_bin_sort_emit_shader: 2^${binShift} low buckets exceed workgroup_size ${workgroup_size}`);
     }
     return mustache.render(
       pp2_bin_sort_emit_shader,
-      { workgroup_size, bin_shift: binShift, lows, lean_meta: leanMeta, recompile: this.recompile },
+      { workgroup_size, bin_shift: binShift, lows, recompile: this.recompile },
       {},
     );
   }
