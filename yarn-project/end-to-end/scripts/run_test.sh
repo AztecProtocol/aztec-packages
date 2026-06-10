@@ -25,7 +25,9 @@ case "$type" in
     TEST=$test exec run_compose_test $test end-to-end $PWD/web3signer
   ;;
   "ha")
-    # Remove volumes on cleanup for HA tests to ensure clean database state on retries
-    TEST=$test REMOVE_COMPOSE_VOLUMES=1 exec run_compose_test $test end-to-end $PWD/ha
+    # Remove volumes on cleanup for HA tests to ensure clean database state on retries.
+    # NAME_POSTFIX namespaces the compose project per test so parallel per-test jobs don't collide.
+    postfix=$(echo "$test_name" | sed 's/[^a-zA-Z0-9]/_/g')
+    TEST=$test TEST_NAME=$test_name NAME_POSTFIX=${postfix:+_$postfix} REMOVE_COMPOSE_VOLUMES=1 exec run_compose_test $test end-to-end $PWD/ha
   ;;
 esac
