@@ -798,22 +798,46 @@ async function compileOne(
   layout: GPUBindGroupLayout,
 ): Promise<GPUComputePipeline> {
   const module = device.createShaderModule({ code });
-  const info = await module.getCompilationInfo();
-  const errLines: string[] = [];
-  for (const m of info.messages) {
-    const line = `[shader ${key}] ${m.type}: ${m.message} (line ${m.lineNum}, col ${m.linePos})`;
-    if (m.type === 'error') {
-      console.error(line);
-      errLines.push(line);
-    } else {
-      console.warn(line);
+  // Diagnostics ride alongside the pipeline build. Awaiting getCompilationInfo()
+  // before createComputePipelineAsync() inserts a full frontend-latency bubble
+  // per kernel and (with the caller awaiting each compile) serializes the whole
+  // 43-pipeline create; measured 865 ms -> 145 ms on M4 when removed.
+  const infoP = module.getCompilationInfo().then(info => {
+    const errLines: string[] = [];
+    for (const m of info.messages) {
+      const line = `[shader ${key}] ${m.type}: ${m.message} (line ${m.lineNum}, col ${m.linePos})`;
+      if (m.type === 'error') {
+        console.error(line);
+        errLines.push(line);
+      } else {
+        console.warn(line);
+      }
     }
-  }
-  if (errLines.length) throw new Error(`WGSL compile failed for ${key}: ${errLines.slice(0, 4).join(' | ')}`);
-  return device.createComputePipelineAsync({
-    layout: device.createPipelineLayout({ bindGroupLayouts: [layout] }),
-    compute: { module, entryPoint: 'main' },
+    return errLines;
   });
+  const build = () =>
+    device.createComputePipelineAsync({
+      layout: device.createPipelineLayout({ bindGroupLayouts: [layout] }),
+      compute: { module, entryPoint: 'main' },
+    });
+  try {
+    return await build();
+  } catch (e) {
+    // 'internal' = driver-side failure, not a WGSL problem. Mali throws a
+    // transient VK_ERROR_INITIALIZATION_FAILED under concurrent compile
+    // pressure and succeeds on retry; validation errors are deterministic
+    // and fall through to the diagnostics path.
+    if (e instanceof GPUPipelineError && e.reason === 'internal') {
+      try {
+        return await build();
+      } catch {
+        // fall through with the original error
+      }
+    }
+    const errLines = await infoP.catch(() => [] as string[]);
+    if (errLines.length) throw new Error(`WGSL compile failed for ${key}: ${errLines.slice(0, 4).join(' | ')}`);
+    throw e;
+  }
 }
 
 async function readbackU32(device: GPUDevice, buf: GPUBuffer, byteLength: number): Promise<Uint32Array> {
@@ -2830,11 +2854,35 @@ export class MsmV2 {
     // source; identical sources collapse to one compile per pool. ---
     const compile = (code: string, label: string, layout: GPUBindGroupLayout) =>
       pool.cache.getPipeline(code, layout, label);
-    m.decomposePipe = await compile(sm.gen_decompose_scalars_booth_shader(WGI), `decompose`, m.decomposeLayout);
-    m.msbHistPipe = await compile(sm.gen_ba_msb_histogram_shader(), `msb_histogram`, m.msbHistLayout);
-    m.msbDecidePipe = await compile(sm.gen_ba_decide_window_split_shader(), `decide_window_split`, m.msbDecideLayout);
-    m.msbIdxLargePipe = await compile(sm.gen_ba_idx_large_compact_shader(), `idx_large_compact`, m.msbIdxLargeLayout);
-    m.decomposeUpperPipe = await compile(
+    // Pipeline builds are queued, not awaited: issuing builds up-front lets
+    // Dawn compile kernels concurrently on its worker pool, and the single
+    // allSettled barrier below replaces 40+ serial awaits (measured
+    // 865 ms -> 145 ms create on M4; phones/Windows pay 10-100x per kernel).
+    // Concurrency is bounded to COMPILE_LANES: Mali's driver failed pipeline
+    // creation (VK_ERROR_INITIALIZATION_FAILED) and once OOM-crashed the GPU
+    // process when all 40+ heavy kernels compiled at full blast. A failed job
+    // rejects only its own promise — the lane chain continues past it.
+    const COMPILE_LANES = 8;
+    const lanes: Promise<unknown>[] = new Array<Promise<unknown>>(COMPILE_LANES).fill(Promise.resolve());
+    let nextLane = 0;
+    const jobs: Promise<void>[] = [];
+    const queue = (
+      assign: (p: GPUComputePipeline) => void,
+      code: string,
+      label: string,
+      layout: GPUBindGroupLayout,
+    ): void => {
+      const lane = nextLane++ % COMPILE_LANES;
+      const job = lanes[lane].then(() => compile(code, label, layout).then(assign));
+      jobs.push(job);
+      lanes[lane] = job.catch(() => undefined);
+    };
+    queue(p => (m.decomposePipe = p), sm.gen_decompose_scalars_booth_shader(WGI), `decompose`, m.decomposeLayout);
+    queue(p => (m.msbHistPipe = p), sm.gen_ba_msb_histogram_shader(), `msb_histogram`, m.msbHistLayout);
+    queue(p => (m.msbDecidePipe = p), sm.gen_ba_decide_window_split_shader(), `decide_window_split`, m.msbDecideLayout);
+    queue(p => (m.msbIdxLargePipe = p), sm.gen_ba_idx_large_compact_shader(), `idx_large_compact`, m.msbIdxLargeLayout);
+    queue(
+      p => (m.decomposeUpperPipe = p),
       sm.gen_decompose_scalars_booth_upper_shader(WGI),
       `decompose_upper`,
       m.decomposeUpperLayout,
@@ -2847,7 +2895,8 @@ export class MsmV2 {
     // is made of, and faster than the old min(BW,8192) at logn>=18 where the
     // 32KB array throttled occupancy.
     const XPOSE_TILE = 4096;
-    m.xposeScatterUpperPipe = await compile(
+    queue(
+      p => (m.xposeScatterUpperPipe = p),
       sm.gen_transpose_scatter_tiled_upper_shader(256, XPOSE_TILE),
       `xpose-scatter-upper`,
       m.scatterUpperLayout,
@@ -2857,70 +2906,80 @@ export class MsmV2 {
     // per-chunk partials; scan is the unchanged per-window prefix sum. Only
     // on-chip shared atomics — no contended global atomics. XPOSE_TILE is the
     // shared histogram/cursor capacity (4096 entries = 16KB).
-    m.xposeCountPipe = await compile(
+    queue(
+      p => (m.xposeCountPipe = p),
       sm.gen_transpose_count_tiled_shader(256, XPOSE_TILE),
       `xpose-count`,
       m.xposeCountLayout,
     );
-    m.xposeReducePipe = await compile(sm.gen_transpose_reduce_tiled_shader(256), `xpose-reduce`, m.xposeReduceLayout);
-    m.xposeScanPipe = await compile(sm.gen_transpose_scan_shader(m.numWindows), `xpose-scan`, m.xposeScanLayout);
-    m.xposeScatterPipe = await compile(
+    queue(p => (m.xposeReducePipe = p), sm.gen_transpose_reduce_tiled_shader(256), `xpose-reduce`, m.xposeReduceLayout);
+    queue(p => (m.xposeScanPipe = p), sm.gen_transpose_scan_shader(m.numWindows), `xpose-scan`, m.xposeScanLayout);
+    queue(
+      p => (m.xposeScatterPipe = p),
       sm.gen_transpose_scatter_tiled_shader(256, XPOSE_TILE),
       `xpose-scatter`,
       m.xposeScatterLayout,
     );
-    m.convActivePipe = await compile(
+    queue(
+      p => (m.convActivePipe = p),
       sm.gen_csr_to_v2_active_sums_shader(WGI, true, true),
       `csr2v2-active`,
       m.convActiveLayout,
     );
-    m.convMetaPipe = await compile(sm.gen_csr_to_v2_meta_shader(WGI), `csr2v2-meta`, m.convMetaLayout);
+    queue(p => (m.convMetaPipe = p), sm.gen_csr_to_v2_meta_shader(WGI), `csr2v2-meta`, m.convMetaLayout);
     // High-mem A/B ping-pong pair-tree (Thread 2). Compiled only when the mode
     // is on — the planner kernels bake c/BW geometry (per-(n,c) recompile until
     // the size-independence pass), so the default walker path never pays for
     // them. fused/finalize are tiled (params.w = tile_base). coopTail reuses the
     // finalize-accumulate layout (counts/offsets/active/bucket_result/params/touched).
     if (m.highMemPingpong) {
-      m.plannerAPipe = await compile(sm.gen_ba_planner_v2_offsets_shader(PLANNER_TPB), `planner-a`, m.plannerALayout);
-      m.plannerBPipe = await compile(
+      queue(p => (m.plannerAPipe = p), sm.gen_ba_planner_v2_offsets_shader(PLANNER_TPB), `planner-a`, m.plannerALayout);
+      queue(
+        p => (m.plannerBPipe = p),
         sm.gen_ba_planner_v2_emit_shader(PLANNER_TPB, HIGH_MEM_S, pool.pairCap),
         `planner-b`,
         m.plannerBLayout,
       );
-      m.fusedPipe = await compile(
+      queue(
+        p => (m.fusedPipe = p),
         sm.gen_ba_fused_super_bench_shader(WGI, HIGH_MEM_S, INV_VARIANT, true, false, ADDSUB),
         `fused`,
         m.fusedLayout,
       );
-      m.fusedPipeL0 = await compile(
+      queue(
+        p => (m.fusedPipeL0 = p),
         sm.gen_ba_fused_super_bench_shader(WGI, HIGH_MEM_S, INV_VARIANT, true, true, ADDSUB),
         `fused-l0`,
         m.fusedLayoutL0,
       );
-      m.carryPipe = await compile(sm.gen_ba_carry_copy_bench_shader(WGI), `carry`, m.carryLayout);
-      m.carryPipeL0 = await compile(sm.gen_ba_carry_copy_bench_shader(WGI, true), `carry-l0`, m.carryLayoutL0);
-      m.finalizeAccumPipe = await compile(
+      queue(p => (m.carryPipe = p), sm.gen_ba_carry_copy_bench_shader(WGI), `carry`, m.carryLayout);
+      queue(p => (m.carryPipeL0 = p), sm.gen_ba_carry_copy_bench_shader(WGI, true), `carry-l0`, m.carryLayoutL0);
+      queue(
+        p => (m.finalizeAccumPipe = p),
         sm.gen_ba_finalize_accumulate_bench_shader(WGI, false),
         `finalize-accum`,
         m.finalizeAccumLayout,
       );
-      m.finalizeAccumPipeL0 = await compile(
+      queue(
+        p => (m.finalizeAccumPipeL0 = p),
         sm.gen_ba_finalize_accumulate_bench_shader(WGI, true),
         `finalize-accum-l0`,
         m.finalizeAccumLayoutL0,
       );
-      m.coopTailPipe = await compile(
+      queue(
+        p => (m.coopTailPipe = p),
         sm.gen_ba_fused_tail_coop_shader(COOP_TAIL_WG, COOP_TAIL_CAP, INV_VARIANT),
         `fused-tail-coop`,
         m.finalizeAccumLayout,
       );
-      m.reduceInitPipe = await compile(sm.gen_ba_reduce_init_bench_shader(WGI), `reduce-init`, m.reduceInitLayout);
+      queue(p => (m.reduceInitPipe = p), sm.gen_ba_reduce_init_bench_shader(WGI), `reduce-init`, m.reduceInitLayout);
     }
     // Phase 5: ONE reduction pipeline drives every schedule level. The
     // `kind` (0 suffix / 1 tree / 2 double) lives in lparams.w — uniform
     // across the workgroup, so the compiler specialises per-dispatch with
     // no SIMT divergence. Replaces the three kind-specialised pipelines.
-    m.reduceLevelPipes[0] = await compile(
+    queue(
+      p => (m.reduceLevelPipes[0] = p),
       sm.gen_ba_reduce_level_bench_shader(REDUCE_WG, INV_VARIANT, ADDSUB),
       `reduce-level`,
       m.reduceLevelLayout,
@@ -2928,23 +2987,38 @@ export class MsmV2 {
     // Thread-1 Jacobian reduce-tail pipelines. Same REDUCE_WG / WGI knobs as the
     // affine reduce, so they ride the one-program PipelineCache identically (the
     // strings are size-independent — geometry rides in reduce_sched/cparams).
-    m.jacLevelPipe = await compile(sm.gen_ba_reduce_level_jacobian_shader(REDUCE_WG), `reduce-jac`, m.jacLevelLayout);
-    m.zInitPipe = await compile(sm.gen_ba_reduce_z_init_shader(WGI), `reduce-z-init`, m.zInitLayout);
-    m.jacFinalizePipe = await compile(
-      sm.gen_ba_reduce_jac_finalize_shader(WGI, INV_VARIANT),
-      `reduce-jac-finalize`,
-      m.jacFinalizeLayout,
-    );
-    m.jacToAffinePipe = await compile(
-      sm.gen_ba_reduce_jac_to_affine_shader(WGI, INV_VARIANT),
-      `reduce-jac-to-affine`,
-      m.jacToAffineLayout,
-    );
+    // Compiled ONLY when this instance's schedule has a Jacobian level: the
+    // default all-affine path (jacobianCrossover = 0 ⇒ useJac all false) never
+    // dispatches them, and they are 3 of the 7 heaviest kernels (≈12.6 s of the
+    // 25.9 s cold create on Mali). A jac-configured instance created later
+    // compiles them into the shared pool cache via its own create().
+    if (m.useJac.some(Boolean)) {
+      queue(
+        p => (m.jacLevelPipe = p),
+        sm.gen_ba_reduce_level_jacobian_shader(REDUCE_WG),
+        `reduce-jac`,
+        m.jacLevelLayout,
+      );
+      queue(p => (m.zInitPipe = p), sm.gen_ba_reduce_z_init_shader(WGI), `reduce-z-init`, m.zInitLayout);
+      queue(
+        p => (m.jacFinalizePipe = p),
+        sm.gen_ba_reduce_jac_finalize_shader(WGI, INV_VARIANT),
+        `reduce-jac-finalize`,
+        m.jacFinalizeLayout,
+      );
+      queue(
+        p => (m.jacToAffinePipe = p),
+        sm.gen_ba_reduce_jac_to_affine_shader(WGI, INV_VARIANT),
+        `reduce-jac-to-affine`,
+        m.jacToAffineLayout,
+      );
+    }
     if (m.sparseReduce) {
       // red_buf(rw), is_present(rw — shares an arena buffer with red_buf, so it
       // can't be read-only in the same pass), cparams(uniform), reduce_meta(ro).
       m.reduceSparseLayout = lt(['storage', 'storage', 'uniform', 'read-only-storage']);
-      m.reduceSparsePipe = await compile(
+      queue(
+        p => (m.reduceSparsePipe = p),
         sm.gen_ba_reduce_sparse_shader(REDUCE_WG, INV_VARIANT),
         `reduce-sparse`,
         m.reduceSparseLayout,
@@ -2964,51 +3038,59 @@ export class MsmV2 {
     m.streamS = STREAM_S;
     m.numRadixTiles = Math.ceil(m.bTotal / RADIX_TILE);
     const qHeaderLen = 2 * STREAM_T;
-    m.classifyPipe = await compile(sm.gen_ba_planner_classify_shader(256), `classify`, m.classifyLayout);
-    m.metaFixupPipe = await compile(sm.gen_ba_planner_meta_fixup_shader(), `meta-fixup`, m.metaFixupLayout);
-    m.radixCountPipe = await compile(
+    queue(p => (m.classifyPipe = p), sm.gen_ba_planner_classify_shader(256), `classify`, m.classifyLayout);
+    queue(p => (m.metaFixupPipe = p), sm.gen_ba_planner_meta_fixup_shader(), `meta-fixup`, m.metaFixupLayout);
+    queue(
+      p => (m.radixCountPipe = p),
       sm.gen_ba_planner_radix_count_shader(RADIX_TILE),
       `radix-count`,
       m.radixCountLayout,
     );
-    m.radixScanPipe = await compile(sm.gen_ba_planner_radix_scan_shader(), `radix-scan`, m.radixScanLayout);
-    m.radixScatterPipe = await compile(
+    queue(p => (m.radixScanPipe = p), sm.gen_ba_planner_radix_scan_shader(), `radix-scan`, m.radixScanLayout);
+    queue(
+      p => (m.radixScatterPipe = p),
       sm.gen_ba_planner_radix_scatter_shader(RADIX_TILE),
       `radix-scatter`,
       m.radixScatterLayout,
     );
-    m.cumsumPipe = await compile(
+    queue(
+      p => (m.cumsumPipe = p),
       sm.gen_ba_planner_cumsum_shader(STREAM_T, STREAM_S, 1, MPW, STREAM_PLANNER_TPB),
       `cumsum`,
       m.cumsumLayout,
     );
-    m.partitionWgPipe = await compile(
+    queue(
+      p => (m.partitionWgPipe = p),
       sm.gen_ba_planner_partition_wg_shader(MAX_STREAM_WORKGROUPS),
       `partition-wg`,
       m.partitionWgLayout,
     );
-    m.partitionThreadPipe = await compile(
+    queue(
+      p => (m.partitionThreadPipe = p),
       sm.gen_ba_planner_partition_thread_shader(STREAM_PLANNER_TPB),
       `partition-thread`,
       m.partitionThreadLayout,
     );
-    m.size1Pipe = await compile(sm.gen_ba_size1_shader(m.BW, m.stride, m.redM), `size1`, m.size1Layout);
+    queue(p => (m.size1Pipe = p), sm.gen_ba_size1_shader(m.BW, m.stride, m.redM), `size1`, m.size1Layout);
     // Stream-walker (Plan §6 + C's KNOB 2 variant). STREAM_WALKER_TPB per
     // KNOB 1 (16 KB pref_scratch fits Mali Bifrost at TPB=64). NUM_THREADS =
     // nwg * STREAM_PLANNER_TPB (partition_thread's grain); the walker
     // dispatches ceil(num_active/STREAM_WALKER_TPB) workgroups via
     // planner_meta[15..17] written by partition_task.
-    m.partitionTaskPipe = await compile(
+    queue(
+      p => (m.partitionTaskPipe = p),
       sm.gen_ba_planner_partition_task_shader(STREAM_WALKER_TPB, STREAM_S, STREAM_PLANNER_TPB),
       `partition-task`,
       m.partitionTaskLayout,
     );
-    m.resolveL0BasePipe = await compile(
+    queue(
+      p => (m.resolveL0BasePipe = p),
       sm.gen_ba_planner_resolve_l0base_shader(),
       `resolve-l0base`,
       m.resolveL0BaseLayout,
     );
-    m.streamWalkerPipe = await compile(
+    queue(
+      p => (m.streamWalkerPipe = p),
       sm.gen_ba_stream_walker_shader(
         STREAM_WALKER_TPB,
         STREAM_S,
@@ -3023,63 +3105,80 @@ export class MsmV2 {
       m.streamWalkerLayout,
     );
     // === Optimal walker_combine pipeline. ===
-    m.combineCountPipe = await compile(
+    queue(
+      p => (m.combineCountPipe = p),
       sm.gen_ba_walker_combine_count_shader(256, m.BW),
       `combine-count`,
       m.combineCountLayout,
     );
-    m.combineScanPipe = await compile(sm.gen_ba_walker_combine_scan_shader(256), `combine-scan`, m.combineScanLayout);
-    m.combineScatterPipe = await compile(
+    queue(p => (m.combineScanPipe = p), sm.gen_ba_walker_combine_scan_shader(256), `combine-scan`, m.combineScanLayout);
+    queue(
+      p => (m.combineScatterPipe = p),
       sm.gen_ba_walker_combine_scatter_shader(256, m.BW),
       `combine-scatter`,
       m.combineScatterLayout,
     );
-    m.combineFilterPipe = await compile(
+    queue(
+      p => (m.combineFilterPipe = p),
       sm.gen_ba_walker_combine_filter_shader(256, m.BW, m.stride, m.redM),
       `combine-filter`,
       m.combineFilterLayout,
     );
-    m.combineBatchedPipe = await compile(
+    queue(
+      p => (m.combineBatchedPipe = p),
       sm.gen_ba_walker_combine_batched_shader(STREAM_WALKER_TPB, STREAM_S, m.BW, m.stride, m.redM, INV_VARIANT),
       `combine-batched`,
       m.combineBatchedLayout,
     );
-    m.sortCountPipe = await compile(
+    queue(
+      p => (m.sortCountPipe = p),
       sm.gen_ba_walker_combine_sort_count_shader(256, m.BW),
       `sort-count`,
       m.sortCountLayout,
     );
-    m.sortScanPipe = await compile(sm.gen_ba_walker_combine_sort_scan_shader(), `sort-scan`, m.sortScanLayout);
-    m.sortScatterPipe = await compile(
+    queue(p => (m.sortScanPipe = p), sm.gen_ba_walker_combine_sort_scan_shader(), `sort-scan`, m.sortScanLayout);
+    queue(
+      p => (m.sortScatterPipe = p),
       sm.gen_ba_walker_combine_sort_scatter_shader(256, m.BW),
       `sort-scatter`,
       m.sortScatterLayout,
     );
-    m.ptInitScanPipe = await compile(sm.gen_ba_walker_pt_init_scan_shader(m.BW), `pt-init-scan`, m.ptInitScanLayout);
+    queue(p => (m.ptInitScanPipe = p), sm.gen_ba_walker_pt_init_scan_shader(m.BW), `pt-init-scan`, m.ptInitScanLayout);
     // TPB = 64. With indirect dispatch from sort-scan's NUM_HOT-based args,
     // pt_init_copy/build/finalize launch ceil(NUM_HOT/64) WGs — no idle
     // workgroups. pt_combine launches ceil(total_tasks/S/64) per level.
-    m.ptInitCopyPipe = await compile(
+    queue(
+      p => (m.ptInitCopyPipe = p),
       sm.gen_ba_walker_pt_init_copy_shader(64, m.BW),
       `pt-init-copy`,
       m.ptInitCopyLayout,
     );
-    m.ptBuildPipe = await compile(sm.gen_ba_walker_pt_build_shader(64), `pt-build`, m.ptBuildLayout);
-    m.ptDispatchChainPipe = await compile(
+    queue(p => (m.ptBuildPipe = p), sm.gen_ba_walker_pt_build_shader(64), `pt-build`, m.ptBuildLayout);
+    queue(
+      p => (m.ptDispatchChainPipe = p),
       sm.gen_ba_walker_pt_dispatch_chain_shader(),
       `pt-dispatch-chain`,
       m.ptDispatchChainLayout,
     );
-    m.ptCombinePipe = await compile(
+    queue(
+      p => (m.ptCombinePipe = p),
       sm.gen_ba_unified_combine_shader(64, STREAM_S, INV_VARIANT),
       `pt-combine`,
       m.ptCombineLayout,
     );
-    m.ptFinalizePipe = await compile(
+    queue(
+      p => (m.ptFinalizePipe = p),
       sm.gen_ba_walker_pt_finalize_shader(64, m.BW, m.stride, m.redM),
       `pt-finalize`,
       m.ptFinalizeLayout,
     );
+    // One barrier instead of 40+ serial awaits. allSettled (not all) so a
+    // failed build surfaces only after every in-flight sibling has landed in
+    // the pool cache — an early rejection would leave pending promises whose
+    // later rejections become unhandled.
+    const settled = await Promise.allSettled(jobs);
+    const failed = settled.find((r): r is PromiseRejectedResult => r.status === 'rejected');
+    if (failed) throw failed.reason;
     // Warm-up: prepare + dispatch a few times so the first timed run pays no
     // shader JIT / command-buffer cold start and sees ramped GPU clocks. The
     // bridge passes warmupRuns: 0 — production wants the first MSM to be real
