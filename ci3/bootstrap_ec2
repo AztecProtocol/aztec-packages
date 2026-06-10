@@ -65,11 +65,18 @@ if [[ "$(git fetch origin --negotiate-only --negotiation-tip="$current_commit")"
 fi
 
 # Our instance_name acts as a uniqueness key for the instance.
-# Instances are terminated if they exist with the same name.
+# Instances are terminated if they exist with the same name; this reaps orphans
+# left when a GA run is cancelled (e.g. by a new push) on the same ref.
+# Scope the key to the repo: aztec-packages and aztec-packages-private can build
+# the same tag/ref concurrently under the same role, and must not reap each
+# other's instances. The key stays stable across re-runs within a repo, so the
+# orphan cleanup still works.
+repo=${GITHUB_REPOSITORY##*/}
+repo=${repo:-aztec-packages}
 if [[ "$REF_NAME" =~ ^gh-readonly-queue/.*(pr-[0-9]+) ]]; then
-  instance_name="${BASH_REMATCH[1]}_$arch"
+  instance_name="${repo}_${BASH_REMATCH[1]}_$arch"
 else
-  instance_name=$(echo -n "$REF_NAME" | head -c 50 | tr -c 'a-zA-Z0-9-' '_')_$arch
+  instance_name="${repo}_$(echo -n "$REF_NAME" | head -c 50 | tr -c 'a-zA-Z0-9-' '_')_$arch"
 fi
 
 state_dir=$(mktemp -d /tmp/aws_request_instance.XXXXXX)

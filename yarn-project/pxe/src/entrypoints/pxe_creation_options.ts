@@ -16,7 +16,7 @@ export type PXECreationOptions = {
   simulator?: CircuitSimulator;
   /** Optional hooks to observe and influence contract execution. */
   hooks?: ExecutionHooks;
-  /** Contracts to preload; used directly in place of the PXE's default (the standard multi-call entrypoint). */
+  /** Contracts to preload on startup. Replaces the default when set. */
   preloadedContractsProvider?: PreloadedContractsProvider;
 };
 
