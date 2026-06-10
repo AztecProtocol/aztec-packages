@@ -33,7 +33,11 @@ pub global VALIDATE_HANDSHAKE_SELECTOR: FunctionSelector =
 /// All registry calls use the [`MessageDelivery::onchain_constrained`] delivery mode: the handshake registry keys its
 /// stored notes by `(recipient, sender, mode)`, so the constrained-delivery secret must come from the
 /// constrained-mode handshake.
-pub fn calculate_secret_and_index(
+///
+/// A misbehaving PXE cannot forge a secret (every branch constrains it); at worst it can deny knowledge of an
+/// existing handshake, triggering a re-handshake that replaces the registry note. Already-started chains are
+/// unaffected (see the registry docs on re-handshaking).
+pub fn resolve_secret_and_index(
     context: &mut PrivateContext,
     registry: AztecAddress,
     sender: AztecAddress,
@@ -43,9 +47,11 @@ pub fn calculate_secret_and_index(
     let mode: OnchainDeliveryMode = MessageDelivery::onchain_constrained().into();
     let mode_field = mode.to_field();
 
-    // Safety: when the utility call returns no secret, we attempt to create a fresh handshake. Creating a
-    // duplicate fails, so a forged empty response cannot hide an existing handshake. When the utility call
-    // returns a secret, it is validated against the registry's stored handshake.
+    // Safety: the response only selects which path runs; every path constrains the secret it returns. On `None` we
+    // bootstrap via `non_interactive_handshake`, whose constrained return value is the secret, so a forged empty
+    // response cannot fabricate one; it can only trigger an unnecessary re-handshake that replaces the registry
+    // note. On `Some`, the secret is validated against the stored handshake (index 0) or the previous chain
+    // nullifier (index > 0).
     let maybe_secret: Option<Field> = unsafe {
         let returns = call_utility_function(
             registry,
@@ -80,9 +86,8 @@ pub fn calculate_secret_and_index(
     } else {
         let secret = maybe_secret.unwrap_unchecked();
 
-        // Safety: the returned index is untrusted; it is constrained below either by re-validating the registry
-        // handshake (`index == 0`) or by proving the prior nullifier exists (`index > 0`), which transitively
-        // chains back to the index-0 handshake.
+        // Safety: the returned index is untrusted. `index == 0` proves current registry membership;
+        // `index > 0` proves chain continuity, not current registry membership.
         let index = unsafe { get_next_tagging_index(secret, MessageDelivery::onchain_constrained()) };
 
         if index == 0 {
@@ -103,7 +108,7 @@ pub fn calculate_secret_and_index(
 /// Computes a constrained send's chain nullifier.
 ///
 /// Every constrained send at `index` must emit this nullifier so the next send under the same
-/// `(sender, recipient, secret)` can prove its predecessor exists (see [`calculate_secret_and_index`]).
+/// `(sender, recipient, secret)` can prove its predecessor exists (see [`resolve_secret_and_index`]).
 pub fn compute_constrained_msg_nullifier(
     sender: AztecAddress,
     recipient: AztecAddress,
@@ -132,9 +137,9 @@ pub fn compute_constrained_log_tag(app_siloed_secret: Field, index: u32) -> Fiel
 /// Emits the per-send chain nullifier for a constrained message and returns its discovery log tag.
 ///
 /// Used by [`crate::messages::delivery::do_private_message_delivery`] on the constrained-delivery path. It wraps
-/// [`calculate_secret_and_index`] to resolve the `(app_siloed_secret, index)` pair, then:
+/// [`resolve_secret_and_index`] to resolve the `(app_siloed_secret, index)` pair, then:
 /// 1. Emits the chain nullifier. A subsequent send at `index + 1` proves this nullifier exists, transitively
-///    constraining the chain back to the `index == 0` handshake validation in [`calculate_secret_and_index`].
+///    constraining the chain back to the `index == 0` handshake validation in [`resolve_secret_and_index`].
 /// 2. Returns the log tag. The recipient recomputes the same tag from the handshake secret to discover the message.
 pub(crate) fn emit_nullifier_and_compute_constrained_tag(
     context: &mut PrivateContext,
@@ -142,7 +147,7 @@ pub(crate) fn emit_nullifier_and_compute_constrained_tag(
     sender: AztecAddress,
     recipient: AztecAddress,
 ) -> Field {
-    let (secret, index) = calculate_secret_and_index(context, registry, sender, recipient);
+    let (secret, index) = resolve_secret_and_index(context, registry, sender, recipient);
 
     context.push_nullifier_unsafe(compute_constrained_msg_nullifier(sender, recipient, secret, index));
 

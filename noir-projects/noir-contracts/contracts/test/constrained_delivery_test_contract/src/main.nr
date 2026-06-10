@@ -10,7 +10,7 @@ pub contract ConstrainedDeliveryTest {
         macros::{events::event, functions::external, storage::storage},
         messages::delivery::{
             constrained_delivery::{
-                calculate_secret_and_index, compute_constrained_log_tag, compute_constrained_msg_nullifier,
+                compute_constrained_log_tag, compute_constrained_msg_nullifier, resolve_secret_and_index,
             },
             MessageDelivery,
         },
@@ -34,8 +34,8 @@ pub contract ConstrainedDeliveryTest {
 
     /// Calls the helper and returns the resolved `(app_siloed_secret, index)` tuple.
     #[external("private")]
-    fn calculate_and_return(registry: AztecAddress, sender: AztecAddress, recipient: AztecAddress) -> (Field, u32) {
-        calculate_secret_and_index(self.context, registry, sender, recipient)
+    fn resolve_and_return(registry: AztecAddress, sender: AztecAddress, recipient: AztecAddress) -> (Field, u32) {
+        resolve_secret_and_index(self.context, registry, sender, recipient)
     }
 
     /// Resolves a secret via the helper, then asks the PXE for the next index of that same secret.
@@ -49,7 +49,7 @@ pub contract ConstrainedDeliveryTest {
         sender: AztecAddress,
         recipient: AztecAddress,
     ) -> (Field, u32, u32) {
-        let (secret, first_index) = calculate_secret_and_index(self.context, registry, sender, recipient);
+        let (secret, first_index) = resolve_secret_and_index(self.context, registry, sender, recipient);
         // Safety: test-only observation of the index the PXE hands out next for this secret.
         let second_index = unsafe { get_next_tagging_index(secret, MessageDelivery::onchain_constrained()) };
         (secret, first_index, second_index)

@@ -20,6 +20,8 @@ global MAX_HANDSHAKES_PER_PAGE: u32 = 32;
 /// [`HandshakeRegistry::get_app_siloed_secret`] offchain for an existing handshake, and use
 /// [`HandshakeRegistry::validate_handshake`] to check an app-siloed secret against the current stored handshake. The
 /// private surfaces silo against `msg_sender()`, so a contract can only obtain or validate secrets siloed to itself.
+/// Re-handshaking does not revoke already-started constrained-delivery chains; it only replaces the registry note used
+/// for [validation][`HandshakeRegistry::validate_handshake`].
 ///
 /// Currently only implements the non-interactive flow (see [`HandshakeRegistry::non_interactive_handshake`]).
 #[aztec(::aztec::macros::AztecConfig::new().custom_sync_state(crate::handshake_registry_sync))]
@@ -59,7 +61,7 @@ pub contract HandshakeRegistry {
     #[storage]
     struct Storage<Context> {
         /// One current [`HandshakeNote`] per `(recipient, sender, mode)` tuple. Re-handshaking for the same tuple
-        /// replaces the prior sender-owned note, so only the latest handshake remains valid for that mode.
+        /// replaces the registry note; [`HandshakeRegistry::validate_handshake`] accepts only the latest note.
         handshakes: Map<AztecAddress, Map<OnchainDeliveryMode, Owned<PrivateMutable<HandshakeNote, Context>, Context>, Context>, Context>,
     }
 
@@ -73,7 +75,7 @@ pub contract HandshakeRegistry {
     /// Generates a fresh ephemeral key pair `(eph_sk, eph_pk)`, computes the raw ECDH shared secret point
     /// `S = eph_sk * recipient_address_point`, and produces three effects:
     ///
-    /// 1. Inserts or replaces a [`HandshakeNote`] owned by `sender` for `mode`, holding the raw point `S`.
+    /// 1. Inserts or replaces the current [`HandshakeNote`] owned by `sender` for `mode`, holding the raw point `S`.
     /// 2. Emits an encrypted private log under a recipient-keyed tag with payload `[eph_pk.x, mode]`. The
     ///    recipient discovers handshakes addressed to them by scanning their tag and recovers `S` from `eph_pk`
     ///    via their own ECDH (`recipient_isk * eph_pk`). `eph_pk.y` is fixed positive by the
@@ -123,7 +125,7 @@ pub contract HandshakeRegistry {
     /// the caller (`msg_sender()`).
     ///
     /// Apps that receive an `app_siloed_secret` from an untrusted source call this once to validate that secret
-    /// against the registry's stored handshake.
+    /// against the registry's latest stored handshake.
     ///
     /// # Panics
     /// If `mode` is not a recognized delivery mode.
@@ -153,7 +155,7 @@ pub contract HandshakeRegistry {
     /// This is the existing-handshake retrieval surface. It returns `silo(S, caller)`, never raw `S`; a different
     /// caller receives a different app-siloed value for the same registry note.
     /// Contracts should still call [HandshakeRegistry::validate_handshake] when they need a constrained proof that a
-    /// supplied app-siloed secret matches the current handshake.
+    /// supplied app-siloed secret matches the current registry handshake.
     ///
     /// # Panics
     /// If `mode` is not a recognized delivery mode.

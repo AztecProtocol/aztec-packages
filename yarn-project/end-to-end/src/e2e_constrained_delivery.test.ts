@@ -62,14 +62,14 @@ describe('Constrained delivery', () => {
     await testContract.methods.emit(sender, recipient).send({ from: sender });
 
     const { result: firstResolution } = await testContract.methods
-      .calculate_and_return(registry, sender, recipient)
+      .resolve_and_return(registry, sender, recipient)
       .simulate({ from: sender });
     expectResolvedIndex(firstResolution, 1n);
 
     await testContract.methods.emit(sender, recipient).send({ from: sender });
 
     const { result: secondResolution } = await testContract.methods
-      .calculate_and_return(registry, sender, recipient)
+      .resolve_and_return(registry, sender, recipient)
       .simulate({ from: sender });
     expectResolvedIndex(secondResolution, 2n);
   });
