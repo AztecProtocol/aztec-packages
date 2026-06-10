@@ -5,6 +5,7 @@ use aztec::{
     context::UtilityContext,
     ephemeral::EphemeralArray,
     messages::{
+        delivery::OnchainDeliveryMode,
         discovery::{ComputeNoteHash, ComputeNoteNullifier, CustomMessageHandler, do_sync_state},
         encryption::{aes128::AES128, message_encryption::MessageEncryption},
         processing::{
@@ -18,7 +19,7 @@ use aztec::{
         address::AztecAddress,
         constants::DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG,
         hash::{compute_log_tag, sha256_to_field},
-        traits::ToField,
+        traits::{Deserialize, ToField},
     },
     utils::point::point_from_x_coord_and_sign,
 };
@@ -71,7 +72,10 @@ pub(crate) unconstrained fn handshake_registry_sync(
             let _ = AES128::decrypt(ciphertext, scope, contract_address)
                 .and_then(|pt| {
                     point_from_x_coord_and_sign(pt.get(0), true).map(|pk| {
-                        DiscoveredHandshake { eph_pk: pk, mode: pt.get(1) as u8 }
+                        DiscoveredHandshake {
+                            eph_pk: pk,
+                            mode: OnchainDeliveryMode::deserialize([pt.get(1)]),
+                        }
                     })
                 })
                 .map(|h| handshakes.push(h));
