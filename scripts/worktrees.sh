@@ -70,8 +70,10 @@ COMMANDS
       SYMLINKED vs COPIED
         Symlinked (read-only, shared via the store): everything an upstream component bootstrap pulls
         from cache — barretenberg build/ (bb binary + wasm), noir-repo/target/release binaries,
-        noir/packages, l1-contracts out/cache/generated, per-contract and per-circuit artifacts.
-        Copied (writable, per-worktree): the yarn-project layer above.
+        l1-contracts out/cache/generated, per-contract and per-circuit artifacts.
+        Extracted in place (real files, per-worktree): bb.js dest/build and noir/packages — their
+        contents are loaded as Node.js modules, which resolve imports from real paths and so must
+        live inside the checkout — plus the copied yarn-project layer above.
 
       FREEZE SEMANTICS
         Store entries are content-addressed and immutable. After extraction they are chmod -R a-w, so a
@@ -110,6 +112,8 @@ COMMANDS
 ENVIRONMENT
   CACHE_LOCAL_DIR   tarball cache dir (default ~/.cache/aztec-build-cache)
   CACHE_LINK_DIR    extracted frozen store (default $CACHE_LOCAL_DIR/extracted)
+
+Design docs (store layout, grafting, exclusions, hash pitfalls): scripts/worktrees.md
 EOF
 }
 
