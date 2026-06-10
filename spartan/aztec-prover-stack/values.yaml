@@ -1,5 +1,6 @@
 global:
-  aztecRollupVersion: "canonical"
+  aztecEnv:
+    ROLLUP_VERSION: "canonical"
   aztecNetwork: ""
   customAztecNetwork:
     enabled: false

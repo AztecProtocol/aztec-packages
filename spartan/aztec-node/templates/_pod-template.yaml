@@ -339,7 +339,7 @@ spec:
         - name: PROVER_ID
           value: {{ .Values.node.coinbase | quote }}
         {{- end }}
-        {{- range $key, $value := .Values.node.env }}
+        {{- range $key, $value := mergeOverwrite (dict) .Values.global.aztecEnv .Values.node.env }}
         - name: {{ $key }}
           value: {{ $value | quote }}
         {{- end }}
