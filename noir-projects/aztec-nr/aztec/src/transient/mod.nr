@@ -1,3 +1,4 @@
+use crate::oracle::random::random;
 use crate::oracle::transient;
 use crate::protocol::traits::{Deserialize, Serialize};
 use crate::protocol::utils::{reader::Reader, writer::Writer};
@@ -38,6 +39,15 @@ impl<T> TransientArray<T> {
     /// frame of the same contract in this top-level PXE call.
     pub unconstrained fn at(slot: Field) -> Self {
         Self { slot }
+    }
+
+    /// Returns an empty transient array at a fresh, randomly allocated slot.
+    ///
+    /// Use this when the caller does not need a specific slot: the random slot is isolated from every other transient
+    /// array with overwhelming probability. Prefer [`TransientArray::at`] when the slot must be a known value (e.g.
+    /// one agreed upon with another frame of the same contract).
+    pub unconstrained fn empty() -> Self {
+        Self::at(random()).clear()
     }
 
     /// Returns the number of elements stored in the array.
@@ -107,6 +117,104 @@ impl<T> TransientArray<T> {
             f(i, self.get(i));
         }
     }
+
+    /// Applies `f` to every element and collects the results into a fresh transient array.
+    ///
+    /// Reads each element in order, transforms it with `f`, and pushes the result onto a new array at a freshly
+    /// allocated slot (see [`TransientArray::empty`]). The source array is left unchanged, and the result is isolated
+    /// from it, so `map` can be chained.
+    pub unconstrained fn map<U, Env>(self, f: unconstrained fn[Env](T) -> U) -> TransientArray<U>
+    where
+        T: Deserialize,
+        U: Serialize,
+    {
+        let dest: TransientArray<U> = TransientArray::empty();
+        let n = self.len();
+        for i in 0..n {
+            dest.push(f(self.get(i)));
+        }
+        dest
+    }
+
+    /// Collects every element satisfying the predicate `f` into a fresh transient array.
+    ///
+    /// Reads each element in order, keeps those for which `f` returns `true`, and pushes them onto a new array at a
+    /// freshly allocated slot (see [`TransientArray::empty`]). Relative order is preserved. The source array is left
+    /// unchanged, and the result is isolated from it, so `filter` can be chained.
+    pub unconstrained fn filter<Env>(self, f: unconstrained fn[Env](T) -> bool) -> Self
+    where
+        T: Serialize + Deserialize,
+    {
+        let dest: Self = TransientArray::empty();
+        let n = self.len();
+        for i in 0..n {
+            let value = self.get(i);
+            if f(value) {
+                dest.push(value);
+            }
+        }
+        dest
+    }
+
+    /// Returns `true` if at least one element satisfies the predicate `f`.
+    ///
+    /// Matches the `any` combinator on Noir's [`array`](std::array), slice, and `BoundedVec` collections. Defined in
+    /// terms of [`TransientArray::filter`]: it keeps the matching elements and checks whether any survived. This is
+    /// not short-circuiting — every element is tested even after the first match.
+    pub unconstrained fn any<Env>(self, f: unconstrained fn[Env](T) -> bool) -> bool
+    where
+        T: Serialize + Deserialize,
+    {
+        self.filter(f).len() != 0
+    }
+
+    /// Returns `true` if every element satisfies the predicate `f` (vacuously `true` for an empty array).
+    ///
+    /// Matches the `all` combinator on Noir's [`array`](std::array) and slice collections. Defined in terms of
+    /// [`TransientArray::filter`]: every element matches exactly when filtering keeps all of them. This is not
+    /// short-circuiting — every element is tested even after the first failure.
+    pub unconstrained fn all<Env>(self, f: unconstrained fn[Env](T) -> bool) -> bool
+    where
+        T: Serialize + Deserialize,
+    {
+        self.filter(f).len() == self.len()
+    }
+
+    /// Returns the first element satisfying the predicate `f`, or `Option::none` if none do.
+    ///
+    /// Mirrors Rust's `Iterator::find`. Defined in terms of [`TransientArray::filter`], which preserves order, so the
+    /// first kept element is the first match. This is not short-circuiting — every element is tested even after the
+    /// match is found.
+    pub unconstrained fn find<Env>(self, f: unconstrained fn[Env](T) -> bool) -> Option<T>
+    where
+        T: Serialize + Deserialize,
+    {
+        let matches = self.filter(f);
+        if matches.len() != 0 {
+            Option::some(matches.get(0))
+        } else {
+            Option::none()
+        }
+    }
+}
+
+impl TransientArray<Field> {
+    /// Deserializes the whole array into a `T`.
+    ///
+    /// Asserts the array holds exactly `<T as Deserialize>::N` fields, then reconstructs a `T` from them. This is the
+    /// read-back counterpart to pushing a value's serialized fields onto the array, and is defined only on
+    /// `TransientArray<Field>` because deserialization reconstructs a type from raw fields.
+    pub unconstrained fn read_as<T>(self) -> T
+    where
+        T: Deserialize,
+    {
+        assert_eq(self.len(), <T as Deserialize>::N, "TransientArray length mismatch for read_as");
+        let mut fields: [Field; <T as Deserialize>::N] = [0; <T as Deserialize>::N];
+        for i in 0..<T as Deserialize>::N {
+            fields[i] = self.get(i);
+        }
+        Deserialize::deserialize(fields)
+    }
 }
 
 /// Serializes a `TransientArray` as its slot identifier, allowing oracle function signatures to use `TransientArray<T>`
@@ -165,6 +273,7 @@ pub unconstrained fn delete(slot: Field) {
 }
 
 mod test {
+    use crate::protocol::traits::Serialize;
     use crate::test::helpers::test_environment::TestEnvironment;
     use crate::test::mocks::MockStruct;
     use super::{delete, load, store, TransientArray};
@@ -403,6 +512,35 @@ mod test {
     }
 
     #[test]
+    unconstrained fn read_as_reconstructs_serialized_value() {
+        let env = TestEnvironment::new();
+        env.utility_context(|_| {
+            let array: TransientArray<Field> = TransientArray::at(SLOT);
+
+            let value = MockStruct::new(5, 6);
+            let serialized = value.serialize();
+            for i in 0..serialized.len() {
+                array.push(serialized[i]);
+            }
+
+            let reconstructed: MockStruct = array.read_as();
+            assert_eq(reconstructed, value);
+        });
+    }
+
+    #[test(should_fail_with = "length mismatch")]
+    unconstrained fn read_as_rejects_length_mismatch() {
+        let env = TestEnvironment::new();
+        env.utility_context(|_| {
+            let array: TransientArray<Field> = TransientArray::at(SLOT);
+            // MockStruct deserializes from 2 fields, so a single field is too short.
+            array.push(1);
+
+            let _: MockStruct = array.read_as();
+        });
+    }
+
+    #[test]
     unconstrained fn clear_returns_self() {
         let env = TestEnvironment::new();
         env.utility_context(|_| {
@@ -429,6 +567,291 @@ mod test {
             assert_eq(fresh.len(), 0);
             fresh.push(4);
             assert_eq(fresh.get(0), 4);
+        });
+    }
+
+    #[test]
+    unconstrained fn empty_allocates_distinct_slots() {
+        let env = TestEnvironment::new();
+        env.utility_context(|_| {
+            let a: TransientArray<Field> = TransientArray::empty();
+            let b: TransientArray<Field> = TransientArray::empty();
+
+            assert(a.slot != b.slot, "empty() should allocate a fresh slot each time");
+
+            a.push(1);
+            b.push(2);
+            assert_eq(a.len(), 1);
+            assert_eq(a.get(0), 1);
+            assert_eq(b.len(), 1);
+            assert_eq(b.get(0), 2);
+        });
+    }
+
+    #[test]
+    unconstrained fn map_transforms_each_element() {
+        let env = TestEnvironment::new();
+        env.utility_context(|_| {
+            let source: TransientArray<Field> = TransientArray::at(SLOT);
+            source.push(1);
+            source.push(2);
+            source.push(3);
+
+            let doubled: TransientArray<Field> = source.map(|x| x * 2);
+
+            assert_eq(doubled.len(), 3);
+            assert_eq(doubled.get(0), 2);
+            assert_eq(doubled.get(1), 4);
+            assert_eq(doubled.get(2), 6);
+
+            // The source array is left untouched.
+            assert_eq(source.len(), 3);
+            assert_eq(source.get(0), 1);
+        });
+    }
+
+    #[test]
+    unconstrained fn map_empty_source_gives_empty_dest() {
+        let env = TestEnvironment::new();
+        env.utility_context(|_| {
+            let source: TransientArray<Field> = TransientArray::at(SLOT);
+            let mapped: TransientArray<Field> = source.map(|x| x * 2);
+            assert_eq(mapped.len(), 0);
+        });
+    }
+
+    #[test]
+    unconstrained fn map_to_different_type() {
+        let env = TestEnvironment::new();
+        env.utility_context(|_| {
+            let source: TransientArray<Field> = TransientArray::at(SLOT);
+            source.push(5);
+            source.push(7);
+
+            let structs: TransientArray<MockStruct> = source.map(|x| MockStruct::new(x, x + 1));
+
+            assert_eq(structs.len(), 2);
+            assert_eq(structs.get(0), MockStruct::new(5, 6));
+            assert_eq(structs.get(1), MockStruct::new(7, 8));
+        });
+    }
+
+    #[test]
+    unconstrained fn map_results_are_isolated() {
+        let env = TestEnvironment::new();
+        env.utility_context(|_| {
+            let source: TransientArray<Field> = TransientArray::at(SLOT);
+            source.push(1);
+            source.push(2);
+            source.push(3);
+
+            // Each map allocates its own fresh slot, so two maps of the same source do not clobber each other.
+            let doubled: TransientArray<Field> = source.map(|x| x * 2);
+            let tripled: TransientArray<Field> = source.map(|x| x * 3);
+
+            assert(doubled.slot != tripled.slot, "each map should land in a distinct slot");
+            assert_eq(doubled.get(0), 2);
+            assert_eq(doubled.get(2), 6);
+            assert_eq(tripled.get(0), 3);
+            assert_eq(tripled.get(2), 9);
+        });
+    }
+
+    #[test]
+    unconstrained fn filter_keeps_matching_elements_in_order() {
+        let env = TestEnvironment::new();
+        env.utility_context(|_| {
+            let source: TransientArray<Field> = TransientArray::at(SLOT);
+            source.push(1);
+            source.push(2);
+            source.push(3);
+            source.push(2);
+            source.push(5);
+
+            let kept: TransientArray<Field> = source.filter(|x| x != 2);
+
+            assert_eq(kept.len(), 3);
+            assert_eq(kept.get(0), 1);
+            assert_eq(kept.get(1), 3);
+            assert_eq(kept.get(2), 5);
+
+            // The source array is left untouched.
+            assert_eq(source.len(), 5);
+            assert_eq(source.get(1), 2);
+        });
+    }
+
+    #[test]
+    unconstrained fn filter_empty_source_gives_empty_dest() {
+        let env = TestEnvironment::new();
+        env.utility_context(|_| {
+            let source: TransientArray<Field> = TransientArray::at(SLOT);
+            let kept: TransientArray<Field> = source.filter(|_| true);
+            assert_eq(kept.len(), 0);
+        });
+    }
+
+    #[test]
+    unconstrained fn filter_none_match_gives_empty_dest() {
+        let env = TestEnvironment::new();
+        env.utility_context(|_| {
+            let source: TransientArray<Field> = TransientArray::at(SLOT);
+            source.push(1);
+            source.push(2);
+            source.push(3);
+
+            let kept: TransientArray<Field> = source.filter(|_| false);
+            assert_eq(kept.len(), 0);
+        });
+    }
+
+    #[test]
+    unconstrained fn filter_works_with_multi_field_type() {
+        let env = TestEnvironment::new();
+        env.utility_context(|_| {
+            let source: TransientArray<MockStruct> = TransientArray::at(SLOT);
+            source.push(MockStruct::new(1, 10));
+            source.push(MockStruct::new(2, 20));
+            source.push(MockStruct::new(3, 30));
+
+            let kept: TransientArray<MockStruct> = source.filter(|s: MockStruct| s.a != 2);
+
+            assert_eq(kept.len(), 2);
+            assert_eq(kept.get(0), MockStruct::new(1, 10));
+            assert_eq(kept.get(1), MockStruct::new(3, 30));
+        });
+    }
+
+    #[test]
+    unconstrained fn filter_results_are_isolated() {
+        let env = TestEnvironment::new();
+        env.utility_context(|_| {
+            let source: TransientArray<Field> = TransientArray::at(SLOT);
+            source.push(1);
+            source.push(2);
+            source.push(3);
+            source.push(4);
+
+            // Each filter allocates its own fresh slot, so two filters of the same source do not clobber each other.
+            let odds: TransientArray<Field> = source.filter(|x| (x != 2) & (x != 4));
+            let evens: TransientArray<Field> = source.filter(|x| (x != 1) & (x != 3));
+
+            assert(odds.slot != evens.slot, "each filter should land in a distinct slot");
+            assert_eq(odds.len(), 2);
+            assert_eq(odds.get(0), 1);
+            assert_eq(odds.get(1), 3);
+            assert_eq(evens.len(), 2);
+            assert_eq(evens.get(0), 2);
+            assert_eq(evens.get(1), 4);
+        });
+    }
+
+    #[test]
+    unconstrained fn any_is_true_when_an_element_matches() {
+        let env = TestEnvironment::new();
+        env.utility_context(|_| {
+            let array: TransientArray<Field> = TransientArray::at(SLOT);
+            array.push(1);
+            array.push(2);
+            array.push(3);
+
+            assert(array.any(|x| x == 2));
+        });
+    }
+
+    #[test]
+    unconstrained fn any_is_false_when_no_element_matches() {
+        let env = TestEnvironment::new();
+        env.utility_context(|_| {
+            let array: TransientArray<Field> = TransientArray::at(SLOT);
+            array.push(1);
+            array.push(2);
+            array.push(3);
+
+            assert(!array.any(|x| x == 9));
+        });
+    }
+
+    #[test]
+    unconstrained fn any_on_empty_array_is_false() {
+        let env = TestEnvironment::new();
+        env.utility_context(|_| {
+            let array: TransientArray<Field> = TransientArray::at(SLOT);
+            assert(!array.any(|_| true));
+        });
+    }
+
+    #[test]
+    unconstrained fn all_is_true_when_every_element_matches() {
+        let env = TestEnvironment::new();
+        env.utility_context(|_| {
+            let array: TransientArray<Field> = TransientArray::at(SLOT);
+            array.push(1);
+            array.push(2);
+            array.push(3);
+
+            assert(array.all(|x| x != 0));
+        });
+    }
+
+    #[test]
+    unconstrained fn all_is_false_when_one_element_fails() {
+        let env = TestEnvironment::new();
+        env.utility_context(|_| {
+            let array: TransientArray<Field> = TransientArray::at(SLOT);
+            array.push(1);
+            array.push(2);
+            array.push(3);
+
+            assert(!array.all(|x| x != 2));
+        });
+    }
+
+    #[test]
+    unconstrained fn all_on_empty_array_is_true() {
+        let env = TestEnvironment::new();
+        env.utility_context(|_| {
+            let array: TransientArray<Field> = TransientArray::at(SLOT);
+            assert(array.all(|_| false));
+        });
+    }
+
+    #[test]
+    unconstrained fn find_returns_first_matching_element() {
+        let env = TestEnvironment::new();
+        env.utility_context(|_| {
+            let array: TransientArray<Field> = TransientArray::at(SLOT);
+            array.push(1);
+            array.push(2);
+            array.push(3);
+            array.push(4);
+
+            // Both 2 and 4 match; find must return the first one in order.
+            let found = array.find(|x| (x == 2) | (x == 4));
+            assert(found.is_some());
+            assert_eq(found.unwrap(), 2);
+        });
+    }
+
+    #[test]
+    unconstrained fn find_returns_none_when_no_element_matches() {
+        let env = TestEnvironment::new();
+        env.utility_context(|_| {
+            let array: TransientArray<Field> = TransientArray::at(SLOT);
+            array.push(1);
+            array.push(2);
+            array.push(3);
+
+            assert(array.find(|x| x == 9).is_none());
+        });
+    }
+
+    #[test]
+    unconstrained fn find_on_empty_array_is_none() {
+        let env = TestEnvironment::new();
+        env.utility_context(|_| {
+            let array: TransientArray<Field> = TransientArray::at(SLOT);
+            assert(array.find(|_| true).is_none());
         });
     }
 
