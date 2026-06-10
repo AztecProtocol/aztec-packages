@@ -2436,7 +2436,10 @@ export class MsmV2 {
       if (m.pp2Enabled) {
         m.pp2BinShift = shift;
         m.pp2BinsP = binsP;
-        m.pp2Variant = config?.preprocessV2Variant ?? 'fused';
+        // 'direct' measured best-or-tied on every target (M4 420 µs vs 403
+        // materialized; Adreno 1761 vs 1983 fused; Mali 5843 vs 6570/6705) and
+        // is the simplest kernel — no staging, no digit array.
+        m.pp2Variant = config?.preprocessV2Variant ?? 'direct';
         console.log(
           `[MsmV2] preprocessV2 enabled: shift=${shift} binsP=${binsP} k2=${m.pp2Variant} (n=${n} c=${m.c} NW=${m.numWindows})`,
         );
