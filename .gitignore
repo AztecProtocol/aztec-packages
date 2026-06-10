@@ -36,3 +36,6 @@ __pycache__
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
 .claude/worktrees
+
+# Local opt-in: install nargo from the matching official noir release instead of building from source.
+noir-from-release.flag

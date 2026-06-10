@@ -3,6 +3,7 @@ members = [
     "contracts/account/ecdsa_k_account_contract",
     "contracts/account/ecdsa_r_account_contract",
     "contracts/account/schnorr_account_contract",
+    "contracts/account/schnorr_initializerless_account_contract",
     "contracts/account/schnorr_hardcoded_account_contract",
     "contracts/account/simulated_schnorr_account_contract",
     "contracts/account/simulated_ecdsa_account_contract",

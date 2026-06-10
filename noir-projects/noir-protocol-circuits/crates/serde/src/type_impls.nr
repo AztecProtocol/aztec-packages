@@ -637,15 +637,15 @@ comptime fn impl_serialize_for_tuple(_m: Module, length: u32) -> Quoted {
     // `<T0 as Serialize>::N + <T1 as Serialize>::N + <T2 as Serialize>::N`
     let full_size_serialize = type_names
         .map(|type_name| quote {
-        <$type_name as Serialize>::N
-    })
+            <$type_name as Serialize>::N
+        })
         .join(quote [+]);
 
     // `<T0 as Deserialize>::N + <T1 as Deserialize>::N + <T2 as Deserialize>::N`
     let full_size_deserialize = type_names
         .map(|type_name| quote {
-        <$type_name as Deserialize>::N
-    })
+            <$type_name as Deserialize>::N
+        })
         .join(quote [+]);
 
     // `T0: Serialize, T1: Serialize, T2: Serialize,`
@@ -666,7 +666,7 @@ comptime fn impl_serialize_for_tuple(_m: Module, length: u32) -> Quoted {
     let serialized_fields = type_names
         .mapi(|i, _type_name| quote {
             $crate::serialization::Serialize::stream_serialize(self.$i, writer);
-    })
+        })
         .join(quote []);
 
     // Statements to deserialize each field

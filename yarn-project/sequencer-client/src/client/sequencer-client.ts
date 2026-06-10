@@ -1,7 +1,6 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT } from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
-import { isAnvilTestChain } from '@aztec/ethereum/chain';
 import { getPublicClient } from '@aztec/ethereum/client';
 import { GovernanceProposerContract, RollupContract } from '@aztec/ethereum/contracts';
 import { type Delayer, L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
@@ -134,14 +133,6 @@ export class SequencerClient {
 
     const globalsBuilder = deps.globalVariableBuilder;
 
-    // When running in anvil, assume we can post a tx up until one second before the end of an L1 slot.
-    // Otherwise, we need the full L1 slot duration for publishing to ensure inclusion.
-    // In theory, the L1 slot has an initial 4s phase where the block is propagated, so we could
-    // reduce the publishing time allowance. However, we prefer being conservative.
-    // See https://www.blocknative.com/blog/anatomy-of-a-slot#7 for more info.
-    const l1PublishingTimeBasedOnChain = isAnvilTestChain(config.l1ChainId) ? 1 : ethereumSlotDuration;
-    const l1PublishingTime = config.l1PublishingTime ?? l1PublishingTimeBasedOnChain;
-
     const { maxL2BlockGas, maxDABlockGas, maxTxsPerBlock } = capPerBlockLimits(config, rollupManaLimit, log);
 
     const l1Constants = {
@@ -166,7 +157,7 @@ export class SequencerClient {
       deps.dateProvider,
       epochCache,
       rollupContract,
-      { ...config, l1PublishingTime, maxL2BlockGas, maxDABlockGas, maxTxsPerBlock },
+      { ...config, maxL2BlockGas, maxDABlockGas, maxTxsPerBlock },
       telemetryClient,
       log,
     );
