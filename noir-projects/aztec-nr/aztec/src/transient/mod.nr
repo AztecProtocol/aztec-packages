@@ -290,6 +290,11 @@ mod test {
     }
 
     #[test]
+    unconstrained fn empty_at_wipes_previous_data() {
+        checks::check_empty_at_wipes_previous_data::<TransientOracle>();
+    }
+
+    #[test]
     unconstrained fn store_and_load() {
         let env = TestEnvironment::new();
         env.utility_context(|_| {

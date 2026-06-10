@@ -56,13 +56,21 @@ where
         Self { slot }
     }
 
+    /// Returns an empty array at the given slot, clearing any pre-existing data.
+    ///
+    /// For backends whose arrays are visible beyond a single call frame (e.g. transient arrays), this wipes data
+    /// other frames of the same contract may have written at the slot.
+    pub unconstrained fn empty_at(slot: Field) -> Self {
+        Self::at(slot).clear()
+    }
+
     /// Returns an empty array at a fresh, randomly allocated slot.
     ///
     /// Use this when the caller does not need a specific slot: the random slot is isolated from every other array of
-    /// the same backend with overwhelming probability. Prefer [`OracleArray::at`] when the slot must be a known value
-    /// (e.g. one shared with an oracle or another call frame).
+    /// the same backend with overwhelming probability. Prefer [`OracleArray::empty_at`] when the slot must be a known
+    /// value (e.g. one shared with an oracle or another call frame).
     pub unconstrained fn empty() -> Self {
-        Self::at(random()).clear()
+        Self::empty_at(random())
     }
 
     /// Returns the number of elements stored in the array.
@@ -111,8 +119,9 @@ where
         Oracle::remove_oracle(self.slot, index);
     }
 
-    /// Removes all elements from the array and returns self for chaining (e.g. `OracleArray::at(slot).clear()` to
-    /// get a guaranteed-empty array at a given slot).
+    /// Removes all elements from the array and returns self for chaining.
+    ///
+    /// Prefer [`OracleArray::empty_at`] when the intent is to start with a fresh array.
     pub unconstrained fn clear(self) -> Self {
         Oracle::clear_oracle(self.slot);
         self

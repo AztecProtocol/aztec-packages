@@ -57,22 +57,9 @@ impl ArrayOracle for EphemeralOracle {
     }
 }
 
-impl<T> OracleArray<T, EphemeralOracle> {
-    /// Returns an empty ephemeral array at the given slot, clearing any pre-existing data.
-    ///
-    /// This is deliberately ephemeral-only: a [`TransientArray`](crate::transient::TransientArray) slot may hold data
-    /// written by another frame of the same contract, so wiping a known slot there stays explicit via
-    /// `TransientArray::at(slot).clear()`.
-    pub unconstrained fn empty_at(slot: Field) -> Self {
-        Self::at(slot).clear()
-    }
-}
-
 mod test {
-    use crate::oracle_array::test_helpers::SLOT;
     use crate::oracle_array::test_helpers as checks;
-    use crate::test::helpers::test_environment::TestEnvironment;
-    use super::{EphemeralArray, EphemeralOracle};
+    use super::EphemeralOracle;
 
     #[test]
     unconstrained fn empty_array() {
@@ -161,15 +148,7 @@ mod test {
 
     #[test]
     unconstrained fn empty_at_wipes_previous_data() {
-        let env = TestEnvironment::new();
-        env.utility_context(|_| {
-            let array: EphemeralArray<Field> = EphemeralArray::at(SLOT);
-            array.push(1);
-            assert_eq(array.len(), 1);
-
-            let fresh: EphemeralArray<Field> = EphemeralArray::empty_at(SLOT);
-            assert_eq(fresh.len(), 0);
-        });
+        checks::check_empty_at_wipes_previous_data::<EphemeralOracle>();
     }
 
     #[test]

@@ -657,3 +657,18 @@ where
         assert(array.find(|_| true).is_none());
     });
 }
+
+pub(crate) unconstrained fn check_empty_at_wipes_previous_data<Oracle>()
+where
+    Oracle: ArrayOracle,
+{
+    let env = TestEnvironment::new();
+    env.utility_context(|_| {
+        let array: OracleArray<Field, Oracle> = OracleArray::at(SLOT);
+        array.push(1);
+        assert_eq(array.len(), 1);
+
+        let fresh: OracleArray<Field, Oracle> = OracleArray::empty_at(SLOT);
+        assert_eq(fresh.len(), 0);
+    });
+}
