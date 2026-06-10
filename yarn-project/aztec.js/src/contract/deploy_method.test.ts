@@ -1,3 +1,4 @@
+import { MAX_PROCESSABLE_L2_GAS, MAX_TX_DA_GAS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type ContractInstanceWithAddress, getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
@@ -16,6 +17,7 @@ describe('DeployMethod', () => {
   let wallet: MockProxy<Wallet>;
   beforeEach(() => {
     wallet = mock<Wallet>();
+    wallet.getMaxTxGasLimits.mockResolvedValue(Gas.from({ daGas: MAX_TX_DA_GAS, l2Gas: MAX_PROCESSABLE_L2_GAS }));
     wallet.registerContract.mockResolvedValue({} as ContractInstanceWithAddress);
     wallet.getContractClassMetadata.mockResolvedValue({ isContractClassPubliclyRegistered: true } as any);
     wallet.getContractMetadata.mockResolvedValue({ isContractPubliclyDeployed: true } as any);

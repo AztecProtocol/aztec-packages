@@ -12,7 +12,13 @@ import {
   getBlobsPerL1Block,
   getPrefixedEthBlobCommitments,
 } from '@aztec/blob-lib';
-import { GENESIS_ARCHIVE_ROOT, MAX_NULLIFIERS_PER_TX, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
+import {
+  GENESIS_ARCHIVE_ROOT,
+  MAX_NULLIFIERS_PER_TX,
+  MAX_PROCESSABLE_L2_GAS,
+  MAX_TX_DA_GAS,
+  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+} from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
 import { createEthereumChain } from '@aztec/ethereum/chain';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
@@ -65,7 +71,7 @@ import {
   getNextL1SlotTimestamp,
   getSlotStartBuildTimestamp,
 } from '@aztec/stdlib/epoch-helpers';
-import { GasFees, GasSettings } from '@aztec/stdlib/gas';
+import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import {
   CheckpointProposal,
@@ -397,7 +403,10 @@ describe('L1Publisher integration', () => {
       chainId: fr(chainId),
       version: fr(version),
       vkTreeRoot: getVKTreeRoot(),
-      gasSettings: GasSettings.fallback({ maxFeesPerGas: minFee }),
+      gasSettings: GasSettings.fallback({
+        gasLimits: new Gas(MAX_TX_DA_GAS, MAX_PROCESSABLE_L2_GAS),
+        maxFeesPerGas: minFee,
+      }),
       protocolContracts: ProtocolContractsList,
       seed,
     });

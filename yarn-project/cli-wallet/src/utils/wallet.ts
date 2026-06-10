@@ -252,7 +252,8 @@ export class CLIWallet extends BaseWallet {
         feePayer: executionPayload.feePayer,
         gasSettings: opts.fee?.gasSettings,
       });
-      const limits = getGasLimits(simulationResults, opts.fee?.estimatedGasPadding);
+      const maxTxGasLimits = await this.getMaxTxGasLimits();
+      const limits = getGasLimits(simulationResults, maxTxGasLimits, opts.fee?.estimatedGasPadding);
       printGasEstimates(feeOptions, limits, this.userLog);
     }
     return simulationResults;

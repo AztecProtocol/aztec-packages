@@ -324,8 +324,7 @@ describe('sustained N TPS test', () => {
           { salt },
         );
         const deployMethod = await manager.getDeployMethod();
-        // Explicit gas estimation: BaseWallet's fallback bakes
-        // APPROXIMATE_MAX_DA_GAS_PER_BLOCK=196_608 daGas into deploys, which exceeds
+        // Explicit gas estimation: BaseWallet's fallback bakes ~196_608 daGas into deploys, which exceeds
         // the proposer's per-block fair-share daGas (~94k at 10 blocks/checkpoint
         // with pipelining). Estimate first, send with the result. EmbeddedWallet
         // does this automatically; TestWallet (used here via WorkerWallet) does not.

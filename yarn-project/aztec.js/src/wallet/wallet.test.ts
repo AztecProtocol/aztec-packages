@@ -8,6 +8,7 @@ import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash } from '@aztec/stdlib/block';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+import { Gas } from '@aztec/stdlib/gas';
 import { PublicKeys } from '@aztec/stdlib/keys';
 import {
   DroppedTxReceipt,
@@ -70,6 +71,11 @@ describe('WalletSchema', () => {
       chainId: expect.any(Fr),
       version: expect.any(Fr),
     });
+  });
+
+  it('getMaxTxGasLimits', async () => {
+    const result = await context.client.getMaxTxGasLimits();
+    expect(result).toEqual(new Gas(100, 100));
   });
 
   it('getPrivateEvents', async () => {
@@ -422,6 +428,10 @@ class MockWallet implements Wallet {
       chainId: Fr.random(),
       version: Fr.random(),
     });
+  }
+
+  getMaxTxGasLimits(): Promise<Gas> {
+    return Promise.resolve(new Gas(100, 100));
   }
 
   getPrivateEvents<T>(

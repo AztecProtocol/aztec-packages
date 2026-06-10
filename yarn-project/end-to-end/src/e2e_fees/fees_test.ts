@@ -18,7 +18,7 @@ import { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
 import { CounterContract } from '@aztec/noir-test-contracts.js/Counter';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
-import { GasSettings } from '@aztec/stdlib/gas';
+import { Gas, GasSettings } from '@aztec/stdlib/gas';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
 import { getContract } from 'viem';
@@ -200,6 +200,7 @@ export class FeesTest {
     this.aztecNode = this.context.aztecNodeService;
     this.aztecNodeAdmin = this.context.aztecNodeService;
     this.gasSettings = GasSettings.fallback({
+      gasLimits: Gas.from((await this.aztecNode.getNodeInfo()).txsLimits.gas),
       maxFeesPerGas: await getPaddedMaxFeesPerGas(this.aztecNode),
     });
     this.cheatCodes = this.context.cheatCodes;

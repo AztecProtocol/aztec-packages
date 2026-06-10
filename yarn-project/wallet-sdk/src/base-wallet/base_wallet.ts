@@ -158,12 +158,35 @@ export abstract class BaseWallet implements Wallet {
     return senders.map(sender => ({ item: sender, alias: '' }));
   }
 
-  async getChainInfo(): Promise<ChainInfo> {
+  /**
+   * Fetches and caches the node info for the wallet's lifetime, since a wallet talks to a single network and
+   * node info never changes. A rejected fetch clears the cache so the next call retries instead of replaying
+   * the cached rejection forever — important because `getMaxTxGasLimits` (called on every send) depends on it.
+   */
+  private getNodeInfo(): Promise<NodeInfo> {
     if (!this.nodeInfoPromise) {
-      this.nodeInfoPromise = this.aztecNode.getNodeInfo();
+      this.nodeInfoPromise = this.aztecNode.getNodeInfo().catch(err => {
+        this.nodeInfoPromise = undefined;
+        throw err;
+      });
     }
-    const { l1ChainId, rollupVersion } = await this.nodeInfoPromise;
+    return this.nodeInfoPromise;
+  }
+
+  async getChainInfo(): Promise<ChainInfo> {
+    const { l1ChainId, rollupVersion } = await this.getNodeInfo();
     return { chainId: new Fr(l1ChainId), version: new Fr(rollupVersion) };
+  }
+
+  /**
+   * Returns the maximum gas limits a single transaction may declare on this wallet's network (the
+   * node-advertised `txsLimits.gas`). Used as the default gas limits when sending a transaction without
+   * gas estimation. Read once from the node and cached for the wallet's lifetime, since a wallet talks to
+   * a single network.
+   */
+  public async getMaxTxGasLimits(): Promise<Gas> {
+    const { txsLimits } = await this.getNodeInfo();
+    return new Gas(txsLimits.gas.daGas, txsLimits.gas.l2Gas);
   }
 
   protected async createTxExecutionRequestFromPayloadAndFee(
@@ -272,10 +295,14 @@ export abstract class BaseWallet implements Wallet {
       maxPriorityFeesPerGas: gasSettings?.maxPriorityFeesPerGas ?? GasFees.empty(),
     };
     // When estimating gas (simulation), use high limits so the simulation doesn't run out of gas.
-    // When sending for real, use protocol max limits that the network will actually accept.
+    // When sending for real without explicit limits, declare the most a single tx may use on this network
+    // (the node's per-block allocation), so the proposer does not skip the tx for over-declaring gas.
     const fullGasSettings = forEstimation
       ? GasSettings.forEstimation(gasSettingsOverrides)
-      : GasSettings.fallback(gasSettingsOverrides);
+      : GasSettings.fallback({
+          ...gasSettingsOverrides,
+          gasLimits: gasSettingsOverrides.gasLimits ?? (await this.getMaxTxGasLimits()),
+        });
     this.log.debug(`Using L2 gas settings`, fullGasSettings);
     return {
       gasSettings: fullGasSettings,

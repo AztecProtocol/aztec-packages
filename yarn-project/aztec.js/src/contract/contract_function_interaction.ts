@@ -171,7 +171,12 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     );
 
     if (options.includeMetadata || options.fee?.estimateGas) {
-      const { gasLimits, teardownGasLimits } = getGasLimits(simulatedTx, options.fee?.estimatedGasPadding);
+      const maxTxGasLimits = await this.wallet.getMaxTxGasLimits();
+      const { gasLimits, teardownGasLimits } = getGasLimits(
+        simulatedTx,
+        maxTxGasLimits,
+        options.fee?.estimatedGasPadding,
+      );
       this.log.verbose(
         `Estimated gas limits for tx: DA=${gasLimits.daGas} L2=${gasLimits.l2Gas} teardownDA=${teardownGasLimits.daGas} teardownL2=${teardownGasLimits.l2Gas}`,
       );

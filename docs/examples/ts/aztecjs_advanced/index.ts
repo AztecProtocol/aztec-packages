@@ -416,9 +416,16 @@ console.log("Transaction fee:", feeJuiceReceipt.transactionFee);
 // docs:start:custom_gas_settings
 // Query current network fees to set realistic limits
 const networkFees = await node.getCurrentMinFees();
+// Declare at most what the network admits per tx; these limits vary by network geometry,
+// so derive them rather than hardcoding values that may exceed a given network's maximum.
+const gasLimits = await wallet.getMaxTxGasLimits();
 const gasSettings = GasSettings.from({
-  gasLimits: { daGas: 100_000, l2Gas: 2_000_000 },
-  teardownGasLimits: { daGas: 100_000, l2Gas: 2_000_000 },
+  gasLimits,
+  // Teardown must be strictly less than the total limits so app logic has gas to run.
+  teardownGasLimits: {
+    daGas: Math.floor(gasLimits.daGas / 2),
+    l2Gas: Math.floor(gasLimits.l2Gas / 8),
+  },
   maxFeesPerGas: {
     feePerDaGas: networkFees.feePerDaGas * 2n,
     feePerL2Gas: networkFees.feePerL2Gas * 2n,

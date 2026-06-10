@@ -271,6 +271,12 @@ export type Wallet = {
     eventFilter: PrivateEventFilter,
   ): Promise<PrivateEvent<T>[]>;
   getChainInfo(): Promise<ChainInfo>;
+  /**
+   * Returns the maximum gas limits a single transaction may declare on this wallet's network (the
+   * node-advertised `txsLimits.gas`). Used as the default gas limits when sending a transaction without
+   * gas estimation. Cached for the wallet's lifetime, since a wallet talks to a single network.
+   */
+  getMaxTxGasLimits(): Promise<Gas>;
   getContractMetadata(address: AztecAddress): Promise<ContractMetadata>;
   getContractClassMetadata(id: Fr): Promise<ContractClassMetadata>;
   registerSender(address: AztecAddress, alias?: string): Promise<AztecAddress>;
@@ -565,6 +571,7 @@ const OffchainOutputSchema = z.object({
  */
 const WalletMethodSchemas = {
   getChainInfo: z.function({ input: z.tuple([]), output: z.object({ chainId: schemas.Fr, version: schemas.Fr }) }),
+  getMaxTxGasLimits: z.function({ input: z.tuple([]), output: Gas.schema }),
   getContractMetadata: z.function({ input: z.tuple([schemas.AztecAddress]), output: ContractMetadataSchema }),
   getContractClassMetadata: z.function({ input: z.tuple([schemas.Fr]), output: ContractClassMetadataSchema }),
   getPrivateEvents: z.function({

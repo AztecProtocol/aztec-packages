@@ -44,7 +44,11 @@ describe('EmbeddedWallet', () => {
   describe('sendTx', () => {
     it('passes sendMessagesAs as senderForTags to PXE simulation', async () => {
       getPredictedMinFees.mockResolvedValue([new GasFees(2, 2)]);
-      getNodeInfo.mockResolvedValue({ l1ChainId: 1, rollupVersion: 1 } as any);
+      getNodeInfo.mockResolvedValue({
+        l1ChainId: 1,
+        rollupVersion: 1,
+        txsLimits: { gas: { daGas: 117_668, l2Gas: 6_540_000 } },
+      } as any);
       simulateTx.mockResolvedValue(makeMinimalSimResult());
       proveTx.mockRejectedValue(new Error('stop-at-prove'));
 
