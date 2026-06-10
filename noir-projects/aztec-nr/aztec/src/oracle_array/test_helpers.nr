@@ -2,8 +2,8 @@
 //!
 //! Every `unconstrained` function in this module checks one behavior of the shared [`OracleArray`] API (or of the
 //! generic `store` / `load` / `delete` helpers) and is generic over the [`ArrayOracle`] backend. Backend test modules
-//! do not reference the checks one by one: annotating a module with `ephemeral_oracle_array_tests` /
-//! `transient_oracle_array_tests` generates one `#[test]` per check with that backend's oracle swapped in, so a check
+//! do not reference the checks one by one: annotating a module with `oracle_array_tests` (passing the backend's
+//! oracle as a quoted path) generates one `#[test]` per check with that oracle swapped in, so a check
 //! added here automatically runs against every backend. Checks that are expected to fail must be registered in
 //! `should_fail_message`, which supplies the message for the generated `#[test(should_fail_with = ...)]` attribute.
 //! Each backend module additionally keeps a hand-written smoke test routing through its own public helpers (e.g.
@@ -766,7 +766,9 @@ comptime fn should_fail_message(name: Quoted) -> Option<Quoted> {
     }
 }
 
-comptime fn oracle_array_tests(oracle: Quoted) -> Quoted {
+/// Generates the shared [`OracleArray`] test suite against the given backend. Apply to a test module, passing the
+/// backend's oracle as a quoted path: `#[oracle_array_tests(quote { crate::ephemeral::EphemeralOracle })]`.
+pub(crate) comptime fn oracle_array_tests(_m: Module, oracle: Quoted) -> Quoted {
     let helpers = quote { crate::oracle_array::test_helpers }.as_module().unwrap();
     let mut tests = quote {};
     for f in helpers.functions() {
@@ -789,14 +791,4 @@ comptime fn oracle_array_tests(oracle: Quoted) -> Quoted {
         }
     }
     tests
-}
-
-/// Generates the shared [`OracleArray`] test suite against the ephemeral backend. Apply to a test module.
-pub(crate) comptime fn ephemeral_oracle_array_tests(_m: Module) -> Quoted {
-    oracle_array_tests(quote { crate::ephemeral::EphemeralOracle })
-}
-
-/// Generates the shared [`OracleArray`] test suite against the transient backend. Apply to a test module.
-pub(crate) comptime fn transient_oracle_array_tests(_m: Module) -> Quoted {
-    oracle_array_tests(quote { crate::transient::TransientOracle })
 }

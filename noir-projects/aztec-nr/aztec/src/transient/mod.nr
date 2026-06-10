@@ -86,7 +86,7 @@ pub unconstrained fn delete(slot: Field) {
     crate::oracle_array::delete::<TransientOracle>(slot)
 }
 
-#[crate::oracle_array::test_helpers::transient_oracle_array_tests]
+#[crate::oracle_array::test_helpers::oracle_array_tests(quote { crate::transient::TransientOracle })]
 mod test {
     use crate::oracle_array::test_helpers::SLOT;
     use crate::test::helpers::test_environment::TestEnvironment;
