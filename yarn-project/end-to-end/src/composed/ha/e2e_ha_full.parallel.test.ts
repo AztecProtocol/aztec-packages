@@ -15,13 +15,12 @@ import type { Logger } from '@aztec/aztec.js/log';
 import { type AztecNode, waitForTx } from '@aztec/aztec.js/node';
 import { GovernanceProposerContract } from '@aztec/ethereum/contracts';
 import type { DeployAztecL1ContractsReturnType } from '@aztec/ethereum/deploy-aztec-l1-contracts';
-import type { EthCheatCodes } from '@aztec/ethereum/test';
 import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { SecretValue } from '@aztec/foundation/config';
 import { withLoggerBindings } from '@aztec/foundation/log/server';
 import { retryUntil } from '@aztec/foundation/retry';
-import { InterruptibleSleep, sleep } from '@aztec/foundation/sleep';
+import { sleep } from '@aztec/foundation/sleep';
 import type { TestDateProvider } from '@aztec/foundation/timer';
 import { GovernanceProposerAbi } from '@aztec/l1-artifacts/GovernanceProposerAbi';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
@@ -70,16 +69,6 @@ const NODE_COUNT = 5;
 const VALIDATOR_COUNT = 4;
 const COMMITTEE_SIZE = 4;
 
-type SyncImmediateBlockSource = {
-  syncImmediate: () => Promise<void>;
-};
-
-function hasSyncImmediate(value: unknown): value is SyncImmediateBlockSource {
-  return (
-    typeof value === 'object' && value !== null && 'syncImmediate' in value && typeof value.syncImmediate === 'function'
-  );
-}
-
 async function getHardcodedAccountData(secret: Fr, salt: Fr): Promise<InitialAccountData> {
   const contract = new SchnorrHardcodedKeyAccountContract();
   const address = await getAccountContractAddress(contract, secret, salt);
@@ -120,28 +109,6 @@ async function waitForTriggerTx(node: AztecNode, txHash: TxHash): Promise<TxRece
   return receipt;
 }
 
-async function setDateProviderToNextBlockSlot(
-  node: AztecNode,
-  ethCheatCodes: EthCheatCodes,
-  dateProvider: TestDateProvider,
-  aztecSlotDuration: number,
-): Promise<void> {
-  const latestBlock = await node.getBlockData('latest');
-  if (!latestBlock) {
-    throw new Error('Could not load latest block for HA trigger tx');
-  }
-
-  // Jump to the next L2 slot boundary that also covers the L1 chain clock. The compose anvil mines
-  // blocks only on demand (no interval mining), so its chain timestamp moves independently of the test
-  // clock and may sit several slots past the latest L2 block. Aligning blindly to `latest block + 1
-  // slot` can rewind the test clock below L1 time, making sequencers (which schedule on the test
-  // clock) build proposals for slots that have already expired on L1.
-  const latestBlockTimestamp = Number(latestBlock.header.globalVariables.timestamp);
-  const nextL1Timestamp = await ethCheatCodes.nextBlockTimestamp();
-  const slotsAhead = Math.max(1, Math.ceil((nextL1Timestamp - latestBlockTimestamp) / aztecSlotDuration));
-  dateProvider.setTime((latestBlockTimestamp + slotsAhead * aztecSlotDuration) * 1000);
-}
-
 describe('HA Full Setup', () => {
   jest.setTimeout(20 * 60 * 1000); // 20 minutes
 
@@ -151,7 +118,6 @@ describe('HA Full Setup', () => {
   let testContract: TestContract;
   let aztecNode: AztecNode;
   let config: AztecNodeConfig;
-  let ethCheatCodes: EthCheatCodes;
   let teardown: () => Promise<void> = async () => {};
   let dateProvider: TestDateProvider;
   let genesis: GenesisData | undefined;
@@ -193,89 +159,10 @@ describe('HA Full Setup', () => {
     logger.info('All HA peer sequencers started');
   };
 
-  /**
-   * Mines as many L1 blocks as needed to bring anvil's chain clock up to the test clock, never past
-   * it. The compose anvil runs in automine with a +ethereumSlotDuration timestamp interval per block
-   * and no interval mining, so L1 chain time stands still unless a tx lands or we mine here — this is
-   * the suite's only L1 heartbeat. Overshooting the test clock is as harmful as falling behind:
-   * sequencers schedule proposals on the test clock, and a proposal mined after its target slot has
-   * expired on L1 is silently dropped, pruning the pending block it carried.
-   */
-  const advanceL1ChainTimeToTestClock = async () => {
-    const nextL1Timestamp = await ethCheatCodes.nextBlockTimestamp();
-    const testClockNow = Math.floor(dateProvider.now() / 1000);
-    const blocksToMine = Math.floor((testClockNow - nextL1Timestamp) / config.ethereumSlotDuration) + 1;
-    if (blocksToMine > 0) {
-      await ethCheatCodes.mine(blocksToMine);
-    }
-  };
-
-  const syncHAL1Data = async () => {
-    await advanceL1ChainTimeToTestClock();
-    await Promise.all(
-      haNodeServices.map(async service => {
-        try {
-          const blockSource = service.getBlockSource();
-          if (hasSyncImmediate(blockSource)) {
-            await blockSource.syncImmediate();
-          }
-        } catch (error) {
-          logger.debug('Skipping HA L1 sync nudge for stopped node', {
-            error: error instanceof Error ? error.message : String(error),
-          });
-        }
-      }),
-    );
-  };
-
-  const alignDateProviderToNextBlockSlot = async () => {
-    await setDateProviderToNextBlockSlot(aztecNode, ethCheatCodes, dateProvider, config.aztecSlotDuration);
-  };
-
-  /**
-   * Runs `fn` while emulating a self-advancing L1, nudging chain time and archiver sync once per L1
-   * slot of wall time. Without the heartbeat, L1 time freezes while the test thread is blocked
-   * (nothing mines on the on-demand compose anvil) and any retry loop scheduled on the free-running
-   * test clock — the proposers' archiver-sync gate, or per-slot governance signals that must mine in
-   * a block whose timestamp matches the signed slot — can then never succeed, turning a single missed
-   * slot into an unrecoverable stall until the jest timeout.
-   */
-  const withL1Heartbeat = async <T>(fn: () => Promise<T>): Promise<T> => {
-    let running = true;
-    const heartbeatSleep = new InterruptibleSleep();
-    const heartbeat = (async () => {
-      while (running) {
-        await heartbeatSleep.sleep(config.ethereumSlotDuration * 1000);
-        if (!running) {
-          break;
-        }
-        try {
-          await syncHAL1Data();
-        } catch (error) {
-          logger.debug('Error advancing L1 time on heartbeat', {
-            error: error instanceof Error ? error.message : String(error),
-          });
-        }
-      }
-    })();
-
-    try {
-      return await fn();
-    } finally {
-      running = false;
-      heartbeatSleep.interrupt();
-      await heartbeat;
-    }
-  };
-
-  const waitForTriggerTxWithL1Heartbeat = (txHash: TxHash): Promise<TxReceipt> =>
-    withL1Heartbeat(() => waitForTriggerTx(aztecNode, txHash));
-
   const sendTriggerTx = async (): Promise<TxReceipt> => {
-    await alignDateProviderToNextBlockSlot();
+    await startHASequencers();
     const txHash = await submitTriggerTx(wallet, testContract, ownerAddress);
-    await syncHAL1Data();
-    return await waitForTriggerTxWithL1Heartbeat(txHash);
+    return await waitForTriggerTx(aztecNode, txHash);
   };
 
   const stopHANode = async (nodeIndex: number) => {
@@ -337,39 +224,39 @@ describe('HA Full Setup', () => {
     const initialValidators = createInitialValidatorsFromPrivateKeys(attesterPrivateKeys);
     const hardcodedAccountData = await getHardcodedAccountData(Fr.random(), Fr.random());
 
-    ({ teardown, logger, wallet, aztecNode, config, ethCheatCodes, dateProvider, deployL1ContractsValues, genesis } =
-      await setup(
-        0,
-        {
-          ...PIPELINING_SETUP_OPTS,
-          initialFundedAccounts: [hardcodedAccountData],
-          initialValidators,
-          sequencerPublisherPrivateKeys: [new SecretValue(publisherPrivateKeys[0])],
-          aztecTargetCommitteeSize: COMMITTEE_SIZE,
-          // The full HA docker/Web3Signer stack can still be joining and syncing after the shared
-          // 12s pipelining preset's 2.5s start window has closed. Keep real sequencing, but give
-          // HA validators enough time to pass the enforced build-start gate in CI.
-          aztecSlotDuration: 16,
-          // This suite validates HA coordination on tx-bearing checkpoints. Requiring one tx avoids a startup empty
-          // checkpoint from occupying the shared HA publisher while the trigger tx is still being prepared.
-          minTxsPerBlock: 1,
-          archiverPollingIntervalMS: 200,
-          sequencerPollingIntervalMS: 200,
-          worldStateBlockCheckIntervalMS: 200,
-          blockCheckIntervalMS: 200,
-          startProverNode: true,
-          // The bootstrap node is only an RPC/P2P anchor. HA validators are the first block producers in this suite.
-          disableValidator: true,
-          skipAccountDeployment: true,
-          // Enable P2P for transaction gossip
-          p2pEnabled: true,
-          // Enable slashing for testing governance + slashing vote coordination
-          slasherEnabled: true,
-          slashingRoundSizeInEpochs: 1, // 32 slots (1 epoch)
-          slashingQuorum: 17, // >50% of 32 slots for tally quorum,
-        },
-        { syncChainTip: 'proven' },
-      ));
+    ({ teardown, logger, wallet, aztecNode, config, dateProvider, deployL1ContractsValues, genesis } = await setup(
+      0,
+      {
+        ...PIPELINING_SETUP_OPTS,
+        automineL1Setup: true,
+        initialFundedAccounts: [hardcodedAccountData],
+        initialValidators,
+        sequencerPublisherPrivateKeys: [new SecretValue(publisherPrivateKeys[0])],
+        aztecTargetCommitteeSize: COMMITTEE_SIZE,
+        // The full HA docker/Web3Signer stack can still be joining and syncing after the shared
+        // 12s pipelining preset's 2.5s start window has closed. Keep real sequencing, but give
+        // HA validators enough time to pass the enforced build-start gate in CI.
+        aztecSlotDuration: 16,
+        // This suite validates HA coordination on tx-bearing checkpoints. Requiring one tx avoids a startup empty
+        // checkpoint from occupying the shared HA publisher while the trigger tx is still being prepared.
+        minTxsPerBlock: 1,
+        archiverPollingIntervalMS: 200,
+        sequencerPollingIntervalMS: 200,
+        worldStateBlockCheckIntervalMS: 200,
+        blockCheckIntervalMS: 200,
+        startProverNode: true,
+        // The bootstrap node is only an RPC/P2P anchor. HA validators are the first block producers in this suite.
+        disableValidator: true,
+        skipAccountDeployment: true,
+        // Enable P2P for transaction gossip
+        p2pEnabled: true,
+        // Enable slashing for testing governance + slashing vote coordination
+        slasherEnabled: true,
+        slashingRoundSizeInEpochs: 1, // 32 slots (1 epoch)
+        slashingQuorum: 17, // >50% of 32 slots for tally quorum,
+      },
+      { syncChainTip: 'proven' },
+    ));
 
     ownerAddress = await registerHardcodedAccount(wallet, hardcodedAccountData);
     testContract = await registerTestContract(wallet);
@@ -494,7 +381,7 @@ describe('HA Full Setup', () => {
 
     // Stop all HA peer nodes in parallel with a per-node deadline. A single stuck node can otherwise
     // block the serial loop long enough to blow the jest hook timeout — e.g. a sequencer.stop() that
-    // awaits an L1 publish whose tx-timeout was computed on a test-warped clock and never fires.
+    // hangs awaiting an L1 publish that never lands.
     if (haNodeServices) {
       const STOP_DEADLINE_MS = 30_000;
       await Promise.allSettled(
@@ -559,13 +446,8 @@ describe('HA Full Setup', () => {
     // so HA validators are the first block producers exercised by this suite.
     logger.info(`Sending trigger tx from ${ownerAddress}`);
     const txHash = await submitTriggerTx(wallet, testContract, ownerAddress);
-    // HA nodes cold-start with their archivers synced through the previous L2 slot. Move the
-    // test clock back one slot before starting their sequencers so the first HA proposal builds
-    // the next slot their local sync gate permits, instead of immediately chasing a future slot.
-    dateProvider.setTime(dateProvider.now() - config.aztecSlotDuration * 1000);
     await startHASequencers();
-    await syncHAL1Data();
-    const receipt = await waitForTriggerTxWithL1Heartbeat(txHash);
+    const receipt = await waitForTriggerTx(aztecNode, txHash);
 
     expect(receipt.blockNumber).toBeDefined();
     logger.info(`Trigger tx checkpointed in block ${receipt.blockNumber}`);
@@ -722,50 +604,44 @@ describe('HA Full Setup', () => {
     const govProposerAddr =
       deployL1ContractsValues.l1ContractAddresses.governanceProposerAddress.toString() as `0x${string}`;
 
-    // Run the poll under the L1 heartbeat: a signal can only land when its L1 block's timestamp falls
-    // within the slot it was signed for, so if the bundled propose+signal publish lost the duty race
-    // (signal flushed standalone one block early), the per-slot retries need L1 chain time to keep
-    // tracking the test clock or they would sign slots a frozen L1 never reaches.
-    const { l1VoteCount, lastSignalSlot, payloadWithMostSignals } = await withL1Heartbeat(() =>
-      retryUntil(
-        async () => {
-          const snapshotBlock = await deployL1ContractsValues.l1Client.getBlockNumber();
-          const [roundData, l1VoteCountBig] = await Promise.all([
-            deployL1ContractsValues.l1Client.readContract({
-              address: govProposerAddr,
-              abi: GovernanceProposerAbi,
-              functionName: 'getRoundData',
-              args: [rollupAddr, round],
-              blockNumber: snapshotBlock,
-            }),
-            deployL1ContractsValues.l1Client.readContract({
-              address: govProposerAddr,
-              abi: GovernanceProposerAbi,
-              functionName: 'signalCount',
-              args: [rollupAddr, round, mockGovernancePayload.toString() as `0x${string}`],
-              blockNumber: snapshotBlock,
-            }),
-          ]);
-          const lastSignalSlot = Number(roundData.lastSignalSlot);
-          const l1VoteCount = Number(l1VoteCountBig);
-          logger.info(
-            `L1 round ${round}: lastSignalSlot=${lastSignalSlot}, l1VoteCount=${l1VoteCount}, ` +
-              `payloadWithMostSignals=${roundData.payloadWithMostSignals} ` +
-              `(snapshot at L1 block ${snapshotBlock})`,
-          );
-          if (l1VoteCount === 0) {
-            return undefined;
-          }
-          return {
-            l1VoteCount,
-            lastSignalSlot,
-            payloadWithMostSignals: roundData.payloadWithMostSignals,
-          };
-        },
-        `L1 governance round to land >= 1 signal`,
-        120,
-        0.5,
-      ),
+    const { l1VoteCount, lastSignalSlot, payloadWithMostSignals } = await retryUntil(
+      async () => {
+        const snapshotBlock = await deployL1ContractsValues.l1Client.getBlockNumber();
+        const [roundData, l1VoteCountBig] = await Promise.all([
+          deployL1ContractsValues.l1Client.readContract({
+            address: govProposerAddr,
+            abi: GovernanceProposerAbi,
+            functionName: 'getRoundData',
+            args: [rollupAddr, round],
+            blockNumber: snapshotBlock,
+          }),
+          deployL1ContractsValues.l1Client.readContract({
+            address: govProposerAddr,
+            abi: GovernanceProposerAbi,
+            functionName: 'signalCount',
+            args: [rollupAddr, round, mockGovernancePayload.toString() as `0x${string}`],
+            blockNumber: snapshotBlock,
+          }),
+        ]);
+        const lastSignalSlot = Number(roundData.lastSignalSlot);
+        const l1VoteCount = Number(l1VoteCountBig);
+        logger.info(
+          `L1 round ${round}: lastSignalSlot=${lastSignalSlot}, l1VoteCount=${l1VoteCount}, ` +
+            `payloadWithMostSignals=${roundData.payloadWithMostSignals} ` +
+            `(snapshot at L1 block ${snapshotBlock})`,
+        );
+        if (l1VoteCount === 0) {
+          return undefined;
+        }
+        return {
+          l1VoteCount,
+          lastSignalSlot,
+          payloadWithMostSignals: roundData.payloadWithMostSignals,
+        };
+      },
+      `L1 governance round to land >= 1 signal`,
+      120,
+      0.5,
     );
 
     // Outcome 1: the round leader payload is the one we configured all HA nodes to vote for.
@@ -1066,7 +942,6 @@ describe('HA Full Setup', () => {
     );
     expect(equivocationOffenses).toEqual([]);
 
-    dateProvider.reset();
     await Promise.all(haNodeServices.map((_, nodeIndex) => stopHANode(nodeIndex)));
   });
 
@@ -1146,7 +1021,7 @@ describe('HA Full Setup', () => {
       }
     });
 
-    it('should not delete recent duties when node clock is ahead (using cleanupOldDuties)', async () => {
+    it('should not delete recent duties via cleanupOldDuties when node clock is ahead', async () => {
       const spDb = new PostgresSlashingProtectionDatabase(mainPool);
 
       // Ensure clean slate for this test
@@ -1208,7 +1083,7 @@ describe('HA Full Setup', () => {
       expect(result.rows.length).toBe(1);
     });
 
-    it('should delete old duties based on DB time, not node time (using cleanupOldDuties)', async () => {
+    it('should delete old duties via cleanupOldDuties based on DB time, not node time', async () => {
       const spDb = new PostgresSlashingProtectionDatabase(mainPool);
 
       // Ensure clean slate for this test
@@ -1277,7 +1152,7 @@ describe('HA Full Setup', () => {
       expect(result.rows.length).toBe(0);
     });
 
-    it('should not delete recent stuck duties when node clock is ahead (using cleanupOwnStuckDuties)', async () => {
+    it('should not delete recent stuck duties via cleanupOwnStuckDuties when node clock is ahead', async () => {
       const spDb = new PostgresSlashingProtectionDatabase(mainPool);
 
       // Create a signing duty (stuck, not completed) using our actual method
