@@ -15,11 +15,13 @@ import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
 import { pickL1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { EpochNumber } from '@aztec/foundation/branded-types';
+import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { TestERC20Abi, TestERC20Bytecode } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
 import type { PXEConfig } from '@aztec/pxe/server';
+import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
 import { MNEMONIC } from '../fixtures/fixtures.js';
@@ -99,6 +101,15 @@ export class CrossChainMessagingTest {
         ...opts,
         fundSponsoredFPC: true,
         l1ContractsArgs: { ...this.deployL1ContractsArgs, ...opts.l1ContractsArgs },
+        // `advanceToEpochProven` warps anvil's L1 clock forward by up to a full epoch in one
+        // step. The prover-node tracks L1 time via `dateProvider.setTime(...)`, so any
+        // in-flight tx-gather sees its deadline jump into the past and short-circuits. Use
+        // a generous gather window so the deadline survives the warp.
+        proverNodeConfig: {
+          ...this.setupOptions.proverNodeConfig,
+          ...opts.proverNodeConfig,
+          txGatheringTimeoutMs: opts.proverNodeConfig?.txGatheringTimeoutMs ?? 10 * 60 * 1000,
+        },
       },
       { ...this.pxeOpts, ...pxeOpts },
     );
@@ -107,7 +118,14 @@ export class CrossChainMessagingTest {
 
   async advanceToEpochProven(l2TxReceipt: TxReceipt): Promise<EpochNumber> {
     const block = await this.aztecNode.getBlock(l2TxReceipt.blockNumber!);
-    const epoch = await this.rollup.getEpochNumberForCheckpoint(block!.checkpointNumber);
+    const cp = await retryUntil(
+      async () => (await this.aztecNode.getCheckpoints(block!.checkpointNumber, 1))[0],
+      `archiver indexes checkpoint ${block!.checkpointNumber}`,
+      120,
+      0.5,
+    );
+    const epochDuration = await this.rollup.getEpochDuration();
+    const epoch = getEpochAtSlot(cp.header.slotNumber, { epochDuration });
     // Warp to the next epoch.
     await this.cheatCodes.rollup.advanceToEpoch(EpochNumber(epoch + 1));
     // Wait for the tx to be proven.

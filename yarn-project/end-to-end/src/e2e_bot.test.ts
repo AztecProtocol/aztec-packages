@@ -12,7 +12,7 @@ import {
   SupportedTokenContracts,
   getBotDefaultConfig,
 } from '@aztec/bot';
-import { MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, MAX_PROCESSABLE_L2_GAS } from '@aztec/constants';
+import { MAX_PROCESSABLE_L2_GAS, MAX_TX_DA_GAS } from '@aztec/constants';
 import { SecretValue } from '@aztec/foundation/config';
 import { bufferToHex } from '@aztec/foundation/string';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
@@ -80,7 +80,7 @@ describe('e2e_bot', () => {
     });
 
     it('sends token transfers with hardcoded gas and no simulation', async () => {
-      bot.updateConfig({ daGasLimit: MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, l2GasLimit: MAX_PROCESSABLE_L2_GAS });
+      bot.updateConfig({ daGasLimit: MAX_TX_DA_GAS, l2GasLimit: MAX_PROCESSABLE_L2_GAS });
       const { recipient: recipientBefore } = await bot.getBalances();
 
       await bot.run();

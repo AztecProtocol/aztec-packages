@@ -113,9 +113,7 @@ export class EpochsTestContext {
     const aztecSlotDuration = opts.aztecSlotDuration ?? (opts.aztecSlotDurationInL1Slots ?? 2) * ethereumSlotDuration;
     const aztecEpochDuration = opts.aztecEpochDuration ?? 6;
     const aztecProofSubmissionEpochs = opts.aztecProofSubmissionEpochs ?? 1;
-    const l1PublishingTime = opts.l1PublishingTime ?? 1;
     return {
-      l1PublishingTime,
       ethereumSlotDuration,
       aztecSlotDuration,
       aztecEpochDuration,
@@ -124,13 +122,8 @@ export class EpochsTestContext {
   }
 
   public async setup(opts: EpochsTestOpts = {}) {
-    const {
-      ethereumSlotDuration,
-      aztecSlotDuration,
-      aztecEpochDuration,
-      aztecProofSubmissionEpochs,
-      l1PublishingTime,
-    } = EpochsTestContext.getSlotDurations(opts);
+    const { ethereumSlotDuration, aztecSlotDuration, aztecEpochDuration, aztecProofSubmissionEpochs } =
+      EpochsTestContext.getSlotDurations(opts);
 
     this.L1_BLOCK_TIME_IN_S = ethereumSlotDuration;
     this.L2_SLOT_DURATION_IN_S = aztecSlotDuration;
@@ -167,7 +160,6 @@ export class EpochsTestContext {
         worldStateCheckpointHistory: WORLD_STATE_CHECKPOINT_HISTORY,
         exitDelaySeconds: DefaultL1ContractsConfig.exitDelaySeconds,
         slasherEnabled: false,
-        l1PublishingTime,
         ...opts,
         ...(hardcodedAccountData ? { initialFundedAccounts: [hardcodedAccountData], numberOfAccounts: 0 } : {}),
       },
@@ -353,13 +345,41 @@ export class EpochsTestContext {
   public async waitUntilEpochStarts(epoch: number) {
     const [start] = getTimestampRangeForEpoch(EpochNumber(epoch), this.constants);
     this.logger.info(`Waiting until L1 timestamp ${start} is reached as the start of epoch ${epoch}`);
+    // Cover at least two full epochs of wall time so callers issuing the wait mid-epoch
+    // still have headroom — the prior `30 * epochDuration` mixed units (slots vs seconds)
+    // and timed out at 120s for configs whose epoch wall time is 144s+.
     await waitUntilL1Timestamp(
       this.l1Client,
       start - BigInt(this.L1_BLOCK_TIME_IN_S),
       undefined,
-      30 * this.epochDuration,
+      2 * this.epochDuration * this.L2_SLOT_DURATION_IN_S,
     );
     return start;
+  }
+
+  /**
+   * Waits until the next epoch boundary and returns that epoch's number. Anchors tests
+   * on a guaranteed-fresh epoch regardless of how much wall time `beforeEach` consumed —
+   * `waitUntilEpochStarts(1)` returns immediately when the chain has already advanced past
+   * slot 4, which under CI load can leave only seconds of the target epoch remaining.
+   *
+   * If the chain has more than two slots of headroom before the target boundary, warps
+   * the L1 clock to within two slots of the boundary instead of waiting in wall-clock.
+   * The two-slot tail is intentional — it lets the sequencer/builder settle so the first
+   * checkpoint of the target epoch lands correctly.
+   */
+  public async waitUntilNextEpochStarts(): Promise<EpochNumber> {
+    const { epoch } = this.epochCache.getEpochAndSlotNow();
+    const target = EpochNumber(Number(epoch) + 1);
+    const [targetTs] = getTimestampRangeForEpoch(target, this.constants);
+    const safeTs = targetTs - BigInt(2 * this.L2_SLOT_DURATION_IN_S);
+    const currentTs = BigInt(await this.context.cheatCodes.eth.lastBlockTimestamp());
+    if (currentTs < safeTs) {
+      this.logger.info(`Warping L1 from ${currentTs} to ${safeTs} (2 slots before epoch ${target})`);
+      await this.context.cheatCodes.eth.warp(Number(safeTs), { resetBlockInterval: true });
+    }
+    await this.waitUntilEpochStarts(Number(target));
+    return target;
   }
 
   /** Waits until the given checkpoint number is mined. */

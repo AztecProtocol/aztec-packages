@@ -235,18 +235,18 @@ export function formatViemError(error: any, abi: Abi = ErrorsAbi): FormattedViem
     // If decoding fails, we fall back to the original formatting
   }
 
-  // Strip ABI from the error object before formatting
+  // Strip ABI from the error object before formatting. We clone first to avoid mutating the
+  // caller's error, but structuredClone throws DataCloneError on values it cannot clone (e.g.
+  // viem RPC errors carrying function-valued request context). If cloning fails, fall back to
+  // formatting the original error untouched rather than letting the clone failure mask it.
   if (error && typeof error === 'object') {
-    // Create a clone to avoid modifying the original
-    const errorClone = structuredClone(error);
-
-    // Helper function to recursively remove ABI properties
-
-    // Strip ABIs from the clone
-    stripAbis(errorClone);
-
-    // Use the cleaned clone for further processing
-    error = errorClone;
+    try {
+      const errorClone = structuredClone(error);
+      stripAbis(errorClone);
+      error = errorClone;
+    } catch {
+      // Leave `error` as the original; we skip stripAbis to avoid mutating the caller's object.
+    }
   }
 
   // If it's a regular Error instance, return it with its message

@@ -119,6 +119,7 @@ export async function createLocalNetwork(config: Partial<LocalNetworkConfig> = {
   const aztecNodeConfig: AztecNodeConfig = {
     ...getConfigEnvVars(),
     ...config,
+    skipOrphanProposedBlockPruning: true,
     txPublicSetupAllowListExtend: [...tokenAllowList, ...(config.txPublicSetupAllowListExtend ?? [])],
   };
   const hdAccount = mnemonicToAccount(config.l1Mnemonic || DefaultMnemonic);

@@ -1,6 +1,6 @@
 import type { Abi } from 'viem';
 
-import { mergeAbis } from './utils.js';
+import { FormattedViemError, formatViemError, mergeAbis } from './utils.js';
 
 describe('mergeAbis', () => {
   it('dedupes identical function items', () => {
@@ -57,5 +57,21 @@ describe('mergeAbis', () => {
     const merged = mergeAbis([[eventIndexed], [eventNonIndexed]]);
 
     expect(merged).toHaveLength(2);
+  });
+});
+
+describe('formatViemError', () => {
+  it('formats an error whose cause carries non-cloneable function-valued context', () => {
+    // viem RPC errors routinely attach plain-object context holding functions (e.g. transport
+    // request methods). structuredClone throws DataCloneError on these, so formatViemError must
+    // not let the clone failure mask the underlying error.
+    const error = new Error('rpc request failed');
+    (error as any).cause = { code: -32000, request: { send: () => undefined } };
+
+    const formatted = formatViemError(error);
+
+    expect(formatted).toBeInstanceOf(FormattedViemError);
+    expect(formatted.message).toContain('rpc request failed');
+    expect(formatted.cause).toBe(error);
   });
 });

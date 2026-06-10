@@ -1,7 +1,7 @@
 import { TimeoutError } from '../error/index.js';
 import { type Logger, createLogger } from '../log/index.js';
 import { sleep } from '../sleep/index.js';
-import { Timer } from '../timer/index.js';
+import { type DateProvider, Timer } from '../timer/index.js';
 
 /** An error that indicates that the operation should not be retried. */
 export class NoRetryError extends Error {}
@@ -73,22 +73,54 @@ export async function retry<Result>(
 }
 
 /**
+ * Timeout specification accepted by {@link retryUntil}. Either a plain number of seconds, an explicit
+ * `{ timeout }` in seconds, or an absolute `{ deadline }` with an optional {@link DateProvider} used to
+ * read the current time. A deadline is converted to the remaining seconds at call time; a deadline that
+ * has already passed yields a zero remaining budget, matching the immediate-timeout semantics of a
+ * non-positive numeric timeout.
+ */
+export type RetryUntilTimeout = number | { timeout: number } | { deadline: Date; dateProvider?: DateProvider };
+
+/**
+ * Resolves a {@link RetryUntilTimeout} to a numeric timeout in seconds for the legacy timer-based loop.
+ * A numeric/`{ timeout }` value passes through unchanged (0 means never time out, negative times out on the
+ * first interval). A `{ deadline }` is the remaining seconds until the deadline; when the deadline is already
+ * at or past `now` it resolves to a negative value so the loop times out immediately instead of being read as
+ * the never-timeout sentinel 0.
+ */
+function resolveRetryUntilTimeoutSeconds(timeout: RetryUntilTimeout): number {
+  if (typeof timeout === 'number') {
+    return timeout;
+  }
+  if ('deadline' in timeout) {
+    const now = timeout.dateProvider?.now() ?? Date.now();
+    const remainingSeconds = (timeout.deadline.getTime() - now) / 1000;
+    return remainingSeconds > 0 ? remainingSeconds : -1;
+  }
+  return timeout.timeout;
+}
+
+/**
  * Retry an asynchronous function until it returns a truthy value or the specified timeout is exceeded.
  * The function is retried periodically with a fixed interval between attempts. The operation can be named for better error messages.
  * Will never timeout if the value is 0.
  *
  * @param fn - The asynchronous function to be retried, which should return a truthy value upon success or undefined otherwise.
  * @param name - The optional name of the operation, used for generating timeout error message.
- * @param timeout - The optional maximum time, in seconds, to keep retrying before throwing a timeout error. Defaults to 0 (never timeout).
+ * @param timeout - The maximum time to keep retrying before throwing a timeout error. Accepts a number of
+ * seconds (0 = never time out), an explicit `{ timeout }` in seconds, or an absolute `{ deadline }` with an
+ * optional `dateProvider`. A deadline already in the past times out on the first interval, the same as a
+ * zero/negative numeric timeout. Defaults to 0 (never timeout).
  * @param interval - The optional interval, in seconds, between retry attempts. Defaults to 1 second.
  * @returns A Promise that resolves with the successful (truthy) result of the provided function, or rejects if timeout is exceeded.
  */
 export async function retryUntil<T>(
   fn: () => (T | undefined) | Promise<T | undefined>,
   name = '',
-  timeout = 0,
+  timeout: RetryUntilTimeout = 0,
   interval = 1,
 ) {
+  const timeoutSeconds = resolveRetryUntilTimeoutSeconds(timeout);
   const timer = new Timer();
   while (true) {
     const result = await fn();
@@ -98,7 +130,7 @@ export async function retryUntil<T>(
 
     await sleep(interval * 1000);
 
-    if (timeout && timer.s() > timeout) {
+    if (timeoutSeconds && timer.s() > timeoutSeconds) {
       throw new TimeoutError(name ? `Timeout awaiting ${name}` : 'Timeout');
     }
   }

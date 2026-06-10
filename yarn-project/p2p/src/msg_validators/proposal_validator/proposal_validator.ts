@@ -1,6 +1,7 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { NoCommitteeError } from '@aztec/ethereum/contracts';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { MAX_ATTESTABLE_BLOCKS_PER_CHECKPOINT } from '@aztec/stdlib/deserialization';
 import {
   type BlockProposal,
   type CheckpointProposalCore,
@@ -9,39 +10,41 @@ import {
   type ValidationResult,
   hasValidSignatureContext,
 } from '@aztec/stdlib/p2p';
-
-import { PipeliningWindow, isWithinClockTolerance } from '../clock_tolerance.js';
+import type { ConsensusTimetable } from '@aztec/stdlib/timetable';
 
 /** Validates header-level and tx-level fields of block and checkpoint proposals. */
 export class ProposalValidator {
   private epochCache: EpochCacheInterface;
+  private timetable: ConsensusTimetable;
   private logger: Logger;
   private txsPermitted: boolean;
   private maxTxsPerBlock?: number;
   private maxBlocksPerCheckpoint?: number;
-  private pipeliningWindow: PipeliningWindow;
   private skipSlotValidation: boolean;
   private signatureContext: CoordinationSignatureContext;
+  private clockDisparityMs: number;
 
   constructor(
     epochCache: EpochCacheInterface,
+    timetable: ConsensusTimetable,
     opts: {
       txsPermitted: boolean;
       maxTxsPerBlock?: number;
       maxBlocksPerCheckpoint?: number;
-      p2pPropagationTime?: number;
       skipSlotValidation?: boolean;
       signatureContext: CoordinationSignatureContext;
+      clockDisparityMs: number;
     },
     loggerName: string,
   ) {
     this.epochCache = epochCache;
+    this.timetable = timetable;
     this.txsPermitted = opts.txsPermitted;
     this.maxTxsPerBlock = opts.maxTxsPerBlock;
     this.maxBlocksPerCheckpoint = opts.maxBlocksPerCheckpoint;
-    this.pipeliningWindow = new PipeliningWindow(epochCache, { p2pPropagationTime: opts.p2pPropagationTime });
     this.skipSlotValidation = opts.skipSlotValidation ?? false;
     this.signatureContext = opts.signatureContext;
+    this.clockDisparityMs = opts.clockDisparityMs;
     this.logger = createLogger(loggerName);
   }
 
@@ -59,21 +62,31 @@ export class ProposalValidator {
         return { result: 'reject', severity: PeerErrorSeverity.LowToleranceError };
       }
 
-      // Slot check: use target slots since proposals target pipeline slots (slot + 1 when pipelining).
-      const { targetSlot, nextSlot } = this.epochCache.getTargetAndNextSlot();
-
+      // Slot check: the tight checkpoint proposal receive window (`[receiveStart - δ, target_slot_start -
+      // E - D + δ]`) is the sole acceptance gate, applied to both block and checkpoint proposals. The
+      // window itself bounds which slots are valid, so far/wrong slots fall outside it. Every block
+      // proposal for slot N is sent before the checkpoint proposal for slot N, so nothing legitimate can
+      // arrive after the checkpoint receive deadline; gating block proposals on the same window rejects
+      // late block proposals at p2p ingress. The attestation deadline remains their re-execution/
+      // validation deadline downstream, not their arrival gate.
       const slotNumber = proposal.slotNumber;
-      if (!this.skipSlotValidation && slotNumber !== targetSlot && slotNumber !== nextSlot) {
-        // When pipelining, accept proposals for the current slot (built in the previous slot)
-        // if they're still within the shared proposal acceptance window.
-        if (this.pipeliningWindow.acceptsProposal(slotNumber)) {
-          // Fall through to remaining validation (signature, proposer, etc.)
-        } else if (!isWithinClockTolerance(slotNumber, targetSlot, this.epochCache)) {
-          this.logger.warn(`Penalizing peer for invalid slot number ${slotNumber}`, { targetSlot, nextSlot });
+      if (!this.skipSlotValidation) {
+        // Proposal receive window: [checkpoint_proposal_receive_start, checkpoint_proposal_receive_deadline],
+        // widened by the configured clock-disparity tolerance on both ends.
+        const startSeconds = this.timetable.getCheckpointProposalReceiveStart(slotNumber);
+        const deadlineSeconds = this.timetable.getCheckpointProposalReceiveDeadline(slotNumber);
+        const nowMs = Number(this.epochCache.getEpochAndSlotNow().nowMs);
+        if (
+          nowMs < startSeconds * 1000 - this.clockDisparityMs ||
+          nowMs > deadlineSeconds * 1000 + this.clockDisparityMs
+        ) {
+          this.logger.warn(`Penalizing peer for invalid slot number ${slotNumber}`, {
+            slotNumber,
+            nowMs,
+            windowStartSeconds: startSeconds,
+            windowDeadlineSeconds: deadlineSeconds,
+          });
           return { result: 'reject', severity: PeerErrorSeverity.HighToleranceError };
-        } else {
-          this.logger.verbose(`Ignoring proposal for previous slot ${slotNumber} within clock tolerance`);
-          return { result: 'ignore' };
         }
       }
 
@@ -94,15 +107,13 @@ export class ProposalValidator {
         return { result: 'reject', severity: PeerErrorSeverity.MidToleranceError };
       }
 
-      if (
-        this.maxBlocksPerCheckpoint !== undefined &&
-        'indexWithinCheckpoint' in proposal &&
-        proposal.indexWithinCheckpoint >= this.maxBlocksPerCheckpoint
-      ) {
-        this.logger.warn(
-          `Penalizing peer for proposal with indexWithinCheckpoint ${proposal.indexWithinCheckpoint} >= max ${this.maxBlocksPerCheckpoint}`,
-        );
-        return { result: 'reject', severity: PeerErrorSeverity.MidToleranceError };
+      // A block proposal whose index lands beyond the checkpoint block limit can never be part of a
+      // checkpoint we would attest to, so reject it immediately at ingress.
+      if ('indexWithinCheckpoint' in proposal) {
+        const indexResult = this.validateBlockIndexWithinCheckpoint(proposal);
+        if (indexResult.result !== 'accept') {
+          return indexResult;
+        }
       }
 
       return { result: 'accept' };
@@ -112,6 +123,27 @@ export class ProposalValidator {
       }
       throw e;
     }
+  }
+
+  /**
+   * Rejects a block proposal whose index within its checkpoint lands at or beyond the per-checkpoint
+   * block limit. `MAX_ATTESTABLE_BLOCKS_PER_CHECKPOINT` is a hard ceiling applied even when
+   * `maxBlocksPerCheckpoint` is unset; a lower configured value tightens it further.
+   * `indexWithinCheckpoint` is 0-based, so a ceiling of 72 rejects the 73rd block. Applies to standalone
+   * block proposals and to the terminal block embedded in a checkpoint proposal.
+   */
+  public validateBlockIndexWithinCheckpoint(proposal: BlockProposal): ValidationResult {
+    const maxBlocksPerCheckpoint = Math.min(
+      this.maxBlocksPerCheckpoint ?? MAX_ATTESTABLE_BLOCKS_PER_CHECKPOINT,
+      MAX_ATTESTABLE_BLOCKS_PER_CHECKPOINT,
+    );
+    if (proposal.indexWithinCheckpoint >= maxBlocksPerCheckpoint) {
+      this.logger.warn(
+        `Penalizing peer for proposal with indexWithinCheckpoint ${proposal.indexWithinCheckpoint} >= max ${maxBlocksPerCheckpoint}`,
+      );
+      return { result: 'reject', severity: PeerErrorSeverity.MidToleranceError };
+    }
+    return { result: 'accept' };
   }
 
   /** Validates transaction-related fields of a block proposal. */

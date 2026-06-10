@@ -42,6 +42,7 @@ import {
   type CoordinationSignatureContext,
 } from '@aztec/stdlib/p2p';
 import type { CheckpointHeader } from '@aztec/stdlib/rollup';
+import { ConsensusTimetable } from '@aztec/stdlib/timetable';
 import type { BlockHeader, Tx } from '@aztec/stdlib/tx';
 import { AttestationTimeoutError } from '@aztec/stdlib/validators';
 import { type TelemetryClient, type Tracer, getTelemetryClient } from '@aztec/telemetry-client';
@@ -57,6 +58,7 @@ import { EventEmitter } from 'events';
 import type { TypedDataDefinition } from 'viem';
 
 import type { FullNodeCheckpointsBuilder } from './checkpoint_builder.js';
+import { DEFAULT_MAX_GOSSIP_CLOCK_DISPARITY_MS } from './config.js';
 import { ValidationService } from './duties/validation_service.js';
 import { HAKeyStore } from './key_store/ha_key_store.js';
 import type { ExtendedValidatorKeyStore } from './key_store/interface.js';
@@ -246,7 +248,11 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     slashingProtectionDb?: SlashingProtectionDatabase,
   ) {
     const metrics = new ValidatorMetrics(telemetry);
-    const blockProposalValidator = new BlockProposalValidator(epochCache, {
+    const consensusTimetable = new ConsensusTimetable({
+      l1Constants: epochCache.getL1Constants(),
+      blockDuration: config.blockDurationMs !== undefined ? config.blockDurationMs / 1000 : undefined,
+    });
+    const blockProposalValidator = new BlockProposalValidator(epochCache, consensusTimetable, {
       txsPermitted: !config.disableTransactions,
       maxTxsPerBlock: config.validateMaxTxsPerBlock,
       maxBlocksPerCheckpoint: config.maxBlocksPerCheckpoint,
@@ -255,6 +261,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
         chainId: config.l1ChainId,
         rollupAddress: config.rollupAddress,
       },
+      clockDisparityMs: config.maxGossipClockDisparityMs ?? DEFAULT_MAX_GOSSIP_CLOCK_DISPARITY_MS,
     });
     const proposalHandler = new ProposalHandler(
       checkpointsBuilder,
@@ -264,6 +271,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       txProvider,
       blockProposalValidator,
       epochCache,
+      consensusTimetable,
       config,
       blobClient,
       reexecutionTracker,
@@ -564,7 +572,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
     // Ignore proposals from ourselves (may happen in HA setups)
     if (proposer && this.getValidatorAddresses().some(addr => addr.equals(proposer))) {
-      this.log.debug(`Ignoring block proposal from self for slot ${proposalSlotNumber}`, {
+      this.log.debug(`Not attesting to block proposal from self for slot ${proposalSlotNumber}`, {
         proposer: proposer.toString(),
         proposalSlotNumber,
       });
