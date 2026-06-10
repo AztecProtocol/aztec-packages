@@ -83,9 +83,7 @@ class Grumpkin {
     // The length of the polynomials used to mask the Sumcheck Round Univariates in the committed (ECCVM) sumcheck.
     // Per round, the verifier's view exposes three Libra-sensitive functionals of the round univariate U_i — the
     // evaluation U_i(0), the chained target T_{i+1} = U_i(u_i), and the non-hiding commitment [U_i] — and the pair-sum
-    // bookkeeping U_i(0) + U_i(1) = T_i consumes one Libra coefficient, so the required length is 3 + 1 = 4. With
-    // length 3, the degree-2 mask is determined by the three revealed evaluations and can be stripped off [U_i],
-    // leaving an unmasked witness-derived residual. See sumcheck/docs/committed_sumcheck_zk.md.
+    // bookkeeping U_i(0) + U_i(1) = T_i consumes one Libra coefficient, so the required length is 4.
     static constexpr uint32_t LIBRA_UNIVARIATES_LENGTH = 4;
 };
 } // namespace bb::curve
