@@ -8,6 +8,7 @@ import { KeyStore } from '@aztec/key-store';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { type ProtocolContractsProvider, protocolContractNames } from '@aztec/protocol-contracts';
 import type { CircuitSimulator } from '@aztec/simulator/client';
+import { getStandardHandshakeRegistry } from '@aztec/standard-contracts/handshake-registry';
 import {
   type ContractArtifact,
   EventSelector,
@@ -336,7 +337,11 @@ export class PXE {
 
     pxe.jobQueue.start();
 
-    await Promise.all([pxe.#registerProtocolContracts(), pxe.#registerPreloadedContracts()]);
+    await Promise.all([
+      pxe.#registerProtocolContracts(),
+      pxe.#registerPreloadedContracts(),
+      pxe.#registerHandshakeRegistry(),
+    ]);
     log.info(`Started PXE connected to chain ${info.l1ChainId} version ${info.rollupVersion}`);
     return pxe;
   }
@@ -432,6 +437,11 @@ export class PXE {
     this.log.verbose(`Registered preloaded contracts in pxe`, {
       contracts: contracts.map(({ instance }) => instance.address.toString()),
     });
+  }
+
+  async #registerHandshakeRegistry() {
+    const { instance, artifact } = await getStandardHandshakeRegistry();
+    await this.registerContract({ instance, artifact });
   }
 
   // Executes the entrypoint private function, as well as all nested private

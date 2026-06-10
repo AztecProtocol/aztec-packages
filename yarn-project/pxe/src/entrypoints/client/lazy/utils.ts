@@ -3,7 +3,6 @@ import { createLogger } from '@aztec/foundation/log';
 import { createStore } from '@aztec/kv-store/indexeddb';
 import { LazyProtocolContractsProvider } from '@aztec/protocol-contracts/providers/lazy';
 import { WASMSimulator } from '@aztec/simulator/client';
-import { getStandardHandshakeRegistry } from '@aztec/standard-contracts/handshake-registry/lazy';
 import { getStandardMultiCallEntrypoint } from '@aztec/standard-contracts/multi-call-entrypoint/lazy';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 
@@ -52,7 +51,7 @@ export async function createPXE(
   }
   const protocolContractsProvider = new LazyProtocolContractsProvider();
   const preloadedContractsProvider = options.preloadedContractsProvider ?? {
-    getPreloadedContracts: async () => [await getStandardMultiCallEntrypoint(), await getStandardHandshakeRegistry()],
+    getPreloadedContracts: async () => [await getStandardMultiCallEntrypoint()],
   };
 
   const pxeLogger = loggers.pxe ?? createLogger('pxe:service', { actor });
