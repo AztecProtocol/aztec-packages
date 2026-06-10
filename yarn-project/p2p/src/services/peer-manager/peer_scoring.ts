@@ -177,10 +177,9 @@ export class PeerScoring {
    */
   pruneExpiredBans(): void {
     const now = this.dateProvider.now();
-    for (const [peerId, ban] of this.bannedPeers) {
-      if (ban.expiry <= now) {
-        this.bannedPeers.delete(peerId);
-      }
+    const expired = [...this.bannedPeers.entries()].filter(([, ban]) => ban.expiry <= now).map(([peerId]) => peerId);
+    for (const peerId of expired) {
+      this.bannedPeers.delete(peerId);
     }
   }
 

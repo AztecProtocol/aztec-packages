@@ -261,6 +261,7 @@ describe('PeerScoring', () => {
     peerScoring.penalizePeer(peer, PeerErrorSeverity.LowToleranceError);
     peerScoring.penalizePeer(peer, PeerErrorSeverity.LowToleranceError);
     peerScoring.penalizePeer(peer, PeerErrorSeverity.LowToleranceError);
+    expect(peerScoring.getScore(peer.toString())).toBe(-150);
     expect(peerScoring.getScoreState(peer.toString())).toBe(PeerScoreState.Banned);
 
     // Stay idle long enough that decay drives the live score below SCORE_CLEANUP_THRESHOLD, so
@@ -269,7 +270,9 @@ describe('PeerScoring', () => {
     dateProvider.advanceTimeMs(2 * 60 * 60 * 1000); // 2 hours
     peerScoring.decayAllScores();
 
-    // Previously the peer would have read back as Healthy; the ban keeps it Banned.
+    // Previously the decayed live score would have been cleaned up and getScore would have read back
+    // 0 (Healthy). The persisted ban score (-150) is returned instead, keeping the peer Banned.
+    expect(peerScoring.getScore(peer.toString())).toBe(-150);
     expect(peerScoring.getScoreState(peer.toString())).toBe(PeerScoreState.Banned);
   });
 });
