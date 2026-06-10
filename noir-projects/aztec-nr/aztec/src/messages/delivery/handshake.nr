@@ -1,5 +1,6 @@
+use crate::messages::delivery::OnchainDeliveryMode;
 use crate::protocol::point::EmbeddedCurvePoint;
-use crate::protocol::traits::{Deserialize, Packable, Serialize};
+use crate::protocol::traits::{Deserialize, Serialize};
 
 use crate::{
     ephemeral::EphemeralArray,
@@ -15,10 +16,10 @@ use crate::{
 pub global MAX_HANDSHAKES_PER_PAGE: u32 = 32;
 
 /// A handshake discovered during sync: the sender's ephemeral public key and the delivery mode.
-#[derive(Deserialize, Eq, Packable, Serialize)]
+#[derive(Deserialize, Eq, Serialize)]
 pub struct DiscoveredHandshake {
     pub eph_pk: EmbeddedCurvePoint,
-    pub mode: u8,
+    pub mode: OnchainDeliveryMode,
 }
 
 /// A paginated response of discovered handshakes.
@@ -45,7 +46,7 @@ pub(crate) unconstrained fn get_handshake_secrets(
     let provided_secrets = EphemeralArray::<ProvidedSecret>::empty_at(PROVIDED_SECRETS_ARRAY_BASE_SLOT);
 
     let eph_pks: EphemeralArray<EmbeddedCurvePoint> = EphemeralArray::empty_at(HANDSHAKE_EPH_PKS_SLOT);
-    let modes: EphemeralArray<Field> = EphemeralArray::empty_at(HANDSHAKE_MODES_SLOT);
+    let modes: EphemeralArray<OnchainDeliveryMode> = EphemeralArray::empty_at(HANDSHAKE_MODES_SLOT);
 
     let mut page_offset: u32 = 0;
     let mut has_more = true;
@@ -55,7 +56,7 @@ pub(crate) unconstrained fn get_handshake_secrets(
         for j in 0..page.items.len() {
             let handshake = page.items.get(j);
             eph_pks.push(handshake.eph_pk);
-            modes.push(handshake.mode as Field);
+            modes.push(handshake.mode);
         }
 
         page_offset += page.items.len();
@@ -85,10 +86,14 @@ mod test {
     use crate::messages::delivery::handshake::{
         DiscoveredHandshake, get_handshake_secrets, HandshakePage, MAX_HANDSHAKES_PER_PAGE,
     };
+    use crate::messages::delivery::OnchainDeliveryMode;
     use crate::protocol::{address::AztecAddress, traits::Serialize};
     use crate::test::helpers::test_environment::TestEnvironment;
     use crate::utils::point::point_from_x_coord;
     use std::test::OracleMock;
+
+    global UNCONSTRAINED: OnchainDeliveryMode = OnchainDeliveryMode::onchain_unconstrained();
+    global CONSTRAINED: OnchainDeliveryMode = OnchainDeliveryMode::onchain_constrained();
 
     #[test]
     unconstrained fn get_handshake_secrets_returns_secrets_from_single_page() {
@@ -101,8 +106,8 @@ mod test {
             let pk_b = point_from_x_coord(2).unwrap();
 
             let mut items: BoundedVec<DiscoveredHandshake, MAX_HANDSHAKES_PER_PAGE> = BoundedVec::new();
-            items.push(DiscoveredHandshake { eph_pk: pk_a, mode: 2 });
-            items.push(DiscoveredHandshake { eph_pk: pk_b, mode: 3 });
+            items.push(DiscoveredHandshake { eph_pk: pk_a, mode: UNCONSTRAINED });
+            items.push(DiscoveredHandshake { eph_pk: pk_b, mode: CONSTRAINED });
             let page = HandshakePage { items, total_count: 2 };
             let _ = OracleMock::mock("aztec_utl_callUtilityFunction").returns(page.serialize());
 
@@ -114,9 +119,9 @@ mod test {
 
             assert_eq(secrets.len(), 2);
             assert_eq(secrets.get(0).secret, secret_a);
-            assert_eq(secrets.get(0).mode, 2);
+            assert_eq(secrets.get(0).mode, UNCONSTRAINED);
             assert_eq(secrets.get(1).secret, secret_b);
-            assert_eq(secrets.get(1).mode, 3);
+            assert_eq(secrets.get(1).mode, CONSTRAINED);
         });
     }
 
@@ -132,12 +137,12 @@ mod test {
             let pk_c = point_from_x_coord(8).unwrap();
 
             let mut page_1_items: BoundedVec<DiscoveredHandshake, MAX_HANDSHAKES_PER_PAGE> = BoundedVec::new();
-            page_1_items.push(DiscoveredHandshake { eph_pk: pk_a, mode: 2 });
-            page_1_items.push(DiscoveredHandshake { eph_pk: pk_b, mode: 3 });
+            page_1_items.push(DiscoveredHandshake { eph_pk: pk_a, mode: UNCONSTRAINED });
+            page_1_items.push(DiscoveredHandshake { eph_pk: pk_b, mode: CONSTRAINED });
             let page_1 = HandshakePage { items: page_1_items, total_count: 3 };
 
             let mut page_2_items: BoundedVec<DiscoveredHandshake, MAX_HANDSHAKES_PER_PAGE> = BoundedVec::new();
-            page_2_items.push(DiscoveredHandshake { eph_pk: pk_c, mode: 2 });
+            page_2_items.push(DiscoveredHandshake { eph_pk: pk_c, mode: UNCONSTRAINED });
             let page_2 = HandshakePage { items: page_2_items, total_count: 3 };
 
             let _ = OracleMock::mock("aztec_utl_callUtilityFunction").returns(page_1.serialize()).times(1);
@@ -148,11 +153,11 @@ mod test {
             let secrets = get_handshake_secrets(contract_address, scope);
             assert_eq(secrets.len(), 3);
             assert_eq(secrets.get(0).secret, 111);
-            assert_eq(secrets.get(0).mode, 2);
+            assert_eq(secrets.get(0).mode, UNCONSTRAINED);
             assert_eq(secrets.get(1).secret, 222);
-            assert_eq(secrets.get(1).mode, 3);
+            assert_eq(secrets.get(1).mode, CONSTRAINED);
             assert_eq(secrets.get(2).secret, 333);
-            assert_eq(secrets.get(2).mode, 2);
+            assert_eq(secrets.get(2).mode, UNCONSTRAINED);
         });
     }
 
