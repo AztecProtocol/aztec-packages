@@ -2700,8 +2700,15 @@ export class MsmV2 {
     ]);
     // pp2 two-level preprocess layouts.
     //   digit-count: scalars(ro vec4), digits(rw), bin_counts(rw), params,
-    //   member_desc(ro — one row per union member; single MSM = one row).
-    m.pp2DigitCountLayout = lt(['read-only-storage', 'storage', 'storage', 'uniform', 'read-only-storage']);
+    //   window_desc(ro), point_offsets(ro).
+    m.pp2DigitCountLayout = lt([
+      'read-only-storage',
+      'storage',
+      'storage',
+      'uniform',
+      'read-only-storage',
+      'read-only-storage',
+    ]);
     //   bin-scan: bin_counts(rw, in-place), point_offsets(ro), params.
     m.pp2ScanLayout = lt(['storage', 'read-only-storage', 'uniform']);
     //   bin-scatter: digits(ro), bin_counts(ro), binned(rw), params,
@@ -4127,31 +4134,17 @@ export class MsmV2 {
       );
       this.pp2ParamsBuf = pp2Params;
       const binCounts = scratch.ppvBinCounts;
-      // Member table: one vec4 row per union member ([first global window,
-      // scalar base in vec4 units, point count, first point slot]); a single
-      // MSM is the 1-member union. Drives K1's dispatch-y member dimension.
-      const members = this.batchCtx?.members ?? [{ schedOff: 0, scalarBaseBytes: 0, n, numWindows: 0 }];
-      this.pp2MemberCount = members.length;
-      const memberRows = new Uint32Array(4 * members.length);
-      for (let k = 0; k < members.length; k++) {
-        const mb = members[k];
-        memberRows.set(
-          [mb.schedOff, mb.scalarBaseBytes >>> 4, mb.n, this.batchCtx ? pointOffsets[mb.schedOff] : 0],
-          4 * k,
-        );
-      }
-      const memberDescBuf = device.createBuffer({
-        size: Math.max(16, memberRows.byteLength),
-        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-      });
-      device.queue.writeBuffer(memberDescBuf, 0, memberRows as BufferSource);
-      this.prepBuffers.push(memberDescBuf);
+      // K1's per-member geometry (first window = member*NW, scalar base from
+      // WindowDesc +6, point range from point_offsets) derives in-shader from
+      // the tables every preprocess kernel already binds — no member table.
+      this.pp2MemberCount = this.batchCtx?.members.length ?? 1;
       this.pp2DigitCountBind = mkBind(this.pp2DigitCountLayout, [
         scalarsRawBuf,
         bucketAndSignBuf,
         binCounts,
         pp2Params,
-        memberDescBuf,
+        windowDescBuf,
+        pointOffsetsBuf,
       ]);
       this.pp2ScanBind = mkBind(this.pp2ScanLayout, [binCounts, pointOffsetsBuf, pp2Params]);
       this.pp2ScatterBind = mkBind(this.pp2ScatterLayout, [

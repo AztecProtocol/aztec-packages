@@ -6922,17 +6922,21 @@ export const pp2_digit_count = `// pp2 preprocess K1 — fused signed-Booth deco
 // params[0] = [n (unread; debugging aid), num_tiles, tile_pts, bins_p]
 // params[1] = [base_offset, scan_len (unread; debugging aid), BW, 0] (unused here; shared across pp2)
 @group(0) @binding(3) var<uniform>             params:     array<vec4<u32>, 2>;
-// One row per concatenated-union member: [first global window, scalar base
-// in vec4 units, point count (even), first point slot]. The member's windows
-// share the SAME uniform local schedule, so the code-generated extraction
-// below serves every member.
-@group(0) @binding(4) var<storage, read>       member_desc: array<vec4<u32>>;
+// Per-member geometry comes from the tables every preprocess kernel already
+// uses — no separate member table. Dispatch y = member; the activation gate
+// guarantees each member runs the same NW-window local schedule, so the
+// member's first global window is member*NW, its scalar base sits in that
+// window's WindowDesc row (+6, u32 words; 0 for a single MSM), and its point
+// range is that window's point_offsets span.
+@group(0) @binding(4) var<storage, read>       window_desc:   array<u32>;
+@group(0) @binding(5) var<storage, read>       point_offsets: array<u32>;
 
 const WG: u32 = {{ workgroup_size }}u;
 const NW: u32 = {{ num_windows }}u;
 const BINS_P: u32 = {{ bins_p }}u;
 const BIN_SHIFT: u32 = {{ bin_shift }}u;
 const HIST_LEN: u32 = {{ hist_len }}u; // NW * BINS_P
+const WD_STRIDE: u32 = 8u;
 
 var<workgroup> hist: array<atomic<u32>, {{ hist_len }}>;
 
@@ -6951,11 +6955,12 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     workgroupBarrier();
 
     let member = wid.y;
-    let md = member_desc[member];
-    let win_base = md.x;
-    let sbase_v4 = md.y;
-    let n_k = md.z;
-    let pt_base = md.w;
+    let win_base = member * NW;
+    // scalar_base is in u32 words (see decompose_scalars_booth's +6 slot);
+    // the gate's 16-byte alignment requirement makes the vec4 shift exact.
+    let sbase_v4 = window_desc[win_base * WD_STRIDE + 6u] >> 2u;
+    let pt_base = point_offsets[win_base];
+    let n_k = point_offsets[win_base + 1u] - pt_base;
     let half_n = n_k >> 1u; // n_k even by the pp2 activation gate
     let pr_lo = (tile * tile_pts) >> 1u; // tile_pts is even by construction
     var pr_hi = pr_lo + (tile_pts >> 1u);
