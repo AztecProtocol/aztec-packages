@@ -20,6 +20,7 @@ import {
   chainConfigMappings,
   sharedSequencerConfigMappings,
 } from '@aztec/stdlib/config';
+import { MIN_PER_BLOCK_ALLOCATION_MULTIPLIER, MIN_PER_BLOCK_DA_ALLOCATION_MULTIPLIER } from '@aztec/stdlib/gas';
 import type { ResolvedSequencerConfig } from '@aztec/stdlib/interfaces/server';
 import { DEFAULT_P2P_PROPAGATION_TIME } from '@aztec/stdlib/timetable';
 import { type ValidatorClientConfig, validatorClientConfigMappings } from '@aztec/validator-client/config';
@@ -43,7 +44,8 @@ export const DefaultSequencerConfig = {
   minTxsPerBlock: 1,
   buildCheckpointIfEmpty: false,
   publishTxsWithProposals: false,
-  perBlockAllocationMultiplier: 1.2,
+  perBlockAllocationMultiplier: MIN_PER_BLOCK_ALLOCATION_MULTIPLIER,
+  perBlockDAAllocationMultiplier: MIN_PER_BLOCK_DA_ALLOCATION_MULTIPLIER,
   redistributeCheckpointBudget: true,
   blockDurationMs: DEFAULT_BLOCK_DURATION_MS,
   l1PublishingTime: 12,
@@ -120,6 +122,13 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
       'Per-block gas budget multiplier for both L2 and DA gas. Budget per block is (checkpointLimit / maxBlocks) * multiplier.' +
       ' Values greater than one allow early blocks to use more than their even share, relying on checkpoint-level capping for later blocks.',
     ...numberConfigHelper(DefaultSequencerConfig.perBlockAllocationMultiplier),
+  },
+  perBlockDAAllocationMultiplier: {
+    env: 'SEQ_PER_BLOCK_DA_ALLOCATION_MULTIPLIER',
+    description:
+      'Per-block budget multiplier applied to DA gas and blob fields in place of perBlockAllocationMultiplier.' +
+      ' Defaults higher than the general multiplier so the largest contract class deploy fits a single block.',
+    ...numberConfigHelper(DefaultSequencerConfig.perBlockDAAllocationMultiplier),
   },
   redistributeCheckpointBudget: {
     env: 'SEQ_REDISTRIBUTE_CHECKPOINT_BUDGET',
