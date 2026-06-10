@@ -112,7 +112,19 @@ EOF
     # This fetches all transitive dependencies from npmjs and caches them locally.
     # Use --prefix to avoid modifying the host system's global npm packages.
     echo "Priming verdaccio cache with all dependencies..."
-    retry "npm i -g --prefix /tmp/npm-prime @aztec/aztec@$version @aztec/cli-wallet@$version @aztec/bb.js@$version"
+    # npm resolves every transitive dependency fresh from npmjs (proxied through verdaccio),
+    # so a transient upstream/registry miss can 404 a single uncached version even when it is
+    # published. The default retry (3 attempts, 5s apart) is too impatient to ride out such a
+    # blip and has dequeued merge-train PRs. Retry for longer before giving up.
+    prime_cmd="npm i -g --prefix /tmp/npm-prime @aztec/aztec@$version @aztec/cli-wallet@$version @aztec/bb.js@$version"
+    for attempt in $(seq 1 8); do
+      if $prime_cmd; then
+        break
+      fi
+      [ "$attempt" = 8 ] && { echo "Failed to prime verdaccio cache after 8 attempts" >&2; exit 1; }
+      echo "Prime attempt $attempt failed; retrying in 30s..." >&2
+      sleep 30
+    done
     rm -rf /tmp/npm-prime
 
     docker build -t aztecprotocol/aztec-up-test .
