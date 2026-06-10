@@ -2114,8 +2114,10 @@ export class MsmV2 {
   private pp2DigitCountLayout!: GPUBindGroupLayout;
   private pp2ScanLayout!: GPUBindGroupLayout;
   private pp2ScatterLayout!: GPUBindGroupLayout;
+  private pp2ScatterDirectLayout!: GPUBindGroupLayout;
   private pp2ScatterLeanLayout!: GPUBindGroupLayout;
   private pp2SortEmitLayout!: GPUBindGroupLayout;
+  private pp2MemberCount = 1;
   private reduceLevelLayout!: GPUBindGroupLayout;
   private zInitLayout!: GPUBindGroupLayout;
   private jacLevelLayout!: GPUBindGroupLayout;
@@ -2736,14 +2738,25 @@ export class MsmV2 {
       'read-only-storage',
     ]);
     // pp2 two-level preprocess layouts.
-    //   digit-count: scalars(ro vec4), digits(rw), bin_counts(rw), params.
-    m.pp2DigitCountLayout = lt(['read-only-storage', 'storage', 'storage', 'uniform']);
+    //   digit-count: scalars(ro vec4), digits(rw), bin_counts(rw), params,
+    //   member_desc(ro — one row per union member; single MSM = one row).
+    m.pp2DigitCountLayout = lt(['read-only-storage', 'storage', 'storage', 'uniform', 'read-only-storage']);
     //   bin-scan: bin_counts(rw, in-place), point_offsets(ro), params.
     m.pp2ScanLayout = lt(['storage', 'read-only-storage', 'uniform']);
-    //   bin-scatter: digits-or-scalars(ro), bin_counts(ro), binned(rw), params
-    //   [+ counts_out(rw atomic) in lean-meta mode].
+    //   bin-scatter (staged fused/materialized): in(ro), bin_counts(ro),
+    //   binned(rw), params.
     m.pp2ScatterLayout = lt(['read-only-storage', 'read-only-storage', 'storage', 'uniform']);
-    m.pp2ScatterLeanLayout = lt(['read-only-storage', 'read-only-storage', 'storage', 'uniform', 'storage']);
+    //   bin-scatter (direct family): + point_offsets(ro)
+    //   [+ counts_out(rw atomic) in lean-meta mode].
+    m.pp2ScatterDirectLayout = lt(['read-only-storage', 'read-only-storage', 'storage', 'uniform', 'read-only-storage']);
+    m.pp2ScatterLeanLayout = lt([
+      'read-only-storage',
+      'read-only-storage',
+      'storage',
+      'uniform',
+      'read-only-storage',
+      'storage',
+    ]);
     //   bin-sort-emit: binned(ro), bin_counts(ro), l0_out(rw), counts(rw), offsets(rw), params.
     m.pp2SortEmitLayout = lt([
       'read-only-storage',
@@ -3035,11 +3048,13 @@ export class MsmV2 {
                 m.pp2LeanMeta,
                 m.pp2Variant === 'dmat',
               );
-      m.pp2ScatterPipe = await compile(
-        scatterSrc,
-        `pp2-bin-scatter`,
-        m.pp2LeanMeta ? m.pp2ScatterLeanLayout : m.pp2ScatterLayout,
-      );
+      const scatterLayout =
+        m.pp2Variant === 'materialized' || m.pp2Variant === 'fused'
+          ? m.pp2ScatterLayout
+          : m.pp2LeanMeta
+            ? m.pp2ScatterLeanLayout
+            : m.pp2ScatterDirectLayout;
+      m.pp2ScatterPipe = await compile(scatterSrc, `pp2-bin-scatter`, scatterLayout);
       m.pp2SortEmitPipe = await compile(
         sm.gen_pp2_bin_sort_emit_shader(256, m.pp2BinShift, m.pp2LeanMeta),
         `pp2-bin-sort-emit`,
@@ -3789,13 +3804,28 @@ export class MsmV2 {
     // keeping enough (tile, window) workgroups to saturate the GPU.
     // The live schedule must still match K1's baked one: a splitC prepare that
     // decided to split rewrites windowCs (and/or sets regionSplit) — fall back.
-    this.pp2Active =
-      this.pp2Enabled &&
-      !this.regionSplit &&
-      numBatches === 1 &&
-      !this.batchCtx &&
-      this.windowCs.length === Math.ceil(NUMBITS / this.c) &&
-      this.windowCs.every(cw => cw === this.c);
+    // A concatenated union is covered when every member runs the SAME uniform
+    // local schedule (K1's codegen is member-local; dispatch y = member) with
+    // even point counts (u16 digit pairing) and vec4-aligned scalar bases —
+    // dmat only (the recompute/staged variants never grew union plumbing).
+    {
+      const localNW = Math.ceil(NUMBITS / this.c);
+      const schedOk = this.windowCs.every(cw => cw === this.c);
+      const singleOk = !this.batchCtx && this.windowCs.length === localNW && n % 2 === 0;
+      const unionOk =
+        !!this.batchCtx &&
+        this.pp2Variant === 'dmat' &&
+        this.windowCs.length === this.batchCtx.members.length * localNW &&
+        this.batchCtx.members.every(
+          mb => mb.n % 2 === 0 && mb.n <= n && mb.numWindows === localNW && mb.scalarBaseBytes % 16 === 0,
+        );
+      this.pp2Active = this.pp2Enabled && !this.regionSplit && numBatches === 1 && schedOk && (singleOk || unionOk);
+      if (this.pp2Enabled && !this.pp2Active) {
+        console.log(
+          `[MsmV2] pp2 inactive this prepare (regionSplit=${this.regionSplit} batches=${numBatches} union=${!!this.batchCtx}) — classic preprocess fallback`,
+        );
+      }
+    }
     if (this.pp2Active) {
       this.pp2TilePts = n <= 1 << 17 ? 1024 : n <= 1 << 18 ? 2048 : 4096;
       this.pp2NumTiles = Math.ceil(n / this.pp2TilePts);
@@ -4157,25 +4187,59 @@ export class MsmV2 {
       );
       this.pp2ParamsBuf = pp2Params;
       const binCounts = scratch.ppvBinCounts;
-      this.pp2DigitCountBind = mkBind(this.pp2DigitCountLayout, [scalarsRawBuf, bucketAndSignBuf, binCounts, pp2Params]);
+      // Member table: one vec4 row per union member ([first global window,
+      // scalar base in vec4 units, point count, first point slot]); a single
+      // MSM is the 1-member union. Drives K1's dispatch-y member dimension.
+      const members = this.batchCtx?.members ?? [{ schedOff: 0, scalarBaseBytes: 0, n, numWindows: 0 }];
+      this.pp2MemberCount = members.length;
+      const memberRows = new Uint32Array(4 * members.length);
+      for (let k = 0; k < members.length; k++) {
+        const mb = members[k];
+        memberRows.set(
+          [mb.schedOff, mb.scalarBaseBytes >>> 4, mb.n, this.batchCtx ? pointOffsets[mb.schedOff] : 0],
+          4 * k,
+        );
+      }
+      const memberDescBuf = device.createBuffer({
+        size: Math.max(16, memberRows.byteLength),
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+      });
+      device.queue.writeBuffer(memberDescBuf, 0, memberRows as BufferSource);
+      this.prepBuffers.push(memberDescBuf);
+      this.pp2DigitCountBind = mkBind(this.pp2DigitCountLayout, [
+        scalarsRawBuf,
+        bucketAndSignBuf,
+        binCounts,
+        pp2Params,
+        memberDescBuf,
+      ]);
       this.pp2ScanBind = mkBind(this.pp2ScanLayout, [binCounts, pointOffsetsBuf, pp2Params]);
       // fused/direct: K2 reads the scalars and recomputes digits;
       // materialized/dmat: K2 reads the digit array K1 wrote. Lean-meta
       // additionally accumulates active_counts (cleared per batch in encode).
       const scatterIn =
         this.pp2Variant === 'materialized' || this.pp2Variant === 'dmat' ? bucketAndSignBuf : scalarsRawBuf;
-      if (this.pp2LeanMeta) {
+      this.pp2CountsClearBuf = undefined;
+      if (this.pp2Variant === 'materialized' || this.pp2Variant === 'fused') {
+        this.pp2ScatterBind = mkBind(this.pp2ScatterLayout, [scatterIn, binCounts, valIdxBuf, pp2Params]);
+      } else if (this.pp2LeanMeta) {
         this.pp2ScatterBind = mkBind(this.pp2ScatterLeanLayout, [
           scatterIn,
           binCounts,
           valIdxBuf,
           pp2Params,
+          pointOffsetsBuf,
           countsBufs[0],
         ]);
         this.pp2CountsClearBuf = countsBufs[0];
       } else {
-        this.pp2ScatterBind = mkBind(this.pp2ScatterLayout, [scatterIn, binCounts, valIdxBuf, pp2Params]);
-        this.pp2CountsClearBuf = undefined;
+        this.pp2ScatterBind = mkBind(this.pp2ScatterDirectLayout, [
+          scatterIn,
+          binCounts,
+          valIdxBuf,
+          pp2Params,
+          pointOffsetsBuf,
+        ]);
       }
       this.pp2SortEmitBind = mkBind(this.pp2SortEmitLayout, [
         valIdxBuf,
@@ -4961,7 +5025,7 @@ export class MsmV2 {
       // final l0 entries (base_offset folded) + bucket counts/offsets directly.
       // No buffer clears needed: every output cell is written each run.
       if (this.pp2Active) {
-        dispatch(this.pp2DigitCountPipe!, this.pp2DigitCountBind!, this.pp2NumTiles, 1);
+        dispatch(this.pp2DigitCountPipe!, this.pp2DigitCountBind!, this.pp2NumTiles, this.pp2MemberCount);
         dispatch(this.pp2ScanPipe!, this.pp2ScanBind!, tbw, 1);
         // Lean meta: K2 accumulates active_counts atomically — zero it first
         // (also zeroes the pad buckets K2 never touches).

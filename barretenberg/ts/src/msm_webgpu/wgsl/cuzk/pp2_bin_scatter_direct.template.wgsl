@@ -34,12 +34,17 @@ const MASK_C1: u32 = {{ mask_c1 }}u;
 // params[0] = [n, num_tiles, tile_pts, bins_p]
 // params[1] = [base_offset, scan_len, BW, 0]
 @group(0) @binding(3) var<uniform>             params:     array<vec4<u32>, 2>;
+// Per-window point bases: window w's points span [point_offsets[w],
+// point_offsets[w+1]) — w·n for a uniform single MSM, the packed Σ n_w
+// prefix for a concatenated union, so per-window point counts come from
+// here, not params.
+@group(0) @binding(4) var<storage, read>       point_offsets: array<u32>;
 {{#lean_meta}}
 // Lean meta: this kernel also accumulates the per-(window, bucket) counts
 // (host clears the buffer per batch, so pad buckets read 0), letting K3 skip
 // its whole histogram phase — one fewer full stream over `binned` plus 2 *
 // entries shared atomics, in exchange for one global atomic per point here.
-@group(0) @binding(4) var<storage, read_write> counts_out: array<atomic<u32>>;
+@group(0) @binding(5) var<storage, read_write> counts_out: array<atomic<u32>>;
 {{/lean_meta}}
 
 var<workgroup> cursors: array<atomic<u32>, {{ bins_p }}>;
@@ -51,9 +56,12 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     let tid = lid.x;
     let w = wid.x;
     let tile = wid.y;
-    let n = params[0].x;
     let num_tiles = params[0].y;
     let tile_pts = params[0].z;
+    // This window's point range (even base: the pp2 gate requires even
+    // per-window point counts for the u16 digit pairing).
+    let po = point_offsets[w];
+    let n_w = point_offsets[w + 1u] - po;
 
 {{^from_digits}}
     let lo_bit = select(w * C - 1u, 0u, w == 0u);
@@ -69,16 +77,16 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
 
     let p_lo = tile * tile_pts;
     var p_hi = p_lo + tile_pts;
-    if (p_hi > n) { p_hi = n; }
+    if (p_hi > n_w) { p_hi = n_w; }
 
 {{#from_digits}}
-    let half_n = (n + 1u) >> 1u;
+    let dig_base = po >> 1u;
 {{/from_digits}}
     for (var p: u32 = p_lo + tid; p < p_hi; p = p + WG) {
 {{#from_digits}}
         // u16-packed digit pair: bucket in bits [0..15), sign at bit 15;
         // adjacent threads read the same u32 (warp-broadcast, half traffic).
-        let e2 = scalars[w * half_n + (p >> 1u)];
+        let e2 = scalars[dig_base + (p >> 1u)];
         let e = select(e2 & 0xFFFFu, e2 >> 16u, (p & 1u) == 1u);
         let bkt = e & 0x7FFFu;
         let neg = e >> 15u;

@@ -6866,12 +6866,17 @@ const MASK_C1: u32 = {{ mask_c1 }}u;
 // params[0] = [n, num_tiles, tile_pts, bins_p]
 // params[1] = [base_offset, scan_len, BW, 0]
 @group(0) @binding(3) var<uniform>             params:     array<vec4<u32>, 2>;
+// Per-window point bases: window w's points span [point_offsets[w],
+// point_offsets[w+1]) — w·n for a uniform single MSM, the packed Σ n_w
+// prefix for a concatenated union, so per-window point counts come from
+// here, not params.
+@group(0) @binding(4) var<storage, read>       point_offsets: array<u32>;
 {{#lean_meta}}
 // Lean meta: this kernel also accumulates the per-(window, bucket) counts
 // (host clears the buffer per batch, so pad buckets read 0), letting K3 skip
 // its whole histogram phase — one fewer full stream over \`binned\` plus 2 *
 // entries shared atomics, in exchange for one global atomic per point here.
-@group(0) @binding(4) var<storage, read_write> counts_out: array<atomic<u32>>;
+@group(0) @binding(5) var<storage, read_write> counts_out: array<atomic<u32>>;
 {{/lean_meta}}
 
 var<workgroup> cursors: array<atomic<u32>, {{ bins_p }}>;
@@ -6883,9 +6888,12 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     let tid = lid.x;
     let w = wid.x;
     let tile = wid.y;
-    let n = params[0].x;
     let num_tiles = params[0].y;
     let tile_pts = params[0].z;
+    // This window's point range (even base: the pp2 gate requires even
+    // per-window point counts for the u16 digit pairing).
+    let po = point_offsets[w];
+    let n_w = point_offsets[w + 1u] - po;
 
 {{^from_digits}}
     let lo_bit = select(w * C - 1u, 0u, w == 0u);
@@ -6901,16 +6909,16 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
 
     let p_lo = tile * tile_pts;
     var p_hi = p_lo + tile_pts;
-    if (p_hi > n) { p_hi = n; }
+    if (p_hi > n_w) { p_hi = n_w; }
 
 {{#from_digits}}
-    let half_n = (n + 1u) >> 1u;
+    let dig_base = po >> 1u;
 {{/from_digits}}
     for (var p: u32 = p_lo + tid; p < p_hi; p = p + WG) {
 {{#from_digits}}
         // u16-packed digit pair: bucket in bits [0..15), sign at bit 15;
         // adjacent threads read the same u32 (warp-broadcast, half traffic).
-        let e2 = scalars[w * half_n + (p >> 1u)];
+        let e2 = scalars[dig_base + (p >> 1u)];
         let e = select(e2 & 0xFFFFu, e2 >> 16u, (p & 1u) == 1u);
         let bkt = e & 0x7FFFu;
         let neg = e >> 15u;
@@ -7294,6 +7302,12 @@ export const pp2_digit_count = `// pp2 preprocess K1 — fused signed-Booth deco
 // params[0] = [n, num_tiles, tile_pts, bins_p]
 // params[1] = [base_offset, scan_len, BW, 0] (unused here; shared across pp2)
 @group(0) @binding(3) var<uniform>             params:     array<vec4<u32>, 2>;
+// One row per concatenated-union member (a single MSM is a 1-member union):
+// [first global window, scalar base in vec4 units, point count (even),
+//  first point slot]. The member's windows share the SAME uniform local
+// schedule, so the code-generated extraction below serves every member;
+// dispatch y = member index.
+@group(0) @binding(4) var<storage, read>       member_desc: array<vec4<u32>>;
 
 const WG: u32 = {{ workgroup_size }}u;
 const NW: u32 = {{ num_windows }}u;
@@ -7342,25 +7356,35 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     workgroupBarrier();
 {{/digits_u16}}
 {{#digits_u16}}
-    // u16 digit mode: each thread owns a PAIR of consecutive points and
-    // writes one packed u32 per window — bucket in bits [0..15) and sign at
-    // bit 15 per half (bucket ≤ 2^14, so 15+1 bits fit exactly). Halves the
-    // digit-array traffic here and in the K2 reader on every device.
-    let half_n = (n + 1u) >> 1u;
+    // u16 digit mode: each thread owns a PAIR of consecutive points of ONE
+    // member and writes one packed u32 per window — bucket in bits [0..15)
+    // and sign at bit 15 per half (bucket ≤ 2^14, so 15+1 bits fit exactly).
+    // Halves the digit-array traffic here and in the K2 reader. The window
+    // schedule is member-LOCAL (identical for every member of a uniform
+    // union); digit cells land at the window's global point base
+    // (pt_base + w_local·n_k) >> 1, and histogram rows are member-local with
+    // the flush below offsetting into the member's global window rows.
+    let member = wid.y;
+    let md = member_desc[member];
+    let win_base = md.x;
+    let sbase_v4 = md.y;
+    let n_k = md.z;
+    let pt_base = md.w;
+    let half_n = n_k >> 1u; // n_k even by the pp2 activation gate
     let pr_lo = (tile * tile_pts) >> 1u; // tile_pts is even by construction
     var pr_hi = pr_lo + (tile_pts >> 1u);
     if (pr_hi > half_n) { pr_hi = half_n; }
     for (var pr: u32 = pr_lo + tid; pr < pr_hi; pr = pr + WG) {
         let p0 = 2u * pr;
         let p1 = p0 + 1u;
-        let sa = scalars[2u * p0];
-        let sb = scalars[2u * p0 + 1u];
-        let has_p1 = p1 < n;
+        let sa = scalars[sbase_v4 + 2u * p0];
+        let sb = scalars[sbase_v4 + 2u * p0 + 1u];
+        let has_p1 = p1 < n_k;
         var sc = vec4<u32>(0u, 0u, 0u, 0u);
         var sd = vec4<u32>(0u, 0u, 0u, 0u);
         if (has_p1) {
-            sc = scalars[2u * p1];
-            sd = scalars[2u * p1 + 1u];
+            sc = scalars[sbase_v4 + 2u * p1];
+            sd = scalars[sbase_v4 + 2u * p1 + 1u];
         }
 {{#windows}}
         {
@@ -7379,16 +7403,25 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
                 atomicAdd(&hist[{{ w }}u * BINS_P + (bkt1 >> BIN_SHIFT)], 1u);
                 d1 = bkt1 | (neg1 << 15u);
             }
-            digits[{{ w }}u * half_n + pr] = (bkt | (neg << 15u)) | (d1 << 16u);
+            digits[((pt_base + {{ w }}u * n_k) >> 1u) + pr] = (bkt | (neg << 15u)) | (d1 << 16u);
         }
 {{/windows}}
     }
     workgroupBarrier();
 {{/digits_u16}}
 
+    // Flush the (member-local) histogram rows into the member's GLOBAL
+    // window rows of the bin-count matrix (win_base = 0 for a single MSM).
+{{#digits_u16}}
+    for (var s: u32 = tid; s < HIST_LEN; s = s + WG) {
+        bin_counts[(win_base * BINS_P + s) * num_tiles + tile] = atomicLoad(&hist[s]);
+    }
+{{/digits_u16}}
+{{^digits_u16}}
     for (var s: u32 = tid; s < HIST_LEN; s = s + WG) {
         bin_counts[s * num_tiles + tile] = atomicLoad(&hist[s]);
     }
+{{/digits_u16}}
 
     {{{ recompile }}}
 }
