@@ -31,6 +31,8 @@ export BB=${BB:-../../barretenberg/cpp/build/bin/bb}
 export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
 export BB_HASH=${BB_HASH:-$(../../barretenberg/cpp/bootstrap.sh hash)}
 export NOIR_HASH=${NOIR_HASH:-$(../../noir/bootstrap.sh hash)}
+# Below the Linux ephemeral range (32768-60999) to reduce accidental port conflicts.
+DEFAULT_TXE_PORT=14730
 
 # Set common flags for parallel.
 export PARALLEL_FLAGS="-j${PARALLELISM:-16} --halt now,fail=1 --memsuspend $(memsuspend_limit)"
@@ -167,6 +169,7 @@ function build {
 }
 
 function test_cmds {
+  local txe_port=${1:-$DEFAULT_TXE_PORT}
   local folder_name
   if [ -n "${DOCS_WORKING_DIR:-}" ]; then
     folder_name="examples"
@@ -179,49 +182,75 @@ function test_cmds {
 
   # Fairies want to run these tests on every PR
   if [ "${TARGET_BRANCH:-}" = "merge-train/fairies" ]; then
-    i=0
     $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
-      port=$((14730 + (i++ % ${NUM_TXES:-1})))
-      echo "disabled-cache noir-projects/scripts/run_test.sh noir-contracts $package $test $port"
+      echo "disabled-cache noir-projects/scripts/run_test.sh noir-contracts $package $test $txe_port"
     done
   else
     local -A cache
-    i=0
     $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
-      port=$((14730 + (i++ % ${NUM_TXES:-1})))
       [ -z "${cache[$package]:-}" ] && cache[$package]=$(get_contract_hash $package $folder_name)
-      echo "${cache[$package]} noir-projects/scripts/run_test.sh noir-contracts $package $test $port"
+      echo "${cache[$package]} noir-projects/scripts/run_test.sh noir-contracts $package $test $txe_port"
     done
   fi
 }
 
-function test {
-  # Starting txe servers with incrementing port numbers.
-  # Base port is below the Linux ephemeral range (32768-60999) to avoid conflicts.
-  local txe_base_port=14730
-  export NUM_TXES=1
+function start_txe {
+  local txe_port=$1
   trap 'kill $(jobs -p) &>/dev/null || true' EXIT
-  for i in $(seq 0 $((NUM_TXES-1))); do
-    check_port $((txe_base_port + i)) || echo "WARNING: port $((txe_base_port + i)) is in use, TXE $i may fail to start"
-    (cd $root/yarn-project/txe && UV_THREADPOOL_SIZE=8 LOG_LEVEL=silent TXE_PORT=$((txe_base_port + i)) yarn start) >/dev/null &
-  done
-  echo "Waiting for TXE's to start..."
-  for i in $(seq 0 $((NUM_TXES-1))); do
-      local j=0
-      local port=$((txe_base_port + i))
-      while ! nc -z 127.0.0.1 $port &>/dev/null; do
-        if [ $j == 60 ]; then
-          echo "TXE $i failed to start on port $port after 60s." >&2
-          check_port $port
-          exit 1
-        fi
-        sleep 1
-        j=$((j+1))
-      done
+
+  check_port "$txe_port" || echo "WARNING: port $txe_port is in use, TXE may fail to start"
+  (cd $root/yarn-project/txe && UV_THREADPOOL_SIZE=8 LOG_LEVEL=silent TXE_PORT=$txe_port yarn start) >/dev/null &
+
+  echo "Waiting for TXE to start..."
+  local j=0
+  while ! nc -z 127.0.0.1 "$txe_port" &>/dev/null; do
+    if [ $j == 60 ]; then
+      echo "TXE failed to start on port $txe_port after 60s." >&2
+      check_port "$txe_port"
+      exit 1
+    fi
+    sleep 1
+    j=$((j+1))
   done
 
   export NARGO_FOREIGN_CALL_TIMEOUT=300000
-  test_cmds | filter_test_cmds | parallelize
+}
+
+function test {
+  local txe_port=$DEFAULT_TXE_PORT
+  start_txe "$txe_port"
+  test_cmds "$txe_port" | filter_test_cmds | parallelize
+}
+
+function test-package {
+  if [ "$#" -ne 1 ]; then
+    echo_stderr "Usage: ./bootstrap.sh test-package <package>"
+    return 1
+  fi
+
+  local package=$1
+  local txe_port=$DEFAULT_TXE_PORT
+  start_txe "$txe_port"
+
+  $NARGO test \
+    --silence-warnings \
+    --skip-brillig-constraints-check \
+    --oracle-resolver "http://127.0.0.1:$txe_port" \
+    --package "$package"
+}
+
+function test-one {
+  if [ "$#" -ne 2 ]; then
+    echo_stderr "Usage: ./bootstrap.sh test-one <package> <exact_test_name>"
+    return 1
+  fi
+
+  local package=$1
+  local test_name=$2
+  local txe_port=$DEFAULT_TXE_PORT
+  start_txe "$txe_port"
+
+  $root/noir-projects/scripts/run_test.sh noir-contracts "$package" "$test_name" "$txe_port"
 }
 
 function format {
