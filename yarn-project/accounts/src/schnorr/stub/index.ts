@@ -2,23 +2,19 @@ import { BaseAccount } from '@aztec/aztec.js/account';
 import type { CompleteAddress } from '@aztec/aztec.js/addresses';
 import { DefaultAccountEntrypoint } from '@aztec/entrypoints/account';
 import { loadContractArtifact } from '@aztec/stdlib/abi';
+import type { NoirCompiledContract } from '@aztec/stdlib/noir';
 
-import { StubBaseAccountContract } from '../account_contract.js';
+import SimulatedSchnorrAccountJson from '../../../artifacts/SimulatedSchnorrAccount.json' with { type: 'json' };
+import { StubBaseAccountContract } from '../../defaults/stub_account_contract.js';
 
-/**
- * Lazily loads the Schnorr stub contract artifact (browser-compatible).
- */
-export async function getStubSchnorrAccountContractArtifact() {
-  // Cannot assert this import as it's incompatible with bundlers like vite
-  // https://github.com/vitejs/vite/issues/19095#issuecomment-2566074352
-  const { default: json } = await import('../../../artifacts/SimulatedSchnorrAccount.json');
-  return loadContractArtifact(json);
-}
+export const StubSchnorrAccountContractArtifact = loadContractArtifact(
+  SimulatedSchnorrAccountJson as NoirCompiledContract,
+);
 
-/** Stub account contract for Schnorr accounts. Lazily loads the contract artifact. */
+/** Stub account contract for Schnorr accounts. Eagerly loads the contract artifact. */
 export class StubSchnorrAccountContract extends StubBaseAccountContract {
   override getContractArtifact() {
-    return getStubSchnorrAccountContractArtifact();
+    return Promise.resolve(StubSchnorrAccountContractArtifact);
   }
 }
 
