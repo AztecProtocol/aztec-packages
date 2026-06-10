@@ -28,6 +28,7 @@ import {
   AppTaggingSecret,
   MessageContext,
   type PendingTaggedLog,
+  ResolvedTx,
   deriveAppSiloedSharedSecret,
 } from '@aztec/stdlib/logs';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
@@ -48,7 +49,7 @@ import { EventService } from '../../events/event_service.js';
 import type { UtilityCallAuthorizationRequest } from '../../hooks/authorize_utility_call.js';
 import type { ExecutionHooks } from '../../hooks/index.js';
 import { LogService } from '../../logs/log_service.js';
-import { MessageContextService } from '../../messages/message_context_service.js';
+import { TxResolverService } from '../../messages/tx_resolver_service.js';
 import { NoteService } from '../../notes/note_service.js';
 import { ORACLE_VERSION_MAJOR } from '../../oracle_version.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
@@ -94,7 +95,7 @@ export type UtilityExecutionOracleArgs = {
   capsuleService: CapsuleService;
   privateEventStore: PrivateEventStore;
   entityStore: EntityStore;
-  messageContextService: MessageContextService;
+  txResolver: TxResolverService;
   contractSyncService: ContractSyncService;
   l2TipsStore: L2TipsProvider;
   jobId: string;
@@ -137,7 +138,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   protected readonly capsuleService: CapsuleService;
   protected readonly privateEventStore: PrivateEventStore;
   protected readonly entityStore: EntityStore;
-  protected readonly messageContextService: MessageContextService;
+  protected readonly txResolver: TxResolverService;
   protected readonly contractSyncService: ContractSyncService;
   protected readonly l2TipsStore: L2TipsProvider;
   protected readonly jobId: string;
@@ -162,7 +163,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     this.capsuleService = args.capsuleService;
     this.privateEventStore = args.privateEventStore;
     this.entityStore = args.entityStore;
-    this.messageContextService = args.messageContextService;
+    this.txResolver = args.txResolver;
     this.contractSyncService = args.contractSyncService;
     this.l2TipsStore = args.l2TipsStore;
     this.jobId = args.jobId;
@@ -642,19 +643,35 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     return EphemeralArray.fromValues(this.ephemeralArrayService, innerArrays);
   }
 
-  /** Reads tx hash requests from an ephemeral array, resolves their contexts, and returns the response array. */
+  /** Reads tx hash requests from an ephemeral array, resolves each tx, and returns the response array. */
+  public async resolveTxs(requests: EphemeralArray<Fr>): Promise<EphemeralArray<Option<ResolvedTx>>> {
+    const txHashes = requests.readAll(this.ephemeralArrayService);
+
+    const resolved = await this.txResolver.resolveTxs(txHashes, this.anchorBlockHeader.getBlockNumber());
+
+    const options = resolved.map(r => (r ? Option.some(r) : Option.none<ResolvedTx>(ResolvedTx.empty())));
+    return EphemeralArray.fromValues(this.ephemeralArrayService, options);
+  }
+
+  /**
+   * Backwards-compatibility shim for the removed `aztec_utl_getMessageContextsByTxHash` oracle. Contract artifacts
+   * pinned or compiled against an aztec-nr version that predates `resolve_txs` still call this oracle and expect an
+   * `Option<MessageContext>` (without block fields), so we derive the lean message context from the resolved tx.
+   *
+   * TODO: remove once all such artifacts (pinned standard contracts, committed account artifacts) have been recompiled
+   * against an aztec-nr version that uses `resolve_txs`.
+   */
   public async getMessageContextsByTxHash(
     requests: EphemeralArray<Fr>,
   ): Promise<EphemeralArray<Option<MessageContext>>> {
     const txHashes = requests.readAll(this.ephemeralArrayService);
 
-    const maybeMessageContexts = await this.messageContextService.getMessageContextsByTxHash(
-      txHashes,
-      this.anchorBlockHeader.getBlockNumber(),
-    );
+    const resolved = await this.txResolver.resolveTxs(txHashes, this.anchorBlockHeader.getBlockNumber());
 
-    const options = maybeMessageContexts.map(mc =>
-      mc ? Option.some(mc) : Option.none<MessageContext>(MessageContext.empty()),
+    const options = resolved.map(r =>
+      r
+        ? Option.some(new MessageContext(r.txHash, r.uniqueNoteHashesInTx, r.firstNullifierInTx))
+        : Option.none<MessageContext>(MessageContext.empty()),
     );
     return EphemeralArray.fromValues(this.ephemeralArrayService, options);
   }
@@ -1058,7 +1075,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       capsuleService: this.capsuleService,
       privateEventStore: this.privateEventStore,
       entityStore: this.entityStore,
-      messageContextService: this.messageContextService,
+      txResolver: this.txResolver,
       contractSyncService: this.contractSyncService,
       l2TipsStore: this.l2TipsStore,
       jobId: this.jobId,

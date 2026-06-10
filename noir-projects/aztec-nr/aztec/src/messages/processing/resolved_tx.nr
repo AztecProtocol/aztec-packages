@@ -1,37 +1,44 @@
 use crate::protocol::{constants::MAX_NOTE_HASHES_PER_TX, traits::{Deserialize, Serialize}};
 
-/// Additional information needed to process a message.
+/// The resolved on-chain context of a transaction, looked up by its hash.
 ///
-/// All messages exist in the context of a transaction, and information about that transaction is typically required in
-/// order to perform validation, store results, etc. For example, messages containing notes require knowledge of note
-/// hashes and the first nullifier in order to find the note's nonce.
+/// Returned by the `resolve_txs` oracle. Carries the note hashes and first nullifier needed to discover notes that
+/// originated from the transaction, plus the number and hash of the block in which it was mined. The block fields let
+/// callers anchor block-sensitive state (e.g. offchain message processing records the resolving block so a reorg of
+/// that block can retract the result).
 #[derive(Serialize, Deserialize, Eq)]
-pub struct MessageContext {
+pub struct ResolvedTx {
     pub tx_hash: Field,
     pub unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
     pub first_nullifier_in_tx: Field,
+    pub block_number: u32,
+    pub block_hash: Field,
 }
 
 mod test {
-    use crate::messages::processing::MessageContext;
+    use crate::messages::processing::ResolvedTx;
     use crate::protocol::traits::Deserialize;
 
     #[test]
-    unconstrained fn message_context_serialization_matches_typescript() {
+    unconstrained fn resolved_tx_serialization_matches_typescript() {
         // Setup test data
         let tx_hash = 123;
         let unique_note_hashes = BoundedVec::from_array([4, 5]);
         let first_nullifier = 6;
+        let block_number: u32 = 7;
+        let block_hash = 8;
 
-        // Create a MessageContext instance
-        let message_context = MessageContext {
+        // Create a ResolvedTx instance
+        let resolved_tx = ResolvedTx {
             tx_hash,
             unique_note_hashes_in_tx: unique_note_hashes,
             first_nullifier_in_tx: first_nullifier,
+            block_number,
+            block_hash,
         };
 
-        // Expected output generated from TypeScript's `MessageContext.toFields()`
-        let serialized_message_context_from_typescript = [
+        // Expected output generated from TypeScript's `ResolvedTx.toFields()`
+        let serialized_resolved_tx_from_typescript = [
             0x000000000000000000000000000000000000000000000000000000000000007b,
             0x0000000000000000000000000000000000000000000000000000000000000004,
             0x0000000000000000000000000000000000000000000000000000000000000005,
@@ -99,10 +106,12 @@ mod test {
             0x0000000000000000000000000000000000000000000000000000000000000000,
             0x0000000000000000000000000000000000000000000000000000000000000002,
             0x0000000000000000000000000000000000000000000000000000000000000006,
+            0x0000000000000000000000000000000000000000000000000000000000000007,
+            0x0000000000000000000000000000000000000000000000000000000000000008,
         ];
 
-        let deserialized = MessageContext::deserialize(serialized_message_context_from_typescript);
+        let deserialized = ResolvedTx::deserialize(serialized_resolved_tx_from_typescript);
 
-        assert_eq(deserialized, message_context);
+        assert_eq(deserialized, resolved_tx);
     }
 }

@@ -4,6 +4,9 @@ pub mod offchain;
 mod message_context;
 pub use message_context::MessageContext;
 
+mod resolved_tx;
+pub use resolved_tx::ResolvedTx;
+
 mod note_validation_request;
 pub use note_validation_request::NoteValidationRequest;
 

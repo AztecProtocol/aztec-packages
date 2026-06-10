@@ -42,6 +42,7 @@ import {
   PROVIDED_SECRET,
   PUBLIC_DATA_WITNESS,
   PUBLIC_KEYS_AND_PARTIAL_ADDRESS,
+  RESOLVED_TX,
   STR,
   TX_EFFECT,
   TX_HASH,
@@ -74,6 +75,7 @@ export {
   PENDING_TAGGED_LOG,
   POINT,
   PROVIDED_SECRET,
+  RESOLVED_TX,
   STR,
   U32,
   type InputSlot,
@@ -236,6 +238,13 @@ export const ORACLE_REGISTRY = {
     returnType: EPHEMERAL_ARRAY(EPHEMERAL_ARRAY(LOG_RETRIEVAL_RESPONSE)),
   }),
 
+  aztec_utl_resolveTxs: makeEntry({
+    params: [{ name: 'requests', type: EPHEMERAL_ARRAY(FIELD) }],
+    returnType: EPHEMERAL_ARRAY(OPTION(RESOLVED_TX)),
+  }),
+
+  // Backwards-compatibility shim for contract artifacts that predate `resolve_txs` (see the matching handler in
+  // utility_execution_oracle.ts). Remove once those artifacts are recompiled.
   aztec_utl_getMessageContextsByTxHash: makeEntry({
     params: [{ name: 'requests', type: EPHEMERAL_ARRAY(FIELD) }],
     returnType: EPHEMERAL_ARRAY(OPTION(MESSAGE_CONTEXT)),

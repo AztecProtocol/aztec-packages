@@ -48,7 +48,7 @@ export { pickNotes } from './pick_notes.js';
 export type { IMiscOracle, IUtilityExecutionOracle, IPrivateExecutionOracle } from './oracle/interfaces.js';
 export type { NoteData } from './noir-structs/note_data.js';
 export { MessageLoadOracleInputs } from './oracle/message_load_oracle_inputs.js';
-export { MessageContextService } from '../messages/message_context_service.js';
+export { TxResolverService } from '../messages/tx_resolver_service.js';
 export { UtilityExecutionOracle } from './oracle/utility_execution_oracle.js';
 export { PrivateExecutionOracle } from './oracle/private_execution_oracle.js';
 export { buildACIRCallback, UnavailableOracleError } from './oracle/acir_callback.js';

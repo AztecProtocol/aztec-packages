@@ -2,16 +2,16 @@ import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
-import { MessageContext } from '@aztec/stdlib/logs';
+import { ResolvedTx } from '@aztec/stdlib/logs';
 import { DroppedTxReceipt, MinedTxReceipt, TxEffect, TxExecutionResult, TxHash, TxStatus } from '@aztec/stdlib/tx';
 
 import { mock } from 'jest-mock-extended';
 
-import { MessageContextService } from './message_context_service.js';
+import { TxResolverService } from './tx_resolver_service.js';
 
-describe('MessageContextService', () => {
+describe('TxResolverService', () => {
   let aztecNode: ReturnType<typeof mock<AztecNode>>;
-  let service: MessageContextService;
+  let service: TxResolverService;
   const anchorBlockNumber = 100;
 
   /**
@@ -48,11 +48,11 @@ describe('MessageContextService', () => {
 
   beforeEach(() => {
     aztecNode = mock<AztecNode>();
-    service = new MessageContextService(aztecNode);
+    service = new TxResolverService(aztecNode);
   });
 
   it('returns null for zero tx hash', async () => {
-    const results = await service.getMessageContextsByTxHash([Fr.ZERO], anchorBlockNumber);
+    const results = await service.resolveTxs([Fr.ZERO], anchorBlockNumber);
 
     expect(results).toEqual([null]);
     expect(aztecNode.getTxReceipt).not.toHaveBeenCalled();
@@ -62,7 +62,7 @@ describe('MessageContextService', () => {
     const txHash = TxHash.random();
     aztecNode.getTxReceipt.mockResolvedValueOnce(new DroppedTxReceipt(txHash));
 
-    const results = await service.getMessageContextsByTxHash([txHash.hash], anchorBlockNumber);
+    const results = await service.resolveTxs([txHash.hash], anchorBlockNumber);
 
     expect(results).toEqual([null]);
   });
@@ -78,7 +78,7 @@ describe('MessageContextService', () => {
       }),
     );
 
-    const results = await service.getMessageContextsByTxHash([txHash.hash], anchorBlockNumber);
+    const results = await service.resolveTxs([txHash.hash], anchorBlockNumber);
 
     expect(results).toEqual([null]);
   });
@@ -94,12 +94,12 @@ describe('MessageContextService', () => {
       }),
     );
 
-    await expect(service.getMessageContextsByTxHash([txHash.hash], anchorBlockNumber)).rejects.toThrow(
+    await expect(service.resolveTxs([txHash.hash], anchorBlockNumber)).rejects.toThrow(
       `Tx effect for ${txHash} has no nullifiers`,
     );
   });
 
-  it('resolves a valid tx hash into a MessageContext', async () => {
+  it('resolves a valid tx hash into a ResolvedTx', async () => {
     const txHash = TxHash.random();
     const noteHashes = [Fr.random(), Fr.random()];
     const firstNullifier = Fr.random();
@@ -116,9 +116,9 @@ describe('MessageContextService', () => {
       }),
     );
 
-    const results = await service.getMessageContextsByTxHash([txHash.hash], anchorBlockNumber);
+    const results = await service.resolveTxs([txHash.hash], anchorBlockNumber);
 
-    expect(results).toEqual([new MessageContext(txHash, noteHashes, firstNullifier, blockNumber, blockHash.toFr())]);
+    expect(results).toEqual([new ResolvedTx(txHash, noteHashes, firstNullifier, blockNumber, blockHash.toFr())]);
   });
 
   it('resolves tx hashes in different situations', async () => {
@@ -154,10 +154,10 @@ describe('MessageContextService', () => {
       return Promise.resolve(new DroppedTxReceipt(hash)); // notFoundTxHash
     });
 
-    const results = await service.getMessageContextsByTxHash(
+    const results = await service.resolveTxs(
       [
         Fr.ZERO, // zero → null
-        validTxHash.hash, // valid → MessageContext
+        validTxHash.hash, // valid → ResolvedTx
         notFoundTxHash.hash, // not found → null
         futureTxHash.hash, // beyond anchor → null
       ],
@@ -166,7 +166,7 @@ describe('MessageContextService', () => {
 
     expect(results).toEqual([
       null,
-      new MessageContext(validTxHash, validNoteHashes, validNullifier, anchorBlockNumber, validBlockHash.toFr()),
+      new ResolvedTx(validTxHash, validNoteHashes, validNullifier, anchorBlockNumber, validBlockHash.toFr()),
       null,
       null,
     ]);
@@ -197,12 +197,12 @@ describe('MessageContextService', () => {
       ),
     );
 
-    const results = await service.getMessageContextsByTxHash(
+    const results = await service.resolveTxs(
       [txEffect.txHash.hash, txEffect.txHash.hash, txEffect.txHash.hash],
       anchorBlockNumber,
     );
 
-    const expected = new MessageContext(
+    const expected = new ResolvedTx(
       txEffect.txHash,
       txEffect.noteHashes,
       txEffect.nullifiers[0],

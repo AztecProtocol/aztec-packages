@@ -585,6 +585,16 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
+  aztec_utl_resolveTxs(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_resolveTxs',
+      inputs,
+      handler: ([requestArrayBaseSlot]) => this.handlerAsUtility().resolveTxs(requestArrayBaseSlot),
+    });
+  }
+
+  // Backwards-compatibility shim for contract artifacts that predate `resolve_txs`. Remove once recompiled.
+  // eslint-disable-next-line camelcase
   aztec_utl_getMessageContextsByTxHash(...inputs: ForeignCallArgs) {
     return callTxeHandler({
       oracle: 'aztec_utl_getMessageContextsByTxHash',

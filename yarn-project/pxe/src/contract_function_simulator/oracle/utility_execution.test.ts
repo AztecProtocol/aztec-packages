@@ -35,7 +35,7 @@ import { mock } from 'jest-mock-extended';
 import type { _MockProxy } from 'jest-mock-extended/lib/Mock.js';
 
 import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
-import { MessageContextService } from '../../messages/message_context_service.js';
+import { TxResolverService } from '../../messages/tx_resolver_service.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import { CapsuleService } from '../../storage/capsule_store/capsule_service.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
@@ -71,7 +71,7 @@ describe('Utility Execution test suite', () => {
   let entityStore: EntityStore;
   let contractSyncService: ReturnType<typeof mock<ContractSyncService>>;
   let l2TipsStore: ReturnType<typeof mock<L2TipsProvider>>;
-  let messageContextService: MessageContextService;
+  let txResolver: TxResolverService;
   let acirSimulator: ContractFunctionSimulator;
   let owner: AztecAddress;
   let ownerCompleteAddress: CompleteAddress;
@@ -97,7 +97,7 @@ describe('Utility Execution test suite', () => {
     entityStore = new EntityStore(entityStoreKv);
     contractSyncService = mock<ContractSyncService>();
     l2TipsStore = mock<L2TipsProvider>();
-    messageContextService = new MessageContextService(aztecNode);
+    txResolver = new TxResolverService(aztecNode);
     const capsuleArrays = new Map<string, Fr[][]>();
     anchorBlockHeader = BlockHeader.random();
     senderTaggingStore.getLastFinalizedIndex.mockResolvedValue(undefined);
@@ -131,7 +131,7 @@ describe('Utility Execution test suite', () => {
       entityStore,
       simulator,
       contractSyncService,
-      messageContextService,
+      txResolver,
     });
 
     const ownerPartialAddress = Fr.random();
@@ -447,7 +447,9 @@ describe('Utility Execution test suite', () => {
       });
     });
 
-    describe('getMessageContextsByTxHash', () => {
+    // The `getMessageContextsByTxHash` oracle is a backwards-compatibility shim for contract artifacts that predate
+    // `resolve_txs`; it derives the lean `MessageContext` (without block fields) from the resolved tx.
+    describe('getMessageContextsByTxHash (compat shim)', () => {
       const service = new EphemeralArrayService();
 
       it('sets null in response for zero tx hashes', async () => {
@@ -459,7 +461,7 @@ describe('Utility Execution test suite', () => {
         expect(aztecNode.getTxReceipt).not.toHaveBeenCalled();
       });
 
-      it('resolves a valid tx hash into a MessageContext', async () => {
+      it('resolves a valid tx hash into a lean MessageContext', async () => {
         const txHash = TxHash.random();
         const noteHash = Fr.random();
         const firstNullifier = Fr.random();
@@ -491,9 +493,7 @@ describe('Utility Execution test suite', () => {
         const response = await utilityExecutionOracle.getMessageContextsByTxHash(requests);
         const [responseValue] = response.readAll(service);
         expect(responseValue.isSome()).toBe(true);
-        expect(responseValue.value).toEqual(
-          new MessageContext(txHash, [noteHash], firstNullifier, blockNumber, blockHash.toFr()),
-        );
+        expect(responseValue.value).toEqual(new MessageContext(txHash, [noteHash], firstNullifier));
       });
 
       it('sets null in response for tx effects beyond anchor block', async () => {
@@ -695,7 +695,7 @@ describe('Utility Execution test suite', () => {
         capsuleService: new CapsuleService(capsuleStore, scopes),
         privateEventStore,
         entityStore,
-        messageContextService,
+        txResolver,
         contractSyncService,
         jobId: 'test-job-id',
         scopes,

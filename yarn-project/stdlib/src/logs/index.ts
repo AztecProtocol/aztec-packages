@@ -12,6 +12,7 @@ export * from './logs_query.js';
 export * from './query_all_logs_by_tags.js';
 export * from './shared_secret_derivation.js';
 export * from './message_context.js';
+export * from './resolved_tx.js';
 export * from './debug_log.js';
 export * from './debug_log_store.js';
 export * from './tag.js';

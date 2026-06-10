@@ -5,7 +5,7 @@ pub use message::OffchainMessage;
 use crate::{
     context::UtilityContext,
     ephemeral::EphemeralArray,
-    messages::processing::{MessageContext, OffchainMessageWithContext},
+    messages::processing::{MessageContext, OffchainMessageWithContext, ResolvedTx},
     oracle::{
         contract_sync::set_contract_sync_cache_invalid,
         entity_store::{Fact, NonRetractableEntity},
@@ -90,17 +90,32 @@ pub unconstrained fn receive(
 ///   returning `None`.
 unconstrained fn process_reception(
     reception: NonRetractableEntity<OffchainMessage>,
-    maybe_ctx: Option<MessageContext>,
+    maybe_resolved: Option<ResolvedTx>,
     now: u64,
 ) -> Option<OffchainMessageWithContext> {
+    // To consider for future enhancements: we could annotate retractable entities and facts as "final" when there
+    // corresponding blocks are below the final tip. Then we could use that as termination condition instead of
+    // relying on timestamp arithmetics.
+    // Alternatively, we could accept a block on `terminate`, which would make the termination itself retractable.
+    // The "problem" with that is that we would need some sort of heuristic to cleanup. Maybe the whole
+    // Retractable/NonRetractable distinction is useless at the entity level. We can simply handle entities and
+    // if they are started with a block, they are retracted with a block; if they are terminated with a block, they
+    // are "unterminated" with a block, but also are removed when a block is final.
+    // This, in offchain reception's particular case, would make facts entirely unnecessary (at least at its present
+    // functionality)
     let expired = now > reception.body.anchor_block_timestamp + MAX_MSG_TTL;
     let already_processed = reception.facts.any(|f: Fact| f.fact_type_id == OFFCHAIN_MESSAGE_PROCESSED);
 
-    if !already_processed & maybe_ctx.is_some() {
-        let ctx = maybe_ctx.unwrap();
-        reception.log_retractable_fact(OFFCHAIN_MESSAGE_PROCESSED, [], ctx.tx_block_number, ctx.tx_block_hash);
+    if !already_processed & maybe_resolved.is_some() {
+        let resolved = maybe_resolved.unwrap();
+        reception.log_retractable_fact(OFFCHAIN_MESSAGE_PROCESSED, [], resolved.block_number, resolved.block_hash);
+        let message_context = MessageContext {
+            tx_hash: resolved.tx_hash,
+            unique_note_hashes_in_tx: resolved.unique_note_hashes_in_tx,
+            first_nullifier_in_tx: resolved.first_nullifier_in_tx,
+        };
         Option::some(
-            OffchainMessageWithContext { message_ciphertext: reception.body.ciphertext, message_context: ctx },
+            OffchainMessageWithContext { message_ciphertext: reception.body.ciphertext, message_context },
         )
     } else if expired {
         reception.terminate();
@@ -124,19 +139,19 @@ pub unconstrained fn sync_inbox(
 ) -> EphemeralArray<OffchainMessageWithContext> {
     let active_receptions = NonRetractableEntity::<OffchainMessage>::read_all_active(contract_address, scope);
 
-    // Ask PXE to resolve a tx context for each message. We pass the tx hashes in active-reception order, so the
-    // resolved contexts come back aligned with the reception indices and can be matched back positionally.
-    let resolved_contexts = message_processing::get_message_contexts_by_tx_hash(active_receptions.map(|reception| {
+    // Ask PXE to resolve each message's originating tx. We pass the tx hashes in active-reception order, so the
+    // resolved txs come back aligned with the reception indices and can be matched back positionally.
+    let resolved_txs = message_processing::resolve_txs(active_receptions.map(|reception| {
         reception.body.tx_hash.unwrap_or(0)
     }));
 
-    assert_eq(resolved_contexts.len(), active_receptions.len());
+    assert_eq(resolved_txs.len(), active_receptions.len());
 
     let processable_messages: EphemeralArray<OffchainMessageWithContext> = EphemeralArray::empty();
     let now = UtilityContext::new().timestamp();
 
     active_receptions.for_each(|i, reception| {
-        let maybe_message = process_reception(reception, resolved_contexts.get(i), now);
+        let maybe_message = process_reception(reception, resolved_txs.get(i), now);
         if maybe_message.is_some() {
             processable_messages.push(maybe_message.unwrap());
         }

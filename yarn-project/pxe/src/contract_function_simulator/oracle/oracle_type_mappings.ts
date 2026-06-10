@@ -31,6 +31,7 @@ import {
   MessageContext,
   PendingTaggedLog,
   PrivateLog,
+  ResolvedTx,
   Tag,
   appTaggingSecretKindFromDeliveryMode,
 } from '@aztec/stdlib/logs';
@@ -372,6 +373,10 @@ export const LOG_RETRIEVAL_RESPONSE: TypeMapping<LogRetrievalResponse> = {
 
 export const MESSAGE_CONTEXT: TypeMapping<MessageContext> = {
   serialization: { fn: mc => [mc.toFields()] },
+};
+
+export const RESOLVED_TX: TypeMapping<ResolvedTx> = {
+  serialization: { fn: resolved => [resolved.toFields()] },
 };
 
 export const PROVIDED_SECRET: TypeMapping<ProvidedSecret> = {

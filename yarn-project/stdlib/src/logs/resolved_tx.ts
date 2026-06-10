@@ -5,19 +5,21 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { TxHash } from '../tx/tx_hash.js';
 
 /**
- * Additional information needed to process a message.
+ * The resolved on-chain context of a transaction, looked up by its hash.
  *
- * All messages exist in the context of a transaction, and information about that transaction is typically required
- * in order to perform validation, store results, etc. For example, messages containing notes require knowledge of note
- * hashes and the first nullifier in order to find the note's nonce.
+ * Carries the note hashes and first nullifier needed to discover notes that originated from the transaction, plus the
+ * number and hash of the block in which it was mined. The block fields let callers anchor block-sensitive state (e.g.
+ * offchain message processing records the resolving block so a reorg of that block can retract the result).
  *
- * A TS version of `message_context.nr`.
+ * A TS version of `resolved_tx.nr`.
  */
-export class MessageContext {
+export class ResolvedTx {
   constructor(
     public txHash: TxHash,
     public uniqueNoteHashesInTx: Fr[],
     public firstNullifierInTx: Fr,
+    public blockNumber: number,
+    public blockHash: Fr,
   ) {}
 
   toFields(): Fr[] {
@@ -25,6 +27,8 @@ export class MessageContext {
       this.txHash.hash,
       ...serializeBoundedVec(this.uniqueNoteHashesInTx, MAX_NOTE_HASHES_PER_TX),
       this.firstNullifierInTx,
+      new Fr(this.blockNumber),
+      this.blockHash,
     ];
   }
 
@@ -34,25 +38,32 @@ export class MessageContext {
       tx_hash: this.txHash.hash,
       unique_note_hashes_in_tx: this.uniqueNoteHashesInTx,
       first_nullifier_in_tx: this.firstNullifierInTx,
+      block_number: this.blockNumber,
+      block_hash: this.blockHash,
     };
     /* eslint-enable camelcase */
   }
 
-  static empty(): MessageContext {
-    return new MessageContext(TxHash.zero(), [], Fr.ZERO);
+  static empty(): ResolvedTx {
+    return new ResolvedTx(TxHash.zero(), [], Fr.ZERO, 0, Fr.ZERO);
   }
 
   static toEmptyFields(): Fr[] {
     const serializationLen =
-      1 /* txHash */ + MAX_NOTE_HASHES_PER_TX + 1 /* uniqueNoteHashesInTx BVec */ + 1; /* firstNullifierInTx */
+      1 /* txHash */ +
+      MAX_NOTE_HASHES_PER_TX +
+      1 /* uniqueNoteHashesInTx BVec */ +
+      1 /* firstNullifierInTx */ +
+      1 /* blockNumber */ +
+      1; /* blockHash */
     return range(serializationLen).map(_ => Fr.zero());
   }
 
-  static toSerializedOption(response: MessageContext | null): Fr[] {
-    if (response) {
-      return [new Fr(1), ...response.toFields()];
+  static toSerializedOption(resolved: ResolvedTx | null): Fr[] {
+    if (resolved) {
+      return [new Fr(1), ...resolved.toFields()];
     } else {
-      return [new Fr(0), ...MessageContext.toEmptyFields()];
+      return [new Fr(0), ...ResolvedTx.toEmptyFields()];
     }
   }
 }
@@ -62,7 +73,7 @@ export class MessageContext {
  * @param values - The values to serialize
  * @param maxLength - The maximum length of the bounded vector
  * @returns The serialized bounded vector as Fr[]
- * @dev Copied over from pending_tagged_log.ts.
+ * @dev Copied over from message_context.ts.
  */
 function serializeBoundedVec(values: Fr[], maxLength: number): Fr[] {
   if (values.length > maxLength) {

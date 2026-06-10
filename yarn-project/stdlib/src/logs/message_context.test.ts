@@ -10,11 +10,9 @@ describe('MessageContext', () => {
     const txHash = new TxHash(new Fr(123n));
     const uniqueNoteHashes = [new Fr(4n), new Fr(5n)];
     const firstNullifier = new Fr(6n);
-    const txBlockNumber = 7;
-    const txBlockHash = new Fr(8n);
 
     // Create a MessageContext instance
-    const messageContext = new MessageContext(txHash, uniqueNoteHashes, firstNullifier, txBlockNumber, txBlockHash);
+    const messageContext = new MessageContext(txHash, uniqueNoteHashes, firstNullifier);
 
     // Serialize the message context
     const serialized = messageContext.toFields();
@@ -89,8 +87,6 @@ describe('MessageContext', () => {
         "0x0000000000000000000000000000000000000000000000000000000000000000",
         "0x0000000000000000000000000000000000000000000000000000000000000002",
         "0x0000000000000000000000000000000000000000000000000000000000000006",
-        "0x0000000000000000000000000000000000000000000000000000000000000007",
-        "0x0000000000000000000000000000000000000000000000000000000000000008",
       ]
     `);
 
@@ -107,7 +103,7 @@ describe('MessageContext', () => {
     const txHash = new TxHash(new Fr(123));
     const uniqueNoteHashes = [new Fr(4n), new Fr(5n)];
     const firstNullifier = new Fr(6n);
-    const ctx = new MessageContext(txHash, uniqueNoteHashes, firstNullifier, 7, new Fr(8n));
+    const ctx = new MessageContext(txHash, uniqueNoteHashes, firstNullifier);
     const serialized = MessageContext.toSerializedOption(ctx);
     // is_some flag + fields
     expect(serialized[0]).toEqual(new Fr(1));
@@ -125,7 +121,7 @@ describe('MessageContext', () => {
 
   it('serialization length of empty matches some', () => {
     const txHash = new TxHash(new Fr(123));
-    const ctx = new MessageContext(txHash, [new Fr(4n), new Fr(5n)], new Fr(6n), 7, new Fr(8n));
+    const ctx = new MessageContext(txHash, [new Fr(4n), new Fr(5n)], new Fr(6n));
     expect(ctx.toFields().length).toEqual(MessageContext.toEmptyFields().length);
   });
 });
