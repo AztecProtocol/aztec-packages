@@ -25,7 +25,7 @@ import { bn254 } from '@noble/curves/bn254';
 
 import { get_device } from '../../src/msm_webgpu/cuzk/gpu.js';
 import { runMicrobench } from './microbench.js';
-import { MsmV2, MsmV2Pool, type MsmConfig, pickC, MEM_BUDGET } from '../../src/msm_webgpu/msm_v2.js';
+import { MsmV2, MsmV2Pool, type MsmConfig, pickC, MEM_BUDGET, hostWindowCombine } from '../../src/msm_webgpu/msm_v2.js';
 import { planBatch, computeGeom } from '../../src/msm_webgpu/batch_scheduler.js';
 import { runUnionPacks, type BridgeDescriptor } from '../../src/msm_webgpu/bridge/union_runner.js';
 import { WebGpuMsmHost } from '../../src/msm_webgpu/bridge/main.js';
@@ -141,6 +141,7 @@ const gpuKnobs: MsmConfig = (() => {
     budgetMiB: optInt('budgetmib'),
     varSched: q.get('varsched') === '1' || undefined,
     preprocessV2: q.get('ppv2') === '0' ? false : q.get('ppv2') === '1' ? true : undefined,
+    combineOnHost: false,
     splitC: q.get('split') === '1' || q.get('autorun') === 'msm-msbhist' || undefined,
     wiProbe: q.get('wiprobe') === '1' || undefined,
     sparseReduce: q.get('sparse_reduce') === '1' || undefined,
@@ -672,6 +673,44 @@ async function calibrateClock(device: GPUDevice, N = 96): Promise<Array<[string,
   return out;
 }
 
+// Fold per-window sums to the final affine point, page-side — the same
+// composition production uses (run() ships windowSums; the bridge's C++ hook
+// Horner-folds them). With the wasm oracle booted, the fold is a tiny wasm
+// MSM over the non-empty window sums weighted by 2^bit_base (the
+// bb_native_pippenger exports come from the same webgpu_msm_hook.cpp family
+// as production's combine_windows); without it, the exported JS combine.
+// Publishes __lastFoldMs/__lastFoldMode for the bench drivers.
+async function foldWindowSums(L: { x: bigint; y: bigint }[], windowCs: number[]): Promise<{ x: bigint; y: bigint }> {
+  const t0 = performance.now();
+  let out: { x: bigint; y: bigint };
+  let mode: string;
+  const live: { p: { x: bigint; y: bigint }; bitBase: number }[] = [];
+  let bb = 0;
+  for (let w = 0; w < L.length; w++) {
+    if (!(L[w].x === 0n && L[w].y === 0n)) live.push({ p: L[w], bitBase: bb });
+    bb += windowCs[w];
+  }
+  if (wasmMtPippenger && live.length > 0) {
+    const pts = new Uint8Array(live.length * 64);
+    const scs = new Uint8Array(live.length * 32);
+    for (let i = 0; i < live.length; i++) {
+      pts.set(biToLe32(live[i].p.x, `fold pt ${i} x`), i * 64);
+      pts.set(biToLe32(live[i].p.y, `fold pt ${i} y`), i * 64 + 32);
+      scs.set(biToLe32(1n << BigInt(live[i].bitBase), `fold sc ${i}`), i * 32);
+    }
+    await wasmMtPippenger.loadMsm(pts, scs);
+    out = parseAffineLE(await wasmMtPippenger.runMsm(0));
+    mode = 'wasm';
+  } else {
+    out = hostWindowCombine(L, windowCs);
+    mode = 'js';
+  }
+  const g = window as unknown as { __lastFoldMs?: number; __lastFoldMode?: string };
+  g.__lastFoldMs = performance.now() - t0;
+  g.__lastFoldMode = mode;
+  return out;
+}
+
 async function runWebGpuOnce(
   inputs: TestInputs,
 ): Promise<{ ms: number; xy: { x: bigint; y: bigint }; capture: ProfileCapture }> {
@@ -693,11 +732,13 @@ async function runWebGpuOnce(
   await msm.run();
   const t0 = performance.now();
   const gpu = await msm.run();
+  // Page-side fold INSIDE the timed window — the wall stays an end-to-end
+  // proxy for the production shape (GPU + readback + native-family combine).
+  const xy = await foldWindowSums(gpu.windowSums, msm.windowSchedule);
   const ms = performance.now() - t0;
-  log('info', `[gpu] returned in ${ms.toFixed(1)} ms`);
-  // MsmV2 does not emit a per-pass GPU profile; the breakdown table skips
-  // a null-profile capture, so the GPU column there simply renders empty.
-  return { ms, xy: gpu, capture: { profile: null } };
+  const g = window as unknown as { __lastFoldMs?: number; __lastFoldMode?: string };
+  log('info', `[gpu] returned in ${ms.toFixed(1)} ms (fold ${g.__lastFoldMode}=${(g.__lastFoldMs ?? 0).toFixed(2)}ms)`);
+  return { ms, xy, capture: { profile: null } };
 }
 
 /**
@@ -2259,11 +2300,17 @@ function hideProgress(): void {
         for (let r = 0; r < reps; r++) {
           W.__lastPassTimes = [];
           const t0 = performance.now();
-          await msm.run();
+          const out = await msm.run();
+          await foldWindowSums(out.windowSums, msm.windowSchedule);
           const wallMs = performance.now() - t0;
           const pt = W.__lastPassTimes ?? [];
           traceSamples.push({ wallMs, gpuMs: 0, phases: {}, passTimes: pt });
-          log('info', `[trace] rep ${r + 1}/${reps}: wall=${wallMs.toFixed(1)}ms passes=${pt.length}`);
+          const fg = window as unknown as { __lastFoldMs?: number; __lastFoldMode?: string };
+          log(
+            'info',
+            `[trace] rep ${r + 1}/${reps}: wall=${wallMs.toFixed(1)}ms passes=${pt.length} ` +
+              `fold(${fg.__lastFoldMode})=${(fg.__lastFoldMs ?? 0).toFixed(2)}ms`,
+          );
           await new Promise(res => setTimeout(res, 60));
         }
         (window as unknown as { __benchSamples?: typeof traceSamples }).__benchSamples = traceSamples;

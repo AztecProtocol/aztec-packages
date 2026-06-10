@@ -761,7 +761,7 @@ function buildVarSchedule(numBits: number): number[] {
 //   (b) mid windows empty: the mixed-add formula assumes both operands are
 //       valid; skipping it when L[w] is empty leaves acc as the doubled prior
 //       window, which is correct.
-function hostWindowCombine(L: Pt[], windowCs: number[]): Pt {
+export function hostWindowCombine(L: Pt[], windowCs: number[]): Pt {
   const fadd = (a: bigint, b: bigint): bigint => (a + b) % FP;
   // Find the highest non-empty window to seed Jacobian acc; any windows
   // above it are pure infinity (skip their doublings — doubling ∞ = ∞).
@@ -1928,6 +1928,12 @@ export class MsmV2 {
   // by MsmV2.destroy() (the pool outlives any individual instance).
   private pool!: MsmV2Pool;
   private n!: number;
+  /** Per-window bit-width schedule (uniform fill = c repeated). The page-side
+   *  Horner fold needs the widths to weight each window's sum. */
+  get windowSchedule(): number[] {
+    return this.windowCs;
+  }
+
   /** Pippenger window bit width, picked by `pickC(n)`. Public so the
    *  bridge can ship it back to the C++ Horner combine. */
   c!: number;
@@ -4743,11 +4749,6 @@ export class MsmV2 {
       );
     }
 
-    this.redStaging = device.createBuffer({
-      size: NUM_WINDOWS * 64,
-      usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
-    });
-    this.prepBuffers.push(this.redStaging);
     this.nReduceInit = Math.ceil(RED_M / WGI);
 
     // --- Per-level bind groups ---
@@ -4818,6 +4819,15 @@ export class MsmV2 {
       });
       this.prepBuffers.push(this.tsResolveBuf, this.tsStagingBuf);
     }
+
+    // Window sums + (profile) the resolved timestamps appended, so run()
+    // needs ONE mapAsync fence round-trip instead of two. Created HERE,
+    // after the profiling block, because the size depends on passCount.
+    this.redStaging = device.createBuffer({
+      size: NUM_WINDOWS * 64 + (this.profile ? this.passCount * 16 : 0),
+      usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+    });
+    this.prepBuffers.push(this.redStaging);
 
     // Write the per-prepare base_offset into the conv-active uniform at
     // params[1]. The other three fields ([total_slots, _, wstride, input_size])
@@ -5817,9 +5827,11 @@ export class MsmV2 {
     this.encodeIntoBatch(enc, this.redStaging, 0);
     const tEncoded = performance.now();
     if (!this.splitSubmitDiag) {
-      if (this.profile && this.querySet && this.tsResolveBuf && this.tsStagingBuf) {
+      if (this.profile && this.querySet && this.tsResolveBuf) {
         enc.resolveQuerySet(this.querySet, 0, this.passCount * 2, this.tsResolveBuf, 0);
-        enc.copyBufferToBuffer(this.tsResolveBuf, 0, this.tsStagingBuf, 0, this.passCount * 16);
+        // Land the timestamps in redStaging's tail: one mapAsync serves both
+        // the window sums and the profile, saving a second fence round-trip.
+        enc.copyBufferToBuffer(this.tsResolveBuf, 0, this.redStaging, this.numWindows * 64, this.passCount * 16);
       }
       device.queue.submit([enc.finish()]);
     } else {
@@ -5845,8 +5857,11 @@ export class MsmV2 {
     const tSubmitted = performance.now();
     await this.redStaging.mapAsync(GPUMapMode.READ);
     const tMapped = performance.now();
-    const stagingBytes = new Uint8Array(this.redStaging.getMappedRange());
+    const mapped = this.redStaging.getMappedRange();
+    const stagingBytes = new Uint8Array(mapped);
     const L = this.decodeWindowSumsFromBytes(stagingBytes, 0);
+    // Detach the timestamp tail before unmap (profile decode happens later).
+    const tsBytes = this.profile ? mapped.slice(this.numWindows * 64, this.numWindows * 64 + this.passCount * 16) : null;
     this.redStaging.unmap();
     this.windowSums = L;
     const tDecoded = performance.now();
@@ -5875,13 +5890,11 @@ export class MsmV2 {
     // profile-mode breakdown is no longer reconstructed from this code path
     // — use the dev sweep page directly for that). Wall time still works.
     let profile: ProfileBreakdown | null = null;
-    if (this.profile && this.tsStagingBuf) {
+    if (this.profile && tsBytes) {
       const phaseNs: Record<string, bigint> = {};
       let totalNs = 0n;
       try {
-        await this.tsStagingBuf.mapAsync(GPUMapMode.READ);
-        const tsArr = new BigUint64Array(this.tsStagingBuf.getMappedRange().slice(0));
-        this.tsStagingBuf.unmap();
+        const tsArr = new BigUint64Array(tsBytes);
         const passTimes: Array<[string, string, string]> = [];
         for (let p = 0; p < this.passCount; p++) {
           const dur = tsArr[2 * p + 1] - tsArr[2 * p];
