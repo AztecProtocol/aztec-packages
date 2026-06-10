@@ -1,6 +1,20 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
+# Format check across all workspaces. CI runs this via the root Makefile's
+# noir-projects-format-check target, ordered before the subproject builds so the nargo
+# dependency cache is warm by the time they run.
+function format_check {
+  # nargo downloads its git dependencies (e.g. noir-lang/poseidon) on first use.
+  # Under heavy parallel CI load the VPC DNS resolver drops lookups
+  # ("Could not resolve host: github.com"), leaving a half-cloned dependency dir
+  # that then fails with "Cannot read file .../Nargo.toml". Retry the download,
+  # wiping the partial dependency cache after a failure so the next attempt
+  # re-clones cleanly. A warm cache is left intact on success.
+  local fmt_check='( set -e; for dir in noir-contracts noir-protocol-circuits mock-protocol-circuits aztec-nr; do (cd "$dir" && ../../noir/noir-repo/target/release/nargo fmt --check); done )'
+  RETRY_SLEEP=10 retry "$fmt_check || { rm -rf \"\$HOME/nargo\"; exit 1; }"
+}
+
 function build {
   echo_header "noir-projects build"
 
@@ -10,16 +24,9 @@ function build {
   function prep {
     set -eu
     (cd noir-protocol-circuits && yarn && node ./scripts/generate_variants.js)
-    # nargo downloads its git dependencies (e.g. noir-lang/poseidon) on first use.
-    # Under heavy parallel CI load the VPC DNS resolver drops lookups
-    # ("Could not resolve host: github.com"), leaving a half-cloned dependency dir
-    # that then fails with "Cannot read file .../Nargo.toml". Retry the download,
-    # wiping the partial dependency cache after a failure so the next attempt
-    # re-clones cleanly. A warm cache is left intact on success.
-    local fmt_check='( set -e; for dir in noir-contracts noir-protocol-circuits mock-protocol-circuits aztec-nr; do (cd "$dir" && ../../noir/noir-repo/target/release/nargo fmt --check); done )'
-    RETRY_SLEEP=10 retry "$fmt_check || { rm -rf \"\$HOME/nargo\"; exit 1; }"
+    format_check
   }
-  export -f prep
+  export -f prep format_check
 
   denoise prep
 
