@@ -28,6 +28,13 @@ alias State = array<array<u32, 8>, 4>;
 @group(0) @binding(5) var<storage, read_write> out_chal: array<u32>; // 1 Fr (u_i, for fold)
 @group(0) @binding(6) var<storage, read> scalars: array<u32>;        // [beta_i, iv] Fr (iv = mont(len<<64))
 
+// Round-structure bounds passed as a uniform (not literals) ON PURPOSE: with literal
+// bounds the Metal optimizer unrolls the 56-iteration partial-round loop and inlines
+// the full montgomery_product chain into one function, overflowing the shader
+// compiler (XPC_ERROR_CONNECTION_INTERRUPTED). Runtime bounds keep the loops rolled.
+struct P2Params { rf_half: u32, p_end: u32, nr: u32, pad: u32 } // {4, 60, 64, 0}
+@group(0) @binding(7) var<uniform> p2p: P2Params;
+
 fn ld_uni(idx: u32) -> array<u32, 8> {
   let b = idx * 8u; var v: array<u32, 8>;
 {{#f8_words}}
@@ -130,13 +137,13 @@ fn p2_sbox_full(s: ptr<function, State>) {
 
 fn p2_permute(s: ptr<function, State>) {
   p2_ext(s);
-  for (var i: u32 = 0u; i < 4u; i = i + 1u) { p2_add_rc_full(s, i); p2_sbox_full(s); p2_ext(s); }
-  for (var i: u32 = 4u; i < 60u; i = i + 1u) {
+  for (var i: u32 = 0u; i < p2p.rf_half; i = i + 1u) { p2_add_rc_full(s, i); p2_sbox_full(s); p2_ext(s); }
+  for (var i: u32 = p2p.rf_half; i < p2p.p_end; i = i + 1u) {
     (*s)[0] = fr_add_f8((*s)[0], ld_rc(i, 0u));
     (*s)[0] = p2_sbox((*s)[0]);
     p2_internal(s);
   }
-  for (var i: u32 = 60u; i < 64u; i = i + 1u) { p2_add_rc_full(s, i); p2_sbox_full(s); p2_ext(s); }
+  for (var i: u32 = p2p.p_end; i < p2p.nr; i = i + 1u) { p2_add_rc_full(s, i); p2_sbox_full(s); p2_ext(s); }
 }
 
 @compute @workgroup_size(1)

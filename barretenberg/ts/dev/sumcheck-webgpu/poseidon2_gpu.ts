@@ -6,7 +6,7 @@
 import { POSEIDON2_RC, POSEIDON2_DIAG_M1 } from '../../src/msm_webgpu/cuzk/poseidon2_consts.js';
 import { sumcheckRoundChallenge } from '../../src/msm_webgpu/cuzk/poseidon2_cpu.js';
 import {
-  create_and_write_sb, create_bind_group_layout, create_bind_group,
+  create_and_write_sb, create_and_write_ub, create_bind_group_layout, create_bind_group,
   create_compute_pipeline, execute_pipeline, read_from_gpu,
 } from '../../src/msm_webgpu/cuzk/gpu.js';
 import {
@@ -14,6 +14,15 @@ import {
 } from './harness.js';
 
 const mul = (a: bigint, b: bigint): bigint => mod(a * b);
+
+/** Round-structure bounds {rf_half, p_end, nr, pad} = {4, 60, 64, 0} for the transcript
+ * kernel's uniform — runtime bounds keep Metal from unrolling the 56-round loop. */
+export function p2ParamsBytes(): Uint8Array {
+  const o = new Uint8Array(16);
+  const dv = new DataView(o.buffer);
+  dv.setUint32(0, 4, true); dv.setUint32(4, 60, true); dv.setUint32(8, 64, true); dv.setUint32(12, 0, true);
+  return o;
+}
 
 /** IV for hashing 9 field elements (running + 8 univariate evals): (len << 64), Montgomery. */
 export const POSEIDON2_IV_9 = (): Uint8Array => {
@@ -35,7 +44,7 @@ export function poseidon2ConstBytes(): { rcBytes: Uint8Array; diagBytes: Uint8Ar
 
 async function run({ device, log }: SuiteCtx): Promise<boolean> {
   const layout = create_bind_group_layout(device, [
-    'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage', 'read-only-storage',
+    'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage', 'read-only-storage', 'uniform',
   ]);
   const pipeline = await create_compute_pipeline(
     device, [layout], sm.gen_poseidon2_transcript_test_shader(WG), 'poseidon2_transcript_main', 'poseidon2_transcript_main',
@@ -43,6 +52,7 @@ async function run({ device, log }: SuiteCtx): Promise<boolean> {
   const { rcBytes, diagBytes } = poseidon2ConstBytes();
   const rcBuf = create_and_write_sb(device, rcBytes);
   const diagBuf = create_and_write_sb(device, diagBytes);
+  const p2pBuf = create_and_write_ub(device, p2ParamsBytes());
   const ivBytes = POSEIDON2_IV_9();
 
   const rng = makeRng(0x9051d0_7a3c_0n);
@@ -69,7 +79,7 @@ async function run({ device, log }: SuiteCtx): Promise<boolean> {
     const outBuf = create_and_write_sb(device, new Uint8Array(32).fill(0xff));
     const scBuf = create_and_write_sb(device, scalars);
 
-    const bg = create_bind_group(device, layout, [uniBuf, rcBuf, diagBuf, runBuf, cBuf, outBuf, scBuf]);
+    const bg = create_bind_group(device, layout, [uniBuf, rcBuf, diagBuf, runBuf, cBuf, outBuf, scBuf, p2pBuf]);
     const enc = device.createCommandEncoder();
     await execute_pipeline(enc, pipeline, bg, 1);
     const [outBytes, runOut, cOut] = await read_from_gpu(device, enc, [outBuf, runBuf, cBuf]);

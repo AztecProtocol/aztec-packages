@@ -21,13 +21,13 @@ import {
   makeFoldRunner, makeReduceRunner, encodeColumnsToBytes, type FoldRunner, type ReduceRunner,
 } from './gpu_pipeline.js';
 import { buildBatchConsts } from './batch_gpu.js';
-import { poseidon2ConstBytes, POSEIDON2_IV_9 } from './poseidon2_gpu.js';
+import { poseidon2ConstBytes, POSEIDON2_IV_9, p2ParamsBytes } from './poseidon2_gpu.js';
 import { initWasm, runWasmSumcheck } from './bench.js';
 import { computeBetaProducts } from '../../src/msm_webgpu/gate_separator.js';
 import { NUM_RELATIONS } from '../../src/msm_webgpu/accumulator.js';
 import { ALL_RELATIONS } from './descriptors.js';
 import {
-  create_and_write_sb, create_sb, create_bind_group_layout, create_bind_group,
+  create_and_write_sb, create_and_write_ub, create_sb, create_bind_group_layout, create_bind_group,
   create_compute_pipeline, execute_pipeline, create_readback_buffer,
 } from '../../src/msm_webgpu/cuzk/gpu.js';
 import {
@@ -75,7 +75,7 @@ export async function makeBatchRunner(device: GPUDevice) {
 }
 export async function makeTranscriptRunner(device: GPUDevice) {
   const layout = create_bind_group_layout(device, [
-    'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage', 'read-only-storage',
+    'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage', 'read-only-storage', 'uniform',
   ]);
   const pipeline = await create_compute_pipeline(
     device, [layout], sm.gen_poseidon2_transcript_test_shader(WG), 'poseidon2_transcript_main', 'poseidon2_transcript_main',
@@ -136,6 +136,7 @@ export async function runSingleSubmitSumcheck(
   const { rcBytes, diagBytes } = poseidon2ConstBytes();
   const rcBuf = create_and_write_sb(device, rcBytes);
   const diagBuf = create_and_write_sb(device, diagBytes);
+  const p2pBuf = create_and_write_ub(device, p2ParamsBytes());
   const ivBytes = POSEIDON2_IV_9();
 
   // Per-round host schedule (challenge-independent): edge scaling from beta_products,
@@ -220,7 +221,7 @@ export async function runSingleSubmitSumcheck(
     enc.copyBufferToBuffer(univBuf, 0, staging, uniOff + i * BATCHED_LEN * 32, BATCHED_LEN * 32);
 
     // transcript: univBuf -> u_i (uBuf), advance running + c
-    const tBg = create_bind_group(device, transcript.layout, [univBuf, rcBuf, diagBuf, runBuf, cBuf, uBuf, scalarsBufs[i]]);
+    const tBg = create_bind_group(device, transcript.layout, [univBuf, rcBuf, diagBuf, runBuf, cBuf, uBuf, scalarsBufs[i], p2pBuf]);
     await execute_pipeline(enc, transcript.pipeline, tBg, 1);
     enc.copyBufferToBuffer(uBuf, 0, staging, chalOff + i * 32, 32);
 
