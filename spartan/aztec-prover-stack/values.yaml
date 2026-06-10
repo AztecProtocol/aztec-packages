@@ -69,6 +69,8 @@ broker:
       RPC_MAX_BODY_SIZE: "50mb"
     startCmd:
       - --prover-broker
+    readinessProbe:
+      enabled: false
 
   hostNetwork: false
 
@@ -111,6 +113,8 @@ agent:
       source /scripts/wait-for-broker.sh
     startCmd:
       - --prover-agent
+    readinessProbe:
+      enabled: false
 
   service:
     p2p:

@@ -228,6 +228,35 @@ resource "kubernetes_manifest" "hpa" {
       }
       minReplicas = 1
       maxReplicas = 4
+      behavior = {
+        scaleUp = {
+          stabilizationWindowSeconds = 600
+          selectPolicy               = "Max"
+          policies = [
+            {
+              type          = "Pods"
+              value         = 4
+              periodSeconds = 15
+            },
+            {
+              type          = "Percent"
+              value         = 100
+              periodSeconds = 15
+            }
+          ]
+        }
+        scaleDown = {
+          stabilizationWindowSeconds = 300
+          selectPolicy               = "Max"
+          policies = [
+            {
+              type          = "Percent"
+              value         = 100
+              periodSeconds = 15
+            }
+          ]
+        }
+      }
       metrics = [
         {
           type = "Resource"

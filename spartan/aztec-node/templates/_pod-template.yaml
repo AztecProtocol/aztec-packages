@@ -119,6 +119,21 @@ spec:
         timeoutSeconds: {{ .Values.node.startupProbe.timeoutSeconds }}
         initialDelaySeconds: {{ .Values.node.startupProbe.initialDelaySeconds }}
         failureThreshold: {{ .Values.node.startupProbe.failureThreshold }}
+      {{- if .Values.node.readinessProbe.enabled }}
+      readinessProbe:
+        {{- if .Values.node.readinessProbe.exec }}
+        exec:
+{{ toYaml .Values.node.readinessProbe.exec | indent 10 }}
+        {{- else if .Values.node.readinessProbe.httpGet }}
+        httpGet:
+{{ toYaml .Values.node.readinessProbe.httpGet | indent 10 }}
+        {{- end }}
+        periodSeconds: {{ .Values.node.readinessProbe.periodSeconds }}
+        timeoutSeconds: {{ .Values.node.readinessProbe.timeoutSeconds }}
+        initialDelaySeconds: {{ .Values.node.readinessProbe.initialDelaySeconds }}
+        failureThreshold: {{ .Values.node.readinessProbe.failureThreshold }}
+        successThreshold: {{ .Values.node.readinessProbe.successThreshold }}
+      {{- end }}
       volumeMounts:
         - name: shared
           mountPath: /shared
