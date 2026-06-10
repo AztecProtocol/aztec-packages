@@ -17,7 +17,8 @@ export const MIN_PER_BLOCK_ALLOCATION_MULTIPLIER = 1.2;
 /**
  * Network-minimum per-block budget multiplier for DA gas / blob fields. See
  * {@link MIN_PER_BLOCK_ALLOCATION_MULTIPLIER}. The DA-specific operator knob and its runtime enforcement land
- * with the network tx admission limits (#23947); until then this only constrains the in-code presets.
+ * with the network tx admission limits (#23947); until then this constant is documentation of the network
+ * minimum only.
  */
 export const MIN_PER_BLOCK_DA_ALLOCATION_MULTIPLIER = 1.5;
 
