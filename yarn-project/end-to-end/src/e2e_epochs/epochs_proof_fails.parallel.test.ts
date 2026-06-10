@@ -123,22 +123,24 @@ describe('e2e_epochs/epochs_proof_fails', () => {
     const testProverNode = proverNode.getProverNode() as TestProverNode;
     proverDelayer = testProverNode.getDelayer()!;
 
-    // Inject a delay in prover node proving equal to the length of an epoch, to make sure deadline will be hit
+    // Inject a delay in prover node proving equal to the length of an epoch, to make sure deadline will be hit.
+    // Patches `createTopTreeOrchestrator` so each top tree's `prove()` is replaced with a delayed
+    // synthetic proof
     const epochProverManager = testProverNode.prover;
-    const originalCreate = epochProverManager.createEpochProver.bind(epochProverManager);
+    const originalCreateTopTree = epochProverManager.createTopTreeOrchestrator.bind(epochProverManager);
     const finalizeEpochPromise = promiseWithResolvers<void>();
     let hasFinalizeEpochWaited = false;
-    jest.spyOn(epochProverManager, 'createEpochProver').mockImplementation(() => {
-      const prover = originalCreate();
-      jest.spyOn(prover, 'finalizeEpoch').mockImplementation(async () => {
+    jest.spyOn(epochProverManager, 'createTopTreeOrchestrator').mockImplementation(() => {
+      const topTree = originalCreateTopTree();
+      jest.spyOn(topTree, 'prove').mockImplementation(async () => {
         if (!hasFinalizeEpochWaited) {
           // Note the following is very fragile, as it relies on timing.
           const seconds = L2_SLOT_DURATION_IN_S * (test.epochDuration + 1); // Forgive me for I have sinned.
-          logger.warn(`Finalize epoch: sleeping ${seconds}s.`);
+          logger.warn(`Top-tree prove: sleeping ${seconds}s.`);
           await sleep(seconds * 1000);
         }
         hasFinalizeEpochWaited = true;
-        logger.warn(`Finalize epoch: returning.`);
+        logger.warn(`Top-tree prove: returning.`);
         finalizeEpochPromise.resolve();
         const ourPublicInputs = RootRollupPublicInputs.random();
         const ourBatchedBlob = new BatchedBlob(
@@ -150,7 +152,7 @@ describe('e2e_epochs/epochs_proof_fails', () => {
         );
         return { publicInputs: ourPublicInputs, proof: Proof.empty(), batchedBlobInputs: ourBatchedBlob };
       });
-      return prover;
+      return topTree;
     });
     context.proverNode = proverNode;
 

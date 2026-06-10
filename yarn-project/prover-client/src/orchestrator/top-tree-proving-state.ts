@@ -41,7 +41,6 @@ export class TopTreeProvingState {
   private endBlobAccumulator: BatchedBlobAccumulator | undefined;
   private finalBatchedBlob: BatchedBlob | undefined;
   private lifecycle = TOP_TREE_LIFECYCLE.CREATED;
-
   constructor(
     public readonly epochNumber: EpochNumber,
     public readonly totalNumCheckpoints: number,
