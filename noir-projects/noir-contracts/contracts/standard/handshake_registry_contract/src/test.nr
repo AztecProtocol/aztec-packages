@@ -1,7 +1,13 @@
 use crate::{HandshakeRegistry, MAX_HANDSHAKES_PER_PAGE};
 
 use aztec::{
-    messages::delivery::{MessageDelivery, OnchainDeliveryMode},
+    messages::delivery::{
+        constrained_delivery::{
+            GET_APP_SILOED_SECRET_SELECTOR, NON_INTERACTIVE_HANDSHAKE_SELECTOR, VALIDATE_HANDSHAKE_SELECTOR,
+        },
+        MessageDelivery,
+        OnchainDeliveryMode,
+    },
     oracle::shared_secret::get_shared_secret,
     protocol::{
         address::AztecAddress,
@@ -39,6 +45,29 @@ unconstrained fn setup_with_two_recipients() -> (TestEnvironment, AztecAddress, 
     let registry_address = env.deploy("HandshakeRegistry").without_initializer();
 
     (env, registry_address, sender, recipient_a, recipient_b)
+}
+
+// `calculate_secret_and_index` in aztec-nr cannot import this contract because the contract depends on aztec-nr. Assert
+// its selector constants match this contract's macro-generated interface so a signature change on either side fails
+// here instead of silently drifting.
+#[test]
+unconstrained fn selectors_match_the_constrained_delivery_helper() {
+    let registry = HandshakeRegistry::at(AztecAddress::from_field(1));
+    let sender = AztecAddress::from_field(2);
+    let recipient = AztecAddress::from_field(3);
+
+    assert_eq(
+        registry.get_app_siloed_secret(sender, recipient, ONCHAIN_CONSTRAINED, sender).selector,
+        GET_APP_SILOED_SECRET_SELECTOR,
+    );
+    assert_eq(
+        registry.non_interactive_handshake(sender, recipient, ONCHAIN_CONSTRAINED).selector,
+        NON_INTERACTIVE_HANDSHAKE_SELECTOR,
+    );
+    assert_eq(
+        registry.validate_handshake(sender, recipient, ONCHAIN_CONSTRAINED, 0).selector,
+        VALIDATE_HANDSHAKE_SELECTOR,
+    );
 }
 
 #[test]

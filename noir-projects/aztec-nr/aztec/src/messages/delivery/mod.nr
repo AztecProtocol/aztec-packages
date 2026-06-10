@@ -1,3 +1,5 @@
+pub mod constrained_delivery;
+
 use crate::{
     context::PrivateContext,
     messages::{
@@ -133,16 +135,22 @@ fn resolve_tag_secret_derivation(
 }
 
 mod test {
-    use super::{resolve_tag_secret_derivation, DeliveryMode, TagSecretDerivation};
+    use super::{DeliveryMode, resolve_tag_secret_derivation, TagSecretDerivation};
 
     #[test]
     fn wallet_default_resolves_for_delivery_mode() {
         assert(
-            resolve_tag_secret_derivation(DeliveryMode::onchain_unconstrained(), TagSecretDerivation::wallet_default())
+            resolve_tag_secret_derivation(
+                DeliveryMode::onchain_unconstrained(),
+                TagSecretDerivation::wallet_default(),
+            )
                 == TagSecretDerivation::address_secret(),
         );
         assert(
-            resolve_tag_secret_derivation(DeliveryMode::onchain_constrained(), TagSecretDerivation::wallet_default())
+            resolve_tag_secret_derivation(
+                DeliveryMode::onchain_constrained(),
+                TagSecretDerivation::wallet_default(),
+            )
                 == TagSecretDerivation::non_interactive_handshake(),
         );
     }
@@ -150,14 +158,18 @@ mod test {
     #[test]
     fn explicit_tag_secret_derivation_is_preserved() {
         assert(
-            resolve_tag_secret_derivation(DeliveryMode::onchain_unconstrained(), TagSecretDerivation::address_secret())
+            resolve_tag_secret_derivation(
+                DeliveryMode::onchain_unconstrained(),
+                TagSecretDerivation::address_secret(),
+            )
                 == TagSecretDerivation::address_secret(),
         );
         assert(
             resolve_tag_secret_derivation(
                 DeliveryMode::onchain_constrained(),
                 TagSecretDerivation::non_interactive_handshake(),
-            ) == TagSecretDerivation::non_interactive_handshake(),
+            )
+                == TagSecretDerivation::non_interactive_handshake(),
         );
     }
 }
