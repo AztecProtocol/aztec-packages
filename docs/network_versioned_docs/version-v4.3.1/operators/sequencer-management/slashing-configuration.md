@@ -42,7 +42,7 @@ Round N: Proposers vote on offenses from Round N-2
 ```
 
 **Key parameters**:
-- **Round Size**: 128 L2 slots (approximately 1.28 hours at 36 seconds per slot)
+- **Round Size**: 128 L2 slots (approximately 2.6 hours at 72 seconds per slot)
 - **Slashing Offset**: 2 rounds (proposers in round N vote on offenses from round N-2)
 - **Execution Delay**: 28 rounds (~3 days)
 - **Grace Period**: First 128 slots (configurable per node)
@@ -52,7 +52,7 @@ Round N: Proposers vote on offenses from Round N-2
 The L1 contract defines three fixed slashing tiers that can be configured for different offenses. These amounts are set on L1 deployment and can only be changed via governance.
 
 :::info Network Configuration
-On the current network, **all offenses are currently configured to slash 2,000 tokens (1% of the Activation Threshold - the minimum stake required to join the validator set)**. With the ejection threshold at 98%, validators can be slashed a maximum of **3 times** (totaling 3% of their Activation Threshold) before being automatically ejected from the validator set.
+On mainnet, **all offenses are currently configured to slash 2,000 tokens (1% of the Activation Threshold - the minimum stake required to join the validator set)**. A validator is ejected when a slash would drop its stake below the rollup's local ejection threshold (190,000 tokens on mainnet, 95% of the Activation Threshold). A validator that joined at exactly the 200,000 token Activation Threshold can therefore absorb **5 slashes** (totaling 5% of its stake) and is ejected by the 6th. See [Ejection from the Validator Set](#ejection-from-the-validator-set) for details.
 :::
 
 ## Slashable Offenses
@@ -297,7 +297,7 @@ When slashing rounds become executable (after the execution delay):
 
 The slashing vetoer is an independent security group that can pause slashing to protect validators from unfair slashing due to software bugs.
 
-**Execution Delay**: All slashing proposals have a ~3 day execution delay (28 rounds on testnet) during which the vetoer can review and potentially block execution.
+**Execution Delay**: All slashing proposals have a ~3 day execution delay (28 rounds on mainnet) during which the vetoer can review and potentially block execution.
 
 **Temporary Disable**: The vetoer can disable all slashing for up to 3 days if needed, with the ability to extend this period.
 
@@ -305,11 +305,11 @@ The slashing vetoer is an independent security group that can pause slashing to 
 
 ## Ejection from the Validator Set
 
-If a validator's stake falls below the ejection threshold after being slashed, they are automatically exited from the validator set.
+If a slash would drop a validator's stake below the rollup's **local ejection threshold**, the validator's entire remaining stake is withdrawn instead of just the slashed amount: the slash is burned and the remainder is sent to their registered withdrawer address after the exit delay.
 
-**Ejection Threshold**: 98% of Activation Threshold
+**Local Ejection Threshold**: 190,000 tokens on mainnet (95% of the 200,000 token Activation Threshold). This is a per-rollup parameter, and other networks use different values (199,000 tokens on testnet).
 
-This means a validator can be slashed up to **3 times** (at 1% per slash, totaling 3%) before being automatically ejected. Their remaining stake is sent to their registered withdrawer address.
+With mainnet's 2,000 token (1%) slash amounts, a validator that joined at exactly the Activation Threshold can absorb 5 slashes and is ejected by the 6th. A separate protocol-level ejection threshold (100,000 tokens, 50% of the Activation Threshold) applies to all stake withdrawals at the GSE level, but with current parameters the local ejection threshold is the one that triggers ejection from slashing.
 
 ## Monitoring Slashing Activity
 

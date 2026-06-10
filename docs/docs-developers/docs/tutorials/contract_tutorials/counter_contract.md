@@ -62,6 +62,15 @@ Go to `counter_contract/src/main.nr`, and replace the boilerplate code with this
 
 This defines a contract called `Counter`.
 
+:::note Clear the scaffold's placeholder test
+The scaffolded `counter_test/src/lib.nr` imports the default contract name (`Main`) we just replaced above, so it now fails to compile. Tests aren't used in this tutorial - replace its contents with a single-line stub so `aztec compile` stays clean:
+
+```rust
+// Tests are out of scope for this tutorial. See https://docs.aztec.network/aztec-nr/testing_contracts for examples.
+```
+
+:::
+
 ## Imports
 
 We need to define some imports.
