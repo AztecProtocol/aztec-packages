@@ -1,10 +1,13 @@
 //! Shared test suite for [`OracleArray`] backends.
 //!
-//! Each check exercises one behavior of the shared [`OracleArray`] API (or of the generic `store` / `load` / `delete`
-//! helpers) and is generic over the [`ArrayOracle`] backend, so the ephemeral and transient test suites instantiate
-//! the same checks against their respective oracles via thin `#[test]` wrappers. Each backend module additionally
-//! keeps a smoke test that routes through its own public helpers (e.g. `transient::store` / `transient::load`) to
-//! cover the delegation wiring.
+//! Every `unconstrained` function in this module checks one behavior of the shared [`OracleArray`] API (or of the
+//! generic `store` / `load` / `delete` helpers) and is generic over the [`ArrayOracle`] backend. Backend test modules
+//! do not reference the checks one by one: annotating a module with `ephemeral_oracle_array_tests` /
+//! `transient_oracle_array_tests` generates one `#[test]` per check with that backend's oracle swapped in, so a check
+//! added here automatically runs against every backend. Checks that are expected to fail must be registered in
+//! `should_fail_message`, which supplies the message for the generated `#[test(should_fail_with = ...)]` attribute.
+//! Each backend module additionally keeps a hand-written smoke test routing through its own public helpers (e.g.
+//! `transient::store` / `transient::load`) to cover the delegation wiring.
 
 use crate::oracle_array::{ArrayOracle, delete, load, OracleArray, store};
 use crate::protocol::traits::Serialize;
@@ -14,7 +17,7 @@ use crate::test::mocks::MockStruct;
 pub(crate) global SLOT: Field = 1230;
 pub(crate) global OTHER_SLOT: Field = 5670;
 
-pub(crate) unconstrained fn check_empty_array<Oracle>()
+pub(crate) unconstrained fn empty_array<Oracle>()
 where
     Oracle: ArrayOracle,
 {
@@ -25,7 +28,7 @@ where
     });
 }
 
-pub(crate) unconstrained fn check_empty_array_read<Oracle>()
+pub(crate) unconstrained fn empty_array_read<Oracle>()
 where
     Oracle: ArrayOracle,
 {
@@ -36,7 +39,7 @@ where
     });
 }
 
-pub(crate) unconstrained fn check_empty_array_pop<Oracle>()
+pub(crate) unconstrained fn empty_array_pop<Oracle>()
 where
     Oracle: ArrayOracle,
 {
@@ -47,7 +50,7 @@ where
     });
 }
 
-pub(crate) unconstrained fn check_array_push<Oracle>()
+pub(crate) unconstrained fn array_push<Oracle>()
 where
     Oracle: ArrayOracle,
 {
@@ -61,7 +64,7 @@ where
     });
 }
 
-pub(crate) unconstrained fn check_read_past_len<Oracle>()
+pub(crate) unconstrained fn read_past_len<Oracle>()
 where
     Oracle: ArrayOracle,
 {
@@ -74,7 +77,7 @@ where
     });
 }
 
-pub(crate) unconstrained fn check_array_pop<Oracle>()
+pub(crate) unconstrained fn array_pop<Oracle>()
 where
     Oracle: ArrayOracle,
 {
@@ -91,7 +94,7 @@ where
     });
 }
 
-pub(crate) unconstrained fn check_array_set<Oracle>()
+pub(crate) unconstrained fn array_set<Oracle>()
 where
     Oracle: ArrayOracle,
 {
@@ -104,7 +107,7 @@ where
     });
 }
 
-pub(crate) unconstrained fn check_array_remove_last<Oracle>()
+pub(crate) unconstrained fn array_remove_last<Oracle>()
 where
     Oracle: ArrayOracle,
 {
@@ -117,7 +120,7 @@ where
     });
 }
 
-pub(crate) unconstrained fn check_array_remove_some<Oracle>()
+pub(crate) unconstrained fn array_remove_some<Oracle>()
 where
     Oracle: ArrayOracle,
 {
@@ -139,7 +142,7 @@ where
     });
 }
 
-pub(crate) unconstrained fn check_array_remove_all<Oracle>()
+pub(crate) unconstrained fn array_remove_all<Oracle>()
 where
     Oracle: ArrayOracle,
 {
@@ -159,7 +162,7 @@ where
     });
 }
 
-pub(crate) unconstrained fn check_for_each_called_with_all_elements<Oracle>()
+pub(crate) unconstrained fn for_each_called_with_all_elements<Oracle>()
 where
     Oracle: ArrayOracle,
 {
@@ -181,7 +184,7 @@ where
     });
 }
 
-pub(crate) unconstrained fn check_for_each_remove_some<Oracle>()
+pub(crate) unconstrained fn for_each_remove_some<Oracle>()
 where
     Oracle: ArrayOracle,
 {
@@ -205,7 +208,7 @@ where
     });
 }
 
-pub(crate) unconstrained fn check_for_each_remove_all<Oracle>()
+pub(crate) unconstrained fn for_each_remove_all<Oracle>()
 where
     Oracle: ArrayOracle,
 {
@@ -223,7 +226,7 @@ where
     });
 }
 
-pub(crate) unconstrained fn check_different_slots_are_isolated<Oracle>()
+pub(crate) unconstrained fn different_slots_are_isolated<Oracle>()
 where
     Oracle: ArrayOracle,
 {
@@ -245,7 +248,7 @@ where
     });
 }
 
-pub(crate) unconstrained fn check_works_with_multi_field_type<Oracle>()
+pub(crate) unconstrained fn works_with_multi_field_type<Oracle>()
 where
     Oracle: ArrayOracle,
 {
@@ -268,7 +271,7 @@ where
     });
 }
 
-pub(crate) unconstrained fn check_read_as_reconstructs_serialized_value<Oracle>()
+pub(crate) unconstrained fn read_as_reconstructs_serialized_value<Oracle>()
 where
     Oracle: ArrayOracle,
 {
@@ -287,7 +290,7 @@ where
     });
 }
 
-pub(crate) unconstrained fn check_read_as_rejects_length_mismatch<Oracle>()
+pub(crate) unconstrained fn read_as_rejects_length_mismatch<Oracle>()
 where
     Oracle: ArrayOracle,
 {
@@ -301,7 +304,7 @@ where
     });
 }
 
-pub(crate) unconstrained fn check_clear_returns_self<Oracle>()
+pub(crate) unconstrained fn clear_returns_self<Oracle>()
 where
     Oracle: ArrayOracle,
 {
@@ -316,7 +319,7 @@ where
     });
 }
 
-pub(crate) unconstrained fn check_clear_wipes_previous_data<Oracle>()
+pub(crate) unconstrained fn clear_wipes_previous_data<Oracle>()
 where
     Oracle: ArrayOracle,
 {
@@ -336,7 +339,7 @@ where
     });
 }
 
-pub(crate) unconstrained fn check_empty_allocates_distinct_slots<Oracle>()
+pub(crate) unconstrained fn empty_allocates_distinct_slots<Oracle>()
 where
     Oracle: ArrayOracle,
 {
@@ -356,7 +359,7 @@ where
     });
 }
 
-pub(crate) unconstrained fn check_map_transforms_each_element<Oracle>()
+pub(crate) unconstrained fn map_transforms_each_element<Oracle>()
 where
     Oracle: ArrayOracle,
 {
@@ -380,7 +383,7 @@ where
     });
 }
 
-pub(crate) unconstrained fn check_map_empty_source_gives_empty_dest<Oracle>()
+pub(crate) unconstrained fn map_empty_source_gives_empty_dest<Oracle>()
 where
     Oracle: ArrayOracle,
 {
@@ -392,7 +395,7 @@ where
     });
 }
 
-pub(crate) unconstrained fn check_map_to_different_type<Oracle>()
+pub(crate) unconstrained fn map_to_different_type<Oracle>()
 where
     Oracle: ArrayOracle,
 {
@@ -410,7 +413,7 @@ where
     });
 }
 
-pub(crate) unconstrained fn check_map_results_are_isolated<Oracle>()
+pub(crate) unconstrained fn map_results_are_isolated<Oracle>()
 where
     Oracle: ArrayOracle,
 {
@@ -433,7 +436,7 @@ where
     });
 }
 
-pub(crate) unconstrained fn check_filter_keeps_matching_elements_in_order<Oracle>()
+pub(crate) unconstrained fn filter_keeps_matching_elements_in_order<Oracle>()
 where
     Oracle: ArrayOracle,
 {
@@ -459,7 +462,7 @@ where
     });
 }
 
-pub(crate) unconstrained fn check_filter_empty_source_gives_empty_dest<Oracle>()
+pub(crate) unconstrained fn filter_empty_source_gives_empty_dest<Oracle>()
 where
     Oracle: ArrayOracle,
 {
@@ -471,7 +474,7 @@ where
     });
 }
 
-pub(crate) unconstrained fn check_filter_none_match_gives_empty_dest<Oracle>()
+pub(crate) unconstrained fn filter_none_match_gives_empty_dest<Oracle>()
 where
     Oracle: ArrayOracle,
 {
@@ -487,7 +490,7 @@ where
     });
 }
 
-pub(crate) unconstrained fn check_filter_works_with_multi_field_type<Oracle>()
+pub(crate) unconstrained fn filter_works_with_multi_field_type<Oracle>()
 where
     Oracle: ArrayOracle,
 {
@@ -506,7 +509,7 @@ where
     });
 }
 
-pub(crate) unconstrained fn check_filter_results_are_isolated<Oracle>()
+pub(crate) unconstrained fn filter_results_are_isolated<Oracle>()
 where
     Oracle: ArrayOracle,
 {
@@ -532,7 +535,7 @@ where
     });
 }
 
-pub(crate) unconstrained fn check_any_is_true_when_an_element_matches<Oracle>()
+pub(crate) unconstrained fn any_is_true_when_an_element_matches<Oracle>()
 where
     Oracle: ArrayOracle,
 {
@@ -547,7 +550,7 @@ where
     });
 }
 
-pub(crate) unconstrained fn check_any_is_false_when_no_element_matches<Oracle>()
+pub(crate) unconstrained fn any_is_false_when_no_element_matches<Oracle>()
 where
     Oracle: ArrayOracle,
 {
@@ -562,7 +565,7 @@ where
     });
 }
 
-pub(crate) unconstrained fn check_any_on_empty_array_is_false<Oracle>()
+pub(crate) unconstrained fn any_on_empty_array_is_false<Oracle>()
 where
     Oracle: ArrayOracle,
 {
@@ -573,7 +576,7 @@ where
     });
 }
 
-pub(crate) unconstrained fn check_all_is_true_when_every_element_matches<Oracle>()
+pub(crate) unconstrained fn all_is_true_when_every_element_matches<Oracle>()
 where
     Oracle: ArrayOracle,
 {
@@ -588,7 +591,7 @@ where
     });
 }
 
-pub(crate) unconstrained fn check_all_is_false_when_one_element_fails<Oracle>()
+pub(crate) unconstrained fn all_is_false_when_one_element_fails<Oracle>()
 where
     Oracle: ArrayOracle,
 {
@@ -603,7 +606,7 @@ where
     });
 }
 
-pub(crate) unconstrained fn check_all_on_empty_array_is_true<Oracle>()
+pub(crate) unconstrained fn all_on_empty_array_is_true<Oracle>()
 where
     Oracle: ArrayOracle,
 {
@@ -614,7 +617,7 @@ where
     });
 }
 
-pub(crate) unconstrained fn check_find_returns_first_matching_element<Oracle>()
+pub(crate) unconstrained fn find_returns_first_matching_element<Oracle>()
 where
     Oracle: ArrayOracle,
 {
@@ -633,7 +636,7 @@ where
     });
 }
 
-pub(crate) unconstrained fn check_find_returns_none_when_no_element_matches<Oracle>()
+pub(crate) unconstrained fn find_returns_none_when_no_element_matches<Oracle>()
 where
     Oracle: ArrayOracle,
 {
@@ -648,7 +651,7 @@ where
     });
 }
 
-pub(crate) unconstrained fn check_find_on_empty_array_is_none<Oracle>()
+pub(crate) unconstrained fn find_on_empty_array_is_none<Oracle>()
 where
     Oracle: ArrayOracle,
 {
@@ -659,7 +662,7 @@ where
     });
 }
 
-pub(crate) unconstrained fn check_empty_at_wipes_previous_data<Oracle>()
+pub(crate) unconstrained fn empty_at_wipes_previous_data<Oracle>()
 where
     Oracle: ArrayOracle,
 {
@@ -674,7 +677,7 @@ where
     });
 }
 
-pub(crate) unconstrained fn check_load_empty_returns_none<Oracle>()
+pub(crate) unconstrained fn load_empty_returns_none<Oracle>()
 where
     Oracle: ArrayOracle,
 {
@@ -685,7 +688,7 @@ where
     });
 }
 
-pub(crate) unconstrained fn check_store_overwrites<Oracle>()
+pub(crate) unconstrained fn store_overwrites<Oracle>()
 where
     Oracle: ArrayOracle,
 {
@@ -697,7 +700,7 @@ where
     });
 }
 
-pub(crate) unconstrained fn check_delete_removes_value<Oracle>()
+pub(crate) unconstrained fn delete_removes_value<Oracle>()
 where
     Oracle: ArrayOracle,
 {
@@ -710,7 +713,7 @@ where
     });
 }
 
-pub(crate) unconstrained fn check_delete_empty_is_noop<Oracle>()
+pub(crate) unconstrained fn delete_empty_is_noop<Oracle>()
 where
     Oracle: ArrayOracle,
 {
@@ -722,7 +725,7 @@ where
     });
 }
 
-pub(crate) unconstrained fn check_store_and_load_multi_field_type<Oracle>()
+pub(crate) unconstrained fn store_and_load_multi_field_type<Oracle>()
 where
     Oracle: ArrayOracle,
 {
@@ -734,7 +737,7 @@ where
     });
 }
 
-pub(crate) unconstrained fn check_stored_value_is_visible_as_a_length_one_array<Oracle>()
+pub(crate) unconstrained fn stored_value_is_visible_as_a_length_one_array<Oracle>()
 where
     Oracle: ArrayOracle,
 {
@@ -745,4 +748,55 @@ where
         assert_eq(array.len(), 1);
         assert_eq(array.get(0), 42);
     });
+}
+
+/// Returns the `should_fail_with` message for checks that are expected to fail, or `Option::none()` for checks that
+/// are expected to pass.
+comptime fn should_fail_message(name: Quoted) -> Option<Quoted> {
+    if name == quote { empty_array_read } {
+        Option::some(quote { "out of bounds" })
+    } else if name == quote { empty_array_pop } {
+        Option::some(quote { "is empty" })
+    } else if name == quote { read_past_len } {
+        Option::some(quote { "out of bounds" })
+    } else if name == quote { read_as_rejects_length_mismatch } {
+        Option::some(quote { "length mismatch" })
+    } else {
+        Option::none()
+    }
+}
+
+comptime fn oracle_array_tests(oracle: Quoted) -> Quoted {
+    let helpers = quote { crate::oracle_array::test_helpers }.as_module().unwrap();
+    let mut tests = quote {};
+    for f in helpers.functions() {
+        if f.is_unconstrained() {
+            let name = f.name();
+            let fail = should_fail_message(name);
+            let attr = if fail.is_some() {
+                let msg = fail.unwrap();
+                quote { #[test(should_fail_with = $msg)] }
+            } else {
+                quote { #[test] }
+            };
+            tests = quote {
+                $tests
+                $attr
+                unconstrained fn $name() {
+                    crate::oracle_array::test_helpers::$name::<$oracle>();
+                }
+            };
+        }
+    }
+    tests
+}
+
+/// Generates the shared [`OracleArray`] test suite against the ephemeral backend. Apply to a test module.
+pub(crate) comptime fn ephemeral_oracle_array_tests(_m: Module) -> Quoted {
+    oracle_array_tests(quote { crate::ephemeral::EphemeralOracle })
+}
+
+/// Generates the shared [`OracleArray`] test suite against the transient backend. Apply to a test module.
+pub(crate) comptime fn transient_oracle_array_tests(_m: Module) -> Quoted {
+    oracle_array_tests(quote { crate::transient::TransientOracle })
 }
