@@ -3,14 +3,14 @@
 //! `calculate_and_return` exercises `calculate_secret_and_index` directly. The `index > 0` branch only runs once
 //! the PXE's per-secret index has advanced, which happens when a constrained-tagged log lands on-chain. The
 //! `index > 0` tests land such a log via `emit_constrained_log_without_nullifier` and emit the predecessor chain
-//! nullifier via `emit_chain_nullifier`, standing in for a real constrained send at the prior index.
-//! TODO(F-670): exercise the `index > 0` branch through real constrained sends once the emit helper lands.
+//! nullifier via `emit_chain_nullifier`, or exercise real constrained sends through the high-level delivery API.
 use crate::ConstrainedDeliveryTest;
 
 use aztec::{
     messages::delivery::{MessageDelivery, OnchainDeliveryMode},
     protocol::address::AztecAddress,
-    test::helpers::test_environment::{CallPrivateOptions, TestEnvironment},
+    standard_addresses::STANDARD_HANDSHAKE_REGISTRY_ADDRESS,
+    test::helpers::test_environment::{CallPrivateOptions, DeployOptions, TestEnvironment},
 };
 use handshake_registry_contract::HandshakeRegistry;
 
@@ -23,7 +23,10 @@ unconstrained fn setup() -> (TestEnvironment, AztecAddress, AztecAddress, AztecA
     let sender = env.create_light_account();
     let recipient = env.create_light_account();
 
-    let registry_address = env.deploy("@handshake_registry_contract/HandshakeRegistry").without_initializer();
+    let registry_address = env
+        .deploy_opts(DeployOptions::new().with_salt(1).with_secret(0), "@handshake_registry_contract/HandshakeRegistry")
+        .without_initializer();
+    assert_eq(registry_address, STANDARD_HANDSHAKE_REGISTRY_ADDRESS);
     let test_address = env.deploy("ConstrainedDeliveryTest").without_initializer();
 
     (env, registry_address, test_address, sender, recipient)
@@ -199,4 +202,58 @@ unconstrained fn distinct_pairs_have_independent_indexes() {
     assert_eq(index_a, 0);
     assert_eq(index_b, 0);
     assert(secret_a != secret_b, "different recipients should yield distinct siloed secrets");
+}
+
+// After high-level constrained note delivery lands a tagged log and the chain nullifier in a block, the per-secret
+// index advances in the PXE. The next resolution takes the `index > 0` branch, which proves the prior (now settled)
+// nullifier exists via `compute_nullifier_existence_request`, and returns index 1.
+#[test]
+unconstrained fn advances_index_above_zero_when_prior_message_was_emitted() {
+    let (env, registry_address, test_address, sender, recipient) = setup();
+    let test_contract = ConstrainedDeliveryTest::at(test_address);
+
+    // tx1: bootstraps the handshake (index 0), emits the chain nullifier and the constrained log.
+    env.call_private_opts(sender, helper_options(registry_address), test_contract.emit(sender, recipient));
+
+    // tx2: the emitted log advanced the per-secret index, so resolution returns index 1 and proves the now-settled
+    // predecessor nullifier.
+    let (_secret, index) = env.call_private_opts(
+        sender,
+        helper_options(registry_address),
+        test_contract.calculate_and_return(registry_address, sender, recipient),
+    );
+
+    assert_eq(index, 1);
+}
+
+#[test]
+unconstrained fn maybe_note_delivery_advances_index_above_zero() {
+    let (env, registry_address, test_address, sender, recipient) = setup();
+    let test_contract = ConstrainedDeliveryTest::at(test_address);
+
+    env.call_private_opts(sender, helper_options(registry_address), test_contract.emit_maybe_note(sender, recipient));
+
+    let (_secret, index) = env.call_private_opts(
+        sender,
+        helper_options(registry_address),
+        test_contract.calculate_and_return(registry_address, sender, recipient),
+    );
+
+    assert_eq(index, 1);
+}
+
+#[test]
+unconstrained fn event_delivery_advances_index_above_zero() {
+    let (env, registry_address, test_address, sender, recipient) = setup();
+    let test_contract = ConstrainedDeliveryTest::at(test_address);
+
+    env.call_private_opts(sender, helper_options(registry_address), test_contract.emit_event(sender, recipient));
+
+    let (_secret, index) = env.call_private_opts(
+        sender,
+        helper_options(registry_address),
+        test_contract.calculate_and_return(registry_address, sender, recipient),
+    );
+
+    assert_eq(index, 1);
 }

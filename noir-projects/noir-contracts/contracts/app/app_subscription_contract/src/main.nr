@@ -86,7 +86,7 @@ pub contract AppSubscription {
                     remaining_txs: note.remaining_txs - 1,
                 }
             })
-            .deliver(MessageDelivery::onchain_constrained().with_sender(user_address));
+            .deliver(MessageDelivery::onchain_unconstrained().with_sender(user_address));
 
         self.context.set_as_fee_payer();
 
@@ -150,7 +150,7 @@ pub contract AppSubscription {
             .subscriptions
             .at(subscriber)
             .initialize_or_replace(|_| SubscriptionNote { expiry_block_number, remaining_txs: tx_count })
-            .deliver(MessageDelivery::onchain_constrained());
+            .deliver(MessageDelivery::onchain_unconstrained());
         // docs:end:owned_private_mutable_initialize
     }
 

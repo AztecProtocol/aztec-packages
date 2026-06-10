@@ -28,7 +28,7 @@ pub contract PrivateToken {
     fn mint(amount: u128, recipient: AztecAddress) {
         // Adding to the balance returns a MaybeNoteMessage
         self.storage.balances.at(recipient).add(amount)
-            .deliver(MessageDelivery::onchain_constrained());
+            .deliver(MessageDelivery::onchain_unconstrained());
     }
 }
 ```
@@ -148,9 +148,9 @@ self.storage.balances.at(admin).add(amount)
 - **Privacy:** High - encrypted log reveals minimal information
 
 ```rust
-// Minting to an arbitrary recipient - must guarantee delivery
+// Minting to an arbitrary recipient - must guarantee delivery. Constrained delivery requires an explicit sender.
 self.storage.balances.at(recipient).add(amount)
-    .deliver(MessageDelivery::onchain_constrained());
+    .deliver(MessageDelivery::onchain_constrained().with_sender(self.msg_sender()));
 ```
 
 ## Choosing a Delivery Mode
@@ -199,7 +199,7 @@ You can deliver a note to an address other than the note's owner using `.deliver
 ```rust
 // Create a note owned by `owner` but deliver it to `auditor`
 self.storage.balances.at(owner).add(amount)
-    .deliver_to(auditor, MessageDelivery::onchain_constrained());
+    .deliver_to(auditor, MessageDelivery::onchain_constrained().with_sender(owner));
 ```
 
 **Important:** The recipient (e.g. an `auditor`) can see the note was created but **cannot use it** - only the owner can spend the note (this is authorized by the contract logic). The recipient also cannot see when/if the note is nullified.
@@ -224,7 +224,7 @@ fn transfer(amount: u128, sender: AztecAddress, recipient: AztecAddress) {
     // Add to recipient - constrained delivery for untrusted sender
     self.storage.balances.at(recipient)
         .add(amount)
-        .deliver(MessageDelivery::onchain_constrained());
+        .deliver(MessageDelivery::onchain_constrained().with_sender(sender));
 }
 ```
 
@@ -238,6 +238,6 @@ fn constructor(admin: AztecAddress) {
     // Use unconstrained delivery since we don't know if deployer is incentivized
     self.storage.admin
         .initialize(AddressNote { address: admin }, admin)
-        .deliver(MessageDelivery::onchain_constrained());
+        .deliver(MessageDelivery::onchain_unconstrained());
 }
 ```

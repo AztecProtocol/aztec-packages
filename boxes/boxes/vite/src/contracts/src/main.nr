@@ -21,14 +21,14 @@ contract BoxReact {
         let new_number = FieldNote { value: number };
 
         self.storage.numbers.at(owner).initialize(new_number).deliver(
-            MessageDelivery::onchain_constrained(),
+            MessageDelivery::onchain_unconstrained(),
         );
     }
 
     #[external("private")]
     fn setNumber(number: Field, owner: AztecAddress) {
         self.storage.numbers.at(owner).replace(|_old| FieldNote { value: number }).deliver(
-            MessageDelivery::onchain_constrained(),
+            MessageDelivery::onchain_unconstrained(),
         );
     }
 

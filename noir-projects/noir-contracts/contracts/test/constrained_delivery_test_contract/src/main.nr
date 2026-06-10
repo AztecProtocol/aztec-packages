@@ -1,4 +1,4 @@
-//! Thin wrappers around the constrained-delivery helpers for TXE tests.
+//! Thin wrappers around the constrained-delivery helpers and the high-level delivery API for TXE tests.
 use aztec::macros::aztec;
 
 mod test;
@@ -6,18 +6,31 @@ mod test;
 #[aztec]
 pub contract ConstrainedDeliveryTest {
     use aztec::{
-        macros::functions::external,
+        event::event_emission::emit_event_in_private,
+        macros::{events::event, functions::external, storage::storage},
         messages::delivery::{
-            constrained_delivery::{calculate_secret_and_index, compute_constrained_msg_nullifier},
+            constrained_delivery::{
+                calculate_secret_and_index, compute_constrained_log_tag, compute_constrained_msg_nullifier,
+            },
             MessageDelivery,
         },
         oracle::notes::get_next_tagging_index,
-        protocol::{
-            address::AztecAddress,
-            constants::DOM_SEP__CONSTRAINED_MSG_LOG_TAG,
-            hash::{compute_log_tag, poseidon2_hash},
-        },
+        protocol::address::AztecAddress,
+        state_vars::{Owned, PrivateSet},
     };
+    use balance_set::BalanceSet;
+    use field_note::FieldNote;
+
+    #[event]
+    struct ExampleEvent {
+        value: Field,
+    }
+
+    #[storage]
+    struct Storage<Context> {
+        notes: Owned<PrivateSet<FieldNote, Context>, Context>,
+        balances: Owned<BalanceSet<Context>, Context>,
+    }
 
     /// Calls the helper and returns the resolved `(app_siloed_secret, index)` tuple.
     #[external("private")]
@@ -44,22 +57,44 @@ pub contract ConstrainedDeliveryTest {
 
     /// Emits the chain nullifier for `(sender, recipient, secret)` at `index`.
     ///
-    /// Stands in for the forthcoming emit helper's nullifier emission so tests can advance the nullifier chain
-    /// without performing a constrained send.
+    /// Lets tests advance the nullifier chain without performing a constrained send.
     #[external("private")]
     fn emit_chain_nullifier(sender: AztecAddress, recipient: AztecAddress, secret: Field, index: u32) {
         self.context.push_nullifier_unsafe(compute_constrained_msg_nullifier(sender, recipient, secret, index));
     }
 
-    /// Test-only: emits a log under the constrained tag for `(secret, index)` WITHOUT the chain nullifier. A landed
-    /// constrained-tagged log advances the PXE's per-secret index, so this lets tests reach the `index > 0` branch;
-    /// deliberately skipping the nullifier drives the negative test.
+    /// Delivers a constrained note message to its owner through the high-level note API.
+    #[external("private")]
+    fn emit(sender: AztecAddress, recipient: AztecAddress) {
+        self.storage.notes.at(recipient).insert(FieldNote { value: 1 }).deliver(MessageDelivery::onchain_constrained()
+            .via_non_interactive_handshake()
+            .with_sender(sender));
+    }
+
+    /// Delivers a constrained maybe-note message through the high-level maybe-note API.
+    #[external("private")]
+    fn emit_maybe_note(sender: AztecAddress, recipient: AztecAddress) {
+        self.storage.balances.at(recipient).add(1).deliver_to(
+            recipient,
+            MessageDelivery::onchain_constrained().via_non_interactive_handshake().with_sender(sender),
+        );
+    }
+
+    /// Delivers a constrained event message through the high-level event API.
+    #[external("private")]
+    fn emit_event(sender: AztecAddress, recipient: AztecAddress) {
+        emit_event_in_private(self.context, ExampleEvent { value: 1 }).deliver_to(
+            recipient,
+            MessageDelivery::onchain_constrained().via_non_interactive_handshake().with_sender(sender),
+        );
+    }
+
+    /// Test-only: emits a log under the constrained tag for `(secret, index)` WITHOUT the chain nullifier. This
+    /// advances the PXE's per-secret index (the recipient discovers the log by tag) while deliberately leaving the
+    /// nullifier chain broken, which drives the negative `index > 0` test.
     #[external("private")]
     fn emit_constrained_log_without_nullifier(secret: Field, index: u32) {
-        let log_tag = compute_log_tag(
-            poseidon2_hash([secret, index as Field]),
-            DOM_SEP__CONSTRAINED_MSG_LOG_TAG,
-        );
+        let log_tag = compute_constrained_log_tag(secret, index);
         self.context.emit_private_log_unsafe(log_tag, BoundedVec::from_array([secret]));
     }
 }

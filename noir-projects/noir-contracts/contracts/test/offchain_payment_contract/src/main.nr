@@ -19,7 +19,7 @@ contract OffchainPayment {
     #[external("private")]
     fn mint(amount: u128, recipient: AztecAddress) {
         // Minted notes are delivered onchain to ensure the recipient can always discover them.
-        self.storage.balances.at(recipient).add(amount).deliver(MessageDelivery::onchain_constrained());
+        self.storage.balances.at(recipient).add(amount).deliver(MessageDelivery::onchain_unconstrained());
     }
 
     #[external("private")]

@@ -56,7 +56,7 @@ You can deliver the same event to multiple recipients with different delivery mo
 ```rust
 let message = self.emit(Transfer { from, to, amount });
 message.deliver_to(from, MessageDelivery::offchain());
-message.deliver_to(to, MessageDelivery::onchain_constrained());
+message.deliver_to(to, MessageDelivery::onchain_constrained().with_sender(from));
 ```
 
 The `MessageDelivery` options are:

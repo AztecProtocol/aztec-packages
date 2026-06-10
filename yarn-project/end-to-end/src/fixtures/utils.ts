@@ -10,6 +10,7 @@ export {
   deployAccounts,
   ensureAccountContractsPublished,
   ensureAuthRegistryPublished,
+  ensureHandshakeRegistryPublished,
   ensurePublicChecksPublished,
   expectMapping,
   expectMappingDelta,

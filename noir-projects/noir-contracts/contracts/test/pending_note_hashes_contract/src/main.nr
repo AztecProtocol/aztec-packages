@@ -97,6 +97,8 @@ pub contract PendingNoteHashes {
     // Nested/inner function to create and insert a note using constrained delivery. Constrained note logs are not
     // linked to the note for squashing (recipients discover them by scanning the per-secret tag sequence, so a
     // removed log would break the index chain), meaning the log survives even when the note itself is squashed.
+    // Constrained delivery resolves the sender-recipient handshake via the standard handshake registry,
+    // bootstrapping one on first use.
     #[external("private")]
     fn insert_note_constrained(amount: Field, owner: AztecAddress, sender: AztecAddress) {
         let owner_balance = self.storage.balances.at(owner);
@@ -104,7 +106,7 @@ pub contract PendingNoteHashes {
         let note = FieldNote { value: amount };
 
         // Insert note
-        owner_balance.insert(note).deliver(MessageDelivery::onchain_constrained());
+        owner_balance.insert(note).deliver(MessageDelivery::onchain_constrained().with_sender(sender));
     }
 
     // Nested/inner function to create and insert a note

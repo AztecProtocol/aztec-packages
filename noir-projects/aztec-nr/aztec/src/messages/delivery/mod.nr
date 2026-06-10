@@ -7,6 +7,7 @@ use crate::{
         logs::utils::compute_discovery_tag,
         offchain_messages::deliver_offchain_message,
     },
+    standard_addresses::STANDARD_HANDSHAKE_REGISTRY_ADDRESS,
     utils::remove_constraints::remove_constraints_if,
 };
 use crate::protocol::{address::AztecAddress, constants::DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG, hash::compute_log_tag};
@@ -62,6 +63,7 @@ where
 
     let tag_secret_derivation = delivery.tag_secret_derivation();
     tag_secret_derivation.assert_is_constant();
+    let sender_override = delivery.sender_override();
 
     if !deliver_as_offchain_message {
         let resolved_tag_secret_derivation = resolve_tag_secret_derivation(mode, tag_secret_derivation);
@@ -72,6 +74,12 @@ where
             std::static_assert(
                 resolved_tag_secret_derivation == TagSecretDerivation::non_interactive_handshake(),
                 "constrained delivery requires non-interactive handshake tag derivation",
+            );
+            // The sender is bound into the handshake lookup and the per-send nullifier chain, so it cannot fall back
+            // to the wallet-supplied tagging hint the unconstrained path uses.
+            std::static_assert(
+                sender_override.is_some(),
+                "constrained delivery requires a sender (use .with_sender())",
             );
         } else {
             // Unconstrained handshake-origin delivery is not yet implemented; see F-698.
@@ -92,11 +100,23 @@ where
     if deliver_as_offchain_message {
         deliver_offchain_message(ciphertext, recipient);
     } else {
-        // TODO(#14565): constrained tagging is not yet wired up. The tag-secret derivation is validated, but the tag is
-        // mocked with the wallet-driven unconstrained derivation so the builder API can land before the constrained
-        // helpers.
-        let discovery_tag = compute_discovery_tag(recipient, delivery.sender_override());
-        let log_tag = compute_log_tag(discovery_tag, DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG);
+        let log_tag = if is_constrained {
+            // Constrained + non-interactive handshake: resolve the standard-registry secret, emit the per-send chain
+            // nullifier, and derive the constrained discovery tag. The static assert above guarantees the sender is
+            // populated, and the unchecked unwrap emits no constrain that could fold to false in other instantiations.
+            let sender = sender_override.unwrap_unchecked();
+            constrained_delivery::emit_nullifier_and_compute_constrained_tag(
+                context,
+                STANDARD_HANDSHAKE_REGISTRY_ADDRESS,
+                sender,
+                recipient,
+            )
+        } else {
+            // Unconstrained + address-pair origin: the discovery tag comes from the wallet-driven directional
+            // tagging secret.
+            let discovery_tag = compute_discovery_tag(recipient, sender_override);
+            compute_log_tag(discovery_tag, DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG)
+        };
 
         // We forbid this value not being constant to avoid predicating the context calls below, which might result in
         // the context's arrays having unknown compile time write indices and hence dramatically increasing constraints

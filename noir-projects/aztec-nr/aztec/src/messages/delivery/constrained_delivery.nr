@@ -8,8 +8,8 @@ use crate::oracle::{call_utility_function::call_utility_function, notes::get_nex
 use crate::protocol::{
     abis::function_selector::FunctionSelector,
     address::AztecAddress,
-    constants::DOM_SEP__CONSTRAINED_MSG_NULLIFIER,
-    hash::poseidon2_hash_with_separator,
+    constants::{DOM_SEP__CONSTRAINED_MSG_LOG_TAG, DOM_SEP__CONSTRAINED_MSG_NULLIFIER},
+    hash::{compute_log_tag, poseidon2_hash, poseidon2_hash_with_separator},
     traits::{Deserialize, ToField},
 };
 
@@ -114,4 +114,37 @@ pub fn compute_constrained_msg_nullifier(
         [sender.to_field(), recipient.to_field(), secret, index as Field],
         DOM_SEP__CONSTRAINED_MSG_NULLIFIER,
     )
+}
+
+/// Computes the constrained-delivery discovery log tag for an `(app_siloed_secret, index)` pair.
+///
+/// Collapses the secret and index into a single raw tag and domain-separates it with
+/// `DOM_SEP__CONSTRAINED_MSG_LOG_TAG`. This mirrors the recipient-side derivation in the PXE (`siloedTagFor`): the
+/// recipient recomputes the same tag to discover the message, and the protocol silos the emitted log's first field by
+/// the emitting contract address, completing the match.
+pub fn compute_constrained_log_tag(app_siloed_secret: Field, index: u32) -> Field {
+    compute_log_tag(
+        poseidon2_hash([app_siloed_secret, index as Field]),
+        DOM_SEP__CONSTRAINED_MSG_LOG_TAG,
+    )
+}
+
+/// Emits the per-send chain nullifier for a constrained message and returns its discovery log tag.
+///
+/// Used by [`crate::messages::delivery::do_private_message_delivery`] on the constrained-delivery path. It wraps
+/// [`calculate_secret_and_index`] to resolve the `(app_siloed_secret, index)` pair, then:
+/// 1. Emits the chain nullifier. A subsequent send at `index + 1` proves this nullifier exists, transitively
+///    constraining the chain back to the `index == 0` handshake validation in [`calculate_secret_and_index`].
+/// 2. Returns the log tag. The recipient recomputes the same tag from the handshake secret to discover the message.
+pub(crate) fn emit_nullifier_and_compute_constrained_tag(
+    context: &mut PrivateContext,
+    registry: AztecAddress,
+    sender: AztecAddress,
+    recipient: AztecAddress,
+) -> Field {
+    let (secret, index) = calculate_secret_and_index(context, registry, sender, recipient);
+
+    context.push_nullifier_unsafe(compute_constrained_msg_nullifier(sender, recipient, secret, index));
+
+    compute_constrained_log_tag(secret, index)
 }

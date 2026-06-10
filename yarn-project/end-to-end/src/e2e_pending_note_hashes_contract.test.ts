@@ -9,9 +9,11 @@ import {
   MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
 } from '@aztec/constants';
 import { PendingNoteHashesContract } from '@aztec/noir-test-contracts.js/PendingNoteHashes';
+import type { UtilityCallAuthorizationRequest } from '@aztec/pxe/server';
+import { getStandardHandshakeRegistry } from '@aztec/standard-contracts/handshake-registry';
 
 import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
-import { setup } from './fixtures/utils.js';
+import { ensureHandshakeRegistryPublished, setup } from './fixtures/utils.js';
 import type { TestWallet } from './test-wallet/test_wallet.js';
 
 describe('e2e_pending_note_hashes_contract', () => {
@@ -21,6 +23,7 @@ describe('e2e_pending_note_hashes_contract', () => {
   let logger: Logger;
   let teardown: () => Promise<void>;
   let contract: PendingNoteHashesContract;
+  let handshakeRegistryAddress: AztecAddress;
 
   beforeAll(async () => {
     ({
@@ -29,7 +32,29 @@ describe('e2e_pending_note_hashes_contract', () => {
       wallet,
       logger,
       accounts: [owner],
-    } = await setup(1, { ...AUTOMINE_E2E_OPTS }));
+    } = await setup(1, {
+      ...AUTOMINE_E2E_OPTS,
+      pxeCreationOptions: {
+        hooks: {
+          // Constrained delivery resolves the sender-recipient handshake by querying the standard handshake
+          // registry through a cross-contract utility call, which the PXE denies unless authorized here.
+          authorizeUtilityCall: (req: UtilityCallAuthorizationRequest) =>
+            Promise.resolve({
+              authorized:
+                contract !== undefined &&
+                req.target.equals(handshakeRegistryAddress) &&
+                req.caller.equals(contract.address) &&
+                req.functionName === 'get_app_siloed_secret' &&
+                req.callerContext === 'private',
+            }),
+        },
+      },
+    }));
+
+    ({
+      instance: { address: handshakeRegistryAddress },
+    } = await getStandardHandshakeRegistry());
+    await ensureHandshakeRegistryPublished(wallet, owner);
   });
 
   afterAll(() => teardown());
@@ -127,7 +152,10 @@ describe('e2e_pending_note_hashes_contract', () => {
 
   it('Squash! Aztec.nr function can "create" and "nullify" note in the same TX but the constrained note log survives', async () => {
     // Kernel will squash the noteHash and its nullifier, but NOT the note log: constrained-delivery logs are not
-    // linked to the note for squashing, because a removed log would break the index chain.
+    // linked to the note for squashing, because recipients discover them by scanning the per-secret tag sequence and
+    // a removed log would break the index chain. This is the first constrained send between this sender-recipient
+    // pair through the freshly deployed contract, so it also bootstraps a handshake in the standard handshake
+    // registry, whose effects show up in the same tx alongside the squashed note.
     const mintAmount = 65n;
 
     const deployedContract = await deployContract();
@@ -143,9 +171,14 @@ describe('e2e_pending_note_hashes_contract', () => {
       )
       .send({ from: owner });
 
-    await expectNoteHashesSquashedExcept(0);
-    await expectNullifiersSquashedExcept(0);
-    await expectNoteLogsSquashedExcept(1);
+    // The pending note is squashed; the handshake note created in the registry survives.
+    await expectNoteHashesSquashedExcept(1);
+    // The pending note's nullifier is squashed; the handshake note's initialization nullifier and the constrained
+    // send's chain nullifier survive.
+    await expectNullifiersSquashedExcept(2);
+    // Three logs survive: the handshake note log, the handshake discovery log, and (the subject of this test) the
+    // constrained note log, which is not linked to the squashed note.
+    await expectNoteLogsSquashedExcept(3);
   });
 
   it('Squash! Aztec.nr function can "create" and "nullify" note in the same TX with 2 note logs', async () => {

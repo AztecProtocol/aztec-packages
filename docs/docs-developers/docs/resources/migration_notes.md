@@ -9,6 +9,17 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.nr] Constrained delivery requires an explicit sender
+
+`MessageDelivery::onchain_constrained()` now derives the discovery tag from a handshake-registry secret, and the sender is bound into the handshake lookup and the per-send nullifier chain. The sender can therefore no longer fall back to the wallet-supplied default and must be set explicitly with `with_sender`. This is validated at compile time, so a missing sender fails compilation with `constrained delivery requires a sender (use .with_sender())`:
+
+```diff
+- note.deliver(MessageDelivery::onchain_constrained());
++ note.deliver(MessageDelivery::onchain_constrained().with_sender(sender));
+```
+
+Constrained delivery uses the standard handshake registry. Contracts whose senders are not set up for registry handshakes should use `MessageDelivery::onchain_unconstrained()` instead, which keeps the wallet-driven tagging behavior.
+
 ### [Aztec.nr] `messages::message_delivery` module moved to `messages::delivery`
 
 The `message_delivery` module has been renamed to `delivery`. Update imports accordingly:
@@ -35,7 +46,7 @@ The `set_sender_for_tags` oracle has been removed. Contracts that used it to ove
 + note.deliver(MessageDelivery::onchain_constrained().with_sender(some_address));
 ```
 
-When `with_sender` is not called, `MessageDelivery` uses the wallet-supplied default sender.
+For offchain and unconstrained delivery, `MessageDelivery` uses the wallet-supplied default sender when `with_sender` is not called. Constrained delivery requires an explicit sender (see the entry above).
 
 ### [Aztec.nr] `MessageDelivery` API syntax change
 

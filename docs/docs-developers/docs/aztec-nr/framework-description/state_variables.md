@@ -324,7 +324,7 @@ fn perform_admin_action() {
     // value of the counter and can update it again in the future.
     self.storage.admin_call_count
         .replace(|current| UintNote{ value: current.value + 1 }) // wouldn't it be great if we didn't have to deal with this wrapping and unwrapping?
-        .deliver(MessageDelivery::onchain_constrained());
+        .deliver(MessageDelivery::onchain_constrained().with_sender(admin));
 
     // ...
 }
@@ -381,7 +381,9 @@ This function allows us to get the note of a `PrivateMutable`, essentially readi
 #[external("private")]
 fn read_settings() {
     let owner = self.msg_sender();
-    self.storage.user_settings.at(owner).get_note().deliver(MessageDelivery::onchain_constrained());
+    self.storage.user_settings.at(owner).get_note().deliver(
+        MessageDelivery::onchain_constrained().with_sender(owner),
+    );
 }
 ```
 
@@ -484,7 +486,9 @@ When initializing, you still pass an owner address, but this specifies who can d
 
 ```rust
 // owner_address determines who can see the note, not where it's stored
-self.storage.admin.initialize(note, owner_address).deliver(MessageDelivery::onchain_constrained());
+self.storage.admin.initialize(note, owner_address).deliver(
+    MessageDelivery::onchain_constrained().with_sender(owner_address),
+);
 ```
 
 :::warning
