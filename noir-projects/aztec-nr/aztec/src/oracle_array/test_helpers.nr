@@ -1,11 +1,8 @@
 //! Shared test suite for [`OracleArray`] backends.
 //!
-//! Every `unconstrained` function in this module checks one behavior of the shared [`OracleArray`] API (or of the
-//! generic `store` / `load` / `delete` helpers) and is generic over the [`ArrayOracle`] backend. Backend test modules
-//! do not reference the checks one by one: annotating a module with `oracle_array_tests` (passing the backend's
-//! oracle as a quoted path) generates one `#[test]` per check with that oracle swapped in, so a check
-//! added here automatically runs against every backend. Checks that are expected to fail must be registered in
-//! `should_fail_message`, which supplies the message for the generated `#[test(should_fail_with = ...)]` attribute.
+//! Every function in this module checks one behavior of the shared [`OracleArray`] API (or of the generic
+//! `store` / `load` / `delete` kv helpers) and is generic over the [`ArrayOracle`] backend.
+//!
 //! Each backend module additionally keeps a hand-written smoke test routing through its own public helpers (e.g.
 //! `transient::store` / `transient::load`) to cover the delegation wiring.
 
@@ -28,7 +25,7 @@ where
     });
 }
 
-pub(crate) unconstrained fn empty_array_read<Oracle>()
+pub(crate) unconstrained fn should_fail_empty_array_read<Oracle>()
 where
     Oracle: ArrayOracle,
 {
@@ -39,7 +36,7 @@ where
     });
 }
 
-pub(crate) unconstrained fn empty_array_pop<Oracle>()
+pub(crate) unconstrained fn should_fail_empty_array_pop<Oracle>()
 where
     Oracle: ArrayOracle,
 {
@@ -64,7 +61,7 @@ where
     });
 }
 
-pub(crate) unconstrained fn read_past_len<Oracle>()
+pub(crate) unconstrained fn should_fail_read_past_len<Oracle>()
 where
     Oracle: ArrayOracle,
 {
@@ -290,7 +287,7 @@ where
     });
 }
 
-pub(crate) unconstrained fn read_as_rejects_length_mismatch<Oracle>()
+pub(crate) unconstrained fn should_fail_read_as_rejects_length_mismatch<Oracle>()
 where
     Oracle: ArrayOracle,
 {
@@ -753,13 +750,13 @@ where
 /// Returns the `should_fail_with` message for checks that are expected to fail, or `Option::none()` for checks that
 /// are expected to pass.
 comptime fn should_fail_message(name: Quoted) -> Option<Quoted> {
-    if name == quote { empty_array_read } {
+    if name == quote { should_fail_empty_array_read } {
         Option::some(quote { "out of bounds" })
-    } else if name == quote { empty_array_pop } {
+    } else if name == quote { should_fail_empty_array_pop } {
         Option::some(quote { "is empty" })
-    } else if name == quote { read_past_len } {
+    } else if name == quote { should_fail_read_past_len } {
         Option::some(quote { "out of bounds" })
-    } else if name == quote { read_as_rejects_length_mismatch } {
+    } else if name == quote { should_fail_read_as_rejects_length_mismatch } {
         Option::some(quote { "length mismatch" })
     } else {
         Option::none()
