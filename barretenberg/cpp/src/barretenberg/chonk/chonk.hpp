@@ -234,7 +234,7 @@ class Chonk {
         recursive_verification_and_consistency_checks(
             ClientCircuit& circuit,
             const StdlibVerifierInputs& verifier_inputs,
-            const std::optional<RecursiveVerifierAccumulator>& carried_accumulator,
+            const std::optional<RecursiveVerifierAccumulator>& input_verifier_accumulator,
             const std::optional<StdlibFF>& running_ecc_op_hash,
             const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript,
             bool explain_batch_merge_hash_repetition = false);
