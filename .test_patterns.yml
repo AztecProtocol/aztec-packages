@@ -271,6 +271,10 @@ tests:
     owners:
       - *phil
 
+  - regex: "src/e2e_epochs/epochs_optimistic_proving.parallel.test.ts"
+    owners:
+      - *phil
+
   - regex: "epochs_mbps.pipeline.parallel.test.ts.*prunes uncheckpointed"
     owners:
       - *sean
