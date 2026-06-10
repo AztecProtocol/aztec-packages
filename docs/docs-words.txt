@@ -443,3 +443,16 @@ Wonderland
 indistinguishability
 llmstxt
 nightlies
+# Private escrow kit guide
+OTC
+zkTLS
+zkEmail
+Venmo
+localnet
+BAZaar
+Schnorr
+RFQ
+Primus
+ECDH
+orderbooks
+plaintexts
