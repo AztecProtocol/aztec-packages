@@ -11,7 +11,8 @@ function format_check {
   # that then fails with "Cannot read file .../Nargo.toml". Retry the download,
   # wiping the partial dependency cache after a failure so the next attempt
   # re-clones cleanly. A warm cache is left intact on success.
-  local fmt_check='( set -e; for dir in noir-contracts noir-protocol-circuits mock-protocol-circuits aztec-nr; do (cd "$dir" && ../../noir/noir-repo/target/release/nargo fmt --check); done )'
+  local nargo=$root/noir/noir-repo/target/release/nargo
+  local fmt_check="( set -e; for dir in noir-contracts noir-protocol-circuits mock-protocol-circuits aztec-nr protocol-fuzzer/contracts; do (cd \"\$dir\" && \"$nargo\" fmt --check); done )"
   RETRY_SLEEP=10 retry "$fmt_check || { rm -rf \"\$HOME/nargo\"; exit 1; }"
 }
 
