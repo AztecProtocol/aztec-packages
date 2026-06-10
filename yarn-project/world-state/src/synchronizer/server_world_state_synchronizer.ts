@@ -6,7 +6,6 @@ import { elapsed } from '@aztec/foundation/timer';
 import {
   type BlockHash,
   type L2Block,
-  type L2BlockId,
   type L2BlockSource,
   L2BlockStream,
   type L2BlockStreamEvent,
@@ -283,15 +282,13 @@ export class ServerWorldStateSynchronizer
       finalizedBlockHashPromise,
       provenBlockHashPromise,
     ]);
-    const latestBlockId: L2BlockId = { number: status.unfinalizedBlockNumber, hash: unfinalizedBlockHash! };
-
     return {
-      proposed: latestBlockId,
+      proposed: { number: status.unfinalizedBlockNumber, hash: unfinalizedBlockHash },
       finalized: {
-        block: { number: status.finalizedBlockNumber, hash: finalizedBlockHash ?? '' },
+        block: { number: status.finalizedBlockNumber, hash: finalizedBlockHash },
       },
       proven: {
-        block: { number: provenBlockNumber, hash: provenBlockHash ?? '' },
+        block: { number: provenBlockNumber, hash: provenBlockHash },
       },
     };
   }

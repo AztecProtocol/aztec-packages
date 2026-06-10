@@ -1,3 +1,5 @@
+import type { BlockNumber } from '@aztec/foundation/branded-types';
+
 import type { PublishedCheckpoint } from '../../checkpoint/published_checkpoint.js';
 import type { L2Block } from '../l2_block.js';
 import type { CheckpointId, L2BlockId, L2TipId, LocalL2Tips } from '../l2_block_source.js';
@@ -8,14 +10,20 @@ export interface L2TipsProvider {
 }
 
 /**
+ * A block id reported by a local data provider, whose hash may be unknown when the provider cannot resolve it (e.g.
+ * world-state cannot resolve the hash of a proven tip ahead of its synced range).
+ */
+export type LocalL2BlockId = { number: BlockNumber; hash?: string };
+
+/**
  * Minimal local view of the chain the block stream needs to drive sync. `checkpointed` is only required when the
  * stream emits checkpoint events (i.e. `ignoreCheckpoints` is off).
  */
 export type LocalChainTips = {
-  proposed: L2BlockId;
+  proposed: LocalL2BlockId;
   checkpointed?: { checkpoint: CheckpointId };
-  proven: { block: L2BlockId };
-  finalized: { block: L2BlockId };
+  proven: { block: LocalL2BlockId };
+  finalized: { block: LocalL2BlockId };
 };
 
 /**
