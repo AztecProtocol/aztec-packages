@@ -58,6 +58,10 @@ import {
   transpose_count_tiled as transpose_count_tiled_shader,
   transpose_reduce_tiled as transpose_reduce_tiled_shader,
   transpose_scatter_tiled as transpose_scatter_tiled_shader,
+  pp2_digit_count as pp2_digit_count_shader,
+  pp2_bin_scan as pp2_bin_scan_shader,
+  pp2_bin_scatter as pp2_bin_scatter_shader,
+  pp2_bin_sort_emit as pp2_bin_sort_emit_shader,
   ba_fused_super_bench as ba_fused_super_bench_shader,
   ba_fused_tail_coop as ba_fused_tail_coop_shader,
   ba_carry_copy_bench as ba_carry_copy_bench_shader,
@@ -466,6 +470,92 @@ ${packLines.join('\n')}
       tile,
       recompile: this.recompile,
     });
+  }
+
+  /**
+   * pp2 K1 — fused Booth decompose + coarse-bin count. The window schedule is
+   * code-generated: per window, literal word indices / shift amounts / masks
+   * (no dynamic register indexing, no runtime-variable shifts — Adreno-safe).
+   * `windowCs` is the per-window bit-width schedule (uniform fill = c
+   * repeated); bit bases are its prefix sums, i.e. a single-MSM scalar layout.
+   */
+  public gen_pp2_digit_count_shader(workgroup_size: number, windowCs: number[], binShift: number, binsP: number): string {
+    const nw = windowCs.length;
+    const histLen = nw * binsP;
+    if (histLen > 4096) {
+      throw new Error(`gen_pp2_digit_count_shader: hist ${nw}x${binsP} exceeds the 16KB shared budget`);
+    }
+    const wname = (k: number): string => (k < 4 ? `sa.${'xyzw'[k]}` : `sb.${'xyzw'[k - 4]}`);
+    let bitBase = 0;
+    const windows = windowCs.map((cw, w) => {
+      if (cw < 2 || cw > 15) throw new Error(`gen_pp2_digit_count_shader: window ${w} width ${cw} out of range`);
+      const maskC1 = (1 << (cw + 1)) - 1;
+      const maskC = (1 << cw) - 1;
+      let rawExpr: string;
+      if (bitBase === 0) {
+        // Bottom window: synthetic 0 lookback — bits [0, cw) shifted up one.
+        rawExpr = `((${wname(0)} << 1u) & ${maskC1}u)`;
+      } else {
+        const lo = bitBase - 1; // lookback bit position
+        const wordLo = lo >> 5;
+        const off = lo & 31;
+        let e = off === 0 ? wname(wordLo) : `(${wname(wordLo)} >> ${off}u)`;
+        if (off + cw + 1 > 32 && wordLo + 1 < 8) {
+          e = `(${e} | (${wname(wordLo + 1)} << ${32 - off}u))`;
+        }
+        rawExpr = `(${e} & ${maskC1}u)`;
+      }
+      const ctx = { w, c: cw, bit_lo: Math.max(0, bitBase - 1), bit_hi: bitBase + cw, mask_c: maskC, raw_expr: rawExpr };
+      bitBase += cw;
+      return ctx;
+    });
+    return mustache.render(
+      pp2_digit_count_shader,
+      {
+        workgroup_size,
+        num_windows: nw,
+        bins_p: binsP,
+        bin_shift: binShift,
+        hist_len: histLen,
+        windows,
+        recompile: this.recompile,
+      },
+      {},
+    );
+  }
+
+  /** pp2 K1.5 — single-workgroup flat exclusive scan of the bin-count matrix. */
+  public gen_pp2_bin_scan_shader(): string {
+    return mustache.render(pp2_bin_scan_shader, { recompile: this.recompile }, {});
+  }
+
+  /** pp2 K2 — coarse-bin scatter via workgroup reorder staging. */
+  public gen_pp2_bin_scatter_shader(workgroup_size: number, binsP: number, binShift: number): string {
+    const ppt = 1024 / workgroup_size;
+    if (!Number.isInteger(ppt) || ppt < 1) {
+      throw new Error(`gen_pp2_bin_scatter_shader: workgroup_size ${workgroup_size} must divide 1024`);
+    }
+    if (binsP > workgroup_size) {
+      throw new Error(`gen_pp2_bin_scatter_shader: bins_p ${binsP} exceeds workgroup_size ${workgroup_size}`);
+    }
+    return mustache.render(
+      pp2_bin_scatter_shader,
+      { workgroup_size, bins_p: binsP, bin_shift: binShift, ppt, recompile: this.recompile },
+      {},
+    );
+  }
+
+  /** pp2 K3 — per-(window, bin) counting sort + final l0/meta emit. */
+  public gen_pp2_bin_sort_emit_shader(workgroup_size: number, binShift: number): string {
+    const lows = 1 << binShift;
+    if (lows > workgroup_size) {
+      throw new Error(`gen_pp2_bin_sort_emit_shader: 2^${binShift} low buckets exceed workgroup_size ${workgroup_size}`);
+    }
+    return mustache.render(
+      pp2_bin_sort_emit_shader,
+      { workgroup_size, bin_shift: binShift, lows, recompile: this.recompile },
+      {},
+    );
   }
 
   /**

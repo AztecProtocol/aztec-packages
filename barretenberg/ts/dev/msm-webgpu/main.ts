@@ -140,6 +140,7 @@ const gpuKnobs: MsmConfig = (() => {
     numBatchesOverride: optInt('nb'),
     budgetMiB: optInt('budgetmib'),
     varSched: q.get('varsched') === '1' || undefined,
+    preprocessV2: q.get('ppv2') === '1' || undefined,
     splitC: q.get('split') === '1' || q.get('autorun') === 'msm-msbhist' || undefined,
     sparseReduce: q.get('sparse_reduce') === '1' || undefined,
     reduceCostWeight: optNum('reduce_cost_weight'),

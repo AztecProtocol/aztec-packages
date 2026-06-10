@@ -431,6 +431,17 @@ export interface MsmConfig {
    * otherwise the schedule safely falls back to the unsplit width.
    */
   maxCLo?: number;
+  /**
+   * Two-level preprocess (pp2): replaces the 7-dispatch decompose / transpose /
+   * conv pipeline with 4 kernels — fused decompose+coarse-bin count, a flat
+   * cursor scan, a staged coalesced bin scatter, and a per-bin shared-memory
+   * counting sort that emits the final l0 entries + bucket meta directly. Same
+   * outputs (l0 index list per (window, bucket) segment, active counts/offsets);
+   * within-bucket order is rank-claim order, as it always has been. Covers the
+   * uniform-schedule single-batch path; anything else (split-c, multi-batch,
+   * union) falls back to the classic pipeline per prepare. Default false.
+   */
+  preprocessV2?: boolean;
 }
 
 /** Per-pass GPU time (ms) for one `run()`, returned when `profile` is set. */
@@ -983,6 +994,9 @@ interface SharedScratch {
   reducePrefScratch: GPUBufferBinding;
   // Streaming planner + accumulator buffers (Phase 1-4).
   streamPlannerMeta: GPUBuffer;
+  // pp2 preprocess bin-count / cursor matrix: [window][bin][tile] + sentinel.
+  // 4 B stub until a preprocessV2 instance prepares.
+  ppvBinCounts: GPUBuffer;
   arenas: GPUBuffer[]; // one GPU buffer per arena colour (ARENA_LAYOUT.md §1); mkBind-only scratch carved at 256-B offsets
 
   size1BucketList: GPUBufferBinding;
@@ -1078,6 +1092,8 @@ interface ScratchDims {
   streamS: number;
   streamQueueEntries: number;
   streamRadixTiles: number;
+  // pp2 bin-count matrix length in u32s (incl. sentinel). 0 = not requested.
+  ppvBinLen: number;
   // High-memory A/B ping-pong pair-tree mode (Thread 2). When false the pool
   // keeps bufA/bufB, the plan rings and prefScratch at a 4 B stub (the walker
   // path never touches them); when true they are sized to the real pair-tree
@@ -1123,6 +1139,7 @@ export class MsmV2Pool {
     streamS: 0,
     streamQueueEntries: 0,
     streamRadixTiles: 0,
+    ppvBinLen: 0,
     highMem: false,
   };
   // High-water byte size of bucketResultBuf. cur.bTotal is not grow-tracked
@@ -1189,6 +1206,7 @@ export class MsmV2Pool {
       total += s.offsetsBufs[0].size + s.offsetsBufs[1].size;
       total += s.prefScratchBuf.size;
       total += s.streamPlannerMeta.size;
+      total += s.ppvBinCounts.size;
       total += s.queueBuf.size + s.partialsBuf.size + s.partialBucketsList.size;
       total += s.accBuf.size + s.streamPrefScratch.size;
     }
@@ -1380,6 +1398,13 @@ export class MsmV2Pool {
         usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC | GPUBufferUsage.INDIRECT,
       });
     let streamPlannerMeta = s?.streamPlannerMeta;
+    let ppvBinCounts = s?.ppvBinCounts;
+    if (!ppvBinCounts || dims.ppvBinLen > cur.ppvBinLen) {
+      ppvBinCounts?.destroy();
+      grow(dims.ppvBinLen > cur.ppvBinLen, 'ppvBinLen');
+      ppvBinCounts = sbuf(cur.ppvBinLen * 4);
+      grew = true;
+    }
     let size1BucketList = s?.size1BucketList;
     let denseBucketList = s?.denseBucketList;
     let denseCountList = s?.denseCountList;
@@ -1624,6 +1649,7 @@ export class MsmV2Pool {
       redZBuf: redZBuf!,
       reducePrefScratch: reducePrefScratch!,
       streamPlannerMeta: streamPlannerMeta!,
+      ppvBinCounts: ppvBinCounts!,
       size1BucketList: size1BucketList!,
       denseBucketList: denseBucketList!,
       denseCountList: denseCountList!,
@@ -1822,6 +1848,7 @@ export class MsmV2Pool {
       s.offsetsBufs[0].destroy();
       s.offsetsBufs[1].destroy();
       s.prefScratchBuf.destroy();
+      s.ppvBinCounts.destroy();
       this._scratch = null;
     }
   }
@@ -1968,6 +1995,24 @@ export class MsmV2 {
   private xposeScatterPipe!: GPUComputePipeline;
   private convActivePipe!: GPUComputePipeline;
   private convMetaPipe!: GPUComputePipeline;
+  // pp2 two-level preprocess (config.preprocessV2). Pipelines compiled in
+  // create() only when the flag is on AND the create-time schedule is uniform;
+  // pp2Active gates dispatch per prepare (single batch, no region split).
+  private pp2Enabled = false;
+  private pp2Active = false;
+  private pp2DigitCountPipe?: GPUComputePipeline;
+  private pp2ScanPipe?: GPUComputePipeline;
+  private pp2ScatterPipe?: GPUComputePipeline;
+  private pp2SortEmitPipe?: GPUComputePipeline;
+  private pp2DigitCountBind?: GPUBindGroup;
+  private pp2ScanBind?: GPUBindGroup;
+  private pp2ScatterBind?: GPUBindGroup;
+  private pp2SortEmitBind?: GPUBindGroup;
+  private pp2ParamsBuf?: GPUBuffer;
+  private pp2BinShift = 0;
+  private pp2BinsP = 0;
+  private pp2TilePts = 0;
+  private pp2NumTiles = 0;
   private reduceLevelPipes: GPUComputePipeline[] = [];
   // Thread-1 Jacobian reduce-tail pipelines (z-seed + inversion-free level +
   // per-window Jacobian->affine finalize).
@@ -2036,6 +2081,10 @@ export class MsmV2 {
   private xposeScatterLayout!: GPUBindGroupLayout;
   private convActiveLayout!: GPUBindGroupLayout;
   private convMetaLayout!: GPUBindGroupLayout;
+  private pp2DigitCountLayout!: GPUBindGroupLayout;
+  private pp2ScanLayout!: GPUBindGroupLayout;
+  private pp2ScatterLayout!: GPUBindGroupLayout;
+  private pp2SortEmitLayout!: GPUBindGroupLayout;
   private reduceLevelLayout!: GPUBindGroupLayout;
   private zInitLayout!: GPUBindGroupLayout;
   private jacLevelLayout!: GPUBindGroupLayout;
@@ -2352,6 +2401,30 @@ export class MsmV2 {
     m.stride = 2 ** (m.c - 1);
     m.redM = m.numWindows * m.stride;
     if (!m.windowCs) m.windowCs = new Array(m.numWindows).fill(m.c);
+    // pp2 create-time eligibility: uniform schedule (splitC can re-schedule in
+    // prepare, so it disqualifies), c in the range the bin geometry covers, n
+    // within the binned-entry's 21-bit index field, and the all-window coarse-bin
+    // histogram within K1's 16 KB shared budget. prepare() further gates
+    // dispatch (pp2Active) on single-batch / non-union.
+    if (config?.preprocessV2) {
+      const shift = Math.max(0, m.c - 7);
+      const binsP = m.BW >> shift;
+      m.pp2Enabled =
+        !m.splitC &&
+        m.windowCs.every(cw => cw === m.c) &&
+        m.c >= 8 &&
+        m.c <= 15 &&
+        n >= 1024 &&
+        n <= 1 << 20 &&
+        m.numWindows * binsP <= 4096;
+      if (m.pp2Enabled) {
+        m.pp2BinShift = shift;
+        m.pp2BinsP = binsP;
+        console.log(`[MsmV2] preprocessV2 enabled: shift=${shift} binsP=${binsP} (n=${n} c=${m.c} NW=${m.numWindows})`);
+      } else {
+        console.warn(`[MsmV2] preprocessV2 requested but ineligible at n=${n} c=${m.c} — using classic preprocess`);
+      }
+    }
     // split-c (Phase 2C): size redM (the red_buf Y-plane base, baked into
     // size1/stream_walker/combine_*/pt_finalize below) and bTotal for the SPLIT
     // ENVELOPE — 2× the unsplit window count — so a data-dependent split decided
@@ -2618,6 +2691,22 @@ export class MsmV2 {
       'uniform',
       'read-only-storage',
     ]);
+    // pp2 two-level preprocess layouts.
+    //   digit-count: scalars(ro vec4), digits(rw), bin_counts(rw), params.
+    m.pp2DigitCountLayout = lt(['read-only-storage', 'storage', 'storage', 'uniform']);
+    //   bin-scan: bin_counts(rw, in-place), params.
+    m.pp2ScanLayout = lt(['storage', 'uniform']);
+    //   bin-scatter: digits(ro), bin_counts(ro), binned(rw), params.
+    m.pp2ScatterLayout = lt(['read-only-storage', 'read-only-storage', 'storage', 'uniform']);
+    //   bin-sort-emit: binned(ro), bin_counts(ro), l0_out(rw), counts(rw), offsets(rw), params.
+    m.pp2SortEmitLayout = lt([
+      'read-only-storage',
+      'read-only-storage',
+      'storage',
+      'storage',
+      'storage',
+      'uniform',
+    ]);
     m.reduceLevelLayout = lt(['storage', 'storage', 'storage', 'uniform', 'uniform', 'read-only-storage']);
     // Thread-1 Jacobian reduce-tail layouts. jac_level/jac_finalize add the
     // reduce_sched binding (the per-window base + split-c schedule) so they
@@ -2875,6 +2964,26 @@ export class MsmV2 {
       m.convActiveLayout,
     );
     m.convMetaPipe = await compile(sm.gen_csr_to_v2_meta_shader(WGI), `csr2v2-meta`, m.convMetaLayout);
+    if (m.pp2Enabled) {
+      // K2/K3 sources depend only on (bins_p, bin_shift) — shared across every
+      // n of the same c. K1 bakes the window schedule (one compile per c).
+      m.pp2DigitCountPipe = await compile(
+        sm.gen_pp2_digit_count_shader(256, m.windowCs, m.pp2BinShift, m.pp2BinsP),
+        `pp2-digit-count`,
+        m.pp2DigitCountLayout,
+      );
+      m.pp2ScanPipe = await compile(sm.gen_pp2_bin_scan_shader(), `pp2-bin-scan`, m.pp2ScanLayout);
+      m.pp2ScatterPipe = await compile(
+        sm.gen_pp2_bin_scatter_shader(256, m.pp2BinsP, m.pp2BinShift),
+        `pp2-bin-scatter`,
+        m.pp2ScatterLayout,
+      );
+      m.pp2SortEmitPipe = await compile(
+        sm.gen_pp2_bin_sort_emit_shader(256, m.pp2BinShift),
+        `pp2-bin-sort-emit`,
+        m.pp2SortEmitLayout,
+      );
+    }
     // High-mem A/B ping-pong pair-tree (Thread 2). Compiled only when the mode
     // is on — the planner kernels bake c/BW geometry (per-(n,c) recompile until
     // the size-independence pass), so the default walker path never pays for
@@ -3611,6 +3720,18 @@ export class MsmV2 {
     );
     this.fusedTileSize = FUSED_TILE;
 
+    // pp2 dispatch gate + geometry. Eligibility (uniform schedule, c/n range)
+    // was settled at create; here only the per-prepare plan shape matters: one
+    // batch covering all windows, no region split, no concatenated union. The
+    // tile size bounds the cursor matrix (numWindows·binsP·(n/tile)·4 B) while
+    // keeping enough (tile, window) workgroups to saturate the GPU.
+    this.pp2Active = this.pp2Enabled && !this.regionSplit && numBatches === 1 && !this.batchCtx;
+    if (this.pp2Active) {
+      this.pp2TilePts = n <= 1 << 17 ? 1024 : n <= 1 << 18 ? 2048 : 4096;
+      this.pp2NumTiles = Math.ceil(n / this.pp2TilePts);
+    }
+    const ppvBinLen = this.pp2Active ? NUM_WINDOWS * this.pp2BinsP * this.pp2NumTiles + 1 : 0;
+
     // Ask the pool to grow its shared scratch to fit this MSM's plan. Most
     // prepares hit no growth (after the first MSM saturates max-N); growth
     // bumps pool.scratchEpoch and our cached `boundEpoch` becomes stale.
@@ -3638,6 +3759,7 @@ export class MsmV2 {
         streamS: this.streamS,
         streamQueueEntries: B_TOTAL + this.streamNumThreads * (2 * this.streamS - 1),
         streamRadixTiles: this.numRadixTiles,
+        ppvBinLen,
         highMem: this.highMemPingpong,
       },
       this.padPts,
@@ -3954,6 +4076,31 @@ export class MsmV2 {
         pointOffsetsBuf,
       ]),
     );
+    // pp2 binds. Digits reuse bucketAndSign, the binned intermediate reuses
+    // valIdx, and K3 writes the final l0 entries + bucket meta into the same
+    // buffers conv-active/conv-meta would have (so every downstream consumer is
+    // untouched). params[1].x (base_offset) starts 0 and is rewritten per
+    // prepare alongside the conv-active uniform.
+    if (this.pp2Active) {
+      const pp2Params = ubuf(
+        new Uint32Array([n, this.pp2NumTiles, this.pp2TilePts, this.pp2BinsP, 0, ppvBinLen - 1, BW, 0]),
+      );
+      this.pp2ParamsBuf = pp2Params;
+      const binCounts = scratch.ppvBinCounts;
+      this.pp2DigitCountBind = mkBind(this.pp2DigitCountLayout, [scalarsRawBuf, bucketAndSignBuf, binCounts, pp2Params]);
+      this.pp2ScanBind = mkBind(this.pp2ScanLayout, [binCounts, pp2Params]);
+      this.pp2ScatterBind = mkBind(this.pp2ScatterLayout, [bucketAndSignBuf, binCounts, valIdxBuf, pp2Params]);
+      this.pp2SortEmitBind = mkBind(this.pp2SortEmitLayout, [
+        valIdxBuf,
+        binCounts,
+        l0IdxBuf,
+        countsBufs[0],
+        offsetsBufs[0],
+        pp2Params,
+      ]);
+    } else {
+      this.pp2ParamsBuf = undefined;
+    }
     this.rowPtrBuf = rowPtrBuf;
     this.nXposePts = Math.ceil(n / WGI);
 
@@ -4483,21 +4630,25 @@ export class MsmV2 {
     this.tsStagingBuf = null;
     if (this.profile) {
       let passes = 0;
+      // pp2 runs 4 preprocess dispatches (digit-count, scan, scatter, sort-emit)
+      // where the classic path runs 7 (decompose + 4 transpose + convActive +
+      // convMeta).
+      const prePasses = this.pp2Active ? 4 : 7;
       if (this.highMemPingpong && this.pingLevels > 0) {
-        // High-mem ping-pong per batch: 7 preprocess (decompose + 4 transpose +
-        // convActive + convMeta) + Σ_levels (plannerA + plannerB + fusedTiles +
-        // carry + finalize). The bufA/bufB clears are clearBuffer (no timestamp).
-        let pingPerBatch = 7;
+        // High-mem ping-pong per batch: preprocess + Σ_levels (plannerA +
+        // plannerB + fusedTiles + carry + finalize). The bufA/bufB clears are
+        // clearBuffer (no timestamp).
+        let pingPerBatch = prePasses;
         for (const lb of this.pingLevelBinds) pingPerBatch += 2 + lb.fusedTiles.length + 1 + 1;
         for (let bi = 0; bi < numBatches; bi++) passes += pingPerBatch;
         passes += 1; // reduce_init bridge (once)
       } else {
         for (let bi = 0; bi < numBatches; bi++) {
-          // 7 preprocess + 16 planner + 3 walker (size1+stream_walker+walker_index marker)
+          // preprocess + 16 planner + 3 walker (size1+stream_walker+walker_index marker)
           // + 5 combine kernels (count, scan, scatter, filter, batched)
           // + 3 counting-sort prepass kernels (sort_count, sort_scan, sort_scatter)
           // + pair-tree multi-dispatch: 2 (init) + 17 × 3 (build + dispatch + combine) + 1 (finalize) = 54
-          passes += 7 + 16 + 3 + 3 + 3 + (2 + 17 * 3 + 1);
+          passes += prePasses + 16 + 3 + 3 + 3 + (2 + 17 * 3 + 1);
         }
       }
       // Reduce = one dispatch per level (table-driven), or a single dispatch for
@@ -4538,6 +4689,9 @@ export class MsmV2 {
     // were initialized in create() and are MSM-instance-invariant; only the
     // offset varies per call. 4-byte write at offset 4 in the buffer.
     this.device.queue.writeBuffer(this.convActiveParamsBuf, 4, new Uint32Array([srsOffset]));
+    if (this.pp2ParamsBuf) {
+      this.device.queue.writeBuffer(this.pp2ParamsBuf, 16, new Uint32Array([srsOffset]));
+    }
 
     this.preparedFor = scalarsBuf;
     this.preparedSrsOffset = srsOffset;
@@ -4565,6 +4719,9 @@ export class MsmV2 {
     writeSlot(device.queue, this.scalarsRawBuf, 0, scalars as BufferSource);
     if (srsOffset !== this.preparedSrsOffset) {
       device.queue.writeBuffer(this.convActiveParamsBuf, 4, new Uint32Array([srsOffset]));
+      if (this.pp2ParamsBuf) {
+        device.queue.writeBuffer(this.pp2ParamsBuf, 16, new Uint32Array([srsOffset]));
+      }
     }
   }
 
@@ -4711,6 +4868,17 @@ export class MsmV2 {
       const tbw = Math.min(this.batchWindows, this.numWindows - bi * this.batchWindows);
       const tSlots = tbw * this.n;
       setPhase('preprocess');
+      // pp2 two-level preprocess: 4 dispatches replace the 7-dispatch classic
+      // pipeline below — K1 fused decompose+coarse-bin count, K1.5 cursor scan,
+      // K2 staged coalesced bin scatter, K3 per-bin counting sort emitting the
+      // final l0 entries (base_offset folded) + bucket counts/offsets directly.
+      // No buffer clears needed: every output cell is written each run.
+      if (this.pp2Active) {
+        dispatch(this.pp2DigitCountPipe!, this.pp2DigitCountBind!, this.pp2NumTiles, 1);
+        dispatch(this.pp2ScanPipe!, this.pp2ScanBind!, 1, 1);
+        dispatch(this.pp2ScatterPipe!, this.pp2ScatterBind!, this.pp2NumTiles, tbw);
+        dispatch(this.pp2SortEmitPipe!, this.pp2SortEmitBind!, this.pp2BinsP, tbw);
+      } else
       // Region-split (Phase 2C-ii, numBatches==1 only): decompose + count +
       // scatter run as two regions — lower W_lo windows over all n, upper W_hi
       // windows over only n_large compacted points (idx_large). reduce + scan
@@ -4735,8 +4903,11 @@ export class MsmV2 {
         dispatch(this.xposeScanPipe, this.xposeScanBinds[bi], tbw, 1);
         dispatch(this.xposeScatterPipe, this.xposeScatterBinds[bi], this.transposeNumPointTiles, tbw);
       }
-      dispatch(this.convActivePipe, this.convActiveBind, Math.ceil(tSlots / WGI), 1);
-      dispatch(this.convMetaPipe, this.convMetaBinds[bi], Math.ceil(this.BW / this.wgi), this.batchWindows);
+      // pp2's K3 already emitted the final l0 entries + bucket meta.
+      if (!this.pp2Active) {
+        dispatch(this.convActivePipe, this.convActiveBind, Math.ceil(tSlots / WGI), 1);
+        dispatch(this.convMetaPipe, this.convMetaBinds[bi], Math.ceil(this.BW / this.wgi), this.batchWindows);
+      }
       // === High-mem A/B ping-pong pair-tree (Thread 2) ===
       // Replaces the walker planner + stream_walker + walker_combine + pair-tree
       // -V2. convActive/convMeta (above) produced this batch's l0_index + level-0
