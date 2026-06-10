@@ -145,6 +145,20 @@ spec:
         - secretRef:
             name: {{ include "chart.fullname" . }}-env
         {{- end }}
+        {{- range .Values.node.envFrom.configMaps }}
+        - configMapRef:
+            name: {{ tpl .name $ | quote }}
+            {{- if hasKey . "optional" }}
+            optional: {{ .optional }}
+            {{- end }}
+        {{- end }}
+        {{- range .Values.node.envFrom.secrets }}
+        - secretRef:
+            name: {{ tpl .name $ | quote }}
+            {{- if hasKey . "optional" }}
+            optional: {{ .optional }}
+            {{- end }}
+        {{- end }}
       env:
         - name: POD_IP
           valueFrom:

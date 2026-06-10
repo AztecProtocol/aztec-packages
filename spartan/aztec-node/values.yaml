@@ -88,6 +88,8 @@ node:
   envFrom:
     configMapEnabled: false
     secretEnabled: false
+    configMaps: []
+    secrets: []
 
   configMap:
     envEnabled: false
@@ -251,3 +253,6 @@ serviceAccount:
   name: ""
   # -- Annotations for the service account
   annotations: {}
+
+# -- Additional Kubernetes objects to render with this chart.
+extraObjects: []
