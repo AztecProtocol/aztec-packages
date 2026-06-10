@@ -47,7 +47,7 @@ unconstrained fn setup_with_two_recipients() -> (TestEnvironment, AztecAddress, 
     (env, registry_address, sender, recipient_a, recipient_b)
 }
 
-// `calculate_secret_and_index` in aztec-nr cannot import this contract because the contract depends on aztec-nr. Assert
+// `resolve_secret_and_index` in aztec-nr cannot import this contract because the contract depends on aztec-nr. Assert
 // its selector constants match this contract's macro-generated interface so a signature change on either side fails
 // here instead of silently drifting.
 #[test]

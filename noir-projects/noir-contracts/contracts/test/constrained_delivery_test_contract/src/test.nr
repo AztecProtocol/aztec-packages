@@ -1,6 +1,6 @@
 //! Tests for the constrained-delivery sender helpers.
 //!
-//! `calculate_and_return` exercises `calculate_secret_and_index` directly. The `index > 0` branch only runs once
+//! `resolve_and_return` exercises `resolve_secret_and_index` directly. The `index > 0` branch only runs once
 //! the PXE's per-secret index has advanced, which happens when a constrained-tagged log lands on-chain. The
 //! `index > 0` tests land such a log via `emit_constrained_log_without_nullifier` and emit the predecessor chain
 //! nullifier via `emit_chain_nullifier`, standing in for a real constrained send at the prior index.
@@ -49,7 +49,7 @@ unconstrained fn handshake_returns_fresh_secret_at_index_zero() {
     let (first_secret, first_index) = env.call_private_opts(
         sender,
         helper_options(registry_address),
-        test_contract.calculate_and_return(registry_address, sender, recipient),
+        test_contract.resolve_and_return(registry_address, sender, recipient),
     );
     assert_eq(first_index, 0);
     assert(first_secret != 0, "bootstrap should return a non-zero secret");
@@ -64,7 +64,7 @@ unconstrained fn handshake_returns_fresh_secret_at_index_zero() {
     let (second_secret, second_index) = env.call_private_opts(
         sender,
         helper_options(registry_address),
-        test_contract.calculate_and_return(registry_address, sender, recipient),
+        test_contract.resolve_and_return(registry_address, sender, recipient),
     );
 
     assert(first_secret != second_secret, "re-handshake should produce a distinct secret");
@@ -107,7 +107,7 @@ unconstrained fn reuses_existing_secret_at_index_zero() {
     let (secret, index) = env.call_private_opts(
         sender,
         helper_options(registry_address),
-        test_contract.calculate_and_return(registry_address, sender, recipient),
+        test_contract.resolve_and_return(registry_address, sender, recipient),
     );
 
     assert_eq(index, 0);
@@ -126,7 +126,7 @@ unconstrained fn advances_index_above_zero_when_prior_nullifier_exists() {
     let (secret, first_index) = env.call_private_opts(
         sender,
         helper_options(registry_address),
-        test_contract.calculate_and_return(registry_address, sender, recipient),
+        test_contract.resolve_and_return(registry_address, sender, recipient),
     );
     assert_eq(first_index, 0);
 
@@ -139,7 +139,7 @@ unconstrained fn advances_index_above_zero_when_prior_nullifier_exists() {
     let (second_secret, second_index) = env.call_private_opts(
         sender,
         helper_options(registry_address),
-        test_contract.calculate_and_return(registry_address, sender, recipient),
+        test_contract.resolve_and_return(registry_address, sender, recipient),
     );
 
     assert_eq(second_secret, secret);
@@ -168,7 +168,7 @@ unconstrained fn fails_at_index_above_zero_without_prior_nullifier() {
     let _ = env.call_private_opts(
         sender,
         helper_options(registry_address),
-        test_contract.calculate_and_return(registry_address, sender, recipient),
+        test_contract.resolve_and_return(registry_address, sender, recipient),
     );
 }
 
@@ -188,12 +188,12 @@ unconstrained fn distinct_pairs_have_independent_indexes() {
     let (secret_a, index_a) = env.call_private_opts(
         sender,
         helper_options(registry_address),
-        test_contract.calculate_and_return(registry_address, sender, recipient_a),
+        test_contract.resolve_and_return(registry_address, sender, recipient_a),
     );
     let (secret_b, index_b) = env.call_private_opts(
         sender,
         helper_options(registry_address),
-        test_contract.calculate_and_return(registry_address, sender, recipient_b),
+        test_contract.resolve_and_return(registry_address, sender, recipient_b),
     );
 
     assert_eq(index_a, 0);

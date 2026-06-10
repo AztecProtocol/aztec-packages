@@ -33,7 +33,11 @@ pub global VALIDATE_HANDSHAKE_SELECTOR: FunctionSelector =
 /// All registry calls use the [`MessageDelivery::onchain_constrained`] delivery mode: the handshake registry keys its
 /// stored notes by `(recipient, sender, mode)`, so the constrained-delivery secret must come from the
 /// constrained-mode handshake.
-pub fn calculate_secret_and_index(
+///
+/// A misbehaving PXE cannot forge a secret (every branch constrains it); at worst it can deny knowledge of an
+/// existing handshake, triggering a re-handshake that replaces the registry note. Already-started chains are
+/// unaffected (see the registry docs on re-handshaking).
+pub fn resolve_secret_and_index(
     context: &mut PrivateContext,
     registry: AztecAddress,
     sender: AztecAddress,
@@ -43,9 +47,11 @@ pub fn calculate_secret_and_index(
     let mode: OnchainDeliveryMode = MessageDelivery::onchain_constrained().into();
     let mode_field = mode.to_field();
 
-    // Safety: when the utility call returns no secret, we attempt to create a fresh handshake. Creating a
-    // duplicate fails, so a forged empty response cannot hide an existing handshake. When the utility call
-    // returns a secret, it is validated against the registry's stored handshake.
+    // Safety: the response only selects which path runs; every path constrains the secret it returns. On `None` we
+    // bootstrap via `non_interactive_handshake`, whose constrained return value is the secret, so a forged empty
+    // response cannot fabricate one; it can only trigger an unnecessary re-handshake that replaces the registry
+    // note. On `Some`, the secret is validated against the stored handshake (index 0) or the previous chain
+    // nullifier (index > 0).
     let maybe_secret: Option<Field> = unsafe {
         let returns = call_utility_function(
             registry,
@@ -102,7 +108,7 @@ pub fn calculate_secret_and_index(
 /// Computes a constrained send's chain nullifier.
 ///
 /// Every constrained send at `index` must emit this nullifier so the next send under the same
-/// `(sender, recipient, secret)` can prove its predecessor exists (see [`calculate_secret_and_index`]).
+/// `(sender, recipient, secret)` can prove its predecessor exists (see [`resolve_secret_and_index`]).
 pub fn compute_constrained_msg_nullifier(
     sender: AztecAddress,
     recipient: AztecAddress,
