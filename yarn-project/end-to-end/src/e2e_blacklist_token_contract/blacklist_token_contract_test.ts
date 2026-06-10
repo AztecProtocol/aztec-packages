@@ -17,9 +17,8 @@ import { jest } from '@jest/globals';
 import {
   type EndToEndContext,
   type SetupOptions,
-  deployAccounts,
+  createFundedAccounts,
   ensureAuthRegistryPublished,
-  publicDeployAccounts,
   setup,
   teardown,
 } from '../fixtures/setup.js';
@@ -97,7 +96,7 @@ export class BlacklistTokenContractTest {
     jest.setTimeout(600_000);
 
     this.logger.info('Deploying 3 accounts');
-    const { deployedAccounts } = await deployAccounts(
+    const { accounts } = await createFundedAccounts(
       3,
       this.logger,
     )({
@@ -109,15 +108,12 @@ export class BlacklistTokenContractTest {
     this.aztecNode = this.context.aztecNodeService;
     this.sequencer = this.context.sequencer!;
     this.wallet = this.context.wallet;
-    this.adminAddress = deployedAccounts[0].address;
-    this.otherAddress = deployedAccounts[1].address;
-    this.blacklistedAddress = deployedAccounts[2].address;
+    this.adminAddress = accounts[0].address;
+    this.otherAddress = accounts[1].address;
+    this.blacklistedAddress = accounts[2].address;
 
     this.logger.info('Setting up blacklist token contract');
     await ensureAuthRegistryPublished(this.wallet, this.adminAddress);
-    // Create the token contract state.
-    this.logger.verbose(`Public deploy accounts...`);
-    await publicDeployAccounts(this.wallet, [this.adminAddress, this.otherAddress, this.blacklistedAddress]);
 
     this.logger.verbose(`Deploying TokenContract...`);
     ({ contract: this.asset } = await TokenBlacklistContract.deploy(this.wallet, this.adminAddress).send({
@@ -160,7 +156,6 @@ export class BlacklistTokenContractTest {
     this.context = await setup(0, {
       ...opts,
       fundSponsoredFPC: true,
-      skipAccountDeployment: true,
     });
     await this.applyBaseSetup();
   }

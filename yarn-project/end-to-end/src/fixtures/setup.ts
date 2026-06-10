@@ -1,17 +1,7 @@
-import { SchnorrAccountContractArtifact } from '@aztec/accounts/schnorr';
 import { type InitialAccountData, generateSchnorrAccounts } from '@aztec/accounts/testing';
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
-import { NO_FROM } from '@aztec/aztec.js/account';
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
-import {
-  BatchCall,
-  type ContractFunctionInteraction,
-  type ContractMethod,
-  type DeployOptions,
-  type InteractionWaitOptions,
-  getContractClassFromArtifact,
-  waitForProven,
-} from '@aztec/aztec.js/contracts';
+import { type ContractMethod } from '@aztec/aztec.js/contracts';
 import { publishContractClass, publishInstance } from '@aztec/aztec.js/deployment';
 import { Fr } from '@aztec/aztec.js/fields';
 import { type Logger, createLogger } from '@aztec/aztec.js/log';
@@ -66,7 +56,7 @@ import {
   initTelemetryClient,
 } from '@aztec/telemetry-client';
 import { BenchmarkTelemetryClient } from '@aztec/telemetry-client/bench';
-import { deployFundedSchnorrAccounts } from '@aztec/wallets/testing';
+import { createFundedInitializerlessAccounts } from '@aztec/wallets/testing';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import fs from 'fs/promises';
@@ -207,8 +197,11 @@ export type SetupOptions = {
   zkPassportArgs?: ZKPassportArgs;
   /** Whether to fund the sponsored FPC in genesis (defaults to false). */
   fundSponsoredFPC?: boolean;
-  /** Whether to skip deploying accounts during setup (legacy behavior for tests using deployAccounts helper). */
-  skipAccountDeployment?: boolean;
+  /**
+   * Whether to advance the chain past genesis by mining an empty block during setup (defaults to true).
+   * Set to false for tests that must observe the chain at genesis (block 0).
+   */
+  advancePastGenesis?: boolean;
   /** L1 contracts deployment arguments. */
   l1ContractsArgs?: Partial<DeployAztecL1ContractsArgs>;
   /** Wallet minimum fee padding multiplier */
@@ -539,24 +532,14 @@ export async function setup(
 
     // Transactions built against the genesis state must be included in block 1, otherwise they are dropped.
     // To avoid test failures from dropped transactions, we ensure progression beyond genesis before proceeding.
-    // For account deployments, we set minTxsPerBlock=1 and deploy accounts sequentially for guaranteed success.
-    // If no accounts need deployment, we await an empty block to confirm network progression.
     const originalMinTxsPerBlock = config.minTxsPerBlock;
     if (originalMinTxsPerBlock === undefined) {
       throw new Error('minTxsPerBlock is undefined in e2e test setup');
     }
 
-    // Whether we're deploying accounts (and therefore need reliable block inclusion past genesis)
-    const shouldDeployAccounts = numberOfAccounts > 0 && !opts.skipAccountDeployment;
-    // Only set minTxsPerBlock=0 if we need an empty block (no accounts at all, not skipped deployment)
-    const needsEmptyBlock = numberOfAccounts === 0 && !opts.skipAccountDeployment;
-    // Pipelining is always on: the proposer builds during slot N-1 for slot N. A tx submitted at
-    // slot N start arrives after that build, so forcing minTxsPerBlock=1 would stall the chain on
-    // alternating slots -- hence empty checkpoints are allowed (minTxsPerBlock=0) for account
-    // deployment. Automine is unaffected: its runBuild clamps mempool builds to
-    // Math.max(minTxsPerBlock ?? 1, 1) and still requires minValidTxs: 1.
-    const accountsDeployMinTxs = 0;
-    config.minTxsPerBlock = shouldDeployAccounts ? accountsDeployMinTxs : needsEmptyBlock ? 0 : originalMinTxsPerBlock;
+    // Allow an empty checkpoint so the empty block can be built; leave untouched when not advancing.
+    const advancePastGenesis = (opts.advancePastGenesis ?? true) && !opts.skipInitialSequencer;
+    config.minTxsPerBlock = advancePastGenesis ? 0 : originalMinTxsPerBlock;
 
     config.p2pEnabled = opts.mockGossipSubNetwork || config.p2pEnabled;
     config.p2pIp = opts.p2pIp ?? config.p2pIp ?? '127.0.0.1';
@@ -651,18 +634,19 @@ export async function setup(
 
     let accounts: AztecAddress[] = [];
 
-    if (opts.skipInitialSequencer) {
-      logger.info('Sequencer not started on initial node, skipping block progression');
-    } else if (shouldDeployAccounts) {
-      logger.info(
-        `${numberOfAccounts} accounts are being deployed. Reliably progressing past genesis by waiting for the accounts to be deployed`,
-      );
+    // Account creation is a PXE-side operation (registration + a simulated store call) with no on-chain tx,
+    // so it is independent of the sequencer and runs even when the initial sequencer is not started.
+    if (numberOfAccounts > 0) {
+      logger.info(`Creating ${numberOfAccounts} initializerless test accounts`);
       const accountsData = initialFundedAccounts.slice(0, numberOfAccounts);
-      const accountManagers = await deployFundedSchnorrAccounts(wallet, accountsData);
+      const accountManagers = await createFundedInitializerlessAccounts(wallet, accountsData);
       accounts = accountManagers.map(accountManager => accountManager.address);
-    } else if (needsEmptyBlock) {
-      logger.info('No accounts are being deployed, waiting for an empty block 1 to be mined');
-      // AutomineSequencer only builds on tx arrival; explicitly request an empty block.
+    }
+
+    // Advancing past genesis needs a running sequencer to build the empty block; advancePastGenesis is
+    // already false when skipInitialSequencer is set.
+    if (advancePastGenesis) {
+      logger.info('Mining an empty block to progress past genesis');
       const automine = aztecNodeService.getAutomineSequencer();
       if (automine) {
         await automine.buildEmptyBlock();
@@ -670,8 +654,9 @@ export async function setup(
       while ((await aztecNodeService.getBlockNumber()) === 0) {
         await sleep(2000);
       }
+    } else if (opts.skipInitialSequencer) {
+      logger.info('Sequencer not started on initial node, skipping block progression');
     }
-    // If skipAccountDeployment is true, we don't deploy or wait - tests will handle account deployment later
 
     // Now we restore the original minTxsPerBlock setting if we changed it.
     if (sequencerClient && config.minTxsPerBlock !== originalMinTxsPerBlock) {
@@ -949,98 +934,23 @@ export async function ensureHandshakeRegistryPublished(wallet: Wallet, from: Azt
 }
 
 /**
- * Registers the contract class used for test accounts and publicly deploys the instances requested.
- * Use this when you need to make a public call to an account contract, such as for requesting a public authwit.
+ * Helper function to create the initial (genesis-funded) test accounts as initializerless accounts.
+ * Returns the account data that can be used by tests. Initializerless accounts have no deployment tx, so
+ * creating them only registers the instances in the wallet; they are funded via genesis at their addresses.
  */
-export async function ensureAccountContractsPublished(wallet: Wallet, accountsToDeploy: AztecAddress[]) {
-  const accountsAndAddresses = await Promise.all(
-    accountsToDeploy.map(async address => {
-      return {
-        address,
-        deployed: (await wallet.getContractMetadata(address)).isContractPublished,
-      };
-    }),
-  );
-  const instances = (
-    await Promise.all(
-      accountsAndAddresses
-        .filter(({ deployed }) => !deployed)
-        .map(({ address }) => wallet.getContractMetadata(address)),
-    )
-  ).map(contractMetadata => contractMetadata.instance);
-  const contractClass = await getContractClassFromArtifact(SchnorrAccountContractArtifact);
-  if (!(await wallet.getContractClassMetadata(contractClass.id)).isContractClassPubliclyRegistered) {
-    await (await publishContractClass(wallet, SchnorrAccountContractArtifact)).send({ from: accountsToDeploy[0] });
-  }
-  const requests = instances.map(instance => publishInstance(wallet, instance!));
-  const batch = new BatchCall(wallet, requests);
-  await batch.send({ from: accountsToDeploy[0] });
-}
-
-/**
- * Helper function to deploy accounts.
- * Returns deployed account data that can be used by tests.
- */
-export const deployAccounts =
-  (numberOfAccounts: number, logger: Logger, deployOptions?: Partial<DeployOptions<InteractionWaitOptions>>) =>
+export const createFundedAccounts =
+  (numberOfAccounts: number, logger: Logger) =>
   async ({ wallet, initialFundedAccounts }: { wallet: TestWallet; initialFundedAccounts: InitialAccountData[] }) => {
     if (initialFundedAccounts.length < numberOfAccounts) {
-      throw new Error(`Cannot deploy more than ${initialFundedAccounts.length} initial accounts.`);
+      throw new Error(`Cannot create more than ${initialFundedAccounts.length} initial accounts.`);
     }
 
-    logger.verbose('Deploying accounts funded with fee juice...');
-    const deployedAccounts = initialFundedAccounts.slice(0, numberOfAccounts);
-    // Serial due to https://github.com/AztecProtocol/aztec-packages/issues/12045
-    for (let i = 0; i < deployedAccounts.length; i++) {
-      const accountManager = await wallet.createSchnorrAccount(
-        deployedAccounts[i].secret,
-        deployedAccounts[i].salt,
-        deployedAccounts[i].signingKey,
-      );
-      const deployMethod = await accountManager.getDeployMethod();
-      await deployMethod.send({
-        from: NO_FROM,
-        skipClassPublication: i !== 0, // Publish the contract class at most once.
-        ...deployOptions,
-      });
-    }
+    logger.verbose('Creating initializerless accounts funded with fee juice...');
+    const accounts = initialFundedAccounts.slice(0, numberOfAccounts);
+    await createFundedInitializerlessAccounts(wallet, accounts);
 
-    return { deployedAccounts };
+    return { accounts };
   };
-
-/**
- * Registers the contract class used for test accounts and publicly deploys the instances requested.
- * Use this when you need to make a public call to an account contract, such as for requesting a public authwit.
- */
-export async function publicDeployAccounts(
-  wallet: Wallet,
-  accountsToDeploy: AztecAddress[],
-  waitUntilProven = false,
-  node?: AztecNode,
-) {
-  const instances = (await Promise.all(accountsToDeploy.map(account => wallet.getContractMetadata(account)))).map(
-    metadata => metadata.instance,
-  );
-
-  const contractClass = await getContractClassFromArtifact(SchnorrAccountContractArtifact);
-  const alreadyRegistered = (await wallet.getContractClassMetadata(contractClass.id)).isContractClassPubliclyRegistered;
-
-  const calls: ContractFunctionInteraction[] = await Promise.all([
-    ...(!alreadyRegistered ? [publishContractClass(wallet, SchnorrAccountContractArtifact)] : []),
-    ...instances.map(instance => publishInstance(wallet, instance!)),
-  ]);
-
-  const batch = new BatchCall(wallet, calls);
-
-  const { receipt: txReceipt } = await batch.send({ from: accountsToDeploy[0] });
-  if (waitUntilProven) {
-    if (!node) {
-      throw new Error('Need to provide an AztecNode to wait for proven.');
-    } else {
-      await waitForProven(node, txReceipt);
-    }
-  }
-}
 
 /**
  * Destroys the current context.

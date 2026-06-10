@@ -77,7 +77,7 @@ describe('e2e_multi_validator_node', () => {
 
     ({ teardown, logger, wallet, initialFundedAccounts, aztecNode, config, deployL1ContractsValues, cheatCodes } =
       await setup(
-        1,
+        0,
         {
           ...PIPELINING_SETUP_OPTS,
           initialValidators,
@@ -87,7 +87,6 @@ describe('e2e_multi_validator_node', () => {
           sequencerPollingIntervalMS: 200,
           worldStateBlockCheckIntervalMS: 200,
           blockCheckIntervalMS: 200,
-          skipAccountDeployment: true,
         },
         { syncChainTip: 'checkpointed' },
       ));

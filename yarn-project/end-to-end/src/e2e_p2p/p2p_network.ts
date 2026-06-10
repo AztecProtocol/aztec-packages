@@ -376,7 +376,6 @@ export class P2PNetworkTest {
       {
         ...this.setupOptions,
         fundSponsoredFPC: true,
-        skipAccountDeployment: true,
         skipInitialSequencer: true,
         initialFundedAccounts: [...regularAccounts, this.hardcodedAccountData],
         slasherEnabled: this.setupOptions.slasherEnabled ?? this.deployL1ContractsArgs.slasherEnabled ?? false,

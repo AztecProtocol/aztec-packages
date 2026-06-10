@@ -25,10 +25,9 @@ import { getBBConfig } from './get_bb_config.js';
 import {
   type EndToEndContext,
   type SetupOptions,
-  deployAccounts,
+  createFundedAccounts,
   getPrivateKeyFromIndex,
   getSponsoredFPCAddress,
-  publicDeployAccounts,
   setup,
   setupPXEAndGetWallet,
   teardown,
@@ -54,7 +53,7 @@ export class FullProverTest {
   wallet!: TestWallet;
   provenWallet!: TestWallet;
   accounts: AztecAddress[] = [];
-  deployedAccounts!: InitialAccountData[];
+  fundedAccounts!: InitialAccountData[];
   fakeProofsAsset!: TokenContract;
   fakeProofsAssetInstance!: ContractInstanceWithAddress;
   tokenSim!: TokenSimulator;
@@ -90,19 +89,16 @@ export class FullProverTest {
    */
   private async applyBaseSetup() {
     this.logger.info('Applying base setup: deploying accounts');
-    const { deployedAccounts } = await deployAccounts(
+    const { accounts } = await createFundedAccounts(
       2,
       this.logger,
     )({
       wallet: this.context.wallet,
       initialFundedAccounts: this.context.initialFundedAccounts,
     });
-    this.deployedAccounts = deployedAccounts;
-    this.accounts = deployedAccounts.map(a => a.address);
+    this.fundedAccounts = accounts;
+    this.accounts = accounts.map(a => a.address);
     this.wallet = this.context.wallet;
-
-    this.logger.info('Applying base setup: publicly deploying accounts');
-    await publicDeployAccounts(this.wallet, this.accounts.slice(0, 2));
 
     this.logger.info('Applying base setup: deploying token contract');
     const { contract: asset, instance } = await TokenContract.deploy(
@@ -132,7 +128,6 @@ export class FullProverTest {
       startProverNode: true,
       coinbase: this.coinbase,
       fundSponsoredFPC: true,
-      skipAccountDeployment: true,
       l1ContractsArgs: { realVerifier: this.realProofs },
     });
 
@@ -197,8 +192,8 @@ export class FullProverTest {
     await provenWallet.registerContract(this.fakeProofsAssetInstance, TokenContract.artifact);
 
     for (let i = 0; i < 2; i++) {
-      await provenWallet.createSchnorrAccount(this.deployedAccounts[i].secret, this.deployedAccounts[i].salt);
-      await this.wallet.createSchnorrAccount(this.deployedAccounts[i].secret, this.deployedAccounts[i].salt);
+      await provenWallet.createSchnorrAccount(this.fundedAccounts[i].secret, this.fundedAccounts[i].salt);
+      await this.wallet.createSchnorrAccount(this.fundedAccounts[i].secret, this.fundedAccounts[i].salt);
     }
 
     const asset = TokenContract.at(this.fakeProofsAsset.address, provenWallet);

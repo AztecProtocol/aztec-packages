@@ -10,9 +10,8 @@ import { jest } from '@jest/globals';
 import {
   type EndToEndContext,
   type SetupOptions,
-  deployAccounts,
+  createFundedAccounts,
   ensureAuthRegistryPublished,
-  publicDeployAccounts,
   setup,
   teardown,
 } from '../fixtures/setup.js';
@@ -72,7 +71,7 @@ export class TokenContractTest {
     jest.setTimeout(120_000);
 
     this.logger.info('Applying base setup - deploying 3 accounts');
-    const { deployedAccounts } = await deployAccounts(
+    const { accounts } = await createFundedAccounts(
       3,
       this.logger,
     )({
@@ -82,12 +81,10 @@ export class TokenContractTest {
 
     this.node = this.context.aztecNodeService;
     this.wallet = this.context.wallet;
-    [this.adminAddress, this.account1Address, this.account2Address] = deployedAccounts.map(acc => acc.address);
+    [this.adminAddress, this.account1Address, this.account2Address] = accounts.map(acc => acc.address);
 
     this.logger.info('Applying base setup - deploying token contract');
     await ensureAuthRegistryPublished(this.wallet, this.adminAddress);
-    this.logger.verbose(`Public deploy accounts...`);
-    await publicDeployAccounts(this.wallet, [this.adminAddress, this.account1Address]);
 
     this.logger.verbose(`Deploying TokenContract...`);
     ({ contract: this.asset } = await TokenContract.deploy(
@@ -129,7 +126,6 @@ export class TokenContractTest {
       ...opts,
       metricsPort: this.metricsPort,
       fundSponsoredFPC: true,
-      skipAccountDeployment: true,
     });
 
     if (this.shouldApplyBaseSetup) {

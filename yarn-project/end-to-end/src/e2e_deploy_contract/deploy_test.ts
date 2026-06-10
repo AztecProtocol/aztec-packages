@@ -9,7 +9,7 @@ import type { Wallet } from '@aztec/aztec.js/wallet';
 import type { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
-import { type EndToEndContext, type SetupOptions, deployAccounts, setup, teardown } from '../fixtures/setup.js';
+import { type EndToEndContext, type SetupOptions, createFundedAccounts, setup, teardown } from '../fixtures/setup.js';
 import type { TestWallet } from '../test-wallet/test_wallet.js';
 
 export class DeployTest {
@@ -29,7 +29,6 @@ export class DeployTest {
     this.context = await setup(0, {
       ...opts,
       fundSponsoredFPC: true,
-      skipAccountDeployment: true,
     });
     this.aztecNode = this.context.aztecNodeService;
     this.wallet = this.context.wallet;
@@ -44,14 +43,14 @@ export class DeployTest {
 
   private async applyInitialAccount() {
     this.logger.info('Applying initial account setup');
-    const { deployedAccounts } = await deployAccounts(
+    const { accounts } = await createFundedAccounts(
       1,
       this.logger,
     )({
       wallet: this.context.wallet,
       initialFundedAccounts: this.context.initialFundedAccounts,
     });
-    this.defaultAccountAddress = deployedAccounts[0].address;
+    this.defaultAccountAddress = accounts[0].address;
   }
 
   async registerContract<T extends ContractBase>(

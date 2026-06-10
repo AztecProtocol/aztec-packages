@@ -26,9 +26,8 @@ import { MNEMONIC } from '../fixtures/fixtures.js';
 import {
   type EndToEndContext,
   type SetupOptions,
-  deployAccounts,
+  createFundedAccounts,
   ensureAuthRegistryPublished,
-  publicDeployAccounts,
   setup,
   teardown,
 } from '../fixtures/setup.js';
@@ -100,7 +99,6 @@ export class CrossChainMessagingTest {
         ...this.setupOptions,
         ...opts,
         fundSponsoredFPC: true,
-        skipAccountDeployment: true,
         l1ContractsArgs: { ...this.deployL1ContractsArgs, ...opts.l1ContractsArgs },
       },
       { ...this.pxeOpts, ...pxeOpts },
@@ -160,22 +158,19 @@ export class CrossChainMessagingTest {
 
     // Deploy 3 accounts
     this.logger.info('Applying 3_accounts setup');
-    const { deployedAccounts } = await deployAccounts(
+    const { accounts } = await createFundedAccounts(
       3,
       this.logger,
     )({
       wallet: this.context.wallet,
       initialFundedAccounts: this.context.initialFundedAccounts,
     });
-    [this.ownerAddress, this.user1Address, this.user2Address] = deployedAccounts.map(a => a.address);
+    [this.ownerAddress, this.user1Address, this.user2Address] = accounts.map(a => a.address);
 
     // Set up cross chain messaging
     this.logger.info('Applying e2e_cross_chain_messaging setup');
 
     await ensureAuthRegistryPublished(this.wallet, this.ownerAddress);
-    // Create the token contract state.
-    this.logger.verbose(`Public deploy accounts...`);
-    await publicDeployAccounts(this.wallet, [this.ownerAddress, this.user1Address, this.user2Address]);
 
     this.l1Client = createExtendedL1Client(this.aztecNodeConfig.l1RpcUrls, MNEMONIC);
 

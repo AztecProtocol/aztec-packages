@@ -157,7 +157,7 @@ describe('HA Full Setup', () => {
       deployL1ContractsValues,
       genesis,
     } = await setup(
-      1,
+      0,
       {
         ...PIPELINING_SETUP_OPTS,
         initialValidators,
@@ -170,7 +170,6 @@ describe('HA Full Setup', () => {
         startProverNode: true,
         // Disable validation on this node
         disableValidator: true,
-        skipAccountDeployment: true,
         // Enable P2P for transaction gossip
         p2pEnabled: true,
         // Enable slashing for testing governance + slashing vote coordination

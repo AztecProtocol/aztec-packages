@@ -1,5 +1,4 @@
 import { getInitialTestAccountsData } from '@aztec/accounts/testing';
-import { NO_FROM } from '@aztec/aztec.js/account';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { MinedTxReceipt, type TxReceipt } from '@aztec/aztec.js/tx';
@@ -49,9 +48,9 @@ describe('e2e_bot', () => {
       config: { l1RpcUrls },
     } = setupResult);
     wallet = await EmbeddedWallet.create(aztecNode, { ephemeral: true });
-    const accountManager = await wallet.createSchnorrAccount(botAccount.secret, botAccount.salt, botAccount.signingKey);
-    const deployMethod = await accountManager.getDeployMethod();
-    await deployMethod.send({ from: NO_FROM });
+    // Initializerless test accounts need no deployment tx; creating registers it and the genesis funding
+    // at its address makes it immediately usable.
+    await wallet.createSchnorrInitializerlessAccount(botAccount.secret, botAccount.salt, botAccount.signingKey);
   });
 
   afterAll(() => teardown());

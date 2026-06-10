@@ -202,14 +202,15 @@ export class BotFactory {
   }
 
   /**
-   * Keyless fallback for tests and local dev: reuses the first genesis test account, whose schnorr address
-   * is pre-funded with fee juice via `initialFundedAccounts`. It must be a (non-initializerless) schnorr
-   * account so the address matches the funded one. Production bots set a sender private key and fund the
-   * resulting initializerless account from L1 instead; see setupAccountWithPrivateKey.
+   * Keyless fallback for tests and local dev: reuses the first genesis test account, whose address is
+   * pre-funded with fee juice via `initialFundedAccounts`. The test accounts are initializerless, so this
+   * must create an initializerless account for the address to match the funded one. Production bots set a
+   * sender private key and fund the resulting initializerless account from L1 instead; see
+   * setupAccountWithPrivateKey.
    */
   private async setupTestAccount() {
     const [initialAccountData] = await getInitialTestAccountsData();
-    const accountManager = await this.wallet.createSchnorrAccount(
+    const accountManager = await this.wallet.createSchnorrInitializerlessAccount(
       initialAccountData.secret,
       initialAccountData.salt,
       initialAccountData.signingKey,

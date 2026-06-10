@@ -29,7 +29,13 @@ import { GasSettings } from '@aztec/stdlib/gas';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 
 import { AUTOMINE_E2E_OPTS, MNEMONIC, getPaddedMaxFeesPerGas } from '../../fixtures/fixtures.js';
-import { type EndToEndContext, type SetupOptions, deployAccounts, setup, teardown } from '../../fixtures/setup.js';
+import {
+  type EndToEndContext,
+  type SetupOptions,
+  createFundedAccounts,
+  setup,
+  teardown,
+} from '../../fixtures/setup.js';
 import { mintTokensToPrivate } from '../../fixtures/token_utils.js';
 import { setupSponsoredFPC } from '../../fixtures/utils.js';
 import { CrossChainTestHarness } from '../../shared/cross_chain_test_harness.js';
@@ -138,7 +144,6 @@ export class ClientFlowsBenchmark {
     this.context = await setup(0, {
       ...this.setupOptions,
       fundSponsoredFPC: true,
-      skipAccountDeployment: true,
       l1ContractsArgs: this.setupOptions,
       txPublicSetupAllowListExtend: [...(this.setupOptions.txPublicSetupAllowListExtend ?? []), ...tokenAllowList],
     });
@@ -203,7 +208,7 @@ export class ClientFlowsBenchmark {
 
   async applyInitialAccounts() {
     this.logger.info('Applying initial accounts setup');
-    const { deployedAccounts } = await deployAccounts(
+    const { accounts } = await createFundedAccounts(
       2,
       this.logger,
     )({
@@ -211,7 +216,7 @@ export class ClientFlowsBenchmark {
       initialFundedAccounts: this.context.initialFundedAccounts,
     });
 
-    const [{ address: adminAddress }, { address: sequencerAddress }] = deployedAccounts;
+    const [{ address: adminAddress }, { address: sequencerAddress }] = accounts;
 
     this.adminWallet = this.context.wallet;
     this.aztecNode = this.context.aztecNodeService;

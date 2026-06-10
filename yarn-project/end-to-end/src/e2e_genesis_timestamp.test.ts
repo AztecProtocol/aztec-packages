@@ -16,7 +16,7 @@ describe('e2e_genesis_timestamp', () => {
     // anchor lags behind proposed blocks. Under AUTOMINE_E2E_OPTS the AnvilTestWatcher is disabled
     // and the AutomineSequencer never marks blocks as proven on its own, so without a prover node
     // the proven tip stays at genesis for the duration of the test.
-    context = await setup(0, { ...AUTOMINE_E2E_OPTS, skipAccountDeployment: true }, { syncChainTip: 'proven' });
+    context = await setup(0, { ...AUTOMINE_E2E_OPTS, advancePastGenesis: false }, { syncChainTip: 'proven' });
   });
 
   afterEach(() => context.teardown());

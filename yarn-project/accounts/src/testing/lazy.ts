@@ -6,7 +6,7 @@
 import { Fr } from '@aztec/aztec.js/fields';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 
-import { getSchnorrAccountContractAddress } from '../schnorr/private_immutable/lazy.js';
+import { getSchnorrInitializerlessAccountContractAddress } from '../schnorr/initializerless/lazy.js';
 import {
   INITIAL_TEST_ACCOUNT_SALTS,
   INITIAL_TEST_ENCRYPTION_KEYS,
@@ -26,7 +26,7 @@ export function getInitialTestAccountsData(): Promise<InitialAccountData[]> {
       secret,
       signingKey: INITIAL_TEST_ENCRYPTION_KEYS[i],
       salt: INITIAL_TEST_ACCOUNT_SALTS[i],
-      address: await getSchnorrAccountContractAddress(
+      address: await getSchnorrInitializerlessAccountContractAddress(
         secret,
         INITIAL_TEST_ACCOUNT_SALTS[i],
         INITIAL_TEST_SIGNING_KEYS[i],
@@ -47,7 +47,7 @@ export async function generateSchnorrAccounts(numberOfAccounts: number): Promise
         secret,
         signingKey: deriveSigningKey(secret),
         salt,
-        address: await getSchnorrAccountContractAddress(secret, salt),
+        address: await getSchnorrInitializerlessAccountContractAddress(secret, salt),
       };
     }),
   );
