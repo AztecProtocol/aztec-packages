@@ -44,6 +44,7 @@ import {
 
 const PG = 2;
 const PLANNER_TPB = 256; // ba_planner_v2 workgroup size (one workgroup per window)
+const WI_IDX_TPB = 256; // walker_index v2 kernel workgroup size (and indirect-arg grain)
 const FP = BN254_BASE_FIELD;
 const NUMBITS = 254; // scalar field bit length
 // High-mem ping-pong fused-block width (pairs sharing one batched inversion).
@@ -111,8 +112,11 @@ export function arenaColourSizes(p: {
   const soa = 2 * PG * redM * 4 * 4; // soaSize(redM)
   return [
     // A0: activeBuckets activeCount binOffsets partialWritePos reducePrefScratch sortedCountList scalarsRawBuf l0IdxBuf
-    a(sBTotal * 4) +
-      a(4) +
+    // activeBuckets is sized for (bid, n) PAIRS (walker_index v2's idx_alloc
+    // writes both); the v1 path uses the first half as plain bids.
+    // activeCount carries [count, alloc_total] — 2 u32.
+    a(sBTotal * 8) +
+      a(8) +
       a(64 * 4) +
       a(sBTotal * 4) +
       a(reducePrefBytes) +
@@ -401,6 +405,13 @@ export interface MsmConfig {
    * splits when the cost model finds it worthwhile (or {@link forceSplit} forces it).
    */
   splitC?: boolean;
+  /**
+   * wi4 Phase-1 probes (WALKER_INDEX_PLAN.md): dispatch the two
+   * cost-model kernels (sorted-runs sweep + build) between stream_walker
+   * and the real index pipeline, labelled wi_p1/wi_p2. They write only to
+   * pair-tree scratch (rewritten afterwards) — correctness-neutral.
+   */
+  wiProbe?: boolean;
   /**
    * Use the sparse bucket reduction (skips empty buckets via a gap-aware suffix
    * sum) instead of the dense table-driven tree. Byte-identical result; wins on
@@ -1043,6 +1054,10 @@ interface SharedScratch {
   ptCombineDispatchArgs: GPUBuffer; // 3 × u32 — pt_dispatch_compute writes per-level (ceil(total_tasks/S/TPB),1,1)
   ptBuildLoopArgs: GPUBuffer; // 3 × u32 — dispatch_chain writes hot_wgs while any pair-tasks remain, else 0; build's level-by-level indirect dispatch reads this
   cbDispatchArgs: GPUBuffer; // 3 × u32 — sort_scan writes (ceil(cb_active / (CB_TPB*CB_S)), 1, 1); combine_batched indirect-dispatched off it
+  // walker_index indirect args: [0..2] slot-wide (idx_count/idx_scatter,
+  // written by partition_task), [3..5] dense-wide (idx_alloc, partition_task),
+  // [6..8] active-wide (idx_sort, written by idx_epilogue).
+  wiIdxArgs: GPUBuffer; // 9 × u32
   ptPersistentDispatchArgs: GPUBuffer; // 3 × u32 — packer writes (NUM_WGS, 1, 1)
   ptBucketWg: GPUBuffer; // sBTotal × u32 — per-bucket WG assignment (packer intermediate)
   ptWgMeta: GPUBuffer; // MAX_WGS × 4 × u32 — (scratch_off, count, total_partials, _) per WG
@@ -1446,6 +1461,7 @@ export class MsmV2Pool {
     let ptCombineDispatchArgs = s?.ptCombineDispatchArgs;
     let ptBuildLoopArgs = s?.ptBuildLoopArgs;
     let cbDispatchArgs = s?.cbDispatchArgs;
+    let wiIdxArgs = s?.wiIdxArgs;
     let ptPersistentDispatchArgs = s?.ptPersistentDispatchArgs;
     let ptBucketWg = s?.ptBucketWg;
     let ptWgMeta = s?.ptWgMeta;
@@ -1525,8 +1541,8 @@ export class MsmV2Pool {
     rowPtrBuf = carve(1, cur.rowPtrLen * 4);
     isPresentBuf = carve(1, cur.redM * 4);
     redBuf = carve(1, soaSize(cur.redM));
-    activeBuckets = carve(0, sBTotal * 4);
-    activeCount = carve(0, 4);
+    activeBuckets = carve(0, sBTotal * 8); // (bid, n) pairs on the v2 path; v1 uses bid-only entries
+    activeCount = carve(0, 8); // [active_count, alloc_total]
     binOffsets = carve(0, 64 * 4);
     partialWritePos = carve(0, sBTotal * 4);
     reducePrefScratch = carve(0, cur.reducePrefBytes);
@@ -1545,6 +1561,7 @@ export class MsmV2Pool {
       ptCombineDispatchArgs?.destroy();
       ptBuildLoopArgs?.destroy();
       cbDispatchArgs?.destroy();
+      wiIdxArgs?.destroy();
       ptPersistentDispatchArgs?.destroy();
       ptBucketWg?.destroy();
       ptWgMeta?.destroy();
@@ -1607,6 +1624,11 @@ export class MsmV2Pool {
       });
       ptPersistentDispatchArgs = device.createBuffer({
         size: 12,
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.INDIRECT | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+      });
+      // walker_index indirect args (3 triples — see SharedScratch).
+      wiIdxArgs = device.createBuffer({
+        size: 9 * 4,
         usage: GPUBufferUsage.STORAGE | GPUBufferUsage.INDIRECT | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
       });
       // Packer outputs. MAX_WGS = 64 caps the bin-packing.
@@ -1691,6 +1713,7 @@ export class MsmV2Pool {
       ptCombineDispatchArgs: ptCombineDispatchArgs!,
       ptBuildLoopArgs: ptBuildLoopArgs!,
       cbDispatchArgs: cbDispatchArgs!,
+      wiIdxArgs: wiIdxArgs!,
       ptPersistentDispatchArgs: ptPersistentDispatchArgs!,
       ptBucketWg: ptBucketWg!,
       ptWgMeta: ptWgMeta!,
@@ -1913,6 +1936,7 @@ export class MsmV2 {
   private windowCs!: number[];
   /** split-c (Phase 1): build the MSB histogram + run the variable-window decision. */
   private splitC = false;
+  private wiProbe = false;
   private sparseReduce = false;
   private reduceSparsePipe?: GPUComputePipeline;
   private reduceSparseLayout?: GPUBindGroupLayout;
@@ -2119,30 +2143,30 @@ export class MsmV2 {
   // RMW counter overlaid on partial_dest's tail), 0 on every real run.
   private walkerArenaOffBuf!: GPUBuffer;
   // Optimal walker_combine pipeline (5 kernels).
-  private combineCountPipe!: GPUComputePipeline;
-  private combineCountLayout!: GPUBindGroupLayout;
-  private combineCountBind!: GPUBindGroup;
-  private combineScanPipe!: GPUComputePipeline;
-  private combineScanLayout!: GPUBindGroupLayout;
-  private combineScanBind!: GPUBindGroup;
-  private combineScatterPipe!: GPUComputePipeline;
-  private combineScatterLayout!: GPUBindGroupLayout;
-  private combineScatterBind!: GPUBindGroup;
-  private combineFilterPipe!: GPUComputePipeline;
-  private combineFilterLayout!: GPUBindGroupLayout;
-  private combineFilterBinds: GPUBindGroup[] = [];
   private combineBatchedPipe!: GPUComputePipeline;
   private combineBatchedLayout!: GPUBindGroupLayout;
   private combineBatchedBinds: GPUBindGroup[] = [];
-  private sortCountPipe!: GPUComputePipeline;
-  private sortCountLayout!: GPUBindGroupLayout;
-  private sortCountBind!: GPUBindGroup;
-  private sortScanPipe!: GPUComputePipeline;
-  private sortScanLayout!: GPUBindGroupLayout;
-  private sortScanBind!: GPUBindGroup;
-  private sortScatterPipe!: GPUComputePipeline;
-  private sortScatterLayout!: GPUBindGroupLayout;
-  private sortScatterBind!: GPUBindGroup;
+  // walker_index v2 (WALKER_INDEX_PLAN.md) — 5-dispatch parallel index pipeline.
+  private idxCountPipe!: GPUComputePipeline;
+  private idxCountLayout!: GPUBindGroupLayout;
+  private idxCountBind!: GPUBindGroup;
+  private idxAllocPipe!: GPUComputePipeline;
+  private idxAllocLayout!: GPUBindGroupLayout;
+  private idxAllocBind!: GPUBindGroup;
+  private idxEpiloguePipe!: GPUComputePipeline;
+  private idxEpilogueLayout!: GPUBindGroupLayout;
+  private idxEpilogueBind!: GPUBindGroup;
+  private idxScatterPipe!: GPUComputePipeline;
+  private idxScatterLayout!: GPUBindGroupLayout;
+  private idxScatterBinds: GPUBindGroup[] = [];
+  private idxSortPipe!: GPUComputePipeline;
+  private idxSortLayout!: GPUBindGroupLayout;
+  private idxSortBind!: GPUBindGroup;
+  private idxP1Pipe!: GPUComputePipeline;
+  private idxP2Pipe!: GPUComputePipeline;
+  private idxProbeLayout!: GPUBindGroupLayout;
+  private idxP1Bind!: GPUBindGroup;
+  private idxP2Bind!: GPUBindGroup;
   private ptInitScanPipe!: GPUComputePipeline;
   private ptInitScanLayout!: GPUBindGroupLayout;
   private ptInitScanBind!: GPUBindGroup;
@@ -2384,6 +2408,7 @@ export class MsmV2 {
     m.convertBound = config?.convertBound && config.convertBound > 0 ? config.convertBound : 150000;
     m.combineOnHost = config?.combineOnHost ?? true;
     m.splitC = config?.splitC ?? false;
+    m.wiProbe = config?.wiProbe ?? false;
     m.sparseReduce = config?.sparseReduce ?? false;
     m.forceSplit = config?.forceSplit;
     m.reduceCostWeight = config?.reduceCostWeight ?? 4;
@@ -2744,6 +2769,7 @@ export class MsmV2 {
       'uniform',
       'read-only-storage',
       'uniform',
+      'storage', // is_present — dense-bucket marks hoisted from walker_index
     ]);
     m.metaFixupLayout = lt(['storage']);
     m.radixCountLayout = lt(['read-only-storage', 'storage', 'read-only-storage', 'uniform']);
@@ -2780,7 +2806,7 @@ export class MsmV2 {
       'read-only-storage',
     ]);
     // Stream-walker layouts (C's KNOB 2 variant).
-    //   partition_task: sorted_count_list, cumulative_adds, thread_cuts, planner_meta(rw), task_cuts(rw), params(uniform)
+    //   partition_task: sorted_count_list, cumulative_adds, thread_cuts, planner_meta(rw), task_cuts(rw), params(uniform), wi_idx_args(rw)
     m.partitionTaskLayout = lt([
       'read-only-storage',
       'read-only-storage',
@@ -2788,6 +2814,7 @@ export class MsmV2 {
       'storage',
       'storage',
       'uniform',
+      'storage',
     ]);
     //   resolve_l0base: sorted_bucket_list, arena_a0 (rw), offsets, window_desc, planner_meta (ro), params, batch_offset (uniform)
     m.resolveL0BaseLayout = lt([
@@ -2820,32 +2847,6 @@ export class MsmV2 {
       'uniform',
     ]);
     // === Optimal walker_combine pipeline layouts ===
-    //   count: partial_dest, partial_count(rw), params
-    m.combineCountLayout = lt(['read-only-storage', 'storage', 'uniform']);
-    //   scan: partial_count, partial_offset(rw), params
-    m.combineScanLayout = lt(['read-only-storage', 'storage', 'uniform']);
-    //   scatter: partial_dest, partial_offset, partial_write_pos(rw), partial_layout(rw), params
-    m.combineScatterLayout = lt(['read-only-storage', 'read-only-storage', 'storage', 'storage', 'uniform']);
-    //   filter: sorted_bucket_list, partial_count, partial_offset, partial_layout, partials_buf, bucket_sums(rw), active_buckets(rw), active_count(rw), params, planner_meta
-    // sorted_bucket_list, arena_a2 (monolith — partial_count + partial_layout),
-    // partial_offset, partials_buf (ro); red_buf, active_buckets, active_count (rw);
-    // params; planner_meta (ro); is_present (rw); batch_offset; window_desc (ro
-    // storage — no cap); arena_off. 10 storage = the cap.
-    m.combineFilterLayout = lt([
-      'read-only-storage',
-      'read-only-storage',
-      'read-only-storage',
-      'read-only-storage',
-      'storage',
-      'storage',
-      'storage',
-      'uniform',
-      'read-only-storage',
-      'storage',
-      'uniform',
-      'read-only-storage',
-      'uniform',
-    ]);
     //   batched: active_buckets, active_count, partial_count, partial_offset, partial_layout, l0_index, point_x, point_y, partials_buf(rw), bucket_sums(rw), params
     // active_buckets, active_count, arena_a2 (monolith — partial_count +
     // partial_layout), partial_offset, l0_index, point_x, point_y (ro); partials_buf,
@@ -2866,20 +2867,63 @@ export class MsmV2 {
       'uniform',
       'uniform',
     ]);
-    //   sort-count:   active_buckets, active_count, partial_count, count_histogram(rw)
-    m.sortCountLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'uniform']);
-    //   sort-scan:    count_histogram, bin_offsets(rw), bin_write_pos(rw), pt_dispatch_args(rw), pt_persistent_args(rw)
-    m.sortScanLayout = lt(['read-only-storage', 'storage', 'storage', 'storage', 'storage', 'storage']);
-    //   sort-scatter: active_buckets, active_count, partial_count, bin_offsets, bin_write_pos(rw), sorted_active_buckets(rw)
-    m.sortScatterLayout = lt([
-      'read-only-storage',
-      'read-only-storage',
+    // === walker_index v2 layouts (WALKER_INDEX_PLAN.md). ===
+    //   idx_count: partial_dest, partial_count(rw atomic), planner_meta, params
+    m.idxCountLayout = lt(['read-only-storage', 'storage', 'read-only-storage', 'uniform']);
+    //   idx_alloc: sorted_bucket_list, partial_count, partial_offset(rw), active_pairs(rw),
+    //   active_meta(rw), count_histogram(rw), planner_meta, params
+    //   (is_present marking lives in classify — pure planner data.)
+    m.idxAllocLayout = lt([
       'read-only-storage',
       'read-only-storage',
       'storage',
       'storage',
+      'storage',
+      'storage',
+      'read-only-storage',
       'uniform',
     ]);
+    //   idx_epilogue: count_histogram, active_meta(rw — A0 colour-mate of bin_offsets),
+    //   bin_offsets(rw), bin_write_pos(rw), pt args ×3 (rw), wi_idx_args(rw),
+    //   partial_offset(rw), planner_meta
+    m.idxEpilogueLayout = lt([
+      'read-only-storage',
+      'storage',
+      'storage',
+      'storage',
+      'storage',
+      'storage',
+      'storage',
+      'storage',
+      'storage',
+      'read-only-storage',
+    ]);
+    //   idx_scatter: partial_dest(rw — A1 colour-mate of red_buf; never written),
+    //   partial_offset, partial_write_pos(rw atomic), partial_layout(rw),
+    //   partials_buf, red_buf(rw), planner_meta, window_desc, params, batch_offset
+    m.idxScatterLayout = lt([
+      'storage',
+      'read-only-storage',
+      'storage',
+      'storage',
+      'read-only-storage',
+      'storage',
+      'read-only-storage',
+      'read-only-storage',
+      'uniform',
+      'uniform',
+    ]);
+    //   idx_sort: active_pairs, active_meta, bin_offsets, bin_write_pos(rw atomic),
+    //   sorted_active_buckets(rw)
+    m.idxSortLayout = lt([
+      'read-only-storage',
+      'read-only-storage',
+      'read-only-storage',
+      'storage',
+      'storage',
+    ]);
+    //   wi4 probes: partial_dest (A1 ro), pt_scratch (A4 rw), planner_meta, params.
+    m.idxProbeLayout = lt(['read-only-storage', 'storage', 'read-only-storage', 'uniform']);
     // === Pair-tree v2 (multi-dispatch). ===
     //   pt-init-scan: sorted_active, bin_offsets, active_count, partial_count, pt_off(rw), pt_count(rw), pt_meta(rw)
     m.ptInitScanLayout = lt([
@@ -3124,7 +3168,7 @@ export class MsmV2 {
     // dispatches ceil(num_active/STREAM_WALKER_TPB) workgroups via
     // planner_meta[15..17] written by partition_task.
     m.partitionTaskPipe = await compile(
-      sm.gen_ba_planner_partition_task_shader(STREAM_WALKER_TPB, STREAM_S, STREAM_PLANNER_TPB),
+      sm.gen_ba_planner_partition_task_shader(STREAM_WALKER_TPB, STREAM_S, STREAM_PLANNER_TPB, WI_IDX_TPB),
       `partition-task`,
       m.partitionTaskLayout,
     );
@@ -3147,39 +3191,43 @@ export class MsmV2 {
       `stream-walker`,
       m.streamWalkerLayout,
     );
-    // === Optimal walker_combine pipeline. ===
-    m.combineCountPipe = await compile(
-      sm.gen_ba_walker_combine_count_shader(256, m.BW),
-      `combine-count`,
-      m.combineCountLayout,
-    );
-    m.combineScanPipe = await compile(sm.gen_ba_walker_combine_scan_shader(256), `combine-scan`, m.combineScanLayout);
-    m.combineScatterPipe = await compile(
-      sm.gen_ba_walker_combine_scatter_shader(256, m.BW),
-      `combine-scatter`,
-      m.combineScatterLayout,
-    );
-    m.combineFilterPipe = await compile(
-      sm.gen_ba_walker_combine_filter_shader(256, m.BW, m.stride, m.redM),
-      `combine-filter`,
-      m.combineFilterLayout,
-    );
     m.combineBatchedPipe = await compile(
       sm.gen_ba_walker_combine_batched_shader(STREAM_WALKER_TPB, STREAM_S, m.BW, m.stride, m.redM, INV_VARIANT),
       `combine-batched`,
       m.combineBatchedLayout,
     );
-    m.sortCountPipe = await compile(
-      sm.gen_ba_walker_combine_sort_count_shader(256, m.BW),
-      `sort-count`,
-      m.sortCountLayout,
-    );
-    m.sortScanPipe = await compile(sm.gen_ba_walker_combine_sort_scan_shader(), `sort-scan`, m.sortScanLayout);
-    m.sortScatterPipe = await compile(
-      sm.gen_ba_walker_combine_sort_scatter_shader(256, m.BW),
-      `sort-scatter`,
-      m.sortScatterLayout,
-    );
+    // === walker_index pipeline (WALKER_INDEX_PLAN.md). ===
+    {
+      m.idxCountPipe = await compile(
+        sm.gen_ba_walker_idx_count_shader(WI_IDX_TPB, STREAM_S, STREAM_PLANNER_TPB),
+        `wi-count`,
+        m.idxCountLayout,
+      );
+      m.idxAllocPipe = await compile(sm.gen_ba_walker_idx_alloc_shader(WI_IDX_TPB), `wi-alloc`, m.idxAllocLayout);
+      m.idxEpiloguePipe = await compile(
+        sm.gen_ba_walker_idx_epilogue_shader(WI_IDX_TPB),
+        `wi-epilogue`,
+        m.idxEpilogueLayout,
+      );
+      m.idxScatterPipe = await compile(
+        sm.gen_ba_walker_idx_scatter_shader(WI_IDX_TPB, STREAM_S, STREAM_PLANNER_TPB),
+        `wi-scatter`,
+        m.idxScatterLayout,
+      );
+      m.idxSortPipe = await compile(sm.gen_ba_walker_idx_sort_shader(WI_IDX_TPB), `wi-sort`, m.idxSortLayout);
+      if (m.wiProbe) {
+        m.idxP1Pipe = await compile(
+          sm.gen_ba_walker_idx_p1_shader(WI_IDX_TPB, STREAM_S, STREAM_PLANNER_TPB),
+          `wi-p1`,
+          m.idxProbeLayout,
+        );
+        m.idxP2Pipe = await compile(
+          sm.gen_ba_walker_idx_p2_shader(WI_IDX_TPB, STREAM_S, STREAM_PLANNER_TPB),
+          `wi-p2`,
+          m.idxProbeLayout,
+        );
+      }
+    }
     m.ptInitScanPipe = await compile(sm.gen_ba_walker_pt_init_scan_shader(m.BW), `pt-init-scan`, m.ptInitScanLayout);
     // TPB = 64. With indirect dispatch from sort-scan's NUM_HOT-based args,
     // pt_init_copy/build/finalize launch ceil(NUM_HOT/64) WGs — no idle
@@ -4434,6 +4482,7 @@ export class MsmV2 {
           classifyParams,
           windowDescBuf,
           bwb,
+          scratch.isPresentBuf,
         ]),
       );
       this.metaFixupBind = mkBind(this.metaFixupLayout, [sp]);
@@ -4480,7 +4529,7 @@ export class MsmV2 {
       const wp = scratch.walkerPartials;
       const pdest = scratch.walkerPartialDest;
       const ptaskParams = ubuf(new Uint32Array([0, 0, 0, 0]));
-      this.partitionTaskBind = mkBind(this.partitionTaskLayout, [sc, ca, tc, sp, taskc, ptaskParams]);
+      this.partitionTaskBind = mkBind(this.partitionTaskLayout, [sc, ca, tc, sp, taskc, ptaskParams, scratch.wiIdxArgs]);
       // Walker params: (NUM_THREADS, IDLE_ANCHOR, M_buckets, M_partials).
       const M_partials_walker = 2 * this.streamNumThreads * this.streamS;
       const walkerParams = ubuf(new Uint32Array([this.streamNumThreads, l0PadAnchor, B_TOTAL, M_partials_walker]));
@@ -4521,22 +4570,13 @@ export class MsmV2 {
       this.resolveL0BaseBinds = batchWindowBaseBufs.map(bwb =>
         mkBind(this.resolveL0BaseLayout, [sb, l0BaseBuf, offsetsBufs[0], windowDescBuf, sp, l0bParams, bwb]),
       );
-      const numPartialSlots = M_partials_walker;
-      // === Optimal walker_combine bind groups. ===
+      // === walker_combine bind groups. ===
       const pcount = scratch.partialCount;
       const poffset = scratch.partialOffset;
       const pwpos = scratch.partialWritePos;
       const playout = scratch.partialLayout;
       const abkts = scratch.activeBuckets;
       const acnt = scratch.activeCount;
-      // count: params.x = num_partial_slots = M_partials_walker.
-      const countParams = ubuf(new Uint32Array([numPartialSlots, this.BW, 0, 0]));
-      this.combineCountBind = mkBind(this.combineCountLayout, [pdest, pcount, countParams]);
-      // scan: params.x = num_dense (read from planner_meta at dispatch time? we use B_TOTAL as upper bound)
-      const combineScanParams = ubuf(new Uint32Array([B_TOTAL, 0, 0, 0]));
-      this.combineScanBind = mkBind(this.combineScanLayout, [pcount, poffset, combineScanParams]);
-      // scatter: params.x = num_partial_slots
-      this.combineScatterBind = mkBind(this.combineScatterLayout, [pdest, poffset, pwpos, playout, countParams]);
       // arena_a2 monolith: partial_count + partial_layout are A2 sub-ranges; bind
       // the whole arena once and address them by offset (shared by both at-cap
       // combine kernels), freeing the slot that lets window_desc be storage (no cap).
@@ -4545,25 +4585,6 @@ export class MsmV2 {
         throw new Error('combine: partial_count and partial_layout must share arena A2');
       }
       const combineArenaOff = ubuf(new Uint32Array([slotOff(pcount) / 4, slotOff(playout) / 4, 0, 0]));
-      // filter: params = (num_dense, M_buckets, M_partials, _)
-      const filterParams = ubuf(new Uint32Array([B_TOTAL, batchSlots, M_partials_walker, this.BW]));
-      this.combineFilterBinds = batchWindowBaseBufs.map(bwb =>
-        mkBind(this.combineFilterLayout, [
-          sb,
-          a2Buf,
-          poffset,
-          wp,
-          scratch.redBuf,
-          abkts,
-          acnt,
-          filterParams,
-          scratch.streamPlannerMeta,
-          scratch.isPresentBuf,
-          bwb,
-          windowDescBuf,
-          combineArenaOff,
-        ]),
-      );
       // batched: params = (NUM_ACTIVE — dynamic, set at runtime, IDLE_ANCHOR, M_buckets, M_partials)
       // For now, we'll use 0 for NUM_ACTIVE here and update before dispatch (or dispatch ceil(B_TOTAL/S) and gate internally).
       // Walker params include IDLE_ANCHOR at param.y of the walker uniform — reuse the same value (batchSlots).
@@ -4574,16 +4595,58 @@ export class MsmV2 {
       const boffs = scratch.binOffsets;
       const bwpos = scratch.binWritePos;
       const sabkts = scratch.sortedActiveBuckets;
-      this.sortCountBind = mkBind(this.sortCountLayout, [abkts, acnt, pcount, chist, bwBuf]);
-      this.sortScanBind = mkBind(this.sortScanLayout, [
-        chist,
-        boffs,
-        bwpos,
-        scratch.ptDispatchArgs,
-        scratch.ptPersistentDispatchArgs,
-        scratch.cbDispatchArgs,
-      ]);
-      this.sortScatterBind = mkBind(this.sortScatterLayout, [abkts, acnt, pcount, boffs, bwpos, sabkts, bwBuf]);
+      // === walker_index bind groups (WALKER_INDEX_PLAN.md). ===
+      {
+        const wiArgs = scratch.wiIdxArgs;
+        // idx_count / idx_scatter params: (BW, M_partials, _, _).
+        const wiParams = ubuf(new Uint32Array([this.BW, M_partials_walker, 0, 0]));
+        this.idxCountBind = mkBind(this.idxCountLayout, [pdest, pcount, scratch.streamPlannerMeta, wiParams]);
+        this.idxAllocBind = mkBind(this.idxAllocLayout, [
+          sb,
+          pcount,
+          poffset,
+          abkts,
+          acnt,
+          chist,
+          scratch.streamPlannerMeta,
+          wiParams,
+        ]);
+        this.idxEpilogueBind = mkBind(this.idxEpilogueLayout, [
+          chist,
+          acnt,
+          boffs,
+          bwpos,
+          scratch.ptDispatchArgs,
+          scratch.ptPersistentDispatchArgs,
+          scratch.cbDispatchArgs,
+          wiArgs,
+          poffset,
+          scratch.streamPlannerMeta,
+        ]);
+        this.idxScatterBinds = batchWindowBaseBufs.map(bwb =>
+          mkBind(this.idxScatterLayout, [
+            pdest,
+            poffset,
+            pwpos,
+            playout,
+            wp,
+            scratch.redBuf,
+            scratch.streamPlannerMeta,
+            windowDescBuf,
+            wiParams,
+            bwb,
+          ]),
+        );
+        this.idxSortBind = mkBind(this.idxSortLayout, [abkts, acnt, boffs, bwpos, sabkts]);
+        if (this.wiProbe) {
+          // Probe scratch regions inside ptScratch (u32 elements): exports at
+          // 0, layout-model at 1024, fb-keyed model after 3×M cap (layout +
+          // pair appends), all rewritten by the pair-tree phase afterwards.
+          const probeParams = ubuf(new Uint32Array([0, 1024, 1024 + 3 * M_partials_walker + 64, this.BW]));
+          this.idxP1Bind = mkBind(this.idxProbeLayout, [pdest, scratch.ptScratch, scratch.streamPlannerMeta, probeParams]);
+          this.idxP2Bind = mkBind(this.idxProbeLayout, [pdest, scratch.ptScratch, scratch.streamPlannerMeta, probeParams]);
+        }
+      }
       // Pair-tree: handles hot buckets (N > HOT_THRESHOLD=8). Reads sorted
       // active list + bin_offsets to locate the hot tail; allocates scratch
       // slices via atomicAdd on pt_alloc; writes directly to bucket_sums.
@@ -5028,13 +5091,9 @@ export class MsmV2 {
       clearSlot(enc, this.pool.scratch!.partialWritePos);
       clearSlot(enc, this.pool.scratch!.activeCount);
       clearSlot(enc, this.pool.scratch!.countHistogram);
-      // walkerPartialDest must also be per-batch. Walker only initializes its
-      // own dispatched slots to NO_BUCKET (=0xFFFFFFFF); slots beyond that
-      // would otherwise leak the previous batch's partial mapping into
-      // combine_count/scatter. clearBuffer writes zeros — combine_count and
-      // combine_scatter accept both 0 and NO_BUCKET as "no partial here"
-      // since the classifier's magnitude filter guarantees no real bid is 0.
-      clearSlot(enc, this.pool.scratch!.walkerPartialDest);
+      // walkerPartialDest needs no per-batch clear: the index kernels bound
+      // their reads by the walker's true range (2*S*num_active_threads from
+      // planner_meta[3]) and the walker initialises every slot in that range.
       dispatch(this.classifyPipe, this.classifyBinds[bi], Math.ceil(this.BW / 256), this.batchWindows);
       dispatch(this.metaFixupPipe, this.metaFixupBind, 1, 1);
       for (let rpass = 0; rpass < 3; rpass++) {
@@ -5085,23 +5144,33 @@ export class MsmV2 {
       // (= byte offset 60 = 15 * 4).
       setPhase('stream_walker');
       indirectDispatch(this.streamWalkerPipe, this.streamWalkerBinds[bi], spMeta, 15 * 4);
-      // === Optimal walker_combine: cross-bucket batched-inversion pipeline. ===
-      // Phase A: count partials per bucket.
-      // Phase B: prefix-sum partial_count → partial_offset; scatter dense layout.
-      // Phase C: filter into active_buckets, copy 1-partial buckets straight to sums.
-      // Phase D: batched-inversion combine for count>=2 buckets.
-      setPhase('walker_index');
-      const M_partials_walker = 2 * this.streamNumThreads * this.streamS;
-      dispatch(this.combineCountPipe, this.combineCountBind, Math.ceil(M_partials_walker / 256), 1);
-      dispatch(this.combineScanPipe, this.combineScanBind, 1, 1);
-      dispatch(this.combineScatterPipe, this.combineScatterBind, Math.ceil(M_partials_walker / 256), 1);
-      dispatch(this.combineFilterPipe, this.combineFilterBinds[bi], Math.ceil(this.bTotal / 256), 1);
-      // Counting-sort prepass: group active_buckets by partial_count so each
-      // combine_batched thread's S=8 slots have matching N (zero tail
-      // divergence). Validated to claw back ~6.5 ms at logn=17 / M2.
-      dispatch(this.sortCountPipe, this.sortCountBind, Math.ceil(this.bTotal / 256), 1);
-      dispatch(this.sortScanPipe, this.sortScanBind, 1, 1);
-      dispatch(this.sortScatterPipe, this.sortScatterBind, Math.ceil(this.bTotal / 256), 1);
+      // === walker_index: cross-bucket partials index (WALKER_INDEX_PLAN.md). ===
+      // 5 exact-width dispatches, one wi_* label per dispatch so traces and
+      // the per-phase breakdown attribute each sub-kernel individually:
+      // count, fused alloc+filter+histogram, bins/args epilogue, scatter
+      // (+inline singles copy), aggregated counting-sort scatter. Widths come
+      // from wiIdxArgs (partition_task wrote [0..5]; the epilogue writes [6..8]).
+      {
+        const wiArgs = this.pool.scratch!.wiIdxArgs;
+        if (this.wiProbe) {
+          // Cost probes (one workgroup per 4096-slot block =
+          // planner_meta[12..14], the cumsum-emitted (nwg,1,1)).
+          setPhase('wi_p1');
+          indirectDispatch(this.idxP1Pipe, this.idxP1Bind, spMeta, 12 * 4);
+          setPhase('wi_p2');
+          indirectDispatch(this.idxP2Pipe, this.idxP2Bind, spMeta, 12 * 4);
+        }
+        setPhase('wi_count');
+        indirectDispatch(this.idxCountPipe, this.idxCountBind, wiArgs, 0);
+        setPhase('wi_alloc');
+        indirectDispatch(this.idxAllocPipe, this.idxAllocBind, wiArgs, 12);
+        setPhase('wi_epilogue');
+        dispatch(this.idxEpiloguePipe, this.idxEpilogueBind, 1, 1);
+        setPhase('wi_scatter');
+        indirectDispatch(this.idxScatterPipe, this.idxScatterBinds[bi], wiArgs, 0);
+        setPhase('wi_sort');
+        indirectDispatch(this.idxSortPipe, this.idxSortBind, wiArgs, 24);
+      }
       setPhase('combine_batched');
       // combine_batched handles cool (N≤8) buckets. Pair-tree handles hot.
       indirectDispatch(this.combineBatchedPipe, this.combineBatchedBinds[bi], this.pool.scratch!.cbDispatchArgs, 0);
@@ -5349,6 +5418,240 @@ export class MsmV2 {
     const hist = await readbackU32(this.device, this.msbHistBuf, 256 * 4);
     const msbPerScalar = await readbackU32(this.device, this.msbPerScalarBuf, this.n * 4);
     return { hist, msbPerScalar };
+  }
+
+  /**
+   * Phase-0 validation for the sorted-runs CSR design (WALKER_INDEX_PLAN.md):
+   * read back partial_dest + sorted_bucket_list after a run and verify, on
+   * the CPU, the claims the wi4 kernels would rely on:
+   *   (1) live entries are monotone in dense-bucket order;
+   *   (2) within-bucket hole runs are <= 1 slot;
+   *   (3) the planned two-kernel head rule (per-4096-slot-block exports +
+   *       exact in-block previous-live) reproduces ground-truth segment
+   *       heads with zero mismatches, and head-to-head rank differences
+   *       reproduce ground-truth per-bucket counts;
+   *   (4) segment count == active_count (every cut bucket has >= 2 partials).
+   * Returns counterexample positions on any violation. Multi-batch runs
+   * verify the LAST batch (the scratch buffers are per-batch).
+   */
+  async debugWalkerIndexMonotonicity(blockSlots = 4096): Promise<{
+    mActual: number;
+    live: number;
+    segments: number;
+    activeCount: number;
+    monotonicityViolations: number;
+    firstMonotonicityViolation: number;
+    unknownBids: number;
+    maxIntraBucketHoleRun: number;
+    interBucketHoleRunsGe2: number;
+    headRuleMismatches: number;
+    firstHeadMismatch: number;
+    countMismatches: number;
+    zeroBidsInRange: number;
+  }> {
+    if (this.preparedFor === null) throw new Error('MsmV2.debugWalkerIndexMonotonicity: call prepare() first');
+    const sc = this.pool.scratch!;
+    const NO_BUCKET = 0xffffffff;
+    const readSlot = async (slot: ScratchSlot, bytes: number): Promise<Uint32Array> => {
+      const staging = this.device.createBuffer({ size: bytes, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+      const enc = this.device.createCommandEncoder();
+      enc.copyBufferToBuffer(slotBuf(slot), slotOff(slot), staging, 0, bytes);
+      this.device.queue.submit([enc.finish()]);
+      await staging.mapAsync(GPUMapMode.READ);
+      const out = new Uint32Array(staging.getMappedRange().slice(0));
+      staging.unmap();
+      staging.destroy();
+      return out;
+    };
+    const meta = await readSlot(sc.streamPlannerMeta, 20 * 4);
+    const numDense = meta[1];
+    const nat = meta[3] * STREAM_PLANNER_TPB;
+    const mActual = 2 * this.streamS * nat;
+    const dest = await readSlot(sc.walkerPartialDest, mActual * 4);
+    const sbl = await readSlot(sc.sortedBucketList, Math.max(numDense, 1) * 4);
+    const active = await readSlot(sc.activeCount, 4);
+    const bidToD = new Map<number, number>();
+    for (let d = 0; d < numDense; d++) bidToD.set(sbl[d], d);
+
+    // Ground truth walk.
+    let live = 0;
+    let segments = 0;
+    let monotonicityViolations = 0;
+    let firstMonotonicityViolation = -1;
+    let unknownBids = 0;
+    let zeroBidsInRange = 0;
+    let maxIntraBucketHoleRun = 0;
+    let interBucketHoleRunsGe2 = 0;
+    let prevD = -1;
+    let prevLiveBid = -1;
+    let holeRun = 0;
+    const truthHead = new Uint8Array(mActual);
+    const truthCount = new Map<number, number>();
+    for (let i = 0; i < mActual; i++) {
+      const bid = dest[i];
+      if (bid === 0) zeroBidsInRange++;
+      const isLive = bid !== 0 && bid !== NO_BUCKET;
+      if (!isLive) {
+        holeRun++;
+        continue;
+      }
+      const d = bidToD.get(bid);
+      if (d === undefined) {
+        unknownBids++;
+        holeRun = 0;
+        continue;
+      }
+      if (d < prevD && firstMonotonicityViolation < 0) firstMonotonicityViolation = i;
+      if (d < prevD) monotonicityViolations++;
+      if (d === prevD) {
+        maxIntraBucketHoleRun = Math.max(maxIntraBucketHoleRun, holeRun);
+      } else {
+        if (holeRun >= 2) interBucketHoleRunsGe2++;
+        segments++;
+        truthHead[i] = 1;
+      }
+      truthCount.set(d, (truthCount.get(d) ?? 0) + 1);
+      live++;
+      prevD = d;
+      prevLiveBid = bid;
+      holeRun = 0;
+    }
+    void prevLiveBid;
+
+    // Simulate the planned kernels EXACTLY.
+    // K1 per block: live_total, last_live_bid (or -1 if the block has no live).
+    const nBlocks = Math.ceil(mActual / blockSlots);
+    const blockLastLive = new Int32Array(nBlocks).fill(-1);
+    const blockLiveTotal = new Uint32Array(nBlocks);
+    for (let b = 0; b < nBlocks; b++) {
+      for (let i = b * blockSlots; i < Math.min((b + 1) * blockSlots, mActual); i++) {
+        const bid = dest[i];
+        if (bid !== 0 && bid !== NO_BUCKET) {
+          blockLiveTotal[b]++;
+          blockLastLive[b] = bid;
+        }
+      }
+    }
+    // K2 per block: carried last-live bid from exports, exact in-block prev-live.
+    let headRuleMismatches = 0;
+    let firstHeadMismatch = -1;
+    const simHeadRank = new Map<number, number>(); // head slot -> global live rank
+    let globalRank = 0;
+    for (let b = 0; b < nBlocks; b++) {
+      let carry = -1;
+      for (let pb = b - 1; pb >= 0; pb--) {
+        if (blockLastLive[pb] !== -1) {
+          carry = blockLastLive[pb];
+          break;
+        }
+      }
+      let prevLive = carry; // bid of previous live entry (exact within block)
+      for (let i = b * blockSlots; i < Math.min((b + 1) * blockSlots, mActual); i++) {
+        const bid = dest[i];
+        const isLive = bid !== 0 && bid !== NO_BUCKET && bidToD.has(bid);
+        if (!isLive) continue;
+        const simHead = prevLive === -1 || prevLive !== bid;
+        if (simHead !== (truthHead[i] === 1)) {
+          headRuleMismatches++;
+          if (firstHeadMismatch < 0) firstHeadMismatch = i;
+        }
+        if (simHead) simHeadRank.set(i, globalRank);
+        globalRank++;
+        prevLive = bid;
+      }
+    }
+    // Counts via head-to-head rank differences (the wi4 count rule).
+    let countMismatches = 0;
+    const headSlots = [...simHeadRank.keys()].sort((a, b) => a - b);
+    for (let h = 0; h < headSlots.length; h++) {
+      const slot = headSlots[h];
+      const nextRank = h + 1 < headSlots.length ? simHeadRank.get(headSlots[h + 1])! : live;
+      const simCount = nextRank - simHeadRank.get(slot)!;
+      const d = bidToD.get(dest[slot])!;
+      if (simCount !== (truthCount.get(d) ?? 0)) countMismatches++;
+    }
+
+    return {
+      mActual,
+      live,
+      segments,
+      activeCount: active[0],
+      monotonicityViolations,
+      firstMonotonicityViolation,
+      unknownBids,
+      maxIntraBucketHoleRun,
+      interBucketHoleRunsGe2,
+      headRuleMismatches,
+      firstHeadMismatch,
+      countMismatches,
+      zeroBidsInRange,
+    };
+  }
+
+  /**
+   * Read back the walker_index phase's workload after a run(): how many dense
+   * buckets, how many partials the walker emitted, how they distribute over
+   * per-bucket counts (N), and how many active (N>=2) buckets the combine
+   * stage sees. Multi-batch runs report the LAST batch only (the scratch
+   * buffers are per-batch).
+   */
+  async debugWalkerIndexStats(): Promise<{
+    c: number;
+    numWindows: number;
+    bTotal: number;
+    streamNumThreads: number;
+    mPartialSlots: number;
+    walkerNwg: number;
+    numSize1: number;
+    numDense: number;
+    totalPartials: number;
+    singles: number;
+    activeCount: number;
+    nHistogram: number[];
+    gpuCountHistogram: number[];
+  }> {
+    if (this.preparedFor === null) throw new Error('MsmV2.debugWalkerIndexStats: call prepare() first');
+    const sc = this.pool.scratch!;
+    const readSlot = async (slot: ScratchSlot, bytes: number): Promise<Uint32Array> => {
+      const staging = this.device.createBuffer({ size: bytes, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+      const enc = this.device.createCommandEncoder();
+      enc.copyBufferToBuffer(slotBuf(slot), slotOff(slot), staging, 0, bytes);
+      this.device.queue.submit([enc.finish()]);
+      await staging.mapAsync(GPUMapMode.READ);
+      const out = new Uint32Array(staging.getMappedRange().slice(0));
+      staging.unmap();
+      staging.destroy();
+      return out;
+    };
+    const meta = await readSlot(sc.streamPlannerMeta, 20 * 4);
+    const partialCount = await readSlot(sc.partialCount, this.bTotal * 4);
+    const active = await readSlot(sc.activeCount, 4);
+    const gpuHist = await readSlot(sc.countHistogram, 64 * 4);
+    const nHistogram = new Array<number>(65).fill(0);
+    let totalPartials = 0;
+    let singles = 0;
+    for (let i = 0; i < partialCount.length; i++) {
+      const n = partialCount[i];
+      if (n === 0) continue;
+      totalPartials += n;
+      if (n === 1) singles++;
+      nHistogram[Math.min(n, 64)]++;
+    }
+    return {
+      c: this.c,
+      numWindows: this.numWindows,
+      bTotal: this.bTotal,
+      streamNumThreads: this.streamNumThreads,
+      mPartialSlots: 2 * this.streamNumThreads * this.streamS,
+      walkerNwg: meta[15],
+      numSize1: meta[0],
+      numDense: meta[1],
+      totalPartials,
+      singles,
+      activeCount: active[0],
+      nHistogram,
+      gpuCountHistogram: Array.from(gpuHist),
+    };
   }
 
   /**
