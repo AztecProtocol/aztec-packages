@@ -1363,6 +1363,9 @@ export class LibP2PService extends WithTracer implements P2PService {
     const isValid = await this.blockReceivedCallback(block, sender);
     if (!isValid) {
       this.logger.info(`Block proposal validation failed for block ${block.blockNumber}`, block.toBlockInfo());
+      // Release the protections this proposal created so its txs return to pending. Only entries still
+      // keyed to this slot are cleared, so a tx referenced by a live proposal at another slot stays protected.
+      await this.mempools.txPool.unprotectTxs(block.txHashes, slot);
     }
   }
 
