@@ -1,12 +1,12 @@
-use crate::HandshakeRegistry::DiscoveredHandshake;
-
 use aztec::{
     capsules::CapsuleArray,
     context::UtilityContext,
     ephemeral::EphemeralArray,
     messages::{
-        delivery::OnchainDeliveryMode,
-        discovery::{ComputeNoteHash, ComputeNoteNullifier, CustomMessageHandler, do_sync_state},
+        delivery::{handshake::DiscoveredHandshake, OnchainDeliveryMode},
+        discovery::{
+            ComputeNoteHash, ComputeNoteNullifier, CustomMessageHandler, do_sync_state_without_handshake_discovery,
+        },
         encryption::{aes128::AES128, message_encryption::MessageEncryption},
         processing::{
             log_retrieval_request::{LogRetrievalRequest, LogSource},
@@ -87,8 +87,7 @@ pub(crate) unconstrained fn handshake_registry_sync(
         );
     }
 
-    // Execute the default sync
-    do_sync_state(
+    do_sync_state_without_handshake_discovery(
         contract_address,
         compute_note_hash,
         compute_note_nullifier,
