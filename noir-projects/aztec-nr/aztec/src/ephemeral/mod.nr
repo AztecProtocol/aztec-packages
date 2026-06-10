@@ -1,5 +1,6 @@
 use crate::oracle::ephemeral;
 use crate::oracle_array::{ArrayOracle, OracleArray};
+use crate::protocol::traits::{Deserialize, Serialize};
 
 /// A dynamically sized array that exists only during a single contract call frame.
 ///
@@ -57,9 +58,32 @@ impl ArrayOracle for EphemeralOracle {
     }
 }
 
+/// Stores a single value at `slot`, overwriting any value previously stored there.
+pub unconstrained fn store<T>(slot: Field, value: T)
+where
+    T: Serialize,
+{
+    crate::oracle_array::store::<T, EphemeralOracle>(slot, value)
+}
+
+/// Returns the value previously stored at `slot` with [`store`], or `Option::none()` if the slot holds no value.
+pub unconstrained fn load<T>(slot: Field) -> Option<T>
+where
+    T: Deserialize,
+{
+    crate::oracle_array::load::<T, EphemeralOracle>(slot)
+}
+
+/// Deletes the value stored at `slot`. Does nothing if the slot is already empty.
+pub unconstrained fn delete(slot: Field) {
+    crate::oracle_array::delete::<EphemeralOracle>(slot)
+}
+
 mod test {
+    use crate::oracle_array::test_helpers::SLOT;
     use crate::oracle_array::test_helpers as checks;
-    use super::EphemeralOracle;
+    use crate::test::helpers::test_environment::TestEnvironment;
+    use super::{EphemeralOracle, load, store};
 
     #[test]
     unconstrained fn empty_array() {
@@ -254,5 +278,44 @@ mod test {
     #[test]
     unconstrained fn find_on_empty_array_is_none() {
         checks::check_find_on_empty_array_is_none::<EphemeralOracle>();
+    }
+
+    #[test]
+    unconstrained fn store_and_load() {
+        let env = TestEnvironment::new();
+        env.utility_context(|_| {
+            store(SLOT, 42);
+            assert_eq(load(SLOT), Option::some(42));
+        });
+    }
+
+    #[test]
+    unconstrained fn load_empty_returns_none() {
+        checks::check_load_empty_returns_none::<EphemeralOracle>();
+    }
+
+    #[test]
+    unconstrained fn store_overwrites() {
+        checks::check_store_overwrites::<EphemeralOracle>();
+    }
+
+    #[test]
+    unconstrained fn delete_removes_value() {
+        checks::check_delete_removes_value::<EphemeralOracle>();
+    }
+
+    #[test]
+    unconstrained fn delete_empty_is_noop() {
+        checks::check_delete_empty_is_noop::<EphemeralOracle>();
+    }
+
+    #[test]
+    unconstrained fn store_and_load_multi_field_type() {
+        checks::check_store_and_load_multi_field_type::<EphemeralOracle>();
+    }
+
+    #[test]
+    unconstrained fn stored_value_is_visible_as_a_length_one_array() {
+        checks::check_stored_value_is_visible_as_a_length_one_array::<EphemeralOracle>();
     }
 }

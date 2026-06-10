@@ -70,8 +70,7 @@ pub unconstrained fn store<T>(slot: Field, value: T)
 where
     T: Serialize,
 {
-    let array: TransientArray<T> = TransientArray::at(slot);
-    array.clear().push(value);
+    crate::oracle_array::store::<T, TransientOracle>(slot, value)
 }
 
 /// Returns the value previously stored at `slot` with [`store`], or `Option::none()` if the slot holds no value.
@@ -79,25 +78,19 @@ pub unconstrained fn load<T>(slot: Field) -> Option<T>
 where
     T: Deserialize,
 {
-    let array: TransientArray<T> = TransientArray::at(slot);
-    if array.len() == 0 {
-        Option::none()
-    } else {
-        Option::some(array.get(0))
-    }
+    crate::oracle_array::load::<T, TransientOracle>(slot)
 }
 
 /// Deletes the value stored at `slot`. Does nothing if the slot is already empty.
 pub unconstrained fn delete(slot: Field) {
-    transient::clear_oracle(slot);
+    crate::oracle_array::delete::<TransientOracle>(slot)
 }
 
 mod test {
     use crate::oracle_array::test_helpers::SLOT;
     use crate::oracle_array::test_helpers as checks;
     use crate::test::helpers::test_environment::TestEnvironment;
-    use crate::test::mocks::MockStruct;
-    use super::{delete, load, store, TransientArray, TransientOracle};
+    use super::{load, store, TransientOracle};
 
     #[test]
     unconstrained fn empty_array() {
@@ -305,62 +298,31 @@ mod test {
 
     #[test]
     unconstrained fn load_empty_returns_none() {
-        let env = TestEnvironment::new();
-        env.utility_context(|_| {
-            let value: Option<Field> = load(SLOT);
-            assert_eq(value, Option::none());
-        });
+        checks::check_load_empty_returns_none::<TransientOracle>();
     }
 
     #[test]
     unconstrained fn store_overwrites() {
-        let env = TestEnvironment::new();
-        env.utility_context(|_| {
-            store(SLOT, 1);
-            store(SLOT, 2);
-            assert_eq(load(SLOT), Option::some(2));
-        });
+        checks::check_store_overwrites::<TransientOracle>();
     }
 
     #[test]
     unconstrained fn delete_removes_value() {
-        let env = TestEnvironment::new();
-        env.utility_context(|_| {
-            store(SLOT, 42);
-            delete(SLOT);
-            let value: Option<Field> = load(SLOT);
-            assert_eq(value, Option::none());
-        });
+        checks::check_delete_removes_value::<TransientOracle>();
     }
 
     #[test]
     unconstrained fn delete_empty_is_noop() {
-        let env = TestEnvironment::new();
-        env.utility_context(|_| {
-            delete(SLOT);
-            let value: Option<Field> = load(SLOT);
-            assert_eq(value, Option::none());
-        });
+        checks::check_delete_empty_is_noop::<TransientOracle>();
     }
 
     #[test]
     unconstrained fn store_and_load_multi_field_type() {
-        let env = TestEnvironment::new();
-        env.utility_context(|_| {
-            let value = MockStruct::new(5, 6);
-            store(SLOT, value);
-            assert_eq(load(SLOT), Option::some(value));
-        });
+        checks::check_store_and_load_multi_field_type::<TransientOracle>();
     }
 
     #[test]
     unconstrained fn stored_value_is_visible_as_a_length_one_array() {
-        let env = TestEnvironment::new();
-        env.utility_context(|_| {
-            store(SLOT, 42);
-            let array: TransientArray<Field> = TransientArray::at(SLOT);
-            assert_eq(array.len(), 1);
-            assert_eq(array.get(0), 42);
-        });
+        checks::check_stored_value_is_visible_as_a_length_one_array::<TransientOracle>();
     }
 }
