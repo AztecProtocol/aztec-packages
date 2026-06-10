@@ -148,7 +148,7 @@ template <typename Flavor> class ECCVMVerifier_ {
     std::shared_ptr<VerificationKey> key;
     Proof proof;
     BF vk_hash;
-    Commitment pcs_g1_identity; // G1 generator for PCS operations (Shplemini/Shplonk)
+    Commitment pcs_g1_identity; // G1 generator for PCS operations (Shplonk)
     std::shared_ptr<Transcript> transcript;
 
     // Builder pointer (only used for recursive, nullptr for native)

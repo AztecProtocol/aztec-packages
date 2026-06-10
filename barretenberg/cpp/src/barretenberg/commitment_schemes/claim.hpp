@@ -146,11 +146,11 @@ template <typename Curve> class OpeningClaim {
 /**
  * @brief An accumulator consisting of the Shplonk evaluation challenge and vectors of commitments and scalars.
  *
- * @details This structure is used in the `reduce_verify_batch_opening_claim` method of KZG or IPA.
+ * @details This structure is used in the `reduce_verify_batch_opening_claim` method of KZG.
  *
  * @note This structure always represents a zero evaluation claim.
  *
- * @tparam Curve: BN254 or Grumpkin.
+ * @tparam Curve: BN254.
  */
 template <typename Curve> struct BatchOpeningClaim {
 

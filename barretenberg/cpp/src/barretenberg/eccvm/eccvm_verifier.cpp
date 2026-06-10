@@ -6,7 +6,8 @@
 
 #include "./eccvm_verifier.hpp"
 #include "barretenberg/commitment_schemes/claim_batcher.hpp"
-#include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
+#include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
+#include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/stdlib/eccvm_verifier/eccvm_recursive_flavor.hpp"
