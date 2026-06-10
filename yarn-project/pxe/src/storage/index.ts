@@ -2,6 +2,7 @@ export * from './address_store/index.js';
 export * from './anchor_block_store/index.js';
 export * from './capsule_store/index.js';
 export * from './contract_store/index.js';
+export * from './entity_store/index.js';
 export * from './note_store/index.js';
 export * from './tagging_store/index.js';
 export * from './metadata.js';
