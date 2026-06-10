@@ -5,7 +5,7 @@ import { loadContractArtifact } from '@aztec/stdlib/abi';
 import type { NoirCompiledContract } from '@aztec/stdlib/noir';
 
 import SimulatedEcdsaAccountJson from '../../../artifacts/SimulatedEcdsaAccount.json' with { type: 'json' };
-import { StubBaseAccountContract } from '../account_contract.js';
+import { StubBaseAccountContract } from '../../defaults/stub_account_contract.js';
 
 export const StubEcdsaAccountContractArtifact = loadContractArtifact(SimulatedEcdsaAccountJson as NoirCompiledContract);
 

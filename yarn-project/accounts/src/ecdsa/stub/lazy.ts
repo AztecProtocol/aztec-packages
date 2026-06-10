@@ -3,7 +3,7 @@ import type { CompleteAddress } from '@aztec/aztec.js/addresses';
 import { DefaultAccountEntrypoint } from '@aztec/entrypoints/account';
 import { loadContractArtifact } from '@aztec/stdlib/abi';
 
-import { StubBaseAccountContract } from '../account_contract.js';
+import { StubBaseAccountContract } from '../../defaults/stub_account_contract.js';
 
 /**
  * Lazily loads the ECDSA stub contract artifact (browser-compatible).
