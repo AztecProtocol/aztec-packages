@@ -41,6 +41,7 @@ import {
   fold_test as fold_test_shader,
   reduce_test as reduce_test_shader,
   batch_test as batch_test_shader,
+  poseidon2_transcript_test as poseidon2_transcript_test_shader,
   fr_ops_test as fr_ops_test_shader,
   fr_pow as fr_pow_funcs,
   lag as lag_funcs,
@@ -459,6 +460,15 @@ ${packLines.join('\n')}
    */
   public gen_batch_test_shader(workgroup_size: number): string {
     return mustache.render(batch_test_shader, this.relationView(workgroup_size), this.relationPartials);
+  }
+
+  /**
+   * GPU Fiat-Shamir transcript: Poseidon2 hash of [running, round univariate] -> the
+   * round challenge u_i, plus the gate-separator c_i update. Mirrors crypto/poseidon2;
+   * see poseidon2_transcript_test.template.wgsl. workgroup_size is ignored (1 thread).
+   */
+  public gen_poseidon2_transcript_test_shader(workgroup_size: number): string {
+    return mustache.render(poseidon2_transcript_test_shader, this.relationView(workgroup_size), this.relationPartials);
   }
 
   /** Common Mustache view shared by every relation-accumulate test shader. */

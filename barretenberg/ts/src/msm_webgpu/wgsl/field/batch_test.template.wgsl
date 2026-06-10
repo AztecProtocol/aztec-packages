@@ -28,8 +28,9 @@ const BATCHED_LEN: u32 = 8u;
 @group(0) @binding(1) var<storage, read> li_mat: array<u32>;       // BATCHED_LEN*ACC_LEN Fr
 @group(0) @binding(2) var<storage, read> ld_mat: array<u32>;       // BATCHED_LEN*ACC_LEN Fr
 @group(0) @binding(3) var<storage, read> pow: array<u32>;          // 2*BATCHED_LEN Fr: a[0..7] then b[0..7]
-@group(0) @binding(4) var<storage, read> scalars: array<u32>;      // [beta_i, c_i] Fr
-@group(0) @binding(5) var<storage, read_write> out_buf: array<u32>; // BATCHED_LEN Fr
+@group(0) @binding(4) var<storage, read> beta_buf: array<u32>;     // 1 Fr: beta_i (this round)
+@group(0) @binding(5) var<storage, read> c_buf: array<u32>;        // 1 Fr: c_i (gate-separator product, GPU-resident)
+@group(0) @binding(6) var<storage, read_write> out_buf: array<u32>; // BATCHED_LEN Fr
 
 fn ld_acc(idx: u32) -> array<u32, 8> {
   let b = idx * 8u; var v: array<u32, 8>;
@@ -59,10 +60,17 @@ fn ld_pow(idx: u32) -> array<u32, 8> {
 {{/f8_words}}
   return v;
 }
-fn ld_sc(idx: u32) -> array<u32, 8> {
-  let b = idx * 8u; var v: array<u32, 8>;
+fn ld_beta() -> array<u32, 8> {
+  var v: array<u32, 8>;
 {{#f8_words}}
-  v[{{i}}] = scalars[b + {{i}}u];
+  v[{{i}}] = beta_buf[{{i}}u];
+{{/f8_words}}
+  return v;
+}
+fn ld_c() -> array<u32, 8> {
+  var v: array<u32, 8>;
+{{#f8_words}}
+  v[{{i}}] = c_buf[{{i}}u];
 {{/f8_words}}
   return v;
 }
@@ -84,8 +92,8 @@ fn batch_main(@builtin(global_invocation_id) gid: vec3<u32>) {
     ldSum = fr_add_f8(ldSum, montgomery_product_f8(ld_ld(row + idx), a));
   }
 
-  let beta = ld_sc(0u);
-  let c = ld_sc(1u);
+  let beta = ld_beta();
+  let c = ld_c();
   let extRandom = fr_add_f8(ld_pow(e), montgomery_product_f8(ld_pow(BATCHED_LEN + e), beta));
   let res = fr_add_f8(montgomery_product_f8(montgomery_product_f8(liSum, extRandom), c), ldSum);
 

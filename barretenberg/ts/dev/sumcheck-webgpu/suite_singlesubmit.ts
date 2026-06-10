@@ -1,0 +1,155 @@
+// Suite: fully GPU-resident single-command-buffer sumcheck with on-GPU Fiat-Shamir
+// (engine in single_submit.ts). The challenges are DERIVED ON THE GPU (Poseidon2
+// transcript), not precomputed — so this validates the whole chain end to end:
+//
+//   (1) telescoping over the GPU univariates and GPU-derived challenges;
+//   (2) the absolute purported anchor at the GPU-derived final challenge;
+//   (3) [small n] the GPU univariates match a CPU reference folded with the SAME
+//       GPU challenges, AND the GPU challenges equal a CPU Poseidon2 re-derivation
+//       of the challenge chain from those univariates (confirms GPU Fiat-Shamir).
+
+import {
+  runSumcheckRounds, checkTelescoping, evaluateUnivariate,
+} from '../../src/msm_webgpu/multiround.js';
+import { GateSeparatorPolynomial } from '../../src/msm_webgpu/gate_separator.js';
+import { sumcheckRoundChallenge, SUMCHECK_TRANSCRIPT_SEED } from '../../src/msm_webgpu/cuzk/poseidon2_cpu.js';
+import {
+  NUM_RELATIONS, RELATION_ACC_OFFSET, RELATION_NAMES, assembleAccumulator, reduceEdges,
+} from '../../src/msm_webgpu/accumulator.js';
+import {
+  SUBREL_START, SUBREL_LIN_INDEP, SUBREL_RELATION, NUM_SUBRELATIONS,
+} from '../../src/msm_webgpu/batch_tail.js';
+import { fold as cpuFold } from '../../src/msm_webgpu/fold.js';
+import { ALL_RELATIONS } from './descriptors.js';
+import { encodeColumnsToBytes } from './gpu_pipeline.js';
+import { runSingleSubmitSumcheck } from './single_submit.js';
+import {
+  type Suite, type SuiteCtx, type RelationDescriptor,
+  mod, makeRng, packParams, fromMont, le32ToBi,
+} from './harness.js';
+
+const add = (a: bigint, b: bigint): bigint => mod(a + b);
+const mul = (a: bigint, b: bigint): bigint => mod(a * b);
+
+const subrelRelIdx: number[] = [];
+const subrelLocalFr: number[] = [];
+for (let g = 0; g < NUM_SUBRELATIONS; g++) {
+  const name = SUBREL_RELATION[g].slice(0, SUBREL_RELATION[g].indexOf('['));
+  const r = RELATION_NAMES.indexOf(name);
+  subrelRelIdx.push(r);
+  subrelLocalFr.push(SUBREL_START[g] - RELATION_ACC_OFFSET[r]);
+}
+
+function cpuRelationSlice(desc: RelationDescriptor, cols: bigint[][], params: bigint[], gs: GateSeparatorPolynomial): bigint[] {
+  const pairs = cols[0].length >> 1;
+  const perEdge: bigint[][] = [];
+  for (let p = 0; p < pairs; p++) {
+    perEdge.push(desc.polyRef(cols.map(c => [c[2 * p], c[2 * p + 1]]), gs.edgeScaling(p), params));
+  }
+  return reduceEdges(perEdge, desc.outLen);
+}
+
+async function run({ device, n, log }: SuiteCtx): Promise<boolean> {
+  const d = Math.round(Math.log2(n));
+  if (1 << d !== n) { log('err', '  singlesubmit: n must be a power of 2'); return false; }
+  if (d < 1) { log('err', '  singlesubmit: need n >= 2'); return false; }
+
+  const alpha = makeRng(0xa1fa_5eed_77n)();
+  const betaRng = makeRng(0xbe7a_5eed_77n);
+  const betas = Array.from({ length: d }, () => betaRng());
+
+  const initCols: bigint[][][] = [];
+  const paramsByRel: bigint[][] = [];
+  const relParamBytes: (Uint8Array | undefined)[] = [];
+  for (const desc of ALL_RELATIONS) {
+    const rng = makeRng(desc.seed ^ 0x5151_5151_5151n);
+    const params = desc.makeParams ? desc.makeParams(rng) : [];
+    paramsByRel[desc.relationIndex] = params;
+    relParamBytes[desc.relationIndex] = desc.makeParams ? packParams(params) : undefined;
+    initCols[desc.relationIndex] = Array.from({ length: desc.numEdges }, () => Array.from({ length: n }, () => rng()));
+  }
+  const initColBytes: Uint8Array[] = [];
+  for (const desc of ALL_RELATIONS) initColBytes[desc.relationIndex] = encodeColumnsToBytes(initCols[desc.relationIndex], n);
+
+  const gpu = await runSingleSubmitSumcheck(device, n, alpha, betas, relParamBytes, initColBytes);
+  const ch = gpu.challenges;
+
+  // (3) small n: GPU univariates match CPU folded with the SAME GPU challenges, and
+  // the GPU challenges equal a CPU Poseidon2 re-derivation from those univariates.
+  const FULL_DIFF = n <= 1 << 10;
+  if (FULL_DIFF) {
+    const cpuCols = initCols.map(rcols => rcols.map(c => c.slice()));
+    const cpu = await runSumcheckRounds(betas, d, {
+      numRounds: d,
+      challenges: ch,
+      accumulate: (_round, gs) => {
+        const slices: (bigint[] | null)[] = new Array(NUM_RELATIONS).fill(null);
+        for (const desc of ALL_RELATIONS) {
+          slices[desc.relationIndex] = cpuRelationSlice(desc, cpuCols[desc.relationIndex], paramsByRel[desc.relationIndex], gs);
+        }
+        return assembleAccumulator(slices);
+      },
+      roundUnivariate: (acc, gs) => gs.roundUnivariate(acc, alpha),
+      fold: (_round, u) => { for (let r = 0; r < NUM_RELATIONS; r++) cpuCols[r] = cpuCols[r].map(c => cpuFold(c, u)); },
+    });
+    for (let i = 0; i < d; i++) {
+      for (let k = 0; k < gpu.univariates[i].length; k++) {
+        if (gpu.univariates[i][k] !== cpu.univariates[i][k]) {
+          log('err', `  round ${i} ✗  k=${k} gpu=${gpu.univariates[i][k]} cpu=${cpu.univariates[i][k]}`);
+          return false;
+        }
+      }
+    }
+    // Re-derive the Fiat-Shamir chain on the CPU from the (now matching) univariates.
+    let running = SUMCHECK_TRANSCRIPT_SEED;
+    for (let i = 0; i < d; i++) {
+      const { challenge, nextRunning } = sumcheckRoundChallenge(running, gpu.univariates[i]);
+      if (challenge !== ch[i]) {
+        log('err', `  fiat-shamir ✗  round ${i}: gpu u=${ch[i]} != cpu Poseidon2 u=${challenge}`);
+        return false;
+      }
+      running = nextRunning;
+    }
+    log('ok', `  accumulate+batch+fold+Fiat-Shamir ✓  GPU == CPU every round (${gpu.gpuMs.toFixed(1)} ms GPU)`);
+  } else {
+    log('info', `  CPU diff skipped for n=${n} (anchored by telescoping + purported); ${gpu.gpuMs.toFixed(1)} ms GPU`);
+  }
+
+  // (1) telescoping over the GPU univariates + GPU-derived challenges.
+  const tel = checkTelescoping(gpu.univariates, ch);
+  if (!tel.ok) {
+    const f = tel.failures[0];
+    log('err', `  telescoping ✗  round ${f.round}: S(0)+S(1)=${f.got} != prev S(u)=${f.expected}`);
+    return false;
+  }
+  log('ok', `  telescoping ✓  S^i(0)+S^i(1) == S^{i-1}(u) for all ${d - 1} steps`);
+
+  // (2) absolute anchor at the GPU final challenge.
+  let cd = 1n;
+  for (let k = 0; k < d; k++) cd = mul(cd, add(mod(1n - ch[k]), mul(ch[k], betas[k])));
+  const finalSlices: bigint[][] = [];
+  for (const desc of ALL_RELATIONS) {
+    const r = desc.relationIndex;
+    const mle = Array.from({ length: desc.numEdges }, (_, j) => {
+      const v = fromMont(le32ToBi(gpu.finalColBytes[r], j * 32));
+      return [v, v] as bigint[];
+    });
+    finalSlices[r] = desc.polyRef(mle, 1n, paramsByRel[r]);
+  }
+  let purported = 0n;
+  let alphaPow = 1n;
+  for (let g = 0; g < NUM_SUBRELATIONS; g++) {
+    if (g > 0) alphaPow = mul(alphaPow, alpha);
+    purported = add(purported, mul(mul(alphaPow, SUBREL_LIN_INDEP[g] ? cd : 1n), finalSlices[subrelRelIdx[g]][subrelLocalFr[g]]));
+  }
+  const finalAtU = evaluateUnivariate(gpu.univariates[d - 1], ch[d - 1]);
+  if (finalAtU !== purported) {
+    log('err', `  purported ✗  S^{d-1}(u)=${finalAtU} != F(u)=${purported}`);
+    return false;
+  }
+  log('ok', `  purported ✓  S^{d-1}(u_{d-1}) == batched relation at the folded point`);
+  log('info', `    rounds=${d}  GPU ${gpu.gpuMs.toFixed(1)} ms · wall ${gpu.totalMs.toFixed(1)} ms · setup ${gpu.setupMs.toFixed(1)} ms`);
+  return true;
+}
+
+export const singleSubmitSuite: Suite = { id: 'singlesubmit', label: 'Single-submission sumcheck (GPU Fiat-Shamir)', run };

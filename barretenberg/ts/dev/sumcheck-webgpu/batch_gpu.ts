@@ -71,17 +71,17 @@ export function buildBatchConsts(alpha: bigint): BatchConsts {
   return { liBytes, ldBytes, powBytes };
 }
 
-/** Pack [beta_i, c_i] as Montgomery bytes for the kernel's scalars buffer. */
-export function packBatchScalars(beta: bigint, ci: bigint): Uint8Array {
-  const out = new Uint8Array(2 * 32);
-  writeLe32(out, 0, toMont(mod(beta)));
-  writeLe32(out, 32, toMont(mod(ci)));
+/** Pack a single field element as Montgomery bytes (for the beta_i / c_i buffers). */
+export function packFr(x: bigint): Uint8Array {
+  const out = new Uint8Array(32);
+  writeLe32(out, 0, toMont(mod(x)));
   return out;
 }
 
 async function run({ device, log }: SuiteCtx): Promise<boolean> {
   const layout = create_bind_group_layout(device, [
-    'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage',
+    'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage',
+    'read-only-storage', 'read-only-storage', 'storage',
   ]);
   const pipeline = await create_compute_pipeline(device, [layout], sm.gen_batch_test_shader(WG), 'batch_main', 'batch_main');
 
@@ -101,10 +101,11 @@ async function run({ device, log }: SuiteCtx): Promise<boolean> {
     const liBuf = create_and_write_sb(device, liBytes);
     const ldBuf = create_and_write_sb(device, ldBytes);
     const powBuf = create_and_write_sb(device, powBytes);
-    const scBuf = create_and_write_sb(device, packBatchScalars(beta, ci));
+    const betaBuf = create_and_write_sb(device, packFr(beta));
+    const cBuf = create_and_write_sb(device, packFr(ci));
     const outBuf = create_and_write_sb(device, new Uint8Array(BATCHED_LEN * 32).fill(0xff));
 
-    const bg = create_bind_group(device, layout, [accBuf, liBuf, ldBuf, powBuf, scBuf, outBuf]);
+    const bg = create_bind_group(device, layout, [accBuf, liBuf, ldBuf, powBuf, betaBuf, cBuf, outBuf]);
     const enc = device.createCommandEncoder();
     await execute_pipeline(enc, pipeline, bg, Math.ceil(BATCHED_LEN / WG));
     const [bytes] = await read_from_gpu(device, enc, [outBuf]);
