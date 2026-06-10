@@ -39,6 +39,8 @@ import {
   ba_walker_idx_sort as ba_walker_idx_sort_shader,
   ba_walker_idx_cuts as ba_walker_idx_cuts_shader,
   ba_walker_idx_place as ba_walker_idx_place_shader,
+  ba_walker_idx_p1 as ba_walker_idx_p1_shader,
+  ba_walker_idx_p2 as ba_walker_idx_p2_shader,
   ba_walker_pt_init_scan as ba_walker_pt_init_scan_shader,
   ba_walker_pt_init_copy as ba_walker_pt_init_copy_shader,
   ba_walker_pt_build as ba_walker_pt_build_shader,
@@ -1404,6 +1406,29 @@ ${packLines.join('\n')}
 
   public gen_ba_walker_idx_place_shader(workgroup_size: number, s: number, thread_tpb: number): string {
     return mustache.render(ba_walker_idx_place_shader, { workgroup_size, s, thread_tpb, recompile: this.recompile });
+  }
+
+  // wi4 Phase-1 probes (WALKER_INDEX_PLAN.md): price the sweep/build
+  // primitives on-device before the real kernels are built.
+
+  public gen_ba_walker_idx_p1_shader(workgroup_size: number, s: number, thread_tpb: number): string {
+    return mustache.render(ba_walker_idx_p1_shader, {
+      workgroup_size,
+      double_tpb: 2 * workgroup_size,
+      s,
+      thread_tpb,
+      recompile: this.recompile,
+    });
+  }
+
+  public gen_ba_walker_idx_p2_shader(workgroup_size: number, s: number, thread_tpb: number): string {
+    return mustache.render(ba_walker_idx_p2_shader, {
+      workgroup_size,
+      double_tpb: 2 * workgroup_size,
+      s,
+      thread_tpb,
+      recompile: this.recompile,
+    });
   }
 
   // Per-sorted-bucket l0-base precompute: resolves the walker's unprefetchable

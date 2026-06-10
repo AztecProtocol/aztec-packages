@@ -424,6 +424,14 @@ export interface MsmConfig {
    */
   walkerIndexAnalytic?: boolean;
   /**
+   * wi4 Phase-1 probes (WALKER_INDEX_PLAN.md): dispatch the two
+   * cost-model kernels (sorted-runs sweep + build) between stream_walker
+   * and the real index pipeline, labelled wi_p1/wi_p2. They write only to
+   * pair-tree scratch (rewritten afterwards) — correctness-neutral.
+   * Requires walkerIndexV2.
+   */
+  wiProbe?: boolean;
+  /**
    * Use the sparse bucket reduction (skips empty buckets via a gap-aware suffix
    * sum) instead of the dense table-driven tree. Byte-identical result; wins on
    * structured/sparse scalar distributions (the production wire commits). v0 is
@@ -1921,6 +1929,7 @@ export class MsmV2 {
   private splitC = false;
   private walkerIndexV2 = false;
   private walkerIndexAnalytic = false;
+  private wiProbe = false;
   private sparseReduce = false;
   private reduceSparsePipe?: GPUComputePipeline;
   private reduceSparseLayout?: GPUBindGroupLayout;
@@ -2148,6 +2157,11 @@ export class MsmV2 {
   private idxPlacePipe!: GPUComputePipeline;
   private idxPlaceLayout!: GPUBindGroupLayout;
   private idxPlaceBind!: GPUBindGroup;
+  private idxP1Pipe!: GPUComputePipeline;
+  private idxP2Pipe!: GPUComputePipeline;
+  private idxProbeLayout!: GPUBindGroupLayout;
+  private idxP1Bind!: GPUBindGroup;
+  private idxP2Bind!: GPUBindGroup;
   private ptInitScanPipe!: GPUComputePipeline;
   private ptInitScanLayout!: GPUBindGroupLayout;
   private ptInitScanBind!: GPUBindGroup;
@@ -2391,6 +2405,7 @@ export class MsmV2 {
     m.splitC = config?.splitC ?? false;
     m.walkerIndexAnalytic = config?.walkerIndexAnalytic ?? false;
     m.walkerIndexV2 = (config?.walkerIndexV2 ?? false) || m.walkerIndexAnalytic;
+    m.wiProbe = (config?.wiProbe ?? false) && m.walkerIndexV2;
     m.sparseReduce = config?.sparseReduce ?? false;
     m.forceSplit = config?.forceSplit;
     m.reduceCostWeight = config?.reduceCostWeight ?? 4;
@@ -2903,6 +2918,8 @@ export class MsmV2 {
       'read-only-storage',
       'uniform',
     ]);
+    //   wi4 probes: partial_dest (A1 ro), pt_scratch (A4 rw), planner_meta, params.
+    m.idxProbeLayout = lt(['read-only-storage', 'storage', 'read-only-storage', 'uniform']);
     //   idx_place (wi3): task_cuts + partial_layout (A2, storage),
     //   partial_offset ro (A5), write_pos (A0, storage) + sorted_count_list
     //   (A0 — bound 'storage' to match its colour-mate), sbl/planner_meta ro.
@@ -3225,6 +3242,18 @@ export class MsmV2 {
           sm.gen_ba_walker_idx_place_shader(WI_IDX_TPB, STREAM_S, STREAM_PLANNER_TPB),
           `wi-place`,
           m.idxPlaceLayout,
+        );
+      }
+      if (m.wiProbe) {
+        m.idxP1Pipe = await compile(
+          sm.gen_ba_walker_idx_p1_shader(WI_IDX_TPB, STREAM_S, STREAM_PLANNER_TPB),
+          `wi-p1`,
+          m.idxProbeLayout,
+        );
+        m.idxP2Pipe = await compile(
+          sm.gen_ba_walker_idx_p2_shader(WI_IDX_TPB, STREAM_S, STREAM_PLANNER_TPB),
+          `wi-p2`,
+          m.idxProbeLayout,
         );
       }
     }
@@ -4595,6 +4624,14 @@ export class MsmV2 {
             wiParams,
           ]);
         }
+        if (this.wiProbe) {
+          // Probe scratch regions inside ptScratch (u32 elements): exports at
+          // 0, layout-model at 1024, fb-keyed model after 3×M cap (layout +
+          // pair appends), all rewritten by the pair-tree phase afterwards.
+          const probeParams = ubuf(new Uint32Array([0, 1024, 1024 + 3 * M_partials_walker + 64, this.BW]));
+          this.idxP1Bind = mkBind(this.idxProbeLayout, [pdest, scratch.ptScratch, scratch.streamPlannerMeta, probeParams]);
+          this.idxP2Bind = mkBind(this.idxProbeLayout, [pdest, scratch.ptScratch, scratch.streamPlannerMeta, probeParams]);
+        }
       }
       // Pair-tree: handles hot buckets (N > HOT_THRESHOLD=8). Reads sorted
       // active list + bin_offsets to locate the hot tail; allocates scratch
@@ -5091,6 +5128,14 @@ export class MsmV2 {
         // singles copy), aggregated counting-sort scatter. Widths come from
         // wiIdxArgs (partition_task wrote [0..5]; the epilogue writes [6..8]).
         const wiArgs = this.pool.scratch!.wiIdxArgs;
+        if (this.wiProbe) {
+          // Phase-1 cost probes (one workgroup per 4096-slot block =
+          // planner_meta[12..14], the cumsum-emitted (nwg,1,1)).
+          setPhase('wi_p1');
+          indirectDispatch(this.idxP1Pipe, this.idxP1Bind, spMeta, 12 * 4);
+          setPhase('wi_p2');
+          indirectDispatch(this.idxP2Pipe, this.idxP2Bind, spMeta, 12 * 4);
+        }
         if (this.walkerIndexAnalytic) {
           // Analytic (wi3): cut-driven count + placement — no partial_dest
           // passes at all. task_cuts is the planner's materialized cut table.
@@ -5379,6 +5424,174 @@ export class MsmV2 {
     const hist = await readbackU32(this.device, this.msbHistBuf, 256 * 4);
     const msbPerScalar = await readbackU32(this.device, this.msbPerScalarBuf, this.n * 4);
     return { hist, msbPerScalar };
+  }
+
+  /**
+   * Phase-0 validation for the sorted-runs CSR design (WALKER_INDEX_PLAN.md):
+   * read back partial_dest + sorted_bucket_list after a run and verify, on
+   * the CPU, the claims the wi4 kernels would rely on:
+   *   (1) live entries are monotone in dense-bucket order;
+   *   (2) within-bucket hole runs are <= 1 slot;
+   *   (3) the planned two-kernel head rule (per-4096-slot-block exports +
+   *       exact in-block previous-live) reproduces ground-truth segment
+   *       heads with zero mismatches, and head-to-head rank differences
+   *       reproduce ground-truth per-bucket counts;
+   *   (4) segment count == active_count (every cut bucket has >= 2 partials).
+   * Returns counterexample positions on any violation. Multi-batch runs
+   * verify the LAST batch (the scratch buffers are per-batch).
+   */
+  async debugWalkerIndexMonotonicity(blockSlots = 4096): Promise<{
+    mActual: number;
+    live: number;
+    segments: number;
+    activeCount: number;
+    monotonicityViolations: number;
+    firstMonotonicityViolation: number;
+    unknownBids: number;
+    maxIntraBucketHoleRun: number;
+    interBucketHoleRunsGe2: number;
+    headRuleMismatches: number;
+    firstHeadMismatch: number;
+    countMismatches: number;
+    zeroBidsInRange: number;
+  }> {
+    if (this.preparedFor === null) throw new Error('MsmV2.debugWalkerIndexMonotonicity: call prepare() first');
+    const sc = this.pool.scratch!;
+    const NO_BUCKET = 0xffffffff;
+    const readSlot = async (slot: ScratchSlot, bytes: number): Promise<Uint32Array> => {
+      const staging = this.device.createBuffer({ size: bytes, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+      const enc = this.device.createCommandEncoder();
+      enc.copyBufferToBuffer(slotBuf(slot), slotOff(slot), staging, 0, bytes);
+      this.device.queue.submit([enc.finish()]);
+      await staging.mapAsync(GPUMapMode.READ);
+      const out = new Uint32Array(staging.getMappedRange().slice(0));
+      staging.unmap();
+      staging.destroy();
+      return out;
+    };
+    const meta = await readSlot(sc.streamPlannerMeta, 20 * 4);
+    const numDense = meta[1];
+    const nat = meta[3] * STREAM_PLANNER_TPB;
+    const mActual = 2 * this.streamS * nat;
+    const dest = await readSlot(sc.walkerPartialDest, mActual * 4);
+    const sbl = await readSlot(sc.sortedBucketList, Math.max(numDense, 1) * 4);
+    const active = await readSlot(sc.activeCount, 4);
+    const bidToD = new Map<number, number>();
+    for (let d = 0; d < numDense; d++) bidToD.set(sbl[d], d);
+
+    // Ground truth walk.
+    let live = 0;
+    let segments = 0;
+    let monotonicityViolations = 0;
+    let firstMonotonicityViolation = -1;
+    let unknownBids = 0;
+    let zeroBidsInRange = 0;
+    let maxIntraBucketHoleRun = 0;
+    let interBucketHoleRunsGe2 = 0;
+    let prevD = -1;
+    let prevLiveBid = -1;
+    let holeRun = 0;
+    const truthHead = new Uint8Array(mActual);
+    const truthCount = new Map<number, number>();
+    for (let i = 0; i < mActual; i++) {
+      const bid = dest[i];
+      if (bid === 0) zeroBidsInRange++;
+      const isLive = bid !== 0 && bid !== NO_BUCKET;
+      if (!isLive) {
+        holeRun++;
+        continue;
+      }
+      const d = bidToD.get(bid);
+      if (d === undefined) {
+        unknownBids++;
+        holeRun = 0;
+        continue;
+      }
+      if (d < prevD && firstMonotonicityViolation < 0) firstMonotonicityViolation = i;
+      if (d < prevD) monotonicityViolations++;
+      if (d === prevD) {
+        maxIntraBucketHoleRun = Math.max(maxIntraBucketHoleRun, holeRun);
+      } else {
+        if (holeRun >= 2) interBucketHoleRunsGe2++;
+        segments++;
+        truthHead[i] = 1;
+      }
+      truthCount.set(d, (truthCount.get(d) ?? 0) + 1);
+      live++;
+      prevD = d;
+      prevLiveBid = bid;
+      holeRun = 0;
+    }
+    void prevLiveBid;
+
+    // Simulate the planned kernels EXACTLY.
+    // K1 per block: live_total, last_live_bid (or -1 if the block has no live).
+    const nBlocks = Math.ceil(mActual / blockSlots);
+    const blockLastLive = new Int32Array(nBlocks).fill(-1);
+    const blockLiveTotal = new Uint32Array(nBlocks);
+    for (let b = 0; b < nBlocks; b++) {
+      for (let i = b * blockSlots; i < Math.min((b + 1) * blockSlots, mActual); i++) {
+        const bid = dest[i];
+        if (bid !== 0 && bid !== NO_BUCKET) {
+          blockLiveTotal[b]++;
+          blockLastLive[b] = bid;
+        }
+      }
+    }
+    // K2 per block: carried last-live bid from exports, exact in-block prev-live.
+    let headRuleMismatches = 0;
+    let firstHeadMismatch = -1;
+    const simHeadRank = new Map<number, number>(); // head slot -> global live rank
+    let globalRank = 0;
+    for (let b = 0; b < nBlocks; b++) {
+      let carry = -1;
+      for (let pb = b - 1; pb >= 0; pb--) {
+        if (blockLastLive[pb] !== -1) {
+          carry = blockLastLive[pb];
+          break;
+        }
+      }
+      let prevLive = carry; // bid of previous live entry (exact within block)
+      for (let i = b * blockSlots; i < Math.min((b + 1) * blockSlots, mActual); i++) {
+        const bid = dest[i];
+        const isLive = bid !== 0 && bid !== NO_BUCKET && bidToD.has(bid);
+        if (!isLive) continue;
+        const simHead = prevLive === -1 || prevLive !== bid;
+        if (simHead !== (truthHead[i] === 1)) {
+          headRuleMismatches++;
+          if (firstHeadMismatch < 0) firstHeadMismatch = i;
+        }
+        if (simHead) simHeadRank.set(i, globalRank);
+        globalRank++;
+        prevLive = bid;
+      }
+    }
+    // Counts via head-to-head rank differences (the wi4 count rule).
+    let countMismatches = 0;
+    const headSlots = [...simHeadRank.keys()].sort((a, b) => a - b);
+    for (let h = 0; h < headSlots.length; h++) {
+      const slot = headSlots[h];
+      const nextRank = h + 1 < headSlots.length ? simHeadRank.get(headSlots[h + 1])! : live;
+      const simCount = nextRank - simHeadRank.get(slot)!;
+      const d = bidToD.get(dest[slot])!;
+      if (simCount !== (truthCount.get(d) ?? 0)) countMismatches++;
+    }
+
+    return {
+      mActual,
+      live,
+      segments,
+      activeCount: active[0],
+      monotonicityViolations,
+      firstMonotonicityViolation,
+      unknownBids,
+      maxIntraBucketHoleRun,
+      interBucketHoleRunsGe2,
+      headRuleMismatches,
+      firstHeadMismatch,
+      countMismatches,
+      zeroBidsInRange,
+    };
   }
 
   /**

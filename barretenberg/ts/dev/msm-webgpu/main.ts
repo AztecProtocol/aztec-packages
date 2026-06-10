@@ -143,6 +143,7 @@ const gpuKnobs: MsmConfig = (() => {
     splitC: q.get('split') === '1' || q.get('autorun') === 'msm-msbhist' || undefined,
     walkerIndexV2: q.get('wi2') === '1' || undefined,
     walkerIndexAnalytic: q.get('wi3') === '1' || undefined,
+    wiProbe: q.get('wiprobe') === '1' || undefined,
     sparseReduce: q.get('sparse_reduce') === '1' || undefined,
     reduceCostWeight: optNum('reduce_cost_weight'),
     maxCLo: optInt('max_clo'),
@@ -742,6 +743,8 @@ const BATCH_STAGE_ORDER = [
   // dispatches individually; 'walker_index' itself remains for old traces).
   // v1: count/scan/scatter/filter/sort_count/sort_scan/sort_scatter.
   // v2 (?wi2=1): count/alloc/epilogue/scatter/sort.
+  'wi_p1',
+  'wi_p2',
   'wi_count',
   'wi_cuts',
   'wi_scan',
@@ -2550,7 +2553,12 @@ function hideProgress(): void {
       const msm = await ensureWebGpuWarmed(inputs);
       msm.prepare(inputs.scalarsBuf);
       await msm.run();
-      const stats = await msm.debugWalkerIndexStats();
+      const stats: Record<string, unknown> = await msm.debugWalkerIndexStats();
+      // ?deep=1 — Phase-0 sorted-runs validation (WALKER_INDEX_PLAN.md):
+      // monotonicity + hole structure + exact head/count rule simulation.
+      if (qp.get('deep') === '1') {
+        stats.deep = await msm.debugWalkerIndexMonotonicity();
+      }
       const phases = readLastPhaseMs();
       log('ok', `[wi-stats] ${JSON.stringify(stats)}`);
       await client.postResults({

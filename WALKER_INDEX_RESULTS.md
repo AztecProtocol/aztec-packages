@@ -162,3 +162,36 @@ stop writing partial_dest (handoff note for the walker owner).
 
 (Adreno final from the wi2-v2c capture — pre is_present-hoist; the hoist
 moved ~10 µs of scattered stores into classify's existing pass.)
+
+## wi4 "sorted-runs" design — Phase 0/1 verdict (gated plan, 2026-06-09)
+
+**Phase 0 (G0): GREEN, 11/11 configs.** CPU verification of live GPU data
+(uniform 10/14/16/17, B/C/D 17, E 14/17, clustered 17, nb=2 16):
+partial_dest live entries are monotone in dense-bucket order; within-bucket
+hole runs are exactly <= 1; the planned block-export head rule and
+head-to-head count rule reproduce ground truth with ZERO mismatches; and
+segments == active_count everywhere. The structural theory is correct.
+(Also closed: the split-c checker timeouts were the cold SRS GPU-decompress
+racing the page-load window — split-c gates now PASS at 16/17 and 17+C.)
+
+**Phase 1 (G1): FAIL.** Probe kernels (wi_p1 sweep / wi_p2 build) pricing
+the design's exact memory/compute shape on real data, driver-measured:
+
+| device | P1 | P2 | wi4 projection | v2 same-trace |
+|---|---:|---:|---:|---:|
+| Mali   | 43.6 | 175.2 | ~340–370 µs | ~330 busy / 437 span |
+| Adreno | 19.3 | 78.5  | ~130 + drains | ~136 busy |
+| M4     | 10   | 17    | ~46 µs | 73 µs |
+
+Abort criteria were P2 > 180 µs or projection > ~320 µs Mali: borderline-
+exceeded; best-case win ~1.2–1.3×, under the 1.4× ship bar. Root cause:
+the atomics the design removes were never the dominant cost — wi_count's
+123K global atomicAdds run at near-bandwidth (57 µs for 524 KB + RMW).
+The output traffic (~2 MB of layout/count/offset/pair writes) plus the
+rank-scan barriers set the floor, and the sorted-runs build pays those
+the same as v2 does. v2 is within ~25–30%% of any within-contract rebuild.
+
+Verdict: v2 stands as the shipped algorithm. The probes (?wiprobe=1) and
+the Phase-0 validator (?deep=1) remain in-tree so the negative result is
+reproducible. M4 would gain ~1.6x from wi4 — on record if M4-only wins
+ever matter enough to carry a Mali-neutral second path.
