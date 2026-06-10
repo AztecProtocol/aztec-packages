@@ -1,4 +1,5 @@
 import { MAX_APPS_PER_KERNEL } from '@aztec/constants';
+import { ChildContract } from '@aztec/noir-test-contracts.js/Child';
 
 import fs from 'fs/promises';
 import path from 'path';
@@ -16,8 +17,15 @@ describe('Circuit Recorder', () => {
     // Set recording directory env var - this will activate the circuit recorder
     process.env.CIRCUIT_RECORD_DIR = RECORD_DIR;
 
-    // Run setup which deploys an account contract and runs kernels
-    const { teardown } = await setup(1, { ...AUTOMINE_E2E_OPTS });
+    // setup creates an initializerless account, which has no deployment tx. Deploying a contract from
+    // it exercises the account entrypoint (a user circuit) and the private kernels (protocol circuits),
+    // which is what this test inspects below — without a pointless account deployment.
+    const {
+      teardown,
+      wallet,
+      accounts: [accountAddress],
+    } = await setup(1, { ...AUTOMINE_E2E_OPTS });
+    await ChildContract.deploy(wallet).send({ from: accountAddress });
 
     // Check recording directory exists
     const dirExists = await fs.stat(RECORD_DIR).then(
@@ -26,20 +34,20 @@ describe('Circuit Recorder', () => {
     );
     expect(dirExists).toBe(true);
 
-    // Check recording file of a user circuit (contract circuit) exists and has expected content
+    // Check recording file of a user circuit (the account contract entrypoint) exists and has expected content
     {
       const files = await fs.readdir(RECORD_DIR);
       expect(files.length).toBeGreaterThan(0);
 
-      const recordingFile = files.find(f => f.startsWith('SchnorrAccount_constructor'));
+      const recordingFile = files.find(f => f.startsWith('SchnorrInitializerlessAccount_entrypoint'));
       expect(recordingFile).toBeDefined();
 
       const recordingContent = await fs.readFile(path.join(RECORD_DIR, recordingFile!), 'utf8');
       const recording = JSON.parse(recordingContent);
 
       expect(recording).toMatchObject({
-        circuitName: 'SchnorrAccount',
-        functionName: 'constructor',
+        circuitName: 'SchnorrInitializerlessAccount',
+        functionName: 'entrypoint',
         inputs: expect.any(Object),
         oracleCalls: expect.any(Array),
       });

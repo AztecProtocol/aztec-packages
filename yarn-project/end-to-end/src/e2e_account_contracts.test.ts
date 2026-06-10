@@ -1,6 +1,12 @@
 import { EcdsaKAccountContract } from '@aztec/accounts/ecdsa';
-import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
-import { type Account, type AccountContract, BaseAccount, getAccountContractAddress } from '@aztec/aztec.js/account';
+import { SchnorrAccountContract, SchnorrInitializerlessAccountContract } from '@aztec/accounts/schnorr';
+import {
+  type Account,
+  type AccountContract,
+  BaseAccount,
+  NO_FROM,
+  getAccountContractAddress,
+} from '@aztec/aztec.js/account';
 import { AztecAddress, CompleteAddress } from '@aztec/aztec.js/addresses';
 import { Fr, GrumpkinScalar } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
@@ -64,6 +70,11 @@ const itShouldBehaveLikeAnAccountContract = (
       const accountManager = await wallet.createAccount({ secret, contract, salt });
       completeAddress = await accountManager.getCompleteAddress();
 
+      if (await accountManager.hasInitializer()) {
+        const deployMethod = await accountManager.getDeployMethod();
+        await deployMethod.send({ from: NO_FROM });
+      }
+
       ({ contract: child } = await ChildContract.deploy(wallet).send({ from: address }));
     });
 
@@ -100,6 +111,10 @@ const itShouldBehaveLikeAnAccountContract = (
 describe('e2e_account_contracts', () => {
   describe('schnorr account', () => {
     itShouldBehaveLikeAnAccountContract(() => new SchnorrAccountContract(GrumpkinScalar.random()));
+  });
+
+  describe('schnorr initializerless account', () => {
+    itShouldBehaveLikeAnAccountContract(() => new SchnorrInitializerlessAccountContract(GrumpkinScalar.random()));
   });
 
   describe('ecdsa stored-key account', () => {
