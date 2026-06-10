@@ -79,14 +79,14 @@ returned by the RPC (e.g. the network is still running `4.1.3` but the user
 wants to prepare docs for `4.2.0`), this is a **pre-release** docs preparation.
 Ask the user to confirm the target version, then use that version instead of
 `nodeVersion` throughout the remaining steps. The git tag for the target version
-must still exist. Contract addresses from the RPC reflect the *current* network
+must still exist. Contract addresses from the RPC reflect the _current_ network
 state (the old version); they are still valid if the upgrade reuses the same
 contracts, but ask the user to confirm whether any addresses will change at
 upgrade time.
 
 **Run all work on the tag, not `next`.** Cut on the tag so the snapshot
 reflects what shipped. Then stash, switch to `next`, pop. Backport any newer
-docs from `next` into the snapshot as an explicit step *after* the cut.
+docs from `next` into the snapshot as an explicit step _after_ the cut.
 
 ### Unversioned root pages
 
@@ -116,9 +116,9 @@ VERSION=<version> bash -i <(curl -sL https://install.aztec.network/<version>)
 aztec get-canonical-sponsored-fpc-address
 ```
 
-Store the address for updating docs.
+Store the address for updating docs. Be sure to update the address with the appropriate value wherever it appears in the versioned docs.
 
-**Note:** The Sponsored FPC is only deployed on devnet. For mainnet and testnet releases,
+**Note:** The Sponsored FPC is deployed on testnet and devnet. For mainnet releases,
 mark the SponsoredFPC row as "Not deployed" in the L2 Contract Addresses table.
 
 ### Step 5: Update Version Configs
@@ -234,6 +234,7 @@ docs (Step 13), the generated content is included in the snapshot automatically.
 
 1. **Triage existing TBD items.** Not all items under `## TBD` necessarily belong
    to the current release. Review each entry and decide whether it:
+
    - Shipped in this release → move it under the new `## <new version>` heading
    - Targets a future major version → move it under a new `## Unreleased (v<next_major>)`
      heading (create this heading if it doesn't exist, placed between `## TBD` and
@@ -250,6 +251,7 @@ docs (Step 13), the generated content is included in the snapshot automatically.
 
 4. Check for missing migration items by analyzing the diff between the previous
    release tag and the new one:
+
    ```bash
    git diff v<old_version>..v<new_version> -- yarn-project/ noir-projects/
    ```
