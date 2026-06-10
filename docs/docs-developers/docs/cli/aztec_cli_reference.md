@@ -884,7 +884,7 @@ aztec setup-protocol-contracts [options]
 
 ### aztec start
 
-Starts Aztec infrastructure components. Module flags can be combined to run several components in a single process (e.g. `--node --archiver --sequencer`).
+Starts Aztec infrastructure components. Module flags can be combined to run several components in a single process (e.g. `--node --sequencer`).
 
 **Usage:**
 
@@ -899,10 +899,10 @@ aztec start [options]
 aztec start --local-network
 
 # Start a full node
-aztec start --node --archiver
+aztec start --node
 
 # Start a sequencer node
-aztec start --node --archiver --sequencer
+aztec start --node --sequencer
 ```
 
 **Common options:**
@@ -915,7 +915,6 @@ aztec start --node --archiver --sequencer
 
 - `--local-network` - Starts the Aztec Local Network: a local Ethereum dev node (Anvil) with the full Aztec protocol deployed on top
 - `--node` - Starts an Aztec Node
-- `--archiver` - Starts an Aztec Archiver (syncs data from L1)
 - `--sequencer` - Starts an Aztec Sequencer
 - `--prover-node` - Starts an Aztec Prover Node
 - `--prover-broker` - Starts an Aztec proving job broker
