@@ -5868,6 +5868,7 @@ export class MsmV2 {
         combine: performance.now() - tDecoded,
       });
     }
+    const tCombined = performance.now();
 
     // Per-pass GPU timestamps were tracked here pre-refactor; the new
     // encodeIntoBatch path doesn't capture category labels (the dev page's
@@ -5920,6 +5921,14 @@ export class MsmV2 {
         redLevel: 0,
         wall: performance.now() - wallT0,
       };
+    }
+    // Close the host-stage books: everything after the combine is the profile
+    // machinery itself (second mapAsync on the timestamp staging + decoding
+    // passCount BigInt pairs into passTimes strings).
+    if (this.profile && typeof window !== 'undefined') {
+      const g = window as unknown as { __hostBreakdowns?: Record<string, number>[] };
+      const last = g.__hostBreakdowns?.[g.__hostBreakdowns.length - 1];
+      if (last) last.tsReadback = performance.now() - tCombined;
     }
     return { x: result.x, y: result.y, profile, windowSums: L, c: this.c };
   }
