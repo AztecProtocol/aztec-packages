@@ -20,6 +20,15 @@
 
 set -euo pipefail
 
+# Exit code used to signal a genuine SSM transport/delivery failure - i.e. the
+# remote script never ran to completion on the instance (DeliveryTimedOut,
+# Undeliverable, agent offline, instance died mid-poll, send-command rejected),
+# as opposed to the remote command running and exiting non-zero. Callers (e.g.
+# bootstrap_ec2 in release mode) detect this code to retry on a fresh instance,
+# while real CI test/build failures - which surface as ordinary non-zero exit
+# codes - stay terminal and are never retried.
+SSM_TRANSPORT_ERROR_EXIT=${SSM_TRANSPORT_ERROR_EXIT:-156}
+
 iid=${1:?"usage: ssm_send_command <instance-id> <script | ->"}
 shift
 
@@ -66,7 +75,7 @@ command_id=$(aws ssm send-command \
 
 if [ -z "$command_id" ] || [ "$command_id" = "None" ]; then
   echo "Failed to send SSM command to instance $iid" >&2
-  exit 1
+  exit $SSM_TRANSPORT_ERROR_EXIT
 fi
 
 echo "SSM command $command_id sent to $iid" >&2
@@ -122,8 +131,11 @@ while true; do
         --instance-ids "$iid" --include-all-instances \
         --query 'InstanceStatuses[0].InstanceState.Name' --output text 2>/dev/null || echo "unknown")
       if [[ "$inst_state" == "terminated" || "$inst_state" == "stopped" || "$inst_state" == "shutting-down" ]]; then
+        # The instance vanished before the command reported a result: the script
+        # never ran to completion, so this is a transport-level failure, not a CI
+        # test/build failure.
         echo "Instance $iid is $inst_state; aborting SSM poll." >&2
-        exit 1
+        exit $SSM_TRANSPORT_ERROR_EXIT
       fi
       ;;
     *)
@@ -137,15 +149,36 @@ while true; do
   esac
 done
 
-# --- Step 4: Exit with the remote exit code ---
-exit_code=$(printf '%s' "$inv" | jq -r '.ResponseCode // 1')
-if [ "$status" != "Success" ] || [ "$exit_code" != "0" ]; then
-  status_details=$(printf '%s' "$inv" | jq -r '.StatusDetails // empty')
-  stderr_content=$(printf '%s' "$inv" | jq -r '.StandardErrorContent // empty')
-  echo "SSM command $command_id did not succeed on instance $iid: status=$status, statusDetails=${status_details:-none}, responseCode=$exit_code." >&2
-  if [ -n "$stderr_content" ]; then
-    echo "SSM stderr tail:" >&2
-    printf '%s\n' "$stderr_content" | tail -40 >&2
-  fi
+# --- Step 4: Classify outcome and exit ---
+# A completed run always carries a real process exit code (0-255) in ResponseCode.
+# AWS reports ResponseCode -1 (and a delivery-level StatusDetails) when the agent
+# never ran our script to completion: DeliveryTimedOut, Undeliverable, Terminated,
+# AccessDenied, InvalidPlatform, etc. We treat a real exit code as the command's
+# own result (e.g. a CI test/build failure - terminal, never retried) and a -1 /
+# delivery failure as a genuine SSM transport error (retryable by the caller).
+exit_code=$(printf '%s' "$inv" | jq -r '.ResponseCode // -1')
+status_details=$(printf '%s' "$inv" | jq -r '.StatusDetails // empty')
+
+if [ "$status" = "Success" ]; then
+  exit 0
 fi
+
+stderr_content=$(printf '%s' "$inv" | jq -r '.StandardErrorContent // empty')
+echo "SSM command $command_id did not succeed on instance $iid: status=$status, statusDetails=${status_details:-none}, responseCode=$exit_code." >&2
+if [ -n "$stderr_content" ]; then
+  echo "SSM stderr tail:" >&2
+  printf '%s\n' "$stderr_content" | tail -40 >&2
+fi
+
+# ExecutionTimedOut means our script was delivered and ran, but exceeded the
+# allowed executionTimeout. The command did execute, so this is a workload/timeout
+# issue, not an SSM transport error - keep it terminal.
+if [ "$status_details" != "ExecutionTimedOut" ] && [ "$exit_code" -lt 0 ] 2>/dev/null; then
+  echo "Classified as a genuine SSM transport error; exiting $SSM_TRANSPORT_ERROR_EXIT." >&2
+  exit $SSM_TRANSPORT_ERROR_EXIT
+fi
+
+# The remote command actually ran and failed (e.g. test failure or build issue).
+# Surface its real exit code; never retried. Normalise a stray -1 to 1.
+[ "$exit_code" -lt 0 ] 2>/dev/null && exit_code=1
 exit "$exit_code"

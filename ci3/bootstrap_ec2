@@ -13,6 +13,17 @@ arch=${ARCH:-amd64}
 NO_TERMINATE=${NO_TERMINATE:-0}
 use_ssh=${CI_USE_SSH:-0}
 
+# In release mode a flaky SSM round-trip (agent offline, undeliverable, instance
+# died mid-poll) shouldn't sink a publish, so we retry genuine SSM transport
+# errors on a fresh instance. Real CI failures (test/build) come back as ordinary
+# non-zero exit codes and are never retried. Override with SSM_MAX_RETRIES.
+if [ "${CI_DASHBOARD:-}" = "releases" ] || semver check "${REF_NAME:-}" 2>/dev/null; then
+  ssm_max_retries=${SSM_MAX_RETRIES:-2}
+else
+  ssm_max_retries=${SSM_MAX_RETRIES:-0}
+fi
+ssm_attempt=${SSM_ATTEMPT:-0}
+
 # We're always "in CI" if we're running on a remote instance.
 export CI=1
 # Enable build instance key features (disk logging, benchmark uploads) by default.
@@ -424,6 +435,21 @@ else
     ssm_send_command "$iid" "$host_script"
   exit_code=$?
   set -e
+fi
+
+# 156 = genuine SSM transport error (see ssm_send_command): the remote script
+# never ran to completion, so this is not a CI test/build failure. In release mode
+# (ssm_max_retries > 0) retry on a fresh instance; real CI failures return ordinary
+# non-zero codes and fall through untouched. exec skips the EXIT trap, so terminate
+# this instance ourselves before relaunching.
+if [ "$exit_code" -eq 156 ]; then
+  if [ "$ssm_attempt" -lt "$ssm_max_retries" ]; then
+    echo "Genuine SSM transport error. Terminating this instance and retrying on a fresh one (attempt $((ssm_attempt + 1))/$ssm_max_retries)."
+    cleanup >/dev/null 2>&1 || true
+    SSM_ATTEMPT=$((ssm_attempt + 1)) exec "$0" "$@"
+  fi
+  echo "Genuine SSM transport error with no retries remaining (attempts used: $ssm_attempt/$ssm_max_retries)."
+  exit_code=1
 fi
 
 # If we were spot evicted, try again using on-demand.
