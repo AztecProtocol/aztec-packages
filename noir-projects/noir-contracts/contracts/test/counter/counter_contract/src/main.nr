@@ -12,8 +12,8 @@ pub contract Counter {
     use balance_set::BalanceSet;
 
     #[storage]
-    struct Storage<Context> {
-        counters: Owned<BalanceSet<Context>, Context>,
+    struct Storage {
+        counters: Owned<BalanceSet>,
     }
 
     #[initializer]

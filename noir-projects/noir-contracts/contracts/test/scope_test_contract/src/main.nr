@@ -16,8 +16,8 @@ pub contract ScopeTest {
     use field_note::FieldNote;
 
     #[storage]
-    struct Storage<Context> {
-        note: Owned<PrivateImmutable<FieldNote, Context>, Context>,
+    struct Storage {
+        note: Owned<PrivateImmutable<FieldNote>>,
     }
 
     #[initializer]

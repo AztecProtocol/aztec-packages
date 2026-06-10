@@ -1,6 +1,6 @@
 use crate::{
     context::{PrivateContext, UtilityContext},
-    state_vars::{OwnedStateVariable, private_immutable::PrivateImmutable},
+    state_vars::{private_immutable::RuntimePrivateImmutable, RuntimeOwnedStateVariable},
     test::{helpers::test_environment::TestEnvironment, mocks::mock_note::MockNote},
 };
 use crate::protocol::address::AztecAddress;
@@ -11,15 +11,15 @@ global VALUE: Field = 23;
 unconstrained fn in_private(
     context: &mut PrivateContext,
     owner: AztecAddress,
-) -> PrivateImmutable<MockNote, &mut PrivateContext> {
-    PrivateImmutable::new(context, STORAGE_SLOT, owner)
+) -> RuntimePrivateImmutable<MockNote, &mut PrivateContext> {
+    RuntimePrivateImmutable::new(context, STORAGE_SLOT, owner)
 }
 
 unconstrained fn in_utility(
     context: UtilityContext,
     owner: AztecAddress,
-) -> PrivateImmutable<MockNote, UtilityContext> {
-    PrivateImmutable::new(context, STORAGE_SLOT, owner)
+) -> RuntimePrivateImmutable<MockNote, UtilityContext> {
+    RuntimePrivateImmutable::new(context, STORAGE_SLOT, owner)
 }
 
 #[test(should_fail_with = "Failed to get a note")]

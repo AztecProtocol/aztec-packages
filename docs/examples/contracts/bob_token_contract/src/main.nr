@@ -18,14 +18,14 @@ pub contract BobToken {
     // docs:start:public_storage
     // docs:start:storage
     #[storage]
-    struct Storage<Context> {
+    struct Storage {
         // Giggle's admin address
-        owner: PublicMutable<AztecAddress, Context>,
+        owner: PublicMutable<AztecAddress>,
         // Public balances - visible for transparency
-        public_balances: Map<AztecAddress, PublicMutable<u64, Context>, Context>,
+        public_balances: Map<AztecAddress, PublicMutable<u64>>,
         // docs:end:public_storage
         // Private balances - only the owner can see these
-        private_balances: Owned<BalanceSet<Context>, Context>,
+        private_balances: Owned<BalanceSet>,
     }
     // docs:end:storage
 

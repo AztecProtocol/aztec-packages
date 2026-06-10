@@ -5,8 +5,8 @@ pub contract DuplicateStorage {
     use aztec::macros::storage::storage;
 
     #[storage]
-    struct Storage<Context> {}
+    struct Storage {}
 
     #[storage]
-    struct Storage2<Context> {}
+    struct Storage2 {}
 }

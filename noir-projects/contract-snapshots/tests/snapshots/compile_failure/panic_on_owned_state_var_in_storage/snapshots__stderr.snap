@@ -2,7 +2,7 @@
 source: tests/snapshots.rs
 expression: stderr
 ---
-error: Type PrivateImmutable<Field, Context> implements OwnedStateVariable and hence cannot be placed in Storage struct without being wrapped in Owned. Wrap the type in Owned<..., Context>.
+error: Type PrivateImmutable<Field> implements OwnedStateVariable and hence cannot be placed in Storage struct without being wrapped in Owned. Wrap the type in Owned<...>.
   ┌─ std/panic.nr:8:12
   │
 8 │     assert(false, message);
@@ -14,11 +14,11 @@ error: Type PrivateImmutable<Field, Context> implements OwnedStateVariable and h
     2: storage
             at <repo>/noir-projects/aztec-nr/aztec/src/macros/storage.nr:<line>:<col>
 
-error: Could not resolve 'init' in path
+error: Could not resolve 'StorageRuntime' in path
    ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/internals_functions_generation/external/private.nr:<line>:<col>
    │
-   │             let storage = Storage::init(&mut context);
-   │                                    ----
+   │             let storage = StorageRuntime::init(&mut context);
+   │                           --------------
    │
    ┌─ src/main.nr:4:1
    │

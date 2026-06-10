@@ -1,23 +1,26 @@
 use crate::{
     context::{PrivateContext, UtilityContext},
     oracle::random::random,
-    state_vars::{OwnedStateVariable, SingleUseClaim},
+    state_vars::{RuntimeOwnedStateVariable, RuntimeSingleUseClaim},
 };
 use crate::protocol::{address::AztecAddress, traits::FromField};
 use crate::test::helpers::test_environment::TestEnvironment;
 
 global STORAGE_SLOT: Field = 17;
 
-unconstrained fn in_private(context: &mut PrivateContext, owner: AztecAddress) -> SingleUseClaim<&mut PrivateContext> {
-    SingleUseClaim::new(context, STORAGE_SLOT, owner)
+unconstrained fn in_private(
+    context: &mut PrivateContext,
+    owner: AztecAddress,
+) -> RuntimeSingleUseClaim<&mut PrivateContext> {
+    RuntimeSingleUseClaim::new(context, STORAGE_SLOT, owner)
 }
 
 unconstrained fn in_utility(
     context: UtilityContext,
     storage_slot: Field,
     owner: AztecAddress,
-) -> SingleUseClaim<UtilityContext> {
-    SingleUseClaim::new(context, storage_slot, owner)
+) -> RuntimeSingleUseClaim<UtilityContext> {
+    RuntimeSingleUseClaim::new(context, storage_slot, owner)
 }
 
 #[test(should_fail_with = "Duplicate siloed nullifier")]
@@ -116,11 +119,11 @@ unconstrained fn claim_two_claim_ids_different_state_vars() {
     let owner = env.create_light_account();
 
     env.private_context(|context| {
-        let state_var_a = SingleUseClaim::new(context, STORAGE_SLOT, owner);
+        let state_var_a = RuntimeSingleUseClaim::new(context, STORAGE_SLOT, owner);
         state_var_a.claim();
         state_var_a.assert_claimed();
 
-        let state_var_b = SingleUseClaim::new(context, STORAGE_SLOT + 1, owner);
+        let state_var_b = RuntimeSingleUseClaim::new(context, STORAGE_SLOT + 1, owner);
         state_var_b.claim();
         state_var_b.assert_claimed();
     });

@@ -24,14 +24,14 @@ pub contract AuthRegistry {
     };
 
     #[storage]
-    struct Storage<Context> {
+    struct Storage {
         /// Per-address flag that, when true, causes all `consume` calls for that address to revert. Provides an
         /// emergency "mass revocation" mechanism. Does not delete existing approvals - if later set back to false,
         /// unconsumed approvals become consumable again.
-        reject_all: Map<AztecAddress, PublicMutable<bool, Context>, Context>,
+        reject_all: Map<AztecAddress, PublicMutable<bool>>,
         /// Per-user, per-message authorization status. `approved_actions[user][message_hash]` is set to true by
         /// `set_authorized` and atomically revoked by `consume` to prevent replay.
-        approved_actions: Map<AztecAddress, Map<Field, PublicMutable<bool, Context>, Context>, Context>,
+        approved_actions: Map<AztecAddress, Map<Field, PublicMutable<bool>>>,
     }
 
     /// Approves or revokes a `message_hash` for the `msg_sender`.

@@ -11,9 +11,9 @@ pub contract NFTBridge {
     use NFTPunk::NFTPunk;
 
     #[storage]
-    struct Storage<Context> {
-        nft: PublicImmutable<AztecAddress, Context>,
-        portal: PublicImmutable<EthAddress, Context>,
+    struct Storage {
+        nft: PublicImmutable<AztecAddress>,
+        portal: PublicImmutable<EthAddress>,
     }
 
     #[external("public")]

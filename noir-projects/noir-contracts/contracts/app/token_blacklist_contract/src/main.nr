@@ -26,7 +26,7 @@ pub contract TokenBlacklist {
         },
         note::{note_getter_options::NoteGetterOptions, note_interface::{NoteHash, NoteProperties}},
         protocol::traits::ToField,
-        state_vars::{DelayedPublicMutable, Map, Owned, PrivateSet, PublicMutable, StateVariable},
+        state_vars::{DelayedPublicMutable, Map, Owned, PrivateSet, PublicMutable, RuntimeStateVariable},
         utils::comparison::Comparator,
     };
 
@@ -45,12 +45,12 @@ pub contract TokenBlacklist {
     global TRANSPARENT_NOTE_RANDOMNESS: Field = 0;
 
     #[storage]
-    struct Storage<Context> {
-        balances: Owned<BalanceSet<Context>, Context>,
-        total_supply: PublicMutable<u128, Context>,
-        pending_shields: Owned<PrivateSet<TransparentNote, Context>, Context>,
-        public_balances: Map<AztecAddress, PublicMutable<u128, Context>, Context>,
-        roles: Map<AztecAddress, DelayedPublicMutable<UserFlags, CHANGE_ROLES_DELAY, Context>, Context>,
+    struct Storage {
+        balances: Owned<BalanceSet>,
+        total_supply: PublicMutable<u128>,
+        pending_shields: Owned<PrivateSet<TransparentNote>>,
+        public_balances: Map<AztecAddress, PublicMutable<u128>>,
+        roles: Map<AztecAddress, DelayedPublicMutable<UserFlags, CHANGE_ROLES_DELAY>>,
     }
 
     #[external("public")]

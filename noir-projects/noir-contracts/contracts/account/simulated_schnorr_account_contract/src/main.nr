@@ -21,8 +21,8 @@ pub contract SimulatedSchnorrAccount {
     use crate::public_key_note::PublicKeyNote;
 
     #[storage]
-    struct Storage<Context> {
-        signing_public_key: SinglePrivateImmutable<PublicKeyNote, Context>,
+    struct Storage {
+        signing_public_key: SinglePrivateImmutable<PublicKeyNote>,
     }
 
     // Stub constructor matching the SchnorrAccount constructor signature.

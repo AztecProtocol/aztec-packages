@@ -2,6 +2,18 @@
 source: tests/snapshots.rs
 expression: stderr
 ---
+error: The #[storage] macro requires a non-generic Storage struct. Change `struct Storage<Context> { .. }` to `struct Storage { .. }` and drop the `, Context` argument from each field type (e.g. `PublicMutable<u128, Context>` becomes `PublicMutable<u128>`). The macro now threads `Context` through internally.
+  ┌─ std/panic.nr:8:12
+  │
+8 │     assert(false, message);
+  │            ----- Assertion failed
+  │
+  = Call stack:
+    1: BobToken::#[storage]
+            at src/main.nr:31:5
+    2: storage
+            at <repo>/noir-projects/aztec-nr/aztec/src/macros/storage.nr:<line>:<col>
+
 error: The #[internal] attribute cannot be applied to external functions - transfer_public is marked as both #[external] and #[internal("public")]
   ┌─ std/panic.nr:8:12
   │
@@ -67,6 +79,41 @@ error: Function _assert_is_owner must be marked as either #[external(...)], #[in
             at <repo>/noir-projects/aztec-nr/aztec/src/macros/aztec.nr:<line>:<col>
     3: check_each_fn_macroified
             at <repo>/noir-projects/aztec-nr/aztec/src/macros/aztec.nr:<line>:<col>
+
+error: PublicMutable expects 1 generic but 2 were given
+   ┌─ src/main.nr:33:16
+   │
+33 │         owner: PublicMutable<AztecAddress, Context>,
+   │                -------------
+   │
+
+error: Map expects 2 generics but 3 were given
+   ┌─ src/main.nr:34:26
+   │
+34 │         public_balances: Map<AztecAddress, PublicMutable<u128, Context>, Context>,
+   │                          ---
+   │
+
+error: PublicMutable expects 1 generic but 2 were given
+   ┌─ src/main.nr:34:44
+   │
+34 │         public_balances: Map<AztecAddress, PublicMutable<u128, Context>, Context>,
+   │                                            -------------
+   │
+
+error: Owned expects 1 generic but 2 were given
+   ┌─ src/main.nr:35:27
+   │
+35 │         private_balances: Owned<BalanceSet<Context>, Context>,
+   │                           -----
+   │
+
+error: BalanceSet expects 0 generics but 1 was given
+   ┌─ src/main.nr:35:33
+   │
+35 │         private_balances: Owned<BalanceSet<Context>, Context>,
+   │                                 ----------
+   │
 
 error: cannot find `self` in this scope
    ┌─ src/main.nr:41:9
@@ -301,4 +348,4 @@ error: cannot find `self` in this scope
     │         ---- not found in this scope
     │
 
-Aborting due to 38 previous errors
+Aborting due to 44 previous errors

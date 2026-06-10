@@ -8,14 +8,14 @@ pub contract StatefulTest {
         messages::delivery::MessageDelivery,
         note::{note_getter_options::NoteGetterOptions, note_viewer_options::NoteViewerOptions},
         protocol::{abis::function_selector::FunctionSelector, address::AztecAddress},
-        state_vars::{Map, Owned, PrivateSet, PublicMutable},
+        state_vars::{Map, Owned, PrivateSet, PublicMutable, RuntimePrivateSet},
     };
     use field_note::FieldNote;
 
     #[storage]
-    struct Storage<Context> {
-        notes: Owned<PrivateSet<FieldNote, Context>, Context>,
-        public_values: Map<AztecAddress, PublicMutable<Field, Context>, Context>,
+    struct Storage {
+        notes: Owned<PrivateSet<FieldNote>>,
+        public_values: Map<AztecAddress, PublicMutable<Field>>,
     }
 
     #[external("private")]
@@ -85,7 +85,7 @@ pub contract StatefulTest {
 
     #[contract_library_method]
     unconstrained fn get_balance_with_offset(
-        set: PrivateSet<FieldNote, aztec::context::UtilityContext>,
+        set: RuntimePrivateSet<FieldNote, aztec::context::UtilityContext>,
         offset: u32,
     ) -> Field {
         let mut balance = 0;

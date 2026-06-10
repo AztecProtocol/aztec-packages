@@ -15,7 +15,7 @@ use crate::macros::{
 ///   parameter and call this helper directly to skip the `calldata_copy` step.
 pub(crate) comptime fn generate_public_self_creator_from_context(m: Module) -> Quoted {
     let (storage_type, storage_init) = if module_has_storage(m) {
-        (quote { Storage<aztec::context::PublicContext> }, quote { let storage = Storage::init(context); })
+        (quote { StorageRuntime<aztec::context::PublicContext> }, quote { let storage = StorageRuntime::init(context); })
     } else {
         // Contract does not have Storage defined, so we set storage to the unit type `()`. ContractSelfPublic requires
         // a storage struct in its constructor. Using an Option type would lead to worse developer experience and
@@ -47,7 +47,7 @@ pub(crate) comptime fn generate_public_self_creator_from_context(m: Module) -> Q
 /// serialized args reuse the same compiled code.
 pub(crate) comptime fn generate_public_self_creator(m: Module) -> Quoted {
     let storage_type = if module_has_storage(m) {
-        quote { Storage<aztec::context::PublicContext> }
+        quote { StorageRuntime<aztec::context::PublicContext> }
     } else {
         quote { () }
     };

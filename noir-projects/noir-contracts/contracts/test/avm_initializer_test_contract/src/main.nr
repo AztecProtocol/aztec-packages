@@ -6,8 +6,8 @@ pub contract AvmInitializerTest {
     use aztec::{macros::{functions::{external, initializer}, storage::storage}, state_vars::PublicImmutable};
 
     #[storage]
-    struct Storage<Context> {
-        immutable: PublicImmutable<Field, Context>,
+    struct Storage {
+        immutable: PublicImmutable<Field>,
     }
 
     #[external("public")]

@@ -55,9 +55,9 @@ pub contract Orderbook {
     }
 
     #[storage]
-    struct Storage<Context> {
-        config: PublicImmutable<Config, Context>,
-        orders: Map<Field, PublicImmutable<Order, Context>, Context>,
+    struct Storage {
+        config: PublicImmutable<Config>,
+        orders: Map<Field, PublicImmutable<Order>>,
     }
 
     #[external("public")]

@@ -1,5 +1,5 @@
 use crate::protocol::{storage::map::derive_storage_slot_in_map, traits::ToField};
-use crate::state_vars::StateVariable;
+use crate::state_vars::{RuntimeStateVariable, StateVariable};
 
 /// A key-value container for state variables.
 ///
@@ -26,9 +26,9 @@ use crate::state_vars::StateVariable;
 ///
 /// ```noir
 /// #[storage]
-/// struct Storage<C> {
-///     is_admin: Map<AztecAddress, PublicMutable<bool, C>, C>,
-///     vote_tallies: Map<ElectionId, PublicMutable<u128, C>, C>,
+/// struct Storage {
+///     is_admin: Map<AztecAddress, PublicMutable<bool>>,
+///     vote_tallies: Map<ElectionId, PublicMutable<u128>>,
 /// }
 /// ```
 ///
@@ -39,11 +39,11 @@ use crate::state_vars::StateVariable;
 ///
 /// ```noir
 /// #[storage]
-/// struct Storage<C> {
+/// struct Storage {
 ///     // A nested map where the first key is an address and the second a `Year` type, such that
 ///     // self.storage.user_yearly_config.at(user).at(year) results in distinct `UserConfig` variables for each
 ///     // `(user, year)` tuple.
-///     user_yearly_config: Map<AztecAddress, Map<Year, UserConfig<C>, C>, C>,
+///     user_yearly_config: Map<AztecAddress, Map<Year, UserConfig>>,
 /// }
 /// ```
 ///
@@ -72,8 +72,8 @@ use crate::state_vars::StateVariable;
 /// }
 ///
 /// #[storage]
-/// struct Storage<C> {
-///     a: Map<MyKeyWrapper, PublicMutable<bool, C>, C>,
+/// struct Storage {
+///     a: Map<MyKeyWrapper, PublicMutable<bool>>,
 /// }
 /// ```
 ///
@@ -85,18 +85,33 @@ use crate::state_vars::StateVariable;
 ///
 /// Because the storage slot derivation is done using a hash function, it is not possible to compute the key (preimage)
 /// used to obtain a given derived state variable slot.
-pub struct Map<K, V, Context> {
-    pub context: Context,
-    storage_slot: Field,
-}
+pub struct Map<K, V> {}
 
 // Map reserves a single storage slot regardless of what it stores because nothing is stored at said slot: it is only
 // used to derive the storage slots of nested state variables, which is expected to never result in collisions or slots
 // being close to one another due to these being hashes. This mirrors the strategy adopted by Solidity mappings.
-impl<K, V, Context> StateVariable<1, Context> for Map<K, V, Context> {
+impl<K, V, Context> StateVariable<Context> for Map<K, V>
+where
+    V: StateVariable<Context>,
+{
+    let N: u32 = 1;
+    type Runtime = RuntimeMap<K, <V as StateVariable<Context>>::Runtime, Context>;
+}
+
+/// Runtime representation of [`Map`]. Instantiated by the [`#[storage]`](crate::macros::storage::storage) macro; users
+/// do not name this type directly except when using [`#[storage_no_init]`](crate::macros::storage::storage_no_init).
+///
+/// The `V` generic is the _runtime_ value type, i.e. the projection of the declared value type's
+/// `Runtime`.
+pub struct RuntimeMap<K, V, Context> {
+    pub context: Context,
+    storage_slot: Field,
+}
+
+impl<K, V, Context> RuntimeStateVariable<Context> for RuntimeMap<K, V, Context> {
     fn new(context: Context, storage_slot: Field) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
-        Map { context, storage_slot }
+        RuntimeMap { context, storage_slot }
     }
 
     fn get_storage_slot(self) -> Field {
@@ -104,7 +119,7 @@ impl<K, V, Context> StateVariable<1, Context> for Map<K, V, Context> {
     }
 }
 
-impl<K, V, Context> Map<K, V, Context> {
+impl<K, V, Context> RuntimeMap<K, V, Context> {
     /// Returns the state variable for a key.
     ///
     /// This derives a unique storage slot for `key` and returns a state variable of type `V` at that slot. It is
@@ -119,10 +134,10 @@ impl<K, V, Context> Map<K, V, Context> {
     ///     self.storage.vote_tallies.at(election).read()
     /// }
     /// ```
-    pub fn at<let N: u32>(self, key: K) -> V
+    pub fn at(self, key: K) -> V
     where
         K: ToField,
-        V: StateVariable<N, Context>,
+        V: RuntimeStateVariable<Context>,
     {
         V::new(
             self.context,

@@ -17,9 +17,9 @@ contract Updatable {
     use field_note::FieldNote;
 
     #[storage]
-    struct Storage<Context> {
-        private_value: Owned<PrivateMutable<FieldNote, Context>, Context>,
-        public_value: PublicMutable<Field, Context>,
+    struct Storage {
+        private_value: Owned<PrivateMutable<FieldNote>>,
+        public_value: PublicMutable<Field>,
     }
 
     #[initializer]

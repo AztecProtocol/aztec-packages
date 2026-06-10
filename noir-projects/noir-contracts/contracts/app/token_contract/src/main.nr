@@ -25,7 +25,7 @@ pub contract Token {
         },
         messages::delivery::MessageDelivery,
         protocol::{address::AztecAddress, traits::ToField},
-        state_vars::{Map, Owned, PublicImmutable, PublicMutable, StateVariable},
+        state_vars::{Map, Owned, PublicImmutable, PublicMutable, RuntimeStateVariable},
     };
 
     use uint_note::{PartialUintNote, UintNote};
@@ -49,15 +49,15 @@ pub contract Token {
     }
 
     #[storage]
-    struct Storage<Context> {
-        admin: PublicMutable<AztecAddress, Context>,
-        minters: Map<AztecAddress, PublicMutable<bool, Context>, Context>,
-        balances: Owned<BalanceSet<Context>, Context>,
-        total_supply: PublicMutable<u128, Context>,
-        public_balances: Map<AztecAddress, PublicMutable<u128, Context>, Context>,
-        symbol: PublicImmutable<FieldCompressedString, Context>,
-        name: PublicImmutable<FieldCompressedString, Context>,
-        decimals: PublicImmutable<u8, Context>,
+    struct Storage {
+        admin: PublicMutable<AztecAddress>,
+        minters: Map<AztecAddress, PublicMutable<bool>>,
+        balances: Owned<BalanceSet>,
+        total_supply: PublicMutable<u128>,
+        public_balances: Map<AztecAddress, PublicMutable<u128>>,
+        symbol: PublicImmutable<FieldCompressedString>,
+        name: PublicImmutable<FieldCompressedString>,
+        decimals: PublicImmutable<u8>,
     }
 
     #[external("public")]

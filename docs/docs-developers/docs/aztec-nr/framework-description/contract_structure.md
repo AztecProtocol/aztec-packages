@@ -98,14 +98,14 @@ pub contract MyContract {
     };
     use uint_note::UintNote;
 
-    // The storage struct can have any name, but is typically called `Storage`. It must have the `#[storage]` macro applied to it.
-    // This struct must also have a generic type called C or Context.
+    // The storage struct must be called `Storage` and have the `#[storage]` macro applied to it. The macro threads the
+    // execution context through the state variables, so the struct itself takes no generic parameters.
     #[storage]
-    struct Storage<Context> {
+    struct Storage {
         // A private numeric value which can change over time. This value will be hidden, and only those with the secret can know its current value.
-        my_private_state_variable: Owned<PrivateMutable<UintNote, Context>, Context>,
+        my_private_state_variable: Owned<PrivateMutable<UintNote>>,
         // A public numeric value which can change over time. This value will be known to everyone and is equivalent to the Solidity example above.
-        my_public_state_variable: PublicMutable<u128, Context>,
+        my_public_state_variable: PublicMutable<u128>,
     }
 }
 ```

@@ -11,7 +11,7 @@ use aztec::{
         constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
         traits::{Deserialize, FromField, Packable, Serialize, ToField},
     },
-    state_vars::{Owned, PrivateSet, StateVariable},
+    state_vars::{RuntimeOwned, RuntimePrivateSet, RuntimeStateVariable, StateVariable},
 };
 use field_note::FieldNote;
 use std::meta::derive;
@@ -102,14 +102,21 @@ impl CardNote {
     }
 }
 
-pub struct Deck<Context> {
-    owned_set: Owned<PrivateSet<FieldNote, Context>, Context>,
-}
+pub struct Deck {}
 
 // TODO(#13824): remove this impl once we allow structs to hold state variables.
-impl<Context> StateVariable<1, Context> for Deck<Context> {
+impl<Context> StateVariable<Context> for Deck {
+    let N: u32 = 1;
+    type Runtime = RuntimeDeck<Context>;
+}
+
+pub struct RuntimeDeck<Context> {
+    owned_set: RuntimeOwned<RuntimePrivateSet<FieldNote, Context>, Context>,
+}
+
+impl<Context> RuntimeStateVariable<Context> for RuntimeDeck<Context> {
     fn new(context: Context, storage_slot: Field) -> Self {
-        Deck { owned_set: Owned::new(context, storage_slot) }
+        RuntimeDeck { owned_set: RuntimeOwned::new(context, storage_slot) }
     }
 
     fn get_storage_slot(self) -> Field {
@@ -143,14 +150,14 @@ pub fn filter_cards<let N: u32>(
     selected
 }
 
-impl<Context> Deck<Context> {
+impl<Context> RuntimeDeck<Context> {
     pub fn new(context: Context, storage_slot: Field) -> Self {
-        let owned_set = Owned::new(context, storage_slot);
-        Deck { owned_set }
+        let owned_set = RuntimeOwned::new(context, storage_slot);
+        RuntimeDeck { owned_set }
     }
 }
 
-impl Deck<&mut PrivateContext> {
+impl RuntimeDeck<&mut PrivateContext> {
     pub fn add_cards<let N: u32>(&mut self, cards: [Card; N], owner: AztecAddress) -> [CardNote] {
         let mut inserted_cards = @[];
         for card in cards {
@@ -169,7 +176,7 @@ impl Deck<&mut PrivateContext> {
     }
 }
 
-impl Deck<UtilityContext> {
+impl RuntimeDeck<UtilityContext> {
     pub unconstrained fn view_cards(self, owner: AztecAddress, offset: u32) -> BoundedVec<Card, MAX_NOTES_PER_PAGE> {
         let options = NoteViewerOptions::new().set_offset(offset);
         let notes = self.owned_set.at(owner).view_notes(options);

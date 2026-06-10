@@ -10,7 +10,7 @@ use crate::{
         note_viewer_options::NoteViewerOptions,
         NoteMessage,
     },
-    state_vars::OwnedStateVariable,
+    state_vars::{OwnedStateVariable, RuntimeOwnedStateVariable},
 };
 use crate::protocol::{address::AztecAddress, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::Packable};
 
@@ -24,8 +24,8 @@ mod test;
 /// E.g.:
 /// ```noir
 /// #[storage]
-/// struct Storage<Context> {
-///     your_variable: Owned<PrivateSet<YourNote, Context>, Context>,
+/// struct Storage {
+///     your_variable: Owned<PrivateSet<YourNote>>,
 /// }
 /// ```
 ///
@@ -94,19 +94,27 @@ mod test;
 /// * `Note` - Many notes of this type will collectively form the PrivateSet at the given storage_slot.
 /// * `Context` - The execution context (PrivateContext or UtilityContext).
 ///
-pub struct PrivateSet<Note, Context> {
+pub struct PrivateSet<Note> {}
+
+impl<Note, Context> OwnedStateVariable<Context> for PrivateSet<Note> {
+    type Runtime = RuntimePrivateSet<Note, Context>;
+}
+
+/// Runtime representation of [`PrivateSet`]. Instantiated by the [`Owned`](crate::state_vars::Owned) wrapper; users do
+/// not name this type directly except when using [`#[storage_no_init]`](crate::macros::storage::storage_no_init).
+pub struct RuntimePrivateSet<Note, Context> {
     pub context: Context,
     pub storage_slot: Field,
     pub owner: AztecAddress,
 }
 
-impl<Note, Context> OwnedStateVariable<Context> for PrivateSet<Note, Context> {
+impl<Note, Context> RuntimeOwnedStateVariable<Context> for RuntimePrivateSet<Note, Context> {
     fn new(context: Context, storage_slot: Field, owner: AztecAddress) -> Self {
         Self { context, storage_slot, owner }
     }
 }
 
-impl<Note> PrivateSet<Note, &mut PrivateContext>
+impl<Note> RuntimePrivateSet<Note, &mut PrivateContext>
 where
     Note: NoteType + NoteHash + Eq,
 {
@@ -340,7 +348,7 @@ where
     }
 }
 
-impl<Note> PrivateSet<Note, UtilityContext>
+impl<Note> RuntimePrivateSet<Note, UtilityContext>
 where
     Note: NoteType + NoteHash + Eq,
 {

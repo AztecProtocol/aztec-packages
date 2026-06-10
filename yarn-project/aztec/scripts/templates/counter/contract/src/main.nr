@@ -11,11 +11,11 @@ pub contract Counter {
     use balance_set::BalanceSet;
 
     #[storage]
-    struct Storage<Context> {
+    struct Storage {
         // Each owner has their own counter, stored as private encrypted notes.
         // Owned: dictates who will receive the encrypted notes.
         // BalanceSet: manages the underlying notes, providing add/sub/balance_of.
-        counters: Owned<BalanceSet<Context>, Context>,
+        counters: Owned<BalanceSet>,
     }
 
     // Sets the owner's counter to an initial value.

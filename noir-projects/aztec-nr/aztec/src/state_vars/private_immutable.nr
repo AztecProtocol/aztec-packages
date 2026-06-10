@@ -8,7 +8,7 @@ use crate::{
         NoteMessage,
     },
     oracle::nullifiers::check_nullifier_exists,
-    state_vars::OwnedStateVariable,
+    state_vars::{OwnedStateVariable, RuntimeOwnedStateVariable},
 };
 
 use crate::protocol::{
@@ -26,8 +26,8 @@ mod test;
 ///
 /// ```noir
 /// #[storage]
-/// struct Storage<Context> {
-///     your_variable: Owned<PrivateImmutable<YourNote, Context>, Context>,
+/// struct Storage {
+///     your_variable: Owned<PrivateImmutable<YourNote>>,
 /// }
 /// ```
 ///
@@ -51,19 +51,28 @@ mod test;
 /// * `Note` - A single note of this type will represent the PrivateImmutable's value at the given storage_slot.
 /// * `Context` - The execution context (PrivateContext or UtilityContext).
 ///
-pub struct PrivateImmutable<Note, Context> {
+pub struct PrivateImmutable<Note> {}
+
+impl<Note, Context> OwnedStateVariable<Context> for PrivateImmutable<Note> {
+    type Runtime = RuntimePrivateImmutable<Note, Context>;
+}
+
+/// Runtime representation of [`PrivateImmutable`]. Instantiated by the [`Owned`](crate::state_vars::Owned) wrapper;
+/// users do not name this type directly except when using
+/// [`#[storage_no_init]`](crate::macros::storage::storage_no_init).
+pub struct RuntimePrivateImmutable<Note, Context> {
     context: Context,
     storage_slot: Field,
     owner: AztecAddress,
 }
 
-impl<Note, Context> OwnedStateVariable<Context> for PrivateImmutable<Note, Context> {
+impl<Note, Context> RuntimeOwnedStateVariable<Context> for RuntimePrivateImmutable<Note, Context> {
     fn new(context: Context, storage_slot: Field, owner: AztecAddress) -> Self {
         Self { context, storage_slot, owner }
     }
 }
 
-impl<Note, Context> PrivateImmutable<Note, Context> {
+impl<Note, Context> RuntimePrivateImmutable<Note, Context> {
     /// Computes the initialization nullifier using the provided secret.
     fn compute_initialization_nullifier(self, secret: Field) -> Field {
         poseidon2_hash_with_separator(
@@ -73,7 +82,7 @@ impl<Note, Context> PrivateImmutable<Note, Context> {
     }
 }
 
-impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
+impl<Note> RuntimePrivateImmutable<Note, &mut PrivateContext> {
     /// Computes the nullifier that will be created when this PrivateImmutable is first initialized.
     ///
     /// This function is primarily used internally by the `initialize` method, but may also be useful for contracts
@@ -128,7 +137,7 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
     }
 }
 
-impl<Note> PrivateImmutable<Note, UtilityContext>
+impl<Note> RuntimePrivateImmutable<Note, UtilityContext>
 where
     Note: NoteType + NoteHash + Eq,
 {

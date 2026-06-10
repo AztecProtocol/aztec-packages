@@ -13,8 +13,8 @@ pub contract PrivateInitTest {
     use field_note::FieldNote;
 
     #[storage]
-    struct Storage<Context> {
-        value: Owned<PrivateMutable<FieldNote, Context>, Context>,
+    struct Storage {
+        value: Owned<PrivateMutable<FieldNote>>,
     }
 
     #[initializer]

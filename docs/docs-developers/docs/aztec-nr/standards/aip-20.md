@@ -14,17 +14,17 @@ The token contract stores its name, symbol, and decimals as immutable public fie
 
 ```rust
 #[storage]
-struct Storage<Context> {
-    name: PublicImmutable<FieldCompressedString, Context>,
-    symbol: PublicImmutable<FieldCompressedString, Context>,
-    decimals: PublicImmutable<u8, Context>,
-    private_balances: Owned<BalanceSet<Context>, Context>,
-    total_supply: PublicMutable<u128, Context>,
-    public_balances: Map<AztecAddress, PublicMutable<u128, Context>, Context>,
-    minter: PublicImmutable<AztecAddress, Context>,
-    upgrade_authority: PublicImmutable<AztecAddress, Context>,
-    asset: PublicImmutable<AztecAddress, Context>,
-    vault_offset: PublicImmutable<u128, Context>,
+struct Storage {
+    name: PublicImmutable<FieldCompressedString>,
+    symbol: PublicImmutable<FieldCompressedString>,
+    decimals: PublicImmutable<u8>,
+    private_balances: Owned<BalanceSet>,
+    total_supply: PublicMutable<u128>,
+    public_balances: Map<AztecAddress, PublicMutable<u128>>,
+    minter: PublicImmutable<AztecAddress>,
+    upgrade_authority: PublicImmutable<AztecAddress>,
+    asset: PublicImmutable<AztecAddress>,
+    vault_offset: PublicImmutable<u128>,
 }
 ```
 

@@ -1,18 +1,22 @@
 use crate::{
     context::{PrivateContext, UtilityContext},
-    state_vars::{single_private_immutable::SinglePrivateImmutable, StateVariable},
+    state_vars::{single_private_immutable::RuntimeSinglePrivateImmutable, RuntimeStateVariable},
     test::{helpers::test_environment::TestEnvironment, mocks::mock_note::MockNote},
 };
 
 global STORAGE_SLOT: Field = 17;
 global VALUE: Field = 23;
 
-unconstrained fn in_private(context: &mut PrivateContext) -> SinglePrivateImmutable<MockNote, &mut PrivateContext> {
-    SinglePrivateImmutable::new(context, STORAGE_SLOT)
+unconstrained fn in_private(
+    context: &mut PrivateContext,
+) -> RuntimeSinglePrivateImmutable<MockNote, &mut PrivateContext> {
+    RuntimeSinglePrivateImmutable::new(context, STORAGE_SLOT)
 }
 
-unconstrained fn in_utility(context: UtilityContext) -> SinglePrivateImmutable<MockNote, UtilityContext> {
-    SinglePrivateImmutable::new(context, STORAGE_SLOT)
+unconstrained fn in_utility(
+    context: UtilityContext,
+) -> RuntimeSinglePrivateImmutable<MockNote, UtilityContext> {
+    RuntimeSinglePrivateImmutable::new(context, STORAGE_SLOT)
 }
 
 #[test(should_fail_with = "Failed to get a note")]

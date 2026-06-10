@@ -7,7 +7,10 @@ pub contract StateVars {
         macros::{functions::{external, view}, storage::{storage, storage_no_init}},
         messages::delivery::MessageDelivery,
         protocol::{address::AztecAddress, traits::{Deserialize, Packable, Serialize}},
-        state_vars::{Owned, PrivateImmutable, PrivateMutable, PublicImmutable, PublicMutable, StateVariable},
+        state_vars::{
+            RuntimeOwned, RuntimePrivateImmutable, RuntimePrivateMutable, RuntimePublicImmutable, RuntimePublicMutable,
+            RuntimeStateVariable,
+        },
     };
 
     use field_note::FieldNote;
@@ -19,20 +22,20 @@ pub contract StateVars {
     }
 
     #[storage_no_init]
-    struct Storage<Context> {
-        mock_struct: PublicMutable<MockStruct, Context>,
-        private_mutable: Owned<PrivateMutable<FieldNote, Context>, Context>,
-        private_immutable: Owned<PrivateImmutable<FieldNote, Context>, Context>,
-        public_immutable: PublicImmutable<MockStruct, Context>,
+    struct StorageRuntime<Context> {
+        mock_struct: RuntimePublicMutable<MockStruct, Context>,
+        private_mutable: RuntimeOwned<RuntimePrivateMutable<FieldNote, Context>, Context>,
+        private_immutable: RuntimeOwned<RuntimePrivateImmutable<FieldNote, Context>, Context>,
+        public_immutable: RuntimePublicImmutable<MockStruct, Context>,
     }
 
-    impl<Context> Storage<Context> {
+    impl<Context> StorageRuntime<Context> {
         fn init(context: Context) -> Self {
-            Storage {
-                mock_struct: PublicMutable::new(context, 1),
-                private_mutable: Owned::new(context, 3),
-                private_immutable: Owned::new(context, 6),
-                public_immutable: PublicImmutable::new(context, 7),
+            StorageRuntime {
+                mock_struct: RuntimePublicMutable::new(context, 1),
+                private_mutable: RuntimeOwned::new(context, 3),
+                private_immutable: RuntimeOwned::new(context, 6),
+                public_immutable: RuntimePublicImmutable::new(context, 7),
             }
         }
     }

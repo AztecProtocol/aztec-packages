@@ -10,7 +10,7 @@ use crate::macros::utils::{fn_has_noinitcheck, module_has_initializer, module_ha
 /// Unlike the public counterpart, this helper takes no arguments because `UtilityContext::new` does not need calldata.
 pub(crate) comptime fn generate_utility_self_creator(m: Module) -> Quoted {
     let (storage_type, storage_init) = if module_has_storage(m) {
-        (quote { Storage<aztec::context::UtilityContext> }, quote { let storage = Storage::init(context); })
+        (quote { StorageRuntime<aztec::context::UtilityContext> }, quote { let storage = StorageRuntime::init(context); })
     } else {
         // Contract does not have Storage defined, so we set storage to the unit type `()`. ContractSelfUtility requires
         // a storage struct in its constructor. Using an Option type would lead to worse developer experience and higher

@@ -80,8 +80,8 @@ These state variables must be wrapped in an `Owned<>` type that specifies the no
 
 ```rust
 #[storage]
-struct Storage<Context> {
-    balance: Owned<PrivateSet<UintNote, Context>, Context>,
+struct Storage {
+    balance: Owned<PrivateSet<UintNote>>,
 }
 ```
 

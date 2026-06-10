@@ -14,11 +14,11 @@ error: Type NonStateVar does not implement StateVariable and hence cannot be pla
     2: storage
             at <repo>/noir-projects/aztec-nr/aztec/src/macros/storage.nr:<line>:<col>
 
-error: Could not resolve 'init' in path
+error: Could not resolve 'StorageRuntime' in path
    ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/internals_functions_generation/external/private.nr:<line>:<col>
    │
-   │             let storage = Storage::init(&mut context);
-   │                                    ----
+   │             let storage = StorageRuntime::init(&mut context);
+   │                           --------------
    │
    ┌─ src/main.nr:4:1
    │

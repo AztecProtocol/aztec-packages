@@ -57,10 +57,10 @@ pub contract HandshakeRegistry {
     }
 
     #[storage]
-    struct Storage<Context> {
+    struct Storage {
         /// One current [`HandshakeNote`] per `(recipient, sender, mode)` tuple. Re-handshaking for the same tuple
         /// replaces the prior sender-owned note, so only the latest handshake remains valid for that mode.
-        handshakes: Map<AztecAddress, Map<u8, Owned<PrivateMutable<HandshakeNote, Context>, Context>, Context>, Context>,
+        handshakes: Map<AztecAddress, Map<u8, Owned<PrivateMutable<HandshakeNote>>>>,
     }
 
     /// Performs a non-interactive handshake from `sender` to `recipient` and returns the app-siloed shared secret

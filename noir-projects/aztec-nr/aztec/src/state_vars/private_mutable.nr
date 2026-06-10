@@ -8,7 +8,7 @@ use crate::{
         NoteMessage,
     },
     oracle::nullifiers::check_nullifier_exists,
-    state_vars::OwnedStateVariable,
+    state_vars::{OwnedStateVariable, RuntimeOwnedStateVariable},
 };
 
 use crate::protocol::{
@@ -26,8 +26,8 @@ mod test;
 /// E.g.:
 /// ```noir
 /// #[storage]
-/// struct Storage<Context> {
-///     your_variable: Owned<PrivateMutable<YourNote, Context>, Context>,
+/// struct Storage {
+///     your_variable: Owned<PrivateMutable<YourNote>>,
 /// }
 /// ```
 ///
@@ -70,19 +70,27 @@ mod test;
 /// * `Note` - A single note of this type will represent the PrivateMutable's current value at the given storage_slot.
 /// * `Context` - The execution context (PrivateContext or UtilityContext).
 ///
-pub struct PrivateMutable<Note, Context> {
+pub struct PrivateMutable<Note> {}
+
+impl<Note, Context> OwnedStateVariable<Context> for PrivateMutable<Note> {
+    type Runtime = RuntimePrivateMutable<Note, Context>;
+}
+
+/// Runtime representation of [`PrivateMutable`]. Instantiated by the [`Owned`](crate::state_vars::Owned) wrapper; users
+/// do not name this type directly except when using [`#[storage_no_init]`](crate::macros::storage::storage_no_init).
+pub struct RuntimePrivateMutable<Note, Context> {
     context: Context,
     storage_slot: Field,
     owner: AztecAddress,
 }
 
-impl<Note, Context> OwnedStateVariable<Context> for PrivateMutable<Note, Context> {
+impl<Note, Context> RuntimeOwnedStateVariable<Context> for RuntimePrivateMutable<Note, Context> {
     fn new(context: Context, storage_slot: Field, owner: AztecAddress) -> Self {
         Self { context, storage_slot, owner }
     }
 }
 
-impl<Note, Context> PrivateMutable<Note, Context> {
+impl<Note, Context> RuntimePrivateMutable<Note, Context> {
     /// Computes the initialization nullifier using the provided secret.
     fn compute_initialization_nullifier(self, secret: Field) -> Field {
         poseidon2_hash_with_separator(
@@ -92,7 +100,7 @@ impl<Note, Context> PrivateMutable<Note, Context> {
     }
 }
 
-impl<Note> PrivateMutable<Note, &mut PrivateContext>
+impl<Note> RuntimePrivateMutable<Note, &mut PrivateContext>
 where
     Note: NoteType + NoteHash,
 {
@@ -302,7 +310,7 @@ where
     }
 }
 
-impl<Note> PrivateMutable<Note, UtilityContext>
+impl<Note> RuntimePrivateMutable<Note, UtilityContext>
 where
     Note: NoteType + NoteHash + Eq,
 {

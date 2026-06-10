@@ -36,11 +36,11 @@ pub contract PodRacing {
 
     // docs:start:storage
     #[storage]
-    struct Storage<Context> {
-        admin: PublicMutable<AztecAddress, Context>,
-        races: Map<Field, PublicMutable<Race, Context>, Context>,
-        progress: Map<Field, Owned<PrivateSet<GameRoundNote, Context>, Context>, Context>,
-        win_history: Map<AztecAddress, PublicMutable<u64, Context>, Context>,
+    struct Storage {
+        admin: PublicMutable<AztecAddress>,
+        races: Map<Field, PublicMutable<Race>>,
+        progress: Map<Field, Owned<PrivateSet<GameRoundNote>>>,
+        win_history: Map<AztecAddress, PublicMutable<u64>>,
     }
     // docs:end:storage
 
