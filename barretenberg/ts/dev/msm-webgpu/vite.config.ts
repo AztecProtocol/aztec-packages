@@ -149,15 +149,12 @@ function serveSrsProxy(): PluginOption {
 // `/results` when they reach a terminal state; progress chunks POST to
 // `/progress` while running. The middleware appends each payload as a JSONL
 // row to the file named by env var `MSM_WEBGPU_RESULTS_FILE` (default
-// `/tmp/msm-webgpu-results.jsonl`) and also tees progress lines to
-// `MSM_WEBGPU_PROGRESS_FILE`. The BrowserStack runner tails these JSONL
-// files to apply stall/deadline watchdogs without polling JS globals.
+// `./fastbench_results_<port>.jsonl` in the dev server's CWD) and also tees
+// progress lines to `MSM_WEBGPU_PROGRESS_FILE`. The default lives in the CWD so
+// it matches what the profiling scripts read (profile_both.sh / phone-bench.sh)
+// without any env wiring. The BrowserStack runner tails these JSONL files to
+// apply stall/deadline watchdogs without polling JS globals.
 function resultsCollector(): PluginOption {
-  const resultsFile = process.env.MSM_WEBGPU_RESULTS_FILE ?? '/tmp/msm-webgpu-results.jsonl';
-  const progressFile = process.env.MSM_WEBGPU_PROGRESS_FILE ?? '/tmp/msm-webgpu-progress.jsonl';
-  for (const f of [resultsFile, progressFile]) {
-    mkdirSync(path.dirname(f), { recursive: true });
-  }
   function readBody(req: import('node:http').IncomingMessage): Promise<string> {
     return new Promise((resolve, reject) => {
       let buf = '';
@@ -175,6 +172,17 @@ function resultsCollector(): PluginOption {
   return {
     name: 'msm-webgpu-results-collector',
     configureServer(server) {
+      // Default both JSONL files to the dev server's CWD, port-keyed, so they
+      // match the profiling scripts' `./fastbench_results_<port>.jsonl` with no
+      // env wiring. Env vars still override.
+      const port = server.config.server.port ?? 5173;
+      const resultsFile =
+        process.env.MSM_WEBGPU_RESULTS_FILE ?? path.join(process.cwd(), `fastbench_results_${port}.jsonl`);
+      const progressFile =
+        process.env.MSM_WEBGPU_PROGRESS_FILE ?? path.join(process.cwd(), `fastbench_progress_${port}.jsonl`);
+      for (const f of [resultsFile, progressFile]) {
+        mkdirSync(path.dirname(f), { recursive: true });
+      }
       server.middlewares.use(async (req, res, next) => {
         if (req.method !== 'POST') {
           next();
