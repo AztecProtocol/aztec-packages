@@ -1,4 +1,9 @@
+mod builder;
+mod mode;
+mod tag_secret_derivation;
+
 pub mod constrained_delivery;
+pub mod handshake;
 
 use crate::{
     context::PrivateContext,
@@ -13,10 +18,6 @@ use crate::{
 use crate::protocol::{address::AztecAddress, constants::DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG, hash::compute_log_tag};
 use mode::DeliveryMode;
 use tag_secret_derivation::TagSecretDerivation;
-
-mod builder;
-mod mode;
-mod tag_secret_derivation;
 
 pub use builder::{
     MessageDelivery, MessageDeliveryBuilder, OffchainDelivery, OnchainConstrainedDelivery, OnchainUnconstrainedDelivery,
