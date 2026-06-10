@@ -1,3 +1,9 @@
+mod builder;
+mod mode;
+mod tag_secret_derivation;
+
+pub mod handshake;
+
 use crate::{
     context::PrivateContext,
     messages::{
@@ -10,10 +16,6 @@ use crate::{
 use crate::protocol::{address::AztecAddress, constants::DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG, hash::compute_log_tag};
 use mode::DeliveryMode;
 use tag_secret_derivation::TagSecretDerivation;
-
-mod builder;
-mod mode;
-mod tag_secret_derivation;
 
 pub use builder::{
     MessageDelivery, MessageDeliveryBuilder, OffchainDelivery, OnchainConstrainedDelivery, OnchainUnconstrainedDelivery,
@@ -133,16 +135,22 @@ fn resolve_tag_secret_derivation(
 }
 
 mod test {
-    use super::{resolve_tag_secret_derivation, DeliveryMode, TagSecretDerivation};
+    use super::{DeliveryMode, resolve_tag_secret_derivation, TagSecretDerivation};
 
     #[test]
     fn wallet_default_resolves_for_delivery_mode() {
         assert(
-            resolve_tag_secret_derivation(DeliveryMode::onchain_unconstrained(), TagSecretDerivation::wallet_default())
+            resolve_tag_secret_derivation(
+                DeliveryMode::onchain_unconstrained(),
+                TagSecretDerivation::wallet_default(),
+            )
                 == TagSecretDerivation::address_secret(),
         );
         assert(
-            resolve_tag_secret_derivation(DeliveryMode::onchain_constrained(), TagSecretDerivation::wallet_default())
+            resolve_tag_secret_derivation(
+                DeliveryMode::onchain_constrained(),
+                TagSecretDerivation::wallet_default(),
+            )
                 == TagSecretDerivation::non_interactive_handshake(),
         );
     }
@@ -150,14 +158,18 @@ mod test {
     #[test]
     fn explicit_tag_secret_derivation_is_preserved() {
         assert(
-            resolve_tag_secret_derivation(DeliveryMode::onchain_unconstrained(), TagSecretDerivation::address_secret())
+            resolve_tag_secret_derivation(
+                DeliveryMode::onchain_unconstrained(),
+                TagSecretDerivation::address_secret(),
+            )
                 == TagSecretDerivation::address_secret(),
         );
         assert(
             resolve_tag_secret_derivation(
                 DeliveryMode::onchain_constrained(),
                 TagSecretDerivation::non_interactive_handshake(),
-            ) == TagSecretDerivation::non_interactive_handshake(),
+            )
+                == TagSecretDerivation::non_interactive_handshake(),
         );
     }
 }

@@ -1,6 +1,10 @@
+use crate::ephemeral::EphemeralArray;
 use crate::logging::{aztecnr_debug_log, aztecnr_debug_log_format, aztecnr_warn_log_format};
+use crate::messages::{
+    delivery::handshake::{get_handshake_secrets, PROVIDED_SECRETS_ARRAY_BASE_SLOT},
+    processing::provided_secret::ProvidedSecret,
+};
 use crate::protocol::address::AztecAddress;
-use crate::protocol::hash::sha256_to_field;
 
 pub(crate) mod nonce_discovery;
 pub(crate) mod partial_notes;
@@ -9,23 +13,18 @@ pub mod private_notes;
 pub mod process_message;
 
 use crate::{
-    ephemeral::EphemeralArray,
     messages::{
         discovery::process_message::process_message_ciphertext,
         encoding::MAX_MESSAGE_CONTENT_LEN,
         logs::note::MAX_NOTE_PACKED_LEN,
         processing::{
             MessageContext, offchain::OffchainInboxSync, OffchainMessageWithContext,
-            pending_tagged_log::PendingTaggedLog, provided_secret::ProvidedSecret,
-            validate_and_store_enqueued_notes_and_events,
+            pending_tagged_log::PendingTaggedLog, validate_and_store_enqueued_notes_and_events,
         },
     },
     oracle::message_processing,
     utils::array,
 };
-
-global PROVIDED_SECRETS_ARRAY_BASE_SLOT: Field =
-    sha256_to_field("AZTEC_NR::PROVIDED_SECRETS_ARRAY_BASE_SLOT".as_bytes());
 
 pub struct NoteHashAndNullifier {
     /// The result of [`crate::note::note_interface::NoteHash::compute_note_hash`].
@@ -141,12 +140,51 @@ pub unconstrained fn do_sync_state(
     offchain_inbox_sync: Option<OffchainInboxSync>,
     scope: AztecAddress,
 ) {
+    let provided_secrets = get_handshake_secrets(contract_address, scope);
+    sync_state_with_secrets(
+        contract_address,
+        compute_note_hash,
+        compute_note_nullifier,
+        process_custom_message,
+        offchain_inbox_sync,
+        scope,
+        provided_secrets,
+    );
+}
+
+/// Variant of [`do_sync_state`] that skips handshake secret discovery. Used by the HandshakeRegistry to avoid
+/// infinite recursion (the registry discovers handshakes for other contracts, not for itself).
+pub unconstrained fn do_sync_state_without_handshake_discovery(
+    contract_address: AztecAddress,
+    compute_note_hash: ComputeNoteHash,
+    compute_note_nullifier: ComputeNoteNullifier,
+    process_custom_message: Option<CustomMessageHandler>,
+    offchain_inbox_sync: Option<OffchainInboxSync>,
+    scope: AztecAddress,
+) {
+    let provided_secrets = EphemeralArray::<ProvidedSecret>::empty_at(PROVIDED_SECRETS_ARRAY_BASE_SLOT);
+    sync_state_with_secrets(
+        contract_address,
+        compute_note_hash,
+        compute_note_nullifier,
+        process_custom_message,
+        offchain_inbox_sync,
+        scope,
+        provided_secrets,
+    );
+}
+
+unconstrained fn sync_state_with_secrets(
+    contract_address: AztecAddress,
+    compute_note_hash: ComputeNoteHash,
+    compute_note_nullifier: ComputeNoteNullifier,
+    process_custom_message: Option<CustomMessageHandler>,
+    offchain_inbox_sync: Option<OffchainInboxSync>,
+    scope: AztecAddress,
+    provided_secrets: EphemeralArray<ProvidedSecret>,
+) {
     aztecnr_debug_log!("Performing state synchronization");
 
-    // First we process all private logs, which can contain different kinds of messages e.g. private notes, partial
-    // notes, private events, etc.
-    // TODO(F-588): populate with tagging secrets for constrained delivery
-    let provided_secrets = EphemeralArray::<ProvidedSecret>::empty_at(PROVIDED_SECRETS_ARRAY_BASE_SLOT);
     let logs = message_processing::get_pending_tagged_logs(scope, provided_secrets);
     logs.for_each(|_i, pending_tagged_log: PendingTaggedLog| {
         if pending_tagged_log.log.len() == 0 {
@@ -201,12 +239,14 @@ pub unconstrained fn do_sync_state(
 mod test {
     use crate::ephemeral::EphemeralArray;
     use crate::messages::{
+        delivery::handshake::HandshakePage,
         discovery::{CustomMessageHandler, do_sync_state},
         logs::note::MAX_NOTE_PACKED_LEN,
         processing::{offchain::OffchainInboxSync, pending_tagged_log::PendingTaggedLog},
     };
-    use crate::protocol::address::AztecAddress;
+    use crate::protocol::{address::AztecAddress, traits::Serialize};
     use crate::test::helpers::test_environment::TestEnvironment;
+    use std::test::OracleMock;
 
     #[test]
     unconstrained fn do_sync_state_does_not_panic_on_empty_logs() {
@@ -216,6 +256,11 @@ mod test {
         let contract_address = AztecAddress { inner: 0xdeadbeef };
 
         env.utility_context_at(contract_address, |_| {
+            // get_handshake_secrets calls the HandshakeRegistry during sync; return an empty page so
+            // no tagging secrets are produced.
+            let empty_page = HandshakePage { items: BoundedVec::new(), total_count: 0 };
+            let _ = OracleMock::mock("aztec_utl_callUtilityFunction").returns(empty_page.serialize());
+
             // Mock the oracle call to return a known base slot, then populate an ephemeral
             // array at that slot so do_sync_state processes a non-empty log list.
             let base_slot = 42;

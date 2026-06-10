@@ -19,7 +19,7 @@ use super::tag_secret_derivation::TagSecretDerivation;
 /// ## Construction
 ///
 /// The fields are private and there is no public constructor: a `MessageDelivery` can only be produced by a
-/// [`MessageDeliveryBuilder`] that enforces valid configurations, so invalid field combinations cannot be 
+/// [`MessageDeliveryBuilder`] that enforces valid configurations, so invalid field combinations cannot be
 /// represented to the consumer.
 pub struct MessageDelivery {
     mode: DeliveryMode,
@@ -223,10 +223,7 @@ pub struct OnchainUnconstrainedDelivery {
 
 impl OnchainUnconstrainedDelivery {
     fn new() -> Self {
-        Self {
-            tag_secret_derivation: TagSecretDerivation::wallet_default(),
-            sender_override: Option::none(),
-        }
+        Self { tag_secret_derivation: TagSecretDerivation::wallet_default(), sender_override: Option::none() }
     }
 
     /// Overrides the sender address used for discovery tag derivation.
@@ -285,10 +282,7 @@ pub struct OnchainConstrainedDelivery {
 
 impl OnchainConstrainedDelivery {
     fn new() -> Self {
-        Self {
-            tag_secret_derivation: TagSecretDerivation::wallet_default(),
-            sender_override: Option::none(),
-        }
+        Self { tag_secret_derivation: TagSecretDerivation::wallet_default(), sender_override: Option::none() }
     }
 
     /// Overrides the sender address used for discovery tag derivation.
@@ -370,12 +364,8 @@ mod test {
         let constrained_delivery =
             MessageDelivery::onchain_constrained().via_non_interactive_handshake().build_message_delivery();
 
-        assert(
-            unconstrained_delivery.tag_secret_derivation() == TagSecretDerivation::non_interactive_handshake(),
-        );
-        assert(
-            constrained_delivery.tag_secret_derivation() == TagSecretDerivation::non_interactive_handshake(),
-        );
+        assert(unconstrained_delivery.tag_secret_derivation() == TagSecretDerivation::non_interactive_handshake());
+        assert(constrained_delivery.tag_secret_derivation() == TagSecretDerivation::non_interactive_handshake());
     }
 
     #[test]

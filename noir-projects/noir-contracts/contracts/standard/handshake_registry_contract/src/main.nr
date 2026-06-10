@@ -9,9 +9,6 @@ use sync::handshake_registry_sync;
 /// signature). See [`HandshakeRegistry::non_interactive_handshake`].
 global NON_INTERACTIVE_HANDSHAKE: u8 = 1;
 
-/// Page size for [`HandshakeRegistry::get_handshakes`].
-global MAX_HANDSHAKES_PER_PAGE: u32 = 32;
-
 /// Registry for the constrained-delivery shared-secret handshake protocol.
 ///
 /// The registry establishes a master shared-secret point `S` between a sender and a recipient and stores one current
@@ -24,37 +21,20 @@ global MAX_HANDSHAKES_PER_PAGE: u32 = 32;
 /// Currently only implements the non-interactive flow (see [`HandshakeRegistry::non_interactive_handshake`]).
 #[aztec(::aztec::macros::AztecConfig::new().custom_sync_state(crate::handshake_registry_sync))]
 pub contract HandshakeRegistry {
-    use crate::handshake_note::HandshakeNote;
-    use crate::{MAX_HANDSHAKES_PER_PAGE, NON_INTERACTIVE_HANDSHAKE, sync::get_all_handshakes};
+    use crate::{handshake_note::HandshakeNote, NON_INTERACTIVE_HANDSHAKE, sync::get_all_handshakes};
     use aztec::{
         keys::{ecdh_shared_secret::derive_ecdh_shared_secret, ephemeral::generate_positive_ephemeral_key_pair},
         macros::{functions::external, storage::storage},
         messages::{
-            delivery::{MessageDelivery, OnchainDeliveryMode},
+            delivery::{handshake::{HandshakePage, MAX_HANDSHAKES_PER_PAGE}, MessageDelivery, OnchainDeliveryMode},
             encryption::{aes128::AES128, message_encryption::MessageEncryption},
         },
         protocol::{
-            address::AztecAddress,
-            constants::DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG,
-            hash::compute_log_tag,
-            point::EmbeddedCurvePoint,
-            traits::{Deserialize, Serialize, ToField},
+            address::AztecAddress, constants::DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG, hash::compute_log_tag,
+            traits::ToField,
         },
         state_vars::{Map, Owned, PrivateMutable},
     };
-
-    /// A handshake discovered during sync: the sender's ephemeral public key and the delivery mode.
-    #[derive(Deserialize, Eq, Serialize)]
-    pub struct DiscoveredHandshake {
-        pub eph_pk: EmbeddedCurvePoint,
-        pub mode: OnchainDeliveryMode,
-    }
-
-    #[derive(Deserialize, Serialize)]
-    pub struct HandshakePage {
-        pub items: BoundedVec<DiscoveredHandshake, MAX_HANDSHAKES_PER_PAGE>,
-        pub total_count: u32,
-    }
 
     #[storage]
     struct Storage<Context> {

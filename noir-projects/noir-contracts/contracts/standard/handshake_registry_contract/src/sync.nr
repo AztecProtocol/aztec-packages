@@ -1,12 +1,12 @@
-use crate::HandshakeRegistry::DiscoveredHandshake;
-
 use aztec::{
     capsules::CapsuleArray,
     context::UtilityContext,
     ephemeral::EphemeralArray,
     messages::{
-        delivery::OnchainDeliveryMode,
-        discovery::{ComputeNoteHash, ComputeNoteNullifier, CustomMessageHandler, do_sync_state},
+        delivery::{handshake::DiscoveredHandshake, OnchainDeliveryMode},
+        discovery::{
+            ComputeNoteHash, ComputeNoteNullifier, CustomMessageHandler, do_sync_state_without_handshake_discovery,
+        },
         encryption::{aes128::AES128, message_encryption::MessageEncryption},
         processing::{
             log_retrieval_request::{LogRetrievalRequest, LogSource},
@@ -72,10 +72,7 @@ pub(crate) unconstrained fn handshake_registry_sync(
             let _ = AES128::decrypt(ciphertext, scope, contract_address)
                 .and_then(|pt| {
                     point_from_x_coord_and_sign(pt.get(0), true).map(|pk| {
-                        DiscoveredHandshake {
-                            eph_pk: pk,
-                            mode: OnchainDeliveryMode::deserialize([pt.get(1)]),
-                        }
+                        DiscoveredHandshake { eph_pk: pk, mode: OnchainDeliveryMode::deserialize([pt.get(1)]) }
                     })
                 })
                 .map(|h| handshakes.push(h));
@@ -90,8 +87,7 @@ pub(crate) unconstrained fn handshake_registry_sync(
         );
     }
 
-    // Execute the default sync
-    do_sync_state(
+    do_sync_state_without_handshake_discovery(
         contract_address,
         compute_note_hash,
         compute_note_nullifier,
