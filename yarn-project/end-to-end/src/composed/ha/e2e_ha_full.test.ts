@@ -142,8 +142,7 @@ async function setDateProviderToNextBlockSlot(
   dateProvider.setTime((latestBlockTimestamp + slotsAhead * aztecSlotDuration) * 1000);
 }
 
-// TODO: re-enable once HA block building is reconciled with the always-enforced timetable (#23821).
-describe.skip('HA Full Setup', () => {
+describe('HA Full Setup', () => {
   jest.setTimeout(20 * 60 * 1000); // 20 minutes
 
   let logger: Logger;
