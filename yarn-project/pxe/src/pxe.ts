@@ -8,7 +8,7 @@ import { KeyStore } from '@aztec/key-store';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { type ProtocolContractsProvider, protocolContractNames } from '@aztec/protocol-contracts';
 import type { CircuitSimulator } from '@aztec/simulator/client';
-import { getStandardHandshakeRegistry } from '@aztec/standard-contracts/handshake-registry';
+import { getStandardHandshakeRegistry } from '@aztec/standard-contracts/handshake-registry/lazy';
 import {
   type ContractArtifact,
   EventSelector,
