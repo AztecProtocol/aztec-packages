@@ -48,7 +48,6 @@ template <size_t NumClaims> class MultilinearBatchingFlavor_ {
     static constexpr bool USE_SHORT_MONOMIALS = false;
     static constexpr bool HasZK = false;
     static constexpr size_t TRACE_OFFSET = 0;
-    static constexpr bool IS_MULTILINEAR_BATCHING = true;
     // To achieve fixed proof size and that the recursive verifier circuit is constant, we are using padding in Sumcheck
     // and Shplemini
     static constexpr bool USE_PADDING = true;
@@ -254,7 +253,6 @@ template <size_t NumClaims> class MultilinearBatchingRecursiveFlavor_ {
     static constexpr size_t NUM_CLAIMS = NativeFlavor::NUM_CLAIMS;
     static constexpr size_t VIRTUAL_LOG_N = NativeFlavor::VIRTUAL_LOG_N;
     static constexpr bool HasZK = NativeFlavor::HasZK;
-    static constexpr bool IS_MULTILINEAR_BATCHING = NativeFlavor::IS_MULTILINEAR_BATCHING;
     static constexpr bool USE_PADDING = NativeFlavor::USE_PADDING;
     static constexpr size_t NUM_ALL_ENTITIES = NativeFlavor::NUM_ALL_ENTITIES;
 

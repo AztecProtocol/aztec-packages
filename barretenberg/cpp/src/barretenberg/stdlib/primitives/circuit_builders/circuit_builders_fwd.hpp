@@ -8,6 +8,7 @@ construction in stdlib and contains macros for explicit instantiation.
  */
 #pragma once
 #include <concepts>
+#include <cstddef>
 
 namespace bb {
 class Bn254FrParams;
@@ -47,6 +48,9 @@ template <typename BuilderType> class MegaZKRecursiveFlavor_;
 template <typename BuilderType> class MegaAvmRecursiveFlavor_;
 class MegaAppRecursiveFlavor;
 class MegaKernelRecursiveFlavor;
+
+template <size_t NumClaims> class MultilinearBatchingFlavor_;
+template <size_t NumClaims> class MultilinearBatchingRecursiveFlavor_;
 
 namespace avm2 {
 class AvmRecursiveFlavor;

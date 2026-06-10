@@ -297,7 +297,7 @@ template <typename Flavor> class SumcheckProver {
     using SubrelationSeparators = std::array<FF, Flavor::NUM_SUBRELATIONS - 1>;
     using CommitmentKey = typename Flavor::CommitmentKey;
 
-    static constexpr bool isMultilinearBatchingFlavor = requires { Flavor::IS_MULTILINEAR_BATCHING; };
+    static constexpr bool isMultilinearBatchingFlavor = bb::isMultilinearBatchingFlavor<Flavor>;
     /**
      * @brief The total algebraic degree of the Sumcheck relation \f$ F \f$ as a polynomial in Prover Polynomials
      * \f$P_1,\ldots, P_N\f$.
