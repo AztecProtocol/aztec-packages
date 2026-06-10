@@ -3,12 +3,12 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
-/** The block an anchored (retractable) fact is tied to. */
-export type FactAnchor = { blockNumber: number; blockHash: Fr };
+/** The block a retractable fact originates from. */
+export type OriginBlock = { blockNumber: number; blockHash: Fr };
 
 /**
- * A single immutable fact about an entity. `anchor === undefined` marks the fact non-retractable (an external
- * input that survives reorgs); an anchor marks it retractable (re-derivable, deleted when its block is pruned).
+ * A single immutable fact about an entity. `originBlock === undefined` marks the fact non-retractable (an external
+ * input that survives reorgs); an origin block marks it retractable (re-derivable, deleted when its block is pruned).
  */
 export class StoredFact {
   constructor(
@@ -18,12 +18,12 @@ export class StoredFact {
     public readonly entityId: Fr,
     public readonly factTypeId: Fr,
     public readonly payload: Fr[],
-    public readonly anchor: FactAnchor | undefined,
+    public readonly originBlock: OriginBlock | undefined,
   ) {}
 
   /** Whether this fact is deleted on block pruning (true) or survives reorgs (false). */
   get isRetractable(): boolean {
-    return this.anchor !== undefined;
+    return this.originBlock !== undefined;
   }
 
   /** Stable digest of the payload, used in the dedup row key (keeps the LMDB key bounded for large payloads). */
@@ -32,7 +32,7 @@ export class StoredFact {
   }
 
   toBuffer(): Buffer {
-    const anchorTag = this.anchor ? 1 : 0;
+    const originBlockTag = this.originBlock ? 1 : 0;
     return serializeToBuffer(
       this.contractAddress,
       this.scope,
@@ -41,9 +41,9 @@ export class StoredFact {
       this.factTypeId,
       this.payload.length,
       ...this.payload,
-      anchorTag,
-      this.anchor ? this.anchor.blockNumber : 0,
-      this.anchor ? this.anchor.blockHash : Fr.ZERO,
+      originBlockTag,
+      this.originBlock ? this.originBlock.blockNumber : 0,
+      this.originBlock ? this.originBlock.blockHash : Fr.ZERO,
     );
   }
 
@@ -56,18 +56,19 @@ export class StoredFact {
     const factTypeId = reader.readObject(Fr);
     const payloadLen = reader.readNumber();
     const payload = reader.readArray(payloadLen, Fr);
-    const anchorTag = reader.readNumber();
+    const originBlockTag = reader.readNumber();
     const blockNumber = reader.readNumber();
     const blockHash = reader.readObject(Fr);
-    const anchor = anchorTag === 1 ? { blockNumber, blockHash } : undefined;
-    return new StoredFact(contractAddress, scope, entityTypeId, entityId, factTypeId, [...payload], anchor);
+    const originBlock = originBlockTag === 1 ? { blockNumber, blockHash } : undefined;
+    return new StoredFact(contractAddress, scope, entityTypeId, entityId, factTypeId, [...payload], originBlock);
   }
 }
 
 /**
- * The record for a single entity, with its own payload and optional block anchor. `anchor === undefined` marks the
- * entity non-retractable (it survives reorgs; only its own retractable facts are pruned); an anchor marks the whole
- * entity retractable — on a prune above its block, the entity payload and every fact it owns are deleted wholesale.
+ * The record for a single entity, with its own payload and optional origin block. `originBlock === undefined` marks
+ * the entity non-retractable (it survives reorgs; only its own retractable facts are pruned); an origin block marks
+ * the whole entity retractable — on a prune above its block, the entity payload and every fact it owns are deleted
+ * wholesale.
  */
 export class StoredEntity {
   constructor(
@@ -76,16 +77,16 @@ export class StoredEntity {
     public readonly entityTypeId: Fr,
     public readonly entityId: Fr,
     public readonly payload: Fr[],
-    public readonly anchor: FactAnchor | undefined,
+    public readonly originBlock: OriginBlock | undefined,
   ) {}
 
   /** Whether the whole entity is deleted on block pruning (true) or survives reorgs (false). */
   get isRetractable(): boolean {
-    return this.anchor !== undefined;
+    return this.originBlock !== undefined;
   }
 
   toBuffer(): Buffer {
-    const anchorTag = this.anchor ? 1 : 0;
+    const originBlockTag = this.originBlock ? 1 : 0;
     return serializeToBuffer(
       this.contractAddress,
       this.scope,
@@ -93,9 +94,9 @@ export class StoredEntity {
       this.entityId,
       this.payload.length,
       ...this.payload,
-      anchorTag,
-      this.anchor ? this.anchor.blockNumber : 0,
-      this.anchor ? this.anchor.blockHash : Fr.ZERO,
+      originBlockTag,
+      this.originBlock ? this.originBlock.blockNumber : 0,
+      this.originBlock ? this.originBlock.blockHash : Fr.ZERO,
     );
   }
 
@@ -107,11 +108,11 @@ export class StoredEntity {
     const entityId = reader.readObject(Fr);
     const payloadLen = reader.readNumber();
     const payload = reader.readArray(payloadLen, Fr);
-    const anchorTag = reader.readNumber();
+    const originBlockTag = reader.readNumber();
     const blockNumber = reader.readNumber();
     const blockHash = reader.readObject(Fr);
-    const anchor = anchorTag === 1 ? { blockNumber, blockHash } : undefined;
-    return new StoredEntity(contractAddress, scope, entityTypeId, entityId, [...payload], anchor);
+    const originBlock = originBlockTag === 1 ? { blockNumber, blockHash } : undefined;
+    return new StoredEntity(contractAddress, scope, entityTypeId, entityId, [...payload], originBlock);
   }
 }
 

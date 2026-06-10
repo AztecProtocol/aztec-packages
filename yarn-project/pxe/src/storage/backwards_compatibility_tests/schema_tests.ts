@@ -225,7 +225,7 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
       const entityTypeId = new Fr(7n);
       const corrA = new Fr(0xaan);
       const corrB = new Fr(0xbbn);
-      // Retractable entity (anchored at block 6): the entity and all its facts are pruned on a reorg above block 6.
+      // Retractable entity (origin block 6): the entity and all its facts are pruned on a reorg above block 6.
       await entityStore.createEntity(
         contract,
         scope,

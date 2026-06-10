@@ -183,7 +183,7 @@ describe('EntityStore', () => {
   });
 
   it('rollback deletes a retractable entity wholesale (payload + every fact) above the target block', async () => {
-    // Retractable entity anchored at block 6, owning one unanchored and one anchored fact.
+    // Retractable entity originating at block 6, owning one fact without an origin block and one with.
     await store.createEntity(
       contract,
       scope,
@@ -216,7 +216,7 @@ describe('EntityStore', () => {
   });
 
   it('rollback keeps a non-retractable entity, pruning only its retractable facts', async () => {
-    // Non-retractable entity (no anchor) with one unanchored fact + one anchored fact at block 6.
+    // Non-retractable entity (no origin block) with a non-retractable fact + a fact originating at block 6.
     await store.createEntity(contract, scope, ENTITY, corrA, [new Fr(5n)], undefined, JOB);
     await store.recordFact(contract, scope, ENTITY, corrA, RECEIVED, [new Fr(9n)], undefined, JOB);
     await store.recordFact(
@@ -242,7 +242,7 @@ describe('EntityStore', () => {
     ]);
   });
 
-  it('rollback above all anchors is a no-op', async () => {
+  it('rollback above all origin blocks is a no-op', async () => {
     await store.createEntity(
       contract,
       scope,
@@ -274,7 +274,7 @@ describe('EntityStore', () => {
     ]);
   });
 
-  it('re-creating an entity with a changed anchor clears the stale by-block index', async () => {
+  it('re-creating an entity with a changed origin block clears the stale by-block index', async () => {
     await store.createEntity(
       contract,
       scope,
@@ -286,7 +286,7 @@ describe('EntityStore', () => {
     );
     await kv.transactionAsync(() => store.commit(JOB));
 
-    // Re-create the same entity anchored at a different block.
+    // Re-create the same entity originating at a different block.
     const JOB2 = 'recreate-job';
     await store.createEntity(
       contract,
@@ -299,7 +299,7 @@ describe('EntityStore', () => {
     );
     await kv.transactionAsync(() => store.commit(JOB2));
 
-    // Prune above block 5: the entity (anchored at 8) is deleted exactly once. A stale block-6 index entry would make
+    // Prune above block 5: the entity (origin block 8) is deleted exactly once. A stale block-6 index entry would make
     // pass 1 visit it a second time and throw "Entity not found".
     await expect(kv.transactionAsync(() => store.rollback(5))).resolves.not.toThrow();
     expect((await store.getEntity(contract, scope, ENTITY, corrA, JOB)).payload).toEqual([]);
@@ -318,7 +318,7 @@ describe('EntityStore', () => {
     );
     await kv.transactionAsync(() => store.commit(JOB));
 
-    // Re-create the same entity without an anchor: it is now non-retractable and must survive reorgs.
+    // Re-create the same entity without an origin block: it is now non-retractable and must survive reorgs.
     const JOB2 = 'recreate-job';
     await store.createEntity(contract, scope, ENTITY, corrA, [new Fr(5n)], undefined, JOB2);
     await kv.transactionAsync(() => store.commit(JOB2));

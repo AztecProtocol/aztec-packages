@@ -6,7 +6,7 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import type { StagedStore } from '../../job_coordinator/job_coordinator.js';
 import {
-  type FactAnchor,
+  type OriginBlock,
   StoredEntity,
   StoredFact,
   entityKey,
@@ -27,17 +27,17 @@ type StagedOp =
 /**
  * Stores immutable facts about entities, grouped by contract, scope, entity type, and entity id.
  *
- * Append-only within a job commit. Retractable facts (those with a block anchor) are deleted on block prune.
- * Non-retractable facts (anchor === undefined) survive reorgs as external inputs. Writes are staged per-job and
+ * Append-only within a job commit. Retractable facts (those with an origin block) are deleted on block prune.
+ * Non-retractable facts (originBlock === undefined) survive reorgs as external inputs. Writes are staged per-job and
  * flushed atomically on commit.
  */
 export class EntityStore implements StagedStore {
   readonly storeName: string = 'entity';
 
   #store: AztecAsyncKVStore;
-  /** Primary entity records, keyed by entityKey; holds the entity payload and optional anchor. */
+  /** Primary entity records, keyed by entityKey; holds the entity payload and optional origin block. */
   #entities: AztecAsyncMap<string, Buffer>;
-  /** Index from blockNumber to entityKey, for delete-on-prune of retractable entities (anchored entities only). */
+  /** Index from blockNumber to entityKey, for delete-on-prune of retractable entities (those with an origin block). */
   #entitiesByBlock: AztecAsyncMultiMap<number, string>;
   /** Primary fact records, keyed by factRowKey (deduplication row key). */
   #facts: AztecAsyncMap<string, Buffer>;
@@ -66,9 +66,10 @@ export class EntityStore implements StagedStore {
   }
 
   /**
-   * Stages an entity record (with its own payload and optional anchor) under the given job. `anchor === undefined`
-   * marks the entity non-retractable (it survives reorgs; only its own retractable facts are pruned); a defined
-   * anchor marks the whole entity retractable — on a prune above its block, the entity and all its facts are deleted.
+   * Stages an entity record (with its own payload and optional origin block) under the given job.
+   * `originBlock === undefined` marks the entity non-retractable (it survives reorgs; only its own retractable
+   * facts are pruned); a defined origin block marks the whole entity retractable — on a prune above its block, the
+   * entity and all its facts are deleted.
    * The entity becomes active once committed, independently of whether it owns any facts.
    */
   createEntity(
@@ -77,19 +78,19 @@ export class EntityStore implements StagedStore {
     entityTypeId: Fr,
     entityId: Fr,
     payload: Fr[],
-    anchor: FactAnchor | undefined,
+    originBlock: OriginBlock | undefined,
     jobId: string,
   ): Promise<void> {
     return this.#withJobLock(jobId, () => {
-      const entity = new StoredEntity(contract, scope, entityTypeId, entityId, payload, anchor);
+      const entity = new StoredEntity(contract, scope, entityTypeId, entityId, payload, originBlock);
       this.#opsFor(jobId).push({ kind: 'createEntity', entity });
       return Promise.resolve();
     });
   }
 
   /**
-   * Stages a fact for recording under the given job. `anchor === undefined` marks the fact non-retractable (it
-   * survives reorgs); a defined anchor ties the fact to a specific block and it will be deleted on prune.
+   * Stages a fact for recording under the given job. `originBlock === undefined` marks the fact non-retractable (it
+   * survives reorgs); a defined origin block ties the fact to a specific block and it will be deleted on prune.
    * Idempotent: duplicate (entity, factType, payload) tuples collapse to a single row via the dedup row key.
    */
   recordFact(
@@ -99,11 +100,11 @@ export class EntityStore implements StagedStore {
     entityId: Fr,
     factTypeId: Fr,
     payload: Fr[],
-    anchor: FactAnchor | undefined,
+    originBlock: OriginBlock | undefined,
     jobId: string,
   ): Promise<void> {
     return this.#withJobLock(jobId, () => {
-      const fact = new StoredFact(contract, scope, entityTypeId, entityId, factTypeId, payload, anchor);
+      const fact = new StoredFact(contract, scope, entityTypeId, entityId, factTypeId, payload, originBlock);
       this.#opsFor(jobId).push({ kind: 'record', fact });
       return Promise.resolve();
     });
@@ -241,28 +242,28 @@ export class EntityStore implements StagedStore {
       if (op.kind === 'createEntity') {
         const entity = op.entity;
         const eKey = entityKeyOf(entity);
-        // Re-creating an entity may change or drop its anchor; clear any stale by-block index entry from the prior
+        // Re-creating an entity may change or drop its origin block; clear any stale by-block index entry from the
         // record first, so a later prune can neither double-visit this entity (and throw) nor wrongly delete one that
         // has since become non-retractable.
         const priorBuf = await this.#entities.getAsync(eKey);
         if (priorBuf) {
           const prior = StoredEntity.fromBuffer(priorBuf);
-          if (prior.anchor !== undefined) {
-            await this.#entitiesByBlock.deleteValue(prior.anchor.blockNumber, eKey);
+          if (prior.originBlock !== undefined) {
+            await this.#entitiesByBlock.deleteValue(prior.originBlock.blockNumber, eKey);
           }
         }
         await this.#entities.set(eKey, entity.toBuffer());
         await this.#entitiesByScope.set(scopeKeyOf(entity), entity.entityId.toString());
-        if (entity.anchor !== undefined) {
-          await this.#entitiesByBlock.set(entity.anchor.blockNumber, eKey);
+        if (entity.originBlock !== undefined) {
+          await this.#entitiesByBlock.set(entity.originBlock.blockNumber, eKey);
         }
       } else if (op.kind === 'record') {
         const fact = op.fact;
         const rowKey = factRowKeyOf(fact);
         await this.#facts.set(rowKey, fact.toBuffer());
         await this.#factsByEntity.set(entityKeyOf(fact), rowKey);
-        if (fact.anchor !== undefined) {
-          await this.#factsByBlock.set(fact.anchor.blockNumber, rowKey);
+        if (fact.originBlock !== undefined) {
+          await this.#factsByBlock.set(fact.originBlock.blockNumber, rowKey);
         }
       } else {
         await this.#deleteEntity(op.contract, op.scope, op.entityTypeId, op.entityId);
@@ -278,19 +279,20 @@ export class EntityStore implements StagedStore {
   }
 
   /**
-   * Delete-on-prune in two passes. Pass 1 deletes every retractable entity anchored to a block strictly above
+   * Delete-on-prune in two passes. Pass 1 deletes every retractable entity whose origin block is strictly above
    * `toBlock` wholesale — its payload and every fact it owns, regardless of each fact's own flag. Pass 2 deletes any
-   * remaining retractable fact anchored above `toBlock` whose entity survived pass 1. Non-retractable entities and
+   * remaining retractable fact originating above `toBlock` whose entity survived pass 1. Non-retractable entities and
    * facts are untouched (they never enter the by-block indexes). Must run inside a caller-owned transaction (the
    * reorg path wraps it with the sibling stores' rollbacks; IndexedDB has no nested transactions). Throws if any job
-   * has uncommitted staged writes, since rolling back mid-job could re-introduce records anchored to deleted blocks.
+   * has uncommitted staged writes, since rolling back mid-job could re-introduce records originating from deleted
+   * blocks.
    */
   async rollback(toBlock: number): Promise<void> {
     if (this.#opsForJob.size > 0) {
       throw new Error('PXE entity store rollback is not allowed while jobs are running');
     }
 
-    // Pass 1: delete retractable entities anchored above toBlock wholesale. Snapshot before mutating so we never
+    // Pass 1: delete retractable entities originating above toBlock wholesale. Snapshot before mutating so we never
     // delete from the multimap we are iterating.
     const orphanedEntities: string[] = [];
     for await (const [, eKey] of this.#entitiesByBlock.entriesAsync({ start: toBlock + 1 })) {
@@ -311,7 +313,7 @@ export class EntityStore implements StagedStore {
       removedEntities++;
     }
 
-    // Pass 2: delete remaining retractable facts anchored above toBlock whose entity survived pass 1. Pass 1 already
+    // Pass 2: delete remaining retractable facts originating above toBlock whose entity survived pass 1. Pass 1 already
     // removed the facts_by_block rows of pruned entities, so any leftover row here belongs to a surviving entity.
     const orphanedFacts: { block: number; rowKey: string }[] = [];
     for await (const [block, rowKey] of this.#factsByBlock.entriesAsync({ start: toBlock + 1 })) {
@@ -391,16 +393,16 @@ export class EntityStore implements StagedStore {
       const fact = StoredFact.fromBuffer(buf);
       await this.#facts.delete(rowKey);
       await this.#factsByEntity.deleteValue(eKey, rowKey);
-      if (fact.anchor !== undefined) {
-        await this.#factsByBlock.deleteValue(fact.anchor.blockNumber, rowKey);
+      if (fact.originBlock !== undefined) {
+        await this.#factsByBlock.deleteValue(fact.originBlock.blockNumber, rowKey);
       }
     }
     const entityBuf = await this.#entities.getAsync(eKey);
     if (entityBuf) {
       const entity = StoredEntity.fromBuffer(entityBuf);
       await this.#entities.delete(eKey);
-      if (entity.anchor !== undefined) {
-        await this.#entitiesByBlock.deleteValue(entity.anchor.blockNumber, eKey);
+      if (entity.originBlock !== undefined) {
+        await this.#entitiesByBlock.deleteValue(entity.originBlock.blockNumber, eKey);
       }
     }
     await this.#entitiesByScope.deleteValue(scopeKey(contract, scope, entityTypeId), entityId.toString());

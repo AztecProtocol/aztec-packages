@@ -293,43 +293,51 @@ describe('BlockSynchronizer', () => {
       expect(await privateEventStore.eventIdsAtBlock(9)).toEqual([eventId9.toString()]);
     });
 
-    it('chain-pruned deletes entities and facts anchored above the fork and keeps unanchored ones', async () => {
+    it('chain-pruned deletes entities and facts originating above the fork, keeps non-retractable ones', async () => {
       const contract = await AztecAddress.random();
       const scope = await AztecAddress.random();
       const entityTypeId = Fr.random();
       const prunedEntityId = Fr.random();
       const survivingEntityId = Fr.random();
-      const anchoredFactType = Fr.random();
-      const unanchoredFactType = Fr.random();
+      const retractableFactType = Fr.random();
+      const nonRetractableFactType = Fr.random();
       const jobId = 'entity-job';
 
       // Block 5 is the fork point; block 10 is on the abandoned fork (above the fork).
       const forkBlock = await L2Block.random(BlockNumber(5));
       const block5 = makeL2BlockId(forkBlock.number, (await forkBlock.hash()).toString());
-      const orphanAnchor = { blockNumber: 10, blockHash: Fr.random() };
+      const orphanedOriginBlock = { blockNumber: 10, blockHash: Fr.random() };
 
-      // A retractable entity anchored on the abandoned fork: the prune must delete it wholesale, taking even its
-      // unanchored fact with it.
-      await entityStore.createEntity(contract, scope, entityTypeId, prunedEntityId, [Fr.random()], orphanAnchor, jobId);
+      // A retractable entity originating on the abandoned fork: the prune must delete it wholesale, taking even its
+      // non-retractable fact with it.
+      await entityStore.createEntity(
+        contract,
+        scope,
+        entityTypeId,
+        prunedEntityId,
+        [Fr.random()],
+        orphanedOriginBlock,
+        jobId,
+      );
       await entityStore.recordFact(
         contract,
         scope,
         entityTypeId,
         prunedEntityId,
-        unanchoredFactType,
+        nonRetractableFactType,
         [Fr.random()],
         undefined,
         jobId,
       );
 
-      // A non-retractable entity: the prune must keep it, deleting only its fact anchored on the abandoned fork.
+      // A non-retractable entity: the prune must keep it, deleting only its fact originating on the abandoned fork.
       await entityStore.createEntity(contract, scope, entityTypeId, survivingEntityId, [Fr.random()], undefined, jobId);
       await entityStore.recordFact(
         contract,
         scope,
         entityTypeId,
         survivingEntityId,
-        unanchoredFactType,
+        nonRetractableFactType,
         [Fr.random()],
         undefined,
         jobId,
@@ -339,9 +347,9 @@ describe('BlockSynchronizer', () => {
         scope,
         entityTypeId,
         survivingEntityId,
-        anchoredFactType,
+        retractableFactType,
         [],
-        orphanAnchor,
+        orphanedOriginBlock,
         jobId,
       );
       await store.transactionAsync(() => entityStore.commit(jobId));
@@ -361,21 +369,21 @@ describe('BlockSynchronizer', () => {
         Promise.resolve(param instanceof BlockHash && param.equals(forkResponse.hash) ? forkResponse : undefined),
       );
 
-      // Prune back to block 5, orphaning block 10 where the retractable records are anchored.
+      // Prune back to block 5, orphaning block 10 where the retractable records originate.
       await synchronizer.handleBlockStreamEvent({
         type: 'chain-pruned',
         block: block5,
         checkpoint: makeL2CheckpointId(CheckpointNumber.ZERO, GENESIS_CHECKPOINT_HEADER_HASH.toString()),
       });
 
-      // The retractable entity is gone wholesale; the non-retractable one survives with only its unanchored fact.
+      // The retractable entity is gone wholesale; the non-retractable one keeps only its non-retractable fact.
       const active = await entityStore.activeEntities(contract, scope, entityTypeId, jobId);
       expect(active).toHaveLength(1);
       expect(active[0].equals(survivingEntityId)).toBe(true);
       expect(await entityStore.getEntityFacts(contract, scope, entityTypeId, prunedEntityId, jobId)).toHaveLength(0);
       const remaining = await entityStore.getEntityFacts(contract, scope, entityTypeId, survivingEntityId, jobId);
       expect(remaining).toHaveLength(1);
-      expect(remaining[0].factTypeId.equals(unanchoredFactType)).toBe(true);
+      expect(remaining[0].factTypeId.equals(nonRetractableFactType)).toBe(true);
     });
 
     it('notes below the fork survive and remain queryable after a prune', async () => {

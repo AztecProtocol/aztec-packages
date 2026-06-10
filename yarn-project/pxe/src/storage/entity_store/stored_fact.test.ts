@@ -20,7 +20,7 @@ describe('StoredFact', () => {
     expect(back.isRetractable).toBe(true);
   });
 
-  it('round-trips a non-retractable fact (no anchor)', () => {
+  it('round-trips a non-retractable fact (no origin block)', () => {
     const fact = new StoredFact(contract, scope, entityType, entityId, factType, [new Fr(9n)], undefined);
     const back = StoredFact.fromBuffer(fact.toBuffer());
     expect(back).toEqual(fact);
@@ -59,7 +59,7 @@ describe('StoredEntity', () => {
     expect(back.isRetractable).toBe(true);
   });
 
-  it('round-trips a non-retractable entity (no anchor)', () => {
+  it('round-trips a non-retractable entity (no origin block)', () => {
     const entity = new StoredEntity(contract, scope, entityType, entityId, [new Fr(9n)], undefined);
     const back = StoredEntity.fromBuffer(entity.toBuffer());
     expect(back).toEqual(entity);
