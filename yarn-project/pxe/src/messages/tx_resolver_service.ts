@@ -1,8 +1,9 @@
 import { uniqueBy } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
-import { ResolvedTx } from '@aztec/stdlib/logs';
 import { type IndexedTxEffect, TxHash } from '@aztec/stdlib/tx';
+
+import { ResolvedTx } from '../contract_function_simulator/noir-structs/resolved_tx.js';
 
 /** Resolves transaction hashes into their on-chain context (note hashes, first nullifier, and mined block). */
 export class TxResolverService {

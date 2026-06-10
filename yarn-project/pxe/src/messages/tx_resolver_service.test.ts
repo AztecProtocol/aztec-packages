@@ -2,11 +2,11 @@ import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
-import { ResolvedTx } from '@aztec/stdlib/logs';
 import { DroppedTxReceipt, MinedTxReceipt, TxEffect, TxExecutionResult, TxHash, TxStatus } from '@aztec/stdlib/tx';
 
 import { mock } from 'jest-mock-extended';
 
+import { ResolvedTx } from '../contract_function_simulator/noir-structs/resolved_tx.js';
 import { TxResolverService } from './tx_resolver_service.js';
 
 describe('TxResolverService', () => {

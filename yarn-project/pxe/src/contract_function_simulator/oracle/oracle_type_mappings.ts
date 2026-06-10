@@ -31,7 +31,6 @@ import {
   MessageContext,
   PendingTaggedLog,
   PrivateLog,
-  ResolvedTx,
   Tag,
   appTaggingSecretKindFromDeliveryMode,
 } from '@aztec/stdlib/logs';
@@ -47,6 +46,7 @@ import type { NoteData } from '../noir-structs/note_data.js';
 import { NoteValidationRequest } from '../noir-structs/note_validation_request.js';
 import { Option } from '../noir-structs/option.js';
 import { ProvidedSecret } from '../noir-structs/provided_secret.js';
+import { ResolvedTx } from '../noir-structs/resolved_tx.js';
 import { UtilityContext } from '../noir-structs/utility_context.js';
 import { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
 import { packAsHintedNote } from './note_packing_utils.js';

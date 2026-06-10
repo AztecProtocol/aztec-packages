@@ -1,7 +1,7 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { updateInlineTestData } from '@aztec/foundation/testing/files';
+import { TxHash } from '@aztec/stdlib/tx';
 
-import { TxHash } from '../tx/tx_hash.js';
 import { ResolvedTx } from './resolved_tx.js';
 
 describe('ResolvedTx', () => {
