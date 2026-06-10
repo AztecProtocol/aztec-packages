@@ -2416,16 +2416,17 @@ export class MsmV2 {
     m.stride = 2 ** (m.c - 1);
     m.redM = m.numWindows * m.stride;
     if (!m.windowCs) m.windowCs = new Array(m.numWindows).fill(m.c);
-    // pp2 create-time eligibility: uniform schedule (splitC can re-schedule in
-    // prepare, so it disqualifies), c in the range the bin geometry covers, n
-    // within the binned-entry's 21-bit index field, and the all-window coarse-bin
-    // histogram within K1's 16 KB shared budget. prepare() further gates
-    // dispatch (pp2Active) on single-batch / non-union.
+    // pp2 create-time eligibility: uniform create-time schedule (varSched /
+    // forceSplit bake a variable one), c in the range the bin geometry covers,
+    // n within the binned-entry's 21-bit index field, and the all-window
+    // coarse-bin histogram within K1's 16 KB shared budget. A splitC config is
+    // NOT disqualifying here: the split is decided per prepare, and pp2Active
+    // re-checks the live schedule each time — prepares that decide no-split
+    // keep pp2, split ones fall back.
     if (config?.preprocessV2) {
       const shift = Math.max(0, m.c - 7);
       const binsP = m.BW >> shift;
       m.pp2Enabled =
-        !m.splitC &&
         m.windowCs.every(cw => cw === m.c) &&
         m.c >= 8 &&
         m.c <= 15 &&
@@ -3747,7 +3748,15 @@ export class MsmV2 {
     // batch covering all windows, no region split, no concatenated union. The
     // tile size bounds the cursor matrix (numWindows·binsP·(n/tile)·4 B) while
     // keeping enough (tile, window) workgroups to saturate the GPU.
-    this.pp2Active = this.pp2Enabled && !this.regionSplit && numBatches === 1 && !this.batchCtx;
+    // The live schedule must still match K1's baked one: a splitC prepare that
+    // decided to split rewrites windowCs (and/or sets regionSplit) — fall back.
+    this.pp2Active =
+      this.pp2Enabled &&
+      !this.regionSplit &&
+      numBatches === 1 &&
+      !this.batchCtx &&
+      this.windowCs.length === Math.ceil(NUMBITS / this.c) &&
+      this.windowCs.every(cw => cw === this.c);
     if (this.pp2Active) {
       this.pp2TilePts = n <= 1 << 17 ? 1024 : n <= 1 << 18 ? 2048 : 4096;
       this.pp2NumTiles = Math.ceil(n / this.pp2TilePts);
