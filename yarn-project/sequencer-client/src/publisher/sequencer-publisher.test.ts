@@ -929,4 +929,98 @@ describe('SequencerPublisher', () => {
 
     expect(governanceProposerContract.hasActiveProposalWithPayload).toHaveBeenCalledTimes(2);
   });
+
+  describe('sendRequestsAt timing', () => {
+    const aztecSlotDuration = 36;
+    const ethereumSlotDuration = 12;
+    const targetSlot = SlotNumber(2);
+
+    let dateProvider: TestDateProvider;
+    let timingPublisher: SequencerPublisher;
+    let targetSlotStartMs: number;
+    let sleptMs: number;
+
+    beforeEach(() => {
+      dateProvider = new TestDateProvider();
+      // Anchor the L1 genesis on a whole second so slot boundaries are exact in ms.
+      const genesisMs = Math.ceil(dateProvider.now() / 1000) * 1000;
+      dateProvider.setTime(genesisMs);
+      targetSlotStartMs = genesisMs + Number(targetSlot) * aztecSlotDuration * 1000;
+
+      epochCache.getL1Constants.mockReturnValue({
+        ...EmptyL1RollupConstants,
+        l1GenesisTime: BigInt(genesisMs / 1000),
+        slotDuration: aztecSlotDuration,
+        ethereumSlotDuration,
+      });
+
+      timingPublisher = new SequencerPublisher(
+        { l1ChainId: 1, aztecSlotDuration, ethereumSlotDuration } as unknown as ConstructorParameters<
+          typeof SequencerPublisher
+        >[0],
+        {
+          blobClient,
+          rollupContract: rollup,
+          l1TxUtils,
+          epochCache,
+          slashingProposerContract,
+          governanceProposerContract,
+          dateProvider,
+          metrics: l1Metrics,
+          lastActions: {},
+        },
+      );
+
+      // Capture the wake-up delay instead of really sleeping, and skip the actual send.
+      sleptMs = 0;
+      jest.spyOn((timingPublisher as any).interruptibleSleep, 'sleep').mockImplementation((...args: unknown[]) => {
+        sleptMs = args[0] as number;
+        return Promise.resolve();
+      });
+      jest.spyOn(timingPublisher, 'sendRequests').mockResolvedValue(undefined);
+    });
+
+    const getWakeTimeMs = async () => {
+      const nowMs = dateProvider.now();
+      await timingPublisher.sendRequestsAt(targetSlot);
+      return nowMs + sleptMs;
+    };
+
+    const enqueueGovernanceSignal = async () => {
+      const { govPayload } = mockGovernancePayload();
+      expect(
+        await timingPublisher.enqueueGovernanceCastSignal(
+          govPayload,
+          targetSlot,
+          EthAddress.fromString(testHarnessAttesterAccount.address),
+          msg => testHarnessAttesterAccount.signTypedData(msg),
+        ),
+      ).toEqual(true);
+    };
+
+    it('waits for the target slot start before sending vote-only bundles', async () => {
+      // Governance/slashing signal signatures bind the slot the tx mines in, so a vote landing in the
+      // L1 block right before the L2 slot starts fails signature verification silently. Submitting at
+      // the slot boundary guarantees the mined block's timestamp is within the signed slot even in
+      // environments that mine txs on arrival (anvil automine).
+      await enqueueGovernanceSignal();
+      const wakeTimeMs = await getWakeTimeMs();
+      expect(wakeTimeMs).toBeGreaterThanOrEqual(targetSlotStartMs - 50);
+      expect(wakeTimeMs).toBeLessThan(targetSlotStartMs + 1000);
+    });
+
+    it('sends bundles containing a propose one L1 slot before the target slot start', async () => {
+      await enqueueGovernanceSignal();
+      (timingPublisher as any).addRequest({
+        action: 'propose',
+        request: { to: EthAddress.random().toString(), data: '0x' },
+        lastValidL2Slot: targetSlot,
+        checkSuccess: () => true,
+      });
+      const wakeTimeMs = await getWakeTimeMs();
+      const expectedWakeMs = targetSlotStartMs - ethereumSlotDuration * 1000;
+      expect(wakeTimeMs).toBeGreaterThanOrEqual(expectedWakeMs - 50);
+      expect(wakeTimeMs).toBeLessThan(expectedWakeMs + 1000);
+    });
+  });
 });
