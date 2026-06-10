@@ -377,26 +377,33 @@ describe('HA Full Setup', () => {
   });
 
   afterAll(async () => {
-    dateProvider?.reset();
-
-    // Stop all HA peer nodes in parallel with a per-node deadline. A single stuck node can otherwise
-    // block the serial loop long enough to blow the jest hook timeout — e.g. a sequencer.stop() that
-    // hangs awaiting an L1 publish that never lands.
+    // Stop all sequencers before tearing down the nodes: a sequencer stop awaits its in-flight
+    // iteration, which can spend tens of seconds finishing a vote or checkpoint publish on L1.
+    // Stops must be awaited fully — jest runs without forceExit, so a node abandoned mid-stop
+    // outlives the test environment and keeps the worker process alive until the CI job timeout.
+    // The dateProvider reset must wait until nodes are stopped: it rewinds the shared clock from
+    // chain time to wall time (minutes apart after the automine deploy burst), and any publisher
+    // deadline armed against the rewound clock would block shutdown until wall time catches up.
     if (haNodeServices) {
-      const STOP_DEADLINE_MS = 30_000;
       await Promise.allSettled(
-        haNodeServices.map((_, i) => {
-          return Promise.race([
-            stopHANode(i).catch(error => {
-              logger.error(`Failed to stop HA peer node ${i}: ${error}`);
-            }),
-            sleep(STOP_DEADLINE_MS).then(() => {
-              logger.error(`HA peer node ${i} stop did not return within ${STOP_DEADLINE_MS}ms; abandoning`);
-            }),
-          ]);
+        haNodeServices.map(async (service, i) => {
+          try {
+            await service.getSequencer()?.stop();
+          } catch (error) {
+            logger.error(`Failed to stop sequencer of HA peer node ${i}: ${error}`);
+          }
         }),
       );
+      await Promise.allSettled(
+        haNodeServices.map((_, i) =>
+          stopHANode(i).catch(error => {
+            logger.error(`Failed to stop HA peer node ${i}: ${error}`);
+          }),
+        ),
+      );
     }
+
+    dateProvider?.reset();
 
     // Cleanup HA keystore temp directories
     if (haKeystoreDirs) {
