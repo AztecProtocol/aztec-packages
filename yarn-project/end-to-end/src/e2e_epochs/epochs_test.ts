@@ -161,7 +161,7 @@ export class EpochsTestContext {
         exitDelaySeconds: DefaultL1ContractsConfig.exitDelaySeconds,
         slasherEnabled: false,
         ...opts,
-        ...(hardcodedAccountData ? { initialFundedAccounts: [hardcodedAccountData], numberOfAccounts: 0 } : {}),
+        ...(hardcodedAccountData ? { additionallyFundedAccounts: [hardcodedAccountData], numberOfAccounts: 0 } : {}),
       },
       // Use checkpointed chain tip for PXE by default to avoid issues with blocks being dropped due to pruned anchor blocks.
       // Can be overridden via opts.pxeOpts.
@@ -219,7 +219,7 @@ export class EpochsTestContext {
   /**
    * Computes InitialAccountData for a SchnorrHardcodedKeyAccountContract.
    * This contract has a hardcoded signing key and no initializer, so it can be used without
-   * on-chain deployment. Pass the returned data in `initialFundedAccounts` so the address
+   * on-chain deployment. Pass the returned data in `additionallyFundedAccounts` so the address
    * gets funded with fee juice in genesis.
    */
   public static async getHardcodedAccountData(secret: Fr, salt: Fr): Promise<InitialAccountData> {
