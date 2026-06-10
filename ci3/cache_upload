@@ -17,28 +17,16 @@ name="$1"
 # Now $@ = our binary path args
 shift 1
 
-if [[ -z "${S3_FORCE_UPLOAD:-}" && "${CI:-0}" -eq 0 ]]; then
-  echo_stderr "Skipping upload because CI=0 and S3_FORCE_UPLOAD not set."
-  exit 0
-fi
-
 if [[ "${NO_CACHE_UPLOAD:-0}" -eq 1 ]]; then
   echo_stderr "Skipping upload because NO_CACHE_UPLOAD=1."
   exit 0
 fi
 
-# In SSM/instance-profile mode, AWS CLI falls back to IMDS for credentials.
-if [[ "${CI_SSM_MODE:-0}" -eq 0 ]]; then
-  if [[ -z "${AWS_ACCESS_KEY_ID:-}" || -z "${AWS_SECRET_ACCESS_KEY:-}" ]] && ! aws configure get aws_access_key_id &>/dev/null; then
-    echo_stderr "Skipping upload, no AWS credentials found."
-    exit 0
-  fi
-fi
-
-if [ -z "${S3_FORCE_UPLOAD:-}" ] && \
-  aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 ls "s3://aztec-ci-artifacts/build-cache/$name" &>/dev/null; then
-    echo_stderr "Skipping upload, already exists: $name"
-    exit 0
+# Skip tarring entirely when there is nowhere to save: no local cache configured and the S3 upload
+# would be skipped anyway. Tarring large artifacts (e.g. bb build dirs) is not free.
+if [[ -z "${CACHE_LOCAL_DIR:-}" && -z "${S3_FORCE_UPLOAD:-}" && "${CI:-0}" -eq 0 ]]; then
+  echo_stderr "Skipping upload because CI=0, S3_FORCE_UPLOAD not set, and no CACHE_LOCAL_DIR."
+  exit 0
 fi
 
 out_tar=$(mktemp)
@@ -50,14 +38,35 @@ else
   tar -czf $out_tar "$@"
 fi
 
-# Save to local cache if enabled.
+# Save to local cache if enabled. This happens regardless of CI/S3_FORCE_UPLOAD so that local builds
+# (remote cache miss) populate $CACHE_LOCAL_DIR for reuse by other checkouts/worktrees. A local-save
+# failure (e.g. read-only dir) must not fail the build, so it only warns.
 if [[ -n "${CACHE_LOCAL_DIR:-}" ]]; then
-  if mkdir -p "$CACHE_LOCAL_DIR" 2>/dev/null; then
-    cp "$out_tar" "$CACHE_LOCAL_DIR/$name"
+  if mkdir -p "$CACHE_LOCAL_DIR" 2>/dev/null && cp "$out_tar" "$CACHE_LOCAL_DIR/$name" 2>/dev/null; then
     echo_stderr "Saved $name to local cache."
   else
-    echo_stderr "Warning: Cannot create local cache dir $CACHE_LOCAL_DIR, skipping local cache."
+    echo_stderr "Warning: Cannot create local cache dir $CACHE_LOCAL_DIR or save into it, skipping local cache."
   fi
+fi
+
+# Everything below is the S3 upload, gated to CI / S3_FORCE_UPLOAD only.
+if [[ -z "${S3_FORCE_UPLOAD:-}" && "${CI:-0}" -eq 0 ]]; then
+  echo_stderr "Skipping S3 upload because CI=0 and S3_FORCE_UPLOAD not set."
+  exit 0
+fi
+
+# In SSM/instance-profile mode, AWS CLI falls back to IMDS for credentials.
+if [[ "${CI_SSM_MODE:-0}" -eq 0 ]]; then
+  if [[ -z "${AWS_ACCESS_KEY_ID:-}" || -z "${AWS_SECRET_ACCESS_KEY:-}" ]] && ! aws configure get aws_access_key_id &>/dev/null; then
+    echo_stderr "Skipping S3 upload, no AWS credentials found."
+    exit 0
+  fi
+fi
+
+if [ -z "${S3_FORCE_UPLOAD:-}" ] && \
+  aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 ls "s3://aztec-ci-artifacts/build-cache/$name" &>/dev/null; then
+    echo_stderr "Skipping S3 upload, already exists: $name"
+    exit 0
 fi
 
 # Pipe tar directly to AWS S3 cp

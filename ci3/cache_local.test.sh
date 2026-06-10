@@ -204,6 +204,36 @@ test_inaccessible_cache_dir_falls_through() {
   fi
 }
 
+test_upload_local_save_without_ci() {
+  log "\nTest 9: cache_upload saves to local cache with CI=0 and no S3_FORCE_UPLOAD"
+
+  export CACHE_LOCAL_DIR="$test_root/local-cache-ci0"
+  mkdir -p "$CACHE_LOCAL_DIR"
+
+  local stderr_output
+  stderr_output=$(CI=0 "$script_dir/cache_upload" "test-ci0.tar.gz" "$test_root/source/file1.txt" 2>&1 >/dev/null) || true
+
+  if [[ -f "$CACHE_LOCAL_DIR/test-ci0.tar.gz" ]]; then
+    pass "Local build populated local cache without CI/S3_FORCE_UPLOAD"
+  else
+    fail "Local build did not populate local cache (got: $stderr_output)"
+  fi
+  if echo "$stderr_output" | grep -q "Skipping S3 upload"; then
+    pass "S3 upload still skipped at CI=0"
+  else
+    fail "Expected S3 upload skip at CI=0 (got: $stderr_output)"
+  fi
+
+  # With no CACHE_LOCAL_DIR either, upload is a no-op and skips tarring entirely.
+  unset CACHE_LOCAL_DIR
+  stderr_output=$(CI=0 "$script_dir/cache_upload" "test-ci0-noop.tar.gz" "$test_root/source/file1.txt" 2>&1 >/dev/null) || true
+  if echo "$stderr_output" | grep -q "no CACHE_LOCAL_DIR"; then
+    pass "No-op exit when there is nowhere to save"
+  else
+    fail "Expected no-op exit message (got: $stderr_output)"
+  fi
+}
+
 main() {
   log "=== Local Cache Test Suite ===\n"
 
@@ -217,6 +247,7 @@ main() {
   test_roundtrip
   test_disabled_cache_skips_local
   test_inaccessible_cache_dir_falls_through
+  test_upload_local_save_without_ci
 
   log "\n=== Results ==="
   echo -e "\033[32mPassed: $passed\033[0m"
