@@ -10,7 +10,6 @@ import { jest } from '@jest/globals';
 import {
   type EndToEndContext,
   type SetupOptions,
-  createFundedAccounts,
   ensureAuthRegistryPublished,
   setup,
   teardown,
@@ -70,18 +69,9 @@ export class TokenContractTest {
     // Adding a timeout of 2 minutes in here such that it is propagated to the underlying tests
     jest.setTimeout(120_000);
 
-    this.logger.info('Applying base setup - deploying 3 accounts');
-    const { accounts } = await createFundedAccounts(
-      3,
-      this.logger,
-    )({
-      wallet: this.context.wallet,
-      initialFundedAccounts: this.context.initialFundedAccounts,
-    });
-
     this.node = this.context.aztecNodeService;
     this.wallet = this.context.wallet;
-    [this.adminAddress, this.account1Address, this.account2Address] = accounts.map(acc => acc.address);
+    [this.adminAddress, this.account1Address, this.account2Address] = this.context.accounts;
 
     this.logger.info('Applying base setup - deploying token contract');
     await ensureAuthRegistryPublished(this.wallet, this.adminAddress);
@@ -122,7 +112,7 @@ export class TokenContractTest {
   }
 
   async setup(opts: Partial<SetupOptions> = {}) {
-    this.context = await setup(0, {
+    this.context = await setup(3, {
       ...opts,
       metricsPort: this.metricsPort,
       fundSponsoredFPC: true,

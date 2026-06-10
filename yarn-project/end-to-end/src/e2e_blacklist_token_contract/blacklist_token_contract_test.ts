@@ -17,7 +17,6 @@ import { jest } from '@jest/globals';
 import {
   type EndToEndContext,
   type SetupOptions,
-  createFundedAccounts,
   ensureAuthRegistryPublished,
   setup,
   teardown,
@@ -95,22 +94,11 @@ export class BlacklistTokenContractTest {
     // proxy deploys exceed the original window.
     jest.setTimeout(600_000);
 
-    this.logger.info('Deploying 3 accounts');
-    const { accounts } = await createFundedAccounts(
-      3,
-      this.logger,
-    )({
-      wallet: this.context.wallet,
-      initialFundedAccounts: this.context.initialFundedAccounts,
-    });
-
     this.cheatCodes = this.context.cheatCodes;
     this.aztecNode = this.context.aztecNodeService;
     this.sequencer = this.context.sequencer!;
     this.wallet = this.context.wallet;
-    this.adminAddress = accounts[0].address;
-    this.otherAddress = accounts[1].address;
-    this.blacklistedAddress = accounts[2].address;
+    [this.adminAddress, this.otherAddress, this.blacklistedAddress] = this.context.accounts;
 
     this.logger.info('Setting up blacklist token contract');
     await ensureAuthRegistryPublished(this.wallet, this.adminAddress);
@@ -153,7 +141,7 @@ export class BlacklistTokenContractTest {
 
   async setup(opts: Partial<SetupOptions> = {}) {
     this.logger.info('Setting up fresh context');
-    this.context = await setup(0, {
+    this.context = await setup(3, {
       ...opts,
       fundSponsoredFPC: true,
     });

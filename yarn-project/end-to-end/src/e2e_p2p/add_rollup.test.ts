@@ -431,7 +431,7 @@ describe('e2e_p2p_add_rollup', () => {
 
     await bridging(
       nodes[0],
-      t.ctx.initialFundedAccounts[0],
+      t.ctx.additionallyFundedAccounts[0],
       t.ctx.deployL1ContractsValues.l1Client,
       t.ctx.deployL1ContractsValues.l1ContractAddresses,
       BigInt(t.ctx.aztecNodeConfig.rollupVersion),

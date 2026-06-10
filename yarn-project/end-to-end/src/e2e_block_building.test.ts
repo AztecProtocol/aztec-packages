@@ -1,3 +1,4 @@
+import { generateSchnorrAccounts } from '@aztec/accounts/testing';
 import { NO_FROM } from '@aztec/aztec.js/account';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { BatchCall, ContractFunctionInteraction, type DeployOptions, NO_WAIT } from '@aztec/aztec.js/contracts';
@@ -514,11 +515,15 @@ describe('e2e_block_building', () => {
 
     // Regression for https://github.com/AztecProtocol/aztec-packages/issues/7537
     it('sends a tx on the first block', async () => {
-      const context = await setup(0, { ...PIPELINING_SETUP_OPTS, minTxsPerBlock: 0, numberOfInitialFundedAccounts: 1 });
+      const context = await setup(0, {
+        ...PIPELINING_SETUP_OPTS,
+        minTxsPerBlock: 0,
+        additionallyFundedAccounts: await generateSchnorrAccounts(1, 'schnorr'),
+      });
       ({ teardown, logger, aztecNode, wallet } = context);
       await sleep(1000);
 
-      const [accountData] = context.initialFundedAccounts;
+      const [accountData] = context.additionallyFundedAccounts;
 
       const accountManager = await (wallet as TestWallet).createSchnorrAccount(accountData.secret, accountData.salt);
       const deployMethod = await accountManager.getDeployMethod();
@@ -563,7 +568,7 @@ describe('e2e_block_building', () => {
     // which translates in an incorrect end state for world state. We can easily detect this by checking whether the nullifier
     // tree next available leaf index is a multiple of 64.
     it('clears up all nullifiers if tx processing fails', async () => {
-      const context = await setup(1, { ...PIPELINING_SETUP_OPTS, minTxsPerBlock: 1, numberOfInitialFundedAccounts: 1 });
+      const context = await setup(1, { ...PIPELINING_SETUP_OPTS, minTxsPerBlock: 1 });
       ({
         teardown,
         logger,

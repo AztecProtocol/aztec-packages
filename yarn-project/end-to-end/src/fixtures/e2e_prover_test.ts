@@ -1,4 +1,4 @@
-import type { InitialAccountData } from '@aztec/accounts/testing';
+import { type InitialAccountData, generateSchnorrAccounts } from '@aztec/accounts/testing';
 import { AztecNodeService } from '@aztec/aztec-node';
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
 import { type Logger, createLogger } from '@aztec/aztec.js/log';
@@ -25,7 +25,6 @@ import { getBBConfig } from './get_bb_config.js';
 import {
   type EndToEndContext,
   type SetupOptions,
-  createFundedAccounts,
   getPrivateKeyFromIndex,
   getSponsoredFPCAddress,
   setup,
@@ -88,17 +87,13 @@ export class FullProverTest {
    * Applies base setup: deploys 2 accounts and token contract.
    */
   private async applyBaseSetup() {
-    this.logger.info('Applying base setup: deploying accounts');
-    const { accounts } = await createFundedAccounts(
-      2,
-      this.logger,
-    )({
-      wallet: this.context.wallet,
-      initialFundedAccounts: this.context.initialFundedAccounts,
-    });
-    this.fundedAccounts = accounts;
-    this.accounts = accounts.map(a => a.address);
+    this.logger.info('Applying base setup: registering funded accounts');
+    this.fundedAccounts = this.context.additionallyFundedAccounts;
+    this.accounts = this.fundedAccounts.map(a => a.address);
     this.wallet = this.context.wallet;
+    for (const { secret, salt, signingKey } of this.fundedAccounts) {
+      await this.wallet.createSchnorrInitializerlessAccount(secret, salt, signingKey);
+    }
 
     this.logger.info('Applying base setup: deploying token contract');
     const { contract: asset, instance } = await TokenContract.deploy(
@@ -128,6 +123,8 @@ export class FullProverTest {
       startProverNode: true,
       coinbase: this.coinbase,
       fundSponsoredFPC: true,
+      // Fund 2 accounts that we register (initializerless) in both the main and the proven-PXE wallets below.
+      additionallyFundedAccounts: await generateSchnorrAccounts(2),
       l1ContractsArgs: { realVerifier: this.realProofs },
     });
 
@@ -192,8 +189,13 @@ export class FullProverTest {
     await provenWallet.registerContract(this.fakeProofsAssetInstance, TokenContract.artifact);
 
     for (let i = 0; i < 2; i++) {
-      await provenWallet.createSchnorrAccount(this.fundedAccounts[i].secret, this.fundedAccounts[i].salt);
-      await this.wallet.createSchnorrAccount(this.fundedAccounts[i].secret, this.fundedAccounts[i].salt);
+      // Mirror the initializerless funded accounts (created via createFundedAccounts) in both wallets so
+      // their addresses match the genesis-funded ones.
+      await provenWallet.createSchnorrInitializerlessAccount(
+        this.fundedAccounts[i].secret,
+        this.fundedAccounts[i].salt,
+      );
+      await this.wallet.createSchnorrInitializerlessAccount(this.fundedAccounts[i].secret, this.fundedAccounts[i].salt);
     }
 
     const asset = TokenContract.at(this.fakeProofsAsset.address, provenWallet);
@@ -221,7 +223,7 @@ export class FullProverTest {
     this.logger.verbose('Starting prover node');
     const sponsoredFPCAddress = await getSponsoredFPCAddress();
     const { genesis } = await getGenesisValues(
-      this.context.initialFundedAccounts.map(a => a.address).concat(sponsoredFPCAddress),
+      this.context.additionallyFundedAccounts.map(a => a.address).concat(sponsoredFPCAddress),
       undefined,
       undefined,
       this.context.genesis!.genesisTimestamp,

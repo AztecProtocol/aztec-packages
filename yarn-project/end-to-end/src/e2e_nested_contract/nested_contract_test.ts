@@ -5,13 +5,7 @@ import type { Wallet } from '@aztec/aztec.js/wallet';
 import { ChildContract } from '@aztec/noir-test-contracts.js/Child';
 import { ParentContract } from '@aztec/noir-test-contracts.js/Parent';
 
-import {
-  type EndToEndContext,
-  type SetupOptions,
-  createFundedAccounts,
-  setup,
-  teardown as teardownSubsystems,
-} from '../fixtures/setup.js';
+import { type EndToEndContext, type SetupOptions, setup, teardown as teardownSubsystems } from '../fixtures/setup.js';
 
 export class NestedContractTest {
   context!: EndToEndContext;
@@ -30,30 +24,16 @@ export class NestedContractTest {
     this.logger = createLogger(`e2e:e2e_nested_contract:${testName}`);
   }
 
-  /**
-   * Applies base setup by deploying accounts and publicly deploying them.
-   */
-  async applyBaseSetup() {
-    this.logger.info('Deploying accounts');
-    const { accounts } = await createFundedAccounts(
-      this.numberOfAccounts,
-      this.logger,
-    )({
-      wallet: this.context.wallet,
-      initialFundedAccounts: this.context.initialFundedAccounts,
-    });
-    this.wallet = this.context.wallet;
-    [{ address: this.defaultAccountAddress }] = accounts;
-    this.aztecNode = this.context.aztecNodeService;
-  }
-
   async setup(opts: Partial<SetupOptions> = {}) {
     this.logger.info('Setting up fresh subsystems');
-    this.context = await setup(0, {
+    // setup creates `numberOfAccounts` initializerless accounts, available on the context.
+    this.context = await setup(this.numberOfAccounts, {
       ...opts,
       fundSponsoredFPC: true,
     });
-    await this.applyBaseSetup();
+    this.wallet = this.context.wallet;
+    this.defaultAccountAddress = this.context.accounts[0];
+    this.aztecNode = this.context.aztecNodeService;
   }
 
   async teardown() {

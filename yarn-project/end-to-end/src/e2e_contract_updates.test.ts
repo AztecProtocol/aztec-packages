@@ -1,9 +1,8 @@
-import { getSchnorrAccountContractAddress } from '@aztec/accounts/schnorr';
+import { getSchnorrInitializerlessAccountContractAddress } from '@aztec/accounts/schnorr';
 import { fastForwardContractUpdate, getContractClassFromArtifact } from '@aztec/aztec.js/contracts';
 import { publishContractClass } from '@aztec/aztec.js/deployment';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { AztecNode } from '@aztec/aztec.js/node';
-import type { Wallet } from '@aztec/aztec.js/wallet';
 import type { CheatCodes } from '@aztec/aztec/testing';
 import { MINIMUM_UPDATE_DELAY, UPDATED_CLASS_IDS_SLOT } from '@aztec/constants';
 import { UpdatableContract } from '@aztec/noir-test-contracts.js/Updatable';
@@ -23,6 +22,7 @@ import { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 
 import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
+import type { TestWallet } from './test-wallet/test_wallet.js';
 
 // Set the update delay in genesis data so it's feasible to test in an e2e test.
 // The protocol enforces `MINIMUM_UPDATE_DELAY` (600 seconds, see constants.gen.ts), so we use that
@@ -35,7 +35,7 @@ const INITIAL_UPDATABLE_CONTRACT_VALUE = 1n;
 const UPDATED_CONTRACT_PUBLIC_VALUE = 27n;
 
 describe('e2e_contract_updates', () => {
-  let wallet: Wallet;
+  let wallet: TestWallet;
   let defaultAccountAddress: AztecAddress;
   let teardown: () => Promise<void>;
   let contract: UpdatableContract;
@@ -80,29 +80,26 @@ describe('e2e_contract_updates', () => {
     const senderPrivateKey = Fr.random();
     const signingKey = deriveSigningKey(senderPrivateKey);
     const salt = Fr.ONE;
-    const initialFundedAccounts = [
-      {
-        secret: senderPrivateKey,
-        signingKey,
-        salt,
-        address: await getSchnorrAccountContractAddress(senderPrivateKey, salt, signingKey),
-      },
-    ];
+    // Use a deterministic initializerless account whose address we know before setup, so the scheduled
+    // delay can be seeded in genesis public data for it. We fund it and create it ourselves below.
+    const account = {
+      secret: senderPrivateKey,
+      signingKey,
+      salt,
+      type: 'schnorr_initializerless' as const,
+      address: await getSchnorrInitializerlessAccountContractAddress(senderPrivateKey, salt, signingKey),
+    };
+    defaultAccountAddress = account.address;
 
     const constructorArgs = [INITIAL_UPDATABLE_CONTRACT_VALUE];
-    const genesisPublicData = await setupScheduledDelay(constructorArgs, salt, initialFundedAccounts[0].address);
+    const genesisPublicData = await setupScheduledDelay(constructorArgs, salt, account.address);
 
-    ({
-      aztecNode,
-      teardown,
-      wallet,
-      accounts: [defaultAccountAddress],
-      cheatCodes,
-    } = await setup(1, {
+    ({ aztecNode, teardown, wallet, cheatCodes } = await setup(0, {
       ...AUTOMINE_E2E_OPTS,
       genesisPublicData,
-      initialFundedAccounts,
+      additionallyFundedAccounts: [account],
     }));
+    await wallet.createSchnorrInitializerlessAccount(account.secret, account.salt, account.signingKey);
 
     ({ contract, instance } = await UpdatableContract.deploy(wallet, constructorArgs[0], { salt }).send({
       from: defaultAccountAddress,

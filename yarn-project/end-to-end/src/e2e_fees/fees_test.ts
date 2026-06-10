@@ -27,7 +27,6 @@ import { MNEMONIC, getPaddedMaxFeesPerGas } from '../fixtures/fixtures.js';
 import {
   type EndToEndContext,
   type SetupOptions,
-  createFundedAccounts,
   ensureAuthRegistryPublished,
   setup,
   teardown,
@@ -108,7 +107,7 @@ export class FeesTest {
     this.logger.verbose('Setting up fresh context...');
     // Token allowlist entries are test-only: FPC-based fee payment with custom tokens won't work on mainnet alpha.
     const tokenAllowList = await getTokenAllowedSetupFunctions();
-    this.context = await setup(0, {
+    this.context = await setup(this.numberOfAccounts, {
       startProverNode: true,
       ...this.setupOptions,
       ...opts,
@@ -189,14 +188,6 @@ export class FeesTest {
   async applyInitialAccounts() {
     this.logger.info('Applying initial accounts setup');
 
-    const { accounts } = await createFundedAccounts(
-      this.numberOfAccounts,
-      this.logger,
-    )({
-      wallet: this.context.wallet,
-      initialFundedAccounts: this.context.initialFundedAccounts,
-    });
-
     this.wallet = this.context.wallet;
     this.aztecNode = this.context.aztecNodeService;
     this.aztecNodeAdmin = this.context.aztecNodeService;
@@ -204,7 +195,7 @@ export class FeesTest {
       maxFeesPerGas: await getPaddedMaxFeesPerGas(this.aztecNode),
     });
     this.cheatCodes = this.context.cheatCodes;
-    this.accounts = accounts.map(a => a.address);
+    this.accounts = this.context.accounts;
     this.accounts.forEach((a, i) => this.logger.verbose(`Account ${i} address: ${a}`));
     [this.aliceAddress, this.bobAddress, this.sequencerAddress] = this.accounts.slice(0, 3);
 

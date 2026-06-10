@@ -7,7 +7,6 @@ export {
   type EndToEndContext,
   type SetupOptions,
   createAndSyncProverNode,
-  createFundedAccounts,
   ensureAuthRegistryPublished,
   ensurePublicChecksPublished,
   expectMapping,

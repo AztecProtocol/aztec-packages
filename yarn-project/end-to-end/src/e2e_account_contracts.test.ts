@@ -63,17 +63,12 @@ const itShouldBehaveLikeAnAccountContract = (
 
       ({ logger, teardown, aztecNode } = await setup(0, {
         ...AUTOMINE_E2E_OPTS,
-        initialFundedAccounts: [accountData],
+        additionallyFundedAccounts: [accountData],
       }));
       wallet = await TestWalletInternals.create(aztecNode);
 
       const accountManager = await wallet.createAccount({ secret, contract, salt });
       completeAddress = await accountManager.getCompleteAddress();
-      if (await accountManager.hasInitializer()) {
-        // The account is pre-funded and can pay for its own fee.
-        const deployMethod = await accountManager.getDeployMethod();
-        await deployMethod.send({ from: NO_FROM });
-      }
 
       ({ contract: child } = await ChildContract.deploy(wallet).send({ from: address }));
     });

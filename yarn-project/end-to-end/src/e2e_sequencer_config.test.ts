@@ -38,7 +38,7 @@ describe('e2e_sequencer_config', () => {
         ...PIPELINING_SETUP_OPTS,
         maxL2BlockGas: manaTarget * 2,
         manaTarget: BigInt(manaTarget),
-        initialFundedAccounts: [botAccount],
+        additionallyFundedAccounts: [botAccount],
       }));
       config = {
         ...getBotDefaultConfig(),

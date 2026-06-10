@@ -38,7 +38,7 @@ describe('e2e_bot', () => {
     const setupResult = await setup(0, {
       ...PIPELINING_SETUP_OPTS,
       aztecProofSubmissionEpochs: 640,
-      initialFundedAccounts: [botAccount],
+      additionallyFundedAccounts: [botAccount],
     });
     ({
       teardown,

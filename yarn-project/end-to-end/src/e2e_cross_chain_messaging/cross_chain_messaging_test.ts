@@ -26,7 +26,6 @@ import { MNEMONIC } from '../fixtures/fixtures.js';
 import {
   type EndToEndContext,
   type SetupOptions,
-  createFundedAccounts,
   ensureAuthRegistryPublished,
   setup,
   teardown,
@@ -94,7 +93,7 @@ export class CrossChainMessagingTest {
     // Recompute requireEpochProven from the merged options so per-call startProverNode is honored.
     this.requireEpochProven = opts.startProverNode ?? this.setupOptions.startProverNode ?? false;
     this.context = await setup(
-      0,
+      3,
       {
         ...this.setupOptions,
         ...opts,
@@ -156,16 +155,7 @@ export class CrossChainMessagingTest {
       await this.epochTestSettler.start();
     }
 
-    // Deploy 3 accounts
-    this.logger.info('Applying 3_accounts setup');
-    const { accounts } = await createFundedAccounts(
-      3,
-      this.logger,
-    )({
-      wallet: this.context.wallet,
-      initialFundedAccounts: this.context.initialFundedAccounts,
-    });
-    [this.ownerAddress, this.user1Address, this.user2Address] = accounts.map(a => a.address);
+    [this.ownerAddress, this.user1Address, this.user2Address] = this.context.accounts;
 
     // Set up cross chain messaging
     this.logger.info('Applying e2e_cross_chain_messaging setup');

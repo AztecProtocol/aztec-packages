@@ -155,10 +155,12 @@ export type SetupOptions = {
   deployL1ContractsValues?: DeployAztecL1ContractsReturnType;
   /** Initial fee juice for default accounts */
   initialAccountFeeJuice?: Fr;
-  /** Number of initial accounts funded with fee juice */
-  numberOfInitialFundedAccounts?: number;
-  /** Data of the initial funded accounts */
-  initialFundedAccounts?: InitialAccountData[];
+  /**
+   * Extra accounts to fund at genesis beyond the `numberOfAccounts` initializerless accounts that setup
+   * creates. Setup funds these but does NOT create or deploy them — the test creates/deploys them itself
+   * (e.g. as a regular deployable account, or registered in a second PXE). Exposed on the context.
+   */
+  additionallyFundedAccounts?: InitialAccountData[];
   /** An initial set of validators */
   initialValidators?: (Operator & { privateKey: `0x${string}` })[];
   /** Anvil Start time */
@@ -236,8 +238,8 @@ export type EndToEndContext = {
   config: AztecNodeConfig;
   /** The Aztec Node configuration (alias for config for backward compatibility). */
   aztecNodeConfig: AztecNodeConfig;
-  /** The data for the initial funded accounts. */
-  initialFundedAccounts: InitialAccountData[];
+  /** Data for the extra accounts funded at genesis but not created by setup (the test creates/deploys them). */
+  additionallyFundedAccounts: InitialAccountData[];
   /** The wallet to be used. */
   wallet: TestWallet;
   /** The wallets to be used. */
@@ -401,11 +403,12 @@ export async function setup(
       config.coinbase = EthAddress.fromString(publisherHdAccount.address);
     }
 
-    // Determine which addresses to fund in genesis
-    const initialFundedAccounts =
-      opts.initialFundedAccounts ??
-      (await generateSchnorrAccounts(opts.numberOfInitialFundedAccounts ?? Math.max(numberOfAccounts, 10)));
-    const addressesToFund = initialFundedAccounts.map(a => a.address);
+    // The accounts setup creates itself: `numberOfAccounts` initializerless accounts, generated here and
+    // funded at genesis so they are immediately usable (initializerless accounts need no deployment tx).
+    const defaultAccounts = await generateSchnorrAccounts(numberOfAccounts);
+    // Extra accounts the test wants funded at genesis but will create/deploy itself.
+    const additionallyFundedAccounts = opts.additionallyFundedAccounts ?? [];
+    const addressesToFund = [...defaultAccounts, ...additionallyFundedAccounts].map(a => a.address);
 
     // Optionally fund the sponsored FPC
     if (opts.fundSponsoredFPC) {
@@ -634,13 +637,12 @@ export async function setup(
 
     let accounts: AztecAddress[] = [];
 
-    // Account creation is a PXE-side operation (registration + a simulated store call) with no on-chain tx,
-    // so it is independent of the sequencer and runs even when the initial sequencer is not started.
+    // Create the default accounts. They are initializerless, so this is a PXE-side operation (registration
+    // + a simulated store call) with no on-chain tx, independent of the sequencer.
     if (numberOfAccounts > 0) {
       logger.info(`Creating ${numberOfAccounts} initializerless test accounts`);
-      const accountsData = initialFundedAccounts.slice(0, numberOfAccounts);
-      const accountManagers = await createFundedInitializerlessAccounts(wallet, accountsData);
-      accounts = accountManagers.map(accountManager => accountManager.address);
+      await createFundedInitializerlessAccounts(wallet, defaultAccounts);
+      accounts = defaultAccounts.map(a => a.address);
     }
 
     // Advancing past genesis needs a running sequencer to build the empty block; advancePastGenesis is
@@ -661,12 +663,6 @@ export async function setup(
     // Now we restore the original minTxsPerBlock setting if we changed it.
     if (sequencerClient && config.minTxsPerBlock !== originalMinTxsPerBlock) {
       sequencerClient.getSequencer().updateConfig({ minTxsPerBlock: originalMinTxsPerBlock });
-    }
-
-    if (initialFundedAccounts.length < numberOfAccounts) {
-      throw new Error(
-        `Unable to deploy ${numberOfAccounts} accounts. Only ${initialFundedAccounts.length} accounts were funded.`,
-      );
     }
 
     const teardown = async () => {
@@ -709,7 +705,7 @@ export async function setup(
       aztecNodeConfig: config,
       dateProvider,
       deployL1ContractsValues,
-      initialFundedAccounts,
+      additionallyFundedAccounts,
       logger,
       mockGossipSubNetwork,
       genesis,
@@ -932,25 +928,6 @@ export async function ensureHandshakeRegistryPublished(wallet: Wallet, from: Azt
   }
   await wallet.registerContract(instance, HandshakeRegistryArtifact);
 }
-
-/**
- * Helper function to create the initial (genesis-funded) test accounts as initializerless accounts.
- * Returns the account data that can be used by tests. Initializerless accounts have no deployment tx, so
- * creating them only registers the instances in the wallet; they are funded via genesis at their addresses.
- */
-export const createFundedAccounts =
-  (numberOfAccounts: number, logger: Logger) =>
-  async ({ wallet, initialFundedAccounts }: { wallet: TestWallet; initialFundedAccounts: InitialAccountData[] }) => {
-    if (initialFundedAccounts.length < numberOfAccounts) {
-      throw new Error(`Cannot create more than ${initialFundedAccounts.length} initial accounts.`);
-    }
-
-    logger.verbose('Creating initializerless accounts funded with fee juice...');
-    const accounts = initialFundedAccounts.slice(0, numberOfAccounts);
-    await createFundedInitializerlessAccounts(wallet, accounts);
-
-    return { accounts };
-  };
 
 /**
  * Destroys the current context.

@@ -125,7 +125,6 @@ export class P2PNetworkTest {
       slasherEnabled: initialValidatorConfig.slasherEnabled ?? true,
       aztecTargetCommitteeSize: numberOfValidators,
       metricsPort: metricsPort,
-      numberOfInitialFundedAccounts: 2,
       startProverNode,
     };
 
@@ -368,8 +367,8 @@ export class P2PNetworkTest {
       address: await getAccountContractAddress(contract, secret, salt),
     };
 
-    // Generate regular Schnorr accounts for tests that need deployable accounts (e.g. add_rollup).
-    const regularAccounts = await generateSchnorrAccounts(this.setupOptions.numberOfInitialFundedAccounts ?? 2);
+    // Generate funded (initializerless) Schnorr accounts for tests that create accounts from them (e.g. add_rollup).
+    const fundedAccounts = await generateSchnorrAccounts(2);
 
     this.context = await setup(
       0,
@@ -377,7 +376,7 @@ export class P2PNetworkTest {
         ...this.setupOptions,
         fundSponsoredFPC: true,
         skipInitialSequencer: true,
-        initialFundedAccounts: [...regularAccounts, this.hardcodedAccountData],
+        additionallyFundedAccounts: [...fundedAccounts, this.hardcodedAccountData],
         slasherEnabled: this.setupOptions.slasherEnabled ?? this.deployL1ContractsArgs.slasherEnabled ?? false,
         aztecTargetCommitteeSize: 0,
         l1ContractsArgs: this.deployL1ContractsArgs,
@@ -388,7 +387,7 @@ export class P2PNetworkTest {
     this.ctx = this.context;
 
     const sponsoredFPCAddress = await getSponsoredFPCAddress();
-    const initialFundedAccounts = [...this.context.initialFundedAccounts.map(a => a.address), sponsoredFPCAddress];
+    const initialFundedAccounts = [...this.context.additionallyFundedAccounts.map(a => a.address), sponsoredFPCAddress];
 
     const { genesis } = await getGenesisValues(
       initialFundedAccounts,

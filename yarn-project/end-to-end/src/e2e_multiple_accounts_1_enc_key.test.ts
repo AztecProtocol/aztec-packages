@@ -1,16 +1,16 @@
-import { getSchnorrAccountContractAddress } from '@aztec/accounts/schnorr';
+import { getSchnorrInitializerlessAccountContractAddress } from '@aztec/accounts/schnorr';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Fr, GrumpkinScalar } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
-import type { Wallet } from '@aztec/aztec.js/wallet';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import { deployToken, expectTokenBalance } from './fixtures/token_utils.js';
 import { setup } from './fixtures/utils.js';
+import type { TestWallet } from './test-wallet/test_wallet.js';
 
 describe('e2e_multiple_accounts_1_enc_key', () => {
-  let wallet: Wallet;
+  let wallet: TestWallet;
   let accounts: AztecAddress[] = [];
   let logger: Logger;
   let teardown: () => Promise<void>;
@@ -24,26 +24,33 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
     // A shared secret for all accounts.
     const secret = Fr.random();
 
-    const initialFundedAccounts = await Promise.all(
+    // These accounts share one encryption key but use different signing keys, so we build and create them
+    // ourselves (the default setup accounts each use a distinct secret). They are initializerless.
+    const accountsData = await Promise.all(
       Array.from({ length: numAccounts }).map(async () => {
         // A different signing key for each account.
         const signingKey = GrumpkinScalar.random();
         const salt = Fr.random();
-        const address = await getSchnorrAccountContractAddress(secret, salt, signingKey);
+        const address = await getSchnorrInitializerlessAccountContractAddress(secret, salt, signingKey);
         return {
           secret,
           signingKey,
           salt,
+          type: 'schnorr_initializerless' as const,
           address,
         };
       }),
     );
 
-    ({ teardown, logger, wallet, accounts } = await setup(numAccounts, {
+    ({ teardown, logger, wallet } = await setup(0, {
       ...AUTOMINE_E2E_OPTS,
-      initialFundedAccounts,
+      additionallyFundedAccounts: accountsData,
     }));
-    logger.info('Account contracts deployed');
+    for (const a of accountsData) {
+      await wallet.createSchnorrInitializerlessAccount(a.secret, a.salt, a.signingKey);
+    }
+    accounts = accountsData.map(a => a.address);
+    logger.info('Account contracts created');
 
     ({ contract: token } = await deployToken(wallet, accounts[0], initialBalance, logger));
   });

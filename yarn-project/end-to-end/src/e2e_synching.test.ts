@@ -31,7 +31,7 @@
  * checkpointCount: 10, txCount: 36, complexity: PublicTransfer:  {"numberOfBlocks":18, "syncTime":21.340179460525512}
  * checkpointCount: 10, txCount: 9,  complexity: Spam:            {"numberOfBlocks":17, "syncTime":49.40888188171387}
  */
-import type { InitialAccountData } from '@aztec/accounts/testing';
+import { type InitialAccountData, generateSchnorrAccounts } from '@aztec/accounts/testing';
 import { createArchiver } from '@aztec/archiver';
 import { AztecNodeService } from '@aztec/aztec-node';
 import { NO_FROM } from '@aztec/aztec.js/account';
@@ -338,13 +338,15 @@ describe('e2e_synching', () => {
         aztecNode,
         wallet,
         accounts: [defaultAccountAddress],
-        initialFundedAccounts,
+        additionallyFundedAccounts,
         cheatCodes,
       } = await setup(1, {
         ...PIPELINING_SETUP_OPTS,
         l1StartTime: START_TIME,
         l2StartTime: START_TIME + 200 * ETHEREUM_SLOT_DURATION,
-        numberOfInitialFundedAccounts: variant.txCount + 1,
+        // These accounts are created+deployed as regular schnorr accounts (see deployAccounts), so fund them
+        // at their regular addresses.
+        additionallyFundedAccounts: await generateSchnorrAccounts(variant.txCount + 1, 'schnorr'),
       });
       variant.setWallet(wallet);
 
@@ -368,7 +370,7 @@ describe('e2e_synching', () => {
       sequencer?.updateConfig({ minTxsPerBlock: variant.txCount, maxTxsPerBlock: variant.txCount });
 
       // The setup will mint tokens (private and public)
-      const accountsToBeDeployed = initialFundedAccounts.slice(1); // The first one has been deployed in setup.
+      const accountsToBeDeployed = additionallyFundedAccounts.slice(1); // The first one has been deployed in setup.
       await variant.setup(accountsToBeDeployed);
 
       for (let i = 0; i < variant.checkpointCount; i++) {
@@ -421,12 +423,12 @@ describe('e2e_synching', () => {
       sequencer,
       watcher,
       wallet,
-      initialFundedAccounts,
+      additionallyFundedAccounts,
       dateProvider,
     } = await setup(0, {
       ...PIPELINING_SETUP_OPTS,
       l1StartTime: START_TIME,
-      numberOfInitialFundedAccounts: 10,
+      additionallyFundedAccounts: await generateSchnorrAccounts(10, 'schnorr'),
     });
 
     await (aztecNode as any).stop();
@@ -493,7 +495,7 @@ describe('e2e_synching', () => {
     }
 
     await alternativeSync(
-      { deployL1ContractsValues, cheatCodes, config, logger, initialFundedAccounts, wallet },
+      { deployL1ContractsValues, cheatCodes, config, logger, additionallyFundedAccounts, wallet },
       variant,
     );
 
@@ -569,7 +571,9 @@ describe('e2e_synching', () => {
 
             const { wallet } = await setupPXEAndGetWallet(aztecNode!);
             variant.setWallet(wallet);
-            const defaultAccountAddress = (await variant.deployAccounts(opts.initialFundedAccounts!.slice(0, 1)))[0];
+            const defaultAccountAddress = (
+              await variant.deployAccounts(opts.additionallyFundedAccounts!.slice(0, 1))
+            )[0];
 
             contracts.push(
               (

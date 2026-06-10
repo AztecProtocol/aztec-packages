@@ -1,4 +1,4 @@
-import type { InitialAccountData } from '@aztec/accounts/testing';
+import { type InitialAccountData, generateSchnorrAccounts } from '@aztec/accounts/testing';
 import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import { NO_FROM } from '@aztec/aztec.js/account';
@@ -42,7 +42,7 @@ describe('e2e_multi_validator_node', () => {
   let teardown: () => Promise<void>;
   let wallet: TestWallet;
   let ownerAddress: AztecAddress;
-  let initialFundedAccounts: InitialAccountData[];
+  let additionallyFundedAccounts: InitialAccountData[];
   let aztecNode: AztecNode;
   let config: AztecNodeConfig;
   let logger: Logger;
@@ -75,7 +75,7 @@ describe('e2e_multi_validator_node', () => {
     });
     const { aztecSlotDuration: _aztecSlotDuration } = getL1ContractsConfigEnvVars();
 
-    ({ teardown, logger, wallet, initialFundedAccounts, aztecNode, config, deployL1ContractsValues, cheatCodes } =
+    ({ teardown, logger, wallet, additionallyFundedAccounts, aztecNode, config, deployL1ContractsValues, cheatCodes } =
       await setup(
         0,
         {
@@ -87,6 +87,8 @@ describe('e2e_multi_validator_node', () => {
           sequencerPollingIntervalMS: 200,
           worldStateBlockCheckIntervalMS: 200,
           blockCheckIntervalMS: 200,
+          // We deploy this account ourselves later, so fund it as a regular (deployable) schnorr account.
+          additionallyFundedAccounts: await generateSchnorrAccounts(1, 'schnorr'),
         },
         { syncChainTip: 'checkpointed' },
       ));
@@ -113,7 +115,7 @@ describe('e2e_multi_validator_node', () => {
   });
 
   const deployOwnerAccount = async () => {
-    const accountData = initialFundedAccounts[0];
+    const accountData = additionallyFundedAccounts[0];
     const accountManager = await wallet.createSchnorrAccount(
       accountData.secret,
       accountData.salt,
