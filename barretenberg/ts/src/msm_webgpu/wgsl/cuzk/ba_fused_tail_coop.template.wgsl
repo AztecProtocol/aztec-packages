@@ -65,8 +65,8 @@ struct Jac { x: array<u32, 8>, y: array<u32, 8>, z: array<u32, 8>, }
 
 // add-2007-bl (same formula as the reliable multi-dispatch reduce's jac_add_raw).
 fn jac_add_raw(p1: Jac, p2: Jac) -> Jac {
-    let Z1Z1 = montgomery_product_f8(p1.z, p1.z);
-    let Z2Z2 = montgomery_product_f8(p2.z, p2.z);
+    let Z1Z1 = montgomery_square_f8(p1.z);
+    let Z2Z2 = montgomery_square_f8(p2.z);
     let U1 = montgomery_product_f8(p1.x, Z2Z2);
     let U2 = montgomery_product_f8(p2.x, Z1Z1);
     let S1 = montgomery_product_f8(montgomery_product_f8(p1.y, p2.z), Z2Z2);
@@ -76,15 +76,15 @@ fn jac_add_raw(p1: Jac, p2: Jac) -> Jac {
     // inner pair reaches 5.19p, just under the 2^256 = 5.29p cap.
     let H = fr_sub_f8(U2, U1);
     let twoH = fr_dbl_wide_f8(H);
-    let I = montgomery_product_f8(twoH, twoH);
+    let I = montgomery_square_f8(twoH);
     let J = montgomery_product_f8(H, I);
     let r = fr_dbl_wide_f8(fr_sub_f8(S2, S1));
     let V = montgomery_product_f8(U1, I);
-    let X3 = fr_sub_f8(fr_sub_f8(montgomery_product_f8(r, r), J), fr_dbl_f8(V));
+    let X3 = fr_sub_f8(fr_sub_f8(montgomery_square_f8(r), J), fr_dbl_f8(V));
     let S1J = montgomery_product_f8(S1, J);
     let Y3 = fr_sub_f8(montgomery_product_f8(r, fr_sub_wide_f8(V, X3)), fr_dbl_f8(S1J));
     let ZpZ = fr_add_wide_f8(p1.z, p2.z);
-    let Z3 = montgomery_product_f8(fr_sub_wide_f8(fr_sub_wide_f8(montgomery_product_f8(ZpZ, ZpZ), Z1Z1), Z2Z2), H);
+    let Z3 = montgomery_product_f8(fr_sub_wide_f8(fr_sub_wide_f8(montgomery_square_f8(ZpZ), Z1Z1), Z2Z2), H);
     return Jac(X3, Y3, Z3);
 }
 
@@ -110,7 +110,7 @@ fn affine_add(x1: array<u32, 8>, y1: array<u32, 8>, x2: array<u32, 8>, y2: array
     let dy = fr_sub_wide_f8(y2, y1);
     let dx_inv = {{ inv_fn }}(dx);
     let lambda = montgomery_product_f8(dy, dx_inv);
-    let l2 = montgomery_product_f8(lambda, lambda);
+    let l2 = montgomery_square_f8(lambda);
     let x3 = fr_sub_f8(fr_sub_f8(l2, x1), x2);
     // Inner x1 - x3 is wide (< 4p, montmul-input only).
     let y3 = fr_sub_f8(montgomery_product_f8(lambda, fr_sub_wide_f8(x1, x3)), y1);
@@ -201,7 +201,7 @@ fn main(@builtin(workgroup_id) wgid: vec3<u32>, @builtin(local_invocation_id) li
         // sh[0] = Jacobian bucket sum. Convert to affine (one inversion).
         let Z = sh[0].z;
         let Zinv = {{ inv_fn }}(Z);
-        let Z2inv = montgomery_product_f8(Zinv, Zinv);
+        let Z2inv = montgomery_square_f8(Zinv);
         let Z3inv = montgomery_product_f8(Z2inv, Zinv);
         let nx = montgomery_product_f8(sh[0].x, Z2inv);
         let ny = montgomery_product_f8(sh[0].y, Z3inv);

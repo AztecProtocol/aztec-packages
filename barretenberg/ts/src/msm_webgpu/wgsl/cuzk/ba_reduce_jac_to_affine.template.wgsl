@@ -118,7 +118,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 
         let X = load_x(slot, M);
         let Y = load_y(slot, M);
-        let Z2inv = montgomery_product_f8(zinv, zinv);
+        let Z2inv = montgomery_square_f8(zinv);
         let Z3inv = montgomery_product_f8(Z2inv, zinv);
         let x = montgomery_product_f8(X, Z2inv);
         let y = montgomery_product_f8(Y, Z3inv);

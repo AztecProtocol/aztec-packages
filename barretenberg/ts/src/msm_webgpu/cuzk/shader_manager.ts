@@ -47,6 +47,7 @@ import {
   field8 as field8_funcs,
   mont_pro_product_f8_native as montgomery_product_f8_native_funcs,
   mont_pro_product_karat_yuval as montgomery_product_karat_yuval_funcs,
+  mont_pro_square_f8_native as montgomery_square_f8_native_funcs,
   transpose_parallel_scan as transpose_parallel_scan_shader,
   transpose_count_tiled as transpose_count_tiled_shader,
   transpose_reduce_tiled as transpose_reduce_tiled_shader,
@@ -156,6 +157,9 @@ export class ShaderManager {
   // by `montmul`: the grouped Karatsuba+Yuval emit ('karat') or the
   // register-lean packed CIOS ('cios_unrolled').
   public mont_f8_native_src: string;
+  // The matching Montgomery square body (montgomery_square_f8), injected as
+  // the `montgomery_square_f8_native` partial alongside the multiply.
+  public mont_square_f8_native_src: string;
   // The selected montmul variant (karat | cios_unrolled).
   private montmul: MontMulVariant;
   public curveConfig: CurveConfig;
@@ -219,7 +223,16 @@ export class ShaderManager {
     this.mont_f8_native_src =
       montmul === 'cios_unrolled'
         ? fieldConsts + montgomery_product_f8_native_funcs.trim()
-        : this.renderKaratYuvalMont();
+        : this.renderKaratYuval(false);
+    // The dedicated Montgomery square (montgomery_square_f8) of the SAME
+    // family — ~24% (cios) / ~14% (karat) fewer int32 muls than the
+    // multiply at x = y. Rendered without its own const block: it always
+    // follows the multiply body (field8 includes both), which carries the
+    // shared constants.
+    this.mont_square_f8_native_src =
+      montmul === 'cios_unrolled'
+        ? montgomery_square_f8_native_funcs.trim()
+        : this.renderKaratYuval(true);
     this.montmul = montmul;
 
     if (force_recompile) {
@@ -285,6 +298,7 @@ export class ShaderManager {
       },
       {
         montgomery_product_f8_native: this.mont_f8_native_src,
+        montgomery_square_f8_native: this.mont_square_f8_native_src,
         field8_funcs,
       },
     );
@@ -455,6 +469,7 @@ export class ShaderManager {
       },
       {
         montgomery_product_f8_native: this.mont_f8_native_src,
+        montgomery_square_f8_native: this.mont_square_f8_native_src,
         field8_funcs,
         inverse_funcs,
       },
@@ -492,6 +507,7 @@ export class ShaderManager {
       },
       {
         montgomery_product_f8_native: this.mont_f8_native_src,
+        montgomery_square_f8_native: this.mont_square_f8_native_src,
         field8_funcs,
         inverse_funcs,
       },
@@ -537,6 +553,7 @@ export class ShaderManager {
       },
       {
         montgomery_product_f8_native: this.mont_f8_native_src,
+        montgomery_square_f8_native: this.mont_square_f8_native_src,
         field8_funcs,
         inverse_funcs,
       },
@@ -682,6 +699,7 @@ export class ShaderManager {
       },
       {
         montgomery_product_f8_native: this.mont_f8_native_src,
+        montgomery_square_f8_native: this.mont_square_f8_native_src,
         field8_funcs,
         inverse_funcs,
       },
@@ -730,6 +748,7 @@ export class ShaderManager {
       },
       {
         montgomery_product_f8_native: this.mont_f8_native_src,
+        montgomery_square_f8_native: this.mont_square_f8_native_src,
         field8_funcs,
         inverse_funcs,
       },
@@ -782,6 +801,7 @@ export class ShaderManager {
       },
       {
         montgomery_product_f8_native: this.mont_f8_native_src,
+        montgomery_square_f8_native: this.mont_square_f8_native_src,
         field8_funcs,
         inverse_funcs,
       },
@@ -829,6 +849,7 @@ export class ShaderManager {
       },
       {
         montgomery_product_f8_native: this.mont_f8_native_src,
+        montgomery_square_f8_native: this.mont_square_f8_native_src,
         field8_funcs,
         inverse_funcs,
       },
@@ -868,6 +889,7 @@ export class ShaderManager {
       },
       {
         montgomery_product_f8_native: this.mont_f8_native_src,
+        montgomery_square_f8_native: this.mont_square_f8_native_src,
         field8_funcs,
         inverse_funcs,
       },
@@ -879,7 +901,15 @@ export class ShaderManager {
   // sub-sub-products → inner combines → outer combine → Yuval reduce →
   // final canonicalize) via mustache `{{#each}}` sections. The TS here
   // just provides the index arrays + r_inv limb constants.
-  private renderKaratYuvalMont(): string {
+  //
+  // square = true renders montgomery_square_f8 instead: identical structure,
+  // but each 5×5 schoolbook becomes a 15-mul square (off-diagonal column
+  // terms grouped and shifted-doubled). The per-column TOTALS equal the
+  // multiply's with y = x — only the addend grouping changes — so the
+  // template's u32 wrap/unwind proof (karat_intermediate_check.mjs) carries
+  // over unchanged. The square render skips the shared const block (the
+  // multiply body, always present first in field8, provides it).
+  private renderKaratYuval(square: boolean): string {
     const N = this.num_words; // 20
     const WS = this.word_size; // 13
     const W = 1n << BigInt(WS);
@@ -940,6 +970,20 @@ export class ShaderManager {
       `${xp}3 * ${yp}4 + ${xp}4 * ${yp}3`,
       `${xp}4 * ${yp}4`,
     ];
+    // 5×5 square columns: 15 muls (vs 25) — off-diagonal pairs computed once
+    // and shifted-doubled. Column totals identical to sbCol(xp, xp), so the
+    // u32 wrap analysis is the multiply's.
+    const sqCol = (xp: string): string[] => [
+      `${xp}0 * ${xp}0`,
+      `((${xp}0 * ${xp}1) << 1u)`,
+      `((${xp}0 * ${xp}2) << 1u) + ${xp}1 * ${xp}1`,
+      `((${xp}0 * ${xp}3 + ${xp}1 * ${xp}2) << 1u)`,
+      `((${xp}0 * ${xp}4 + ${xp}1 * ${xp}3) << 1u) + ${xp}2 * ${xp}2`,
+      `((${xp}1 * ${xp}4 + ${xp}2 * ${xp}3) << 1u)`,
+      `((${xp}2 * ${xp}4) << 1u) + ${xp}3 * ${xp}3`,
+      `((${xp}3 * ${xp}4) << 1u)`,
+      `${xp}4 * ${xp}4`,
+    ];
     // P_X[k] from this group's ll / hh / c schoolbook outputs — the inner
     // Karatsuba combine, unchanged from the flat emit.
     const pExpr = (k: number): string => {
@@ -990,9 +1034,9 @@ export class ShaderManager {
       const emitSb = (out: string, xp: string, yp: string, bases: number[]): void => {
         for (let k = 0; k < 5; k++) {
           mb.push(`        let ${xp}${k}: u32 = ${chunkSum(xlimb, bases, k)};`);
-          mb.push(`        let ${yp}${k}: u32 = ${chunkSum(ylimb, bases, k)};`);
+          if (!square) mb.push(`        let ${yp}${k}: u32 = ${chunkSum(ylimb, bases, k)};`);
         }
-        const cols = sbCol(xp, yp);
+        const cols = square ? sqCol(xp) : sbCol(xp, yp);
         for (let m = 0; m < 9; m++) mb.push(`        let ${out}${m}: u32 = ${cols[m]};`);
       };
       emitSb('ll', `x${g.tag}l`, `y${g.tag}l`, g.llB);
@@ -1038,6 +1082,7 @@ export class ShaderManager {
       i_std,
       standard_writes,
       final_drain,
+      square,
     });
   }
 
@@ -1181,6 +1226,7 @@ export class ShaderManager {
       },
       {
         montgomery_product_f8_native: this.mont_f8_native_src,
+        montgomery_square_f8_native: this.mont_square_f8_native_src,
         field8_funcs,
         inverse_funcs,
       },
@@ -1280,6 +1326,7 @@ export class ShaderManager {
       },
       {
         montgomery_product_f8_native: this.mont_f8_native_src,
+        montgomery_square_f8_native: this.mont_square_f8_native_src,
         field8_funcs,
         inverse_funcs,
       },
@@ -1322,6 +1369,7 @@ export class ShaderManager {
       },
       {
         montgomery_product_f8_native: this.mont_f8_native_src,
+        montgomery_square_f8_native: this.mont_square_f8_native_src,
         field8_funcs,
         inverse_funcs,
       },

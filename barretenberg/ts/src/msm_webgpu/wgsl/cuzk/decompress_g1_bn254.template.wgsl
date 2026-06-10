@@ -65,7 +65,7 @@ fn fr_pow_f8(base: array<u32, 8>, exp: array<u32, 8>) -> array<u32, 8> {
             if ((bits & 1u) == 1u) {
                 result = montgomery_product_f8(result, b);
             }
-            b = montgomery_product_f8(b, b);
+            b = montgomery_square_f8(b);
             bits = bits >> 1u;
         }
     }
@@ -96,7 +96,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let x_mont: array<u32, 8> = montgomery_product_f8(x, get_r_squared_f8());
 
     // y^2_mont = x_mont^3 + 3·R mod q.
-    let x_sq_mont: array<u32, 8> = montgomery_product_f8(x_mont, x_mont);
+    let x_sq_mont: array<u32, 8> = montgomery_square_f8(x_mont);
     let x_cu_mont: array<u32, 8> = montgomery_product_f8(x_sq_mont, x_mont);
     let y_sq_mont: array<u32, 8> = fr_add_f8(x_cu_mont, get_b3_mont_f8());
 

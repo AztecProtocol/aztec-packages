@@ -57,7 +57,7 @@ fn affine_add(x1: array<u32, 8>, y1: array<u32, 8>, x2: array<u32, 8>, y2: array
     let dy = fr_sub_wide_f8(y2, y1);
     let dx_inv = {{ inv_fn }}(dx);
     let lambda = montgomery_product_f8(dy, dx_inv);
-    let l2 = montgomery_product_f8(lambda, lambda);
+    let l2 = montgomery_square_f8(lambda);
     let x3 = fr_sub_f8(fr_sub_f8(l2, x1), x2);
     let y3 = fr_sub_f8(montgomery_product_f8(lambda, fr_sub_wide_f8(x1, x3)), y1);
     return array<array<u32, 8>, 2>(x3, y3);

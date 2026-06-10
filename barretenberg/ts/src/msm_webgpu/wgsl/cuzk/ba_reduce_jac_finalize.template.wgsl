@@ -82,7 +82,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     // kernel uses; Montgomery-in / Montgomery-out.
     var Zinv: array<u32, 8> = {{ inv_fn }}(Z);
 
-    let Z2inv = montgomery_product_f8(Zinv, Zinv);
+    let Z2inv = montgomery_square_f8(Zinv);
     let Z3inv = montgomery_product_f8(Z2inv, Zinv);
     let x = montgomery_product_f8(X, Z2inv);
     let y = montgomery_product_f8(Y, Z3inv);

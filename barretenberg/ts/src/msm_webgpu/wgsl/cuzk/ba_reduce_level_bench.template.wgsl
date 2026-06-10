@@ -176,12 +176,12 @@ fn main(@builtin(workgroup_id) wgid: vec3<u32>, @builtin(local_invocation_id) li
             // All wide, montmul-input only: 2y < 4p; 3x² < 4.03p (x² is a
             // montmul output < 1.34p), both under the 2^256 = 5.29p cap.
             let real_denom: array<u32, 8> = fr_add_wide_f8(yv, yv); // 2y
-            let x2: array<u32, 8> = montgomery_product_f8(xv, xv);
+            let x2: array<u32, 8> = montgomery_square_f8(xv);
             var num: array<u32, 8> = fr_add_wide_f8(x2, x2);
             num = fr_add_wide_f8(num, x2); // 3x^2
             let lambda: array<u32, 8> = montgomery_product_f8(num, inv_denom);
             let two_x: array<u32, 8> = fr_add_f8(xv, xv);
-            var r_x: array<u32, 8> = montgomery_product_f8(lambda, lambda);
+            var r_x: array<u32, 8> = montgomery_square_f8(lambda);
             r_x = fr_sub_f8(r_x, two_x);
             // Wide (< 4p, montmul-input only); r_x was just reduced < 2p.
             var r_y: array<u32, 8> = fr_sub_wide_f8(xv, r_x);
@@ -218,7 +218,7 @@ fn main(@builtin(workgroup_id) wgid: vec3<u32>, @builtin(local_invocation_id) li
             let dx: array<u32, 8> = fr_sub_wide_f8(x_s, x_d);
             var lambda: array<u32, 8> = fr_sub_wide_f8(y_s, y_d);
             lambda = montgomery_product_f8(lambda, inv_denom);
-            var add_rx: array<u32, 8> = montgomery_product_f8(lambda, lambda);
+            var add_rx: array<u32, 8> = montgomery_square_f8(lambda);
             let x_sum: array<u32, 8> = fr_add_f8(x_d, x_s);
             add_rx = fr_sub_f8(add_rx, x_sum);
             // Wide (< 4p, montmul-input only); add_rx was just reduced < 2p.

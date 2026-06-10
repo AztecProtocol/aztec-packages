@@ -58,6 +58,7 @@
 //
 // Final temp[k] math bound: 40·W² = 2³¹·³² < 2³². ✓ Zero drains needed.
 
+{{^square}}
 const NUM_WORDS: u32 = {{ num_words }}u;
 const WORD_SIZE: u32 = {{ word_size }}u;
 const MASK: u32      = {{ mask }}u;
@@ -80,8 +81,17 @@ const R_INV_{{idx}}: u32 = {{val}}u;
 {{#p_limbs_consts}}
 const P_LIMB_{{idx}}: u32 = {{val}}u;
 {{/p_limbs_consts}}
+{{/square}}
 
+{{#square}}
+// Montgomery SQUARE render of the same template: square-schoolbook columns
+// (15 muls per 5×5 instead of 25), identical Yuval/standard reduction.
+// Shares the const block emitted with the multiply body.
+fn montgomery_square_f8(x: array<u32, 8>) -> array<u32, 8> {
+{{/square}}
+{{^square}}
 fn montgomery_product_f8(x: array<u32, 8>, y: array<u32, 8>) -> array<u32, 8> {
+{{/square}}
     // === Grouped Karatsuba multiply + combine (generated). ===
     // Per half-product (lo / hi / cr) a scoped block computes 3 schoolbook
     // 5×5 sub-products and folds the Karatsuba-combined result straight

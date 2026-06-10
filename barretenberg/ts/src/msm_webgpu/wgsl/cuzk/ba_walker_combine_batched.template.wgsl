@@ -234,7 +234,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             // the final r_y are stored and stay < 2p via the reducing ops.
             var lambda = fr_sub_wide_f8(p_ry, p_ly);
             lambda = montgomery_product_f8(lambda, inv_dx);
-            var r_x = montgomery_product_f8(lambda, lambda);
+            var r_x = montgomery_square_f8(lambda);
             let x_sum = fr_add_f8(p_lx, p_rx);
             r_x = fr_sub_f8(r_x, x_sum);
             var r_y = fr_sub_wide_f8(p_lx, r_x);

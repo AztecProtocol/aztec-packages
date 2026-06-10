@@ -211,7 +211,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         // r_x = lambda^2 - p_lx - p_rx.
         let p_lx: array<u32, 8> = load_active_x(idx_l, M_old);
         let p_rx: array<u32, 8> = load_active_x(idx_r, M_old);
-        var r_x: array<u32, 8> = montgomery_product_f8(lambda, lambda);
+        var r_x: array<u32, 8> = montgomery_square_f8(lambda);
         let x_sum: array<u32, 8> = fr_add_f8(p_lx, p_rx);
         r_x = fr_sub_f8(r_x, x_sum);
 

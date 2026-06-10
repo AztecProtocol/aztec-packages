@@ -47,6 +47,12 @@ fn is_zero_f8(v: array<u32, 8>) -> bool {
 // montgomery_product_f8 symbol, selected by ShaderManager's montmul).
 {{> montgomery_product_f8_native }}
 
+// The matching Montgomery square: montgomery_square_f8(v) ≡
+// montgomery_product_f8(v, v) with ~24% (cios) / ~14% (karat) fewer int32
+// muls. Same lazy contract (any input, output < 1.34p). Kernels that never
+// square carry it as dead code, which the drivers compile for free.
+{{> montgomery_square_f8_native }}
+
 // Native 8x u32 fr_add / fr_sub — 8-word add / sub, reduced against 2p.
 // WGSL has no add-with-carry, so the carry out of each word is
 // `u32(sum < operand)` (one compare, no branch). a, b in [0, 2p).
