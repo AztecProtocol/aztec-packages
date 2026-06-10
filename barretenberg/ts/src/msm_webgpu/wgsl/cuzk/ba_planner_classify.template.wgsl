@@ -25,10 +25,17 @@ const WBID_MAG_MASK: u32 = 0x7fffu;
 @group(0) @binding(6) var<uniform>             params:             vec4<u32>;
 // params.x = num_windows (this batch's window count)
 // WindowDesc (SPLIT_C_PLAN.md): num_columns at +5, work_off (prefix) at +3,
-// num_buckets (= stride_w, red slots) at +2.
+// num_buckets (= stride_w, red slots) at +2, reduce_off at +4.
 @group(0) @binding(7) var<storage, read>       window_desc:        array<u32>;
 // batch_window_base.x = global index of this batch's first window.
 @group(0) @binding(8) var<uniform>             batch_window_base:  vec4<u32>;
+// is_present mark for every dense (count >= 2) bucket. The mark is a pure
+// function of planner data (NOT of the walker), so it is hoisted here from
+// the walker_index phase: classify already touches every bucket and the
+// WindowDesc row, making the mark a near-free extra store. ba_size1 marks
+// the count == 1 buckets; the v1 walker_index filter also marks dense
+// buckets (redundantly, harmlessly).
+@group(0) @binding(9) var<storage, read_write> is_present:         array<u32>;
 
 @compute @workgroup_size({{ workgroup_size }})
 fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
@@ -69,6 +76,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         let slot = atomicAdd(&planner_meta[1], 1u);
         dense_bucket_list[slot] = packed;
         dense_count_list[slot] = n;
+        is_present[window_desc[gwin * WD_STRIDE + 4u] + (magnitude - 1u)] = 1u;
     }
 
     {{{ recompile }}}

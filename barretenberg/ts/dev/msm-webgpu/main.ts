@@ -141,6 +141,7 @@ const gpuKnobs: MsmConfig = (() => {
     budgetMiB: optInt('budgetmib'),
     varSched: q.get('varsched') === '1' || undefined,
     splitC: q.get('split') === '1' || q.get('autorun') === 'msm-msbhist' || undefined,
+    wiProbe: q.get('wiprobe') === '1' || undefined,
     sparseReduce: q.get('sparse_reduce') === '1' || undefined,
     reduceCostWeight: optNum('reduce_cost_weight'),
     maxCLo: optInt('max_clo'),
@@ -151,7 +152,11 @@ const gpuKnobs: MsmConfig = (() => {
       return parts.length === 3 && parts.every(x => x > 0) ? (parts as [number, number, number]) : undefined;
     })(),
     profile:
-      q.get('profile') === '1' || q.get('autorun') === 'msm-bench' || q.get('autorun') === 'msm-trace' || undefined,
+      q.get('profile') === '1' ||
+      q.get('autorun') === 'msm-bench' ||
+      q.get('autorun') === 'msm-trace' ||
+      q.get('autorun') === 'walker-index-stats' ||
+      undefined,
   };
 })();
 
@@ -732,6 +737,16 @@ const BATCH_STAGE_ORDER = [
   'size1',
   'stream_walker',
   'walker_index',
+  // walker_index sub-kernels (encodeIntoBatch labels each of the phase's
+  // dispatches individually; 'walker_index' itself remains for old traces;
+  // wi_p1/wi_p2 are the ?wiprobe=1 cost probes).
+  'wi_p1',
+  'wi_p2',
+  'wi_count',
+  'wi_alloc',
+  'wi_epilogue',
+  'wi_scatter',
+  'wi_sort',
   'combine_batched',
   'pt_init',
   'pt_loop',
@@ -2268,8 +2283,12 @@ function hideProgress(): void {
       for (let r = 0; r < reps; r++) {
         const gpu = await runWebGpuOnce(inputs);
         const wallMs = gpu.ms;
-        samples.push({ wallMs, gpuMs: 0, phases: {} });
-        log('info', `[bench] rep ${r + 1}/${reps}: wall=${wallMs.toFixed(1)}ms`);
+        // profile mode is forced on for autorun=msm-bench, so run() populates
+        // __lastPhaseMs (timestamp-query per-pass GPU ms) — capture it per rep.
+        const phases = readLastPhaseMs();
+        const gpuMs = Object.values(phases).reduce((a, b) => a + (b ?? 0), 0);
+        samples.push({ wallMs, gpuMs, phases });
+        log('info', `[bench] rep ${r + 1}/${reps}: wall=${wallMs.toFixed(1)}ms gpu=${gpuMs.toFixed(1)}ms`);
       }
       const walls = samples.map(s => s.wallMs);
       const avg = (arr: number[]) => arr.reduce((a, b) => a + b, 0) / arr.length;
@@ -2279,6 +2298,9 @@ function hideProgress(): void {
       };
       const avgWall = avg(walls);
       const medWall = med(walls);
+      const allPhaseKeys = Array.from(new Set(samples.flatMap(s => Object.keys(s.phases))));
+      const medPhases: Record<string, number> = {};
+      for (const key of allPhaseKeys) medPhases[key] = med(samples.map(s => s.phases[key] ?? 0));
       (window as unknown as { __benchSamples?: typeof samples }).__benchSamples = samples;
       log(
         'ok',
@@ -2291,13 +2313,14 @@ function hideProgress(): void {
       await client.postResults({
         state: 'done',
         params: { logN: autorunLogN, reps, page: 'msm-bench', no_wasm: true },
-        results: { samples, averages: { wallMs: avgWall, gpuMs: 0 }, medianWallMs: medWall },
+        results: { samples, averages: { wallMs: avgWall, gpuMs: 0 }, medianWallMs: medWall, medianPhaseMs: medPhases },
         error: null,
         log: allLines.slice(-100),
         userAgent: navigator.userAgent,
         hardwareConcurrency: navigator.hardwareConcurrency,
       });
       log('ok', `[bench] state=done`);
+      log('ok', `[autorun] state=done`);
     } catch (e) {
       const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
       log('err', `[bench] FATAL: ${msg}`);
@@ -2312,6 +2335,7 @@ function hideProgress(): void {
         userAgent: navigator.userAgent,
         hardwareConcurrency: navigator.hardwareConcurrency,
       });
+      log('err', `[autorun] state=error`);
     }
   } else if (autorun === 'msm-bench') {
     const autorunLogN = parseInt(qp.get('logn') ?? '17', 10);
@@ -2408,6 +2432,152 @@ function hideProgress(): void {
         userAgent: navigator.userAgent,
         hardwareConcurrency: navigator.hardwareConcurrency,
       });
+    }
+  } else if (autorun === 'wi2-check') {
+    // walker_index v2 correctness gate: same inputs through a v1 instance and
+    // a v2 instance (isolated pools, the measurePack pattern), assert the
+    // final point AND every per-window sum match exactly. With ?noble=1 the
+    // smaller sizes are also checked against the noble JS reference (no WASM
+    // needed). Honors ?scalar_dist / ?profile; sizes via ?logns=10,14.
+    const logNs = (qp.get('logns') ?? '10,14')
+      .split(',')
+      .map(x => parseInt(x, 10))
+      .filter(x => Number.isFinite(x));
+    const useNoble = qp.get('noble') === '1';
+    const client = makeResultsClient({ page: 'wi2-check' });
+    try {
+      for (let i = 0; i < 1200; i++) {
+        if (srsBuf !== null) break;
+        await new Promise(r => setTimeout(r, 500));
+      }
+      if (srsBuf === null) throw new Error('SRS never became ready');
+      if (gpuDevice === null) gpuDevice = await get_device();
+      const failures: string[] = [];
+      const summary: Record<string, string> = {};
+      // Two fresh instances on the same inputs: identical window sums prove
+      // run-to-run determinism of the final sums (offsets/layout order are
+      // allocation-ordered and may differ); noble (logn<=14) anchors absolute
+      // correctness.
+      for (const logN of logNs) {
+        const nobleHere = useNoble && logN <= 14;
+        const inp = await generateInputs(logN, nobleHere);
+        const runOne = async (_second: boolean): Promise<{ x: bigint; y: bigint; ws: { x: bigint; y: bigint }[] }> => {
+          const pool = await MsmV2Pool.create(gpuDevice!, inp.pointsBuf);
+          const cfg: MsmConfig = { ...gpuKnobs };
+          const inst = await MsmV2.create(gpuDevice!, inp.n, pool, cfg);
+          try {
+            inst.prepare(inp.scalarsBuf);
+            const r = await inst.run();
+            return { x: r.x, y: r.y, ws: inst.windowSums.map(p => ({ x: p.x, y: p.y })) };
+          } finally {
+            inst.destroy();
+            pool.destroy();
+          }
+        };
+        const r1 = await runOne(false);
+        const r2 = await runOne(true);
+        let ok = r1.x === r2.x && r1.y === r2.y && r1.ws.length === r2.ws.length;
+        let wsBad = -1;
+        for (let w = 0; ok && w < r1.ws.length; w++) {
+          if (r1.ws[w].x !== r2.ws[w].x || r1.ws[w].y !== r2.ws[w].y) {
+            ok = false;
+            wsBad = w;
+          }
+        }
+        let nobleOk = true;
+        if (nobleHere && inp.points && inp.scalars) {
+          const ref = referenceMsm(inp.points, inp.scalars);
+          nobleOk = pointsEqual(ref, { x: r1.x, y: r1.y }) && pointsEqual(ref, { x: r2.x, y: r2.y });
+        }
+        const verdict = ok && nobleOk ? 'PASS' : `FAIL (v1==v2:${ok} wsBad:${wsBad} noble:${nobleOk})`;
+        summary[`logn${logN}`] = verdict;
+        if (!(ok && nobleOk)) failures.push(`logn=${logN}: ${verdict}`);
+        log(ok && nobleOk ? 'ok' : 'err', `[wi2-check] logn=${logN} ${verdict}`);
+      }
+      const state = failures.length === 0 ? 'done' : 'error';
+      await client.postResults({
+        state,
+        params: {
+          page: 'wi2-check',
+          logns: logNs.join(','),
+          scalar_dist: qp.get('scalar_dist') ?? 'uniform',
+          profile: qp.get('profile') ?? '',
+        },
+        results: summary,
+        error: failures.length ? failures.join('; ') : null,
+        log: [],
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      log(failures.length === 0 ? 'ok' : 'err', `[autorun] state=${state}`);
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      log('err', `[wi2-check] FATAL: ${msg}`);
+      await client.postResults({
+        state: 'error',
+        params: { page: 'wi2-check' },
+        results: null,
+        error: msg,
+        log: [],
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      log('err', `[autorun] state=error`);
+    }
+  } else if (autorun === 'walker-index-stats') {
+    // walker_index workload probe: one prepared run, then read back the
+    // phase's true sizes (num_dense, partials, N-histogram, actives) so the
+    // index kernels can be sized/validated against real data rather than
+    // envelope bounds. Honors ?scalar_dist / ?profile / ?logn.
+    const autorunLogN = parseInt(qp.get('logn') ?? '17', 10);
+    const client = makeResultsClient({ page: 'walker-index-stats' });
+    try {
+      // Gate on SRS only (no WASM dependency), like the no_wasm bench path.
+      for (let i = 0; i < 1200; i++) {
+        if (srsBuf !== null) break;
+        await new Promise(r => setTimeout(r, 500));
+      }
+      if (srsBuf === null) throw new Error('SRS never became ready');
+      const inputs = await generateInputs(autorunLogN, false);
+      const msm = await ensureWebGpuWarmed(inputs);
+      msm.prepare(inputs.scalarsBuf);
+      await msm.run();
+      const stats: Record<string, unknown> = await msm.debugWalkerIndexStats();
+      // ?deep=1 — Phase-0 sorted-runs validation (WALKER_INDEX_PLAN.md):
+      // monotonicity + hole structure + exact head/count rule simulation.
+      if (qp.get('deep') === '1') {
+        stats.deep = await msm.debugWalkerIndexMonotonicity();
+      }
+      const phases = readLastPhaseMs();
+      log('ok', `[wi-stats] ${JSON.stringify(stats)}`);
+      await client.postResults({
+        state: 'done',
+        params: {
+          logN: autorunLogN,
+          page: 'walker-index-stats',
+          scalar_dist: qp.get('scalar_dist') ?? 'uniform',
+          profile: qp.get('profile') ?? '',
+        },
+        results: { ...stats, phaseMs: phases },
+        error: null,
+        log: [],
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      log('ok', `[autorun] state=done`);
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      log('err', `[wi-stats] FATAL: ${msg}`);
+      await client.postResults({
+        state: 'error',
+        params: { logN: autorunLogN, page: 'walker-index-stats' },
+        results: null,
+        error: msg,
+        log: [],
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      log('err', `[autorun] state=error`);
     }
   } else if (autorun === 'msm-msbhist') {
     // split-c Phase 1: validate the GPU MSB histogram against the host oracle.
