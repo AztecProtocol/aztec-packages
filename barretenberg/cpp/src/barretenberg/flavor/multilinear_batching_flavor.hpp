@@ -156,10 +156,13 @@ template <size_t NumClaims> class MultilinearBatchingFlavor_ {
      * The multilinear batching sumcheck proves all claims simultaneously by checking:
      *   sum_x [ sum_i \gamma^i P_i(x) * eq(x, r_i) ] = \sum_i \gamma^i v_i
      *
-     * where eq(x, r) is the equality polynomial that is 1 when x = r and 0 elsewhere on the hypercube.
+     * where eq(x, r) is the equality polynomial that is 1 when x = r and 0 elsewhere on the hypercube, and \gamma is
+     * the slot batching challenge applied as a public per-slot relation coefficient.
      *
-     * After sumcheck, all claims are reduced to evaluations at a new random point u, producing a
-     * single combined claim that can be verified with one polynomial opening.
+     * After sumcheck, all claims are reduced to evaluations of the original polynomials at a new random point u. These
+     * are then combined into a single accumulator claim using a fresh challenge \rho (drawn once the claimed
+     * evaluations are bound to the transcript), so that the single opening of the combined commitment binds each
+     * P_i(u) individually.
      */
     class ProvingKey {
       public:
@@ -173,8 +176,6 @@ template <size_t NumClaims> class MultilinearBatchingFlavor_ {
 
         ProvingKey() = default;
         explicit ProvingKey(std::vector<ProverClaim>&& claims);
-
-        void apply_slot_batching_challenge(const FF& challenge);
     };
 
     class PartiallyEvaluatedMultivariates

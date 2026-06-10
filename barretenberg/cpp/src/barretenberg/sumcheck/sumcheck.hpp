@@ -332,9 +332,6 @@ template <typename Flavor> class SumcheckProver {
 
     std::vector<FF> multivariate_challenge;
 
-    // For computing eq polymomials in Multilinear Batching Flavor
-    std::vector<FF> accumulator_challenge = {};
-    std::vector<FF> instance_challenge = {};
     FF libra_evaluation = FF{ 0 };
 
     RowDisablingPolynomial<FF> row_disabling_polynomial;
@@ -344,9 +341,7 @@ template <typename Flavor> class SumcheckProver {
                    ProverPolynomials& prover_polynomials,
                    std::shared_ptr<Transcript> transcript,
                    const FF& relation_separator,
-                   const size_t virtual_log_n,
-                   const std::vector<FF>& accumulator_challenge,
-                   const std::vector<FF>& instance_challenge)
+                   const size_t virtual_log_n)
         : multivariate_n(multivariate_n)
         , multivariate_d(numeric::get_msb(multivariate_n))
         , full_polynomials(prover_polynomials)
@@ -354,9 +349,7 @@ template <typename Flavor> class SumcheckProver {
         , round(multivariate_n)
         , alphas(initialize_relation_separator<FF, Flavor::NUM_SUBRELATIONS - 1>(relation_separator))
         , gate_challenges({})
-        , virtual_log_n(virtual_log_n)
-        , accumulator_challenge(accumulator_challenge)
-        , instance_challenge(instance_challenge) {};
+        , virtual_log_n(virtual_log_n) {};
 
     // SumcheckProver constructor for the Flavors that generate a single challenge `alpha` and use its powers as
     // subrelation seperator challenges.

@@ -373,6 +373,7 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
 
         if (num_claims == 1) {
             // No batching: the single sumcheck claim is already the accumulator.
+            // This only happens when the first app is processed by a kernel instead of being batched with other apps
             prover_accumulator = std::move(batch_claims[0]);
         } else {
             // The batching continues on the group's accumulation transcript, so the batching challenge is bound by the

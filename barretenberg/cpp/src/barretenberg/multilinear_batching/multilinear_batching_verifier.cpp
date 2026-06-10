@@ -6,8 +6,11 @@
 
 #include "multilinear_batching_verifier.hpp"
 #include "barretenberg/common/bb_bench.hpp"
+#include "barretenberg/common/constexpr_utils.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/polynomials/eq_polynomial.hpp"
+
+#include <optional>
 
 namespace bb {
 
@@ -50,13 +53,14 @@ typename MultilinearBatchingVerifierInternal<Flavor_>::VerifierClaim Multilinear
     Commitment non_shifted_commitment = Curve::Element::batch_mul(non_shifted_commitments, slot_scalars);
     Commitment shifted_commitment = Curve::Element::batch_mul(shifted_commitments, slot_scalars);
 
-    // The sumcheck claimed evaluations are the evaluations of the already γ-scaled slot polynomials, so summing them
-    // yields the evaluation of the batched polynomial P = Σ γ^i P_i at the sumcheck challenge point.
+    // The sumcheck claimed evaluations are the evaluations of the original slot polynomials, so the batched
+    // evaluation is their ρ-weighted sum — matching the ρ-weighted commitment P = Σ ρ^i P_i at the sumcheck challenge
+    // point. ρ is fresh (drawn after the evaluations were bound), so the single decider opening binds each P_i(r).
     FF non_shifted_evaluation(0);
     FF shifted_evaluation(0);
     for (size_t idx = 0; idx < NUM_CLAIMS; ++idx) {
-        non_shifted_evaluation += sumcheck_result.claimed_evaluations.non_shifted(idx);
-        shifted_evaluation += sumcheck_result.claimed_evaluations.shifted(idx);
+        non_shifted_evaluation += slot_scalars[idx] * sumcheck_result.claimed_evaluations.non_shifted(idx);
+        shifted_evaluation += slot_scalars[idx] * sumcheck_result.claimed_evaluations.shifted(idx);
     }
 
     return VerifierClaim{ .challenge = sumcheck_result.challenge,
@@ -93,43 +97,40 @@ MultilinearBatchingVerifierInternal<Flavor_>::verify_proof(const std::vector<Ver
 
     // The batching sumcheck is read from the shared transcript, which already holds the group's instance sumchecks
     // followed by the loaded batching proof.
+    //
+    // γ separates the input claims: it weights the target sum (slot i by γ^i) and is fed to the relation as a public
+    // per-slot coefficient. It is NOT used to merge the output claims — that is done with the fresh ρ below.
     const FF claim_batching_challenge = transcript->template get_challenge<FF>("claim_batching_challenge");
-    std::vector<FF> slot_scalars(NUM_CLAIMS);
-    slot_scalars[0] = FF(1);
+    std::vector<FF> batching_scalars(NUM_CLAIMS);
+    batching_scalars[0] = FF(1);
     for (size_t idx = 1; idx < NUM_CLAIMS; ++idx) {
-        slot_scalars[idx] = slot_scalars[idx - 1] * claim_batching_challenge;
-    }
-    if constexpr (IsRecursive) {
-        const auto batching_challenge_tag = claim_batching_challenge.get_origin_tag();
-        for (auto& scalar : slot_scalars) {
-            scalar.set_origin_tag(batching_challenge_tag);
-        }
+        batching_scalars[idx] = batching_scalars[idx - 1] * claim_batching_challenge;
     }
 
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
-    FF target_sum = compute_target_sum(alpha, claims, slot_scalars);
+    FF target_sum = compute_target_sum(alpha, claims, batching_scalars);
 
+    RelationParameters<FF> relation_parameters;
+    relation_parameters.gamma = claim_batching_challenge;
     Sumcheck sumcheck(transcript, alpha, Flavor::VIRTUAL_LOG_N, target_sum);
-    const auto sumcheck_result = sumcheck.verify({}, {});
+    const auto sumcheck_result = sumcheck.verify(relation_parameters, {});
 
-    VerifierClaim verifier_claim = compute_new_claim(sumcheck_result, claims, slot_scalars);
     bool eq_consistent = check_eq_consistency(sumcheck_result, claims);
+
+    // Draw the merge challenge only now, after the sumcheck's claimed evaluations are bound to the transcript, so that
+    // the single opening of the combined accumulator commitment binds each P_i(r) individually.
+    const FF claim_merge_challenge = transcript->template get_challenge<FF>("claim_merge_challenge");
+    std::vector<FF> merge_scalars(NUM_CLAIMS);
+    merge_scalars[0] = FF(1);
+    for (size_t idx = 1; idx < NUM_CLAIMS; ++idx) {
+        merge_scalars[idx] = merge_scalars[idx - 1] * claim_merge_challenge;
+    }
+
+    VerifierClaim verifier_claim = compute_new_claim(sumcheck_result, claims, merge_scalars);
     bool verified = sumcheck_result.verified && eq_consistent;
 
     return { verified, verifier_claim };
 }
-
-// Explicit instantiations for each per-kernel batching width (2 .. CHONK_MAX_CLAIMS_PER_KERNEL), native and recursive.
-template class MultilinearBatchingVerifierInternal<MultilinearBatchingFlavor_<2>>;
-template class MultilinearBatchingVerifierInternal<MultilinearBatchingFlavor_<3>>;
-template class MultilinearBatchingVerifierInternal<MultilinearBatchingFlavor_<4>>;
-template class MultilinearBatchingVerifierInternal<MultilinearBatchingFlavor_<5>>;
-template class MultilinearBatchingVerifierInternal<MultilinearBatchingRecursiveFlavor_<2>>;
-template class MultilinearBatchingVerifierInternal<MultilinearBatchingRecursiveFlavor_<3>>;
-template class MultilinearBatchingVerifierInternal<MultilinearBatchingRecursiveFlavor_<4>>;
-template class MultilinearBatchingVerifierInternal<MultilinearBatchingRecursiveFlavor_<5>>;
-static_assert(CHONK_MAX_CLAIMS_PER_KERNEL == 5,
-              "Per-kernel batching verifier instantiations must cover every width up to CHONK_MAX_CLAIMS_PER_KERNEL");
 
 template <bool IsRecursive_>
 MultilinearBatchingVerifier<IsRecursive_>::MultilinearBatchingVerifier(const std::shared_ptr<Transcript>& transcript)
@@ -152,20 +153,19 @@ template <bool IsRecursive_>
 std::pair<bool, typename MultilinearBatchingVerifier<IsRecursive_>::VerifierClaim> MultilinearBatchingVerifier<
     IsRecursive_>::verify_proof(const std::vector<VerifierClaim>& claims)
 {
-    switch (claims.size()) {
-    case 2:
-        return verify_with_width<2>(claims);
-    case 3:
-        return verify_with_width<3>(claims);
-    case 4:
-        return verify_with_width<4>(claims);
-    case 5:
-        return verify_with_width<5>(claims);
+    // Dispatch the runtime claim count to the matching compile-time width. The range is derived from
+    // CHONK_MAX_CLAIMS_PER_KERNEL, so every supported width is instantiated automatically and bumping the constant
+    // cannot leave a width unhandled.
+    std::optional<std::pair<bool, VerifierClaim>> result;
+    constexpr_for<2, CHONK_MAX_CLAIMS_PER_KERNEL + 1, 1>([&]<size_t Width>() {
+        if (claims.size() == Width) {
+            result = this->template verify_with_width<Width>(claims);
+        }
+    });
+    if (!result.has_value()) {
+        throw_or_abort("MultilinearBatchingVerifier: unsupported batch width");
     }
-    static_assert(CHONK_MAX_CLAIMS_PER_KERNEL == 5,
-                  "Per-kernel batching width dispatch must cover every width up to CHONK_MAX_CLAIMS_PER_KERNEL");
-    throw_or_abort("MultilinearBatchingVerifier: unsupported batch width");
-    return { false, VerifierClaim{} };
+    return std::move(*result);
 }
 
 template class MultilinearBatchingVerifier<false>;

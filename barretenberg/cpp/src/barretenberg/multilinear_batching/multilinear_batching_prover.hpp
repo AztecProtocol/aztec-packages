@@ -14,7 +14,7 @@
 namespace bb {
 
 /**
- * @brief Internal prover for one per-kernel multilinear batching proof of fixed width.
+ * @brief Internal prover for multilinear batching sumcheck over a fixed number of claims.
  * @details Templated on the flavor, whose NUM_CLAIMS fixes the batching width at compile time. A family of widths
  * (2 .. CHONK_MAX_CLAIMS_PER_KERNEL) is instantiated so each kernel uses the circuit that exactly fits its group. Not
  * called directly: the public MultilinearBatchingProver routes to the correctly-instantiated internal prover
@@ -43,11 +43,15 @@ template <typename Flavor_> class MultilinearBatchingProverInternal {
     SumcheckOutput<Flavor> sumcheck_output;
 
   private:
+    // γ: separates the input claims so the single sumcheck proves each P_i(u_i) = e_i (drawn before sumcheck).
     FF claim_batching_challenge = FF(0);
+    // ρ: merges the output claims into a single accumulator (drawn after sumcheck, once the claimed evaluations are
+    // bound to the transcript, so the combined opening binds each P_i(r) individually).
+    FF claim_merge_challenge = FF(0);
 };
 
 /**
- * @brief Public entrypoint for per-kernel multilinear batching.
+ * @brief Public entrypoint for multilinear batching.
  * @details Holds the claims to batch and, on construct_proof(), routes to the internal prover of the width matching the
  * runtime claim count. The new accumulator claim is cached and returned by compute_new_claim().
  */

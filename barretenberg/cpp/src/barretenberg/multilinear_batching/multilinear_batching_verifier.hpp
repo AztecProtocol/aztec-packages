@@ -15,7 +15,7 @@
 namespace bb {
 
 /**
- * @brief Internal verifier for one per-kernel multilinear batching sumcheck of fixed width NUM_CLAIMS.
+ * @brief Internal verifier for multilinear batching sumcheck over a fixed number of claims.
  * @details The claims being batched are supplied in memory (the caller produced them via instance_to_accumulator);
  * they are not read from the proof. The batching challenge is drawn from the shared transcript, whose state already
  * commits to those claims via the group's instance sumchecks, so no separate hashing is required. The proof carries
@@ -58,7 +58,7 @@ template <typename Flavor_> class MultilinearBatchingVerifierInternal {
 };
 
 /**
- * @brief Public entrypoint for per-kernel multilinear batching verification.
+ * @brief Public entrypoint for multilinear batching verification.
  * @details Templated only on the native/recursive axis (a compile-time caller choice). verify_proof() routes on the
  * runtime claim count to the internal verifier of the matching width.
  */

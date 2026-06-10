@@ -13,11 +13,11 @@ namespace bb {
 /**
  * @brief Relation for the multilinear batching sumcheck.
  *
- * @details The prover supplies exactly NumClaims accumulator claims, already scaled by a Fiat-Shamir slot batching
- * challenge. The sumcheck proves
+ * @details The prover supplies exactly NumClaims accumulator claims. The batching challenge γ enters as a public
+ * per-slot coefficient (`relation_parameters.gamma`, with slot i weighted by γ^i), so the sumcheck proves
  *
- *   Σ_i γ^i · P_i(r_i)       = Σ_x Σ_i (γ^i · P_i(x))       · eq(x, r_i)
- *   Σ_i γ^i · P_i_shift(r_i) = Σ_x Σ_i (γ^i · P_i_shift(x)) · eq(x, r_i)
+ *   Σ_i γ^i · P_i(r_i)       = Σ_x Σ_i γ^i · P_i(x)       · eq(x, r_i)
+ *   Σ_i γ^i · P_i_shift(r_i) = Σ_x Σ_i γ^i · P_i_shift(x) · eq(x, r_i)
  *
  * and the sumcheck verifier batches the two identities with its standard alpha separator.
  */
@@ -45,20 +45,19 @@ template <typename FF_, size_t NumClaims> class MultilinearBatchingRelationImpl 
     template <typename ContainerOverSubrelations, typename AllEntities>
     static void accumulate(ContainerOverSubrelations& evals,
                            const AllEntities& in,
-                           [[maybe_unused]] const RelationParameters<FF>& relation_parameters = {},
+                           const RelationParameters<FF>& relation_parameters = {},
                            [[maybe_unused]] const FF& scaling_factor = {})
     {
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
 
+        // The batching challenge γ lives in `gamma`; the i-th polynomial i is weighted by γ^i.
+        const FF& gamma = relation_parameters.gamma;
+        FF gamma_pow = FF(1);
         for (size_t idx = 0; idx < NumClaims; ++idx) {
-            if constexpr (!requires { typename FF::Builder; }) {
-                if ((in.non_shifted(idx).is_zero() && in.shifted(idx).is_zero()) || in.eq(idx).is_zero()) {
-                    continue;
-                }
-            }
-            const auto eq = Accumulator(in.eq(idx));
+            const auto eq = Accumulator(in.eq(idx)) * gamma_pow;
             std::get<0>(evals) += Accumulator(in.non_shifted(idx)) * eq;
             std::get<1>(evals) += Accumulator(in.shifted(idx)) * eq;
+            gamma_pow *= gamma;
         }
     };
 };
