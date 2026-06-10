@@ -1,8 +1,5 @@
 use crate::{
-    macros::utils::{
-        compute_struct_selector, derive_serialize_if_not_implemented, emit_error,
-        get_trait_impl_method,
-    },
+    macros::utils::{compute_struct_selector, derive_serialize_if_not_implemented, get_trait_impl_method},
     utils::cmap::CHashMap,
 };
 
@@ -15,10 +12,13 @@ comptime fn register_authorization(authorization_selector: Field, authorization_
     if existing_authorization.is_some() {
         let existing_authorization = existing_authorization.unwrap().name();
         let authorization_name = authorization_struct.name();
-        emit_error(
+        // Kept as a halting `panic`: unlike the function validators, the `#[authorization]` macro's generated
+        // interface references `crate::authwit::*` paths that do not resolve from a downstream crate, so it emits a
+        // cascade of resolution errors regardless (tracked separately as F-580). Continuing past the collision would
+        // only duplicate that cascade for the second authorization without adding any new signal.
+        panic(
             f"Selector collision detected between authorizations '{authorization_name}' and '{existing_authorization}'",
-            authorization_struct.location(),
-        );
+        )
     }
     AUTH_TYPES.insert(authorization_selector, authorization_struct);
 }

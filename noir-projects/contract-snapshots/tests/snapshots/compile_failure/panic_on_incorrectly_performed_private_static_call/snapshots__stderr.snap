@@ -2,25 +2,15 @@
 source: tests/snapshots.rs
 expression: stderr
 ---
-error: Could not resolve 'ZERO' in path
-   ┌─ src/main.nr:3:1
-   │
- 3 │ #[aztec]
-   │ -------- While running this function attribute
-   ·
-18 │         PanicOnIncorrectlyPerformedPrivateStaticCall::at(AztecAddress::ZERO)
-   │                                                                        ----
-   │
-
 error: Your private static call needs to be passed into the `self.view(...)` method to be executed (e.g. `self.view(MyContract::at(address).my_private_static_function(...args))`
    ┌─ src/main.nr:3:1
    │  
  3 │   #[aztec]
    │   -------- While running this function attribute
    ·  
-18 │ ╭         PanicOnIncorrectlyPerformedPrivateStaticCall::at(AztecAddress::ZERO)
+18 │ ╭         PanicOnIncorrectlyPerformedPrivateStaticCall::at(AztecAddress::zero())
 19 │ │             .arbitrary_view_function();
    │ ╰──────────────────────────────────────' Unused expression result of type PrivateStaticCall<23, 0, Field> which must be used
    │  
 
-Aborting due to 2 previous errors
+Aborting due to 1 previous error

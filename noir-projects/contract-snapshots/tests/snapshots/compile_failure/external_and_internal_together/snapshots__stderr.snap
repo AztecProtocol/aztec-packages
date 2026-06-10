@@ -9,11 +9,4 @@ error: The #[internal] attribute cannot be applied to external functions - foo i
    │        ---
    │
 
-error: Function already resolved
-   ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/internals_functions_generation/internal.nr:<line>:<col>
-   │
-   │     let body = f.body();
-   │                -------- The function was previously called at compile-time or is in another crate
-   │
-
-Aborting due to 2 previous errors
+Aborting due to 1 previous error

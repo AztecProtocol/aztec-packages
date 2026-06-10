@@ -1,0 +1,23 @@
+---
+source: tests/snapshots.rs
+expression: stderr
+---
+error: NoteWithoutPackable does not implement Packable trait. Either implement it manually or place #[derive(Packable)] on the note struct before #[note] macro invocation.
+   ┌─ src/note_without_packable.nr:8:1
+   │  
+ 8 │ ╭ pub struct NoteWithoutPackable {
+ 9 │ │     value: Field,
+10 │ │ }
+   │ ╰─'
+   │  
+
+error: CustomNoteWithoutPackable does not implement Packable trait. Either implement it manually or place #[derive(Packable)] on the note struct before #[note] macro invocation.
+   ┌─ src/note_without_packable.nr:13:1
+   │  
+13 │ ╭ pub struct CustomNoteWithoutPackable {
+14 │ │     value: Field,
+15 │ │ }
+   │ ╰─'
+   │  
+
+Aborting due to 2 previous errors

@@ -193,21 +193,27 @@ comptime fn generate_note_properties(s: TypeDefinition) -> Quoted {
 /// - `generate_note_type_impl()`
 /// - `generate_note_hash_trait_impl()`
 pub comptime fn note(s: TypeDefinition) -> Quoted {
-    assert_has_packable(s);
+    if !assert_has_packable(s) {
+        // The generated `NoteType`/`NoteHash` impls reference `<Self as Packable>::N` and
+        // `Packable::pack(self)`, and registering the note makes the #[aztec] macro generate note
+        // processing for it. Both cascade into follow-on missing-impl errors on top of the diagnostic
+        // emitted above, so we skip registration and generation entirely for an invalid note.
+        quote {}
+    } else {
+        // We register the note in the global `NOTES` BoundedVec because we need that information inside the #[aztec]
+        // macro to generate note processing functionality.
+        NOTES.push(s.as_type());
 
-    // We register the note in the global `NOTES` BoundedVec because we need that information inside the #[aztec] macro
-    // to generate note processing functionality.
-    NOTES.push(s.as_type());
+        let note_properties = generate_note_properties(s);
+        let note_type_id = get_next_note_type_id();
+        let note_type_impl = generate_note_type_impl(s, note_type_id);
+        let note_hash_impl = generate_note_hash_trait_impl(s);
 
-    let note_properties = generate_note_properties(s);
-    let note_type_id = get_next_note_type_id();
-    let note_type_impl = generate_note_type_impl(s, note_type_id);
-    let note_hash_impl = generate_note_hash_trait_impl(s);
-
-    quote {
-        $note_properties
-        $note_type_impl
-        $note_hash_impl
+        quote {
+            $note_properties
+            $note_type_impl
+            $note_hash_impl
+        }
     }
 }
 
@@ -253,34 +259,42 @@ pub comptime fn note(s: TypeDefinition) -> Quoted {
 /// }
 /// ```
 pub comptime fn custom_note(s: TypeDefinition) -> Quoted {
-    assert_has_packable(s);
+    if !assert_has_packable(s) {
+        // See `note`: the generated `NoteType` impl references `<Self as Packable>::N` and registering
+        // the note drives #[aztec] note-processing generation, both of which would cascade into
+        // follow-on missing-impl errors. Skip registration and generation for an invalid note.
+        quote {}
+    } else {
+        // We register the note in the global `NOTES` BoundedVec because we need that information inside the #[aztec]
+        // macro to generate note processing functionality.
+        NOTES.push(s.as_type());
 
-    // We register the note in the global `NOTES` BoundedVec because we need that information inside the #[aztec] macro
-    // to generate note processing functionality.
-    NOTES.push(s.as_type());
+        let note_type_id = get_next_note_type_id();
+        let note_properties = generate_note_properties(s);
+        let note_type_impl = generate_note_type_impl(s, note_type_id);
 
-    let note_type_id = get_next_note_type_id();
-    let note_properties = generate_note_properties(s);
-    let note_type_impl = generate_note_type_impl(s, note_type_id);
-
-    quote {
-        $note_properties
-        $note_type_impl
+        quote {
+            $note_properties
+            $note_type_impl
+        }
     }
 }
 
-/// Asserts that the given note implements the [`Packable`](crate::protocol::traits::Packable) trait.
+/// Returns `true` if the given note implements the [`Packable`](crate::protocol::traits::Packable) trait, otherwise
+/// emits a non-halting error and returns `false`.
 ///
 /// We require that notes have the `Packable` trait implemented because it is used when emitting a note in a log or as
 /// an offchain message.
-comptime fn assert_has_packable(note: TypeDefinition) {
+comptime fn assert_has_packable(note: TypeDefinition) -> bool {
     let packable_constraint = quote { crate::protocol::traits::Packable }.as_trait_constraint();
     let note_name = note.name();
 
-    if !note.as_type().implements(packable_constraint) {
+    let has_packable = note.as_type().implements(packable_constraint);
+    if !has_packable {
         emit_error(
             f"{note_name} does not implement Packable trait. Either implement it manually or place #[derive(Packable)] on the note struct before #[note] macro invocation.",
             note.location(),
         );
     }
+    has_packable
 }

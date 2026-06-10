@@ -2,7 +2,6 @@
 source: tests/snapshots.rs
 expression: stdout
 ---
-
 use aztec::macros::aztec;
 use aztec::macros::aztec;
 
@@ -116,6 +115,34 @@ pub contract Token {
     #[contract_library_method]
     fn private_get_decimals() -> pub u8;
 
+    #[deprecated(deny, "Direct invocation of public functions is not supported. You attempted to call get_admin. See https://docs.aztec.network/errors/6")]
+    #[contract_library_method]
+    fn get_admin() -> Field;
+
+    #[deprecated(deny, "Direct invocation of public functions is not supported. You attempted to call is_minter. See https://docs.aztec.network/errors/6")]
+    #[contract_library_method]
+    fn is_minter(minter: AztecAddress) -> bool;
+
+    #[deprecated(deny, "Direct invocation of public functions is not supported. You attempted to call total_supply. See https://docs.aztec.network/errors/6")]
+    #[contract_library_method]
+    fn total_supply() -> u128;
+
+    #[deprecated(deny, "Direct invocation of public functions is not supported. You attempted to call balance_of_public. See https://docs.aztec.network/errors/6")]
+    #[contract_library_method]
+    fn balance_of_public(owner: AztecAddress) -> u128;
+
+    #[deprecated(deny, "Direct invocation of public functions is not supported. You attempted to call set_minter. See https://docs.aztec.network/errors/6")]
+    #[contract_library_method]
+    fn set_minter(minter: AztecAddress, approve: bool);
+
+    #[deprecated(deny, "Direct invocation of public functions is not supported. You attempted to call mint_to_public. See https://docs.aztec.network/errors/6")]
+    #[contract_library_method]
+    fn mint_to_public(to: AztecAddress, amount: u128);
+
+    #[deprecated(deny, "Direct invocation of public functions is not supported. You attempted to call transfer_in_public. See https://docs.aztec.network/errors/6")]
+    #[contract_library_method]
+    fn transfer_in_public(from: AztecAddress, to: AztecAddress, amount: u128, authwit_nonce: Field);
+
     #[abi(storage)]
     pub global STORAGE_LAYOUT_Token: StorageLayout<5> = StorageLayout::<5> {
         contract_name: "Token",
@@ -146,34 +173,6 @@ pub contract Token {
             },
         },
     };
-
-    #[deprecated(deny, "Direct invocation of public functions is not supported. You attempted to call get_admin. See https://docs.aztec.network/errors/6")]
-    #[contract_library_method]
-    fn get_admin() -> Field;
-
-    #[deprecated(deny, "Direct invocation of public functions is not supported. You attempted to call is_minter. See https://docs.aztec.network/errors/6")]
-    #[contract_library_method]
-    fn is_minter(minter: AztecAddress) -> bool;
-
-    #[deprecated(deny, "Direct invocation of public functions is not supported. You attempted to call total_supply. See https://docs.aztec.network/errors/6")]
-    #[contract_library_method]
-    fn total_supply() -> u128;
-
-    #[deprecated(deny, "Direct invocation of public functions is not supported. You attempted to call balance_of_public. See https://docs.aztec.network/errors/6")]
-    #[contract_library_method]
-    fn balance_of_public(owner: AztecAddress) -> u128;
-
-    #[deprecated(deny, "Direct invocation of public functions is not supported. You attempted to call set_minter. See https://docs.aztec.network/errors/6")]
-    #[contract_library_method]
-    fn set_minter(minter: AztecAddress, approve: bool);
-
-    #[deprecated(deny, "Direct invocation of public functions is not supported. You attempted to call mint_to_public. See https://docs.aztec.network/errors/6")]
-    #[contract_library_method]
-    fn mint_to_public(to: AztecAddress, amount: u128);
-
-    #[deprecated(deny, "Direct invocation of public functions is not supported. You attempted to call transfer_in_public. See https://docs.aztec.network/errors/6")]
-    #[contract_library_method]
-    fn transfer_in_public(from: AztecAddress, to: AztecAddress, amount: u128, authwit_nonce: Field);
 
     #[deprecated(deny, "Direct invocation of public functions is not supported. You attempted to call burn_public. See https://docs.aztec.network/errors/6")]
     #[contract_library_method]

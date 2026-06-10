@@ -9,7 +9,7 @@ pub contract PanicOnIncorrectlyPerformedPublicCall {
 
     #[external("public")]
     fn call_public_function_without_call() {
-        PanicOnIncorrectlyPerformedPublicCall::at(AztecAddress::ZERO).arbitrary_public_function();
+        PanicOnIncorrectlyPerformedPublicCall::at(AztecAddress::zero()).arbitrary_public_function();
     }
 }
 
