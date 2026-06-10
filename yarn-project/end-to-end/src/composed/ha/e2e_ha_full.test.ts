@@ -21,7 +21,7 @@ import { Buffer32 } from '@aztec/foundation/buffer';
 import { SecretValue } from '@aztec/foundation/config';
 import { withLoggerBindings } from '@aztec/foundation/log/server';
 import { retryUntil } from '@aztec/foundation/retry';
-import { sleep } from '@aztec/foundation/sleep';
+import { InterruptibleSleep, sleep } from '@aztec/foundation/sleep';
 import type { TestDateProvider } from '@aztec/foundation/timer';
 import { GovernanceProposerAbi } from '@aztec/l1-artifacts/GovernanceProposerAbi';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
@@ -122,6 +122,7 @@ async function waitForTriggerTx(node: AztecNode, txHash: TxHash): Promise<TxRece
 
 async function setDateProviderToNextBlockSlot(
   node: AztecNode,
+  ethCheatCodes: EthCheatCodes,
   dateProvider: TestDateProvider,
   aztecSlotDuration: number,
 ): Promise<void> {
@@ -130,22 +131,15 @@ async function setDateProviderToNextBlockSlot(
     throw new Error('Could not load latest block for HA trigger tx');
   }
 
-  const nextBlockTimestamp = latestBlock.header.globalVariables.timestamp + BigInt(aztecSlotDuration);
-  dateProvider.setTime(Number(nextBlockTimestamp) * 1000);
-}
-
-async function sendTriggerTx(
-  wallet: TestWallet,
-  node: AztecNode,
-  testContract: TestContract,
-  from: AztecAddress,
-  syncL1Data: () => Promise<void>,
-  alignTimeToNextBlockSlot: () => Promise<void>,
-): Promise<TxReceipt> {
-  await alignTimeToNextBlockSlot();
-  const txHash = await submitTriggerTx(wallet, testContract, from);
-  await syncL1Data();
-  return await waitForTriggerTx(node, txHash);
+  // Jump to the next L2 slot boundary that also covers the L1 chain clock. The compose anvil mines
+  // blocks only on demand (no interval mining), so its chain timestamp moves independently of the test
+  // clock and may sit several slots past the latest L2 block. Aligning blindly to `latest block + 1
+  // slot` can rewind the test clock below L1 time, making sequencers (which schedule on the test
+  // clock) build proposals for slots that have already expired on L1.
+  const latestBlockTimestamp = Number(latestBlock.header.globalVariables.timestamp);
+  const nextL1Timestamp = await ethCheatCodes.nextBlockTimestamp();
+  const slotsAhead = Math.max(1, Math.ceil((nextL1Timestamp - latestBlockTimestamp) / aztecSlotDuration));
+  dateProvider.setTime((latestBlockTimestamp + slotsAhead * aztecSlotDuration) * 1000);
 }
 
 // TODO: re-enable once HA block building is reconciled with the always-enforced timetable (#23821).
@@ -200,9 +194,25 @@ describe.skip('HA Full Setup', () => {
     logger.info('All HA peer sequencers started');
   };
 
+  /**
+   * Mines as many L1 blocks as needed to bring anvil's chain clock up to the test clock, never past
+   * it. The compose anvil runs in automine with a +ethereumSlotDuration timestamp interval per block
+   * and no interval mining, so L1 chain time stands still unless a tx lands or we mine here — this is
+   * the suite's only L1 heartbeat. Overshooting the test clock is as harmful as falling behind:
+   * sequencers schedule proposals on the test clock, and a proposal mined after its target slot has
+   * expired on L1 is silently dropped, pruning the pending block it carried.
+   */
+  const advanceL1ChainTimeToTestClock = async () => {
+    const nextL1Timestamp = await ethCheatCodes.nextBlockTimestamp();
+    const testClockNow = Math.floor(dateProvider.now() / 1000);
+    const blocksToMine = Math.floor((testClockNow - nextL1Timestamp) / config.ethereumSlotDuration) + 1;
+    if (blocksToMine > 0) {
+      await ethCheatCodes.mine(blocksToMine);
+    }
+  };
+
   const syncHAL1Data = async () => {
-    const l1BlocksPerSyncNudge = Math.ceil((config.aztecSlotDuration * 2) / config.ethereumSlotDuration);
-    await ethCheatCodes.mine(l1BlocksPerSyncNudge);
+    await advanceL1ChainTimeToTestClock();
     await Promise.all(
       haNodeServices.map(async service => {
         try {
@@ -220,7 +230,49 @@ describe.skip('HA Full Setup', () => {
   };
 
   const alignDateProviderToNextBlockSlot = async () => {
-    await setDateProviderToNextBlockSlot(aztecNode, dateProvider, config.aztecSlotDuration);
+    await setDateProviderToNextBlockSlot(aztecNode, ethCheatCodes, dateProvider, config.aztecSlotDuration);
+  };
+
+  /**
+   * Waits for the trigger tx to be checkpointed while emulating a self-advancing L1, nudging chain
+   * time and archiver sync once per L1 slot of wall time. Without the heartbeat, L1 time freezes
+   * while the test thread is blocked here (nothing mines on the on-demand compose anvil), the
+   * proposers' archiver-sync gate — whose deadline runs on the free-running test clock — can then
+   * never pass, and a single missed slot becomes an unrecoverable stall until the jest timeout.
+   */
+  const waitForTriggerTxWithL1Heartbeat = async (txHash: TxHash): Promise<TxReceipt> => {
+    let waiting = true;
+    const heartbeatSleep = new InterruptibleSleep();
+    const heartbeat = (async () => {
+      while (waiting) {
+        await heartbeatSleep.sleep(config.ethereumSlotDuration * 1000);
+        if (!waiting) {
+          break;
+        }
+        try {
+          await syncHAL1Data();
+        } catch (error) {
+          logger.debug('Error advancing L1 time while awaiting trigger tx', {
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+    })();
+
+    try {
+      return await waitForTriggerTx(aztecNode, txHash);
+    } finally {
+      waiting = false;
+      heartbeatSleep.interrupt();
+      await heartbeat;
+    }
+  };
+
+  const sendTriggerTx = async (): Promise<TxReceipt> => {
+    await alignDateProviderToNextBlockSlot();
+    const txHash = await submitTriggerTx(wallet, testContract, ownerAddress);
+    await syncHAL1Data();
+    return await waitForTriggerTxWithL1Heartbeat(txHash);
   };
 
   const stopHANode = async (nodeIndex: number) => {
@@ -510,7 +562,7 @@ describe.skip('HA Full Setup', () => {
     dateProvider.setTime(dateProvider.now() - config.aztecSlotDuration * 1000);
     await startHASequencers();
     await syncHAL1Data();
-    const receipt = await waitForTriggerTx(aztecNode, txHash);
+    const receipt = await waitForTriggerTxWithL1Heartbeat(txHash);
 
     expect(receipt.blockNumber).toBeDefined();
     logger.info(`Trigger tx checkpointed in block ${receipt.blockNumber}`);
@@ -625,14 +677,7 @@ describe.skip('HA Full Setup', () => {
 
     // Send a transaction to trigger block building which will also trigger voting
     logger.info('Sending transaction to trigger block building...');
-    const receipt = await sendTriggerTx(
-      wallet,
-      aztecNode,
-      testContract,
-      ownerAddress,
-      syncHAL1Data,
-      alignDateProviderToNextBlockSlot,
-    );
+    const receipt = await sendTriggerTx();
     expect(receipt.blockNumber).toBeDefined();
     logger.info(`Transaction mined in block ${receipt.blockNumber}`);
 
@@ -815,14 +860,7 @@ describe.skip('HA Full Setup', () => {
         verifyNodeAttesters(i, i < 3 ? groupB : groupA, i < 3 ? 'group B (swapped)' : 'group A (swapped)');
       }
 
-      const receipt = await sendTriggerTx(
-        wallet,
-        aztecNode,
-        testContract,
-        ownerAddress,
-        syncHAL1Data,
-        alignDateProviderToNextBlockSlot,
-      );
+      const receipt = await sendTriggerTx();
       expect(receipt.blockNumber).toBeDefined();
       const [block] = await aztecNode.getBlocks(receipt.blockNumber!, 1, {
         includeL1PublishInfo: true,
@@ -865,14 +903,7 @@ describe.skip('HA Full Setup', () => {
       logger.info(`\n=== Producing block ${i + 1}/${blockCount} ===`);
       logger.info(`Active nodes: ${haNodeServices.length - killedNodes.length}/${NODE_COUNT}`);
 
-      const receipt = await sendTriggerTx(
-        wallet,
-        aztecNode,
-        testContract,
-        ownerAddress,
-        syncHAL1Data,
-        alignDateProviderToNextBlockSlot,
-      );
+      const receipt = await sendTriggerTx();
 
       expect(receipt.blockNumber).toBeDefined();
 
