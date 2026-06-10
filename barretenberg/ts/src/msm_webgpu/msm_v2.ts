@@ -443,13 +443,19 @@ export interface MsmConfig {
    */
   preprocessV2?: boolean;
   /**
-   * pp2 fusion lever (only meaningful with {@link preprocessV2}): when true
-   * (default) the K1 count pass skips the digit write and the K2 scatter
-   * recomputes each Booth digit from the scalar bits — the digit array is
-   * never materialized, deleting a 10.5 MB write + 10.5 MB read at logn=17.
-   * Set false to A/B the materialized-digit variant.
+   * pp2 K2 scatter variant (only meaningful with {@link preprocessV2}):
+   * - 'fused' (default): K1 is count-only; K2 recomputes each Booth digit
+   *   from the scalar bits and routes entries through workgroup reorder
+   *   staging so every DRAM write is a full line. The 10.5 MB digit array is
+   *   never materialized.
+   * - 'materialized': K1 writes the digit array; K2 reads it (staged writes).
+   *   Wins on GPUs with a large last-level cache (M-series) where the digit
+   *   traffic is nearly free and the fused variant's scalar re-reads lose.
+   * - 'direct': fused digits + one shared-cursor claim and one direct global
+   *   write per point — no staging. Targets GPUs whose workgroup memory is
+   *   cache-emulated (Mali), where the staging machinery itself dominates.
    */
-  preprocessV2Fuse?: boolean;
+  preprocessV2Variant?: 'fused' | 'materialized' | 'direct';
 }
 
 /** Per-pass GPU time (ms) for one `run()`, returned when `profile` is set. */
@@ -2007,7 +2013,7 @@ export class MsmV2 {
   // create() only when the flag is on AND the create-time schedule is uniform;
   // pp2Active gates dispatch per prepare (single batch, no region split).
   private pp2Enabled = false;
-  private pp2Fused = true;
+  private pp2Variant: 'fused' | 'materialized' | 'direct' = 'fused';
   private pp2Active = false;
   private pp2DigitCountPipe?: GPUComputePipeline;
   private pp2ScanPipe?: GPUComputePipeline;
@@ -2429,9 +2435,9 @@ export class MsmV2 {
       if (m.pp2Enabled) {
         m.pp2BinShift = shift;
         m.pp2BinsP = binsP;
-        m.pp2Fused = config?.preprocessV2Fuse ?? true;
+        m.pp2Variant = config?.preprocessV2Variant ?? 'fused';
         console.log(
-          `[MsmV2] preprocessV2 enabled: shift=${shift} binsP=${binsP} fused=${m.pp2Fused} (n=${n} c=${m.c} NW=${m.numWindows})`,
+          `[MsmV2] preprocessV2 enabled: shift=${shift} binsP=${binsP} k2=${m.pp2Variant} (n=${n} c=${m.c} NW=${m.numWindows})`,
         );
       } else {
         console.warn(`[MsmV2] preprocessV2 requested but ineligible at n=${n} c=${m.c} — using classic preprocess`);
@@ -2982,18 +2988,18 @@ export class MsmV2 {
       // Fused mode (default): K1 is count-only and K2 recomputes digits from
       // the scalars — the 10.5 MB digit array is never materialized.
       m.pp2DigitCountPipe = await compile(
-        sm.gen_pp2_digit_count_shader(256, m.windowCs, m.pp2BinShift, m.pp2BinsP, !m.pp2Fused),
+        sm.gen_pp2_digit_count_shader(256, m.windowCs, m.pp2BinShift, m.pp2BinsP, m.pp2Variant === 'materialized'),
         `pp2-digit-count`,
         m.pp2DigitCountLayout,
       );
       m.pp2ScanPipe = await compile(sm.gen_pp2_bin_scan_shader(), `pp2-bin-scan`, m.pp2ScanLayout);
-      m.pp2ScatterPipe = await compile(
-        m.pp2Fused
-          ? sm.gen_pp2_bin_scatter_fused_shader(256, m.pp2BinsP, m.pp2BinShift, m.c)
-          : sm.gen_pp2_bin_scatter_shader(256, m.pp2BinsP, m.pp2BinShift),
-        `pp2-bin-scatter`,
-        m.pp2ScatterLayout,
-      );
+      const scatterSrc =
+        m.pp2Variant === 'materialized'
+          ? sm.gen_pp2_bin_scatter_shader(256, m.pp2BinsP, m.pp2BinShift)
+          : m.pp2Variant === 'direct'
+            ? sm.gen_pp2_bin_scatter_direct_shader(256, m.pp2BinsP, m.pp2BinShift, m.c)
+            : sm.gen_pp2_bin_scatter_fused_shader(256, m.pp2BinsP, m.pp2BinShift, m.c);
+      m.pp2ScatterPipe = await compile(scatterSrc, `pp2-bin-scatter`, m.pp2ScatterLayout);
       m.pp2SortEmitPipe = await compile(
         sm.gen_pp2_bin_sort_emit_shader(256, m.pp2BinShift),
         `pp2-bin-sort-emit`,
@@ -4105,10 +4111,10 @@ export class MsmV2 {
       const binCounts = scratch.ppvBinCounts;
       this.pp2DigitCountBind = mkBind(this.pp2DigitCountLayout, [scalarsRawBuf, bucketAndSignBuf, binCounts, pp2Params]);
       this.pp2ScanBind = mkBind(this.pp2ScanLayout, [binCounts, pointOffsetsBuf, pp2Params]);
-      // Fused: K2 reads the scalars and recomputes digits; classic: K2 reads
-      // the digit array K1 materialized.
+      // fused/direct: K2 reads the scalars and recomputes digits;
+      // materialized: K2 reads the digit array K1 wrote.
       this.pp2ScatterBind = mkBind(this.pp2ScatterLayout, [
-        this.pp2Fused ? scalarsRawBuf : bucketAndSignBuf,
+        this.pp2Variant === 'materialized' ? bucketAndSignBuf : scalarsRawBuf,
         binCounts,
         valIdxBuf,
         pp2Params,
@@ -4899,13 +4905,13 @@ export class MsmV2 {
       if (this.pp2Active) {
         dispatch(this.pp2DigitCountPipe!, this.pp2DigitCountBind!, this.pp2NumTiles, 1);
         dispatch(this.pp2ScanPipe!, this.pp2ScanBind!, tbw, 1);
-        // Fused scatter dispatches windows on x (the fast axis) so the ~NW
-        // workgroups sharing one point-tile's scalars run adjacently and hit
-        // L2; the materialized variant keeps tiles on x.
-        if (this.pp2Fused) {
-          dispatch(this.pp2ScatterPipe!, this.pp2ScatterBind!, tbw, this.pp2NumTiles);
-        } else {
+        // fused/direct scatter dispatches windows on x (the fast axis) so the
+        // ~NW workgroups sharing one point-tile's scalars run adjacently and
+        // hit L2; the materialized variant keeps tiles on x.
+        if (this.pp2Variant === 'materialized') {
           dispatch(this.pp2ScatterPipe!, this.pp2ScatterBind!, this.pp2NumTiles, tbw);
+        } else {
+          dispatch(this.pp2ScatterPipe!, this.pp2ScatterBind!, tbw, this.pp2NumTiles);
         }
         dispatch(this.pp2SortEmitPipe!, this.pp2SortEmitBind!, this.pp2BinsP, tbw);
       } else

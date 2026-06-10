@@ -62,6 +62,7 @@ import {
   pp2_bin_scan as pp2_bin_scan_shader,
   pp2_bin_scatter as pp2_bin_scatter_shader,
   pp2_bin_scatter_fused as pp2_bin_scatter_fused_shader,
+  pp2_bin_scatter_direct as pp2_bin_scatter_direct_shader,
   pp2_bin_sort_emit as pp2_bin_sort_emit_shader,
   ba_fused_super_bench as ba_fused_super_bench_shader,
   ba_fused_tail_coop as ba_fused_tail_coop_shader,
@@ -555,6 +556,31 @@ ${packLines.join('\n')}
         bins_p: binsP,
         bin_shift: binShift,
         ppt,
+        c,
+        mask_c: (1 << c) - 1,
+        mask_c1: (1 << (c + 1)) - 1,
+        recompile: this.recompile,
+      },
+      {},
+    );
+  }
+
+  /**
+   * pp2 K2 (direct) — fused digit recompute + direct bin-cursor scatter, no
+   * reorder staging. Targets GPUs whose workgroup memory is cache-emulated
+   * (Mali), where the staging machinery costs more than the line efficiency
+   * it buys.
+   */
+  public gen_pp2_bin_scatter_direct_shader(workgroup_size: number, binsP: number, binShift: number, c: number): string {
+    if (c < 2 || c > 15) {
+      throw new Error(`gen_pp2_bin_scatter_direct_shader: c ${c} out of range`);
+    }
+    return mustache.render(
+      pp2_bin_scatter_direct_shader,
+      {
+        workgroup_size,
+        bins_p: binsP,
+        bin_shift: binShift,
         c,
         mask_c: (1 << c) - 1,
         mask_c1: (1 << (c + 1)) - 1,
