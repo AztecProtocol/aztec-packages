@@ -302,7 +302,6 @@ export interface MsmConfig {
    *  device-validated register-resident CIOS variant (−26% on Mali-G715, BN254 only). */
   montmul?: MontMulVariant;
   /** ba_fused_super 8×u32 fr_add/fr_sub: 'native' or 'unpack'-repack. Default 'native'. */
-  addsub?: 'native' | 'unpack';
   /** Record per-pass GPU timestamps in `run()` (needs the `timestamp-query` feature). */
   profile?: boolean;
   /** Phase-2 hook — Jacobian-crossover threshold. Accepted but inert in Phase 1. */
@@ -1793,7 +1792,7 @@ export class MsmV2Pool {
     const pool = new MsmV2Pool(srsN, poolX, poolY, device);
 
     const sm = new ShaderManager(4, srsN, BN254_CURVE_CONFIG, false);
-    const code = sm.gen_convert_points_only_shader(workgroupSize, numYWorkgroups, /* packed */ true);
+    const code = sm.gen_convert_points_only_shader(workgroupSize, numYWorkgroups);
     const layout = pool.cache.getLayout(['read-only-storage', 'read-only-storage', 'storage', 'storage', 'uniform']);
     const pipeline = await pool.cache.getPipeline(code, layout, 'convert-points-pool');
 
@@ -1933,7 +1932,6 @@ export class MsmV2 {
   private invVariant!: 'loop' | 'pk';
   private pk14Inverse = false;
   private montmul!: MontMulVariant;
-  private addsub: 'native' | 'unpack' = 'native';
   private profile = false;
   private jacobianCrossover = 0;
   // Thread-1 Jacobian reduce: levels with index >= jacFromLevel run the
@@ -2335,7 +2333,6 @@ export class MsmV2 {
     m.invVariant = config?.invVariant ?? DEFAULT_INV_VARIANT;
     m.pk14Inverse = config?.pk14Inverse ?? false;
     m.montmul = config?.montmul ?? 'karat';
-    m.addsub = config?.addsub ?? 'native';
     m.jacobianCrossover = config?.jacobianCrossover ?? 0;
     // High-mem ping-pong is enabled either by the forced flag OR the small-N
     // auto-gate (`pingpongBelow`: use ping-pong when n ≤ threshold). The mode
@@ -2366,7 +2363,7 @@ export class MsmV2 {
       console.warn('[MsmV2] profile requested but timestamp-query unavailable — disabled');
     }
     // Pull the knobs into the local names the rest of create() uses.
-    const { s: S, wgi: WGI, l0Log: L0_LOG, reduceWg: REDUCE_WG, invVariant: INV_VARIANT, addsub: ADDSUB } = m;
+    const { s: S, wgi: WGI, l0Log: L0_LOG, reduceWg: REDUCE_WG, invVariant: INV_VARIANT } = m;
     m.numWindows = m.windowCs ? m.windowCs.length : Math.ceil(NUMBITS / m.c);
     // BW / stride are the ENVELOPE (m.c = max width): every window's red slots
     // are padded to stride and its CSR columns bounded by BW, so the reduce
@@ -2942,13 +2939,13 @@ export class MsmV2 {
       );
       queue(
         p => (m.fusedPipe = p),
-        sm.gen_ba_fused_super_bench_shader(WGI, HIGH_MEM_S, INV_VARIANT, true, false, ADDSUB),
+        sm.gen_ba_fused_super_bench_shader(WGI, HIGH_MEM_S, INV_VARIANT, true, false),
         `fused`,
         m.fusedLayout,
       );
       queue(
         p => (m.fusedPipeL0 = p),
-        sm.gen_ba_fused_super_bench_shader(WGI, HIGH_MEM_S, INV_VARIANT, true, true, ADDSUB),
+        sm.gen_ba_fused_super_bench_shader(WGI, HIGH_MEM_S, INV_VARIANT, true, true),
         `fused-l0`,
         m.fusedLayoutL0,
       );
@@ -2980,7 +2977,7 @@ export class MsmV2 {
     // no SIMT divergence. Replaces the three kind-specialised pipelines.
     queue(
       p => (m.reduceLevelPipes[0] = p),
-      sm.gen_ba_reduce_level_bench_shader(REDUCE_WG, INV_VARIANT, ADDSUB),
+      sm.gen_ba_reduce_level_bench_shader(REDUCE_WG, INV_VARIANT),
       `reduce-level`,
       m.reduceLevelLayout,
     );

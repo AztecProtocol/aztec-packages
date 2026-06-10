@@ -1,4 +1,8 @@
 // u32 Montgomery product via recursive KARATSUBA + YUVAL reduction.
+// Packed 8xu32 interface (montgomery_product_f8): operands and result are
+// the packed 256-bit form; 13-bit limbs are extracted inline with
+// compile-time funnel shifts and the canonical result is packed + reduced
+// in place (P8_* constants come from field8, included in every consumer).
 // Fully unrolled — all indices compile-time constants so WGSL→MSL can
 // SROA the temp slots into registers instead of thread-local memory.
 //
@@ -68,23 +72,16 @@ const P_INV_MOD_2W: u32 = {{ p_inv_mod_2w }}u;
 const R_INV_{{idx}}: u32 = {{val}}u;
 {{/r_inv_consts}}
 
-// The modulus limbs, in the same individual-const form. montgomery_product
+// The modulus limbs, in the same individual-const form. montgomery_product_f8
 // reads these only at compile-time-constant positions (the fully-unrolled
 // standard Montgomery reduce), so the compiler folds them to immediates
 // instead of holding p as a 20-register value live across the whole
-// multiply. get_p() below still materialises p for the rare caller that
-// needs an addressable BigInt (conditional_reduce, the field ops).
+// multiply.
 {{#p_limbs_consts}}
 const P_LIMB_{{idx}}: u32 = {{val}}u;
 {{/p_limbs_consts}}
 
-fn get_p() -> BigInt {
-    var p: BigInt;
-{{{ p_limbs }}}
-    return p;
-}
-
-fn montgomery_product(x_ptr: ptr<function, BigInt>, y_ptr: ptr<function, BigInt>) -> BigInt {
+fn montgomery_product_f8(x: array<u32, 8>, y: array<u32, 8>) -> array<u32, 8> {
     // === Grouped Karatsuba multiply + combine (generated). ===
     // Per half-product (lo / hi / cr) a scoped block computes 3 schoolbook
     // 5×5 sub-products and folds the Karatsuba-combined result straight
@@ -124,26 +121,36 @@ fn montgomery_product(x_ptr: ptr<function, BigInt>, y_ptr: ptr<function, BigInt>
     }
 {{/final_drain}}
 
-    // === Repack canonical limbs into BigInt and return. ===
-    var s: BigInt;
-{{#extract}}
-    s.limbs[{{out_k}}u] = t{{src_slot}};
-{{/extract}}
-
-    return conditional_reduce(&s);
-}
-
-// conditional_reduce runs after the unrolled multiply/reduce, when only `s`
-// is still live — its local `var p` does not overlap the multiply's
-// register peak, so materialising p here is free.
-fn conditional_reduce(x: ptr<function, BigInt>) -> BigInt {
-    var p = get_p();
-    var x_gt_y = bigint_gt(x, &p);
-    var x_eq_y = bigint_eq(x, &p);
-    if (x_gt_y == 1u || x_eq_y) {
-        var res: BigInt;
-        bigint_sub(x, &p, &res);
-        return res;
-    }
-    return *x;
+    // === Pack canonical limbs straight into 8x u32, conditional reduce in
+    // place (subtract p when out >= p; P8_* from field8). BN254 @ 20x13. ===
+    var out: array<u32, 8>;
+    out[0u] = t20 | (t21 << 13u) | (t22 << 26u);
+    out[1u] = (t22 >> 6u) | (t23 << 7u) | (t24 << 20u);
+    out[2u] = (t24 >> 12u) | (t25 << 1u) | (t26 << 14u) | (t27 << 27u);
+    out[3u] = (t27 >> 5u) | (t28 << 8u) | (t29 << 21u);
+    out[4u] = (t29 >> 11u) | (t30 << 2u) | (t31 << 15u) | (t32 << 28u);
+    out[5u] = (t32 >> 4u) | (t33 << 9u) | (t34 << 22u);
+    out[6u] = (t34 >> 10u) | (t35 << 3u) | (t36 << 16u) | (t37 << 29u);
+    out[7u] = (t37 >> 3u) | (t38 << 10u) | (t39 << 23u);
+    var d: array<u32, 8>;
+    var rc: u32;
+    var rt: u32;
+    d[0u] = out[0u] - P8_0; rc = u32(out[0u] < P8_0);
+    rt = out[1u] - P8_1; d[1u] = rt - rc; rc = u32(out[1u] < P8_1) | u32(rt < rc);
+    rt = out[2u] - P8_2; d[2u] = rt - rc; rc = u32(out[2u] < P8_2) | u32(rt < rc);
+    rt = out[3u] - P8_3; d[3u] = rt - rc; rc = u32(out[3u] < P8_3) | u32(rt < rc);
+    rt = out[4u] - P8_4; d[4u] = rt - rc; rc = u32(out[4u] < P8_4) | u32(rt < rc);
+    rt = out[5u] - P8_5; d[5u] = rt - rc; rc = u32(out[5u] < P8_5) | u32(rt < rc);
+    rt = out[6u] - P8_6; d[6u] = rt - rc; rc = u32(out[6u] < P8_6) | u32(rt < rc);
+    rt = out[7u] - P8_7; d[7u] = rt - rc; rc = u32(out[7u] < P8_7) | u32(rt < rc);
+    let dored: bool = rc == 0u;
+    out[0u] = select(out[0u], d[0u], dored);
+    out[1u] = select(out[1u], d[1u], dored);
+    out[2u] = select(out[2u], d[2u], dored);
+    out[3u] = select(out[3u], d[3u], dored);
+    out[4u] = select(out[4u], d[4u], dored);
+    out[5u] = select(out[5u], d[5u], dored);
+    out[6u] = select(out[6u], d[6u], dored);
+    out[7u] = select(out[7u], d[7u], dored);
+    return out;
 }

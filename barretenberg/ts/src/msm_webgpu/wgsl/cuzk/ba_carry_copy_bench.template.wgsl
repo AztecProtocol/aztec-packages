@@ -1,12 +1,7 @@
-{{> structs }}
 {{#l0_index_mode}}
-{{> bigint_funcs }}
-{{> montgomery_product_funcs }}
-{{> field_funcs }}
-
+{{> structs }}
 {{{ dec_unpack }}}
-
-{{{ dec_pack }}}
+{{> field8_funcs }}
 {{/l0_index_mode}}
 
 // Carry-copy kernel for the bin-packed pair-tree MSM bucket-accumulate.
@@ -74,11 +69,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         var w: array<u32, 8>;
         w[0] = q0.x; w[1] = q0.y; w[2] = q0.z; w[3] = q0.w;
         w[4] = q1.x; w[5] = q1.y; w[6] = q1.z; w[7] = q1.w;
-        var y: BigInt = unpack256_to_limbs(w);
         var zw: array<u32, 8>;
-        var zero: BigInt = unpack256_to_limbs(zw);
-        var ny: BigInt = fr_sub(&zero, &y);
-        let nw = pack_limbs_to_256(&ny);
+        let nw = fr_sub_f8(zw, w);
         active_sums_new[dst_y + 0u] = vec4<u32>(nw[0], nw[1], nw[2], nw[3]);
         active_sums_new[dst_y + 1u] = vec4<u32>(nw[4], nw[5], nw[6], nw[7]);
     }

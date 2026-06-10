@@ -24,7 +24,6 @@
 import { bn254 } from '@noble/curves/bn254';
 
 import { get_device } from '../../src/msm_webgpu/cuzk/gpu.js';
-import { runMicrobench } from './microbench.js';
 import { MsmV2, MsmV2Pool, type MsmConfig, pickC, MEM_BUDGET } from '../../src/msm_webgpu/msm_v2.js';
 import { planBatch, computeGeom } from '../../src/msm_webgpu/batch_scheduler.js';
 import { runUnionPacks, type BridgeDescriptor } from '../../src/msm_webgpu/bridge/union_runner.js';
@@ -2846,57 +2845,6 @@ function hideProgress(): void {
     } catch (e) {
       const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
       log('err', `[batch-bench] state=error FATAL: ${msg}`);
-    }
-  } else if (autorun === 'micro') {
-    // Isolated montmul/inverse microbench (profiling harness):
-    //   ?autorun=micro&op=mul|inv&montmul=&pk14=1&chain_k=&threads=&reps=
-    // GPU-only, no WASM/SRS — hold a GPU-counter capture over the run to
-    // attribute one field op's cost independent of MSM geometry.
-    const op: 'mul' | 'inv' = qp.get('op') === 'inv' ? 'inv' : 'mul';
-    const montmul = (gpuKnobs.montmul ?? 'karat') as MsmConfig['montmul'];
-    const pk14 = gpuKnobs.pk14Inverse === true;
-    const chainK = parseInt(qp.get('chain_k') ?? (op === 'inv' ? '6' : '64'), 10);
-    const nthreads = parseInt(qp.get('threads') ?? '65536', 10);
-    const reps = parseInt(qp.get('reps') ?? '20', 10);
-    const client = makeResultsClient({ page: 'micro' });
-    const lines: string[] = [];
-    const mlog = (k: 'info' | 'ok' | 'err', m: string): void => {
-      lines.push(m);
-      log(k, m);
-    };
-    try {
-      mlog('info', `[micro] op=${op} montmul=${montmul} pk14=${pk14} K=${chainK} threads=${nthreads} reps=${reps}`);
-      const res = await runMicrobench({ op, montmul: montmul ?? 'karat', pk14, nthreads, chainK, reps });
-      mlog('ok', `[micro] median=${res.medianMs.toFixed(3)}ms min=${res.minMs.toFixed(3)}ms groups=${res.numGroups}`);
-      mlog('ok', `[micro] state=done`);
-      await client.postResults({
-        state: 'done',
-        params: { op, montmul, pk14, chainK, nthreads, reps, page: 'micro' },
-        results: {
-          medianMs: res.medianMs,
-          minMs: res.minMs,
-          walls: res.walls,
-          samples: res.walls.map(w => ({ wallMs: w })),
-          medianWallMs: res.medianMs,
-        },
-        error: null,
-        log: lines.slice(-50),
-        userAgent: navigator.userAgent,
-        hardwareConcurrency: navigator.hardwareConcurrency,
-      });
-    } catch (e) {
-      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
-      mlog('err', `[micro] FATAL: ${msg}`);
-      mlog('err', `[micro] state=error`);
-      await client.postResults({
-        state: 'error',
-        params: { op, montmul, pk14, chainK, nthreads, reps, page: 'micro' },
-        results: null,
-        error: msg,
-        log: lines.slice(-50),
-        userAgent: navigator.userAgent,
-        hardwareConcurrency: navigator.hardwareConcurrency,
-      });
     }
   } else if (autorun === 'msm-matrix') {
     // FAST benchmark matrix — the iteration-speed path. ONE page load: acquire the

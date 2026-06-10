@@ -1,8 +1,4 @@
 {{> structs }}
-{{> bigint_funcs }}
-{{> montgomery_product_funcs }}
-{{> field_funcs }}
-{{> bigint_by_funcs }}
 {{> inverse_funcs }}
 
 {{{ dec_unpack }}}

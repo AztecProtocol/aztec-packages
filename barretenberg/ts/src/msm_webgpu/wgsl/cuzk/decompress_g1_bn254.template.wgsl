@@ -16,10 +16,6 @@
 // over a 254-bit exponent. One thread per point.
 
 {{> structs }}
-{{> bigint_funcs }}
-{{> field_funcs }}
-{{> barrett_funcs }}
-{{> montgomery_product_funcs }}
 
 {{{ dec_unpack }}}
 
