@@ -1,3 +1,5 @@
+pub(crate) mod test_helpers;
+
 use crate::oracle::random::random;
 use crate::protocol::traits::{Deserialize, Serialize};
 use crate::protocol::utils::{reader::Reader, writer::Writer};
