@@ -1,8 +1,3 @@
-{{> structs }}
-
-{{{ dec_unpack }}}
-
-{{{ dec_pack }}}
 
 {{> field8_funcs }}
 

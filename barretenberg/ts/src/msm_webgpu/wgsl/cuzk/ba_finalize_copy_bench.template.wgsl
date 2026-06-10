@@ -1,6 +1,4 @@
 {{#l0_index_mode}}
-{{> structs }}
-{{{ dec_unpack }}}
 {{> field8_funcs }}
 {{/l0_index_mode}}
 

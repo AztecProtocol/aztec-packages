@@ -47,7 +47,6 @@ import {
   field8 as field8_funcs,
   mont_pro_product_f8_native as montgomery_product_f8_native_funcs,
   mont_pro_product_karat_yuval as montgomery_product_karat_yuval_funcs,
-  structs,
   transpose_parallel_scan as transpose_parallel_scan_shader,
   transpose_count_tiled as transpose_count_tiled_shader,
   transpose_reduce_tiled as transpose_reduce_tiled_shader,
@@ -232,73 +231,11 @@ export class ShaderManager {
     }
   }
 
-  // DECOUPLED (full-ILP) pack/unpack WGSL for the packed 8×u32 storage
-  // path. For limb i (WS bits) the source word and shift are compile-time
-  // constants derived from WS / num_words / 256-bit / 8-word:
-  //   w0 = (WS*i) div 32 ;  s0 = (WS*i) mod 32
-  //   value = (packed[w0] >> s0) & LIMB_MASK
-  //   if s0+WS > 32: value |= (packed[w0+1] << (32-s0)) & LIMB_MASK
-  // Pack is symmetric: each output u32 word j is the OR of the constant
-  // set of limbs whose bit window overlaps [32*j, 32*j+32). Produces the
-  // bit-identical integer to a serial bit-cursor (sum limbs[i]*2^(WS*i)
-  // == sum w[j]*2^(32*j)); same Montgomery domain, no R correction.
-  private decoupledPackUnpackWgsl(): { unpack: string; pack: string } {
-    const WS = this.word_size;
-    const NW = this.num_words;
-    const PACKED = 8;
-    const LIMB_MASK = (1 << WS) - 1;
-
-    const unpackLines: string[] = [];
-    for (let i = 0; i < NW; i++) {
-      const bitpos = WS * i;
-      const w0 = Math.floor(bitpos / 32);
-      const s0 = bitpos % 32;
-      let expr = `(w[${w0}u] >> ${s0}u)`;
-      if (s0 + WS > 32 && w0 + 1 < PACKED) {
-        expr = `(${expr} | (w[${w0 + 1}u] << ${32 - s0}u))`;
-      }
-      unpackLines.push(`    b.limbs[${i}u] = ${expr} & ${LIMB_MASK}u;`);
-    }
-    const unpack = `fn unpack256_to_limbs(w: array<u32, 8>) -> BigInt {
-    var b: BigInt;
-${unpackLines.join('\n')}
-    return b;
-}`;
-
-    const wordTerms: string[][] = Array.from({ length: PACKED }, () => []);
-    for (let i = 0; i < NW; i++) {
-      const bitpos = WS * i;
-      const w0 = Math.floor(bitpos / 32);
-      const s0 = bitpos % 32;
-      const limbExpr = `(b.limbs[${i}u] & ${LIMB_MASK}u)`;
-      if (w0 < PACKED) {
-        wordTerms[w0].push(s0 === 0 ? limbExpr : `(${limbExpr} << ${s0}u)`);
-      }
-      if (s0 + WS > 32 && w0 + 1 < PACKED) {
-        wordTerms[w0 + 1].push(`(${limbExpr} >> ${32 - s0}u)`);
-      }
-    }
-    const packLines: string[] = [];
-    for (let j = 0; j < PACKED; j++) {
-      const terms = wordTerms[j];
-      packLines.push(`    w[${j}u] = ${terms.length ? terms.join(' | ') : '0u'};`);
-    }
-    const pack = `fn pack_limbs_to_256(bp: ptr<function, BigInt>) -> array<u32, 8> {
-    let b = *bp;
-    var w: array<u32, 8>;
-${packLines.join('\n')}
-    return w;
-}`;
-
-    return { unpack, pack };
-  }
-
   public gen_convert_points_only_shader(workgroup_size: number, num_y_workgroups: number): string {
     // R² mod p packed as 8x u32: montgomery_product_f8(x, R²) = x·R, the
     // canonical -> Montgomery conversion in one packed multiply.
     const r2 = (this.r * this.r) % this.p;
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
-    const dec = this.decoupledPackUnpackWgsl();
     return mustache.render(
       convert_points_only_shader,
       {
@@ -309,15 +246,13 @@ ${packLines.join('\n')}
         r8_csv,
         f8_words,
         num_words: this.num_words,
-        dec_unpack: dec.unpack,
         recompile: this.recompile,
       },
-      { structs, field8_funcs, montgomery_product_f8_native: this.mont_f8_native_src },
+      { field8_funcs, montgomery_product_f8_native: this.mont_f8_native_src },
     );
   }
 
   public gen_decompress_g1_bn254_shader(workgroup_size: number): string {
-    const dec = this.decoupledPackUnpackWgsl();
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
     // Packed curve constants for the f8 path: R^2 (native -> Montgomery),
     // 3·R (Montgomery b), and the raw closed-form sqrt exponent (q+1)/4.
@@ -343,15 +278,12 @@ ${packLines.join('\n')}
         p8_consts,
         r8_csv,
         f8_words,
-        dec_unpack: dec.unpack,
-        dec_pack: dec.pack,
         r_squared_csv: words8Csv(r_squared),
         b3_mont_csv: words8Csv(b3_mont),
         sqrt_exp_csv: words8Csv(sqrt_exp),
         recompile: this.recompile,
       },
       {
-        structs,
         montgomery_product_f8_native: this.mont_f8_native_src,
         field8_funcs,
       },
@@ -495,7 +427,6 @@ ${packLines.join('\n')}
         `gen_ba_reduce_level_bench_shader: workgroup_size (${workgroup_size}) must be a positive integer`,
       );
     }
-    const dec = this.decoupledPackUnpackWgsl();
     const inverse_funcs = by_inverse_loop_pk14_native_funcs;
     const inv_fn = 'fr_inv_by_loop_pk';
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
@@ -516,12 +447,9 @@ ${packLines.join('\n')}
         two_pow_word_size: this.two_pow_word_size,
         p_inv_mod_2w: this.p_inv_mod_2w,
         p_inv_by_a_lo: this.p_inv_by_a_lo,
-        dec_unpack: dec.unpack,
-        dec_pack: dec.pack,
         recompile: this.recompile,
       },
       {
-        structs,
         montgomery_product_f8_native: this.mont_f8_native_src,
         field8_funcs,
         inverse_funcs,
@@ -536,7 +464,6 @@ ${packLines.join('\n')}
     if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
       throw new Error(`gen_ba_reduce_sparse_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
     }
-    const dec = this.decoupledPackUnpackWgsl();
     const inverse_funcs = by_inverse_loop_pk14_native_funcs;
     const inv_fn = 'fr_inv_by_loop_pk';
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
@@ -557,12 +484,9 @@ ${packLines.join('\n')}
         two_pow_word_size: this.two_pow_word_size,
         p_inv_mod_2w: this.p_inv_mod_2w,
         p_inv_by_a_lo: this.p_inv_by_a_lo,
-        dec_unpack: dec.unpack,
-        dec_pack: dec.pack,
         recompile: this.recompile,
       },
       {
-        structs,
         montgomery_product_f8_native: this.mont_f8_native_src,
         field8_funcs,
         inverse_funcs,
@@ -582,7 +506,6 @@ ${packLines.join('\n')}
         `gen_ba_fused_super_bench_shader: workgroup_size (${workgroup_size}) and s (${s}) must be positive integers`,
       );
     }
-    const dec = this.decoupledPackUnpackWgsl();
     const inverse_funcs = by_inverse_loop_pk14_native_funcs;
     const inv_fn = 'fr_inv_by_loop_pk';
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
@@ -606,12 +529,9 @@ ${packLines.join('\n')}
         two_pow_word_size: this.two_pow_word_size,
         p_inv_mod_2w: this.p_inv_mod_2w,
         p_inv_by_a_lo: this.p_inv_by_a_lo,
-        dec_unpack: dec.unpack,
-        dec_pack: dec.pack,
         recompile: this.recompile,
       },
       {
-        structs,
         montgomery_product_f8_native: this.mont_f8_native_src,
         field8_funcs,
         inverse_funcs,
@@ -672,7 +592,6 @@ ${packLines.join('\n')}
     // l0_index_mode pulls in field8 (fr_sub_f8) to negate y while
     // materializing a level-0 (point index | sign) carry from the pool.
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
-    const dec = this.decoupledPackUnpackWgsl();
     return mustache.render(
       ba_carry_copy_bench_shader,
       {
@@ -682,10 +601,9 @@ ${packLines.join('\n')}
         r8_csv,
         f8_words,
         num_words: this.num_words,
-        dec_unpack: dec.unpack,
         recompile: this.recompile,
       },
-      { structs, field8_funcs, montgomery_product_f8_native: this.mont_f8_native_src },
+      { field8_funcs, montgomery_product_f8_native: this.mont_f8_native_src },
     );
   }
 
@@ -703,7 +621,6 @@ ${packLines.join('\n')}
     // l0_index_mode pulls in field8 (fr_sub_f8) to negate y while
     // materializing a level-0 (point index | sign) element from the pool.
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
-    const dec = this.decoupledPackUnpackWgsl();
     return mustache.render(
       ba_finalize_copy_bench_shader,
       {
@@ -713,10 +630,9 @@ ${packLines.join('\n')}
         r8_csv,
         f8_words,
         num_words: this.num_words,
-        dec_unpack: dec.unpack,
         recompile: this.recompile,
       },
-      { structs, field8_funcs, montgomery_product_f8_native: this.mont_f8_native_src },
+      { field8_funcs, montgomery_product_f8_native: this.mont_f8_native_src },
     );
   }
 
@@ -737,7 +653,6 @@ ${packLines.join('\n')}
         `gen_ba_finalize_accumulate_bench_shader: workgroup_size (${workgroup_size}) must be a positive integer`,
       );
     }
-    const dec = this.decoupledPackUnpackWgsl();
     const inverse_funcs = by_inverse_loop_pk14_native_funcs;
     const inv_fn = 'fr_inv_by_loop_pk';
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
@@ -759,12 +674,9 @@ ${packLines.join('\n')}
         two_pow_word_size: this.two_pow_word_size,
         p_inv_mod_2w: this.p_inv_mod_2w,
         p_inv_by_a_lo: this.p_inv_by_a_lo,
-        dec_unpack: dec.unpack,
-        dec_pack: dec.pack,
         recompile: this.recompile,
       },
       {
-        structs,
         montgomery_product_f8_native: this.mont_f8_native_src,
         field8_funcs,
         inverse_funcs,
@@ -789,7 +701,6 @@ ${packLines.join('\n')}
     if (cap > workgroup_size) {
       throw new Error(`gen_ba_fused_tail_coop_shader: cap (${cap}) must be <= workgroup_size (${workgroup_size})`);
     }
-    const dec = this.decoupledPackUnpackWgsl();
     const inverse_funcs = by_inverse_loop_pk14_native_funcs;
     const inv_fn = 'fr_inv_by_loop_pk';
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
@@ -811,12 +722,9 @@ ${packLines.join('\n')}
         two_pow_word_size: this.two_pow_word_size,
         p_inv_mod_2w: this.p_inv_mod_2w,
         p_inv_by_a_lo: this.p_inv_by_a_lo,
-        dec_unpack: dec.unpack,
-        dec_pack: dec.pack,
         recompile: this.recompile,
       },
       {
-        structs,
         montgomery_product_f8_native: this.mont_f8_native_src,
         field8_funcs,
         inverse_funcs,
@@ -848,7 +756,6 @@ ${packLines.join('\n')}
         `gen_ba_reduce_level_jacobian_shader: workgroup_size (${workgroup_size}) must be a positive integer`,
       );
     }
-    const dec = this.decoupledPackUnpackWgsl();
     const inverse_funcs = by_inverse_loop_pk14_native_funcs;
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
     return mustache.render(
@@ -867,12 +774,9 @@ ${packLines.join('\n')}
         two_pow_word_size: this.two_pow_word_size,
         p_inv_mod_2w: this.p_inv_mod_2w,
         p_inv_by_a_lo: this.p_inv_by_a_lo,
-        dec_unpack: dec.unpack,
-        dec_pack: dec.pack,
         recompile: this.recompile,
       },
       {
-        structs,
         montgomery_product_f8_native: this.mont_f8_native_src,
         field8_funcs,
         inverse_funcs,
@@ -897,7 +801,6 @@ ${packLines.join('\n')}
         `gen_ba_reduce_jac_finalize_shader: workgroup_size (${workgroup_size}) must be a positive integer`,
       );
     }
-    const dec = this.decoupledPackUnpackWgsl();
     const inverse_funcs = by_inverse_loop_pk14_native_funcs;
     const inv_fn = 'fr_inv_by_loop_pk';
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
@@ -918,12 +821,9 @@ ${packLines.join('\n')}
         two_pow_word_size: this.two_pow_word_size,
         p_inv_mod_2w: this.p_inv_mod_2w,
         p_inv_by_a_lo: this.p_inv_by_a_lo,
-        dec_unpack: dec.unpack,
-        dec_pack: dec.pack,
         recompile: this.recompile,
       },
       {
-        structs,
         montgomery_product_f8_native: this.mont_f8_native_src,
         field8_funcs,
         inverse_funcs,
@@ -940,7 +840,6 @@ ${packLines.join('\n')}
         `gen_ba_reduce_jac_to_affine_shader: workgroup_size (${workgroup_size}) must be a positive integer`,
       );
     }
-    const dec = this.decoupledPackUnpackWgsl();
     const inverse_funcs = by_inverse_loop_pk14_native_funcs;
     const inv_fn = 'fr_inv_by_loop_pk';
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
@@ -961,12 +860,9 @@ ${packLines.join('\n')}
         two_pow_word_size: this.two_pow_word_size,
         p_inv_mod_2w: this.p_inv_mod_2w,
         p_inv_by_a_lo: this.p_inv_by_a_lo,
-        dec_unpack: dec.unpack,
-        dec_pack: dec.pack,
         recompile: this.recompile,
       },
       {
-        structs,
         montgomery_product_f8_native: this.mont_f8_native_src,
         field8_funcs,
         inverse_funcs,
@@ -1189,7 +1085,6 @@ ${packLines.join('\n')}
   }
 
   public gen_ba_size1_shader(bw: number, stride: number, m_red: number): string {
-    const dec = this.decoupledPackUnpackWgsl();
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
     return mustache.render(
       ba_size1_shader,
@@ -1208,11 +1103,9 @@ ${packLines.join('\n')}
         mask: this.mask,
         two_pow_word_size: this.two_pow_word_size,
         p_inv_mod_2w: this.p_inv_mod_2w,
-        dec_unpack: dec.unpack,
-        dec_pack: dec.pack,
         recompile: this.recompile,
       },
-      { structs, field8_funcs, montgomery_product_f8_native: this.mont_f8_native_src },
+      { field8_funcs, montgomery_product_f8_native: this.mont_f8_native_src },
     );
   }
 
@@ -1250,7 +1143,6 @@ ${packLines.join('\n')}
     pk14 = false,
     l0Precompute = true,
   ): string {
-    const dec = this.decoupledPackUnpackWgsl();
     // pk14: the packed-native 14-bit safegcd inverse (Montgomery-form output via
     // an e0=R^2 seed), consuming/producing the f8 packed form directly (inv_f8) —
     // no BigInt round-trip. Adreno register-pressure win; byte-identical output.
@@ -1281,12 +1173,9 @@ ${packLines.join('\n')}
         two_pow_word_size: this.two_pow_word_size,
         p_inv_mod_2w: this.p_inv_mod_2w,
         p_inv_by_a_lo: this.p_inv_by_a_lo,
-        dec_unpack: dec.unpack,
-        dec_pack: dec.pack,
         recompile: this.recompile,
       },
       {
-        structs,
         montgomery_product_f8_native: this.mont_f8_native_src,
         field8_funcs,
         inverse_funcs,
@@ -1362,7 +1251,6 @@ ${packLines.join('\n')}
   }
 
   public gen_ba_unified_combine_shader(workgroup_size: number, s: number, variant: 'loop' | 'pk' = 'pk'): string {
-    const dec = this.decoupledPackUnpackWgsl();
     const inverse_funcs = by_inverse_loop_pk14_native_funcs;
     const inv_fn = 'fr_inv_by_loop_pk';
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
@@ -1384,12 +1272,9 @@ ${packLines.join('\n')}
         two_pow_word_size: this.two_pow_word_size,
         p_inv_mod_2w: this.p_inv_mod_2w,
         p_inv_by_a_lo: this.p_inv_by_a_lo,
-        dec_unpack: dec.unpack,
-        dec_pack: dec.pack,
         recompile: this.recompile,
       },
       {
-        structs,
         montgomery_product_f8_native: this.mont_f8_native_src,
         field8_funcs,
         inverse_funcs,
@@ -1405,7 +1290,6 @@ ${packLines.join('\n')}
     m_red: number,
     variant: 'loop' | 'pk' = 'pk',
   ): string {
-    const dec = this.decoupledPackUnpackWgsl();
     const inverse_funcs = by_inverse_loop_pk14_native_funcs;
     const inv_fn = 'fr_inv_by_loop_pk';
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
@@ -1430,12 +1314,9 @@ ${packLines.join('\n')}
         two_pow_word_size: this.two_pow_word_size,
         p_inv_mod_2w: this.p_inv_mod_2w,
         p_inv_by_a_lo: this.p_inv_by_a_lo,
-        dec_unpack: dec.unpack,
-        dec_pack: dec.pack,
         recompile: this.recompile,
       },
       {
-        structs,
         montgomery_product_f8_native: this.mont_f8_native_src,
         field8_funcs,
         inverse_funcs,

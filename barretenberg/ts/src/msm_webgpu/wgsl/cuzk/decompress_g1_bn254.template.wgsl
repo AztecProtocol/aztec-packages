@@ -15,11 +15,6 @@
 // sqrt per point — 256 squarings + ~126 mults of `montgomery_product_f8`
 // over a 254-bit exponent. One thread per point.
 
-{{> structs }}
-
-{{{ dec_unpack }}}
-
-{{{ dec_pack }}}
 
 {{> field8_funcs }}
 

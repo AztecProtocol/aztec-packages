@@ -12,8 +12,6 @@
 // words. (The byte shuffle the previous 16-bit-word pipeline performed
 // composes with its big-endian extract to the identity.)
 
-{{> structs }}
-{{{ dec_unpack }}}
 {{> field8_funcs }}
 
 // R² mod p, packed — the canonical -> Montgomery multiplier.
