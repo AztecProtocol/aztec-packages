@@ -21,14 +21,6 @@ impl DeliveryMode {
     pub(crate) fn assert_is_constant(self) {
         assert_constant(self.inner);
     }
-
-    pub(crate) fn onchain_mode(self) -> Option<OnchainDeliveryMode> {
-        if self == Self::offchain() {
-            Option::none()
-        } else {
-            Option::some(OnchainDeliveryMode::from_u8(self.inner))
-        }
-    }
 }
 
 impl Eq for DeliveryMode {
@@ -129,14 +121,11 @@ mod test {
     }
 
     #[test]
-    fn delivery_mode_maps_to_onchain_subset() {
-        assert(DeliveryMode::offchain().onchain_mode().is_none());
-        assert(
-            DeliveryMode::onchain_constrained().onchain_mode().unwrap() == OnchainDeliveryMode::onchain_constrained(),
-        );
-        assert(
-            DeliveryMode::onchain_unconstrained().onchain_mode().unwrap()
-                == OnchainDeliveryMode::onchain_unconstrained(),
-        );
+    fn delivery_mode_onchain_constructors_match_onchain_delivery_modes() {
+        let unconstrained_delivery_mode: DeliveryMode = OnchainDeliveryMode::onchain_unconstrained().into();
+        let constrained_delivery_mode: DeliveryMode = OnchainDeliveryMode::onchain_constrained().into();
+
+        assert(DeliveryMode::onchain_unconstrained() == unconstrained_delivery_mode);
+        assert(DeliveryMode::onchain_constrained() == constrained_delivery_mode);
     }
 }

@@ -70,7 +70,7 @@ impl MessageDelivery {
     /// An undecryptable or otherwise invalid note or event message will however simply be ignored by the recipient,
     /// who can always validate the existence of the note or event on-chain.
     ///
-    /// Because the message is not stored on-chain, it is the sender's (and eventually recipient's) responsability to
+    /// Because the message is not stored on-chain, it is the sender's (and eventually recipient's) responsibility to
     /// back it up and make sure it is not lost.
     ///
     /// ## Costs
@@ -83,7 +83,7 @@ impl MessageDelivery {
     ///
     /// ## Privacy
     ///
-    /// No information is revelead on-chain about sender, recipient, or the message contents. The message itself
+    /// No information is revealed on-chain about sender, recipient, or the message contents. The message itself
     /// reveals no information about the sender or recipient, and requires knowledge of the recipient's private address
     /// keys in order to obtain the plaintext.
     pub fn offchain() -> OffchainDelivery {
@@ -139,10 +139,7 @@ impl MessageDelivery {
     /// Identifying that a log corresponds to a message between a given sender and recipient requires, among other
     /// things, knowledge of both of their addresses **and** either the sender's or recipient's private address key.
     pub fn onchain_unconstrained() -> OnchainUnconstrainedDelivery {
-        OnchainUnconstrainedDelivery {
-            tag_secret_derivation: TagSecretDerivation::wallet_default(),
-            sender_override: Option::none(),
-        }
+        OnchainUnconstrainedDelivery::new()
     }
 
     /// Delivers the message on-chain, guaranteeing the recipient will receive the correct content.
@@ -195,10 +192,7 @@ impl MessageDelivery {
     /// Identifying that a log corresponds to a message between a given sender and recipient requires, among other
     /// things, knowledge of both of their addresses **and** either the sender's or recipient's private address key.
     pub fn onchain_constrained() -> OnchainConstrainedDelivery {
-        OnchainConstrainedDelivery {
-            tag_secret_derivation: TagSecretDerivation::wallet_default(),
-            sender_override: Option::none(),
-        }
+        OnchainConstrainedDelivery::new()
     }
 }
 
@@ -228,6 +222,13 @@ pub struct OnchainUnconstrainedDelivery {
 }
 
 impl OnchainUnconstrainedDelivery {
+    fn new() -> Self {
+        Self {
+            tag_secret_derivation: TagSecretDerivation::wallet_default(),
+            sender_override: Option::none(),
+        }
+    }
+
     /// Overrides the sender address used for discovery tag derivation.
     ///
     /// On-chain messages are tagged so that the recipient can find them efficiently without scanning all logs. The tag
@@ -248,7 +249,7 @@ impl OnchainUnconstrainedDelivery {
     }
 
     /// Uses the PXE-derived address Diffie-Hellman secret for discovery tags.
-    pub fn via_address_secret(&mut self) -> Self {
+    pub fn via_address_derived_secret(&mut self) -> Self {
         self.tag_secret_derivation = TagSecretDerivation::address_secret();
         *self
     }
@@ -283,6 +284,13 @@ pub struct OnchainConstrainedDelivery {
 }
 
 impl OnchainConstrainedDelivery {
+    fn new() -> Self {
+        Self {
+            tag_secret_derivation: TagSecretDerivation::wallet_default(),
+            sender_override: Option::none(),
+        }
+    }
+
     /// Overrides the sender address used for discovery tag derivation.
     ///
     /// On-chain messages are tagged so that the recipient can find them efficiently without scanning all logs. The tag
@@ -342,8 +350,15 @@ mod test {
     }
 
     #[test]
-    fn onchain_unconstrained_can_select_address_secret_derivation() {
-        let delivery = MessageDelivery::onchain_unconstrained().via_address_secret().build_message_delivery();
+    fn offchain_delivery_defaults_to_wallet_default() {
+        let delivery = MessageDelivery::offchain().build_message_delivery();
+
+        assert(delivery.tag_secret_derivation() == TagSecretDerivation::wallet_default());
+    }
+
+    #[test]
+    fn onchain_unconstrained_can_select_address_derived_secret_derivation() {
+        let delivery = MessageDelivery::onchain_unconstrained().via_address_derived_secret().build_message_delivery();
 
         assert(delivery.tag_secret_derivation() == TagSecretDerivation::address_secret());
     }
@@ -355,8 +370,12 @@ mod test {
         let constrained_delivery =
             MessageDelivery::onchain_constrained().via_non_interactive_handshake().build_message_delivery();
 
-        assert(unconstrained_delivery.tag_secret_derivation() == TagSecretDerivation::non_interactive_handshake());
-        assert(constrained_delivery.tag_secret_derivation() == TagSecretDerivation::non_interactive_handshake());
+        assert(
+            unconstrained_delivery.tag_secret_derivation() == TagSecretDerivation::non_interactive_handshake(),
+        );
+        assert(
+            constrained_delivery.tag_secret_derivation() == TagSecretDerivation::non_interactive_handshake(),
+        );
     }
 
     #[test]

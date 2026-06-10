@@ -55,20 +55,14 @@ where
     // dead-code elimination.
     mode.assert_is_constant();
 
-    let onchain_mode = mode.onchain_mode();
     let deliver_as_offchain_message = mode == DeliveryMode::offchain();
     let is_constrained = mode == DeliveryMode::onchain_constrained();
 
     let tag_secret_derivation = delivery.tag_secret_derivation();
     tag_secret_derivation.assert_is_constant();
 
-    if deliver_as_offchain_message {
-        std::static_assert(
-            tag_secret_derivation == TagSecretDerivation::wallet_default(),
-            "offchain delivery does not use tag secret derivation",
-        );
-    } else {
-        let resolved_tag_secret_derivation = tag_secret_derivation.resolve_for_mode(onchain_mode.unwrap());
+    if !deliver_as_offchain_message {
+        let resolved_tag_secret_derivation = resolve_tag_secret_derivation(mode, tag_secret_derivation);
         resolved_tag_secret_derivation.assert_is_constant();
 
         if is_constrained {
@@ -120,5 +114,50 @@ where
         } else {
             context.emit_private_log_unsafe(log_tag, log);
         }
+    }
+}
+
+fn resolve_tag_secret_derivation(
+    mode: DeliveryMode,
+    tag_secret_derivation: TagSecretDerivation,
+) -> TagSecretDerivation {
+    if tag_secret_derivation == TagSecretDerivation::wallet_default() {
+        if mode == DeliveryMode::onchain_constrained() {
+            TagSecretDerivation::non_interactive_handshake()
+        } else {
+            TagSecretDerivation::address_secret()
+        }
+    } else {
+        tag_secret_derivation
+    }
+}
+
+mod test {
+    use super::{resolve_tag_secret_derivation, DeliveryMode, TagSecretDerivation};
+
+    #[test]
+    fn wallet_default_resolves_for_delivery_mode() {
+        assert(
+            resolve_tag_secret_derivation(DeliveryMode::onchain_unconstrained(), TagSecretDerivation::wallet_default())
+                == TagSecretDerivation::address_secret(),
+        );
+        assert(
+            resolve_tag_secret_derivation(DeliveryMode::onchain_constrained(), TagSecretDerivation::wallet_default())
+                == TagSecretDerivation::non_interactive_handshake(),
+        );
+    }
+
+    #[test]
+    fn explicit_tag_secret_derivation_is_preserved() {
+        assert(
+            resolve_tag_secret_derivation(DeliveryMode::onchain_unconstrained(), TagSecretDerivation::address_secret())
+                == TagSecretDerivation::address_secret(),
+        );
+        assert(
+            resolve_tag_secret_derivation(
+                DeliveryMode::onchain_constrained(),
+                TagSecretDerivation::non_interactive_handshake(),
+            ) == TagSecretDerivation::non_interactive_handshake(),
+        );
     }
 }
