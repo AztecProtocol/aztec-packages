@@ -23,12 +23,19 @@ const WALKER_TPB: u32 = {{ walker_tpb }}u;
 const S: u32 = {{ s }}u;              // tasks per thread
 const CUTS: u32 = S + 1u;             // cut points per thread
 
+const IDX_TPB: u32 = {{ idx_tpb }}u;
+
 @group(0) @binding(0) var<storage, read>       sorted_count_list: array<u32>;
 @group(0) @binding(1) var<storage, read>       cumulative_adds:   array<u32>;
 @group(0) @binding(2) var<storage, read>       thread_cuts:       array<u32>;
 @group(0) @binding(3) var<storage, read_write> planner_meta:      array<u32>;
 @group(0) @binding(4) var<storage, read_write> task_cuts:         array<u32>;
 @group(0) @binding(5) var<uniform>             params:            vec4<u32>;
+// walker_index v2 indirect args — [0..2] slot-wide kernels (idx_count /
+// idx_scatter) at ceil(2*S*num_active_threads / IDX_TPB); [3..5] the
+// dense-wide idx_alloc at ceil(num_dense / IDX_TPB); [6..8] written later
+// by the epilogue (sorted scatter).
+@group(0) @binding(6) var<storage, read_write> wi_idx_args:       array<u32>;
 
 // Binary search for the lowest bucket b in [lo_b, hi_b) whose inclusive
 // add-prefix end (cumulative_adds[b] + count[b] - 1) reaches `cut_target`,
@@ -69,6 +76,13 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         planner_meta[15] = (num_active_threads + WALKER_TPB - 1u) / WALKER_TPB;
         planner_meta[16] = 1u;
         planner_meta[17] = 1u;
+        let m_actual = 2u * S * num_active_threads;
+        wi_idx_args[0] = (m_actual + IDX_TPB - 1u) / IDX_TPB;
+        wi_idx_args[1] = 1u;
+        wi_idx_args[2] = 1u;
+        wi_idx_args[3] = (num_dense + IDX_TPB - 1u) / IDX_TPB;
+        wi_idx_args[4] = 1u;
+        wi_idx_args[5] = 1u;
     }
 
     if (t >= num_active_threads) { return; }

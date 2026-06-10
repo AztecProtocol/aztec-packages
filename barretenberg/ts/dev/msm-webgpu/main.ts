@@ -141,6 +141,7 @@ const gpuKnobs: MsmConfig = (() => {
     budgetMiB: optInt('budgetmib'),
     varSched: q.get('varsched') === '1' || undefined,
     splitC: q.get('split') === '1' || q.get('autorun') === 'msm-msbhist' || undefined,
+    walkerIndexV2: q.get('wi2') === '1' || undefined,
     sparseReduce: q.get('sparse_reduce') === '1' || undefined,
     reduceCostWeight: optNum('reduce_cost_weight'),
     maxCLo: optInt('max_clo'),
@@ -738,13 +739,18 @@ const BATCH_STAGE_ORDER = [
   'walker_index',
   // walker_index sub-kernels (encodeIntoBatch labels each of the phase's
   // dispatches individually; 'walker_index' itself remains for old traces).
+  // v1: count/scan/scatter/filter/sort_count/sort_scan/sort_scatter.
+  // v2 (?wi2=1): count/alloc/epilogue/scatter/sort.
   'wi_count',
   'wi_scan',
+  'wi_alloc',
+  'wi_epilogue',
   'wi_scatter',
   'wi_filter',
   'wi_sort_count',
   'wi_sort_scan',
   'wi_sort_scatter',
+  'wi_sort',
   'combine_batched',
   'pt_init',
   'pt_loop',
@@ -2430,6 +2436,92 @@ function hideProgress(): void {
         userAgent: navigator.userAgent,
         hardwareConcurrency: navigator.hardwareConcurrency,
       });
+    }
+  } else if (autorun === 'wi2-check') {
+    // walker_index v2 correctness gate: same inputs through a v1 instance and
+    // a v2 instance (isolated pools, the measurePack pattern), assert the
+    // final point AND every per-window sum match exactly. With ?noble=1 the
+    // smaller sizes are also checked against the noble JS reference (no WASM
+    // needed). Honors ?scalar_dist / ?profile; sizes via ?logns=10,14.
+    const logNs = (qp.get('logns') ?? '10,14')
+      .split(',')
+      .map(x => parseInt(x, 10))
+      .filter(x => Number.isFinite(x));
+    const useNoble = qp.get('noble') === '1';
+    const client = makeResultsClient({ page: 'wi2-check' });
+    try {
+      for (let i = 0; i < 1200; i++) {
+        if (srsBuf !== null) break;
+        await new Promise(r => setTimeout(r, 500));
+      }
+      if (srsBuf === null) throw new Error('SRS never became ready');
+      if (gpuDevice === null) gpuDevice = await get_device();
+      const failures: string[] = [];
+      const summary: Record<string, string> = {};
+      for (const logN of logNs) {
+        const nobleHere = useNoble && logN <= 14;
+        const inp = await generateInputs(logN, nobleHere);
+        const runOne = async (v2: boolean): Promise<{ x: bigint; y: bigint; ws: { x: bigint; y: bigint }[] }> => {
+          const pool = await MsmV2Pool.create(gpuDevice!, inp.pointsBuf);
+          const inst = await MsmV2.create(gpuDevice!, inp.n, pool, { ...gpuKnobs, walkerIndexV2: v2 });
+          try {
+            inst.prepare(inp.scalarsBuf);
+            const r = await inst.run();
+            return { x: r.x, y: r.y, ws: inst.windowSums.map(p => ({ x: p.x, y: p.y })) };
+          } finally {
+            inst.destroy();
+            pool.destroy();
+          }
+        };
+        const r1 = await runOne(false);
+        const r2 = await runOne(true);
+        let ok = r1.x === r2.x && r1.y === r2.y && r1.ws.length === r2.ws.length;
+        let wsBad = -1;
+        for (let w = 0; ok && w < r1.ws.length; w++) {
+          if (r1.ws[w].x !== r2.ws[w].x || r1.ws[w].y !== r2.ws[w].y) {
+            ok = false;
+            wsBad = w;
+          }
+        }
+        let nobleOk = true;
+        if (nobleHere && inp.points && inp.scalars) {
+          const ref = referenceMsm(inp.points, inp.scalars);
+          nobleOk = pointsEqual(ref, { x: r1.x, y: r1.y }) && pointsEqual(ref, { x: r2.x, y: r2.y });
+        }
+        const verdict = ok && nobleOk ? 'PASS' : `FAIL (v1==v2:${ok} wsBad:${wsBad} noble:${nobleOk})`;
+        summary[`logn${logN}`] = verdict;
+        if (!(ok && nobleOk)) failures.push(`logn=${logN}: ${verdict}`);
+        log(ok && nobleOk ? 'ok' : 'err', `[wi2-check] logn=${logN} ${verdict}`);
+      }
+      const state = failures.length === 0 ? 'done' : 'error';
+      await client.postResults({
+        state,
+        params: {
+          page: 'wi2-check',
+          logns: logNs.join(','),
+          scalar_dist: qp.get('scalar_dist') ?? 'uniform',
+          profile: qp.get('profile') ?? '',
+        },
+        results: summary,
+        error: failures.length ? failures.join('; ') : null,
+        log: [],
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      log(failures.length === 0 ? 'ok' : 'err', `[autorun] state=${state}`);
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      log('err', `[wi2-check] FATAL: ${msg}`);
+      await client.postResults({
+        state: 'error',
+        params: { page: 'wi2-check' },
+        results: null,
+        error: msg,
+        log: [],
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      log('err', `[autorun] state=error`);
     }
   } else if (autorun === 'walker-index-stats') {
     // walker_index workload probe: one prepared run, then read back the

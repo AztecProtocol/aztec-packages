@@ -59,3 +59,29 @@ Phones (N=2^17, baseline perfetto traces, slice durations):
 
 Counters: Adreno ALU 4.9% during phase; Mali starvation max / core-active min
 of all phases.
+
+## Stage 2 — walker_index v2 (?wi2=1), M4 (2026-06-09)
+
+Correctness gates (wi2-check: v1 vs v2 exact window-sum equality; noble JS
+reference at logn≤14): PASS at logn 10/14 (noble), 16/17 uniform, 14/17
+profile D, 14/17 profile E, 17 profile C, 17 clustered(64). v2 GPU histogram
+== CPU-derived histogram on the stats probe.
+
+M4 logn=17 uniform, median of 7 (timestamp queries):
+
+| kernel | v1 µs | v2 µs |
+|---|---:|---:|
+| wi_count | 12 | 17 |
+| wi_scan | 92 | — |
+| wi_alloc (scan+filter+sort_count fused) | — | 24 |
+| wi_epilogue | — | 8 |
+| wi_scatter | 17 | 20 (incl singles copy) |
+| wi_filter | 14 | — |
+| wi_sort_count | 47 | — |
+| wi_sort_scan | 10 | — |
+| wi_sort_scatter / wi_sort | 51 | 11 |
+| **phase total** | **244** | **80 (3.05×)** |
+
+Wall median 33.0 → 32.6 ms (phase win + the dead 512 KB partial_dest clear).
+wi_count regressed 12→17 µs (indirect + planner_meta-dependent bound) —
+Stage 3 follow-up.
