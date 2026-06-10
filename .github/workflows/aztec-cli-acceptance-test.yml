@@ -23,11 +23,14 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
+    # v5-next is a rolling dev branch that matches the v* trigger filter but is not a
+    # published release, so installing it as a version always fails. Skip it.
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'workflow_run'
        && github.event.workflow_run.conclusion == 'success'
-       && !contains(github.event.workflow_run.head_branch, '-commit.'))
+       && !contains(github.event.workflow_run.head_branch, '-commit.')
+       && github.event.workflow_run.head_branch != 'v5-next')
     env:
       VERSION: ${{ github.event.inputs.version || github.event.workflow_run.head_branch }}
     steps:
