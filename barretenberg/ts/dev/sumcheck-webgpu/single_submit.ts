@@ -18,10 +18,11 @@
 // GPU-derived challenges) and the standalone batch / poseidon2 suites.
 
 import {
-  makeFoldRunner, makeReduceRunner, type FoldRunner, type ReduceRunner,
+  makeFoldRunner, makeReduceRunner, encodeColumnsToBytes, type FoldRunner, type ReduceRunner,
 } from './gpu_pipeline.js';
 import { buildBatchConsts } from './batch_gpu.js';
 import { poseidon2ConstBytes, POSEIDON2_IV_9 } from './poseidon2_gpu.js';
+import { initWasm, runWasmSumcheck } from './bench.js';
 import { computeBetaProducts } from '../../src/msm_webgpu/gate_separator.js';
 import { NUM_RELATIONS } from '../../src/msm_webgpu/accumulator.js';
 import { ALL_RELATIONS } from './descriptors.js';
@@ -30,7 +31,8 @@ import {
   create_compute_pipeline, execute_pipeline, create_readback_buffer,
 } from '../../src/msm_webgpu/cuzk/gpu.js';
 import {
-  type PipelineCache, type RelationDescriptor, WG, sm, mod, toMont, fromMont, writeLe32, le32ToBi,
+  type PipelineCache, type RelationDescriptor, type Logger,
+  WG, sm, mod, packParams, makeRng, toMont, fromMont, writeLe32, le32ToBi,
 } from './harness.js';
 
 const REDUCE_WG = 128;
@@ -271,4 +273,71 @@ export async function runSingleSubmitSumcheck(
   }
 
   return { univariates, challenges, finalColBytes, gpuMs, totalMs, setupMs };
+}
+
+// Build random per-relation inputs for one size (deterministic per (size, relation)).
+function buildInputs(n: number): { initColBytes: Uint8Array[]; relParamBytes: (Uint8Array | undefined)[] } {
+  const initColBytes: Uint8Array[] = [];
+  const relParamBytes: (Uint8Array | undefined)[] = [];
+  for (const desc of ALL_RELATIONS) {
+    const rng = makeRng((desc.seed ^ 0x5151_5151_5151n) + BigInt(n));
+    relParamBytes[desc.relationIndex] = desc.makeParams ? packParams(desc.makeParams(rng)) : undefined;
+    const cols = Array.from({ length: desc.numEdges }, () => Array.from({ length: n }, () => rng()));
+    initColBytes[desc.relationIndex] = encodeColumnsToBytes(cols, n);
+  }
+  return { initColBytes, relParamBytes };
+}
+
+export interface SSBenchRow {
+  logN: number;
+  gpuMs: number;
+  wallMs: number;
+  setupMs: number;
+  wasmMs: number | null;
+  speedup: number | null; // wasmMs / wallMs
+}
+
+/**
+ * Benchmark the single-submission GPU Fiat-Shamir engine vs threaded WASM across
+ * sizes. Runners + Poseidon2/batch constants compile once; a warmup at the smallest
+ * size excludes shader compilation from the per-size timing.
+ */
+export async function runSingleSubmitBench(
+  device: GPUDevice, logNs: number[], log: Logger, onRow?: (row: SSBenchRow) => void,
+): Promise<SSBenchRow[]> {
+  const alpha = makeRng(0xb0_07_5eedn)();
+  const shared: Shared = {
+    cache: new Map(),
+    foldRunner: await makeFoldRunner(device),
+    reduceRunner: await makeReduceRunner(device),
+    batch: await makeBatchRunner(device),
+    transcript: await makeTranscriptRunner(device),
+  };
+  const wasm = await initWasm(log);
+  if (wasm) log('info', '  WASM backend ready (bb.js threads)');
+
+  {
+    const wn = 1 << Math.min(...logNs);
+    const warm = buildInputs(wn);
+    const wb = Array.from({ length: Math.round(Math.log2(wn)) }, (_, i) => makeRng(0x1234n + BigInt(i))());
+    await runSingleSubmitSumcheck(device, wn, alpha, wb, warm.relParamBytes, warm.initColBytes, shared);
+  }
+
+  const rows: SSBenchRow[] = [];
+  for (const logN of logNs) {
+    const n = 1 << logN;
+    const betas = Array.from({ length: logN }, (_, i) => makeRng(0xbe7a_77n + BigInt(i))());
+    const { initColBytes, relParamBytes } = buildInputs(n);
+    const gpu = await runSingleSubmitSumcheck(device, n, alpha, betas, relParamBytes, initColBytes, shared);
+    const wasmMs = await runWasmSumcheck(wasm, logN);
+    const row: SSBenchRow = {
+      logN, gpuMs: gpu.gpuMs, wallMs: gpu.totalMs, setupMs: gpu.setupMs, wasmMs,
+      speedup: wasmMs === null ? null : wasmMs / gpu.totalMs,
+    };
+    rows.push(row);
+    onRow?.(row);
+    log('ok', `  2^${logN}: WebGPU ${gpu.totalMs.toFixed(1)} ms (GPU ${gpu.gpuMs.toFixed(1)} · setup ${gpu.setupMs.toFixed(1)}) · WASM ${wasmMs === null ? '—' : wasmMs.toFixed(1)}${row.speedup ? `  →  ${row.speedup.toFixed(2)}×` : ''}`);
+  }
+  await wasm?.destroy();
+  return rows;
 }
