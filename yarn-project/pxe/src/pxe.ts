@@ -8,6 +8,7 @@ import { KeyStore } from '@aztec/key-store';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { type ProtocolContractsProvider, protocolContractNames } from '@aztec/protocol-contracts';
 import type { CircuitSimulator } from '@aztec/simulator/client';
+import { getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry/lazy';
 import { getStandardHandshakeRegistry } from '@aztec/standard-contracts/handshake-registry/lazy';
 import {
   type ContractArtifact,
@@ -169,8 +170,8 @@ export type PXECreateArgs = {
   simulator: CircuitSimulator;
   /** Provider for protocol contract artifacts and instances. */
   protocolContractsProvider: ProtocolContractsProvider;
-  /** Provider for the "nice to have" contracts the PXE preloads. */
-  preloadedContractsProvider: PreloadedContractsProvider;
+  /** Contracts to preload on startup. Defaults to auth + handshake registries when omitted. */
+  preloadedContractsProvider?: PreloadedContractsProvider;
   /** PXE configuration options. */
   config: PXEConfig;
   /** Optional logger instance or string suffix for the logger name. */
@@ -321,7 +322,9 @@ export class PXE {
       config.autoSync,
       proofCreator,
       protocolContractsProvider,
-      preloadedContractsProvider,
+      preloadedContractsProvider ?? {
+        getPreloadedContracts: async () => [await getStandardAuthRegistry(), await getStandardHandshakeRegistry()],
+      },
       log,
       jobQueue,
       jobCoordinator,
@@ -337,11 +340,7 @@ export class PXE {
 
     pxe.jobQueue.start();
 
-    await Promise.all([
-      pxe.#registerProtocolContracts(),
-      pxe.#registerPreloadedContracts(),
-      pxe.#registerHandshakeRegistry(),
-    ]);
+    await Promise.all([pxe.#registerProtocolContracts(), pxe.#registerPreloadedContracts()]);
     log.info(`Started PXE connected to chain ${info.l1ChainId} version ${info.rollupVersion}`);
     return pxe;
   }
@@ -437,11 +436,6 @@ export class PXE {
     this.log.verbose(`Registered preloaded contracts in pxe`, {
       contracts: contracts.map(({ instance }) => instance.address.toString()),
     });
-  }
-
-  async #registerHandshakeRegistry() {
-    const { instance, artifact } = await getStandardHandshakeRegistry();
-    await this.registerContract({ instance, artifact });
   }
 
   // Executes the entrypoint private function, as well as all nested private

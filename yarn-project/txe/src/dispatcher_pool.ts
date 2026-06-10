@@ -4,7 +4,7 @@ import type { Logger } from '@aztec/foundation/log';
 import { openEphemeralStore } from '@aztec/kv-store/lmdb-v2';
 import { LazyProtocolContractsProvider } from '@aztec/protocol-contracts/providers/lazy';
 import { ContractStore } from '@aztec/pxe/client/lazy';
-import { getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry';
+import { getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry/lazy';
 import { getStandardHandshakeRegistry } from '@aztec/standard-contracts/handshake-registry/lazy';
 import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
 
