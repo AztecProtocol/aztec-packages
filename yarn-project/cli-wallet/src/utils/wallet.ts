@@ -1,15 +1,21 @@
 import { EcdsaRAccountContract, EcdsaRSSHAccountContract } from '@aztec/accounts/ecdsa';
 import { StubEcdsaAccountContractArtifact, createStubEcdsaAccount } from '@aztec/accounts/ecdsa/stub';
-import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
+import { SchnorrAccountContract, SchnorrInitializerlessAccountContract } from '@aztec/accounts/schnorr';
 import { StubSchnorrAccountContractArtifact, createStubSchnorrAccount } from '@aztec/accounts/schnorr/stub';
 import { getIdentities } from '@aztec/accounts/utils';
 import { type Account, type AccountContract, NO_FROM } from '@aztec/aztec.js/account';
-import { type InteractionFeeOptions, getContractClassFromArtifact, getGasLimits } from '@aztec/aztec.js/contracts';
+import {
+  ContractFunctionInteraction,
+  type InteractionFeeOptions,
+  getContractClassFromArtifact,
+  getGasLimits,
+} from '@aztec/aztec.js/contracts';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { AccountManager, type Aliased, type SimulateOptions } from '@aztec/aztec.js/wallet';
 import { TxSimulationResultWithAppOffset } from '@aztec/aztec.js/wallet';
 import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
 import { DefaultEntrypoint } from '@aztec/entrypoints/default';
+import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { LogFn } from '@aztec/foundation/log';
 import type { NotesFilter } from '@aztec/pxe/client/lazy';
@@ -77,6 +83,7 @@ export class CLIWallet extends BaseWallet {
     await this.pxe.registerContractClass(StubEcdsaAccountContractArtifact);
 
     this.stubClassIds.set('schnorr', schnorrClassId);
+    this.stubClassIds.set('schnorr_initializerless', schnorrClassId);
     this.stubClassIds.set('ecdsasecp256k1', ecdsaClassId);
     this.stubClassIds.set('ecdsasecp256r1', ecdsaClassId);
     this.stubClassIds.set('ecdsasecp256r1ssh', ecdsaClassId);
@@ -144,14 +151,32 @@ export class CLIWallet extends BaseWallet {
     return account;
   }
 
-  private async createAccount(secret: Fr, salt: Fr, contract: AccountContract): Promise<AccountManager> {
-    const accountManager = await AccountManager.create(this, secret, contract, { salt });
+  private async createAccount(
+    secret: Fr,
+    salt: Fr,
+    contract: AccountContract,
+    isInitializerless = false,
+  ): Promise<AccountManager> {
+    const init = isInitializerless ? await contract.getInitializationFunctionAndArgs() : undefined;
+    const immutablesHash = init ? await poseidon2Hash(init.constructorArgs) : undefined;
+
+    const accountManager = await AccountManager.create(this, secret, contract, { salt, immutablesHash });
 
     const instance = accountManager.getInstance();
     const artifact = await contract.getContractArtifact();
 
     await this.registerContract(instance, artifact, secret);
     this.accountCache.set(accountManager.address.toString(), await accountManager.getAccount());
+
+    if (init) {
+      const constructorAbi = artifact.functions.find(f => f.name === init.constructorName);
+      if (!constructorAbi) {
+        throw new Error('Could not create SchnorrInitializerlessAccount: constructor ABI not found');
+      }
+      const storeCall = new ContractFunctionInteraction(this, instance.address, constructorAbi, init.constructorArgs);
+      await storeCall.simulate({ from: instance.address });
+    }
+
     return accountManager;
   }
 
@@ -177,6 +202,15 @@ export class CLIWallet extends BaseWallet {
     switch (type) {
       case 'schnorr': {
         account = await this.createAccount(secretKey, salt, new SchnorrAccountContract(deriveSigningKey(secretKey)));
+        break;
+      }
+      case 'schnorr_initializerless': {
+        account = await this.createAccount(
+          secretKey,
+          salt,
+          new SchnorrInitializerlessAccountContract(deriveSigningKey(secretKey)),
+          true,
+        );
         break;
       }
       case 'ecdsasecp256r1': {
@@ -229,7 +263,9 @@ export class CLIWallet extends BaseWallet {
     }
     const { type } = await this.db!.retrieveAccount(address);
     const stubAccount =
-      type === 'schnorr' ? createStubSchnorrAccount(originalAddress) : createStubEcdsaAccount(originalAddress);
+      type === 'schnorr' || type === 'schnorr_initializerless'
+        ? createStubSchnorrAccount(originalAddress)
+        : createStubEcdsaAccount(originalAddress);
     const stubClassId = this.stubClassIds.get(type);
     if (!stubClassId) {
       throw new Error(
