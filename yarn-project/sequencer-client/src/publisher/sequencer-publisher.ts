@@ -617,24 +617,19 @@ export class SequencerPublisher {
 
   /*
    * Schedules sending all enqueued requests at (or after) the start of the given L2 slot.
-   * Bundles containing a propose sleep until one L1 slot before the L2 slot boundary, so the tx is
-   * already in the mempool when the slot's first L1 block is built. NB: this warm-up carries a known
-   * correctness risk — being included in the L1 block right before the L2 slot starts would revert
-   * propose with HeaderLib__InvalidSlotNumber.
-   * Vote-only bundles wait for the slot boundary itself: governance/slashing signal signatures bind
-   * the slot the tx mines in, so a vote mined in the L1 block right before the L2 slot starts fails
-   * signature verification silently inside Multicall3 — and environments that mine txs on arrival
-   * (anvil automine) turn the early send into exactly that.
+   * Sleeps until one L1 slot before the L2 slot boundary so the tx has a chance of being
+   * picked up by the first L1 block of the L2 slot.
+   * NB: there is a known correctness risk — being included in the L1 block right before the
+   * L2 slot starts would revert propose with HeaderLib__InvalidSlotNumber.
    * Uses InterruptibleSleep so it can be cancelled via interrupt().
    */
   public async sendRequestsAt(targetSlot: SlotNumber): Promise<SendRequestsResult | undefined> {
     const l1Constants = this.epochCache.getL1Constants();
     // Start of the target L2 slot, in ms (getTimestampForSlot returns seconds).
     const startOfTargetSlotMs = Number(getTimestampForSlot(targetSlot, l1Constants)) * 1000;
-    const hasPropose = this.requests.some(request => request.action === 'propose');
-    const submitAfterMs = hasPropose
-      ? startOfTargetSlotMs - Number(this.ethereumSlotDuration) * 1000
-      : startOfTargetSlotMs;
+    // Aim to be in the mempool one L1 slot before the L2 slot starts, so we have a chance of
+    // being picked up by the first L1 block of the L2 slot.
+    const submitAfterMs = startOfTargetSlotMs - Number(this.ethereumSlotDuration) * 1000;
     const sleepMs = submitAfterMs - this.dateProvider.now();
     if (sleepMs > 0) {
       this.log.debug(`Sleeping ${sleepMs}ms before sending requests`, {
