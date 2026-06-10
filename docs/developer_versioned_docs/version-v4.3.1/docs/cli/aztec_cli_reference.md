@@ -10,7 +10,7 @@ sidebar_position: 1
 *This documentation is auto-generated from the `aztec` CLI help output.*
 
 
-*Generated: Mon 18 May 2026 14:25:09 UTC*
+*Generated: Wed 10 Jun 2026 20:29:09 UTC*
 
 *Command: `aztec`*
 
@@ -148,17 +148,17 @@ aztec add-l1-validator [options]
 
 **Options:**
 
-- `--l1-rpc-urls <string>` - List of Ethereum host URLs. Chain identifiers
+- `--l1-rpc-urls <string>` - List of Ethereum host URLs. Chain identifiers localhost and testnet can be used (comma separated) (default: ["http://localhost:8545"], env: ETHEREUM_HOSTS)
 - `--network <string>` - Network to execute against (env: NETWORK)
-- `-pk --private-key <string>` - The private key to use sending the transaction
-- `-m --mnemonic <string>` - The mnemonic to use sending the transaction
-- `-c --l1-chain-id <number>` - Chain ID of the ethereum host (default: 31337,
+- `-pk, --private-key <string>` - The private key to use sending the transaction
+- `-m, --mnemonic <string>` - The mnemonic to use sending the transaction (default: "test test test test test test test test test test test junk")
+- `-c, --l1-chain-id <number>` - Chain ID of the ethereum host (default: 31337, env: L1_CHAIN_ID)
 - `--attester <address>` - ethereum address of the attester
 - `--withdrawer <address>` - ethereum address of the withdrawer
-- `--bls-secret-key <string>` - The BN254 scalar field element used as a secret
-- `--move-with-latest-rollup` - Whether to move with the latest rollup (default:
+- `--bls-secret-key <string>` - The BN254 scalar field element used as a secret key for BLS signatures. Will be associated with the attester address.
+- `--move-with-latest-rollup` - Whether to move with the latest rollup (default: true)
 - `--rollup <string>` - Rollup contract address
-- `-h --help` - display help for command
+- `-h, --help` - display help for command
 
 ### aztec advance-epoch
 
@@ -171,9 +171,9 @@ aztec advance-epoch [options]
 
 **Options:**
 
-- `--l1-rpc-urls <string>` - List of Ethereum host URLs. Chain identifiers
-- `-n --node-url <string>` - URL of the Aztec node (default:
-- `-h --help` - display help for command
+- `--l1-rpc-urls <string>` - List of Ethereum host URLs. Chain identifiers localhost and testnet can be used (comma separated) (default: ["http://localhost:8545"], env: ETHEREUM_HOSTS)
+- `-n, --node-url <string>` - URL of the Aztec node (default: "http://localhost:8080", env: AZTEC_NODE_URL)
+- `-h, --help` - display help for command
 
 ### aztec block-number
 
@@ -186,8 +186,8 @@ aztec block-number [options]
 
 **Options:**
 
-- `-n --node-url <string>` - URL of the Aztec node (default:
-- `-h --help` - display help for command
+- `-n, --node-url <string>` - URL of the Aztec node (default: "http://localhost:8080", env: AZTEC_NODE_URL)
+- `-h, --help` - display help for command
 
 ### aztec bridge-erc20
 
@@ -200,17 +200,17 @@ aztec bridge-erc20 [options] <amount> <recipient>
 
 **Options:**
 
-- `--l1-rpc-urls <string>` - List of Ethereum host URLs. Chain identifiers
-- `-m --mnemonic <string>` - The mnemonic to use for deriving the Ethereum
+- `--l1-rpc-urls <string>` - List of Ethereum host URLs. Chain identifiers localhost and testnet can be used (comma separated) (default: ["http://localhost:8545"], env: ETHEREUM_HOSTS)
+- `-m, --mnemonic <string>` - The mnemonic to use for deriving the Ethereum address that will mint and bridge (default: "test test test test test test test test test test test junk")
 - `--mint` - Mint the tokens on L1 (default: false)
-- `--private` - If the bridge should use the private flow
-- `-c --l1-chain-id <number>` - Chain ID of the ethereum host (default: 31337,
-- `-t --token <string>` - The address of the token to bridge
-- `-p --portal <string>` - The address of the portal contract
-- `-f --faucet <string>` - The address of the faucet contract (only used if
+- `--private` - If the bridge should use the private flow (default: false)
+- `-c, --l1-chain-id <number>` - Chain ID of the ethereum host (default: 31337, env: L1_CHAIN_ID)
+- `-t, --token <string>` - The address of the token to bridge
+- `-p, --portal <string>` - The address of the portal contract
+- `-f, --faucet <string>` - The address of the faucet contract (only used if minting)
 - `--l1-private-key <string>` - The private key to use for deployment
 - `--json` - Output the claim in JSON format
-- `-h --help` - display help for command
+- `-h, --help` - display help for command
 
 ### aztec codegen
 
@@ -223,30 +223,40 @@ aztec codegen [options] <noir-abi-path>
 
 **Options:**
 
-- `-o --outdir <path>` - Output folder for the generated code.
-- `-f --force` - Force code generation even when the contract has not
-- `-h --help` - display help for command
+- `-o, --outdir <path>` - Output folder for the generated code.
+- `-f, --force` - Force code generation even when the contract has not changed.
+- `-h, --help` - display help for command
 
 ### aztec compile
 
-Compile Aztec Noir contracts using nargo and postprocess them to generate
+Compile Aztec Noir contracts using nargo and postprocess them to generate transpiled artifacts and verification keys. All options are forwarded to nargo compile.
 
 **Usage:**
 ```bash
-nargo compile [OPTIONS]
+aztec compile [options] [nargo-args...]
 ```
 
 **Options:**
 
-- `-h --help` - display help for command
-- `--package` - &lt;PACKAGE&gt;
-- `--debug-comptime-in-file` - &lt;DEBUG_COMPTIME_IN_FILE&gt;
-- `--inliner-aggressiveness` - &lt;INLINER_AGGRESSIVENESS&gt;
-- `-Z --unstable-features` - &lt;UNSTABLE_FEATURES&gt;
+- `-h, --help` - display help for command
+- `--package <PACKAGE>` - The name of the package to run the command on. By default run on the first one found moving up along the ancestors of the current directory
+- `--workspace` - Run on all packages in the workspace
+- `--force` - Force a full recompilation
+- `--print-acir` - Display the ACIR for compiled circuit, including the Brillig bytecode
+- `--deny-warnings` - Treat all warnings as errors
+- `--silence-warnings` - Suppress warnings
+- `--debug-comptime-in-file <DEBUG_COMPTIME_IN_FILE>` - Enable printing results of comptime evaluation: provide a path suffix for the module to debug, e.g. "package_name/src/main.nr"
+- `--skip-underconstrained-check` - Flag to turn off the compiler check for under constrained values. Warning: This can improve compilation speed but can also lead to correctness errors. This check should always be run on production code
+- `--skip-brillig-constraints-check` - Flag to turn off the compiler check for missing Brillig call constraints. Warning: This can improve compilation speed but can also lead to correctness errors. This check should always be run on production code
+- `--count-array-copies` - Count the number of arrays that are copied in an unconstrained context for performance debugging
+- `--inliner-aggressiveness <INLINER_AGGRESSIVENESS>` - Setting to decide on an inlining strategy for Brillig functions. A more aggressive inliner should generate larger programs but more optimized A less aggressive inliner should generate smaller programs [default: 9223372036854775807]
+- `-Z, --unstable-features <UNSTABLE_FEATURES>` - Unstable features to enable for this current build. If non-empty, it disables unstable features required in crate manifests.
+- `--no-unstable-features` - Disable any unstable features required in crate manifests
+- `-h, --help` - Print help (see a summary with '-h')
 
 ### aztec compute-genesis-values
 
-Computes genesis values (VK tree root, protocol contracts hash, genesis archive
+Computes genesis values (VK tree root, protocol contracts hash, genesis archive root).
 
 **Usage:**
 ```bash
@@ -255,9 +265,9 @@ aztec compute-genesis-values [options]
 
 **Options:**
 
-- `--test-accounts <boolean>` - Include initial test accounts in genesis state
-- `--sponsored-fpc <boolean>` - Include sponsored FPC contract in genesis state
-- `-h --help` - display help for command
+- `--test-accounts <boolean>` - Include initial test accounts in genesis state (env: TEST_ACCOUNTS)
+- `--sponsored-fpc <boolean>` - Include sponsored FPC contract in genesis state (env: SPONSORED_FPC)
+- `-h, --help` - display help for command
 
 ### aztec compute-selector
 
@@ -270,7 +280,7 @@ aztec compute-selector [options] <functionSignature>
 
 **Options:**
 
-- `-h --help` - display help for command
+- `-h, --help` - display help for command
 
 ### aztec debug-rollup
 
@@ -283,10 +293,10 @@ aztec debug-rollup [options]
 
 **Options:**
 
-- `--l1-rpc-urls <string>` - List of Ethereum host URLs. Chain identifiers
-- `-c --l1-chain-id <number>` - Chain ID of the ethereum host (default: 31337,
+- `--l1-rpc-urls <string>` - List of Ethereum host URLs. Chain identifiers localhost and testnet can be used (comma separated) (default: ["http://localhost:8545"], env: ETHEREUM_HOSTS)
+- `-c, --l1-chain-id <number>` - Chain ID of the ethereum host (default: 31337, env: L1_CHAIN_ID)
 - `--rollup <address>` - ethereum address of the rollup contract
-- `-h --help` - display help for command
+- `-h, --help` - display help for command
 
 ### aztec decode-enr
 
@@ -299,7 +309,7 @@ aztec decode-enr [options] <enr>
 
 **Options:**
 
-- `-h --help` - display help for command
+- `-h, --help` - display help for command
 
 ### aztec deploy-l1-contracts
 
@@ -312,22 +322,22 @@ aztec deploy-l1-contracts [options]
 
 **Options:**
 
-- `--l1-rpc-urls <string>` - List of Ethereum host URLs. Chain identifiers
-- `-pk --private-key <string>` - The private key to use for deployment
+- `--l1-rpc-urls <string>` - List of Ethereum host URLs. Chain identifiers localhost and testnet can be used (comma separated) (default: ["http://localhost:8545"], env: ETHEREUM_HOSTS)
+- `-pk, --private-key <string>` - The private key to use for deployment
 - `--validators <string>` - Comma separated list of validators
-- `-m --mnemonic <string>` - The mnemonic to use in deployment (default:
-- `-i --mnemonic-index <number>` - The index of the mnemonic to use in deployment
-- `-c --l1-chain-id <number>` - Chain ID of the ethereum host (default: 31337,
+- `-m, --mnemonic <string>` - The mnemonic to use in deployment (default: "test test test test test test test test test test test junk")
+- `-i, --mnemonic-index <number>` - The index of the mnemonic to use in deployment (default: 0)
+- `-c, --l1-chain-id <number>` - Chain ID of the ethereum host (default: 31337, env: L1_CHAIN_ID)
 - `--json` - Output the contract addresses in JSON format
-- `--test-accounts` - Populate genesis state with initial fee juice
-- `--sponsored-fpc` - Populate genesis state with a testing
+- `--test-accounts` - Populate genesis state with initial fee juice for test accounts
+- `--sponsored-fpc` - Populate genesis state with a testing sponsored FPC contract
 - `--real-verifier` - Deploy the real verifier (default: false)
 - `--existing-token <address>` - Use an existing ERC20 for both fee and staking
-- `-h --help` - display help for command
+- `-h, --help` - display help for command
 
 ### aztec deploy-new-rollup
 
-Deploys a new rollup contract and adds it to the registry (if you are the
+Deploys a new rollup contract and adds it to the registry (if you are the owner).
 
 **Usage:**
 ```bash
@@ -336,18 +346,18 @@ aztec deploy-new-rollup [options]
 
 **Options:**
 
-- `-r --registry-address <string>` - The address of the registry contract
-- `--l1-rpc-urls <string>` - List of Ethereum host URLs. Chain
-- `-pk --private-key <string>` - The private key to use for deployment
+- `-r, --registry-address <string>` - The address of the registry contract
+- `--l1-rpc-urls <string>` - List of Ethereum host URLs. Chain identifiers localhost and testnet can be used (comma separated) (default: ["http://localhost:8545"], env: ETHEREUM_HOSTS)
+- `-pk, --private-key <string>` - The private key to use for deployment
 - `--validators <string>` - Comma separated list of validators
-- `-m --mnemonic <string>` - The mnemonic to use in deployment (default:
-- `-i --mnemonic-index <number>` - The index of the mnemonic to use in
-- `-c --l1-chain-id <number>` - Chain ID of the ethereum host (default:
+- `-m, --mnemonic <string>` - The mnemonic to use in deployment (default: "test test test test test test test test test test test junk")
+- `-i, --mnemonic-index <number>` - The index of the mnemonic to use in deployment (default: 0)
+- `-c, --l1-chain-id <number>` - Chain ID of the ethereum host (default: 31337, env: L1_CHAIN_ID)
 - `--json` - Output the contract addresses in JSON format
-- `--test-accounts` - Populate genesis state with initial fee
-- `--sponsored-fpc` - Populate genesis state with a testing
+- `--test-accounts` - Populate genesis state with initial fee juice for test accounts
+- `--sponsored-fpc` - Populate genesis state with a testing sponsored FPC contract
 - `--real-verifier` - Deploy the real verifier (default: false)
-- `-h --help` - display help for command
+- `-h, --help` - display help for command
 
 ### aztec deposit-governance-tokens
 
@@ -360,16 +370,16 @@ aztec deposit-governance-tokens [options]
 
 **Options:**
 
-- `-r --registry-address <string>` - The address of the registry contract
+- `-r, --registry-address <string>` - The address of the registry contract
 - `--recipient <string>` - The recipient of the tokens
-- `-a --amount <string>` - The amount of tokens to deposit
+- `-a, --amount <string>` - The amount of tokens to deposit
 - `--mint` - Mint the tokens on L1 (default: false)
-- `--l1-rpc-urls <string>` - List of Ethereum host URLs. Chain
-- `-c --l1-chain-id <number>` - Chain ID of the ethereum host (default:
-- `-p --private-key <string>` - The private key to use to deposit
-- `-m --mnemonic <string>` - The mnemonic to use to deposit (default:
-- `-i --mnemonic-index <number>` - The index of the mnemonic to use to deposit
-- `-h --help` - display help for command
+- `--l1-rpc-urls <string>` - List of Ethereum host URLs. Chain identifiers localhost and testnet can be used (comma separated) (default: ["http://localhost:8545"], env: ETHEREUM_HOSTS)
+- `-c, --l1-chain-id <number>` - Chain ID of the ethereum host (default: 31337, env: L1_CHAIN_ID)
+- `-p, --private-key <string>` - The private key to use to deposit
+- `-m, --mnemonic <string>` - The mnemonic to use to deposit (default: "test test test test test test test test test test test junk")
+- `-i, --mnemonic-index <number>` - The index of the mnemonic to use to deposit (default: 0)
+- `-h, --help` - display help for command
 
 ### aztec example-contracts
 
@@ -382,7 +392,7 @@ aztec example-contracts [options]
 
 **Options:**
 
-- `-h --help` - display help for command
+- `-h, --help` - display help for command
 
 ### aztec execute-governance-proposal
 
@@ -395,15 +405,15 @@ aztec execute-governance-proposal [options]
 
 **Options:**
 
-- `-p --proposal-id <string>` - The ID of the proposal
-- `-r --registry-address <string>` - The address of the registry contract
-- `--wait <boolean>` - Whether to wait until the proposal is
-- `--l1-rpc-urls <string>` - List of Ethereum host URLs. Chain
-- `-c --l1-chain-id <number>` - Chain ID of the ethereum host (default:
-- `-pk --private-key <string>` - The private key to use to vote
-- `-m --mnemonic <string>` - The mnemonic to use to vote (default: "test
-- `-i --mnemonic-index <number>` - The index of the mnemonic to use to vote
-- `-h --help` - display help for command
+- `-p, --proposal-id <string>` - The ID of the proposal
+- `-r, --registry-address <string>` - The address of the registry contract
+- `--wait <boolean>` - Whether to wait until the proposal is executable
+- `--l1-rpc-urls <string>` - List of Ethereum host URLs. Chain identifiers localhost and testnet can be used (comma separated) (default: ["http://localhost:8545"], env: ETHEREUM_HOSTS)
+- `-c, --l1-chain-id <number>` - Chain ID of the ethereum host (default: 31337, env: L1_CHAIN_ID)
+- `-pk, --private-key <string>` - The private key to use to vote
+- `-m, --mnemonic <string>` - The mnemonic to use to vote (default: "test test test test test test test test test test test junk")
+- `-i, --mnemonic-index <number>` - The index of the mnemonic to use to vote (default: 0)
+- `-h, --help` - display help for command
 
 ### aztec fast-forward-epochs
 
@@ -421,13 +431,13 @@ aztec generate-bls-keypair [options]
 **Options:**
 
 - `--mnemonic <mnemonic>` - Mnemonic for BLS derivation
-- `--ikm <hex>` - Initial keying material for BLS (alternative to
+- `--ikm <hex>` - Initial keying material for BLS (alternative to mnemonic)
 - `--bls-path <path>` - EIP-2334 path (default m/12381/3600/0/0/0)
 - `--g2` - Derive on G2 subgroup
 - `--compressed` - Output compressed public key
 - `--json` - Print JSON output to stdout
 - `--out <file>` - Write output to file
-- `-h --help` - display help for command
+- `-h, --help` - display help for command
 
 ### aztec generate-bootnode-enr
 
@@ -440,8 +450,8 @@ aztec generate-bootnode-enr [options] <privateKey> <p2pIp> <p2pPort>
 
 **Options:**
 
-- `-c --l1-chain-id <number>` - Chain ID of the ethereum host (default: 31337,
-- `-h --help` - display help for command
+- `-c, --l1-chain-id <number>` - Chain ID of the ethereum host (default: 31337, env: L1_CHAIN_ID)
+- `-h, --help` - display help for command
 
 ### aztec generate-keys
 
@@ -455,7 +465,7 @@ aztec generate-keys [options]
 **Options:**
 
 - `--json` - Output the keys in JSON format
-- `-h --help` - display help for command
+- `-h, --help` - display help for command
 
 ### aztec generate-l1-account
 
@@ -469,11 +479,11 @@ aztec generate-l1-account [options]
 **Options:**
 
 - `--json` - Output the private key in JSON format
-- `-h --help` - display help for command
+- `-h, --help` - display help for command
 
 ### aztec generate-p2p-private-key
 
-Generates a private key that can be used for running a node on a LibP2P
+Generates a private key that can be used for running a node on a LibP2P network.
 
 **Usage:**
 ```bash
@@ -482,7 +492,7 @@ aztec generate-p2p-private-key [options]
 
 **Options:**
 
-- `-h --help` - display help for command
+- `-h, --help` - display help for command
 
 ### aztec generate-secret-and-hash
 
@@ -495,7 +505,7 @@ aztec generate-secret-and-hash [options]
 
 **Options:**
 
-- `-h --help` - display help for command
+- `-h, --help` - display help for command
 
 ### aztec get-block
 
@@ -508,12 +518,12 @@ aztec get-block [options] [blockNumber]
 
 **Options:**
 
-- `-n --node-url <string>` - URL of the Aztec node (default:
-- `-h --help` - display help for command
+- `-n, --node-url <string>` - URL of the Aztec node (default: "http://localhost:8080", env: AZTEC_NODE_URL)
+- `-h, --help` - display help for command
 
 ### aztec get-canonical-sponsored-fpc-address
 
-Gets the canonical SponsoredFPC address for this any testnet running on the
+Gets the canonical SponsoredFPC address for this any testnet running on the same version as this CLI
 
 **Usage:**
 ```bash
@@ -522,7 +532,7 @@ aztec get-canonical-sponsored-fpc-address [options]
 
 **Options:**
 
-- `-h --help` - display help for command
+- `-h, --help` - display help for command
 
 ### aztec get-current-min-fee
 
@@ -535,8 +545,8 @@ aztec get-current-min-fee [options]
 
 **Options:**
 
-- `-n --node-url <string>` - URL of the Aztec node (default:
-- `-h --help` - display help for command
+- `-n, --node-url <string>` - URL of the Aztec node (default: "http://localhost:8080", env: AZTEC_NODE_URL)
+- `-h, --help` - display help for command
 
 ### aztec get-l1-addresses
 
@@ -549,12 +559,12 @@ aztec get-l1-addresses [options]
 
 **Options:**
 
-- `-r --registry-address <string>` - The address of the registry contract
-- `--l1-rpc-urls <string>` - List of Ethereum host URLs. Chain
-- `-v --rollup-version <number>` - The version of the rollup
-- `-c --l1-chain-id <number>` - Chain ID of the ethereum host (default:
+- `-r, --registry-address <string>` - The address of the registry contract
+- `--l1-rpc-urls <string>` - List of Ethereum host URLs. Chain identifiers localhost and testnet can be used (comma separated) (default: ["http://localhost:8545"], env: ETHEREUM_HOSTS)
+- `-v, --rollup-version <number>` - The version of the rollup
+- `-c, --l1-chain-id <number>` - Chain ID of the ethereum host (default: 31337, env: L1_CHAIN_ID)
 - `--json` - Output the addresses in JSON format
-- `-h --help` - display help for command
+- `-h, --help` - display help for command
 
 ### aztec get-l1-balance
 
@@ -567,11 +577,11 @@ aztec get-l1-balance [options] <who>
 
 **Options:**
 
-- `--l1-rpc-urls <string>` - List of Ethereum host URLs. Chain identifiers
-- `-t --token <string>` - The address of the token to check the balance of
-- `-c --l1-chain-id <number>` - Chain ID of the ethereum host (default: 31337,
+- `--l1-rpc-urls <string>` - List of Ethereum host URLs. Chain identifiers localhost and testnet can be used (comma separated) (default: ["http://localhost:8545"], env: ETHEREUM_HOSTS)
+- `-t, --token <string>` - The address of the token to check the balance of
+- `-c, --l1-chain-id <number>` - Chain ID of the ethereum host (default: 31337, env: L1_CHAIN_ID)
 - `--json` - Output the balance in JSON format
-- `-h --help` - display help for command
+- `-h, --help` - display help for command
 
 ### aztec get-l1-to-l2-message-witness
 
@@ -584,11 +594,11 @@ aztec get-l1-to-l2-message-witness [options]
 
 **Options:**
 
-- `-ca --contract-address <address>` - Aztec address of the contract.
+- `-ca, --contract-address <address>` - Aztec address of the contract.
 - `--message-hash <messageHash>` - The L1 to L2 message hash.
-- `--secret <secret>` - The secret used to claim the L1 to L2
-- `-n --node-url <string>` - URL of the Aztec node (default:
-- `-h --help` - display help for command
+- `--secret <secret>` - The secret used to claim the L1 to L2 message
+- `-n, --node-url <string>` - URL of the Aztec node (default: "http://localhost:8080", env: AZTEC_NODE_URL)
+- `-h, --help` - display help for command
 
 ### aztec get-logs
 
@@ -601,17 +611,17 @@ aztec get-logs [options]
 
 **Options:**
 
-- `-tx --tx-hash <txHash>` - A transaction hash to get the receipt for.
-- `-fb --from-block <blockNum>` - Initial block number for getting logs
-- `-tb --to-block <blockNum>` - Up to which block to fetch logs (defaults
-- `-ca --contract-address <address>` - Contract address to filter logs by.
-- `-n --node-url <string>` - URL of the Aztec node (default:
-- `--follow` - If set, will keep polling for new logs
-- `-h --help` - display help for command
+- `-tx, --tx-hash <txHash>` - A transaction hash to get the receipt for.
+- `-fb, --from-block <blockNum>` - Initial block number for getting logs (defaults to 1).
+- `-tb, --to-block <blockNum>` - Up to which block to fetch logs (defaults to latest).
+- `-ca, --contract-address <address>` - Contract address to filter logs by.
+- `-n, --node-url <string>` - URL of the Aztec node (default: "http://localhost:8080", env: AZTEC_NODE_URL)
+- `--follow` - If set, will keep polling for new logs until interrupted.
+- `-h, --help` - display help for command
 
 ### aztec get-node-info
 
-Gets the information of an Aztec node from a PXE or directly from an Aztec
+Gets the information of an Aztec node from a PXE or directly from an Aztec node.
 
 **Usage:**
 ```bash
@@ -621,8 +631,8 @@ aztec get-node-info [options]
 **Options:**
 
 - `--json` - Emit output as json
-- `-n --node-url <string>` - URL of the Aztec node (default:
-- `-h --help` - display help for command
+- `-n, --node-url <string>` - URL of the Aztec node (default: "http://localhost:8080", env: AZTEC_NODE_URL)
+- `-h, --help` - display help for command
 
 ### aztec init
 
@@ -635,7 +645,7 @@ aztec init
 
 **Options:**
 
-- `-h --help` - Print help
+- `-h, --help` - Print help
 
 ### aztec inspect-contract
 
@@ -648,7 +658,7 @@ aztec inspect-contract [options] <contractArtifactFile>
 
 **Options:**
 
-- `-h --help` - display help for command
+- `-h, --help` - display help for command
 
 ### aztec migrate-ha-db
 
@@ -684,7 +694,7 @@ aztec migrate-ha-db down [options]
 
 - `--database-url <string>` - PostgreSQL connection string
 - `--verbose` - Enable verbose output (default: false)
-- `-h --help` - display help for command
+- `-h, --help` - display help for command
 
 #### aztec migrate-ha-db up
 
@@ -699,7 +709,7 @@ aztec migrate-ha-db up [options]
 
 - `--database-url <string>` - PostgreSQL connection string
 - `--verbose` - Enable verbose output (default: false)
-- `-h --help` - display help for command
+- `-h, --help` - display help for command
 
 ### aztec new
 
@@ -712,7 +722,7 @@ aztec new <NAME>
 
 **Options:**
 
-- `-h --help` - Print help
+- `-h, --help` - Print help
 
 ### aztec parse-parameter-struct
 
@@ -725,9 +735,9 @@ aztec parse-parameter-struct [options] <encodedString>
 
 **Options:**
 
-- `-c --contract-artifact <fileLocation>` - A compiled Aztec.nr contract's ABI in JSON format or name of a contract ABI exported by @aztec/noir-contracts.js
-- `-p --parameter <parameterName>` - The name of the struct parameter to decode into
-- `-h --help` - display help for command
+- `-c, --contract-artifact <fileLocation>` - A compiled Aztec.nr contract's ABI in JSON format or name of a contract ABI exported by @aztec/noir-contracts.js
+- `-p, --parameter <parameterName>` - The name of the struct parameter to decode into
+- `-h, --help` - display help for command
 
 ### aztec preload-crs
 
@@ -740,7 +750,7 @@ aztec preload-crs [options]
 
 **Options:**
 
-- `-h --help` - display help for command
+- `-h, --help` - display help for command
 
 ### aztec profile
 
@@ -774,7 +784,7 @@ aztec profile flamegraph [options] <contract-artifact> <function>
 
 **Options:**
 
-- `-h --help` - display help for command
+- `-h, --help` - display help for command
 
 #### aztec profile gates
 
@@ -788,7 +798,7 @@ aztec profile gates [options] [target-dir]
 **Options:**
 
 - `--json` - Output gate counts as JSON instead of a table (default: false)
-- `-h --help` - display help for command
+- `-h, --help` - display help for command
 
 ### aztec propose-with-lock
 
@@ -801,15 +811,15 @@ aztec propose-with-lock [options]
 
 **Options:**
 
-- `-r --registry-address <string>` - The address of the registry contract
-- `-p --payload-address <string>` - The address of the payload contract
-- `--l1-rpc-urls <string>` - List of Ethereum host URLs. Chain
-- `-c --l1-chain-id <number>` - Chain ID of the ethereum host (default:
-- `-pk --private-key <string>` - The private key to use to propose
-- `-m --mnemonic <string>` - The mnemonic to use to propose (default:
-- `-i --mnemonic-index <number>` - The index of the mnemonic to use to propose
+- `-r, --registry-address <string>` - The address of the registry contract
+- `-p, --payload-address <string>` - The address of the payload contract
+- `--l1-rpc-urls <string>` - List of Ethereum host URLs. Chain identifiers localhost and testnet can be used (comma separated) (default: ["http://localhost:8545"], env: ETHEREUM_HOSTS)
+- `-c, --l1-chain-id <number>` - Chain ID of the ethereum host (default: 31337, env: L1_CHAIN_ID)
+- `-pk, --private-key <string>` - The private key to use to propose
+- `-m, --mnemonic <string>` - The mnemonic to use to propose (default: "test test test test test test test test test test test junk")
+- `-i, --mnemonic-index <number>` - The index of the mnemonic to use to propose (default: 0)
 - `--json` - Output the proposal ID in JSON format
-- `-h --help` - display help for command
+- `-h, --help` - display help for command
 
 ### aztec prune-rollup
 
@@ -822,12 +832,12 @@ aztec prune-rollup [options]
 
 **Options:**
 
-- `--l1-rpc-urls <string>` - List of Ethereum host URLs. Chain identifiers
-- `-pk --private-key <string>` - The private key to use for deployment
-- `-m --mnemonic <string>` - The mnemonic to use in deployment (default:
-- `-c --l1-chain-id <number>` - Chain ID of the ethereum host (default: 31337,
+- `--l1-rpc-urls <string>` - List of Ethereum host URLs. Chain identifiers localhost and testnet can be used (comma separated) (default: ["http://localhost:8545"], env: ETHEREUM_HOSTS)
+- `-pk, --private-key <string>` - The private key to use for deployment
+- `-m, --mnemonic <string>` - The mnemonic to use in deployment (default: "test test test test test test test test test test test junk")
+- `-c, --l1-chain-id <number>` - Chain ID of the ethereum host (default: 31337, env: L1_CHAIN_ID)
 - `--rollup <address>` - ethereum address of the rollup contract
-- `-h --help` - display help for command
+- `-h, --help` - display help for command
 
 ### aztec remove-l1-validator
 
@@ -840,13 +850,13 @@ aztec remove-l1-validator [options]
 
 **Options:**
 
-- `--l1-rpc-urls <string>` - List of Ethereum host URLs. Chain identifiers
-- `-pk --private-key <string>` - The private key to use for deployment
-- `-m --mnemonic <string>` - The mnemonic to use in deployment (default:
-- `-c --l1-chain-id <number>` - Chain ID of the ethereum host (default: 31337,
+- `--l1-rpc-urls <string>` - List of Ethereum host URLs. Chain identifiers localhost and testnet can be used (comma separated) (default: ["http://localhost:8545"], env: ETHEREUM_HOSTS)
+- `-pk, --private-key <string>` - The private key to use for deployment
+- `-m, --mnemonic <string>` - The mnemonic to use in deployment (default: "test test test test test test test test test test test junk")
+- `-c, --l1-chain-id <number>` - Chain ID of the ethereum host (default: 31337, env: L1_CHAIN_ID)
 - `--validator <address>` - ethereum address of the validator
 - `--rollup <address>` - ethereum address of the rollup contract
-- `-h --help` - display help for command
+- `-h, --help` - display help for command
 
 ### aztec sequencers
 
@@ -859,12 +869,12 @@ aztec sequencers [options] <command> [who]
 
 **Options:**
 
-- `--l1-rpc-urls <string>` - List of Ethereum host URLs. Chain identifiers
-- `-m --mnemonic <string>` - The mnemonic for the sender of the tx (default:
+- `--l1-rpc-urls <string>` - List of Ethereum host URLs. Chain identifiers localhost and testnet can be used (comma separated) (default: ["http://localhost:8545"])
+- `-m, --mnemonic <string>` - The mnemonic for the sender of the tx (default: "test test test test test test test test test test test junk")
 - `--block-number <number>` - Block number to query next sequencer for
-- `-n --node-url <string>` - URL of the Aztec node (default:
-- `-c --l1-chain-id <number>` - Chain ID of the ethereum host (default: 31337,
-- `-h --help` - display help for command
+- `-n, --node-url <string>` - URL of the Aztec node (default: "http://localhost:8080", env: AZTEC_NODE_URL)
+- `-c, --l1-chain-id <number>` - Chain ID of the ethereum host (default: 31337, env: L1_CHAIN_ID)
+- `-h, --help` - display help for command
 
 ### aztec setup-protocol-contracts
 
@@ -877,58 +887,1059 @@ aztec setup-protocol-contracts [options]
 
 **Options:**
 
-- `-n --node-url <string>` - URL of the Aztec node (default:
+- `-n, --node-url <string>` - URL of the Aztec node (default: "http://localhost:8080", env: AZTEC_NODE_URL)
 - `--testAccounts` - Deploy funded test accounts.
 - `--json` - Output the contract addresses in JSON format
-- `-h --help` - display help for command
+- `-h, --help` - display help for command
 
 ### aztec start
 
-Starts Aztec infrastructure components. Module flags can be combined to run several components in a single process (e.g. `--node --archiver --sequencer`).
+**MISC**
 
-**Usage:**
+- `--network <value>`
+  Network to run Aztec on
+  *Environment: `$NETWORK`*
 
-```bash
-aztec start [options]
-```
+- `--enable-version-check` (default: `true`)
+  Check if the node is running the latest version and is following the latest rollup
+  *Environment: `$ENABLE_VERSION_CHECK`*
 
-**Examples:**
+- `--sync-mode <value>` (default: `snapshot`)
+  Set sync mode to `full` to always sync via L1, `snapshot` to download a snapshot if there is no local data, `force-snapshot` to download even if there is local data.
+  *Environment: `$SYNC_MODE`*
 
-```bash
-# Start a complete local development network
-aztec start --local-network
+- `--snapshots-urls <value>`
+  Base URLs for snapshots index, comma-separated.
+  *Environment: `$SYNC_SNAPSHOTS_URLS`*
 
-# Start a full node
-aztec start --node --archiver
+- `--fisherman-mode`
+  Whether to run in fisherman mode.
+  *Environment: `$FISHERMAN_MODE`*
 
-# Start a sequencer node
-aztec start --node --archiver --sequencer
-```
+- `--local-network`
+  Starts Aztec Local Network
 
-**Common options:**
+- `--local-network.l1Mnemonic <value>` (default: `test test test test test test test test test test test junk`)
+  Mnemonic for L1 accounts. Will be used
+  *Environment: `$MNEMONIC`*
 
-- `--network <value>` - Network to run Aztec on (env: NETWORK)
-- `--port <value>` - Port to run the Aztec Services on (default: 8080, env: AZTEC_PORT)
-- `--admin-port <value>` - Port to run admin APIs of Aztec Services on (default: 8880, env: AZTEC_ADMIN_PORT)
+- `--local-network.testAccounts` (default: `true`)
+  Deploy test accounts on local network start
+  *Environment: `$TEST_ACCOUNTS`*
 
-**Module flags:**
+**API**
 
-- `--local-network` - Starts the Aztec Local Network: a local Ethereum dev node (Anvil) with the full Aztec protocol deployed on top
-- `--node` - Starts an Aztec Node
-- `--archiver` - Starts an Aztec Archiver (syncs data from L1)
-- `--sequencer` - Starts an Aztec Sequencer
-- `--prover-node` - Starts an Aztec Prover Node
-- `--prover-broker` - Starts an Aztec proving job broker
-- `--prover-agent` - Starts an Aztec Prover Agent
-- `--p2p-bootstrap` - Starts an Aztec P2P bootstrap node
-- `--bot` - Starts an Aztec transaction bot
-- `--txe` - Starts an Aztec TXE (test execution environment)
+- `--port <value>` (default: `8080`)
+  Port to run the Aztec Services on
+  *Environment: `$AZTEC_PORT`*
 
-Each module accepts further namespaced options (e.g. `--sequencer.coinbase`, `--local-network.testAccounts`). For the full per-module option list, see the [node operator CLI reference](/operate/operators/reference/cli-reference).
+- `--admin-port <value>` (default: `8880`)
+  Port to run admin APIs of Aztec Services on
+  *Environment: `$AZTEC_ADMIN_PORT`*
+
+- `--admin-api-key-hash <value>`
+  SHA-256 hex hash of a pre-generated admin API key. When set, the node uses this hash for authentication instead of auto-generating a key.
+  *Environment: `$AZTEC_ADMIN_API_KEY_HASH`*
+
+- `--disable-admin-api-key`
+  Disable API key authentication on the admin RPC endpoint. By default, a key is auto-generated, displayed once, and its hash is persisted.
+  *Environment: `$AZTEC_DISABLE_ADMIN_API_KEY`*
+
+- `--reset-admin-api-key`
+  Force-generate a new admin API key, replacing any previously persisted key hash. The new key is displayed once at startup.
+  *Environment: `$AZTEC_RESET_ADMIN_API_KEY`*
+
+- `--node-debug`
+  Expose debug endpoints (e.g. mineBlock) on the main RPC port
+  *Environment: `$AZTEC_NODE_DEBUG`*
+
+- `--api-prefix <value>`
+  Prefix for API routes on any service that is started
+  *Environment: `$API_PREFIX`*
+
+- `--rpcMaxBatchSize <value>` (default: `100`)
+  Maximum allowed batch size for JSON RPC batch requests.
+  *Environment: `$RPC_MAX_BATCH_SIZE`*
+
+- `--rpcMaxBodySize <value>` (default: `1mb`)
+  Maximum allowed batch size for JSON RPC batch requests.
+  *Environment: `$RPC_MAX_BODY_SIZE`*
+
+**ETHEREUM**
+
+- `--l1-chain-id <value>`
+  The chain ID of the ethereum host.
+  *Environment: `$L1_CHAIN_ID`*
+
+- `--l1-rpc-urls <value>`
+  List of URLs of Ethereum RPC nodes that services will connect to (comma separated).
+  *Environment: `$ETHEREUM_HOSTS`*
+
+- `--l1-consensus-host-urls <value>`
+  List of URLs of the Ethereum consensus nodes that services will connect to (comma separated)
+  *Environment: `$L1_CONSENSUS_HOST_URLS`*
+
+- `--l1-consensus-host-api-keys <value>`
+  List of API keys for the corresponding L1 consensus clients, if needed. Added to the end of the corresponding URL as "?key=&lt;api-key&gt;" unless a header is defined
+  *Environment: `$L1_CONSENSUS_HOST_API_KEYS`*
+
+- `--l1-consensus-host-api-key-headers <value>`
+  List of header names for the corresponding L1 consensus client API keys, if needed. Added to the corresponding request as "&lt;api-key-header&gt;: &lt;api-key&gt;"
+  *Environment: `$L1_CONSENSUS_HOST_API_KEY_HEADERS`*
+
+- `--registry-address <value>`
+  The deployed L1 registry contract address.
+  *Environment: `$REGISTRY_CONTRACT_ADDRESS`*
+
+- `--rollup-version <value>`
+  The version of the rollup.
+  *Environment: `$ROLLUP_VERSION`*
+
+**STORAGE**
+
+- `--data-directory <value>`
+  Optional dir to store data. If omitted will store in memory.
+  *Environment: `$DATA_DIRECTORY`*
+
+- `--data-store-map-size-kb <value>` (default: `134217728`)
+  The maximum possible size of a data store DB in KB. Can be overridden by component-specific options.
+  *Environment: `$DATA_STORE_MAP_SIZE_KB`*
+
+**WORLD STATE**
+
+- `--world-state-data-directory <value>`
+  Optional directory for the world state database
+  *Environment: `$WS_DATA_DIRECTORY`*
+
+- `--world-state-db-map-size-kb <value>`
+  The maximum possible size of the world state DB in KB. Overwrites the general dataStoreMapSizeKb.
+  *Environment: `$WS_DB_MAP_SIZE_KB`*
+
+- `--world-state-checkpoint-history <value>` (default: `64`)
+  The number of historic checkpoints worth of blocks to maintain. Values less than 1 mean all history is maintained
+  *Environment: `$WS_NUM_HISTORIC_CHECKPOINTS`*
+
+**AZTEC NODE**
+
+- `--node`
+  Starts Aztec Node with options
+
+**ARCHIVER**
+
+- `--archiver`
+  Starts Aztec Archiver with options
+
+- `--archiver.blobSinkMapSizeKb <value>`
+  The maximum possible size of the blob sink DB in KB. Overwrites the general dataStoreMapSizeKb.
+  *Environment: `$BLOB_SINK_MAP_SIZE_KB`*
+
+- `--archiver.blobAllowEmptySources <value>`
+  Whether to allow having no blob sources configured during startup
+  *Environment: `$BLOB_ALLOW_EMPTY_SOURCES`*
+
+- `--archiver.blobFileStoreUrls <value>`
+  URLs for filestore blob archive, comma-separated. Tried in order until blobs are found.
+  *Environment: `$BLOB_FILE_STORE_URLS`*
+
+- `--archiver.blobFileStoreUploadUrl <value>`
+  URL for uploading blobs to filestore (s3://, gs://, file://)
+  *Environment: `$BLOB_FILE_STORE_UPLOAD_URL`*
+
+- `--archiver.blobHealthcheckUploadIntervalMinutes <value>`
+  Interval in minutes for uploading healthcheck file to file store (default: 60 = 1 hour)
+  *Environment: `$BLOB_HEALTHCHECK_UPLOAD_INTERVAL_MINUTES`*
+
+- `--archiver.archiveApiUrl <value>`
+  The URL of the archive API
+  *Environment: `$BLOB_ARCHIVE_API_URL`*
+
+- `--archiver.archiverPollingIntervalMS <value>` (default: `500`)
+  The polling interval in ms for retrieving new L2 blocks and encrypted logs.
+  *Environment: `$ARCHIVER_POLLING_INTERVAL_MS`*
+
+- `--archiver.archiverBatchSize <value>` (default: `100`)
+  The number of L2 blocks the archiver will attempt to download at a time.
+  *Environment: `$ARCHIVER_BATCH_SIZE`*
+
+- `--archiver.maxLogs <value>` (default: `1000`)
+  The max number of logs that can be obtained in 1 "getPublicLogs" call.
+  *Environment: `$ARCHIVER_MAX_LOGS`*
+
+- `--archiver.archiverStoreMapSizeKb <value>`
+  The maximum possible size of the archiver DB in KB. Overwrites the general dataStoreMapSizeKb.
+  *Environment: `$ARCHIVER_STORE_MAP_SIZE_KB`*
+
+- `--archiver.skipValidateCheckpointAttestations <value>`
+  Skip validating checkpoint attestations (for testing purposes only)
+
+- `--archiver.maxAllowedEthClientDriftSeconds <value>` (default: `300`)
+  Maximum allowed drift in seconds between the Ethereum client and current time.
+  *Environment: `$MAX_ALLOWED_ETH_CLIENT_DRIFT_SECONDS`*
+
+- `--archiver.ethereumAllowNoDebugHosts <value>` (default: `true`)
+  Whether to allow starting the archiver without debug/trace method support on Ethereum hosts
+  *Environment: `$ETHEREUM_ALLOW_NO_DEBUG_HOSTS`*
+
+**SEQUENCER**
+
+- `--sequencer`
+  Starts Aztec Sequencer with options
+
+- `--sequencer.validatorPrivateKeys <value>` (default: `[Redacted]`)
+  List of private keys of the validators participating in attestation duties
+  *Environment: `$VALIDATOR_PRIVATE_KEYS`*
+
+- `--sequencer.validatorAddresses <value>`
+  List of addresses of the validators to use with remote signers
+  *Environment: `$VALIDATOR_ADDRESSES`*
+
+- `--sequencer.disableValidator <value>`
+  Do not run the validator
+  *Environment: `$VALIDATOR_DISABLED`*
+
+- `--sequencer.disabledValidators <value>`
+  Temporarily disable these specific validator addresses
+
+- `--sequencer.attestationPollingIntervalMs <value>` (default: `200`)
+  Interval between polling for new attestations
+  *Environment: `$VALIDATOR_ATTESTATIONS_POLLING_INTERVAL_MS`*
+
+- `--sequencer.validatorReexecute <value>` (default: `true`)
+  Re-execute transactions before attesting
+  *Environment: `$VALIDATOR_REEXECUTE`*
+
+- `--sequencer.alwaysReexecuteBlockProposals <value>` (default: `true`)
+  Whether to always reexecute block proposals, even for non-validator nodes (useful for monitoring network status).
+
+- `--sequencer.skipCheckpointProposalValidation <value>`
+  Skip checkpoint proposal validation and always attest (default: false)
+
+- `--sequencer.skipPushProposedBlocksToArchiver <value>`
+  Skip pushing proposed blocks to archiver (default: true)
+
+- `--sequencer.attestToEquivocatedProposals <value>`
+  Agree to attest to equivocated checkpoint proposals (for testing purposes only)
+
+- `--sequencer.validateMaxL2BlockGas <value>`
+  Maximum L2 block gas for validation. Proposals exceeding this limit are rejected.
+  *Environment: `$VALIDATOR_MAX_L2_BLOCK_GAS`*
+
+- `--sequencer.validateMaxDABlockGas <value>`
+  Maximum DA block gas for validation. Proposals exceeding this limit are rejected.
+  *Environment: `$VALIDATOR_MAX_DA_BLOCK_GAS`*
+
+- `--sequencer.validateMaxTxsPerBlock <value>`
+  Maximum transactions per block for validation. Proposals exceeding this limit are rejected.
+  *Environment: `$VALIDATOR_MAX_TX_PER_BLOCK`*
+
+- `--sequencer.validateMaxTxsPerCheckpoint <value>`
+  Maximum transactions per checkpoint for validation. Proposals exceeding this limit are rejected.
+  *Environment: `$VALIDATOR_MAX_TX_PER_CHECKPOINT`*
+
+- `--sequencer.haSigningEnabled <value>`
+  Whether HA signing / slashing protection is enabled
+  *Environment: `$VALIDATOR_HA_SIGNING_ENABLED`*
+
+- `--sequencer.nodeId <value>`
+  The unique identifier for this node
+  *Environment: `$VALIDATOR_HA_NODE_ID`*
+
+- `--sequencer.pollingIntervalMs <value>` (default: `100`)
+  The number of ms to wait between polls when a duty is being signed
+  *Environment: `$VALIDATOR_HA_POLLING_INTERVAL_MS`*
+
+- `--sequencer.signingTimeoutMs <value>` (default: `3000`)
+  The maximum time to wait for a duty being signed to complete
+  *Environment: `$VALIDATOR_HA_SIGNING_TIMEOUT_MS`*
+
+- `--sequencer.maxStuckDutiesAgeMs <value>`
+  The maximum age of a stuck duty in ms (defaults to 2x Aztec slot duration)
+  *Environment: `$VALIDATOR_HA_MAX_STUCK_DUTIES_AGE_MS`*
+
+- `--sequencer.cleanupOldDutiesAfterHours <value>`
+  Optional: clean up old duties after this many hours (disabled if not set)
+  *Environment: `$VALIDATOR_HA_OLD_DUTIES_MAX_AGE_H`*
+
+- `--sequencer.databaseUrl <value>`
+  PostgreSQL connection string for validator HA signer (format: postgresql://user:password@host:port/database)
+  *Environment: `$VALIDATOR_HA_DATABASE_URL`*
+
+- `--sequencer.poolMaxCount <value>` (default: `10`)
+  Maximum number of clients in the pool
+  *Environment: `$VALIDATOR_HA_POOL_MAX`*
+
+- `--sequencer.poolMinCount <value>`
+  Minimum number of clients in the pool
+  *Environment: `$VALIDATOR_HA_POOL_MIN`*
+
+- `--sequencer.poolIdleTimeoutMs <value>` (default: `10000`)
+  Idle timeout in milliseconds
+  *Environment: `$VALIDATOR_HA_POOL_IDLE_TIMEOUT_MS`*
+
+- `--sequencer.poolConnectionTimeoutMs <value>`
+  Connection timeout in milliseconds (0 means no timeout)
+  *Environment: `$VALIDATOR_HA_POOL_CONNECTION_TIMEOUT_MS`*
+
+- `--sequencer.sequencerPollingIntervalMS <value>` (default: `500`)
+  The number of ms to wait between polling for checking to build on the next slot.
+  *Environment: `$SEQ_POLLING_INTERVAL_MS`*
+
+- `--sequencer.maxTxsPerCheckpoint <value>`
+  The maximum number of txs across all blocks in a checkpoint.
+  *Environment: `$SEQ_MAX_TX_PER_CHECKPOINT`*
+
+- `--sequencer.minTxsPerBlock <value>` (default: `1`)
+  The minimum number of txs to include in a block.
+  *Environment: `$SEQ_MIN_TX_PER_BLOCK`*
+
+- `--sequencer.minValidTxsPerBlock <value>`
+  The minimum number of valid txs (after execution) to include in a block. If not set, falls back to minTxsPerBlock.
+
+- `--sequencer.publishTxsWithProposals <value>`
+  Whether to publish txs with proposals.
+  *Environment: `$SEQ_PUBLISH_TXS_WITH_PROPOSALS`*
+
+- `--sequencer.maxL2BlockGas <value>`
+  The maximum L2 block gas.
+  *Environment: `$SEQ_MAX_L2_BLOCK_GAS`*
+
+- `--sequencer.maxDABlockGas <value>`
+  The maximum DA block gas.
+  *Environment: `$SEQ_MAX_DA_BLOCK_GAS`*
+
+- `--sequencer.perBlockAllocationMultiplier <value>` (default: `1.2`)
+  Per-block gas budget multiplier for both L2 and DA gas. Budget per block is (checkpointLimit / maxBlocks) * multiplier. Values greater than one allow early blocks to use more than their even share, relying on checkpoint-level capping for later blocks.
+  *Environment: `$SEQ_PER_BLOCK_ALLOCATION_MULTIPLIER`*
+
+- `--sequencer.redistributeCheckpointBudget <value>` (default: `true`)
+  Redistribute remaining checkpoint budget evenly across remaining blocks instead of allowing a single block to consume the entire remaining budget.
+  *Environment: `$SEQ_REDISTRIBUTE_CHECKPOINT_BUDGET`*
+
+- `--sequencer.coinbase <value>`
+  Recipient of block reward.
+  *Environment: `$COINBASE`*
+
+- `--sequencer.feeRecipient <value>`
+  Address to receive fees.
+  *Environment: `$FEE_RECIPIENT`*
+
+- `--sequencer.acvmWorkingDirectory <value>`
+  The working directory to use for simulation/proving
+  *Environment: `$ACVM_WORKING_DIRECTORY`*
+
+- `--sequencer.acvmBinaryPath <value>`
+  The path to the ACVM binary
+  *Environment: `$ACVM_BINARY_PATH`*
+
+- `--sequencer.enforceTimeTable <value>` (default: `true`)
+  Whether to enforce the time table when building blocks
+  *Environment: `$SEQ_ENFORCE_TIME_TABLE`*
+
+- `--sequencer.governanceProposerPayload <value>`
+  The address of the payload for the governanceProposer
+  *Environment: `$GOVERNANCE_PROPOSER_PAYLOAD_ADDRESS`*
+
+- `--sequencer.l1PublishingTime <value>`
+  How much time (in seconds) we allow in the slot for publishing the L1 tx (defaults to 1 L1 slot).
+  *Environment: `$SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT`*
+
+- `--sequencer.attestationPropagationTime <value>` (default: `2`)
+  How many seconds it takes for proposals and attestations to travel across the p2p layer (one-way)
+  *Environment: `$SEQ_ATTESTATION_PROPAGATION_TIME`*
+
+- `--sequencer.secondsBeforeInvalidatingBlockAsCommitteeMember <value>` (default: `144`)
+  How many seconds to wait before trying to invalidate a block from the pending chain as a committee member (zero to never invalidate). The next proposer is expected to invalidate, so the committee acts as a fallback.
+  *Environment: `$SEQ_SECONDS_BEFORE_INVALIDATING_BLOCK_AS_COMMITTEE_MEMBER`*
+
+- `--sequencer.secondsBeforeInvalidatingBlockAsNonCommitteeMember <value>` (default: `432`)
+  How many seconds to wait before trying to invalidate a block from the pending chain as a non-committee member (zero to never invalidate). The next proposer is expected to invalidate, then the committee, so other sequencers act as a fallback.
+  *Environment: `$SEQ_SECONDS_BEFORE_INVALIDATING_BLOCK_AS_NON_COMMITTEE_MEMBER`*
+
+- `--sequencer.broadcastInvalidBlockProposal <value>`
+  Broadcast invalid block proposals with corrupted state (for testing only)
+
+- `--sequencer.injectFakeAttestation <value>`
+  Inject a fake attestation (for testing only)
+
+- `--sequencer.injectHighSValueAttestation <value>`
+  Inject a malleable attestation with a high-s value (for testing only)
+
+- `--sequencer.injectUnrecoverableSignatureAttestation <value>`
+  Inject an attestation with an unrecoverable signature (for testing only)
+
+- `--sequencer.shuffleAttestationOrdering <value>`
+  Shuffle attestation ordering to create invalid ordering (for testing only)
+
+- `--sequencer.blockDurationMs <value>`
+  Duration per block in milliseconds when building multiple blocks per slot. If undefined (default), builds a single block per slot using the full slot duration.
+  *Environment: `$SEQ_BLOCK_DURATION_MS`*
+
+- `--sequencer.expectedBlockProposalsPerSlot <value>`
+  Expected number of block proposals per slot for P2P peer scoring. 0 (default) disables block proposal scoring. Set to a positive value to enable.
+  *Environment: `$SEQ_EXPECTED_BLOCK_PROPOSALS_PER_SLOT`*
+
+- `--sequencer.maxTxsPerBlock <value>`
+  The maximum number of txs to include in a block.
+  *Environment: `$SEQ_MAX_TX_PER_BLOCK`*
+
+- `--sequencer.buildCheckpointIfEmpty <value>`
+  Have sequencer build and publish an empty checkpoint if there are no txs
+  *Environment: `$SEQ_BUILD_CHECKPOINT_IF_EMPTY`*
+
+- `--sequencer.minBlocksForCheckpoint <value>`
+  Minimum number of blocks required for a checkpoint proposal (test only)
+
+- `--sequencer.skipPublishingCheckpointsPercent <value>`
+  Percent probability (0 - 100) of sequencer skipping checkpoint publishing (testing only)
+  *Environment: `$SEQ_SKIP_CHECKPOINT_PUBLISH_PERCENT`*
+
+- `--sequencer.txPublicSetupAllowListExtend <value>`
+  Additional entries to extend the default setup allow list. Format: I:address:selector[:flags],C:classId:selector[:flags]. Flags: os (onlySelf), rn (rejectNullMsgSender), cl=N (calldataLength), joined with +.
+  *Environment: `$TX_PUBLIC_SETUP_ALLOWLIST`*
+
+- `--sequencer.keyStoreDirectory <value>`
+  Location of key store directory
+  *Environment: `$KEY_STORE_DIRECTORY`*
+
+- `--sequencer.sequencerPublisherPrivateKeys <value>`
+  The private keys to be used by the sequencer publisher.
+  *Environment: `$SEQ_PUBLISHER_PRIVATE_KEYS`*
+
+- `--sequencer.sequencerPublisherAddresses <value>`
+  The addresses of the publishers to use with remote signers
+  *Environment: `$SEQ_PUBLISHER_ADDRESSES`*
+
+- `--sequencer.blobAllowEmptySources <value>`
+  Whether to allow having no blob sources configured during startup
+  *Environment: `$BLOB_ALLOW_EMPTY_SOURCES`*
+
+- `--sequencer.blobFileStoreUrls <value>`
+  URLs for filestore blob archive, comma-separated. Tried in order until blobs are found.
+  *Environment: `$BLOB_FILE_STORE_URLS`*
+
+- `--sequencer.blobFileStoreUploadUrl <value>`
+  URL for uploading blobs to filestore (s3://, gs://, file://)
+  *Environment: `$BLOB_FILE_STORE_UPLOAD_URL`*
+
+- `--sequencer.blobHealthcheckUploadIntervalMinutes <value>`
+  Interval in minutes for uploading healthcheck file to file store (default: 60 = 1 hour)
+  *Environment: `$BLOB_HEALTHCHECK_UPLOAD_INTERVAL_MINUTES`*
+
+- `--sequencer.archiveApiUrl <value>`
+  The URL of the archive API
+  *Environment: `$BLOB_ARCHIVE_API_URL`*
+
+- `--sequencer.sequencerPublisherAllowInvalidStates <value>` (default: `true`)
+  True to use publishers in invalid states (timed out, cancelled, etc) if no other is available
+  *Environment: `$SEQ_PUBLISHER_ALLOW_INVALID_STATES`*
+
+- `--sequencer.sequencerPublisherForwarderAddress <value>`
+  Address of the forwarder contract to wrap all L1 transactions through (for testing purposes only)
+  *Environment: `$SEQ_PUBLISHER_FORWARDER_ADDRESS`*
+
+**PROVER NODE**
+
+- `--prover-node`
+  Starts Aztec Prover Node with options
+
+- `--proverNode.keyStoreDirectory <value>`
+  Location of key store directory
+  *Environment: `$KEY_STORE_DIRECTORY`*
+
+- `--proverNode.acvmWorkingDirectory <value>`
+  The working directory to use for simulation/proving
+  *Environment: `$ACVM_WORKING_DIRECTORY`*
+
+- `--proverNode.acvmBinaryPath <value>`
+  The path to the ACVM binary
+  *Environment: `$ACVM_BINARY_PATH`*
+
+- `--proverNode.bbWorkingDirectory <value>`
+  The working directory to use for proving
+  *Environment: `$BB_WORKING_DIRECTORY`*
+
+- `--proverNode.bbBinaryPath <value>`
+  The path to the bb binary
+  *Environment: `$BB_BINARY_PATH`*
+
+- `--proverNode.bbSkipCleanup <value>`
+  Whether to skip cleanup of bb temporary files
+  *Environment: `$BB_SKIP_CLEANUP`*
+
+- `--proverNode.numConcurrentIVCVerifiers <value>` (default: `8`)
+  Max number of chonk verifiers to run concurrently
+  *Environment: `$BB_NUM_IVC_VERIFIERS`*
+
+- `--proverNode.bbIVCConcurrency <value>` (default: `1`)
+  Number of threads to use for IVC verification
+  *Environment: `$BB_IVC_CONCURRENCY`*
+
+- `--proverNode.nodeUrl <value>`
+  The URL to the Aztec node to take proving jobs from
+  *Environment: `$AZTEC_NODE_URL`*
+
+- `--proverNode.proverId <value>`
+  Hex value that identifies the prover. Defaults to the address used for submitting proofs if not set.
+  *Environment: `$PROVER_ID`*
+
+- `--proverNode.failedProofStore <value>`
+  Store for failed proof inputs. Google cloud storage is only supported at the moment. Set this value as gs://bucket-name/path/to/store.
+  *Environment: `$PROVER_FAILED_PROOF_STORE`*
+
+- `--proverNode.enqueueConcurrency <value>` (default: `50`)
+  Max concurrent jobs the orchestrator serializes and enqueues to the broker.
+  *Environment: `$PROVER_ENQUEUE_CONCURRENCY`*
+
+- `--proverNode.blobSinkMapSizeKb <value>`
+  The maximum possible size of the blob sink DB in KB. Overwrites the general dataStoreMapSizeKb.
+  *Environment: `$BLOB_SINK_MAP_SIZE_KB`*
+
+- `--proverNode.blobAllowEmptySources <value>`
+  Whether to allow having no blob sources configured during startup
+  *Environment: `$BLOB_ALLOW_EMPTY_SOURCES`*
+
+- `--proverNode.blobFileStoreUrls <value>`
+  URLs for filestore blob archive, comma-separated. Tried in order until blobs are found.
+  *Environment: `$BLOB_FILE_STORE_URLS`*
+
+- `--proverNode.blobFileStoreUploadUrl <value>`
+  URL for uploading blobs to filestore (s3://, gs://, file://)
+  *Environment: `$BLOB_FILE_STORE_UPLOAD_URL`*
+
+- `--proverNode.blobHealthcheckUploadIntervalMinutes <value>`
+  Interval in minutes for uploading healthcheck file to file store (default: 60 = 1 hour)
+  *Environment: `$BLOB_HEALTHCHECK_UPLOAD_INTERVAL_MINUTES`*
+
+- `--proverNode.archiveApiUrl <value>`
+  The URL of the archive API
+  *Environment: `$BLOB_ARCHIVE_API_URL`*
+
+- `--proverNode.proverPublisherAllowInvalidStates <value>` (default: `true`)
+  True to use publishers in invalid states (timed out, cancelled, etc) if no other is available
+  *Environment: `$PROVER_PUBLISHER_ALLOW_INVALID_STATES`*
+
+- `--proverNode.proverPublisherForwarderAddress <value>`
+  Address of the forwarder contract to wrap all L1 transactions through (for testing purposes only)
+  *Environment: `$PROVER_PUBLISHER_FORWARDER_ADDRESS`*
+
+- `--proverNode.proverPublisherPrivateKeys <value>`
+  The private keys to be used by the prover publisher.
+  *Environment: `$PROVER_PUBLISHER_PRIVATE_KEYS`*
+
+- `--proverNode.proverPublisherAddresses <value>`
+  The addresses of the publishers to use with remote signers
+  *Environment: `$PROVER_PUBLISHER_ADDRESSES`*
+
+- `--proverNode.proverNodeMaxPendingJobs <value>` (default: `10`)
+  The maximum number of pending jobs for the prover node
+  *Environment: `$PROVER_NODE_MAX_PENDING_JOBS`*
+
+- `--proverNode.proverNodePollingIntervalMs <value>` (default: `1000`)
+  The interval in milliseconds to poll for new jobs
+  *Environment: `$PROVER_NODE_POLLING_INTERVAL_MS`*
+
+- `--proverNode.proverNodeMaxParallelBlocksPerEpoch <value>`
+  The Maximum number of blocks to process in parallel while proving an epoch
+  *Environment: `$PROVER_NODE_MAX_PARALLEL_BLOCKS_PER_EPOCH`*
+
+- `--proverNode.proverNodeFailedEpochStore <value>`
+  File store where to upload node state when an epoch fails to be proven
+  *Environment: `$PROVER_NODE_FAILED_EPOCH_STORE`*
+
+- `--proverNode.proverNodeEpochProvingDelayMs <value>`
+  Optional delay in milliseconds to wait before proving a new epoch
+
+- `--proverNode.txGatheringIntervalMs <value>` (default: `1000`)
+  How often to check that tx data is available
+  *Environment: `$PROVER_NODE_TX_GATHERING_INTERVAL_MS`*
+
+- `--proverNode.txGatheringBatchSize <value>` (default: `10`)
+  How many transactions to gather from a node in a single request
+  *Environment: `$PROVER_NODE_TX_GATHERING_BATCH_SIZE`*
+
+- `--proverNode.txGatheringMaxParallelRequestsPerNode <value>` (default: `100`)
+  How many tx requests to make in parallel to each node
+  *Environment: `$PROVER_NODE_TX_GATHERING_MAX_PARALLEL_REQUESTS_PER_NODE`*
+
+- `--proverNode.txGatheringTimeoutMs <value>` (default: `120000`)
+  How long to wait for tx data to be available before giving up
+  *Environment: `$PROVER_NODE_TX_GATHERING_TIMEOUT_MS`*
+
+- `--proverNode.proverNodeDisableProofPublish <value>`
+  Whether the prover node skips publishing proofs to L1
+  *Environment: `$PROVER_NODE_DISABLE_PROOF_PUBLISH`*
+
+- `--proverNode.web3SignerUrl <value>`
+  URL of the Web3Signer instance
+  *Environment: `$WEB3_SIGNER_URL`*
+
+**PROVER BROKER**
+
+- `--prover-broker`
+  Starts Aztec proving job broker
+
+- `--proverBroker.proverBrokerJobTimeoutMs <value>` (default: `30000`)
+  Jobs are retried if not kept alive for this long
+  *Environment: `$PROVER_BROKER_JOB_TIMEOUT_MS`*
+
+- `--proverBroker.proverBrokerPollIntervalMs <value>` (default: `1000`)
+  The interval to check job health status
+  *Environment: `$PROVER_BROKER_POLL_INTERVAL_MS`*
+
+- `--proverBroker.proverBrokerJobMaxRetries <value>` (default: `3`)
+  If starting a prover broker locally, the max number of retries per proving job
+  *Environment: `$PROVER_BROKER_JOB_MAX_RETRIES`*
+
+- `--proverBroker.proverBrokerBatchSize <value>` (default: `100`)
+  The prover broker writes jobs to disk in batches
+  *Environment: `$PROVER_BROKER_BATCH_SIZE`*
+
+- `--proverBroker.proverBrokerBatchIntervalMs <value>` (default: `50`)
+  How often to flush batches to disk
+  *Environment: `$PROVER_BROKER_BATCH_INTERVAL_MS`*
+
+- `--proverBroker.proverBrokerMaxEpochsToKeepResultsFor <value>` (default: `1`)
+  The maximum number of epochs to keep results for
+  *Environment: `$PROVER_BROKER_MAX_EPOCHS_TO_KEEP_RESULTS_FOR`*
+
+- `--proverBroker.proverBrokerStoreMapSizeKb <value>`
+  The size of the prover broker's database. Will override the dataStoreMapSizeKb if set.
+  *Environment: `$PROVER_BROKER_STORE_MAP_SIZE_KB`*
+
+- `--proverBroker.proverBrokerDebugReplayEnabled <value>`
+  Enable debug replay mode for replaying proving jobs from stored inputs
+  *Environment: `$PROVER_BROKER_DEBUG_REPLAY_ENABLED`*
+
+**PROVER AGENT**
+
+- `--prover-agent`
+  Starts Aztec Prover Agent with options
+
+- `--proverAgent.proverAgentCount <value>` (default: `1`)
+  Whether this prover has a local prover agent
+  *Environment: `$PROVER_AGENT_COUNT`*
+
+- `--proverAgent.proverAgentPollIntervalMs <value>` (default: `1000`)
+  The interval agents poll for jobs at
+  *Environment: `$PROVER_AGENT_POLL_INTERVAL_MS`*
+
+- `--proverAgent.proverAgentProofTypes <value>`
+  The types of proofs the prover agent can generate
+  *Environment: `$PROVER_AGENT_PROOF_TYPES`*
+
+- `--proverAgent.proverBrokerUrl <value>`
+  The URL where this agent takes jobs from
+  *Environment: `$PROVER_BROKER_HOST`*
+
+- `--proverAgent.realProofs <value>` (default: `true`)
+  Whether to construct real proofs
+  *Environment: `$PROVER_REAL_PROOFS`*
+
+- `--proverAgent.proverTestDelayType <value>` (default: `fixed`)
+  The type of artificial delay to introduce
+  *Environment: `$PROVER_TEST_DELAY_TYPE`*
+
+- `--proverAgent.proverTestDelayMs <value>`
+  Artificial delay to introduce to all operations to the test prover.
+  *Environment: `$PROVER_TEST_DELAY_MS`*
+
+- `--proverAgent.proverTestDelayFactor <value>` (default: `1`)
+  If using realistic delays, what percentage of realistic times to apply.
+  *Environment: `$PROVER_TEST_DELAY_FACTOR`*
+
+- `--proverAgent.proverTestVerificationDelayMs <value>` (default: `10`)
+  The delay (ms) to inject during fake proof verification
+  *Environment: `$PROVER_TEST_VERIFICATION_DELAY_MS`*
+
+- `--proverAgent.cancelJobsOnStop <value>`
+  Whether to abort pending proving jobs when the orchestrator is cancelled. When false (default), jobs remain in the broker queue and can be reused on restart/reorg.
+  *Environment: `$PROVER_CANCEL_JOBS_ON_STOP`*
+
+- `--proverAgent.proofStore <value>`
+  Optional proof input store for the prover
+  *Environment: `$PROVER_PROOF_STORE`*
+
+- `--p2p-enabled [value]`
+  Enable P2P subsystem
+  *Environment: `$P2P_ENABLED`*
+
+- `--p2p.validateMaxTxsPerBlock <value>`
+  Maximum transactions per block for validation. Overrides maxTxsPerBlock for gossip validation when set.
+  *Environment: `$VALIDATOR_MAX_TX_PER_BLOCK`*
+
+- `--p2p.validateMaxTxsPerCheckpoint <value>`
+  Maximum transactions per checkpoint for validation. Used as fallback for maxTxsPerBlock when that is not set.
+  *Environment: `$VALIDATOR_MAX_TX_PER_CHECKPOINT`*
+
+- `--p2p.validateMaxL2BlockGas <value>`
+  Maximum L2 gas per block for validation. When set, txs exceeding this limit are rejected.
+  *Environment: `$VALIDATOR_MAX_L2_BLOCK_GAS`*
+
+- `--p2p.validateMaxDABlockGas <value>`
+  Maximum DA gas per block for validation. When set, txs exceeding this limit are rejected.
+  *Environment: `$VALIDATOR_MAX_DA_BLOCK_GAS`*
+
+- `--p2p.p2pDiscoveryDisabled <value>`
+  A flag dictating whether the P2P discovery system should be disabled.
+  *Environment: `$P2P_DISCOVERY_DISABLED`*
+
+- `--p2p.blockCheckIntervalMS <value>` (default: `100`)
+  The frequency in which to check for new L2 blocks.
+  *Environment: `$P2P_BLOCK_CHECK_INTERVAL_MS`*
+
+- `--p2p.slotCheckIntervalMS <value>` (default: `1000`)
+  The frequency in which to check for new L2 slots.
+  *Environment: `$P2P_SLOT_CHECK_INTERVAL_MS`*
+
+- `--p2p.debugDisableColocationPenalty <value>`
+  DEBUG: Disable colocation penalty - NEVER set to true in production
+  *Environment: `$DEBUG_P2P_DISABLE_COLOCATION_PENALTY`*
+
+- `--p2p.peerCheckIntervalMS <value>` (default: `30000`)
+  The frequency in which to check for new peers.
+  *Environment: `$P2P_PEER_CHECK_INTERVAL_MS`*
+
+- `--p2p.l2QueueSize <value>` (default: `1000`)
+  Size of queue of L2 blocks to store.
+  *Environment: `$P2P_L2_QUEUE_SIZE`*
+
+- `--p2p.listenAddress <value>` (default: `0.0.0.0`)
+  The listen address. ipv4 address.
+  *Environment: `$P2P_LISTEN_ADDR`*
+
+- `--p2p.p2pPort <value>` (default: `40400`)
+  The port for the P2P service. Defaults to 40400
+  *Environment: `$P2P_PORT`*
+
+- `--p2p.p2pBroadcastPort <value>`
+  The port to broadcast the P2P service on (included in the node's ENR). Defaults to P2P_PORT.
+  *Environment: `$P2P_BROADCAST_PORT`*
+
+- `--p2p.p2pIp <value>`
+  The IP address for the P2P service. ipv4 address.
+  *Environment: `$P2P_IP`*
+
+- `--p2p.peerIdPrivateKey <value>`
+  An optional peer id private key. If blank, will generate a random key.
+  *Environment: `$PEER_ID_PRIVATE_KEY`*
+
+- `--p2p.peerIdPrivateKeyPath <value>`
+  An optional path to store generated peer id private keys. If blank, will default to storing any generated keys in the root of the data directory.
+  *Environment: `$PEER_ID_PRIVATE_KEY_PATH`*
+
+- `--p2p.bootstrapNodes <value>`
+  A list of bootstrap peer ENRs to connect to. Separated by commas.
+  *Environment: `$BOOTSTRAP_NODES`*
+
+- `--p2p.bootstrapNodeEnrVersionCheck <value>`
+  Whether to check the version of the bootstrap node ENR.
+  *Environment: `$P2P_BOOTSTRAP_NODE_ENR_VERSION_CHECK`*
+
+- `--p2p.bootstrapNodesAsFullPeers <value>`
+  Whether to consider our configured bootnodes as full peers
+  *Environment: `$P2P_BOOTSTRAP_NODES_AS_FULL_PEERS`*
+
+- `--p2p.maxPeerCount <value>` (default: `100`)
+  The maximum number of peers to connect to.
+  *Environment: `$P2P_MAX_PEERS`*
+
+- `--p2p.queryForIp <value>`
+  If announceUdpAddress or announceTcpAddress are not provided, query for the IP address of the machine. Default is false.
+  *Environment: `$P2P_QUERY_FOR_IP`*
+
+- `--p2p.gossipsubInterval <value>` (default: `700`)
+  The interval of the gossipsub heartbeat to perform maintenance tasks.
+  *Environment: `$P2P_GOSSIPSUB_INTERVAL_MS`*
+
+- `--p2p.gossipsubD <value>` (default: `8`)
+  The D parameter for the gossipsub protocol.
+  *Environment: `$P2P_GOSSIPSUB_D`*
+
+- `--p2p.gossipsubDlo <value>` (default: `4`)
+  The Dlo parameter for the gossipsub protocol.
+  *Environment: `$P2P_GOSSIPSUB_DLO`*
+
+- `--p2p.gossipsubDhi <value>` (default: `12`)
+  The Dhi parameter for the gossipsub protocol.
+  *Environment: `$P2P_GOSSIPSUB_DHI`*
+
+- `--p2p.gossipsubDLazy <value>` (default: `8`)
+  The Dlazy parameter for the gossipsub protocol.
+  *Environment: `$P2P_GOSSIPSUB_DLAZY`*
+
+- `--p2p.gossipsubFloodPublish <value>`
+  Whether to flood publish messages. - For testing purposes only
+  *Environment: `$P2P_GOSSIPSUB_FLOOD_PUBLISH`*
+
+- `--p2p.gossipsubMcacheLength <value>` (default: `6`)
+  The number of gossipsub interval message cache windows to keep.
+  *Environment: `$P2P_GOSSIPSUB_MCACHE_LENGTH`*
+
+- `--p2p.gossipsubMcacheGossip <value>` (default: `3`)
+  How many message cache windows to include when gossiping with other peers.
+  *Environment: `$P2P_GOSSIPSUB_MCACHE_GOSSIP`*
+
+- `--p2p.gossipsubSeenTTL <value>` (default: `1200000`)
+  How long to keep message IDs in the seen cache.
+  *Environment: `$P2P_GOSSIPSUB_SEEN_TTL`*
+
+- `--p2p.gossipsubTxTopicWeight <value>` (default: `1`)
+  The weight of the tx topic for the gossipsub protocol.
+  *Environment: `$P2P_GOSSIPSUB_TX_TOPIC_WEIGHT`*
+
+- `--p2p.gossipsubTxInvalidMessageDeliveriesWeight <value>` (default: `-20`)
+  The weight of the tx invalid message deliveries for the gossipsub protocol.
+  *Environment: `$P2P_GOSSIPSUB_TX_INVALID_MESSAGE_DELIVERIES_WEIGHT`*
+
+- `--p2p.gossipsubTxInvalidMessageDeliveriesDecay <value>` (default: `0.5`)
+  Determines how quickly the penalty for invalid message deliveries decays over time. Between 0 and 1.
+  *Environment: `$P2P_GOSSIPSUB_TX_INVALID_MESSAGE_DELIVERIES_DECAY`*
+
+- `--p2p.peerPenaltyValues <value>` (default: `2,10,50`)
+  The values for the peer scoring system. Passed as a comma separated list of values in order: low, mid, high tolerance errors.
+  *Environment: `$P2P_PEER_PENALTY_VALUES`*
+
+- `--p2p.doubleSpendSeverePeerPenaltyWindow <value>` (default: `30`)
+  The "age" (in L2 blocks) of a tx after which we heavily penalize a peer for sending it.
+  *Environment: `$P2P_DOUBLE_SPEND_SEVERE_PEER_PENALTY_WINDOW`*
+
+- `--p2p.blockRequestBatchSize <value>` (default: `20`)
+  The number of blocks to fetch in a single batch.
+  *Environment: `$P2P_BLOCK_REQUEST_BATCH_SIZE`*
+
+- `--p2p.archivedTxLimit <value>`
+  The number of transactions that will be archived. If the limit is set to 0 then archiving will be disabled.
+  *Environment: `$P2P_ARCHIVED_TX_LIMIT`*
+
+- `--p2p.trustedPeers <value>`
+  A list of trusted peer ENRs that will always be persisted. Separated by commas.
+  *Environment: `$P2P_TRUSTED_PEERS`*
+
+- `--p2p.privatePeers <value>`
+  A list of private peer ENRs that will always be persisted and not be used for discovery. Separated by commas.
+  *Environment: `$P2P_PRIVATE_PEERS`*
+
+- `--p2p.preferredPeers <value>`
+  A list of preferred peer ENRs that will always be persisted and not be used for discovery. Separated by commas.
+  *Environment: `$P2P_PREFERRED_PEERS`*
+
+- `--p2p.p2pStoreMapSizeKb <value>`
+  The maximum possible size of the P2P DB in KB. Overwrites the general dataStoreMapSizeKb.
+  *Environment: `$P2P_STORE_MAP_SIZE_KB`*
+
+- `--p2p.txPublicSetupAllowListExtend <value>`
+  Additional entries to extend the default setup allow list. Format: I:address:selector[:flags],C:classId:selector[:flags]. Flags: os (onlySelf), rn (rejectNullMsgSender), cl=N (calldataLength), joined with +.
+  *Environment: `$TX_PUBLIC_SETUP_ALLOWLIST`*
+
+- `--p2p.maxPendingTxCount <value>` (default: `1000`)
+  The maximum number of pending txs before evicting lower priority txs.
+  *Environment: `$P2P_MAX_PENDING_TX_COUNT`*
+
+- `--p2p.seenMessageCacheSize <value>` (default: `100000`)
+  The number of messages to keep in the seen message cache
+  *Environment: `$P2P_SEEN_MSG_CACHE_SIZE`*
+
+- `--p2p.p2pDisableStatusHandshake <value>`
+  True to disable the status handshake on peer connected.
+  *Environment: `$P2P_DISABLE_STATUS_HANDSHAKE`*
+
+- `--p2p.p2pAllowOnlyValidators <value>`
+  True to only permit validators to connect.
+  *Environment: `$P2P_ALLOW_ONLY_VALIDATORS`*
+
+- `--p2p.p2pMaxFailedAuthAttemptsAllowed <value>` (default: `3`)
+  Number of auth attempts to allow before peer is banned. Number is inclusive
+  *Environment: `$P2P_MAX_AUTH_FAILED_ATTEMPTS_ALLOWED`*
+
+- `--p2p.dropTransactions <value>`
+  True to simulate discarding transactions. - For testing purposes only
+  *Environment: `$P2P_DROP_TX`*
+
+- `--p2p.dropTransactionsProbability <value>`
+  The probability that a transaction is discarded (0 - 1). - For testing purposes only
+  *Environment: `$P2P_DROP_TX_CHANCE`*
+
+- `--p2p.disableTransactions <value>`
+  Whether transactions are disabled for this node. This means transactions will be rejected at the RPC and P2P layers.
+  *Environment: `$TRANSACTIONS_DISABLED`*
+
+- `--p2p.txPoolDeleteTxsAfterReorg <value>`
+  Whether to delete transactions from the pool after a reorg instead of moving them back to pending.
+  *Environment: `$P2P_TX_POOL_DELETE_TXS_AFTER_REORG`*
+
+- `--p2p.debugP2PInstrumentMessages <value>`
+  Alters the format of p2p messages to include things like broadcast timestamp FOR TESTING ONLY
+  *Environment: `$DEBUG_P2P_INSTRUMENT_MESSAGES`*
+
+- `--p2p.broadcastEquivocatedProposals <value>`
+  Broadcast block proposals even when a conflicting proposal for the same slot already exists in the pool (for testing purposes only).
+
+- `--p2p.minTxPoolAgeMs <value>` (default: `2000`)
+  Minimum age (ms) a transaction must have been in the pool before it is eligible for block building.
+  *Environment: `$P2P_MIN_TX_POOL_AGE_MS`*
+
+- `--p2p.priceBumpPercentage <value>` (default: `10`)
+  Minimum percentage fee increase required to replace an existing tx via RPC. Even at 0%, replacement still requires paying at least 1 unit more.
+  *Environment: `$P2P_RPC_PRICE_BUMP_PERCENTAGE`*
+
+- `--p2p.blockDurationMs <value>`
+  Duration per block in milliseconds when building multiple blocks per slot. If undefined (default), builds a single block per slot using the full slot duration.
+  *Environment: `$SEQ_BLOCK_DURATION_MS`*
+
+- `--p2p.expectedBlockProposalsPerSlot <value>`
+  Expected number of block proposals per slot for P2P peer scoring. 0 (default) disables block proposal scoring. Set to a positive value to enable.
+  *Environment: `$SEQ_EXPECTED_BLOCK_PROPOSALS_PER_SLOT`*
+
+- `--p2p.maxTxsPerBlock <value>`
+  The maximum number of txs to include in a block.
+  *Environment: `$SEQ_MAX_TX_PER_BLOCK`*
+
+- `--p2p.overallRequestTimeoutMs <value>` (default: `10000`)
+  The overall timeout for a request response operation.
+  *Environment: `$P2P_REQRESP_OVERALL_REQUEST_TIMEOUT_MS`*
+
+- `--p2p.individualRequestTimeoutMs <value>` (default: `10000`)
+  The timeout for an individual request response peer interaction.
+  *Environment: `$P2P_REQRESP_INDIVIDUAL_REQUEST_TIMEOUT_MS`*
+
+- `--p2p.dialTimeoutMs <value>` (default: `5000`)
+  How long to wait for the dial protocol to establish a connection
+  *Environment: `$P2P_REQRESP_DIAL_TIMEOUT_MS`*
+
+- `--p2p.p2pOptimisticNegotiation <value>`
+  Whether to use optimistic protocol negotiation when dialing to another peer (opposite of `negotiateFully`).
+  *Environment: `$P2P_REQRESP_OPTIMISTIC_NEGOTIATION`*
+
+- `--p2p.batchTxRequesterSmartParallelWorkerCount <value>` (default: `10`)
+  Max concurrent requests to smart peers for batch tx requester.
+  *Environment: `$P2P_BATCH_TX_REQUESTER_SMART_PARALLEL_WORKER_COUNT`*
+
+- `--p2p.batchTxRequesterDumbParallelWorkerCount <value>` (default: `10`)
+  Max concurrent requests to dumb peers for batch tx requester.
+  *Environment: `$P2P_BATCH_TX_REQUESTER_DUMB_PARALLEL_WORKER_COUNT`*
+
+- `--p2p.batchTxRequesterTxBatchSize <value>` (default: `8`)
+  Max transactions per request / chunk size for batch tx requester.
+  *Environment: `$P2P_BATCH_TX_REQUESTER_TX_BATCH_SIZE`*
+
+- `--p2p.batchTxRequesterBadPeerThreshold <value>` (default: `2`)
+  Failures before a peer is considered bad (see &gt; threshold logic).
+  *Environment: `$P2P_BATCH_TX_REQUESTER_BAD_PEER_THRESHOLD`*
+
+- `--p2p.txCollectionFastNodesTimeoutBeforeReqRespMs <value>` (default: `200`)
+  How long to wait before starting reqresp for fast collection
+  *Environment: `$TX_COLLECTION_FAST_NODES_TIMEOUT_BEFORE_REQ_RESP_MS`*
+
+- `--p2p.txCollectionSlowNodesIntervalMs <value>` (default: `12000`)
+  How often to collect from configured nodes in the slow collection loop
+  *Environment: `$TX_COLLECTION_SLOW_NODES_INTERVAL_MS`*
+
+- `--p2p.txCollectionSlowReqRespIntervalMs <value>` (default: `12000`)
+  How often to collect from peers via reqresp in the slow collection loop
+  *Environment: `$TX_COLLECTION_SLOW_REQ_RESP_INTERVAL_MS`*
+
+- `--p2p.txCollectionSlowReqRespTimeoutMs <value>` (default: `20000`)
+  How long to wait for a reqresp response during slow collection
+  *Environment: `$TX_COLLECTION_SLOW_REQ_RESP_TIMEOUT_MS`*
+
+- `--p2p.txCollectionReconcileIntervalMs <value>` (default: `60000`)
+  How often to reconcile found txs from the tx pool
+  *Environment: `$TX_COLLECTION_RECONCILE_INTERVAL_MS`*
+
+- `--p2p.txCollectionDisableSlowDuringFastRequests <value>` (default: `true`)
+  Whether to disable the slow collection loop if we are dealing with any immediate requests
+  *Environment: `$TX_COLLECTION_DISABLE_SLOW_DURING_FAST_REQUESTS`*
+
+- `--p2p.txCollectionFastNodeIntervalMs <value>` (default: `500`)
+  How many ms to wait between retried request to a node via RPC during fast collection
+  *Environment: `$TX_COLLECTION_FAST_NODE_INTERVAL_MS`*
+
+- `--p2p.txCollectionNodeRpcUrls <value>`
+  A comma-separated list of Aztec node RPC URLs to use for tx collection
+  *Environment: `$TX_COLLECTION_NODE_RPC_URLS`*
+
+- `--p2p.txCollectionFastMaxParallelRequestsPerNode <value>` (default: `4`)
+  Maximum number of parallel requests to make to a node during fast collection
+  *Environment: `$TX_COLLECTION_FAST_MAX_PARALLEL_REQUESTS_PER_NODE`*
+
+- `--p2p.txCollectionNodeRpcMaxBatchSize <value>` (default: `50`)
+  Maximum number of transactions to request from a node in a single batch
+  *Environment: `$TX_COLLECTION_NODE_RPC_MAX_BATCH_SIZE`*
+
+- `--p2p.txCollectionMissingTxsCollectorType <value>` (default: `new`)
+  Which collector implementation to use for missing txs collection (new or old)
+  *Environment: `$TX_COLLECTION_MISSING_TXS_COLLECTOR_TYPE`*
+
+- `--p2p.txCollectionFileStoreUrls <value>`
+  A comma-separated list of file store URLs (s3://, gs://, file://, http://) for tx collection
+  *Environment: `$TX_COLLECTION_FILE_STORE_URLS`*
+
+- `--p2p.txCollectionFileStoreSlowDelayMs <value>` (default: `24000`)
+  Delay before file store collection starts after slow collection
+  *Environment: `$TX_COLLECTION_FILE_STORE_SLOW_DELAY_MS`*
+
+- `--p2p.txCollectionFileStoreFastDelayMs <value>` (default: `2000`)
+  Delay before file store collection starts after fast collection
+  *Environment: `$TX_COLLECTION_FILE_STORE_FAST_DELAY_MS`*
+
+- `--p2p.txCollectionFileStoreFastWorkerCount <value>` (default: `5`)
+  Number of concurrent workers for fast file store collection
+  *Environment: `$TX_COLLECTION_FILE_STORE_FAST_WORKER_COUNT`*
+
+- `--p2p.txCollectionFileStoreSlowWorkerCount <value>` (default: `2`)
+  Number of concurrent workers for slow file store collection
+  *Environment: `$TX_COLLECTION_FILE_STORE_SLOW_WORKER_COUNT`*
+
+- `--p2p.txCollectionFileStoreFastBackoffBaseMs <value>` (default: `1000`)
+  Base backoff time in ms for fast file store collection retries
+  *Environment: `$TX_COLLECTION_FILE_STORE_FAST_BACKOFF_BASE_MS`*
+
+- `--p2p.txCollectionFileStoreSlowBackoffBaseMs <value>` (default: `5000`)
+  Base backoff time in ms for slow file store collection retries
+  *Environment: `$TX_COLLECTION_FILE_STORE_SLOW_BACKOFF_BASE_MS`*
+
+- `--p2p.txCollectionFileStoreFastBackoffMaxMs <value>` (default: `5000`)
+  Max backoff time in ms for fast file store collection retries
+  *Environment: `$TX_COLLECTION_FILE_STORE_FAST_BACKOFF_MAX_MS`*
+
+- `--p2p.txCollectionFileStoreSlowBackoffMaxMs <value>` (default: `30000`)
+  Max backoff time in ms for slow file store collection retries
+  *Environment: `$TX_COLLECTION_FILE_STORE_SLOW_BACKOFF_MAX_MS`*
+
+- `--p2p.txFileStoreUrl <value>`
+  URL for uploading txs to file storage (s3://, gs://, file://)
+  *Environment: `$TX_FILE_STORE_URL`*
+
+- `--p2p.txFileStoreUploadConcurrency <value>` (default: `10`)
+  Maximum number of concurrent tx uploads
+  *Environment: `$TX_FILE_STORE_UPLOAD_CONCURRENCY`*
+
+- `--p2p.txFileStoreMaxQueueSize <value>` (default: `1000`)
+  Maximum queue size for pending uploads (oldest dropped when exceeded)
+  *Environment: `$TX_FILE_STORE_MAX_QUEUE_SIZE`*
+
+- `--p2p.txFileStoreEnabled <value>`
+  Enable uploading transactions to file storage
+  *Environment: `$TX_FILE_STORE_ENABLED`*
+
+- `--p2p-bootstrap`
+  Starts Aztec P2P Bootstrap with options
+
+- `--p2pBootstrap.p2pBroadcastPort <value>`
+  The port to broadcast the P2P service on (included in the node's ENR). Defaults to P2P_PORT.
+  *Environment: `$P2P_BROADCAST_PORT`*
+
+- `--p2pBootstrap.peerIdPrivateKeyPath <value>`
+  An optional path to store generated peer id private keys. If blank, will default to storing any generated keys in the root of the data directory.
+  *Environment: `$PEER_ID_PRIVATE_KEY_PATH`*
+
+- `--p2pBootstrap.queryForIp <value>`
+  If announceUdpAddress or announceTcpAddress are not provided, query for the IP address of the machine. Defau
+  *Environment: `$P2P_QUERY_FOR_IP`*
 
 ### aztec test
 
-*No help information available for this command.*
+*Help for this command is currently unavailable.*
 
 ### aztec trigger-seed-snapshot
 
@@ -941,12 +1952,12 @@ aztec trigger-seed-snapshot [options]
 
 **Options:**
 
-- `-pk --private-key <string>` - The private key to use for deployment
-- `-m --mnemonic <string>` - The mnemonic to use in deployment (default:
+- `-pk, --private-key <string>` - The private key to use for deployment
+- `-m, --mnemonic <string>` - The mnemonic to use in deployment (default: "test test test test test test test test test test test junk")
 - `--rollup <address>` - ethereum address of the rollup contract
-- `--l1-rpc-urls <string>` - List of Ethereum host URLs. Chain identifiers
-- `-c --l1-chain-id <number>` - Chain ID of the ethereum host (default: 31337,
-- `-h --help` - display help for command
+- `--l1-rpc-urls <string>` - List of Ethereum host URLs. Chain identifiers localhost and testnet can be used (comma separated) (default: ["http://localhost:8545"], env: ETHEREUM_HOSTS)
+- `-c, --l1-chain-id <number>` - Chain ID of the ethereum host (default: 31337, env: L1_CHAIN_ID)
+- `-h, --help` - display help for command
 
 ### aztec update
 
@@ -959,9 +1970,9 @@ aztec update [options] [projectPath]
 
 **Options:**
 
-- `--contract` - [paths...]     Paths to contracts to update dependencies (default:
-- `--aztec-version <semver>` - The version to update Aztec packages to. Defaults
-- `-h --help` - display help for command
+- `--contract [paths...]` - Paths to contracts to update dependencies (default: [])
+- `--aztec-version <semver>` - The version to update Aztec packages to. Defaults to latest (default: "latest")
+- `-h, --help` - display help for command
 
 ### aztec validator-keys|valKeys
 
@@ -978,14 +1989,14 @@ aztec vote-on-governance-proposal [options]
 
 **Options:**
 
-- `-p --proposal-id <string>` - The ID of the proposal
-- `-a --vote-amount <string>` - The amount of tokens to vote
-- `--in-favor <boolean>` - Whether to vote in favor of the proposal.
+- `-p, --proposal-id <string>` - The ID of the proposal
+- `-a, --vote-amount <string>` - The amount of tokens to vote
+- `--in-favor <boolean>` - Whether to vote in favor of the proposal. Use "yea" for true, any other value for false.
 - `--wait <boolean>` - Whether to wait until the proposal is active
-- `-r --registry-address <string>` - The address of the registry contract
-- `--l1-rpc-urls <string>` - List of Ethereum host URLs. Chain
-- `-c --l1-chain-id <number>` - Chain ID of the ethereum host (default:
-- `-pk --private-key <string>` - The private key to use to vote
-- `-m --mnemonic <string>` - The mnemonic to use to vote (default: "test
-- `-i --mnemonic-index <number>` - The index of the mnemonic to use to vote
-- `-h --help` - display help for command
+- `-r, --registry-address <string>` - The address of the registry contract
+- `--l1-rpc-urls <string>` - List of Ethereum host URLs. Chain identifiers localhost and testnet can be used (comma separated) (default: ["http://localhost:8545"], env: ETHEREUM_HOSTS)
+- `-c, --l1-chain-id <number>` - Chain ID of the ethereum host (default: 31337, env: L1_CHAIN_ID)
+- `-pk, --private-key <string>` - The private key to use to vote
+- `-m, --mnemonic <string>` - The mnemonic to use to vote (default: "test test test test test test test test test test test junk")
+- `-i, --mnemonic-index <number>` - The index of the mnemonic to use to vote (default: 0)
+- `-h, --help` - display help for command
