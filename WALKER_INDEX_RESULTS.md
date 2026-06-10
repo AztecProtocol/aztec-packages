@@ -85,3 +85,52 @@ M4 logn=17 uniform, median of 7 (timestamp queries):
 Wall median 33.0 → 32.6 ms (phase win + the dead 512 KB partial_dest clear).
 wi_count regressed 12→17 µs (indirect + planner_meta-dependent bound) —
 Stage 3 follow-up.
+
+## Stage 3 — device tuning (2026-06-09)
+
+Experiments (phone traces, logn=17 uniform, per-MSM):
+
+| variant | Adreno span | Mali span | notes |
+|---|---:|---:|---|
+| baseline v1 | 332 µs | 1035 µs | |
+| v2 (Stage 2 kernels) | 151 µs | ~520 µs | Mali wi_alloc 193 µs (16-barrier scan), count 75, scatter 92 |
+| v2 + vec4 count/scatter + 4-item alloc | — | ~455 µs | alloc 193→141 ✓ but count 75→84, scatter 92→169 ✗✗ |
+| v2 hybrid (1-slot count/scatter, 4-item alloc) | **156 µs** | **437 µs** | count 60 / alloc 143 / epi 25 / scatter 91 / sort 27 |
+
+Negative result worth keeping: vec4 (4 slots/thread) on the slot kernels
+REGRESSES Mali ~2× — for latency-bound scattered-atomic work Mali wants more
+threads in flight, not per-thread ILP. Adreno was roughly indifferent.
+
+Final Stage-3 state (hybrid + is_present hoisted to classify):
+- M4: phase 244 → **73 µs (3.3×)**; wall 33.0 → 32.7 ms.
+- Adreno: 332 → **~156 µs (2.1×)**.
+- Mali: 1035 → **~437 µs (2.4×)** (≈87 µs of that is 4 inter-dispatch
+  bubbles + epilogue floor).
+- All correctness gates green after every step (v1==v2 window sums,
+  noble at logn 10/14, profiles B–E, clustered).
+
+## Stage 4 analysis — the analytic index (worked, not shipped)
+
+Full walker-emission model derived from ba_stream_walker init/retire rules
+(see WALKER_INDEX_PLAN.md §S4-worked). Three load-bearing findings:
+
+1. **count==1 buckets are structurally impossible** — a cut bucket always
+   receives (arriving piece) + (per distinct interior cut) ≥ 2 partials.
+   Matches singles=0 in every measured profile. The v2 scatter's bit-31
+   singles path is provably dead code (kept as contract defence).
+2. **The pure-analytic 3-dispatch form is NOT a clear win on Mali.** It
+   needs per-bucket task-index ranges; the closed-form T_j inversion costs
+   ~2 binary searches × 17 iters × 3 u32 divisions per dense bucket
+   (~0.3–0.7 ms Mali — u32 division is slow), and the memory alternative
+   (binary search over task_cuts) is ~3M scattered loads. Both exceed the
+   ~150 µs of atomics they would remove.
+3. **The viable middle form is task-driven**: task_cuts IS the cut table,
+   already materialized by partition_task. K1′ (task-wide, 65K threads,
+   coalesced cut reads, ported init rules) replaces wi_count;
+   K3′ (task-wide) replaces wi_scatter with arriver/departer slot rules.
+   Predicted Mali ~437→~300 µs, M4 ~73→~55 µs. Same bit-exactness risk as
+   full analytic (the init-rule port), gated on the same validator.
+
+Verdict: shipped through Stage 3; Stage 4 documented with the worked model
+for a follow-up session (or the walker owner — if the index goes
+cut-driven, stream_walker can stop writing partial_dest entirely).

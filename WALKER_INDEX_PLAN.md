@@ -110,16 +110,47 @@ last-WG-ticket E-fold and subgroup A/B — each measured, kept only if it wins
 on the device that motivated it. One profile_both.sh run; compare against the
 baseline traces per sub-kernel. Gate: ≥3× Adreno, ≥5× Mali phase total.
 
-**S4 analytic index.** Model: cuts are monotone in cumulative-add space and
-analytic per (t,k); cuts inside bucket b form contiguous range
-[j_lo(b), j_hi(b)); count = j_hi-j_lo+1 (if >0); partial j of b ↔ cut
-j_lo+j ↔ slot 2*(task)+{0,1} — atomic-free rank-exact CSR in one D-wide
-kernel (W2′ → E → W5, 3 dispatches, no M-wide pass, no partial_dest read).
-Gate: validator comparing analytic CSR vs partial_dest-derived ground truth,
-green across profiles A–E × logn 10–20 × all 3 devices, including
-degenerates (empty tasks, coincident cuts, single-bucket threads). Flag
-default flips only on full green; otherwise v1 ships and S4 lands as
-experiment + handoff notes.
+**S4 analytic index — WORKED MODEL (analysis done; implementation deferred,
+see WALKER_INDEX_RESULTS.md for the economics).**
+
+Cut-target chain (all integer arithmetic, replicated exactly):
+- cumsum: total = Σ(count−1); nwg = clamp(total/(256·8·8), 1, MPW); nat = 256·nwg.
+- partition_thread (w,t): W(w) = (w·total)/nwg;
+  Th(256w+t) = W(w) + (t·(W(w+1)−W(w)))/256; Th(nat) = total.
+- partition_task (j = t·S+k): T_j = Th(t) + (k·(Th(t+1)−Th(t)))/S.
+- resolve(T): lowest b with A_b + c_b − 1 ≥ T; offset = T − A_b. Note
+  resolve(A_b) lands in bucket b−1 at offset c−1 (never (b>0, 0)) — the
+  walker's eo==0/eb>0 branch is unreachable from planner-produced cuts.
+
+Emission rules per bucket d (lo = A_d, hi = A_d + c_d − 1; interior cut =
+T ∈ (lo, hi) exclusive — verified against ba_stream_walker init + retire):
+- 0 interior cuts → whole-retire (no partials).
+- else count_d = #distinct interior cuts + 1; layout entries:
+  - arriving piece (T_j < c_1, T_{j+1} = c_1, unique nonempty) → slot 2j+1;
+  - each piece departing an interior cut (T_j = c_i < T_{j+1}, unique
+    nonempty per cut): confined (T_{j+1} ≤ hi) → slot 2j+1;
+    leaves d (T_{j+1} > hi) → slot 2j+0.
+  - coincident cuts (T_j == T_{j+1}) are empty pieces — emit nothing.
+  - the single-point-leading-segment special case obeys the same
+    confined/leaves slot rule (raw point stored; same slot id).
+- Corollary: count_d ∈ {0} ∪ [2, …] — count==1 is impossible; the singles
+  fast path is dead code (matches all measurements).
+
+Three implementation forms, by per-bucket j-range acquisition:
+(a) closed-form T-inverse — ~2×17 iter binary search with 3 u32 divisions
+    per eval per bucket: division-heavy, est. ≥0.3 ms on Mali — REJECTED;
+(b) memory binary-search over task_cuts — ~3M scattered loads — REJECTED;
+(c) task-driven (RECOMMENDED): task_cuts is already the materialized cut
+    table. K1′ (task-wide): each task classifies its own cuts via the
+    ported init rules → one atomicAdd(dep_count[d]) per interior departure;
+    W2″ alloc: count_d = dep_d + (dep_d>0); K3′ (task-wide): arriver writes
+    layout[off], departers bump-place with the confined/leaves slot rule.
+    Predicted: Mali ~437→~300 µs, M4 73→~55 µs; also frees stream_walker
+    from writing partial_dest at all (owner handoff).
+
+Gate unchanged: validator comparing produced CSR (count + per-bucket layout
+multisets + actives) vs partial_dest ground truth, green across profiles
+A–E × logn 10–20 × all 3 devices before any default flip.
 
 ## Risks
 
