@@ -2,7 +2,6 @@
 source: tests/snapshots.rs
 expression: stdout
 ---
-
 use aztec::macros::aztec;
 use aztec::macros::aztec;
 
@@ -700,7 +699,7 @@ pub contract AvmTest {
     fn bulk_testing(args_field: [Field; 10], args_u8: [u8; 10], get_instance_for_address: AztecAddress, expected_deployer: AztecAddress, expected_class_id: ContractClassId, expected_initialization_hash: Field, expected_immutables_hash: Field, schnorr_inputs: [Field; 7], skip_strictly_limited_side_effects: bool);
 
     /// Unpacks an array into a note corresponding to `note_type_id` and then computes its note hash (non-siloed) and inner nullifier (non-siloed) assuming the note has been inserted into the note hash tree with `note_nonce`.
-    ///
+    /// 
     /// This function is automatically injected by the `#[aztec]` macro.
     #[contract_library_method]
     #[allow(dead_code)]
@@ -714,7 +713,7 @@ pub contract AvmTest {
     }
 
     /// This contract does not use private notes, so this function should never be called as it will unconditionally fail.
-    ///
+    /// 
     /// This function is automatically injected by the `#[aztec]` macro.
     #[contract_library_method]
     unconstrained fn _compute_note_hash(_packed_note: BoundedVec<Field, 8>, _owner: AztecAddress, _storage_slot: Field, _note_type_id: Field, _contract_address: AztecAddress, _randomness: Field) -> Option<Field> {
@@ -722,7 +721,7 @@ pub contract AvmTest {
     }
 
     /// This contract does not use private notes, so this function should never be called as it will unconditionally fail.
-    ///
+    /// 
     /// This function is automatically injected by the `#[aztec]` macro.
     #[contract_library_method]
     unconstrained fn _compute_note_nullifier(_unique_note_hash: Field, _packed_note: BoundedVec<Field, 8>, _owner: AztecAddress, _storage_slot: Field, _note_type_id: Field, _contract_address: AztecAddress, _randomness: Field) -> Option<Field> {
@@ -730,11 +729,11 @@ pub contract AvmTest {
     }
 
     /// Receives offchain messages into this contract's offchain inbox for subsequent processing.
-    ///
+    /// 
     /// Each message is routed to the inbox scoped to its `recipient` field.
-    ///
+    /// 
     /// For more details, see `aztec::messages::processing::offchain::receive`.
-    ///
+    /// 
     /// This function is automatically injected by the `#[aztec]` macro.
     unconstrained fn offchain_receive(messages: BoundedVec<aztec::messages::processing::offchain::OffchainMessage, 16>) {
         let address: AztecAddress = aztec::context::UtilityContext::new().this_address();

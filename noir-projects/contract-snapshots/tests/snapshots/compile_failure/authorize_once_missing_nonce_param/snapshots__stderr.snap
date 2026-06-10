@@ -12,7 +12,7 @@ error: Function foo does not have a authwit_nonce. Please specify which one to u
     1: #[aztec]
             at src/main.nr:4:1
     2: aztec
-            at <repo>/noir-projects/aztec-nr/aztec/src/macros/aztec.nr:113:21
+            at <repo>/noir-projects/aztec-nr/aztec/src/macros/aztec.nr:<line>:<col>
     3: process_functions
             at <repo>/noir-projects/aztec-nr/aztec/src/macros/internals_functions_generation/mod.nr:<line>:<col>
     4: [T]::map

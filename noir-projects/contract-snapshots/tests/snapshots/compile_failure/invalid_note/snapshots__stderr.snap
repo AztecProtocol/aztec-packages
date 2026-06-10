@@ -10,13 +10,13 @@ error: InvalidNote has a packed length of 9 fields, which exceeds the maximum al
    │
    = Call stack:
       1: generate_sync_state
-             at <repo>/noir-projects/aztec-nr/aztec/src/macros/aztec.nr:274:13
+             at <repo>/noir-projects/aztec-nr/aztec/src/macros/aztec.nr:<line>:<col>
       2: do_sync_state
-             at <repo>/noir-projects/aztec-nr/aztec/src/messages/discovery/mod.nr:151:5
+             at <repo>/noir-projects/aztec-nr/aztec/src/messages/discovery/mod.nr:<line>:<col>
       3: EphemeralArray<T>::for_each
-             at <repo>/noir-projects/aztec-nr/aztec/src/ephemeral/mod.nr:106:13
+             at <repo>/noir-projects/aztec-nr/aztec/src/ephemeral/mod.nr:<line>:<col>
       4: do_sync_state
-             at <repo>/noir-projects/aztec-nr/aztec/src/messages/discovery/mod.nr:160:13
+             at <repo>/noir-projects/aztec-nr/aztec/src/messages/discovery/mod.nr:<line>:<col>
       5: process_message_ciphertext
              at <repo>/noir-projects/aztec-nr/aztec/src/messages/discovery/process_message.nr:<line>:<col>
       6: process_message_plaintext
