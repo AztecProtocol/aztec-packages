@@ -132,6 +132,14 @@ describe('e2e_epochs/epochs_proof_public_cross_chain readiness at proven tip', (
   it('only reports a message ready at the proven tip once proving advances past it', async () => {
     await context.aztecNodeAdmin.setConfig({ minTxsPerBlock: 0 });
 
+    // The PXE syncs to `proven`, so it cannot simulate any tx (not even the contract deploy below) until the
+    // account deployed during setup is covered by a proof: the account's signing-key note is invisible at the
+    // proven tip until then, and the entrypoint simulation panics. Wait for the proven tip to cover everything
+    // mined so far before sending the first tx from this PXE.
+    const latestAfterSetup = await context.aztecNode.getBlockNumber('proposed');
+    logger.warn(`Waiting for proven tip to cover setup blocks up to ${latestAfterSetup}`);
+    await test.waitForNodeToSync(latestAfterSetup, 'proven');
+
     // Deploy the consuming contract while proving runs so the proven-synced PXE has an anchor and the
     // contract is itself proven.
     logger.warn(`Deploying test contract`);
@@ -140,10 +148,8 @@ describe('e2e_epochs/epochs_proof_public_cross_chain readiness at proven tip', (
     });
     logger.warn(`Test contract deployed at ${testContract.address} in block ${deployReceipt.blockNumber}`);
 
-    // Before freezing proving, wait until the proven tip covers the contract deployment block. That block is
-    // at or after the account-deploy block, so this guarantees both the SchnorrAccount and the TestContract are
-    // proven and visible to the proven-synced PXE. Otherwise the entrypoint simulation panics because the
-    // account's signing-key note is not yet present at the proven tip.
+    // Before freezing proving, also wait until the proven tip covers the contract deployment block, so the
+    // TestContract is visible to the proven-synced PXE when simulating the consume calls below.
     logger.warn(`Waiting for proven tip to cover deployment block ${deployReceipt.blockNumber}`);
     await test.waitForNodeToSync(BlockNumber(deployReceipt.blockNumber!), 'proven');
     const provenBeforeFreeze = await context.aztecNode.getBlockNumber('proven');
@@ -170,10 +176,14 @@ describe('e2e_epochs/epochs_proof_public_cross_chain readiness at proven tip', (
     expect(await isL1ToL2MessageReady(context.aztecNode, msgHash, 'latest')).toBe(true);
     expect(await isL1ToL2MessageReady(context.aztecNode, msgHash, 'proven')).toBe(false);
 
-    // Consuming from the proven-synced PXE must fail while the message is not present at the proven tip.
+    // Consuming from the proven-synced PXE must fail while the message is not present at the proven tip. The
+    // consume must happen in a private function: public execution runs at the sequencer against latest state,
+    // so it would succeed regardless of the PXE anchor. Private execution fetches the message membership
+    // witness at the PXE anchor block, which is the path that fails in production when readiness is checked
+    // against a newer tip than the PXE syncs to.
     const consume = () =>
       testContract.methods
-        .consume_message_from_arbitrary_sender_public(
+        .consume_message_from_arbitrary_sender_private(
           message.content,
           secret,
           EthAddress.fromString(context.deployL1ContractsValues.l1Client.account.address),
@@ -182,7 +192,7 @@ describe('e2e_epochs/epochs_proof_public_cross_chain readiness at proven tip', (
         .send({ from: context.accounts[0] });
 
     logger.warn(`Expecting consume to fail while message is not present at proven tip`);
-    await expect(consume()).rejects.toThrow();
+    await expect(consume()).rejects.toThrow(/No L1 to L2 message found/);
 
     // Advance proving by spinning up a fresh prover node.
     logger.warn(`Starting a new prover node to advance the proven tip`);
