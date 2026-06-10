@@ -18,7 +18,6 @@ import {
   SlotNumber,
 } from '@aztec/foundation/branded-types';
 import { chunkBy, compactArray, pick, unique } from '@aztec/foundation/collection';
-import { getActiveNetworkName } from '@aztec/foundation/config';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { BadRequestError } from '@aztec/foundation/json-rpc';
@@ -81,17 +80,6 @@ import {
   L1PublishedData,
   type PublishedCheckpoint,
 } from '@aztec/stdlib/checkpoint';
-import {
-  DEFAULT_BLOCK_DURATION_MS,
-  DEFAULT_MAX_BLOCKS_PER_CHECKPOINT,
-  MIN_PER_BLOCK_ALLOCATION_MULTIPLIER,
-  MIN_PER_BLOCK_DA_ALLOCATION_MULTIPLIER,
-  type NetworkConsensusConfig,
-  allowsNetworkConfigOverride,
-  getNetworkConsensusConfig,
-  getPresetMismatches,
-  validateNetworkConsensusConfig,
-} from '@aztec/stdlib/config';
 import type {
   ContractClassPublic,
   ContractDataSource,
@@ -602,9 +590,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     Object.assign(config, l1ContractsAddresses);
 
     const rollupContract = new RollupContract(publicClient, config.rollupAddress.toString());
-    const [l1GenesisTime, slotDuration, rollupVersionFromRollup, rollupManaLimit] = await Promise.all([
+    const [l1GenesisTime, slotDuration, epochDuration, rollupVersionFromRollup, rollupManaLimit] = await Promise.all([
       rollupContract.getL1GenesisTime(),
       rollupContract.getSlotDuration(),
+      rollupContract.getEpochDuration(),
       rollupContract.getVersion(),
       rollupContract.getManaLimit().then(Number),
     ] as const);
@@ -635,7 +624,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
           : 2 * DEFAULT_MIN_BLOCK_DURATION;
       config.skipOrphanProposedBlockPruning ||= !!config.useAutomineSequencer;
 
-      AztecNodeService.validateConsensusConfig(config, Number(slotDuration), log);
+      AztecNodeService.checkConfigMatchesRollup(config, {
+        slotDuration: Number(slotDuration),
+        epochDuration: Number(epochDuration),
+      });
 
       // Create world-state first so we can retrieve the initial header before constructing the archiver.
       const nativeWs = await createWorldState(config, options.genesis);
@@ -1068,56 +1060,28 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   }
 
   /**
-   * Validates the consensus-critical configuration against the rollup contract and (when a known network is
-   * selected) its in-code preset. Throws on hard inconsistencies, warns on suspicious or unachievable values.
-   * Runs for every node role since it sits in the shared startup path, which also makes it the enforcement
-   * layer for nodes that bypass the cli env enrichment (standalone node binary, programmatic embedders).
+   * Verifies the node's configured L1 timing matches the rollup contract it is pointed at, for the fields the
+   * node's own config carries. Each comparison is guarded against an undefined config value, so a config that
+   * does not carry a field is not checked. Throws a single error listing every mismatch. Runs in the shared
+   * startup path for every node role.
    */
-  private static validateConsensusConfig(config: AztecNodeConfig, slotDuration: number, log: Logger): void {
-    const consensusConfig: NetworkConsensusConfig = {
-      aztecSlotDuration: slotDuration,
-      ethereumSlotDuration: config.ethereumSlotDuration,
-      blockDurationMs: config.blockDurationMs ?? DEFAULT_BLOCK_DURATION_MS,
-      maxBlocksPerCheckpoint: config.maxBlocksPerCheckpoint ?? DEFAULT_MAX_BLOCKS_PER_CHECKPOINT,
-      checkpointProposalSyncGraceSeconds: config.checkpointProposalSyncGraceSeconds!,
-      minPerBlockAllocationMultiplier: MIN_PER_BLOCK_ALLOCATION_MULTIPLIER,
-      minPerBlockDAAllocationMultiplier: MIN_PER_BLOCK_DA_ALLOCATION_MULTIPLIER,
-    };
-
-    // The default cap is intentionally above what most geometries can achieve, so skip the achievability
-    // warning for it; an explicitly configured value still warns.
-    const { errors, warnings } = validateNetworkConsensusConfig(consensusConfig, {
-      defaultCapMaxBlocks: DEFAULT_MAX_BLOCKS_PER_CHECKPOINT,
-    });
-    for (const warning of warnings) {
-      log.warn(`Consensus config warning: ${warning}`, { warning });
+  private static checkConfigMatchesRollup(
+    config: AztecNodeConfig,
+    rollup: { slotDuration: number; epochDuration: number },
+  ): void {
+    const mismatches: string[] = [];
+    if (config.aztecSlotDuration !== undefined && config.aztecSlotDuration !== rollup.slotDuration) {
+      mismatches.push(`aztecSlotDuration is ${config.aztecSlotDuration} but the rollup reports ${rollup.slotDuration}`);
     }
-    if (errors.length > 0) {
-      throw new Error(`Invalid consensus configuration: ${errors.join('; ')}`);
+    if (config.aztecEpochDuration !== undefined && config.aztecEpochDuration !== rollup.epochDuration) {
+      mismatches.push(
+        `aztecEpochDuration is ${config.aztecEpochDuration} but the rollup reports ${rollup.epochDuration}`,
+      );
     }
-
-    // An unrecognized NETWORK value is not an error here: this path ignored NETWORK before, and programmatic
-    // embedders may have unrelated values in scope.
-    let networkName: ReturnType<typeof getActiveNetworkName> | undefined;
-    try {
-      networkName = getActiveNetworkName();
-    } catch {
-      networkName = undefined;
-    }
-    const preset = networkName !== undefined ? getNetworkConsensusConfig(networkName) : undefined;
-    if (preset) {
-      const mismatches = getPresetMismatches(consensusConfig, preset);
-      if (mismatches.length > 0) {
-        const message =
-          `Consensus config for network ${networkName} does not match its preset: ${mismatches.join('; ')}. ` +
-          `This usually means an env override, a stale preset, or a node pointed at the wrong rollup. ` +
-          `Set ALLOW_OVERRIDING_NETWORK_CONFIG=1 to override.`;
-        if (allowsNetworkConfigOverride()) {
-          log.warn(message, { networkName, mismatches });
-        } else {
-          throw new Error(message);
-        }
-      }
+    if (mismatches.length > 0) {
+      throw new Error(
+        `The node's configured L1 timing does not match the rollup contract it is pointed at: ${mismatches.join('; ')}`,
+      );
     }
   }
 

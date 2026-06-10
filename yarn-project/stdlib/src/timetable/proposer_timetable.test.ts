@@ -1,4 +1,7 @@
 import { SlotNumber } from '@aztec/foundation/branded-types';
+import { createLogger } from '@aztec/foundation/log';
+
+import { jest } from '@jest/globals';
 
 import type { L1RollupConstants } from '../epoch-helpers/index.js';
 import { ProposerTimetable } from './proposer_timetable.js';
@@ -365,17 +368,14 @@ describe('ProposerTimetable explicit network maxBlocksPerCheckpoint', () => {
     checkpointProposalPrepareTime: 1,
   };
 
-  it('uses the network value when below the locally achievable count', () => {
+  it('uses the network value when below the locally computed count', () => {
     const timetable = makeProposerTimetable({ ...productionOpts, maxBlocksPerCheckpoint: 4 });
     expect(timetable.getMaxBlocksPerCheckpoint()).toBe(4);
-    expect(timetable.locallyAchievableBlocksPerCheckpoint).toBe(10);
-    expect(timetable.isClampedByLocalBudgets()).toBe(false);
   });
 
-  it('clamps the network value down to the locally achievable count', () => {
+  it('clamps the network value down to the locally computed count when the network value is higher', () => {
     const timetable = makeProposerTimetable({ ...productionOpts, maxBlocksPerCheckpoint: 20 });
     expect(timetable.getMaxBlocksPerCheckpoint()).toBe(10);
-    expect(timetable.isClampedByLocalBudgets()).toBe(true);
   });
 
   it('keeps every offered sub-slot build deadline within the last block build time when clamped', () => {
@@ -387,10 +387,27 @@ describe('ProposerTimetable explicit network maxBlocksPerCheckpoint', () => {
     );
   });
 
-  it('uses the locally achievable count when no network value is given', () => {
+  it('uses the locally computed count when no network value is given', () => {
     const timetable = makeProposerTimetable(productionOpts);
     expect(timetable.getMaxBlocksPerCheckpoint()).toBe(10);
-    expect(timetable.isClampedByLocalBudgets()).toBe(false);
+  });
+
+  it('warns when the locally computed count exceeds the network value (clamps down)', () => {
+    const logger = createLogger('test:stdlib:proposer_timetable');
+    const warnSpy = jest.spyOn(logger, 'warn');
+    const timetable = makeProposerTimetable({ ...productionOpts, maxBlocksPerCheckpoint: 4, logger });
+    expect(timetable.getMaxBlocksPerCheckpoint()).toBe(4);
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not warn when the network value is at or above the locally computed count', () => {
+    const logger = createLogger('test:stdlib:proposer_timetable');
+    const warnSpy = jest.spyOn(logger, 'warn');
+    const atComputed = makeProposerTimetable({ ...productionOpts, maxBlocksPerCheckpoint: 10, logger });
+    expect(atComputed.getMaxBlocksPerCheckpoint()).toBe(10);
+    const aboveComputed = makeProposerTimetable({ ...productionOpts, maxBlocksPerCheckpoint: 20, logger });
+    expect(aboveComputed.getMaxBlocksPerCheckpoint()).toBe(10);
+    expect(warnSpy).not.toHaveBeenCalled();
   });
 
   it('throws when local budgets cannot fit a single block even with an explicit network value', () => {

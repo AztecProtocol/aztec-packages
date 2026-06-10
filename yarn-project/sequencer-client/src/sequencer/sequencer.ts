@@ -19,11 +19,7 @@ import type {
   ValidateCheckpointResult,
 } from '@aztec/stdlib/block';
 import type { Checkpoint, ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
-import {
-  type ChainConfig,
-  DEFAULT_MAX_BLOCKS_PER_CHECKPOINT,
-  MIN_PER_BLOCK_ALLOCATION_MULTIPLIER,
-} from '@aztec/stdlib/config';
+import { type ChainConfig, MIN_PER_BLOCK_ALLOCATION_MULTIPLIER } from '@aztec/stdlib/config';
 import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import {
   MIN_PER_BLOCK_ALLOCATION_MULTIPLIER,

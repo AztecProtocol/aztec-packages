@@ -1,130 +1,119 @@
-import type { NetworkNames } from '@aztec/foundation/config';
-
 import {
   type NetworkConsensusConfig,
-  applyNetworkConsensusConfigToEnv,
-  getNetworkConsensusConfig,
-  getPresetMismatches,
+  checkConsensusEnvOverrides,
+  getConsensusConfigFromNetworkEnv,
   validateNetworkConsensusConfig,
 } from './network-consensus-config.js';
 
-const PRESET_NETWORKS: NetworkNames[] = ['mainnet', 'testnet'];
-
-describe('NetworkConsensusConfig presets', () => {
-  it.each(PRESET_NETWORKS)('%s preset validates with zero errors and zero warnings', networkName => {
-    const preset = getNetworkConsensusConfig(networkName);
-    expect(preset).toBeDefined();
-    const { errors, warnings } = validateNetworkConsensusConfig(preset!);
-    expect(errors).toEqual([]);
-    expect(warnings).toEqual([]);
-  });
-
-  it('returns undefined for networks without a preset', () => {
-    expect(getNetworkConsensusConfig('local')).toBeUndefined();
-    expect(getNetworkConsensusConfig('devnet')).toBeUndefined();
-  });
-});
-
 describe('validateNetworkConsensusConfig', () => {
+  // Production geometry: the default budgets derive exactly 10 blocks per checkpoint.
   const base: NetworkConsensusConfig = {
     aztecSlotDuration: 72,
     ethereumSlotDuration: 12,
     blockDurationMs: 6000,
     maxBlocksPerCheckpoint: 10,
     checkpointProposalSyncGraceSeconds: 12,
-    minPerBlockAllocationMultiplier: 1.2,
-    minPerBlockDAAllocationMultiplier: 1.5,
   };
 
-  it('reports an error when blockDurationMs is non-positive', () => {
-    expect(validateNetworkConsensusConfig({ ...base, blockDurationMs: 0 }).errors).toContainEqual(
+  it('returns no errors for a sound config', () => {
+    expect(validateNetworkConsensusConfig(base)).toEqual([]);
+  });
+
+  it('errors when maxBlocksPerCheckpoint is below the derived count, naming both numbers', () => {
+    const errors = validateNetworkConsensusConfig({ ...base, maxBlocksPerCheckpoint: 9 });
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain('9');
+    expect(errors[0]).toContain('10');
+  });
+
+  it('errors when maxBlocksPerCheckpoint is above the derived count, naming both numbers', () => {
+    const errors = validateNetworkConsensusConfig({ ...base, maxBlocksPerCheckpoint: 11 });
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain('11');
+    expect(errors[0]).toContain('10');
+  });
+
+  it('errors when the slot duration is not a multiple of the ethereum slot duration', () => {
+    expect(validateNetworkConsensusConfig({ ...base, ethereumSlotDuration: 5 })).toContainEqual(
+      expect.stringContaining('must be a multiple'),
+    );
+  });
+
+  it('errors when blockDurationMs is non-positive', () => {
+    expect(validateNetworkConsensusConfig({ ...base, blockDurationMs: 0 })).toContainEqual(
       expect.stringContaining('blockDurationMs'),
     );
   });
 
-  it('reports an error when the sub-slot is longer than the slot', () => {
-    expect(validateNetworkConsensusConfig({ ...base, blockDurationMs: 100_000 }).errors).toContainEqual(
+  it('errors when the sub-slot is longer than the slot', () => {
+    expect(validateNetworkConsensusConfig({ ...base, blockDurationMs: 100_000 })).toContainEqual(
       expect.stringContaining('exceeds aztecSlotDuration'),
     );
   });
 
-  it('reports an error when maxBlocksPerCheckpoint is below 1', () => {
-    expect(validateNetworkConsensusConfig({ ...base, maxBlocksPerCheckpoint: 0 }).errors).toContainEqual(
-      expect.stringContaining('maxBlocksPerCheckpoint'),
-    );
-  });
-
-  it('reports an error for a negative sync grace', () => {
-    expect(validateNetworkConsensusConfig({ ...base, checkpointProposalSyncGraceSeconds: -1 }).errors).toContainEqual(
-      expect.stringContaining('checkpointProposalSyncGraceSeconds'),
-    );
-  });
-
-  it('reports an error for multipliers below the network minimums', () => {
-    expect(validateNetworkConsensusConfig({ ...base, minPerBlockAllocationMultiplier: 1.1 }).errors).toContainEqual(
-      expect.stringContaining('minPerBlockAllocationMultiplier'),
-    );
-    expect(validateNetworkConsensusConfig({ ...base, minPerBlockDAAllocationMultiplier: 1.4 }).errors).toContainEqual(
-      expect.stringContaining('minPerBlockDAAllocationMultiplier'),
-    );
-  });
-
-  it('reports an error for non-finite values instead of silently passing', () => {
-    expect(validateNetworkConsensusConfig({ ...base, blockDurationMs: NaN }).errors).toContainEqual(
+  it('errors for a non-finite value', () => {
+    expect(validateNetworkConsensusConfig({ ...base, blockDurationMs: NaN })).toContainEqual(
       expect.stringContaining('blockDurationMs'),
     );
+  });
+
+  it('errors when a field is missing (NaN from Number(undefined))', () => {
     expect(
-      validateNetworkConsensusConfig({ ...base, blockDurationMs: undefined as unknown as number }).errors,
-    ).toContainEqual(expect.stringContaining('blockDurationMs'));
+      validateNetworkConsensusConfig({ ...base, maxBlocksPerCheckpoint: undefined as unknown as number }),
+    ).toContainEqual(expect.stringContaining('maxBlocksPerCheckpoint'));
   });
 
-  it('warns instead of throwing when not even one block is achievable at default budgets', () => {
-    // 60s blocks pass the basic sub-slot <= slot check, but the timetable derives < 1 achievable block.
-    const { errors, warnings } = validateNetworkConsensusConfig({ ...base, blockDurationMs: 60_000 });
-    expect(errors).toEqual([]);
-    expect(warnings).toContainEqual(expect.stringContaining('exceeds the 0 blocks achievable'));
-  });
-
-  it('skips the achievability warning when maxBlocksPerCheckpoint equals the default cap', () => {
-    const config = { ...base, maxBlocksPerCheckpoint: 24 };
-    expect(validateNetworkConsensusConfig(config).warnings).not.toEqual([]);
-    expect(validateNetworkConsensusConfig(config, { defaultCapMaxBlocks: 24 }).warnings).toEqual([]);
-  });
-
-  it('warns when the slot duration is not a multiple of the ethereum slot duration', () => {
-    expect(validateNetworkConsensusConfig({ ...base, ethereumSlotDuration: 5 }).warnings).toContainEqual(
-      expect.stringContaining('not a multiple'),
-    );
-  });
-
-  it('warns when maxBlocksPerCheckpoint exceeds the achievable count at default budgets', () => {
-    expect(validateNetworkConsensusConfig({ ...base, maxBlocksPerCheckpoint: 24 }).warnings).toContainEqual(
-      expect.stringContaining('exceeds the'),
-    );
+  it('errors rather than throws when fewer than one block fits the default budgets', () => {
+    // 60s blocks pass the sub-slot <= slot check, but the default budgets fit < 1 block.
+    const errors = validateNetworkConsensusConfig({ ...base, blockDurationMs: 60_000 });
+    expect(errors).not.toEqual([]);
+    expect(errors[0]).toContain('cannot be achieved');
   });
 });
 
-describe('applyNetworkConsensusConfigToEnv', () => {
-  const mainnet = getNetworkConsensusConfig('mainnet')!;
+describe('getConsensusConfigFromNetworkEnv', () => {
+  it('extracts the five timing fields from a generated-config-shaped object', () => {
+    const config = getConsensusConfigFromNetworkEnv({
+      ETHEREUM_SLOT_DURATION: 12,
+      AZTEC_SLOT_DURATION: 72,
+      SEQ_BLOCK_DURATION_MS: 6000,
+      MAX_BLOCKS_PER_CHECKPOINT: 10,
+      CHECKPOINT_PROPOSAL_SYNC_GRACE_SECONDS: 12,
+      L1_CHAIN_ID: 1,
+    });
+    expect(config).toEqual({
+      aztecSlotDuration: 72,
+      ethereumSlotDuration: 12,
+      blockDurationMs: 6000,
+      maxBlocksPerCheckpoint: 10,
+      checkpointProposalSyncGraceSeconds: 12,
+    });
+  });
+});
 
-  it('populates unset consensus vars from the preset', () => {
+describe('checkConsensusEnvOverrides', () => {
+  const networkConfig = {
+    SEQ_BLOCK_DURATION_MS: 6000,
+    AZTEC_SLASHING_VETOER: '0x0000000000000000000000000000000000000000',
+    L1_CHAIN_ID: 1,
+  };
+
+  it('leaves unset vars untouched', () => {
     const env: Record<string, string | undefined> = {};
-    applyNetworkConsensusConfigToEnv('mainnet', env);
-    expect(env.ETHEREUM_SLOT_DURATION).toBe(String(mainnet.ethereumSlotDuration));
-    expect(env.SEQ_BLOCK_DURATION_MS).toBe(String(mainnet.blockDurationMs));
-    expect(env.MAX_BLOCKS_PER_CHECKPOINT).toBe(String(mainnet.maxBlocksPerCheckpoint));
-    expect(env.CHECKPOINT_PROPOSAL_SYNC_GRACE_SECONDS).toBe(String(mainnet.checkpointProposalSyncGraceSeconds));
+    checkConsensusEnvOverrides(networkConfig, env);
+    expect(env.SEQ_BLOCK_DURATION_MS).toBeUndefined();
+    expect(env.L1_CHAIN_ID).toBeUndefined();
   });
 
-  it('keeps equal operator values', () => {
-    const env: Record<string, string | undefined> = { SEQ_BLOCK_DURATION_MS: String(mainnet.blockDurationMs) };
-    expect(() => applyNetworkConsensusConfigToEnv('mainnet', env)).not.toThrow();
-    expect(env.SEQ_BLOCK_DURATION_MS).toBe(String(mainnet.blockDurationMs));
+  it('canonicalizes a numerically-equal value', () => {
+    const env: Record<string, string | undefined> = { SEQ_BLOCK_DURATION_MS: '6e3' };
+    checkConsensusEnvOverrides(networkConfig, env);
+    expect(env.SEQ_BLOCK_DURATION_MS).toBe('6000');
   });
 
-  it('throws naming the var on a conflicting operator override', () => {
+  it('throws naming the var on a conflicting value', () => {
     const env: Record<string, string | undefined> = { SEQ_BLOCK_DURATION_MS: '3000' };
-    expect(() => applyNetworkConsensusConfigToEnv('mainnet', env)).toThrow(/SEQ_BLOCK_DURATION_MS/);
+    expect(() => checkConsensusEnvOverrides(networkConfig, env)).toThrow(/SEQ_BLOCK_DURATION_MS/);
   });
 
   it('keeps the operator value and logs when ALLOW_OVERRIDING_NETWORK_CONFIG is set', () => {
@@ -133,52 +122,28 @@ describe('applyNetworkConsensusConfigToEnv', () => {
       ALLOW_OVERRIDING_NETWORK_CONFIG: '1',
     };
     const logs: string[] = [];
-    applyNetworkConsensusConfigToEnv('mainnet', env, msg => logs.push(msg));
+    checkConsensusEnvOverrides(networkConfig, env, msg => logs.push(msg));
     expect(env.SEQ_BLOCK_DURATION_MS).toBe('3000');
     expect(logs.some(msg => msg.includes('SEQ_BLOCK_DURATION_MS'))).toBe(true);
   });
 
-  it('canonicalizes operator values that match numerically but parse differently downstream', () => {
-    // parseInt-based config parsers read '6e3' as 6, so the matching value must be rewritten canonically.
-    const env: Record<string, string | undefined> = { SEQ_BLOCK_DURATION_MS: '6e3' };
-    applyNetworkConsensusConfigToEnv('mainnet', env);
-    expect(env.SEQ_BLOCK_DURATION_MS).toBe('6000');
+  it('compares non-numeric values as strings', () => {
+    const matching: Record<string, string | undefined> = {
+      AZTEC_SLASHING_VETOER: '0x0000000000000000000000000000000000000000',
+    };
+    expect(() => checkConsensusEnvOverrides(networkConfig, matching)).not.toThrow();
+    // Non-numeric values are not canonicalized.
+    expect(matching.AZTEC_SLASHING_VETOER).toBe('0x0000000000000000000000000000000000000000');
+
+    const conflicting: Record<string, string | undefined> = {
+      AZTEC_SLASHING_VETOER: '0xdfe19Da6a717b7088621d8bBB66be59F2d78e924',
+    };
+    expect(() => checkConsensusEnvOverrides(networkConfig, conflicting)).toThrow(/AZTEC_SLASHING_VETOER/);
   });
 
-  it('records the network name into NETWORK without overriding an existing value', () => {
-    const env: Record<string, string | undefined> = {};
-    applyNetworkConsensusConfigToEnv('mainnet', env);
-    expect(env.NETWORK).toBe('mainnet');
-
-    const preset: Record<string, string | undefined> = { NETWORK: 'alpha-testnet' };
-    applyNetworkConsensusConfigToEnv('testnet', preset);
-    expect(preset.NETWORK).toBe('alpha-testnet');
-  });
-
-  it('is a no-op for networks without a preset', () => {
-    const env: Record<string, string | undefined> = {};
-    applyNetworkConsensusConfigToEnv('local', env);
-    expect(env).toEqual({});
-  });
-});
-
-describe('getPresetMismatches', () => {
-  const mainnet = getNetworkConsensusConfig('mainnet')!;
-
-  it('returns no mismatches for a config equal to the preset', () => {
-    expect(getPresetMismatches(mainnet, mainnet)).toEqual([]);
-  });
-
-  it('describes every diverging consensus field', () => {
-    const config = { ...mainnet, blockDurationMs: 3000, maxBlocksPerCheckpoint: 24 };
-    const mismatches = getPresetMismatches(config, mainnet);
-    expect(mismatches).toHaveLength(2);
-    expect(mismatches).toContainEqual(expect.stringContaining('blockDurationMs'));
-    expect(mismatches).toContainEqual(expect.stringContaining('maxBlocksPerCheckpoint'));
-  });
-
-  it('ignores the multiplier fields, which are constants rather than env-derived values', () => {
-    const config = { ...mainnet, minPerBlockAllocationMultiplier: 9 };
-    expect(getPresetMismatches(config, mainnet)).toEqual([]);
+  it('ignores vars absent from the network config', () => {
+    const env: Record<string, string | undefined> = { AZTEC_SLASHING_QUORUM: '99' };
+    expect(() => checkConsensusEnvOverrides(networkConfig, env)).not.toThrow();
+    expect(env.AZTEC_SLASHING_QUORUM).toBe('99');
   });
 });

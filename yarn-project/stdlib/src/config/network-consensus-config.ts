@@ -1,4 +1,4 @@
-import type { NetworkNames } from '@aztec/foundation/config';
+import type { EnvVar } from '@aztec/foundation/config';
 
 import {
   DEFAULT_CHECKPOINT_PROPOSAL_INIT_TIME,
@@ -21,87 +21,125 @@ export const MIN_PER_BLOCK_ALLOCATION_MULTIPLIER = 1.2;
  */
 export const MIN_PER_BLOCK_DA_ALLOCATION_MULTIPLIER = 1.5;
 
-/** Consensus-critical configuration that must be identical across all nodes of a network. */
+/**
+ * Environment variables whose values must be identical across every node of a network. They fall into three
+ * categories, all consensus-critical:
+ *
+ * - Timing/protocol consensus: slot and epoch durations, block sub-slot duration, max blocks per checkpoint, and
+ *   the checkpoint-proposal materialization grace. Proposers and validators must agree on these to land on the
+ *   same proposed chain and the same checkpoint-proposal receive/handoff deadlines.
+ * - Network identity and L1-posted deployment params: the L1 chain id and the staking/governance/slashing
+ *   parameters baked into the deployed rollup contract (committee size, lags, thresholds, mana target, fee
+ *   pricing, governance/slashing round sizes, quorums, slash amounts, etc.). A node disagreeing with the rollup
+ *   it points at would compute the wrong epoch geometry, fees, or slashing rounds.
+ * - Node-side slashing offense consensus: the offense detection/penalty parameters validators apply locally to
+ *   decide which payloads to sign. Validators must agree on these to reach the on-chain slashing quorum.
+ *
+ * Deliberately excluded: bootnodes, P2P/store/OTEL/sentinel settings, SEQ_MIN_TX_PER_BLOCK, SEQ_MAX_TX_PER_*,
+ * AZTEC_SLASHER_ENABLED, PROVER_REAL_PROOFS, TRANSACTIONS_DISABLED, and AZTEC_ENTRY_QUEUE_* (mainnet-only genesis
+ * params enforced by L1).
+ */
+export const NETWORK_CONSENSUS_ENV_VARS = [
+  // Timing/protocol consensus.
+  'ETHEREUM_SLOT_DURATION',
+  'AZTEC_SLOT_DURATION',
+  'AZTEC_EPOCH_DURATION',
+  'SEQ_BLOCK_DURATION_MS',
+  'MAX_BLOCKS_PER_CHECKPOINT',
+  'CHECKPOINT_PROPOSAL_SYNC_GRACE_SECONDS',
+
+  // Network identity / L1-posted deployment params.
+  'L1_CHAIN_ID',
+  'AZTEC_TARGET_COMMITTEE_SIZE',
+  'AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET',
+  'AZTEC_LAG_IN_EPOCHS_FOR_RANDAO',
+  'AZTEC_ACTIVATION_THRESHOLD',
+  'AZTEC_EJECTION_THRESHOLD',
+  'AZTEC_LOCAL_EJECTION_THRESHOLD',
+  'AZTEC_EXIT_DELAY_SECONDS',
+  'AZTEC_INBOX_LAG',
+  'AZTEC_PROOF_SUBMISSION_EPOCHS',
+  'AZTEC_MANA_TARGET',
+  'AZTEC_PROVING_COST_PER_MANA',
+  'AZTEC_INITIAL_ETH_PER_FEE_ASSET',
+  'AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE',
+  'AZTEC_GOVERNANCE_PROPOSER_QUORUM',
+  'AZTEC_SLASHING_QUORUM',
+  'AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS',
+  'AZTEC_SLASHING_LIFETIME_IN_ROUNDS',
+  'AZTEC_SLASHING_OFFSET_IN_ROUNDS',
+  'AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS',
+  'AZTEC_SLASHING_VETOER',
+  'AZTEC_SLASHING_DISABLE_DURATION',
+  'AZTEC_SLASH_AMOUNT_SMALL',
+  'AZTEC_SLASH_AMOUNT_MEDIUM',
+  'AZTEC_SLASH_AMOUNT_LARGE',
+
+  // Node-side slashing offense consensus.
+  'SLASH_OFFENSE_EXPIRATION_ROUNDS',
+  'SLASH_MAX_PAYLOAD_SIZE',
+  'SLASH_EXECUTE_ROUNDS_LOOK_BACK',
+  'SLASH_DATA_WITHHOLDING_TOLERANCE_SLOTS',
+  'SLASH_DATA_WITHHOLDING_PENALTY',
+  'SLASH_INACTIVITY_TARGET_PERCENTAGE',
+  'SLASH_INACTIVITY_CONSECUTIVE_EPOCH_THRESHOLD',
+  'SLASH_INACTIVITY_PENALTY',
+  'SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY',
+  'SLASH_DUPLICATE_PROPOSAL_PENALTY',
+  'SLASH_DUPLICATE_ATTESTATION_PENALTY',
+  'SLASH_PROPOSE_DESCENDANT_OF_CHECKPOINT_WITH_INVALID_ATTESTATIONS_PENALTY',
+  'SLASH_ATTEST_INVALID_CHECKPOINT_PROPOSAL_PENALTY',
+  'SLASH_UNKNOWN_PENALTY',
+  'SLASH_INVALID_BLOCK_PENALTY',
+  'SLASH_INVALID_CHECKPOINT_PROPOSAL_PENALTY',
+  'SLASH_GRACE_PERIOD_L2_SLOTS',
+] as const satisfies readonly EnvVar[];
+
+/** A consensus-critical environment variable name; see {@link NETWORK_CONSENSUS_ENV_VARS}. */
+export type ConsensusEnvVar = (typeof NETWORK_CONSENSUS_ENV_VARS)[number];
+
+/** The subset of consensus-critical timing config whose geometry can be validated in isolation. */
 export type NetworkConsensusConfig = {
-  /** Expected aztecSlotDuration (seconds); cross-checked against the rollup contract at startup. */
+  /** Aztec L2 slot duration in seconds. */
   aztecSlotDuration: number;
-  /** Ethereum slot duration (seconds) of the network's L1. */
+  /** Ethereum L1 slot duration in seconds. */
   ethereumSlotDuration: number;
-  /** Duration of a block sub-slot in ms. */
+  /** Duration of a block sub-slot in milliseconds. */
   blockDurationMs: number;
-  /** Explicit network max blocks per checkpoint (NOT derived from local budgets). */
+  /** Explicit network max blocks per checkpoint (the value the production default budgets must derive). */
   maxBlocksPerCheckpoint: number;
-  /** Consensus grace for received checkpoint proposals to materialize locally (seconds). */
+  /** Consensus grace for received checkpoint proposals to materialize locally, in seconds. */
   checkpointProposalSyncGraceSeconds: number;
-  /** Network-minimum per-block budget multiplier for L2 gas / tx count (operators may set higher). */
-  minPerBlockAllocationMultiplier: number;
-  /** Network-minimum per-block budget multiplier for DA gas / blob fields. */
-  minPerBlockDAAllocationMultiplier: number;
 };
 
 /**
- * In-code consensus presets keyed by network name. Networks without a preset (e.g. `local`, `devnet`) return
- * `undefined` from {@link getNetworkConsensusConfig} and are not subject to override enforcement.
- *
- * Related sources of these values exist in the remote `network_config.json` (AztecProtocol/networks) and the
- * spartan environment defaults; these presets are authoritative for the consensus-critical vars on named
- * networks, since they are applied to the env before any other enrichment runs.
+ * Extracts the timing {@link NetworkConsensusConfig} from a generated network config object. Reads the relevant
+ * env-var keys and coerces them with `Number()`; missing keys become `NaN`, which
+ * {@link validateNetworkConsensusConfig} reports as an error.
  */
-const NETWORK_CONSENSUS_PRESETS: Partial<Record<NetworkNames, NetworkConsensusConfig>> = {
-  mainnet: {
-    aztecSlotDuration: 72,
-    ethereumSlotDuration: 12,
-    blockDurationMs: 6000,
-    maxBlocksPerCheckpoint: 10,
-    checkpointProposalSyncGraceSeconds: 12,
-    minPerBlockAllocationMultiplier: MIN_PER_BLOCK_ALLOCATION_MULTIPLIER,
-    minPerBlockDAAllocationMultiplier: MIN_PER_BLOCK_DA_ALLOCATION_MULTIPLIER,
-  },
-  testnet: {
-    aztecSlotDuration: 72,
-    ethereumSlotDuration: 12,
-    blockDurationMs: 6000,
-    maxBlocksPerCheckpoint: 10,
-    checkpointProposalSyncGraceSeconds: 12,
-    minPerBlockAllocationMultiplier: MIN_PER_BLOCK_ALLOCATION_MULTIPLIER,
-    minPerBlockDAAllocationMultiplier: MIN_PER_BLOCK_DA_ALLOCATION_MULTIPLIER,
-  },
-};
-
-/** Returns the in-code consensus preset for a network, or `undefined` when none is defined. */
-export function getNetworkConsensusConfig(networkName: NetworkNames): NetworkConsensusConfig | undefined {
-  return NETWORK_CONSENSUS_PRESETS[networkName];
+export function getConsensusConfigFromNetworkEnv(
+  values: Record<string, string | number | boolean>,
+): NetworkConsensusConfig {
+  return {
+    aztecSlotDuration: Number(values['AZTEC_SLOT_DURATION']),
+    ethereumSlotDuration: Number(values['ETHEREUM_SLOT_DURATION']),
+    blockDurationMs: Number(values['SEQ_BLOCK_DURATION_MS']),
+    maxBlocksPerCheckpoint: Number(values['MAX_BLOCKS_PER_CHECKPOINT']),
+    checkpointProposalSyncGraceSeconds: Number(values['CHECKPOINT_PROPOSAL_SYNC_GRACE_SECONDS']),
+  };
 }
 
-/** Maps consensus config fields to the env vars operators may set for them. */
-const CONSENSUS_ENV_VARS = [
-  { env: 'ETHEREUM_SLOT_DURATION', field: 'ethereumSlotDuration' },
-  { env: 'SEQ_BLOCK_DURATION_MS', field: 'blockDurationMs' },
-  { env: 'MAX_BLOCKS_PER_CHECKPOINT', field: 'maxBlocksPerCheckpoint' },
-  { env: 'CHECKPOINT_PROPOSAL_SYNC_GRACE_SECONDS', field: 'checkpointProposalSyncGraceSeconds' },
-] as const satisfies ReadonlyArray<{ env: string; field: keyof NetworkConsensusConfig }>;
-
 /**
- * Validates a {@link NetworkConsensusConfig} for self-consistency, independent of any node's local budgets.
+ * Validates a {@link NetworkConsensusConfig} for self-consistency, returning a list of error messages (empty
+ * when valid). Used by the cli unit test that gates the generated network configs.
  *
- * Errors are conditions that make the config impossible (non-finite or non-positive durations, sub-slot longer
- * than the slot, fewer than one block per checkpoint, negative grace, multipliers below the network minimums).
- * Warnings are conditions that are merely suspicious or unachievable at the production operational budgets: a
- * non-divisible slot/ethereum-slot ratio, or a `maxBlocksPerCheckpoint` exceeding what a
- * {@link ProposerTimetable} built from the same slot timings and the default budgets can achieve. The
- * achievability warning is heuristic (a node's configured budgets may differ from the defaults) and is skipped
- * when `maxBlocksPerCheckpoint` equals `opts.defaultCapMaxBlocks`, since the default cap is intentionally
- * above what most geometries can achieve.
+ * The check requires `maxBlocksPerCheckpoint` to be *exactly* what a {@link ProposerTimetable} built from the
+ * same slot timings and the production default budgets derives. This exact-equality requirement ensures the
+ * published network value is precisely what the production default budgets produce, so every node running those
+ * defaults agrees on the per-checkpoint block count without clamping.
  */
-export function validateNetworkConsensusConfig(
-  config: NetworkConsensusConfig,
-  opts: { defaultCapMaxBlocks?: number } = {},
-): {
-  errors: string[];
-  warnings: string[];
-} {
+export function validateNetworkConsensusConfig(config: NetworkConsensusConfig): string[] {
   const errors: string[] = [];
-  const warnings: string[] = [];
 
   for (const [field, value] of Object.entries(config)) {
     if (typeof value !== 'number' || !Number.isFinite(value)) {
@@ -109,7 +147,7 @@ export function validateNetworkConsensusConfig(
     }
   }
   if (errors.length > 0) {
-    return { errors, warnings };
+    return errors;
   }
 
   if (config.ethereumSlotDuration <= 0) {
@@ -117,6 +155,15 @@ export function validateNetworkConsensusConfig(
   }
   if (config.blockDurationMs <= 0) {
     errors.push(`blockDurationMs must be positive (got ${config.blockDurationMs})`);
+  }
+  if (config.aztecSlotDuration <= 0) {
+    errors.push(`aztecSlotDuration must be positive (got ${config.aztecSlotDuration})`);
+  }
+  if (config.ethereumSlotDuration > 0 && config.aztecSlotDuration % config.ethereumSlotDuration !== 0) {
+    errors.push(
+      `aztecSlotDuration (${config.aztecSlotDuration}s) must be a multiple of ethereumSlotDuration ` +
+        `(${config.ethereumSlotDuration}s)`,
+    );
   }
   if (config.blockDurationMs / 1000 > config.aztecSlotDuration) {
     errors.push(
@@ -131,128 +178,94 @@ export function validateNetworkConsensusConfig(
       `checkpointProposalSyncGraceSeconds must be non-negative (got ${config.checkpointProposalSyncGraceSeconds})`,
     );
   }
-  if (config.minPerBlockAllocationMultiplier < MIN_PER_BLOCK_ALLOCATION_MULTIPLIER) {
+  if (errors.length > 0) {
+    return errors;
+  }
+
+  let computed: number;
+  try {
+    computed = new ProposerTimetable({
+      l1Constants: {
+        l1GenesisTime: 0n,
+        slotDuration: config.aztecSlotDuration,
+        ethereumSlotDuration: config.ethereumSlotDuration,
+      },
+      blockDuration: config.blockDurationMs / 1000,
+      minBlockDuration: DEFAULT_MIN_BLOCK_DURATION,
+      p2pPropagationTime: DEFAULT_P2P_PROPAGATION_TIME,
+      checkpointProposalPrepareTime: DEFAULT_CHECKPOINT_PROPOSAL_PREPARE_TIME,
+      checkpointProposalInitTime: DEFAULT_CHECKPOINT_PROPOSAL_INIT_TIME,
+      checkpointProposalSyncGrace: config.checkpointProposalSyncGraceSeconds,
+    }).getMaxBlocksPerCheckpoint();
+  } catch (err) {
+    // The timetable constructor throws when not even one block fits the default budgets; report instead.
     errors.push(
-      `minPerBlockAllocationMultiplier must be at least ${MIN_PER_BLOCK_ALLOCATION_MULTIPLIER} ` +
-        `(got ${config.minPerBlockAllocationMultiplier})`,
+      `maxBlocksPerCheckpoint (${config.maxBlocksPerCheckpoint}) cannot be achieved: the default operational ` +
+        `budgets fit fewer than one block for slot duration ${config.aztecSlotDuration}s and block duration ` +
+        `${config.blockDurationMs / 1000}s (${err instanceof Error ? err.message : String(err)})`,
     );
+    return errors;
   }
-  if (config.minPerBlockDAAllocationMultiplier < MIN_PER_BLOCK_DA_ALLOCATION_MULTIPLIER) {
+
+  if (computed !== config.maxBlocksPerCheckpoint) {
     errors.push(
-      `minPerBlockDAAllocationMultiplier must be at least ${MIN_PER_BLOCK_DA_ALLOCATION_MULTIPLIER} ` +
-        `(got ${config.minPerBlockDAAllocationMultiplier})`,
+      `maxBlocksPerCheckpoint (${config.maxBlocksPerCheckpoint}) does not match the ${computed} blocks the ` +
+        `production default budgets derive for slot duration ${config.aztecSlotDuration}s and block duration ` +
+        `${config.blockDurationMs / 1000}s`,
     );
   }
 
-  if (config.ethereumSlotDuration > 0 && config.aztecSlotDuration % config.ethereumSlotDuration !== 0) {
-    warnings.push(
-      `aztecSlotDuration (${config.aztecSlotDuration}s) is not a multiple of ethereumSlotDuration ` +
-        `(${config.ethereumSlotDuration}s)`,
-    );
-  }
-
-  // Achievability check: a config whose maxBlocksPerCheckpoint exceeds what the production operational budgets
-  // can pack is a warning rather than an error, since a node's configured budgets may be tighter than the
-  // defaults and local/sandbox startup must not break.
-  if (errors.length === 0 && config.maxBlocksPerCheckpoint !== opts.defaultCapMaxBlocks) {
-    let achievable: number | undefined;
-    try {
-      achievable = new ProposerTimetable({
-        l1Constants: {
-          l1GenesisTime: 0n,
-          slotDuration: config.aztecSlotDuration,
-          ethereumSlotDuration: config.ethereumSlotDuration,
-        },
-        blockDuration: config.blockDurationMs / 1000,
-        minBlockDuration: DEFAULT_MIN_BLOCK_DURATION,
-        p2pPropagationTime: DEFAULT_P2P_PROPAGATION_TIME,
-        checkpointProposalPrepareTime: DEFAULT_CHECKPOINT_PROPOSAL_PREPARE_TIME,
-        checkpointProposalInitTime: DEFAULT_CHECKPOINT_PROPOSAL_INIT_TIME,
-        checkpointProposalSyncGrace: config.checkpointProposalSyncGraceSeconds,
-      }).getMaxBlocksPerCheckpoint();
-    } catch {
-      // The timetable constructor throws when not even one block fits; report instead of crashing.
-      achievable = 0;
-    }
-    if (config.maxBlocksPerCheckpoint > achievable) {
-      warnings.push(
-        `maxBlocksPerCheckpoint (${config.maxBlocksPerCheckpoint}) exceeds the ${achievable} blocks achievable ` +
-          `with the default operational budgets for slot duration ${config.aztecSlotDuration}s and block ` +
-          `duration ${config.blockDurationMs / 1000}s`,
-      );
-    }
-  }
-
-  return { errors, warnings };
-}
-
-/** Consensus fields cross-checked between a node's effective config and its network preset. */
-const PRESET_CROSS_CHECK_FIELDS = [
-  'aztecSlotDuration',
-  'ethereumSlotDuration',
-  'blockDurationMs',
-  'maxBlocksPerCheckpoint',
-  'checkpointProposalSyncGraceSeconds',
-] as const satisfies ReadonlyArray<keyof NetworkConsensusConfig>;
-
-/**
- * Compares a node's effective consensus config against a network preset and returns a description of every
- * mismatching consensus field. Used at node startup to catch nodes that bypassed env-level enforcement (e.g.
- * launched via the standalone node binary or programmatically) with values diverging from their network.
- */
-export function getPresetMismatches(config: NetworkConsensusConfig, preset: NetworkConsensusConfig): string[] {
-  return PRESET_CROSS_CHECK_FIELDS.filter(field => config[field] !== preset[field]).map(
-    field => `${field} is ${config[field]} but the network preset expects ${preset[field]}`,
-  );
+  return errors;
 }
 
 /**
- * Writes a network's consensus preset into the given env, enforcing that operators do not silently override
- * consensus-critical values.
+ * Enforces that operators do not silently override consensus-critical values diverging from the network config.
  *
- * For each enforced env var: if it is set to a value numerically different from the preset, this throws unless
- * `ALLOW_OVERRIDING_NETWORK_CONFIG` is truthy (in which case it warns and keeps the operator's value). If it is
- * unset or numerically equal, the canonical preset value is written into the env — canonicalization matters
- * because the config layer parses some of these vars with `parseInt`, which disagrees with `Number` on forms
- * like `6e3` or `0x1770`; without it an operator value that passes the equality check here could still parse to
- * a different number downstream. Also records the network name into `NETWORK` (when unset) so later startup
- * checks know which preset applies. No-op for networks without a preset.
+ * For each var in {@link NETWORK_CONSENSUS_ENV_VARS} present in `networkConfig`: if the operator set it in `env`
+ * to a conflicting value, this throws unless `ALLOW_OVERRIDING_NETWORK_CONFIG` is truthy (in which case it logs
+ * and keeps the operator value). On a numeric match, the env value is canonicalized to the network value's
+ * string form. This function does not populate unset vars (the caller's enrichment loop does that) and never
+ * touches `NETWORK`.
  */
-export function applyNetworkConsensusConfigToEnv(
-  networkName: NetworkNames,
+export function checkConsensusEnvOverrides(
+  networkConfig: Record<string, string | number | boolean>,
   env: { [key: string]: string | undefined } = process.env,
   log?: (msg: string) => void,
 ): void {
-  const preset = getNetworkConsensusConfig(networkName);
-  if (!preset) {
-    return;
-  }
-
   const allowOverride = allowsNetworkConfigOverride(env);
 
-  for (const { env: envVar, field } of CONSENSUS_ENV_VARS) {
-    const presetValue = preset[field];
-    const current = env[envVar];
-
-    if (current !== undefined && current !== '') {
-      const parsed = Number(current);
-      if (Number.isNaN(parsed) || parsed !== presetValue) {
-        const message =
-          `Environment variable ${envVar}=${current} conflicts with the ${networkName} network value ${presetValue}. ` +
-          `Consensus-critical values must match across the network. Set ALLOW_OVERRIDING_NETWORK_CONFIG=1 to override ` +
-          `(only do this if you know what you are doing).`;
-        if (allowOverride) {
-          log?.(message);
-          continue;
-        }
-        throw new Error(message);
-      }
+  for (const envVar of NETWORK_CONSENSUS_ENV_VARS) {
+    const networkValue = networkConfig[envVar];
+    if (networkValue === undefined) {
+      continue;
     }
 
-    env[envVar] = String(presetValue);
-  }
+    const current = env[envVar];
+    if (current === undefined || current === '') {
+      continue;
+    }
 
-  env.NETWORK ??= networkName;
+    const networkIsNumeric = typeof networkValue === 'number';
+    const matches = networkIsNumeric ? Number(current) === networkValue : current === String(networkValue);
+    if (matches) {
+      // Canonicalize numeric matches: the config layer parses some vars with parseInt, which reads '6e3' as 6.
+      // Rewriting to the network value's string form closes that bypass.
+      if (networkIsNumeric) {
+        env[envVar] = String(networkValue);
+      }
+      continue;
+    }
+
+    const message =
+      `Environment variable ${envVar}=${current} conflicts with the network value ${networkValue}. ` +
+      `Consensus-critical values must match across the network. Set ALLOW_OVERRIDING_NETWORK_CONFIG=1 to override ` +
+      `(only do this if you know what you are doing).`;
+    if (allowOverride) {
+      log?.(message);
+      continue;
+    }
+    throw new Error(message);
+  }
 }
 
 /** Whether the env opts into overriding network-wide consensus values (`ALLOW_OVERRIDING_NETWORK_CONFIG`). */

@@ -127,6 +127,7 @@ import { P2PInstrumentation } from './instrumentation.js';
 function buildProposerTimetable(
   config: P2PConfig,
   l1Constants: ReturnType<EpochCacheInterface['getL1Constants']>,
+  logger?: Logger,
 ): ProposerTimetable {
   return new ProposerTimetable({
     l1Constants,
@@ -137,6 +138,7 @@ function buildProposerTimetable(
     checkpointProposalInitTime: DEFAULT_CHECKPOINT_PROPOSAL_INIT_TIME,
     checkpointProposalSyncGrace: config.checkpointProposalSyncGraceSeconds,
     maxBlocksPerCheckpoint: config.maxBlocksPerCheckpoint,
+    logger,
   });
 }
 
@@ -261,7 +263,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     // sourced from p2p config, and inject it into every validator so they share one set of receive-window
     // bounds. A ProposerTimetable also satisfies every ConsensusTimetable consumer and lets gossipsub
     // scoring derive the same max-blocks-per-checkpoint the proposer uses.
-    const consensusTimetable = buildProposerTimetable(config, epochCache.getL1Constants());
+    const consensusTimetable = buildProposerTimetable(config, epochCache.getL1Constants(), this.logger);
     const proposalValidatorOpts = {
       txsPermitted: !config.disableTransactions,
       maxTxsPerBlock: config.validateMaxTxsPerBlock ?? config.validateMaxTxsPerCheckpoint,
@@ -410,7 +412,7 @@ export class LibP2PService extends WithTracer implements P2PService {
       slotDurationMs: l1Constants.slotDuration * 1000,
       heartbeatIntervalMs: config.gossipsubInterval,
       targetCommitteeSize: l1Constants.targetCommitteeSize,
-      timetable: buildProposerTimetable(config, l1Constants),
+      timetable: buildProposerTimetable(config, l1Constants, logger),
       expectedBlockProposalsPerSlot: config.expectedBlockProposalsPerSlot,
     });
 
