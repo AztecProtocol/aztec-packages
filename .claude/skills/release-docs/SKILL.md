@@ -120,6 +120,7 @@ Store the address for updating docs. Be sure to update the address with the appr
 
 **Note:** The Sponsored FPC is deployed on testnet and devnet. For mainnet releases,
 mark the SponsoredFPC row as "Not deployed" in the L2 Contract Addresses table.
+If the Sponsored FPC address changes for a testnet release, send a reminder that the new address must be funded on testnet.
 
 ### Step 5: Update Version Configs
 
