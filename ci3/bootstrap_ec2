@@ -13,11 +13,13 @@ arch=${ARCH:-amd64}
 NO_TERMINATE=${NO_TERMINATE:-0}
 use_ssh=${CI_USE_SSH:-0}
 
-# In release mode a flaky SSM round-trip (agent offline, undeliverable, instance
-# died mid-poll) shouldn't sink a publish, so we retry genuine SSM transport
-# errors on a fresh instance. Real CI failures (test/build) come back as ordinary
-# non-zero exit codes and are never retried. Override with SSM_MAX_RETRIES.
-if [ "${CI_DASHBOARD:-}" = "releases" ] || semver check "${REF_NAME:-}" 2>/dev/null; then
+# For nightly releases a flaky SSM round-trip (agent offline, undeliverable,
+# instance died mid-poll) shouldn't sink the publish, so we retry genuine SSM
+# transport errors on a fresh instance. Real CI failures (test/build) come back as
+# ordinary non-zero exit codes and are never retried. Scoped to nightly tags only
+# (v<version>-nightly.YYYYMMDD, the same pattern ci3.yml gates on); override with
+# SSM_MAX_RETRIES.
+if [[ "${REF_NAME:-}" =~ -nightly\.[0-9]{8}$ ]]; then
   ssm_max_retries=${SSM_MAX_RETRIES:-2}
 else
   ssm_max_retries=${SSM_MAX_RETRIES:-0}
