@@ -1,3 +1,4 @@
+import { registerAztecNodeRpcHandlers } from '@aztec/aztec-node';
 import { getActiveNetworkName } from '@aztec/foundation/config';
 import {
   type NamespacedApiHandlers,
@@ -7,13 +8,6 @@ import {
 } from '@aztec/foundation/json-rpc/server';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import type { ChainConfig } from '@aztec/stdlib/config';
-import {
-  AztecNodeAdminApiSchema,
-  AztecNodeApiSchema,
-  AztecNodeDebugApiSchema,
-  addLegacyNodeRpcNamespaces,
-} from '@aztec/stdlib/interfaces/client';
-import { P2PApiSchema } from '@aztec/stdlib/interfaces/server';
 import { getPackageVersion } from '@aztec/stdlib/update-checker';
 import { getVersioningMiddleware } from '@aztec/stdlib/versioning';
 import { getOtelJsonRpcDiagnosticsMiddleware, getOtelJsonRpcPropagationMiddleware } from '@aztec/telemetry-client';
@@ -54,10 +48,7 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
 
     // Start Node and PXE JSON-RPC server
     signalHandlers.push(stop);
-    services.aztec = [node, AztecNodeApiSchema];
-    services.p2p = [node.getP2P(), P2PApiSchema];
-    adminServices.aztecAdmin = [node, AztecNodeAdminApiSchema];
-    services.aztecDebug = [node, AztecNodeDebugApiSchema];
+    registerAztecNodeRpcHandlers(node, services, adminServices, { debug: true });
   } else {
     // Route --prover-node through startNode
     if (options.proverNode && !options.node) {
@@ -68,9 +59,6 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
       const { startNode } = await import('./cmds/start_node.js');
       const networkName = getActiveNetworkName(options.network);
       ({ config } = await startNode(options, signalHandlers, services, adminServices, userLog, networkName));
-      if (options.nodeDebug && services.aztec) {
-        services.aztecDebug = [services.aztec[0], AztecNodeDebugApiSchema];
-      }
     } else if (options.bot) {
       const { startBot } = await import('./cmds/start_bot.js');
       await startBot(options, signalHandlers, services, userLog);
@@ -98,8 +86,6 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
   installSignalHandlers(debugLogger.info, signalHandlers);
   const versions = getVersions(config);
   const versioningOpts = { packageVersion };
-
-  addLegacyNodeRpcNamespaces(services, adminServices);
 
   // Start the main JSON-RPC server
   if (Object.entries(services).length > 0) {

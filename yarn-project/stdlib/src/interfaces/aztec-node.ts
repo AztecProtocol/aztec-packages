@@ -26,7 +26,6 @@ import { BlockHash } from '../block/block_hash.js';
 import { type BlockParameter, BlockParameterSchema } from '../block/block_parameter.js';
 import { type DataInBlock, dataInBlockSchemaFor } from '../block/in_block.js';
 import { type CheckpointsQuery, CheckpointsQuerySchema } from '../block/l2_block_source.js';
-import { type ValidateCheckpointResult, ValidateCheckpointResultSchema } from '../block/validate_block_result.js';
 import { type CheckpointData, CheckpointDataSchema } from '../checkpoint/checkpoint_data.js';
 import {
   type ContractClassPublic,
@@ -265,13 +264,7 @@ export interface AztecNode {
   getSyncedL2EpochNumber(): Promise<EpochNumber | undefined>;
 
   /** Returns the latest L1 timestamp according to the archiver's synced L1 view. */
-  getL1Timestamp(): Promise<bigint | undefined>;
-
-  /** Returns whether the pending chain is currently invalid. */
-  isPendingChainInvalid(): Promise<boolean>;
-
-  /** Returns detailed validation status for the pending chain. */
-  getPendingChainValidationStatus(): Promise<ValidateCheckpointResult>;
+  getSyncedL1Timestamp(): Promise<bigint | undefined>;
 
   /**
    * Gets lightweight checkpoint metadata for a contiguous range or for an entire epoch.
@@ -641,11 +634,7 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getSyncedL2EpochNumber: z.function({ input: z.tuple([]), output: EpochNumberSchema.optional() }),
 
-  getL1Timestamp: z.function({ input: z.tuple([]), output: schemas.BigInt.optional() }),
-
-  isPendingChainInvalid: z.function({ input: z.tuple([]), output: z.boolean() }),
-
-  getPendingChainValidationStatus: z.function({ input: z.tuple([]), output: ValidateCheckpointResultSchema }),
+  getSyncedL1Timestamp: z.function({ input: z.tuple([]), output: schemas.BigInt.optional() }),
 
   getCheckpointsData: z.function({ input: z.tuple([CheckpointsQuerySchema]), output: z.array(CheckpointDataSchema) }),
 

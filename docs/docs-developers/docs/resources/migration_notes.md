@@ -26,7 +26,7 @@ All Aztec node JSON-RPC method prefixes have changed:
 - `nodeAdmin_*` → `aztecAdmin_*` (admin methods, port 8880)
 - `nodeDebug_*` → `aztecDebug_*` (debug methods, port 8080, local-network or `--node-debug` only)
 - `p2p_*` namespace removed; P2P queries are on `aztec_*`: `getPeers`, `getCheckpointAttestationsForSlot`, `getProposalsForSlot`
-- Archiver sync helpers exposed on `aztec_*`: `getL1Constants`, `getSyncedL2SlotNumber`, `getSyncedL2EpochNumber`, `getL1Timestamp`, `getPendingChainValidationStatus`, `isPendingChainInvalid`
+- New archiver sync helpers on `aztec_*`: `getL1Constants`, `getSyncedL2SlotNumber`, `getSyncedL2EpochNumber`, `getSyncedL1Timestamp`
 
 If you call the node RPC directly (e.g. via `curl` or a custom client), update all method names accordingly.
 Clients created via `createAztecNodeClient`, `createAztecNodeAdminClient`, and `createAztecNodeDebugClient` are updated automatically.

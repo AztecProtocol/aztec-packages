@@ -5,11 +5,9 @@ import {
   startHttpRpcServer,
 } from '@aztec/foundation/json-rpc/server';
 import { createLogger } from '@aztec/foundation/log';
-import { AztecNodeApiSchema, addLegacyNodeRpcNamespaces } from '@aztec/stdlib/interfaces/client';
-import { P2PApiSchema } from '@aztec/stdlib/interfaces/server';
 import { getOtelJsonRpcPropagationMiddleware } from '@aztec/telemetry-client';
 
-import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '../index.js';
+import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars, registerAztecNodeRpcHandlers } from '../index.js';
 
 const { AZTEC_NODE_PORT = 8081, API_PREFIX = '' } = process.env;
 
@@ -43,11 +41,8 @@ async function main() {
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
   process.once('SIGTERM', shutdown);
 
-  const services: NamespacedApiHandlers = {
-    aztec: [aztecNode, AztecNodeApiSchema],
-    p2p: [aztecNode.getP2P(), P2PApiSchema],
-  };
-  addLegacyNodeRpcNamespaces(services);
+  const services: NamespacedApiHandlers = {};
+  registerAztecNodeRpcHandlers(aztecNode, services);
   const rpcServer = createNamespacedSafeJsonRpcServer(services, {
     middlewares: [getOtelJsonRpcPropagationMiddleware()],
   });

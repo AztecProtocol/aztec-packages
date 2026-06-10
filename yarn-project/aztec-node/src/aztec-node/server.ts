@@ -267,16 +267,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     return this.blockSource.getSyncedL2EpochNumber();
   }
 
-  public getL1Timestamp() {
+  public getSyncedL1Timestamp() {
     return this.blockSource.getL1Timestamp();
-  }
-
-  public isPendingChainInvalid() {
-    return this.blockSource.isPendingChainInvalid();
-  }
-
-  public getPendingChainValidationStatus() {
-    return this.blockSource.getPendingChainValidationStatus();
   }
 
   public getCheckpointsData(query: CheckpointsQuery) {

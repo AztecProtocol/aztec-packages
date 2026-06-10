@@ -4,14 +4,19 @@ import { createSafeJsonRpcClient } from '@aztec/foundation/json-rpc/client';
 import {
   type NamespacedApiHandlers,
   createNamespacedSafeJsonRpcServer,
-  makeHandler,
   startHttpRpcServer,
 } from '@aztec/foundation/json-rpc/server';
+import {
+  AztecNodeAdminApiSchema,
+  AztecNodeApiSchema,
+  AztecNodeDebugApiSchema,
+  type ChainTips,
+} from '@aztec/stdlib/interfaces/client';
+import { P2PApiSchema } from '@aztec/stdlib/interfaces/server';
+import type { ApiSchemaFor } from '@aztec/stdlib/schemas';
 
-import type { ApiSchemaFor } from '../schemas/schemas.js';
-import { AztecNodeApiSchema } from './aztec-node.js';
-import type { ChainTips } from './chain_tips.js';
-import { addLegacyNodeRpcNamespaces } from './legacy_node_rpc_namespaces.js';
+import { registerAztecNodeRpcHandlers } from './register_node_rpc_handlers.js';
+import type { AztecNodeService } from './server.js';
 
 type GetChainTipsOnly = { getChainTips(): Promise<ChainTips> };
 
@@ -19,7 +24,10 @@ const GetChainTipsOnlySchema: ApiSchemaFor<GetChainTipsOnly> = {
   getChainTips: AztecNodeApiSchema.getChainTips,
 };
 
-class MockNode implements GetChainTipsOnly {
+const p2p = {};
+
+const mockNode = {
+  getP2P: () => p2p,
   getChainTips(): Promise<ChainTips> {
     const tipId = {
       block: { number: BlockNumber(1), hash: `0x01` },
@@ -31,22 +39,37 @@ class MockNode implements GetChainTipsOnly {
       proven: tipId,
       finalized: tipId,
     });
-  }
-}
+  },
+} as unknown as AztecNodeService;
 
-describe('legacy node RPC namespaces', () => {
-  it('aliases node to aztec', () => {
-    const aztec = [{}, AztecNodeApiSchema] as NamespacedApiHandlers[string];
-    const services: NamespacedApiHandlers = { aztec };
-    addLegacyNodeRpcNamespaces(services);
-    expect(services.node).toBe(aztec);
+describe('registerAztecNodeRpcHandlers', () => {
+  it('registers aztec namespaces along with legacy aliases', () => {
+    const services: NamespacedApiHandlers = {};
+    const adminServices: NamespacedApiHandlers = {};
+
+    registerAztecNodeRpcHandlers(mockNode, services, adminServices, { debug: true });
+
+    expect(services.aztec).toEqual([mockNode, AztecNodeApiSchema]);
+    expect(services.node).toBe(services.aztec);
+    expect(services.p2p).toEqual([p2p, P2PApiSchema]);
+    expect(services.aztecDebug).toEqual([mockNode, AztecNodeDebugApiSchema]);
+    expect(services.nodeDebug).toBe(services.aztecDebug);
+    expect(adminServices.aztecAdmin).toEqual([mockNode, AztecNodeAdminApiSchema]);
+    expect(adminServices.nodeAdmin).toBe(adminServices.aztecAdmin);
+  });
+
+  it('skips debug namespaces unless requested', () => {
+    const services: NamespacedApiHandlers = {};
+
+    registerAztecNodeRpcHandlers(mockNode, services);
+
+    expect(services.aztecDebug).toBeUndefined();
+    expect(services.nodeDebug).toBeUndefined();
   });
 
   it('serves node_* methods as aliases of aztec_*', async () => {
-    const services: NamespacedApiHandlers = {
-      aztec: makeHandler(new MockNode(), GetChainTipsOnlySchema),
-    };
-    addLegacyNodeRpcNamespaces(services);
+    const services: NamespacedApiHandlers = {};
+    registerAztecNodeRpcHandlers(mockNode, services);
 
     const rpcServer = createNamespacedSafeJsonRpcServer(services);
     const httpServer = await startHttpRpcServer(rpcServer, { port: 0 });

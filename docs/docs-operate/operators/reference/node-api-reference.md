@@ -129,7 +129,7 @@ curl -X POST http://localhost:8080 \
   -d '{"jsonrpc":"2.0","method":"aztec_getSyncedL2EpochNumber","params":[],"id":1}'
 ```
 
-### aztec_getL1Timestamp
+### aztec_getSyncedL1Timestamp
 
 Returns the latest L1 timestamp according to the archiver's synced L1 view.
 
@@ -142,39 +142,7 @@ Returns the latest L1 timestamp according to the archiver's synced L1 view.
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"aztec_getL1Timestamp","params":[],"id":1}'
-```
-
-### aztec_getPendingChainValidationStatus
-
-Returns detailed validation status for the pending chain.
-
-**Parameters**: None
-
-**Returns**: `ValidateCheckpointResult`
-
-**Example**:
-
-```bash
-curl -X POST http://localhost:8080 \
-  -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"aztec_getPendingChainValidationStatus","params":[],"id":1}'
-```
-
-### aztec_isPendingChainInvalid
-
-Returns whether the pending chain is currently invalid.
-
-**Parameters**: None
-
-**Returns**: `boolean`
-
-**Example**:
-
-```bash
-curl -X POST http://localhost:8080 \
-  -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"aztec_isPendingChainInvalid","params":[],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztec_getSyncedL1Timestamp","params":[],"id":1}'
 ```
 
 ### aztec_getBlock
@@ -361,11 +329,12 @@ curl -X POST http://localhost:8080 \
 
 ### aztec_getTxByHash
 
-Method to retrieve a single pending tx.
+Method to retrieve a single pending tx. The tx's proof is stripped unless `includeProof` is set.
 
 **Parameters**:
 
 1. `txHash` - `TxHash` - The transaction hash to return.
+2. `options` - `GetTxByHashOptions | undefined` - Options for the returned tx (eg whether to include its proof).
 
 **Returns**: `Tx | undefined` - The pending tx if it exists.
 
@@ -374,16 +343,17 @@ Method to retrieve a single pending tx.
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"aztec_getTxByHash","params":["0x1234..."],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztec_getTxByHash","params":["0x1234...","0x1234..."],"id":1}'
 ```
 
 ### aztec_getTxsByHash
 
-Method to retrieve multiple pending txs.
+Method to retrieve multiple pending txs. The txs' proofs are stripped unless `includeProof` is set.
 
 **Parameters**:
 
 1. `txHashes` - `TxHash[]`
+2. `options` - `GetTxByHashOptions | undefined` - Options for the returned txs (eg whether to include their proofs).
 
 **Returns**: `Tx[]` - The pending txs if exist.
 
@@ -392,17 +362,18 @@ Method to retrieve multiple pending txs.
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"aztec_getTxsByHash","params":[["0x1234..."]],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztec_getTxsByHash","params":[["0x1234..."],"0x1234..."],"id":1}'
 ```
 
 ### aztec_getPendingTxs
 
-Method to retrieve pending txs.
+Method to retrieve pending txs. The txs' proofs are stripped unless `includeProof` is set.
 
 **Parameters**:
 
-1. `limit` - `number | undefined`
-2. `after` - `TxHash | undefined`
+1. `limit` - `number | undefined` - The number of items to return.
+2. `after` - `TxHash | undefined` - The last known pending tx. Used for pagination.
+3. `options` - `GetTxByHashOptions | undefined` - Options for the returned txs (eg whether to include their proofs).
 
 **Returns**: `Tx[]` - The pending txs.
 
@@ -411,7 +382,7 @@ Method to retrieve pending txs.
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"aztec_getPendingTxs","params":[100,"0x1234..."],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztec_getPendingTxs","params":[100,"0x1234...","0x1234..."],"id":1}'
 ```
 
 ### aztec_getPendingTxCount

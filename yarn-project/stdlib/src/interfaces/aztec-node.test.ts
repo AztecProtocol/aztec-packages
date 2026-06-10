@@ -23,7 +23,6 @@ import type { BlockData } from '../block/block_data.js';
 import type { DataInBlock } from '../block/in_block.js';
 import { BlockHash, type BlockParameter } from '../block/index.js';
 import type { CheckpointsQuery } from '../block/l2_block_source.js';
-import type { ValidateCheckpointResult } from '../block/validate_block_result.js';
 import type { CheckpointData } from '../checkpoint/checkpoint_data.js';
 import {
   type ContractClassPublic,
@@ -128,17 +127,9 @@ describe('AztecNodeApiSchema', () => {
     expect(result).toEqual(EpochNumber(1));
   });
 
-  it('getL1Timestamp', async () => {
-    const result = await context.client.getL1Timestamp();
+  it('getSyncedL1Timestamp', async () => {
+    const result = await context.client.getSyncedL1Timestamp();
     expect(result).toEqual(1n);
-  });
-
-  it('isPendingChainInvalid', async () => {
-    expect(await context.client.isPendingChainInvalid()).toBe(false);
-  });
-
-  it('getPendingChainValidationStatus', async () => {
-    expect(await context.client.getPendingChainValidationStatus()).toEqual({ valid: true });
   });
 
   it('getProposalsForSlot', async () => {
@@ -630,16 +621,8 @@ class MockAztecNode implements AztecNode {
     return Promise.resolve(EpochNumber(1));
   }
 
-  getL1Timestamp(): Promise<bigint | undefined> {
+  getSyncedL1Timestamp(): Promise<bigint | undefined> {
     return Promise.resolve(1n);
-  }
-
-  isPendingChainInvalid(): Promise<boolean> {
-    return Promise.resolve(false);
-  }
-
-  getPendingChainValidationStatus(): Promise<ValidateCheckpointResult> {
-    return Promise.resolve({ valid: true });
   }
 
   getBlock<Opts extends BlockIncludeOptions = {}>(
