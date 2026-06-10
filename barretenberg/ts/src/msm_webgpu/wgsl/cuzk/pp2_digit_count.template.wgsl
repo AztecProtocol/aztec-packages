@@ -24,8 +24,8 @@
 @group(0) @binding(0) var<storage, read>       scalars:    array<vec4<u32>>;
 @group(0) @binding(1) var<storage, read_write> digits:     array<u32>;
 @group(0) @binding(2) var<storage, read_write> bin_counts: array<u32>;
-// params[0] = [n, num_tiles, tile_pts, bins_p]
-// params[1] = [base_offset, scan_len, BW, 0] (unused here; shared across pp2)
+// params[0] = [n (unread; debugging aid), num_tiles, tile_pts, bins_p]
+// params[1] = [base_offset, scan_len (unread; debugging aid), BW, 0] (unused here; shared across pp2)
 @group(0) @binding(3) var<uniform>             params:     array<vec4<u32>, 2>;
 // One row per concatenated-union member: [first global window, scalar base
 // in vec4 units, point count (even), first point slot]. The member's windows
@@ -66,17 +66,14 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     var pr_hi = pr_lo + (tile_pts >> 1u);
     if (pr_hi > half_n) { pr_hi = half_n; }
     for (var pr: u32 = pr_lo + tid; pr < pr_hi; pr = pr + WG) {
+        // Both pair halves always exist: pr < n_k/2 and the host gate
+        // requires even n_k (an odd tail would alias adjacent windows' cells).
         let p0 = 2u * pr;
         let p1 = p0 + 1u;
         let sa = scalars[sbase_v4 + 2u * p0];
         let sb = scalars[sbase_v4 + 2u * p0 + 1u];
-        let has_p1 = p1 < n_k;
-        var sc = vec4<u32>(0u, 0u, 0u, 0u);
-        var sd = vec4<u32>(0u, 0u, 0u, 0u);
-        if (has_p1) {
-            sc = scalars[sbase_v4 + 2u * p1];
-            sd = scalars[sbase_v4 + 2u * p1 + 1u];
-        }
+        let sc = scalars[sbase_v4 + 2u * p1];
+        let sd = scalars[sbase_v4 + 2u * p1 + 1u];
 {{#windows}}
         {
             // window {{ w }}: c={{ c }}, scalar bits [{{ bit_lo }}, {{ bit_hi }})
@@ -85,16 +82,12 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
             let enc = (raw + 1u) >> 1u;
             let bkt = ((enc - neg) ^ (0u - neg)) & {{ mask_c }}u;
             atomicAdd(&hist[{{ w }}u * BINS_P + (bkt >> BIN_SHIFT)], 1u);
-            var d1: u32 = 0u;
-            if (has_p1) {
-                let raw1 = {{{ raw_expr2 }}};
-                let neg1 = (raw1 >> {{ c }}u) & 1u;
-                let enc1 = (raw1 + 1u) >> 1u;
-                let bkt1 = ((enc1 - neg1) ^ (0u - neg1)) & {{ mask_c }}u;
-                atomicAdd(&hist[{{ w }}u * BINS_P + (bkt1 >> BIN_SHIFT)], 1u);
-                d1 = bkt1 | (neg1 << 15u);
-            }
-            digits[((pt_base + {{ w }}u * n_k) >> 1u) + pr] = (bkt | (neg << 15u)) | (d1 << 16u);
+            let raw1 = {{{ raw_expr2 }}};
+            let neg1 = (raw1 >> {{ c }}u) & 1u;
+            let enc1 = (raw1 + 1u) >> 1u;
+            let bkt1 = ((enc1 - neg1) ^ (0u - neg1)) & {{ mask_c }}u;
+            atomicAdd(&hist[{{ w }}u * BINS_P + (bkt1 >> BIN_SHIFT)], 1u);
+            digits[((pt_base + {{ w }}u * n_k) >> 1u) + pr] = (bkt | (neg << 15u)) | ((bkt1 | (neg1 << 15u)) << 16u);
         }
 {{/windows}}
     }

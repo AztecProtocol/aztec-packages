@@ -40,8 +40,8 @@ const LOW_MASK: u32 = LOWS - 1u;
 @group(0) @binding(2) var<storage, read_write> l0_out:      array<u32>;
 @group(0) @binding(3) var<storage, read_write> counts_out:  array<u32>;
 @group(0) @binding(4) var<storage, read_write> offsets_out: array<u32>;
-// params[0] = [n, num_tiles, tile_pts, bins_p]
-// params[1] = [base_offset, scan_len, BW, 0]
+// params[0] = [n (unread; debugging aid), num_tiles, tile_pts, bins_p]
+// params[1] = [base_offset, scan_len (unread; debugging aid), BW, 0]
 @group(0) @binding(5) var<uniform>             params:      array<vec4<u32>, 2>;
 
 var<workgroup> hist: array<atomic<u32>, {{ lows }}>;

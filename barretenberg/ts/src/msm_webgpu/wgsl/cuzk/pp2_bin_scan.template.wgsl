@@ -23,8 +23,8 @@ const WG: u32 = 256u;
 
 @group(0) @binding(0) var<storage, read_write> bin_counts:    array<u32>;
 @group(0) @binding(1) var<storage, read>       point_offsets: array<u32>;
-// params[0] = [n, num_tiles, tile_pts, bins_p]
-// params[1] = [base_offset, scan_len, BW, 0] (scan_len = NW*BINS_P*num_tiles)
+// params[0] = [n (unread; debugging aid), num_tiles, tile_pts, bins_p]
+// params[1] = [base_offset, scan_len (unread; debugging aid), BW, 0] (scan_len = NW*BINS_P*num_tiles)
 @group(0) @binding(2) var<uniform>             params:        array<vec4<u32>, 2>;
 
 var<workgroup> wg_sums: array<u32, WG>;

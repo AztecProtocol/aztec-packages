@@ -2013,8 +2013,8 @@ export class MsmV2 {
   private pp2ParamsBuf?: GPUBuffer;
   private pp2BinShift = 0;
   private pp2BinsP = 0;
-  private pp2TilePts = 0;
   private pp2NumTiles = 0;
+  private pp2FallbackLogged = false;
   private reduceLevelPipes: GPUComputePipeline[] = [];
   // Thread-1 Jacobian reduce-tail pipelines (z-seed + inversion-free level +
   // per-window Jacobian->affine finalize).
@@ -2087,6 +2087,8 @@ export class MsmV2 {
   private pp2ScanLayout!: GPUBindGroupLayout;
   private pp2ScatterLayout!: GPUBindGroupLayout;
   private pp2SortEmitLayout!: GPUBindGroupLayout;
+  // Captured at prepare: prepareBatch nulls batchCtx before run(), so the
+  // union member count is NOT derivable at encode time.
   private pp2MemberCount = 1;
   private reduceLevelLayout!: GPUBindGroupLayout;
   private zInitLayout!: GPUBindGroupLayout;
@@ -3544,7 +3546,12 @@ export class MsmV2 {
       // windowDescBuf: WD_ROWS (≥128) rows × 8 u32. Tiny per single MSM, but it
       // scales with the pack's window count, so the budget must count it.
       const windowDescBytes = Math.max(NUM_WINDOWS, 128) * 8 * 4;
-      return srsBytes + arenaBytes + countsOffsetsBytes + planMetaBytes + windowDescBytes;
+      // pp2 bin-count/cursor matrix (ppvBinCounts): NW·binsP·tiles + sentinel.
+      // Counted at the single-batch shape — pp2 only activates at nb == 1, and
+      // when nb > 1 the matrix stays at its (stub or prior) size anyway.
+      const pp2TilePts = n <= 1 << 17 ? 1024 : n <= 1 << 18 ? 2048 : 4096;
+      const pp2BinBytes = this.pp2Enabled ? (NUM_WINDOWS * this.pp2BinsP * Math.ceil(n / pp2TilePts) + 1) * 4 : 0;
+      return srsBytes + arenaBytes + countsOffsetsBytes + planMetaBytes + windowDescBytes + pp2BinBytes;
     };
     const wgFits = (nb: number): boolean => Math.ceil((Math.ceil(NUM_WINDOWS / nb) * n) / WGI) < 65000;
     // Raise the batch count until each batch fits both the 65k-workgroup cap and
@@ -3728,19 +3735,21 @@ export class MsmV2 {
     this.fusedTileSize = FUSED_TILE;
 
     // pp2 dispatch gate + geometry. Eligibility (uniform schedule, c/n range)
-    // was settled at create; here only the per-prepare plan shape matters: one
-    // batch covering all windows, no region split, no concatenated union. The
-    // tile size bounds the cursor matrix (numWindows·binsP·(n/tile)·4 B) while
-    // keeping enough (tile, window) workgroups to saturate the GPU.
-    // The live schedule must still match K1's baked one: a splitC prepare that
-    // decided to split rewrites windowCs (and/or sets regionSplit) — fall back.
-    // A concatenated union is covered when every member runs the SAME uniform
-    // local schedule (K1's codegen is member-local; dispatch y = member) with
-    // even point counts (u16 digit pairing) and vec4-aligned scalar bases —
-    // dmat only (the recompute/staged variants never grew union plumbing).
+    // was settled at create; this gate checks the per-prepare plan shape:
+    // single window-batch, no region split, and the live schedule still
+    // matching K1's baked one (a splitC prepare that decided to split rewrites
+    // windowCs — fall back). Concatenated unions are covered when every member
+    // runs the SAME uniform local schedule (K1's codegen is member-local;
+    // dispatch y = member) with even point counts (the u16 digit pairing
+    // requires it) and vec4-aligned scalar bases.
     {
       const localNW = Math.ceil(NUMBITS / this.c);
       const schedOk = this.windowCs.every(cw => cw === this.c);
+      // Full bin coverage: (binsP << shift) must equal BW so the top Booth
+      // digit's bin is in range. Holds because PLANNER_TPB (256) is divisible
+      // by 2^shift (shift ≤ 8); checked so a future BW-rounding change
+      // degrades to the classic path instead of corrupting the histograms.
+      const binsOk = this.pp2BinsP << this.pp2BinShift === this.BW;
       const singleOk = !this.batchCtx && this.windowCs.length === localNW && n % 2 === 0;
       const unionOk =
         !!this.batchCtx &&
@@ -3748,16 +3757,18 @@ export class MsmV2 {
         this.batchCtx.members.every(
           mb => mb.n % 2 === 0 && mb.n <= n && mb.numWindows === localNW && mb.scalarBaseBytes % 16 === 0,
         );
-      this.pp2Active = this.pp2Enabled && !this.regionSplit && numBatches === 1 && schedOk && (singleOk || unionOk);
-      if (this.pp2Enabled && !this.pp2Active) {
+      this.pp2Active =
+        this.pp2Enabled && binsOk && !this.regionSplit && numBatches === 1 && schedOk && (singleOk || unionOk);
+      if (this.pp2Enabled && !this.pp2Active && !this.pp2FallbackLogged) {
+        this.pp2FallbackLogged = true;
         console.log(
-          `[MsmV2] pp2 inactive this prepare (regionSplit=${this.regionSplit} batches=${numBatches} union=${!!this.batchCtx}) — classic preprocess fallback`,
+          `[MsmV2] pp2 inactive this prepare (regionSplit=${this.regionSplit} batches=${numBatches} union=${!!this.batchCtx}) — classic preprocess fallback (logged once per instance)`,
         );
       }
     }
+    const pp2TilePts = n <= 1 << 17 ? 1024 : n <= 1 << 18 ? 2048 : 4096;
     if (this.pp2Active) {
-      this.pp2TilePts = n <= 1 << 17 ? 1024 : n <= 1 << 18 ? 2048 : 4096;
-      this.pp2NumTiles = Math.ceil(n / this.pp2TilePts);
+      this.pp2NumTiles = Math.ceil(n / pp2TilePts);
     }
     const ppvBinLen = this.pp2Active ? NUM_WINDOWS * this.pp2BinsP * this.pp2NumTiles + 1 : 0;
 
@@ -4112,7 +4123,7 @@ export class MsmV2 {
     // prepare alongside the conv-active uniform.
     if (this.pp2Active) {
       const pp2Params = ubuf(
-        new Uint32Array([n, this.pp2NumTiles, this.pp2TilePts, this.pp2BinsP, 0, ppvBinLen - 1, BW, 0]),
+        new Uint32Array([n, this.pp2NumTiles, pp2TilePts, this.pp2BinsP, 0, ppvBinLen - 1, BW, 0]),
       );
       this.pp2ParamsBuf = pp2Params;
       const binCounts = scratch.ppvBinCounts;
@@ -4163,6 +4174,7 @@ export class MsmV2 {
       // prepBuffers destroyed at slow-path entry, and while pp2Active=false
       // never dispatches them, keeping dead bind groups around is a trap.
       this.pp2ParamsBuf = undefined;
+      this.pp2MemberCount = 1;
       this.pp2DigitCountBind = undefined;
       this.pp2ScanBind = undefined;
       this.pp2ScatterBind = undefined;
@@ -4937,7 +4949,7 @@ export class MsmV2 {
       setPhase('preprocess');
       // pp2 two-level preprocess: 4 dispatches replace the 7-dispatch classic
       // pipeline below — K1 fused decompose+coarse-bin count, K1.5 cursor scan,
-      // K2 staged coalesced bin scatter, K3 per-bin counting sort emitting the
+      // K2 direct bin scatter, K3 per-bin counting sort emitting the
       // final l0 entries (base_offset folded) + bucket counts/offsets directly.
       // No buffer clears needed: every output cell is written each run.
       if (this.pp2Active) {

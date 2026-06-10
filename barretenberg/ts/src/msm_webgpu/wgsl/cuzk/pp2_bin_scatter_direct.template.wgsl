@@ -35,8 +35,8 @@ const LOW_MASK: u32 = (1u << BIN_SHIFT) - 1u;
 @group(0) @binding(0) var<storage, read>       digits:     array<u32>;
 @group(0) @binding(1) var<storage, read>       bin_counts: array<u32>;
 @group(0) @binding(2) var<storage, read_write> binned:     array<u32>;
-// params[0] = [n, num_tiles, tile_pts, bins_p]
-// params[1] = [base_offset, scan_len, BW, 0]
+// params[0] = [n (unread; debugging aid), num_tiles, tile_pts, bins_p]
+// params[1] = [base_offset, scan_len (unread; debugging aid), BW, 0]
 @group(0) @binding(3) var<uniform>             params:     array<vec4<u32>, 2>;
 // Per-window point bases: window w's points span [point_offsets[w],
 // point_offsets[w+1]) — w·n for a uniform single MSM, the packed Σ n_w
