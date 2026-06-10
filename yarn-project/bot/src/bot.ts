@@ -4,6 +4,7 @@ import { TxHash } from '@aztec/aztec.js/tx';
 import { times } from '@aztec/foundation/collection';
 import type { PrivateTokenContract } from '@aztec/noir-contracts.js/PrivateToken';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
+import type { BlockTag } from '@aztec/stdlib/block';
 import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import type { EmbeddedWallet } from '@aztec/wallets/embedded';
 
@@ -33,6 +34,7 @@ export class Bot extends BaseBot {
     aztecNode: AztecNode,
     aztecNodeAdmin: AztecNodeAdmin | undefined,
     store: BotStore,
+    pxeSyncChainTip?: BlockTag,
   ): Promise<Bot> {
     const { defaultAccountAddress, token, recipient } = await new BotFactory(
       config,
@@ -40,6 +42,7 @@ export class Bot extends BaseBot {
       store,
       aztecNode,
       aztecNodeAdmin,
+      pxeSyncChainTip,
     ).setup();
     return new Bot(aztecNode, wallet, defaultAccountAddress, token, recipient, config);
   }

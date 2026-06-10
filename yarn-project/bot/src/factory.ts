@@ -29,6 +29,7 @@ import { AMMContract } from '@aztec/noir-contracts.js/AMM';
 import { PrivateTokenContract } from '@aztec/noir-contracts.js/PrivateToken';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
+import type { BlockTag } from '@aztec/stdlib/block';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { GasFees, ManaUsageEstimate } from '@aztec/stdlib/gas';
 import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
@@ -54,6 +55,7 @@ export class BotFactory {
     private readonly store: BotStore,
     private readonly aztecNode: AztecNode,
     private readonly aztecNodeAdmin?: AztecNodeAdmin,
+    private readonly pxeSyncChainTip?: BlockTag,
   ) {
     // Set fee padding on the wallet so that all transactions during setup
     // (token deploy, minting, etc.) use the configured padding, not the default.
@@ -174,6 +176,7 @@ export class BotFactory {
       const firstMsg = allMessages[0];
       await waitForL1ToL2MessageReady(this.aztecNode, Fr.fromHexString(firstMsg.msgHash), {
         timeoutSeconds: this.config.l1ToL2MessageTimeoutSeconds,
+        chainTip: this.pxeSyncChainTip,
       });
       this.log.info(`First L1→L2 message is ready`);
     }
@@ -675,6 +678,7 @@ export class BotFactory {
         await this.withNoMinTxsPerBlock(() =>
           waitForL1ToL2MessageReady(this.aztecNode, messageHash, {
             timeoutSeconds: this.config.l1ToL2MessageTimeoutSeconds,
+            chainTip: this.pxeSyncChainTip,
           }),
         );
         return existingClaim.claim;
@@ -713,6 +717,7 @@ export class BotFactory {
     await this.withNoMinTxsPerBlock(() =>
       waitForL1ToL2MessageReady(this.aztecNode, Fr.fromHexString(claim.messageHash), {
         timeoutSeconds: this.config.l1ToL2MessageTimeoutSeconds,
+        chainTip: this.pxeSyncChainTip,
       }),
     );
 

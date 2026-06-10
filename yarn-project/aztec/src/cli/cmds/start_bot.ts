@@ -56,6 +56,11 @@ export async function addBot(
   const config = extractRelevantOptions<BotConfig>(options, botConfigMappings, 'bot');
   userLog?.(`Starting bot with config ${stringifyConfig(config)}`);
 
+  // The bot wallet's embedded PXE syncs to this tip (see start_bot.ts/start_node.ts which build the wallet from the
+  // same options). L1-to-L2 readiness checks must be evaluated at this tip rather than at 'latest', or the bot can
+  // consider a message ready while the PXE simulation anchors to an older block that cannot prove its membership yet.
+  const { syncChainTip } = extractRelevantOptions<PXEConfig & CliPXEOptions>(options, allPxeConfigMappings, 'pxe');
+
   const db = await (config.dataDirectory
     ? createStore('bot', BotStore.SCHEMA_VERSION, config)
     : openTmpStore('bot', true, config.dataStoreMapSizeKb));
@@ -63,7 +68,7 @@ export async function addBot(
   const store = new BotStore(db);
   await store.cleanupOldClaims();
 
-  const botRunner = new BotRunner(config, wallet, aztecNode, telemetry, aztecNodeAdmin, store);
+  const botRunner = new BotRunner(config, wallet, aztecNode, telemetry, aztecNodeAdmin, store, syncChainTip);
   if (!config.noStart) {
     void botRunner.start(); // Do not block since bot setup takes time
   }

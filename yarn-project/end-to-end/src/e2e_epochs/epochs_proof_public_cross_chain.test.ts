@@ -1,11 +1,12 @@
 import { generateClaimSecret } from '@aztec/aztec.js/ethereum';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
-import { waitForL1ToL2MessageReady } from '@aztec/aztec.js/messaging';
+import { isL1ToL2MessageReady, waitForL1ToL2MessageReady } from '@aztec/aztec.js/messaging';
 import { TxExecutionResult } from '@aztec/aztec.js/tx';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { retryUntil } from '@aztec/foundation/retry';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
+import { tryStop } from '@aztec/stdlib/interfaces/server';
 
 import { jest } from '@jest/globals';
 
@@ -97,6 +98,103 @@ describe('e2e_epochs/epochs_proof_public_cross_chain', () => {
       )
       .send({ from: context.accounts[0], wait: { dontThrowOnRevert: true } });
     expect(failedReceipt.executionResult).toBe(TxExecutionResult.REVERTED);
+
+    logger.info(`Test succeeded`);
+  });
+});
+
+// Asserts that L1-to-L2 message readiness must be evaluated at the same chain tip the consuming PXE syncs to.
+// A message can be present at `latest` while the `proven` tip (which the PXE here anchors to) still lags behind,
+// in which case the message cannot yet be proven during simulation. This is the invariant the bot relies on to
+// avoid considering a fee-juice bridge claim ready before its embedded PXE can consume it.
+describe('e2e_epochs/epochs_proof_public_cross_chain readiness at proven tip', () => {
+  let context: EndToEndContext;
+  let logger: Logger;
+  let test: EpochsTestContext;
+
+  beforeEach(async () => {
+    // PXE syncs to `proven` so simulation anchors to the proven tip, not latest.
+    test = await EpochsTestContext.setup({
+      numberOfAccounts: 1,
+      minTxsPerBlock: 1,
+      sequencerPublisherAllowInvalidStates: true,
+      pxeOpts: { syncChainTip: 'proven' },
+    });
+    ({ context, logger } = test);
+  });
+
+  afterEach(async () => {
+    jest.restoreAllMocks();
+    await test.teardown();
+  });
+
+  it('only reports a message ready at the proven tip once proving advances past it', async () => {
+    await context.aztecNodeAdmin.setConfig({ minTxsPerBlock: 0 });
+
+    // Deploy the consuming contract while proving runs so the proven-synced PXE has an anchor and the
+    // contract is itself proven.
+    logger.warn(`Deploying test contract`);
+    const { contract: testContract } = await TestContract.deploy(context.wallet).send({ from: context.accounts[0] });
+    logger.warn(`Test contract deployed at ${testContract.address}`);
+
+    await retryUntil(
+      async () => (await context.aztecNode.getBlockNumber('proven')) > 0,
+      'initial proven block',
+      test.L2_SLOT_DURATION_IN_S * test.epochDuration * 3,
+    );
+    const provenBeforeFreeze = await context.aztecNode.getBlockNumber('proven');
+    logger.warn(`Proven tip established at block ${provenBeforeFreeze}`);
+
+    // Freeze proving by stopping the prover node. Proposed/latest keeps advancing, proven stays put.
+    logger.warn(`Stopping prover node to freeze the proven tip`);
+    await tryStop(context.proverNode, logger);
+    context.proverNode = undefined;
+
+    // Seed an L1-to-L2 message and let it land at the latest tip.
+    const [secret, secretHash] = await generateClaimSecret();
+    const message = { recipient: testContract.address, content: Fr.random(), secretHash };
+    logger.warn(`Sending L1 to L2 message ${message.content.toString()}`);
+    const { msgHash, globalLeafIndex } = await sendL1ToL2Message(message, context.deployL1ContractsValues);
+
+    logger.warn(`Waiting for message ${msgHash} to be ready at latest`);
+    await waitForL1ToL2MessageReady(context.aztecNode, msgHash, {
+      timeoutSeconds: test.L2_SLOT_DURATION_IN_S * 6,
+      chainTip: 'latest',
+    });
+
+    // The message exists at latest but the proven tip has not advanced to include it yet.
+    expect(await isL1ToL2MessageReady(context.aztecNode, msgHash, 'latest')).toBe(true);
+    expect(await isL1ToL2MessageReady(context.aztecNode, msgHash, 'proven')).toBe(false);
+
+    // Consuming from the proven-synced PXE must fail while the message is not present at the proven tip.
+    const consume = () =>
+      testContract.methods
+        .consume_message_from_arbitrary_sender_public(
+          message.content,
+          secret,
+          EthAddress.fromString(context.deployL1ContractsValues.l1Client.account.address),
+          globalLeafIndex.toBigInt(),
+        )
+        .send({ from: context.accounts[0] });
+
+    logger.warn(`Expecting consume to fail while message is not present at proven tip`);
+    await expect(consume()).rejects.toThrow();
+
+    // Advance proving by spinning up a fresh prover node.
+    logger.warn(`Starting a new prover node to advance the proven tip`);
+    context.proverNode = await test.createProverNode();
+
+    logger.warn(`Waiting for message ${msgHash} to become ready at proven`);
+    await waitForL1ToL2MessageReady(context.aztecNode, msgHash, {
+      timeoutSeconds: test.L2_SLOT_DURATION_IN_S * test.epochDuration * 4,
+      chainTip: 'proven',
+    });
+    expect(await isL1ToL2MessageReady(context.aztecNode, msgHash, 'proven')).toBe(true);
+
+    // Now the proven-synced PXE can consume the message.
+    logger.warn(`Consuming message now that the proven tip includes it`);
+    const { receipt } = await consume();
+    expect(receipt.blockNumber).toBeGreaterThan(0);
 
     logger.info(`Test succeeded`);
   });

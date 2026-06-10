@@ -5,6 +5,7 @@ import type { TxHash, TxReceipt } from '@aztec/aztec.js/tx';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import type { AMMContract } from '@aztec/noir-contracts.js/AMM';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
+import type { BlockTag } from '@aztec/stdlib/block';
 import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import type { EmbeddedWallet } from '@aztec/wallets/embedded';
 
@@ -37,6 +38,7 @@ export class AmmBot extends BaseBot {
     aztecNode: AztecNode,
     aztecNodeAdmin: AztecNodeAdmin | undefined,
     store: BotStore,
+    pxeSyncChainTip?: BlockTag,
   ): Promise<AmmBot> {
     const { defaultAccountAddress, token0, token1, amm } = await new BotFactory(
       config,
@@ -44,6 +46,7 @@ export class AmmBot extends BaseBot {
       store,
       aztecNode,
       aztecNodeAdmin,
+      pxeSyncChainTip,
     ).setupAmm();
     return new AmmBot(aztecNode, wallet, defaultAccountAddress, amm, token0, token1, config);
   }
