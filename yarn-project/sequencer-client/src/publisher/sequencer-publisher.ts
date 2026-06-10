@@ -630,6 +630,9 @@ export class SequencerPublisher {
     // Aim to be in the mempool one L1 slot before the L2 slot starts, so we have a chance of
     // being picked up by the first L1 block of the L2 slot.
     const submitAfterMs = startOfTargetSlotMs - Number(this.ethereumSlotDuration) * 1000;
+    if (this.interrupted) {
+      return undefined;
+    }
     const sleepMs = submitAfterMs - this.dateProvider.now();
     if (sleepMs > 0) {
       this.log.debug(`Sleeping ${sleepMs}ms before sending requests`, {
