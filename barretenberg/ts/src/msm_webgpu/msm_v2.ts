@@ -2121,7 +2121,7 @@ export class MsmV2 {
   private idxCountBind!: GPUBindGroup;
   private idxAllocPipe!: GPUComputePipeline;
   private idxAllocLayout!: GPUBindGroupLayout;
-  private idxAllocBinds: GPUBindGroup[] = [];
+  private idxAllocBind!: GPUBindGroup;
   private idxEpiloguePipe!: GPUComputePipeline;
   private idxEpilogueLayout!: GPUBindGroupLayout;
   private idxEpilogueBind!: GPUBindGroup;
@@ -2682,6 +2682,7 @@ export class MsmV2 {
       'uniform',
       'read-only-storage',
       'uniform',
+      'storage', // is_present — dense-bucket marks hoisted from walker_index
     ]);
     m.metaFixupLayout = lt(['storage']);
     m.radixCountLayout = lt(['read-only-storage', 'storage', 'read-only-storage', 'uniform']);
@@ -2823,8 +2824,8 @@ export class MsmV2 {
     //   idx_count: partial_dest, partial_count(rw atomic), planner_meta, params
     m.idxCountLayout = lt(['read-only-storage', 'storage', 'read-only-storage', 'uniform']);
     //   idx_alloc: sorted_bucket_list, partial_count, partial_offset(rw), active_pairs(rw),
-    //   active_meta(rw), count_histogram(rw), planner_meta, is_present(rw), window_desc,
-    //   params, batch_offset
+    //   active_meta(rw), count_histogram(rw), planner_meta, params
+    //   (is_present marking lives in classify — pure planner data.)
     m.idxAllocLayout = lt([
       'read-only-storage',
       'read-only-storage',
@@ -2833,9 +2834,6 @@ export class MsmV2 {
       'storage',
       'storage',
       'read-only-storage',
-      'storage',
-      'read-only-storage',
-      'uniform',
       'uniform',
     ]);
     //   idx_epilogue: count_histogram, active_meta(rw — A0 colour-mate of bin_offsets),
@@ -4337,6 +4335,7 @@ export class MsmV2 {
           classifyParams,
           windowDescBuf,
           bwb,
+          scratch.isPresentBuf,
         ]),
       );
       this.metaFixupBind = mkBind(this.metaFixupLayout, [sp]);
@@ -4493,21 +4492,16 @@ export class MsmV2 {
         // idx_count / idx_scatter params: (BW, M_partials, _, _).
         const wiParams = ubuf(new Uint32Array([this.BW, M_partials_walker, 0, 0]));
         this.idxCountBind = mkBind(this.idxCountLayout, [pdest, pcount, scratch.streamPlannerMeta, wiParams]);
-        this.idxAllocBinds = batchWindowBaseBufs.map(bwb =>
-          mkBind(this.idxAllocLayout, [
-            sb,
-            pcount,
-            poffset,
-            abkts,
-            acnt,
-            chist,
-            scratch.streamPlannerMeta,
-            scratch.isPresentBuf,
-            windowDescBuf,
-            wiParams,
-            bwb,
-          ]),
-        );
+        this.idxAllocBind = mkBind(this.idxAllocLayout, [
+          sb,
+          pcount,
+          poffset,
+          abkts,
+          acnt,
+          chist,
+          scratch.streamPlannerMeta,
+          wiParams,
+        ]);
         this.idxEpilogueBind = mkBind(this.idxEpilogueLayout, [
           chist,
           acnt,
@@ -5034,7 +5028,7 @@ export class MsmV2 {
         setPhase('wi_count');
         indirectDispatch(this.idxCountPipe, this.idxCountBind, wiArgs, 0);
         setPhase('wi_alloc');
-        indirectDispatch(this.idxAllocPipe, this.idxAllocBinds[bi], wiArgs, 12);
+        indirectDispatch(this.idxAllocPipe, this.idxAllocBind, wiArgs, 12);
         setPhase('wi_epilogue');
         dispatch(this.idxEpiloguePipe, this.idxEpilogueBind, 1, 1);
         setPhase('wi_scatter');

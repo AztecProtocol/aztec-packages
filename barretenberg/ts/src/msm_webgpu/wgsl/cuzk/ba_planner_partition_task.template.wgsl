@@ -76,11 +76,16 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         planner_meta[15] = (num_active_threads + WALKER_TPB - 1u) / WALKER_TPB;
         planner_meta[16] = 1u;
         planner_meta[17] = 1u;
+        // Slot-wide kernels (idx_count/idx_scatter) run one slot per thread
+        // (Mali prefers more threads in flight over per-thread ILP for this
+        // latency-bound atomic work); idx_alloc runs 4 dense buckets per
+        // thread (grain IDX_TPB * 4).
         let m_actual = 2u * S * num_active_threads;
         wi_idx_args[0] = (m_actual + IDX_TPB - 1u) / IDX_TPB;
         wi_idx_args[1] = 1u;
         wi_idx_args[2] = 1u;
-        wi_idx_args[3] = (num_dense + IDX_TPB - 1u) / IDX_TPB;
+        let alloc_grain = IDX_TPB * 4u;
+        wi_idx_args[3] = (num_dense + alloc_grain - 1u) / alloc_grain;
         wi_idx_args[4] = 1u;
         wi_idx_args[5] = 1u;
     }

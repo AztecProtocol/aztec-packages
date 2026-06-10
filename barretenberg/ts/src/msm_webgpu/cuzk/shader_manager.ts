@@ -1373,7 +1373,12 @@ ${packLines.join('\n')}
   }
 
   public gen_ba_walker_idx_alloc_shader(workgroup_size: number): string {
-    return mustache.render(ba_walker_idx_alloc_shader, { workgroup_size, recompile: this.recompile });
+    return mustache.render(ba_walker_idx_alloc_shader, {
+      workgroup_size,
+      double_tpb: 2 * workgroup_size,
+      block: 4 * workgroup_size,
+      recompile: this.recompile,
+    });
   }
 
   public gen_ba_walker_idx_epilogue_shader(sort_tpb: number): string {

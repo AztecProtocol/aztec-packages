@@ -2016,10 +2016,17 @@ const WBID_MAG_MASK: u32 = 0x7fffu;
 @group(0) @binding(6) var<uniform>             params:             vec4<u32>;
 // params.x = num_windows (this batch's window count)
 // WindowDesc (SPLIT_C_PLAN.md): num_columns at +5, work_off (prefix) at +3,
-// num_buckets (= stride_w, red slots) at +2.
+// num_buckets (= stride_w, red slots) at +2, reduce_off at +4.
 @group(0) @binding(7) var<storage, read>       window_desc:        array<u32>;
 // batch_window_base.x = global index of this batch's first window.
 @group(0) @binding(8) var<uniform>             batch_window_base:  vec4<u32>;
+// is_present mark for every dense (count >= 2) bucket. The mark is a pure
+// function of planner data (NOT of the walker), so it is hoisted here from
+// the walker_index phase: classify already touches every bucket and the
+// WindowDesc row, making the mark a near-free extra store. ba_size1 marks
+// the count == 1 buckets; the v1 walker_index filter also marks dense
+// buckets (redundantly, harmlessly).
+@group(0) @binding(9) var<storage, read_write> is_present:         array<u32>;
 
 @compute @workgroup_size({{ workgroup_size }})
 fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
@@ -2060,6 +2067,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         let slot = atomicAdd(&planner_meta[1], 1u);
         dense_bucket_list[slot] = packed;
         dense_count_list[slot] = n;
+        is_present[window_desc[gwin * WD_STRIDE + 4u] + (magnitude - 1u)] = 1u;
     }
 
     {{{ recompile }}}
@@ -2275,11 +2283,16 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         planner_meta[15] = (num_active_threads + WALKER_TPB - 1u) / WALKER_TPB;
         planner_meta[16] = 1u;
         planner_meta[17] = 1u;
+        // Slot-wide kernels (idx_count/idx_scatter) run one slot per thread
+        // (Mali prefers more threads in flight over per-thread ILP for this
+        // latency-bound atomic work); idx_alloc runs 4 dense buckets per
+        // thread (grain IDX_TPB * 4).
         let m_actual = 2u * S * num_active_threads;
         wi_idx_args[0] = (m_actual + IDX_TPB - 1u) / IDX_TPB;
         wi_idx_args[1] = 1u;
         wi_idx_args[2] = 1u;
-        wi_idx_args[3] = (num_dense + IDX_TPB - 1u) / IDX_TPB;
+        let alloc_grain = IDX_TPB * 4u;
+        wi_idx_args[3] = (num_dense + alloc_grain - 1u) / alloc_grain;
         wi_idx_args[4] = 1u;
         wi_idx_args[5] = 1u;
     }
@@ -5348,15 +5361,17 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 
 export const ba_walker_idx_alloc = `// walker_index v2 — W2: fused offset-alloc + filter + count histogram.
 //
-// One thread per dense bucket, dispatched indirect at ceil(num_dense / TPB).
-// Replaces the serial single-workgroup prefix scan, the filter pass and the
-// sort_count pass of the v1 pipeline with one wide kernel:
+// One thread per FOUR dense buckets (strided within the workgroup's
+// 4*TPB-bucket block so loads coalesce), dispatched indirect at
+// ceil(num_dense / (4*TPB)). Replaces the serial single-workgroup prefix
+// scan, the filter pass and the sort_count pass of the v1 pipeline:
 //
-//   count == 0  → mark is_present only (stream_walker whole-retired the
-//                 bucket; red_buf already holds its sum).
+//   (is_present marking moved to ba_planner_classify — it is a pure
+//   function of planner data; count == 0 buckets need no work here.)
 //   count >= 1  → allocate the bucket's contiguous partial_layout region via
-//                 a workgroup-aggregated bump (in-WG exclusive scan + ONE
-//                 global atomicAdd per workgroup). partial_offset[fb] gets
+//                 a workgroup-aggregated bump: per-thread sum, ping-pong
+//                 Hillis-Steele over TPB sums (ONE barrier per step), ONE
+//                 global atomicAdd per workgroup. partial_offset[fb] gets
 //                 the region base; bit 31 flags count == 1 so the scatter
 //                 (W3) can inline the single-partial red_buf copy.
 //   count >= 2  → append (bid, n) to active_pairs via a workgroup-aggregated
@@ -5374,6 +5389,8 @@ export const ba_walker_idx_alloc = `// walker_index v2 — W2: fused offset-allo
 const PG: u32 = 2u;
 const MAX_N: u32 = 64u;
 const TPB: u32 = {{ workgroup_size }}u;
+const ITEMS: u32 = 4u;
+const BLOCK: u32 = TPB * ITEMS;
 const SINGLE_FLAG: u32 = 0x80000000u;
 // Packed-window bid (SPLIT_C_PLAN.md): bid = (window << WBID_SHIFT) | mag.
 const WBID_SHIFT:    u32 = 15u;
@@ -5386,84 +5403,90 @@ const WBID_MAG_MASK: u32 = 0x7fffu;
 @group(0) @binding(4) var<storage, read_write> active_meta:        array<atomic<u32>>;
 @group(0) @binding(5) var<storage, read_write> count_histogram:    array<atomic<u32>>;
 @group(0) @binding(6) var<storage, read>       planner_meta:       array<u32>;
-@group(0) @binding(7) var<storage, read_write> is_present:         array<u32>;
-@group(0) @binding(8) var<storage, read>       window_desc:        array<u32>;
-@group(0) @binding(9) var<uniform>             params:             vec4<u32>;
-@group(0) @binding(10) var<uniform>            batch_offset:       vec4<u32>;
+@group(0) @binding(7) var<uniform>             params:             vec4<u32>;
 
-const WD_STRIDE: u32 = 8u;
-fn wd_reduce_off(g: u32) -> u32 { return window_desc[g * WD_STRIDE + 4u]; }
 fn flat_bid(bid: u32, bw: u32) -> u32 {
     return (bid >> WBID_SHIFT) * bw + (bid & WBID_MAG_MASK);
 }
 
-var<workgroup> wg_counts:     array<u32, {{ workgroup_size }}>;
-var<workgroup> wg_act_bid:    array<u32, {{ workgroup_size }}>;
-var<workgroup> wg_act_n:      array<u32, {{ workgroup_size }}>;
+// Ping-pong scan storage: [0..TPB) and [TPB..2*TPB) alternate as src/dst.
+var<workgroup> scan_buf:      array<u32, {{ double_tpb }}>;
+var<workgroup> wg_act_bid:    array<u32, {{ block }}>;
+var<workgroup> wg_act_n:      array<u32, {{ block }}>;
 var<workgroup> wg_hist:       array<atomic<u32>, 64>;
 var<workgroup> wg_active_cnt: atomic<u32>;
 var<workgroup> wg_alloc_base: u32;
 var<workgroup> wg_active_base: u32;
 
 @compute @workgroup_size({{ workgroup_size }})
-fn main(@builtin(global_invocation_id) gid: vec3<u32>,
+fn main(@builtin(workgroup_id) wid: vec3<u32>,
         @builtin(local_invocation_id) lid: vec3<u32>) {
-    let t = gid.x;
     let l = lid.x;
+    let block_base = wid.x * BLOCK;
     let num_dense = planner_meta[1];
 
     if (l == 0u) { atomicStore(&wg_active_cnt, 0u); }
     if (l < MAX_N) { atomicStore(&wg_hist[l], 0u); }
 
-    // Load this thread's bucket count (0 for over-dispatched tail threads).
-    var bid: u32 = 0u;
-    var fb: u32 = 0u;
-    var n: u32 = 0u;
-    if (t < num_dense) {
-        bid = sorted_bucket_list[t];
-        fb = flat_bid(bid, params.x);
-        n = partial_count[fb];
-
-        // Every dense bucket is marked present, unconditional on partial
-        // count: stream_walker may have whole-retired it (count == 0, red_buf
-        // already populated). combine_batched / pt_finalize then only write
-        // coordinates, not flags.
-        let window = bid >> WBID_SHIFT;
-        let mag = bid & WBID_MAG_MASK;
-        let red_slot = wd_reduce_off(window + batch_offset.x) + (mag - 1u);
-        is_present[red_slot] = 1u;
+    // Load this thread's ITEMS buckets (strided by TPB → coalesced rounds)
+    // and accumulate the thread's partial-count sum.
+    var bids:   array<u32, 4>;
+    var fbs:    array<u32, 4>;
+    var counts: array<u32, 4>;
+    var thread_sum: u32 = 0u;
+    for (var j: u32 = 0u; j < ITEMS; j = j + 1u) {
+        let t = block_base + j * TPB + l;
+        var n: u32 = 0u;
+        if (t < num_dense) {
+            let bid = sorted_bucket_list[t];
+            let fb = flat_bid(bid, params.x);
+            n = partial_count[fb];
+            bids[j] = bid;
+            fbs[j] = fb;
+        }
+        counts[j] = n;
+        thread_sum = thread_sum + n;
     }
-    wg_counts[l] = n;
+    scan_buf[l] = thread_sum;
     workgroupBarrier();
 
-    // In-WG inclusive Hillis-Steele scan over counts, so the whole workgroup
-    // costs ONE global atomicAdd for its layout region.
+    // Inclusive Hillis-Steele over the TPB thread sums, ping-pong halves —
+    // ONE barrier per step (8 steps at TPB=256).
+    var base: u32 = 0u;
     for (var stride: u32 = 1u; stride < TPB; stride = stride * 2u) {
-        var add_val: u32 = 0u;
-        if (l >= stride) { add_val = wg_counts[l - stride]; }
-        workgroupBarrier();
-        if (l >= stride) { wg_counts[l] = wg_counts[l] + add_val; }
+        let nb = TPB - base;
+        var v = scan_buf[base + l];
+        if (l >= stride) { v = v + scan_buf[base + l - stride]; }
+        scan_buf[nb + l] = v;
+        base = nb;
         workgroupBarrier();
     }
-    let prefix = wg_counts[l] - n; // exclusive prefix for this thread
+    let thread_excl = scan_buf[base + l] - thread_sum;
 
     if (l == 0u) {
-        wg_alloc_base = atomicAdd(&active_meta[1], wg_counts[TPB - 1u]);
+        wg_alloc_base = atomicAdd(&active_meta[1], scan_buf[base + TPB - 1u]);
     }
     workgroupBarrier();
 
-    if (n >= 1u) {
-        var flag: u32 = 0u;
-        if (n == 1u) { flag = SINGLE_FLAG; }
-        partial_offset[fb] = (wg_alloc_base + prefix) | flag;
-    }
-    if (n >= 2u) {
-        var nb = n;
-        if (nb >= MAX_N) { nb = MAX_N - 1u; }
-        let la = atomicAdd(&wg_active_cnt, 1u);
-        wg_act_bid[la] = bid;
-        wg_act_n[la] = nb;
-        atomicAdd(&wg_hist[nb], 1u);
+    // Assign offsets element-by-element in this thread's local order, stash
+    // actives in shared memory, build the shared histogram.
+    var running = wg_alloc_base + thread_excl;
+    for (var j: u32 = 0u; j < ITEMS; j = j + 1u) {
+        let n = counts[j];
+        if (n >= 1u) {
+            var flag: u32 = 0u;
+            if (n == 1u) { flag = SINGLE_FLAG; }
+            partial_offset[fbs[j]] = running | flag;
+            running = running + n;
+        }
+        if (n >= 2u) {
+            var nb = n;
+            if (nb >= MAX_N) { nb = MAX_N - 1u; }
+            let la = atomicAdd(&wg_active_cnt, 1u);
+            wg_act_bid[la] = bids[j];
+            wg_act_n[la] = nb;
+            atomicAdd(&wg_hist[nb], 1u);
+        }
     }
     workgroupBarrier();
 
@@ -5473,9 +5496,12 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
     }
     workgroupBarrier();
 
-    if (l < act) {
-        active_pairs[2u * (wg_active_base + l) + 0u] = wg_act_bid[l];
-        active_pairs[2u * (wg_active_base + l) + 1u] = wg_act_n[l];
+    for (var j: u32 = 0u; j < ITEMS; j = j + 1u) {
+        let idx = j * TPB + l;
+        if (idx < act) {
+            active_pairs[2u * (wg_active_base + idx) + 0u] = wg_act_bid[idx];
+            active_pairs[2u * (wg_active_base + idx) + 1u] = wg_act_n[idx];
+        }
     }
     if (l < MAX_N) {
         let h = atomicLoad(&wg_hist[l]);
