@@ -4847,17 +4847,25 @@ export class MsmV2 {
       // Phase B: prefix-sum partial_count → partial_offset; scatter dense layout.
       // Phase C: filter into active_buckets, copy 1-partial buckets straight to sums.
       // Phase D: batched-inversion combine for count>=2 buckets.
-      setPhase('walker_index');
+      // walker_index phase — one wi_* label per dispatch so traces and the
+      // per-phase breakdown attribute each sub-kernel individually.
+      setPhase('wi_count');
       const M_partials_walker = 2 * this.streamNumThreads * this.streamS;
       dispatch(this.combineCountPipe, this.combineCountBind, Math.ceil(M_partials_walker / 256), 1);
+      setPhase('wi_scan');
       dispatch(this.combineScanPipe, this.combineScanBind, 1, 1);
+      setPhase('wi_scatter');
       dispatch(this.combineScatterPipe, this.combineScatterBind, Math.ceil(M_partials_walker / 256), 1);
+      setPhase('wi_filter');
       dispatch(this.combineFilterPipe, this.combineFilterBinds[bi], Math.ceil(this.bTotal / 256), 1);
       // Counting-sort prepass: group active_buckets by partial_count so each
       // combine_batched thread's S=8 slots have matching N (zero tail
       // divergence). Validated to claw back ~6.5 ms at logn=17 / M2.
+      setPhase('wi_sort_count');
       dispatch(this.sortCountPipe, this.sortCountBind, Math.ceil(this.bTotal / 256), 1);
+      setPhase('wi_sort_scan');
       dispatch(this.sortScanPipe, this.sortScanBind, 1, 1);
+      setPhase('wi_sort_scatter');
       dispatch(this.sortScatterPipe, this.sortScatterBind, Math.ceil(this.bTotal / 256), 1);
       setPhase('combine_batched');
       // combine_batched handles cool (N≤8) buckets. Pair-tree handles hot.
@@ -5106,6 +5114,72 @@ export class MsmV2 {
     const hist = await readbackU32(this.device, this.msbHistBuf, 256 * 4);
     const msbPerScalar = await readbackU32(this.device, this.msbPerScalarBuf, this.n * 4);
     return { hist, msbPerScalar };
+  }
+
+  /**
+   * Read back the walker_index phase's workload after a run(): how many dense
+   * buckets, how many partials the walker emitted, how they distribute over
+   * per-bucket counts (N), and how many active (N>=2) buckets the combine
+   * stage sees. Multi-batch runs report the LAST batch only (the scratch
+   * buffers are per-batch).
+   */
+  async debugWalkerIndexStats(): Promise<{
+    c: number;
+    numWindows: number;
+    bTotal: number;
+    streamNumThreads: number;
+    mPartialSlots: number;
+    walkerNwg: number;
+    numSize1: number;
+    numDense: number;
+    totalPartials: number;
+    singles: number;
+    activeCount: number;
+    nHistogram: number[];
+    gpuCountHistogram: number[];
+  }> {
+    if (this.preparedFor === null) throw new Error('MsmV2.debugWalkerIndexStats: call prepare() first');
+    const sc = this.pool.scratch!;
+    const readSlot = async (slot: ScratchSlot, bytes: number): Promise<Uint32Array> => {
+      const staging = this.device.createBuffer({ size: bytes, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+      const enc = this.device.createCommandEncoder();
+      enc.copyBufferToBuffer(slotBuf(slot), slotOff(slot), staging, 0, bytes);
+      this.device.queue.submit([enc.finish()]);
+      await staging.mapAsync(GPUMapMode.READ);
+      const out = new Uint32Array(staging.getMappedRange().slice(0));
+      staging.unmap();
+      staging.destroy();
+      return out;
+    };
+    const meta = await readSlot(sc.streamPlannerMeta, 20 * 4);
+    const partialCount = await readSlot(sc.partialCount, this.bTotal * 4);
+    const active = await readSlot(sc.activeCount, 4);
+    const gpuHist = await readSlot(sc.countHistogram, 64 * 4);
+    const nHistogram = new Array<number>(65).fill(0);
+    let totalPartials = 0;
+    let singles = 0;
+    for (let i = 0; i < partialCount.length; i++) {
+      const n = partialCount[i];
+      if (n === 0) continue;
+      totalPartials += n;
+      if (n === 1) singles++;
+      nHistogram[Math.min(n, 64)]++;
+    }
+    return {
+      c: this.c,
+      numWindows: this.numWindows,
+      bTotal: this.bTotal,
+      streamNumThreads: this.streamNumThreads,
+      mPartialSlots: 2 * this.streamNumThreads * this.streamS,
+      walkerNwg: meta[15],
+      numSize1: meta[0],
+      numDense: meta[1],
+      totalPartials,
+      singles,
+      activeCount: active[0],
+      nHistogram,
+      gpuCountHistogram: Array.from(gpuHist),
+    };
   }
 
   /**

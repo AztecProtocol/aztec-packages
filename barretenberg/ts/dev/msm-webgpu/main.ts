@@ -151,7 +151,11 @@ const gpuKnobs: MsmConfig = (() => {
       return parts.length === 3 && parts.every(x => x > 0) ? (parts as [number, number, number]) : undefined;
     })(),
     profile:
-      q.get('profile') === '1' || q.get('autorun') === 'msm-bench' || q.get('autorun') === 'msm-trace' || undefined,
+      q.get('profile') === '1' ||
+      q.get('autorun') === 'msm-bench' ||
+      q.get('autorun') === 'msm-trace' ||
+      q.get('autorun') === 'walker-index-stats' ||
+      undefined,
   };
 })();
 
@@ -732,6 +736,15 @@ const BATCH_STAGE_ORDER = [
   'size1',
   'stream_walker',
   'walker_index',
+  // walker_index sub-kernels (encodeIntoBatch labels each of the phase's
+  // dispatches individually; 'walker_index' itself remains for old traces).
+  'wi_count',
+  'wi_scan',
+  'wi_scatter',
+  'wi_filter',
+  'wi_sort_count',
+  'wi_sort_scan',
+  'wi_sort_scatter',
   'combine_batched',
   'pt_init',
   'pt_loop',
@@ -2268,8 +2281,12 @@ function hideProgress(): void {
       for (let r = 0; r < reps; r++) {
         const gpu = await runWebGpuOnce(inputs);
         const wallMs = gpu.ms;
-        samples.push({ wallMs, gpuMs: 0, phases: {} });
-        log('info', `[bench] rep ${r + 1}/${reps}: wall=${wallMs.toFixed(1)}ms`);
+        // profile mode is forced on for autorun=msm-bench, so run() populates
+        // __lastPhaseMs (timestamp-query per-pass GPU ms) — capture it per rep.
+        const phases = readLastPhaseMs();
+        const gpuMs = Object.values(phases).reduce((a, b) => a + (b ?? 0), 0);
+        samples.push({ wallMs, gpuMs, phases });
+        log('info', `[bench] rep ${r + 1}/${reps}: wall=${wallMs.toFixed(1)}ms gpu=${gpuMs.toFixed(1)}ms`);
       }
       const walls = samples.map(s => s.wallMs);
       const avg = (arr: number[]) => arr.reduce((a, b) => a + b, 0) / arr.length;
@@ -2279,6 +2296,9 @@ function hideProgress(): void {
       };
       const avgWall = avg(walls);
       const medWall = med(walls);
+      const allPhaseKeys = Array.from(new Set(samples.flatMap(s => Object.keys(s.phases))));
+      const medPhases: Record<string, number> = {};
+      for (const key of allPhaseKeys) medPhases[key] = med(samples.map(s => s.phases[key] ?? 0));
       (window as unknown as { __benchSamples?: typeof samples }).__benchSamples = samples;
       log(
         'ok',
@@ -2291,13 +2311,14 @@ function hideProgress(): void {
       await client.postResults({
         state: 'done',
         params: { logN: autorunLogN, reps, page: 'msm-bench', no_wasm: true },
-        results: { samples, averages: { wallMs: avgWall, gpuMs: 0 }, medianWallMs: medWall },
+        results: { samples, averages: { wallMs: avgWall, gpuMs: 0 }, medianWallMs: medWall, medianPhaseMs: medPhases },
         error: null,
         log: allLines.slice(-100),
         userAgent: navigator.userAgent,
         hardwareConcurrency: navigator.hardwareConcurrency,
       });
       log('ok', `[bench] state=done`);
+      log('ok', `[autorun] state=done`);
     } catch (e) {
       const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
       log('err', `[bench] FATAL: ${msg}`);
@@ -2312,6 +2333,7 @@ function hideProgress(): void {
         userAgent: navigator.userAgent,
         hardwareConcurrency: navigator.hardwareConcurrency,
       });
+      log('err', `[autorun] state=error`);
     }
   } else if (autorun === 'msm-bench') {
     const autorunLogN = parseInt(qp.get('logn') ?? '17', 10);
@@ -2408,6 +2430,56 @@ function hideProgress(): void {
         userAgent: navigator.userAgent,
         hardwareConcurrency: navigator.hardwareConcurrency,
       });
+    }
+  } else if (autorun === 'walker-index-stats') {
+    // walker_index workload probe: one prepared run, then read back the
+    // phase's true sizes (num_dense, partials, N-histogram, actives) so the
+    // index kernels can be sized/validated against real data rather than
+    // envelope bounds. Honors ?scalar_dist / ?profile / ?logn.
+    const autorunLogN = parseInt(qp.get('logn') ?? '17', 10);
+    const client = makeResultsClient({ page: 'walker-index-stats' });
+    try {
+      // Gate on SRS only (no WASM dependency), like the no_wasm bench path.
+      for (let i = 0; i < 1200; i++) {
+        if (srsBuf !== null) break;
+        await new Promise(r => setTimeout(r, 500));
+      }
+      if (srsBuf === null) throw new Error('SRS never became ready');
+      const inputs = await generateInputs(autorunLogN, false);
+      const msm = await ensureWebGpuWarmed(inputs);
+      msm.prepare(inputs.scalarsBuf);
+      await msm.run();
+      const stats = await msm.debugWalkerIndexStats();
+      const phases = readLastPhaseMs();
+      log('ok', `[wi-stats] ${JSON.stringify(stats)}`);
+      await client.postResults({
+        state: 'done',
+        params: {
+          logN: autorunLogN,
+          page: 'walker-index-stats',
+          scalar_dist: qp.get('scalar_dist') ?? 'uniform',
+          profile: qp.get('profile') ?? '',
+        },
+        results: { ...stats, phaseMs: phases },
+        error: null,
+        log: [],
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      log('ok', `[autorun] state=done`);
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      log('err', `[wi-stats] FATAL: ${msg}`);
+      await client.postResults({
+        state: 'error',
+        params: { logN: autorunLogN, page: 'walker-index-stats' },
+        results: null,
+        error: msg,
+        log: [],
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      log('err', `[autorun] state=error`);
     }
   } else if (autorun === 'msm-msbhist') {
     // split-c Phase 1: validate the GPU MSB histogram against the host oracle.
