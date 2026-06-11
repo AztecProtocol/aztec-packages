@@ -26,8 +26,6 @@ use crate::unconstrained_array::{ArrayOracles, UnconstrainedArray};
 /// [`TransientArray`](crate::transient::TransientArray).
 pub type EphemeralArray<T> = UnconstrainedArray<T, EphemeralOracles>;
 
-/// Routes [`UnconstrainedArray`] operations to the ephemeral array oracles, scoping arrays to a single contract
-/// call frame.
 pub struct EphemeralOracles {}
 
 impl ArrayOracles for EphemeralOracles {
@@ -87,39 +85,5 @@ impl<T> Deserialize for UnconstrainedArray<T, EphemeralOracles> {
     }
 }
 
-/// Stores a single value at `slot`, overwriting any value previously stored there.
-pub unconstrained fn store<T>(slot: Field, value: T)
-where
-    T: Serialize,
-{
-    crate::unconstrained_array::store::<T, EphemeralOracles>(slot, value)
-}
-
-/// Returns the value previously stored at `slot` with [`store`], or `Option::none()` if the slot holds no value.
-pub unconstrained fn load<T>(slot: Field) -> Option<T>
-where
-    T: Deserialize,
-{
-    crate::unconstrained_array::load::<T, EphemeralOracles>(slot)
-}
-
-/// Deletes the value stored at `slot`. Does nothing if the slot is already empty.
-pub unconstrained fn delete(slot: Field) {
-    crate::unconstrained_array::delete::<EphemeralOracles>(slot)
-}
-
 #[crate::unconstrained_array::test_helpers::unconstrained_array_tests(quote { crate::ephemeral::EphemeralOracles })]
-mod test {
-    use crate::test::helpers::test_environment::TestEnvironment;
-    use crate::unconstrained_array::test_helpers::SLOT;
-    use super::{load, store};
-
-    #[test]
-    unconstrained fn store_and_load() {
-        let env = TestEnvironment::new();
-        env.utility_context(|_| {
-            store(SLOT, 42);
-            assert_eq(load(SLOT), Option::some(42));
-        });
-    }
-}
+mod test {}

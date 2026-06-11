@@ -227,37 +227,3 @@ where
         result
     }
 }
-
-/// Stores a single value at `slot`, overwriting any value previously stored there.
-///
-/// The value is stored as a length-one array at the slot: read it back with [`load`] and remove it with [`delete`].
-pub(crate) unconstrained fn store<T, Oracle>(slot: Field, value: T)
-where
-    T: Serialize,
-    Oracle: ArrayOracles,
-{
-    let array: UnconstrainedArray<T, Oracle> = UnconstrainedArray::at(slot);
-    array.clear().push(value);
-}
-
-/// Returns the value previously stored at `slot` with [`store`], or `Option::none()` if the slot holds no value.
-pub(crate) unconstrained fn load<T, Oracle>(slot: Field) -> Option<T>
-where
-    T: Deserialize,
-    Oracle: ArrayOracles,
-{
-    let array: UnconstrainedArray<T, Oracle> = UnconstrainedArray::at(slot);
-    if array.len() == 0 {
-        Option::none()
-    } else {
-        Option::some(array.get(0))
-    }
-}
-
-/// Deletes the value stored at `slot`. Does nothing if the slot is already empty.
-pub(crate) unconstrained fn delete<Oracle>(slot: Field)
-where
-    Oracle: ArrayOracles,
-{
-    Oracle::clear_oracle(slot)
-}

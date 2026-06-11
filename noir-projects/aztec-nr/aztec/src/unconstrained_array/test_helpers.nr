@@ -1,15 +1,8 @@
 //! Shared test suite for [`UnconstrainedArray`] backends.
-//!
-//! Every function in this module checks one behavior of the shared [`UnconstrainedArray`] API (or of the generic
-//! `store` / `load` / `delete` kv helpers) and is generic over the [`ArrayOracles`] backend.
-//!
-//! Each backend module additionally keeps a hand-written smoke test routing through its own public helpers (e.g.
-//! `transient::store` / `transient::load`) to cover the delegation wiring.
 
-use crate::protocol::traits::Serialize;
 use crate::test::helpers::test_environment::TestEnvironment;
 use crate::test::mocks::MockStruct;
-use crate::unconstrained_array::{ArrayOracles, delete, load, store, UnconstrainedArray};
+use crate::unconstrained_array::{ArrayOracles, UnconstrainedArray};
 
 pub(crate) global SLOT: Field = 1230;
 pub(crate) global OTHER_SLOT: Field = 5670;
@@ -638,79 +631,6 @@ where
 
         let fresh: UnconstrainedArray<Field, Oracle> = UnconstrainedArray::empty_at(SLOT);
         assert_eq(fresh.len(), 0);
-    });
-}
-
-pub(crate) unconstrained fn load_empty_returns_none<Oracle>()
-where
-    Oracle: ArrayOracles,
-{
-    let env = TestEnvironment::new();
-    env.utility_context(|_| {
-        let value: Option<Field> = load::<Field, Oracle>(SLOT);
-        assert_eq(value, Option::none());
-    });
-}
-
-pub(crate) unconstrained fn store_overwrites<Oracle>()
-where
-    Oracle: ArrayOracles,
-{
-    let env = TestEnvironment::new();
-    env.utility_context(|_| {
-        store::<Field, Oracle>(SLOT, 1);
-        store::<Field, Oracle>(SLOT, 2);
-        assert_eq(load::<Field, Oracle>(SLOT), Option::some(2));
-    });
-}
-
-pub(crate) unconstrained fn delete_removes_value<Oracle>()
-where
-    Oracle: ArrayOracles,
-{
-    let env = TestEnvironment::new();
-    env.utility_context(|_| {
-        store::<Field, Oracle>(SLOT, 42);
-        delete::<Oracle>(SLOT);
-        let value: Option<Field> = load::<Field, Oracle>(SLOT);
-        assert_eq(value, Option::none());
-    });
-}
-
-pub(crate) unconstrained fn delete_empty_is_noop<Oracle>()
-where
-    Oracle: ArrayOracles,
-{
-    let env = TestEnvironment::new();
-    env.utility_context(|_| {
-        delete::<Oracle>(SLOT);
-        let value: Option<Field> = load::<Field, Oracle>(SLOT);
-        assert_eq(value, Option::none());
-    });
-}
-
-pub(crate) unconstrained fn store_and_load_multi_field_type<Oracle>()
-where
-    Oracle: ArrayOracles,
-{
-    let env = TestEnvironment::new();
-    env.utility_context(|_| {
-        let value = MockStruct::new(5, 6);
-        store::<MockStruct, Oracle>(SLOT, value);
-        assert_eq(load::<MockStruct, Oracle>(SLOT), Option::some(value));
-    });
-}
-
-pub(crate) unconstrained fn stored_value_is_visible_as_a_length_one_array<Oracle>()
-where
-    Oracle: ArrayOracles,
-{
-    let env = TestEnvironment::new();
-    env.utility_context(|_| {
-        store::<Field, Oracle>(SLOT, 42);
-        let array: UnconstrainedArray<Field, Oracle> = UnconstrainedArray::at(SLOT);
-        assert_eq(array.len(), 1);
-        assert_eq(array.get(0), 42);
     });
 }
 

@@ -31,8 +31,53 @@ use crate::unconstrained_array::{ArrayOracles, UnconstrainedArray};
 /// For data that must persist indefinitely, use [`CapsuleArray`](crate::capsules::CapsuleArray).
 pub type TransientArray<T> = UnconstrainedArray<T, TransientOracles>;
 
-/// Routes [`UnconstrainedArray`] operations to the transient array oracles, sharing arrays across all call frames
-/// of the same contract within one top-level PXE call.
+/// A single value that lives for the duration of a single top-level PXE call.
+///
+/// Shared across all call frames of the same contract (private and utility alike) within one top-level PXE call.
+/// A contract can only ever access its own transient values; other contracts called within the same top-level PXE call
+/// cannot see them.
+///
+/// Values share the slot space with [`TransientArray`]s: a value and an array at the same slot alias each other, so
+/// use distinct slots.
+pub struct TransientValue<T> {
+    slot: Field,
+}
+
+impl<T> TransientValue<T> {
+    /// Returns a handle to the value at the given slot, which may already hold data stored by an earlier frame.
+    pub unconstrained fn at(slot: Field) -> Self {
+        Self { slot }
+    }
+
+    /// Stores a value at the slot, overwriting any value previously stored there.
+    pub unconstrained fn store(self, value: T)
+    where
+        T: Serialize,
+    {
+        transient_oracles::clear_oracle(self.slot);
+        let _ = transient_oracles::push_oracle(self.slot, value.serialize());
+    }
+
+    /// Returns the value previously stored at the slot with [`TransientValue::store`], or `Option::none()` if the
+    /// slot holds no value.
+    pub unconstrained fn read(self) -> Option<T>
+    where
+        T: Deserialize,
+    {
+        if transient_oracles::len_oracle(self.slot) == 0 {
+            Option::none()
+        } else {
+            let serialized = transient_oracles::get_oracle(self.slot, 0);
+            Option::some(Deserialize::deserialize(serialized))
+        }
+    }
+
+    /// Deletes the stored value. Does nothing if the slot holds no value.
+    pub unconstrained fn delete(self) {
+        transient_oracles::clear_oracle(self.slot)
+    }
+}
+
 pub struct TransientOracles {}
 
 impl ArrayOracles for TransientOracles {
@@ -65,39 +110,88 @@ impl ArrayOracles for TransientOracles {
     }
 }
 
-/// Stores a single value at `slot`, overwriting any value previously stored there.
-pub unconstrained fn store<T>(slot: Field, value: T)
-where
-    T: Serialize,
-{
-    crate::unconstrained_array::store::<T, TransientOracles>(slot, value)
-}
-
-/// Returns the value previously stored at `slot` with [`store`], or `Option::none()` if the slot holds no value.
-pub unconstrained fn load<T>(slot: Field) -> Option<T>
-where
-    T: Deserialize,
-{
-    crate::unconstrained_array::load::<T, TransientOracles>(slot)
-}
-
-/// Deletes the value stored at `slot`. Does nothing if the slot is already empty.
-pub unconstrained fn delete(slot: Field) {
-    crate::unconstrained_array::delete::<TransientOracles>(slot)
-}
-
 #[crate::unconstrained_array::test_helpers::unconstrained_array_tests(quote { crate::transient::TransientOracles })]
-mod test {
+mod test {}
+
+mod value_test {
     use crate::test::helpers::test_environment::TestEnvironment;
-    use crate::unconstrained_array::test_helpers::SLOT;
-    use super::{load, store};
+    use crate::test::mocks::MockStruct;
+    use super::{TransientArray, TransientValue};
+
+    global SLOT: Field = 9870;
 
     #[test]
-    unconstrained fn store_and_load() {
+    unconstrained fn read_empty_returns_none() {
         let env = TestEnvironment::new();
         env.utility_context(|_| {
-            store(SLOT, 42);
-            assert_eq(load(SLOT), Option::some(42));
+            let value: TransientValue<Field> = TransientValue::at(SLOT);
+            assert_eq(value.read(), Option::none());
+        });
+    }
+
+    #[test]
+    unconstrained fn store_and_read_roundtrips() {
+        let env = TestEnvironment::new();
+        env.utility_context(|_| {
+            let value: TransientValue<Field> = TransientValue::at(SLOT);
+            value.store(42);
+            assert_eq(value.read(), Option::some(42));
+        });
+    }
+
+    #[test]
+    unconstrained fn store_overwrites() {
+        let env = TestEnvironment::new();
+        env.utility_context(|_| {
+            let value: TransientValue<Field> = TransientValue::at(SLOT);
+            value.store(1);
+            value.store(2);
+            assert_eq(value.read(), Option::some(2));
+        });
+    }
+
+    #[test]
+    unconstrained fn delete_removes_value() {
+        let env = TestEnvironment::new();
+        env.utility_context(|_| {
+            let value: TransientValue<Field> = TransientValue::at(SLOT);
+            value.store(42);
+            value.delete();
+            assert_eq(value.read(), Option::none());
+        });
+    }
+
+    #[test]
+    unconstrained fn delete_empty_is_noop() {
+        let env = TestEnvironment::new();
+        env.utility_context(|_| {
+            let value: TransientValue<Field> = TransientValue::at(SLOT);
+            value.delete();
+            assert_eq(value.read(), Option::none());
+        });
+    }
+
+    #[test]
+    unconstrained fn works_with_multi_field_type() {
+        let env = TestEnvironment::new();
+        env.utility_context(|_| {
+            let value: TransientValue<MockStruct> = TransientValue::at(SLOT);
+            let stored = MockStruct::new(5, 6);
+            value.store(stored);
+            assert_eq(value.read(), Option::some(stored));
+        });
+    }
+
+    #[test]
+    unconstrained fn stored_value_is_visible_as_a_length_one_array() {
+        let env = TestEnvironment::new();
+        env.utility_context(|_| {
+            let value: TransientValue<Field> = TransientValue::at(SLOT);
+            value.store(42);
+
+            let array: TransientArray<Field> = TransientArray::at(SLOT);
+            assert_eq(array.len(), 1);
+            assert_eq(array.get(0), 42);
         });
     }
 }
