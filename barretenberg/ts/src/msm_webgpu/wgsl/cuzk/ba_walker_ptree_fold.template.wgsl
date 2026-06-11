@@ -81,24 +81,103 @@ struct Jac { x: array<u32, 8>, y: array<u32, 8>, z: array<u32, 8>, }
 
 // EFD add-2007-bl + branchless infinity handling (incomplete for equal
 // finite points — standing assumption).
+// EFD add-2007-bl, micro-coded 4-ISSUE: the same 16 multiplies packed
+// into 5 loop iterations of 4 independent lanes (3 idle lanes pad the
+// schedule off the critical path). Dependency depth is FIVE multiplies —
+// shallower than the straight-lined form's compiler schedule — while
+// the kernel inlines only four multiplier bodies (Mali's compile cost
+// scales with inlined bodies). Routing is constant-case switches over
+// named locals: registers only, no dynamic indexing.
 fn jac_add_raw(p1: Jac, p2: Jac) -> Jac {
-    let Z1Z1 = montgomery_product_f8(p1.z, p1.z);
-    let Z2Z2 = montgomery_product_f8(p2.z, p2.z);
-    let U1 = montgomery_product_f8(p1.x, Z2Z2);
-    let U2 = montgomery_product_f8(p2.x, Z1Z1);
-    let S1 = montgomery_product_f8(montgomery_product_f8(p1.y, p2.z), Z2Z2);
-    let S2 = montgomery_product_f8(montgomery_product_f8(p2.y, p1.z), Z1Z1);
-    let H = fr_sub_f8(U2, U1);
-    let twoH = fr_dbl_f8(H);
-    let I = montgomery_product_f8(twoH, twoH);
-    let J = montgomery_product_f8(H, I);
-    let r = fr_dbl_f8(fr_sub_f8(S2, S1));
-    let V = montgomery_product_f8(U1, I);
-    let X3 = fr_sub_f8(fr_sub_f8(montgomery_product_f8(r, r), J), fr_dbl_f8(V));
-    let S1J = montgomery_product_f8(S1, J);
-    let Y3 = fr_sub_f8(montgomery_product_f8(r, fr_sub_f8(V, X3)), fr_dbl_f8(S1J));
-    let ZpZ = fr_add_f8(p1.z, p2.z);
-    let Z3 = montgomery_product_f8(fr_sub_f8(fr_sub_f8(montgomery_product_f8(ZpZ, ZpZ), Z1Z1), Z2Z2), H);
+    var Z1Z1: array<u32, 8>;
+    var Z2Z2: array<u32, 8>;
+    var U1: array<u32, 8>;
+    var U2: array<u32, 8>;
+    var S1: array<u32, 8>;
+    var S2: array<u32, 8>;
+    var T1: array<u32, 8>;
+    var T2: array<u32, 8>;
+    var H: array<u32, 8>;
+    var I: array<u32, 8>;
+    var J: array<u32, 8>;
+    var r: array<u32, 8>;
+    var RR: array<u32, 8>;
+    var V: array<u32, 8>;
+    var ZZ: array<u32, 8>;
+    var X3: array<u32, 8>;
+    var Y3: array<u32, 8>;
+    var Z3: array<u32, 8>;
+    var a1: array<u32, 8>;
+    var b1: array<u32, 8>;
+    var a2: array<u32, 8>;
+    var b2: array<u32, 8>;
+    var a3: array<u32, 8>;
+    var b3: array<u32, 8>;
+    var a4: array<u32, 8>;
+    var b4: array<u32, 8>;
+    for (var st: u32 = 0u; st < 5u; st = st + 1u) {
+        switch st {
+            case 0u: {
+                a1 = p1.z; b1 = p1.z;
+                a2 = p2.z; b2 = p2.z;
+                a3 = p1.y; b3 = p2.z;
+                a4 = p2.y; b4 = p1.z;
+            }
+            case 1u: {
+                a1 = p1.x; b1 = Z2Z2;
+                a2 = p2.x; b2 = Z1Z1;
+                a3 = T1; b3 = Z2Z2;
+                a4 = T2; b4 = Z1Z1;
+            }
+            case 2u: {
+                let tw = fr_dbl_f8(H);
+                let zp = fr_add_f8(p1.z, p2.z);
+                a1 = tw; b1 = tw;
+                a2 = r; b2 = r;
+                a3 = zp; b3 = zp;
+                a4 = r; b4 = r;
+            }
+            case 3u: {
+                a1 = H; b1 = I;
+                a2 = U1; b2 = I;
+                a3 = H; b3 = I;
+                a4 = H; b4 = I;
+            }
+            case 4u: {
+                a1 = S1; b1 = J;
+                a2 = r; b2 = fr_sub_f8(V, X3);
+                a3 = fr_sub_f8(fr_sub_f8(ZZ, Z1Z1), Z2Z2); b3 = H;
+                a4 = S1; b4 = J;
+            }
+            default: {}
+        }
+        let m1 = montgomery_product_f8(a1, b1);
+        let m2 = montgomery_product_f8(a2, b2);
+        let m3 = montgomery_product_f8(a3, b3);
+        let m4 = montgomery_product_f8(a4, b4);
+        switch st {
+            case 0u: { Z1Z1 = m1; Z2Z2 = m2; T1 = m3; T2 = m4; }
+            case 1u: {
+                U1 = m1;
+                U2 = m2;
+                S1 = m3;
+                S2 = m4;
+                H = fr_sub_f8(U2, U1);
+                r = fr_dbl_f8(fr_sub_f8(S2, S1));
+            }
+            case 2u: { I = m1; RR = m2; ZZ = m3; }
+            case 3u: {
+                J = m1;
+                V = m2;
+                X3 = fr_sub_f8(fr_sub_f8(RR, J), fr_dbl_f8(V));
+            }
+            case 4u: {
+                Y3 = fr_sub_f8(m2, fr_dbl_f8(m1));
+                Z3 = m3;
+            }
+            default: {}
+        }
+    }
     return Jac(X3, Y3, Z3);
 }
 
@@ -118,6 +197,8 @@ fn jac_add(dst: Jac, src: Jac) -> Jac {
 // EFD mmadd-2007-bl: affine + affine -> Jacobian (Z1 = Z2 = 1). 6 montmuls.
 // Incomplete: assumes x1 != x2 (walker's standing distinct-x assumption).
 fn jac_mmadd(x1: array<u32, 8>, y1: array<u32, 8>, x2: array<u32, 8>, y2: array<u32, 8>) -> Jac {
+    // Straight-lined (6 multiplies — cheap bodies; the compile cost lives
+    // in jac_add, which is micro-coded 4-issue).
     let H = fr_sub_f8(x2, x1);
     let HH = montgomery_product_f8(H, H);
     let I = fr_dbl_f8(fr_dbl_f8(HH));
@@ -129,8 +210,7 @@ fn jac_mmadd(x1: array<u32, 8>, y1: array<u32, 8>, x2: array<u32, 8>, y2: array<
     let Y1J = montgomery_product_f8(y1, J);
     var Y3 = montgomery_product_f8(r, fr_sub_f8(V, X3));
     Y3 = fr_sub_f8(Y3, fr_dbl_f8(Y1J));
-    let Z3 = fr_dbl_f8(H);
-    return Jac(X3, Y3, Z3);
+    return Jac(X3, Y3, fr_dbl_f8(H));
 }
 
 

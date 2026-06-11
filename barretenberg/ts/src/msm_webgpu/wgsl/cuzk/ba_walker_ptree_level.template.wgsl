@@ -144,13 +144,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
     // still walls at inversion-chain latency in every thread.
     if (n_live > 0u) {
         // Batched affine: forward prefix of dx (identity for idle slots).
-        // dx and x_l stay in registers across all three passes — the peel
-        // and the add would otherwise reload both x's and recompute dx
-        // (x_r is recovered as x_l + dx, no multiplies).
         let R: array<u32, 8> = get_r_f8();
         var pref: array<array<u32, 8>, {{ s }}>;
-        var dxs: array<array<u32, 8>, {{ s }}>;
-        var xls: array<array<u32, 8>, {{ s }}>;
         var prod: array<u32, 8> = R;
         for (var s_i: u32 = 0u; s_i < S; s_i = s_i + 1u) {
             var dx: array<u32, 8> = R;
@@ -162,9 +157,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
                 // substitute identity — that bucket alone is garbage (standing
                 // incomplete-add assumption, same blast radius as elsewhere).
                 dx = fr_select_f8(dx, R, is_zero_f8(dx));
-                xls[s_i] = x_l;
             }
-            dxs[s_i] = dx;
             if (s_i == 0u) {
                 prod = dx;
             } else {
@@ -179,16 +172,23 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
         for (var s_j: u32 = 0u; s_j < S; s_j = s_j + 1u) {
             let s_i = S - 1u - s_j;
             var inv_dx: array<u32, 8>;
+            var dx_b: array<u32, 8> = R;
+            if (live[s_i] >= 1u) {
+                let x_l = load_x(lslot[s_i]);
+                let x_r = load_x(rslot[s_i]);
+                dx_b = fr_sub_f8(x_r, x_l);
+                dx_b = fr_select_f8(dx_b, R, is_zero_f8(dx_b));
+            }
             if (s_i == 0u) {
                 inv_dx = inv;
             } else {
                 inv_dx = montgomery_product_f8(inv, pref[s_i - 1u]);
-                inv = montgomery_product_f8(inv, dxs[s_i]);
+                inv = montgomery_product_f8(inv, dx_b);
             }
             if (live[s_i] == 0u) { continue; }
 
-            let x_l = xls[s_i];
-            let x_r = fr_add_f8(x_l, dxs[s_i]);
+            let x_l = load_x(lslot[s_i]);
+            let x_r = load_x(rslot[s_i]);
             let y_l = load_y(lslot[s_i], M_partials);
             let y_r = load_y(rslot[s_i], M_partials);
             var lambda = fr_sub_f8(y_r, y_l);
