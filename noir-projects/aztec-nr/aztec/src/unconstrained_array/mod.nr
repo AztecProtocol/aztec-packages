@@ -19,16 +19,20 @@ pub trait ArrayOracles {
     /// Appends a serialized element to the array at `slot` and returns the new length.
     unconstrained fn push_oracle<let N: u32>(slot: Field, values: [Field; N]) -> u32;
 
-    /// Removes and returns the last serialized element of the array at `slot`.
+    /// Removes and returns the last serialized element of the array at `slot`. Implementors must panic if the
+    /// array is empty.
     unconstrained fn pop_oracle<let N: u32>(slot: Field) -> [Field; N];
 
-    /// Returns the serialized element at the given index of the array at `slot`.
+    /// Returns the serialized element at the given index of the array at `slot`. Implementors must panic if `index`
+    /// is out of bounds.
     unconstrained fn get_oracle<let N: u32>(slot: Field, index: u32) -> [Field; N];
 
-    /// Overwrites the serialized element at the given index of the array at `slot`.
+    /// Overwrites the serialized element at the given index of the array at `slot`. Implementors must panic if
+    /// `index` is out of bounds.
     unconstrained fn set_oracle<let N: u32>(slot: Field, index: u32, values: [Field; N]);
 
     /// Removes the element at the given index of the array at `slot`, shifting subsequent elements backward.
+    /// Implementors must panic if `index` is out of bounds.
     unconstrained fn remove_oracle(slot: Field, index: u32);
 
     /// Removes all elements from the array at `slot`.
@@ -87,7 +91,7 @@ where
         let _ = Oracle::push_oracle(self.slot, serialized);
     }
 
-    /// Removes and returns the last element. Panics if the array is empty.
+    /// Removes and returns the last element. Implementors are required to panic if the array is empty.
     pub unconstrained fn pop(self) -> T
     where
         T: Deserialize,
@@ -96,7 +100,7 @@ where
         Deserialize::deserialize(serialized)
     }
 
-    /// Retrieves the value stored at `index`. Panics if the index is out of bounds.
+    /// Retrieves the value stored at `index`. Implementors are required to panic if the index is out of bounds.
     pub unconstrained fn get(self, index: u32) -> T
     where
         T: Deserialize,
@@ -105,7 +109,7 @@ where
         Deserialize::deserialize(serialized)
     }
 
-    /// Overwrites the value stored at `index`. Panics if the index is out of bounds.
+    /// Overwrites the value stored at `index`. Implementors are required to panic if the index is out of bounds.
     pub unconstrained fn set(self, index: u32, value: T)
     where
         T: Serialize,
@@ -114,7 +118,8 @@ where
         Oracle::set_oracle(self.slot, index, serialized);
     }
 
-    /// Removes the element at `index`, shifting subsequent elements backward. Panics if out of bounds.
+    /// Removes the element at `index`, shifting subsequent elements backward. Implementors are required to panic if
+    /// the index is out of bounds.
     pub unconstrained fn remove(self, index: u32) {
         Oracle::remove_oracle(self.slot, index);
     }

@@ -8,15 +8,15 @@
 #[oracle(aztec_utl_pushEphemeral)]
 pub(crate) unconstrained fn push_oracle<let N: u32>(slot: Field, values: [Field; N]) -> u32 {}
 
-/// Removes and returns the last serialized element from the ephemeral array.
+/// Removes and returns the last serialized element from the ephemeral array. Panics if the array is empty.
 #[oracle(aztec_utl_popEphemeral)]
 pub(crate) unconstrained fn pop_oracle<let N: u32>(slot: Field) -> [Field; N] {}
 
-/// Returns the serialized element at the given index.
+/// Returns the serialized element at the given index. Panics if `index` is out of bounds.
 #[oracle(aztec_utl_getEphemeral)]
 pub(crate) unconstrained fn get_oracle<let N: u32>(slot: Field, index: u32) -> [Field; N] {}
 
-/// Overwrites the serialized element at the given index.
+/// Overwrites the serialized element at the given index. Panics if `index` is out of bounds.
 #[oracle(aztec_utl_setEphemeral)]
 pub(crate) unconstrained fn set_oracle<let N: u32>(slot: Field, index: u32, values: [Field; N]) {}
 
@@ -24,7 +24,7 @@ pub(crate) unconstrained fn set_oracle<let N: u32>(slot: Field, index: u32, valu
 #[oracle(aztec_utl_getEphemeralLen)]
 pub(crate) unconstrained fn len_oracle(slot: Field) -> u32 {}
 
-/// Removes the element at the given index, shifting subsequent elements backward.
+/// Removes the element at the given index, shifting subsequent elements backward. Panics if `index` is out of bounds.
 #[oracle(aztec_utl_removeEphemeral)]
 pub(crate) unconstrained fn remove_oracle(slot: Field, index: u32) {}
 
