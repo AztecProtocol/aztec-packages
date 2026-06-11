@@ -53,7 +53,11 @@ function print_usage {
 
 [ -n "$cmd" ] && shift
 
-instance_name=${INSTANCE_NAME:-$(echo -n "$BRANCH" | tr -c 'a-zA-Z0-9-' '_')_${arch}}
+# Keep this in sync with bootstrap_ec2's instance_name scheme (repo-scoped) so the
+# shell/kill/get-ip helpers find instances launched by a CI run for this repo.
+repo=${GITHUB_REPOSITORY##*/}
+repo=${repo:-aztec-packages}
+instance_name=${INSTANCE_NAME:-${repo}_$(echo -n "$BRANCH" | tr -c 'a-zA-Z0-9-' '_')_${arch}}
 [ -n "${INSTANCE_POSTFIX:-}" ] && instance_name+="_$INSTANCE_POSTFIX"
 
 function get_ip_for_instance {
@@ -112,27 +116,30 @@ case "$cmd" in
     ;;
   fast|docs|barretenberg|barretenberg-full)
     export CI_DASHBOARD="prs"
-    export JOB_ID="x-$cmd"
-    bootstrap_ec2 "./bootstrap.sh ci-$cmd"
+    # Route through multi_job_run (even for a single instance) so the runner-side
+    # orchestration — including the spot/instance request — is captured into a
+    # parent dashboard log, matching merge-queue. The job id stays "x-$cmd" so the
+    # GitHub status check name is unchanged.
+    multi_job_run "x-$cmd amd64 ci-$cmd"
     ;;
   socket-fix)
     export CI_DASHBOARD="prs"
     export JOB_ID="x-socket-fix"
     export INSTANCE_POSTFIX="socket-fix"
     export CPUS=16
-    bootstrap_ec2 "./bootstrap.sh ci-socket-fix $*"
+    # Capture the runner-side output (incl. instance request) to a parent dashboard
+    # log. No denoise here: this is an interactive debug mode where raw output matters.
+    PARENT_LOG_ID=$RUN_ID bootstrap_ec2 "./bootstrap.sh ci-socket-fix $*" 2>&1 | DUP=1 cache_log "CI run" $RUN_ID
     ;;
   full|full-no-test-cache)
     export CI_DASHBOARD="prs"
-    export JOB_ID="x-$cmd"
     export AWS_SHUTDOWN_TIME=75
-    bootstrap_ec2 "./bootstrap.sh ci-$cmd"
+    multi_job_run "x-$cmd amd64 ci-$cmd"
     ;;
   chonk-input-update)
     export CI_DASHBOARD="prs"
-    export JOB_ID="x-$cmd"
     export AWS_SHUTDOWN_TIME=90
-    bootstrap_ec2 "./bootstrap.sh ci-chonk-input-update"
+    multi_job_run "x-$cmd amd64 ci-chonk-input-update"
     ;;
   barretenberg-debug)
     export CI_DASHBOARD="nightly"
