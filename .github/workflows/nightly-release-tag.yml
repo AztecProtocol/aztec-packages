@@ -3,19 +3,73 @@ on:
   schedule:
     # Run the workflow every night at 2:00 AM UTC.
     - cron: "0 2 * * *"
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      next:
+        description: "Tag the 'next' branch"
+        type: boolean
+        default: false
+      v5-next:
+        description: "Tag the 'v5-next' branch"
+        type: boolean
+        default: false
+      v4-next:
+        description: "Tag the 'v4-next' branch (public repo only)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
 
 jobs:
+  configure:
+    runs-on: ubuntu-latest
+    outputs:
+      branches: ${{ steps.set.outputs.branches }}
+    steps:
+      - name: Select branches
+        id: set
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REPO: ${{ github.repository }}
+          WANT_NEXT: ${{ inputs.next }}
+          WANT_V5_NEXT: ${{ inputs['v5-next'] }}
+          WANT_V4_NEXT: ${{ inputs['v4-next'] }}
+        run: |
+          # Branches allowed per repository (matches the original job
+          # conditions: next/v5-next on public+private, v4-next on public only,
+          # nothing on forks).
+          case "$REPO" in
+            AztecProtocol/aztec-packages)         allowed='["next","v5-next","v4-next"]' ;;
+            AztecProtocol/aztec-packages-private) allowed='["next","v5-next"]' ;;
+            *)                                    allowed='[]' ;;
+          esac
+
+          if [[ "$EVENT_NAME" == "schedule" ]]; then
+            # Scheduled run tags every allowed branch.
+            desired='["next","v5-next","v4-next"]'
+          else
+            # Manual run tags only the branches whose input was checked.
+            desired=$(jq -nc \
+              --argjson next "${WANT_NEXT:-false}" \
+              --argjson v5   "${WANT_V5_NEXT:-false}" \
+              --argjson v4   "${WANT_V4_NEXT:-false}" \
+              '[{"next":$next,"v5-next":$v5,"v4-next":$v4} | to_entries[] | select(.value) | .key]')
+          fi
+
+          # Intersect with the allowed set, preserving allowed order.
+          branches=$(jq -nc --argjson a "$allowed" --argjson d "$desired" '$a - ($a - $d)')
+          echo "Selected branches: $branches"
+          echo "branches=$branches" >> "$GITHUB_OUTPUT"
+
   nightly-release-tag:
-    if: ${{ github.repository == 'AztecProtocol/aztec-packages' || github.repository == 'AztecProtocol/aztec-packages-private' }}
+    needs: configure
+    if: ${{ needs.configure.outputs.branches != '[]' }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        branch: [next, v5-next]
+        branch: ${{ fromJson(needs.configure.outputs.branches) }}
     concurrency:
       group: ${{ github.workflow }}-${{ github.repository }}-${{ matrix.branch }}
     steps:
@@ -30,29 +84,31 @@ jobs:
           git config --global user.name "AztecBot"
           current_version=$(jq -r '."."' .release-please-manifest.json)
           echo "Current version: $current_version"
-          nightly_tag="v${current_version}-nightly.$(date -u +%Y%m%d)"
+          base_tag="v${current_version}-nightly.$(date -u +%Y%m%d)"
+
+          # Fetch all of today's tags in a single remote query, then derive the
+          # next free name locally (no per-attempt round trip). The bare base
+          # tag counts as suffix 0, so the next tag is highest-suffix + 1; if no
+          # tag exists for today yet we use the bare base tag.
+          next=$(
+            git ls-remote --tags origin "${base_tag}" "${base_tag}-*" \
+              | sed 's#.*refs/tags/##; s/\^{}$//' | sort -u \
+              | awk -v base="$base_tag" '
+                  $0 == base { have = 1 }
+                  index($0, base "-") == 1 {
+                    n = substr($0, length(base) + 2) + 0
+                    if (n > max) max = n
+                    have = 1
+                  }
+                  END { print (have ? max + 1 : -1) }
+                '
+          )
+          if [[ "$next" -lt 0 ]]; then
+            nightly_tag="$base_tag"
+          else
+            nightly_tag="${base_tag}-${next}"
+          fi
+
           echo "${{ matrix.branch }} nightly tag: $nightly_tag"
-          git tag -a "$nightly_tag" -m "$nightly_tag"
-          git push origin "$nightly_tag"
-
-  nightly-release-tag-v4-next:
-    if: ${{ github.repository == 'AztecProtocol/aztec-packages' }}
-    runs-on: ubuntu-latest
-    concurrency:
-      group: ${{ github.workflow }}-${{ github.repository }}-v4-next
-    steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
-        with:
-          ref: v4-next
-          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-
-      - name: Create v4-next Nightly Tag
-        run: |
-          git config --global user.email "tech@aztecprotocol.com"
-          git config --global user.name "AztecBot"
-          current_version=$(jq -r '."."' .release-please-manifest.json)
-          echo "Current version: $current_version"
-          nightly_tag="v${current_version}-nightly.$(date -u +%Y%m%d)"
-          echo "v4-next nightly tag: $nightly_tag"
           git tag -a "$nightly_tag" -m "$nightly_tag"
           git push origin "$nightly_tag"
