@@ -1,5 +1,5 @@
 use crate::oracle::transient_oracles;
-use crate::oracle_array::{ArrayOracle, OracleArray};
+use crate::oracle_array::{ArrayOracle, UnconstrainedArray};
 use crate::protocol::traits::{Deserialize, Serialize};
 
 /// A dynamically sized array that lives for the duration of a single top-level PXE call.
@@ -29,9 +29,10 @@ use crate::protocol::traits::{Deserialize, Serialize};
 /// Use this to pass not-to-be-persisted data between a contract's own frames (private or utility) within one top-level
 /// PXE call. For data confined to a single call frame, prefer [`EphemeralArray`](crate::ephemeral::EphemeralArray).
 /// For data that must persist indefinitely, use [`CapsuleArray`](crate::capsules::CapsuleArray).
-pub type TransientArray<T> = OracleArray<T, TransientOracle>;
+pub type TransientArray<T> = UnconstrainedArray<T, TransientOracle>;
 
-/// Routes [`OracleArray`] operations to the transient array oracles, sharing arrays across all call frames of the
+/// Routes [`UnconstrainedArray`] operations to the transient array oracles, sharing arrays across all call frames of
+/// the
 /// same contract within one top-level PXE call.
 pub struct TransientOracle {}
 

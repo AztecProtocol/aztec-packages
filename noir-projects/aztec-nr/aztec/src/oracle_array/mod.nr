@@ -4,7 +4,7 @@ use crate::oracle::random::random;
 use crate::protocol::traits::{Deserialize, Serialize};
 use crate::protocol::utils::{reader::Reader, writer::Writer};
 
-/// Oracle backend for an [`OracleArray`]: the set of PXE-side operations that implement its storage.
+/// Oracle backend for an [`UnconstrainedArray`]: the set of PXE-side operations that implement its storage.
 ///
 /// Each implementor routes these operations to a distinct family of oracles, and the oracle family determines the
 /// array's lifetime and visibility (e.g. [`EphemeralArray`](crate::ephemeral::EphemeralArray) arrays live for one
@@ -42,11 +42,11 @@ pub trait ArrayOracle {
 /// rather one of its aliases: [`EphemeralArray`](crate::ephemeral::EphemeralArray) (scoped to a single contract call
 /// frame) or [`TransientArray`](crate::transient::TransientArray) (shared across all frames of the same contract
 /// within one top-level PXE call).
-pub struct OracleArray<T, Oracle> {
+pub struct UnconstrainedArray<T, Oracle> {
     pub slot: Field,
 }
 
-impl<T, Oracle> OracleArray<T, Oracle>
+impl<T, Oracle> UnconstrainedArray<T, Oracle>
 where
     Oracle: ArrayOracle,
 {
@@ -67,7 +67,8 @@ where
     /// Returns an empty array at a fresh, randomly allocated slot.
     ///
     /// Use this when the caller does not need a specific slot: the random slot is isolated from every other array of
-    /// the same backend with overwhelming probability. Prefer [`OracleArray::empty_at`] when the slot must be a known
+    /// the same backend with overwhelming probability. Prefer [`UnconstrainedArray::empty_at`] when the slot must be a
+    /// known
     /// value (e.g. one shared with an oracle or another call frame).
     pub unconstrained fn empty() -> Self {
         Self::empty_at(random())
@@ -121,7 +122,7 @@ where
 
     /// Removes all elements from the array and returns self for chaining.
     ///
-    /// Prefer [`OracleArray::empty_at`] when the intent is to start with a fresh array.
+    /// Prefer [`UnconstrainedArray::empty_at`] when the intent is to start with a fresh array.
     pub unconstrained fn clear(self) -> Self {
         Oracle::clear_oracle(self.slot);
         self
@@ -148,14 +149,15 @@ where
     /// Applies `f` to every element and collects the results into a fresh array.
     ///
     /// Reads each element in order, transforms it with `f`, and pushes the result onto a new array at a freshly
-    /// allocated slot (see [`OracleArray::empty`]). The source array is left unchanged, and the result is isolated
+    /// allocated slot (see [`UnconstrainedArray::empty`]). The source array is left unchanged, and the result is
+    /// isolated
     /// from it, so `map` can be chained.
-    pub unconstrained fn map<U, Env>(self, f: unconstrained fn[Env](T) -> U) -> OracleArray<U, Oracle>
+    pub unconstrained fn map<U, Env>(self, f: unconstrained fn[Env](T) -> U) -> UnconstrainedArray<U, Oracle>
     where
         T: Deserialize,
         U: Serialize,
     {
-        let dest: OracleArray<U, Oracle> = OracleArray::empty();
+        let dest: UnconstrainedArray<U, Oracle> = UnconstrainedArray::empty();
         let n = self.len();
         for i in 0..n {
             dest.push(f(self.get(i)));
@@ -166,13 +168,14 @@ where
     /// Collects every element satisfying the predicate `f` into a fresh array.
     ///
     /// Reads each element in order, keeps those for which `f` returns `true`, and pushes them onto a new array at a
-    /// freshly allocated slot (see [`OracleArray::empty`]). Relative order is preserved. The source array is left
+    /// freshly allocated slot (see [`UnconstrainedArray::empty`]). Relative order is preserved. The source array is
+    /// left
     /// unchanged, and the result is isolated from it, so `filter` can be chained.
     pub unconstrained fn filter<Env>(self, f: unconstrained fn[Env](T) -> bool) -> Self
     where
         T: Serialize + Deserialize,
     {
-        let dest: Self = OracleArray::empty();
+        let dest: Self = UnconstrainedArray::empty();
         let n = self.len();
         for i in 0..n {
             let value = self.get(i);
@@ -186,7 +189,8 @@ where
     /// Returns `true` if at least one element satisfies the predicate `f`.
     ///
     /// Matches the `any` combinator on Noir's [`array`](std::array), slice, and `BoundedVec` collections. Defined in
-    /// terms of [`OracleArray::filter`]: it keeps the matching elements and checks whether any survived. This is not
+    /// terms of [`UnconstrainedArray::filter`]: it keeps the matching elements and checks whether any survived. This is
+    /// not
     /// short-circuiting — every element is tested even after the first match.
     pub unconstrained fn any<Env>(self, f: unconstrained fn[Env](T) -> bool) -> bool
     where
@@ -198,7 +202,7 @@ where
     /// Returns `true` if every element satisfies the predicate `f` (vacuously `true` for an empty array).
     ///
     /// Matches the `all` combinator on Noir's [`array`](std::array) and slice collections. Defined in terms of
-    /// [`OracleArray::filter`]: every element matches exactly when filtering keeps all of them. This is not
+    /// [`UnconstrainedArray::filter`]: every element matches exactly when filtering keeps all of them. This is not
     /// short-circuiting — every element is tested even after the first failure.
     pub unconstrained fn all<Env>(self, f: unconstrained fn[Env](T) -> bool) -> bool
     where
@@ -209,7 +213,8 @@ where
 
     /// Returns the first element satisfying the predicate `f`, or `Option::none` if none do.
     ///
-    /// Mirrors Rust's `Iterator::find`. Defined in terms of [`OracleArray::filter`], which preserves order, so the
+    /// Mirrors Rust's `Iterator::find`. Defined in terms of [`UnconstrainedArray::filter`], which preserves order, so
+    /// the
     /// first kept element is the first match. This is not short-circuiting — every element is tested even after the
     /// match is found.
     pub unconstrained fn find<Env>(self, f: unconstrained fn[Env](T) -> bool) -> Option<T>
@@ -225,7 +230,7 @@ where
     }
 }
 
-impl<Oracle> OracleArray<Field, Oracle>
+impl<Oracle> UnconstrainedArray<Field, Oracle>
 where
     Oracle: ArrayOracle,
 {
@@ -238,7 +243,7 @@ where
     where
         T: Deserialize,
     {
-        assert_eq(self.len(), <T as Deserialize>::N, "OracleArray length mismatch for read_as");
+        assert_eq(self.len(), <T as Deserialize>::N, "UnconstrainedArray length mismatch for read_as");
         let mut fields: [Field; <T as Deserialize>::N] = [0; <T as Deserialize>::N];
         for i in 0..<T as Deserialize>::N {
             fields[i] = self.get(i);
@@ -247,9 +252,9 @@ where
     }
 }
 
-/// Serializes an `OracleArray` as its slot identifier, allowing oracle function signatures to use array types
+/// Serializes an `UnconstrainedArray` as its slot identifier, allowing oracle function signatures to use array types
 /// instead of opaque `Field` slots.
-impl<T, Oracle> Serialize for OracleArray<T, Oracle> {
+impl<T, Oracle> Serialize for UnconstrainedArray<T, Oracle> {
     let N: u32 = 1;
 
     fn serialize(self) -> [Field; Self::N] {
@@ -261,9 +266,9 @@ impl<T, Oracle> Serialize for OracleArray<T, Oracle> {
     }
 }
 
-/// Deserializes a single Field into an `OracleArray` handle, treating the field value as the slot identifier.
+/// Deserializes a single Field into an `UnconstrainedArray` handle, treating the field value as the slot identifier.
 /// This is the inverse of [`Serialize`].
-impl<T, Oracle> Deserialize for OracleArray<T, Oracle> {
+impl<T, Oracle> Deserialize for UnconstrainedArray<T, Oracle> {
     let N: u32 = 1;
 
     fn deserialize(fields: [Field; Self::N]) -> Self {
@@ -283,7 +288,7 @@ where
     T: Serialize,
     Oracle: ArrayOracle,
 {
-    let array: OracleArray<T, Oracle> = OracleArray::at(slot);
+    let array: UnconstrainedArray<T, Oracle> = UnconstrainedArray::at(slot);
     array.clear().push(value);
 }
 
@@ -293,7 +298,7 @@ where
     T: Deserialize,
     Oracle: ArrayOracle,
 {
-    let array: OracleArray<T, Oracle> = OracleArray::at(slot);
+    let array: UnconstrainedArray<T, Oracle> = UnconstrainedArray::at(slot);
     if array.len() == 0 {
         Option::none()
     } else {

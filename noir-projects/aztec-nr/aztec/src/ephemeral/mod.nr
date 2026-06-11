@@ -1,5 +1,5 @@
 use crate::oracle::ephemeral_oracles;
-use crate::oracle_array::{ArrayOracle, OracleArray};
+use crate::oracle_array::{ArrayOracle, UnconstrainedArray};
 use crate::protocol::traits::{Deserialize, Serialize};
 
 /// A dynamically sized array that exists only during a single contract call frame.
@@ -23,9 +23,10 @@ use crate::protocol::traits::{Deserialize, Serialize};
 /// For data that must be shared across all frames of the same contract (private and utility) within one top-level PXE
 /// call (transaction simulation or utility call) but not persisted, use
 /// [`TransientArray`](crate::transient::TransientArray).
-pub type EphemeralArray<T> = OracleArray<T, EphemeralOracle>;
+pub type EphemeralArray<T> = UnconstrainedArray<T, EphemeralOracle>;
 
-/// Routes [`OracleArray`] operations to the ephemeral array oracles, scoping arrays to a single contract call frame.
+/// Routes [`UnconstrainedArray`] operations to the ephemeral array oracles, scoping arrays to a single contract call
+/// frame.
 pub struct EphemeralOracle {}
 
 impl ArrayOracle for EphemeralOracle {
