@@ -62,7 +62,7 @@ pub fn resolve_secret_and_index(
         Deserialize::deserialize(returns)
     };
 
-    if maybe_secret.is_none() {
+    let (secret, bootstrapped) = if maybe_secret.is_none() {
         // Bootstrap: no handshake exists yet. The registry inserts a fresh note and returns the app-siloed
         // secret to the caller. The constrained return is the source of truth for the secret, so no separate
         // `validate_handshake` is needed.
@@ -76,33 +76,31 @@ pub fn resolve_secret_and_index(
             )
             .get_preimage();
 
-        // Reserve index 0 for the freshly bootstrapped secret so the PXE seeds its per-secret counter, mirroring
-        // the `Some` branch. Without this, a later constrained message under the same secret restarts at index 0
-        // and collides on `(secret, 0)`.
-        // Safety: this only advances a PXE-side counter; the returned index is constrained to 0 below.
-        let index = unsafe { get_next_tagging_index(secret, MessageDelivery::onchain_constrained()) };
-        assert(index == 0, "freshly bootstrapped secret must start at index 0");
-        (secret, 0)
+        (secret, true)
     } else {
-        let secret = maybe_secret.unwrap_unchecked();
+        (maybe_secret.unwrap_unchecked(), false)
+    };
 
-        // Safety: the returned index is untrusted. `index == 0` proves current registry membership;
-        // `index > 0` proves chain continuity, not current registry membership.
-        let index = unsafe { get_next_tagging_index(secret, MessageDelivery::onchain_constrained()) };
+    // Reserve the next per-secret index after resolving the secret. On bootstrap this seeds the PXE-side counter
+    // so a later constrained message under the same secret advances instead of colliding on `(secret, 0)`.
+    // Safety: the returned index is untrusted. Bootstrap constrains it to 0; existing secrets validate either
+    // current registry membership (`index == 0`) or chain continuity (`index > 0`).
+    let index = unsafe { get_next_tagging_index(secret, mode) };
 
-        if index == 0 {
-            let _ = context.call_private_function(
-                registry,
-                VALIDATE_HANDSHAKE_SELECTOR,
-                [sender.to_field(), recipient.to_field(), mode_field, secret],
-            );
-        } else {
-            let prev_nullifier = compute_constrained_msg_nullifier(sender, recipient, secret, index - 1);
-            context.assert_nullifier_exists(compute_nullifier_existence_request(prev_nullifier, caller));
-        }
-
-        (secret, index)
+    if bootstrapped {
+        assert(index == 0, "freshly bootstrapped secret must start at index 0");
+    } else if index == 0 {
+        let _ = context.call_private_function(
+            registry,
+            VALIDATE_HANDSHAKE_SELECTOR,
+            [sender.to_field(), recipient.to_field(), mode_field, secret],
+        );
+    } else {
+        let prev_nullifier = compute_constrained_msg_nullifier(sender, recipient, secret, index - 1);
+        context.assert_nullifier_exists(compute_nullifier_existence_request(prev_nullifier, caller));
     }
+
+    (secret, index)
 }
 
 /// Computes a constrained send's chain nullifier.
