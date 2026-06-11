@@ -24,7 +24,6 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/bb.js@portal:../../ts::locator=bbjs-test%40workspace%3Abbjs-test"
   dependencies:
-    "@aztec/ipc-runtime": "portal:../../ipc-runtime/ts"
     comlink: "npm:^4.4.1"
     commander: "npm:^12.1.0"
     idb-keyval: "npm:^6.2.1"
@@ -40,7 +39,6 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/bb.js@portal:../../ts::locator=browser-test-app%40workspace%3Abrowser-test-app"
   dependencies:
-    "@aztec/ipc-runtime": "portal:../../ipc-runtime/ts"
     comlink: "npm:^4.4.1"
     commander: "npm:^12.1.0"
     idb-keyval: "npm:^6.2.1"
@@ -49,18 +47,6 @@ __metadata:
     tslib: "npm:^2.4.0"
   bin:
     bb: dest/node/bin/index.js
-  languageName: node
-  linkType: soft
-
-"@aztec/ipc-runtime@portal:../../ipc-runtime/ts::locator=%40aztec%2Fbb.js%40portal%3A..%2F..%2Fts%3A%3Alocator%3Dbbjs-test%2540workspace%253Abbjs-test":
-  version: 0.0.0-use.local
-  resolution: "@aztec/ipc-runtime@portal:../../ipc-runtime/ts::locator=%40aztec%2Fbb.js%40portal%3A..%2F..%2Fts%3A%3Alocator%3Dbbjs-test%2540workspace%253Abbjs-test"
-  languageName: node
-  linkType: soft
-
-"@aztec/ipc-runtime@portal:../../ipc-runtime/ts::locator=%40aztec%2Fbb.js%40portal%3A..%2F..%2Fts%3A%3Alocator%3Dbrowser-test-app%2540workspace%253Abrowser-test-app":
-  version: 0.0.0-use.local
-  resolution: "@aztec/ipc-runtime@portal:../../ipc-runtime/ts::locator=%40aztec%2Fbb.js%40portal%3A..%2F..%2Fts%3A%3Alocator%3Dbrowser-test-app%2540workspace%253Abrowser-test-app"
   languageName: node
   linkType: soft
 

@@ -4,3 +4,9 @@
 ^barretenberg/cpp/scripts/
 ^barretenberg/cpp/bootstrap.sh
 ^barretenberg/cpp/CMakePresets.json
+# bbapi and ipc_runtime generate C++ headers via ipc-codegen at CMake-time.
+# Treat the codegen sources + templates as part of bb-cpp's input so the CI
+# cache key invalidates when the codegen changes.
+^ipc-codegen/src/.*\.ts$
+^ipc-codegen/templates/cpp/.*$
+^ipc-runtime/cpp/.*$

@@ -1,12 +1,8 @@
 #pragma once
-#include "barretenberg/bbapi/bbapi_execute.hpp"
 #include "barretenberg/serialize/cbind_fwd.hpp"
 #include <vector>
 
-namespace bb::bbapi {
-// Function declaration for CLI usage
-CommandResponse bbapi(Command&& command);
-} // namespace bb::bbapi
-
-// Forward declaration for CBIND
+// WASM-exported bbapi entry point. Takes msgpack `[ [name, payload] ]`,
+// returns msgpack `[name, payload]`. See c_bind.cpp for the implementation
+// (calls the codegen-emitted `make_bb_handler` dispatcher).
 CBIND_DECL(bbapi)

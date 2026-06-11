@@ -17,8 +17,12 @@ MsgpackClientAsync::MsgpackClientAsync(const Napi::CallbackInfo& info)
     }
     std::string shm_name = info[0].As<Napi::String>();
 
-    // Create shared memory client (SPSC-only, no max_clients needed)
-    client_ = bb::ipc::IpcClient::create_shm(shm_name);
+    size_t client_id = 0;
+    if (info.Length() >= 2 && info[1].IsNumber()) {
+        client_id = static_cast<size_t>(info[1].As<Napi::Number>().Uint32Value());
+    }
+
+    client_ = bb::ipc::IpcClient::create_mpsc_shm(shm_name, client_id);
 
     // Connect to bb server
     if (!client_->connect()) {
