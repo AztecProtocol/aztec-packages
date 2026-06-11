@@ -25,7 +25,7 @@ class AvmSimulateNapi {
      * - info[1]: Object with contract provider callbacks:
      *   - getContractInstance(address: string): Promise<Buffer | undefined>
      *   - getContractClass(classId: string): Promise<Buffer | undefined>
-     * - info[2]: External WorldState handle (pointer to world_state::WorldState)
+     * - info[2]: WSDB UDS socket path (string) — TS layer spawned aztec-wsdb at this path
      * - info[3]: Log level number (0-7)
      * - info[4]: External CancellationToken handle (optional)
      *

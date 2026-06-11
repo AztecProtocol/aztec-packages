@@ -12,6 +12,8 @@
 #include "barretenberg/vm2/avm_sim_api.hpp"
 #include "barretenberg/vm2/common/avm_io.hpp"
 #include "barretenberg/vm2/simulation/lib/cancellation_token.hpp"
+#include "barretenberg/vm2_wsdb/wsdb_ipc_merkle_db.hpp"
+#include "barretenberg/wsdb/generated/wsdb_ipc_client.hpp"
 
 namespace bb::nodejs {
 namespace {
@@ -227,15 +229,13 @@ Napi::Value AvmSimulateNapi::simulate(const Napi::CallbackInfo& cb_info)
             env, ContractCallbacks::get(contract_provider, CALLBACK_REVERT_CHECKPOINT), CALLBACK_REVERT_CHECKPOINT),
     };
 
-    /*****************************
-     *** WorldState (required) ***
-     *****************************/
-    if (!cb_info[2].IsExternal()) {
-        throw Napi::TypeError::New(env, "Third argument must be a WorldState handle (External)");
+    /***************************************
+     *** WSDB socket path (required) ***
+     ***************************************/
+    if (!cb_info[2].IsString()) {
+        throw Napi::TypeError::New(env, "Third argument must be a WSDB socket path (string)");
     }
-    // Extract WorldState handle (3rd argument)
-    auto external = cb_info[2].As<Napi::External<world_state::WorldState>>();
-    world_state::WorldState* ws_ptr = external.Data();
+    std::string wsdb_socket_path = cb_info[2].As<Napi::String>().Utf8Value();
 
     /***************************
      *** LogLevel (optional) ***
@@ -281,10 +281,10 @@ Napi::Value AvmSimulateNapi::simulate(const Napi::CallbackInfo& cb_info)
      **********************************************************/
 
     auto deferred = std::make_shared<Napi::Promise::Deferred>(env);
-    // Run on a dedicated std::thread (not libuv pool) to prevent libuv thread pool
-    // exhaustion when callbacks need libuv threads for I/O.
     ThreadedAsyncOperation::Run(
-        env, deferred, [data, tsfns, logger_tsfn, ws_ptr, cancellation_token](msgpack::sbuffer& result_buffer) {
+        env,
+        deferred,
+        [data, tsfns, logger_tsfn, wsdb_socket_path, cancellation_token](msgpack::sbuffer& result_buffer) {
             // Collect all thread-safe functions including logger for cleanup
             auto all_tsfns = tsfns.to_vector();
             all_tsfns.push_back(logger_tsfn);
@@ -309,10 +309,14 @@ Napi::Value AvmSimulateNapi::simulate(const Napi::CallbackInfo& cb_info)
                                                  *tsfns.commit_checkpoint,
                                                  *tsfns.revert_checkpoint);
 
-                // Create AVM API and run simulation with the callback-based contracts DB,
-                // WorldState reference, and optional cancellation token
+                // Connect to aztec-wsdb over UDS and wrap in a WsdbIpcMerkleDB that implements
+                // LowLevelMerkleDBInterface. The connection is per-simulation; aztec-wsdb is a
+                // long-running server that the TS layer spawned and owns.
+                bb::wsdb::WsdbIpcClient wsdb_client(wsdb_socket_path);
+                bb::avm2::simulation::WsdbIpcMerkleDB merkle_db(wsdb_client, inputs.ws_revision);
+
                 avm2::AvmSimAPI avm;
-                avm2::TxSimulationResult result = avm.simulate(inputs, contract_db, *ws_ptr, cancellation_token);
+                avm2::TxSimulationResult result = avm.simulate(inputs, contract_db, merkle_db, cancellation_token);
 
                 // Serialize the simulation result with msgpack into the return buffer to TS.
                 msgpack::pack(result_buffer, result);

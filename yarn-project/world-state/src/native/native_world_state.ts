@@ -3,7 +3,6 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { fromEntries, padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { tryRmDir } from '@aztec/foundation/fs';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import type { L2Block } from '@aztec/stdlib/block';
 import { DatabaseVersionManager } from '@aztec/stdlib/database-version/manager';
@@ -19,13 +18,14 @@ import { EMPTY_GENESIS_DATA, type GenesisData, WorldStateRevision } from '@aztec
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import assert from 'assert/strict';
-import { mkdtemp, rm } from 'fs/promises';
+import { mkdir, mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
 import { WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
 import type { WorldStateTreeMapSizes } from '../synchronizer/factory.js';
 import type { MerkleTreeAdminDatabase as MerkleTreeDatabase } from '../world-state-db/merkle_tree_db.js';
+import { IpcWorldState } from './ipc_world_state_instance.js';
 import { MerkleTreesFacade, MerkleTreesForkFacade, serializeLeaf } from './merkle_trees_facade.js';
 import {
   WorldStateMessageType,
@@ -36,7 +36,7 @@ import {
   sanitizeSummary,
   treeStateReferenceToSnapshot,
 } from './message.js';
-import { NativeWorldState } from './native_world_state_instance.js';
+import type { NativeWorldStateInstance } from './native_world_state_instance.js';
 
 // The current version of the world state database schema
 // Increment this when making incompatible changes to the database schema
@@ -44,47 +44,21 @@ export const WORLD_STATE_DB_VERSION = 2; // The initial version
 
 export const WORLD_STATE_DIR = 'world_state';
 
-const DEFAULT_TMP_TREE_MAP_SIZE_KB = 10 * 1024 * 1024;
-
-/**
- * Sets up a fresh `mkdtemp` directory + default `WorldStateTreeMapSizes` shared by both
- * the `.tmp` (fsync-on) and `.ephemeral` (fsync-off) factories. Returns the raw tmpdir,
- * the tree map sizes, and the package logger.
- */
-async function createTmpWorldStateDir(
-  bindings?: LoggerBindings,
-): Promise<{ dataDir: string; wsTreeMapSizes: WorldStateTreeMapSizes; log: Logger }> {
-  const log = createLogger('world-state:database', bindings);
-  const dataDir = await mkdtemp(join(tmpdir(), 'aztec-world-state-'));
-  const wsTreeMapSizes: WorldStateTreeMapSizes = {
-    archiveTreeMapSizeKb: DEFAULT_TMP_TREE_MAP_SIZE_KB,
-    nullifierTreeMapSizeKb: DEFAULT_TMP_TREE_MAP_SIZE_KB,
-    noteHashTreeMapSizeKb: DEFAULT_TMP_TREE_MAP_SIZE_KB,
-    messageTreeMapSizeKb: DEFAULT_TMP_TREE_MAP_SIZE_KB,
-    publicDataTreeMapSizeKb: DEFAULT_TMP_TREE_MAP_SIZE_KB,
-  };
-  log.debug(`Created temporary world state database at: ${dataDir} (map size ${DEFAULT_TMP_TREE_MAP_SIZE_KB} KB)`);
-  return { dataDir, wsTreeMapSizes, log };
-}
-
 export class NativeWorldStateService implements MerkleTreeDatabase {
   protected initialHeader: BlockHeader | undefined;
   // This is read heavily and only changes when data is persisted, so we cache it
   private cachedStatusSummary: WorldStateStatusSummary | undefined;
 
   protected constructor(
-    protected instance: NativeWorldState,
+    protected instance: NativeWorldStateInstance,
     protected readonly worldStateInstrumentation: WorldStateInstrumentation,
     protected readonly log: Logger,
     private readonly genesis: GenesisData = EMPTY_GENESIS_DATA,
     private readonly cleanup = () => Promise.resolve(),
+    /** Factory to recreate a fresh IpcWorldState after clear(). */
+    private readonly recreateInstance?: () => Promise<NativeWorldStateInstance>,
   ) {}
 
-  /**
-   * Opens a persistent world state at `dataDir`. Goes through `DatabaseVersionManager` so the
-   * caller's rollup address is bound to the on-disk schema and incompatible versions surface
-   * loudly. The LMDB envs commit with full fsync.
-   */
   static async new(
     rollupAddress: EthAddress,
     dataDir: string,
@@ -94,28 +68,31 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     bindings?: LoggerBindings,
     cleanup = () => Promise.resolve(),
   ): Promise<NativeWorldStateService> {
+    for (const [key, value] of Object.entries(wsTreeMapSizes)) {
+      if (value <= 0) {
+        throw new Error(`Map size must be a positive number, got ${value} for ${key}`);
+      }
+    }
+
     const log = createLogger('world-state:database', bindings);
     const worldStateDirectory = join(dataDir, WORLD_STATE_DIR);
+
     const versionManager = new DatabaseVersionManager({
       schemaVersion: WORLD_STATE_DB_VERSION,
       rollupAddress,
       dataDirectory: worldStateDirectory,
-      onOpen: (dir: string) =>
-        Promise.resolve(
-          new NativeWorldState(
-            dir,
-            wsTreeMapSizes,
-            genesis,
-            instrumentation,
-            bindings,
-            undefined,
-            /*ephemeral=*/ false,
-          ),
-        ),
+      onOpen: dir => IpcWorldState.spawn(dir, wsTreeMapSizes, genesis, instrumentation, bindings),
     });
 
     const [instance] = await versionManager.open();
-    const worldState = new this(instance, instrumentation, log, genesis, cleanup);
+
+    const recreateInstance = async () => {
+      await rm(worldStateDirectory, { recursive: true, force: true, maxRetries: 3 });
+      await mkdir(worldStateDirectory, { recursive: true });
+      return IpcWorldState.spawn(worldStateDirectory, wsTreeMapSizes, genesis, instrumentation, bindings);
+    };
+
+    const worldState = new this(instance, instrumentation, log, genesis, cleanup, recreateInstance);
     try {
       await worldState.init();
     } catch (e) {
@@ -126,23 +103,26 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     return worldState;
   }
 
-  /**
-   * Opens a world state in a fresh tmpdir with full fsync semantics. Use when you need the
-   * on-disk file to remain crash-recoverable (e.g. for snapshot/backup tests) but don't
-   * want a persistent dataDir. Pass `cleanupTmpDir=false` to keep the directory after
-   * close for inspection.
-   *
-   * If you don't care about crash-recoverability — i.e. you just want a fast scratch
-   * database for tests — use {@link ephemeral} instead.
-   */
   static async tmp(
-    rollupAddress = EthAddress.ZERO,
     cleanupTmpDir = true,
     genesis: GenesisData = EMPTY_GENESIS_DATA,
     instrumentation = new WorldStateInstrumentation(getTelemetryClient()),
     bindings?: LoggerBindings,
   ): Promise<NativeWorldStateService> {
-    const { dataDir, wsTreeMapSizes, log } = await createTmpWorldStateDir(bindings);
+    const log = createLogger('world-state:database', bindings);
+    const dataDir = await mkdtemp(join(tmpdir(), 'aztec-world-state-'));
+    const dbMapSizeKb = 10 * 1024 * 1024;
+    const worldStateTreeMapSizes: WorldStateTreeMapSizes = {
+      archiveTreeMapSizeKb: dbMapSizeKb,
+      nullifierTreeMapSizeKb: dbMapSizeKb,
+      noteHashTreeMapSizeKb: dbMapSizeKb,
+      messageTreeMapSizeKb: dbMapSizeKb,
+      publicDataTreeMapSizeKb: dbMapSizeKb,
+    };
+    log.debug(`Created temporary world state database at: ${dataDir} with tree map size: ${dbMapSizeKb}`);
+
+    const instance = await IpcWorldState.spawn(dataDir, worldStateTreeMapSizes, genesis, instrumentation, bindings);
+
     const cleanup = async () => {
       if (cleanupTmpDir) {
         await rm(dataDir, { recursive: true, force: true, maxRetries: 3 });
@@ -151,44 +131,43 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
         log.debug(`Leaving temporary world state database: ${dataDir}`);
       }
     };
-    return this.new(rollupAddress, dataDir, wsTreeMapSizes, genesis, instrumentation, bindings, cleanup);
+
+    const recreateInstance = async () => {
+      await rm(dataDir, { recursive: true, force: true, maxRetries: 3 });
+      await mkdir(dataDir, { recursive: true });
+      return IpcWorldState.spawn(dataDir, worldStateTreeMapSizes, genesis, instrumentation, bindings);
+    };
+
+    const worldState = new this(instance, instrumentation, log, genesis, cleanup, recreateInstance);
+    try {
+      await worldState.init();
+    } catch (e) {
+      log.error(`Error initializing tmp world state: ${e}`);
+      throw e;
+    }
+    return worldState;
   }
 
-  /**
-   * Opens a fully-ephemeral world state. The directory is created in `os.tmpdir()`, the LMDB
-   * envs open with `MDB_NOSYNC | MDB_NOMETASYNC` so commits never block on fsync, and the
-   * directory is removed on dispose. A crash mid-write leaves the env unrecoverable.
-   *
-   * For unit tests and other isolated runs. Use {@link tmp} when you need fsync semantics in a
-   * tmp dir, and {@link new} for a persistent store. Skips {@link DatabaseVersionManager} —
-   * there is no on-disk schema to bind to and no rollup address is taken.
-   */
-  static async ephemeral(
+  static ephemeral(
     genesis: GenesisData = EMPTY_GENESIS_DATA,
     instrumentation = new WorldStateInstrumentation(getTelemetryClient()),
     bindings?: LoggerBindings,
   ): Promise<NativeWorldStateService> {
-    const { dataDir, wsTreeMapSizes, log } = await createTmpWorldStateDir(bindings);
-    const cleanup = async () => {
-      await rm(dataDir, { recursive: true, force: true, maxRetries: 3 });
-      log.debug(`Deleted ephemeral world state database: ${dataDir}`);
-    };
-    const instance = new NativeWorldState(
-      join(dataDir, WORLD_STATE_DIR),
-      wsTreeMapSizes,
-      genesis,
-      instrumentation,
-      bindings,
-      undefined,
-      /*ephemeral=*/ true,
-    );
-    const worldState = new this(instance, instrumentation, log, genesis, cleanup);
-    try {
-      await worldState.init();
-    } catch (e) {
-      log.error(`Error initializing ephemeral world state: ${e}`);
-      throw e;
-    }
+    return this.tmp(/*cleanupTmpDir=*/ true, genesis, instrumentation, bindings);
+  }
+
+  static async fromIpc(
+    wsdbBackend: ConstructorParameters<typeof IpcWorldState>[0],
+    instrumentation = new WorldStateInstrumentation(getTelemetryClient()),
+    bindings?: LoggerBindings,
+    genesis: GenesisData = EMPTY_GENESIS_DATA,
+    cleanup = () => Promise.resolve(),
+    recreateInstance?: () => Promise<NativeWorldStateInstance>,
+  ): Promise<NativeWorldStateService> {
+    const log = createLogger('world-state:database', bindings);
+    const instance = new IpcWorldState(wsdbBackend, instrumentation, bindings);
+    const worldState = new this(instance, instrumentation, log, genesis, cleanup, recreateInstance);
+    await worldState.init();
     return worldState;
   }
 
@@ -213,11 +192,24 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     assert.strictEqual(initialHeaderIndex, 0n, 'Invalid initial archive state');
   }
 
-  public async clear() {
+  public async clear(): Promise<void> {
+    if (!this.recreateInstance) {
+      throw new Error('clear() is not available for externally-managed IPC backends');
+    }
+    this.log.warn('Clearing world state: shutting down WSDB, deleting data, and recreating');
     await this.instance.close();
     this.cachedStatusSummary = undefined;
-    await tryRmDir(this.instance.getDataDir(), this.log);
-    this.instance = this.instance.clone();
+    this.instance = await this.recreateInstance();
+    await this.init();
+    this.log.info('World state cleared and reinitialized from genesis');
+  }
+
+  /** Returns the socket path of the underlying IPC backend, if available. */
+  public getSocketPath(): string {
+    if (this.instance instanceof IpcWorldState) {
+      return this.instance.getSocketPath();
+    }
+    throw new Error('getSocketPath() is only available with IPC world state');
   }
 
   public getCommitted(): MerkleTreeReadOperations {
@@ -311,8 +303,15 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   }
 
   public async close(): Promise<void> {
-    await this.instance.close();
-    await this.cleanup();
+    try {
+      await this.instance.close();
+    } finally {
+      await this.cleanup();
+    }
+  }
+
+  async [Symbol.asyncDispose](): Promise<void> {
+    await this.close();
   }
 
   private async buildInitialHeader(): Promise<BlockHeader> {
