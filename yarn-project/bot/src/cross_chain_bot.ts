@@ -61,7 +61,7 @@ export class CrossChainBot extends BaseBot {
     private readonly rollupVersion: bigint,
     private readonly store: BotStore,
     config: BotConfig,
-    private readonly pxeSyncChainTip?: BlockTag,
+    private readonly syncChainTip?: BlockTag,
   ) {
     super(node, wallet, defaultAccountAddress, config);
   }
@@ -72,12 +72,12 @@ export class CrossChainBot extends BaseBot {
     aztecNode: AztecNode,
     aztecNodeAdmin: AztecNodeAdmin | undefined,
     store: BotStore,
-    pxeSyncChainTip?: BlockTag,
+    syncChainTip?: BlockTag,
   ): Promise<CrossChainBot> {
     if (config.followChain === 'NONE') {
       throw new Error(`CrossChainBot requires followChain to be set (got NONE)`);
     }
-    const factory = new BotFactory(config, wallet, store, aztecNode, aztecNodeAdmin, pxeSyncChainTip);
+    const factory = new BotFactory(config, wallet, store, aztecNode, aztecNodeAdmin, syncChainTip);
     const { defaultAccountAddress, contract, l1Client, rollupVersion } = await factory.setupCrossChain();
     const l1Recipient = EthAddress.fromString(l1Client.account!.address);
     const { l1ContractAddresses } = await aztecNode.getNodeInfo();
@@ -93,7 +93,7 @@ export class CrossChainBot extends BaseBot {
       rollupVersion,
       store,
       config,
-      pxeSyncChainTip,
+      syncChainTip,
     );
   }
 
@@ -180,7 +180,7 @@ export class CrossChainBot extends BaseBot {
   ): Promise<PendingL1ToL2Message | undefined> {
     const now = Date.now();
     for (const msg of pendingMessages) {
-      const ready = await isL1ToL2MessageReady(this.node, Fr.fromHexString(msg.msgHash), this.pxeSyncChainTip);
+      const ready = await isL1ToL2MessageReady(this.node, Fr.fromHexString(msg.msgHash), this.syncChainTip);
       if (ready) {
         return msg;
       }

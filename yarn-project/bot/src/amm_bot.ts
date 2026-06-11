@@ -38,7 +38,7 @@ export class AmmBot extends BaseBot {
     aztecNode: AztecNode,
     aztecNodeAdmin: AztecNodeAdmin | undefined,
     store: BotStore,
-    pxeSyncChainTip?: BlockTag,
+    syncChainTip?: BlockTag,
   ): Promise<AmmBot> {
     const { defaultAccountAddress, token0, token1, amm } = await new BotFactory(
       config,
@@ -46,7 +46,7 @@ export class AmmBot extends BaseBot {
       store,
       aztecNode,
       aztecNodeAdmin,
-      pxeSyncChainTip,
+      syncChainTip,
     ).setupAmm();
     return new AmmBot(aztecNode, wallet, defaultAccountAddress, amm, token0, token1, config);
   }

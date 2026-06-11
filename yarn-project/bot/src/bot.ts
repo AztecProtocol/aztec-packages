@@ -34,7 +34,7 @@ export class Bot extends BaseBot {
     aztecNode: AztecNode,
     aztecNodeAdmin: AztecNodeAdmin | undefined,
     store: BotStore,
-    pxeSyncChainTip?: BlockTag,
+    syncChainTip?: BlockTag,
   ): Promise<Bot> {
     const { defaultAccountAddress, token, recipient } = await new BotFactory(
       config,
@@ -42,7 +42,7 @@ export class Bot extends BaseBot {
       store,
       aztecNode,
       aztecNodeAdmin,
-      pxeSyncChainTip,
+      syncChainTip,
     ).setup();
     return new Bot(aztecNode, wallet, defaultAccountAddress, token, recipient, config);
   }

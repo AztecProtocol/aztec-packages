@@ -31,7 +31,7 @@ export class BotRunner implements BotRunnerApi, Traceable {
     private readonly telemetry: TelemetryClient,
     private readonly aztecNodeAdmin: AztecNodeAdmin | undefined,
     private readonly store: BotStore,
-    private readonly pxeSyncChainTip?: BlockTag,
+    private readonly syncChainTip?: BlockTag,
   ) {
     this.tracer = telemetry.getTracer('Bot');
 
@@ -157,7 +157,7 @@ export class BotRunner implements BotRunnerApi, Traceable {
             this.aztecNode,
             this.aztecNodeAdmin,
             this.store,
-            this.pxeSyncChainTip,
+            this.syncChainTip,
           );
           break;
         case 'amm':
@@ -167,7 +167,7 @@ export class BotRunner implements BotRunnerApi, Traceable {
             this.aztecNode,
             this.aztecNodeAdmin,
             this.store,
-            this.pxeSyncChainTip,
+            this.syncChainTip,
           );
           break;
         case 'transfer':
@@ -177,7 +177,7 @@ export class BotRunner implements BotRunnerApi, Traceable {
             this.aztecNode,
             this.aztecNodeAdmin,
             this.store,
-            this.pxeSyncChainTip,
+            this.syncChainTip,
           );
           break;
         default: {

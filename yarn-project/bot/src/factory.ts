@@ -55,7 +55,7 @@ export class BotFactory {
     private readonly store: BotStore,
     private readonly aztecNode: AztecNode,
     private readonly aztecNodeAdmin?: AztecNodeAdmin,
-    private readonly pxeSyncChainTip?: BlockTag,
+    private readonly syncChainTip?: BlockTag,
   ) {
     // Set fee padding on the wallet so that all transactions during setup
     // (token deploy, minting, etc.) use the configured padding, not the default.
@@ -176,7 +176,7 @@ export class BotFactory {
       const firstMsg = allMessages[0];
       await waitForL1ToL2MessageReady(this.aztecNode, Fr.fromHexString(firstMsg.msgHash), {
         timeoutSeconds: this.config.l1ToL2MessageTimeoutSeconds,
-        chainTip: this.pxeSyncChainTip,
+        chainTip: this.syncChainTip,
       });
       this.log.info(`First L1→L2 message is ready`);
     }
@@ -678,7 +678,7 @@ export class BotFactory {
         await this.withNoMinTxsPerBlock(() =>
           waitForL1ToL2MessageReady(this.aztecNode, messageHash, {
             timeoutSeconds: this.config.l1ToL2MessageTimeoutSeconds,
-            chainTip: this.pxeSyncChainTip,
+            chainTip: this.syncChainTip,
           }),
         );
         return existingClaim.claim;
@@ -717,7 +717,7 @@ export class BotFactory {
     await this.withNoMinTxsPerBlock(() =>
       waitForL1ToL2MessageReady(this.aztecNode, Fr.fromHexString(claim.messageHash), {
         timeoutSeconds: this.config.l1ToL2MessageTimeoutSeconds,
-        chainTip: this.pxeSyncChainTip,
+        chainTip: this.syncChainTip,
       }),
     );
 
