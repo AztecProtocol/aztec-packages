@@ -54,7 +54,7 @@ static_assert(MegaKernelFlavor::VerificationKey::calc_num_data_types() == 143,
               "MEGA_KERNEL_VK_LENGTH_IN_FIELDS changed - update constants.nr");
 static_assert(MegaZKFlavor::VerificationKey::calc_num_data_types() == 119,
               "MEGA_ZK_VK_LENGTH_IN_FIELDS changed - update constants.nr");
-static_assert(ProofLength::MultilinearBatching<MultilinearBatchingFlavor_<2>>::LENGTH == 102,
+static_assert(ProofLength::MultilinearBatching<MultilinearBatchingFlavor_<2>>::LENGTH == 78,
               "MultilinearBatching proof size changed - update constants.nr");
 
 /**

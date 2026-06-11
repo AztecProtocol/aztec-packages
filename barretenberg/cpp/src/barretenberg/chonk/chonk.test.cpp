@@ -196,7 +196,7 @@ class ChonkTests : public ::testing::Test {
         bool check_circuit_sizes)
     {
         const size_t num_circuits = circuit_producer.total_num_circuits;
-        Chonk ivc{ num_circuits };
+        Chonk ivc{ circuit_producer.circuit_kinds() };
 
         for (size_t idx = 0; idx < num_circuits; ++idx) {
             circuit_producer.construct_and_accumulate_next_circuit(ivc, settings, check_circuit_sizes);
@@ -264,7 +264,7 @@ TEST_F(ChonkTests, BadProofFailure)
 
         CircuitProducer circuit_producer(NUM_APP_CIRCUITS);
         const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
-        Chonk ivc{ NUM_CIRCUITS };
+        Chonk ivc{ circuit_producer.circuit_kinds() };
         TestSettings settings{ .log2_num_gates = SMALL_LOG_2_NUM_GATES };
 
         // Construct and accumulate a set of mocked private function execution circuits
@@ -279,7 +279,7 @@ TEST_F(ChonkTests, BadProofFailure)
     {
         CircuitProducer circuit_producer(NUM_APP_CIRCUITS);
         const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
-        Chonk ivc{ NUM_CIRCUITS };
+        Chonk ivc{ circuit_producer.circuit_kinds() };
 
         // Construct and accumulate a set of mocked private function execution circuits
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
@@ -298,7 +298,7 @@ TEST_F(ChonkTests, BadProofFailure)
     {
         CircuitProducer circuit_producer(NUM_APP_CIRCUITS);
         const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
-        Chonk ivc{ NUM_CIRCUITS };
+        Chonk ivc{ circuit_producer.circuit_kinds() };
 
         // Construct and accumulate a set of mocked private function execution circuits
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
@@ -470,7 +470,7 @@ TEST_F(ChonkTests, AccumulatorBinding)
     const size_t num_app_circuits = MAX_APPS_PER_KERNEL + 1;
     CircuitProducer producer_one(num_app_circuits);
     const size_t num_circuits = producer_one.total_num_circuits;
-    Chonk chonk_one{ num_circuits };
+    Chonk chonk_one{ producer_one.circuit_kinds() };
 
     // Accumulate the first MAX_APPS_PER_KERNEL apps and the kernel
     for (size_t idx = 0; idx < MAX_APPS_PER_KERNEL + 1; idx++) {
@@ -481,7 +481,7 @@ TEST_F(ChonkTests, AccumulatorBinding)
     // ── Step 2: Run the IVC with an INVALID first app + accumulator substitution ─
 
     MockDatabusProducer mock_databus;
-    Chonk invalid_chonk{ num_circuits };
+    Chonk invalid_chonk{ producer_one.circuit_kinds() };
     CircuitProducer producer_two(num_app_circuits);
     TestSettings settings_two{ .log2_num_gates = SMALL_LOG_2_NUM_GATES + 1 };
 
@@ -526,7 +526,7 @@ TEST_F(ChonkTests, SmallAppProvingMemory)
 
     CircuitProducer circuit_producer(NUM_APP_CIRCUITS);
     const size_t num_circuits = circuit_producer.total_num_circuits;
-    Chonk ivc{ num_circuits };
+    Chonk ivc{ circuit_producer.circuit_kinds() };
     TestSettings settings{ .log2_num_gates = LOG2_NUM_GATES };
 
     for (size_t j = 0; j < num_circuits; ++j) {

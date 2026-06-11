@@ -186,7 +186,8 @@ class Chonk {
     // Transcript to be shared across the folding of K_{i-1} (kernel), A_{i} (app)
     std::shared_ptr<Transcript> prover_accumulation_transcript = std::make_shared<Transcript>();
 
-    size_t num_circuits; // total number of circuits to be accumulated in the IVC
+    std::vector<CircuitKind> circuit_kinds; // kind of every circuit in the IVC stack, in accumulation order
+    size_t num_circuits;                    // total number of circuits to be accumulated in the IVC
   public:
     size_t num_circuits_accumulated = 0; // number of circuits accumulated so far
 
@@ -224,7 +225,7 @@ class Chonk {
     Goblin& get_goblin() { return goblin; }
     const Goblin& get_goblin() const { return goblin; }
 
-    Chonk(size_t num_circuits);
+    Chonk(std::vector<CircuitKind> circuit_kinds);
 
     void instantiate_stdlib_verification_queue(ClientCircuit& circuit,
                                                const std::vector<StdlibCircuitVKAndHash>& input_keys = {});
@@ -245,24 +246,33 @@ class Chonk {
     /**
      * @brief Accumulate a circuit into the running IVC.
      *
-     * @details Single entry point for all three circuit kinds; behavior is selected at runtime by
-     * `kind`:
+     * @details Single entry point for all three circuit kinds; behavior is selected by `current_kind()`
+     * (the kinds are provided at construction):
      *   - `CircuitKind::App`          → MegaAppFlavor, fold into `prover_accumulator`.
      *   - `CircuitKind::Kernel`       → MegaKernelFlavor, fold (with the previous kernel's
      *                                   accumulator); HN_FINAL also runs the Decider.
      *   - `CircuitKind::HidingKernel` → MegaZKFlavor; build the prover instance only, proving is
      *                                   deferred to `prove()`.
      *
-     * The caller must pass the matching VK variant alternative for `kind`; mismatches throw
+     * When the next circuit is a kernel, the circuit being accumulated completes that kernel's group, so this
+     * method also produces the kernel's multilinear batching proof (and the decider proof when the next circuit
+     * is the hiding kernel).
+     *
+     * The caller must pass the VK variant alternative matching `current_kind()`; mismatches throw
      * `std::bad_variant_access`.
      */
-    void accumulate(ClientCircuit& circuit, CircuitKind kind, const CircuitVerificationKey& vk);
+    void accumulate(ClientCircuit& circuit, const CircuitVerificationKey& vk);
 
     /**
-     * @brief What kind of circuit Chonk expects next, derived from the IVC state machine.
-     *
+     * @brief Kind of the circuit currently being accumulated (or, between accumulate calls, the next one expected).
      */
-    [[nodiscard]] CircuitKind next_circuit_kind() const;
+    [[nodiscard]] CircuitKind current_kind() const;
+
+    /**
+     * @brief Kind of the circuit that follows the one currently being accumulated, or CircuitKind::None if the
+     * current circuit is the last in the stack.
+     */
+    [[nodiscard]] CircuitKind next_kind() const;
 
     ChonkProof prove();
 
@@ -307,18 +317,27 @@ class Chonk {
     PublicInputsResult process_app_public_inputs(std::vector<StdlibFF>& public_inputs,
                                                  AppWitnessCommitments& witness_commitments);
 
-    void accumulate_and_fold(ClientCircuit& circuit,
-                             CircuitKind kind,
-                             QUEUE_TYPE queue_type,
-                             const CircuitVerificationKey& vk);
+    /**
+     * @brief Turn the incoming instance into an accumulator. If a kernel follows, also produce a multilinear batching
+     * proof.
+     *
+     */
+    void accumulate_and_fold(ClientCircuit& circuit, QUEUE_TYPE queue_type, const CircuitVerificationKey& vk);
 
-    // Templated body of accumulate_and_fold: oink (first app) or fold the instance into
-    // `prover_accumulator`, running the decider on HN_FINAL. Dispatched on InstanceFlavor.
+    /**
+     * @brief Generate multilinear batching proof for the current group of accumulators.
+     *
+     * @details In between kernels, instances are turned into accumulators. When we reach the last app in a group, we
+     * generate a single proof that batches the accumulators in the group into a single accumulator, which will be
+     * propagated by the following kernel.
+     *
+     */
+    void prove_multilinear_batching();
+
     template <typename InstanceFlavor>
-    HonkProof run_oink_or_fold(ClientCircuit& circuit,
-                               QUEUE_TYPE queue_type,
-                               const std::shared_ptr<typename InstanceFlavor::VerificationKey>& vk,
-                               const std::shared_ptr<Transcript>& accumulation_transcript);
+    HonkProof instance_to_accumulator(ClientCircuit& circuit,
+                                      const std::shared_ptr<typename InstanceFlavor::VerificationKey>& vk,
+                                      const std::shared_ptr<Transcript>& accumulation_transcript);
 
     void accumulate_hiding_kernel(ClientCircuit& circuit, const std::shared_ptr<MegaZKVerificationKey>& precomputed_vk);
 

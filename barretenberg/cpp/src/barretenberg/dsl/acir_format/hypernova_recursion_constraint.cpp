@@ -31,7 +31,15 @@ using namespace bb;
  */
 std::shared_ptr<Chonk> create_mock_chonk_from_constraints(const std::vector<RecursionConstraint>& constraints)
 {
-    auto ivc = std::make_shared<Chonk>(std::max(constraints.size(), static_cast<size_t>(MAX_APPS_PER_KERNEL + 1)));
+    // Create mock circuit kinds and IVC
+    // The circuit kind is only used by the prover, so they do not have to reflect the series of circuits that are
+    // mocked, they only need to satisfy the requirements of the constructor
+    std::vector<CircuitKind> mock_kinds(static_cast<size_t>(MAX_APPS_PER_KERNEL + 1) + bb::NUM_TRAILING_KERNELS,
+                                        CircuitKind::Kernel);
+    mock_kinds.front() = CircuitKind::App;
+    mock_kinds.back() = CircuitKind::HidingKernel;
+    auto ivc = std::make_shared<Chonk>(mock_kinds);
+
     // Check constraint proof type. Throws if proof_type is not a valid HyperNova type
     auto constraint_has_type = [](const RecursionConstraint& c, Chonk::QUEUE_TYPE expected) {
         return proof_type_to_chonk_queue_type(c.proof_type) == expected;

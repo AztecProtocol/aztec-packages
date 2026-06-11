@@ -99,7 +99,7 @@ TEST_F(ChonkTranscriptInvariantTests, AccumulationTranscriptCount)
     const size_t num_circuits = circuit_producer.total_num_circuits;
     ASSERT_EQ(num_circuits, EXPECTED_NUM_CIRCUITS) << "Circuit count mismatch - test assumptions invalid";
 
-    Chonk ivc{ num_circuits };
+    Chonk ivc{ circuit_producer.circuit_kinds() };
 
     for (size_t j = 0; j < num_circuits; ++j) {
         indices_before_accumulation.push_back(bb::unique_transcript_index.load());
@@ -150,7 +150,7 @@ TEST_F(ChonkTranscriptInvariantTests, RecursiveVerificationTranscriptCount)
     constexpr size_t NUM_APP_CIRCUITS = 1;
     PrivateFunctionExecutionMockCircuitProducer circuit_producer(NUM_APP_CIRCUITS);
     const size_t num_circuits = circuit_producer.total_num_circuits;
-    Chonk ivc{ num_circuits };
+    Chonk ivc{ circuit_producer.circuit_kinds() };
 
     for (size_t j = 0; j < num_circuits; ++j) {
         circuit_producer.construct_and_accumulate_next_circuit(ivc);

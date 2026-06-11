@@ -70,7 +70,12 @@ void ChonkAPI::prove(const Flags& flags,
     request.vk_policy = bbapi::parse_vk_policy(flags.vk_policy);
     std::vector<PrivateExecutionStepRaw> raw_steps = PrivateExecutionStepRaw::load_and_decompress(input_path);
 
-    bbapi::ChonkStart{ .num_circuits = static_cast<uint32_t>(raw_steps.size()) }.execute(request);
+    std::vector<CircuitKind> kinds;
+    kinds.reserve(raw_steps.size());
+    for (const auto& step : raw_steps) {
+        kinds.push_back(step.kind);
+    }
+    bbapi::ChonkStart{ .kinds = std::move(kinds) }.execute(request);
     info("Chonk: starting with ", raw_steps.size(), " circuits");
     for (size_t i = 0; i < raw_steps.size(); ++i) {
         const auto& step = raw_steps[i];

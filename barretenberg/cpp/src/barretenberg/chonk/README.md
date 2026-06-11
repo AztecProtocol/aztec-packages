@@ -438,7 +438,9 @@ The hiding kernel:
 ### Initialization
 
 ```cpp
-Chonk ivc(num_circuits);  // num_circuits must be even
+// One CircuitKind (App / Kernel / HidingKernel) per circuit, in accumulation order.
+// The stack must hold at least 4 circuits, start with an app and end with the hiding kernel.
+Chonk ivc(circuit_kinds);
 ```
 
 ### Circuit Accumulation
