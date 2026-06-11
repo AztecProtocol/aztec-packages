@@ -2075,11 +2075,13 @@ describe('Archiver Sync', () => {
       // Proposed checkpoint should still be set
       expect(await archiverStore.blocks.getLastProposedCheckpoint()).toBeDefined();
 
-      // Proposed tip should be ahead of the checkpointed tip
+      // Proposed checkpoint should lead the checkpointed tip
       const tips = await archiver.getL2Tips();
-      expect(tips.proposedCheckpoint.checkpoint.number).toEqual(CheckpointNumber(2));
+      const proposedCheckpointResult = await archiver.getProposedCheckpoint();
+      expect(proposedCheckpointResult).toBeDefined();
+      expect(proposedCheckpointResult!.tip.checkpoint.number).toEqual(CheckpointNumber(2));
       expect(tips.checkpointed.checkpoint.number).toEqual(CheckpointNumber(1));
-      expect(tips.proposedCheckpoint.block.number).toBeGreaterThan(tips.checkpointed.block.number);
+      expect(proposedCheckpointResult!.tip.block.number).toBeGreaterThan(tips.checkpointed.block.number);
     }, 15_000);
 
     it('prunes blocks and clears stale pending checkpoint when slot ends', async () => {
@@ -2142,11 +2144,9 @@ describe('Archiver Sync', () => {
       expect(await archiver.getBlockNumber()).toEqual(lastBlockInCheckpoint1);
       expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
 
-      // Proposed checkpoint should be cleared, so proposed tip falls back to checkpointed tip
+      // Proposed checkpoint should be cleared, so no proposed checkpoint leads the checkpointed tip
       expect(await archiverStore.blocks.getLastProposedCheckpoint()).toBeUndefined();
-      const tips = await archiver.getL2Tips();
-      expect(tips.proposedCheckpoint.checkpoint.number).toEqual(tips.checkpointed.checkpoint.number);
-      expect(tips.proposedCheckpoint.block.number).toEqual(tips.checkpointed.block.number);
+      expect(await archiver.getProposedCheckpoint()).toBeUndefined();
     }, 15_000);
   });
 

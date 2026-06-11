@@ -798,17 +798,16 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         number: syncSummary.latestBlockNumber,
         hash: syncSummary.latestBlockHash,
       })),
-      this.l2BlockSource
-        .getL2Tips()
-        .then(t => ({ proposed: t.proposed, checkpointed: t.checkpointed, proposedCheckpoint: t.proposedCheckpoint })),
+      this.l2BlockSource.getL2Tips().then(t => ({ proposed: t.proposed, checkpointed: t.checkpointed })),
       this.p2pClient.getStatus().then(p2p => p2p.syncedToL2Block),
       this.l1ToL2MessageSource.getL2Tips().then(t => ({ proposed: t.proposed, checkpointed: t.checkpointed })),
       this.l2BlockSource.getPendingChainValidationStatus(),
-      this.l2BlockSource.getProposedCheckpointData(),
+      this.l2BlockSource.getProposedCheckpoint(),
     ] as const);
 
-    const [worldState, l2Tips, p2p, l1ToL2MessageSourceTips, pendingChainValidationStatus, proposedCheckpointData] =
+    const [worldState, l2Tips, p2p, l1ToL2MessageSourceTips, pendingChainValidationStatus, proposedCheckpoint] =
       syncedBlocks;
+    const proposedCheckpointData = proposedCheckpoint?.data;
 
     const result =
       worldState.hash === l2Tips.proposed.hash &&
@@ -845,16 +844,16 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // matching proposed checkpoint (e.g. it crashed before assembling it). Building on this orphan block
     // would fork the chain off a tip no other node can follow. The archiver prunes these orphan blocks
     // once their build slot ends; this guard is the correctness barrier during the grace window before.
+    // `getProposedCheckpoint` returns the leading proposed checkpoint and its payload as a single atomic
+    // snapshot, so tip and payload are always coherent — no split-read reconciliation is needed.
     if (
       blockData.checkpointNumber > l2Tips.checkpointed.checkpoint.number &&
-      (l2Tips.proposedCheckpoint.checkpoint.number !== blockData.checkpointNumber ||
-        proposedCheckpointData?.checkpointNumber !== blockData.checkpointNumber)
+      proposedCheckpoint?.tip.checkpoint.number !== blockData.checkpointNumber
     ) {
       const logCtx = {
         blockCheckpointNumber: blockData.checkpointNumber,
         checkpointedCheckpointNumber: l2Tips.checkpointed.checkpoint.number,
-        proposedCheckpointTipNumber: l2Tips.proposedCheckpoint.checkpoint.number,
-        proposedCheckpointDataNumber: proposedCheckpointData?.checkpointNumber,
+        proposedCheckpointTipNumber: proposedCheckpoint?.tip.checkpoint.number,
         blockNumber: blockData.header.getBlockNumber(),
         blockSlot: blockData.header.getSlot(),
         syncedL2Slot,
@@ -865,27 +864,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       return undefined;
     }
 
-    const hasProposedCheckpoint = l2Tips.proposedCheckpoint.checkpoint.number > l2Tips.checkpointed.checkpoint.number;
-
-    // The l2Tips and proposedCheckpointData reads above come from independent archiver snapshots
-    // (a JS-side tips cache vs. a direct store read on `#proposedCheckpoints`). A concurrent archiver
-    // write that mutates both can be observed split, leaving us with `hasProposedCheckpoint=true` but
-    // no proposedCheckpointData (or one whose number doesn't match the tip). Refuse to proceed in that
-    // window — the next checkSync tick will see a coherent snapshot.
-    if (
-      hasProposedCheckpoint &&
-      (!proposedCheckpointData ||
-        proposedCheckpointData.checkpointNumber !== l2Tips.proposedCheckpoint.checkpoint.number)
-    ) {
-      this.log.warn(`Sequencer sync check failed: inconsistent proposed-checkpoint state`, {
-        proposedCheckpointTipNumber: l2Tips.proposedCheckpoint.checkpoint.number,
-        checkpointedTipNumber: l2Tips.checkpointed.checkpoint.number,
-        proposedCheckpointDataNumber: proposedCheckpointData?.checkpointNumber,
-        syncedL2Slot,
-        ...args,
-      });
-      return undefined;
-    }
+    const hasProposedCheckpoint = proposedCheckpoint !== undefined;
 
     // Check that the proposed checkpoint is indeed the parent of the checkpoint we'll be building
     // The checkpoint number to build is derived as blockData.checkpointNumber + 1

@@ -18,6 +18,7 @@ import {
   type CheckpointQuery,
   type CheckpointsQuery,
   type L2Tips,
+  type ProposedCheckpoint,
   type ProposedCheckpointQuery,
 } from '../block/l2_block_source.js';
 import type { ValidateCheckpointResult } from '../block/validate_block_result.js';
@@ -153,7 +154,6 @@ describe('ArchiverApiSchema', () => {
     expect(result).toEqual({
       proposed: { number: 1, hash: `0x01` },
       checkpointed: expectedTipId,
-      proposedCheckpoint: expectedTipId,
       proven: expectedTipId,
       finalized: expectedTipId,
     });
@@ -255,6 +255,26 @@ describe('ArchiverApiSchema', () => {
       startBlock: 1,
       totalManaUsed: 1n,
       feeAssetPriceModifier: 1n,
+    });
+  });
+
+  it('getProposedCheckpoint', async () => {
+    const result = await context.client.getProposedCheckpoint();
+    expect(result).toEqual({
+      tip: {
+        block: { number: 1, hash: `0x01` },
+        checkpoint: { number: 1, hash: `0x01` },
+      },
+      data: {
+        checkpointNumber: 1,
+        header: expect.any(CheckpointHeader),
+        archive: expect.any(AppendOnlyTreeSnapshot),
+        checkpointOutHash: expect.any(Fr),
+        blockCount: 1,
+        startBlock: 1,
+        totalManaUsed: 1n,
+        feeAssetPriceModifier: 1n,
+      },
     });
   });
 
@@ -378,6 +398,24 @@ class MockArchiver implements ArchiverApi {
       feeAssetPriceModifier: 1n,
     });
   }
+  getProposedCheckpoint(): Promise<ProposedCheckpoint | undefined> {
+    return Promise.resolve({
+      tip: {
+        block: { number: BlockNumber(1), hash: `0x01` },
+        checkpoint: { number: CheckpointNumber(1), hash: `0x01` },
+      },
+      data: {
+        checkpointNumber: CheckpointNumber(1),
+        header: CheckpointHeader.random(),
+        archive: AppendOnlyTreeSnapshot.random(),
+        checkpointOutHash: Fr.random(),
+        blockCount: 1,
+        startBlock: BlockNumber(1),
+        totalManaUsed: 1n,
+        feeAssetPriceModifier: 1n,
+      },
+    });
+  }
   syncImmediate() {
     return Promise.resolve();
   }
@@ -477,7 +515,6 @@ class MockArchiver implements ArchiverApi {
     return Promise.resolve({
       proposed: { number: BlockNumber(1), hash: `0x01` },
       checkpointed: tipId,
-      proposedCheckpoint: tipId,
       proven: tipId,
       finalized: tipId,
     });

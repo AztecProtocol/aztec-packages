@@ -11,6 +11,7 @@ import {
   CheckpointQuerySchema,
   CheckpointsQuerySchema,
   type L2BlockSource,
+  L2TipIdSchema,
   L2TipsSchema,
   ProposedCheckpointQuerySchema,
 } from '../block/l2_block_source.js';
@@ -140,6 +141,10 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getProposedCheckpointData: z.function({
     input: z.tuple([optional(ProposedCheckpointQuerySchema)]),
     output: ProposedCheckpointDataSchema.optional(),
+  }),
+  getProposedCheckpoint: z.function({
+    input: z.tuple([]),
+    output: z.object({ tip: L2TipIdSchema, data: ProposedCheckpointDataSchema }).optional(),
   }),
   syncImmediate: z.function({ input: z.tuple([]), output: z.void() }),
   isPendingChainInvalid: z.function({ input: z.tuple([]), output: z.boolean() }),

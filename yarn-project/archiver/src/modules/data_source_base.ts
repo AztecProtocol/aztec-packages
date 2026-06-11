@@ -21,6 +21,7 @@ import {
   type CheckpointsQuery,
   L2Block,
   type L2Tips,
+  type ProposedCheckpoint,
   type ProposedCheckpointQuery,
 } from '@aztec/stdlib/block';
 import {
@@ -286,6 +287,10 @@ export abstract class ArchiverDataSourceBase
       return this.stores.blocks.getProposedCheckpointByNumber(query.number);
     }
     return this.stores.blocks.getProposedCheckpointBySlot(query.slot);
+  }
+
+  public getProposedCheckpoint(): Promise<ProposedCheckpoint | undefined> {
+    return this.stores.blocks.getProposedCheckpoint();
   }
 
   public getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined> {
