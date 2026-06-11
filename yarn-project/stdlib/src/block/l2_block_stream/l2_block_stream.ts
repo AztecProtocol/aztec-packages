@@ -40,8 +40,21 @@ export class L2BlockStream {
       skipFinalized?: boolean;
       /** When true, checkpoint events will not be emitted. Blocks are still fetched but only blocks-added events are emitted. */
       ignoreCheckpoints?: boolean;
+      /**
+       * When true, the block download loop is skipped entirely: `getBlocks` is never called and `blocks-added` is
+       * never emitted. Only the tip events (`chain-proposed`/`chain-checkpointed`/`chain-proven`/`chain-finalized`)
+       * and `chain-pruned` are emitted, driven by the `getL2Tips` snapshot. For consumers that track tips but never
+       * consume block payloads.
+       */
+      tipsOnly?: boolean;
     } = {},
   ) {
+    if (opts.tipsOnly && (opts.startingBlock !== undefined || opts.batchSize !== undefined || opts.skipFinalized)) {
+      throw new Error(
+        'tipsOnly is incompatible with startingBlock, batchSize, and skipFinalized: all three are ' +
+          'block-download options and there is no download loop in tips-only mode.',
+      );
+    }
     // Note that RunningPromise is in stopped state by default. This promise won't run until someone invokes `start`,
     // which makes it run periodically, or `sync`, which triggers it once.
     // Users of L2BlockStream decide what mode to run it in (_periodically_ vs _manually triggered_).
@@ -88,6 +101,11 @@ export class L2BlockStream {
             '(set ignoreCheckpoints or provide checkpointed tips).',
         );
       }
+
+      // The pre-pass proposed tip is the baseline for the chain-proposed event: it fires iff the source's proposed
+      // tip differs from where the local proposed tip stood before this pass started (downloads, a prune, or a thin
+      // movement). Captured here because the local store mutates during the pass.
+      const prePassProposed = localTips.proposed;
 
       // Check if there was a reorg and emit a chain-pruned event if so. Seed the cache with ONLY the proposed tip.
       // The tier tips (checkpointed/proven/finalized) must NOT be seeded: they are all <= proposed, i.e. at heights
@@ -149,8 +167,12 @@ export class L2BlockStream {
         pruned = true;
       }
 
-      // Whether the download plan completed and the tier cursors may advance from this snapshot (pass atomicity).
-      const planComplete = await this.downloadBlocks(latestBlockNumber, sourceTips);
+      // Whether the download plan completed and the tier cursors may advance from this snapshot. In tips-only mode
+      // there is no download plan: the snapshot is a single (atomic) getL2Tips read, so it always reconciles.
+      let planComplete = true;
+      if (!this.opts.tipsOnly) {
+        planComplete = await this.downloadBlocks(latestBlockNumber, sourceTips);
+      }
 
       if (!planComplete) {
         // The snapshot promised blocks the source no longer has (or served a fork mid-pass). It is provably stale, so
@@ -159,9 +181,16 @@ export class L2BlockStream {
         return;
       }
 
-      // End-of-pass tier reconciliation, from highest tier to lowest so upper cursors rise before lower ones and the
-      // local finalized <= proven <= checkpointed <= proposed invariant holds mid-pass. The tiers compare against a
-      // post-prune re-read of the local tips (the initial snapshot is stale once the prune handler clamped them).
+      // End-of-pass reconciliation. chain-proposed fires first (against the pre-pass baseline), then the tiers from
+      // highest to lowest so upper cursors rise before lower ones and the local finalized <= proven <= checkpointed
+      // <= proposed invariant holds mid-pass. The checkpoint-bearing tiers compare against a post-prune re-read of the
+      // local tips (the initial snapshot is stale once the prune handler clamped them); chain-proposed deliberately
+      // uses the pre-pass baseline so it fires on exactly the passes where the tip moved (a post-prune re-read would
+      // already equal the source tip and suppress it).
+      if (this.blockTipDiffers(prePassProposed, sourceTips.proposed)) {
+        await this.emitEvent({ type: 'chain-proposed', block: sourceTips.proposed });
+      }
+
       const reconcileTips = pruned ? await this.localData.getL2Tips() : localTips;
       if (!this.opts.ignoreCheckpoints && this.tipDiffers(reconcileTips.checkpointed?.block, sourceTips.checkpointed)) {
         await this.emitEvent({
@@ -278,16 +307,27 @@ export class L2BlockStream {
    * and comparing against an undefined hash would re-emit the event on every poll.
    */
   private tipDiffers(localBlock: LocalL2BlockId | undefined, sourceTip: L2TipId): boolean {
+    return this.blockTipDiffers(localBlock, sourceTip.block);
+  }
+
+  /**
+   * Block-only variant of {@link tipDiffers} for the proposed tip (an {@link L2BlockId}, with no checkpoint). Compares
+   * block number and, when the local hash is known, block hash. The hash comparison is skipped when the local hash is
+   * undefined: world-state reports `undefined` for its proposed hash, and a strict comparison would re-emit
+   * `chain-proposed` on every poll for it. ({@link L2TipsStoreBase} consumers always carry a hash, so the leniency is
+   * inert for them.)
+   */
+  private blockTipDiffers(localBlock: LocalL2BlockId | undefined, sourceBlock: L2BlockId): boolean {
     if (localBlock === undefined) {
       return true;
     }
-    if (sourceTip.block.number !== localBlock.number) {
+    if (sourceBlock.number !== localBlock.number) {
       return true;
     }
     if (localBlock.hash === undefined) {
       return false;
     }
-    return sourceTip.block.hash !== localBlock.hash;
+    return sourceBlock.hash !== localBlock.hash;
   }
 
   /**
@@ -306,12 +346,11 @@ export class L2BlockStream {
       throw new AbortError();
     }
     if (!localBlockHash) {
-      // A missing local hash compares UNEQUAL regardless of the source. With a store that has gaps in its block-hash
-      // index (e.g. p2p, which keeps no hashes below its startingBlock), treating both-undefined as "equal" would
-      // stop the walk-back ABOVE the true divergence and the #13471 clamp would set an under-deep prune target,
-      // leaving old-fork state in place that no later pass re-detects. Continuing the walk past a missing local height
-      // makes prunes over-deep-only, which consumers tolerate (block 0 always resolves via the store's
-      // initialBlockHash, so the walk always terminates).
+      // A missing local hash compares UNEQUAL regardless of the source. With sparse history (tips-only mode, or any
+      // gap), treating both-undefined as "equal" would stop the walk-back ABOVE the true divergence and the #13471
+      // clamp would set an under-deep prune target, leaving old-fork state in place that no later pass re-detects.
+      // Continuing the walk past a missing local height makes prunes over-deep-only, which both consumers tolerate
+      // (block 0 always resolves via the store's initialBlockHash, so the walk always terminates).
       this.log.trace(`No local block hash for block number ${blockNumber}; treating as unequal`);
       return false;
     }
