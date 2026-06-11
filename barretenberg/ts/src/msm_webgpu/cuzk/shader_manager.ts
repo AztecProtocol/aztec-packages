@@ -795,13 +795,25 @@ ${packLines.join('\n')}
     gather.push(`            }`);
     gather.push(`        }`);
     gather.push(`        fl = fl | (f << (4u * k));`);
-    gather.push(`        chain = montgomery_product_f8(chain, den);`);
+    gather.push(`        if ((f & 10u) == 2u) {`);
+    gather.push(`            // act && !inf — every other case has den == Montgomery 1.`);
+    gather.push(`            chain = montgomery_product_f8(chain, den);`);
+    gather.push(`        }`);
     gather.push(`        if (k + 1u < cd) {`);
+    gather.push(`            // pp[k] must be written even when the multiply was an`);
+    gather.push(`            // identity skip — the peel loads it unconditionally.`);
     gather.push(`            store_pref(k, ft, kstr, chain);`);
     gather.push(`        }`);
     gather.push(`    }`);
     const invert: string[] = [];
     invert.push(`    var inv_acc: array<u32, 8> = fr_inv_by_loop_pk(chain);`);
+    // Backward peel fused with the apply, with the walker's live-range
+    // discipline: x_sum is formed immediately so xs dies before the y phase;
+    // the denominator is consumed into inv_acc during the x phase (its only
+    // other use); ys dies into num; xd/yd survive only to the final r_y.
+    // Inactive/infinity/copy pairs contributed an IDENTITY denominator to
+    // the chain, so their vi and inv_acc multiplies are skipped outright —
+    // multiplying by Montgomery 1 is a no-op, not an approximation.
     const apply: string[] = [];
     apply.push(`    for (var kk = 0u; kk < cd; kk = kk + 1u) {`);
     apply.push(`        let k = cd - 1u - kk;`);
@@ -810,31 +822,34 @@ ${packLines.join('\n')}
     apply.push(`        let act = (f & 2u) != 0u;`);
     apply.push(`        let dbl = (f & 4u) != 0u;`);
     apply.push(`        let inf = (f & 8u) != 0u;`);
-    apply.push(`        var vi = inv_acc;`);
-    apply.push(`        if (k > 0u) {`);
-    apply.push(`            vi = montgomery_product_f8(inv_acc, load_pref(k - 1u, ft, kstr));`);
-    apply.push(`        }`);
     apply.push(`        let q = t + k * T;`);
     apply.push(`        let dst = base + arena_off(B, q >> hshift) + (q & (half - 1u));`);
     apply.push(`        let src = dst + half;`);
-    apply.push(`        var den = r1;`);
     apply.push(`        if (ps) {`);
     apply.push(`            if (act && !inf) {`);
+    apply.push(`                var vi = inv_acc;`);
+    apply.push(`                if (k > 0u) {`);
+    apply.push(`                    vi = montgomery_product_f8(inv_acc, load_pref(k - 1u, ft, kstr));`);
+    apply.push(`                }`);
     apply.push(`                let xd = load_x(dst, M_RED);`);
     apply.push(`                let xs = load_x(src, M_RED);`);
     apply.push(`                let yd = load_y(dst, M_RED);`);
-    apply.push(`                let ys = load_y(src, M_RED);`);
-    apply.push(`                var num = fr_sub_f8(ys, yd);`);
+    apply.push(`                let x_sum = fr_add_f8(xd, xs);`);
+    apply.push(`                if (k > 0u) {`);
+    apply.push(`                    var den = fr_sub_f8(xs, xd);`);
+    apply.push(`                    if (dbl) {`);
+    apply.push(`                        den = fr_add_f8(yd, yd);`);
+    apply.push(`                    }`);
+    apply.push(`                    inv_acc = montgomery_product_f8(inv_acc, den);`);
+    apply.push(`                }`);
+    apply.push(`                var num = fr_sub_f8(load_y(src, M_RED), yd);`);
     apply.push(`                if (dbl) {`);
     apply.push(`                    let xx = montgomery_product_f8(xd, xd);`);
     apply.push(`                    num = fr_add_f8(fr_add_f8(xx, xx), xx);`);
-    apply.push(`                    den = fr_add_f8(yd, yd);`);
-    apply.push(`                } else {`);
-    apply.push(`                    den = fr_sub_f8(xs, xd);`);
     apply.push(`                }`);
     apply.push(`                let lam = montgomery_product_f8(num, vi);`);
     apply.push(`                var rx = montgomery_product_f8(lam, lam);`);
-    apply.push(`                rx = fr_sub_f8(fr_sub_f8(rx, xd), xs);`);
+    apply.push(`                rx = fr_sub_f8(rx, x_sum);`);
     apply.push(`                var ry = fr_sub_f8(xd, rx);`);
     apply.push(`                ry = fr_sub_f8(montgomery_product_f8(lam, ry), yd);`);
     apply.push(`                store_x(dst, M_RED, rx);`);
@@ -846,9 +861,6 @@ ${packLines.join('\n')}
     apply.push(`                store_y(dst, M_RED, load_y(src, M_RED));`);
     apply.push(`                is_present[dst] = 1u;`);
     apply.push(`            }`);
-    apply.push(`        }`);
-    apply.push(`        if (k > 0u) {`);
-    apply.push(`            inv_acc = montgomery_product_f8(inv_acc, den);`);
     apply.push(`        }`);
     apply.push(`    }`);
     const dec = this.decoupledPackUnpackWgsl();
