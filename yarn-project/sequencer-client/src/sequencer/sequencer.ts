@@ -1,5 +1,4 @@
 import { getKzg } from '@aztec/blob-lib';
-import { MIN_PER_BLOCK_ALLOCATION_MULTIPLIER } from '@aztec/constants';
 import { type EpochCache, PROPOSER_PIPELINING_SLOT_OFFSET } from '@aztec/epoch-cache';
 import { NoCommitteeError, type RollupContract } from '@aztec/ethereum/contracts';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
@@ -198,19 +197,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       checkpointProposalPrepareTime: timetable.checkpointProposalPrepareTime,
       maxNumberOfBlocks,
     });
-
-    if (timetable.isClampedByLocalBudgets()) {
-      // The default cap is intentionally above what most geometries can achieve, so clamping it to the local
-      // budgets is expected and not worth warning about; an explicitly configured network value is.
-      const logFn =
-        this.config.maxBlocksPerCheckpoint === DEFAULT_MAX_BLOCKS_PER_CHECKPOINT
-          ? this.log.debug.bind(this.log)
-          : this.log.warn.bind(this.log);
-      logFn(`Network maxBlocksPerCheckpoint clamped down by local operational budgets`, {
-        networkMaxBlocksPerCheckpoint: this.config.maxBlocksPerCheckpoint,
-        locallyAchievableBlocksPerCheckpoint: timetable.locallyAchievableBlocksPerCheckpoint,
-      });
-    }
 
     this.assertConfigMeetsNetworkTxLimits(config, maxNumberOfBlocks);
 
