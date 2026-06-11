@@ -167,6 +167,8 @@ const gpuKnobs: MsmConfig = (() => {
     halveCap: optInt('halve_cap'),
     halveBa4Floor: optInt('halve_ba4floor'),
     earlyExit: q.get('early_exit') === '1' || undefined,
+    // halve_stop=0 (raw post-walker arena) is meaningful — optInt rejects 0.
+    halveStop: q.get('halve_stop') !== null ? Math.max(0, Number(q.get('halve_stop'))) : undefined,
     reduceCostWeight: optNum('reduce_cost_weight'),
     maxCLo: optInt('max_clo'),
     forceSplit: (() => {
@@ -775,6 +777,22 @@ function debugStagedPartials(
     L.push(aff.infinity ? { x: 0n, y: 0n } : { x: aff.x, y: aff.y });
   }
   const js = hostWindowCombine(L, windowCs);
+  // Per-window FNV-1a over the raw record bytes: one 8-hex digest per
+  // window, comparable across devices/runs (and across halve_stop depths
+  // for the bisection dumps, where records are raw arena slots).
+  {
+    const hashes: string[] = [];
+    for (let w = 0; w < numWindows; w++) {
+      let h = 0x811c9dc5;
+      for (let i = w * partials * 96; i < (w + 1) * partials * 96; i++) {
+        h = Math.imul(h ^ staged[i], 0x01000193);
+      }
+      hashes.push((h >>> 0).toString(16).padStart(8, '0'));
+    }
+    for (let w = 0; w < numWindows; w += 8) {
+      log('info', `[ee-debug] h${String(w).padStart(2, '0')}: ${hashes.slice(w, w + 8).join(' ')}`);
+    }
+  }
   log('info', `[ee-debug] records=${numWindows}x${partials} present=${present} badCoords=${badCoords}`);
   log('info', `[ee-debug] js.x     = 0x${js.x.toString(16)}`);
   log('info', `[ee-debug] native.x = 0x${nativeXy.x.toString(16)}`);

@@ -463,6 +463,12 @@ export interface MsmConfig {
    *  native WASM call (finish_and_combine_windows) on the readback bytes.
    *  Requires halvingReduce. */
   earlyExit?: boolean;
+  /** Debug (depth bisection): dispatch only the first N wide halving depths,
+   *  then run the finisher pipeline in DUMP mode — it stages each window's
+   *  raw W-region slots 0..finisherDepth instead of reducing, so the staged
+   *  readback is the arena state after N depths (diffable across devices).
+   *  Requires halvingReduce + earlyExit. */
+  halveStop?: number;
   /**
    * Test hook (mirrors the C++ VAR_WINDOW_FORCE_SPLIT env var): force a split at
    * `[b_star, c_lo, c_hi]`, bypassing the cost model. Requires {@link splitC}.
@@ -2006,6 +2012,8 @@ export class MsmV2 {
   private halveCap = 256;
   private halveBa4Floor?: number;
   private earlyExitMode = false;
+  private halveStopAfter?: number;
+  private halveArraysDumpBind?: GPUBindGroup;
   private halveSchedule?: HalvingSchedule;
   private halveBa8Pipe?: GPUComputePipeline;
   private halveBa4Pipe?: GPUComputePipeline;
@@ -2511,6 +2519,7 @@ export class MsmV2 {
     m.halveCap = config?.halveCap ?? 64;
     m.halveBa4Floor = config?.halveBa4Floor;
     m.earlyExitMode = (config?.earlyExit ?? false) && (config?.halvingReduce ?? false);
+    m.halveStopAfter = m.earlyExitMode ? config?.halveStop : undefined;
     m.forceSplit = config?.forceSplit;
     m.reduceCostWeight = config?.reduceCostWeight ?? 4;
     m.maxCLo = config?.maxCLo ?? 0;
@@ -4730,6 +4739,24 @@ export class MsmV2 {
         hbuf,
         this.halveStageBuf,
       ]);
+      if (this.halveStopAfter !== undefined) {
+        // Depth-bisection dump bind: lparams.w = 1 puts the finisher in dump
+        // mode; the z-source flag reflects whether zinit ran within the
+        // first halveStopAfter depths (slots are still affine before it).
+        const ijDump = this.halveZInitAt >= 0 && this.halveZInitAt < this.halveStopAfter ? 1 : 0;
+        const hlpDump = ubuf(
+          new Uint32Array([sched.finisherDepth, ijDump, Math.log2(strideB), 1]),
+        );
+        this.halveArraysDumpBind = mkBind(this.halveStageLayout!, [
+          redBuf,
+          redZBuf,
+          isPresentBuf,
+          hcparams,
+          hlpDump,
+          hbuf,
+          this.halveStageBuf,
+        ]);
+      }
       if (this.halveZInitAt >= 0) {
         const zInitParams = ubuf(new Uint32Array([RED_M, 0, 0, 0]));
         this.halveZInitBind = mkBind(this.zInitLayout, [isPresentBuf, redZBuf, zInitParams]);
@@ -5667,7 +5694,11 @@ export class MsmV2 {
       // batch-affine 8/4 pairs per thread while saturated, Jacobian pairs
       // once thin (z-plane seeded just before the first Jacobian depth) —
       // then the per-window finisher and the shared jac-finalize.
-      for (let i = 0; i < this.halveDepthDispatch.length; i++) {
+      const depthCount =
+        this.halveStopAfter !== undefined
+          ? Math.min(this.halveStopAfter, this.halveDepthDispatch.length)
+          : this.halveDepthDispatch.length;
+      for (let i = 0; i < depthCount; i++) {
         if (i === this.halveZInitAt && this.halveZInitBind) {
           setPhase('reduce_zinit');
           dispatch(this.zInitPipe, this.halveZInitBind, Math.ceil(this.redM / WGI), 1);
@@ -5678,7 +5709,7 @@ export class MsmV2 {
       }
       dispatch(
         this.halveFinishArraysPipe,
-        this.halveArraysBind!,
+        this.halveStopAfter !== undefined ? this.halveArraysDumpBind! : this.halveArraysBind!,
         (this.halveSchedule?.finisherDepth ?? 0) + 1,
         this.numWindows,
       );
