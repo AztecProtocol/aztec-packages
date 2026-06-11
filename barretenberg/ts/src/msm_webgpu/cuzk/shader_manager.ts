@@ -398,7 +398,7 @@ export class ShaderManager {
     return {
       p8_consts: words8(this.p).map((val, idx) => ({ idx, val, val2: twop8[idx] })),
       r8_csv: words8Csv(this.r),
-      f8_words: [0, 1, 2, 3, 4, 5, 6, 7].map(i => ({ i })),
+      f8_words: [0, 1, 2, 3, 4, 5, 6, 7].map(i => ({ i, mid: i > 0 && i < 7 })),
     };
   }
 
