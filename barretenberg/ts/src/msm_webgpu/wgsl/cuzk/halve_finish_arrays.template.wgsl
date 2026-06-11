@@ -10,15 +10,14 @@
 {{> field8_funcs }}
 
 // Halving-reduction finisher, pass 1 of 2: one small workgroup per
-// (window, array) — grid x = array, y = window — with ZERO workgroup
-// memory: the trees fold IN PLACE in global memory (the arena slots the
-// values already occupy), ordered by storageBarrier() between unrolled
-// steps, so occupancy is bounded only by thread slots. Carry workgroups
-// tree-reduce their L_f values and apply the carry's power-of-two constant
-// ((r − a) doublings, concurrent across workgroups); the total lands on
-// the array's home slot — which IS the staging slot pass 2 reads. The
-// weighted-array workgroup (a = 0) continues the halving recursion inside
-// its own L_f-slot region with a lane-0 mini-Horner.
+// (window, array) — grid x = array, y = window. The region's L_f slots are
+// loaded into workgroup memory, tree-reduced there with workgroupBarrier()
+// between rolled steps, and the total is written back to the array's home
+// slot — which IS the staging slot pass 2 reads. Carry workgroups apply
+// the carry's power-of-two constant ((r − a) doublings, concurrent across
+// workgroups); the weighted-array workgroup (a = 0) continues the halving
+// recursion inside its region with a lane-0 Horner over the internal
+// carries.
 //
 // All arithmetic is COMPLETE (z == 0 absence, equal-x doubling, negation
 // → infinity). Affine-entry variants synthesize z from is_present exactly
@@ -164,20 +163,28 @@ fn gstore(idx: u32, v: Jac) {
     store_z(idx, v.z);
 }
 
-// Load a slot, synthesizing z from the presence flag when the slot is an
-// untouched original (og — affine-entry runs only); written slots always
-// carry z in red_z.
-fn gload_any(idx: u32, og: bool) -> Jac {
-    var z: array<u32, 8>;
-    if (og) {
-        z = array<u32, 8>(0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u);
-        if (is_present[idx] != 0u) {
-            z = get_r_f8();
-        }
-    } else {
-        z = load_zp(idx);
+// Workgroup-shared mirror of the region's Lf slots: the cooperative tree
+// synchronizes through workgroup memory + workgroupBarrier() (storage-buffer
+// writes are NOT reliably visible across a workgroup on mobile drivers).
+// Flat SCALAR u32 element type — every phone-proven kernel stores scalars
+// in workgroup memory; composite array<u32,8> copies at dynamic LDS indices
+// are untrodden driver ground.
+var<workgroup> sh: array<u32, {{ sh_words }}>;
+
+fn sload(i: u32) -> Jac {
+    let b = 24u * i;
+    return Jac(
+        array<u32, 8>(sh[b], sh[b + 1u], sh[b + 2u], sh[b + 3u], sh[b + 4u], sh[b + 5u], sh[b + 6u], sh[b + 7u]),
+        array<u32, 8>(sh[b + 8u], sh[b + 9u], sh[b + 10u], sh[b + 11u], sh[b + 12u], sh[b + 13u], sh[b + 14u], sh[b + 15u]),
+        array<u32, 8>(sh[b + 16u], sh[b + 17u], sh[b + 18u], sh[b + 19u], sh[b + 20u], sh[b + 21u], sh[b + 22u], sh[b + 23u]));
+}
+fn sstore(i: u32, v: Jac) {
+    let b = 24u * i;
+    for (var c = 0u; c < 8u; c = c + 1u) {
+        sh[b + c] = v.x[c];
+        sh[b + 8u + c] = v.y[c];
+        sh[b + 16u + c] = v.z[c];
     }
-    return Jac(load_x(idx, cparams.x), load_y(idx, cparams.x), z);
 }
 
 @compute

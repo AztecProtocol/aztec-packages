@@ -951,29 +951,48 @@ ${packLines.join('\n')}
     const df = finisherDepth;
     const Lf = B >> df;
     const workgroup_size = Math.max(32, Lf >> 1);
+    if (Lf * 96 > 24 * 1024) {
+      throw new Error(`gen_halve_finish_arrays_shader: Lf (${Lf}) needs ${Lf * 96}B of workgroup memory`);
+    }
     // Rolled emission, ONE jac_cadd and ONE jac_cdbl callsite in the whole
     // module: fully inlining a cadd per baked tree depth/branch produced
     // multi-hundred-montmul bodies that crash the Adreno/Mali shader
-    // compilers. All geometry (df, Lf, r, affine-entry) is read from
-    // lparams/hsched at runtime so the loop bounds stay opaque to the
-    // driver's unroller; `inputsJac` no longer changes the emitted text.
-    // Per iteration: an optional lane-0 double segment (the W workgroup's
-    // Horner pre-double on the accumulator slot, or one step of a carry
-    // workgroup's power-of-two chain), a barrier, then the pair-add segment
-    // (the in-place trees, or one Horner add), and a second barrier.
+    // compilers. The tree lives in WORKGROUP memory with workgroupBarrier()
+    // — the pattern every phone-proven cooperative kernel here uses; the
+    // global-in-place variant synchronized with storageBarrier() returns
+    // non-deterministic garbage on Adreno (storage writes are not made
+    // visible across the workgroup). The region's Lf slots are loaded once
+    // up front (z synthesized from is_present for affine-entry runs — at
+    // entry every slot is still an original), reduced in shared, and only
+    // the home slot is written back.
     //
-    // W workgroup (a == 0) iteration plan: lgLf tree depths, then lgLf
-    // Horner steps over the internal carries using carry_1's home slot
-    // (base + Lf/2) as the accumulator: steps j < lgLf-1 double the
-    // accumulator then add carry_{j+2}; the last step adds the accumulator
-    // into the W root. Carry workgroups: lgLf tree depths over their
-    // region, then (r - a) doubles of the home slot.
+    // Loop bounds derive from lparams (uniform) so driver unrollers cannot
+    // expand the bodies. W workgroup (a == 0) iteration plan: lgLf tree
+    // depths, then lgLf Horner steps over the internal carries using
+    // carry_1's home slot (Lf/2) as the accumulator: steps j < lgLf-1
+    // double the accumulator then add carry_{j+2}; the last step adds the
+    // accumulator into the W root (slot 0). Carry workgroups: lgLf tree
+    // depths, then (r - a) doubles of slot 0.
     const body: string[] = [];
     body.push(`    let df = lparams.x;`);
     body.push(`    let ij = lparams.y != 0u;`);
     body.push(`    let r = lparams.z;`);
     body.push(`    let lgLf = r - df;`);
     body.push(`    let Lf = 1u << lgLf;`);
+    body.push(`    for (var i = t; i < Lf; i = i + WG) {`);
+    body.push(`        let g = base + off + i;`);
+    body.push(`        var z: array<u32, 8>;`);
+    body.push(`        if (ij) {`);
+    body.push(`            z = load_zp(g);`);
+    body.push(`        } else {`);
+    body.push(`            z = array<u32, 8>(0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u);`);
+    body.push(`            if (is_present[g] != 0u) {`);
+    body.push(`                z = get_r_f8();`);
+    body.push(`            }`);
+    body.push(`        }`);
+    body.push(`        sstore(i, Jac(load_x(g, M_RED), load_y(g, M_RED), z));`);
+    body.push(`    }`);
+    body.push(`    workgroupBarrier();`);
     body.push(`    let iters = lgLf + select(r - a, lgLf, a == 0u);`);
     body.push(`    let NOSLOT = 0xffffffffu;`);
     body.push(`    for (var it = 0u; it < iters; it = it + 1u) {`);
@@ -981,19 +1000,18 @@ ${packLines.join('\n')}
     body.push(`        if (it >= lgLf && t == 0u) {`);
     body.push(`            if (a == 0u) {`);
     body.push(`                if ((it - lgLf) + 1u < lgLf) {`);
-    body.push(`                    dslot = base + (Lf >> 1u);`);
+    body.push(`                    dslot = Lf >> 1u;`);
     body.push(`                }`);
     body.push(`            } else {`);
-    body.push(`                dslot = base + off;`);
+    body.push(`                dslot = 0u;`);
     body.push(`            }`);
     body.push(`        }`);
     body.push(`        if (dslot != NOSLOT) {`);
-    body.push(`            gstore(dslot, jac_cdbl(gload_any(dslot, false)));`);
+    body.push(`            sstore(dslot, jac_cdbl(sload(dslot)));`);
     body.push(`        }`);
-    body.push(`        storageBarrier();`);
+    body.push(`        workgroupBarrier();`);
     body.push(`        var di = 0u;`);
     body.push(`        var si = 0u;`);
-    body.push(`        var og = false;`);
     body.push(`        var valid = false;`);
     body.push(`        if (it < lgLf) {`);
     body.push(`            let k = it;`);
@@ -1001,42 +1019,41 @@ ${packLines.join('\n')}
     body.push(`            let half = 1u << log2half;`);
     body.push(`            if (a == 0u) {`);
     body.push(`                // Sub-arrays this depth, in slot order: carries 1..k`);
-    body.push(`                // (idx 0..k-1, carry idx+1 at offset Lf >> (idx+1) —`);
-    body.push(`                // idx k-1 is carry k's FIRST halving, originals when`);
-    body.push(`                // k == 1), then W (idx == k, offset 0).`);
+    body.push(`                // (idx 0..k-1, carry idx+1 at offset Lf >> (idx+1)),`);
+    body.push(`                // then W (idx == k, offset 0).`);
     body.push(`                if (t < (k + 1u) * half) {`);
     body.push(`                    let idx = t >> log2half;`);
     body.push(`                    let rem = t & (half - 1u);`);
-    body.push(`                    di = base + select(Lf >> (idx + 1u), 0u, idx == k) + rem;`);
+    body.push(`                    di = select(Lf >> (idx + 1u), 0u, idx == k) + rem;`);
     body.push(`                    si = di + half;`);
-    body.push(`                    og = !ij && (k == 0u || (k == 1u && idx == 0u));`);
     body.push(`                    valid = true;`);
     body.push(`                }`);
     body.push(`            } else if (t < half) {`);
-    body.push(`                di = base + off + t;`);
+    body.push(`                di = t;`);
     body.push(`                si = di + half;`);
-    body.push(`                og = !ij && k == 0u;`);
     body.push(`                valid = true;`);
     body.push(`            }`);
     body.push(`        } else if (a == 0u && t == 0u && lgLf > 0u) {`);
     body.push(`            let j = it - lgLf;`);
-    body.push(`            let aslot = base + (Lf >> 1u);`);
+    body.push(`            let aslot = Lf >> 1u;`);
     body.push(`            if (j + 1u < lgLf) {`);
     body.push(`                di = aslot;`);
-    body.push(`                si = base + (Lf >> (j + 2u));`);
+    body.push(`                si = Lf >> (j + 2u);`);
     body.push(`            } else {`);
-    body.push(`                di = base;`);
+    body.push(`                di = 0u;`);
     body.push(`                si = aslot;`);
     body.push(`            }`);
     body.push(`            valid = true;`);
     body.push(`        }`);
     body.push(`        if (valid) {`);
-    body.push(`            gstore(di, jac_cadd(gload_any(di, og), gload_any(si, og)));`);
+    body.push(`            sstore(di, jac_cadd(sload(di), sload(si)));`);
     body.push(`        }`);
-    body.push(`        storageBarrier();`);
+    body.push(`        workgroupBarrier();`);
     body.push(`    }`);
     body.push(`    if (t == 0u) {`);
-    body.push(`        stage_set(w * (df + 1u) + a, gload_any(base + off, false));`);
+    body.push(`        let S = sload(0u);`);
+    body.push(`        gstore(base + off, S);`);
+    body.push(`        stage_set(w * (df + 1u) + a, S);`);
     body.push(`    }`);
     const dec = this.decoupledPackUnpackWgsl();
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
@@ -1044,6 +1061,7 @@ ${packLines.join('\n')}
       halve_finish_arrays_shader,
       {
         workgroup_size,
+        sh_words: Lf * 24,
         f1_body: body.join('\n'),
         p8_consts,
         r8_csv,
@@ -1086,30 +1104,36 @@ ${packLines.join('\n')}
     }
     const n = finisherDepth + 1;
     const workgroup_size = Math.max(8, Math.ceil(n / 2));
-    // Staged slot j sits at arena offset 0 (j == 0) or B >> j; tree-pair the
-    // slots in place over ascending steps — slot i consumes slot i+step only
-    // after everything below i+step has merged in. ROLLED: the slot count
-    // comes from lparams.x and B from lparams.z (uniforms — the
-    // storageBarrier() needs uniform control flow and the driver's unroller
-    // must not see a constant bound), and the module has ONE jac_cadd
-    // callsite — baking a cadd per pair crashes the Adreno/Mali shader
-    // compilers.
+    // Staged slot j sits at arena offset 0 (j == 0) or B >> j. The slots are
+    // loaded into WORKGROUP memory and tree-paired there over ascending
+    // steps (slot i consumes slot i+step only after everything below i+step
+    // has merged in), synchronized with workgroupBarrier() — storage-buffer
+    // writes are not reliably visible across a workgroup on mobile drivers.
+    // ROLLED with the slot count from lparams.x (uniform bound, so driver
+    // unrollers can't expand it) and ONE jac_cadd callsite — baking a cadd
+    // per pair crashes the Adreno/Mali shader compilers. Lane 0 writes the
+    // root back to the arena base; the normalize below reads it from there
+    // in the same invocation.
     const body: string[] = [];
     body.push(`    let n = lparams.x + 1u;`);
     body.push(`    let B = 1u << lparams.z;`);
+    body.push(`    for (var i = t; i < n; i = i + WG) {`);
+    body.push(`        let g = base + select(B >> i, 0u, i == 0u);`);
+    body.push(`        sstore(i, gload(g));`);
+    body.push(`    }`);
+    body.push(`    workgroupBarrier();`);
     body.push(`    var step = 1u;`);
     body.push(`    loop {`);
     body.push(`        if (step >= n) { break; }`);
     body.push(`        let i = 2u * step * t;`);
     body.push(`        if (i + step < n) {`);
-    body.push(`            let di = base + select(B >> i, 0u, i == 0u);`);
-    body.push(`            let si = base + (B >> (i + step));`);
-    body.push(`            gstore(di, jac_cadd(gload(di), gload(si)));`);
+    body.push(`            sstore(i, jac_cadd(sload(i), sload(i + step)));`);
     body.push(`        }`);
-    body.push(`        storageBarrier();`);
+    body.push(`        workgroupBarrier();`);
     body.push(`        step = step << 1u;`);
     body.push(`    }`);
     body.push(`    if (t == 0u) {`);
+    body.push(`        gstore(base, sload(0u));`);
     body.push(`        is_present[base] = u32(!fr_is_zero_f8(load_zp(base)));`);
     body.push(`    }`);
     const dec = this.decoupledPackUnpackWgsl();
@@ -1120,6 +1144,7 @@ ${packLines.join('\n')}
       halve_finish_root_shader,
       {
         workgroup_size,
+        sh_words: n * 24,
         inv_fn,
         f2_body: body.join('\n'),
         p8_consts,

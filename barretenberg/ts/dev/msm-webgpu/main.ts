@@ -779,8 +779,16 @@ function debugStagedPartials(
   log('info', `[ee-debug] js.x     = 0x${js.x.toString(16)}`);
   log('info', `[ee-debug] native.x = 0x${nativeXy.x.toString(16)}`);
   log(js.x === nativeXy.x ? 'ok' : 'err', `[ee-debug] js ${js.x === nativeXy.x ? '==' : '!='} native`);
-  for (let w = 0; w < Math.min(3, numWindows); w++) {
-    log('info', `[ee-debug] win${w}.x = 0x${L[w].x.toString(16).slice(0, 16)}`);
+  // Compact per-window digest (12 hex of x, "------------" = absent): lets two
+  // runs / two devices be diffed line-by-line to localize wrong workgroups.
+  for (let w = 0; w < numWindows; w += 4) {
+    const cells = [];
+    for (let i = w; i < Math.min(w + 4, numWindows); i++) {
+      cells.push(
+        L[i].x === 0n && L[i].y === 0n ? '------------' : L[i].x.toString(16).padStart(64, '0').slice(0, 12),
+      );
+    }
+    log('info', `[ee-debug] w${String(w).padStart(2, '0')}: ${cells.join(' ')}`);
   }
 }
 

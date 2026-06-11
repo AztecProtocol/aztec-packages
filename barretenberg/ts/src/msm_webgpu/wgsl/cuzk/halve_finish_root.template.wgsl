@@ -13,10 +13,10 @@
 
 // Halving-reduction finalize: one small workgroup per window tree-reduces
 // the staged points (unscaled weighted partial at the arena base, scaled
-// carry totals at base + B>>j) with COMPLETE additions — global in-place
-// over a baked offset pairing, storageBarrier() between rounds, no
-// workgroup memory — then lane 0 normalises the root to affine in the
-// same dispatch (replacing the separate jac-finalize pass).
+// carry totals at base + B>>j) with COMPLETE additions in workgroup
+// memory, workgroupBarrier() between rolled rounds — then lane 0 writes
+// the root back and normalises it to affine in the same dispatch
+// (replacing the separate jac-finalize pass).
 
 const PG: u32 = 2u;
 const WG: u32 = {{ workgroup_size }}u;
@@ -129,6 +129,30 @@ fn gstore(idx: u32, v: Jac) {
     store_x(idx, cparams.x, v.x);
     store_y(idx, cparams.x, v.y);
     store_z(idx, v.z);
+}
+
+// Workgroup-shared staging for the per-window tree: cooperative reduction
+// synchronizes through workgroup memory + workgroupBarrier() (storage-buffer
+// writes are NOT reliably visible across a workgroup on mobile drivers).
+// Flat SCALAR u32 element type — every phone-proven kernel stores scalars
+// in workgroup memory; composite array<u32,8> copies at dynamic LDS indices
+// are untrodden driver ground.
+var<workgroup> sh: array<u32, {{ sh_words }}>;
+
+fn sload(i: u32) -> Jac {
+    let b = 24u * i;
+    return Jac(
+        array<u32, 8>(sh[b], sh[b + 1u], sh[b + 2u], sh[b + 3u], sh[b + 4u], sh[b + 5u], sh[b + 6u], sh[b + 7u]),
+        array<u32, 8>(sh[b + 8u], sh[b + 9u], sh[b + 10u], sh[b + 11u], sh[b + 12u], sh[b + 13u], sh[b + 14u], sh[b + 15u]),
+        array<u32, 8>(sh[b + 16u], sh[b + 17u], sh[b + 18u], sh[b + 19u], sh[b + 20u], sh[b + 21u], sh[b + 22u], sh[b + 23u]));
+}
+fn sstore(i: u32, v: Jac) {
+    let b = 24u * i;
+    for (var c = 0u; c < 8u; c = c + 1u) {
+        sh[b + c] = v.x[c];
+        sh[b + 8u + c] = v.y[c];
+        sh[b + 16u + c] = v.z[c];
+    }
 }
 
 @compute
