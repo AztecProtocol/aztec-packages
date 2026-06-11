@@ -1,6 +1,5 @@
-#include "barretenberg/bbapi/bbapi_chonk.hpp"
+#include "barretenberg/bbapi/bbapi_handlers.hpp"
 #include "barretenberg/bbapi/bbapi_shared.hpp"
-#include "barretenberg/chonk/chonk_proof.hpp"
 #include "barretenberg/chonk/private_execution_steps.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/srs/global_crs.hpp"
@@ -82,27 +81,33 @@ class ChonkPinnedIvcInputsTest : public ::testing::Test {
         auto raw_steps = bb::PrivateExecutionStepRaw::load_and_decompress(inputs_path);
         ASSERT_FALSE(raw_steps.empty()) << "no execution steps in " << inputs_path;
 
-        const auto hiding_bytecode = raw_steps.back().bytecode;
         const auto hiding_vk = raw_steps.back().vk;
 
         bb::bbapi::BBApiRequest request;
         request.vk_policy = bb::bbapi::VkPolicy::DEFAULT;
 
-        bb::bbapi::ChonkStart{ .num_circuits = static_cast<uint32_t>(raw_steps.size()) }.execute(request);
+        bb::bbapi::handle_chonk_start(request,
+                                      bb::bbapi::wire::ChonkStart{
+                                          .num_circuits = static_cast<uint32_t>(raw_steps.size()),
+                                      });
 
         for (auto& step : raw_steps) {
-            bb::bbapi::ChonkLoad{
-                .circuit = { .name = std::move(step.function_name),
-                             .bytecode = std::move(step.bytecode),
-                             .verification_key = std::move(step.vk) }
-            }.execute(request);
-            bb::bbapi::ChonkAccumulate{ .witness = std::move(step.witness) }.execute(request);
+            bb::bbapi::handle_chonk_load(request,
+                                         bb::bbapi::wire::ChonkLoad{
+                                             .circuit = { .name = std::move(step.function_name),
+                                                          .bytecode = std::move(step.bytecode),
+                                                          .verification_key = std::move(step.vk) },
+                                         });
+            bb::bbapi::handle_chonk_accumulate(request,
+                                               bb::bbapi::wire::ChonkAccumulate{
+                                                   .witness = std::move(step.witness),
+                                               });
         }
 
-        auto prove_response = bb::bbapi::ChonkProve{}.execute(request);
+        auto prove_response = bb::bbapi::handle_chonk_prove(request, bb::bbapi::wire::ChonkProve{});
 
-        auto verify_response =
-            bb::bbapi::ChonkVerify{ .proof = std::move(prove_response.proof), .vk = hiding_vk }.execute();
+        auto verify_response = bb::bbapi::handle_chonk_verify(
+            request, bb::bbapi::wire::ChonkVerify{ .proof = std::move(prove_response.proof), .vk = hiding_vk });
         EXPECT_TRUE(verify_response.valid) << "ChonkVerify rejected " << flow_dir.filename();
     }
 };

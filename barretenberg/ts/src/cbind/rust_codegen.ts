@@ -537,14 +537,7 @@ impl<B: Backend> BarretenbergApi<B> {
 
 ${apiMethods}
 
-    /// Shutdown backend gracefully
-    pub fn shutdown(&mut self) -> Result<()> {
-        let cmd = Command::Shutdown(Shutdown::new());
-        let _ = self.execute(cmd)?;
-        self.backend.destroy()
-    }
-
-    /// Destroy backend without shutdown command
+    /// Destroy backend resources
     pub fn destroy(&mut self) -> Result<()> {
         self.backend.destroy()
     }

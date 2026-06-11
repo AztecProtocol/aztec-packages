@@ -2,7 +2,7 @@ import { createRequire } from 'module';
 import { spawn, ChildProcess } from 'child_process';
 import { openSync, closeSync, unlinkSync } from 'fs';
 import { IMsgpackBackendSync } from '../interface.js';
-import { findNapiBinary, findPackageRoot } from './platform.js';
+import { findNapiBinary } from './platform.js';
 import { threadId } from 'worker_threads';
 
 let instanceCounter = 0;
@@ -47,7 +47,7 @@ export class BarretenbergNativeShmSyncBackend implements IMsgpackBackendSync {
     // Try loading
     let addon: any = null;
     try {
-      const require = createRequire(findPackageRoot()!);
+      const require = createRequire(addonPath!);
       addon = require(addonPath!);
     } catch (err) {
       // Addon not built yet or not available
@@ -93,7 +93,7 @@ export class BarretenbergNativeShmSyncBackend implements IMsgpackBackendSync {
       }
     }
 
-    // Spawn bb process with shared memory mode (SPSC-only, no max-clients needed)
+    // Spawn bb process with shared memory mode.
     const args = ['msgpack', 'run', '--input', `${shmName}.shm`, '--request-ring-size', `${1024 * 1024 * 4}`];
     const bbProcess = spawn(bbBinaryPath, args, {
       stdio: ['ignore', logFd ?? 'ignore', logFd ?? 'ignore'],
@@ -143,7 +143,6 @@ export class BarretenbergNativeShmSyncBackend implements IMsgpackBackendSync {
         }
 
         try {
-          // Create NAPI client (SPSC-only, no max_clients needed)
           client = new addon.MsgpackClient(shmName);
           break; // Success!
         } catch (err: any) {

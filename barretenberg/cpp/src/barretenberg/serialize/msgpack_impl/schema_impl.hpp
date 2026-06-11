@@ -1,27 +1,33 @@
 #pragma once
 
+#include "barretenberg/serialize/msgpack.hpp"
+#include "check_memory_span.hpp"
+#include "concepts.hpp"
 #include "schema_name.hpp"
+
 #include <array>
 #include <concepts>
+#include <map>
 #include <memory>
+#include <optional>
+#include <set>
+#include <sstream>
 #include <string>
+#include <tuple>
+#include <variant>
+#include <vector>
 
 struct MsgpackSchemaPacker;
 
-// Forward declare for MsgpackSchemaPacker
 template <typename T> inline void _msgpack_schema_pack(MsgpackSchemaPacker& packer, const T& obj);
 
-/**
- * Define a serialization schema based on compile-time information about a type being serialized.
- * This is then consumed by typescript to make bindings.
- */
 struct MsgpackSchemaPacker : msgpack::packer<msgpack::sbuffer> {
     MsgpackSchemaPacker(msgpack::sbuffer& stream)
         : packer<msgpack::sbuffer>(stream)
     {}
-    // For tracking emitted types
+
     std::set<std::string> emitted_types;
-    // Returns if already was emitted
+
     bool set_emitted(const std::string& type)
     {
         if (emitted_types.find(type) == emitted_types.end()) {
@@ -31,82 +37,55 @@ struct MsgpackSchemaPacker : msgpack::packer<msgpack::sbuffer> {
         return true;
     }
 
-    /**
-     * Pack a type indicating it is an alias of a certain msgpack type
-     * Packs in the form ["alias", [schema_name, msgpack_name]]
-     * @param schema_name The CPP type.
-     * @param msgpack_name The msgpack type.
-     */
     void pack_alias(const std::string& schema_name, const std::string& msgpack_name)
     {
-        // We will pack a size 2 tuple
         pack_array(2);
         pack("alias");
-        // That has a size 2 tuple as its 2nd arg
         pack_array(2);
         pack(schema_name);
         pack(msgpack_name);
     }
 
-    /**
-     * Pack the schema of a given object.
-     * @tparam T the object's type.
-     * @param obj the object.
-     */
     template <typename T> void pack_schema(const T& obj) { _msgpack_schema_pack(*this, obj); }
 
-    // Recurse over any templated containers
-    // Outputs e.g. ['vector', ['sub-type']]
     template <typename... Args> void pack_template_type(const std::string& schema_name)
     {
-        // We will pack a size 2 tuple
         pack_array(2);
         pack(schema_name);
         pack_array(sizeof...(Args));
-
-        // Note: if this fails to compile, check first in list of template Arg's
-        // it may need a msgpack_schema_pack specialization (particularly if it doesn't define SERIALIZATION_FIELDS).
-        (_msgpack_schema_pack(*this, *std::make_unique<Args>()), ...); /* pack schemas of all template Args */
+        (_msgpack_schema_pack(*this, *std::make_unique<Args>()), ...);
     }
-    /**
-     * @brief Encode a type that defines msgpack based on its key value pairs.
-     *
-     * @tparam T the msgpack()'able type
-     * @param packer Our special packer.
-     * @param object The object in question.
-     */
+
     template <msgpack_concepts::HasMsgPack T> void pack_with_name(const std::string& type, T const& object)
     {
         if (set_emitted(type)) {
             pack(type);
-            return; // already emitted
+            return;
         }
         msgpack::check_msgpack_usage(object);
-        // Encode as map
         const_cast<T&>(object).msgpack([&](auto&... args) {
             size_t kv_size = sizeof...(args);
-            // Calculate the number of entries in our map (half the size of keys + values, plus the typename)
             pack_map(uint32_t(1 + kv_size / 2));
             pack("__typename");
             pack(type);
-            // Pack the map content based on the args to msgpack
             _schema_pack_map_content(*this, args...);
         });
     }
 };
 
-// Helper for packing (key, value, key, value, ...) arguments
-inline void _schema_pack_map_content(MsgpackSchemaPacker&)
-{
-    // base case
-}
+inline void _schema_pack_map_content(MsgpackSchemaPacker&) {}
 
 namespace msgpack_concepts {
 template <typename T>
 concept SchemaPackable = requires(T value, MsgpackSchemaPacker packer) { msgpack_schema_pack(packer, value); };
+
+template <typename T>
+concept IpcBin32Alias = requires {
+    typename T::IPC_CODEGEN_BIN32_ALIAS;
+    T::MSGPACK_SCHEMA_NAME;
+};
 } // namespace msgpack_concepts
 
-// Helper for packing (key, value, key, value, ...) arguments
 template <typename Value, typename... Rest>
 inline void _schema_pack_map_content(MsgpackSchemaPacker& packer,
                                      std::string key,
@@ -121,31 +100,25 @@ inline void _schema_pack_map_content(MsgpackSchemaPacker& packer,
     _schema_pack_map_content(packer, rest...);
 }
 
+template <msgpack_concepts::IpcBin32Alias T> inline void msgpack_schema_pack(MsgpackSchemaPacker& packer, T const&)
+{
+    packer.pack_alias(T::MSGPACK_SCHEMA_NAME, "bin32");
+}
+
 template <typename T>
-    requires(!msgpack_concepts::HasMsgPackSchema<T> && !msgpack_concepts::HasMsgPack<T>)
+    requires(!msgpack_concepts::HasMsgPackSchema<T> && !msgpack_concepts::HasMsgPack<T> &&
+             !msgpack_concepts::IpcBin32Alias<T>)
 inline void msgpack_schema_pack(MsgpackSchemaPacker& packer, T const& obj)
 {
     packer.pack(msgpack_schema_name(obj));
 }
 
-/**
- * Schema pack base case for types with no special msgpack method.
- * @tparam T the type.
- * @param packer the schema packer.
- */
 template <msgpack_concepts::HasMsgPackSchema T>
 inline void msgpack_schema_pack(MsgpackSchemaPacker& packer, T const& obj)
 {
     obj.msgpack_schema(packer);
 }
 
-/**
- * @brief Encode a type that defines msgpack based on its key value pairs.
- *
- * @tparam T the msgpack()'able type
- * @param packer Our special packer.
- * @param object The object in question.
- */
 template <msgpack_concepts::HasMsgPack T>
     requires(!msgpack_concepts::HasMsgPackSchema<T>)
 inline void msgpack_schema_pack(MsgpackSchemaPacker& packer, T const& object)
@@ -154,9 +127,6 @@ inline void msgpack_schema_pack(MsgpackSchemaPacker& packer, T const& object)
     packer.pack_with_name(type, object);
 }
 
-/**
- * @brief Helper method for better error reporting. Clang does not give the best errors for argument lists.
- */
 template <typename T> inline void _msgpack_schema_pack(MsgpackSchemaPacker& packer, const T& obj)
 {
     static_assert(msgpack_concepts::SchemaPackable<T>,
@@ -194,27 +164,16 @@ template <typename T> inline void msgpack_schema_pack(MsgpackSchemaPacker& packe
     packer.pack_template_type<T>("shared_ptr");
 }
 
-// Outputs e.g. ['array', ['array-type', 'N']]
 template <typename T, std::size_t N>
 inline void msgpack_schema_pack(MsgpackSchemaPacker& packer, std::array<T, N> const&)
 {
-    // We will pack a size 2 tuple
     packer.pack_array(2);
     packer.pack("array");
-    // That has a size 2 tuple as its 2nd arg
-    packer.pack_array(2); /* param list format for consistency*/
-    // To avoid WASM problems with large stack objects, we use a heap allocation.
-    // Small note: This works because make_unique goes of scope only when the whole line is done.
+    packer.pack_array(2);
     _msgpack_schema_pack(packer, *std::make_unique<T>());
     packer.pack(N);
 }
 
-/**
- * @brief Print's an object's derived msgpack schema as a string.
- *
- * @param obj The object to print schema of.
- * @return std::string The schema as a string.
- */
 inline std::string msgpack_schema_to_string(const auto& obj)
 {
     msgpack::sbuffer output;

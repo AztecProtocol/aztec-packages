@@ -19,6 +19,7 @@ export NPM_CONFIG_GLOBALCONFIG="$root/ci3/npm/.npmrc"
 
 package_name=$(jq -r '.name' package.json)
 echo_header "publishing $package_name"
+package_dir=$PWD
 
 published_version=$(npm show . version --tag $npm_tag 2>/dev/null | grep -vE '^@' || true)
 
@@ -48,6 +49,9 @@ cd package
 
 # Replace workspace:^ with concrete versions.
 release_prep_package_json $version
+if [ -x "$package_dir/scripts/release_prep_package_json.sh" ]; then
+  "$package_dir/scripts/release_prep_package_json.sh" "$version"
+fi
 
 # Publish from temp dir
 if [ "$dry_run" -eq 1 ]; then

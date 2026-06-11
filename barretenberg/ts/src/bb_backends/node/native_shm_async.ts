@@ -2,7 +2,7 @@ import { createRequire } from 'module';
 import { spawn, ChildProcess } from 'child_process';
 import { openSync, closeSync } from 'fs';
 import { IMsgpackBackendAsync } from '../interface.js';
-import { findNapiBinary, findPackageRoot } from './platform.js';
+import { findNapiBinary } from './platform.js';
 import { threadId } from 'worker_threads';
 
 let instanceCounter = 0;
@@ -82,7 +82,7 @@ export class BarretenbergNativeShmAsyncBackend implements IMsgpackBackendAsync {
     // Try loading
     let addon: any = null;
     try {
-      const require = createRequire(findPackageRoot()!);
+      const require = createRequire(addonPath!);
       addon = require(addonPath!);
     } catch (err) {
       // Addon not built yet or not available

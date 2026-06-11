@@ -409,6 +409,7 @@
         "CC": "$env{WASI_SDK_PREFIX}/bin/clang",
         "CXX": "$env{WASI_SDK_PREFIX}/bin/clang++",
         "CXXFLAGS": "-DBB_VERBOSE -fvisibility=hidden",
+        "LDFLAGS": "--no-wasm-opt",
         "AR": "$env{WASI_SDK_PREFIX}/bin/llvm-ar",
         "RANLIB": "$env{WASI_SDK_PREFIX}/bin/llvm-ranlib"
       },

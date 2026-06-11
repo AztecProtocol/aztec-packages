@@ -2,7 +2,10 @@
 
 #include "barretenberg/api/file_io.hpp"
 #include "barretenberg/api/json_output.hpp"
-#include "barretenberg/bbapi/bbapi_ultra_honk.hpp"
+#include "barretenberg/bbapi/bbapi_handlers.hpp"
+#include "barretenberg/bbapi/bbapi_shared.hpp"
+#include "barretenberg/bbapi/bbapi_wire_convert.hpp"
+#include "barretenberg/bbapi/generated/bb_types.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/get_bytecode.hpp"
 #include "barretenberg/common/map.hpp"
@@ -13,13 +16,13 @@ namespace bb {
 
 namespace {
 
-void write_vk_outputs(const bbapi::CircuitComputeVk::Response& vk_response,
+void write_vk_outputs(const bbapi::wire::CircuitComputeVkResponse& vk_response,
                       const std::filesystem::path& output_dir,
                       const API::Flags& flags)
 {
     if (flags.output_format == "json") {
-        std::string json_content =
-            VkJson::build(vk_response.fields, bytes_to_hex_string(vk_response.hash), flags.scheme);
+        auto fields = bbapi::uint256_vec_from_wire(vk_response.fields);
+        std::string json_content = VkJson::build(fields, bytes_to_hex_string(vk_response.hash), flags.scheme);
         write_file(output_dir / "vk.json", std::vector<uint8_t>(json_content.begin(), json_content.end()));
         info("VK (JSON) saved to ", output_dir / "vk.json");
     } else {
@@ -30,22 +33,26 @@ void write_vk_outputs(const bbapi::CircuitComputeVk::Response& vk_response,
     }
 }
 
-void write_proof_outputs(const bbapi::CircuitProve::Response& prove_response,
+void write_proof_outputs(const bbapi::wire::CircuitProveResponse& prove_response,
                          const std::filesystem::path& output_dir,
                          const API::Flags& flags)
 {
     if (flags.output_format == "json") {
         std::string vk_hash = bytes_to_hex_string(prove_response.vk.hash);
-        std::string proof_json = ProofJson::build(prove_response.proof, vk_hash, flags.scheme);
+        auto proof_domain = bbapi::uint256_vec_from_wire(prove_response.proof);
+        auto pi_domain = bbapi::uint256_vec_from_wire(prove_response.public_inputs);
+        std::string proof_json = ProofJson::build(proof_domain, vk_hash, flags.scheme);
         write_file(output_dir / "proof.json", std::vector<uint8_t>(proof_json.begin(), proof_json.end()));
         info("Proof (JSON) saved to ", output_dir / "proof.json");
 
-        std::string pi_json = PublicInputsJson::build(prove_response.public_inputs, flags.scheme);
+        std::string pi_json = PublicInputsJson::build(pi_domain, flags.scheme);
         write_file(output_dir / "public_inputs.json", std::vector<uint8_t>(pi_json.begin(), pi_json.end()));
         info("Public inputs (JSON) saved to ", output_dir / "public_inputs.json");
     } else {
-        auto public_inputs_buf = to_buffer(prove_response.public_inputs);
-        auto proof_buf = to_buffer(prove_response.proof);
+        auto pi_domain = bbapi::uint256_vec_from_wire(prove_response.public_inputs);
+        auto proof_domain = bbapi::uint256_vec_from_wire(prove_response.proof);
+        auto public_inputs_buf = to_buffer(pi_domain);
+        auto proof_buf = to_buffer(proof_domain);
 
         write_file(output_dir / "public_inputs", public_inputs_buf);
         write_file(output_dir / "proof", proof_buf);
@@ -76,29 +83,28 @@ void UltraHonkAPI::prove(const Flags& flags,
         throw_or_abort("Stdout output is not supported. Please specify an output directory.");
     }
 
-    // Convert flags to ProofSystemSettings
-    bbapi::ProofSystemSettings settings{ .ipa_accumulation = flags.ipa_accumulation,
-                                         .oracle_hash_type = flags.oracle_hash_type,
-                                         .disable_zk = flags.disable_zk };
+    bbapi::wire::ProofSystemSettings settings{ .ipa_accumulation = flags.ipa_accumulation,
+                                               .oracle_hash_type = flags.oracle_hash_type,
+                                               .disable_zk = flags.disable_zk };
 
-    // Read input files
     auto bytecode = get_bytecode(bytecode_path);
     auto witness = get_bytecode(witness_path);
 
-    // Handle VK
     std::vector<uint8_t> vk_bytes;
-
     if (!vk_path.empty() && !flags.write_vk) {
         vk_bytes = read_file(vk_path);
     }
 
-    // Prove
-    auto response = bbapi::CircuitProve{ .circuit = { .name = "circuit",
-                                                      .bytecode = std::move(bytecode),
-                                                      .verification_key = std::move(vk_bytes) },
-                                         .witness = std::move(witness),
-                                         .settings = std::move(settings) }
-                        .execute();
+    bbapi::BBApiRequest request;
+    auto response =
+        bbapi::handle_circuit_prove(request,
+                                    bbapi::wire::CircuitProve{
+                                        .circuit = bbapi::wire::CircuitInput{ .name = "circuit",
+                                                                              .bytecode = std::move(bytecode),
+                                                                              .verification_key = std::move(vk_bytes) },
+                                        .witness = std::move(witness),
+                                        .settings = std::move(settings),
+                                    });
     write_proof_outputs(response, output_dir, flags);
     if (flags.write_vk) {
         write_vk_outputs(response.vk, output_dir, flags);
@@ -138,17 +144,18 @@ bool UltraHonkAPI::verify(const Flags& flags,
         vk_bytes = std::move(vk_content);
     }
 
-    // Convert flags to ProofSystemSettings
-    bbapi::ProofSystemSettings settings{ .ipa_accumulation = flags.ipa_accumulation,
-                                         .oracle_hash_type = flags.oracle_hash_type,
-                                         .disable_zk = flags.disable_zk };
+    bbapi::wire::ProofSystemSettings settings{ .ipa_accumulation = flags.ipa_accumulation,
+                                               .oracle_hash_type = flags.oracle_hash_type,
+                                               .disable_zk = flags.disable_zk };
 
-    // Execute verify command
-    auto response = bbapi::CircuitVerify{ .verification_key = std::move(vk_bytes),
-                                          .public_inputs = std::move(public_inputs),
-                                          .proof = std::move(proof),
-                                          .settings = settings }
-                        .execute();
+    bbapi::BBApiRequest request;
+    auto response = bbapi::handle_circuit_verify(request,
+                                                 bbapi::wire::CircuitVerify{
+                                                     .verification_key = std::move(vk_bytes),
+                                                     .public_inputs = bbapi::uint256_vec_to_wire(public_inputs),
+                                                     .proof = bbapi::uint256_vec_to_wire(proof),
+                                                     .settings = settings,
+                                                 });
 
     return response.verified;
 }
@@ -171,17 +178,19 @@ void UltraHonkAPI::write_vk(const Flags& flags,
         throw_or_abort("Stdout output is not supported. Please specify an output directory.");
     }
 
-    // Read bytecode
     auto bytecode = get_bytecode(bytecode_path);
 
-    // Convert flags to ProofSystemSettings
-    bbapi::ProofSystemSettings settings{ .ipa_accumulation = flags.ipa_accumulation,
-                                         .oracle_hash_type = flags.oracle_hash_type,
-                                         .disable_zk = flags.disable_zk };
+    bbapi::wire::ProofSystemSettings settings{ .ipa_accumulation = flags.ipa_accumulation,
+                                               .oracle_hash_type = flags.oracle_hash_type,
+                                               .disable_zk = flags.disable_zk };
 
-    auto response = bbapi::CircuitComputeVk{ .circuit = { .name = "circuit", .bytecode = std::move(bytecode) },
-                                             .settings = settings }
-                        .execute();
+    bbapi::BBApiRequest request;
+    auto response = bbapi::handle_circuit_compute_vk(
+        request,
+        bbapi::wire::CircuitComputeVk{
+            .circuit = bbapi::wire::CircuitInputNoVK{ .name = "circuit", .bytecode = std::move(bytecode) },
+            .settings = settings,
+        });
 
     write_vk_outputs(response, output_dir, flags);
 }
@@ -198,15 +207,18 @@ void UltraHonkAPI::gates([[maybe_unused]] const Flags& flags,
 
     // For now, treat the entire bytecode as a single circuit
     // Convert flags to ProofSystemSettings
-    bbapi::ProofSystemSettings settings{ .ipa_accumulation = flags.ipa_accumulation,
-                                         .oracle_hash_type = flags.oracle_hash_type,
-                                         .disable_zk = flags.disable_zk };
+    bbapi::wire::ProofSystemSettings settings{ .ipa_accumulation = flags.ipa_accumulation,
+                                               .oracle_hash_type = flags.oracle_hash_type,
+                                               .disable_zk = flags.disable_zk };
 
-    // Execute CircuitStats command
-    auto response = bbapi::CircuitStats{ .circuit = { .name = "circuit", .bytecode = bytecode, .verification_key = {} },
-                                         .include_gates_per_opcode = flags.include_gates_per_opcode,
-                                         .settings = settings }
-                        .execute();
+    bbapi::BBApiRequest request;
+    auto response = bbapi::handle_circuit_stats(
+        request,
+        bbapi::wire::CircuitStats{
+            .circuit = bbapi::wire::CircuitInput{ .name = "circuit", .bytecode = bytecode, .verification_key = {} },
+            .include_gates_per_opcode = flags.include_gates_per_opcode,
+            .settings = settings,
+        });
 
     vinfo("Calculated circuit size in gate_count: ", response.num_gates);
 
@@ -245,14 +257,14 @@ void UltraHonkAPI::write_solidity_verifier(const Flags& flags,
     // Read VK file
     auto vk_bytes = read_vk_file(vk_path);
 
-    // Convert flags to ProofSystemSettings
-    bbapi::ProofSystemSettings settings{ .ipa_accumulation = flags.ipa_accumulation,
-                                         .oracle_hash_type = flags.oracle_hash_type,
-                                         .disable_zk = flags.disable_zk,
-                                         .optimized_solidity_verifier = flags.optimized_solidity_verifier };
+    bbapi::wire::ProofSystemSettings settings{ .ipa_accumulation = flags.ipa_accumulation,
+                                               .oracle_hash_type = flags.oracle_hash_type,
+                                               .disable_zk = flags.disable_zk,
+                                               .optimized_solidity_verifier = flags.optimized_solidity_verifier };
 
-    // Execute solidity verifier command
-    auto response = bbapi::CircuitWriteSolidityVerifier{ .verification_key = vk_bytes, .settings = settings }.execute();
+    bbapi::BBApiRequest request;
+    auto response = bbapi::handle_circuit_write_solidity_verifier(
+        request, bbapi::wire::CircuitWriteSolidityVerifier{ .verification_key = vk_bytes, .settings = settings });
 
     // Write output
     if (output_path == "-") {
