@@ -46,6 +46,16 @@ export type L2BlockStreamEvent =
       blocks: L2Block[];
     }
   | /**
+   * Reports the new proposed tip of the chain. Emitted once per sync pass when the source's proposed tip differs
+   * from the pre-pass local one (downloads, a prune, or a thin tip movement). Carries only the block id; in block
+   * mode the corresponding payloads arrive via preceding `blocks-added` events, while in tips-only mode this is the
+   * sole signal that the proposed tip moved. Consumers that only track the proposed tip can ignore `blocks-added`
+   * entirely and anchor on this event instead.
+   */ {
+      type: 'chain-proposed';
+      block: L2BlockId;
+    }
+  | /**
    * Reports a new checkpointed tip. Emitted at most once per sync pass when the source's checkpointed tip
    * leads the local one. Carries only the block + checkpoint ids; consumers that need the full checkpoint
    * payload fetch it on demand from the block source.

@@ -81,6 +81,9 @@ export abstract class L2TipsStoreBase implements L2BlockStreamEventHandler, L2Bl
       case 'blocks-added':
         await this.handleBlocksAdded(event);
         break;
+      case 'chain-proposed':
+        await this.handleChainProposed(event);
+        break;
       case 'chain-checkpointed':
         await this.handleChainCheckpointed(event);
         break;
@@ -146,6 +149,16 @@ export abstract class L2TipsStoreBase implements L2BlockStreamEventHandler, L2Bl
       }
       await this.setTip('proposed', blocks.at(-1)!.number);
     });
+  }
+
+  private async handleChainProposed(event: L2BlockStreamEvent): Promise<void> {
+    if (event.type !== 'chain-proposed') {
+      return;
+    }
+    // Records the proposed tip into the same block-hash index the walk-back reads. Idempotent after
+    // blocks-added in block mode (same height, same hash); in tips-only mode it is the sole writer of
+    // proposed-tip history, so each tip-moving pass leaves one sparse anchor for reorg detection.
+    await this.runInTransaction(() => this.saveTag('proposed', event.block));
   }
 
   private async handleChainCheckpointed(event: L2BlockStreamEvent): Promise<void> {
