@@ -8,8 +8,6 @@ import { KeyStore } from '@aztec/key-store';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { type ProtocolContractsProvider, protocolContractNames } from '@aztec/protocol-contracts';
 import type { CircuitSimulator } from '@aztec/simulator/client';
-import { getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry/lazy';
-import { getStandardHandshakeRegistry } from '@aztec/standard-contracts/handshake-registry/lazy';
 import {
   type ContractArtifact,
   EventSelector,
@@ -170,8 +168,12 @@ export type PXECreateArgs = {
   simulator: CircuitSimulator;
   /** Provider for protocol contract artifacts and instances. */
   protocolContractsProvider: ProtocolContractsProvider;
-  /** Contracts to preload on startup. Defaults to auth + handshake registries when omitted. */
-  preloadedContractsProvider?: PreloadedContractsProvider;
+  /**
+   * Contracts to preload on startup. Injected by the entrypoint with the bundle-or-lazy flavor that
+   * matches the runtime (bundle for node/eager browser, lazy for code-split browser), so the PXE
+   * never statically imports a standard-contract artifact and the bundle/lazy split stays intact.
+   */
+  preloadedContractsProvider: PreloadedContractsProvider;
   /** PXE configuration options. */
   config: PXEConfig;
   /** Optional logger instance or string suffix for the logger name. */
@@ -322,9 +324,7 @@ export class PXE {
       config.autoSync,
       proofCreator,
       protocolContractsProvider,
-      preloadedContractsProvider ?? {
-        getPreloadedContracts: async () => [await getStandardAuthRegistry(), await getStandardHandshakeRegistry()],
-      },
+      preloadedContractsProvider,
       log,
       jobQueue,
       jobCoordinator,
