@@ -12,4 +12,3 @@ package
 
 # Generated files
 src/cbind/generated/
-src/aztec-wsdb/generated/
