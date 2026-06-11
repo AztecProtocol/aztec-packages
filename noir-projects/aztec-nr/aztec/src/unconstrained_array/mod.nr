@@ -2,7 +2,6 @@ pub(crate) mod test_helpers;
 
 use crate::oracle::random::random;
 use crate::protocol::traits::{Deserialize, Serialize};
-use crate::protocol::utils::{reader::Reader, writer::Writer};
 
 /// Oracle backend for an [`UnconstrainedArray`]: the set of PXE-side operations that implement its storage.
 ///
@@ -226,34 +225,6 @@ where
             i += 1;
         }
         result
-    }
-}
-
-/// Serializes an `UnconstrainedArray` as its slot identifier, allowing oracle function signatures to use array types
-/// instead of opaque `Field` slots.
-impl<T, Oracle> Serialize for UnconstrainedArray<T, Oracle> {
-    let N: u32 = 1;
-
-    fn serialize(self) -> [Field; Self::N] {
-        [self.slot]
-    }
-
-    fn stream_serialize<let K: u32>(self, writer: &mut Writer<K>) {
-        writer.write(self.slot);
-    }
-}
-
-/// Deserializes a single Field into an `UnconstrainedArray` handle, treating the field value as the slot identifier.
-/// This is the inverse of [`Serialize`].
-impl<T, Oracle> Deserialize for UnconstrainedArray<T, Oracle> {
-    let N: u32 = 1;
-
-    fn deserialize(fields: [Field; Self::N]) -> Self {
-        Self { slot: fields[0] }
-    }
-
-    fn stream_deserialize<let K: u32>(reader: &mut Reader<K>) -> Self {
-        Self { slot: reader.read() }
     }
 }
 
