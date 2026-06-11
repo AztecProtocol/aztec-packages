@@ -131,12 +131,15 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>) {
         if (pt_adds < PTREE_THETA && depth_ok) { pt_kstar = pk; break; }
         pk = pk + 1u;
     }
-    // The survivor range must fit the fold scratch; deeper trees shrink it.
+    // The survivor range PLUS the deep pipeline's chunk partials must fit
+    // the fold scratch; deeper trees shrink both.
     loop {
         let t = 1u << (pt_kstar - 1u);
         let tb = min(t + 1u, MAX_N - 1u);
         let sz = pt_n_active - bin_offsets[tb];
-        if (sz <= PTREE_SURV_SLOTS || pt_kstar > PTREE_LEVELS) { break; }
+        var extra: u32 = 0u;
+        if (pt_cap_bin > 0u) { extra = (pt_cap_mass / t) / 512u + pt_cap_bin; }
+        if (sz + extra <= PTREE_SURV_SLOTS || pt_kstar > PTREE_LEVELS) { break; }
         pt_kstar = pt_kstar + 1u;
     }
 
@@ -174,6 +177,14 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>) {
     ptree_meta[256u + 4u * 18u + 0u] = pt_shallow_exact + pt_cap_size;
     ptree_meta[256u + 4u * 18u + 1u] = 1u;
     ptree_meta[256u + 4u * 18u + 2u] = 1u;
+    // Deep stage A: one WG per 512-residual chunk of cap-bin buckets —
+    // bounded by mass (per-bucket ceil slack <= cap_bin); overdispatched
+    // WGs exit in-kernel. Stage B (slot 17) = one WG per cap bucket.
+    var pt_deep_a: u32 = 0u;
+    if (pt_cap_bin > 0u) { pt_deep_a = (pt_cap_mass / pt_thr) / 512u + pt_cap_bin; }
+    ptree_meta[256u + 4u * 16u + 0u] = pt_deep_a;
+    ptree_meta[256u + 4u * 16u + 1u] = 1u;
+    ptree_meta[256u + 4u * 16u + 2u] = 1u;
     ptree_meta[256u + 4u * 17u + 0u] = pt_cap_size;
     ptree_meta[256u + 4u * 17u + 1u] = 1u;
     ptree_meta[256u + 4u * 17u + 2u] = 1u;

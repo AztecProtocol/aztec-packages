@@ -2399,20 +2399,46 @@ function hideProgress(): void {
           ],
           ['ptree-level', sm.gen_ba_walker_ptree_level_shader(64, 8)],
           ['ptree-scatter', sm.gen_ba_walker_idx_scatter_shader(64, 8, 64, true)],
-          ['ptree-fold-shallow', sm.gen_ba_walker_ptree_fold_shader(64, 0)],
-          ['ptree-fold-deep', sm.gen_ba_walker_ptree_fold_shader(256, 1)],
+          ['ptree-fold-shallow', sm.gen_ba_walker_ptree_fold_shader(64)],
+          ['ptree-deep-pair', sm.gen_ba_walker_ptree_deep_pair_shader(256)],
+          ['ptree-deep-combine', sm.gen_ba_walker_ptree_deep_combine_shader(64)],
           ['ptree-survfin', sm.gen_ba_walker_ptree_finalize_shader(256, 2)],
         ];
+        const stResults: Array<{ name: string; ms: number; ok: boolean; err?: string }> = [];
+        const stClient = makeResultsClient({ page: 'msm-shader-test' });
         for (const [name, code] of cases) {
           const t0 = performance.now();
           try {
             const mod = gpuDevice.createShaderModule({ code });
             await gpuDevice.createComputePipelineAsync({ layout: 'auto', compute: { module: mod, entryPoint: 'main' } });
-            log('ok', `[shader-test] ${name}: OK in ${(performance.now() - t0).toFixed(0)} ms (${code.length} chars)`);
+            const ms = performance.now() - t0;
+            stResults.push({ name, ms: Math.round(ms), ok: true });
+            log('ok', `[shader-test] ${name}: OK in ${ms.toFixed(0)} ms (${code.length} chars)`);
           } catch (e) {
+            stResults.push({ name, ms: Math.round(performance.now() - t0), ok: false, err: (e as Error).message });
             log('err', `[shader-test] ${name}: FAIL ${(e as Error).message}`);
           }
+          // Post incrementally: if a later kernel hangs the compiler, the
+          // rows show the last one that finished.
+          await stClient.postResults({
+            state: 'progress',
+            params: { page: 'msm-shader-test', dev: qp.get('dev') ?? '' },
+            results: { kernels: stResults },
+            error: null,
+            log: [],
+            userAgent: navigator.userAgent,
+            hardwareConcurrency: navigator.hardwareConcurrency,
+          });
         }
+        await stClient.postResults({
+          state: 'done',
+          params: { page: 'msm-shader-test', dev: qp.get('dev') ?? '' },
+          results: { kernels: stResults },
+          error: null,
+          log: [],
+          userAgent: navigator.userAgent,
+          hardwareConcurrency: navigator.hardwareConcurrency,
+        });
         // Functional probe: run the ptree epilogue variant standalone with
         // layout:'auto' and dummy buffers; read back the meta region.
         try {

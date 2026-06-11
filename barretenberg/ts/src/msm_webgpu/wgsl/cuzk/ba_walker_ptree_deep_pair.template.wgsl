@@ -159,77 +159,86 @@ fn wg_load(l: u32) -> Jac {
     return Jac(x, y, z);
 }
 
+
+// Pair-tree deep pipeline, stage A: pair-reduce a CHUNK of a cap-bin
+// bucket. One 256-thread workgroup per 512-residual chunk; each thread
+// mmadds one adjacent residual pair (no loop-carried montmul chains —
+// the chain is the fixed log-depth tree), and thread 0 writes the
+// chunk's Jacobian partial to the deep-partial scratch region at
+// [range + wgid]. Chunk->bucket mapping scans the cap bin (tiny by
+// construction); overdispatched workgroups exit via the total.
+//
+// meta: [22] stride, [23] surv base, [24] range, [30] cap base.
+
+const CHUNK: u32 = 512u;
+
 @compute @workgroup_size({{ workgroup_size }})
 fn main(@builtin(workgroup_id) wgid: vec3<u32>,
         @builtin(local_invocation_id) lid: vec3<u32>) {
-    let w = wgid.x;
-    let l = lid.x;
-    // Plain per-thread reads, stride PRECOMPUTED by ptree_scan (meta[22]):
-    // both workgroupUniformLoad and the runtime shift fed Apple's Metal
-    // compiler-service crash (XPC_ERROR_CONNECTION_INTERRUPTED).
     let stride = ptree_meta[22];
     let M_partials = params.w;
+    let cap_base = ptree_meta[30];
+    let n_active_end = ptree_meta[23] + ptree_meta[24];
 
-    // Position mapping (see epilogue): the exact non-cap range first, then
-    // the cap tail (cap buckets with few residuals are this kernel's via
-    // the n_resid guard; deeper ones belong to the deep pipeline).
-    var pos: u32;
-    if (w < ptree_meta[29]) {
-        pos = ptree_meta[27] + w;
-    } else {
-        pos = ptree_meta[30] + (w - ptree_meta[29]);
+    // Find this workgroup's (bucket, chunk).
+    var w = wgid.x;
+    var pos = cap_base;
+    var found = false;
+    var seg: u32 = 0u;
+    var n_resid: u32 = 0u;
+    var chunk: u32 = 0u;
+    var iter: u32 = 0u;
+    loop {
+        if (pos >= n_active_end || iter >= 64u) { break; }
+        iter = iter + 1u;
+        let bid = sorted_active[pos];
+        let fb = flat_bid(bid, bw_geom.x);
+        let cnt = pc_at(fb);
+        let nr = (cnt + stride - 1u) / stride;
+        let g = (nr + CHUNK - 1u) / CHUNK;
+        if (w < g) {
+            seg = partial_offset[fb] & 0x7fffffffu;
+            n_resid = nr;
+            chunk = w;
+            found = true;
+            break;
+        }
+        w = w - g;
+        pos = pos + 1u;
     }
-    let bid = sorted_active[pos];
-    let fb = flat_bid(bid, bw_geom.x);
-    let seg = partial_offset[fb] & 0x7fffffffu; // v2: bit 31 flags singles
-    let cnt = pc_at(fb);
-    let n_resid = (cnt + stride - 1u) / stride;
-    // Cap-bin buckets that closed in-tree sit inside the range, and the
-    // two variants split the range by residual count. The predicate is
-    // workgroup-uniform in fact (per-bucket), but Tint cannot prove it —
-    // so no early returns: skipped buckets just fold infinities through
-    // the (barrier-bearing) tree below.
-    let proceed = cnt > stride && n_resid <= TPB64;
 
-    // Seed: mmadd-pair adjacent residuals (6 muls, both inputs affine) so
-    // the tree starts at half the population.
-    let pop = (n_resid + 1u) >> 1u;
+    let l = lid.x;
+    let rem_chunk = select(0u, min(n_resid - chunk * CHUNK, CHUNK), found && n_resid > chunk * CHUNK);
+    let pop = (rem_chunk + 1u) >> 1u;
+
     let zero = array<u32, 8>(0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u);
     var acc = Jac(zero, zero, zero); // infinity
-    if (proceed && 2u * l < n_resid) {
-        let j0 = 2u * l;
+    if (found && 2u * l < rem_chunk) {
+        let j0 = chunk * CHUNK + 2u * l;
         let s0 = pl_at(seg + j0 * stride);
         let x0 = load_partial_x(s0);
         let y0 = load_partial_y(s0, M_partials);
-        if (j0 + 1u < n_resid) {
+        if (2u * l + 1u < rem_chunk) {
             let s1 = pl_at(seg + (j0 + 1u) * stride);
             acc = jac_mmadd(x0, y0, load_partial_x(s1), load_partial_y(s1, M_partials));
         } else {
-            // Odd tail: straight-line affine lift (constant R is only
-            // hazardous inside loops).
             acc = Jac(x0, y0, get_r_f8());
         }
     }
     wg_store(l, acc);
     workgroupBarrier();
 
-    // proceed and n_resid are uniform per workgroup (one bucket per WG);
-    // the barrier stays outside the guard, so skipped workgroups pay
-    // barriers only. s < n_resid additionally skips tree levels above the
-    // bucket's population — slots there hold infinities, so the adds are
-    // exact no-ops costing full montgomery chains. Chain depth becomes
-    // ceil(log2(n_resid)): a 2-residual bucket pays ONE add, not log2(TPB).
     var s: u32 = TPB / 2u;
     loop {
         if (s == 0u) { break; }
-        if (l < s && proceed && s < pop) { wg_store(l, jac_add(wg_load(l), wg_load(l + s))); }
+        if (l < s && found && s < pop) { wg_store(l, jac_add(wg_load(l), wg_load(l + s))); }
         workgroupBarrier();
         s = s / 2u;
     }
 
-    if (l == 0u && proceed) {
+    if (l == 0u && found) {
         let total = wg_load(0u);
-        let b = jac_params.x + 6u * (pos - ptree_meta[23]);
+        let b = jac_params.x + 6u * (ptree_meta[24] + wgid.x);
         surv_scratch[b + 0u] = vec4<u32>(total.x[0], total.x[1], total.x[2], total.x[3]);
         surv_scratch[b + 1u] = vec4<u32>(total.x[4], total.x[5], total.x[6], total.x[7]);
         surv_scratch[b + 2u] = vec4<u32>(total.y[0], total.y[1], total.y[2], total.y[3]);

@@ -3380,8 +3380,9 @@ export class MsmV2 {
         m.ptreeLevelLayout,
       );
       m.ptreeFoldPipes = [
-        await compile(sm.gen_ba_walker_ptree_fold_shader(PTREE_TPB, 0), `ptree-fold-shallow`, m.ptreeFoldLayout),
-        await compile(sm.gen_ba_walker_ptree_fold_shader(PTREE_FOLD_TPB, 1), `ptree-fold-deep`, m.ptreeFoldLayout),
+        await compile(sm.gen_ba_walker_ptree_fold_shader(PTREE_TPB), `ptree-fold-shallow`, m.ptreeFoldLayout),
+        await compile(sm.gen_ba_walker_ptree_deep_pair_shader(PTREE_FOLD_TPB), `ptree-deep-pair`, m.ptreeFoldLayout),
+        await compile(sm.gen_ba_walker_ptree_deep_combine_shader(PTREE_TPB), `ptree-deep-combine`, m.ptreeFoldLayout),
       ];
       m.ptreeScatterPipe = await compile(
         sm.gen_ba_walker_idx_scatter_shader(WI_IDX_TPB, STREAM_S, STREAM_PLANNER_TPB, true),
@@ -5493,7 +5494,8 @@ export class MsmV2 {
         }
         setPhase('ptree_tail');
         indirectDispatch(this.ptreeFoldPipes[0], this.ptreeFoldBind, this.ptreeArgsBuf!, 16 * 18);
-        indirectDispatch(this.ptreeFoldPipes[1], this.ptreeFoldBind, this.ptreeArgsBuf!, 16 * 17);
+        indirectDispatch(this.ptreeFoldPipes[1], this.ptreeFoldBind, this.ptreeArgsBuf!, 16 * 16);
+        indirectDispatch(this.ptreeFoldPipes[2], this.ptreeFoldBind, this.ptreeArgsBuf!, 16 * 17);
         setPhase('finalize');
         indirectDispatch(this.ptreeSurvFinPipe, this.ptreeSurvFinBinds[bi], this.ptreeArgsBuf!, 16 * 19);
       } else {
