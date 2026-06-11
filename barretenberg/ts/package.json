@@ -22,7 +22,6 @@
   "files": [
     "src/",
     "dest/",
-    "build/",
     "README.md"
   ],
   "scripts": {
@@ -34,6 +33,7 @@
     "build:cjs": "tsgo -b tsconfig.cjs.json && ./scripts/cjs_postprocess.sh",
     "build:browser": "tsgo -b tsconfig.browser.json && ./scripts/browser_postprocess.sh",
     "generate": "NODE_OPTIONS='--loader ts-node/esm' NODE_NO_WARNINGS=1 ts-node src/cbind/generate.ts",
+    "prepare_arch_packages": "./scripts/prepare_arch_packages.sh",
     "formatting": "prettier --check ./src && eslint --max-warnings 0 ./src",
     "formatting:fix": "prettier -w ./src",
     "test": "NODE_OPTIONS='--loader ts-node/esm' NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --no-cache --passWithNoTests",

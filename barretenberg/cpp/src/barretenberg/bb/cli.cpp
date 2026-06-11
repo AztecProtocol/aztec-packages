@@ -24,8 +24,8 @@
 #include "barretenberg/bb/cli11_formatter.hpp"
 #include "barretenberg/bb/curve_constants.hpp"
 #include "barretenberg/bbapi/bbapi.hpp"
-#include "barretenberg/bbapi/bbapi_ultra_honk.hpp"
 #include "barretenberg/bbapi/c_bind.hpp"
+#include "barretenberg/bbapi/generated/bb_dispatch.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/get_bytecode.hpp"
@@ -921,7 +921,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
 
         // MSGPACK
         if (msgpack_schema_command->parsed()) {
-            std::cout << bbapi::get_msgpack_schema_as_json() << std::endl;
+            std::cout << bbapi::get_bb_schema_as_json() << std::endl;
             return 0;
         }
         if (msgpack_curve_constants_command->parsed()) {

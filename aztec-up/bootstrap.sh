@@ -103,7 +103,7 @@ EOF
     # TODO(AD): we have kludged a retry here. a local NPM install ought to be robust enough not to.
     echo "Deploying packages to local npm registry (version: $version)..."
     {
-      echo $root/barretenberg/ts
+      (cd $root/barretenberg/ts && ./bootstrap.sh get_projects)
       $root/noir/bootstrap.sh get_projects
       $root/yarn-project/bootstrap.sh get_projects
     } | DRY_RUN= parallel --tag --line-buffer --halt now,fail=1 "retry 'cd {} && dump_fail \"deploy_npm $version\" >/dev/null'"

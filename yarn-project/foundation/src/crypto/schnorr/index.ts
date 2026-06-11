@@ -33,7 +33,7 @@ export class Schnorr {
     await BarretenbergSync.initSingleton();
     const api = BarretenbergSync.getSingleton();
     const response = api.schnorrConstructSignature({
-      messageField: msg.toBuffer(),
+      message: msg.toBuffer(),
       privateKey: privateKey.toBuffer(),
     });
     return new SchnorrSignature(Buffer.from([...response.s, ...response.e]));
@@ -50,7 +50,7 @@ export class Schnorr {
     await BarretenbergSync.initSingleton();
     const api = BarretenbergSync.getSingleton();
     const response = api.schnorrVerifySignature({
-      messageField: msg.toBuffer(),
+      message: msg.toBuffer(),
       publicKey: { x: pubKey.x.toBuffer(), y: pubKey.y.toBuffer() },
       s: sig.s,
       e: sig.e,

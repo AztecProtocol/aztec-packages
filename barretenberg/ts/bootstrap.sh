@@ -22,8 +22,9 @@ function build {
     yarn generate
     yarn build:wasm
     yarn build:native
+    yarn prepare_arch_packages
     parallel -v --line-buffered --tag 'denoise "yarn {}"' ::: build:esm build:cjs build:browser
-    cache_upload bb.js-$hash.tar.gz dest build
+    cache_upload bb.js-$hash.tar.gz dest build packages
   fi
 
   # We copy snapshot dirs to dest so we can run tests from dest.
@@ -59,6 +60,13 @@ function bench_cmds {
   echo "$hash:CPUS=4 barretenberg/ts/scripts/run_test.sh poseidon.bench.test.js"
 }
 
+function get_projects {
+  realpath .
+  for package_dir in packages/bb.js-*; do
+    [ -d "$package_dir" ] && realpath "$package_dir"
+  done
+}
+
 function test {
   echo_header "bb.js test"
   test_cmds | filter_test_cmds | parallelize
@@ -66,6 +74,11 @@ function test {
 
 function release {
   cross_copy
+  yarn prepare_arch_packages
+  for package_dir in packages/bb.js-*/; do
+    [ -d "$package_dir" ] || continue
+    (cd "$package_dir" && retry "deploy_npm ${REF_NAME#v}")
+  done
   retry "deploy_npm ${REF_NAME#v}"
 }
 
