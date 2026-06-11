@@ -451,6 +451,8 @@ describe('e2e_synching', () => {
         l1ChainId: 31337,
         ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
         aztecSlotDuration: AZTEC_SLOT_DURATION,
+        sequencerPublisherPreviousL1BlockWaitTimeoutMs: config.sequencerPublisherPreviousL1BlockWaitTimeoutMs,
+        sequencerPublisherPreviousL1BlockWaitPollIntervalMs: config.sequencerPublisherPreviousL1BlockWaitPollIntervalMs,
       },
       {
         blobClient,
