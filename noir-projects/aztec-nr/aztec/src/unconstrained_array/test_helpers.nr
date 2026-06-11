@@ -1,7 +1,7 @@
 //! Shared test suite for [`UnconstrainedArray`] backends.
 //!
 //! Every function in this module checks one behavior of the shared [`UnconstrainedArray`] API (or of the generic
-//! `store` / `load` / `delete` kv helpers) and is generic over the [`ArrayOracle`] backend.
+//! `store` / `load` / `delete` kv helpers) and is generic over the [`ArrayOracles`] backend.
 //!
 //! Each backend module additionally keeps a hand-written smoke test routing through its own public helpers (e.g.
 //! `transient::store` / `transient::load`) to cover the delegation wiring.
@@ -9,14 +9,14 @@
 use crate::protocol::traits::Serialize;
 use crate::test::helpers::test_environment::TestEnvironment;
 use crate::test::mocks::MockStruct;
-use crate::unconstrained_array::{ArrayOracle, delete, load, store, UnconstrainedArray};
+use crate::unconstrained_array::{ArrayOracles, delete, load, store, UnconstrainedArray};
 
 pub(crate) global SLOT: Field = 1230;
 pub(crate) global OTHER_SLOT: Field = 5670;
 
 pub(crate) unconstrained fn empty_array<Oracle>()
 where
-    Oracle: ArrayOracle,
+    Oracle: ArrayOracles,
 {
     let env = TestEnvironment::new();
     env.utility_context(|_| {
@@ -27,7 +27,7 @@ where
 
 pub(crate) unconstrained fn should_fail_empty_array_read<Oracle>()
 where
-    Oracle: ArrayOracle,
+    Oracle: ArrayOracles,
 {
     let env = TestEnvironment::new();
     env.utility_context(|_| {
@@ -38,7 +38,7 @@ where
 
 pub(crate) unconstrained fn should_fail_empty_array_pop<Oracle>()
 where
-    Oracle: ArrayOracle,
+    Oracle: ArrayOracles,
 {
     let env = TestEnvironment::new();
     env.utility_context(|_| {
@@ -49,7 +49,7 @@ where
 
 pub(crate) unconstrained fn array_push<Oracle>()
 where
-    Oracle: ArrayOracle,
+    Oracle: ArrayOracles,
 {
     let env = TestEnvironment::new();
     env.utility_context(|_| {
@@ -63,7 +63,7 @@ where
 
 pub(crate) unconstrained fn should_fail_read_past_len<Oracle>()
 where
-    Oracle: ArrayOracle,
+    Oracle: ArrayOracles,
 {
     let env = TestEnvironment::new();
     env.utility_context(|_| {
@@ -76,7 +76,7 @@ where
 
 pub(crate) unconstrained fn array_pop<Oracle>()
 where
-    Oracle: ArrayOracle,
+    Oracle: ArrayOracles,
 {
     let env = TestEnvironment::new();
     env.utility_context(|_| {
@@ -93,7 +93,7 @@ where
 
 pub(crate) unconstrained fn array_set<Oracle>()
 where
-    Oracle: ArrayOracle,
+    Oracle: ArrayOracles,
 {
     let env = TestEnvironment::new();
     env.utility_context(|_| {
@@ -106,7 +106,7 @@ where
 
 pub(crate) unconstrained fn array_remove_last<Oracle>()
 where
-    Oracle: ArrayOracle,
+    Oracle: ArrayOracles,
 {
     let env = TestEnvironment::new();
     env.utility_context(|_| {
@@ -119,7 +119,7 @@ where
 
 pub(crate) unconstrained fn array_remove_some<Oracle>()
 where
-    Oracle: ArrayOracle,
+    Oracle: ArrayOracles,
 {
     let env = TestEnvironment::new();
     env.utility_context(|_| {
@@ -141,7 +141,7 @@ where
 
 pub(crate) unconstrained fn array_remove_all<Oracle>()
 where
-    Oracle: ArrayOracle,
+    Oracle: ArrayOracles,
 {
     let env = TestEnvironment::new();
     env.utility_context(|_| {
@@ -161,7 +161,7 @@ where
 
 pub(crate) unconstrained fn for_each_called_with_all_elements<Oracle>()
 where
-    Oracle: ArrayOracle,
+    Oracle: ArrayOracles,
 {
     let env = TestEnvironment::new();
     env.utility_context(|_| {
@@ -183,7 +183,7 @@ where
 
 pub(crate) unconstrained fn for_each_remove_some<Oracle>()
 where
-    Oracle: ArrayOracle,
+    Oracle: ArrayOracles,
 {
     let env = TestEnvironment::new();
     env.utility_context(|_| {
@@ -207,7 +207,7 @@ where
 
 pub(crate) unconstrained fn for_each_remove_all<Oracle>()
 where
-    Oracle: ArrayOracle,
+    Oracle: ArrayOracles,
 {
     let env = TestEnvironment::new();
     env.utility_context(|_| {
@@ -225,7 +225,7 @@ where
 
 pub(crate) unconstrained fn different_slots_are_isolated<Oracle>()
 where
-    Oracle: ArrayOracle,
+    Oracle: ArrayOracles,
 {
     let env = TestEnvironment::new();
     env.utility_context(|_| {
@@ -247,7 +247,7 @@ where
 
 pub(crate) unconstrained fn works_with_multi_field_type<Oracle>()
 where
-    Oracle: ArrayOracle,
+    Oracle: ArrayOracles,
 {
     let env = TestEnvironment::new();
     env.utility_context(|_| {
@@ -270,7 +270,7 @@ where
 
 pub(crate) unconstrained fn read_as_reconstructs_serialized_value<Oracle>()
 where
-    Oracle: ArrayOracle,
+    Oracle: ArrayOracles,
 {
     let env = TestEnvironment::new();
     env.utility_context(|_| {
@@ -289,7 +289,7 @@ where
 
 pub(crate) unconstrained fn should_fail_read_as_rejects_length_mismatch<Oracle>()
 where
-    Oracle: ArrayOracle,
+    Oracle: ArrayOracles,
 {
     let env = TestEnvironment::new();
     env.utility_context(|_| {
@@ -303,7 +303,7 @@ where
 
 pub(crate) unconstrained fn clear_returns_self<Oracle>()
 where
-    Oracle: ArrayOracle,
+    Oracle: ArrayOracles,
 {
     let env = TestEnvironment::new();
     env.utility_context(|_| {
@@ -318,7 +318,7 @@ where
 
 pub(crate) unconstrained fn clear_wipes_previous_data<Oracle>()
 where
-    Oracle: ArrayOracle,
+    Oracle: ArrayOracles,
 {
     let env = TestEnvironment::new();
     env.utility_context(|_| {
@@ -338,7 +338,7 @@ where
 
 pub(crate) unconstrained fn empty_allocates_distinct_slots<Oracle>()
 where
-    Oracle: ArrayOracle,
+    Oracle: ArrayOracles,
 {
     let env = TestEnvironment::new();
     env.utility_context(|_| {
@@ -358,7 +358,7 @@ where
 
 pub(crate) unconstrained fn map_transforms_each_element<Oracle>()
 where
-    Oracle: ArrayOracle,
+    Oracle: ArrayOracles,
 {
     let env = TestEnvironment::new();
     env.utility_context(|_| {
@@ -382,7 +382,7 @@ where
 
 pub(crate) unconstrained fn map_empty_source_gives_empty_dest<Oracle>()
 where
-    Oracle: ArrayOracle,
+    Oracle: ArrayOracles,
 {
     let env = TestEnvironment::new();
     env.utility_context(|_| {
@@ -394,7 +394,7 @@ where
 
 pub(crate) unconstrained fn map_to_different_type<Oracle>()
 where
-    Oracle: ArrayOracle,
+    Oracle: ArrayOracles,
 {
     let env = TestEnvironment::new();
     env.utility_context(|_| {
@@ -412,7 +412,7 @@ where
 
 pub(crate) unconstrained fn map_results_are_isolated<Oracle>()
 where
-    Oracle: ArrayOracle,
+    Oracle: ArrayOracles,
 {
     let env = TestEnvironment::new();
     env.utility_context(|_| {
@@ -435,7 +435,7 @@ where
 
 pub(crate) unconstrained fn filter_keeps_matching_elements_in_order<Oracle>()
 where
-    Oracle: ArrayOracle,
+    Oracle: ArrayOracles,
 {
     let env = TestEnvironment::new();
     env.utility_context(|_| {
@@ -461,7 +461,7 @@ where
 
 pub(crate) unconstrained fn filter_empty_source_gives_empty_dest<Oracle>()
 where
-    Oracle: ArrayOracle,
+    Oracle: ArrayOracles,
 {
     let env = TestEnvironment::new();
     env.utility_context(|_| {
@@ -473,7 +473,7 @@ where
 
 pub(crate) unconstrained fn filter_none_match_gives_empty_dest<Oracle>()
 where
-    Oracle: ArrayOracle,
+    Oracle: ArrayOracles,
 {
     let env = TestEnvironment::new();
     env.utility_context(|_| {
@@ -489,7 +489,7 @@ where
 
 pub(crate) unconstrained fn filter_works_with_multi_field_type<Oracle>()
 where
-    Oracle: ArrayOracle,
+    Oracle: ArrayOracles,
 {
     let env = TestEnvironment::new();
     env.utility_context(|_| {
@@ -508,7 +508,7 @@ where
 
 pub(crate) unconstrained fn filter_results_are_isolated<Oracle>()
 where
-    Oracle: ArrayOracle,
+    Oracle: ArrayOracles,
 {
     let env = TestEnvironment::new();
     env.utility_context(|_| {
@@ -534,7 +534,7 @@ where
 
 pub(crate) unconstrained fn any_is_true_when_an_element_matches<Oracle>()
 where
-    Oracle: ArrayOracle,
+    Oracle: ArrayOracles,
 {
     let env = TestEnvironment::new();
     env.utility_context(|_| {
@@ -549,7 +549,7 @@ where
 
 pub(crate) unconstrained fn any_is_false_when_no_element_matches<Oracle>()
 where
-    Oracle: ArrayOracle,
+    Oracle: ArrayOracles,
 {
     let env = TestEnvironment::new();
     env.utility_context(|_| {
@@ -564,7 +564,7 @@ where
 
 pub(crate) unconstrained fn any_on_empty_array_is_false<Oracle>()
 where
-    Oracle: ArrayOracle,
+    Oracle: ArrayOracles,
 {
     let env = TestEnvironment::new();
     env.utility_context(|_| {
@@ -575,7 +575,7 @@ where
 
 pub(crate) unconstrained fn all_is_true_when_every_element_matches<Oracle>()
 where
-    Oracle: ArrayOracle,
+    Oracle: ArrayOracles,
 {
     let env = TestEnvironment::new();
     env.utility_context(|_| {
@@ -590,7 +590,7 @@ where
 
 pub(crate) unconstrained fn all_is_false_when_one_element_fails<Oracle>()
 where
-    Oracle: ArrayOracle,
+    Oracle: ArrayOracles,
 {
     let env = TestEnvironment::new();
     env.utility_context(|_| {
@@ -605,7 +605,7 @@ where
 
 pub(crate) unconstrained fn all_on_empty_array_is_true<Oracle>()
 where
-    Oracle: ArrayOracle,
+    Oracle: ArrayOracles,
 {
     let env = TestEnvironment::new();
     env.utility_context(|_| {
@@ -616,7 +616,7 @@ where
 
 pub(crate) unconstrained fn find_returns_first_matching_element<Oracle>()
 where
-    Oracle: ArrayOracle,
+    Oracle: ArrayOracles,
 {
     let env = TestEnvironment::new();
     env.utility_context(|_| {
@@ -635,7 +635,7 @@ where
 
 pub(crate) unconstrained fn find_returns_none_when_no_element_matches<Oracle>()
 where
-    Oracle: ArrayOracle,
+    Oracle: ArrayOracles,
 {
     let env = TestEnvironment::new();
     env.utility_context(|_| {
@@ -650,7 +650,7 @@ where
 
 pub(crate) unconstrained fn find_on_empty_array_is_none<Oracle>()
 where
-    Oracle: ArrayOracle,
+    Oracle: ArrayOracles,
 {
     let env = TestEnvironment::new();
     env.utility_context(|_| {
@@ -661,7 +661,7 @@ where
 
 pub(crate) unconstrained fn empty_at_wipes_previous_data<Oracle>()
 where
-    Oracle: ArrayOracle,
+    Oracle: ArrayOracles,
 {
     let env = TestEnvironment::new();
     env.utility_context(|_| {
@@ -676,7 +676,7 @@ where
 
 pub(crate) unconstrained fn load_empty_returns_none<Oracle>()
 where
-    Oracle: ArrayOracle,
+    Oracle: ArrayOracles,
 {
     let env = TestEnvironment::new();
     env.utility_context(|_| {
@@ -687,7 +687,7 @@ where
 
 pub(crate) unconstrained fn store_overwrites<Oracle>()
 where
-    Oracle: ArrayOracle,
+    Oracle: ArrayOracles,
 {
     let env = TestEnvironment::new();
     env.utility_context(|_| {
@@ -699,7 +699,7 @@ where
 
 pub(crate) unconstrained fn delete_removes_value<Oracle>()
 where
-    Oracle: ArrayOracle,
+    Oracle: ArrayOracles,
 {
     let env = TestEnvironment::new();
     env.utility_context(|_| {
@@ -712,7 +712,7 @@ where
 
 pub(crate) unconstrained fn delete_empty_is_noop<Oracle>()
 where
-    Oracle: ArrayOracle,
+    Oracle: ArrayOracles,
 {
     let env = TestEnvironment::new();
     env.utility_context(|_| {
@@ -724,7 +724,7 @@ where
 
 pub(crate) unconstrained fn store_and_load_multi_field_type<Oracle>()
 where
-    Oracle: ArrayOracle,
+    Oracle: ArrayOracles,
 {
     let env = TestEnvironment::new();
     env.utility_context(|_| {
@@ -736,7 +736,7 @@ where
 
 pub(crate) unconstrained fn stored_value_is_visible_as_a_length_one_array<Oracle>()
 where
-    Oracle: ArrayOracle,
+    Oracle: ArrayOracles,
 {
     let env = TestEnvironment::new();
     env.utility_context(|_| {
@@ -765,7 +765,7 @@ comptime fn should_fail_message(name: Quoted) -> Option<Quoted> {
 
 /// Generates the shared [`UnconstrainedArray`] test suite against the given backend. Apply to a test module, passing
 /// the
-/// backend's oracle as a quoted path: `#[unconstrained_array_tests(quote { crate::ephemeral::EphemeralOracle })]`.
+/// backend's oracle as a quoted path: `#[unconstrained_array_tests(quote { crate::ephemeral::EphemeralOracles })]`.
 pub(crate) comptime fn unconstrained_array_tests(_m: Module, oracle: Quoted) -> Quoted {
     let helpers = quote { crate::unconstrained_array::test_helpers }.as_module().unwrap();
     let mut tests = quote {};

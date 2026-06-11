@@ -5,14 +5,7 @@ use crate::protocol::traits::{Deserialize, Serialize};
 use crate::protocol::utils::{reader::Reader, writer::Writer};
 
 /// Oracle backend for an [`UnconstrainedArray`]: the set of PXE-side operations that implement its storage.
-///
-/// Each implementor routes these operations to a distinct family of oracles, and the oracle family determines the
-/// array's lifetime and visibility (e.g. [`EphemeralArray`](crate::ephemeral::EphemeralArray) arrays live for one
-/// contract call frame, while [`TransientArray`](crate::transient::TransientArray) arrays are shared across all frames
-/// of the same contract within one top-level PXE call). Implementations are thin wrappers around `#[oracle]`
-/// declarations, so method dispatch is resolved at compile time via monomorphization and each array type emits its own
-/// foreign calls.
-pub trait ArrayOracle {
+pub trait ArrayOracles {
     /// Returns the number of elements in the array at `slot`.
     unconstrained fn len_oracle(slot: Field) -> u32;
 
@@ -35,7 +28,7 @@ pub trait ArrayOracle {
     unconstrained fn clear_oracle(slot: Field);
 }
 
-/// A dynamically sized array backed by PXE-side in-memory storage via an [`ArrayOracle`] backend.
+/// A dynamically sized array backed by PXE-side in-memory storage via an [`ArrayOracles`] backend.
 ///
 /// Arrays are identified by a slot, and each logical operation (push, pop, get, etc.) is a single oracle call. The
 /// `Oracle` backend determines the array's lifetime and visibility; contracts should not use this type directly but
@@ -48,7 +41,7 @@ pub struct UnconstrainedArray<T, Oracle> {
 
 impl<T, Oracle> UnconstrainedArray<T, Oracle>
 where
-    Oracle: ArrayOracle,
+    Oracle: ArrayOracles,
 {
     /// Returns a handle to the array at the given slot, which may already contain data (e.g. populated by an oracle
     /// or by an earlier frame, depending on the backend's visibility).
@@ -227,7 +220,7 @@ where
 
 impl<Oracle> UnconstrainedArray<Field, Oracle>
 where
-    Oracle: ArrayOracle,
+    Oracle: ArrayOracles,
 {
     /// Deserializes the whole array into a `T`.
     ///
@@ -281,7 +274,7 @@ impl<T, Oracle> Deserialize for UnconstrainedArray<T, Oracle> {
 pub(crate) unconstrained fn store<T, Oracle>(slot: Field, value: T)
 where
     T: Serialize,
-    Oracle: ArrayOracle,
+    Oracle: ArrayOracles,
 {
     let array: UnconstrainedArray<T, Oracle> = UnconstrainedArray::at(slot);
     array.clear().push(value);
@@ -291,7 +284,7 @@ where
 pub(crate) unconstrained fn load<T, Oracle>(slot: Field) -> Option<T>
 where
     T: Deserialize,
-    Oracle: ArrayOracle,
+    Oracle: ArrayOracles,
 {
     let array: UnconstrainedArray<T, Oracle> = UnconstrainedArray::at(slot);
     if array.len() == 0 {
@@ -304,7 +297,7 @@ where
 /// Deletes the value stored at `slot`. Does nothing if the slot is already empty.
 pub(crate) unconstrained fn delete<Oracle>(slot: Field)
 where
-    Oracle: ArrayOracle,
+    Oracle: ArrayOracles,
 {
     Oracle::clear_oracle(slot)
 }

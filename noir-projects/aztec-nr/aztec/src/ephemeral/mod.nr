@@ -1,6 +1,6 @@
 use crate::oracle::ephemeral_oracles;
 use crate::protocol::traits::{Deserialize, Serialize};
-use crate::unconstrained_array::{ArrayOracle, UnconstrainedArray};
+use crate::unconstrained_array::{ArrayOracles, UnconstrainedArray};
 
 /// A dynamically sized array that exists only during a single contract call frame.
 ///
@@ -23,13 +23,13 @@ use crate::unconstrained_array::{ArrayOracle, UnconstrainedArray};
 /// For data that must be shared across all frames of the same contract (private and utility) within one top-level PXE
 /// call (transaction simulation or utility call) but not persisted, use
 /// [`TransientArray`](crate::transient::TransientArray).
-pub type EphemeralArray<T> = UnconstrainedArray<T, EphemeralOracle>;
+pub type EphemeralArray<T> = UnconstrainedArray<T, EphemeralOracles>;
 
 /// Routes [`UnconstrainedArray`] operations to the ephemeral array oracles, scoping arrays to a single contract
 /// call frame.
-pub struct EphemeralOracle {}
+pub struct EphemeralOracles {}
 
-impl ArrayOracle for EphemeralOracle {
+impl ArrayOracles for EphemeralOracles {
     unconstrained fn len_oracle(slot: Field) -> u32 {
         ephemeral_oracles::len_oracle(slot)
     }
@@ -64,7 +64,7 @@ pub unconstrained fn store<T>(slot: Field, value: T)
 where
     T: Serialize,
 {
-    crate::unconstrained_array::store::<T, EphemeralOracle>(slot, value)
+    crate::unconstrained_array::store::<T, EphemeralOracles>(slot, value)
 }
 
 /// Returns the value previously stored at `slot` with [`store`], or `Option::none()` if the slot holds no value.
@@ -72,15 +72,15 @@ pub unconstrained fn load<T>(slot: Field) -> Option<T>
 where
     T: Deserialize,
 {
-    crate::unconstrained_array::load::<T, EphemeralOracle>(slot)
+    crate::unconstrained_array::load::<T, EphemeralOracles>(slot)
 }
 
 /// Deletes the value stored at `slot`. Does nothing if the slot is already empty.
 pub unconstrained fn delete(slot: Field) {
-    crate::unconstrained_array::delete::<EphemeralOracle>(slot)
+    crate::unconstrained_array::delete::<EphemeralOracles>(slot)
 }
 
-#[crate::unconstrained_array::test_helpers::unconstrained_array_tests(quote { crate::ephemeral::EphemeralOracle })]
+#[crate::unconstrained_array::test_helpers::unconstrained_array_tests(quote { crate::ephemeral::EphemeralOracles })]
 mod test {
     use crate::test::helpers::test_environment::TestEnvironment;
     use crate::unconstrained_array::test_helpers::SLOT;

@@ -1,6 +1,6 @@
 use crate::oracle::transient_oracles;
 use crate::protocol::traits::{Deserialize, Serialize};
-use crate::unconstrained_array::{ArrayOracle, UnconstrainedArray};
+use crate::unconstrained_array::{ArrayOracles, UnconstrainedArray};
 
 /// A dynamically sized array that lives for the duration of a single top-level PXE call.
 ///
@@ -29,13 +29,13 @@ use crate::unconstrained_array::{ArrayOracle, UnconstrainedArray};
 /// Use this to pass not-to-be-persisted data between a contract's own frames (private or utility) within one top-level
 /// PXE call. For data confined to a single call frame, prefer [`EphemeralArray`](crate::ephemeral::EphemeralArray).
 /// For data that must persist indefinitely, use [`CapsuleArray`](crate::capsules::CapsuleArray).
-pub type TransientArray<T> = UnconstrainedArray<T, TransientOracle>;
+pub type TransientArray<T> = UnconstrainedArray<T, TransientOracles>;
 
 /// Routes [`UnconstrainedArray`] operations to the transient array oracles, sharing arrays across all call frames
 /// of the same contract within one top-level PXE call.
-pub struct TransientOracle {}
+pub struct TransientOracles {}
 
-impl ArrayOracle for TransientOracle {
+impl ArrayOracles for TransientOracles {
     unconstrained fn len_oracle(slot: Field) -> u32 {
         transient_oracles::len_oracle(slot)
     }
@@ -70,7 +70,7 @@ pub unconstrained fn store<T>(slot: Field, value: T)
 where
     T: Serialize,
 {
-    crate::unconstrained_array::store::<T, TransientOracle>(slot, value)
+    crate::unconstrained_array::store::<T, TransientOracles>(slot, value)
 }
 
 /// Returns the value previously stored at `slot` with [`store`], or `Option::none()` if the slot holds no value.
@@ -78,15 +78,15 @@ pub unconstrained fn load<T>(slot: Field) -> Option<T>
 where
     T: Deserialize,
 {
-    crate::unconstrained_array::load::<T, TransientOracle>(slot)
+    crate::unconstrained_array::load::<T, TransientOracles>(slot)
 }
 
 /// Deletes the value stored at `slot`. Does nothing if the slot is already empty.
 pub unconstrained fn delete(slot: Field) {
-    crate::unconstrained_array::delete::<TransientOracle>(slot)
+    crate::unconstrained_array::delete::<TransientOracles>(slot)
 }
 
-#[crate::unconstrained_array::test_helpers::unconstrained_array_tests(quote { crate::transient::TransientOracle })]
+#[crate::unconstrained_array::test_helpers::unconstrained_array_tests(quote { crate::transient::TransientOracles })]
 mod test {
     use crate::test::helpers::test_environment::TestEnvironment;
     use crate::unconstrained_array::test_helpers::SLOT;
