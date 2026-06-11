@@ -1956,6 +1956,23 @@ fn arena_off(B: u32, a: u32) -> u32 {
     return select(B >> a, 0u, a == 0u);
 }
 
+// Per-thread partial-product slots for the shared batch inversion, in
+// WORKGROUP memory (lane-private — no barriers needed). Word-interleaved by
+// thread so consecutive lanes hit consecutive banks.
+var<workgroup> shpp: array<u32, {{ pp_words }}>;
+
+fn ppstore(k: u32, tl: u32, v: array<u32, 8>) {
+    let b = (k * WG + tl) * 8u;
+    for (var c = 0u; c < 8u; c = c + 1u) {
+        shpp[b + c] = v[c];
+    }
+}
+fn ppload(k: u32, tl: u32) -> array<u32, 8> {
+    let b = (k * WG + tl) * 8u;
+    return array<u32, 8>(shpp[b], shpp[b + 1u], shpp[b + 2u], shpp[b + 3u],
+                         shpp[b + 4u], shpp[b + 5u], shpp[b + 6u], shpp[b + 7u]);
+}
+
 @compute
 @workgroup_size({{ workgroup_size }})
 fn main(@builtin(workgroup_id) wgid: vec3<u32>, @builtin(local_invocation_id) lid: vec3<u32>) {

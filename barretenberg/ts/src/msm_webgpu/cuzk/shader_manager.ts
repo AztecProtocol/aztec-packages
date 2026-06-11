@@ -755,13 +755,16 @@ ${packLines.join('\n')}
     }
     // Rolled emission: every loop bound comes from lparams.y (== cpairs, but
     // the driver cannot prove it), so mobile compilers keep the small bodies
-    // rolled instead of inlining cpairs copies of the montmul. cpairs only
-    // sizes the private partial-product array. Per-pair state across the two
-    // loops is a 4-bit flag nibble (ps/act/dbl/inf) — indices and denominators
-    // are recomputed from cache-hot loads.
+    // rolled instead of inlining cpairs copies of the montmul. The chain's
+    // partial products live in per-thread WORKGROUP-memory slots (no
+    // cross-thread sharing, no barriers): a dynamically-indexed PRIVATE
+    // array spills to scratch on the mobile drivers — slow, and scratch
+    // addressing under wave concurrency is a known Adreno corruption zone.
+    // Per-pair state across the two loops is a 4-bit flag nibble
+    // (ps/act/dbl/inf) — indices and denominators are recomputed from
+    // cache-hot loads.
     const gather: string[] = [];
     gather.push(`    let cd = lparams.y;`);
-    gather.push(`    var pp: array<array<u32, 8>, CPAIRS>;`);
     gather.push(`    var fl: u32 = 0u;`);
     gather.push(`    var chain: array<u32, 8> = r1;`);
     gather.push(`    for (var k = 0u; k < cd; k = k + 1u) {`);
@@ -792,10 +795,12 @@ ${packLines.join('\n')}
     gather.push(`        }`);
     gather.push(`        fl = fl | (f << (4u * k));`);
     gather.push(`        chain = montgomery_product_f8(chain, den);`);
-    gather.push(`        pp[k] = chain;`);
+    gather.push(`        if (k + 1u < cd) {`);
+    gather.push(`            ppstore(k, lid.x, chain);`);
+    gather.push(`        }`);
     gather.push(`    }`);
     const invert: string[] = [];
-    invert.push(`    var inv_acc: array<u32, 8> = fr_inv_by_loop_pk(pp[cd - 1u]);`);
+    invert.push(`    var inv_acc: array<u32, 8> = fr_inv_by_loop_pk(chain);`);
     const apply: string[] = [];
     apply.push(`    for (var kk = 0u; kk < cd; kk = kk + 1u) {`);
     apply.push(`        let k = cd - 1u - kk;`);
@@ -806,7 +811,7 @@ ${packLines.join('\n')}
     apply.push(`        let inf = (f & 8u) != 0u;`);
     apply.push(`        var vi = inv_acc;`);
     apply.push(`        if (k > 0u) {`);
-    apply.push(`            vi = montgomery_product_f8(inv_acc, pp[k - 1u]);`);
+    apply.push(`            vi = montgomery_product_f8(inv_acc, ppload(k - 1u, lid.x));`);
     apply.push(`        }`);
     apply.push(`        let q = t + k * T;`);
     apply.push(`        let dst = base + arena_off(B, q >> hshift) + (q & (half - 1u));`);
@@ -854,6 +859,7 @@ ${packLines.join('\n')}
       {
         workgroup_size,
         cpairs,
+        pp_words: workgroup_size * (cpairs - 1) * 8,
         pairs_gather: gather.join('\n'),
         chain_invert_peel: invert.join('\n'),
         pairs_apply: apply.join('\n'),

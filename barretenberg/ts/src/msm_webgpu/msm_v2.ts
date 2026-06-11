@@ -72,6 +72,9 @@ const PINGPONG_BELOW_DEFAULT = 0;
 const COOP_TAIL_WG = 256;
 const COOP_TAIL_CAP = 256;
 const COOP_TAIL_STARVE = 4096; // switch to coop-tail once active buckets drop below this
+// Halving ba kernels' workgroup size: bounded by the workgroup-memory
+// partial-product slots (WG × (cpairs-1) × 32B — 14KB at C=8).
+const HALVE_BA_WG = 64;
 
 // A scratch buffer is either a standalone GPUBuffer or a {buffer,offset,size}
 // slot carved from an arena (ARENA_LAYOUT.md §1). These helpers act on either,
@@ -3317,11 +3320,14 @@ export class MsmV2 {
       });
       m.halveSchedule = hsched;
       const hmodes = new Set(hsched.depths.map(x => x.mode));
+      // ba kernels run at their own WG: the inversion chain's partial
+      // products live in workgroup memory (HALVE_BA_WG × (cpairs-1) × 32B —
+      // 14KB at C=8), which bounds the workgroup size.
       if (hmodes.has('ba8')) {
-        m.halveBa8Pipe = await compile(sm.gen_ba_halve_shader(REDUCE_WG, 8), `halve-ba8`, m.foldLayout);
+        m.halveBa8Pipe = await compile(sm.gen_ba_halve_shader(HALVE_BA_WG, 8), `halve-ba8`, m.foldLayout);
       }
       if (hmodes.has('ba4')) {
-        m.halveBa4Pipe = await compile(sm.gen_ba_halve_shader(REDUCE_WG, 4), `halve-ba4`, m.foldLayout);
+        m.halveBa4Pipe = await compile(sm.gen_ba_halve_shader(HALVE_BA_WG, 4), `halve-ba4`, m.foldLayout);
       }
       if (hmodes.has('jac')) {
         m.halveJacPipe = await compile(sm.gen_jac_halve_shader(REDUCE_WG), `halve-jac`, m.foldJacLayout);
@@ -4696,10 +4702,11 @@ export class MsmV2 {
             ? mkBind(this.foldJacLayout, [redBuf, redZBuf, isPresentBuf, hcparams, lp, hbuf])
             : mkBind(this.foldLayout, [redBuf, isPresentBuf, hcparams, lp, hbuf]);
         const threads = Math.ceil(dep.pairsPerWindow / cpairs);
+        const wg = dep.mode === 'jac' ? this.reduceWg : HALVE_BA_WG;
         if (this.halveZInitAt < 0 && dep.mode === 'jac') {
           this.halveZInitAt = this.halveDepthDispatch.length;
         }
-        this.halveDepthDispatch.push({ pipe, bind, nx: Math.ceil(threads / this.reduceWg) });
+        this.halveDepthDispatch.push({ pipe, bind, nx: Math.ceil(threads / wg) });
       }
       // Finisher geometry for F1/F2: (finisher_depth, inputs_jac, log2_B, 0).
       // Uniform-sourced so the rolled loops' barriers sit in uniform control
