@@ -17,7 +17,7 @@ import { Fr } from '@aztec/aztec.js/fields';
 import { type Logger, createLogger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
-import { AnvilTestWatcher, type AnvilTestWatcherOpts, CheatCodes } from '@aztec/aztec/testing';
+import { CheatCodes } from '@aztec/aztec/testing';
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
 import { isAnvilTestChain } from '@aztec/ethereum/chain';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
@@ -187,9 +187,6 @@ export type SetupOptions = {
   mockGossipSubNetwork?: boolean;
   /** Whether to add simulated latency to the mock gossipsub network (in ms) */
   mockGossipSubNetworkLatency?: number;
-  /** Whether to disable the anvil test watcher (can still be manually started) */
-  disableAnvilTestWatcher?: boolean;
-  anvilTestWatcherOpts?: AnvilTestWatcherOpts;
   /** Whether to enable anvil automine during deployment of L1 contracts (consider defaulting this to true). */
   automineL1Setup?: boolean;
   /** How many accounts to seed and unlock in anvil. */
@@ -255,8 +252,6 @@ export type EndToEndContext = {
   cheatCodes: CheatCodes;
   /** The cheat codes for L1 */
   ethCheatCodes: EthCheatCodes;
-  /** The anvil test watcher. */
-  watcher: AnvilTestWatcher;
   /** Allows tweaking current system time, used by the epoch cache only. */
   dateProvider: TestDateProvider;
   /** Telemetry client */
@@ -331,8 +326,6 @@ export async function setup(
     config.maxPendingTxCount = opts.maxPendingTxCount ?? TEST_MAX_PENDING_TX_POOL_COUNT;
     // For tests we only want proving enabled if specifically requested
     config.realProofs = !!opts.realProofs;
-    // Only enforce the time table if requested
-    config.enforceTimeTable = !!opts.enforceTimeTable;
     // Enable the tx delayer for tests (default config has it disabled, so we force-enable it here)
     config.enableDelayer = true;
     config.listenAddress = '127.0.0.1';
@@ -487,25 +480,14 @@ export async function setup(
     }
 
     // In compose mode (no local anvil), sync dateProvider to L1 time since it may have drifted
-    // ahead of system time due to the local-network watcher warping time forward on each filled slot.
-    // When running with a local anvil, the dateProvider is kept in sync via the stdout listener.
+    // ahead of system time. When running with a local anvil, the dateProvider is kept in sync via
+    // the stdout listener.
     if (!anvil) {
       dateProvider.setTime((await ethCheatCodes.lastBlockTimestamp()) * 1000);
     }
 
     if (opts.l2StartTime) {
       await ethCheatCodes.warp(opts.l2StartTime, { resetBlockInterval: true });
-    }
-
-    const watcher = new AnvilTestWatcher(
-      new EthCheatCodesWithState(config.l1RpcUrls, dateProvider),
-      deployL1ContractsValues.l1ContractAddresses.rollupAddress,
-      deployL1ContractsValues.l1Client,
-      dateProvider,
-      opts.anvilTestWatcherOpts,
-    );
-    if (!opts.disableAnvilTestWatcher) {
-      await watcher.start();
     }
 
     // Use metricsPort-based telemetry if provided, otherwise use the regular telemetry client
@@ -545,6 +527,7 @@ export async function setup(
     if (originalMinTxsPerBlock === undefined) {
       throw new Error('minTxsPerBlock is undefined in e2e test setup');
     }
+    const originalBuildCheckpointIfEmpty = config.buildCheckpointIfEmpty ?? false;
 
     // Whether we're deploying accounts (and therefore need reliable block inclusion past genesis)
     const shouldDeployAccounts = numberOfAccounts > 0 && !opts.skipAccountDeployment;
@@ -557,6 +540,11 @@ export async function setup(
     // Math.max(minTxsPerBlock ?? 1, 1) and still requires minValidTxs: 1.
     const accountsDeployMinTxs = 0;
     config.minTxsPerBlock = shouldDeployAccounts ? accountsDeployMinTxs : needsEmptyBlock ? 0 : originalMinTxsPerBlock;
+    const shouldTemporarilyBuildEmptyCheckpoints =
+      needsEmptyBlock && !opts.skipInitialSequencer && config.useAutomineSequencer !== true;
+    if (shouldTemporarilyBuildEmptyCheckpoints) {
+      config.buildCheckpointIfEmpty = true;
+    }
 
     config.p2pEnabled = opts.mockGossipSubNetwork || config.p2pEnabled;
     config.p2pIp = opts.p2pIp ?? config.p2pIp ?? '127.0.0.1';
@@ -674,8 +662,15 @@ export async function setup(
     // If skipAccountDeployment is true, we don't deploy or wait - tests will handle account deployment later
 
     // Now we restore the original minTxsPerBlock setting if we changed it.
-    if (sequencerClient && config.minTxsPerBlock !== originalMinTxsPerBlock) {
-      sequencerClient.getSequencer().updateConfig({ minTxsPerBlock: originalMinTxsPerBlock });
+    if (sequencerClient) {
+      const sequencer = sequencerClient.getSequencer();
+      if (config.minTxsPerBlock !== originalMinTxsPerBlock) {
+        sequencer.updateConfig({ minTxsPerBlock: originalMinTxsPerBlock });
+      }
+      if (shouldTemporarilyBuildEmptyCheckpoints) {
+        sequencer.updateConfig({ buildCheckpointIfEmpty: originalBuildCheckpointIfEmpty });
+        config.buildCheckpointIfEmpty = originalBuildCheckpointIfEmpty;
+      }
     }
 
     if (initialFundedAccounts.length < numberOfAccounts) {
@@ -698,7 +693,6 @@ export async function setup(
           await bbConfig.cleanup();
         }
 
-        await tryStop(watcher, logger);
         await tryStop(anvil, logger);
 
         await tryRmDir(directoryToCleanup, logger);
@@ -736,7 +730,6 @@ export async function setup(
       telemetryClient,
       wallet,
       accounts,
-      watcher,
       acvmConfig,
       bbConfig,
       directoryToCleanup,

@@ -74,7 +74,6 @@ export {
   UniversalDeployMethod,
 } from '../contract/deploy_method.js';
 export { waitForProven, type WaitForProvenOpts, DefaultWaitForProvenOpts } from '../contract/wait_for_proven.js';
-export { getGasLimits } from '../contract/get_gas_limits.js';
 export { fastForwardContractUpdate } from '../contract/fastforward_contract_update.js';
 
 export {

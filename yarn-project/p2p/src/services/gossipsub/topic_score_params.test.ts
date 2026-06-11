@@ -1,11 +1,4 @@
 import { TopicType, createTopicString } from '@aztec/stdlib/p2p';
-import {
-  DEFAULT_CHECKPOINT_PROPOSAL_INIT_TIME,
-  DEFAULT_CHECKPOINT_PROPOSAL_PREPARE_TIME,
-  DEFAULT_MIN_BLOCK_DURATION,
-  DEFAULT_P2P_PROPAGATION_TIME,
-  ProposerTimetable,
-} from '@aztec/stdlib/timetable';
 
 import { describe, expect, it } from '@jest/globals';
 
@@ -22,71 +15,15 @@ import {
   getExpectedMessagesPerSlot,
 } from './topic_score_params.js';
 
-/**
- * Builds a {@link ProposerTimetable} for scoring tests, mirroring how p2p builds it from config:
- * operational budgets fall back to the shared stdlib defaults and `enforce` is true.
- */
-function makeTimetable(opts: {
-  slotDurationMs: number;
-  ethereumSlotDuration: number;
-  blockDurationMs?: number;
-  p2pPropagationTime?: number;
-  checkpointProposalPrepareTime?: number;
-}): ProposerTimetable {
-  return new ProposerTimetable({
-    l1Constants: {
-      l1GenesisTime: 0n,
-      slotDuration: opts.slotDurationMs / 1000,
-      ethereumSlotDuration: opts.ethereumSlotDuration,
-    },
-    blockDuration: opts.blockDurationMs ? opts.blockDurationMs / 1000 : undefined,
-    minBlockDuration: DEFAULT_MIN_BLOCK_DURATION,
-    p2pPropagationTime: opts.p2pPropagationTime ?? DEFAULT_P2P_PROPAGATION_TIME,
-    checkpointProposalPrepareTime: opts.checkpointProposalPrepareTime ?? DEFAULT_CHECKPOINT_PROPOSAL_PREPARE_TIME,
-    checkpointProposalInitTime: DEFAULT_CHECKPOINT_PROPOSAL_INIT_TIME,
-    enforce: true,
-  });
-}
-
 describe('Topic Score Params', () => {
-  // Standard network parameters for testing (matching production values). The timetable defaults to
-  // single-block mode, so blocksPerSlot is 1 unless a test supplies a multi-block timetable.
+  // Standard network parameters for testing (matching production values). Scoring now takes the network-wide
+  // max-blocks-per-checkpoint directly; 1 exercises single-block-mode scoring.
   const standardParams = {
     slotDurationMs: 72000, // 72 seconds
     heartbeatIntervalMs: 700, // 700ms gossipsub heartbeat
     targetCommitteeSize: 48,
-    timetable: makeTimetable({ slotDurationMs: 72000, ethereumSlotDuration: 12, checkpointProposalPrepareTime: 1 }),
+    maxBlocksPerCheckpoint: 1,
   };
-
-  describe('max blocks per checkpoint from the proposer timetable', () => {
-    it('returns 1 when blockDuration is undefined (single block mode)', () => {
-      expect(makeTimetable({ slotDurationMs: 72000, ethereumSlotDuration: 12 }).getMaxBlocksPerCheckpoint()).toBe(1);
-    });
-
-    it('matches the production worked example (10 blocks)', () => {
-      // floor((72 - 6 - 2*2 - 1) / 6) = floor(61/6) = 10
-      const timetable = makeTimetable({
-        slotDurationMs: 72000,
-        ethereumSlotDuration: 12,
-        blockDurationMs: 6000,
-        p2pPropagationTime: 2,
-        checkpointProposalPrepareTime: 1,
-      });
-      expect(timetable.getMaxBlocksPerCheckpoint()).toBe(10);
-    });
-
-    it('matches the local fast profile (4 blocks)', () => {
-      // floor((36 - 6 - 2*0.5 - 0.5) / 6) = floor(28.5/6) = 4
-      const timetable = makeTimetable({
-        slotDurationMs: 36000,
-        ethereumSlotDuration: 4,
-        blockDurationMs: 6000,
-        p2pPropagationTime: 0.5,
-        checkpointProposalPrepareTime: 0.5,
-      });
-      expect(timetable.getMaxBlocksPerCheckpoint()).toBe(4);
-    });
-  });
 
   describe('getDecayWindowSlots', () => {
     it('returns 5 slots for low frequency topics (<=1 msg/slot)', () => {
@@ -246,19 +183,19 @@ describe('Topic Score Params', () => {
     it('computes shared values once', () => {
       const factory = new TopicScoreParamsFactory(standardParams);
 
-      expect(factory.blocksPerSlot).toBe(1); // undefined blockDuration = single block
+      expect(factory.blocksPerSlot).toBe(1); // maxBlocksPerCheckpoint = 1 = single block mode
       expect(factory.heartbeatsPerSlot).toBeCloseTo(72000 / 700);
       expect(factory.invalidDecay).toBeGreaterThan(0);
       expect(factory.invalidDecay).toBeLessThan(1);
     });
 
-    it('derives blocksPerSlot from a multi-block proposer timetable', () => {
+    it('takes blocksPerSlot straight from maxBlocksPerCheckpoint', () => {
       const factory = new TopicScoreParamsFactory({
         ...standardParams,
-        timetable: makeTimetable({ slotDurationMs: 72000, ethereumSlotDuration: 12, blockDurationMs: 10000 }),
+        maxBlocksPerCheckpoint: 6,
       });
 
-      expect(factory.blocksPerSlot).toBeGreaterThan(1);
+      expect(factory.blocksPerSlot).toBe(6);
     });
 
     describe('createForTopic', () => {
@@ -282,7 +219,7 @@ describe('Topic Score Params', () => {
       it('disables P3/P3b for block_proposal in MBPS mode when expectedBlockProposalsPerSlot is 0', () => {
         const factory = new TopicScoreParamsFactory({
           ...standardParams,
-          timetable: makeTimetable({ slotDurationMs: 72000, ethereumSlotDuration: 12, blockDurationMs: 10000 }),
+          maxBlocksPerCheckpoint: 6,
           expectedBlockProposalsPerSlot: 0,
         });
         const params = factory.createForTopic(TopicType.block_proposal);
@@ -294,7 +231,7 @@ describe('Topic Score Params', () => {
       it('enables P3/P3b for block_proposal when expectedBlockProposalsPerSlot is positive', () => {
         const factory = new TopicScoreParamsFactory({
           ...standardParams,
-          timetable: makeTimetable({ slotDurationMs: 72000, ethereumSlotDuration: 12, blockDurationMs: 10000 }),
+          maxBlocksPerCheckpoint: 6,
           expectedBlockProposalsPerSlot: 3,
         });
         const params = factory.createForTopic(TopicType.block_proposal);
@@ -306,7 +243,7 @@ describe('Topic Score Params', () => {
       it('falls back to blocksPerSlot - 1 for block_proposal when expectedBlockProposalsPerSlot is undefined', () => {
         const factory = new TopicScoreParamsFactory({
           ...standardParams,
-          timetable: makeTimetable({ slotDurationMs: 72000, ethereumSlotDuration: 12, blockDurationMs: 10000 }),
+          maxBlocksPerCheckpoint: 6,
         });
         const params = factory.createForTopic(TopicType.block_proposal);
 
@@ -550,7 +487,7 @@ describe('Topic Score Params', () => {
     it('total P3b is -102 when block proposal scoring is enabled (3 topics)', () => {
       const factory = new TopicScoreParamsFactory({
         ...standardParams,
-        timetable: makeTimetable({ slotDurationMs: 72000, ethereumSlotDuration: 12, blockDurationMs: 4000 }),
+        maxBlocksPerCheckpoint: 16,
         expectedBlockProposalsPerSlot: 3,
       });
 

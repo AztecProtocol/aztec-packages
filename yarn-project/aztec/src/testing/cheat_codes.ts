@@ -2,7 +2,7 @@ import { EthCheatCodes, RollupCheatCodes } from '@aztec/ethereum/test';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import { createLogger } from '@aztec/foundation/log';
 import type { DateProvider } from '@aztec/foundation/timer';
-import type { AutomineSequencer } from '@aztec/sequencer-client';
+import type { AutomineSequencer } from '@aztec/sequencer-client/automine';
 import type { AztecNode, AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
 
 /**
@@ -64,21 +64,18 @@ export class CheatCodes {
     }
 
     const currentSlot = await this.rollup.getSlot();
-    const targetSlot = await this.rollup.getSlotAt(targetBigInt);
+    let effectiveTargetSlot = await this.rollup.getSlotAt(targetBigInt);
+    let effectiveTimestamp = await this.rollup.getTimestampForSlot(effectiveTargetSlot);
 
-    let effectiveTimestamp = targetBigInt;
-    let effectiveTargetSlot = targetSlot;
-
-    if (targetSlot <= currentSlot) {
-      // Target lands in the same (or earlier) slot — auto-adjust to the next slot's start.
-      const nextSlot = SlotNumber(currentSlot + 1);
-      const nextSlotTimestamp = await this.rollup.getTimestampForSlot(nextSlot);
+    if (effectiveTimestamp < targetBigInt || effectiveTargetSlot <= currentSlot) {
+      const adjustedSlot = SlotNumber(Math.max(effectiveTargetSlot + 1, currentSlot + 1));
+      const adjustedTimestamp = await this.rollup.getTimestampForSlot(adjustedSlot);
       this.logger.warn(
-        `warpL2TimeAtLeastTo: target timestamp ${targetBigInt} falls in current slot ${currentSlot}. ` +
-          `Auto-adjusting to start of slot ${nextSlot} at timestamp ${nextSlotTimestamp}.`,
+        `warpL2TimeAtLeastTo: target timestamp ${targetBigInt} does not align with a future L2 slot boundary. ` +
+          `Auto-adjusting to start of slot ${adjustedSlot} at timestamp ${adjustedTimestamp}.`,
       );
-      effectiveTimestamp = nextSlotTimestamp;
-      effectiveTargetSlot = nextSlot;
+      effectiveTimestamp = adjustedTimestamp;
+      effectiveTargetSlot = adjustedSlot;
     }
 
     await this.eth.warp(effectiveTimestamp, { resetBlockInterval: true });

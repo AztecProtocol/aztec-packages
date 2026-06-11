@@ -9,6 +9,68 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.js] Wallets validate declared gas limits against the network's per-tx admission limit
+
+Wallets now reject a transaction whose declared `gasLimits` exceed the network's per-tx admission limit (the node-advertised `txsLimits.gas`), throwing before the tx is sent — e.g. `Declared DA gas limit (X) exceeds the maximum this network allows per tx (Y)`. When you declare no gas limits, the wallet fills in the network's admission limits for you. This mirrors the node's inbound `GasLimitsValidator`, surfacing the rejection locally instead of on submission.
+
+**Impact**: Transactions that previously over-declared gas (and were silently skipped by the proposer) now fail fast with a descriptive error. Declare limits at or below `txsLimits.gas`, or declare none and let the wallet fill them in.
+
+### [Aztec.js] `estimateGas` / `estimatedGasPadding` simulate options and the `estimatedGas` result field removed
+
+The `estimateGas` and `estimatedGasPadding` fee options are gone, and the `estimatedGas` field on simulation results is replaced by `gasUsed` (the raw gas the simulation consumed). Apps that want explicit gas limits read `gasUsed` and pad it themselves; otherwise the wallet fills in the network's admission limits automatically.
+
+**Migration:**
+
+```diff
+- const { estimatedGas } = await contract.methods.foo(args).simulate({
+-   from,
+-   fee: { estimateGas: true, estimatedGasPadding: 0.1 },
+- });
+- const gasLimits = estimatedGas.gasLimits;
++ const { gasUsed } = await contract.methods.foo(args).simulate({ from, includeMetadata: true });
++ const gasLimits = gasUsed.totalGas.mul(1.1); // pad yourself
+```
+
+### [Aztec.js] `getGasLimits` moved to `@aztec/wallet-sdk` and is no longer exported from `@aztec/aztec.js`
+
+`getGasLimits` is no longer exported from `@aztec/aztec.js`. It now lives in `@aztec/wallet-sdk/base-wallet`, takes the simulated `gasUsed` and the network's per-tx admission limit, and clamps the padded estimates to it. If the simulated usage already exceeds the network limit, it throws immediately rather than returning a limit the node would reject.
+
+**Migration:**
+
+```diff
+- import { getGasLimits } from '@aztec/aztec.js';
+- const { gasLimits, teardownGasLimits } = getGasLimits(simulationResult, 0.1);
++ import { getGasLimits } from '@aztec/wallet-sdk/base-wallet';
++ const { txsLimits } = await node.getNodeInfo();
++ const { gasLimits, teardownGasLimits } = getGasLimits(simulationResult.gasUsed, Gas.from(txsLimits.gas), 0.1);
+```
+
+### [Aztec.js / PXE] `NodeInfo.txsLimits` is now required
+
+`NodeInfo` now carries a required `txsLimits` field: every node advertises the maximum gas a single tx may declare (`{ gas: { daGas, l2Gas } }`) and wallets rely on it for fallback gas limits. Clients built against this version cannot talk to nodes that predate the field.
+
+### [Aztec.js] `GasSettings.fallback` requires explicit `gasLimits`
+
+`GasSettings.fallback` no longer supplies a default value for `gasLimits`. Callers must pass the network's per-tx admission limit explicitly — read it from the node's `txsLimits.gas`.
+
+**Migration:**
+
+```diff
+- const settings = GasSettings.fallback({ maxFeesPerGas });
++ const { txsLimits } = await node.getNodeInfo();
++ const settings = GasSettings.fallback({ gasLimits: Gas.from(txsLimits.gas), maxFeesPerGas });
+```
+
+### [Aztec.js / stdlib] Removed legacy fallback gas constants
+
+The following exports have been removed from `@aztec/stdlib`:
+
+- `APPROXIMATE_MAX_DA_GAS_PER_BLOCK`
+- `FALLBACK_TEARDOWN_L2_GAS_LIMIT`
+- `FALLBACK_TEARDOWN_DA_GAS_LIMIT`
+
+**Impact**: Any code that imported these symbols must switch to the live node-advertised limits via the node's `txsLimits.gas`.
+
 ### [Aztec.nr] `messages::message_delivery` module moved to `messages::delivery`
 
 The `message_delivery` module has been renamed to `delivery`. Update imports accordingly:
@@ -17,6 +79,19 @@ The `message_delivery` module has been renamed to `delivery`. Update imports acc
 - use aztec::messages::message_delivery::MessageDelivery;
 + use aztec::messages::delivery::MessageDelivery;
 ```
+
+### [Node JSON-RPC] Method prefixes changed to `aztec_*` and `aztecAdmin_*`
+
+All Aztec node JSON-RPC method prefixes have changed:
+
+- `node_*` → `aztec_*` (public node methods, port 8080)
+- `nodeAdmin_*` → `aztecAdmin_*` (admin methods, port 8880)
+- `nodeDebug_*` → `aztecDebug_*` (debug methods, port 8080, local-network or `--node-debug` only)
+- `p2p_*` namespace removed; P2P queries are on `aztec_*`: `getPeers`, `getCheckpointAttestationsForSlot`, `getProposalsForSlot`
+- New archiver sync helpers on `aztec_*`: `getL1Constants`, `getSyncedL2SlotNumber`, `getSyncedL2EpochNumber`, `getSyncedL1Timestamp`
+
+If you call the node RPC directly (e.g. via `curl` or a custom client), update all method names accordingly.
+Clients created via `createAztecNodeClient`, `createAztecNodeAdminClient`, and `createAztecNodeDebugClient` are updated automatically.
 
 ### [Aztec.nr] `get_pending_tagged_logs` oracle interface updated (oracle version 28)
 
@@ -100,7 +175,7 @@ After the `auth_registry`, `public_checks`, and `multi_call_entrypoint` demotion
 
 ### [Aztec.nr] `multi_call_entrypoint` demoted from protocol contract
 
-`multi_call_entrypoint` is no longer a protocol contract; its address is derived from its artifact rather than hardcoded at `6`, and PXE no longer auto-registers it. It is now a standard contract that PXE *preloads*: both `createPXE` and `EmbeddedWallet` preload the standard MultiCallEntrypoint automatically (and `EmbeddedWallet` additionally preloads `AuthRegistry`). **If you use the standard PXE or `EmbeddedWallet`, no changes are needed** — multicall keeps working out of the box.
+`multi_call_entrypoint` is no longer a protocol contract; its address is derived from its artifact rather than hardcoded at `6`, and PXE no longer auto-registers it. It is now a standard contract that PXE _preloads_: both `createPXE` and `EmbeddedWallet` preload the standard MultiCallEntrypoint automatically (and `EmbeddedWallet` additionally preloads `AuthRegistry`). **If you use the standard PXE or `EmbeddedWallet`, no changes are needed** — multicall keeps working out of the box.
 
 To preload a different set of standard contracts (for example to also preload `PublicChecks`, which is not preloaded by default), a wallet or app passes its own `preloadedContractsProvider` through the wallet's PXE options:
 
@@ -121,7 +196,7 @@ const wallet = await EmbeddedWallet.create(node, {
 });
 ```
 
-The provider *replaces* the default list (it is not additive), so include every standard contract you want available.
+The provider _replaces_ the default list (it is not additive), so include every standard contract you want available.
 
 ### [Aztec.nr] `public_checks` demoted from protocol contract
 

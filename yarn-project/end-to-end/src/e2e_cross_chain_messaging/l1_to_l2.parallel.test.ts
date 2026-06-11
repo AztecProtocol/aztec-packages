@@ -6,7 +6,7 @@ import { isL1ToL2MessageReady } from '@aztec/aztec.js/messaging';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { TxExecutionResult } from '@aztec/aztec.js/tx';
 import type { Wallet } from '@aztec/aztec.js/wallet';
-import { BlockNumber, IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { timesAsync } from '@aztec/foundation/collection';
 import { retryUntil } from '@aztec/foundation/retry';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
@@ -30,7 +30,22 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
   let user1Address: AztecAddress;
   let testContract: TestContract;
 
+  // Whether explicit mark-as-proven calls are honored. The inbox-drift scenario flips this to
+  // false to let the proposed chain drift and prune.
+  let markProvenEnabled = true;
+
+  // Marks the current pending tip proven on L1, gated by `markProvenEnabled`. The e2e fixture runs
+  // L1 on interval mining and nothing marks blocks proven automatically, so without these explicit
+  // calls L1's `aztecProofSubmissionEpochs` window expires mid-test and prunes in-flight wallet txs.
+  const markAsProven = async () => {
+    if (!markProvenEnabled) {
+      return;
+    }
+    await t.cheatCodes.rollup.markAsProven();
+  };
+
   beforeEach(async () => {
+    markProvenEnabled = true;
     t = new CrossChainMessagingTest(
       'l1_to_l2',
       // PIPELINING_SETUP_OPTS sets minTxsPerBlock=0; this test needs minTxsPerBlock=1 because it
@@ -68,10 +83,9 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
     if (newBlock === block) {
       throw new Error(`Failed to advance block ${block}`);
     }
-    // Under interval mining `AnvilTestWatcher.markAsProven` does not auto-fire; without an explicit
-    // prove call here, L1's `aztecProofSubmissionEpochs=2` window (96s with pipelined 12s slots)
-    // expires mid-test and triggers a chain prune that drops in-flight wallet txs.
-    await t.context.watcher.markAsProven();
+    // Keep the proof window from expiring mid-test (see `markAsProven` above). No-op once the drift
+    // scenario disables proving.
+    await markAsProven();
     return newBlock;
   };
 
@@ -228,12 +242,9 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
     // an auto-prover racing it.
     await t.epochTestSettler?.stop();
 
-    // Reset the L1 proof window by marking the current pending tip as proven. The e2e fixture
-    // runs L1 on interval mining, so the watcher's auto-prove loop never starts (it gates on
-    // `isAutoMining`). That means L1's prune deadline has been anchored to chain genesis the
-    // whole setup, and would otherwise fire mid-test before we finish mining the 4 drift
-    // checkpoints below.
-    await t.context.watcher.markAsProven();
+    // Reset the L1 proof window by marking the current pending tip as proven, so L1's prune
+    // deadline doesn't fire mid-test before we finish mining the 4 drift checkpoints below.
+    await markAsProven();
 
     // Stop proving
     const lastProven = await aztecNode.getBlockNumber();
@@ -243,7 +254,7 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
       onlyCheckpointed: true,
     });
     log.warn(`Stopping proof submission at checkpoint ${checkpointedProvenBlock.checkpointNumber} to allow drift`);
-    t.context.watcher.setIsMarkingAsProven(false);
+    markProvenEnabled = false;
 
     // Mine several checkpoints to ensure drift
     log.warn(`Mining blocks to allow drift`);
@@ -271,6 +282,10 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
       'wait for prune',
       180,
     );
+    // The drift condition has been established. Re-enable explicit proving so the catch-up blocks
+    // below are not pruned a second time before the message checkpoint becomes ready.
+    markProvenEnabled = true;
+    await markAsProven();
 
     // Check that there is no witness yet
     expect(await aztecNode.getL1ToL2MessageMembershipWitness('latest', msgHash)).toBeUndefined();
@@ -292,17 +307,16 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
         // If it fails we check that the block doesn't contain the message
         const { receipt } = await consume().send({ from: user1Address, wait: { dontThrowOnRevert: true } });
         if (receipt.executionResult === TxExecutionResult.SUCCESS) {
-          // The block the transaction included should be for the message checkpoint number
-          // and be the first block in the checkpoint
+          // The consume tx must not succeed before the message checkpoint. It can land in a later
+          // checkpoint if the node catches up between the readiness poll and the tx being built.
           const block = await aztecNode.getBlock(receipt.blockNumber!);
           expect(block).toBeDefined();
-          expect(block!.checkpointNumber).toEqual(msgCheckpointNumber);
-          expect(block!.indexWithinCheckpoint).toEqual(IndexWithinCheckpoint.ZERO);
+          expect(block!.checkpointNumber).toBeGreaterThanOrEqual(msgCheckpointNumber);
         } else {
           expect(receipt.executionResult).toEqual(TxExecutionResult.REVERTED);
         }
       }
-      await t.context.watcher.markAsProven();
+      await markAsProven();
     });
 
     // Verify the membership witness is available for creating the tx (private-land only)

@@ -5,6 +5,12 @@ import { z } from 'zod';
 
 import { type ProtocolContractAddresses, ProtocolContractAddressesSchema } from './protocol_contract_addresses.js';
 
+/** Limits a single transaction may declare on a network. */
+export interface TxsLimits {
+  /** Maximum gas limits a single tx may declare: the smaller of the per-tx maximum and the per-block allocation. */
+  gas: { daGas: number; l2Gas: number };
+}
+
 /** Provides basic information about the running node. */
 export interface NodeInfo {
   /** Version as tracked in the aztec-packages repository. */
@@ -21,6 +27,8 @@ export interface NodeInfo {
   protocolContractAddresses: ProtocolContractAddresses;
   /** Whether the node requires real proofs for transaction submission. */
   realProofs: boolean;
+  /** Limits a single tx may declare on this network. Clients rely on this to set fallback gas limits. */
+  txsLimits: TxsLimits;
 }
 
 export const NodeInfoSchema: ZodFor<NodeInfo> = z
@@ -32,5 +40,8 @@ export const NodeInfoSchema: ZodFor<NodeInfo> = z
     l1ContractAddresses: L1ContractAddressesSchema,
     protocolContractAddresses: ProtocolContractAddressesSchema,
     realProofs: z.boolean(),
+    txsLimits: z.object({
+      gas: z.object({ daGas: z.number().int().nonnegative(), l2Gas: z.number().int().nonnegative() }),
+    }),
   })
   .transform(obj => ({ enr: undefined, ...obj }));
