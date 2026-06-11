@@ -332,9 +332,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             var p_rx: array<u32, 8>;
             let sd_b = (slot_done_m >> k) & 1u;
             let isf_b = (is_first_m >> k) & 1u;
-            let rx_addr = select(select(cursor[k], cursor[k] + 1u, isf_b == 1u), IDLE_ANCHOR + 1u, sd_b == 1u);
+            let rx_addr = select(cursor[k] + isf_b, IDLE_ANCHOR + 1u, sd_b == 1u);
             p_rx = load_pt_x(rx_addr);
-            if (sd_b == 1u || isf_b == 1u) {
+            if (bool(sd_b | isf_b)) {
                 p_lx = load_pt_x(select(cursor[k], IDLE_ANCHOR, sd_b == 1u));
             } else {
                 p_lx = acc_x[k];
@@ -370,9 +370,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             var p_rx: array<u32, 8>;
             let sd_b = (slot_done_m >> k) & 1u;
             let isf_b = (is_first_m >> k) & 1u;
-            let rx_addr = select(select(cursor[k], cursor[k] + 1u, isf_b == 1u), IDLE_ANCHOR + 1u, sd_b == 1u);
+            let rx_addr = select(cursor[k] + isf_b, IDLE_ANCHOR + 1u, sd_b == 1u);
             p_rx = load_pt_x(rx_addr);
-            if (sd_b == 1u || isf_b == 1u) {
+            if (bool(sd_b | isf_b)) {
                 p_lx = load_pt_x(select(cursor[k], IDLE_ANCHOR, sd_b == 1u));
             } else {
                 p_lx = acc_x[k];
@@ -405,14 +405,14 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             // Y-coord loads + cursor advance.
             var p_ly: array<u32, 8>;
             var p_ry: array<u32, 8>;
-            let ry_addr = select(cursor[k], cursor[k] + 1u, isf_b == 1u);
+            let ry_addr = cursor[k] + isf_b;
             p_ry = load_pt_y(ry_addr);
             if (isf_b == 1u) {
                 p_ly = load_pt_y(cursor[k]);
             } else {
                 p_ly = acc_y[k];
             }
-            cursor[k] = cursor[k] + select(1u, 2u, isf_b == 1u);
+            cursor[k] = cursor[k] + 1u + isf_b;
 
             // Affine add using inv_dx (in register). p_rx already consumed.
             // lambda and the pre-multiply r_y are wide (< 4p, montmul-input
@@ -423,6 +423,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             var r_x = montgomery_square_f8(lambda);
             r_x = fr_sub_f8(r_x, x_sum);
             var r_y = fr_sub_wide_f8(p_lx, r_x);
+            // p_lx - r_x + 
             r_y = montgomery_product_f8(lambda, r_y);
             r_y = fr_sub_f8(r_y, p_ly);
 

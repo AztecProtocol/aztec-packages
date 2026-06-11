@@ -24,16 +24,26 @@
 //     montgomery_product_f8 maps exact-zero inputs to exact zero.
 
 // p and 2p as eight 32-bit words (p < 2^255, so 2p fits in 256 bits).
-{{#p8_consts}}
-const P8_{{idx}}: u32 = {{val}}u;
-{{/p8_consts}}
-{{#p8_consts}}
-const TWOP8_{{idx}}: u32 = {{val2}}u;
-{{/p8_consts}}
+const P8_0: u32 = 3632069959u;
+const P8_1: u32 = 1008765974u;
+const P8_2: u32 = 1752287885u;
+const P8_3: u32 = 2541841041u;
+const P8_4: u32 = 2172737629u;
+const P8_5: u32 = 3092268470u;
+const P8_6: u32 = 3778125865u;
+const P8_7: u32 = 811880050u;
+const TWOP8_0: u32 = 2969172622u;
+const TWOP8_1: u32 = 2017531949u;
+const TWOP8_2: u32 = 3504575770u;
+const TWOP8_3: u32 = 788714786u;
+const TWOP8_4: u32 = 50507963u;
+const TWOP8_5: u32 = 1889569645u;
+const TWOP8_6: u32 = 3261284435u;
+const TWOP8_7: u32 = 1623760101u;
 
 // R mod p (Montgomery one) as 8x u32 — the montgomery_product identity.
 fn get_r_f8() -> array<u32, 8> {
-    return array<u32, 8>({{ r8_csv }});
+    return array<u32, 8>(4143768756u, 1163004032u, 3131673000u, 1233717321u, 2173632842u, 2242453533u, 465007183u, 521552462u);
 }
 
 // is_zero on the 8x u32 form. Valid on sentinels (exact zero stores) — a
@@ -63,16 +73,42 @@ fn fr_add_f8(a: array<u32, 8>, b: array<u32, 8>) -> array<u32, 8> {
     var s: array<u32, 8>;
     s[0] = a[0] + b[0];
     var carry: u32 = u32(s[0] < a[0]);
-{{#f8_words}}
-{{#mid}}
     {
-        let lo: u32 = a[{{i}}] + b[{{i}}];
+        let lo: u32 = a[1] + b[1];
         let v: u32 = lo + carry;
-        s[{{i}}] = v;
-        carry = u32(lo < a[{{i}}]) + u32(v < lo);
+        s[1] = v;
+        carry = u32(lo < a[1]) + u32(v < lo);
     }
-{{/mid}}
-{{/f8_words}}
+    {
+        let lo: u32 = a[2] + b[2];
+        let v: u32 = lo + carry;
+        s[2] = v;
+        carry = u32(lo < a[2]) + u32(v < lo);
+    }
+    {
+        let lo: u32 = a[3] + b[3];
+        let v: u32 = lo + carry;
+        s[3] = v;
+        carry = u32(lo < a[3]) + u32(v < lo);
+    }
+    {
+        let lo: u32 = a[4] + b[4];
+        let v: u32 = lo + carry;
+        s[4] = v;
+        carry = u32(lo < a[4]) + u32(v < lo);
+    }
+    {
+        let lo: u32 = a[5] + b[5];
+        let v: u32 = lo + carry;
+        s[5] = v;
+        carry = u32(lo < a[5]) + u32(v < lo);
+    }
+    {
+        let lo: u32 = a[6] + b[6];
+        let v: u32 = lo + carry;
+        s[6] = v;
+        carry = u32(lo < a[6]) + u32(v < lo);
+    }
     s[7] = a[7] + b[7] + carry;
     // s = a + b in [0, 4p); subtract 2p iff s >= 2p — the s - 2p borrow
     // chain underflows exactly when s < 2p (word 7's borrow-out is the
@@ -80,25 +116,56 @@ fn fr_add_f8(a: array<u32, 8>, b: array<u32, 8>) -> array<u32, 8> {
     var d: array<u32, 8>;
     d[0] = s[0] - TWOP8_0;
     var borrow: u32 = u32(s[0] < TWOP8_0);
-{{#f8_words}}
-{{#mid}}
     {
-        let t1: u32 = s[{{i}}] - TWOP8_{{i}};
+        let t1: u32 = s[1] - TWOP8_1;
         let v: u32 = t1 - borrow;
-        d[{{i}}] = v;
-        borrow = u32(s[{{i}}] < TWOP8_{{i}}) + u32(t1 < borrow);
+        d[1] = v;
+        borrow = u32(s[1] < TWOP8_1) + u32(t1 < borrow);
     }
-{{/mid}}
-{{/f8_words}}
+    {
+        let t1: u32 = s[2] - TWOP8_2;
+        let v: u32 = t1 - borrow;
+        d[2] = v;
+        borrow = u32(s[2] < TWOP8_2) + u32(t1 < borrow);
+    }
+    {
+        let t1: u32 = s[3] - TWOP8_3;
+        let v: u32 = t1 - borrow;
+        d[3] = v;
+        borrow = u32(s[3] < TWOP8_3) + u32(t1 < borrow);
+    }
+    {
+        let t1: u32 = s[4] - TWOP8_4;
+        let v: u32 = t1 - borrow;
+        d[4] = v;
+        borrow = u32(s[4] < TWOP8_4) + u32(t1 < borrow);
+    }
+    {
+        let t1: u32 = s[5] - TWOP8_5;
+        let v: u32 = t1 - borrow;
+        d[5] = v;
+        borrow = u32(s[5] < TWOP8_5) + u32(t1 < borrow);
+    }
+    {
+        let t1: u32 = s[6] - TWOP8_6;
+        let v: u32 = t1 - borrow;
+        d[6] = v;
+        borrow = u32(s[6] < TWOP8_6) + u32(t1 < borrow);
+    }
     {
         let t1: u32 = s[7] - TWOP8_7;
         d[7] = t1 - borrow;
         borrow = u32(s[7] < TWOP8_7) + u32(t1 < borrow);
     }
     var out: array<u32, 8>;
-{{#f8_words}}
-    out[{{i}}] = select(d[{{i}}], s[{{i}}], borrow != 0u);
-{{/f8_words}}
+    out[0] = select(d[0], s[0], borrow != 0u);
+    out[1] = select(d[1], s[1], borrow != 0u);
+    out[2] = select(d[2], s[2], borrow != 0u);
+    out[3] = select(d[3], s[3], borrow != 0u);
+    out[4] = select(d[4], s[4], borrow != 0u);
+    out[5] = select(d[5], s[5], borrow != 0u);
+    out[6] = select(d[6], s[6], borrow != 0u);
+    out[7] = select(d[7], s[7], borrow != 0u);
     return out;
 }
 
@@ -106,16 +173,42 @@ fn fr_sub_f8(a: array<u32, 8>, b: array<u32, 8>) -> array<u32, 8> {
     var d: array<u32, 8>;
     d[0] = a[0] - b[0];
     var borrow: u32 = u32(a[0] < b[0]);
-{{#f8_words}}
-{{#mid}}
     {
-        let t1: u32 = a[{{i}}] - b[{{i}}];
+        let t1: u32 = a[1] - b[1];
         let v: u32 = t1 - borrow;
-        d[{{i}}] = v;
-        borrow = u32(a[{{i}}] < b[{{i}}]) + u32(t1 < borrow);
+        d[1] = v;
+        borrow = u32(a[1] < b[1]) + u32(t1 < borrow);
     }
-{{/mid}}
-{{/f8_words}}
+    {
+        let t1: u32 = a[2] - b[2];
+        let v: u32 = t1 - borrow;
+        d[2] = v;
+        borrow = u32(a[2] < b[2]) + u32(t1 < borrow);
+    }
+    {
+        let t1: u32 = a[3] - b[3];
+        let v: u32 = t1 - borrow;
+        d[3] = v;
+        borrow = u32(a[3] < b[3]) + u32(t1 < borrow);
+    }
+    {
+        let t1: u32 = a[4] - b[4];
+        let v: u32 = t1 - borrow;
+        d[4] = v;
+        borrow = u32(a[4] < b[4]) + u32(t1 < borrow);
+    }
+    {
+        let t1: u32 = a[5] - b[5];
+        let v: u32 = t1 - borrow;
+        d[5] = v;
+        borrow = u32(a[5] < b[5]) + u32(t1 < borrow);
+    }
+    {
+        let t1: u32 = a[6] - b[6];
+        let v: u32 = t1 - borrow;
+        d[6] = v;
+        borrow = u32(a[6] < b[6]) + u32(t1 < borrow);
+    }
     {
         let t1: u32 = a[7] - b[7];
         d[7] = t1 - borrow;
@@ -130,17 +223,48 @@ fn fr_sub_f8(a: array<u32, 8>, b: array<u32, 8>) -> array<u32, 8> {
         out[0] = d[0] + pw;
     }
     var carry: u32 = u32(out[0] < d[0]);
-{{#f8_words}}
-{{#mid}}
     {
-        let pw: u32 = select(0u, TWOP8_{{i}}, wrap);
-        let lo: u32 = d[{{i}}] + pw;
+        let pw: u32 = select(0u, TWOP8_1, wrap);
+        let lo: u32 = d[1] + pw;
         let v: u32 = lo + carry;
-        out[{{i}}] = v;
-        carry = u32(lo < d[{{i}}]) + u32(v < lo);
+        out[1] = v;
+        carry = u32(lo < d[1]) + u32(v < lo);
     }
-{{/mid}}
-{{/f8_words}}
+    {
+        let pw: u32 = select(0u, TWOP8_2, wrap);
+        let lo: u32 = d[2] + pw;
+        let v: u32 = lo + carry;
+        out[2] = v;
+        carry = u32(lo < d[2]) + u32(v < lo);
+    }
+    {
+        let pw: u32 = select(0u, TWOP8_3, wrap);
+        let lo: u32 = d[3] + pw;
+        let v: u32 = lo + carry;
+        out[3] = v;
+        carry = u32(lo < d[3]) + u32(v < lo);
+    }
+    {
+        let pw: u32 = select(0u, TWOP8_4, wrap);
+        let lo: u32 = d[4] + pw;
+        let v: u32 = lo + carry;
+        out[4] = v;
+        carry = u32(lo < d[4]) + u32(v < lo);
+    }
+    {
+        let pw: u32 = select(0u, TWOP8_5, wrap);
+        let lo: u32 = d[5] + pw;
+        let v: u32 = lo + carry;
+        out[5] = v;
+        carry = u32(lo < d[5]) + u32(v < lo);
+    }
+    {
+        let pw: u32 = select(0u, TWOP8_6, wrap);
+        let lo: u32 = d[6] + pw;
+        let v: u32 = lo + carry;
+        out[6] = v;
+        carry = u32(lo < d[6]) + u32(v < lo);
+    }
     out[7] = d[7] + select(0u, TWOP8_7, wrap) + carry;
     return out;
 }
@@ -152,16 +276,42 @@ fn fr_add_wide_f8(a: array<u32, 8>, b: array<u32, 8>) -> array<u32, 8> {
     var s: array<u32, 8>;
     s[0] = a[0] + b[0];
     var carry: u32 = u32(s[0] < a[0]);
-{{#f8_words}}
-{{#mid}}
     {
-        let lo: u32 = a[{{i}}] + b[{{i}}];
+        let lo: u32 = a[1] + b[1];
         let v: u32 = lo + carry;
-        s[{{i}}] = v;
-        carry = u32(lo < a[{{i}}]) + u32(v < lo);
+        s[1] = v;
+        carry = u32(lo < a[1]) + u32(v < lo);
     }
-{{/mid}}
-{{/f8_words}}
+    {
+        let lo: u32 = a[2] + b[2];
+        let v: u32 = lo + carry;
+        s[2] = v;
+        carry = u32(lo < a[2]) + u32(v < lo);
+    }
+    {
+        let lo: u32 = a[3] + b[3];
+        let v: u32 = lo + carry;
+        s[3] = v;
+        carry = u32(lo < a[3]) + u32(v < lo);
+    }
+    {
+        let lo: u32 = a[4] + b[4];
+        let v: u32 = lo + carry;
+        s[4] = v;
+        carry = u32(lo < a[4]) + u32(v < lo);
+    }
+    {
+        let lo: u32 = a[5] + b[5];
+        let v: u32 = lo + carry;
+        s[5] = v;
+        carry = u32(lo < a[5]) + u32(v < lo);
+    }
+    {
+        let lo: u32 = a[6] + b[6];
+        let v: u32 = lo + carry;
+        s[6] = v;
+        carry = u32(lo < a[6]) + u32(v < lo);
+    }
     s[7] = a[7] + b[7] + carry;
     return s;
 }
@@ -173,30 +323,82 @@ fn fr_sub_wide_f8(a: array<u32, 8>, b: array<u32, 8>) -> array<u32, 8> {
     var t: array<u32, 8>;
     t[0] = a[0] + TWOP8_0;
     var carry: u32 = u32(t[0] < TWOP8_0);
-{{#f8_words}}
-{{#mid}}
     {
-        let lo: u32 = a[{{i}}] + TWOP8_{{i}};
+        let lo: u32 = a[1] + TWOP8_1;
         let v: u32 = lo + carry;
-        t[{{i}}] = v;
-        carry = u32(lo < a[{{i}}]) + u32(v < lo);
+        t[1] = v;
+        carry = u32(lo < a[1]) + u32(v < lo);
     }
-{{/mid}}
-{{/f8_words}}
+    {
+        let lo: u32 = a[2] + TWOP8_2;
+        let v: u32 = lo + carry;
+        t[2] = v;
+        carry = u32(lo < a[2]) + u32(v < lo);
+    }
+    {
+        let lo: u32 = a[3] + TWOP8_3;
+        let v: u32 = lo + carry;
+        t[3] = v;
+        carry = u32(lo < a[3]) + u32(v < lo);
+    }
+    {
+        let lo: u32 = a[4] + TWOP8_4;
+        let v: u32 = lo + carry;
+        t[4] = v;
+        carry = u32(lo < a[4]) + u32(v < lo);
+    }
+    {
+        let lo: u32 = a[5] + TWOP8_5;
+        let v: u32 = lo + carry;
+        t[5] = v;
+        carry = u32(lo < a[5]) + u32(v < lo);
+    }
+    {
+        let lo: u32 = a[6] + TWOP8_6;
+        let v: u32 = lo + carry;
+        t[6] = v;
+        carry = u32(lo < a[6]) + u32(v < lo);
+    }
     t[7] = a[7] + TWOP8_7 + carry;
     var out: array<u32, 8>;
     out[0] = t[0] - b[0];
     var borrow: u32 = u32(t[0] < b[0]);
-{{#f8_words}}
-{{#mid}}
     {
-        let t1: u32 = t[{{i}}] - b[{{i}}];
+        let t1: u32 = t[1] - b[1];
         let v: u32 = t1 - borrow;
-        out[{{i}}] = v;
-        borrow = u32(t[{{i}}] < b[{{i}}]) + u32(t1 < borrow);
+        out[1] = v;
+        borrow = u32(t[1] < b[1]) + u32(t1 < borrow);
     }
-{{/mid}}
-{{/f8_words}}
+    {
+        let t1: u32 = t[2] - b[2];
+        let v: u32 = t1 - borrow;
+        out[2] = v;
+        borrow = u32(t[2] < b[2]) + u32(t1 < borrow);
+    }
+    {
+        let t1: u32 = t[3] - b[3];
+        let v: u32 = t1 - borrow;
+        out[3] = v;
+        borrow = u32(t[3] < b[3]) + u32(t1 < borrow);
+    }
+    {
+        let t1: u32 = t[4] - b[4];
+        let v: u32 = t1 - borrow;
+        out[4] = v;
+        borrow = u32(t[4] < b[4]) + u32(t1 < borrow);
+    }
+    {
+        let t1: u32 = t[5] - b[5];
+        let v: u32 = t1 - borrow;
+        out[5] = v;
+        borrow = u32(t[5] < b[5]) + u32(t1 < borrow);
+    }
+    {
+        let t1: u32 = t[6] - b[6];
+        let v: u32 = t1 - borrow;
+        out[6] = v;
+        borrow = u32(t[6] < b[6]) + u32(t1 < borrow);
+    }
     out[7] = t[7] - b[7] - borrow;
     return out;
 }
@@ -209,16 +411,42 @@ fn fr_neg_wide_f8(y: array<u32, 8>) -> array<u32, 8> {
     var out: array<u32, 8>;
     out[0] = TWOP8_0 - y[0];
     var borrow: u32 = u32(TWOP8_0 < y[0]);
-{{#f8_words}}
-{{#mid}}
     {
-        let t1: u32 = TWOP8_{{i}} - y[{{i}}];
+        let t1: u32 = TWOP8_1 - y[1];
         let v: u32 = t1 - borrow;
-        out[{{i}}] = v;
-        borrow = u32(TWOP8_{{i}} < y[{{i}}]) + u32(t1 < borrow);
+        out[1] = v;
+        borrow = u32(TWOP8_1 < y[1]) + u32(t1 < borrow);
     }
-{{/mid}}
-{{/f8_words}}
+    {
+        let t1: u32 = TWOP8_2 - y[2];
+        let v: u32 = t1 - borrow;
+        out[2] = v;
+        borrow = u32(TWOP8_2 < y[2]) + u32(t1 < borrow);
+    }
+    {
+        let t1: u32 = TWOP8_3 - y[3];
+        let v: u32 = t1 - borrow;
+        out[3] = v;
+        borrow = u32(TWOP8_3 < y[3]) + u32(t1 < borrow);
+    }
+    {
+        let t1: u32 = TWOP8_4 - y[4];
+        let v: u32 = t1 - borrow;
+        out[4] = v;
+        borrow = u32(TWOP8_4 < y[4]) + u32(t1 < borrow);
+    }
+    {
+        let t1: u32 = TWOP8_5 - y[5];
+        let v: u32 = t1 - borrow;
+        out[5] = v;
+        borrow = u32(TWOP8_5 < y[5]) + u32(t1 < borrow);
+    }
+    {
+        let t1: u32 = TWOP8_6 - y[6];
+        let v: u32 = t1 - borrow;
+        out[6] = v;
+        borrow = u32(TWOP8_6 < y[6]) + u32(t1 < borrow);
+    }
     out[7] = TWOP8_7 - y[7] - borrow;
     return out;
 }
@@ -230,24 +458,55 @@ fn fr_canon_f8(a: array<u32, 8>) -> array<u32, 8> {
     var d: array<u32, 8>;
     d[0] = a[0] - P8_0;
     var borrow: u32 = u32(a[0] < P8_0);
-{{#f8_words}}
-{{#mid}}
     {
-        let t1: u32 = a[{{i}}] - P8_{{i}};
+        let t1: u32 = a[1] - P8_1;
         let v: u32 = t1 - borrow;
-        d[{{i}}] = v;
-        borrow = u32(a[{{i}}] < P8_{{i}}) + u32(t1 < borrow);
+        d[1] = v;
+        borrow = u32(a[1] < P8_1) + u32(t1 < borrow);
     }
-{{/mid}}
-{{/f8_words}}
+    {
+        let t1: u32 = a[2] - P8_2;
+        let v: u32 = t1 - borrow;
+        d[2] = v;
+        borrow = u32(a[2] < P8_2) + u32(t1 < borrow);
+    }
+    {
+        let t1: u32 = a[3] - P8_3;
+        let v: u32 = t1 - borrow;
+        d[3] = v;
+        borrow = u32(a[3] < P8_3) + u32(t1 < borrow);
+    }
+    {
+        let t1: u32 = a[4] - P8_4;
+        let v: u32 = t1 - borrow;
+        d[4] = v;
+        borrow = u32(a[4] < P8_4) + u32(t1 < borrow);
+    }
+    {
+        let t1: u32 = a[5] - P8_5;
+        let v: u32 = t1 - borrow;
+        d[5] = v;
+        borrow = u32(a[5] < P8_5) + u32(t1 < borrow);
+    }
+    {
+        let t1: u32 = a[6] - P8_6;
+        let v: u32 = t1 - borrow;
+        d[6] = v;
+        borrow = u32(a[6] < P8_6) + u32(t1 < borrow);
+    }
     {
         let t1: u32 = a[7] - P8_7;
         d[7] = t1 - borrow;
         borrow = u32(a[7] < P8_7) + u32(t1 < borrow);
     }
     var out: array<u32, 8>;
-{{#f8_words}}
-    out[{{i}}] = select(d[{{i}}], a[{{i}}], borrow != 0u);
-{{/f8_words}}
+    out[0] = select(d[0], a[0], borrow != 0u);
+    out[1] = select(d[1], a[1], borrow != 0u);
+    out[2] = select(d[2], a[2], borrow != 0u);
+    out[3] = select(d[3], a[3], borrow != 0u);
+    out[4] = select(d[4], a[4], borrow != 0u);
+    out[5] = select(d[5], a[5], borrow != 0u);
+    out[6] = select(d[6], a[6], borrow != 0u);
+    out[7] = select(d[7], a[7], borrow != 0u);
     return out;
 }
