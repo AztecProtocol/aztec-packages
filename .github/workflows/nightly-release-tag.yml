@@ -15,7 +15,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        branch: [next, v5-next]
+        # Public only tags v5-next here (v4-next is handled in its own job below);
+        # next is tagged on the private repo only.
+        branch: ${{ github.repository == 'AztecProtocol/aztec-packages-private' && fromJSON('["next", "v5-next"]') || fromJSON('["v5-next"]') }}
     concurrency:
       group: ${{ github.workflow }}-${{ github.repository }}-${{ matrix.branch }}
     steps:
