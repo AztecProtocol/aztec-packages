@@ -8090,9 +8090,13 @@ const WG: u32 = {{ workgroup_size }}u;
 // cparams = (M_RED, _, _, _); lparams unused (geometry baked);
 // hsched[w] = (base, B, 0, 0).
 // stage_out: compact export of the staged points for the early-exit
-// readback — record (w·(1+d_f) + a) holds x, y, z as 6 vec4s of raw
-// Montgomery limbs (z == 0 ⇒ absent), exactly the bytes the WASM
-// finish_and_combine_windows adopts.
+// readback — record (w·(1+d_f) + a) holds x, y, z as 6 vec4s of
+// standard-form (NON-Montgomery) LE integers, z == 0 ⇒ absent — the same
+// wire convention as the legacy 64-byte window roots, so any bb build
+// re-wraps them with its own Montgomery radix (native R = 2^256, wasm
+// R = 2^261 differ; shipping either kernel-domain or bb-domain limbs
+// cannot be portable). stage_set converts each coordinate out of the
+// kernel's R_gpu = 2^(num_words·word_size) domain with one montmul by 1.
 
 fn load_x(idx: u32, M: u32) -> array<u32, 8> {
     let base = PG * idx;
@@ -8128,14 +8132,22 @@ fn store_z(idx: u32, val: array<u32, 8>) {
     red_z[base + 1u] = vec4<u32>(val[4], val[5], val[6], val[7]);
 }
 
-fn stage_set(i: u32, v: Jac) {
+fn stage_to_std(v: array<u32, 8>) -> array<u32, 8> {
+    let one = array<u32, 8>(1u, 0u, 0u, 0u, 0u, 0u, 0u, 0u);
+    return montgomery_product_f8(v, one);
+}
+
+fn stage_set(i: u32, p: Jac) {
     let b = 6u * i;
-    stage_out[b + 0u] = vec4<u32>(v.x[0], v.x[1], v.x[2], v.x[3]);
-    stage_out[b + 1u] = vec4<u32>(v.x[4], v.x[5], v.x[6], v.x[7]);
-    stage_out[b + 2u] = vec4<u32>(v.y[0], v.y[1], v.y[2], v.y[3]);
-    stage_out[b + 3u] = vec4<u32>(v.y[4], v.y[5], v.y[6], v.y[7]);
-    stage_out[b + 4u] = vec4<u32>(v.z[0], v.z[1], v.z[2], v.z[3]);
-    stage_out[b + 5u] = vec4<u32>(v.z[4], v.z[5], v.z[6], v.z[7]);
+    let cx = stage_to_std(p.x);
+    let cy = stage_to_std(p.y);
+    let cz = stage_to_std(p.z);
+    stage_out[b + 0u] = vec4<u32>(cx[0], cx[1], cx[2], cx[3]);
+    stage_out[b + 1u] = vec4<u32>(cx[4], cx[5], cx[6], cx[7]);
+    stage_out[b + 2u] = vec4<u32>(cy[0], cy[1], cy[2], cy[3]);
+    stage_out[b + 3u] = vec4<u32>(cy[4], cy[5], cy[6], cy[7]);
+    stage_out[b + 4u] = vec4<u32>(cz[0], cz[1], cz[2], cz[3]);
+    stage_out[b + 5u] = vec4<u32>(cz[4], cz[5], cz[6], cz[7]);
 }
 
 fn fr_eq_f8(a: array<u32, 8>, b: array<u32, 8>) -> bool {

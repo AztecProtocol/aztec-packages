@@ -202,6 +202,7 @@ std::vector<curve::BN254::AffineElement> batch_multi_scalar_mul_webgpu_bn254(
 {
     const bool have_labels = !labels.empty() && labels.size() == points.size();
     using webgpu_marshalling::combine_windows;
+    using webgpu_marshalling::finish_and_combine_windows;
     using webgpu_marshalling::marshal_points;
     using webgpu_marshalling::marshal_scalars;
 
@@ -512,7 +513,8 @@ WASM_EXPORT void bb_webgpu_finish_combine_bn254(
     const uint8_t* staged, uint32_t num_windows, uint32_t partials_per_window, uint32_t c, uint8_t* result)
 {
     namespace marshalling = bb::scalar_multiplication::webgpu_marshalling;
-    const auto aff = marshalling::finish_and_combine_windows(staged, num_windows, partials_per_window, c);
+    const auto aff =
+        bb::scalar_multiplication::webgpu_marshalling::finish_and_combine_windows(staged, num_windows, partials_per_window, c);
     const std::vector<uint8_t> bytes =
         marshalling::marshal_points(std::span<const bb::curve::BN254::AffineElement>(&aff, 1));
     std::memcpy(result, bytes.data(), 64);

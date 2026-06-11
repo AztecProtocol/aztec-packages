@@ -123,36 +123,27 @@ inline curve::BN254::AffineElement combine_windows(const uint8_t* buf, uint32_t 
 // dispatch and ships every window's staged partial points instead: the
 // unscaled weighted partial plus the scaled carry totals of the halving
 // reduction. Layout: `num_windows × partials_per_window` records of 96
-// bytes — Jacobian (x, y, z), four 64-bit limbs per coordinate, LE, in
-// MONTGOMERY form exactly as the GPU holds them (bb::fq is internally
-// Montgomery, so the limbs are adopted directly; no conversion anywhere in
-// the chain). z == 0 encodes the point at infinity / an absent partial.
+// bytes — Jacobian (x, y, z), four 64-bit limbs per coordinate, LE,
+// standard form (NOT Montgomery) — the same convention as the legacy
+// 64-byte window roots. Montgomery limbs cannot be adopted portably:
+// bb::fq's radix differs per build (R = 2^256 native, 2^261 wasm) and the
+// GPU kernels use 2^(num_words·word_size); the staging kernel therefore
+// montmuls each coordinate by 1 on export, and `BaseField(uint256_t)`
+// re-wraps it here in whatever form this build uses.
+// z == 0 encodes the point at infinity / an absent partial.
 
-inline curve::BN254::BaseField read_fq_mont_le(const uint8_t* buf)
+inline curve::BN254::Element read_jacobian_le(const uint8_t* buf)
 {
-    curve::BN254::BaseField f;
-    for (size_t i = 0; i < 4; ++i) {
-        uint64_t limb = 0;
-        for (size_t b = 0; b < 8; ++b) {
-            limb |= static_cast<uint64_t>(buf[i * 8 + b]) << (8 * b);
-        }
-        f.data[i] = limb;
-    }
-    return f;
-}
-
-inline curve::BN254::Element read_jacobian_mont_le(const uint8_t* buf)
-{
-    const curve::BN254::BaseField z = read_fq_mont_le(buf + 64);
-    if (z.is_zero()) {
+    const numeric::uint256_t z = read_uint256_le(buf + 64);
+    if (z == 0) {
         curve::BN254::Element inf;
         inf.self_set_infinity();
         return inf;
     }
     curve::BN254::Element p;
-    p.x = read_fq_mont_le(buf);
-    p.y = read_fq_mont_le(buf + 32);
-    p.z = z;
+    p.x = curve::BN254::BaseField(read_uint256_le(buf));
+    p.y = curve::BN254::BaseField(read_uint256_le(buf + 32));
+    p.z = curve::BN254::BaseField(z);
     return p;
 }
 
@@ -174,7 +165,7 @@ inline curve::BN254::AffineElement finish_and_combine_windows(const uint8_t* buf
         curve::BN254::Element acc;
         acc.self_set_infinity();
         for (uint32_t p = 0; p < partials_per_window; ++p) {
-            acc += read_jacobian_mont_le(wbuf + static_cast<size_t>(p) * 96);
+            acc += read_jacobian_le(wbuf + static_cast<size_t>(p) * 96);
         }
         window_sums[w] = acc;
     });

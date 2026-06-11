@@ -160,26 +160,19 @@ TEST(WebGpuMsmMarshalling, CombineWindowsSingleAndEmpty)
 } // namespace
 
 // finish_and_combine_windows: per-window sums of staged Jacobian partials
-// (raw Montgomery limbs, z == 0 absent) then the same Horner fold. Validated
-// against combine_windows over the equivalent finished window sums AND the
-// independent scalar-multiplication reference.
+// (standard-form LE integers, z == 0 absent) then the same Horner fold.
+// Validated against combine_windows over the equivalent finished window
+// sums AND the independent scalar-multiplication reference.
 namespace {
-void write_jac_mont_le(uint8_t* dst, const BN254::Element& p)
+void write_jac_le(uint8_t* dst, const BN254::Element& p)
 {
-    auto write_fq = [](uint8_t* out, const BN254::BaseField& f) {
-        for (size_t i = 0; i < 4; ++i) {
-            for (size_t b = 0; b < 8; ++b) {
-                out[i * 8 + b] = static_cast<uint8_t>(f.data[i] >> (8 * b));
-            }
-        }
-    };
     if (p.is_point_at_infinity()) {
         std::memset(dst, 0, 96);
         return;
     }
-    write_fq(dst, p.x);
-    write_fq(dst + 32, p.y);
-    write_fq(dst + 64, p.z);
+    write_uint256_le(dst, static_cast<uint256_t>(p.x));
+    write_uint256_le(dst + 32, static_cast<uint256_t>(p.y));
+    write_uint256_le(dst + 64, static_cast<uint256_t>(p.z));
 }
 } // namespace
 
@@ -205,7 +198,7 @@ TEST(WebGpuMsmMarshalling, FinishAndCombineMatchesCombine)
             // random_element already yields a random (non-1) z — true
             // Jacobian inputs, exactly what the staged partials carry.
             BN254::Element p = BN254::Element::random_element(&engine);
-            write_jac_mont_le(rec, p);
+            write_jac_le(rec, p);
             sum += p;
         }
         window_sums.push_back(AffineElement(sum));
@@ -232,7 +225,7 @@ TEST(WebGpuMsmMarshalling, FinishAndCombineAllAbsentWindowIsInfinity)
     std::vector<uint8_t> staged(static_cast<size_t>(2) * 3 * 96, 0);
     // window 1 gets a single real partial; window 0 entirely absent.
     BN254::Element p = BN254::Element::random_element(&engine);
-    write_jac_mont_le(&staged[(1 * 3 + 2) * 96], p);
+    write_jac_le(&staged[(1 * 3 + 2) * 96], p);
     BN254::Element expected = p;
     for (uint32_t d = 0; d < c; ++d) {
         expected.self_dbl();

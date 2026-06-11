@@ -5743,8 +5743,9 @@ export class MsmV2 {
     // Y-plane stays at the envelope redM (the baked M_RED the writers use); the
     // per-window base is the tight reduceOffsets prefix.
     if (this.earlyExitMode && this.halveStageBuf) {
-      // Early exit: ship the staged partials raw (Montgomery limbs) — the
-      // native finish_and_combine_windows adopts them with no conversion.
+      // Early exit: ship the staged partials as standard-form LE integers
+      // (the staging kernel converts out of Montgomery on export) — the
+      // native finish_and_combine_windows re-wraps them in its own radix.
       enc.copyBufferToBuffer(this.halveStageBuf, 0, dstStaging, dstByteOff, this.windowSumsByteLength);
     } else {
       const yPlane = 32 * this.redM;
