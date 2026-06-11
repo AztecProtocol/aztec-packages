@@ -1,4 +1,4 @@
-use crate::oracle::transient;
+use crate::oracle::transient_oracles;
 use crate::oracle_array::{ArrayOracle, OracleArray};
 use crate::protocol::traits::{Deserialize, Serialize};
 
@@ -37,31 +37,31 @@ pub struct TransientOracle {}
 
 impl ArrayOracle for TransientOracle {
     unconstrained fn len_oracle(slot: Field) -> u32 {
-        transient::len_oracle(slot)
+        transient_oracles::len_oracle(slot)
     }
 
     unconstrained fn push_oracle<let N: u32>(slot: Field, values: [Field; N]) -> u32 {
-        transient::push_oracle(slot, values)
+        transient_oracles::push_oracle(slot, values)
     }
 
     unconstrained fn pop_oracle<let N: u32>(slot: Field) -> [Field; N] {
-        transient::pop_oracle(slot)
+        transient_oracles::pop_oracle(slot)
     }
 
     unconstrained fn get_oracle<let N: u32>(slot: Field, index: u32) -> [Field; N] {
-        transient::get_oracle(slot, index)
+        transient_oracles::get_oracle(slot, index)
     }
 
     unconstrained fn set_oracle<let N: u32>(slot: Field, index: u32, values: [Field; N]) {
-        transient::set_oracle(slot, index, values)
+        transient_oracles::set_oracle(slot, index, values)
     }
 
     unconstrained fn remove_oracle(slot: Field, index: u32) {
-        transient::remove_oracle(slot, index)
+        transient_oracles::remove_oracle(slot, index)
     }
 
     unconstrained fn clear_oracle(slot: Field) {
-        transient::clear_oracle(slot)
+        transient_oracles::clear_oracle(slot)
     }
 }
 
