@@ -1,4 +1,12 @@
 //! Shared test suite for [`UnconstrainedArray`] backends.
+//!
+//! Every function in this module must be an unconstrained test helper, generic over the [`ArrayOracles`] backend.
+//! The [`unconstrained_array_tests`](crate::unconstrained_array::test_suite::unconstrained_array_tests) macro turns
+//! each helper into a `#[test]` for every backend.
+//!
+//! To add a test, write a new unconstrained helper here. If it is expected to fail, mark it with
+//! [`should_fail_test`](crate::unconstrained_array::test_suite::should_fail_test) and the expected message; otherwise
+//! the generated test expects it to pass.
 
 use crate::test::helpers::test_environment::TestEnvironment;
 use crate::test::mocks::MockStruct;
@@ -18,6 +26,7 @@ where
     });
 }
 
+#[crate::unconstrained_array::test_suite::should_fail_test(quote { "out of bounds" })]
 pub(crate) unconstrained fn should_fail_empty_array_read<Oracle>()
 where
     Oracle: ArrayOracles,
@@ -29,6 +38,7 @@ where
     });
 }
 
+#[crate::unconstrained_array::test_suite::should_fail_test(quote { "is empty" })]
 pub(crate) unconstrained fn should_fail_empty_array_pop<Oracle>()
 where
     Oracle: ArrayOracles,
@@ -54,6 +64,7 @@ where
     });
 }
 
+#[crate::unconstrained_array::test_suite::should_fail_test(quote { "out of bounds" })]
 pub(crate) unconstrained fn should_fail_read_past_len<Oracle>()
 where
     Oracle: ArrayOracles,
@@ -632,46 +643,4 @@ where
         let fresh: UnconstrainedArray<Field, Oracle> = UnconstrainedArray::empty_at(SLOT);
         assert_eq(fresh.len(), 0);
     });
-}
-
-/// Returns the `should_fail_with` message for checks that are expected to fail, or `Option::none()` for checks that
-/// are expected to pass.
-comptime fn should_fail_message(name: Quoted) -> Option<Quoted> {
-    if name == quote { should_fail_empty_array_read } {
-        Option::some(quote { "out of bounds" })
-    } else if name == quote { should_fail_empty_array_pop } {
-        Option::some(quote { "is empty" })
-    } else if name == quote { should_fail_read_past_len } {
-        Option::some(quote { "out of bounds" })
-    } else {
-        Option::none()
-    }
-}
-
-/// Generates the shared [`UnconstrainedArray`] test suite against the given backend. Apply to a test module, passing
-/// the
-/// backend's oracle as a quoted path: `#[unconstrained_array_tests(quote { crate::ephemeral::EphemeralOracles })]`.
-pub(crate) comptime fn unconstrained_array_tests(_m: Module, oracle: Quoted) -> Quoted {
-    let helpers = quote { crate::unconstrained_array::test_helpers }.as_module().unwrap();
-    let mut tests = quote {};
-    for f in helpers.functions() {
-        if f.is_unconstrained() {
-            let name = f.name();
-            let fail = should_fail_message(name);
-            let attr = if fail.is_some() {
-                let msg = fail.unwrap();
-                quote { #[test(should_fail_with = $msg)] }
-            } else {
-                quote { #[test] }
-            };
-            tests = quote {
-                $tests
-                $attr
-                unconstrained fn $name() {
-                    crate::unconstrained_array::test_helpers::$name::<$oracle>();
-                }
-            };
-        }
-    }
-    tests
 }

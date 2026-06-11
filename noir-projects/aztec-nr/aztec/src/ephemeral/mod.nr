@@ -85,5 +85,5 @@ impl<T> Deserialize for UnconstrainedArray<T, EphemeralOracles> {
     }
 }
 
-#[crate::unconstrained_array::test_helpers::unconstrained_array_tests(quote { crate::ephemeral::EphemeralOracles })]
+#[crate::unconstrained_array::test_suite::unconstrained_array_tests(quote { crate::ephemeral::EphemeralOracles })]
 mod test {}

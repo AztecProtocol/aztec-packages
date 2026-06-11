@@ -110,7 +110,7 @@ impl ArrayOracles for TransientOracles {
     }
 }
 
-#[crate::unconstrained_array::test_helpers::unconstrained_array_tests(quote { crate::transient::TransientOracles })]
+#[crate::unconstrained_array::test_suite::unconstrained_array_tests(quote { crate::transient::TransientOracles })]
 mod test {}
 
 mod value_test {

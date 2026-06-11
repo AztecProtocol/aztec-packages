@@ -1,4 +1,5 @@
 pub(crate) mod test_helpers;
+pub(crate) mod test_suite;
 
 use crate::oracle::random::random;
 use crate::protocol::traits::{Deserialize, Serialize};
