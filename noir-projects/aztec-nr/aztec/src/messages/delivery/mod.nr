@@ -8,13 +8,21 @@ pub mod handshake;
 use crate::{
     context::PrivateContext,
     messages::{
+        delivery::constrained_delivery::{
+            constrain_constrained_secret_and_emit_nullifier, get_or_create_app_siloed_handshake_secret,
+        },
         encryption::{aes128::AES128, message_encryption::MessageEncryption},
-        logs::utils::compute_discovery_tag,
         offchain_messages::deliver_offchain_message,
     },
+    oracle::{notes::{get_app_tagging_secret, get_next_tagging_index, get_sender_for_tags}, random::random},
+    standard_addresses::STANDARD_HANDSHAKE_REGISTRY_ADDRESS,
     utils::remove_constraints::remove_constraints_if,
 };
-use crate::protocol::{address::AztecAddress, constants::DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG, hash::compute_log_tag};
+use crate::protocol::{
+    address::AztecAddress,
+    constants::{DOM_SEP__CONSTRAINED_MSG_LOG_TAG, DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG},
+    hash::{compute_log_tag, poseidon2_hash},
+};
 use mode::DeliveryMode;
 use tag_secret_derivation::TagSecretDerivation;
 
@@ -59,29 +67,54 @@ where
     mode.assert_is_constant();
 
     let deliver_as_offchain_message = mode == DeliveryMode::offchain();
-    let is_constrained = mode == DeliveryMode::onchain_constrained();
+    assert_constant(deliver_as_offchain_message);
 
     let tag_secret_derivation = delivery.tag_secret_derivation();
     tag_secret_derivation.assert_is_constant();
 
-    if !deliver_as_offchain_message {
-        let resolved_tag_secret_derivation = resolve_tag_secret_derivation(mode, tag_secret_derivation);
-        resolved_tag_secret_derivation.assert_is_constant();
+    let resolved_tag_secret_derivation = resolve_tag_secret_derivation(mode, tag_secret_derivation);
+    resolved_tag_secret_derivation.assert_is_constant();
 
-        if is_constrained {
-            // Constrained tagging derives the tag from a handshake-registry secret and emits a chain nullifier.
-            std::static_assert(
-                resolved_tag_secret_derivation == TagSecretDerivation::non_interactive_handshake(),
-                "constrained delivery requires non-interactive handshake tag derivation",
-            );
-        } else {
-            // Unconstrained handshake-origin delivery is not yet implemented; see F-698.
-            std::static_assert(
-                resolved_tag_secret_derivation == TagSecretDerivation::address_secret(),
-                "unconstrained handshake delivery not yet implemented (F-698)",
-            );
-        }
+    let sender_override = delivery.sender_override();
+
+    if deliver_as_offchain_message {
+        let contract_address = context.this_address();
+        let ciphertext = remove_constraints_if(
+            true,
+            || AES128::encrypt(encode_into_message_plaintext(), recipient, contract_address),
+        );
+
+        deliver_offchain_message(ciphertext, recipient);
+    } else {
+        do_onchain_private_message_delivery(
+            context,
+            encode_into_message_plaintext,
+            maybe_note_hash_counter,
+            recipient,
+            mode,
+            resolved_tag_secret_derivation,
+            sender_override,
+        );
     }
+}
+
+fn do_onchain_private_message_delivery<Env, let MESSAGE_PLAINTEXT_LEN: u32>(
+    context: &mut PrivateContext,
+    encode_into_message_plaintext: fn[Env]() -> [Field; MESSAGE_PLAINTEXT_LEN],
+    maybe_note_hash_counter: Option<u32>,
+    recipient: AztecAddress,
+    mode: DeliveryMode,
+    resolved_tag_secret_derivation: TagSecretDerivation,
+    sender_override: Option<AztecAddress>,
+) {
+    let deliver_as_offchain_message = mode == DeliveryMode::offchain();
+    let is_constrained = mode == DeliveryMode::onchain_constrained();
+    assert_constant(deliver_as_offchain_message);
+    assert_constant(is_constrained);
+
+    assert(!deliver_as_offchain_message, "on-chain message delivery expected");
+    assert_valid_tag_derivation_for_mode(mode, resolved_tag_secret_derivation, sender_override);
+    let onchain_mode = to_onchain_delivery_mode(mode);
 
     let contract_address = context.this_address();
 
@@ -90,34 +123,135 @@ where
         || AES128::encrypt(encode_into_message_plaintext(), recipient, contract_address),
     );
 
-    if deliver_as_offchain_message {
-        deliver_offchain_message(ciphertext, recipient);
+    let log_tag = calculate_tag_for_mode(
+        context,
+        onchain_mode,
+        resolved_tag_secret_derivation,
+        sender_override,
+        recipient,
+    );
+
+    // We forbid this value not being constant to avoid predicating the context calls below, which might result in
+    // the context's arrays having unknown compile time write indices and hence dramatically increasing constraints
+    // when accessing them. In practice this restriction is not a problem as we always know at compile time whether
+    // we're emitting a note or non-note message.
+    assert_constant(maybe_note_hash_counter.is_some());
+
+    // Constrained-tagged logs must not be squashed alongside the note: the recipient discovers them by scanning
+    // the per-secret tag sequence, so removing a log would break the index chain.
+    let squashable_note_log = maybe_note_hash_counter.is_some() & !is_constrained;
+
+    let log = BoundedVec::from_array(ciphertext);
+    if squashable_note_log {
+        // We associate the log with the note's side effect counter, so that if the note ends up being squashed in
+        // the current transaction, the log will be removed as well.
+        context.emit_raw_note_log_unsafe(log_tag, log, maybe_note_hash_counter.unwrap());
     } else {
-        // TODO(#14565): constrained tagging is not yet wired up. The tag-secret derivation is validated, but the tag is
-        // mocked with the wallet-driven unconstrained derivation so the builder API can land before the constrained
-        // helpers.
-        let discovery_tag = compute_discovery_tag(recipient, delivery.sender_override());
-        let log_tag = compute_log_tag(discovery_tag, DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG);
-
-        // We forbid this value not being constant to avoid predicating the context calls below, which might result in
-        // the context's arrays having unknown compile time write indices and hence dramatically increasing constraints
-        // when accessing them. In practice this restriction is not a problem as we always know at compile time whether
-        // we're emitting a note or non-note message.
-        assert_constant(maybe_note_hash_counter.is_some());
-
-        // Constrained-tagged logs must not be squashed alongside the note: the recipient discovers them by scanning
-        // the per-secret tag sequence, so removing a log would break the index chain.
-        let squashable_note_log = maybe_note_hash_counter.is_some() & !is_constrained;
-
-        let log = BoundedVec::from_array(ciphertext);
-        if squashable_note_log {
-            // We associate the log with the note's side effect counter, so that if the note ends up being squashed in
-            // the current transaction, the log will be removed as well.
-            context.emit_raw_note_log_unsafe(log_tag, log, maybe_note_hash_counter.unwrap());
-        } else {
-            context.emit_private_log_unsafe(log_tag, log);
-        }
+        context.emit_private_log_unsafe(log_tag, log);
     }
+}
+
+fn calculate_tag_for_mode(
+    context: &mut PrivateContext,
+    mode: OnchainDeliveryMode,
+    resolved_tag_secret_derivation: TagSecretDerivation,
+    sender_override: Option<AztecAddress>,
+    recipient: AztecAddress,
+) -> Field {
+    if resolved_tag_secret_derivation == TagSecretDerivation::address_secret() {
+        let sender = resolve_address_secret_sender(sender_override);
+        // Safety: address-derived delivery is unconstrained; invalid recipients get a random tag to preserve log shape.
+        unsafe {
+            get_app_tagging_secret(sender, recipient).map_or_else(
+                || compute_log_tag(random(), tag_domain_separator(mode)),
+                |secret| {
+                    let index = get_next_tagging_index(secret, mode);
+                    calculate_tag(secret, index, mode)
+                },
+            )
+        }
+    } else {
+        let sender = sender_override.expect(f"non-interactive handshake tag derivation requires an explicit sender");
+        let (secret, bootstrapped) = get_or_create_app_siloed_handshake_secret(
+            context,
+            STANDARD_HANDSHAKE_REGISTRY_ADDRESS,
+            sender,
+            recipient,
+            mode,
+        );
+
+        // Safety: the returned index is untrusted and is constrained before the tag is emitted.
+        let index = unsafe { get_next_tagging_index(secret, mode) };
+        constrain_constrained_secret_and_emit_nullifier(
+            context,
+            STANDARD_HANDSHAKE_REGISTRY_ADDRESS,
+            sender,
+            recipient,
+            secret,
+            bootstrapped,
+            index,
+        );
+
+        calculate_tag(secret, index, mode)
+    }
+}
+
+fn assert_valid_tag_derivation_for_mode(
+    mode: DeliveryMode,
+    tag_secret_derivation: TagSecretDerivation,
+    sender_override: Option<AztecAddress>,
+) {
+    if mode == DeliveryMode::onchain_constrained() {
+        std::static_assert(
+            tag_secret_derivation == TagSecretDerivation::non_interactive_handshake(),
+            "constrained delivery requires non-interactive handshake tag derivation",
+        );
+        std::static_assert(
+            sender_override.is_some(),
+            "constrained delivery requires an explicit sender",
+        );
+    } else {
+        // Unconstrained handshake-origin delivery is not yet implemented; see F-698.
+        std::static_assert(
+            tag_secret_derivation == TagSecretDerivation::address_secret(),
+            "unconstrained handshake delivery not yet implemented (F-698)",
+        );
+    }
+}
+
+fn resolve_address_secret_sender(sender_override: Option<AztecAddress>) -> AztecAddress {
+    // Safety: address-derived delivery is unconstrained; the sender either comes from the builder override or the
+    // wallet-provided default tag sender.
+    unsafe {
+        sender_override.unwrap_or_else(|| {
+            get_sender_for_tags().expect(
+                f"Sender for tags is not set when emitting a private log and no override is set. Ensure the wallet provides a default sender.",
+            )
+        })
+    }
+}
+
+fn to_onchain_delivery_mode(mode: DeliveryMode) -> OnchainDeliveryMode {
+    if mode == DeliveryMode::onchain_constrained() {
+        OnchainDeliveryMode::onchain_constrained()
+    } else {
+        OnchainDeliveryMode::onchain_unconstrained()
+    }
+}
+
+fn tag_domain_separator(mode: OnchainDeliveryMode) -> u32 {
+    if mode == OnchainDeliveryMode::onchain_constrained() {
+        DOM_SEP__CONSTRAINED_MSG_LOG_TAG
+    } else {
+        DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG
+    }
+}
+
+fn calculate_tag(secret: Field, index: u32, mode: OnchainDeliveryMode) -> Field {
+    compute_log_tag(
+        poseidon2_hash([secret, index as Field]),
+        tag_domain_separator(mode),
+    )
 }
 
 fn resolve_tag_secret_derivation(
@@ -136,7 +270,17 @@ fn resolve_tag_secret_derivation(
 }
 
 mod test {
-    use super::{DeliveryMode, resolve_tag_secret_derivation, TagSecretDerivation};
+    use crate::messages::delivery::constrained_delivery::{
+        compute_constrained_msg_nullifier, constrain_constrained_secret_and_emit_nullifier,
+    };
+    use crate::protocol::{
+        address::AztecAddress,
+        constants::{DOM_SEP__CONSTRAINED_MSG_LOG_TAG, DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG},
+        hash::{compute_log_tag, poseidon2_hash},
+        traits::FromField,
+    };
+    use crate::test::helpers::test_environment::TestEnvironment;
+    use super::{calculate_tag, DeliveryMode, OnchainDeliveryMode, resolve_tag_secret_derivation, TagSecretDerivation};
 
     #[test]
     fn wallet_default_resolves_for_delivery_mode() {
@@ -172,5 +316,52 @@ mod test {
             )
                 == TagSecretDerivation::non_interactive_handshake(),
         );
+    }
+
+    #[test]
+    fn calculate_tag_uses_mode_domain_separator() {
+        let secret: Field = 1234;
+        let index: u32 = 7;
+        let raw_tag = poseidon2_hash([secret, index as Field]);
+
+        assert_eq(
+            calculate_tag(secret, index, OnchainDeliveryMode::onchain_unconstrained()),
+            compute_log_tag(raw_tag, DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG),
+        );
+        assert_eq(
+            calculate_tag(secret, index, OnchainDeliveryMode::onchain_constrained()),
+            compute_log_tag(raw_tag, DOM_SEP__CONSTRAINED_MSG_LOG_TAG),
+        );
+    }
+
+    #[test]
+    fn same_secret_and_index_have_distinct_tags_across_modes() {
+        let secret: Field = 1234;
+        let index: u32 = 7;
+
+        assert(
+            calculate_tag(secret, index, OnchainDeliveryMode::onchain_unconstrained())
+                != calculate_tag(secret, index, OnchainDeliveryMode::onchain_constrained()),
+        );
+    }
+
+    #[test]
+    unconstrained fn constrained_helper_emits_current_nullifier() {
+        let env = TestEnvironment::new();
+        let registry = AztecAddress::from_field(1);
+        let sender = AztecAddress::from_field(2);
+        let recipient = AztecAddress::from_field(4);
+        let secret: Field = 1234;
+        let index: u32 = 0;
+
+        env.private_context(|context| {
+            constrain_constrained_secret_and_emit_nullifier(context, registry, sender, recipient, secret, true, index);
+
+            assert_eq(context.nullifiers.len(), 1);
+            assert_eq(
+                context.nullifiers.get(0).inner.value,
+                compute_constrained_msg_nullifier(sender, recipient, secret, index),
+            );
+        });
     }
 }

@@ -32,7 +32,8 @@ pub contract NoConstructor {
         let owner = self.msg_sender();
         let note = FieldNote { value };
 
-        self.storage.private_mutable.at(owner).initialize(note).deliver(MessageDelivery::onchain_constrained());
+        self.storage.private_mutable.at(owner).initialize(note).deliver(MessageDelivery::onchain_constrained()
+            .with_sender(self.msg_sender()));
     }
 
     /// Helper function used to test that call to `initialize_private_mutable` was successful or not yet performed.

@@ -1,0 +1,8 @@
+[package]
+name = "delivery_unconstrained_handshake"
+authors = [""]
+compiler_version = ">=0.25.0"
+type = "contract"
+
+[dependencies]
+aztec = { path = "../../../../aztec-nr/aztec" }

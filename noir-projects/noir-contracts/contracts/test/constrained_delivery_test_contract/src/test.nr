@@ -4,7 +4,7 @@
 //! the PXE's per-secret index has advanced, which happens when a constrained-tagged log lands on-chain. The
 //! `index > 0` tests land such a log via `emit_constrained_log_without_nullifier` and emit the predecessor chain
 //! nullifier via `emit_chain_nullifier`, standing in for a real constrained send at the prior index.
-//! TODO(F-670): exercise the `index > 0` branch through real constrained sends once the emit helper lands.
+//! Direct helper tests use explicit log/nullifier setup so each branch can be targeted independently.
 use crate::ConstrainedDeliveryTest;
 
 use aztec::{

@@ -30,7 +30,7 @@ pub contract NoteGetter {
         let owner = self.msg_sender();
         let note = FieldNote { value };
 
-        self.storage.set.at(owner).insert(note).deliver(MessageDelivery::onchain_constrained());
+        self.storage.set.at(owner).insert(note).deliver(MessageDelivery::onchain_constrained().with_sender(owner));
     }
 
     #[external("utility")]
@@ -48,7 +48,7 @@ pub contract NoteGetter {
         let owner = self.msg_sender();
         let note = PackedNote { high, low };
 
-        self.storage.packed_set.at(owner).insert(note).deliver(MessageDelivery::onchain_constrained());
+        self.storage.packed_set.at(owner).insert(note).deliver(MessageDelivery::onchain_constrained().with_sender(owner));
     }
 
     #[external("utility")]

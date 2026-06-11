@@ -19,8 +19,7 @@ use super::tag_secret_derivation::TagSecretDerivation;
 /// ## Construction
 ///
 /// The fields are private and there is no public constructor: a `MessageDelivery` can only be produced by a
-/// [`MessageDeliveryBuilder`] that enforces valid configurations, so invalid field combinations cannot be
-/// represented to the consumer.
+/// [`MessageDeliveryBuilder`]. The delivery APIs validate the built configuration before consuming it.
 pub struct MessageDelivery {
     mode: DeliveryMode,
     tag_secret_derivation: TagSecretDerivation,
@@ -143,10 +142,6 @@ impl MessageDelivery {
     }
 
     /// Delivers the message on-chain, guaranteeing the recipient will receive the correct content.
-    ///
-    /// >**WARNING**: this delivery mode is [currently NOT fully
-    /// constrained](https://github.com/AztecProtocol/aztec-packages/issues/14565). The log's tag is unconstrained,
-    /// meaning a malicious sender could manipulate it to prevent the recipient from finding the message.
     ///
     /// ## Use Cases
     ///
@@ -288,11 +283,8 @@ impl OnchainConstrainedDelivery {
     /// Overrides the sender address used for discovery tag derivation.
     ///
     /// On-chain messages are tagged so that the recipient can find them efficiently without scanning all logs. The tag
-    /// is derived from a shared secret between a "sender" and the recipient. By default, the sender is the
-    /// wallet-supplied address (typically the account that initiated the transaction), but some contracts need to
-    /// override it so that recipients can discover the notes correctly. This is the case for account contracts in their
-    /// constructor: the deployer is the one that initiated the transaction, but any notes generated during deployment
-    /// should be tagged by the account contract itself.
+    /// is derived from a shared secret between a "sender" and the recipient. Constrained delivery currently requires
+    /// this sender to be provided explicitly.
     ///
     /// ## Examples
     ///

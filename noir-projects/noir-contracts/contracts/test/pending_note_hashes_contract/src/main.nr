@@ -104,7 +104,7 @@ pub contract PendingNoteHashes {
         let note = FieldNote { value: amount };
 
         // Insert note
-        owner_balance.insert(note).deliver(MessageDelivery::onchain_constrained());
+        owner_balance.insert(note).deliver(MessageDelivery::onchain_constrained().with_sender(self.msg_sender()));
     }
 
     // Nested/inner function to create and insert a note

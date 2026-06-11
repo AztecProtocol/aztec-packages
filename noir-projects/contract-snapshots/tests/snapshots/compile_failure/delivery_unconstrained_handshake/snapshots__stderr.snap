@@ -1,0 +1,24 @@
+---
+source: tests/snapshots.rs
+expression: stderr
+---
+error: unconstrained handshake delivery not yet implemented (F-698)
+    ┌─ <repo>/noir-projects/aztec-nr/aztec/src/messages/delivery/mod.nr:<line>:<col>
+    │  
+    │ ╭         std::static_assert(
+    │ │             tag_secret_derivation == TagSecretDerivation::address_secret(),
+    │ │             "unconstrained handshake delivery not yet implemented (F-698)",
+    │ │         );
+    │ ╰─────────'
+    │  
+    = Call stack:
+      1: DeliveryUnconstrainedHandshake::deliver
+              at src/main.nr:13:9
+      2: do_private_message_delivery
+              at <repo>/noir-projects/aztec-nr/aztec/src/messages/delivery/mod.nr:<line>:<col>
+      3: do_onchain_private_message_delivery
+              at <repo>/noir-projects/aztec-nr/aztec/src/messages/delivery/mod.nr:<line>:<col>
+      4: assert_valid_tag_derivation_for_mode
+              at <repo>/noir-projects/aztec-nr/aztec/src/messages/delivery/mod.nr:<line>:<col>
+
+Aborting due to 1 previous error

@@ -52,7 +52,9 @@ pub contract Child {
     fn private_set_value(new_value: Field, owner: AztecAddress) -> Field {
         let note = FieldNote { value: new_value };
 
-        self.storage.private_values.at(owner).insert(note).deliver(MessageDelivery::onchain_constrained());
+        self.storage.private_values.at(owner).insert(note).deliver(MessageDelivery::onchain_constrained().with_sender(
+            self.msg_sender(),
+        ));
         new_value
     }
 

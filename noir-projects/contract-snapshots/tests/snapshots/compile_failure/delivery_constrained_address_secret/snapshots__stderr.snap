@@ -1,0 +1,15 @@
+---
+source: tests/snapshots.rs
+expression: stderr
+---
+error: No method named 'via_address_derived_secret' found for type 'OnchainConstrainedDelivery'
+   ┌─ src/main.nr:3:1
+   │
+ 3 │ #[aztec]
+   │ -------- While running this function attribute
+   ·
+13 │         let _ = delivery.via_address_derived_secret();
+   │                 -------------------------------------
+   │
+
+Aborting due to 1 previous error
