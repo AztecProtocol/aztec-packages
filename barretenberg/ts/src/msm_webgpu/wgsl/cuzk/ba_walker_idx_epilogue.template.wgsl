@@ -47,7 +47,6 @@ const PTREE_S: u32 = {{ ptree_s }}u;
 const PTREE_TPB: u32 = {{ ptree_tpb }}u;
 const PTREE_FIN_TPB: u32 = {{ ptree_fin_tpb }}u;
 const PTREE_FIN_SN: u32 = {{ ptree_fin_sn }}u;
-const PTREE_MICRO_MAX: u32 = 8u;
 // Survivor scratch capacity (96 B Jacobian slots in the 1 MB region).
 const PTREE_SURV_SLOTS: u32 = 10240u;
 
@@ -151,17 +150,13 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>) {
     let pt_surv_base = bin_offsets[min(pt_thr + 1u, MAX_N - 1u)];
     let pt_cap_base = bin_offsets[MAX_N - 1u];
     let pt_cap_size = pt_n_active - pt_cap_base;
-    let pt_micro_end = bin_offsets[min(PTREE_MICRO_MAX * pt_thr + 1u, MAX_N - 1u)];
-    let pt_micro_exact = pt_micro_end - pt_surv_base;
-    let pt_shallow_exact = pt_cap_base - pt_micro_end;
+    let pt_shallow_exact = pt_cap_base - pt_surv_base;
 
     ptree_meta[20] = pt_kstar;
     ptree_meta[22] = pt_thr;
     ptree_meta[23] = pt_surv_base;
     ptree_meta[24] = pt_n_active - pt_surv_base;
-    ptree_meta[25] = pt_micro_exact;
-    ptree_meta[26] = pt_micro_exact + pt_cap_size;
-    ptree_meta[27] = pt_micro_end;
+    ptree_meta[27] = pt_surv_base;
     ptree_meta[29] = pt_shallow_exact;
     ptree_meta[30] = pt_cap_base;
     ptree_meta[28] = pt_p_total;
@@ -172,11 +167,10 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>) {
         ptree_meta[256u + 4u * k + 1u] = 1u;
         ptree_meta[256u + 4u * k + 2u] = 1u;
     }
-    // Slot 16 = micro (threads), 18 = shallow fold (one WG per bucket),
-    // 17 = deep fold (cap tail only), 19 = survivor finalize.
-    ptree_meta[256u + 4u * 16u + 0u] = (pt_micro_exact + pt_cap_size + PTREE_FIN_TPB - 1u) / PTREE_FIN_TPB;
-    ptree_meta[256u + 4u * 16u + 1u] = 1u;
-    ptree_meta[256u + 4u * 16u + 2u] = 1u;
+    // Slot 18 = shallow fold (one WG per bucket, <= 64 residuals — its
+    // variable-depth tree makes tiny buckets cost ceil(log2(n_resid))
+    // adds, so no separate micro tier), 17 = deep fold (cap tail only),
+    // 19 = survivor finalize.
     ptree_meta[256u + 4u * 18u + 0u] = pt_shallow_exact + pt_cap_size;
     ptree_meta[256u + 4u * 18u + 1u] = 1u;
     ptree_meta[256u + 4u * 18u + 2u] = 1u;

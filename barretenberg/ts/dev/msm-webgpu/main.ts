@@ -2399,7 +2399,6 @@ function hideProgress(): void {
           ],
           ['ptree-level', sm.gen_ba_walker_ptree_level_shader(64, 8)],
           ['ptree-scatter', sm.gen_ba_walker_idx_scatter_shader(64, 8, 64, true)],
-          ['ptree-micro', sm.gen_ba_walker_ptree_micro_shader(256)],
           ['ptree-fold-shallow', sm.gen_ba_walker_ptree_fold_shader(64, 0)],
           ['ptree-fold-deep', sm.gen_ba_walker_ptree_fold_shader(256, 1)],
           ['ptree-survfin', sm.gen_ba_walker_ptree_finalize_shader(256, 2)],

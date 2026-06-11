@@ -2203,7 +2203,6 @@ export class MsmV2 {
   private ptreeLevelLayout!: GPUBindGroupLayout;
   private ptreeLevelBinds: GPUBindGroup[][] = [];
   private ptreeFoldPipes: GPUComputePipeline[] = [];
-  private ptreeMicroPipe!: GPUComputePipeline;
   private ptreeScatterPipe!: GPUComputePipeline;
   private ptreeScatterLayout!: GPUBindGroupLayout;
   private ptreeScatterBinds: GPUBindGroup[] = [];
@@ -3382,7 +3381,6 @@ export class MsmV2 {
         await compile(sm.gen_ba_walker_ptree_fold_shader(PTREE_TPB, 0), `ptree-fold-shallow`, m.ptreeFoldLayout),
         await compile(sm.gen_ba_walker_ptree_fold_shader(PTREE_FOLD_TPB, 1), `ptree-fold-deep`, m.ptreeFoldLayout),
       ];
-      m.ptreeMicroPipe = await compile(sm.gen_ba_walker_ptree_micro_shader(256), `ptree-micro`, m.ptreeFoldLayout);
       m.ptreeScatterPipe = await compile(
         sm.gen_ba_walker_idx_scatter_shader(WI_IDX_TPB, STREAM_S, STREAM_PLANNER_TPB, true),
         `ptree-scatter`,
@@ -5492,7 +5490,6 @@ export class MsmV2 {
           indirectDispatch(this.ptreeLevelPipe, this.ptreeLevelBinds[bi][k - 1], this.ptreeArgsBuf!, 16 * k);
         }
         setPhase('ptree_tail');
-        indirectDispatch(this.ptreeMicroPipe, this.ptreeFoldBind, this.ptreeArgsBuf!, 16 * 16);
         indirectDispatch(this.ptreeFoldPipes[0], this.ptreeFoldBind, this.ptreeArgsBuf!, 16 * 18);
         indirectDispatch(this.ptreeFoldPipes[1], this.ptreeFoldBind, this.ptreeArgsBuf!, 16 * 17);
         setPhase('finalize');

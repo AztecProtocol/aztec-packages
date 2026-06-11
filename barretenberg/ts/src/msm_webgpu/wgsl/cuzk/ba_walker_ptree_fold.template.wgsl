@@ -30,7 +30,6 @@ const TPB: u32 = {{ workgroup_size }}u;
 // variant the rest. Exactly one variant proceeds per bucket.
 const DEEP: u32 = {{ deep }}u;
 const TPB64: u32 = 64u;
-const MICRO_MAX: u32 = 8u;
 // Packed-window bid (SPLIT_C_PLAN.md): bid = (window << WBID_SHIFT) | mag.
 const WBID_SHIFT:    u32 = 15u;
 const WBID_MAG_MASK: u32 = 0x7fffu;
@@ -220,8 +219,7 @@ fn main(@builtin(workgroup_id) wgid: vec3<u32>,
     // so no early returns: skipped buckets just fold infinities through
     // the (barrier-bearing) tree below.
     let proceed =
-        cnt > stride &&
-        ((DEEP == 0u && n_resid > MICRO_MAX && n_resid <= TPB64) || (DEEP == 1u && n_resid > TPB64));
+        cnt > stride && ((DEEP == 0u && n_resid <= TPB64) || (DEEP == 1u && n_resid > TPB64));
 
     let zero = array<u32, 8>(0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u);
     var acc = Jac(zero, zero, zero); // infinity
@@ -248,13 +246,16 @@ fn main(@builtin(workgroup_id) wgid: vec3<u32>,
     wg_store(l, acc);
     workgroupBarrier();
 
-    // proceed is uniform per workgroup (one bucket per WG); the barrier
-    // stays outside the guard, so skipped workgroups pay barriers only —
-    // not log2(TPB) levels of infinity adds.
+    // proceed and n_resid are uniform per workgroup (one bucket per WG);
+    // the barrier stays outside the guard, so skipped workgroups pay
+    // barriers only. s < n_resid additionally skips tree levels above the
+    // bucket's population — slots there hold infinities, so the adds are
+    // exact no-ops costing full montgomery chains. Chain depth becomes
+    // ceil(log2(n_resid)): a 2-residual bucket pays ONE add, not log2(TPB).
     var s: u32 = TPB / 2u;
     loop {
         if (s == 0u) { break; }
-        if (l < s && proceed) { wg_store(l, jac_add(wg_load(l), wg_load(l + s))); }
+        if (l < s && proceed && s < n_resid) { wg_store(l, jac_add(wg_load(l), wg_load(l + s))); }
         workgroupBarrier();
         s = s / 2u;
     }
