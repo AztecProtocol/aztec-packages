@@ -34,12 +34,12 @@ jobs:
       tag: ${{ steps.resolve.outputs.tag }}
       semver: ${{ steps.resolve.outputs.semver }}
     steps:
-      - name: Checkout v5-next
+      - name: Checkout next
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
-          ref: v5-next
+          ref: next
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          fetch-depth: 0
+          fetch-depth: 1
 
       - name: Resolve nightly tag
         id: resolve
@@ -50,6 +50,11 @@ jobs:
           else
             TAG="v5.0.0-nightly.$(date -u +%Y%m%d)"
             echo "Using today's nightly tag: $TAG"
+            if ! git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null; then
+              echo "Error: nightly tag $TAG does not exist on origin"
+              exit 1
+            fi
+            echo "Confirmed nightly tag $TAG exists on origin"
           fi
 
           SEMVER="${TAG#v}"
@@ -82,5 +87,6 @@ jobs:
       network: staging-public
       semver: ${{ needs.determine-tag.outputs.semver }}
       source_tag: ${{ needs.determine-tag.outputs.tag }}
+      ref: next
       deploy_contracts: ${{ inputs.deploy_contracts == true }}
     secrets: inherit
