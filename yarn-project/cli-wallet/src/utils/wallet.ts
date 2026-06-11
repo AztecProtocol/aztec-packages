@@ -15,7 +15,6 @@ import { AccountManager, type Aliased, type SimulateOptions } from '@aztec/aztec
 import { TxSimulationResultWithAppOffset } from '@aztec/aztec.js/wallet';
 import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
 import { DefaultEntrypoint } from '@aztec/entrypoints/default';
-import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { LogFn } from '@aztec/foundation/log';
 import type { NotesFilter } from '@aztec/pxe/client/lazy';
@@ -151,16 +150,8 @@ export class CLIWallet extends BaseWallet {
     return account;
   }
 
-  private async createAccount(
-    secret: Fr,
-    salt: Fr,
-    contract: AccountContract,
-    isInitializerless = false,
-  ): Promise<AccountManager> {
-    const init = isInitializerless ? await contract.getInitializationFunctionAndArgs() : undefined;
-    const immutablesHash = init ? await poseidon2Hash(init.constructorArgs) : undefined;
-
-    const accountManager = await AccountManager.create(this, secret, contract, { salt, immutablesHash });
+  private async createAccount(secret: Fr, salt: Fr, contract: AccountContract): Promise<AccountManager> {
+    const accountManager = await AccountManager.create(this, secret, contract, { salt });
 
     const instance = accountManager.getInstance();
     const artifact = await contract.getContractArtifact();
@@ -168,12 +159,16 @@ export class CLIWallet extends BaseWallet {
     await this.registerContract(instance, artifact, secret);
     this.accountCache.set(accountManager.address.toString(), await accountManager.getAccount());
 
-    if (init) {
-      const constructorAbi = artifact.functions.find(f => f.name === init.constructorName);
+    // Initializerless accounts have no deployment tx; their address commits to the signing public key
+    // (via the contract's immutablesHash, resolved by AccountManager.create) and the constructor's
+    // storage writes are materialized locally via a simulated "store" call here.
+    if (contract instanceof SchnorrInitializerlessAccountContract) {
+      const constructorAbi = artifact.functions.find(f => f.name === 'constructor');
       if (!constructorAbi) {
         throw new Error('Could not create SchnorrInitializerlessAccount: constructor ABI not found');
       }
-      const storeCall = new ContractFunctionInteraction(this, instance.address, constructorAbi, init.constructorArgs);
+      const { x, y } = await contract.getSigningPublicKey();
+      const storeCall = new ContractFunctionInteraction(this, instance.address, constructorAbi, [x, y]);
       await storeCall.simulate({ from: instance.address });
     }
 
@@ -209,7 +204,6 @@ export class CLIWallet extends BaseWallet {
           secretKey,
           salt,
           new SchnorrInitializerlessAccountContract(deriveSigningKey(secretKey)),
-          true,
         );
         break;
       }

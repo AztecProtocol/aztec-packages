@@ -36,6 +36,11 @@ export class SchnorrInitializerlessAccountContract extends SchnorrBaseAccountCon
     return Promise.resolve(undefined);
   }
 
+  override async getImmutablesHash(): Promise<Fr> {
+    const signingPublicKey = await this.getSigningPublicKey();
+    return poseidon2Hash([signingPublicKey.x, signingPublicKey.y]);
+  }
+
   override getContractArtifact(): Promise<ContractArtifact> {
     return Promise.resolve(SchnorrInitializerlessAccountContractArtifact);
   }
@@ -54,7 +59,5 @@ export async function getSchnorrInitializerlessAccountContractAddress(
 ): Promise<AztecAddress> {
   const signingKey = signingPrivateKey ?? deriveSigningKey(secret);
   const accountContract = new SchnorrInitializerlessAccountContract(signingKey);
-  const signingPublicKey = await new Schnorr().computePublicKey(signingKey);
-  const immutablesHash = await poseidon2Hash([signingPublicKey.x, signingPublicKey.y]);
-  return await getAccountContractAddress(accountContract, secret, salt, immutablesHash);
+  return await getAccountContractAddress(accountContract, secret, salt);
 }

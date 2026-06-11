@@ -19,7 +19,6 @@ import { AccountManager, type SendOptions } from '@aztec/aztec.js/wallet';
 import { TxSimulationResultWithAppOffset } from '@aztec/aztec.js/wallet';
 import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
 import { DefaultEntrypoint } from '@aztec/entrypoints/default';
-import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
 import { Fq, Fr } from '@aztec/foundation/curves/bn254';
 import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
 import type { NotesFilter } from '@aztec/pxe/client/lazy';
@@ -236,14 +235,11 @@ export class TestWallet extends BaseWallet {
     const type = accountData?.type ?? 'schnorr';
     const contract = accountData?.contract ?? new SchnorrAccountContract(GrumpkinScalar.random());
 
-    // Initializerless accounts have no deployment tx: the address commits to the public keys (immutables)
-    // and the constructor's storage writes are materialized locally via a simulated "store" call below.
+    // Initializerless accounts have no deployment tx: the address commits to the signing public key
+    // (via the contract's immutablesHash, resolved by AccountManager.create) and the constructor's
+    // storage writes are materialized locally via a simulated "store" call below.
     // Mirrors EmbeddedWallet.createAccountInternal.
-    const isInitializerless = type === 'schnorr_initializerless';
-    const init = isInitializerless ? await contract.getInitializationFunctionAndArgs() : undefined;
-    const immutablesHash = init ? await poseidon2Hash(init.constructorArgs) : undefined;
-
-    const accountManager = await AccountManager.create(this, secret, contract, { salt, immutablesHash });
+    const accountManager = await AccountManager.create(this, secret, contract, { salt });
 
     const instance = accountManager.getInstance();
     const artifact = await contract.getContractArtifact();
@@ -253,12 +249,13 @@ export class TestWallet extends BaseWallet {
     const address = accountManager.address.toString();
     this.accounts.set(address, { account: await accountManager.getAccount(), type });
 
-    if (init) {
-      const constructorAbi = artifact.functions.find(f => f.name === init.constructorName);
+    if (contract instanceof SchnorrInitializerlessAccountContract) {
+      const constructorAbi = artifact.functions.find(f => f.name === 'constructor');
       if (!constructorAbi) {
         throw new Error('Could not create SchnorrInitializerlessAccount: constructor ABI not found');
       }
-      const storeCall = new ContractFunctionInteraction(this, instance.address, constructorAbi, init.constructorArgs);
+      const { x, y } = await contract.getSigningPublicKey();
+      const storeCall = new ContractFunctionInteraction(this, instance.address, constructorAbi, [x, y]);
       await storeCall.simulate({ from: instance.address });
     }
 

@@ -1,4 +1,5 @@
 import type { AuthWitnessProvider } from '@aztec/aztec.js/account';
+import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
 import { Schnorr } from '@aztec/foundation/crypto/schnorr';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
@@ -14,8 +15,18 @@ import { DefaultAccountContract } from '../defaults/account_contract.js';
  * can be implemented with or without lazy loading.
  */
 export abstract class SchnorrBaseAccountContract extends DefaultAccountContract {
-  constructor(private signingPrivateKey: GrumpkinScalar) {
+  constructor(protected signingPrivateKey: GrumpkinScalar) {
     super();
+  }
+
+  /** The Grumpkin public key this account verifies signatures against. */
+  getSigningPublicKey() {
+    return new Schnorr().computePublicKey(this.signingPrivateKey);
+  }
+
+  override async getImmutablesHash(): Promise<Fr> {
+    const signingPublicKey = await this.getSigningPublicKey();
+    return poseidon2Hash([signingPublicKey.x, signingPublicKey.y]);
   }
 
   async getInitializationFunctionAndArgs(): Promise<
@@ -27,7 +38,7 @@ export abstract class SchnorrBaseAccountContract extends DefaultAccountContract 
       }
     | undefined
   > {
-    const signingPublicKey = await new Schnorr().computePublicKey(this.signingPrivateKey);
+    const signingPublicKey = await this.getSigningPublicKey();
     return { constructorName: 'constructor', constructorArgs: [signingPublicKey.x, signingPublicKey.y] };
   }
 

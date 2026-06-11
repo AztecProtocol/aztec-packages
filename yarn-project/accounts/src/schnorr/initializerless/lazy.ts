@@ -61,7 +61,5 @@ export async function getSchnorrInitializerlessAccountContractAddress(
 ): Promise<AztecAddress> {
   const signingKey = signingPrivateKey ?? deriveSigningKey(secret);
   const accountContract = new SchnorrInitializerlessAccountContract(signingKey);
-  const { constructorArgs } = (await accountContract.getInitializationFunctionAndArgs())!;
-  const immutablesHash = await poseidon2Hash(constructorArgs);
-  return await getAccountContractAddress(accountContract, secret, salt, immutablesHash);
+  return await getAccountContractAddress(accountContract, secret, salt);
 }
