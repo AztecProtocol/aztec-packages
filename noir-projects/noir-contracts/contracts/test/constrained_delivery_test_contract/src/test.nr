@@ -178,14 +178,9 @@ unconstrained fn fails_at_index_above_zero_without_prior_nullifier() {
 // Independent per-secret counters for distinct `(sender, recipient)` pairs. Each starts at 0.
 #[test]
 unconstrained fn distinct_pairs_have_independent_indexes() {
-    let mut env = TestEnvironment::new();
-
-    let sender = env.create_light_account();
-    let recipient_a = env.create_light_account();
+    let (mut env, registry_address, test_address, sender, recipient_a) = setup();
     let recipient_b = env.create_light_account();
 
-    let registry_address = env.deploy("@handshake_registry_contract/HandshakeRegistry").without_initializer();
-    let test_address = env.deploy("ConstrainedDeliveryTest").without_initializer();
     let test_contract = ConstrainedDeliveryTest::at(test_address);
 
     let (secret_a, index_a) = env.call_private_opts(
