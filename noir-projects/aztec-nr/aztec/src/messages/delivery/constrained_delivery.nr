@@ -122,9 +122,9 @@ pub fn compute_constrained_msg_nullifier(
 /// Computes the constrained-delivery discovery log tag for an `(app_siloed_secret, index)` pair.
 ///
 /// Collapses the secret and index into a single raw tag and domain-separates it with
-/// `DOM_SEP__CONSTRAINED_MSG_LOG_TAG`. This mirrors the recipient-side derivation in the PXE (`siloedTagFor`): the
-/// recipient recomputes the same tag to discover the message, and the protocol silos the emitted log's first field by
-/// the emitting contract address, completing the match.
+/// `DOM_SEP__CONSTRAINED_MSG_LOG_TAG`. This mirrors the recipient-side `Tag.compute` / `SiloedTag.compute` derivation
+/// in the PXE: the recipient recomputes the same tag to discover the message, and the protocol silos the emitted log's
+/// first field by the emitting contract address, completing the match.
 pub fn compute_constrained_log_tag(app_siloed_secret: Field, index: u32) -> Field {
     compute_log_tag(
         poseidon2_hash([app_siloed_secret, index as Field]),
