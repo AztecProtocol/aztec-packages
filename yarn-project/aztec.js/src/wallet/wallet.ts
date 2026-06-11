@@ -38,7 +38,6 @@ import {
 import { z } from 'zod';
 
 import {
-  type FeeEstimationOptions,
   type GasSettingsOption,
   type InteractionWaitOptions,
   NO_FROM,
@@ -73,7 +72,7 @@ export type Aliased<T> = {
  */
 export type SimulateOptions = Omit<SimulateInteractionOptions, 'fee'> & {
   /** The fee options */
-  fee?: GasSettingsOption & FeeEstimationOptions;
+  fee?: GasSettingsOption;
 };
 
 /**
@@ -271,12 +270,6 @@ export type Wallet = {
     eventFilter: PrivateEventFilter,
   ): Promise<PrivateEvent<T>[]>;
   getChainInfo(): Promise<ChainInfo>;
-  /**
-   * Returns the maximum gas limits a single transaction may declare on this wallet's network (the
-   * node-advertised `txsLimits.gas`). Used as the default gas limits when sending a transaction without
-   * gas estimation. Cached for the wallet's lifetime, since a wallet talks to a single network.
-   */
-  getMaxTxGasLimits(): Promise<Gas>;
   getContractMetadata(address: AztecAddress): Promise<ContractMetadata>;
   getContractClassMetadata(id: Fr): Promise<ContractClassMetadata>;
   registerSender(address: AztecAddress, alias?: string): Promise<AztecAddress>;
@@ -325,11 +318,6 @@ export const GasSettingsOptionSchema = z.object({
   congestionEstimate: optional(z.nativeEnum(ManaUsageEstimate)),
 });
 
-export const WalletSimulationFeeOptionSchema = GasSettingsOptionSchema.extend({
-  estimatedGasPadding: optional(z.number()),
-  estimateGas: optional(z.boolean()),
-});
-
 export const WaitOptsSchema = z.object({
   ignoreDroppedReceiptsFor: optional(z.number()),
   timeout: optional(z.number()),
@@ -353,7 +341,7 @@ export const SimulateOptionsSchema = z.object({
   from: FromSchema,
   authWitnesses: optional(z.array(AuthWitness.schema)),
   capsules: optional(z.array(Capsule.schema)),
-  fee: optional(WalletSimulationFeeOptionSchema),
+  fee: optional(GasSettingsOptionSchema),
   skipTxValidation: optional(z.boolean()),
   skipFeeEnforcement: optional(z.boolean()),
   includeMetadata: optional(z.boolean()),
@@ -571,7 +559,6 @@ const OffchainOutputSchema = z.object({
  */
 const WalletMethodSchemas = {
   getChainInfo: z.function({ input: z.tuple([]), output: z.object({ chainId: schemas.Fr, version: schemas.Fr }) }),
-  getMaxTxGasLimits: z.function({ input: z.tuple([]), output: Gas.schema }),
   getContractMetadata: z.function({ input: z.tuple([schemas.AztecAddress]), output: ContractMetadataSchema }),
   getContractClassMetadata: z.function({ input: z.tuple([schemas.Fr]), output: ContractClassMetadataSchema }),
   getPrivateEvents: z.function({

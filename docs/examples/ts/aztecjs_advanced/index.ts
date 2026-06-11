@@ -13,7 +13,7 @@ import { SponsoredFeePaymentMethod } from "@aztec/aztec.js/fee/testing";
 import { getContractInstanceFromInstantiationParams } from "@aztec/stdlib/contract";
 import { PublicKeys } from "@aztec/stdlib/keys";
 import { getPublicEvents } from "@aztec/aztec.js/events";
-import { GasSettings } from "@aztec/stdlib/gas";
+import { Gas, GasSettings } from "@aztec/stdlib/gas";
 
 // Setup: connect to network
 const node = createAztecNodeClient(
@@ -357,8 +357,9 @@ const metaResult = await token.methods
   .balance_of_public(aliceAddress)
   .simulate({ from: aliceAddress, includeMetadata: true });
 console.log("Balance:", metaResult.result);
-console.log("L2 gas limit:", metaResult.estimatedGas.gasLimits.l2Gas);
-console.log("DA gas limit:", metaResult.estimatedGas.gasLimits.daGas);
+// `gasUsed` is the raw gas the simulation consumed; derive your own limits from it (see below).
+console.log("L2 gas used:", metaResult.gasUsed!.totalGas.l2Gas);
+console.log("DA gas used:", metaResult.gasUsed!.totalGas.daGas);
 // docs:end:simulate_with_metadata
 
 // docs:start:read_public_logs
@@ -375,17 +376,16 @@ if (publicLogs.length > 0) {
 // docs:end:read_public_logs
 
 // docs:start:estimate_mana
-const { estimatedGas } = await token.methods
+const { gasUsed } = await token.methods
   .transfer_in_public(aliceAddress, bobAddress, 1n, 0n)
-  .simulate({
-    from: aliceAddress,
-    fee: { estimateGas: true, estimatedGasPadding: 0.1 },
-  });
+  .simulate({ from: aliceAddress, includeMetadata: true });
+// Pad the raw usage yourself to leave headroom for variance, e.g. 10%.
+const estimatedGasLimits = gasUsed!.totalGas.mul(1.1);
 // docs:end:estimate_mana
 
 // docs:start:compute_fee_from_estimate
 const currentFees = await node.getCurrentMinFees();
-const estimatedFee = estimatedGas.gasLimits.computeFee(currentFees).toBigInt();
+const estimatedFee = estimatedGasLimits.computeFee(currentFees).toBigInt();
 console.log("Estimated fee:", estimatedFee);
 // docs:end:compute_fee_from_estimate
 
@@ -417,8 +417,9 @@ console.log("Transaction fee:", feeJuiceReceipt.transactionFee);
 // Query current network fees to set realistic limits
 const networkFees = await node.getCurrentMinFees();
 // Declare at most what the network admits per tx; these limits vary by network geometry,
-// so derive them rather than hardcoding values that may exceed a given network's maximum.
-const gasLimits = await wallet.getMaxTxGasLimits();
+// so read them from the node rather than hardcoding values that may exceed a given network's maximum.
+const { txsLimits } = await node.getNodeInfo();
+const gasLimits = Gas.from(txsLimits.gas);
 const gasSettings = GasSettings.from({
   gasLimits,
   // Teardown must be strictly less than the total limits so app logic has gas to run.
@@ -471,17 +472,12 @@ const rangeLogs = (
 // docs:end:read_logs_by_filter
 
 // docs:start:auto_gas_estimation
-// Estimate gas for a transaction before sending
-const { estimatedGas: autoEstimate } = await token.methods
+// Read the gas a transaction would consume before sending, and pad it yourself.
+const { gasUsed: autoGasUsed } = await token.methods
   .mint_to_public(aliceAddress, 1n)
-  .simulate({
-    from: aliceAddress,
-    fee: {
-      estimateGas: true,
-      estimatedGasPadding: 0.2, // 20% padding
-    },
-  });
-console.log("Auto-estimated L2 gas:", autoEstimate.gasLimits.l2Gas);
+  .simulate({ from: aliceAddress, includeMetadata: true });
+const autoEstimate = autoGasUsed!.totalGas.mul(1.2); // 20% padding
+console.log("Auto-estimated L2 gas:", autoEstimate.l2Gas);
 // docs:end:auto_gas_estimation
 
 // docs:start:import_get_public_events

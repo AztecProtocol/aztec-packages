@@ -15,10 +15,11 @@ import { RunningPromise } from '@aztec/foundation/promise';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { BenchmarkingContract } from '@aztec/noir-test-contracts.js/Benchmarking';
-import { type Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
+import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { TopicType } from '@aztec/stdlib/p2p';
 import { Tx, TxHash, TxStatus } from '@aztec/stdlib/tx';
+import { getGasLimits } from '@aztec/wallet-sdk/base-wallet';
 
 import { jest } from '@jest/globals';
 import { mkdir, writeFile } from 'fs/promises';
@@ -330,11 +331,14 @@ describe('sustained N TPS test', () => {
         // does this automatically; TestWallet (used here via WorkerWallet) does not.
         const deploySim = await deployMethod.simulate({
           from: NO_FROM,
-          fee: { paymentMethod: sponsor, estimateGas: true },
+          fee: { paymentMethod: sponsor },
+          includeMetadata: true,
         });
+        const { txsLimits } = await aztecNode.getNodeInfo();
+        const deployGasLimits = getGasLimits(deploySim.gasUsed!, Gas.from(txsLimits.gas));
         await deployMethod.send({
           from: NO_FROM,
-          fee: { paymentMethod: sponsor, gasSettings: deploySim.estimatedGas },
+          fee: { paymentMethod: sponsor, gasSettings: deployGasLimits },
           wait: { timeout: 2400 },
         });
         return address;
@@ -358,11 +362,14 @@ describe('sustained N TPS test', () => {
     const deploySim = await deployInteraction.simulate({
       from: accountAddresses[0],
       fee: { paymentMethod: sponsor },
+      includeMetadata: true,
     });
-    logger.info('Benchmark contract deploy estimated gas', { gasLimits: deploySim.estimatedGas?.gasLimits });
+    const { txsLimits } = await aztecNode.getNodeInfo();
+    const benchmarkDeployGasLimits = getGasLimits(deploySim.gasUsed!, Gas.from(txsLimits.gas));
+    logger.info('Benchmark contract deploy estimated gas', { gasLimits: benchmarkDeployGasLimits.gasLimits });
     ({ contract: benchmarkContract } = await deployInteraction.send({
       from: accountAddresses[0],
-      fee: { paymentMethod: sponsor, gasSettings: deploySim.estimatedGas },
+      fee: { paymentMethod: sponsor, gasSettings: benchmarkDeployGasLimits },
     }));
     logger.info('Benchmark contract deployed', { address: benchmarkContract.address.toString() });
 
@@ -373,9 +380,10 @@ describe('sustained N TPS test', () => {
     // Gas estimate is sender-independent, so one pre-warmed value for all senders.
     const estimateSim = await benchmarkContract.methods.sha256_hash_1024(Array(1024).fill(42)).simulate({
       from: accountAddresses[0],
-      fee: { paymentMethod: sponsor, estimateGas: true },
+      fee: { paymentMethod: sponsor },
+      includeMetadata: true,
     });
-    benchmarkGasEstimate = estimateSim.estimatedGas;
+    benchmarkGasEstimate = getGasLimits(estimateSim.gasUsed!, Gas.from(txsLimits.gas));
     logger.info('Benchmark tx estimated gas', { gasLimits: benchmarkGasEstimate?.gasLimits });
 
     const currentMinFees = await refreshMinFees();

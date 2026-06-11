@@ -30,7 +30,6 @@ import type { ContractArtifact, EventMetadataDefinition, FunctionCall } from '@a
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
-import type { Gas } from '@aztec/stdlib/gas';
 import type { ExecutionPayload, TxProfileResult, UtilityExecutionResult } from '@aztec/stdlib/tx';
 import { Tx } from '@aztec/stdlib/tx';
 
@@ -130,10 +129,6 @@ export class WorkerWallet implements Wallet {
 
   getChainInfo(): Promise<ChainInfo> {
     return this.call('getChainInfo');
-  }
-
-  getMaxTxGasLimits(): Promise<Gas> {
-    return this.call('getMaxTxGasLimits');
   }
 
   getContractMetadata(address: AztecAddress): Promise<ContractMetadata> {

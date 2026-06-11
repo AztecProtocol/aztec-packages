@@ -1,4 +1,4 @@
-import type { Account } from '@aztec/aztec.js/account';
+import { type Account, NO_FROM } from '@aztec/aztec.js/account';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Aliased } from '@aztec/aztec.js/wallet';
 import { BlockNumber } from '@aztec/foundation/branded-types';
@@ -29,7 +29,7 @@ import {
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { BaseWallet } from './base_wallet.js';
+import { BaseWallet, type CompleteFeeOptionsConfig, type FeeOptions } from './base_wallet.js';
 
 class BasicWallet extends BaseWallet {
   mockAccount = mock<Account>();
@@ -48,6 +48,14 @@ class BasicWallet extends BaseWallet {
 
   public override getMinFees(estimate?: ManaUsageEstimate): Promise<GasFees> {
     return super.getMinFees(estimate);
+  }
+
+  public getMaxTxGasLimitsForTest(): Promise<Gas> {
+    return super.getMaxTxGasLimits();
+  }
+
+  public completeFeeOptionsForTest(config: CompleteFeeOptionsConfig): Promise<FeeOptions> {
+    return super.completeFeeOptions(config);
   }
 }
 
@@ -262,9 +270,9 @@ describe('BaseWallet', () => {
         txsLimits: { gas: { daGas: 117_668, l2Gas: 6_540_000 } },
       });
 
-      await expect(wallet.getMaxTxGasLimits()).rejects.toThrow('node unavailable');
+      await expect(wallet.getMaxTxGasLimitsForTest()).rejects.toThrow('node unavailable');
 
-      const gas = await wallet.getMaxTxGasLimits();
+      const gas = await wallet.getMaxTxGasLimitsForTest();
       expect(gas).toEqual(new Gas(117_668, 6_540_000));
       expect(node.getNodeInfo).toHaveBeenCalledTimes(2);
     });
@@ -281,9 +289,70 @@ describe('BaseWallet', () => {
         txsLimits: { gas: { daGas: 117_668, l2Gas: 6_540_000 } },
       });
 
-      await wallet.getMaxTxGasLimits();
+      await wallet.getMaxTxGasLimitsForTest();
       await wallet.getChainInfo();
       expect(node.getNodeInfo).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('completeFeeOptions gas limit validation', () => {
+    let pxe: MockProxy<PXE>;
+    let node: MockProxy<AztecNode>;
+    let wallet: BasicWallet;
+
+    beforeEach(() => {
+      pxe = mock<PXE>();
+      node = mock<AztecNode>();
+      wallet = new BasicWallet(pxe, node);
+      node.getPredictedMinFees.mockResolvedValue([new GasFees(2, 2)]);
+      node.getCurrentMinFees.mockResolvedValue(new GasFees(2, 2));
+      node.getNodeInfo.mockResolvedValue({
+        ...mock<NodeInfo>(),
+        l1ChainId: 1,
+        rollupVersion: 1,
+        txsLimits: { gas: { daGas: 1000, l2Gas: 2000 } },
+      });
+    });
+
+    it('fills in the network admission limit when no gas limits are declared', async () => {
+      const { gasSettings } = await wallet.completeFeeOptionsForTest({ from: NO_FROM });
+      expect(gasSettings.gasLimits).toEqual(new Gas(1000, 2000));
+    });
+
+    it('accepts caller-provided gas limits at or below the network admission limit', async () => {
+      const { gasSettings } = await wallet.completeFeeOptionsForTest({
+        from: NO_FROM,
+        gasSettings: { gasLimits: Gas.from({ daGas: 1000, l2Gas: 2000 }) },
+      });
+      expect(gasSettings.gasLimits).toEqual(new Gas(1000, 2000));
+    });
+
+    it('rejects caller-provided da gas limit above the network admission limit', async () => {
+      await expect(
+        wallet.completeFeeOptionsForTest({
+          from: NO_FROM,
+          gasSettings: { gasLimits: Gas.from({ daGas: 1001, l2Gas: 2000 }) },
+        }),
+      ).rejects.toThrow('Declared DA gas limit (1001) exceeds the maximum this network allows per tx (1000)');
+    });
+
+    it('rejects caller-provided l2 gas limit above the network admission limit', async () => {
+      await expect(
+        wallet.completeFeeOptionsForTest({
+          from: NO_FROM,
+          gasSettings: { gasLimits: Gas.from({ daGas: 1000, l2Gas: 2001 }) },
+        }),
+      ).rejects.toThrow('Declared L2 gas limit (2001) exceeds the maximum this network allows per tx (2000)');
+    });
+
+    it('does not validate against the admission limit when estimating', async () => {
+      await expect(
+        wallet.completeFeeOptionsForTest({
+          from: NO_FROM,
+          forEstimation: true,
+          gasSettings: { gasLimits: Gas.from({ daGas: 1_000_000, l2Gas: 1_000_000 }) },
+        }),
+      ).resolves.toBeDefined();
     });
   });
 

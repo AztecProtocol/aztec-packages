@@ -65,6 +65,7 @@ import {
 
 import { inspect } from 'util';
 
+import { assertGasLimitsWithinNetworkLimits } from './get_gas_limits.js';
 import { buildMergedSimulationResult, extractOptimizablePublicStaticCalls, simulateViaNode } from './utils.js';
 
 /**
@@ -161,7 +162,8 @@ export abstract class BaseWallet implements Wallet {
   /**
    * Fetches and caches the node info for the wallet's lifetime, since a wallet talks to a single network and
    * node info never changes. A rejected fetch clears the cache so the next call retries instead of replaying
-   * the cached rejection forever — important because `getMaxTxGasLimits` (called on every send) depends on it.
+   * the cached rejection forever — important because the gas-limit fill-in and validation (run on every send)
+   * depend on it.
    */
   private getNodeInfo(): Promise<NodeInfo> {
     if (!this.nodeInfoPromise) {
@@ -180,11 +182,11 @@ export abstract class BaseWallet implements Wallet {
 
   /**
    * Returns the maximum gas limits a single transaction may declare on this wallet's network (the
-   * node-advertised `txsLimits.gas`). Used as the default gas limits when sending a transaction without
-   * gas estimation. Read once from the node and cached for the wallet's lifetime, since a wallet talks to
-   * a single network.
+   * node-advertised `txsLimits.gas`). Internal helper used to fill in default gas limits when sending a
+   * transaction without explicit limits, and to validate caller-provided limits before sending. Backed by
+   * the cached node info, since a wallet talks to a single network.
    */
-  public async getMaxTxGasLimits(): Promise<Gas> {
+  protected async getMaxTxGasLimits(): Promise<Gas> {
     const { txsLimits } = await this.getNodeInfo();
     return new Gas(txsLimits.gas.daGas, txsLimits.gas.l2Gas);
   }
@@ -296,13 +298,24 @@ export abstract class BaseWallet implements Wallet {
     };
     // When estimating gas (simulation), use high limits so the simulation doesn't run out of gas.
     // When sending for real without explicit limits, declare the most a single tx may use on this network
-    // (the node's per-block allocation), so the proposer does not skip the tx for over-declaring gas.
-    const fullGasSettings = forEstimation
-      ? GasSettings.forEstimation(gasSettingsOverrides)
-      : GasSettings.fallback({
-          ...gasSettingsOverrides,
-          gasLimits: gasSettingsOverrides.gasLimits ?? (await this.getMaxTxGasLimits()),
-        });
+    // (the node's per-tx admission limit), so the proposer does not skip the tx for over-declaring gas.
+    let fullGasSettings;
+    if (forEstimation) {
+      // Estimation deliberately uses very high internal limits and skips tx validation, so we do not
+      // validate against the network admission limit here.
+      fullGasSettings = GasSettings.forEstimation(gasSettingsOverrides);
+    } else {
+      const maxTxGasLimits = await this.getMaxTxGasLimits();
+      // If the caller declared explicit gas limits, reject them up front when they exceed the network's
+      // per-tx admission limit (mirroring the node's GasLimitsValidator). Otherwise fill in the limit.
+      if (gasSettingsOverrides.gasLimits) {
+        assertGasLimitsWithinNetworkLimits(gasSettingsOverrides.gasLimits, maxTxGasLimits);
+      }
+      fullGasSettings = GasSettings.fallback({
+        ...gasSettingsOverrides,
+        gasLimits: gasSettingsOverrides.gasLimits ?? maxTxGasLimits,
+      });
+    }
     this.log.debug(`Using L2 gas settings`, fullGasSettings);
     return {
       gasSettings: fullGasSettings,
