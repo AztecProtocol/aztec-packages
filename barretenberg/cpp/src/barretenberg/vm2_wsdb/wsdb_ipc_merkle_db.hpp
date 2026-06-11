@@ -9,14 +9,12 @@
 
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
 #include "barretenberg/world_state/types.hpp"
-#include "barretenberg/wsdb/wsdb_commands.hpp"
-#include "barretenberg/wsdb/wsdb_execute.hpp"
-#include "barretenberg/wsdb/wsdb_ipc_client_generated.hpp"
+#include "barretenberg/wsdb/wsdb_ipc_client.hpp"
 
 #include <optional>
 #include <stack>
 
-namespace bb::wsdb_client {
+namespace bb::avm2::simulation {
 
 class WsdbIpcMerkleDB final : public avm2::simulation::LowLevelMerkleDBInterface {
   public:
@@ -56,9 +54,6 @@ class WsdbIpcMerkleDB final : public avm2::simulation::LowLevelMerkleDBInterface
     uint32_t get_checkpoint_id() const override;
 
   private:
-    template <typename T> static std::vector<uint8_t> serialize_to_msgpack(const T& value);
-    template <typename T> static T deserialize_from_msgpack(const std::vector<uint8_t>& bytes);
-
     /** Invalidate the cached tree roots (call after any write operation). */
     void invalidate_tree_roots_cache();
 
@@ -69,4 +64,4 @@ class WsdbIpcMerkleDB final : public avm2::simulation::LowLevelMerkleDBInterface
     mutable std::optional<avm2::TreeSnapshots> cached_tree_roots_;
 };
 
-} // namespace bb::wsdb_client
+} // namespace bb::avm2::simulation
