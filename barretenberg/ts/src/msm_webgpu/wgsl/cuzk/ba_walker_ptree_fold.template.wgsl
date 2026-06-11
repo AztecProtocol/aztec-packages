@@ -23,10 +23,13 @@
 
 const PG: u32 = 2u;
 const TPB: u32 = {{ workgroup_size }}u;
-// Which survivor list this variant folds: bids at meta[32 + LIST_BASE + w],
-// fold result at surv scratch slot LIST_BASE + w (shallow list base 0,
-// deep list base 8192 — matches the scan's routing).
-const LIST_BASE: u32 = {{ list_base }}u;
+// Survivors are the contiguous TAIL of the sorted active list (static
+// schedule): bucket = sorted_active[meta[23] + w], scratch slot = w. Both
+// fold variants sweep the whole range; DEEP picks residual counts > TPB64
+// (the 64-thread variant's one-madd-per-thread capacity), the shallow
+// variant the rest. Exactly one variant proceeds per bucket.
+const DEEP: u32 = {{ deep }}u;
+const TPB64: u32 = 64u;
 // Packed-window bid (SPLIT_C_PLAN.md): bid = (window << WBID_SHIFT) | mag.
 const WBID_SHIFT:    u32 = 15u;
 const WBID_MAG_MASK: u32 = 0x7fffu;
@@ -40,13 +43,16 @@ fn flat_bid(bid: u32, bw: u32) -> u32 {
 // illegal (Dawn usage-scope rule). Bound rw, only read.
 @group(0) @binding(0) var<storage, read_write> ptree_meta:     array<u32>;
 @group(0) @binding(1) var<storage, read>       arena_a2:       array<u32>;
-@group(0) @binding(2) var<storage, read>       partial_offset: array<u32>;
+// rw (read-only use): shares arena A5 with sorted_active below.
+@group(0) @binding(2) var<storage, read_write> partial_offset: array<u32>;
 @group(0) @binding(3) var<storage, read>       partials_buf:   array<vec4<u32>>;
 @group(0) @binding(4) var<storage, read_write> surv_scratch:   array<vec4<u32>>;
 @group(0) @binding(5) var<uniform>             params:         vec4<u32>;
 @group(0) @binding(6) var<uniform>             arena_off:      vec4<u32>;
 @group(0) @binding(7) var<uniform>             jac_params:     vec4<u32>;
 @group(0) @binding(8) var<uniform>             bw_geom:        vec4<u32>;
+// rw (read-only use): shares arena A5 with partial_offset.
+@group(0) @binding(9) var<storage, read_write> sorted_active:  array<u32>;
 
 fn pc_at(i: u32) -> u32 { return arena_a2[arena_off.x + i]; }
 fn pl_at(i: u32) -> u32 { return arena_a2[arena_off.y + i]; }
@@ -192,15 +198,22 @@ fn main(@builtin(workgroup_id) wgid: vec3<u32>,
     let stride = ptree_meta[22];
     let M_partials = params.w;
 
-    let bid = ptree_meta[32u + LIST_BASE + w];
+    let bid = sorted_active[ptree_meta[23] + w];
     let fb = flat_bid(bid, bw_geom.x);
-    let seg = partial_offset[fb];
+    let seg = partial_offset[fb] & 0x7fffffffu; // v2: bit 31 flags singles
     let cnt = pc_at(fb);
     let n_resid = (cnt + stride - 1u) / stride;
+    // Cap-bin buckets that closed in-tree sit inside the range, and the
+    // two variants split the range by residual count. The predicate is
+    // workgroup-uniform in fact (per-bucket), but Tint cannot prove it —
+    // so no early returns: skipped buckets just fold infinities through
+    // the (barrier-bearing) tree below.
+    let proceed =
+        cnt > stride && ((DEEP == 0u && n_resid <= TPB64) || (DEEP == 1u && n_resid > TPB64));
 
     let zero = array<u32, 8>(0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u);
     var acc = Jac(zero, zero, zero); // infinity
-    if (l < n_resid) {
+    if (proceed && l < n_resid) {
         let s0 = pl_at(seg + l * stride);
         let x0 = load_partial_x(s0);
         let y0 = load_partial_y(s0, M_partials);
@@ -231,9 +244,9 @@ fn main(@builtin(workgroup_id) wgid: vec3<u32>,
         s = s / 2u;
     }
 
-    if (l == 0u) {
+    if (l == 0u && proceed) {
         let total = wg_load(0u);
-        let b = jac_params.x + 6u * (LIST_BASE + w);
+        let b = jac_params.x + 6u * w;
         surv_scratch[b + 0u] = vec4<u32>(total.x[0], total.x[1], total.x[2], total.x[3]);
         surv_scratch[b + 1u] = vec4<u32>(total.x[4], total.x[5], total.x[6], total.x[7]);
         surv_scratch[b + 2u] = vec4<u32>(total.y[0], total.y[1], total.y[2], total.y[3]);

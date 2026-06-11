@@ -144,7 +144,6 @@ const gpuKnobs: MsmConfig = (() => {
     ptree: q.get('ptree') === '1' || undefined,
     // ?ptree_theta=N overrides the pair-tree level->fold switch threshold.
     ptreeTheta: optInt('ptree_theta'),
-    ptreeNoClear: q.get('ptree_noclear') === '1' || undefined,
     preprocessV2: q.get('ppv2') === '0' ? false : q.get('ppv2') === '1' ? true : undefined,
     combineOnHost: false,
     splitC: q.get('split') === '1' || q.get('autorun') === 'msm-msbhist' || undefined,
@@ -2273,17 +2272,36 @@ function hideProgress(): void {
         });
         msmPt.prepare(inputs.scalarsBuf);
         const a = await msmPt.run();
-        if (qp.get('desccheck') === '1') {
+        {
+        const { ShaderManager } = await import('../../src/msm_webgpu/cuzk/shader_manager.js');
+        const { BN254_CURVE_CONFIG } = await import('../../src/msm_webgpu/cuzk/curve_config.js');
+        const smProbe = new ShaderManager(4, 1 << 17, BN254_CURVE_CONFIG, false);
+        const plain = smProbe.gen_ba_walker_idx_epilogue_shader(64);
+        const variant = smProbe.gen_ba_walker_idx_epilogue_shader(64, {
+          levels: 8,
+          theta: 65536,
+          s: 8,
+          tpb: 64,
+          fin_tpb: 256,
+          fin_sn: 2,
+        });
+        log(
+          'info',
+          `[jac-check] epilogue render: plain=${plain.length}ch magic=${plain.includes('BEEF0001')} variant=${variant.length}ch magic=${variant.includes('BEEF0001')}`,
+        );
+      }
+      if (qp.get('desccheck') === '1') {
           const dc = await (
             msmPt as unknown as {
               debugDescCheck(): Promise<{ checked: number; bad: number; samples: string[]; pTotal: number }>;
             }
           ).debugDescCheck();
-          const dcc = dc as unknown as { classes: { micro: number; shallow: number; deep: number }; meta: number[] };
+          const dcc = dc as unknown as { classes: { micro: number; shallow: number; deep: number }; meta: number[]; args: number[] };
           log(
             'info',
-            `[jac-check] descCheck pTotal=${dc.pTotal} checked=${dc.checked} bad=${dc.bad} kstar=${dcc.meta[20]} classes=${JSON.stringify(dcc.classes)} listed m=${dcc.meta[21]} s=${dcc.meta[26]} d=${dcc.meta[25]} maxcnt=${dcc.meta[27]}`,
+            `[jac-check] descCheck pTotal=${dc.pTotal} bad=${dc.bad} magic=${dcc.meta[0].toString(16)},${dcc.meta[1].toString(16)} kstar=${dcc.meta[20]} stride=${dcc.meta[22]} base=${dcc.meta[23]} range=${dcc.meta[24]} P=${dcc.meta[28]}`,
           );
+          log('info', `[jac-check] args L1..L8=${dcc.args.slice(4, 36).filter((_, i) => i % 4 === 0).join(',')} f64=${dcc.args[72]} f256=${dcc.args[68]} fin=${dcc.args[76]}`);
           for (const smp of dc.samples) log('info', `[jac-check]   ${smp}`);
         }
         const REDN = 0; // 0 = full x-plane
@@ -2375,14 +2393,14 @@ function hideProgress(): void {
         if (gpuDevice === null) gpuDevice = await get_device();
         const sm = new ShaderManager(4, 1 << 17, BN254_CURVE_CONFIG, false);
         const cases: Array<[string, string]> = [
-          ['ptree-scatter', sm.gen_ba_walker_idx_scatter_shader(64, 8, 64, true)],
-          ['ptree-args', sm.gen_ba_walker_ptree_args_shader(64, 8)],
+          [
+            'ptree-epilogue',
+            sm.gen_ba_walker_idx_epilogue_shader(64, { levels: 8, theta: 65536, s: 8, tpb: 64, fin_tpb: 256, fin_sn: 2 }),
+          ],
           ['ptree-level', sm.gen_ba_walker_ptree_level_shader(64, 8)],
-          ['ptree-scan-args', sm.gen_ba_walker_ptree_scan_shader(2, 256)],
-          ['ptree-fold-shallow', sm.gen_ba_walker_ptree_fold_shader(64, 2048)],
-          ['ptree-fold-deep', sm.gen_ba_walker_ptree_fold_shader(256, 8192)],
-          ['ptree-resolve', sm.gen_ba_walker_ptree_finalize_shader(256, 2, 0)],
-          ['ptree-survfin', sm.gen_ba_walker_ptree_finalize_shader(256, 2, 1)],
+          ['ptree-fold-shallow', sm.gen_ba_walker_ptree_fold_shader(64, 0)],
+          ['ptree-fold-deep', sm.gen_ba_walker_ptree_fold_shader(256, 1)],
+          ['ptree-survfin', sm.gen_ba_walker_ptree_finalize_shader(256, 2)],
         ];
         for (const [name, code] of cases) {
           const t0 = performance.now();
@@ -2393,6 +2411,78 @@ function hideProgress(): void {
           } catch (e) {
             log('err', `[shader-test] ${name}: FAIL ${(e as Error).message}`);
           }
+        }
+        // Functional probe: run the ptree epilogue variant standalone with
+        // layout:'auto' and dummy buffers; read back the meta region.
+        try {
+          const code = sm.gen_ba_walker_idx_epilogue_shader(64, {
+            levels: 8,
+            theta: 65536,
+            s: 8,
+            tpb: 64,
+            fin_tpb: 256,
+            fin_sn: 2,
+          });
+          const mod = gpuDevice.createShaderModule({ code });
+          const pipe = await gpuDevice.createComputePipelineAsync({
+            layout: 'auto',
+            compute: { module: mod, entryPoint: 'main' },
+          });
+          const mk = (n: number, usage = GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC) =>
+            gpuDevice!.createBuffer({ size: n, usage });
+          const hist = mk(256);
+          const histData = new Uint32Array(64);
+          histData[2] = 100; // 100 buckets of 2 partials
+          gpuDevice.queue.writeBuffer(hist, 0, histData);
+          const acntB = mk(64);
+          gpuDevice.queue.writeBuffer(acntB, 0, new Uint32Array([100, 200]));
+          const boffsB = mk(256);
+          const bwposB = mk(256);
+          const ptdB = mk(16);
+          const ptpB = mk(16);
+          const cbB = mk(16);
+          const wiB = mk(64);
+          const metaB = mk(8192);
+          const plannerB = mk(32);
+          const probeB = gpuDevice.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+          const bg = gpuDevice.createBindGroup({
+            layout: pipe.getBindGroupLayout(0),
+            entries: [
+              { binding: 0, resource: { buffer: hist } },
+              { binding: 1, resource: { buffer: acntB } },
+              { binding: 2, resource: { buffer: boffsB } },
+              { binding: 3, resource: { buffer: bwposB } },
+              { binding: 4, resource: { buffer: ptdB } },
+              { binding: 5, resource: { buffer: ptpB } },
+              { binding: 6, resource: { buffer: cbB } },
+              { binding: 7, resource: { buffer: wiB } },
+              { binding: 8, resource: { buffer: metaB } },
+              // binding 9 (planner_meta) is unused in the variant — auto
+              // layout drops it; an explicit entry would invalidate the group.
+              { binding: 10, resource: { buffer: probeB } },
+            ],
+          });
+          const enc2 = gpuDevice.createCommandEncoder();
+          const pass = enc2.beginComputePass();
+          pass.setPipeline(pipe);
+          pass.setBindGroup(0, bg);
+          pass.dispatchWorkgroups(1);
+          pass.end();
+          const stg = gpuDevice.createBuffer({ size: 8192 + 256, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+          enc2.copyBufferToBuffer(metaB, 0, stg, 0, 8192);
+          enc2.copyBufferToBuffer(boffsB, 0, stg, 8192, 256);
+          gpuDevice.queue.submit([enc2.finish()]);
+          await stg.mapAsync(GPUMapMode.READ);
+          const u = new Uint32Array(stg.getMappedRange().slice(0));
+          stg.unmap();
+          log(
+            'ok',
+            `[shader-test] epilogue-functional: magic=${u[0].toString(16)} kstar=${u[20]} P=${u[28]} L1args=${u[260]} | upstream boffs[3]=${u[2048 + 3]} boffs[63]=${u[2048 + 63]}`,
+          );
+          const mi = code.indexOf('BEEF0001');
+          log('info', `[shader-test] code around magic: ${JSON.stringify(code.slice(Math.max(0, mi - 300), mi + 120))}`);
+        } catch (e) {
+          log('err', `[shader-test] epilogue-functional FAIL: ${(e as Error).message}`);
         }
         log('ok', `[shader-test] state=done`);
       } catch (e) {

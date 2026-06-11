@@ -29,7 +29,22 @@ try {
 } catch (e) {
   console.log(`[debug] goto error: ${e.message}`);
 }
-await new Promise(r => setTimeout(r, parseInt(argv.secs, 10) * 1000));
+// Event-driven exit: poll the page log for a terminal marker and leave
+// immediately; --secs is only the safety cap (the old flat sleep burned
+// ~80 s of dead time per invocation).
+{
+  const capMs = parseInt(argv.secs, 10) * 1000;
+  const t0 = Date.now();
+  const TERMINAL = /state=done|state=error|MISMATCH|jac and legacy agree|FATAL|\[shader-test\] state=done|DONE —/;
+  for (;;) {
+    if (Date.now() - t0 > capMs) break;
+    const txt = await page
+      .evaluate(() => document.getElementById('log')?.textContent ?? '')
+      .catch(() => '');
+    if (TERMINAL.test(txt)) break;
+    await new Promise(r => setTimeout(r, 500));
+  }
+}
 const logText = await page.evaluate(() => document.getElementById('log')?.textContent ?? '<no #log>').catch(e => `<eval err: ${e.message}>`);
 console.log(`[debug] #log tail:\n${logText.slice(-3000)}`);
 await browser.close();

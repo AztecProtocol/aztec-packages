@@ -2196,27 +2196,19 @@ export class MsmV2 {
   private idxP2Bind!: GPUBindGroup;
   private ptree = false;
   private ptreeTheta = PTREE_THETA;
-  private ptreeNoClear = false;
-  private ptreeArgsPipe!: GPUComputePipeline;
-  private ptreeArgsLayout!: GPUBindGroupLayout;
-  private ptreeArgsBinds: GPUBindGroup[] = [];
+  private ptreeEpiloguePipe!: GPUComputePipeline;
+  private ptreeEpilogueLayout!: GPUBindGroupLayout;
+  private ptreeEpilogueBind!: GPUBindGroup;
   private ptreeLevelPipe!: GPUComputePipeline;
   private ptreeLevelLayout!: GPUBindGroupLayout;
   private ptreeLevelBinds: GPUBindGroup[][] = [];
-  private ptreeScanPipe!: GPUComputePipeline;
-  private ptreeScanLayout!: GPUBindGroupLayout;
-  private ptreeScanBind!: GPUBindGroup;
   private ptreeFoldPipes: GPUComputePipeline[] = [];
   private ptreeFoldLayout!: GPUBindGroupLayout;
   private ptreeFoldBind!: GPUBindGroup;
   private ptreeFinLayout!: GPUBindGroupLayout;
-  private ptreeResolvePipe!: GPUComputePipeline;
-  private ptreeResolveBinds: GPUBindGroup[] = [];
   private ptreeSurvFinPipe!: GPUComputePipeline;
   private ptreeSurvFinBinds: GPUBindGroup[] = [];
-  private ptreeScatterPipe!: GPUComputePipeline;
-  private ptreeScatterLayout!: GPUBindGroupLayout;
-  private ptreeScatterBinds: GPUBindGroup[] = [];
+  private ptreeArgsBase = 0; // byte offset of dispatch args inside ptScratch
   private ptreeArgsBuf: GPUBuffer | null = null;
   private ptreeMetaRegion!: GPUBufferBinding;
   private ptreeM = 0; // bind-time M_partials (desc planes + checker)
@@ -2456,7 +2448,6 @@ export class MsmV2 {
     m.highMemPingpong = (config?.highMemPingpong ?? false) || (m.pingpongBelow > 0 && n <= m.pingpongBelow);
     m.ptree = config?.ptree ?? false;
     m.ptreeTheta = config?.ptreeTheta ?? PTREE_THETA;
-    m.ptreeNoClear = config?.ptreeNoClear ?? false;
     m.perLevelJac = config?.perLevelJac ?? false;
     m.reduceSatThreshold =
       config?.reduceSatThreshold && config.reduceSatThreshold > 0 ? config.reduceSatThreshold : 8192;
@@ -2969,25 +2960,20 @@ export class MsmV2 {
       'uniform',
       'uniform',
     ]);
-    //   ptree scatter variant: idx_scatter + partial_count (rw, A2 mate of
-    //   layout), desc planes (rw), ptree_meta (rw atomic).
-    m.ptreeScatterLayout = lt([
-      'storage',
+    //   ptree epilogue (static schedule): idx_epilogue with the compat
+    //   partial_offset binding replaced by the ptree meta region (slot 8).
+    m.ptreeEpilogueLayout = lt([
       'read-only-storage',
       'storage',
       'storage',
-      'read-only-storage',
-      'storage',
-      'read-only-storage',
-      'read-only-storage',
-      'uniform',
-      'uniform',
       'storage',
       'storage',
-      'uniform',
+      'storage',
+      'storage',
+      'storage',
+      'storage',
+      'read-only-storage',
     ]);
-    //   ptree-args: ptree_meta (rw), active_meta (ro), level_args (rw), lvl.
-    m.ptreeArgsLayout = lt(['storage', 'read-only-storage', 'storage', 'uniform']);
     //   ptree-level: arena_a2 (ro); partials_buf, pair_meta, desc, red_buf (rw);
     //   window_desc (ro); partial_dest (rw — A1 mate of red_buf); params,
     //   arena_off, lvl, batch_offset.
@@ -3003,22 +2989,22 @@ export class MsmV2 {
       'uniform',
       'uniform',
       'uniform',
+      'read-only-storage',
     ]);
-    //   ptree-scan (post-resolve args): ptree_meta (rw atomic), level_args.
-    m.ptreeScanLayout = lt(['storage', 'storage']);
     //   ptree-fold: ptree_meta (rw), arena_a2, partial_offset (ro), partials_buf
     //   (rw... ro suffices but A3-mate safety), surv_scratch (rw); params,
     //   arena_off, jac_params, bw_geom.
     m.ptreeFoldLayout = lt([
       'storage',
       'read-only-storage',
-      'read-only-storage',
+      'storage',
       'read-only-storage',
       'storage',
       'uniform',
       'uniform',
       'uniform',
       'uniform',
+      'storage',
     ]);
     //   ptree finalize (resolve + survfin): meta (rw atomic), sorted actives,
     //   active_meta, arena_a2, partial_offset (ro), partials_buf (ro),
@@ -3356,37 +3342,29 @@ export class MsmV2 {
     }
     m.ptInitScanPipe = await compile(sm.gen_ba_walker_pt_init_scan_shader(m.BW), `pt-init-scan`, m.ptInitScanLayout);
     if (m.ptree) {
-      m.ptreeScatterPipe = await compile(
-        sm.gen_ba_walker_idx_scatter_shader(WI_IDX_TPB, STREAM_S, STREAM_PLANNER_TPB, true),
-        `ptree-scatter`,
-        m.ptreeScatterLayout,
+      const ptreeEpilogueCode = sm.gen_ba_walker_idx_epilogue_shader(WI_IDX_TPB, {
+        levels: PTREE_LEVELS,
+        theta: m.ptreeTheta,
+        s: PTREE_S,
+        tpb: PTREE_TPB,
+        fin_tpb: 256,
+        fin_sn: PTREE_FIN_SN,
+      });
+      console.log(
+        `[ptree-create] epilogue code len=${ptreeEpilogueCode.length} magic=${ptreeEpilogueCode.includes('BEEF0001')}`,
       );
-      m.ptreeArgsPipe = await compile(
-        sm.gen_ba_walker_ptree_args_shader(PTREE_TPB, PTREE_S),
-        `ptree-args`,
-        m.ptreeArgsLayout,
-      );
+      m.ptreeEpiloguePipe = await compile(ptreeEpilogueCode, `ptree-epilogue`, m.ptreeEpilogueLayout);
       m.ptreeLevelPipe = await compile(
         sm.gen_ba_walker_ptree_level_shader(PTREE_TPB, PTREE_S),
         `ptree-level`,
         m.ptreeLevelLayout,
       );
-      m.ptreeScanPipe = await compile(
-        sm.gen_ba_walker_ptree_scan_shader(PTREE_FIN_SN, 256),
-        `ptree-scan-args`,
-        m.ptreeScanLayout,
-      );
       m.ptreeFoldPipes = [
-        await compile(sm.gen_ba_walker_ptree_fold_shader(PTREE_TPB, 2048), `ptree-fold-shallow`, m.ptreeFoldLayout),
-        await compile(sm.gen_ba_walker_ptree_fold_shader(PTREE_FOLD_TPB, 8192), `ptree-fold-deep`, m.ptreeFoldLayout),
+        await compile(sm.gen_ba_walker_ptree_fold_shader(PTREE_TPB, 0), `ptree-fold-shallow`, m.ptreeFoldLayout),
+        await compile(sm.gen_ba_walker_ptree_fold_shader(PTREE_FOLD_TPB, 1), `ptree-fold-deep`, m.ptreeFoldLayout),
       ];
-      m.ptreeResolvePipe = await compile(
-        sm.gen_ba_walker_ptree_finalize_shader(256, PTREE_FIN_SN, 0),
-        `ptree-resolve`,
-        m.ptreeFinLayout,
-      );
       m.ptreeSurvFinPipe = await compile(
-        sm.gen_ba_walker_ptree_finalize_shader(256, PTREE_FIN_SN, 1),
+        sm.gen_ba_walker_ptree_finalize_shader(256, PTREE_FIN_SN),
         `ptree-survfin`,
         m.ptreeFinLayout,
       );
@@ -4838,37 +4816,35 @@ export class MsmV2 {
           const ptreeArenaOff = ubuf(
             new Uint32Array([slotOff(scratch.partialCount) / 4, slotOff(scratch.partialLayout) / 4, 0, 0]),
           );
-          const ptreeParams = ubuf(new Uint32Array([0, 0, 0, M_partials_walker]));
+          const ptreeParams = ubuf(new Uint32Array([this.BW, 0, 0, M_partials_walker]));
           const ptreeBw = ubuf(new Uint32Array([this.BW, 0, 0, 0]));
           const jpSurv = ubuf(new Uint32Array([0, 0, 0, 0]));
+          // The epilogue writes dispatch args into the meta region (its
+          // storage-binding budget is exactly full); a 320 B copy then
+          // moves them to this INDIRECT-only buffer, which no shader ever
+          // binds — sidestepping both the 10-storage cap and the
+          // indirect-source/writable-storage aliasing rule.
           this.ptreeArgsBuf = device.createBuffer({
             size: 20 * 16,
-            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.INDIRECT | GPUBufferUsage.COPY_DST,
+            usage: GPUBufferUsage.INDIRECT | GPUBufferUsage.COPY_DST,
           });
           this.prepBuffers.push(this.ptreeArgsBuf);
-          this.ptreeScatterBinds = batchWindowBaseBufs.map(bwb =>
-            mkBind(this.ptreeScatterLayout, [
-              pdest,
-              poffset,
-              pwpos,
-              a2Buf,
-              wp,
-              scratch.redBuf,
-              scratch.streamPlannerMeta,
-              windowDescBuf,
-              wiParams,
-              bwb,
-              descBind,
-              metaBind,
-              ptreeArenaOff,
-            ]),
-          );
-          this.ptreeArgsBinds = [];
+          this.ptreeArgsBase = (this.ptreeMetaRegion.offset ?? 0) + 1024;
+          this.ptreeEpilogueBind = mkBind(this.ptreeEpilogueLayout, [
+            chist,
+            acnt,
+            boffs,
+            bwpos,
+            scratch.ptDispatchArgs,
+            scratch.ptPersistentDispatchArgs,
+            scratch.cbDispatchArgs,
+            wiArgs,
+            metaBind,
+            scratch.streamPlannerMeta,
+          ]);
           const lvlBufs: GPUBuffer[] = [];
           for (let k = 1; k <= PTREE_LEVELS; k++) {
-            const lvlBuf = ubuf(new Uint32Array([k, this.ptreeTheta, k === PTREE_LEVELS ? 1 : 0, 0]));
-            lvlBufs.push(lvlBuf);
-            this.ptreeArgsBinds.push(mkBind(this.ptreeArgsLayout, [metaBind, acnt, this.ptreeArgsBuf, lvlBuf]));
+            lvlBufs.push(ubuf(new Uint32Array([k, 0, 0, 0])));
           }
           this.ptreeLevelBinds = batchWindowBaseBufs.map(bwb =>
             lvlBufs.map(lvlBuf =>
@@ -4884,10 +4860,10 @@ export class MsmV2 {
                 ptreeArenaOff,
                 lvlBuf,
                 bwb,
+                poffset,
               ]),
             ),
           );
-          this.ptreeScanBind = mkBind(this.ptreeScanLayout, [metaBind, this.ptreeArgsBuf]);
           this.ptreeFoldBind = mkBind(this.ptreeFoldLayout, [
             metaBind,
             a2Buf,
@@ -4898,6 +4874,7 @@ export class MsmV2 {
             ptreeArenaOff,
             jpSurv,
             ptreeBw,
+            sabkts,
           ]);
           const finBind = (bwb: GPUBuffer): GPUBindGroup =>
             mkBind(this.ptreeFinLayout, [
@@ -4916,7 +4893,6 @@ export class MsmV2 {
               ptreeBw,
               jpSurv,
             ]);
-          this.ptreeResolveBinds = batchWindowBaseBufs.map(bwb => finBind(bwb));
           this.ptreeSurvFinBinds = batchWindowBaseBufs.map(bwb => finBind(bwb));
         }
         if (this.wiProbe) {
@@ -5254,11 +5230,6 @@ export class MsmV2 {
     // walkerPartialDest is cleared INSIDE the batch loop instead — see note
     // there. Cleared once here too would just be redundant.
     clearSlot(enc, this.pool.scratch!.threadCuts);
-    if (this.ptree && !this.ptreeNoClear) {
-      // Pair-tree meta region: zero before the scatter writes max-count and
-      // the resolve appends survivor lists.
-      clearSlot(enc, this.ptreeMetaRegion);
-    }
     clearSlot(enc, this.pool.scratch!.walkerPartials);
     clearSlot(enc, this.pool.scratch!.taskCuts);
     // Pair-tree alloc counter — claims start from 0 each MSM (legacy v1 buf).
@@ -5455,29 +5426,28 @@ export class MsmV2 {
         setPhase('wi_alloc');
         indirectDispatch(this.idxAllocPipe, this.idxAllocBind, wiArgs, 12);
         setPhase('wi_epilogue');
-        dispatch(this.idxEpiloguePipe, this.idxEpilogueBind, 1, 1);
-        setPhase('wi_scatter');
         if (this.ptree) {
-          indirectDispatch(this.ptreeScatterPipe, this.ptreeScatterBinds[bi], wiArgs, 0);
+          dispatch(this.ptreeEpiloguePipe, this.ptreeEpilogueBind, 1, 1);
         } else {
-          indirectDispatch(this.idxScatterPipe, this.idxScatterBinds[bi], wiArgs, 0);
+          dispatch(this.idxEpiloguePipe, this.idxEpilogueBind, 1, 1);
         }
+        setPhase('wi_scatter');
+        indirectDispatch(this.idxScatterPipe, this.idxScatterBinds[bi], wiArgs, 0);
         setPhase('wi_sort');
         indirectDispatch(this.idxSortPipe, this.idxSortBind, wiArgs, 24);
       }
       if (this.ptree) {
-        // === Addition-centric pair-tree combine (?ptree=1): batched-affine
-        // levels over the whole partial stream with direct-close, then
-        // resolve routing + bounded folds + micro-batched survivor
-        // normalize. Replaces combine_batched AND the pt chain below.
+        // === Addition-centric pair-tree combine (?ptree=1), STATIC
+        // schedule: the epilogue variant precomputed every dispatch arg
+        // from the count histogram — batched-affine levels (direct-close)
+        // then both fold variants over the sorted survivor tail, then the
+        // micro-batched survivor normalize. No mid-flight measurement.
         setPhase('ptree');
+        enc.copyBufferToBuffer(slotBuf(this.pool.scratch!.ptScratch), this.ptreeArgsBase, this.ptreeArgsBuf!, 0, 20 * 16);
         for (let k = 1; k <= PTREE_LEVELS; k++) {
-          dispatch(this.ptreeArgsPipe, this.ptreeArgsBinds[k - 1], 1, 1);
           indirectDispatch(this.ptreeLevelPipe, this.ptreeLevelBinds[bi][k - 1], this.ptreeArgsBuf!, 16 * k);
         }
         setPhase('ptree_tail');
-        indirectDispatch(this.ptreeResolvePipe, this.ptreeResolveBinds[bi], this.ptreeArgsBuf!, 0);
-        dispatch(this.ptreeScanPipe, this.ptreeScanBind, 1, 1);
         indirectDispatch(this.ptreeFoldPipes[0], this.ptreeFoldBind, this.ptreeArgsBuf!, 16 * 18);
         indirectDispatch(this.ptreeFoldPipes[1], this.ptreeFoldBind, this.ptreeArgsBuf!, 16 * 17);
         setPhase('finalize');
@@ -5727,13 +5697,14 @@ export class MsmV2 {
     pTotal: number;
     classes: { micro: number; shallow: number; deep: number };
     meta: number[];
+    args: number[];
   }> {
     const sc = this.pool.scratch!;
     const M = this.ptreeM;
     const cntBytes = this.bTotal * 4;
     const offBytes = (this.bTotal + 1) * 4;
     const descBytes = 8 * M;
-    const metaBytes = 128;
+    const metaBytes = 1024 + 320 + 64; // schedule + args + spare (layout below)
     const staging = this.device.createBuffer({
       size: cntBytes + offBytes + descBytes + metaBytes,
       usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
@@ -5747,8 +5718,9 @@ export class MsmV2 {
       this.ptreeMetaRegion.offset ?? 0,
       staging,
       cntBytes + offBytes + descBytes,
-      metaBytes,
+      metaBytes - 64,
     );
+
     this.device.queue.submit([enc.finish()]);
     await staging.mapAsync(GPUMapMode.READ);
     const u = new Uint32Array(staging.getMappedRange().slice(0));
@@ -5757,7 +5729,9 @@ export class MsmV2 {
     const cnt = u.subarray(0, this.bTotal);
     const off = u.subarray(this.bTotal, 2 * this.bTotal + 1);
     const desc = u.subarray(2 * this.bTotal + 1, 2 * this.bTotal + 1 + 2 * M);
-    const meta = Array.from(u.subarray(2 * this.bTotal + 1 + 2 * M, 2 * this.bTotal + 1 + 2 * M + 32));
+    const metaAll = u.subarray(2 * this.bTotal + 1 + 2 * M);
+    const meta = Array.from(metaAll.subarray(0, 32));
+    const args = Array.from(metaAll.subarray(256, 256 + 80));
     let pTotal = 0;
     let checked = 0;
     let bad = 0;
@@ -5786,7 +5760,7 @@ export class MsmV2 {
         }
       }
     }
-    return { checked, bad, samples, pTotal, classes, meta };
+    return { checked, bad, samples, pTotal, classes, meta, args };
   }
 
   /** Debug: snapshot the first n red_buf slots' x-halves (32 B each).
