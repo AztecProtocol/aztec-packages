@@ -155,9 +155,6 @@ pub(crate) unconstrained fn get_pending_partial_notes_completion_logs(
 ) -> EphemeralArray<EphemeralArray<LogRetrievalResponse>> {
     let log_retrieval_requests = EphemeralArray::at(LOG_RETRIEVAL_REQUESTS_ARRAY_BASE_SLOT);
 
-    // We create a LogRetrievalRequest for each PendingPartialNote. We need the indices in the request array to match
-    // the indices in the partial note array, which holds because `for_each` visits elements in order and the request
-    // array starts out empty.
     pending_partial_notes.for_each(|_i, pending_partial_note| {
         // Partial note completion logs are emitted with a domain-separated tag. To find matching logs, we apply the
         // same domain separation to the stored raw tag.
