@@ -182,9 +182,39 @@ export async function createWasmPippenger(
     }
   }
 
+  // Early-exit finishing: ONE native call performing the per-window
+  // finishing sum over the GPU's staged Jacobian partials AND the
+  // cross-window Horner combine (bb_webgpu_finish_combine_bn254 — the same
+  // finish_and_combine_windows the production hook runs).
+  async function finishCombine(
+    staged: Uint8Array,
+    numWindows: number,
+    partialsPerWindow: number,
+    c: number,
+  ): Promise<Uint8Array> {
+    const stagedPtr = await wasm.call("bbmalloc", staged.length);
+    const resultPtr = await wasm.call("bbmalloc", 64);
+    try {
+      await wasm.writeMemory(stagedPtr, staged);
+      await wasm.call(
+        "bb_webgpu_finish_combine_bn254",
+        stagedPtr,
+        numWindows,
+        partialsPerWindow,
+        c,
+        resultPtr,
+      );
+      return await wasm.getMemorySlice(resultPtr, resultPtr + 64);
+    } finally {
+      await wasm.call("bbfree", stagedPtr);
+      await wasm.call("bbfree", resultPtr);
+    }
+  }
+
   return {
     loadMsm,
     runMsm,
+    finishCombine,
     threads,
     async destroy() {
       await wasm.destroy();

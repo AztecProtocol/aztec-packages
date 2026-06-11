@@ -18,6 +18,7 @@
 // the per-window sums returned by the GPU.
 
 #include <cstdint>
+#include "barretenberg/common/thread.hpp"
 #include <cstring>
 #include <span>
 #include <vector>
@@ -112,6 +113,77 @@ inline curve::BN254::AffineElement combine_windows(const uint8_t* buf, uint32_t 
             acc.self_dbl();
         }
         acc += read_affine_le(&buf[static_cast<size_t>(w) * 64]);
+    }
+    return curve::BN254::AffineElement{ acc };
+}
+
+// --- Early-exit (halving-reduce staged partials) -----------------------------
+//
+// In early-exit mode the GPU stops BEFORE its final per-window finishing
+// dispatch and ships every window's staged partial points instead: the
+// unscaled weighted partial plus the scaled carry totals of the halving
+// reduction. Layout: `num_windows × partials_per_window` records of 96
+// bytes — Jacobian (x, y, z), four 64-bit limbs per coordinate, LE, in
+// MONTGOMERY form exactly as the GPU holds them (bb::fq is internally
+// Montgomery, so the limbs are adopted directly; no conversion anywhere in
+// the chain). z == 0 encodes the point at infinity / an absent partial.
+
+inline curve::BN254::BaseField read_fq_mont_le(const uint8_t* buf)
+{
+    curve::BN254::BaseField f;
+    for (size_t i = 0; i < 4; ++i) {
+        uint64_t limb = 0;
+        for (size_t b = 0; b < 8; ++b) {
+            limb |= static_cast<uint64_t>(buf[i * 8 + b]) << (8 * b);
+        }
+        f.data[i] = limb;
+    }
+    return f;
+}
+
+inline curve::BN254::Element read_jacobian_mont_le(const uint8_t* buf)
+{
+    const curve::BN254::BaseField z = read_fq_mont_le(buf + 64);
+    if (z.is_zero()) {
+        curve::BN254::Element inf;
+        inf.self_set_infinity();
+        return inf;
+    }
+    curve::BN254::Element p;
+    p.x = read_fq_mont_le(buf);
+    p.y = read_fq_mont_le(buf + 32);
+    p.z = z;
+    return p;
+}
+
+// Finish + combine in one native call: sum each window's staged partials
+// (independent across windows — parallelised over the thread pool), then
+// Horner-fold the window sums exactly as `combine_windows`. `buf` holds
+// `num_windows × partials_per_window × 96` bytes as described above.
+inline curve::BN254::AffineElement finish_and_combine_windows(const uint8_t* buf,
+                                                              uint32_t num_windows,
+                                                              uint32_t partials_per_window,
+                                                              uint32_t c)
+{
+    if (num_windows == 0 || partials_per_window == 0) {
+        return curve::BN254::AffineElement::infinity();
+    }
+    std::vector<curve::BN254::Element> window_sums(num_windows);
+    parallel_for(num_windows, [&](size_t w) {
+        const uint8_t* wbuf = buf + static_cast<size_t>(w) * partials_per_window * 96;
+        curve::BN254::Element acc;
+        acc.self_set_infinity();
+        for (uint32_t p = 0; p < partials_per_window; ++p) {
+            acc += read_jacobian_mont_le(wbuf + static_cast<size_t>(p) * 96);
+        }
+        window_sums[w] = acc;
+    });
+    curve::BN254::Element acc = window_sums[num_windows - 1];
+    for (int w = static_cast<int>(num_windows) - 2; w >= 0; --w) {
+        for (uint32_t d = 0; d < c; ++d) {
+            acc.self_dbl();
+        }
+        acc += window_sums[static_cast<size_t>(w)];
     }
     return curve::BN254::AffineElement{ acc };
 }

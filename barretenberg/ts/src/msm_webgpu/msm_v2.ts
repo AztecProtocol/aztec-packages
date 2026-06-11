@@ -455,6 +455,11 @@ export interface MsmConfig {
   /** Width down to which the wide phase keeps batch-4 before falling back
    *  to Jacobian pairs. Default = foldSat. */
   halveBa4Floor?: number;
+  /** Early exit: the GPU pipeline ends at the staged-partials pass; the
+   *  per-window finishing sum and the cross-window Horner combine run in ONE
+   *  native WASM call (finish_and_combine_windows) on the readback bytes.
+   *  Requires halvingReduce. */
+  earlyExit?: boolean;
   /**
    * Test hook (mirrors the C++ VAR_WINDOW_FORCE_SPLIT env var): force a split at
    * `[b_star, c_lo, c_hi]`, bypassing the cost model. Requires {@link splitC}.
@@ -1997,12 +2002,16 @@ export class MsmV2 {
   private halvingReduce = false;
   private halveCap = 256;
   private halveBa4Floor?: number;
+  private earlyExitMode = false;
   private halveSchedule?: HalvingSchedule;
   private halveBa8Pipe?: GPUComputePipeline;
   private halveBa4Pipe?: GPUComputePipeline;
   private halveJacPipe?: GPUComputePipeline;
   private halveFinishArraysPipe?: GPUComputePipeline;
   private halveFinishRootPipe?: GPUComputePipeline;
+  private halveStageLayout?: GPUBindGroupLayout;
+  private halveStageBuf?: GPUBuffer;
+  private halveArraysBind?: GPUBindGroup;
   private halveDepthDispatch: { pipe: GPUComputePipeline; bind: GPUBindGroup; nx: number }[] = [];
   private halveFinishBind?: GPUBindGroup;
   private halveZInitBind?: GPUBindGroup;
@@ -2498,6 +2507,7 @@ export class MsmV2 {
     m.halvingReduce = config?.halvingReduce ?? false;
     m.halveCap = config?.halveCap ?? 64;
     m.halveBa4Floor = config?.halveBa4Floor;
+    m.earlyExitMode = (config?.earlyExit ?? false) && (config?.halvingReduce ?? false);
     m.forceSplit = config?.forceSplit;
     m.reduceCostWeight = config?.reduceCostWeight ?? 4;
     m.maxCLo = config?.maxCLo ?? 0;
@@ -3316,10 +3326,22 @@ export class MsmV2 {
       if (hmodes.has('jac')) {
         m.halveJacPipe = await compile(sm.gen_jac_halve_shader(REDUCE_WG), `halve-jac`, m.foldJacLayout);
       }
+      // F1 carries a 7th binding: the compact staged-partials export the
+      // early-exit readback maps (written unconditionally — six stores per
+      // workgroup).
+      m.halveStageLayout = lt([
+        'storage',
+        'storage',
+        'storage',
+        'uniform',
+        'uniform',
+        'read-only-storage',
+        'storage',
+      ]);
       m.halveFinishArraysPipe = await compile(
         sm.gen_halve_finish_arrays_shader(strideB, hsched.finisherDepth, hsched.finisherInputsJac),
         `halve-finish-arrays`,
-        m.foldJacLayout,
+        m.halveStageLayout,
       );
       m.halveFinishRootPipe = await compile(
         sm.gen_halve_finish_root_shader(strideB, hsched.finisherDepth),
@@ -4681,6 +4703,21 @@ export class MsmV2 {
       }
       const hlp = ubuf(new Uint32Array([0, 0, 0, 0]));
       this.halveFinishBind = mkBind(this.foldJacLayout, [redBuf, redZBuf, isPresentBuf, hcparams, hlp, hbuf]);
+      const partials = sched.finisherDepth + 1;
+      this.halveStageBuf = device.createBuffer({
+        size: Math.max(16, NUM_WINDOWS * partials * 96),
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
+      });
+      this.prepBuffers.push(this.halveStageBuf);
+      this.halveArraysBind = mkBind(this.halveStageLayout!, [
+        redBuf,
+        redZBuf,
+        isPresentBuf,
+        hcparams,
+        hlp,
+        hbuf,
+        this.halveStageBuf,
+      ]);
       if (this.halveZInitAt >= 0) {
         const zInitParams = ubuf(new Uint32Array([RED_M, 0, 0, 0]));
         this.halveZInitBind = mkBind(this.zInitLayout, [isPresentBuf, redZBuf, zInitParams]);
@@ -5183,7 +5220,7 @@ export class MsmV2 {
     // needs ONE mapAsync fence round-trip instead of two. Created HERE,
     // after the profiling block, because the size depends on passCount.
     this.redStaging = device.createBuffer({
-      size: NUM_WINDOWS * 64 + (this.profile ? this.passCount * 16 : 0),
+      size: this.windowSumsByteLength + (this.profile ? this.passCount * 16 : 0),
       usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
     });
     this.prepBuffers.push(this.redStaging);
@@ -5242,7 +5279,15 @@ export class MsmV2 {
    * x + 32-byte y per window).
    */
   get windowSumsByteLength(): number {
+    if (this.earlyExitMode) {
+      return this.numWindows * this.halvePartialsPerWindow * 96;
+    }
     return this.numWindows * 64;
+  }
+
+  /** Staged partials per window in early-exit mode (1 + finisher depth). */
+  get halvePartialsPerWindow(): number {
+    return (this.halveSchedule?.finisherDepth ?? 0) + 1;
   }
 
   /**
@@ -5621,12 +5666,14 @@ export class MsmV2 {
       }
       dispatch(
         this.halveFinishArraysPipe,
-        this.halveFinishBind,
+        this.halveArraysBind!,
         (this.halveSchedule?.finisherDepth ?? 0) + 1,
         this.numWindows,
       );
-      setPhase('reduce_jacfinal');
-      dispatch(this.halveFinishRootPipe, this.halveFinishBind, 1, this.numWindows);
+      if (!this.earlyExitMode) {
+        setPhase('reduce_jacfinal');
+        dispatch(this.halveFinishRootPipe, this.halveFinishBind, 1, this.numWindows);
+      }
     } else if (this.groupedReduce && this.foldWeightPipe && this.foldSumPipe && this.foldSumBind1 && this.reduceJacFinalizeBind) {
       // Fold tower (GROUPED_REDUCE_PLAN.md): one dispatch per fold level —
       // grid (chunks, windows), level lv's pipeline is specialised for
@@ -5695,17 +5742,23 @@ export class MsmV2 {
     // targeting an external staging buffer at an external offset. The red_buf
     // Y-plane stays at the envelope redM (the baked M_RED the writers use); the
     // per-window base is the tight reduceOffsets prefix.
-    const yPlane = 32 * this.redM;
-    for (let w = 0; w < this.numWindows; w++) {
-      const g = 32 * this.reduceOffsets[w];
-      enc.copyBufferToBuffer(slotBuf(this.redBuf), slotOff(this.redBuf) + g, dstStaging, dstByteOff + w * 64, 32);
-      enc.copyBufferToBuffer(
-        slotBuf(this.redBuf),
-        slotOff(this.redBuf) + yPlane + g,
-        dstStaging,
-        dstByteOff + w * 64 + 32,
-        32,
-      );
+    if (this.earlyExitMode && this.halveStageBuf) {
+      // Early exit: ship the staged partials raw (Montgomery limbs) — the
+      // native finish_and_combine_windows adopts them with no conversion.
+      enc.copyBufferToBuffer(this.halveStageBuf, 0, dstStaging, dstByteOff, this.windowSumsByteLength);
+    } else {
+      const yPlane = 32 * this.redM;
+      for (let w = 0; w < this.numWindows; w++) {
+        const g = 32 * this.reduceOffsets[w];
+        enc.copyBufferToBuffer(slotBuf(this.redBuf), slotOff(this.redBuf) + g, dstStaging, dstByteOff + w * 64, 32);
+        enc.copyBufferToBuffer(
+          slotBuf(this.redBuf),
+          slotOff(this.redBuf) + yPlane + g,
+          dstStaging,
+          dstByteOff + w * 64 + 32,
+          32,
+        );
+      }
     }
     if (this.profile && this.querySet && this.tsResolveBuf && this.tsStagingBuf && !splitDiag && resolveTs) {
       enc.resolveQuerySet(this.querySet, 0, this.passCount * 2, this.tsResolveBuf, 0);
@@ -6219,7 +6272,15 @@ export class MsmV2 {
     this.prepare(scalarsBuf, srsOffset);
   }
 
-  async run(): Promise<{ x: bigint; y: bigint; profile: ProfileBreakdown | null; windowSums: Pt[]; c: number }> {
+  async run(): Promise<{
+    x: bigint;
+    y: bigint;
+    profile: ProfileBreakdown | null;
+    windowSums: Pt[];
+    c: number;
+    stagedPartials: Uint8Array | null;
+    partialsPerWindow: number;
+  }> {
     if (this.preparedFor === null) throw new Error('MsmV2.run: call prepare() first');
     const device = this.device;
     const wallT0 = performance.now();
@@ -6231,7 +6292,7 @@ export class MsmV2 {
         enc.resolveQuerySet(this.querySet, 0, this.passCount * 2, this.tsResolveBuf, 0);
         // Land the timestamps in redStaging's tail: one mapAsync serves both
         // the window sums and the profile, saving a second fence round-trip.
-        enc.copyBufferToBuffer(this.tsResolveBuf, 0, this.redStaging, this.numWindows * 64, this.passCount * 16);
+        enc.copyBufferToBuffer(this.tsResolveBuf, 0, this.redStaging, this.windowSumsByteLength, this.passCount * 16);
       }
       device.queue.submit([enc.finish()]);
     } else {
@@ -6259,9 +6320,16 @@ export class MsmV2 {
     const tMapped = performance.now();
     const mapped = this.redStaging.getMappedRange();
     const stagingBytes = new Uint8Array(mapped);
-    const L = this.decodeWindowSumsFromBytes(stagingBytes, 0);
+    const L = this.earlyExitMode ? [] : this.decodeWindowSumsFromBytes(stagingBytes, 0);
+    // Early exit: detach the raw staged-partials bytes for the single native
+    // finish_and_combine_windows call (the caller owns shipping them).
+    const staged = this.earlyExitMode
+      ? new Uint8Array(mapped.slice(0, this.windowSumsByteLength))
+      : null;
     // Detach the timestamp tail before unmap (profile decode happens later).
-    const tsBytes = this.profile ? mapped.slice(this.numWindows * 64, this.numWindows * 64 + this.passCount * 16) : null;
+    const tsBytes = this.profile
+      ? mapped.slice(this.windowSumsByteLength, this.windowSumsByteLength + this.passCount * 16)
+      : null;
     this.redStaging.unmap();
     this.windowSums = L;
     const tDecoded = performance.now();
@@ -6343,7 +6411,15 @@ export class MsmV2 {
       const last = g.__hostBreakdowns?.[g.__hostBreakdowns.length - 1];
       if (last) last.tsReadback = performance.now() - tCombined;
     }
-    return { x: result.x, y: result.y, profile, windowSums: L, c: this.c };
+    return {
+      x: result.x,
+      y: result.y,
+      profile,
+      windowSums: L,
+      c: this.c,
+      stagedPartials: staged,
+      partialsPerWindow: this.earlyExitMode ? this.halvePartialsPerWindow : 0,
+    };
   }
 
   /** Per-window weighted sums L_w (normal form), set by the last run(). */

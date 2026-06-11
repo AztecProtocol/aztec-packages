@@ -986,6 +986,7 @@ ${packLines.join('\n')}
     }
     body.push(`            S = jac_cadd(S, acc);`);
     body.push(`            gstore(base, S);`);
+    body.push(`            stage_set(w * ${1 + df}u + 0u, S);`);
     body.push(`        }`);
     body.push(`    } else {`);
     let first = true;
@@ -1007,6 +1008,7 @@ ${packLines.join('\n')}
     body.push(`                P = jac_cdbl(P);`);
     body.push(`            }`);
     body.push(`            gstore(base + off, P);`);
+    body.push(`            stage_set(w * ${1 + df}u + a, P);`);
     body.push(`        }`);
     body.push(`    }`);
     const dec = this.decoupledPackUnpackWgsl();

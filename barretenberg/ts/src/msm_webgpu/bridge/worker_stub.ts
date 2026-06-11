@@ -9,6 +9,7 @@ import {
   SLOT_C,
   SLOT_ERROR_CODE,
   SLOT_N,
+  SLOT_PARTIALS,
   SLOT_NUM_WINDOWS,
   SLOT_OPCODE,
   SLOT_POINTS_PTR,
@@ -136,7 +137,8 @@ export class WebGpuMsmWorkerStub {
     this.signalAndWait();
     const numWindows = Atomics.load(this.ctrl, SLOT_NUM_WINDOWS);
     const c = Atomics.load(this.ctrl, SLOT_C);
-    return ((numWindows << 16) | c) >>> 0;
+    const partials = Atomics.load(this.ctrl, SLOT_PARTIALS);
+    return (((partials & 0xff) << 24) | ((numWindows & 0xff) << 16) | (c & 0xffff)) >>> 0;
   }
 
   private callPublishSrs(points_ptr: number, n: number): void {

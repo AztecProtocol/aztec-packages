@@ -160,6 +160,7 @@ const gpuKnobs: MsmConfig = (() => {
     halvingReduce: q.get('halving_reduce') === '1' || undefined,
     halveCap: optInt('halve_cap'),
     halveBa4Floor: optInt('halve_ba4floor'),
+    earlyExit: q.get('early_exit') === '1' || undefined,
     reduceCostWeight: optNum('reduce_cost_weight'),
     maxCLo: optInt('max_clo'),
     forceSplit: (() => {
@@ -749,7 +750,27 @@ async function runWebGpuOnce(
   const gpu = await msm.run();
   // Page-side fold INSIDE the timed window — the wall stays an end-to-end
   // proxy for the production shape (GPU + readback + native-family combine).
-  const xy = await foldWindowSums(gpu.windowSums, msm.windowSchedule);
+  // Early exit: the staged partials go through the SAME single native call
+  // production uses (bb_webgpu_finish_combine_bn254) — finishing sum +
+  // Horner combine in one WASM invocation, nothing GPU-side after.
+  let xy: { x: bigint; y: bigint };
+  if (gpu.stagedPartials !== null && gpu.partialsPerWindow > 0) {
+    const tF = performance.now();
+    if (!wasmMtPippenger) {
+      log('err', '[gpu] early_exit needs the WASM oracle for the finish+combine (run with ?coi=1); result is zeros');
+      xy = { x: 0n, y: 0n };
+      (window as unknown as { __lastFoldMode?: string }).__lastFoldMode = 'missing-wasm';
+    } else {
+      xy = parseAffineLE(
+        await wasmMtPippenger.finishCombine(gpu.stagedPartials, msm.numWindows, gpu.partialsPerWindow, gpu.c),
+      );
+      const g = window as unknown as { __lastFoldMs?: number; __lastFoldMode?: string };
+      g.__lastFoldMs = performance.now() - tF;
+      g.__lastFoldMode = 'wasm-early-exit';
+    }
+  } else {
+    xy = await foldWindowSums(gpu.windowSums, msm.windowSchedule);
+  }
   const ms = performance.now() - t0;
   const g = window as unknown as { __lastFoldMs?: number; __lastFoldMode?: string };
   log('info', `[gpu] returned in ${ms.toFixed(1)} ms (fold ${g.__lastFoldMode}=${(g.__lastFoldMs ?? 0).toFixed(2)}ms)`);

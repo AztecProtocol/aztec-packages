@@ -8,6 +8,7 @@ import {
   OP_PUBLISH_SRS,
   SLOT_BATCH_LABELS_PTR,
   SLOT_BATCH_META_PTR,
+  SLOT_PARTIALS,
   SLOT_C,
   SLOT_ERROR_CODE,
   SLOT_N,
@@ -99,6 +100,14 @@ export class WebGpuMsmHost {
   // If a request arrives before `setWasmMemory` is called, we can't service it.
   // Used by the test harness; production order is always memory-then-message.
   private pendingErrorMessage: string | null = null;
+
+  /** Extra MsmV2 config merged into every bridge-created instance — the
+   *  embedding page sets `globalThis.__msmBridgeFlags` (e.g. `{
+   *  halvingReduce: true, earlyExit: true }`) before requests arrive. Read
+   *  at create time so harnesses can flip modes between runs. */
+  private msmFlags(): Record<string, unknown> {
+    return (globalThis as { __msmBridgeFlags?: Record<string, unknown> }).__msmBridgeFlags ?? {};
+  }
 
   constructor(ctrl_sab: SharedArrayBuffer) {
     this.ctrl = new Int32Array(ctrl_sab);
@@ -296,7 +305,7 @@ export class WebGpuMsmHost {
     // slots exist to break same-N submit serialization, not for timestamp
     // readback; their GPU compute is fungible with slot 0's at the same n.
     while (pools.length <= slot - 1) {
-      pools.push(await MsmV2.create(device, n, pool, { warmupRuns: 0, combineOnHost: false, profile: false }));
+      pools.push(await MsmV2.create(device, n, pool, { warmupRuns: 0, combineOnHost: false, profile: false, ...this.msmFlags() }));
     }
     return pools[slot - 1];
   }
@@ -306,7 +315,7 @@ export class WebGpuMsmHost {
     const pool = this.pool!;
     if (n === this.srsN) {
       if (this.srsMsm === null) {
-        this.srsMsm = await MsmV2.create(device, n, pool, { warmupRuns: 0, combineOnHost: false, profile: true });
+        this.srsMsm = await MsmV2.create(device, n, pool, { warmupRuns: 0, combineOnHost: false, profile: true, ...this.msmFlags() });
       }
       return this.srsMsm;
     }
@@ -318,7 +327,7 @@ export class WebGpuMsmHost {
       return hit;
     }
     // Build before inserting — a throw leaves the cache clean.
-    const fresh = await MsmV2.create(device, n, pool, { warmupRuns: 0, combineOnHost: false, profile: true });
+    const fresh = await MsmV2.create(device, n, pool, { warmupRuns: 0, combineOnHost: false, profile: true, ...this.msmFlags() });
     while (this.lru.size >= MSM_LRU_CAP) {
       const oldest = this.lru.keys().next().value as number;
       this.lru.get(oldest)!.destroy();
@@ -395,7 +404,7 @@ export class WebGpuMsmHost {
       const device = await this.getDevice();
       const pointBytes = this.wasmSliceCopy(pointsPtr, n * 64);
       const pool = await MsmV2Pool.create(device, pointBytes);
-      msm = await MsmV2.create(device, n, pool, { warmupRuns: 0, combineOnHost: false, profile: true });
+      msm = await MsmV2.create(device, n, pool, { warmupRuns: 0, combineOnHost: false, profile: true, ...this.msmFlags() });
       oneOff = { pool, msm };
     }
     const tGetEnd = performance.now();
@@ -407,10 +416,19 @@ export class WebGpuMsmHost {
       // one-off pool starting at index 0 (offset=0).
       msm.prepare(scalars, oneOff === null ? srsOffset : 0);
       const tPrepEnd = performance.now();
-      const { windowSums, c } = await msm.run();
+      const { windowSums, c, stagedPartials, partialsPerWindow } = await msm.run();
       const tRunEnd = performance.now();
-      this.writeWindowSumsLE(resultPtr, windowSums);
-      Atomics.store(this.ctrl, SLOT_NUM_WINDOWS, windowSums.length);
+      if (stagedPartials !== null && partialsPerWindow > 0) {
+        // Early exit: raw Montgomery staged bytes — the native
+        // finish_and_combine_windows adopts the limbs directly.
+        new Uint8Array(this.wasmMemory.buffer, resultPtr, stagedPartials.byteLength).set(stagedPartials);
+        Atomics.store(this.ctrl, SLOT_NUM_WINDOWS, msm.numWindows);
+        Atomics.store(this.ctrl, SLOT_PARTIALS, partialsPerWindow);
+      } else {
+        this.writeWindowSumsLE(resultPtr, windowSums);
+        Atomics.store(this.ctrl, SLOT_NUM_WINDOWS, windowSums.length);
+        Atomics.store(this.ctrl, SLOT_PARTIALS, 0);
+      }
       Atomics.store(this.ctrl, SLOT_C, c);
       // Per-MSM telemetry: get/prepare/run breakdown lets the bench see
       // whether MsmV2 instance setup (rebuild on LRU miss) or GPU dispatch
@@ -625,14 +643,25 @@ export class WebGpuMsmHost {
       const metaOut = new Uint32Array(this.wasmMemory.buffer, metaBase, batchCount * 2);
       for (let i = 0; i < batchCount; i++) {
         const msm = msms[i];
-        const windows = msm.decodeWindowSumsFromBytes(stagingBytes, stagingOffsets[i]);
-        const out = new Uint8Array(this.wasmMemory.buffer, resultsBase + resultOffs[i], windows.length * 64);
-        for (let w = 0; w < windows.length; w++) {
-          writeBigIntLE(out, w * 64, windows[w].x, 32);
-          writeBigIntLE(out, w * 64 + 32, windows[w].y, 32);
+        if (msm.windowSumsByteLength !== msm.numWindows * 64) {
+          // Early exit: raw staged Montgomery bytes, adopted natively by
+          // finish_and_combine_windows. meta packs (partials << 16) | windows.
+          const len = msm.windowSumsByteLength;
+          new Uint8Array(this.wasmMemory.buffer, resultsBase + resultOffs[i], len).set(
+            stagingBytes.subarray(stagingOffsets[i], stagingOffsets[i] + len),
+          );
+          metaOut[i * 2 + 0] = ((msm.halvePartialsPerWindow << 16) | msm.numWindows) >>> 0;
+          metaOut[i * 2 + 1] = msm.c;
+        } else {
+          const windows = msm.decodeWindowSumsFromBytes(stagingBytes, stagingOffsets[i]);
+          const out = new Uint8Array(this.wasmMemory.buffer, resultsBase + resultOffs[i], windows.length * 64);
+          for (let w = 0; w < windows.length; w++) {
+            writeBigIntLE(out, w * 64, windows[w].x, 32);
+            writeBigIntLE(out, w * 64 + 32, windows[w].y, 32);
+          }
+          metaOut[i * 2 + 0] = windows.length;
+          metaOut[i * 2 + 1] = msm.c;
         }
-        metaOut[i * 2 + 0] = windows.length;
-        metaOut[i * 2 + 1] = msm.c;
       }
       sharedStaging.destroy();
       const gpuMsPerMsm = await Promise.all(msms.map(m => m.readProfileGpuMs()));
@@ -764,6 +793,13 @@ export class WebGpuMsmHost {
       const p = pendings[i];
       const stagingBytes = new Uint8Array(p.staging.getMappedRange().slice(0));
       p.staging.unmap();
+      if (p.msm.windowSumsByteLength !== p.msm.numWindows * 64) {
+        const len = p.msm.windowSumsByteLength;
+        new Uint8Array(this.wasmMemory.buffer, resultsBase + p.resultByteOff, len).set(stagingBytes.subarray(0, len));
+        metaOut[i * 2 + 0] = ((p.msm.halvePartialsPerWindow << 16) | p.msm.numWindows) >>> 0;
+        metaOut[i * 2 + 1] = p.msm.c;
+        continue;
+      }
       const windows = p.msm.decodeWindowSumsFromBytes(stagingBytes, 0);
       const out = new Uint8Array(this.wasmMemory.buffer, resultsBase + p.resultByteOff, windows.length * 64);
       for (let w = 0; w < windows.length; w++) {
@@ -896,14 +932,20 @@ export class WebGpuMsmHost {
     const scalars = new Uint8Array(wasm.buffer, scalarsBase + scalarsOff, n * 32);
     try {
       msm.prepare(scalars, srsOffset);
-      const { windowSums } = await msm.run();
-      const dst = new Uint8Array(wasm.buffer, resultsBase + resultOff, windowSums.length * 64);
-      for (let w = 0; w < windowSums.length; w++) {
-        writeBigIntLE(dst, w * 64, windowSums[w].x, 32);
-        writeBigIntLE(dst, w * 64 + 32, windowSums[w].y, 32);
+      const { windowSums, stagedPartials, partialsPerWindow } = await msm.run();
+      if (stagedPartials !== null && partialsPerWindow > 0) {
+        new Uint8Array(wasm.buffer, resultsBase + resultOff, stagedPartials.byteLength).set(stagedPartials);
+        metaOut[i * 2 + 0] = ((partialsPerWindow << 16) | msm.numWindows) >>> 0;
+        metaOut[i * 2 + 1] = msm.c;
+      } else {
+        const dst = new Uint8Array(wasm.buffer, resultsBase + resultOff, windowSums.length * 64);
+        for (let w = 0; w < windowSums.length; w++) {
+          writeBigIntLE(dst, w * 64, windowSums[w].x, 32);
+          writeBigIntLE(dst, w * 64 + 32, windowSums[w].y, 32);
+        }
+        metaOut[i * 2 + 0] = windowSums.length;
+        metaOut[i * 2 + 1] = msm.c;
       }
-      metaOut[i * 2 + 0] = windowSums.length;
-      metaOut[i * 2 + 1] = msm.c;
     } catch (e) {
       // A torn cached instance — drop it so the next request rebuilds.
       this.evict(n);
@@ -924,7 +966,7 @@ export class WebGpuMsmHost {
       return hit;
     }
     const device = await this.getDevice();
-    const fresh = await MsmV2.create(device, maxN, this.pool!, { warmupRuns: 0, combineOnHost: false, profile: false });
+    const fresh = await MsmV2.create(device, maxN, this.pool!, { warmupRuns: 0, combineOnHost: false, profile: false, ...this.msmFlags() });
     while (this.unionMsms.size >= UNION_LRU_CAP) {
       const oldest = this.unionMsms.keys().next().value as number;
       this.unionMsms.get(oldest)!.destroy();

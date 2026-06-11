@@ -47,6 +47,12 @@ export const SLOT_BATCH_META_PTR = 10;
 // supplied (the C++ hook only fills this when a labels span was threaded
 // through from the commit call site).
 export const SLOT_BATCH_LABELS_PTR = 11;
+// Early-exit staged partials per window (halving reduce): 0 = the result
+// region holds finished per-window affine roots (legacy, 64 B each);
+// > 0 = it holds `num_windows × partials` staged Jacobian points (96 B
+// each, raw Montgomery limbs, z == 0 absent) and the C++ hook runs
+// finish_and_combine_windows instead of combine_windows.
+export const SLOT_PARTIALS = 12;
 
 // Values for SLOT_STATE.
 export const STATE_IDLE = 0;

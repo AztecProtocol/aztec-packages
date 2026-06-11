@@ -8086,8 +8086,13 @@ const WG: u32 = {{ workgroup_size }}u;
 @group(0) @binding(3) var<uniform>             cparams:    vec4<u32>;
 @group(0) @binding(4) var<uniform>             lparams:    vec4<u32>;
 @group(0) @binding(5) var<storage, read>       hsched:     array<vec4<u32>>;
+@group(0) @binding(6) var<storage, read_write> stage_out:  array<vec4<u32>>;
 // cparams = (M_RED, _, _, _); lparams unused (geometry baked);
 // hsched[w] = (base, B, 0, 0).
+// stage_out: compact export of the staged points for the early-exit
+// readback — record (w·(1+d_f) + a) holds x, y, z as 6 vec4s of raw
+// Montgomery limbs (z == 0 ⇒ absent), exactly the bytes the WASM
+// finish_and_combine_windows adopts.
 
 fn load_x(idx: u32, M: u32) -> array<u32, 8> {
     let base = PG * idx;
@@ -8121,6 +8126,16 @@ fn store_z(idx: u32, val: array<u32, 8>) {
     let base = PG * idx;
     red_z[base + 0u] = vec4<u32>(val[0], val[1], val[2], val[3]);
     red_z[base + 1u] = vec4<u32>(val[4], val[5], val[6], val[7]);
+}
+
+fn stage_set(i: u32, v: Jac) {
+    let b = 6u * i;
+    stage_out[b + 0u] = vec4<u32>(v.x[0], v.x[1], v.x[2], v.x[3]);
+    stage_out[b + 1u] = vec4<u32>(v.x[4], v.x[5], v.x[6], v.x[7]);
+    stage_out[b + 2u] = vec4<u32>(v.y[0], v.y[1], v.y[2], v.y[3]);
+    stage_out[b + 3u] = vec4<u32>(v.y[4], v.y[5], v.y[6], v.y[7]);
+    stage_out[b + 4u] = vec4<u32>(v.z[0], v.z[1], v.z[2], v.z[3]);
+    stage_out[b + 5u] = vec4<u32>(v.z[4], v.z[5], v.z[6], v.z[7]);
 }
 
 fn fr_eq_f8(a: array<u32, 8>, b: array<u32, 8>) -> bool {
