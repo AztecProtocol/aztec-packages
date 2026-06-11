@@ -58,6 +58,29 @@ void build_constraints(Builder& builder, AcirFormat& constraints, const ProgramM
         gate_counter.track_diff(constraints.gates_per_opcode, opcode_idx);
     }
 
+    // Bilinear rows: AssertZero opcodes with two products routed to the bilinear gate (Mega-only; see
+    // bilinear_or_batched_eq_check_relation.hpp). Each row originates from a single AssertZero.
+    BB_ASSERT(constraints.bilinear_constraints.empty() || IsMegaBuilder<Builder>,
+              "Bilinear constraints should only be present when using MegaCircuitBuilder.");
+    for (auto [constraint, opcode_idx] :
+         zip_view(constraints.bilinear_constraints, constraints.original_opcode_indices.bilinear_constraints)) {
+        create_bilinear_constraint(builder, constraint);
+        gate_counter.track_diff(constraints.gates_per_opcode, opcode_idx);
+    }
+
+    // BatchedEq rows: pairs of linear AssertZeros batched into one row (Mega-only). Each row originates from 1
+    // (unpaired single-half) or 2 (paired) AssertZero opcodes.
+    BB_ASSERT(constraints.batched_eq_check_constraints.empty() || IsMegaBuilder<Builder>,
+              "BatchedEq constraints should only be present when using MegaCircuitBuilder.");
+    for (auto [constraint, opcode_idx] : zip_view(constraints.batched_eq_check_constraints,
+                                                  constraints.original_opcode_indices.batched_eq_check_constraints)) {
+        create_batched_eq_check_constraint(builder, constraint);
+        // For paired BATCHED_EQ rows, the single emitted gate is shared between two opcodes; attribute the
+        // delta only to the first (track_diff would record 0 for the second anyway since no new gates
+        // were added between the calls).
+        gate_counter.track_diff(constraints.gates_per_opcode, opcode_idx[0]);
+    }
+
     // Add logic constraint
     for (const auto& [constraint, opcode_idx] :
          zip_view(constraints.logic_constraints, constraints.original_opcode_indices.logic_constraints)) {

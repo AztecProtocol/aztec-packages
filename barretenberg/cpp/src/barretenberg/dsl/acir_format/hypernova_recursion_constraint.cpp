@@ -107,14 +107,12 @@ Chonk::VerifierInputs create_mock_verification_queue_entry(const Chonk::QUEUE_TY
                                                            const bool is_kernel)
 {
     using IvcType = Chonk;
-    using FF = IvcType::FF;
-    using MegaVerificationKey = IvcType::MegaVerificationKey;
-    using Flavor = IvcType::Flavor;
+    using AppFlavor = IvcType::AppFlavor;
+    using KernelFlavor = IvcType::KernelFlavor;
 
-    size_t dyadic_size = 1 << Flavor::VIRTUAL_LOG_N; // maybe doesnt need to be correct
-
-    std::vector<FF> proof;
-    std::shared_ptr<MegaVerificationKey> verification_key;
+    Chonk::VerifierInputs entry;
+    entry.type = verification_type;
+    entry.kind = is_kernel ? Chonk::CircuitKind::Kernel : Chonk::CircuitKind::App;
 
     if (is_kernel) {
         using KernelIO = stdlib::recursion::honk::KernelIO;
@@ -122,23 +120,19 @@ Chonk::VerifierInputs create_mock_verification_queue_entry(const Chonk::QUEUE_TY
                          verification_type == Chonk::QUEUE_TYPE::HN_FINAL,
                      true);
 
-        // Kernel circuits always have a prior accumulator, so fold proof is always included
         constexpr bool include_fold = true;
-        proof = create_mock_hyper_nova_proof<Flavor, KernelIO>(include_fold);
-
-        verification_key = create_mock_honk_vk<Flavor, KernelIO>(dyadic_size);
+        entry.proof = create_mock_hyper_nova_proof<KernelFlavor, KernelIO>(include_fold);
+        entry.kernel_honk_vk = create_mock_honk_vk<KernelFlavor, KernelIO>(1 << KernelFlavor::VIRTUAL_LOG_N);
     } else {
         using AppIO = stdlib::recursion::honk::AppIO;
         BB_ASSERT_EQ(verification_type == Chonk::QUEUE_TYPE::OINK || verification_type == Chonk::QUEUE_TYPE::HN, true);
 
-        // First app (OINK) has no prior accumulator; subsequent apps (HN) do
         bool include_fold = (verification_type != Chonk::QUEUE_TYPE::OINK);
-        proof = create_mock_hyper_nova_proof<Flavor, AppIO>(include_fold);
-
-        verification_key = create_mock_honk_vk<Flavor, AppIO>(dyadic_size);
+        entry.proof = create_mock_hyper_nova_proof<AppFlavor, AppIO>(include_fold);
+        entry.app_honk_vk = create_mock_honk_vk<AppFlavor, AppIO>(1 << AppFlavor::VIRTUAL_LOG_N);
     }
 
-    return Chonk::VerifierInputs{ proof, verification_key, verification_type, is_kernel };
+    return entry;
 }
 
 /**
@@ -159,8 +153,10 @@ void mock_chonk_accumulation(const std::shared_ptr<Chonk>& ivc, Chonk::QUEUE_TYP
     using FF = Chonk::FF;
     using Commitment = Chonk::Commitment;
 
-    // Initialize verifier accumulator with proper structure
-    ivc->recursive_verifier_native_accum.challenge = std::vector<FF>(Chonk::Flavor::VIRTUAL_LOG_N, FF::zero());
+    // The size of the challenge only depends on the VIRTUAL_LOG_N specified by the Flavor.
+    // KernelFlavor and AppFlavor have the same VIRTUAL_LOG_N, so we can generate the challenge
+    // vector with either.
+    ivc->recursive_verifier_native_accum.challenge = std::vector<FF>(Chonk::KernelFlavor::VIRTUAL_LOG_N, FF::zero());
     ivc->recursive_verifier_native_accum.non_shifted_evaluation = FF::zero();
     ivc->recursive_verifier_native_accum.shifted_evaluation = FF::zero();
     ivc->recursive_verifier_native_accum.non_shifted_commitment = Commitment::one();
@@ -170,7 +166,9 @@ void mock_chonk_accumulation(const std::shared_ptr<Chonk>& ivc, Chonk::QUEUE_TYP
     ivc->verification_queue.emplace_back(entry);
     if (type == Chonk::QUEUE_TYPE::HN_FINAL) {
         ivc->goblin.batch_merge_proof = acir_format::create_mock_batch_merge_proof();
-        ivc->decider_proof = acir_format::create_mock_pcs_proof<Chonk::Flavor>();
+        // The PCS proof only depends on the VIRTUAL_LOG_N specified by the Flavor. KernelFlavor and
+        // AppFlavor have the same VIRTUAL_LOG_N, so we can generate the mock PCS proof with either.
+        ivc->decider_proof = acir_format::create_mock_pcs_proof<Chonk::KernelFlavor>();
     }
     ivc->num_circuits_accumulated++;
 }

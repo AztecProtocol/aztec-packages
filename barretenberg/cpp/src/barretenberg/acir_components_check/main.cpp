@@ -15,6 +15,8 @@
 
 int main(int argc, char* argv[])
 {
+    using CircuitBuilder = bb::UltraCircuitBuilder;
+
     if (argc < 2) {
         std::cerr << "Usage: acir_components_check <bytecode_path>\n";
         return 1;
@@ -36,10 +38,10 @@ int main(int argc, char* argv[])
         parsed_program.functions.size(), 1U, "acir_components_check: expected single function in ACIR program");
 
     const auto& circuit = parsed_program.functions[0];
-    auto constraints = acir_format::circuit_serde_to_acir_format(circuit);
+    auto constraints = acir_format::circuit_serde_to_acir_format(circuit, IsMegaBuilder<CircuitBuilder>);
 
     acir_format::AcirProgram program{ .constraints = constraints, .witness = {} };
-    auto builder = acir_format::create_circuit<bb::UltraCircuitBuilder>(program);
+    auto builder = acir_format::create_circuit<CircuitBuilder>(program);
 
     acir_components_check::ComponentsChecker checker(circuit, builder);
     auto errors = checker.check();

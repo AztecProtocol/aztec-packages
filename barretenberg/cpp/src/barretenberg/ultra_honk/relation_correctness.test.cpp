@@ -201,6 +201,71 @@ template <typename Flavor> void create_some_non_native_field_gates(auto& builder
     [[maybe_unused]] auto c = a * b;
 }
 
+template <typename Flavor> void create_some_bilinear_batched_eq_gates(auto& builder)
+{
+    using FF = typename Flavor::FF;
+
+    // BILINEAR row: enforce the full identity
+    //   q_m·a·b + q_5·a·c + q_l·a + q_r·b + q_o·c + q_4·d + q_c = 0
+    // with two products sharing wire a, a linear term on each wire, and a constant. Pick a, b, c and
+    // solve for the linear-only wire d so the identity holds.
+    FF qm = FF(3);
+    FF q5 = -FF(5);
+    FF ql = FF(2);
+    FF qr = -FF(1);
+    FF qo = FF(7);
+    FF q4 = FF(4);
+    FF qc = FF(11);
+    FF a_val = FF::random_element();
+    FF b_val = FF::random_element();
+    FF c_val = FF::random_element();
+    // q_4·d = −(q_m·a·b + q_5·a·c + q_l·a + q_r·b + q_o·c + q_c)  ⇒  d = rest / q_4
+    FF rest = -(qm * a_val * b_val + q5 * a_val * c_val + ql * a_val + qr * b_val + qo * c_val + qc);
+    FF d_val = rest * q4.invert();
+    uint32_t a_idx = builder.add_variable(a_val);
+    uint32_t b_idx = builder.add_variable(b_val);
+    uint32_t c_idx = builder.add_variable(c_val);
+    uint32_t d_idx = builder.add_variable(d_val);
+    builder.create_bilinear_batched_eq_gate({ BilinearBatchedEqMode::Bilinear,
+                                              a_idx,
+                                              b_idx,
+                                              c_idx,
+                                              d_idx,
+                                              /*q_l=*/ql,
+                                              /*q_r=*/qr,
+                                              /*q_o=*/qo,
+                                              /*q_4=*/q4,
+                                              /*q_c=*/qc,
+                                              /*q_m=*/qm,
+                                              /*q_5=*/q5 });
+
+    // BATCHED_EQ row: pair two equality-with-const constraints into one row.
+    // Half 1: w_l + 2·w_r − k1 = 0
+    // Half 2: 3·w_o − w_4 − k2 = 0
+    FF w_l_val = FF::random_element();
+    FF w_r_val = FF::random_element();
+    FF w_o_val = FF::random_element();
+    FF k1 = w_l_val + FF(2) * w_r_val;
+    FF k2 = FF(3) * w_o_val;
+    FF w_4_val = k2 * -FF(1) + FF(3) * w_o_val; // makes 3·w_o − w_4 − k2 = 0
+    uint32_t wl_idx = builder.add_variable(w_l_val);
+    uint32_t wr_idx = builder.add_variable(w_r_val);
+    uint32_t wo_idx = builder.add_variable(w_o_val);
+    uint32_t w4_idx = builder.add_variable(w_4_val);
+    builder.create_bilinear_batched_eq_gate({ BilinearBatchedEqMode::BatchedEq,
+                                              wl_idx,
+                                              wr_idx,
+                                              wo_idx,
+                                              w4_idx,
+                                              /*q_l=*/FF(1),
+                                              /*q_r=*/FF(2),
+                                              /*q_o=*/FF(3),
+                                              /*q_4=*/-FF(1),
+                                              /*q_c=*/-k1,
+                                              /*q_m=*/-k2,
+                                              /*q_5=*/0 });
+}
+
 template <typename Flavor> void create_some_poseidon2_gates(auto& builder)
 {
     using field_ct = stdlib::field_t<typename Flavor::CircuitBuilder>;
@@ -283,6 +348,7 @@ TEST_F(UltraRelationCorrectnessTests, Mega)
     create_some_databus_gates<Flavor>(builder);
     create_some_non_native_field_gates<Flavor>(builder);
     create_some_poseidon2_gates<Flavor>(builder);
+    create_some_bilinear_batched_eq_gates<Flavor>(builder);
     stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>::add_default(builder);
 
     // Create a prover (it will compute proving key and witness)

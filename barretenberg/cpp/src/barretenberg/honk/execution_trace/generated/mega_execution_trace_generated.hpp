@@ -24,7 +24,7 @@ struct MegaTraceBlockData {
     MegaTraceBlock ecc_op{};
     MegaTraceBlock pub_inputs{};
     MegaTraceBlock lookup{ GateKind::Lookup };
-    MegaTraceBlock arithmetic{ GateKind::Arith };
+    MegaTraceBlock arithmetic{ GateKind::Arith, GateKind::BilinearBatchedEq };
     MegaTraceBlock delta_range{ GateKind::DeltaRange };
     MegaTraceBlock elliptic{ GateKind::Elliptic };
     MegaTraceBlock memory{ GateKind::Memory };

@@ -1,7 +1,7 @@
 use types::{
     abis::kernel_circuit_public_inputs::PrivateToRollupKernelCircuitPublicInputs,
     constants::{
-        MEGA_VK_LENGTH_IN_FIELDS, PRIVATE_KERNEL_RESET_TAIL_TO_PUBLIC_VK_INDEX,
+        MEGA_KERNEL_VK_LENGTH_IN_FIELDS, PRIVATE_KERNEL_RESET_TAIL_TO_PUBLIC_VK_INDEX,
         PRIVATE_KERNEL_RESET_TAIL_VK_INDEX, PRIVATE_KERNEL_RESET_VK_INDEX, PROOF_TYPE_HN_FINAL,
     },
     proof::vk_data::VkData,
@@ -9,7 +9,7 @@ use types::{
 
 pub struct HidingKernelToRollupPrivateInputs {
     pub previous_kernel_public_inputs: PrivateToRollupKernelCircuitPublicInputs,
-    pub previous_kernel_vk_data: VkData<MEGA_VK_LENGTH_IN_FIELDS>,
+    pub previous_kernel_vk_data: VkData<MEGA_KERNEL_VK_LENGTH_IN_FIELDS>,
 }
 
 /// The Hiding Kernel to Rollup circuit is the final step in client-side private transaction proving.

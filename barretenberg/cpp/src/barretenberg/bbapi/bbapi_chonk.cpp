@@ -48,11 +48,6 @@ ChonkPrecomputedVkPolicy to_chonk_vk_policy(VkPolicy policy)
     throw_or_abort("Invalid VK policy. Valid options: default, check, recompute");
 }
 
-ChonkVkFlavor to_chonk_vk_flavor(bool use_zk_flavor)
-{
-    return use_zk_flavor ? ChonkVkFlavor::MEGA_ZK : ChonkVkFlavor::MEGA;
-}
-
 } // namespace
 
 // BB_NO_EXCEPTIONS rewrites catch blocks away; handlers must not depend on catch bindings.
@@ -84,6 +79,7 @@ ChonkStart::Response ChonkStart::execute(BBApiRequest& request) &&
     request.loaded_circuit_name.clear();
     request.loaded_circuit_constraints.reset();
     request.loaded_circuit_vk.clear();
+    request.loaded_circuit_kind = CircuitKind::App;
 
     return Response{};
 }
@@ -96,8 +92,9 @@ ChonkLoad::Response ChonkLoad::execute(BBApiRequest& request) &&
     }
 
     request.loaded_circuit_name = circuit.name;
-    request.loaded_circuit_constraints = acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode));
+    request.loaded_circuit_constraints = acir_format::circuit_buf_to_mega_acir_format(std::move(circuit.bytecode));
     request.loaded_circuit_vk = circuit.verification_key;
+    request.loaded_circuit_kind = kind;
 
     info("ChonkLoad - loaded circuit '", request.loaded_circuit_name, "'");
 
@@ -123,13 +120,17 @@ ChonkAccumulate::Response ChonkAccumulate::execute(BBApiRequest& request) &&
     // would be in a moved-from state, which is technically has_value()==true but poisoned).
     auto loaded_vk = std::move(request.loaded_circuit_vk);
     auto circuit_name = std::move(request.loaded_circuit_name);
+    const CircuitKind loaded_kind = request.loaded_circuit_kind;
     request.loaded_circuit_constraints.reset();
     request.loaded_circuit_vk.clear();
     request.loaded_circuit_name.clear();
+    request.loaded_circuit_kind = CircuitKind::App;
 
-    request.ivc_in_progress->process_step(
-        { .name = std::move(circuit_name), .program = std::move(program), .precomputed_vk = std::move(loaded_vk) },
-        to_chonk_vk_policy(request.vk_policy));
+    request.ivc_in_progress->process_step({ .name = std::move(circuit_name),
+                                            .program = std::move(program),
+                                            .precomputed_vk = std::move(loaded_vk),
+                                            .kind = loaded_kind },
+                                          to_chonk_vk_policy(request.vk_policy));
 
     return Response{};
 }
@@ -310,13 +311,14 @@ ChonkComputeVk::Response ChonkComputeVk::execute([[maybe_unused]] const BBApiReq
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
     info("ChonkComputeVk - deriving Chonk verification key for circuit '",
          circuit.name,
-         "'",
-         use_zk_flavor ? " (hiding kernel)" : "");
+         "' (kind=",
+         static_cast<int>(kind),
+         ")");
 
-    auto constraint_system = acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode));
+    auto constraint_system = acir_format::circuit_buf_to_mega_acir_format(std::move(circuit.bytecode));
 
     acir_format::AcirProgram program{ constraint_system, /*witness=*/{} };
-    auto verification_key = compute_chonk_vk(program, to_chonk_vk_flavor(use_zk_flavor));
+    auto verification_key = compute_chonk_vk(program, kind);
     info("ChonkComputeVk - VK derived, size: ", verification_key.bytes.size(), " bytes");
     return { .bytes = std::move(verification_key.bytes), .fields = std::move(verification_key.fields) };
 }
@@ -324,7 +326,7 @@ ChonkComputeVk::Response ChonkComputeVk::execute([[maybe_unused]] const BBApiReq
 ChonkCheckPrecomputedVk::Response ChonkCheckPrecomputedVk::execute([[maybe_unused]] const BBApiRequest& request) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
-    acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode)),
+    acir_format::AcirProgram program{ acir_format::circuit_buf_to_mega_acir_format(std::move(circuit.bytecode)),
                                       /*witness=*/{} };
 
     if (circuit.verification_key.empty()) {
@@ -333,7 +335,7 @@ ChonkCheckPrecomputedVk::Response ChonkCheckPrecomputedVk::execute([[maybe_unuse
     }
 
     Response response;
-    auto check = check_precomputed_chonk_vk(program, circuit.verification_key, to_chonk_vk_flavor(use_zk_flavor));
+    auto check = check_precomputed_chonk_vk(program, circuit.verification_key, kind);
     response.valid = check.valid;
     response.actual_vk = std::move(check.actual_vk);
     return response;
@@ -344,7 +346,7 @@ ChonkStats::Response ChonkStats::execute([[maybe_unused]] BBApiRequest& request)
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
     Response response;
 
-    const auto constraint_system = acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode));
+    const auto constraint_system = acir_format::circuit_buf_to_mega_acir_format(std::move(circuit.bytecode));
     acir_format::AcirProgram program{ constraint_system, {} };
 
     // Get IVC constraints if any

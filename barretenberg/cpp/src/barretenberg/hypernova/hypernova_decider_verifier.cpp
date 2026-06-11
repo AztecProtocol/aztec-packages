@@ -7,6 +7,11 @@
 #include "barretenberg/hypernova/hypernova_decider_verifier.hpp"
 #include "barretenberg/commitment_schemes/claim_batcher.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
+#include "barretenberg/flavor/mega_app_flavor.hpp"
+#include "barretenberg/flavor/mega_app_recursive_flavor.hpp"
+#include "barretenberg/flavor/mega_kernel_flavor.hpp"
+#include "barretenberg/flavor/mega_kernel_recursive_flavor.hpp"
+#include "barretenberg/flavor/mega_recursive_flavor.hpp"
 
 namespace bb {
 
@@ -48,6 +53,8 @@ HypernovaDeciderVerifier<Flavor>::PairingPoints HypernovaDeciderVerifier<Flavor>
     }
 };
 
-template class HypernovaDeciderVerifier<MegaFlavor>;
-template class HypernovaDeciderVerifier<MegaRecursiveFlavor_<MegaCircuitBuilder>>;
+template class HypernovaDeciderVerifier<MegaAppFlavor>;
+template class HypernovaDeciderVerifier<MegaKernelFlavor>;
+template class HypernovaDeciderVerifier<MegaAppRecursiveFlavor>;
+template class HypernovaDeciderVerifier<MegaKernelRecursiveFlavor>;
 }; // namespace bb

@@ -1,6 +1,8 @@
 #include "barretenberg/dsl/acir_format/mock_verifier_inputs.hpp"
 #include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/chonk/chonk_proof.hpp"
+#include "barretenberg/flavor/mega_app_flavor.hpp"
+#include "barretenberg/flavor/mega_kernel_flavor.hpp"
 #include "barretenberg/flavor/mega_zk_flavor.hpp"
 #include "barretenberg/honk/proof_length.hpp"
 
@@ -38,17 +40,19 @@ static_assert(
     ProofLength::Honk<UltraFlavor>::expected_proof_size<stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>(
         UltraFlavor::VIRTUAL_LOG_N) == 410,
     "RECURSIVE_PROOF_LENGTH changed - update constants.nr");
-static_assert(ChonkProof::PROOF_LENGTH == 1271, "CHONK_PROOF_LENGTH changed - update constants.nr");
+static_assert(ChonkProof::PROOF_LENGTH == 1272, "CHONK_PROOF_LENGTH changed - update constants.nr");
 static_assert(ChonkProof::HIDING_OINK_LENGTH == 48,
               "ChonkProof::HIDING_OINK_LENGTH changed - update CHONK_HIDING_OINK_LENGTH in constants.nr "
               "and run `yarn remake-constants`");
-static_assert(ChonkProof::JOINT_PROOF_LENGTH == 477,
+static_assert(ChonkProof::JOINT_PROOF_LENGTH == 478,
               "ChonkProof::JOINT_PROOF_LENGTH changed - update CHONK_JOINT_PROOF_LENGTH in constants.nr "
               "and run `yarn remake-constants`");
-static_assert(MegaFlavor::VerificationKey::calc_num_data_types() == 163,
-              "MEGA_VK_LENGTH_IN_FIELDS changed - update constants.nr");
-static_assert(MegaZKFlavor::VerificationKey::calc_num_data_types() == 115,
-              "MegaZK VK size changed - update constants.nr");
+static_assert(MegaAppFlavor::VerificationKey::calc_num_data_types() == 151,
+              "MEGA_APP_VK_LENGTH_IN_FIELDS changed - update constants.nr");
+static_assert(MegaKernelFlavor::VerificationKey::calc_num_data_types() == 143,
+              "MEGA_KERNEL_VK_LENGTH_IN_FIELDS changed - update constants.nr");
+static_assert(MegaZKFlavor::VerificationKey::calc_num_data_types() == 119,
+              "MEGA_ZK_VK_LENGTH_IN_FIELDS changed - update constants.nr");
 static_assert(ProofLength::MultilinearBatching<MultilinearBatchingFlavor>::LENGTH == 102,
               "MultilinearBatching proof size changed - update constants.nr");
 

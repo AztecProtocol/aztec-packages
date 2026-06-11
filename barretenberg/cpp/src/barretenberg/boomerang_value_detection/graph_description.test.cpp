@@ -46,6 +46,457 @@ TEST(boomerang_ultra_circuit_constructor, test_graph_for_arithmetic_gates)
 }
 
 /**
+ * @brief Test duplicate discovery
+ *
+ */
+TEST(boomerang_ultra_circuit_constructor, test_duplicate_discovery)
+{
+    UltraCircuitBuilder circuit_constructor = UltraCircuitBuilder();
+    auto value_one = bb::fr::random_element();
+    auto value_two = bb ::fr::random_element();
+    auto value_three = bb::fr::random_element();
+    for (size_t i = 0; i < 4; i++) {
+        uint32_t left_idx = circuit_constructor.add_variable(value_one);
+        uint32_t right_idx = circuit_constructor.add_variable(value_two);
+        uint32_t result_idx = circuit_constructor.add_variable(value_three);
+
+        uint32_t add_idx = circuit_constructor.add_variable(value_one + value_two + value_three + fr(i % 2));
+        circuit_constructor.create_big_add_gate(
+            { left_idx, right_idx, result_idx, add_idx, fr(1), fr(1), fr(1), fr(-1), fr(0) });
+    }
+
+    StaticAnalyzer analyzer = StaticAnalyzer(circuit_constructor);
+    analyzer.fill_witness_duplicate_map();
+    const auto& duplicate_map = analyzer.get_witness_duplicate_map();
+    EXPECT_TRUE(duplicate_map.contains(value_one));
+    EXPECT_TRUE(duplicate_map.contains(value_two));
+    EXPECT_TRUE(duplicate_map.contains(value_three));
+}
+
+TEST(boomerang_ultra_circuit_constructor, duplicate_filter_keeps_distinct_same_gate_witnesses)
+{
+    UltraCircuitBuilder circuit_constructor;
+    const auto repeated_value = bb::fr::random_element();
+    const auto balancing_value = -(repeated_value + repeated_value);
+
+    const uint32_t left_idx = circuit_constructor.add_variable(repeated_value);
+    const uint32_t right_idx = circuit_constructor.add_variable(repeated_value);
+    const uint32_t balancing_idx = circuit_constructor.add_variable(balancing_value);
+
+    circuit_constructor.create_big_add_gate(
+        { left_idx, right_idx, balancing_idx, circuit_constructor.zero_idx(), fr(1), fr(1), fr(1), fr(0), fr(0) });
+
+    StaticAnalyzer analyzer = StaticAnalyzer(circuit_constructor);
+    analyzer.fill_witness_duplicate_map();
+    EXPECT_TRUE(analyzer.get_witness_duplicate_map().contains(repeated_value));
+}
+
+TEST(boomerang_ultra_circuit_constructor, duplicate_filter_keeps_common_value_witnesses)
+{
+    UltraCircuitBuilder circuit_constructor;
+    const auto repeated_value = bb::fr::one();
+    const auto balancing_value = -(repeated_value + repeated_value);
+
+    const uint32_t left_idx = circuit_constructor.add_variable(repeated_value);
+    const uint32_t right_idx = circuit_constructor.add_variable(repeated_value);
+    const uint32_t balancing_idx = circuit_constructor.add_variable(balancing_value);
+
+    circuit_constructor.create_big_add_gate(
+        { left_idx, right_idx, balancing_idx, circuit_constructor.zero_idx(), fr(1), fr(1), fr(1), fr(0), fr(0) });
+
+    StaticAnalyzer analyzer = StaticAnalyzer(circuit_constructor);
+    analyzer.fill_witness_duplicate_map();
+    EXPECT_TRUE(analyzer.get_witness_duplicate_map().contains(repeated_value));
+}
+
+TEST(boomerang_ultra_circuit_constructor, duplicate_filter_keeps_caller_filtered_unexplained_witnesses)
+{
+    UltraCircuitBuilder circuit_constructor;
+    const auto repeated_value = bb::fr::random_element();
+    const auto balancing_value = -(repeated_value + repeated_value);
+
+    const uint32_t left_idx = circuit_constructor.add_variable(repeated_value);
+    const uint32_t right_idx = circuit_constructor.add_variable(repeated_value);
+    const uint32_t balancing_idx = circuit_constructor.add_variable(balancing_value);
+
+    circuit_constructor.create_big_add_gate(
+        { left_idx, right_idx, balancing_idx, circuit_constructor.zero_idx(), fr(1), fr(1), fr(1), fr(0), fr(0) });
+
+    StaticAnalyzer analyzer = StaticAnalyzer(circuit_constructor);
+    analyzer.fill_witness_duplicate_map({ repeated_value });
+    EXPECT_TRUE(analyzer.get_witness_duplicate_map().contains(repeated_value));
+}
+
+TEST(boomerang_ultra_circuit_constructor, test_non_native_prime_limb_intermediate_duplicate_filter)
+{
+    UltraCircuitBuilder circuit_constructor = UltraCircuitBuilder();
+    auto repeated_value = bb::fr::random_element();
+    const bb::fr fq_modulus_selector = (uint256_t(0x30644e72e131a029ULL) << 192) + (uint256_t(0xb85045b6ULL) << 160);
+
+    for (size_t i = 0; i < 3; i++) {
+        uint32_t repeated_idx = circuit_constructor.add_variable(repeated_value);
+        const auto other_value = bb::fr::random_element();
+        const auto left_scaling = bb::fr::random_element();
+        const auto right_scaling = bb::fr::random_element();
+        uint32_t other_idx = circuit_constructor.add_variable(other_value);
+        uint32_t compensating_idx = circuit_constructor.add_variable(
+            -(left_scaling * repeated_value + right_scaling * other_value) / fq_modulus_selector);
+        circuit_constructor.create_big_add_gate({ repeated_idx,
+                                                  other_idx,
+                                                  compensating_idx,
+                                                  circuit_constructor.zero_idx(),
+                                                  left_scaling,
+                                                  right_scaling,
+                                                  fq_modulus_selector,
+                                                  fr(0),
+                                                  fr(0) });
+    }
+
+    auto nnf_repeated_value = bb::fr::random_element();
+    for (size_t i = 0; i < 3; i++) {
+        uint32_t repeated_idx = circuit_constructor.add_variable(nnf_repeated_value);
+        uint32_t peer_idx = circuit_constructor.add_variable(bb::fr::random_element());
+        circuit_constructor.blocks.nnf.populate_wires(
+            repeated_idx, peer_idx, circuit_constructor.zero_idx(), circuit_constructor.zero_idx());
+        circuit_constructor.apply_nnf_selectors(UltraCircuitBuilder::NON_NATIVE_FIELD_1);
+        circuit_constructor.blocks.nnf.populate_wires(circuit_constructor.zero_idx(),
+                                                      circuit_constructor.zero_idx(),
+                                                      circuit_constructor.zero_idx(),
+                                                      circuit_constructor.zero_idx());
+        circuit_constructor.apply_nnf_selectors(UltraCircuitBuilder::NNF_NONE);
+        circuit_constructor.increment_num_gates(2);
+
+        const auto other_value = bb::fr::random_element();
+        uint32_t other_idx = circuit_constructor.add_variable(other_value);
+        const bb::fr q_c = -(fq_modulus_selector * (other_value + nnf_repeated_value));
+        circuit_constructor.create_big_add_gate({ other_idx,
+                                                  circuit_constructor.zero_idx(),
+                                                  repeated_idx,
+                                                  circuit_constructor.zero_idx(),
+                                                  fq_modulus_selector,
+                                                  fr(0),
+                                                  fq_modulus_selector,
+                                                  fr(0),
+                                                  q_c });
+    }
+
+    auto nnf_only_repeated_value = bb::fr::random_element();
+    for (size_t i = 0; i < 3; i++) {
+        uint32_t repeated_idx = circuit_constructor.add_variable(nnf_only_repeated_value);
+        uint32_t peer_idx = circuit_constructor.add_variable(bb::fr::random_element());
+        circuit_constructor.blocks.nnf.populate_wires(
+            repeated_idx, peer_idx, circuit_constructor.zero_idx(), circuit_constructor.zero_idx());
+        circuit_constructor.apply_nnf_selectors(UltraCircuitBuilder::NON_NATIVE_FIELD_1);
+        circuit_constructor.blocks.nnf.populate_wires(circuit_constructor.zero_idx(),
+                                                      circuit_constructor.zero_idx(),
+                                                      circuit_constructor.zero_idx(),
+                                                      circuit_constructor.zero_idx());
+        circuit_constructor.apply_nnf_selectors(UltraCircuitBuilder::NNF_NONE);
+        circuit_constructor.increment_num_gates(2);
+    }
+
+    auto product_repeated_value = bb::fr::random_element();
+    for (size_t i = 0; i < 3; i++) {
+        const auto left_value = bb::fr::random_element();
+        const auto right_value = bb::fr::random_element();
+        const auto output_value = bb::fr::random_element();
+        uint32_t left_idx = circuit_constructor.add_variable(left_value);
+        uint32_t right_idx = circuit_constructor.add_variable(right_value);
+        uint32_t output_idx = circuit_constructor.add_variable(output_value);
+        uint32_t repeated_idx = circuit_constructor.add_variable(product_repeated_value);
+        const bb::fr left_scaling = bb::fr::random_element();
+        const bb::fr const_scaling = -(left_value * right_value * fq_modulus_selector + left_value * left_scaling +
+                                       output_value + product_repeated_value * fq_modulus_selector);
+        circuit_constructor.create_big_mul_add_gate({ .a = left_idx,
+                                                      .b = right_idx,
+                                                      .c = output_idx,
+                                                      .d = repeated_idx,
+                                                      .mul_scaling = fq_modulus_selector,
+                                                      .a_scaling = left_scaling,
+                                                      .b_scaling = fr(0),
+                                                      .c_scaling = fr(1),
+                                                      .d_scaling = fq_modulus_selector,
+                                                      .const_scaling = const_scaling });
+    }
+
+    auto shifted_repeated_value = bb::fr::random_element();
+    for (size_t i = 0; i < 3; i++) {
+        const auto left_value = bb::fr::random_element();
+        const auto right_value = bb::fr::random_element();
+        const auto out_value = bb::fr::random_element();
+        const bb::fr left_scaling = fr(1);
+        const bb::fr right_scaling = uint256_t(1) << 14;
+        const bb::fr out_scaling = uint256_t(1) << 28;
+        uint32_t left_idx = circuit_constructor.add_variable(left_value);
+        uint32_t right_idx = circuit_constructor.add_variable(right_value);
+        uint32_t out_idx = circuit_constructor.add_variable(out_value);
+        uint32_t compensating_idx =
+            circuit_constructor.add_variable(-(shifted_repeated_value + left_scaling * left_value +
+                                               right_scaling * right_value + out_scaling * out_value) /
+                                             fq_modulus_selector);
+        uint32_t repeated_idx = circuit_constructor.add_variable(shifted_repeated_value);
+        circuit_constructor.create_big_add_gate({ left_idx,
+                                                  right_idx,
+                                                  out_idx,
+                                                  compensating_idx,
+                                                  left_scaling,
+                                                  right_scaling,
+                                                  out_scaling,
+                                                  fq_modulus_selector,
+                                                  fr(0) },
+                                                true);
+        circuit_constructor.create_big_add_gate({ circuit_constructor.zero_idx(),
+                                                  circuit_constructor.zero_idx(),
+                                                  circuit_constructor.zero_idx(),
+                                                  repeated_idx,
+                                                  fr(0),
+                                                  fr(0),
+                                                  fr(0),
+                                                  fr(0),
+                                                  fr(0) });
+    }
+
+    StaticAnalyzer analyzer = StaticAnalyzer(circuit_constructor);
+    analyzer.fill_witness_duplicate_map();
+    EXPECT_TRUE(analyzer.get_witness_duplicate_map().empty());
+}
+
+TEST(boomerang_ultra_circuit_constructor, test_non_native_duplicate_filter_suppresses_connected_limb_chain)
+{
+    UltraCircuitBuilder circuit_constructor = UltraCircuitBuilder();
+    const auto repeated_value = bb::fr::random_element();
+    const bb::fr fq_modulus_selector = (uint256_t(0x30644e72e131a029ULL) << 192) + (uint256_t(0xb85045b6ULL) << 160);
+
+    uint32_t previous_idx = circuit_constructor.add_variable(repeated_value);
+    for (size_t i = 0; i < 5; i++) {
+        uint32_t peer_idx = circuit_constructor.add_variable(-(fr(1) + fq_modulus_selector) * repeated_value);
+        uint32_t next_idx = circuit_constructor.add_variable(repeated_value);
+        circuit_constructor.create_big_add_gate({ previous_idx,
+                                                  peer_idx,
+                                                  next_idx,
+                                                  circuit_constructor.zero_idx(),
+                                                  fr(1),
+                                                  fr(1),
+                                                  fq_modulus_selector,
+                                                  fr(0),
+                                                  fr(0) });
+        previous_idx = next_idx;
+    }
+
+    StaticAnalyzer analyzer = StaticAnalyzer(circuit_constructor, /*connect_variables=*/false);
+    analyzer.fill_witness_duplicate_map();
+    EXPECT_FALSE(analyzer.get_witness_duplicate_map().contains(repeated_value));
+}
+
+TEST(boomerang_ultra_circuit_constructor, test_non_native_duplicate_filter_suppresses_connected_product_rows)
+{
+    UltraCircuitBuilder circuit_constructor = UltraCircuitBuilder();
+    const bb::fr fq_modulus_selector = (uint256_t(0x30644e72e131a029ULL) << 192) + (uint256_t(0xb85045b6ULL) << 160);
+
+    const auto product_repeated_value = bb::fr::random_element();
+    uint32_t previous_product_idx = circuit_constructor.add_variable(product_repeated_value);
+    for (size_t i = 0; i < 3; i++) {
+        const auto peer_value =
+            -(fq_modulus_selector * product_repeated_value) / (fq_modulus_selector * product_repeated_value + fr(1));
+        uint32_t peer_idx = circuit_constructor.add_variable(peer_value);
+        uint32_t next_product_idx = circuit_constructor.add_variable(product_repeated_value);
+        circuit_constructor.create_big_mul_add_gate({ .a = previous_product_idx,
+                                                      .b = peer_idx,
+                                                      .c = next_product_idx,
+                                                      .d = circuit_constructor.zero_idx(),
+                                                      .mul_scaling = fq_modulus_selector,
+                                                      .a_scaling = fr(0),
+                                                      .b_scaling = fr(1),
+                                                      .c_scaling = fq_modulus_selector,
+                                                      .d_scaling = fr(0),
+                                                      .const_scaling = fr(0) });
+        previous_product_idx = next_product_idx;
+    }
+
+    const auto q4_repeated_value = bb::fr::random_element();
+    uint32_t previous_q4_idx = circuit_constructor.add_variable(q4_repeated_value);
+    for (size_t i = 0; i < 3; i++) {
+        const auto left_value = fr(7 + i);
+        const auto right_value = -(fr(1) + fq_modulus_selector) * q4_repeated_value / left_value;
+        uint32_t left_idx = circuit_constructor.add_variable(left_value);
+        uint32_t right_idx = circuit_constructor.add_variable(right_value);
+        uint32_t next_q4_idx = circuit_constructor.add_variable(q4_repeated_value);
+        circuit_constructor.create_big_mul_add_gate({ .a = left_idx,
+                                                      .b = right_idx,
+                                                      .c = previous_q4_idx,
+                                                      .d = next_q4_idx,
+                                                      .mul_scaling = fr(1),
+                                                      .a_scaling = fr(0),
+                                                      .b_scaling = fr(0),
+                                                      .c_scaling = fr(1),
+                                                      .d_scaling = fq_modulus_selector,
+                                                      .const_scaling = fr(0) });
+        previous_q4_idx = next_q4_idx;
+    }
+
+    StaticAnalyzer analyzer = StaticAnalyzer(circuit_constructor, /*connect_variables=*/false);
+    analyzer.fill_witness_duplicate_map();
+    EXPECT_FALSE(analyzer.get_witness_duplicate_map().contains(product_repeated_value));
+    EXPECT_FALSE(analyzer.get_witness_duplicate_map().contains(q4_repeated_value));
+}
+
+TEST(boomerang_ultra_circuit_constructor, test_non_native_duplicate_filter_suppresses_fixed_witness_bridge)
+{
+    UltraCircuitBuilder circuit_constructor = UltraCircuitBuilder();
+    const auto repeated_value = bb::fr::random_element();
+    const bb::fr fq_modulus_selector = (uint256_t(0x30644e72e131a029ULL) << 192) + (uint256_t(0xb85045b6ULL) << 160);
+
+    uint32_t fixed_idx = circuit_constructor.add_variable(repeated_value);
+    circuit_constructor.fix_witness(fixed_idx, repeated_value);
+    uint32_t repeated_idx = circuit_constructor.add_variable(repeated_value);
+    uint32_t next_repeated_idx = circuit_constructor.add_variable(repeated_value);
+    const auto balancing_value =
+        -(repeated_value * repeated_value + fq_modulus_selector * repeated_value) / fq_modulus_selector;
+    uint32_t balancing_idx = circuit_constructor.add_variable(balancing_value);
+
+    circuit_constructor.create_big_mul_add_gate({ .a = fixed_idx,
+                                                  .b = repeated_idx,
+                                                  .c = balancing_idx,
+                                                  .d = next_repeated_idx,
+                                                  .mul_scaling = fr(1),
+                                                  .a_scaling = fr(0),
+                                                  .b_scaling = fr(0),
+                                                  .c_scaling = fq_modulus_selector,
+                                                  .d_scaling = fq_modulus_selector,
+                                                  .const_scaling = fr(0) });
+
+    StaticAnalyzer analyzer = StaticAnalyzer(circuit_constructor, /*connect_variables=*/false);
+    analyzer.fill_witness_duplicate_map();
+    EXPECT_FALSE(analyzer.get_witness_duplicate_map().contains(repeated_value));
+}
+
+TEST(boomerang_ultra_circuit_constructor, test_arithmetic_derivation_duplicate_filter_suppresses_mirrored_rows)
+{
+    UltraCircuitBuilder circuit_constructor = UltraCircuitBuilder();
+    const bb::fr q_c = (uint256_t(0x30644e72e131a029ULL) << 192) + (uint256_t(0xb85045b6ULL) << 160);
+    const bb::fr peer_value = bb::fr::random_element();
+    const bb::fr pure_product_q_m = fr(0x9d80);
+    const bb::fr pure_product_value = -q_c / (pure_product_q_m * peer_value);
+    uint32_t peer_idx = circuit_constructor.add_variable(peer_value);
+    uint32_t pure_product_left_idx = circuit_constructor.add_variable(pure_product_value);
+    uint32_t pure_product_right_idx = circuit_constructor.add_variable(pure_product_value);
+    circuit_constructor.create_big_mul_add_gate({ .a = peer_idx,
+                                                  .b = pure_product_left_idx,
+                                                  .c = circuit_constructor.zero_idx(),
+                                                  .d = circuit_constructor.zero_idx(),
+                                                  .mul_scaling = pure_product_q_m,
+                                                  .a_scaling = fr(0),
+                                                  .b_scaling = fr(0),
+                                                  .c_scaling = fr(0),
+                                                  .d_scaling = fr(0),
+                                                  .const_scaling = q_c });
+    circuit_constructor.create_big_mul_add_gate({ .a = pure_product_right_idx,
+                                                  .b = peer_idx,
+                                                  .c = pure_product_right_idx,
+                                                  .d = circuit_constructor.zero_idx(),
+                                                  .mul_scaling = pure_product_q_m,
+                                                  .a_scaling = fr(0),
+                                                  .b_scaling = fr(0),
+                                                  .c_scaling = fr(0),
+                                                  .d_scaling = fr(0),
+                                                  .const_scaling = q_c });
+
+    const bb::fr linear_q_m = fr(0x5a0);
+    const bb::fr linear_scaling = -fr(0xb3f);
+    const bb::fr linear_value = -q_c / (linear_q_m * peer_value + linear_scaling);
+    uint32_t linear_left_idx = circuit_constructor.add_variable(linear_value);
+    uint32_t linear_right_idx = circuit_constructor.add_variable(linear_value);
+    circuit_constructor.create_big_mul_add_gate({ .a = peer_idx,
+                                                  .b = linear_left_idx,
+                                                  .c = circuit_constructor.zero_idx(),
+                                                  .d = circuit_constructor.zero_idx(),
+                                                  .mul_scaling = linear_q_m,
+                                                  .a_scaling = fr(0),
+                                                  .b_scaling = linear_scaling,
+                                                  .c_scaling = fr(0),
+                                                  .d_scaling = fr(0),
+                                                  .const_scaling = q_c });
+    circuit_constructor.create_big_mul_add_gate({ .a = linear_right_idx,
+                                                  .b = peer_idx,
+                                                  .c = linear_right_idx,
+                                                  .d = circuit_constructor.zero_idx(),
+                                                  .mul_scaling = linear_q_m,
+                                                  .a_scaling = linear_scaling,
+                                                  .b_scaling = fr(0),
+                                                  .c_scaling = fr(0),
+                                                  .d_scaling = fr(0),
+                                                  .const_scaling = q_c });
+
+    StaticAnalyzer analyzer = StaticAnalyzer(circuit_constructor, /*connect_variables=*/false);
+    analyzer.fill_witness_duplicate_map();
+    EXPECT_FALSE(analyzer.get_witness_duplicate_map().contains(pure_product_value));
+    EXPECT_FALSE(analyzer.get_witness_duplicate_map().contains(linear_value));
+}
+
+TEST(boomerang_ultra_circuit_constructor, test_elliptic_duplicate_filter_suppresses_repeated_operation_outputs)
+{
+    using affine_element = grumpkin::g1::affine_element;
+    using element = grumpkin::g1::element;
+    UltraCircuitBuilder circuit_constructor = UltraCircuitBuilder();
+
+    affine_element p1 = crypto::pedersen_commitment::commit_native({ bb::fr(1) }, 0);
+    affine_element p2 = crypto::pedersen_commitment::commit_native({ bb::fr(1) }, 1);
+    affine_element p3(element(p1) + element(p2));
+
+    for (size_t i = 0; i < 3; i++) {
+        uint32_t x1 = circuit_constructor.add_variable(p1.x);
+        uint32_t y1 = circuit_constructor.add_variable(p1.y);
+        uint32_t x2 = circuit_constructor.add_variable(p2.x);
+        uint32_t y2 = circuit_constructor.add_variable(p2.y);
+        uint32_t x3 = circuit_constructor.add_variable(p3.x);
+        uint32_t y3 = circuit_constructor.add_variable(p3.y);
+        circuit_constructor.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, /*is_addition=*/true });
+    }
+
+    StaticAnalyzer analyzer = StaticAnalyzer(circuit_constructor, /*connect_variables=*/false);
+    analyzer.fill_witness_duplicate_map();
+    EXPECT_FALSE(analyzer.get_witness_duplicate_map().contains(p3.x));
+    EXPECT_FALSE(analyzer.get_witness_duplicate_map().contains(p3.y));
+}
+
+TEST(boomerang_ultra_circuit_constructor, test_non_native_duplicate_filter_keeps_plain_gate_use)
+{
+    UltraCircuitBuilder circuit_constructor = UltraCircuitBuilder();
+    const auto repeated_value = bb::fr::random_element();
+    const bb::fr fq_modulus_selector = (uint256_t(0x30644e72e131a029ULL) << 192) + (uint256_t(0xb85045b6ULL) << 160);
+
+    for (size_t i = 0; i < 3; i++) {
+        uint32_t repeated_idx = circuit_constructor.add_variable(repeated_value);
+        const auto other_value = bb::fr::random_element();
+        uint32_t other_idx = circuit_constructor.add_variable(other_value);
+        const bb::fr q_c = -(fq_modulus_selector * (other_value + repeated_value));
+        circuit_constructor.create_big_add_gate({ other_idx,
+                                                  circuit_constructor.zero_idx(),
+                                                  repeated_idx,
+                                                  circuit_constructor.zero_idx(),
+                                                  fq_modulus_selector,
+                                                  fr(0),
+                                                  fq_modulus_selector,
+                                                  fr(0),
+                                                  q_c });
+
+        if (i == 0) {
+            const auto left_value = bb::fr::random_element();
+            const auto right_value = bb::fr::random_element();
+            uint32_t left_idx = circuit_constructor.add_variable(left_value);
+            uint32_t right_idx = circuit_constructor.add_variable(right_value);
+            uint32_t add_idx = circuit_constructor.add_variable(left_value + right_value + repeated_value);
+            circuit_constructor.create_big_add_gate(
+                { left_idx, right_idx, repeated_idx, add_idx, fr(1), fr(1), fr(1), fr(-1), fr(0) });
+        }
+    }
+
+    StaticAnalyzer analyzer = StaticAnalyzer(circuit_constructor);
+    analyzer.fill_witness_duplicate_map();
+    EXPECT_TRUE(analyzer.get_witness_duplicate_map().contains(repeated_value));
+}
+
+/**
  * @brief Test graph description of Ultra Circuit Builder with arithmetic gates with shifts
  *
  * @details This test verifies that:

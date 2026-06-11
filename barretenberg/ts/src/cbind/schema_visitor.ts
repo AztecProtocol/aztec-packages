@@ -8,13 +8,24 @@
  *   - Output is "compiled schema" with resolved types
  */
 
-export type PrimitiveType = 'bool' | 'u8' | 'u16' | 'u32' | 'u64' | 'f64' | 'string' | 'bytes' | 'field2' | 'enum_u32' | 'map_u32_pair';
+export type PrimitiveType =
+  | 'bool'
+  | 'u8'
+  | 'u16'
+  | 'u32'
+  | 'u64'
+  | 'f64'
+  | 'string'
+  | 'bytes'
+  | 'field2'
+  | 'enum_u32'
+  | 'map_u32_pair';
 
 export interface Type {
   kind: 'primitive' | 'vector' | 'array' | 'optional' | 'struct';
   primitive?: PrimitiveType;
-  element?: Type;  // For vector, array, optional
-  size?: number;   // For array
+  element?: Type; // For vector, array, optional
+  size?: number; // For array
   struct?: Struct; // For struct types
 }
 
@@ -199,19 +210,20 @@ export class SchemaVisitor {
 
   private resolvePrimitive(name: string): Type {
     const primitiveMap: Record<string, PrimitiveType> = {
-      'bool': 'bool',
-      'int': 'u32',
+      bool: 'bool',
+      int: 'u32',
       'unsigned int': 'u32',
       'unsigned short': 'u16',
       'unsigned long': 'u64',
       'unsigned long long': 'u64',
       'unsigned char': 'u8',
-      'double': 'f64',
-      'string': 'string',
-      'bin32': 'bytes',
-      'field2': 'field2',  // Extension field (Fq2) - pair of field elements
-      'MerkleTreeId': 'enum_u32',  // C++ enum serialized as uint32
-      'unordered_map': 'map_u32_pair',  // StateReference: map<MerkleTreeId, pair<fr, index_t>>
+      double: 'f64',
+      string: 'string',
+      bin32: 'bytes',
+      field2: 'field2', // Extension field (Fq2) - pair of field elements
+      MerkleTreeId: 'enum_u32', // C++ enum serialized as uint32
+      CircuitKind: 'enum_u32',
+      unordered_map: 'map_u32_pair', // StateReference: map<MerkleTreeId, pair<fr, index_t>>
     };
 
     const primitive = primitiveMap[name];

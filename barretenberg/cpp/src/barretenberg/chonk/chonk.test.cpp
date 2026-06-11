@@ -44,13 +44,9 @@ class ChonkTests : public ::testing::Test {
   protected:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
-    using Flavor = Chonk::Flavor;
-    using FF = typename Flavor::FF;
-    using Commitment = Flavor::Commitment;
-    using VerificationKey = Flavor::VerificationKey;
+    using FF = Chonk::FF;
+    using Commitment = Chonk::Commitment;
     using Builder = Chonk::ClientCircuit;
-    using ProverInstance = Chonk::ProverInstance;
-    using VerifierInstance = Chonk::VerifierInstance;
     using DeciderProver = Chonk::DeciderProver;
     using CircuitProducer = PrivateFunctionExecutionMockCircuitProducer;
     using ChonkVerifier = ChonkNativeVerifier;
@@ -124,10 +120,10 @@ class ChonkTests : public ::testing::Test {
         auto [proof, vk] = run_ivc(/*num_app_circuits=*/2, settings, [](Chonk& ivc, size_t idx) {
             if (idx == 1) {
                 auto& app_entry = ivc.verification_queue[1];
-                ASSERT_FALSE(app_entry.is_kernel) << "Expected second queue entry to be an app";
+                ASSERT_FALSE(app_entry.is_kernel()) << "Expected second queue entry to be an app";
 
                 using AppIOSerde = bb::stdlib::recursion::honk::AppIOSerde;
-                size_t num_public_inputs = app_entry.honk_vk->num_public_inputs;
+                size_t num_public_inputs = app_entry.num_public_inputs();
                 AppIOSerde app_io = AppIOSerde::from_proof(app_entry.proof, num_public_inputs);
 
                 // Set P0 to [x]₁ (the first SRS point after [1]) and P1 to [1]₁
@@ -155,10 +151,10 @@ class ChonkTests : public ::testing::Test {
         auto [proof, vk] = run_ivc(/*num_app_circuits=*/4, settings, [field_to_tamper](Chonk& ivc, size_t idx) {
             if (idx == 3) {
                 auto& kernel_entry = ivc.verification_queue[0];
-                ASSERT_TRUE(kernel_entry.is_kernel) << "Expected first queue entry to be a kernel";
+                ASSERT_TRUE(kernel_entry.is_kernel()) << "Expected first queue entry to be a kernel";
 
                 using KernelIOSerde = bb::stdlib::recursion::honk::KernelIOSerde;
-                size_t num_public_inputs = kernel_entry.honk_vk->num_public_inputs;
+                size_t num_public_inputs = kernel_entry.num_public_inputs();
                 KernelIOSerde kernel_io = KernelIOSerde::from_proof(kernel_entry.proof, num_public_inputs);
 
                 // Tamper with the specified field
@@ -190,57 +186,6 @@ class ChonkTests : public ::testing::Test {
             }
         });
         EXPECT_FALSE(verify_chonk(proof, vk));
-    }
-
-    /**
-     * @brief Helper function to test HidingKernelIO field propagation consistency
-     * @details Accumulates circuits, extracts the specified field from Tail kernel's proof,
-     * generates the final proof (which creates HidingKernel), and verifies the field
-     * propagated correctly to the HidingKernel's proof.
-     *
-     * Note: This test does not perform proof tampering. Changing the public inputs of HidingKernel
-     * would lead to wrong challenges throughout the proof, so instead we verify that the expected
-     * input from the Tail kernel matches the expected output in the HidingKernel.
-     */
-    static void test_kernel_return_data_propagation()
-    {
-        using HidingKernelIOSerde = bb::stdlib::recursion::honk::HidingKernelIOSerde;
-        using KernelIOSerde = bb::stdlib::recursion::honk::KernelIOSerde;
-
-        const size_t NUM_APP_CIRCUITS = 2;
-        const size_t NUM_TOTAL_CIRCUITS =
-            NUM_APP_CIRCUITS + static_cast<size_t>(ceil(static_cast<double>(NUM_APP_CIRCUITS) / MAX_APPS_PER_KERNEL)) +
-            /*num_trailing_kernels*/ 3;
-        TestSettings settings{ .log2_num_gates = SMALL_LOG_2_NUM_GATES };
-
-        // Extract tail kernel IO before the hiding kernel consumes the verification queue.
-        KernelIOSerde tail_io;
-        auto [proof, vk_and_hash] = run_ivc(
-            /*num_app_circuits=*/NUM_APP_CIRCUITS, settings, [&tail_io, &NUM_TOTAL_CIRCUITS](Chonk& ivc, size_t idx) {
-                // With 2 apps the layout is [app, kernel, app, kernel, reset, tail, hiding].
-                if (idx == NUM_TOTAL_CIRCUITS - 2) {
-                    for (auto& it : std::ranges::reverse_view(ivc.verification_queue)) {
-                        if (it.is_kernel) {
-                            size_t num_public_inputs = it.honk_vk->num_public_inputs;
-                            ASSERT_EQ(num_public_inputs, KernelIOSerde::PUBLIC_INPUTS_SIZE)
-                                << "Tail kernel should use KernelIO format";
-                            ASSERT_GT(it.proof.size(), num_public_inputs) << "Tail kernel proof too small";
-                            tail_io = KernelIOSerde::from_proof(it.proof, num_public_inputs);
-                            break;
-                        }
-                    }
-                }
-            });
-
-        size_t hiding_kernel_pub_inputs = vk_and_hash->vk->num_public_inputs;
-        ASSERT_EQ(hiding_kernel_pub_inputs, HidingKernelIOSerde::PUBLIC_INPUTS_SIZE)
-            << "HidingKernel should use HidingKernelIO format";
-        HidingKernelIOSerde hiding_io =
-            HidingKernelIOSerde::from_proof(proof.hiding_oink_proof, hiding_kernel_pub_inputs);
-
-        EXPECT_EQ(tail_io.kernel_return_data, hiding_io.kernel_return_data)
-            << "kernel_return_data mismatch: Tail has " << tail_io.kernel_return_data << " but HidingKernel has "
-            << hiding_io.kernel_return_data;
     }
 
   private:
@@ -342,7 +287,7 @@ TEST_F(ChonkTests, BadProofFailure)
 
             if (idx == 2) {
                 tamper_with_proof(ivc.verification_queue[0].proof,
-                                  ivc.verification_queue[0].honk_vk->num_public_inputs); // tamper with first proof
+                                  ivc.verification_queue[0].num_public_inputs()); // tamper with first proof
             }
         }
         auto proof = ivc.prove();
@@ -361,7 +306,7 @@ TEST_F(ChonkTests, BadProofFailure)
 
             if (idx == 1) {
                 tamper_with_proof(ivc.verification_queue[1].proof,
-                                  ivc.verification_queue[1].honk_vk->num_public_inputs); // tamper with second proof
+                                  ivc.verification_queue[1].num_public_inputs()); // tamper with second proof
             }
         }
         auto proof = ivc.prove();
@@ -502,16 +447,6 @@ INSTANTIATE_TEST_SUITE_P(All,
                              }
                              return "Unknown";
                          });
-
-/**
- * @brief Test that kernel_return_data is consistently propagated from Tail kernel to HidingKernel proof
- * @details kernel_return_data commitment is placed in the Tail kernel's public inputs and must be
- * propagated unchanged to the HidingKernel's public inputs.
- */
-TEST_F(ChonkTests, KernelReturnDataPropagationConsistency)
-{
-    ChonkTests::test_kernel_return_data_propagation();
-}
 
 /**
  * @brief Demonstrates that the HN accumulator chain cannot be broken

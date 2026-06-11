@@ -1,8 +1,22 @@
 #include "./straus_plookup_table.hpp"
 #include "./cycle_group.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
+#include "barretenberg/stdlib_circuit_builders/duplicate_provenance.hpp"
 
 namespace bb::stdlib {
+
+namespace {
+
+enum class PointCoordinateSlot : uint64_t { X = 0, Y = 1 };
+
+// BOOMERANG_DUPLICATE_PROVENANCE: See
+// barretenberg/cpp/src/barretenberg/boomerang_value_detection/WITNESS_DUPLICATE_DETECTION.md.
+inline DuplicateProvenanceLocalId msm_table_local_id(std::initializer_list<uint64_t> identities)
+{
+    return duplicate_provenance_local_id(identities);
+}
+
+} // namespace
 
 /**
  * @brief Compute native table entries and BasicTable column data without touching the circuit builder.
@@ -131,7 +145,34 @@ template <typename Builder> cycle_group<Builder> straus_plookup_table<Builder>::
     plookup::BasicTable::LookupEntry entry;
     entry.key = { uint256_t(native_index), 0 };
     entry.value = { point.x, point.y };
-    _context->create_lookup_gate(index.get_witness_index(), x_idx, y_idx, *_table, entry);
+    const uint32_t index_witness = index.get_witness_index();
+    _context->create_lookup_gate(index_witness, x_idx, y_idx, *_table, entry);
+
+    // Tag the read-output coordinate witnesses with an MSM_TABLE provenance key. The lookup gate forces the triple
+    // (index, x, y) to be a row of table `_table->table_index`, so two reads of the same table whose index witnesses
+    // are the same real variable are constrained to the same row and are therefore forced equal. We key on the table
+    // index and the real variable index of the read-index witness (resolved at tag time), never on the slot value or
+    // the coordinate values: two reads whose index witnesses merely hold the same value but are distinct variables are
+    // NOT forced equal, so they receive distinct keys. The x and y coordinates are not forced equal to each other, so
+    // they get distinct slot words. `index_witness` was already materialized for the lookup gate above, so reading it
+    // here adds no gate.
+    const auto index_identity = [&]() {
+        const uint32_t real_index = _context->real_variable_index[index_witness];
+        const auto& provenance = _context->get_duplicate_provenance();
+        auto provenance_it = provenance.find(real_index);
+        if (provenance_it != provenance.end()) {
+            return _context->get_duplicate_provenance_interned_identity(provenance_it->second);
+        }
+        return msm_table_local_id({ DUPLICATE_PROVENANCE_RAW_IDENTITY_TAG, static_cast<uint64_t>(real_index) });
+    }();
+    const auto coord_key = [&](uint64_t coord) {
+        auto local_id = msm_table_local_id({ static_cast<uint64_t>(_table->table_index) });
+        append_duplicate_provenance_identity(local_id, index_identity);
+        append_duplicate_provenance_identity(local_id, coord);
+        return Builder::make_duplicate_provenance(DuplicateProvenanceCategory::MSM_TABLE, std::move(local_id));
+    };
+    _context->tag_duplicate_provenance(x_idx, coord_key(static_cast<uint64_t>(PointCoordinateSlot::X)));
+    _context->tag_duplicate_provenance(y_idx, coord_key(static_cast<uint64_t>(PointCoordinateSlot::Y)));
 
     // Wrap output witnesses in field_t and propagate origin tag from the index
     field_t x = field_t::from_witness_index(_context, x_idx);

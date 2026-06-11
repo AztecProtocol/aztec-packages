@@ -130,6 +130,8 @@ TEST_F(BoomerangGoblinRecursiveVerifierTests, graph_description_basic)
     auto graph = cdg::StaticAnalyzer(builder, false);
     auto variables_in_one_gate = graph.get_variables_in_one_gate();
     EXPECT_EQ(variables_in_one_gate.size(), 0);
+    graph.fill_witness_duplicate_map({}, cdg::WitnessDuplicateFilterMode::TRIAGE_VALUE_FILTERS);
+    EXPECT_TRUE(graph.get_witness_duplicate_map().empty());
 }
 
 } // namespace bb::stdlib::recursion::honk

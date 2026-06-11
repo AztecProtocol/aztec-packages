@@ -168,6 +168,75 @@ struct MegaVkAsFields {
 };
 
 /**
+ * @struct MegaAppVkAsFields
+ * @brief Convert a MegaAppFlavor verification key to field elements.
+ *
+ * MegaAppFlavor drops the kernel/app-calldata read-side bus columns, producing a smaller VK than
+ * MegaFlavor. Used for chonk-accumulated app circuits.
+ */
+struct MegaAppVkAsFields {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "MegaAppVkAsFields";
+
+    struct Response {
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "MegaAppVkAsFieldsResponse";
+
+        std::vector<bb::fr> fields;
+        SERIALIZATION_FIELDS(fields);
+        bool operator==(const Response&) const = default;
+    };
+
+    std::vector<uint8_t> verification_key;
+    SERIALIZATION_FIELDS(verification_key);
+    Response execute(const BBApiRequest& request = {}) &&;
+    bool operator==(const MegaAppVkAsFields&) const = default;
+};
+
+/**
+ * @struct MegaKernelVkAsFields
+ * @brief Convert a MegaKernelFlavor verification key to field elements.
+ *
+ * MegaKernelFlavor drops LogDerivLookup and NonNativeField selectors compared to MegaFlavor.
+ * Used for chonk-accumulated kernel circuits (init / inner / reset / tail).
+ */
+struct MegaKernelVkAsFields {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "MegaKernelVkAsFields";
+
+    struct Response {
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "MegaKernelVkAsFieldsResponse";
+
+        std::vector<bb::fr> fields;
+        SERIALIZATION_FIELDS(fields);
+        bool operator==(const Response&) const = default;
+    };
+
+    std::vector<uint8_t> verification_key;
+    SERIALIZATION_FIELDS(verification_key);
+    Response execute(const BBApiRequest& request = {}) &&;
+    bool operator==(const MegaKernelVkAsFields&) const = default;
+};
+
+/**
+ * @struct MegaZKVkAsFields
+ * @brief Convert a MegaZKFlavor verification key to field elements. Used for the IVC hiding kernel.
+ */
+struct MegaZKVkAsFields {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "MegaZKVkAsFields";
+
+    struct Response {
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "MegaZKVkAsFieldsResponse";
+
+        std::vector<bb::fr> fields;
+        SERIALIZATION_FIELDS(fields);
+        bool operator==(const Response&) const = default;
+    };
+
+    std::vector<uint8_t> verification_key;
+    SERIALIZATION_FIELDS(verification_key);
+    Response execute(const BBApiRequest& request = {}) &&;
+    bool operator==(const MegaZKVkAsFields&) const = default;
+};
+
+/**
  * @brief Command to generate Solidity verifier contract
  */
 struct CircuitWriteSolidityVerifier {

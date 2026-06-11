@@ -1,4 +1,4 @@
-import { MEGA_VK_LENGTH_IN_FIELDS } from '@aztec/constants';
+import { MEGA_APP_VK_LENGTH_IN_FIELDS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type ContractArtifact, FunctionType } from '@aztec/stdlib/abi';
 import { DEV_VERSION } from '@aztec/stdlib/update-checker';
@@ -28,7 +28,7 @@ export const testContractArtifact: ContractArtifact = {
       returnTypes: [],
       errorTypes: {},
       bytecode: Buffer.alloc(8, 0xfa),
-      verificationKey: Buffer.alloc(MEGA_VK_LENGTH_IN_FIELDS * Fr.SIZE_IN_BYTES).toString('base64'),
+      verificationKey: Buffer.alloc(MEGA_APP_VK_LENGTH_IN_FIELDS * Fr.SIZE_IN_BYTES).toString('base64'),
     },
     {
       name: 'public_dispatch',
@@ -56,7 +56,7 @@ export const testContractArtifact: ContractArtifact = {
       returnTypes: [],
       errorTypes: {},
       bytecode: Buffer.alloc(8, 0xfa),
-      verificationKey: Buffer.alloc(MEGA_VK_LENGTH_IN_FIELDS * Fr.SIZE_IN_BYTES).toString('base64'),
+      verificationKey: Buffer.alloc(MEGA_APP_VK_LENGTH_IN_FIELDS * Fr.SIZE_IN_BYTES).toString('base64'),
     },
     {
       name: 'qux',
@@ -93,7 +93,7 @@ export const testContractArtifact: ContractArtifact = {
       returnTypes: [],
       errorTypes: {},
       bytecode: Buffer.alloc(8, 0xfd),
-      verificationKey: Buffer.alloc(MEGA_VK_LENGTH_IN_FIELDS * Fr.SIZE_IN_BYTES).toString('base64'),
+      verificationKey: Buffer.alloc(MEGA_APP_VK_LENGTH_IN_FIELDS * Fr.SIZE_IN_BYTES).toString('base64'),
       debugSymbols: '',
     },
     {
@@ -120,7 +120,7 @@ export const testContractArtifact: ContractArtifact = {
       returnTypes: [],
       errorTypes: {},
       bytecode: Buffer.alloc(8, 0xfe),
-      verificationKey: Buffer.alloc(MEGA_VK_LENGTH_IN_FIELDS * Fr.SIZE_IN_BYTES).toString('base64'),
+      verificationKey: Buffer.alloc(MEGA_APP_VK_LENGTH_IN_FIELDS * Fr.SIZE_IN_BYTES).toString('base64'),
       debugSymbols: '',
     },
   ],

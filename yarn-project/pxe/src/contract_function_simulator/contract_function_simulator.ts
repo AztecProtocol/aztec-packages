@@ -1,3 +1,4 @@
+import { CircuitKind } from '@aztec/bb.js';
 import {
   AVM_EMITNOTEHASH_BASE_L2_GAS,
   AVM_EMITNULLIFIER_BASE_L2_GAS,
@@ -544,6 +545,7 @@ export async function generateSimulatedProvingResult(
       bytecode: execution.acir,
       vk: execution.vk,
       witness: execution.partialWitness,
+      kind: CircuitKind.App,
     });
   }
 

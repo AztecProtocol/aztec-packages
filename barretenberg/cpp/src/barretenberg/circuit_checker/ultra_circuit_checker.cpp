@@ -141,6 +141,12 @@ bool UltraCircuitChecker::check_block(Builder& builder,
         if (!result) {
             return report_fail("Failed Arithmetic relation at row idx = ", idx);
         }
+        if constexpr (IsMegaBuilder<Builder>) {
+            result = result && check_relation<BilinearBatchedEq>(values, params);
+            if (!result) {
+                return report_fail("Failed BilinearBatchedEq relation at row idx = ", idx);
+            }
+        }
         result = result && check_relation<Elliptic>(values, params);
         if (!result) {
             return report_fail("Failed Elliptic relation at row idx = ", idx);
@@ -379,6 +385,7 @@ void UltraCircuitChecker::populate_values(
     values.q_poseidon2_external() = read_gate_selector(block, GateKind::Poseidon2Ext, idx);
     if constexpr (IsMegaBuilder<Builder>) {
         values.q_5() = block.q_5()[idx];
+        values.q_bilinear_batched_eq() = read_gate_selector(block, GateKind::BilinearBatchedEq, idx);
         values.q_busread() = read_gate_selector(block, GateKind::BusRead, idx);
         values.q_poseidon2_external_initial() = read_gate_selector(block, GateKind::Poseidon2ExtInitial, idx);
         values.q_poseidon2_quad_internal() = read_gate_selector(block, GateKind::Poseidon2QuadInt, idx);

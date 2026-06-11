@@ -145,12 +145,13 @@ void PrivateExecutionSteps::parse(std::vector<PrivateExecutionStepRaw>&& steps)
     folding_stack.resize(steps.size());
     precomputed_vks.resize(steps.size());
     function_names.resize(steps.size());
+    kinds.resize(steps.size());
 
     // Parse each step's bytecode/witness in parallel (thread-safe with msgpack format)
     parallel_for(steps.size(), [&](size_t i) {
         PrivateExecutionStepRaw step = std::move(steps[i]);
 
-        acir_format::AcirFormat constraints = acir_format::circuit_buf_to_acir_format(std::move(step.bytecode));
+        acir_format::AcirFormat constraints = acir_format::circuit_buf_to_mega_acir_format(std::move(step.bytecode));
         acir_format::WitnessVector witness = acir_format::witness_buf_to_witness_vector(std::move(step.witness));
 
         folding_stack[i] = { std::move(constraints), std::move(witness) };
@@ -161,6 +162,7 @@ void PrivateExecutionSteps::parse(std::vector<PrivateExecutionStepRaw>&& steps)
             precomputed_vks[i] = std::move(step.vk);
         }
         function_names[i] = std::move(step.function_name);
+        kinds[i] = step.kind;
     });
 }
 
@@ -177,7 +179,8 @@ std::shared_ptr<Chonk> PrivateExecutionSteps::accumulate()
     for (size_t i = 0; i < folding_stack.size(); ++i) {
         step_processor.process_step({ .name = std::move(function_names[i]),
                                       .program = std::move(folding_stack[i]),
-                                      .precomputed_vk = std::move(precomputed_vks[i]) });
+                                      .precomputed_vk = std::move(precomputed_vks[i]),
+                                      .kind = kinds[i] });
     }
 
     return step_processor.get_ivc();

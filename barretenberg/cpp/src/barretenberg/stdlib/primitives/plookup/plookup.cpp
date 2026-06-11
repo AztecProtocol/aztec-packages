@@ -6,6 +6,7 @@
 
 #include "./plookup.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
+#include "barretenberg/stdlib_circuit_builders/duplicate_provenance.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/plookup_tables.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
 
@@ -14,6 +15,20 @@ namespace bb::stdlib {
 using plookup::ColumnIdx;
 using plookup::MultiTableId;
 using namespace bb;
+
+namespace {
+
+enum class LookupKeyMode : uint64_t { ONE_KEY = 0, TWO_KEY = 1 };
+constexpr uint64_t NO_SECOND_LOOKUP_KEY_IDENTITY = 0;
+
+// BOOMERANG_DUPLICATE_PROVENANCE: See
+// barretenberg/cpp/src/barretenberg/boomerang_value_detection/WITNESS_DUPLICATE_DETECTION.md.
+inline DuplicateProvenanceLocalId lookup_table_local_id(std::initializer_list<uint64_t> identities)
+{
+    return duplicate_provenance_local_id(identities);
+}
+
+} // namespace
 
 template <typename Builder>
 plookup::ReadData<field_t<Builder>> plookup_read<Builder>::get_lookup_accumulators(const MultiTableId id,
@@ -53,6 +68,45 @@ plookup::ReadData<field_t<Builder>> plookup_read<Builder>::get_lookup_accumulato
 
         const auto accumulator_witnesses =
             ctx->create_gates_from_plookup_accumulators(id, lookup_data, lhs_index, key_b_witness);
+
+        const auto key_identity = [&](uint32_t witness_index) {
+            const uint64_t real_index = static_cast<uint64_t>(ctx->real_variable_index[witness_index]);
+            const auto& provenance = ctx->get_duplicate_provenance();
+            auto provenance_it = provenance.find(static_cast<uint32_t>(real_index));
+            if (provenance_it != provenance.end()) {
+                return ctx->get_duplicate_provenance_interned_identity(provenance_it->second);
+            }
+            return lookup_table_local_id({ DUPLICATE_PROVENANCE_RAW_IDENTITY_TAG, real_index });
+        };
+        const auto lhs_identity = key_identity(lhs_index);
+        const auto rhs_identity = key_b_witness.has_value()
+                                      ? key_identity(*key_b_witness)
+                                      : DuplicateProvenanceLocalId{ NO_SECOND_LOOKUP_KEY_IDENTITY };
+        const auto provenance_key = [&](ColumnIdx column, size_t row) {
+            auto local_id = lookup_table_local_id(
+                { static_cast<uint64_t>(id),
+                  static_cast<uint64_t>(is_2_to_1_lookup ? LookupKeyMode::TWO_KEY : LookupKeyMode::ONE_KEY) });
+            append_duplicate_provenance_identity(local_id, lhs_identity);
+            append_duplicate_provenance_identity(local_id, rhs_identity);
+            append_duplicate_provenance_identity(local_id, static_cast<uint64_t>(column));
+            append_duplicate_provenance_identity(local_id, static_cast<uint64_t>(row));
+            return Builder::make_duplicate_provenance(DuplicateProvenanceCategory::LOOKUP_TABLE, std::move(local_id));
+        };
+        const auto tag_if_untagged = [&](uint32_t witness_index, const DuplicateProvenance& key) {
+            const uint32_t real_index = ctx->real_variable_index[witness_index];
+            if (!ctx->get_duplicate_provenance().contains(real_index)) {
+                ctx->tag_duplicate_provenance(witness_index, key);
+            }
+        };
+        for (size_t i = 0; i < lookup_data[ColumnIdx::C1].size(); ++i) {
+            if (i > 0) {
+                tag_if_untagged(accumulator_witnesses[ColumnIdx::C1][i], provenance_key(ColumnIdx::C1, i));
+            }
+            if (!(is_2_to_1_lookup && i == 0)) {
+                tag_if_untagged(accumulator_witnesses[ColumnIdx::C2][i], provenance_key(ColumnIdx::C2, i));
+            }
+            tag_if_untagged(accumulator_witnesses[ColumnIdx::C3][i], provenance_key(ColumnIdx::C3, i));
+        }
 
         const auto merged_tag = OriginTag(key_a.get_origin_tag(), key_b.get_origin_tag());
         for (size_t i = 0; i < lookup_data[ColumnIdx::C1].size(); ++i) {

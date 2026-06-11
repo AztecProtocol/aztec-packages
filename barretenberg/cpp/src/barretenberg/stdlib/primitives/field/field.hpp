@@ -355,7 +355,20 @@ template <typename Builder_> class field_t {
         return result;
     }
 
-    void set_origin_tag(const OriginTag& new_tag) const { tag = new_tag; }
+    void set_origin_tag(const OriginTag& new_tag) const
+    {
+        // GCC -O3 mis-analyzes this defaulted OriginTag copy as a write into a zero-sized region when
+        // set_origin_tag is inlined through bigfield::self_reduce (-Werror=stringop-overflow). The destination
+        // is a fixed-size member; the warning is a known GCC false positive, so suppress it at the write.
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstringop-overflow"
+#endif
+        tag = new_tag;
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
+    }
     OriginTag get_origin_tag() const { return tag; };
 
     /**
@@ -517,6 +530,18 @@ template <typename Builder_> class field_t {
      * @return uint32_t The witness index of the normalized element
      */
     uint32_t get_witness_index() const { return normalize().witness_index; }
+
+    /**
+     * @brief Return the raw underlying witness index without normalizing (no gates added).
+     * @details BOOMERANG_DUPLICATE_PROVENANCE: See
+     * barretenberg/cpp/src/barretenberg/boomerang_value_detection/WITNESS_DUPLICATE_DETECTION.md.
+     *
+     * @details For witness-identity use only — e.g. the boomerang static analyzer's duplicate-provenance tagging,
+     * which keys on which witness a value is derived from, not on the value itself. Returns IS_CONSTANT for constants.
+     * Unlike get_witness_index(), the returned witness does NOT necessarily contain this element's value (the affine
+     * multiplicative/additive constants are ignored), so it must never be used to build constraints.
+     */
+    uint32_t get_raw_witness_index() const { return witness_index; }
 
     /**
      * @brief Check if two field elements have the same witness index (for identity checks).

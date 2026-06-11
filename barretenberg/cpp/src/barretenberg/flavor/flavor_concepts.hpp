@@ -41,6 +41,8 @@ concept IsRecursiveFlavor = IsAnyOf<T, UltraRecursiveFlavor_<UltraCircuitBuilder
                                        MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
                                        MegaZKRecursiveFlavor_<UltraCircuitBuilder>,
                                        MegaAvmRecursiveFlavor_<UltraCircuitBuilder>,
+                                       MegaAppRecursiveFlavor,
+                                       MegaKernelRecursiveFlavor,
                                        TranslatorRecursiveFlavor,
                                        ECCVMRecursiveFlavor,
                                        MultilinearBatchingRecursiveFlavor,

@@ -9,12 +9,9 @@ namespace bb {
 
 /**
  * @brief Bundle of precomputed VKs returned by `precompute_vks`.
- * @details The hiding-kernel VK is MegaZKFlavor-shaped (distinct C++ type from MegaFlavor::VK)
- * and must travel separately from the per-circuit MegaFlavor VK vector.
  */
 struct PrecomputedVks {
-    std::vector<std::shared_ptr<typename MegaFlavor::VerificationKey>> app_and_kernel_vks;
-    std::shared_ptr<typename MegaZKFlavor::VerificationKey> hiding_kernel_vk;
+    std::vector<Chonk::CircuitVerificationKey> per_circuit_vks;
 };
 
 std::pair<ChonkProof, std::shared_ptr<MegaZKFlavor::VKAndHash>> accumulate_and_prove_with_precomputed_vks(
@@ -24,7 +21,7 @@ std::pair<ChonkProof, std::shared_ptr<MegaZKFlavor::VKAndHash>> accumulate_and_p
     Chonk ivc{ NUM_CIRCUITS };
 
     BB_ASSERT_EQ(
-        precomputed_vks.app_and_kernel_vks.size(), NUM_CIRCUITS, "There should be a precomputed VK for each circuit");
+        precomputed_vks.per_circuit_vks.size(), NUM_CIRCUITS, "There should be a precomputed VK for each circuit");
 
     for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
         MegaCircuitBuilder circuit;
@@ -32,12 +29,7 @@ std::pair<ChonkProof, std::shared_ptr<MegaZKFlavor::VKAndHash>> accumulate_and_p
             BB_BENCH_NAME("construct_circuits");
             circuit = circuit_producer.create_next_circuit(ivc);
         }
-
-        if (circuit_idx + 1 == NUM_CIRCUITS) {
-            ivc.accumulate_hiding_kernel(circuit, precomputed_vks.hiding_kernel_vk);
-        } else {
-            ivc.accumulate(circuit, precomputed_vks.app_and_kernel_vks[circuit_idx]);
-        }
+        ivc.accumulate(circuit, ivc.next_circuit_kind(), precomputed_vks.per_circuit_vks[circuit_idx]);
     }
     return { ivc.prove(), ivc.get_hiding_kernel_vk_and_hash() };
 }
@@ -69,22 +61,22 @@ inline PrecomputedVks precompute_vks(PrivateFunctionExecutionMockCircuitProducer
     Chonk ivc{ NUM_CIRCUITS };
 
     PrecomputedVks out;
-    out.app_and_kernel_vks.reserve(NUM_CIRCUITS);
+    out.per_circuit_vks.reserve(NUM_CIRCUITS);
     for (size_t j = 0; j < NUM_CIRCUITS; ++j) {
         auto circuit = circuit_producer.create_next_circuit(ivc);
-        const bool is_hiding_kernel = (j == NUM_CIRCUITS - 1);
-        if (is_hiding_kernel) {
-            // Hiding kernel VK is MegaZKFlavor-shaped (distinct from MegaFlavor::VK). Capture it
-            // out-of-band on the bundle; the MegaFlavor::VK slot in app_and_kernel_vks is null.
-            out.hiding_kernel_vk =
-                PrivateFunctionExecutionMockCircuitProducer::get_hiding_kernel_verification_key(circuit);
-            out.app_and_kernel_vks.push_back(nullptr);
-            ivc.accumulate_hiding_kernel(circuit, out.hiding_kernel_vk);
-        } else {
-            auto vk = PrivateFunctionExecutionMockCircuitProducer::get_verification_key(circuit);
-            out.app_and_kernel_vks.push_back(vk);
-            ivc.accumulate(circuit, vk);
-        }
+        const Chonk::CircuitKind kind = ivc.next_circuit_kind();
+
+        Chonk::CircuitVerificationKey vk = dispatch_kind(kind, [&]<Chonk::CircuitKind K>() {
+            using FlavorT = flavor_for<K>;
+            using VK = typename FlavorT::VerificationKey;
+            MegaCircuitBuilder_<bb::fr> builder{ circuit };
+            builder.op_queue = std::make_shared<ECCOpQueue>(*builder.op_queue);
+            return Chonk::CircuitVerificationKey{ std::make_shared<VK>(
+                ProverInstance_<FlavorT>(builder).get_precomputed()) };
+        });
+
+        out.per_circuit_vks.push_back(vk);
+        ivc.accumulate(circuit, kind, vk);
     }
 
     return out;
