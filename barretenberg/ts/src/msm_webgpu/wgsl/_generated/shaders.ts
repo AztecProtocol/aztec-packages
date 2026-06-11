@@ -1899,7 +1899,11 @@ export const ba_halve = `{{> structs }}
 // the apply uses the 3x² numerator; equal x with negated y writes infinity.
 // These branches are uniformly not-taken for non-adversarial inputs.
 //
-// Straight-line: the only loops in the module are pk14's own.
+// The per-pair work runs in ROLLED loops whose trip count is lparams.y
+// (== CPAIRS, but read from a uniform so mobile driver compilers cannot
+// unroll them — fully inlining CPAIRS copies of the montmul body crashes
+// the Adreno/Mali shader compilers). CPAIRS only sizes the private
+// partial-product array for the shared batch inversion.
 
 const PG: u32 = 2u;
 const WG: u32 = {{ workgroup_size }}u;
@@ -1911,7 +1915,8 @@ const CPAIRS: u32 = {{ cpairs }}u;
 @group(0) @binding(3) var<uniform>             lparams:    vec4<u32>;
 @group(0) @binding(4) var<storage, read>       hsched:     array<vec4<u32>>;
 // cparams = (M_RED (red_buf x/y plane stride), _, _, _).
-// lparams = (depth, 0, 0, 0).
+// lparams = (depth, cpairs, 0, 0) — cpairs duplicated here so loop bounds
+// stay opaque to the driver's unroller.
 // hsched[w] = (base, B, 0, 0) — window w's arena base slot and stride.
 
 fn load_x(idx: u32, M: u32) -> array<u32, 8> {
@@ -1935,14 +1940,6 @@ fn store_y(idx: u32, M: u32, val: array<u32, 8>) {
     let base = PG * M + PG * idx;
     red_buf[base + 0u] = vec4<u32>(val[0], val[1], val[2], val[3]);
     red_buf[base + 1u] = vec4<u32>(val[4], val[5], val[6], val[7]);
-}
-
-fn fr_select_f8(a: array<u32, 8>, b: array<u32, 8>, cond: bool) -> array<u32, 8> {
-    return array<u32, 8>(
-        select(a[0], b[0], cond), select(a[1], b[1], cond),
-        select(a[2], b[2], cond), select(a[3], b[3], cond),
-        select(a[4], b[4], cond), select(a[5], b[5], cond),
-        select(a[6], b[6], cond), select(a[7], b[7], cond));
 }
 
 fn fr_eq_f8(a: array<u32, 8>, b: array<u32, 8>) -> bool {
@@ -8087,8 +8084,12 @@ const WG: u32 = {{ workgroup_size }}u;
 @group(0) @binding(4) var<uniform>             lparams:    vec4<u32>;
 @group(0) @binding(5) var<storage, read>       hsched:     array<vec4<u32>>;
 @group(0) @binding(6) var<storage, read_write> stage_out:  array<vec4<u32>>;
-// cparams = (M_RED, _, _, _); lparams unused (geometry baked);
-// hsched[w] = (base, B, 0, 0).
+// cparams = (M_RED, _, _, _);
+// lparams = (finisher_depth, inputs_jac, log2_B, 0) — the finisher geometry
+// lives in the UNIFORM buffer (not hsched) because the master loop's trip
+// count derives from it and the storageBarrier()s inside require uniform
+// control flow;
+// hsched[w] = (base, B, 0, 0) — only base is read here.
 // stage_out: compact export of the staged points for the early-exit
 // readback — record (w·(1+d_f) + a) holds x, y, z as 6 vec4s of
 // standard-form (NON-Montgomery) LE integers, z == 0 ⇒ absent — the same
@@ -8213,15 +8214,20 @@ fn gstore(idx: u32, v: Jac) {
     store_z(idx, v.z);
 }
 
-// Load a slot that has not been written by this pass (an "original"):
-// affine-entry runs synthesize z from the presence flag.
-fn gload_orig(idx: u32, M: u32) -> Jac {
-    let r1o: array<u32, 8> = get_r_f8();
-    var z = array<u32, 8>(0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u);
-    if (is_present[idx] != 0u) {
-        z = r1o;
+// Load a slot, synthesizing z from the presence flag when the slot is an
+// untouched original (og — affine-entry runs only); written slots always
+// carry z in red_z.
+fn gload_any(idx: u32, og: bool) -> Jac {
+    var z: array<u32, 8>;
+    if (og) {
+        z = array<u32, 8>(0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u);
+        if (is_present[idx] != 0u) {
+            z = get_r_f8();
+        }
+    } else {
+        z = load_zp(idx);
     }
-    return Jac(load_x(idx, M), load_y(idx, M), z);
+    return Jac(load_x(idx, cparams.x), load_y(idx, cparams.x), z);
 }
 
 @compute
@@ -8232,10 +8238,8 @@ fn main(@builtin(workgroup_id) wgid: vec3<u32>, @builtin(local_invocation_id) li
     let M_RED = cparams.x;
     let h = hsched[w];
     let base = h.x;
-    let B = h.y;
+    let B = 1u << lparams.z;
     let t = lid.x;
-    let r1: array<u32, 8> = get_r_f8();
-    let zero = array<u32, 8>(0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u);
     let off = select(B >> a, 0u, a == 0u);
 
 {{{ f1_body }}}
@@ -8271,7 +8275,9 @@ const WG: u32 = {{ workgroup_size }}u;
 @group(0) @binding(3) var<uniform>             cparams:    vec4<u32>;
 @group(0) @binding(4) var<uniform>             lparams:    vec4<u32>;
 @group(0) @binding(5) var<storage, read>       hsched:     array<vec4<u32>>;
-// cparams = (M_RED, _, _, num_windows); lparams unused (geometry baked).
+// cparams = (M_RED, _, _, num_windows);
+// lparams = (finisher_depth, inputs_jac, log2_B, 0) — uniform-sourced so the
+// rolled tree's barrier sits in uniform control flow.
 
 fn load_x(idx: u32, M: u32) -> array<u32, 8> {
     let base = PG * idx;

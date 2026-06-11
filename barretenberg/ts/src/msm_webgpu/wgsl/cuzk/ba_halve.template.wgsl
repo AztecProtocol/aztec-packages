@@ -28,7 +28,11 @@
 // the apply uses the 3x² numerator; equal x with negated y writes infinity.
 // These branches are uniformly not-taken for non-adversarial inputs.
 //
-// Straight-line: the only loops in the module are pk14's own.
+// The per-pair work runs in ROLLED loops whose trip count is lparams.y
+// (== CPAIRS, but read from a uniform so mobile driver compilers cannot
+// unroll them — fully inlining CPAIRS copies of the montmul body crashes
+// the Adreno/Mali shader compilers). CPAIRS only sizes the private
+// partial-product array for the shared batch inversion.
 
 const PG: u32 = 2u;
 const WG: u32 = {{ workgroup_size }}u;
@@ -40,7 +44,8 @@ const CPAIRS: u32 = {{ cpairs }}u;
 @group(0) @binding(3) var<uniform>             lparams:    vec4<u32>;
 @group(0) @binding(4) var<storage, read>       hsched:     array<vec4<u32>>;
 // cparams = (M_RED (red_buf x/y plane stride), _, _, _).
-// lparams = (depth, 0, 0, 0).
+// lparams = (depth, cpairs, 0, 0) — cpairs duplicated here so loop bounds
+// stay opaque to the driver's unroller.
 // hsched[w] = (base, B, 0, 0) — window w's arena base slot and stride.
 
 fn load_x(idx: u32, M: u32) -> array<u32, 8> {
@@ -64,14 +69,6 @@ fn store_y(idx: u32, M: u32, val: array<u32, 8>) {
     let base = PG * M + PG * idx;
     red_buf[base + 0u] = vec4<u32>(val[0], val[1], val[2], val[3]);
     red_buf[base + 1u] = vec4<u32>(val[4], val[5], val[6], val[7]);
-}
-
-fn fr_select_f8(a: array<u32, 8>, b: array<u32, 8>, cond: bool) -> array<u32, 8> {
-    return array<u32, 8>(
-        select(a[0], b[0], cond), select(a[1], b[1], cond),
-        select(a[2], b[2], cond), select(a[3], b[3], cond),
-        select(a[4], b[4], cond), select(a[5], b[5], cond),
-        select(a[6], b[6], cond), select(a[7], b[7], cond));
 }
 
 fn fr_eq_f8(a: array<u32, 8>, b: array<u32, 8>) -> bool {

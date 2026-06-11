@@ -34,8 +34,12 @@ const WG: u32 = {{ workgroup_size }}u;
 @group(0) @binding(4) var<uniform>             lparams:    vec4<u32>;
 @group(0) @binding(5) var<storage, read>       hsched:     array<vec4<u32>>;
 @group(0) @binding(6) var<storage, read_write> stage_out:  array<vec4<u32>>;
-// cparams = (M_RED, _, _, _); lparams unused (geometry baked);
-// hsched[w] = (base, B, 0, 0).
+// cparams = (M_RED, _, _, _);
+// lparams = (finisher_depth, inputs_jac, log2_B, 0) — the finisher geometry
+// lives in the UNIFORM buffer (not hsched) because the master loop's trip
+// count derives from it and the storageBarrier()s inside require uniform
+// control flow;
+// hsched[w] = (base, B, 0, 0) — only base is read here.
 // stage_out: compact export of the staged points for the early-exit
 // readback — record (w·(1+d_f) + a) holds x, y, z as 6 vec4s of
 // standard-form (NON-Montgomery) LE integers, z == 0 ⇒ absent — the same
@@ -160,15 +164,20 @@ fn gstore(idx: u32, v: Jac) {
     store_z(idx, v.z);
 }
 
-// Load a slot that has not been written by this pass (an "original"):
-// affine-entry runs synthesize z from the presence flag.
-fn gload_orig(idx: u32, M: u32) -> Jac {
-    let r1o: array<u32, 8> = get_r_f8();
-    var z = array<u32, 8>(0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u);
-    if (is_present[idx] != 0u) {
-        z = r1o;
+// Load a slot, synthesizing z from the presence flag when the slot is an
+// untouched original (og — affine-entry runs only); written slots always
+// carry z in red_z.
+fn gload_any(idx: u32, og: bool) -> Jac {
+    var z: array<u32, 8>;
+    if (og) {
+        z = array<u32, 8>(0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u);
+        if (is_present[idx] != 0u) {
+            z = get_r_f8();
+        }
+    } else {
+        z = load_zp(idx);
     }
-    return Jac(load_x(idx, M), load_y(idx, M), z);
+    return Jac(load_x(idx, cparams.x), load_y(idx, cparams.x), z);
 }
 
 @compute
@@ -179,10 +188,8 @@ fn main(@builtin(workgroup_id) wgid: vec3<u32>, @builtin(local_invocation_id) li
     let M_RED = cparams.x;
     let h = hsched[w];
     let base = h.x;
-    let B = h.y;
+    let B = 1u << lparams.z;
     let t = lid.x;
-    let r1: array<u32, 8> = get_r_f8();
-    let zero = array<u32, 8>(0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u);
     let off = select(B >> a, 0u, a == 0u);
 
 {{{ f1_body }}}

@@ -4687,21 +4687,26 @@ export class MsmV2 {
       this.prepBuffers.push(hbuf);
       const hcparams = ubuf(new Uint32Array([RED_M, 0, 0, NUM_WINDOWS]));
       for (const dep of sched.depths) {
-        const lp = ubuf(new Uint32Array([dep.d, 0, 0, 0]));
+        const cpairs = dep.mode === 'ba8' ? 8 : dep.mode === 'ba4' ? 4 : 1;
+        const lp = ubuf(new Uint32Array([dep.d, cpairs, 0, 0]));
         const pipe =
           dep.mode === 'ba8' ? this.halveBa8Pipe! : dep.mode === 'ba4' ? this.halveBa4Pipe! : this.halveJacPipe!;
         const bind =
           dep.mode === 'jac'
             ? mkBind(this.foldJacLayout, [redBuf, redZBuf, isPresentBuf, hcparams, lp, hbuf])
             : mkBind(this.foldLayout, [redBuf, isPresentBuf, hcparams, lp, hbuf]);
-        const cpairs = dep.mode === 'ba8' ? 8 : dep.mode === 'ba4' ? 4 : 1;
         const threads = Math.ceil(dep.pairsPerWindow / cpairs);
         if (this.halveZInitAt < 0 && dep.mode === 'jac') {
           this.halveZInitAt = this.halveDepthDispatch.length;
         }
         this.halveDepthDispatch.push({ pipe, bind, nx: Math.ceil(threads / this.reduceWg) });
       }
-      const hlp = ubuf(new Uint32Array([0, 0, 0, 0]));
+      // Finisher geometry for F1/F2: (finisher_depth, inputs_jac, log2_B, 0).
+      // Uniform-sourced so the rolled loops' barriers sit in uniform control
+      // flow and driver unrollers can't expand them.
+      const hlp = ubuf(
+        new Uint32Array([sched.finisherDepth, sched.finisherInputsJac ? 1 : 0, Math.log2(strideB), 0]),
+      );
       this.halveFinishBind = mkBind(this.foldJacLayout, [redBuf, redZBuf, isPresentBuf, hcparams, hlp, hbuf]);
       const partials = sched.finisherDepth + 1;
       this.halveStageBuf = device.createBuffer({

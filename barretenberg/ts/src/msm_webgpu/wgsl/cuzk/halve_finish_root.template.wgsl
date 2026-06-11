@@ -27,7 +27,9 @@ const WG: u32 = {{ workgroup_size }}u;
 @group(0) @binding(3) var<uniform>             cparams:    vec4<u32>;
 @group(0) @binding(4) var<uniform>             lparams:    vec4<u32>;
 @group(0) @binding(5) var<storage, read>       hsched:     array<vec4<u32>>;
-// cparams = (M_RED, _, _, num_windows); lparams unused (geometry baked).
+// cparams = (M_RED, _, _, num_windows);
+// lparams = (finisher_depth, inputs_jac, log2_B, 0) — uniform-sourced so the
+// rolled tree's barrier sits in uniform control flow.
 
 fn load_x(idx: u32, M: u32) -> array<u32, 8> {
     let base = PG * idx;

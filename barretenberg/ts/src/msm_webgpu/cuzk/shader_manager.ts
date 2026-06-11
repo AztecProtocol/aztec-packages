@@ -753,74 +753,98 @@ ${packLines.join('\n')}
     if (![4, 8].includes(cpairs)) {
       throw new Error(`gen_ba_halve_shader: cpairs (${cpairs}) must be 4 or 8`);
     }
-    const C = cpairs;
+    // Rolled emission: every loop bound comes from lparams.y (== cpairs, but
+    // the driver cannot prove it), so mobile compilers keep the small bodies
+    // rolled instead of inlining cpairs copies of the montmul. cpairs only
+    // sizes the private partial-product array. Per-pair state across the two
+    // loops is a 4-bit flag nibble (ps/act/dbl/inf) — indices and denominators
+    // are recomputed from cache-hot loads.
     const gather: string[] = [];
-    for (let k = 0; k < C; k++) {
-      gather.push(`    let q${k} = t + ${k}u * T;`);
-      gather.push(`    let on${k} = q${k} < pairs;`);
-      gather.push(`    let a${k} = q${k} >> hshift;`);
-      gather.push(`    let dst${k} = base + arena_off(B, a${k}) + (q${k} & (half - 1u));`);
-      gather.push(`    let src${k} = dst${k} + half;`);
-      gather.push(`    let pd${k} = on${k} && (is_present[dst${k}] != 0u);`);
-      gather.push(`    let ps${k} = on${k} && (is_present[src${k}] != 0u);`);
-      gather.push(`    let act${k} = pd${k} && ps${k};`);
-      gather.push(`    var den${k}: array<u32, 8>;`);
-      gather.push(`    var dbl${k} = false;`);
-      gather.push(`    var inf${k} = false;`);
-      gather.push(`    {`);
-      gather.push(`        let xd = load_x(dst${k}, M_RED);`);
-      gather.push(`        let xs = load_x(src${k}, M_RED);`);
-      gather.push(`        den${k} = fr_select_f8(r1, fr_sub_f8(xs, xd), act${k});`);
-      gather.push(`        if (act${k} && fr_eq_f8(xd, xs)) {`);
-      gather.push(`            let yd = load_y(dst${k}, M_RED);`);
-      gather.push(`            let ys = load_y(src${k}, M_RED);`);
-      gather.push(`            if (fr_is_zero_f8(fr_add_f8(yd, ys))) {`);
-      gather.push(`                inf${k} = true;`);
-      gather.push(`            } else {`);
-      gather.push(`                dbl${k} = true;`);
-      gather.push(`                den${k} = fr_add_f8(yd, yd);`);
-      gather.push(`            }`);
-      gather.push(`        }`);
-      gather.push(`    }`);
-    }
+    gather.push(`    let cd = lparams.y;`);
+    gather.push(`    var pp: array<array<u32, 8>, CPAIRS>;`);
+    gather.push(`    var fl: u32 = 0u;`);
+    gather.push(`    var chain: array<u32, 8> = r1;`);
+    gather.push(`    for (var k = 0u; k < cd; k = k + 1u) {`);
+    gather.push(`        let q = t + k * T;`);
+    gather.push(`        let on = q < pairs;`);
+    gather.push(`        let dst = base + arena_off(B, q >> hshift) + (q & (half - 1u));`);
+    gather.push(`        let src = dst + half;`);
+    gather.push(`        let pd = on && (is_present[dst] != 0u);`);
+    gather.push(`        let ps = on && (is_present[src] != 0u);`);
+    gather.push(`        let act = pd && ps;`);
+    gather.push(`        var den = r1;`);
+    gather.push(`        var f = select(0u, 1u, ps) | select(0u, 2u, act);`);
+    gather.push(`        if (act) {`);
+    gather.push(`            let xd = load_x(dst, M_RED);`);
+    gather.push(`            let xs = load_x(src, M_RED);`);
+    gather.push(`            den = fr_sub_f8(xs, xd);`);
+    gather.push(`            if (fr_eq_f8(xd, xs)) {`);
+    gather.push(`                let yd = load_y(dst, M_RED);`);
+    gather.push(`                let ys = load_y(src, M_RED);`);
+    gather.push(`                if (fr_is_zero_f8(fr_add_f8(yd, ys))) {`);
+    gather.push(`                    f = f | 8u;`);
+    gather.push(`                    den = r1;`);
+    gather.push(`                } else {`);
+    gather.push(`                    f = f | 4u;`);
+    gather.push(`                    den = fr_add_f8(yd, yd);`);
+    gather.push(`                }`);
+    gather.push(`            }`);
+    gather.push(`        }`);
+    gather.push(`        fl = fl | (f << (4u * k));`);
+    gather.push(`        chain = montgomery_product_f8(chain, den);`);
+    gather.push(`        pp[k] = chain;`);
+    gather.push(`    }`);
     const invert: string[] = [];
-    invert.push(`    let pp0 = den0;`);
-    for (let k = 1; k < C; k++) invert.push(`    let pp${k} = montgomery_product_f8(pp${k - 1}, den${k});`);
-    invert.push(`    var inv_acc: array<u32, 8> = fr_inv_by_loop_pk(pp${C - 1});`);
-    for (let k = C - 1; k >= 1; k--) {
-      invert.push(`    let vi${k} = montgomery_product_f8(inv_acc, pp${k - 1});`);
-      invert.push(`    inv_acc = montgomery_product_f8(inv_acc, den${k});`);
-    }
-    invert.push(`    let vi0 = inv_acc;`);
+    invert.push(`    var inv_acc: array<u32, 8> = fr_inv_by_loop_pk(pp[cd - 1u]);`);
     const apply: string[] = [];
-    for (let k = 0; k < C; k++) {
-      apply.push(`    if (ps${k}) {`);
-      apply.push(`        if (act${k} && !inf${k}) {`);
-      apply.push(`            let xd = load_x(dst${k}, M_RED);`);
-      apply.push(`            let xs = load_x(src${k}, M_RED);`);
-      apply.push(`            let yd = load_y(dst${k}, M_RED);`);
-      apply.push(`            let ys = load_y(src${k}, M_RED);`);
-      apply.push(`            var num = fr_sub_f8(ys, yd);`);
-      apply.push(`            if (dbl${k}) {`);
-      apply.push(`                let xx = montgomery_product_f8(xd, xd);`);
-      apply.push(`                num = fr_add_f8(fr_add_f8(xx, xx), xx);`);
-      apply.push(`            }`);
-      apply.push(`            let lam = montgomery_product_f8(num, vi${k});`);
-      apply.push(`            var rx = montgomery_product_f8(lam, lam);`);
-      apply.push(`            rx = fr_sub_f8(fr_sub_f8(rx, xd), xs);`);
-      apply.push(`            var ry = fr_sub_f8(xd, rx);`);
-      apply.push(`            ry = fr_sub_f8(montgomery_product_f8(lam, ry), yd);`);
-      apply.push(`            store_x(dst${k}, M_RED, rx);`);
-      apply.push(`            store_y(dst${k}, M_RED, ry);`);
-      apply.push(`        } else if (act${k}) {`);
-      apply.push(`            is_present[dst${k}] = 0u;`);
-      apply.push(`        } else {`);
-      apply.push(`            store_x(dst${k}, M_RED, load_x(src${k}, M_RED));`);
-      apply.push(`            store_y(dst${k}, M_RED, load_y(src${k}, M_RED));`);
-      apply.push(`            is_present[dst${k}] = 1u;`);
-      apply.push(`        }`);
-      apply.push(`    }`);
-    }
+    apply.push(`    for (var kk = 0u; kk < cd; kk = kk + 1u) {`);
+    apply.push(`        let k = cd - 1u - kk;`);
+    apply.push(`        let f = (fl >> (4u * k)) & 15u;`);
+    apply.push(`        let ps = (f & 1u) != 0u;`);
+    apply.push(`        let act = (f & 2u) != 0u;`);
+    apply.push(`        let dbl = (f & 4u) != 0u;`);
+    apply.push(`        let inf = (f & 8u) != 0u;`);
+    apply.push(`        var vi = inv_acc;`);
+    apply.push(`        if (k > 0u) {`);
+    apply.push(`            vi = montgomery_product_f8(inv_acc, pp[k - 1u]);`);
+    apply.push(`        }`);
+    apply.push(`        let q = t + k * T;`);
+    apply.push(`        let dst = base + arena_off(B, q >> hshift) + (q & (half - 1u));`);
+    apply.push(`        let src = dst + half;`);
+    apply.push(`        var den = r1;`);
+    apply.push(`        if (ps) {`);
+    apply.push(`            if (act && !inf) {`);
+    apply.push(`                let xd = load_x(dst, M_RED);`);
+    apply.push(`                let xs = load_x(src, M_RED);`);
+    apply.push(`                let yd = load_y(dst, M_RED);`);
+    apply.push(`                let ys = load_y(src, M_RED);`);
+    apply.push(`                var num = fr_sub_f8(ys, yd);`);
+    apply.push(`                if (dbl) {`);
+    apply.push(`                    let xx = montgomery_product_f8(xd, xd);`);
+    apply.push(`                    num = fr_add_f8(fr_add_f8(xx, xx), xx);`);
+    apply.push(`                    den = fr_add_f8(yd, yd);`);
+    apply.push(`                } else {`);
+    apply.push(`                    den = fr_sub_f8(xs, xd);`);
+    apply.push(`                }`);
+    apply.push(`                let lam = montgomery_product_f8(num, vi);`);
+    apply.push(`                var rx = montgomery_product_f8(lam, lam);`);
+    apply.push(`                rx = fr_sub_f8(fr_sub_f8(rx, xd), xs);`);
+    apply.push(`                var ry = fr_sub_f8(xd, rx);`);
+    apply.push(`                ry = fr_sub_f8(montgomery_product_f8(lam, ry), yd);`);
+    apply.push(`                store_x(dst, M_RED, rx);`);
+    apply.push(`                store_y(dst, M_RED, ry);`);
+    apply.push(`            } else if (act) {`);
+    apply.push(`                is_present[dst] = 0u;`);
+    apply.push(`            } else {`);
+    apply.push(`                store_x(dst, M_RED, load_x(src, M_RED));`);
+    apply.push(`                store_y(dst, M_RED, load_y(src, M_RED));`);
+    apply.push(`                is_present[dst] = 1u;`);
+    apply.push(`            }`);
+    apply.push(`        }`);
+    apply.push(`        if (k > 0u) {`);
+    apply.push(`            inv_acc = montgomery_product_f8(inv_acc, den);`);
+    apply.push(`        }`);
+    apply.push(`    }`);
     const dec = this.decoupledPackUnpackWgsl();
     const inverse_funcs = by_inverse_loop_pk14_native_funcs;
     const inv_fn = 'fr_inv_by_loop_pk';
@@ -919,97 +943,100 @@ ${packLines.join('\n')}
    * Geometry baked; complete arithmetic; affine-entry variants synthesize z
    * from is_present exactly where slots are still untouched originals.
    */
-  public gen_halve_finish_arrays_shader(stride: number, finisherDepth: number, inputsJac: boolean): string {
+  public gen_halve_finish_arrays_shader(stride: number, finisherDepth: number, _inputsJac: boolean): string {
     if (stride < 2 || (stride & (stride - 1)) !== 0) {
       throw new Error(`gen_halve_finish_arrays_shader: stride (${stride}) must be a power of two >= 2`);
     }
     const B = stride;
-    const r = Math.log2(B);
     const df = finisherDepth;
     const Lf = B >> df;
-    const lgLf = Math.log2(Lf);
     const workgroup_size = Math.max(32, Lf >> 1);
+    // Rolled emission, ONE jac_cadd and ONE jac_cdbl callsite in the whole
+    // module: fully inlining a cadd per baked tree depth/branch produced
+    // multi-hundred-montmul bodies that crash the Adreno/Mali shader
+    // compilers. All geometry (df, Lf, r, affine-entry) is read from
+    // lparams/hsched at runtime so the loop bounds stay opaque to the
+    // driver's unroller; `inputsJac` no longer changes the emitted text.
+    // Per iteration: an optional lane-0 double segment (the W workgroup's
+    // Horner pre-double on the accumulator slot, or one step of a carry
+    // workgroup's power-of-two chain), a barrier, then the pair-add segment
+    // (the in-place trees, or one Horner add), and a second barrier.
+    //
+    // W workgroup (a == 0) iteration plan: lgLf tree depths, then lgLf
+    // Horner steps over the internal carries using carry_1's home slot
+    // (base + Lf/2) as the accumulator: steps j < lgLf-1 double the
+    // accumulator then add carry_{j+2}; the last step adds the accumulator
+    // into the W root. Carry workgroups: lgLf tree depths over their
+    // region, then (r - a) doubles of the home slot.
     const body: string[] = [];
-    // gload(slot, original): original slots synthesize z from is_present in
-    // the affine-entry variant; written slots always carry z in red_z.
-    const gload = (slot: string, original: boolean): string =>
-      !inputsJac && original
-        ? `gload_orig(${slot}, M_RED)`
-        : `Jac(load_x(${slot}, M_RED), load_y(${slot}, M_RED), load_zp(${slot}))`;
-    body.push(`    if (a == 0u) {`);
-    for (let k = 0; k < lgLf; k++) {
-      const half = Lf >> (k + 1);
-      body.push(`        // weighted sub-recursion depth ${k}: ${1 + k} arrays of ${Lf >> k}`);
-      if (k > 0) {
-        // Pair ranges by array: carries 1..k−1 (slots already written),
-        // carry k (first halving — untouched originals), then W (written).
-        if (k > 1) {
-          body.push(`        if (t < ${(k - 1) * half}u) {`);
-          body.push(`            let aa = (t >> ${Math.log2(half)}u) + 1u;`);
-          body.push(`            let di = base + (${Lf}u >> aa) + (t & ${half - 1}u);`);
-          body.push(`            let s0 = ${gload('di', false)};`);
-          body.push(`            let s1 = ${gload(`di + ${half}u`, false)};`);
-          body.push(`            gstore(di, jac_cadd(s0, s1));`);
-          body.push(`        } else if (t < ${k * half}u) {`);
-        } else {
-          body.push(`        if (t < ${k * half}u) {`);
-        }
-        body.push(`            let di = base + ${Lf >> k}u + (t & ${half - 1}u);`);
-        body.push(`            let s0 = ${gload('di', k === 1)};`);
-        body.push(`            let s1 = ${gload(`di + ${half}u`, k === 1)};`);
-        body.push(`            gstore(di, jac_cadd(s0, s1));`);
-        body.push(`        } else if (t < ${(k + 1) * half}u) {`);
-        body.push(`            let di = base + (t & ${half - 1}u);`);
-        body.push(`            let s0 = ${gload('di', false)};`);
-        body.push(`            let s1 = ${gload(`di + ${half}u`, false)};`);
-        body.push(`            gstore(di, jac_cadd(s0, s1));`);
-        body.push(`        }`);
-      } else {
-        body.push(`        if (t < ${half}u) {`);
-        body.push(`            let di = base + t;`);
-        body.push(`            let s0 = ${gload('di', true)};`);
-        body.push(`            let s1 = ${gload(`di + ${half}u`, true)};`);
-        body.push(`            gstore(di, jac_cadd(s0, s1));`);
-        body.push(`        }`);
-      }
-      body.push(`        storageBarrier();`);
-    }
-    body.push(`        if (t == 0u) {`);
-    body.push(`            var S = ${gload('base', false)};`);
-    body.push(`            var acc = Jac(r1, r1, zero);`);
-    for (let k = 1; k <= lgLf; k++) {
-      // Internal carry k = the untouched src half of internal depth k-1: its
-      // slots are written only when k < lgLf (it halves at later depths); the
-      // LAST carry (single slot) is still an original.
-      body.push(`            acc = jac_cdbl(acc);`);
-      body.push(`            acc = jac_cadd(acc, ${gload(`base + ${Lf >> k}u`, false)}); // internal carry, scale ${Lf >> k}`);
-    }
-    body.push(`            S = jac_cadd(S, acc);`);
-    body.push(`            gstore(base, S);`);
-    body.push(`            stage_set(w * ${1 + df}u + 0u, S);`);
-    body.push(`        }`);
-    body.push(`    } else {`);
-    let first = true;
-    for (let sStep = Lf >> 1; sStep >= 1; sStep >>= 1) {
-      body.push(`        if (t < ${sStep}u) {`);
-      body.push(`            let di = base + off + t;`);
-      body.push(`            let s0 = ${gload('di', first)};`);
-      body.push(`            let s1 = ${gload(`di + ${sStep}u`, first)};`);
-      body.push(`            gstore(di, jac_cadd(s0, s1));`);
-      body.push(`        }`);
-      body.push(`        storageBarrier();`);
-      first = false;
-    }
-    body.push(`        if (t == 0u) {`);
-    body.push(`            var P = ${gload('base + off', false)};`);
-    body.push(`            // scale B >> a = 2^(${r} - a); the loop body is one ~8-mul`);
-    body.push(`            // complete double — under the Mali unroll cliff.`);
-    body.push(`            for (var i = a; i < ${r}u; i = i + 1u) {`);
-    body.push(`                P = jac_cdbl(P);`);
+    body.push(`    let df = lparams.x;`);
+    body.push(`    let ij = lparams.y != 0u;`);
+    body.push(`    let r = lparams.z;`);
+    body.push(`    let lgLf = r - df;`);
+    body.push(`    let Lf = 1u << lgLf;`);
+    body.push(`    let iters = lgLf + select(r - a, lgLf, a == 0u);`);
+    body.push(`    let NOSLOT = 0xffffffffu;`);
+    body.push(`    for (var it = 0u; it < iters; it = it + 1u) {`);
+    body.push(`        var dslot = NOSLOT;`);
+    body.push(`        if (it >= lgLf && t == 0u) {`);
+    body.push(`            if (a == 0u) {`);
+    body.push(`                if ((it - lgLf) + 1u < lgLf) {`);
+    body.push(`                    dslot = base + (Lf >> 1u);`);
+    body.push(`                }`);
+    body.push(`            } else {`);
+    body.push(`                dslot = base + off;`);
     body.push(`            }`);
-    body.push(`            gstore(base + off, P);`);
-    body.push(`            stage_set(w * ${1 + df}u + a, P);`);
     body.push(`        }`);
+    body.push(`        if (dslot != NOSLOT) {`);
+    body.push(`            gstore(dslot, jac_cdbl(gload_any(dslot, false)));`);
+    body.push(`        }`);
+    body.push(`        storageBarrier();`);
+    body.push(`        var di = 0u;`);
+    body.push(`        var si = 0u;`);
+    body.push(`        var og = false;`);
+    body.push(`        var valid = false;`);
+    body.push(`        if (it < lgLf) {`);
+    body.push(`            let k = it;`);
+    body.push(`            let log2half = lgLf - k - 1u;`);
+    body.push(`            let half = 1u << log2half;`);
+    body.push(`            if (a == 0u) {`);
+    body.push(`                // Sub-arrays this depth, in slot order: carries 1..k`);
+    body.push(`                // (idx 0..k-1, carry idx+1 at offset Lf >> (idx+1) —`);
+    body.push(`                // idx k-1 is carry k's FIRST halving, originals when`);
+    body.push(`                // k == 1), then W (idx == k, offset 0).`);
+    body.push(`                if (t < (k + 1u) * half) {`);
+    body.push(`                    let idx = t >> log2half;`);
+    body.push(`                    let rem = t & (half - 1u);`);
+    body.push(`                    di = base + select(Lf >> (idx + 1u), 0u, idx == k) + rem;`);
+    body.push(`                    si = di + half;`);
+    body.push(`                    og = !ij && (k == 0u || (k == 1u && idx == 0u));`);
+    body.push(`                    valid = true;`);
+    body.push(`                }`);
+    body.push(`            } else if (t < half) {`);
+    body.push(`                di = base + off + t;`);
+    body.push(`                si = di + half;`);
+    body.push(`                og = !ij && k == 0u;`);
+    body.push(`                valid = true;`);
+    body.push(`            }`);
+    body.push(`        } else if (a == 0u && t == 0u && lgLf > 0u) {`);
+    body.push(`            let j = it - lgLf;`);
+    body.push(`            let aslot = base + (Lf >> 1u);`);
+    body.push(`            if (j + 1u < lgLf) {`);
+    body.push(`                di = aslot;`);
+    body.push(`                si = base + (Lf >> (j + 2u));`);
+    body.push(`            } else {`);
+    body.push(`                di = base;`);
+    body.push(`                si = aslot;`);
+    body.push(`            }`);
+    body.push(`            valid = true;`);
+    body.push(`        }`);
+    body.push(`        if (valid) {`);
+    body.push(`            gstore(di, jac_cadd(gload_any(di, og), gload_any(si, og)));`);
+    body.push(`        }`);
+    body.push(`        storageBarrier();`);
+    body.push(`    }`);
+    body.push(`    if (t == 0u) {`);
+    body.push(`        stage_set(w * (df + 1u) + a, gload_any(base + off, false));`);
     body.push(`    }`);
     const dec = this.decoupledPackUnpackWgsl();
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
@@ -1057,29 +1084,31 @@ ${packLines.join('\n')}
     if (stride < 2 || (stride & (stride - 1)) !== 0) {
       throw new Error(`gen_halve_finish_root_shader: stride (${stride}) must be a power of two >= 2`);
     }
-    // Staged slot offsets, tree-paired in place: offs[i] += offs[i + step].
-    const offs: number[] = [0];
-    for (let j = 1; j <= finisherDepth; j++) offs.push(stride >> j);
-    const n = offs.length;
+    const n = finisherDepth + 1;
     const workgroup_size = Math.max(8, Math.ceil(n / 2));
+    // Staged slot j sits at arena offset 0 (j == 0) or B >> j; tree-pair the
+    // slots in place over ascending steps — slot i consumes slot i+step only
+    // after everything below i+step has merged in. ROLLED: the slot count
+    // comes from lparams.x and B from lparams.z (uniforms — the
+    // storageBarrier() needs uniform control flow and the driver's unroller
+    // must not see a constant bound), and the module has ONE jac_cadd
+    // callsite — baking a cadd per pair crashes the Adreno/Mali shader
+    // compilers.
     const body: string[] = [];
-    // Ascending steps: (i, i+1) pairs first, then (i, i+2), … — a slot is
-    // only consumed after everything below it has merged in.
-    for (let step = 1; step < n; step <<= 1) {
-      const pairs: Array<[number, number]> = [];
-      for (let i = 0; i + step < n; i += 2 * step) pairs.push([offs[i], offs[i + step]]);
-      if (pairs.length === 0) continue;
-      body.push(`    switch (t) {`);
-      pairs.forEach(([d, src], i) => {
-        body.push(`        case ${i}u: {`);
-        body.push(`            gstore(base + ${d}u, jac_cadd(gload(base + ${d}u), gload(base + ${src}u)));`);
-        body.push(`            break;`);
-        body.push(`        }`);
-      });
-      body.push(`        default: { break; }`);
-      body.push(`    }`);
-      body.push(`    storageBarrier();`);
-    }
+    body.push(`    let n = lparams.x + 1u;`);
+    body.push(`    let B = 1u << lparams.z;`);
+    body.push(`    var step = 1u;`);
+    body.push(`    loop {`);
+    body.push(`        if (step >= n) { break; }`);
+    body.push(`        let i = 2u * step * t;`);
+    body.push(`        if (i + step < n) {`);
+    body.push(`            let di = base + select(B >> i, 0u, i == 0u);`);
+    body.push(`            let si = base + (B >> (i + step));`);
+    body.push(`            gstore(di, jac_cadd(gload(di), gload(si)));`);
+    body.push(`        }`);
+    body.push(`        storageBarrier();`);
+    body.push(`        step = step << 1u;`);
+    body.push(`    }`);
     body.push(`    if (t == 0u) {`);
     body.push(`        is_present[base] = u32(!fr_is_zero_f8(load_zp(base)));`);
     body.push(`    }`);
