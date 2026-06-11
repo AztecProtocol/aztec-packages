@@ -434,19 +434,24 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             let task_done = (cur_sorted[k] == task_end_sort[k]) && (cursor[k] >= task_end_cur[k]);
             let bucket_done = cursor[k] >= bucket_end[k];
 
-            if (task_done) {
-                let is_partial = ((((split_start_m >> k) & 1u) == 1u)) || (cursor[k] < bucket_end[k]);
+            if (task_done || bucket_done) {
+                // Unified retirement: one bid load, one split test, one
+                // store_partial site and one store_bucket_sum site (each
+                // store helper inlines the full 4x vec4 pack, so two inlined
+                // copies instead of four). The partial slot is the task-end
+                // slot (+1) when the task finishes, else the split-start
+                // slot (+0); is_partial folds both branches' predicates.
+                let bid = sorted_bucket_list[cur_sorted[k]];
+                let split_b = (split_start_m >> k) & 1u;
+                let is_partial = bool(split_b) || (task_done && cursor[k] < bucket_end[k]);
                 if (is_partial) {
-                    store_partial(2u * (t * S + k) + 1u, sorted_bucket_list[cur_sorted[k]], M_partials, r_x, r_y);
+                    store_partial(2u * (t * S + k) + select(0u, 1u, task_done), bid, M_partials, r_x, r_y);
                 } else {
-                    store_bucket_sum(sorted_bucket_list[cur_sorted[k]], r_x, r_y);
+                    store_bucket_sum(bid, r_x, r_y);
                 }
-                slot_done_m = slot_done_m | (1u << k);
-            } else if (bucket_done) {
-                if ((((split_start_m >> k) & 1u) == 1u)) {
-                    store_partial(2u * (t * S + k) + 0u, sorted_bucket_list[cur_sorted[k]], M_partials, r_x, r_y);
-                } else {
-                    store_bucket_sum(sorted_bucket_list[cur_sorted[k]], r_x, r_y);
+                if (task_done) {
+                    slot_done_m = slot_done_m | (1u << k);
+                    continue;
                 }
                 // Advance to the next bucket within the task. Subsequent
                 // buckets always begin fresh (never split-start).
