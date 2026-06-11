@@ -8,4 +8,5 @@ tsconfig.json
 src/generated/
 src/index.ts
 src/platform.ts
+src/bin.ts
 scripts/prepare_arch_packages.sh

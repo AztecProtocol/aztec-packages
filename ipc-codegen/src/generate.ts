@@ -418,6 +418,9 @@ function generate(args: Args) {
         writePackage("README.md", packageGen.generateReadme());
         writePackage("src/index.ts", packageGen.generateIndex());
         writePackage("src/platform.ts", packageGen.generatePlatform());
+        if (binaryName) {
+          writePackage("src/bin.ts", packageGen.generateBin());
+        }
         for (const manifest of packageGen.generateArchPackageManifests()) {
           writePackage(manifest.path, manifest.content);
         }
