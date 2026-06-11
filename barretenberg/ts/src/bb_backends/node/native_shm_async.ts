@@ -1,8 +1,7 @@
-import { createRequire } from 'module';
 import { spawn, ChildProcess } from 'child_process';
 import { openSync, closeSync } from 'fs';
+import { createNapiShmAsyncClient, findIpcRuntimeNapi, type NapiShmAsyncClient } from '@aztec/ipc-runtime';
 import { IMsgpackBackendAsync } from '../interface.js';
-import { findNapiBinary } from './platform.js';
 import { threadId } from 'worker_threads';
 
 let instanceCounter = 0;
@@ -15,53 +14,17 @@ let instanceCounter = 0;
  * Architecture (matches socket backend pattern):
  * - bb acts as the SERVER, TypeScript is the CLIENT
  * - bb creates the shared memory region
- * - TypeScript connects via NAPI wrapper (MsgpackClientAsync)
- * - TypeScript manages promise queue (single-threaded, no mutex needed)
- * - C++ background thread polls for responses, calls JavaScript callback
- * - JavaScript callback pops queue and resolves promises in FIFO order
+ * - TypeScript connects through the ipc-runtime NAPI wrapper
  */
 export class BarretenbergNativeShmAsyncBackend implements IMsgpackBackendAsync {
   private process: ChildProcess;
-  private client: any; // NAPI MsgpackClientAsync instance
+  private client: NapiShmAsyncClient;
   private logFd?: number; // File descriptor for logs
 
-  // Queue of pending callbacks for pipelined requests
-  // Responses come back in FIFO order, so we match them with queued callbacks
-  private pendingCallbacks: Array<{
-    resolve: (data: Uint8Array) => void;
-    reject: (error: Error) => void;
-  }> = [];
-
-  private constructor(process: ChildProcess, client: any, logFd?: number) {
+  private constructor(process: ChildProcess, client: NapiShmAsyncClient, logFd?: number) {
     this.process = process;
     this.client = client;
     this.logFd = logFd;
-
-    // Register our response handler with the C++ client
-    // This callback will be invoked from the background thread via ThreadSafeFunction
-    this.client.setResponseCallback((responseBuffer: Buffer) => {
-      this.handleResponse(responseBuffer);
-    });
-  }
-
-  /**
-   * Handle response from C++ background thread
-   * Dequeues the next pending callback and resolves it (FIFO order)
-   */
-  private handleResponse(responseBuffer: Buffer): void {
-    // Response is complete - dequeue the next pending callback (FIFO)
-    const callback = this.pendingCallbacks.shift();
-    if (callback) {
-      callback.resolve(new Uint8Array(responseBuffer));
-    } else {
-      // This shouldn't happen - response without a pending request
-      console.warn('Received response but no pending callback');
-    }
-
-    // If no more pending callbacks, release ref to allow process to exit
-    if (this.pendingCallbacks.length === 0) {
-      this.client.release();
-    }
   }
 
   /**
@@ -72,21 +35,13 @@ export class BarretenbergNativeShmAsyncBackend implements IMsgpackBackendAsync {
    */
   static async new(
     bbBinaryPath: string,
-    napiPath: string,
+    napiPath?: string,
     threads?: number,
     logger?: (msg: string) => void,
   ): Promise<BarretenbergNativeShmAsyncBackend> {
-    // Import the NAPI module
-    // The addon is built to the nodejs_module directory
-    const addonPath = findNapiBinary(napiPath);
-    // Try loading
-    let addon: any = null;
-    try {
-      const require = createRequire(addonPath!);
-      addon = require(addonPath!);
-    } catch (err) {
-      // Addon not built yet or not available
-      throw new Error('Shared memory async NAPI not available.');
+    const addonPath = findIpcRuntimeNapi(napiPath);
+    if (!addonPath) {
+      throw new Error('ipc-runtime NAPI binary not found — required for shared memory mode');
     }
 
     // Create a unique shared memory name
@@ -151,7 +106,7 @@ export class BarretenbergNativeShmAsyncBackend implements IMsgpackBackendAsync {
     const retryInterval = 100; // ms
     const timeout = 5000; // ms
     const maxAttempts = Math.floor(timeout / retryInterval);
-    let client: any = null;
+    let client: NapiShmAsyncClient | null = null;
 
     try {
       for (let attempt = 0; attempt < maxAttempts; attempt++) {
@@ -166,8 +121,7 @@ export class BarretenbergNativeShmAsyncBackend implements IMsgpackBackendAsync {
         }
 
         try {
-          // Create NAPI async client
-          client = new addon.MsgpackClientAsync(shmName);
+          client = createNapiShmAsyncClient(shmName, { clientId: 0, customAddonPath: addonPath });
           break; // Success!
         } catch (err: any) {
           // Connection failed, will retry
@@ -201,52 +155,16 @@ export class BarretenbergNativeShmAsyncBackend implements IMsgpackBackendAsync {
     }
   }
 
-  /**
-   * Send a msgpack request asynchronously.
-   * Supports pipelining - can be called multiple times before awaiting responses.
-   * Use Promise.all() to send multiple requests concurrently.
-   *
-   * Example:
-   *   const results = await Promise.all([
-   *     backend.call(buf1),
-   *     backend.call(buf2),
-   *     backend.call(buf3)
-   *   ]);
-   *
-   * @param inputBuffer The msgpack-encoded request
-   * @returns Promise resolving to msgpack-encoded response
-   */
   async call(inputBuffer: Uint8Array): Promise<Uint8Array> {
-    return new Promise((resolve, reject) => {
-      // If this is the first pending callback, acquire ref to keep event loop alive
-      if (this.pendingCallbacks.length === 0) {
-        this.client.acquire();
-      }
-
-      // Enqueue this promise's callbacks (FIFO order)
-      this.pendingCallbacks.push({ resolve, reject });
-
-      try {
-        // Send request to shared memory (synchronous write)
-        // C++ call() no longer returns a promise - we manage them here
-        this.client.call(Buffer.from(inputBuffer));
-      } catch (err: any) {
-        // Send failed - dequeue the callback we just added and reject
-        this.pendingCallbacks.pop();
-
-        // If queue is now empty, release ref to allow exit
-        if (this.pendingCallbacks.length === 0) {
-          this.client.release();
-        }
-
-        reject(new Error(`Shared memory async call failed: ${err.message}`));
-      }
-    });
+    try {
+      return await this.client.call(inputBuffer);
+    } catch (err: any) {
+      throw new Error(`Shared memory async call failed: ${err.message}`);
+    }
   }
 
   async destroy(): Promise<void> {
-    // Kill the bb process
-    // Background thread and callbacks will be cleaned up by OS on process exit
+    await this.client.destroy();
     this.process.kill('SIGTERM');
     this.process.removeAllListeners();
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-hash=$(hash_str $(cache_content_hash ^aztec-up/) $(../yarn-project/bootstrap.sh hash))
+hash=$(hash_str $(cache_content_hash ^aztec-up/) $(../ipc-runtime/bootstrap.sh hash) $(../yarn-project/bootstrap.sh hash))
 
 # Bare aliases ("nightly", "latest") resolve to this major version.
 DEFAULT_MAJOR_VERSION=${AZTEC_TOOLCHAIN_DEFAULT_MAJOR_VERSION:-4}
@@ -103,6 +103,7 @@ EOF
     # TODO(AD): we have kludged a retry here. a local NPM install ought to be robust enough not to.
     echo "Deploying packages to local npm registry (version: $version)..."
     {
+      echo $root/ipc-runtime/ts
       (cd $root/barretenberg/ts && ./bootstrap.sh get_projects)
       $root/noir/bootstrap.sh get_projects
       $root/yarn-project/bootstrap.sh get_projects

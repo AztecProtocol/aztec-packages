@@ -28,7 +28,6 @@ export type {
   GrumpkinPoint,
   Secp256k1Point,
   Secp256r1Point,
-  Field2,
 } from './cbind/generated/api_types.js';
 
 export { toChonkProof } from './cbind/generated/api_types.js';

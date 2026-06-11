@@ -4,10 +4,12 @@ import { SyncApi } from '../cbind/generated/sync.js';
 import { IMsgpackBackendSync, IMsgpackBackendAsync } from '../bb_backends/interface.js';
 import { BackendOptions, BackendType } from '../bb_backends/index.js';
 import { createAsyncBackend, createSyncBackend } from '../bb_backends/node/index.js';
+import { BBApiException } from '../bbapi_exception.js';
 
 const DEFAULT_BB_CRS_SIZE = 2 ** 19;
 // Keep the iOS default separate so it can diverge when mobile memory limits require it.
 const IOS_BB_CRS_SIZE = 2 ** 18;
+type ErrorFactoryApi = { createError?: (message: string) => Error };
 
 export {
   UltraHonkBackend,
@@ -36,6 +38,7 @@ export class Barretenberg extends AsyncApi {
 
   constructor(backend: IMsgpackBackendAsync, options: BackendOptions) {
     super(backend);
+    (this as unknown as ErrorFactoryApi).createError = (message: string) => new BBApiException(message);
     this.options = options;
   }
 
@@ -179,6 +182,7 @@ let barretenbergSyncSingleton: BarretenbergSync;
 export class BarretenbergSync extends SyncApi {
   constructor(backend: IMsgpackBackendSync) {
     super(backend);
+    (this as unknown as ErrorFactoryApi).createError = (message: string) => new BBApiException(message);
   }
 
   /**
