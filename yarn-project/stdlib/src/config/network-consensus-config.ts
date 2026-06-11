@@ -33,11 +33,7 @@ import { sharedSequencerConfigMappings } from './sequencer-config.js';
 export const NETWORK_CONSENSUS_ENV_VARS = [
   // Timing/protocol consensus.
   'ETHEREUM_SLOT_DURATION',
-  // TODO(#phase6): add 'L1_PUBLISH_LEAD_TIME' here once spartan network-defaults.yml declares it and the
-  // generated cli network configs (networks.ts) carry the value. Adding it before then breaks the
-  // ConsensusComplete compile gate in cli/src/config/chain_l2_config.ts, which requires every consensus env
-  // var to be present in each generated config. The lead is already a consensus value: validateNetworkConsensusConfig
-  // enforces 0 < lead < ethereumSlotDuration and getConsensusConfigFromNetworkEnv fills the clamp default when unset.
+  'L1_PUBLISH_LEAD_TIME',
   'AZTEC_SLOT_DURATION',
   'AZTEC_EPOCH_DURATION',
   'SEQ_BLOCK_DURATION_MS',

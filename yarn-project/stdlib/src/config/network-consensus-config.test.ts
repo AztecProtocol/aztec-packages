@@ -127,6 +127,7 @@ describe('getConsensusConfigFromNetworkEnv', () => {
     const pickedEnvNames = [
       l1ContractsConfigMappings.aztecSlotDuration.env,
       l1ContractsConfigMappings.ethereumSlotDuration.env,
+      l1ContractsConfigMappings.l1PublishLeadTime.env,
       sharedSequencerConfigMappings.blockDurationMs.env,
       sharedSequencerConfigMappings.maxBlocksPerCheckpoint.env,
       sharedSequencerConfigMappings.checkpointProposalSyncGraceSeconds.env,

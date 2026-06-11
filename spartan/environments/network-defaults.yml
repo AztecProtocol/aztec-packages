@@ -39,6 +39,8 @@ l1-contracts: &l1-contracts-defaults
   #---------------------------------------------------------------------------
   # How many seconds an L1 slot lasts (Ethereum consensus layer).
   ETHEREUM_SLOT_DURATION: 12
+  # How many seconds before the target L2 slot the L1 publish transaction should be broadcast.
+  L1_PUBLISH_LEAD_TIME: 6
   # How many seconds an L2 slot lasts (must be multiple of L1 slot duration).
   AZTEC_SLOT_DURATION: 72
   # How many L2 slots in an epoch.

@@ -8,7 +8,7 @@ import { times } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
 import { retryUntil } from '@aztec/foundation/retry';
 import { bufferToHex } from '@aztec/foundation/string';
-import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
+import { getSlotStartBuildTimestamp } from '@aztec/stdlib/epoch-helpers';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { OffenseType } from '@aztec/stdlib/slashing';
 
@@ -175,10 +175,9 @@ describe('e2e_epochs/epochs_equivocation', () => {
     }
     logger.warn(`Expected proposer for submission slot`, { submissionSlot, proposerAttester });
 
-    // Warp to one L1 slot before the target L2 slot so pipelining's build window engages.
-    const slotStartTimestamp = getTimestampForSlot(targetSlot, test.constants);
-    const warpTo = slotStartTimestamp - BigInt(test.L1_BLOCK_TIME_IN_S);
-    logger.warn(`Warping to L1 timestamp ${warpTo} (one L1 slot before L2 slot ${targetSlot})`);
+    // Warp to the target L2 slot's build frame so pipelining engages.
+    const warpTo = BigInt(getSlotStartBuildTimestamp(targetSlot, test.constants));
+    logger.warn(`Warping to L1 timestamp ${warpTo} (build frame start for L2 slot ${targetSlot})`);
     await test.context.cheatCodes.eth.warp(Number(warpTo), { resetBlockInterval: true });
 
     // Start all sequencers now that the clock is warped.

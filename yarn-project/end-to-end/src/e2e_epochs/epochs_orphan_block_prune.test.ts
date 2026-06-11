@@ -11,7 +11,7 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { bufferToHex } from '@aztec/foundation/string';
 import { timeoutPromise } from '@aztec/foundation/timer';
 import { type L2Block, L2BlockSourceEvents } from '@aztec/stdlib/block';
-import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
+import { getSlotStartBuildTimestamp } from '@aztec/stdlib/epoch-helpers';
 import type { ChainTips } from '@aztec/stdlib/interfaces/server';
 
 import { jest } from '@jest/globals';
@@ -175,12 +175,12 @@ describe('e2e_epochs/epochs_orphan_block_prune', () => {
         }),
     );
 
-    // Warp L1 to one L1 block before the build slot for S1 (which is S1-1 under pipelining offset 1). Pipelining will
-    // then engage during S1-1 and the proposer for S1 builds + would broadcast its CheckpointProposal — except we
-    // just suppressed it.
+    // Warp L1 to the build-frame start for S1's build slot (which is S1-1 under pipelining offset 1).
+    // Pipelining will then engage during S1-1 and the proposer for S1 builds + would broadcast its
+    // CheckpointProposal, except we just suppressed it.
     const buildSlot = SlotNumber(S1 - 1);
-    const targetTs = getTimestampForSlot(buildSlot, test.constants) - BigInt(test.L1_BLOCK_TIME_IN_S);
-    logger.warn(`Warping L1 to timestamp ${targetTs} (one L1 block before build slot ${buildSlot} for S1=${S1})`);
+    const targetTs = BigInt(getSlotStartBuildTimestamp(buildSlot, test.constants));
+    logger.warn(`Warping L1 to timestamp ${targetTs} (build frame start for build slot ${buildSlot}, S1=${S1})`);
     await test.context.cheatCodes.eth.warp(Number(targetTs), { resetBlockInterval: true });
 
     expect(await nodes[0].getBlockNumber()).toEqual(0);

@@ -43,6 +43,7 @@ import {
   makeCheckpointProposal,
   mockTx,
 } from '@aztec/stdlib/testing';
+import { ConsensusTimetable } from '@aztec/stdlib/timetable';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { BlockHeader, GlobalVariables, type Tx, TxEffect, TxHash } from '@aztec/stdlib/tx';
 import { AttestationTimeoutError } from '@aztec/stdlib/validators';
@@ -352,12 +353,17 @@ describe('ValidatorClient', () => {
 
     const makeTxFromHash = (txHash: TxHash) => ({ getTxHash: () => txHash, txHash }) as Tx;
     // The tx-collection / re-execution deadline for a block proposal is the single consensus
-    // attestation_deadline for the target slot: target_slot_start + S - 2E.
+    // attestation_deadline for the target slot: target_slot_start + S - E - lead. Derived from a
+    // ConsensusTimetable built from the same L1 constants as production so it tracks the l1PublishLeadTime
+    // anchor (proposal_handler computes the deadline via timetable.getAttestationDeadline).
     const getExpectedAttestationDeadline = (targetSlot: SlotNumber) => {
       const { l1GenesisTime, slotDuration } = checkpointsBuilder.getConfig();
       const { ethereumSlotDuration } = epochCache.getL1Constants();
-      const targetSlotStart = Number(l1GenesisTime) + Number(targetSlot) * slotDuration;
-      return new Date((targetSlotStart + slotDuration - 2 * ethereumSlotDuration) * 1000);
+      const timetable = new ConsensusTimetable({
+        l1Constants: { l1GenesisTime, slotDuration, ethereumSlotDuration },
+        blockDuration: config.blockDurationMs / 1000,
+      });
+      return new Date(timetable.getAttestationDeadline(targetSlot) * 1000);
     };
     const makeCheckpointProposalForSlot = () =>
       makeCheckpointProposal({
@@ -444,9 +450,9 @@ describe('ValidatorClient', () => {
       proposal = await makeBlockProposal({ blockHeader, inHash: emptyInHash });
       // The proposal targets slot 100, which under pipelining is built during the previous slot. Set the
       // wall clock to the start of that build slot (target_slot_start - S), matching how a pipelined
-      // proposer is positioned when validating an inbound block proposal. With S - 2E = 0 in this config
-      // the reexecution deadline (attestation_deadline = target_slot_start + S - 2E) equals the target
-      // slot start, so this leaves a full slot of headroom before the deadline.
+      // proposer is positioned when validating an inbound block proposal. The reexecution deadline
+      // (attestation_deadline = target_slot_start + S - E - lead = target_slot_start + 6 in this config)
+      // sits past the target slot start, so this leaves well over a full slot of headroom before the deadline.
       const genesisTime = 1n;
       const slotDuration = BigInt(checkpointsBuilder.getConfig().slotDuration);
       const buildSlotTime = genesisTime + BigInt(proposal.slotNumber - 1) * slotDuration;

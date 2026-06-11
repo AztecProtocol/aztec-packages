@@ -59,8 +59,6 @@ export interface SequencerConfig {
    * checkpoint proposal being ready for p2p send, in seconds.
    */
   checkpointProposalPrepareTime?: number;
-  /** How much time (in seconds) we allow in the slot for publishing the L1 tx. */
-  l1PublishingTime?: number;
   /** Used for testing to introduce a fake delay after processing each tx */
   fakeProcessingDelayPerTxMs?: number;
   /** Used for testing to throw an error after processing N txs */
@@ -150,7 +148,6 @@ export const SequencerConfigSchema = zodFor<SequencerConfig>()(
     governanceProposerPayload: schemas.EthAddress.optional(),
     minBlockDuration: z.number().positive().optional(),
     checkpointProposalPrepareTime: z.number().nonnegative().optional(),
-    l1PublishingTime: z.number().optional(),
     fakeProcessingDelayPerTxMs: z.number().optional(),
     fakeThrowAfterProcessingTxCount: z.number().optional(),
     attestationPropagationTime: z.number().optional(),

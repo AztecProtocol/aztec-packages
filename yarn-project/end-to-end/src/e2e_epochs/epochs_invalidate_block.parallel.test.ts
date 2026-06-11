@@ -22,7 +22,7 @@ import { executeTimeout, timeoutPromise } from '@aztec/foundation/timer';
 import type { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { OffenseType } from '@aztec/slasher';
 import { L2BlockSourceEvents } from '@aztec/stdlib/block';
-import { computeQuorum, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
+import { computeQuorum, getSlotStartBuildTimestamp, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 
 import { jest } from '@jest/globals';
 import type { Log } from 'viem';
@@ -433,10 +433,10 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     const badSlot2 = SlotNumber.add(warpSlot, preBadSlotCount + 2);
     const badSlots = [badSlot1, badSlot2];
 
-    // Warp to one L1 block before warpSlot, so the sequencers have a full L2 slot to boot and settle
+    // Warp to warpSlot's build frame, so the sequencers have a full L2 slot to boot and settle
     // pipelining before the build window for warpSlot+1 opens at the end of warpSlot.
-    const warpTo = getTimestampForSlot(warpSlot, test.constants) - BigInt(test.L1_BLOCK_TIME_IN_S);
-    logger.warn(`Warping L1 to ${warpTo}, one L1 block before slot ${warpSlot}`, { warpSlot, badSlot1, badSlot2 });
+    const warpTo = BigInt(getSlotStartBuildTimestamp(warpSlot, test.constants));
+    logger.warn(`Warping L1 to ${warpTo}, build frame start for slot ${warpSlot}`, { warpSlot, badSlot1, badSlot2 });
     await test.context.cheatCodes.eth.warp(Number(warpTo), { resetBlockInterval: true });
 
     // Start all sequencers with default (good) config and wait for the first checkpoint to land,
@@ -658,13 +658,12 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     logger.warn('Sending transactions to fill the bad checkpoints');
     await Promise.all(times(4, i => testContract.methods.emit_nullifier(BigInt(i + 1)).send({ from, wait: NO_WAIT })));
 
-    // Sequencers are still stopped. Warp to the L1 block immediately before the pipelined build
-    // window for P1, so the first proposer job that can observe the malicious config is the
-    // intended checkpoint, not an earlier slot owned by the same validator.
+    // Sequencers are still stopped. Warp to the pipelined build window for P1, so the first proposer job that
+    // can observe the malicious config is the intended checkpoint, not an earlier slot owned by the same
+    // validator.
     const buildSlot = SlotNumber.add(badSlot1, -1);
-    const buildSlotStart = getTimestampForSlot(buildSlot, test.constants);
-    const warpTo = buildSlotStart - BigInt(test.L1_BLOCK_TIME_IN_S);
-    logger.warn(`Warping L1 to timestamp ${warpTo} (one L1 block before build slot ${buildSlot})`);
+    const warpTo = BigInt(getSlotStartBuildTimestamp(buildSlot, test.constants));
+    logger.warn(`Warping L1 to timestamp ${warpTo} (build frame start for build slot ${buildSlot})`);
     await test.context.cheatCodes.eth.warp(Number(warpTo), { resetBlockInterval: true });
 
     await Promise.all(sequencers.map(s => s.start()));

@@ -68,8 +68,8 @@ import {
 import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import {
   type L1RollupConstants,
+  getLastL1SlotTimestampForL2Slot,
   getNextL1SlotTimestamp,
-  getSlotStartBuildTimestamp,
 } from '@aztec/stdlib/epoch-helpers';
 import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
@@ -972,10 +972,7 @@ describe('L1Publisher integration', () => {
     });
 
     const getProposeTxTimeoutAt = (checkpoint: Checkpoint) => {
-      const { slotDuration: aztecSlotDuration } = l1Constants;
-      const txTimeoutAt = new Date(
-        (Number(getSlotStartBuildTimestamp(checkpoint.slot, l1Constants)) + Number(aztecSlotDuration)) * 1000,
-      );
+      const txTimeoutAt = new Date(Number(getLastL1SlotTimestampForL2Slot(checkpoint.slot, l1Constants)) * 1000);
       logger.warn(`Setting tx timeout at ${txTimeoutAt.toISOString()} (${txTimeoutAt.getTime()})`);
       return txTimeoutAt;
     };

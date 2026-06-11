@@ -49,7 +49,6 @@ export const DefaultSequencerConfig = {
   perBlockDAAllocationMultiplier: MIN_PER_BLOCK_DA_ALLOCATION_MULTIPLIER,
   redistributeCheckpointBudget: true,
   blockDurationMs: DEFAULT_BLOCK_DURATION_MS,
-  l1PublishingTime: 12,
   checkpointProposalSyncGraceSeconds: 2 * (DEFAULT_BLOCK_DURATION_MS / 1000),
   attestationPropagationTime: DEFAULT_P2P_PROPAGATION_TIME,
   secondsBeforeInvalidatingBlockAsCommitteeMember: 144, // 12 L1 blocks
@@ -159,11 +158,6 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     env: 'GOVERNANCE_PROPOSER_PAYLOAD_ADDRESS',
     description: 'The address of the payload for the governanceProposer',
     parseEnv: (val: string) => EthAddress.fromString(val),
-  },
-  l1PublishingTime: {
-    env: 'SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT',
-    description: 'How much time in seconds to allow in the slot for publishing the L1 transaction.',
-    ...numberConfigHelper(DefaultSequencerConfig.l1PublishingTime),
   },
   fakeProcessingDelayPerTxMs: {
     description: 'Used for testing to introduce a fake delay after processing each tx',

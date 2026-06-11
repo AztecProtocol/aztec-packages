@@ -46,7 +46,7 @@ describe('FishermanAttestationValidator', () => {
       signatureContext: TEST_COORDINATION_SIGNATURE_CONTEXT,
       clockDisparityMs: 500,
     });
-    // Default now sits inside slot 100's attestation window [7116, 7248]s, so slot-100 attestations pass
+    // Default now sits inside slot 100's attestation window [7122, 7254]s, so slot-100 attestations pass
     // the receive-window gate and reach committee/payload checks. The slot-97 test overrides this.
     epochCache.getEpochAndSlotNow.mockReturnValue({
       epoch: EpochNumber(1),
@@ -75,8 +75,8 @@ describe('FishermanAttestationValidator', () => {
       epochCache.getEpochAndSlotNow.mockReturnValue({
         epoch: EpochNumber(1),
         slot: SlotNumber(98),
-        ts: 7033n,
-        nowMs: 7033_000n, // past slot 97's attestation deadline (7032s) + disparity
+        ts: 7039n,
+        nowMs: 7039_000n, // past slot 97's attestation deadline (7038s) + disparity
       });
       epochCache.isInCommittee.mockResolvedValue(true);
 

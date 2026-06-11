@@ -31,7 +31,7 @@ import {
 } from '@aztec/stdlib/block';
 import { Checkpoint, type ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
 import type { ChainConfig } from '@aztec/stdlib/config';
-import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
+import { type L1RollupConstants, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
 import {
   type SequencerConfig,
@@ -174,10 +174,10 @@ describe('sequencer', () => {
     feeRecipient = await AztecAddress.random();
     lastBlockNumber = BlockNumber.ZERO;
     newBlockNumber = BlockNumber(lastBlockNumber + 1);
-    // Pipelining is always on: the proposer builds during the wall-clock (build) slot for the
-    // target slot one ahead. The mocked next-L1-slot lookup reports build slot 1 (see
-    // getEpochAndSlotInNextL1Slot below), so the checkpoint the sequencer builds — and the slot
-    // `canProposeAt` must report — is the target slot, build + PROPOSER_PIPELINING_SLOT_OFFSET.
+    // Pipelining is always on: the proposer builds during the wall-clock (build) slot for the target
+    // slot one ahead. The work loop derives the build slot from the clock (`slot_of(now + lead)`), and the
+    // beforeEach anchors the clock at the target slot's build frame opening, so the checkpoint the
+    // sequencer builds — and the slot `canProposeAt` must report — is build + PROPOSER_PIPELINING_SLOT_OFFSET.
     newSlotNumber = newBlockNumber + PROPOSER_PIPELINING_SLOT_OFFSET;
     hash = Fr.ZERO.toString();
 
@@ -402,6 +402,12 @@ describe('sequencer', () => {
       config,
     );
     sequencer.updateConfig(config);
+
+    // The work loop now derives the build/target slot from the wall clock (`getSlotAtTimestamp(now + lead)`)
+    // rather than the mocked next-L1-slot lookup, and gates strictly on the target slot's build frame
+    // opening. Anchor the clock at that frame opening so the loop targets `newSlotNumber` and is allowed to
+    // build; individual tests that exercise the late/past-deadline paths override the clock afterwards.
+    dateProvider.setTime(sequencer.getTimeTable().getBuildFrameStart(SlotNumber(newSlotNumber)) * 1000);
   });
 
   describe('perBlockAllocationMultiplier guard', () => {
@@ -658,38 +664,11 @@ describe('sequencer', () => {
         .mockResolvedValueOnce({ attestorAddress: publishers[0].getSenderAddress(), publisher: publishers[0] })
         .mockResolvedValueOnce({ attestorAddress: publishers[1].getSenderAddress(), publisher: publishers[1] });
 
-      // Configure epoch cache to return different slots
-      epochCache.getEpochAndSlotInNextL1Slot
-        .mockReset()
-        .mockReturnValueOnce({
-          epoch: EpochNumber(1),
-          slot: SlotNumber(1),
-          ts: 1000n,
-          nowSeconds: 1000n,
-        })
-        .mockReturnValueOnce({
-          epoch: EpochNumber(1),
-          slot: SlotNumber(2),
-          ts: 1000n,
-          nowSeconds: 1000n,
-        });
-      // Target slots are one ahead of the build slots above (build 1 -> target 2, build 2 -> target 3).
+      // The work loop derives the target slot from the wall clock, so advancing the clock per iteration
+      // (below) flips build slot 1 -> target 2 then build slot 2 -> target 3. Target slots are one ahead
+      // of the build slots (build 1 -> target 2, build 2 -> target 3).
       epochCache.getTargetSlot.mockReset().mockReturnValueOnce(SlotNumber(2)).mockReturnValueOnce(SlotNumber(3));
       epochCache.getTargetEpoch.mockReturnValue(EpochNumber(1));
-      epochCache.getTargetEpochAndSlotInNextL1Slot
-        .mockReset()
-        .mockReturnValueOnce({
-          epoch: EpochNumber(1),
-          slot: SlotNumber(2),
-          ts: 1000n,
-          nowSeconds: 1000n,
-        })
-        .mockReturnValueOnce({
-          epoch: EpochNumber(1),
-          slot: SlotNumber(3),
-          ts: 1000n,
-          nowSeconds: 1000n,
-        });
 
       sequencer.updateConfig({ maxTxsPerBlock: 4 });
 
@@ -698,6 +677,9 @@ describe('sequencer', () => {
         const tx = await makeTx();
         block = await makeBlock([tx]);
         TestUtils.mockPendingTxs(p2p, [tx]);
+        // Anchor the clock at the build frame opening for this iteration's target slot so the work loop
+        // flips to it (newSlotNumber + i) and is allowed to enter the frame.
+        dateProvider.setTime(sequencer.getTimeTable().getBuildFrameStart(SlotNumber(newSlotNumber + i)) * 1000);
         await sequencer.work();
         await sequencer.awaitLastProposalSubmission();
 
@@ -955,7 +937,10 @@ describe('sequencer', () => {
         valid: false,
         checkpoint: {
           checkpointNumber: CheckpointNumber(1),
-          timestamp: 1000n,
+          // L1 timestamp of the invalid checkpoint's slot. Tests set the clock to this + a threshold; with
+          // a timestamp consistent with l1GenesisTime the wall-clock-driven work loop derives a target slot
+          // whose build frame is open, so the frame-entry gate does not suppress the invalidation path.
+          timestamp: getTimestampForSlot(SlotNumber(newSlotNumber), l1Constants),
           archive: Fr.random(),
           lastArchive: Fr.random(),
           slotNumber: SlotNumber(newSlotNumber),
@@ -1223,7 +1208,10 @@ describe('sequencer', () => {
       // We only need to test prepareCheckpointProposal behavior here.
       sequencer.skipExecute = true;
 
-      // Set up a pipelining scenario: slot.now=1, slot.pipeline=2
+      // The top-level beforeEach anchors the clock at the build frame opening for the default target slot
+      // (newSlotNumber = 2), so the wall-clock flip derives build slot 1 -> target slot 2. These legacy
+      // next-L1-slot mocks no longer drive the work-loop flip but are left as harmless defaults; the
+      // 'derives the pipelined target slot' test below overrides the clock to target a different slot.
       epochCache.getEpochAndSlotInNextL1Slot.mockReturnValue({
         epoch: EpochNumber(1),
         slot: SlotNumber(1),
@@ -1253,21 +1241,13 @@ describe('sequencer', () => {
       sequencer.skipExecute = false;
     });
 
-    it('derives the pipelined target slot from the same next-L1-slot snapshot', async () => {
+    it('derives the pipelined target slot from the wall-clock frame-entry flip', async () => {
       await setupSingleTxBlock();
 
-      epochCache.getEpochAndSlotInNextL1Slot.mockReturnValue({
-        epoch: EpochNumber(1),
-        slot: SlotNumber(6),
-        ts: 1780066804n,
-        nowSeconds: 1780066811n,
-      });
-      epochCache.getTargetEpochAndSlotInNextL1Slot.mockReturnValue({
-        epoch: EpochNumber(1),
-        slot: SlotNumber(8),
-        ts: 1780066816n,
-        nowSeconds: 1780066812n,
-      });
+      // The work loop now flips the target slot from the clock (`slot_of(now + lead) + 1`), not from the
+      // next-L1-slot lookup. Anchor the clock at the build frame opening for target slot 7 so the loop
+      // derives build slot 6 -> target slot 7, and does not call the old explicit target lookup.
+      dateProvider.setTime(sequencer.getTimeTable().getBuildFrameStart(SlotNumber(7)) * 1000);
       publisher.canProposeAt.mockResolvedValue({
         slot: SlotNumber(7),
         checkpointNumber: CheckpointNumber.fromBlockNumber(newBlockNumber),
@@ -1279,6 +1259,30 @@ describe('sequencer', () => {
       expect(epochCache.getTargetEpochAndSlotInNextL1Slot).not.toHaveBeenCalled();
       expect(epochCache.getProposerAttesterAddressInSlot).toHaveBeenCalledWith(SlotNumber(7));
       expect(p2p.prepareForSlot).toHaveBeenCalledWith(SlotNumber(7));
+    });
+
+    it('derives the first slot of an epoch at the shifted frame entry', async () => {
+      await setupSingleTxBlock();
+
+      const firstSlotOfEpoch = SlotNumber(epochDuration);
+      dateProvider.setTime(sequencer.getTimeTable().getBuildFrameStart(firstSlotOfEpoch) * 1000);
+      publisher.canProposeAt.mockResolvedValue({
+        slot: firstSlotOfEpoch,
+        checkpointNumber: CheckpointNumber.fromBlockNumber(newBlockNumber),
+        timeOfNextL1Slot: 1780066816n,
+      });
+
+      const slotContext = sequencer.getSlotContextForTest();
+      expect(slotContext.slot).toEqual(SlotNumber(firstSlotOfEpoch - PROPOSER_PIPELINING_SLOT_OFFSET));
+      expect(slotContext.targetSlot).toEqual(firstSlotOfEpoch);
+      expect(slotContext.epoch).toEqual(EpochNumber(0));
+      expect(slotContext.targetEpoch).toEqual(EpochNumber(1));
+
+      await sequencer.work();
+
+      expect(epochCache.getProposerAttesterAddressInSlot).toHaveBeenCalledWith(firstSlotOfEpoch);
+      expect(epochCache.isEscapeHatchOpen).toHaveBeenCalledWith(EpochNumber(1));
+      expect(p2p.prepareForSlot).toHaveBeenCalledWith(firstSlotOfEpoch);
     });
 
     it('skips L1 check when proposed checkpoint exists', async () => {
@@ -1677,6 +1681,10 @@ class TestSequencer extends Sequencer {
 
   public checkSyncForTest(args: { ts: bigint; slot: SlotNumber }) {
     return this.checkSync(args);
+  }
+
+  public getSlotContextForTest() {
+    return this.getSlotContextInNextL1Slot();
   }
 
   public getLogger() {

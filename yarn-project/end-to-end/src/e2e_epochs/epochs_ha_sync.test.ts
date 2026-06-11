@@ -12,7 +12,7 @@ import { SecretValue } from '@aztec/foundation/config';
 import { retryUntil } from '@aztec/foundation/retry';
 import { bufferToHex } from '@aztec/foundation/string';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
-import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
+import { getSlotStartBuildTimestamp } from '@aztec/stdlib/epoch-helpers';
 import { createSharedSlashingProtectionDb } from '@aztec/validator-ha-signer/factory';
 
 import { jest } from '@jest/globals';
@@ -148,15 +148,15 @@ describe('e2e_epochs/epochs_ha_sync', () => {
     const txHashes = await Promise.all(txs.map(tx => tx.send({ wait: NO_WAIT })));
     logger.warn(`Sent ${txHashes.length} transactions.`);
 
-    // Warp to 1 L1 slot before the start of the following L2 slot, so sequencers start cleanly.
-    // We don't warp to the next L2 slot because we may already be less than 1 L1 slot before it.
+    // Warp to the build frame of the following L2 slot, so sequencers start cleanly. We don't warp to the next
+    // L2 slot because we may already be inside its build frame.
     const currentSlot = await rollup.getSlotNumber();
     const nextSlot = SlotNumber(currentSlot + 2);
-    const nextSlotTimestamp = getTimestampForSlot(nextSlot, test.constants);
-    await context.cheatCodes.eth.warp(Number(nextSlotTimestamp) - test.L1_BLOCK_TIME_IN_S, {
+    const nextSlotBuildTimestamp = getSlotStartBuildTimestamp(nextSlot, test.constants);
+    await context.cheatCodes.eth.warp(nextSlotBuildTimestamp, {
       resetBlockInterval: true,
     });
-    logger.warn(`Warped to 1 L1 slot before L2 slot ${nextSlot}.`);
+    logger.warn(`Warped to build frame start for L2 slot ${nextSlot}.`);
 
     // Start the sequencers on all nodes.
     await Promise.all(nodes.map(n => n.getSequencer()!.start()));

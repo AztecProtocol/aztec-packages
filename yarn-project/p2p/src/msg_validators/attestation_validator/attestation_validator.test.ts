@@ -58,8 +58,8 @@ describe('CheckpointAttestationValidator', () => {
   });
 
   it('returns high tolerance error if slot number is outside its receive window', async () => {
-    // Attestation for slot 97 (target 98). Slot 97 attestation deadline = 97*72 + 48 = 7032s; set now
-    // just past it so the message falls outside its liberal receive window.
+    // Attestation for slot 97 (target 98). Slot 97 attestation deadline = 97*72 + S - E - lead = 7038s;
+    // set now just past it so the message falls outside its liberal receive window.
     const header = CheckpointHeader.random({ slotNumber: SlotNumber(97) });
     const mockAttestation = makeCheckpointAttestation({
       header,
@@ -75,8 +75,8 @@ describe('CheckpointAttestationValidator', () => {
     epochCache.getEpochAndSlotNow.mockReturnValue({
       epoch: EpochNumber(1),
       slot: SlotNumber(98),
-      ts: 7033n,
-      nowMs: 7033_000n, // past slot 97's attestation deadline (7032s) + disparity
+      ts: 7039n,
+      nowMs: 7039_000n, // past slot 97's attestation deadline (7038s) + disparity
     });
     epochCache.isInCommittee.mockResolvedValue(true);
 
@@ -85,7 +85,7 @@ describe('CheckpointAttestationValidator', () => {
   });
 
   it('accepts a previous-slot attestation that is still within its receive window', async () => {
-    // Attestation for slot 97 (target 98). Slot 97 build frame opens at 97*72 - 84 = 6900s; now is
+    // Attestation for slot 97 (target 98). Slot 97 build frame opens at 97*72 - S - lead = 6906s; now is
     // shortly after, well within slot 97's liberal attestation window, so it falls through and accepts.
     const header = CheckpointHeader.random({ slotNumber: SlotNumber(97) });
     const mockAttestation = makeCheckpointAttestation({
@@ -102,8 +102,8 @@ describe('CheckpointAttestationValidator', () => {
     epochCache.getEpochAndSlotNow.mockReturnValue({
       epoch: EpochNumber(1),
       slot: SlotNumber(98),
-      ts: 6905n,
-      nowMs: 6905_000n, // within slot 97's window [6900, 7032]
+      ts: 6910n,
+      nowMs: 6910_000n, // within slot 97's window [6906, 7038]
     });
     epochCache.isInCommittee.mockResolvedValue(true);
     epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(proposer.address);
@@ -114,7 +114,8 @@ describe('CheckpointAttestationValidator', () => {
 
   it('accepts attestation for current slot inside the straggler window', async () => {
     // Attestation is for slot 98 (current wallclock slot), but targetSlot is 99 (pipelining). Slot 98's
-    // liberal attestation window is [98*72-84, 98*72+48] = [6972, 7104]s; now sits comfortably inside.
+    // liberal attestation window is [98*72 - S - lead, 98*72 + S - E - lead] = [6978, 7110]s; now sits
+    // comfortably inside.
     const header = CheckpointHeader.random({ slotNumber: SlotNumber(98) });
     const mockAttestation = makeCheckpointAttestation({
       header,
@@ -131,7 +132,7 @@ describe('CheckpointAttestationValidator', () => {
       epoch: EpochNumber(1),
       slot: SlotNumber(98),
       ts: 6980n,
-      nowMs: 6980_000n, // within slot 98's window [6972, 7104]
+      nowMs: 6980_000n, // within slot 98's window [6978, 7110]
     });
     epochCache.isInCommittee.mockResolvedValue(true);
     epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(proposer.address);
@@ -141,7 +142,7 @@ describe('CheckpointAttestationValidator', () => {
   });
 
   it('accepts attestation arriving well into the target slot (liberal window)', async () => {
-    // Slot 98 attestation; now is 30s past target_slot_start(98)=7056 ⇒ 7086s, still within [6972, 7104].
+    // Slot 98 attestation; now is 30s past target_slot_start(98)=7056 ⇒ 7086s, still within [6978, 7110].
     const header = CheckpointHeader.random({ slotNumber: SlotNumber(98) });
     const mockAttestation = makeCheckpointAttestation({
       header,
@@ -168,7 +169,7 @@ describe('CheckpointAttestationValidator', () => {
   });
 
   it('rejects attestation for current slot past the straggler window', async () => {
-    // Slot 98 attestation; now is past slot 98's attestation deadline (7104s) + disparity.
+    // Slot 98 attestation; now is past slot 98's attestation deadline (7110s) + disparity.
     const header = CheckpointHeader.random({ slotNumber: SlotNumber(98) });
     const mockAttestation = makeCheckpointAttestation({
       header,
@@ -185,8 +186,8 @@ describe('CheckpointAttestationValidator', () => {
     epochCache.getEpochAndSlotNow.mockReturnValue({
       epoch: EpochNumber(1),
       slot: SlotNumber(98),
-      ts: 7105n,
-      nowMs: 7105_000n, // past slot 98's attestation deadline (7104s) + disparity
+      ts: 7111n,
+      nowMs: 7111_000n, // past slot 98's attestation deadline (7110s) + disparity
     });
     epochCache.isInCommittee.mockResolvedValue(true);
 
@@ -206,7 +207,7 @@ describe('CheckpointAttestationValidator', () => {
       targetSlot: SlotNumber(100),
       nextSlot: SlotNumber(101),
     });
-    // Slot 100 attestation window [7116, 7248]s; now inside so the committee check is reached.
+    // Slot 100 attestation window [7122, 7254]s; now inside so the committee check is reached.
     epochCache.getEpochAndSlotNow.mockReturnValue({
       epoch: EpochNumber(1),
       slot: SlotNumber(100),
@@ -231,7 +232,7 @@ describe('CheckpointAttestationValidator', () => {
       targetSlot: SlotNumber(100),
       nextSlot: SlotNumber(101),
     });
-    // Slot 100 attestation window [7116, 7248]s; now sits inside it.
+    // Slot 100 attestation window [7122, 7254]s; now sits inside it.
     epochCache.getEpochAndSlotNow.mockReturnValue({
       epoch: EpochNumber(1),
       slot: SlotNumber(100),
@@ -257,7 +258,7 @@ describe('CheckpointAttestationValidator', () => {
       targetSlot: SlotNumber(100),
       nextSlot: SlotNumber(101),
     });
-    // Slot 101 attestation window [7188, 7320]s; now sits inside it.
+    // Slot 101 attestation window [7194, 7326]s; now sits inside it.
     epochCache.getEpochAndSlotNow.mockReturnValue({
       epoch: EpochNumber(1),
       slot: SlotNumber(101),
@@ -284,7 +285,7 @@ describe('CheckpointAttestationValidator', () => {
       targetSlot: SlotNumber(100),
       nextSlot: SlotNumber(101),
     });
-    // Slot 100 attestation window [7116, 7248]s; now inside so the proposer check is reached.
+    // Slot 100 attestation window [7122, 7254]s; now inside so the proposer check is reached.
     epochCache.getEpochAndSlotNow.mockReturnValue({
       epoch: EpochNumber(1),
       slot: SlotNumber(100),
@@ -309,7 +310,7 @@ describe('CheckpointAttestationValidator', () => {
       targetSlot: SlotNumber(100),
       nextSlot: SlotNumber(101),
     });
-    // Slot 100 attestation window [7116, 7248]s; now inside so the committee lookup is reached.
+    // Slot 100 attestation window [7122, 7254]s; now inside so the committee lookup is reached.
     epochCache.getEpochAndSlotNow.mockReturnValue({
       epoch: EpochNumber(1),
       slot: SlotNumber(100),
@@ -324,10 +325,12 @@ describe('CheckpointAttestationValidator', () => {
   });
 
   describe('clock-disparity widening of the attestation receive window', () => {
-    // Attestation window for slot 100 is [buildFrameStart, attestationDeadline] = [7116, 7248]s,
-    // widened by TEST_CLOCK_DISPARITY_MS (0.5s) on both ends. These pin the exact widened boundaries.
-    const buildFrameStart = 100 * 72 - 72 - 12; // 7116
-    const attestationDeadline = 100 * 72 + 72 - 2 * 12; // 7248
+    // Attestation window for slot 100 is [buildFrameStart, attestationDeadline] = [7122, 7254]s
+    // (buildFrameStart = 100*72 - S - lead = 7122; deadline = 100*72 + S - E - lead = 7254; lead=6),
+    // widened by TEST_CLOCK_DISPARITY_MS (0.5s) on both ends. Derived from the timetable so the bounds
+    // track the l1PublishLeadTime anchor. These pin the exact widened boundaries.
+    const buildFrameStart = makeTimetable().getAttestationReceiveStart(SlotNumber(100));
+    const attestationDeadline = makeTimetable().getAttestationDeadline(SlotNumber(100));
     const deltaSeconds = TEST_CLOCK_DISPARITY_MS / 1000;
 
     function validateAt(nowSeconds: number) {

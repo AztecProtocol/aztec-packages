@@ -12,7 +12,7 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { bufferToHex } from '@aztec/foundation/string';
 import { timeoutPromise } from '@aztec/foundation/timer';
 import { type L2Block, L2BlockSourceEvents } from '@aztec/stdlib/block';
-import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
+import { getSlotStartBuildTimestamp, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import type { ChainTips } from '@aztec/stdlib/interfaces/server';
 
 import { jest } from '@jest/globals';
@@ -30,7 +30,7 @@ const NODE_COUNT = 4;
  *
  * Each of 4 nodes holds exactly one validator key. We pick four consecutive slots
  * (slotZero, slotOne, slotTwo, slotThree) such that the proposers for slotOne, slotTwo, and
- * slotThree are three distinct validators, then warp to one L1 block before slotZero begins.
+ * slotThree are three distinct validators, then warp to slotZero's build frame.
  * The proposer for slotOne is configured to skip its L1 publish.
  *
  * With pipelining, the proposer for slot N+1 builds and gossips its checkpoint during slot N,
@@ -196,10 +196,9 @@ describe('e2e_epochs/epochs_missed_l1_publish', () => {
         }),
     );
 
-    // Warp L1 to one L1 block before slotZero begins. Pipelining will then engage during slotZero.
-    const slotZeroStart = getTimestampForSlot(slotZero, test.constants);
-    const warpTo = slotZeroStart - BigInt(test.L1_BLOCK_TIME_IN_S);
-    logger.warn(`Warping L1 to timestamp ${warpTo} (one L1 block before slot ${slotZero})`);
+    // Warp L1 to the start of slotZero's build frame. Pipelining will then engage during slotZero.
+    const warpTo = BigInt(getSlotStartBuildTimestamp(slotZero, test.constants));
+    logger.warn(`Warping L1 to timestamp ${warpTo} (build frame start for slot ${slotZero})`);
     await test.context.cheatCodes.eth.warp(Number(warpTo), { resetBlockInterval: true });
 
     // Check that the chain is empty

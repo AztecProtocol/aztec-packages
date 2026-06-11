@@ -20,7 +20,7 @@ import type {
 } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import type { CoordinationSignatureContext } from '@aztec/stdlib/p2p';
-import type { ProposerTimetable } from '@aztec/stdlib/timetable';
+import { type ProposerTimetable, resolveL1PublishLeadTime } from '@aztec/stdlib/timetable';
 import { type CheckpointGlobalVariables, GlobalVariables, type Tx } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 import type {
@@ -246,10 +246,13 @@ describe('CheckpointProposalJob Timing Tests', () => {
   const attestorAddress = EthAddress.random();
   const proposer = EthAddress.random();
 
-  /** Calculate slot start time for a given slot number */
+  /**
+   * Build-frame anchor for a target slot, used as the clock origin and the reference the relative timing
+   * assertions subtract. Equals `getBuildFrameStart(slot + 1)`: the previous build slot's frame opens
+   * `l1_publish_lead_time` before its slot start, i.e. `genesis + slot * S - lead`.
+   */
   function getSlotStartTime(slot: SlotNumber): number {
-    // Slot build time = l1GenesisTime + slot * slotDuration - ethereumSlotDuration
-    return Number(l1Constants.l1GenesisTime) + slot * AZTEC_SLOT_DURATION - ETHEREUM_SLOT_DURATION;
+    return Number(l1Constants.l1GenesisTime) + slot * AZTEC_SLOT_DURATION - resolveL1PublishLeadTime(l1Constants);
   }
 
   /** Set the simulated time to a specific point within the slot */
@@ -698,7 +701,8 @@ describe('CheckpointProposalJob Timing Tests', () => {
     // validators must have at least blockDuration time to re-execute before attestations are due.
     // Under pipelining, attestation collection extends into the target slot:
     //   - Last block deadline: initOffset + maxBlocks * blockDuration = 1 + 7*8 = 57s
-    //   - Attestation deadline: 2*slotDuration - l1Publishing = 2*72 - 12 = 132s (into target slot)
+    //   - Attestation deadline relative to the build frame: 2*slotDuration - ethSlotDuration = 144 - 12 =
+    //     132s (anchor-independent: deadline and build frame both shift by l1PublishLeadTime)
     //   - Validator re-execution window: 57s to (132s - propagation) = 57s to 130s
     //   - This must be >= blockDuration (8s) ✓
 
@@ -728,7 +732,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
       const lastBlockBuildTime = checkpointBuilder.recordedBuildTimes[EXPECTED_MAX_BLOCKS - 1];
       expect(lastBlockBuildTime).toBeDefined();
 
-      // Attestation deadline (target_slot_start + S - 2E), expressed relative to the build frame start
+      // Attestation deadline (target_slot_start + S - E - lead), expressed relative to the build frame start
       // so it can be compared against the simulated seconds-into-slot recorded build times.
       const attestationDeadline = timetable.getAttestationDeadline(targetSlot) - getSlotStartTime(slotNumber);
 
@@ -981,9 +985,8 @@ describe('CheckpointProposalJob Timing Tests', () => {
       expect(collectAttestationsDeadline).toBeDefined();
 
       // The attestation deadline extends into the target slot (pipelining is always on):
-      // slotStart + 2 * slotDuration - ethereumSlotDuration = slotStart + 144 - 12 = slotStart + 132
-      const slotStart = getSlotStartTime(slotNumber);
-      const expectedDeadlineSeconds = slotStart + 2 * AZTEC_SLOT_DURATION - ETHEREUM_SLOT_DURATION;
+      // target_slot_start + S - E - lead. Derived from the timetable so it tracks the l1PublishLeadTime anchor.
+      const expectedDeadlineSeconds = timetable.getAttestationDeadline(targetSlot);
       const actualDeadlineSeconds = collectAttestationsDeadline!.getTime() / 1000;
 
       expect(actualDeadlineSeconds).toBeCloseTo(expectedDeadlineSeconds, 0);
@@ -1045,10 +1048,9 @@ describe('CheckpointProposalJob Timing Tests', () => {
       await job.execute();
       await job.awaitPendingSubmission();
 
-      // Deadline should still be absolute (slotStart + 132s), not relative to start time.
-      // Pipelining is always on: 2 * slotDuration - ethereumSlotDuration = 144 - 12 = 132
-      const slotStart = getSlotStartTime(slotNumber);
-      const expectedDeadlineSeconds = slotStart + 2 * AZTEC_SLOT_DURATION - ETHEREUM_SLOT_DURATION;
+      // Deadline should still be absolute (the target-slot publish cutoff), not relative to start time.
+      // Pipelining is always on: target_slot_start + S - E - lead. Derived from the timetable.
+      const expectedDeadlineSeconds = timetable.getAttestationDeadline(targetSlot);
       const actualDeadlineSeconds = collectAttestationsDeadline!.getTime() / 1000;
 
       expect(actualDeadlineSeconds).toBeCloseTo(expectedDeadlineSeconds, 0);
@@ -1084,10 +1086,9 @@ describe('CheckpointProposalJob Timing Tests', () => {
       expect(validatorClient.collectAttestations).toHaveBeenCalled();
       expect(collectAttestationsDeadline).toBeDefined();
 
-      // Attestation deadline = buildSlotStart + (2 * aztecSlotDuration - ethereumSlotDuration)
-      // so collection can continue until the target slot's publish cutoff.
-      const buildSlotStart = getSlotStartTime(slotNumber);
-      const expectedDeadlineSeconds = buildSlotStart + 2 * AZTEC_SLOT_DURATION - ETHEREUM_SLOT_DURATION;
+      // Attestation deadline = target_slot_start + S - E - lead, so collection can continue until the
+      // target slot's publish cutoff. Derived from the timetable to track the l1PublishLeadTime anchor.
+      const expectedDeadlineSeconds = timetable.getAttestationDeadline(targetSlot);
       const actualDeadlineSeconds = collectAttestationsDeadline!.getTime() / 1000;
 
       expect(actualDeadlineSeconds).toBeCloseTo(expectedDeadlineSeconds, 0);

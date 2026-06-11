@@ -19,7 +19,7 @@ import { sleep } from '@aztec/foundation/sleep';
 import { bufferToHex } from '@aztec/foundation/string';
 import { executeTimeout } from '@aztec/foundation/timer';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
-import { getSlotAtTimestamp, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
+import { getSlotAtTimestamp, getSlotStartBuildTimestamp } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
 import { TxStatus } from '@aztec/stdlib/tx';
 
@@ -540,20 +540,18 @@ describe('e2e_epochs/epochs_mbps', () => {
     await Promise.all(nodes.map(n => n.getSequencer()!.start()));
     logger.warn(`Started all sequencers`);
 
-    // Wait until one L1 slot before the start of the next L2 slot.
+    // Wait until the build frame for the next L2 slot.
     // This ensures both txs land in the pending pool right before the proposer starts building.
     // REFACTOR: This should go into a shared "waitUntilNextSlotStartsBuilding" utility
     const currentL1Block = await test.l1Client.getBlock({ blockTag: 'latest' });
     const currentTimestamp = currentL1Block.timestamp;
     const currentSlot = getSlotAtTimestamp(currentTimestamp, test.constants);
     const nextSlot = SlotNumber(currentSlot + 1);
-    const nextSlotTimestamp = getTimestampForSlot(nextSlot, test.constants);
-    const targetTimestamp = nextSlotTimestamp - BigInt(test.L1_BLOCK_TIME_IN_S);
-    logger.warn(`Waiting until L1 timestamp ${targetTimestamp} (one L1 slot before L2 slot ${nextSlot})`, {
+    const targetTimestamp = BigInt(getSlotStartBuildTimestamp(nextSlot, test.constants));
+    logger.warn(`Waiting until L1 timestamp ${targetTimestamp} (build frame start for L2 slot ${nextSlot})`, {
       currentTimestamp,
       currentSlot,
       nextSlot,
-      nextSlotTimestamp,
       targetTimestamp,
     });
     await waitUntilL1Timestamp(test.l1Client, targetTimestamp, undefined, test.L2_SLOT_DURATION_IN_S * 3);

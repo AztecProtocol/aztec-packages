@@ -257,8 +257,8 @@ describe('ProposalHandler checkpoint validation', () => {
     it('fails fast (does not hang) when the validation deadline is already in the past', async () => {
       blockSource.getBlockData.mockResolvedValue(undefined);
 
-      // attestation_deadline(slot=1) = 1*24 + 24 - 8 = 40s. Hold wall-clock past it.
-      dateProvider.setTime(41_000);
+      // attestation_deadline(slot=1) = 1*24 + 24 - E - lead = 42s (E=4, lead=2). Hold wall-clock past it.
+      dateProvider.setTime((consensusTimetable.getAttestationDeadline(SlotNumber(1)) + 1) * 1000);
 
       const result = await handler.handleCheckpointProposal(await makeProposal(), proposalInfo);
       expect(result).toEqual({ isValid: false, reason: 'last_block_not_found' });
@@ -271,7 +271,7 @@ describe('ProposalHandler checkpoint validation', () => {
     it('returns an already-synced block even when the deadline is in the past', async () => {
       blockSource.getBlockData.mockResolvedValue({ header: makeBlockHeader() } as BlockData);
       blockSource.getBlocksForSlot.mockResolvedValue([]);
-      dateProvider.setTime(41_000);
+      dateProvider.setTime((consensusTimetable.getAttestationDeadline(SlotNumber(1)) + 1) * 1000);
 
       const result = await handler.handleCheckpointProposal(await makeProposal(), proposalInfo);
       // Got past the block-sync wait (would be last_block_not_found if it failed fast unconditionally).
@@ -283,8 +283,8 @@ describe('ProposalHandler checkpoint validation', () => {
     it('terminates with a fractional sub-second timeout when <1s remains before the deadline', async () => {
       blockSource.getBlockData.mockResolvedValue(undefined);
 
-      // 39.7s: ~0.3s before the 40s deadline. Old code: floor(0.3) = 0 → never times out.
-      dateProvider.setTime(39_700);
+      // ~0.3s before the attestation_deadline (42s here). Old code: floor(0.3) = 0 → never times out.
+      dateProvider.setTime((consensusTimetable.getAttestationDeadline(SlotNumber(1)) - 0.3) * 1000);
 
       const result = await handler.handleCheckpointProposal(await makeProposal(), proposalInfo);
       expect(result).toEqual({ isValid: false, reason: 'last_block_not_found' });
@@ -321,23 +321,22 @@ describe('ProposalHandler checkpoint validation', () => {
       expect(metrics.recordCheckpointProposalToPipelinedStateDuration).toHaveBeenCalledWith(expect.any(Number));
     });
 
-    // The checkpoint-validation block-sync deadline is the L1 publish deadline (12s/one Ethereum
-    // slot before the last L1 block of the target slot), which is later than the target-slot start
-    // used for block re-execution. With slotDuration=24, ethereumSlotDuration=4 and proposal slot=1:
-    //   target_start                = timestamp(1)                      = 24s
-    //   old deadline (slot start)    = getReexecutionDeadline(1)         = 24s
-    //   new deadline (publish)       = getLastL1SlotTimestampForL2Slot(1) - E = 24 + 20 - 4 = 40s
-    // Holding wall-clock time at 30s (after the old deadline, before the new one) lets us tell the
-    // two apart: under the new deadline the handler still has budget to wait for the block to sync,
-    // so it gets past the sync wait; under the old deadline it would immediately time out.
-    it('uses the L1 publish deadline (not the target-slot start) for the block-sync wait', async () => {
+    // The checkpoint-validation block-sync deadline is the single consensus attestation_deadline
+    // (target_slot_start + S - E - lead), which sits past the target-slot start. With slotDuration=24,
+    // ethereumSlotDuration=4, lead=2 and proposal slot=1:
+    //   target_start                = timestamp(1)                = 24s
+    //   attestation_deadline         = getReexecutionDeadline(1)   = 24 + 24 - 4 - 2 = 42s
+    // Holding wall-clock time at 30s (past the target-slot start, before the attestation deadline) lets
+    // us tell the two apart: against the attestation_deadline the handler still has budget to wait for the
+    // block to sync, so it gets past the sync wait; against the target-slot start it would time out.
+    it('uses the attestation deadline (not the target-slot start) for the block-sync wait', async () => {
       const proposal = await makeProposal({ checkpointHeader: makeCheckpointHeader(0, { slotNumber: SlotNumber(1) }) });
 
-      // 30s into the epoch: past the old target-slot-start deadline (24s), before the publish one (40s).
+      // 30s into the epoch: past the target-slot start (24s), before the attestation deadline (42s).
       dateProvider.setTime(30_000);
 
-      // Block is unavailable for the first couple of polls, then syncs in. Under the new (later)
-      // deadline the retry budget covers this; under the old deadline the wait would time out first.
+      // Block is unavailable for the first couple of polls, then syncs in. Against the attestation
+      // deadline the retry budget covers this; against the target-slot start the wait would time out first.
       blockSource.getBlockData
         .mockResolvedValueOnce(undefined)
         .mockResolvedValueOnce(undefined)
@@ -347,7 +346,7 @@ describe('ProposalHandler checkpoint validation', () => {
 
       const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
 
-      // Got past the block-sync wait (would be `last_block_not_found` under the old deadline).
+      // Got past the block-sync wait (would be `last_block_not_found` against the target-slot start).
       expect(result).toEqual({ isValid: false, reason: 'no_blocks_for_slot', checkpointNumber: CheckpointNumber(1) });
     });
   });

@@ -3,6 +3,7 @@ import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { z } from 'zod';
 
 import { schemas, zodFor } from '../schemas/index.js';
+import { resolveL1PublishLeadTime } from '../timetable/budgets.js';
 
 export type L1RollupConstants = {
   l1StartBlock: bigint;
@@ -173,10 +174,10 @@ export function computeQuorum(committeeSize: number): number {
   return Math.floor((committeeSize * 2) / 3) + 1;
 }
 
-/** Returns the timestamp to start building a block for a given L2 slot. Computed as the start timestamp of the slot minus one L1 slot duration. */
+/** Returns the timestamp to start building a block for a given L2 slot. */
 export function getSlotStartBuildTimestamp(
   slotNumber: SlotNumber,
-  constants: Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration' | 'ethereumSlotDuration'>,
+  constants: Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration' | 'ethereumSlotDuration' | 'l1PublishLeadTime'>,
 ): number {
-  return Number(constants.l1GenesisTime) + slotNumber * constants.slotDuration - constants.ethereumSlotDuration;
+  return Number(constants.l1GenesisTime) + slotNumber * constants.slotDuration - resolveL1PublishLeadTime(constants);
 }

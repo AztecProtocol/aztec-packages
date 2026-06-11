@@ -355,10 +355,9 @@ describe('CheckpointProposalJob', () => {
   // selectNextSubslot returns absolute wall-clock sub-slot deadlines (seconds), which is exactly what
   // waitUntilNextSubslot receives. Tests express deadlines as offsets from the build frame start and assert
   // waitUntilNextSubslot with the resulting absolute timestamp (buildFrameStartSeconds() + offset).
-  // The build frame for the target slot opens at target_slot_start - S - E, i.e. anchored at the slot
-  // before the target slot.
-  const buildFrameStartSeconds = () =>
-    Number(l1Constants.l1GenesisTime) + (newSlotNumber - 1) * slotDuration - ethereumSlotDuration;
+  // The build frame for the target slot opens at target_slot_start - S - lead, i.e. anchored at the slot
+  // before the target slot. Derived from the timetable so it tracks the resolved l1PublishLeadTime anchor.
+  const buildFrameStartSeconds = () => timetable.getBuildFrameStart(SlotNumber(newSlotNumber));
   const subslot = (offset: number, index: number, isLastBlock: boolean): SubslotSelection => ({
     canStart: true,
     index,
@@ -420,6 +419,9 @@ describe('CheckpointProposalJob', () => {
       // We build checkpoint 2 on top of proposed parent at checkpoint 1.
       checkpointNumber = CheckpointNumber(2);
 
+      // Start at the build frame opening for the target slot so the build genuinely starts at the frame: its
+      // offset from the build slot boundary is then exactly -l1PublishLeadTime.
+      dateProvider.setTime(timetable.getBuildFrameStart(SlotNumber(newSlotNumber + 1)) * 1000);
       const checkpoint = await createCheckpointProposalJob({
         targetSlot: SlotNumber(newSlotNumber + 1),
         proposedCheckpointData: {
@@ -438,7 +440,7 @@ describe('CheckpointProposalJob', () => {
       expect(checkpointMetrics.startCheckpointTiming).toHaveBeenCalledWith(expect.any(Number));
       expect(checkpointMetrics.recordPipelinedCheckpointBuildStartOffsetFromSlotBoundary).toHaveBeenCalledTimes(1);
       const [offsetMs] = checkpointMetrics.recordPipelinedCheckpointBuildStartOffsetFromSlotBoundary.mock.calls[0];
-      expect(Math.abs(offsetMs + ethereumSlotDuration * 1000)).toBeLessThan(100);
+      expect(Math.abs(offsetMs + timetable.l1PublishLeadTime * 1000)).toBeLessThan(100);
     });
 
     it('skips building if not enough txs and not forced', async () => {

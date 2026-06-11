@@ -76,7 +76,7 @@ describe('ProposalValidator', () => {
       },
       'test',
     );
-    // Default now sits inside the current slot's (100) checkpoint receive window [7116, 7182]s, so a
+    // Default now sits inside the current slot's (100) checkpoint receive window [7122, 7188]s, so a
     // current-slot proposal is accepted by the unconditional receive-window gate. Next-slot (101) tests
     // override this with a now inside slot 101's window.
     epochCache.getEpochAndSlotNow.mockReturnValue({
@@ -129,8 +129,8 @@ describe('ProposalValidator', () => {
     });
 
     it('rejects with high tolerance error if slot is outside its receive window', async () => {
-      // Proposal for slot 99 (previous). Past slot 99's checkpoint receive deadline (99*72 - E - D =
-      // 7110s) so both block and checkpoint proposals, which share that window, are rejected.
+      // Proposal for slot 99 (previous). Past slot 99's checkpoint receive deadline (99*72 - lead - D =
+      // 7116s) so both block and checkpoint proposals, which share that window, are rejected.
       const proposal = await factory(previousSlot, Secp256k1Signer.random());
 
       epochCache.getEpochAndSlotNow.mockReturnValue({
@@ -147,8 +147,8 @@ describe('ProposalValidator', () => {
     });
 
     it('accepts a previous-slot proposal that is still within its receive window', async () => {
-      // Proposal for slot 99 (previous). Slot 99 build frame opens at 99*72 - 84 = 7044s, before the
-      // tight checkpoint deadline (99*72 - 18 = 7110s); now sits inside both windows, so it accepts.
+      // Proposal for slot 99 (previous). Slot 99 build frame opens at 99*72 - S - lead = 7050s, before the
+      // tight checkpoint deadline (99*72 - lead - D = 7116s); now sits inside both windows, so it accepts.
       const signer = Secp256k1Signer.random();
       const proposal = await factory(previousSlot, signer);
 
@@ -258,8 +258,8 @@ describe('ProposalValidator', () => {
 
     it('accepts proposal for current slot within its pipelined receive window', async () => {
       // Pipelining: targetSlot = 101, proposal is for slot 100 (current wallclock slot). Slot 100's
-      // proposal receive window is [100*72-84, 100*72-18] = [7116, 7182]s, shared by block and checkpoint
-      // proposals. now = 7150 sits inside it.
+      // proposal receive window is [100*72 - S - lead, 100*72 - lead - D] = [7122, 7188]s, shared by block
+      // and checkpoint proposals. now = 7150 sits inside it.
       epochCache.getTargetAndNextSlot.mockReturnValue({
         targetSlot: SlotNumber(101),
         nextSlot: SlotNumber(102),
@@ -282,7 +282,7 @@ describe('ProposalValidator', () => {
     });
 
     it('rejects proposal for current slot past its receive window', async () => {
-      // Past slot 100's proposal receive deadline (100*72 - E - D = 7182s) so both block and checkpoint
+      // Past slot 100's proposal receive deadline (100*72 - lead - D = 7188s) so both block and checkpoint
       // proposals, which share that window, are rejected.
       epochCache.getTargetAndNextSlot.mockReturnValue({
         targetSlot: SlotNumber(101),
@@ -309,7 +309,7 @@ describe('ProposalValidator', () => {
 
   describe('checkpoint receive-deadline gate on the common (messageSlot === targetSlot) path', () => {
     // Under pipelining the normal checkpoint proposal has messageSlot === targetSlot. The tight
-    // checkpoint receive window for slot 100 is [7116, 7182]s (deadline = 100*72 - E - D = 7182).
+    // checkpoint receive window for slot 100 is [7122, 7188]s (deadline = 100*72 - lead - D = 7188).
     const signer = Secp256k1Signer.random();
 
     beforeEach(() => {
@@ -323,12 +323,12 @@ describe('ProposalValidator', () => {
         signer,
       });
 
-      // 7183s is past the deadline (7182) even allowing the +0.5s clock grace (upper bound 7182.5s).
+      // 7189s is past the deadline (7188) even allowing the +0.5s clock grace (upper bound 7188.5s).
       epochCache.getEpochAndSlotNow.mockReturnValue({
         epoch: EpochNumber(1),
         slot: currentSlot,
-        ts: 7183n,
-        nowMs: 7183_000n,
+        ts: 7189n,
+        nowMs: 7189_000n,
       });
 
       const result = await validator.validate(proposal);
@@ -353,9 +353,9 @@ describe('ProposalValidator', () => {
     });
 
     it('rejects a block proposal for the target slot arriving after the checkpoint receive deadline', async () => {
-      // Block proposals share the checkpoint proposal receive window [7116, 7182]s. Every block proposal
+      // Block proposals share the checkpoint proposal receive window [7122, 7188]s. Every block proposal
       // for the slot precedes the checkpoint proposal, so a block proposal arriving after the checkpoint
-      // receive deadline (7182) is rejected at ingress just like the checkpoint proposal would be.
+      // receive deadline (7188) is rejected at ingress just like the checkpoint proposal would be.
       const proposal = await makeBlockProposal({
         blockHeader: makeBlockHeader(0, { slotNumber: currentSlot }),
         signer,
@@ -364,8 +364,8 @@ describe('ProposalValidator', () => {
       epochCache.getEpochAndSlotNow.mockReturnValue({
         epoch: EpochNumber(1),
         slot: currentSlot,
-        ts: 7183n,
-        nowMs: 7183_000n,
+        ts: 7189n,
+        nowMs: 7189_000n,
       });
 
       const result = await validator.validate(proposal);
@@ -374,11 +374,13 @@ describe('ProposalValidator', () => {
   });
 
   describe('clock-disparity widening of the proposal receive window', () => {
-    // Proposal receive window for slot 100 is [buildFrameStart, proposalDeadline] = [7116, 7182]s,
-    // widened by TEST_CLOCK_DISPARITY_MS (0.5s) on both ends. These pin the exact widened boundaries.
+    // Proposal receive window for slot 100 is [buildFrameStart, proposalDeadline] = [7122, 7188]s
+    // (buildFrameStart = 100*72 - S - lead = 7122; deadline = 100*72 - lead - D = 7188; lead=6, D=6),
+    // widened by TEST_CLOCK_DISPARITY_MS (0.5s) on both ends. Derived from the timetable so the bounds
+    // track the l1PublishLeadTime anchor. These pin the exact widened boundaries.
     const signer = Secp256k1Signer.random();
-    const buildFrameStart = 100 * 72 - 72 - 12; // 7116
-    const proposalDeadline = 100 * 72 - 12 - 6; // 7182
+    const buildFrameStart = makeTimetable().getCheckpointProposalReceiveStart(currentSlot);
+    const proposalDeadline = makeTimetable().getCheckpointProposalReceiveDeadline(currentSlot);
     const deltaSeconds = TEST_CLOCK_DISPARITY_MS / 1000;
 
     beforeEach(() => {

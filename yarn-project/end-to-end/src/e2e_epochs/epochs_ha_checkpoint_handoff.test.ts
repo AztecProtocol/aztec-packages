@@ -12,7 +12,7 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { bufferToHex } from '@aztec/foundation/string';
 import type { BlockData } from '@aztec/stdlib/block';
 import type { CheckpointData, ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
-import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
+import { getSlotStartBuildTimestamp } from '@aztec/stdlib/epoch-helpers';
 import { createSharedSlashingProtectionDb } from '@aztec/validator-ha-signer/factory';
 
 import { jest } from '@jest/globals';
@@ -261,13 +261,12 @@ describe('e2e_epochs/epochs_ha_checkpoint_handoff', () => {
     logger.warn(`Paused builder for slot ${slotS2}; paused peer for slot ${slotS1}.`);
 
     // Under proposer pipelining the proposer for proposal slot S1 builds during wall-clock slot S1-1.
-    // Warp to 1 L1 slot before the build slot (S1-1) so the builder starts cleanly.
+    // Warp to the build frame for S1-1 so the builder starts cleanly.
     const buildSlotForS1 = SlotNumber(slotS1 - 1);
-    const buildSlotTimestamp = getTimestampForSlot(buildSlotForS1, test.constants);
-    await context.cheatCodes.eth.warp(Number(buildSlotTimestamp) - test.L1_BLOCK_TIME_IN_S, {
+    await context.cheatCodes.eth.warp(getSlotStartBuildTimestamp(buildSlotForS1, test.constants), {
       resetBlockInterval: true,
     });
-    logger.warn(`Warped to 1 L1 slot before L2 build slot ${buildSlotForS1} (proposal slot ${slotS1}).`);
+    logger.warn(`Warped to build frame start for L2 build slot ${buildSlotForS1} (proposal slot ${slotS1}).`);
 
     expect(await builder.getBlockNumber()).toEqual(0);
 

@@ -9,6 +9,7 @@ import { SlotNumber } from '@aztec/foundation/branded-types';
 import { mean, stdDev, times } from '@aztec/foundation/collection';
 import { BenchmarkingContract } from '@aztec/noir-test-contracts.js/Benchmarking';
 import { type Sequencer, type SequencerEvents, SequencerState } from '@aztec/sequencer-client';
+import { resolveL1PublishLeadTime } from '@aztec/stdlib/timetable';
 import type { TxHash } from '@aztec/stdlib/tx';
 import type { MetricDefinition } from '@aztec/telemetry-client';
 import type { BenchmarkDataPoint, BenchmarkMetricsType, BenchmarkTelemetryClient } from '@aztec/telemetry-client/bench';
@@ -26,7 +27,6 @@ import { type EndToEndContext, type SetupOptions, setup } from '../fixtures/util
 const MAX_BENCH_WAIT_BLOCKS = 6;
 const BENCH_FINAL_WAIT_TIMEOUT_SECONDS = 10;
 const SEQUENCER_IDLE_TIMEOUT_MS = 60_000;
-const DEFAULT_L1_PUBLISHING_TIME_SECONDS = 12;
 
 /**
  * Setup for benchmarks. Initializes a remote node with a funded hardcoded account and deploys a benchmark contract.
@@ -256,16 +256,16 @@ async function haveAllTxsMined(txs: TxHash[], context: EndToEndContext, txWaitOp
 }
 
 async function mineNextBenchmarkBlock(context: EndToEndContext, sequencer: Sequencer) {
-  const l1PublishingTime = BigInt(context.config.l1PublishingTime ?? DEFAULT_L1_PUBLISHING_TIME_SECONDS);
+  const l1PublishLeadTime = BigInt(resolveL1PublishLeadTime(context.config));
   const currentTimestamp = BigInt(await context.cheatCodes.eth.lastBlockTimestamp());
   let targetSlot = SlotNumber((await context.cheatCodes.rollup.getSlot()) + 1);
   let targetTimestamp = await context.cheatCodes.rollup.getTimestampForSlot(targetSlot);
-  while (targetTimestamp - l1PublishingTime - 1n <= currentTimestamp) {
+  while (targetTimestamp - l1PublishLeadTime - 1n <= currentTimestamp) {
     targetSlot = SlotNumber(targetSlot + 1);
     targetTimestamp = await context.cheatCodes.rollup.getTimestampForSlot(targetSlot);
   }
 
-  const triggerTimestamp = targetTimestamp - l1PublishingTime - 1n;
+  const triggerTimestamp = targetTimestamp - l1PublishLeadTime - 1n;
   await context.cheatCodes.eth.warp(triggerTimestamp, { resetBlockInterval: true });
   await context.aztecNode.mineBlock();
   await waitForSequencerIdle(sequencer);

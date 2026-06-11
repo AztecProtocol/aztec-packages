@@ -16,7 +16,7 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { executeTimeout } from '@aztec/foundation/timer';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
-import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
+import { getSlotStartBuildTimestamp } from '@aztec/stdlib/epoch-helpers';
 
 import { jest } from '@jest/globals';
 import { privateKeyToAccount } from 'viem/accounts';
@@ -150,13 +150,11 @@ describe('e2e_epochs/epochs_mbps_redistribution', () => {
     );
     logger.warn(`Pre-proved ${provenTxs.length} transactions`);
 
-    // Warp to just before the next L2 slot so sequencers start building promptly.
+    // Warp to the next L2 slot's build frame so sequencers start building promptly.
     const currentSlot = await rollup.getSlotNumber();
     const nextSlot = SlotNumber(currentSlot + 1);
-    const slotStartTimestamp = getTimestampForSlot(nextSlot, test.constants);
-    // Warp to one L1 slot before the L2 slot starts (= the sequencer's build start).
-    const warpTo = slotStartTimestamp - BigInt(test.L1_BLOCK_TIME_IN_S);
-    logger.warn(`Warping to L1 timestamp ${warpTo} (one L1 slot before L2 slot ${nextSlot})`);
+    const warpTo = BigInt(getSlotStartBuildTimestamp(nextSlot, test.constants));
+    logger.warn(`Warping to L1 timestamp ${warpTo} (build frame start for L2 slot ${nextSlot})`);
     await waitUntilL1Timestamp(test.l1Client, warpTo, undefined, 60);
 
     // Send first early tx to the mempool before starting sequencers, so the first block isn't empty.
@@ -258,12 +256,11 @@ describe('e2e_epochs/epochs_mbps_redistribution', () => {
     );
     logger.warn(`Pre-proved ${initialProvenTxs.length} transactions`);
 
-    // Warp to just before the next L2 slot so sequencers start building promptly.
+    // Warp to the next L2 slot's build frame so sequencers start building promptly.
     const currentSlot = await rollup.getSlotNumber();
     const nextSlot = SlotNumber(currentSlot + 1);
-    const slotStartTimestamp = getTimestampForSlot(nextSlot, test.constants);
-    const warpTo = slotStartTimestamp - BigInt(test.L1_BLOCK_TIME_IN_S);
-    logger.warn(`Warping to L1 timestamp ${warpTo} (one L1 slot before L2 slot ${nextSlot})`);
+    const warpTo = BigInt(getSlotStartBuildTimestamp(nextSlot, test.constants));
+    logger.warn(`Warping to L1 timestamp ${warpTo} (build frame start for L2 slot ${nextSlot})`);
     await waitUntilL1Timestamp(test.l1Client, warpTo, undefined, 60);
 
     // Start sequencers and send the initial batch.

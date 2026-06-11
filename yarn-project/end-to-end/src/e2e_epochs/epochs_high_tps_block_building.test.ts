@@ -13,7 +13,7 @@ import { SecretValue } from '@aztec/foundation/config';
 import { sleepUntil } from '@aztec/foundation/sleep';
 import { bufferToHex } from '@aztec/foundation/string';
 import type { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
-import { getSlotAtTimestamp, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
+import { getSlotAtTimestamp, getSlotStartBuildTimestamp, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 
 import { jest } from '@jest/globals';
 import { privateKeyToAccount } from 'viem/accounts';
@@ -26,11 +26,11 @@ jest.setTimeout(1000 * 60 * 10);
 
 const NODE_COUNT = 3;
 
-// Multi-block-per-slot test under pipelining. Exercises a full checkpoint (4 blocks × 2 txs) and verifies the
-// checkpoint tx lands on the 2nd L1 block of its target slot.
+// Multi-block-per-slot test under pipelining. Exercises a full checkpoint (4 blocks x 2 txs) and verifies the
+// checkpoint tx lands inside its target L2 slot.
 //
 // Config: aztecSlotDuration=36s, ethereumSlotDuration=12s (3 L1 blocks / L2 slot), blockDuration=6s,
-//         fakeProcessingDelayPerTxMs=2500ms, attestationPropagationTime=1s, l1PublishingTime=12s,
+//         fakeProcessingDelayPerTxMs=2500ms, attestationPropagationTime=1s, l1PublishLeadTime=6s,
 //         txDelayerMaxInclusionTimeIntoSlot=1s.
 //
 // Time inside a build slot (36s total):
@@ -45,16 +45,16 @@ const NODE_COUNT = 3;
 //   T=33-34  (1s)  attestations back (p2pPropagationTime)    ┘
 //   T=34-36  (2s)  slack
 //
-// At target-slot start (T=0 of target slot) the proposer submits the L1 propose tx. With
-// txDelayerMaxInclusionTimeIntoSlot=1s, it falls inside the current L1 slot window and lands in the next
-// L1 block — the 2nd L1 block of the target slot (offset=1). It can also land in the 1st L1 block (offset=0)
-// if attestations arrive fast enough that the proposer submits inside the last second of the build slot.
+// At `targetSlotStart - l1PublishLeadTime` the proposer submits the L1 propose tx. With Anvil interval mining,
+// a tx sent at any point after the previous block timestamp lands in a block stamped at-or-after send time, so
+// the checkpoint should be published in an L1 block whose timestamp maps to the target L2 slot. Aligned local
+// setups usually land at L1 offset 0, but this test intentionally avoids pinning a literal L1 block index.
 // Expected mining layout for a target slot:
 //
 //        T=0                T=12                T=24                T=36
 //        ├──────────────────┼──────────────────┼──────────────────┤
 //        │ 1st L1 block     │ 2nd L1 block     │ 3rd L1 block     │
-//        │ ← fast submit    │ ← typical        │                  │
+//        │ ← typical        │ ← possible       │                  │
 //
 const BLOCKS_PER_CHECKPOINT = 4;
 const TXS_PER_BLOCK = 2;
@@ -134,24 +134,23 @@ describe('e2e_epochs/epochs_high_tps_block_building', () => {
     const sequencers = nodes.map(node => node.getSequencer()!);
     const { failEvents } = test.watchSequencerEvents(sequencers, i => ({ validator: validators[i].attester }));
 
-    // Wait until `ethereumSlotDuration + blockDuration` seconds before the L2 target slot boundary before
-    // starting the sequencers. The sequencer's timetable treats the build window for slot N as starting at
-    // `slotStart(N) - ethereumSlotDuration` (see `getSlotStartBuildTimestamp` in `stdlib/src/epoch-helpers`),
-    // so we need at least one ethereum slot of lead on top of one blockDuration to guarantee that sub-slot 1
-    // of the first build slot is reachable (and hence the first checkpoint is fully filled).
-    const leadSeconds = test.L1_BLOCK_TIME_IN_S + BLOCK_DURATION_MS / 1000;
+    // Start one block duration before the build frame for the first target slot so sub-slot 1 is reachable
+    // and the first checkpoint can be fully filled.
+    const startOffsetSeconds = BLOCK_DURATION_MS / 1000;
     const currentL1Block = await test.l1Client.getBlock({ blockTag: 'latest' });
     const currentSlot = getSlotAtTimestamp(currentL1Block.timestamp, test.constants);
     let targetSlot = SlotNumber(currentSlot + 1);
     let startSequencersAt = new Date(
-      Number(getTimestampForSlot(targetSlot, test.constants)) * 1000 - leadSeconds * 1000,
+      (getSlotStartBuildTimestamp(targetSlot, test.constants) - startOffsetSeconds) * 1000,
     );
     if (startSequencersAt.getTime() <= context.dateProvider.now()) {
       targetSlot = SlotNumber(targetSlot + 1);
-      startSequencersAt = new Date(Number(getTimestampForSlot(targetSlot, test.constants)) * 1000 - leadSeconds * 1000);
+      startSequencersAt = new Date(
+        (getSlotStartBuildTimestamp(targetSlot, test.constants) - startOffsetSeconds) * 1000,
+      );
     }
     logger.warn(
-      `Waiting until ${startSequencersAt.toISOString()} (${leadSeconds}s before L2 slot ${targetSlot} starts)`,
+      `Waiting until ${startSequencersAt.toISOString()} (${startOffsetSeconds}s before build frame for L2 slot ${targetSlot})`,
     );
     await sleepUntil(startSequencersAt, context.dateProvider.nowAsDate());
 
@@ -173,7 +172,6 @@ describe('e2e_epochs/epochs_high_tps_block_building', () => {
       includeTransactions: true,
       onlyCheckpointed: true,
     });
-    const ethereumSlotDuration = test.L1_BLOCK_TIME_IN_S;
     const checkpoints = chunkBy(blocks, b => Number(b.checkpointNumber));
     let checkedFullCheckpoints = 0;
     for (const checkpointBlocks of checkpoints) {
@@ -181,8 +179,9 @@ describe('e2e_epochs/epochs_high_tps_block_building', () => {
       const firstSlot = first.header.globalVariables.slotNumber;
       const slotStartTimestamp = getTimestampForSlot(firstSlot, test.constants);
       const l1OffsetInSlot = first.l1?.published
-        ? Number(first.l1.timestamp - slotStartTimestamp) / ethereumSlotDuration
+        ? Number(first.l1.timestamp - slotStartTimestamp) / test.L1_BLOCK_TIME_IN_S
         : undefined;
+      const publishedL2Slot = first.l1?.published ? getSlotAtTimestamp(first.l1.timestamp, test.constants) : undefined;
       logger.warn(
         `Checkpoint ${first.checkpointNumber} (target slot ${firstSlot}) mined at L1 block ${first.l1?.published ? first.l1.blockNumber : 'pending'} ` +
           `(offset ${l1OffsetInSlot} into L2 slot) with ${checkpointBlocks.length} blocks`,
@@ -203,7 +202,7 @@ describe('e2e_epochs/epochs_high_tps_block_building', () => {
         expect(txCount).toBeGreaterThanOrEqual(1);
         expect(txCount).toBeLessThanOrEqual(TXS_PER_BLOCK);
       }
-      expect([0, 1]).toContain(l1OffsetInSlot);
+      expect(publishedL2Slot).toEqual(firstSlot);
       checkedFullCheckpoints++;
     }
 
