@@ -332,7 +332,6 @@ describe('CheckpointProposalJob', () => {
 
     config = {
       ...DefaultSequencerConfig,
-      enforceTimeTable: true,
       maxTxsPerBlock: 4,
       minTxsPerBlock: 1,
       publishTxsWithProposals: false,
@@ -345,11 +344,16 @@ describe('CheckpointProposalJob', () => {
       shuffleAttestationOrdering: false,
     };
 
+<<<<<<< HEAD
     timetable = new SequencerTimetable({
       ethereumSlotDuration,
       aztecSlotDuration: slotDuration,
       l1PublishingTime: ethereumSlotDuration,
       enforce: config.enforceTimeTable,
+=======
+    timetable = makeProposerTimetable({
+      l1Constants,
+>>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
     });
 
     job = createCheckpointProposalJob();
@@ -357,13 +361,19 @@ describe('CheckpointProposalJob', () => {
 
   describe('single block mode', () => {
     beforeEach(() => {
-      // Single block mode: no blockDurationMs set
+      // Single block mode: a 9s block duration in a 24s slot derives exactly one block sub-slot.
       job.setTimetable(
+<<<<<<< HEAD
         new SequencerTimetable({
           ethereumSlotDuration,
           aztecSlotDuration: slotDuration,
           l1PublishingTime: ethereumSlotDuration,
           enforce: config.enforceTimeTable,
+=======
+        makeProposerTimetable({
+          l1Constants,
+          blockDurationMs: 9000,
+>>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
         }),
       );
     });
@@ -374,6 +384,8 @@ describe('CheckpointProposalJob', () => {
 
       validatorClient.collectAttestations.mockResolvedValue(getAttestations(block));
 
+      // Start building at the build-frame opening so the single block sub-slot is still selectable.
+      dateProvider.setTime(buildFrameStartSeconds() * 1000);
       const checkpoint = await job.executeAndAwait();
 
       expect(checkpoint).toBeDefined();
@@ -447,6 +459,8 @@ describe('CheckpointProposalJob', () => {
 
       job.updateConfig({ buildCheckpointIfEmpty: true, minTxsPerBlock: 1 });
 
+      // Start building at the build-frame opening so the single block sub-slot is still selectable.
+      dateProvider.setTime(buildFrameStartSeconds() * 1000);
       const checkpoint = await job.executeAndAwait();
 
       expect(checkpoint).toBeDefined();
@@ -468,6 +482,8 @@ describe('CheckpointProposalJob', () => {
 
       validatorClient.collectAttestations.mockResolvedValue(getAttestations(block));
 
+      // Start building at the build-frame opening so the single block sub-slot is still selectable.
+      dateProvider.setTime(buildFrameStartSeconds() * 1000);
       await job.executeAndAwait();
 
       expect(validatorClient.collectAttestations).toHaveBeenCalledTimes(1);
@@ -488,11 +504,17 @@ describe('CheckpointProposalJob', () => {
       checkpointNumber = CheckpointNumber(3);
       job = createCheckpointProposalJob();
       job.setTimetable(
+<<<<<<< HEAD
         new SequencerTimetable({
           ethereumSlotDuration,
           aztecSlotDuration: slotDuration,
           l1PublishingTime: ethereumSlotDuration,
           enforce: config.enforceTimeTable,
+=======
+        makeProposerTimetable({
+          l1Constants,
+          blockDurationMs: 9000,
+>>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
         }),
       );
 
@@ -525,11 +547,17 @@ describe('CheckpointProposalJob', () => {
       checkpointNumber = CheckpointNumber(2);
       job = createCheckpointProposalJob();
       job.setTimetable(
+<<<<<<< HEAD
         new SequencerTimetable({
           ethereumSlotDuration,
           aztecSlotDuration: slotDuration,
           l1PublishingTime: ethereumSlotDuration,
           enforce: config.enforceTimeTable,
+=======
+        makeProposerTimetable({
+          l1Constants,
+          blockDurationMs: 9000,
+>>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
         }),
       );
 
@@ -570,11 +598,17 @@ describe('CheckpointProposalJob', () => {
 
       job = createCheckpointProposalJob({ slotNow, targetSlot, targetEpoch });
       job.setTimetable(
+<<<<<<< HEAD
         new SequencerTimetable({
           ethereumSlotDuration,
           aztecSlotDuration: slotDuration,
           l1PublishingTime: ethereumSlotDuration,
           enforce: config.enforceTimeTable,
+=======
+        makeProposerTimetable({
+          l1Constants,
+          blockDurationMs: 9000,
+>>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
         }),
       );
 
@@ -615,11 +649,17 @@ describe('CheckpointProposalJob', () => {
         proposedCheckpointData,
       });
       job.setTimetable(
+<<<<<<< HEAD
         new SequencerTimetable({
           ethereumSlotDuration,
           aztecSlotDuration: slotDuration,
           l1PublishingTime: ethereumSlotDuration,
           enforce: config.enforceTimeTable,
+=======
+        makeProposerTimetable({
+          l1Constants,
+          blockDurationMs: 9000,
+>>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
         }),
       );
 
@@ -660,11 +700,17 @@ describe('CheckpointProposalJob', () => {
 
       job = createCheckpointProposalJob({ slotNow, targetSlot, targetEpoch, proposedCheckpointData });
       job.setTimetable(
+<<<<<<< HEAD
         new SequencerTimetable({
           ethereumSlotDuration,
           aztecSlotDuration: slotDuration,
           l1PublishingTime: ethereumSlotDuration,
           enforce: config.enforceTimeTable,
+=======
+        makeProposerTimetable({
+          l1Constants,
+          blockDurationMs: 9000,
+>>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
         }),
       );
 
@@ -1334,7 +1380,6 @@ describe('CheckpointProposalJob', () => {
           aztecSlotDuration: slotDuration,
           l1PublishingTime: ethereumSlotDuration,
           blockDurationMs: 3000,
-          enforce: true,
         }),
       );
     });
@@ -1608,6 +1653,13 @@ describe('CheckpointProposalJob', () => {
   });
 
   describe('timing edge cases', () => {
+    beforeEach(() => {
+      // Single-block timetable started at the build-frame opening, so the real timetable selects exactly
+      // one block. Tests that mock selectNextSubslot below override this.
+      job.setTimetable(makeProposerTimetable({ l1Constants, blockDurationMs: 9000 }));
+      dateProvider.setTime(buildFrameStartSeconds() * 1000);
+    });
+
     it('handles insufficient time remaining in slot', async () => {
       // Mock canStartNextBlock to return false (not enough time)
       jest.spyOn(job.getTimetable(), 'canStartNextBlock').mockReturnValue({
@@ -1670,6 +1722,12 @@ describe('CheckpointProposalJob', () => {
   });
 
   describe('error handling', () => {
+    beforeEach(() => {
+      // Single-block timetable started at the build-frame opening, so the real timetable selects exactly one block.
+      job.setTimetable(makeProposerTimetable({ l1Constants, blockDurationMs: 9000 }));
+      dateProvider.setTime(buildFrameStartSeconds() * 1000);
+    });
+
     it('handles block build failure gracefully', async () => {
       const txs = await Promise.all([makeTx(1, chainId)]);
       p2p.getPendingTxCount.mockResolvedValue(txs.length);
@@ -1810,6 +1868,12 @@ describe('CheckpointProposalJob', () => {
   });
 
   describe('attestation collection', () => {
+    beforeEach(() => {
+      // Single-block timetable started at the build-frame opening, so the real timetable selects exactly one block.
+      job.setTimetable(makeProposerTimetable({ l1Constants, blockDurationMs: 9000 }));
+      dateProvider.setTime(buildFrameStartSeconds() * 1000);
+    });
+
     it('collects attestations in normal flow', async () => {
       const { txs, block } = await setupTxsAndBlock(p2p, globalVariables, 1, chainId);
       checkpointBuilder.seedBlocks([block], [txs]);
@@ -1849,7 +1913,6 @@ describe('CheckpointProposalJob', () => {
           aztecSlotDuration: slotDuration,
           l1PublishingTime: ethereumSlotDuration,
           blockDurationMs: 3000,
-          enforce: true,
         }),
       );
 
@@ -1890,7 +1953,6 @@ describe('CheckpointProposalJob', () => {
           aztecSlotDuration: slotDuration,
           l1PublishingTime: ethereumSlotDuration,
           blockDurationMs: 3000,
-          enforce: true,
         }),
       );
 

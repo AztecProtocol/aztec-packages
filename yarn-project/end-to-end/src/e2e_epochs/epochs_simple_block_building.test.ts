@@ -51,13 +51,11 @@ describe('e2e_epochs/epochs_simple_block_building', () => {
       numberOfAccounts: 0,
       initialValidators: validators,
       mockGossipSubNetwork: true,
-      disableAnvilTestWatcher: true,
       aztecProofSubmissionEpochs: 1024,
       aztecSlotDurationInL1Slots: 3,
       ethereumSlotDuration: 12,
       blockDurationMs: 6000,
       startProverNode: false,
-      enforceTimeTable: true,
       skipInitialSequencer: true,
       inboxLag: 2,
     });

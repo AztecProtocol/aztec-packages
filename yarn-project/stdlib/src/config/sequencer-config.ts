@@ -6,7 +6,20 @@ import {
 } from '@aztec/foundation/config';
 
 import type { SequencerConfig } from '../interfaces/configs.js';
+<<<<<<< HEAD
 import { DEFAULT_P2P_PROPAGATION_TIME } from '../timetable/index.js';
+=======
+import {
+  DEFAULT_BLOCK_DURATION,
+  DEFAULT_CHECKPOINT_PROPOSAL_PREPARE_TIME,
+  DEFAULT_MIN_BLOCK_DURATION,
+  DEFAULT_P2P_PROPAGATION_TIME,
+  getDefaultCheckpointProposalSyncGrace,
+} from '../timetable/index.js';
+>>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
+
+/** Default duration per block in milliseconds, used to derive how many blocks fit in a slot. */
+export const DEFAULT_BLOCK_DURATION_MS = DEFAULT_BLOCK_DURATION * 1000;
 
 /** Default maximum number of transactions per block. */
 export const DEFAULT_MAX_TXS_PER_BLOCK = 32;
@@ -32,10 +45,8 @@ export const sharedSequencerConfigMappings: ConfigMappingsType<
 > = {
   blockDurationMs: {
     env: 'SEQ_BLOCK_DURATION_MS',
-    description:
-      'Duration per block in milliseconds when building multiple blocks per slot. ' +
-      'If undefined (default), builds a single block per slot using the full slot duration.',
-    ...optionalNumberConfigHelper(),
+    description: 'Duration per block in milliseconds, used to derive how many blocks fit in a slot.',
+    ...numberConfigHelper(DEFAULT_BLOCK_DURATION_MS),
   },
   expectedBlockProposalsPerSlot: {
     env: 'SEQ_EXPECTED_BLOCK_PROPOSALS_PER_SLOT',
@@ -44,6 +55,17 @@ export const sharedSequencerConfigMappings: ConfigMappingsType<
       '0 (default) disables block proposal scoring. Set to a positive value to enable.',
     ...numberConfigHelper(0),
   },
+<<<<<<< HEAD
+=======
+  checkpointProposalSyncGraceSeconds: {
+    env: 'CHECKPOINT_PROPOSAL_SYNC_GRACE_SECONDS',
+    description:
+      'Consensus grace in seconds for a received checkpoint proposal to materialize into local proposed state. ' +
+      'Defaults to twice the block duration.',
+    defaultValue: getDefaultCheckpointProposalSyncGrace(DEFAULT_BLOCK_DURATION_MS / 1000),
+    ...optionalNumberConfigHelper(),
+  },
+>>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
   maxTxsPerBlock: {
     env: 'SEQ_MAX_TX_PER_BLOCK',
     description: 'The maximum number of txs to include in a block.',

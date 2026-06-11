@@ -17,12 +17,18 @@ import {
 } from './topic_score_params.js';
 
 describe('Topic Score Params', () => {
+<<<<<<< HEAD
   // Standard network parameters for testing (matching production values)
+=======
+  // Standard network parameters for testing (matching production values). Scoring now takes the network-wide
+  // max-blocks-per-checkpoint directly; 1 exercises single-block-mode scoring.
+>>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
   const standardParams = {
     slotDurationMs: 72000, // 72 seconds
     ethereumSlotDuration: 12,
     heartbeatIntervalMs: 700, // 700ms gossipsub heartbeat
     targetCommitteeSize: 48,
+<<<<<<< HEAD
     l1PublishingTime: 12,
   };
 
@@ -59,6 +65,11 @@ describe('Topic Score Params', () => {
     });
   });
 
+=======
+    maxBlocksPerCheckpoint: 1,
+  };
+
+>>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
   describe('getDecayWindowSlots', () => {
     it('returns 5 slots for low frequency topics (<=1 msg/slot)', () => {
       expect(getDecayWindowSlots(0)).toBe(5);
@@ -217,16 +228,24 @@ describe('Topic Score Params', () => {
     it('computes shared values once', () => {
       const factory = new TopicScoreParamsFactory(standardParams);
 
-      expect(factory.blocksPerSlot).toBe(1); // undefined blockDuration = single block
+      expect(factory.blocksPerSlot).toBe(1); // maxBlocksPerCheckpoint = 1 = single block mode
       expect(factory.heartbeatsPerSlot).toBeCloseTo(72000 / 700);
       expect(factory.invalidDecay).toBeGreaterThan(0);
       expect(factory.invalidDecay).toBeLessThan(1);
     });
 
+<<<<<<< HEAD
     it('uses provided blockDurationMs', () => {
       const factory = new TopicScoreParamsFactory({ ...standardParams, blockDurationMs: 10000 });
+=======
+    it('takes blocksPerSlot straight from maxBlocksPerCheckpoint', () => {
+      const factory = new TopicScoreParamsFactory({
+        ...standardParams,
+        maxBlocksPerCheckpoint: 6,
+      });
+>>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
 
-      expect(factory.blocksPerSlot).toBeGreaterThan(1);
+      expect(factory.blocksPerSlot).toBe(6);
     });
 
     describe('createForTopic', () => {
@@ -250,7 +269,11 @@ describe('Topic Score Params', () => {
       it('disables P3/P3b for block_proposal in MBPS mode when expectedBlockProposalsPerSlot is 0', () => {
         const factory = new TopicScoreParamsFactory({
           ...standardParams,
+<<<<<<< HEAD
           blockDurationMs: 10000,
+=======
+          maxBlocksPerCheckpoint: 6,
+>>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
           expectedBlockProposalsPerSlot: 0,
         });
         const params = factory.createForTopic(TopicType.block_proposal);
@@ -262,7 +285,11 @@ describe('Topic Score Params', () => {
       it('enables P3/P3b for block_proposal when expectedBlockProposalsPerSlot is positive', () => {
         const factory = new TopicScoreParamsFactory({
           ...standardParams,
+<<<<<<< HEAD
           blockDurationMs: 10000,
+=======
+          maxBlocksPerCheckpoint: 6,
+>>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
           expectedBlockProposalsPerSlot: 3,
         });
         const params = factory.createForTopic(TopicType.block_proposal);
@@ -272,7 +299,14 @@ describe('Topic Score Params', () => {
       });
 
       it('falls back to blocksPerSlot - 1 for block_proposal when expectedBlockProposalsPerSlot is undefined', () => {
+<<<<<<< HEAD
         const factory = new TopicScoreParamsFactory({ ...standardParams, blockDurationMs: 10000 });
+=======
+        const factory = new TopicScoreParamsFactory({
+          ...standardParams,
+          maxBlocksPerCheckpoint: 6,
+        });
+>>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
         const params = factory.createForTopic(TopicType.block_proposal);
 
         // MBPS mode with no override: falls back to blocksPerSlot - 1 > 0, so P3 is enabled
@@ -515,7 +549,11 @@ describe('Topic Score Params', () => {
     it('total P3b is -102 when block proposal scoring is enabled (3 topics)', () => {
       const factory = new TopicScoreParamsFactory({
         ...standardParams,
+<<<<<<< HEAD
         blockDurationMs: 4000,
+=======
+        maxBlocksPerCheckpoint: 16,
+>>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
         expectedBlockProposalsPerSlot: 3,
       });
 

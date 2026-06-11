@@ -78,7 +78,6 @@ describe('e2e_gov_proposal', () => {
       aztecSlotDuration: AZTEC_SLOT_DURATION,
       aztecProofSubmissionEpochs: 128, // no pruning
       minTxsPerBlock: TXS_PER_BLOCK,
-      enforceTimeTable: true,
       automineL1Setup: true, // speed up setup
       // Force the L1 sync to fetch blobs rather than promote the locally-proposed checkpoint.
       // The "should vote even when unable to build blocks" test relies on the blob client being the

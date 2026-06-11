@@ -60,18 +60,20 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
       return { attester, withdrawer: attester, privateKey, bn254SecretKey: new SecretValue(Fr.random().toBigInt()) };
     });
 
-    // Setup context with the given set of validators, mocked gossip sub network, and no anvil test watcher.
+    // Setup context with the given set of validators and a mocked gossip sub network.
     // Uses multiple-blocks-per-slot timing configuration.
     test = await EpochsTestContext.setup({
       ethereumSlotDuration: 8,
       aztecSlotDuration: 32,
       blockDurationMs: 6000,
+<<<<<<< HEAD
       l1PublishingTime: 8,
       enforceTimeTable: true,
+=======
+>>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
       numberOfAccounts: 0,
       initialValidators: validators,
       mockGossipSubNetwork: true,
-      disableAnvilTestWatcher: true,
       aztecProofSubmissionEpochs: 1024,
       startProverNode: false,
       aztecTargetCommitteeSize: VALIDATOR_COUNT,
@@ -368,70 +370,86 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
   // second invalid checkpoint will also have invalid attestations, we are *not* testing the scenario where the
   // committee is malicious (or incompetent) and attests for the descendent of an invalid checkpoint.
   it('proposer invalidates multiple checkpoints', async () => {
-    // Start all sequencers with default (good) config, wait for the first checkpoint to land,
-    // then apply the bad config to the proposers of the next two slots. This avoids the race
-    // where a bad proposer is also the proposer of slot+1 and gets the bad config too early.
+    // Pick the bad slots before starting any sequencer, then warp to just before them, so a far-away
+    // candidate costs a warp instead of a real-time wait. We need a lead-in of good slots: the first
+    // good checkpoint lands at warpSlot or warpSlot+1 (warpSlot+2 on a slow start), and the malicious
+    // config is applied only after it is mined, so the proposers of warpSlot+1..warpSlot+3 must not be
+    // the bad proposers — otherwise a pipelined job created before the bad slots could snapshot the
+    // malicious config (jobs snapshot the sequencer config during the last L1 slot of the previous L2
+    // slot, when getEpochAndSlotInNextL1Slot first returns the proposer's target slot).
     const sequencers = nodes.map(node => node.getSequencer()!);
     sequencers.forEach(s => s.updateConfig({ minTxsPerBlock: 0 }));
-    await Promise.all(sequencers.map(s => s.start()));
-    logger.warn(`Started all sequencers, waiting for first checkpoint before applying malicious config`);
 
-    // Wait for at least one checkpoint to be mined so that any in-progress slot has completed
-    const initialCheckpointNumber = (await nodes[0].getChainTips()).checkpointed.checkpoint.number;
-    await test.waitUntilCheckpointNumber(CheckpointNumber(initialCheckpointNumber + 1), test.L2_SLOT_DURATION_IN_S * 4);
-
-    // Align to the start of an L2 slot before computing the bad slots, so we have a generous
-    // buffer to push the malicious config to badSlot1's proposer before it snapshots its config
-    // into a new CheckpointProposalJob. Under proposer pipelining, that job is built during the
-    // last L1 slot of the previous L2 slot (when getEpochAndSlotInNextL1Slot first returns the
-    // proposer's target slot), so the practical window is somewhat less than a full L2 slot.
-    await test.monitor.waitUntilNextL2Slot();
-    const { l2SlotNumber: currentSlot } = await test.monitor.run();
-    logger.warn(`First checkpoint mined, current slot is ${currentSlot}`);
-
-    // The bad config is applied while sequencers are already running; skip pairs where a pipelined
-    // pre-bad target slot could snapshot that config before the intended bad slots.
-    let badSlot1: SlotNumber | undefined;
-    let badSlot2: SlotNumber | undefined;
+    const preBadSlotCount = 3;
+    let warpSlot: SlotNumber | undefined;
     let badProposers: EthAddress[] = [];
-    const firstCandidateSlot = Number(currentSlot) + 3;
-    const firstUnsnapshottedTargetSlot = SlotNumber.add(currentSlot, 2);
-    const maxBadSlotSearchAttempts = 20;
-    for (let attempt = 0; attempt < maxBadSlotSearchAttempts && badSlot1 === undefined; attempt++) {
-      const candidateSlot1 = SlotNumber(firstCandidateSlot + attempt);
-      const candidateSlot2 = SlotNumber.add(candidateSlot1, 1);
-      const preBadTargetSlots = range(
-        Math.max(0, Number(candidateSlot1) - Number(firstUnsnapshottedTargetSlot)),
-        Number(firstUnsnapshottedTargetSlot),
-      ).map(SlotNumber);
-      const [preBadProposers, p1, p2] = await Promise.all([
-        Promise.all(preBadTargetSlots.map(slot => test.epochCache.getProposerAttesterAddressInSlot(slot))),
-        test.epochCache.getProposerAttesterAddressInSlot(candidateSlot1),
-        test.epochCache.getProposerAttesterAddressInSlot(candidateSlot2),
-      ]);
+    let candidate = Number(test.epochCache.getEpochAndSlotNow().slot) + 2;
+    const maxBadSlotSearchAttempts = 100;
+    for (let attempt = 0; attempt < maxBadSlotSearchAttempts && warpSlot === undefined; attempt++) {
+      try {
+        const candidateWarpSlot = SlotNumber(candidate);
+        const preBadTargetSlots = times(preBadSlotCount, i => SlotNumber.add(candidateWarpSlot, i + 1));
+        const candidateSlot1 = SlotNumber.add(candidateWarpSlot, preBadSlotCount + 1);
+        const candidateSlot2 = SlotNumber.add(candidateWarpSlot, preBadSlotCount + 2);
+        const [preBadProposers, p1, p2] = await Promise.all([
+          Promise.all(preBadTargetSlots.map(slot => test.epochCache.getProposerAttesterAddressInSlot(slot))),
+          test.epochCache.getProposerAttesterAddressInSlot(candidateSlot1),
+          test.epochCache.getProposerAttesterAddressInSlot(candidateSlot2),
+        ]);
 
-      logger.warn(`Checking bad checkpoint slots ${candidateSlot1} and ${candidateSlot2}`, {
-        preBadTargetSlots,
-        preBadProposers: preBadProposers.map(proposer => proposer?.toString()),
-        p1: p1?.toString(),
-        p2: p2?.toString(),
-      });
+        logger.warn(`Checking bad checkpoint slots ${candidateSlot1} and ${candidateSlot2}`, {
+          candidateWarpSlot,
+          preBadTargetSlots,
+          preBadProposers: preBadProposers.map(proposer => proposer?.toString()),
+          p1: p1?.toString(),
+          p2: p2?.toString(),
+        });
 
-      const badProposerHasUnsnapshottedPreBadSlot =
-        p1 !== undefined &&
-        p2 !== undefined &&
-        preBadProposers.some(proposer => proposer !== undefined && (proposer.equals(p1) || proposer.equals(p2)));
+        const badProposerHasUnsnapshottedPreBadSlot =
+          p1 !== undefined &&
+          p2 !== undefined &&
+          preBadProposers.some(proposer => proposer !== undefined && (proposer.equals(p1) || proposer.equals(p2)));
 
-      if (p1 && p2 && !badProposerHasUnsnapshottedPreBadSlot) {
-        badSlot1 = candidateSlot1;
-        badSlot2 = candidateSlot2;
-        badProposers = [p1, p2];
+        if (p1 && p2 && !badProposerHasUnsnapshottedPreBadSlot) {
+          warpSlot = candidateWarpSlot;
+          badProposers = [p1, p2];
+        }
+        candidate++;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (!msg.includes('EpochNotStable')) {
+          throw err;
+        }
+        const block = await test.l1Client.getBlock({ includeTransactions: false });
+        const warpBy = test.epochDuration * test.L2_SLOT_DURATION_IN_S;
+        const newTs = Number(block.timestamp) + warpBy;
+        logger.warn(`Hit EpochNotStable at candidate ${candidate}, warping L1 forward by ${warpBy}s to ${newTs}`);
+        await test.context.cheatCodes.eth.warp(newTs, { resetBlockInterval: true });
+        const newCurrentSlot = Number(test.epochCache.getEpochAndSlotNow().slot);
+        if (candidate < newCurrentSlot + 2) {
+          candidate = newCurrentSlot + 2;
+        }
       }
     }
-    if (badSlot1 === undefined || badSlot2 === undefined) {
+    if (warpSlot === undefined) {
       throw new Error(`Could not find bad checkpoint slots after ${maxBadSlotSearchAttempts} attempts`);
     }
+    const badSlot1 = SlotNumber.add(warpSlot, preBadSlotCount + 1);
+    const badSlot2 = SlotNumber.add(warpSlot, preBadSlotCount + 2);
     const badSlots = [badSlot1, badSlot2];
+
+    // Warp to one L1 block before warpSlot, so the sequencers have a full L2 slot to boot and settle
+    // pipelining before the build window for warpSlot+1 opens at the end of warpSlot.
+    const warpTo = getTimestampForSlot(warpSlot, test.constants) - BigInt(test.L1_BLOCK_TIME_IN_S);
+    logger.warn(`Warping L1 to ${warpTo}, one L1 block before slot ${warpSlot}`, { warpSlot, badSlot1, badSlot2 });
+    await test.context.cheatCodes.eth.warp(Number(warpTo), { resetBlockInterval: true });
+
+    // Start all sequencers with default (good) config and wait for the first checkpoint to land,
+    // so the chain is moving before we apply the bad config to the proposers of the bad slots.
+    const initialCheckpointNumber = (await nodes[0].getChainTips()).checkpointed.checkpoint.number;
+    await Promise.all(sequencers.map(s => s.start()));
+    logger.warn(`Started all sequencers, waiting for first checkpoint before applying malicious config`);
+    await test.waitUntilCheckpointNumber(CheckpointNumber(initialCheckpointNumber + 1), test.L2_SLOT_DURATION_IN_S * 4);
 
     const badNodes = [];
     for (let badProposerIndex = 0; badProposerIndex < badProposers.length; badProposerIndex++) {
@@ -454,6 +472,11 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
       logger.warn(`Applied malicious config to node ${nodeIndex} with proposer ${badProposer} for slot ${badSlot}`);
     }
 
+    // Fail fast with a clear error if applying the configs was so slow that badSlot1's proposal job
+    // may have already snapshotted the good config.
+    const slotAfterBadConfig = Number(test.epochCache.getEpochAndSlotNow().slot);
+    expect(slotAfterBadConfig).toBeLessThan(Number(badSlot1));
+
     // We should see two invalid blocks being proposed by the bad proposers in those two slots
     const firstCheckpointPromise = promiseWithResolvers<CheckpointNumber>();
     const secondCheckpointPromise = promiseWithResolvers<CheckpointNumber>();
@@ -469,11 +492,15 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
       }
     });
 
-    // Wait for both checkpoints to be mined
+    // Wait for both checkpoints to be mined. Note that timeoutPromise rejects on timeout, so there
+    // is no point in racing against a fallback value.
     logger.warn(`Waiting for two checkpoints to be mined on slots ${expectedFirstSlot} and ${expectedSecondSlot}`);
     const [firstCheckpoint, secondCheckpoint] = await Promise.race([
       Promise.all([firstCheckpointPromise.promise, secondCheckpointPromise.promise]),
-      timeoutPromise(test.L2_SLOT_DURATION_IN_S * 8 * 1000).then(() => [CheckpointNumber(0), CheckpointNumber(0)]),
+      timeoutPromise(
+        test.L2_SLOT_DURATION_IN_S * 8 * 1000,
+        `Waiting for bad checkpoints at slots ${expectedFirstSlot} and ${expectedSecondSlot}`,
+      ),
     ]);
 
     // Sanity check: verify that both bad checkpoints landed on L1 with insufficient attestations.

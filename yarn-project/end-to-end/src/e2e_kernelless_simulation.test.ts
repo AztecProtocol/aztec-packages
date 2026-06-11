@@ -259,7 +259,7 @@ describe('Kernelless simulation', () => {
         from: swapperAddress,
         includeMetadata: true,
       });
-      const swapKernellessGas = kernellessResult.estimatedGas!;
+      const swapKernellessGas = kernellessResult.gasUsed!;
 
       const swapAuthwit = await wallet.createAuthWit(swapperAddress, {
         caller: amm.address,
@@ -272,15 +272,13 @@ describe('Kernelless simulation', () => {
         includeMetadata: true,
         authWitnesses: [swapAuthwit],
       });
-      const swapWithKernelsGas = withKernelsResult.estimatedGas!;
+      const swapWithKernelsGas = withKernelsResult.gasUsed!;
 
-      logger.info(`Kernelless gas: L2=${swapKernellessGas.gasLimits.l2Gas} DA=${swapKernellessGas.gasLimits.daGas}`);
-      logger.info(
-        `With kernels gas: L2=${swapWithKernelsGas.gasLimits.l2Gas} DA=${swapWithKernelsGas.gasLimits.daGas}`,
-      );
+      logger.info(`Kernelless gas: L2=${swapKernellessGas.totalGas.l2Gas} DA=${swapKernellessGas.totalGas.daGas}`);
+      logger.info(`With kernels gas: L2=${swapWithKernelsGas.totalGas.l2Gas} DA=${swapWithKernelsGas.totalGas.daGas}`);
 
-      expect(swapKernellessGas.gasLimits.daGas).toEqual(swapWithKernelsGas.gasLimits.daGas);
-      expect(swapKernellessGas.gasLimits.l2Gas).toEqual(swapWithKernelsGas.gasLimits.l2Gas);
+      expect(swapKernellessGas.totalGas.daGas).toEqual(swapWithKernelsGas.totalGas.daGas);
+      expect(swapKernellessGas.totalGas.l2Gas).toEqual(swapWithKernelsGas.totalGas.l2Gas);
 
       expect(simulateTxSpy).toHaveBeenCalledTimes(2);
       const kernellessTxResult = await (simulateTxSpy.mock.results[0].value as ReturnType<typeof wallet.simulateTx>);
@@ -320,7 +318,7 @@ describe('Kernelless simulation', () => {
           from: adminAddress,
           includeMetadata: true,
         })
-      ).estimatedGas!;
+      ).gasUsed!;
 
       wallet.setSimulationMode('full');
       const withKernelsGas = (
@@ -328,13 +326,13 @@ describe('Kernelless simulation', () => {
           from: adminAddress,
           includeMetadata: true,
         })
-      ).estimatedGas!;
+      ).gasUsed!;
 
-      logger.info(`Kernelless gas: L2=${kernellessGas.gasLimits.l2Gas} DA=${kernellessGas.gasLimits.daGas}`);
-      logger.info(`With kernels gas: L2=${withKernelsGas.gasLimits.l2Gas} DA=${withKernelsGas.gasLimits.daGas}`);
+      logger.info(`Kernelless gas: L2=${kernellessGas.totalGas.l2Gas} DA=${kernellessGas.totalGas.daGas}`);
+      logger.info(`With kernels gas: L2=${withKernelsGas.totalGas.l2Gas} DA=${withKernelsGas.totalGas.daGas}`);
 
-      expect(kernellessGas.gasLimits.daGas).toEqual(withKernelsGas.gasLimits.daGas);
-      expect(kernellessGas.gasLimits.l2Gas).toEqual(withKernelsGas.gasLimits.l2Gas);
+      expect(kernellessGas.totalGas.daGas).toEqual(withKernelsGas.totalGas.daGas);
+      expect(kernellessGas.totalGas.l2Gas).toEqual(withKernelsGas.totalGas.l2Gas);
     });
   });
 
@@ -446,19 +444,17 @@ describe('Kernelless simulation', () => {
 
       wallet.setSimulationMode('kernelless-override');
       const kernellessResult = await deployMethod.simulate(deployOptions);
-      const kernellessGas = kernellessResult.estimatedGas!;
+      const kernellessGas = kernellessResult.gasUsed!;
 
       wallet.setSimulationMode('full');
       const withKernelsResult = await deployMethod.simulate(deployOptions);
-      const withKernelsGas = withKernelsResult.estimatedGas!;
+      const withKernelsGas = withKernelsResult.gasUsed!;
 
-      logger.info(`Schnorr kernelless gas: L2=${kernellessGas.gasLimits.l2Gas} DA=${kernellessGas.gasLimits.daGas}`);
-      logger.info(
-        `Schnorr with kernels gas: L2=${withKernelsGas.gasLimits.l2Gas} DA=${withKernelsGas.gasLimits.daGas}`,
-      );
+      logger.info(`Schnorr kernelless gas: L2=${kernellessGas.totalGas.l2Gas} DA=${kernellessGas.totalGas.daGas}`);
+      logger.info(`Schnorr with kernels gas: L2=${withKernelsGas.totalGas.l2Gas} DA=${withKernelsGas.totalGas.daGas}`);
 
-      expect(kernellessGas.gasLimits.daGas).toEqual(withKernelsGas.gasLimits.daGas);
-      expect(kernellessGas.gasLimits.l2Gas).toEqual(withKernelsGas.gasLimits.l2Gas);
+      expect(kernellessGas.totalGas.daGas).toEqual(withKernelsGas.totalGas.daGas);
+      expect(kernellessGas.totalGas.l2Gas).toEqual(withKernelsGas.totalGas.l2Gas);
     });
 
     it('simulates ECDSA account deployment and gas matches with-kernels counterpart', async () => {
@@ -474,17 +470,17 @@ describe('Kernelless simulation', () => {
 
       wallet.setSimulationMode('kernelless-override');
       const kernellessResult = await deployMethod.simulate(deployOptions);
-      const kernellessGas = kernellessResult.estimatedGas!;
+      const kernellessGas = kernellessResult.gasUsed!;
 
       wallet.setSimulationMode('full');
       const withKernelsResult = await deployMethod.simulate(deployOptions);
-      const withKernelsGas = withKernelsResult.estimatedGas!;
+      const withKernelsGas = withKernelsResult.gasUsed!;
 
-      logger.info(`ECDSA kernelless gas: L2=${kernellessGas.gasLimits.l2Gas} DA=${kernellessGas.gasLimits.daGas}`);
-      logger.info(`ECDSA with kernels gas: L2=${withKernelsGas.gasLimits.l2Gas} DA=${withKernelsGas.gasLimits.daGas}`);
+      logger.info(`ECDSA kernelless gas: L2=${kernellessGas.totalGas.l2Gas} DA=${kernellessGas.totalGas.daGas}`);
+      logger.info(`ECDSA with kernels gas: L2=${withKernelsGas.totalGas.l2Gas} DA=${withKernelsGas.totalGas.daGas}`);
 
-      expect(kernellessGas.gasLimits.daGas).toEqual(withKernelsGas.gasLimits.daGas);
-      expect(kernellessGas.gasLimits.l2Gas).toEqual(withKernelsGas.gasLimits.l2Gas);
+      expect(kernellessGas.totalGas.daGas).toEqual(withKernelsGas.totalGas.daGas);
+      expect(kernellessGas.totalGas.l2Gas).toEqual(withKernelsGas.totalGas.l2Gas);
     });
   });
 });

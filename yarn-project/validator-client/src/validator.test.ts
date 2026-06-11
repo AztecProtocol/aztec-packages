@@ -96,6 +96,7 @@ describe('ValidatorClient', () => {
       | 'slashAttestInvalidCheckpointProposalPenalty'
     > & {
       disableTransactions: boolean;
+      blockDurationMs: number;
     };
   let validatorClient: ValidatorClient;
   let p2pClient: MockProxy<P2P>;
@@ -186,6 +187,7 @@ describe('ValidatorClient', () => {
     config = {
       validatorPrivateKeys: new SecretValue(validatorPrivateKeys),
       attestationPollingIntervalMs: 1000,
+      blockDurationMs: 3000,
       disableValidator: false,
       disabledValidators: [],
       slashBroadcastedInvalidBlockPenalty: 1n,

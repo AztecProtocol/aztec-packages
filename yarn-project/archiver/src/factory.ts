@@ -14,6 +14,7 @@ import { protocolContractNames } from '@aztec/protocol-contracts';
 import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
 import { FunctionType, decodeFunctionSignature } from '@aztec/stdlib/abi';
 import type { ArchiverEmitter, BlockHash } from '@aztec/stdlib/block';
+import { DEFAULT_BLOCK_DURATION_MS } from '@aztec/stdlib/config';
 import { type ContractClassPublicWithCommitment, computePublicBytecodeCommitment } from '@aztec/stdlib/contract';
 import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 import { MIN_EXECUTION_TIME } from '@aztec/stdlib/timetable';
@@ -132,8 +133,17 @@ export async function createArchiver(
       maxAllowedEthClientDriftSeconds: 300,
       ethereumAllowNoDebugHosts: false,
       skipHistoricalLogsCheck: false,
+<<<<<<< HEAD
       orphanProposedBlockPruneGraceSeconds: MIN_EXECUTION_TIME,
       enableOrphanProposedBlockPruning: opts.enableOrphanProposedBlockPruning ?? true,
+=======
+      checkpointProposalSyncGrace:
+        config.checkpointProposalSyncGraceSeconds ??
+        getDefaultCheckpointProposalSyncGrace((config.blockDurationMs ?? DEFAULT_BLOCK_DURATION_MS) / 1000),
+      orphanPruneNoProposalTolerance: DEFAULT_ORPHAN_PRUNE_NO_PROPOSAL_TOLERANCE,
+      skipOrphanProposedBlockPruning: false,
+      blockDuration: (config.blockDurationMs ?? DEFAULT_BLOCK_DURATION_MS) / 1000,
+>>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
     },
     mapArchiverConfig(config),
   );

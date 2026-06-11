@@ -580,27 +580,60 @@ export class TxPoolV2Impl {
       }
 
       this.#log.info(`Preparing for slot ${slotNumber}: unprotecting ${txsToRestore.length} txs`);
-
-      // Step 4: Validate for pending pool
-      const { valid, invalid } = await this.#revalidateMetadata(txsToRestore, 'during prepareForSlot');
-
-      // Step 5: Resolve nullifier conflicts and add winners to pending indices
-      const { added, toEvict } = this.#applyNullifierConflictResolution(valid);
-
-      // Step 6: Delete invalid txs and evict conflict losers
-      await this.#deleteTxsBatch(invalid);
-      await this.#evictTxs(toEvict, 'NullifierConflict');
-
-      // Step 7: Run eviction rules (enforce pool size limit)
-      if (added.length > 0) {
-        const feePayers = added.map(meta => meta.feePayer);
-        const uniqueFeePayers = new Set<string>(feePayers);
-        await this.#evictionManager.evictAfterNewTxs(
-          added.map(m => m.txHash),
-          [...uniqueFeePayers],
-        );
-      }
+      await this.#restoreUnprotectedToPending(txsToRestore, 'during prepareForSlot');
     });
+  }
+
+  async unprotectTxs(txHashes: TxHash[], slotNumber: SlotNumber): Promise<void> {
+    const hashStrs = txHashes.map(h => h.toString());
+
+    await this.#store.transactionAsync(async () => {
+      // Only release entries still recorded at this exact slot. A tx that another, still-live proposal
+      // raised to a higher slot via updateProtection must keep that protection. Mined txs have no
+      // protection entry and so are never matched here.
+      const matching = this.#indices.findProtectedTxsAtSlot(hashStrs, slotNumber);
+      if (matching.length === 0) {
+        this.#log.debug(`Unprotecting txs for slot ${slotNumber}: no matching protections to release`);
+        return;
+      }
+
+      this.#indices.clearProtection(matching);
+
+      const txsToRestore = this.#indices.filterRestorable(matching);
+      if (txsToRestore.length === 0) {
+        return;
+      }
+
+      this.#log.info(`Unprotecting ${txsToRestore.length} txs from failed proposal at slot ${slotNumber}`);
+      await this.#restoreUnprotectedToPending(txsToRestore, 'during unprotectTxs');
+    });
+  }
+
+  /**
+   * Returns just-unprotected txs to the pending pool: revalidates them, resolves nullifier
+   * conflicts, deletes losers, then enforces the pool size limit. Must run inside a store
+   * transaction; callers clear the protection entries before invoking.
+   */
+  async #restoreUnprotectedToPending(txsToRestore: TxMetaData[], context: string): Promise<void> {
+    // Step 1: Validate for pending pool
+    const { valid, invalid } = await this.#revalidateMetadata(txsToRestore, context);
+
+    // Step 2: Resolve nullifier conflicts and add winners to pending indices
+    const { added, toEvict } = this.#applyNullifierConflictResolution(valid);
+
+    // Step 3: Delete invalid txs and evict conflict losers
+    await this.#deleteTxsBatch(invalid);
+    await this.#evictTxs(toEvict, 'NullifierConflict');
+
+    // Step 4: Run eviction rules (enforce pool size limit)
+    if (added.length > 0) {
+      const feePayers = added.map(meta => meta.feePayer);
+      const uniqueFeePayers = new Set<string>(feePayers);
+      await this.#evictionManager.evictAfterNewTxs(
+        added.map(m => m.txHash),
+        [...uniqueFeePayers],
+      );
+    }
   }
 
   async handlePrunedBlocks(latestBlock: L2BlockId, options?: { deleteAllTxs?: boolean }): Promise<void> {

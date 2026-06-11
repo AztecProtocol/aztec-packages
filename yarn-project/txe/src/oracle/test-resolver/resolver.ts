@@ -33,7 +33,7 @@ export class OracleTestResolver {
 
   constructor(
     private readonly registry: Record<string, OracleRegistryEntry>,
-    private readonly fixtures: Record<string, OracleTestScenario[]>,
+    private readonly fixtures: Partial<Record<string, OracleTestScenario[]>>,
     logger?: Logger,
   ) {
     this.logger = logger ?? createLogger('txe:test-resolver');

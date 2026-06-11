@@ -73,7 +73,6 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       l1PublishingTime: 2,
       minTxsPerBlock: 0,
       maxTxsPerBlock: 1,
-      enforceTimeTable: true,
       aztecProofSubmissionEpochs: 1,
       // Use 32 slots/epoch (matching real Ethereum mainnet)
       anvilSlotsInAnEpoch: 32,

@@ -22,6 +22,11 @@ import type { Checkpoint, ProposedCheckpointData } from '@aztec/stdlib/checkpoin
 import type { ChainConfig } from '@aztec/stdlib/config';
 import { getEpochAtSlot, getSlotStartBuildTimestamp, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import {
+  MIN_PER_BLOCK_ALLOCATION_MULTIPLIER,
+  MIN_PER_BLOCK_DA_ALLOCATION_MULTIPLIER,
+  computeNetworkTxGasLimits,
+} from '@aztec/stdlib/gas';
+import {
   type ResolvedSequencerConfig,
   type SequencerConfig,
   SequencerConfigSchema,
@@ -30,7 +35,11 @@ import {
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import type { CoordinationSignatureContext } from '@aztec/stdlib/p2p';
 import { pickFromSchema } from '@aztec/stdlib/schemas';
+<<<<<<< HEAD
 import { MIN_EXECUTION_TIME } from '@aztec/stdlib/timetable';
+=======
+import { ProposerTimetable, buildProposerTimetable } from '@aztec/stdlib/timetable';
+>>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
 import { Attributes, type TelemetryClient, type Tracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 import { FullNodeCheckpointsBuilder, NodeKeystoreAdapter, type ValidatorClient } from '@aztec/validator-client';
 
@@ -140,10 +149,30 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     this.updateConfig(config);
   }
 
-  /** Updates sequencer config by the defined values and updates the timetable */
+  /**
+   * Updates sequencer config by the defined values and rebuilds the timetable.
+   *
+   * The merged config is validated against a candidate before being committed: {@link buildTimetable} may
+   * reject the candidate (invalid timing geometry, or per-block allocation multipliers below the network
+   * minimums). On rejection we leave `this.config` and `this.timetable` untouched and rethrow, so a bad update
+   * never leaves the sequencer running with a rejected config and a stale timetable.
+   */
   public updateConfig(config: Partial<SequencerConfig>) {
     const filteredConfig = pickFromSchema(config, SequencerConfigSchema);
+    const candidate = merge(this.config, filteredConfig);
+    let timetable: ProposerTimetable;
+    try {
+      timetable = this.buildTimetable(candidate);
+    } catch (err) {
+      this.log.warn(`Rejecting sequencer config update: ${(err as Error).message}`, {
+        rejectedConfig: omit(filteredConfig, 'txPublicSetupAllowListExtend'),
+      });
+      throw err;
+    }
+    this.config = candidate;
+    this.timetable = timetable;
     this.log.info(`Updated sequencer config`, omit(filteredConfig, 'txPublicSetupAllowListExtend'));
+<<<<<<< HEAD
     this.config = merge(this.config, filteredConfig);
     const p2pPropagationTime = this.config.attestationPropagationTime;
     this.timetable = new SequencerTimetable(
@@ -158,6 +187,98 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.metrics,
       this.log,
     );
+=======
+  }
+
+  /**
+   * Builds the proposer timetable from the given config and L1 constants via the shared
+   * {@link buildProposerTimetable} helper, so the sequencer derives the same blocks-per-checkpoint as the p2p
+   * layer and `getNodeInfo`. The fast local/e2e profile and budget clamping happen inside
+   * {@link ProposerTimetable}.
+   *
+   * Throws if the timing geometry is invalid or the per-block allocation multipliers are below the network
+   * minimums; callers must treat a throw as a rejected config and not commit it.
+   */
+  private buildTimetable(config: ResolvedSequencerConfig): ProposerTimetable {
+    const timetable = buildProposerTimetable(config, this.l1Constants);
+
+    const maxNumberOfBlocks = timetable.getMaxBlocksPerCheckpoint();
+    this.log.info(`Sequencer timetable initialized with ${maxNumberOfBlocks} blocks per slot`, {
+      aztecSlotDuration: timetable.aztecSlotDuration,
+      ethereumSlotDuration: timetable.ethereumSlotDuration,
+      blockDuration: timetable.blockDuration,
+      minBlockDuration: timetable.minBlockDuration,
+      p2pPropagationTime: timetable.p2pPropagationTime,
+      checkpointProposalPrepareTime: timetable.checkpointProposalPrepareTime,
+      maxNumberOfBlocks,
+    });
+
+    this.assertConfigMeetsNetworkTxLimits(config, maxNumberOfBlocks);
+
+    return timetable;
+  }
+
+  /**
+   * Checks this node's configured per-block allocation against the network admission limit. A node
+   * advertises and admits txs up to the limit derived from the network-minimum multipliers (see
+   * {@link computeNetworkTxGasLimits}).
+   *
+   * Fails startup (and runtime config updates) only when the configured per-block allocation *multipliers*
+   * (`perBlockAllocationMultiplier` / `perBlockDAAllocationMultiplier`) are below the network minimums: such
+   * a node would accept txs over RPC/gossip that its builder can never pack into a block regardless of block
+   * size. Operators may configure a higher (more generous) multiplier, but not a lower one.
+   *
+   * When the multipliers meet the floor but an absolute per-block gas cap (`maxDABlockGas` / `maxL2BlockGas`)
+   * shrinks the builder's effective grant below the network limit, this is legitimate operator
+   * restrictiveness — the node simply builds smaller blocks and such txs stay in the pool for other
+   * proposers — so we only log a warning rather than failing startup. Restrictive tx-count caps
+   * (`maxTxsPerBlock` / `maxTxsPerCheckpoint`) can likewise make the builder skip admitted txs; they are
+   * intentionally not modeled here for the same reason.
+   */
+  private assertConfigMeetsNetworkTxLimits(config: ResolvedSequencerConfig, maxBlocksPerCheckpoint: number) {
+    // Mirror CheckpointBuilder.capLimitsByCheckpointBudgets: DA falls back to the general multiplier.
+    const l2Multiplier = config.perBlockAllocationMultiplier;
+    const daMultiplier = config.perBlockDAAllocationMultiplier ?? l2Multiplier;
+
+    // The allocation is monotonic in the multiplier, so a multiplier at or above the network minimum
+    // guarantees the builder grants at least the network admission limit. Checking the multipliers directly
+    // is sufficient (and strictly more conservative than modeling the resulting gas grant).
+    if (daMultiplier < MIN_PER_BLOCK_DA_ALLOCATION_MULTIPLIER) {
+      throw new Error(
+        `perBlockDAAllocationMultiplier (${daMultiplier}) is below the network minimum ` +
+          `${MIN_PER_BLOCK_DA_ALLOCATION_MULTIPLIER}; the node would admit txs its own builder can never include.`,
+      );
+    }
+    if (l2Multiplier < MIN_PER_BLOCK_ALLOCATION_MULTIPLIER) {
+      throw new Error(
+        `perBlockAllocationMultiplier (${l2Multiplier}) is below the network minimum ` +
+          `${MIN_PER_BLOCK_ALLOCATION_MULTIPLIER}; the node would admit txs its own builder can never include.`,
+      );
+    }
+
+    // Absolute per-block gas caps below the network admission limit are legitimate operator restrictiveness:
+    // the node simply builds smaller blocks and such txs stay in the pool for other proposers. Warn only.
+    const networkLimit = computeNetworkTxGasLimits({
+      maxBlocksPerCheckpoint,
+      manaCheckpointBudget: this.l1Constants.rollupManaLimit,
+    });
+    if (config.maxDABlockGas !== undefined && config.maxDABlockGas < networkLimit.daGas) {
+      this.log.warn(
+        `Sequencer maxDABlockGas (${config.maxDABlockGas}) is below the network DA admission limit ` +
+          `(${networkLimit.daGas}): txs declaring more DA gas are admitted over RPC/gossip but will be skipped ` +
+          `by this proposer's own blocks and left in the pool for other proposers.`,
+        { maxDABlockGas: config.maxDABlockGas, networkDaGas: networkLimit.daGas, maxBlocksPerCheckpoint },
+      );
+    }
+    if (config.maxL2BlockGas !== undefined && config.maxL2BlockGas < networkLimit.l2Gas) {
+      this.log.warn(
+        `Sequencer maxL2BlockGas (${config.maxL2BlockGas}) is below the network L2 admission limit ` +
+          `(${networkLimit.l2Gas}): txs declaring more L2 gas are admitted over RPC/gossip but will be skipped ` +
+          `by this proposer's own blocks and left in the pool for other proposers.`,
+        { maxL2BlockGas: config.maxL2BlockGas, networkL2Gas: networkLimit.l2Gas, maxBlocksPerCheckpoint },
+      );
+    }
+>>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
   }
 
   /** Initializes the sequencer (precomputes tables). Takes about 3s. */
@@ -290,14 +411,8 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     ts: bigint,
     nowSeconds: bigint,
   ): Promise<CheckpointProposalJob | undefined> {
-    // Check we have not already processed this target slot (cheapest check)
-    // We only check this if enforce timetable is set, since we want to keep processing the same slot if we are not
-    // running against actual time (eg when we use sandbox-style automining)
-    if (
-      this.lastSlotForCheckpointProposalJob &&
-      this.lastSlotForCheckpointProposalJob >= targetSlot &&
-      this.config.enforceTimeTable
-    ) {
+    // Check we have not already processed this target slot (cheapest check).
+    if (this.lastSlotForCheckpointProposalJob && this.lastSlotForCheckpointProposalJob >= targetSlot) {
       this.log.trace(`Target slot ${targetSlot} has already been processed`);
       return undefined;
     }
@@ -346,6 +461,53 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       return undefined;
     }
 
+<<<<<<< HEAD
+=======
+    // If we are not the proposer, check whether we should invalidate an invalid pending chain (a
+    // liveness backstop) and bail before any sync work or build-timing gate. This reads only the
+    // archiver's pending-chain validation status, which is authoritative on its own, instead of
+    // running the full sync check. Wrapped in try/catch because this leaner path skips the broader
+    // proposed-checkpoint/tip coherence screen that checkSync applied, so transient archiver
+    // incoherence surfaces as a quiet skip rather than a work-loop error.
+    if (!canPropose) {
+      try {
+        const pendingChainValidationStatus = await this.l2BlockSource.getPendingChainValidationStatus();
+        await this.considerInvalidatingCheckpoint(pendingChainValidationStatus, slot);
+      } catch (err) {
+        this.log.warn(`Failed to consider invalidating checkpoint`, { err, slot, targetSlot });
+      }
+      return undefined;
+    }
+
+    // We are the proposer and the escape hatch is closed: now run the full sync check before building.
+    const syncedTo = await this.checkSync({ ts, slot });
+    if (!syncedTo) {
+      await this.tryVoteWhenCannotBuild({ slot, targetSlot });
+      return undefined;
+    }
+
+    // Explicit build-loop entry gate: if we are past the latest useful block-building start for the
+    // target slot, abandon building for this slot. The proposer prioritizes the ideal L1-publish path
+    // and does not plan around the late consensus-handoff path. This is the proposer build path's
+    // timing gate; it runs only after we know we are the synced proposer, so non-proposer invalidation
+    // and escape-hatch voting (which returned above) are never gated by build timing. Vote-only paths
+    // still run when block building is abandoned.
+    const startDeadline = this.timetable.getBuildStartDeadline(targetSlot);
+    const nowForStartGate = this.dateProvider.now() / 1000;
+    if (nowForStartGate > startDeadline) {
+      this.log.debug(`Past start deadline for slot ${targetSlot}, abandoning block building`, {
+        targetSlot,
+        nowForStartGate,
+        startDeadline,
+      });
+      // Mark the slot as attempted so a deadline abort is not retried within the same slot. Vote-only actions
+      // still need to run because sync can succeed even when it is too late to start building a checkpoint.
+      await this.tryVoteWhenCannotBuild({ slot, targetSlot });
+      this.lastSlotForCheckpointProposalJob = targetSlot;
+      return undefined;
+    }
+
+>>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
     // Next checkpoint follows from the last synced one
     const checkpointNumber = CheckpointNumber(syncedTo.checkpointNumber + 1);
 

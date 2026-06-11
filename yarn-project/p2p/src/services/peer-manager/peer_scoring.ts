@@ -57,6 +57,9 @@ const MIN_SCORE_BEFORE_BAN = -100;
 const MIN_SCORE_BEFORE_DISCONNECT = -50;
 const SCORE_CLEANUP_THRESHOLD = 0.1;
 
+/** An active ban: the score the peer held when banned, and the timestamp at which the ban lifts. */
+type BanRecord = { score: number; expiry: number };
+
 export class PeerScoring {
   private logger = createLogger('p2p:peer-scoring');
   private scores: Map<string, number> = new Map();
@@ -67,11 +70,21 @@ export class PeerScoring {
 
   private peerStateCounter: UpDownCounter;
 
+  /** Active bans, keyed by peer id. Held in memory only, so they are cleared on restart. */
+  private bannedPeers: Map<string, BanRecord> = new Map();
+  /**
+   * How long a peer remains banned once its score crosses MIN_SCORE_BEFORE_BAN. While banned, the
+   * peer's ban score is returned by getScore regardless of decay, so it cannot recover its way out
+   * of the ban early. After the ban expires the live (decayed) score takes over again.
+   */
+  private readonly banDurationMs: number;
+
   constructor(
     config: P2PConfig,
     telemetry: TelemetryClient = getTelemetryClient(),
     private readonly dateProvider: DateProvider = new DateProvider(),
   ) {
+    this.banDurationMs = config.peerBanDurationSeconds * 1000;
     const orderedValues = config.peerPenaltyValues?.sort((a, b) => a - b);
     this.peerPenalties = {
       [PeerErrorSeverity.HighToleranceError]:
@@ -113,7 +126,29 @@ export class PeerScoring {
 
     this.scores.set(peerId, currentScore);
     this.lastUpdateTime.set(peerId, currentTime);
+
+    this.maybeBanPeer(peerId, currentScore);
+
     return currentScore;
+  }
+
+  /**
+   * Records a ban for a peer whose score has crossed the ban threshold, with an expiry banDurationMs
+   * in the future. No-op if the score is above the threshold or the peer is already serving an active
+   * ban (an existing ban is not extended; the original window stands). A previously expired ban does
+   * not block a fresh one — getActiveBanScore prunes it first.
+   */
+  private maybeBanPeer(peerId: string, score: number): void {
+    if (score >= MIN_SCORE_BEFORE_BAN || this.getActiveBanScore(peerId) !== undefined) {
+      return;
+    }
+    const record: BanRecord = { score, expiry: this.dateProvider.now() + this.banDurationMs };
+    this.bannedPeers.set(peerId, record);
+    this.logger.verbose(`Banning peer ${peerId} until ${new Date(record.expiry).toISOString()}`, {
+      peerId,
+      score,
+      expiry: record.expiry,
+    });
   }
 
   decayAllScores(): void {
@@ -135,10 +170,24 @@ export class PeerScoring {
     }
   }
 
+  /**
+   * Removes bans whose window has elapsed. Expired bans are otherwise only pruned lazily when their
+   * peer's score is next queried, so a banned peer that disconnects and is never queried again would
+   * linger in the map. Called periodically (per heartbeat) to bound the ban map's size.
+   */
+  pruneExpiredBans(): void {
+    const now = this.dateProvider.now();
+    const expired = [...this.bannedPeers.entries()].filter(([, ban]) => ban.expiry <= now).map(([peerId]) => peerId);
+    for (const peerId of expired) {
+      this.bannedPeers.delete(peerId);
+    }
+  }
+
   /** Resets all peer scores. Useful for benchmarks to prevent cross-case contamination. */
   resetAllScores(): void {
     this.scores.clear();
     this.lastUpdateTime.clear();
+    this.bannedPeers.clear();
   }
 
   removePeer(peerId: string): void {
@@ -146,12 +195,33 @@ export class PeerScoring {
     this.lastUpdateTime.delete(peerId);
   }
 
+  /**
+   * The single source of truth for whether a peer is banned. Returns the ban score while the ban is
+   * active, or undefined if the peer is not banned. A ban that has expired is lazily lifted before
+   * returning undefined, so callers never see a stale ban.
+   */
+  private getActiveBanScore(peerId: string): number | undefined {
+    const ban = this.bannedPeers.get(peerId);
+    if (ban === undefined) {
+      return undefined;
+    }
+    if (ban.expiry > this.dateProvider.now()) {
+      return ban.score;
+    }
+    // Ban expired: lift it so the peer can recover.
+    this.bannedPeers.delete(peerId);
+    return undefined;
+  }
+
   getScore(peerId: string): number {
-    return this.scores.get(peerId) || 0;
+    // While a ban is active its ban score is returned regardless of how the live score has decayed,
+    // so the peer stays banned for the full duration.
+    return this.getActiveBanScore(peerId) ?? this.scores.get(peerId) ?? 0;
   }
 
   public getScoreState(peerId: string): PeerScoreState {
-    // TODO(#11329): permanently store banned peers?
+    // A banned peer stays banned for the full ban duration regardless of score decay (see getScore /
+    // maybeBanPeer), rather than silently recovering once its decayed score is cleaned up.
     const score = this.getScore(peerId);
     if (score < MIN_SCORE_BEFORE_BAN) {
       return PeerScoreState.Banned;
@@ -165,7 +235,9 @@ export class PeerScoring {
   getStats(): { medianScore: number; healthyCount: number; disconnectCount: number; bannedCount: number } {
     const stateCounts = { healthy: 0, disconnect: 0, banned: 0 };
 
-    for (const peerId of this.scores.keys()) {
+    // Include banned peers whose live score may have been decayed away but whose ban is still active.
+    const peerIds = new Set([...this.scores.keys(), ...this.bannedPeers.keys()]);
+    for (const peerId of peerIds) {
       const state = this.getScoreState(peerId);
       switch (state) {
         case PeerScoreState.Healthy:

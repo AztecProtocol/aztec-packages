@@ -1,5 +1,8 @@
 import { TopicType, createTopicString } from '@aztec/stdlib/p2p';
+<<<<<<< HEAD
 import { createCheckpointTimingModel } from '@aztec/stdlib/timetable';
+=======
+>>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
 
 import { createTopicScoreParams } from '@chainsafe/libp2p-gossipsub/score';
 
@@ -15,12 +18,20 @@ export type TopicScoringNetworkParams = {
   heartbeatIntervalMs: number;
   /** Target committee size (number of validators expected to attest per slot) */
   targetCommitteeSize: number;
+<<<<<<< HEAD
   /** Duration per block in milliseconds when building multiple blocks per slot. If undefined, single block mode. */
   blockDurationMs?: number;
   /** Time budget in seconds reserved for L1 publishing. Defaults to ethereumSlotDuration. */
   l1PublishingTime?: number;
   /** One-way proposal/attestation propagation budget in seconds. */
   p2pPropagationTime?: number;
+=======
+  /**
+   * Max blocks per checkpoint, the network-wide config value. Used to derive expected per-slot message rates
+   * for scoring; it is a peer-rate threshold input, not a consensus deadline.
+   */
+  maxBlocksPerCheckpoint: number;
+>>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
   /** Expected number of block proposals per slot for scoring override. 0 disables scoring, undefined falls back to blocksPerSlot - 1. */
   expectedBlockProposalsPerSlot?: number;
 };
@@ -306,12 +317,18 @@ export class TopicScoreParamsFactory {
   constructor(private readonly params: TopicScoringNetworkParams) {
     const { slotDurationMs, heartbeatIntervalMs, blockDurationMs } = params;
 
+<<<<<<< HEAD
     // Compute values that are the same for all topics
     this.blocksPerSlot = calculateBlocksPerSlot(slotDurationMs, blockDurationMs, {
       ethereumSlotDuration: params.ethereumSlotDuration,
       l1PublishingTime: params.l1PublishingTime,
       p2pPropagationTime: params.p2pPropagationTime,
     });
+=======
+    // Compute values that are the same for all topics. The block count comes straight from the network-wide
+    // max-blocks-per-checkpoint config value.
+    this.blocksPerSlot = params.maxBlocksPerCheckpoint;
+>>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
     this.heartbeatsPerSlot = slotDurationMs / heartbeatIntervalMs;
     this.invalidDecay = computeDecay(heartbeatIntervalMs, slotDurationMs, INVALID_DECAY_WINDOW_SLOTS);
 

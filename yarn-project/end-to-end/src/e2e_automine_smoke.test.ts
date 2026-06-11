@@ -3,6 +3,8 @@ import { AztecAddress } from '@aztec/aztec.js/addresses';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import type { CheatCodes } from '@aztec/aztec/testing';
 import { range } from '@aztec/foundation/array';
+import { CheckpointNumber } from '@aztec/foundation/branded-types';
+import { retryUntil } from '@aztec/foundation/retry';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import type { AztecNode, AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
 
@@ -72,6 +74,27 @@ describe('e2e_automine_smoke', () => {
 
     const { receipt } = await contract.methods.emit_nullifier_public(BigInt(9999)).send({ from: owner });
     expect(receipt.blockNumber).toBeGreaterThan(0);
+  });
+
+  it('prove advances the proven tip and clamps', async () => {
+    // Land a tx so there is a checkpointed checkpoint beyond the current proven tip to prove.
+    await contract.methods.emit_nullifier_public(BigInt(8000)).send({ from: owner });
+    const checkpointed = (await aztecNode.getChainTips()).checkpointed.checkpoint.number;
+    expect(checkpointed).toBeGreaterThan(0);
+
+    // No-arg proves up to the latest checkpointed checkpoint and returns it.
+    expect(await aztecNode.prove()).toBe(checkpointed);
+
+    // The proven tip the archiver observes catches up after the synthetic settlement.
+    await retryUntil(
+      async () => (await aztecNode.getChainTips()).proven.checkpoint.number >= checkpointed,
+      'proven tip advanced',
+      30,
+      0.5,
+    );
+
+    // A target beyond the checkpointed tip clamps; re-proving is an idempotent no-op.
+    expect(await aztecNode.prove(CheckpointNumber(checkpointed + 100))).toBe(checkpointed);
   });
 
   it('mineBlock produces an empty checkpoint', async () => {

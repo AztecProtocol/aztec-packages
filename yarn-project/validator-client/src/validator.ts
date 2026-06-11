@@ -246,7 +246,15 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     slashingProtectionDb?: SlashingProtectionDatabase,
   ) {
     const metrics = new ValidatorMetrics(telemetry);
+<<<<<<< HEAD
     const blockProposalValidator = new BlockProposalValidator(epochCache, {
+=======
+    const consensusTimetable = new ConsensusTimetable({
+      l1Constants: epochCache.getL1Constants(),
+      blockDuration: config.blockDurationMs / 1000,
+    });
+    const blockProposalValidator = new BlockProposalValidator(epochCache, consensusTimetable, {
+>>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
       txsPermitted: !config.disableTransactions,
       maxTxsPerBlock: config.validateMaxTxsPerBlock,
       maxBlocksPerCheckpoint: config.maxBlocksPerCheckpoint,

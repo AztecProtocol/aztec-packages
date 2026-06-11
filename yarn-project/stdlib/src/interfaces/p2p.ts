@@ -1,21 +1,26 @@
 import type { CheckpointProposalHash, SlotNumber } from '@aztec/foundation/branded-types';
+import { bufferSchemaFor } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
-import type { BlockProposal } from '../p2p/block_proposal.js';
+import { BlockProposal } from '../p2p/block_proposal.js';
 import { CheckpointAttestation } from '../p2p/checkpoint_attestation.js';
-import type { CheckpointProposalCore } from '../p2p/checkpoint_proposal.js';
+import { CheckpointProposal, type CheckpointProposalCore } from '../p2p/checkpoint_proposal.js';
 import { type ApiSchemaFor, optional, schemas } from '../schemas/index.js';
 import { Tx } from '../tx/tx.js';
 import { TxHash } from '../tx/tx_hash.js';
 import { MAX_RPC_TXS_LEN } from './api_limit.js';
+<<<<<<< HEAD
+=======
+import { type GetTxByHashOptions, GetTxByHashOptionsSchema } from './get_tx_by_hash_options.js';
+>>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
 
 export type PeerInfo =
   | { status: 'connected'; score: number; id: string }
   | { status: 'dialing'; dialStatus: string; id: string; addresses: string[] }
   | { status: 'cached'; id: string; addresses: string[]; enr: string; dialAttempts: number };
 
-const PeerInfoSchema = z.discriminatedUnion('status', [
+export const PeerInfoSchema = z.discriminatedUnion('status', [
   z.object({ status: z.literal('connected'), score: z.number(), id: z.string() }),
   z.object({ status: z.literal('dialing'), dialStatus: z.string(), id: z.string(), addresses: z.array(z.string()) }),
   z.object({
@@ -66,16 +71,38 @@ export interface P2PApi {
   ): Promise<CheckpointAttestation[]>;
 }
 
+export type ProposalsForSlot = {
+  blockProposals: BlockProposal[];
+  checkpointProposals: CheckpointProposalCore[];
+};
+
 export interface P2PClient extends P2PApi {
   /** Manually adds checkpoint attestations to the p2p client attestation pool. */
   addOwnCheckpointAttestations(attestations: CheckpointAttestation[]): Promise<void>;
 
   /** Returns retained signed proposals for a slot. */
+<<<<<<< HEAD
   getProposalsForSlot(slot: SlotNumber): Promise<{
     blockProposals: BlockProposal[];
     checkpointProposals: CheckpointProposalCore[];
   }>;
+=======
+  getProposalsForSlot(slot: SlotNumber): Promise<ProposalsForSlot>;
+
+  /** Returns whether a checkpoint proposal was retained for a slot. */
+  hasCheckpointProposalForSlot(slot: SlotNumber): Promise<boolean>;
+>>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
 }
+
+const MAX_PROPOSALS_FOR_SLOT_RPC_LEN = 256;
+
+export const BlockProposalSchema = bufferSchemaFor(BlockProposal);
+export const CheckpointProposalSchema = bufferSchemaFor(CheckpointProposal);
+
+export const ProposalsForSlotSchema = z.object({
+  blockProposals: z.array(BlockProposalSchema).max(MAX_PROPOSALS_FOR_SLOT_RPC_LEN),
+  checkpointProposals: z.array(CheckpointProposalSchema).max(MAX_PROPOSALS_FOR_SLOT_RPC_LEN),
+});
 
 export const P2PApiSchema: ApiSchemaFor<P2PApi> = {
   getCheckpointAttestationsForSlot: z.function({

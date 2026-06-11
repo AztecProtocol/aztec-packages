@@ -18,6 +18,20 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { ProposalValidator } from './proposal_validator.js';
 
+<<<<<<< HEAD
+=======
+/** Clock-disparity tolerance (ms) the validators are configured with in these tests. */
+const TEST_CLOCK_DISPARITY_MS = 500;
+
+/** Builds a multi-block timetable (S=72, E=12, D=6) matching the test's mocked l1 constants. */
+function makeTimetable(blockDurationMs = 6000) {
+  return new ConsensusTimetable({
+    l1Constants: { l1GenesisTime: 0n, slotDuration: 72, ethereumSlotDuration: 12 },
+    blockDuration: blockDurationMs / 1000,
+  });
+}
+
+>>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
 describe('ProposalValidator', () => {
   const currentSlot = SlotNumber(100);
   const nextSlot = SlotNumber(101);
@@ -260,6 +274,124 @@ describe('ProposalValidator', () => {
     });
   });
 
+<<<<<<< HEAD
+=======
+  describe('checkpoint receive-deadline gate on the common (messageSlot === targetSlot) path', () => {
+    // Under pipelining the normal checkpoint proposal has messageSlot === targetSlot. The tight
+    // checkpoint receive window for slot 100 is [7116, 7182]s (deadline = 100*72 - E - D = 7182).
+    const signer = Secp256k1Signer.random();
+
+    beforeEach(() => {
+      epochCache.getTargetAndNextSlot.mockReturnValue({ targetSlot: currentSlot, nextSlot });
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
+    });
+
+    it('rejects a checkpoint proposal for the target slot arriving after the receive deadline', async () => {
+      const proposal = await makeCheckpointProposal({
+        checkpointHeader: makeCheckpointHeader(0, { slotNumber: currentSlot }),
+        signer,
+      });
+
+      // 7183s is past the deadline (7182) even allowing the +0.5s clock grace (upper bound 7182.5s).
+      epochCache.getEpochAndSlotNow.mockReturnValue({
+        epoch: EpochNumber(1),
+        slot: currentSlot,
+        ts: 7183n,
+        nowMs: 7183_000n,
+      });
+
+      const result = await validator.validate(proposal);
+      expect(result).toEqual({ result: 'reject', severity: PeerErrorSeverity.HighToleranceError });
+    });
+
+    it('accepts a checkpoint proposal for the target slot arriving within the receive window', async () => {
+      const proposal = await makeCheckpointProposal({
+        checkpointHeader: makeCheckpointHeader(0, { slotNumber: currentSlot }),
+        signer,
+      });
+
+      epochCache.getEpochAndSlotNow.mockReturnValue({
+        epoch: EpochNumber(1),
+        slot: currentSlot,
+        ts: 7150n,
+        nowMs: 7150_000n,
+      });
+
+      const result = await validator.validate(proposal);
+      expect(result).toEqual({ result: 'accept' });
+    });
+
+    it('rejects a block proposal for the target slot arriving after the checkpoint receive deadline', async () => {
+      // Block proposals share the checkpoint proposal receive window [7116, 7182]s. Every block proposal
+      // for the slot precedes the checkpoint proposal, so a block proposal arriving after the checkpoint
+      // receive deadline (7182) is rejected at ingress just like the checkpoint proposal would be.
+      const proposal = await makeBlockProposal({
+        blockHeader: makeBlockHeader(0, { slotNumber: currentSlot }),
+        signer,
+      });
+
+      epochCache.getEpochAndSlotNow.mockReturnValue({
+        epoch: EpochNumber(1),
+        slot: currentSlot,
+        ts: 7183n,
+        nowMs: 7183_000n,
+      });
+
+      const result = await validator.validate(proposal);
+      expect(result).toEqual({ result: 'reject', severity: PeerErrorSeverity.HighToleranceError });
+    });
+  });
+
+  describe('clock-disparity widening of the proposal receive window', () => {
+    // Proposal receive window for slot 100 is [buildFrameStart, proposalDeadline] = [7116, 7182]s,
+    // widened by TEST_CLOCK_DISPARITY_MS (0.5s) on both ends. These pin the exact widened boundaries.
+    const signer = Secp256k1Signer.random();
+    const buildFrameStart = 100 * 72 - 72 - 12; // 7116
+    const proposalDeadline = 100 * 72 - 12 - 6; // 7182
+    const deltaSeconds = TEST_CLOCK_DISPARITY_MS / 1000;
+
+    beforeEach(() => {
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
+    });
+
+    async function validateAt(nowSeconds: number) {
+      const proposal = await makeCheckpointProposal({
+        checkpointHeader: makeCheckpointHeader(0, { slotNumber: currentSlot }),
+        signer,
+      });
+      epochCache.getEpochAndSlotNow.mockReturnValue({
+        epoch: EpochNumber(1),
+        slot: currentSlot,
+        ts: BigInt(Math.floor(nowSeconds)),
+        nowMs: BigInt(Math.round(nowSeconds * 1000)),
+      });
+      return validator.validate(proposal);
+    }
+
+    it('accepts at the build frame start minus the disparity', async () => {
+      expect(await validateAt(buildFrameStart - deltaSeconds)).toEqual({ result: 'accept' });
+    });
+
+    it('rejects just before the build frame start minus the disparity', async () => {
+      expect(await validateAt(buildFrameStart - deltaSeconds - 0.001)).toEqual({
+        result: 'reject',
+        severity: PeerErrorSeverity.HighToleranceError,
+      });
+    });
+
+    it('accepts at the receive deadline plus the disparity', async () => {
+      expect(await validateAt(proposalDeadline + deltaSeconds)).toEqual({ result: 'accept' });
+    });
+
+    it('rejects just after the receive deadline plus the disparity', async () => {
+      expect(await validateAt(proposalDeadline + deltaSeconds + 0.001)).toEqual({
+        result: 'reject',
+        severity: PeerErrorSeverity.HighToleranceError,
+      });
+    });
+  });
+
+>>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
   describe('validateTxs', () => {
     describe('txsPermitted', () => {
       it('rejects proposal with txHashes when txs not permitted', async () => {

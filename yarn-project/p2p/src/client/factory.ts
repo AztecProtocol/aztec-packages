@@ -7,7 +7,7 @@ import { AztecLMDBStoreV2, createStore } from '@aztec/kv-store/lmdb-v2';
 import type { BlockHash, L2BlockSource } from '@aztec/stdlib/block';
 import type { ChainConfig } from '@aztec/stdlib/config';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
-import type { BlockMinFeesProvider } from '@aztec/stdlib/gas';
+import { type BlockMinFeesProvider, getNetworkTxGasLimits } from '@aztec/stdlib/gas';
 import type { AztecNode, ClientProtocolCircuitVerifier, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
@@ -75,7 +75,14 @@ export async function createP2PClient(
   }
 
   const bindings = logger.getBindings();
+<<<<<<< HEAD
   const store = deps.store ?? (await createStore(P2P_STORE_NAME, 2, config, bindings));
+=======
+  // Schema version 4: L2 tips store resolves checkpoint tips from per-tip ids in l2_tip_checkpoints; the
+  // block->checkpoint mapping and checkpoint maps were dropped. Bumped to wipe stores whose tips predate
+  // per-tip ids, which would otherwise make getL2Tips throw on every read.
+  const store = deps.store ?? (await createStore(P2P_STORE_NAME, 4, config, bindings));
+>>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
   const archive = await createStore(P2P_ARCHIVE_STORE_NAME, 1, config, bindings);
   const peerStore = await createStore(P2P_PEER_STORE_NAME, 1, config, bindings);
   const attestationStore = await createStore(P2P_ATTESTATION_STORE_NAME, 2, config, bindings);
@@ -108,14 +115,14 @@ export async function createP2PClient(
           const { ts: nextSlotTimestamp } = epochCache.getEpochAndSlotInNextL1Slot();
           const l1Constants = await archiver.getL1Constants();
           const gasFees = await blockMinFeesProvider.getCurrentMinFees();
+          const networkTxGasLimits = getNetworkTxGasLimits(config, l1Constants);
           return createTxValidatorForTransactionsEnteringPendingTxPool(
             worldStateSynchronizer,
             nextSlotTimestamp,
             BlockNumber(currentBlockNumber + 1),
             {
-              rollupManaLimit: l1Constants.rollupManaLimit,
-              maxBlockL2Gas: config.validateMaxL2BlockGas,
-              maxBlockDAGas: config.validateMaxDABlockGas,
+              maxTxL2Gas: networkTxGasLimits.l2Gas,
+              maxTxDAGas: networkTxGasLimits.daGas,
             },
             gasFees,
           );

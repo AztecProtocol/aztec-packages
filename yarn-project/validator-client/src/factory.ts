@@ -31,7 +31,15 @@ export function createProposalHandler(
   },
 ) {
   const metrics = new ValidatorMetrics(deps.telemetry);
+<<<<<<< HEAD
   const blockProposalValidator = new BlockProposalValidator(deps.epochCache, {
+=======
+  const consensusTimetable = new ConsensusTimetable({
+    l1Constants: deps.epochCache.getL1Constants(),
+    blockDuration: config.blockDurationMs / 1000,
+  });
+  const blockProposalValidator = new BlockProposalValidator(deps.epochCache, consensusTimetable, {
+>>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
     txsPermitted: !config.disableTransactions,
     maxTxsPerBlock: config.validateMaxTxsPerBlock ?? config.validateMaxTxsPerCheckpoint,
     maxBlocksPerCheckpoint: config.maxBlocksPerCheckpoint,

@@ -5,6 +5,7 @@ import type { TxReceipt } from '@aztec/aztec.js/tx';
 import { Bot, type BotConfig, BotStore, getBotDefaultConfig } from '@aztec/bot';
 import { MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT } from '@aztec/constants';
 import type { Logger } from '@aztec/foundation/log';
+import { retryUntil } from '@aztec/foundation/retry';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import { EmbeddedWallet } from '@aztec/wallets/embedded';
@@ -101,10 +102,18 @@ describe('e2e_sequencer_config', () => {
       expect(receipt2).toBeDefined();
       expect(receipt2.hasExecutionSucceeded()).toBe(true);
 
+      const checkpointedBeforeLimitReduction = await aztecNode.getBlockNumber('checkpointed');
+
       // Set the maxL2BlockGas to the total mana used - 1
       sequencer!.updateConfig({
         maxL2BlockGas: Number(totalManaUsed) - 1,
       });
+
+      await retryUntil(
+        async () => (await aztecNode.getBlockNumber('checkpointed')) > checkpointedBeforeLimitReduction,
+        'checkpoint after lowering maxL2BlockGas',
+        PIPELINING_SETUP_OPTS.aztecSlotDuration * 4,
+      );
 
       // Try to run a tx and expect it to fail
       await expect(bot.run()).rejects.toThrow(/Timeout awaiting isMined/);

@@ -52,13 +52,12 @@ describe('e2e_epochs/epochs_first_slot', () => {
       return { attester, withdrawer: attester, privateKey, bn254SecretKey: new SecretValue(Fr.random().toBigInt()) };
     });
 
-    // Setup context with the given set of validators, no reorgs, mocked gossip sub network, and no anvil test watcher.
+    // Setup context with the given set of validators, no reorgs, and a mocked gossip sub network.
     // We expect 4 blocks per checkpoint with this config
     test = await EpochsTestContext.setup({
       numberOfAccounts: 0,
       initialValidators: validators,
       mockGossipSubNetwork: true,
-      disableAnvilTestWatcher: true,
       aztecProofSubmissionEpochs: 1024,
       aztecEpochDuration: 32,
       aztecSlotDurationInL1Slots: 3,
@@ -66,7 +65,6 @@ describe('e2e_epochs/epochs_first_slot', () => {
       blockDurationMs: 6000,
       startProverNode: false,
       aztecTargetCommitteeSize: COMMITTEE_SIZE,
-      enforceTimeTable: true,
       minTxsPerBlock: 1,
       maxTxsPerBlock: 1,
       attestationPropagationTime: 0.5,

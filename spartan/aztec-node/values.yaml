@@ -15,6 +15,11 @@ global:
   aztecEnv: {}
   # -- Network name - this is a predefined network - alpha-testnet, devnet
   aztecNetwork: ""
+  # -- Allow this deployment's consensus-critical env vars to diverge from the generated defaults for aztecNetwork
+  allowOverridingNetworkConfig: ""
+  # -- Slot/epoch durations to pass through when a network's deployed rollup diverges from the generated defaults
+  aztecSlotDuration: ""
+  aztecEpochDuration: ""
   # -- Custom network - (not recommended) - Only for custom testnet usecases, (must have deployed your own protocol contracts first)
   customAztecNetwork:
     l1ChainId:

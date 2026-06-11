@@ -885,10 +885,14 @@ export class CheckpointProposalJob implements Traceable {
         blockTimestamp: timestamp,
         // Create an empty block if we haven't already and this is the last one
         forceCreate: timingInfo.isLastBlock && blocksBuilt === 0 && this.config.buildCheckpointIfEmpty,
+<<<<<<< HEAD
         // Build deadline is only set if we are enforcing the timetable
         buildDeadline: timingInfo.deadline
           ? new Date((this.getSlotStartBuildTimestamp() + timingInfo.deadline) * 1000)
           : undefined,
+=======
+        buildDeadline: new Date(timingInfo.deadline * 1000),
+>>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
         blockNumber,
         indexWithinCheckpoint,
         txHashesAlreadyIncluded,
@@ -896,8 +900,8 @@ export class CheckpointProposalJob implements Traceable {
 
       // If we failed to build the block due to insufficient txs, we try again if there is still time left in the slot
       if ('failure' in buildResult) {
-        // If this was the last subslot, or we're running with a single block per slot, we're done
-        if (timingInfo.isLastBlock || timingInfo.deadline === undefined) {
+        // If this was the last subslot, we're done.
+        if (timingInfo.isLastBlock) {
           break;
         }
         // Otherwise, if there is still time for more blocks, we wait until the next subslot and try again
@@ -1084,6 +1088,7 @@ export class CheckpointProposalJob implements Traceable {
         minValidTxs,
         maxBlocksPerCheckpoint: this.timetable.maxNumberOfBlocks,
         perBlockAllocationMultiplier: this.config.perBlockAllocationMultiplier,
+        perBlockDAAllocationMultiplier: this.config.perBlockDAAllocationMultiplier,
       };
 
       // Actually build the block by executing txs. The builder throws InsufficientValidTxsError
@@ -1223,7 +1228,11 @@ export class CheckpointProposalJob implements Traceable {
     // We only allow a block with 0 txs in the first block of the checkpoint
     const minTxs = indexWithinCheckpoint > 0 && this.config.minTxsPerBlock === 0 ? 1 : this.config.minTxsPerBlock;
 
+<<<<<<< HEAD
     // Deadline is undefined if we are not enforcing the timetable, meaning we'll exit immediately when out of time
+=======
+    // Latest time to keep waiting for txs: wait_for_txs_deadline = block_build_deadline(k) - min_block_duration.
+>>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
     const startBuildingDeadline = buildDeadline
       ? new Date(buildDeadline.getTime() - this.timetable.minExecutionTime * 1000)
       : undefined;
@@ -1319,10 +1328,16 @@ export class CheckpointProposalJob implements Traceable {
       );
     }
 
+<<<<<<< HEAD
     const attestationTimeAllowed = this.config.enforceTimeTable
       ? this.timetable.getCheckpointAttestationDeadline()
       : this.l1Constants.slotDuration;
     const attestationDeadline = new Date((this.getSlotStartBuildTimestamp() + attestationTimeAllowed) * 1000);
+=======
+    // Hard attestation-collection cutoff = the single consensus attestation_deadline (target_slot_start + S - 2E).
+    const attestationDeadlineSeconds = this.timetable.getAttestationDeadline(this.targetSlot);
+    const attestationDeadline = new Date(attestationDeadlineSeconds * 1000);
+>>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
 
     this.metrics.recordRequiredAttestations(numberOfRequiredAttestations, attestationTimeAllowed);
 

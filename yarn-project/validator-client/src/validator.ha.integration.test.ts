@@ -141,9 +141,10 @@ describe('ValidatorClient HA Integration', () => {
         | 'slashDuplicateProposalPenalty'
         | 'slashDuplicateAttestationPenalty'
         | 'slashAttestInvalidCheckpointProposalPenalty'
-      > = {
+      > & { blockDurationMs: number } = {
       validatorPrivateKeys: new SecretValue(validatorPrivateKeys),
       attestationPollingIntervalMs: 1000,
+      blockDurationMs: 3000,
       disableValidator: false,
       disabledValidators: [],
       slashBroadcastedInvalidBlockPenalty: 1n,
@@ -200,7 +201,7 @@ describe('ValidatorClient HA Integration', () => {
         | 'slashDuplicateProposalPenalty'
         | 'slashDuplicateAttestationPenalty'
         | 'slashAttestInvalidCheckpointProposalPenalty'
-      >,
+      > & { blockDurationMs: number },
   ): Promise<ValidatorClient> {
     // Track pool for cleanup
     pools.push(pool);
@@ -215,7 +216,15 @@ describe('ValidatorClient HA Integration', () => {
 
     // Create block proposal handler
     const metrics = new ValidatorMetrics(getTelemetryClient());
+<<<<<<< HEAD
     const blockProposalValidator = new BlockProposalValidator(epochCache, {
+=======
+    const consensusTimetable = new ConsensusTimetable({
+      l1Constants: epochCache.getL1Constants(),
+      blockDuration: 3,
+    });
+    const blockProposalValidator = new BlockProposalValidator(epochCache, consensusTimetable, {
+>>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
       txsPermitted: true,
       maxTxsPerBlock: undefined,
       signatureContext: TEST_COORDINATION_SIGNATURE_CONTEXT,

@@ -88,6 +88,11 @@ describe('ProposalHandler checkpoint validation', () => {
       rollupAddress: TEST_COORDINATION_SIGNATURE_CONTEXT.rollupAddress,
     } as ValidatorClientFullConfig;
 
+<<<<<<< HEAD
+=======
+    consensusTimetable = new ConsensusTimetable({ l1Constants: epochCache.getL1Constants(), blockDuration: 3 });
+
+>>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
     handler = new ProposalHandler(
       checkpointsBuilder,
       mock<WorldStateSynchronizer>(),

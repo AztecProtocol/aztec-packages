@@ -381,4 +381,93 @@ describe('ArchiverDataStoreUpdater', () => {
       addProposedBlockSpy.mockRestore();
     });
   });
+
+  describe('removeUncheckpointedBlocksAfter (automine optimistic-insert recovery)', () => {
+    /** Adds one proposed block plus its proposed checkpoint (one block per checkpoint, as automine does). */
+    const addProposedBlockWithCheckpoint = async (
+      blockNumber: number,
+      checkpointNumber: number,
+      slotNumber: number,
+      previousBlock?: L2Block,
+    ): Promise<L2Block> => {
+      const block = await L2Block.random(BlockNumber(blockNumber), {
+        checkpointNumber: CheckpointNumber(checkpointNumber),
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
+        slotNumber: SlotNumber(slotNumber),
+        ...(previousBlock ? { lastArchive: previousBlock.archive } : {}),
+      });
+      await updater.addProposedBlock(block);
+      await store.blocks.addProposedCheckpoint({
+        checkpointNumber: CheckpointNumber(checkpointNumber),
+        header: CheckpointHeader.empty(),
+        startBlock: BlockNumber(blockNumber),
+        blockCount: 1,
+        totalManaUsed: 0n,
+        feeAssetPriceModifier: 0n,
+      });
+      return block;
+    };
+
+    it('removes the optimistic proposed block and evicts its proposed checkpoint at genesis', async () => {
+      const block = await addProposedBlockWithCheckpoint(1, 1, 100);
+      expect(await store.blocks.getBlock({ number: BlockNumber(1) })).toBeDefined();
+      expect((await store.blocks.getLastProposedCheckpoint())?.checkpointNumber).toBe(1);
+
+      const removed = await updater.removeUncheckpointedBlocksAfter(BlockNumber(0));
+
+      expect(removed.map(b => b.number)).toEqual([1]);
+      expect(removed[0].archive.root.equals(block.archive.root)).toBe(true);
+      expect(await store.blocks.getBlock({ number: BlockNumber(1) })).toBeUndefined();
+      expect(await store.blocks.getLastProposedCheckpoint()).toBeUndefined();
+    });
+
+    it('drops a proposed checkpoint built on the checkpointed tip without touching checkpointed state', async () => {
+      // Checkpointed checkpoint 1 (block 1).
+      const block1 = await L2Block.random(BlockNumber(1), {
+        checkpointNumber: CheckpointNumber(1),
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
+        slotNumber: SlotNumber(100),
+      });
+      await updater.addCheckpoints([makePublishedCheckpoint(makeCheckpoint([block1]), 10)]);
+
+      // Optimistic proposed checkpoint 2 (block 2) on top.
+      const block2 = await addProposedBlockWithCheckpoint(2, 2, 101, block1);
+      expect(await store.blocks.getBlock({ number: BlockNumber(2) })).toBeDefined();
+
+      const removed = await updater.removeUncheckpointedBlocksAfter(BlockNumber(1));
+
+      expect(removed.map(b => b.number)).toEqual([2]);
+      expect(removed[0].archive.root.equals(block2.archive.root)).toBe(true);
+      expect(await store.blocks.getBlock({ number: BlockNumber(2) })).toBeUndefined();
+      expect(await store.blocks.getLastProposedCheckpoint()).toBeUndefined();
+      // Checkpointed checkpoint 1 and its block survive.
+      expect(await store.blocks.getCheckpointData(CheckpointNumber(1))).toBeDefined();
+      expect(await store.blocks.getBlock({ number: BlockNumber(1) })).toBeDefined();
+    });
+
+    it('evicts only proposed checkpoints from the pruned block onward, keeping earlier ones', async () => {
+      const block1 = await addProposedBlockWithCheckpoint(1, 1, 100);
+      await addProposedBlockWithCheckpoint(2, 2, 101, block1);
+
+      const removed = await updater.removeUncheckpointedBlocksAfter(BlockNumber(1));
+
+      expect(removed.map(b => b.number)).toEqual([2]);
+      // Block 1 and its proposed checkpoint are untouched; only checkpoint 2 (the pruned block) is evicted.
+      expect(await store.blocks.getBlock({ number: BlockNumber(1) })).toBeDefined();
+      expect((await store.blocks.getLastProposedCheckpoint())?.checkpointNumber).toBe(1);
+    });
+
+    it('refuses to remove checkpointed blocks', async () => {
+      const block1 = await L2Block.random(BlockNumber(1), {
+        checkpointNumber: CheckpointNumber(1),
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
+        slotNumber: SlotNumber(100),
+      });
+      await updater.addCheckpoints([makePublishedCheckpoint(makeCheckpoint([block1]), 10)]);
+
+      await expect(updater.removeUncheckpointedBlocksAfter(BlockNumber(0))).rejects.toThrow(
+        /checkpointed blocks exist up to 1/,
+      );
+    });
+  });
 });

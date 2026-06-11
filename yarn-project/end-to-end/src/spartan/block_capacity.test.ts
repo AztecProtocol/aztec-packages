@@ -258,7 +258,7 @@ describe('block capacity benchmark', () => {
     // 3. Re-enable block building
     const enabledAt = new Date().toISOString();
     logger.info(`[${label}] Re-enabling block building`);
-    await updateSequencersConfig(config, { minTxsPerBlock: 1, enforceTimeTable: true });
+    await updateSequencersConfig(config, { minTxsPerBlock: 1 });
     await retryUntil(
       async () => {
         const configs = await getSequencersConfig(config);

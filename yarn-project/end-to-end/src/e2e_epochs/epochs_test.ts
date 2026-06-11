@@ -2,6 +2,7 @@ import type { InitialAccountData } from '@aztec/accounts/testing';
 import type { Archiver } from '@aztec/archiver';
 import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import { getAccountContractAddress } from '@aztec/aztec.js/account';
+import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import { getTimestampRangeForEpoch } from '@aztec/aztec.js/block';
 import { getContractInstanceFromInstantiationParams } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
@@ -241,7 +242,7 @@ export class EpochsTestContext {
    * Registers a SchnorrHardcodedKeyAccountContract in PXE. The account must have been funded
    * at genesis (via getHardcodedAccountData). No on-chain deployment or block mining needed.
    */
-  public async registerHardcodedAccount(accountData: InitialAccountData) {
+  public async registerHardcodedAccount(accountData: InitialAccountData): Promise<AztecAddress> {
     const contract = new SchnorrHardcodedKeyAccountContract();
     const wallet = this.context.wallet;
     const accountManager = await (wallet as TestWallet).createAccount({

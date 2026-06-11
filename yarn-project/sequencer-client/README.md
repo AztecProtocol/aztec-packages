@@ -243,8 +243,7 @@ The configuration object is `SequencerConfig` (`src/sequencer/config.ts` + `src/
 
 | Option / env var | Default | Purpose |
 | --- | --- | --- |
-| `blockDurationMs` / `SEQ_BLOCK_DURATION_MS` | unset | Length of one sub-slot in ms. `undefined` falls back to single-block-per-slot mode (used by tests / sandbox). |
-| `enforceTimeTable` / `SEQ_ENFORCE_TIME_TABLE` | true | If false, deadlines are not enforced and a single block is built with unbounded time. |
+| `blockDurationMs` / `SEQ_BLOCK_DURATION_MS` | 3000 ms | Length of one sub-slot in ms. Required: the sequencer always runs the enforced timetable. The derived `maxBlocksPerCheckpoint = floor((aztecSlotDuration − checkpointInitializationTime − (checkpointAssembleTime + 2·p2pPropagationTime + blockDuration)) / blockDuration)`; a slot may legitimately fit a single block when that floor is 1. |
 | `attestationPropagationTime` / `SEQ_ATTESTATION_PROPAGATION_TIME` | 2 s | One-way p2p estimate fed to the timetable. |
 | `l1PublishingTime` / `SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT` | full L1 slot | Time reserved for the L1 tx to land. |
 | `sequencerPollingIntervalMS` / `SEQ_POLLING_INTERVAL_MS` | 500 | Work-loop tick rate. |

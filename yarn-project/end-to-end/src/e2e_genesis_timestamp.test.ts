@@ -13,9 +13,9 @@ describe('e2e_genesis_timestamp', () => {
 
   beforeEach(async () => {
     // Skip account deployment and configure PXE to sync its anchor only to proven blocks so its
-    // anchor lags behind proposed blocks. Under AUTOMINE_E2E_OPTS the AnvilTestWatcher is disabled
-    // and the AutomineSequencer never marks blocks as proven on its own, so without a prover node
-    // the proven tip stays at genesis for the duration of the test.
+    // anchor lags behind proposed blocks. Under AUTOMINE_E2E_OPTS the AutomineSequencer never marks
+    // blocks as proven on its own, so without a prover node the proven tip stays at genesis for the
+    // duration of the test.
     context = await setup(0, { ...AUTOMINE_E2E_OPTS, skipAccountDeployment: true }, { syncChainTip: 'proven' });
   });
 

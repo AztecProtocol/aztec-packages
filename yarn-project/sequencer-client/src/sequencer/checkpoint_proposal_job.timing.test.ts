@@ -382,6 +382,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
     dateProvider = new ManualDateProvider(getSlotStartTime(slotNumber) * 1000);
 
     // Create timetable with realistic production values
+<<<<<<< HEAD
     timetable = new SequencerTimetable(
       {
         ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
@@ -394,6 +395,14 @@ describe('CheckpointProposalJob Timing Tests', () => {
       undefined,
       createLogger('test:timetable'),
     );
+=======
+    timetable = makeProposerTimetable({
+      l1Constants,
+      p2pPropagationTime: P2P_PROPAGATION_TIME,
+      checkpointProposalPrepareTime: CHECKPOINT_ASSEMBLE_TIME,
+      blockDurationMs: BLOCK_DURATION * 1000,
+    });
+>>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
 
     // Create timing-aware checkpoint builder
     const checkpointConstants: CheckpointGlobalVariables = { ...globalVariables };
@@ -499,7 +508,6 @@ describe('CheckpointProposalJob Timing Tests', () => {
 
     config = {
       ...DefaultSequencerConfig,
-      enforceTimeTable: true,
       maxTxsPerBlock: 4,
       minTxsPerBlock: 1,
       publishTxsWithProposals: false,
@@ -552,6 +560,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
 
       const job = createJob();
       job.setTimetable(
+<<<<<<< HEAD
         new SequencerTimetable(
           {
             ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
@@ -563,6 +572,16 @@ describe('CheckpointProposalJob Timing Tests', () => {
           undefined,
           createLogger('test:timetable:single-block'),
         ),
+=======
+        makeProposerTimetable({
+          l1Constants,
+          p2pPropagationTime: P2P_PROPAGATION_TIME,
+          checkpointProposalPrepareTime: CHECKPOINT_ASSEMBLE_TIME,
+          // 30s block duration in the 72s slot derives exactly one block, so the single built block is also
+          // the last block (isLastBlock=true), which is what this first-and-last-block path test asserts.
+          blockDurationMs: 30000,
+        }),
+>>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
       );
 
       const checkpoint = await job.execute();
