@@ -87,6 +87,7 @@ describe('PXE', () => {
         multiCallEntrypoint: await AztecAddress.random(),
       },
       realProofs: true,
+      txsLimits: { gas: { daGas: 117_668, l2Gas: 6_540_000 } },
     });
 
     pxe = await PXE.create({

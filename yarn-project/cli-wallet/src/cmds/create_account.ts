@@ -89,10 +89,10 @@ export async function createAccount(
     const deployMethod = await account.getDeployMethod();
     const sim = await deployMethod.simulate({
       ...deployAccountOpts,
-      fee: { ...deployAccountOpts.fee, estimateGas: true },
+      includeMetadata: true,
     });
-    // estimateGas: true guarantees these fields are present
-    const estimatedGas = sim.estimatedGas!;
+    // includeMetadata: true guarantees these fields are present
+    const estimatedGas = await wallet.estimateGasLimits(sim.gasUsed!);
     const stats = sim.stats!;
 
     if (feeOpts.estimateOnly) {

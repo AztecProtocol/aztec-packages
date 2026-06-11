@@ -30,6 +30,11 @@ export interface SequencerConfig {
   maxDABlockGas?: number;
   /** Per-block gas budget multiplier for both L2 and DA gas. Budget = (checkpointLimit / maxBlocks) * multiplier. */
   perBlockAllocationMultiplier?: number;
+  /**
+   * Per-block budget multiplier applied to DA gas and blob fields in place of `perBlockAllocationMultiplier`.
+   * Defaults higher than the general multiplier so the largest contract class deploy fits a single block.
+   */
+  perBlockDAAllocationMultiplier?: number;
   /** Redistribute remaining checkpoint budget evenly across remaining blocks instead of allowing a single block to consume the entire remaining budget. */
   redistributeCheckpointBudget?: boolean;
   /** Recipient of block reward. */
@@ -135,6 +140,7 @@ export const SequencerConfigSchema = zodFor<SequencerConfig>()(
     publishTxsWithProposals: z.boolean().optional(),
     maxDABlockGas: z.number().optional(),
     perBlockAllocationMultiplier: z.number().optional(),
+    perBlockDAAllocationMultiplier: z.number().optional(),
     redistributeCheckpointBudget: z.boolean().optional(),
     coinbase: schemas.EthAddress.optional(),
     feeRecipient: schemas.AztecAddress.optional(),

@@ -8,7 +8,7 @@ import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
 import type { EthAddress, L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
-import { type BlockMinFeesProvider, GasFees } from '@aztec/stdlib/gas';
+import { type BlockMinFeesProvider, GasFees, getNetworkTxGasLimits } from '@aztec/stdlib/gas';
 import type { ClientProtocolCircuitVerifier, PeerInfo, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import {
   BlockProposal,
@@ -24,13 +24,7 @@ import {
   getTopicsForConfig,
   metricsTopicStrToLabels,
 } from '@aztec/stdlib/p2p';
-import {
-  DEFAULT_CHECKPOINT_PROPOSAL_INIT_TIME,
-  DEFAULT_CHECKPOINT_PROPOSAL_PREPARE_TIME,
-  DEFAULT_MIN_BLOCK_DURATION,
-  DEFAULT_P2P_PROPAGATION_TIME,
-  ProposerTimetable,
-} from '@aztec/stdlib/timetable';
+import { buildProposerTimetable } from '@aztec/stdlib/timetable';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import { Tx, type TxValidationResult } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
@@ -123,27 +117,6 @@ import type {
   PeerDiscoveryService,
 } from '../service.js';
 import { P2PInstrumentation } from './instrumentation.js';
-
-/**
- * Builds the proposer timetable used by both the gossip validators (for receive-window bounds) and
- * gossipsub topic scoring (for max-blocks-per-checkpoint). Operational budgets come from p2p config,
- * falling back to the shared stdlib defaults. `checkpointProposalInitTime` is not config-mapped, so the
- * stdlib default is used here, the same way the sequencer sources it.
- */
-function buildProposerTimetable(
-  config: P2PConfig,
-  l1Constants: ReturnType<EpochCacheInterface['getL1Constants']>,
-): ProposerTimetable {
-  return new ProposerTimetable({
-    l1Constants,
-    blockDuration: config.blockDurationMs / 1000,
-    minBlockDuration: config.minBlockDuration ?? DEFAULT_MIN_BLOCK_DURATION,
-    p2pPropagationTime: config.attestationPropagationTime ?? DEFAULT_P2P_PROPAGATION_TIME,
-    checkpointProposalPrepareTime: config.checkpointProposalPrepareTime ?? DEFAULT_CHECKPOINT_PROPOSAL_PREPARE_TIME,
-    checkpointProposalInitTime: DEFAULT_CHECKPOINT_PROPOSAL_INIT_TIME,
-    checkpointProposalSyncGrace: config.checkpointProposalSyncGraceSeconds,
-  });
-}
 
 interface ValidationResult {
   name: string;
@@ -1713,6 +1686,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     ];
     const blockNumber = BlockNumber(currentBlockNumber + 1);
     const l1Constants = await this.archiver.getL1Constants();
+    const networkTxGasLimits = getNetworkTxGasLimits(this.config, l1Constants);
 
     return createFirstStageTxValidationsForGossipedTransactions(
       nextSlotTimestamp,
@@ -1727,9 +1701,8 @@ export class LibP2PService extends WithTracer implements P2PService {
       allowedInSetup,
       this.logger.getBindings(),
       {
-        rollupManaLimit: l1Constants.rollupManaLimit,
-        maxBlockL2Gas: this.config.validateMaxL2BlockGas,
-        maxBlockDAGas: this.config.validateMaxDABlockGas,
+        maxTxL2Gas: networkTxGasLimits.l2Gas,
+        maxTxDAGas: networkTxGasLimits.daGas,
       },
     );
   }

@@ -8,6 +8,7 @@ import {
   GENESIS_BLOCK_HEADER_HASH as GENESIS_BLOCK_HEADER_HASH_BIGINT,
   INITIAL_CHECKPOINT_NUMBER as INITIAL_CHECKPOINT_NUM_RAW,
   INITIAL_L2_BLOCK_NUM as INITIAL_L2_BLOCK_NUM_RAW,
+  MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT as MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT_RAW,
   MAX_TX_BLOB_DATA_SIZE_IN_FIELDS,
 } from './constants.gen.js';
 
@@ -36,3 +37,15 @@ export const INITIAL_CHECKPOINT_NUMBER: CheckpointNumber = CheckpointNumber(INIT
 /** The block header hash for the genesis block 0. */
 // eslint-disable-next-line import-x/export
 export const GENESIS_BLOCK_HEADER_HASH = new Fr(GENESIS_BLOCK_HEADER_HASH_BIGINT);
+
+/**
+ * The RAW DA capacity of a checkpoint's blobs: `BLOBS_PER_CHECKPOINT * FIELDS_PER_BLOB * DA_GAS_PER_FIELD`.
+ * This value is NOT attainable by transactions. The blob encoding reserves overhead fields that no tx pays
+ * DA gas for: a checkpoint-end marker field plus per-block block-end fields (7 for the first block in a
+ * checkpoint, 6 for each subsequent block — see `@aztec/blob-lib` encoding). The true tx-usable DA budget
+ * is lower and block-count-dependent; consumers budgeting tx data should subtract the encoding overhead (as
+ * `CheckpointBuilder` and the network tx gas limits in `@aztec/stdlib/gas` do) rather than use this value
+ * directly.
+ */
+// eslint-disable-next-line import-x/export
+export const MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT = MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT_RAW;

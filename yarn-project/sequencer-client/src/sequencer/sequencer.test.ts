@@ -1184,6 +1184,27 @@ describe('sequencer', () => {
     });
   });
 
+  describe('config updates', () => {
+    it('rejects a config with sub-minimum allocation multipliers without committing it', () => {
+      // Move to a 10-block geometry so the per-block allocation actually binds below the per-tx blob ceiling.
+      sequencer.updateConfig({ blockDurationMs: 500 });
+      const goodMultiplier = sequencer.getPerBlockAllocationMultiplier();
+      const goodTimetable = sequencer.getTimeTable();
+
+      // A sub-minimum multiplier must be rejected and must not mutate the live config or timetable. We drop
+      // the DA multiplier too so the DA dimension is checked against its (higher) network minimum.
+      expect(() =>
+        sequencer.updateConfig({ perBlockAllocationMultiplier: 0.5, perBlockDAAllocationMultiplier: 0.5 }),
+      ).toThrow(/perBlockDAAllocationMultiplier \(0.5\) is below the network minimum/);
+      expect(sequencer.getPerBlockAllocationMultiplier()).toBe(goodMultiplier);
+      expect(sequencer.getTimeTable()).toBe(goodTimetable);
+
+      // A subsequent valid update still applies, proving the rejected value never stuck.
+      sequencer.updateConfig({ maxTxsPerBlock: 7 });
+      expect(sequencer.getPerBlockAllocationMultiplier()).toBe(goodMultiplier);
+    });
+  });
+
   describe('pipelining with proposed checkpoint-based L1 check skip', () => {
     beforeEach(() => {
       // Skip execute() to avoid the pipeline sleep (which would block for 16s in real time).
@@ -1609,6 +1630,10 @@ class TestSequencer extends Sequencer {
 
   public getTimeTable() {
     return this.timetable;
+  }
+
+  public getPerBlockAllocationMultiplier() {
+    return this.config.perBlockAllocationMultiplier;
   }
 
   public getLastSlotForCheckpointProposalJob() {

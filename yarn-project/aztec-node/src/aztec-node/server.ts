@@ -88,7 +88,7 @@ import type {
   ProtocolContractAddresses,
 } from '@aztec/stdlib/contract';
 import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
-import { GasFees, type ManaUsageEstimate } from '@aztec/stdlib/gas';
+import { GasFees, type ManaUsageEstimate, getNetworkTxGasLimits } from '@aztec/stdlib/gas';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
 import type {
   AztecNode,
@@ -1108,14 +1108,22 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   }
 
   public async getNodeInfo(): Promise<NodeInfo> {
-    const [nodeVersion, rollupVersion, chainId, enr, contractAddresses, protocolContractAddresses] = await Promise.all([
-      this.getNodeVersion(),
-      this.getVersion(),
-      this.getChainId(),
-      this.getEncodedEnr(),
-      this.getL1ContractAddresses(),
-      this.getProtocolContractAddresses(),
-    ]);
+    const [nodeVersion, rollupVersion, chainId, enr, contractAddresses, protocolContractAddresses, l1Constants] =
+      await Promise.all([
+        this.getNodeVersion(),
+        this.getVersion(),
+        this.getChainId(),
+        this.getEncodedEnr(),
+        this.getL1ContractAddresses(),
+        this.getProtocolContractAddresses(),
+        this.blockSource.getL1Constants(),
+      ]);
+
+    // Gas limits a single tx may declare on this network, derived from network-wide constants only (the
+    // timetable's blocks-per-checkpoint and the network-minimum per-block multipliers) — never this node's
+    // local caps or configured multipliers, which can make the node stricter at block-building time but
+    // cannot define what the network accepts for relay. Clients read txsLimits to set fallback gas limits.
+    const maxTxGas = getNetworkTxGasLimits(this.config, l1Constants);
 
     const nodeInfo: NodeInfo = {
       nodeVersion,
@@ -1125,6 +1133,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       l1ContractAddresses: contractAddresses,
       protocolContractAddresses: protocolContractAddresses,
       realProofs: !!this.config.realProofs,
+      txsLimits: { gas: { daGas: maxTxGas.daGas, l2Gas: maxTxGas.l2Gas } },
     };
 
     return nodeInfo;
@@ -1760,6 +1769,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     const { ts: nextSlotTimestamp } = this.epochCache.getEpochAndSlotInNextL1Slot();
     const blockNumber = BlockNumber((await this.blockSource.getBlockNumber()) + 1);
     const l1Constants = await this.blockSource.getL1Constants();
+    // Enforce the same network admission limit the node advertises in getNodeInfo (network-wide, not this
+    // node's local caps), so a tx the wallet sized against txsLimits is not rejected here.
+    const networkTxGasLimits = getNetworkTxGasLimits(this.config, l1Constants);
     const validator = createTxValidatorForAcceptingTxsOverRPC(
       db,
       this.contractDataSource,
@@ -1775,10 +1787,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
         ],
         gasFees: await this.getCurrentMinFees(),
         skipFeeEnforcement,
+        isSimulation,
         txsPermitted: !this.config.disableTransactions,
-        rollupManaLimit: l1Constants.rollupManaLimit,
-        maxBlockL2Gas: this.config.validateMaxL2BlockGas,
-        maxBlockDAGas: this.config.validateMaxDABlockGas,
+        maxTxL2Gas: networkTxGasLimits.l2Gas,
+        maxTxDAGas: networkTxGasLimits.daGas,
       },
       this.log.getBindings(),
     );

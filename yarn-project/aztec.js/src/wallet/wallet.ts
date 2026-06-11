@@ -38,7 +38,6 @@ import {
 import { z } from 'zod';
 
 import {
-  type FeeEstimationOptions,
   type GasSettingsOption,
   type InteractionWaitOptions,
   NO_FROM,
@@ -73,7 +72,7 @@ export type Aliased<T> = {
  */
 export type SimulateOptions = Omit<SimulateInteractionOptions, 'fee'> & {
   /** The fee options */
-  fee?: GasSettingsOption & FeeEstimationOptions;
+  fee?: GasSettingsOption;
 };
 
 /**
@@ -319,11 +318,6 @@ export const GasSettingsOptionSchema = z.object({
   congestionEstimate: optional(z.nativeEnum(ManaUsageEstimate)),
 });
 
-export const WalletSimulationFeeOptionSchema = GasSettingsOptionSchema.extend({
-  estimatedGasPadding: optional(z.number()),
-  estimateGas: optional(z.boolean()),
-});
-
 export const WaitOptsSchema = z.object({
   ignoreDroppedReceiptsFor: optional(z.number()),
   timeout: optional(z.number()),
@@ -347,7 +341,7 @@ export const SimulateOptionsSchema = z.object({
   from: FromSchema,
   authWitnesses: optional(z.array(AuthWitness.schema)),
   capsules: optional(z.array(Capsule.schema)),
-  fee: optional(WalletSimulationFeeOptionSchema),
+  fee: optional(GasSettingsOptionSchema),
   skipTxValidation: optional(z.boolean()),
   skipFeeEnforcement: optional(z.boolean()),
   includeMetadata: optional(z.boolean()),

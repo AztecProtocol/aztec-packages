@@ -30,7 +30,7 @@ import { PrivateTokenContract } from '@aztec/noir-contracts.js/PrivateToken';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
-import { GasFees, GasSettings, ManaUsageEstimate } from '@aztec/stdlib/gas';
+import { GasFees, ManaUsageEstimate } from '@aztec/stdlib/gas';
 import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { EmbeddedWallet } from '@aztec/wallets/embedded';
@@ -524,13 +524,13 @@ export class BotFactory {
       if (useClaim && mnemonicOrPrivateKey) {
         const claim = await this.getOrCreateBridgeClaim(sender!);
         const paymentMethod = new FeeJuicePaymentMethodWithClaim(sender!, claim);
-        const { estimatedGas } = await deploy.simulate({ ...deployOpts, fee: { estimateGas: true, paymentMethod } });
         const maxFeesPerGas = (await this.getMinFees()).mul(1 + this.config.minFeePadding);
-        const gasSettings = GasSettings.from({
-          ...estimatedGas!,
+        // Leave gas limits unset so the wallet derives them from its own simulation and clamps to the
+        // network's per-tx admission limits.
+        const gasSettings = {
           maxFeesPerGas,
           maxPriorityFeesPerGas: GasFees.empty(),
-        });
+        };
         await this.withNoMinTxsPerBlock(async () => {
           const { txHash } = await deploy.send({ ...deployOpts, fee: { gasSettings, paymentMethod }, wait: NO_WAIT });
           this.log.info(
@@ -540,10 +540,11 @@ export class BotFactory {
         });
         await this.store.deleteBridgeClaim(sender!);
       } else {
-        const { estimatedGas } = await deploy.simulate({ ...deployOpts, fee: { estimateGas: true } });
-        this.log.info(`Deploying contract ${name} at ${address.toString()}`, { estimatedGas });
+        this.log.info(`Deploying contract ${name} at ${address.toString()}`);
+        // Gas limits are left unset so the wallet derives them from its own simulation and clamps to the
+        // network's per-tx admission limits.
         await this.withNoMinTxsPerBlock(async () => {
-          const { txHash } = await deploy.send({ ...deployOpts, fee: { gasSettings: estimatedGas }, wait: NO_WAIT });
+          const { txHash } = await deploy.send({ ...deployOpts, wait: NO_WAIT });
           this.log.info(`Sent contract ${name} setup tx with hash ${txHash.toString()}`);
           return waitForTx(this.aztecNode, txHash, { timeout: this.config.txMinedWaitSeconds });
         });
@@ -591,15 +592,12 @@ export class BotFactory {
     while (balance < FEE_JUICE_TOP_UP_TARGET) {
       const claim = await this.bridgeL1FeeJuice(account);
       const paymentMethod = new FeeJuicePaymentMethodWithClaim(account, claim);
-      const { estimatedGas } = await minimalInteraction.simulate({
-        from: account,
-        fee: { estimateGas: true, paymentMethod },
-      });
-      const gasSettings = GasSettings.from({
-        ...estimatedGas!,
+      // Leave gas limits unset so the wallet derives them from its own simulation and clamps to the
+      // network's per-tx admission limits.
+      const gasSettings = {
         maxFeesPerGas,
         maxPriorityFeesPerGas: GasFees.empty(),
-      });
+      };
 
       await this.withNoMinTxsPerBlock(async () => {
         const { txHash } = await minimalInteraction.send({
