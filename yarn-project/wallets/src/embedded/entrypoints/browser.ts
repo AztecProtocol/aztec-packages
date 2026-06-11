@@ -4,6 +4,7 @@ import { createStore, openTmpStore } from '@aztec/kv-store/indexeddb';
 import { type PXE, type PXECreationOptions, createPXE } from '@aztec/pxe/client/lazy';
 import { type PXEConfig, getPXEConfig } from '@aztec/pxe/config';
 import { getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry/lazy';
+import { getStandardHandshakeRegistry } from '@aztec/standard-contracts/handshake-registry/lazy';
 import { getStandardMultiCallEntrypoint } from '@aztec/standard-contracts/multi-call-entrypoint/lazy';
 
 import { LazyAccountContractsProvider } from '../account-contract-providers/lazy.js';
@@ -47,7 +48,11 @@ export class BrowserEmbeddedWallet extends EmbeddedWallet {
     const pxeOptions: PXECreationOptions = {
       ...mergedCreationOverrides,
       preloadedContractsProvider: mergedCreationOverrides.preloadedContractsProvider ?? {
-        getPreloadedContracts: async () => [await getStandardMultiCallEntrypoint(), await getStandardAuthRegistry()],
+        getPreloadedContracts: async () => [
+          await getStandardMultiCallEntrypoint(),
+          await getStandardAuthRegistry(),
+          await getStandardHandshakeRegistry(),
+        ],
       },
       loggers: {
         store: rootLogger.createChild('pxe:data'),
