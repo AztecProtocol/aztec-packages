@@ -144,6 +144,16 @@ class ECCVMFlavor {
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 2;
     static constexpr size_t NUM_RELATIONS = std::tuple_size<Relations>::value;
 
+    // Masking budget of the committed sumcheck: per round, the verifier's view exposes 3 Libra-sensitive functionals
+    // of the round univariate U_i — its evaluation at 0, the chained target T_{i+1} = U_i(u_i), and the non-hiding
+    // commitment [U_i] — and the pair-sum bookkeeping U_i(0) + U_i(1) = T_i consumes one Libra coefficient, so the
+    // Libra masking univariates must have length 3 + 1 = 4. The BN254 ZK flavors pin their (non-committed) budget
+    // with an analogous static_assert. See sumcheck/docs/committed_sumcheck_zk.md.
+    static_assert(Curve::LIBRA_UNIVARIATES_LENGTH == 4,
+                  "Committed sumcheck requires LIBRA_UNIVARIATES_LENGTH == #revealed evaluations (3) + 1");
+    static_assert(Curve::LIBRA_UNIVARIATES_LENGTH * CONST_ECCVM_LOG_N + 1 < Curve::SUBGROUP_SIZE,
+                  "Concatenated Libra polynomial must fit in the SmallSubgroupIPA subgroup");
+
     static constexpr size_t num_frs_comm = FrCodec::calc_num_fields<Commitment>();
     static constexpr size_t num_frs_fq = FrCodec::calc_num_fields<FF>();
 
