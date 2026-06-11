@@ -38,11 +38,12 @@ const PG: u32 = 2u;
 const WG: u32 = {{ workgroup_size }}u;
 const CPAIRS: u32 = {{ cpairs }}u;
 
-@group(0) @binding(0) var<storage, read_write> red_buf:    array<vec4<u32>>;
-@group(0) @binding(1) var<storage, read_write> is_present: array<u32>;
-@group(0) @binding(2) var<uniform>             cparams:    vec4<u32>;
-@group(0) @binding(3) var<uniform>             lparams:    vec4<u32>;
-@group(0) @binding(4) var<storage, read>       hsched:     array<vec4<u32>>;
+@group(0) @binding(0) var<storage, read_write> red_buf:      array<vec4<u32>>;
+@group(0) @binding(1) var<storage, read_write> is_present:   array<u32>;
+@group(0) @binding(2) var<uniform>             cparams:      vec4<u32>;
+@group(0) @binding(3) var<uniform>             lparams:      vec4<u32>;
+@group(0) @binding(4) var<storage, read>       hsched:       array<vec4<u32>>;
+@group(0) @binding(5) var<storage, read_write> pref_scratch: array<vec4<u32>>;
 // cparams = (M_RED (red_buf x/y plane stride), _, _, _).
 // lparams = (depth, cpairs, 0, 0) — cpairs duplicated here so loop bounds
 // stay opaque to the driver's unroller.
@@ -85,21 +86,20 @@ fn arena_off(B: u32, a: u32) -> u32 {
     return select(B >> a, 0u, a == 0u);
 }
 
-// Per-thread partial-product slots for the shared batch inversion, in
-// WORKGROUP memory (lane-private — no barriers needed). Word-interleaved by
-// thread so consecutive lanes hit consecutive banks.
-var<workgroup> shpp: array<u32, {{ pp_words }}>;
-
-fn ppstore(k: u32, tl: u32, v: array<u32, 8>) {
-    let b = (k * WG + tl) * 8u;
-    for (var c = 0u; c < 8u; c = c + 1u) {
-        shpp[b + c] = v[c];
-    }
+// Per-thread partial products for the shared batch inversion, in the GLOBAL
+// pref scratch — the stream walker's exact pattern (store_pref/load_pref,
+// k-major × flat-thread-minor so adjacent lanes share cache lines). The
+// region is the dense reduce's reducePrefScratch, idle in halving mode.
+fn store_pref(k: u32, ft: u32, k_stride: u32, val: array<u32, 8>) {
+    let b = k * k_stride + ft * 2u;
+    pref_scratch[b + 0u] = vec4<u32>(val[0], val[1], val[2], val[3]);
+    pref_scratch[b + 1u] = vec4<u32>(val[4], val[5], val[6], val[7]);
 }
-fn ppload(k: u32, tl: u32) -> array<u32, 8> {
-    let b = (k * WG + tl) * 8u;
-    return array<u32, 8>(shpp[b], shpp[b + 1u], shpp[b + 2u], shpp[b + 3u],
-                         shpp[b + 4u], shpp[b + 5u], shpp[b + 6u], shpp[b + 7u]);
+fn load_pref(k: u32, ft: u32, k_stride: u32) -> array<u32, 8> {
+    let b = k * k_stride + ft * 2u;
+    let q0 = pref_scratch[b + 0u];
+    let q1 = pref_scratch[b + 1u];
+    return array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
 }
 
 @compute

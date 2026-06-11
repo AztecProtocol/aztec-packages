@@ -755,16 +755,17 @@ ${packLines.join('\n')}
     }
     // Rolled emission: every loop bound comes from lparams.y (== cpairs, but
     // the driver cannot prove it), so mobile compilers keep the small bodies
-    // rolled instead of inlining cpairs copies of the montmul. The chain's
-    // partial products live in per-thread WORKGROUP-memory slots (no
-    // cross-thread sharing, no barriers): a dynamically-indexed PRIVATE
-    // array spills to scratch on the mobile drivers — slow, and scratch
-    // addressing under wave concurrency is a known Adreno corruption zone.
-    // Per-pair state across the two loops is a 4-bit flag nibble
-    // (ps/act/dbl/inf) — indices and denominators are recomputed from
-    // cache-hot loads.
+    // rolled instead of inlining cpairs copies of the montmul. The batch
+    // inversion follows the stream walker exactly: forward chain in a
+    // register with prefixes stored to the GLOBAL pref scratch (the last
+    // prefix feeds the inverter in-register), then a fused backward
+    // peel + apply that reloads the prefix and recomputes the denominator
+    // from cache-hot coordinate loads. Per-pair state across the two loops
+    // is a 4-bit flag nibble (ps/act/dbl/inf).
     const gather: string[] = [];
     gather.push(`    let cd = lparams.y;`);
+    gather.push(`    let ft = w * T + t;`);
+    gather.push(`    let kstr = 2u * T * cparams.w;`);
     gather.push(`    var fl: u32 = 0u;`);
     gather.push(`    var chain: array<u32, 8> = r1;`);
     gather.push(`    for (var k = 0u; k < cd; k = k + 1u) {`);
@@ -796,7 +797,7 @@ ${packLines.join('\n')}
     gather.push(`        fl = fl | (f << (4u * k));`);
     gather.push(`        chain = montgomery_product_f8(chain, den);`);
     gather.push(`        if (k + 1u < cd) {`);
-    gather.push(`            ppstore(k, lid.x, chain);`);
+    gather.push(`            store_pref(k, ft, kstr, chain);`);
     gather.push(`        }`);
     gather.push(`    }`);
     const invert: string[] = [];
@@ -811,7 +812,7 @@ ${packLines.join('\n')}
     apply.push(`        let inf = (f & 8u) != 0u;`);
     apply.push(`        var vi = inv_acc;`);
     apply.push(`        if (k > 0u) {`);
-    apply.push(`            vi = montgomery_product_f8(inv_acc, ppload(k - 1u, lid.x));`);
+    apply.push(`            vi = montgomery_product_f8(inv_acc, load_pref(k - 1u, ft, kstr));`);
     apply.push(`        }`);
     apply.push(`        let q = t + k * T;`);
     apply.push(`        let dst = base + arena_off(B, q >> hshift) + (q & (half - 1u));`);
@@ -859,7 +860,6 @@ ${packLines.join('\n')}
       {
         workgroup_size,
         cpairs,
-        pp_words: workgroup_size * (cpairs - 1) * 8,
         pairs_gather: gather.join('\n'),
         chain_invert_peel: invert.join('\n'),
         pairs_apply: apply.join('\n'),
