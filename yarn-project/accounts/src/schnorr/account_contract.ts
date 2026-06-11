@@ -1,5 +1,4 @@
 import type { AuthWitnessProvider } from '@aztec/aztec.js/account';
-import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
 import { Schnorr } from '@aztec/foundation/crypto/schnorr';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
@@ -22,11 +21,6 @@ export abstract class SchnorrBaseAccountContract extends DefaultAccountContract 
   /** The Grumpkin public key this account verifies signatures against. */
   getSigningPublicKey() {
     return new Schnorr().computePublicKey(this.signingPrivateKey);
-  }
-
-  override async getImmutablesHash(): Promise<Fr> {
-    const signingPublicKey = await this.getSigningPublicKey();
-    return poseidon2Hash([signingPublicKey.x, signingPublicKey.y]);
   }
 
   async getInitializationFunctionAndArgs(): Promise<
