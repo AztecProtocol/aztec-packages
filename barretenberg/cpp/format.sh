@@ -23,7 +23,7 @@ elif [ "$1" == "changed" ]; then
     format_files "$files"
   fi
 elif [ "$1" == "check" ]; then
-  files=$(find ./src -iname *.hpp -o -iname *.cpp -o -iname *.tcc | grep -v bb/deps)
+  files=$(find ./src -iname *.hpp -o -iname *.cpp -o -iname *.tcc | grep -v bb/deps | grep -v '/generated/')
   echo "$files" | parallel -N10 clang-format-20 --dry-run --Werror
 elif [ -n "$1" ]; then
   files=$(git diff-index --relative --name-only $1 | grep -e '\.\(cpp\|hpp\|tcc\)$')
