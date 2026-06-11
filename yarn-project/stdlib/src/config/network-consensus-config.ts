@@ -247,6 +247,7 @@ export function checkConsensusEnvOverrides(
 ): Record<string, string> {
   const allowOverride = allowsNetworkConfigOverride(env);
   const canonical: Record<string, string> = {};
+  const conflicts: string[] = [];
 
   for (const envVar of NETWORK_CONSENSUS_ENV_VARS) {
     const networkValue = networkConfig[envVar];
@@ -268,15 +269,27 @@ export function checkConsensusEnvOverrides(
       continue;
     }
 
-    const message =
-      `Environment variable ${envVar}=${current} conflicts with the network value ${networkValue}. ` +
-      `Consensus-critical values must match across the network. Set ALLOW_OVERRIDING_NETWORK_CONFIG=1 to override ` +
-      `(only do this if you know what you are doing).`;
+    const conflict = `${envVar}=${current} conflicts with the network value ${networkValue}`;
     if (allowOverride) {
-      log?.(message);
+      log?.(
+        `Environment variable ${conflict}. Consensus-critical values must match across the network, but ` +
+          `ALLOW_OVERRIDING_NETWORK_CONFIG is set so the operator value is kept (only do this if you know what ` +
+          `you are doing).`,
+      );
       continue;
     }
-    throw new Error(message);
+    conflicts.push(conflict);
+  }
+
+  // Accumulate every conflict so the operator sees all the env vars they need to reconcile at once, rather than
+  // fixing them one failed startup at a time.
+  if (conflicts.length > 0) {
+    throw new Error(
+      `Environment variables conflict with consensus-critical network values:\n` +
+        conflicts.map(c => `  - ${c}`).join('\n') +
+        `\nConsensus-critical values must match across the network. Set ALLOW_OVERRIDING_NETWORK_CONFIG=1 to ` +
+        `override (only do this if you know what you are doing).`,
+    );
   }
 
   return canonical;

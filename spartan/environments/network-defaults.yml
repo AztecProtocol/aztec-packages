@@ -211,10 +211,15 @@ _prodlike: &prodlike
 networks:
   devnet:
     <<: *prodlike
-    # L1 contract overrides - faster epochs for development
+    # L1 contract overrides - faster epochs and shorter slots for development
+    AZTEC_SLOT_DURATION: 36
     AZTEC_EPOCH_DURATION: 8
     AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET: 1
     AZTEC_LAG_IN_EPOCHS_FOR_RANDAO: 1
+    # Single-validator dev network.
+    AZTEC_TARGET_COMMITTEE_SIZE: 1
+    # Must equal what the default proposer budgets derive for a 36s slot / 6s block (see chain_l2_config.test.ts).
+    MAX_BLOCKS_PER_CHECKPOINT: 4
     AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS: 1
     # Quorums made explicit to match the Solidity vm.envOr default (round_size / 2 + 1), unchanged behavior.
     # Slashing: AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS (4) * AZTEC_EPOCH_DURATION (8) = 32 slots; 32 / 2 + 1 = 17.
