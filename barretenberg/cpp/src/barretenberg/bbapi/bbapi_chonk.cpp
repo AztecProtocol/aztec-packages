@@ -17,7 +17,7 @@
 #include "barretenberg/serialize/msgpack_check_eq.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 
-#ifndef __wasm__
+#ifdef BB_HAS_BATCH_VERIFIER_SERVICE
 #include <algorithm>
 #include <cerrno>
 #include <chrono>
@@ -399,7 +399,7 @@ ChonkDecompressProof::Response ChonkDecompressProof::execute(const BBApiRequest&
 
 // ── Batch Verifier Service ──────────────────────────────────────────────────
 
-#ifndef __wasm__
+#ifdef BB_HAS_BATCH_VERIFIER_SERVICE
 
 namespace {
 
@@ -661,24 +661,24 @@ ChonkBatchVerifierStop::Response ChonkBatchVerifierStop::execute(BBApiRequest& r
     return {};
 }
 
-#else // __wasm__
+#else // BB_HAS_BATCH_VERIFIER_SERVICE
 
 ChonkBatchVerifierStart::Response ChonkBatchVerifierStart::execute(BBApiRequest& /*request*/) &&
 {
-    throw_or_abort("ChonkBatchVerifierStart is not supported in WASM builds");
+    throw_or_abort("ChonkBatchVerifierStart is not supported on this platform (wasm/Windows)");
 }
 
 ChonkBatchVerifierQueue::Response ChonkBatchVerifierQueue::execute(BBApiRequest& /*request*/) &&
 {
-    throw_or_abort("ChonkBatchVerifierQueue is not supported in WASM builds");
+    throw_or_abort("ChonkBatchVerifierQueue is not supported on this platform (wasm/Windows)");
 }
 
 ChonkBatchVerifierStop::Response ChonkBatchVerifierStop::execute(BBApiRequest& /*request*/) &&
 {
-    throw_or_abort("ChonkBatchVerifierStop is not supported in WASM builds");
+    throw_or_abort("ChonkBatchVerifierStop is not supported on this platform (wasm/Windows)");
 }
 
-#endif // __wasm__
+#endif // BB_HAS_BATCH_VERIFIER_SERVICE
 
 #undef BBAPI_CHONK_EXCEPTION_WHAT
 

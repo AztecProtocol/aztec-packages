@@ -13,7 +13,7 @@
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 
-#ifndef __wasm__
+#ifdef BB_HAS_BATCH_VERIFIER_SERVICE
 #include "barretenberg/chonk/batch_verifier_types.hpp"
 #include "barretenberg/chonk/chonk_batch_verifier.hpp"
 #include "barretenberg/chonk/chonk_proof.hpp"
@@ -351,7 +351,7 @@ struct ChonkDecompressProof {
     bool operator==(const ChonkDecompressProof&) const = default;
 };
 
-#ifndef __wasm__
+#ifdef BB_HAS_BATCH_VERIFIER_SERVICE
 /**
  * @brief FIFO-streaming batch verification service for Chonk proofs.
  *
@@ -391,7 +391,7 @@ class ChonkBatchVerifierService {
     std::atomic_bool running_ = false;
     std::atomic_bool fifo_failed_ = false;
 };
-#endif // __wasm__
+#endif // BB_HAS_BATCH_VERIFIER_SERVICE
 
 /**
  * @struct ChonkBatchVerifierStart
