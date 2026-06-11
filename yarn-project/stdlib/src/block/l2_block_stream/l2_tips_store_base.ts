@@ -153,12 +153,8 @@ export abstract class L2TipsStoreBase implements L2BlockStreamEventHandler, L2Bl
       return;
     }
     await this.runInTransaction(async () => {
-      const checkpointId: CheckpointId = {
-        number: event.checkpoint.checkpoint.number,
-        hash: event.checkpoint.checkpoint.hash().toString(),
-      };
       await this.saveTag('checkpointed', event.block);
-      await this.setTipCheckpoint('checkpointed', checkpointId);
+      await this.setTipCheckpoint('checkpointed', event.checkpoint);
     });
   }
 
