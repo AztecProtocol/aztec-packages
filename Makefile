@@ -47,7 +47,7 @@ endef
 # PHONY TARGETS - List every target that has a file/dir of the same name.
 #==============================================================================
 
-.PHONY: noir barretenberg noir-projects l1-contracts release-image boxes playground docs aztec-up spartan
+.PHONY: noir barretenberg noir-projects l1-contracts release-image boxes playground docs aztec-up spartan wsdb
 
 #==============================================================================
 # BOOTSTRAP TARGETS
@@ -307,6 +307,13 @@ ipc-runtime-cross-arm64-macos:
 ipc-runtime-cross: ipc-runtime ipc-runtime-cross-arm64-linux ipc-runtime-cross-amd64-macos ipc-runtime-cross-arm64-macos
 
 #==============================================================================
+# WSDB
+#==============================================================================
+
+wsdb: ipc-codegen ipc-runtime bb-cpp-native
+	$(call build,$@,wsdb)
+
+#==============================================================================
 # .claude tooling
 #==============================================================================
 
@@ -372,7 +379,7 @@ l1-contracts-tests: l1-contracts-verifier
 # Yarn Project - TypeScript monorepo with all TS packages
 #==============================================================================
 
-yarn-project: bb-ts noir-projects l1-contracts
+yarn-project: bb-ts noir-projects l1-contracts wsdb
 	$(call build,$@,yarn-project)
 
 yarn-project-tests: yarn-project
