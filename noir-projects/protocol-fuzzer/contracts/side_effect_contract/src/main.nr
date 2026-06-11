@@ -26,10 +26,7 @@ pub contract SideEffect {
     use aztec::{
         hash::compute_siloed_nullifier,
         history::nullifier::assert_nullifier_existed_by,
-        macros::{
-            functions::{external, initializer, noinitcheck},
-            storage::storage,
-        },
+        macros::{functions::{external, initializer, noinitcheck}, storage::storage},
         messages::delivery::MessageDelivery,
         note::{
             ConfirmedNote,
@@ -122,18 +119,26 @@ pub contract SideEffect {
         active_or_nullified: bool,
         offset: u32,
     ) -> [u128; 2] {
-        let mut options = NoteViewerOptions::new()
-            .set_owner(owner)
-            .set_offset(offset)
-            .sort(PropertySelector { index: 0, offset: 0, length: 32 }, SortOrder.ASC);
+        let mut options = NoteViewerOptions::new().set_owner(owner).set_offset(offset).sort(
+            PropertySelector { index: 0, offset: 0, length: 32 },
+            SortOrder.ASC,
+        );
         if (active_or_nullified) {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
 
         let notes: BoundedVec<UintNote, MAX_NOTES_PER_PAGE> = view_notes(storage_slot, options);
 
-        let v0 = if notes.len() > 0 { notes.get(0).value } else { 0 };
-        let v1 = if notes.len() > 1 { notes.get(1).value } else { 0 };
+        let v0 = if notes.len() > 0 {
+            notes.get(0).value
+        } else {
+            0
+        };
+        let v1 = if notes.len() > 1 {
+            notes.get(1).value
+        } else {
+            0
+        };
         [v0, v1]
     }
 
@@ -154,8 +159,16 @@ pub contract SideEffect {
 
         let confirmed_notes = get_notes(self.context, storage_slot, options);
 
-        let v0 = if confirmed_notes.len() > 0 { confirmed_notes.get(0).note.value } else { 0 };
-        let v1 = if confirmed_notes.len() > 1 { confirmed_notes.get(1).note.value } else { 0 };
+        let v0 = if confirmed_notes.len() > 0 {
+            confirmed_notes.get(0).note.value
+        } else {
+            0
+        };
+        let v1 = if confirmed_notes.len() > 1 {
+            confirmed_notes.get(1).note.value
+        } else {
+            0
+        };
         [v0, v1]
     }
 

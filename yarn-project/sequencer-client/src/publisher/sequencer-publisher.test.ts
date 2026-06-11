@@ -720,6 +720,28 @@ describe('SequencerPublisher', () => {
     expect((publisher as any).requests.length).toEqual(0);
   });
 
+  it('does not sleep in sendRequestsAt if interrupted beforehand', async () => {
+    // A target slot far enough in the future that sendRequestsAt would sleep for ~1 hour
+    // (EmptyL1RollupConstants has slotDuration 1s and l1GenesisTime 0, so slot N starts at N seconds).
+    const targetSlot = SlotNumber(Math.ceil(Date.now() / 1000) + 3600);
+    publisher.interrupt();
+
+    let timeout: NodeJS.Timeout | undefined;
+    try {
+      const result = await Promise.race([
+        publisher.sendRequestsAt(targetSlot),
+        new Promise<'timed-out'>(resolve => {
+          timeout = setTimeout(() => resolve('timed-out'), 1000);
+        }),
+      ]);
+      expect(result).toBeUndefined();
+    } finally {
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+    }
+  });
+
   it('does not send requests if no valid requests are found', async () => {
     publisher.addRequest({
       action: 'propose',
