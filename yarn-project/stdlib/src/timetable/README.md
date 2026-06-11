@@ -8,7 +8,7 @@ The timetable has these goals:
 
 - schedule block sub-slots so the proposer produces a checkpoint at a predictable cadence;
 - enforce consensus-critical deadlines so validators and the next proposer agree on the proposed chain, by agreeing on when a proposal is too late to build on;
-- maximize the time available for the L1 publish transaction by making the payload ready before the ideal L1 send time, which is one Ethereum slot before the target L2 slot;
+- maximize the time available for the L1 publish transaction by making the payload ready before the ideal L1 send time, which is `l1_publish_lead_time` before the target L2 slot;
 - accept late checkpoint proposals until the next-proposer handoff deadline, and late attestations until the latest useful L1 publish deadline.
 
 Pipelining is the only production mode. For target slot `target_slot`, the proposer builds during the preceding `build_slot` and the L1 transaction is meant to land inside `target_slot`.
@@ -18,17 +18,19 @@ This model does not describe deterministic automine or other synchronous local-m
 ## Example
 
 This example uses the production-like values proposed below: `aztec_slot_duration = 72s`,
-`ethereum_slot_duration = 12s`, `block_duration = 6s`, `p2p_propagation_time = 2s`,
+`ethereum_slot_duration = 12s`, `l1_publish_lead_time = 6s`, `block_duration = 6s`, `p2p_propagation_time = 2s`,
 `checkpoint_proposal_prepare_time = 1s`, and `checkpoint_proposal_init_time = 1s`.
 
-All times are offsets from `build_frame_start`. Rows are ordered by the ideal path; deadline-path values show late acceptance cutoffs for the same activity.
+All times are offsets from `build_frame_start`, which now sits at `target_slot_start - aztec_slot_duration -
+l1_publish_lead_time` (`target_slot_start - 78s`). Rows are ordered by the ideal path; deadline-path values show late
+acceptance cutoffs for the same activity.
 
 | Step | Ideal path | Deadline path |
 | --- | ---: | ---: |
 | Build frame opens | +0s (`build_frame_start`) | +0s (`build_frame_start`) |
 | First sub-slot opens | +1s (`first_subslot_start`) | +1s (`first_subslot_start`) |
+| Build slot starts | +6s (`build_slot_start`) | +6s (`build_slot_start`) |
 | Block 1 build deadline | +7s (`block_build_deadline(0)`) | +7s (`block_build_deadline(0)`) |
-| Build slot starts | +12s (`build_slot_start`) | +12s (`build_slot_start`) |
 | Latest useful block-building start | +59s (`start_deadline`) | +59s (`start_deadline`) |
 | Last block build time | +61s (`last_block_build_time`) | +61s (`last_block_build_time`) |
 | Checkpoint proposal sent | +62s (`checkpoint_proposal_send_time`) | +62s (`checkpoint_proposal_send_time`) |
@@ -39,11 +41,17 @@ All times are offsets from `build_frame_start`. Rows are ordered by the ideal pa
 | Next proposer build frame opens | +72s (`next_proposer_build_frame_start`) | +72s (`next_proposer_build_frame_start`) |
 | L1 publish tx sent / latest useful send | +72s (`l1_publish_ideal_time`) | +132s (`attestation_deadline`) |
 
+Because `build_frame_start` shifts later by the same `ethereum_slot_duration - l1_publish_lead_time = 6s` as every
+publish-path event, the offsets from `build_frame_start` are identical to the previous anchor except `build_slot_start`,
+which now opens at `+6s` (one `l1_publish_lead_time` into the frame) instead of `+12s`. Expressed against
+`target_slot_start`, the whole schedule moves `+6s` later: the L1 publish now lands at `target_slot_start - 6` rather
+than `target_slot_start - 12`, and the attestation deadline at `target_slot_start + 54` rather than `+ 48`.
+
 The ideal path is the proposer scheduling target for maximizing L1 publishing time. The deadline path is the latest consensus-safe path: validators and the next proposer use `checkpoint_proposal_receive_deadline`, which depends only on the target slot timing and `block_duration`.
 
 ### Example timeline diagram
 
-The diagram highlights the most relevant steps from the table above, as offsets from `build_frame_start` (`target_slot_start - aztec_slot_duration - ethereum_slot_duration`). Blue marks build/structural deadlines, green marks the ideal path, and red marks the late-acceptance deadlines. Dashed lines are slot boundaries.
+The diagram highlights the most relevant steps from the table above, as offsets from `build_frame_start` (`target_slot_start - aztec_slot_duration - l1_publish_lead_time`). Blue marks build/structural deadlines, green marks the ideal path, and red marks the late-acceptance deadlines. Dashed lines are slot boundaries.
 
 _Mermaid version (evenly spaced):_
 
@@ -78,10 +86,45 @@ These values come from the rollup protocol or network definition. Nodes should n
 | `genesis_time` | L1 timestamp for L2 slot zero. |
 | `aztec_slot_duration` | Duration of one L2 slot. |
 | `ethereum_slot_duration` | Duration of one Ethereum slot. |
+| `l1_publish_lead_time` | How far before the target L2 slot the L1 publish transaction is ideally broadcast. |
 | `block_duration` | Normal sub-slot duration allocated to building one block and to validator re-execution. |
 
 `block_duration` should be treated as a network-wide timing constant. Validators use it as the expected re-execution
 budget, so proposer and validator nodes must agree on it.
+
+`l1_publish_lead_time` (`lead` in formulas) is the single anchor for the whole publish path. It is a network consensus
+value, set via `L1_PUBLISH_LEAD_TIME`, and defaults to `clamp(round(ethereum_slot_duration / 2), 1, 6)` — `2s` for the
+`4s` fast profile, `4s` at `8s`, and `6s` in production. It must be the same on every node: see
+[Why `l1_publish_lead_time` exists](#why-l1_publish_lead_time-exists).
+
+#### Why `l1_publish_lead_time` exists
+
+An Ethereum block for slot `n` carries `timestamp = genesis_time + n * ethereum_slot_duration` — its slot **start** —
+but it is *assembled during* `[start, start + ethereum_slot_duration)`: the execution client keeps pulling mempool
+transactions into the payload until `engine_getPayload` (or the relay `getHeader` under MEV-Boost) freezes it,
+typically a few hundred milliseconds to ~2s into the slot, with a practical ceiling at the ~4s attester deadline. A
+transaction is therefore grabbed by **the next block whose payload has not yet frozen** — the block for the slot
+containing "now", not the block one Ethereum slot later.
+
+The earlier anchor broadcast the L1 publish at `target_slot_start - ethereum_slot_duration`, i.e. exactly at the start
+of the **last Ethereum block of the previous L2 slot**. When that block's payload froze late, it grabbed our
+transaction, `block.timestamp` mapped to the previous L2 slot, and `ProposeLib.validateHeader` reverted with
+`HeaderLib__InvalidSlotNumber`. It was intermittent because it raced the previous block's payload freeze.
+
+`l1_publish_lead_time` moves the broadcast to `target_slot_start - lead`, partway into the previous Ethereum slot rather
+than at its boundary, so the only blocks our transaction can land in carry timestamps inside the target L2 slot. With
+`0 < lead < ethereum_slot_duration` the broadcast can never land in the previous slot's last block on a strict
+timestamp basis. On real Ethereum there is an additional **soft edge**: the previous block can keep grabbing
+transactions until roughly `ethereum_slot_duration - 4` past its own start (until its attester deadline — a builder
+behaviour, not a protocol guarantee), so the broadcast should come no earlier than `target_slot_start -
+(ethereum_slot_duration - 4)` (`target_slot_start - 8` in production). The production default of `6s` sits `2s` past
+that soft edge with ~`6s` of propagation margin to make the target slot's first block.
+
+Anvil interval mining has no payload freeze-ahead: each block is stamped exactly `prev + ethereum_slot_duration` and
+snaps up to at-or-after wall-clock, so a transaction broadcast at `t` always lands in a block stamped `>= t`. The
+previous-block grab cannot occur there, so fast profiles only need `0 < lead < ethereum_slot_duration`. These anvil
+semantics are pinned by `ethereum/src/test/anvil_interval_mining.test.ts`; an anvil upgrade that breaks the contract the
+`target_slot_start - lead` rule depends on fails that suite loudly.
 
 ### Build Configuration
 
@@ -116,39 +159,42 @@ build_slot = target_slot - 1
 
 build_slot_start = genesis_time + build_slot * aztec_slot_duration
 
-build_frame_start = build_slot_start - ethereum_slot_duration
+build_frame_start = build_slot_start - l1_publish_lead_time
 
-next_proposer_build_frame_start = target_slot_start - ethereum_slot_duration
+next_proposer_build_frame_start = target_slot_start - l1_publish_lead_time
 ```
 
-The build frame starts one Ethereum slot before the build slot starts.
+The build frame starts `l1_publish_lead_time` before the build slot starts. The proposer does no work for a target
+slot before its `build_frame_start`: the work loop is gated on this time, so entering the frame and starting block 0
+can only happen once the frame has opened, never during the previous checkpoint's handoff window.
 
 ## L1 Publish and Attestation Deadline
 
 The model distinguishes an ideal L1 send time from a single hard attestation deadline.
 
 ```text
-l1_publish_ideal_time = target_slot_start - ethereum_slot_duration
+l1_publish_ideal_time = target_slot_start - l1_publish_lead_time
 ```
 
-This is the time by which we want the L1 transaction ready and submitted to maximize the chance of inclusion in the first Ethereum block of `target_slot`.
+This is the time by which we want the L1 transaction ready and submitted to maximize the chance of inclusion in the first Ethereum block of `target_slot`. It sits `l1_publish_lead_time` into the previous Ethereum slot, not at its boundary, so the only blocks the transaction can land in carry timestamps inside `target_slot`.
 
 ```text
 last_ethereum_block_in_target_slot = target_slot_start + aztec_slot_duration - ethereum_slot_duration
 
-attestation_deadline = last_ethereum_block_in_target_slot - ethereum_slot_duration
+attestation_deadline = last_ethereum_block_in_target_slot - l1_publish_lead_time
 ```
 
-`attestation_deadline` is the hard deadline by which validators must have completed re-execution/validation and signed their attestation. It is also the latest useful L1 send time if the only requirement is for the tx to land in the final Ethereum block inside `target_slot`.
+`attestation_deadline` is the hard deadline by which validators must have completed re-execution/validation and signed their attestation. It is also the latest useful L1 send time: it is the latest reliable broadcast that still lands inside the slot's final Ethereum block, which by the same anchor is `l1_publish_lead_time` before that block's timestamp. The slot's two edges are asymmetric — at the start an early broadcast is catastrophic (it lands in the previous slot's last block and reverts, the case `l1_publish_lead_time` exists to prevent), while at the end an early broadcast is harmless (the penultimate block is still in-slot) and only lateness kills. Anchoring the deadline on `lead` keeps one rule everywhere, but it leaves only `l1_publish_lead_time` of recovery-path margin before the final block's build window: an attestation arriving exactly at the deadline leaves `lead` seconds to aggregate, build, and broadcast the L1 transaction. This only binds on the slow path (the proposer submits as soon as it has quorum), but it is the margin to watch when tuning `l1_publish_lead_time`.
 
 This deadline is consensus-driven, not operational. It is used for inactivity/slashing decisions, so all nodes must agree
-on it. It is derived only from slot timing protocol constants.
+on it. It is derived only from slot timing protocol constants and `l1_publish_lead_time`, which is itself a network
+consensus value.
 
-With `aztec_slot_duration = 72` and `ethereum_slot_duration = 12`:
+With `aztec_slot_duration = 72`, `ethereum_slot_duration = 12`, and `l1_publish_lead_time = 6`:
 
 ```text
-l1_publish_ideal_time = target_slot_start - 12
-attestation_deadline  = target_slot_start + 48
+l1_publish_ideal_time = target_slot_start - 6
+attestation_deadline  = target_slot_start + 54
 ```
 
 ## Ideal Times vs Deadlines
@@ -420,6 +466,7 @@ aztec_slot_duration > 0
 ethereum_slot_duration > 0
 aztec_slot_duration >= ethereum_slot_duration
 aztec_slot_duration % ethereum_slot_duration == 0
+0 < l1_publish_lead_time < ethereum_slot_duration
 block_duration > 0
 min_block_duration > 0
 min_block_duration <= block_duration
@@ -428,10 +475,14 @@ checkpoint_proposal_prepare_time >= 0
 checkpoint_proposal_init_time >= 0
 ```
 
+`l1_publish_lead_time` must be strictly inside `(0, ethereum_slot_duration)`. At `l1_publish_lead_time =
+ethereum_slot_duration` the broadcast races the previous Ethereum block's freeze and reproduces the original
+previous-slot revert; at `0` it races the target block's own freeze.
+
 ### Build frame constraint
 
 ```text
-build_frame_start = build_slot_start - ethereum_slot_duration
+build_frame_start = build_slot_start - l1_publish_lead_time
 ```
 
 ### P2P propagation constraints
@@ -465,7 +516,7 @@ next_proposer_handoff_ideal_time <= next_proposer_handoff_deadline
 ### Attestation deadline constraints
 
 ```text
-attestation_deadline = last_ethereum_block_in_target_slot - ethereum_slot_duration
+attestation_deadline = last_ethereum_block_in_target_slot - l1_publish_lead_time
 
 block_validation_deadline = attestation_deadline
 
@@ -537,6 +588,7 @@ These are proposed values for the new model. They intentionally separate product
 | --- | ---: | --- |
 | `aztec_slot_duration` | 72s | Mainnet-like L2 slot duration. |
 | `ethereum_slot_duration` | 12s | Ethereum mainnet slot duration. |
+| `l1_publish_lead_time` | 6s | `clamp(round(12 / 2), 1, 6)`: 2s past the ~`target − 8` soft edge, ~6s propagation margin into the target slot. |
 | `block_duration` | 6s | Allows up to 10 blocks while still targeting the ideal L1 publish time. |
 | `min_block_duration` | 2s | Conservative minimum useful execution budget. |
 | `p2p_propagation_time` | 2s | Conservative one-way proposal/attestation propagation budget. |
@@ -546,14 +598,14 @@ These are proposed values for the new model. They intentionally separate product
 Derived shape with these values:
 
 ```text
-l1_publish_ideal_time is 12s before target_slot_start
-attestation_deadline is 48s after target_slot_start
-attestation_receive_ideal_time is 12s before target_slot_start
-proposal_validation_ideal_time is 14s before target_slot_start
-checkpoint_proposal_receive_ideal_time is 20s before target_slot_start
-checkpoint_proposal_receive_deadline is 18s before target_slot_start
-checkpoint_proposal_send_time is 22s before target_slot_start
-last_block_build_time is 23s before target_slot_start
+l1_publish_ideal_time is 6s before target_slot_start
+attestation_deadline is 54s after target_slot_start
+attestation_receive_ideal_time is 6s before target_slot_start
+proposal_validation_ideal_time is 8s before target_slot_start
+checkpoint_proposal_receive_ideal_time is 14s before target_slot_start
+checkpoint_proposal_receive_deadline is 12s before target_slot_start
+checkpoint_proposal_send_time is 16s before target_slot_start
+last_block_build_time is 17s before target_slot_start
 dead_zone = 11s
 max_blocks_per_checkpoint = 10
 ```
@@ -573,6 +625,7 @@ Recommended fast local profile:
 | --- | ---: | --- |
 | `aztec_slot_duration` | 36s | Fast local e2e slot duration for epoch tests. |
 | `ethereum_slot_duration` | 4s | Fast anvil-style Ethereum slot duration. |
+| `l1_publish_lead_time` | 2s | `clamp(round(4 / 2), 1, 6)`: anvil has no freeze-ahead, so only `0 < lead < ethereum_slot_duration` is needed. |
 | `block_duration` | 6s | Fast block cadence while still leaving room for validation. |
 | `min_block_duration` | 1s | Local execution and mocked p2p are faster; preserves late-start behavior. |
 | `p2p_propagation_time` | 0.5s | Mocked one-way proposal/attestation propagation budget. |
@@ -582,14 +635,14 @@ Recommended fast local profile:
 Derived shape with these values:
 
 ```text
-l1_publish_ideal_time is 4s before target_slot_start
-attestation_deadline is 28s after target_slot_start
-attestation_receive_ideal_time is 4s before target_slot_start
-proposal_validation_ideal_time is 4.5s before target_slot_start
-checkpoint_proposal_receive_ideal_time is 10.5s before target_slot_start
-checkpoint_proposal_receive_deadline is 10s before target_slot_start
-checkpoint_proposal_send_time is 11s before target_slot_start
-last_block_build_time is 11.5s before target_slot_start
+l1_publish_ideal_time is 2s before target_slot_start
+attestation_deadline is 30s after target_slot_start
+attestation_receive_ideal_time is 2s before target_slot_start
+proposal_validation_ideal_time is 2.5s before target_slot_start
+checkpoint_proposal_receive_ideal_time is 8.5s before target_slot_start
+checkpoint_proposal_receive_deadline is 8s before target_slot_start
+checkpoint_proposal_send_time is 9s before target_slot_start
+last_block_build_time is 9.5s before target_slot_start
 dead_zone = 7.5s
 max_blocks_per_checkpoint = 4
 ```
@@ -600,6 +653,7 @@ Alternative slower-block local profile:
 | --- | ---: | --- |
 | `aztec_slot_duration` | 36s |
 | `ethereum_slot_duration` | 4s |
+| `l1_publish_lead_time` | 2s |
 | `block_duration` | 8s |
 | `min_block_duration` | 1s |
 | `p2p_propagation_time` | 0.5s |
