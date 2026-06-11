@@ -6,11 +6,11 @@ import type { AuthorizeUtilityCall } from './authorize_utility_call.js';
  * prompting the user, consulting a dynamic allowlist, or inspecting call arguments) before the
  * execution proceeds.
  *
- * For example, {@link authorizeUtilityCall} is called whenever a utility function makes a
- * cross-contract call. A call made by a malicious contract could leak private information, so the
- * hook lets the wallet decide, per-call, whether to allow it. A static allowlist would not work
- * here because neither the app nor the wallet can predict ahead of time which contracts will be
- * invoked during execution.
+ * For example, {@link authorizeUtilityCall} is called whenever a utility function makes a cross-contract call. A call
+ * made by a malicious contract could leak private information, so the hook lets the wallet decide, per-call, whether
+ * to allow it. A static allowlist would not work here because neither the app nor the wallet can predict ahead of
+ * time which contracts will be invoked during execution. Calls to standard contracts (such as the HandshakeRegistry)
+ * bypass this hook and are always authorized.
  *
  * Note: hooks are unrelated to authentication witnesses (authwits). Authwits are an on-chain
  * mechanism where a contract verifies that a caller was authorized by a specific account; hooks
