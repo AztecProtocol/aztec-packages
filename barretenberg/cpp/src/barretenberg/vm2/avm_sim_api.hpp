@@ -15,7 +15,7 @@ class AvmSimAPI {
 
     TxSimulationResult simulate(const FastSimulationInputs& inputs,
                                 simulation::ContractDBInterface& contract_db,
-                                world_state::WorldState& ws,
+                                simulation::LowLevelMerkleDBInterface& merkle_db,
                                 simulation::CancellationTokenPtr cancellation_token = nullptr);
     TxSimulationResult simulate_with_hinted_dbs(const AvmProvingInputs& inputs);
 };

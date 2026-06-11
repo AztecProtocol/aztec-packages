@@ -22,7 +22,7 @@ import {
   PublicDataTreeLeafPreimage,
 } from '@aztec/stdlib/trees';
 import { type BlockHeader, PartialStateReference, StateReference } from '@aztec/stdlib/tx';
-import { type WorldStateRevision, WorldStateRevisionWithHandle } from '@aztec/stdlib/world-state';
+import type { WorldStateRevision } from '@aztec/stdlib/world-state';
 
 import assert from 'assert';
 
@@ -46,8 +46,12 @@ export class MerkleTreesFacade implements MerkleTreeReadOperations {
     return this.initialHeader;
   }
 
-  getRevision(): WorldStateRevisionWithHandle {
-    return WorldStateRevisionWithHandle.fromWorldStateRevision(this.revision, this.instance.getHandle());
+  getRevision(): WorldStateRevision {
+    return this.revision;
+  }
+
+  getSocketPath(): string {
+    return this.instance.getSocketPath();
   }
 
   findLeafIndices(treeId: MerkleTreeId, values: MerkleTreeLeafType<MerkleTreeId>[]): Promise<(bigint | undefined)[]> {
@@ -251,15 +255,15 @@ export class MerkleTreesForkFacade extends MerkleTreesFacade implements MerkleTr
 
     return {
       newSubtreeSiblingPath: new SiblingPath<SubtreeSiblingPathHeight>(
-        resp.subtree_path.length as any,
-        resp.subtree_path,
+        resp.subtreePath.length as any,
+        resp.subtreePath,
       ),
-      sortedNewLeaves: resp.sorted_leaves
+      sortedNewLeaves: resp.sortedLeaves
         .map(([leaf]) => leaf)
         .map(deserializeLeafValue)
         .map(serializeToBuffer),
-      sortedNewLeavesIndexes: resp.sorted_leaves.map(([, index]) => index),
-      lowLeavesWitnessData: resp.low_leaf_witness_data.map(data => ({
+      sortedNewLeavesIndexes: resp.sortedLeaves.map(([, index]) => index),
+      lowLeavesWitnessData: resp.lowLeafWitnessData.map(data => ({
         index: BigInt(data.index),
         leafPreimage: deserializeIndexedLeaf(data.leaf),
         siblingPath: new SiblingPath<TreeHeight>(data.path.length as any, data.path),
@@ -279,12 +283,12 @@ export class MerkleTreesForkFacade extends MerkleTreesFacade implements MerkleTr
     });
 
     return {
-      lowLeavesWitnessData: resp.low_leaf_witness_data.map(data => ({
+      lowLeavesWitnessData: resp.lowLeafWitnessData.map(data => ({
         index: BigInt(data.index),
         leafPreimage: deserializeIndexedLeaf(data.leaf),
         siblingPath: new SiblingPath<TreeHeight>(data.path.length as any, data.path),
       })),
-      insertionWitnessData: resp.insertion_witness_data.map(data => ({
+      insertionWitnessData: resp.insertionWitnessData.map(data => ({
         index: BigInt(data.index),
         leafPreimage: deserializeIndexedLeaf(data.leaf),
         siblingPath: new SiblingPath<TreeHeight>(data.path.length as any, data.path),
