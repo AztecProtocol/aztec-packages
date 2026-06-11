@@ -40,7 +40,6 @@ pub mod oracle;
 pub mod state_vars;
 pub mod capsules;
 pub mod unconstrained_array;
-pub mod unconstrained_value;
 pub mod ephemeral;
 pub mod transient;
 pub mod event;
