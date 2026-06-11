@@ -381,23 +381,33 @@ describe('BlockSynchronizer', () => {
       expect(obtainedHeader.equals(block.header)).toBe(true);
     });
 
-    it('skips the anchor update on chain-proposed when the block was reorged out (missing by hash)', async () => {
+    it('throws and keeps the cursor retryable on chain-proposed when the block is missing by hash', async () => {
       synchronizer = createSynchronizer({ syncChainTip: 'proposed' });
 
       const initialBlock = await L2Block.random(BlockNumber(0));
       await anchorBlockStore.setHeader(initialBlock.header);
 
-      // The node no longer serves the proposed block at that hash (transient reorg).
-      aztecNode.getBlockData.mockResolvedValue(undefined);
-
-      await synchronizer.handleBlockStreamEvent({
+      const proposedBlock = await L2Block.random(BlockNumber(1));
+      const proposedHash = await proposedBlock.hash();
+      const event: L2BlockStreamEvent = {
         type: 'chain-proposed',
-        block: makeL2BlockId(BlockNumber(1), Fr.random().toString()),
-      });
+        block: makeL2BlockId(proposedBlock.number, proposedHash.toString()),
+      };
 
-      // Anchor is left untouched; a later event corrects it.
-      const obtainedHeader = await anchorBlockStore.getBlockHeader();
-      expect(obtainedHeader.equals(initialBlock.header)).toBe(true);
+      // The node cannot return the proposed block's data (node inconsistency). The handler must throw rather than
+      // warn-and-skip, so the tips-store cursor below it never advances and the next delivery can retry.
+      aztecNode.getBlockData.mockResolvedValue(undefined);
+      await expect(synchronizer.handleBlockStreamEvent(event)).rejects.toThrow(/not found/);
+
+      // Anchor is left untouched and the proposed cursor did NOT advance: a quiet chain re-emits the same event.
+      expect((await anchorBlockStore.getBlockHeader()).equals(initialBlock.header)).toBe(true);
+      expect((await tipsStore.getL2Tips()).proposed.number).toBe(0);
+
+      // The block becomes available; re-delivering the same event now lands the anchor and advances the cursor.
+      await serveBlockDataByHash(proposedBlock);
+      await synchronizer.handleBlockStreamEvent(event);
+      expect((await anchorBlockStore.getBlockHeader()).equals(proposedBlock.header)).toBe(true);
+      expect((await tipsStore.getL2Tips()).proposed.number).toBe(1);
     });
 
     it('does not update anchor on chain-proposed when syncChainTip is checkpointed', async () => {
