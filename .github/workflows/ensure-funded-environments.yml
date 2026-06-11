@@ -50,8 +50,7 @@ jobs:
         run: |
           # Static environments
           static='[
-            {"environment":"staging-public"},
-            {"environment":"staging-internal"},
+            {"environment":"staging"},
             {"environment":"next-net"},
             {"environment":"testnet"}
           ]'

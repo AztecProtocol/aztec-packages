@@ -1,0 +1,27 @@
+.{
+    .name = .echo_zig,
+    .version = "0.1.0",
+    .fingerprint = 0x15539c02bc3573e2,
+    .minimum_zig_version = "0.14.0",
+    .dependencies = .{
+        // Pinned to the 0.0.14 tag (not heads/main) so the manifest hash is
+        // stable. heads/main drifts whenever zig-msgpack's main branch moves,
+        // which breaks `zig fetch` with a hash-mismatch error on CI runners
+        // that pull a different snapshot than the one this hash was captured
+        // against.
+        .zig_msgpack = .{
+            .url = "https://github.com/zigcc/zig-msgpack/archive/refs/tags/0.0.17.tar.gz",
+            .hash = "zig_msgpack-0.0.14-evvueL5SBQACmim6j6klQ9wWIIG_UxGlPvVYdiNy0KT8",
+        },
+        // ipc-runtime/zig: UDS + MPSC-SHM transport binding (compiles the
+        // shared C++ sources via Zig's clang).
+        .ipc_runtime = .{
+            .path = "../../../ipc-runtime/zig",
+        },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+    },
+}

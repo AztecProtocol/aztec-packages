@@ -144,14 +144,13 @@ in each table:
 
 - **L1 Contract Addresses table**: update all addresses from the RPC response,
   on-chain queries, and any additional addresses provided by the user.
-
   - Mainnet: use `https://etherscan.io/address/0xADDR` link format
   - Testnet: use `https://sepolia.etherscan.io/address/0xADDR` link format
   - For contracts that are not deployed on this network, use `N/A`
 
 - **L2 Contract Addresses table**: update if any canonical protocol contract
   addresses changed (check the `protocolContractAddresses` from the RPC
-  response). SponsoredFPC is always "Not deployed" on mainnet.
+  response). SponsoredFPC is always "Not deployed" on mainnet and testnet.
 
 Also grep for any old addresses that may appear elsewhere in the docs:
 

@@ -100,7 +100,7 @@ jobs:
       namespace: bench-10tps
       aztec_docker_image: ${{ needs.select-image.outputs.docker_image }}
       ref: ${{ needs.select-image.outputs.source_ref }}
-      skip_notify_on_failure: true
+      notify_on_failure: false
     secrets: inherit
 
   wait-for-first-l2-block:
