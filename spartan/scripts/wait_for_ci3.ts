@@ -13,13 +13,6 @@
  * 1. Resolves the tag's SHA via `gh api`
  * 2. Polls for up to 10 minutes for a CI3 run matching that SHA
  * 3. Uses `gh run watch` to stream the run to completion
- * 4. Gates the deploy on the two release jobs (`ci/x-release`, `ci/a-release`)
- *    succeeding, rather than on the overall run conclusion
- *
- * The overall CI3 nightly conclusion does NOT gate the deploy: it bundles many
- * jobs and an unrelated red job would otherwise block release. We only care
- * that the release-build jobs (`./bootstrap.sh ci-release` on amd64 + arm64,
- * reported as commit statuses on the tag's commit) succeeded.
  *
  * Writes run_id to GITHUB_OUTPUT when running in CI.
  */
@@ -72,12 +65,8 @@ async function main(): Promise<void> {
   let runId = "";
 
   for (let i = 1; i <= maxAttempts; i++) {
-    // Query the workflow's runs filtered server-side by head_sha. This finds
-    // the run no matter how far down the run history it has aged — unlike
-    // `gh run list` (which only returns ~20 newest and would miss an older
-    // nightly run that has since been pushed off the first page).
     const result = execSync(
-      `gh api "repos/${repo}/actions/workflows/ci3.yml/runs?head_sha=${commitSha}" --jq '.workflow_runs[].id'`,
+      `gh run list --repo ${repo} --workflow ci3.yml --json headSha,databaseId --jq '.[] | select(.headSha == "${commitSha}") | .databaseId'`,
       { encoding: "utf-8" },
     ).trim();
 
@@ -103,84 +92,11 @@ async function main(): Promise<void> {
   // 3. Write output for CI
   writeGithubOutputs({ run_id: runId });
 
-  // 4. Watch the run to completion.
-  //
-  // Deliberately omit `--exit-status`: we don't gate on the overall run
-  // conclusion. The CI3 nightly bundles many jobs, and an unrelated red job
-  // (e.g. a flaky nightly test) would otherwise fail this step and block the
-  // deploy. `gh run watch` (without the flag) exits 0 once the run reaches a
-  // completed status; we gate on the specific release jobs below instead.
+  // 4. Watch the run to completion
   console.log(`Watching CI3 run ${runId}...`);
-  execSync(`gh run watch ${runId} --repo ${repo}`, {
+  execSync(`gh run watch ${runId} --repo ${repo} --exit-status`, {
     stdio: "inherit",
   });
-
-  // 5. Gate the deploy on the two release jobs.
-  //
-  // The release flow (ci.sh `release`) runs `./bootstrap.sh ci-release` on an
-  // amd64 (x-release) and an arm64 (a-release) EC2 instance. Each posts a
-  // GitHub commit status `ci/<job-id>` on the tag's commit (see
-  // ci3/bootstrap_ec2 -> post_github_status). We require both to be `success`;
-  // those are the jobs that actually build and publish the release artifacts.
-  const requiredContexts = ["ci/x-release", "ci/a-release"];
-  await gateOnCommitStatuses(commitSha, requiredContexts);
-}
-
-/**
- * Wait for the given commit-status contexts to reach a terminal state on the
- * commit, then fail (exit 1) unless all of them are `success`. Polls briefly
- * because the runner posts these statuses asynchronously, so they may land a
- * moment after the workflow run completes.
- */
-async function gateOnCommitStatuses(
-  commitSha: string,
-  requiredContexts: string[],
-): Promise<void> {
-  const terminal = new Set(["success", "failure", "error"]);
-  const maxAttempts = 30; // up to ~5 minutes at 10s intervals
-  let states: Record<string, string> = {};
-
-  for (let i = 1; i <= maxAttempts; i++) {
-    // The combined endpoint returns the latest status per context.
-    const statuses: Array<{ context: string; state: string }> = JSON.parse(
-      execSync(
-        `gh api repos/${repo}/commits/${commitSha}/status --jq '[.statuses[] | {context, state}]'`,
-        { encoding: "utf-8" },
-      ),
-    );
-
-    states = {};
-    for (const { context, state } of statuses) {
-      states[context] = state;
-    }
-
-    const allTerminal = requiredContexts.every((c) =>
-      terminal.has(states[c]),
-    );
-    if (allTerminal) {
-      break;
-    }
-
-    const missing = requiredContexts.filter((c) => !terminal.has(states[c]));
-    console.log(
-      `Attempt ${i}/${maxAttempts}: waiting on release statuses ${missing.join(", ")} (current: ${missing.map((c) => `${c}=${states[c] ?? "absent"}`).join(", ")})...`,
-    );
-    await sleep(10_000);
-  }
-
-  const failed = requiredContexts.filter((c) => states[c] !== "success");
-  for (const context of requiredContexts) {
-    console.log(`Release status ${context}: ${states[context] ?? "absent"}`);
-  }
-
-  if (failed.length > 0) {
-    console.error(
-      `Error: release job(s) did not succeed: ${failed.map((c) => `${c}=${states[c] ?? "absent"}`).join(", ")}`,
-    );
-    process.exit(1);
-  }
-
-  console.log("All release jobs succeeded.");
 }
 
 main();

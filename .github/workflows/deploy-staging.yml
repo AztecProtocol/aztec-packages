@@ -1,4 +1,4 @@
-name: Deploy to staging internal
+name: Deploy to staging
 
 on:
   schedule:
@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Tag to deploy (v5.0.0 or any v5.0.0 prerelease). Leave empty to use today's nightly tag."
+        description: "Tag to deploy (v5.0.0 or any v5.0.0 prerelease). Leave empty to use today's 5.0.0 nightly tag."
         required: false
         type: string
       deploy_contracts:
@@ -16,7 +16,7 @@ on:
         default: false
 
 concurrency:
-  group: deploy-staging-internal
+  group: deploy-staging
   cancel-in-progress: true
 
 env:
@@ -29,17 +29,17 @@ jobs:
       (github.event_name == 'workflow_dispatch' ||
       github.event_name == 'schedule') &&
       (github.event_name != 'schedule' ||
-      github.repository == 'AztecProtocol/aztec-packages-private')
+      github.repository == 'AztecProtocol/aztec-packages')
     outputs:
       tag: ${{ steps.resolve.outputs.tag }}
       semver: ${{ steps.resolve.outputs.semver }}
     steps:
-      - name: Checkout next
+      - name: Checkout v5-next
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
-          ref: next
+          ref: v5-next
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          fetch-depth: 1
+          fetch-depth: 0
 
       - name: Resolve nightly tag
         id: resolve
@@ -50,11 +50,11 @@ jobs:
           else
             TAG="v5.0.0-nightly.$(date -u +%Y%m%d)"
             echo "Using today's nightly tag: $TAG"
-            if ! git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null; then
-              echo "Error: nightly tag $TAG does not exist on origin"
-              exit 1
-            fi
-            echo "Confirmed nightly tag $TAG exists on origin"
+          fi
+
+          if [[ ! "$TAG" =~ ^v5\.0\.0($|-.*) ]]; then
+            echo "Error: Staging deploys require a v5.0.0 tag or prerelease, got '$TAG'"
+            exit 1
           fi
 
           SEMVER="${TAG#v}"
@@ -63,7 +63,7 @@ jobs:
 
   wait-for-ci3:
     needs: determine-tag
-    if: ${{ github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages-private' }}
+    if: ${{ github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -81,13 +81,12 @@ jobs:
 
   deploy:
     needs: [determine-tag, wait-for-ci3]
-    if: ${{ github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages-private' }}
+    if: ${{ github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' }}
     uses: ./.github/workflows/deploy-network.yml
     with:
-      network: staging-internal
+      network: staging
       semver: ${{ needs.determine-tag.outputs.semver }}
-      source_tag: ${{ needs.determine-tag.outputs.tag }}
-      ref: next
-      deploy_contracts: ${{ inputs.deploy_contracts == true }}
       use_internal_docker_registry: true
+      source_tag: ${{ needs.determine-tag.outputs.tag }}
+      deploy_contracts: ${{ inputs.deploy_contracts == true }}
     secrets: inherit
