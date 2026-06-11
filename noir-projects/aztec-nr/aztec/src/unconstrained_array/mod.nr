@@ -68,8 +68,7 @@ where
     ///
     /// Use this when the caller does not need a specific slot: the random slot is isolated from every other array of
     /// the same backend with overwhelming probability. Prefer [`UnconstrainedArray::empty_at`] when the slot must be a
-    /// known
-    /// value (e.g. one shared with an oracle or another call frame).
+    /// known value (e.g. one shared with an oracle or another call frame).
     pub unconstrained fn empty() -> Self {
         Self::empty_at(random())
     }
@@ -150,8 +149,7 @@ where
     ///
     /// Reads each element in order, transforms it with `f`, and pushes the result onto a new array at a freshly
     /// allocated slot (see [`UnconstrainedArray::empty`]). The source array is left unchanged, and the result is
-    /// isolated
-    /// from it, so `map` can be chained.
+    /// isolated from it, so `map` can be chained.
     pub unconstrained fn map<U, Env>(self, f: unconstrained fn[Env](T) -> U) -> UnconstrainedArray<U, Oracle>
     where
         T: Deserialize,
@@ -169,8 +167,7 @@ where
     ///
     /// Reads each element in order, keeps those for which `f` returns `true`, and pushes them onto a new array at a
     /// freshly allocated slot (see [`UnconstrainedArray::empty`]). Relative order is preserved. The source array is
-    /// left
-    /// unchanged, and the result is isolated from it, so `filter` can be chained.
+    /// left unchanged, and the result is isolated from it, so `filter` can be chained.
     pub unconstrained fn filter<Env>(self, f: unconstrained fn[Env](T) -> bool) -> Self
     where
         T: Serialize + Deserialize,
@@ -190,8 +187,7 @@ where
     ///
     /// Matches the `any` combinator on Noir's [`array`](std::array), slice, and `BoundedVec` collections. Defined in
     /// terms of [`UnconstrainedArray::filter`]: it keeps the matching elements and checks whether any survived. This is
-    /// not
-    /// short-circuiting — every element is tested even after the first match.
+    /// not short-circuiting — every element is tested even after the first match.
     pub unconstrained fn any<Env>(self, f: unconstrained fn[Env](T) -> bool) -> bool
     where
         T: Serialize + Deserialize,
@@ -214,9 +210,8 @@ where
     /// Returns the first element satisfying the predicate `f`, or `Option::none` if none do.
     ///
     /// Mirrors Rust's `Iterator::find`. Defined in terms of [`UnconstrainedArray::filter`], which preserves order, so
-    /// the
-    /// first kept element is the first match. This is not short-circuiting — every element is tested even after the
-    /// match is found.
+    /// the first kept element is the first match. This is not short-circuiting — every element is tested even after
+    /// the match is found.
     pub unconstrained fn find<Env>(self, f: unconstrained fn[Env](T) -> bool) -> Option<T>
     where
         T: Serialize + Deserialize,

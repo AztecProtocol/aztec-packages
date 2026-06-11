@@ -25,8 +25,8 @@ use crate::unconstrained_array::{ArrayOracle, UnconstrainedArray};
 /// [`TransientArray`](crate::transient::TransientArray).
 pub type EphemeralArray<T> = UnconstrainedArray<T, EphemeralOracle>;
 
-/// Routes [`UnconstrainedArray`] operations to the ephemeral array oracles, scoping arrays to a single contract call
-/// frame.
+/// Routes [`UnconstrainedArray`] operations to the ephemeral array oracles, scoping arrays to a single contract
+/// call frame.
 pub struct EphemeralOracle {}
 
 impl ArrayOracle for EphemeralOracle {

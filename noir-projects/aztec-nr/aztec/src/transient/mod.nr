@@ -31,9 +31,8 @@ use crate::unconstrained_array::{ArrayOracle, UnconstrainedArray};
 /// For data that must persist indefinitely, use [`CapsuleArray`](crate::capsules::CapsuleArray).
 pub type TransientArray<T> = UnconstrainedArray<T, TransientOracle>;
 
-/// Routes [`UnconstrainedArray`] operations to the transient array oracles, sharing arrays across all call frames of
-/// the
-/// same contract within one top-level PXE call.
+/// Routes [`UnconstrainedArray`] operations to the transient array oracles, sharing arrays across all call frames
+/// of the same contract within one top-level PXE call.
 pub struct TransientOracle {}
 
 impl ArrayOracle for TransientOracle {
