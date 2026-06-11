@@ -16,6 +16,20 @@ import {
 export const SPONSORED_FPC_SALT = BigInt(0);
 
 /**
+ * Network-minimum per-block budget multiplier for L2 gas / tx count. Operators may configure a higher value,
+ * but never lower: a node admitting txs under a smaller multiplier would accept work it can never pack.
+ */
+export const MIN_PER_BLOCK_ALLOCATION_MULTIPLIER = 1.2;
+
+/**
+ * Network-minimum per-block budget multiplier for DA gas / blob fields. See
+ * {@link MIN_PER_BLOCK_ALLOCATION_MULTIPLIER}. The DA-specific operator knob and its runtime enforcement land
+ * with the network tx admission limits (#23947); until then this constant is documentation of the network
+ * minimum only.
+ */
+export const MIN_PER_BLOCK_DA_ALLOCATION_MULTIPLIER = 1.5;
+
+/**
  * The most DA gas a single tx can consume. A tx's effects cannot encode more than
  * MAX_TX_BLOB_DATA_SIZE_IN_FIELDS fields in a blob, each costing DA_GAS_PER_FIELD, so this is the maximum
  * DA gas a tx could ever use; declaring a higher limit is rejected by inbound validation.

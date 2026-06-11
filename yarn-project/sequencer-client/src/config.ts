@@ -3,6 +3,7 @@ import { type L1ReaderConfig, l1ReaderConfigMappings } from '@aztec/ethereum/l1-
 import {
   type ConfigMappingsType,
   booleanConfigHelper,
+  floatConfigHelper,
   getConfigFromMappings,
   numberConfigHelper,
   optionalNumberConfigHelper,
@@ -121,7 +122,7 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     description:
       'Per-block gas budget multiplier for both L2 and DA gas. Budget per block is (checkpointLimit / maxBlocks) * multiplier.' +
       ' Values greater than one allow early blocks to use more than their even share, relying on checkpoint-level capping for later blocks.',
-    ...numberConfigHelper(DefaultSequencerConfig.perBlockAllocationMultiplier),
+    ...floatConfigHelper(DefaultSequencerConfig.perBlockAllocationMultiplier),
   },
   perBlockDAAllocationMultiplier: {
     env: 'SEQ_PER_BLOCK_DA_ALLOCATION_MULTIPLIER',

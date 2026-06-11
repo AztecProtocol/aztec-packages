@@ -198,13 +198,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       maxNumberOfBlocks,
     });
 
-    if (maxNumberOfBlocks < 1) {
-      throw new Error(
-        `Invalid timing configuration: derived ${maxNumberOfBlocks} blocks per checkpoint for slot duration ` +
-          `${timetable.aztecSlotDuration}s and block duration ${timetable.blockDuration}s.`,
-      );
-    }
-
     this.assertConfigMeetsNetworkTxLimits(config, maxNumberOfBlocks);
 
     return timetable;

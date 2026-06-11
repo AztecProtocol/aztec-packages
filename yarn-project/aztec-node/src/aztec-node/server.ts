@@ -127,7 +127,6 @@ import {
 } from '@aztec/stdlib/messaging';
 import type { CheckpointAttestation } from '@aztec/stdlib/p2p';
 import type { Offense } from '@aztec/stdlib/slashing';
-import { DEFAULT_MIN_BLOCK_DURATION } from '@aztec/stdlib/timetable';
 import type { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
 import { MerkleTreeId, NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import {
@@ -590,9 +589,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     Object.assign(config, l1ContractsAddresses);
 
     const rollupContract = new RollupContract(publicClient, config.rollupAddress.toString());
-    const [l1GenesisTime, slotDuration, rollupVersionFromRollup, rollupManaLimit] = await Promise.all([
+    const [l1GenesisTime, slotDuration, epochDuration, rollupVersionFromRollup, rollupManaLimit] = await Promise.all([
       rollupContract.getL1GenesisTime(),
       rollupContract.getSlotDuration(),
+      rollupContract.getEpochDuration(),
       rollupContract.getVersion(),
       rollupContract.getManaLimit().then(Number),
     ] as const);
@@ -615,13 +615,12 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     // Track started resources so we can clean up on partial failure during node creation.
     const started: { stop?(): Promise<void> | void }[] = [];
     try {
-      // Default the consensus materialization grace from the block build duration when unset, so the archiver
-      // gives received checkpoint proposals roughly two build slots to validate and enter proposed state.
-      config.checkpointProposalSyncGraceSeconds ??=
-        config.blockDurationMs !== undefined
-          ? 2 * Math.ceil(config.blockDurationMs / 1000)
-          : 2 * DEFAULT_MIN_BLOCK_DURATION;
       config.skipOrphanProposedBlockPruning ||= !!config.useAutomineSequencer;
+
+      AztecNodeService.checkConfigMatchesRollup(config, {
+        slotDuration: Number(slotDuration),
+        epochDuration: Number(epochDuration),
+      });
 
       // Create world-state first so we can retrieve the initial header before constructing the archiver.
       const nativeWs = await createWorldState(config, options.genesis);
@@ -1050,6 +1049,32 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
         await tryStop(resource);
       }
       throw err;
+    }
+  }
+
+  /**
+   * Verifies the node's configured L1 timing matches the rollup contract it is pointed at, for the fields the
+   * node's own config carries. Each comparison is guarded against an undefined config value, so a config that
+   * does not carry a field is not checked. Throws a single error listing every mismatch. Runs in the shared
+   * startup path for every node role.
+   */
+  private static checkConfigMatchesRollup(
+    config: AztecNodeConfig,
+    rollup: { slotDuration: number; epochDuration: number },
+  ): void {
+    const mismatches: string[] = [];
+    if (config.aztecSlotDuration !== undefined && config.aztecSlotDuration !== rollup.slotDuration) {
+      mismatches.push(`aztecSlotDuration is ${config.aztecSlotDuration} but the rollup reports ${rollup.slotDuration}`);
+    }
+    if (config.aztecEpochDuration !== undefined && config.aztecEpochDuration !== rollup.epochDuration) {
+      mismatches.push(
+        `aztecEpochDuration is ${config.aztecEpochDuration} but the rollup reports ${rollup.epochDuration}`,
+      );
+    }
+    if (mismatches.length > 0) {
+      throw new Error(
+        `The node's configured L1 timing does not match the rollup contract it is pointed at: ${mismatches.join('; ')}`,
+      );
     }
   }
 

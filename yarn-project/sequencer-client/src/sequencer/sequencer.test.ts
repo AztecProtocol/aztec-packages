@@ -404,6 +404,18 @@ describe('sequencer', () => {
     sequencer.updateConfig(config);
   });
 
+  describe('perBlockAllocationMultiplier guard', () => {
+    it('rejects a multiplier below the network minimum', () => {
+      expect(() => sequencer.updateConfig({ perBlockAllocationMultiplier: 1.0 })).toThrow(
+        /perBlockAllocationMultiplier/,
+      );
+    });
+
+    it('accepts a multiplier at or above the network minimum', () => {
+      expect(() => sequencer.updateConfig({ perBlockAllocationMultiplier: 1.5 })).not.toThrow();
+    });
+  });
+
   describe('block building', () => {
     it('builds a block out of a single tx', async () => {
       await setupSingleTxBlock();

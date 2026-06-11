@@ -275,11 +275,17 @@ where `block_index` is zero-based.
 
 Sub-slot starts and deadlines do not move when earlier blocks finish early or late. If block `k` finishes early, the proposer waits until `block_build_deadline(k)` before attempting block `k + 1`. If block `k` finishes late, the next sub-slot keeps its original deadline and therefore has less remaining headroom.
 
-The maximum number of full-duration block sub-slots is:
+The number of full-duration block sub-slots a node's local operational budgets compute is:
 
 ```text
-max_blocks_per_checkpoint = floor((last_block_build_time - first_subslot_start) / block_duration)
+computed_blocks_per_checkpoint = floor((last_block_build_time - first_subslot_start) / block_duration)
 ```
+
+The effective `max_blocks_per_checkpoint` is this computed value, clamped down to the explicit network value when
+the network value is lower. A network value at or above the computed count has no effect and the computed count is
+used. When the local budgets compute more blocks than the network allows, the computed count is clamped down to the
+network value and a warning is emitted. Clamping never raises the effective value above what the local budgets can
+fit, preserving the invariant that every offered sub-slot's build deadline stays within `last_block_build_time`.
 
 `max_blocks_per_checkpoint` is also an input to the network tx admission limits (it divides the per-checkpoint gas budgets into a per-block share); see [`../gas/README.md`](../gas/README.md) under "Gas and Data Limits".
 

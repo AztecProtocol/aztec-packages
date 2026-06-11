@@ -44,10 +44,7 @@ export interface P2PConfig
       SequencerConfig,
       | 'expectedBlockProposalsPerSlot'
       | 'maxTxsPerBlock'
-      | 'attestationPropagationTime'
-      | 'checkpointProposalPrepareTime'
       | 'checkpointProposalSyncGraceSeconds'
-      | 'minBlockDuration'
       | 'maxBlocksPerCheckpoint'
     >,
     // `blockDurationMs` is optional on the loose `SequencerConfig` but is always populated for p2p via
@@ -611,7 +608,13 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
       'Minimum percentage fee increase required to replace an existing tx via RPC. Even at 0%, replacement still requires paying at least 1 unit more.',
     ...bigintConfigHelper(10n),
   },
-  ...sharedSequencerConfigMappings,
+  ...pickConfigMappings(sharedSequencerConfigMappings, [
+    'expectedBlockProposalsPerSlot',
+    'maxTxsPerBlock',
+    'checkpointProposalSyncGraceSeconds',
+    'maxBlocksPerCheckpoint',
+    'blockDurationMs',
+  ]),
   ...p2pReqRespConfigMappings,
   ...batchTxRequesterConfigMappings,
   ...chainConfigMappings,
