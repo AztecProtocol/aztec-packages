@@ -140,7 +140,10 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>) {
     ptree_meta[256u + 4u * 18u + 0u] = pt_range;
     ptree_meta[256u + 4u * 18u + 1u] = 1u;
     ptree_meta[256u + 4u * 18u + 2u] = 1u;
-    ptree_meta[256u + 4u * 17u + 0u] = pt_range;
+    // Deep buckets (> TPB64 residuals) require cnt > 64 * stride >= 128;
+    // the histogram caps at 63, so they exist only when the cap bin is
+    // non-empty — otherwise the deep dispatch is statically empty.
+    ptree_meta[256u + 4u * 17u + 0u] = select(0u, pt_range, pt_cap_bin > 0u);
     ptree_meta[256u + 4u * 17u + 1u] = 1u;
     ptree_meta[256u + 4u * 17u + 2u] = 1u;
     ptree_meta[256u + 4u * 19u + 0u] = (pt_range + PTREE_FIN_TPB * PTREE_FIN_SN - 1u) / (PTREE_FIN_TPB * PTREE_FIN_SN);
