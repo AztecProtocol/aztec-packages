@@ -41,17 +41,16 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
     this.eventQueue.start();
   }
 
-  protected createBlockStream(config: Partial<BlockSynchronizerConfig>): L2BlockStream {
+  protected createBlockStream(_config: Partial<BlockSynchronizerConfig>): L2BlockStream {
     return new L2BlockStream(
       blockStreamSourceFromAztecNode(this.node),
       this.l2TipsStore,
       this,
       createLogger('pxe:block_stream', this.log.getBindings()),
       {
-        batchSize: config.l2BlockBatchSize,
-        // Skipping finalized blocks makes us sync much faster - we only need to download blocks other than the latest one
-        // in order to detect reorgs, and there can be no reorgs on finalized block, making this safe.
-        skipFinalized: true,
+        // PXE only tracks chain tips (it anchors on tip events and never replays payloads), so the stream runs
+        // in tips-only mode: no block downloads, just the tip events that move the anchor and detect reorgs.
+        tipsOnly: true,
       },
     );
   }
@@ -62,16 +61,24 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
   }
 
   private async doHandleBlockStreamEvent(event: L2BlockStreamEvent): Promise<void> {
-    await this.l2TipsStore.handleBlockStreamEvent(event);
-
     switch (event.type) {
-      case 'blocks-added': {
+      case 'chain-proposed': {
         if (this.config.syncChainTip === undefined || this.config.syncChainTip === 'proposed') {
-          const lastBlock = event.blocks.at(-1)!;
-          await this.updateAnchorBlockHeader(lastBlock.header);
+          // Fetch the proposed tip header by hash. By-hash is safer than by-number against a same-height
+          // reorg; a missing result means the block was reorged out between the event and this fetch, so we
+          // skip the anchor update and let a later event correct it.
+          const block = await this.node.getBlockData(BlockHash.fromString(event.block.hash));
+          if (block) {
+            await this.updateAnchorBlockHeader(block.header);
+          } else {
+            this.log.warn(`Block header not found for proposed block ${event.block.number}, skipping anchor update`);
+          }
         }
         break;
       }
+      // Never emitted in tips-only mode; PXE anchors on chain-proposed instead. Kept for union exhaustiveness.
+      case 'blocks-added':
+        break;
       case 'chain-checkpointed': {
         if (this.config.syncChainTip === 'checkpointed') {
           // Fetch the checkpointed tip header by hash. By-hash is safer than by-number against a
@@ -118,7 +125,7 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
             `Ignoring prune event to block ${event.block.number} greater than current anchor block ${currentAnchorBlockNumber}`,
             { pruneEvent: event, currentAnchorBlockHeader: currentAnchorBlockHeader.toInspect() },
           );
-          return;
+          break;
         }
 
         this.log.warn(`Pruning data after block ${event.block.number} due to reorg`, { pruneBlock: event.block });
@@ -143,7 +150,16 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
         });
         break;
       }
+      default: {
+        const _: never = event;
+        break;
+      }
     }
+
+    // Advance the tips store cursor only after the anchor update / prune rollback above succeeds. If that work
+    // throws, the cursor stays put and the stream re-emits this event on the next sync pass (at-least-once),
+    // matching the prover-node's handle-first/tips-last ordering. The SerialQueue makes this reorder safe.
+    await this.l2TipsStore.handleBlockStreamEvent(event);
   }
 
   /** Updates the anchor block header to the target block */

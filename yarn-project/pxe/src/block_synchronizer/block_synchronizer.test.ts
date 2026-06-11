@@ -1,5 +1,4 @@
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
-import { timesParallel } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
@@ -14,6 +13,7 @@ import {
   L2Block,
   type L2BlockId,
   type L2BlockStream,
+  type L2BlockStreamEvent,
   makeL2BlockId,
   makeL2CheckpointId,
 } from '@aztec/stdlib/block';
@@ -113,9 +113,36 @@ describe('BlockSynchronizer', () => {
     synchronizer = createSynchronizer();
   });
 
-  it('sets header from latest block', async () => {
+  // Builds the BlockData the node returns from getBlockData for a block (chain-proposed/checkpointed handlers
+  // fetch the tip header by hash through this path).
+  const blockData = async (block: L2Block): Promise<BlockData> => ({
+    header: block.header,
+    archive: block.archive,
+    blockHash: await block.hash(),
+    checkpointNumber: block.checkpointNumber,
+    indexWithinCheckpoint: block.indexWithinCheckpoint,
+  });
+
+  // Mocks node.getBlockData to serve the given block only when queried by its own hash (mirrors the by-hash
+  // fetch the chain-proposed handler performs); any other query resolves undefined.
+  const serveBlockDataByHash = async (block: L2Block) => {
+    const data = await blockData(block);
+    aztecNode.getBlockData.mockImplementation(param =>
+      Promise.resolve(param instanceof BlockHash && param.equals(data.blockHash) ? data : undefined),
+    );
+    return data;
+  };
+
+  // Emits a chain-proposed tip event for the given block (the tip event PXE anchors on in proposed mode).
+  const proposedEvent = async (block: L2Block): Promise<L2BlockStreamEvent> => ({
+    type: 'chain-proposed',
+    block: makeL2BlockId(block.number, (await block.hash()).toString()),
+  });
+
+  it('sets header from the proposed tip', async () => {
     const block = await L2Block.random(BlockNumber(1));
-    await synchronizer.handleBlockStreamEvent({ type: 'blocks-added', blocks: [block] });
+    await serveBlockDataByHash(block);
+    await synchronizer.handleBlockStreamEvent(await proposedEvent(block));
 
     const obtainedHeader = await anchorBlockStore.getBlockHeader();
     expect(obtainedHeader.equals(block.header)).toBe(true);
@@ -128,10 +155,10 @@ describe('BlockSynchronizer', () => {
       Promise.resolve(param instanceof BlockHash && param.equals(reorgResponse.hash) ? reorgResponse : undefined),
     );
 
-    await synchronizer.handleBlockStreamEvent({
-      type: 'blocks-added',
-      blocks: await timesParallel(5, i => L2Block.random(BlockNumber(i))),
-    });
+    // Anchor sits above the prune target so the prune guard lets the rollback through.
+    const anchorBlock = await L2Block.random(BlockNumber(4));
+    await anchorBlockStore.setHeader(anchorBlock.header);
+
     await synchronizer.handleBlockStreamEvent({
       type: 'chain-pruned',
       block: makeL2BlockId(reorgBlock.number, reorgResponse.hash.toString()),
@@ -344,25 +371,46 @@ describe('BlockSynchronizer', () => {
   });
 
   describe('syncChainTip config', () => {
-    it('updates anchor on blocks-added when syncChainTip is proposed (default)', async () => {
+    it('updates anchor on chain-proposed when syncChainTip is proposed (default)', async () => {
       synchronizer = createSynchronizer({ syncChainTip: 'proposed' });
       const block = await L2Block.random(BlockNumber(1));
-      await synchronizer.handleBlockStreamEvent({ type: 'blocks-added', blocks: [block] });
+      await serveBlockDataByHash(block);
+      await synchronizer.handleBlockStreamEvent(await proposedEvent(block));
 
       const obtainedHeader = await anchorBlockStore.getBlockHeader();
       expect(obtainedHeader.equals(block.header)).toBe(true);
     });
 
-    it('does not update anchor on blocks-added when syncChainTip is checkpointed', async () => {
+    it('skips the anchor update on chain-proposed when the block was reorged out (missing by hash)', async () => {
+      synchronizer = createSynchronizer({ syncChainTip: 'proposed' });
+
+      const initialBlock = await L2Block.random(BlockNumber(0));
+      await anchorBlockStore.setHeader(initialBlock.header);
+
+      // The node no longer serves the proposed block at that hash (transient reorg).
+      aztecNode.getBlockData.mockResolvedValue(undefined);
+
+      await synchronizer.handleBlockStreamEvent({
+        type: 'chain-proposed',
+        block: makeL2BlockId(BlockNumber(1), Fr.random().toString()),
+      });
+
+      // Anchor is left untouched; a later event corrects it.
+      const obtainedHeader = await anchorBlockStore.getBlockHeader();
+      expect(obtainedHeader.equals(initialBlock.header)).toBe(true);
+    });
+
+    it('does not update anchor on chain-proposed when syncChainTip is checkpointed', async () => {
       synchronizer = createSynchronizer({ syncChainTip: 'checkpointed' });
 
       // First set a known anchor
       const initialBlock = await L2Block.random(BlockNumber(0));
       await anchorBlockStore.setHeader(initialBlock.header);
 
-      // blocks-added should NOT update the anchor
+      // chain-proposed should NOT update the anchor in checkpointed mode
       const newBlock = await L2Block.random(BlockNumber(1));
-      await synchronizer.handleBlockStreamEvent({ type: 'blocks-added', blocks: [newBlock] });
+      await serveBlockDataByHash(newBlock);
+      await synchronizer.handleBlockStreamEvent(await proposedEvent(newBlock));
 
       const obtainedHeader = await anchorBlockStore.getBlockHeader();
       expect(obtainedHeader.equals(initialBlock.header)).toBe(true);
@@ -425,9 +473,10 @@ describe('BlockSynchronizer', () => {
     it('does not update anchor on chain-checkpointed when syncChainTip is proposed', async () => {
       synchronizer = createSynchronizer({ syncChainTip: 'proposed' });
 
-      // Set initial anchor via blocks-added
+      // Set initial anchor via the proposed tip
       const initialBlock = await L2Block.random(BlockNumber(1));
-      await synchronizer.handleBlockStreamEvent({ type: 'blocks-added', blocks: [initialBlock] });
+      await serveBlockDataByHash(initialBlock);
+      await synchronizer.handleBlockStreamEvent(await proposedEvent(initialBlock));
 
       await synchronizer.handleBlockStreamEvent({
         type: 'chain-checkpointed',
@@ -506,6 +555,109 @@ describe('BlockSynchronizer', () => {
       // Anchor should be unchanged
       const obtainedHeader = await anchorBlockStore.getBlockHeader();
       expect(obtainedHeader.equals(anchorBlock.header)).toBe(true);
+    });
+  });
+
+  // These exercise a real (non-mocked) L2BlockStream wired to the mocked node, so they cover the tips-only
+  // wiring end to end: the stream polls getChainTips, emits chain-proposed, and the synchronizer anchors by
+  // fetching the tip header by hash — never downloading block payloads via getBlocks. The local store is pre-seeded
+  // at block 1 (anchor + proposed tip) so the walk-back terminates there without touching genesis, and the source
+  // advances the proposed tip to block 2.
+  describe('tips-only stream sync', () => {
+    let realSynchronizer: BlockSynchronizer;
+    let block1: L2Block;
+    let block2: L2Block;
+    let block2Hash: BlockHash;
+
+    // The L2Tips snapshot the stream reads: proposed at block 2, every confirmed tier still at block 1.
+    const tipsAtBlock2 = async () => {
+      const tip1 = {
+        block: makeL2BlockId(block1.number, (await block1.hash()).toString()),
+        checkpoint: makeL2CheckpointId(CheckpointNumber(1), Fr.random().toString()),
+      };
+      return {
+        proposed: makeL2BlockId(block2.number, block2Hash.toString()),
+        checkpointed: tip1,
+        proven: tip1,
+        finalized: tip1,
+      };
+    };
+
+    beforeEach(async () => {
+      block1 = await L2Block.random(BlockNumber(1));
+      block2 = await L2Block.random(BlockNumber(2));
+      block2Hash = await block2.hash();
+      const block1Hash = await block1.hash();
+      const block2Data = await blockData(block2);
+
+      // Pre-seed the local store at block 1: the anchor header and the proposed-tip walk-back history.
+      await anchorBlockStore.setHeader(block1.header);
+      await tipsStore.handleBlockStreamEvent({
+        type: 'chain-proposed',
+        block: makeL2BlockId(block1.number, block1Hash.toString()),
+      });
+
+      // The stream's source adapter resolves the walk-back hash for block 1 via node.getBlock({ number: 1 }),
+      // while the synchronizer fetches the proposed tip header for block 2 via node.getBlockData(block2Hash).
+      aztecNode.getChainTips.mockResolvedValue(await tipsAtBlock2());
+      const block1Response = await blockResponse(block1);
+      getBlock.mockImplementation(param =>
+        Promise.resolve(
+          typeof param === 'object' && 'number' in param && param.number === block1.number ? block1Response : undefined,
+        ),
+      );
+      aztecNode.getBlockData.mockImplementation(param =>
+        Promise.resolve(param instanceof BlockHash && param.equals(block2Hash) ? block2Data : undefined),
+      );
+
+      realSynchronizer = new BlockSynchronizer(
+        aztecNode,
+        store,
+        anchorBlockStore,
+        noteStore,
+        privateEventStore,
+        tipsStore,
+        contractSyncService,
+        { syncChainTip: 'proposed' },
+      );
+    });
+
+    afterEach(async () => {
+      await realSynchronizer.stop();
+    });
+
+    it('anchors on the proposed tip via a by-hash fetch without downloading blocks', async () => {
+      await realSynchronizer.sync();
+
+      const obtainedHeader = await anchorBlockStore.getBlockHeader();
+      expect(obtainedHeader.getBlockNumber()).toBe(2);
+      expect(obtainedHeader.equals(block2.header)).toBe(true);
+      expect(aztecNode.getBlocks).not.toHaveBeenCalled();
+    });
+
+    it('re-emits the proposed tip on the next sync when the first anchor update throws', async () => {
+      // The anchor write throws on its first attempt to block 2 only. Because the tips store is advanced AFTER the
+      // anchor update, the throw leaves the proposed cursor at block 1, so the next sync re-emits chain-proposed for
+      // block 2 and the anchor lands. (The stream's work() loop logs the handler throw rather than rejecting sync().)
+      const originalSetHeader = anchorBlockStore.setHeader.bind(anchorBlockStore);
+      let firstAnchorToBlock2 = true;
+      anchorBlockStore.setHeader = async header => {
+        if (header.getBlockNumber() === 2 && firstAnchorToBlock2) {
+          firstAnchorToBlock2 = false;
+          throw new Error('transient anchor write failure');
+        }
+        await originalSetHeader(header);
+      };
+
+      // First sync: the anchor write throws, so the anchor stays at block 1 and the proposed cursor does not advance.
+      await realSynchronizer.sync();
+      expect((await anchorBlockStore.getBlockHeader()).getBlockNumber()).toBe(1);
+      expect((await tipsStore.getL2Tips()).proposed.number).toBe(1);
+
+      // Second sync: chain-proposed is re-emitted for block 2, the anchor write succeeds, and the cursor advances.
+      await realSynchronizer.sync();
+      expect((await anchorBlockStore.getBlockHeader()).equals(block2.header)).toBe(true);
+      expect((await tipsStore.getL2Tips()).proposed.number).toBe(2);
     });
   });
 });
