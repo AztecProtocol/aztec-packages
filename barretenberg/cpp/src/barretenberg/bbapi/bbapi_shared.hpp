@@ -25,6 +25,14 @@
 #include <string>
 #include <vector>
 
+// The FIFO-streaming Chonk batch verifier service relies on POSIX named pipes and signals
+// (open/lstat/SIGPIPE), which are unavailable on wasm and on Windows (MinGW). Those platforms
+// compile throwing stubs instead. This macro guards the service across bbapi_shared.hpp,
+// bbapi_chonk.hpp, and bbapi_chonk.cpp.
+#if !defined(__wasm__) && !defined(_WIN32)
+#define BB_HAS_BATCH_VERIFIER_SERVICE
+#endif
+
 namespace bb::bbapi {
 
 /**
@@ -170,7 +178,7 @@ inline VkPolicy parse_vk_policy(const std::string& policy)
     return VkPolicy::DEFAULT; // default
 }
 
-#ifndef __wasm__
+#ifdef BB_HAS_BATCH_VERIFIER_SERVICE
 // Forward declaration — defined in bbapi_chonk.hpp
 class ChonkBatchVerifierService;
 #endif
@@ -188,7 +196,7 @@ struct BBApiRequest {
     VkPolicy vk_policy = VkPolicy::DEFAULT;
     // Error message - empty string means no error
     std::string error_message;
-#ifndef __wasm__
+#ifdef BB_HAS_BATCH_VERIFIER_SERVICE
     // Batch verifier service instance (persists across RPC calls)
     std::shared_ptr<ChonkBatchVerifierService> batch_verifier_service;
 #endif
