@@ -9,10 +9,8 @@ use crate::protocol::traits::{Deserialize, Serialize};
 /// Each implementor routes these operations to a distinct family of oracles, and the oracle family determines the
 /// array's lifetime and visibility (e.g. [`EphemeralArray`](crate::ephemeral::EphemeralArray) arrays live for one
 /// contract call frame, while [`TransientArray`](crate::transient::TransientArray) arrays are shared across all frames
-/// of the same contract within one top-level PXE call). Implementations are thin wrappers around `#[oracle]`
-/// declarations, so method dispatch is resolved at compile time via monomorphization and each array type emits its own
-/// foreign calls.
-pub trait ArrayOracles {
+/// of the same contract within one top-level PXE call).
+pub(crate) trait ArrayOracles {
     /// Returns the number of elements in the array at `slot`.
     unconstrained fn len_oracle(slot: Field) -> u32;
 
@@ -47,7 +45,7 @@ pub trait ArrayOracles {
 /// frame) or [`TransientArray`](crate::transient::TransientArray) (shared across all frames of the same contract
 /// within one top-level PXE call).
 pub struct UnconstrainedArray<T, Oracle> {
-    pub slot: Field,
+    pub(crate) slot: Field,
 }
 
 impl<T, Oracle> UnconstrainedArray<T, Oracle>

@@ -49,7 +49,7 @@ impl<T> TransientValue<T> {
         Self { slot }
     }
 
-    /// Stores a value at the slot, overwriting any value previously stored there.
+    /// Stores a value at the given slot.
     pub unconstrained fn store(self, value: T)
     where
         T: Serialize,
