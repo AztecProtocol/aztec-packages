@@ -307,17 +307,18 @@ describe('ProverNode', () => {
     await expect(proverNode.getJobs()).resolves.toEqual([]);
   });
 
-  // ---------------- handleBlockStreamEvent: blocks-added is a no-op + still triggers expiry ----------------
+  // ---------------- handleBlockStreamEvent: chain-proposed is a no-op + still triggers expiry ----------------
 
-  it("'blocks-added' invokes no event handler but still runs the expiry sweep", async () => {
+  it("'chain-proposed' invokes no event handler but still runs the expiry sweep", async () => {
     // latestSlot=4 ⇒ epochs 0..2 expire.
     l2BlockSource.getSyncedL2SlotNumber.mockResolvedValue(SlotNumber(4));
     l2BlockSource.getCheckpointsData.mockResolvedValue([]);
     const reapSpy = jest.spyOn(proverNode.getCheckpointStore(), 'reapExpired');
 
-    // Use a real (random) L2Block so the tips-store handler doesn't choke on an empty array.
-    const block = await L2Block.random(BlockNumber(1));
-    await proverNode.handleBlockStreamEvent({ type: 'blocks-added', blocks: [block] });
+    await proverNode.handleBlockStreamEvent({
+      type: 'chain-proposed',
+      block: { number: BlockNumber(1), hash: '0x01' },
+    });
 
     // No checkpoint, prune, or proven handler should have fired.
     expect(sessionManager.onCheckpointAdded).not.toHaveBeenCalled();
@@ -325,6 +326,8 @@ describe('ProverNode', () => {
     expect(publishingService.onChainProven).not.toHaveBeenCalled();
     // But the expiry sweep ran.
     expect(reapSpy.mock.calls.map(([e]) => Number(e))).toEqual([0, 1, 2]);
+    // The tips store recorded the proposed tip (it is the walk-back history in tips-only mode).
+    expect(await proverNode.getTipsStore().getL2BlockHash(1)).toEqual('0x01');
   });
 
   // ---------------- checkEpochExpiry: latestEpoch < offset is a no-op ----------------
@@ -468,27 +471,25 @@ describe('ProverNode', () => {
     });
   });
 
-  // ---------------- computeStartupState branches ----------------
+  // ---------------- resolveLastFullyProvenEpoch branches ----------------
 
-  describe('computeStartupState', () => {
-    it('returns starting block 1 and no fully-proven epoch when nothing is proven', async () => {
+  describe('resolveLastFullyProvenEpoch', () => {
+    it('returns no fully-proven epoch when nothing is proven', async () => {
       l2BlockSource.getBlockNumber.mockResolvedValue(undefined);
-      await expect(proverNode.callComputeStartupState()).resolves.toEqual({
-        startingBlock: BlockNumber(1),
+      await expect(proverNode.callResolveLastFullyProvenEpoch()).resolves.toEqual({
         lastFullyProvenEpoch: undefined,
       });
     });
 
-    it('returns provenBlock+1 and no fully-proven epoch when the proven block has no archiver header', async () => {
+    it('returns no fully-proven epoch when the proven block has no archiver header', async () => {
       l2BlockSource.getBlockNumber.mockResolvedValue(BlockNumber(5));
       l2BlockSource.getBlockData.mockResolvedValue(undefined);
-      await expect(proverNode.callComputeStartupState()).resolves.toEqual({
-        startingBlock: BlockNumber(6),
+      await expect(proverNode.callResolveLastFullyProvenEpoch()).resolves.toEqual({
         lastFullyProvenEpoch: undefined,
       });
     });
 
-    it('returns provenBlock+1 and provenEpoch when the proven block is the last of its epoch', async () => {
+    it('returns provenEpoch when the proven block is the last of its epoch', async () => {
       // epochDuration=1: slot 5 ⇒ epoch 5; next slot 6 ⇒ epoch 6 > 5 ⇒ last of epoch.
       l2BlockSource.getBlockNumber.mockResolvedValue(BlockNumber(5));
       l2BlockSource.getBlockData.mockImplementation((q: any) => {
@@ -500,13 +501,12 @@ describe('ProverNode', () => {
         }
         return Promise.resolve(undefined);
       });
-      await expect(proverNode.callComputeStartupState()).resolves.toEqual({
-        startingBlock: BlockNumber(6),
+      await expect(proverNode.callResolveLastFullyProvenEpoch()).resolves.toEqual({
         lastFullyProvenEpoch: EpochNumber(5),
       });
     });
 
-    it('returns provenBlock+1 and provenEpoch via the isEpochComplete fallback when there is no next-block header', async () => {
+    it('returns provenEpoch via the isEpochComplete fallback when there is no next-block header', async () => {
       l2BlockSource.getBlockNumber.mockResolvedValue(BlockNumber(5));
       l2BlockSource.getBlockData.mockImplementation((q: any) => {
         if (q.number === 5) {
@@ -515,13 +515,12 @@ describe('ProverNode', () => {
         return Promise.resolve(undefined);
       });
       l2BlockSource.isEpochComplete.mockResolvedValue(true);
-      await expect(proverNode.callComputeStartupState()).resolves.toEqual({
-        startingBlock: BlockNumber(6),
+      await expect(proverNode.callResolveLastFullyProvenEpoch()).resolves.toEqual({
         lastFullyProvenEpoch: EpochNumber(5),
       });
     });
 
-    it("returns the partially-proven epoch's first block and provenEpoch-1 when proven is mid-epoch", async () => {
+    it('returns provenEpoch-1 when proven is mid-epoch', async () => {
       // epochDuration=2: slot 5 ⇒ epoch 2; next slot 5 ⇒ same epoch ⇒ mid-epoch.
       const l1ConstantsTwo = { ...EmptyL1RollupConstants, epochDuration: 2, proofSubmissionEpochs: 1 };
       l2BlockSource.getL1Constants.mockResolvedValue(l1ConstantsTwo);
@@ -535,10 +534,8 @@ describe('ProverNode', () => {
         }
         return Promise.resolve(undefined);
       });
-      l2BlockSource.getCheckpointsData.mockResolvedValue([{ startBlock: BlockNumber(3) } as any]);
 
-      await expect(proverNode.callComputeStartupState()).resolves.toEqual({
-        startingBlock: BlockNumber(3),
+      await expect(proverNode.callResolveLastFullyProvenEpoch()).resolves.toEqual({
         lastFullyProvenEpoch: EpochNumber(1),
       });
     });
@@ -557,10 +554,8 @@ describe('ProverNode', () => {
         }
         return Promise.resolve(undefined);
       });
-      l2BlockSource.getCheckpointsData.mockResolvedValue([{ startBlock: BlockNumber(1) } as any]);
 
-      await expect(proverNode.callComputeStartupState()).resolves.toEqual({
-        startingBlock: BlockNumber(1),
+      await expect(proverNode.callResolveLastFullyProvenEpoch()).resolves.toEqual({
         lastFullyProvenEpoch: undefined,
       });
     });
@@ -677,8 +672,8 @@ class TestProverNode extends ProverNode {
 
   // ---------------- direct access for unit tests ----------------
 
-  public callComputeStartupState() {
-    return this.computeStartupState();
+  public callResolveLastFullyProvenEpoch() {
+    return this.resolveLastFullyProvenEpoch();
   }
 
   public callIsEpochFullyProven(epoch: EpochNumber, l1Constants: { epochDuration: number }) {

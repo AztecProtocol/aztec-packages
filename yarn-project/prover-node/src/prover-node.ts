@@ -239,9 +239,17 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
       case 'chain-proven':
         this.publishingService?.onChainProven(BlockNumber(event.block.number));
         break;
+      // The proposed tip drives only the tips store's walk-back history (recorded below); the prover-node
+      // tracks checkpoints, not proposed blocks. `blocks-added` is never emitted in tips-only mode, and
+      // `chain-finalized` carries nothing the prover-node acts on.
+      case 'chain-proposed':
       case 'chain-finalized':
       case 'blocks-added':
         break;
+      default: {
+        const _: never = event;
+        break;
+      }
     }
     // Expiry is driven by the archiver's latest synced L2 slot
     await this.checkEpochExpiry();
@@ -476,12 +484,12 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
     // Now that the store + manager exist, arm the live-state observable gauges.
     this.jobMetrics.observeState(this.checkpointStore, this.sessionManager);
 
-    const { startingBlock, lastFullyProvenEpoch } = await this.computeStartupState();
+    const { lastFullyProvenEpoch } = await this.resolveLastFullyProvenEpoch();
     this.lastExpiredEpoch = lastFullyProvenEpoch;
     this.lastProcessedCheckpoint = await this.computeStartingCheckpoint(lastFullyProvenEpoch);
     this.blockStream = new L2BlockStream(this.l2BlockSource, this.tipsStore, this, this.log, {
       pollIntervalMS: this.config.proverNodePollingIntervalMs,
-      startingBlock,
+      tipsOnly: true,
     });
     this.blockStream.start();
 
@@ -630,38 +638,27 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
   }
 
   /**
-   * Resolves the L2BlockStream's starting block and the last fully-proven epoch in one
-   * pass. The starting block is the first block of the next unproven epoch (or the start
-   * of the partially-proven epoch if the proven tip falls mid-epoch). The fully-proven
-   * epoch is `provenEpoch` when the proven tip is the last block of its epoch, otherwise
-   * `provenEpoch - 1`, or `undefined` if no block is proven yet.
+   * Resolves the last fully-proven epoch from L1 proven state, used to seed the catch-up cursor (via
+   * `computeStartingCheckpoint`) and `lastExpiredEpoch`. The fully-proven epoch is `provenEpoch` when the
+   * proven tip is the last block of its epoch, otherwise `provenEpoch - 1`, or `undefined` if no block is
+   * proven yet (so a restart reprocesses the partially-proven epoch rather than trusting a stale tip).
    */
-  protected async computeStartupState(): Promise<{
-    startingBlock: BlockNumber;
-    lastFullyProvenEpoch: EpochNumber | undefined;
-  }> {
+  protected async resolveLastFullyProvenEpoch(): Promise<{ lastFullyProvenEpoch: EpochNumber | undefined }> {
     const provenBlockNumber = await this.l2BlockSource.getBlockNumber({ tag: 'proven' });
     if (!provenBlockNumber || provenBlockNumber <= 0) {
-      return { startingBlock: BlockNumber(1), lastFullyProvenEpoch: undefined };
+      return { lastFullyProvenEpoch: undefined };
     }
     const l1Constants = await this.getL1Constants();
     const provenHeader = (await this.l2BlockSource.getBlockData({ number: BlockNumber(provenBlockNumber) }))?.header;
     if (!provenHeader) {
-      return { startingBlock: BlockNumber(provenBlockNumber + 1), lastFullyProvenEpoch: undefined };
+      return { lastFullyProvenEpoch: undefined };
     }
     const provenEpoch = getEpochAtSlot(provenHeader.getSlot(), l1Constants);
     if (await this.isProvenBlockLastOfItsEpoch(BlockNumber(provenBlockNumber), provenEpoch, l1Constants)) {
-      return { startingBlock: BlockNumber(provenBlockNumber + 1), lastFullyProvenEpoch: provenEpoch };
+      return { lastFullyProvenEpoch: provenEpoch };
     }
-    const epochCheckpoints = await this.l2BlockSource.getCheckpointsData({ epoch: provenEpoch });
-    const firstBlockOfEpoch =
-      epochCheckpoints.length > 0 ? epochCheckpoints[0].startBlock : BlockNumber(provenBlockNumber);
-    this.log.info(
-      `Starting L2BlockStream at block ${firstBlockOfEpoch} (start of partially-proven epoch ${provenEpoch})`,
-      { provenBlockNumber, provenEpoch, firstBlockOfEpoch },
-    );
     const lastFullyProvenEpoch = provenEpoch > 0 ? EpochNumber(provenEpoch - 1) : undefined;
-    return { startingBlock: firstBlockOfEpoch, lastFullyProvenEpoch };
+    return { lastFullyProvenEpoch };
   }
 
   /**
