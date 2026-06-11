@@ -96,6 +96,8 @@ bot:
 
     startCmd:
       - --bot
+    readinessProbe:
+      enabled: false
 
     hostNetwork: false
 

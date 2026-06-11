@@ -159,6 +159,14 @@ service:
 | node.nodeJsOptions | ["--no-warnings", "--max-old-space-size=4096"] | Node.js options |
 | node.startupProbe.periodSeconds | 30 | Period seconds for startup probe |
 | node.startupProbe.failureThreshold | 3 | Failure threshold for startup probe |
+| node.readinessProbe.enabled | true | Enable readiness probe rendering |
+| node.readinessProbe.exec | sync status check | Exec readiness probe config |
+| node.readinessProbe.httpGet | null | HTTP readiness probe config |
+| node.readinessProbe.periodSeconds | 15 | Period seconds for readiness probe |
+| node.readinessProbe.timeoutSeconds | 2 | Timeout seconds for readiness probe |
+| node.readinessProbe.initialDelaySeconds | 0 | Initial delay before readiness probes |
+| node.readinessProbe.failureThreshold | 1 | Failure threshold for readiness probe |
+| node.readinessProbe.successThreshold | 1 | Success threshold for readiness probe |
 | persistence.enabled | false | Enable persistence (uses emptyDir when disabled) |
 | persistence.existingClaim | null | Use an existing PVC |
 | persistence.accessModes | ["ReadWriteOnce"] | Access modes for persistence |

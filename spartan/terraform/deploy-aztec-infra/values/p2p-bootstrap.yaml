@@ -12,6 +12,8 @@ node:
 
   startCmd:
     - --p2p-bootstrap
+  readinessProbe:
+    enabled: false
 
 service:
   p2p:
