@@ -18,6 +18,10 @@ terraform {
       source  = "hashicorp/kubernetes"
       version = "~> 2.38.0"
     }
+    google = {
+      source  = "hashicorp/google"
+      version = "~> 5.0"
+    }
   }
 }
 
@@ -33,6 +37,11 @@ provider "helm" {
     config_path    = "~/.kube/config"
     config_context = var.K8S_CLUSTER_CONTEXT
   }
+}
+
+provider "google" {
+  project = var.GCP_PROJECT_ID
+  region  = var.GCP_REGION
 }
 
 module "web3signer" {
@@ -103,6 +112,27 @@ locals {
 
   # Detect local kind context (e.g., "kind-kind") to gate Service types
   is_kind = can(regex("^kind", var.K8S_CLUSTER_CONTEXT))
+
+  rpc_gateway_simple_consumers = {
+    for secret_name in var.RPC_GATEWAY_API_KEY_SECRET_NAMES : secret_name => {
+      username                       = secret_name
+      gcp_secret_manager_secret_name = secret_name
+      rate_limit_minute              = 0
+    }
+  }
+
+  rpc_gateway_consumers = merge(local.rpc_gateway_simple_consumers, var.RPC_GATEWAY_CONSUMERS)
+
+  rpc_gateway_routes = {
+    canonical = {
+      hosts                       = var.RPC_GATEWAY_HOSTS
+      route_namespace             = var.NAMESPACE
+      upstream_service_name       = "${var.RELEASE_PREFIX}-rpc-aztec-node"
+      upstream_service_port       = 8080
+      auth_mode                   = var.RPC_GATEWAY_ALLOW_ANONYMOUS ? "keyed_with_anonymous" : "keyed_only"
+      anonymous_rate_limit_minute = var.RPC_GATEWAY_ANONYMOUS_RATE_LIMIT_MINUTE
+    }
+  }
 
   internal_boot_node_url = var.DEPLOY_INTERNAL_BOOTNODE ? "http://${var.RELEASE_PREFIX}-p2p-bootstrap-node.${var.NAMESPACE}.svc.cluster.local:8080" : ""
 
@@ -437,30 +467,7 @@ locals {
         "rpc.yaml",
         "rpc-resources-${var.RPC_RESOURCE_PROFILE}.yaml"
       ]
-      inline_values = concat(var.RPC_INGRESS_ENABLED ? [yamlencode({
-        service = {
-          p2p = { publicIP = var.P2P_PUBLIC_IP }
-          rpc = {
-            annotations = {
-              "cloud.google.com/neg" = jsonencode({ ingress = true })
-              "cloud.google.com/backend-config" = jsonencode({
-                default = "${var.RELEASE_PREFIX}-rpc-ingress-backend"
-              })
-            }
-          }
-        }
-        ingress = {
-          rpc = {
-            hosts = var.RPC_INGRESS_HOSTS
-            annotations = {
-              "kubernetes.io/ingress.class"                 = "gce"
-              "kubernetes.io/ingress.global-static-ip-name" = var.RPC_INGRESS_STATIC_IP_NAME
-              "ingress.gcp.kubernetes.io/pre-shared-cert"   = join(",", var.RPC_INGRESS_SSL_CERT_NAMES)
-              "kubernetes.io/ingress.allow-http"            = "false"
-            }
-          }
-        }
-        })] : [yamlencode({
+      inline_values = [yamlencode({
         service = {
           p2p = { publicIP = var.P2P_PUBLIC_IP }
           rpc = {
@@ -468,7 +475,7 @@ locals {
             type    = local.is_kind ? "ClusterIP" : "LoadBalancer"
           }
         }
-      })])
+      })]
 
       custom_settings = merge({
         "replicaCount"                = var.RPC_REPLICAS
@@ -479,7 +486,6 @@ locals {
 
         # Ensure the JSON-RPC server binds the same port the probe checks
         "node.proverRealProofs"                       = var.PROVER_REAL_PROOFS
-        "ingress.rpc.enabled"                         = var.RPC_INGRESS_ENABLED
         "node.env.AWS_ACCESS_KEY_ID"                  = var.R2_ACCESS_KEY_ID
         "node.env.AWS_SECRET_ACCESS_KEY"              = var.R2_SECRET_ACCESS_KEY
         "node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG" = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
@@ -724,45 +730,53 @@ resource "helm_release" "releases" {
   }
 }
 
-resource "kubernetes_manifest" "rpc_ingress_backend" {
-  count    = var.RPC_INGRESS_ENABLED ? 1 : 0
-  provider = kubernetes.gke-cluster
+module "rpc_gateway" {
+  count = var.RPC_GATEWAY_ENABLED ? 1 : 0
 
-  manifest = {
-    apiVersion = "cloud.google.com/v1"
-    kind       = "BackendConfig"
-    metadata = {
-      name      = "${var.RELEASE_PREFIX}-rpc-ingress-backend"
-      namespace = var.NAMESPACE
-    }
-    spec = merge(
-      {
-        healthCheck = {
-          checkIntervalSec   = 15
-          timeoutSec         = 5
-          healthyThreshold   = 2
-          unhealthyThreshold = 2
-          type               = "HTTP"
-          port               = 8080
-          requestPath        = "/status"
-        }
-      },
-      var.RPC_CLOUD_ARMOR_POLICY_NAME != "" ? {
-        securityPolicy = {
-          name = var.RPC_CLOUD_ARMOR_POLICY_NAME
-        }
-      } : {},
-      var.RPC_INGRESS_SESSION_AFFINITY != "" ? {
-        sessionAffinity = {
-          affinityType = var.RPC_INGRESS_SESSION_AFFINITY
-        }
-      } : {},
-      var.RPC_INGRESS_LOG_SAMPLE_RATE != null ? {
-        logging = {
-          enable     = true
-          sampleRate = var.RPC_INGRESS_LOG_SAMPLE_RATE
-        }
-      } : {}
-    )
+  source = "../modules/rpc-gateway"
+
+  providers = {
+    helm       = helm.gke-cluster
+    kubernetes = kubernetes.gke-cluster
+    google     = google
   }
+
+  RELEASE_PREFIX     = var.RELEASE_PREFIX
+  CONSUMER_NAMESPACE = var.NAMESPACE
+
+  KONG_NAMESPACE                                   = var.RPC_GATEWAY_KONG_NAMESPACE != "" ? var.RPC_GATEWAY_KONG_NAMESPACE : var.NAMESPACE
+  KONG_HELM_RELEASE_NAME                           = var.RPC_GATEWAY_KONG_HELM_RELEASE_NAME
+  KONG_HELM_CHART_VERSION                          = var.RPC_GATEWAY_KONG_HELM_CHART_VERSION
+  KONG_INGRESS_CLASS                               = var.RPC_GATEWAY_KONG_INGRESS_CLASS
+  KONG_PROXY_SERVICE_TYPE                          = var.RPC_GATEWAY_KONG_PROXY_SERVICE_TYPE
+  KONG_PROXY_SERVICE_ANNOTATIONS                   = var.RPC_GATEWAY_KONG_PROXY_SERVICE_ANNOTATIONS
+  KONG_EXTRA_HELM_VALUES                           = var.RPC_GATEWAY_KONG_EXTRA_HELM_VALUES
+  KONG_SERVICE_MONITOR_ENABLED                     = var.RPC_GATEWAY_KONG_SERVICE_MONITOR_ENABLED
+  KONG_METRICS_SERVICE_ENABLED                     = var.RPC_GATEWAY_KONG_METRICS_SERVICE_ENABLED
+  KONG_METRICS_SERVICE_NAME                        = var.RPC_GATEWAY_KONG_METRICS_SERVICE_NAME
+  KONG_METRICS_SERVICE_TYPE                        = var.RPC_GATEWAY_KONG_METRICS_SERVICE_TYPE
+  KONG_METRICS_SERVICE_ANNOTATIONS                 = var.RPC_GATEWAY_KONG_METRICS_SERVICE_ANNOTATIONS
+  KONG_METRICS_SERVICE_LOAD_BALANCER_IP            = var.RPC_GATEWAY_KONG_METRICS_SERVICE_LOAD_BALANCER_IP
+  KONG_METRICS_SERVICE_LOAD_BALANCER_SOURCE_RANGES = var.RPC_GATEWAY_KONG_METRICS_SERVICE_LOAD_BALANCER_SOURCE_RANGES
+  KONG_METRICS_SERVICE_EXTERNAL_TRAFFIC_POLICY     = var.RPC_GATEWAY_KONG_METRICS_SERVICE_EXTERNAL_TRAFFIC_POLICY
+  KONG_OTEL_METRICS_GCP_SECRET_NAME                = var.RPC_GATEWAY_KONG_OTEL_METRICS_GCP_SECRET_NAME
+
+  API_KEY_HEADER_NAME              = var.RPC_GATEWAY_API_KEY_HEADER_NAME
+  ROUTES                           = local.rpc_gateway_routes
+  CONSUMERS                        = local.rpc_gateway_consumers
+  EXTERNAL_SECRET_STORE_NAME       = var.RPC_GATEWAY_EXTERNAL_SECRET_STORE_NAME
+  EXTERNAL_SECRET_STORE_KIND       = var.RPC_GATEWAY_EXTERNAL_SECRET_STORE_KIND
+  EXTERNAL_SECRET_REFRESH_INTERVAL = var.RPC_GATEWAY_EXTERNAL_SECRET_REFRESH_INTERVAL
+
+  CREATE_DNS                      = var.RPC_GATEWAY_CREATE_DNS
+  DNS_ZONE_NAME                   = var.RPC_GATEWAY_DNS_ZONE_NAME
+  DNS_TTL                         = var.RPC_GATEWAY_DNS_TTL
+  FRONTEND_ENABLED                = var.RPC_GATEWAY_FRONTEND_ENABLED
+  FRONTEND_STATIC_IP_ENABLED      = var.RPC_GATEWAY_FRONTEND_STATIC_IP_ENABLED
+  FRONTEND_STATIC_IP_NAME         = var.RPC_GATEWAY_FRONTEND_STATIC_IP_NAME
+  FRONTEND_ALLOW_HTTP             = var.RPC_GATEWAY_FRONTEND_ALLOW_HTTP
+  GCP_MANAGED_CERTIFICATE_ENABLED = var.RPC_GATEWAY_GCP_MANAGED_CERTIFICATE_ENABLED
+  GCP_MANAGED_CERTIFICATE_NAME    = var.RPC_GATEWAY_GCP_MANAGED_CERTIFICATE_NAME
+
+  depends_on = [helm_release.releases]
 }
