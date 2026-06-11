@@ -147,10 +147,6 @@ where
     }
 
     /// Applies `f` to every element and collects the results into a fresh array.
-    ///
-    /// Reads each element in order, transforms it with `f`, and pushes the result onto a new array at a freshly
-    /// allocated slot (see [`UnconstrainedArray::empty`]). The source array is left unchanged, and the result is
-    /// isolated from it, so `map` can be chained.
     pub unconstrained fn map<U, Env>(self, f: unconstrained fn[Env](T) -> U) -> UnconstrainedArray<U, Oracle>
     where
         T: Deserialize,
@@ -165,10 +161,6 @@ where
     }
 
     /// Collects every element satisfying the predicate `f` into a fresh array.
-    ///
-    /// Reads each element in order, keeps those for which `f` returns `true`, and pushes them onto a new array at a
-    /// freshly allocated slot (see [`UnconstrainedArray::empty`]). Relative order is preserved. The source array is
-    /// left unchanged, and the result is isolated from it, so `filter` can be chained.
     pub unconstrained fn filter<Env>(self, f: unconstrained fn[Env](T) -> bool) -> Self
     where
         T: Serialize + Deserialize,
@@ -185,10 +177,6 @@ where
     }
 
     /// Returns `true` if at least one element satisfies the predicate `f`.
-    ///
-    /// Matches the `any` combinator on Noir's [`array`](std::array), slice, and `BoundedVec` collections. Defined in
-    /// terms of [`UnconstrainedArray::filter`]: it keeps the matching elements and checks whether any survived. This is
-    /// not short-circuiting — every element is tested even after the first match.
     pub unconstrained fn any<Env>(self, f: unconstrained fn[Env](T) -> bool) -> bool
     where
         T: Serialize + Deserialize,
@@ -197,10 +185,6 @@ where
     }
 
     /// Returns `true` if every element satisfies the predicate `f` (vacuously `true` for an empty array).
-    ///
-    /// Matches the `all` combinator on Noir's [`array`](std::array) and slice collections. Defined in terms of
-    /// [`UnconstrainedArray::filter`]: every element matches exactly when filtering keeps all of them. This is not
-    /// short-circuiting — every element is tested even after the first failure.
     pub unconstrained fn all<Env>(self, f: unconstrained fn[Env](T) -> bool) -> bool
     where
         T: Serialize + Deserialize,
