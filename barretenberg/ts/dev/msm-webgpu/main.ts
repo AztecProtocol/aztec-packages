@@ -118,8 +118,6 @@ const gpuKnobs: MsmConfig = (() => {
     wgi: optInt('wgi'),
     reduceWg: optInt('reducewg'),
     l0Log: optInt('l0log'),
-    invVariant: q.get('inv') === 'loop' ? 'loop' : q.get('inv') === 'pk' ? 'pk' : undefined,
-    pk14Inverse: q.get('pk14') === '1' || undefined,
     montmul:
       q.get('montmul') === 'cios_unrolled' ? 'cios_unrolled' : q.get('montmul') === 'karat' ? 'karat' : undefined,
     jacobianCrossover: (() => {
@@ -2849,21 +2847,21 @@ function hideProgress(): void {
   } else if (autorun === 'msm-matrix') {
     // FAST benchmark matrix — the iteration-speed path. ONE page load: acquire the
     // device, decompress the SRS into ONE point pool, generate inputs, then loop
-    // over montmul×inverse configs IN-PAGE, building a fresh MsmV2 per config that
+    // over montmul configs IN-PAGE, building a fresh MsmV2 per config that
     // shares the pool's WGSL-keyed pipeline cache. So montmul-independent kernels
-    // (planner/transpose/decompose/reduce-schedule) compile ONCE and are reused;
-    // flipping pk14 only recompiles the walker. NO WASM, NO cross-check, NO page
-    // reloads. Correctness is covered by the M2 byte-identical oracle; this is
-    // pure GPU wall timing (profile=false, wall-around-submit).
+    // (planner/transpose/decompose/reduce-schedule) compile ONCE and are reused.
+    // NO WASM, NO cross-check, NO page reloads. Correctness is covered by the M2
+    // byte-identical oracle; this is pure GPU wall timing (profile=false,
+    // wall-around-submit).
     //   ?autorun=msm-matrix&logn=17&reps=8&scalar_dist=profile&profile=A
-    //     &configs=karat:loop,cios_unrolled:loop,karat:pk14,cios_unrolled:pk14
+    //     &configs=karat,cios_unrolled
     const autorunLogN = Math.min(17, parseInt(qp.get('logn') ?? '17', 10) || 17);
     const reps = Math.max(1, parseInt(qp.get('reps') ?? '8', 10));
     const warmups = Math.max(1, parseInt(qp.get('warmups') ?? '2', 10));
-    const configsStr = qp.get('configs') ?? 'karat:loop,cios_unrolled:loop,karat:pk14,cios_unrolled:pk14';
+    const configsStr = qp.get('configs') ?? 'karat,cios_unrolled';
     const configs = configsStr.split(',').map(s => {
-      const [mm, inv] = s.split(':');
-      return { montmul: (mm || 'karat') as MsmConfig['montmul'], pk14: inv === 'pk14' };
+      const [mm] = s.split(':');
+      return { montmul: (mm || 'karat') as MsmConfig['montmul'] };
     });
     const client = makeResultsClient({ page: 'msm-matrix' });
     const lines: string[] = [];
@@ -2894,7 +2892,6 @@ function hideProgress(): void {
         const knobs: MsmConfig = {
           ...gpuKnobs,
           montmul: cfg.montmul,
-          pk14Inverse: cfg.pk14,
           profile: false,
           combineOnHost: false,
           warmupRuns: 0,
@@ -2915,7 +2912,6 @@ function hideProgress(): void {
         const min = walls[0];
         rows.push({
           montmul: cfg.montmul,
-          pk14: cfg.pk14,
           median: +median.toFixed(1),
           min: +min.toFixed(1),
           buildMs: +buildMs.toFixed(0),
@@ -2923,7 +2919,7 @@ function hideProgress(): void {
         });
         mlog(
           'ok',
-          `[matrix] ${String(cfg.montmul).padEnd(13)} inv=${cfg.pk14 ? 'pk14' : 'loop'}: median=${median.toFixed(1)}ms min=${min.toFixed(1)}ms (build+compile ${buildMs.toFixed(0)}ms)`,
+          `[matrix] ${String(cfg.montmul).padEnd(13)}: median=${median.toFixed(1)}ms min=${min.toFixed(1)}ms (build+compile ${buildMs.toFixed(0)}ms)`,
         );
         msm.destroy();
       }

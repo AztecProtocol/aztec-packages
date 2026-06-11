@@ -439,7 +439,7 @@ export class ShaderManager {
    * via runtime branch on `lparams.w` — uniform across the workgroup, so
    * the compiler specialises per-dispatch with no SIMT divergence.
    */
-  public gen_ba_reduce_level_bench_shader(workgroup_size: number, variant: 'loop' | 'pk' = 'pk'): string {
+  public gen_ba_reduce_level_bench_shader(workgroup_size: number): string {
     if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
       throw new Error(
         `gen_ba_reduce_level_bench_shader: workgroup_size (${workgroup_size}) must be a positive integer`,
@@ -479,7 +479,7 @@ export class ShaderManager {
   // Sparse bucket reduction (SPARSE_REDUCE_PLAN.md). Same field/inverse context
   // as the dense reduce; the kernel skips empty buckets via a gap-aware suffix
   // sum so structured wires don't pay for empty high-window buckets.
-  public gen_ba_reduce_sparse_shader(workgroup_size: number, variant: 'loop' | 'pk' = 'pk'): string {
+  public gen_ba_reduce_sparse_shader(workgroup_size: number): string {
     if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
       throw new Error(`gen_ba_reduce_sparse_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
     }
@@ -517,7 +517,6 @@ export class ShaderManager {
   public gen_ba_fused_super_bench_shader(
     workgroup_size: number,
     s: number,
-    variant: 'loop' | 'pk' = 'pk',
     tiled = false,
     l0_index_mode = false,
   ): string {
@@ -667,7 +666,6 @@ export class ShaderManager {
   public gen_ba_finalize_accumulate_bench_shader(
     workgroup_size: number,
     l0_index_mode = false,
-    variant: 'loop' | 'pk' = 'pk',
   ): string {
     if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
       throw new Error(
@@ -714,7 +712,7 @@ export class ShaderManager {
    * `cap` is the max points a bucket may carry at the trigger level (= the
    * shared array length); workgroup_size must be >= cap.
    */
-  public gen_ba_fused_tail_coop_shader(workgroup_size: number, cap: number, variant: 'loop' | 'pk' = 'pk'): string {
+  public gen_ba_fused_tail_coop_shader(workgroup_size: number, cap: number): string {
     if (workgroup_size <= 0 || !Number.isInteger(workgroup_size) || cap <= 0 || !Number.isInteger(cap)) {
       throw new Error(
         `gen_ba_fused_tail_coop_shader: workgroup_size (${workgroup_size}) and cap (${cap}) must be positive integers`,
@@ -819,7 +817,7 @@ export class ShaderManager {
 
   // Per-window Jacobian -> affine (Montgomery) at the window root slot; one
   // inversion per window. Same partial/param set as the bench kernel.
-  public gen_ba_reduce_jac_finalize_shader(workgroup_size: number, variant: 'loop' | 'pk' = 'pk'): string {
+  public gen_ba_reduce_jac_finalize_shader(workgroup_size: number): string {
     if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
       throw new Error(
         `gen_ba_reduce_jac_finalize_shader: workgroup_size (${workgroup_size}) must be a positive integer`,
@@ -859,7 +857,7 @@ export class ShaderManager {
   // Batched Jacobian -> affine convert of all live slots (step-4 per-level cut).
   // Bridges a mid-schedule jac->affine flip: prefix-product of Z over a chunk ->
   // one safegcd -> backward peel -> x=X/Z^2, y=Y/Z^3, restore is_present.
-  public gen_ba_reduce_jac_to_affine_shader(workgroup_size: number, variant: 'loop' | 'pk' = 'pk'): string {
+  public gen_ba_reduce_jac_to_affine_shader(workgroup_size: number): string {
     if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
       throw new Error(
         `gen_ba_reduce_jac_to_affine_shader: workgroup_size (${workgroup_size}) must be a positive integer`,
@@ -1218,16 +1216,13 @@ export class ShaderManager {
     bw: number,
     stride: number,
     m_red: number,
-    variant: 'loop' | 'pk' = 'pk',
-    pk14 = false,
     l0Precompute = true,
   ): string {
-    // pk14: the packed-native 14-bit safegcd inverse (Montgomery-form output via
-    // an e0=R^2 seed), consuming/producing the f8 packed form directly (inv_f8) —
-    // no BigInt round-trip. Adreno register-pressure win; byte-identical output.
-    // Otherwise the existing BigInt-roundtrip inverse (loop/pk).
-    const inverse_funcs = pk14 ? by_inverse_loop_pk14_native_funcs : by_inverse_loop_pk14_native_funcs;
-    const inv_fn = pk14 || 'fr_inv_by_loop_pk';
+    // The canonical inverse: the packed-native 14-bit safegcd (Montgomery-form
+    // output via an e0=R^2 seed), consuming/producing the f8 packed form
+    // directly — no BigInt round-trip.
+    const inverse_funcs = by_inverse_loop_pk14_native_funcs;
+    const inv_fn = 'fr_inv_by_loop_pk';
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
     return mustache.render(
       ba_stream_walker_shader,
@@ -1330,7 +1325,7 @@ export class ShaderManager {
     });
   }
 
-  public gen_ba_unified_combine_shader(workgroup_size: number, s: number, variant: 'loop' | 'pk' = 'pk'): string {
+  public gen_ba_unified_combine_shader(workgroup_size: number, s: number): string {
     const inverse_funcs = by_inverse_loop_pk14_native_funcs;
     const inv_fn = 'fr_inv_by_loop_pk';
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
@@ -1369,7 +1364,6 @@ export class ShaderManager {
     bw: number,
     stride: number,
     m_red: number,
-    variant: 'loop' | 'pk' = 'pk',
   ): string {
     const inverse_funcs = by_inverse_loop_pk14_native_funcs;
     const inv_fn = 'fr_inv_by_loop_pk';

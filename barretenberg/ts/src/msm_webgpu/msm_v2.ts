@@ -224,7 +224,6 @@ function residencyFitMpw(budgetMpw: number): number {
 // pickReduceWg below. All values are the bench-msm-v2 sweep optimum.
 const DEFAULT_WGI = 128; // generic kernel workgroup size
 const DEFAULT_L0_LOG = 1; // reduction leaf-partition log2
-const DEFAULT_INV_VARIANT: 'loop' | 'pk' = 'pk';
 
 // Reduction-coordinate regime (Thread-1 port from wt/structure). Below this
 // total-thread count the densest reduce level can't saturate the GPU, so the
@@ -289,15 +288,6 @@ export interface MsmConfig {
   reduceWg?: number;
   /** Reduction leaf-partition log2. Default 1. */
   l0Log?: number;
-  /** GPU field-inversion variant. Default 'pk' (2×13-packed safegcd). */
-  invVariant?: 'loop' | 'pk';
-  /**
-   * Use the packed-native 14-bit safegcd inverse (e0=R² Montgomery-form output)
-   * in the stream_walker only — consumes/produces f8 directly, no BigInt round-
-   * trip. Adreno register-pressure win; byte-identical. Default false; other
-   * kernels keep `invVariant`. The win is the walker (the hot batched inversion).
-   */
-  pk14Inverse?: boolean;
   /** Base-field Montgomery-multiply body. Default 'karat'; 'cios_unrolled' is the
    *  device-validated register-resident CIOS variant (−26% on Mali-G715, BN254 only). */
   montmul?: MontMulVariant;
@@ -1929,8 +1919,6 @@ export class MsmV2 {
   private wgi!: number;
   private l0Log!: number;
   private reduceWg!: number;
-  private invVariant!: 'loop' | 'pk';
-  private pk14Inverse = false;
   private montmul!: MontMulVariant;
   private profile = false;
   private jacobianCrossover = 0;
@@ -2330,8 +2318,6 @@ export class MsmV2 {
     m.wgi = config?.wgi ?? DEFAULT_WGI;
     m.l0Log = config?.l0Log ?? DEFAULT_L0_LOG;
     m.reduceWg = config?.reduceWg ?? pickReduceWg(m.c);
-    m.invVariant = config?.invVariant ?? DEFAULT_INV_VARIANT;
-    m.pk14Inverse = config?.pk14Inverse ?? false;
     m.montmul = config?.montmul ?? 'karat';
     m.jacobianCrossover = config?.jacobianCrossover ?? 0;
     // High-mem ping-pong is enabled either by the forced flag OR the small-N
@@ -2363,7 +2349,7 @@ export class MsmV2 {
       console.warn('[MsmV2] profile requested but timestamp-query unavailable — disabled');
     }
     // Pull the knobs into the local names the rest of create() uses.
-    const { s: S, wgi: WGI, l0Log: L0_LOG, reduceWg: REDUCE_WG, invVariant: INV_VARIANT } = m;
+    const { s: S, wgi: WGI, l0Log: L0_LOG, reduceWg: REDUCE_WG } = m;
     m.numWindows = m.windowCs ? m.windowCs.length : Math.ceil(NUMBITS / m.c);
     // BW / stride are the ENVELOPE (m.c = max width): every window's red slots
     // are padded to stride and its CSR columns bounded by BW, so the reduce
@@ -2939,13 +2925,13 @@ export class MsmV2 {
       );
       queue(
         p => (m.fusedPipe = p),
-        sm.gen_ba_fused_super_bench_shader(WGI, HIGH_MEM_S, INV_VARIANT, true, false),
+        sm.gen_ba_fused_super_bench_shader(WGI, HIGH_MEM_S, true, false),
         `fused`,
         m.fusedLayout,
       );
       queue(
         p => (m.fusedPipeL0 = p),
-        sm.gen_ba_fused_super_bench_shader(WGI, HIGH_MEM_S, INV_VARIANT, true, true),
+        sm.gen_ba_fused_super_bench_shader(WGI, HIGH_MEM_S, true, true),
         `fused-l0`,
         m.fusedLayoutL0,
       );
@@ -2965,7 +2951,7 @@ export class MsmV2 {
       );
       queue(
         p => (m.coopTailPipe = p),
-        sm.gen_ba_fused_tail_coop_shader(COOP_TAIL_WG, COOP_TAIL_CAP, INV_VARIANT),
+        sm.gen_ba_fused_tail_coop_shader(COOP_TAIL_WG, COOP_TAIL_CAP),
         `fused-tail-coop`,
         m.finalizeAccumLayout,
       );
@@ -2977,7 +2963,7 @@ export class MsmV2 {
     // no SIMT divergence. Replaces the three kind-specialised pipelines.
     queue(
       p => (m.reduceLevelPipes[0] = p),
-      sm.gen_ba_reduce_level_bench_shader(REDUCE_WG, INV_VARIANT),
+      sm.gen_ba_reduce_level_bench_shader(REDUCE_WG),
       `reduce-level`,
       m.reduceLevelLayout,
     );
@@ -2999,13 +2985,13 @@ export class MsmV2 {
       queue(p => (m.zInitPipe = p), sm.gen_ba_reduce_z_init_shader(WGI), `reduce-z-init`, m.zInitLayout);
       queue(
         p => (m.jacFinalizePipe = p),
-        sm.gen_ba_reduce_jac_finalize_shader(WGI, INV_VARIANT),
+        sm.gen_ba_reduce_jac_finalize_shader(WGI),
         `reduce-jac-finalize`,
         m.jacFinalizeLayout,
       );
       queue(
         p => (m.jacToAffinePipe = p),
-        sm.gen_ba_reduce_jac_to_affine_shader(WGI, INV_VARIANT),
+        sm.gen_ba_reduce_jac_to_affine_shader(WGI),
         `reduce-jac-to-affine`,
         m.jacToAffineLayout,
       );
@@ -3016,7 +3002,7 @@ export class MsmV2 {
       m.reduceSparseLayout = lt(['storage', 'storage', 'uniform', 'read-only-storage']);
       queue(
         p => (m.reduceSparsePipe = p),
-        sm.gen_ba_reduce_sparse_shader(REDUCE_WG, INV_VARIANT),
+        sm.gen_ba_reduce_sparse_shader(REDUCE_WG),
         `reduce-sparse`,
         m.reduceSparseLayout,
       );
@@ -3094,8 +3080,6 @@ export class MsmV2 {
         m.BW,
         m.stride,
         m.redM,
-        INV_VARIANT,
-        m.pk14Inverse,
         m.l0Precompute,
       ),
       `stream-walker`,
@@ -3123,7 +3107,7 @@ export class MsmV2 {
     );
     queue(
       p => (m.combineBatchedPipe = p),
-      sm.gen_ba_walker_combine_batched_shader(STREAM_WALKER_TPB, STREAM_S, m.BW, m.stride, m.redM, INV_VARIANT),
+      sm.gen_ba_walker_combine_batched_shader(STREAM_WALKER_TPB, STREAM_S, m.BW, m.stride, m.redM),
       `combine-batched`,
       m.combineBatchedLayout,
     );
@@ -3159,7 +3143,7 @@ export class MsmV2 {
     );
     queue(
       p => (m.ptCombinePipe = p),
-      sm.gen_ba_unified_combine_shader(64, STREAM_S, INV_VARIANT),
+      sm.gen_ba_unified_combine_shader(64, STREAM_S),
       `pt-combine`,
       m.ptCombineLayout,
     );

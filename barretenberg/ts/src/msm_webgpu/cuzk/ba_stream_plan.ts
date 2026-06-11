@@ -72,7 +72,6 @@ export interface StreamPlanConfig {
   numThreads: number;
   s: number;
   batchSlots: number;
-  invVariant: 'loop' | 'pk';
 }
 
 export function computeStreamPlanSizes(cfg: StreamPlanConfig) {
