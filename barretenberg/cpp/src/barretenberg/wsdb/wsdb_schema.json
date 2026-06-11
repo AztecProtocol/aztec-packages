@@ -1,0 +1,2066 @@
+{
+  "__typename": "WsdbApi",
+  "commands": [
+    "named_union",
+    [
+      [
+        "WsdbGetTreeInfo",
+        {
+          "__typename": "WsdbGetTreeInfo",
+          "treeId": [
+            "alias",
+            [
+              "MerkleTreeId",
+              "unsigned int"
+            ]
+          ],
+          "revision": {
+            "__typename": "WorldStateRevision",
+            "forkId": [
+              "alias",
+              [
+                "ForkId",
+                "unsigned long"
+              ]
+            ],
+            "blockNumber": [
+              "alias",
+              [
+                "BlockNumber",
+                "unsigned int"
+              ]
+            ],
+            "includeUncommitted": "bool"
+          }
+        }
+      ],
+      [
+        "WsdbGetStateReference",
+        {
+          "__typename": "WsdbGetStateReference",
+          "revision": "WorldStateRevision"
+        }
+      ],
+      [
+        "WsdbGetInitialStateReference",
+        {
+          "__typename": "WsdbGetInitialStateReference"
+        }
+      ],
+      [
+        "WsdbGetLeafValue",
+        {
+          "__typename": "WsdbGetLeafValue",
+          "treeId": [
+            "alias",
+            [
+              "MerkleTreeId",
+              "unsigned int"
+            ]
+          ],
+          "revision": "WorldStateRevision",
+          "leafIndex": [
+            "alias",
+            [
+              "LeafIndex",
+              "unsigned long"
+            ]
+          ]
+        }
+      ],
+      [
+        "WsdbGetPublicDataLeafValue",
+        {
+          "__typename": "WsdbGetPublicDataLeafValue",
+          "revision": "WorldStateRevision",
+          "leafIndex": [
+            "alias",
+            [
+              "LeafIndex",
+              "unsigned long"
+            ]
+          ]
+        }
+      ],
+      [
+        "WsdbGetNullifierLeafValue",
+        {
+          "__typename": "WsdbGetNullifierLeafValue",
+          "revision": "WorldStateRevision",
+          "leafIndex": [
+            "alias",
+            [
+              "LeafIndex",
+              "unsigned long"
+            ]
+          ]
+        }
+      ],
+      [
+        "WsdbGetPublicDataLeafPreimage",
+        {
+          "__typename": "WsdbGetPublicDataLeafPreimage",
+          "revision": "WorldStateRevision",
+          "leafIndex": [
+            "alias",
+            [
+              "LeafIndex",
+              "unsigned long"
+            ]
+          ]
+        }
+      ],
+      [
+        "WsdbGetNullifierLeafPreimage",
+        {
+          "__typename": "WsdbGetNullifierLeafPreimage",
+          "revision": "WorldStateRevision",
+          "leafIndex": [
+            "alias",
+            [
+              "LeafIndex",
+              "unsigned long"
+            ]
+          ]
+        }
+      ],
+      [
+        "WsdbGetSiblingPath",
+        {
+          "__typename": "WsdbGetSiblingPath",
+          "treeId": [
+            "alias",
+            [
+              "MerkleTreeId",
+              "unsigned int"
+            ]
+          ],
+          "revision": "WorldStateRevision",
+          "leafIndex": [
+            "alias",
+            [
+              "LeafIndex",
+              "unsigned long"
+            ]
+          ]
+        }
+      ],
+      [
+        "WsdbGetBlockNumbersForLeafIndices",
+        {
+          "__typename": "WsdbGetBlockNumbersForLeafIndices",
+          "treeId": [
+            "alias",
+            [
+              "MerkleTreeId",
+              "unsigned int"
+            ]
+          ],
+          "revision": "WorldStateRevision",
+          "leafIndices": [
+            "vector",
+            [
+              [
+                "alias",
+                [
+                  "LeafIndex",
+                  "unsigned long"
+                ]
+              ]
+            ]
+          ]
+        }
+      ],
+      [
+        "WsdbFindLeafIndices",
+        {
+          "__typename": "WsdbFindLeafIndices",
+          "treeId": [
+            "alias",
+            [
+              "MerkleTreeId",
+              "unsigned int"
+            ]
+          ],
+          "revision": "WorldStateRevision",
+          "leaves": [
+            "vector",
+            [
+              [
+                "alias",
+                [
+                  "Fr",
+                  "bin32"
+                ]
+              ]
+            ]
+          ],
+          "startIndex": [
+            "alias",
+            [
+              "LeafIndex",
+              "unsigned long"
+            ]
+          ]
+        }
+      ],
+      [
+        "WsdbFindPublicDataLeafIndices",
+        {
+          "__typename": "WsdbFindPublicDataLeafIndices",
+          "revision": "WorldStateRevision",
+          "leaves": [
+            "vector",
+            [
+              {
+                "__typename": "PublicDataLeafValue",
+                "slot": [
+                  "alias",
+                  [
+                    "PublicDataSlot",
+                    "bin32"
+                  ]
+                ],
+                "value": [
+                  "alias",
+                  [
+                    "PublicDataValue",
+                    "bin32"
+                  ]
+                ]
+              }
+            ]
+          ],
+          "startIndex": [
+            "alias",
+            [
+              "LeafIndex",
+              "unsigned long"
+            ]
+          ]
+        }
+      ],
+      [
+        "WsdbFindNullifierLeafIndices",
+        {
+          "__typename": "WsdbFindNullifierLeafIndices",
+          "revision": "WorldStateRevision",
+          "leaves": [
+            "vector",
+            [
+              {
+                "__typename": "NullifierLeafValue",
+                "nullifier": [
+                  "alias",
+                  [
+                    "Nullifier",
+                    "bin32"
+                  ]
+                ]
+              }
+            ]
+          ],
+          "startIndex": [
+            "alias",
+            [
+              "LeafIndex",
+              "unsigned long"
+            ]
+          ]
+        }
+      ],
+      [
+        "WsdbFindLowLeaf",
+        {
+          "__typename": "WsdbFindLowLeaf",
+          "treeId": [
+            "alias",
+            [
+              "MerkleTreeId",
+              "unsigned int"
+            ]
+          ],
+          "revision": "WorldStateRevision",
+          "key": [
+            "alias",
+            [
+              "Fr",
+              "bin32"
+            ]
+          ]
+        }
+      ],
+      [
+        "WsdbFindSiblingPaths",
+        {
+          "__typename": "WsdbFindSiblingPaths",
+          "treeId": [
+            "alias",
+            [
+              "MerkleTreeId",
+              "unsigned int"
+            ]
+          ],
+          "revision": "WorldStateRevision",
+          "leaves": [
+            "vector",
+            [
+              [
+                "alias",
+                [
+                  "Fr",
+                  "bin32"
+                ]
+              ]
+            ]
+          ]
+        }
+      ],
+      [
+        "WsdbFindPublicDataSiblingPaths",
+        {
+          "__typename": "WsdbFindPublicDataSiblingPaths",
+          "revision": "WorldStateRevision",
+          "leaves": [
+            "vector",
+            [
+              {
+                "__typename": "PublicDataLeafValue",
+                "slot": [
+                  "alias",
+                  [
+                    "PublicDataSlot",
+                    "bin32"
+                  ]
+                ],
+                "value": [
+                  "alias",
+                  [
+                    "PublicDataValue",
+                    "bin32"
+                  ]
+                ]
+              }
+            ]
+          ]
+        }
+      ],
+      [
+        "WsdbFindNullifierSiblingPaths",
+        {
+          "__typename": "WsdbFindNullifierSiblingPaths",
+          "revision": "WorldStateRevision",
+          "leaves": [
+            "vector",
+            [
+              {
+                "__typename": "NullifierLeafValue",
+                "nullifier": [
+                  "alias",
+                  [
+                    "Nullifier",
+                    "bin32"
+                  ]
+                ]
+              }
+            ]
+          ]
+        }
+      ],
+      [
+        "WsdbAppendLeaves",
+        {
+          "__typename": "WsdbAppendLeaves",
+          "treeId": [
+            "alias",
+            [
+              "MerkleTreeId",
+              "unsigned int"
+            ]
+          ],
+          "leaves": [
+            "vector",
+            [
+              [
+                "alias",
+                [
+                  "Fr",
+                  "bin32"
+                ]
+              ]
+            ]
+          ],
+          "forkId": [
+            "alias",
+            [
+              "ForkId",
+              "unsigned long"
+            ]
+          ]
+        }
+      ],
+      [
+        "WsdbAppendPublicDataLeaves",
+        {
+          "__typename": "WsdbAppendPublicDataLeaves",
+          "leaves": [
+            "vector",
+            [
+              {
+                "__typename": "PublicDataLeafValue",
+                "slot": [
+                  "alias",
+                  [
+                    "PublicDataSlot",
+                    "bin32"
+                  ]
+                ],
+                "value": [
+                  "alias",
+                  [
+                    "PublicDataValue",
+                    "bin32"
+                  ]
+                ]
+              }
+            ]
+          ],
+          "forkId": [
+            "alias",
+            [
+              "ForkId",
+              "unsigned long"
+            ]
+          ]
+        }
+      ],
+      [
+        "WsdbAppendNullifierLeaves",
+        {
+          "__typename": "WsdbAppendNullifierLeaves",
+          "leaves": [
+            "vector",
+            [
+              {
+                "__typename": "NullifierLeafValue",
+                "nullifier": [
+                  "alias",
+                  [
+                    "Nullifier",
+                    "bin32"
+                  ]
+                ]
+              }
+            ]
+          ],
+          "forkId": [
+            "alias",
+            [
+              "ForkId",
+              "unsigned long"
+            ]
+          ]
+        }
+      ],
+      [
+        "WsdbBatchInsertPublicData",
+        {
+          "__typename": "WsdbBatchInsertPublicData",
+          "leaves": [
+            "vector",
+            [
+              {
+                "__typename": "PublicDataLeafValue",
+                "slot": [
+                  "alias",
+                  [
+                    "PublicDataSlot",
+                    "bin32"
+                  ]
+                ],
+                "value": [
+                  "alias",
+                  [
+                    "PublicDataValue",
+                    "bin32"
+                  ]
+                ]
+              }
+            ]
+          ],
+          "subtreeDepth": "unsigned int",
+          "forkId": [
+            "alias",
+            [
+              "ForkId",
+              "unsigned long"
+            ]
+          ]
+        }
+      ],
+      [
+        "WsdbBatchInsertNullifier",
+        {
+          "__typename": "WsdbBatchInsertNullifier",
+          "leaves": [
+            "vector",
+            [
+              {
+                "__typename": "NullifierLeafValue",
+                "nullifier": [
+                  "alias",
+                  [
+                    "Nullifier",
+                    "bin32"
+                  ]
+                ]
+              }
+            ]
+          ],
+          "subtreeDepth": "unsigned int",
+          "forkId": [
+            "alias",
+            [
+              "ForkId",
+              "unsigned long"
+            ]
+          ]
+        }
+      ],
+      [
+        "WsdbSequentialInsertPublicData",
+        {
+          "__typename": "WsdbSequentialInsertPublicData",
+          "leaves": [
+            "vector",
+            [
+              {
+                "__typename": "PublicDataLeafValue",
+                "slot": [
+                  "alias",
+                  [
+                    "PublicDataSlot",
+                    "bin32"
+                  ]
+                ],
+                "value": [
+                  "alias",
+                  [
+                    "PublicDataValue",
+                    "bin32"
+                  ]
+                ]
+              }
+            ]
+          ],
+          "forkId": [
+            "alias",
+            [
+              "ForkId",
+              "unsigned long"
+            ]
+          ]
+        }
+      ],
+      [
+        "WsdbSequentialInsertNullifier",
+        {
+          "__typename": "WsdbSequentialInsertNullifier",
+          "leaves": [
+            "vector",
+            [
+              {
+                "__typename": "NullifierLeafValue",
+                "nullifier": [
+                  "alias",
+                  [
+                    "Nullifier",
+                    "bin32"
+                  ]
+                ]
+              }
+            ]
+          ],
+          "forkId": [
+            "alias",
+            [
+              "ForkId",
+              "unsigned long"
+            ]
+          ]
+        }
+      ],
+      [
+        "WsdbUpdateArchive",
+        {
+          "__typename": "WsdbUpdateArchive",
+          "blockStateRef": [
+            "vector",
+            [
+              {
+                "__typename": "TreeStateReference",
+                "treeId": [
+                  "alias",
+                  [
+                    "MerkleTreeId",
+                    "unsigned int"
+                  ]
+                ],
+                "root": [
+                  "alias",
+                  [
+                    "Fr",
+                    "bin32"
+                  ]
+                ],
+                "size": [
+                  "alias",
+                  [
+                    "LeafIndex",
+                    "unsigned long"
+                  ]
+                ]
+              }
+            ]
+          ],
+          "blockHeaderHash": [
+            "alias",
+            [
+              "BlockHeaderHash",
+              "bin32"
+            ]
+          ],
+          "forkId": [
+            "alias",
+            [
+              "ForkId",
+              "unsigned long"
+            ]
+          ]
+        }
+      ],
+      [
+        "WsdbCommit",
+        {
+          "__typename": "WsdbCommit"
+        }
+      ],
+      [
+        "WsdbRollback",
+        {
+          "__typename": "WsdbRollback"
+        }
+      ],
+      [
+        "WsdbSyncBlock",
+        {
+          "__typename": "WsdbSyncBlock",
+          "blockNumber": [
+            "alias",
+            [
+              "BlockNumber",
+              "unsigned int"
+            ]
+          ],
+          "blockStateRef": [
+            "vector",
+            [
+              {
+                "__typename": "TreeStateReference",
+                "treeId": [
+                  "alias",
+                  [
+                    "MerkleTreeId",
+                    "unsigned int"
+                  ]
+                ],
+                "root": [
+                  "alias",
+                  [
+                    "Fr",
+                    "bin32"
+                  ]
+                ],
+                "size": [
+                  "alias",
+                  [
+                    "LeafIndex",
+                    "unsigned long"
+                  ]
+                ]
+              }
+            ]
+          ],
+          "blockHeaderHash": [
+            "alias",
+            [
+              "BlockHeaderHash",
+              "bin32"
+            ]
+          ],
+          "paddedNoteHashes": [
+            "vector",
+            [
+              [
+                "alias",
+                [
+                  "Fr",
+                  "bin32"
+                ]
+              ]
+            ]
+          ],
+          "paddedL1ToL2Messages": [
+            "vector",
+            [
+              [
+                "alias",
+                [
+                  "Fr",
+                  "bin32"
+                ]
+              ]
+            ]
+          ],
+          "paddedNullifiers": [
+            "vector",
+            [
+              {
+                "__typename": "NullifierLeafValue",
+                "nullifier": [
+                  "alias",
+                  [
+                    "Nullifier",
+                    "bin32"
+                  ]
+                ]
+              }
+            ]
+          ],
+          "publicDataWrites": [
+            "vector",
+            [
+              {
+                "__typename": "PublicDataLeafValue",
+                "slot": [
+                  "alias",
+                  [
+                    "PublicDataSlot",
+                    "bin32"
+                  ]
+                ],
+                "value": [
+                  "alias",
+                  [
+                    "PublicDataValue",
+                    "bin32"
+                  ]
+                ]
+              }
+            ]
+          ]
+        }
+      ],
+      [
+        "WsdbCreateFork",
+        {
+          "__typename": "WsdbCreateFork",
+          "latest": "bool",
+          "blockNumber": [
+            "alias",
+            [
+              "BlockNumber",
+              "unsigned int"
+            ]
+          ]
+        }
+      ],
+      [
+        "WsdbDeleteFork",
+        {
+          "__typename": "WsdbDeleteFork",
+          "forkId": [
+            "alias",
+            [
+              "ForkId",
+              "unsigned long"
+            ]
+          ]
+        }
+      ],
+      [
+        "WsdbFinalizeBlocks",
+        {
+          "__typename": "WsdbFinalizeBlocks",
+          "toBlockNumber": [
+            "alias",
+            [
+              "BlockNumber",
+              "unsigned int"
+            ]
+          ]
+        }
+      ],
+      [
+        "WsdbUnwindBlocks",
+        {
+          "__typename": "WsdbUnwindBlocks",
+          "toBlockNumber": [
+            "alias",
+            [
+              "BlockNumber",
+              "unsigned int"
+            ]
+          ]
+        }
+      ],
+      [
+        "WsdbRemoveHistoricalBlocks",
+        {
+          "__typename": "WsdbRemoveHistoricalBlocks",
+          "toBlockNumber": [
+            "alias",
+            [
+              "BlockNumber",
+              "unsigned int"
+            ]
+          ]
+        }
+      ],
+      [
+        "WsdbGetStatus",
+        {
+          "__typename": "WsdbGetStatus"
+        }
+      ],
+      [
+        "WsdbCreateCheckpoint",
+        {
+          "__typename": "WsdbCreateCheckpoint",
+          "forkId": [
+            "alias",
+            [
+              "ForkId",
+              "unsigned long"
+            ]
+          ]
+        }
+      ],
+      [
+        "WsdbCommitCheckpoint",
+        {
+          "__typename": "WsdbCommitCheckpoint",
+          "forkId": [
+            "alias",
+            [
+              "ForkId",
+              "unsigned long"
+            ]
+          ]
+        }
+      ],
+      [
+        "WsdbRevertCheckpoint",
+        {
+          "__typename": "WsdbRevertCheckpoint",
+          "forkId": [
+            "alias",
+            [
+              "ForkId",
+              "unsigned long"
+            ]
+          ]
+        }
+      ],
+      [
+        "WsdbCommitAllCheckpoints",
+        {
+          "__typename": "WsdbCommitAllCheckpoints",
+          "forkId": [
+            "alias",
+            [
+              "ForkId",
+              "unsigned long"
+            ]
+          ]
+        }
+      ],
+      [
+        "WsdbRevertAllCheckpoints",
+        {
+          "__typename": "WsdbRevertAllCheckpoints",
+          "forkId": [
+            "alias",
+            [
+              "ForkId",
+              "unsigned long"
+            ]
+          ]
+        }
+      ],
+      [
+        "WsdbCopyStores",
+        {
+          "__typename": "WsdbCopyStores",
+          "dstPath": "string",
+          "compact": [
+            "optional",
+            [
+              "bool"
+            ]
+          ]
+        }
+      ]
+    ]
+  ],
+  "responses": [
+    "named_union",
+    [
+      [
+        "WsdbErrorResponse",
+        {
+          "__typename": "WsdbErrorResponse",
+          "message": "string"
+        }
+      ],
+      [
+        "WsdbGetTreeInfoResponse",
+        {
+          "__typename": "WsdbGetTreeInfoResponse",
+          "treeId": [
+            "alias",
+            [
+              "MerkleTreeId",
+              "unsigned int"
+            ]
+          ],
+          "root": [
+            "alias",
+            [
+              "Fr",
+              "bin32"
+            ]
+          ],
+          "size": [
+            "alias",
+            [
+              "LeafIndex",
+              "unsigned long"
+            ]
+          ],
+          "depth": "unsigned int"
+        }
+      ],
+      [
+        "WsdbGetStateReferenceResponse",
+        {
+          "__typename": "WsdbGetStateReferenceResponse",
+          "state": [
+            "vector",
+            [
+              {
+                "__typename": "TreeStateReference",
+                "treeId": [
+                  "alias",
+                  [
+                    "MerkleTreeId",
+                    "unsigned int"
+                  ]
+                ],
+                "root": [
+                  "alias",
+                  [
+                    "Fr",
+                    "bin32"
+                  ]
+                ],
+                "size": [
+                  "alias",
+                  [
+                    "LeafIndex",
+                    "unsigned long"
+                  ]
+                ]
+              }
+            ]
+          ]
+        }
+      ],
+      [
+        "WsdbGetInitialStateReferenceResponse",
+        {
+          "__typename": "WsdbGetInitialStateReferenceResponse",
+          "state": [
+            "vector",
+            [
+              {
+                "__typename": "TreeStateReference",
+                "treeId": [
+                  "alias",
+                  [
+                    "MerkleTreeId",
+                    "unsigned int"
+                  ]
+                ],
+                "root": [
+                  "alias",
+                  [
+                    "Fr",
+                    "bin32"
+                  ]
+                ],
+                "size": [
+                  "alias",
+                  [
+                    "LeafIndex",
+                    "unsigned long"
+                  ]
+                ]
+              }
+            ]
+          ]
+        }
+      ],
+      [
+        "WsdbGetLeafValueResponse",
+        {
+          "__typename": "WsdbGetLeafValueResponse",
+          "value": [
+            "optional",
+            [
+              [
+                "alias",
+                [
+                  "Fr",
+                  "bin32"
+                ]
+              ]
+            ]
+          ]
+        }
+      ],
+      [
+        "WsdbGetPublicDataLeafValueResponse",
+        {
+          "__typename": "WsdbGetPublicDataLeafValueResponse",
+          "value": [
+            "optional",
+            [
+              {
+                "__typename": "PublicDataLeafValue",
+                "slot": [
+                  "alias",
+                  [
+                    "PublicDataSlot",
+                    "bin32"
+                  ]
+                ],
+                "value": [
+                  "alias",
+                  [
+                    "PublicDataValue",
+                    "bin32"
+                  ]
+                ]
+              }
+            ]
+          ]
+        }
+      ],
+      [
+        "WsdbGetNullifierLeafValueResponse",
+        {
+          "__typename": "WsdbGetNullifierLeafValueResponse",
+          "value": [
+            "optional",
+            [
+              {
+                "__typename": "NullifierLeafValue",
+                "nullifier": [
+                  "alias",
+                  [
+                    "Nullifier",
+                    "bin32"
+                  ]
+                ]
+              }
+            ]
+          ]
+        }
+      ],
+      [
+        "WsdbGetPublicDataLeafPreimageResponse",
+        {
+          "__typename": "WsdbGetPublicDataLeafPreimageResponse",
+          "preimage": [
+            "optional",
+            [
+              {
+                "__typename": "IndexedPublicDataLeafValue",
+                "leaf": {
+                  "__typename": "PublicDataLeafValue",
+                  "slot": [
+                    "alias",
+                    [
+                      "PublicDataSlot",
+                      "bin32"
+                    ]
+                  ],
+                  "value": [
+                    "alias",
+                    [
+                      "PublicDataValue",
+                      "bin32"
+                    ]
+                  ]
+                },
+                "nextIndex": [
+                  "alias",
+                  [
+                    "LeafIndex",
+                    "unsigned long"
+                  ]
+                ],
+                "nextKey": [
+                  "alias",
+                  [
+                    "Fr",
+                    "bin32"
+                  ]
+                ]
+              }
+            ]
+          ]
+        }
+      ],
+      [
+        "WsdbGetNullifierLeafPreimageResponse",
+        {
+          "__typename": "WsdbGetNullifierLeafPreimageResponse",
+          "preimage": [
+            "optional",
+            [
+              {
+                "__typename": "IndexedNullifierLeafValue",
+                "leaf": {
+                  "__typename": "NullifierLeafValue",
+                  "nullifier": [
+                    "alias",
+                    [
+                      "Nullifier",
+                      "bin32"
+                    ]
+                  ]
+                },
+                "nextIndex": [
+                  "alias",
+                  [
+                    "LeafIndex",
+                    "unsigned long"
+                  ]
+                ],
+                "nextKey": [
+                  "alias",
+                  [
+                    "Fr",
+                    "bin32"
+                  ]
+                ]
+              }
+            ]
+          ]
+        }
+      ],
+      [
+        "WsdbGetSiblingPathResponse",
+        {
+          "__typename": "WsdbGetSiblingPathResponse",
+          "path": [
+            "vector",
+            [
+              [
+                "alias",
+                [
+                  "Fr",
+                  "bin32"
+                ]
+              ]
+            ]
+          ]
+        }
+      ],
+      [
+        "WsdbGetBlockNumbersForLeafIndicesResponse",
+        {
+          "__typename": "WsdbGetBlockNumbersForLeafIndicesResponse",
+          "blockNumbers": [
+            "vector",
+            [
+              [
+                "optional",
+                [
+                  [
+                    "alias",
+                    [
+                      "BlockNumber",
+                      "unsigned int"
+                    ]
+                  ]
+                ]
+              ]
+            ]
+          ]
+        }
+      ],
+      [
+        "WsdbFindLeafIndicesResponse",
+        {
+          "__typename": "WsdbFindLeafIndicesResponse",
+          "indices": [
+            "vector",
+            [
+              [
+                "optional",
+                [
+                  [
+                    "alias",
+                    [
+                      "LeafIndex",
+                      "unsigned long"
+                    ]
+                  ]
+                ]
+              ]
+            ]
+          ]
+        }
+      ],
+      [
+        "WsdbFindPublicDataLeafIndicesResponse",
+        {
+          "__typename": "WsdbFindPublicDataLeafIndicesResponse",
+          "indices": [
+            "vector",
+            [
+              [
+                "optional",
+                [
+                  [
+                    "alias",
+                    [
+                      "LeafIndex",
+                      "unsigned long"
+                    ]
+                  ]
+                ]
+              ]
+            ]
+          ]
+        }
+      ],
+      [
+        "WsdbFindNullifierLeafIndicesResponse",
+        {
+          "__typename": "WsdbFindNullifierLeafIndicesResponse",
+          "indices": [
+            "vector",
+            [
+              [
+                "optional",
+                [
+                  [
+                    "alias",
+                    [
+                      "LeafIndex",
+                      "unsigned long"
+                    ]
+                  ]
+                ]
+              ]
+            ]
+          ]
+        }
+      ],
+      [
+        "WsdbFindLowLeafResponse",
+        {
+          "__typename": "WsdbFindLowLeafResponse",
+          "alreadyPresent": "bool",
+          "index": [
+            "alias",
+            [
+              "LeafIndex",
+              "unsigned long"
+            ]
+          ]
+        }
+      ],
+      [
+        "WsdbFindSiblingPathsResponse",
+        {
+          "__typename": "WsdbFindSiblingPathsResponse",
+          "paths": [
+            "vector",
+            [
+              [
+                "optional",
+                [
+                  {
+                    "__typename": "SiblingPathAndIndex",
+                    "index": [
+                      "alias",
+                      [
+                        "LeafIndex",
+                        "unsigned long"
+                      ]
+                    ],
+                    "path": [
+                      "vector",
+                      [
+                        [
+                          "alias",
+                          [
+                            "Fr",
+                            "bin32"
+                          ]
+                        ]
+                      ]
+                    ]
+                  }
+                ]
+              ]
+            ]
+          ]
+        }
+      ],
+      [
+        "WsdbFindPublicDataSiblingPathsResponse",
+        {
+          "__typename": "WsdbFindPublicDataSiblingPathsResponse",
+          "paths": [
+            "vector",
+            [
+              [
+                "optional",
+                [
+                  {
+                    "__typename": "SiblingPathAndIndex",
+                    "index": [
+                      "alias",
+                      [
+                        "LeafIndex",
+                        "unsigned long"
+                      ]
+                    ],
+                    "path": [
+                      "vector",
+                      [
+                        [
+                          "alias",
+                          [
+                            "Fr",
+                            "bin32"
+                          ]
+                        ]
+                      ]
+                    ]
+                  }
+                ]
+              ]
+            ]
+          ]
+        }
+      ],
+      [
+        "WsdbFindNullifierSiblingPathsResponse",
+        {
+          "__typename": "WsdbFindNullifierSiblingPathsResponse",
+          "paths": [
+            "vector",
+            [
+              [
+                "optional",
+                [
+                  {
+                    "__typename": "SiblingPathAndIndex",
+                    "index": [
+                      "alias",
+                      [
+                        "LeafIndex",
+                        "unsigned long"
+                      ]
+                    ],
+                    "path": [
+                      "vector",
+                      [
+                        [
+                          "alias",
+                          [
+                            "Fr",
+                            "bin32"
+                          ]
+                        ]
+                      ]
+                    ]
+                  }
+                ]
+              ]
+            ]
+          ]
+        }
+      ],
+      [
+        "WsdbAppendLeavesResponse",
+        {
+          "__typename": "WsdbAppendLeavesResponse"
+        }
+      ],
+      [
+        "WsdbAppendPublicDataLeavesResponse",
+        {
+          "__typename": "WsdbAppendPublicDataLeavesResponse"
+        }
+      ],
+      [
+        "WsdbAppendNullifierLeavesResponse",
+        {
+          "__typename": "WsdbAppendNullifierLeavesResponse"
+        }
+      ],
+      [
+        "WsdbBatchInsertPublicDataResponse",
+        {
+          "__typename": "WsdbBatchInsertPublicDataResponse",
+          "result": {
+            "__typename": "BatchInsertionResultPublicData",
+            "lowLeafWitnessData": [
+              "vector",
+              [
+                {
+                  "__typename": "PublicDataLeafUpdateWitnessData",
+                  "leaf": {
+                    "__typename": "IndexedPublicDataLeafValue",
+                    "leaf": {
+                      "__typename": "PublicDataLeafValue",
+                      "slot": [
+                        "alias",
+                        [
+                          "PublicDataSlot",
+                          "bin32"
+                        ]
+                      ],
+                      "value": [
+                        "alias",
+                        [
+                          "PublicDataValue",
+                          "bin32"
+                        ]
+                      ]
+                    },
+                    "nextIndex": [
+                      "alias",
+                      [
+                        "LeafIndex",
+                        "unsigned long"
+                      ]
+                    ],
+                    "nextKey": [
+                      "alias",
+                      [
+                        "Fr",
+                        "bin32"
+                      ]
+                    ]
+                  },
+                  "index": [
+                    "alias",
+                    [
+                      "LeafIndex",
+                      "unsigned long"
+                    ]
+                  ],
+                  "path": [
+                    "vector",
+                    [
+                      [
+                        "alias",
+                        [
+                          "Fr",
+                          "bin32"
+                        ]
+                      ]
+                    ]
+                  ]
+                }
+              ]
+            ],
+            "sortedLeaves": [
+              "vector",
+              [
+                {
+                  "__typename": "SortedPublicDataLeaf",
+                  "leaf": {
+                    "__typename": "PublicDataLeafValue",
+                    "slot": [
+                      "alias",
+                      [
+                        "PublicDataSlot",
+                        "bin32"
+                      ]
+                    ],
+                    "value": [
+                      "alias",
+                      [
+                        "PublicDataValue",
+                        "bin32"
+                      ]
+                    ]
+                  },
+                  "index": [
+                    "alias",
+                    [
+                      "LeafIndex",
+                      "unsigned long"
+                    ]
+                  ]
+                }
+              ]
+            ],
+            "subtreePath": [
+              "vector",
+              [
+                [
+                  "alias",
+                  [
+                    "Fr",
+                    "bin32"
+                  ]
+                ]
+              ]
+            ]
+          }
+        }
+      ],
+      [
+        "WsdbBatchInsertNullifierResponse",
+        {
+          "__typename": "WsdbBatchInsertNullifierResponse",
+          "result": {
+            "__typename": "BatchInsertionResultNullifier",
+            "lowLeafWitnessData": [
+              "vector",
+              [
+                {
+                  "__typename": "NullifierLeafUpdateWitnessData",
+                  "leaf": {
+                    "__typename": "IndexedNullifierLeafValue",
+                    "leaf": {
+                      "__typename": "NullifierLeafValue",
+                      "nullifier": [
+                        "alias",
+                        [
+                          "Nullifier",
+                          "bin32"
+                        ]
+                      ]
+                    },
+                    "nextIndex": [
+                      "alias",
+                      [
+                        "LeafIndex",
+                        "unsigned long"
+                      ]
+                    ],
+                    "nextKey": [
+                      "alias",
+                      [
+                        "Fr",
+                        "bin32"
+                      ]
+                    ]
+                  },
+                  "index": [
+                    "alias",
+                    [
+                      "LeafIndex",
+                      "unsigned long"
+                    ]
+                  ],
+                  "path": [
+                    "vector",
+                    [
+                      [
+                        "alias",
+                        [
+                          "Fr",
+                          "bin32"
+                        ]
+                      ]
+                    ]
+                  ]
+                }
+              ]
+            ],
+            "sortedLeaves": [
+              "vector",
+              [
+                {
+                  "__typename": "SortedNullifierLeaf",
+                  "leaf": {
+                    "__typename": "NullifierLeafValue",
+                    "nullifier": [
+                      "alias",
+                      [
+                        "Nullifier",
+                        "bin32"
+                      ]
+                    ]
+                  },
+                  "index": [
+                    "alias",
+                    [
+                      "LeafIndex",
+                      "unsigned long"
+                    ]
+                  ]
+                }
+              ]
+            ],
+            "subtreePath": [
+              "vector",
+              [
+                [
+                  "alias",
+                  [
+                    "Fr",
+                    "bin32"
+                  ]
+                ]
+              ]
+            ]
+          }
+        }
+      ],
+      [
+        "WsdbSequentialInsertPublicDataResponse",
+        {
+          "__typename": "WsdbSequentialInsertPublicDataResponse",
+          "result": {
+            "__typename": "SequentialInsertionResultPublicData",
+            "lowLeafWitnessData": [
+              "vector",
+              [
+                {
+                  "__typename": "PublicDataLeafUpdateWitnessData",
+                  "leaf": {
+                    "__typename": "IndexedPublicDataLeafValue",
+                    "leaf": {
+                      "__typename": "PublicDataLeafValue",
+                      "slot": [
+                        "alias",
+                        [
+                          "PublicDataSlot",
+                          "bin32"
+                        ]
+                      ],
+                      "value": [
+                        "alias",
+                        [
+                          "PublicDataValue",
+                          "bin32"
+                        ]
+                      ]
+                    },
+                    "nextIndex": [
+                      "alias",
+                      [
+                        "LeafIndex",
+                        "unsigned long"
+                      ]
+                    ],
+                    "nextKey": [
+                      "alias",
+                      [
+                        "Fr",
+                        "bin32"
+                      ]
+                    ]
+                  },
+                  "index": [
+                    "alias",
+                    [
+                      "LeafIndex",
+                      "unsigned long"
+                    ]
+                  ],
+                  "path": [
+                    "vector",
+                    [
+                      [
+                        "alias",
+                        [
+                          "Fr",
+                          "bin32"
+                        ]
+                      ]
+                    ]
+                  ]
+                }
+              ]
+            ],
+            "insertionWitnessData": [
+              "vector",
+              [
+                {
+                  "__typename": "PublicDataLeafUpdateWitnessData",
+                  "leaf": {
+                    "__typename": "IndexedPublicDataLeafValue",
+                    "leaf": {
+                      "__typename": "PublicDataLeafValue",
+                      "slot": [
+                        "alias",
+                        [
+                          "PublicDataSlot",
+                          "bin32"
+                        ]
+                      ],
+                      "value": [
+                        "alias",
+                        [
+                          "PublicDataValue",
+                          "bin32"
+                        ]
+                      ]
+                    },
+                    "nextIndex": [
+                      "alias",
+                      [
+                        "LeafIndex",
+                        "unsigned long"
+                      ]
+                    ],
+                    "nextKey": [
+                      "alias",
+                      [
+                        "Fr",
+                        "bin32"
+                      ]
+                    ]
+                  },
+                  "index": [
+                    "alias",
+                    [
+                      "LeafIndex",
+                      "unsigned long"
+                    ]
+                  ],
+                  "path": [
+                    "vector",
+                    [
+                      [
+                        "alias",
+                        [
+                          "Fr",
+                          "bin32"
+                        ]
+                      ]
+                    ]
+                  ]
+                }
+              ]
+            ]
+          }
+        }
+      ],
+      [
+        "WsdbSequentialInsertNullifierResponse",
+        {
+          "__typename": "WsdbSequentialInsertNullifierResponse",
+          "result": {
+            "__typename": "SequentialInsertionResultNullifier",
+            "lowLeafWitnessData": [
+              "vector",
+              [
+                {
+                  "__typename": "NullifierLeafUpdateWitnessData",
+                  "leaf": {
+                    "__typename": "IndexedNullifierLeafValue",
+                    "leaf": {
+                      "__typename": "NullifierLeafValue",
+                      "nullifier": [
+                        "alias",
+                        [
+                          "Nullifier",
+                          "bin32"
+                        ]
+                      ]
+                    },
+                    "nextIndex": [
+                      "alias",
+                      [
+                        "LeafIndex",
+                        "unsigned long"
+                      ]
+                    ],
+                    "nextKey": [
+                      "alias",
+                      [
+                        "Fr",
+                        "bin32"
+                      ]
+                    ]
+                  },
+                  "index": [
+                    "alias",
+                    [
+                      "LeafIndex",
+                      "unsigned long"
+                    ]
+                  ],
+                  "path": [
+                    "vector",
+                    [
+                      [
+                        "alias",
+                        [
+                          "Fr",
+                          "bin32"
+                        ]
+                      ]
+                    ]
+                  ]
+                }
+              ]
+            ],
+            "insertionWitnessData": [
+              "vector",
+              [
+                {
+                  "__typename": "NullifierLeafUpdateWitnessData",
+                  "leaf": {
+                    "__typename": "IndexedNullifierLeafValue",
+                    "leaf": {
+                      "__typename": "NullifierLeafValue",
+                      "nullifier": [
+                        "alias",
+                        [
+                          "Nullifier",
+                          "bin32"
+                        ]
+                      ]
+                    },
+                    "nextIndex": [
+                      "alias",
+                      [
+                        "LeafIndex",
+                        "unsigned long"
+                      ]
+                    ],
+                    "nextKey": [
+                      "alias",
+                      [
+                        "Fr",
+                        "bin32"
+                      ]
+                    ]
+                  },
+                  "index": [
+                    "alias",
+                    [
+                      "LeafIndex",
+                      "unsigned long"
+                    ]
+                  ],
+                  "path": [
+                    "vector",
+                    [
+                      [
+                        "alias",
+                        [
+                          "Fr",
+                          "bin32"
+                        ]
+                      ]
+                    ]
+                  ]
+                }
+              ]
+            ]
+          }
+        }
+      ],
+      [
+        "WsdbUpdateArchiveResponse",
+        {
+          "__typename": "WsdbUpdateArchiveResponse"
+        }
+      ],
+      [
+        "WsdbCommitResponse",
+        {
+          "__typename": "WsdbCommitResponse",
+          "status": {
+            "__typename": "WorldStateStatusFull",
+            "summary": {
+              "__typename": "WorldStateStatusSummary",
+              "unfinalizedBlockNumber": "unsigned long",
+              "finalizedBlockNumber": "unsigned long",
+              "oldestHistoricalBlock": "unsigned long",
+              "treesAreSynched": "bool"
+            },
+            "dbStats": {
+              "__typename": "WorldStateDBStats",
+              "noteHashTreeStats": {
+                "__typename": "TreeDBStats",
+                "mapSize": "unsigned long",
+                "physicalFileSize": "unsigned long",
+                "blocksDBStats": {
+                  "__typename": "DBStats",
+                  "name": "string",
+                  "numDataItems": "unsigned long",
+                  "totalUsedSize": "unsigned long"
+                },
+                "nodesDBStats": "DBStats",
+                "leafPreimagesDBStats": "DBStats",
+                "leafIndicesDBStats": "DBStats",
+                "blockIndicesDBStats": "DBStats"
+              },
+              "messageTreeStats": "TreeDBStats",
+              "archiveTreeStats": "TreeDBStats",
+              "publicDataTreeStats": "TreeDBStats",
+              "nullifierTreeStats": "TreeDBStats"
+            },
+            "meta": {
+              "__typename": "WorldStateMeta",
+              "noteHashTreeMeta": {
+                "__typename": "TreeMeta",
+                "name": "string",
+                "depth": "unsigned int",
+                "size": "unsigned long",
+                "committedSize": "unsigned long",
+                "root": [
+                  "alias",
+                  [
+                    "Fr",
+                    "bin32"
+                  ]
+                ],
+                "initialSize": "unsigned long",
+                "initialRoot": [
+                  "alias",
+                  [
+                    "Fr",
+                    "bin32"
+                  ]
+                ],
+                "oldestHistoricBlock": "unsigned int",
+                "unfinalizedBlockHeight": "unsigned int",
+                "finalizedBlockHeight": "unsigned int"
+              },
+              "messageTreeMeta": "TreeMeta",
+              "archiveTreeMeta": "TreeMeta",
+              "publicDataTreeMeta": "TreeMeta",
+              "nullifierTreeMeta": "TreeMeta"
+            }
+          }
+        }
+      ],
+      [
+        "WsdbRollbackResponse",
+        {
+          "__typename": "WsdbRollbackResponse"
+        }
+      ],
+      [
+        "WsdbSyncBlockResponse",
+        {
+          "__typename": "WsdbSyncBlockResponse",
+          "status": "WorldStateStatusFull"
+        }
+      ],
+      [
+        "WsdbCreateForkResponse",
+        {
+          "__typename": "WsdbCreateForkResponse",
+          "forkId": [
+            "alias",
+            [
+              "ForkId",
+              "unsigned long"
+            ]
+          ]
+        }
+      ],
+      [
+        "WsdbDeleteForkResponse",
+        {
+          "__typename": "WsdbDeleteForkResponse"
+        }
+      ],
+      [
+        "WsdbFinalizeBlocksResponse",
+        {
+          "__typename": "WsdbFinalizeBlocksResponse",
+          "status": "WorldStateStatusSummary"
+        }
+      ],
+      [
+        "WsdbUnwindBlocksResponse",
+        {
+          "__typename": "WsdbUnwindBlocksResponse",
+          "status": "WorldStateStatusFull"
+        }
+      ],
+      [
+        "WsdbRemoveHistoricalBlocksResponse",
+        {
+          "__typename": "WsdbRemoveHistoricalBlocksResponse",
+          "status": "WorldStateStatusFull"
+        }
+      ],
+      [
+        "WsdbGetStatusResponse",
+        {
+          "__typename": "WsdbGetStatusResponse",
+          "status": "WorldStateStatusSummary"
+        }
+      ],
+      [
+        "WsdbCreateCheckpointResponse",
+        {
+          "__typename": "WsdbCreateCheckpointResponse"
+        }
+      ],
+      [
+        "WsdbCommitCheckpointResponse",
+        {
+          "__typename": "WsdbCommitCheckpointResponse"
+        }
+      ],
+      [
+        "WsdbRevertCheckpointResponse",
+        {
+          "__typename": "WsdbRevertCheckpointResponse"
+        }
+      ],
+      [
+        "WsdbCommitAllCheckpointsResponse",
+        {
+          "__typename": "WsdbCommitAllCheckpointsResponse"
+        }
+      ],
+      [
+        "WsdbRevertAllCheckpointsResponse",
+        {
+          "__typename": "WsdbRevertAllCheckpointsResponse"
+        }
+      ],
+      [
+        "WsdbCopyStoresResponse",
+        {
+          "__typename": "WsdbCopyStoresResponse"
+        }
+      ]
+    ]
+  ]
+}

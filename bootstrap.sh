@@ -537,6 +537,7 @@ function release {
   projects=(
     barretenberg/cpp
     ipc-runtime
+    wsdb
     barretenberg/ts
     barretenberg/rust
     noir
