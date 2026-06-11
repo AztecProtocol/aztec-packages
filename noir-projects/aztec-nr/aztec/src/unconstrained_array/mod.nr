@@ -74,7 +74,7 @@ where
     /// the same backend with overwhelming probability. Prefer [`UnconstrainedArray::empty_at`] when the slot must be a
     /// known value (e.g. one shared with an oracle or another call frame).
     pub unconstrained fn empty() -> Self {
-        Self::empty_at(random())
+        Self::at(random())
     }
 
     /// Returns the number of elements stored in the array.
@@ -125,8 +125,6 @@ where
     }
 
     /// Removes all elements from the array and returns self for chaining.
-    ///
-    /// Prefer [`UnconstrainedArray::empty_at`] when the intent is to start with a fresh array.
     pub unconstrained fn clear(self) -> Self {
         Oracle::clear_oracle(self.slot);
         self
