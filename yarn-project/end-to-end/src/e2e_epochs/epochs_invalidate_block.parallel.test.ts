@@ -32,7 +32,9 @@ import { getAnvilPort } from '../fixtures/fixtures.js';
 import { type EndToEndContext, getPrivateKeyFromIndex } from '../fixtures/utils.js';
 import { EpochsTestContext } from './epochs_test.js';
 
-jest.setTimeout(1000 * 60 * 10);
+// Tests in this suite can legitimately run long: in `proposer invalidates multiple checkpoints`
+// the selected bad slots may be up to ~20 slots (of 32s each) in the future.
+jest.setTimeout(1000 * 60 * 15);
 
 // Set up 6 nodes with 1 validator each, so that we can have up to 2 malicious ones and still achieve quorum
 const NODE_COUNT = 6;
@@ -469,11 +471,19 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
       }
     });
 
-    // Wait for both checkpoints to be mined
+    // Wait for both checkpoints to be mined. The bad slots can be several slots ahead of the
+    // current one (each candidate pair rejected by the search above pushes them out by one), so
+    // size the timeout from the distance to badSlot2 instead of a fixed number of slots, with a
+    // margin for the L1 inclusion of the second bad checkpoint. Note that timeoutPromise rejects
+    // on timeout, so there is no point in racing against a fallback value.
     logger.warn(`Waiting for two checkpoints to be mined on slots ${expectedFirstSlot} and ${expectedSecondSlot}`);
+    const slotsUntilBadCheckpoints = Number(badSlot2) - Number(currentSlot) + 4;
     const [firstCheckpoint, secondCheckpoint] = await Promise.race([
       Promise.all([firstCheckpointPromise.promise, secondCheckpointPromise.promise]),
-      timeoutPromise(test.L2_SLOT_DURATION_IN_S * 8 * 1000).then(() => [CheckpointNumber(0), CheckpointNumber(0)]),
+      timeoutPromise(
+        test.L2_SLOT_DURATION_IN_S * slotsUntilBadCheckpoints * 1000,
+        `Waiting for bad checkpoints at slots ${expectedFirstSlot} and ${expectedSecondSlot}`,
+      ),
     ]);
 
     // Sanity check: verify that both bad checkpoints landed on L1 with insufficient attestations.
