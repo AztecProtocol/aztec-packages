@@ -167,8 +167,9 @@ const gpuKnobs: MsmConfig = (() => {
     halveCap: optInt('halve_cap'),
     halveBa4Floor: optInt('halve_ba4floor'),
     earlyExit: q.get('early_exit') === '1' || undefined,
-    // halve_stop=0 (raw post-walker arena) is meaningful — optInt rejects 0.
+    // halve_stop=0 / halve_iter=0 are meaningful — optInt rejects 0.
     halveStop: q.get('halve_stop') !== null ? Math.max(0, Number(q.get('halve_stop'))) : undefined,
+    halveIter: q.get('halve_iter') !== null ? Math.max(0, Number(q.get('halve_iter'))) : undefined,
     reduceCostWeight: optNum('reduce_cost_weight'),
     maxCLo: optInt('max_clo'),
     forceSplit: (() => {

@@ -466,6 +466,11 @@ export interface MsmConfig {
    *  readback is the arena state after N depths (diffable across devices).
    *  Requires halvingReduce + earlyExit. */
   halveStop?: number;
+  /** Debug (finisher iteration bisection): all wide depths run, then the
+   *  finisher executes exactly K master-loop iterations after its
+   *  cooperative load (K=0 fingerprints the load + shared round-trip alone)
+   *  and stages each workgroup's slot 0. Requires halvingReduce + earlyExit. */
+  halveIter?: number;
   /**
    * Test hook (mirrors the C++ VAR_WINDOW_FORCE_SPLIT env var): force a split at
    * `[b_star, c_lo, c_hi]`, bypassing the cost model. Requires {@link splitC}.
@@ -2010,6 +2015,7 @@ export class MsmV2 {
   private halveBa4Floor?: number;
   private earlyExitMode = false;
   private halveStopAfter?: number;
+  private halveIterAfter?: number;
   private halveArraysDumpBind?: GPUBindGroup;
   private halveSchedule?: HalvingSchedule;
   private halveBa8Pipe?: GPUComputePipeline;
@@ -2518,6 +2524,7 @@ export class MsmV2 {
     m.halveBa4Floor = config?.halveBa4Floor;
     m.earlyExitMode = (config?.earlyExit ?? false) && (config?.halvingReduce ?? false);
     m.halveStopAfter = m.earlyExitMode ? config?.halveStop : undefined;
+    m.halveIterAfter = m.earlyExitMode ? config?.halveIter : undefined;
     m.forceSplit = config?.forceSplit;
     m.reduceCostWeight = config?.reduceCostWeight ?? 4;
     m.maxCLo = config?.maxCLo ?? 0;
@@ -4746,14 +4753,23 @@ export class MsmV2 {
         hbuf,
         this.halveStageBuf,
       ]);
-      if (this.halveStopAfter !== undefined) {
-        // Depth-bisection dump bind: lparams.w = 1 puts the finisher in dump
-        // mode; the z-source flag reflects whether zinit ran within the
-        // first halveStopAfter depths (slots are still affine before it).
-        const ijDump = this.halveZInitAt >= 0 && this.halveZInitAt < this.halveStopAfter ? 1 : 0;
-        const hlpDump = ubuf(
-          new Uint32Array([sched.finisherDepth, ijDump, Math.log2(strideB), 1]),
-        );
+      if (this.halveStopAfter !== undefined || this.halveIterAfter !== undefined) {
+        // Bisection dump bind. halveStop: lparams.w = 1 → raw-slot dump; the
+        // z-source flag reflects whether zinit ran within the first
+        // halveStopAfter depths (slots are still affine before it).
+        // halveIter: lparams.w = 2 + K → all depths run, the finisher does K
+        // master-loop iterations and stages slot 0; z-source is the real
+        // finisher entry state.
+        const ijDump =
+          this.halveIterAfter !== undefined
+            ? sched.finisherInputsJac
+              ? 1
+              : 0
+            : this.halveZInitAt >= 0 && this.halveZInitAt < (this.halveStopAfter ?? 0)
+              ? 1
+              : 0;
+        const dumpW = this.halveIterAfter !== undefined ? 2 + this.halveIterAfter : 1;
+        const hlpDump = ubuf(new Uint32Array([sched.finisherDepth, ijDump, Math.log2(strideB), dumpW]));
         this.halveArraysDumpBind = mkBind(this.halveStageLayout!, [
           redBuf,
           redZBuf,
@@ -5716,7 +5732,9 @@ export class MsmV2 {
       }
       dispatch(
         this.halveFinishArraysPipe,
-        this.halveStopAfter !== undefined ? this.halveArraysDumpBind! : this.halveArraysBind!,
+        this.halveStopAfter !== undefined || this.halveIterAfter !== undefined
+          ? this.halveArraysDumpBind!
+          : this.halveArraysBind!,
         (this.halveSchedule?.finisherDepth ?? 0) + 1,
         this.numWindows,
       );

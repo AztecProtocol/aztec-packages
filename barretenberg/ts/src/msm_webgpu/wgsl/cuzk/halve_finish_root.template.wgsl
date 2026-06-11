@@ -76,51 +76,7 @@ fn fr_dbl_f8(a: array<u32, 8>) -> array<u32, 8> { return fr_add_f8(a, a); }
 
 struct Jac { x: array<u32, 8>, y: array<u32, 8>, z: array<u32, 8>, }
 
-fn jac_cdbl(p: Jac) -> Jac {
-    if (fr_is_zero_f8(p.z)) { return p; }
-    let A = montgomery_product_f8(p.x, p.x);
-    let Bf = montgomery_product_f8(p.y, p.y);
-    let Cf = montgomery_product_f8(Bf, Bf);
-    let XpB = fr_add_f8(p.x, Bf);
-    let s2 = fr_sub_f8(montgomery_product_f8(XpB, XpB), fr_add_f8(A, Cf));
-    let Df = fr_dbl_f8(s2);
-    let E = fr_add_f8(fr_dbl_f8(A), A);
-    let F = montgomery_product_f8(E, E);
-    let X3 = fr_sub_f8(F, fr_dbl_f8(Df));
-    let C8 = fr_dbl_f8(fr_dbl_f8(fr_dbl_f8(Cf)));
-    let Y3 = fr_sub_f8(montgomery_product_f8(E, fr_sub_f8(Df, X3)), C8);
-    let Z3 = fr_dbl_f8(montgomery_product_f8(p.y, p.z));
-    return Jac(X3, Y3, Z3);
-}
 
-fn jac_cadd(p: Jac, q: Jac) -> Jac {
-    if (fr_is_zero_f8(q.z)) { return p; }
-    if (fr_is_zero_f8(p.z)) { return q; }
-    let Z1Z1 = montgomery_product_f8(p.z, p.z);
-    let Z2Z2 = montgomery_product_f8(q.z, q.z);
-    let U1 = montgomery_product_f8(p.x, Z2Z2);
-    let U2 = montgomery_product_f8(q.x, Z1Z1);
-    let S1 = montgomery_product_f8(montgomery_product_f8(p.y, q.z), Z2Z2);
-    let S2 = montgomery_product_f8(montgomery_product_f8(q.y, p.z), Z1Z1);
-    if (fr_eq_f8(U1, U2)) {
-        if (fr_eq_f8(S1, S2)) {
-            return jac_cdbl(p);
-        }
-        return Jac(p.x, p.y, array<u32, 8>(0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u));
-    }
-    let H = fr_sub_f8(U2, U1);
-    let twoH = fr_dbl_f8(H);
-    let I = montgomery_product_f8(twoH, twoH);
-    let J = montgomery_product_f8(H, I);
-    let r = fr_dbl_f8(fr_sub_f8(S2, S1));
-    let V = montgomery_product_f8(U1, I);
-    let X3 = fr_sub_f8(fr_sub_f8(montgomery_product_f8(r, r), J), fr_dbl_f8(V));
-    let S1J = montgomery_product_f8(S1, J);
-    let Y3 = fr_sub_f8(montgomery_product_f8(r, fr_sub_f8(V, X3)), fr_dbl_f8(S1J));
-    let ZpZ = fr_add_f8(p.z, q.z);
-    let Z3 = montgomery_product_f8(fr_sub_f8(fr_sub_f8(montgomery_product_f8(ZpZ, ZpZ), Z1Z1), Z2Z2), H);
-    return Jac(X3, Y3, Z3);
-}
 
 fn gload(idx: u32) -> Jac {
     return Jac(load_x(idx, cparams.x), load_y(idx, cparams.x), load_zp(idx));
@@ -139,20 +95,37 @@ fn gstore(idx: u32, v: Jac) {
 // are untrodden driver ground.
 var<workgroup> sh: array<u32, {{ sh_words }}>;
 
-fn sload(i: u32) -> Jac {
+fn sl_x(i: u32) -> array<u32, 8> {
     let b = 24u * i;
-    return Jac(
-        array<u32, 8>(sh[b], sh[b + 1u], sh[b + 2u], sh[b + 3u], sh[b + 4u], sh[b + 5u], sh[b + 6u], sh[b + 7u]),
-        array<u32, 8>(sh[b + 8u], sh[b + 9u], sh[b + 10u], sh[b + 11u], sh[b + 12u], sh[b + 13u], sh[b + 14u], sh[b + 15u]),
-        array<u32, 8>(sh[b + 16u], sh[b + 17u], sh[b + 18u], sh[b + 19u], sh[b + 20u], sh[b + 21u], sh[b + 22u], sh[b + 23u]));
+    return array<u32, 8>(sh[b], sh[b + 1u], sh[b + 2u], sh[b + 3u], sh[b + 4u], sh[b + 5u], sh[b + 6u], sh[b + 7u]);
+}
+fn sl_y(i: u32) -> array<u32, 8> {
+    let b = 24u * i + 8u;
+    return array<u32, 8>(sh[b], sh[b + 1u], sh[b + 2u], sh[b + 3u], sh[b + 4u], sh[b + 5u], sh[b + 6u], sh[b + 7u]);
+}
+fn sl_z(i: u32) -> array<u32, 8> {
+    let b = 24u * i + 16u;
+    return array<u32, 8>(sh[b], sh[b + 1u], sh[b + 2u], sh[b + 3u], sh[b + 4u], sh[b + 5u], sh[b + 6u], sh[b + 7u]);
+}
+fn ss_x(i: u32, v: array<u32, 8>) {
+    let b = 24u * i;
+    for (var c = 0u; c < 8u; c = c + 1u) { sh[b + c] = v[c]; }
+}
+fn ss_y(i: u32, v: array<u32, 8>) {
+    let b = 24u * i + 8u;
+    for (var c = 0u; c < 8u; c = c + 1u) { sh[b + c] = v[c]; }
+}
+fn ss_z(i: u32, v: array<u32, 8>) {
+    let b = 24u * i + 16u;
+    for (var c = 0u; c < 8u; c = c + 1u) { sh[b + c] = v[c]; }
+}
+fn sload(i: u32) -> Jac {
+    return Jac(sl_x(i), sl_y(i), sl_z(i));
 }
 fn sstore(i: u32, v: Jac) {
-    let b = 24u * i;
-    for (var c = 0u; c < 8u; c = c + 1u) {
-        sh[b + c] = v.x[c];
-        sh[b + 8u + c] = v.y[c];
-        sh[b + 16u + c] = v.z[c];
-    }
+    ss_x(i, v.x);
+    ss_y(i, v.y);
+    ss_z(i, v.z);
 }
 
 @compute
