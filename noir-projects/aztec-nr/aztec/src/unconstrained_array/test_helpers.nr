@@ -268,39 +268,6 @@ where
     });
 }
 
-pub(crate) unconstrained fn read_as_reconstructs_serialized_value<Oracle>()
-where
-    Oracle: ArrayOracles,
-{
-    let env = TestEnvironment::new();
-    env.utility_context(|_| {
-        let array: UnconstrainedArray<Field, Oracle> = UnconstrainedArray::at(SLOT);
-
-        let value = MockStruct::new(5, 6);
-        let serialized = value.serialize();
-        for i in 0..serialized.len() {
-            array.push(serialized[i]);
-        }
-
-        let reconstructed: MockStruct = array.read_as();
-        assert_eq(reconstructed, value);
-    });
-}
-
-pub(crate) unconstrained fn should_fail_read_as_rejects_length_mismatch<Oracle>()
-where
-    Oracle: ArrayOracles,
-{
-    let env = TestEnvironment::new();
-    env.utility_context(|_| {
-        let array: UnconstrainedArray<Field, Oracle> = UnconstrainedArray::at(SLOT);
-        // MockStruct deserializes from 2 fields, so a single field is too short.
-        array.push(1);
-
-        let _: MockStruct = array.read_as();
-    });
-}
-
 pub(crate) unconstrained fn clear_returns_self<Oracle>()
 where
     Oracle: ArrayOracles,
@@ -756,8 +723,6 @@ comptime fn should_fail_message(name: Quoted) -> Option<Quoted> {
         Option::some(quote { "is empty" })
     } else if name == quote { should_fail_read_past_len } {
         Option::some(quote { "out of bounds" })
-    } else if name == quote { should_fail_read_as_rejects_length_mismatch } {
-        Option::some(quote { "length mismatch" })
     } else {
         Option::none()
     }

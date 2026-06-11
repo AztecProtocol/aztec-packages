@@ -229,28 +229,6 @@ where
     }
 }
 
-impl<Oracle> UnconstrainedArray<Field, Oracle>
-where
-    Oracle: ArrayOracles,
-{
-    /// Deserializes the whole array into a `T`.
-    ///
-    /// Asserts the array holds exactly `<T as Deserialize>::N` fields, then reconstructs a `T` from them. This is the
-    /// read-back counterpart to pushing a value's serialized fields onto the array, and is defined only on arrays of
-    /// `Field` because deserialization reconstructs a type from raw fields.
-    pub unconstrained fn read_as<T>(self) -> T
-    where
-        T: Deserialize,
-    {
-        assert_eq(self.len(), <T as Deserialize>::N, "UnconstrainedArray length mismatch for read_as");
-        let mut fields: [Field; <T as Deserialize>::N] = [0; <T as Deserialize>::N];
-        for i in 0..<T as Deserialize>::N {
-            fields[i] = self.get(i);
-        }
-        Deserialize::deserialize(fields)
-    }
-}
-
 /// Serializes an `UnconstrainedArray` as its slot identifier, allowing oracle function signatures to use array types
 /// instead of opaque `Field` slots.
 impl<T, Oracle> Serialize for UnconstrainedArray<T, Oracle> {
