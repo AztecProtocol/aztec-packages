@@ -200,9 +200,9 @@ function avm_check_circuit_cmds {
 
   # Specify timeout and resources
   # WARNING: theoretically, transactions could need more CPU and MEM than we allocate by default.
-  # In that case, they might start timing out. For now, all of the e2e test txs seem to be relatively
-  # small and the AVM can run check-circuit with limited resources.
-  local prefix="$hash:ISOLATE=1:TIMEOUT=30s"
+  # In that case, they might start timing out. Most e2e test txs are small enough for a tight timeout,
+  # but larger multi-blob txs can generate substantially larger AVM circuits.
+  local prefix="$hash:ISOLATE=1"
 
   # Find all .bin files in the dump directory (handles nested dirs)
   for input_file in "$default_avm_inputs_dump_dir"/*/*.bin "$default_avm_inputs_dump_dir"/*/*/*.bin; do
@@ -222,10 +222,16 @@ function avm_check_circuit_cmds {
     # Create safe name (replace / with _)
     local safe_test_dir="${test_dir//\//_}"
     local name="avm_cc_${safe_test_dir}_${short_hash}"
+    local timeout="30s"
+    case "$test_dir" in
+      e2e_multiple_blobs*)
+        timeout="90s"
+        ;;
+    esac
 
     # Use full path from repo root for the command (parallelize runs from there)
     local input_path="$dump_dir_from_top/$rel_path"
-    echo "$prefix:NAME=$name $bb_avm avm_check_circuit -v --avm-inputs $input_path"
+    echo "$prefix:TIMEOUT=$timeout:NAME=$name $bb_avm avm_check_circuit -v --avm-inputs $input_path"
   done
 }
 
