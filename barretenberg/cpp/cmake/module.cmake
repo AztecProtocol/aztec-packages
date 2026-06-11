@@ -274,6 +274,7 @@ function(barretenberg_module_with_sources MODULE_NAME)
             target_link_libraries(
                 ${BENCHMARK_NAME}_bench_objects
                 PRIVATE
+                ${MODULE_DEPENDENCIES}
                 benchmark::benchmark
                 ${TRACY_LIBS}
                 ${TBB_IMPORTED_TARGETS}

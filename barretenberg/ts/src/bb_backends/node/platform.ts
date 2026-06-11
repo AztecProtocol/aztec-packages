@@ -1,6 +1,7 @@
 import * as path from 'path';
 import * as fs from 'fs';
 import { fileURLToPath } from 'url';
+import { createRequire } from 'module';
 
 function getCurrentDir() {
   if (typeof __dirname !== 'undefined') {
@@ -13,43 +14,15 @@ function getCurrentDir() {
 }
 
 /**
- * Find package root by climbing directory tree until package.json is found.
- * @param startDir Starting directory to search from
- * @returns Absolute path to package root, or null if not found
- */
-export function findPackageRoot(): string | null {
-  let currentDir = getCurrentDir();
-  const root = path.parse(currentDir).root;
-
-  while (currentDir !== root) {
-    const packageJsonPath = path.join(currentDir, 'package.json');
-    if (fs.existsSync(packageJsonPath)) {
-      // Check if this is the actual package root by verifying it has a 'build' directory
-      // This ensures we skip intermediate package.json files (e.g., in dest/node-cjs/)
-      const buildDir = path.join(currentDir, 'build');
-      if (fs.existsSync(buildDir)) {
-        return currentDir;
-      }
-    }
-    currentDir = path.dirname(currentDir);
-  }
-
-  return null;
-}
-
-/**
  * Supported platform/architecture combinations.
  */
 export type Platform = 'x86_64-linux' | 'x86_64-darwin' | 'aarch64-linux' | 'aarch64-darwin';
 
-/**
- * Map from Platform to build directory name.
- */
-const PLATFORM_TO_BUILD_DIR: Record<Platform, string> = {
-  'x86_64-linux': 'amd64-linux',
-  'x86_64-darwin': 'amd64-macos',
-  'aarch64-linux': 'arm64-linux',
-  'aarch64-darwin': 'arm64-macos',
+const PLATFORM_TO_PACKAGE: Record<Platform, string> = {
+  'x86_64-linux': '@aztec/bb.js-linux-x64',
+  'x86_64-darwin': '@aztec/bb.js-darwin-x64',
+  'aarch64-linux': '@aztec/bb.js-linux-arm64',
+  'aarch64-darwin': '@aztec/bb.js-darwin-arm64',
 };
 
 /**
@@ -76,90 +49,55 @@ export function detectPlatform(): Platform | null {
   return null;
 }
 
+function findArchPackageDir(platform: Platform): string | null {
+  const packageName = PLATFORM_TO_PACKAGE[platform];
+  try {
+    const require = createRequire(path.join(getCurrentDir(), 'platform.js'));
+    return path.dirname(require.resolve(`${packageName}/package.json`));
+  } catch {
+    const siblingPackageDir = path.join(getCurrentDir(), '..', '..', '..', '..', 'packages', packageName.split('/').pop()!);
+    return fs.existsSync(path.join(siblingPackageDir, 'package.json')) ? siblingPackageDir : null;
+  }
+}
+
+function findNativeBinary(binaryName: string, customPath?: string, envVar?: string): string | null {
+  if (customPath) {
+    return fs.existsSync(customPath) ? path.resolve(customPath) : null;
+  }
+
+  const envPath = envVar ? process.env[envVar] : undefined;
+  if (envPath) {
+    return fs.existsSync(envPath) ? path.resolve(envPath) : null;
+  }
+
+  const platform = detectPlatform();
+  if (!platform) {
+    return null;
+  }
+
+  const archDir = findArchPackageDir(platform);
+  if (!archDir) {
+    return null;
+  }
+
+  const candidate = path.join(archDir, binaryName);
+  return fs.existsSync(candidate) ? candidate : null;
+}
+
 /**
  * Find the bb binary for the native backend.
  * @param customPath Optional custom path to bb binary (overrides automatic detection)
  * @returns Absolute path to bb binary, or null if not found
  *
  * Search order:
- * 1. If customPath is provided and exists, return it
- * 2. If BB_BINARY_PATH is set and exists, return it
- * 3. Otherwise search in <package-root>/build/<platform>/bb
+ * 1. If customPath is provided and exists, return it.
+ * 2. If BB_BINARY_PATH is set and exists, return it.
+ * 3. Otherwise search the matching @aztec/bb.js-* arch package.
  */
 export function findBbBinary(customPath?: string): string | null {
-  // Check custom path first if provided
-  if (customPath) {
-    if (fs.existsSync(customPath)) {
-      return path.resolve(customPath);
-    }
-    // Custom path provided but doesn't exist - return null
-    return null;
-  }
-
-  const envPath = process.env.BB_BINARY_PATH;
-  if (envPath) {
-    if (fs.existsSync(envPath)) {
-      return path.resolve(envPath);
-    }
-    return null;
-  }
-
-  // Automatic detection
-  const platform = detectPlatform();
-  if (!platform) {
-    return null;
-  }
-
-  const buildDir = PLATFORM_TO_BUILD_DIR[platform];
-
-  // Get package root by climbing directory tree to find package.json
-  const packageRoot = findPackageRoot();
-
-  if (!packageRoot) {
-    return null;
-  }
-
-  // Check in build/<platform>/bb
-  const bbPath = path.join(packageRoot, 'build', buildDir, 'bb');
-
-  if (fs.existsSync(bbPath)) {
-    return bbPath;
-  }
-
-  return null;
+  return findNativeBinary('bb', customPath, 'BB_BINARY_PATH');
 }
 
 export function findNapiBinary(customPath?: string): string | null {
-  // Check custom path first if provided
-  if (customPath) {
-    if (fs.existsSync(customPath)) {
-      return path.resolve(customPath);
-    }
-    // Custom path provided but doesn't exist - return null
-    return null;
-  }
-
-  // Automatic detection
-  const platform = detectPlatform();
-  if (!platform) {
-    return null;
-  }
-
-  const buildDir = PLATFORM_TO_BUILD_DIR[platform];
-
-  // Get package root by climbing directory tree to find package.json
-  const packageRoot = findPackageRoot();
-
-  if (!packageRoot) {
-    return null;
-  }
-
-  // Check in build/<platform>/nodejs_module.node
-  const bbPath = path.join(packageRoot, 'build', buildDir, 'nodejs_module.node');
-
-  if (fs.existsSync(bbPath)) {
-    return bbPath;
-  }
-
-  return null;
+  return findNativeBinary('nodejs_module.node', customPath);
 }
