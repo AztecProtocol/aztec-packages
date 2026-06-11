@@ -117,11 +117,7 @@ constexpr std::tuple<size_t, size_t> HONK_RECURSION_CONSTANTS(
 // ========================================
 
 // Gate count for Chonk recursive verification (Ultra with RollupIO)
-<<<<<<< HEAD
-inline constexpr size_t CHONK_RECURSION_GATES = 1368429;
-=======
-inline constexpr size_t CHONK_RECURSION_GATES = 1367968;
->>>>>>> c73cdde8a99 (Merge pull request #304 from AztecProtocol/cb/eccvm-libra-length-4)
+inline constexpr size_t CHONK_RECURSION_GATES = 1369085;
 
 // ========================================
 // Hypernova Recursion Constants
@@ -156,11 +152,7 @@ inline constexpr size_t HIDING_KERNEL_ULTRA_OPS = 331;
 // ========================================
 
 // Gate count for ECCVM recursive verifier (Ultra-arithmetized)
-<<<<<<< HEAD
-inline constexpr size_t ECCVM_RECURSIVE_VERIFIER_GATE_COUNT = 234253;
-=======
-inline constexpr size_t ECCVM_RECURSIVE_VERIFIER_GATE_COUNT = 233791;
->>>>>>> c73cdde8a99 (Merge pull request #304 from AztecProtocol/cb/eccvm-libra-length-4)
+inline constexpr size_t ECCVM_RECURSIVE_VERIFIER_GATE_COUNT = 234909;
 
 // ========================================
 // Goblin AVM Recursive Verifier Constants
