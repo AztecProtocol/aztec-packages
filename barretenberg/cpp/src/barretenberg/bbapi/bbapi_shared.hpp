@@ -3,8 +3,7 @@
  * @file bbapi_shared.hpp
  * @brief Shared type definitions for the Barretenberg RPC API.
  *
- * This file contains common data structures used across multiple bbapi modules,
- * including circuit input types and proof system settings.
+ * This file contains shared state and helpers used across bbapi modules.
  */
 
 #include "barretenberg/chonk/chonk.hpp"
@@ -22,6 +21,8 @@
 #include "barretenberg/flavor/ultra_starknet_zk_flavor.hpp"
 #endif
 #include <cstdint>
+#include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -52,106 +53,6 @@ enum class VkPolicy {
     RECOMPUTE, // Always ignore the provided VK and treat it as nullptr
     REWRITE    // Check the VK and rewrite the input file with correct VK if mismatch (for check command)
 };
-
-/**
- * @struct CircuitInputNoVK
- * @brief A circuit to be used in either ultrahonk or chonk verification key derivation.
- */
-struct CircuitInputNoVK {
-    /**
-     * @brief Human-readable name for the circuit
-     *
-     * This name is not used for processing but serves as a debugging aid and
-     * provides context for circuit identification in logs and diagnostics.
-     */
-    std::string name;
-
-    /**
-     * @brief Serialized bytecode representation of the circuit
-     *
-     * Contains the ACIR program in serialized form. The format (bincode or msgpack)
-     * is determined by examining the first byte of the bytecode.
-     */
-    std::vector<uint8_t> bytecode;
-
-    SERIALIZATION_FIELDS(name, bytecode);
-    bool operator==(const CircuitInputNoVK& other) const = default;
-};
-
-/**
- * @struct CircuitInput
- * @brief A circuit to be used in either ultrahonk or Chonk proving.
- */
-struct CircuitInput {
-    /**
-     * @brief Human-readable name for the circuit
-     *
-     * This name is not used for processing but serves as a debugging aid and
-     * provides context for circuit identification in logs and diagnostics.
-     */
-    std::string name;
-
-    /**
-     * @brief Serialized bytecode representation of the circuit
-     *
-     * Contains the ACIR program in serialized form. The format (bincode or msgpack)
-     * is determined by examining the first byte of the bytecode.
-     */
-    std::vector<uint8_t> bytecode;
-
-    /**
-     * @brief Verification key of the circuit. This could be derived, but it is more efficient to have it fixed ahead of
-     * time. As well, this guards against unexpected changes in the verification key.
-     */
-    std::vector<uint8_t> verification_key;
-
-    SERIALIZATION_FIELDS(name, bytecode, verification_key);
-    bool operator==(const CircuitInput& other) const = default;
-};
-
-struct ProofSystemSettings {
-    /**
-     * @brief Optional flag to indicate if the proof should be generated with IPA accumulation (i.e. for rollup
-     * circuits).
-     */
-    bool ipa_accumulation = false;
-
-    /**
-     * @brief The oracle hash type to be used for the proof.
-     *
-     * This is used to determine the hash function used in the proof generation.
-     * Valid values are "poseidon2", "keccak", and "starknet".
-     */
-    std::string oracle_hash_type = "poseidon2";
-
-    /**
-     * @brief Flag to disable blinding of the proof.
-     * Useful for cases that don't require privacy, such as when all inputs are public or zk-SNARK proofs themselves.
-     */
-    bool disable_zk = false;
-
-    // TODO(md): remove this once considered stable
-    bool optimized_solidity_verifier = false;
-
-    SERIALIZATION_FIELDS(ipa_accumulation, oracle_hash_type, disable_zk, optimized_solidity_verifier);
-    bool operator==(const ProofSystemSettings& other) const = default;
-};
-
-/**
- * @brief Convert oracle hash type string to enum for internal use
- */
-enum class OracleHashType { POSEIDON2, KECCAK, STARKNET };
-
-inline OracleHashType parse_oracle_hash_type(const std::string& type)
-{
-    if (type == "keccak") {
-        return OracleHashType::KECCAK;
-    }
-    if (type == "starknet") {
-        return OracleHashType::STARKNET;
-    }
-    return OracleHashType::POSEIDON2; // default
-}
 
 /**
  * @brief Convert VK policy string to enum for internal use
@@ -196,16 +97,6 @@ struct BBApiRequest {
 };
 
 /**
- * @brief Error response returned when a command fails
- */
-struct ErrorResponse {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "ErrorResponse";
-    std::string message;
-    SERIALIZATION_FIELDS(message);
-    bool operator==(const ErrorResponse&) const = default;
-};
-
-/**
  * @brief Macro to set error in BBApiRequest and return default response
  */
 #define BBAPI_ERROR(request, msg)                                                                                      \
@@ -213,19 +104,6 @@ struct ErrorResponse {
         (request).error_message = (msg);                                                                               \
         return {};                                                                                                     \
     } while (0)
-
-struct Shutdown {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "Shutdown";
-    struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "ShutdownResponse";
-        // Empty response - success indicated by no exception
-        void msgpack(auto&& pack_fn) { pack_fn(); }
-        bool operator==(const Response&) const = default;
-    };
-    void msgpack(auto&& pack_fn) { pack_fn(); }
-    Response execute(const BBApiRequest&) && { return {}; }
-    bool operator==(const Shutdown&) const = default;
-};
 
 /**
  * @brief Concatenate public inputs and proof into a complete proof for verification
@@ -283,7 +161,7 @@ template <typename VK> std::vector<uint256_t> vk_to_uint256_fields(const VK& vk)
  *
  * @throws If oracle_hash_type is not poseidon2
  */
-inline void validate_rollup_settings(const ProofSystemSettings& settings)
+template <typename Settings> inline void validate_rollup_settings(const Settings& settings)
 {
     if (!settings.ipa_accumulation) {
         return; // Not a rollup circuit, no validation needed
@@ -314,7 +192,8 @@ inline void validate_rollup_settings(const ProofSystemSettings& settings)
  * @return The result of calling operation.template operator()<Flavor, IO>()
  *
  */
-template <typename Operation> auto dispatch_by_settings(const ProofSystemSettings& settings, Operation&& operation)
+template <typename Settings, typename Operation>
+auto dispatch_by_settings(const Settings& settings, Operation&& operation)
 {
     // Rollup circuits: UltraFlavor with RollupIO (includes IPA accumulation for ECCVM)
     if (settings.ipa_accumulation) {

@@ -1,8 +1,8 @@
-#include "barretenberg/bbapi/bbapi.hpp"
+#include "barretenberg/bbapi/bbapi_wire_convert.hpp"
+#include "barretenberg/bbapi/generated/bb_ipc_client.hpp"
+#include "barretenberg/bbapi/generated/bb_types.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
-#include "barretenberg/ipc/ipc_client.hpp"
-#include "barretenberg/serialize/msgpack_impl.hpp"
 #include <array>
 #include <atomic>
 #include <benchmark/benchmark.h>
@@ -70,7 +70,7 @@ template <TransportType Transport, size_t NumClients> class Poseidon2BBMsgpack :
   public:
     static_assert(NumClients >= 1, "Must have at least 1 client");
 
-    std::array<std::unique_ptr<ipc::IpcClient>, NumClients> clients{};
+    std::array<std::unique_ptr<bbapi::BbIpcClient>, NumClients> clients{};
     pid_t bb_pid{ 0 };
     std::array<std::thread, (NumClients > 1 ? NumClients - 1 : 1)> background_threads{};
     std::atomic<bool> stop_background{ false };
@@ -126,30 +126,8 @@ template <TransportType Transport, size_t NumClients> class Poseidon2BBMsgpack :
             std::this_thread::sleep_for(std::chrono::milliseconds(500));
         }
 
-        // Create and connect all clients
         for (size_t i = 0; i < NumClients; i++) {
-            if constexpr (Transport == TransportType::Socket) {
-                clients[i] = ipc::IpcClient::create_socket(ipc_path);
-            } else {
-                // Strip .shm suffix for base name
-                std::string base_name = ipc_path.substr(0, ipc_path.size() - 4);
-                clients[i] = ipc::IpcClient::create_shm(base_name);
-            }
-
-            bool connected = false;
-            for (int retry_count = 0; retry_count < 5; retry_count++) {
-                if (clients[i]->connect()) {
-                    connected = true;
-                    break;
-                }
-                std::this_thread::sleep_for(std::chrono::milliseconds(50));
-            }
-
-            if (!connected) {
-                kill(bb_pid, SIGKILL);
-                waitpid(bb_pid, nullptr, 0);
-                throw std::runtime_error("Failed to connect to BB IPC server after retries");
-            }
+            clients[i] = std::make_unique<bbapi::BbIpcClient>(ipc_path);
         }
 
         // Spawn background threads for MPSC scenarios (NumClients > 1)
@@ -160,35 +138,9 @@ template <TransportType Transport, size_t NumClients> class Poseidon2BBMsgpack :
                     fr by = fr::random_element();
 
                     while (!stop_background.load(std::memory_order_relaxed)) {
-                        // Create Poseidon2Hash command
-                        bb::bbapi::Poseidon2Hash hash_cmd;
-                        hash_cmd.inputs = { uint256_t(bx), uint256_t(by) };
-                        bb::bbapi::Command command{ std::move(hash_cmd) };
-
-                        // Serialize command with tuple wrapping for CBIND compatibility
-                        msgpack::sbuffer cmd_buffer;
-                        msgpack::pack(cmd_buffer, std::make_tuple(command));
-
-                        // Send with retry on backpressure (100ms timeout)
-                        constexpr uint64_t TIMEOUT_NS = 100000000; // 100ms
-                        while (!clients[i]->send(cmd_buffer.data(), cmd_buffer.size(), TIMEOUT_NS)) {
-                            // Ring buffer full, retry
-                            if (stop_background.load(std::memory_order_relaxed)) {
-                                return; // Exit if shutting down
-                            }
-                        }
-
-                        // Receive with retry (100ms timeout)
-                        std::span<const uint8_t> response;
-                        while ((response = clients[i]->receive(TIMEOUT_NS)).empty()) {
-                            // Response not ready, retry
-                            if (stop_background.load(std::memory_order_relaxed)) {
-                                return; // Exit if shutting down
-                            }
-                        }
-
-                        // Release the message
-                        clients[i]->release(response.size());
+                        auto response = clients[i]->poseidon2_hash(
+                            { .inputs = { bb::bbapi::fr_to_wire(bx), bb::bbapi::fr_to_wire(by) } });
+                        DoNotOptimize(response.hash);
                     }
                 });
             }
@@ -211,39 +163,14 @@ template <TransportType Transport, size_t NumClients> class Poseidon2BBMsgpack :
             }
         }
 
-        // Send Shutdown command to bb so it exits gracefully (use client 0)
-        if (clients[0]) {
-            // Create Shutdown command
-            bb::bbapi::Shutdown shutdown_cmd;
-            bb::bbapi::Command command{ std::move(shutdown_cmd) };
-
-            // Serialize command with tuple wrapping for CBIND compatibility
-            msgpack::sbuffer cmd_buffer;
-            msgpack::pack(cmd_buffer, std::make_tuple(command));
-
-            // Send shutdown command with retry (1s timeout)
-            constexpr uint64_t TIMEOUT_NS = 1000000000; // 1 second
-            while (!clients[0]->send(cmd_buffer.data(), cmd_buffer.size(), TIMEOUT_NS)) {
-                // Retry on backpressure
-            }
-
-            std::span<const uint8_t> response;
-            while ((response = clients[0]->receive(TIMEOUT_NS)).empty()) {
-                // Retry until response ready
-            }
-
-            clients[0]->release(response.size());
-        }
-
         // Close all clients
         for (auto& client : clients) {
-            if (client) {
-                client->close();
-            }
+            client.reset();
         }
 
-        // Wait for bb to exit gracefully (destructors will clean up resources)
+        // Ask bb to exit gracefully, then wait for it to release IPC resources.
         if (bb_pid > 0) {
+            kill(bb_pid, SIGTERM);
             int status = 0;
             pid_t result = waitpid(bb_pid, &status, 0); // Blocking wait
             if (result <= 0) {
@@ -257,47 +184,10 @@ template <TransportType Transport, size_t NumClients> class Poseidon2BBMsgpack :
     // Benchmark implementation shared across all variants
     void run_benchmark(benchmark::State& state)
     {
-        constexpr uint64_t TIMEOUT_NS = 1000000000; // 1 second
-
         for (auto _ : state) {
-            // Create Poseidon2Hash command
-            bb::bbapi::Poseidon2Hash hash_cmd;
-            hash_cmd.inputs = { uint256_t(x), uint256_t(y) };
-            bb::bbapi::Command command{ std::move(hash_cmd) };
-
-            // Serialize command with tuple wrapping for CBIND compatibility
-            msgpack::sbuffer cmd_buffer;
-            msgpack::pack(cmd_buffer, std::make_tuple(command));
-
-            // Send command with retry on backpressure
-            while (!clients[0]->send(cmd_buffer.data(), cmd_buffer.size(), TIMEOUT_NS)) {
-                // Ring buffer full, retry (shouldn't happen often in benchmarks)
-            }
-
-            // Receive response with retry
-            std::span<const uint8_t> resp;
-            while ((resp = clients[0]->receive(TIMEOUT_NS)).empty()) {
-                // Response not ready, retry
-            }
-
-            // Deserialize response
-            auto unpacked = msgpack::unpack(reinterpret_cast<const char*>(resp.data()), resp.size());
-            bb::bbapi::CommandResponse response;
-            unpacked.get().convert(response);
-
-            // Release the message
-            clients[0]->release(resp.size());
-
-            // Extract hash from response
-            const auto& response_variant = static_cast<const bb::bbapi::CommandResponse::VariantType&>(response);
-            const auto* hash_response = std::get_if<bb::bbapi::Poseidon2Hash::Response>(&response_variant);
-            if (hash_response == nullptr) {
-                state.SkipWithError("Invalid response type");
-                break;
-            }
-
-            auto hash = hash_response->hash;
-            DoNotOptimize(hash);
+            auto response =
+                clients[0]->poseidon2_hash({ .inputs = { bb::bbapi::fr_to_wire(x), bb::bbapi::fr_to_wire(y) } });
+            DoNotOptimize(response.hash);
         }
     }
 };

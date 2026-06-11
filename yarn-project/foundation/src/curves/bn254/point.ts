@@ -148,7 +148,9 @@ export class Bn254G2Point {
     const api = BarretenbergSync.getSingleton();
 
     const response = api.bn254G2Mul({
-      point: BN254_G2_GENERATOR as BbApiBn254G2Point,
+      // BN254_G2_GENERATOR is `as const` (readonly tuple); spread into fresh
+      // mutable arrays to satisfy the wire type's Uint8Array[] shape.
+      point: { x: [...BN254_G2_GENERATOR.x], y: [...BN254_G2_GENERATOR.y] },
       scalar: scalar.toBuffer(),
     });
 
