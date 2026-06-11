@@ -1,7 +1,7 @@
-use crate::{HandshakeRegistry, MAX_HANDSHAKES_PER_PAGE};
+use crate::HandshakeRegistry;
 
 use aztec::{
-    messages::delivery::{ONCHAIN_CONSTRAINED, ONCHAIN_UNCONSTRAINED},
+    messages::delivery::{handshake::MAX_HANDSHAKES_PER_PAGE, MessageDelivery, OnchainDeliveryMode},
     oracle::shared_secret::get_shared_secret,
     protocol::{
         address::AztecAddress,
@@ -13,6 +13,9 @@ use aztec::{
 };
 
 use std::test::OracleMock;
+
+global ONCHAIN_UNCONSTRAINED: OnchainDeliveryMode = MessageDelivery::onchain_unconstrained().into();
+global ONCHAIN_CONSTRAINED: OnchainDeliveryMode = MessageDelivery::onchain_constrained().into();
 
 unconstrained fn setup() -> (TestEnvironment, AztecAddress, AztecAddress, AztecAddress, AztecAddress) {
     let mut env = TestEnvironment::new();
@@ -437,14 +440,6 @@ unconstrained fn validate_handshake_rejects_constrained_secret_for_unconstrained
         env.call_private(sender, registry.non_interactive_handshake(sender, recipient, ONCHAIN_CONSTRAINED));
 
     env.call_private(sender, registry.validate_handshake(sender, recipient, ONCHAIN_UNCONSTRAINED, constrained_secret));
-}
-
-#[test(should_fail_with = "unrecognized delivery mode")]
-unconstrained fn non_interactive_handshake_rejects_unknown_mode() {
-    let (env, registry_address, sender, _, recipient) = setup();
-    let registry = HandshakeRegistry::at(registry_address);
-
-    let _ = env.call_private(sender, registry.non_interactive_handshake(sender, recipient, 99));
 }
 
 #[test]

@@ -13,6 +13,9 @@ export FORCE_COLOR=true
 
 # Path to nargo binary
 NARGO_PATH="../noir/noir-repo/target/release/nargo"
+# Absolute path for use inside the per-workspace loop, where a relative path would
+# resolve differently depending on each workspace's depth.
+NARGO_ABS="$PWD/$NARGO_PATH"
 
 # Check if there are staged .nr files
 staged_nr_files=$(git diff --cached --name-only --diff-filter=d | grep '\.nr$' || true)
@@ -50,10 +53,10 @@ if [[ -n "$staged_nr_files" ]]; then
     exit 0
   fi
 
-  for dir in noir-contracts noir-protocol-circuits mock-protocol-circuits aztec-nr; do
+  for dir in noir-contracts noir-protocol-circuits mock-protocol-circuits aztec-nr protocol-fuzzer/contracts; do
     if [[ -d "$dir" ]]; then
       echo "Formatting in $dir..."
-      (cd "$dir" && "../$NARGO_PATH" fmt) || echo "Warning: Formatting failed in $dir, but continuing..."
+      (cd "$dir" && "$NARGO_ABS" fmt) || echo "Warning: Formatting failed in $dir, but continuing..."
     else
       echo "Warning: Directory $dir not found, skipping..."
     fi
