@@ -145,6 +145,21 @@ const gpuKnobs: MsmConfig = (() => {
     splitC: q.get('split') === '1' || q.get('autorun') === 'msm-msbhist' || undefined,
     wiProbe: q.get('wiprobe') === '1' || undefined,
     sparseReduce: q.get('sparse_reduce') === '1' || undefined,
+    groupedReduce: q.get('grouped_reduce') === '1' || undefined,
+    foldMTower: (() => {
+      const f = q.get('fold_m');
+      if (!f) return undefined;
+      const parts = f.split(',').map(x => parseInt(x, 10));
+      return parts.length > 0 && parts.every(x => Number.isInteger(x) && x >= 2) ? parts : undefined;
+    })(),
+    foldTailMax: optInt('fold_tailmax'),
+    foldSat: optInt('fold_sat'),
+    foldK: optInt('fold_k'),
+    foldCoop: q.get('fold_coop') === '1' || undefined,
+    foldTlocal: q.get('fold_tlocal') === '1' || undefined,
+    halvingReduce: q.get('halving_reduce') === '1' || undefined,
+    halveCap: optInt('halve_cap'),
+    halveBa4Floor: optInt('halve_ba4floor'),
     reduceCostWeight: optNum('reduce_cost_weight'),
     maxCLo: optInt('max_clo'),
     forceSplit: (() => {
@@ -2238,7 +2253,10 @@ function hideProgress(): void {
       const inputs = await generateInputs(autorunLogN, false);
       // One warm-up run (builds + warms MsmV2 — outside the timed loop).
       log('info', `[bench] warmup run`);
-      await runWebGpuOnce(inputs);
+      const warm = await runWebGpuOnce(inputs);
+      // With ?scalar_seed this is comparable against the golden hashes
+      // (identity check on devices that can't run the WASM cross-check).
+      log('info', `[bench] gpu.x=0x${warm.xy.x.toString(16).slice(0, 16)}…`);
 
       // Kernel-isolation profiling: ?iso=<kernel> loops ONE kernel ~13 s so an
       // external GPU-counter capture attributes ALU/SFU/occupancy to exactly that
@@ -2360,7 +2378,7 @@ function hideProgress(): void {
       for (let i = 0; i < $log.children.length; i++) allLines.push($log.children[i].textContent ?? '');
       await client.postResults({
         state: 'done',
-        params: { logN: autorunLogN, reps, page: 'msm-bench', no_wasm: true },
+        params: { logN: autorunLogN, reps, page: 'msm-bench', no_wasm: true, dev: qp.get('dev') ?? '' },
         results: { samples, averages: { wallMs: avgWall, gpuMs: 0 }, medianWallMs: medWall, medianPhaseMs: medPhases },
         error: null,
         log: allLines.slice(-100),
@@ -2376,7 +2394,7 @@ function hideProgress(): void {
       for (let i = 0; i < $log.children.length; i++) allLines.push($log.children[i].textContent ?? '');
       await client.postResults({
         state: 'error',
-        params: { logN: autorunLogN, reps, page: 'msm-bench', no_wasm: true },
+        params: { logN: autorunLogN, reps, page: 'msm-bench', no_wasm: true, dev: qp.get('dev') ?? '' },
         results: null,
         error: msg,
         log: allLines.slice(-100),
@@ -3064,6 +3082,112 @@ function hideProgress(): void {
     } catch (e) {
       const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
       log('err', `[batch-bench] state=error FATAL: ${msg}`);
+    }
+  } else if (autorun === 'probe') {
+    // Single-shader compile probe: ?autorun=probe&shader=fold0|fold1|fold2|jac|weight|sum|sparse|fused_tail
+    // Builds ONE pipeline on a fresh device and posts ok/error — isolates
+    // per-kernel driver rejections from full-build failures.
+    const which = qp.get('shader') ?? 'weight';
+    const client = makeResultsClient({ page: 'probe' });
+    try {
+      const { ShaderManager } = await import('../../src/msm_webgpu/cuzk/shader_manager.js');
+      const { BN254_CURVE_CONFIG } = await import('../../src/msm_webgpu/cuzk/curve_config.js');
+      const { runCompileProbe } = await import('./microbench.js');
+      const sm = new ShaderManager(4, 65536, BN254_CURVE_CONFIG, false, 'karat');
+      let code: string;
+      const foldK = parseInt(qp.get('k') ?? '1', 10);
+      if (which === 'fold0') code = sm.gen_ba_reduce_fold_shader(128, 0, foldK);
+      else if (which === 'fold1') code = sm.gen_ba_reduce_fold_shader(128, 1, foldK);
+      else if (which === 'fold2') code = sm.gen_ba_reduce_fold_shader(128, 2, foldK);
+      else if (which === 'halve8') code = sm.gen_ba_halve_shader(128, 8);
+      else if (which === 'halve4') code = sm.gen_ba_halve_shader(128, 4);
+      else if (which === 'halvejac') code = sm.gen_jac_halve_shader(128);
+      else if (which === 'halvefin1') code = sm.gen_halve_finish_arrays_shader(4096, 7, true);
+      else if (which === 'halvefin2') code = sm.gen_halve_finish_root_shader(4096, 7);
+      else if (which === 'tlocal') code = sm.gen_ba_reduce_fold_tlocal_shader(128);
+      else if (which === 'pair0') code = sm.gen_ba_reduce_fold_pair_shader(128, 0, false);
+      else if (which === 'pair0j') code = sm.gen_ba_reduce_fold_pair_shader(128, 0, true);
+      else if (which === 'coop0') code = sm.gen_ba_reduce_fold_coop_shader(128, 0);
+      else if (which === 'coop1') code = sm.gen_ba_reduce_fold_coop_shader(128, 1);
+      else if (which === 'coop2') code = sm.gen_ba_reduce_fold_coop_shader(128, 2);
+      else if (which === 'jac') {
+        code = sm.gen_ba_reduce_fold_jac_shader(
+          parseInt(qp.get('wg') ?? '128', 10),
+          parseInt(qp.get('ns') ?? '1', 10),
+        );
+        // Compile-bisect patches for the Mali loop-unroll OOM (throw on
+        // no-match so a probe never silently tests unpatched code).
+        const patch = qp.get('patch');
+        const mustReplace = (target: string | RegExp, repl: string) => {
+          const next = code.replace(target, repl);
+          if (next === code) throw new Error(`patch '${patch}' target not found`);
+          code = next;
+        };
+        if (patch === 'sentinel') {
+          mustReplace(
+            'for (var t: u32 = 0u; t < rows; t = t + 1u) {',
+            'for (var t: u32 = 0u; t < rows && (t + lparams.w) != 0xffffffffu; t = t + 1u) {',
+          );
+        } else if (patch === 'noalg') {
+          mustReplace(/let sum0 = jac_add_raw[\s\S]*?alg_p = alg_p \|\| run_p;/, '');
+        } else if (patch === 'nodbl') {
+          mustReplace('nalg = jac_select(nalg, jac_double(alg), run_p && alg_p && alg_dup);', '');
+        } else if (patch) {
+          throw new Error(`unknown jac patch ${patch}`);
+        }
+      }
+      else if (which === 'weight') code = sm.gen_ba_reduce_fold_weight_shader(128);
+      else if (which === 'sum') code = sm.gen_ba_reduce_fold_sum_shader(32);
+      else if (which === 'sparse') code = sm.gen_ba_reduce_sparse_shader(128, 'pk');
+      else if (which === 'fused_tail') code = sm.gen_ba_fused_tail_coop_shader(256, 256, 'pk');
+      else throw new Error(`unknown probe shader ${which}`);
+      const layouts: Record<string, GPUBufferBindingType[]> = {
+        fold0: ['storage', 'storage', 'uniform', 'uniform', 'read-only-storage'],
+        fold1: ['storage', 'storage', 'uniform', 'uniform', 'read-only-storage'],
+        fold2: ['storage', 'storage', 'uniform', 'uniform', 'read-only-storage'],
+        halve8: ['storage', 'storage', 'uniform', 'uniform', 'read-only-storage'],
+        halve4: ['storage', 'storage', 'uniform', 'uniform', 'read-only-storage'],
+        halvejac: ['storage', 'storage', 'storage', 'uniform', 'uniform', 'read-only-storage'],
+        halvefin1: ['storage', 'storage', 'storage', 'uniform', 'uniform', 'read-only-storage'],
+        halvefin2: ['storage', 'storage', 'storage', 'uniform', 'uniform', 'read-only-storage'],
+        tlocal: ['storage', 'storage', 'uniform', 'uniform', 'read-only-storage'],
+        pair0: ['storage', 'storage', 'storage', 'uniform', 'uniform', 'read-only-storage'],
+        pair0j: ['storage', 'storage', 'storage', 'uniform', 'uniform', 'read-only-storage'],
+        coop0: ['storage', 'storage', 'uniform', 'uniform', 'read-only-storage'],
+        coop1: ['storage', 'storage', 'uniform', 'uniform', 'read-only-storage'],
+        coop2: ['storage', 'storage', 'uniform', 'uniform', 'read-only-storage'],
+        jac: ['storage', 'storage', 'storage', 'uniform', 'uniform', 'read-only-storage'],
+        weight: ['storage', 'storage', 'storage', 'uniform', 'read-only-storage'],
+        sum: ['storage', 'storage', 'storage', 'uniform', 'uniform', 'read-only-storage'],
+        fused_tail: ['read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'uniform', 'storage'],
+      };
+      const explicitLayout = qp.get('autolayout') === '1' ? [] : (layouts[which] ?? []);
+      log('info', `[probe] compiling ${which} (${code.length} chars, layout=${explicitLayout.length ? 'explicit' : 'auto'})`);
+      const res = await runCompileProbe(code, `probe-${which}`, explicitLayout);
+      log(res.ok ? 'ok' : 'err', `[probe] ${which} ok=${res.ok} ms=${res.ms.toFixed(0)} ${res.error ?? ''}`);
+      log('ok', `[probe] state=done`);
+      await client.postResults({
+        state: 'done',
+        params: { page: 'probe', shader: which },
+        results: { ok: res.ok, error: res.error, ms: res.ms },
+        error: null,
+        log: [],
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}` : String(e);
+      log('err', `[probe] FATAL: ${msg}`);
+      log('err', `[probe] state=error`);
+      await client.postResults({
+        state: 'error',
+        params: { page: 'probe', shader: which },
+        results: null,
+        error: msg,
+        log: [],
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
     }
   } else if (autorun === 'micro') {
     // Isolated montmul/inverse microbench (profiling harness):

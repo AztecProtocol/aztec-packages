@@ -2,6 +2,17 @@ import mustache from 'mustache';
 import {
   barrett as barrett_funcs,
   ba_reduce_level_bench as ba_reduce_level_bench_shader,
+  ba_reduce_fold as ba_reduce_fold_shader,
+  ba_reduce_fold_coop as ba_reduce_fold_coop_shader,
+  ba_reduce_fold_jac as ba_reduce_fold_jac_shader,
+  ba_reduce_fold_pair as ba_reduce_fold_pair_shader,
+  ba_halve as ba_halve_shader,
+  jac_halve as jac_halve_shader,
+  halve_finish_arrays as halve_finish_arrays_shader,
+  halve_finish_root as halve_finish_root_shader,
+  ba_reduce_fold_tlocal as ba_reduce_fold_tlocal_shader,
+  ba_reduce_fold_sum as ba_reduce_fold_sum_shader,
+  ba_reduce_fold_weight as ba_reduce_fold_weight_shader,
   ba_reduce_sparse as ba_reduce_sparse_shader,
   ba_reduce_level_jacobian as ba_reduce_level_jacobian_shader,
   ba_reduce_z_init as ba_reduce_z_init_shader,
@@ -721,6 +732,1027 @@ ${packLines.join('\n')}
         field8_funcs,
         bigint_by_funcs,
         inverse_funcs,
+      },
+    );
+  }
+
+  /**
+   * One depth of the halving bucket reduction (Mitschabaude), batch-affine:
+   * each thread takes `cpairs` independent pair-additions of the depth
+   * (strided for coalescing) and shares ONE pk14 inversion across them.
+   * Pairs are COMPLETE: equal x selects the doubling denominator 2y into
+   * the chain (a zero denominator would poison the shared inversion) and a
+   * rarely-taken branch in the apply uses the 3x² numerator; equal x with
+   * negated y clears the presence bit (infinity). Straight-line; the only
+   * loops in the module are the inverse's own.
+   */
+  public gen_ba_halve_shader(workgroup_size: number, cpairs: number): string {
+    if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
+      throw new Error(`gen_ba_halve_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
+    }
+    if (![4, 8].includes(cpairs)) {
+      throw new Error(`gen_ba_halve_shader: cpairs (${cpairs}) must be 4 or 8`);
+    }
+    const C = cpairs;
+    const gather: string[] = [];
+    for (let k = 0; k < C; k++) {
+      gather.push(`    let q${k} = t + ${k}u * T;`);
+      gather.push(`    let on${k} = q${k} < pairs;`);
+      gather.push(`    let a${k} = q${k} >> hshift;`);
+      gather.push(`    let dst${k} = base + arena_off(B, a${k}) + (q${k} & (half - 1u));`);
+      gather.push(`    let src${k} = dst${k} + half;`);
+      gather.push(`    let pd${k} = on${k} && (is_present[dst${k}] != 0u);`);
+      gather.push(`    let ps${k} = on${k} && (is_present[src${k}] != 0u);`);
+      gather.push(`    let act${k} = pd${k} && ps${k};`);
+      gather.push(`    var den${k}: array<u32, 8>;`);
+      gather.push(`    var dbl${k} = false;`);
+      gather.push(`    var inf${k} = false;`);
+      gather.push(`    {`);
+      gather.push(`        let xd = load_x(dst${k}, M_RED);`);
+      gather.push(`        let xs = load_x(src${k}, M_RED);`);
+      gather.push(`        den${k} = fr_select_f8(r1, fr_sub_f8(xs, xd), act${k});`);
+      gather.push(`        if (act${k} && fr_eq_f8(xd, xs)) {`);
+      gather.push(`            let yd = load_y(dst${k}, M_RED);`);
+      gather.push(`            let ys = load_y(src${k}, M_RED);`);
+      gather.push(`            if (fr_is_zero_f8(fr_add_f8(yd, ys))) {`);
+      gather.push(`                inf${k} = true;`);
+      gather.push(`            } else {`);
+      gather.push(`                dbl${k} = true;`);
+      gather.push(`                den${k} = fr_add_f8(yd, yd);`);
+      gather.push(`            }`);
+      gather.push(`        }`);
+      gather.push(`    }`);
+    }
+    const invert: string[] = [];
+    invert.push(`    let pp0 = den0;`);
+    for (let k = 1; k < C; k++) invert.push(`    let pp${k} = montgomery_product_f8(pp${k - 1}, den${k});`);
+    invert.push(`    var inv_acc: array<u32, 8> = fr_inv_by_loop_pk(pp${C - 1});`);
+    for (let k = C - 1; k >= 1; k--) {
+      invert.push(`    let vi${k} = montgomery_product_f8(inv_acc, pp${k - 1});`);
+      invert.push(`    inv_acc = montgomery_product_f8(inv_acc, den${k});`);
+    }
+    invert.push(`    let vi0 = inv_acc;`);
+    const apply: string[] = [];
+    for (let k = 0; k < C; k++) {
+      apply.push(`    if (ps${k}) {`);
+      apply.push(`        if (act${k} && !inf${k}) {`);
+      apply.push(`            let xd = load_x(dst${k}, M_RED);`);
+      apply.push(`            let xs = load_x(src${k}, M_RED);`);
+      apply.push(`            let yd = load_y(dst${k}, M_RED);`);
+      apply.push(`            let ys = load_y(src${k}, M_RED);`);
+      apply.push(`            var num = fr_sub_f8(ys, yd);`);
+      apply.push(`            if (dbl${k}) {`);
+      apply.push(`                let xx = montgomery_product_f8(xd, xd);`);
+      apply.push(`                num = fr_add_f8(fr_add_f8(xx, xx), xx);`);
+      apply.push(`            }`);
+      apply.push(`            let lam = montgomery_product_f8(num, vi${k});`);
+      apply.push(`            var rx = montgomery_product_f8(lam, lam);`);
+      apply.push(`            rx = fr_sub_f8(fr_sub_f8(rx, xd), xs);`);
+      apply.push(`            var ry = fr_sub_f8(xd, rx);`);
+      apply.push(`            ry = fr_sub_f8(montgomery_product_f8(lam, ry), yd);`);
+      apply.push(`            store_x(dst${k}, M_RED, rx);`);
+      apply.push(`            store_y(dst${k}, M_RED, ry);`);
+      apply.push(`        } else if (act${k}) {`);
+      apply.push(`            is_present[dst${k}] = 0u;`);
+      apply.push(`        } else {`);
+      apply.push(`            store_x(dst${k}, M_RED, load_x(src${k}, M_RED));`);
+      apply.push(`            store_y(dst${k}, M_RED, load_y(src${k}, M_RED));`);
+      apply.push(`            is_present[dst${k}] = 1u;`);
+      apply.push(`        }`);
+      apply.push(`    }`);
+    }
+    const dec = this.decoupledPackUnpackWgsl();
+    const inverse_funcs = by_inverse_loop_pk14_native_funcs;
+    const inv_fn = 'fr_inv_by_loop_pk';
+    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    return mustache.render(
+      ba_halve_shader,
+      {
+        workgroup_size,
+        cpairs,
+        pairs_gather: gather.join('\n'),
+        chain_invert_peel: invert.join('\n'),
+        pairs_apply: apply.join('\n'),
+        inv_fn,
+        p8_consts,
+        r8_csv,
+        f8_words,
+        f8_native: this.montmul === 'cios_unrolled',
+        word_size: this.word_size,
+        num_words: this.num_words,
+        n0: this.n0,
+        p_limbs: this.p_limbs,
+        r_limbs: this.r_limbs,
+        mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size,
+        p_inv_mod_2w: this.p_inv_mod_2w,
+        p_inv_by_a_lo: this.p_inv_by_a_lo,
+        dec_unpack: dec.unpack,
+        dec_pack: dec.pack,
+        recompile: this.recompile,
+      },
+      {
+        structs,
+        bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        montgomery_product_f8_native: this.mont_f8_native_src,
+        field_funcs,
+        field8_funcs,
+        bigint_by_funcs,
+        inverse_funcs,
+      },
+    );
+  }
+
+  /**
+   * One depth of the halving reduction in the thread-starved regime: one
+   * COMPLETE Jacobian pair-addition per thread at maximum width. Requires
+   * the z-plane to be initialised for every present slot (r1 while affine).
+   */
+  public gen_jac_halve_shader(workgroup_size: number): string {
+    if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
+      throw new Error(`gen_jac_halve_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
+    }
+    const dec = this.decoupledPackUnpackWgsl();
+    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    return mustache.render(
+      jac_halve_shader,
+      {
+        workgroup_size,
+        p8_consts,
+        r8_csv,
+        f8_words,
+        f8_native: this.montmul === 'cios_unrolled',
+        word_size: this.word_size,
+        num_words: this.num_words,
+        n0: this.n0,
+        p_limbs: this.p_limbs,
+        r_limbs: this.r_limbs,
+        mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size,
+        p_inv_mod_2w: this.p_inv_mod_2w,
+        p_inv_by_a_lo: this.p_inv_by_a_lo,
+        dec_unpack: dec.unpack,
+        dec_pack: dec.pack,
+        recompile: this.recompile,
+      },
+      {
+        structs,
+        bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        montgomery_product_f8_native: this.mont_f8_native_src,
+        field_funcs,
+        field8_funcs,
+      },
+    );
+  }
+
+  /**
+   * Halving-reduction finisher, pass 1: one workgroup per (window, array),
+   * ZERO workgroup memory — the trees fold IN PLACE in global memory (the
+   * arena slots the values already occupy) with storageBarrier() between
+   * steps, so occupancy is bounded only by thread slots. Carry workgroups
+   * tree-reduce their array and apply its power-of-two constant (the
+   * doubling chains run concurrently across workgroups); the total lands on
+   * the array home slot, which IS the staging slot. The weighted-array
+   * workgroup continues the halving recursion inside its own region.
+   * Geometry baked; complete arithmetic; affine-entry variants synthesize z
+   * from is_present exactly where slots are still untouched originals.
+   */
+  public gen_halve_finish_arrays_shader(stride: number, finisherDepth: number, inputsJac: boolean): string {
+    if (stride < 2 || (stride & (stride - 1)) !== 0) {
+      throw new Error(`gen_halve_finish_arrays_shader: stride (${stride}) must be a power of two >= 2`);
+    }
+    const B = stride;
+    const r = Math.log2(B);
+    const df = finisherDepth;
+    const Lf = B >> df;
+    const lgLf = Math.log2(Lf);
+    const workgroup_size = Math.max(32, Lf >> 1);
+    const body: string[] = [];
+    // gload(slot, original): original slots synthesize z from is_present in
+    // the affine-entry variant; written slots always carry z in red_z.
+    const gload = (slot: string, original: boolean): string =>
+      !inputsJac && original
+        ? `gload_orig(${slot}, M_RED)`
+        : `Jac(load_x(${slot}, M_RED), load_y(${slot}, M_RED), load_zp(${slot}))`;
+    body.push(`    if (a == 0u) {`);
+    for (let k = 0; k < lgLf; k++) {
+      const half = Lf >> (k + 1);
+      body.push(`        // weighted sub-recursion depth ${k}: ${1 + k} arrays of ${Lf >> k}`);
+      if (k > 0) {
+        // Pair ranges by array: carries 1..k−1 (slots already written),
+        // carry k (first halving — untouched originals), then W (written).
+        if (k > 1) {
+          body.push(`        if (t < ${(k - 1) * half}u) {`);
+          body.push(`            let aa = (t >> ${Math.log2(half)}u) + 1u;`);
+          body.push(`            let di = base + (${Lf}u >> aa) + (t & ${half - 1}u);`);
+          body.push(`            let s0 = ${gload('di', false)};`);
+          body.push(`            let s1 = ${gload(`di + ${half}u`, false)};`);
+          body.push(`            gstore(di, jac_cadd(s0, s1));`);
+          body.push(`        } else if (t < ${k * half}u) {`);
+        } else {
+          body.push(`        if (t < ${k * half}u) {`);
+        }
+        body.push(`            let di = base + ${Lf >> k}u + (t & ${half - 1}u);`);
+        body.push(`            let s0 = ${gload('di', k === 1)};`);
+        body.push(`            let s1 = ${gload(`di + ${half}u`, k === 1)};`);
+        body.push(`            gstore(di, jac_cadd(s0, s1));`);
+        body.push(`        } else if (t < ${(k + 1) * half}u) {`);
+        body.push(`            let di = base + (t & ${half - 1}u);`);
+        body.push(`            let s0 = ${gload('di', false)};`);
+        body.push(`            let s1 = ${gload(`di + ${half}u`, false)};`);
+        body.push(`            gstore(di, jac_cadd(s0, s1));`);
+        body.push(`        }`);
+      } else {
+        body.push(`        if (t < ${half}u) {`);
+        body.push(`            let di = base + t;`);
+        body.push(`            let s0 = ${gload('di', true)};`);
+        body.push(`            let s1 = ${gload(`di + ${half}u`, true)};`);
+        body.push(`            gstore(di, jac_cadd(s0, s1));`);
+        body.push(`        }`);
+      }
+      body.push(`        storageBarrier();`);
+    }
+    body.push(`        if (t == 0u) {`);
+    body.push(`            var S = ${gload('base', false)};`);
+    body.push(`            var acc = Jac(r1, r1, zero);`);
+    for (let k = 1; k <= lgLf; k++) {
+      // Internal carry k = the untouched src half of internal depth k-1: its
+      // slots are written only when k < lgLf (it halves at later depths); the
+      // LAST carry (single slot) is still an original.
+      body.push(`            acc = jac_cdbl(acc);`);
+      body.push(`            acc = jac_cadd(acc, ${gload(`base + ${Lf >> k}u`, false)}); // internal carry, scale ${Lf >> k}`);
+    }
+    body.push(`            S = jac_cadd(S, acc);`);
+    body.push(`            gstore(base, S);`);
+    body.push(`        }`);
+    body.push(`    } else {`);
+    let first = true;
+    for (let sStep = Lf >> 1; sStep >= 1; sStep >>= 1) {
+      body.push(`        if (t < ${sStep}u) {`);
+      body.push(`            let di = base + off + t;`);
+      body.push(`            let s0 = ${gload('di', first)};`);
+      body.push(`            let s1 = ${gload(`di + ${sStep}u`, first)};`);
+      body.push(`            gstore(di, jac_cadd(s0, s1));`);
+      body.push(`        }`);
+      body.push(`        storageBarrier();`);
+      first = false;
+    }
+    body.push(`        if (t == 0u) {`);
+    body.push(`            var P = ${gload('base + off', false)};`);
+    body.push(`            // scale B >> a = 2^(${r} - a); the loop body is one ~8-mul`);
+    body.push(`            // complete double — under the Mali unroll cliff.`);
+    body.push(`            for (var i = a; i < ${r}u; i = i + 1u) {`);
+    body.push(`                P = jac_cdbl(P);`);
+    body.push(`            }`);
+    body.push(`            gstore(base + off, P);`);
+    body.push(`        }`);
+    body.push(`    }`);
+    const dec = this.decoupledPackUnpackWgsl();
+    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    return mustache.render(
+      halve_finish_arrays_shader,
+      {
+        workgroup_size,
+        f1_body: body.join('\n'),
+        p8_consts,
+        r8_csv,
+        f8_words,
+        f8_native: this.montmul === 'cios_unrolled',
+        word_size: this.word_size,
+        num_words: this.num_words,
+        n0: this.n0,
+        p_limbs: this.p_limbs,
+        r_limbs: this.r_limbs,
+        mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size,
+        p_inv_mod_2w: this.p_inv_mod_2w,
+        p_inv_by_a_lo: this.p_inv_by_a_lo,
+        dec_unpack: dec.unpack,
+        dec_pack: dec.pack,
+        recompile: this.recompile,
+      },
+      {
+        structs,
+        bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        montgomery_product_f8_native: this.mont_f8_native_src,
+        field_funcs,
+        field8_funcs,
+      },
+    );
+  }
+
+  /**
+   * Halving-reduction finalize: one small workgroup per window tree-reduces
+   * the (1 + d_f) staged points in ~log2 rounds of complete additions
+   * (global in-place over the baked offset list, no workgroup memory), then
+   * lane 0 normalises the root to affine in the same dispatch — one pass
+   * where pass-2 + jac-finalize used to be two.
+   */
+  public gen_halve_finish_root_shader(stride: number, finisherDepth: number): string {
+    if (stride < 2 || (stride & (stride - 1)) !== 0) {
+      throw new Error(`gen_halve_finish_root_shader: stride (${stride}) must be a power of two >= 2`);
+    }
+    // Staged slot offsets, tree-paired in place: offs[i] += offs[i + step].
+    const offs: number[] = [0];
+    for (let j = 1; j <= finisherDepth; j++) offs.push(stride >> j);
+    const n = offs.length;
+    const workgroup_size = Math.max(8, Math.ceil(n / 2));
+    const body: string[] = [];
+    // Ascending steps: (i, i+1) pairs first, then (i, i+2), … — a slot is
+    // only consumed after everything below it has merged in.
+    for (let step = 1; step < n; step <<= 1) {
+      const pairs: Array<[number, number]> = [];
+      for (let i = 0; i + step < n; i += 2 * step) pairs.push([offs[i], offs[i + step]]);
+      if (pairs.length === 0) continue;
+      body.push(`    switch (t) {`);
+      pairs.forEach(([d, src], i) => {
+        body.push(`        case ${i}u: {`);
+        body.push(`            gstore(base + ${d}u, jac_cadd(gload(base + ${d}u), gload(base + ${src}u)));`);
+        body.push(`            break;`);
+        body.push(`        }`);
+      });
+      body.push(`        default: { break; }`);
+      body.push(`    }`);
+      body.push(`    storageBarrier();`);
+    }
+    body.push(`    if (t == 0u) {`);
+    body.push(`        is_present[base] = u32(!fr_is_zero_f8(load_zp(base)));`);
+    body.push(`    }`);
+    const dec = this.decoupledPackUnpackWgsl();
+    const inverse_funcs = by_inverse_loop_pk14_native_funcs;
+    const inv_fn = 'fr_inv_by_loop_pk';
+    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    return mustache.render(
+      halve_finish_root_shader,
+      {
+        workgroup_size,
+        inv_fn,
+        f2_body: body.join('\n'),
+        p8_consts,
+        r8_csv,
+        f8_words,
+        f8_native: this.montmul === 'cios_unrolled',
+        word_size: this.word_size,
+        num_words: this.num_words,
+        n0: this.n0,
+        p_limbs: this.p_limbs,
+        r_limbs: this.r_limbs,
+        mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size,
+        p_inv_mod_2w: this.p_inv_mod_2w,
+        p_inv_by_a_lo: this.p_inv_by_a_lo,
+        dec_unpack: dec.unpack,
+        dec_pack: dec.pack,
+        recompile: this.recompile,
+      },
+      {
+        structs,
+        bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        montgomery_product_f8_native: this.mont_f8_native_src,
+        field_funcs,
+        field8_funcs,
+        bigint_by_funcs,
+        inverse_funcs,
+      },
+    );
+  }
+
+  /**
+   * One batch-affine fold level of the fold-tower reduction
+   * (GROUPED_REDUCE_PLAN.md). `nstreams` (0..2) and `chunksPerThread`
+   * (1/2/4) are compile-time specialised: each thread walks k chunks
+   * simultaneously and ALL k·(2+nstreams) adds of a row share one inversion
+   * (C = k·(2+ns)). The host picks k per level so threads stay at the
+   * device's saturation width, and switches the level to the Jacobian fold
+   * (gen_ba_reduce_fold_jac_shader) below it — batch-affine at C ≤ 2 is
+   * never dispatched. Per-chunk register blocks and the prefix/invert/peel
+   * chain are assembled as code strings so every accumulator stays a
+   * statically-named register.
+   */
+  /**
+   * Code blocks shared by the affine fold kernels (per-thread and coop):
+   * accumulator decls, per-row denominator gather, post-inversion apply, and
+   * final stores. `gate` (a boolean WGSL expression, or null) predicates the
+   * whole row OFF without `continue`/`return` — required by the coop variant,
+   * whose workgroup barriers must sit in uniform control flow, so ragged rows
+   * and idle lanes participate with identity denominators instead of
+   * branching away. With gate === null the emitted code is byte-identical to
+   * the historical per-thread kernel.
+   */
+  private buildFoldBlocks(
+    k: number,
+    ns: number,
+    gate: string | null,
+  ): { decls: string[]; gather: string[]; apply: string[]; store: string[] } {
+    const perChunk = 2 + ns;
+    const decls: string[] = [];
+    const gather: string[] = [];
+    const apply: string[] = [];
+    const store: string[] = [];
+    // Candidate index for (chunk j, slot u): u = 0 → alg += run, 1 → run += V,
+    // 2+s → stream s. Denominator d{idx}; recovered inverse vi{idx}.
+    const cand = (j: number, u: number): number => j * perChunk + u;
+    const g = gate === null ? '' : `${gate} && `;
+    for (let j = 0; j < k; j++) {
+      decls.push(`    let c${j} = q + ${j}u * span;`);
+      decls.push(`    var run${j}_x = r1; var run${j}_y = r1; var run${j}_p = false;`);
+      decls.push(`    var alg${j}_x = r1; var alg${j}_y = r1; var alg${j}_p = false;`);
+      decls.push(`    var dup${j} = false;`);
+      for (let st = 0; st < ns; st++) {
+        decls.push(`    var st${j}_${st}_x = r1; var st${j}_${st}_y = r1; var st${j}_${st}_p = false;`);
+      }
+    }
+    for (let j = 0; j < k; j++) {
+      gather.push(`        let rs${j} = i * G + c${j};`);
+      gather.push(`        let add${j} = ${g}run${j}_p && alg${j}_p && !dup${j};`);
+      gather.push(`        let dbl${j} = ${g}run${j}_p && alg${j}_p && dup${j};`);
+      gather.push(`        let cpy${j} = ${g}run${j}_p && !alg${j}_p;`);
+      if (gate !== null) {
+        gather.push(`        let live${j} = ${gate} && run${j}_p;`);
+      }
+      gather.push(`        var d${cand(j, 0)} = fr_select_f8(r1, fr_sub_f8(run${j}_x, alg${j}_x), add${j});`);
+      gather.push(`        d${cand(j, 0)} = fr_select_f8(d${cand(j, 0)}, fr_add_f8(alg${j}_y, alg${j}_y), dbl${j});`);
+      gather.push(`        let vslot${j} = base + rs${j};`);
+      gather.push(
+        gate === null
+          ? `        let vp${j} = is_present[vslot${j}] != 0u;`
+          : `        let vp${j} = ${gate} && (is_present[vslot${j}] != 0u);`,
+      );
+      gather.push(`        let vx${j} = load_x(vslot${j}, M_RED);`);
+      gather.push(`        let vadd${j} = vp${j} && run${j}_p;`);
+      gather.push(`        let d${cand(j, 1)} = fr_select_f8(r1, fr_sub_f8(vx${j}, run${j}_x), vadd${j});`);
+      for (let st = 0; st < ns; st++) {
+        gather.push(`        let tslot${j}_${st} = base + ${st + 1}u * B + rs${j};`);
+        gather.push(
+          gate === null
+            ? `        let tp${j}_${st} = is_present[tslot${j}_${st}] != 0u;`
+            : `        let tp${j}_${st} = ${gate} && (is_present[tslot${j}_${st}] != 0u);`,
+        );
+        gather.push(`        let tx${j}_${st} = load_x(tslot${j}_${st}, M_RED);`);
+        gather.push(`        let tadd${j}_${st} = tp${j}_${st} && st${j}_${st}_p;`);
+        gather.push(
+          `        let d${cand(j, 2 + st)} = fr_select_f8(r1, fr_sub_f8(tx${j}_${st}, st${j}_${st}_x), tadd${j}_${st});`,
+        );
+      }
+    }
+    const liveExpr = (j: number): string => (gate === null ? `run${j}_p` : `live${j}`);
+    for (let j = 0; j < k; j++) {
+      apply.push(`        {`);
+      apply.push(`            var num = fr_sub_f8(run${j}_y, alg${j}_y);`);
+      apply.push(`            var x_other = run${j}_x;`);
+      apply.push(`            if (dbl${j}) {`);
+      apply.push(`                let x2 = montgomery_product_f8(alg${j}_x, alg${j}_x);`);
+      apply.push(`                num = fr_add_f8(fr_add_f8(x2, x2), x2);`);
+      apply.push(`                x_other = alg${j}_x;`);
+      apply.push(`            }`);
+      apply.push(`            let lambda = montgomery_product_f8(num, vi${cand(j, 0)});`);
+      apply.push(`            var rx = montgomery_product_f8(lambda, lambda);`);
+      apply.push(`            rx = fr_sub_f8(fr_sub_f8(rx, alg${j}_x), x_other);`);
+      apply.push(`            var ry = fr_sub_f8(alg${j}_x, rx);`);
+      apply.push(`            ry = fr_sub_f8(montgomery_product_f8(lambda, ry), alg${j}_y);`);
+      apply.push(`            let mut${j} = add${j} || dbl${j};`);
+      apply.push(`            alg${j}_x = fr_select_f8(alg${j}_x, rx, mut${j});`);
+      apply.push(`            alg${j}_y = fr_select_f8(alg${j}_y, ry, mut${j});`);
+      apply.push(`            alg${j}_x = fr_select_f8(alg${j}_x, run${j}_x, cpy${j});`);
+      apply.push(`            alg${j}_y = fr_select_f8(alg${j}_y, run${j}_y, cpy${j});`);
+      apply.push(`            alg${j}_p = alg${j}_p || ${liveExpr(j)};`);
+      apply.push(`            dup${j} = select(dup${j}, cpy${j}, ${liveExpr(j)});`);
+      apply.push(`        }`);
+      apply.push(`        {`);
+      apply.push(`            let vy${j} = load_y(vslot${j}, M_RED);`);
+      apply.push(`            let lambda = montgomery_product_f8(fr_sub_f8(vy${j}, run${j}_y), vi${cand(j, 1)});`);
+      apply.push(`            var rx = montgomery_product_f8(lambda, lambda);`);
+      apply.push(`            rx = fr_sub_f8(fr_sub_f8(rx, run${j}_x), vx${j});`);
+      apply.push(`            var ry = fr_sub_f8(run${j}_x, rx);`);
+      apply.push(`            ry = fr_sub_f8(montgomery_product_f8(lambda, ry), run${j}_y);`);
+      apply.push(`            run${j}_x = fr_select_f8(run${j}_x, rx, vadd${j});`);
+      apply.push(`            run${j}_y = fr_select_f8(run${j}_y, ry, vadd${j});`);
+      apply.push(`            let vcpy${j} = vp${j} && !run${j}_p;`);
+      apply.push(`            run${j}_x = fr_select_f8(run${j}_x, vx${j}, vcpy${j});`);
+      apply.push(`            run${j}_y = fr_select_f8(run${j}_y, vy${j}, vcpy${j});`);
+      apply.push(`            run${j}_p = run${j}_p || vp${j};`);
+      apply.push(`            dup${j} = dup${j} && !vp${j};`);
+      apply.push(`        }`);
+      for (let st = 0; st < ns; st++) {
+        apply.push(`        {`);
+        apply.push(`            let ty${j}_${st} = load_y(tslot${j}_${st}, M_RED);`);
+        apply.push(
+          `            let lambda = montgomery_product_f8(fr_sub_f8(ty${j}_${st}, st${j}_${st}_y), vi${cand(j, 2 + st)});`,
+        );
+        apply.push(`            var rx = montgomery_product_f8(lambda, lambda);`);
+        apply.push(`            rx = fr_sub_f8(fr_sub_f8(rx, st${j}_${st}_x), tx${j}_${st});`);
+        apply.push(`            var ry = fr_sub_f8(st${j}_${st}_x, rx);`);
+        apply.push(`            ry = fr_sub_f8(montgomery_product_f8(lambda, ry), st${j}_${st}_y);`);
+        apply.push(`            st${j}_${st}_x = fr_select_f8(st${j}_${st}_x, rx, tadd${j}_${st});`);
+        apply.push(`            st${j}_${st}_y = fr_select_f8(st${j}_${st}_y, ry, tadd${j}_${st});`);
+        apply.push(`            let tcpy${j}_${st} = tp${j}_${st} && !st${j}_${st}_p;`);
+        apply.push(`            st${j}_${st}_x = fr_select_f8(st${j}_${st}_x, tx${j}_${st}, tcpy${j}_${st});`);
+        apply.push(`            st${j}_${st}_y = fr_select_f8(st${j}_${st}_y, ty${j}_${st}, tcpy${j}_${st});`);
+        apply.push(`            st${j}_${st}_p = st${j}_${st}_p || tp${j}_${st};`);
+        apply.push(`        }`);
+      }
+    }
+    for (let j = 0; j < k; j++) {
+      store.push(`    store_x(base + c${j}, M_RED, run${j}_x);`);
+      store.push(`    store_y(base + c${j}, M_RED, run${j}_y);`);
+      store.push(`    is_present[base + c${j}] = u32(run${j}_p);`);
+      for (let st = 0; st < ns; st++) {
+        store.push(`    store_x(base + ${st + 1}u * G + c${j}, M_RED, st${j}_${st}_x);`);
+        store.push(`    store_y(base + ${st + 1}u * G + c${j}, M_RED, st${j}_${st}_y);`);
+        store.push(`    is_present[base + ${st + 1}u * G + c${j}] = u32(st${j}_${st}_p);`);
+      }
+      store.push(`    store_x(base + ${1 + ns}u * G + c${j}, M_RED, alg${j}_x);`);
+      store.push(`    store_y(base + ${1 + ns}u * G + c${j}, M_RED, alg${j}_y);`);
+      store.push(`    is_present[base + ${1 + ns}u * G + c${j}] = u32(alg${j}_p);`);
+    }
+    return { decls, gather, apply, store };
+  }
+
+  public gen_ba_reduce_fold_shader(workgroup_size: number, nstreams: number, chunksPerThread = 1): string {
+    if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
+      throw new Error(`gen_ba_reduce_fold_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
+    }
+    if (!Number.isInteger(nstreams) || nstreams < 0 || nstreams > 2) {
+      throw new Error(`gen_ba_reduce_fold_shader: nstreams (${nstreams}) must be 0, 1, or 2`);
+    }
+    if (![1, 2, 4].includes(chunksPerThread)) {
+      throw new Error(`gen_ba_reduce_fold_shader: chunksPerThread (${chunksPerThread}) must be 1, 2, or 4`);
+    }
+    const blocks = this.buildFoldBlocks(chunksPerThread, nstreams, null);
+    const { decls, gather, apply, store } = blocks;
+    const C = chunksPerThread * (2 + nstreams);
+    const invert: string[] = [];
+    invert.push(`        let pp0 = d0;`);
+    for (let i = 1; i < C; i++) invert.push(`        let pp${i} = montgomery_product_f8(pp${i - 1}, d${i});`);
+    invert.push(`        var inv_acc: array<u32, 8> = fr_inv_by_loop_pk(pp${C - 1});`);
+    for (let i = C - 1; i >= 1; i--) {
+      invert.push(`        let vi${i} = montgomery_product_f8(inv_acc, pp${i - 1});`);
+      invert.push(`        inv_acc = montgomery_product_f8(inv_acc, d${i});`);
+    }
+    invert.push(`        let vi0 = inv_acc;`);
+    const dec = this.decoupledPackUnpackWgsl();
+    const inverse_funcs = by_inverse_loop_pk14_native_funcs;
+    const inv_fn = 'fr_inv_by_loop_pk';
+    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    return mustache.render(
+      ba_reduce_fold_shader,
+      {
+        workgroup_size,
+        nstreams,
+        chunks_per_thread: chunksPerThread,
+        chunk_decls: decls.join('\n'),
+        chunk_gather: gather.join('\n'),
+        chunk_invert: invert.join('\n'),
+        chunk_apply: apply.join('\n'),
+        chunk_store: store.join('\n'),
+        inv_fn,
+        p8_consts,
+        r8_csv,
+        f8_words,
+        f8_native: this.montmul === 'cios_unrolled',
+        word_size: this.word_size,
+        num_words: this.num_words,
+        n0: this.n0,
+        p_limbs: this.p_limbs,
+        r_limbs: this.r_limbs,
+        mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size,
+        p_inv_mod_2w: this.p_inv_mod_2w,
+        p_inv_by_a_lo: this.p_inv_by_a_lo,
+        dec_unpack: dec.unpack,
+        dec_pack: dec.pack,
+        recompile: this.recompile,
+      },
+      {
+        structs,
+        bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        montgomery_product_f8_native: this.mont_f8_native_src,
+        field_funcs,
+        field8_funcs,
+        bigint_by_funcs,
+        inverse_funcs,
+      },
+    );
+  }
+
+  /**
+   * Workgroup-cooperative affine fold level: same walk, accumulators, and
+   * outputs as gen_ba_reduce_fold_shader at k = 1, but the per-row pk14
+   * inversion is batched across the whole workgroup via a shared-memory
+   * product tree (up-sweep, single root inversion, inverse-distributing
+   * down-sweep). C_effective = WG·(2+nstreams) per inversion at full
+   * dispatch width. workgroup_size must be a power of two (binary tree).
+   */
+  public gen_ba_reduce_fold_coop_shader(workgroup_size: number, nstreams: number): string {
+    if (workgroup_size <= 0 || (workgroup_size & (workgroup_size - 1)) !== 0) {
+      throw new Error(`gen_ba_reduce_fold_coop_shader: workgroup_size (${workgroup_size}) must be a power of two`);
+    }
+    if (!Number.isInteger(nstreams) || nstreams < 0 || nstreams > 2) {
+      throw new Error(`gen_ba_reduce_fold_coop_shader: nstreams (${nstreams}) must be 0, 1, or 2`);
+    }
+    const { decls, gather, apply, store } = this.buildFoldBlocks(1, nstreams, 'row_on');
+    const C = 2 + nstreams;
+    const chain: string[] = [];
+    chain.push(`        let pp0 = d0;`);
+    for (let i = 1; i < C; i++) chain.push(`        let pp${i} = montgomery_product_f8(pp${i - 1}, d${i});`);
+    chain.push(`        let lp = pp${C - 1};`);
+    const peel: string[] = [];
+    for (let i = C - 1; i >= 1; i--) {
+      peel.push(`        let vi${i} = montgomery_product_f8(inv_acc, pp${i - 1});`);
+      peel.push(`        inv_acc = montgomery_product_f8(inv_acc, d${i});`);
+    }
+    peel.push(`        let vi0 = inv_acc;`);
+    const dec = this.decoupledPackUnpackWgsl();
+    const inverse_funcs = by_inverse_loop_pk14_native_funcs;
+    const inv_fn = 'fr_inv_by_loop_pk';
+    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    return mustache.render(
+      ba_reduce_fold_coop_shader,
+      {
+        workgroup_size,
+        nstreams,
+        tree_vec4s: 4 * workgroup_size,
+        chunk_decls: decls.join('\n'),
+        chunk_gather: gather.join('\n'),
+        coop_chain: chain.join('\n'),
+        coop_peel: peel.join('\n'),
+        chunk_apply: apply.join('\n'),
+        chunk_store: store.join('\n'),
+        inv_fn,
+        p8_consts,
+        r8_csv,
+        f8_words,
+        f8_native: this.montmul === 'cios_unrolled',
+        word_size: this.word_size,
+        num_words: this.num_words,
+        n0: this.n0,
+        p_limbs: this.p_limbs,
+        r_limbs: this.r_limbs,
+        mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size,
+        p_inv_mod_2w: this.p_inv_mod_2w,
+        p_inv_by_a_lo: this.p_inv_by_a_lo,
+        dec_unpack: dec.unpack,
+        dec_pack: dec.pack,
+        recompile: this.recompile,
+      },
+      {
+        structs,
+        bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        montgomery_product_f8_native: this.mont_f8_native_src,
+        field_funcs,
+        field8_funcs,
+        bigint_by_funcs,
+        inverse_funcs,
+      },
+    );
+  }
+
+  /**
+   * Jacobian fold level: the thread-starved-level variant of the affine
+   * fold — same walk and outputs (x/y planes + red_z), zero inversions, no
+   * barriers. Used when a level's chunk count is below the device's
+   * saturation width.
+   */
+  public gen_ba_reduce_fold_jac_shader(workgroup_size: number, nstreams: number): string {
+    if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
+      throw new Error(`gen_ba_reduce_fold_jac_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
+    }
+    if (!Number.isInteger(nstreams) || nstreams < 0 || nstreams > 2) {
+      throw new Error(`gen_ba_reduce_fold_jac_shader: nstreams (${nstreams}) must be 0, 1, or 2`);
+    }
+    const dec = this.decoupledPackUnpackWgsl();
+    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    return mustache.render(
+      ba_reduce_fold_jac_shader,
+      {
+        workgroup_size,
+        nstreams,
+        s0: nstreams >= 1,
+        s1: nstreams >= 2,
+        p8_consts,
+        r8_csv,
+        f8_words,
+        f8_native: this.montmul === 'cios_unrolled',
+        word_size: this.word_size,
+        num_words: this.num_words,
+        n0: this.n0,
+        p_limbs: this.p_limbs,
+        r_limbs: this.r_limbs,
+        mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size,
+        p_inv_mod_2w: this.p_inv_mod_2w,
+        p_inv_by_a_lo: this.p_inv_by_a_lo,
+        dec_unpack: dec.unpack,
+        dec_pack: dec.pack,
+        recompile: this.recompile,
+      },
+      {
+        structs,
+        bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        montgomery_product_f8_native: this.mont_f8_native_src,
+        field_funcs,
+        field8_funcs,
+      },
+    );
+  }
+
+  /**
+   * Fold-tower value weighting: one thread per value multiplies it by its
+   * scalar weight (dynamic-trip double-and-add). Barrier-less, inverse-less,
+   * division-less — the everywhere-compiling kernel family.
+   */
+  public gen_ba_reduce_fold_weight_shader(workgroup_size: number): string {
+    if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
+      throw new Error(`gen_ba_reduce_fold_weight_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
+    }
+    const dec = this.decoupledPackUnpackWgsl();
+    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    return mustache.render(
+      ba_reduce_fold_weight_shader,
+      {
+        workgroup_size,
+        p8_consts,
+        r8_csv,
+        f8_words,
+        f8_native: this.montmul === 'cios_unrolled',
+        word_size: this.word_size,
+        num_words: this.num_words,
+        n0: this.n0,
+        p_limbs: this.p_limbs,
+        r_limbs: this.r_limbs,
+        mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size,
+        p_inv_mod_2w: this.p_inv_mod_2w,
+        p_inv_by_a_lo: this.p_inv_by_a_lo,
+        dec_unpack: dec.unpack,
+        dec_pack: dec.pack,
+        recompile: this.recompile,
+      },
+      {
+        structs,
+        bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        montgomery_product_f8_native: this.mont_f8_native_src,
+        field_funcs,
+        field8_funcs,
+      },
+    );
+  }
+
+  /**
+   * Thread-local tower fold level (M = 8, ns = 0): each thread folds its
+   * column's 8 points as an in-register binary tower — R = ΣP_i and
+   * Λ = 4H + 2Pr + O over the bit-index subsets — in 5 rounds of
+   * independent batch-affine ops (C = 6/4/3/2/1, 16 ops, 5 inversions).
+   * Straight-line (no row loop), barrier-free, full width. The host must
+   * only dispatch this for levels where EVERY window's schedule has M == 8
+   * (no split-c).
+   */
+  public gen_ba_reduce_fold_tlocal_shader(workgroup_size: number): string {
+    if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
+      throw new Error(`gen_ba_reduce_fold_tlocal_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
+    }
+    type TOp = { out: string; kind: 'add' | 'dbl'; a: string; b?: string };
+    const rounds: TOp[][] = [
+      [
+        { out: 'tA', kind: 'add', a: 'p0', b: 'p1' },
+        { out: 'tB', kind: 'add', a: 'p2', b: 'p3' },
+        { out: 'tC', kind: 'add', a: 'p4', b: 'p5' },
+        { out: 'tD', kind: 'add', a: 'p6', b: 'p7' },
+        { out: 'tO1', kind: 'add', a: 'p1', b: 'p3' },
+        { out: 'tO2', kind: 'add', a: 'p5', b: 'p7' },
+      ],
+      [
+        { out: 'tE', kind: 'add', a: 'tA', b: 'tB' },
+        { out: 'tF', kind: 'add', a: 'tC', b: 'tD' },
+        { out: 'tPr', kind: 'add', a: 'tB', b: 'tD' },
+        { out: 'tO', kind: 'add', a: 'tO1', b: 'tO2' },
+      ],
+      [
+        { out: 'tR', kind: 'add', a: 'tE', b: 'tF' },
+        { out: 'tT1', kind: 'dbl', a: 'tF' },
+        { out: 'tV1', kind: 'dbl', a: 'tPr' },
+      ],
+      [
+        { out: 'tU2', kind: 'dbl', a: 'tT1' },
+        { out: 'tW1', kind: 'add', a: 'tV1', b: 'tO' },
+      ],
+      [{ out: 'tLam', kind: 'add', a: 'tU2', b: 'tW1' }],
+    ];
+    const body: string[] = [];
+    // Gather: the column's 8 points (x and y up front — every point is an
+    // operand of two round-1 ops, so nothing can be deferred past the first
+    // inversion); ragged rows enter absent.
+    for (let i = 0; i < 8; i++) {
+      body.push(`    let rs${i} = ${i}u * G + q;`);
+      body.push(`    let sl${i} = base + rs${i};`);
+      body.push(`    let p${i}_p = (rs${i} < B) && (is_present[sl${i}] != 0u);`);
+      body.push(`    let p${i}_x = load_x(sl${i}, M_RED);`);
+      body.push(`    let p${i}_y = load_y(sl${i}, M_RED);`);
+    }
+    for (const r of rounds) {
+      for (const op of r) body.push(`    var ${op.out}_x = r1; var ${op.out}_y = r1; var ${op.out}_p = false;`);
+    }
+    for (let rn = 0; rn < rounds.length; rn++) {
+      const ops = rounds[rn];
+      const C = ops.length;
+      body.push(`    {`);
+      for (let j = 0; j < C; j++) {
+        const op = ops[j];
+        if (op.kind === 'add') {
+          body.push(`        let on${j} = ${op.a}_p && ${op.b}_p;`);
+          body.push(`        let d${j} = fr_select_f8(r1, fr_sub_f8(${op.b!}_x, ${op.a}_x), on${j});`);
+        } else {
+          body.push(`        let on${j} = ${op.a}_p;`);
+          body.push(`        let d${j} = fr_select_f8(r1, fr_add_f8(${op.a}_y, ${op.a}_y), on${j});`);
+        }
+      }
+      body.push(`        let pp0 = d0;`);
+      for (let j = 1; j < C; j++) body.push(`        let pp${j} = montgomery_product_f8(pp${j - 1}, d${j});`);
+      body.push(`        var inv_acc: array<u32, 8> = fr_inv_by_loop_pk(pp${C - 1});`);
+      for (let j = C - 1; j >= 1; j--) {
+        body.push(`        let vi${j} = montgomery_product_f8(inv_acc, pp${j - 1});`);
+        body.push(`        inv_acc = montgomery_product_f8(inv_acc, d${j});`);
+      }
+      body.push(`        let vi0 = inv_acc;`);
+      for (let j = 0; j < C; j++) {
+        const op = ops[j];
+        body.push(`        {`);
+        if (op.kind === 'add') {
+          body.push(`            let lam = montgomery_product_f8(fr_sub_f8(${op.b!}_y, ${op.a}_y), vi${j});`);
+          body.push(`            var rx = montgomery_product_f8(lam, lam);`);
+          body.push(`            rx = fr_sub_f8(fr_sub_f8(rx, ${op.a}_x), ${op.b!}_x);`);
+          body.push(`            var ry = fr_sub_f8(${op.a}_x, rx);`);
+          body.push(`            ry = fr_sub_f8(montgomery_product_f8(lam, ry), ${op.a}_y);`);
+          body.push(`            ${op.out}_x = fr_select_f8(${op.a}_x, rx, on${j});`);
+          body.push(`            ${op.out}_y = fr_select_f8(${op.a}_y, ry, on${j});`);
+          body.push(`            let bonly${j} = ${op.b!}_p && !${op.a}_p;`);
+          body.push(`            ${op.out}_x = fr_select_f8(${op.out}_x, ${op.b!}_x, bonly${j});`);
+          body.push(`            ${op.out}_y = fr_select_f8(${op.out}_y, ${op.b!}_y, bonly${j});`);
+          body.push(`            ${op.out}_p = ${op.a}_p || ${op.b!}_p;`);
+        } else {
+          body.push(`            let xx = montgomery_product_f8(${op.a}_x, ${op.a}_x);`);
+          body.push(`            let num = fr_add_f8(fr_add_f8(xx, xx), xx);`);
+          body.push(`            let lam = montgomery_product_f8(num, vi${j});`);
+          body.push(`            var rx = montgomery_product_f8(lam, lam);`);
+          body.push(`            rx = fr_sub_f8(rx, fr_add_f8(${op.a}_x, ${op.a}_x));`);
+          body.push(`            var ry = fr_sub_f8(${op.a}_x, rx);`);
+          body.push(`            ry = fr_sub_f8(montgomery_product_f8(lam, ry), ${op.a}_y);`);
+          body.push(`            ${op.out}_x = fr_select_f8(${op.a}_x, rx, on${j});`);
+          body.push(`            ${op.out}_y = fr_select_f8(${op.a}_y, ry, on${j});`);
+          body.push(`            ${op.out}_p = ${op.a}_p;`);
+        }
+        body.push(`        }`);
+      }
+      body.push(`    }`);
+    }
+    body.push(`    store_x(base + q, M_RED, tR_x);`);
+    body.push(`    store_y(base + q, M_RED, tR_y);`);
+    body.push(`    is_present[base + q] = u32(tR_p);`);
+    body.push(`    store_x(base + G + q, M_RED, tLam_x);`);
+    body.push(`    store_y(base + G + q, M_RED, tLam_y);`);
+    body.push(`    is_present[base + G + q] = u32(tLam_p);`);
+    const dec = this.decoupledPackUnpackWgsl();
+    const inverse_funcs = by_inverse_loop_pk14_native_funcs;
+    const inv_fn = 'fr_inv_by_loop_pk';
+    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    return mustache.render(
+      ba_reduce_fold_tlocal_shader,
+      {
+        workgroup_size,
+        tlocal_body: body.join('\n'),
+        inv_fn,
+        p8_consts,
+        r8_csv,
+        f8_words,
+        f8_native: this.montmul === 'cios_unrolled',
+        word_size: this.word_size,
+        num_words: this.num_words,
+        n0: this.n0,
+        p_limbs: this.p_limbs,
+        r_limbs: this.r_limbs,
+        mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size,
+        p_inv_mod_2w: this.p_inv_mod_2w,
+        p_inv_by_a_lo: this.p_inv_by_a_lo,
+        dec_unpack: dec.unpack,
+        dec_pack: dec.pack,
+        recompile: this.recompile,
+      },
+      {
+        structs,
+        bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        montgomery_product_f8_native: this.mont_f8_native_src,
+        field_funcs,
+        field8_funcs,
+        bigint_by_funcs,
+        inverse_funcs,
+      },
+    );
+  }
+
+  /**
+   * Lean M = 2 fold level: one Jacobian add per thread at maximum width (the
+   * shape width-adaptive towers produce at small N), Λ contribution is a
+   * copy. `inputsJac` is compile-time: level-0 inputs are affine (both z = 1
+   * → 6-montmul add), chained levels read z from red_z (full add). The host
+   * must only dispatch this for levels where EVERY window's schedule has
+   * M == 2 (no split-c).
+   */
+  public gen_ba_reduce_fold_pair_shader(workgroup_size: number, nstreams: number, inputsJac: boolean): string {
+    if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
+      throw new Error(`gen_ba_reduce_fold_pair_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
+    }
+    if (!Number.isInteger(nstreams) || nstreams < 0 || nstreams > 2) {
+      throw new Error(`gen_ba_reduce_fold_pair_shader: nstreams (${nstreams}) must be 0, 1, or 2`);
+    }
+    const dec = this.decoupledPackUnpackWgsl();
+    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    return mustache.render(
+      ba_reduce_fold_pair_shader,
+      {
+        workgroup_size,
+        s0: nstreams >= 1,
+        s1: nstreams >= 2,
+        inputs_jac: inputsJac,
+        alg_off: 1 + nstreams,
+        p8_consts,
+        r8_csv,
+        f8_words,
+        f8_native: this.montmul === 'cios_unrolled',
+        word_size: this.word_size,
+        num_words: this.num_words,
+        n0: this.n0,
+        p_limbs: this.p_limbs,
+        r_limbs: this.r_limbs,
+        mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size,
+        p_inv_mod_2w: this.p_inv_mod_2w,
+        p_inv_by_a_lo: this.p_inv_by_a_lo,
+        dec_unpack: dec.unpack,
+        dec_pack: dec.pack,
+        recompile: this.recompile,
+      },
+      {
+        structs,
+        bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        montgomery_product_f8_native: this.mont_f8_native_src,
+        field_funcs,
+        field8_funcs,
+      },
+    );
+  }
+
+  /**
+   * Fold-tower window sum, barrier-less: each thread plainly sums a strided
+   * subset of a window's pre-weighted values; dispatched twice (fan-8 then
+   * root). No workgroup memory anywhere — the Mali driver cannot newly
+   * compile barrier+shared+big-field kernels.
+   */
+  public gen_ba_reduce_fold_sum_shader(workgroup_size: number): string {
+    if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
+      throw new Error(`gen_ba_reduce_fold_sum_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
+    }
+    const dec = this.decoupledPackUnpackWgsl();
+    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    return mustache.render(
+      ba_reduce_fold_sum_shader,
+      {
+        workgroup_size,
+        p8_consts,
+        r8_csv,
+        f8_words,
+        f8_native: this.montmul === 'cios_unrolled',
+        word_size: this.word_size,
+        num_words: this.num_words,
+        n0: this.n0,
+        p_limbs: this.p_limbs,
+        r_limbs: this.r_limbs,
+        mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size,
+        p_inv_mod_2w: this.p_inv_mod_2w,
+        p_inv_by_a_lo: this.p_inv_by_a_lo,
+        dec_unpack: dec.unpack,
+        dec_pack: dec.pack,
+        recompile: this.recompile,
+      },
+      {
+        structs,
+        bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        montgomery_product_f8_native: this.mont_f8_native_src,
+        field_funcs,
+        field8_funcs,
       },
     );
   }

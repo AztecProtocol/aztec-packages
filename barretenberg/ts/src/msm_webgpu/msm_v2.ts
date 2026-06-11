@@ -23,6 +23,8 @@
 // this by delegating only when handle_edge_cases is false.
 
 import { ShaderManager, type MontMulVariant } from './cuzk/shader_manager.js';
+import { buildFoldTower } from './fold_tower.js';
+import { buildHalvingSchedule, type HalvingSchedule } from './halving_reduce.js';
 import { BN254_CURVE_CONFIG } from './cuzk/curve_config.js';
 import { compute_misc_params } from './cuzk/utils.js';
 import { BN254_BASE_FIELD, addBn254Points, type Bn254Point, modInverse } from './cuzk/bn254.js';
@@ -419,6 +421,40 @@ export interface MsmConfig {
    * one-thread-per-window (validation); v1 batches the inversions for speed.
    */
   sparseReduce?: boolean;
+  /**
+   * Use the fold-tower bucket reduction (GROUPED_REDUCE_PLAN.md): 2-3 wide
+   * batch-affine fold dispatches + a per-window Jacobian tail replace the
+   * 35-level dense schedule. Byte-identical result.
+   */
+  groupedReduce?: boolean;
+  /** Fold-tower rows-per-chunk per level (sweep knob; see buildFoldTower). */
+  foldMTower?: number[];
+  /** Fold-tower combine input length cap (sweep knob; default and maximum 32
+   *  — the combine kernel is one small workgroup per window). */
+  foldTailMax?: number;
+  /** Fold regime threshold: a level runs batch-affine with the largest k
+   *  (chunks/thread, C = k·(2+streams) adds per inversion) keeping
+   *  chunks/k ≥ foldSat threads; below it the level runs the inversion-free
+   *  Jacobian fold. Default 2560. */
+  foldSat?: number;
+  /** Force a fixed affine k on every fold level (sweep/debug). */
+  foldK?: number;
+  /** Use the workgroup-cooperative inversion kernel for affine fold levels
+   *  (the per-row pk14 batches across the whole workgroup; k pinned to 1). */
+  foldCoop?: boolean;
+  /** Use the thread-local tower kernel for affine M = 8 stream-less levels
+   *  (in-register binary tower, 5 round-batched inversions, no barriers). */
+  foldTlocal?: boolean;
+  /** Halving bucket reduction (Mitschabaude): one dispatch per wide depth —
+   *  batch-affine 8/4 pairs per thread while saturated, Jacobian pairs once
+   *  thin — plus a one-workgroup-per-window finisher. No split-c support. */
+  halvingReduce?: boolean;
+  /** Halving finisher entry budget (live values per window). Default 64
+   *  (measured M4 optimum — finisher chains scale with per-array length). */
+  halveCap?: number;
+  /** Width down to which the wide phase keeps batch-4 before falling back
+   *  to Jacobian pairs. Default = foldSat. */
+  halveBa4Floor?: number;
   /**
    * Test hook (mirrors the C++ VAR_WINDOW_FORCE_SPLIT env var): force a split at
    * `[b_star, c_lo, c_hi]`, bypassing the cost model. Requires {@link splitC}.
@@ -1947,6 +1983,42 @@ export class MsmV2 {
   private reduceSparsePipe?: GPUComputePipeline;
   private reduceSparseLayout?: GPUBindGroupLayout;
   private reduceSparseBind?: GPUBindGroup;
+  // Fold-tower reduction (GROUPED_REDUCE_PLAN.md). foldPipes is indexed by the
+  // level's stream count (= level index, ≤ 2).
+  private groupedReduce = false;
+  private foldMTower?: number[];
+  private foldTailMax?: number;
+  private foldLevelPipes: GPUComputePipeline[] = [];
+  private foldRegimes: { jac: boolean; k: number; pair: boolean; tlocal?: boolean }[] = [];
+  private foldSat = 2560;
+  private foldK = 0;
+  private foldCoop = false;
+  private foldTlocal = false;
+  private halvingReduce = false;
+  private halveCap = 256;
+  private halveBa4Floor?: number;
+  private halveSchedule?: HalvingSchedule;
+  private halveBa8Pipe?: GPUComputePipeline;
+  private halveBa4Pipe?: GPUComputePipeline;
+  private halveJacPipe?: GPUComputePipeline;
+  private halveFinishArraysPipe?: GPUComputePipeline;
+  private halveFinishRootPipe?: GPUComputePipeline;
+  private halveDepthDispatch: { pipe: GPUComputePipeline; bind: GPUBindGroup; nx: number }[] = [];
+  private halveFinishBind?: GPUBindGroup;
+  private halveZInitBind?: GPUBindGroup;
+  private halveZInitAt = -1;
+  private foldWeightPipe?: GPUComputePipeline;
+  private foldSumPipe?: GPUComputePipeline;
+  private foldSumBind1?: GPUBindGroup;
+  private foldSumBind2?: GPUBindGroup;
+  private foldWeightNx = 1;
+  private foldLayout?: GPUBindGroupLayout;
+  private foldJacLayout?: GPUBindGroupLayout;
+  private foldTailLayout?: GPUBindGroupLayout;
+  private foldLevelBinds: GPUBindGroup[] = [];
+  private foldLevelNx: number[] = [];
+  private foldTailBind?: GPUBindGroup;
+  private foldMaxLevels = 0;
   /** split-c test hook: force a split at [b_star, c_lo, c_hi], bypassing the cost model. */
   private forceSplit?: [number, number, number];
   /** Reduce-cost weight (alphaBucket) for the split decision. Default 4 (dense reduce). */
@@ -2416,6 +2488,16 @@ export class MsmV2 {
     m.splitC = config?.splitC ?? false;
     m.wiProbe = config?.wiProbe ?? false;
     m.sparseReduce = config?.sparseReduce ?? false;
+    m.groupedReduce = config?.groupedReduce ?? false;
+    m.foldMTower = config?.foldMTower;
+    m.foldTailMax = config?.foldTailMax;
+    m.foldSat = config?.foldSat ?? 2560;
+    m.foldK = config?.foldK ?? 0;
+    m.foldCoop = config?.foldCoop ?? false;
+    m.foldTlocal = config?.foldTlocal ?? false;
+    m.halvingReduce = config?.halvingReduce ?? false;
+    m.halveCap = config?.halveCap ?? 64;
+    m.halveBa4Floor = config?.halveBa4Floor;
     m.forceSplit = config?.forceSplit;
     m.reduceCostWeight = config?.reduceCostWeight ?? 4;
     m.maxCLo = config?.maxCLo ?? 0;
@@ -3123,6 +3205,126 @@ export class MsmV2 {
         sm.gen_ba_reduce_sparse_shader(REDUCE_WG, INV_VARIANT),
         `reduce-sparse`,
         m.reduceSparseLayout,
+      );
+    }
+    if (m.groupedReduce) {
+      // Fold-tower reduction. Per-level regime from the ENVELOPE tower
+      // (window towers are prefixes of it): batch-affine with the largest k
+      // keeping threads ≥ foldSat (C = k·(2+ns) adds per inversion), else
+      // the inversion-free Jacobian fold — C = 2 batch-affine is never
+      // dispatched (a mixed Jacobian add is cheaper).
+      const envTower = buildFoldTower(2 ** (m.c - 1), {
+        mTower: m.foldMTower,
+        tailMax: Math.min(m.foldTailMax ?? 32, 64),
+        maxLevels: 3,
+        numWindows: m.numWindows,
+        satWidth: m.foldSat,
+      });
+      // foldCoop swaps the kernel of AFFINE-regime levels for the
+      // workgroup-cooperative variant (always k = 1: the coop batch already
+      // spans the workgroup, so chunks/thread buys nothing). Jacobian-regime
+      // levels are unaffected — combine with foldK = 1 to force every level
+      // affine and therefore coop.
+      m.foldRegimes = envTower.levels.map((lvl, lv) => {
+        // M = 2 Jacobian levels (width-adaptive small-N shape) get the lean
+        // pair kernel: one add per thread, no walk machinery. Split-c is
+        // excluded — window towers can then disagree with the envelope's M
+        // at a level, and the pair kernel is specialised to M == 2.
+        const pairable = lvl.M === 2 && !m.splitC;
+        if (m.foldK) return { jac: false, k: m.foldCoop ? 1 : m.foldK, pair: false };
+        const NC = m.numWindows * lvl.G;
+        if (m.foldCoop) {
+          // Same affine/jac boundary as the per-thread policy below, so an
+          // A/B against it swaps only the kernel of the affine levels.
+          const affine =
+            (NC / 4 >= m.foldSat && lvl.G % 4 === 0) || (NC / 2 >= m.foldSat && lvl.G % 2 === 0);
+          return affine ? { jac: false, k: 1, pair: false } : { jac: true, k: 1, pair: pairable };
+        }
+        if (NC / 4 >= m.foldSat && lvl.G % 4 === 0) return { jac: false, k: 4, pair: false };
+        if (NC / 2 >= m.foldSat && lvl.G % 2 === 0) return { jac: false, k: 2, pair: false };
+        return { jac: true, k: 1, pair: pairable };
+      });
+      // The thread-local tower kernel claims affine M = 8 stream-less levels
+      // and is one-column-per-thread: pin its k to 1 so the dispatch width
+      // covers every column (the regime's k sizes foldLevelNx).
+      if (m.foldTlocal && !m.splitC) {
+        for (let lv = 0; lv < m.foldRegimes.length; lv++) {
+          const r = m.foldRegimes[lv];
+          if (!r.jac && lv === 0 && envTower.levels[lv].M === 8) {
+            r.k = 1;
+            r.tlocal = true;
+          }
+        }
+      }
+      // red_buf(rw), is_present(rw), cparams(u), lparams(u), fold_sched(ro).
+      m.foldLayout = lt(['storage', 'storage', 'uniform', 'uniform', 'read-only-storage']);
+      // red_buf(rw), red_z(rw), is_present(rw), cparams(u), lparams(u), fold_sched(ro).
+      m.foldJacLayout = lt(['storage', 'storage', 'storage', 'uniform', 'uniform', 'read-only-storage']);
+      m.foldLevelPipes = [];
+      for (let lv = 0; lv < m.foldRegimes.length; lv++) {
+        const ns = Math.min(lv, 2);
+        const r = m.foldRegimes[lv];
+        // Outputs of jac, pair, AND a preceding jac-family level carry z in
+        // red_z; affine fold outputs are x/y + presence (z implied 1).
+        const inputsJac = lv > 0 && (m.foldRegimes[lv - 1].jac || m.foldRegimes[lv - 1].pair);
+        const tlocal = r.tlocal === true;
+        m.foldLevelPipes[lv] = r.pair
+          ? await compile(
+              sm.gen_ba_reduce_fold_pair_shader(REDUCE_WG, ns, inputsJac),
+              `reduce-fold-pair-${ns}-${inputsJac ? 'jac' : 'aff'}`,
+              m.foldJacLayout,
+            )
+          : r.jac
+            ? await compile(sm.gen_ba_reduce_fold_jac_shader(REDUCE_WG, ns), `reduce-fold-jac-${ns}`, m.foldJacLayout)
+            : tlocal
+              ? await compile(sm.gen_ba_reduce_fold_tlocal_shader(REDUCE_WG), `reduce-fold-tlocal`, m.foldLayout)
+              : m.foldCoop
+                ? await compile(sm.gen_ba_reduce_fold_coop_shader(REDUCE_WG, ns), `reduce-fold-coop-${ns}`, m.foldLayout)
+                : await compile(sm.gen_ba_reduce_fold_shader(REDUCE_WG, ns, r.k), `reduce-fold-${ns}-k${r.k}`, m.foldLayout);
+      }
+      // red_buf(rw), red_z(rw), is_present(rw), cparams(u), fold_sched(ro).
+      m.foldTailLayout = lt(['storage', 'storage', 'storage', 'uniform', 'read-only-storage']);
+      m.foldWeightPipe = await compile(
+        sm.gen_ba_reduce_fold_weight_shader(REDUCE_WG),
+        `reduce-fold-weight`,
+        m.foldTailLayout,
+      );
+      m.foldSumPipe = await compile(sm.gen_ba_reduce_fold_sum_shader(32), `reduce-fold-sum`, m.foldJacLayout!);
+    }
+
+    if (m.halvingReduce) {
+      if (m.splitC) {
+        throw new Error('halvingReduce does not support split-c windows yet');
+      }
+      m.foldLayout = m.foldLayout ?? lt(['storage', 'storage', 'uniform', 'uniform', 'read-only-storage']);
+      m.foldJacLayout =
+        m.foldJacLayout ?? lt(['storage', 'storage', 'storage', 'uniform', 'uniform', 'read-only-storage']);
+      const strideB = 2 ** (m.c - 1);
+      const hsched = buildHalvingSchedule(strideB, m.numWindows, {
+        satWidth: m.foldSat,
+        finisherCap: m.halveCap,
+        ba4Floor: m.halveBa4Floor,
+      });
+      m.halveSchedule = hsched;
+      const hmodes = new Set(hsched.depths.map(x => x.mode));
+      if (hmodes.has('ba8')) {
+        m.halveBa8Pipe = await compile(sm.gen_ba_halve_shader(REDUCE_WG, 8), `halve-ba8`, m.foldLayout);
+      }
+      if (hmodes.has('ba4')) {
+        m.halveBa4Pipe = await compile(sm.gen_ba_halve_shader(REDUCE_WG, 4), `halve-ba4`, m.foldLayout);
+      }
+      if (hmodes.has('jac')) {
+        m.halveJacPipe = await compile(sm.gen_jac_halve_shader(REDUCE_WG), `halve-jac`, m.foldJacLayout);
+      }
+      m.halveFinishArraysPipe = await compile(
+        sm.gen_halve_finish_arrays_shader(strideB, hsched.finisherDepth, hsched.finisherInputsJac),
+        `halve-finish-arrays`,
+        m.foldJacLayout,
+      );
+      m.halveFinishRootPipe = await compile(
+        sm.gen_halve_finish_root_shader(strideB, hsched.finisherDepth),
+        `halve-finish-root`,
+        m.foldJacLayout,
       );
     }
 
@@ -4344,6 +4546,156 @@ export class MsmV2 {
       const cparamsSparse = ubuf(new Uint32Array([RED_M, 0, 0, 0]));
       this.reduceSparseBind = mkBind(this.reduceSparseLayout, [redBuf, isPresentBuf, cparamsSparse, metaBuf]);
     }
+    // Fold-tower reduce (GROUPED_REDUCE_PLAN.md): per-window tower table +
+    // per-level binds + tail bind. fold_sched rows mirror reduce_sched's
+    // shape: row[0] = (base, B0, n_levels, 0), row[1+lv] = (G, M, B, 0); a
+    // window whose tower is shorter than the global max no-ops via G == 0.
+    this.foldLevelBinds = [];
+    this.foldLevelNx = [];
+    this.foldTailBind = undefined;
+    this.foldMaxLevels = 0;
+    if (this.groupedReduce && this.foldLayout && this.foldTailLayout) {
+      // Cooperative tail consumes arrays up to ~512 long at full width, so the
+      // tower stops early (usually a single fold level); the sequential tail
+      // needs the deep tower to shrink the walk to ~16.
+      // The combine kernel is one 64-lane workgroup per window: every tower
+      // must end with arrays of ≤ 64 values.
+      const tailMax = Math.min(this.foldTailMax ?? 32, 64);
+      const towers = Array.from({ length: NUM_WINDOWS }, (_, w) => {
+        const cw = w < this.windowCs.length ? this.windowCs[w] : c;
+        return buildFoldTower(2 ** (cw - 1), {
+          mTower: this.foldMTower,
+          tailMax,
+          maxLevels: 3,
+          numWindows: NUM_WINDOWS,
+          satWidth: this.foldSat,
+        });
+      });
+      const maxFL = Math.max(...towers.map(t => t.levels.length));
+      if (maxFL > 3) {
+        // The sum kernel handles R + up to THREE Λ-descendant streams
+        // (4 × 64 values per window); a deeper tower would silently drop a
+        // stream (it did once — never again silently).
+        throw new Error(`fold tower depth ${maxFL} exceeds the sum kernel's 3-stream capacity`);
+      }
+      this.foldMaxLevels = maxFL;
+      const frow = 1 + maxFL;
+      // One zero row of padding: the combine's dead-array scale select still
+      // evaluates its fold_sched[row + a] operand for the last window.
+      const ftab = new Uint32Array((NUM_WINDOWS + 1) * frow * 4);
+      for (let w = 0; w < NUM_WINDOWS; w++) {
+        const cw = w < this.windowCs.length ? this.windowCs[w] : c;
+        const t = towers[w];
+        const o = w * frow * 4;
+        ftab[o + 0] = this.reduceOffsets[w];
+        ftab[o + 1] = 2 ** (cw - 1);
+        ftab[o + 2] = t.levels.length;
+        // Combine z-source flag: 1 when this window's LAST fold level ran the
+        // Jacobian regime (its outputs carry z in red_z).
+        ftab[o + 3] = t.levels.length > 0 && (this.foldRegimes[t.levels.length - 1]?.jac ?? false) ? 1 : 0;
+        t.levels.forEach((lv, i) => {
+          const e = o + (1 + i) * 4;
+          ftab[e + 0] = lv.G;
+          ftab[e + 1] = lv.M;
+          ftab[e + 2] = lv.B;
+        });
+      }
+      const foldSchedBuf = device.createBuffer({
+        size: Math.max(16, ftab.byteLength),
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+      });
+      device.queue.writeBuffer(foldSchedBuf, 0, ftab as BufferSource);
+      this.prepBuffers.push(foldSchedBuf);
+      const fcparams = ubuf(new Uint32Array([RED_M, 0, maxFL, 0]));
+      for (let lv = 0; lv < maxFL; lv++) {
+        const r = this.foldRegimes[lv] ?? { jac: true, k: 1, pair: false };
+        const inputsJac = lv > 0 && (this.foldRegimes[lv - 1]?.jac ?? false);
+        const lp = ubuf(new Uint32Array([lv, inputsJac ? 1 : 0, 0, 0]));
+        this.foldLevelBinds.push(
+          r.jac
+            ? mkBind(this.foldJacLayout!, [redBuf, redZBuf, isPresentBuf, fcparams, lp, foldSchedBuf])
+            : mkBind(this.foldLayout, [redBuf, isPresentBuf, fcparams, lp, foldSchedBuf]),
+        );
+        const maxG = Math.max(...towers.map(t => t.levels[lv]?.G ?? 0));
+        this.foldLevelNx.push(Math.ceil(maxG / (r.jac ? 1 : r.k) / this.reduceWg));
+      }
+      const ftparams = ubuf(new Uint32Array([RED_M, 0, maxFL, NUM_WINDOWS]));
+      this.foldTailBind = mkBind(this.foldTailLayout, [redBuf, redZBuf, isPresentBuf, ftparams, foldSchedBuf]);
+      const sumP1 = ubuf(new Uint32Array([8, 0, 0, 0])); // S_out=8, full value arrays in
+      const sumP2 = ubuf(new Uint32Array([1, 1, 0, 0])); // S_out=1, fan-8 partials in
+      this.foldSumBind1 = mkBind(this.foldJacLayout!, [redBuf, redZBuf, isPresentBuf, ftparams, sumP1, foldSchedBuf]);
+      this.foldSumBind2 = mkBind(this.foldJacLayout!, [redBuf, redZBuf, isPresentBuf, ftparams, sumP2, foldSchedBuf]);
+      const maxVals = Math.max(
+        ...towers.map(t => (1 + t.levels.length) * (t.levels.length > 0 ? t.levels[t.levels.length - 1].G : 1)),
+        ...towers.map((t, w2) => (t.levels.length === 0 ? 2 ** ((w2 < this.windowCs.length ? this.windowCs[w2] : c) - 1) : 0)),
+      );
+      this.foldWeightNx = Math.ceil(maxVals / this.reduceWg);
+      // The tail leaves the per-window root in Jacobian; the existing
+      // jac-finalize normalises it. Build its bind here when the useJac path
+      // didn't already (it reads the window base from the legacy schedBuf —
+      // same reduceOffsets bases).
+      if (!this.reduceJacFinalizeBind) {
+        const jacFinalizeParams = ubuf(new Uint32Array([RED_M, 0, maxLevels, NUM_WINDOWS]));
+        this.reduceJacFinalizeBind = mkBind(this.jacFinalizeLayout, [
+          redBuf,
+          redZBuf,
+          jacFinalizeParams,
+          isPresentBuf,
+          schedBuf,
+        ]);
+      }
+    }
+    this.halveDepthDispatch = [];
+    this.halveFinishBind = undefined;
+    this.halveZInitBind = undefined;
+    this.halveZInitAt = -1;
+    if (this.halvingReduce && this.halveSchedule && this.foldLayout && this.foldJacLayout) {
+      const sched = this.halveSchedule;
+      const strideB = 2 ** (c - 1);
+      const htab = new Uint32Array(NUM_WINDOWS * 4);
+      for (let w = 0; w < NUM_WINDOWS; w++) {
+        htab[w * 4 + 0] = this.reduceOffsets[w];
+        htab[w * 4 + 1] = strideB;
+      }
+      const hbuf = device.createBuffer({
+        size: Math.max(16, htab.byteLength),
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+      });
+      device.queue.writeBuffer(hbuf, 0, htab as BufferSource);
+      this.prepBuffers.push(hbuf);
+      const hcparams = ubuf(new Uint32Array([RED_M, 0, 0, NUM_WINDOWS]));
+      for (const dep of sched.depths) {
+        const lp = ubuf(new Uint32Array([dep.d, 0, 0, 0]));
+        const pipe =
+          dep.mode === 'ba8' ? this.halveBa8Pipe! : dep.mode === 'ba4' ? this.halveBa4Pipe! : this.halveJacPipe!;
+        const bind =
+          dep.mode === 'jac'
+            ? mkBind(this.foldJacLayout, [redBuf, redZBuf, isPresentBuf, hcparams, lp, hbuf])
+            : mkBind(this.foldLayout, [redBuf, isPresentBuf, hcparams, lp, hbuf]);
+        const cpairs = dep.mode === 'ba8' ? 8 : dep.mode === 'ba4' ? 4 : 1;
+        const threads = Math.ceil(dep.pairsPerWindow / cpairs);
+        if (this.halveZInitAt < 0 && dep.mode === 'jac') {
+          this.halveZInitAt = this.halveDepthDispatch.length;
+        }
+        this.halveDepthDispatch.push({ pipe, bind, nx: Math.ceil(threads / this.reduceWg) });
+      }
+      const hlp = ubuf(new Uint32Array([0, 0, 0, 0]));
+      this.halveFinishBind = mkBind(this.foldJacLayout, [redBuf, redZBuf, isPresentBuf, hcparams, hlp, hbuf]);
+      if (this.halveZInitAt >= 0) {
+        const zInitParams = ubuf(new Uint32Array([RED_M, 0, 0, 0]));
+        this.halveZInitBind = mkBind(this.zInitLayout, [isPresentBuf, redZBuf, zInitParams]);
+      }
+      if (!this.reduceJacFinalizeBind) {
+        const jacFinalizeParams = ubuf(new Uint32Array([RED_M, 0, maxLevels, NUM_WINDOWS]));
+        this.reduceJacFinalizeBind = mkBind(this.jacFinalizeLayout, [
+          redBuf,
+          redZBuf,
+          jacFinalizeParams,
+          isPresentBuf,
+          schedBuf,
+        ]);
+      }
+    }
     this.redBuf = redBuf;
 
     // --- High-mem A/B ping-pong per-level binds (Thread 2) ---
@@ -4787,9 +5139,16 @@ export class MsmV2 {
           passes += prePasses + 16 + 3 + 3 + 3 + (2 + 17 * 3 + 1);
         }
       }
-      // Reduce = one dispatch per level (table-driven), or a single dispatch for
-      // the sparse path. +1 keeps the historical slack slot.
-      passes += 1 + (this.sparseReduce ? 1 : this.reduceLevelBinds.length);
+      // Reduce = one dispatch per level (table-driven), a single dispatch for
+      // the sparse path, or fold levels + tail + jac-finalize for the fold
+      // tower. +1 keeps the historical slack slot.
+      passes +=
+        1 +
+        (this.groupedReduce
+          ? this.foldMaxLevels + 4
+          : this.sparseReduce
+            ? 1
+            : this.reduceLevelBinds.length);
       // Thread-1/step-4: each affine↔jac flip in useJac adds one transition
       // dispatch (z-init for affine→jac, batched convert for jac→affine); a
       // trailing Jacobian region adds the per-window finalize.
@@ -5240,7 +5599,48 @@ export class MsmV2 {
     // directly via the bid → red_slot mapping. See UNIFIED_COMBINE_PLAN.md.
     // Phase 5: ONE pipeline drives every level (kind branched at runtime
     // off lparams.w). reduceLevelKinds is no longer consulted.
-    if (this.sparseReduce && this.reduceSparsePipe && this.reduceSparseBind) {
+    if (
+      this.halvingReduce &&
+      this.halveFinishArraysPipe &&
+      this.halveFinishRootPipe &&
+      this.halveFinishBind &&
+      this.reduceJacFinalizeBind
+    ) {
+      // Halving reduction (Mitschabaude): one dispatch per wide depth —
+      // batch-affine 8/4 pairs per thread while saturated, Jacobian pairs
+      // once thin (z-plane seeded just before the first Jacobian depth) —
+      // then the per-window finisher and the shared jac-finalize.
+      for (let i = 0; i < this.halveDepthDispatch.length; i++) {
+        if (i === this.halveZInitAt && this.halveZInitBind) {
+          setPhase('reduce_zinit');
+          dispatch(this.zInitPipe, this.halveZInitBind, Math.ceil(this.redM / WGI), 1);
+          setPhase('reduce');
+        }
+        const dd = this.halveDepthDispatch[i];
+        dispatch(dd.pipe, dd.bind, dd.nx, this.numWindows);
+      }
+      dispatch(
+        this.halveFinishArraysPipe,
+        this.halveFinishBind,
+        (this.halveSchedule?.finisherDepth ?? 0) + 1,
+        this.numWindows,
+      );
+      setPhase('reduce_jacfinal');
+      dispatch(this.halveFinishRootPipe, this.halveFinishBind, 1, this.numWindows);
+    } else if (this.groupedReduce && this.foldWeightPipe && this.foldSumPipe && this.foldSumBind1 && this.reduceJacFinalizeBind) {
+      // Fold tower (GROUPED_REDUCE_PLAN.md): one dispatch per fold level —
+      // grid (chunks, windows), level lv's pipeline is specialised for
+      // streamsIn = lv — then the 64-lane-per-window weighted sum and the
+      // shared jac-finalize to normalise the roots.
+      for (let lv = 0; lv < this.foldMaxLevels; lv++) {
+        dispatch(this.foldLevelPipes[lv], this.foldLevelBinds[lv], this.foldLevelNx[lv], this.numWindows);
+      }
+      dispatch(this.foldWeightPipe!, this.foldTailBind, this.foldWeightNx, this.numWindows);
+      dispatch(this.foldSumPipe, this.foldSumBind1!, 1, this.numWindows);
+      dispatch(this.foldSumPipe, this.foldSumBind2!, 1, this.numWindows);
+      setPhase('reduce_jacfinal');
+      dispatch(this.jacFinalizePipe, this.reduceJacFinalizeBind, Math.ceil(this.numWindows / WGI), 1);
+    } else if (this.sparseReduce && this.reduceSparsePipe && this.reduceSparseBind) {
       // Sparse path: one dispatch, one workgroup per window; the kernel walks
       // only the active buckets (gap-aware), skipping empties. Byte-identical to
       // the dense tree.

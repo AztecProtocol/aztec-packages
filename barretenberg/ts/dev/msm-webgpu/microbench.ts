@@ -19,6 +19,64 @@ export interface MicroResult {
   numGroups: number;
 }
 
+/**
+ * Compile-probe: build ONE shader module + compute pipeline in isolation
+ * (fresh device, auto layout) and report success or the driver's error.
+ * Separates "this kernel is rejected by the driver" from "the full MsmV2
+ * pipeline build kills the GPU process" — the mobile failure modes look
+ * identical from the app.
+ */
+export async function runCompileProbe(
+  code: string,
+  label: string,
+  bindingTypes: GPUBufferBindingType[] = [],
+): Promise<{ ok: boolean; error: string | null; ms: number }> {
+  const adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
+  if (!adapter) throw new Error('[probe] no WebGPU adapter');
+  // Mirror gpu.ts EXACTLY (features + the same four limits): pipeline-create
+  // behaviour on the mobile drivers is sensitive to the device's requested
+  // envelope (Tint's robustness/zero-init codegen depends on it), so the
+  // probe must reproduce the app's device, not an approximation.
+  const requiredFeatures: GPUFeatureName[] = [];
+  if (adapter.features.has('timestamp-query')) requiredFeatures.push('timestamp-query');
+  const requiredLimits: Record<string, number> = {};
+  const lim = adapter.limits as unknown as Record<string, number>;
+  for (const k of [
+    'maxComputeWorkgroupStorageSize',
+    'maxStorageBuffersPerShaderStage',
+    'maxBufferSize',
+    'maxStorageBufferBindingSize',
+  ]) {
+    if (typeof lim[k] === 'number') requiredLimits[k] = lim[k];
+  }
+  const device = await adapter.requestDevice({ requiredFeatures, requiredLimits });
+  const t0 = performance.now();
+  try {
+    const module = device.createShaderModule({ code, label });
+    const info = await module.getCompilationInfo();
+    const errs = info.messages.filter(m => m.type === 'error');
+    if (errs.length) {
+      return { ok: false, error: `WGSL: L${errs[0].lineNum}:${errs[0].linePos} ${errs[0].message}`, ms: performance.now() - t0 };
+    }
+    // Explicit pipeline layout (the app never uses layout:'auto'): bindings
+    // are derived from the WGSL's @group(0) declarations passed by the
+    // caller; empty = fall back to auto.
+    let layout: GPUPipelineLayout | 'auto' = 'auto';
+    if (bindingTypes.length > 0) {
+      const bgl = device.createBindGroupLayout({
+        entries: bindingTypes.map((type, binding) => ({ binding, visibility: GPUShaderStage.COMPUTE, buffer: { type } })),
+      });
+      layout = device.createPipelineLayout({ bindGroupLayouts: [bgl] });
+    }
+    await device.createComputePipelineAsync({ layout, compute: { module, entryPoint: 'main' } });
+    return { ok: true, error: null, ms: performance.now() - t0 };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? `${e.constructor.name}: ${e.message}` : String(e), ms: performance.now() - t0 };
+  } finally {
+    device.destroy();
+  }
+}
+
 const P = 21888242871839275222246405745257275088696311157297823662689037894645226208583n;
 
 function packLimbs(x: bigint, nw: number, ws: number): number[] {
