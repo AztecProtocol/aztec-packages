@@ -14,6 +14,7 @@ describe('validateNetworkConsensusConfig', () => {
   const base: NetworkConsensusConfig = {
     aztecSlotDuration: 72,
     ethereumSlotDuration: 12,
+    l1PublishLeadTime: 6,
     blockDurationMs: 6000,
     maxBlocksPerCheckpoint: 10,
     checkpointProposalSyncGraceSeconds: 12,
@@ -21,6 +22,19 @@ describe('validateNetworkConsensusConfig', () => {
 
   it('returns no errors for a sound config', () => {
     expect(validateNetworkConsensusConfig(base)).toEqual([]);
+  });
+
+  it('errors when l1PublishLeadTime is not in (0, ethereumSlotDuration)', () => {
+    expect(validateNetworkConsensusConfig({ ...base, l1PublishLeadTime: 0 })).toContainEqual(
+      expect.stringContaining('l1PublishLeadTime'),
+    );
+    expect(validateNetworkConsensusConfig({ ...base, l1PublishLeadTime: 12 })).toContainEqual(
+      expect.stringContaining('l1PublishLeadTime'),
+    );
+  });
+
+  it('accepts an l1PublishLeadTime strictly inside the open interval', () => {
+    expect(validateNetworkConsensusConfig({ ...base, l1PublishLeadTime: 3 })).toEqual([]);
   });
 
   it('errors when maxBlocksPerCheckpoint is below the derived count, naming both numbers', () => {
@@ -76,7 +90,7 @@ describe('validateNetworkConsensusConfig', () => {
 });
 
 describe('getConsensusConfigFromNetworkEnv', () => {
-  it('extracts the five timing fields from a generated-config-shaped object', () => {
+  it('extracts the timing fields, defaulting l1PublishLeadTime from the clamp rule when unset', () => {
     const config = getConsensusConfigFromNetworkEnv({
       ETHEREUM_SLOT_DURATION: 12,
       AZTEC_SLOT_DURATION: 72,
@@ -88,10 +102,25 @@ describe('getConsensusConfigFromNetworkEnv', () => {
     expect(config).toEqual({
       aztecSlotDuration: 72,
       ethereumSlotDuration: 12,
+      // L1_PUBLISH_LEAD_TIME is absent, so the clamp rule for E=12 fills 6.
+      l1PublishLeadTime: 6,
       blockDurationMs: 6000,
       maxBlocksPerCheckpoint: 10,
       checkpointProposalSyncGraceSeconds: 12,
     });
+  });
+
+  it('uses an explicit L1_PUBLISH_LEAD_TIME when set', () => {
+    const config = getConsensusConfigFromNetworkEnv({
+      ETHEREUM_SLOT_DURATION: 12,
+      L1_PUBLISH_LEAD_TIME: 4,
+      AZTEC_SLOT_DURATION: 72,
+      SEQ_BLOCK_DURATION_MS: 6000,
+      MAX_BLOCKS_PER_CHECKPOINT: 10,
+      CHECKPOINT_PROPOSAL_SYNC_GRACE_SECONDS: 12,
+      L1_CHAIN_ID: 1,
+    });
+    expect(config.l1PublishLeadTime).toBe(4);
   });
 
   it('uses env names that are all consensus-critical', () => {

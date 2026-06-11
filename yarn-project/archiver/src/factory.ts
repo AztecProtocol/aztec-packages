@@ -114,7 +114,12 @@ export async function createArchiver(
     .getBlock({ blockNumber: l1StartBlock, includeTransactions: false })
     .then(block => Buffer32.fromString(block.hash));
 
-  const { aztecEpochDuration: epochDuration, aztecSlotDuration: slotDuration, ethereumSlotDuration } = config;
+  const {
+    aztecEpochDuration: epochDuration,
+    aztecSlotDuration: slotDuration,
+    ethereumSlotDuration,
+    l1PublishLeadTime,
+  } = config;
 
   const l1Constants = {
     l1StartBlockHash,
@@ -123,6 +128,7 @@ export async function createArchiver(
     epochDuration,
     slotDuration,
     ethereumSlotDuration,
+    l1PublishLeadTime,
     proofSubmissionEpochs: Number(proofSubmissionEpochs),
     targetCommitteeSize,
     genesisArchiveRoot: Fr.fromString(genesisArchiveRoot.toString()),

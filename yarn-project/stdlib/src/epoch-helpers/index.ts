@@ -10,6 +10,11 @@ export type L1RollupConstants = {
   slotDuration: number;
   epochDuration: number;
   ethereumSlotDuration: number;
+  /**
+   * How far before the target L2 slot the L1 publish transaction is ideally broadcast (`lead`), in seconds. A
+   * network consensus value; when unset, nodes derive the same default via `getDefaultL1PublishLeadTime`.
+   */
+  l1PublishLeadTime?: number;
   proofSubmissionEpochs: number;
   targetCommitteeSize: number;
   rollupManaLimit: number;
@@ -33,6 +38,7 @@ export const L1RollupConstantsSchema = zodFor<L1RollupConstants>()(
     slotDuration: z.number(),
     epochDuration: z.number(),
     ethereumSlotDuration: z.number(),
+    l1PublishLeadTime: z.number().optional(),
     proofSubmissionEpochs: z.number(),
     targetCommitteeSize: z.number(),
     rollupManaLimit: z.number(),

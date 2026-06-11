@@ -25,6 +25,12 @@ export type GenesisStateConfig = {
 export type L1ContractsConfig = {
   /** How many seconds an L1 slot lasts. */
   ethereumSlotDuration: number;
+  /**
+   * How far before the target L2 slot the L1 publish transaction is ideally broadcast (`lead`), in seconds. A
+   * network consensus value satisfying `0 < lead < ethereumSlotDuration`. When unset, nodes derive the same
+   * default via `getDefaultL1PublishLeadTime(ethereumSlotDuration)`.
+   */
+  l1PublishLeadTime?: number;
   /** How many seconds an L2 slots lasts (must be multiple of ethereum slot duration). */
   aztecSlotDuration: number;
   /** How many L2 slots an epoch lasts. */
@@ -93,6 +99,13 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
     env: 'ETHEREUM_SLOT_DURATION',
     description: 'How many seconds an L1 slot lasts.',
     ...numberConfigHelper(l1ContractsDefaultEnv.ETHEREUM_SLOT_DURATION),
+  },
+  l1PublishLeadTime: {
+    env: 'L1_PUBLISH_LEAD_TIME',
+    description:
+      'How far (seconds) before the target L2 slot the L1 publish tx is ideally broadcast. Network consensus ' +
+      'value satisfying 0 < lead < ethereumSlotDuration; defaults to clamp(round(ethereumSlotDuration / 2), 1, 6).',
+    ...optionalNumberConfigHelper(),
   },
   aztecSlotDuration: {
     env: 'AZTEC_SLOT_DURATION',

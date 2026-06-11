@@ -10,8 +10,9 @@ import { ProposerTimetable } from './proposer_timetable.js';
 function l1Constants(
   slotDuration: number,
   ethereumSlotDuration: number,
-): Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration' | 'ethereumSlotDuration'> {
-  return { l1GenesisTime: 0n, slotDuration, ethereumSlotDuration };
+  l1PublishLeadTime?: number,
+): Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration' | 'ethereumSlotDuration' | 'l1PublishLeadTime'> {
+  return { l1GenesisTime: 0n, slotDuration, ethereumSlotDuration, l1PublishLeadTime };
 }
 
 /**
@@ -40,14 +41,14 @@ function makeProposerTimetable(
 }
 
 describe('ProposerTimetable', () => {
-  describe('production profile (S=72, E=12, D=6, minD=2, P=2, prepCp=1)', () => {
+  describe('production profile (S=72, E=12, D=6, lead=6, minD=2, P=2, prepCp=1)', () => {
     const S = 72;
-    const E = 12;
+    const lead = 6;
     const slot = SlotNumber(5);
     const targetSlotStart = S * slot;
 
     const timetable = makeProposerTimetable({
-      l1Constants: l1Constants(S, E),
+      l1Constants: l1Constants(S, 12),
       blockDuration: 6,
       minBlockDuration: 2,
       p2pPropagationTime: 2,
@@ -58,25 +59,26 @@ describe('ProposerTimetable', () => {
       expect(timetable.getMaxBlocksPerCheckpoint()).toBe(10);
     });
 
-    it('places last_block_build_time 23s before target_slot_start', () => {
-      expect(timetable.getLastBlockBuildTime(slot)).toBe(targetSlotStart - 23);
+    it('places last_block_build_time 17s before target_slot_start', () => {
+      // l1_publish_ideal_time (target - lead) - D - 2P - prepCp = target - 6 - 6 - 4 - 1 = target - 17.
+      expect(timetable.getLastBlockBuildTime(slot)).toBe(targetSlotStart - 17);
     });
 
-    it('places start_deadline 25s before target_slot_start (last_block_build_time - minD)', () => {
-      expect(timetable.getBuildStartDeadline(slot)).toBe(targetSlotStart - 25);
+    it('places start_deadline 19s before target_slot_start (last_block_build_time - minD)', () => {
+      expect(timetable.getBuildStartDeadline(slot)).toBe(targetSlotStart - 19);
     });
 
-    it('places attestation_deadline 48s after target_slot_start', () => {
-      expect(timetable.getAttestationDeadline(slot)).toBe(targetSlotStart + 48);
+    it('places attestation_deadline 54s after target_slot_start', () => {
+      expect(timetable.getAttestationDeadline(slot)).toBe(targetSlotStart + 54);
     });
 
-    it('places l1_publish_ideal_time 12s before target_slot_start', () => {
-      expect(timetable.getL1PublishIdealTime(slot)).toBe(targetSlotStart - E);
+    it('places l1_publish_ideal_time 6s before target_slot_start', () => {
+      expect(timetable.getL1PublishIdealTime(slot)).toBe(targetSlotStart - lead);
     });
 
     it('spaces block build deadlines uniformly from build_frame_start + init', () => {
       // init defaults to 1, so the first sub-slot deadline sits at build_frame_start + 1 + D.
-      const buildFrameStart = targetSlotStart - S - E;
+      const buildFrameStart = targetSlotStart - S - lead;
       expect(timetable.checkpointProposalInitTime).toBe(1);
       expect(timetable.getBlockBuildDeadline(slot, 0)).toBe(buildFrameStart + 1 + 6);
       expect(timetable.getBlockBuildDeadline(slot, 9)).toBe(buildFrameStart + 1 + 60);
@@ -87,7 +89,7 @@ describe('ProposerTimetable', () => {
     });
   });
 
-  describe('local fast profile (S=36, E=4, D=6, minD=1, P=0.5, prepCp=0.5)', () => {
+  describe('local fast profile (S=36, E=4, D=6, lead=2, minD=1, P=0.5, prepCp=0.5)', () => {
     const timetable = makeProposerTimetable({
       l1Constants: l1Constants(36, 4),
       blockDuration: 6,
@@ -102,12 +104,14 @@ describe('ProposerTimetable', () => {
       expect(timetable.getMaxBlocksPerCheckpoint()).toBe(4);
     });
 
-    it('places last_block_build_time 11.5s before target_slot_start', () => {
-      expect(timetable.getLastBlockBuildTime(slot)).toBe(targetSlotStart - 11.5);
+    it('places last_block_build_time 9.5s before target_slot_start', () => {
+      // (target - lead) - D - 2P - prepCp = target - 2 - 6 - 1 - 0.5 = target - 9.5.
+      expect(timetable.getLastBlockBuildTime(slot)).toBe(targetSlotStart - 9.5);
     });
 
-    it('places attestation_deadline 28s after target_slot_start', () => {
-      expect(timetable.getAttestationDeadline(slot)).toBe(targetSlotStart + 28);
+    it('places attestation_deadline 30s after target_slot_start', () => {
+      // target + S - E - lead = target + 36 - 4 - 2 = target + 30.
+      expect(timetable.getAttestationDeadline(slot)).toBe(targetSlotStart + 30);
     });
   });
 
@@ -128,8 +132,9 @@ describe('ProposerTimetable', () => {
   describe('selectNextSubslot', () => {
     const S = 72;
     const E = 12;
+    const lead = 6; // clamp-rule default for E=12.
     const slot = SlotNumber(5);
-    const buildFrameStart = S * slot - S - E;
+    const buildFrameStart = S * slot - S - lead;
     // The sub-slot grid starts one init (default 1s) after the build frame opens.
     const firstSubslotStart = buildFrameStart + 1;
 
@@ -179,8 +184,9 @@ describe('ProposerTimetable', () => {
       const tightS = 12;
       const tightE = 4;
       const tightD = 2;
+      const tightLead = 2; // clamp-rule default for E=4.
       const tightSlot = SlotNumber(11);
-      const tightBuildFrameStart = tightS * tightSlot - tightS - tightE;
+      const tightBuildFrameStart = tightS * tightSlot - tightS - tightLead;
 
       // Pass production budget defaults to mirror the e2e config that sets only S/E/D; the fast profile
       // (E < 8) clamps p2pPropagationTime to 0.5, checkpointProposalPrepareTime to 0.5, and minBlockDuration
@@ -222,6 +228,34 @@ describe('ProposerTimetable', () => {
         expect(result.index).toBe(2);
         expect(result.isLastBlock).toBe(true);
       });
+    });
+  });
+
+  describe('explicit l1PublishLeadTime override', () => {
+    const S = 72;
+    const E = 12;
+    const slot = SlotNumber(5);
+    const targetSlotStart = S * slot;
+
+    // Override lead to 3s (still inside the open interval) instead of the clamp default of 6s.
+    const timetable = makeProposerTimetable({
+      l1Constants: l1Constants(S, E, 3),
+      blockDuration: 6,
+      minBlockDuration: 2,
+      p2pPropagationTime: 2,
+      checkpointProposalPrepareTime: 1,
+    });
+
+    it('shifts l1_publish_ideal_time, last_block_build_time, and the attestation deadline by the override', () => {
+      expect(timetable.l1PublishLeadTime).toBe(3);
+      expect(timetable.getL1PublishIdealTime(slot)).toBe(targetSlotStart - 3);
+      // (target - lead) - D - 2P - prepCp = target - 3 - 6 - 4 - 1 = target - 14.
+      expect(timetable.getLastBlockBuildTime(slot)).toBe(targetSlotStart - 14);
+      expect(timetable.getAttestationDeadline(slot)).toBe(targetSlotStart + S - E - 3);
+    });
+
+    it('does not change max_blocks (a width independent of the anchor)', () => {
+      expect(timetable.getMaxBlocksPerCheckpoint()).toBe(10);
     });
   });
 });

@@ -56,6 +56,26 @@ export function getDefaultCheckpointProposalSyncGrace(blockDuration: number): nu
   return 2 * blockDuration;
 }
 
+/** Lower bound (seconds) the {@link getDefaultL1PublishLeadTime} clamp rule never drops below. */
+export const MIN_DEFAULT_L1_PUBLISH_LEAD_TIME = 1;
+
+/** Upper bound (seconds) the {@link getDefaultL1PublishLeadTime} clamp rule never rises above. */
+export const MAX_DEFAULT_L1_PUBLISH_LEAD_TIME = 6;
+
+/**
+ * Deterministic default for `l1_publish_lead_time` derived from the Ethereum slot duration:
+ * `clamp(round(ethereumSlotDuration / 2), 1, 6)` — `2s` at `4s`, `4s` at `8s`, `6s` at `12s` and above.
+ *
+ * This is the single source of truth for the default lead. The lead feeds consensus deadlines (the
+ * checkpoint-proposal receive deadline and the attestation deadline), so every node must derive the same
+ * value: callers that do not configure an explicit `L1_PUBLISH_LEAD_TIME` resolve it through this helper.
+ * The result always satisfies `0 < lead < ethereumSlotDuration` for every supported profile (E >= 4).
+ */
+export function getDefaultL1PublishLeadTime(ethereumSlotDuration: number): number {
+  const half = Math.round(ethereumSlotDuration / 2);
+  return Math.min(Math.max(half, MIN_DEFAULT_L1_PUBLISH_LEAD_TIME), MAX_DEFAULT_L1_PUBLISH_LEAD_TIME);
+}
+
 /**
  * Resolves the operational timing budgets, applying the fast local/e2e profile when
  * `ethereumSlotDuration < FAST_PROFILE_ETHEREUM_SLOT_DURATION`.

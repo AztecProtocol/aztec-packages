@@ -115,13 +115,13 @@ export class ProposerTimetable extends ConsensusTimetable {
 
   /**
    * Ideal time the last block must finish building by to make the ideal L1 publish path:
-   * `target_slot_start - E - D - 2P - prepCp` (= `checkpoint_proposal_send_time - prepCp`). Single value;
-   * the proposer sizes block production around the ideal L1-publish path only.
+   * `l1_publish_ideal_time - D - 2P - prepCp` (= `checkpoint_proposal_send_time - prepCp`). Derived from the
+   * ideal L1 publish time so it tracks `lead`; the proposer sizes block production around the ideal
+   * L1-publish path only.
    */
   public getLastBlockBuildTime(slot: SlotNumber): number {
     return (
-      this.getTargetSlotStart(slot) -
-      this.ethereumSlotDuration -
+      this.getL1PublishIdealTime(slot) -
       this.blockDuration -
       2 * this.p2pPropagationTime -
       this.checkpointProposalPrepareTime
@@ -140,9 +140,9 @@ export class ProposerTimetable extends ConsensusTimetable {
     return this.getLastBlockBuildTime(slot) - this.minBlockDuration;
   }
 
-  /** Ideal L1 publish/send time: `target_slot_start - E`. Also the ideal attestation-receipt target. */
+  /** Ideal L1 publish/send time: `target_slot_start - lead`. Also the ideal attestation-receipt target. */
   public getL1PublishIdealTime(slot: SlotNumber): number {
-    return this.getTargetSlotStart(slot) - this.ethereumSlotDuration;
+    return this.getTargetSlotStart(slot) - this.l1PublishLeadTime;
   }
 
   /**

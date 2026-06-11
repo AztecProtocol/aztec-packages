@@ -164,6 +164,7 @@ export class EpochCache implements EpochCacheInterface {
       slotDuration: Number(slotDuration),
       epochDuration: Number(epochDuration),
       ethereumSlotDuration: config.ethereumSlotDuration,
+      l1PublishLeadTime: config.l1PublishLeadTime,
       lagInEpochsForValidatorSet: Number(lagInEpochsForValidatorSet),
       lagInEpochsForRandao: Number(lagInEpochsForRandao),
       targetCommitteeSize: Number(targetCommitteeSize),

@@ -7,6 +7,7 @@ import {
   DEFAULT_CHECKPOINT_PROPOSAL_PREPARE_TIME,
   DEFAULT_MIN_BLOCK_DURATION,
   DEFAULT_P2P_PROPAGATION_TIME,
+  getDefaultL1PublishLeadTime,
 } from '../timetable/budgets.js';
 import { ProposerTimetable } from '../timetable/proposer_timetable.js';
 import { sharedSequencerConfigMappings } from './sequencer-config.js';
@@ -32,6 +33,11 @@ import { sharedSequencerConfigMappings } from './sequencer-config.js';
 export const NETWORK_CONSENSUS_ENV_VARS = [
   // Timing/protocol consensus.
   'ETHEREUM_SLOT_DURATION',
+  // TODO(#phase6): add 'L1_PUBLISH_LEAD_TIME' here once spartan network-defaults.yml declares it and the
+  // generated cli network configs (networks.ts) carry the value. Adding it before then breaks the
+  // ConsensusComplete compile gate in cli/src/config/chain_l2_config.ts, which requires every consensus env
+  // var to be present in each generated config. The lead is already a consensus value: validateNetworkConsensusConfig
+  // enforces 0 < lead < ethereumSlotDuration and getConsensusConfigFromNetworkEnv fills the clamp default when unset.
   'AZTEC_SLOT_DURATION',
   'AZTEC_EPOCH_DURATION',
   'SEQ_BLOCK_DURATION_MS',
@@ -93,13 +99,19 @@ export type ConsensusEnvVar = (typeof NETWORK_CONSENSUS_ENV_VARS)[number];
  * picking the canonical fields from their owning config types so the field set never drifts from the config
  * layer: slot durations from {@link L1ContractsConfig}, block sub-slot/checkpoint timings from
  * {@link SequencerConfig} (whose fields are optional there, hence `Required`).
+ *
+ * `l1PublishLeadTime` is `Required` here even though it is optional in {@link L1ContractsConfig}:
+ * {@link getConsensusConfigFromNetworkEnv} fills the deterministic clamp-rule default when the env var is
+ * absent, so the validated config always carries a concrete lead.
  */
-export type NetworkConsensusConfig = Pick<L1ContractsConfig, 'aztecSlotDuration' | 'ethereumSlotDuration'> &
+export type NetworkConsensusConfig = Required<
+  Pick<L1ContractsConfig, 'aztecSlotDuration' | 'ethereumSlotDuration' | 'l1PublishLeadTime'>
+> &
   Required<Pick<SequencerConfig, 'blockDurationMs' | 'maxBlocksPerCheckpoint' | 'checkpointProposalSyncGraceSeconds'>>;
 
 /** Config mappings for the slot-timing fields of {@link NetworkConsensusConfig}, picked from their owners. */
 const networkConsensusConfigMappings = {
-  ...pickConfigMappings(l1ContractsConfigMappings, ['aztecSlotDuration', 'ethereumSlotDuration']),
+  ...pickConfigMappings(l1ContractsConfigMappings, ['aztecSlotDuration', 'ethereumSlotDuration', 'l1PublishLeadTime']),
   ...pickConfigMappings(sharedSequencerConfigMappings, [
     'blockDurationMs',
     'maxBlocksPerCheckpoint',
@@ -132,6 +144,11 @@ export function getConsensusConfigFromNetworkEnv(
     }
     result[field as keyof NetworkConsensusConfig] = parsed ?? NaN;
   }
+  // l1PublishLeadTime is optional in the network env; when absent, fill the deterministic clamp-rule default
+  // from the parsed ethereum slot duration so every node derives the same lead without an explicit setting.
+  if (Number.isNaN(result.l1PublishLeadTime) && Number.isFinite(result.ethereumSlotDuration)) {
+    result.l1PublishLeadTime = getDefaultL1PublishLeadTime(result.ethereumSlotDuration);
+  }
   return result;
 }
 
@@ -158,6 +175,15 @@ export function validateNetworkConsensusConfig(config: NetworkConsensusConfig): 
 
   if (config.ethereumSlotDuration <= 0) {
     errors.push(`ethereumSlotDuration must be positive (got ${config.ethereumSlotDuration})`);
+  }
+  if (
+    config.ethereumSlotDuration > 0 &&
+    (config.l1PublishLeadTime <= 0 || config.l1PublishLeadTime >= config.ethereumSlotDuration)
+  ) {
+    errors.push(
+      `l1PublishLeadTime must satisfy 0 < lead < ethereumSlotDuration (got ${config.l1PublishLeadTime}, ` +
+        `ethereumSlotDuration ${config.ethereumSlotDuration}s)`,
+    );
   }
   if (config.blockDurationMs <= 0) {
     errors.push(`blockDurationMs must be positive (got ${config.blockDurationMs})`);
@@ -195,6 +221,7 @@ export function validateNetworkConsensusConfig(config: NetworkConsensusConfig): 
         l1GenesisTime: 0n,
         slotDuration: config.aztecSlotDuration,
         ethereumSlotDuration: config.ethereumSlotDuration,
+        l1PublishLeadTime: config.l1PublishLeadTime,
       },
       blockDuration: config.blockDurationMs / 1000,
       minBlockDuration: DEFAULT_MIN_BLOCK_DURATION,
