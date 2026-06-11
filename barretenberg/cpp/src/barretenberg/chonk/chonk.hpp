@@ -201,7 +201,15 @@ class Chonk {
 
     VerifierAccumulator recursive_verifier_native_accum; // native value of the accumulator carried between kernels
 #ifndef NDEBUG
-    VerifierAccumulator native_verifier_accum; // native sumcheck claim of the most recently accumulated circuit
+    // Native mirror of the prover state, maintained by the debug-only native verification: the accumulator carried
+    // between kernels (counterpart of prover_accumulator) and the current group's sumcheck claims (counterpart of
+    // multilinear_batch_prover_accumulators).
+    VerifierAccumulator native_verifier_accum;
+    std::vector<VerifierAccumulator> multilinear_batch_native_claims;
+    // Verifier counterpart of prover_accumulation_transcript: fed every proof of the group so its state tracks the
+    // prover's across the group's instance sumchecks, the batching proof and, before the hiding kernel, the decider
+    // proof. Reset together with the prover transcript at each kernel boundary.
+    std::shared_ptr<Transcript> native_verifier_accumulation_transcript = std::make_shared<Transcript>();
 #endif
 
     // PARALLEL QUEUES: These two queues must stay synchronized.
@@ -287,20 +295,32 @@ class Chonk {
   private:
 #ifndef NDEBUG
     /**
-     * @brief Update native verifier accumulator. Useful for debugging.
+     * @brief Natively verify the instance-to-accumulator sumcheck of the circuit just accumulated. Useful for
+     * debugging.
      *
      * @param queue_entry The verifier inputs from the queue.
-     * @param verifier_transcript Verifier transcript corresponding to the prover transcript.
      */
-    void update_native_verifier_accumulator(const VerifierInputs& queue_entry,
-                                            const std::shared_ptr<Transcript>& verifier_transcript);
+    void verify_native_instance_sumcheck(const VerifierInputs& queue_entry);
 
-    // Native (non-recursive) folding verification of a single queue entry, in `NativeFlavor`.
-    // Debug-only cross-check that the prover's accumulator matches a freshly verified one.
+    // Native (non-recursive) verification of a single queue entry's instance sumcheck, in `NativeFlavor`.
+    // Debug-only cross-check that the prover's sumcheck claim matches a freshly verified one; the claim is
+    // collected for the kernel-boundary batching check.
     template <typename NativeFlavor>
     void run_native_folding_verifier(const std::shared_ptr<typename NativeFlavor::VerificationKey>& honk_vk,
-                                     const VerifierInputs& queue_entry,
-                                     const std::shared_ptr<Transcript>& verifier_transcript);
+                                     const VerifierInputs& queue_entry);
+
+    /**
+     * @brief Natively verify the kernel-boundary multilinear batching proof and update the native verifier
+     * accumulator. Useful for debugging.
+     *
+     * @details Batches the accumulator carried in from the previous kernel (absent for the init group) with the
+     * group's collected sumcheck claims, mirroring prove_multilinear_batching, and cross-checks the result against
+     * the prover accumulator.
+     */
+    void update_native_verifier_accumulator(bool is_init_group);
+
+    // Debug-only native verification of the decider proof against the final native verifier accumulator.
+    void verify_decider_natively();
 
     // Debug-only logging for an incoming circuit being folded: validity, and whether its precomputed
     // VK matches the one derived during accumulation. Templated on the circuit's InstanceFlavor.

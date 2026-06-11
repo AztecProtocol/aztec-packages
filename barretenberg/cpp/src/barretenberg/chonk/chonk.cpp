@@ -26,19 +26,21 @@ namespace bb {
 #ifndef NDEBUG
 template <typename NativeFlavor>
 void Chonk::run_native_folding_verifier(const std::shared_ptr<typename NativeFlavor::VerificationKey>& honk_vk,
-                                        const VerifierInputs& queue_entry,
-                                        const std::shared_ptr<Transcript>& verifier_transcript)
+                                        const VerifierInputs& queue_entry)
 {
     auto verifier_inst =
         std::make_shared<VerifierInstance_<NativeFlavor>>(std::make_shared<typename NativeFlavor::VKAndHash>(honk_vk));
 
-    // With per-kernel batching every proof contributes only a sumcheck claim; the claims are batched together in the
-    // kernel's recursive verifier rather than folded pairwise here.
-    HypernovaFoldingVerifier<NativeFlavor> native_verifier(verifier_transcript);
-    auto [sumcheck_verified, new_accumulator] =
-        native_verifier.instance_to_accumulator(verifier_inst, queue_entry.proof);
-    native_verifier_accum = std::move(new_accumulator);
+    // With per-kernel batching every proof contributes only a sumcheck claim; the group's claims are batched
+    // together at the kernel boundary (see update_native_verifier_accumulator).
+    HypernovaFoldingVerifier<NativeFlavor> native_verifier(native_verifier_accumulation_transcript);
+    auto [sumcheck_verified, claim] = native_verifier.instance_to_accumulator(verifier_inst, queue_entry.proof);
     info("Sumcheck: instance to accumulator verified: ", sumcheck_verified ? "true" : "false");
+
+    info("Chonk accumulate: prover and verifier sumcheck claims match: ",
+         multilinear_batch_prover_accumulators.back().compare_with_verifier_claim(claim) ? "true" : "false");
+
+    multilinear_batch_native_claims.emplace_back(std::move(claim));
 }
 
 template <typename InstanceFlavor>
@@ -64,18 +66,70 @@ void Chonk::debug_incoming_circuit(ClientCircuit& circuit,
     info("======= END OF DEBUGGING INFO FOR INCOMING CIRCUIT =======");
 }
 
-void Chonk::update_native_verifier_accumulator(const VerifierInputs& queue_entry,
-                                               const std::shared_ptr<Transcript>& verifier_transcript)
+void Chonk::verify_native_instance_sumcheck(const VerifierInputs& queue_entry)
 {
     info("======= DEBUGGING INFO FOR NATIVE SUMCHECK STEP =======");
 
     if (queue_entry.is_kernel()) {
-        run_native_folding_verifier<KernelFlavor>(queue_entry.kernel_honk_vk, queue_entry, verifier_transcript);
+        run_native_folding_verifier<KernelFlavor>(queue_entry.kernel_honk_vk, queue_entry);
     } else {
-        run_native_folding_verifier<AppFlavor>(queue_entry.app_honk_vk, queue_entry, verifier_transcript);
+        run_native_folding_verifier<AppFlavor>(queue_entry.app_honk_vk, queue_entry);
     }
 
     info("======= END OF DEBUGGING INFO FOR NATIVE SUMCHECK STEP =======");
+}
+
+void Chonk::update_native_verifier_accumulator(bool is_init_group)
+{
+    info("======= DEBUGGING INFO FOR NATIVE MULTILINEAR BATCHING STEP =======");
+
+    BB_ASSERT_EQ(multilinear_batch_native_claims.size(),
+                 verification_queue.size(),
+                 "Mismatch between collected native verifier claims and group size");
+
+    // Assemble the claims in the same order as the prover and the kernel's recursive verifier: the accumulator
+    // carried in from the previous kernel (absent for the init group) followed by the group's claims.
+    std::vector<VerifierAccumulator> claims;
+    claims.reserve((is_init_group ? 0 : 1) + multilinear_batch_native_claims.size());
+    if (!is_init_group) {
+        claims.emplace_back(std::move(native_verifier_accum));
+    }
+    for (auto& claim : multilinear_batch_native_claims) {
+        claims.emplace_back(std::move(claim));
+    }
+    multilinear_batch_native_claims.clear();
+
+    if (claims.size() == 1) {
+        // No batching: the single sumcheck claim is already the accumulator.
+        native_verifier_accum = std::move(claims[0]);
+    } else {
+        native_verifier_accumulation_transcript->load_proof(multilinear_batch_proof);
+        MultilinearBatchingNativeVerifier batching_verifier(native_verifier_accumulation_transcript);
+        auto [batching_verified, new_accumulator] = batching_verifier.verify_proof(claims);
+        native_verifier_accum = std::move(new_accumulator);
+        info("Multilinear batching: claims to accumulator verified: ", batching_verified ? "true" : "false");
+    }
+
+    info("Chonk accumulate: prover and verifier accumulators match: ",
+         prover_accumulator.compare_with_verifier_claim(native_verifier_accum) ? "true" : "false");
+
+    Transcript hash_transcript;
+    info("Chonk accumulate: hash of verifier accumulator computed natively: ",
+         native_verifier_accum.hash_with_origin_tagging(hash_transcript));
+
+    info("======= END OF DEBUGGING INFO FOR NATIVE MULTILINEAR BATCHING STEP =======");
+}
+
+void Chonk::verify_decider_natively()
+{
+    info("======= DEBUGGING INFO FOR NATIVE DECIDER STEP =======");
+
+    HypernovaDeciderVerifier<KernelFlavor> decider_verifier(native_verifier_accumulation_transcript);
+    bb::PairingPoints<curve::BN254> pairing_points =
+        decider_verifier.verify_proof(native_verifier_accum, decider_proof);
+    info("Decider: pairing points verified? ", pairing_points.check() ? "true" : "false");
+
+    info("======= END OF DEBUGGING INFO FOR NATIVE DECIDER STEP =======");
 }
 #endif
 
@@ -599,12 +653,10 @@ void Chonk::accumulate_and_fold(ClientCircuit& circuit, QUEUE_TYPE queue_type, c
 
     if (kind == CircuitKind::Kernel) {
         prover_accumulation_transcript = std::make_shared<Transcript>();
-    }
-
 #ifndef NDEBUG
-    auto verifier_transcript =
-        Transcript::convert_prover_transcript_to_verifier_transcript(prover_accumulation_transcript);
+        native_verifier_accumulation_transcript = std::make_shared<Transcript>();
 #endif
+    }
 
     HonkProof proof;
     VerifierInputs queue_entry;
@@ -629,7 +681,7 @@ void Chonk::accumulate_and_fold(ClientCircuit& circuit, QUEUE_TYPE queue_type, c
     verification_queue.push_back(queue_entry);
 
 #ifndef NDEBUG
-    update_native_verifier_accumulator(queue_entry, verifier_transcript);
+    verify_native_instance_sumcheck(queue_entry);
 #endif
     goblin.op_queue->merge();
 
@@ -693,7 +745,9 @@ void Chonk::accumulate(ClientCircuit& circuit, const CircuitVerificationKey& vk)
         if (following_kind == CircuitKind::HidingKernel) {
             DeciderProver decider(prover_accumulation_transcript);
             decider_proof = decider.construct_proof(prover_accumulator);
-
+#ifndef NDEBUG
+            verify_decider_natively();
+#endif
             goblin.prove_batch_merge();
         }
         break;
@@ -742,6 +796,10 @@ void Chonk::prove_multilinear_batching()
         multilinear_batch_proof = multilinear_batch_prover.construct_proof();
         prover_accumulator = multilinear_batch_prover.compute_new_claim();
     }
+
+#ifndef NDEBUG
+    update_native_verifier_accumulator(is_init_group);
+#endif
 }
 
 /**
