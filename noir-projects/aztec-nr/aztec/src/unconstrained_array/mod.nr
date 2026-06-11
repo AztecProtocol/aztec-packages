@@ -5,6 +5,13 @@ use crate::protocol::traits::{Deserialize, Serialize};
 use crate::protocol::utils::{reader::Reader, writer::Writer};
 
 /// Oracle backend for an [`UnconstrainedArray`]: the set of PXE-side operations that implement its storage.
+///
+/// Each implementor routes these operations to a distinct family of oracles, and the oracle family determines the
+/// array's lifetime and visibility (e.g. [`EphemeralArray`](crate::ephemeral::EphemeralArray) arrays live for one
+/// contract call frame, while [`TransientArray`](crate::transient::TransientArray) arrays are shared across all frames
+/// of the same contract within one top-level PXE call). Implementations are thin wrappers around `#[oracle]`
+/// declarations, so method dispatch is resolved at compile time via monomorphization and each array type emits its own
+/// foreign calls.
 pub trait ArrayOracles {
     /// Returns the number of elements in the array at `slot`.
     unconstrained fn len_oracle(slot: Field) -> u32;
