@@ -77,6 +77,7 @@ describe('ProverNode', () => {
     // exercise.
     proverNode.setSessionManager(sessionManager);
     proverNode.setPublishingService(publishingService);
+    mined.clear();
   });
 
   // ---------------- event dispatch ----------------
@@ -87,14 +88,9 @@ describe('ProverNode', () => {
     checkpoint: { number: CheckpointNumber(n), hash: `0x0${n}` },
   });
 
-  it('dispatches chain-checkpointed to handleCheckpointEvent', async () => {
+  it('dispatches chain-checkpointed: catches up and registers the checkpoint', async () => {
     setupNotFullyProven();
-    const checkpoint = makeCheckpoint(1, 1, 1);
-    const event: L2BlockStreamEvent = {
-      type: 'chain-checkpointed',
-      checkpoint: makePublishedCheckpoint(checkpoint),
-      block: { number: BlockNumber(1), hash: '0x01' },
-    };
+    const event = mineCheckpoint(makeCheckpoint(1, 1, 1));
 
     await proverNode.handleBlockStreamEvent(event);
 
@@ -114,11 +110,7 @@ describe('ProverNode', () => {
 
     // Register a checkpoint, then prune.
     setupNotFullyProven();
-    await proverNode.handleBlockStreamEvent({
-      type: 'chain-checkpointed',
-      checkpoint: makePublishedCheckpoint(makeCheckpoint(2, 2, 2)),
-      block: { number: BlockNumber(2), hash: '0x02' },
-    });
+    await proverNode.handleBlockStreamEvent(mineCheckpoint(makeCheckpoint(2, 2, 2)));
 
     await proverNode.handleBlockStreamEvent({
       type: 'chain-pruned',
@@ -207,18 +199,16 @@ describe('ProverNode', () => {
     // the tips stay put for the L2BlockStream to retry.
     worldState.syncImmediate.mockRejectedValue(new Error('boom'));
 
-    const event: L2BlockStreamEvent = {
-      type: 'chain-checkpointed',
-      checkpoint: makePublishedCheckpoint(makeCheckpoint(1, 1, 1)),
-      block: { number: BlockNumber(1), hash: '0x01' },
-    };
+    const event = mineCheckpoint(makeCheckpoint(1, 1, 1));
 
     await expect(proverNode.handleBlockStreamEvent(event)).rejects.toThrow('boom');
 
-    // Tips left unadvanced; nothing was registered and the session manager wasn't notified.
+    // Tips left unadvanced; nothing was registered, the session manager wasn't notified, and the catch-up
+    // cursor stays behind so the next pass retries this checkpoint.
     expect(await proverNode.getTipsStore().getL2BlockHash(1)).toBeUndefined();
     expect(proverNode.getCheckpointStore().listAll()).toHaveLength(0);
     expect(sessionManager.onCheckpointAdded).not.toHaveBeenCalled();
+    expect(proverNode.getLastProcessedCheckpoint()).toEqual(CheckpointNumber.ZERO);
   });
 
   it('leaves the tips store unadvanced when a handler propagates an error (A-1041)', async () => {
@@ -227,11 +217,7 @@ describe('ProverNode', () => {
     // tips-store update, so the error surfaces to the L2BlockStream and the tips stay put.
     l2BlockSource.getSyncedL2SlotNumber.mockRejectedValue(new Error('archiver down'));
 
-    const event: L2BlockStreamEvent = {
-      type: 'chain-checkpointed',
-      checkpoint: makePublishedCheckpoint(makeCheckpoint(1, 1, 1)),
-      block: { number: BlockNumber(1), hash: '0x01' },
-    };
+    const event = mineCheckpoint(makeCheckpoint(1, 1, 1));
 
     await expect(proverNode.handleBlockStreamEvent(event)).rejects.toThrow('archiver down');
 
@@ -251,25 +237,19 @@ describe('ProverNode', () => {
     );
     l2BlockSource.isEpochComplete.mockResolvedValue(true);
 
-    await proverNode.handleBlockStreamEvent({
-      type: 'chain-checkpointed',
-      checkpoint: makePublishedCheckpoint(makeCheckpoint(1, 1, 1)),
-      block: { number: BlockNumber(1), hash: '0x01' },
-    });
+    await proverNode.handleBlockStreamEvent(mineCheckpoint(makeCheckpoint(1, 1, 1)));
 
     expect(proverNode.getCheckpointStore().listAll().length).toBe(0);
     expect(sessionManager.onCheckpointAdded).not.toHaveBeenCalled();
+    // The whole-epoch skip still advances the cursor so we don't re-evaluate it next pass.
+    expect(proverNode.getLastProcessedCheckpoint()).toEqual(CheckpointNumber(1));
   });
 
   it('content-addresses the prover by the checkpoint archive root', async () => {
     setupNotFullyProven();
     const archiveRoot = Fr.random();
 
-    await proverNode.handleBlockStreamEvent({
-      type: 'chain-checkpointed',
-      checkpoint: makePublishedCheckpoint(makeCheckpoint(1, 1, 2, archiveRoot)),
-      block: { number: BlockNumber(2), hash: '0x02' },
-    });
+    await proverNode.handleBlockStreamEvent(mineCheckpoint(makeCheckpoint(1, 1, 2, archiveRoot)));
 
     const prover = proverNode.getCheckpointStore().listAll()[0];
     expect(prover.id).toContain(archiveRoot.toString());
@@ -370,16 +350,8 @@ describe('ProverNode', () => {
     setupRegistrationSuccess();
 
     // Register two checkpoints at slots 6 and 7 (both in epoch 3).
-    await proverNode.handleBlockStreamEvent({
-      type: 'chain-checkpointed',
-      checkpoint: makePublishedCheckpoint(makeCheckpoint(1, 6, 6)),
-      block: { number: BlockNumber(6), hash: '0x06' },
-    });
-    await proverNode.handleBlockStreamEvent({
-      type: 'chain-checkpointed',
-      checkpoint: makePublishedCheckpoint(makeCheckpoint(2, 7, 7)),
-      block: { number: BlockNumber(7), hash: '0x07' },
-    });
+    await proverNode.handleBlockStreamEvent(mineCheckpoint(makeCheckpoint(1, 6, 6)));
+    await proverNode.handleBlockStreamEvent(mineCheckpoint(makeCheckpoint(2, 7, 7)));
     expect(proverNode.getCheckpointStore().listAll().length).toBe(2);
 
     // Pruning above checkpoint 0 marks both as pruned — onPrune must receive [EpochNumber(3)],
@@ -617,6 +589,44 @@ describe('ProverNode', () => {
   function makePublishedCheckpoint(checkpoint: Checkpoint): PublishedCheckpoint {
     return { checkpoint, attestations: [] } as unknown as PublishedCheckpoint;
   }
+
+  /** Registry of mined checkpoints. */
+  const mined = new Map<number, Checkpoint>();
+
+  /**
+   * Registers `checkpoint` with the block source mocks: its light metadata is returned by `getCheckpointsData`
+   * range queries, and its full payload by `getCheckpoint({ number })`. Returns the thin `chain-checkpointed`
+   * tip event that points at it — the block stream now delivers only the tip, and the prover-node fetches
+   * everything between its cursor and the tip itself.
+   */
+  function mineCheckpoint(checkpoint: Checkpoint): L2BlockStreamEvent {
+    mined.set(Number(checkpoint.number), checkpoint);
+    l2BlockSource.getCheckpoint.mockImplementation((query: any) =>
+      Promise.resolve('number' in query ? makeMaybePublished(mined.get(Number(query.number))) : undefined),
+    );
+    l2BlockSource.getCheckpointsData.mockImplementation((query: any) => {
+      if (!('from' in query)) {
+        return Promise.resolve([]);
+      }
+      const data = [];
+      for (let n = Number(query.from); n < Number(query.from) + query.limit; n++) {
+        const cp = mined.get(n);
+        if (cp) {
+          data.push({ checkpointNumber: cp.number, header: cp.header } as any);
+        }
+      }
+      return Promise.resolve(data);
+    });
+    return {
+      type: 'chain-checkpointed',
+      block: { number: BlockNumber(checkpoint.blocks[0].number), hash: '0x01' },
+      checkpoint: { number: checkpoint.number, hash: checkpoint.hash().toString() },
+    };
+  }
+
+  function makeMaybePublished(checkpoint: Checkpoint | undefined): PublishedCheckpoint | undefined {
+    return checkpoint ? makePublishedCheckpoint(checkpoint) : undefined;
+  }
 });
 
 /** ProverNode subclass that exposes hooks for injecting a mocked SessionManager + reads. */
@@ -659,5 +669,9 @@ class TestProverNode extends ProverNode {
 
   public getLastExpiredEpoch(): EpochNumber | undefined {
     return this.lastExpiredEpoch;
+  }
+
+  public getLastProcessedCheckpoint(): CheckpointNumber {
+    return this.lastProcessedCheckpoint;
   }
 }

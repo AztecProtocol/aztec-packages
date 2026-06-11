@@ -5,6 +5,7 @@ import { BlockNumber, CheckpointNumber, EpochNumber } from '@aztec/foundation/br
 import { assertRequired, compact, pick } from '@aztec/foundation/collection';
 import { memoize } from '@aztec/foundation/decorators';
 import { createLogger } from '@aztec/foundation/log';
+import { RunningPromise } from '@aztec/foundation/running-promise';
 import { DateProvider, executeTimeout } from '@aztec/foundation/timer';
 import type { EpochProverFactory } from '@aztec/prover-client';
 import { getLastSiblingPath } from '@aztec/prover-client/helpers';
@@ -94,6 +95,17 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
    * submission deadline. Protected so tests can verify the start() seeding.
    */
   protected lastExpiredEpoch: EpochNumber | undefined;
+
+  /**
+   * Highest checkpoint number whose proving-side handling has completed (or that was legitimately skipped).
+   * The catch-up loop walks from here to each `chain-checkpointed` tip event. Seeded at start() from the last
+   * checkpoint of the last fully-proven epoch (or 0), so a restart reprocesses the partially-proven epoch rather
+   * than trusting a checkpointed tip that may sit ahead of unproven checkpoints. Clamped down on a prune.
+   */
+  protected lastProcessedCheckpoint: CheckpointNumber = CheckpointNumber.ZERO;
+
+  /** Periodic tick that runs the epoch-expiry sweep during idle periods when no block-stream events arrive. */
+  private expiryTicker: RunningPromise | undefined;
 
   public readonly tracer: Tracer;
 
@@ -219,7 +231,7 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
   public async handleBlockStreamEvent(event: L2BlockStreamEvent): Promise<void> {
     switch (event.type) {
       case 'chain-checkpointed':
-        await this.handleCheckpointEvent(event.checkpoint);
+        await this.processCheckpointJump(event.checkpoint.number);
         break;
       case 'chain-pruned':
         await this.handlePruneEvent(event.checkpointed.checkpoint);
@@ -239,32 +251,64 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
     await this.tipsStore.handleBlockStreamEvent(event);
   }
 
-  /** Register a new checkpoint with the store and notify the session manager. */
-  private async handleCheckpointEvent(publishedCheckpoint: PublishedCheckpoint) {
-    const checkpoint = publishedCheckpoint.checkpoint;
-    const slotNumber = checkpoint.header.slotNumber;
+  /**
+   * Walks every checkpoint between the local cursor and the newly-reported checkpointed tip, registering
+   * each one that belongs to an epoch that can still be proven. The block stream now delivers a single thin
+   * `chain-checkpointed` tip event per pass rather than one fat event per checkpoint, so this drives the
+   * catch-up itself: light metadata first (`getCheckpointsData`) to decide relevance per epoch, then a heavy
+   * `getCheckpoints` fetch only for checkpoints in provable epochs.
+   *
+   * The cursor advances one checkpoint at a time and only after that checkpoint's proving-side handling has
+   * fully succeeded, preserving the A-1041 at-least-once semantics: a mid-jump failure leaves the cursor
+   * behind so the next pass retries from the first checkpoint that did not complete.
+   */
+  private async processCheckpointJump(targetCheckpoint: CheckpointNumber): Promise<void> {
+    if (targetCheckpoint <= this.lastProcessedCheckpoint) {
+      return;
+    }
+    const from = CheckpointNumber(this.lastProcessedCheckpoint + 1);
+    const limit = Number(targetCheckpoint - from) + 1;
+    const metadatas = await this.l2BlockSource.getCheckpointsData({ from, limit });
     const l1Constants = await this.getL1Constants();
-    const epochNumber = getEpochAtSlot(slotNumber, l1Constants);
 
-    if (await this.isEpochFullyProven(epochNumber, l1Constants)) {
-      this.log.debug(`Skipping checkpoint ${checkpoint.number} for already-proven epoch ${epochNumber}`);
-      return;
+    // Per-epoch relevance is cached so a multi-checkpoint epoch resolves it once. Skipping is whole-epoch
+    // only: the SessionManager requires an epoch's checkpoints fully covered before it opens a session, so we
+    // never drop an individual checkpoint inside an epoch we will prove.
+    const epochSkippable = new Map<EpochNumber, boolean>();
+    for (const metadata of metadatas) {
+      const epochNumber = getEpochAtSlot(metadata.header.slotNumber, l1Constants);
+      let skippable = epochSkippable.get(epochNumber);
+      if (skippable === undefined) {
+        skippable =
+          (await this.isEpochFullyProven(epochNumber, l1Constants)) ||
+          (await this.isEpochPastProofSubmissionWindow(epochNumber, l1Constants));
+        epochSkippable.set(epochNumber, skippable);
+      }
+      if (skippable) {
+        this.log.debug(`Skipping checkpoint ${metadata.checkpointNumber} for unprovable epoch ${epochNumber}`);
+      } else {
+        await this.registerCheckpoint(metadata.checkpointNumber, epochNumber);
+      }
+      // Advance only after the checkpoint's handling succeeded (or it was legitimately skipped). registerCheckpoint
+      // throws on failure, which leaves the cursor here for the next pass to retry (A-1041).
+      this.lastProcessedCheckpoint = metadata.checkpointNumber;
     }
+  }
 
-    if (await this.isEpochPastProofSubmissionWindow(epochNumber, l1Constants)) {
-      this.log.debug(
-        `Skipping checkpoint ${checkpoint.number} for epoch ${epochNumber} past its proof-submission window`,
-      );
-      return;
+  /** Heavy-fetch a single checkpoint, register it with the store, and notify the session manager. */
+  private async registerCheckpoint(checkpointNumber: CheckpointNumber, epochNumber: EpochNumber): Promise<void> {
+    const published = await this.l2BlockSource.getCheckpoint({ number: checkpointNumber });
+    if (!published) {
+      throw new Error(`Checkpoint ${checkpointNumber} not found in block source during catch-up`);
     }
-
+    const checkpoint = published.checkpoint;
     this.log.info(`New checkpoint ${checkpoint.number} for epoch ${epochNumber}`, {
       checkpointNumber: checkpoint.number,
       epochNumber,
-      slotNumber,
+      slotNumber: checkpoint.header.slotNumber,
     });
 
-    const registerData = await this.collectRegisterData(checkpoint, publishedCheckpoint.attestations);
+    const registerData = await this.collectRegisterData(checkpoint, published.attestations);
     await this.checkpointStore.addOrUpdate(checkpoint, registerData);
     await this.sessionManager?.onCheckpointAdded(epochNumber);
   }
@@ -298,6 +342,11 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
   /** Mark every prover above the prune threshold as pruned and notify the session manager. */
   private async handlePruneEvent(prunedCheckpoint: { number: CheckpointNumber; hash: string }) {
     this.log.warn(`Chain pruned to checkpoint ${prunedCheckpoint.number}`, { prunedCheckpoint });
+    // Clamp the catch-up cursor down to the (post-prune) checkpointed tip so reprocessing resumes from the
+    // first checkpoint above the prune target rather than from a stale, now-orphaned cursor.
+    if (this.lastProcessedCheckpoint > prunedCheckpoint.number) {
+      this.lastProcessedCheckpoint = prunedCheckpoint.number;
+    }
     const affected = this.checkpointStore.markPrunedAfter(prunedCheckpoint.number);
     if (affected.length === 0) {
       return;
@@ -411,11 +460,21 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
 
     const { startingBlock, lastFullyProvenEpoch } = await this.computeStartupState();
     this.lastExpiredEpoch = lastFullyProvenEpoch;
+    this.lastProcessedCheckpoint = await this.computeStartingCheckpoint(lastFullyProvenEpoch);
     this.blockStream = new L2BlockStream(this.l2BlockSource, this.tipsStore, this, this.log, {
       pollIntervalMS: this.config.proverNodePollingIntervalMs,
       startingBlock,
     });
     this.blockStream.start();
+
+    // With thin once-per-pass tip events, the expiry sweep no longer fires once per checkpoint; drive it
+    // from a periodic tick so epochs still expire during idle/no-event periods.
+    this.expiryTicker = new RunningPromise(
+      () => this.checkEpochExpiry(),
+      this.log,
+      this.config.proverNodePollingIntervalMs,
+    );
+    this.expiryTicker.start();
 
     await this.rewardsMetrics.start();
     this.l1Metrics.start();
@@ -426,6 +485,7 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
     this.log.info('Stopping ProverNode');
     this.jobMetrics.stopObservingState();
     await this.blockStream?.stop();
+    await this.expiryTicker?.stop();
     if (this.sessionManager) {
       await this.sessionManager.stop();
     }
@@ -584,6 +644,19 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
     );
     const lastFullyProvenEpoch = provenEpoch > 0 ? EpochNumber(provenEpoch - 1) : undefined;
     return { startingBlock: firstBlockOfEpoch, lastFullyProvenEpoch };
+  }
+
+  /**
+   * Resolves the catch-up cursor seed: the last checkpoint of the last fully-proven epoch, or 0 if none. Seeding
+   * from a checkpoint (rather than a checkpointed tip) guarantees a restart reprocesses every checkpoint of the
+   * partially-proven epoch, since the checkpointed tip can sit ahead of the last fully-proven checkpoint.
+   */
+  protected async computeStartingCheckpoint(lastFullyProvenEpoch: EpochNumber | undefined): Promise<CheckpointNumber> {
+    if (lastFullyProvenEpoch === undefined) {
+      return CheckpointNumber.ZERO;
+    }
+    const checkpoints = await this.l2BlockSource.getCheckpointsData({ epoch: lastFullyProvenEpoch });
+    return checkpoints.at(-1)?.checkpointNumber ?? CheckpointNumber.ZERO;
   }
 
   private async gatherPreviousBlockHeader(previousBlockNumber: number) {
