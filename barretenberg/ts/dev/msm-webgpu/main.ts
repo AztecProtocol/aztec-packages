@@ -818,10 +818,10 @@ async function runWebGpuOnce(
     throw new Error('navigator.gpu is undefined — no WebGPU in this browser');
   }
   const msm = await ensureWebGpuWarmed(inputs);
-  // Early exit hands raw staged partials to the native finish+combine, so the
-  // WASM worker must be live before the timed window (production's caller IS
-  // the wasm — boot cost is not part of the MSM).
-  if (gpuKnobs.earlyExit && WASM_AVAILABLE && !wasmMtPippenger) {
+  // Halving always early-exits: the staged partials go to the native
+  // finish+combine, so the WASM worker must be live before the timed window
+  // (production's caller IS the wasm — boot cost is not part of the MSM).
+  if ((gpuKnobs.halvingReduce || gpuKnobs.earlyExit) && WASM_AVAILABLE && !wasmMtPippenger) {
     await ensureWasmBooted();
   }
   log('info', `[gpu] dispatch n=${inputs.n.toLocaleString()}`);

@@ -2022,12 +2022,10 @@ export class MsmV2 {
   private halveBa4Pipe?: GPUComputePipeline;
   private halveJacPipe?: GPUComputePipeline;
   private halveFinishArraysPipe?: GPUComputePipeline;
-  private halveFinishRootPipe?: GPUComputePipeline;
   private halveStageLayout?: GPUBindGroupLayout;
   private halveStageBuf?: GPUBuffer;
   private halveArraysBind?: GPUBindGroup;
   private halveDepthDispatch: { pipe: GPUComputePipeline; bind: GPUBindGroup; nx: number }[] = [];
-  private halveFinishBind?: GPUBindGroup;
   private halveZInitBind?: GPUBindGroup;
   private halveZInitAt = -1;
   private foldWeightPipe?: GPUComputePipeline;
@@ -2522,7 +2520,9 @@ export class MsmV2 {
     m.halvingReduce = config?.halvingReduce ?? false;
     m.halveCap = config?.halveCap ?? 64;
     m.halveBa4Floor = config?.halveBa4Floor;
-    m.earlyExitMode = (config?.earlyExit ?? false) && (config?.halvingReduce ?? false);
+    // Halving ALWAYS early-exits: the GPU ends at the staged partials and ONE
+    // native call finishes + combines. The GPU root pass (pass 2) is gone.
+    m.earlyExitMode = config?.halvingReduce ?? false;
     m.halveStopAfter = m.earlyExitMode ? config?.halveStop : undefined;
     m.halveIterAfter = m.earlyExitMode ? config?.halveIter : undefined;
     m.forceSplit = config?.forceSplit;
@@ -3363,11 +3363,6 @@ export class MsmV2 {
         sm.gen_halve_finish_arrays_shader(strideB, hsched.finisherDepth, hsched.finisherInputsJac),
         `halve-finish-arrays`,
         m.halveStageLayout,
-      );
-      m.halveFinishRootPipe = await compile(
-        sm.gen_halve_finish_root_shader(strideB, hsched.finisherDepth),
-        `halve-finish-root`,
-        m.foldJacLayout,
       );
     }
 
@@ -4689,7 +4684,6 @@ export class MsmV2 {
       }
     }
     this.halveDepthDispatch = [];
-    this.halveFinishBind = undefined;
     this.halveZInitBind = undefined;
     this.halveZInitAt = -1;
     if (this.halvingReduce && this.halveSchedule && this.foldLayout && this.foldJacLayout) {
@@ -4737,7 +4731,6 @@ export class MsmV2 {
       const hlp = ubuf(
         new Uint32Array([sched.finisherDepth, sched.finisherInputsJac ? 1 : 0, Math.log2(strideB), 0]),
       );
-      this.halveFinishBind = mkBind(this.foldJacLayout, [redBuf, redZBuf, isPresentBuf, hcparams, hlp, hbuf]);
       const partials = sched.finisherDepth + 1;
       this.halveStageBuf = device.createBuffer({
         size: Math.max(16, NUM_WINDOWS * partials * 96),
@@ -5706,17 +5699,13 @@ export class MsmV2 {
     // directly via the bid → red_slot mapping. See UNIFIED_COMBINE_PLAN.md.
     // Phase 5: ONE pipeline drives every level (kind branched at runtime
     // off lparams.w). reduceLevelKinds is no longer consulted.
-    if (
-      this.halvingReduce &&
-      this.halveFinishArraysPipe &&
-      this.halveFinishRootPipe &&
-      this.halveFinishBind &&
-      this.reduceJacFinalizeBind
-    ) {
+    if (this.halvingReduce && this.halveFinishArraysPipe) {
       // Halving reduction (Mitschabaude): one dispatch per wide depth —
       // batch-affine 8/4 pairs per thread while saturated, Jacobian pairs
       // once thin (z-plane seeded just before the first Jacobian depth) —
-      // then the per-window finisher and the shared jac-finalize.
+      // then the per-window finisher, which stages the partials for the
+      // native finish + combine (the GPU pipeline ends here; early exit is
+      // the only halving result path).
       const depthCount =
         this.halveStopAfter !== undefined
           ? Math.min(this.halveStopAfter, this.halveDepthDispatch.length)
@@ -5738,10 +5727,6 @@ export class MsmV2 {
         (this.halveSchedule?.finisherDepth ?? 0) + 1,
         this.numWindows,
       );
-      if (!this.earlyExitMode) {
-        setPhase('reduce_jacfinal');
-        dispatch(this.halveFinishRootPipe, this.halveFinishBind, 1, this.numWindows);
-      }
     } else if (this.groupedReduce && this.foldWeightPipe && this.foldSumPipe && this.foldSumBind1 && this.reduceJacFinalizeBind) {
       // Fold tower (GROUPED_REDUCE_PLAN.md): one dispatch per fold level —
       // grid (chunks, windows), level lv's pipeline is specialised for
