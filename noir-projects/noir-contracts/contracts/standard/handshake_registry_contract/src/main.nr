@@ -18,6 +18,14 @@ global NON_INTERACTIVE_HANDSHAKE: u8 = 1;
 /// [`HandshakeRegistry::validate_handshake`] to check an app-siloed secret against the current stored handshake. The
 /// private surfaces silo against `msg_sender()`, so a contract can only obtain or validate secrets siloed to itself.
 ///
+/// # Privacy
+/// The siloing described above means reading handshakes never compromises message secrecy: a reader only ever
+/// derives secrets siloed to its own address. Handshake metadata is weaker, though. Incoming handshakes are announced
+/// via a bootstrap log under a tag derived from the recipient address (see
+/// [`HandshakeRegistry::non_interactive_handshake`]), so their existence, count, and timing are observable by anyone
+/// who knows that address, and [`HandshakeRegistry::get_handshakes`] exposes their decrypted payload to in-scope
+/// callers.
+///
 /// Currently only implements the non-interactive flow (see [`HandshakeRegistry::non_interactive_handshake`]).
 #[aztec(::aztec::macros::AztecConfig::new().custom_sync_state(crate::handshake_registry_sync))]
 pub contract HandshakeRegistry {
@@ -159,6 +167,12 @@ pub contract HandshakeRegistry {
     /// Returns a page of discovered handshakes addressed to `recipient`.
     ///
     /// `total_count` is the full list length, so callers can determine whether more pages remain.
+    ///
+    /// # Privacy
+    /// Returns the decrypted discovery payload (`eph_pk`, `mode`) to any caller that knows `recipient` and has it in
+    /// scope. `mode` narrows the category of apps the recipient uses; `eph_pk` does not weaken secrecy. See the
+    /// contract's privacy notes above for the full model. Restricting this read to contract-sync execution is a
+    /// possible future hardening.
     #[external("utility")]
     unconstrained fn get_handshakes(recipient: AztecAddress, page_offset: u32) -> HandshakePage {
         let handshakes = get_all_handshakes(self.context.this_address(), recipient);
