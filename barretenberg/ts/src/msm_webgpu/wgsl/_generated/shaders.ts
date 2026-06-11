@@ -6423,26 +6423,47 @@ fn main(@builtin(workgroup_id) wgid: vec3<u32>,
     let proceed =
         cnt > stride && ((DEEP == 0u && n_resid <= TPB64) || (DEEP == 1u && n_resid > TPB64));
 
+    // Seed population: the shallow variant mmadd-pairs adjacent residuals
+    // (6 muls, both inputs affine) so the tree starts at HALF the bucket's
+    // population — one level shallower and a 16-mul jac_add replaced by a
+    // 6-mul mmadd. The deep variant's threads serially fold a strided
+    // share (mmadd seed + madds), filling all TPB slots.
+    let pop = select((n_resid + 1u) >> 1u, min(n_resid, TPB), DEEP == 1u);
     let zero = array<u32, 8>(0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u);
     var acc = Jac(zero, zero, zero); // infinity
-    if (proceed && l < n_resid) {
-        let s0 = pl_at(seg + l * stride);
-        let x0 = load_partial_x(s0);
-        let y0 = load_partial_y(s0, M_partials);
-        if (l + TPB < n_resid) {
-            let s1 = pl_at(seg + (l + TPB) * stride);
-            acc = jac_mmadd(x0, y0, load_partial_x(s1), load_partial_y(s1, M_partials));
-            var iter: u32 = 0u;
-            for (var j: u32 = l + 2u * TPB; j < n_resid; j = j + TPB) {
-                if (iter >= 1024u) { break; }
-                iter = iter + 1u;
-                let sj = pl_at(seg + j * stride);
-                acc = jac_madd(acc, load_partial_x(sj), load_partial_y(sj, M_partials));
+    if (DEEP == 0u) {
+        if (proceed && 2u * l < n_resid) {
+            let j0 = 2u * l;
+            let s0 = pl_at(seg + j0 * stride);
+            let x0 = load_partial_x(s0);
+            let y0 = load_partial_y(s0, M_partials);
+            if (j0 + 1u < n_resid) {
+                let s1 = pl_at(seg + (j0 + 1u) * stride);
+                acc = jac_mmadd(x0, y0, load_partial_x(s1), load_partial_y(s1, M_partials));
+            } else {
+                // Odd tail: straight-line affine lift (constant R is only
+                // hazardous inside loops).
+                acc = Jac(x0, y0, get_r_f8());
             }
-        } else {
-            // Single residual: straight-line affine lift (constant R is
-            // only hazardous inside the loop).
-            acc = Jac(x0, y0, get_r_f8());
+        }
+    } else {
+        if (proceed && l < n_resid) {
+            let s0 = pl_at(seg + l * stride);
+            let x0 = load_partial_x(s0);
+            let y0 = load_partial_y(s0, M_partials);
+            if (l + TPB < n_resid) {
+                let s1 = pl_at(seg + (l + TPB) * stride);
+                acc = jac_mmadd(x0, y0, load_partial_x(s1), load_partial_y(s1, M_partials));
+                var iter: u32 = 0u;
+                for (var j: u32 = l + 2u * TPB; j < n_resid; j = j + TPB) {
+                    if (iter >= 1024u) { break; }
+                    iter = iter + 1u;
+                    let sj = pl_at(seg + j * stride);
+                    acc = jac_madd(acc, load_partial_x(sj), load_partial_y(sj, M_partials));
+                }
+            } else {
+                acc = Jac(x0, y0, get_r_f8());
+            }
         }
     }
     wg_store(l, acc);
@@ -6457,7 +6478,7 @@ fn main(@builtin(workgroup_id) wgid: vec3<u32>,
     var s: u32 = TPB / 2u;
     loop {
         if (s == 0u) { break; }
-        if (l < s && proceed && s < n_resid) { wg_store(l, jac_add(wg_load(l), wg_load(l + s))); }
+        if (l < s && proceed && s < pop) { wg_store(l, jac_add(wg_load(l), wg_load(l + s))); }
         workgroupBarrier();
         s = s / 2u;
     }
@@ -6623,8 +6644,13 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
     // still walls at inversion-chain latency in every thread.
     if (n_live > 0u) {
         // Batched affine: forward prefix of dx (identity for idle slots).
+        // dx and x_l stay in registers across all three passes — the peel
+        // and the add would otherwise reload both x's and recompute dx
+        // (x_r is recovered as x_l + dx, no multiplies).
         let R: array<u32, 8> = get_r_f8();
         var pref: array<array<u32, 8>, {{ s }}>;
+        var dxs: array<array<u32, 8>, {{ s }}>;
+        var xls: array<array<u32, 8>, {{ s }}>;
         var prod: array<u32, 8> = R;
         for (var s_i: u32 = 0u; s_i < S; s_i = s_i + 1u) {
             var dx: array<u32, 8> = R;
@@ -6636,7 +6662,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
                 // substitute identity — that bucket alone is garbage (standing
                 // incomplete-add assumption, same blast radius as elsewhere).
                 dx = fr_select_f8(dx, R, is_zero_f8(dx));
+                xls[s_i] = x_l;
             }
+            dxs[s_i] = dx;
             if (s_i == 0u) {
                 prod = dx;
             } else {
@@ -6651,23 +6679,16 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
         for (var s_j: u32 = 0u; s_j < S; s_j = s_j + 1u) {
             let s_i = S - 1u - s_j;
             var inv_dx: array<u32, 8>;
-            var dx_b: array<u32, 8> = R;
-            if (live[s_i] >= 1u) {
-                let x_l = load_x(lslot[s_i]);
-                let x_r = load_x(rslot[s_i]);
-                dx_b = fr_sub_f8(x_r, x_l);
-                dx_b = fr_select_f8(dx_b, R, is_zero_f8(dx_b));
-            }
             if (s_i == 0u) {
                 inv_dx = inv;
             } else {
                 inv_dx = montgomery_product_f8(inv, pref[s_i - 1u]);
-                inv = montgomery_product_f8(inv, dx_b);
+                inv = montgomery_product_f8(inv, dxs[s_i]);
             }
             if (live[s_i] == 0u) { continue; }
 
-            let x_l = load_x(lslot[s_i]);
-            let x_r = load_x(rslot[s_i]);
+            let x_l = xls[s_i];
+            let x_r = fr_add_f8(x_l, dxs[s_i]);
             let y_l = load_y(lslot[s_i], M_partials);
             let y_r = load_y(rslot[s_i], M_partials);
             var lambda = fr_sub_f8(y_r, y_l);

@@ -221,26 +221,47 @@ fn main(@builtin(workgroup_id) wgid: vec3<u32>,
     let proceed =
         cnt > stride && ((DEEP == 0u && n_resid <= TPB64) || (DEEP == 1u && n_resid > TPB64));
 
+    // Seed population: the shallow variant mmadd-pairs adjacent residuals
+    // (6 muls, both inputs affine) so the tree starts at HALF the bucket's
+    // population — one level shallower and a 16-mul jac_add replaced by a
+    // 6-mul mmadd. The deep variant's threads serially fold a strided
+    // share (mmadd seed + madds), filling all TPB slots.
+    let pop = select((n_resid + 1u) >> 1u, min(n_resid, TPB), DEEP == 1u);
     let zero = array<u32, 8>(0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u);
     var acc = Jac(zero, zero, zero); // infinity
-    if (proceed && l < n_resid) {
-        let s0 = pl_at(seg + l * stride);
-        let x0 = load_partial_x(s0);
-        let y0 = load_partial_y(s0, M_partials);
-        if (l + TPB < n_resid) {
-            let s1 = pl_at(seg + (l + TPB) * stride);
-            acc = jac_mmadd(x0, y0, load_partial_x(s1), load_partial_y(s1, M_partials));
-            var iter: u32 = 0u;
-            for (var j: u32 = l + 2u * TPB; j < n_resid; j = j + TPB) {
-                if (iter >= 1024u) { break; }
-                iter = iter + 1u;
-                let sj = pl_at(seg + j * stride);
-                acc = jac_madd(acc, load_partial_x(sj), load_partial_y(sj, M_partials));
+    if (DEEP == 0u) {
+        if (proceed && 2u * l < n_resid) {
+            let j0 = 2u * l;
+            let s0 = pl_at(seg + j0 * stride);
+            let x0 = load_partial_x(s0);
+            let y0 = load_partial_y(s0, M_partials);
+            if (j0 + 1u < n_resid) {
+                let s1 = pl_at(seg + (j0 + 1u) * stride);
+                acc = jac_mmadd(x0, y0, load_partial_x(s1), load_partial_y(s1, M_partials));
+            } else {
+                // Odd tail: straight-line affine lift (constant R is only
+                // hazardous inside loops).
+                acc = Jac(x0, y0, get_r_f8());
             }
-        } else {
-            // Single residual: straight-line affine lift (constant R is
-            // only hazardous inside the loop).
-            acc = Jac(x0, y0, get_r_f8());
+        }
+    } else {
+        if (proceed && l < n_resid) {
+            let s0 = pl_at(seg + l * stride);
+            let x0 = load_partial_x(s0);
+            let y0 = load_partial_y(s0, M_partials);
+            if (l + TPB < n_resid) {
+                let s1 = pl_at(seg + (l + TPB) * stride);
+                acc = jac_mmadd(x0, y0, load_partial_x(s1), load_partial_y(s1, M_partials));
+                var iter: u32 = 0u;
+                for (var j: u32 = l + 2u * TPB; j < n_resid; j = j + TPB) {
+                    if (iter >= 1024u) { break; }
+                    iter = iter + 1u;
+                    let sj = pl_at(seg + j * stride);
+                    acc = jac_madd(acc, load_partial_x(sj), load_partial_y(sj, M_partials));
+                }
+            } else {
+                acc = Jac(x0, y0, get_r_f8());
+            }
         }
     }
     wg_store(l, acc);
@@ -255,7 +276,7 @@ fn main(@builtin(workgroup_id) wgid: vec3<u32>,
     var s: u32 = TPB / 2u;
     loop {
         if (s == 0u) { break; }
-        if (l < s && proceed && s < n_resid) { wg_store(l, jac_add(wg_load(l), wg_load(l + s))); }
+        if (l < s && proceed && s < pop) { wg_store(l, jac_add(wg_load(l), wg_load(l + s))); }
         workgroupBarrier();
         s = s / 2u;
     }
