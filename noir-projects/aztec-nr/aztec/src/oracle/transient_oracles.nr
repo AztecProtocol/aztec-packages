@@ -9,15 +9,15 @@
 #[oracle(aztec_utl_pushTransient)]
 pub(crate) unconstrained fn push_oracle<let N: u32>(slot: Field, values: [Field; N]) -> u32 {}
 
-/// Removes and returns the last serialized element from the transient array.
+/// Removes and returns the last serialized element from the transient array. Panics if the array is empty.
 #[oracle(aztec_utl_popTransient)]
 pub(crate) unconstrained fn pop_oracle<let N: u32>(slot: Field) -> [Field; N] {}
 
-/// Returns the serialized element at the given index.
+/// Returns the serialized element at the given index. Panics if `index` is out of bounds.
 #[oracle(aztec_utl_getTransient)]
 pub(crate) unconstrained fn get_oracle<let N: u32>(slot: Field, index: u32) -> [Field; N] {}
 
-/// Overwrites the serialized element at the given index.
+/// Overwrites the serialized element at the given index. Panics if `index` is out of bounds.
 #[oracle(aztec_utl_setTransient)]
 pub(crate) unconstrained fn set_oracle<let N: u32>(slot: Field, index: u32, values: [Field; N]) {}
 
@@ -25,7 +25,7 @@ pub(crate) unconstrained fn set_oracle<let N: u32>(slot: Field, index: u32, valu
 #[oracle(aztec_utl_getTransientLen)]
 pub(crate) unconstrained fn len_oracle(slot: Field) -> u32 {}
 
-/// Removes the element at the given index, shifting subsequent elements backward.
+/// Removes the element at the given index, shifting subsequent elements backward. Panics if `index` is out of bounds.
 #[oracle(aztec_utl_removeTransient)]
 pub(crate) unconstrained fn remove_oracle(slot: Field, index: u32) {}
 
