@@ -43,6 +43,11 @@ export class SchnorrInitializerlessAccountContract extends SchnorrBaseAccountCon
     return Promise.resolve(undefined);
   }
 
+  override async getImmutablesHash(): Promise<Fr> {
+    const signingPublicKey = await this.getSigningPublicKey();
+    return poseidon2Hash([signingPublicKey.x, signingPublicKey.y]);
+  }
+
   override getContractArtifact(): Promise<ContractArtifact> {
     return getSchnorrInitializerlessAccountContractArtifact();
   }

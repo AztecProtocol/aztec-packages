@@ -7,7 +7,6 @@
 import { getAccountContractAddress } from '@aztec/aztec.js/account';
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
-import { Schnorr } from '@aztec/foundation/crypto/schnorr';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
 import type { ContractArtifact } from '@aztec/stdlib/abi';
