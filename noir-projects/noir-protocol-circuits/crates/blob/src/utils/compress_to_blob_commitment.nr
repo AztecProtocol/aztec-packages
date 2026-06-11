@@ -68,8 +68,8 @@ mod tests {
         assert_eq(flags[0], true);
         // is_infinity = false
         assert_eq(flags[1], false);
-        // is_greater = false (point.y > -point.y for G)
-        assert_eq(flags[2], true);
+        // is_greater = false: the BLS12-381 offset generator's y is the lower root (y < -y)
+        assert_eq(flags[2], false);
         // Decompress back to the same point:
         let mut bytes = compress_to_blob_commitment(point).compressed;
         // Same as &= 0b0001_1111 - clear first three bits of our flags
