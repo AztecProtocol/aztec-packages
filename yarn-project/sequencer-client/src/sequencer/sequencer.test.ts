@@ -26,10 +26,11 @@ import {
   L2Block,
   type L2BlockSink,
   type L2BlockSource,
+  type ProposedCheckpoint,
   type ProposedCheckpointSink,
   type ValidateCheckpointNegativeResult,
 } from '@aztec/stdlib/block';
-import { Checkpoint, type ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
+import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import type { ChainConfig } from '@aztec/stdlib/config';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
@@ -314,10 +315,6 @@ describe('sequencer', () => {
       getBlockNumber: mockFn().mockResolvedValue(lastBlockNumber),
       getL2Tips: mockFn().mockResolvedValue({
         proposed: { number: lastBlockNumber, hash },
-        proposedCheckpoint: {
-          block: { number: lastBlockNumber, hash },
-          checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
-        },
         checkpointed: {
           block: { number: lastBlockNumber, hash },
           checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
@@ -337,16 +334,13 @@ describe('sequencer', () => {
       getCheckpointsData: mockFn().mockResolvedValue([]),
       getSyncedL2SlotNumber: mockFn().mockResolvedValue(SlotNumber(Number.MAX_SAFE_INTEGER)),
       getProposedCheckpointData: mockFn().mockResolvedValue(undefined),
+      getProposedCheckpoint: mockFn().mockResolvedValue(undefined),
     });
 
     l1ToL2MessageSource = mock<L1ToL2MessageSource>({
       getL1ToL2Messages: () => Promise.resolve(Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(Fr.ZERO)),
       getL2Tips: mockFn().mockResolvedValue({
         proposed: { number: lastBlockNumber, hash },
-        proposedCheckpoint: {
-          block: { number: lastBlockNumber, hash },
-          checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
-        },
         checkpointed: {
           block: { number: lastBlockNumber, hash },
           checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
@@ -1273,7 +1267,7 @@ describe('sequencer', () => {
       await setupSingleTxBlock();
 
       // Override to non-genesis state so checkSync doesn't take the genesis path.
-      // proposedCheckpoint is set with checkpoint number 1 > checkpointed tip 0, so hasProposedCheckpoint is true.
+      // The proposed checkpoint has number 1 > checkpointed tip 0, so hasProposedCheckpoint is true.
       const nonGenesisHash = Fr.random().toString();
       const proposedCheckpointHash = Fr.random().toString();
       worldState.status.mockResolvedValue({
@@ -1288,10 +1282,6 @@ describe('sequencer', () => {
       } satisfies WorldStateSynchronizerStatus);
       const tipsWithBlock1 = {
         proposed: { number: BlockNumber(1), hash: nonGenesisHash },
-        proposedCheckpoint: {
-          block: { number: BlockNumber(1), hash: nonGenesisHash },
-          checkpoint: { number: CheckpointNumber(1), hash: proposedCheckpointHash },
-        },
         checkpointed: {
           block: { number: BlockNumber(1), hash: nonGenesisHash },
           checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
@@ -1317,16 +1307,22 @@ describe('sequencer', () => {
         checkpointNumber: CheckpointNumber(1),
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
       } satisfies BlockData);
-      l2BlockSource.getProposedCheckpointData.mockResolvedValue({
-        checkpointNumber: CheckpointNumber(1),
-        header: CheckpointHeader.empty(),
-        archive: AppendOnlyTreeSnapshot.empty(),
-        checkpointOutHash: Fr.ZERO,
-        startBlock: BlockNumber(1),
-        blockCount: 1,
-        totalManaUsed: 0n,
-        feeAssetPriceModifier: 0n,
-      } satisfies ProposedCheckpointData);
+      l2BlockSource.getProposedCheckpoint.mockResolvedValue({
+        tip: {
+          block: { number: BlockNumber(1), hash: nonGenesisHash },
+          checkpoint: { number: CheckpointNumber(1), hash: proposedCheckpointHash },
+        },
+        data: {
+          checkpointNumber: CheckpointNumber(1),
+          header: CheckpointHeader.empty(),
+          archive: AppendOnlyTreeSnapshot.empty(),
+          checkpointOutHash: Fr.ZERO,
+          startBlock: BlockNumber(1),
+          blockCount: 1,
+          totalManaUsed: 0n,
+          feeAssetPriceModifier: 0n,
+        },
+      });
 
       await sequencer.work();
 
@@ -1356,10 +1352,6 @@ describe('sequencer', () => {
       } satisfies WorldStateSynchronizerStatus);
       const tips = {
         proposed: { number: BlockNumber(3), hash: nonGenesisHash },
-        proposedCheckpoint: {
-          block: { number: BlockNumber(2), hash: nonGenesisHash },
-          checkpoint: { number: CheckpointNumber(2), hash: proposedCheckpointHash },
-        },
         checkpointed: {
           block: { number: BlockNumber(1), hash: nonGenesisHash },
           checkpoint: { number: CheckpointNumber(1), hash: checkpointedHash },
@@ -1385,8 +1377,12 @@ describe('sequencer', () => {
         checkpointNumber: CheckpointNumber(3),
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
       } satisfies BlockData);
-      l2BlockSource.getProposedCheckpointData.mockResolvedValue({
-        checkpointNumber: CheckpointNumber(2),
+      l2BlockSource.getProposedCheckpoint.mockResolvedValue({
+        tip: {
+          block: { number: BlockNumber(2), hash: nonGenesisHash },
+          checkpoint: { number: CheckpointNumber(2), hash: proposedCheckpointHash },
+        },
+        data: { checkpointNumber: CheckpointNumber(2) },
       } as any);
 
       await sequencer.work();
@@ -1425,10 +1421,6 @@ describe('sequencer', () => {
       } satisfies WorldStateSynchronizerStatus);
       const tipsWithBlock1 = {
         proposed: { number: BlockNumber(1), hash: nonGenesisHash },
-        proposedCheckpoint: {
-          block: { number: BlockNumber(1), hash: nonGenesisHash },
-          checkpoint: { number: CheckpointNumber(1), hash: proposedCheckpointHash },
-        },
         checkpointed: {
           block: { number: BlockNumber(1), hash: nonGenesisHash },
           checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
@@ -1454,16 +1446,22 @@ describe('sequencer', () => {
         checkpointNumber: CheckpointNumber(1),
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
       } satisfies BlockData);
-      l2BlockSource.getProposedCheckpointData.mockResolvedValue({
-        checkpointNumber: CheckpointNumber(1),
-        header: CheckpointHeader.empty(),
-        archive: AppendOnlyTreeSnapshot.empty(),
-        checkpointOutHash: Fr.ZERO,
-        startBlock: BlockNumber(1),
-        blockCount: 1,
-        totalManaUsed: 0n,
-        feeAssetPriceModifier: 0n,
-      } satisfies ProposedCheckpointData);
+      l2BlockSource.getProposedCheckpoint.mockResolvedValue({
+        tip: {
+          block: { number: BlockNumber(1), hash: nonGenesisHash },
+          checkpoint: { number: CheckpointNumber(1), hash: proposedCheckpointHash },
+        },
+        data: {
+          checkpointNumber: CheckpointNumber(1),
+          header: CheckpointHeader.empty(),
+          archive: AppendOnlyTreeSnapshot.empty(),
+          checkpointOutHash: Fr.ZERO,
+          startBlock: BlockNumber(1),
+          blockCount: 1,
+          totalManaUsed: 0n,
+          feeAssetPriceModifier: 0n,
+        },
+      });
 
       await sequencer.work();
 
@@ -1498,18 +1496,17 @@ describe('sequencer', () => {
   describe('checkSync orphan-block guard', () => {
     // Mocks all sync sources so checkSync passes its earlier equality checks and reaches the orphan
     // guard, with the world-state tip at `blockNumber` (in `blockCheckpointNumber`) while the
-    // checkpointed and proposed-checkpoint tips sit at the given checkpoint numbers.
+    // checkpointed tip sits at `checkpointedCheckpointNumber`. The leading proposed checkpoint (if any)
+    // is supplied as the single atomic `getProposedCheckpoint` snapshot.
     const setupSyncedToBlock = (opts: {
       blockNumber: BlockNumber;
       blockSlot: SlotNumber;
       blockCheckpointNumber: CheckpointNumber;
       checkpointedCheckpointNumber: CheckpointNumber;
-      proposedCheckpointTipNumber: CheckpointNumber;
-      proposedCheckpointData: ProposedCheckpointData | undefined;
+      proposedCheckpoint: ProposedCheckpoint | undefined;
     }) => {
       const hash = Fr.random().toString();
       const checkpointHash = Fr.random().toString();
-      const proposedCheckpointHash = Fr.random().toString();
       worldState.status.mockResolvedValue({
         state: WorldStateRunningState.IDLE,
         syncSummary: {
@@ -1522,10 +1519,6 @@ describe('sequencer', () => {
       } satisfies WorldStateSynchronizerStatus);
       const tips = {
         proposed: { number: opts.blockNumber, hash },
-        proposedCheckpoint: {
-          block: { number: opts.blockNumber, hash },
-          checkpoint: { number: opts.proposedCheckpointTipNumber, hash: proposedCheckpointHash },
-        },
         checkpointed: {
           block: { number: opts.blockNumber, hash },
           checkpoint: { number: opts.checkpointedCheckpointNumber, hash: checkpointHash },
@@ -1551,20 +1544,19 @@ describe('sequencer', () => {
         checkpointNumber: opts.blockCheckpointNumber,
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
       } satisfies BlockData);
-      l2BlockSource.getProposedCheckpointData.mockResolvedValue(opts.proposedCheckpointData);
+      l2BlockSource.getProposedCheckpoint.mockResolvedValue(opts.proposedCheckpoint);
     };
 
     it('returns undefined and logs debug while waiting for a matching proposed checkpoint', async () => {
-      // Local tip is a block at checkpoint 3, but the checkpointed and proposed-checkpoint tips are
-      // still at checkpoint 2 and no proposed checkpoint 3 exists: an orphan block-only tip whose
-      // enclosing checkpoint has not materialized into the archiver.
+      // Local tip is a block at checkpoint 3, but the checkpointed tip is still at checkpoint 2 and no
+      // proposed checkpoint 3 exists: an orphan block-only tip whose enclosing checkpoint has not
+      // materialized into the archiver.
       setupSyncedToBlock({
         blockNumber: BlockNumber(3),
         blockSlot: SlotNumber(3),
         blockCheckpointNumber: CheckpointNumber(3),
         checkpointedCheckpointNumber: CheckpointNumber(2),
-        proposedCheckpointTipNumber: CheckpointNumber(2),
-        proposedCheckpointData: undefined,
+        proposedCheckpoint: undefined,
       });
       const warnSpy = jest.spyOn(sequencer.getLogger(), 'warn');
       const debugSpy = jest.spyOn(sequencer.getLogger(), 'debug');
@@ -1578,8 +1570,7 @@ describe('sequencer', () => {
         expect.objectContaining({
           blockCheckpointNumber: CheckpointNumber(3),
           checkpointedCheckpointNumber: CheckpointNumber(2),
-          proposedCheckpointTipNumber: CheckpointNumber(2),
-          proposedCheckpointDataNumber: undefined,
+          proposedCheckpointTipNumber: undefined,
         }),
       );
     });
@@ -1590,17 +1581,22 @@ describe('sequencer', () => {
         blockSlot: SlotNumber(3),
         blockCheckpointNumber: CheckpointNumber(3),
         checkpointedCheckpointNumber: CheckpointNumber(2),
-        proposedCheckpointTipNumber: CheckpointNumber(3),
-        proposedCheckpointData: {
-          checkpointNumber: CheckpointNumber(3),
-          header: CheckpointHeader.empty(),
-          archive: AppendOnlyTreeSnapshot.empty(),
-          checkpointOutHash: Fr.ZERO,
-          startBlock: BlockNumber(3),
-          blockCount: 1,
-          totalManaUsed: 0n,
-          feeAssetPriceModifier: 0n,
-        } satisfies ProposedCheckpointData,
+        proposedCheckpoint: {
+          tip: {
+            block: { number: BlockNumber(3), hash: Fr.random().toString() },
+            checkpoint: { number: CheckpointNumber(3), hash: Fr.random().toString() },
+          },
+          data: {
+            checkpointNumber: CheckpointNumber(3),
+            header: CheckpointHeader.empty(),
+            archive: AppendOnlyTreeSnapshot.empty(),
+            checkpointOutHash: Fr.ZERO,
+            startBlock: BlockNumber(3),
+            blockCount: 1,
+            totalManaUsed: 0n,
+            feeAssetPriceModifier: 0n,
+          },
+        },
       });
 
       const result = await sequencer.checkSyncForTest({ ts: 1000n, slot: SlotNumber(2) });

@@ -247,6 +247,15 @@ export interface L2BlockSource {
    */
   getProposedCheckpointData(query?: ProposedCheckpointQuery): Promise<ProposedCheckpointData | undefined>;
 
+  /**
+   * Returns the latest proposed (not-yet-L1-confirmed) checkpoint that leads the checkpointed
+   * frontier, together with its derived chain tip, in a single atomic store read. The tip is
+   * derived entirely from the payload — checkpoint number, header hash, and last block
+   * (`startBlock + blockCount - 1`) — so callers never need a second read to reconcile tip and
+   * payload. Returns `undefined` when no proposed checkpoint exists beyond the checkpointed tip.
+   */
+  getProposedCheckpoint(): Promise<ProposedCheckpoint | undefined>;
+
   /** Force a sync. */
   syncImmediate(): Promise<void>;
 
@@ -327,36 +336,29 @@ export interface L2BlockSourceEventEmitter extends L2BlockSource {
 }
 
 /**
- * Identifier for L2 block tags. Internal counterpart to {@link BlockTag} that exposes
- * the additional `proposedCheckpoint` value (used for the optimistic chain tip on the
- * archiver side) and omits `latest` (which is an alias for `proposed` accepted only at
- * the public RPC surface).
+ * Identifier for L2 block tags. Internal counterpart to {@link BlockTag} that omits `latest`
+ * (which is an alias for `proposed` accepted only at the public RPC surface).
  *
  * - proposed: Latest block proposed on L2.
- * - proposedCheckpoint: Latest block in the most recent proposed checkpoint (archiver-internal).
  * - checkpointed: Latest block whose enclosing checkpoint has been published on L1.
  * - proven: Latest block whose enclosing checkpoint has been proven on L1.
  * - finalized: Latest block whose proving L1 transaction has reached L1 finality.
- *
- * TODO(palla): Remove `proposedCheckpoint` and unify with `proposed`.
  */
-export type L2BlockTag = 'proposed' | 'proposedCheckpoint' | 'checkpointed' | 'proven' | 'finalized';
+export type L2BlockTag = 'proposed' | 'checkpointed' | 'proven' | 'finalized';
 
 /** Tips of the L2 chain. */
 export type L2Tips = {
   proposed: L2BlockId;
   checkpointed: L2TipId;
-  proposedCheckpoint: L2TipId;
   proven: L2TipId;
   finalized: L2TipId;
 };
 
 /**
- * Tips of the L2 chain as tracked by a local provider (world-state, l2-tips-store). Omits
- * `proposedCheckpoint`, which is degenerate in local stores (always equal to `checkpointed`) and
- * is only meaningful on the archiver side via {@link L2BlockSource}.
+ * Tips of the L2 chain as tracked by a local provider (world-state, l2-tips-store). Identical to
+ * {@link L2Tips}; the alias is retained for call sites that document a local-only provenance.
  */
-export type LocalL2Tips = Omit<L2Tips, 'proposedCheckpoint'>;
+export type LocalL2Tips = L2Tips;
 
 export const GENESIS_CHECKPOINT_HEADER_HASH = CheckpointHeader.empty().hash();
 
@@ -366,6 +368,13 @@ export type L2BlockId = { number: BlockNumber; hash: string };
 export type CheckpointId = { number: CheckpointNumber; hash: string };
 
 export type L2TipId = { block: L2BlockId; checkpoint: CheckpointId };
+
+/**
+ * A proposed (not-yet-L1-confirmed) checkpoint paired with its derived chain tip. Returned by
+ * {@link L2BlockSource.getProposedCheckpoint} as a single atomic read so the `tip` and `data`
+ * are always a coherent snapshot of the same proposed checkpoint.
+ */
+export type ProposedCheckpoint = { tip: L2TipId; data: ProposedCheckpointData };
 
 /** Creates an L2 block id */
 export function makeL2BlockId(number: BlockNumber, hash?: string): L2BlockId {
@@ -390,7 +399,7 @@ const L2CheckpointIdSchema = z.object({
   hash: z.string(),
 });
 
-const L2TipIdSchema = z.object({
+export const L2TipIdSchema = z.object({
   block: L2BlockIdSchema,
   checkpoint: L2CheckpointIdSchema,
 });
@@ -398,7 +407,6 @@ const L2TipIdSchema = z.object({
 export const L2TipsSchema = z.object({
   proposed: L2BlockIdSchema,
   checkpointed: L2TipIdSchema,
-  proposedCheckpoint: L2TipIdSchema,
   proven: L2TipIdSchema,
   finalized: L2TipIdSchema,
 });

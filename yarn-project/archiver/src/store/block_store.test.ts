@@ -13,7 +13,6 @@ import {
   BlockHash,
   CommitteeAttestation,
   EthAddress,
-  GENESIS_BLOCK_HEADER_HASH,
   L2Block,
   type ValidateCheckpointResult,
 } from '@aztec/stdlib/block';
@@ -40,7 +39,6 @@ import {
   makeStateForBlock,
 } from '../test/mock_structs.js';
 import { BlockStore } from './block_store.js';
-import { L2TipsCache } from './l2_tips_cache.js';
 
 async function addProposedBlocks(
   blockStore: BlockStore,
@@ -2627,8 +2625,8 @@ describe('BlockStore', () => {
     });
   });
 
-  describe('L2TipsCache proposedCheckpoint', () => {
-    it('returns proposedCheckpoint equal to checkpointed when no pending exists', async () => {
+  describe('getProposedCheckpoint', () => {
+    it('returns undefined when no pending checkpoint leads the checkpointed frontier', async () => {
       // Add checkpoint 1 with blocks 1-3
       const checkpoint1 = makePublishedCheckpoint(
         await Checkpoint.random(CheckpointNumber(1), { numBlocks: 3, startBlockNumber: 1 }),
@@ -2636,17 +2634,10 @@ describe('BlockStore', () => {
       );
       await blockStore.addCheckpoints([checkpoint1]);
 
-      const l2TipsCache = new L2TipsCache(blockStore, GENESIS_BLOCK_HEADER_HASH);
-      const tips = await l2TipsCache.getL2Tips();
-
-      // proposedCheckpoint should always be defined
-      expect(tips.proposedCheckpoint).toBeDefined();
-      // With no proposed checkpoint, it should equal the checkpointed tip
-      expect(tips.proposedCheckpoint!.block.number).toBe(tips.checkpointed.block.number);
-      expect(tips.proposedCheckpoint!.checkpoint.number).toBe(tips.checkpointed.checkpoint.number);
+      expect(await blockStore.getProposedCheckpoint()).toBeUndefined();
     });
 
-    it('returns proposedCheckpoint ahead of checkpointed when pending is set', async () => {
+    it('returns the leading proposed checkpoint with a tip derived from its payload', async () => {
       // Add checkpoint 1
       const checkpoint1 = makePublishedCheckpoint(
         await Checkpoint.random(CheckpointNumber(1), { numBlocks: 1, startBlockNumber: 1 }),
@@ -2663,21 +2654,26 @@ describe('BlockStore', () => {
       await blockStore.addProposedBlock(block2, { force: true });
 
       // Set proposed checkpoint
+      const header = CheckpointHeader.empty();
       await blockStore.addProposedCheckpoint({
         checkpointNumber: CheckpointNumber(2),
-        header: CheckpointHeader.empty(),
+        header,
         startBlock: BlockNumber(2),
         blockCount: 1,
         totalManaUsed: 100n,
         feeAssetPriceModifier: 50n,
       });
 
-      const l2TipsCache = new L2TipsCache(blockStore, GENESIS_BLOCK_HEADER_HASH);
-      const tips = await l2TipsCache.getL2Tips();
-
-      expect(tips.proposedCheckpoint).toBeDefined();
-      expect(tips.proposedCheckpoint!.block.number).toBeGreaterThan(tips.checkpointed.block.number);
-      expect(tips.proposedCheckpoint!.checkpoint.number).toBeGreaterThan(tips.checkpointed.checkpoint.number);
+      const proposedCheckpoint = await blockStore.getProposedCheckpoint();
+      expect(proposedCheckpoint).toBeDefined();
+      // Tip is derived from the payload: last block = startBlock + blockCount - 1, checkpoint number
+      // and header hash from the stored proposed checkpoint.
+      expect(proposedCheckpoint!.tip.block.number).toBe(BlockNumber(2));
+      expect(proposedCheckpoint!.tip.block.hash).toBe((await block2.hash()).toString());
+      expect(proposedCheckpoint!.tip.checkpoint.number).toBe(CheckpointNumber(2));
+      expect(proposedCheckpoint!.tip.checkpoint.hash).toBe(header.hash().toString());
+      expect(proposedCheckpoint!.data.checkpointNumber).toBe(CheckpointNumber(2));
+      expect(proposedCheckpoint!.data.totalManaUsed).toBe(100n);
     });
   });
 
