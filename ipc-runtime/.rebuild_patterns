@@ -1,0 +1,10 @@
+^ipc-runtime/cpp/ipc_runtime/.*\.(cpp|hpp)$
+^ipc-runtime/cpp/napi/.*\.(cpp|hpp)$
+^ipc-runtime/cpp/CMakeLists\.txt$
+^ipc-runtime/cpp/CMakePresets\.json$
+^ipc-runtime/cpp/scripts/.*$
+^ipc-runtime/bootstrap\.sh$
+^ipc-runtime/ts/src/.*$
+^ipc-runtime/ts/package\.json$
+^ipc-runtime/ts/tsconfig\.json$
+^ipc-runtime/ts/scripts/.*$
