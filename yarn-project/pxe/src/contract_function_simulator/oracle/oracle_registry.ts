@@ -18,6 +18,7 @@ import {
   CONTRACT_CLASS_LOG_INPUT,
   CONTRACT_INSTANCE,
   DELIVERY_MODE,
+  DELIVERY_PRIVACY_PREFERENCE,
   EPHEMERAL_ARRAY,
   EVENT_VALIDATION_REQUEST,
   FIELD,
@@ -60,6 +61,7 @@ export {
   BUFFER,
   BYTE,
   DELIVERY_MODE,
+  DELIVERY_PRIVACY_PREFERENCE,
   EPHEMERAL_ARRAY,
   EVENT_VALIDATION_REQUEST,
   FIELD,
@@ -502,6 +504,15 @@ export const ORACLE_REGISTRY = {
   }),
 
   aztec_prv_getSenderForTags: makeEntry({ returnType: OPTION(AZTEC_ADDRESS) }),
+
+  aztec_prv_getDeliveryPrivacyPreference: makeEntry({
+    params: [
+      { name: 'sender', type: AZTEC_ADDRESS },
+      { name: 'recipient', type: AZTEC_ADDRESS },
+      { name: 'deliveryMode', type: DELIVERY_MODE },
+    ],
+    returnType: DELIVERY_PRIVACY_PREFERENCE,
+  }),
 } satisfies Record<string, OracleRegistryEntry>;
 
 // ─── Registry Infrastructure ─────────────────────────────────────────────────

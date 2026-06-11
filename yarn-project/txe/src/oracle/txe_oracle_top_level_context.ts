@@ -14,6 +14,7 @@ import {
   CapsuleService,
   CapsuleStore,
   type ContractStore,
+  type DeliveryPrivacyPreference,
   type ExecutionHooks,
   NoteStore,
   ORACLE_VERSION_MAJOR,
@@ -113,6 +114,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     private version: Fr,
     private chainId: Fr,
     private authwits: Map<string, AuthWitness>,
+    private deliveryPrivacyPreference: DeliveryPrivacyPreference,
     private readonly artifactResolver: TXEArtifactResolver,
     private readonly rootPath: string,
     private readonly packageName: string,
@@ -352,6 +354,10 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     this.authwits.set(authWitness.requestHash.toString(), authWitness);
   }
 
+  setDeliveryPrivacyPreference(preference: DeliveryPrivacyPreference): void {
+    this.deliveryPrivacyPreference = preference;
+  }
+
   async mineBlock(options: { nullifiers?: Fr[] } = {}) {
     const blockNumber = await this.getNextBlockNumber();
 
@@ -474,6 +480,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
           isStaticCall ? 'private view' : 'private',
           authorizedUtilityCallTargets,
         ),
+        getDeliveryPrivacyPreference: () => Promise.resolve(this.deliveryPrivacyPreference),
       }),
       transientArrayService,
     });
@@ -878,9 +885,9 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     }
   }
 
-  close(): [bigint, Map<string, AuthWitness>] {
+  close(): [bigint, Map<string, AuthWitness>, DeliveryPrivacyPreference] {
     this.logger.debug('Exiting Top Level Context');
-    return [this.nextBlockTimestamp, this.authwits];
+    return [this.nextBlockTimestamp, this.authwits, this.deliveryPrivacyPreference];
   }
 
   private async getLastBlockNumber(): Promise<BlockNumber> {

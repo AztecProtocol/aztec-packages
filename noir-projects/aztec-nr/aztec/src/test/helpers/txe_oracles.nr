@@ -1,5 +1,7 @@
 use crate::{
-    context::inputs::PrivateContextInputs, event::EventSelector, messages::encoding::MESSAGE_CIPHERTEXT_LEN,
+    context::inputs::PrivateContextInputs,
+    event::EventSelector,
+    messages::{delivery::DeliveryPrivacyPreference, encoding::MESSAGE_CIPHERTEXT_LEN},
     test::helpers::utils::TestAccount,
 };
 
@@ -20,7 +22,7 @@ use crate::protocol::{
 ///
 /// The TypeScript counterparts are in `yarn-project/txe/src/txe_oracle_version.ts`.
 pub global TXE_ORACLE_VERSION_MAJOR: Field = 1;
-pub global TXE_ORACLE_VERSION_MINOR: Field = 0;
+pub global TXE_ORACLE_VERSION_MINOR: Field = 3;
 
 /// Asserts that the TXE oracle interface version is compatible.
 pub unconstrained fn assert_compatible_txe_oracle_version() {
@@ -252,6 +254,9 @@ pub unconstrained fn add_account(secret: Field) -> TestAccount {}
 
 #[oracle(aztec_txe_addAuthWitness)]
 pub unconstrained fn add_authwit(address: AztecAddress, message_hash: Field) {}
+
+#[oracle(aztec_txe_setDeliveryPrivacyPreference)]
+pub unconstrained fn set_delivery_privacy_preference(preference: DeliveryPrivacyPreference) {}
 
 #[oracle(aztec_txe_privateCallNewFlow)]
 unconstrained fn private_call_new_flow_oracle<let M: u32, let N: u32, let S: u32, let T: u32>(

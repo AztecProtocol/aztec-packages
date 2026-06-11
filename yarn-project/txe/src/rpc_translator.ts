@@ -210,6 +210,15 @@ export class RPCTranslator {
     });
   }
 
+  // eslint-disable-next-line camelcase
+  aztec_txe_setDeliveryPrivacyPreference(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_txe_setDeliveryPrivacyPreference',
+      inputs,
+      handler: ([preference]) => this.handlerAsTxe().setDeliveryPrivacyPreference(preference),
+    });
+  }
+
   // PXE oracles
 
   // eslint-disable-next-line camelcase
@@ -1070,6 +1079,16 @@ export class RPCTranslator {
       oracle: 'aztec_prv_getSenderForTags',
       inputs: [],
       handler: () => this.handlerAsPrivate().getSenderForTags(),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_prv_getDeliveryPrivacyPreference(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_prv_getDeliveryPrivacyPreference',
+      inputs,
+      handler: ([sender, recipient, deliveryMode]) =>
+        this.handlerAsPrivate().getDeliveryPrivacyPreference(sender, recipient, deliveryMode),
     });
   }
 

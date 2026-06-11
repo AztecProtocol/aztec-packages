@@ -10,6 +10,7 @@ import {
   CapsuleService,
   CapsuleStore,
   ContractStore,
+  DeliveryPrivacyPreference,
   JobCoordinator,
   NoteService,
   NoteStore,
@@ -17,6 +18,7 @@ import {
   RecipientTaggingStore,
   SenderAddressBookStore,
   SenderTaggingStore,
+  composeHooks,
 } from '@aztec/pxe/server';
 import {
   ExecutionNoteCache,
@@ -229,6 +231,7 @@ function emptyLastCallState(): LastCallState {
 export class TXESession implements TXESessionStateHandler {
   private state: SessionState = { name: 'TOP_LEVEL' };
   private authwits: Map<string, AuthWitness> = new Map();
+  private deliveryPrivacyPreference: DeliveryPrivacyPreference = DeliveryPrivacyPreference.MAX_PRIVACY;
   private lastCallInfo: LastCallState = emptyLastCallState();
   private txeOracleVersion: { major: number; minor: number } | undefined;
 
@@ -344,6 +347,7 @@ export class TXESession implements TXESessionStateHandler {
       version,
       chainId,
       new Map(),
+      DeliveryPrivacyPreference.MAX_PRIVACY,
       artifactResolver,
       rootPath,
       packageName,
@@ -657,6 +661,7 @@ export class TXESession implements TXESessionStateHandler {
       this.version,
       this.chainId,
       this.authwits,
+      this.deliveryPrivacyPreference,
       this.artifactResolver,
       this.rootPath,
       this.packageName,
@@ -728,6 +733,9 @@ export class TXESession implements TXESessionStateHandler {
       scopes: await this.keyStore.getAccounts(),
       messageContextService: this.stateMachine.messageContextService,
       simulator: new WASMSimulator(),
+      hooks: composeHooks({
+        getDeliveryPrivacyPreference: () => Promise.resolve(this.deliveryPrivacyPreference),
+      }),
       transientArrayService,
     });
 
@@ -841,7 +849,13 @@ export class TXESession implements TXESessionStateHandler {
     // level context is re-created. This is because authwits create a temporary utility context that'd otherwise reset
     // the authwits if not persisted, so we'd not be able to pass more than one per execution.
     // Ideally authwits would be passed alongside a contract call instead of pre-seeded.
-    [this.nextBlockTimestamp, this.authwits] = (this.oracleHandler as TXEOracleTopLevelContext).close();
+    //
+    // The oracle handler is discarded on every state transition, so `close` hands back the session-scoped values that
+    // top-level cheatcodes may have mutated (next block timestamp, authwits, delivery privacy preference) for the
+    // session to seed into the contexts it creates later.
+    [this.nextBlockTimestamp, this.authwits, this.deliveryPrivacyPreference] = (
+      this.oracleHandler as TXEOracleTopLevelContext
+    ).close();
   }
 
   private async exitPrivateState() {

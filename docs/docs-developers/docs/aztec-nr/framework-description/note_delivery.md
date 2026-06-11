@@ -161,6 +161,36 @@ Ask yourself: **"Is the sender incentivized to deliver this note correctly?"**
 - **Yes, but they cannot or prefer not to contact them offchain or you don't want to implement offchain delivery** Use `ONCHAIN_UNCONSTRAINED`
 - **No, the sender might not deliver correctly** Use `ONCHAIN_CONSTRAINED`
 
+## Delivery privacy preference
+
+Onchain delivery tags every message so the recipient can find it efficiently (see [note discovery](#note-discovery-and-the-sender) below). Computing a tag requires a secret shared between sender and recipient. That secret can be derived in several ways, and the choice involves a privacy trade-off. Each party involved in message delivery owns a different part of the decision:
+
+- **Contracts** choose a delivery mode, and can optionally pin a tag-secret derivation via the `MessageDelivery` builders. By default they pin nothing and delegate the decision to the wallet. This is the recommended setting unless the contract requires a specific mechanism to work.
+- **Wallets** answer that delegation with the **delivery privacy preference**: a wallet-level setting with two values, **max privacy** and **best effort**. It decides how much privacy the user is willing to trade so that delivery works with less sender-recipient coordination.
+
+The preference is consulted whenever a message needs a tagging secret and the contract has not pinned a derivation.
+
+### Max privacy vs best effort
+
+- **Max privacy** (the PXE default): nothing that could link sender and recipient is ever published, and delivery relies on sender-recipient coordination. Unconstrained delivery uses a secret derived from the sender and recipient addresses, which leaves no onchain trace, but the recipient only finds the message if they registered the sender in their PXE. Constrained delivery requires an interactive handshake with the recipient, and fails when none exists, because there is no privacy-preserving way to establish a secret on the fly.
+- **Best effort**: tags are derived from a non-interactive handshake, reusing an existing one or establishing it onchain as part of the send. The recipient discovers the message without knowing the sender in advance or coordinating with them in any other way, at the cost of publishing a handshake that reveals information about the recipient.
+
+| | Max privacy | Best effort |
+|---|---|---|
+| Onchain footprint when establishing a secret | None | A handshake revealing information about the recipient |
+| Unconstrained delivery to an unknown recipient | Found only if the recipient registered the sender | Found without sender-recipient coordination |
+| Constrained delivery | Requires an interactive handshake signed by the recipient | Works without recipient involvement |
+
+### Configuring the preference
+
+Wallets configure the preference through the `getDeliveryPrivacyPreference` [execution hook](../../foundational-topics/pxe/execution_hooks.md) when creating their PXE. The hook receives the message context (executing contract, sender, recipient and delivery mode), so a wallet can answer per message instead of with a fixed value.
+
+The defaults differ by environment:
+
+- **PXE**: max privacy. A bare PXE makes the conservative choice and never leaks without opt-in.
+- **Embedded wallet** (`@aztec/wallets/embedded`): best effort. It targets development scenarios where delivery working out of the box matters more than handshake privacy. Override it by passing your own `hooks.getDeliveryPrivacyPreference` in its `pxe` options.
+- **TXE tests**: max privacy, matching the bare PXE. Tests opt into best effort via `env.set_delivery_privacy_preference(DeliveryPrivacyPreference::best_effort())`.
+
 ## Note Discovery and the Sender
 
 When a note is delivered, recipients need to discover it among all the encrypted logs on the network. Aztec.nr uses a **tagging system** that requires computing a shared secret between the sender and recipient.

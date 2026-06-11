@@ -14,6 +14,7 @@ import {
   BIGINT,
   BLOCK_NUMBER,
   BOOL,
+  DELIVERY_PRIVACY_PREFERENCE,
   FIELD,
   FUNCTION_SELECTOR,
   type InputSlot,
@@ -217,6 +218,10 @@ export const TXE_ORACLE_REGISTRY = {
       { name: 'address', type: AZTEC_ADDRESS },
       { name: 'messageHash', type: FIELD },
     ],
+  }),
+
+  aztec_txe_setDeliveryPrivacyPreference: makeEntry({
+    params: [{ name: 'preference', type: DELIVERY_PRIVACY_PREFERENCE }],
   }),
 
   aztec_txe_getLastBlockTimestamp: makeEntry({

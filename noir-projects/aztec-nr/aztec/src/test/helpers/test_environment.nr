@@ -13,6 +13,7 @@ use crate::{
     event::{event_interface::EventInterface, EventMessage},
     hash::hash_args,
     messages::{
+        delivery::DeliveryPrivacyPreference,
         discovery::{
             ComputeNoteHash, ComputeNoteNullifier, CustomMessageHandler, process_message::process_message_plaintext,
         },
@@ -808,6 +809,13 @@ impl TestEnvironment {
     /// Sets the timestamp of the next block to be mined to be ahead of the last one by `duration`.
     pub unconstrained fn advance_next_block_timestamp_by(_self: Self, duration: u64) {
         txe_oracles::advance_timestamp_by(duration);
+    }
+
+    /// Sets the [`DeliveryPrivacyPreference`](crate::messages::delivery::DeliveryPrivacyPreference) that the wallet
+    /// reports through the oracle in [`delivery_privacy_preference`](crate::oracle::delivery_privacy_preference),
+    /// affecting message delivery in subsequent private executions.
+    pub unconstrained fn set_delivery_privacy_preference(_self: Self, preference: DeliveryPrivacyPreference) {
+        txe_oracles::set_delivery_privacy_preference(preference);
     }
 
     /// Creates a new account that can be used as the `from` parameter in contract calls, e.g. in `private_call` or

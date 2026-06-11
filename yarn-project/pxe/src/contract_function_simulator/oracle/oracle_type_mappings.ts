@@ -37,6 +37,10 @@ import {
 import { NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import { BlockHeader, TxEffect, TxHash } from '@aztec/stdlib/tx';
 
+import {
+  type DeliveryPrivacyPreference,
+  deliveryPrivacyPreferenceFromNumber,
+} from '../../hooks/get_delivery_privacy_preference.js';
 import { BoundedVec } from '../noir-structs/bounded_vec.js';
 import { EphemeralArray } from '../noir-structs/ephemeral_array.js';
 import { EventValidationRequest } from '../noir-structs/event_validation_request.js';
@@ -147,6 +151,14 @@ export const BYTE: TypeMapping<number> = {
 export const DELIVERY_MODE: TypeMapping<AppTaggingSecretKind> = {
   deserialization: {
     fn: readers => appTaggingSecretKindFromDeliveryMode(BYTE.deserialization!.fn(readers)),
+    slots: BYTE.deserialization!.slots,
+  },
+};
+
+export const DELIVERY_PRIVACY_PREFERENCE: TypeMapping<DeliveryPrivacyPreference> = {
+  serialization: { fn: preference => [new Fr(preference)] },
+  deserialization: {
+    fn: readers => deliveryPrivacyPreferenceFromNumber(BYTE.deserialization!.fn(readers)),
     slots: BYTE.deserialization!.slots,
   },
 };

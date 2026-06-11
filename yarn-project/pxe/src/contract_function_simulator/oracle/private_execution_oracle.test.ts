@@ -7,11 +7,16 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2TipsProvider } from '@aztec/stdlib/block';
 import { GasFees, GasSettings } from '@aztec/stdlib/gas';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
+import { AppTaggingSecretKind } from '@aztec/stdlib/logs';
 import { type BlockHeader, CallContext, type Capsule, TxContext } from '@aztec/stdlib/tx';
 
 import { mock } from 'jest-mock-extended';
 
 import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
+import {
+  DeliveryPrivacyPreference,
+  type DeliveryPrivacyPreferenceRequest,
+} from '../../hooks/get_delivery_privacy_preference.js';
 import type { MessageContextService } from '../../messages/message_context_service.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import { CapsuleService } from '../../storage/capsule_store/capsule_service.js';
@@ -62,6 +67,43 @@ describe('PrivateExecutionOracle', () => {
 
       const result = await oracle.getSenderForTags();
       expect(result.isNone()).toBe(true);
+    });
+  });
+
+  describe('deliveryPrivacyPreference', () => {
+    let sender: AztecAddress;
+    let recipient: AztecAddress;
+
+    beforeAll(async () => {
+      sender = await AztecAddress.random();
+      recipient = await AztecAddress.random();
+    });
+
+    it('defaults to max privacy when no hooks are configured', async () => {
+      const oracle = makeOracle();
+
+      await expect(
+        oracle.getDeliveryPrivacyPreference(sender, recipient, AppTaggingSecretKind.CONSTRAINED),
+      ).resolves.toEqual(DeliveryPrivacyPreference.MAX_PRIVACY);
+    });
+
+    it('returns the preference reported by the wallet hook', async () => {
+      const requests: DeliveryPrivacyPreferenceRequest[] = [];
+      const oracle = makeOracle({
+        hooks: {
+          getDeliveryPrivacyPreference: request => {
+            requests.push(request);
+            return Promise.resolve(DeliveryPrivacyPreference.BEST_EFFORT);
+          },
+        },
+      });
+
+      await expect(
+        oracle.getDeliveryPrivacyPreference(sender, recipient, AppTaggingSecretKind.UNCONSTRAINED),
+      ).resolves.toEqual(DeliveryPrivacyPreference.BEST_EFFORT);
+      expect(requests).toEqual([
+        { contractAddress, sender, recipient, deliveryMode: AppTaggingSecretKind.UNCONSTRAINED },
+      ]);
     });
   });
 

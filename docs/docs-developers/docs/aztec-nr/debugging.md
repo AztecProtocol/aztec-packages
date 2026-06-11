@@ -44,57 +44,13 @@ a malicious or compromised contract could leak private information to an untrust
 contract utility calls by default and requires explicit authorization via an execution hook. Calls to standard contracts
 (such as the HandshakeRegistry, which is queried during every contract's sync) are always automatically authorized.
 
-When a contract executes a utility function that calls into a different contract, PXE asks an **execution hook** whether the call should be allowed. If no hook is configured, or the hook denies the request, you will see:
+When a contract executes a utility function that calls into a different contract, PXE asks an [execution hook](../foundational-topics/pxe/execution_hooks.md) whether the call should be allowed. If no hook is configured, or the hook denies the request, you will see:
 
 ```
 Cross-contract utility call denied: <reason>. <caller> attempted to call <target>:<selector> (<name>).
 ```
 
-##### In production
-
-Pass an `authorizeUtilityCall` hook when creating your PXE:
-
-```typescript
-import { PXE } from "@aztec/pxe/server";
-
-const pxe = await PXE.create({
-  // ...other options
-  hooks: {
-    authorizeUtilityCall: async (request) => {
-      // Inspect request.caller, request.target, request.functionSelector, etc.
-      return { authorized: true };
-    },
-  },
-});
-```
-
-The hook receives a `UtilityCallAuthorizationRequest` with the caller and target addresses, their contract class IDs, function selector, function name, arguments, and caller context (`'private'`, `'private view'`, or `'utility'`). Return `{ authorized: true }` to allow or `{ authorized: false, reason: '...' }` to deny with a message.
-
-##### In Noir tests
-
-When testing cross-contract utility calls in the Noir test environment (TXE), use `with_authorized_utility_call_targets` on your call options:
-
-```rust
-// For private calls:
-env.call_private_opts(
-    account,
-    CallPrivateOptions::new().with_authorized_utility_call_targets([target_address]),
-    MyContract::at(caller).some_private_fn(),
-);
-
-// For private view calls:
-env.view_private_opts(
-    account,
-    ViewPrivateOptions::new().with_authorized_utility_call_targets([target_address]),
-    MyContract::at(caller).some_view_fn(),
-);
-
-// For utility calls:
-env.execute_utility_opts(
-    ExecuteUtilityOptions::new().with_authorized_utility_call_targets([target_address]),
-    MyContract::at(caller).some_utility_fn(),
-);
-```
+See [execution hooks](../foundational-topics/pxe/execution_hooks.md#authorizeutilitycall) for how to authorize calls, both in production and in Noir tests.
 
 ### Circuit Errors
 

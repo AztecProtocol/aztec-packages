@@ -867,9 +867,9 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
           callerContext: this.callerContext,
         };
 
-        const response = this.hooks
+        const response = this.hooks?.authorizeUtilityCall
           ? await this.hooks.authorizeUtilityCall(request)
-          : { authorized: false, reason: 'No execution hooks configured' };
+          : { authorized: false, reason: 'No authorizeUtilityCall hook configured' };
 
         if (!response.authorized) {
           const reason = response.reason ? `: ${response.reason}` : '';

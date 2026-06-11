@@ -28,6 +28,7 @@ import {
   type TxContext,
 } from '@aztec/stdlib/tx';
 
+import { DeliveryPrivacyPreference } from '../../hooks/get_delivery_privacy_preference.js';
 import { NoteService } from '../../notes/note_service.js';
 import type { SenderTaggingStore } from '../../storage/tagging_store/sender_tagging_store.js';
 import { syncSenderTaggingIndexes } from '../../tagging/index.js';
@@ -183,6 +184,31 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   public getSenderForTags(): Promise<Option<AztecAddress>> {
     return Promise.resolve(
       this.defaultSenderForTags ? Option.some(this.defaultSenderForTags) : Option.none(AztecAddress.ZERO),
+    );
+  }
+
+  /**
+   * Returns the wallet's delivery privacy preference, which message delivery consults when it must establish a new
+   * tagging secret with a recipient and the executing contract has not pinned a delivery mechanism (see
+   * {@link DeliveryPrivacyPreference} for the trade-offs involved).
+   *
+   * The value is sourced from the wallet's `getDeliveryPrivacyPreference` execution hook, which receives the executing
+   * contract plus the message's sender, recipient and delivery mode so it can answer per message instead of with a
+   * fixed policy. When no hook is configured this defaults to max privacy, so that privacy is never weakened without
+   * the wallet opting in.
+   */
+  public getDeliveryPrivacyPreference(
+    sender: AztecAddress,
+    recipient: AztecAddress,
+    deliveryMode: AppTaggingSecretKind,
+  ): Promise<DeliveryPrivacyPreference> {
+    return (
+      this.hooks?.getDeliveryPrivacyPreference?.({
+        contractAddress: this.contractAddress,
+        sender,
+        recipient,
+        deliveryMode,
+      }) ?? Promise.resolve(DeliveryPrivacyPreference.MAX_PRIVACY)
     );
   }
 
