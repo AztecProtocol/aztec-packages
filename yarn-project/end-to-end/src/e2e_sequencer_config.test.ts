@@ -1,5 +1,4 @@
 import { getInitialTestAccountsData } from '@aztec/accounts/testing';
-import { NO_FROM } from '@aztec/aztec.js/account';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { TxReceipt } from '@aztec/aztec.js/tx';
 import { Bot, type BotConfig, BotStore, getBotDefaultConfig } from '@aztec/bot';
@@ -39,7 +38,7 @@ describe('e2e_sequencer_config', () => {
         ...PIPELINING_SETUP_OPTS,
         maxL2BlockGas: manaTarget * 2,
         manaTarget: BigInt(manaTarget),
-        initialFundedAccounts: [botAccount],
+        additionallyFundedAccounts: [botAccount],
       }));
       config = {
         ...getBotDefaultConfig(),
@@ -51,13 +50,7 @@ describe('e2e_sequencer_config', () => {
         minFeePadding: PIPELINED_FEE_PADDING,
       };
       wallet = await EmbeddedWallet.create(aztecNode, { ephemeral: true });
-      const accountManager = await wallet.createSchnorrAccount(
-        botAccount.secret,
-        botAccount.salt,
-        botAccount.signingKey,
-      );
-      const deployMethod = await accountManager.getDeployMethod();
-      await deployMethod.send({ from: NO_FROM });
+      await wallet.createSchnorrInitializerlessAccount(botAccount.secret, botAccount.salt, botAccount.signingKey);
       bot = await Bot.create(config, wallet, aztecNode, undefined, new BotStore(await openTmpStore('bot')));
     });
 

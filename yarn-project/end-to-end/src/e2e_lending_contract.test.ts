@@ -15,7 +15,7 @@ import { afterAll, jest } from '@jest/globals';
 import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import type { EndToEndContext } from './fixtures/setup.js';
 import { mintTokensToPrivate } from './fixtures/token_utils.js';
-import { ensureAccountContractsPublished, ensureAuthRegistryPublished, setup } from './fixtures/utils.js';
+import { ensureAuthRegistryPublished, setup } from './fixtures/utils.js';
 import { LendingAccount, LendingSimulator, TokenSimulator } from './simulators/index.js';
 import type { TestWallet } from './test-wallet/test_wallet.js';
 
@@ -93,7 +93,6 @@ describe('e2e_lending_contract', () => {
       accounts: [defaultAccountAddress],
     } = ctx);
     ({ lendingContract, priceFeedContract, collateralAsset, stableCoin } = await deployContracts());
-    await ensureAccountContractsPublished(wallet, [defaultAccountAddress]);
     await ensureAuthRegistryPublished(wallet, defaultAccountAddress);
 
     const rollup = new RollupContract(

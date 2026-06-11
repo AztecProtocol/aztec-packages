@@ -34,7 +34,7 @@ const node = createAztecNodeClient(nodeUrl);
 await waitForNode(node);
 const wallet = await EmbeddedWallet.create(node, { ephemeral: true });
 const [accData] = await getInitialTestAccountsData();
-const account = await wallet.createSchnorrAccount(
+const account = await wallet.createSchnorrInitializerlessAccount(
   accData.secret,
   accData.salt,
   accData.signingKey,
@@ -445,7 +445,10 @@ const exitMsgLeaf = computeL2ToL1MessageHash({
 
 // docs:start:consume_l1_messages_witnesses
 // The node picks the smallest partial-proof root that covers each tx's checkpoint.
-const exitWitness = await node.getL2ToL1MembershipWitness(swapReceipt.txHash, exitMsgLeaf);
+const exitWitness = await node.getL2ToL1MembershipWitness(
+  swapReceipt.txHash,
+  exitMsgLeaf,
+);
 const exitSiblingPath = exitWitness!.siblingPath
   .toBufferArray()
   .map((buf: Buffer) => `0x${buf.toString("hex")}` as `0x${string}`);
@@ -495,7 +498,10 @@ const swapMsgLeaf = computeL2ToL1MessageHash({
   chainId: new Fr(foundry.id),
 });
 
-const swapWitness = await node.getL2ToL1MembershipWitness(swapReceipt.txHash, swapMsgLeaf);
+const swapWitness = await node.getL2ToL1MembershipWitness(
+  swapReceipt.txHash,
+  swapMsgLeaf,
+);
 const swapSiblingPath = swapWitness!.siblingPath
   .toBufferArray()
   .map((buf: Buffer) => `0x${buf.toString("hex")}` as `0x${string}`);

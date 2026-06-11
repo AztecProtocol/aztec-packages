@@ -5,7 +5,7 @@
  * and Web3Signer for remote signing. Verifies that blocks are produced,
  * attestations are signed, and no double-signing occurs.
  */
-import type { InitialAccountData } from '@aztec/accounts/testing';
+import { type InitialAccountData, generateSchnorrAccounts } from '@aztec/accounts/testing';
 import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import { NO_FROM } from '@aztec/aztec.js/account';
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
@@ -74,7 +74,7 @@ describe('HA Full Setup', () => {
   let aztecNode: AztecNode;
   let config: AztecNodeConfig;
   let teardown: () => Promise<void>;
-  let initialFundedAccounts: InitialAccountData[];
+  let additionallyFundedAccounts: InitialAccountData[];
   let dateProvider: TestDateProvider;
   let genesis: GenesisData | undefined;
 
@@ -152,12 +152,12 @@ describe('HA Full Setup', () => {
       wallet,
       aztecNode,
       config,
-      initialFundedAccounts,
+      additionallyFundedAccounts,
       dateProvider,
       deployL1ContractsValues,
       genesis,
     } = await setup(
-      1,
+      0,
       {
         ...PIPELINING_SETUP_OPTS,
         initialValidators,
@@ -167,10 +167,14 @@ describe('HA Full Setup', () => {
         sequencerPollingIntervalMS: 200,
         worldStateBlockCheckIntervalMS: 200,
         blockCheckIntervalMS: 200,
+        // We deploy this account ourselves later, so fund it as a regular (deployable) schnorr account.
+        additionallyFundedAccounts: await generateSchnorrAccounts(1, 'schnorr'),
         startProverNode: true,
         // Disable validation on this node
         disableValidator: true,
-        skipAccountDeployment: true,
+        // This node cannot build blocks (validation is disabled and the committee's HA nodes start later),
+        // so setup must not wait for a block past genesis.
+        advancePastGenesis: false,
         // Enable P2P for transaction gossip
         p2pEnabled: true,
         // Enable slashing for testing governance + slashing vote coordination
@@ -291,7 +295,7 @@ describe('HA Full Setup', () => {
 
     // Now deploy the account - blocks can be built by the HA nodes
     logger.info('Deploying test account now that validators are running');
-    const accountData = initialFundedAccounts[0];
+    const accountData = additionallyFundedAccounts[0];
     const accountManager = await wallet.createSchnorrAccount(
       accountData.secret,
       accountData.salt,

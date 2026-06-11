@@ -1,10 +1,15 @@
 import { EcdsaRAccountContract, EcdsaRSSHAccountContract } from '@aztec/accounts/ecdsa';
 import { StubEcdsaAccountContractArtifact, createStubEcdsaAccount } from '@aztec/accounts/ecdsa/stub';
-import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
+import { SchnorrAccountContract, SchnorrInitializerlessAccountContract } from '@aztec/accounts/schnorr';
 import { StubSchnorrAccountContractArtifact, createStubSchnorrAccount } from '@aztec/accounts/schnorr/stub';
 import { getIdentities } from '@aztec/accounts/utils';
 import { type Account, type AccountContract, NO_FROM } from '@aztec/aztec.js/account';
-import { type InteractionFeeOptions, getContractClassFromArtifact, getGasLimits } from '@aztec/aztec.js/contracts';
+import {
+  ContractFunctionInteraction,
+  type InteractionFeeOptions,
+  getContractClassFromArtifact,
+  getGasLimits,
+} from '@aztec/aztec.js/contracts';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { AccountManager, type Aliased, type SimulateOptions } from '@aztec/aztec.js/wallet';
 import { TxSimulationResultWithAppOffset } from '@aztec/aztec.js/wallet';
@@ -77,6 +82,7 @@ export class CLIWallet extends BaseWallet {
     await this.pxe.registerContractClass(StubEcdsaAccountContractArtifact);
 
     this.stubClassIds.set('schnorr', schnorrClassId);
+    this.stubClassIds.set('schnorr_initializerless', schnorrClassId);
     this.stubClassIds.set('ecdsasecp256k1', ecdsaClassId);
     this.stubClassIds.set('ecdsasecp256r1', ecdsaClassId);
     this.stubClassIds.set('ecdsasecp256r1ssh', ecdsaClassId);
@@ -152,6 +158,20 @@ export class CLIWallet extends BaseWallet {
 
     await this.registerContract(instance, artifact, secret);
     this.accountCache.set(accountManager.address.toString(), await accountManager.getAccount());
+
+    // Initializerless accounts have no deployment tx; their address commits to the signing public key
+    // (via the contract's immutablesHash, resolved by AccountManager.create) and the constructor's
+    // storage writes are materialized locally via a simulated "store" call here.
+    if (contract instanceof SchnorrInitializerlessAccountContract) {
+      const constructorAbi = artifact.functions.find(f => f.name === 'constructor');
+      if (!constructorAbi) {
+        throw new Error('Could not create SchnorrInitializerlessAccount: constructor ABI not found');
+      }
+      const { x, y } = await contract.getSigningPublicKey();
+      const storeCall = new ContractFunctionInteraction(this, instance.address, constructorAbi, [x, y]);
+      await storeCall.simulate({ from: instance.address });
+    }
+
     return accountManager;
   }
 
@@ -177,6 +197,14 @@ export class CLIWallet extends BaseWallet {
     switch (type) {
       case 'schnorr': {
         account = await this.createAccount(secretKey, salt, new SchnorrAccountContract(deriveSigningKey(secretKey)));
+        break;
+      }
+      case 'schnorr_initializerless': {
+        account = await this.createAccount(
+          secretKey,
+          salt,
+          new SchnorrInitializerlessAccountContract(deriveSigningKey(secretKey)),
+        );
         break;
       }
       case 'ecdsasecp256r1': {
@@ -229,7 +257,9 @@ export class CLIWallet extends BaseWallet {
     }
     const { type } = await this.db!.retrieveAccount(address);
     const stubAccount =
-      type === 'schnorr' ? createStubSchnorrAccount(originalAddress) : createStubEcdsaAccount(originalAddress);
+      type === 'schnorr' || type === 'schnorr_initializerless'
+        ? createStubSchnorrAccount(originalAddress)
+        : createStubEcdsaAccount(originalAddress);
     const stubClassId = this.stubClassIds.get(type);
     if (!stubClassId) {
       throw new Error(

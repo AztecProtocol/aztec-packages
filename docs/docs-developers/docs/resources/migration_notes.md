@@ -9,6 +9,26 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.js] Prefunded local network test accounts are now initializerless
+
+The genesis-funded test accounts in the local network (sandbox), returned by `getInitialTestAccountsData()`, are now initializerless Schnorr accounts (`schnorr_initializerless`). An initializerless account has no onchain deployment transaction: its address commits to the signing public key (through `immutables_hash`) and its contract state is materialized locally in the PXE, so these accounts are usable right away.
+
+Because their address is derived differently from a regular Schnorr account, register them with `createSchnorrInitializerlessAccount` rather than `createSchnorrAccount`.
+
+**Migration:**
+
+```diff
+const [alice] = await getInitialTestAccountsData();
+- await wallet.createSchnorrAccount(alice.secret, alice.salt);
++ await wallet.createSchnorrInitializerlessAccount(alice.secret, alice.salt);
+```
+
+### [Aztec.js] `AccountContract` interface adds `getImmutablesHash()`
+
+The `AccountContract` interface now declares `getImmutablesHash(): Promise<Fr | undefined>`, which returns the hash of the account's immutable instantiation parameters committed into its address, or `undefined` if the feature is not used. `getAccountContractAddress()` and `AccountManager.create()` call it to derive the address when an `immutablesHash` is not passed explicitly, so the address of an initializerless account is now resolved from the contract itself.
+
+Account contracts that extend `DefaultAccountContract` inherit a default implementation that returns `undefined` and need no changes.
+
 ### [Aztec.nr] `messages::message_delivery` module moved to `messages::delivery`
 
 The `message_delivery` module has been renamed to `delivery`. Update imports accordingly:
@@ -100,7 +120,7 @@ After the `auth_registry`, `public_checks`, and `multi_call_entrypoint` demotion
 
 ### [Aztec.nr] `multi_call_entrypoint` demoted from protocol contract
 
-`multi_call_entrypoint` is no longer a protocol contract; its address is derived from its artifact rather than hardcoded at `6`, and PXE no longer auto-registers it. It is now a standard contract that PXE *preloads*: both `createPXE` and `EmbeddedWallet` preload the standard MultiCallEntrypoint automatically (and `EmbeddedWallet` additionally preloads `AuthRegistry`). **If you use the standard PXE or `EmbeddedWallet`, no changes are needed** — multicall keeps working out of the box.
+`multi_call_entrypoint` is no longer a protocol contract; its address is derived from its artifact rather than hardcoded at `6`, and PXE no longer auto-registers it. It is now a standard contract that PXE _preloads_: both `createPXE` and `EmbeddedWallet` preload the standard MultiCallEntrypoint automatically (and `EmbeddedWallet` additionally preloads `AuthRegistry`). **If you use the standard PXE or `EmbeddedWallet`, no changes are needed** — multicall keeps working out of the box.
 
 To preload a different set of standard contracts (for example to also preload `PublicChecks`, which is not preloaded by default), a wallet or app passes its own `preloadedContractsProvider` through the wallet's PXE options:
 
@@ -121,7 +141,7 @@ const wallet = await EmbeddedWallet.create(node, {
 });
 ```
 
-The provider *replaces* the default list (it is not additive), so include every standard contract you want available.
+The provider _replaces_ the default list (it is not additive), so include every standard contract you want available.
 
 ### [Aztec.nr] `public_checks` demoted from protocol contract
 

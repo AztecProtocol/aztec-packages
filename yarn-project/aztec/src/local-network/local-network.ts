@@ -30,7 +30,7 @@ import {
   initTelemetryClient,
 } from '@aztec/telemetry-client';
 import { EmbeddedWallet } from '@aztec/wallets/embedded';
-import { deployFundedSchnorrAccounts } from '@aztec/wallets/testing';
+import { createFundedInitializerlessAccounts } from '@aztec/wallets/testing';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { type Hex, createPublicClient, fallback, http as httpViemTransport } from 'viem';
@@ -251,7 +251,7 @@ export async function createLocalNetwork(config: Partial<LocalNetworkConfig> = {
     });
 
     userLog('Setting up funded test accounts...');
-    const accountManagers = await deployFundedSchnorrAccounts(wallet, initialAccounts, setupWaitOpts);
+    const accountManagers = await createFundedInitializerlessAccounts(wallet, initialAccounts);
     const accLogs = await createAccountLogs(accountManagers, wallet);
     userLog(accLogs.join(''));
 
