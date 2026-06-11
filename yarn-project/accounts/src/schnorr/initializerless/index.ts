@@ -7,6 +7,7 @@
 import { getAccountContractAddress } from '@aztec/aztec.js/account';
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
+import { Schnorr } from '@aztec/foundation/crypto/schnorr';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
 import type { ContractArtifact } from '@aztec/stdlib/abi';
@@ -53,8 +54,7 @@ export async function getSchnorrInitializerlessAccountContractAddress(
 ): Promise<AztecAddress> {
   const signingKey = signingPrivateKey ?? deriveSigningKey(secret);
   const accountContract = new SchnorrInitializerlessAccountContract(signingKey);
-  // The initializerless address commits to the public keys via the immutables hash, threaded like salt.
-  const { constructorArgs } = (await accountContract.getInitializationFunctionAndArgs())!;
-  const immutablesHash = await poseidon2Hash(constructorArgs);
+  const signingPublicKey = await new Schnorr().computePublicKey(signingKey);
+  const immutablesHash = await poseidon2Hash([signingPublicKey.x, signingPublicKey.y]);
   return await getAccountContractAddress(accountContract, secret, salt, immutablesHash);
 }

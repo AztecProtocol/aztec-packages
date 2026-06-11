@@ -26,7 +26,6 @@ export class NestedContractTest {
 
   async setup(opts: Partial<SetupOptions> = {}) {
     this.logger.info('Setting up fresh subsystems');
-    // setup creates `numberOfAccounts` initializerless accounts, available on the context.
     this.context = await setup(this.numberOfAccounts, {
       ...opts,
       fundSponsoredFPC: true,

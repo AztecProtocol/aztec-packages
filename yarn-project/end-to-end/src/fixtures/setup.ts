@@ -158,7 +158,6 @@ export type SetupOptions = {
   /**
    * Extra accounts to fund at genesis beyond the `numberOfAccounts` initializerless accounts that setup
    * creates. Setup funds these but does NOT create or deploy them — the test creates/deploys them itself
-   * (e.g. as a regular deployable account, or registered in a second PXE). Exposed on the context.
    */
   additionallyFundedAccounts?: InitialAccountData[];
   /** An initial set of validators */
@@ -404,7 +403,7 @@ export async function setup(
     }
 
     // The accounts setup creates itself: `numberOfAccounts` initializerless accounts, generated here and
-    // funded at genesis so they are immediately usable (initializerless accounts need no deployment tx).
+    // funded at genesis so they are immediately usable.
     const defaultAccounts = await generateSchnorrAccounts(numberOfAccounts);
     // Extra accounts the test wants funded at genesis but will create/deploy itself.
     const additionallyFundedAccounts = opts.additionallyFundedAccounts ?? [];

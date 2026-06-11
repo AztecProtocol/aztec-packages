@@ -18,8 +18,7 @@ describe('Circuit Recorder', () => {
     process.env.CIRCUIT_RECORD_DIR = RECORD_DIR;
 
     // setup creates an initializerless account, which has no deployment tx. Deploying a contract from
-    // it exercises the account entrypoint (a user circuit) and the private kernels (protocol circuits),
-    // which is what this test inspects below — without a pointless account deployment.
+    // it exercises the account entrypoint (a user circuit) and the private kernels (protocol circuits)
     const {
       teardown,
       wallet,

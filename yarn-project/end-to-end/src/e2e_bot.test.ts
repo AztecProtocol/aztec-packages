@@ -48,8 +48,6 @@ describe('e2e_bot', () => {
       config: { l1RpcUrls },
     } = setupResult);
     wallet = await EmbeddedWallet.create(aztecNode, { ephemeral: true });
-    // Initializerless test accounts need no deployment tx; creating registers it and the genesis funding
-    // at its address makes it immediately usable.
     await wallet.createSchnorrInitializerlessAccount(botAccount.secret, botAccount.salt, botAccount.signingKey);
   });
 

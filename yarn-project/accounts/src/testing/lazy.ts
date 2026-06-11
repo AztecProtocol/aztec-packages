@@ -20,7 +20,7 @@ import {
 
 export { INITIAL_TEST_ACCOUNT_SALTS, INITIAL_TEST_SECRET_KEYS } from './configuration.js';
 
-/** Derives the account contract address for the given type, so it matches the account that gets created. */
+/** Derives the account contract address for the given type */
 function getTestAccountAddress(type: InitialAccountType, secret: Fr, salt: Fr, signingKey?: GrumpkinScalar) {
   return type === 'schnorr'
     ? getSchnorrAccountContractAddress(secret, salt, signingKey)
@@ -47,8 +47,7 @@ export function getInitialTestAccountsData(): Promise<InitialAccountData[]> {
 }
 
 /**
- * Generate a fixed amount of random schnorr account contract instances of the given type (defaults to
- * initializerless). The returned addresses are derived to match the type so they can be prefunded.
+ * Generate a fixed amount of random schnorr account contract instances of the given type
  */
 export async function generateSchnorrAccounts(
   numberOfAccounts: number,

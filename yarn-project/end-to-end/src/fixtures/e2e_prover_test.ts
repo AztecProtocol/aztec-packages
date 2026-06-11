@@ -123,7 +123,6 @@ export class FullProverTest {
       startProverNode: true,
       coinbase: this.coinbase,
       fundSponsoredFPC: true,
-      // Fund 2 accounts that we register (initializerless) in both the main and the proven-PXE wallets below.
       additionallyFundedAccounts: await generateSchnorrAccounts(2),
       l1ContractsArgs: { realVerifier: this.realProofs },
     });
