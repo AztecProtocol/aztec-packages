@@ -6690,6 +6690,100 @@ fn fr_sub_f8(a: array<u32, 8>, b: array<u32, 8>) -> array<u32, 8> {
     return out;
 }
 
+// a - b + 2p with NO conditional, subtract-first: d = a - b wraps mod 2^256
+// when a < b, and the unconditional + 2p cancels the wrap exactly because
+// the true result a - b + 2p lies in (0, 2^256) for b < 2p. Structurally
+// fr_sub_f8 minus the select row and wrap test; result ≡ a - b (mod p),
+// montmul/inverse-input use ONLY — never for loop-carried values (an
+// unreduced accumulator has no fixed point: its bound grows ~2p per
+// iteration). Currently UNCALLED: with any walker sub site on this body,
+// Mali-G715's allocator spills ~+60 B / +11 LS cycles (malioc-measured,
+// both chain orderings, mixed or uniform shapes) for a ~0.4% ALU saving no
+// device registers. Re-measure before wiring it in.
+fn fr_sub_wide_f8(a: array<u32, 8>, b: array<u32, 8>) -> array<u32, 8> {
+    var d: array<u32, 8>;
+    d[0] = a[0] - b[0];
+    var borrow: u32 = u32(a[0] < b[0]);
+    {
+        let t1: u32 = a[1] - b[1];
+        let v: u32 = t1 - borrow;
+        d[1] = v;
+        borrow = u32(a[1] < b[1]) + u32(t1 < borrow);
+    }
+    {
+        let t1: u32 = a[2] - b[2];
+        let v: u32 = t1 - borrow;
+        d[2] = v;
+        borrow = u32(a[2] < b[2]) + u32(t1 < borrow);
+    }
+    {
+        let t1: u32 = a[3] - b[3];
+        let v: u32 = t1 - borrow;
+        d[3] = v;
+        borrow = u32(a[3] < b[3]) + u32(t1 < borrow);
+    }
+    {
+        let t1: u32 = a[4] - b[4];
+        let v: u32 = t1 - borrow;
+        d[4] = v;
+        borrow = u32(a[4] < b[4]) + u32(t1 < borrow);
+    }
+    {
+        let t1: u32 = a[5] - b[5];
+        let v: u32 = t1 - borrow;
+        d[5] = v;
+        borrow = u32(a[5] < b[5]) + u32(t1 < borrow);
+    }
+    {
+        let t1: u32 = a[6] - b[6];
+        let v: u32 = t1 - borrow;
+        d[6] = v;
+        borrow = u32(a[6] < b[6]) + u32(t1 < borrow);
+    }
+    d[7] = a[7] - b[7] - borrow;
+    var out: array<u32, 8>;
+    out[0] = d[0] + TWOP8_0;
+    var carry: u32 = u32(out[0] < TWOP8_0);
+    {
+        let lo: u32 = d[1] + TWOP8_1;
+        let v: u32 = lo + carry;
+        out[1] = v;
+        carry = u32(lo < TWOP8_1) + u32(v < lo);
+    }
+    {
+        let lo: u32 = d[2] + TWOP8_2;
+        let v: u32 = lo + carry;
+        out[2] = v;
+        carry = u32(lo < TWOP8_2) + u32(v < lo);
+    }
+    {
+        let lo: u32 = d[3] + TWOP8_3;
+        let v: u32 = lo + carry;
+        out[3] = v;
+        carry = u32(lo < TWOP8_3) + u32(v < lo);
+    }
+    {
+        let lo: u32 = d[4] + TWOP8_4;
+        let v: u32 = lo + carry;
+        out[4] = v;
+        carry = u32(lo < TWOP8_4) + u32(v < lo);
+    }
+    {
+        let lo: u32 = d[5] + TWOP8_5;
+        let v: u32 = lo + carry;
+        out[5] = v;
+        carry = u32(lo < TWOP8_5) + u32(v < lo);
+    }
+    {
+        let lo: u32 = d[6] + TWOP8_6;
+        let v: u32 = lo + carry;
+        out[6] = v;
+        carry = u32(lo < TWOP8_6) + u32(v < lo);
+    }
+    out[7] = d[7] + TWOP8_7 + carry;
+    return out;
+}
+
 // -y as 2p - y: a single subtract chain, NO conditional. Requires
 // 0 < y < 2p — true for curve-point y coordinates (y ≢ 0 mod p on BN254,
 // no 2-torsion) loaded from the pool or running sums; the all-zero infinity
