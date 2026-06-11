@@ -59,6 +59,10 @@ impl CheckpointHeader {
         let epoch_out_hash_bytes: [u8; 32] = self.epoch_out_hash.to_be_bytes();
         let slot_number_bytes: [u8; 32] = self.slot_number.to_be_bytes();
         let timestamp_bytes: [u8; 8] = (self.timestamp as Field).to_be_bytes();
+        // `coinbase` originates as an unchecked `EthAddress` field in `GlobalVariables`. Validate that
+        // it fits in 20 bytes before truncating; otherwise the high bits would be silently dropped here
+        // while the L1 contract reconstructs the hash from the full 20-byte coinbase, rejecting the proof.
+        self.coinbase.validate();
         let coinbase_bytes: [u8; 20] = self.coinbase.to_be_bytes();
         let fee_recipient_bytes: [u8; 32] = self.fee_recipient.to_field().to_be_bytes();
         let gas_fees_per_da_gas_bytes: [u8; 16] =
@@ -157,4 +161,24 @@ fn checkpoint_header_hash_large_values_matches_ts() {
         0x00f074f614b5872bfea51e9b457ef2bf61e8c8afa842baaae05f77d885852d3c;
 
     assert_eq(header.hash(), checkpoint_header_hash_large_values_from_ts);
+}
+
+#[test]
+fn checkpoint_header_hash_accepts_max_20_byte_coinbase() {
+    // The largest value that fits in 20 bytes is valid and must hash without panicking.
+    let max_20_bytes = 2.pow_32(160) - 1;
+    let mut header = CheckpointHeader::empty();
+    header.coinbase = EthAddress::from_field(max_20_bytes);
+    let _ = header.hash();
+}
+
+#[test(should_fail)]
+fn checkpoint_header_hash_rejects_oversized_coinbase() {
+    // A coinbase that does not fit in 20 bytes must be rejected by `coinbase.validate()` before the
+    // value is truncated and hashed. `deserialize` bypasses `from_field`'s range check, so we can
+    // construct an out-of-range coinbase (2^160 needs 161 bits).
+    let over_20_bytes = 2.pow_32(160);
+    let mut header = CheckpointHeader::empty();
+    header.coinbase = EthAddress::deserialize([over_20_bytes]);
+    let _ = header.hash();
 }
