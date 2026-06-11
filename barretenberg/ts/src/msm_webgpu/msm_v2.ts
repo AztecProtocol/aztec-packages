@@ -91,9 +91,11 @@ const PTREE_THETA = 65536;
 const PTREE_TPB = 64;
 // Fold workgroup size for deep survivors (24 KB of flat u32 planes).
 const PTREE_FOLD_TPB = 256;
-// Survivor-finalize batch width. MUST match between the scan-args kernel
-// (sizes the survfin dispatch) and the survfin pipeline itself.
-const PTREE_FIN_SN = 2;
+// Survivor-finalize batch width: 1 — the dispatch is a few hundred
+// threads (latency-bound), and batching Z-inversions LENGTHENS each
+// thread's serial chain (prefix + peel on top of the same safegcd) while
+// halving threads. Batch widths only pay in throughput-bound normalizes.
+const PTREE_FIN_SN = 1;
 // Slots per level-kernel thread (A/B'd: 16 flat on M4).
 const PTREE_S = 8;
 
