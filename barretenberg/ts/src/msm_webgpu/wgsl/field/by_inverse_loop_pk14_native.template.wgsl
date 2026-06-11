@@ -484,8 +484,7 @@ fn pk_r_squared() -> array<u32, 10> {
 fn fr_inv_by_loop_pk(a8: array<u32, 8>) -> array<u32, 8> {
     var f: array<u32, 10> = pk_q();
     var g: array<u32, 10> = pk_from_packed(a8);
-    // Lazy-reduction inputs arrive in [0, 4q) (stored values are < 2q; a
-    // wide dx fed straight to the inverse is < 4q). The 735-divstep budget
+    // Lazy-reduction inputs arrive in [0, 2q). The 735-divstep budget
     // assumes g < q, so canonicalize first — pk_reduce_to_canonical handles
     // (-4q, 5q), and a 256-bit value is non-negative in this 266-bit space.
     pk_reduce_to_canonical_inplace(&g);

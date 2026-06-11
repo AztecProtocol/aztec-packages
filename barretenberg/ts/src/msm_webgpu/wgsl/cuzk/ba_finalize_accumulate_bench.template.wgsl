@@ -51,15 +51,13 @@ fn ld8(q0: vec4<u32>, q1: vec4<u32>) -> array<u32, 8> {
 
 // Incomplete affine addition P + Q (Montgomery 8×u32), one inversion.
 fn affine_add(x1: array<u32, 8>, y1: array<u32, 8>, x2: array<u32, 8>, y2: array<u32, 8>) -> array<array<u32, 8>, 2> {
-    // dx / dy / the inner x1 - x3 are wide (< 4p): dx feeds the inverse
-    // (which canonicalizes its input), the others feed montmuls.
-    let dx = fr_sub_wide_f8(x2, x1);
-    let dy = fr_sub_wide_f8(y2, y1);
+    let dx = fr_sub_f8(x2, x1);
+    let dy = fr_sub_f8(y2, y1);
     let dx_inv = {{ inv_fn }}(dx);
     let lambda = montgomery_product_f8(dy, dx_inv);
     let l2 = montgomery_square_f8(lambda);
     let x3 = fr_sub_f8(fr_sub_f8(l2, x1), x2);
-    let y3 = fr_sub_f8(montgomery_product_f8(lambda, fr_sub_wide_f8(x1, x3)), y1);
+    let y3 = fr_sub_f8(montgomery_product_f8(lambda, fr_sub_f8(x1, x3)), y1);
     return array<array<u32, 8>, 2>(x3, y3);
 }
 

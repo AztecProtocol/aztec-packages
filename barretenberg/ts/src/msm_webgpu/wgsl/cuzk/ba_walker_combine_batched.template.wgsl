@@ -178,9 +178,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
                 p_lx = acc_x[k];
                 p_rx = load_partial_x(pl_at(off[k] + pos[k] + 1u));
             }
-            // Wide (< 4p): dx feeds only the prefix montmuls; the inverse
-            // canonicalizes its own input.
-            let dx = fr_sub_wide_f8(p_rx, p_lx);
+            let dx = fr_sub_f8(p_rx, p_lx);
             if (k == 0u) {
                 prefix = dx;
             } else {
@@ -216,8 +214,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             } else {
                 let pp = pref[k - 1u];
                 inv_dx = montgomery_product_f8(inv, pp);
-                // Wide (< 4p): feeds the running-inverse montmul only.
-                let dx_b = fr_sub_wide_f8(p_rx, p_lx);
+                let dx_b = fr_sub_f8(p_rx, p_lx);
                 inv = montgomery_product_f8(inv, dx_b);
             }
 
@@ -229,15 +226,13 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             let p_ly = acc_y[k];
             let p_ry = load_partial_y(next_slot, M_partials);
 
-            // Phase 5: affine add using inv_dx (in register). lambda and the
-            // pre-multiply r_y are wide (< 4p, montmul-input only); r_x and
-            // the final r_y are stored and stay < 2p via the reducing ops.
-            var lambda = fr_sub_wide_f8(p_ry, p_ly);
+            // Phase 5: affine add using inv_dx (in register).
+            var lambda = fr_sub_f8(p_ry, p_ly);
             lambda = montgomery_product_f8(lambda, inv_dx);
             var r_x = montgomery_square_f8(lambda);
             let x_sum = fr_add_f8(p_lx, p_rx);
             r_x = fr_sub_f8(r_x, x_sum);
-            var r_y = fr_sub_wide_f8(p_lx, r_x);
+            var r_y = fr_sub_f8(p_lx, r_x);
             r_y = montgomery_product_f8(lambda, r_y);
             r_y = fr_sub_f8(r_y, p_ly);
 

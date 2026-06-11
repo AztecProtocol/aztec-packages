@@ -14,13 +14,12 @@
 //     result t < p + a*b/R <= p(1 + 28/84.6) < 1.34p. Inputs k1*p x k2*p
 //     give t < p(1 + k1*k2/84.6).
 //   - fr_add_f8 / fr_sub_f8 reduce against 2p: [0,2p) x [0,2p) -> [0,2p).
-//   - fr_add_wide_f8 / fr_sub_wide_f8 / fr_neg_wide_f8 skip the conditional
-//     reduce entirely; every call site carries a bound comment proving the
-//     value stays below 2^256 (= 5.29p) and feeds a width-tolerant consumer
-//     (montgomery_product_f8, or the safegcd inverse which canonicalizes its
-//     input).
-//   - The all-zero bit pattern stays reserved for infinity sentinels: the
-//     wide ops cannot produce it (results are strictly positive), and
+//   - fr_neg_wide_f8 (2p - y, one chain, no conditional) is the only
+//     unreduced op: negated pool y's stay in (0, 2p). Wider transients were
+//     tried and reverted — they save ~0.4% ALU but push Mali's allocator
+//     into extra spilling (malioc: +64 B walker spill, +5-11 LS cycles).
+//   - The all-zero bit pattern stays reserved for infinity sentinels:
+//     fr_neg_wide_f8 cannot produce it (results are strictly positive), and
 //     montgomery_product_f8 maps exact-zero inputs to exact zero.
 
 // p and 2p as eight 32-bit words (p < 2^255, so 2p fits in 256 bits).
@@ -266,140 +265,6 @@ fn fr_sub_f8(a: array<u32, 8>, b: array<u32, 8>) -> array<u32, 8> {
         carry = u32(lo < d[6]) + u32(v < lo);
     }
     out[7] = d[7] + select(0u, TWOP8_7, wrap) + carry;
-    return out;
-}
-
-// a + b with NO reduction — a plain 8-word add. Caller must ensure
-// a + b < 2^256 (= 5.29p) and route the result only into width-tolerant
-// consumers (montgomery_product_f8 / the inverse).
-fn fr_add_wide_f8(a: array<u32, 8>, b: array<u32, 8>) -> array<u32, 8> {
-    var s: array<u32, 8>;
-    s[0] = a[0] + b[0];
-    var carry: u32 = u32(s[0] < a[0]);
-    {
-        let lo: u32 = a[1] + b[1];
-        let v: u32 = lo + carry;
-        s[1] = v;
-        carry = u32(lo < a[1]) + u32(v < lo);
-    }
-    {
-        let lo: u32 = a[2] + b[2];
-        let v: u32 = lo + carry;
-        s[2] = v;
-        carry = u32(lo < a[2]) + u32(v < lo);
-    }
-    {
-        let lo: u32 = a[3] + b[3];
-        let v: u32 = lo + carry;
-        s[3] = v;
-        carry = u32(lo < a[3]) + u32(v < lo);
-    }
-    {
-        let lo: u32 = a[4] + b[4];
-        let v: u32 = lo + carry;
-        s[4] = v;
-        carry = u32(lo < a[4]) + u32(v < lo);
-    }
-    {
-        let lo: u32 = a[5] + b[5];
-        let v: u32 = lo + carry;
-        s[5] = v;
-        carry = u32(lo < a[5]) + u32(v < lo);
-    }
-    {
-        let lo: u32 = a[6] + b[6];
-        let v: u32 = lo + carry;
-        s[6] = v;
-        carry = u32(lo < a[6]) + u32(v < lo);
-    }
-    s[7] = a[7] + b[7] + carry;
-    return s;
-}
-
-// a - b + 2p with NO conditional. Requires b < 2p (result strictly
-// positive) and a < 3.29p (a + 2p must not wrap 2^256). Result ≡ a - b
-// (mod p), bounded by a + 2p — montmul/inverse-input use only.
-fn fr_sub_wide_f8(a: array<u32, 8>, b: array<u32, 8>) -> array<u32, 8> {
-    var t: array<u32, 8>;
-    t[0] = a[0] + TWOP8_0;
-    var carry: u32 = u32(t[0] < TWOP8_0);
-    {
-        let lo: u32 = a[1] + TWOP8_1;
-        let v: u32 = lo + carry;
-        t[1] = v;
-        carry = u32(lo < a[1]) + u32(v < lo);
-    }
-    {
-        let lo: u32 = a[2] + TWOP8_2;
-        let v: u32 = lo + carry;
-        t[2] = v;
-        carry = u32(lo < a[2]) + u32(v < lo);
-    }
-    {
-        let lo: u32 = a[3] + TWOP8_3;
-        let v: u32 = lo + carry;
-        t[3] = v;
-        carry = u32(lo < a[3]) + u32(v < lo);
-    }
-    {
-        let lo: u32 = a[4] + TWOP8_4;
-        let v: u32 = lo + carry;
-        t[4] = v;
-        carry = u32(lo < a[4]) + u32(v < lo);
-    }
-    {
-        let lo: u32 = a[5] + TWOP8_5;
-        let v: u32 = lo + carry;
-        t[5] = v;
-        carry = u32(lo < a[5]) + u32(v < lo);
-    }
-    {
-        let lo: u32 = a[6] + TWOP8_6;
-        let v: u32 = lo + carry;
-        t[6] = v;
-        carry = u32(lo < a[6]) + u32(v < lo);
-    }
-    t[7] = a[7] + TWOP8_7 + carry;
-    var out: array<u32, 8>;
-    out[0] = t[0] - b[0];
-    var borrow: u32 = u32(t[0] < b[0]);
-    {
-        let t1: u32 = t[1] - b[1];
-        let v: u32 = t1 - borrow;
-        out[1] = v;
-        borrow = u32(t[1] < b[1]) + u32(t1 < borrow);
-    }
-    {
-        let t1: u32 = t[2] - b[2];
-        let v: u32 = t1 - borrow;
-        out[2] = v;
-        borrow = u32(t[2] < b[2]) + u32(t1 < borrow);
-    }
-    {
-        let t1: u32 = t[3] - b[3];
-        let v: u32 = t1 - borrow;
-        out[3] = v;
-        borrow = u32(t[3] < b[3]) + u32(t1 < borrow);
-    }
-    {
-        let t1: u32 = t[4] - b[4];
-        let v: u32 = t1 - borrow;
-        out[4] = v;
-        borrow = u32(t[4] < b[4]) + u32(t1 < borrow);
-    }
-    {
-        let t1: u32 = t[5] - b[5];
-        let v: u32 = t1 - borrow;
-        out[5] = v;
-        borrow = u32(t[5] < b[5]) + u32(t1 < borrow);
-    }
-    {
-        let t1: u32 = t[6] - b[6];
-        let v: u32 = t1 - borrow;
-        out[6] = v;
-        borrow = u32(t[6] < b[6]) + u32(t1 < borrow);
-    }
-    out[7] = t[7] - b[7] - borrow;
     return out;
 }
 

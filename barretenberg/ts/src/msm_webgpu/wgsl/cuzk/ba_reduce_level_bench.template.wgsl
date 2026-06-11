@@ -131,9 +131,7 @@ fn main(@builtin(workgroup_id) wgid: vec3<u32>, @builtin(local_invocation_id) li
             let slot = base + (j2 + 1u) * pa;
             present = in_range && (is_present[slot] != 0u);
             let yv = load_y(slot, M);
-            // Wide (< 4p): the denominator feeds only the prefix montmuls;
-            // the inverse canonicalizes its own input.
-            real_denom = fr_add_wide_f8(yv, yv); // 2y
+            real_denom = fr_add_f8(yv, yv); // 2y
         } else {
             var src: u32;
             var dst: u32;
@@ -148,8 +146,7 @@ fn main(@builtin(workgroup_id) wgid: vec3<u32>, @builtin(local_invocation_id) li
             present = in_range && (is_present[src] != 0u) && (is_present[dst] != 0u);
             let x_s = load_x(src, M);
             let x_d = load_x(dst, M);
-            // Wide (< 4p): montmul-input only.
-            real_denom = fr_sub_wide_f8(x_s, x_d); // x_s - x_d (nonzero: no collisions)
+            real_denom = fr_sub_f8(x_s, x_d); // x_s - x_d (nonzero: no collisions)
         }
         let denom: array<u32, 8> = fr_select_f8(R, real_denom, present);
         acc = montgomery_product_f8(acc, denom);
@@ -173,18 +170,15 @@ fn main(@builtin(workgroup_id) wgid: vec3<u32>, @builtin(local_invocation_id) li
             let present = in_range && (is_present[slot] != 0u);
             let xv: array<u32, 8> = load_x(slot, M);
             let yv: array<u32, 8> = load_y(slot, M);
-            // All wide, montmul-input only: 2y < 4p; 3x² < 4.03p (x² is a
-            // montmul output < 1.34p), both under the 2^256 = 5.29p cap.
-            let real_denom: array<u32, 8> = fr_add_wide_f8(yv, yv); // 2y
+            let real_denom: array<u32, 8> = fr_add_f8(yv, yv); // 2y
             let x2: array<u32, 8> = montgomery_square_f8(xv);
-            var num: array<u32, 8> = fr_add_wide_f8(x2, x2);
-            num = fr_add_wide_f8(num, x2); // 3x^2
+            var num: array<u32, 8> = fr_add_f8(x2, x2);
+            num = fr_add_f8(num, x2); // 3x^2
             let lambda: array<u32, 8> = montgomery_product_f8(num, inv_denom);
             let two_x: array<u32, 8> = fr_add_f8(xv, xv);
             var r_x: array<u32, 8> = montgomery_square_f8(lambda);
             r_x = fr_sub_f8(r_x, two_x);
-            // Wide (< 4p, montmul-input only); r_x was just reduced < 2p.
-            var r_y: array<u32, 8> = fr_sub_wide_f8(xv, r_x);
+            var r_y: array<u32, 8> = fr_sub_f8(xv, r_x);
             r_y = montgomery_product_f8(lambda, r_y);
             r_y = fr_sub_f8(r_y, yv);
             let out_x: array<u32, 8> = fr_select_f8(xv, r_x, present);
@@ -213,16 +207,13 @@ fn main(@builtin(workgroup_id) wgid: vec3<u32>, @builtin(local_invocation_id) li
             let x_s: array<u32, 8> = load_x(src, M);
             let y_d: array<u32, 8> = load_y(dst, M);
             let y_s: array<u32, 8> = load_y(src, M);
-            // dx and lambda are wide (< 4p, montmul-input only — dx via the
-            // denom_k select into the running-inverse montmul).
-            let dx: array<u32, 8> = fr_sub_wide_f8(x_s, x_d);
-            var lambda: array<u32, 8> = fr_sub_wide_f8(y_s, y_d);
+            let dx: array<u32, 8> = fr_sub_f8(x_s, x_d);
+            var lambda: array<u32, 8> = fr_sub_f8(y_s, y_d);
             lambda = montgomery_product_f8(lambda, inv_denom);
             var add_rx: array<u32, 8> = montgomery_square_f8(lambda);
             let x_sum: array<u32, 8> = fr_add_f8(x_d, x_s);
             add_rx = fr_sub_f8(add_rx, x_sum);
-            // Wide (< 4p, montmul-input only); add_rx was just reduced < 2p.
-            var add_ry: array<u32, 8> = fr_sub_wide_f8(x_d, add_rx);
+            var add_ry: array<u32, 8> = fr_sub_f8(x_d, add_rx);
             add_ry = montgomery_product_f8(lambda, add_ry);
             add_ry = fr_sub_f8(add_ry, y_d);
             var out_x: array<u32, 8> = fr_select_f8(x_d, x_s, copy);

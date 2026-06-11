@@ -339,10 +339,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             } else {
                 p_lx = acc_x[k];
             }
-            // Wide (< 4p: both coords < 2p): dx feeds only the prefix
-            // montmuls, and pref_scratch's sole consumer is montmul. The
-            // inverse canonicalizes its own input.
-            let dx = fr_sub_wide_f8(p_rx, p_lx);
+            let dx = fr_sub_f8(p_rx, p_lx);
             if (k == 0u) { acc = dx; } else { acc = montgomery_product_f8(acc, dx); }
             // OPTIMIZATION (c): the final prefix (k = S-1) is consumed only
             // by the inverter below, in-register. Skip its store_pref.
@@ -393,8 +390,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             } else {
                 let pp = load_pref(k - 1u, t, pref_off, k_stride);
                 inv_dx = montgomery_product_f8(inv, pp);
-                // Wide (< 4p): feeds the running-inverse montmul only.
-                let dx_b = fr_sub_wide_f8(p_rx, p_lx);
+                let dx_b = fr_sub_f8(p_rx, p_lx);
                 inv = montgomery_product_f8(inv, dx_b);
             }
 
@@ -415,14 +411,11 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             cursor[k] = cursor[k] + 1u + isf_b;
 
             // Affine add using inv_dx (in register). p_rx already consumed.
-            // lambda and the pre-multiply r_y are wide (< 4p, montmul-input
-            // only); r_x and the final r_y are stored coordinates and stay
-            // under the [0, 2p) invariant via the reducing ops.
-            var lambda = fr_sub_wide_f8(p_ry, p_ly);
+            var lambda = fr_sub_f8(p_ry, p_ly);
             lambda = montgomery_product_f8(lambda, inv_dx);
             var r_x = montgomery_square_f8(lambda);
             r_x = fr_sub_f8(r_x, x_sum);
-            var r_y = fr_sub_wide_f8(p_lx, r_x);
+            var r_y = fr_sub_f8(p_lx, r_x);
             // p_lx - r_x + 
             r_y = montgomery_product_f8(lambda, r_y);
             r_y = fr_sub_f8(r_y, p_ly);
