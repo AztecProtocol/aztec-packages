@@ -231,39 +231,39 @@ fn pk_apply_matrix_fg(m: vec4i, f: ptr<function, array<u32, 10>>, g: ptr<functio
     {
         let nf = u_lo*(flo) + v_lo*(glo) + u_hi*fp + v_hi*gp + cf;
         cf = nf >> 14u;
-        let ng = q_lo*(flo) + r_lo*(glo) + q_hi*fp + r_hi*gp + cg; 
+        let ng = q_lo*(flo) + r_lo*(glo) + q_hi*fp + r_hi*gp + cg;
         cg = ng >> 14u;
     }
-    { 
-        let nf = u_lo*fhi + v_lo*ghi + u_hi*flo + v_hi*glo + cf; 
-        cf = nf >> 14u; 
-        let ng = q_lo*fhi + r_lo*ghi + q_hi*flo + r_hi*glo + cg; 
-        cg = ng >> 14u; 
+    {
+        let nf = u_lo*fhi + v_lo*ghi + u_hi*flo + v_hi*glo + cf;
+        cf = nf >> 14u;
+        let ng = q_lo*fhi + r_lo*ghi + q_hi*flo + r_hi*glo + cg;
+        cg = ng >> 14u;
     }
-    { 
+    {
         active_f = i32((*f)[1u]);
         active_g = i32((*g)[1u]);
         flo = active_f & 0x3fff;
         glo = active_g & 0x3fff;
-        let nf = u_lo*flo + v_lo*glo + u_hi*fhi + v_hi*ghi + cf; 
-        cf = nf >> 14u; 
-        let ng = q_lo*flo + r_lo*glo + q_hi*fhi + r_hi*ghi + cg; 
-        cg = ng >> 14u; 
+        let nf = u_lo*flo + v_lo*glo + u_hi*fhi + v_hi*ghi + cf;
+        cf = nf >> 14u;
+        let ng = q_lo*flo + r_lo*glo + q_hi*fhi + r_hi*ghi + cg;
+        cg = ng >> 14u;
         (*f)[0u] = u32(nf) & 0x3fffu;
         (*g)[0u] = u32(ng) & 0x3fffu;
     }
-    { 
+    {
         fhi = active_f >> 14u;
         ghi = active_g >> 14u;
         let nf = u_lo*fhi + v_lo*ghi + u_hi*flo + v_hi*glo + cf;
-        cf = nf >> 14u; 
-         let ng = q_lo*fhi + r_lo*ghi + q_hi*flo + r_hi*glo + cg; 
-         cg = ng >> 14u; 
+        cf = nf >> 14u;
+         let ng = q_lo*fhi + r_lo*ghi + q_hi*flo + r_hi*glo + cg;
+         cg = ng >> 14u;
 
         (*f)[0u] |= ((u32(nf) & 0x3fffu) << 14u);
         (*g)[0u] |= ((u32(ng) & 0x3fffu) << 14u);
-         fp = fhi; 
-         gp = ghi; 
+         fp = fhi;
+         gp = ghi;
      }
     // word 2 (limbs 4,5) -> output word 1
     { active_f = i32((*f)[2u]); active_g = i32((*g)[2u]); flo = active_f & 0x3fff; glo = active_g & 0x3fff;
@@ -339,18 +339,18 @@ fn pk_apply_matrix_de(m: vec4i, d: ptr<function, array<u32, 10>>, e: ptr<functio
     var elo = active_e & 0x3fff;
     var ehi = active_e >> 14u;
 
-    var cd: i32 = 0; var ce: i32 = 0; 
+    var cd: i32 = 0; var ce: i32 = 0;
     var kd_lo: i32; var kd_hi: i32; var ke_lo: i32; var ke_hi: i32;
     {
         let nd: i32 = u_lo * dlo + v_lo * elo;
         let ne: i32 = q_lo * dlo + r_lo * elo;
         let nd1: i32 = u_lo * dhi + v_lo * ehi + u_hi * dlo + v_hi * elo;
         let ne1: i32 = q_lo * dhi + r_lo * ehi + q_hi * dlo + r_hi * elo;
-        var k_temp: i32 = (nd & 0x3fff); 
+        var k_temp: i32 = (nd & 0x3fff);
         k_temp |= (((nd1 + (nd >> 14u)) & 0x3fff) << 14u);
         k_temp &= 0xfffffff;
         k_temp = ((-k_temp & 0xfffffff) * BYL_P_INV_LOi) & 0xfffffff;
-        kd_lo = (k_temp & 0x3fff); 
+        kd_lo = (k_temp & 0x3fff);
         kd_hi = (k_temp >> 14u);
         cd = (nd1 + kd_lo * 8691i + kd_hi * 15687i + ((nd + kd_lo * 15687i) >> 14u)) >> 14u;
 
@@ -358,31 +358,31 @@ fn pk_apply_matrix_de(m: vec4i, d: ptr<function, array<u32, 10>>, e: ptr<functio
         k_temp |= (((ne1 + (ne >> 14u)) & 0x3fff) << 14u);
         k_temp &= 0xfffffff;
         k_temp = (((-k_temp) & 0xfffffff) * BYL_P_INV_LOi) & 0xfffffff;
-        ke_lo = (k_temp & 0x3fff); 
+        ke_lo = (k_temp & 0x3fff);
         ke_hi = (k_temp >> 14u);
         ce  = (ne1 + ke_lo * 8691i + ke_hi * 15687i + ((ne + ke_lo * 15687i) >> 14u)) >> 14u;
     }
-     
+
 
 
     var nd: i32; var ne: i32;
     // word 1 (limbs 2,3) -> output word 0
-    { 
-        active_d = i32((*d)[1u]); 
-        active_e = i32((*e)[1u]); 
-        dlo = active_d & 0x3fff; 
+    {
+        active_d = i32((*d)[1u]);
+        active_e = i32((*e)[1u]);
+        dlo = active_d & 0x3fff;
         elo = active_e & 0x3fff;
        nd = u_lo*dlo + v_lo*elo + u_hi*dhi + v_hi*ehi + kd_lo*365i + kd_hi*8691i + cd;
-       cd = nd >> 14u; 
-      (*d)[0u] = u32(nd) & 0x3fffu; 
-       nd = q_lo*dlo + r_lo*elo + q_hi*dhi + r_hi*ehi + ke_lo*365i + ke_hi*8691i + ce; 
+       cd = nd >> 14u;
+      (*d)[0u] = u32(nd) & 0x3fffu;
+       nd = q_lo*dlo + r_lo*elo + q_hi*dhi + r_hi*ehi + ke_lo*365i + ke_hi*8691i + ce;
        ce = nd >> 14u;
       (*e)[0u] = u32(nd) & 0x3fffu;
      }
-    { 
-        dhi = active_d >> 14u; 
+    {
+        dhi = active_d >> 14u;
         ehi = active_e >> 14u;
-      nd = u_lo*dhi + v_lo*ehi + u_hi*dlo + v_hi*elo + kd_lo*2083i + kd_hi*365i + cd; 
+      nd = u_lo*dhi + v_lo*ehi + u_hi*dlo + v_hi*elo + kd_lo*2083i + kd_hi*365i + cd;
       cd = nd >> 14u; ne = q_lo*dhi + r_lo*ehi + q_hi*dlo + r_hi*elo + ke_lo*2083i + ke_hi*365i + ce; ce = ne >> 14u;
       (*d)[0u] |= ((u32(nd) & 0x3fffu) << 14u); (*e)[0u] |= ((u32(ne) & 0x3fffu) << 14u); }
     // word 2 (limbs 4,5) -> output word 1
@@ -510,3 +510,5 @@ fn fr_inv_by_loop_pk(a8: array<u32, 8>) -> array<u32, 8> {
     if (pk_is_neg_2c(f)) { pk_neg_inplace(&d); pk_reduce_to_canonical_inplace(&d); }
     return pk_to_packed(d);
 }
+
+// m = divsteps (26 of these? vec4?)

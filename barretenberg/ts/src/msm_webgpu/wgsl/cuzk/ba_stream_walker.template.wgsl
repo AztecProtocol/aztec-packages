@@ -206,9 +206,10 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
     var task_end_sort:  array<u32, {{ s }}>;   // sorted index of the task's last bucket
     var task_end_cur:   array<u32, {{ s }}>;   // l0 position past the task within that bucket
     var cur_sorted:     array<u32, {{ s }}>;   // index into sorted_bucket_list
-    var is_first_m: u32 = 0u;
-    var slot_done_m: u32 = 0u;
-    var split_start_m: u32 = 0u;
+    // Per-slot flags packed into one register: is_first bits 0-7, slot_done
+    // bits 8-15, split_start bits 16-23. Three separate masks cost 2 extra
+    // always-live registers, measurable as spill on Mali (64/64-reg kernel).
+    var mstate: u32 = 0u;
     var acc_x:          array<array<u32, 8>, {{ s }}>;
     var acc_y:          array<array<u32, 8>, {{ s }}>;
 
@@ -237,17 +238,17 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
         var start_cursor: u32;
         if (so == 0u) {
             start_cursor = sb_base;
-            split_start_m = split_start_m & ~(1u << k);
+            mstate = mstate & ~(1u << (k + 16u));
         } else if (so + 1u < sb_count) {
             start_cursor = sb_base + so + 1u;
-            split_start_m = split_start_m | (1u << k);
+            mstate = mstate | (1u << (k + 16u));
         } else {
             eff_sorted = sb + 1u;
             eff_id = sorted_bucket_list[eff_sorted];
             eff_base = {{#l0prec}}l0_base[eff_sorted]{{/l0prec}}{{^l0prec}}off_at(flat_bid(eff_id)){{/l0prec}};
             eff_count = sc_at(eff_sorted);
             start_cursor = eff_base;
-            split_start_m = split_start_m & ~(1u << k);
+            mstate = mstate & ~(1u << (k + 16u));
         }
 
         // Task end. eo>0 → last bucket is eb, ending past point eo. eo==0 →
@@ -271,12 +272,12 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
         task_end_cur[k] = te_cur;
         cur_sorted[k] = eff_sorted;
 
-        is_first_m = is_first_m | (1u << k);
-        slot_done_m = slot_done_m & ~(1u << k);
+        mstate = mstate | (1u << k);
+        mstate = mstate & ~(1u << (k + 8u));
 
         // Empty task (region-aware): the start is at or past the task end.
         if (eff_sorted > te_sort || (eff_sorted == te_sort && start_cursor >= te_cur)) {
-            slot_done_m = slot_done_m | (1u << k);
+            mstate = mstate | (1u << (k + 8u));
             continue;
         }
 
@@ -286,12 +287,12 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
         // continuation landing on a bucket's last point.
         var seg_end = bucket_end[k];
         if (eff_sorted == te_sort) { seg_end = te_cur; }
-        if ((((split_start_m >> k) & 1u) == 1u) && seg_end - start_cursor == 1u) {
+        if ((((mstate >> (k + 16u)) & 1u) == 1u) && seg_end - start_cursor == 1u) {
             let px = load_pt_x(start_cursor);
             let py = load_pt_y(start_cursor);
             if (eff_sorted == te_sort) {
                 store_partial(2u * (t * S + k) + 1u, eff_id, M_partials, px, py);
-                slot_done_m = slot_done_m | (1u << k);
+                mstate = mstate | (1u << (k + 8u));
             } else {
                 store_partial(2u * (t * S + k) + 0u, eff_id, M_partials, px, py);
                 let nxt = eff_sorted + 1u;
@@ -300,8 +301,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
 
                 bucket_end[k] = nxt_base + sc_at(nxt);
                 cursor[k] = nxt_base;
-                split_start_m = split_start_m & ~(1u << k);
-                if (nxt > te_sort) { slot_done_m = slot_done_m | (1u << k); }
+                mstate = mstate & ~(1u << (k + 16u));
+                if (nxt > te_sort) { mstate = mstate | (1u << (k + 8u)); }
             }
         }
     }
@@ -318,7 +319,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
     loop {
         var any_active: bool = false;
         for (var k: u32 = 0u; k < S; k = k + 1u) {
-            if ((((slot_done_m >> k) & 1u) == 0u)) { any_active = true; }
+            if ((((mstate >> (k + 8u)) & 1u) == 0u)) { any_active = true; }
         }
         if (!any_active) { break; }
         if (walker_iter >= MAX_WALKER_ITERS) {
@@ -338,8 +339,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
         for (var k: u32 = 0u; k < S; k = k + 1u) {
             var p_lx: array<u32, 8>;
             var p_rx: array<u32, 8>;
-            let sd_b = (slot_done_m >> k) & 1u;
-            let isf_b = (is_first_m >> k) & 1u;
+            let sd_b = (mstate >> (k + 8u)) & 1u;
+            let isf_b = (mstate >> k) & 1u;
             let rx_addr = select(cursor[k] + isf_b, IDLE_ANCHOR + 1u, sd_b == 1u);
             p_rx = load_pt_x(rx_addr);
             if (bool(sd_b | isf_b)) {
@@ -373,8 +374,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             // X-coord loads (needed for both inv update and affine add).
             var p_lx: array<u32, 8>;
             var p_rx: array<u32, 8>;
-            let sd_b = (slot_done_m >> k) & 1u;
-            let isf_b = (is_first_m >> k) & 1u;
+            let sd_b = (mstate >> (k + 8u)) & 1u;
+            let isf_b = (mstate >> k) & 1u;
             let rx_addr = select(cursor[k] + isf_b, IDLE_ANCHOR + 1u, sd_b == 1u);
             p_rx = load_pt_x(rx_addr);
             if (bool(sd_b | isf_b)) {
@@ -382,14 +383,6 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             } else {
                 p_lx = acc_x[k];
             }
-
-            // Lever V1: compute x_sum = p_lx + p_rx immediately, so p_rx's
-            // live range ends here (before the inv-update mul, the inversion-
-            // derived inv_dx mul, the Y-loads, and the lambda/r_x chain). This
-            // removes one 256-bit value (8 regs) from the peak-pressure affine
-            // window. dx_b for the inv chain is also derived here from the same
-            // two operands, so p_rx is fully dead afterwards.
-            let x_sum = fr_add_f8(p_lx, p_rx);
 
             // Derive inv_dx[k] in register, update running inv for next iter.
             var inv_dx: array<u32, 8>;
@@ -404,7 +397,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
 
             // Idle slots exist only to feed dx_k into the inv chain. Skip
             // the affine add.
-            if ((((slot_done_m >> k) & 1u) == 1u)) { continue; }
+            if ((((mstate >> (k + 8u)) & 1u) == 1u)) { continue; }
 
             // Y-coord loads + cursor advance.
             var p_ly: array<u32, 8>;
@@ -418,11 +411,17 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             }
             cursor[k] = cursor[k] + 1u + isf_b;
 
-            // Affine add using inv_dx (in register). p_rx already consumed.
+            // Affine add using inv_dx (in register).
             var lambda = fr_sub_f8(p_ry, p_ly);
             lambda = montgomery_product_f8(lambda, inv_dx);
             var r_x = montgomery_square_f8(lambda);
-            r_x = fr_sub_f8(r_x, x_sum);
+            // x3 = lambda^2 - x1 - x2, with x2 RELOADED from the pool rather
+            // than held: any 256-bit value carried from the loads across the
+            // two inv-chain muls and the square sits at the allocator's
+            // binding margin on Mali (holding x_sum or p_rx here costs ~16B
+            // of spill; the reload is cheaper than the hold).
+            r_x = fr_sub_f8(r_x, p_lx);
+            r_x = fr_sub_f8(r_x, load_pt_x(rx_addr));
             var r_y = fr_sub_f8(p_lx, r_x);
             // p_lx - r_x + 
             r_y = montgomery_product_f8(lambda, r_y);
@@ -442,7 +441,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
                 // slot (+1) when the task finishes, else the split-start
                 // slot (+0); is_partial folds both branches' predicates.
                 let bid = sorted_bucket_list[cur_sorted[k]];
-                let split_b = (split_start_m >> k) & 1u;
+                let split_b = (mstate >> (k + 16u)) & 1u;
                 let is_partial = bool(split_b) || (task_done && cursor[k] < bucket_end[k]);
                 if (is_partial) {
                     store_partial(2u * (t * S + k) + select(0u, 1u, task_done), bid, M_partials, r_x, r_y);
@@ -450,7 +449,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
                     store_bucket_sum(bid, r_x, r_y);
                 }
                 if (task_done) {
-                    slot_done_m = slot_done_m | (1u << k);
+                    mstate = mstate | (1u << (k + 8u));
                     continue;
                 }
                 // Advance to the next bucket within the task. Subsequent
@@ -461,12 +460,12 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
 
                 bucket_end[k] = nxt_base + sc_at(nxt);
                 cursor[k] = nxt_base;
-                is_first_m = is_first_m | (1u << k);
-                split_start_m = split_start_m & ~(1u << k);
+                mstate = mstate | (1u << k);
+                mstate = mstate & ~(1u << (k + 16u));
             } else {
                 acc_x[k] = r_x;
                 acc_y[k] = r_y;
-                is_first_m = is_first_m & ~(1u << k);
+                mstate = mstate & ~(1u << k);
             }
         }
     }
