@@ -984,15 +984,6 @@ export class ShaderManager {
       `((${xp}3 * ${xp}4) << 1u)`,
       `${xp}4 * ${xp}4`,
     ];
-    // P_X[k] from this group's ll / hh / c schoolbook outputs — the inner
-    // Karatsuba combine, unchanged from the flat emit.
-    const pExpr = (k: number): string => {
-      if (k <= 4) return `ll${k}`;
-      if (k <= 8) return `ll${k} + c${k - 5} - ll${k - 5} - hh${k - 5}`;
-      if (k === 9) return `c4 - ll4 - hh4`;
-      if (k <= 13) return `c${k - 5} - ll${k - 5} - hh${k - 5} + hh${k - 10}`;
-      return `hh${k - 10}`;
-    };
     // Per half-product: the 3 schoolbook chunk bases (a-chunk limb k =
     // sum of x.limbs[base+k]) and the (t-offset, sign) the outer combine
     // folds P_X[k] into. lo: t[k]+, t[k+10]-. hi: t[k+20]+, t[k+10]-.
@@ -1031,14 +1022,6 @@ export class ShaderManager {
     for (const g of kgroups) {
       mb.push('');
       mb.push(`    {   // ===== half-product ${g.tag} =====`);
-      const emitSb = (out: string, xp: string, yp: string, bases: number[]): void => {
-        for (let k = 0; k < 5; k++) {
-          mb.push(`        let ${xp}${k}: u32 = ${chunkSum(xlimb, bases, k)};`);
-          mb.push(`        let ${yp}${k}: u32 = ${chunkSum(ylimb, bases, k)};`);
-        }
-        const cols = sbCol(xp, yp);
-        for (let m = 0; m < 9; m++) mb.push(`        let ${out}${m}: u32 = ${cols[m]};`);
-      };
       if (square) {
         // Temporaries-lean square emit. Two structural cuts vs the multiply
         // emitter: (1) the c-schoolbook chunks are the sums of the ll/hh
@@ -1068,12 +1051,44 @@ export class ShaderManager {
           mb.push(`        { let p: u32 = ${pSq(k)}; ${folds} }`);
         }
       } else {
-        emitSb('ll', `x${g.tag}l`, `y${g.tag}l`, g.llB);
-        emitSb('hh', `x${g.tag}h`, `y${g.tag}h`, g.hhB);
-        emitSb('c', `x${g.tag}c`, `y${g.tag}c`, g.cB);
+        // Temporaries-lean multiply emit — the same two cuts as the square:
+        // the c-schoolbook chunks are sums of the ll/hh chunk lets already
+        // in registers (cB = llB ∪ hhB for every group, for both operands),
+        // and the c columns are consumed exactly once (by fold k+5) so they
+        // fuse inline into the fold expressions instead of being
+        // materialized. Identical arithmetic mod 2^32 — the documented
+        // pp_cr_C wrap/unwind is unchanged by the regrouping.
+        const xl = `x${g.tag}l`;
+        const yl = `y${g.tag}l`;
+        const xh = `x${g.tag}h`;
+        const yh = `y${g.tag}h`;
+        const xc = `x${g.tag}c`;
+        const yc = `y${g.tag}c`;
+        for (let k = 0; k < 5; k++) {
+          mb.push(`        let ${xl}${k}: u32 = ${chunkSum(xlimb, g.llB, k)};`);
+          mb.push(`        let ${yl}${k}: u32 = ${chunkSum(ylimb, g.llB, k)};`);
+        }
+        sbCol(xl, yl).forEach((e, m) => mb.push(`        let ll${m}: u32 = ${e};`));
+        for (let k = 0; k < 5; k++) {
+          mb.push(`        let ${xh}${k}: u32 = ${chunkSum(xlimb, g.hhB, k)};`);
+          mb.push(`        let ${yh}${k}: u32 = ${chunkSum(ylimb, g.hhB, k)};`);
+        }
+        sbCol(xh, yh).forEach((e, m) => mb.push(`        let hh${m}: u32 = ${e};`));
+        for (let k = 0; k < 5; k++) {
+          mb.push(`        let ${xc}${k}: u32 = ${xl}${k} + ${xh}${k};`);
+          mb.push(`        let ${yc}${k}: u32 = ${yl}${k} + ${yh}${k};`);
+        }
+        const cCols = sbCol(xc, yc);
+        const pMul = (k: number): string => {
+          if (k <= 4) return `ll${k}`;
+          if (k <= 8) return `ll${k} + (${cCols[k - 5]}) - ll${k - 5} - hh${k - 5}`;
+          if (k === 9) return `(${cCols[4]}) - ll4 - hh4`;
+          if (k <= 13) return `(${cCols[k - 5]}) - ll${k - 5} - hh${k - 5} + hh${k - 10}`;
+          return `hh${k - 10}`;
+        };
         for (let k = 0; k < 19; k++) {
           const folds = g.folds.map(f => `t${k + f.off} = t${k + f.off} ${f.sign} p;`).join(' ');
-          mb.push(`        { let p: u32 = ${pExpr(k)}; ${folds} }`);
+          mb.push(`        { let p: u32 = ${pMul(k)}; ${folds} }`);
         }
       }
       mb.push('    }');
