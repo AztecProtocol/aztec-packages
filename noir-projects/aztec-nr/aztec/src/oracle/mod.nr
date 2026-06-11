@@ -7,7 +7,7 @@ pub mod block_header;
 pub mod call_private_function;
 pub mod call_utility_function;
 pub mod capsules;
-pub mod ephemeral;
+pub mod ephemeral_oracles;
 pub mod transient;
 pub mod contract_sync;
 pub mod public_call;

@@ -1,4 +1,4 @@
-use crate::oracle::ephemeral;
+use crate::oracle::ephemeral_oracles;
 use crate::oracle_array::{ArrayOracle, OracleArray};
 use crate::protocol::traits::{Deserialize, Serialize};
 
@@ -30,31 +30,31 @@ pub struct EphemeralOracle {}
 
 impl ArrayOracle for EphemeralOracle {
     unconstrained fn len_oracle(slot: Field) -> u32 {
-        ephemeral::len_oracle(slot)
+        ephemeral_oracles::len_oracle(slot)
     }
 
     unconstrained fn push_oracle<let N: u32>(slot: Field, values: [Field; N]) -> u32 {
-        ephemeral::push_oracle(slot, values)
+        ephemeral_oracles::push_oracle(slot, values)
     }
 
     unconstrained fn pop_oracle<let N: u32>(slot: Field) -> [Field; N] {
-        ephemeral::pop_oracle(slot)
+        ephemeral_oracles::pop_oracle(slot)
     }
 
     unconstrained fn get_oracle<let N: u32>(slot: Field, index: u32) -> [Field; N] {
-        ephemeral::get_oracle(slot, index)
+        ephemeral_oracles::get_oracle(slot, index)
     }
 
     unconstrained fn set_oracle<let N: u32>(slot: Field, index: u32, values: [Field; N]) {
-        ephemeral::set_oracle(slot, index, values)
+        ephemeral_oracles::set_oracle(slot, index, values)
     }
 
     unconstrained fn remove_oracle(slot: Field, index: u32) {
-        ephemeral::remove_oracle(slot, index)
+        ephemeral_oracles::remove_oracle(slot, index)
     }
 
     unconstrained fn clear_oracle(slot: Field) {
-        ephemeral::clear_oracle(slot)
+        ephemeral_oracles::clear_oracle(slot)
     }
 }
 
