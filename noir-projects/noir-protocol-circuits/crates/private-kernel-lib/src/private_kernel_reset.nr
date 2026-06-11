@@ -98,7 +98,8 @@ pub global ALLOWED_PREVIOUS_CIRCUITS: [u32; 7] = [
 //
 // It could be that two (or more) app circuits each make so many "Read Requests" that even the
 // largest variant of the Reset circuit can't process them all at once. In that case, an instance
-// of the Reset circuit would need to be
+// of the Reset circuit would need to be invoked multiple times, with each invocation processing a
+// subset of the read requests, until all of them have been handled.
 //
 // ### Nullifier Read Requests
 //
