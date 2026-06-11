@@ -1,8 +1,25 @@
 import type { SlotNumber } from '@aztec/foundation/branded-types';
 import type { Logger } from '@aztec/foundation/log';
 
-import { type ResolvedTimingBudgets, getDefaultCheckpointProposalSyncGrace, resolveTimingBudgets } from './budgets.js';
+import { getTimestampForSlot } from '../epoch-helpers/index.js';
+import {
+  type ResolvedTimingBudgets,
+  getDefaultCheckpointProposalSyncGrace,
+  resolveL1PublishLeadTime,
+  resolveTimingBudgets,
+} from './budgets.js';
 import { ConsensusTimetable, type SlotTimingConstants } from './consensus_timetable.js';
+
+/**
+ * Ideal L1 publish/send time for a target slot: `target_slot_start - lead`. Derived directly from
+ * slot-timing constants so callers that hold only an {@link SlotTimingConstants} (e.g. the publisher's
+ * send scheduler) compute the same value as {@link ProposerTimetable.getL1PublishIdealTime} without
+ * constructing a full timetable. The lead is resolved through {@link resolveL1PublishLeadTime}, the single
+ * source for the `?? getDefault` fallback.
+ */
+export function getL1PublishIdealTime(slot: SlotNumber, l1Constants: SlotTimingConstants): number {
+  return Number(getTimestampForSlot(slot, l1Constants)) - resolveL1PublishLeadTime(l1Constants);
+}
 
 /** Result of selecting the next block sub-slot to build. */
 export type SubslotSelection =
@@ -142,7 +159,7 @@ export class ProposerTimetable extends ConsensusTimetable {
 
   /** Ideal L1 publish/send time: `target_slot_start - lead`. Also the ideal attestation-receipt target. */
   public getL1PublishIdealTime(slot: SlotNumber): number {
-    return this.getTargetSlotStart(slot) - this.l1PublishLeadTime;
+    return getL1PublishIdealTime(slot, this.getL1Constants());
   }
 
   /**

@@ -1,7 +1,7 @@
 import type { SlotNumber } from '@aztec/foundation/branded-types';
 
 import { type L1RollupConstants, getTimestampForSlot } from '../epoch-helpers/index.js';
-import { getDefaultCheckpointProposalSyncGrace, getDefaultL1PublishLeadTime } from './budgets.js';
+import { getDefaultCheckpointProposalSyncGrace, resolveL1PublishLeadTime } from './budgets.js';
 
 /**
  * Slot-timing protocol constants the timetables derive wall-clock times from. `l1PublishLeadTime` is optional:
@@ -52,8 +52,7 @@ export class ConsensusTimetable {
     const { l1Constants, blockDuration } = opts;
     const checkpointProposalSyncGrace =
       opts.checkpointProposalSyncGrace ?? getDefaultCheckpointProposalSyncGrace(blockDuration);
-    const l1PublishLeadTime =
-      l1Constants.l1PublishLeadTime ?? getDefaultL1PublishLeadTime(l1Constants.ethereumSlotDuration);
+    const l1PublishLeadTime = resolveL1PublishLeadTime(l1Constants);
     if (l1Constants.slotDuration <= 0) {
       throw new Error(`aztecSlotDuration must be positive (got ${l1Constants.slotDuration})`);
     }

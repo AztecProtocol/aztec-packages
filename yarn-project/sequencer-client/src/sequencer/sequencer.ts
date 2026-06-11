@@ -20,7 +20,7 @@ import type {
 } from '@aztec/stdlib/block';
 import type { Checkpoint, ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
 import type { ChainConfig } from '@aztec/stdlib/config';
-import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
+import { getEpochAtSlot, getSlotAtTimestamp, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import {
   MIN_PER_BLOCK_ALLOCATION_MULTIPLIER,
   MIN_PER_BLOCK_DA_ALLOCATION_MULTIPLIER,
@@ -329,6 +329,20 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     this.setState(SequencerState.SYNCHRONIZING, undefined);
     const { slot, targetSlot, epoch, targetEpoch, ts, nowSeconds } = this.getSlotContextInNextL1Slot();
 
+    // Strict frame-entry gate: do no work for the target slot before its build frame opens. The slot-context
+    // flip above already surfaces a target slot only at/after its build_frame_start, so this is defense in
+    // depth against clock granularity — it guarantees the proposer check and checkpoint job never start during
+    // the previous checkpoint's handoff window, where building would risk a stale tip and a competing checkpoint.
+    const buildFrameStart = this.timetable.getBuildFrameStart(targetSlot);
+    if (Number(nowSeconds) < buildFrameStart) {
+      this.log.trace(`Build frame for target slot ${targetSlot} has not opened yet, skipping`, {
+        targetSlot,
+        nowSeconds,
+        buildFrameStart,
+      });
+      return;
+    }
+
     // Check if we are synced and it's our slot, grab a publisher, check previous block invalidation, etc
     const checkpointProposalJob = await this.prepareCheckpointProposal(
       slot,
@@ -365,9 +379,27 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     return checkpoint;
   }
 
-  /** Returns slot and target slot from a single clock snapshot. */
+  /**
+   * Returns the build slot and target slot the work loop should consider, from a single clock snapshot.
+   *
+   * The target slot must flip exactly at its `build_frame_start = target_slot_start - aztecSlotDuration -
+   * l1PublishLeadTime`, so the proposer does no work for a target slot before its frame opens (see the
+   * timetable spec's frame-entry rule). The build slot is therefore `slot_of(now + lead)`: at
+   * `now = build_frame_start(target)` the lookahead `now + lead` lands exactly on the build slot's start,
+   * making `target = build_slot + 1` flip precisely at the frame opening.
+   *
+   * This deliberately does not use {@link EpochCache.getEpochAndSlotInNextL1Slot} (a `now + ethereumSlotDuration`
+   * lookahead): that method's "next L1 slot" semantics are shared with the p2p gossip gates and node RPC, which
+   * want the L2 slot at the next L1 block, not the timetable-aware frame-entry flip. Under the shifted timetable
+   * that lookahead would flip the target `ethereumSlotDuration - lead` too early, letting the proposer enter the
+   * frame while the previous checkpoint is still within its handoff window.
+   */
   protected getSlotContextInNextL1Slot(): SequencerSlotContext {
-    const { slot, ts, nowSeconds, epoch } = this.epochCache.getEpochAndSlotInNextL1Slot();
+    const nowSeconds = BigInt(this.dateProvider.nowInSeconds());
+    const lead = BigInt(this.timetable.l1PublishLeadTime);
+    const slot = getSlotAtTimestamp(nowSeconds + lead, this.l1Constants);
+    const ts = getTimestampForSlot(slot, this.l1Constants);
+    const epoch = getEpochAtSlot(slot, this.l1Constants);
     const targetSlot = SlotNumber(slot + PROPOSER_PIPELINING_SLOT_OFFSET);
     return { slot, targetSlot, epoch, targetEpoch: getEpochAtSlot(targetSlot, this.l1Constants), ts, nowSeconds };
   }

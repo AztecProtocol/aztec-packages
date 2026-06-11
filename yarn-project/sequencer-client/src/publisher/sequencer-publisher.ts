@@ -45,13 +45,10 @@ import { EmpireBaseAbi, ErrorsAbi, RollupAbi, SlashingProposerAbi } from '@aztec
 import { type ProposerSlashAction, encodeSlashConsensusVotes } from '@aztec/slasher';
 import { CommitteeAttestationsAndSigners, type ValidateCheckpointResult } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
-import {
-  getLastL1SlotTimestampForL2Slot,
-  getNextL1SlotTimestamp,
-  getTimestampForSlot,
-} from '@aztec/stdlib/epoch-helpers';
+import { getLastL1SlotTimestampForL2Slot, getNextL1SlotTimestamp } from '@aztec/stdlib/epoch-helpers';
 import type { CheckpointHeader } from '@aztec/stdlib/rollup';
 import type { L1PublishCheckpointStats } from '@aztec/stdlib/stats';
+import { getL1PublishIdealTime } from '@aztec/stdlib/timetable';
 import { type TelemetryClient, type Tracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
 import {
@@ -615,27 +612,30 @@ export class SequencerPublisher {
     }
   }
 
-  /*
-   * Schedules sending all enqueued requests at (or after) the start of the given L2 slot.
-   * Sleeps until one L1 slot before the L2 slot boundary so the tx has a chance of being
-   * picked up by the first L1 block of the L2 slot.
-   * NB: there is a known correctness risk — being included in the L1 block right before the
-   * L2 slot starts would revert propose with HeaderLib__InvalidSlotNumber.
-   * Uses InterruptibleSleep so it can be cancelled via interrupt().
+  /**
+   * Schedules sending all enqueued requests at the timetable's ideal L1 publish time for the target slot.
+   *
+   * That time is `target_slot_start - l1_publish_lead_time` (the {@link getL1PublishIdealTime} anchor): the
+   * broadcast lands partway into the previous Ethereum slot rather than at its boundary, so the only L1 blocks
+   * the transaction can land in carry timestamps inside the target slot. Broadcasting at the boundary (the old
+   * `target_slot_start - ethereum_slot_duration` anchor) raced the previous block's payload freeze and could
+   * land the tx in the previous L2 slot's last block, reverting `propose` with `HeaderLib__InvalidSlotNumber`.
+   *
+   * The lead is resolved from the network slot-timing constants (the same `getL1PublishIdealTime` the proposer
+   * timetable uses), so the publisher and the rest of the timetable share one anchor. Uses InterruptibleSleep
+   * so it can be cancelled via interrupt().
    */
   public async sendRequestsAt(targetSlot: SlotNumber): Promise<SendRequestsResult | undefined> {
     const l1Constants = this.epochCache.getL1Constants();
-    // Start of the target L2 slot, in ms (getTimestampForSlot returns seconds).
-    const startOfTargetSlotMs = Number(getTimestampForSlot(targetSlot, l1Constants)) * 1000;
-    // Aim to be in the mempool one L1 slot before the L2 slot starts, so we have a chance of
-    // being picked up by the first L1 block of the L2 slot.
-    const submitAfterMs = startOfTargetSlotMs - Number(this.ethereumSlotDuration) * 1000;
+    // Ideal L1 publish time (seconds): target_slot_start - l1_publish_lead_time. getL1PublishIdealTime is the
+    // single source for this anchor and resolves the lead via the network consensus constants.
+    const submitAfterMs = getL1PublishIdealTime(targetSlot, l1Constants) * 1000;
     if (this.interrupted) {
       return undefined;
     }
     const sleepMs = submitAfterMs - this.dateProvider.now();
     if (sleepMs > 0) {
-      this.log.debug(`Sleeping ${sleepMs}ms before sending requests`, {
+      this.log.debug(`Sleeping ${sleepMs}ms before sending requests at ideal L1 publish time`, {
         targetSlot,
         submitAfterMs,
       });

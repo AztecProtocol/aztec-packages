@@ -686,7 +686,7 @@ export class ProposalHandler {
 
   /**
    * Hard re-execution/validation deadline for any block or checkpoint proposal targeting `slotNumber`:
-   * the single consensus `attestation_deadline` (`target_slot_start + S - 2E`). This is the latest the
+   * the single consensus `attestation_deadline` (`target_slot_start + S - E - lead`). This is the latest the
    * checkpoint can land on L1 in the target slot; all nodes agree on it. Loosened from the previous
    * next-wall-clock-slot-boundary bound (see the timetable spec / refactor notes).
    */
@@ -904,8 +904,8 @@ export class ProposalHandler {
     const slot = proposal.slotNumber;
 
     // Block-sync/validation deadline = the single consensus attestation_deadline (target_slot_start + S
-    // - 2E): the latest moment the proposer can submit this checkpoint and still have it land on L1 in
-    // the target slot. Keeping validation/attestation alive until then lets validators keep attesting
+    // - E - lead): the latest moment the proposer can submit this checkpoint and still have it land on L1
+    // in the target slot. Keeping validation/attestation alive until then lets validators keep attesting
     // right up to the proposer's real publish cutoff.
     const deadline = this.getReexecutionDeadline(slot);
 

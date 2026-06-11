@@ -77,6 +77,19 @@ export function getDefaultL1PublishLeadTime(ethereumSlotDuration: number): numbe
 }
 
 /**
+ * Resolves the effective `l1_publish_lead_time` from slot-timing constants: the explicit configured value
+ * when present, otherwise the deterministic {@link getDefaultL1PublishLeadTime} default. This is the single
+ * place the `?? getDefault` fallback lives, so every consumer (the consensus timetable and the publisher's
+ * send-time computation) derives the same lead for a given network.
+ */
+export function resolveL1PublishLeadTime(constants: {
+  ethereumSlotDuration: number;
+  l1PublishLeadTime?: number;
+}): number {
+  return constants.l1PublishLeadTime ?? getDefaultL1PublishLeadTime(constants.ethereumSlotDuration);
+}
+
+/**
  * Resolves the operational timing budgets, applying the fast local/e2e profile when
  * `ethereumSlotDuration < FAST_PROFILE_ETHEREUM_SLOT_DURATION`.
  *
