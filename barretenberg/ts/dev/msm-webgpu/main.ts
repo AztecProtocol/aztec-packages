@@ -140,6 +140,11 @@ const gpuKnobs: MsmConfig = (() => {
     numBatchesOverride: optInt('nb'),
     budgetMiB: optInt('budgetmib'),
     varSched: q.get('varsched') === '1' || undefined,
+    // ?ptree=1 enables the addition-centric pair-tree combine.
+    ptree: q.get('ptree') === '1' || undefined,
+    // ?ptree_theta=N overrides the pair-tree level->fold switch threshold.
+    ptreeTheta: optInt('ptree_theta'),
+    ptreeNoClear: q.get('ptree_noclear') === '1' || undefined,
     preprocessV2: q.get('ppv2') === '0' ? false : q.get('ppv2') === '1' ? true : undefined,
     combineOnHost: false,
     splitC: q.get('split') === '1' || q.get('autorun') === 'msm-msbhist' || undefined,
@@ -535,6 +540,20 @@ async function generateInputs(logN: number, mirrorForNoble: boolean): Promise<Te
   //     E: 100% in [0, 16)
   const distMode = new URLSearchParams(window.location.search).get('scalar_dist') ?? 'uniform';
   const scalarBytes = new Uint8Array(n * 32);
+  // ?seed=N: deterministic scalars (mulberry32) so failures reproduce.
+  const seedParam = new URLSearchParams(window.location.search).get('seed');
+  if (seedParam !== null) {
+    let a = (parseInt(seedParam, 10) || 1) >>> 0;
+    const mulberry = (): number => {
+      a |= 0;
+      a = (a + 0x6d2b79f5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+    Math.random = mulberry;
+    log('info', `[gen] seeded PRNG: seed=${seedParam}`);
+  }
   const smallScalar = (maxExclusive: number): bigint => BigInt(Math.floor(Math.random() * maxExclusive));
   if (distMode === 'clustered') {
     const Kparam = new URLSearchParams(window.location.search).get('num_distinct');
@@ -545,6 +564,49 @@ async function generateInputs(logN: number, mirrorForNoble: boolean): Promise<Te
     for (let i = 0; i < n; i++) {
       const j = Math.floor(Math.random() * K);
       const s = pool[j];
+      if (mirrorForNoble) scalars![i] = s;
+      scalarBytes.set(biToLe32(s, `scalar[${i}]`), i * 32);
+    }
+  } else if (distMode === 'monster') {
+    // Worst-case partial concentration: 99.9% of scalars share ONE random
+    // value (every window's digit lands in a single bucket → the partial
+    // stream concentrates into ~numWindows giant segments), 0.1% random so
+    // the host window-combine stays non-degenerate. Stresses the combine
+    // stage's maximum per-bucket partial count / recursion depth.
+    const r = randomFr();
+    log('info', `[gen] monster scalars: 99.9% single value + 0.1% random`);
+    for (let i = 0; i < n; i++) {
+      const s = Math.random() < 0.001 ? randomFr() : r;
+      if (mirrorForNoble) scalars![i] = s;
+      scalarBytes.set(biToLe32(s, `scalar[${i}]`), i * 32);
+    }
+  } else if (distMode === 'witness') {
+    // ZK-SNARK witness shape: a huge fraction of scalars are 1 (booleans),
+    // plus repeated small values and a few random field elements. Every
+    // scalar=1 contributes to ONE bucket (window 0, mag 1) — the partial-
+    // merge worst case: that bucket's partial count approaches the buffer
+    // cap. Production-representative; gate combine changes on this.
+    log('info', `[gen] witness scalars: 85% ones + 10% small + 5% random`);
+    for (let i = 0; i < n; i++) {
+      const r = Math.random();
+      let s: bigint;
+      if (r < 0.85) s = 1n;
+      else if (r < 0.95) s = smallScalar(16);
+      else s = randomFr();
+      if (mirrorForNoble) scalars![i] = s;
+      scalarBytes.set(biToLe32(s, `scalar[${i}]`), i * 32);
+    }
+  } else if (distMode === 'powerlaw') {
+    // Zipf-ish over 64 distinct values: a few huge buckets, a long warm
+    // tail, plenty of singles — the mixed structured shape the per-class
+    // combine must not cliff on.
+    const K = 64;
+    const pool = new Array<bigint>(K);
+    for (let j = 0; j < K; j++) pool[j] = randomFr();
+    log('info', `[gen] powerlaw scalars over ${K} distinct values`);
+    for (let i = 0; i < n; i++) {
+      const j = Math.min(K - 1, Math.floor(K * Math.pow(Math.random(), 3)));
+      const s = Math.random() < 0.02 ? randomFr() : pool[j];
       if (mirrorForNoble) scalars![i] = s;
       scalarBytes.set(biToLe32(s, `scalar[${i}]`), i * 32);
     }
@@ -2181,6 +2243,164 @@ function hideProgress(): void {
   // can pick them up from JSONL.
   const qp = new URLSearchParams(window.location.search);
   const autorun = qp.get('autorun');
+  if (autorun === 'msm-jac-check') {
+    // GPU-vs-GPU A/B correctness: the SAME inputs through the pair-tree
+    // combine (?ptree=1 semantics) and the default combine_batched + pt
+    // chain (the oracle), compared bit-exact on the final result point.
+    // WASM-free — runs headless without COI/SharedArrayBuffer.
+    void (async () => {
+      const autorunLogN = Math.min(17, parseInt(qp.get('logn') ?? '17', 10) || 17);
+      const client = makeResultsClient({ page: 'msm-jac-check' });
+      log('info', `[jac-check] logN=${autorunLogN}`);
+      try {
+        for (let i = 0; i < 1200 && srsBuf === null; i++) await new Promise(r => setTimeout(r, 500));
+        if (srsBuf === null) throw new Error('SRS never became ready');
+        $logn.value = String(autorunLogN);
+        $logn.dispatchEvent(new Event('input'));
+        const inputs = await generateInputs(autorunLogN, false);
+        if (gpuDevice === null) gpuDevice = await get_device();
+        log('info', `[jac-check] building pool + ptree/oracle MsmV2 pair`);
+        const pool = await MsmV2Pool.create(gpuDevice, inputs.pointsBuf);
+        // &ab=oracle: BOTH oracle (harness sanity). &ab=ptree: BOTH ptree
+        // (self-determinism probe).
+        const msmPt = await MsmV2.create(gpuDevice, inputs.n, pool, {
+          ...gpuKnobs,
+          ptree: qp.get('ab') !== 'oracle',
+        });
+        const msmOracle = await MsmV2.create(gpuDevice, inputs.n, pool, {
+          ...gpuKnobs,
+          ptree: qp.get('ab') === 'ptree',
+        });
+        msmPt.prepare(inputs.scalarsBuf);
+        const a = await msmPt.run();
+        if (qp.get('desccheck') === '1') {
+          const dc = await (
+            msmPt as unknown as {
+              debugDescCheck(): Promise<{ checked: number; bad: number; samples: string[]; pTotal: number }>;
+            }
+          ).debugDescCheck();
+          const dcc = dc as unknown as { classes: { micro: number; shallow: number; deep: number }; meta: number[] };
+          log(
+            'info',
+            `[jac-check] descCheck pTotal=${dc.pTotal} checked=${dc.checked} bad=${dc.bad} kstar=${dcc.meta[20]} classes=${JSON.stringify(dcc.classes)} listed m=${dcc.meta[21]} s=${dcc.meta[26]} d=${dcc.meta[25]} maxcnt=${dcc.meta[27]}`,
+          );
+          for (const smp of dc.samples) log('info', `[jac-check]   ${smp}`);
+        }
+        const REDN = 0; // 0 = full x-plane
+        type Dbg = {
+          debugRedSnapshot(n: number): Promise<Uint32Array>;
+          debugCounts(): Promise<Uint32Array>;
+          redSlotToBid(slot: number): { window: number; mag: number };
+        };
+        const redA = qp.get('reddiff') === '1' ? await (msmPt as unknown as Dbg).debugRedSnapshot(REDN) : null;
+        msmOracle.prepare(inputs.scalarsBuf);
+        const b = await msmOracle.run();
+        if (redA) {
+          const dbg = msmPt as unknown as Dbg;
+          const redB = await (msmOracle as unknown as Dbg).debugRedSnapshot(REDN);
+          const counts = await dbg.debugCounts();
+          const BW = (msmPt as unknown as { BW: number }).BW;
+          let nbad = 0;
+          for (let slot = 0; slot < redA.length / 8; slot++) {
+            let diff = false;
+            for (let k = 0; k < 8; k++) if (redA[slot * 8 + k] !== redB[slot * 8 + k]) diff = true;
+            if (!diff) continue;
+            nbad++;
+            if (nbad <= 10) {
+              const { window, mag } = dbg.redSlotToBid(slot);
+              const fb = window * BW + mag;
+              log(
+                'info',
+                `[jac-check] redDiff slot=${slot} w=${window} mag=${mag} cnt=${counts[fb] ?? -1} a=0x${redA[slot * 8].toString(16)} b=0x${redB[slot * 8].toString(16)}`,
+              );
+            }
+          }
+          log('info', `[jac-check] redDiff nbad=${nbad} of ${redA.length / 8}`);
+        }
+        // run() no longer folds to a final point (the fold is page-side on
+        // the v2 base) — compare the per-window sums bit-exact instead.
+        let ok = a.windowSums.length === b.windowSums.length;
+        let firstBad = -1;
+        for (let w = 0; ok && w < a.windowSums.length; w++) {
+          if (a.windowSums[w].x !== b.windowSums[w].x || a.windowSums[w].y !== b.windowSums[w].y) {
+            ok = false;
+            firstBad = w;
+          }
+        }
+        if (ok) {
+          const x0 = a.windowSums[0]?.x ?? 0n;
+          log('ok', `[jac-check] jac and legacy agree (${a.windowSums.length} windows, w0.x=0x${x0.toString(16).slice(0, 16)}…)`);
+        } else if (firstBad >= 0) {
+          log(
+            'err',
+            `[jac-check] MISMATCH window ${firstBad}: jac.x=0x${a.windowSums[firstBad].x.toString(16)} legacy.x=0x${b.windowSums[firstBad].x.toString(16)}`,
+          );
+        } else {
+          log('err', `[jac-check] MISMATCH window-count ${a.windowSums.length} vs ${b.windowSums.length}`);
+        }
+        log('ok', `[jac-check] state=done ab_ok=${ok}`);
+        await client.postResults({
+          state: 'done',
+          params: { logN: autorunLogN, page: 'msm-jac-check' },
+          results: { ab_ok: ok },
+          error: null,
+          log: [],
+          userAgent: navigator.userAgent,
+          hardwareConcurrency: navigator.hardwareConcurrency,
+        });
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        log('err', `[jac-check] FATAL: ${msg}`);
+        await client.postResults({
+          state: 'error',
+          params: { logN: autorunLogN, page: 'msm-jac-check' },
+          results: null,
+          error: msg,
+          log: [],
+          userAgent: navigator.userAgent,
+          hardwareConcurrency: navigator.hardwareConcurrency,
+        });
+      }
+    })();
+    return;
+  }
+  if (autorun === 'msm-shader-test') {
+    // Compile-only isolation for the pair-tree kernels: renders each shader
+    // and awaits createComputePipelineAsync one at a time, so a Metal/driver
+    // compiler blowup names its culprit. No MSM, no SRS.
+    void (async () => {
+      try {
+        const { ShaderManager } = await import('../../src/msm_webgpu/cuzk/shader_manager.js');
+        const { BN254_CURVE_CONFIG } = await import('../../src/msm_webgpu/cuzk/curve_config.js');
+        if (gpuDevice === null) gpuDevice = await get_device();
+        const sm = new ShaderManager(4, 1 << 17, BN254_CURVE_CONFIG, false);
+        const cases: Array<[string, string]> = [
+          ['ptree-scatter', sm.gen_ba_walker_idx_scatter_shader(64, 8, 64, true)],
+          ['ptree-args', sm.gen_ba_walker_ptree_args_shader(64, 8)],
+          ['ptree-level', sm.gen_ba_walker_ptree_level_shader(64, 8)],
+          ['ptree-scan-args', sm.gen_ba_walker_ptree_scan_shader(2, 256)],
+          ['ptree-fold-shallow', sm.gen_ba_walker_ptree_fold_shader(64, 2048)],
+          ['ptree-fold-deep', sm.gen_ba_walker_ptree_fold_shader(256, 8192)],
+          ['ptree-resolve', sm.gen_ba_walker_ptree_finalize_shader(256, 2, 0)],
+          ['ptree-survfin', sm.gen_ba_walker_ptree_finalize_shader(256, 2, 1)],
+        ];
+        for (const [name, code] of cases) {
+          const t0 = performance.now();
+          try {
+            const mod = gpuDevice.createShaderModule({ code });
+            await gpuDevice.createComputePipelineAsync({ layout: 'auto', compute: { module: mod, entryPoint: 'main' } });
+            log('ok', `[shader-test] ${name}: OK in ${(performance.now() - t0).toFixed(0)} ms (${code.length} chars)`);
+          } catch (e) {
+            log('err', `[shader-test] ${name}: FAIL ${(e as Error).message}`);
+          }
+        }
+        log('ok', `[shader-test] state=done`);
+      } catch (e) {
+        log('err', `[shader-test] FATAL: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    })();
+    return;
+  }
   if (autorun === 'msm-trace') {
     // Perfetto trace capture: `reps` measured warm MSM runs via NORMAL run()
     // calls. The batched captureWarmRuns command stream (swapped queryset +

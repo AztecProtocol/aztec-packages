@@ -82,6 +82,21 @@ const clearSlot = (enc: GPUCommandEncoder, x: ScratchSlot): void =>
   enc.clearBuffer(slotBuf(x), slotOff(x), slotSize(x));
 const writeSlot = (q: GPUQueue, x: ScratchSlot, off: number, data: BufferSource): void =>
   q.writeBuffer(slotBuf(x), slotOff(x) + off, data);
+// ==== Pair-tree combine (addition-centric, ?ptree=1) ====
+const PTREE_LEVELS = 8;
+// Switch to the workgroup-fold tail below this many adds/level. High on
+// purpose: the depth-aware stop is what keeps deep-bucket distributions
+// (witness/monster) in the tree; flat distributions stop after level 1.
+const PTREE_THETA = 65536;
+const PTREE_TPB = 64;
+// Fold workgroup size for deep survivors (24 KB of flat u32 planes).
+const PTREE_FOLD_TPB = 256;
+// Survivor-finalize batch width. MUST match between the scan-args kernel
+// (sizes the survfin dispatch) and the survfin pipeline itself.
+const PTREE_FIN_SN = 2;
+// Slots per level-kernel thread (A/B'd: 16 flat on M4).
+const PTREE_S = 8;
+
 export const MEM_BUDGET = 160 * (1 << 20); // phone GPU-buffer budget (ARENA_LAYOUT.md §3)
 
 /**
@@ -339,6 +354,12 @@ export interface MsmConfig {
    * walker starves; gated on a small-N threshold in a later step.
    */
   highMemPingpong?: boolean;
+  /** Addition-centric pair-tree combine (replaces combine_batched + pt chain). */
+  ptree?: boolean;
+  /** Pair-tree level->fold switch threshold (adds per level). */
+  ptreeTheta?: number;
+  /** DEBUG: skip the ptree meta-region clear (bisect knob). */
+  ptreeNoClear?: boolean;
   /**
    * Small-N auto-gate for the high-mem ping-pong: when `n ≤ pingpongBelow`, route
    * the MSM through the ping-pong instead of the walker (0 = off, default). The
@@ -2173,6 +2194,32 @@ export class MsmV2 {
   private idxProbeLayout!: GPUBindGroupLayout;
   private idxP1Bind!: GPUBindGroup;
   private idxP2Bind!: GPUBindGroup;
+  private ptree = false;
+  private ptreeTheta = PTREE_THETA;
+  private ptreeNoClear = false;
+  private ptreeArgsPipe!: GPUComputePipeline;
+  private ptreeArgsLayout!: GPUBindGroupLayout;
+  private ptreeArgsBinds: GPUBindGroup[] = [];
+  private ptreeLevelPipe!: GPUComputePipeline;
+  private ptreeLevelLayout!: GPUBindGroupLayout;
+  private ptreeLevelBinds: GPUBindGroup[][] = [];
+  private ptreeScanPipe!: GPUComputePipeline;
+  private ptreeScanLayout!: GPUBindGroupLayout;
+  private ptreeScanBind!: GPUBindGroup;
+  private ptreeFoldPipes: GPUComputePipeline[] = [];
+  private ptreeFoldLayout!: GPUBindGroupLayout;
+  private ptreeFoldBind!: GPUBindGroup;
+  private ptreeFinLayout!: GPUBindGroupLayout;
+  private ptreeResolvePipe!: GPUComputePipeline;
+  private ptreeResolveBinds: GPUBindGroup[] = [];
+  private ptreeSurvFinPipe!: GPUComputePipeline;
+  private ptreeSurvFinBinds: GPUBindGroup[] = [];
+  private ptreeScatterPipe!: GPUComputePipeline;
+  private ptreeScatterLayout!: GPUBindGroupLayout;
+  private ptreeScatterBinds: GPUBindGroup[] = [];
+  private ptreeArgsBuf: GPUBuffer | null = null;
+  private ptreeMetaRegion!: GPUBufferBinding;
+  private ptreeM = 0; // bind-time M_partials (desc planes + checker)
   private ptInitScanPipe!: GPUComputePipeline;
   private ptInitScanLayout!: GPUBindGroupLayout;
   private ptInitScanBind!: GPUBindGroup;
@@ -2407,6 +2454,9 @@ export class MsmV2 {
     const pbCfg = config?.pingpongBelow;
     m.pingpongBelow = pbCfg === undefined ? PINGPONG_BELOW_DEFAULT : pbCfg > 0 ? pbCfg : 0;
     m.highMemPingpong = (config?.highMemPingpong ?? false) || (m.pingpongBelow > 0 && n <= m.pingpongBelow);
+    m.ptree = config?.ptree ?? false;
+    m.ptreeTheta = config?.ptreeTheta ?? PTREE_THETA;
+    m.ptreeNoClear = config?.ptreeNoClear ?? false;
     m.perLevelJac = config?.perLevelJac ?? false;
     m.reduceSatThreshold =
       config?.reduceSatThreshold && config.reduceSatThreshold > 0 ? config.reduceSatThreshold : 8192;
@@ -2919,6 +2969,76 @@ export class MsmV2 {
       'uniform',
       'uniform',
     ]);
+    //   ptree scatter variant: idx_scatter + partial_count (rw, A2 mate of
+    //   layout), desc planes (rw), ptree_meta (rw atomic).
+    m.ptreeScatterLayout = lt([
+      'storage',
+      'read-only-storage',
+      'storage',
+      'storage',
+      'read-only-storage',
+      'storage',
+      'read-only-storage',
+      'read-only-storage',
+      'uniform',
+      'uniform',
+      'storage',
+      'storage',
+      'uniform',
+    ]);
+    //   ptree-args: ptree_meta (rw), active_meta (ro), level_args (rw), lvl.
+    m.ptreeArgsLayout = lt(['storage', 'read-only-storage', 'storage', 'uniform']);
+    //   ptree-level: arena_a2 (ro); partials_buf, pair_meta, desc, red_buf (rw);
+    //   window_desc (ro); partial_dest (rw — A1 mate of red_buf); params,
+    //   arena_off, lvl, batch_offset.
+    m.ptreeLevelLayout = lt([
+      'read-only-storage',
+      'storage',
+      'storage',
+      'storage',
+      'storage',
+      'read-only-storage',
+      'storage',
+      'uniform',
+      'uniform',
+      'uniform',
+      'uniform',
+    ]);
+    //   ptree-scan (post-resolve args): ptree_meta (rw atomic), level_args.
+    m.ptreeScanLayout = lt(['storage', 'storage']);
+    //   ptree-fold: ptree_meta (rw), arena_a2, partial_offset (ro), partials_buf
+    //   (rw... ro suffices but A3-mate safety), surv_scratch (rw); params,
+    //   arena_off, jac_params, bw_geom.
+    m.ptreeFoldLayout = lt([
+      'storage',
+      'read-only-storage',
+      'read-only-storage',
+      'read-only-storage',
+      'storage',
+      'uniform',
+      'uniform',
+      'uniform',
+      'uniform',
+    ]);
+    //   ptree finalize (resolve + survfin): meta (rw atomic), sorted actives,
+    //   active_meta, arena_a2, partial_offset (ro), partials_buf (ro),
+    //   surv_scratch (rw), red_buf (rw), window_desc (ro); 5 uniforms.
+    m.ptreeFinLayout = lt([
+      'storage',
+      'storage',
+      'read-only-storage',
+      'read-only-storage',
+      'storage',
+      'read-only-storage',
+      'storage',
+      'storage',
+      'read-only-storage',
+      'uniform',
+      'uniform',
+      'uniform',
+      'uniform',
+      'uniform',
+    ]);
     //   idx_sort: active_pairs, active_meta, bin_offsets, bin_write_pos(rw atomic),
     //   sorted_active_buckets(rw)
     m.idxSortLayout = lt([
@@ -3235,6 +3355,42 @@ export class MsmV2 {
       }
     }
     m.ptInitScanPipe = await compile(sm.gen_ba_walker_pt_init_scan_shader(m.BW), `pt-init-scan`, m.ptInitScanLayout);
+    if (m.ptree) {
+      m.ptreeScatterPipe = await compile(
+        sm.gen_ba_walker_idx_scatter_shader(WI_IDX_TPB, STREAM_S, STREAM_PLANNER_TPB, true),
+        `ptree-scatter`,
+        m.ptreeScatterLayout,
+      );
+      m.ptreeArgsPipe = await compile(
+        sm.gen_ba_walker_ptree_args_shader(PTREE_TPB, PTREE_S),
+        `ptree-args`,
+        m.ptreeArgsLayout,
+      );
+      m.ptreeLevelPipe = await compile(
+        sm.gen_ba_walker_ptree_level_shader(PTREE_TPB, PTREE_S),
+        `ptree-level`,
+        m.ptreeLevelLayout,
+      );
+      m.ptreeScanPipe = await compile(
+        sm.gen_ba_walker_ptree_scan_shader(PTREE_FIN_SN, 256),
+        `ptree-scan-args`,
+        m.ptreeScanLayout,
+      );
+      m.ptreeFoldPipes = [
+        await compile(sm.gen_ba_walker_ptree_fold_shader(PTREE_TPB, 2048), `ptree-fold-shallow`, m.ptreeFoldLayout),
+        await compile(sm.gen_ba_walker_ptree_fold_shader(PTREE_FOLD_TPB, 8192), `ptree-fold-deep`, m.ptreeFoldLayout),
+      ];
+      m.ptreeResolvePipe = await compile(
+        sm.gen_ba_walker_ptree_finalize_shader(256, PTREE_FIN_SN, 0),
+        `ptree-resolve`,
+        m.ptreeFinLayout,
+      );
+      m.ptreeSurvFinPipe = await compile(
+        sm.gen_ba_walker_ptree_finalize_shader(256, PTREE_FIN_SN, 1),
+        `ptree-survfin`,
+        m.ptreeFinLayout,
+      );
+    }
     // TPB = 64. With indirect dispatch from sort-scan's NUM_HOT-based args,
     // pt_init_copy/build/finalize launch ceil(NUM_HOT/64) WGs — no idle
     // workgroups. pt_combine launches ceil(total_tasks/S/64) per level.
@@ -4644,6 +4800,125 @@ export class MsmV2 {
           ]),
         );
         this.idxSortBind = mkBind(this.idxSortLayout, [abkts, acnt, boffs, bwpos, sabkts]);
+        if (this.ptree) {
+          // === Pair-tree binds. Regions inside ptScratch: descriptor planes
+          // right after the X/Y partial planes; meta (64 KB) + survivor
+          // scratch (1 MB) at the end of the slot.
+          // M_partials_walker (= 2*sT*sS) is the outer-scope value used by
+          // wiParams — the scatter's rem-plane offset MUST match the level
+          // kernels' params.w or every descriptor read lands off-plane.
+          const ptreeRegion = 64 * 1024 + 1024 * 1024;
+          const ptreeByteOff = Math.floor((slotSize(scratch.ptScratch) - ptreeRegion) / 256) * 256;
+          const descByteOff = 64 * M_partials_walker;
+          const descBytes = 8 * M_partials_walker;
+          if (descByteOff + descBytes > ptreeByteOff) {
+            throw new Error('ptree: ptScratch too small for desc + meta + survivor regions');
+          }
+          this.ptreeM = M_partials_walker;
+          const metaBind: GPUBufferBinding = {
+            buffer: slotBuf(scratch.ptScratch),
+            offset: slotOff(scratch.ptScratch) + ptreeByteOff,
+            size: 64 * 1024,
+          };
+          const survBind: GPUBufferBinding = {
+            buffer: slotBuf(scratch.ptScratch),
+            offset: slotOff(scratch.ptScratch) + ptreeByteOff + 64 * 1024,
+            size: 1024 * 1024,
+          };
+          const descBind: GPUBufferBinding = {
+            buffer: slotBuf(scratch.ptScratch),
+            offset: slotOff(scratch.ptScratch) + descByteOff,
+            size: descBytes,
+          };
+          this.ptreeMetaRegion = metaBind;
+          const a2Buf = slotBuf(scratch.partialCount);
+          if (slotBuf(scratch.partialLayout) !== a2Buf) {
+            throw new Error('ptree: partial_count and partial_layout must share arena A2');
+          }
+          const ptreeArenaOff = ubuf(
+            new Uint32Array([slotOff(scratch.partialCount) / 4, slotOff(scratch.partialLayout) / 4, 0, 0]),
+          );
+          const ptreeParams = ubuf(new Uint32Array([0, 0, 0, M_partials_walker]));
+          const ptreeBw = ubuf(new Uint32Array([this.BW, 0, 0, 0]));
+          const jpSurv = ubuf(new Uint32Array([0, 0, 0, 0]));
+          this.ptreeArgsBuf = device.createBuffer({
+            size: 20 * 16,
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.INDIRECT | GPUBufferUsage.COPY_DST,
+          });
+          this.prepBuffers.push(this.ptreeArgsBuf);
+          this.ptreeScatterBinds = batchWindowBaseBufs.map(bwb =>
+            mkBind(this.ptreeScatterLayout, [
+              pdest,
+              poffset,
+              pwpos,
+              a2Buf,
+              wp,
+              scratch.redBuf,
+              scratch.streamPlannerMeta,
+              windowDescBuf,
+              wiParams,
+              bwb,
+              descBind,
+              metaBind,
+              ptreeArenaOff,
+            ]),
+          );
+          this.ptreeArgsBinds = [];
+          const lvlBufs: GPUBuffer[] = [];
+          for (let k = 1; k <= PTREE_LEVELS; k++) {
+            const lvlBuf = ubuf(new Uint32Array([k, this.ptreeTheta, k === PTREE_LEVELS ? 1 : 0, 0]));
+            lvlBufs.push(lvlBuf);
+            this.ptreeArgsBinds.push(mkBind(this.ptreeArgsLayout, [metaBind, acnt, this.ptreeArgsBuf, lvlBuf]));
+          }
+          this.ptreeLevelBinds = batchWindowBaseBufs.map(bwb =>
+            lvlBufs.map(lvlBuf =>
+              mkBind(this.ptreeLevelLayout, [
+                a2Buf,
+                wp,
+                metaBind,
+                descBind,
+                scratch.redBuf,
+                windowDescBuf,
+                pdest,
+                ptreeParams,
+                ptreeArenaOff,
+                lvlBuf,
+                bwb,
+              ]),
+            ),
+          );
+          this.ptreeScanBind = mkBind(this.ptreeScanLayout, [metaBind, this.ptreeArgsBuf]);
+          this.ptreeFoldBind = mkBind(this.ptreeFoldLayout, [
+            metaBind,
+            a2Buf,
+            poffset,
+            wp,
+            survBind,
+            ptreeParams,
+            ptreeArenaOff,
+            jpSurv,
+            ptreeBw,
+          ]);
+          const finBind = (bwb: GPUBuffer): GPUBindGroup =>
+            mkBind(this.ptreeFinLayout, [
+              metaBind,
+              sabkts,
+              acnt,
+              a2Buf,
+              poffset,
+              wp,
+              survBind,
+              scratch.redBuf,
+              windowDescBuf,
+              ptreeParams,
+              bwb,
+              ptreeArenaOff,
+              ptreeBw,
+              jpSurv,
+            ]);
+          this.ptreeResolveBinds = batchWindowBaseBufs.map(bwb => finBind(bwb));
+          this.ptreeSurvFinBinds = batchWindowBaseBufs.map(bwb => finBind(bwb));
+        }
         if (this.wiProbe) {
           // Probe scratch regions inside ptScratch (u32 elements): exports at
           // 0, layout-model at 1024, fb-keyed model after 3×M cap (layout +
@@ -4979,6 +5254,11 @@ export class MsmV2 {
     // walkerPartialDest is cleared INSIDE the batch loop instead — see note
     // there. Cleared once here too would just be redundant.
     clearSlot(enc, this.pool.scratch!.threadCuts);
+    if (this.ptree && !this.ptreeNoClear) {
+      // Pair-tree meta region: zero before the scatter writes max-count and
+      // the resolve appends survivor lists.
+      clearSlot(enc, this.ptreeMetaRegion);
+    }
     clearSlot(enc, this.pool.scratch!.walkerPartials);
     clearSlot(enc, this.pool.scratch!.taskCuts);
     // Pair-tree alloc counter — claims start from 0 each MSM (legacy v1 buf).
@@ -5177,10 +5457,32 @@ export class MsmV2 {
         setPhase('wi_epilogue');
         dispatch(this.idxEpiloguePipe, this.idxEpilogueBind, 1, 1);
         setPhase('wi_scatter');
-        indirectDispatch(this.idxScatterPipe, this.idxScatterBinds[bi], wiArgs, 0);
+        if (this.ptree) {
+          indirectDispatch(this.ptreeScatterPipe, this.ptreeScatterBinds[bi], wiArgs, 0);
+        } else {
+          indirectDispatch(this.idxScatterPipe, this.idxScatterBinds[bi], wiArgs, 0);
+        }
         setPhase('wi_sort');
         indirectDispatch(this.idxSortPipe, this.idxSortBind, wiArgs, 24);
       }
+      if (this.ptree) {
+        // === Addition-centric pair-tree combine (?ptree=1): batched-affine
+        // levels over the whole partial stream with direct-close, then
+        // resolve routing + bounded folds + micro-batched survivor
+        // normalize. Replaces combine_batched AND the pt chain below.
+        setPhase('ptree');
+        for (let k = 1; k <= PTREE_LEVELS; k++) {
+          dispatch(this.ptreeArgsPipe, this.ptreeArgsBinds[k - 1], 1, 1);
+          indirectDispatch(this.ptreeLevelPipe, this.ptreeLevelBinds[bi][k - 1], this.ptreeArgsBuf!, 16 * k);
+        }
+        setPhase('ptree_tail');
+        indirectDispatch(this.ptreeResolvePipe, this.ptreeResolveBinds[bi], this.ptreeArgsBuf!, 0);
+        dispatch(this.ptreeScanPipe, this.ptreeScanBind, 1, 1);
+        indirectDispatch(this.ptreeFoldPipes[0], this.ptreeFoldBind, this.ptreeArgsBuf!, 16 * 18);
+        indirectDispatch(this.ptreeFoldPipes[1], this.ptreeFoldBind, this.ptreeArgsBuf!, 16 * 17);
+        setPhase('finalize');
+        indirectDispatch(this.ptreeSurvFinPipe, this.ptreeSurvFinBinds[bi], this.ptreeArgsBuf!, 16 * 19);
+      } else {
       setPhase('combine_batched');
       // combine_batched handles cool (N≤8) buckets. Pair-tree handles hot.
       indirectDispatch(this.combineBatchedPipe, this.combineBatchedBinds[bi], this.pool.scratch!.cbDispatchArgs, 0);
@@ -5227,6 +5529,7 @@ export class MsmV2 {
       }
       setPhase('pt_finalize');
       indirectDispatch(this.ptFinalizePipe, this.ptFinalizeBinds[bi], ptHotArgs, 0);
+      }
     }
     // High-mem ping-pong bridge: repack bucket_result (BW cols/window) into the
     // reduce's STRIDE-col red_buf + seed is_present, the same red_buf the walker
@@ -5412,6 +5715,126 @@ export class MsmV2 {
    * validation). Requires `splitC` + a prior `prepare()`. Returns the 256-bin
    * histogram and the per-scalar msb array; compare against {@link computeMsbHistogram}.
    */
+  /**
+   * Debug: validate the ptree scatter-built descriptors against
+   * partial_count/partial_offset (offsets carry SINGLE_FLAG in bit 31 on
+   * the walker_index v2 pipeline). Returns counts and first corrupt rows.
+   */
+  async debugDescCheck(): Promise<{
+    checked: number;
+    bad: number;
+    samples: string[];
+    pTotal: number;
+    classes: { micro: number; shallow: number; deep: number };
+    meta: number[];
+  }> {
+    const sc = this.pool.scratch!;
+    const M = this.ptreeM;
+    const cntBytes = this.bTotal * 4;
+    const offBytes = (this.bTotal + 1) * 4;
+    const descBytes = 8 * M;
+    const metaBytes = 128;
+    const staging = this.device.createBuffer({
+      size: cntBytes + offBytes + descBytes + metaBytes,
+      usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+    });
+    const enc = this.device.createCommandEncoder();
+    enc.copyBufferToBuffer(slotBuf(sc.partialCount), slotOff(sc.partialCount), staging, 0, cntBytes);
+    enc.copyBufferToBuffer(slotBuf(sc.partialOffset), slotOff(sc.partialOffset), staging, cntBytes, offBytes);
+    enc.copyBufferToBuffer(slotBuf(sc.ptScratch), slotOff(sc.ptScratch) + 64 * M, staging, cntBytes + offBytes, descBytes);
+    enc.copyBufferToBuffer(
+      slotBuf(this.ptreeMetaRegion),
+      this.ptreeMetaRegion.offset ?? 0,
+      staging,
+      cntBytes + offBytes + descBytes,
+      metaBytes,
+    );
+    this.device.queue.submit([enc.finish()]);
+    await staging.mapAsync(GPUMapMode.READ);
+    const u = new Uint32Array(staging.getMappedRange().slice(0));
+    staging.unmap();
+    staging.destroy();
+    const cnt = u.subarray(0, this.bTotal);
+    const off = u.subarray(this.bTotal, 2 * this.bTotal + 1);
+    const desc = u.subarray(2 * this.bTotal + 1, 2 * this.bTotal + 1 + 2 * M);
+    const meta = Array.from(u.subarray(2 * this.bTotal + 1 + 2 * M, 2 * this.bTotal + 1 + 2 * M + 32));
+    let pTotal = 0;
+    let checked = 0;
+    let bad = 0;
+    const samples: string[] = [];
+    const kstar = meta[20];
+    const thr = 1 << Math.max(kstar, 1) - 1;
+    const classes = { micro: 0, shallow: 0, deep: 0 };
+    for (let fb = 0; fb < this.bTotal; fb++) {
+      const c = cnt[fb];
+      if (c === 0) continue;
+      pTotal += c;
+      if (c > thr) {
+        const nr = Math.ceil(c / thr);
+        if (nr <= 8) classes.micro++;
+        else if (nr <= 64) classes.shallow++;
+        else classes.deep++;
+      }
+      const o = off[fb] & 0x7fffffff;
+      for (let j = 0; j < c; j++) {
+        checked++;
+        const rel = desc[o + j];
+        const rem = desc[M + o + j];
+        if (rel !== j || rem !== c - j) {
+          bad++;
+          if (samples.length < 8) samples.push(`fb=${fb} cnt=${c} j=${j} pos=${o + j} rel=${rel} rem=${rem}`);
+        }
+      }
+    }
+    return { checked, bad, samples, pTotal, classes, meta };
+  }
+
+  /** Debug: snapshot the first n red_buf slots' x-halves (32 B each).
+   *  n=0 snapshots the whole x-plane (half the red slot). */
+  async debugRedSnapshot(n: number): Promise<Uint32Array> {
+    const sc = this.pool.scratch!;
+    if (n === 0) n = Math.floor(slotSize(sc.redBuf) / 64);
+    const staging = this.device.createBuffer({
+      size: n * 32,
+      usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+    });
+    const enc = this.device.createCommandEncoder();
+    enc.copyBufferToBuffer(slotBuf(sc.redBuf), slotOff(sc.redBuf), staging, 0, n * 32);
+    this.device.queue.submit([enc.finish()]);
+    await staging.mapAsync(GPUMapMode.READ);
+    const u = new Uint32Array(staging.getMappedRange().slice(0));
+    staging.unmap();
+    staging.destroy();
+    return u;
+  }
+
+  /** Debug: the per-bucket partial counts (flat fb space). */
+  async debugCounts(): Promise<Uint32Array> {
+    const sc = this.pool.scratch!;
+    const staging = this.device.createBuffer({
+      size: this.bTotal * 4,
+      usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+    });
+    const enc = this.device.createCommandEncoder();
+    enc.copyBufferToBuffer(slotBuf(sc.partialCount), slotOff(sc.partialCount), staging, 0, this.bTotal * 4);
+    this.device.queue.submit([enc.finish()]);
+    await staging.mapAsync(GPUMapMode.READ);
+    const u = new Uint32Array(staging.getMappedRange().slice(0));
+    staging.unmap();
+    staging.destroy();
+    return u;
+  }
+
+  /** Debug: red-slot → (window, mag) via the reduce offsets table. */
+  redSlotToBid(slot: number): { window: number; mag: number } {
+    let w = 0;
+    for (let i = 0; i < this.reduceOffsets.length; i++) {
+      if (this.reduceOffsets[i] <= slot) w = i;
+      else break;
+    }
+    return { window: w, mag: slot - this.reduceOffsets[w] + 1 };
+  }
+
   async debugMsbHistogram(): Promise<{ hist: Uint32Array; msbPerScalar: Uint32Array }> {
     if (this.preparedFor === null) throw new Error('MsmV2.debugMsbHistogram: call prepare() first');
     if (!this.msbHistBind || !this.msbHistBuf || !this.msbPerScalarBuf) {

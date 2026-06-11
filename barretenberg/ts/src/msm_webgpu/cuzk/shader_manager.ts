@@ -29,6 +29,11 @@ import {
   ba_walker_idx_alloc as ba_walker_idx_alloc_shader,
   ba_walker_idx_epilogue as ba_walker_idx_epilogue_shader,
   ba_walker_idx_scatter as ba_walker_idx_scatter_shader,
+  ba_walker_ptree_args as ba_walker_ptree_args_shader,
+  ba_walker_ptree_level as ba_walker_ptree_level_shader,
+  ba_walker_ptree_scan as ba_walker_ptree_scan_shader,
+  ba_walker_ptree_fold as ba_walker_ptree_fold_shader,
+  ba_walker_ptree_finalize as ba_walker_ptree_finalize_shader,
   ba_walker_idx_sort as ba_walker_idx_sort_shader,
   ba_walker_idx_p1 as ba_walker_idx_p1_shader,
   ba_walker_idx_p2 as ba_walker_idx_p2_shader,
@@ -1489,8 +1494,9 @@ ${packLines.join('\n')}
     return mustache.render(ba_walker_idx_epilogue_shader, { sort_tpb, recompile: this.recompile });
   }
 
-  public gen_ba_walker_idx_scatter_shader(workgroup_size: number, s: number, thread_tpb: number): string {
-    return mustache.render(ba_walker_idx_scatter_shader, { workgroup_size, s, thread_tpb, recompile: this.recompile });
+  public gen_ba_walker_idx_scatter_shader(workgroup_size: number, s: number, thread_tpb: number, ptree_desc = false): string {
+    return mustache.render(ba_walker_idx_scatter_shader, { workgroup_size,
+      ptree_desc, s, thread_tpb, recompile: this.recompile });
   }
 
   public gen_ba_walker_idx_sort_shader(workgroup_size: number): string {
@@ -1668,6 +1674,69 @@ ${packLines.join('\n')}
         inverse_funcs,
       },
     );
+  }
+
+  private jacKernelContext(extra: Record<string, unknown>): [Record<string, unknown>, Record<string, string>] {
+    const dec = this.decoupledPackUnpackWgsl();
+    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    return [
+      {
+        ...extra,
+        p8_consts,
+        r8_csv,
+        f8_words,
+        f8_native: this.montmul === 'cios_unrolled',
+        word_size: this.word_size,
+        num_words: this.num_words,
+        n0: this.n0,
+        p_limbs: this.p_limbs,
+        r_limbs: this.r_limbs,
+        mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size,
+        p_inv_mod_2w: this.p_inv_mod_2w,
+        p_inv_by_a_lo: this.p_inv_by_a_lo,
+        dec_unpack: dec.unpack,
+        dec_pack: dec.pack,
+        recompile: this.recompile,
+      },
+      {
+        structs,
+        bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        montgomery_product_f8_native: this.mont_f8_native_src,
+        field_funcs,
+        field8_funcs,
+        bigint_by_funcs,
+        inverse_funcs: by_inverse_loop_pk14_native_funcs,
+      },
+    ];
+  }
+
+  public gen_ba_walker_ptree_args_shader(workgroup_size: number, s: number): string {
+    return mustache.render(ba_walker_ptree_args_shader, { workgroup_size, s, recompile: this.recompile });
+  }
+
+  public gen_ba_walker_ptree_level_shader(workgroup_size: number, s: number): string {
+    const [ctx, partials] = this.jacKernelContext({ workgroup_size, s, inv_fn: 'fr_inv_by_loop_pk' });
+    return mustache.render(ba_walker_ptree_level_shader, ctx, partials);
+  }
+
+  public gen_ba_walker_ptree_scan_shader(sn: number, fin_tpb: number): string {
+    return mustache.render(ba_walker_ptree_scan_shader, {
+      sn,
+      fin_tpb,
+      recompile: this.recompile,
+    });
+  }
+
+  public gen_ba_walker_ptree_fold_shader(workgroup_size: number, list_base: number): string {
+    const [ctx, partials] = this.jacKernelContext({ workgroup_size, wg_words: workgroup_size * 8, list_base });
+    return mustache.render(ba_walker_ptree_fold_shader, ctx, partials);
+  }
+
+  public gen_ba_walker_ptree_finalize_shader(workgroup_size: number, sn: number, mode: number): string {
+    const [ctx, partials] = this.jacKernelContext({ workgroup_size, sn, mode, inv_fn: 'fr_inv_by_loop_pk' });
+    return mustache.render(ba_walker_ptree_finalize_shader, ctx, partials);
   }
 
   public gen_ba_walker_combine_batched_shader(
