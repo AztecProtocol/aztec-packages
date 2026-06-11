@@ -39,6 +39,10 @@ export class SchnorrInitializerlessAccountContract extends SchnorrBaseAccountCon
     super(signingPrivateKey);
   }
 
+  override getInitializationFunctionAndArgs() {
+    return Promise.resolve(undefined);
+  }
+
   override getContractArtifact(): Promise<ContractArtifact> {
     return getSchnorrInitializerlessAccountContractArtifact();
   }
