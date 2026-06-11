@@ -5995,8 +5995,16 @@ fn pk_is_zero(x: array<u32, 10>) -> bool {
     let a = x[0] | x[1] | x[2] | x[3] | x[4] | x[5] | x[6] | x[7] | x[8] | x[9];
     return a == 0u;
 }
+// w6 twin for the shrunken-f/g tail (outers 24+): the value lives entirely in
+// words 0-5 there (sign limb = word 5 lo), words 6-9 are stale.
+fn pk_is_zero_w6(x: array<u32, 10>) -> bool {
+    let a = x[0] | x[1] | x[2] | x[3] | x[4] | x[5];
+    return a == 0u;
+}
 // Sign bit = bit 13 of limb 18 = bit 13 of word 9.
 fn pk_is_neg_2c(x: array<u32, 10>) -> bool { return ((x[9] >> 13u) & 1u) == 1u; }
+// w6 twin: sign limb is word 5 lo after the shrunken tail.
+fn pk_is_neg_2c_w6(x: array<u32, 10>) -> bool { return ((x[5] >> 13u) & 1u) == 1u; }
 
 // a + b over the ten 28-bit limbs (word 9 the 14-bit top), two's complement.
 fn pk_neg_inplace(x: ptr<function, array<u32, 10>>) {
@@ -6231,6 +6239,99 @@ fn pk_apply_matrix_fg(m: vec4i, f: ptr<function, array<u32, 10>>, g: ptr<functio
       (*f)[9u] = u32(nft >> 14u) & 0x3fffu; (*g)[9u] = u32(ngt >> 14u) & 0x3fffu; }
 }
 
+// Fixed 6-word (11-limb) variant of pk_apply_matrix_fg for the tail outers
+// (24+), where |f|,|g| have provably shrunk. Bernstein-Yang: any 254-bit
+// input needs <= 735 divsteps, and max(|f|,|g|) loses >= 17/49 bits per
+// divstep once past the trailing-zero plateau (<= 253 divsteps). At outer 24
+// (n = 672 divsteps done): bits <= 254 - (17/49)*(672-253) = 108.6 -> 8
+// significant limbs; +3 guard limbs = 11 = this variant's two's-complement
+// space (sign limb = word 5 lo, mirroring word 9 lo in the full version).
+// Words 6-9 of f/g are left stale — pk_is_zero_w6 / pk_is_neg_2c_w6 are the
+// only valid full-value reads afterwards. Entry from the full representation
+// needs no conversion: a value of <= 108 bits has limbs 8..18 all sign
+// extension, so reading word 5 lo as the sx14 sign limb is exact.
+// Fixed-length on purpose — a dynamic loop bound forces f/g out of
+// registers (measured 1.8x slower on Metal). Exactly two variants on
+// purpose — more regressed from the extra 10-word temporaries.
+fn pk_apply_matrix_fg_w6(m: vec4i, f: ptr<function, array<u32, 10>>, g: ptr<function, array<u32, 10>>) {
+    let u_lo: i32 = m[0] & 0x3fff; let u_hi: i32 = m[0] >> 14u;
+    let v_lo: i32 = m[1] & 0x3fff; let v_hi: i32 = m[1] >> 14u;
+    let q_lo: i32 = m[2] & 0x3fff; let q_hi: i32 = m[2] >> 14u;
+    let r_lo: i32 = m[3] & 0x3fff; let r_hi: i32 = m[3] >> 14u;
+    var cf: i32 = 0; var cg: i32 = 0; var fp: i32 = 0; var gp: i32 = 0;
+
+    var active_f: i32 = i32((*f)[0u]);
+    var active_g: i32 = i32((*g)[0u]);
+    var flo = active_f & 0x3fff;
+    var fhi = active_f >> 14u;
+    var glo = active_g & 0x3fff;
+    var ghi = active_g >> 14u;
+    {
+        let nf = u_lo*(flo) + v_lo*(glo) + u_hi*fp + v_hi*gp + cf;
+        cf = nf >> 14u;
+        let ng = q_lo*(flo) + r_lo*(glo) + q_hi*fp + r_hi*gp + cg;
+        cg = ng >> 14u;
+    }
+    {
+        let nf = u_lo*fhi + v_lo*ghi + u_hi*flo + v_hi*glo + cf;
+        cf = nf >> 14u;
+        let ng = q_lo*fhi + r_lo*ghi + q_hi*flo + r_hi*glo + cg;
+        cg = ng >> 14u;
+    }
+    {
+        active_f = i32((*f)[1u]);
+        active_g = i32((*g)[1u]);
+        flo = active_f & 0x3fff;
+        glo = active_g & 0x3fff;
+        let nf = u_lo*flo + v_lo*glo + u_hi*fhi + v_hi*ghi + cf;
+        cf = nf >> 14u;
+        let ng = q_lo*flo + r_lo*glo + q_hi*fhi + r_hi*ghi + cg;
+        cg = ng >> 14u;
+        (*f)[0u] = u32(nf) & 0x3fffu;
+        (*g)[0u] = u32(ng) & 0x3fffu;
+    }
+    {
+        fhi = active_f >> 14u;
+        ghi = active_g >> 14u;
+        let nf = u_lo*fhi + v_lo*ghi + u_hi*flo + v_hi*glo + cf;
+        cf = nf >> 14u;
+        let ng = q_lo*fhi + r_lo*ghi + q_hi*flo + r_hi*glo + cg;
+        cg = ng >> 14u;
+        (*f)[0u] |= ((u32(nf) & 0x3fffu) << 14u);
+        (*g)[0u] |= ((u32(ng) & 0x3fffu) << 14u);
+        fp = fhi;
+        gp = ghi;
+    }
+    // word 2 (limbs 4,5) -> output word 1
+    { active_f = i32((*f)[2u]); active_g = i32((*g)[2u]); flo = active_f & 0x3fff; glo = active_g & 0x3fff;
+      let nf = u_lo*flo + v_lo*glo + u_hi*fhi + v_hi*ghi + cf; cf = nf >> 14u; let ng = q_lo*flo + r_lo*glo + q_hi*fhi + r_hi*ghi + cg; cg = ng >> 14u;
+      (*f)[1u] = u32(nf) & 0x3fffu; (*g)[1u] = u32(ng) & 0x3fffu; }
+    { fhi = active_f >> 14u; ghi = active_g >> 14u;
+      let nf = u_lo*fhi + v_lo*ghi + u_hi*flo + v_hi*glo + cf; cf = nf >> 14u; let ng = q_lo*fhi + r_lo*ghi + q_hi*flo + r_hi*glo + cg; cg = ng >> 14u;
+      (*f)[1u] |= ((u32(nf) & 0x3fffu) << 14u); (*g)[1u] |= ((u32(ng) & 0x3fffu) << 14u); }
+    // word 3 (limbs 6,7) -> output word 2
+    { active_f = i32((*f)[3u]); active_g = i32((*g)[3u]); flo = active_f & 0x3fff; glo = active_g & 0x3fff;
+      let nf = u_lo*flo + v_lo*glo + u_hi*fhi + v_hi*ghi + cf; cf = nf >> 14u; let ng = q_lo*flo + r_lo*glo + q_hi*fhi + r_hi*ghi + cg; cg = ng >> 14u;
+      (*f)[2u] = u32(nf) & 0x3fffu; (*g)[2u] = u32(ng) & 0x3fffu; }
+    { fhi = active_f >> 14u; ghi = active_g >> 14u;
+      let nf = u_lo*fhi + v_lo*ghi + u_hi*flo + v_hi*glo + cf; cf = nf >> 14u; let ng = q_lo*fhi + r_lo*ghi + q_hi*flo + r_hi*glo + cg; cg = ng >> 14u;
+      (*f)[2u] |= ((u32(nf) & 0x3fffu) << 14u); (*g)[2u] |= ((u32(ng) & 0x3fffu) << 14u); }
+    // word 4 (limbs 8,9) -> output word 3
+    { active_f = i32((*f)[4u]); active_g = i32((*g)[4u]); flo = active_f & 0x3fff; glo = active_g & 0x3fff;
+      let nf = u_lo*flo + v_lo*glo + u_hi*fhi + v_hi*ghi + cf; cf = nf >> 14u; let ng = q_lo*flo + r_lo*glo + q_hi*fhi + r_hi*ghi + cg; cg = ng >> 14u;
+      (*f)[3u] = u32(nf) & 0x3fffu; (*g)[3u] = u32(ng) & 0x3fffu; }
+    { fhi = active_f >> 14u; ghi = active_g >> 14u;
+      let nf = u_lo*fhi + v_lo*ghi + u_hi*flo + v_hi*glo + cf; cf = nf >> 14u; let ng = q_lo*fhi + r_lo*ghi + q_hi*flo + r_hi*glo + cg; cg = ng >> 14u;
+      (*f)[3u] |= ((u32(nf) & 0x3fffu) << 14u); (*g)[3u] |= ((u32(ng) & 0x3fffu) << 14u); }
+    // word 5 (limb 10, sign-extended) -> output word 4 lo; tail -> word 4 hi + word 5 lo
+    { active_f = i32((*f)[5u]); active_g = i32((*g)[5u]); flo = sx14(active_f & 0x3fff); glo = sx14(active_g & 0x3fff);
+      let nf = u_lo*flo + v_lo*glo + u_hi*fhi + v_hi*ghi + cf; cf = nf >> 14u; let ng = q_lo*flo + r_lo*glo + q_hi*fhi + r_hi*ghi + cg; cg = ng >> 14u;
+      (*f)[4u] = u32(nf) & 0x3fffu; (*g)[4u] = u32(ng) & 0x3fffu; }
+    { let nft = u_hi*flo + v_hi*glo + cf; let ngt = q_hi*flo + r_hi*glo + cg;
+      (*f)[4u] |= ((u32(nft) & 0x3fffu) << 14u); (*g)[4u] |= ((u32(ngt) & 0x3fffu) << 14u);
+      (*f)[5u] = u32(nft >> 14u) & 0x3fffu; (*g)[5u] = u32(ngt >> 14u) & 0x3fffu; }
+}
+
 // u v q r
 // (d,e) <- ((u*d+v*e+k_d*q) >> 28, (q*d+r*e+k_e*q) >> 28), in place. k*q cancels the
 // low 28 bits (limbs 0,1); the >>28 starts at the carry into limb 2.
@@ -6411,11 +6512,20 @@ fn fr_inv_by_loop_pk(a8: array<u32, 8>) -> array<u32, 8> {
         pk_reduce_to_canonical_inplace(&d);
         pk_reduce_to_canonical_inplace(&e);
     }
-    if (!done) { let m = byl_divsteps(&delta, pk_low_u32(f), pk_low_u32(g)); pk_apply_matrix_fg(m, &f, &g); pk_apply_matrix_de(m, &d, &e); if (pk_is_zero(g)) { done = true; } }
-    if (!done) { let m = byl_divsteps(&delta, pk_low_u32(f), pk_low_u32(g)); pk_apply_matrix_fg(m, &f, &g); pk_apply_matrix_de(m, &d, &e); if (pk_is_zero(g)) { done = true; } }
-    if (!done) { let m = byl_divsteps(&delta, pk_low_u32(f), pk_low_u32(g)); pk_apply_matrix_fg(m, &f, &g); pk_apply_matrix_de(m, &d, &e); if (pk_is_zero(g)) { done = true; } }
+    // Tail outers 24-26: f/g have provably shrunk to <= 8 significant limbs
+    // (see pk_apply_matrix_fg_w6), so the 6-word apply + w6 value reads are
+    // exact. f/g words 6-9 are stale from here on.
+    if (!done) { let m = byl_divsteps(&delta, pk_low_u32(f), pk_low_u32(g)); pk_apply_matrix_fg_w6(m, &f, &g); pk_apply_matrix_de(m, &d, &e); if (pk_is_zero_w6(g)) { done = true; } }
+    if (!done) { let m = byl_divsteps(&delta, pk_low_u32(f), pk_low_u32(g)); pk_apply_matrix_fg_w6(m, &f, &g); pk_apply_matrix_de(m, &d, &e); if (pk_is_zero_w6(g)) { done = true; } }
+    if (!done) { let m = byl_divsteps(&delta, pk_low_u32(f), pk_low_u32(g)); pk_apply_matrix_fg_w6(m, &f, &g); pk_apply_matrix_de(m, &d, &e); if (pk_is_zero_w6(g)) { done = true; } }
     pk_reduce_to_canonical_inplace(&d);
-    if (pk_is_neg_2c(f)) { pk_neg_inplace(&d); pk_reduce_to_canonical_inplace(&d); }
+    // Sign of f via the w6 limb: valid in both representations. If the w6
+    // tail ran, word 5 lo IS the sign limb. If done fired earlier, f is a
+    // full rep of +/-1 (g = 0 => f = +/-gcd = +/-1 for prime q), whose sign
+    // extension reaches word 5. Sole exception: a8 = 0 terminates with
+    // f = q, where this read is meaningless — but then d = 0, so the
+    // conditional negation is a no-op either way.
+    if (pk_is_neg_2c_w6(f)) { pk_neg_inplace(&d); pk_reduce_to_canonical_inplace(&d); }
     return pk_to_packed(d);
 }
 `;
