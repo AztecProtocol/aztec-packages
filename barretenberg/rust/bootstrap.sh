@@ -9,8 +9,13 @@ function build {
   echo_header "barretenberg-rs build"
 
   if ! cache_download barretenberg-rs-$hash.tar.gz; then
-    # Generate Rust bindings from msgpack schema (uses ts-node, no build needed)
-    (cd ../ts && yarn generate)
+    # Generate Rust bindings from msgpack schema via ipc-codegen.
+    (cd barretenberg-rs && node --experimental-strip-types --experimental-transform-types --no-warnings \
+      ../../../ipc-codegen/src/generate.ts \
+      --schema ../../cpp/src/barretenberg/bbapi/bb_schema.json \
+      --lang rust --client --ffi --strip-method-prefix \
+      --out src/generated \
+      --prefix Bb)
 
     # Build all targets
     # BB_LIB_DIR tells build.rs to use local lib instead of downloading (ffi feature is on by default)
@@ -18,7 +23,7 @@ function build {
     BB_LIB_DIR="$(cd ../cpp/build/lib && pwd)" denoise "cargo build --release"
 
     # Upload build artifacts and generated source files to cache
-    cache_upload barretenberg-rs-$hash.tar.gz target/release barretenberg-rs/src/generated_types.rs barretenberg-rs/src/api.rs
+    cache_upload barretenberg-rs-$hash.tar.gz target/release barretenberg-rs/src/generated
   fi
 }
 
@@ -36,9 +41,8 @@ function test {
     source "$HOME/.cargo/env"
   fi
 
-  # Run PipeBackend tests (spawns bb binary)
-  # Use --no-default-features to skip FFI (which requires libbb-external.a)
-  denoise "cargo test --release --no-default-features --features native"
+  # PipeBackend tests were dropped along with `--features native` when bb-rs
+  # migrated to ipc-codegen + ipc-runtime; only the FFI backend remains.
 
   # Run FFI backend tests (requires libbb-external.a from cpp build)
   # BB_LIB_DIR tells build.rs to use local lib instead of downloading
@@ -55,9 +59,14 @@ function release {
   sed -i "s/^version = \".*\"/version = \"$version\"/" Cargo.toml
 
   # Generated files must exist (created during build step, or generate now)
-  if [ ! -f barretenberg-rs/src/api.rs ] || [ ! -f barretenberg-rs/src/generated_types.rs ]; then
-    echo "Generated files not found, running yarn generate..."
-    (cd ../ts && yarn generate)
+  if [ ! -f barretenberg-rs/src/generated/bb_client.rs ] || [ ! -f barretenberg-rs/src/generated/bb_types.rs ]; then
+    echo "Generated files not found, running ipc-codegen..."
+    (cd barretenberg-rs && node --experimental-strip-types --experimental-transform-types --no-warnings \
+      ../../../ipc-codegen/src/generate.ts \
+      --schema ../../cpp/src/barretenberg/bbapi/bb_schema.json \
+      --lang rust --client --ffi --strip-method-prefix \
+      --out src/generated \
+      --prefix Bb)
   fi
 
   # Check if this version is already published on crates.io (idempotent re-runs).
