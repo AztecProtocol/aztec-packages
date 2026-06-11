@@ -19,8 +19,8 @@ import {
   type L2BlockSource,
   L2BlockStream,
   type L2BlockStreamEvent,
-  type L2Tips,
   type L2TipsStore,
+  type LocalL2Tips,
 } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
@@ -148,7 +148,7 @@ export class P2PClient extends WithTracer implements P2P {
     this.p2pService.updateConfig(config);
   }
 
-  public getL2Tips(): Promise<L2Tips> {
+  public getL2Tips(): Promise<LocalL2Tips> {
     return this.l2Tips.getL2Tips();
   }
 
@@ -174,7 +174,7 @@ export class P2PClient extends WithTracer implements P2P {
         break;
       case 'chain-pruned':
         this.txCollection.stopCollectingForBlocksAfter(event.block.number);
-        await this.handlePruneL2Blocks(event.block, event.checkpoint);
+        await this.handlePruneL2Blocks(event.block, event.checkpointed.checkpoint);
         break;
       case 'chain-checkpointed':
         break;

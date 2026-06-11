@@ -1,6 +1,5 @@
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 
-import type { PublishedCheckpoint } from '../../checkpoint/published_checkpoint.js';
 import type { BlockHash } from '../block_hash.js';
 import type { L2Block } from '../l2_block.js';
 import {
@@ -8,7 +7,7 @@ import {
   GENESIS_CHECKPOINT_HEADER_HASH,
   type L2BlockId,
   type L2BlockTag,
-  type L2Tips,
+  type LocalL2Tips,
 } from '../l2_block_source.js';
 import type { L2BlockStreamEvent, L2BlockStreamEventHandler, L2BlockStreamLocalDataProvider } from './interfaces.js';
 
@@ -26,6 +25,12 @@ export abstract class L2TipsStoreBase implements L2BlockStreamEventHandler, L2Bl
   /** Sets the block number for a given tag. */
   protected abstract setTip(tag: L2BlockTag, blockNumber: BlockNumber): Promise<void>;
 
+  /** Gets the checkpoint id recorded for a given tag, if any. */
+  protected abstract getTipCheckpoint(tag: L2BlockTag): Promise<CheckpointId | undefined>;
+
+  /** Records the checkpoint id for a given tag. */
+  protected abstract setTipCheckpoint(tag: L2BlockTag, checkpoint: CheckpointId): Promise<void>;
+
   /** Gets the block hash for a given block number. */
   protected abstract getStoredBlockHash(blockNumber: BlockNumber): Promise<string | undefined>;
 
@@ -34,27 +39,6 @@ export abstract class L2TipsStoreBase implements L2BlockStreamEventHandler, L2Bl
 
   /** Deletes all block hashes for blocks before the given block number. */
   protected abstract deleteBlockHashesBefore(blockNumber: BlockNumber): Promise<void>;
-
-  /** Gets the checkpoint number for a given block number. */
-  protected abstract getCheckpointNumberForBlock(blockNumber: BlockNumber): Promise<CheckpointNumber | undefined>;
-
-  /** Sets the checkpoint number for a given block number. */
-  protected abstract setCheckpointNumberForBlock(
-    blockNumber: BlockNumber,
-    checkpointNumber: CheckpointNumber,
-  ): Promise<void>;
-
-  /** Deletes all block-to-checkpoint mappings for blocks before the given block number. */
-  protected abstract deleteBlockToCheckpointBefore(blockNumber: BlockNumber): Promise<void>;
-
-  /** Gets a checkpoint by its number. */
-  protected abstract getCheckpoint(checkpointNumber: CheckpointNumber): Promise<PublishedCheckpoint | undefined>;
-
-  /** Saves a checkpoint. */
-  protected abstract saveCheckpointData(checkpoint: PublishedCheckpoint): Promise<void>;
-
-  /** Deletes all checkpoints before the given checkpoint number. */
-  protected abstract deleteCheckpointsBefore(checkpointNumber: CheckpointNumber): Promise<void>;
 
   /** Runs the given function in a transaction. Memory stores can just execute immediately. */
   protected abstract runInTransaction<T>(fn: () => Promise<T>): Promise<T>;
@@ -68,31 +52,26 @@ export abstract class L2TipsStoreBase implements L2BlockStreamEventHandler, L2Bl
     return this.getStoredBlockHash(number);
   }
 
-  public getL2Tips(): Promise<L2Tips> {
+  public getL2Tips(): Promise<LocalL2Tips> {
     return this.runInTransaction(async () => {
-      const [proposedBlockId, finalizedBlockId, provenBlockId, checkpointedBlockId, proposedCheckpointBlockId] =
-        await Promise.all([
-          this.getBlockId('proposed'),
-          this.getBlockId('finalized'),
-          this.getBlockId('proven'),
-          this.getBlockId('checkpointed'),
-          this.getBlockId('proposedCheckpoint'),
-        ]);
+      const [proposedBlockId, finalizedBlockId, provenBlockId, checkpointedBlockId] = await Promise.all([
+        this.getBlockId('proposed'),
+        this.getBlockId('finalized'),
+        this.getBlockId('proven'),
+        this.getBlockId('checkpointed'),
+      ]);
 
-      const [finalizedCheckpointId, provenCheckpointId, checkpointedCheckpointId, proposedCheckpointId] =
-        await Promise.all([
-          this.getCheckpointId('finalized'),
-          this.getCheckpointId('proven'),
-          this.getCheckpointId('checkpointed'),
-          this.getCheckpointId('proposedCheckpoint'),
-        ]);
+      const [finalizedCheckpointId, provenCheckpointId, checkpointedCheckpointId] = await Promise.all([
+        this.getCheckpointId('finalized'),
+        this.getCheckpointId('proven'),
+        this.getCheckpointId('checkpointed'),
+      ]);
 
       return {
         proposed: proposedBlockId,
         finalized: { block: finalizedBlockId, checkpoint: finalizedCheckpointId },
         proven: { block: provenBlockId, checkpoint: provenCheckpointId },
         checkpointed: { block: checkpointedBlockId, checkpoint: checkpointedCheckpointId },
-        proposedCheckpoint: { block: proposedCheckpointBlockId, checkpoint: proposedCheckpointId },
       };
     });
   }
@@ -139,17 +118,21 @@ export abstract class L2TipsStoreBase implements L2BlockStreamEventHandler, L2Bl
   private async getCheckpointId(tag: L2BlockTag): Promise<CheckpointId> {
     const blockNumber = await this.getTip(tag);
     if (blockNumber === undefined || blockNumber === 0) {
-      return { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() };
+      return this.genesisCheckpointId();
     }
-    const checkpointNumber = await this.getCheckpointNumberForBlock(blockNumber);
-    if (checkpointNumber === undefined) {
-      return { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() };
+    // The checkpoint id recorded for this cursor when it was last advanced is the single source of truth.
+    // The writers (handleChainCheckpointed/Proven/Finalized/Pruned) always record an id alongside any
+    // non-genesis cursor advance, so a missing id on a real block is genuine store corruption. Fail loudly
+    // rather than silently reporting checkpoint zero, which would drive a checkpoint-replay storm.
+    const storedCheckpoint = await this.getTipCheckpoint(tag);
+    if (storedCheckpoint !== undefined) {
+      return storedCheckpoint;
     }
-    const checkpoint = await this.getCheckpoint(checkpointNumber);
-    if (!checkpoint) {
-      throw new Error(`Checkpoint not found for checkpoint number ${checkpointNumber}`);
-    }
-    return { number: checkpointNumber, hash: checkpoint.checkpoint.hash().toString() };
+    throw new Error(`No checkpoint id recorded for ${tag} tip at block ${blockNumber}; the L2 tips store is corrupted`);
+  }
+
+  private genesisCheckpointId(): CheckpointId {
+    return { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() };
   }
 
   private async handleBlocksAdded(event: L2BlockStreamEvent): Promise<void> {
@@ -170,14 +153,12 @@ export abstract class L2TipsStoreBase implements L2BlockStreamEventHandler, L2Bl
       return;
     }
     await this.runInTransaction(async () => {
+      const checkpointId: CheckpointId = {
+        number: event.checkpoint.checkpoint.number,
+        hash: event.checkpoint.checkpoint.hash().toString(),
+      };
       await this.saveTag('checkpointed', event.block);
-      await this.saveCheckpoint(event.checkpoint);
-      // proposedCheckpoint is always >= checkpointed. If checkpointed has caught up
-      // or surpassed it, advance proposedCheckpoint to match.
-      const proposedCheckpointBlock = await this.getBlockId('proposedCheckpoint');
-      if (event.block.number > proposedCheckpointBlock.number) {
-        await this.saveTag('proposedCheckpoint', event.block);
-      }
+      await this.setTipCheckpoint('checkpointed', checkpointId);
     });
   }
 
@@ -188,13 +169,24 @@ export abstract class L2TipsStoreBase implements L2BlockStreamEventHandler, L2Bl
     await this.runInTransaction(async () => {
       // A prune is a rollback: the proposed tip moves to the prune target unconditionally, but
       // checkpoint-bearing cursors may only move backward. Forward-advancing them onto an
-      // uncheckpointed block leaves them on a block with no checkpoint mapping, which getCheckpointId
-      // would otherwise resolve to checkpoint zero and drive a replay storm.
+      // uncheckpointed block leaves them on a block with no recorded checkpoint id, which getCheckpointId
+      // would then throw on.
       await this.saveTag('proposed', event.block);
-      for (const tag of ['checkpointed', 'proposedCheckpoint', 'proven'] as const) {
+
+      // Clamp each checkpoint-bearing cursor down to its OWN source tip when it leads it. Clamping the proven
+      // cursor onto the checkpointed tip would transiently report unproven blocks as proven (the source's proven
+      // tip can sit below its checkpointed tip after a proof-tx reorg), until the corrective chain-proven event
+      // lands at the end of the same sync iteration. The event carries a valid (block, id) pair for each
+      // boundary, so the clamped cursor always resolves to a recorded id. The source guarantees proven <=
+      // checkpointed, so clamping each cursor to its own tip preserves the local proven <= checkpointed invariant.
+      for (const { tag, sourceTip } of [
+        { tag: 'checkpointed', sourceTip: event.checkpointed },
+        { tag: 'proven', sourceTip: event.proven },
+      ] as const) {
         const current = await this.getTip(tag);
-        if (current !== undefined && current > event.block.number) {
-          await this.saveTag(tag, event.block);
+        if (current !== undefined && current > sourceTip.block.number) {
+          await this.saveTag(tag, sourceTip.block);
+          await this.setTipCheckpoint(tag, sourceTip.checkpoint);
         }
       }
     });
@@ -206,6 +198,7 @@ export abstract class L2TipsStoreBase implements L2BlockStreamEventHandler, L2Bl
     }
     await this.runInTransaction(async () => {
       await this.saveTag('proven', event.block);
+      await this.setTipCheckpoint('proven', event.checkpoint);
     });
   }
 
@@ -215,33 +208,16 @@ export abstract class L2TipsStoreBase implements L2BlockStreamEventHandler, L2Bl
     }
     await this.runInTransaction(async () => {
       await this.saveTag('finalized', event.block);
-      const finalizedCheckpointNumber = await this.getCheckpointNumberForBlock(event.block.number);
+      await this.setTipCheckpoint('finalized', event.checkpoint);
 
-      // Cap the deletion bound at the lowest live tip. This should always be the finalized tip, but
-      // we have hit bugs where this is not the case. Deleting the block hash, block-to-checkpoint mapping,
-      // or enclosing checkpoint object for a live tip would dangle subsequent `getBlockId`/`getCheckpointId`
+      // Prune block hashes below the lowest live tip. Cap the deletion bound at the lowest live tip rather
+      // than the finalized tip alone: this should always be the finalized tip, but we have hit bugs where
+      // this is not the case. Deleting the block hash for a live tip would dangle subsequent `getBlockId`
       // lookups and lock the block stream into an error loop.
-      const tips = await Promise.all([
-        this.getTip('proposed'),
-        this.getTip('proposedCheckpoint'),
-        this.getTip('checkpointed'),
-        this.getTip('proven'),
-      ]);
+      const tips = await Promise.all([this.getTip('proposed'), this.getTip('checkpointed'), this.getTip('proven')]);
       const liveTipBlocks = tips.filter((t): t is BlockNumber => t !== undefined && t > 0);
       const safeBlockBound = BlockNumber(Math.min(event.block.number, ...liveTipBlocks));
       await this.deleteBlockHashesBefore(safeBlockBound);
-      await this.deleteBlockToCheckpointBefore(safeBlockBound);
-
-      if (finalizedCheckpointNumber !== undefined) {
-        const tipCheckpoints = await Promise.all(liveTipBlocks.map(b => this.getCheckpointNumberForBlock(b)));
-        const safeCheckpointBound = CheckpointNumber(
-          Math.min(
-            finalizedCheckpointNumber,
-            ...tipCheckpoints.filter((c): c is CheckpointNumber => c !== undefined && c > 0),
-          ),
-        );
-        await this.deleteCheckpointsBefore(safeCheckpointBound);
-      }
     });
   }
 
@@ -250,15 +226,5 @@ export abstract class L2TipsStoreBase implements L2BlockStreamEventHandler, L2Bl
     if (block.hash) {
       await this.setBlockHash(block.number, block.hash);
     }
-  }
-
-  private async saveCheckpoint(publishedCheckpoint: PublishedCheckpoint): Promise<void> {
-    const checkpoint = publishedCheckpoint.checkpoint;
-    const lastBlock = checkpoint.blocks.at(-1)!;
-    // Only store the mapping for the last block since tips only point to checkpoint boundaries
-    await Promise.all([
-      this.setCheckpointNumberForBlock(lastBlock.number, checkpoint.number),
-      this.saveCheckpointData(publishedCheckpoint),
-    ]);
   }
 }
