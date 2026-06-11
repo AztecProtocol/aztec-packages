@@ -3339,13 +3339,21 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
     const MAX_WALKER_ITERS: u32 = 32768u;
     var walker_iter: u32 = 0u;
     loop {
-        if (walker_iter >= MAX_WALKER_ITERS) { break; }
-        walker_iter = walker_iter + 1u;
         var any_active: bool = false;
         for (var k: u32 = 0u; k < S; k = k + 1u) {
             if ((((slot_done_m >> k) & 1u) == 0u)) { any_active = true; }
         }
         if (!any_active) { break; }
+        if (walker_iter >= MAX_WALKER_ITERS) {
+            // Cap hit WITH work remaining: upstream corruption (stale
+            // task_cuts, partition wraparound, ...) — the MSM result is
+            // wrong and the host must treat it as fatal. Flag the sentinel
+            // on partial_dest's probe tail slot (checked by the host's
+            // checkWalkerGuard; calibration peak counts can never reach it).
+            atomicStore(&partial_dest[M_partials + 1u], 0xDEADBEEFu);
+            break;
+        }
+        walker_iter = walker_iter + 1u;
 
         // Forward prefix of dx across the S slots (idle slots use the pad
         // trio so the product stays invertible), exactly as ba_stream_accum.

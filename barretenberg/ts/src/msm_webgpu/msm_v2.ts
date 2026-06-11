@@ -5289,6 +5289,39 @@ export class MsmV2 {
     return { buffer: pd.buffer, offset: (pd.offset ?? 0) + 2 * this.streamNumThreads * this.streamS * 4 };
   }
 
+  /** Sticky result of {@link checkWalkerGuard} — true means a walker
+   *  dispatch capped out with work remaining and results are invalid. */
+  walkerGuardTripped = false;
+
+  /** Fire-and-forget check of the stream_walker iteration-guard sentinel.
+   *  The kernel writes 0xDEADBEEF to partial_dest's probe tail slot when its
+   *  defensive iteration cap fires with work remaining — fatal upstream
+   *  corruption (stale task_cuts / partition wraparound) whose MSM result
+   *  cannot be trusted. Async (no await on the result path); a trip
+   *  surfaces as a loud console.error plus the sticky flag. */
+  private checkWalkerGuard(): void {
+    const { buffer, offset } = this.occCounterOffset();
+    const staging = this.device.createBuffer({ size: 4, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+    const enc = this.device.createCommandEncoder();
+    enc.copyBufferToBuffer(buffer, offset + 4, staging, 0, 4);
+    this.device.queue.submit([enc.finish()]);
+    void staging
+      .mapAsync(GPUMapMode.READ)
+      .then(() => {
+        const v = new Uint32Array(staging.getMappedRange().slice(0))[0];
+        staging.unmap();
+        staging.destroy();
+        if (v === 0xdeadbeef) {
+          this.walkerGuardTripped = true;
+          // eslint-disable-next-line no-console
+          console.error(
+            '[msm-v2] FATAL: stream_walker iteration guard tripped — task descriptors corrupted, results are invalid',
+          );
+        }
+      })
+      .catch(() => staging.destroy());
+  }
+
   /** Enable/disable the residency probe (the walker's arena_off.z gate). Enabled
    *  only for the throwaway calibration dispatch — a real run keeps it 0 so the
    *  RMW counter never executes and the partial path is byte-identical. */
@@ -5396,6 +5429,7 @@ export class MsmV2 {
     const L = this.decodeWindowSumsFromBytes(stagingBytes, 0);
     this.redStaging.unmap();
     this.windowSums = L;
+    this.checkWalkerGuard();
     // The bridge ships these per-window sums to the C++ hook for a native
     // bb::g1 combine; the benchmark harness (combineOnHost) does it here.
     const result = this.combineOnHost ? hostWindowCombine(L, this.windowCs) : { x: 0n, y: 0n };
