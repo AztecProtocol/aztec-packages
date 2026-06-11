@@ -116,6 +116,9 @@ locals {
     "global.aztecImage.pullPolicy"                             = local.is_kind ? "IfNotPresent" : "Always"
     "global.useGcloudLogging"                                  = true
     "global.aztecNetwork"                                      = var.NETWORK
+    "global.allowOverridingNetworkConfig"                      = var.ALLOW_OVERRIDING_NETWORK_CONFIG
+    "global.aztecSlotDuration"                                 = var.AZTEC_SLOT_DURATION
+    "global.aztecEpochDuration"                                = var.AZTEC_EPOCH_DURATION
     "global.customAztecNetwork.registryContractAddress"        = var.REGISTRY_CONTRACT_ADDRESS
     "global.customAztecNetwork.feeAssetHandlerContractAddress" = var.FEE_ASSET_HANDLER_CONTRACT_ADDRESS
     "global.customAztecNetwork.l1ChainId"                      = var.L1_CHAIN_ID

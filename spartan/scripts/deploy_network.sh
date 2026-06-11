@@ -49,6 +49,11 @@ BASE_STATE_PATH="${CLUSTER}/${NAMESPACE}"
 # Don't try and retrieve contract addresses, instead allow deployed infra to read from network config
 USE_NETWORK_CONFIG=${USE_NETWORK_CONFIG:-false}
 
+# Allow this deployment's consensus-critical env vars to diverge from the generated network defaults that the
+# aztec entrypoint enforces for a known NETWORK. Networks that intentionally override those defaults (e.g.
+# devnet's 36s slots) set this to true in their env file; left unset it stays empty so enforcement is loud.
+ALLOW_OVERRIDING_NETWORK_CONFIG=${ALLOW_OVERRIDING_NETWORK_CONFIG:-}
+
 # GCP variables, unused if running on kind
 GCP_PROJECT_ID=${GCP_PROJECT_ID:-testnet-440309}
 GCP_REGION=${GCP_REGION:-us-west1-a}
@@ -466,6 +471,7 @@ AZTEC_PROVING_COST_PER_MANA = ${AZTEC_PROVING_COST_PER_MANA:-null}
 AZTEC_EXIT_DELAY_SECONDS = ${AZTEC_EXIT_DELAY_SECONDS:-null}
 ETHERSCAN_API_KEY = ${ETHERSCAN_API_KEY_TF}
 NETWORK = $(tf_str "${NETWORK:-}")
+ALLOW_OVERRIDING_NETWORK_CONFIG = $(tf_str "${ALLOW_OVERRIDING_NETWORK_CONFIG:-}")
 JOB_NAME = "deploy-rollup-contracts"
 JOB_BACKOFF_LIMIT = 3
 JOB_TTL_SECONDS_AFTER_FINISHED = 3600
@@ -607,6 +613,9 @@ DEPLOY_INTERNAL_BOOTNODE = ${DEPLOY_INTERNAL_BOOTNODE:-true}
 PROVER_REAL_PROOFS = ${PROVER_REAL_PROOFS}
 TRANSACTIONS_DISABLED = ${TRANSACTIONS_DISABLED:-null}
 NETWORK = $(tf_str "${NETWORK:-}")
+ALLOW_OVERRIDING_NETWORK_CONFIG = $(tf_str "${ALLOW_OVERRIDING_NETWORK_CONFIG:-}")
+AZTEC_SLOT_DURATION = ${AZTEC_SLOT_DURATION:-null}
+AZTEC_EPOCH_DURATION = ${AZTEC_EPOCH_DURATION:-null}
 STORE_SNAPSHOT_URL = ${STORE_SNAPSHOT_URL_TF}
 BOT_RESOURCE_PROFILE = "${BOT_RESOURCE_PROFILE}"
 BOT_MNEMONIC = "${LABS_INFRA_MNEMONIC}"

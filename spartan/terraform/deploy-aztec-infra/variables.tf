@@ -549,6 +549,24 @@ variable "NETWORK" {
   nullable    = true
 }
 
+variable "ALLOW_OVERRIDING_NETWORK_CONFIG" {
+  description = "Allow consensus-critical env vars to diverge from the generated network defaults for NETWORK"
+  type        = string
+  nullable    = true
+}
+
+variable "AZTEC_SLOT_DURATION" {
+  description = "Aztec slot duration; passed to nodes so they match a rollup deployed with a non-default value"
+  type        = string
+  nullable    = true
+}
+
+variable "AZTEC_EPOCH_DURATION" {
+  description = "Aztec epoch duration; passed to nodes so they match a rollup deployed with a non-default value"
+  type        = string
+  nullable    = true
+}
+
 variable "STORE_SNAPSHOT_URL" {
   description = "Location to store snapshots in"
   type        = string
