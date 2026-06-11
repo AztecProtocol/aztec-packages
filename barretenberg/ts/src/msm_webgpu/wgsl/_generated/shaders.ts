@@ -6531,7 +6531,7 @@ fn fr_add_f8(a: array<u32, 8>, b: array<u32, 8>) -> array<u32, 8> {
         let lo: u32 = a[{{i}}] + b[{{i}}];
         let v: u32 = lo + carry;
         s[{{i}}] = v;
-        carry = select(0u, 1u, lo < a[{{i}}]) + select(0u, 1u, v < lo);
+        carry = u32(lo < a[{{i}}]) + u32(v < lo);
     }
 {{/f8_words}}
     // s = a + b in [0, 4p); subtract 2p iff s >= 2p — the s - 2p borrow
@@ -6543,7 +6543,7 @@ fn fr_add_f8(a: array<u32, 8>, b: array<u32, 8>) -> array<u32, 8> {
         let t1: u32 = s[{{i}}] - TWOP8_{{i}};
         let v: u32 = t1 - borrow;
         d[{{i}}] = v;
-        borrow = select(0u, 1u, s[{{i}}] < TWOP8_{{i}}) + select(0u, 1u, t1 < borrow);
+        borrow = u32(s[{{i}}] < TWOP8_{{i}}) + u32(t1 < borrow);
     }
 {{/f8_words}}
     var out: array<u32, 8>;
@@ -6561,7 +6561,7 @@ fn fr_sub_f8(a: array<u32, 8>, b: array<u32, 8>) -> array<u32, 8> {
         let t1: u32 = a[{{i}}] - b[{{i}}];
         let v: u32 = t1 - borrow;
         d[{{i}}] = v;
-        borrow = select(0u, 1u, a[{{i}}] < b[{{i}}]) + select(0u, 1u, t1 < borrow);
+        borrow = u32(a[{{i}}] < b[{{i}}]) + u32(t1 < borrow);
     }
 {{/f8_words}}
     // d = a - b; on borrow (a < b) the result is d + 2p, with the 2^256
@@ -6574,7 +6574,7 @@ fn fr_sub_f8(a: array<u32, 8>, b: array<u32, 8>) -> array<u32, 8> {
         let lo: u32 = d[{{i}}] + pw;
         let v: u32 = lo + carry;
         out[{{i}}] = v;
-        carry = select(0u, 1u, lo < d[{{i}}]) + select(0u, 1u, v < lo);
+        carry = u32(lo < d[{{i}}]) + u32(v < lo);
     }
 {{/f8_words}}
     return out;
@@ -6591,7 +6591,7 @@ fn fr_add_wide_f8(a: array<u32, 8>, b: array<u32, 8>) -> array<u32, 8> {
         let lo: u32 = a[{{i}}] + b[{{i}}];
         let v: u32 = lo + carry;
         s[{{i}}] = v;
-        carry = select(0u, 1u, lo < a[{{i}}]) + select(0u, 1u, v < lo);
+        carry = u32(lo < a[{{i}}]) + u32(v < lo);
     }
 {{/f8_words}}
     return s;
@@ -6608,7 +6608,7 @@ fn fr_sub_wide_f8(a: array<u32, 8>, b: array<u32, 8>) -> array<u32, 8> {
         let lo: u32 = a[{{i}}] + TWOP8_{{i}};
         let v: u32 = lo + carry;
         t[{{i}}] = v;
-        carry = select(0u, 1u, lo < a[{{i}}]) + select(0u, 1u, v < lo);
+        carry = u32(lo < a[{{i}}]) + u32(v < lo);
     }
 {{/f8_words}}
     var out: array<u32, 8>;
@@ -6618,7 +6618,7 @@ fn fr_sub_wide_f8(a: array<u32, 8>, b: array<u32, 8>) -> array<u32, 8> {
         let t1: u32 = t[{{i}}] - b[{{i}}];
         let v: u32 = t1 - borrow;
         out[{{i}}] = v;
-        borrow = select(0u, 1u, t[{{i}}] < b[{{i}}]) + select(0u, 1u, t1 < borrow);
+        borrow = u32(t[{{i}}] < b[{{i}}]) + u32(t1 < borrow);
     }
 {{/f8_words}}
     return out;
@@ -6636,7 +6636,7 @@ fn fr_neg_wide_f8(y: array<u32, 8>) -> array<u32, 8> {
         let t1: u32 = TWOP8_{{i}} - y[{{i}}];
         let v: u32 = t1 - borrow;
         out[{{i}}] = v;
-        borrow = select(0u, 1u, TWOP8_{{i}} < y[{{i}}]) + select(0u, 1u, t1 < borrow);
+        borrow = u32(TWOP8_{{i}} < y[{{i}}]) + u32(t1 < borrow);
     }
 {{/f8_words}}
     return out;
@@ -6653,7 +6653,7 @@ fn fr_canon_f8(a: array<u32, 8>) -> array<u32, 8> {
         let t1: u32 = a[{{i}}] - P8_{{i}};
         let v: u32 = t1 - borrow;
         d[{{i}}] = v;
-        borrow = select(0u, 1u, a[{{i}}] < P8_{{i}}) + select(0u, 1u, t1 < borrow);
+        borrow = u32(a[{{i}}] < P8_{{i}}) + u32(t1 < borrow);
     }
 {{/f8_words}}
     var out: array<u32, 8>;
