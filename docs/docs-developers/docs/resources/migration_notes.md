@@ -11,7 +11,7 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ### [Aztec.js] Prefunded local network test accounts are now initializerless
 
-The genesis-funded test accounts in the local network (sandbox), returned by `getInitialTestAccountsData()`, are now initializerless Schnorr accounts (`schnorr_initializerless`). An initializerless account has no on-chain deployment transaction: its address commits to the signing public key (through `immutables_hash`) and its contract state is materialized locally in the PXE, so these accounts are usable right away.
+The genesis-funded test accounts in the local network (sandbox), returned by `getInitialTestAccountsData()`, are now initializerless Schnorr accounts (`schnorr_initializerless`). An initializerless account has no onchain deployment transaction: its address commits to the signing public key (through `immutables_hash`) and its contract state is materialized locally in the PXE, so these accounts are usable right away.
 
 Because their address is derived differently from a regular Schnorr account, register them with `createSchnorrInitializerlessAccount` rather than `createSchnorrAccount`.
 
