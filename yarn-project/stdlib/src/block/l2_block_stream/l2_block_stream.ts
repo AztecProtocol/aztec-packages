@@ -159,8 +159,9 @@ export class L2BlockStream {
 
       // End-of-pass tier reconciliation. For each tier, emit a single event iff the source tip differs from the
       // local one. All three source tips come from the SAME `sourceTips` snapshot, so no extra source fetches are
-      // needed. We re-read the local tips after a prune so the comparison reflects the cursors the prune handler
-      // just clamped (the initial `localTips` snapshot is stale post-prune — finding 2).
+      // needed. We re-read the local tips after a prune because the prune handler has already clamped the local
+      // cursors back; the `localTips` snapshot taken before the prune would be stale and would mis-drive the tier
+      // comparison (emitting events relative to cursors that no longer exist).
       const reconcileTips = pruned ? await this.localData.getL2Tips() : localTips;
       if (!this.opts.ignoreCheckpoints && this.tipDiffers(reconcileTips.checkpointed?.block, sourceTips.checkpointed)) {
         await this.emitEvent({

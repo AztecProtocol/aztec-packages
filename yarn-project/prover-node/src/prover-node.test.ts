@@ -98,6 +98,32 @@ describe('ProverNode', () => {
     expect(sessionManager.onCheckpointAdded).toHaveBeenCalledWith(EpochNumber(1));
   });
 
+  it('caps the catch-up fetch at two epochs when resyncing far behind the checkpointed tip', async () => {
+    // epochDuration=1 ⇒ two epochs' worth of checkpoints is 2. Cursor sits at checkpoint 0 while the
+    // checkpointed tip has jumped to 100 (e.g. the prover node was offline for a long time). We must not
+    // fetch all 100 checkpoints: epochs that far back are past their proof-submission window and cannot be
+    // proven anyway, so the catch-up should fetch only the most recent two epochs' worth (checkpoints 99 and
+    // 100) and skip the rest, leaving the cursor advanced past them so they are never retried.
+    setupNotFullyProven();
+    const fetchSpy = l2BlockSource.getCheckpointsData;
+    mineCheckpoint(makeCheckpoint(99, 99, 99));
+    const event = mineCheckpoint(makeCheckpoint(100, 100, 100));
+    proverNode.setLastProcessedCheckpoint(CheckpointNumber.ZERO);
+
+    await proverNode.handleBlockStreamEvent(event);
+
+    // Only the most recent two epochs' worth were fetched and registered; the cursor lands at the tip.
+    const fetchRanges = fetchSpy.mock.calls.map(([q]) => q as any).filter(q => 'from' in q);
+    expect(fetchRanges).toEqual([{ from: CheckpointNumber(99), limit: 2 }]);
+    expect(
+      proverNode
+        .getCheckpointStore()
+        .listAll()
+        .map(p => p.id),
+    ).toHaveLength(2);
+    expect(proverNode.getLastProcessedCheckpoint()).toEqual(CheckpointNumber(100));
+  });
+
   it('dispatches chain-pruned through markPrunedAfter and notifies the session manager only when affected', async () => {
     // No registered checkpoints — nothing to prune.
     await proverNode.handleBlockStreamEvent({
@@ -673,5 +699,9 @@ class TestProverNode extends ProverNode {
 
   public getLastProcessedCheckpoint(): CheckpointNumber {
     return this.lastProcessedCheckpoint;
+  }
+
+  public setLastProcessedCheckpoint(checkpoint: CheckpointNumber): void {
+    this.lastProcessedCheckpoint = checkpoint;
   }
 }

@@ -266,10 +266,29 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
     if (targetCheckpoint <= this.lastProcessedCheckpoint) {
       return;
     }
-    const from = CheckpointNumber(this.lastProcessedCheckpoint + 1);
+    const l1Constants = await this.getL1Constants();
+
+    // Cap the catch-up at the two most recent epochs' worth of checkpoints. With at most one checkpoint per
+    // slot, an epoch spans at most `epochDuration` checkpoints, so two epochs is `2 * epochDuration`. When the
+    // cursor is much further behind (e.g. resyncing after a long time offline), fetching the whole gap could
+    // load thousands of checkpoints we cannot act on: anything older than the last two epochs is already past
+    // its proof-submission window, so we skip it and jump the cursor forward to the start of the capped range.
+    const maxCheckpoints = 2 * l1Constants.epochDuration;
+    let from = CheckpointNumber(this.lastProcessedCheckpoint + 1);
+    if (Number(targetCheckpoint - from) + 1 > maxCheckpoints) {
+      const cappedFrom = CheckpointNumber(targetCheckpoint - maxCheckpoints + 1);
+      this.log.warn(`Skipping unprovable checkpoints during catch-up; the prover node is far behind`, {
+        from,
+        cappedFrom,
+        targetCheckpoint,
+        maxCheckpoints,
+      });
+      // Advance the cursor past the skipped checkpoints so they are never retried.
+      this.lastProcessedCheckpoint = CheckpointNumber(cappedFrom - 1);
+      from = cappedFrom;
+    }
     const limit = Number(targetCheckpoint - from) + 1;
     const metadatas = await this.l2BlockSource.getCheckpointsData({ from, limit });
-    const l1Constants = await this.getL1Constants();
 
     // Per-epoch relevance is cached so a multi-checkpoint epoch resolves it once. Skipping is whole-epoch
     // only: the SessionManager requires an epoch's checkpoints fully covered before it opens a session, so we
