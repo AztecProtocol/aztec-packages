@@ -4043,6 +4043,18 @@ mod test {
             utils::check_private_balance(env, token_contract_address, owner, 0_u128);
         }
 
+        /// Completes multiple partial notes in a single message-discovery sync: the recipient does not sync until both
+        /// completion logs have been emitted, so both pending partial notes are processed together.
+        #[test]
+        unconstrained fn transfer_to_private_external_orchestration_multiple_notes() {
+            let (env, token_contract_address, owner, recipient, amount): (aztec::test::helpers::test_environment::TestEnvironment, aztec::protocol::address::AztecAddress, aztec::protocol::address::AztecAddress, aztec::protocol::address::AztecAddress, u128) = utils::setup_and_mint_to_public(false);
+            let partial_uint_note_a: PartialUintNote = env.call_private(owner, Token::at(token_contract_address).prepare_private_balance_increase(recipient));
+            let partial_uint_note_b: PartialUintNote = env.call_private(owner, Token::at(token_contract_address).prepare_private_balance_increase(recipient));
+            env.call_public(owner, Token::at(token_contract_address).finalize_transfer_to_private(amount - 3_u128, partial_uint_note_a));
+            env.call_public(owner, Token::at(token_contract_address).finalize_transfer_to_private(3_u128, partial_uint_note_b));
+            utils::check_private_balance(env, token_contract_address, recipient, amount);
+        }
+
         #[test(should_fail_with = "Invalid partial note or completer")]
         unconstrained fn transfer_to_private_transfer_not_prepared() {
             let (env, token_contract_address, owner, _, amount): (aztec::test::helpers::test_environment::TestEnvironment, aztec::protocol::address::AztecAddress, aztec::protocol::address::AztecAddress, aztec::protocol::address::AztecAddress, u128) = utils::setup_and_mint_to_public(false);

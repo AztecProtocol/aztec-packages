@@ -95,6 +95,11 @@ pub(crate) unconstrained fn fetch_and_process_partial_note_completion_logs(
     // index. Each inner array contains all matching LogRetrievalResponses.
     assert_eq(completion_logs.len(), pending_partial_notes.len());
 
+    // Indices of pending partial notes that got completed, removed from the array only once iteration is over:
+    // removing an entry shifts the ones that follow it, which would desynchronize `pending_partial_notes` from
+    // `completion_logs` (the indices of which `for_each` iterates).
+    let completed_indices: EphemeralArray<u32> = EphemeralArray::empty();
+
     completion_logs.for_each(|i, logs_for_tag: EphemeralArray<LogRetrievalResponse>| {
         let pending_partial_note = pending_partial_notes.get(i);
         let num_logs = logs_for_tag.len();
@@ -170,7 +175,15 @@ pub(crate) unconstrained fn fetch_and_process_partial_note_completion_logs(
 
             // Because there is only a single log for a given tag, once we've processed the tagged log then we simply
             // delete the pending work entry, regardless of whether it was actually completed or not.
-            pending_partial_notes.remove(i);
+            completed_indices.push(i);
         }
     });
+
+    // `completed_indices` is ascending because `for_each` visits elements in order, so we remove back-to-front:
+    // removing an entry only shifts the entries past it, all of which have already been removed.
+    let mut j = completed_indices.len();
+    while j > 0 {
+        j -= 1;
+        pending_partial_notes.remove(completed_indices.get(j));
+    }
 }
