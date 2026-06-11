@@ -28,8 +28,6 @@ const TPB: u32 = {{ workgroup_size }}u;
 // fold variants sweep the whole range; DEEP picks residual counts > TPB64
 // (the 64-thread variant's one-madd-per-thread capacity), the shallow
 // variant the rest. Exactly one variant proceeds per bucket.
-const DEEP: u32 = {{ deep }}u;
-const TPB64: u32 = 64u;
 const MICRO_MAX: u32 = 8u;
 // Packed-window bid (SPLIT_C_PLAN.md): bid = (window << WBID_SHIFT) | mag.
 const WBID_SHIFT:    u32 = 15u;
@@ -163,112 +161,54 @@ fn jac_madd(p: Jac, x2: array<u32, 8>, y2: array<u32, 8>) -> Jac {
     return Jac(X3, Y3, Z3);
 }
 
-var<workgroup> wg_x: array<u32, {{ wg_words }}>;
-var<workgroup> wg_y: array<u32, {{ wg_words }}>;
-var<workgroup> wg_z: array<u32, {{ wg_words }}>;
 
-fn wg_store(l: u32, p: Jac) {
-    let b = l * 8u;
-    for (var i: u32 = 0u; i < 8u; i = i + 1u) {
-        wg_x[b + i] = p.x[i];
-        wg_y[b + i] = p.y[i];
-        wg_z[b + i] = p.z[i];
-    }
-}
-fn wg_load(l: u32) -> Jac {
-    let b = l * 8u;
-    var x: array<u32, 8>;
-    var y: array<u32, 8>;
-    var z: array<u32, 8>;
-    for (var i: u32 = 0u; i < 8u; i = i + 1u) {
-        x[i] = wg_x[b + i];
-        y[i] = wg_y[b + i];
-        z[i] = wg_z[b + i];
-    }
-    return Jac(x, y, z);
-}
+// Pair-tree: micro-survivor fold (one THREAD per bucket). Buckets with
+// <= MICRO_MAX residuals are folded serially in-thread (mmadd seed +
+// madds — implicit Z=1 keeps constant R out of the loop, the Metal
+// landmine) and the Jacobian goes to the survivor scratch for the
+// batched finalize. Sweeps its exact non-cap tier range then the cap
+// tail (count guards pick out its buckets there).
 
 @compute @workgroup_size({{ workgroup_size }})
-fn main(@builtin(workgroup_id) wgid: vec3<u32>,
-        @builtin(local_invocation_id) lid: vec3<u32>) {
-    let w = wgid.x;
-    let l = lid.x;
-    // Plain per-thread reads, stride PRECOMPUTED by ptree_scan (meta[22]):
-    // both workgroupUniformLoad and the runtime shift fed Apple's Metal
-    // compiler-service crash (XPC_ERROR_CONNECTION_INTERRUPTED).
+fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+    let i = gid.x;
+    if (i >= ptree_meta[26]) { return; }
     let stride = ptree_meta[22];
     let M_partials = params.w;
-
-    // Tier position mapping (see epilogue): the shallow sweep covers its
-    // exact non-cap range then the cap tail; deep covers the cap tail only.
     var pos: u32;
-    if (DEEP == 1u) {
-        pos = ptree_meta[30] + w;
-    } else if (w < ptree_meta[29]) {
-        pos = ptree_meta[27] + w;
+    if (i < ptree_meta[25]) {
+        pos = ptree_meta[23] + i;
     } else {
-        pos = ptree_meta[30] + (w - ptree_meta[29]);
+        pos = ptree_meta[30] + (i - ptree_meta[25]);
     }
     let bid = sorted_active[pos];
     let fb = flat_bid(bid, bw_geom.x);
     let seg = partial_offset[fb] & 0x7fffffffu; // v2: bit 31 flags singles
     let cnt = pc_at(fb);
+    if (cnt <= stride) { return; } // cap bucket closed in-tree
     let n_resid = (cnt + stride - 1u) / stride;
-    // Cap-bin buckets that closed in-tree sit inside the range, and the
-    // two variants split the range by residual count. The predicate is
-    // workgroup-uniform in fact (per-bucket), but Tint cannot prove it —
-    // so no early returns: skipped buckets just fold infinities through
-    // the (barrier-bearing) tree below.
-    let proceed =
-        cnt > stride &&
-        ((DEEP == 0u && n_resid > MICRO_MAX && n_resid <= TPB64) || (DEEP == 1u && n_resid > TPB64));
+    if (n_resid > MICRO_MAX) { return; } // cap bucket owned by a fold tier
 
-    let zero = array<u32, 8>(0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u);
-    var acc = Jac(zero, zero, zero); // infinity
-    if (proceed && l < n_resid) {
-        let s0 = pl_at(seg + l * stride);
-        let x0 = load_partial_x(s0);
-        let y0 = load_partial_y(s0, M_partials);
-        if (l + TPB < n_resid) {
-            let s1 = pl_at(seg + (l + TPB) * stride);
-            acc = jac_mmadd(x0, y0, load_partial_x(s1), load_partial_y(s1, M_partials));
-            var iter: u32 = 0u;
-            for (var j: u32 = l + 2u * TPB; j < n_resid; j = j + TPB) {
-                if (iter >= 1024u) { break; }
-                iter = iter + 1u;
-                let sj = pl_at(seg + j * stride);
-                acc = jac_madd(acc, load_partial_x(sj), load_partial_y(sj, M_partials));
-            }
-        } else {
-            // Single residual: straight-line affine lift (constant R is
-            // only hazardous inside the loop).
-            acc = Jac(x0, y0, get_r_f8());
-        }
-    }
-    wg_store(l, acc);
-    workgroupBarrier();
-
-    // proceed is uniform per workgroup (one bucket per WG); the barrier
-    // stays outside the guard, so skipped workgroups pay barriers only —
-    // not log2(TPB) levels of infinity adds.
-    var s: u32 = TPB / 2u;
+    let s0 = pl_at(seg);
+    let s1 = pl_at(seg + stride);
+    var acc = jac_mmadd(
+        load_partial_x(s0), load_partial_y(s0, M_partials),
+        load_partial_x(s1), load_partial_y(s1, M_partials));
+    var j: u32 = 2u;
     loop {
-        if (s == 0u) { break; }
-        if (l < s && proceed) { wg_store(l, jac_add(wg_load(l), wg_load(l + s))); }
-        workgroupBarrier();
-        s = s / 2u;
+        if (j >= n_resid || j >= MICRO_MAX) { break; }
+        let sj = pl_at(seg + j * stride);
+        acc = jac_madd(acc, load_partial_x(sj), load_partial_y(sj, M_partials));
+        j = j + 1u;
     }
 
-    if (l == 0u && proceed) {
-        let total = wg_load(0u);
-        let b = jac_params.x + 6u * (pos - ptree_meta[23]);
-        surv_scratch[b + 0u] = vec4<u32>(total.x[0], total.x[1], total.x[2], total.x[3]);
-        surv_scratch[b + 1u] = vec4<u32>(total.x[4], total.x[5], total.x[6], total.x[7]);
-        surv_scratch[b + 2u] = vec4<u32>(total.y[0], total.y[1], total.y[2], total.y[3]);
-        surv_scratch[b + 3u] = vec4<u32>(total.y[4], total.y[5], total.y[6], total.y[7]);
-        surv_scratch[b + 4u] = vec4<u32>(total.z[0], total.z[1], total.z[2], total.z[3]);
-        surv_scratch[b + 5u] = vec4<u32>(total.z[4], total.z[5], total.z[6], total.z[7]);
-    }
+    let b = jac_params.x + 6u * (pos - ptree_meta[23]);
+    surv_scratch[b + 0u] = vec4<u32>(acc.x[0], acc.x[1], acc.x[2], acc.x[3]);
+    surv_scratch[b + 1u] = vec4<u32>(acc.x[4], acc.x[5], acc.x[6], acc.x[7]);
+    surv_scratch[b + 2u] = vec4<u32>(acc.y[0], acc.y[1], acc.y[2], acc.y[3]);
+    surv_scratch[b + 3u] = vec4<u32>(acc.y[4], acc.y[5], acc.y[6], acc.y[7]);
+    surv_scratch[b + 4u] = vec4<u32>(acc.z[0], acc.z[1], acc.z[2], acc.z[3]);
+    surv_scratch[b + 5u] = vec4<u32>(acc.z[4], acc.z[5], acc.z[6], acc.z[7]);
 
     {{{ recompile }}}
 }

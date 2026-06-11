@@ -40,20 +40,15 @@ const PG: u32 = 2u;
 // Packed-window bid (SPLIT_C_PLAN.md): bid = (window << WBID_SHIFT) | mag.
 const WBID_SHIFT:    u32 = 15u;
 const WBID_MAG_MASK: u32 = 0x7fffu;
-// walker_index v2 partial_offset entries carry SINGLE_FLAG in bit 31.
-const OFFSET_MASK: u32 = 0x7fffffffu;
-
 fn flat_bid(bid: u32, bw: u32) -> u32 {
     return (bid >> WBID_SHIFT) * bw + (bid & WBID_MAG_MASK);
 }
 
-// Level 1 discovers via the CSR buffers (4 dependent loads per slot) and
-// WRITES the descriptors (rel, rem = cnt - rel — both static across
-// levels) plus the max bucket count (pair_meta[27], workgroup-aggregated)
-// for the depth-aware stop. Levels 2+ read the descriptors back: 2
-// coalesced words per slot. desc_buf and partials_buf are sub-ranges of
-// one arena buffer, so both are rw. P_total comes via pair_meta[28]
-// (written by the level-1 args pass). params.x = BW, params.w = M.
+// Discovery reads the scatter-built descriptors (rel, rem = cnt - rel —
+// both static across levels): 2 coalesced words per slot instead of 4
+// dependent random loads. desc_buf and partials_buf are sub-ranges of one
+// arena buffer, so both are rw. P_total arrives via pair_meta[28] from
+// the scheduling epilogue. params.x = BW, params.w = M.
 @group(0) @binding(0) var<storage, read>       arena_a2:       array<u32>;
 @group(0) @binding(1) var<storage, read_write> partials_buf:   array<vec4<u32>>;
 @group(0) @binding(2) var<storage, read_write> pair_meta:      array<u32>;
@@ -71,7 +66,6 @@ fn flat_bid(bid: u32, bw: u32) -> u32 {
 @group(0) @binding(8) var<uniform>             arena_off:      vec4<u32>;
 @group(0) @binding(9) var<uniform>             lvl:            vec4<u32>;
 @group(0) @binding(10) var<uniform>            batch_offset:   vec4<u32>;
-@group(0) @binding(11) var<storage, read>      partial_offset: array<u32>;
 
 const WD_STRIDE: u32 = 8u;
 fn wd_reduce_off(g: u32) -> u32 { return window_desc[g * WD_STRIDE + 4u]; }
@@ -131,22 +125,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
         live[s_i] = 0u;
         let p = base + s_i;
         if (p >= P_total) { continue; }
-        var rel: u32;
-        var rem: u32;
-        if (k == 1u) {
-            let slot = pl_at(p);
-            let bid = partial_dest[slot];
-            let fb = flat_bid(bid, params.x);
-            let seg = partial_offset[fb] & OFFSET_MASK;
-            let cnt = arena_a2[arena_off.x + fb];
-            rel = p - seg;
-            rem = cnt - rel;
-            desc_buf[p] = rel;
-            desc_buf[M_partials + p] = rem;
-        } else {
-            rel = desc_buf[p];
-            rem = desc_buf[M_partials + p];
-        }
+        let rel = desc_buf[p];
+        let rem = desc_buf[M_partials + p];
         // Left operand of a level-k pair: aligned to 2^k with an in-segment
         // partner at rel + 2^(k-1) (rel + half < cnt <=> half < rem).
         if ((rel & ((1u << k) - 1u)) == 0u && half < rem) {

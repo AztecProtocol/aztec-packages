@@ -2203,6 +2203,10 @@ export class MsmV2 {
   private ptreeLevelLayout!: GPUBindGroupLayout;
   private ptreeLevelBinds: GPUBindGroup[][] = [];
   private ptreeFoldPipes: GPUComputePipeline[] = [];
+  private ptreeMicroPipe!: GPUComputePipeline;
+  private ptreeScatterPipe!: GPUComputePipeline;
+  private ptreeScatterLayout!: GPUBindGroupLayout;
+  private ptreeScatterBinds: GPUBindGroup[] = [];
   private ptreeFoldLayout!: GPUBindGroupLayout;
   private ptreeFoldBind!: GPUBindGroup;
   private ptreeFinLayout!: GPUBindGroupLayout;
@@ -2989,7 +2993,22 @@ export class MsmV2 {
       'uniform',
       'uniform',
       'uniform',
+    ]);
+    //   ptree scatter (desc variant): idx_scatter with partial_layout
+    //   addressed via the A2 monolith + desc planes + arena offsets.
+    m.ptreeScatterLayout = lt([
+      'storage',
       'read-only-storage',
+      'storage',
+      'storage',
+      'read-only-storage',
+      'storage',
+      'read-only-storage',
+      'read-only-storage',
+      'uniform',
+      'uniform',
+      'storage',
+      'uniform',
     ]);
     //   ptree-fold: ptree_meta (rw), arena_a2, partial_offset (ro), partials_buf
     //   (rw... ro suffices but A3-mate safety), surv_scratch (rw); params,
@@ -3363,6 +3382,12 @@ export class MsmV2 {
         await compile(sm.gen_ba_walker_ptree_fold_shader(PTREE_TPB, 0), `ptree-fold-shallow`, m.ptreeFoldLayout),
         await compile(sm.gen_ba_walker_ptree_fold_shader(PTREE_FOLD_TPB, 1), `ptree-fold-deep`, m.ptreeFoldLayout),
       ];
+      m.ptreeMicroPipe = await compile(sm.gen_ba_walker_ptree_micro_shader(256), `ptree-micro`, m.ptreeFoldLayout);
+      m.ptreeScatterPipe = await compile(
+        sm.gen_ba_walker_idx_scatter_shader(WI_IDX_TPB, STREAM_S, STREAM_PLANNER_TPB, true),
+        `ptree-scatter`,
+        m.ptreeScatterLayout,
+      );
       m.ptreeSurvFinPipe = await compile(
         sm.gen_ba_walker_ptree_finalize_shader(256, PTREE_FIN_SN),
         `ptree-survfin`,
@@ -4830,6 +4855,22 @@ export class MsmV2 {
           });
           this.prepBuffers.push(this.ptreeArgsBuf);
           this.ptreeArgsBase = (this.ptreeMetaRegion.offset ?? 0) + 1024;
+          this.ptreeScatterBinds = batchWindowBaseBufs.map(bwb =>
+            mkBind(this.ptreeScatterLayout, [
+              pdest,
+              poffset,
+              pwpos,
+              a2Buf,
+              wp,
+              scratch.redBuf,
+              scratch.streamPlannerMeta,
+              windowDescBuf,
+              wiParams,
+              bwb,
+              descBind,
+              ptreeArenaOff,
+            ]),
+          );
           this.ptreeEpilogueBind = mkBind(this.ptreeEpilogueLayout, [
             chist,
             acnt,
@@ -4860,7 +4901,6 @@ export class MsmV2 {
                 ptreeArenaOff,
                 lvlBuf,
                 bwb,
-                poffset,
               ]),
             ),
           );
@@ -5432,7 +5472,11 @@ export class MsmV2 {
           dispatch(this.idxEpiloguePipe, this.idxEpilogueBind, 1, 1);
         }
         setPhase('wi_scatter');
-        indirectDispatch(this.idxScatterPipe, this.idxScatterBinds[bi], wiArgs, 0);
+        if (this.ptree) {
+          indirectDispatch(this.ptreeScatterPipe, this.ptreeScatterBinds[bi], wiArgs, 0);
+        } else {
+          indirectDispatch(this.idxScatterPipe, this.idxScatterBinds[bi], wiArgs, 0);
+        }
         setPhase('wi_sort');
         indirectDispatch(this.idxSortPipe, this.idxSortBind, wiArgs, 24);
       }
@@ -5448,6 +5492,7 @@ export class MsmV2 {
           indirectDispatch(this.ptreeLevelPipe, this.ptreeLevelBinds[bi][k - 1], this.ptreeArgsBuf!, 16 * k);
         }
         setPhase('ptree_tail');
+        indirectDispatch(this.ptreeMicroPipe, this.ptreeFoldBind, this.ptreeArgsBuf!, 16 * 16);
         indirectDispatch(this.ptreeFoldPipes[0], this.ptreeFoldBind, this.ptreeArgsBuf!, 16 * 18);
         indirectDispatch(this.ptreeFoldPipes[1], this.ptreeFoldBind, this.ptreeArgsBuf!, 16 * 17);
         setPhase('finalize');

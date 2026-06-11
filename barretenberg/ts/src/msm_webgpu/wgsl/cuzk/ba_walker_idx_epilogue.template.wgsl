@@ -47,6 +47,7 @@ const PTREE_S: u32 = {{ ptree_s }}u;
 const PTREE_TPB: u32 = {{ ptree_tpb }}u;
 const PTREE_FIN_TPB: u32 = {{ ptree_fin_tpb }}u;
 const PTREE_FIN_SN: u32 = {{ ptree_fin_sn }}u;
+const PTREE_MICRO_MAX: u32 = 8u;
 // Survivor scratch capacity (96 B Jacobian slots in the 1 MB region).
 const PTREE_SURV_SLOTS: u32 = 10240u;
 
@@ -100,18 +101,36 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>) {
     let pt_n_active = active_meta[0];
     let pt_p_total = active_meta[1];
     let pt_cap_bin = count_histogram[MAX_N - 1u];
+    // The cap bin hides counts >= 63, but its total MASS is exact:
+    // p_total minus the known bins. A bucket of n partials performs about
+    // n >> k adds at level k, so cap-bin adds are bounded by
+    // (cap_mass >> k) + cap_bin, and the deepest bucket by cap_mass.
+    var pt_known_mass: u32 = 0u;
+    var pt_maxcnt: u32 = 0u;
+    for (var n: u32 = 1u; n < MAX_N - 1u; n = n + 1u) {
+        let h = count_histogram[n];
+        pt_known_mass = pt_known_mass + n * h;
+        if (h > 0u) { pt_maxcnt = n; }
+    }
+    let pt_cap_mass = pt_p_total - pt_known_mass;
+    if (pt_cap_bin > 0u) { pt_maxcnt = max(pt_maxcnt, pt_cap_mass); }
+    // k*: first level whose PREVIOUS level dropped below THETA, gated on
+    // the deepest bucket's residuals fitting a bounded fold (<= 4096 =
+    // 16 serial madds per deep-fold thread).
     var pt_kstar: u32 = PTREE_LEVELS + 1u;
-    if (pt_cap_bin == 0u) {
-        var pk: u32 = 2u;
-        loop {
-            if (pk > PTREE_LEVELS) { break; }
-            var pt_adds: u32 = 0u;
-            for (var n: u32 = 2u; n < MAX_N; n = n + 1u) {
-                pt_adds = pt_adds + count_histogram[n] * ptree_pairs_k(n, pk - 1u);
-            }
-            if (pt_adds < PTREE_THETA) { pt_kstar = pk; break; }
-            pk = pk + 1u;
+    var pk: u32 = 2u;
+    loop {
+        if (pk > PTREE_LEVELS) { break; }
+        var pt_adds: u32 = 0u;
+        for (var n: u32 = 2u; n < MAX_N - 1u; n = n + 1u) {
+            pt_adds = pt_adds + count_histogram[n] * ptree_pairs_k(n, pk - 1u);
         }
+        if (pt_cap_bin > 0u) {
+            pt_adds = pt_adds + (pt_cap_mass >> (pk - 1u)) + pt_cap_bin;
+        }
+        let depth_ok = (pt_maxcnt >> (pk - 1u)) <= 4096u;
+        if (pt_adds < PTREE_THETA && depth_ok) { pt_kstar = pk; break; }
+        pk = pk + 1u;
     }
     // The survivor range must fit the fold scratch; deeper trees shrink it.
     loop {
@@ -121,31 +140,50 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>) {
         if (sz <= PTREE_SURV_SLOTS || pt_kstar > PTREE_LEVELS) { break; }
         pt_kstar = pt_kstar + 1u;
     }
+
+    // Tier boundaries, exact outside the cap bin (the sort is by capped
+    // count): micro = in-thread serial folds (<= MICRO_MAX residuals),
+    // shallow = TPB-64 fold, deep = TPB-256 fold (cap bin only — deep
+    // needs count > 64*stride >= 128 > 62). The cap-bin tail is appended
+    // to the micro and shallow sweeps; in-kernel residual-count guards
+    // pick the right tier for its (count-hidden) buckets.
     let pt_thr = 1u << (pt_kstar - 1u);
-    let pt_base = bin_offsets[min(pt_thr + 1u, MAX_N - 1u)];
-    let pt_range = pt_n_active - pt_base;
+    let pt_surv_base = bin_offsets[min(pt_thr + 1u, MAX_N - 1u)];
+    let pt_cap_base = bin_offsets[MAX_N - 1u];
+    let pt_cap_size = pt_n_active - pt_cap_base;
+    let pt_micro_end = bin_offsets[min(PTREE_MICRO_MAX * pt_thr + 1u, MAX_N - 1u)];
+    let pt_micro_exact = pt_micro_end - pt_surv_base;
+    let pt_shallow_exact = pt_cap_base - pt_micro_end;
+
     ptree_meta[20] = pt_kstar;
     ptree_meta[22] = pt_thr;
-    ptree_meta[23] = pt_base;
-    ptree_meta[24] = pt_range;
+    ptree_meta[23] = pt_surv_base;
+    ptree_meta[24] = pt_n_active - pt_surv_base;
+    ptree_meta[25] = pt_micro_exact;
+    ptree_meta[26] = pt_micro_exact + pt_cap_size;
+    ptree_meta[27] = pt_micro_end;
+    ptree_meta[29] = pt_shallow_exact;
+    ptree_meta[30] = pt_cap_base;
     ptree_meta[28] = pt_p_total;
+
     let pt_lvl_wgs = (pt_p_total + PTREE_S * PTREE_TPB - 1u) / (PTREE_S * PTREE_TPB);
     for (var k: u32 = 1u; k <= PTREE_LEVELS; k = k + 1u) {
         ptree_meta[256u + 4u * k + 0u] = select(0u, pt_lvl_wgs, k < pt_kstar);
         ptree_meta[256u + 4u * k + 1u] = 1u;
         ptree_meta[256u + 4u * k + 2u] = 1u;
     }
-    // Both fold variants sweep the whole survivor range; complementary
-    // in-kernel residual-count guards pick exactly one per bucket.
-    ptree_meta[256u + 4u * 18u + 0u] = pt_range;
+    // Slot 16 = micro (threads), 18 = shallow fold (one WG per bucket),
+    // 17 = deep fold (cap tail only), 19 = survivor finalize.
+    ptree_meta[256u + 4u * 16u + 0u] = (pt_micro_exact + pt_cap_size + PTREE_FIN_TPB - 1u) / PTREE_FIN_TPB;
+    ptree_meta[256u + 4u * 16u + 1u] = 1u;
+    ptree_meta[256u + 4u * 16u + 2u] = 1u;
+    ptree_meta[256u + 4u * 18u + 0u] = pt_shallow_exact + pt_cap_size;
     ptree_meta[256u + 4u * 18u + 1u] = 1u;
     ptree_meta[256u + 4u * 18u + 2u] = 1u;
-    // Deep buckets (> TPB64 residuals) require cnt > 64 * stride >= 128;
-    // the histogram caps at 63, so they exist only when the cap bin is
-    // non-empty — otherwise the deep dispatch is statically empty.
-    ptree_meta[256u + 4u * 17u + 0u] = select(0u, pt_range, pt_cap_bin > 0u);
+    ptree_meta[256u + 4u * 17u + 0u] = pt_cap_size;
     ptree_meta[256u + 4u * 17u + 1u] = 1u;
     ptree_meta[256u + 4u * 17u + 2u] = 1u;
+    let pt_range = pt_n_active - pt_surv_base;
     ptree_meta[256u + 4u * 19u + 0u] = (pt_range + PTREE_FIN_TPB * PTREE_FIN_SN - 1u) / (PTREE_FIN_TPB * PTREE_FIN_SN);
     ptree_meta[256u + 4u * 19u + 1u] = 1u;
     ptree_meta[256u + 4u * 19u + 2u] = 1u;
