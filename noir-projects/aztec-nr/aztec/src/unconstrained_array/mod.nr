@@ -211,20 +211,21 @@ where
     }
 
     /// Returns the first element satisfying the predicate `f`, or `Option::none` if none do.
-    ///
-    /// Mirrors Rust's `Iterator::find`. Defined in terms of [`UnconstrainedArray::filter`], which preserves order, so
-    /// the first kept element is the first match. This is not short-circuiting — every element is tested even after
-    /// the match is found.
     pub unconstrained fn find<Env>(self, f: unconstrained fn[Env](T) -> bool) -> Option<T>
     where
-        T: Serialize + Deserialize,
+        T: Deserialize,
     {
-        let matches = self.filter(f);
-        if matches.len() != 0 {
-            Option::some(matches.get(0))
-        } else {
-            Option::none()
+        let n = self.len();
+        let mut result: Option<T> = Option::none();
+        let mut i = 0;
+        while (i < n) & result.is_none() {
+            let value = self.get(i);
+            if f(value) {
+                result = Option::some(value);
+            }
+            i += 1;
         }
+        result
     }
 }
 
