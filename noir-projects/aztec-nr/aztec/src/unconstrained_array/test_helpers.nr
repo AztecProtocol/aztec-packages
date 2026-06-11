@@ -6,10 +6,10 @@
 //! Each backend module additionally keeps a hand-written smoke test routing through its own public helpers (e.g.
 //! `transient::store` / `transient::load`) to cover the delegation wiring.
 
-use crate::oracle_array::{ArrayOracle, delete, load, store, UnconstrainedArray};
 use crate::protocol::traits::Serialize;
 use crate::test::helpers::test_environment::TestEnvironment;
 use crate::test::mocks::MockStruct;
+use crate::unconstrained_array::{ArrayOracle, delete, load, store, UnconstrainedArray};
 
 pub(crate) global SLOT: Field = 1230;
 pub(crate) global OTHER_SLOT: Field = 5670;
@@ -765,9 +765,9 @@ comptime fn should_fail_message(name: Quoted) -> Option<Quoted> {
 
 /// Generates the shared [`UnconstrainedArray`] test suite against the given backend. Apply to a test module, passing
 /// the
-/// backend's oracle as a quoted path: `#[oracle_array_tests(quote { crate::ephemeral::EphemeralOracle })]`.
-pub(crate) comptime fn oracle_array_tests(_m: Module, oracle: Quoted) -> Quoted {
-    let helpers = quote { crate::oracle_array::test_helpers }.as_module().unwrap();
+/// backend's oracle as a quoted path: `#[unconstrained_array_tests(quote { crate::ephemeral::EphemeralOracle })]`.
+pub(crate) comptime fn unconstrained_array_tests(_m: Module, oracle: Quoted) -> Quoted {
+    let helpers = quote { crate::unconstrained_array::test_helpers }.as_module().unwrap();
     let mut tests = quote {};
     for f in helpers.functions() {
         if f.is_unconstrained() {
@@ -783,7 +783,7 @@ pub(crate) comptime fn oracle_array_tests(_m: Module, oracle: Quoted) -> Quoted 
                 $tests
                 $attr
                 unconstrained fn $name() {
-                    crate::oracle_array::test_helpers::$name::<$oracle>();
+                    crate::unconstrained_array::test_helpers::$name::<$oracle>();
                 }
             };
         }

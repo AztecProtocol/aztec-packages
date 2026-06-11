@@ -1,6 +1,6 @@
 use crate::oracle::transient_oracles;
-use crate::oracle_array::{ArrayOracle, UnconstrainedArray};
 use crate::protocol::traits::{Deserialize, Serialize};
+use crate::unconstrained_array::{ArrayOracle, UnconstrainedArray};
 
 /// A dynamically sized array that lives for the duration of a single top-level PXE call.
 ///
@@ -71,7 +71,7 @@ pub unconstrained fn store<T>(slot: Field, value: T)
 where
     T: Serialize,
 {
-    crate::oracle_array::store::<T, TransientOracle>(slot, value)
+    crate::unconstrained_array::store::<T, TransientOracle>(slot, value)
 }
 
 /// Returns the value previously stored at `slot` with [`store`], or `Option::none()` if the slot holds no value.
@@ -79,18 +79,18 @@ pub unconstrained fn load<T>(slot: Field) -> Option<T>
 where
     T: Deserialize,
 {
-    crate::oracle_array::load::<T, TransientOracle>(slot)
+    crate::unconstrained_array::load::<T, TransientOracle>(slot)
 }
 
 /// Deletes the value stored at `slot`. Does nothing if the slot is already empty.
 pub unconstrained fn delete(slot: Field) {
-    crate::oracle_array::delete::<TransientOracle>(slot)
+    crate::unconstrained_array::delete::<TransientOracle>(slot)
 }
 
-#[crate::oracle_array::test_helpers::oracle_array_tests(quote { crate::transient::TransientOracle })]
+#[crate::unconstrained_array::test_helpers::unconstrained_array_tests(quote { crate::transient::TransientOracle })]
 mod test {
-    use crate::oracle_array::test_helpers::SLOT;
     use crate::test::helpers::test_environment::TestEnvironment;
+    use crate::unconstrained_array::test_helpers::SLOT;
     use super::{load, store};
 
     #[test]
