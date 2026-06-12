@@ -57,6 +57,19 @@ pub contract NestedUtility {
         self.call(NestedUtility::at(target).pow_from_storage(owner))
     }
 
+    /// Returns this utility's `msg_sender`: the supplied `from` for a top-level call (none if absent), or the
+    /// calling contract's address for a nested call.
+    #[external("utility")]
+    unconstrained fn get_msg_sender() -> Option<AztecAddress> {
+        self.context.maybe_msg_sender()
+    }
+
+    /// Cross-contract version: calls get_msg_sender on the target, whose msg_sender is therefore this contract.
+    #[external("utility")]
+    unconstrained fn delegate_get_msg_sender(target: AztecAddress) -> Option<AztecAddress> {
+        self.call(NestedUtility::at(target).get_msg_sender())
+    }
+
     #[external("private")]
     fn pow_private(x: Field, n: u32) -> Field {
         // Safety: this is a test contract; the unconstrained result is returned directly

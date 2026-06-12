@@ -166,8 +166,9 @@ let balance = env.view_public(Token::at(token_address).balance_of_public(owner))
 ### Utility/Unconstrained functions
 
 ```rust
-// Simulate utility/view functions (unconstrained)
-let total = env.execute_utility(Token::at(token_address).balance_of_private(owner));
+// Simulate utility/view functions (unconstrained). The first argument sets the `msg_sender` the
+// utility function observes.
+let total = env.execute_utility(owner, Token::at(token_address).balance_of_private(owner));
 ```
 
 :::tip Helper function pattern
@@ -181,7 +182,7 @@ pub unconstrained fn check_balance(
     expected: u128,
 ) {
     assert_eq(
-        env.execute_utility(Token::at(token_address).balance_of_private(owner)),
+        env.execute_utility(owner, Token::at(token_address).balance_of_private(owner)),
         expected
     );
 }

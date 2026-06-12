@@ -114,10 +114,6 @@ import { TransientArrayService } from './transient_array_service.js';
 
 /** Options for ContractFunctionSimulator.run. */
 export type ContractSimulatorRunOpts = {
-  /** The address of the contract (should match request.origin). */
-  contractAddress: AztecAddress;
-  /** The function selector of the entry point. */
-  selector: FunctionSelector;
   /** The address calling the function. Can be replaced to simulate a call from another contract or account. */
   msgSender?: AztecAddress;
   /** The block header to use as base state for this run. */
@@ -128,6 +124,23 @@ export type ContractSimulatorRunOpts = {
   scopes: AztecAddress[];
   /** The job ID for staged writes. */
   jobId: string;
+};
+
+/** Options for ContractFunctionSimulator.runUtility. */
+export type ContractSimulatorRunUtilityOpts = {
+  /** Authentication witnesses required for the function call. Defaults to none. */
+  authwits?: AuthWitness[];
+  /** The block header to use as base state for this run. */
+  anchorBlockHeader: BlockHeader;
+  /** The accounts whose notes we can access in this call. */
+  scopes: AztecAddress[];
+  /** The job ID for staged writes. */
+  jobId: string;
+  /**
+   * The address to expose as the top-level utility's `msg_sender`. Omitted means no caller. Nested utility calls set
+   * their own `msg_sender` to the calling contract.
+   */
+  msgSender?: AztecAddress;
 };
 
 /** Args for ContractFunctionSimulator constructor. */
@@ -196,9 +209,7 @@ export class ContractFunctionSimulator {
   public async run(
     request: TxExecutionRequest,
     {
-      contractAddress,
-      selector,
-      msgSender = AztecAddress.fromField(Fr.MAX_FIELD_VALUE),
+      msgSender = AztecAddress.NULL_MSG_SENDER,
       anchorBlockHeader,
       senderForTags,
       scopes,
@@ -207,16 +218,15 @@ export class ContractFunctionSimulator {
   ): Promise<PrivateExecutionResult> {
     const simulatorSetupTimer = new Timer();
 
-    const entryPointArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(contractAddress, selector);
+    const contractAddress = request.origin;
+
+    const entryPointArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(
+      contractAddress,
+      request.functionSelector,
+    );
 
     if (entryPointArtifact.functionType !== FunctionType.PRIVATE) {
       throw new Error(`Cannot run ${entryPointArtifact.functionType} function as private`);
-    }
-
-    if (request.origin !== contractAddress) {
-      throw new Error(
-        `Request origin does not match contract address in simulation. Request origin: ${request.origin}, contract address: ${contractAddress}`,
-      );
     }
 
     // reserve the first side effect for the tx hash (inserted by the private kernel)
@@ -244,7 +254,7 @@ export class ContractFunctionSimulator {
       callContext,
       anchorBlockHeader,
       utilityExecutor: async (call, execScopes) => {
-        await this.runUtility(call, [], anchorBlockHeader, execScopes, jobId);
+        await this.runUtility(call, { anchorBlockHeader, scopes: execScopes, jobId });
       },
       authWitnesses: request.authWitnesses,
       capsules: request.capsules,
@@ -325,18 +335,17 @@ export class ContractFunctionSimulator {
   /**
    * Runs a utility function.
    * @param call - The function call to execute.
-   * @param authwits - Authentication witnesses required for the function call.
-   * @param anchorBlockHeader - The block header to use as base state for this run.
-   * @param scopes - Optional array of account addresses whose notes can be accessed in this call. Defaults to all
-   * accounts if not specified.
    * @returns A return value of the utility function in a form as returned by the simulator (Noir fields)
    */
   public async runUtility(
     call: FunctionCall,
-    authwits: AuthWitness[],
-    anchorBlockHeader: BlockHeader,
-    scopes: AztecAddress[],
-    jobId: string,
+    {
+      authwits = [],
+      anchorBlockHeader,
+      scopes,
+      jobId,
+      msgSender = AztecAddress.NULL_MSG_SENDER,
+    }: ContractSimulatorRunUtilityOpts,
   ): Promise<{ result: Fr[]; offchainEffects: OffchainEffect[] }> {
     const entryPointArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(call.to, call.selector);
 
@@ -345,11 +354,16 @@ export class ContractFunctionSimulator {
     }
 
     const utilityExecutor = async (syncCall: FunctionCall, execScopes: AztecAddress[]) => {
-      await this.runUtility(syncCall, [], anchorBlockHeader, execScopes, jobId);
+      await this.runUtility(syncCall, { anchorBlockHeader, scopes: execScopes, jobId });
     };
 
     const oracle = new UtilityExecutionOracle({
-      contractAddress: call.to,
+      callContext: CallContext.from({
+        msgSender,
+        contractAddress: call.to,
+        functionSelector: call.selector,
+        isStaticCall: true,
+      }),
       authWitnesses: authwits,
       capsules: [],
       anchorBlockHeader,

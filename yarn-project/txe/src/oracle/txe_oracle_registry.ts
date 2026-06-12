@@ -253,6 +253,7 @@ export const TXE_ORACLE_REGISTRY: Record<string, OracleRegistryEntry> = {
 
   aztec_txe_executeUtilityFunction: makeEntry({
     params: [
+      { name: 'from', type: AZTEC_ADDRESS },
       { name: 'targetContractAddress', type: AZTEC_ADDRESS },
       { name: 'functionSelector', type: FUNCTION_SELECTOR },
       { name: 'args', type: ARRAY(FIELD) },

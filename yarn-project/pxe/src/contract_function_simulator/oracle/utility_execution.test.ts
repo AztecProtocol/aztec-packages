@@ -3,9 +3,17 @@ import { Grumpkin } from '@aztec/foundation/crypto/grumpkin';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
 import type { KeyStore } from '@aztec/key-store';
+import { NestedUtilityContractArtifact } from '@aztec/noir-test-contracts.js/NestedUtility';
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { WASMSimulator } from '@aztec/simulator/client';
-import { FunctionCall, FunctionSelector, FunctionType, encodeArguments } from '@aztec/stdlib/abi';
+import {
+  type FunctionArtifactWithContractName,
+  FunctionCall,
+  FunctionSelector,
+  FunctionType,
+  decodeFromAbi,
+  encodeArguments,
+} from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash, type L2TipsProvider } from '@aztec/stdlib/block';
 import {
@@ -20,6 +28,7 @@ import { Note, NoteDao } from '@aztec/stdlib/note';
 import { makeL2Tips } from '@aztec/stdlib/testing';
 import {
   BlockHeader,
+  CallContext,
   Capsule,
   GlobalVariables,
   MinedTxReceipt,
@@ -161,37 +170,13 @@ describe('Utility Execution test suite', () => {
 
     const notes: Note[] = [...Array(5).fill(buildNote(1n)), ...Array(2).fill(buildNote(2n))];
 
-    // The initializer nullifier check requires the instance to be a valid preimage of the contract address, so we
-    // can't use a random contract address here.
-    const instanceFields = {
-      version: 2 as const,
-      salt: Fr.random(),
-      deployer: await AztecAddress.random(),
-      currentContractClassId: new Fr(42),
-      originalContractClassId: new Fr(42),
-      initializationHash: Fr.random(),
-      immutablesHash: Fr.random(),
-      publicKeys: await PublicKeys.random(),
-    };
-    const contractAddress = await computeContractAddressFromInstance(instanceFields);
+    const contractAddress = await registerContract(artifact);
 
     aztecNode.getPublicStorageAt.mockResolvedValue(Fr.ZERO);
     // The init check calls check_nullifier_exists, which queries findLeavesIndexes.
     aztecNode.findLeavesIndexes.mockResolvedValue([
       { data: 1n, l2BlockNumber: BlockNumber(1), l2BlockHash: BlockHash.random() },
     ]);
-    contractStore.getFunctionArtifact.mockResolvedValue(artifact);
-    contractStore.getContractInstance.mockResolvedValue({
-      ...instanceFields,
-      address: contractAddress,
-    } as ContractInstanceWithAddress);
-    contractStore.getFunctionArtifactWithDebugMetadata.mockImplementation(async (address, selector) => {
-      const artifact = await contractStore.getFunctionArtifact(address, selector);
-      if (!artifact) {
-        throw new Error(`Function not found: ${selector.toString()} in contract ${address}`);
-      }
-      return { ...artifact, debug: undefined };
-    });
     noteStore.getNotes.mockResolvedValue(
       notes.map(
         note =>
@@ -226,16 +211,54 @@ describe('Utility Execution test suite', () => {
       returnTypes: artifact.returnTypes,
     });
 
-    const { result, offchainEffects } = await acirSimulator.runUtility(
-      execRequest,
-      [],
+    const { result, offchainEffects } = await acirSimulator.runUtility(execRequest, {
       anchorBlockHeader,
-      [],
-      'test-job-id',
-    );
+      scopes: [],
+      jobId: 'test-job-id',
+    });
 
     expect(result).toEqual([new Fr(9)]);
     expect(offchainEffects).toEqual([]);
+  }, 30_000);
+
+  it('exposes the supplied msgSender as the utility msg_sender, and no caller when omitted', async () => {
+    const artifact = {
+      ...NestedUtilityContractArtifact.functions.find(f => f.name === 'get_msg_sender')!,
+      contractName: NestedUtilityContractArtifact.name,
+    };
+
+    const contractAddress = await registerContract(artifact);
+
+    capsuleStore.getCapsule.mockImplementation((_, __) => Promise.resolve(null));
+
+    const execRequest = FunctionCall.from({
+      name: artifact.name,
+      to: contractAddress,
+      selector: FunctionSelector.empty(),
+      type: FunctionType.UTILITY,
+      hideMsgSender: false,
+      isStatic: false,
+      args: encodeArguments(artifact, []),
+      returnTypes: artifact.returnTypes,
+    });
+
+    // Supplying a msgSender surfaces it as the top-level `msg_sender` (some).
+    const sender = await AztecAddress.random();
+    const { result: withSender } = await acirSimulator.runUtility(execRequest, {
+      anchorBlockHeader,
+      scopes: [],
+      jobId: 'test-job-id',
+      msgSender: sender,
+    });
+    expect(decodeFromAbi(artifact.returnTypes, withSender)).toEqual(sender);
+
+    // Omitting msgSender means no caller, which the utility observes as none.
+    const { result: withoutSender } = await acirSimulator.runUtility(execRequest, {
+      anchorBlockHeader,
+      scopes: [],
+      jobId: 'test-job-id',
+    });
+    expect(decodeFromAbi(artifact.returnTypes, withoutSender)).toBeUndefined();
   }, 30_000);
 
   it('WASM simulator supports N-way concurrent utility execution', async () => {
@@ -256,34 +279,12 @@ describe('Utility Execution test suite', () => {
     const notes: Note[] = [...Array(5).fill(buildNote(1n)), ...Array(2).fill(buildNote(2n))];
     const expectedSum = new Fr(9);
 
-    const instanceFields = {
-      version: 2 as const,
-      salt: Fr.random(),
-      deployer: await AztecAddress.random(),
-      currentContractClassId: new Fr(42),
-      originalContractClassId: new Fr(42),
-      initializationHash: Fr.random(),
-      immutablesHash: Fr.random(),
-      publicKeys: await PublicKeys.random(),
-    };
-    const contractAddress = await computeContractAddressFromInstance(instanceFields);
+    const contractAddress = await registerContract(artifact);
 
     aztecNode.getPublicStorageAt.mockResolvedValue(Fr.ZERO);
     aztecNode.findLeavesIndexes.mockResolvedValue([
       { data: 1n, l2BlockNumber: BlockNumber(1), l2BlockHash: BlockHash.random() },
     ]);
-    contractStore.getFunctionArtifact.mockResolvedValue(artifact);
-    contractStore.getContractInstance.mockResolvedValue({
-      ...instanceFields,
-      address: contractAddress,
-    } as ContractInstanceWithAddress);
-    contractStore.getFunctionArtifactWithDebugMetadata.mockImplementation(async (address, selector) => {
-      const artifact = await contractStore.getFunctionArtifact(address, selector);
-      if (!artifact) {
-        throw new Error(`Function not found: ${selector.toString()} in contract ${address}`);
-      }
-      return { ...artifact, debug: undefined };
-    });
     noteStore.getNotes.mockResolvedValue(
       notes.map(
         note =>
@@ -319,7 +320,11 @@ describe('Utility Execution test suite', () => {
 
     const results = await Promise.all(
       Array.from({ length: N }, (_, i) =>
-        acirSimulator.runUtility(execRequest, [], anchorBlockHeader, [], `reentrance-job-${i}`),
+        acirSimulator.runUtility(execRequest, {
+          anchorBlockHeader,
+          scopes: [],
+          jobId: `reentrance-job-${i}`,
+        }),
       ),
     );
 
@@ -591,10 +596,16 @@ describe('Utility Execution test suite', () => {
       });
     });
 
-    const makeOracle = (overrides?: Partial<UtilityExecutionOracleArgs>) => {
-      const scopes = overrides?.scopes ?? [];
+    const makeOracle = (overrides?: Partial<UtilityExecutionOracleArgs> & { contractAddress?: AztecAddress }) => {
+      const { contractAddress: contractAddressOverride, ...rest } = overrides ?? {};
+      const scopes = rest.scopes ?? [];
       return new UtilityExecutionOracle({
-        contractAddress,
+        callContext: new CallContext(
+          AztecAddress.NULL_MSG_SENDER,
+          contractAddressOverride ?? contractAddress,
+          FunctionSelector.empty(),
+          true,
+        ),
         authWitnesses: [],
         capsules: [],
         anchorBlockHeader,
@@ -615,8 +626,40 @@ describe('Utility Execution test suite', () => {
         simulator,
         utilityExecutor: () => Promise.resolve(),
         transientArrayService: new TransientArrayService(),
-        ...overrides,
+        ...rest,
       });
     };
   });
+
+  /** Registers `artifact` in the contract store mocks and returns the address it is registered at. */
+  async function registerContract(artifact: FunctionArtifactWithContractName) {
+    // The initializer nullifier check requires the instance to be a valid preimage of the contract address, so we
+    // can't use a random contract address here.
+    const instanceFields = {
+      version: 2 as const,
+      salt: Fr.random(),
+      deployer: await AztecAddress.random(),
+      currentContractClassId: new Fr(42),
+      originalContractClassId: new Fr(42),
+      initializationHash: Fr.random(),
+      immutablesHash: Fr.random(),
+      publicKeys: await PublicKeys.random(),
+    };
+    const contractAddress = await computeContractAddressFromInstance(instanceFields);
+
+    contractStore.getFunctionArtifact.mockResolvedValue(artifact);
+    contractStore.getContractInstance.mockResolvedValue({
+      ...instanceFields,
+      address: contractAddress,
+    } as ContractInstanceWithAddress);
+    contractStore.getFunctionArtifactWithDebugMetadata.mockImplementation(async (address, selector) => {
+      const found = await contractStore.getFunctionArtifact(address, selector);
+      if (!found) {
+        throw new Error(`Function not found: ${selector.toString()} in contract ${address}`);
+      }
+      return { ...found, debug: undefined };
+    });
+
+    return contractAddress;
+  }
 });

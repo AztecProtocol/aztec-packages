@@ -47,6 +47,6 @@ unconstrained fn test_log_with_address() {
 
 #[test]
 unconstrained fn test_utility_logging() {
-    let (env, contract_address, _owner) = setup();
-    let _ = env.execute_utility(LoggingExample::at(contract_address).log_utility(77));
+    let (env, contract_address, owner) = setup();
+    let _ = env.execute_utility(owner, LoggingExample::at(contract_address).log_utility(77));
 }

@@ -14,9 +14,9 @@ unconstrained fn setup() -> (TestEnvironment, AztecAddress, AztecAddress, AztecA
 
 #[test]
 unconstrained fn same_contract_utility_call_from_utility_succeeds() {
-    let (env, _, addr_a, _) = setup();
+    let (env, account, addr_a, _) = setup();
 
-    let result: Field = env.execute_utility(NestedUtility::at(addr_a).pow_utility(2, 10));
+    let result: Field = env.execute_utility(account, NestedUtility::at(addr_a).pow_utility(2, 10));
     assert_eq(result, 1024);
 }
 
@@ -30,9 +30,9 @@ unconstrained fn same_contract_utility_call_from_private_succeeds() {
 
 #[test(should_fail_with = "Cross-contract utility call denied")]
 unconstrained fn cross_contract_utility_call_from_utility_denied_by_default() {
-    let (env, _, addr_a, addr_b) = setup();
+    let (env, account, addr_a, addr_b) = setup();
 
-    let _: Field = env.execute_utility(NestedUtility::at(addr_a).delegate_pow_utility(addr_b, 2, 3));
+    let _: Field = env.execute_utility(account, NestedUtility::at(addr_a).delegate_pow_utility(addr_b, 2, 3));
 }
 
 #[test(should_fail_with = "Cross-contract utility call denied")]
@@ -44,9 +44,10 @@ unconstrained fn cross_contract_utility_call_from_private_denied_by_default() {
 
 #[test]
 unconstrained fn cross_contract_utility_call_from_utility_succeeds_with_authorization() {
-    let (env, _, addr_a, addr_b) = setup();
+    let (env, account, addr_a, addr_b) = setup();
 
     let result: Field = env.execute_utility_opts(
+        account,
         ExecuteUtilityOptions::new().with_authorized_utility_call_targets([addr_b]),
         NestedUtility::at(addr_a).delegate_pow_utility(addr_b, 2, 3),
     );

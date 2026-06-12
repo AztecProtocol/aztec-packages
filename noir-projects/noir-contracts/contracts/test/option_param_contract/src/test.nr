@@ -32,15 +32,19 @@ unconstrained fn passes_public_optional_struct_parameter() {
 #[test]
 unconstrained fn passes_utility_optional_struct_parameter() {
     let mut env = TestEnvironment::new();
+    let sender = env.create_light_account();
 
     let option_param = OptionParam::at(env.deploy("OptionParam").without_initializer());
 
-    let none_value = env.execute_utility(option_param.return_utility_optional_struct(Option::none()));
+    let none_value = env.execute_utility(sender, option_param.return_utility_optional_struct(Option::none()));
     assert_eq(none_value, Option::none());
 
-    let some_value = env.execute_utility(option_param.return_utility_optional_struct(Option::some(
-        SomeStruct { w: MAX_FIELD_VALUE, x: true, y: U64_MAX, z: I64_MAX },
-    )));
+    let some_value = env.execute_utility(
+        sender,
+        option_param.return_utility_optional_struct(Option::some(
+            SomeStruct { w: MAX_FIELD_VALUE, x: true, y: U64_MAX, z: I64_MAX },
+        )),
+    );
     assert_eq(
         some_value,
         Option::some(

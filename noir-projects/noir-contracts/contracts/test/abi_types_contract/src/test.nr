@@ -68,25 +68,26 @@ unconstrained fn pass_private_parameters() {
 #[test]
 unconstrained fn pass_utility_parameters() {
     let mut env = TestEnvironment::new();
+    let sender = env.create_light_account();
 
     let abi_types = AbiTypes::at(env.deploy("AbiTypes").without_initializer());
 
-    let min_range_return_values = env.execute_utility(abi_types.return_utility_parameters(
-        false,
-        0,
-        0,
-        I64_MIN,
-        CustomStruct { w: 0, x: false, y: 0, z: I64_MIN },
-    ));
+    let min_range_return_values = env.execute_utility(
+        sender,
+        abi_types.return_utility_parameters(false, 0, 0, I64_MIN, CustomStruct { w: 0, x: false, y: 0, z: I64_MIN }),
+    );
     assert_eq(min_range_return_values, (false, 0, 0, I64_MIN, CustomStruct { w: 0, x: false, y: 0, z: I64_MIN }));
 
-    let max_range_return_values = env.execute_utility(abi_types.return_utility_parameters(
-        true,
-        MAX_FIELD_VALUE,
-        U64_MAX,
-        I64_MAX,
-        CustomStruct { w: MAX_FIELD_VALUE, x: true, y: U64_MAX, z: I64_MAX },
-    ));
+    let max_range_return_values = env.execute_utility(
+        sender,
+        abi_types.return_utility_parameters(
+            true,
+            MAX_FIELD_VALUE,
+            U64_MAX,
+            I64_MAX,
+            CustomStruct { w: MAX_FIELD_VALUE, x: true, y: U64_MAX, z: I64_MAX },
+        ),
+    );
     assert_eq(
         max_range_return_values,
         (true, MAX_FIELD_VALUE, U64_MAX, I64_MAX, CustomStruct { w: MAX_FIELD_VALUE, x: true, y: U64_MAX, z: I64_MAX }),

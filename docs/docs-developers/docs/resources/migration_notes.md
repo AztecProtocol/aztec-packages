@@ -9,6 +9,48 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### Utility calls now have a `msg_sender`
+
+Utility functions can read their caller via `self.msg_sender()`, mirroring private and public functions. A nested call (utility to utility, or private to utility) sees the calling contract's address. A top-level utility call sees the `from` address supplied for the simulation, or has no caller when none was supplied. `self.msg_sender()` panics when there is no caller; use `self.context.maybe_msg_sender()`, which returns an `Option<AztecAddress>`, to handle that case.
+
+This change has several parts:
+
+#### [Aztec.nr] `TestEnvironment::execute_utility` takes a leading `from`
+
+`execute_utility` and `execute_utility_opts` now take a positional `from: AztecAddress` as their first argument, mirroring `call_private(from, call)`. The `from` address becomes the utility's observed `msg_sender`.
+
+**Migration:**
+
+```diff
+- env.execute_utility(target.read_value(owner))
++ env.execute_utility(owner, target.read_value(owner))
+
+- env.execute_utility_opts(opts, call)
++ env.execute_utility_opts(from, opts, call)
+```
+
+#### [Aztec.js] Simulating a utility with `from` sets its top-level `msg_sender`
+
+When you simulate a utility function with `from`, that address is now also the utility's top-level `msg_sender`, in addition to determining which notes and keys are visible. This lets a dapp simulate a utility call as if a specific account or contract were the caller:
+
+```ts
+// `appAddress` is observed by the utility as `self.msg_sender()`
+const { result } = await contract.methods.get_app_data().simulate({ from: appAddress });
+```
+
+Simulating with `NO_FROM` leaves `msg_sender` unset, so `self.context.maybe_msg_sender()` returns `Option::none()` and `self.msg_sender()` panics. This is additive: existing call sites that already pass a `from` need no changes.
+
+#### [Aztec.js] `Wallet.executeUtility` takes `{ from, additionalScopes }` instead of `{ scopes }`
+
+The options for `Wallet.executeUtility` now use the same `{ from, additionalScopes }` shape as the other wallet methods (such as `simulateTx` and `sendTx`), replacing the `scopes` array. `from` determines which notes and keys are visible and becomes the utility's top-level `msg_sender` (see the note above). Pass `NO_FROM` when there is no acting account.
+
+**Migration:**
+
+```diff
+- await wallet.executeUtility(call, { scopes: [account, other] });
++ await wallet.executeUtility(call, { from: account, additionalScopes: [other] });
+```
+
 ### [Aztec.js] Prefunded local network test accounts are now initializerless
 
 The genesis-funded test accounts in the local network (sandbox), returned by `getInitialTestAccountsData()`, are now initializerless Schnorr accounts (`schnorr_initializerless`). An initializerless account has no onchain deployment transaction: its address commits to the signing public key (through `immutables_hash`) and its contract state is materialized locally in the PXE, so these accounts are usable right away.
@@ -90,8 +132,6 @@ The following exports have been removed from `@aztec/stdlib`:
 - `FALLBACK_TEARDOWN_DA_GAS_LIMIT`
 
 **Impact**: Any code that imported these symbols must switch to the live node-advertised limits via the node's `txsLimits.gas`.
-
-> > > > > > > ab5413c72dc5377107943b8614130ec8050bf06c
 
 ### [Aztec.nr] `messages::message_delivery` module moved to `messages::delivery`
 

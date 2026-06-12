@@ -1044,8 +1044,9 @@ export class RPCTranslator {
     return callTxeHandler({
       oracle: 'aztec_txe_executeUtilityFunction',
       inputs,
-      handler: ([targetContractAddress, functionSelector, args, authorizedUtilityCallTargets]) =>
+      handler: ([from, targetContractAddress, functionSelector, args, authorizedUtilityCallTargets]) =>
         this.stateHandler.executeUtilityFunction(
+          from,
           targetContractAddress,
           functionSelector,
           args,

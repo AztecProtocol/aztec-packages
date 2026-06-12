@@ -1,10 +1,14 @@
 use crate::oracle::{execution::get_utility_context, storage::storage_read};
-use crate::protocol::{abis::block_header::BlockHeader, address::AztecAddress, traits::Packable};
+use crate::protocol::{
+    abis::block_header::BlockHeader, address::AztecAddress, constants::NULL_MSG_SENDER_CONTRACT_ADDRESS,
+    traits::Packable,
+};
 
 // If you'll modify this struct don't forget to update utility_context.ts as well.
 pub struct UtilityContext {
     block_header: BlockHeader,
     contract_address: AztecAddress,
+    msg_sender: AztecAddress,
 }
 
 impl UtilityContext {
@@ -17,7 +21,7 @@ impl UtilityContext {
         // contract address.
         let default_context = get_utility_context();
 
-        Self { block_header: default_context.block_header, contract_address }
+        Self { block_header: default_context.block_header, contract_address, msg_sender: default_context.msg_sender }
     }
 
     pub fn block_header(self) -> BlockHeader {
@@ -34,6 +38,21 @@ impl UtilityContext {
 
     pub fn this_address(self) -> AztecAddress {
         self.contract_address
+    }
+
+    /// Returns the address that initiated this utility call.
+    ///
+    /// This is similar to `msg.sender` in Solidity (hence the name).
+    ///
+    /// Important Note: A utility function called by another contract (via a nested utility call) sees that contract's
+    /// address. A utility function invoked directly (e.g. by a wallet or dApp) sees the `from` address supplied for
+    /// the simulation, or `Option::none` when no `from` was supplied (i.e. when there is no caller).
+    pub fn maybe_msg_sender(self) -> Option<AztecAddress> {
+        if self.msg_sender == NULL_MSG_SENDER_CONTRACT_ADDRESS {
+            Option::none()
+        } else {
+            Option::some(self.msg_sender)
+        }
     }
 
     pub fn version(self) -> Field {

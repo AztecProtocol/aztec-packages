@@ -71,7 +71,7 @@ describe('Contract Class', () => {
     expect(wallet.executeUtility).toHaveBeenCalledTimes(1);
     expect(wallet.executeUtility).toHaveBeenCalledWith(
       expect.objectContaining({ name: 'qux', to: contractAddress }),
-      expect.objectContaining({ scopes: [account.getAddress()] }),
+      expect.objectContaining({ from: account.getAddress() }),
     );
     expect(result).toBe(42n);
   });

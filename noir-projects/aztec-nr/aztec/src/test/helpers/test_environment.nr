@@ -385,6 +385,7 @@ struct EventDiscoveryOptions {
 ///
 /// ```noir
 /// env.execute_utility_opts(
+///     caller,
 ///     ExecuteUtilityOptions::new().with_authorized_utility_call_targets([target]),
 ///     SomeContract::at(addr).some_utility_function(),
 /// );
@@ -1023,24 +1024,32 @@ impl TestEnvironment {
 
     /// Performs a utility contract function call and returns the result of the called function.
     ///
+    /// `from` sets the `msg_sender` observed by the called utility function, mirroring the `from` address a dapp
+    /// supplies when simulating a utility call.
+    ///
     /// The `call` value can be obtained by calling the appropriate method on a contract type. E.g.:
     ///
     /// ```noir
     /// let caller = env.create_light_account();
     /// let contract_addr = env.deploy("SampleContract").without_initializer();
-    /// let return_value = env.execute_utility(SampleContract::at(contract_addr).sample_utility_function());
+    /// let return_value = env.execute_utility(caller, SampleContract::at(contract_addr).sample_utility_function());
     /// ```
-    pub unconstrained fn execute_utility<let M: u32, let N: u32, T>(self: Self, call: UtilityCall<M, N, T>) -> T
+    pub unconstrained fn execute_utility<let M: u32, let N: u32, T>(
+        self: Self,
+        from: AztecAddress,
+        call: UtilityCall<M, N, T>,
+    ) -> T
     where
         T: Deserialize,
     {
-        self.execute_utility_opts(ExecuteUtilityOptions::new(), call)
+        self.execute_utility_opts(from, ExecuteUtilityOptions::new(), call)
     }
 
     /// Variant of `execute_utility` which allows specifying configuration values via `ExecuteUtilityOptions`, such as
     /// authorizing cross-contract utility calls.
     pub unconstrained fn execute_utility_opts<let M: u32, let N: u32, let U: u32, T>(
         _self: Self,
+        from: AztecAddress,
         opts: ExecuteUtilityOptions<U>,
         call: UtilityCall<M, N, T>,
     ) -> T
@@ -1048,6 +1057,7 @@ impl TestEnvironment {
         T: Deserialize,
     {
         let serialized_return_values = txe_oracles::execute_utility_function(
+            from,
             call.target_contract,
             call.selector,
             call.args,
@@ -1081,7 +1091,7 @@ impl TestEnvironment {
     /// let messages = env.offchain_messages();
     /// let mut batch: BoundedVec<_, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL> = BoundedVec::new();
     /// for i in 0..messages.len() { batch.push(messages.get(i)); }
-    /// env.execute_utility(Token::at(token).offchain_receive(batch));
+    /// env.execute_utility(recipient, Token::at(token).offchain_receive(batch));
     /// ```
     pub unconstrained fn offchain_messages(
         _self: Self,

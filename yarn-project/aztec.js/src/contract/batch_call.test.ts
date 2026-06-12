@@ -157,14 +157,14 @@ describe('BatchCall', () => {
           name: 'executeUtility',
           args: [
             expect.objectContaining({ name: 'getBalance', to: contractAddress1 }),
-            expect.objectContaining({ scopes: expect.any(Array) }),
+            expect.objectContaining({ from: expect.any(AztecAddress) }),
           ],
         },
         {
           name: 'executeUtility',
           args: [
             expect.objectContaining({ name: 'checkPermission', to: contractAddress3 }),
-            expect.objectContaining({ scopes: expect.any(Array) }),
+            expect.objectContaining({ from: expect.any(AztecAddress) }),
           ],
         },
         {
@@ -222,14 +222,14 @@ describe('BatchCall', () => {
           name: 'executeUtility',
           args: [
             expect.objectContaining({ name: 'view1', to: contractAddress1 }),
-            expect.objectContaining({ scopes: expect.any(Array) }),
+            expect.objectContaining({ from: expect.any(AztecAddress) }),
           ],
         },
         {
           name: 'executeUtility',
           args: [
             expect.objectContaining({ name: 'view2', to: contractAddress2 }),
-            expect.objectContaining({ scopes: expect.any(Array) }),
+            expect.objectContaining({ from: expect.any(AztecAddress) }),
           ],
         },
       ]);
