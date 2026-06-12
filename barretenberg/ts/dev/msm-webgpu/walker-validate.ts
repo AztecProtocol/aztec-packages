@@ -64,8 +64,8 @@ async function postResult(payload: Record<string, unknown>) {
     log('info', 'instantiating ShaderManager (chunk=4, n=131072)...');
     const sm = new ShaderManager(4, 131072, BN254_CURVE_CONFIG, false);
 
-    log('info', 'generating ba_stream_walker source (TPB=64, S=8, pk — KNOB 1)...');
-    const walkerSrc = sm.gen_ba_stream_walker_shader(64, 8, 'pk');
+    log('info', 'generating ba_stream_walker source (TPB=64, S=8 — KNOB 1)...');
+    const walkerSrc = sm.gen_ba_stream_walker_shader(64, 8, 4352, 4096, 81920, true);
     log('info', `walker source: ${walkerSrc.length} bytes`);
 
     log('info', 'generating ba_planner_partition_task source (KNOB 2)...');

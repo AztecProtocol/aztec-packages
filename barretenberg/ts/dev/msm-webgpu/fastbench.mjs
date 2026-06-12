@@ -40,6 +40,11 @@ const LOGN = Math.min(17, parseInt(arg('logn', '17'), 10) || 17); // HARD CAP 17
 const REPS = parseInt(arg('reps', '5'), 10);
 const PROFILE = String(arg('profile', 'A')).toUpperCase();
 const MONTMUL = String(arg('montmul', ''));
+if (MONTMUL && MONTMUL !== 'karat' && MONTMUL !== 'cios_unrolled') {
+  // A typo here would silently bench the default variant — fail loudly instead.
+  console.error(`--montmul must be 'karat' or 'cios_unrolled' (got '${MONTMUL}')`);
+  process.exit(2);
+}
 const TIMEOUT_MS = parseInt(arg('timeout-s', '600'), 10) * 1000;
 const WORKTREE = String(arg('worktree', join(homedir(), 'localclaudebox', 'aztec-pr23575', 'barretenberg', 'ts')));
 const RESULTS = String(arg('results', join(homedir(), 'localclaudebox', 'phonetests', `fastbench_results_${PORT}.jsonl`)));
