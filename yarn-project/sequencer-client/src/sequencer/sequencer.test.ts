@@ -333,7 +333,6 @@ describe('sequencer', () => {
       getCheckpointsData: mockFn().mockResolvedValue([]),
       getSyncedL2SlotNumber: mockFn().mockResolvedValue(SlotNumber(Number.MAX_SAFE_INTEGER)),
       getProposedCheckpointData: mockFn().mockResolvedValue(undefined),
-      getProposedCheckpoint: mockFn().mockResolvedValue(undefined),
     });
 
     l1ToL2MessageSource = mock<L1ToL2MessageSource>({
@@ -1317,7 +1316,7 @@ describe('sequencer', () => {
         checkpointNumber: CheckpointNumber(1),
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
       } satisfies BlockData);
-      l2BlockSource.getProposedCheckpoint.mockResolvedValue({
+      l2BlockSource.getProposedCheckpointData.mockResolvedValue({
         checkpointNumber: CheckpointNumber(1),
         header: CheckpointHeader.empty(),
         archive: AppendOnlyTreeSnapshot.empty(),
@@ -1380,7 +1379,7 @@ describe('sequencer', () => {
         checkpointNumber: CheckpointNumber(3),
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
       } satisfies BlockData);
-      l2BlockSource.getProposedCheckpoint.mockResolvedValue({ checkpointNumber: CheckpointNumber(2) } as any);
+      l2BlockSource.getProposedCheckpointData.mockResolvedValue({ checkpointNumber: CheckpointNumber(2) } as any);
 
       await sequencer.work();
 
@@ -1442,7 +1441,7 @@ describe('sequencer', () => {
         checkpointNumber: CheckpointNumber(1),
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
       } satisfies BlockData);
-      l2BlockSource.getProposedCheckpoint.mockResolvedValue({
+      l2BlockSource.getProposedCheckpointData.mockResolvedValue({
         checkpointNumber: CheckpointNumber(1),
         header: CheckpointHeader.empty(),
         archive: AppendOnlyTreeSnapshot.empty(),
@@ -1487,7 +1486,7 @@ describe('sequencer', () => {
     // Mocks all sync sources so checkSync passes its earlier equality checks and reaches the orphan
     // guard, with the world-state tip at `blockNumber` (in `blockCheckpointNumber`) while the
     // checkpointed tip sits at `checkpointedCheckpointNumber`. The leading proposed checkpoint (if any)
-    // is supplied as the single atomic `getProposedCheckpoint` snapshot.
+    // is supplied via `getProposedCheckpointData`.
     const setupSyncedToBlock = (opts: {
       blockNumber: BlockNumber;
       blockSlot: SlotNumber;
@@ -1534,7 +1533,7 @@ describe('sequencer', () => {
         checkpointNumber: opts.blockCheckpointNumber,
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
       } satisfies BlockData);
-      l2BlockSource.getProposedCheckpoint.mockResolvedValue(opts.proposedCheckpoint);
+      l2BlockSource.getProposedCheckpointData.mockResolvedValue(opts.proposedCheckpoint);
     };
 
     it('returns undefined and logs debug while waiting for a matching proposed checkpoint', async () => {

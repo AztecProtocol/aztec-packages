@@ -241,20 +241,14 @@ export interface L2BlockSource {
 
   /**
    * Looks up a proposed (archiver-internal, not-yet-L1-confirmed) checkpoint.
-   * Returns the latest proposed entry when called with no args or `{ tag: 'proposed' }`.
+   * Returns the latest proposed entry when called with no args or `{ tag: 'proposed' }`; since a
+   * proposed entry can only be stored with a checkpoint number beyond the confirmed frontier (and is
+   * deleted on confirmation), the latest entry is always the leading one. Callers derive the proposed
+   * tip from the payload (checkpoint number, and last block `startBlock + blockCount - 1`).
    * With `{ number }` or `{ slot }`, returns the matching entry or undefined.
    * Never falls back to confirmed checkpoints.
    */
   getProposedCheckpointData(query?: ProposedCheckpointQuery): Promise<ProposedCheckpointData | undefined>;
-
-  /**
-   * Returns the payload of the latest proposed (not-yet-L1-confirmed) checkpoint that leads the
-   * checkpointed frontier, in a single atomic store read. Returns `undefined` when no proposed
-   * checkpoint exists beyond the checkpointed tip. Callers derive the proposed tip from the payload
-   * (checkpoint number, and last block `startBlock + blockCount - 1`); unlike
-   * {@link getProposedCheckpointData}, this applies the leading-frontier filter.
-   */
-  getProposedCheckpoint(): Promise<ProposedCheckpointData | undefined>;
 
   /** Force a sync. */
   syncImmediate(): Promise<void>;

@@ -141,10 +141,6 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
     input: z.tuple([optional(ProposedCheckpointQuerySchema)]),
     output: ProposedCheckpointDataSchema.optional(),
   }),
-  getProposedCheckpoint: z.function({
-    input: z.tuple([]),
-    output: ProposedCheckpointDataSchema.optional(),
-  }),
   syncImmediate: z.function({ input: z.tuple([]), output: z.void() }),
   isPendingChainInvalid: z.function({ input: z.tuple([]), output: z.boolean() }),
   getPendingChainValidationStatus: z.function({ input: z.tuple([]), output: ValidateCheckpointResultSchema }),

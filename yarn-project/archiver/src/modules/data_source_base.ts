@@ -288,10 +288,6 @@ export abstract class ArchiverDataSourceBase
     return this.stores.blocks.getProposedCheckpointBySlot(query.slot);
   }
 
-  public getProposedCheckpoint(): Promise<ProposedCheckpointData | undefined> {
-    return this.stores.blocks.getProposedCheckpoint();
-  }
-
   public getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined> {
     return this.stores.blocks.getTxEffect(txHash);
   }

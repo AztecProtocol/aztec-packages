@@ -411,7 +411,7 @@ export class AutomineSequencer {
 
     const [tips, proposedCheckpoint] = await Promise.all([
       this.deps.l2BlockSource.getL2Tips(),
-      this.deps.l2BlockSource.getProposedCheckpoint(),
+      this.deps.l2BlockSource.getProposedCheckpointData(),
     ]);
     const syncedToBlockNumber = tips.proposed.number;
 

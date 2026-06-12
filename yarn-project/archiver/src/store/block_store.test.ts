@@ -2625,16 +2625,16 @@ describe('BlockStore', () => {
     });
   });
 
-  describe('getProposedCheckpoint', () => {
-    it('returns undefined when no pending checkpoint leads the checkpointed frontier', async () => {
-      // Add checkpoint 1 with blocks 1-3
+  describe('getLastProposedCheckpoint', () => {
+    it('returns undefined when there is no pending checkpoint', async () => {
+      // Add checkpoint 1 with blocks 1-3; confirmation deletes any matching proposed entry.
       const checkpoint1 = makePublishedCheckpoint(
         await Checkpoint.random(CheckpointNumber(1), { numBlocks: 3, startBlockNumber: 1 }),
         10,
       );
       await blockStore.addCheckpoints([checkpoint1]);
 
-      expect(await blockStore.getProposedCheckpoint()).toBeUndefined();
+      expect(await blockStore.getLastProposedCheckpoint()).toBeUndefined();
     });
 
     it('returns the leading proposed checkpoint payload', async () => {
@@ -2664,7 +2664,7 @@ describe('BlockStore', () => {
         feeAssetPriceModifier: 50n,
       });
 
-      const proposedCheckpoint = await blockStore.getProposedCheckpoint();
+      const proposedCheckpoint = await blockStore.getLastProposedCheckpoint();
       expect(proposedCheckpoint).toBeDefined();
       // Callers derive the tip from the payload: last block = startBlock + blockCount - 1.
       expect(proposedCheckpoint!.checkpointNumber).toBe(CheckpointNumber(2));
