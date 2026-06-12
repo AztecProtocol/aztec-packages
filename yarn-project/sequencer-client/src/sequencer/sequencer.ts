@@ -18,7 +18,11 @@ import type {
   ProposedCheckpointSink,
   ValidateCheckpointResult,
 } from '@aztec/stdlib/block';
-import type { Checkpoint, ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
+import {
+  type Checkpoint,
+  type ProposedCheckpointData,
+  buildCheckpointSimulationOverridesPlan,
+} from '@aztec/stdlib/checkpoint';
 import type { ChainConfig } from '@aztec/stdlib/config';
 import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import {
@@ -45,7 +49,6 @@ import { DefaultSequencerConfig } from '../config.js';
 import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import type { SequencerPublisherFactory } from '../publisher/sequencer-publisher-factory.js';
 import type { InvalidateCheckpointRequest, SequencerPublisher } from '../publisher/sequencer-publisher.js';
-import { buildCheckpointSimulationOverridesPlan } from './chain_state_overrides.js';
 import { CheckpointProposalJob } from './checkpoint_proposal_job.js';
 import { CheckpointProposalJobMetrics } from './checkpoint_proposal_job_metrics.js';
 import { CheckpointVoter } from './checkpoint_voter.js';
