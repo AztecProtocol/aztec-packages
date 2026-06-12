@@ -2433,13 +2433,15 @@ export class MsmV2 {
     m.R = misc.r;
     m.rinv = misc.rinv;
     const sm = new ShaderManager(4, n, BN254_CURVE_CONFIG, false, m.montmul);
-    // The fold/finalize kernels (ufold / survfin) always render with the
-    // packed 8×u32 CIOS multiplier: it compiles ~30-40% faster per inlined
-    // body on mobile drivers (smaller live state than the 20×13
-    // Karatsuba+Yuval body), and those dispatches are latency-bound, where
-    // CIOS is also the faster RUNTIME on M4 (tail -30..-70 µs). The level
-    // kernel and the walker keep `m.montmul` (karat default): both are
-    // throughput-bound and CIOS costs them ~10% / ~3 ms there. The two
+    // Every combine-stage kernel (level / ufold / survfin) renders with the
+    // packed 8×u32 CIOS multiplier: it compiles faster per inlined body on
+    // mobile drivers AND runs faster where it matters — Pixel 9a level
+    // 8.1 -> 6.6 ms uniform / 18.1 -> 14.5 ms monster (interleaved A/B);
+    // the fold/finalize dispatches are latency-bound and CIOS wins there
+    // on M4 too. The M4 level pays +84-171 µs (+0.3-0.6% of the full MSM)
+    // — the phone is the target. The walker keeps `m.montmul` (karat
+    // default; CIOS measured -26% walker on the Pixel but +3 ms on M4 —
+    // the default is the bridge's call via the montmul knob). The two
     // bodies interoperate freely: both consume and produce the same 8×u32
     // Montgomery-form storage representation.
     const smCombine = new ShaderManager(4, n, BN254_CURVE_CONFIG, false, 'cios_unrolled');
@@ -3215,7 +3217,7 @@ export class MsmV2 {
       queue(p => (m.ptreeEpiloguePipe = p), ptreeEpilogueCode, `ptree-epilogue`, m.ptreeEpilogueLayout);
       queue(
         p => (m.ptreeLevelPipe = p),
-        sm.gen_ba_walker_ptree_level_shader(PTREE_TPB, PTREE_S),
+        smCombine.gen_ba_walker_ptree_level_shader(PTREE_TPB, PTREE_S),
         `ptree-level`,
         m.ptreeLevelLayout,
       );
