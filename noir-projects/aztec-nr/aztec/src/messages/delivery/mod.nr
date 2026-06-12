@@ -280,7 +280,11 @@ mod test {
         traits::FromField,
     };
     use crate::test::helpers::test_environment::TestEnvironment;
-    use super::{calculate_tag, DeliveryMode, OnchainDeliveryMode, resolve_tag_secret_derivation, TagSecretDerivation};
+    use super::{
+        calculate_tag, calculate_tag_for_mode, DeliveryMode, OnchainDeliveryMode, resolve_tag_secret_derivation,
+        TagSecretDerivation,
+    };
+    use std::test::OracleMock;
 
     #[test]
     fn wallet_default_resolves_for_delivery_mode() {
@@ -343,6 +347,75 @@ mod test {
             calculate_tag(secret, index, OnchainDeliveryMode::onchain_unconstrained())
                 != calculate_tag(secret, index, OnchainDeliveryMode::onchain_constrained()),
         );
+    }
+
+    #[test(should_fail_with = "Sender for tags is not set")]
+    unconstrained fn address_secret_tag_requires_sender() {
+        let env = TestEnvironment::new();
+        let recipient = AztecAddress::from_field(2);
+        let _ = OracleMock::mock("aztec_prv_getSenderForTags").returns(Option::<AztecAddress>::none());
+
+        env.private_context(|context| {
+            let _ = calculate_tag_for_mode(
+                context,
+                OnchainDeliveryMode::onchain_unconstrained(),
+                TagSecretDerivation::address_secret(),
+                Option::none(),
+                recipient,
+            );
+        });
+    }
+
+    #[test]
+    unconstrained fn address_secret_tag_uses_secret_index_and_mode_domain() {
+        let env = TestEnvironment::new();
+        let sender = AztecAddress::from_field(1);
+        let recipient = AztecAddress::from_field(2);
+        let secret: Field = 7;
+        let index: u32 = 3;
+        let _ = OracleMock::mock("aztec_prv_getSenderForTags").returns(Option::some(sender));
+        let _ = OracleMock::mock("aztec_prv_getAppTaggingSecret").returns(Option::some(secret));
+        let _ = OracleMock::mock("aztec_prv_getNextTaggingIndex").returns(index);
+
+        env.private_context(|context| {
+            assert_eq(
+                calculate_tag_for_mode(
+                    context,
+                    OnchainDeliveryMode::onchain_unconstrained(),
+                    TagSecretDerivation::address_secret(),
+                    Option::none(),
+                    recipient,
+                ),
+                compute_log_tag(
+                    poseidon2_hash([secret, index as Field]),
+                    DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG,
+                ),
+            );
+        });
+    }
+
+    #[test]
+    unconstrained fn address_secret_tag_uses_random_tag_for_invalid_recipient() {
+        let env = TestEnvironment::new();
+        let sender = AztecAddress::from_field(1);
+        let recipient = AztecAddress::from_field(2);
+        let random_tag = 42;
+        let _ = OracleMock::mock("aztec_prv_getSenderForTags").returns(Option::some(sender));
+        let _ = OracleMock::mock("aztec_prv_getAppTaggingSecret").returns(Option::<Field>::none());
+        let _ = OracleMock::mock("aztec_misc_getRandomField").returns(random_tag);
+
+        env.private_context(|context| {
+            assert_eq(
+                calculate_tag_for_mode(
+                    context,
+                    OnchainDeliveryMode::onchain_unconstrained(),
+                    TagSecretDerivation::address_secret(),
+                    Option::none(),
+                    recipient,
+                ),
+                compute_log_tag(random_tag, DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG),
+            );
+        });
     }
 
     #[test]
