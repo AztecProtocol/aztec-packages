@@ -256,8 +256,7 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
       );
 
       // `'blocks-added'` writes to `pxe_l2_tips` (proposed tag) and `pxe_l2_block_hashes`.
-      // `'chain-checkpointed'` writes to all four sub-stores: tips ('checkpointed' and 'proposedCheckpoint' tags),
-      // block-to-checkpoint mapping, and the checkpoint store.
+      // `'chain-checkpointed'` writes the 'checkpointed' tip and its checkpoint id (`pxe_l2_tip_checkpoints`).
       await l2TipsStore.handleBlockStreamEvent({ type: 'blocks-added', blocks: [block] });
       await l2TipsStore.handleBlockStreamEvent({
         type: 'chain-checkpointed',
@@ -269,15 +268,15 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
       await l2TipsStore.handleBlockStreamEvent({
         type: 'chain-proven',
         block: { number: BlockNumber(79), hash: new Fr(83n).toString() },
+        checkpoint: { number: CheckpointNumber(47), hash: new Fr(89n).toString() },
       });
     },
     snapshotStore: async kvStore => ({
       pxe_l2_tips: await snapshotMap(kvStore.openMap<string, number>('pxe_l2_tips')),
-      pxe_l2_block_hashes: await snapshotMap(kvStore.openMap<number, string>('pxe_l2_block_hashes')),
-      pxe_l2_block_number_to_checkpoint_number: await snapshotMap(
-        kvStore.openMap<number, number>('pxe_l2_block_number_to_checkpoint_number'),
+      pxe_l2_tip_checkpoints: await snapshotMap(
+        kvStore.openMap<string, { number: number; hash: string }>('pxe_l2_tip_checkpoints'),
       ),
-      pxe_l2_checkpoint_store: await snapshotMap(kvStore.openMap<number, Buffer>('pxe_l2_checkpoint_store')),
+      pxe_l2_block_hashes: await snapshotMap(kvStore.openMap<number, string>('pxe_l2_block_hashes')),
     }),
   },
 

@@ -96,7 +96,13 @@ function test_cmds {
   )
   for test in "${tests[@]}"; do
     # We must set ONLY_TERM_PARENT=1 to allow the script to fully control cleanup process.
-    echo "$hash:ONLY_TERM_PARENT=1:TIMEOUT=30m $run_test_script ha $test"
+    if [[ "$test" == *.parallel.test.ts ]]; then
+      while IFS= read -r test_name; do
+        echo "$hash:ONLY_TERM_PARENT=1:TIMEOUT=30m $run_test_script ha $test \"$test_name\""
+      done < <(extract_test_names "$test")
+    else
+      echo "$hash:ONLY_TERM_PARENT=1:TIMEOUT=30m $run_test_script ha $test"
+    fi
   done
 
   #echo "$hash:ONLY_TERM_PARENT=1 $run_test_script simple src/e2e_multi_validator/e2e_multi_validator_node.test.ts"

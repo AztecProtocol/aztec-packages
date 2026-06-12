@@ -64,6 +64,8 @@ type ProposerBlockBuilderOptions = BlockBuilderOptionsBase & {
   maxBlocksPerCheckpoint: number;
   /** Per-block gas budget multiplier. Budget = (remaining / remainingBlocks) * multiplier. */
   perBlockAllocationMultiplier: number;
+  /** Per-block budget multiplier for DA gas and blob fields. Falls back to perBlockAllocationMultiplier when unset. */
+  perBlockDAAllocationMultiplier?: number;
 };
 
 /** Validator mode: no redistribution params needed. */

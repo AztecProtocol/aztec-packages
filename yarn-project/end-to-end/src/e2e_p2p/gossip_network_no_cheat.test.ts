@@ -34,6 +34,7 @@ const CHECK_ALERTS = process.env.CHECK_ALERTS === 'true';
 const NUM_VALIDATORS = 4;
 const NUM_TXS_PER_NODE = 2;
 const BOOT_NODE_UDP_PORT = 4500;
+const BLOCK_DURATION_MS = 10_000;
 
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'gossip-'));
 
@@ -63,6 +64,7 @@ describe('e2e_p2p_network', () => {
       initialConfig: {
         ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
         aztecSlotDuration: 24,
+        blockDurationMs: BLOCK_DURATION_MS,
         listenAddress: '127.0.0.1',
         // Allow empty blocks so the first checkpoint can be published before any txs are submitted.
         // Without this, no blocks are built until txs arrive, and a failed checkpoint during tx

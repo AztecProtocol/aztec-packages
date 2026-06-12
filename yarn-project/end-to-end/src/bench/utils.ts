@@ -1,9 +1,14 @@
+import type { InitialAccountData } from '@aztec/accounts/testing';
 import type { AztecNodeService } from '@aztec/aztec-node';
+import { getAccountContractAddress } from '@aztec/aztec.js/account';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { BatchCall, NO_WAIT, type WaitOpts } from '@aztec/aztec.js/contracts';
+import { Fr } from '@aztec/aztec.js/fields';
 import { waitForTx } from '@aztec/aztec.js/node';
+import { SlotNumber } from '@aztec/foundation/branded-types';
 import { mean, stdDev, times } from '@aztec/foundation/collection';
 import { BenchmarkingContract } from '@aztec/noir-test-contracts.js/Benchmarking';
+import { type Sequencer, type SequencerEvents, SequencerState } from '@aztec/sequencer-client';
 import type { TxHash } from '@aztec/stdlib/tx';
 import type { MetricDefinition } from '@aztec/telemetry-client';
 import type { BenchmarkDataPoint, BenchmarkMetricsType, BenchmarkTelemetryClient } from '@aztec/telemetry-client/bench';
@@ -12,10 +17,19 @@ import { mkdirSync, writeFileSync } from 'fs';
 import path from 'path';
 
 import { PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
+import {
+  SCHNORR_HARDCODED_PRIVATE_KEY,
+  SchnorrHardcodedKeyAccountContract,
+} from '../fixtures/schnorr_hardcoded_account_contract.js';
 import { type EndToEndContext, type SetupOptions, setup } from '../fixtures/utils.js';
 
+const MAX_BENCH_WAIT_BLOCKS = 6;
+const BENCH_FINAL_WAIT_TIMEOUT_SECONDS = 10;
+const SEQUENCER_IDLE_TIMEOUT_MS = 60_000;
+const DEFAULT_L1_PUBLISHING_TIME_SECONDS = 12;
+
 /**
- * Setup for benchmarks. Initializes a remote node with a single account and deploys a benchmark contract.
+ * Setup for benchmarks. Initializes a remote node with a funded hardcoded account and deploys a benchmark contract.
  */
 export async function benchmarkSetup(
   opts: Partial<SetupOptions> & {
@@ -24,11 +38,28 @@ export async function benchmarkSetup(
     benchOutput?: string;
   },
 ) {
-  const context = await setup(1, { ...PIPELINING_SETUP_OPTS, ...opts, telemetryConfig: { benchmark: true } });
-  const defaultAccountAddress = context.accounts[0];
-  const { contract } = await BenchmarkingContract.deploy(context.wallet).send({ from: defaultAccountAddress });
+  const benchmarkAccountData = await getBenchmarkAccountData();
+  const context = await setup(0, {
+    ...PIPELINING_SETUP_OPTS,
+    ...opts,
+    initialFundedAccounts: [benchmarkAccountData],
+    skipAccountDeployment: true,
+    telemetryConfig: { benchmark: true },
+  });
+  const accountManager = await context.wallet.createAccount({
+    secret: benchmarkAccountData.secret,
+    salt: benchmarkAccountData.salt,
+    contract: new SchnorrHardcodedKeyAccountContract(),
+  });
+  const defaultAccountAddress = accountManager.address;
+  context.accounts = [defaultAccountAddress];
+  const sequencer = getSequencerClient(context);
+  await waitForSequencerIdle(sequencer.getSequencer());
+  const deployment = BenchmarkingContract.deploy(context.wallet);
+  const { txHash } = await deployment.send({ from: defaultAccountAddress, wait: NO_WAIT });
+  await waitTxs([txHash], context);
+  const contract = await deployment.register();
   context.logger.info(`Deployed benchmarking contract at ${contract.address}`);
-  const sequencer = (context.aztecNode as AztecNodeService).getSequencer()!;
   const telemetry = context.telemetryClient as BenchmarkTelemetryClient;
   context.logger.warn(`Cleared benchmark data points from setup`);
   telemetry.clear();
@@ -47,6 +78,22 @@ export async function benchmarkSetup(
     await origTeardown();
   };
   return { telemetry, context, contract, sequencer };
+}
+
+async function getBenchmarkAccountData(): Promise<InitialAccountData> {
+  const contract = new SchnorrHardcodedKeyAccountContract();
+  const secret = Fr.random();
+  const salt = Fr.random();
+  const address = await getAccountContractAddress(contract, secret, salt);
+  return { secret, salt, signingKey: SCHNORR_HARDCODED_PRIVATE_KEY, address };
+}
+
+function getSequencerClient(context: EndToEndContext) {
+  const sequencer = (context.aztecNode as AztecNodeService).getSequencer();
+  if (!sequencer) {
+    throw new Error('Benchmark setup requires a local sequencer');
+  }
+  return sequencer;
 }
 
 type MetricFilter = {
@@ -160,8 +207,88 @@ export async function sendTxs(
 
 export async function waitTxs(txs: TxHash[], context: EndToEndContext, txWaitOpts?: WaitOpts) {
   context.logger.info(`Awaiting ${txs.length} txs to be mined`);
-  await Promise.all(txs.map(txHash => waitForTx(context.aztecNode, txHash, txWaitOpts)));
+  await waitTxsWithBlockMining(txs, context, txWaitOpts);
   context.logger.info(`${txs.length} txs have been mined`);
+}
+
+async function waitTxsWithBlockMining(txs: TxHash[], context: EndToEndContext, txWaitOpts?: WaitOpts) {
+  const sequencer = getSequencerClient(context).getSequencer();
+  for (let attempt = 0; attempt <= MAX_BENCH_WAIT_BLOCKS; attempt++) {
+    if (await haveAllTxsMined(txs, context, txWaitOpts)) {
+      await waitForSequencerIdle(sequencer);
+      return;
+    }
+    await waitForSequencerIdle(sequencer);
+    context.logger.info('Mining next benchmark block while waiting for txs', {
+      attempt,
+      txs: txs.length,
+    });
+    await mineNextBenchmarkBlock(context, sequencer);
+  }
+  await Promise.all(
+    txs.map(txHash =>
+      waitForTx(context.aztecNode, txHash, {
+        ...txWaitOpts,
+        timeout: txWaitOpts?.timeout ?? BENCH_FINAL_WAIT_TIMEOUT_SECONDS,
+      }),
+    ),
+  );
+}
+
+async function haveAllTxsMined(txs: TxHash[], context: EndToEndContext, txWaitOpts?: WaitOpts): Promise<boolean> {
+  const receipts = await Promise.all(txs.map(txHash => context.aztecNode.getTxReceipt(txHash)));
+  for (const receipt of receipts) {
+    if (receipt.isDropped()) {
+      throw new Error(`Transaction ${receipt.txHash.toString()} was dropped. Reason: ${receipt.error ?? 'unknown'}`);
+    }
+    if (!receipt.isMined()) {
+      return false;
+    }
+    if (!receipt.hasExecutionSucceeded() && !txWaitOpts?.dontThrowOnRevert) {
+      throw new Error(
+        `Transaction ${receipt.txHash.toString()} reverted: ${receipt.executionResult}. Reason: ${
+          receipt.error ?? 'unknown'
+        }`,
+      );
+    }
+  }
+  return true;
+}
+
+async function mineNextBenchmarkBlock(context: EndToEndContext, sequencer: Sequencer) {
+  const l1PublishingTime = BigInt(context.config.l1PublishingTime ?? DEFAULT_L1_PUBLISHING_TIME_SECONDS);
+  const currentTimestamp = BigInt(await context.cheatCodes.eth.lastBlockTimestamp());
+  let targetSlot = SlotNumber((await context.cheatCodes.rollup.getSlot()) + 1);
+  let targetTimestamp = await context.cheatCodes.rollup.getTimestampForSlot(targetSlot);
+  while (targetTimestamp - l1PublishingTime - 1n <= currentTimestamp) {
+    targetSlot = SlotNumber(targetSlot + 1);
+    targetTimestamp = await context.cheatCodes.rollup.getTimestampForSlot(targetSlot);
+  }
+
+  const triggerTimestamp = targetTimestamp - l1PublishingTime - 1n;
+  await context.cheatCodes.eth.warp(triggerTimestamp, { resetBlockInterval: true });
+  await context.aztecNode.mineBlock();
+  await waitForSequencerIdle(sequencer);
+}
+
+function waitForSequencerIdle(sequencer: Sequencer, timeout = SEQUENCER_IDLE_TIMEOUT_MS): Promise<void> {
+  if (sequencer.status().state === SequencerState.IDLE) {
+    return Promise.resolve();
+  }
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      sequencer.off('state-changed', handler);
+      reject(new Error('Timeout waiting for sequencer IDLE state'));
+    }, timeout);
+    const handler = (args: Parameters<SequencerEvents['state-changed']>[0]) => {
+      if (args.newState === SequencerState.IDLE) {
+        clearTimeout(timer);
+        sequencer.off('state-changed', handler);
+        resolve();
+      }
+    };
+    sequencer.on('state-changed', handler);
+  });
 }
 
 function randomBytesAsBigInts(length: number): bigint[] {

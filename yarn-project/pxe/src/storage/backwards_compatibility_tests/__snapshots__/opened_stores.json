@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 7,
+  "schemaVersion": 8,
   "stores": [
     {
       "name": "address_book",
@@ -90,11 +90,7 @@
       "kind": "map"
     },
     {
-      "name": "pxe_l2_block_number_to_checkpoint_number",
-      "kind": "map"
-    },
-    {
-      "name": "pxe_l2_checkpoint_store",
+      "name": "pxe_l2_tip_checkpoints",
       "kind": "map"
     },
     {

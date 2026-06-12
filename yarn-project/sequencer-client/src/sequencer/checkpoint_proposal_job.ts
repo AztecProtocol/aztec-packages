@@ -908,8 +908,7 @@ export class CheckpointProposalJob implements Traceable {
         blockTimestamp: timestamp,
         // Create an empty block if we haven't already and this is the last one
         forceCreate: timingInfo.isLastBlock && blocksBuilt === 0 && this.config.buildCheckpointIfEmpty,
-        // Build deadline (absolute wall-clock seconds) is only set if we are enforcing the timetable
-        buildDeadline: timingInfo.deadline !== undefined ? new Date(timingInfo.deadline * 1000) : undefined,
+        buildDeadline: new Date(timingInfo.deadline * 1000),
         blockNumber,
         indexWithinCheckpoint,
         txHashesAlreadyIncluded,
@@ -917,8 +916,8 @@ export class CheckpointProposalJob implements Traceable {
 
       // If we failed to build the block due to insufficient txs, we try again if there is still time left in the slot
       if ('failure' in buildResult) {
-        // If this was the last subslot, or we're running with a single block per slot, we're done
-        if (timingInfo.isLastBlock || timingInfo.deadline === undefined) {
+        // If this was the last subslot, we're done.
+        if (timingInfo.isLastBlock) {
           break;
         }
         // Otherwise, if there is still time for more blocks, we wait until the next subslot and try again
@@ -1110,6 +1109,7 @@ export class CheckpointProposalJob implements Traceable {
         minValidTxs,
         maxBlocksPerCheckpoint: this.timetable.getMaxBlocksPerCheckpoint(),
         perBlockAllocationMultiplier: this.config.perBlockAllocationMultiplier,
+        perBlockDAAllocationMultiplier: this.config.perBlockDAAllocationMultiplier,
       };
 
       // Actually build the block by executing txs. The builder throws InsufficientValidTxsError
@@ -1250,9 +1250,6 @@ export class CheckpointProposalJob implements Traceable {
     const minTxs = indexWithinCheckpoint > 0 && this.config.minTxsPerBlock === 0 ? 1 : this.config.minTxsPerBlock;
 
     // Latest time to keep waiting for txs: wait_for_txs_deadline = block_build_deadline(k) - min_block_duration.
-    // buildDeadline is block_build_deadline(k) (multi-block) or the split deadline (single-block), so this
-    // is the uniform spec formula. Undefined if we are not enforcing the timetable (buildDeadline
-    // undefined), meaning we exit immediately when out of time.
     const startBuildingDeadline = buildDeadline
       ? new Date(buildDeadline.getTime() - this.timetable.minBlockDuration * 1000)
       : undefined;
@@ -1348,11 +1345,8 @@ export class CheckpointProposalJob implements Traceable {
       );
     }
 
-    // Hard attestation-collection cutoff = the single consensus attestation_deadline
-    // (target_slot_start + S - 2E). When not enforcing the timetable, loosen to the full target slot.
-    const attestationDeadlineSeconds = this.config.enforceTimeTable
-      ? this.timetable.getAttestationDeadline(this.targetSlot)
-      : Number(getTimestampForSlot(this.targetSlot, this.l1Constants)) + this.l1Constants.slotDuration;
+    // Hard attestation-collection cutoff = the single consensus attestation_deadline (target_slot_start + S - 2E).
+    const attestationDeadlineSeconds = this.timetable.getAttestationDeadline(this.targetSlot);
     const attestationDeadline = new Date(attestationDeadlineSeconds * 1000);
 
     this.metrics.recordRequiredAttestations(

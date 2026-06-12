@@ -4,7 +4,6 @@ import { ExecutionPayload, HashedValues, UtilityExecutionResult, mergeExecutionP
 import type { TxSimulationResultWithAppOffset } from '../wallet/tx_simulation_result_with_app_offset.js';
 import type { BatchedMethod, Wallet } from '../wallet/wallet.js';
 import { BaseContractInteraction } from './base_contract_interaction.js';
-import { getGasLimits } from './get_gas_limits.js';
 import {
   NO_FROM,
   type RequestInteractionOptions,
@@ -157,14 +156,10 @@ export class BatchCall extends BaseContractInteraction {
       }
     }
 
-    if ((options.includeMetadata || options.fee?.estimateGas) && simulatedTx) {
-      const { gasLimits, teardownGasLimits } = getGasLimits(simulatedTx, options.fee?.estimatedGasPadding);
-      this.log.verbose(
-        `Estimated gas limits for batch tx: DA=${gasLimits.daGas} L2=${gasLimits.l2Gas} teardownDA=${teardownGasLimits.daGas} teardownL2=${teardownGasLimits.l2Gas}`,
-      );
+    if (options.includeMetadata && simulatedTx) {
       return {
         result: results,
-        estimatedGas: { gasLimits, teardownGasLimits },
+        gasUsed: simulatedTx.gasUsed,
         offchainEffects: [],
         offchainMessages: [],
       };
