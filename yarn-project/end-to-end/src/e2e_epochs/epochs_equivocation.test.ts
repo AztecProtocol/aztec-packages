@@ -22,19 +22,14 @@ jest.setTimeout(1000 * 60 * 15);
 
 const NODE_COUNT = 4;
 
-/**
- * E2E test for the equivocation recovery scenario under proposer pipelining.
- *
- * Two conflicting checkpoint proposals are gossiped during the same slot:
- * - Node A (holds all 4 validator keys) publishes the "real" checkpoint to L1
- *   but never broadcasts via gossipsub (`skipBroadcastProposals + skipIncomingProposals`).
- * - The "X" node (B or C, whichever holds the slot proposer's key) broadcasts an
- *   alternative checkpoint that reaches B/C/D via gossipsub but never lands on L1
- *   (`skipPublishingCheckpointsPercent: 100`).
- *
- * The test verifies that L1 sync overrides the gossip-only proposal on all observer
- * nodes (B, C, D) once A's L1-confirmed checkpoint propagates via the archiver.
- */
+// Four-validator suite testing equivocation recovery. Node A holds all four keys, publishes the
+// canonical checkpoint to L1 but suppresses its gossip broadcast. Nodes B and C each hold two
+// validator keys and broadcast an equivocating gossip-only checkpoint to the network but skip
+// L1 publishing. Node D is an observer with no keys. The suite verifies that L1-confirmed state
+// overrides the gossip-only equivocating proposal, that the chain heals after node A is stopped,
+// and that every observing validator records a DUPLICATE_PROPOSAL slashing offense.
+// Uses EpochsTestContext with mockGossipSubNetwork, no initial sequencer, slasherEnabled, and
+// custom per-validator skipBroadcastProposals / skipPublishingCheckpointsPercent config.
 describe('e2e_epochs/epochs_equivocation', () => {
   let logger: Logger;
   let test: EpochsTestContext;
@@ -45,6 +40,10 @@ describe('e2e_epochs/epochs_equivocation', () => {
     await test?.teardown();
   });
 
+  // Creates 4 nodes (A holds all keys, B/C each hold 2, D is an observer). Warps L1 to one slot
+  // before the target slot so pipelining engages. Waits for B/C/D to see the gossip-only proposal
+  // then for A's L1-confirmed checkpoint to override it on those nodes. Stops A, re-enables
+  // publishing on B/C, waits for chain recovery, and asserts DUPLICATE_PROPOSAL offense on B and C.
   it('L1-confirmed checkpoint overrides gossip-only equivocating proposal', async () => {
     // Build 4 validators (V1..V4) using getPrivateKeyFromIndex(i+3), same convention as other epoch tests.
     const validators = times(NODE_COUNT, i => {

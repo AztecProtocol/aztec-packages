@@ -44,10 +44,11 @@ const EXPECTED_BLOCKS_PER_CHECKPOINT = 3;
 // - Checkpoint 2: Block 1 (2 txs), Block 2 (2 txs), Block 3 (2 txs)
 const TX_COUNT = 10;
 
-/**
- * E2E tests for Multiple Blocks Per Slot (MBPS) functionality.
- * Tests that the system correctly builds multiple blocks within a single slot/checkpoint.
- */
+// Four-validator MBPS suite testing multiple blocks per checkpoint under mock gossip. Includes
+// prover node (fake proofs). PXE mode varies per test (checkpointed vs proposed). Exercises
+// MBPS with: checkpointed-anchored txs, proposed-anchored txs, L2→L1 messages, L1→L2 messages,
+// non-validator re-execution sync, cross-slot contract deploy+call, and prover proving MBPS
+// checkpoints. Uses EpochsTestContext with mockGossipSubNetwork, no initial sequencer.
 describe('e2e_epochs/epochs_mbps', () => {
   let context: EndToEndContext;
   let logger: Logger;
@@ -201,6 +202,8 @@ describe('e2e_epochs/epochs_mbps', () => {
     await test?.teardown();
   });
 
+  // Pre-proves and sends TX_COUNT txs, starts sequencers, waits for all txs to be mined, asserts a
+  // checkpoint with ≥EXPECTED_BLOCKS_PER_CHECKPOINT exists, then waits for that checkpoint to be proven.
   it('builds multiple blocks per slot with transactions anchored to checkpointed block', async () => {
     await setupTest({ syncChainTip: 'checkpointed', minTxsPerBlock: 1, maxTxsPerBlock: 2 });
 
@@ -231,6 +234,9 @@ describe('e2e_epochs/epochs_mbps', () => {
     await waitForProvenCheckpoint(multiBlockCheckpoint);
   });
 
+  // Starts sequencers then sends txs one at a time, anchoring each to the proposed block containing
+  // the previous tx (PXE in 'proposed' mode). Verifies tx anchor block numbers are monotonically
+  // non-decreasing. Asserts ≥2 blocks per checkpoint and waits for the MBPS checkpoint to be proven.
   it('builds multiple blocks per slot with transactions anchored to proposed blocks', async () => {
     await setupTest({ syncChainTip: 'proposed', minTxsPerBlock: 1, maxTxsPerBlock: 1 });
 
@@ -269,6 +275,9 @@ describe('e2e_epochs/epochs_mbps', () => {
     await waitForProvenCheckpoint(multiBlockCheckpoint);
   });
 
+  // Deploys a cross-chain TestContract, pre-proves TX_COUNT L2→L1 message txs, sends them all, waits
+  // for all to be mined, then asserts the total L2→L1 message count across all blocks ≥ TX_COUNT,
+  // a MBPS checkpoint exists, and that checkpoint is proven.
   it('builds multiple blocks per slot with L2 to L1 messages', async () => {
     await setupTest({ syncChainTip: 'proposed', minTxsPerBlock: 1, maxTxsPerBlock: 2 });
 
@@ -324,6 +333,9 @@ describe('e2e_epochs/epochs_mbps', () => {
     await waitForProvenCheckpoint(multiBlockCheckpoint);
   });
 
+  // Seeds L1→L2 messages, sends filler txs to advance the chain so messages become ready, then
+  // pre-proves and sends consume txs. Verifies all consume txs are mined, a MBPS checkpoint exists,
+  // and that checkpoint is proven.
   it('builds multiple blocks per slot with L1 to L2 messages', async () => {
     // L1→L2 messages only become ready once the chain advances `inboxLag` checkpoints past where they
     // were inboxed, and a checkpoint only advances when a block is built in a new slot. With
@@ -423,6 +435,10 @@ describe('e2e_epochs/epochs_mbps', () => {
     await waitForProvenCheckpoint(multiBlockCheckpoint);
   });
 
+  // Creates an extra non-validator node with alwaysReexecuteBlockProposals=true, sends txs, and
+  // waits until that node has stored a multi-block proposed slot (≥2 blocks) beyond its checkpointed
+  // tip. Verifies block effects are valid, then starts a second sync-only node and confirms it
+  // syncs the multi-block slot from scratch.
   it('builds multiple blocks per slot and non-validators re-execute and sync multi-block slots', async () => {
     await setupTest({ syncChainTip: 'proposed', minTxsPerBlock: 1, maxTxsPerBlock: 1 });
 
@@ -509,6 +525,10 @@ describe('e2e_epochs/epochs_mbps', () => {
     await waitForProvenCheckpoint(multiBlockCheckpoint);
   });
 
+  // Pre-proves a high-priority deploy tx and a low-priority call tx for the same contract. Waits
+  // until just before the next L2 slot boundary, sends deploy first (then call after 1s), and
+  // waits for both to be checkpointed. Asserts deploy block < call block and both belong to the
+  // same checkpoint. Waits for that checkpoint to be proven.
   it('deploys a contract and calls it in separate blocks within a slot', async () => {
     await setupTest({
       syncChainTip: 'checkpointed',
@@ -547,6 +567,8 @@ describe('e2e_epochs/epochs_mbps', () => {
 
     // Wait until one L1 slot before the start of the next L2 slot.
     // This ensures both txs land in the pending pool right before the proposer starts building.
+    // REFACTOR: manual slot-timing arithmetic and waitUntilL1Timestamp call; replace with a helper
+    // such as test.waitUntilBuildWindowForNextSlot() that encapsulates this pattern.
     // REFACTOR: This should go into a shared "waitUntilNextSlotStartsBuilding" utility
     const currentL1Block = await test.l1Client.getBlock({ blockTag: 'latest' });
     const currentTimestamp = currentL1Block.timestamp;

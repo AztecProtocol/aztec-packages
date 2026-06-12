@@ -11,6 +11,9 @@ import { EpochsTestContext, type EpochsTestOpts } from './epochs_test.js';
 
 jest.setTimeout(1000 * 60 * 10);
 
+// Single-node suite exercising the aztecNodeAdmin.rollbackTo() API. Default EpochsTestContext with
+// a very long epoch (aztecEpochDuration=100) so there are no L2 reorgs, no finalized blocks, and
+// the full pending chain is prunable. Actively drives L1 via cheatcodes (reorgTo to remove blocks).
 describe('e2e_epochs/manual_rollback', () => {
   let context: EndToEndContext;
   let logger: Logger;
@@ -30,11 +33,15 @@ describe('e2e_epochs/manual_rollback', () => {
     await test.teardown();
   });
 
+  // Sub-suite for rolling back to a block that has not been finalized (epoch=100 → no finalization).
   describe('to unfinalized block', () => {
     beforeEach(async () => {
       await setup({ aztecEpochDuration: 100 }); // No L2 reorgs, no finalized blocks
     });
 
+    // Waits for checkpoint 4, pauses node sync, reorgs L1 by 2 blocks, calls rollbackTo on the
+    // node, and asserts blockNumber equals the rolled-back value. Resumes sync and verifies the
+    // node re-syncs to the same block.
     it('manually rolls back', async () => {
       logger.info(`Starting manual rollback test to unfinalized block`);
       context.sequencer?.updateConfig({ minTxsPerBlock: 0 });

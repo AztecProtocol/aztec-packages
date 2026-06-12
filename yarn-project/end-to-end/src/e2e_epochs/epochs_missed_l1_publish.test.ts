@@ -25,31 +25,12 @@ jest.setTimeout(1000 * 60 * 15);
 
 const NODE_COUNT = 4;
 
-/**
- * E2E test for the "missed L1 publish" scenario under proposer pipelining.
- *
- * Each of 4 nodes holds exactly one validator key. We pick four consecutive slots
- * (slotZero, slotOne, slotTwo, slotThree) such that the proposers for slotOne, slotTwo, and
- * slotThree are three distinct validators, then warp to one L1 block before slotZero begins.
- * The proposer for slotOne is configured to skip its L1 publish.
- *
- * With pipelining, the proposer for slot N+1 builds and gossips its checkpoint during slot N,
- * then publishes that checkpoint to L1 during slot N+1. So gossip-driven `proposed` chain
- * advances arrive one slot earlier than the L1-driven `checkpointed` advance.
- *
- * Expected behavior:
- *  - During slotZero, the pipelined proposer for slotOne gossips its build → every node's
- *    `proposed` tip advances to a block at slotOne.
- *  - During slotOne, the pipelined proposer for slotTwo gossips on top of the slotOne proposal →
- *    `proposed` advances to a block at slotTwo. Meanwhile the proposer for slotOne attempts L1
- *    publish but is configured to skip it, so no checkpoint lands.
- *  - When slotOne ends with no checkpoint mined, every node's archiver prunes the
- *    uncheckpointed slotOne and slotTwo blocks; we verify rollback via the prune event.
- *    We then re-enable publishing on the formerly suppressed node so recovery can proceed.
- *  - During slotTwo, the pipelined proposer for slotThree builds on top of the (now genesis)
- *    checkpointed tip → `proposed` advances again.
- *  - During slotThree, that pipelined work is published → `checkpointed` finally advances.
- */
+// Four-validator pipelining suite exercising the missed-L1-publish scenario. One node per
+// validator key. Finds four consecutive slots with distinct proposers, disables L1 publishing
+// on proposerOne, then warps to one L1 block before slotZero. Verifies: proposed chain advances
+// to slotOne then slotTwo via gossip; all archivers prune uncheckpointed blocks when slotOne ends
+// without a checkpoint; recovery produces a checkpointed block at slotThree after re-enabling
+// publishing. Uses EpochsTestContext with mockGossipSubNetwork, no initial sequencer, no prover node.
 describe('e2e_epochs/epochs_missed_l1_publish', () => {
   let logger: Logger;
   let test: EpochsTestContext;
@@ -60,6 +41,11 @@ describe('e2e_epochs/epochs_missed_l1_publish', () => {
     await test?.teardown();
   });
 
+  // Searches for slotOne..slotThree with three distinct proposers (warp on EpochNotStable). Sets
+  // skipPublishingCheckpointsPercent=100 on proposerOne's node. Warps L1 to slotZero-1 L1 block.
+  // Subscribes to prune events on all nodes. Starts all sequencers and verifies: proposed tip
+  // reaches slotOne then slotTwo; all nodes emit L2PruneUncheckpointed at slotOne end; recovery
+  // produces a checkpointed block at slotThree. Sanity-checks no unexpected fail events.
   it('all nodes prune and recover when proposer fails to publish to L1', async () => {
     // Build 4 distinct validators (V1..V4). One key per node, no overlap.
     const validators = times(NODE_COUNT, i => {
@@ -110,6 +96,9 @@ describe('e2e_epochs/epochs_missed_l1_publish', () => {
     // reverts with `ValidatorSelection__EpochNotStable`. We handle this by warping L1 forward
     // one epoch at a time and retrying — after each warp the previously-unstable epoch becomes
     // queryable, and we bump the candidate to keep the +4 slot margin from the new "now".
+    // REFACTOR: hand-rolled slot-search with EpochNotStable warp fallback looking for three
+    // consecutive distinct-proposer slots; replace with a shared helper such as
+    // findConsecutiveSlotsWithDistinctProposers(test, fromSlot, count) that encapsulates this pattern.
     let slotOne: SlotNumber | undefined;
     let proposerOne: EthAddress | undefined;
     let proposerTwo: EthAddress | undefined;
@@ -227,6 +216,8 @@ describe('e2e_epochs/epochs_missed_l1_publish', () => {
 
     // (1) During slotZero: the pipelined proposer for slotOne broadcasts. Every node sees a proposed block at slotOne.
     logger.warn(`Waiting for proposed chain to reach slot ${slotOne} on all nodes (build during slotZero)`);
+    // REFACTOR: duplicated Promise.all+retryUntil block checking proposed slot on all nodes;
+    // replace with a shared helper such as waitUntilAllNodesProposedSlot(nodes, slot, timeout).
     await Promise.all(
       nodes.map((node, idx) =>
         retryUntil(
@@ -247,6 +238,7 @@ describe('e2e_epochs/epochs_missed_l1_publish', () => {
 
     // (2) During slotOne: the pipelined proposer for slotTwo broadcasts on top of slotOne → proposed reaches slotTwo.
     logger.warn(`Waiting for proposed chain to reach slot ${slotTwo} on all nodes (build during slotOne)`);
+    // REFACTOR: same pattern as above — duplicated Promise.all+retryUntil; extract to helper.
     await Promise.all(
       nodes.map((node, idx) =>
         retryUntil(

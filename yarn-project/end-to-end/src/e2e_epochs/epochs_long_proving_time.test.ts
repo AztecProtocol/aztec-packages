@@ -10,6 +10,10 @@ jest.setTimeout(1000 * 60 * 15);
 
 const MAX_JOB_COUNT = 20;
 
+// Single-node + prover-node suite verifying that a prover node whose proving time spans multiple
+// epochs (proverTestDelayMs ≈ 3 epochs) still eventually submits valid proofs, and that it only
+// runs one proving job at a time (proverNodeMaxPendingJobs=1). Uses EpochsTestContext default setup
+// (single sequencer, fake prover with delay, no mock gossip).
 describe('e2e_epochs/epochs_long_proving_time', () => {
   let logger: Logger;
   let monitor: ChainMonitor;
@@ -44,6 +48,9 @@ describe('e2e_epochs/epochs_long_proving_time', () => {
     await test.teardown();
   });
 
+  // Polls the prover node's job queue until provenCheckpointNumber reaches targetProvenEpochs.
+  // Asserts that checkpointNumber advanced at least 3× the proven epoch count, confirming proving
+  // lagged behind block production. Asserts maxJobCount equals 1, verifying sequential job dispatch.
   it('generates proof over multiple epochs', async () => {
     const targetProvenEpochs = process.env.TARGET_PROVEN_EPOCHS ? parseInt(process.env.TARGET_PROVEN_EPOCHS) : 1;
     const targetProvenBlockNumber = targetProvenEpochs * test.epochDuration;
@@ -51,6 +58,9 @@ describe('e2e_epochs/epochs_long_proving_time', () => {
 
     // Wait until we hit the target proven block number, and keep an eye on how many proving jobs are run in parallel.
     let maxJobCount = 0;
+    // REFACTOR: hand-rolled sleep loop polling provenCheckpointNumber; replace with
+    // test.waitUntilProvenCheckpointNumber(targetProvenBlockNumber, timeout) and check job count
+    // separately via a one-time snapshot rather than updating inside the loop.
     while (monitor.provenCheckpointNumber === undefined || monitor.provenCheckpointNumber < targetProvenBlockNumber) {
       const jobs = await test.proverNodes[0].getProverNode()!.getJobs();
       if (jobs.length > maxJobCount) {

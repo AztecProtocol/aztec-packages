@@ -28,11 +28,12 @@ jest.setTimeout(1000 * 60 * 20);
 const VALIDATOR_COUNT = 4;
 const TX_COUNT = 6;
 
-/**
- * E2E test for HA (High Availability) proposed chain sync.
- * Verifies that nodes sharing validator keys with the proposer still process
- * block proposals and sync to the proposed chain, rather than ignoring them.
- */
+// HA (High Availability) proposed-chain sync suite. Creates two HA pairs (nodes sharing validator
+// keys) with a shared SlashingProtectionDatabase per pair. Disables checkpoint publishing on all
+// validator nodes. Verifies that every node, including the HA peer that did NOT build a given
+// block, syncs to the proposed chain tip via P2P before any checkpoint lands on L1.
+// Uses EpochsTestContext with mockGossipSubNetwork, pxeOpts syncChainTip='proposed', no prover node
+// during block-building phase.
 describe('e2e_epochs/epochs_ha_sync', () => {
   let context: EndToEndContext;
   let logger: Logger;
@@ -131,6 +132,10 @@ describe('e2e_epochs/epochs_ha_sync', () => {
     await test?.teardown();
   });
 
+  // Sends 6 txs, warps to one L1 slot before the next L2 slot, and starts all four sequencers.
+  // Waits until every node has a proposed tip strictly above the checkpointed tip, confirming
+  // that blocks arrived via P2P proposals (not from L1 checkpoints). Checks all four nodes agree
+  // on the block hash at the minimum proposed tip. Asserts no new checkpoints were published.
   it('HA peers sync to proposed chain from proposals signed by their own validator keys', async () => {
     await setupTest();
 
@@ -165,6 +170,8 @@ describe('e2e_epochs/epochs_ha_sync', () => {
     // Wait until all nodes have proposed blocks strictly beyond the checkpointed tip.
     // This ensures we're checking blocks produced by validators via P2P proposals,
     // not blocks synced from L1 checkpoints during setup.
+    // REFACTOR: hand-rolled poll over all archivers checking proposed > checkpointed; replace with
+    // a test-context helper such as waitUntilAllNodesProposedBeyondCheckpointed(nodes, timeout).
     await retryUntil(
       async () => {
         const tips = await Promise.all(allArchivers.map(a => a.getL2Tips()));

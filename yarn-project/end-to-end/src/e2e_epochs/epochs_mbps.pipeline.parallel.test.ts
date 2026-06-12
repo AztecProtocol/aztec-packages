@@ -36,11 +36,12 @@ const EXPECTED_BLOCKS_PER_CHECKPOINT = 8;
 // Send enough transactions to trigger multiple blocks within a checkpoint assuming 2 txs per block.
 const TX_COUNT = 34;
 
-/**
- * E2E tests for proposer pipelining with Multiple Blocks Per Slot (MBPS).
- * Verifies that the block proposer in slot N is the validator scheduled on L1 for slot N+1
- * (the proposer view uses a +1 slot offset).
- */
+// Four-validator pipelining + MBPS suite. Verifies blocks are built in slot N by the proposer
+// scheduled for slot N+1 (the pipelining +1 offset). Includes a prover node (fake proofs) and
+// uses 500ms mock gossip latency to simulate adverse network conditions. Two tests: (1) normal
+// pipelining flow asserting build-vs-submission slot offsets and blob-fetch promotion; (2) a
+// proposer skips its checkpoint publish, triggering an uncheckpointed-blocks prune followed by
+// recovery. Uses EpochsTestContext with mockGossipSubNetwork and no initial sequencer.
 describe('e2e_epochs/epochs_mbps_pipeline', () => {
   let context: EndToEndContext;
   let logger: Logger;
@@ -226,6 +227,11 @@ describe('e2e_epochs/epochs_mbps_pipeline', () => {
     await test?.teardown();
   });
 
+  // Pre-proves TX_COUNT txs, starts sequencers, waits for all txs to be mined. Asserts a
+  // MBPS checkpoint with ≥EXPECTED_BLOCKS_PER_CHECKPOINT blocks. Asserts every block's header
+  // slot equals build-slot+1 (pipelining offset). Verifies node-0 fetches blobs (promotion
+  // disabled) while nodes 1-3 skip blob fetching (promotion enabled). Waits for the checkpoint
+  // to be proven.
   it('pipelining builds blocks using slot plus 1 proposer and proves them', async () => {
     await setupTest({ syncChainTip: 'checkpointed', minTxsPerBlock: 1, maxTxsPerBlock: 2 });
 
@@ -301,6 +307,10 @@ describe('e2e_epochs/epochs_mbps_pipeline', () => {
     await waitForProvenCheckpoint(multiBlockCheckpoint);
   });
 
+  // Establishes a baseline at checkpoint 1. Identifies the next proposer and disables its
+  // checkpoint publishing. Waits for the L2PruneUncheckpointed event on the archiver, then
+  // re-enables publishing. Waits for all txs to be mined, asserts a MBPS checkpoint exists,
+  // verifies the pipelining offset, and checks recovery blockNumber > baseline.
   it('prunes uncheckpointed blocks when proposer fails to deliver', async () => {
     await setupTest({ syncChainTip: 'checkpointed', minTxsPerBlock: 1, maxTxsPerBlock: 2 });
 
