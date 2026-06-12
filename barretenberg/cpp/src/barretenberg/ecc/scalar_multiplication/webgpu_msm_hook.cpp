@@ -202,6 +202,7 @@ std::vector<curve::BN254::AffineElement> batch_multi_scalar_mul_webgpu_bn254(
 {
     const bool have_labels = !labels.empty() && labels.size() == points.size();
     using webgpu_marshalling::combine_windows;
+    using webgpu_marshalling::finish_and_combine_windows;
     using webgpu_marshalling::marshal_points;
     using webgpu_marshalling::marshal_scalars;
 
@@ -292,6 +293,9 @@ std::vector<curve::BN254::AffineElement> batch_multi_scalar_mul_webgpu_bn254(
     // one mapAsync (eliminates the dominant per-MSM Chrome polling
     // overhead). Pass 3 reads back per-MSM results and Horner-combines.
     constexpr uint32_t MAX_WINDOWS = 64;
+    // Early-exit staged partials per window: the halving reduce ships at most
+    // 1 + log2(stride) carries; 16 covers every finisher-cap setting.
+    constexpr uint32_t MAX_PARTIALS = 16;
     results.resize(batch_size, curve::BN254::AffineElement::infinity());
 
     struct BatchItem {
@@ -328,13 +332,19 @@ std::vector<curve::BN254::AffineElement> batch_multi_scalar_mul_webgpu_bn254(
             // CommitmentKey has registered the monomial-points SRS.
             std::vector<uint8_t> points_bytes = marshal_points(points[i].subspan(0, n));
             std::vector<uint8_t> scalars_bytes = marshal_scalars(scalars[i]);
-            uint8_t result_bytes[MAX_WINDOWS * 64];
+            // Sized for either result shape: legacy per-window affine roots
+            // (64 B each) or early-exit staged Jacobian partials (96 B ×
+            // MAX_PARTIALS per window). Which one arrived is in the meta.
+            std::vector<uint8_t> result_bytes(static_cast<size_t>(MAX_WINDOWS) * MAX_PARTIALS * 96);
             const uint32_t meta = bb_external_msm_bn254(
-                points_bytes.data(), scalars_bytes.data(), static_cast<uint32_t>(n), result_bytes, 0);
-            const uint32_t num_windows = meta >> 16;
+                points_bytes.data(), scalars_bytes.data(), static_cast<uint32_t>(n), result_bytes.data(), 0);
+            const uint32_t partials = meta >> 24;
+            const uint32_t num_windows = (meta >> 16) & 0xffu;
             const uint32_t c = meta & 0xffffu;
             BB_ASSERT(num_windows <= MAX_WINDOWS, "webgpu MSM: num_windows exceeds the 64-window result buffer");
-            results[i] = combine_windows(result_bytes, num_windows, c);
+            BB_ASSERT(partials <= MAX_PARTIALS, "webgpu MSM: partials_per_window exceeds MAX_PARTIALS");
+            results[i] = partials == 0 ? combine_windows(result_bytes.data(), num_windows, c)
+                                       : finish_and_combine_windows(result_bytes.data(), num_windows, partials, c);
             continue;
         }
         const uint32_t srs_offset = static_cast<uint32_t>(static_cast<std::size_t>(pts - srs_base) / POINT_BYTES);
@@ -344,8 +354,10 @@ std::vector<curve::BN254::AffineElement> batch_multi_scalar_mul_webgpu_bn254(
                                 static_cast<uint32_t>(total_scalars_bytes),
                                 static_cast<uint32_t>(total_results_bytes) });
         total_scalars_bytes += n * 32;
-        total_results_bytes += MAX_WINDOWS * 64; // over-allocate; per-MSM
-                                                 // num_windows lives in meta
+        // Over-allocate for either result shape (legacy 64 B roots or
+        // early-exit 96 B × MAX_PARTIALS staged partials per window); the
+        // per-MSM shape lives in the returned meta.
+        total_results_bytes += static_cast<size_t>(MAX_WINDOWS) * MAX_PARTIALS * 96;
     }
 
     if (!batch_items.empty()) {
@@ -394,13 +406,20 @@ std::vector<curve::BN254::AffineElement> batch_multi_scalar_mul_webgpu_bn254(
                                     results_packed.data(),
                                     reinterpret_cast<uint8_t*>(meta.data()),
                                     have_labels ? labels_packed.data() : nullptr);
-        // Horner-combine each MSM's windowSums.
+        // Finish (early-exit staged partials) and/or Horner-combine each
+        // MSM's window sums. meta[k*2] packs (partials << 16) | num_windows;
+        // partials == 0 is the legacy finished-roots shape.
         for (size_t k = 0; k < batch_items.size(); ++k) {
             const auto& it = batch_items[k];
-            const uint32_t num_windows = meta[k * 2 + 0];
+            const uint32_t partials = meta[k * 2 + 0] >> 16;
+            const uint32_t num_windows = meta[k * 2 + 0] & 0xffffu;
             const uint32_t c = meta[k * 2 + 1];
             BB_ASSERT(num_windows <= MAX_WINDOWS, "webgpu batch MSM: num_windows exceeds the 64-window result buffer");
-            results[it.result_index] = combine_windows(results_packed.data() + it.result_byte_off, num_windows, c);
+            BB_ASSERT(partials <= MAX_PARTIALS, "webgpu batch MSM: partials_per_window exceeds MAX_PARTIALS");
+            results[it.result_index] =
+                partials == 0
+                    ? combine_windows(results_packed.data() + it.result_byte_off, num_windows, c)
+                    : finish_and_combine_windows(results_packed.data() + it.result_byte_off, num_windows, partials, c);
         }
     }
 
@@ -482,6 +501,24 @@ namespace {
 std::vector<bb::curve::BN254::AffineElement> g_bench_points;
 std::vector<bb::curve::BN254::ScalarField> g_bench_scalars;
 } // namespace
+
+// Early-exit finishing harness: ONE call that performs the per-window
+// finishing sum over the GPU's staged Jacobian partials (raw Montgomery
+// limbs, z == 0 absent) AND the cross-window Horner combine, writing the
+// affine result (LE non-Montgomery x + y, (0,0) = infinity) to `result`.
+// The production path runs the same finish_and_combine_windows inside the
+// bb_external_msm hook; this export lets the dev page golden-test the
+// early-exit readback bytes through the identical native code.
+WASM_EXPORT void bb_webgpu_finish_combine_bn254(
+    const uint8_t* staged, uint32_t num_windows, uint32_t partials_per_window, uint32_t c, uint8_t* result)
+{
+    namespace marshalling = bb::scalar_multiplication::webgpu_marshalling;
+    const auto aff =
+        bb::scalar_multiplication::webgpu_marshalling::finish_and_combine_windows(staged, num_windows, partials_per_window, c);
+    const std::vector<uint8_t> bytes =
+        marshalling::marshal_points(std::span<const bb::curve::BN254::AffineElement>(&aff, 1));
+    std::memcpy(result, bytes.data(), 64);
+}
 
 WASM_EXPORT void bb_native_pippenger_bn254_load(const uint8_t* points, const uint8_t* scalars, uint32_t n)
 {

@@ -24,6 +24,12 @@
 import { bn254 } from '@noble/curves/bn254';
 
 import { get_device } from '../../src/msm_webgpu/cuzk/gpu.js';
+import {
+  BN254_BASE_FIELD,
+  BN254_JACOBIAN_ZERO,
+  addBn254Jacobian,
+  toAffineBn254Jacobian,
+} from '../../src/msm_webgpu/cuzk/bn254.js';
 import { MsmV2, MsmV2Pool, type MsmConfig, pickC, MEM_BUDGET, hostWindowCombine } from '../../src/msm_webgpu/msm_v2.js';
 import { planBatch, computeGeom } from '../../src/msm_webgpu/batch_scheduler.js';
 import { runUnionPacks, type BridgeDescriptor } from '../../src/msm_webgpu/bridge/union_runner.js';
@@ -142,6 +148,25 @@ const gpuKnobs: MsmConfig = (() => {
     splitC: q.get('split') === '1' || q.get('autorun') === 'msm-msbhist' || undefined,
     wiProbe: q.get('wiprobe') === '1' || undefined,
     sparseReduce: q.get('sparse_reduce') === '1' || undefined,
+    groupedReduce: q.get('grouped_reduce') === '1' || undefined,
+    foldMTower: (() => {
+      const f = q.get('fold_m');
+      if (!f) return undefined;
+      const parts = f.split(',').map(x => parseInt(x, 10));
+      return parts.length > 0 && parts.every(x => Number.isInteger(x) && x >= 2) ? parts : undefined;
+    })(),
+    foldTailMax: optInt('fold_tailmax'),
+    foldSat: optInt('fold_sat'),
+    foldK: optInt('fold_k'),
+    foldCoop: q.get('fold_coop') === '1' || undefined,
+    foldTlocal: q.get('fold_tlocal') === '1' || undefined,
+    halvingReduce: q.get('halving_reduce') === '1' || undefined,
+    halveCap: optInt('halve_cap'),
+    halveBa4Floor: optInt('halve_ba4floor'),
+    earlyExit: q.get('early_exit') === '1' || undefined,
+    // halve_stop=0 / halve_iter=0 are meaningful — optInt rejects 0.
+    halveStop: q.get('halve_stop') !== null ? Math.max(0, Number(q.get('halve_stop'))) : undefined,
+    halveIter: q.get('halve_iter') !== null ? Math.max(0, Number(q.get('halve_iter'))) : undefined,
     reduceCostWeight: optNum('reduce_cost_weight'),
     maxCLo: optInt('max_clo'),
     forceSplit: (() => {
@@ -626,6 +651,13 @@ async function ensureWebGpuWarmed(inputs: TestInputs): Promise<MsmV2> {
     msmV2 = await MsmV2.create(gpuDevice, inputs.n, msmV2Pool, gpuKnobs);
     msmV2LogN = logN;
     log('ok', `[gpu-warm] MsmV2 ready in ${(performance.now() - t0).toFixed(0)} ms`);
+    if (new URLSearchParams(window.location.search).get('prog_digest') === '1') {
+      // Cross-device program-equivalence audit: every compiled shader's
+      // source hash. Diff these lines between devices to PROVE the same
+      // program was compiled (or find the kernel that differs).
+      for (const d of msmV2.programDigest) log('info', `[prog] ${d}`);
+      log('info', `[prog] total=${msmV2.programDigest.length}`);
+    }
   }
   return msmV2;
 }
@@ -708,6 +740,88 @@ async function foldWindowSums(L: { x: bigint; y: bigint }[], windowCs: number[])
   return out;
 }
 
+// Three-way isolation for the early-exit chain (?early_exit_debug=1): decode
+// the staged records in JS (standard-form LE integers per the wire contract),
+// Jacobian-sum each window, Horner-combine with the window schedule, and
+// compare against the native finish+combine result. JS == native ≠ golden ⇒
+// the staged bytes are wrong (GPU emission/readback); JS == golden ≠ native
+// ⇒ the native decode/combine is wrong; JS matching neither ⇒ the wire-format
+// assumptions are wrong (domain, limb order, record layout).
+function debugStagedPartials(
+  staged: Uint8Array,
+  numWindows: number,
+  partials: number,
+  windowCs: number[],
+  nativeXy: { x: bigint; y: bigint },
+): void {
+  const P = BN254_BASE_FIELD;
+  const dv = new DataView(staged.buffer, staged.byteOffset, staged.byteLength);
+  const rd = (off: number): bigint => {
+    let v = 0n;
+    for (let i = 7; i >= 0; i--) {
+      v = (v << 32n) | BigInt(dv.getUint32(off + i * 4, true));
+    }
+    return v;
+  };
+  let badCoords = 0;
+  let present = 0;
+  const L: { x: bigint; y: bigint }[] = [];
+  const presBits: string[] = [];
+  for (let w = 0; w < numWindows; w++) {
+    let acc = BN254_JACOBIAN_ZERO;
+    let bits = '';
+    for (let a = 0; a < partials; a++) {
+      const off = (w * partials + a) * 96;
+      const x = rd(off);
+      const y = rd(off + 32);
+      const z = rd(off + 64);
+      if (x >= P || y >= P || z >= P) badCoords++;
+      bits += z === 0n ? '0' : '1';
+      if (z === 0n) continue;
+      present++;
+      acc = addBn254Jacobian(acc, { x, y, z });
+    }
+    presBits.push(bits);
+    const aff = toAffineBn254Jacobian(acc);
+    L.push(aff.infinity ? { x: 0n, y: 0n } : { x: aff.x, y: aff.y });
+  }
+  for (let w = 0; w < numWindows; w += 10) {
+    log('info', `[ee-debug] p${String(w).padStart(2, '0')}: ${presBits.slice(w, w + 10).join(' ')}`);
+  }
+  const js = hostWindowCombine(L, windowCs);
+  // Per-window FNV-1a over the raw record bytes: one 8-hex digest per
+  // window, comparable across devices/runs (and across halve_stop depths
+  // for the bisection dumps, where records are raw arena slots).
+  {
+    const hashes: string[] = [];
+    for (let w = 0; w < numWindows; w++) {
+      let h = 0x811c9dc5;
+      for (let i = w * partials * 96; i < (w + 1) * partials * 96; i++) {
+        h = Math.imul(h ^ staged[i], 0x01000193);
+      }
+      hashes.push((h >>> 0).toString(16).padStart(8, '0'));
+    }
+    for (let w = 0; w < numWindows; w += 8) {
+      log('info', `[ee-debug] h${String(w).padStart(2, '0')}: ${hashes.slice(w, w + 8).join(' ')}`);
+    }
+  }
+  log('info', `[ee-debug] records=${numWindows}x${partials} present=${present} badCoords=${badCoords}`);
+  log('info', `[ee-debug] js.x     = 0x${js.x.toString(16)}`);
+  log('info', `[ee-debug] native.x = 0x${nativeXy.x.toString(16)}`);
+  log(js.x === nativeXy.x ? 'ok' : 'err', `[ee-debug] js ${js.x === nativeXy.x ? '==' : '!='} native`);
+  // Compact per-window digest (12 hex of x, "------------" = absent): lets two
+  // runs / two devices be diffed line-by-line to localize wrong workgroups.
+  for (let w = 0; w < numWindows; w += 4) {
+    const cells = [];
+    for (let i = w; i < Math.min(w + 4, numWindows); i++) {
+      cells.push(
+        L[i].x === 0n && L[i].y === 0n ? '------------' : L[i].x.toString(16).padStart(64, '0').slice(0, 12),
+      );
+    }
+    log('info', `[ee-debug] w${String(w).padStart(2, '0')}: ${cells.join(' ')}`);
+  }
+}
+
 async function runWebGpuOnce(
   inputs: TestInputs,
 ): Promise<{ ms: number; xy: { x: bigint; y: bigint }; capture: ProfileCapture }> {
@@ -715,6 +829,12 @@ async function runWebGpuOnce(
     throw new Error('navigator.gpu is undefined — no WebGPU in this browser');
   }
   const msm = await ensureWebGpuWarmed(inputs);
+  // Halving always early-exits: the staged partials go to the native
+  // finish+combine, so the WASM worker must be live before the timed window
+  // (production's caller IS the wasm — boot cost is not part of the MSM).
+  if ((gpuKnobs.halvingReduce || gpuKnobs.earlyExit) && WASM_AVAILABLE && !wasmMtPippenger) {
+    await ensureWasmBooted();
+  }
   log('info', `[gpu] dispatch n=${inputs.n.toLocaleString()}`);
   // Plan the level tree for these scalars + (re)build the data-dependent
   // buffers — untimed setup, outside the `t0` window.
@@ -731,7 +851,45 @@ async function runWebGpuOnce(
   const gpu = await msm.run();
   // Page-side fold INSIDE the timed window — the wall stays an end-to-end
   // proxy for the production shape (GPU + readback + native-family combine).
-  const xy = await foldWindowSums(gpu.windowSums, msm.windowSchedule);
+  // Early exit: the staged partials go through the SAME single native call
+  // production uses (bb_webgpu_finish_combine_bn254) — finishing sum +
+  // Horner combine in one WASM invocation, nothing GPU-side after.
+  let xy: { x: bigint; y: bigint };
+  if (gpu.stagedPartials !== null && gpu.partialsPerWindow > 0) {
+    const tF = performance.now();
+    if (!wasmMtPippenger) {
+      log('err', '[gpu] early_exit needs the WASM oracle for the finish+combine (run with ?coi=1); result is zeros');
+      xy = { x: 0n, y: 0n };
+      (window as unknown as { __lastFoldMode?: string }).__lastFoldMode = 'missing-wasm';
+    } else {
+      xy = parseAffineLE(
+        await wasmMtPippenger.finishCombine(gpu.stagedPartials, msm.numWindows, gpu.partialsPerWindow, gpu.c),
+      );
+      const g = window as unknown as { __lastFoldMs?: number; __lastFoldMode?: string };
+      g.__lastFoldMs = performance.now() - tF;
+      g.__lastFoldMode = 'wasm-early-exit';
+      if (new URLSearchParams(window.location.search).get('early_exit_debug') === '1') {
+        debugStagedPartials(gpu.stagedPartials, msm.numWindows, gpu.partialsPerWindow, msm.windowSchedule, xy);
+      }
+    }
+  } else {
+    xy = await foldWindowSums(gpu.windowSums, msm.windowSchedule);
+  }
+  if (new URLSearchParams(window.location.search).get('win_digest') === '1') {
+    // Per-window sum digests: cross-device/run diff localizes a wrong final
+    // result to the window(s) that diverge, and repeated runs distinguish
+    // deterministic wrongness from a timing race.
+    const wd = gpu.windowSums.map(p => Number(p.x & 0xffffffffn).toString(16).padStart(8, '0')).join(' ');
+    log('info', `[win] ${wd}`);
+    if (msmV2) {
+      const dp = await msmV2.debugPresence();
+      log('info', `[win] present=${dp.present.join(',')}`);
+      log('info', `[win] rednz=${dp.redNonzero.join(',')}`);
+      const ws = await msmV2.debugWiState();
+      log('info', `[win] wi=${ws.wiArgs.join(',')} cb=${ws.cbArgs.join(',')} pt=${ws.ptArgs.join(',')}`);
+      log('info', `[win] active=${ws.active.join(',')} hist=${ws.hist.join(',')} planner=${ws.planner.join(',')}`);
+    }
+  }
   const ms = performance.now() - t0;
   const g = window as unknown as { __lastFoldMs?: number; __lastFoldMode?: string };
   log('info', `[gpu] returned in ${ms.toFixed(1)} ms (fold ${g.__lastFoldMode}=${(g.__lastFoldMs ?? 0).toFixed(2)}ms)`);
@@ -2235,7 +2393,10 @@ function hideProgress(): void {
       const inputs = await generateInputs(autorunLogN, false);
       // One warm-up run (builds + warms MsmV2 — outside the timed loop).
       log('info', `[bench] warmup run`);
-      await runWebGpuOnce(inputs);
+      const warm = await runWebGpuOnce(inputs);
+      // With ?scalar_seed this is comparable against the golden hashes
+      // (identity check on devices that can't run the WASM cross-check).
+      log('info', `[bench] gpu.x=0x${warm.xy.x.toString(16).slice(0, 16)}…`);
 
       // Kernel-isolation profiling: ?iso=<kernel> loops ONE kernel ~13 s so an
       // external GPU-counter capture attributes ALU/SFU/occupancy to exactly that
@@ -2357,7 +2518,7 @@ function hideProgress(): void {
       for (let i = 0; i < $log.children.length; i++) allLines.push($log.children[i].textContent ?? '');
       await client.postResults({
         state: 'done',
-        params: { logN: autorunLogN, reps, page: 'msm-bench', no_wasm: true },
+        params: { logN: autorunLogN, reps, page: 'msm-bench', no_wasm: true, dev: qp.get('dev') ?? '' },
         results: { samples, averages: { wallMs: avgWall, gpuMs: 0 }, medianWallMs: medWall, medianPhaseMs: medPhases },
         error: null,
         log: allLines.slice(-100),
@@ -2373,7 +2534,7 @@ function hideProgress(): void {
       for (let i = 0; i < $log.children.length; i++) allLines.push($log.children[i].textContent ?? '');
       await client.postResults({
         state: 'error',
-        params: { logN: autorunLogN, reps, page: 'msm-bench', no_wasm: true },
+        params: { logN: autorunLogN, reps, page: 'msm-bench', no_wasm: true, dev: qp.get('dev') ?? '' },
         results: null,
         error: msg,
         log: allLines.slice(-100),
@@ -2408,10 +2569,7 @@ function hideProgress(): void {
       // After warmup: msmV2 is built and ready. Run N timed iterations
       // by clicking Run for each rep and collecting __lastPhaseMs.
       const samples: { wallMs: number; gpuMs: number; phases: Record<string, number> }[] = [];
-      const initLogLen = $log.children.length;
       for (let r = 0; r < reps; r++) {
-        // Snapshot log length
-        const startLen = $log.children.length;
         $run.click();
         for (let i = 0; i < 60; i++) {
           if ($run.disabled) break;
@@ -2421,12 +2579,14 @@ function hideProgress(): void {
           if (!$run.disabled) break;
           await new Promise(r => setTimeout(r, 500));
         }
-        // Parse the [gpu] returned in X ms line
+        // Parse the [gpu] returned in X ms line. The Run handler clears the
+        // log at click time, so everything in it belongs to this rep — take
+        // the last match rather than slicing from a pre-click index.
         const newLines: string[] = [];
-        for (let i = startLen; i < $log.children.length; i++) {
+        for (let i = 0; i < $log.children.length; i++) {
           newLines.push($log.children[i].textContent ?? '');
         }
-        const gpuLine = newLines.find(l => /\[gpu\] returned in/.test(l));
+        const gpuLine = newLines.filter(l => /\[gpu\] returned in/.test(l)).pop();
         const wallMs = gpuLine ? parseFloat(gpuLine.match(/in\s+([\d.]+)\s+ms/)?.[1] ?? '0') : 0;
         const phases = (window as unknown as { __lastPhaseMs?: Record<string, number> }).__lastPhaseMs ?? {};
         const gpuMs = Object.values(phases).reduce((a, b) => a + (b ?? 0), 0);

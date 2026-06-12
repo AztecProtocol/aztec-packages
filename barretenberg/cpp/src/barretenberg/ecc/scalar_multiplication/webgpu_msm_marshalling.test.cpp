@@ -1,3 +1,4 @@
+#include <cstring>
 #include "webgpu_msm_marshalling.hpp"
 
 #include <cstdint>
@@ -157,3 +158,78 @@ TEST(WebGpuMsmMarshalling, CombineWindowsSingleAndEmpty)
 }
 
 } // namespace
+
+// finish_and_combine_windows: per-window sums of staged Jacobian partials
+// (standard-form LE integers, z == 0 absent) then the same Horner fold.
+// Validated against combine_windows over the equivalent finished window
+// sums AND the independent scalar-multiplication reference.
+namespace {
+void write_jac_le(uint8_t* dst, const BN254::Element& p)
+{
+    if (p.is_point_at_infinity()) {
+        std::memset(dst, 0, 96);
+        return;
+    }
+    write_uint256_le(dst, static_cast<uint256_t>(p.x));
+    write_uint256_le(dst + 32, static_cast<uint256_t>(p.y));
+    write_uint256_le(dst + 64, static_cast<uint256_t>(p.z));
+}
+} // namespace
+
+TEST(WebGpuMsmMarshalling, FinishAndCombineMatchesCombine)
+{
+    constexpr uint32_t c = 13;
+    constexpr uint32_t kNumWindows = 20;
+    constexpr uint32_t kPartials = 11;
+
+    std::vector<uint8_t> staged(static_cast<size_t>(kNumWindows) * kPartials * 96);
+    std::vector<AffineElement> window_sums;
+    window_sums.reserve(kNumWindows);
+    for (uint32_t w = 0; w < kNumWindows; ++w) {
+        BN254::Element sum = BN254::Element::infinity();
+        for (uint32_t partial = 0; partial < kPartials; ++partial) {
+            // Mix in absent partials (z == 0) and non-trivial z values: scale a
+            // random point by a random z to exercise true Jacobian inputs.
+            uint8_t* rec = &staged[(static_cast<size_t>(w) * kPartials + partial) * 96];
+            if ((w + partial) % 5 == 3) {
+                std::memset(rec, 0, 96);
+                continue;
+            }
+            // random_element already yields a random (non-1) z — true
+            // Jacobian inputs, exactly what the staged partials carry.
+            BN254::Element p = BN254::Element::random_element(&engine);
+            write_jac_le(rec, p);
+            sum += p;
+        }
+        window_sums.push_back(AffineElement(sum));
+    }
+
+    const std::vector<uint8_t> roots = marshal_points(window_sums);
+    const AffineElement via_roots = combine_windows(roots.data(), kNumWindows, c);
+    const AffineElement via_partials = finish_and_combine_windows(staged.data(), kNumWindows, kPartials, c);
+    EXPECT_EQ(via_partials, via_roots);
+
+    BN254::Element expected = BN254::Element::infinity();
+    ScalarField weight(1);
+    const ScalarField step(1 << c);
+    for (uint32_t w = 0; w < kNumWindows; ++w) {
+        expected += BN254::Element(window_sums[w]) * weight;
+        weight *= step;
+    }
+    EXPECT_EQ(via_partials, AffineElement(expected));
+}
+
+TEST(WebGpuMsmMarshalling, FinishAndCombineAllAbsentWindowIsInfinity)
+{
+    constexpr uint32_t c = 13;
+    std::vector<uint8_t> staged(static_cast<size_t>(2) * 3 * 96, 0);
+    // window 1 gets a single real partial; window 0 entirely absent.
+    BN254::Element p = BN254::Element::random_element(&engine);
+    write_jac_le(&staged[(1 * 3 + 2) * 96], p);
+    BN254::Element expected = p;
+    for (uint32_t d = 0; d < c; ++d) {
+        expected.self_dbl();
+    }
+    EXPECT_EQ(finish_and_combine_windows(staged.data(), 2, 3, c), AffineElement(expected));
+    EXPECT_EQ(finish_and_combine_windows(staged.data(), 0, 3, c), AffineElement(BN254::Element::infinity()));
+}

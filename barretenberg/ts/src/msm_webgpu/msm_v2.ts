@@ -23,6 +23,8 @@
 // this by delegating only when handle_edge_cases is false.
 
 import { ShaderManager, type MontMulVariant } from './cuzk/shader_manager.js';
+import { buildFoldTower } from './fold_tower.js';
+import { buildHalvingSchedule, type HalvingSchedule } from './halving_reduce.js';
 import { BN254_CURVE_CONFIG } from './cuzk/curve_config.js';
 import { compute_misc_params } from './cuzk/utils.js';
 import { BN254_BASE_FIELD, addBn254Points, type Bn254Point, modInverse } from './cuzk/bn254.js';
@@ -111,15 +113,14 @@ export function arenaColourSizes(p: {
   const { sT, sS, sBTotal, sRadixTiles, batchSlots, redM, rowPtrLen, reducePrefBytes, scalarsBytes, l0Slots } = p;
   const soa = 2 * PG * redM * 4 * 4; // soaSize(redM)
   return [
-    // A0: activeBuckets activeCount binOffsets partialWritePos reducePrefScratch sortedCountList scalarsRawBuf l0IdxBuf
+    // A0: activeBuckets sortedCountList scalarsRawBuf l0IdxBuf
+    // (activeCount/binOffsets/partialWritePos live in wiCounters and
+    // reducePrefScratch is standalone — they are WRITTEN by kernels while the
+    // walker binds all of A0 read-only, and that double mapping breaks their
+    // clears/writes on Adreno.)
     // activeBuckets is sized for (bid, n) PAIRS (walker_index v2's idx_alloc
     // writes both); the v1 path uses the first half as plain bids.
-    // activeCount carries [count, alloc_total] — 2 u32.
     a(sBTotal * 8) +
-      a(8) +
-      a(64 * 4) +
-      a(sBTotal * 4) +
-      a(reducePrefBytes) +
       a(sBTotal * 4) +
       a(scalarsBytes) +
       a(l0Slots * 4),
@@ -408,6 +409,56 @@ export interface MsmConfig {
    * one-thread-per-window (validation); v1 batches the inversions for speed.
    */
   sparseReduce?: boolean;
+  /**
+   * Use the fold-tower bucket reduction (GROUPED_REDUCE_PLAN.md): 2-3 wide
+   * batch-affine fold dispatches + a per-window Jacobian tail replace the
+   * 35-level dense schedule. Byte-identical result.
+   */
+  groupedReduce?: boolean;
+  /** Fold-tower rows-per-chunk per level (sweep knob; see buildFoldTower). */
+  foldMTower?: number[];
+  /** Fold-tower combine input length cap (sweep knob; default and maximum 32
+   *  — the combine kernel is one small workgroup per window). */
+  foldTailMax?: number;
+  /** Fold regime threshold: a level runs batch-affine with the largest k
+   *  (chunks/thread, C = k·(2+streams) adds per inversion) keeping
+   *  chunks/k ≥ foldSat threads; below it the level runs the inversion-free
+   *  Jacobian fold. Default 2560. */
+  foldSat?: number;
+  /** Force a fixed affine k on every fold level (sweep/debug). */
+  foldK?: number;
+  /** Use the workgroup-cooperative inversion kernel for affine fold levels
+   *  (the per-row pk14 batches across the whole workgroup; k pinned to 1). */
+  foldCoop?: boolean;
+  /** Use the thread-local tower kernel for affine M = 8 stream-less levels
+   *  (in-register binary tower, 5 round-batched inversions, no barriers). */
+  foldTlocal?: boolean;
+  /** Halving bucket reduction (Mitschabaude): one dispatch per wide depth —
+   *  batch-affine 8/4 pairs per thread while saturated, Jacobian pairs once
+   *  thin — plus a one-workgroup-per-window finisher. No split-c support. */
+  halvingReduce?: boolean;
+  /** Halving finisher entry budget (live values per window). Default 64
+   *  (measured M4 optimum — finisher chains scale with per-array length). */
+  halveCap?: number;
+  /** Width down to which the wide phase keeps batch-4 before falling back
+   *  to Jacobian pairs. Default = foldSat. */
+  halveBa4Floor?: number;
+  /** Early exit: the GPU pipeline ends at the staged-partials pass; the
+   *  per-window finishing sum and the cross-window Horner combine run in ONE
+   *  native WASM call (finish_and_combine_windows) on the readback bytes.
+   *  Requires halvingReduce. */
+  earlyExit?: boolean;
+  /** Debug (depth bisection): dispatch only the first N wide halving depths,
+   *  then run the finisher pipeline in DUMP mode — it stages each window's
+   *  raw W-region slots 0..finisherDepth instead of reducing, so the staged
+   *  readback is the arena state after N depths (diffable across devices).
+   *  Requires halvingReduce + earlyExit. */
+  halveStop?: number;
+  /** Debug (finisher iteration bisection): all wide depths run, then the
+   *  finisher executes exactly K master-loop iterations after its
+   *  cooperative load (K=0 fingerprints the load + shared round-trip alone)
+   *  and stages each workgroup's slot 0. Requires halvingReduce + earlyExit. */
+  halveIter?: number;
   /**
    * Test hook (mirrors the C++ VAR_WINDOW_FORCE_SPLIT env var): force a split at
    * `[b_star, c_lo, c_hi]`, bypassing the cost model. Requires {@link splitC}.
@@ -1017,7 +1068,11 @@ interface SharedScratch {
   redBuf: GPUBufferBinding;
   isPresentBuf: GPUBufferBinding;
   redZBuf: GPUBufferBinding; // arena A5 — Jacobian Z-plane for the Thread-1 reduce
-  reducePrefScratch: GPUBufferBinding;
+  // Standalone (was an arena-A0 carve): written by the dense reduce, the
+  // halving ba inversion chain, and the jac->affine convert. Inside A0 those
+  // writes were double-mapped against the walker's whole-buffer read-only
+  // binding — the Adreno visibility failure behind the small-N corruption.
+  reducePrefScratch: GPUBuffer;
   // Streaming planner + accumulator buffers (Phase 1-4).
   streamPlannerMeta: GPUBuffer;
   // pp2 preprocess bin-count / cursor matrix: [window][bin][tile] + sentinel.
@@ -1054,7 +1109,14 @@ interface SharedScratch {
   // combine_batched thread's S=8 slots have matching N → zero tail divergence.
   // MAX_N = 64 bins (sized in ba_walker_combine_sort_*.template.wgsl).
   countHistogram: GPUBufferBinding; // arena slot — MAX_N × atomic<u32>
-  binOffsets: GPUBufferBinding; // arena slot — MAX_N × u32 — exclusive prefix sum
+  binOffsets: GPUBufferBinding; // wiCounters slot — MAX_N × u32 — exclusive prefix sum
+  // Dedicated buffer backing activeCount/binOffsets/partialWritePos. These
+  // were arena-A0 carves; A0 is also bound whole-buffer read-only by the
+  // walker, and on Adreno the offset-range clears of cells double-mapped that
+  // way silently fail — the counters accumulated across the page's encodes
+  // (the small-N corruption). A standalone buffer with a whole-buffer clear
+  // avoids the double mapping entirely.
+  wiCounters: GPUBuffer;
   binWritePos: GPUBufferBinding; // arena slot — MAX_N × atomic<u32>
   sortedActiveBuckets: GPUBufferBinding; // arena slot — bTotal × u32 — active_buckets in N order
   // Pair-tree hot-bucket combine. pt_scratch holds intermediate level
@@ -1461,6 +1523,7 @@ export class MsmV2Pool {
     let activeCount = s?.activeCount;
     let countHistogram = s?.countHistogram;
     let binOffsets = s?.binOffsets;
+    let wiCounters = s?.wiCounters;
     let binWritePos = s?.binWritePos;
     let sortedActiveBuckets = s?.sortedActiveBuckets;
     let ptScratch = s?.ptScratch;
@@ -1555,10 +1618,10 @@ export class MsmV2Pool {
     isPresentBuf = carve(1, cur.redM * 4);
     redBuf = carve(1, soaSize(cur.redM));
     activeBuckets = carve(0, sBTotal * 8); // (bid, n) pairs on the v2 path; v1 uses bid-only entries
-    activeCount = carve(0, 8); // [active_count, alloc_total]
-    binOffsets = carve(0, 64 * 4);
-    partialWritePos = carve(0, sBTotal * 4);
-    reducePrefScratch = carve(0, cur.reducePrefBytes);
+    if (!reducePrefScratch || reducePrefScratch.size < cur.reducePrefBytes) {
+      reducePrefScratch?.destroy();
+      reducePrefScratch = ibuf(cur.reducePrefBytes);
+    }
     sortedCountList = carve(0, sBTotal * 4);
     scalarsRawBuf = carve(0, cur.scalarsBytes);
     l0IdxBuf = carve(0, cur.l0Slots * 4);
@@ -1578,6 +1641,7 @@ export class MsmV2Pool {
       ptPersistentDispatchArgs?.destroy();
       ptBucketWg?.destroy();
       ptWgMeta?.destroy();
+      wiCounters?.destroy();
       ptWgBucketList?.destroy();
       ptWgBucketStarts?.destroy();
       ptChunks?.destroy();
@@ -1587,6 +1651,8 @@ export class MsmV2Pool {
       grow(dims.streamQueueEntries > cur.streamQueueEntries, 'streamQueueEntries');
       grow(dims.streamRadixTiles > cur.streamRadixTiles, 'streamRadixTiles');
       streamPlannerMeta = ibuf(Math.max((20 + sT) * 4, 256));
+      // [activeCount @0 (8B) | binOffsets @256 (256B) | partialWritePos @512].
+      wiCounters = ibuf(512 + sBTotal * 4);
       // Step 9: legacy stream-accum buffers shrunk — only the dead
       // ba_stream_accum / ba_partial_sum / ba_planner_emit / ba_emit_fixup /
       // ba_debug_accum / ba_recompute_split pipelines reference these.
@@ -1663,6 +1729,9 @@ export class MsmV2Pool {
     const padXOffset = planeBytes - padBytesPerPlane;
     const padYOffset = planeBytes + planeBytes - padBytesPerPlane;
 
+    activeCount = { buffer: wiCounters!, offset: 0, size: 8 };
+    binOffsets = { buffer: wiCounters!, offset: 256, size: 256 };
+    partialWritePos = { buffer: wiCounters!, offset: 512, size: sBTotal * 4 };
     const newScratch: SharedScratch = {
       bufA: bufA!,
       bufB: bufB!,
@@ -1707,6 +1776,7 @@ export class MsmV2Pool {
       partialCount: partialCount!,
       partialOffset: partialOffset!,
       partialWritePos: partialWritePos!,
+      wiCounters: wiCounters!,
       partialLayout: partialLayout!,
       activeBuckets: activeBuckets!,
       activeCount: activeCount!,
@@ -1960,6 +2030,48 @@ export class MsmV2 {
   private reduceSparsePipe?: GPUComputePipeline;
   private reduceSparseLayout?: GPUBindGroupLayout;
   private reduceSparseBind?: GPUBindGroup;
+  // Fold-tower reduction (GROUPED_REDUCE_PLAN.md). foldPipes is indexed by the
+  // level's stream count (= level index, ≤ 2).
+  private groupedReduce = false;
+  private foldMTower?: number[];
+  private foldTailMax?: number;
+  private foldLevelPipes: GPUComputePipeline[] = [];
+  private foldRegimes: { jac: boolean; k: number; pair: boolean; tlocal?: boolean }[] = [];
+  private foldSat = 2560;
+  private foldK = 0;
+  private foldCoop = false;
+  private foldTlocal = false;
+  private halvingReduce = false;
+  private halveCap = 256;
+  private halveBa4Floor?: number;
+  private earlyExitMode = false;
+  private halveStopAfter?: number;
+  private halveIterAfter?: number;
+  private halveArraysDumpBind?: GPUBindGroup;
+  private halveSchedule?: HalvingSchedule;
+  private halveBa8Pipe?: GPUComputePipeline;
+  private halveBa4Pipe?: GPUComputePipeline;
+  private halveJacPipe?: GPUComputePipeline;
+  private halveFinishArraysPipe?: GPUComputePipeline;
+  private halveStageLayout?: GPUBindGroupLayout;
+  private halveStageBuf?: GPUBuffer;
+  private halveArraysBind?: GPUBindGroup;
+  private halveDepthDispatch: { pipe: GPUComputePipeline; bind: GPUBindGroup; nx: number }[] = [];
+  private halveZInitBind?: GPUBindGroup;
+  private halveZInitAt = -1;
+  private foldWeightPipe?: GPUComputePipeline;
+  private foldSumPipe?: GPUComputePipeline;
+  private foldSumBind1?: GPUBindGroup;
+  private foldSumBind2?: GPUBindGroup;
+  private foldWeightNx = 1;
+  private foldLayout?: GPUBindGroupLayout;
+  private foldJacLayout?: GPUBindGroupLayout;
+  private halveBaLayout?: GPUBindGroupLayout;
+  private foldTailLayout?: GPUBindGroupLayout;
+  private foldLevelBinds: GPUBindGroup[] = [];
+  private foldLevelNx: number[] = [];
+  private foldTailBind?: GPUBindGroup;
+  private foldMaxLevels = 0;
   /** split-c test hook: force a split at [b_star, c_lo, c_hi], bypassing the cost model. */
   private forceSplit?: [number, number, number];
   /** Reduce-cost weight (alphaBucket) for the split decision. Default 4 (dense reduce). */
@@ -2097,6 +2209,8 @@ export class MsmV2 {
   // specific R to exercise the refit path, or pin a known device R without the
   // throwaway probe run.
   private residentWgOverride = 0;
+  /** Per-kernel FNV-1a digests of every compiled shader source (label:hash:len). */
+  readonly programDigest: string[] = [];
   private streamS = 8;
   private numRadixTiles = 1;
   // layouts (needed by prepare to build bind groups)
@@ -2423,6 +2537,21 @@ export class MsmV2 {
     m.splitC = config?.splitC ?? false;
     m.wiProbe = config?.wiProbe ?? false;
     m.sparseReduce = config?.sparseReduce ?? false;
+    m.groupedReduce = config?.groupedReduce ?? false;
+    m.foldMTower = config?.foldMTower;
+    m.foldTailMax = config?.foldTailMax;
+    m.foldSat = config?.foldSat ?? 2560;
+    m.foldK = config?.foldK ?? 0;
+    m.foldCoop = config?.foldCoop ?? false;
+    m.foldTlocal = config?.foldTlocal ?? false;
+    m.halvingReduce = config?.halvingReduce ?? false;
+    m.halveCap = config?.halveCap ?? 64;
+    m.halveBa4Floor = config?.halveBa4Floor;
+    // Halving ALWAYS early-exits: the GPU ends at the staged partials and ONE
+    // native call finishes + combines. The GPU root pass (pass 2) is gone.
+    m.earlyExitMode = config?.halvingReduce ?? false;
+    m.halveStopAfter = m.earlyExitMode ? config?.halveStop : undefined;
+    m.halveIterAfter = m.earlyExitMode ? config?.halveIter : undefined;
     m.forceSplit = config?.forceSplit;
     m.reduceCostWeight = config?.reduceCostWeight ?? 4;
     m.maxCLo = config?.maxCLo ?? 0;
@@ -2990,8 +3119,15 @@ export class MsmV2 {
     // cache reuse it across every n the pool serves. Every compileOne()
     // here routes through `pool.cache.getPipeline()` keyed on the WGSL
     // source; identical sources collapse to one compile per pool. ---
-    const compile = (code: string, label: string, layout: GPUBindGroupLayout) =>
-      pool.cache.getPipeline(code, layout, label);
+    const compile = (code: string, label: string, layout: GPUBindGroupLayout): Promise<GPUComputePipeline> => {
+      // Program-equivalence audit: FNV-1a of every generated shader source,
+      // exposed for cross-device diffing (dev page logs them under
+      // ?prog_digest=1). Proves two devices compile identical programs.
+      let h = 0x811c9dc5;
+      for (let i = 0; i < code.length; i++) h = Math.imul(h ^ code.charCodeAt(i), 0x01000193);
+      m.programDigest.push(`${label}:${(h >>> 0).toString(16).padStart(8, '0')}:${code.length}`);
+      return pool.cache.getPipeline(code, layout, label);
+    };
     // Pipeline builds are queued, not awaited: issuing builds up-front lets
     // Dawn compile kernels concurrently on its worker pool, and the single
     // allSettled barrier below replaces 40+ serial awaits (measured
@@ -3180,6 +3316,154 @@ export class MsmV2 {
         sm.gen_ba_reduce_sparse_shader(REDUCE_WG),
         `reduce-sparse`,
         m.reduceSparseLayout,
+      );
+    }
+    if (m.groupedReduce) {
+      // Fold-tower reduction. Per-level regime from the ENVELOPE tower
+      // (window towers are prefixes of it): batch-affine with the largest k
+      // keeping threads ≥ foldSat (C = k·(2+ns) adds per inversion), else
+      // the inversion-free Jacobian fold — C = 2 batch-affine is never
+      // dispatched (a mixed Jacobian add is cheaper).
+      const envTower = buildFoldTower(2 ** (m.c - 1), {
+        mTower: m.foldMTower,
+        tailMax: Math.min(m.foldTailMax ?? 32, 64),
+        maxLevels: 3,
+        numWindows: m.numWindows,
+        satWidth: m.foldSat,
+      });
+      // foldCoop swaps the kernel of AFFINE-regime levels for the
+      // workgroup-cooperative variant (always k = 1: the coop batch already
+      // spans the workgroup, so chunks/thread buys nothing). Jacobian-regime
+      // levels are unaffected — combine with foldK = 1 to force every level
+      // affine and therefore coop.
+      m.foldRegimes = envTower.levels.map((lvl, lv) => {
+        // M = 2 Jacobian levels (width-adaptive small-N shape) get the lean
+        // pair kernel: one add per thread, no walk machinery. Split-c is
+        // excluded — window towers can then disagree with the envelope's M
+        // at a level, and the pair kernel is specialised to M == 2.
+        const pairable = lvl.M === 2 && !m.splitC;
+        if (m.foldK) return { jac: false, k: m.foldCoop ? 1 : m.foldK, pair: false };
+        const NC = m.numWindows * lvl.G;
+        if (m.foldCoop) {
+          // Same affine/jac boundary as the per-thread policy below, so an
+          // A/B against it swaps only the kernel of the affine levels.
+          const affine =
+            (NC / 4 >= m.foldSat && lvl.G % 4 === 0) || (NC / 2 >= m.foldSat && lvl.G % 2 === 0);
+          return affine ? { jac: false, k: 1, pair: false } : { jac: true, k: 1, pair: pairable };
+        }
+        if (NC / 4 >= m.foldSat && lvl.G % 4 === 0) return { jac: false, k: 4, pair: false };
+        if (NC / 2 >= m.foldSat && lvl.G % 2 === 0) return { jac: false, k: 2, pair: false };
+        return { jac: true, k: 1, pair: pairable };
+      });
+      // The thread-local tower kernel claims affine M = 8 stream-less levels
+      // and is one-column-per-thread: pin its k to 1 so the dispatch width
+      // covers every column (the regime's k sizes foldLevelNx).
+      if (m.foldTlocal && !m.splitC) {
+        for (let lv = 0; lv < m.foldRegimes.length; lv++) {
+          const r = m.foldRegimes[lv];
+          if (!r.jac && lv === 0 && envTower.levels[lv].M === 8) {
+            r.k = 1;
+            r.tlocal = true;
+          }
+        }
+      }
+      // red_buf(rw), is_present(rw), cparams(u), lparams(u), fold_sched(ro).
+      m.foldLayout = lt(['storage', 'storage', 'uniform', 'uniform', 'read-only-storage']);
+      // red_buf(rw), red_z(rw), is_present(rw), cparams(u), lparams(u), fold_sched(ro).
+      m.foldJacLayout = lt(['storage', 'storage', 'storage', 'uniform', 'uniform', 'read-only-storage']);
+      m.foldLevelPipes = [];
+      for (let lv = 0; lv < m.foldRegimes.length; lv++) {
+        const ns = Math.min(lv, 2);
+        const r = m.foldRegimes[lv];
+        // Outputs of jac, pair, AND a preceding jac-family level carry z in
+        // red_z; affine fold outputs are x/y + presence (z implied 1).
+        const inputsJac = lv > 0 && (m.foldRegimes[lv - 1].jac || m.foldRegimes[lv - 1].pair);
+        const tlocal = r.tlocal === true;
+        m.foldLevelPipes[lv] = r.pair
+          ? await compile(
+              sm.gen_ba_reduce_fold_pair_shader(REDUCE_WG, ns, inputsJac),
+              `reduce-fold-pair-${ns}-${inputsJac ? 'jac' : 'aff'}`,
+              m.foldJacLayout,
+            )
+          : r.jac
+            ? await compile(sm.gen_ba_reduce_fold_jac_shader(REDUCE_WG, ns), `reduce-fold-jac-${ns}`, m.foldJacLayout)
+            : tlocal
+              ? await compile(sm.gen_ba_reduce_fold_tlocal_shader(REDUCE_WG), `reduce-fold-tlocal`, m.foldLayout)
+              : m.foldCoop
+                ? await compile(sm.gen_ba_reduce_fold_coop_shader(REDUCE_WG, ns), `reduce-fold-coop-${ns}`, m.foldLayout)
+                : await compile(sm.gen_ba_reduce_fold_shader(REDUCE_WG, ns, r.k), `reduce-fold-${ns}-k${r.k}`, m.foldLayout);
+      }
+      // red_buf(rw), red_z(rw), is_present(rw), cparams(u), fold_sched(ro).
+      m.foldTailLayout = lt(['storage', 'storage', 'storage', 'uniform', 'read-only-storage']);
+      m.foldWeightPipe = await compile(
+        sm.gen_ba_reduce_fold_weight_shader(REDUCE_WG),
+        `reduce-fold-weight`,
+        m.foldTailLayout,
+      );
+      m.foldSumPipe = await compile(sm.gen_ba_reduce_fold_sum_shader(32), `reduce-fold-sum`, m.foldJacLayout!);
+    }
+
+    // Halving ships only at stride >= 4096 (c >= 13, logn >= 16): the
+    // small-stride schedule variants (Lf=128 finisher / tiny-geometry jac
+    // and ba depths) return wrong results or hang on Adreno, and dense is
+    // both verified-correct and faster there (n10: ~23ms dense vs ~35ms
+    // halving on S25+). Every shipped halving shape is the on-device
+    // verified one.
+    if (m.halvingReduce && 2 ** (m.c - 1) < 4096) {
+      m.halvingReduce = false;
+      // Early-exit staging exists only to carry the halving finisher's
+      // output; with halving gated off the dense path must produce normal
+      // window sums or the readback stages garbage.
+      m.earlyExitMode = false;
+    }
+    if (m.halvingReduce) {
+      if (m.splitC) {
+        throw new Error('halvingReduce does not support split-c windows yet');
+      }
+      m.foldLayout = m.foldLayout ?? lt(['storage', 'storage', 'uniform', 'uniform', 'read-only-storage']);
+      m.foldJacLayout =
+        m.foldJacLayout ?? lt(['storage', 'storage', 'storage', 'uniform', 'uniform', 'read-only-storage']);
+      const strideB = 2 ** (m.c - 1);
+      const hsched = buildHalvingSchedule(strideB, m.numWindows, {
+        satWidth: m.foldSat,
+        finisherCap: m.halveCap,
+        ba4Floor: m.halveBa4Floor,
+      });
+      m.halveSchedule = hsched;
+      const hmodes = new Set(hsched.depths.map(x => x.mode));
+      // ba kernels carry a 6th binding: the global pref scratch for the
+      // batch inversion's partial products (the stream walker's pattern —
+      // reducePrefScratch is idle in halving mode and always large enough).
+      m.halveBaLayout = lt(['storage', 'storage', 'uniform', 'uniform', 'read-only-storage', 'storage']);
+      if (hmodes.has('ba8')) {
+        m.halveBa8Pipe = await compile(sm.gen_ba_halve_shader(REDUCE_WG, 8), `halve-ba8`, m.halveBaLayout);
+      }
+      if (hmodes.has('ba4')) {
+        m.halveBa4Pipe = await compile(sm.gen_ba_halve_shader(REDUCE_WG, 4), `halve-ba4`, m.halveBaLayout);
+      }
+      if (hmodes.has('jac')) {
+        m.halveJacPipe = await compile(sm.gen_jac_halve_shader(REDUCE_WG), `halve-jac`, m.foldJacLayout);
+        // The lazy-jac gate skips reduce-z-init for useJac=false instances,
+        // but the halving schedule seeds the z-plane before its first
+        // Jacobian depth — compile it here too (pool cache dedups).
+        m.zInitPipe = await compile(sm.gen_ba_reduce_z_init_shader(WGI), `reduce-z-init`, m.zInitLayout);
+      }
+      // F1 carries a 7th binding: the compact staged-partials export the
+      // early-exit readback maps (written unconditionally — six stores per
+      // workgroup).
+      m.halveStageLayout = lt([
+        'storage',
+        'storage',
+        'storage',
+        'uniform',
+        'uniform',
+        'read-only-storage',
+        'storage',
+      ]);
+      m.halveFinishArraysPipe = await compile(
+        sm.gen_halve_finish_arrays_shader(strideB, hsched.finisherDepth, hsched.finisherInputsJac),
+        `halve-finish-arrays`,
+        m.halveStageLayout,
       );
     }
 
@@ -4419,6 +4703,210 @@ export class MsmV2 {
       const cparamsSparse = ubuf(new Uint32Array([RED_M, 0, 0, 0]));
       this.reduceSparseBind = mkBind(this.reduceSparseLayout, [redBuf, isPresentBuf, cparamsSparse, metaBuf]);
     }
+    // Fold-tower reduce (GROUPED_REDUCE_PLAN.md): per-window tower table +
+    // per-level binds + tail bind. fold_sched rows mirror reduce_sched's
+    // shape: row[0] = (base, B0, n_levels, 0), row[1+lv] = (G, M, B, 0); a
+    // window whose tower is shorter than the global max no-ops via G == 0.
+    this.foldLevelBinds = [];
+    this.foldLevelNx = [];
+    this.foldTailBind = undefined;
+    this.foldMaxLevels = 0;
+    if (this.groupedReduce && this.foldLayout && this.foldTailLayout) {
+      // Cooperative tail consumes arrays up to ~512 long at full width, so the
+      // tower stops early (usually a single fold level); the sequential tail
+      // needs the deep tower to shrink the walk to ~16.
+      // The combine kernel is one 64-lane workgroup per window: every tower
+      // must end with arrays of ≤ 64 values.
+      const tailMax = Math.min(this.foldTailMax ?? 32, 64);
+      const towers = Array.from({ length: NUM_WINDOWS }, (_, w) => {
+        const cw = w < this.windowCs.length ? this.windowCs[w] : c;
+        return buildFoldTower(2 ** (cw - 1), {
+          mTower: this.foldMTower,
+          tailMax,
+          maxLevels: 3,
+          numWindows: NUM_WINDOWS,
+          satWidth: this.foldSat,
+        });
+      });
+      const maxFL = Math.max(...towers.map(t => t.levels.length));
+      if (maxFL > 3) {
+        // The sum kernel handles R + up to THREE Λ-descendant streams
+        // (4 × 64 values per window); a deeper tower would silently drop a
+        // stream (it did once — never again silently).
+        throw new Error(`fold tower depth ${maxFL} exceeds the sum kernel's 3-stream capacity`);
+      }
+      this.foldMaxLevels = maxFL;
+      const frow = 1 + maxFL;
+      // One zero row of padding: the combine's dead-array scale select still
+      // evaluates its fold_sched[row + a] operand for the last window.
+      const ftab = new Uint32Array((NUM_WINDOWS + 1) * frow * 4);
+      for (let w = 0; w < NUM_WINDOWS; w++) {
+        const cw = w < this.windowCs.length ? this.windowCs[w] : c;
+        const t = towers[w];
+        const o = w * frow * 4;
+        ftab[o + 0] = this.reduceOffsets[w];
+        ftab[o + 1] = 2 ** (cw - 1);
+        ftab[o + 2] = t.levels.length;
+        // Combine z-source flag: 1 when this window's LAST fold level ran the
+        // Jacobian regime (its outputs carry z in red_z).
+        ftab[o + 3] = t.levels.length > 0 && (this.foldRegimes[t.levels.length - 1]?.jac ?? false) ? 1 : 0;
+        t.levels.forEach((lv, i) => {
+          const e = o + (1 + i) * 4;
+          ftab[e + 0] = lv.G;
+          ftab[e + 1] = lv.M;
+          ftab[e + 2] = lv.B;
+        });
+      }
+      const foldSchedBuf = device.createBuffer({
+        size: Math.max(16, ftab.byteLength),
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+      });
+      device.queue.writeBuffer(foldSchedBuf, 0, ftab as BufferSource);
+      this.prepBuffers.push(foldSchedBuf);
+      const fcparams = ubuf(new Uint32Array([RED_M, 0, maxFL, 0]));
+      for (let lv = 0; lv < maxFL; lv++) {
+        const r = this.foldRegimes[lv] ?? { jac: true, k: 1, pair: false };
+        const inputsJac = lv > 0 && (this.foldRegimes[lv - 1]?.jac ?? false);
+        const lp = ubuf(new Uint32Array([lv, inputsJac ? 1 : 0, 0, 0]));
+        this.foldLevelBinds.push(
+          r.jac
+            ? mkBind(this.foldJacLayout!, [redBuf, redZBuf, isPresentBuf, fcparams, lp, foldSchedBuf])
+            : mkBind(this.foldLayout, [redBuf, isPresentBuf, fcparams, lp, foldSchedBuf]),
+        );
+        const maxG = Math.max(...towers.map(t => t.levels[lv]?.G ?? 0));
+        this.foldLevelNx.push(Math.ceil(maxG / (r.jac ? 1 : r.k) / this.reduceWg));
+      }
+      const ftparams = ubuf(new Uint32Array([RED_M, 0, maxFL, NUM_WINDOWS]));
+      this.foldTailBind = mkBind(this.foldTailLayout, [redBuf, redZBuf, isPresentBuf, ftparams, foldSchedBuf]);
+      const sumP1 = ubuf(new Uint32Array([8, 0, 0, 0])); // S_out=8, full value arrays in
+      const sumP2 = ubuf(new Uint32Array([1, 1, 0, 0])); // S_out=1, fan-8 partials in
+      this.foldSumBind1 = mkBind(this.foldJacLayout!, [redBuf, redZBuf, isPresentBuf, ftparams, sumP1, foldSchedBuf]);
+      this.foldSumBind2 = mkBind(this.foldJacLayout!, [redBuf, redZBuf, isPresentBuf, ftparams, sumP2, foldSchedBuf]);
+      const maxVals = Math.max(
+        ...towers.map(t => (1 + t.levels.length) * (t.levels.length > 0 ? t.levels[t.levels.length - 1].G : 1)),
+        ...towers.map((t, w2) => (t.levels.length === 0 ? 2 ** ((w2 < this.windowCs.length ? this.windowCs[w2] : c) - 1) : 0)),
+      );
+      this.foldWeightNx = Math.ceil(maxVals / this.reduceWg);
+      // The tail leaves the per-window root in Jacobian; the existing
+      // jac-finalize normalises it. Build its bind here when the useJac path
+      // didn't already (it reads the window base from the legacy schedBuf —
+      // same reduceOffsets bases).
+      if (!this.reduceJacFinalizeBind) {
+        const jacFinalizeParams = ubuf(new Uint32Array([RED_M, 0, maxLevels, NUM_WINDOWS]));
+        this.reduceJacFinalizeBind = mkBind(this.jacFinalizeLayout, [
+          redBuf,
+          redZBuf,
+          jacFinalizeParams,
+          isPresentBuf,
+          schedBuf,
+        ]);
+      }
+    }
+    this.halveDepthDispatch = [];
+    this.halveZInitBind = undefined;
+    this.halveZInitAt = -1;
+    if (this.halvingReduce && this.halveSchedule && this.foldLayout && this.foldJacLayout) {
+      const sched = this.halveSchedule;
+      const strideB = 2 ** (c - 1);
+      const htab = new Uint32Array(NUM_WINDOWS * 4);
+      for (let w = 0; w < NUM_WINDOWS; w++) {
+        htab[w * 4 + 0] = this.reduceOffsets[w];
+        htab[w * 4 + 1] = strideB;
+      }
+      const hbuf = device.createBuffer({
+        size: Math.max(16, htab.byteLength),
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+      });
+      device.queue.writeBuffer(hbuf, 0, htab as BufferSource);
+      this.prepBuffers.push(hbuf);
+      const hcparams = ubuf(new Uint32Array([RED_M, 0, 0, NUM_WINDOWS]));
+      for (const dep of sched.depths) {
+        const cpairs = dep.mode === 'ba8' ? 8 : dep.mode === 'ba4' ? 4 : 1;
+        const lp = ubuf(new Uint32Array([dep.d, cpairs, 0, 0]));
+        const pipe =
+          dep.mode === 'ba8' ? this.halveBa8Pipe! : dep.mode === 'ba4' ? this.halveBa4Pipe! : this.halveJacPipe!;
+        const threads = Math.ceil(dep.pairsPerWindow / cpairs);
+        if (dep.mode !== 'jac') {
+          // walker-pattern pref scratch: (cpairs-1) prefixes × 2 vec4 per
+          // flat thread — reducePrefScratch is sized NW·(B/2)·32B which
+          // always covers it, but keep the invariant loud.
+          const needBytes = (cpairs - 1) * 2 * threads * NUM_WINDOWS * 16;
+          if (needBytes > reducePrefScratch.size!) {
+            throw new Error(`halve ba pref scratch: need ${needBytes} > ${reducePrefScratch.size}`);
+          }
+        }
+        const bind =
+          dep.mode === 'jac'
+            ? mkBind(this.foldJacLayout, [redBuf, redZBuf, isPresentBuf, hcparams, lp, hbuf])
+            : mkBind(this.halveBaLayout, [redBuf, isPresentBuf, hcparams, lp, hbuf, reducePrefScratch]);
+        if (this.halveZInitAt < 0 && dep.mode === 'jac') {
+          this.halveZInitAt = this.halveDepthDispatch.length;
+        }
+        this.halveDepthDispatch.push({ pipe, bind, nx: Math.ceil(threads / this.reduceWg) });
+      }
+      // Finisher geometry for F1/F2: (finisher_depth, inputs_jac, log2_B, 0).
+      // Uniform-sourced so the rolled loops' barriers sit in uniform control
+      // flow and driver unrollers can't expand them.
+      const hlp = ubuf(
+        new Uint32Array([sched.finisherDepth, sched.finisherInputsJac ? 1 : 0, Math.log2(strideB), 0]),
+      );
+      const partials = sched.finisherDepth + 1;
+      this.halveStageBuf = device.createBuffer({
+        size: Math.max(16, NUM_WINDOWS * partials * 96),
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
+      });
+      this.prepBuffers.push(this.halveStageBuf);
+      this.halveArraysBind = mkBind(this.halveStageLayout!, [
+        redBuf,
+        redZBuf,
+        isPresentBuf,
+        hcparams,
+        hlp,
+        hbuf,
+        this.halveStageBuf,
+      ]);
+      if (this.halveStopAfter !== undefined || this.halveIterAfter !== undefined) {
+        // Bisection dump bind. halveStop: lparams.w = 1 → raw-slot dump; the
+        // z-source flag reflects whether zinit ran within the first
+        // halveStopAfter depths (slots are still affine before it).
+        // halveIter: lparams.w = 2 + K → all depths run, the finisher does K
+        // master-loop iterations and stages slot 0; z-source is the real
+        // finisher entry state.
+        const ijDump =
+          this.halveIterAfter !== undefined
+            ? sched.finisherInputsJac
+              ? 1
+              : 0
+            : this.halveZInitAt >= 0 && this.halveZInitAt < (this.halveStopAfter ?? 0)
+              ? 1
+              : 0;
+        const dumpW = this.halveIterAfter !== undefined ? 2 + this.halveIterAfter : 1;
+        const hlpDump = ubuf(new Uint32Array([sched.finisherDepth, ijDump, Math.log2(strideB), dumpW]));
+        this.halveArraysDumpBind = mkBind(this.halveStageLayout!, [
+          redBuf,
+          redZBuf,
+          isPresentBuf,
+          hcparams,
+          hlpDump,
+          hbuf,
+          this.halveStageBuf,
+        ]);
+      }
+      if (this.halveZInitAt >= 0) {
+        const zInitParams = ubuf(new Uint32Array([RED_M, 0, 0, 0]));
+        this.halveZInitBind = mkBind(this.zInitLayout, [isPresentBuf, redZBuf, zInitParams]);
+      }
+      if (!this.reduceJacFinalizeBind) {
+        const jacFinalizeParams = ubuf(new Uint32Array([RED_M, 0, maxLevels, NUM_WINDOWS]));
+        this.reduceJacFinalizeBind = mkBind(this.jacFinalizeLayout, [
+          redBuf,
+          redZBuf,
+          jacFinalizeParams,
+          isPresentBuf,
+          schedBuf,
+        ]);
+      }
+    }
     this.redBuf = redBuf;
 
     // --- High-mem A/B ping-pong per-level binds (Thread 2) ---
@@ -4862,9 +5350,16 @@ export class MsmV2 {
           passes += prePasses + 16 + 3 + 3 + 3 + (2 + 17 * 3 + 1);
         }
       }
-      // Reduce = one dispatch per level (table-driven), or a single dispatch for
-      // the sparse path. +1 keeps the historical slack slot.
-      passes += 1 + (this.sparseReduce ? 1 : this.reduceLevelBinds.length);
+      // Reduce = one dispatch per level (table-driven), a single dispatch for
+      // the sparse path, or fold levels + tail + jac-finalize for the fold
+      // tower. +1 keeps the historical slack slot.
+      passes +=
+        1 +
+        (this.groupedReduce
+          ? this.foldMaxLevels + 4
+          : this.sparseReduce
+            ? 1
+            : this.reduceLevelBinds.length);
       // Thread-1/step-4: each affine↔jac flip in useJac adds one transition
       // dispatch (z-init for affine→jac, batched convert for jac→affine); a
       // trailing Jacobian region adds the per-window finalize.
@@ -4899,7 +5394,7 @@ export class MsmV2 {
     // needs ONE mapAsync fence round-trip instead of two. Created HERE,
     // after the profiling block, because the size depends on passCount.
     this.redStaging = device.createBuffer({
-      size: NUM_WINDOWS * 64 + (this.profile ? this.passCount * 16 : 0),
+      size: this.windowSumsByteLength + (this.profile ? this.passCount * 16 : 0),
       usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
     });
     this.prepBuffers.push(this.redStaging);
@@ -4958,7 +5453,15 @@ export class MsmV2 {
    * x + 32-byte y per window).
    */
   get windowSumsByteLength(): number {
+    if (this.earlyExitMode) {
+      return this.numWindows * this.halvePartialsPerWindow * 96;
+    }
     return this.numWindows * 64;
+  }
+
+  /** Staged partials per window in early-exit mode (1 + finisher depth). */
+  get halvePartialsPerWindow(): number {
+    return (this.halveSchedule?.finisherDepth ?? 0) + 1;
   }
 
   /**
@@ -5173,8 +5676,11 @@ export class MsmV2 {
       // walker_combine atomic counters — must be per-batch, not per-MSM.
       // See note above the batch loop for the failure mode if cumulative.
       clearSlot(enc, this.pool.scratch!.partialCount);
-      clearSlot(enc, this.pool.scratch!.partialWritePos);
-      clearSlot(enc, this.pool.scratch!.activeCount);
+      // Whole-buffer clear of the dedicated counter buffer (covers
+      // activeCount + binOffsets + partialWritePos; binOffsets is fully
+      // overwritten by the epilogue anyway). Offset-range clears of these
+      // cells inside A0 silently failed on Adreno — see SharedScratch.
+      enc.clearBuffer(this.pool.scratch!.wiCounters);
       clearSlot(enc, this.pool.scratch!.countHistogram);
       // walkerPartialDest needs no per-batch clear: the index kernels bound
       // their reads by the walker's true range (2*S*num_active_threads from
@@ -5315,7 +5821,48 @@ export class MsmV2 {
     // directly via the bid → red_slot mapping. See UNIFIED_COMBINE_PLAN.md.
     // Phase 5: ONE pipeline drives every level (kind branched at runtime
     // off lparams.w). reduceLevelKinds is no longer consulted.
-    if (this.sparseReduce && this.reduceSparsePipe && this.reduceSparseBind) {
+    if (this.halvingReduce && this.halveFinishArraysPipe) {
+      // Halving reduction (Mitschabaude): one dispatch per wide depth —
+      // batch-affine 8/4 pairs per thread while saturated, Jacobian pairs
+      // once thin (z-plane seeded just before the first Jacobian depth) —
+      // then the per-window finisher, which stages the partials for the
+      // native finish + combine (the GPU pipeline ends here; early exit is
+      // the only halving result path).
+      const depthCount =
+        this.halveStopAfter !== undefined
+          ? Math.min(this.halveStopAfter, this.halveDepthDispatch.length)
+          : this.halveDepthDispatch.length;
+      for (let i = 0; i < depthCount; i++) {
+        if (i === this.halveZInitAt && this.halveZInitBind) {
+          setPhase('reduce_zinit');
+          dispatch(this.zInitPipe, this.halveZInitBind, Math.ceil(this.redM / WGI), 1);
+          setPhase('reduce');
+        }
+        const dd = this.halveDepthDispatch[i];
+        dispatch(dd.pipe, dd.bind, dd.nx, this.numWindows);
+      }
+      dispatch(
+        this.halveFinishArraysPipe,
+        this.halveStopAfter !== undefined || this.halveIterAfter !== undefined
+          ? this.halveArraysDumpBind!
+          : this.halveArraysBind!,
+        (this.halveSchedule?.finisherDepth ?? 0) + 1,
+        this.numWindows,
+      );
+    } else if (this.groupedReduce && this.foldWeightPipe && this.foldSumPipe && this.foldSumBind1 && this.reduceJacFinalizeBind) {
+      // Fold tower (GROUPED_REDUCE_PLAN.md): one dispatch per fold level —
+      // grid (chunks, windows), level lv's pipeline is specialised for
+      // streamsIn = lv — then the 64-lane-per-window weighted sum and the
+      // shared jac-finalize to normalise the roots.
+      for (let lv = 0; lv < this.foldMaxLevels; lv++) {
+        dispatch(this.foldLevelPipes[lv], this.foldLevelBinds[lv], this.foldLevelNx[lv], this.numWindows);
+      }
+      dispatch(this.foldWeightPipe!, this.foldTailBind, this.foldWeightNx, this.numWindows);
+      dispatch(this.foldSumPipe, this.foldSumBind1!, 1, this.numWindows);
+      dispatch(this.foldSumPipe, this.foldSumBind2!, 1, this.numWindows);
+      setPhase('reduce_jacfinal');
+      dispatch(this.jacFinalizePipe, this.reduceJacFinalizeBind, Math.ceil(this.numWindows / WGI), 1);
+    } else if (this.sparseReduce && this.reduceSparsePipe && this.reduceSparseBind) {
       // Sparse path: one dispatch, one workgroup per window; the kernel walks
       // only the active buckets (gap-aware), skipping empties. Byte-identical to
       // the dense tree.
@@ -5370,17 +5917,24 @@ export class MsmV2 {
     // targeting an external staging buffer at an external offset. The red_buf
     // Y-plane stays at the envelope redM (the baked M_RED the writers use); the
     // per-window base is the tight reduceOffsets prefix.
-    const yPlane = 32 * this.redM;
-    for (let w = 0; w < this.numWindows; w++) {
-      const g = 32 * this.reduceOffsets[w];
-      enc.copyBufferToBuffer(slotBuf(this.redBuf), slotOff(this.redBuf) + g, dstStaging, dstByteOff + w * 64, 32);
-      enc.copyBufferToBuffer(
-        slotBuf(this.redBuf),
-        slotOff(this.redBuf) + yPlane + g,
-        dstStaging,
-        dstByteOff + w * 64 + 32,
-        32,
-      );
+    if (this.earlyExitMode && this.halveStageBuf) {
+      // Early exit: ship the staged partials as standard-form LE integers
+      // (the staging kernel converts out of Montgomery on export) — the
+      // native finish_and_combine_windows re-wraps them in its own radix.
+      enc.copyBufferToBuffer(this.halveStageBuf, 0, dstStaging, dstByteOff, this.windowSumsByteLength);
+    } else {
+      const yPlane = 32 * this.redM;
+      for (let w = 0; w < this.numWindows; w++) {
+        const g = 32 * this.reduceOffsets[w];
+        enc.copyBufferToBuffer(slotBuf(this.redBuf), slotOff(this.redBuf) + g, dstStaging, dstByteOff + w * 64, 32);
+        enc.copyBufferToBuffer(
+          slotBuf(this.redBuf),
+          slotOff(this.redBuf) + yPlane + g,
+          dstStaging,
+          dstByteOff + w * 64 + 32,
+          32,
+        );
+      }
     }
     if (this.profile && this.querySet && this.tsResolveBuf && this.tsStagingBuf && !splitDiag && resolveTs) {
       enc.resolveQuerySet(this.querySet, 0, this.passCount * 2, this.tsResolveBuf, 0);
@@ -5480,6 +6034,75 @@ export class MsmV2 {
       out[w] = { x, y };
     }
     return out;
+  }
+
+  /**
+   * Read back the is_present plane and red_buf x-plane first words, summed per
+   * window — splits "window empty because presence never marked" from
+   * "presence fine but bucket sums never written". Diagnostic readback only.
+   */
+  async debugPresence(): Promise<{ present: number[]; redNonzero: number[] }> {
+    if (this.preparedFor === null) throw new Error('MsmV2.debugPresence: call prepare() first');
+    const sc = this.pool.scratch!;
+    const stride = this.stride;
+    const nw = this.numWindows;
+    const read = async (slot: ScratchSlot, bytes: number): Promise<Uint32Array> => {
+      const staging = this.device.createBuffer({ size: bytes, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+      const enc = this.device.createCommandEncoder();
+      enc.copyBufferToBuffer(slotBuf(slot), slotOff(slot), staging, 0, bytes);
+      this.device.queue.submit([enc.finish()]);
+      await staging.mapAsync(GPUMapMode.READ);
+      const out = new Uint32Array(staging.getMappedRange().slice(0));
+      staging.unmap();
+      staging.destroy();
+      return out;
+    };
+    const pres = await read(sc.isPresentBuf, this.redM * 4);
+    const red = await read(sc.redBuf, this.redM * 32);
+    const present: number[] = [];
+    const redNonzero: number[] = [];
+    for (let w = 0; w < nw; w++) {
+      let p = 0;
+      let r = 0;
+      for (let s = 0; s < stride; s++) {
+        const slot = w * stride + s;
+        if (pres[slot] !== 0) p++;
+        for (let i = 0; i < 8; i++) {
+          if (red[slot * 8 + i] !== 0) {
+            r++;
+            break;
+          }
+        }
+      }
+      present.push(p);
+      redNonzero.push(r);
+    }
+    return { present, redNonzero };
+  }
+
+  /** Post-run walker-index chain state: dispatch args, histogram, active counts. */
+  async debugWiState(): Promise<Record<string, number[]>> {
+    if (this.preparedFor === null) throw new Error('MsmV2.debugWiState: call prepare() first');
+    const sc = this.pool.scratch!;
+    const read = async (slot: ScratchSlot, bytes: number): Promise<Uint32Array> => {
+      const staging = this.device.createBuffer({ size: bytes, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+      const enc = this.device.createCommandEncoder();
+      enc.copyBufferToBuffer(slotBuf(slot), slotOff(slot), staging, 0, bytes);
+      this.device.queue.submit([enc.finish()]);
+      await staging.mapAsync(GPUMapMode.READ);
+      const out = new Uint32Array(staging.getMappedRange().slice(0));
+      staging.unmap();
+      staging.destroy();
+      return out;
+    };
+    return {
+      wiArgs: Array.from(await read(sc.wiIdxArgs, 36)),
+      cbArgs: Array.from(await read(sc.cbDispatchArgs, 12)),
+      ptArgs: Array.from(await read(sc.ptDispatchArgs, 12)),
+      active: Array.from(await read(sc.activeCount, 8)),
+      hist: Array.from((await read(sc.countHistogram, 64 * 4)).slice(0, 16)),
+      planner: Array.from((await read(sc.streamPlannerMeta, 32)).slice(0, 8)),
+    };
   }
 
   /**
@@ -5927,7 +6550,15 @@ export class MsmV2 {
     this.prepare(scalarsBuf, srsOffset);
   }
 
-  async run(): Promise<{ x: bigint; y: bigint; profile: ProfileBreakdown | null; windowSums: Pt[]; c: number }> {
+  async run(): Promise<{
+    x: bigint;
+    y: bigint;
+    profile: ProfileBreakdown | null;
+    windowSums: Pt[];
+    c: number;
+    stagedPartials: Uint8Array | null;
+    partialsPerWindow: number;
+  }> {
     if (this.preparedFor === null) throw new Error('MsmV2.run: call prepare() first');
     const device = this.device;
     const wallT0 = performance.now();
@@ -5939,7 +6570,7 @@ export class MsmV2 {
         enc.resolveQuerySet(this.querySet, 0, this.passCount * 2, this.tsResolveBuf, 0);
         // Land the timestamps in redStaging's tail: one mapAsync serves both
         // the window sums and the profile, saving a second fence round-trip.
-        enc.copyBufferToBuffer(this.tsResolveBuf, 0, this.redStaging, this.numWindows * 64, this.passCount * 16);
+        enc.copyBufferToBuffer(this.tsResolveBuf, 0, this.redStaging, this.windowSumsByteLength, this.passCount * 16);
       }
       device.queue.submit([enc.finish()]);
     } else {
@@ -5967,9 +6598,16 @@ export class MsmV2 {
     const tMapped = performance.now();
     const mapped = this.redStaging.getMappedRange();
     const stagingBytes = new Uint8Array(mapped);
-    const L = this.decodeWindowSumsFromBytes(stagingBytes, 0);
+    const L = this.earlyExitMode ? [] : this.decodeWindowSumsFromBytes(stagingBytes, 0);
+    // Early exit: detach the raw staged-partials bytes for the single native
+    // finish_and_combine_windows call (the caller owns shipping them).
+    const staged = this.earlyExitMode
+      ? new Uint8Array(mapped.slice(0, this.windowSumsByteLength))
+      : null;
     // Detach the timestamp tail before unmap (profile decode happens later).
-    const tsBytes = this.profile ? mapped.slice(this.numWindows * 64, this.numWindows * 64 + this.passCount * 16) : null;
+    const tsBytes = this.profile
+      ? mapped.slice(this.windowSumsByteLength, this.windowSumsByteLength + this.passCount * 16)
+      : null;
     this.redStaging.unmap();
     this.windowSums = L;
     const tDecoded = performance.now();
@@ -6052,7 +6690,15 @@ export class MsmV2 {
       const last = g.__hostBreakdowns?.[g.__hostBreakdowns.length - 1];
       if (last) last.tsReadback = performance.now() - tCombined;
     }
-    return { x: result.x, y: result.y, profile, windowSums: L, c: this.c };
+    return {
+      x: result.x,
+      y: result.y,
+      profile,
+      windowSums: L,
+      c: this.c,
+      stagedPartials: staged,
+      partialsPerWindow: this.earlyExitMode ? this.halvePartialsPerWindow : 0,
+    };
   }
 
   /** Per-window weighted sums L_w (normal form), set by the last run(). */

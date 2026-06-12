@@ -4,8 +4,7 @@
 // same serial 64-bin exclusive scan + arg emission as the v1 sort_scan (so
 // pt/cb dispatch args stay byte-identical); the other lanes zero
 // bin_write_pos in parallel. Additionally emits the sorted-scatter (W5)
-// indirect args from active_meta[0] and writes the alloc total to
-// partial_offset[num_dense] (compat slot — nothing is known to read it).
+// indirect args from active_meta[0].
 //
 // active_meta[0] = active_count, active_meta[1] = alloc total.
 
@@ -59,9 +58,6 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>) {
     wi_idx_args[6] = (n_active + SORT_TPB - 1u) / SORT_TPB;
     wi_idx_args[7] = 1u;
     wi_idx_args[8] = 1u;
-
-    // Compat: the v1 scan published the total at partial_offset[num_dense].
-    partial_offset[planner_meta[1]] = active_meta[1];
 
     {{{ recompile }}}
 }

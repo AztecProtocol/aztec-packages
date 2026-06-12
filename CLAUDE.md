@@ -122,7 +122,7 @@ Attribute work to the git author, not to Claude. Do not add `Co-Authored-By: Cla
 </attribution>
 
 <msm_webgpu_benchmarking>
-This worktree (`zw/webgpu-compilation`) works on WebGPU MSM v2 shader-compilation times (`barretenberg/ts/src/msm_webgpu/`). Benchmarking and profiling rules:
+This branch carries the WebGPU MSM v2 work (bucket-reduction kernels and shader-compilation times, `barretenberg/ts/src/msm_webgpu/`). Benchmarking and profiling rules:
 
 **Devices and tooling**
 - The `webgpu-gpu-trace` skill produces perfetto traces with GPU counter data for two phones: Samsung S25+ (Adreno) and Google Pixel 9A (Mali). One-line script: `bash ~/.claude/skills/webgpu-gpu-trace/scripts/profile_both.sh <port> "<url>" <out>` (~2 minutes, slow).
@@ -146,12 +146,12 @@ LOCK=/Users/zac/barretenberg-msm-webgpu-experiments/bench-lock.sh
 SK=~/.claude/skills/webgpu-gpu-trace/scripts
 
 # Phone profiling
-bash $LOCK phones acquire "zw/webgpu-compilation"
+bash $LOCK phones acquire "<your-worktree-label>"
 bash $SK/profile_both.sh 5198 "http://localhost:5198/..." ./myresult
 bash $LOCK phones release
 
 # Mac-local benchmarking
-bash $LOCK mac acquire "zw/webgpu-compilation"
+bash $LOCK mac acquire "<your-worktree-label>"
 # ... run local bench ...
 bash $LOCK mac release
 ```
