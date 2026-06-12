@@ -2,7 +2,6 @@ import { EcdsaRAccountContractArtifact } from '@aztec/accounts/ecdsa';
 import { SchnorrAccountContractArtifact } from '@aztec/accounts/schnorr';
 import { NO_FROM } from '@aztec/aztec.js/account';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
-import { BatchCall } from '@aztec/aztec.js/contracts';
 import { publishContractClass } from '@aztec/aztec.js/deployment';
 import type { DeployAccountOptions, Wallet } from '@aztec/aztec.js/wallet';
 import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
@@ -40,7 +39,7 @@ describe('Deployment benchmark', () => {
       await publishContractClass(adminWallet, SchnorrAccountContractArtifact),
       await publishContractClass(adminWallet, EcdsaRAccountContractArtifact),
     ];
-    for (let interaction of interactions) {
+    for (const interaction of interactions) {
       await interaction.send({ from: adminAddress });
     }
   });
