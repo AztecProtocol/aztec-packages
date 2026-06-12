@@ -74,9 +74,17 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
       }
       case 'chain-checkpointed': {
         if (this.config.syncChainTip === 'checkpointed') {
-          // Get the last block header from the checkpoint
-          const lastBlock = event.checkpoint.checkpoint.blocks.at(-1)!;
-          await this.updateAnchorBlockHeader(lastBlock.header);
+          // Fetch the checkpointed tip header by hash. By-hash is safer than by-number against a
+          // same-height reorg; a missing result means the block was reorged out between the event
+          // and this fetch, so we skip the anchor update and let a later event correct it.
+          const block = await this.node.getBlockData(BlockHash.fromString(event.block.hash));
+          if (block) {
+            await this.updateAnchorBlockHeader(block.header);
+          } else {
+            this.log.warn(
+              `Block header not found for checkpointed block ${event.block.number}, skipping anchor update`,
+            );
+          }
         }
         break;
       }

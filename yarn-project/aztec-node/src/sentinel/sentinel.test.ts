@@ -11,7 +11,6 @@ import {
   GENESIS_BLOCK_HEADER_HASH,
   L2Block,
   type L2BlockSource,
-  type L2BlockStream,
   getAttestationInfoFromPublishedCheckpoint,
 } from '@aztec/stdlib/block';
 import {
@@ -44,7 +43,6 @@ describe('sentinel', () => {
   let epochCache: MockProxy<EpochCache>;
   let archiver: MockProxy<L2BlockSource>;
   let p2p: MockProxy<P2PClient>;
-  let blockStream: MockProxy<L2BlockStream>;
   let reexecutionTracker: CheckpointReexecutionTracker;
 
   let kvStore: AztecLMDBStoreV2;
@@ -70,7 +68,6 @@ describe('sentinel', () => {
     archiver = mock<L2BlockSource>();
     archiver.getGenesisBlockHash.mockReturnValue(GENESIS_BLOCK_HEADER_HASH);
     p2p = mock<P2PClient>();
-    blockStream = mock<L2BlockStream>();
     reexecutionTracker = new CheckpointReexecutionTracker();
 
     kvStore = await openTmpStore('sentinel-test');
@@ -100,7 +97,7 @@ describe('sentinel', () => {
     epochCache.getEpochNow.mockReturnValue(epoch);
     epochCache.getL1Constants.mockReturnValue(l1Constants);
 
-    sentinel = new TestSentinel(epochCache, archiver, p2p, store, reexecutionTracker, config, blockStream);
+    sentinel = new TestSentinel(epochCache, archiver, p2p, store, reexecutionTracker, config);
   });
 
   afterEach(async () => {
@@ -142,16 +139,22 @@ describe('sentinel', () => {
     let proposer: EthAddress;
     let committee: EthAddress[];
 
-    /** Helper to create and emit a chain-checkpointed event */
-    const emitCheckpointEvent = async (checkpoint: Checkpoint, checkpointAttestations: CommitteeAttestation[] = []) => {
+    /**
+     * Stubs the archiver so the slot's on-demand `getCheckpoint({ slot })` lookup returns this checkpoint, mirroring
+     * a checkpoint that has landed on L1 covering the slot.
+     */
+    const mineCheckpointForSlot = (checkpoint: Checkpoint, checkpointAttestations: CommitteeAttestation[] = []) => {
       const published = new PublishedCheckpoint(checkpoint, L1PublishedData.random(), checkpointAttestations);
-      const lastBlock = checkpoint.blocks.at(-1)!;
-      const block = { number: lastBlock.number, hash: (await lastBlock.hash()).toString() };
-      await sentinel.handleBlockStreamEvent({ type: 'chain-checkpointed', checkpoint: published, block });
+      const checkpointSlot = checkpoint.header.slotNumber;
+      archiver.getCheckpoint.mockImplementation(query =>
+        Promise.resolve('slot' in query && query.slot === checkpointSlot ? published : undefined),
+      );
       return published;
     };
 
     beforeEach(async () => {
+      // No L1 checkpoint by default; individual tests mine one via mineCheckpointForSlot.
+      archiver.getCheckpoint.mockResolvedValue(undefined);
       signers = times(4, Secp256k1Signer.random);
       validators = signers.map(signer => signer.address);
       block = await L2Block.random(BlockNumber(1), { slotNumber: slot });
@@ -165,7 +168,7 @@ describe('sentinel', () => {
     it('flags checkpoint as mined when L1 has it (case 6)', async () => {
       // Create a checkpoint with a block at the target slot and emit chain-checkpointed event
       const checkpoint = await Checkpoint.random(CheckpointNumber(1), { numBlocks: 1, slotNumber: slot });
-      await emitCheckpointEvent(checkpoint);
+      mineCheckpointForSlot(checkpoint);
 
       const activity = await sentinel.getSlotActivity(slot, epoch, proposer, committee);
       expect(activity[proposer.toString()]).toEqual('checkpoint-mined');
@@ -208,7 +211,7 @@ describe('sentinel', () => {
     it('prefers L1-mined over tracker outcome', async () => {
       reexecutionTracker.recordOutcome(slot, block.archive.root, 'invalid', CheckpointNumber(1));
       const checkpoint = await Checkpoint.random(CheckpointNumber(1), { numBlocks: 1, slotNumber: slot });
-      await emitCheckpointEvent(checkpoint);
+      mineCheckpointForSlot(checkpoint);
 
       const activity = await sentinel.getSlotActivity(slot, epoch, proposer, committee);
       expect(activity[proposer.toString()]).toEqual('checkpoint-mined');
@@ -224,7 +227,7 @@ describe('sentinel', () => {
       });
 
       // Emit the chain-checkpointed event with attestations from signers 0 and 1
-      publishedCheckpoint = await emitCheckpointEvent(checkpoint, checkpointAttestations);
+      publishedCheckpoint = mineCheckpointForSlot(checkpoint, checkpointAttestations);
 
       const attestorsFromCheckpoint = compactArray(
         getAttestationInfoFromPublishedCheckpoint(publishedCheckpoint, TEST_COORDINATION_SIGNATURE_CONTEXT).map(info =>
@@ -267,7 +270,7 @@ describe('sentinel', () => {
 
       // Emit chain-checkpointed event with both signed and placeholder attestations
       // The Sentinel should only count the recovered-from-signature ones
-      publishedCheckpoint = await emitCheckpointEvent(checkpoint, allAttestations);
+      publishedCheckpoint = mineCheckpointForSlot(checkpoint, allAttestations);
 
       // Verify that getAttestationInfoFromPublishedCheckpoint returns 4 entries total:
       // - 2 with status 'recovered-from-signature' (actual attestations with valid signatures)
@@ -299,7 +302,7 @@ describe('sentinel', () => {
     it('identifies missed attestors if block is mined', async () => {
       // Create checkpoint with a block at the target slot
       const checkpoint = await Checkpoint.random(CheckpointNumber(1), { numBlocks: 1, slotNumber: slot });
-      await emitCheckpointEvent(checkpoint);
+      mineCheckpointForSlot(checkpoint);
 
       // P2P provides attestations from validators 0, 1, 2 (not validator 3)
       p2p.getCheckpointAttestationsForSlot.mockResolvedValue(attestations.slice(0, -1));
@@ -1030,18 +1033,6 @@ describe('sentinel', () => {
 });
 
 class TestSentinel extends Sentinel {
-  constructor(
-    epochCache: EpochCache,
-    archiver: L2BlockSource,
-    p2p: P2PClient,
-    store: SentinelStore,
-    reexecutionTracker: CheckpointReexecutionTracker,
-    config: SentinelRuntimeConfig,
-    protected override blockStream: L2BlockStream,
-  ) {
-    super(epochCache, archiver, p2p, store, reexecutionTracker, config);
-  }
-
   public override init() {
     this.initialSlot = this.epochCache.getEpochAndSlotNow().slot;
     return Promise.resolve();

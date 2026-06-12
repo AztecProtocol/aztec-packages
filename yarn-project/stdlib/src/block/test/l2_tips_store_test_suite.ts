@@ -94,14 +94,18 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
     return new PublishedCheckpoint(checkpoint, L1PublishedData.random(), []);
   };
 
-  /** Creates a chain-checkpointed event with the required block field */
-  const makeCheckpointedEvent = async (checkpoint: PublishedCheckpoint) => {
-    const lastBlock = checkpoint.checkpoint.blocks.at(-1)!;
+  /** Creates a thin chain-checkpointed event carrying the block + checkpoint ids of the checkpoint's last block. */
+  const makeCheckpointedEvent = async (published: PublishedCheckpoint) => {
+    const lastBlock = published.checkpoint.blocks.at(-1)!;
     const blockId: L2BlockId = {
       number: lastBlock.number,
       hash: (await lastBlock.hash()).toString(),
     };
-    return { type: 'chain-checkpointed' as const, checkpoint, block: blockId };
+    const checkpointId = {
+      number: published.checkpoint.number,
+      hash: published.checkpoint.hash().toString(),
+    };
+    return { type: 'chain-checkpointed' as const, checkpoint: checkpointId, block: blockId };
   };
 
   it('returns zero if no tips are stored', async () => {

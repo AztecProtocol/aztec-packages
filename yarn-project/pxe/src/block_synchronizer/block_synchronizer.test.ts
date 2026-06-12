@@ -17,7 +17,6 @@ import {
   makeL2BlockId,
   makeL2CheckpointId,
 } from '@aztec/stdlib/block';
-import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type { AztecNode, BlockResponse } from '@aztec/stdlib/interfaces/client';
 import { NoteDao, NoteStatus } from '@aztec/stdlib/note';
 import { TxHash } from '@aztec/stdlib/tx';
@@ -376,22 +375,51 @@ describe('BlockSynchronizer', () => {
       const initialBlock = await L2Block.random(BlockNumber(0));
       await anchorBlockStore.setHeader(initialBlock.header);
 
-      // Create a checkpoint with a block
+      // The checkpointed tip block, fetched by hash from the node when the thin event arrives.
       const checkpointBlock = await L2Block.random(BlockNumber(1));
-      const checkpoint = await Checkpoint.random(CheckpointNumber(1), { numBlocks: 1 });
-      // Replace the random block with our known block
-      checkpoint.blocks[0] = checkpointBlock;
-
-      const publishedCheckpoint = new PublishedCheckpoint(checkpoint, L1PublishedData.random(), []);
+      const checkpointBlockHash = await checkpointBlock.hash();
+      aztecNode.getBlockData.mockImplementation(query =>
+        Promise.resolve(
+          query instanceof BlockHash && query.equals(checkpointBlockHash)
+            ? ({
+                header: checkpointBlock.header,
+                archive: checkpointBlock.archive,
+                blockHash: checkpointBlockHash,
+                checkpointNumber: checkpointBlock.checkpointNumber,
+                indexWithinCheckpoint: checkpointBlock.indexWithinCheckpoint,
+              } as BlockData)
+            : undefined,
+        ),
+      );
 
       await synchronizer.handleBlockStreamEvent({
         type: 'chain-checkpointed',
-        checkpoint: publishedCheckpoint,
-        block: { number: BlockNumber(1), hash: '0x456' },
+        block: { number: BlockNumber(1), hash: checkpointBlockHash.toString() },
+        checkpoint: makeL2CheckpointId(CheckpointNumber(1), Fr.random().toString()),
       });
 
       const obtainedHeader = await anchorBlockStore.getBlockHeader();
       expect(obtainedHeader.equals(checkpointBlock.header)).toBe(true);
+    });
+
+    it('skips the anchor update on chain-checkpointed when the block was reorged out (missing by hash)', async () => {
+      synchronizer = createSynchronizer({ syncChainTip: 'checkpointed' });
+
+      const initialBlock = await L2Block.random(BlockNumber(0));
+      await anchorBlockStore.setHeader(initialBlock.header);
+
+      // The node no longer serves the checkpointed block at that hash (transient reorg).
+      aztecNode.getBlockData.mockResolvedValue(undefined);
+
+      await synchronizer.handleBlockStreamEvent({
+        type: 'chain-checkpointed',
+        block: { number: BlockNumber(1), hash: Fr.random().toString() },
+        checkpoint: makeL2CheckpointId(CheckpointNumber(1), Fr.random().toString()),
+      });
+
+      // Anchor is left untouched; a later event corrects it.
+      const obtainedHeader = await anchorBlockStore.getBlockHeader();
+      expect(obtainedHeader.equals(initialBlock.header)).toBe(true);
     });
 
     it('does not update anchor on chain-checkpointed when syncChainTip is proposed', async () => {
@@ -401,14 +429,10 @@ describe('BlockSynchronizer', () => {
       const initialBlock = await L2Block.random(BlockNumber(1));
       await synchronizer.handleBlockStreamEvent({ type: 'blocks-added', blocks: [initialBlock] });
 
-      // Create a different checkpoint
-      const checkpoint = await Checkpoint.random(CheckpointNumber(1), { numBlocks: 1 });
-      const publishedCheckpoint = new PublishedCheckpoint(checkpoint, L1PublishedData.random(), []);
-
       await synchronizer.handleBlockStreamEvent({
         type: 'chain-checkpointed',
-        checkpoint: publishedCheckpoint,
         block: { number: BlockNumber(1), hash: '0x456' },
+        checkpoint: makeL2CheckpointId(CheckpointNumber(1), Fr.random().toString()),
       });
 
       // Anchor should still be the initial block, not the checkpoint block
