@@ -317,6 +317,29 @@ describe('Rollup', () => {
       expect(observed.proven).toBe(newProven);
     });
 
+    it('skips the live storage read when both pending and proven are overridden', async () => {
+      await setLiveTips(testPendingCheckpointNumber, testProvenCheckpointNumber);
+      const getStorageAt = jest.spyOn(publicClient, 'getStorageAt');
+
+      const newPending = CheckpointNumber(150);
+      const newProven = CheckpointNumber(75);
+      const stateOverride = await rollup.makeChainTipsOverride({ pending: newPending, proven: newProven });
+
+      expect(getStorageAt).not.toHaveBeenCalled();
+      const observed = await readOverridden(stateOverride);
+      expect(observed.pending).toBe(newPending);
+      expect(observed.proven).toBe(newProven);
+    });
+
+    it('reads the live storage slot when only one half is overridden', async () => {
+      await setLiveTips(testPendingCheckpointNumber, testProvenCheckpointNumber);
+      const getStorageAt = jest.spyOn(publicClient, 'getStorageAt');
+
+      await rollup.makeChainTipsOverride({ pending: CheckpointNumber(150) });
+
+      expect(getStorageAt).toHaveBeenCalledTimes(1);
+    });
+
     it('preserves the live proven half when only pending is overridden', async () => {
       await setLiveTips(testPendingCheckpointNumber, testProvenCheckpointNumber);
 

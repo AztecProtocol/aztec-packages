@@ -891,24 +891,42 @@ export class RollupContract {
   /**
    * Returns a state override that sets the pending and/or proven checkpoint numbers. Useful for simulations.
    * Both values share a single storage slot (pending in the upper 128 bits, proven in the lower 128 bits), so
-   * a single combined override is emitted to avoid the second state-diff clobbering the first. The current live
-   * value is read once to preserve any half not being overridden. Returns an empty override if neither is set.
+   * a single combined override is emitted to avoid the second state-diff clobbering the first. Returns an empty
+   * override if neither is set.
+   *
+   * When only one half is overridden, the live storage slot is read once to preserve the other half. When both
+   * halves are provided, the live value is irrelevant and the read is skipped. Pass `options.blockNumber` to pin
+   * that read to a specific L1 block for a consistent snapshot.
    *
    * Throws if the resulting `proven > pending`, which would crash the simulation: `STFLib.canPruneAtTime` calls
    * `getEpochForCheckpoint(proven + 1)` whenever `pending != proven`, and that asserts `_n <= tips.pending`.
    */
-  public async makeChainTipsOverride(override: {
-    pending?: CheckpointNumber;
-    proven?: CheckpointNumber;
-  }): Promise<StateOverride> {
+  public async makeChainTipsOverride(
+    override: {
+      pending?: CheckpointNumber;
+      proven?: CheckpointNumber;
+    },
+    options?: { blockNumber?: bigint },
+  ): Promise<StateOverride> {
     if (override.pending === undefined && override.proven === undefined) {
       return [];
     }
     const slot = RollupContract.stfStorageSlot;
-    const currentValue = await this.client.getStorageAt({ address: this.address, slot });
-    const currentRaw = currentValue ? hexToBigInt(currentValue) : 0n;
-    const currentPending = currentRaw >> 128n;
-    const currentProven = currentRaw & ((1n << 128n) - 1n);
+
+    let currentPending = 0n;
+    let currentProven = 0n;
+    if (override.pending === undefined || override.proven === undefined) {
+      await checkBlockTag(options?.blockNumber, this.client);
+      const currentValue = await this.client.getStorageAt({
+        address: this.address,
+        slot,
+        blockNumber: options?.blockNumber,
+      });
+      const currentRaw = currentValue ? hexToBigInt(currentValue) : 0n;
+      currentPending = currentRaw >> 128n;
+      currentProven = currentRaw & ((1n << 128n) - 1n);
+    }
+
     const newPending = override.pending !== undefined ? BigInt(override.pending) : currentPending;
     const newProven = override.proven !== undefined ? BigInt(override.proven) : currentProven;
     if (newProven > newPending) {
