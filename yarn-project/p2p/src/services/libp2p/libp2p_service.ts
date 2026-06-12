@@ -1,6 +1,7 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { BlockNumber, type SlotNumber } from '@aztec/foundation/branded-types';
 import { maxBy, merge } from '@aztec/foundation/collection';
+import { FifoSet } from '@aztec/foundation/fifo-set';
 import { type Logger, createLibp2pComponentLogger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { Timer } from '@aztec/foundation/timer';
@@ -151,6 +152,13 @@ type ReceivedMessageValidationResult<T, M = undefined> =
   | { obj?: T; result: TopicValidatorResult.Reject; metadata?: M; severity: PeerErrorSeverity };
 
 /**
+ * Bound on the number of distinct `(slot, proposer)` pairs tracked for first-oversized-proposal
+ * detection. A few slots' worth of proposers is plenty: oversized evidence only needs to be retained
+ * and re-broadcast once per misbehaving proposer per slot.
+ */
+const MAX_TRACKED_OVERSIZED_PROPOSALS = 1000;
+
+/**
  * Lib P2P implementation of the P2PService interface.
  */
 export class LibP2PService extends WithTracer implements P2PService {
@@ -171,6 +179,14 @@ export class LibP2PService extends WithTracer implements P2PService {
     proposer: EthAddress;
     type: 'checkpoint' | 'block';
   }) => void;
+
+  /**
+   * Tracks `(slot, proposer)` pairs for which we have already retained and re-broadcast an oversized
+   * proposal as slashing evidence. Only the first oversized proposal per pair is stored and
+   * re-broadcast; subsequent ones are ignored so honest relays of a differently-ordered "first"
+   * oversized proposal are not penalized.
+   */
+  private firstOversizedProposals = FifoSet.withLimit<string>(MAX_TRACKED_OVERSIZED_PROPOSALS);
 
   /** Callback invoked when a duplicate attestation is detected (triggers slashing). */
   private duplicateAttestationCallback?: P2PDuplicateAttestationCallback;
@@ -1243,20 +1259,34 @@ export class LibP2PService extends WithTracer implements P2PService {
     const {
       result,
       obj: block,
-      metadata: { isEquivocated } = {},
-    } = await this.validateReceivedMessage<BlockProposal, { isEquivocated: boolean }>(
+      metadata: { isEquivocated, isOversized } = {},
+    } = await this.validateReceivedMessage<BlockProposal, { isEquivocated: boolean; isOversized: boolean }>(
       () => this.validateAndStoreBlockProposal(source, BlockProposal.fromBuffer(payloadData)),
       msgId,
       source,
       TopicType.block_proposal,
     );
 
-    // If not accepted or equivocated, return
-    if (result !== TopicValidatorResult.Accept || !block || isEquivocated) {
+    // If not accepted, equivocated, or oversized, return. Oversized proposals are re-broadcast as
+    // slashing evidence but never attested or processed.
+    if (result !== TopicValidatorResult.Accept || !block || isEquivocated || isOversized) {
       return;
     }
 
     await this.processValidBlockProposal(block, source);
+  }
+
+  /**
+   * Whether a block proposal's index lands at or beyond the configured per-checkpoint block limit. Such
+   * a proposal is over the consensus limit but structurally valid: it is attributable proposer
+   * misbehavior, retained and re-broadcast as slashing evidence rather than penalized as relaying-peer
+   * fault. No-op when `maxBlocksPerCheckpoint` is unset (local/test); the hard attestable ceiling still
+   * rejects truly impossible indices at gossip validation.
+   */
+  private isOversized(indexWithinCheckpoint: number): boolean {
+    return (
+      this.config.maxBlocksPerCheckpoint !== undefined && indexWithinCheckpoint >= this.config.maxBlocksPerCheckpoint
+    );
   }
 
   /** Validates a block proposal. Triggers a penalization to the peer that sent it if invalid. Adds to the mempool if valid. */
@@ -1267,7 +1297,7 @@ export class LibP2PService extends WithTracer implements P2PService {
   protected async validateAndStoreBlockProposal(
     peerId: PeerId,
     block: BlockProposal,
-  ): Promise<ReceivedMessageValidationResult<BlockProposal, { isEquivocated: boolean }>> {
+  ): Promise<ReceivedMessageValidationResult<BlockProposal, { isEquivocated: boolean; isOversized: boolean }>> {
     const validationResult = await this.blockProposalValidator.validate(block);
 
     if (validationResult.result === 'reject') {
@@ -1277,6 +1307,14 @@ export class LibP2PService extends WithTracer implements P2PService {
 
     if (validationResult.result === 'ignore') {
       return { result: TopicValidatorResult.Ignore, obj: block };
+    }
+
+    // An oversized proposal is over the consensus limit but a legitimately-signed piece of proposer
+    // misbehavior. Retain and re-broadcast only the first one seen per (slot, proposer) as slashing
+    // evidence, skipping processing; ignore the rest without penalizing the relaying peer (gossip
+    // delivery order is not uniform, so different nodes may see different "first" oversized proposals).
+    if (this.isOversized(block.indexWithinCheckpoint)) {
+      return this.handleOversizedBlockProposal(peerId, block);
     }
 
     // Try to add the proposal: this handles existence check, cap check, and adding in one call
@@ -1291,7 +1329,7 @@ export class LibP2PService extends WithTracer implements P2PService {
         proposer: block.getSender()?.toString(),
         source: peerId.toString(),
       });
-      return { result: TopicValidatorResult.Ignore, obj: block, metadata: { isEquivocated } };
+      return { result: TopicValidatorResult.Ignore, obj: block, metadata: { isEquivocated, isOversized: false } };
     }
 
     // Too many blocks received for this slot and index, penalize peer and do not re-broadcast
@@ -1305,7 +1343,7 @@ export class LibP2PService extends WithTracer implements P2PService {
       });
       return {
         result: TopicValidatorResult.Reject,
-        metadata: { isEquivocated },
+        metadata: { isEquivocated, isOversized: false },
         severity: PeerErrorSeverity.HighToleranceError,
       };
     }
@@ -1323,11 +1361,59 @@ export class LibP2PService extends WithTracer implements P2PService {
       if (proposer && count === 2) {
         this.duplicateProposalCallback?.({ slot: block.slotNumber, proposer, type: 'block' });
       }
-      return { result: TopicValidatorResult.Accept, obj: block, metadata: { isEquivocated } };
+      return { result: TopicValidatorResult.Accept, obj: block, metadata: { isEquivocated, isOversized: false } };
     }
 
     // Otherwise, we're good to go!
-    return { result: TopicValidatorResult.Accept, obj: block };
+    return { result: TopicValidatorResult.Accept, obj: block, metadata: { isEquivocated: false, isOversized: false } };
+  }
+
+  /**
+   * Handles a block proposal whose index is over the consensus limit. The first such proposal seen per
+   * `(slot, proposer)` is retained and re-broadcast as slashing evidence (without processing it or
+   * penalizing the relaying peer); subsequent ones are ignored without storing or re-broadcasting.
+   */
+  private async handleOversizedBlockProposal(
+    peerId: PeerId,
+    block: BlockProposal,
+  ): Promise<ReceivedMessageValidationResult<BlockProposal, { isEquivocated: boolean; isOversized: boolean }>> {
+    const proposer = block.getSender();
+    const isFirst =
+      proposer !== undefined && this.firstOversizedProposals.addIfAbsent(`${block.slotNumber}-${proposer}`);
+
+    if (!isFirst) {
+      this.logger.debug(`Ignoring non-first oversized block proposal`, {
+        ...block.toBlockInfo(),
+        indexWithinCheckpoint: block.indexWithinCheckpoint,
+        proposer: proposer?.toString(),
+        source: peerId.toString(),
+      });
+      return { result: TopicValidatorResult.Ignore, obj: block, metadata: { isEquivocated: false, isOversized: true } };
+    }
+
+    // Retain the first oversized proposal as evidence; we never penalize the peer for an oversized
+    // proposal. If the pool did not add it (exact duplicate, or the per-position cap was already
+    // reached, in which case equivalent evidence is necessarily retained at that position), do not
+    // re-broadcast a proposal we did not retain.
+    const { added } = await this.mempools.attestationPool.tryAddBlockProposal(block);
+    if (!added) {
+      this.logger.debug(`Ignoring oversized block proposal not added to the pool`, {
+        ...block.toBlockInfo(),
+        indexWithinCheckpoint: block.indexWithinCheckpoint,
+        proposer: proposer.toString(),
+        source: peerId.toString(),
+      });
+      return { result: TopicValidatorResult.Ignore, obj: block, metadata: { isEquivocated: false, isOversized: true } };
+    }
+
+    this.logger.warn(`Retaining oversized block proposal as slashing evidence`, {
+      ...block.toBlockInfo(),
+      indexWithinCheckpoint: block.indexWithinCheckpoint,
+      maxBlocksPerCheckpoint: this.config.maxBlocksPerCheckpoint,
+      proposer: proposer.toString(),
+      source: peerId.toString(),
+    });
+    return { result: TopicValidatorResult.Accept, obj: block, metadata: { isEquivocated: false, isOversized: true } };
   }
 
   // REFACTOR(palla): This method should be moved to the p2p_client or to a separate component,
@@ -1367,17 +1453,21 @@ export class LibP2PService extends WithTracer implements P2PService {
     const {
       result,
       obj: checkpoint,
-      metadata: { isEquivocated, processBlock } = {},
-    } = await this.validateReceivedMessage<CheckpointProposal, { isEquivocated: boolean; processBlock: boolean }>(
+      metadata: { isEquivocated, processBlock, isOversized } = {},
+    } = await this.validateReceivedMessage<
+      CheckpointProposal,
+      { isEquivocated: boolean; processBlock: boolean; isOversized: boolean }
+    >(
       () => this.validateAndStoreCheckpointProposal(source, CheckpointProposal.fromBuffer(payloadData)),
       msgId,
       source,
       TopicType.checkpoint_proposal,
     );
 
-    // Process checkpoint proposal if valid and not equivocated.
+    // Process checkpoint proposal if valid and neither equivocated nor oversized. An oversized
+    // checkpoint is re-broadcast as slashing evidence but never attested or processed.
     const processCheckpointFn = () =>
-      result === TopicValidatorResult.Accept && checkpoint && !isEquivocated
+      result === TopicValidatorResult.Accept && checkpoint && !isEquivocated && !isOversized
         ? this.processValidCheckpointProposal(checkpoint.toCore(), source)
         : Promise.resolve();
 
@@ -1414,7 +1504,12 @@ export class LibP2PService extends WithTracer implements P2PService {
   protected async validateAndStoreCheckpointProposal(
     peerId: PeerId,
     checkpoint: CheckpointProposal,
-  ): Promise<ReceivedMessageValidationResult<CheckpointProposal, { isEquivocated: boolean; processBlock: boolean }>> {
+  ): Promise<
+    ReceivedMessageValidationResult<
+      CheckpointProposal,
+      { isEquivocated: boolean; processBlock: boolean; isOversized: boolean }
+    >
+  > {
     const validationResult = await this.checkpointProposalValidator.validate(checkpoint);
 
     if (validationResult.result === 'reject') {
@@ -1429,14 +1524,32 @@ export class LibP2PService extends WithTracer implements P2PService {
     // Extract and try to add the block proposal first if present
     const blockProposal = checkpoint.getBlockProposal();
     let processBlock = false;
+    let isOversized = false;
     if (blockProposal) {
       this.logger.debug(`Validating block proposal from propagated checkpoint`, {
         [Attributes.SLOT_NUMBER]: checkpoint.slotNumber.toString(),
         [Attributes.P2P_ID]: peerId.toString(),
       });
       const blockProposalResult = await this.validateAndStoreBlockProposal(peerId, blockProposal);
-      const { obj, metadata: { isEquivocated } = {} } = blockProposalResult;
-      if (blockProposalResult.result === TopicValidatorResult.Reject || !obj || isEquivocated) {
+      const { obj, metadata: { isEquivocated, isOversized: blockIsOversized } = {} } = blockProposalResult;
+      isOversized = blockIsOversized ?? false;
+
+      // An oversized terminal block carries the same signed evidence as the checkpoint. A non-first
+      // oversized block is Ignore'd (no store, no re-broadcast, no peer penalty), so we Ignore the
+      // checkpoint too. The first one per (slot, proposer) is retained as evidence: fall through to
+      // store the checkpoint and re-broadcast it, but force `processBlock` off and let the `isOversized`
+      // metadata skip checkpoint processing too. The relaying peer is never penalized either way.
+      if (isOversized && blockProposalResult.result !== TopicValidatorResult.Accept) {
+        return {
+          result: TopicValidatorResult.Ignore,
+          obj: checkpoint,
+          metadata: { isEquivocated: false, processBlock: false, isOversized: true },
+        };
+      }
+
+      if (isOversized) {
+        processBlock = false;
+      } else if (blockProposalResult.result === TopicValidatorResult.Reject || !obj || isEquivocated) {
         this.logger.debug(`Rejecting checkpoint due to invalid last block proposal`, {
           [Attributes.SLOT_NUMBER]: checkpoint.slotNumber.toString(),
           [Attributes.P2P_ID]: peerId.toString(),
@@ -1468,13 +1581,27 @@ export class LibP2PService extends WithTracer implements P2PService {
       return {
         result: TopicValidatorResult.Ignore,
         obj: checkpoint,
-        metadata: { isEquivocated, processBlock },
+        metadata: { isEquivocated, processBlock, isOversized },
       };
     }
 
-    // Too many checkpoint proposals received for this slot, penalize peer and do not re-broadcast
+    // Too many checkpoint proposals received for this slot, penalize peer and do not re-broadcast.
+    // For an oversized checkpoint, ignore instead: the relaying peer is never penalized for proposer
+    // misbehavior, and the oversized terminal block was already retained as evidence above.
     // Note: We still return the checkpoint obj so the lastBlock can be processed if valid
     if (!added) {
+      if (isOversized) {
+        this.logger.debug(`Ignoring oversized checkpoint proposal exceeding per-slot cap`, {
+          ...checkpoint.toCheckpointInfo(),
+          count,
+          source: peerId.toString(),
+        });
+        return {
+          result: TopicValidatorResult.Ignore,
+          obj: checkpoint,
+          metadata: { isEquivocated, processBlock, isOversized },
+        };
+      }
       this.logger.warn(`Penalizing peer for checkpoint proposal exceeding per-slot cap`, {
         ...checkpoint.toCheckpointInfo(),
         count,
@@ -1483,7 +1610,7 @@ export class LibP2PService extends WithTracer implements P2PService {
       return {
         result: TopicValidatorResult.Reject,
         obj: checkpoint,
-        metadata: { isEquivocated, processBlock },
+        metadata: { isEquivocated, processBlock, isOversized },
         severity: PeerErrorSeverity.HighToleranceError,
       };
     }
@@ -1504,12 +1631,16 @@ export class LibP2PService extends WithTracer implements P2PService {
       return {
         result: TopicValidatorResult.Accept,
         obj: checkpoint,
-        metadata: { isEquivocated, processBlock },
+        metadata: { isEquivocated, processBlock, isOversized },
       };
     }
 
     // Otherwise, we're good to go!
-    return { result: TopicValidatorResult.Accept, obj: checkpoint, metadata: { processBlock, isEquivocated } };
+    return {
+      result: TopicValidatorResult.Accept,
+      obj: checkpoint,
+      metadata: { processBlock, isEquivocated, isOversized },
+    };
   }
 
   /**

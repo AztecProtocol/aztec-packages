@@ -6,7 +6,7 @@ import { FifoSet } from '@aztec/foundation/fifo-set';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import type { L2BlockSource } from '@aztec/stdlib/block';
-import type { P2PClient, SlasherConfig } from '@aztec/stdlib/interfaces/server';
+import type { P2PClient, SequencerConfig, SlasherConfig } from '@aztec/stdlib/interfaces/server';
 import type { BlockProposal, CheckpointProposalCore } from '@aztec/stdlib/p2p';
 import { OffenseType, getOffenseTypeName } from '@aztec/stdlib/slashing';
 
@@ -14,17 +14,20 @@ import EventEmitter from 'node:events';
 
 import { WANT_TO_SLASH_EVENT, type WantToSlashArgs, type Watcher, type WatcherEmitter } from '../watcher.js';
 
-const BroadcastedInvalidCheckpointProposalWatcherConfigKeys = [
+const BroadcastedInvalidCheckpointProposalWatcherSlasherConfigKeys = [
   'slashBroadcastedInvalidCheckpointProposalPenalty',
 ] as const;
+
+const BroadcastedInvalidCheckpointProposalWatcherConsensusConfigKeys = ['maxBlocksPerCheckpoint'] as const;
 
 const SCAN_SLOT_LAG = 1;
 const DEFAULT_SCAN_SLOT_LOOKBACK = 4;
 
 type BroadcastedInvalidCheckpointProposalWatcherConfig = Pick<
   SlasherConfig,
-  (typeof BroadcastedInvalidCheckpointProposalWatcherConfigKeys)[number]
->;
+  (typeof BroadcastedInvalidCheckpointProposalWatcherSlasherConfigKeys)[number]
+> &
+  Pick<SequencerConfig, (typeof BroadcastedInvalidCheckpointProposalWatcherConsensusConfigKeys)[number]>;
 
 type ProposalsForSlot = Awaited<ReturnType<P2PClient['getProposalsForSlot']>>;
 type P2PProposalsForSlotSource = Pick<P2PClient, 'getProposalsForSlot'>;
@@ -34,7 +37,12 @@ type SignedBlockProposal = {
   signer: EthAddress;
 };
 
-/** Detects truncated-checkpoint proposal offenses from retained signed P2P proposals. */
+/**
+ * Detects broadcasted-invalid-checkpoint-proposal offenses from retained signed P2P proposals: a
+ * truncated checkpoint (a higher-index block proposal exists for the same slot as the checkpoint's
+ * terminal block) and an oversized checkpoint (a block proposal at or beyond the consensus
+ * `maxBlocksPerCheckpoint` limit). Both emit the same offense type.
+ */
 export class BroadcastedInvalidCheckpointProposalWatcher
   extends (EventEmitter as new () => WatcherEmitter)
   implements Watcher
@@ -55,7 +63,11 @@ export class BroadcastedInvalidCheckpointProposalWatcher
   ) {
     super();
     const constants = epochCache.getL1Constants();
-    this.config = pick(config, ...BroadcastedInvalidCheckpointProposalWatcherConfigKeys);
+    this.config = pick(
+      config,
+      ...BroadcastedInvalidCheckpointProposalWatcherSlasherConfigKeys,
+      ...BroadcastedInvalidCheckpointProposalWatcherConsensusConfigKeys,
+    );
     this.scanSlotLookback = Math.max(1, scanSlotLookback);
 
     // Bound emitted offenses to the number of slots we rescan. This watcher currently tracks one offense type,
@@ -71,7 +83,14 @@ export class BroadcastedInvalidCheckpointProposalWatcher
   }
 
   public updateConfig(config: Partial<BroadcastedInvalidCheckpointProposalWatcherConfig>): void {
-    this.config = merge(this.config, pick(config, ...BroadcastedInvalidCheckpointProposalWatcherConfigKeys));
+    this.config = merge(
+      this.config,
+      pick(
+        config,
+        ...BroadcastedInvalidCheckpointProposalWatcherSlasherConfigKeys,
+        ...BroadcastedInvalidCheckpointProposalWatcherConsensusConfigKeys,
+      ),
+    );
     this.log.verbose('BroadcastedInvalidCheckpointProposalWatcher config updated', this.config);
   }
 
@@ -167,7 +186,34 @@ export class BroadcastedInvalidCheckpointProposalWatcher
       }
     }
 
+    this.addOversizedOffenders(blocksBySigner, offenders);
+
     return offenders;
+  }
+
+  /**
+   * Flags any signer that retained a block proposal whose `indexWithinCheckpoint` is at or beyond the
+   * consensus `maxBlocksPerCheckpoint` limit. A single signed block at an illegal index is self-contained
+   * evidence: unlike truncation, this needs no checkpoint proposal present. No-op when the consensus limit
+   * is undefined (local/test).
+   */
+  private addOversizedOffenders(
+    blocksBySigner: Map<string, SignedBlockProposal[]>,
+    offenders: Map<string, EthAddress>,
+  ): void {
+    const maxBlocksPerCheckpoint = this.config.maxBlocksPerCheckpoint;
+    if (maxBlocksPerCheckpoint === undefined) {
+      return;
+    }
+
+    for (const [signerKey, signerBlocks] of blocksBySigner) {
+      const oversizedBlock = signerBlocks.find(
+        ({ proposal }) => proposal.indexWithinCheckpoint >= maxBlocksPerCheckpoint,
+      );
+      if (oversizedBlock) {
+        offenders.set(signerKey, oversizedBlock.signer);
+      }
+    }
   }
 
   private getSignedBlocksBySigner(blockProposals: BlockProposal[]): Map<string, SignedBlockProposal[]> {
