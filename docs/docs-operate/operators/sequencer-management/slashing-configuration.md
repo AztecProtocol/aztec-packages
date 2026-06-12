@@ -45,7 +45,7 @@ Round N: Proposers vote on offenses from Round N-2
 - **Round Size**: 128 L2 slots (approximately 2.6 hours at 72 seconds per slot)
 - **Slashing Offset**: 2 rounds (proposers in round N vote on offenses from round N-2)
 - **Execution Delay**: 28 rounds (~3 days)
-- **Grace Period**: First 128 slots (configurable per node)
+- **Grace Period**: First 1,200 slots after the rollup becomes canonical (~1 day; configurable per node via `SLASH_GRACE_PERIOD_L2_SLOTS`)
 
 ### Slashing Amounts
 
