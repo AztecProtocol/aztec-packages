@@ -1202,24 +1202,6 @@ describe('aztec node', () => {
     };
   }
 
-  /** Builds the payload of the atomic leading-proposed-checkpoint read (last block = startBlock). */
-  function makeProposedCheckpoint(args: {
-    checkpointNumber: CheckpointNumber;
-    blockNumber: BlockNumber;
-    slotNumber: SlotNumber;
-  }): ProposedCheckpointData {
-    return {
-      checkpointNumber: args.checkpointNumber,
-      header: CheckpointHeader.random({ slotNumber: args.slotNumber }),
-      archive: AppendOnlyTreeSnapshot.empty(),
-      checkpointOutHash: Fr.ZERO,
-      startBlock: args.blockNumber,
-      blockCount: 1,
-      totalManaUsed: 0n,
-      feeAssetPriceModifier: 0n,
-    };
-  }
-
   describe('getCheckpoint', () => {
     /** Builds a minimal ProposedCheckpointData stub. */
     function makeProposedCheckpointData(
