@@ -190,14 +190,22 @@ export class EntityStore implements StagedStore {
    */
   async getEntities(coords: ScopeCoords, jobId: string): Promise<{ entity: StoredEntity; facts: StoredFact[] }[]> {
     const sKey = scopeKeyOf(coords);
+    // Ids staged for creation join the candidate set up front, so the committed-state load below also picks up any
+    // facts already committed for them (facts are stored independently of entity records).
+    const stagedCreatedIds: EntityIdStr[] = [];
+    for (const op of this.#stagedOps(jobId)) {
+      if (op.kind === 'createEntity' && scopeKeyOf(op.entity) === sKey) {
+        stagedCreatedIds.push(op.entity.entityId.toString());
+      }
+    }
     const entities = await this.#store.transactionAsync(async () => {
       // Snapshot the scope index before issuing point reads so we never interleave reads with a live cursor.
-      const entityIds: EntityIdStr[] = [];
+      const committedIds: EntityIdStr[] = [];
       for await (const entityId of this.#entitiesByScope.getValuesAsync(sKey)) {
-        entityIds.push(entityId);
+        committedIds.push(entityId);
       }
-      const result = new Map<EntityIdStr, { entity: StoredEntity; byRow: Map<FactRowKey, StoredFact> }>();
-      for (const entityId of entityIds) {
+      const result = new Map<EntityIdStr, { entity: StoredEntity | undefined; byRow: Map<FactRowKey, StoredFact> }>();
+      for (const entityId of committedIds) {
         const eKey = `${sKey}:${entityId}`;
         const buf = await this.#entities.getAsync(eKey);
         if (!buf) {
@@ -207,37 +215,40 @@ export class EntityStore implements StagedStore {
         }
         result.set(entityId, { entity: StoredEntity.fromBuffer(buf), byRow: await this.#loadCommittedFacts(eKey) });
       }
+      for (const entityId of stagedCreatedIds) {
+        if (!result.has(entityId)) {
+          result.set(entityId, { entity: undefined, byRow: await this.#loadCommittedFacts(`${sKey}:${entityId}`) });
+        }
+      }
       return result;
     });
-    // Replay this job's staged ops in order: a createEntity activates the entity, a terminate deactivates it.
+    // Layer this job's staged ops over committed state. Each entity's fact set replays exactly as in getEntity;
+    // entity-record presence (createEntity activates, terminate deactivates) replays separately, which is equivalent
+    // to a single in-order replay because the two are updated independently by each op kind.
+    for (const [entityId, e] of entities) {
+      this.#replayFactOps(e.byRow, `${sKey}:${entityId}`, jobId);
+    }
     for (const op of this.#stagedOps(jobId)) {
       switch (op.kind) {
-        case 'createEntity': {
-          if (scopeKeyOf(op.entity) !== sKey) {
-            break;
+        case 'createEntity':
+          if (scopeKeyOf(op.entity) === sKey) {
+            entities.get(op.entity.entityId.toString())!.entity = op.entity;
           }
-          // A re-created entity keeps the facts it already owns; a new one starts with none.
-          const prior = entities.get(op.entity.entityId.toString());
-          entities.set(op.entity.entityId.toString(), { entity: op.entity, byRow: prior?.byRow ?? new Map() });
+          break;
+        case 'terminate': {
+          const e = scopeKeyOf(op.coords) === sKey ? entities.get(op.coords.entityId.toString()) : undefined;
+          if (e) {
+            e.entity = undefined;
+          }
           break;
         }
-        case 'record': {
-          if (scopeKeyOf(op.fact) !== sKey) {
-            break;
-          }
-          // A fact recorded for an entity with no record is stored but only surfaces once the entity is created,
-          // mirroring committed behavior (facts never activate an entity).
-          entities.get(op.fact.entityId.toString())?.byRow.set(factRowKeyOf(op.fact), op.fact);
-          break;
-        }
-        case 'terminate':
-          if (scopeKeyOf(op.coords) === sKey) {
-            entities.delete(op.coords.entityId.toString());
-          }
+        case 'record':
           break;
       }
     }
-    return Array.from(entities.values(), ({ entity, byRow }) => ({ entity, facts: Array.from(byRow.values()) }));
+    return Array.from(entities.values())
+      .filter(e => e.entity !== undefined)
+      .map(({ entity, byRow }) => ({ entity: entity!, facts: Array.from(byRow.values()) }));
   }
 
   /**
