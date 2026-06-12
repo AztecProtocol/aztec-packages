@@ -24,8 +24,6 @@ namespace ipc {
  */
 class ShmServer : public IpcServer {
   public:
-    static constexpr size_t DEFAULT_RING_SIZE = 1 << 20; // 1MB
-
     ShmServer(std::string base_name,
               size_t request_ring_size = DEFAULT_RING_SIZE,
               size_t response_ring_size = DEFAULT_RING_SIZE)
@@ -76,7 +74,7 @@ class ShmServer : public IpcServer {
         }
 
         // Wait for data in request ring, return client ID 0 (always single client)
-        if (request_ring_->wait_for_data(sizeof(uint32_t), static_cast<uint32_t>(timeout_ns))) {
+        if (request_ring_->wait_for_data(sizeof(uint32_t), timeout_ns)) {
             return 0; // Single client, always ID 0
         }
         return -1; // Timeout
@@ -129,6 +127,12 @@ class ShmServer : public IpcServer {
         if (response_ring_.has_value()) {
             response_ring_->wakeup_all();
         }
+    }
+
+    CleanupPaths cleanup_paths() const override
+    {
+        return CleanupPaths{ .unlink_paths = {},
+                             .shm_unlink_names = { base_name_ + "_request", base_name_ + "_response" } };
     }
 
     void debug_dump() const

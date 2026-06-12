@@ -70,7 +70,7 @@ class MpscConsumer {
      * @param timeout_ns Total timeout in nanoseconds (spins 10ms, then futex waits for remainder)
      * @return Ring index with data, or -1 on timeout
      */
-    int wait_for_data(uint32_t timeout_ns);
+    int wait_for_data(uint64_t timeout_ns);
 
     /**
      * @brief Peek data from specific ring
@@ -79,7 +79,7 @@ class MpscConsumer {
      * @param timeout_ns Timeout in nanoseconds
      * @return Pointer to data, or nullptr on timeout
      */
-    void* peek(size_t ring_idx, size_t want, uint32_t timeout_ns);
+    void* peek(size_t ring_idx, size_t want, uint64_t timeout_ns);
 
     /**
      * @brief Release data from specific ring
@@ -134,7 +134,7 @@ class MpscProducer {
      * @param timeout_ns Timeout in nanoseconds
      * @return Pointer to buffer, or nullptr on timeout
      */
-    void* claim(size_t want, uint32_t timeout_ns);
+    void* claim(size_t want, uint64_t timeout_ns);
 
     /**
      * @brief Publish data to producer's ring (rings doorbell)

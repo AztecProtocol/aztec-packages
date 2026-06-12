@@ -34,9 +34,9 @@ option(IPC_RUNTIME_BUILD_NAPI "Build the Node native addon (ipc_runtime_napi.nod
 # ---- Library ---------------------------------------------------------------
 
 # Under WASM (emscripten / no-POSIX targets) the transport sources don't
-# compile, but downstream no-POSIX consumers still need the headers (e.g. for
-# the codegen-emitted NamedUnion / msgpack_schema_to_string template helpers,
-# plus the IpcServer class declaration referenced from generated server code).
+# compile, but downstream no-POSIX consumers still need the headers (the
+# IpcServer/IpcClient declarations referenced from generated server code;
+# the codegen template helpers themselves now live in ipc-codegen).
 # Expose an INTERFACE target with just the include path in that case.
 if(WASM)
     add_library(ipc_runtime INTERFACE)
@@ -84,7 +84,7 @@ if(IPC_RUNTIME_BUILD_TESTS AND NOT WASM)
         FetchContent_MakeAvailable(GTest)
     endif()
 
-    add_executable(ipc_runtime_tests ipc_runtime/shm.test.cpp)
+    add_executable(ipc_runtime_tests ipc_runtime/shm.test.cpp ipc_runtime/socket.test.cpp)
     target_link_libraries(ipc_runtime_tests PRIVATE ipc_runtime GTest::gtest_main)
 
     include(GoogleTest)

@@ -172,6 +172,59 @@ fn main() {
         })),
     );
 
+    // ----------------------------------------------------------------------
+    // Blob / fail / error cases — optional bytes, fixed-size byte arrays,
+    // the empty response struct, and the error variant's wire format.
+    // ----------------------------------------------------------------------
+
+    // Optional<Vec<u8>> = Some plus [Vec<u8>; 2] fixed array of bins.
+    write_request(
+        output_dir,
+        "echo_blobs_request.msgpack",
+        Command::EchoBlobs(EchoBlobs::new(
+            Some(vec![0xAA, 0xBB]),
+            [vec![1, 2, 3], vec![4]],
+        )),
+    );
+
+    // Optional<Vec<u8>> = None plus an empty first array element.
+    write_request(
+        output_dir,
+        "echo_blobs_none.msgpack",
+        Command::EchoBlobs(EchoBlobs::new(None, [vec![], vec![9]])),
+    );
+
+    write_response(
+        output_dir,
+        "echo_blobs_response.msgpack",
+        Response::EchoBlobsResponse(EchoBlobsResponse {
+            maybe_data: Some(vec![0xAA, 0xBB]),
+            parts: [vec![1, 2, 3], vec![4]],
+        }),
+    );
+
+    write_request(
+        output_dir,
+        "echo_fail_request.msgpack",
+        Command::EchoFail(EchoFail::new("deliberate failure".to_string())),
+    );
+
+    // Empty struct — pins how a fieldless payload map is framed.
+    write_response(
+        output_dir,
+        "echo_fail_response.msgpack",
+        Response::EchoFailResponse(EchoFailResponse {}),
+    );
+
+    // Pins the error variant's wire format.
+    write_response(
+        output_dir,
+        "echo_error_response.msgpack",
+        Response::EchoErrorResponse(EchoErrorResponse {
+            message: "deliberate failure".to_string(),
+        }),
+    );
+
     eprintln!("Generated golden files in {}", output_dir);
 }
 

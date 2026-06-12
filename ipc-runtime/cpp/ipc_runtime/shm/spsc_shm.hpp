@@ -115,7 +115,7 @@ class SpscShm {
      * IMPORTANT: The size passed to claim(want) must exactly match the size passed to the
      * corresponding peek(want) call by the consumer. Otherwise wrap decisions will be inconsistent.
      */
-    void* claim(size_t want, uint32_t timeout_ns);
+    void* claim(size_t want, uint64_t timeout_ns);
 
     /**
      * @brief Publish n bytes previously claimed
@@ -137,7 +137,7 @@ class SpscShm {
      * IMPORTANT: The size passed to peek(want) must exactly match the size passed to the
      * corresponding claim(want) call by the producer. Otherwise wrap decisions will be inconsistent.
      */
-    void* peek(size_t want, uint32_t timeout_ns);
+    void* peek(size_t want, uint64_t timeout_ns);
 
     /**
      * @brief Release n bytes previously peeked
@@ -156,8 +156,8 @@ class SpscShm {
      */
     void wakeup_all();
 
-    bool wait_for_data(size_t need, uint32_t spin_ns);
-    bool wait_for_space(size_t need, uint32_t spin_ns);
+    bool wait_for_data(size_t need, uint64_t timeout_ns);
+    bool wait_for_space(size_t need, uint64_t timeout_ns);
 
     /**
      * @brief Dump internal ring buffer state for debugging

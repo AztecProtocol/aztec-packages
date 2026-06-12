@@ -8,3 +8,6 @@
 ^ipc-runtime/ts/package\.json$
 ^ipc-runtime/ts/tsconfig\.json$
 ^ipc-runtime/ts/scripts/.*$
+^ipc-runtime/rust/(src/.*|build\.rs|Cargo\.toml)$
+^ipc-runtime/zig/(src/.*|build\.zig)$
+^ipc-runtime/scripts/.*$

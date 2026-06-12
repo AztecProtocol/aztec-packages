@@ -10,15 +10,7 @@
  *   --lang <lang>      Target language
  *   --out <dir>        Output directory for always-regenerated code
  *
- * Optional:
- *   --prefix <str>           Type prefix (auto-detected if omitted)
- *   --server                 Generate server dispatch
- *   --client                 Generate client
- *   --skeleton <dir>         Generate handler stubs + main (one-time, not regenerated)
- *   --package <dir>          Generate a TS package shell around a spawned IPC service
- *   --cpp-namespace <ns>     C++ namespace (e.g. my::service)
- *   --cpp-wire-namespace <ns> Wire types sub-namespace (default: wire)
- *   --curve-constants <path> Generate TS curve constants from JSON at <path>
+ * Run with no arguments for the full flag reference.
  *
  * Zero npm dependencies — runs with Node.js 22+ via --experimental-strip-types.
  */
@@ -29,7 +21,6 @@ import {
   writeFileSync,
   renameSync,
   mkdirSync,
-  existsSync,
   cpSync,
   rmSync,
 } from "fs";
@@ -61,7 +52,6 @@ interface Args {
   prefix: string;
   server: boolean;
   client: boolean;
-  skeleton: string;
   packageDir: string;
   packageName: string;
   binaryName: string;
@@ -78,6 +68,38 @@ interface Args {
   stripMethodPrefix: boolean;
 }
 
+function usage(): never {
+  console.error(`Usage: generate.ts --schema <file> --lang <lang> --out <dir> [flags]
+
+Required:
+  --schema <file>    JSON schema file
+  --lang <lang>      Target language (ts, rust, zig, cpp)
+  --out <dir>        Output directory
+
+Optional:
+  --server                 Generate server dispatch
+  --client                 Generate client
+  --package <dir>          Generate a TS package shell around a spawned IPC service (ts only)
+  --package-name <name>    TS package name for --package
+  --binary-name <name>     Native service binary name for --package
+  --binary-env-var <name>  Env var overriding the binary path for --package
+  --package-transports <t> Comma-separated transports for --package (uds,shm)
+  --package-ipc-path-args <args>
+                           Comma-separated binary args for IPC path; use {path}
+  --ipc-runtime-dependency <spec>
+                           package.json dependency spec for @aztec/ipc-runtime
+  --prefix <str>           Type prefix (auto-detected when >= 2 commands share one)
+  --strip-method-prefix    Strip the prefix from generated method names in all
+                           languages (e.g. BbCircuitProve -> circuitProve)
+  --uds                    Copy UDS backend templates (rust, zig only)
+  --ffi                    Copy in-process FFI backend templates (rust, zig only)
+  --cpp-namespace <ns>     C++ namespace (e.g. my::ns)
+  --cpp-wire-namespace <ns> Wire types sub-namespace (default: wire)
+  --cpp-include-dir <path> Include path for generated dir (e.g. myservice/generated)
+  --curve-constants <path> Generate TS curve constants from JSON at <path>`);
+  process.exit(1);
+}
+
 function parseArgs(argv: string[]): Args {
   const args: Args = {
     schema: "",
@@ -86,7 +108,6 @@ function parseArgs(argv: string[]): Args {
     prefix: "",
     server: false,
     client: false,
-    skeleton: "",
     packageDir: "",
     packageName: "",
     binaryName: "",
@@ -104,18 +125,27 @@ function parseArgs(argv: string[]): Args {
   };
 
   for (let i = 0; i < argv.length; i++) {
-    switch (argv[i]) {
+    const flag = argv[i];
+    const takeValue = (): string => {
+      const value = argv[++i];
+      if (value === undefined || value.startsWith("--")) {
+        console.error(`Flag ${flag} requires a value`);
+        process.exit(1);
+      }
+      return value;
+    };
+    switch (flag) {
       case "--schema":
-        args.schema = argv[++i];
+        args.schema = takeValue();
         break;
       case "--lang":
-        args.lang = argv[++i];
+        args.lang = takeValue();
         break;
       case "--out":
-        args.out = argv[++i];
+        args.out = takeValue();
         break;
       case "--prefix":
-        args.prefix = argv[++i];
+        args.prefix = takeValue();
         break;
       case "--server":
         args.server = true;
@@ -123,38 +153,35 @@ function parseArgs(argv: string[]): Args {
       case "--client":
         args.client = true;
         break;
-      case "--skeleton":
-        args.skeleton = argv[++i];
-        break;
       case "--package":
-        args.packageDir = argv[++i];
+        args.packageDir = takeValue();
         break;
       case "--package-name":
-        args.packageName = argv[++i];
+        args.packageName = takeValue();
         break;
       case "--binary-name":
-        args.binaryName = argv[++i];
+        args.binaryName = takeValue();
         break;
       case "--binary-env-var":
-        args.binaryEnvVar = argv[++i];
+        args.binaryEnvVar = takeValue();
         break;
       case "--package-transports":
-        args.packageTransports = argv[++i];
+        args.packageTransports = takeValue();
         break;
       case "--package-ipc-path-args":
-        args.packageIpcPathArgs = argv[++i];
+        args.packageIpcPathArgs = takeValue();
         break;
       case "--ipc-runtime-dependency":
-        args.ipcRuntimeDependency = argv[++i];
+        args.ipcRuntimeDependency = takeValue();
         break;
       case "--cpp-namespace":
-        args.cppNamespace = argv[++i];
+        args.cppNamespace = takeValue();
         break;
       case "--cpp-wire-namespace":
-        args.cppWireNamespace = argv[++i];
+        args.cppWireNamespace = takeValue();
         break;
       case "--cpp-include-dir":
-        args.cppIncludeDir = argv[++i];
+        args.cppIncludeDir = takeValue();
         break;
       case "--uds":
         args.uds = true;
@@ -163,41 +190,29 @@ function parseArgs(argv: string[]): Args {
         args.ffi = true;
         break;
       case "--curve-constants":
-        args.curveConstants = argv[++i];
+        args.curveConstants = takeValue();
         break;
       case "--strip-method-prefix":
         args.stripMethodPrefix = true;
         break;
       default:
-        console.error(`Unknown flag: ${argv[i]}`);
+        console.error(`Unknown flag: ${flag}`);
         process.exit(1);
     }
   }
 
   if (!args.schema || !args.lang || !args.out) {
-    console.error(`Usage: generate.ts --schema <file> --lang <lang> --out <dir> [flags]
-
-Required:
-  --schema <file>    JSON schema file
-  --lang <lang>      Target language (ts, rust, zig, cpp)
-  --out <dir>        Output directory
-
-Optional:
-  --server                 Generate server dispatch
-  --client                 Generate client
-  --skeleton <dir>         Generate handler stubs + main (one-time)
-  --package <dir>          Generate a TS package shell around a spawned IPC service
-  --package-name <name>    TS package name for --package
-  --binary-name <name>     Native service binary name for --package
-  --package-transports <t> Comma-separated transports for --package (uds,shm)
-  --package-ipc-path-args <args>
-                           Comma-separated binary args for IPC path; use {path}
-  --prefix <str>           Type prefix (auto-detected if omitted)
-  --cpp-namespace <ns>     C++ namespace (e.g. my::ns)
-  --cpp-wire-namespace <ns> Wire types sub-namespace (default: wire)
-  --cpp-include-dir <path> Include path for generated dir (e.g. myservice/generated)
-  --curve-constants <path> Generate TS curve constants from JSON at <path>
-  --strip-method-prefix    Strip prefix from TS method names (e.g. BbCircuitProve -> circuitProve)`);
+    usage();
+  }
+  if (args.packageDir && args.lang !== "ts") {
+    console.error(`--package is only supported for --lang ts`);
+    process.exit(1);
+  }
+  if ((args.uds || args.ffi) && args.lang !== "rust" && args.lang !== "zig") {
+    console.error(
+      `--uds/--ffi copy backend templates and only apply to rust and zig; ` +
+        `ts and cpp consume transports from ipc-runtime directly`,
+    );
     process.exit(1);
   }
 
@@ -227,7 +242,9 @@ function loadSchema(schemaPath: string): {
 /** Detect common prefix from command names (e.g. WsdbGetTreeInfo, WsdbCreateFork → Wsdb) */
 function detectPrefix(compiled: CompiledSchema): string {
   const names = compiled.commands.map((c) => c.name);
-  if (names.length === 0) return "";
+  // With a single command the longest common prefix is the entire name and
+  // stripping it would erase the method name; require an explicit --prefix.
+  if (names.length < 2) return "";
   let prefix = names[0];
   for (const name of names.slice(1)) {
     while (prefix && !name.startsWith(prefix)) {
@@ -259,16 +276,6 @@ function copyTemplate(lang: string, filename: string, outDir: string) {
   writeFileSync(tmpPath, readFileSync(templatePath, "utf-8"));
   renameSync(tmpPath, destPath);
   console.log(`  ${destPath} (template)`);
-}
-
-/** Copy template only if destination doesn't exist (idempotent, one-time) */
-function copyTemplateOnce(lang: string, filename: string, outDir: string) {
-  const destPath = join(outDir, filename);
-  if (existsSync(destPath)) {
-    console.log(`  ${destPath} (exists, skipped)`);
-    return;
-  }
-  copyTemplate(lang, filename, outDir);
 }
 
 function copyTemplateDir(lang: string, dirname: string, outDir: string) {
@@ -396,45 +403,10 @@ function generate(args: Args) {
           { executable: true },
         );
       }
-      // Skeleton (one-time handler stubs + main + build files)
-      if (args.skeleton) {
-        const skelDir = resolve(args.skeleton);
-        mkdirSync(skelDir, { recursive: true });
-        const writeSkeleton = (
-          name: string,
-          content: string,
-          opts?: { executable?: boolean },
-        ) => {
-          const path = join(skelDir, name);
-          if (existsSync(path)) {
-            console.log(`  ${path} (exists, skipped)`);
-            return;
-          }
-          writeFileSync(path, content);
-          if (opts?.executable) {
-            try {
-              execSync(`chmod +x ${path}`);
-            } catch {}
-          }
-          console.log(`  ${path} (skeleton)`);
-        };
-        writeSkeleton(
-          `${toSnakeCase(prefix)}_handlers.ts`,
-          gen.generateHandlerStubs(compiled, prefix),
-        );
-        writeSkeleton("main.ts", gen.generateMain(compiled, prefix));
-        writeSkeleton("package.json", gen.generateBuildFile(prefix));
-        writeSkeleton(".gitignore", gen.generateGitignore());
-        writeSkeleton(
-          "generate.sh",
-          gen.generateGenerateScript(args.schema, prefix),
-          { executable: true },
-        );
-      }
       break;
     }
     case "rust": {
-      const gen = new RustCodegen({ prefix });
+      const gen = new RustCodegen({ prefix, stripMethodPrefix: args.stripMethodPrefix });
       writeFile(
         `${toSnakeCase(prefix)}_types.rs`,
         gen.generateTypes(compiled, schemaHash),
@@ -451,53 +423,20 @@ function generate(args: Args) {
           gen.generateApi(compiled),
         );
       }
-      // Backend templates (copied once, not overwritten). The `Backend` trait
+      // Backend templates (force-overwritten on regeneration). The `Backend` trait
       // and `IpcError` type stay shared; ipc-runtime is consumed via the
       // separate `ipc-runtime` crate.
       if (args.uds || args.ffi) {
-        copyTemplateOnce("rust", "backend.rs", absOut);
-        copyTemplateOnce("rust", "error.rs", absOut);
+        copyTemplate("rust", "backend.rs", absOut);
+        copyTemplate("rust", "error.rs", absOut);
       }
       if (args.ffi) {
-        copyTemplateOnce("rust", "ffi_backend.rs", absOut);
-      }
-      // Skeleton (one-time handler stubs + main + build files)
-      if (args.skeleton) {
-        const skelDir = resolve(args.skeleton);
-        mkdirSync(skelDir, { recursive: true });
-        const writeSkeleton = (
-          name: string,
-          content: string,
-          opts?: { executable?: boolean },
-        ) => {
-          const path = join(skelDir, name);
-          if (existsSync(path)) {
-            console.log(`  ${path} (exists, skipped)`);
-            return;
-          }
-          writeFileSync(path, content);
-          if (opts?.executable) {
-            try {
-              execSync(`chmod +x ${path}`);
-            } catch {}
-          }
-          console.log(`  ${path} (skeleton)`);
-        };
-        writeSkeleton(
-          `${toSnakeCase(prefix)}_handlers.rs`,
-          gen.generateHandlerStubs(compiled),
-        );
-        writeSkeleton("main.rs", gen.generateMain(compiled));
-        writeSkeleton("Cargo.toml", gen.generateBuildFile(compiled));
-        writeSkeleton(".gitignore", gen.generateGitignore());
-        writeSkeleton("generate.sh", gen.generateGenerateScript(args.schema), {
-          executable: true,
-        });
+        copyTemplate("rust", "ffi_backend.rs", absOut);
       }
       break;
     }
     case "zig": {
-      const gen = new ZigCodegen({ prefix, clientName: `${prefix}Client` });
+      const gen = new ZigCodegen({ prefix, clientName: `${prefix}Client`, stripMethodPrefix: args.stripMethodPrefix });
       writeFile(
         `${toSnakeCase(prefix)}_types.zig`,
         gen.generateTypes(compiled, schemaHash),
@@ -521,44 +460,10 @@ function generate(args: Args) {
       // implementation. ipc_runtime.Client satisfies the same contract,
       // so UDS/SHM consumers don't need a separate backend file.
       if (args.uds || args.ffi) {
-        copyTemplateOnce("zig", "backend.zig", absOut);
+        copyTemplate("zig", "backend.zig", absOut);
       }
       if (args.ffi) {
-        copyTemplateOnce("zig", "ffi_backend.zig", absOut);
-      }
-      // Skeleton (one-time handler stubs + main + build files)
-      if (args.skeleton) {
-        const skelDir = resolve(args.skeleton);
-        mkdirSync(skelDir, { recursive: true });
-        const writeSkeleton = (
-          name: string,
-          content: string,
-          opts?: { executable?: boolean },
-        ) => {
-          const path = join(skelDir, name);
-          if (existsSync(path)) {
-            console.log(`  ${path} (exists, skipped)`);
-            return;
-          }
-          writeFileSync(path, content);
-          if (opts?.executable) {
-            try {
-              execSync(`chmod +x ${path}`);
-            } catch {}
-          }
-          console.log(`  ${path} (skeleton)`);
-        };
-        writeSkeleton(
-          `${toSnakeCase(prefix)}_handlers.zig`,
-          gen.generateHandlerStubs(compiled),
-        );
-        writeSkeleton("main.zig", gen.generateMain(compiled));
-        writeSkeleton("build.zig", gen.generateBuildFile(compiled));
-        writeSkeleton("build.zig.zon", gen.generateBuildZon(compiled));
-        writeSkeleton(".gitignore", gen.generateGitignore());
-        writeSkeleton("generate.sh", gen.generateGenerateScript(args.schema), {
-          executable: true,
-        });
+        copyTemplate("zig", "ffi_backend.zig", absOut);
       }
       break;
     }
@@ -570,6 +475,7 @@ function generate(args: Args) {
         prefix,
         wireNamespace: wireNs,
         generatedIncludeDir: args.cppIncludeDir,
+        stripMethodPrefix: args.stripMethodPrefix,
       });
 
       cppFiles.push(
@@ -608,42 +514,6 @@ function generate(args: Args) {
         );
       }
 
-      // Skeleton (one-time handler stubs + main + build files)
-      if (args.skeleton) {
-        const skelDir = resolve(args.skeleton);
-        mkdirSync(skelDir, { recursive: true });
-        const writeSkeleton = (
-          name: string,
-          content: string,
-          opts?: { executable?: boolean },
-        ) => {
-          const path = join(skelDir, name);
-          if (existsSync(path)) {
-            console.log(`  ${path} (exists, skipped)`);
-            return;
-          }
-          writeFileSync(path, content);
-          if (opts?.executable) {
-            try {
-              execSync(`chmod +x ${path}`);
-            } catch {}
-          }
-          console.log(`  ${path} (skeleton)`);
-          if (path.endsWith(".cpp") || path.endsWith(".hpp")) {
-            cppFiles.push(path);
-          }
-        };
-        writeSkeleton(
-          `${toSnakeCase(prefix)}_handlers.cpp`,
-          gen.generateHandlerStubs(compiled),
-        );
-        writeSkeleton("main.cpp", gen.generateMain(compiled));
-        writeSkeleton("CMakeLists.txt", gen.generateBuildFile(compiled));
-        writeSkeleton(".gitignore", gen.generateGitignore());
-        writeSkeleton("generate.sh", gen.generateGenerateScript(args.schema), {
-          executable: true,
-        });
-      }
 
       formatCpp(cppFiles);
       break;
@@ -697,8 +567,11 @@ export const SECP256R1_FQ_MODULUS = ${hexToBigInt(constants.secp256r1_fq_modulus
 export const SECP256R1_G1_GENERATOR = { x: ${serializeCoordinate(constants.secp256r1_g1_generator.x)}, y: ${serializeCoordinate(constants.secp256r1_g1_generator.y)} } as const;
 `;
   mkdirSync(outputDir, { recursive: true });
-  writeFileSync(join(outputDir, "curve_constants.ts"), content);
-  console.log(`  ${join(outputDir, "curve_constants.ts")}`);
+  const path = join(outputDir, "curve_constants.ts");
+  const tmpPath = `${path}.${process.pid}.tmp`;
+  writeFileSync(tmpPath, content);
+  renameSync(tmpPath, path);
+  console.log(`  ${path}`);
 }
 
 // ---------------------------------------------------------------------------

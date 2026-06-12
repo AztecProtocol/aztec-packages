@@ -1,6 +1,6 @@
 # Lock-Free Shared Memory Ring Buffers (C++)
 
-Ultra-low-latency shared-memory ring buffers for inter-process communication using modern C++. Built on Linux `shm_open` + `mmap` with lock-free atomics and efficient futex-based blocking.
+Ultra-low-latency shared-memory ring buffers for inter-process communication using modern C++. Built on POSIX `shm_open` + `mmap` with lock-free atomics and efficient futex-based blocking (Linux futex; `os_sync_wait_on_address` on macOS).
 
 ## Features
 
@@ -31,9 +31,10 @@ Ultra-low-latency shared-memory ring buffers for inter-process communication usi
 ┌──────────────────────────────────────────────────┐
 │              SpscCtrl (control block)             │
 │  ┌────────────────────────────────────────────┐  │
-│  │ head (producer-owned, cacheline-aligned)   │  │
-│  │ tail (consumer-owned, cacheline-aligned)   │  │
-│  │ data_seq, space_seq (futex sequencers)    │  │
+│  │ head + wrap_head + producer_blocked        │  │
+│  │   (producer-owned, cacheline-aligned)      │  │
+│  │ tail + consumer_blocked                    │  │
+│  │   (consumer-owned, cacheline-aligned)      │  │
 │  │ capacity, mask (immutable)                 │  │
 │  └────────────────────────────────────────────┘  │
 │                                                   │
@@ -90,6 +91,10 @@ Ultra-low-latency shared-memory ring buffers for inter-process communication usi
 
 ## API Overview
 
+All timeouts are in nanoseconds. At this layer `timeout_ns == 0` means an
+immediate (non-blocking) check; the higher-level `IpcClient`/`IpcServer`
+wrappers translate their public "0 = infinite" convention before calling in.
+
 ### SpscShm Class
 
 ```cpp
@@ -109,23 +114,32 @@ public:
 
     // Introspection
     uint64_t available() const;   // bytes ready to read
-    uint64_t free_space() const;  // bytes free to write
+    uint64_t capacity() const;
 
-    // Producer API
-    void* claim(size_t want, size_t* granted);  // Claim write space
-    void publish(size_t n);                      // Commit n bytes
+    // Producer API: claim/publish must be paired, with sizes exactly
+    // matching the consumer's peek/release pair.
+    void* claim(size_t want, uint64_t timeout_ns);  // nullptr on timeout
+    void publish(size_t n);
 
     // Consumer API
-    void* peek(size_t* n);   // Peek read space (auto-skips padding)
-    void release(size_t n);  // Release n bytes
+    void* peek(size_t want, uint64_t timeout_ns);   // nullptr on timeout
+    void release(size_t n);
 
-    // Blocking wait (spin, then futex)
-    bool wait_for_data(uint32_t spin_ns);
-    bool wait_for_space(size_t need, uint32_t spin_ns);
+    // Blocking wait (adaptive spin, then futex)
+    bool wait_for_data(size_t need, uint64_t timeout_ns);
+    bool wait_for_space(size_t need, uint64_t timeout_ns);
+
+    // Wake all blocked waiters (graceful shutdown)
+    void wakeup_all();
 };
 
 } // namespace ipc
 ```
+
+The wrap decision is stateless and derived purely from the requested size,
+so every `claim(n)`/`publish(n)` by the producer must be matched by a
+`peek(n)`/`release(n)` of the same `n` by the consumer (see the header
+comment in `spsc_shm.hpp`).
 
 ### MpscConsumer / MpscProducer Classes
 
@@ -145,9 +159,10 @@ public:
     ~MpscConsumer();
 
     // Consumer API
-    int wait_for_data(uint32_t spin_ns);          // Returns ring index with data
-    void* peek(size_t ring_idx, size_t* n);       // Peek specific ring
-    void release(size_t ring_idx, size_t n);      // Release from specific ring
+    int wait_for_data(uint64_t timeout_ns);  // ring index with data, or -1
+    void* peek(size_t ring_idx, size_t want, uint64_t timeout_ns);
+    void release(size_t ring_idx, size_t n);
+    void wakeup_all();
 };
 
 class MpscProducer {
@@ -160,9 +175,8 @@ public:
     ~MpscProducer();
 
     // Producer API
-    void* claim(size_t want, size_t* granted);
-    void publish(size_t n);  // Rings doorbell if needed
-    bool wait_for_space(size_t need, uint32_t spin_ns);
+    void* claim(size_t want, uint64_t timeout_ns);
+    void publish(size_t n);  // rings the doorbell
 };
 
 } // namespace ipc
@@ -170,65 +184,43 @@ public:
 
 ## Usage Examples
 
-### SPSC: Simple Message Passing
+These use the message framing helpers from `../shm_common.hpp`
+(`ring_send_msg` / `ring_receive_msg`), which add a 4-byte length prefix and
+take care of the matched claim/peek sizing.
 
 **Producer process:**
 ```cpp
-#include "ipc_runtime/shm/spsc_shm.hpp"
+#include "ipc_runtime/shm_common.hpp"
 #include <string>
 
-using namespace ipc;
-
 int main() {
-    // Create ring buffer (1 MB capacity)
-    auto tx = SpscShm::create("/demo_ring", 1 << 20);
+    // Create ring buffer (1 MiB capacity); consumer connects by name.
+    auto tx = ipc::SpscShm::create("/demo_ring", 1 << 20);
 
     std::string msg = "hello from producer";
-
     while (true) {
-        // Wait for space (spin 20 µs, then futex)
-        if (!tx.wait_for_space(msg.size(), 20000)) {
-            continue;
-        }
-
-        // Claim write space
-        size_t granted;
-        void* buf = tx.claim(msg.size(), &granted);
-
-        // Write message
-        std::memcpy(buf, msg.data(), msg.size());
-        tx.publish(msg.size());
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        // Blocks up to 1s for ring space; false on timeout.
+        ipc::ring_send_msg(tx, msg.data(), msg.size(), 1'000'000'000);
     }
 }
 ```
 
 **Consumer process:**
 ```cpp
-#include "ipc_runtime/shm/spsc_shm.hpp"
+#include "ipc_runtime/shm_common.hpp"
 #include <iostream>
 
-using namespace ipc;
-
 int main() {
-    // Connect to existing ring
-    auto rx = SpscShm::connect("/demo_ring");
+    auto rx = ipc::SpscShm::connect("/demo_ring");
 
     while (true) {
-        // Wait for data (spin 20 µs, then futex)
-        if (!rx.wait_for_data(20000)) {
-            continue;
+        // Blocks up to 1s for a whole message; empty data() on timeout.
+        auto msg = ipc::ring_receive_msg(rx, 1'000'000'000);
+        if (msg.data() == nullptr) {
+            continue; // timeout
         }
-
-        // Peek data
-        size_t n;
-        void* data = rx.peek(&n);
-
-        if (n > 0) {
-            std::cout << "Received: " << std::string((char*)data, n) << "\n";
-            rx.release(n);
-        }
+        std::cout << "Received: " << std::string(msg.begin(), msg.end()) << "\n";
+        rx.release(4 + msg.size()); // length prefix + payload
     }
 }
 ```
@@ -236,80 +228,13 @@ int main() {
 **Cleanup:**
 ```cpp
 // When done (from either process)
-SpscShm::unlink("/demo_ring");
+ipc::SpscShm::unlink("/demo_ring");
 ```
 
-### MPSC: Multiple Producers, Single Consumer
-
-**Consumer process:**
-```cpp
-#include "ipc_runtime/shm/mpsc_shm.hpp"
-#include <iostream>
-
-using namespace ipc;
-
-int main() {
-    // Create MPSC with 3 producers, 1 MB rings
-    auto consumer = MpscConsumer::create("my_mpsc", 3, 1 << 20);
-
-    while (true) {
-        // Wait for data from any producer
-        int ring_idx = consumer.wait_for_data(20000);  // spin 20 µs, then futex
-        if (ring_idx < 0) continue;
-
-        // Process data from that producer
-        size_t n;
-        void* data = consumer.peek(ring_idx, &n);
-
-        if (n > 0) {
-            std::cout << "Received " << n << " bytes from producer "
-                      << ring_idx << "\n";
-            // Process data...
-            consumer.release(ring_idx, n);
-        }
-    }
-}
-```
-
-**Producer processes (3 separate processes):**
-```cpp
-#include "ipc_runtime/shm/mpsc_shm.hpp"
-#include <string>
-
-using namespace ipc;
-
-int main(int argc, char** argv) {
-    int producer_id = std::stoi(argv[1]);  // 0, 1, or 2
-
-    // Connect as producer
-    auto producer = MpscProducer::connect("my_mpsc", producer_id);
-
-    std::string msg = "hello from producer " + std::to_string(producer_id);
-
-    while (true) {
-        // Wait for space in our ring
-        if (!producer.wait_for_space(msg.size(), 20000)) {
-            continue;
-        }
-
-        // Claim space and write
-        size_t granted;
-        void* buf = producer.claim(msg.size(), &granted);
-
-        if (granted >= msg.size()) {
-            std::memcpy(buf, msg.data(), msg.size());
-            producer.publish(msg.size());  // Rings doorbell
-        }
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
-    }
-}
-```
-
-**Cleanup:**
-```cpp
-MpscConsumer::unlink("my_mpsc", 3);  // Removes doorbell + 3 rings
-```
+For multi-producer setups, prefer the higher-level `MpscShmServer` /
+`MpscShmClient` (`../mpsc_shm_server.hpp`, `../mpsc_shm_client.hpp`), which
+wire `MpscConsumer`/`MpscProducer` together with per-client response rings
+and the same framing.
 
 ## Implementation Details
 
@@ -343,9 +268,9 @@ The consumer's `peek()` automatically skips padding, so callers never see it.
 ### Futex-Based Blocking
 
 Instead of busy-waiting forever:
-1. **Producer**: Spins briefly checking for space, then sleeps on `space_seq` futex
-2. **Consumer**: Spins briefly checking for data, then sleeps on `data_seq` futex
-3. **Wakeup**: Incrementing sequencer + `futex_wake` wakes sleeping side
+1. **Producer**: Spins briefly checking for space, sets `producer_blocked`, then sleeps on the `tail` futex
+2. **Consumer**: Spins briefly checking for data, sets `consumer_blocked`, then sleeps on the `head` futex
+3. **Wakeup**: The other side checks the blocked flag after publishing/releasing and calls `futex_wake` only when needed
 
 This provides:
 - Low latency when active (spin catches transitions)
@@ -358,14 +283,17 @@ The doorbell is a simple futex counter in shared memory:
 
 ```cpp
 struct alignas(64) MpscDoorbell {
-    std::atomic<uint32_t> seq;
-    uint8_t _pad[60];  // Cache line padding
+    // Producer-written (incremented in publish())
+    alignas(64) std::atomic<uint32_t> seq;
+    // Consumer-written (set right before futex_wait, cleared right after)
+    alignas(64) std::atomic<bool> consumer_blocked;
+    // (+ cache-line padding)
 };
 ```
 
 **Protocol:**
 1. Producer publishes data to its SPSC ring
-2. If ring was empty (first message), increment doorbell seq and call `futex_wake`
+2. Producer increments the doorbell seq; `futex_wake` only if `consumer_blocked` is set
 3. Consumer wakes up, polls all rings in round-robin
 4. Consumer sleeps on doorbell only when all rings are empty
 
@@ -410,7 +338,7 @@ The `spin_ns` parameter controls busy-wait duration before sleeping:
 
 ## Limitations
 
-1. **Platform**: Linux-only (uses futex, though portable to other POSIX with modifications)
+1. **Platform**: Linux and macOS (futex / `os_sync_wait_on_address`); other platforms fail the build
 2. **Capacity**: Must be power of two
 3. **Fixed size**: Cannot resize after creation
 4. **No security**: All processes with access can read/write shared memory

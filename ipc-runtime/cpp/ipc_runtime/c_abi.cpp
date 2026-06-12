@@ -124,7 +124,9 @@ ipc_status_t ipc_server_receive(ipc_server_t *server, int client_id,
     return IPC_ERR_RECV;
   }
   auto view = server->impl->receive(client_id);
-  if (view.empty()) {
+  // data() == nullptr is error/timeout; a non-null empty view is a valid
+  // zero-length message.
+  if (view.data() == nullptr) {
     *out = nullptr;
     *out_len = 0;
     return IPC_ERR_RECV;
@@ -186,13 +188,6 @@ ipc_client_t *ipc_client_create_socket(const char *socket_path) {
   return wrap_client(ipc::IpcClient::create_socket(socket_path));
 }
 
-ipc_client_t *ipc_client_create_shm(const char *base_name) {
-  if (!base_name) {
-    return nullptr;
-  }
-  return wrap_client(ipc::IpcClient::create_shm(base_name));
-}
-
 ipc_client_t *ipc_client_create_mpsc_shm(const char *base_name,
                                          size_t client_id) {
   if (!base_name) {
@@ -225,7 +220,9 @@ ipc_status_t ipc_client_receive(ipc_client_t *client, uint64_t timeout_ns,
     return IPC_ERR_RECV;
   }
   auto view = client->impl->receive(timeout_ns);
-  if (view.empty()) {
+  // data() == nullptr is error/timeout; a non-null empty view is a valid
+  // zero-length response (IPC_OK with *out_len == 0).
+  if (view.data() == nullptr) {
     *out = nullptr;
     *out_len = 0;
     return IPC_ERR_RECV;

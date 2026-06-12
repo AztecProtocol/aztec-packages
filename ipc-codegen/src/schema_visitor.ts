@@ -8,6 +8,8 @@
  *   - Output is "compiled schema" with resolved types
  */
 
+import { toSnakeCase, toCamelCase } from "./naming.ts";
+
 export type PrimitiveType =
   | "bool"
   | "u8"
@@ -54,8 +56,123 @@ export interface CompiledSchema {
   // Response types
   responses: Map<string, Struct>;
 
-  // Error response type name (e.g. 'WsdbErrorResponse')
-  errorTypeName?: string;
+  // Error response type name (e.g. 'WsdbErrorResponse'). Always present:
+  // schema validation rejects schemas without an error variant.
+  errorTypeName: string;
+}
+
+/**
+ * Words that are keywords (or otherwise unusable as plain identifiers) in at
+ * least one target language. Field names whose snake_case or camelCase
+ * projection lands here would generate broken code.
+ */
+const RESERVED_WORDS = new Set([
+  // Rust
+  "type",
+  "fn",
+  "match",
+  "impl",
+  "trait",
+  "mod",
+  "use",
+  "ref",
+  "self",
+  "super",
+  "crate",
+  "move",
+  "dyn",
+  "async",
+  "await",
+  "loop",
+  "where",
+  // Zig
+  "error",
+  "var",
+  "comptime",
+  "defer",
+  "errdefer",
+  "test",
+  "union",
+  "undefined",
+  "unreachable",
+  "orelse",
+  "and",
+  "or",
+  // C++
+  "namespace",
+  "int",
+  "char",
+  "short",
+  "long",
+  "float",
+  "double",
+  "signed",
+  "unsigned",
+  "register",
+  "template",
+  "typename",
+  "operator",
+  "virtual",
+  "inline",
+  "friend",
+  "mutable",
+  "explicit",
+  "export",
+  "this",
+  "delete",
+  // JS/TS
+  "new",
+  "class",
+  "function",
+  "extends",
+  "instanceof",
+  "typeof",
+  "in",
+  "void",
+  "with",
+  "yield",
+  "let",
+  // Shared / common
+  "const",
+  "static",
+  "struct",
+  "enum",
+  "if",
+  "else",
+  "for",
+  "while",
+  "do",
+  "switch",
+  "case",
+  "default",
+  "break",
+  "continue",
+  "return",
+  "true",
+  "false",
+  "null",
+  "bool",
+  "throw",
+  "try",
+  "catch",
+  "public",
+  "private",
+  "protected",
+]);
+
+function validateNamedUnionShape(schema: any, label: string): void {
+  if (
+    !Array.isArray(schema) ||
+    schema[0] !== "named_union" ||
+    !Array.isArray(schema[1]) ||
+    !schema[1].every(
+      (entry: any) => Array.isArray(entry) && typeof entry[0] === "string",
+    )
+  ) {
+    throw new Error(
+      `Schema '${label}' is not in ["named_union", [[name, schema], ...]] form`,
+    );
+  }
 }
 
 /**
@@ -73,31 +190,90 @@ export class SchemaVisitor {
     const commands: Command[] = [];
 
     // Schema format: ["named_union", [[name, schema], ...]]
+    validateNamedUnionShape(commandsSchema, "commands");
+    validateNamedUnionShape(responsesSchema, "responses");
     const commandPairs = commandsSchema[1] as Array<[string, any]>;
     const responsePairs = responsesSchema[1] as Array<[string, any]>;
 
-    // First, visit all response types (including ErrorResponse)
+    // First, visit all response types (including ErrorResponse). A string
+    // schema is a reference to a struct defined earlier in the document —
+    // schema reflection dedups repeated definitions to name strings (e.g. a
+    // response type that also appears inline as a field of an earlier
+    // response). It must resolve; a dangling reference means the generators
+    // would emit a type nothing defines.
     for (const [respName, respSchema] of responsePairs) {
-      if (typeof respSchema !== "string") {
-        const respStruct = this.visitStruct(respName, respSchema);
-        this.responses.set(respName, respStruct);
+      if (typeof respSchema === "string") {
+        const resolved =
+          this.structs.get(respSchema) ?? this.responses.get(respSchema);
+        if (!resolved) {
+          throw new Error(
+            `Response '${respName}' references '${respSchema}', which is not defined earlier in the schema`,
+          );
+        }
+        this.responses.set(respName, resolved);
+        continue;
       }
+      const respStruct = this.visitStruct(respName, respSchema);
+      this.responses.set(respName, respStruct);
     }
 
     // Find the error response type name (e.g. 'WsdbErrorResponse')
     const errorResponses = responsePairs.filter(([name]: [string, any]) =>
       name.endsWith("ErrorResponse"),
     );
-    const errorTypeName =
-      errorResponses.length > 0 ? errorResponses[0][0] : undefined;
+    if (errorResponses.length === 0) {
+      throw new Error(
+        "Schema has no error response: the responses union must contain a variant named '*ErrorResponse'",
+      );
+    }
+    const errorTypeName = errorResponses[0][0];
+    const errorStruct = this.responses.get(errorTypeName)!;
+    if (
+      errorStruct.fields.length !== 1 ||
+      errorStruct.fields[0].name !== "message" ||
+      errorStruct.fields[0].type.primitive !== "string"
+    ) {
+      throw new Error(
+        `Error response '${errorTypeName}' must have exactly one field 'message: string'`,
+      );
+    }
 
-    // Visit all commands and pair with responses
+    // Commands pair with non-error responses by position (the schema is
+    // reflected from C++ unions declared in matching order, and a command
+    // may deliberately reuse another command's response shape, so names
+    // alone cannot pair them). Two guards close the silent-mispair hole the
+    // old unchecked indexing had: the counts must match exactly, and when a
+    // response named '<Command>Response' exists it must be the one at the
+    // command's position — anything else means the unions are misordered.
     const normalResponses = responsePairs.filter(
       ([name]: [string, any]) => !name.endsWith("ErrorResponse"),
     );
+    if (normalResponses.length !== commandPairs.length) {
+      throw new Error(
+        `Schema has ${commandPairs.length} commands but ${normalResponses.length} non-error responses`,
+      );
+    }
+    const normalResponseNames = new Set(
+      normalResponses.map(([name]: [string, any]) => name),
+    );
+    const seenCommands = new Set<string>();
     for (let i = 0; i < commandPairs.length; i++) {
       const [cmdName, cmdSchema] = commandPairs[i];
+      if (seenCommands.has(cmdName)) {
+        throw new Error(`Duplicate command name: ${cmdName}`);
+      }
+      seenCommands.add(cmdName);
+
       const [respName] = normalResponses[i];
+      const conventionalName = `${cmdName}Response`;
+      if (
+        respName !== conventionalName &&
+        normalResponseNames.has(conventionalName)
+      ) {
+        throw new Error(
+          `Command '${cmdName}' pairs with '${respName}' by position, but a response named '${conventionalName}' exists elsewhere — the unions are misordered`,
+        );
+      }
 
       // Discover command structure
       const cmdStruct = this.visitStruct(cmdName, cmdSchema);
@@ -118,6 +294,7 @@ export class SchemaVisitor {
       errorTypeName,
     };
     this.validateStructReferences(compiled);
+    this.validateIdentifiers(compiled);
     return compiled;
   }
 
@@ -253,6 +430,45 @@ export class SchemaVisitor {
       kind: "struct",
       struct: { name, fields: [] },
     };
+  }
+
+  /**
+   * Reject field names that produce broken or colliding identifiers in any
+   * target language. Field names are emitted as snake_case (Rust/Zig/C++)
+   * and camelCase (TS), so both projections are checked.
+   */
+  private validateIdentifiers(schema: CompiledSchema): void {
+    const allStructs = [
+      ...schema.structs.values(),
+      ...schema.responses.values(),
+    ];
+    for (const struct of allStructs) {
+      const snakeSeen = new Map<string, string>();
+      const camelSeen = new Map<string, string>();
+      for (const field of struct.fields) {
+        const snake = toSnakeCase(field.name);
+        const camel = toCamelCase(field.name);
+        if (RESERVED_WORDS.has(snake) || RESERVED_WORDS.has(camel)) {
+          throw new Error(
+            `Field '${struct.name}.${field.name}' maps to a reserved word in a target language`,
+          );
+        }
+        const snakeClash = snakeSeen.get(snake);
+        if (snakeClash !== undefined && snakeClash !== field.name) {
+          throw new Error(
+            `Fields '${struct.name}.${snakeClash}' and '${struct.name}.${field.name}' both map to '${snake}'`,
+          );
+        }
+        snakeSeen.set(snake, field.name);
+        const camelClash = camelSeen.get(camel);
+        if (camelClash !== undefined && camelClash !== field.name) {
+          throw new Error(
+            `Fields '${struct.name}.${camelClash}' and '${struct.name}.${field.name}' both map to '${camel}'`,
+          );
+        }
+        camelSeen.set(camel, field.name);
+      }
+    }
   }
 
   private validateStructReferences(schema: CompiledSchema): void {

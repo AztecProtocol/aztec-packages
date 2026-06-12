@@ -13,21 +13,20 @@
  */
 
 import type { CompiledSchema, Command } from "./schema_visitor.ts";
-import { toPascalCase, toSnakeCase } from "./naming.ts";
-
-// Convert a schema alias name into its C++ type name. Strips a trailing
-// `_t` (uint256_t → Uint256) and PascalCases the rest, so `fr` → `Fr`,
-// `secp256k1_fr` → `Secp256k1Fr`, `uint256_t` → `Uint256`.
-function toAliasName(name: string): string {
-  const trimmed = name.endsWith("_t") ? name.slice(0, -2) : name;
-  return toPascalCase(trimmed);
-}
+import {
+  toPascalCase,
+  toSnakeCase,
+  toAliasName,
+  dedupeStructsByName,
+} from "./naming.ts";
 
 export interface CppCodegenOptions {
   /** C++ namespace for generated code, e.g. 'my_service' */
   namespace: string;
   /** Prefix for command/response types, e.g. 'MyService' */
   prefix: string;
+  /** Strip the prefix from method names, e.g. MyServiceGetInfo -> get_info */
+  stripMethodPrefix?: boolean;
   /**
    * Override for the generated output directory include path.
    */
@@ -67,12 +66,13 @@ export class CppCodegen {
     throw new Error(`Unsupported primitive type: ${type.primitive}`);
   }
 
-  /** Convert a command name to a C++ method name (snake_case without prefix) */
+  /** Convert a command name to a C++ method name (snake_case) */
   private methodName(commandName: string): string {
-    // Strip prefix: "CdbGetContractInstance" -> "GetContractInstance" -> "get_contract_instance"
-    const withoutPrefix = commandName.startsWith(this.opts.prefix)
-      ? commandName.slice(this.opts.prefix.length)
-      : commandName;
+    // With stripMethodPrefix: "CdbGetContractInstance" -> "get_contract_instance"
+    const withoutPrefix =
+      this.opts.stripMethodPrefix && commandName.startsWith(this.opts.prefix)
+        ? commandName.slice(this.opts.prefix.length)
+        : commandName;
     return toSnakeCase(withoutPrefix);
   }
 
@@ -138,9 +138,8 @@ export class CppCodegen {
 
 #include "${typesInclude}"
 #include "ipc_runtime/ipc_client.hpp"
-#include "ipc_runtime/serve_helper.hpp"
-// clang-format on
 
+#include <cstdint>
 #include <memory>
 #include <string>
 
@@ -156,7 +155,13 @@ ${wireUsing}${hashConstant}
  */
 class ${className} {
   public:
-    explicit ${className}(const std::string& path);
+    /**
+     * @param path Transport path (".sock" → UDS, ".shm" → MPSC-SHM).
+     * @param call_timeout_ns Per-call send/receive timeout in nanoseconds.
+     *        0 (the default) means wait indefinitely — commands like proving
+     *        can legitimately take minutes.
+     */
+    explicit ${className}(const std::string& path, uint64_t call_timeout_ns = 0);
     ~${className}();
 
     ${className}(const ${className}&) = delete;
@@ -169,6 +174,7 @@ ${methods}
     Resp send(Cmd&& cmd) const;
 
     mutable std::unique_ptr<::ipc::IpcClient> client_;
+    uint64_t call_timeout_ns_;
 };
 
 } // namespace ${ns}
@@ -179,7 +185,7 @@ ${methods}
   generateImpl(schema: CompiledSchema): string {
     const { namespace: ns, prefix } = this.opts;
     const className = `${prefix}IpcClient`;
-    const errorType = schema.errorTypeName || `${prefix}ErrorResponse`;
+    const errorType = schema.errorTypeName;
 
     const methods = schema.commands
       .map((cmd) => {
@@ -210,12 +216,9 @@ ${methods}
 
 namespace ${ns} {
 
-namespace {
-constexpr uint64_t DEFAULT_CALL_TIMEOUT_NS = 1000000000ULL;
-}
-
-${className}::${className}(const std::string& path)
+${className}::${className}(const std::string& path, uint64_t call_timeout_ns)
     : client_(::ipc::make_client(path))
+    , call_timeout_ns_(call_timeout_ns)
 {
     if (!client_) {
         throw std::runtime_error("ipc::make_client: unrecognised path suffix (expected .sock or .shm): " + path);
@@ -239,12 +242,12 @@ Resp ${className}::send(Cmd&& cmd) const
     pk.pack(std::forward<Cmd>(cmd));
 
     // Send request, receive response.
-    if (!client_->send(send_buffer.data(), send_buffer.size(), DEFAULT_CALL_TIMEOUT_NS)) {
+    if (!client_->send(send_buffer.data(), send_buffer.size(), call_timeout_ns_)) {
         throw std::runtime_error("ipc::IpcClient::send failed");
     }
-    auto response_view = client_->receive(DEFAULT_CALL_TIMEOUT_NS);
+    auto response_view = client_->receive(call_timeout_ns_);
     if (response_view.empty()) {
-        throw std::runtime_error("Empty response from server");
+        throw std::runtime_error("ipc::IpcClient::receive failed or timed out");
     }
     // Copy out before release() — for SHM this gives up zero-copy semantics
     // but keeps the rest of the code simple. convert() below copies anyway.
@@ -278,6 +281,10 @@ Resp ${className}::send(Cmd&& cmd) const
             }
         }
         throw std::runtime_error("Server error: " + message);
+    }
+    if (resp_name != Resp::MSGPACK_SCHEMA_NAME) {
+        throw std::runtime_error("Expected response '" + std::string(Resp::MSGPACK_SCHEMA_NAME) +
+                                 "' but got '" + resp_name + "'");
     }
 
     Resp result;
@@ -353,7 +360,10 @@ ${methods}
   generateStandaloneTypes(schema: CompiledSchema): string {
     const { namespace: ns, prefix } = this.opts;
 
-    const aliasTypes = new Map<string, { underlying: string; schemaName: string }>();
+    const aliasTypes = new Map<
+      string,
+      { underlying: string; schemaName: string }
+    >();
     const collect = (type: import("./schema_visitor.ts").Type): void => {
       if (type.kind === "primitive" && type.originalName) {
         aliasTypes.set(toAliasName(type.originalName), {
@@ -377,6 +387,11 @@ ${methods}
     const aliasDecls = [...aliasTypes.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([name, { underlying, schemaName }]) => {
+        // bin32 aliases are nominal types (a fixed 32-byte value with a name),
+        // so they reflect their alias name. Scalar aliases are transparent
+        // synonyms — consumers static_cast them to/from enums and integers —
+        // so they are plain `using` and do not carry their name through
+        // reflection.
         if (underlying === "std::array<uint8_t, 32>") {
           return `struct ${name} : ::ipc::Bin32Alias<${name}> {
     using ::ipc::Bin32Alias<${name}>::Bin32Alias;
@@ -406,19 +421,25 @@ ${methods}
       throw new Error(`Unsupported type kind: ${type.kind}`);
     };
 
-    const allStructs = [
+    const allStructs = dedupeStructsByName([
       ...schema.structs.values(),
       ...schema.responses.values(),
-    ];
+    ]);
     const structs = allStructs
       .map((s) => {
+        if (s.fields.length > 20) {
+          throw new Error(
+            `Struct '${s.name}' has ${s.fields.length} fields; IPC_CODEGEN_SERIALIZATION_FIELDS supports at most 20. ` +
+              `Split the struct or extend the macro in ipc_codegen/msgpack_adaptor.hpp.`,
+          );
+        }
         const fields = s.fields
           .map((f) => `    ${mapType(f.type)} ${f.name};`)
           .join("\n");
         const fieldNames = s.fields.map((f) => f.name).join(", ");
         const schemaName = `    static constexpr const char MSGPACK_SCHEMA_NAME[] = "${s.name}";`;
         const serialization = fieldNames
-          ? `    SERIALIZATION_FIELDS(${fieldNames})`
+          ? `    IPC_CODEGEN_SERIALIZATION_FIELDS(${fieldNames})`
           : `    template <typename _PackFn> void msgpack(_PackFn&& pack_fn) { pack_fn(); }`;
         return `struct ${s.name} {\n${schemaName}\n${fields}\n${serialization}\n    bool operator==(const ${s.name}&) const = default;\n};`;
       })
@@ -440,17 +461,14 @@ ${methods}
 // Pull in THROW/RETHROW: \`throw\` natively, abort-on-throw under
 // BB_NO_EXCEPTIONS (WASM). Must be in scope before <msgpack.hpp> so msgpack-c
 // picks up the right variant.
-#include "ipc_codegen/throw.hpp"
-#include <msgpack.hpp>
+#include "ipc_codegen/msgpack_include.hpp"
 
 // ---------------------------------------------------------------------------
-// Self-contained serialization macro.
+// Self-contained serialization macro for generated wire types.
 // Defines a msgpack() method that enumerates field name/value pairs.
 // Works with msgpack packers (serialization) and schema reflectors.
-// Skipped if the consumer already defines SERIALIZATION_FIELDS (which then
-// wins, so wire and domain types share the same enumeration semantics).
 // ---------------------------------------------------------------------------
-#ifndef SERIALIZATION_FIELDS
+#ifndef IPC_CODEGEN_SERIALIZATION_FIELDS
 #define _SF_E1(x) #x, x
 #define _SF_E2(x, ...) #x, x, _SF_E1(__VA_ARGS__)
 #define _SF_E3(x, ...) #x, x, _SF_E2(__VA_ARGS__)
@@ -476,7 +494,7 @@ ${methods}
 #define _SF_CAT(a, b) a##b
 #define _SF_SEL(n) _SF_CAT(_SF_E, n)
 #define _SF_NVP(...) _SF_SEL(_SF_NUM(__VA_ARGS__))(__VA_ARGS__)
-#define SERIALIZATION_FIELDS(...) \\
+#define IPC_CODEGEN_SERIALIZATION_FIELDS(...) \\
     template <typename _PackFn> void msgpack(_PackFn pack_fn) { pack_fn(_SF_NVP(__VA_ARGS__)); }
 #endif
 
@@ -545,140 +563,6 @@ ${this.opts.wireNamespace ? `} // namespace ${this.opts.wireNamespace}` : ""}
 `;
   }
 
-  /** Generate standalone server dispatch (no external project deps) */
-  generateStandaloneServer(schema: CompiledSchema): string {
-    const { namespace: ns, prefix } = this.opts;
-    const errorType = schema.errorTypeName || `${prefix}ErrorResponse`;
-
-    const dispatchCases = schema.commands
-      .map((c) => {
-        return `        if (cmd_name == "${c.name}") {
-            ${c.name} cmd; cmd_payload.convert(cmd);
-            auto resp = handle_${toSnakeCase(c.name.startsWith(prefix) ? c.name.slice(prefix.length) : c.name)}(cmd);
-            pk.pack_array(2); pk.pack(std::string("${c.responseType}")); pk.pack(resp);
-        }`;
-      })
-      .join(" else ");
-
-    const stubs = schema.commands
-      .map((c) => {
-        const method = toSnakeCase(
-          c.name.startsWith(prefix) ? c.name.slice(prefix.length) : c.name,
-        );
-        return `// TODO: implement ${c.name}
-inline ${c.responseType} handle_${method}(const ${c.name}& /*cmd*/) {
-    throw std::runtime_error("not implemented: ${c.name}");
-}`;
-      })
-      .join("\n\n");
-
-    return `// AUTOGENERATED FILE - DO NOT EDIT
-// ${prefix} server dispatch — only depends on msgpack-c.
-// Implement the handle_* functions to build your ${prefix} service.
-#pragma once
-
-#include "types_gen.hpp"
-#include "${this.generatedInclude("ipc_server.hpp")}"
-#include <stdexcept>
-
-namespace ${ns} {
-
-// ---------------------------------------------------------------------------
-// Dispatch: routes commands to handler functions
-// ---------------------------------------------------------------------------
-
-inline std::vector<uint8_t> dispatch(const std::vector<uint8_t>& payload) {
-    auto oh = msgpack::unpack(reinterpret_cast<const char*>(payload.data()), payload.size());
-    auto obj = oh.get();
-    auto& inner = obj.via.array.ptr[0];
-    std::string cmd_name(inner.via.array.ptr[0].via.str.ptr, inner.via.array.ptr[0].via.str.size);
-    auto& cmd_payload = inner.via.array.ptr[1];
-
-    msgpack::sbuffer resp_buf;
-    msgpack::packer<msgpack::sbuffer> pk(resp_buf);
-
-    try {
-        ${dispatchCases} else {
-            pk.pack_array(2); pk.pack(std::string("${errorType}"));
-            pk.pack_map(1); pk.pack(std::string("message")); pk.pack(std::string("unknown command: ") + cmd_name);
-        }
-    } catch (const std::exception& e) {
-        resp_buf.clear();
-        msgpack::packer<msgpack::sbuffer> epk(resp_buf);
-        epk.pack_array(2); epk.pack(std::string("${errorType}"));
-        epk.pack_map(1); epk.pack(std::string("message")); epk.pack(std::string(e.what()));
-    }
-
-    return std::vector<uint8_t>(resp_buf.data(), resp_buf.data() + resp_buf.size());
-}
-
-/// Start the server on the given socket path.
-inline void serve(const char* socket_path) {
-    ipc::serve(socket_path, dispatch);
-}
-
-// ---------------------------------------------------------------------------
-// Handler stubs — implement these to build your ${prefix} service.
-// ---------------------------------------------------------------------------
-
-${stubs}
-
-} // namespace ${ns}
-`;
-  }
-
-  /** Generate standalone client wrapper (no external project deps) */
-  generateStandaloneClient(schema: CompiledSchema): string {
-    const { namespace: ns, prefix } = this.opts;
-    const errorType = schema.errorTypeName || `${prefix}ErrorResponse`;
-
-    const methods = schema.commands
-      .map((c) => {
-        const method = toSnakeCase(
-          c.name.startsWith(prefix) ? c.name.slice(prefix.length) : c.name,
-        );
-        const hasFields = c.fields.length > 0;
-        const param = hasFields ? `const ${c.name}& cmd` : "";
-        const packCmd = hasFields ? "cmd" : `${c.name}{}`;
-        return `    ${c.responseType} ${method}(${param}) {
-        msgpack::sbuffer buf;
-        msgpack::packer<msgpack::sbuffer> pk(buf);
-        pk.pack_array(1); pk.pack_array(2); pk.pack(std::string("${c.name}")); pk.pack(${packCmd});
-        auto resp = client_.call(std::vector<uint8_t>(buf.data(), buf.data() + buf.size()));
-        auto oh = msgpack::unpack(reinterpret_cast<const char*>(resp.data()), resp.size());
-        auto obj = oh.get();
-        std::string resp_name(obj.via.array.ptr[0].via.str.ptr, obj.via.array.ptr[0].via.str.size);
-        if (resp_name == "${errorType}") throw std::runtime_error("server error");
-        ${c.responseType} result; obj.via.array.ptr[1].convert(result);
-        return result;
-    }`;
-      })
-      .join("\n\n");
-
-    return `// AUTOGENERATED FILE - DO NOT EDIT
-// ${prefix} typed IPC client — only depends on msgpack-c.
-#pragma once
-
-#include "types_gen.hpp"
-#include "${this.generatedInclude("ipc_client.hpp")}"
-#include <stdexcept>
-
-namespace ${ns} {
-
-class ${prefix}Client {
-  public:
-    explicit ${prefix}Client(const char* socket_path) : client_(socket_path) {}
-
-${methods}
-
-  private:
-    ipc::IpcClient client_;
-};
-
-} // namespace ${ns}
-`;
-  }
-
   // -----------------------------------------------------------------------
   // Server-side code generation (uses standalone ipc_server.hpp template)
   // -----------------------------------------------------------------------
@@ -686,7 +570,7 @@ ${methods}
   /** Generate the dispatch — header-only, template<typename Ctx>, no transport dependency. */
   generateDispatchHeader(schema: CompiledSchema): string {
     const { namespace: ns, prefix } = this.opts;
-    const errorTypeName = schema.errorTypeName || `${prefix}ErrorResponse`;
+    const errorTypeName = schema.errorTypeName;
     const typesHeader = `${toSnakeCase(prefix)}_types.hpp`;
     const prefixLower = toSnakeCase(prefix);
 
@@ -698,10 +582,9 @@ ${methods}
     const cmdUnionMembers = schema.commands
       .map((c) => `wire::${c.name}`)
       .join(",\n                                   ");
-    const respUnionMembers = [
-      errorTypeName,
-      ...schema.commands.map((c) => c.responseType),
-    ]
+    // Union members must be emitted in schema order so that reflecting the
+    // generated types reproduces the committed schema byte-for-byte.
+    const respUnionMembers = [...schema.responses.keys()]
       .map((r) => `wire::${r}`)
       .join(",\n                                           ");
 
@@ -759,8 +642,7 @@ ${methods}
 // Pull in THROW/RETHROW — 'throw' natively, abort-on-throw under
 // BB_NO_EXCEPTIONS (WASM). ipc_codegen/throw.hpp keeps definitions guarded
 // with #ifndef THROW, so a parent project that predefines them wins.
-#include "ipc_codegen/throw.hpp"
-#include <msgpack.hpp>
+#include "ipc_codegen/msgpack_include.hpp"
 
 #include <functional>
 #include <iostream>
@@ -813,15 +695,13 @@ ${handlerEntries},
         auto obj = unpacked.get();
 
         if (obj.type != msgpack::type::ARRAY || obj.via.array.size != 1) {
-            std::cerr << "Error: Expected array of size 1\\n";
-            return {};
+            return detail::make_error("malformed request: expected outer array of size 1");
         }
 
         auto& inner = obj.via.array.ptr[0];
         if (inner.type != msgpack::type::ARRAY || inner.via.array.size != 2 ||
             inner.via.array.ptr[0].type != msgpack::type::STR) {
-            std::cerr << "Error: Expected [CommandName, {payload}]\\n";
-            return {};
+            return detail::make_error("malformed request: expected [CommandName, {payload}]");
         }
 
         std::string cmd_name(inner.via.array.ptr[0].via.str.ptr, inner.via.array.ptr[0].via.str.size);
@@ -853,10 +733,17 @@ using ${prefix}Command = ::ipc::NamedUnion<${cmdUnionMembers}>;
 using ${prefix}CommandResponse = ::ipc::NamedUnion<${respUnionMembers}>;
 
 namespace detail {
+// Reflects as the bare {"commands": ..., "responses": ...} document so the
+// output is exactly the committable schema (no wrapper __typename).
 struct ${prefix}Api {
-    ${prefix}Command commands;
-    ${prefix}CommandResponse responses;
-    SERIALIZATION_FIELDS(commands, responses);
+    void msgpack_schema(auto& packer) const
+    {
+        packer.pack_map(2);
+        packer.pack("commands");
+        packer.pack_schema(${prefix}Command{});
+        packer.pack("responses");
+        packer.pack_schema(${prefix}CommandResponse{});
+    }
 };
 } // namespace detail
 
@@ -907,269 +794,6 @@ void serve(const std::string& input_path, Ctx& ctx)
 }
 
 } // namespace ${ns}
-`;
-  }
-
-  /** Generate the server dispatch implementation — map-based O(1) lookup */
-  generateServerImpl(schema: CompiledSchema): string {
-    const { namespace: ns, prefix } = this.opts;
-    const requestType = `${prefix}Request`;
-    const errorTypeName = schema.errorTypeName || `${prefix}ErrorResponse`;
-
-    const serverHeaderPath = this.generatedInclude(
-      `${toSnakeCase(prefix)}_dispatch.hpp`,
-    );
-
-    // Generate handler lambdas for each command
-    const wireNs = this.opts.wireNamespace;
-    const handlerEntries = schema.commands
-      .map((cmd) => {
-        // When wireNamespace is set: deserialize wire type, call handle_xxx() which returns wire response
-        // When not set: wire types ARE domain types, call cmd.execute(request) directly
-        const method = toSnakeCase(
-          cmd.name.startsWith(prefix)
-            ? cmd.name.slice(prefix.length)
-            : cmd.name,
-        );
-        let body: string;
-
-        if (wireNs) {
-          const wireType = `${wireNs}::${cmd.name}`;
-          const deserialize =
-            cmd.fields.length > 0
-              ? `${wireType} wire_cmd; payload.convert(wire_cmd);`
-              : `${wireType} wire_cmd;`;
-          body = `${deserialize}
-            auto wire_resp = handle_${method}(request, std::move(wire_cmd));
-            msgpack::sbuffer buf;
-            msgpack::packer<msgpack::sbuffer> pk(buf);
-            pk.pack_array(2); pk.pack(std::string("${cmd.responseType}")); pk.pack(wire_resp);`;
-        } else {
-          const deserialize =
-            cmd.fields.length > 0
-              ? `${cmd.name} cmd; payload.convert(cmd);`
-              : `${cmd.name} cmd;`;
-          body = `${deserialize}
-            auto resp = std::move(cmd).execute(request);
-            msgpack::sbuffer buf;
-            msgpack::packer<msgpack::sbuffer> pk(buf);
-            pk.pack_array(2); pk.pack(std::string("${cmd.responseType}")); pk.pack(resp);`;
-        }
-
-        return `        { "${cmd.name}", [](${requestType}& request, [[maybe_unused]] const msgpack::object& payload) -> std::vector<uint8_t> {
-            ${body}
-            return std::vector<uint8_t>(buf.data(), buf.data() + buf.size());
-        } }`;
-      })
-      .join(",\n");
-
-    // Include wire types header when wire/domain split is used
-    const wireTypesInclude = wireNs
-      ? `#include "${this.generatedInclude(`${toSnakeCase(prefix)}_types.hpp`)}"\n`
-      : "";
-
-    return `// AUTOGENERATED FILE - DO NOT EDIT
-
-#include "${serverHeaderPath}"
-${wireTypesInclude}#include "ipc_codegen/msgpack_adaptor.hpp"
-
-#include <functional>
-#include <iostream>
-#include <string>
-#include <unordered_map>
-
-namespace ${ns} {
-
-using CommandHandler = std::function<std::vector<uint8_t>(${requestType}&, const msgpack::object&)>;
-
-static const std::unordered_map<std::string, CommandHandler>& get_dispatch_table()
-{
-    static const std::unordered_map<std::string, CommandHandler> table = {
-${handlerEntries},
-    };
-    return table;
-}
-
-static std::vector<uint8_t> make_error(const std::string& message)
-{
-    msgpack::sbuffer buf;
-    msgpack::packer<msgpack::sbuffer> pk(buf);
-    pk.pack_array(2);
-    pk.pack(std::string("${errorTypeName}"));
-    pk.pack_map(1);
-    pk.pack(std::string("message"));
-    pk.pack(message);
-    return std::vector<uint8_t>(buf.data(), buf.data() + buf.size());
-}
-
-::ipc::Handler make_${toSnakeCase(prefix)}_handler(${requestType}& request)
-{
-    return [&request](const std::vector<uint8_t>& raw_request) -> std::vector<uint8_t> {
-        // Parse: [[CommandName, {payload}]]
-        auto unpacked = msgpack::unpack(
-            reinterpret_cast<const char*>(raw_request.data()), raw_request.size());
-        auto obj = unpacked.get();
-
-        if (obj.type != msgpack::type::ARRAY || obj.via.array.size != 1) {
-            std::cerr << "Error: Expected array of size 1\\n";
-            return {};
-        }
-
-        auto& inner = obj.via.array.ptr[0];
-        if (inner.type != msgpack::type::ARRAY || inner.via.array.size != 2 ||
-            inner.via.array.ptr[0].type != msgpack::type::STR) {
-            std::cerr << "Error: Expected [CommandName, {payload}]\\n";
-            return {};
-        }
-
-        std::string cmd_name(inner.via.array.ptr[0].via.str.ptr, inner.via.array.ptr[0].via.str.size);
-        auto& cmd_payload = inner.via.array.ptr[1];
-
-        try {
-            auto& table = get_dispatch_table();
-            auto it = table.find(cmd_name);
-            if (it == table.end()) {
-                return make_error("unknown command: " + cmd_name);
-            }
-            return it->second(request, cmd_payload);
-        } catch (const std::exception& e) {
-            std::cerr << "Error processing " << cmd_name << ": " << e.what() << '\\n';
-            return make_error(e.what());
-        }
-    };
-}
-
-} // namespace ${ns}
-`;
-  }
-
-  // -----------------------------------------------------------------------
-  // Skeleton generation (one-time handler stubs + main)
-  // -----------------------------------------------------------------------
-
-  /** Generate handler stub implementations that throw "not implemented" */
-  generateHandlerStubs(schema: CompiledSchema): string {
-    const { namespace: ns, prefix } = this.opts;
-    const typesHeader = `${toSnakeCase(prefix)}_dispatch.hpp`;
-    const ctxName = `${prefix}Context`;
-
-    const stubs = schema.commands
-      .map((c) => {
-        const method = toSnakeCase(
-          c.name.startsWith(prefix) ? c.name.slice(prefix.length) : c.name,
-        );
-        return `template<>
-wire::${c.responseType} handle_${method}(${ctxName}& /*ctx*/, wire::${c.name}&& /*cmd*/)
-{
-    throw std::runtime_error("not implemented: ${c.name}");
-}`;
-      })
-      .join("\n\n");
-
-    return `// Handler stubs — implement your service logic here.
-// This file is generated ONCE. Edit freely — it will not be overwritten.
-#include "generated/${typesHeader}"
-#include <stdexcept>
-
-struct ${ctxName} {
-    // Add your shared state here (database connection, etc.)
-};
-
-namespace ${ns} {
-
-${stubs}
-
-// Explicit template instantiation — must be at the bottom after all handlers.
-template DispatchHandler make_${toSnakeCase(prefix)}_handler(${ctxName}& ctx);
-
-} // namespace ${ns}
-`;
-  }
-
-  /** Generate a main.cpp entry point for a standalone service */
-  generateMain(schema: CompiledSchema): string {
-    const { namespace: ns, prefix } = this.opts;
-    const ctxName = `${prefix}Context`;
-
-    return `// Entry point for ${prefix} service.
-// This file is generated ONCE. Edit freely — it will not be overwritten.
-#include "generated/${toSnakeCase(prefix)}_ipc_server.hpp"
-#include "${toSnakeCase(prefix)}_handlers.cpp"
-
-#include <atomic>
-#include <csignal>
-#include <iostream>
-
-static std::atomic<bool> shutdown_flag{ false };
-
-int main(int argc, char* argv[])
-{
-    if (argc < 2) {
-        std::cerr << "Usage: " << argv[0] << " <socket_path>\\n";
-        return 1;
-    }
-
-    ${ctxName} ctx{};
-    std::signal(SIGTERM, [](int) { shutdown_flag.store(true); });
-    std::signal(SIGINT, [](int) { shutdown_flag.store(true); });
-
-    std::cerr << "${prefix} server starting on " << argv[1] << "\\n";
-    ::ipc::serve(argv[1], ${ns}::make_${toSnakeCase(prefix)}_handler(ctx), &shutdown_flag);
-    return 0;
-}
-`;
-  }
-
-  /** Generate CMakeLists.txt for a standalone service */
-  generateBuildFile(schema: CompiledSchema): string {
-    const { prefix } = this.opts;
-    const snakePrefix = toSnakeCase(prefix);
-
-    return `cmake_minimum_required(VERSION 3.20)
-project(${snakePrefix}_service CXX)
-
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-# Generated IPC code
-file(GLOB GENERATED_SOURCES generated/*.cpp generated/*.hpp)
-
-add_executable(${snakePrefix}
-    main.cpp
-    \${GENERATED_SOURCES}
-)
-
-target_include_directories(${snakePrefix} PRIVATE \${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(${snakePrefix} PRIVATE pthread)
-`;
-  }
-
-  /** Generate .gitignore for the skeleton project */
-  generateGitignore(): string {
-    return `# Generated IPC code — do not edit, re-run generate.sh instead
-generated/
-build/
-`;
-  }
-
-  /** Generate a shell script to re-run codegen */
-  generateGenerateScript(schemaPath: string): string {
-    const { prefix, namespace: ns } = this.opts;
-    return `#!/usr/bin/env bash
-# Re-generate IPC types, server, and client from schema.
-# Run from the project root directory.
-set -euo pipefail
-
-SCRIPT_DIR="$(cd "$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
-SCHEMA="${schemaPath}"
-
-node --experimental-strip-types "$(dirname "$SCRIPT_DIR")/codegen/src/generate.ts" \\
-  --schema "$SCHEMA" \\
-  --lang cpp \\
-  --out "$SCRIPT_DIR/generated" \\
-  --prefix ${prefix} \\
-  --cpp-namespace ${ns} \\
-  --server
 `;
   }
 }

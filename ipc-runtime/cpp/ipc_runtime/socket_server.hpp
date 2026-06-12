@@ -37,6 +37,11 @@ class SocketServer : public IpcServer {
     bool send(int client_id, const void* data, size_t len) override;
     void close() override;
 
+    CleanupPaths cleanup_paths() const override
+    {
+        return CleanupPaths{ .unlink_paths = { socket_path_ }, .shm_unlink_names = {} };
+    }
+
   private:
     void close_internal();
     void disconnect_client(int client_id);

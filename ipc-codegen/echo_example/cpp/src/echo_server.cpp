@@ -5,6 +5,7 @@
 #include "generated/echo_ipc_server.hpp"
 
 #include <iostream>
+#include <stdexcept>
 #include <string_view>
 
 namespace echo {
@@ -36,6 +37,17 @@ wire::EchoAliasesResponse handle_aliases(EchoCtx & /*ctx*/,
           .hash = cmd.hash,
           .maybeHash = cmd.maybeHash,
           .hashes = std::move(cmd.hashes)};
+}
+
+template <>
+wire::EchoBlobsResponse handle_blobs(EchoCtx & /*ctx*/, wire::EchoBlobs &&cmd) {
+  return {.maybeData = std::move(cmd.maybeData),
+          .parts = std::move(cmd.parts)};
+}
+
+template <>
+wire::EchoFailResponse handle_fail(EchoCtx & /*ctx*/, wire::EchoFail &&cmd) {
+  throw std::runtime_error(cmd.message);
 }
 
 } // namespace echo

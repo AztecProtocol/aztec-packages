@@ -21,8 +21,10 @@
  *    NOT free it. Either return a buffer the runtime can memcpy from and
  *    forget, or manage with a static buffer.
  *
- * Threading: all functions are blocking; one caller per handle. The
- * runtime internally uses threads for SHM client connection setup.
+ * Threading: all functions are blocking; one caller per handle.
+ * ipc_client_connect retries on the calling thread (no internal threads);
+ * the only thread the runtime spawns is the macOS parent-death watcher
+ * installed by ipc_install_default_signal_handlers.
  */
 
 #include <stdbool.h>
@@ -35,16 +37,10 @@ extern "C" {
 
 /* --- Status codes ------------------------------------------------------ */
 
-typedef enum {
-  IPC_OK = 0,
-  IPC_ERR_INVALID_PATH = -1,
-  IPC_ERR_CONNECT = -2,
-  IPC_ERR_LISTEN = -3,
-  IPC_ERR_SEND = -4,
-  IPC_ERR_RECV = -5,
-  IPC_ERR_SHUTDOWN_REQUESTED = -6,
-  IPC_ERR_UNKNOWN = -99
-} ipc_status_t;
+/* Only the codes the runtime actually produces. IPC_ERR_RECV covers
+ * receive timeout and disconnect; a successful zero-length response is
+ * IPC_OK with *out_len == 0. */
+typedef enum { IPC_OK = 0, IPC_ERR_RECV = -5 } ipc_status_t;
 
 /* --- Options ----------------------------------------------------------- */
 
@@ -92,14 +88,14 @@ bool ipc_server_send(ipc_server_t *server, int client_id, const uint8_t *data,
                      size_t len);
 
 /* Convenience event loop. The handler is called for each incoming message;
- * it writes the response into a freshly-allocated buffer and stores the
- * pointer + length in *resp_out / *resp_len_out. The runtime copies the
- * response into its send path and does not free the handler's buffer —
- * the handler is responsible (e.g. via a thread-local arena).
+ * it writes the response into a buffer it owns and stores the pointer +
+ * length in *resp_out / *resp_len_out. The runtime copies the response
+ * into its send path and does not free the handler's buffer — the handler
+ * is responsible (e.g. via a thread-local arena).
  *
- * To signal graceful shutdown, the handler should *not* set resp_out and
- * return — call ipc_server_request_shutdown() from inside the handler
- * before returning.
+ * Every request gets exactly one response; leaving *resp_out unset (or
+ * setting *resp_len_out = 0) sends a zero-length response frame. To exit
+ * the loop, call ipc_server_request_shutdown() from inside the handler.
  */
 typedef void (*ipc_server_handler_fn)(int client_id, const uint8_t *req,
                                       size_t req_len, uint8_t **resp_out,
@@ -120,7 +116,6 @@ typedef struct ipc_client ipc_client_t;
 ipc_client_t *ipc_make_client(const char *path, size_t shm_client_id);
 
 ipc_client_t *ipc_client_create_socket(const char *socket_path);
-ipc_client_t *ipc_client_create_shm(const char *base_name);
 ipc_client_t *ipc_client_create_mpsc_shm(const char *base_name,
                                          size_t client_id);
 
@@ -132,6 +127,10 @@ void ipc_client_close(ipc_client_t *client);
 bool ipc_client_send(ipc_client_t *client, const uint8_t *data, size_t len,
                      uint64_t timeout_ns);
 
+/* On success: IPC_OK with *out / *out_len referencing an internal buffer
+ * valid until ipc_client_release(). A zero-length response is IPC_OK with
+ * *out_len == 0 (still followed by ipc_client_release(0)). IPC_ERR_RECV
+ * means timeout or disconnect. timeout_ns == 0 means infinite. */
 ipc_status_t ipc_client_receive(ipc_client_t *client, uint64_t timeout_ns,
                                 const uint8_t **out, size_t *out_len);
 

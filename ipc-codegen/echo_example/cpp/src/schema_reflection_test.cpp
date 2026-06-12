@@ -1,113 +1,20 @@
-#include "generated/echo_types.hpp"
-#include "generated/ipc_codegen/named_union.hpp"
+// Verifies the schema -> generated types -> reflected schema round trip is
+// the identity. This is what makes the edit-code/extract-schema/commit
+// workflow safe: reflecting the GENERATED wire types must reproduce the
+// committed schema byte-for-byte (modulo whitespace). A hand-maintained copy
+// of the types would mask generator drift (and did: it hid a union-ordering
+// bug), so the generated header is reflected directly.
+
+#include "generated/echo_dispatch.hpp"
 #include "generated/ipc_codegen/schema.hpp"
 
-#include <array>
 #include <cctype>
-#include <cstdint>
 #include <fstream>
 #include <iostream>
 #include <sstream>
 #include <string>
-#include <vector>
 
-namespace echo_reflect {
-
-struct MerkleTreeId {
-  void msgpack_schema(auto &packer) const {
-    packer.pack_alias("MerkleTreeId", "unsigned int");
-  }
-};
-
-struct Fr {
-  void msgpack_schema(auto &packer) const { packer.pack_alias("Fr", "bin32"); }
-};
-
-struct EchoInner {
-  static constexpr const char MSGPACK_SCHEMA_NAME[] = "EchoInner";
-  std::vector<std::vector<uint8_t>> values;
-  std::optional<bool> flag;
-  SERIALIZATION_FIELDS(values, flag)
-};
-
-struct EchoBytes {
-  static constexpr const char MSGPACK_SCHEMA_NAME[] = "EchoBytes";
-  std::vector<uint8_t> data;
-  SERIALIZATION_FIELDS(data)
-};
-
-struct EchoFields {
-  static constexpr const char MSGPACK_SCHEMA_NAME[] = "EchoFields";
-  uint32_t a;
-  uint64_t b;
-  std::string name;
-  SERIALIZATION_FIELDS(a, b, name)
-};
-
-struct EchoNested {
-  static constexpr const char MSGPACK_SCHEMA_NAME[] = "EchoNested";
-  EchoInner inner;
-  SERIALIZATION_FIELDS(inner)
-};
-
-struct EchoAliases {
-  static constexpr const char MSGPACK_SCHEMA_NAME[] = "EchoAliases";
-  MerkleTreeId treeId;
-  Fr hash;
-  std::optional<Fr> maybeHash;
-  std::vector<Fr> hashes;
-  SERIALIZATION_FIELDS(treeId, hash, maybeHash, hashes)
-};
-
-struct EchoBytesResponse {
-  static constexpr const char MSGPACK_SCHEMA_NAME[] = "EchoBytesResponse";
-  std::vector<uint8_t> data;
-  SERIALIZATION_FIELDS(data)
-};
-
-struct EchoFieldsResponse {
-  static constexpr const char MSGPACK_SCHEMA_NAME[] = "EchoFieldsResponse";
-  uint32_t a;
-  uint64_t b;
-  std::string name;
-  SERIALIZATION_FIELDS(a, b, name)
-};
-
-struct EchoNestedResponse {
-  static constexpr const char MSGPACK_SCHEMA_NAME[] = "EchoNestedResponse";
-  EchoInner inner;
-  SERIALIZATION_FIELDS(inner)
-};
-
-struct EchoAliasesResponse {
-  static constexpr const char MSGPACK_SCHEMA_NAME[] = "EchoAliasesResponse";
-  MerkleTreeId treeId;
-  Fr hash;
-  std::optional<Fr> maybeHash;
-  std::vector<Fr> hashes;
-  SERIALIZATION_FIELDS(treeId, hash, maybeHash, hashes)
-};
-
-struct EchoErrorResponse {
-  static constexpr const char MSGPACK_SCHEMA_NAME[] = "EchoErrorResponse";
-  std::string message;
-  SERIALIZATION_FIELDS(message)
-};
-
-using Command = ipc::NamedUnion<EchoBytes, EchoFields, EchoNested, EchoAliases>;
-using Response = ipc::NamedUnion<EchoBytesResponse, EchoFieldsResponse,
-                                 EchoNestedResponse, EchoAliasesResponse,
-                                 EchoErrorResponse>;
-
-struct EchoSchema {
-  void msgpack_schema(auto &packer) const {
-    packer.pack_map(2);
-    packer.pack("commands");
-    packer.pack_schema(Command{});
-    packer.pack("responses");
-    packer.pack_schema(Response{});
-  }
-};
+namespace {
 
 std::string strip_whitespace(std::string value) {
   std::string stripped;
@@ -120,11 +27,34 @@ std::string strip_whitespace(std::string value) {
   return stripped;
 }
 
-} // namespace echo_reflect
+// Machinery self-check independent of codegen: a hand-declared struct must
+// reflect to the expected JSON.
+struct ReflectProbe {
+  static constexpr const char MSGPACK_SCHEMA_NAME[] = "ReflectProbe";
+  uint32_t value;
+  IPC_CODEGEN_SERIALIZATION_FIELDS(value)
+};
+
+bool machinery_self_check() {
+  auto reflected = ipc::msgpack_schema_to_string(ReflectProbe{});
+  auto expected = R"({"__typename": "ReflectProbe", "value": "unsigned int"})";
+  if (strip_whitespace(reflected) != strip_whitespace(expected)) {
+    std::cerr << "Reflection machinery self-check failed.\nGot: " << reflected
+              << "\nExpected: " << expected << "\n";
+    return false;
+  }
+  return true;
+}
+
+} // namespace
 
 int main(int argc, char **argv) {
   if (argc != 3 || std::string(argv[1]) != "--schema") {
     std::cerr << "Usage: schema_reflection_test --schema <schema.json>\n";
+    return 1;
+  }
+
+  if (!machinery_self_check()) {
     return 1;
   }
 
@@ -136,14 +66,14 @@ int main(int argc, char **argv) {
   std::stringstream buffer;
   buffer << schema_file.rdbuf();
 
-  auto reflected = ipc::msgpack_schema_to_string(echo_reflect::EchoSchema{});
-  if (echo_reflect::strip_whitespace(reflected) !=
-      echo_reflect::strip_whitespace(buffer.str())) {
-    std::cerr << "Reflected schema does not match committed echo schema\n";
+  auto reflected = echo::get_echo_schema_as_json();
+  if (strip_whitespace(reflected) != strip_whitespace(buffer.str())) {
+    std::cerr << "Reflected schema from GENERATED types does not match the "
+                 "committed echo schema\n";
     std::cerr << "Reflected:\n" << reflected << "\n";
     return 1;
   }
 
-  std::cerr << "schema_reflection_test(cpp): schema roundtrip OK\n";
+  std::cerr << "schema_reflection_test(cpp): generated-type roundtrip OK\n";
   return 0;
 }

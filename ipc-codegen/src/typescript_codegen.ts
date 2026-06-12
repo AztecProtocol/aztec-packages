@@ -15,16 +15,13 @@ import type {
   Field,
   Command,
 } from "./schema_visitor.ts";
-import { toPascalCase, toSnakeCase } from "./naming.ts";
-
-function toCamelCase(name: string): string {
-  // If no underscores, assume already camelCase (e.g. forkId, classId)
-  if (!name.includes("_")) {
-    return name.charAt(0).toLowerCase() + name.slice(1);
-  }
-  const pascal = toPascalCase(name);
-  return pascal.charAt(0).toLowerCase() + pascal.slice(1);
-}
+import {
+  toPascalCase,
+  toSnakeCase,
+  toCamelCase,
+  toAliasName,
+  dedupeStructsByName,
+} from "./naming.ts";
 
 export class TypeScriptCodegen {
   private errorTypeName: string = "ErrorResponse";
@@ -78,7 +75,7 @@ export class TypeScriptCodegen {
     switch (type.kind) {
       case "primitive":
         return type.originalName
-          ? toPascalCase(type.originalName)
+          ? toAliasName(type.originalName)
           : this.primitiveType(type);
 
       case "vector": {
@@ -113,13 +110,15 @@ export class TypeScriptCodegen {
   private mapMsgpackType(type: Type): string {
     switch (type.kind) {
       case "primitive":
-        return this.primitiveType(type);
+        // u64 crosses the wire as bigint beyond 32 bits (see toWireU64).
+        return type.primitive === "u64"
+          ? "number | bigint"
+          : this.primitiveType(type);
 
       case "vector": {
         const inner = this.mapMsgpackType(type.element!);
-        return type.element!.kind === "optional"
-          ? `(${inner})[]`
-          : `${inner}[]`;
+        // Parenthesize union element types: number | bigint[] != (number | bigint)[]
+        return inner.includes("|") ? `(${inner})[]` : `${inner}[]`;
       }
 
       case "array": {
@@ -127,9 +126,7 @@ export class TypeScriptCodegen {
           return "Uint8Array";
         }
         const inner = this.mapMsgpackType(type.element!);
-        return type.element!.kind === "optional"
-          ? `(${inner})[]`
-          : `${inner}[]`;
+        return inner.includes("|") ? `(${inner})[]` : `${inner}[]`;
       }
 
       case "optional":
@@ -203,6 +200,7 @@ ${fields}
     }
 
     const checks = struct.fields
+      .filter((f) => f.type.kind !== "optional")
       .map(
         (f) =>
           `  if (o.${f.name} === undefined) { throw new Error("Expected ${f.name} in ${tsName} deserialization"); }`,
@@ -236,6 +234,7 @@ ${conversions}
     }
 
     const checks = struct.fields
+      .filter((f) => f.type.kind !== "optional")
       .map((f) => {
         const tsFieldName = toCamelCase(f.name);
         return `  if (o.${tsFieldName} === undefined) { throw new Error("Expected ${tsFieldName} in ${tsName} serialization"); }`;
@@ -261,65 +260,71 @@ ${conversions}
 }`;
   }
 
-  // Generate converter for to* function
-  private generateToConverter(type: Type, value: string): string {
-    if (!this.needsConversion(type)) {
-      return value;
-    }
-
+  /**
+   * Generate a conversion expression for a field in either direction.
+   * Primitives that can be silently mis-encoded get runtime guards:
+   * u64 (precision loss past 2^53 until a bigint migration) and bin32
+   * (length must be exactly 32 — other languages enforce this).
+   * Optionals normalize undefined to null so omitted fields are valid.
+   */
+  private generateConverter(
+    dir: "to" | "from",
+    type: Type,
+    value: string,
+  ): string {
     switch (type.kind) {
+      case "primitive":
+        if (type.primitive === "u64") {
+          return dir === "from"
+            ? `toWireU64(${value}, ${JSON.stringify(value)})`
+            : `assertU64(${value}, ${JSON.stringify(value)})`;
+        }
+        if (type.primitive === "bin32") {
+          return `assertBin32(${value}, ${JSON.stringify(value)})`;
+        }
+        return value;
       case "vector":
-      case "array":
-        if (this.needsConversion(type.element!)) {
-          return `${value}.map((v: any) => ${this.generateToConverter(type.element!, "v")})`;
+      case "array": {
+        if (this.isU8Array(type)) {
+          return value;
         }
-        return value;
-      case "optional":
-        if (this.needsConversion(type.element!)) {
-          return `${value} != null ? ${this.generateToConverter(type.element!, value)} : null`;
-        }
-        return value;
+        const elem = this.generateConverter(dir, type.element!, "v");
+        return elem === "v" ? value : `${value}.map((v: any) => ${elem})`;
+      }
+      case "optional": {
+        const inner = this.generateConverter(dir, type.element!, value);
+        return inner === value
+          ? `${value} ?? null`
+          : `${value} != null ? ${inner} : null`;
+      }
       case "struct":
-        return `to${toPascalCase(type.struct!.name)}(${value})`;
+        return `${dir}${toPascalCase(type.struct!.name)}(${value})`;
     }
     return value;
   }
 
-  // Generate converter for from* function
-  private generateFromConverter(type: Type, value: string): string {
-    if (!this.needsConversion(type)) {
-      return value;
-    }
+  private generateToConverter(type: Type, value: string): string {
+    return this.generateConverter("to", type, value);
+  }
 
-    switch (type.kind) {
-      case "vector":
-      case "array":
-        if (this.needsConversion(type.element!)) {
-          return `${value}.map((v: any) => ${this.generateFromConverter(type.element!, "v")})`;
-        }
-        return value;
-      case "optional":
-        if (this.needsConversion(type.element!)) {
-          return `${value} != null ? ${this.generateFromConverter(type.element!, value)} : null`;
-        }
-        return value;
-      case "struct":
-        return `from${toPascalCase(type.struct!.name)}(${value})`;
-    }
-    return value;
+  private generateFromConverter(type: Type, value: string): string {
+    return this.generateConverter("from", type, value);
   }
 
   // Generate types file (api_types.ts)
   generateTypes(schema: CompiledSchema, schemaHash?: string): string {
-    const allStructs = [
+    const allStructs = dedupeStructsByName([
       ...schema.structs.values(),
       ...schema.responses.values(),
-    ];
+    ]);
 
     const aliasTypes = new Map<string, string>();
     const collectAliases = (type: Type): void => {
       if (type.kind === "primitive" && type.originalName) {
-        aliasTypes.set(toPascalCase(type.originalName), this.primitiveType(type));
+        aliasTypes.set(
+          toAliasName(type.originalName),
+          this.primitiveType(type),
+        );
       } else if (
         type.kind === "vector" ||
         type.kind === "array" ||
@@ -374,6 +379,38 @@ ${conversions}
 
     return `// AUTOGENERATED FILE - DO NOT EDIT
 ${hashLine}
+// Runtime guards for wire types that JS cannot represent natively.
+// TODO: migrate u64 fields to bigint end-to-end and drop these.
+//
+// Decode: msgpackr returns uint64/int64 wire values as bigint once they
+// exceed 32 bits; values must fit in the JS safe integer range.
+function assertU64(value: number | bigint, ctx: string): number {
+  if (typeof value === "bigint") {
+    if (value < 0n || value > BigInt(Number.MAX_SAFE_INTEGER)) {
+      throw new Error(\`\${ctx}: u64 value \${value} is outside JS safe integer range\`);
+    }
+    return Number(value);
+  }
+  if (!Number.isSafeInteger(value) || value < 0) {
+    throw new Error(\`\${ctx}: u64 value \${value} is outside JS safe integer range\`);
+  }
+  return value;
+}
+
+// Encode: msgpackr encodes JS numbers above 2^32 as float64, which strict
+// u64 decoders reject; route them through bigint so the wire type stays uint.
+function toWireU64(value: number | bigint, ctx: string): number | bigint {
+  const checked = assertU64(value, ctx);
+  return checked > 0xffffffff ? BigInt(checked) : checked;
+}
+
+function assertBin32(value: Uint8Array, ctx: string): Uint8Array {
+  if (value.length !== 32) {
+    throw new Error(\`\${ctx}: expected 32 bytes, got \${value.length}\`);
+  }
+  return value;
+}
+
 // Type aliases for primitive types
 ${aliasDecls}
 
@@ -441,7 +478,7 @@ ${syncApiMethods}
 
   // Generate async API file
   generateAsyncApi(schema: CompiledSchema): string {
-    this.errorTypeName = schema.errorTypeName || "ErrorResponse";
+    this.errorTypeName = schema.errorTypeName;
     const imports = this.generateApiImports(schema, "AsyncApiBase");
     const methods = schema.commands
       .map((c) => this.generateAsyncApiMethod(c))
@@ -482,7 +519,7 @@ ${methods}
 
   // Generate sync API file
   generateSyncApi(schema: CompiledSchema): string {
-    this.errorTypeName = schema.errorTypeName || "ErrorResponse";
+    this.errorTypeName = schema.errorTypeName;
     const imports = this.generateApiImports(schema, "SyncApiBase");
     const methods = schema.commands
       .map((c) => this.generateSyncApiMethod(c))
@@ -522,7 +559,10 @@ ${methods}
   }
 
   // Generate import statement for API files
-  private generateApiImports(schema: CompiledSchema, baseInterface: string): string {
+  private generateApiImports(
+    schema: CompiledSchema,
+    baseInterface: string,
+  ): string {
     const types = new Set<string>();
 
     // Add command types and their conversion functions
@@ -547,7 +587,7 @@ ${methods}
 
   /** Generate a server handler interface and dispatch function */
   generateServerApi(schema: CompiledSchema): string {
-    this.errorTypeName = schema.errorTypeName || "ErrorResponse";
+    this.errorTypeName = schema.errorTypeName;
     const errorType = toPascalCase(this.errorTypeName);
 
     // Generate handler interface
@@ -589,6 +629,7 @@ ${methods}
     return `// AUTOGENERATED FILE - DO NOT EDIT
 // Server-side dispatch for IPC protocol
 
+import { Decoder, Encoder } from 'msgpackr';
 import { ${sortedImports.join(", ")} } from './api_types.js';
 
 /** Handler interface — implement this to serve commands. */
@@ -599,146 +640,54 @@ ${handlerMethods}
 /**
  * Dispatch a [commandName, payload] pair to the handler.
  * Returns [responseName, responsePayload] for serialization.
+ * Handler failures are wrapped into the schema error variant.
  */
 export async function dispatch(
   handler: Handler,
   commandName: string,
   payload: any,
 ): Promise<[string, any]> {
-  switch (commandName) {
+  try {
+    switch (commandName) {
 ${dispatchCases}
       default:
-        throw new Error(\`Unknown command: \${commandName}\`);
-  }
-}
-`;
-  }
-
-  // -----------------------------------------------------------------------
-  // Skeleton generation (one-time handler stubs + main + build files)
-  // -----------------------------------------------------------------------
-
-  /** Generate handler stub implementations that throw "not implemented" */
-  generateHandlerStubs(schema: CompiledSchema, prefix: string): string {
-    const serverModule = `${toSnakeCase(prefix)}_server`;
-
-    // Collect import types
-    const importTypes = new Set<string>();
-    for (const cmd of schema.commands) {
-      importTypes.add(toPascalCase(cmd.name));
-      importTypes.add(toPascalCase(cmd.responseType));
+        return ['${this.errorTypeName}', { message: \`Unknown command: \${commandName}\` }];
     }
-    importTypes.add("Handler");
-    const sortedImports = Array.from(importTypes).sort();
-
-    const stubs = schema.commands
-      .map((c) => {
-        const methodName = this.toMethodName(c.name);
-        const cmdType = toPascalCase(c.name);
-        const respType = toPascalCase(c.responseType);
-        return `  async ${methodName}(command: ${cmdType}): Promise<${respType}> {
-    throw new Error('not implemented: ${c.name}');
-  }`;
-      })
-      .join("\n\n");
-
-    return `// Handler stubs — implement your service logic here.
-// This file is generated ONCE. Edit freely — it will not be overwritten.
-
-import { ${sortedImports.join(", ")} } from './generated/${serverModule}.js';
-
-/** Shared context for your service — add database connections, state, etc. */
-export interface ${prefix}Context {
-  // Add your shared state here
+  } catch (err: any) {
+    return ['${this.errorTypeName}', { message: err?.message ?? String(err) }];
+  }
 }
 
-/** Handler implementation */
-export class ${prefix}Handler implements Handler {
-  constructor(public ctx: ${prefix}Context) {}
+const requestDecoder = new Decoder({ useRecords: false });
+const responseEncoder = new Encoder({ useRecords: false, variableMapSize: true });
 
-${stubs}
+/**
+ * Decode a framed request, dispatch it, and encode the framed response.
+ * All failures (malformed framing included) produce a decodable error
+ * variant rather than a throw, so transports can use this directly as
+ * their request handler.
+ */
+export async function handleRequest(
+  handler: Handler,
+  requestBytes: Uint8Array,
+): Promise<Uint8Array> {
+  let commandName: string;
+  let payload: any;
+  try {
+    const request = requestDecoder.unpack(requestBytes) as [[string, any]];
+    [[commandName, payload]] = request;
+    if (typeof commandName !== 'string') {
+      throw new Error('expected [name, payload] request framing');
+    }
+  } catch (err: any) {
+    return responseEncoder.pack([
+      '${this.errorTypeName}',
+      { message: \`Malformed request: \${err?.message ?? String(err)}\` },
+    ]);
+  }
+  const [respName, respPayload] = await dispatch(handler, commandName, payload ?? {});
+  return responseEncoder.pack([respName, respPayload]);
 }
-`;
-  }
-
-  /** Generate a main.ts entry point for a standalone service */
-  generateMain(schema: CompiledSchema, prefix: string): string {
-    const serverModule = `${toSnakeCase(prefix)}_server`;
-
-    return `// Entry point for ${prefix} service.
-// This file is generated ONCE. Edit freely — it will not be overwritten.
-
-import { serve } from './generated/ipc_server.js';
-import { dispatch } from './generated/${serverModule}.js';
-import { ${prefix}Handler } from './${toSnakeCase(prefix)}_handlers.js';
-
-const socketPath = process.argv[2];
-if (!socketPath) {
-  console.error('Usage: ${toSnakeCase(prefix)} <socket_path>');
-  process.exit(1);
-}
-
-const ctx = {};
-const handler = new ${prefix}Handler(ctx);
-
-console.error(\`${prefix} server starting on \${socketPath}\`);
-serve(socketPath, (commandName: string, payload: any) => dispatch(handler, commandName, payload));
-`;
-  }
-
-  /** Generate package.json for a standalone service */
-  generateBuildFile(prefix: string): string {
-    const pkgName = toSnakeCase(prefix).replace(/_/g, "-");
-
-    return (
-      JSON.stringify(
-        {
-          name: `${pkgName}-service`,
-          version: "0.1.0",
-          type: "module",
-          scripts: {
-            build: "tsc",
-            start: "node --experimental-strip-types main.ts",
-            generate: "bash generate.sh",
-          },
-          dependencies: {
-            msgpackr: "^1.10.0",
-          },
-          devDependencies: {
-            typescript: "^5.4.0",
-          },
-        },
-        null,
-        2,
-      ) + "\n"
-    );
-  }
-
-  /** Generate .gitignore for the skeleton project */
-  generateGitignore(): string {
-    return `# Generated IPC code — do not edit, re-run generate.sh instead
-generated/
-node_modules/
-dist/
-`;
-  }
-
-  /** Generate a shell script to re-run codegen */
-  generateGenerateScript(schemaPath: string, prefix: string): string {
-    return `#!/usr/bin/env bash
-# Re-generate IPC types, server, and client from schema.
-# Run from the project root directory.
-set -euo pipefail
-
-SCRIPT_DIR="$(cd "$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
-SCHEMA="${schemaPath}"
-
-node --experimental-strip-types "$(dirname "$SCRIPT_DIR")/codegen/src/generate.ts" \\
-  --schema "$SCHEMA" \\
-  --lang ts \\
-  --out "$SCRIPT_DIR/generated" \\
-  --prefix ${prefix} \\
-  --server
 `;
   }
 }

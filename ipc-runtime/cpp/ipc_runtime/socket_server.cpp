@@ -1,5 +1,8 @@
 #include "ipc_runtime/socket_server.hpp"
+#include "ipc_runtime/constants.hpp"
+#include <algorithm>
 #include <cerrno>
+#include <climits>
 #include <cstdint>
 #include <cstring>
 #include <fcntl.h>
@@ -15,8 +18,10 @@
 // Platform-specific event notification includes
 #ifdef __APPLE__
 #include <sys/event.h> // kqueue on macOS/BSD
-#else
+#elif defined(__linux__)
 #include <sys/epoll.h> // epoll on Linux
+#else
+#error "ipc-runtime supports Linux and macOS only"
 #endif
 
 namespace ipc {
@@ -87,22 +92,37 @@ bool SocketServer::send(int client_id, const void* data, size_t len)
         return false;
     }
 
+    if (len > MAX_FRAME_SIZE) {
+        errno = EMSGSIZE;
+        return false;
+    }
+
     int fd = client_fds_[static_cast<size_t>(client_id)];
 
-    // Send length prefix (4 bytes)
+    // Send length prefix (4 bytes) then message data, looping on partial
+    // writes — a short write after the prefix would permanently desync the
+    // stream for this connection.
     auto msg_len = static_cast<uint32_t>(len);
-    ssize_t n = ::send(fd, &msg_len, sizeof(msg_len), 0);
-    if (n < 0 || static_cast<size_t>(n) != sizeof(msg_len)) {
-        return false;
+    const uint8_t* parts[2] = { reinterpret_cast<const uint8_t*>(&msg_len), static_cast<const uint8_t*>(data) };
+    size_t part_lens[2] = { sizeof(msg_len), len };
+    for (int part = 0; part < 2; part++) {
+        size_t total_sent = 0;
+        while (total_sent < part_lens[part]) {
+            ssize_t n = ::send(fd, parts[part] + total_sent, part_lens[part] - total_sent, 0);
+            if (n < 0) {
+                if (errno == EINTR) {
+                    continue; // Interrupted, retry
+                }
+                if (part > 0 || total_sent > 0) {
+                    // Frame partially on the wire — stream desynced.
+                    disconnect_client(client_id);
+                }
+                return false;
+            }
+            total_sent += static_cast<size_t>(n);
+        }
     }
-
-    // Send message data
-    n = ::send(fd, data, len, 0);
-    if (n < 0) {
-        return false;
-    }
-    const auto bytes_sent = static_cast<size_t>(n);
-    return bytes_sent == len;
+    return true;
 }
 
 void SocketServer::release(int client_id, size_t message_size)
@@ -144,6 +164,12 @@ std::span<const uint8_t> SocketServer::receive(int client_id)
             return {};
         }
         total_read += static_cast<size_t>(n);
+    }
+
+    // A corrupt/malicious prefix must not drive the allocation below.
+    if (msg_len > MAX_FRAME_SIZE) {
+        disconnect_client(client_id);
+        return {};
     }
 
     // Resize buffer if needed to fit length prefix + message
@@ -222,7 +248,7 @@ bool SocketServer::listen()
     ::chmod(socket_path_.c_str(), 0600);
 
     // Listen with backlog
-    int backlog = initial_max_clients_ > 0 ? initial_max_clients_ : 10;
+    int backlog = initial_max_clients_ > 0 ? initial_max_clients_ : SOCKET_BACKLOG;
     if (::listen(listen_fd_, backlog) < 0) {
         ::close(listen_fd_);
         listen_fd_ = -1;
@@ -426,7 +452,7 @@ bool SocketServer::listen()
     ::chmod(socket_path_.c_str(), 0600);
 
     // Listen with backlog
-    int backlog = initial_max_clients_ > 0 ? initial_max_clients_ : 10;
+    int backlog = initial_max_clients_ > 0 ? initial_max_clients_ : SOCKET_BACKLOG;
     if (::listen(listen_fd_, backlog) < 0) {
         ::close(listen_fd_);
         listen_fd_ = -1;
@@ -530,7 +556,14 @@ int SocketServer::wait_for_data(uint64_t timeout_ns)
     }
 
     struct epoll_event ev;
-    int timeout_ms = timeout_ns > 0 ? static_cast<int>(timeout_ns / 1000000) : -1;
+    // 0 = non-blocking poll (matches the interface doc and the kqueue
+    // branch). Sub-millisecond timeouts round up to 1ms; large timeouts
+    // clamp to INT_MAX ms.
+    int timeout_ms = 0;
+    if (timeout_ns > 0) {
+        uint64_t ms = std::max<uint64_t>(1, timeout_ns / 1000000ULL);
+        timeout_ms = static_cast<int>(std::min<uint64_t>(ms, INT_MAX));
+    }
     int n = epoll_wait(fd_, &ev, 1, timeout_ms);
     if (n <= 0) {
         return -1;

@@ -9,19 +9,13 @@
  */
 
 import type { CompiledSchema, Type, Struct, Field } from "./schema_visitor.ts";
-import { toSnakeCase, toPascalCase } from "./naming.ts";
-
-// Convert a schema alias name into its Rust type name. Strips a trailing
-// `_t` (uint256_t → Uint256) and PascalCases the rest, so `fr` → `Fr`,
-// `secp256k1_fr` → `Secp256k1Fr`, `uint256_t` → `Uint256`.
-function toAliasName(name: string): string {
-  const trimmed = name.endsWith("_t") ? name.slice(0, -2) : name;
-  return toPascalCase(trimmed);
-}
+import { toSnakeCase, toPascalCase, toAliasName } from "./naming.ts";
 
 export interface RustCodegenOptions {
-  /** Prefix for stripping from method names, e.g. 'Svc' makes SvcGetInfo -> get_info */
+  /** Type prefix, e.g. 'Svc' (used for type/file naming) */
   prefix?: string;
+  /** Strip the prefix from method names, e.g. SvcGetInfo -> get_info */
+  stripMethodPrefix?: boolean;
   /** API struct name, e.g. 'SvcApi'. Defaults to 'IpcApi' */
   apiStructName?: string;
   /** Import path for Backend trait. Defaults to 'crate::backend::Backend' */
@@ -45,6 +39,7 @@ export class RustCodegen {
     const name = prefix || "Ipc";
     this.opts = {
       prefix,
+      stripMethodPrefix: options?.stripMethodPrefix ?? false,
       apiStructName: options?.apiStructName ?? `${name}Api`,
       backendImport: options?.backendImport ?? "super::backend::Backend",
       errorImport: options?.errorImport ?? `super::error::{IpcError, Result}`,
@@ -120,13 +115,30 @@ export class RustCodegen {
     return type.kind === "vector" && this.needsSerdeBytes(type.element!);
   }
 
-  // Check if field needs serde(with = "serde_array4_bytes") - for [Vec<u8>; 4] (Poseidon2 state)
-  private needsSerdeArray4Bytes(type: Type): boolean {
+  // Check if field needs serde(with = "serde_bytes_array") - for [Vec<u8>; N].
+  // Only applies up to the size-32 cutoff in mapType; larger arrays become
+  // Vec and take the serde_vec_bytes path.
+  private needsSerdeBytesArray(type: Type): boolean {
     return (
       type.kind === "array" &&
-      type.size === 4 &&
+      type.size! <= 32 &&
       this.needsSerdeBytes(type.element!)
     );
+  }
+
+  // Check if field needs serde(with = "serde_vec_bytes") via the large-array
+  // fallback ([bytes; N>32] maps to Vec<Vec<u8>>).
+  private needsSerdeLargeBytesArray(type: Type): boolean {
+    return (
+      type.kind === "array" &&
+      type.size! > 32 &&
+      this.needsSerdeBytes(type.element!)
+    );
+  }
+
+  // Check if field needs serde(with = "serde_opt_bytes")
+  private needsSerdeOptBytes(type: Type): boolean {
+    return type.kind === "optional" && this.needsSerdeBytes(type.element!);
   }
 
   // Generate struct field
@@ -141,10 +153,15 @@ export class RustCodegen {
     }
 
     // Add serde bytes handling
-    if (this.needsSerdeArray4Bytes(field.type)) {
-      attrs += `    #[serde(with = "serde_array4_bytes")]\n`;
-    } else if (this.needsSerdeVecBytes(field.type)) {
+    if (this.needsSerdeBytesArray(field.type)) {
+      attrs += `    #[serde(with = "serde_bytes_array")]\n`;
+    } else if (
+      this.needsSerdeVecBytes(field.type) ||
+      this.needsSerdeLargeBytesArray(field.type)
+    ) {
       attrs += `    #[serde(with = "serde_vec_bytes")]\n`;
+    } else if (this.needsSerdeOptBytes(field.type)) {
+      attrs += `    #[serde(with = "serde_opt_bytes")]\n`;
     } else if (this.needsSerdeBytes(field.type)) {
       attrs += `    #[serde(with = "serde_bytes")]\n`;
     }
@@ -284,7 +301,7 @@ ${deserializeCases}
     const commandResponseTypes = Array.from(
       new Set(schema.commands.map((c) => c.responseType)),
     );
-    const errorName = schema.errorTypeName || "ErrorResponse";
+    const errorName = schema.errorTypeName;
     const responseTypes = schema.responses.has(errorName)
       ? [...commandResponseTypes, errorName]
       : commandResponseTypes;
@@ -409,7 +426,7 @@ mod serde_vec_bytes {
     }
 }
 
-mod serde_array4_bytes {
+mod serde_bytes_array {
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
     use serde::ser::SerializeTuple;
     use serde::de::{SeqAccess, Visitor};
@@ -417,25 +434,25 @@ mod serde_array4_bytes {
     #[derive(Serialize, Deserialize)]
     struct BytesWrapper(#[serde(with = "super::serde_bytes")] Vec<u8>);
 
-    pub fn serialize<S>(arr: &[Vec<u8>; 4], serializer: S) -> Result<S::Ok, S::Error>
+    pub fn serialize<S, const N: usize>(arr: &[Vec<u8>; N], serializer: S) -> Result<S::Ok, S::Error>
     where S: Serializer {
-        let mut tup = serializer.serialize_tuple(4)?;
+        let mut tup = serializer.serialize_tuple(N)?;
         for bytes in arr {
             tup.serialize_element(&BytesWrapper(bytes.clone()))?;
         }
         tup.end()
     }
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<[Vec<u8>; 4], D::Error>
+    pub fn deserialize<'de, D, const N: usize>(deserializer: D) -> Result<[Vec<u8>; N], D::Error>
     where D: Deserializer<'de> {
-        struct Array4Visitor;
-        impl<'de> Visitor<'de> for Array4Visitor {
-            type Value = [Vec<u8>; 4];
+        struct ArrayVisitor<const N: usize>;
+        impl<'de, const N: usize> Visitor<'de> for ArrayVisitor<N> {
+            type Value = [Vec<u8>; N];
             fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-                formatter.write_str("an array of 4 byte arrays")
+                write!(formatter, "an array of {N} byte arrays")
             }
             fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
             where A: SeqAccess<'de> {
-                let mut arr: [Vec<u8>; 4] = Default::default();
+                let mut arr: [Vec<u8>; N] = std::array::from_fn(|_| Vec::new());
                 for (i, item) in arr.iter_mut().enumerate() {
                     *item = seq.next_element::<BytesWrapper>()?
                         .ok_or_else(|| serde::de::Error::invalid_length(i, &self))?.0;
@@ -443,14 +460,33 @@ mod serde_array4_bytes {
                 Ok(arr)
             }
         }
-        deserializer.deserialize_tuple(4, Array4Visitor)
+        deserializer.deserialize_tuple(N, ArrayVisitor::<N>)
+    }
+}
+
+mod serde_opt_bytes {
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    #[derive(Serialize, Deserialize)]
+    struct BytesWrapper(#[serde(with = "super::serde_bytes")] Vec<u8>);
+
+    pub fn serialize<S>(opt: &Option<Vec<u8>>, serializer: S) -> Result<S::Ok, S::Error>
+    where S: Serializer {
+        match opt {
+            Some(bytes) => serializer.serialize_some(&BytesWrapper(bytes.clone())),
+            None => serializer.serialize_none(),
+        }
+    }
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<Vec<u8>>, D::Error>
+    where D: Deserializer<'de> {
+        Ok(Option::<BytesWrapper>::deserialize(deserializer)?.map(|w| w.0))
     }
 }`;
   }
 
   // Generate types file
   generateTypes(schema: CompiledSchema, schemaHash?: string): string {
-    this.errorTypeName = schema.errorTypeName || "ErrorResponse";
+    this.errorTypeName = schema.errorTypeName;
     // Create set of top-level command struct names (only these need __typename)
     const commandNames = new Set(schema.commands.map((c) => c.name));
 
@@ -485,7 +521,10 @@ mod serde_array4_bytes {
       .map((s) => this.generateStruct(s, commandNames.has(s.name)))
       .join("\n\n");
 
+    // A response can reference a type also discovered inline as a field
+    // (registered in structs); emit it only once, from commandStructs.
     const responseStructs = Array.from(schema.responses.values())
+      .filter((s) => !schema.structs.has(s.name))
       .map((s) => this.generateStruct(s, false))
       .join("\n\n");
 
@@ -540,10 +579,12 @@ ${this.generateResponseEnum(schema)}
 `;
   }
 
-  /** Strip the service prefix from a command name for the method name */
+  /** Convert a command name to a Rust method name (snake_case) */
   private methodName(commandName: string): string {
     const withoutPrefix =
-      this.opts.prefix && commandName.startsWith(this.opts.prefix)
+      this.opts.stripMethodPrefix &&
+      this.opts.prefix &&
+      commandName.startsWith(this.opts.prefix)
         ? commandName.slice(this.opts.prefix.length)
         : commandName;
     return toSnakeCase(withoutPrefix);
@@ -601,7 +642,7 @@ ${this.generateResponseEnum(schema)}
 
   // Generate API file
   generateApi(schema: CompiledSchema): string {
-    this.errorTypeName = schema.errorTypeName || "ErrorResponse";
+    this.errorTypeName = schema.errorTypeName;
     const {
       apiStructName,
       backendImport,
@@ -661,7 +702,7 @@ ${apiMethods}
 
   /** Generate a Handler trait and serve() function */
   generateServer(schema: CompiledSchema): string {
-    this.errorTypeName = schema.errorTypeName || "ErrorResponse";
+    this.errorTypeName = schema.errorTypeName;
     const { prefix, errorImport, typesImport } = this.opts;
     const errorRespType = toPascalCase(this.errorTypeName);
 
@@ -691,6 +732,9 @@ ${apiMethods}
     return `//! AUTOGENERATED - DO NOT EDIT
 //! Server-side dispatch for ${prefix || "service"} IPC protocol
 
+// The import set is shared with the generated client; dispatch only needs
+// Result, so tolerate the unused error type.
+#[allow(unused_imports)]
 use ${errorImport};
 use ${typesImport};
 
@@ -706,129 +750,29 @@ ${dispatchArms}
     };
     Ok(response)
 }
-`;
-  }
 
-  // -----------------------------------------------------------------------
-  // Skeleton generation (one-time handler stubs + main + build files)
-  // -----------------------------------------------------------------------
-
-  /** Generate handler stub implementations that return unimplemented errors */
-  generateHandlerStubs(schema: CompiledSchema): string {
-    const { prefix } = this.opts;
-    const typesModule = `${toSnakeCase(prefix)}_types`;
-    const serverModule = `${toSnakeCase(prefix)}_server`;
-    const ctxName = `${prefix}Context`;
-
-    const stubs = schema.commands
-      .map((c) => {
-        const methodName = this.methodName(c.name);
-        const cmdRustName = toPascalCase(c.name);
-        const respRustName = toPascalCase(c.responseType);
-        return `    fn ${methodName}(&mut self, _cmd: ${typesModule}::${cmdRustName}) -> Result<${typesModule}::${respRustName}> {
-        unimplemented!("${c.name}")
-    }`;
-      })
-      .join("\n\n");
-
-    return `// Handler stubs — implement your service logic here.
-// This file is generated ONCE. Edit freely — it will not be overwritten.
-
-mod generated {
-    pub mod ${typesModule};
-    pub mod ${serverModule};
-    pub mod ipc_server;
+/// Decode a framed request, dispatch it, and encode the framed response.
+/// All failures (malformed framing included) produce the schema error
+/// variant, so transports can use this directly as their request handler.
+pub fn handle_request(handler: &mut dyn Handler, request_bytes: &[u8]) -> Vec<u8> {
+    let response = match rmp_serde::from_slice::<Vec<Command>>(request_bytes) {
+        Err(e) => Response::${errorRespType}(${errorRespType} {
+            message: format!("malformed request: {e}"),
+        }),
+        Ok(commands) => match commands.into_iter().next() {
+            None => Response::${errorRespType}(${errorRespType} {
+                message: "malformed request: empty command array".to_string(),
+            }),
+            Some(command) => match dispatch(handler, command) {
+                Ok(resp) => resp,
+                Err(e) => Response::${errorRespType}(${errorRespType} {
+                    message: e.to_string(),
+                }),
+            },
+        },
+    };
+    rmp_serde::to_vec_named(&response).unwrap_or_default()
 }
-
-use generated::${typesModule};
-use generated::${serverModule};
-
-/// Shared context for your service — add database connections, state, etc.
-pub struct ${ctxName} {
-    // Add your shared state here
-}
-
-/// Handler implementation
-pub struct ${prefix}Handler {
-    pub ctx: ${ctxName},
-}
-
-impl ${serverModule}::Handler for ${prefix}Handler {
-${stubs}
-}
-`;
-  }
-
-  /** Generate a main.rs entry point for a standalone service */
-  generateMain(schema: CompiledSchema): string {
-    const { prefix } = this.opts;
-    const ctxName = `${prefix}Context`;
-    const serverModule = `${toSnakeCase(prefix)}_server`;
-
-    return `// Entry point for ${prefix} service.
-// This file is generated ONCE. Edit freely — it will not be overwritten.
-
-mod ${toSnakeCase(prefix)}_handlers;
-
-use ${toSnakeCase(prefix)}_handlers::{${ctxName}, ${prefix}Handler};
-
-fn main() {
-    let socket_path = std::env::args().nth(1).expect("Usage: ${toSnakeCase(prefix)} <socket_path>");
-
-    let ctx = ${ctxName} {};
-    let mut handler = ${prefix}Handler { ctx };
-
-    eprintln!("${prefix} server starting on {}", socket_path);
-    generated::ipc_server::serve(&socket_path, &mut handler);
-}
-`;
-  }
-
-  /** Generate Cargo.toml for a standalone service */
-  generateBuildFile(schema: CompiledSchema): string {
-    const { prefix } = this.opts;
-    const pkgName = toSnakeCase(prefix).replace(/_/g, "-");
-
-    return `[package]
-name = "${pkgName}-service"
-version = "0.1.0"
-edition = "2021"
-
-[[bin]]
-name = "${pkgName}"
-path = "main.rs"
-
-[dependencies]
-rmp-serde = "1"
-serde = { version = "1", features = ["derive"] }
-`;
-  }
-
-  /** Generate .gitignore for the skeleton project */
-  generateGitignore(): string {
-    return `# Generated IPC code — do not edit, re-run generate.sh instead
-generated/
-target/
-`;
-  }
-
-  /** Generate a shell script to re-run codegen */
-  generateGenerateScript(schemaPath: string): string {
-    const { prefix } = this.opts;
-    return `#!/usr/bin/env bash
-# Re-generate IPC types, server, and client from schema.
-# Run from the project root directory.
-set -euo pipefail
-
-SCRIPT_DIR="$(cd "$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
-SCHEMA="${schemaPath}"
-
-node --experimental-strip-types "$(dirname "$SCRIPT_DIR")/codegen/src/generate.ts" \\
-  --schema "$SCHEMA" \\
-  --lang rust \\
-  --out "$SCRIPT_DIR/generated" \\
-  --prefix ${prefix} \\
-  --server
 `;
   }
 }

@@ -3,7 +3,7 @@
 
 use echo_wire_compat::generated::echo_server::Handler;
 use echo_wire_compat::generated::echo_types::*;
-use echo_wire_compat::generated::error::Result;
+use echo_wire_compat::generated::error::{IpcError, Result};
 use ipc_runtime::IpcServer;
 use std::cell::RefCell;
 
@@ -31,6 +31,15 @@ impl Handler for EchoHandler {
             hashes: cmd.hashes,
         })
     }
+    fn blobs(&mut self, cmd: EchoBlobs) -> Result<EchoBlobsResponse> {
+        Ok(EchoBlobsResponse {
+            maybe_data: cmd.maybe_data,
+            parts: cmd.parts,
+        })
+    }
+    fn fail(&mut self, cmd: EchoFail) -> Result<EchoFailResponse> {
+        Err(IpcError::Backend(cmd.message))
+    }
 }
 
 fn main() {
@@ -52,29 +61,9 @@ fn main() {
     server.listen().expect("IpcServer::listen");
 
     server.run(|_client_id, payload| {
-        // Deserialize: [Command]
-        let request: Vec<Command> = rmp_serde::from_slice(payload).unwrap_or_default();
-
-        let command = match request.into_iter().next() {
-            Some(cmd) => cmd,
-            None => {
-                let err = Response::EchoErrorResponse(EchoErrorResponse {
-                    message: "empty request".to_string(),
-                });
-                return rmp_serde::to_vec_named(&err).unwrap_or_default();
-            }
-        };
-
-        let response = match echo_wire_compat::generated::echo_server::dispatch(
+        echo_wire_compat::generated::echo_server::handle_request(
             &mut *handler.borrow_mut(),
-            command,
-        ) {
-            Ok(resp) => resp,
-            Err(_e) => Response::EchoErrorResponse(EchoErrorResponse {
-                message: _e.to_string(),
-            }),
-        };
-
-        rmp_serde::to_vec_named(&response).unwrap_or_default()
+            payload,
+        )
     });
 }

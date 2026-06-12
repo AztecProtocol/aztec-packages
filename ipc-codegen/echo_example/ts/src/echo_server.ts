@@ -1,25 +1,25 @@
 /**
- * Echo IPC server (TypeScript) — uses GENERATED dispatch + the
- * @aztec/ipc-runtime UDS transport.
+ * Echo IPC server (TypeScript) — uses the GENERATED handleRequest (framing,
+ * dispatch, and error wrapping) over the @aztec/ipc-runtime UDS transport.
  * Usage: npx tsx echo_server.ts --socket /tmp/echo.sock
  */
 import { UdsIpcServer } from "@aztec/ipc-runtime";
-import { Decoder, Encoder } from "msgpackr";
-import { dispatch } from "./generated/server.js";
+import { handleRequest } from "./generated/server.js";
 import type { Handler } from "./generated/server.js";
 import type {
   EchoBytes,
   EchoBytesResponse,
   EchoAliases,
   EchoAliasesResponse,
+  EchoBlobs,
+  EchoBlobsResponse,
+  EchoFail,
+  EchoFailResponse,
   EchoFields,
   EchoFieldsResponse,
   EchoNested,
   EchoNestedResponse,
-} from "./generated/echo_types.js";
-
-const encoder = new Encoder({ useRecords: false, variableMapSize: true });
-const decoder = new Decoder({ useRecords: false });
+} from "./generated/api_types.js";
 
 const args = process.argv.slice(2);
 const socketIdx = args.indexOf("--socket");
@@ -47,30 +47,17 @@ const handler: Handler = {
       hashes: cmd.hashes,
     };
   },
+  async echoBlobs(cmd: EchoBlobs): Promise<EchoBlobsResponse> {
+    return { maybeData: cmd.maybeData, parts: cmd.parts };
+  },
+  async echoFail(cmd: EchoFail): Promise<EchoFailResponse> {
+    throw new Error(cmd.message);
+  },
 };
 
 async function main() {
-  const server = await UdsIpcServer.listen(
-    socketPath,
-    async (_clientId, requestBytes) => {
-      const [[commandName, payload]] = decoder.unpack(requestBytes) as [
-        [string, any],
-      ];
-
-      try {
-        const [respName, respPayload] = await dispatch(
-          handler,
-          commandName,
-          payload ?? {},
-        );
-        return encoder.pack([respName, respPayload]);
-      } catch (err: any) {
-        return encoder.pack([
-          "ErrorResponse",
-          { message: err?.message ?? "Unknown error" },
-        ]);
-      }
-    },
+  await UdsIpcServer.listen(socketPath!, (_clientId, requestBytes) =>
+    handleRequest(handler, requestBytes),
   );
   console.error(`ipc-server(ts): listening on ${socketPath}`);
 }

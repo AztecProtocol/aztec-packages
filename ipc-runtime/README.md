@@ -24,7 +24,7 @@ Per-language bindings build standalone:
 
 ```sh
 # Rust crate
-cargo build -p ipc-runtime
+cd rust && cargo build
 
 # TypeScript package (publishes @aztec/ipc-runtime via file: link)
 cd ts && yarn install --immutable && yarn build
@@ -44,16 +44,19 @@ ipc-runtime/
   bootstrap.sh           # build / test (C++ only)
   cpp/
     ipc_runtime/
-      ipc_client.{hpp,cpp}        # abstract IpcClient + UDS implementation
-      ipc_server.{hpp,cpp}        # abstract IpcServer + UDS implementation
-      shm_client.hpp              # single-client SHM client
-      shm_server.hpp              # single-client SHM server
-      shm_common.hpp              # shared MPSC-SHM glue
+      constants.hpp               # shared limits/defaults (mirrored in ts/src/types.ts)
+      ipc_client.{hpp,cpp}        # abstract IpcClient interface + factories
+      ipc_server.{hpp,cpp}        # abstract IpcServer interface + factories + run() loop
+      socket_client.{hpp,cpp}     # UDS client implementation
+      socket_server.{hpp,cpp}     # UDS server implementation (epoll / kqueue)
+      shm_client.hpp              # single-client (SPSC) SHM client
+      shm_server.hpp              # single-client (SPSC) SHM server
+      mpsc_shm_client.hpp         # multi-client SHM client (one slot per client)
+      mpsc_shm_server.hpp         # multi-client SHM server
+      shm_common.hpp              # length-prefix framing over the rings
       shm/                        # lock-free SPSC/MPSC ring buffer primitives
       serve_helper.{hpp,cpp}      # ipc::make_server / make_client (path-suffix dispatch)
       signal_handlers.{hpp,cpp}   # ipc::install_default_signal_handlers
-      named_union.hpp             # NamedUnion (codegen-emitted Command/Response variants)
-      schema.hpp                  # ipc::msgpack_schema_to_string (reflection helper)
       c_abi.{h,cpp}               # C ABI exported to Rust / Zig / NAPI
     CMakeLists.txt
   rust/
@@ -134,12 +137,12 @@ public:
 
   static std::unique_ptr<IpcServer> create_socket(const std::string& path, int max_clients);
   static std::unique_ptr<IpcServer> create_shm(const std::string& base_name,
-                                               std::size_t request_ring_size  = 1 << 20,
-                                               std::size_t response_ring_size = 1 << 20);
+                                               std::size_t request_ring_size  = DEFAULT_RING_SIZE,
+                                               std::size_t response_ring_size = DEFAULT_RING_SIZE);
   static std::unique_ptr<IpcServer> create_mpsc_shm(const std::string& base_name,
                                                     std::size_t max_clients,
-                                                    std::size_t request_ring_size  = 1 << 20,
-                                                    std::size_t response_ring_size = 1 << 20);
+                                                    std::size_t request_ring_size  = DEFAULT_RING_SIZE,
+                                                    std::size_t response_ring_size = DEFAULT_RING_SIZE);
 
   virtual bool listen()                                            = 0;
   virtual int  wait_for_data(uint64_t timeout_ns)                  = 0;
@@ -147,8 +150,9 @@ public:
   virtual void release(int client_id, size_t message_size)         = 0;
   virtual bool send(int client_id, const void* data, size_t len)   = 0;
   virtual void close()                                             = 0;
-  virtual void request_shutdown();                                 // signal-safe
-  virtual void run(Handler handler);                               // event loop
+  virtual void request_shutdown();                  // NOT signal-safe (wakes waiters)
+  void request_shutdown_from_signal() noexcept;     // signal-safe variant
+  virtual void run(const Handler& handler);         // event loop
 };
 
 std::unique_ptr<IpcServer> make_server(const std::string& path, const ServerOptions& = {});
@@ -164,10 +168,12 @@ internal buffer); the caller must follow it with `release(span.size())`
 before the next `receive` on the same client. The `run()` event loop owns
 that pattern so handlers just deal in whole messages.
 
-A handler returning a zero-length vector skips the response — used by
-fire-and-forget commands. To exit the loop cleanly, call
-`request_shutdown()`; `install_default_signal_handlers` wires SIGINT/SIGTERM
-to it so RAII destructors run normally.
+Every request gets exactly one response: a handler returning a
+zero-length vector sends a zero-length response frame (which clients see as
+a valid empty reply, in every language binding). To exit the loop cleanly,
+call `request_shutdown()`; `install_default_signal_handlers` wires
+SIGINT/SIGTERM to the signal-safe `request_shutdown_from_signal()` so RAII
+destructors run normally.
 
 ### Rust (`rust/`, crate `ipc-runtime`)
 
@@ -196,7 +202,7 @@ Two transport-specific clients:
 |----------------------|----------------------------|--------------------------------------------------------------|
 | `UdsIpcClient`       | Node `net.Socket`          | async only                                                   |
 | `NapiShmSyncClient`  | MPSC-SHM via NAPI bridge   | sync                                                         |
-| `NapiShmAsyncClient` | MPSC-SHM via NAPI bridge   | async (with a libuv worker pool to escape the JS main thread) |
+| `NapiShmAsyncClient` | MPSC-SHM via NAPI bridge   | async (C++ poll thread + ThreadSafeFunction bridge)          |
 
 `UdsIpcServer` is provided for in-process tests; production servers are in
 C++.
@@ -206,6 +212,19 @@ C++.
 `Server.fromPath(path)` / `Client.fromPath(path)` over the same C ABI; the
 Zig `build.zig` compiles the C++ sources directly with the bundled clang +
 libc++, so there's no archive shim.
+
+## Shared constants
+
+`cpp/ipc_runtime/constants.hpp` (mirrored in `ts/src/types.ts`) is the single
+definition of the transport limits and defaults:
+
+| Constant | Value | Meaning |
+|----------|-------|---------|
+| `MAX_FRAME_SIZE` | 256 MiB | Max length prefix accepted on receive; larger frames close the connection / fail the ring instead of allocating. |
+| `CONNECT_RETRY_BUDGET_MS` | 5000 | Total client connect retry budget (all transports). |
+| `DEFAULT_RING_SIZE` | 4 MiB | SHM ring size per direction per client. |
+| `SOCKET_BACKLOG` | 10 | Default UDS listen backlog. |
+| `DEFAULT_CALL_TIMEOUT_NS` | 0 | Per-call timeout for client send/receive; 0 = infinite. (`IpcServer::wait_for_data(0)` is the documented exception: non-blocking poll.) |
 
 ## Wire framing
 
@@ -248,9 +267,13 @@ SHM implementation; benchmark harnesses can reuse the same runtime APIs.
 
 ## Limitations
 
-- **SHM** is Linux-first (futex), and capacity is fixed at server-create
-  time. Clean shutdown unlinks the request and response shared-memory
-  objects automatically when `IpcServer` destructs.
+- **POSIX-only**: Linux and macOS are the supported platforms (futex on
+  Linux, `os_sync_wait_on_address` on macOS; epoll/kqueue for sockets).
+  Other platforms fail the build with an explicit `#error`.
+- **SHM** capacity is fixed at server-create time. Clean shutdown unlinks
+  the request and response shared-memory objects automatically when
+  `IpcServer` destructs; fatal signals best-effort unlink them when
+  `install_default_signal_handlers` is in place.
 - **UDS** has the usual `ulimit` for file descriptors and one syscall per
   send/recv. Buffer copies on send are unavoidable.
 

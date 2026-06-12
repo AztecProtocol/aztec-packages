@@ -10,7 +10,7 @@
 #include "throw.hpp"
 
 #include <concepts>
-#include <msgpack.hpp>
+#include "msgpack_include.hpp"
 #include <optional>
 #include <stdexcept>
 #include <string>

@@ -18,10 +18,9 @@ an explicit `binaryPath`, or an installed/prepared arch package.
 
 ## Build
 
-```sh
-npm install --omit=optional
-npm run build
-```
+The package shell (package.json, tsconfig, src/index.ts, scripts/) is
+generated; build through the owning project's `./bootstrap.sh`, which
+regenerates and then runs `npm install --omit=optional && npm run build`.
 
 To prepare per-architecture binary packages:
 

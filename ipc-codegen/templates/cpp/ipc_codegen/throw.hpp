@@ -10,9 +10,10 @@
  *   `x` once (so its constructor still runs, matching observable behaviour)
  *   and then aborts. `RETHROW` is a bare `std::abort()`.
  *
- * Use through codegen output that needs to compile in both modes (msgpack-c
- * uses `THROW` internally; the codegen-emitted headers forward the
- * convention so consumers don't have to thread it through every include).
+ * Use through codegen output that needs to compile in both modes. msgpack-c
+ * itself uses raw try/catch; include it via msgpack_include.hpp, which scopes
+ * a try/catch rewrite to that include only (defining keyword macros globally
+ * is ill-formed once standard headers follow).
  *
  * The macros are defined inside an `#ifndef THROW` guard so callers that
  * predefine their own THROW/RETHROW can do so before this header is reached
@@ -35,12 +36,6 @@ struct AbortOnThrow {
 
 #define THROW ::ipc::detail::AbortOnThrow() <<
 #define RETHROW std::abort()
-// Redefine `try` / `catch` so code that uses raw keywords (e.g. msgpack-c's
-// `try { ... } catch (...)`) still compiles under -fno-exceptions. The catch
-// body is always-skipped dead code in this mode; we rely on \`throw\` becoming
-// `abort()` for the error-propagation path.
-#define try if (true)
-#define catch(...) if (false)
 #else
 #define THROW throw
 #define RETHROW throw

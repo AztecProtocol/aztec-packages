@@ -97,7 +97,90 @@ pub fn main() !void {
             std.debug.print("echo_client(zig): EchoAliases optional/vector FAIL\n", .{});
             std.process.exit(1);
         }
+        if (!std.mem.eql(u8, &resp.hashes[0], &hash) or !std.mem.eql(u8, &resp.hashes[1], &second)) {
+            std.debug.print("echo_client(zig): EchoAliases hashes contents FAIL\n", .{});
+            std.process.exit(1);
+        }
         std.debug.print("echo_client(zig): EchoAliases OK\n", .{});
+    }
+
+    // Test 5: EchoAliases with maybe_hash = null (optional-absent over live IPC)
+    {
+        const hash = testHash(0x10);
+        const cmd = types.EchoAliases{
+            .tree_id = 7,
+            .hash = hash,
+            .maybe_hash = null,
+            .hashes = &[_]types.Fr{hash},
+        };
+        const resp = try client.aliases(cmd);
+        if (resp.maybe_hash != null) {
+            std.debug.print("echo_client(zig): EchoAliases none FAIL\n", .{});
+            std.process.exit(1);
+        }
+        std.debug.print("echo_client(zig): EchoAliases none OK\n", .{});
+    }
+
+    // Test 6: EchoFields with b > u32::MAX (uint64 wire encoding over live IPC)
+    {
+        const big: u64 = (1 << 53) - 1;
+        const cmd = types.EchoFields{ .a = 42, .b = big, .name = "big" };
+        const resp = try client.fields(cmd);
+        if (resp.b != big) {
+            std.debug.print("echo_client(zig): EchoFields u64 FAIL\n", .{});
+            std.process.exit(1);
+        }
+        std.debug.print("echo_client(zig): EchoFields u64 OK\n", .{});
+    }
+
+    // Test 7: EchoBlobs — optional bytes Some/None and fixed [bytes; 2]
+    {
+        const cmd = types.EchoBlobs{
+            .maybe_data = &[_]u8{ 0xAA, 0xBB },
+            .parts = .{ &[_]u8{ 1, 2, 3 }, &[_]u8{4} },
+        };
+        const resp = try client.blobs(cmd);
+        if (resp.maybe_data == null or !std.mem.eql(u8, resp.maybe_data.?, &[_]u8{ 0xAA, 0xBB })) {
+            std.debug.print("echo_client(zig): EchoBlobs maybe_data FAIL\n", .{});
+            std.process.exit(1);
+        }
+        if (!std.mem.eql(u8, resp.parts[0], &[_]u8{ 1, 2, 3 }) or !std.mem.eql(u8, resp.parts[1], &[_]u8{4})) {
+            std.debug.print("echo_client(zig): EchoBlobs parts FAIL\n", .{});
+            std.process.exit(1);
+        }
+        const cmd_none = types.EchoBlobs{
+            .maybe_data = null,
+            .parts = .{ &[_]u8{}, &[_]u8{9} },
+        };
+        const resp_none = try client.blobs(cmd_none);
+        if (resp_none.maybe_data != null) {
+            std.debug.print("echo_client(zig): EchoBlobs none FAIL\n", .{});
+            std.process.exit(1);
+        }
+        std.debug.print("echo_client(zig): EchoBlobs OK\n", .{});
+    }
+
+    // Test 8: EchoFail — server error surfaces, message available on the client
+    {
+        const cmd = types.EchoFail{ .message = "deliberate failure" };
+        if (client.fail(cmd)) |_| {
+            std.debug.print("echo_client(zig): EchoFail FAIL (no error)\n", .{});
+            std.process.exit(1);
+        } else |err| {
+            if (err != error.ServerError) {
+                std.debug.print("echo_client(zig): EchoFail wrong error: {s}\n", .{@errorName(err)});
+                std.process.exit(1);
+            }
+            const message = client.last_server_error orelse {
+                std.debug.print("echo_client(zig): EchoFail missing message\n", .{});
+                std.process.exit(1);
+            };
+            if (std.mem.indexOf(u8, message, "deliberate failure") == null) {
+                std.debug.print("echo_client(zig): EchoFail message mismatch: {s}\n", .{message});
+                std.process.exit(1);
+            }
+        }
+        std.debug.print("echo_client(zig): EchoFail OK\n", .{});
     }
 
     std.debug.print("echo_client(zig): all tests passed\n", .{});

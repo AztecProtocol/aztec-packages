@@ -10,7 +10,9 @@ $NODE "$CODEGEN/src/generate.ts" \
   --lang zig \
   --server \
   --client \
+  --strip-method-prefix \
   --uds \
+  --ffi \
   --out "$DIR/src/generated" \
   --prefix Echo
 

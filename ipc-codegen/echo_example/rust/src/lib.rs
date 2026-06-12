@@ -7,6 +7,8 @@ pub mod generated {
     pub mod echo_server;
     pub mod echo_types;
     pub mod error;
+    #[cfg(feature = "ffi")]
+    pub mod ffi_backend;
 }
 
 // Re-export under the names that generated server/client code expects

@@ -6,9 +6,9 @@ Build from this directory:
 ./bootstrap.sh
 ```
 
-The Zig project depends on the repo-local `ipc-runtime/zig` package and the
-pinned `zig_msgpack` dependency declared in its package metadata. Binaries are
-written to `zig-out/bin/`.
+The Zig project depends on the repo-local `ipc-runtime/zig` package and a
+`zig_msgpack` copy vendored at `vendor/zig-msgpack`. Binaries are written to
+`zig-out/bin/`.
 
 Run locally:
 

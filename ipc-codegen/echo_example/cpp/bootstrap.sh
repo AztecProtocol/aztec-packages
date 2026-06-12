@@ -10,10 +10,10 @@ $NODE "$CODEGEN/src/generate.ts" \
   --lang cpp \
   --server \
   --client \
-  --uds \
+  --strip-method-prefix \
   --out "$DIR/src/generated" \
   --prefix Echo \
   --cpp-namespace echo
 
 cmake -S "$DIR" -B "$DIR/build"
-cmake --build "$DIR/build" --target echo_server echo_client schema_reflection_test
+cmake --build "$DIR/build" --target echo_server echo_client schema_reflection_test golden_test

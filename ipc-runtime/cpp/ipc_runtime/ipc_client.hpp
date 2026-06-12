@@ -43,8 +43,9 @@ class IpcClient {
 
     /**
      * @brief Receive a message from the server (zero-copy for shared memory)
-     * @param timeout_ns Timeout in nanoseconds
-     * @return Span of message data (empty on error/timeout)
+     * @param timeout_ns Timeout in nanoseconds (0 = infinite)
+     * @return Span of message data. data() == nullptr means error/timeout;
+     *         a non-null span of size 0 is a valid zero-length message.
      *
      * The span remains valid until release() is called or the next recv().
      * For shared memory: direct view into ring buffer (true zero-copy)
@@ -53,6 +54,13 @@ class IpcClient {
      * Must be followed by release() to consume the message.
      */
     virtual std::span<const uint8_t> receive(uint64_t timeout_ns) = 0;
+
+    /**
+     * @brief Wake any thread blocked in receive()/send() (for shutdown).
+     *
+     * Default no-op; SHM transports wake futex waiters on their rings.
+     */
+    virtual void wakeup() {}
 
     /**
      * @brief Release the previously received message
@@ -78,5 +86,22 @@ class IpcClient {
     // ring per client slot. This is what make_client("*.shm") selects.
     static std::unique_ptr<IpcClient> create_mpsc_shm(const std::string& base_name, size_t client_id);
 };
+
+/**
+ * @brief Construct an IpcClient based on the input path's suffix.
+ *
+ * Recognised suffixes:
+ *  - "*.sock" → IpcClient::create_socket(path)
+ *  - "*.shm"  → IpcClient::create_mpsc_shm(<basename>, client_id)
+ *
+ * Returns nullptr if the suffix is not recognised. `shm_client_id` is only
+ * consulted for the SHM path; for MPSC-SHM, each connecting client picks a
+ * distinct slot (0..max_clients-1).
+ *
+ * @param input_path Path passed by the caller (often a CLI flag).
+ * @param shm_client_id Client slot to claim in MPSC-SHM mode. Ignored for UDS.
+ */
+std::unique_ptr<IpcClient> make_client(const std::string &input_path,
+                                       std::size_t shm_client_id = 0);
 
 } // namespace ipc

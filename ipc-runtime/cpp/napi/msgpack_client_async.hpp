@@ -28,6 +28,7 @@ namespace ipc::napi {
 class MsgpackClientAsync : public Napi::ObjectWrap<MsgpackClientAsync> {
 public:
   MsgpackClientAsync(const Napi::CallbackInfo &info);
+  ~MsgpackClientAsync() override;
 
   /// info[0]: JS Function invoked once per response from the poll thread.
   Napi::Value setResponseCallback(const Napi::CallbackInfo &info);
@@ -40,15 +41,22 @@ public:
   Napi::Value acquire(const Napi::CallbackInfo &info);
   Napi::Value release(const Napi::CallbackInfo &info);
 
+  /// Stop the poll thread, release any held TSFN reference and close the
+  /// underlying client. Idempotent. The TS wrapper calls this from
+  /// destroy(); also run by the destructor as a safety net.
+  Napi::Value close(const Napi::CallbackInfo &info);
+
   static Napi::Function get_class(Napi::Env env);
 
 private:
   /// Background loop: blocks on the response ring, invokes the JS callback
-  /// per message via tsfn_. Detached — torn down on process exit.
+  /// per message via tsfn_. Joined by close().
   void poll_responses();
+  void close_internal();
 
   std::unique_ptr<ipc::IpcClient> client_;
   std::thread poll_thread_;
+  std::atomic<bool> shutdown_{false};
 
   std::mutex tsfn_mutex_;
   Napi::FunctionReference js_callback_;

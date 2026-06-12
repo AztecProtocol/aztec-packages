@@ -31,8 +31,25 @@ from C++ type metadata via the `MsgpackSchemaPacker` infrastructure.
 ```
 
 - `commands` and `responses` are both **NamedUnion** types (see below).
-- Commands and responses are positionally paired: the Nth command corresponds to the Nth
-  non-error response. The error response (ending in `ErrorResponse`) is shared across all commands.
+- Commands and responses are paired by name: command `Foo` corresponds to the
+  response named `FooResponse`. The error response (ending in `ErrorResponse`)
+  is shared across all commands.
+
+### Validation rules
+
+Schemas are validated at generation time; violations are hard errors:
+
+- Exactly one response variant named `*ErrorResponse` must exist, with
+  exactly one field `message: string`. Generated servers wrap handler
+  failures into this variant; generated clients surface its message.
+- Every command `Foo` must have a matching response `FooResponse`, and the
+  number of commands must equal the number of non-error responses.
+- Command names must be unique.
+- Response schemas must be struct definitions, not type-name strings.
+- Field names must not map (via the snake_case or camelCase projection) to a
+  reserved word in any target language, and two field names in one struct
+  must not collapse to the same projected identifier.
+- C++ `SERIALIZATION_FIELDS` supports at most 20 fields per struct.
 
 ## Type Encodings
 

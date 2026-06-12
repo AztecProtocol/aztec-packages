@@ -1,5 +1,7 @@
 #pragma once
 
+#include "ipc_runtime/constants.hpp"
+
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
@@ -102,17 +104,31 @@ public:
   }
 
   /**
+   * @brief Filesystem artifacts to remove if the process dies abnormally.
+   *
+   * Used by install_default_signal_handlers() to cache (at install time) the
+   * socket paths / shared-memory names a fatal-signal handler should
+   * best-effort unlink. Empty by default.
+   */
+  struct CleanupPaths {
+    std::vector<std::string> unlink_paths;     // removed via ::unlink()
+    std::vector<std::string> shm_unlink_names; // removed via ::shm_unlink()
+  };
+  virtual CleanupPaths cleanup_paths() const { return {}; }
+
+  /**
    * @brief High-level request handler function type
    *
    * Takes client_id and request data, returns response data.
-   * Return empty vector to skip sending a response.
+   * Every request gets exactly one response; an empty vector is sent as a
+   * zero-length response frame.
    */
   using Handler = std::function<std::vector<uint8_t>(
       int client_id, std::span<const uint8_t> request)>;
 
   /**
-   * @brief Accept a new client connection (optional for some transports)
-   * @param timeout_ns Timeout in nanoseconds (0 = non-blocking, <0 = infinite)
+   * @brief Accept pending client connections without blocking (optional for
+   * some transports)
    * @return Client ID if successful, -1 if no pending connection or error
    *
    * Note: Some transports (like shared memory) may not need explicit accept
@@ -150,16 +166,17 @@ public:
       }
 
       // Receive message (blocks until complete message available, zero-copy for
-      // SHM)
+      // SHM). A null data() means error/timeout; a non-null empty span is a
+      // valid zero-length request.
       auto request = receive(client_id);
-      if (request.empty()) {
+      if (request.data() == nullptr) {
         continue;
       }
 
+      // Always send the response frame — a zero-length response is still a
+      // response, and skipping it would deadlock the waiting client.
       auto response = handler(client_id, request);
-      if (!response.empty()) {
-        send(client_id, response.data(), response.size());
-      }
+      send(client_id, response.data(), response.size());
 
       // Explicitly release/consume the message.
       release(client_id, request.size());
@@ -173,14 +190,14 @@ public:
   // directly when the service only needs one producer/client.
   static std::unique_ptr<IpcServer>
   create_shm(const std::string &base_name,
-             size_t request_ring_size = static_cast<size_t>(1024 * 1024),
-             size_t response_ring_size = static_cast<size_t>(1024 * 1024));
+             size_t request_ring_size = DEFAULT_RING_SIZE,
+             size_t response_ring_size = DEFAULT_RING_SIZE);
   // Multi-producer SHM: one request ring per client slot and one response
   // ring per client slot. This is what make_server("*.shm") selects.
   static std::unique_ptr<IpcServer>
   create_mpsc_shm(const std::string &base_name, size_t max_clients,
-                  size_t request_ring_size = static_cast<size_t>(1024 * 1024),
-                  size_t response_ring_size = static_cast<size_t>(1024 * 1024));
+                  size_t request_ring_size = DEFAULT_RING_SIZE,
+                  size_t response_ring_size = DEFAULT_RING_SIZE);
 
 protected:
   std::atomic<bool> shutdown_requested_{false};

@@ -14,7 +14,7 @@
 #include <cassert>
 #include <cstdint>
 #include <cstring>
-#include <msgpack.hpp>
+#include "msgpack_include.hpp"
 #include <tuple>
 #include <type_traits>
 
