@@ -461,14 +461,14 @@ describe('Utility Execution test suite', () => {
         const targetInstance = await randomContractInstanceWithAddress({}, targetContractAddress);
 
         contractStore.getFunctionArtifactWithDebugMetadata.mockResolvedValue(functionArtifact);
-        contractStore.getContractInstance.mockImplementation(async address => {
+        contractStore.getContractInstance.mockImplementation(address => {
           if (address.equals(contractAddress)) {
-            return callerInstance;
+            return Promise.resolve(callerInstance);
           }
           if (address.equals(targetContractAddress)) {
-            return targetInstance;
+            return Promise.resolve(targetInstance);
           }
-          throw new Error(`Unexpected contract instance lookup for ${address}`);
+          return Promise.reject(new Error(`Unexpected contract instance lookup for ${address}`));
         });
 
         return selector;

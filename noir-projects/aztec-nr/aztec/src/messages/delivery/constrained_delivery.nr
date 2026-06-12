@@ -1,9 +1,9 @@
 //! Sender-side helpers for constrained message delivery.
 
 use crate::context::PrivateContext;
-use crate::messages::delivery::{MessageDelivery, OnchainDeliveryMode};
+use crate::messages::delivery::OnchainDeliveryMode;
 use crate::nullifier::utils::compute_nullifier_existence_request;
-use crate::oracle::{call_utility_function::call_utility_function, notes::get_next_tagging_index};
+use crate::oracle::call_utility_function::call_utility_function;
 
 use crate::protocol::{
     abis::function_selector::FunctionSelector,
@@ -23,83 +23,6 @@ pub global NON_INTERACTIVE_HANDSHAKE_SELECTOR: FunctionSelector =
 pub global VALIDATE_HANDSHAKE_SELECTOR: FunctionSelector =
     comptime { FunctionSelector::from_signature("validate_handshake((Field),(Field),(u8),Field)") };
 
-/// Resolves the app-siloed secret and next index for constrained sends.
-///
-/// Wraps the registry calls needed by every constrained-delivery app: query the handshake registry for an
-/// existing app-siloed secret, bootstrap a fresh handshake if there isn't one, and constrain the
-/// oracle-supplied secret and tagging index. The returned `(secret, index)` pair is the input for the caller's
-/// tag derivation and nullifier emission.
-///
-/// All registry calls use the [`MessageDelivery::onchain_constrained`] delivery mode: the handshake registry keys its
-/// stored notes by `(recipient, sender, mode)`, so the constrained-delivery secret must come from the
-/// constrained-mode handshake.
-///
-/// A misbehaving PXE cannot forge a secret (every branch constrains it); at worst it can deny knowledge of an
-/// existing handshake, triggering a re-handshake that replaces the registry note. Already-started chains are
-/// unaffected (see the registry docs on re-handshaking).
-pub fn resolve_secret_and_index(
-    context: &mut PrivateContext,
-    registry: AztecAddress,
-    sender: AztecAddress,
-    recipient: AztecAddress,
-) -> (Field, u32) {
-    let caller = context.this_address();
-    let mode: OnchainDeliveryMode = MessageDelivery::onchain_constrained().into();
-    let mode_field = mode.to_field();
-
-    // Safety: the response only selects which path runs; every path constrains the secret it returns. On `None` we
-    // bootstrap via `non_interactive_handshake`, whose constrained return value is the secret, so a forged empty
-    // response cannot fabricate one; it can only trigger an unnecessary re-handshake that replaces the registry
-    // note. On `Some`, the secret is validated against the stored handshake (index 0) or the previous chain
-    // nullifier (index > 0).
-    let maybe_secret: Option<Field> = unsafe {
-        let returns = call_utility_function(
-            registry,
-            GET_APP_SILOED_SECRET_SELECTOR,
-            // TODO(F-671): Replace explicit caller argument once utility context exposes msg_sender().
-            [sender.to_field(), recipient.to_field(), mode_field, caller.to_field()],
-        );
-        Deserialize::deserialize(returns)
-    };
-
-    let (secret, bootstrapped) = if maybe_secret.is_none() {
-        // Bootstrap: no handshake exists yet. The registry inserts a fresh note and returns the app-siloed
-        // secret to the caller. The constrained return is the source of truth for the secret, so no separate
-        // `validate_handshake` is needed.
-        // TODO(F-660): dispatch to `perform_handshake(sender, recipient, handshake_type)` once interactive
-        // handshakes are supported.
-        let secret: Field = context
-            .call_private_function(
-                registry,
-                NON_INTERACTIVE_HANDSHAKE_SELECTOR,
-                [sender.to_field(), recipient.to_field(), mode_field],
-            )
-            .get_preimage();
-
-        (secret, true)
-    } else {
-        (maybe_secret.unwrap_unchecked(), false)
-    };
-
-    // Reserve the next per-secret index after resolving the secret. On bootstrap this seeds the PXE-side counter
-    // so a later constrained message under the same secret advances instead of colliding on `(secret, 0)`.
-    // Safety: the returned index is untrusted. Bootstrap constrains it to 0; existing secrets validate either
-    // current registry membership (`index == 0`) or chain continuity (`index > 0`).
-    let index = unsafe { get_next_tagging_index(secret, mode) };
-
-    constrain_secret(
-        context,
-        registry,
-        sender,
-        recipient,
-        secret,
-        bootstrapped,
-        index,
-    );
-
-    (secret, index)
-}
-
 pub(crate) fn get_or_create_app_siloed_handshake_secret(
     context: &mut PrivateContext,
     registry: AztecAddress,
@@ -110,11 +33,10 @@ pub(crate) fn get_or_create_app_siloed_handshake_secret(
     let caller = context.this_address();
     let mode_field = mode.to_field();
 
-    // Safety: the response only selects which path runs; every path constrains the secret it returns. On `None` we
-    // bootstrap via `non_interactive_handshake`, whose constrained return value is the secret, so a forged empty
-    // response cannot fabricate one; it can only trigger an unnecessary re-handshake that replaces the registry
-    // note. On `Some`, the secret is validated against the stored handshake (index 0) or the previous chain
-    // nullifier (index > 0).
+    // Safety: the response only selects which path runs. On `None` we bootstrap via `non_interactive_handshake`,
+    // whose constrained return value is the secret, so a forged empty response cannot fabricate one; it can only
+    // trigger an unnecessary re-handshake that replaces the registry note. The caller must constrain the returned
+    // `(secret, bootstrapped)` pair against the selected tagging index before emitting a constrained tag.
     let maybe_secret: Option<Field> = unsafe {
         let returns = call_utility_function(
             registry,
@@ -176,7 +98,7 @@ fn constrain_secret(
     index: u32,
 ) {
     let caller = context.this_address();
-    let mode: OnchainDeliveryMode = MessageDelivery::onchain_constrained().into();
+    let mode = OnchainDeliveryMode::onchain_constrained();
     let mode_field = mode.to_field();
 
     if bootstrapped {
@@ -196,8 +118,8 @@ fn constrain_secret(
 /// Computes a constrained send's chain nullifier.
 ///
 /// Every constrained send at `index` must emit this nullifier so the next send under the same
-/// `(sender, recipient, secret)` can prove its predecessor exists (see [`resolve_secret_and_index`]).
-pub fn compute_constrained_msg_nullifier(
+/// `(sender, recipient, secret)` can prove its predecessor exists.
+pub(crate) fn compute_constrained_msg_nullifier(
     sender: AztecAddress,
     recipient: AztecAddress,
     secret: Field,

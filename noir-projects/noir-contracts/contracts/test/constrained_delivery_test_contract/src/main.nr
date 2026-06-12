@@ -1,4 +1,4 @@
-//! Thin wrappers around the constrained-delivery helpers for TXE tests.
+//! Thin wrappers around constrained delivery for TXE tests.
 use aztec::macros::aztec;
 
 mod test;
@@ -7,10 +7,7 @@ mod test;
 pub contract ConstrainedDeliveryTest {
     use aztec::{
         macros::{events::event, functions::external, storage::storage},
-        messages::delivery::{
-            constrained_delivery::{compute_constrained_msg_nullifier, resolve_secret_and_index},
-            MessageDelivery,
-        },
+        messages::delivery::MessageDelivery,
         oracle::notes::get_next_tagging_index,
         protocol::{
             address::AztecAddress,
@@ -33,36 +30,12 @@ pub contract ConstrainedDeliveryTest {
         balances: Owned<BalanceSet<Context>, Context>,
     }
 
-    /// Calls the helper and returns the resolved `(app_siloed_secret, index)` tuple.
     #[external("private")]
-    fn resolve_and_return(registry: AztecAddress, sender: AztecAddress, recipient: AztecAddress) -> (Field, u32) {
-        resolve_secret_and_index(self.context, registry, sender, recipient)
-    }
-
-    /// Resolves a secret via the helper, then asks the PXE for the next index of that same secret.
-    ///
-    /// Models a sender emitting a second constrained message under a freshly resolved handshake within one tx.
-    /// The returned `(secret, first_index, second_index)` lets a test assert that the second index advances past
-    /// the first rather than resetting, which would collide on `(secret, first_index)`.
-    #[external("private")]
-    fn resolve_then_next_index(
-        registry: AztecAddress,
-        sender: AztecAddress,
-        recipient: AztecAddress,
-    ) -> (Field, u32, u32) {
-        let (secret, first_index) = resolve_secret_and_index(self.context, registry, sender, recipient);
+    fn next_index_for_secret(secret: Field) -> u32 {
         // Safety: test-only observation of the index the PXE hands out next for this secret.
-        let second_index = unsafe { get_next_tagging_index(secret, MessageDelivery::onchain_constrained()) };
-        (secret, first_index, second_index)
-    }
-
-    /// Emits the chain nullifier for `(sender, recipient, secret)` at `index`.
-    ///
-    /// Stands in for the forthcoming emit helper's nullifier emission so tests can advance the nullifier chain
-    /// without performing a constrained send.
-    #[external("private")]
-    fn emit_chain_nullifier(sender: AztecAddress, recipient: AztecAddress, secret: Field, index: u32) {
-        self.context.push_nullifier_unsafe(compute_constrained_msg_nullifier(sender, recipient, secret, index));
+        unsafe {
+            get_next_tagging_index(secret, MessageDelivery::onchain_constrained())
+        }
     }
 
     #[external("private")]
@@ -82,6 +55,18 @@ pub contract ConstrainedDeliveryTest {
     #[external("private")]
     fn emit_event(sender: AztecAddress, recipient: AztecAddress) {
         self.emit(DeliveryEvent { value: 1 }).deliver_to(
+            recipient,
+            MessageDelivery::onchain_constrained().with_sender(sender),
+        );
+    }
+
+    #[external("private")]
+    fn emit_two_events(sender: AztecAddress, recipient: AztecAddress) {
+        self.emit(DeliveryEvent { value: 1 }).deliver_to(
+            recipient,
+            MessageDelivery::onchain_constrained().with_sender(sender),
+        );
+        self.emit(DeliveryEvent { value: 2 }).deliver_to(
             recipient,
             MessageDelivery::onchain_constrained().with_sender(sender),
         );

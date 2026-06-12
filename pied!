@@ -1,0 +1,660 @@
+[1mdiff --git a/noir-projects/aztec-nr/aztec/src/messages/delivery/constrained_delivery.nr b/noir-projects/aztec-nr/aztec/src/messages/delivery/constrained_delivery.nr[m
+[1mindex d32de47f69..4e245f21a2 100644[m
+[1m--- a/noir-projects/aztec-nr/aztec/src/messages/delivery/constrained_delivery.nr[m
+[1m+++ b/noir-projects/aztec-nr/aztec/src/messages/delivery/constrained_delivery.nr[m
+[36m@@ -1,9 +1,9 @@[m
+ //! Sender-side helpers for constrained message delivery.[m
+ [m
+ use crate::context::PrivateContext;[m
+[31m-use crate::messages::delivery::{MessageDelivery, OnchainDeliveryMode};[m
+[32m+[m[32muse crate::messages::delivery::OnchainDeliveryMode;[m
+ use crate::nullifier::utils::compute_nullifier_existence_request;[m
+[31m-use crate::oracle::{call_utility_function::call_utility_function, notes::get_next_tagging_index};[m
+[32m+[m[32muse crate::oracle::call_utility_function::call_utility_function;[m
+ [m
+ use crate::protocol::{[m
+     abis::function_selector::FunctionSelector,[m
+[36m@@ -23,83 +23,6 @@[m [mpub global NON_INTERACTIVE_HANDSHAKE_SELECTOR: FunctionSelector =[m
+ pub global VALIDATE_HANDSHAKE_SELECTOR: FunctionSelector =[m
+     comptime { FunctionSelector::from_signature("validate_handshake((Field),(Field),(u8),Field)") };[m
+ [m
+[31m-/// Resolves the app-siloed secret and next index for constrained sends.[m
+[31m-///[m
+[31m-/// Wraps the registry calls needed by every constrained-delivery app: query the handshake registry for an[m
+[31m-/// existing app-siloed secret, bootstrap a fresh handshake if there isn't one, and constrain the[m
+[31m-/// oracle-supplied secret and tagging index. The returned `(secret, index)` pair is the input for the caller's[m
+[31m-/// tag derivation and nullifier emission.[m
+[31m-///[m
+[31m-/// All registry calls use the [`MessageDelivery::onchain_constrained`] delivery mode: the handshake registry keys its[m
+[31m-/// stored notes by `(recipient, sender, mode)`, so the constrained-delivery secret must come from the[m
+[31m-/// constrained-mode handshake.[m
+[31m-///[m
+[31m-/// A misbehaving PXE cannot forge a secret (every branch constrains it); at worst it can deny knowledge of an[m
+[31m-/// existing handshake, triggering a re-handshake that replaces the registry note. Already-started chains are[m
+[31m-/// unaffected (see the registry docs on re-handshaking).[m
+[31m-pub fn resolve_secret_and_index([m
+[31m-    context: &mut PrivateContext,[m
+[31m-    registry: AztecAddress,[m
+[31m-    sender: AztecAddress,[m
+[31m-    recipient: AztecAddress,[m
+[31m-) -> (Field, u32) {[m
+[31m-    let caller = context.this_address();[m
+[31m-    let mode: OnchainDeliveryMode = MessageDelivery::onchain_constrained().into();[m
+[31m-    let mode_field = mode.to_field();[m
+[31m-[m
+[31m-    // Safety: the response only selects which path runs; every path constrains the secret it returns. On `None` we[m
+[31m-    // bootstrap via `non_interactive_handshake`, whose constrained return value is the secret, so a forged empty[m
+[31m-    // response cannot fabricate one; it can only trigger an unnecessary re-handshake that replaces the registry[m
+[31m-    // note. On `Some`, the secret is validated against the stored handshake (index 0) or the previous chain[m
+[31m-    // nullifier (index > 0).[m
+[31m-    let maybe_secret: Option<Field> = unsafe {[m
+[31m-        let returns = call_utility_function([m
+[31m-            registry,[m
+[31m-            GET_APP_SILOED_SECRET_SELECTOR,[m
+[31m-            // TODO(F-671): Replace explicit caller argument once utility context exposes msg_sender().[m
+[31m-            [sender.to_field(), recipient.to_field(), mode_field, caller.to_field()],[m
+[31m-        );[m
+[31m-        Deserialize::deserialize(returns)[m
+[31m-    };[m
+[31m-[m
+[31m-    let (secret, bootstrapped) = if maybe_secret.is_none() {[m
+[31m-        // Bootstrap: no handshake exists yet. The registry inserts a fresh note and returns the app-siloed[m
+[31m-        // secret to the caller. The constrained return is the source of truth for the secret, so no separate[m
+[31m-        // `validate_handshake` is needed.[m
+[31m-        // TODO(F-660): dispatch to `perform_handshake(sender, recipient, handshake_type)` once interactive[m
+[31m-        // handshakes are supported.[m
+[31m-        let secret: Field = context[m
+[31m-            .call_private_function([m
+[31m-                registry,[m
+[31m-                NON_INTERACTIVE_HANDSHAKE_SELECTOR,[m
+[31m-                [sender.to_field(), recipient.to_field(), mode_field],[m
+[31m-            )[m
+[31m-            .get_preimage();[m
+[31m-[m
+[31m-        (secret, true)[m
+[31m-    } else {[m
+[31m-        (maybe_secret.unwrap_unchecked(), false)[m
+[31m-    };[m
+[31m-[m
+[31m-    // Reserve the next per-secret index after resolving the secret. On bootstrap this seeds the PXE-side counter[m
+[31m-    // so a later constrained message under the same secret advances instead of colliding on `(secret, 0)`.[m
+[31m-    // Safety: the returned index is untrusted. Bootstrap constrains it to 0; existing secrets validate either[m
+[31m-    // current registry membership (`index == 0`) or chain continuity (`index > 0`).[m
+[31m-    let index = unsafe { get_next_tagging_index(secret, mode) };[m
+[31m-[m
+[31m-    constrain_secret([m
+[31m-        context,[m
+[31m-        registry,[m
+[31m-        sender,[m
+[31m-        recipient,[m
+[31m-        secret,[m
+[31m-        bootstrapped,[m
+[31m-        index,[m
+[31m-    );[m
+[31m-[m
+[31m-    (secret, index)[m
+[31m-}[m
+[31m-[m
+ pub(crate) fn get_or_create_app_siloed_handshake_secret([m
+     context: &mut PrivateContext,[m
+     registry: AztecAddress,[m
+[36m@@ -110,11 +33,10 @@[m [mpub(crate) fn get_or_create_app_siloed_handshake_secret([m
+     let caller = context.this_address();[m
+     let mode_field = mode.to_field();[m
+ [m
+[31m-    // Safety: the response only selects which path runs; every path constrains the secret it returns. On `None` we[m
+[31m-    // bootstrap via `non_interactive_handshake`, whose constrained return value is the secret, so a forged empty[m
+[31m-    // response cannot fabricate one; it can only trigger an unnecessary re-handshake that replaces the registry[m
+[31m-    // note. On `Some`, the secret is validated against the stored handshake (index 0) or the previous chain[m
+[31m-    // nullifier (index > 0).[m
+[32m+[m[32m    // Safety: the response only selects which path runs. On `None` we bootstrap via `non_interactive_handshake`,[m
+[32m+[m[32m    // whose constrained return value is the secret, so a forged empty response cannot fabricate one; it can only[m
+[32m+[m[32m    // trigger an unnecessary re-handshake that replaces the registry note. The caller must constrain the returned[m
+[32m+[m[32m    // `(secret, bootstrapped)` pair against the selected tagging index before emitting a constrained tag.[m
+     let maybe_secret: Option<Field> = unsafe {[m
+         let returns = call_utility_function([m
+             registry,[m
+[36m@@ -176,7 +98,7 @@[m [mfn constrain_secret([m
+     index: u32,[m
+ ) {[m
+     let caller = context.this_address();[m
+[31m-    let mode: OnchainDeliveryMode = MessageDelivery::onchain_constrained().into();[m
+[32m+[m[32m    let mode = OnchainDeliveryMode::onchain_constrained();[m
+     let mode_field = mode.to_field();[m
+ [m
+     if bootstrapped {[m
+[36m@@ -196,8 +118,8 @@[m [mfn constrain_secret([m
+ /// Computes a constrained send's chain nullifier.[m
+ ///[m
+ /// Every constrained send at `index` must emit this nullifier so the next send under the same[m
+[31m-/// `(sender, recipient, secret)` can prove its predecessor exists (see [`resolve_secret_and_index`]).[m
+[31m-pub fn compute_constrained_msg_nullifier([m
+[32m+[m[32m/// `(sender, recipient, secret)` can prove its predecessor exists.[m
+[32m+[m[32mpub(crate) fn compute_constrained_msg_nullifier([m
+     sender: AztecAddress,[m
+     recipient: AztecAddress,[m
+     secret: Field,[m
+[1mdiff --git a/noir-projects/noir-contracts/contracts/standard/handshake_registry_contract/src/test.nr b/noir-projects/noir-contracts/contracts/standard/handshake_registry_contract/src/test.nr[m
+[1mindex 2efeaf02ce..5baadbdb27 100644[m
+[1m--- a/noir-projects/noir-contracts/contracts/standard/handshake_registry_contract/src/test.nr[m
+[1m+++ b/noir-projects/noir-contracts/contracts/standard/handshake_registry_contract/src/test.nr[m
+[36m@@ -48,9 +48,9 @@[m [munconstrained fn setup_with_two_recipients() -> (TestEnvironment, AztecAddress,[m
+     (env, registry_address, sender, recipient_a, recipient_b)[m
+ }[m
+ [m
+[31m-// `resolve_secret_and_index` in aztec-nr cannot import this contract because the contract depends on aztec-nr. Assert[m
+[31m-// its selector constants match this contract's macro-generated interface so a signature change on either side fails[m
+[31m-// here instead of silently drifting.[m
+[32m+[m[32m// The constrained-delivery helpers in aztec-nr cannot import this contract because the contract depends on aztec-nr.[m
+[32m+[m[32m// Assert their selector constants match this contract's macro-generated interface so a signature change on either side[m
+[32m+[m[32m// fails here instead of silently drifting.[m
+ #[test][m
+ unconstrained fn selectors_match_the_constrained_delivery_helper() {[m
+     let registry = HandshakeRegistry::at(AztecAddress::from_field(1));[m
+[1mdiff --git a/noir-projects/noir-contracts/contracts/test/constrained_delivery_test_contract/src/main.nr b/noir-projects/noir-contracts/contracts/test/constrained_delivery_test_contract/src/main.nr[m
+[1mindex ddf5182ad9..e8b522951d 100644[m
+[1m--- a/noir-projects/noir-contracts/contracts/test/constrained_delivery_test_contract/src/main.nr[m
+[1m+++ b/noir-projects/noir-contracts/contracts/test/constrained_delivery_test_contract/src/main.nr[m
+[36m@@ -1,4 +1,4 @@[m
+[31m-//! Thin wrappers around the constrained-delivery helpers for TXE tests.[m
+[32m+[m[32m//! Thin wrappers around constrained delivery for TXE tests.[m
+ use aztec::macros::aztec;[m
+ [m
+ mod test;[m
+[36m@@ -7,10 +7,7 @@[m [mmod test;[m
+ pub contract ConstrainedDeliveryTest {[m
+     use aztec::{[m
+         macros::{events::event, functions::external, storage::storage},[m
+[31m-        messages::delivery::{[m
+[31m-            constrained_delivery::{compute_constrained_msg_nullifier, resolve_secret_and_index},[m
+[31m-            MessageDelivery,[m
+[31m-        },[m
+[32m+[m[32m        messages::delivery::MessageDelivery,[m
+         oracle::notes::get_next_tagging_index,[m
+         protocol::{[m
+             address::AztecAddress,[m
+[36m@@ -33,36 +30,10 @@[m [mpub contract ConstrainedDeliveryTest {[m
+         balances: Owned<BalanceSet<Context>, Context>,[m
+     }[m
+ [m
+[31m-    /// Calls the helper and returns the resolved `(app_siloed_secret, index)` tuple.[m
+     #[external("private")][m
+[31m-    fn resolve_and_return(registry: AztecAddress, sender: AztecAddress, recipient: AztecAddress) -> (Field, u32) {[m
+[31m-        resolve_secret_and_index(self.context, registry, sender, recipient)[m
+[31m-    }[m
+[31m-[m
+[31m-    /// Resolves a secret via the helper, then asks the PXE for the next index of that same secret.[m
+[31m-    ///[m
+[31m-    /// Models a sender emitting a second constrained message under a freshly resolved handshake within one tx.[m
+[31m-    /// The returned `(secret, first_index, second_index)` lets a test assert that the second index advances past[m
+[31m-    /// the first rather than resetting, which would collide on `(secret, first_index)`.[m
+[31m-    #[external("private")][m
+[31m-    fn resolve_then_next_index([m
+[31m-        registry: AztecAddress,[m
+[31m-        sender: AztecAddress,[m
+[31m-        recipient: AztecAddress,[m
+[31m-    ) -> (Field, u32, u32) {[m
+[31m-        let (secret, first_index) = resolve_secret_and_index(self.context, registry, sender, recipient);[m
+[32m+[m[32m    fn next_index_for_secret(secret: Field) -> u32 {[m
+         // Safety: test-only observation of the index the PXE hands out next for this secret.[m
+[31m-        let second_index = unsafe { get_next_tagging_index(secret, MessageDelivery::onchain_constrained()) };[m
+[31m-        (secret, first_index, second_index)[m
+[31m-    }[m
+[31m-[m
+[31m-    /// Emits the chain nullifier for `(sender, recipient, secret)` at `index`.[m
+[31m-    ///[m
+[31m-    /// Stands in for the forthcoming emit helper's nullifier emission so tests can advance the nullifier chain[m
+[31m-    /// without performing a constrained send.[m
+[31m-    #[external("private")][m
+[31m-    fn emit_chain_nullifier(sender: AztecAddress, recipient: AztecAddress, secret: Field, index: u32) {[m
+[31m-        self.context.push_nullifier_unsafe(compute_constrained_msg_nullifier(sender, recipient, secret, index));[m
+[32m+[m[32m        unsafe { get_next_tagging_index(secret, MessageDelivery::onchain_constrained()) }[m
+     }[m
+ [m
+     #[external("private")][m
+[36m@@ -87,6 +58,18 @@[m [mpub contract ConstrainedDeliveryTest {[m
+         );[m
+     }[m
+ [m
+[32m+[m[32m    #[external("private")][m
+[32m+[m[32m    fn emit_two_events(sender: AztecAddress, recipient: AztecAddress) {[m
+[32m+[m[32m        self.emit(DeliveryEvent { value: 1 }).deliver_to([m
+[32m+[m[32m            recipient,[m
+[32m+[m[32m            MessageDelivery::onchain_constrained().with_sender(sender),[m
+[32m+[m[32m        );[m
+[32m+[m[32m        self.emit(DeliveryEvent { value: 2 }).deliver_to([m
+[32m+[m[32m            recipient,[m
+[32m+[m[32m            MessageDelivery::onchain_constrained().with_sender(sender),[m
+[32m+[m[32m        );[m
+[32m+[m[32m    }[m
+[32m+[m
+     /// Test-only: emits a log under the constrained tag for `(secret, index)` WITHOUT the chain nullifier. A landed[m
+     /// constrained-tagged log advances the PXE's per-secret index, so this lets tests reach the `index > 0` branch;[m
+     /// deliberately skipping the nullifier drives the negative test.[m
+[1mdiff --git a/noir-projects/noir-contracts/contracts/test/constrained_delivery_test_contract/src/test.nr b/noir-projects/noir-contracts/contracts/test/constrained_delivery_test_contract/src/test.nr[m
+[1mindex c3ec334d00..a2564829cb 100644[m
+[1m--- a/noir-projects/noir-contracts/contracts/test/constrained_delivery_test_contract/src/test.nr[m
+[1m+++ b/noir-projects/noir-contracts/contracts/test/constrained_delivery_test_contract/src/test.nr[m
+[36m@@ -1,10 +1,9 @@[m
+[31m-//! Tests for the constrained-delivery sender helpers.[m
+[32m+[m[32m//! Tests for constrained delivery through the public message-delivery API.[m
+ //![m
+[31m-//! `resolve_and_return` exercises `resolve_secret_and_index` directly. The `index > 0` branch only runs once[m
+[31m-//! the PXE's per-secret index has advanced, which happens when a constrained-tagged log lands on-chain. The[m
+[31m-//! `index > 0` tests land such a log via `emit_constrained_log_without_nullifier` and emit the predecessor chain[m
+[31m-//! nullifier via `emit_chain_nullifier`, standing in for a real constrained send at the prior index.[m
+[31m-//! Direct helper tests use explicit log/nullifier setup so each branch can be targeted independently.[m
+[32m+[m[32m//! These tests exercise the sender-side helper flow indirectly via constrained note/event delivery: resolve or[m
+[32m+[m[32m//! bootstrap the app-siloed handshake secret, reserve the next per-secret index, constrain that index, emit the chain[m
+[32m+[m[32m//! nullifier, then emit the tagged private log. The malformed-log test lands a constrained tag without its chain[m
+[32m+[m[32m//! nullifier so the next real delivery must reject the broken chain.[m
+ use crate::ConstrainedDeliveryTest;[m
+ [m
+ use aztec::{[m
+[36m@@ -34,72 +33,66 @@[m [munconstrained fn setup() -> (TestEnvironment, AztecAddress, AztecAddress, AztecA[m
+     (env, registry_address, test_address, sender, recipient)[m
+ }[m
+ [m
+[31m-/// Each call passes through the helper's `unsafe` cross-contract utility call to[m
+[31m-/// `HandshakeRegistry::get_app_siloed_secret`, which TXE denies by default. We authorize the registry as a[m
+[31m-/// utility-call target via `with_authorized_utility_call_targets` on each `call_private_opts`.[m
+[32m+[m[32m/// Constrained delivery resolves the current app secret through `HandshakeRegistry::get_app_siloed_secret`, which TXE[m
+[32m+[m[32m/// denies by default. Authorize the registry as a utility-call target for calls that emit constrained messages.[m
+ unconstrained fn helper_options(registry_address: AztecAddress) -> CallPrivateOptions<0, 1> {[m
+     CallPrivateOptions::new().with_authorized_utility_call_targets([registry_address])[m
+ }[m
+ [m
+[31m-// First call has no prior handshake, so the helper performs `non_interactive_handshake` and returns[m
+[31m-// `(secret_a, 0)`. The registry's stored note is siloed to the test contract and equal to `secret_a`. A direct[m
+[31m-// re-handshake then replaces the note; the next helper call picks up the new secret on the `Some` branch (still[m
+[31m-// at index 0 because no constrained tag has advanced the PXE state for either secret).[m
+ #[test][m
+[31m-unconstrained fn handshake_returns_fresh_secret_at_index_zero() {[m
+[32m+[m[32munconstrained fn delivery_bootstraps_handshake_and_advances_index() {[m
+     let (env, registry_address, test_address, sender, recipient) = setup();[m
+     let test_contract = ConstrainedDeliveryTest::at(test_address);[m
+     let registry = HandshakeRegistry::at(registry_address);[m
+ [m
+[31m-    let (first_secret, first_index) = env.call_private_opts([m
+[32m+[m[32m    env.call_private_opts([m
+         sender,[m
+         helper_options(registry_address),[m
+[31m-        test_contract.resolve_and_return(registry_address, sender, recipient),[m
+[32m+[m[32m        test_contract.emit_event(sender, recipient),[m
+     );[m
+[31m-    assert_eq(first_index, 0);[m
+[31m-    assert(first_secret != 0, "bootstrap should return a non-zero secret");[m
+ [m
+[31m-    let stored_secret = env[m
+[32m+[m[32m    let secret = env[m
+         .execute_utility(registry.get_app_siloed_secret(sender, recipient, ONCHAIN_CONSTRAINED, test_address))[m
+[31m-        .expect(f"bootstrap should have stored a handshake siloed for the test contract");[m
+[31m-    assert_eq(stored_secret, first_secret);[m
+[32m+[m[32m        .expect(f"delivery should have stored a handshake siloed for the test contract");[m
+[32m+[m[32m    assert(secret != 0, "delivery should bootstrap a non-zero secret");[m
+ [m
+[31m-    let _ = env.call_private(sender, registry.non_interactive_handshake(sender, recipient, ONCHAIN_CONSTRAINED));[m
+[32m+[m[32m    let next_index = env.call_private(sender, test_contract.next_index_for_secret(secret));[m
+[32m+[m[32m    assert_eq(next_index, 1);[m
+[32m+[m[32m}[m
+ [m
+[31m-    let (second_secret, second_index) = env.call_private_opts([m
+[32m+[m[32m#[test][m
+[32m+[m[32munconstrained fn rehandshake_replaces_registry_secret_for_future_delivery() {[m
+[32m+[m[32m    let (env, registry_address, test_address, sender, recipient) = setup();[m
+[32m+[m[32m    let test_contract = ConstrainedDeliveryTest::at(test_address);[m
+[32m+[m[32m    let registry = HandshakeRegistry::at(registry_address);[m
+[32m+[m
+[32m+[m[32m    env.call_private_opts([m
+         sender,[m
+         helper_options(registry_address),[m
+[31m-        test_contract.resolve_and_return(registry_address, sender, recipient),[m
+[32m+[m[32m        test_contract.emit_event(sender, recipient),[m
+     );[m
+[32m+[m[32m    let first_secret = env[m
+[32m+[m[32m        .execute_utility(registry.get_app_siloed_secret(sender, recipient, ONCHAIN_CONSTRAINED, test_address))[m
+[32m+[m[32m        .expect(f"first delivery should have stored a handshake");[m
+ [m
+[32m+[m[32m    let _ = env.call_private(sender, registry.non_interactive_handshake(sender, recipient, ONCHAIN_CONSTRAINED));[m
+[32m+[m[32m    let second_secret = env[m
+[32m+[m[32m        .execute_utility(registry.get_app_siloed_secret(sender, recipient, ONCHAIN_CONSTRAINED, test_address))[m
+[32m+[m[32m        .expect(f"re-handshake should have stored a replacement handshake");[m
+     assert(first_secret != second_secret, "re-handshake should produce a distinct secret");[m
+[31m-    assert_eq(second_index, 0);[m
+[31m-}[m
+[31m-[m
+[31m-// Bootstrap must seed the per-secret index counter, so a second message emitted under the freshly[m
+[31m-// bootstrapped handshake within the same tx advances to index 1 instead of resetting to 0 (which would[m
+[31m-// collide on `(secret, 0)`). This mirrors the `Some(secret)` branch, which seeds the counter via the same[m
+[31m-// oracle call.[m
+[31m-#[test][m
+[31m-unconstrained fn bootstrap_seeds_index_counter_for_same_tx_reuse() {[m
+[31m-    let (env, registry_address, test_address, sender, recipient) = setup();[m
+[31m-    let test_contract = ConstrainedDeliveryTest::at(test_address);[m
+ [m
+[31m-    let (secret, first_index, second_index) = env.call_private_opts([m
+[32m+[m[32m    env.call_private_opts([m
+         sender,[m
+         helper_options(registry_address),[m
+[31m-        test_contract.resolve_then_next_index(registry_address, sender, recipient),[m
+[32m+[m[32m        test_contract.emit_event(sender, recipient),[m
+     );[m
+ [m
+[31m-    assert(secret != 0, "bootstrap should return a non-zero secret");[m
+[31m-    assert_eq(first_index, 0);[m
+[31m-    assert_eq(second_index, 1);[m
+[32m+[m[32m    let next_index = env.call_private(sender, test_contract.next_index_for_secret(second_secret));[m
+[32m+[m[32m    assert_eq(next_index, 1);[m
+ }[m
+ [m
+[31m-// Existing-handshake path: when a handshake already exists, the helper takes the `Some(secret)` branch and[m
+[31m-// (at index 0) calls `validate_handshake`, which completes here because the secret matches the stored note.[m
+ #[test][m
+[31m-unconstrained fn reuses_existing_secret_at_index_zero() {[m
+[32m+[m[32munconstrained fn delivery_reuses_existing_secret_at_index_zero() {[m
+     let (env, registry_address, test_address, sender, recipient) = setup();[m
+     let test_contract = ConstrainedDeliveryTest::at(test_address);[m
+     let registry = HandshakeRegistry::at(registry_address);[m
+[36m@@ -109,157 +102,154 @@[m [munconstrained fn reuses_existing_secret_at_index_zero() {[m
+         .execute_utility(registry.get_app_siloed_secret(sender, recipient, ONCHAIN_CONSTRAINED, test_address))[m
+         .expect(f"seeded handshake should be siloed for the test contract");[m
+ [m
+[31m-    let (secret, index) = env.call_private_opts([m
+[32m+[m[32m    env.call_private_opts([m
+         sender,[m
+         helper_options(registry_address),[m
+[31m-        test_contract.resolve_and_return(registry_address, sender, recipient),[m
+[32m+[m[32m        test_contract.emit_event(sender, recipient),[m
+     );[m
+ [m
+[31m-    assert_eq(index, 0);[m
+[31m-    assert_eq(secret, app_secret);[m
+[32m+[m[32m    let next_index = env.call_private(sender, test_contract.next_index_for_secret(app_secret));[m
+[32m+[m[32m    assert_eq(next_index, 1);[m
+ }[m
+ [m
+[31m-// After a constrained-tagged log lands in a block, the PXE's per-secret index advances. The next resolution takes[m
+[31m-// the `index > 0` branch, proves the prior (now settled) chain nullifier exists, and returns index 1. The log and[m
+[31m-// nullifier are emitted explicitly here, standing in for the constrained send at index 0.[m
+ #[test][m
+[31m-unconstrained fn advances_index_above_zero_when_prior_nullifier_exists() {[m
+[32m+[m[32munconstrained fn second_delivery_proves_prior_nullifier_exists() {[m
+     let (env, registry_address, test_address, sender, recipient) = setup();[m
+     let test_contract = ConstrainedDeliveryTest::at(test_address);[m
+[32m+[m[32m    let registry = HandshakeRegistry::at(registry_address);[m
+ [m
+[31m-    // Bootstrap the handshake, returning `(secret, 0)`.[m
+[31m-    let (secret, first_index) = env.call_private_opts([m
+[32m+[m[32m    env.call_private_opts([m
+         sender,[m
+         helper_options(registry_address),[m
+[31m-        test_contract.resolve_and_return(registry_address, sender, recipient),[m
+[32m+[m[32m        test_contract.emit_event(sender, recipient),[m
+     );[m
+[31m-    assert_eq(first_index, 0);[m
+[31m-[m
+[31m-    // Stand in for the constrained send at index 0: land its tagged log (advancing the per-secret index) and its[m
+[31m-    // chain nullifier.[m
+[31m-    env.call_private(sender, test_contract.emit_constrained_log_without_nullifier(secret, 0));[m
+[31m-    env.call_private(sender, test_contract.emit_chain_nullifier(sender, recipient, secret, 0));[m
+[32m+[m[32m    let secret = env[m
+[32m+[m[32m        .execute_utility(registry.get_app_siloed_secret(sender, recipient, ONCHAIN_CONSTRAINED, test_address))[m
+[32m+[m[32m        .expect(f"first delivery should have stored a handshake");[m
+ [m
+[31m-    // Resolution now syncs the index to 1 and proves the settled index-0 nullifier exists.[m
+[31m-    let (second_secret, second_index) = env.call_private_opts([m
+[32m+[m[32m    env.call_private_opts([m
+         sender,[m
+         helper_options(registry_address),[m
+[31m-        test_contract.resolve_and_return(registry_address, sender, recipient),[m
+[32m+[m[32m        test_contract.emit_event(sender, recipient),[m
+     );[m
+ [m
+[31m-    assert_eq(second_secret, secret);[m
+[31m-    assert_eq(second_index, 1);[m
+[32m+[m[32m    let next_index = env.call_private(sender, test_contract.next_index_for_secret(secret));[m
+[32m+[m[32m    assert_eq(next_index, 2);[m
+ }[m
+ [m
+ #[test][m
+[31m-unconstrained fn note_delivery_advances_index_above_zero() {[m
+[31m-    let (env, _registry_address, test_address, sender, recipient) = setup();[m
+[32m+[m[32munconstrained fn same_tx_delivery_reuse_proves_pending_prior_nullifier() {[m
+[32m+[m[32m    let (env, registry_address, test_address, sender, recipient) = setup();[m
+     let test_contract = ConstrainedDeliveryTest::at(test_address);[m
+[32m+[m[32m    let registry = HandshakeRegistry::at(registry_address);[m
+ [m
+[31m-    env.call_private_opts([m
+[31m-        sender,[m
+[31m-        helper_options(STANDARD_HANDSHAKE_REGISTRY_ADDRESS),[m
+[31m-        test_contract.emit_note(sender, recipient),[m
+[31m-    );[m
+[32m+[m[32m    let _ = env.call_private(sender, registry.non_interactive_handshake(sender, recipient, ONCHAIN_CONSTRAINED));[m
+[32m+[m[32m    let secret = env[m
+[32m+[m[32m        .execute_utility(registry.get_app_siloed_secret(sender, recipient, ONCHAIN_CONSTRAINED, test_address))[m
+[32m+[m[32m        .expect(f"seeded handshake should be siloed for the test contract");[m
+ [m
+[31m-    let (secret, index) = env.call_private_opts([m
+[32m+[m[32m    env.call_private_opts([m
+         sender,[m
+[31m-        helper_options(STANDARD_HANDSHAKE_REGISTRY_ADDRESS),[m
+[31m-        test_contract.resolve_and_return(STANDARD_HANDSHAKE_REGISTRY_ADDRESS, sender, recipient),[m
+[32m+[m[32m        helper_options(registry_address),[m
+[32m+[m[32m        test_contract.emit_two_events(sender, recipient),[m
+     );[m
+ [m
+[31m-    assert(secret != 0, "delivery should bootstrap a non-zero secret");[m
+[31m-    assert_eq(index, 1);[m
+[32m+[m[32m    let next_index = env.call_private(sender, test_contract.next_index_for_secret(secret));[m
+[32m+[m[32m    assert_eq(next_index, 2);[m
+ }[m
+ [m
+ #[test][m
+[31m-unconstrained fn maybe_note_delivery_advances_index_above_zero() {[m
+[31m-    let (env, _registry_address, test_address, sender, recipient) = setup();[m
+[32m+[m[32munconstrained fn note_delivery_advances_index_above_zero() {[m
+[32m+[m[32m    let (env, registry_address, test_address, sender, recipient) = setup();[m
+     let test_contract = ConstrainedDeliveryTest::at(test_address);[m
+[32m+[m[32m    let registry = HandshakeRegistry::at(registry_address);[m
+ [m
+     env.call_private_opts([m
+         sender,[m
+[31m-        helper_options(STANDARD_HANDSHAKE_REGISTRY_ADDRESS),[m
+[31m-        test_contract.emit_maybe_note(sender, recipient),[m
+[32m+[m[32m        helper_options(registry_address),[m
+[32m+[m[32m        test_contract.emit_note(sender, recipient),[m
+     );[m
+ [m
+[31m-    let (secret, index) = env.call_private_opts([m
+[31m-        sender,[m
+[31m-        helper_options(STANDARD_HANDSHAKE_REGISTRY_ADDRESS),[m
+[31m-        test_contract.resolve_and_return(STANDARD_HANDSHAKE_REGISTRY_ADDRESS, sender, recipient),[m
+[31m-    );[m
+[32m+[m[32m    let secret = env[m
+[32m+[m[32m        .execute_utility(registry.get_app_siloed_secret(sender, recipient, ONCHAIN_CONSTRAINED, test_address))[m
+[32m+[m[32m        .expect(f"note delivery should have stored a handshake");[m
+[32m+[m[32m    let next_index = env.call_private(sender, test_contract.next_index_for_secret(secret));[m
+ [m
+     assert(secret != 0, "delivery should bootstrap a non-zero secret");[m
+[31m-    assert_eq(index, 1);[m
+[32m+[m[32m    assert_eq(next_index, 1);[m
+ }[m
+ [m
+ #[test][m
+[31m-unconstrained fn event_delivery_advances_index_above_zero() {[m
+[31m-    let (env, _registry_address, test_address, sender, recipient) = setup();[m
+[32m+[m[32munconstrained fn maybe_note_delivery_advances_index_above_zero() {[m
+[32m+[m[32m    let (env, registry_address, test_address, sender, recipient) = setup();[m
+     let test_contract = ConstrainedDeliveryTest::at(test_address);[m
+[32m+[m[32m    let registry = HandshakeRegistry::at(registry_address);[m
+ [m
+     env.call_private_opts([m
+         sender,[m
+[31m-        helper_options(STANDARD_HANDSHAKE_REGISTRY_ADDRESS),[m
+[31m-        test_contract.emit_event(sender, recipient),[m
+[32m+[m[32m        helper_options(registry_address),[m
+[32m+[m[32m        test_contract.emit_maybe_note(sender, recipient),[m
+     );[m
+ [m
+[31m-    let (secret, index) = env.call_private_opts([m
+[31m-        sender,[m
+[31m-        helper_options(STANDARD_HANDSHAKE_REGISTRY_ADDRESS),[m
+[31m-        test_contract.resolve_and_return(STANDARD_HANDSHAKE_REGISTRY_ADDRESS, sender, recipient),[m
+[31m-    );[m
+[32m+[m[32m    let secret = env[m
+[32m+[m[32m        .execute_utility(registry.get_app_siloed_secret(sender, recipient, ONCHAIN_CONSTRAINED, test_address))[m
+[32m+[m[32m        .expect(f"maybe-note delivery should have stored a handshake");[m
+[32m+[m[32m    let next_index = env.call_private(sender, test_contract.next_index_for_secret(secret));[m
+ [m
+     assert(secret != 0, "delivery should bootstrap a non-zero secret");[m
+[31m-    assert_eq(index, 1);[m
+[32m+[m[32m    assert_eq(next_index, 1);[m
+ }[m
+ [m
+[31m-// Without a prior chain nullifier the `index > 0` branch cannot prove its predecessor. We advance the per-secret[m
+[31m-// index by landing a constrained-tagged log at index 0 while deliberately skipping the chain nullifier; resolution[m
+[31m-// then fails because the predecessor nullifier is neither pending nor settled.[m
+ #[test(should_fail_with = "reading an unknown nullifier")][m
+ unconstrained fn fails_at_index_above_zero_without_prior_nullifier() {[m
+     let (env, registry_address, test_address, sender, recipient) = setup();[m
+     let test_contract = ConstrainedDeliveryTest::at(test_address);[m
+     let registry = HandshakeRegistry::at(registry_address);[m
+ [m
+[31m-    // Establish a handshake so resolution takes the `Some(secret)` branch. This emits no constrained nullifier.[m
+     let _ = env.call_private(sender, registry.non_interactive_handshake(sender, recipient, ONCHAIN_CONSTRAINED));[m
+     let secret = env[m
+         .execute_utility(registry.get_app_siloed_secret(sender, recipient, ONCHAIN_CONSTRAINED, test_address))[m
+         .expect(f"handshake should be siloed for the test contract");[m
+ [m
+[31m-    // Advance the per-secret index above 0 by landing a constrained-tagged log at index 0.[m
+     env.call_private(sender, test_contract.emit_constrained_log_without_nullifier(secret, 0));[m
+ [m
+[31m-    // Resolution now takes the `index > 0` branch and fails: the predecessor nullifier was never emitted.[m
+     let _ = env.call_private_opts([m
+         sender,[m
+         helper_options(registry_address),[m
+[31m-        test_contract.resolve_and_return(registry_address, sender, recipient),[m
+[32m+[m[32m        test_contract.emit_event(sender, recipient),[m
+     );[m
+ }[m
+ [m
+[31m-// Independent per-secret counters for distinct `(sender, recipient)` pairs. Each starts at 0.[m
+ #[test][m
+ unconstrained fn distinct_pairs_have_independent_indexes() {[m
+     let (mut env, registry_address, test_address, sender, recipient_a) = setup();[m
+     let recipient_b = env.create_light_account();[m
+ [m
+     let test_contract = ConstrainedDeliveryTest::at(test_address);[m
+[32m+[m[32m    let registry = HandshakeRegistry::at(registry_address);[m
+ [m
+[31m-    let (secret_a, index_a) = env.call_private_opts([m
+[32m+[m[32m    env.call_private_opts([m
+         sender,[m
+         helper_options(registry_address),[m
+[31m-        test_contract.resolve_and_return(registry_address, sender, recipient_a),[m
+[32m+[m[32m        test_contract.emit_event(sender, recipient_a),[m
+     );[m
+[31m-    let (secret_b, index_b) = env.call_private_opts([m
+[32m+[m[32m    env.call_private_opts([m
+         sender,[m
+         helper_options(registry_address),[m
+[31m-        test_contract.resolve_and_return(registry_address, sender, recipient_b),[m
+[32m+[m[32m        test_contract.emit_event(sender, recipient_b),[m
+     );[m
+ [m
+[31m-    assert_eq(index_a, 0);[m
+[31m-    assert_eq(index_b, 0);[m
+[32m+[m[32m    let secret_a = env[m
+[32m+[m[32m        .execute_utility(registry.get_app_siloed_secret(sender, recipient_a, ONCHAIN_CONSTRAINED, test_address))[m
+[32m+[m[32m        .expect(f"first recipient should have a handshake");[m
+[32m+[m[32m    let secret_b = env[m
+[32m+[m[32m        .execute_utility(registry.get_app_siloed_secret(sender, recipient_b, ONCHAIN_CONSTRAINED, test_address))[m
+[32m+[m[32m        .expect(f"second recipient should have a handshake");[m
+[32m+[m
+[32m+[m[32m    let next_index_a = env.call_private(sender, test_contract.next_index_for_secret(secret_a));[m
+[32m+[m[32m    let next_index_b = env.call_private(sender, test_contract.next_index_for_secret(secret_b));[m
+[32m+[m
+[32m+[m[32m    assert_eq(next_index_a, 1);[m
+[32m+[m[32m    assert_eq(next_index_b, 1);[m
+     assert(secret_a != secret_b, "different recipients should yield distinct siloed secrets");[m
+ }[m
+[1mdiff --git a/yarn-project/end-to-end/src/e2e_constrained_delivery.test.ts b/yarn-project/end-to-end/src/e2e_constrained_delivery.test.ts[m
+[1mindex 88b82d9c9b..10d82c8cb5 100644[m
+[1m--- a/yarn-project/end-to-end/src/e2e_constrained_delivery.test.ts[m
+[1m+++ b/yarn-project/end-to-end/src/e2e_constrained_delivery.test.ts[m
+[36m@@ -1,5 +1,6 @@[m
+ import type { AztecAddress } from '@aztec/aztec.js/addresses';[m
+ import type { Wallet } from '@aztec/aztec.js/wallet';[m
+[32m+[m[32mimport { HandshakeRegistryContract } from '@aztec/noir-contracts.js/HandshakeRegistry';[m
+ import { ConstrainedDeliveryTestContract } from '@aztec/noir-test-contracts.js/ConstrainedDeliveryTest';[m
+ import { STANDARD_HANDSHAKE_REGISTRY_ADDRESS } from '@aztec/standard-contracts/handshake-registry/constants';[m
+ [m
+[36m@@ -8,6 +9,8 @@[m [mimport { jest } from '@jest/globals';[m
+ import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';[m
+ import { ensureHandshakeRegistryPublished, setup } from './fixtures/setup.js';[m
+ [m
+[32m+[m[32mconst ONCHAIN_CONSTRAINED = { inner: 3 };[m
+[32m+[m
+ describe('constrained delivery', () => {[m
+   jest.setTimeout(300_000);[m
+ [m
+[36m@@ -16,6 +19,7 @@[m [mdescribe('constrained delivery', () => {[m
+   let sender: AztecAddress;[m
+   let recipient: AztecAddress;[m
+   let contract: ConstrainedDeliveryTestContract;[m
+[32m+[m[32m  let registry: HandshakeRegistryContract;[m
+ [m
+   beforeAll(async () => {[m
+     ({[m
+[36m@@ -26,19 +30,22 @@[m [mdescribe('constrained delivery', () => {[m
+ [m
+     await ensureHandshakeRegistryPublished(wallet, sender);[m
+     ({ contract } = await ConstrainedDeliveryTestContract.deploy(wallet).send({ from: sender }));[m
+[32m+[m[32m    registry = HandshakeRegistryContract.at(STANDARD_HANDSHAKE_REGISTRY_ADDRESS, wallet);[m
+   });[m
+ [m
+   afterAll(() => teardown());[m
+ [m
+[31m-  it('resolves an existing standard-registry constrained handshake without utility hooks', async () => {[m
+[32m+[m[32m  it('reuses an existing standard-registry constrained handshake without utility hooks', async () => {[m
+     await contract.methods.emit_note(sender, recipient).send({ from: sender });[m
+[32m+[m[32m    await contract.methods.emit_event(sender, recipient).send({ from: sender });[m
+ [m
+[31m-    const {[m
+[31m-      result: [_secret, index],[m
+[31m-    } = await contract.methods[m
+[31m-      .resolve_and_return(STANDARD_HANDSHAKE_REGISTRY_ADDRESS, sender, recipient)[m
+[32m+[m[32m    const { result: secret } = await registry.methods[m
+[32m+[m[32m      .get_app_siloed_secret(sender, recipient, ONCHAIN_CONSTRAINED, contract.address)[m
+       .simulate({ from: sender });[m
+[32m+[m[32m    expect(secret._is_some).toBe(true);[m
+[32m+[m
+[32m+[m[32m    const { result: index } = await contract.methods.next_index_for_secret(secret._value).simulate({ from: sender });[m
+ [m
+[31m-    expect(index).toEqual(1n);[m
+[32m+[m[32m    expect(index).toEqual(2n);[m
+   });[m
+ });[m
+[1mdiff --git a/yarn-project/pxe/src/contract_function_simulator/oracle/utility_execution.test.ts b/yarn-project/pxe/src/contract_function_simulator/oracle/utility_execution.test.ts[m
+[1mindex a8c5c2e5a3..f8a5b2bb56 100644[m
+[1m--- a/yarn-project/pxe/src/contract_function_simulator/oracle/utility_execution.test.ts[m
+[1m+++ b/yarn-project/pxe/src/contract_function_simulator/oracle/utility_execution.test.ts[m
+[36m@@ -461,14 +461,14 @@[m [mdescribe('Utility Execution test suite', () => {[m
+         const targetInstance = await randomContractInstanceWithAddress({}, targetContractAddress);[m
+ [m
+         contractStore.getFunctionArtifactWithDebugMetadata.mockResolvedValue(functionArtifact);[m
+[31m-        contractStore.getContractInstance.mockImplementation(async address => {[m
+[32m+[m[32m        contractStore.getContractInstance.mockImplementation(address => {[m
+           if (address.equals(contractAddress)) {[m
+[31m-            return callerInstance;[m
+[32m+[m[32m            return Promise.resolve(callerInstance);[m
+           }[m
+           if (address.equals(targetContractAddress)) {[m
+[31m-            return targetInstance;[m
+[32m+[m[32m            return Promise.resolve(targetInstance);[m
+           }[m
+[31m-          throw new Error(`Unexpected contract instance lookup for ${address}`);[m
+[32m+[m[32m          return Promise.reject(new Error(`Unexpected contract instance lookup for ${address}`));[m
+         });[m
+ [m
+         return selector;[m
