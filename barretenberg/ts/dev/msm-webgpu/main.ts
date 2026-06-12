@@ -2430,15 +2430,22 @@ function hideProgress(): void {
         const { ShaderManager } = await import('../../src/msm_webgpu/cuzk/shader_manager.js');
         const { BN254_CURVE_CONFIG } = await import('../../src/msm_webgpu/cuzk/curve_config.js');
         if (gpuDevice === null) gpuDevice = await get_device();
-        // ?montmul=cios_unrolled compiles the whole set with the packed
-        // 8×u32 CIOS body instead of the 20×13 Karatsuba+Yuval one — the
-        // compile-cost A/B for thrash-prone drivers.
+        // Production mix: combine kernels render with the packed 8×u32 CIOS
+        // body (what MsmV2.create ships); ?montmul= overrides for A/B.
+        const mmOverride = qp.get('montmul');
         const sm = new ShaderManager(
           4,
           1 << 17,
           BN254_CURVE_CONFIG,
           false,
-          qp.get('montmul') === 'cios_unrolled' ? 'cios_unrolled' : 'karat',
+          mmOverride === 'cios_unrolled' ? 'cios_unrolled' : 'karat',
+        );
+        const smC = new ShaderManager(
+          4,
+          1 << 17,
+          BN254_CURVE_CONFIG,
+          false,
+          mmOverride === 'karat' ? 'karat' : 'cios_unrolled',
         );
         const cases: Array<[string, string]> = [
           [
@@ -2457,8 +2464,8 @@ function hideProgress(): void {
           ],
           ['ptree-level', sm.gen_ba_walker_ptree_level_shader(64, 8)],
           ['ptree-scatter', sm.gen_ba_walker_idx_scatter_shader(64, 8, 64)],
-          ['ptree-ufold', sm.gen_ba_walker_ptree_ufold_shader(256)],
-          ['ptree-survfin', sm.gen_ba_walker_ptree_finalize_shader(256, 1)],
+          ['ptree-ufold', smC.gen_ba_walker_ptree_ufold_shader(256)],
+          ['ptree-survfin', smC.gen_ba_walker_ptree_finalize_shader(256, 1)],
         ];
         const stResults: Array<{ name: string; ms: number; ok: boolean; err?: string }> = [];
         const stClient = makeResultsClient({ page: 'msm-shader-test' });

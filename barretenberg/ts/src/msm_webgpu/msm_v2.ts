@@ -2426,6 +2426,16 @@ export class MsmV2 {
     m.R = misc.r;
     m.rinv = misc.rinv;
     const sm = new ShaderManager(4, n, BN254_CURVE_CONFIG, false, m.montmul);
+    // The fold/finalize kernels (ufold / survfin) always render with the
+    // packed 8×u32 CIOS multiplier: it compiles ~30-40% faster per inlined
+    // body on mobile drivers (smaller live state than the 20×13
+    // Karatsuba+Yuval body), and those dispatches are latency-bound, where
+    // CIOS is also the faster RUNTIME on M4 (tail -30..-70 µs). The level
+    // kernel and the walker keep `m.montmul` (karat default): both are
+    // throughput-bound and CIOS costs them ~10% / ~3 ms there. The two
+    // bodies interoperate freely: both consume and produce the same 8×u32
+    // Montgomery-form storage representation.
+    const smCombine = new ShaderManager(4, n, BN254_CURVE_CONFIG, false, 'cios_unrolled');
 
     // Bind a prefix of the shared, already-Montgomery-converted SRS pool. The
     // level-0 kernels index points by `val_idx < n`, so a pool with srsN >= n
@@ -3146,7 +3156,7 @@ export class MsmV2 {
         m.ptreeLevelLayout,
       );
       m.ptreeUfoldPipe = await compile(
-        sm.gen_ba_walker_ptree_ufold_shader(PTREE_FOLD_TPB),
+        smCombine.gen_ba_walker_ptree_ufold_shader(PTREE_FOLD_TPB),
         `ptree-ufold`,
         m.ptreeFoldLayout,
       );
@@ -3156,7 +3166,7 @@ export class MsmV2 {
         m.ptreeScatterLayout,
       );
       m.ptreeSurvFinPipe = await compile(
-        sm.gen_ba_walker_ptree_finalize_shader(PTREE_FIN_TPB, PTREE_FIN_SN),
+        smCombine.gen_ba_walker_ptree_finalize_shader(PTREE_FIN_TPB, PTREE_FIN_SN),
         `ptree-survfin`,
         m.ptreeFinLayout,
       );
