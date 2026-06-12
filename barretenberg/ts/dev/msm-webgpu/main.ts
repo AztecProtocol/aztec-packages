@@ -147,8 +147,6 @@ const gpuKnobs: MsmConfig = (() => {
     combineOnHost: false,
     splitC: q.get('split') === '1' || q.get('autorun') === 'msm-msbhist' || undefined,
     wiProbe: q.get('wiprobe') === '1' || undefined,
-    sparseReduce: q.get('sparse_reduce') === '1' || undefined,
-    groupedReduce: q.get('grouped_reduce') === '1' || undefined,
     foldMTower: (() => {
       const f = q.get('fold_m');
       if (!f) return undefined;
@@ -160,10 +158,8 @@ const gpuKnobs: MsmConfig = (() => {
     foldK: optInt('fold_k'),
     foldCoop: q.get('fold_coop') === '1' || undefined,
     foldTlocal: q.get('fold_tlocal') === '1' || undefined,
-    halvingReduce: q.get('halving_reduce') === '1' || undefined,
     halveCap: optInt('halve_cap'),
     halveBa4Floor: optInt('halve_ba4floor'),
-    earlyExit: q.get('early_exit') === '1' || undefined,
     // halve_stop=0 / halve_iter=0 are meaningful — optInt rejects 0.
     halveStop: q.get('halve_stop') !== null ? Math.max(0, Number(q.get('halve_stop'))) : undefined,
     halveIter: q.get('halve_iter') !== null ? Math.max(0, Number(q.get('halve_iter'))) : undefined,
@@ -175,12 +171,16 @@ const gpuKnobs: MsmConfig = (() => {
       const parts = f.split(',').map(x => parseInt(x, 10));
       return parts.length === 3 && parts.every(x => x > 0) ? (parts as [number, number, number]) : undefined;
     })(),
+    // profile=0 overrides the autorun forcing: timestamp-query passes add
+    // real overhead, so clean-wall benches need profiling truly off.
     profile:
-      q.get('profile') === '1' ||
-      q.get('autorun') === 'msm-bench' ||
-      q.get('autorun') === 'msm-trace' ||
-      q.get('autorun') === 'walker-index-stats' ||
-      undefined,
+      q.get('profile') === '0'
+        ? undefined
+        : q.get('profile') === '1' ||
+          q.get('autorun') === 'msm-bench' ||
+          q.get('autorun') === 'msm-trace' ||
+          q.get('autorun') === 'walker-index-stats' ||
+          undefined,
   };
 })();
 
@@ -829,10 +829,10 @@ async function runWebGpuOnce(
     throw new Error('navigator.gpu is undefined — no WebGPU in this browser');
   }
   const msm = await ensureWebGpuWarmed(inputs);
-  // Halving always early-exits: the staged partials go to the native
+  // The reduction always early-exits: the staged partials go to the native
   // finish+combine, so the WASM worker must be live before the timed window
   // (production's caller IS the wasm — boot cost is not part of the MSM).
-  if ((gpuKnobs.halvingReduce || gpuKnobs.earlyExit) && WASM_AVAILABLE && !wasmMtPippenger) {
+  if (WASM_AVAILABLE && !wasmMtPippenger) {
     await ensureWasmBooted();
   }
   log('info', `[gpu] dispatch n=${inputs.n.toLocaleString()}`);
@@ -2376,7 +2376,7 @@ function hideProgress(): void {
     // (srsBuf !== null), so it runs without COI/SharedArrayBuffer.
     // Fully additive: leaves the existing msm-bench (cross-check) path
     // and the msm-cross-check path untouched.
-    const autorunLogN = Math.min(17, parseInt(qp.get('logn') ?? '17', 10) || 17);
+    const autorunLogN = Math.min(20, parseInt(qp.get('logn') ?? '17', 10) || 17);
     const reps = parseInt(qp.get('reps') ?? '5', 10);
     const client = makeResultsClient({ page: 'msm-bench' });
     log('info', `[bench] GPU-ONLY (no_wasm=1) logN=${autorunLogN} reps=${reps}`);
@@ -3233,7 +3233,7 @@ function hideProgress(): void {
     // wall-around-submit).
     //   ?autorun=msm-matrix&logn=17&reps=8&scalar_dist=profile&profile=A
     //     &configs=karat,cios_unrolled
-    const autorunLogN = Math.min(17, parseInt(qp.get('logn') ?? '17', 10) || 17);
+    const autorunLogN = Math.min(20, parseInt(qp.get('logn') ?? '17', 10) || 17);
     const reps = Math.max(1, parseInt(qp.get('reps') ?? '8', 10));
     const warmups = Math.max(1, parseInt(qp.get('warmups') ?? '2', 10));
     const configsStr = qp.get('configs') ?? 'karat,cios_unrolled';

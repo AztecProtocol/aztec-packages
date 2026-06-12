@@ -402,19 +402,6 @@ export interface MsmConfig {
    * pair-tree scratch (rewritten afterwards) — correctness-neutral.
    */
   wiProbe?: boolean;
-  /**
-   * Use the sparse bucket reduction (skips empty buckets via a gap-aware suffix
-   * sum) instead of the dense table-driven tree. Byte-identical result; wins on
-   * structured/sparse scalar distributions (the production wire commits). v0 is
-   * one-thread-per-window (validation); v1 batches the inversions for speed.
-   */
-  sparseReduce?: boolean;
-  /**
-   * Use the fold-tower bucket reduction (GROUPED_REDUCE_PLAN.md): 2-3 wide
-   * batch-affine fold dispatches + a per-window Jacobian tail replace the
-   * 35-level dense schedule. Byte-identical result.
-   */
-  groupedReduce?: boolean;
   /** Fold-tower rows-per-chunk per level (sweep knob; see buildFoldTower). */
   foldMTower?: number[];
   /** Fold-tower combine input length cap (sweep knob; default and maximum 32
@@ -433,10 +420,6 @@ export interface MsmConfig {
   /** Use the thread-local tower kernel for affine M = 8 stream-less levels
    *  (in-register binary tower, 5 round-batched inversions, no barriers). */
   foldTlocal?: boolean;
-  /** Halving bucket reduction (Mitschabaude): one dispatch per wide depth —
-   *  batch-affine 8/4 pairs per thread while saturated, Jacobian pairs once
-   *  thin — plus a one-workgroup-per-window finisher. No split-c support. */
-  halvingReduce?: boolean;
   /** Halving finisher entry budget (live values per window). Default 64
    *  (measured M4 optimum — finisher chains scale with per-array length). */
   halveCap?: number;
@@ -446,18 +429,18 @@ export interface MsmConfig {
   /** Early exit: the GPU pipeline ends at the staged-partials pass; the
    *  per-window finishing sum and the cross-window Horner combine run in ONE
    *  native WASM call (finish_and_combine_windows) on the readback bytes.
-   *  Requires halvingReduce. */
+   *  */
   earlyExit?: boolean;
   /** Debug (depth bisection): dispatch only the first N wide halving depths,
    *  then run the finisher pipeline in DUMP mode — it stages each window's
    *  raw W-region slots 0..finisherDepth instead of reducing, so the staged
    *  readback is the arena state after N depths (diffable across devices).
-   *  Requires halvingReduce + earlyExit. */
+   *  */
   halveStop?: number;
   /** Debug (finisher iteration bisection): all wide depths run, then the
    *  finisher executes exactly K master-loop iterations after its
    *  cooperative load (K=0 fingerprints the load + shared round-trip alone)
-   *  and stages each workgroup's slot 0. Requires halvingReduce + earlyExit. */
+   *  and stages each workgroup's slot 0. */
   halveIter?: number;
   /**
    * Test hook (mirrors the C++ VAR_WINDOW_FORCE_SPLIT env var): force a split at
@@ -2026,13 +2009,11 @@ export class MsmV2 {
   /** split-c (Phase 1): build the MSB histogram + run the variable-window decision. */
   private splitC = false;
   private wiProbe = false;
-  private sparseReduce = false;
   private reduceSparsePipe?: GPUComputePipeline;
   private reduceSparseLayout?: GPUBindGroupLayout;
   private reduceSparseBind?: GPUBindGroup;
   // Fold-tower reduction (GROUPED_REDUCE_PLAN.md). foldPipes is indexed by the
   // level's stream count (= level index, ≤ 2).
-  private groupedReduce = false;
   private foldMTower?: number[];
   private foldTailMax?: number;
   private foldLevelPipes: GPUComputePipeline[] = [];
@@ -2041,10 +2022,8 @@ export class MsmV2 {
   private foldK = 0;
   private foldCoop = false;
   private foldTlocal = false;
-  private halvingReduce = false;
   private halveCap = 256;
   private halveBa4Floor?: number;
-  private earlyExitMode = false;
   private halveStopAfter?: number;
   private halveIterAfter?: number;
   private halveArraysDumpBind?: GPUBindGroup;
@@ -2536,22 +2515,18 @@ export class MsmV2 {
     m.combineOnHost = config?.combineOnHost ?? true;
     m.splitC = config?.splitC ?? false;
     m.wiProbe = config?.wiProbe ?? false;
-    m.sparseReduce = config?.sparseReduce ?? false;
-    m.groupedReduce = config?.groupedReduce ?? false;
     m.foldMTower = config?.foldMTower;
     m.foldTailMax = config?.foldTailMax;
     m.foldSat = config?.foldSat ?? 2560;
     m.foldK = config?.foldK ?? 0;
     m.foldCoop = config?.foldCoop ?? false;
     m.foldTlocal = config?.foldTlocal ?? false;
-    m.halvingReduce = config?.halvingReduce ?? false;
     m.halveCap = config?.halveCap ?? 64;
     m.halveBa4Floor = config?.halveBa4Floor;
     // Halving ALWAYS early-exits: the GPU ends at the staged partials and ONE
     // native call finishes + combines. The GPU root pass (pass 2) is gone.
-    m.earlyExitMode = config?.halvingReduce ?? false;
-    m.halveStopAfter = m.earlyExitMode ? config?.halveStop : undefined;
-    m.halveIterAfter = m.earlyExitMode ? config?.halveIter : undefined;
+    m.halveStopAfter = config?.halveStop;
+    m.halveIterAfter = config?.halveIter;
     m.forceSplit = config?.forceSplit;
     m.reduceCostWeight = config?.reduceCostWeight ?? 4;
     m.maxCLo = config?.maxCLo ?? 0;
@@ -3268,157 +3243,10 @@ export class MsmV2 {
       );
       queue(p => (m.reduceInitPipe = p), sm.gen_ba_reduce_init_bench_shader(WGI), `reduce-init`, m.reduceInitLayout);
     }
-    // Phase 5: ONE reduction pipeline drives every schedule level. The
-    // `kind` (0 suffix / 1 tree / 2 double) lives in lparams.w — uniform
-    // across the workgroup, so the compiler specialises per-dispatch with
-    // no SIMT divergence. Replaces the three kind-specialised pipelines.
-    queue(
-      p => (m.reduceLevelPipes[0] = p),
-      sm.gen_ba_reduce_level_bench_shader(REDUCE_WG),
-      `reduce-level`,
-      m.reduceLevelLayout,
-    );
-    // Thread-1 Jacobian reduce-tail pipelines. Same REDUCE_WG / WGI knobs as the
-    // affine reduce, so they ride the one-program PipelineCache identically (the
-    // strings are size-independent — geometry rides in reduce_sched/cparams).
-    // Compiled ONLY when this instance's schedule has a Jacobian level: the
-    // default all-affine path (jacobianCrossover = 0 ⇒ useJac all false) never
-    // dispatches them, and they are 3 of the 7 heaviest kernels (≈12.6 s of the
-    // 25.9 s cold create on Mali). A jac-configured instance created later
-    // compiles them into the shared pool cache via its own create().
-    if (m.useJac.some(Boolean)) {
-      queue(
-        p => (m.jacLevelPipe = p),
-        sm.gen_ba_reduce_level_jacobian_shader(REDUCE_WG),
-        `reduce-jac`,
-        m.jacLevelLayout,
-      );
-      queue(p => (m.zInitPipe = p), sm.gen_ba_reduce_z_init_shader(WGI), `reduce-z-init`, m.zInitLayout);
-      queue(
-        p => (m.jacFinalizePipe = p),
-        sm.gen_ba_reduce_jac_finalize_shader(WGI),
-        `reduce-jac-finalize`,
-        m.jacFinalizeLayout,
-      );
-      queue(
-        p => (m.jacToAffinePipe = p),
-        sm.gen_ba_reduce_jac_to_affine_shader(WGI),
-        `reduce-jac-to-affine`,
-        m.jacToAffineLayout,
-      );
-    }
-    if (m.sparseReduce) {
-      // red_buf(rw), is_present(rw — shares an arena buffer with red_buf, so it
-      // can't be read-only in the same pass), cparams(uniform), reduce_meta(ro).
-      m.reduceSparseLayout = lt(['storage', 'storage', 'uniform', 'read-only-storage']);
-      queue(
-        p => (m.reduceSparsePipe = p),
-        sm.gen_ba_reduce_sparse_shader(REDUCE_WG),
-        `reduce-sparse`,
-        m.reduceSparseLayout,
-      );
-    }
-    if (m.groupedReduce) {
-      // Fold-tower reduction. Per-level regime from the ENVELOPE tower
-      // (window towers are prefixes of it): batch-affine with the largest k
-      // keeping threads ≥ foldSat (C = k·(2+ns) adds per inversion), else
-      // the inversion-free Jacobian fold — C = 2 batch-affine is never
-      // dispatched (a mixed Jacobian add is cheaper).
-      const envTower = buildFoldTower(2 ** (m.c - 1), {
-        mTower: m.foldMTower,
-        tailMax: Math.min(m.foldTailMax ?? 32, 64),
-        maxLevels: 3,
-        numWindows: m.numWindows,
-        satWidth: m.foldSat,
-      });
-      // foldCoop swaps the kernel of AFFINE-regime levels for the
-      // workgroup-cooperative variant (always k = 1: the coop batch already
-      // spans the workgroup, so chunks/thread buys nothing). Jacobian-regime
-      // levels are unaffected — combine with foldK = 1 to force every level
-      // affine and therefore coop.
-      m.foldRegimes = envTower.levels.map((lvl, lv) => {
-        // M = 2 Jacobian levels (width-adaptive small-N shape) get the lean
-        // pair kernel: one add per thread, no walk machinery. Split-c is
-        // excluded — window towers can then disagree with the envelope's M
-        // at a level, and the pair kernel is specialised to M == 2.
-        const pairable = lvl.M === 2 && !m.splitC;
-        if (m.foldK) return { jac: false, k: m.foldCoop ? 1 : m.foldK, pair: false };
-        const NC = m.numWindows * lvl.G;
-        if (m.foldCoop) {
-          // Same affine/jac boundary as the per-thread policy below, so an
-          // A/B against it swaps only the kernel of the affine levels.
-          const affine =
-            (NC / 4 >= m.foldSat && lvl.G % 4 === 0) || (NC / 2 >= m.foldSat && lvl.G % 2 === 0);
-          return affine ? { jac: false, k: 1, pair: false } : { jac: true, k: 1, pair: pairable };
-        }
-        if (NC / 4 >= m.foldSat && lvl.G % 4 === 0) return { jac: false, k: 4, pair: false };
-        if (NC / 2 >= m.foldSat && lvl.G % 2 === 0) return { jac: false, k: 2, pair: false };
-        return { jac: true, k: 1, pair: pairable };
-      });
-      // The thread-local tower kernel claims affine M = 8 stream-less levels
-      // and is one-column-per-thread: pin its k to 1 so the dispatch width
-      // covers every column (the regime's k sizes foldLevelNx).
-      if (m.foldTlocal && !m.splitC) {
-        for (let lv = 0; lv < m.foldRegimes.length; lv++) {
-          const r = m.foldRegimes[lv];
-          if (!r.jac && lv === 0 && envTower.levels[lv].M === 8) {
-            r.k = 1;
-            r.tlocal = true;
-          }
-        }
-      }
-      // red_buf(rw), is_present(rw), cparams(u), lparams(u), fold_sched(ro).
-      m.foldLayout = lt(['storage', 'storage', 'uniform', 'uniform', 'read-only-storage']);
-      // red_buf(rw), red_z(rw), is_present(rw), cparams(u), lparams(u), fold_sched(ro).
-      m.foldJacLayout = lt(['storage', 'storage', 'storage', 'uniform', 'uniform', 'read-only-storage']);
-      m.foldLevelPipes = [];
-      for (let lv = 0; lv < m.foldRegimes.length; lv++) {
-        const ns = Math.min(lv, 2);
-        const r = m.foldRegimes[lv];
-        // Outputs of jac, pair, AND a preceding jac-family level carry z in
-        // red_z; affine fold outputs are x/y + presence (z implied 1).
-        const inputsJac = lv > 0 && (m.foldRegimes[lv - 1].jac || m.foldRegimes[lv - 1].pair);
-        const tlocal = r.tlocal === true;
-        m.foldLevelPipes[lv] = r.pair
-          ? await compile(
-              sm.gen_ba_reduce_fold_pair_shader(REDUCE_WG, ns, inputsJac),
-              `reduce-fold-pair-${ns}-${inputsJac ? 'jac' : 'aff'}`,
-              m.foldJacLayout,
-            )
-          : r.jac
-            ? await compile(sm.gen_ba_reduce_fold_jac_shader(REDUCE_WG, ns), `reduce-fold-jac-${ns}`, m.foldJacLayout)
-            : tlocal
-              ? await compile(sm.gen_ba_reduce_fold_tlocal_shader(REDUCE_WG), `reduce-fold-tlocal`, m.foldLayout)
-              : m.foldCoop
-                ? await compile(sm.gen_ba_reduce_fold_coop_shader(REDUCE_WG, ns), `reduce-fold-coop-${ns}`, m.foldLayout)
-                : await compile(sm.gen_ba_reduce_fold_shader(REDUCE_WG, ns, r.k), `reduce-fold-${ns}-k${r.k}`, m.foldLayout);
-      }
-      // red_buf(rw), red_z(rw), is_present(rw), cparams(u), fold_sched(ro).
-      m.foldTailLayout = lt(['storage', 'storage', 'storage', 'uniform', 'read-only-storage']);
-      m.foldWeightPipe = await compile(
-        sm.gen_ba_reduce_fold_weight_shader(REDUCE_WG),
-        `reduce-fold-weight`,
-        m.foldTailLayout,
-      );
-      m.foldSumPipe = await compile(sm.gen_ba_reduce_fold_sum_shader(32), `reduce-fold-sum`, m.foldJacLayout!);
-    }
 
-    // Halving ships only at stride >= 4096 (c >= 13, logn >= 16): the
-    // small-stride schedule variants (Lf=128 finisher / tiny-geometry jac
-    // and ba depths) return wrong results or hang on Adreno, and dense is
-    // both verified-correct and faster there (n10: ~23ms dense vs ~35ms
-    // halving on S25+). Every shipped halving shape is the on-device
-    // verified one.
-    if (m.halvingReduce && 2 ** (m.c - 1) < 4096) {
-      m.halvingReduce = false;
-      // Early-exit staging exists only to carry the halving finisher's
-      // output; with halving gated off the dense path must produce normal
-      // window sums or the readback stages garbage.
-      m.earlyExitMode = false;
-    }
-    if (m.halvingReduce) {
+    {
       if (m.splitC) {
-        throw new Error('halvingReduce does not support split-c windows yet');
+        throw new Error('the halving reduction does not support split-c windows yet');
       }
       m.foldLayout = m.foldLayout ?? lt(['storage', 'storage', 'uniform', 'uniform', 'read-only-storage']);
       m.foldJacLayout =
@@ -4687,7 +4515,7 @@ export class MsmV2 {
     }
     // Sparse reduce: per-window (base, B) meta + bind. base = tight reduce_off,
     // B = this window's bucket count (2^(c_w-1)). cparams.x = M (red_buf stride).
-    if (this.sparseReduce && this.reduceSparseLayout) {
+    if ((false as boolean) && this.reduceSparseLayout) {
       const metaData = new Uint32Array(NUM_WINDOWS * 4);
       for (let w = 0; w < NUM_WINDOWS; w++) {
         const cw = w < this.windowCs.length ? this.windowCs[w] : c;
@@ -4711,7 +4539,7 @@ export class MsmV2 {
     this.foldLevelNx = [];
     this.foldTailBind = undefined;
     this.foldMaxLevels = 0;
-    if (this.groupedReduce && this.foldLayout && this.foldTailLayout) {
+    if ((false as boolean) && this.foldLayout && this.foldTailLayout) {
       // Cooperative tail consumes arrays up to ~512 long at full width, so the
       // tower stops early (usually a single fold level); the sequential tail
       // needs the deep tower to shrink the walk to ~16.
@@ -4805,7 +4633,7 @@ export class MsmV2 {
     this.halveDepthDispatch = [];
     this.halveZInitBind = undefined;
     this.halveZInitAt = -1;
-    if (this.halvingReduce && this.halveSchedule && this.foldLayout && this.foldJacLayout) {
+    if (this.halveSchedule && this.foldLayout && this.foldJacLayout) {
       const sched = this.halveSchedule;
       const strideB = 2 ** (c - 1);
       const htab = new Uint32Array(NUM_WINDOWS * 4);
@@ -5350,16 +5178,9 @@ export class MsmV2 {
           passes += prePasses + 16 + 3 + 3 + 3 + (2 + 17 * 3 + 1);
         }
       }
-      // Reduce = one dispatch per level (table-driven), a single dispatch for
-      // the sparse path, or fold levels + tail + jac-finalize for the fold
-      // tower. +1 keeps the historical slack slot.
-      passes +=
-        1 +
-        (this.groupedReduce
-          ? this.foldMaxLevels + 4
-          : this.sparseReduce
-            ? 1
-            : this.reduceLevelBinds.length);
+      // Reduce = the halving depths + finisher (+1 keeps the historical
+      // slack slot).
+      passes += 1 + this.halveDepthDispatch.length + 1;
       // Thread-1/step-4: each affine↔jac flip in useJac adds one transition
       // dispatch (z-init for affine→jac, batched convert for jac→affine); a
       // trailing Jacobian region adds the per-window finalize.
@@ -5453,10 +5274,7 @@ export class MsmV2 {
    * x + 32-byte y per window).
    */
   get windowSumsByteLength(): number {
-    if (this.earlyExitMode) {
-      return this.numWindows * this.halvePartialsPerWindow * 96;
-    }
-    return this.numWindows * 64;
+    return this.numWindows * this.halvePartialsPerWindow * 96;
   }
 
   /** Staged partials per window in early-exit mode (1 + finisher depth). */
@@ -5821,7 +5639,13 @@ export class MsmV2 {
     // directly via the bid → red_slot mapping. See UNIFIED_COMBINE_PLAN.md.
     // Phase 5: ONE pipeline drives every level (kind branched at runtime
     // off lparams.w). reduceLevelKinds is no longer consulted.
-    if (this.halvingReduce && this.halveFinishArraysPipe) {
+    // Halving reduction (Mitschabaude) — the only reduction path: one
+    // dispatch per wide depth — batch-affine 8/4 pairs per thread while
+    // saturated, Jacobian pairs once thin (z-plane seeded just before the
+    // first Jacobian depth) — then the per-window finisher, which stages
+    // the partials for the native finish + combine (early exit: the GPU
+    // pipeline ends here).
+    {
       // Halving reduction (Mitschabaude): one dispatch per wide depth —
       // batch-affine 8/4 pairs per thread while saturated, Jacobian pairs
       // once thin (z-plane seeded just before the first Jacobian depth) —
@@ -5849,93 +5673,15 @@ export class MsmV2 {
         (this.halveSchedule?.finisherDepth ?? 0) + 1,
         this.numWindows,
       );
-    } else if (this.groupedReduce && this.foldWeightPipe && this.foldSumPipe && this.foldSumBind1 && this.reduceJacFinalizeBind) {
-      // Fold tower (GROUPED_REDUCE_PLAN.md): one dispatch per fold level —
-      // grid (chunks, windows), level lv's pipeline is specialised for
-      // streamsIn = lv — then the 64-lane-per-window weighted sum and the
-      // shared jac-finalize to normalise the roots.
-      for (let lv = 0; lv < this.foldMaxLevels; lv++) {
-        dispatch(this.foldLevelPipes[lv], this.foldLevelBinds[lv], this.foldLevelNx[lv], this.numWindows);
-      }
-      dispatch(this.foldWeightPipe!, this.foldTailBind, this.foldWeightNx, this.numWindows);
-      dispatch(this.foldSumPipe, this.foldSumBind1!, 1, this.numWindows);
-      dispatch(this.foldSumPipe, this.foldSumBind2!, 1, this.numWindows);
-      setPhase('reduce_jacfinal');
-      dispatch(this.jacFinalizePipe, this.reduceJacFinalizeBind, Math.ceil(this.numWindows / WGI), 1);
-    } else if (this.sparseReduce && this.reduceSparsePipe && this.reduceSparseBind) {
-      // Sparse path: one dispatch, one workgroup per window; the kernel walks
-      // only the active buckets (gap-aware), skipping empties. Byte-identical to
-      // the dense tree.
-      dispatch(this.reduceSparsePipe, this.reduceSparseBind, this.numWindows, 1);
-    } else if (
-      this.useJac.some(Boolean) &&
-      this.reduceZInitBind &&
-      this.reduceJacFinalizeBind &&
-      this.reduceJacToAffineBind
-    ) {
-      // Mask-driven Jacobian reduce. useJac[lv] picks the coordinate system per
-      // level. At each flip we bridge representations: affine→jac seeds the Z
-      // plane (z-init), jac→affine normalises every live slot back to affine
-      // (batched convert, which also restores is_present). A trailing Jacobian
-      // region is closed by the per-window finalize. The contiguous-suffix
-      // (Thread-1) path is the special case with one z-init and no mid convert.
-      // Math-identical to the affine reduce — only the representation differs.
-      const reducePipe = this.reduceLevelPipes[0];
-      let curJac = false;
-      for (let lv = 0; lv < this.reduceLevelBinds.length; lv++) {
-        const wantJac = this.useJac[lv];
-        if (wantJac && !curJac) {
-          setPhase('reduce_zinit');
-          dispatch(this.zInitPipe, this.reduceZInitBind, Math.ceil(this.redM / WGI), 1);
-          curJac = true;
-        } else if (!wantJac && curJac) {
-          setPhase('reduce_jac2aff');
-          dispatch(this.jacToAffinePipe, this.reduceJacToAffineBind, this.jacToAffineNx, 1);
-          curJac = false;
-        }
-        if (wantJac) {
-          dispatch(this.jacLevelPipe, this.reduceJacLevelBinds[lv], this.numWindows, 1);
-        } else {
-          dispatch(reducePipe, this.reduceLevelBinds[lv], this.numWindows, 1);
-        }
-      }
-      if (curJac) {
-        setPhase('reduce_jacfinal');
-        dispatch(this.jacFinalizePipe, this.reduceJacFinalizeBind, Math.ceil(this.numWindows / WGI), 1);
-      }
-    } else {
-      const reducePipe = this.reduceLevelPipes[0];
-      // One dispatch per level over all windows; each window reads its own base +
-      // per-level schedule from reduce_sched, so narrow split-c windows no-op the
-      // levels past their shorter schedule (ppw==0) — fewer buckets, same dispatch
-      // count as the uniform reduce.
-      for (let lv = 0; lv < this.reduceLevelBinds.length; lv++) {
-        dispatch(reducePipe, this.reduceLevelBinds[lv], this.numWindows, 1);
-      }
     }
     // Per-window weighted sum gather. Same SoA stride math as run(), just
     // targeting an external staging buffer at an external offset. The red_buf
     // Y-plane stays at the envelope redM (the baked M_RED the writers use); the
     // per-window base is the tight reduceOffsets prefix.
-    if (this.earlyExitMode && this.halveStageBuf) {
-      // Early exit: ship the staged partials as standard-form LE integers
-      // (the staging kernel converts out of Montgomery on export) — the
-      // native finish_and_combine_windows re-wraps them in its own radix.
-      enc.copyBufferToBuffer(this.halveStageBuf, 0, dstStaging, dstByteOff, this.windowSumsByteLength);
-    } else {
-      const yPlane = 32 * this.redM;
-      for (let w = 0; w < this.numWindows; w++) {
-        const g = 32 * this.reduceOffsets[w];
-        enc.copyBufferToBuffer(slotBuf(this.redBuf), slotOff(this.redBuf) + g, dstStaging, dstByteOff + w * 64, 32);
-        enc.copyBufferToBuffer(
-          slotBuf(this.redBuf),
-          slotOff(this.redBuf) + yPlane + g,
-          dstStaging,
-          dstByteOff + w * 64 + 32,
-          32,
-        );
-      }
-    }
+    // Early exit: ship the staged partials as standard-form LE integers
+    // (the staging kernel converts out of Montgomery on export) — the
+    // native finish_and_combine_windows re-wraps them in its own radix.
+    enc.copyBufferToBuffer(this.halveStageBuf!, 0, dstStaging, dstByteOff, this.windowSumsByteLength);
     if (this.profile && this.querySet && this.tsResolveBuf && this.tsStagingBuf && !splitDiag && resolveTs) {
       enc.resolveQuerySet(this.querySet, 0, this.passCount * 2, this.tsResolveBuf, 0);
       enc.copyBufferToBuffer(this.tsResolveBuf, 0, this.tsStagingBuf, 0, this.passCount * 16);
@@ -6598,12 +6344,10 @@ export class MsmV2 {
     const tMapped = performance.now();
     const mapped = this.redStaging.getMappedRange();
     const stagingBytes = new Uint8Array(mapped);
-    const L = this.earlyExitMode ? [] : this.decodeWindowSumsFromBytes(stagingBytes, 0);
+    const L: Pt[] = [];
     // Early exit: detach the raw staged-partials bytes for the single native
     // finish_and_combine_windows call (the caller owns shipping them).
-    const staged = this.earlyExitMode
-      ? new Uint8Array(mapped.slice(0, this.windowSumsByteLength))
-      : null;
+    const staged = new Uint8Array(mapped.slice(0, this.windowSumsByteLength));
     // Detach the timestamp tail before unmap (profile decode happens later).
     const tsBytes = this.profile
       ? mapped.slice(this.windowSumsByteLength, this.windowSumsByteLength + this.passCount * 16)
@@ -6697,7 +6441,7 @@ export class MsmV2 {
       windowSums: L,
       c: this.c,
       stagedPartials: staged,
-      partialsPerWindow: this.earlyExitMode ? this.halvePartialsPerWindow : 0,
+      partialsPerWindow: this.halvePartialsPerWindow,
     };
   }
 
