@@ -119,6 +119,30 @@ resource "google_dns_managed_zone_iam_member" "ci_rpc_dns_admin" {
   member       = "serviceAccount:${google_service_account.ci.email}"
 }
 
+resource "google_project_iam_member" "ci_network_deploy_project_roles" {
+  for_each = toset([
+    "roles/container.developer",
+    "roles/secretmanager.secretAccessor",
+    "roles/compute.loadBalancerAdmin"
+  ])
+  project = var.project
+  role    = each.key
+  member  = "serviceAccount:${google_service_account.ci.email}"
+}
+
+resource "google_storage_bucket_iam_member" "ci_terraform_state_object_user" {
+  bucket = "aztec-terraform"
+  role   = "roles/storage.objectUser"
+  member = "serviceAccount:${google_service_account.ci.email}"
+}
+
+resource "google_dns_managed_zone_iam_member" "ci_rpc_dns_admin" {
+  project      = var.project
+  managed_zone = "rpc-aztec-labs-com"
+  role         = "roles/dns.admin"
+  member       = "serviceAccount:${google_service_account.ci.email}"
+}
+
 resource "google_service_account" "npm_registry_reader" {
   account_id   = var.npm_registry_reader_service_account_id
   display_name = "npm Registry Reader Service Account"
