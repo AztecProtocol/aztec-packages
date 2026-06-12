@@ -96,6 +96,10 @@ const PTREE_FOLD_TPB = 256;
 // thread's serial chain (prefix + peel on top of the same safegcd) while
 // halving threads. Batch widths only pay in throughput-bound normalizes.
 const PTREE_FIN_SN = 1;
+// Survivor-finalize TPB. SINGLE SOURCE for the epilogue's slot-19 dispatch
+// sizing AND the finalize kernel's own TPB — a mismatch silently skips (or
+// double-runs) survivors, exactly like a FIN_SN mismatch.
+const PTREE_FIN_TPB = 256;
 // Slots per level-kernel thread (A/B'd: 16 flat on M4).
 const PTREE_S = 8;
 
@@ -360,8 +364,6 @@ export interface MsmConfig {
   ptree?: boolean;
   /** Pair-tree level->fold switch threshold (adds per level). */
   ptreeTheta?: number;
-  /** DEBUG: skip the ptree meta-region clear (bisect knob). */
-  ptreeNoClear?: boolean;
   /**
    * Small-N auto-gate for the high-mem ping-pong: when `n ≤ pingpongBelow`, route
    * the MSM through the ping-pong instead of the walker (0 = off, default). The
@@ -3367,12 +3369,9 @@ export class MsmV2 {
         theta: m.ptreeTheta,
         s: PTREE_S,
         tpb: PTREE_TPB,
-        fin_tpb: 256,
+        fin_tpb: PTREE_FIN_TPB,
         fin_sn: PTREE_FIN_SN,
       });
-      console.log(
-        `[ptree-create] epilogue code len=${ptreeEpilogueCode.length} magic=${ptreeEpilogueCode.includes('BEEF0001')}`,
-      );
       m.ptreeEpiloguePipe = await compile(ptreeEpilogueCode, `ptree-epilogue`, m.ptreeEpilogueLayout);
       m.ptreeLevelPipe = await compile(
         sm.gen_ba_walker_ptree_level_shader(PTREE_TPB, PTREE_S),
@@ -3390,7 +3389,7 @@ export class MsmV2 {
         m.ptreeScatterLayout,
       );
       m.ptreeSurvFinPipe = await compile(
-        sm.gen_ba_walker_ptree_finalize_shader(256, PTREE_FIN_SN),
+        sm.gen_ba_walker_ptree_finalize_shader(PTREE_FIN_TPB, PTREE_FIN_SN),
         `ptree-survfin`,
         m.ptreeFinLayout,
       );
@@ -5741,6 +5740,8 @@ export class MsmV2 {
     bad: number;
     samples: string[];
     pTotal: number;
+    singles: number;
+    maxCnt: number;
     classes: { micro: number; shallow: number; deep: number };
     meta: number[];
     args: number[];
@@ -5781,6 +5782,8 @@ export class MsmV2 {
     let pTotal = 0;
     let checked = 0;
     let bad = 0;
+    let singles = 0;
+    let maxCnt = 0;
     const samples: string[] = [];
     const kstar = meta[20];
     const thr = 1 << Math.max(kstar, 1) - 1;
@@ -5789,6 +5792,14 @@ export class MsmV2 {
       const c = cnt[fb];
       if (c === 0) continue;
       pTotal += c;
+      if (c > maxCnt) maxCnt = c;
+      if (c === 1) {
+        singles++;
+        if (singles <= 3) {
+          const so = off[fb] & 0x7fffffff;
+          samples.push(`SINGLE fb=${fb} off=${so} flag=${off[fb] >>> 31} desc=(${desc[so]},${desc[M + so]})`);
+        }
+      }
       if (c > thr) {
         const nr = Math.ceil(c / thr);
         if (nr <= 8) classes.micro++;
@@ -5806,7 +5817,7 @@ export class MsmV2 {
         }
       }
     }
-    return { checked, bad, samples, pTotal, classes, meta, args };
+    return { checked, bad, samples, pTotal, singles, maxCnt, classes, meta, args };
   }
 
   /** Debug: snapshot the first n red_buf slots' x-halves (32 B each).

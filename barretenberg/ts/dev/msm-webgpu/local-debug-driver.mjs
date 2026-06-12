@@ -35,7 +35,9 @@ try {
 {
   const capMs = parseInt(argv.secs, 10) * 1000;
   const t0 = Date.now();
-  const TERMINAL = /state=done|state=error|MISMATCH|jac and legacy agree|FATAL|\[shader-test\] state=done|DONE —/;
+  // NOT 'jac and legacy agree': with ?jacruns=N that line is per-run, and
+  // exiting on run 1 hides every later run. state=done covers completion.
+  const TERMINAL = /state=done|state=error|MISMATCH|FATAL|\[shader-test\] state=done|DONE —/;
   for (;;) {
     if (Date.now() - t0 > capMs) break;
     const txt = await page

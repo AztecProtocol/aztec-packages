@@ -273,12 +273,11 @@ fn main(@builtin(workgroup_id) wgid: vec3<u32>,
     let l = lid.x;
 
     // This bucket's stage-A partial base = sum of earlier cap buckets'
-    // chunk counts (the cap bin is tiny by construction).
+    // chunk counts. The sum runs the FULL prefix — structured inputs make
+    // cap bins of hundreds of entries, and truncating the sum misaddresses
+    // every later bucket's chunks.
     var base: u32 = 0u;
-    var iter: u32 = 0u;
     for (var c: u32 = cap_base; c < pos; c = c + 1u) {
-        if (iter >= 64u) { break; }
-        iter = iter + 1u;
         let cb = sorted_active[c];
         let cnt_c = pc_at(flat_bid(cb, bw_geom.x));
         let nr_c = (cnt_c + stride - 1u) / stride;

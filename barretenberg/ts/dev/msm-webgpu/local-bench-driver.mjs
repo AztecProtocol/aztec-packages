@@ -49,7 +49,10 @@ const browser = await chromium.launch({
 const page = await browser.newPage();
 page.on('console', m => {
   const t = m.text();
-  if (/\[(bench|gpu|trace|iso|stats)\]|FATAL|error/i.test(t)) console.log(`  · ${t}`);
+  // warning|invalid is MANDATORY: Dawn validation errors surface only as
+  // console warnings while the killed submit reads back zeros — a filtered
+  // warning makes a broken variant bench as a fast, zero-work "win".
+  if (/\[(bench|gpu|trace|iso|stats)\]|FATAL|error|warning|invalid/i.test(t)) console.log(`  · ${t}`);
 });
 page.on('pageerror', e => console.log(`  ! pageerror: ${e.message}`));
 

@@ -486,7 +486,7 @@ function readSrsPointAt(buf: Uint8Array, i: number): { x: bigint; y: bigint } {
 // took `n` directly — callers always have a `logN` variable in scope and
 // it's easy to forget the `1 << logN` conversion, producing a tiny
 // logN-point MSM instead of a 2^logN-point one.
-async function generateInputs(logN: number, mirrorForNoble: boolean): Promise<TestInputs> {
+async function generateInputs(logN: number, mirrorForNoble: boolean, seedOverride?: number): Promise<TestInputs> {
   if (srsBuf === null) {
     throw new Error('[gen] SRS not loaded yet — wait for the [srs] ready line');
   }
@@ -540,9 +540,10 @@ async function generateInputs(logN: number, mirrorForNoble: boolean): Promise<Te
   const distMode = new URLSearchParams(window.location.search).get('scalar_dist') ?? 'uniform';
   const scalarBytes = new Uint8Array(n * 32);
   // ?seed=N: deterministic scalars (mulberry32) so failures reproduce.
+  // seedOverride wins over the URL — multi-run probes (jacruns) step it.
   const seedParam = new URLSearchParams(window.location.search).get('seed');
-  if (seedParam !== null) {
-    let a = (parseInt(seedParam, 10) || 1) >>> 0;
+  if (seedOverride !== undefined || seedParam !== null) {
+    let a = (seedOverride !== undefined ? seedOverride : parseInt(seedParam!, 10) || 1) >>> 0;
     const mulberry = (): number => {
       a |= 0;
       a = (a + 0x6d2b79f5) | 0;
@@ -551,7 +552,7 @@ async function generateInputs(logN: number, mirrorForNoble: boolean): Promise<Te
       return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
     };
     Math.random = mulberry;
-    log('info', `[gen] seeded PRNG: seed=${seedParam}`);
+    log('info', `[gen] seeded PRNG: seed=${seedOverride !== undefined ? seedOverride : seedParam}`);
   }
   const smallScalar = (maxExclusive: number): bigint => BigInt(Math.floor(Math.random() * maxExclusive));
   if (distMode === 'clustered') {
@@ -591,6 +592,29 @@ async function generateInputs(logN: number, mirrorForNoble: boolean): Promise<Te
       let s: bigint;
       if (r < 0.85) s = 1n;
       else if (r < 0.95) s = smallScalar(16);
+      else s = randomFr();
+      if (mirrorForNoble) scalars![i] = s;
+      scalarBytes.set(biToLe32(s, `scalar[${i}]`), i * 32);
+    }
+  } else if (distMode === 'witmix') {
+    // Witness mass + wide structured spread: a big ones fraction (one mega
+    // bucket → the deep pipeline) + a band over K distinct full-size values
+    // (cap-bin buckets across every window) + a random tail. The only shape
+    // with BOTH a >64-residual bucket and a cap bin wider than 64 entries —
+    // gates the deep chunk→bucket mapping at realistic width.
+    // Tunable: ?wm_ones= (default 0.8), ?wm_rep= (0.15), ?wm_k= (64).
+    const wmq = new URLSearchParams(window.location.search);
+    const onesF = parseFloat(wmq.get('wm_ones') ?? '0.8');
+    const repF = parseFloat(wmq.get('wm_rep') ?? '0.15');
+    const K = parseInt(wmq.get('wm_k') ?? '64', 10) || 64;
+    const pool = new Array<bigint>(K);
+    for (let j = 0; j < K; j++) pool[j] = randomFr();
+    log('info', `[gen] witmix scalars: ${onesF} ones + ${repF} over ${K} repeats + rest random`);
+    for (let i = 0; i < n; i++) {
+      const r = Math.random();
+      let s: bigint;
+      if (r < onesF) s = 1n;
+      else if (r < onesF + repF) s = pool[Math.floor(Math.random() * K)];
       else s = randomFr();
       if (mirrorForNoble) scalars![i] = s;
       scalarBytes.set(biToLe32(s, `scalar[${i}]`), i * 32);
@@ -2250,60 +2274,63 @@ function hideProgress(): void {
     void (async () => {
       const autorunLogN = Math.min(17, parseInt(qp.get('logn') ?? '17', 10) || 17);
       const client = makeResultsClient({ page: 'msm-jac-check' });
-      log('info', `[jac-check] logN=${autorunLogN}`);
+      // ?jacruns=N: repeat generate→run→compare N times on the SAME pool
+      // (fresh MsmV2 instances each run, seed stepped by 1) — the production
+      // bridge pattern. Catches cross-run state leaks in pooled scratch that
+      // single-shot runs can never see (e.g. stale desc planes).
+      const jacRuns = Math.max(1, parseInt(qp.get('jacruns') ?? '1', 10) || 1);
+      const baseSeedParam = qp.get('seed');
+      const baseSeed = baseSeedParam === null ? undefined : (parseInt(baseSeedParam, 10) || 1) >>> 0;
+      log('info', `[jac-check] logN=${autorunLogN} runs=${jacRuns}`);
       try {
         for (let i = 0; i < 1200 && srsBuf === null; i++) await new Promise(r => setTimeout(r, 500));
         if (srsBuf === null) throw new Error('SRS never became ready');
         $logn.value = String(autorunLogN);
         $logn.dispatchEvent(new Event('input'));
-        const inputs = await generateInputs(autorunLogN, false);
+        let pool: MsmV2Pool | null = null;
+        let allOk = true;
+        for (let runI = 0; runI < jacRuns; runI++) {
+        const inputs = await generateInputs(autorunLogN, false, baseSeed === undefined ? undefined : baseSeed + runI);
         if (gpuDevice === null) gpuDevice = await get_device();
-        log('info', `[jac-check] building pool + ptree/oracle MsmV2 pair`);
-        const pool = await MsmV2Pool.create(gpuDevice, inputs.pointsBuf);
+        if (pool === null) {
+          log('info', `[jac-check] building pool + ptree/oracle MsmV2 pair`);
+          pool = await MsmV2Pool.create(gpuDevice, inputs.pointsBuf);
+        }
         // &ab=oracle: BOTH oracle (harness sanity). &ab=ptree: BOTH ptree
         // (self-determinism probe).
         const msmPt = await MsmV2.create(gpuDevice, inputs.n, pool, {
           ...gpuKnobs,
           ptree: qp.get('ab') !== 'oracle',
         });
-        const msmOracle = await MsmV2.create(gpuDevice, inputs.n, pool, {
-          ...gpuKnobs,
-          ptree: qp.get('ab') === 'ptree',
-        });
         msmPt.prepare(inputs.scalarsBuf);
         const a = await msmPt.run();
-        {
-        const { ShaderManager } = await import('../../src/msm_webgpu/cuzk/shader_manager.js');
-        const { BN254_CURVE_CONFIG } = await import('../../src/msm_webgpu/cuzk/curve_config.js');
-        const smProbe = new ShaderManager(4, 1 << 17, BN254_CURVE_CONFIG, false);
-        const plain = smProbe.gen_ba_walker_idx_epilogue_shader(64);
-        const variant = smProbe.gen_ba_walker_idx_epilogue_shader(64, {
-          levels: 8,
-          theta: 65536,
-          s: 8,
-          tpb: 64,
-          fin_tpb: 256,
-          fin_sn: 2,
-        });
-        log(
-          'info',
-          `[jac-check] epilogue render: plain=${plain.length}ch magic=${plain.includes('BEEF0001')} variant=${variant.length}ch magic=${variant.includes('BEEF0001')}`,
-        );
-      }
       if (qp.get('desccheck') === '1') {
           const dc = await (
             msmPt as unknown as {
               debugDescCheck(): Promise<{ checked: number; bad: number; samples: string[]; pTotal: number }>;
             }
           ).debugDescCheck();
-          const dcc = dc as unknown as { classes: { micro: number; shallow: number; deep: number }; meta: number[]; args: number[] };
+          const dcc = dc as unknown as { singles: number; maxCnt: number; classes: { micro: number; shallow: number; deep: number }; meta: number[]; args: number[] };
           log(
             'info',
-            `[jac-check] descCheck pTotal=${dc.pTotal} bad=${dc.bad} magic=${dcc.meta[0].toString(16)},${dcc.meta[1].toString(16)} kstar=${dcc.meta[20]} stride=${dcc.meta[22]} base=${dcc.meta[23]} range=${dcc.meta[24]} P=${dcc.meta[28]}`,
+            `[jac-check] descCheck pTotal=${dc.pTotal} bad=${dc.bad} singles=${dcc.singles} maxcnt=${dcc.maxCnt} classes=${dcc.classes.micro}/${dcc.classes.shallow}/${dcc.classes.deep} kstar=${dcc.meta[20]} stride=${dcc.meta[22]} base=${dcc.meta[23]} range=${dcc.meta[24]} cap=${dcc.meta[24] - dcc.meta[29]} P=${dcc.meta[28]}`,
           );
           log('info', `[jac-check] args L1..L8=${dcc.args.slice(4, 36).filter((_, i) => i % 4 === 0).join(',')} f64=${dcc.args[72]} f256=${dcc.args[68]} fin=${dcc.args[76]}`);
           for (const smp of dc.samples) log('info', `[jac-check]   ${smp}`);
         }
+        // ?jaccmp=last: oracle + compare only on the FINAL run; earlier runs
+        // are ptree-only, so pooled scratch reaches the last run exactly as
+        // production back-to-back MSMs leave it. (The oracle's pt chain
+        // reuses ptScratch and would otherwise scrub cross-run leftovers.)
+        if (qp.get('jaccmp') === 'last' && runI < jacRuns - 1) {
+          log('info', `[jac-check] [run ${runI + 1}/${jacRuns}] ptree-only (compare on last run)`);
+          (msmPt as unknown as { destroy?: () => void }).destroy?.();
+          continue;
+        }
+        const msmOracle = await MsmV2.create(gpuDevice, inputs.n, pool, {
+          ...gpuKnobs,
+          ptree: qp.get('ab') === 'ptree',
+        });
         const REDN = 0; // 0 = full x-plane
         type Dbg = {
           debugRedSnapshot(n: number): Promise<Uint32Array>;
@@ -2345,22 +2372,27 @@ function hideProgress(): void {
             firstBad = w;
           }
         }
+        const runTag = jacRuns > 1 ? ` [run ${runI + 1}/${jacRuns}]` : '';
         if (ok) {
           const x0 = a.windowSums[0]?.x ?? 0n;
-          log('ok', `[jac-check] jac and legacy agree (${a.windowSums.length} windows, w0.x=0x${x0.toString(16).slice(0, 16)}…)`);
+          log('ok', `[jac-check]${runTag} jac and legacy agree (${a.windowSums.length} windows, w0.x=0x${x0.toString(16).slice(0, 16)}…)`);
         } else if (firstBad >= 0) {
           log(
             'err',
-            `[jac-check] MISMATCH window ${firstBad}: jac.x=0x${a.windowSums[firstBad].x.toString(16)} legacy.x=0x${b.windowSums[firstBad].x.toString(16)}`,
+            `[jac-check]${runTag} MISMATCH window ${firstBad}: jac.x=0x${a.windowSums[firstBad].x.toString(16)} legacy.x=0x${b.windowSums[firstBad].x.toString(16)}`,
           );
         } else {
-          log('err', `[jac-check] MISMATCH window-count ${a.windowSums.length} vs ${b.windowSums.length}`);
+          log('err', `[jac-check]${runTag} MISMATCH window-count ${a.windowSums.length} vs ${b.windowSums.length}`);
         }
-        log('ok', `[jac-check] state=done ab_ok=${ok}`);
+        allOk = allOk && ok;
+        (msmPt as unknown as { destroy?: () => void }).destroy?.();
+        (msmOracle as unknown as { destroy?: () => void }).destroy?.();
+        }
+        log('ok', `[jac-check] state=done ab_ok=${allOk}`);
         await client.postResults({
           state: 'done',
-          params: { logN: autorunLogN, page: 'msm-jac-check' },
-          results: { ab_ok: ok },
+          params: { logN: autorunLogN, page: 'msm-jac-check', runs: jacRuns },
+          results: { ab_ok: allOk },
           error: null,
           log: [],
           userAgent: navigator.userAgent,
@@ -2395,14 +2427,14 @@ function hideProgress(): void {
         const cases: Array<[string, string]> = [
           [
             'ptree-epilogue',
-            sm.gen_ba_walker_idx_epilogue_shader(64, { levels: 8, theta: 65536, s: 8, tpb: 64, fin_tpb: 256, fin_sn: 2 }),
+            sm.gen_ba_walker_idx_epilogue_shader(64, { levels: 8, theta: 65536, s: 8, tpb: 64, fin_tpb: 256, fin_sn: 1 }),
           ],
           ['ptree-level', sm.gen_ba_walker_ptree_level_shader(64, 8)],
           ['ptree-scatter', sm.gen_ba_walker_idx_scatter_shader(64, 8, 64, true)],
           ['ptree-fold-shallow', sm.gen_ba_walker_ptree_fold_shader(64)],
           ['ptree-deep-pair', sm.gen_ba_walker_ptree_deep_pair_shader(256)],
           ['ptree-deep-combine', sm.gen_ba_walker_ptree_deep_combine_shader(64)],
-          ['ptree-survfin', sm.gen_ba_walker_ptree_finalize_shader(256, 2)],
+          ['ptree-survfin', sm.gen_ba_walker_ptree_finalize_shader(256, 1)],
         ];
         const stResults: Array<{ name: string; ms: number; ok: boolean; err?: string }> = [];
         const stClient = makeResultsClient({ page: 'msm-shader-test' });
@@ -2448,7 +2480,7 @@ function hideProgress(): void {
             s: 8,
             tpb: 64,
             fin_tpb: 256,
-            fin_sn: 2,
+            fin_sn: 1,
           });
           const mod = gpuDevice.createShaderModule({ code });
           const pipe = await gpuDevice.createComputePipelineAsync({

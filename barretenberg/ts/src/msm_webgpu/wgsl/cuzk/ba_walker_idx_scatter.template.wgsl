@@ -73,9 +73,15 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         partial_layout[off] = slot;
 {{/ptree_desc}}
 {{#ptree_desc}}
-        // Singles never enter the tree (copied to red_buf below and not
-        // in the active list) — no descriptor needed.
         arena_a2[arena_off.y + off] = slot;
+        // Defensive: the v2 walker has never been observed to emit a
+        // count-1 bucket (alloc's SINGLE_FLAG path is dead on every probed
+        // shape), but the desc planes are not cleared between batches — a
+        // position left stale would let a level fabricate a pair and
+        // overwrite this bucket's red entry. rem=1 can never pair
+        // (half >= 1 is never < 1).
+        desc_buf[off] = 0u;
+        desc_buf[params.y + off] = 1u;
 {{/ptree_desc}}
         // Single partial — copy straight to red_buf (v1 filter's fast path).
         let window = bid >> WBID_SHIFT;

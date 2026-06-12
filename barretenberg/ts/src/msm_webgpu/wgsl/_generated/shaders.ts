@@ -5580,9 +5580,15 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         partial_layout[off] = slot;
 {{/ptree_desc}}
 {{#ptree_desc}}
-        // Singles never enter the tree (copied to red_buf below and not
-        // in the active list) — no descriptor needed.
         arena_a2[arena_off.y + off] = slot;
+        // Defensive: the v2 walker has never been observed to emit a
+        // count-1 bucket (alloc's SINGLE_FLAG path is dead on every probed
+        // shape), but the desc planes are not cleared between batches — a
+        // position left stale would let a level fabricate a pair and
+        // overwrite this bucket's red entry. rem=1 can never pair
+        // (half >= 1 is never < 1).
+        desc_buf[off] = 0u;
+        desc_buf[params.y + off] = 1u;
 {{/ptree_desc}}
         // Single partial — copy straight to red_buf (v1 filter's fast path).
         let window = bid >> WBID_SHIFT;
@@ -6320,12 +6326,11 @@ fn main(@builtin(workgroup_id) wgid: vec3<u32>,
     let l = lid.x;
 
     // This bucket's stage-A partial base = sum of earlier cap buckets'
-    // chunk counts (the cap bin is tiny by construction).
+    // chunk counts. The sum runs the FULL prefix — structured inputs make
+    // cap bins of hundreds of entries, and truncating the sum misaddresses
+    // every later bucket's chunks.
     var base: u32 = 0u;
-    var iter: u32 = 0u;
     for (var c: u32 = cap_base; c < pos; c = c + 1u) {
-        if (iter >= 64u) { break; }
-        iter = iter + 1u;
         let cb = sorted_active[c];
         let cnt_c = pc_at(flat_bid(cb, bw_geom.x));
         let nr_c = (cnt_c + stride - 1u) / stride;
@@ -6617,8 +6622,11 @@ fn wg_load(l: u32) -> Jac {
 // mmadds one adjacent residual pair (no loop-carried montmul chains —
 // the chain is the fixed log-depth tree), and thread 0 writes the
 // chunk's Jacobian partial to the deep-partial scratch region at
-// [range + wgid]. Chunk->bucket mapping scans the cap bin (tiny by
-// construction); overdispatched workgroups exit via the total.
+// [range + wgid]. Chunk->bucket mapping scans the cap bin — the full bin,
+// with no iteration ceiling: structured inputs (witness-like mass plus
+// repeated values) produce cap bins of hundreds of entries, and a capped
+// scan silently orphans every chunk past the cap. Overdispatched
+// workgroups exit via the total.
 //
 // meta: [22] stride, [23] surv base, [24] range, [30] cap base.
 
@@ -6639,10 +6647,8 @@ fn main(@builtin(workgroup_id) wgid: vec3<u32>,
     var seg: u32 = 0u;
     var n_resid: u32 = 0u;
     var chunk: u32 = 0u;
-    var iter: u32 = 0u;
     loop {
-        if (pos >= n_active_end || iter >= 64u) { break; }
-        iter = iter + 1u;
+        if (pos >= n_active_end) { break; }
         let bid = sorted_active[pos];
         let fb = flat_bid(bid, bw_geom.x);
         let cnt = pc_at(fb);

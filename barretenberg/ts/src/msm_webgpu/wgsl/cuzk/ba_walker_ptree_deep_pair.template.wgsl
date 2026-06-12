@@ -245,8 +245,11 @@ fn wg_load(l: u32) -> Jac {
 // mmadds one adjacent residual pair (no loop-carried montmul chains —
 // the chain is the fixed log-depth tree), and thread 0 writes the
 // chunk's Jacobian partial to the deep-partial scratch region at
-// [range + wgid]. Chunk->bucket mapping scans the cap bin (tiny by
-// construction); overdispatched workgroups exit via the total.
+// [range + wgid]. Chunk->bucket mapping scans the cap bin — the full bin,
+// with no iteration ceiling: structured inputs (witness-like mass plus
+// repeated values) produce cap bins of hundreds of entries, and a capped
+// scan silently orphans every chunk past the cap. Overdispatched
+// workgroups exit via the total.
 //
 // meta: [22] stride, [23] surv base, [24] range, [30] cap base.
 
@@ -267,10 +270,8 @@ fn main(@builtin(workgroup_id) wgid: vec3<u32>,
     var seg: u32 = 0u;
     var n_resid: u32 = 0u;
     var chunk: u32 = 0u;
-    var iter: u32 = 0u;
     loop {
-        if (pos >= n_active_end || iter >= 64u) { break; }
-        iter = iter + 1u;
+        if (pos >= n_active_end) { break; }
         let bid = sorted_active[pos];
         let fb = flat_bid(bid, bw_geom.x);
         let cnt = pc_at(fb);
