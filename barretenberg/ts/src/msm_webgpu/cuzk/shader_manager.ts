@@ -40,6 +40,12 @@ import {
   ba_walker_ptree_level as ba_walker_ptree_level_shader,
   ba_walker_ptree_ufold as ba_walker_ptree_ufold_shader,
   ba_walker_ptree_finalize as ba_walker_ptree_finalize_shader,
+  wi_sched_plan as wi_sched_plan_shader,
+  wi_sched_emit as wi_sched_emit_shader,
+  sched_affine as sched_affine_shader,
+  sched_coop2 as sched_coop2_shader,
+  sched_normalize as sched_normalize_shader,
+  vmpack_coop2_funcs,
   ba_walker_idx_sort as ba_walker_idx_sort_shader,
   ba_walker_idx_p1 as ba_walker_idx_p1_shader,
   ba_walker_idx_p2 as ba_walker_idx_p2_shader,
@@ -2537,6 +2543,48 @@ export class ShaderManager {
       inv_fn: 'fr_inv_by_loop_pk',
     });
     return mustache.render(ba_walker_ptree_finalize_shader, ctx, partials);
+  }
+
+  /**
+   * Addition-schedule planner (SCHED_COMBINE_PLAN.md): one workgroup,
+   * integer-only — layer totals, boundary, cursor tables, dispatch args.
+   */
+  public gen_wi_sched_plan_shader(geom: {
+    coop_thresh: number;
+    emit_tpb: number;
+    aff_tpb: number;
+    aff_s: number;
+    coop_tpb: number;
+    norm_tpb: number;
+    norm_c: number;
+  }): string {
+    return mustache.render(wi_sched_plan_shader, { ...geom, recompile: this.recompile });
+  }
+
+  /** Addition-schedule emitter: closed-form tree walk, integer-only. */
+  public gen_wi_sched_emit_shader(emit_tpb: number): string {
+    return mustache.render(wi_sched_emit_shader, { emit_tpb, recompile: this.recompile });
+  }
+
+  /** Schedule executor, affine layers: S entries per thread, one batched inversion. */
+  public gen_sched_affine_shader(workgroup_size: number, s: number): string {
+    const [ctx, partials] = this.jacKernelContext({ workgroup_size, s, inv_fn: 'fr_inv_by_loop_pk' });
+    return mustache.render(sched_affine_shader, ctx, partials);
+  }
+
+  /** Schedule executor, projective layers: the vmpack coop2 complete add per lane pair. */
+  public gen_sched_coop2_shader(workgroup_size: number): string {
+    return mustache.render(
+      sched_coop2_shader,
+      { workgroup_size, recompile: this.recompile },
+      { vmpack_coop2_funcs },
+    );
+  }
+
+  /** Schedule normalize: batched-inversion affine deposit of projective roots. */
+  public gen_sched_normalize_shader(workgroup_size: number, norm_c: number): string {
+    const [ctx, partials] = this.jacKernelContext({ workgroup_size, norm_c, inv_fn: 'fr_inv_by_loop_pk' });
+    return mustache.render(sched_normalize_shader, ctx, partials);
   }
 
 }

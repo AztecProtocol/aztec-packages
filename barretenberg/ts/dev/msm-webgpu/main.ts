@@ -126,6 +126,12 @@ const gpuKnobs: MsmConfig = (() => {
     l0Log: optInt('l0log'),
     montmul:
       q.get('montmul') === 'cios_unrolled' ? 'cios_unrolled' : q.get('montmul') === 'karat' ? 'karat' : undefined,
+    schedEmitOnly: q.get('sched_emit_only') === '1' || undefined,
+    schedCombine: q.get('sched_combine') === '1' || undefined,
+    schedPlanOnly: (() => {
+      const v = parseInt(q.get('sched_plan_only') ?? '', 10);
+      return Number.isInteger(v) && v > 0 ? v : undefined;
+    })(),
     jacobianCrossover: (() => {
       const raw = q.get('jaccross');
       if (raw === null) return undefined;
@@ -821,6 +827,286 @@ async function foldWindowSums(L: { x: bigint; y: bigint }[], windowCs: number[])
   g.__lastFoldMs = performance.now() - t0;
   g.__lastFoldMode = mode;
   return out;
+}
+
+// ===== addition-schedule validator (?schedcheck=1, SCHED_COMBINE_PLAN.md) =====
+type SchedDump = {
+  meta: Uint32Array;
+  entries: Uint32Array;
+  norm: Uint32Array;
+  layout: Uint32Array;
+  counts: Uint32Array;
+  offsets: Uint32Array;
+  sorted: Uint32Array;
+  active: number;
+  pTotal: number;
+  M: number;
+  BW: number;
+  boundary: number;
+  partialsX: Uint32Array;
+  partialsY: Uint32Array;
+  redX: Uint32Array;
+  redY: Uint32Array;
+  redM: number;
+};
+
+// Reconstructs the ENTIRE expected schedule (planner + emitter mirror,
+// bit-for-bit except root red indices, which are validated semantically
+// via the oracle), then replays every bucket's partial sum in bigint and
+// compares against the normal-mode instance's red planes.
+function validateSchedule(
+  sd: SchedDump,
+  oracle: { x: Uint32Array; y: Uint32Array },
+): { ok: boolean; detail: string; lines: string[] } {
+  const LAYERS = 18;
+  const MAX_N = 64;
+  const FLAG = 0x80000000;
+  const MASK = 0x7fffffff;
+  const lines: string[] = [];
+  const adds = (m: number, k: number): number => (Math.ceil(m / 2 ** (k - 1)) >> 1) >>> 0;
+  const lastPair = (p: number, m: number, k: number): number => {
+    const d = m - p;
+    if (d < 2) return 0;
+    let j = 31 - Math.clz32(d - 1) + 1;
+    const ctz = p === 0 ? 31 : Math.log2(p & -p);
+    return Math.min(j, Math.min(ctz, k - 1));
+  };
+
+  // Active buckets in sorted order, with exact counts + layout bases.
+  const act: { bid: number; m: number; off: number }[] = [];
+  for (let i = 0; i < sd.active; i++) {
+    const bid = sd.sorted[i];
+    const fb = (bid >>> 15) * sd.BW + (bid & 0x7fff);
+    act.push({ bid, m: sd.counts[fb], off: sd.offsets[fb] & MASK });
+  }
+  // Planner mirror: histogram, bin offsets, layer totals/bases, cap
+  // prefixes, boundary, bin/norm bases.
+  const hist = new Array<number>(MAX_N).fill(0);
+  for (const a of act) hist[Math.min(a.m, MAX_N - 1)]++;
+  const binOff = new Array<number>(MAX_N).fill(0);
+  for (let n = 1; n < MAX_N; n++) binOff[n] = binOff[n - 1] + hist[n - 1];
+  const capLo = binOff[MAX_N - 1];
+  const layerAdds = new Array<number>(LAYERS).fill(0);
+  const binLayerBase: number[][] = Array.from({ length: MAX_N }, () => new Array<number>(LAYERS).fill(0));
+  const capPrefix: number[][] = [];
+  for (let k = 1; k <= LAYERS; k++) {
+    let acc = 0;
+    for (let n = 2; n < MAX_N - 1; n++) {
+      binLayerBase[n][k - 1] = acc;
+      acc += hist[n] * adds(n, k);
+    }
+    binLayerBase[MAX_N - 1][k - 1] = acc;
+    let capAcc = 0;
+    for (let ci = 0; ci + capLo < sd.active; ci++) {
+      if (k === 1) capPrefix.push(new Array<number>(LAYERS).fill(0));
+      capPrefix[ci][k - 1] = capAcc;
+      capAcc += adds(act[capLo + ci].m, k);
+    }
+    layerAdds[k - 1] = acc + capAcc;
+  }
+  let b = 6;
+  for (let k = 2; k < 6; k++) {
+    if (layerAdds[k - 1] < 12288) {
+      b = k;
+      break;
+    }
+  }
+  const layerBase = new Array<number>(LAYERS).fill(0);
+  for (let k = 2; k <= LAYERS; k++) layerBase[k - 1] = layerBase[k - 2] + layerAdds[k - 2];
+  const mThresh = 1 << (b - 1);
+  const normBinBase = new Array<number>(MAX_N).fill(0);
+  let normAcc = 0;
+  for (let n = 2; n < MAX_N - 1; n++) {
+    normBinBase[n] = normAcc;
+    if (n > mThresh) normAcc += hist[n];
+  }
+  const normCapBase = normAcc;
+  const normTotal = normAcc + (sd.active - capLo);
+  const totalEntries = layerBase[LAYERS - 1] + layerAdds[LAYERS - 1];
+
+  // Planner cross-check against the GPU meta words.
+  let planBad = 0;
+  for (let k = 1; k <= LAYERS; k++) {
+    if (sd.meta[k - 1] !== layerAdds[k - 1]) {
+      planBad++;
+      if (planBad <= 3) lines.push(`plan: layer ${k} adds ${sd.meta[k - 1]} != expected ${layerAdds[k - 1]}`);
+    }
+    if (sd.meta[24 + k - 1] !== layerBase[k - 1]) {
+      planBad++;
+      if (planBad <= 6) lines.push(`plan: layer ${k} base ${sd.meta[24 + k - 1]} != expected ${layerBase[k - 1]}`);
+    }
+  }
+  if (sd.boundary !== b) {
+    planBad++;
+    lines.push(`plan: boundary ${sd.boundary} != expected ${b}`);
+  }
+  if (sd.meta[19] !== normTotal) {
+    planBad++;
+    lines.push(`plan: norm_total ${sd.meta[19]} != expected ${normTotal}`);
+  }
+
+  // Emitter mirror: every entry word (root red indices excluded — those
+  // are validated by the oracle comparison below).
+  let emitBad = 0;
+  let rootsSeen = 0;
+  const rootRed: { rs: number; m: number; off: number; bid: number }[] = [];
+  for (let i = 0; i < sd.active; i++) {
+    const { m, off, bid } = act[i];
+    const nb = Math.min(m, MAX_N - 1);
+    const kRoot = 32 - Math.clz32(m - 1);
+    for (let k = 1; k <= LAYERS; k++) {
+      const na = adds(m, k);
+      if (na === 0) continue;
+      let cursor: number;
+      if (nb === MAX_N - 1) {
+        cursor = binLayerBase[MAX_N - 1][k - 1] + capPrefix[i - capLo][k - 1];
+      } else {
+        cursor = binLayerBase[nb][k - 1] + (i - binOff[nb]) * na;
+      }
+      const half = 1 << (k - 1);
+      for (let j = 0; j < na; j++) {
+        const rel = j << k;
+        const e = 4 * (layerBase[k - 1] + cursor + j);
+        const sa = sd.layout[off + rel];
+        const sb = sd.layout[off + rel + half];
+        let exp: [number, number, number, number];
+        if (k < b) {
+          const isRoot = rel === 0 && m <= 1 << k;
+          exp = [sa, 0, sb, isRoot ? -1 : sa];
+          if (isRoot) {
+            rootsSeen++;
+            rootRed.push({ rs: sd.entries[e + 3] & MASK, m, off, bid });
+            if ((sd.entries[e + 3] & FLAG) === 0) {
+              emitBad++;
+              if (emitBad <= 4) lines.push(`emit: bucket ${i} root entry missing RED flag`);
+            }
+          }
+        } else {
+          const ja = lastPair(rel, m, k);
+          const jb = lastPair(rel + half, m, k);
+          const w0 = ja >= b && ja > 0 ? (sa | FLAG) >>> 0 : sa;
+          const w1 = ja >= b && ja > 0 ? sd.layout[off + rel + (1 << (ja - 1))] : 0;
+          const w2 = jb >= b && jb > 0 ? (sb | FLAG) >>> 0 : sb;
+          const w3 = jb >= b && jb > 0 ? sd.layout[off + rel + half + (1 << (jb - 1))] : 0;
+          exp = [w0, w1, w2, w3];
+        }
+        for (let w = 0; w < 4; w++) {
+          if (exp[w] === -1) continue;
+          if (sd.entries[e + w] !== exp[w]) {
+            emitBad++;
+            if (emitBad <= 8) {
+              lines.push(
+                `emit: bucket ${i} (m=${m}) k=${k} j=${j} word ${w}: ${sd.entries[e + w]} != expected ${exp[w]}`,
+              );
+            }
+          }
+        }
+      }
+      if (k === kRoot && kRoot >= b) {
+        const nc = nb === MAX_N - 1 ? normCapBase + (i - capLo) : normBinBase[nb] + (i - binOff[nb]);
+        const ne = 4 * nc;
+        const expXy = sd.layout[off];
+        const expZ = sd.layout[off + (1 << (kRoot - 1))];
+        if (sd.norm[ne] !== expXy || sd.norm[ne + 1] !== expZ) {
+          emitBad++;
+          if (emitBad <= 12) lines.push(`norm: bucket ${i} entry {${sd.norm[ne]},${sd.norm[ne + 1]}} != {${expXy},${expZ}}`);
+        }
+        rootRed.push({ rs: sd.norm[ne + 2], m, off, bid });
+      }
+    }
+  }
+
+  // Value replay: per-bucket bigint sum of the pristine partials vs the
+  // oracle red planes (Montgomery 2^260 domain on both sides — convert).
+  const P = BN254_BASE_FIELD;
+  const R = (1n << 260n) % P;
+  const Rinv = bn254.fields.Fp.inv(R);
+  const toPlain = (v: bigint): bigint => bn254.fields.Fp.mul(v, Rinv);
+  const rd8 = (a: Uint32Array, slot: number): bigint => {
+    let v = 0n;
+    for (let i = 7; i >= 0; i--) v = (v << 32n) | BigInt(a[slot * 8 + i]);
+    return v;
+  };
+  let valBad = 0;
+  for (const r of rootRed) {
+    let acc = BN254_JACOBIAN_ZERO;
+    for (let p = 0; p < r.m; p++) {
+      const slot = sd.layout[r.off + p];
+      acc = addBn254Jacobian(acc, {
+        x: toPlain(rd8(sd.partialsX, slot)),
+        y: toPlain(rd8(sd.partialsY, slot)),
+        z: 1n,
+      });
+    }
+    const aff = toAffineBn254Jacobian(acc);
+    const ox = toPlain(rd8(oracle.x, r.rs));
+    const oy = toPlain(rd8(oracle.y, r.rs));
+    if (aff.infinity || aff.x !== ox || aff.y !== oy) {
+      valBad++;
+      if (valBad <= 6) {
+        // Diagnose the failure class for tiny buckets: does the oracle
+        // match a sub-sum, a sign-flipped combination, or the negated sum?
+        let cls = '?';
+        if (r.m === 2) {
+          const p0 = {
+            x: toPlain(rd8(sd.partialsX, sd.layout[r.off])),
+            y: toPlain(rd8(sd.partialsY, sd.layout[r.off])),
+            z: 1n,
+          };
+          const p1 = {
+            x: toPlain(rd8(sd.partialsX, sd.layout[r.off + 1])),
+            y: toPlain(rd8(sd.partialsY, sd.layout[r.off + 1])),
+            z: 1n,
+          };
+          const neg = (q: { x: bigint; y: bigint; z: bigint }): { x: bigint; y: bigint; z: bigint } => ({
+            x: q.x,
+            y: (P - q.y) % P,
+            z: 1n,
+          });
+          const cand: [string, { x: bigint; y: bigint; z: bigint }[]][] = [
+            ['p0', [p0]],
+            ['p1', [p1]],
+            ['p0-p1', [p0, neg(p1)]],
+            ['p1-p0', [neg(p0), p1]],
+            ['-(p0+p1)', [neg(p0), neg(p1)]],
+          ];
+          for (const [name, pts] of cand) {
+            let a2 = BN254_JACOBIAN_ZERO;
+            for (const q of pts) a2 = addBn254Jacobian(a2, q);
+            const f2 = toAffineBn254Jacobian(a2);
+            if (!f2.infinity && f2.x === ox && f2.y === oy) {
+              cls = name;
+              break;
+            }
+          }
+        }
+        // Where does MY sum actually live in the oracle plane (if anywhere)?
+        let foundAt = -1;
+        if (!aff.infinity) {
+          for (let s = 0; s < sd.redM; s++) {
+            if (toPlain(rd8(oracle.x, s)) === aff.x) {
+              foundAt = s;
+              break;
+            }
+          }
+        }
+        lines.push(
+          `replay: bid=0x${r.bid.toString(16)} (w=${r.bid >>> 15} mag=${r.bid & 0x7fff}) m=${r.m} red=${r.rs} ` +
+            `sumFoundAtRed=${foundAt} oracleIs=${cls}`,
+        );
+      }
+    }
+  }
+
+  const ok = planBad === 0 && emitBad === 0 && valBad === 0;
+  return {
+    ok,
+    detail:
+      `${ok ? 'PASS' : 'FAIL'} active=${sd.active} P=${sd.pTotal} entries=${totalEntries} ` +
+      `b=${b} layers=[${layerAdds.filter(x => x > 0).join(',')}] norm=${normTotal} ` +
+      `buckets=${rootRed.length} planBad=${planBad} emitBad=${emitBad} valBad=${valBad}`,
+    lines,
+  };
 }
 
 // Three-way isolation for the early-exit chain (?early_exit_debug=1): decode
@@ -2466,6 +2752,46 @@ function hideProgress(): void {
           );
           log('info', `[jac-check] args L1..L8=${dcc.args.slice(4, 36).filter((_, i) => i % 4 === 0).join(',')} f64=${dcc.args[72]} f256=${dcc.args[68]} fin=${dcc.args[76]}`);
           for (const smp of dc.samples) log('info', `[jac-check]   ${smp}`);
+        }
+        // ?schedcheck=1 (SCHED_COMBINE_PLAN.md §Validation): build a SECOND
+        // instance in schedEmitOnly mode over the same scalars (no combine
+        // executes — pristine partials + the emitted schedule), reconstruct
+        // the expected schedule bit-for-bit in JS, replay the actual one in
+        // bigint, and compare every bucket sum against msmPt's red oracle.
+        if (qp.get('schedcheck') === '1') {
+          console.log(`[sched-check] creating schedEmitOnly instance`);
+          const prevErr = gpuDevice.onuncapturederror;
+          gpuDevice.onuncapturederror = (ev: GPUUncapturedErrorEvent): void => {
+            console.log(`[sched-check] UNCAPTURED GPU ERROR: ${ev.error.message}`);
+          };
+          // Snapshot the ptree oracle BEFORE msmS runs: the pool scratch is
+          // shared, and msmS's encode clears red_buf without refilling it.
+          const oracleRedM = (msmPt as unknown as { redM: number }).redM;
+          const oracle = await (
+            msmPt as unknown as { debugRedSnapshotXY(n: number): Promise<{ x: Uint32Array; y: Uint32Array }> }
+          ).debugRedSnapshotXY(oracleRedM);
+          const msmS = await MsmV2.create(gpuDevice, inputs.n, pool, {
+            ...gpuKnobs,
+            schedEmitOnly: true,
+            warmupRuns: 0,
+          });
+          console.log(`[sched-check] created; preparing`);
+          msmS.prepare(inputs.scalarsBuf);
+          console.log(`[sched-check] prepared; running`);
+          try {
+            await msmS.run();
+          } catch (e) {
+            console.log(`[sched-check] run REJECTED: ${e instanceof Error ? `${e.message}\n${e.stack}` : String(e)}`);
+            throw e;
+          }
+          console.log(`[sched-check] ran; dumping`);
+          gpuDevice.onuncapturederror = prevErr;
+          const sd = await (msmS as unknown as { debugSchedDump(): Promise<SchedDump> }).debugSchedDump();
+          const sr = validateSchedule(sd, oracle);
+          log(sr.ok ? 'ok' : 'err', `[sched-check] ${sr.detail}`);
+          for (const li of sr.lines.slice(0, 24)) log(sr.ok ? 'info' : 'err', `[sched-check] ${li}`);
+          allOk = allOk && sr.ok;
+          (msmS as unknown as { destroy?: () => void }).destroy?.();
         }
         // ?jaccmp=last: compare only on the FINAL run; earlier runs leave
         // pooled scratch exactly as production back-to-back MSMs would

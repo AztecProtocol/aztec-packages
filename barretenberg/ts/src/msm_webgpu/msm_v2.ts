@@ -120,6 +120,27 @@ const ptreeSurvLayout = (M: number): { bytes: number; slots: number } => {
 // Slots per level-kernel thread (A/B'd: 16 flat on M4).
 const PTREE_S = 8;
 
+// Addition-schedule combine (SCHED_COMBINE_PLAN.md). Layers are 1-based;
+// counts <= P < 2^18 bound the tree depth.
+const SCHED_MAX_LAYERS = 18;
+// Affine indirect-arg slots (boundary is clamped to 6 by the planner; 8
+// slots keep headroom without growing the arg copy).
+const SCHED_MAX_AFF = 8;
+// Affine->projective starvation threshold (adds at which S=8 batch-affine
+// no longer fills the machine). Initial value; tuned by A/B before the
+// ptree is deleted.
+const SCHED_COOP_THRESH = 12288;
+const SCHED_EMIT_TPB = 64;
+const SCHED_AFF_TPB = 64;
+const SCHED_AFF_S = 8;
+const SCHED_COOP_TPB = 256;
+const SCHED_NORM_TPB = 64;
+const SCHED_NORM_C = 8;
+// sched_meta words (layer tables + args + bin_layer_base; 1372 used).
+const SCHED_META_WORDS = 2048;
+// Arg slots: emit + 8 affine + 17 coop (k=2..18) + normalize.
+const SCHED_ARG_SLOTS = 1 + SCHED_MAX_AFF + (SCHED_MAX_LAYERS - 1) + 1;
+
 export const MEM_BUDGET = 160 * (1 << 20); // phone GPU-buffer budget (ARENA_LAYOUT.md §3)
 
 /**
@@ -328,6 +349,18 @@ export interface MsmConfig {
   /** Base-field Montgomery-multiply body. Default 'karat'; 'cios_unrolled' is the
    *  device-validated register-resident CIOS variant (−26% on Mali-G715, BN254 only). */
   montmul?: MontMulVariant;
+  // DEV (deleted with the ptree): run ONLY the addition-schedule
+  // planner+emitter — no combine executes at all, so the partial planes
+  // stay pristine for the JS replay validator (the red oracle comes from
+  // a separate normal-mode instance over the same scalars).
+  schedEmitOnly?: boolean;
+  // DEV (becomes the only combine): execute the addition schedule INSTEAD
+  // of the ptree combine.
+  schedCombine?: boolean;
+  // DEV bisect: with schedEmitOnly, 1 = dispatch the planner but not the
+  // emitter; 2 = dispatch neither (isolates a GPU-side stall between my
+  // kernels and the rest of the pipeline running without a combine).
+  schedPlanOnly?: number;
   /** ba_fused_super 8×u32 fr_add/fr_sub: 'native' or 'unpack'-repack. Default 'native'. */
   /** Record per-pass GPU timestamps in `run()` (needs the `timestamp-query` feature). */
   profile?: boolean;
@@ -2213,6 +2246,30 @@ export class MsmV2 {
   private ptreeSurvSlots = 0;
   private ptreeSurvBytes = 0;
 
+  // --- addition-schedule combine (SCHED_COMBINE_PLAN.md) ---
+  private schedEmitOnly = false;
+  private schedCombine = false;
+  private schedPlanOnly = 0;
+  private schedPlanPipe: GPUComputePipeline | null = null;
+  private schedEmitPipe: GPUComputePipeline | null = null;
+  private schedAffinePipe: GPUComputePipeline | null = null;
+  private schedCoop2Pipe: GPUComputePipeline | null = null;
+  private schedNormalizePipe: GPUComputePipeline | null = null;
+  private schedPlanLayout!: GPUBindGroupLayout;
+  private schedEmitLayout!: GPUBindGroupLayout;
+  private schedAffineLayout!: GPUBindGroupLayout;
+  private schedCoop2Layout!: GPUBindGroupLayout;
+  private schedNormalizeLayout!: GPUBindGroupLayout;
+  private schedPlanBind: GPUBindGroup | null = null;
+  private schedEmitBinds: GPUBindGroup[] = []; // per batch
+  private schedAffineBinds: GPUBindGroup[][] = []; // [bi][k-1], k = 1..SCHED_MAX_AFF
+  private schedCoop2Binds: GPUBindGroup[] = []; // [k-2], k = 2..SCHED_MAX_LAYERS
+  private schedNormalizeBinds: GPUBindGroup[] = []; // per batch
+  private schedLvlUbufs: GPUBuffer[] = []; // [k-1] -> (k,0,0,0)
+  private schedArgsBuf: GPUBuffer | null = null;
+  private schedRegionByteOff = 0; // within the ptScratch slot
+  private schedArgsByteOff = 0; // args within the region (meta + 128 words)
+
   // --- prepare-time (data-dependent) state ---
   private prepBuffers: GPUBuffer[] = []; // every uniform buffer prepare() allocated (storage buffers live in pool.scratch)
   // Bumped by MsmV2Pool.scratchEpoch when the pool's shared scratch
@@ -2414,6 +2471,9 @@ export class MsmV2 {
     m.l0Log = config?.l0Log ?? DEFAULT_L0_LOG;
     m.reduceWg = config?.reduceWg ?? pickReduceWg(m.c);
     m.montmul = config?.montmul ?? 'karat';
+    m.schedEmitOnly = config?.schedEmitOnly ?? false;
+    m.schedCombine = config?.schedCombine ?? false;
+    m.schedPlanOnly = config?.schedPlanOnly ?? 0;
     m.jacobianCrossover = config?.jacobianCrossover ?? 0;
     // High-mem ping-pong is enabled either by the forced flag OR the small-N
     // auto-gate (`pingpongBelow`: use ping-pong when n ≤ threshold). The mode
@@ -2994,6 +3054,60 @@ export class MsmV2 {
       'uniform',
       'uniform',
     ]);
+    //   sched-plan: sorted actives, active_meta, count_histogram, bin_offsets,
+    //   arena_a2 (all ro); sched region (rw); params, arena_off, sched_off.
+    m.schedPlanLayout = lt([
+      'read-only-storage',
+      'read-only-storage',
+      'read-only-storage',
+      'read-only-storage',
+      'read-only-storage',
+      'storage',
+      'uniform',
+      'uniform',
+      'uniform',
+    ]);
+    //   sched-emit: sorted actives, active_meta, bin_offsets, arena_a2,
+    //   partial_offset (ro); sched region (rw); window_desc (ro); params,
+    //   arena_off, sched_off, batch_offset.
+    m.schedEmitLayout = lt([
+      'read-only-storage',
+      'read-only-storage',
+      'read-only-storage',
+      'read-only-storage',
+      'read-only-storage',
+      'storage',
+      'read-only-storage',
+      'uniform',
+      'uniform',
+      'uniform',
+      'uniform',
+    ]);
+    //   sched-affine: sched meta + entries (ro views of one region),
+    //   partials_buf (rw), red_buf (rw); lvl, params, batch_offset, sched_off.
+    m.schedAffineLayout = lt([
+      'read-only-storage',
+      'read-only-storage',
+      'storage',
+      'storage',
+      'uniform',
+      'uniform',
+      'uniform',
+      'uniform',
+    ]);
+    //   sched-coop2: meta + entries (ro), partials_buf (rw); lvl, params, sched_off.
+    m.schedCoop2Layout = lt(['read-only-storage', 'read-only-storage', 'storage', 'uniform', 'uniform', 'uniform']);
+    //   sched-normalize: meta + entries + partials (ro), red_buf (rw);
+    //   params, batch_offset, sched_off.
+    m.schedNormalizeLayout = lt([
+      'read-only-storage',
+      'read-only-storage',
+      'read-only-storage',
+      'storage',
+      'uniform',
+      'uniform',
+      'uniform',
+    ]);
     //   idx_sort: active_pairs, active_meta, bin_offsets, bin_write_pos(rw atomic),
     //   sorted_active_buckets(rw)
     m.idxSortLayout = lt([
@@ -3351,6 +3465,58 @@ export class MsmV2 {
         `ptree-survfin`,
         m.ptreeFinLayout,
       );
+    }
+    if (m.schedEmitOnly || m.schedCombine) {
+      queue(
+        p => (m.schedPlanPipe = p),
+        sm.gen_wi_sched_plan_shader({
+          coop_thresh: SCHED_COOP_THRESH,
+          emit_tpb: SCHED_EMIT_TPB,
+          aff_tpb: SCHED_AFF_TPB,
+          aff_s: SCHED_AFF_S,
+          coop_tpb: SCHED_COOP_TPB,
+          norm_tpb: SCHED_NORM_TPB,
+          norm_c: SCHED_NORM_C,
+        }),
+        `sched-plan`,
+        m.schedPlanLayout,
+      );
+      queue(p => (m.schedEmitPipe = p), sm.gen_wi_sched_emit_shader(SCHED_EMIT_TPB), `sched-emit`, m.schedEmitLayout);
+      if (m.schedCombine) {
+        queue(
+          p => (m.schedAffinePipe = p),
+          smCombine.gen_sched_affine_shader(SCHED_AFF_TPB, SCHED_AFF_S),
+          `sched-affine`,
+          m.schedAffineLayout,
+        );
+        queue(
+          p => (m.schedCoop2Pipe = p),
+          smCombine.gen_sched_coop2_shader(SCHED_COOP_TPB),
+          `sched-coop2`,
+          m.schedCoop2Layout,
+        );
+        queue(
+          p => (m.schedNormalizePipe = p),
+          smCombine.gen_sched_normalize_shader(SCHED_NORM_TPB, SCHED_NORM_C),
+          `sched-normalize`,
+          m.schedNormalizeLayout,
+        );
+      }
+      for (let k = 1; k <= SCHED_MAX_LAYERS; k++) {
+        m.schedLvlUbufs.push(
+          device.createBuffer({
+            size: 16,
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+            mappedAtCreation: true,
+          }),
+        );
+        new Uint32Array(m.schedLvlUbufs[k - 1].getMappedRange()).set([k, 0, 0, 0]);
+        m.schedLvlUbufs[k - 1].unmap();
+      }
+      m.schedArgsBuf = device.createBuffer({
+        size: SCHED_ARG_SLOTS * 16,
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.INDIRECT | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+      });
     }
     // One barrier instead of 40+ serial awaits. allSettled (not all) so a
     // failed build surfaces only after every in-flight sibling has landed in
@@ -5052,6 +5218,98 @@ export class MsmV2 {
               jpSurv,
             ]);
           this.ptreeSurvFinBinds = batchWindowBaseBufs.map(bwb => finBind(bwb));
+
+          if (this.schedEmitOnly || this.schedCombine) {
+            // Addition-schedule region: meta + cap-prefix table + entries +
+            // norm list, 256-aligned directly below the ptree meta/survivor
+            // tail (both regions coexist until the ptree is deleted).
+            const schedCapMax = Math.floor(M_partials_walker / 63) + 1;
+            const schedCapBytes = SCHED_MAX_LAYERS * schedCapMax * 4;
+            const schedEntriesBytes = M_partials_walker * 16;
+            const schedNormBytes = (M_partials_walker / 2) * 16;
+            const schedBytes =
+              Math.ceil((SCHED_META_WORDS * 4 + schedCapBytes + schedEntriesBytes + schedNormBytes) / 256) * 256;
+            const schedByteOff = Math.floor((ptreeByteOff - schedBytes) / 256) * 256;
+            if (descByteOff + descBytes > schedByteOff) {
+              throw new Error('sched: ptScratch too small for the addition-schedule region');
+            }
+            this.schedRegionByteOff = schedByteOff;
+            const schedBind: GPUBufferBinding = {
+              buffer: slotBuf(scratch.ptScratch),
+              offset: slotOff(scratch.ptScratch) + schedByteOff,
+              size: schedBytes,
+            };
+            // u32-unit offsets within the region; the entries base is
+            // 16 B-aligned so the executors' vec4 view (base/4) is exact.
+            const capOffU32 = SCHED_META_WORDS;
+            const entriesOffU32 = Math.ceil((capOffU32 + SCHED_MAX_LAYERS * schedCapMax) / 4) * 4;
+            const schedOffPlanEmit = ubuf(new Uint32Array([0, capOffU32, schedCapMax, entriesOffU32]));
+            const schedOffExec = ubuf(new Uint32Array([0, 0, 0, entriesOffU32 / 4]));
+            this.schedArgsByteOff = (schedBind.offset ?? 0) + 128 * 4;
+            this.schedPlanBind = mkBind(this.schedPlanLayout, [
+              sabkts,
+              acnt,
+              chist,
+              boffs,
+              a2Buf,
+              schedBind,
+              ptreeParams,
+              ptreeArenaOff,
+              schedOffPlanEmit,
+            ]);
+            this.schedEmitBinds = batchWindowBaseBufs.map(bwb =>
+              mkBind(this.schedEmitLayout, [
+                sabkts,
+                acnt,
+                boffs,
+                a2Buf,
+                poffset,
+                schedBind,
+                windowDescBuf,
+                ptreeParams,
+                ptreeArenaOff,
+                schedOffPlanEmit,
+                bwb,
+              ]),
+            );
+            if (this.schedCombine) {
+              this.schedAffineBinds = batchWindowBaseBufs.map(bwb =>
+                Array.from({ length: SCHED_MAX_AFF }, (_, i) =>
+                  mkBind(this.schedAffineLayout, [
+                    schedBind,
+                    schedBind,
+                    wp,
+                    scratch.redBuf,
+                    this.schedLvlUbufs[i],
+                    ptreeParams,
+                    bwb,
+                    schedOffExec,
+                  ]),
+                ),
+              );
+              this.schedCoop2Binds = Array.from({ length: SCHED_MAX_LAYERS - 1 }, (_, i) =>
+                mkBind(this.schedCoop2Layout, [
+                  schedBind,
+                  schedBind,
+                  wp,
+                  this.schedLvlUbufs[i + 1],
+                  ptreeParams,
+                  schedOffExec,
+                ]),
+              );
+              this.schedNormalizeBinds = batchWindowBaseBufs.map(bwb =>
+                mkBind(this.schedNormalizeLayout, [
+                  schedBind,
+                  schedBind,
+                  wp,
+                  scratch.redBuf,
+                  ptreeParams,
+                  bwb,
+                  schedOffExec,
+                ]),
+              );
+            }
+          }
         }
         if (this.wiProbe) {
           // Probe scratch regions inside ptScratch (u32 elements): exports at
@@ -5100,6 +5358,10 @@ export class MsmV2 {
           // + 3 counting-sort prepass kernels (sort_count, sort_scan, sort_scatter)
           // + pair-tree multi-dispatch: 2 (init) + 17 × 3 (build + dispatch + combine) + 1 (finalize) = 54
           passes += prePasses + 16 + 3 + 3 + 3 + (2 + 17 * 3 + 1);
+          // Addition schedule: plan + emit (+ affine/coop/normalize when
+          // it is the combine).
+          if (this.schedEmitOnly || this.schedCombine) passes += 2;
+          if (this.schedCombine) passes += SCHED_MAX_AFF + (SCHED_MAX_LAYERS - 1) + 1;
         }
       }
       // Reduce = the halving depths + finisher (+1 keeps the historical
@@ -5499,7 +5761,24 @@ export class MsmV2 {
         setPhase('wi_sort');
         indirectDispatch(this.idxSortPipe, this.idxSortBind, wiArgs, 24);
       }
-      {
+      if ((this.schedEmitOnly || this.schedCombine) && this.schedPlanOnly < 2) {
+        // Addition schedule: plan (one WG, after the sort) -> args copy ->
+        // emitter (one thread per active bucket x layer).
+        setPhase('sched_plan');
+        dispatch(this.schedPlanPipe!, this.schedPlanBind!, 1, 1);
+        enc.copyBufferToBuffer(
+          slotBuf(this.pool.scratch!.ptScratch),
+          this.schedArgsByteOff,
+          this.schedArgsBuf!,
+          0,
+          SCHED_ARG_SLOTS * 16,
+        );
+        if (this.schedPlanOnly < 1) {
+          setPhase('sched_emit');
+          indirectDispatch(this.schedEmitPipe!, this.schedEmitBinds[bi], this.schedArgsBuf!, 0);
+        }
+      }
+      if (!this.schedCombine && !this.schedEmitOnly) {
         // === Addition-centric pair-tree combine, STATIC schedule: the
         // epilogue precomputed every dispatch arg from the count histogram
         // — batched-affine levels (direct-close) then both fold variants
@@ -5516,6 +5795,21 @@ export class MsmV2 {
         indirectDispatch(this.ptreeUfoldPipe, this.ptreeUfoldBinds[2], this.ptreeArgsBuf!, 16 * 17);
         setPhase('finalize');
         indirectDispatch(this.ptreeSurvFinPipe, this.ptreeSurvFinBinds[bi], this.ptreeArgsBuf!, 16 * 19);
+      } else if (this.schedCombine) {
+        // === Addition-schedule combine: affine layers (S=8 batched
+        // inversion), then the projective coop2 layers, then the batched
+        // normalize. Every dispatch indirect; empty layers cost zero
+        // workgroups.
+        setPhase('sched_affine');
+        for (let k = 1; k <= SCHED_MAX_AFF; k++) {
+          indirectDispatch(this.schedAffinePipe!, this.schedAffineBinds[bi][k - 1], this.schedArgsBuf!, 16 * k);
+        }
+        setPhase('sched_coop');
+        for (let k = 2; k <= SCHED_MAX_LAYERS; k++) {
+          indirectDispatch(this.schedCoop2Pipe!, this.schedCoop2Binds[k - 2], this.schedArgsBuf!, 16 * (SCHED_MAX_AFF + k - 1));
+        }
+        setPhase('sched_norm');
+        indirectDispatch(this.schedNormalizePipe!, this.schedNormalizeBinds[bi], this.schedArgsBuf!, 16 * (SCHED_ARG_SLOTS - 1));
       }
     }
     // High-mem ping-pong bridge: repack bucket_result (BW cols/window) into the
@@ -5735,6 +6029,82 @@ export class MsmV2 {
   }
 
   /**
+   * Debug readback of the addition schedule plus everything a JS replay
+   * needs to validate it (SCHED_COMBINE_PLAN.md §Validation): the sched
+   * meta words, the entry + normalize regions, the CSR structures, and
+   * the partial / red planes. Requires schedEmitOnly or schedCombine and
+   * a completed run(). Heavy (full partial planes) — debug only.
+   */
+  async debugSchedDump(): Promise<{
+    meta: Uint32Array;
+    entries: Uint32Array;
+    norm: Uint32Array;
+    layout: Uint32Array;
+    counts: Uint32Array;
+    offsets: Uint32Array;
+    sorted: Uint32Array;
+    active: number;
+    pTotal: number;
+    M: number;
+    BW: number;
+    boundary: number;
+    partialsX: Uint32Array;
+    partialsY: Uint32Array;
+    redX: Uint32Array;
+    redY: Uint32Array;
+    redM: number;
+  }> {
+    if (this.preparedFor === null) throw new Error('MsmV2.debugSchedDump: call prepare() first');
+    const sc = this.pool.scratch!;
+    const read = async (buf: GPUBuffer, off: number, bytes: number): Promise<Uint32Array> => {
+      const staging = this.device.createBuffer({ size: bytes, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+      const enc = this.device.createCommandEncoder();
+      enc.copyBufferToBuffer(buf, off, staging, 0, bytes);
+      this.device.queue.submit([enc.finish()]);
+      await staging.mapAsync(GPUMapMode.READ);
+      const out = new Uint32Array(staging.getMappedRange().slice(0));
+      staging.unmap();
+      staging.destroy();
+      return out;
+    };
+    const readSlot = (slot: ScratchSlot, bytes?: number): Promise<Uint32Array> =>
+      read(slotBuf(slot), slotOff(slot), bytes ?? slotSize(slot));
+
+    const M = 2 * this.streamNumThreads * this.streamS;
+    const regionOff = slotOff(sc.ptScratch) + this.schedRegionByteOff;
+    const meta = await read(slotBuf(sc.ptScratch), regionOff, SCHED_META_WORDS * 4);
+    const totalEntries = meta[24 + SCHED_MAX_LAYERS - 1] + meta[SCHED_MAX_LAYERS - 1];
+    const normTotal = meta[19];
+    const capMax = Math.floor(M / 63) + 1;
+    const entriesOffU32 = Math.ceil((SCHED_META_WORDS + SCHED_MAX_LAYERS * capMax) / 4) * 4;
+    const both = await read(
+      slotBuf(sc.ptScratch),
+      regionOff + entriesOffU32 * 4,
+      Math.max(16, (totalEntries + normTotal) * 16),
+    );
+    const activeArr = await readSlot(sc.activeCount, 8);
+    return {
+      meta,
+      entries: both.slice(0, totalEntries * 4),
+      norm: both.slice(totalEntries * 4, (totalEntries + normTotal) * 4),
+      layout: await readSlot(sc.partialLayout),
+      counts: await readSlot(sc.partialCount),
+      offsets: await readSlot(sc.partialOffset),
+      sorted: await readSlot(sc.sortedActiveBuckets),
+      active: activeArr[0],
+      pTotal: activeArr[1],
+      M,
+      BW: this.BW,
+      boundary: meta[18],
+      partialsX: await read(slotBuf(sc.walkerPartials), slotOff(sc.walkerPartials), M * 32),
+      partialsY: await read(slotBuf(sc.walkerPartials), slotOff(sc.walkerPartials) + M * 32, M * 32),
+      redX: await read(slotBuf(sc.redBuf), slotOff(sc.redBuf), this.redM * 32),
+      redY: await read(slotBuf(sc.redBuf), slotOff(sc.redBuf) + this.redM * 32, this.redM * 32),
+      redM: this.redM,
+    };
+  }
+
+  /**
    * Run ONLY the MSB-histogram kernel and read back its outputs (split-c Phase 1
    * validation). Requires `splitC` + a prior `prepare()`. Returns the 256-bin
    * histogram and the per-scalar msb array; compare against {@link computeMsbHistogram}.
@@ -5831,6 +6201,24 @@ export class MsmV2 {
 
   /** Debug: snapshot the first n red_buf slots' x-halves (32 B each).
    *  n=0 snapshots the whole x-plane (half the red slot). */
+  /** Both red planes (X then Y), n slots each — the schedcheck oracle. */
+  async debugRedSnapshotXY(n: number): Promise<{ x: Uint32Array; y: Uint32Array }> {
+    const sc = this.pool.scratch!;
+    const staging = this.device.createBuffer({
+      size: n * 64,
+      usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+    });
+    const enc = this.device.createCommandEncoder();
+    enc.copyBufferToBuffer(slotBuf(sc.redBuf), slotOff(sc.redBuf), staging, 0, n * 32);
+    enc.copyBufferToBuffer(slotBuf(sc.redBuf), slotOff(sc.redBuf) + this.redM * 32, staging, n * 32, n * 32);
+    this.device.queue.submit([enc.finish()]);
+    await staging.mapAsync(GPUMapMode.READ);
+    const u = new Uint32Array(staging.getMappedRange().slice(0));
+    staging.unmap();
+    staging.destroy();
+    return { x: u.slice(0, n * 8), y: u.slice(n * 8) };
+  }
+
   async debugRedSnapshot(n: number): Promise<Uint32Array> {
     const sc = this.pool.scratch!;
     if (n === 0) n = Math.floor(slotSize(sc.redBuf) / 64);
