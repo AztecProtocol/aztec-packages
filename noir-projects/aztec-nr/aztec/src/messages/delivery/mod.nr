@@ -9,7 +9,7 @@ use crate::{
     context::PrivateContext,
     messages::{
         delivery::constrained_delivery::{
-            constrain_constrained_secret_and_emit_nullifier, get_or_create_app_siloed_handshake_secret,
+            constrain_secret_and_emit_nullifier, get_or_create_app_siloed_handshake_secret,
         },
         encryption::{aes128::AES128, message_encryption::MessageEncryption},
         offchain_messages::deliver_offchain_message,
@@ -200,7 +200,7 @@ fn calculate_non_interactive_handshake_tag(
 
     // Safety: the returned index is untrusted and is constrained before the tag is emitted.
     let index = unsafe { get_next_tagging_index(secret, mode) };
-    constrain_constrained_secret_and_emit_nullifier(
+    constrain_secret_and_emit_nullifier(
         context,
         STANDARD_HANDSHAKE_REGISTRY_ADDRESS,
         sender,
@@ -288,7 +288,7 @@ fn resolve_tag_secret_derivation(
 
 mod test {
     use crate::messages::delivery::constrained_delivery::{
-        compute_constrained_msg_nullifier, constrain_constrained_secret_and_emit_nullifier,
+        compute_constrained_msg_nullifier, constrain_secret_and_emit_nullifier,
     };
     use crate::protocol::{
         address::AztecAddress,
@@ -445,7 +445,7 @@ mod test {
         let index: u32 = 0;
 
         env.private_context(|context| {
-            constrain_constrained_secret_and_emit_nullifier(context, registry, sender, recipient, secret, true, index);
+            constrain_secret_and_emit_nullifier(context, registry, sender, recipient, secret, true, index);
 
             assert_eq(context.nullifiers.len(), 1);
             assert_eq(

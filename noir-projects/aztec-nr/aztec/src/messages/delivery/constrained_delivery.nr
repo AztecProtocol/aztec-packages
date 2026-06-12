@@ -87,7 +87,7 @@ pub fn resolve_secret_and_index(
     // current registry membership (`index == 0`) or chain continuity (`index > 0`).
     let index = unsafe { get_next_tagging_index(secret, mode) };
 
-    constrain_constrained_secret(
+    constrain_secret(
         context,
         registry,
         sender,
@@ -145,7 +145,7 @@ pub(crate) fn get_or_create_app_siloed_handshake_secret(
     }
 }
 
-pub(crate) fn constrain_constrained_secret_and_emit_nullifier(
+pub(crate) fn constrain_secret_and_emit_nullifier(
     context: &mut PrivateContext,
     registry: AztecAddress,
     sender: AztecAddress,
@@ -154,7 +154,7 @@ pub(crate) fn constrain_constrained_secret_and_emit_nullifier(
     bootstrapped: bool,
     index: u32,
 ) {
-    constrain_constrained_secret(
+    constrain_secret(
         context,
         registry,
         sender,
@@ -166,7 +166,7 @@ pub(crate) fn constrain_constrained_secret_and_emit_nullifier(
     context.push_nullifier_unsafe(compute_constrained_msg_nullifier(sender, recipient, secret, index));
 }
 
-fn constrain_constrained_secret(
+fn constrain_secret(
     context: &mut PrivateContext,
     registry: AztecAddress,
     sender: AztecAddress,
