@@ -29,7 +29,17 @@ const WBID_MAG_MASK: u32 = 0x7fffu;
 @group(0) @binding(0) var<storage, read_write> partial_dest:      array<u32>;
 @group(0) @binding(1) var<storage, read>       partial_offset:    array<u32>;
 @group(0) @binding(2) var<storage, read_write> partial_write_pos: array<atomic<u32>>;
-@group(0) @binding(3) var<storage, read_write> partial_layout:    array<u32>;
+// partial_layout is addressed through the A2 arena
+// monolith (arena_off.y) so partial_count (arena_off.x) is readable from
+// the same rw binding (mixed ro+rw of one buffer is illegal), and the
+// scatter also emits the per-position descriptors the tree levels read
+// (rel, rem = count - rel — both static across levels, since in-place
+// level writes never move a partial between positions):
+//   desc[pos]            = rel
+//   desc[params.y + pos] = rem
+@group(0) @binding(3) var<storage, read_write> arena_a2:          array<u32>;
+@group(0) @binding(10) var<storage, read_write> desc_buf:         array<u32>;
+@group(0) @binding(11) var<uniform>             arena_off:        vec4<u32>;
 @group(0) @binding(4) var<storage, read>       partials_buf:      array<vec4<u32>>;
 @group(0) @binding(5) var<storage, read_write> red_buf:           array<vec4<u32>>;
 @group(0) @binding(6) var<storage, read>       planner_meta:      array<u32>;
@@ -54,7 +64,15 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let po = partial_offset[fb];
     let off = po & OFFSET_MASK;
     if ((po & SINGLE_FLAG) != 0u) {
-        partial_layout[off] = slot;
+        arena_a2[arena_off.y + off] = slot;
+        // Defensive: the v2 walker has never been observed to emit a
+        // count-1 bucket (alloc's SINGLE_FLAG path is dead on every probed
+        // shape), but the desc planes are not cleared between batches — a
+        // position left stale would let a level fabricate a pair and
+        // overwrite this bucket's red entry. rem=1 can never pair
+        // (half >= 1 is never < 1).
+        desc_buf[off] = 0u;
+        desc_buf[params.y + off] = 1u;
         // Single partial — copy straight to red_buf (v1 filter's fast path).
         let window = bid >> WBID_SHIFT;
         let mag = bid & WBID_MAG_MASK;
@@ -68,7 +86,10 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         red_buf[by + 1u] = partials_buf[PG * M_partials + PG * slot + 1u];
     } else {
         let pos = atomicAdd(&partial_write_pos[fb], 1u);
-        partial_layout[off + pos] = slot;
+        arena_a2[arena_off.y + off + pos] = slot;
+        let cnt = arena_a2[arena_off.x + fb];
+        desc_buf[off + pos] = pos;
+        desc_buf[params.y + off + pos] = cnt - pos;
     }
 
     {{{ recompile }}}
