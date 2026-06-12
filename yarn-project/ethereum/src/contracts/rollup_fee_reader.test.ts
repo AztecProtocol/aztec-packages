@@ -49,13 +49,13 @@ describe('RollupFeeReader', () => {
   });
 
   describe('getL1BlockNumber', () => {
-    it('keeps the block number monotonic across an out-of-order RPC response', async () => {
+    it('reads the current block number from the client', async () => {
       expect(await reader.getL1BlockNumber()).toBe(1000n);
       l1BlockNumber = 1005n;
       expect(await reader.getL1BlockNumber()).toBe(1005n);
-      // A load-balanced RPC returns an older block: max-seen must not regress.
+
       l1BlockNumber = 1002n;
-      expect(await reader.getL1BlockNumber()).toBe(1005n);
+      expect(await reader.getL1BlockNumber()).toBe(1002n);
     });
   });
 

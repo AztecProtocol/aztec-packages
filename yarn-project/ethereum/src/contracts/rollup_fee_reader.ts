@@ -29,7 +29,7 @@ const FEE_READER_LRU_SIZE = 8;
  *
  * 1. **Every entry is scoped to a single L1 block number.** Either the caller threads a block number
  *    (for snapshot consistency across a multi-read computation) or the reader stamps the current
- *    max-seen block. Staleness is therefore bounded by one L1 block (~12s), the same trade
+ *    block. Staleness is therefore bounded by one L1 block (~12s), the same trade
  *    `FeeProviderImpl.getCurrentMinFees` and `FeePredictor.getState` already make.
  *
  * 2. **One block of staleness is sufficient.** Checkpoint landings, prunes and invalidations change
@@ -50,8 +50,7 @@ const FEE_READER_LRU_SIZE = 8;
  *    subscription, no TTL, and no manual invalidation anywhere.
  *
  * 4. **Errors are never cached.** A rejected promise is evicted via `.catch` so the next call retries.
- *    Entries are bounded by small LRUs; since keys advance monotonically with L1 blocks/slots, old
- *    keys are never queried again and the LRU only ever holds the few live keys around a boundary.
+ *    Entries are bounded by small LRUs, so the reader only keeps the few live keys around a boundary.
  *
  * ## Snapshot consistency
  *
@@ -61,9 +60,6 @@ const FEE_READER_LRU_SIZE = 8;
  * `options.blockNumber` of direct reads, so every read in the operation pins to the same block.
  */
 export class RollupFeeReader {
-  /** Highest L1 block number seen so far; never decreases even if a load-balanced RPC returns an older block. */
-  private maxSeenL1BlockNumber: bigint | undefined;
-
   private readonly manaMinFeeCache = new LruMap<string, Promise<bigint>>(FEE_READER_LRU_SIZE);
   private readonly checkpointCache = new LruMap<string, Promise<CheckpointLog>>(FEE_READER_LRU_SIZE);
   private readonly pendingCheckpointCache = new LruMap<string, Promise<CheckpointLog>>(FEE_READER_LRU_SIZE);
@@ -79,17 +75,11 @@ export class RollupFeeReader {
   }
 
   /**
-   * Returns the current L1 block number, kept monotonic (max-seen). Cached reads stamp this block so
-   * a load-balanced RPC briefly returning an older block cannot flip-flop cache entries between two
-   * heights. Callers thread the returned value through a single logical operation for a consistent
-   * snapshot.
+   * Returns the current L1 block number. Callers thread the returned value through a single logical
+   * operation for a consistent snapshot.
    */
   public async getL1BlockNumber(): Promise<bigint> {
-    const blockNumber = await this.rollup.client.getBlockNumber({ cacheTime: 0 });
-    if (this.maxSeenL1BlockNumber === undefined || blockNumber > this.maxSeenL1BlockNumber) {
-      this.maxSeenL1BlockNumber = blockNumber;
-    }
-    return this.maxSeenL1BlockNumber;
+    return await this.rollup.client.getBlockNumber();
   }
 
   /**
@@ -97,7 +87,7 @@ export class RollupFeeReader {
    *
    * The plan is translated into a viem `StateOverride` *before* the cache lookup; the key is
    * `(blockNumber, timestamp, inFeeAsset, fingerprint(stateOverride))`, where `blockNumber` is
-   * `plan.l1BlockNumber` when set (snapshot consistency) or the current max-seen block. Because the
+   * `plan.l1BlockNumber` when set (snapshot consistency) or the current L1 block. Because the
    * fingerprint is over the translated override *content*, two plans built by different components
    * that translate to identical overrides share one `eth_call`, while a single differing override byte
    * yields a distinct entry.
@@ -121,7 +111,7 @@ export class RollupFeeReader {
     );
   }
 
-  /** Checkpoint log for `checkpointNumber`, pinned to a block (the passed one or the current max-seen). */
+  /** Checkpoint log for `checkpointNumber`, pinned to a block (the passed one or the current L1 block). */
   public async getCheckpoint(
     checkpointNumber: CheckpointNumber,
     options?: { blockNumber?: bigint },
@@ -132,7 +122,7 @@ export class RollupFeeReader {
   }
 
   /**
-   * Pending checkpoint. Pinned to a block (the passed one or the current max-seen). The underlying
+   * Pending checkpoint. Pinned to a block (the passed one or the current L1 block). The underlying
    * read does not currently support `{ blockNumber }`, so the pin only scopes the cache key.
    */
   public async getPendingCheckpoint(options?: { blockNumber?: bigint }): Promise<CheckpointLog> {
@@ -142,7 +132,7 @@ export class RollupFeeReader {
 
   /**
    * Effective pending checkpoint at `timestamp` (accounting for prunes), pinned to a block (the
-   * passed one or the current max-seen). Callers thread one block number across a logical operation
+   * passed one or the current L1 block). Callers thread one block number across a logical operation
    * for a consistent snapshot.
    */
   public async getEffectivePendingCheckpoint(
@@ -156,14 +146,14 @@ export class RollupFeeReader {
     );
   }
 
-  /** L1 base/blob fees at `timestamp`, pinned to a block (the passed one or the current max-seen). */
+  /** L1 base/blob fees at `timestamp`, pinned to a block (the passed one or the current L1 block). */
   public async getL1FeesAt(timestamp: bigint, options?: { blockNumber?: bigint }): Promise<L1FeeData> {
     const blockNumber = options?.blockNumber ?? (await this.getL1BlockNumber());
     const key = [blockNumber, timestamp].join('|');
     return this.cached(this.l1FeesCache, key, () => this.rollup.getL1FeesAt(timestamp, { blockNumber }));
   }
 
-  /** Current L2 slot number, pinned to a block (the passed one or the current max-seen). */
+  /** Current L2 slot number, pinned to a block (the passed one or the current L1 block). */
   public async getSlotNumber(options?: { blockNumber?: bigint }): Promise<SlotNumber> {
     const blockNumber = options?.blockNumber ?? (await this.getL1BlockNumber());
     return this.cached(this.slotNumberCache, `${blockNumber}`, () => this.rollup.getSlotNumber({ blockNumber }));
