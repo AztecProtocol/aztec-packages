@@ -194,22 +194,63 @@ fn jac_add(dst: Jac, src: Jac) -> Jac {
     return Jac(rx, ry, rz);
 }
 
-// EFD mmadd-2007-bl: affine + affine -> Jacobian (Z1 = Z2 = 1). 6 montmuls.
+// EFD mmadd-2007-bl: affine + affine -> Jacobian (Z1 = Z2 = 1). 6 montmuls,
+// micro-coded 2-ISSUE: 3 loop iterations of 2 independent lanes, so the
+// kernel inlines TWO multiplier bodies instead of six (compile cost
+// scales quasi-quadratically with inlined bodies). Dependency depth is
+// three multiplies — the same as the straight-lined form's critical
+// path (HH -> {J, V} -> Y3 terms). Routing is constant-case switches
+// over named locals: registers only, no dynamic indexing.
 // Incomplete: assumes x1 != x2 (walker's standing distinct-x assumption).
 fn jac_mmadd(x1: array<u32, 8>, y1: array<u32, 8>, x2: array<u32, 8>, y2: array<u32, 8>) -> Jac {
-    // Straight-lined (6 multiplies — cheap bodies; the compile cost lives
-    // in jac_add, which is micro-coded 4-issue).
     let H = fr_sub_f8(x2, x1);
-    let HH = montgomery_product_f8(H, H);
-    let I = fr_dbl_f8(fr_dbl_f8(HH));
-    let J = montgomery_product_f8(H, I);
     let r = fr_dbl_f8(fr_sub_f8(y2, y1));
-    let V = montgomery_product_f8(x1, I);
-    var X3 = fr_sub_f8(montgomery_product_f8(r, r), J);
-    X3 = fr_sub_f8(X3, fr_dbl_f8(V));
-    let Y1J = montgomery_product_f8(y1, J);
-    var Y3 = montgomery_product_f8(r, fr_sub_f8(V, X3));
-    Y3 = fr_sub_f8(Y3, fr_dbl_f8(Y1J));
+    var HH: array<u32, 8>;
+    var RR: array<u32, 8>;
+    var I: array<u32, 8>;
+    var J: array<u32, 8>;
+    var V: array<u32, 8>;
+    var X3: array<u32, 8>;
+    var Y3: array<u32, 8>;
+    var a1: array<u32, 8>;
+    var b1: array<u32, 8>;
+    var a2: array<u32, 8>;
+    var b2: array<u32, 8>;
+    for (var st: u32 = 0u; st < 3u; st = st + 1u) {
+        switch st {
+            case 0u: {
+                a1 = H; b1 = H;
+                a2 = r; b2 = r;
+            }
+            case 1u: {
+                a1 = H; b1 = I;
+                a2 = x1; b2 = I;
+            }
+            case 2u: {
+                a1 = y1; b1 = J;
+                a2 = r; b2 = fr_sub_f8(V, X3);
+            }
+            default: {}
+        }
+        let m1 = montgomery_product_f8(a1, b1);
+        let m2 = montgomery_product_f8(a2, b2);
+        switch st {
+            case 0u: {
+                HH = m1;
+                RR = m2;
+                I = fr_dbl_f8(fr_dbl_f8(HH));
+            }
+            case 1u: {
+                J = m1;
+                V = m2;
+                X3 = fr_sub_f8(fr_sub_f8(RR, J), fr_dbl_f8(V));
+            }
+            case 2u: {
+                Y3 = fr_sub_f8(m2, fr_dbl_f8(m1));
+            }
+            default: {}
+        }
+    }
     return Jac(X3, Y3, fr_dbl_f8(H));
 }
 
