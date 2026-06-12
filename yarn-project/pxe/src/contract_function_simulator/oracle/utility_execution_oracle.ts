@@ -76,6 +76,23 @@ import { buildACIRCallback } from './acir_callback.js';
 import type { IMiscOracle, IUtilityExecutionOracle } from './interfaces.js';
 import { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
 
+const STANDARD_HANDSHAKE_REGISTRY_UTILITY_READ_SELECTORS = [
+  FunctionSelector.fromSignature('get_handshakes((Field),u32)'),
+  FunctionSelector.fromSignature('get_app_siloed_secret((Field),(Field),(u8),(Field))'),
+];
+
+async function isStandardHandshakeRegistryUtilityRead(
+  targetContractAddress: AztecAddress,
+  functionSelector: FunctionSelector,
+): Promise<boolean> {
+  if (!targetContractAddress.equals(STANDARD_HANDSHAKE_REGISTRY_ADDRESS)) {
+    return false;
+  }
+
+  const selectors = await Promise.all(STANDARD_HANDSHAKE_REGISTRY_UTILITY_READ_SELECTORS);
+  return selectors.some(selector => functionSelector.equals(selector));
+}
+
 /** Args for UtilityExecutionOracle constructor. */
 export type UtilityExecutionOracleArgs = {
   contractAddress: AztecAddress;
@@ -846,12 +863,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     );
 
     if (!targetContractAddress.equals(this.contractAddress)) {
-      // The HandshakeRegistry is called during every contract's sync to discover handshake secrets.
-      // It is a standard contract that only reads its own state, so it is always authorized.
-      const isHandshakeRegistryRead =
-        targetContractAddress.equals(STANDARD_HANDSHAKE_REGISTRY_ADDRESS) &&
-        functionSelector.equals(await FunctionSelector.fromSignature('get_handshakes((Field),u32)'));
-      if (!isHandshakeRegistryRead) {
+      if (!(await isStandardHandshakeRegistryUtilityRead(targetContractAddress, functionSelector))) {
         const [callerInstance, targetInstance] = await Promise.all([
           this.getContractInstance(this.contractAddress),
           this.getContractInstance(targetContractAddress),
