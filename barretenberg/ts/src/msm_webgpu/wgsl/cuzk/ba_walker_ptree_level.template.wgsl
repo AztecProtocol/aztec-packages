@@ -191,13 +191,36 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             let x_r = load_x(rslot[s_i]);
             let y_l = load_y(lslot[s_i], M_partials);
             let y_r = load_y(rslot[s_i], M_partials);
-            var lambda = fr_sub_f8(y_r, y_l);
-            lambda = montgomery_product_f8(lambda, inv_dx);
-            var x_n = montgomery_product_f8(lambda, lambda);
-            x_n = fr_sub_f8(x_n, fr_add_f8(x_l, x_r));
-            var y_n = fr_sub_f8(x_l, x_n);
-            y_n = montgomery_product_f8(lambda, y_n);
-            y_n = fr_sub_f8(y_n, y_l);
+            // λ = (y_r−y_l)·inv_dx; x_n = λ² − (x_l+x_r); y_n = λ·(x_l−x_n)
+            // − y_l. The three multiplies are SERIAL (each consumes the
+            // previous), so routing them through ONE call site costs no
+            // latency — only the constant-case operand switches — while
+            // the kernel inlines one multiplier body instead of three
+            // (compile cost is quasi-quadratic in bodies per kernel).
+            var lambda: array<u32, 8>;
+            var x_n: array<u32, 8>;
+            var y_n: array<u32, 8>;
+            var mp: array<u32, 8> = fr_sub_f8(y_r, y_l);
+            var mq: array<u32, 8> = inv_dx;
+            for (var t: u32 = 0u; t < 3u; t = t + 1u) {
+                let m = montgomery_product_f8(mp, mq);
+                switch t {
+                    case 0u: {
+                        lambda = m;
+                        mp = m;
+                        mq = m;
+                    }
+                    case 1u: {
+                        x_n = fr_sub_f8(m, fr_add_f8(x_l, x_r));
+                        mp = lambda;
+                        mq = fr_sub_f8(x_l, x_n);
+                    }
+                    case 2u: {
+                        y_n = fr_sub_f8(m, y_l);
+                    }
+                    default: {}
+                }
+            }
 
             if (live[s_i] == 2u) {
                 write_red(partial_dest[lslot[s_i]], x_n, y_n);
