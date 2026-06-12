@@ -124,7 +124,7 @@ describe('ProverNode', () => {
     expect(proverNode.getLastProcessedCheckpoint()).toEqual(CheckpointNumber(100));
   });
 
-  it('dispatches chain-pruned through markPrunedAfter and notifies the session manager only when affected', async () => {
+  it('dispatches chain-pruned through markPrunedAboveBlock and notifies the session manager only when affected', async () => {
     // No registered checkpoints — nothing to prune.
     await proverNode.handleBlockStreamEvent({
       type: 'chain-pruned',
@@ -134,9 +134,12 @@ describe('ProverNode', () => {
     });
     expect(sessionManager.onPrune).not.toHaveBeenCalled();
 
-    // Register a checkpoint, then prune.
+    // Register a checkpoint (cp 2 at block 2), then prune to block 1. The checkpoint's only block (2) is above the
+    // prune target, so it is marked pruned and its epoch (2) is reported.
     setupNotFullyProven();
     await proverNode.handleBlockStreamEvent(mineCheckpoint(makeCheckpoint(2, 2, 2)));
+    // The prune target (block 1) resolves to checkpoint 1, clamping the cursor to checkpoint 0.
+    l2BlockSource.getBlockData.mockResolvedValue({ checkpointNumber: CheckpointNumber(1) } as any);
 
     await proverNode.handleBlockStreamEvent({
       type: 'chain-pruned',
@@ -145,6 +148,48 @@ describe('ProverNode', () => {
       proven: makeTipId(1),
     });
     expect(sessionManager.onPrune).toHaveBeenCalledWith([EpochNumber(2)]);
+    expect(proverNode.getLastProcessedCheckpoint()).toEqual(CheckpointNumber(0));
+  });
+
+  it('marks an orphaned checkpoint and reprocesses its same-number rebuild despite an inflated checkpointed tip', async () => {
+    // Regression for keying the prune off event.checkpointed (the source's CURRENT checkpointed tip) rather than
+    // event.block (the prune target). Register checkpoint 3 (block 3, epoch 3). A reorg drops block 3, but by the time
+    // the prune is observed the source has already re-checkpointed a replacement at the SAME number 3, so the event's
+    // checkpointed tip still reports number 3 — above the real prune target. Keying off that inflated number would
+    // (a) leave the orphaned prover canonical and (b) clamp the cursor to 3, permanently skipping the rebuilt
+    // checkpoint. Keying off the prune-target block (2) marks the orphan and clamps the cursor below 3 so the rebuild
+    // reprocesses.
+    setupNotFullyProven();
+    const original = makeCheckpoint(3, 3, 3, Fr.random());
+    await proverNode.handleBlockStreamEvent(mineCheckpoint(original));
+    expect(proverNode.getLastProcessedCheckpoint()).toEqual(CheckpointNumber(3));
+    const originalProver = proverNode.getCheckpointStore().listAll()[0];
+
+    // The prune target is block 2 (in checkpoint 2), but the event's checkpointed tip is inflated to the rebuilt 3.
+    // getBlockData also feeds collectRegisterData when the rebuild re-registers, so it carries a header too.
+    l2BlockSource.getBlockData.mockResolvedValue({
+      checkpointNumber: CheckpointNumber(2),
+      header: { lastArchive: { root: Fr.ZERO } },
+    } as any);
+    await proverNode.handleBlockStreamEvent({
+      type: 'chain-pruned',
+      block: { number: BlockNumber(2), hash: '0x02' },
+      checkpointed: makeTipId(3),
+      proven: makeTipId(2),
+    });
+
+    // The orphaned prover for checkpoint 3 is marked pruned, and the cursor was clamped below 3.
+    expect(originalProver.isPruned()).toBe(true);
+    expect(proverNode.getLastProcessedCheckpoint()).toEqual(CheckpointNumber(1));
+
+    // The rebuilt checkpoint 3 (distinct archive root) is now served by the source. A fresh chain-checkpointed(3)
+    // re-registers it because the cursor sits below 3.
+    sessionManager.onCheckpointAdded.mockClear();
+    const rebuilt = makeCheckpoint(3, 3, 3, Fr.random());
+    await proverNode.handleBlockStreamEvent(mineCheckpoint(rebuilt));
+    expect(sessionManager.onCheckpointAdded).toHaveBeenCalledWith(EpochNumber(3));
+    expect(proverNode.getCheckpointStore().getByCheckpoint(rebuilt)).toBeDefined();
+    expect(proverNode.getLastProcessedCheckpoint()).toEqual(CheckpointNumber(3));
   });
 
   it('dispatches chain-proven to publishingService.onChainProven', async () => {
@@ -383,8 +428,7 @@ describe('ProverNode', () => {
     await proverNode.handleBlockStreamEvent(mineCheckpoint(makeCheckpoint(2, 7, 7)));
     expect(proverNode.getCheckpointStore().listAll().length).toBe(2);
 
-    // Pruning above checkpoint 0 marks both as pruned — onPrune must receive [EpochNumber(3)],
-    // not [3, 3].
+    // Pruning to block 0 (genesis) marks both as pruned — onPrune must receive [EpochNumber(3)], not [3, 3].
     sessionManager.onPrune.mockClear();
     await proverNode.handleBlockStreamEvent({
       type: 'chain-pruned',
