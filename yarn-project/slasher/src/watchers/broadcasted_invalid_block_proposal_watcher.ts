@@ -6,73 +6,85 @@ import { FifoSet } from '@aztec/foundation/fifo-set';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import type { L2BlockSource } from '@aztec/stdlib/block';
-import type { P2PClient, SlasherConfig } from '@aztec/stdlib/interfaces/server';
-import type { BlockProposal, CheckpointProposalCore } from '@aztec/stdlib/p2p';
+import type { P2PClient, SequencerConfig, SlasherConfig } from '@aztec/stdlib/interfaces/server';
+import type { BlockProposal } from '@aztec/stdlib/p2p';
 import { OffenseType, getOffenseTypeName } from '@aztec/stdlib/slashing';
 
 import EventEmitter from 'node:events';
 
 import { WANT_TO_SLASH_EVENT, type WantToSlashArgs, type Watcher, type WatcherEmitter } from '../watcher.js';
 
-const BroadcastedInvalidCheckpointProposalWatcherConfigKeys = [
-  'slashBroadcastedInvalidCheckpointProposalPenalty',
-] as const;
+const BroadcastedInvalidBlockProposalWatcherSlasherConfigKeys = ['slashBroadcastedInvalidBlockPenalty'] as const;
+
+const BroadcastedInvalidBlockProposalWatcherConsensusConfigKeys = ['maxBlocksPerCheckpoint'] as const;
 
 const SCAN_SLOT_LAG = 1;
 const DEFAULT_SCAN_SLOT_LOOKBACK = 4;
 
-type BroadcastedInvalidCheckpointProposalWatcherConfig = Pick<
+type BroadcastedInvalidBlockProposalWatcherConfig = Pick<
   SlasherConfig,
-  (typeof BroadcastedInvalidCheckpointProposalWatcherConfigKeys)[number]
->;
+  (typeof BroadcastedInvalidBlockProposalWatcherSlasherConfigKeys)[number]
+> &
+  Pick<SequencerConfig, (typeof BroadcastedInvalidBlockProposalWatcherConsensusConfigKeys)[number]>;
 
-type ProposalsForSlot = Awaited<ReturnType<P2PClient['getProposalsForSlot']>>;
 type P2PProposalsForSlotSource = Pick<P2PClient, 'getProposalsForSlot'>;
 
-type SignedBlockProposal = {
-  proposal: BlockProposal;
-  signer: EthAddress;
-};
-
-/** Detects truncated-checkpoint proposal offenses from retained signed P2P proposals. */
-export class BroadcastedInvalidCheckpointProposalWatcher
+/**
+ * Detects broadcasted-invalid-block-proposal offenses from retained signed P2P proposals: a block
+ * proposal whose index within its checkpoint lands at or beyond the consensus `maxBlocksPerCheckpoint`
+ * limit. The p2p layer retains and re-broadcasts such proposals as slashing evidence without processing
+ * them; a single signed block at an illegal index is self-contained, attributable evidence, so no
+ * checkpoint proposal needs to be present. No-op when the consensus limit is undefined (local/test).
+ */
+export class BroadcastedInvalidBlockProposalWatcher
   extends (EventEmitter as new () => WatcherEmitter)
   implements Watcher
 {
-  private readonly log: Logger = createLogger('broadcasted-invalid-checkpoint-proposal-watcher');
+  private readonly log: Logger = createLogger('broadcasted-invalid-block-proposal-watcher');
   private readonly runningPromise: RunningPromise;
   private readonly emittedOffenses: FifoSet<string>;
   private readonly scanSlotLookback: number;
-  private config: BroadcastedInvalidCheckpointProposalWatcherConfig;
+  private config: BroadcastedInvalidBlockProposalWatcherConfig;
   private lastScannedSlot: SlotNumber | undefined;
 
   constructor(
     private readonly p2pClient: P2PProposalsForSlotSource,
     private readonly l2BlockSource: Pick<L2BlockSource, 'getSyncedL2SlotNumber'>,
     private readonly epochCache: Pick<EpochCacheInterface, 'getSlotNow' | 'getL1Constants'>,
-    config: BroadcastedInvalidCheckpointProposalWatcherConfig,
+    config: BroadcastedInvalidBlockProposalWatcherConfig,
     scanSlotLookback = DEFAULT_SCAN_SLOT_LOOKBACK,
   ) {
     super();
     const constants = epochCache.getL1Constants();
-    this.config = pick(config, ...BroadcastedInvalidCheckpointProposalWatcherConfigKeys);
+    this.config = pick(
+      config,
+      ...BroadcastedInvalidBlockProposalWatcherSlasherConfigKeys,
+      ...BroadcastedInvalidBlockProposalWatcherConsensusConfigKeys,
+    );
     this.scanSlotLookback = Math.max(1, scanSlotLookback);
 
-    // Bound emitted offenses to the number of slots we rescan. This watcher currently tracks one offense type,
+    // Bound emitted offenses to the number of slots we rescan. This watcher tracks one offense type,
     // and at most one offense of that type can be emitted per slot.
     const offenseTypes = 1;
     this.emittedOffenses = FifoSet.withLimit<string>(offenseTypes * this.scanSlotLookback);
 
     const intervalMs = Math.max(1000, (constants.ethereumSlotDuration * 1000) / 4);
     this.runningPromise = new RunningPromise(() => this.scan(), this.log, intervalMs);
-    this.log.info('BroadcastedInvalidCheckpointProposalWatcher initialized', {
+    this.log.info('BroadcastedInvalidBlockProposalWatcher initialized', {
       scanSlotLookback: this.scanSlotLookback,
     });
   }
 
-  public updateConfig(config: Partial<BroadcastedInvalidCheckpointProposalWatcherConfig>): void {
-    this.config = merge(this.config, pick(config, ...BroadcastedInvalidCheckpointProposalWatcherConfigKeys));
-    this.log.verbose('BroadcastedInvalidCheckpointProposalWatcher config updated', this.config);
+  public updateConfig(config: Partial<BroadcastedInvalidBlockProposalWatcherConfig>): void {
+    this.config = merge(
+      this.config,
+      pick(
+        config,
+        ...BroadcastedInvalidBlockProposalWatcherSlasherConfigKeys,
+        ...BroadcastedInvalidBlockProposalWatcherConsensusConfigKeys,
+      ),
+    );
+    this.log.verbose('BroadcastedInvalidBlockProposalWatcher config updated', this.config);
   }
 
   public start(): Promise<void> {
@@ -107,13 +119,13 @@ export class BroadcastedInvalidCheckpointProposalWatcher
 
   /** Scans a single slot. Public for tests. */
   public async scanSlot(slot: SlotNumber): Promise<void> {
-    const proposals = await this.p2pClient.getProposalsForSlot(slot);
-    const slashArgs = this.getSlashArgsForProposals(slot, proposals).filter(args => this.markAsNewOffense(args));
+    const { blockProposals } = await this.p2pClient.getProposalsForSlot(slot);
+    const slashArgs = this.getSlashArgsForProposals(slot, blockProposals).filter(args => this.markAsNewOffense(args));
     if (slashArgs.length === 0) {
       return;
     }
 
-    this.log.info(`Detected broadcasted invalid checkpoint proposal offense`, {
+    this.log.info(`Detected broadcasted invalid block proposal offense`, {
       slot,
       offenses: slashArgs.map(args => ({
         validator: args.validator.toString(),
@@ -125,64 +137,30 @@ export class BroadcastedInvalidCheckpointProposalWatcher
     this.emit(WANT_TO_SLASH_EVENT, slashArgs);
   }
 
-  private getSlashArgsForProposals(slot: SlotNumber, proposals: ProposalsForSlot): WantToSlashArgs[] {
-    const offenders = this.findOffenders(proposals.blockProposals, proposals.checkpointProposals);
+  private getSlashArgsForProposals(slot: SlotNumber, blockProposals: BlockProposal[]): WantToSlashArgs[] {
+    const maxBlocksPerCheckpoint = this.config.maxBlocksPerCheckpoint;
+    if (maxBlocksPerCheckpoint === undefined) {
+      return [];
+    }
+
+    const offenders = new Map<string, EthAddress>();
+    for (const proposal of blockProposals) {
+      if (proposal.indexWithinCheckpoint < maxBlocksPerCheckpoint) {
+        continue;
+      }
+      const signer = proposal.getSender();
+      if (signer) {
+        offenders.set(signer.toString(), signer);
+      }
+    }
+
     // we expect one proposer per slot today.
     return [...offenders.values()].map(validator => ({
       validator,
-      amount: this.config.slashBroadcastedInvalidCheckpointProposalPenalty,
-      offenseType: OffenseType.BROADCASTED_INVALID_CHECKPOINT_PROPOSAL,
+      amount: this.config.slashBroadcastedInvalidBlockPenalty,
+      offenseType: OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL,
       epochOrSlot: BigInt(slot),
     }));
-  }
-
-  private findOffenders(blockProposals: BlockProposal[], checkpointProposals: CheckpointProposalCore[]) {
-    const blocksBySigner = this.getSignedBlocksBySigner(blockProposals);
-    const offenders = new Map<string, EthAddress>();
-
-    for (const checkpoint of checkpointProposals) {
-      const checkpointSigner = checkpoint.getSender();
-      if (!checkpointSigner) {
-        continue;
-      }
-
-      const signerKey = checkpointSigner.toString();
-      const signerBlocks = blocksBySigner.get(signerKey) ?? [];
-      const terminalBlocks = signerBlocks.filter(
-        ({ proposal }) => proposal.slotNumber === checkpoint.slotNumber && proposal.archive.equals(checkpoint.archive),
-      );
-      if (terminalBlocks.length === 0) {
-        continue;
-      }
-
-      const hasTruncatedHigherBlock = terminalBlocks.some(terminalBlock =>
-        signerBlocks.some(
-          ({ proposal }) =>
-            proposal.slotNumber === checkpoint.slotNumber &&
-            proposal.indexWithinCheckpoint > terminalBlock.proposal.indexWithinCheckpoint,
-        ),
-      );
-      if (hasTruncatedHigherBlock) {
-        offenders.set(signerKey, checkpointSigner);
-      }
-    }
-
-    return offenders;
-  }
-
-  private getSignedBlocksBySigner(blockProposals: BlockProposal[]): Map<string, SignedBlockProposal[]> {
-    const blocksBySigner = new Map<string, SignedBlockProposal[]>();
-    for (const proposal of blockProposals) {
-      const signer = proposal.getSender();
-      if (!signer) {
-        continue;
-      }
-      const signerKey = signer.toString();
-      const signerBlocks = blocksBySigner.get(signerKey) ?? [];
-      signerBlocks.push({ proposal, signer });
-      blocksBySigner.set(signerKey, signerBlocks);
-    }
-    return blocksBySigner;
   }
 
   private markAsNewOffense(args: WantToSlashArgs): boolean {
