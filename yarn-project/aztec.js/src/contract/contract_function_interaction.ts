@@ -17,7 +17,6 @@ import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
 
 import type { Wallet } from '../wallet/wallet.js';
 import { BaseContractInteraction } from './base_contract_interaction.js';
-import { getGasLimits } from './get_gas_limits.js';
 import {
   NO_FROM,
   type ProfileInteractionOptions,
@@ -170,16 +169,12 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
       simulatedTx.publicInputs.constants.anchorBlockHeader.globalVariables.timestamp,
     );
 
-    if (options.includeMetadata || options.fee?.estimateGas) {
-      const { gasLimits, teardownGasLimits } = getGasLimits(simulatedTx, options.fee?.estimatedGasPadding);
-      this.log.verbose(
-        `Estimated gas limits for tx: DA=${gasLimits.daGas} L2=${gasLimits.l2Gas} teardownDA=${teardownGasLimits.daGas} teardownL2=${teardownGasLimits.l2Gas}`,
-      );
+    if (options.includeMetadata) {
       return {
         stats: simulatedTx.stats,
         ...offchainOutput,
         result: returnValue,
-        estimatedGas: { gasLimits, teardownGasLimits },
+        gasUsed: simulatedTx.gasUsed,
       };
     }
     return { result: returnValue, ...offchainOutput };

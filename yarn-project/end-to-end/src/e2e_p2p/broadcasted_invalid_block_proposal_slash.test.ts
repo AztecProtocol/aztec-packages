@@ -26,6 +26,7 @@ const BOOT_NODE_UDP_PORT = 4500;
 const COMMITTEE_SIZE = NUM_VALIDATORS;
 const ETHEREUM_SLOT_DURATION = 4;
 const AZTEC_SLOT_DURATION = ETHEREUM_SLOT_DURATION * 2;
+const BLOCK_DURATION_MS = 2000;
 
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'broadcasted-invalid-block-proposal-slash-'));
 
@@ -62,6 +63,7 @@ describe('e2e_p2p_broadcasted_invalid_block_proposal_slash', () => {
         aztecEpochDuration,
         ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
         aztecSlotDuration: AZTEC_SLOT_DURATION,
+        blockDurationMs: BLOCK_DURATION_MS,
         aztecTargetCommitteeSize: COMMITTEE_SIZE,
         inboxLag: 2,
         aztecProofSubmissionEpochs: 1024, // effectively do not reorg

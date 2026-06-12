@@ -5,15 +5,12 @@
  * and Web3Signer for remote signing. Verifies that blocks are produced,
  * attestations are signed, and no double-signing occurs.
  */
-import type { InitialAccountData } from '@aztec/accounts/testing';
 import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
-import { NO_FROM } from '@aztec/aztec.js/account';
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
-import { waitForProven } from '@aztec/aztec.js/contracts';
-import { ContractDeployer } from '@aztec/aztec.js/deployment';
+import { NO_WAIT, getContractInstanceFromInstantiationParams } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
-import type { AztecNode } from '@aztec/aztec.js/node';
+import { type AztecNode, waitForTx } from '@aztec/aztec.js/node';
 import { GovernanceProposerContract } from '@aztec/ethereum/contracts';
 import type { DeployAztecL1ContractsReturnType } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
@@ -24,12 +21,12 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import type { TestDateProvider } from '@aztec/foundation/timer';
 import { GovernanceProposerAbi } from '@aztec/l1-artifacts/GovernanceProposerAbi';
-import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
+import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { type AttestationInfo, getAttestationInfoFromPublishedCheckpoint } from '@aztec/stdlib/block';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import { TopicType } from '@aztec/stdlib/p2p';
 import { OffenseType } from '@aztec/stdlib/slashing';
-import { TxStatus } from '@aztec/stdlib/tx';
+import { TxHash, type TxReceipt, TxStatus } from '@aztec/stdlib/tx';
 import type { GenesisData } from '@aztec/stdlib/world-state';
 import type { ValidatorClient } from '@aztec/validator-client';
 import { PostgresSlashingProtectionDatabase } from '@aztec/validator-ha-signer/db';
@@ -60,10 +57,36 @@ import {
   refreshWeb3Signer,
 } from '../../fixtures/web3signer.js';
 import type { TestWallet } from '../../test-wallet/test_wallet.js';
+import { proveInteraction } from '../../test-wallet/utils.js';
 
 const NODE_COUNT = 5;
 const VALIDATOR_COUNT = 4;
 const COMMITTEE_SIZE = 4;
+
+async function registerTestContract(wallet: TestWallet): Promise<TestContract> {
+  const instance = await getContractInstanceFromInstantiationParams(TestContract.artifact, {
+    constructorArgs: [],
+    constructorArtifact: undefined,
+    salt: Fr.ZERO,
+    publicKeys: undefined,
+    deployer: undefined,
+  });
+  await wallet.registerContract(instance, TestContract.artifact);
+  return TestContract.at(instance.address, wallet);
+}
+
+async function submitTriggerTx(wallet: TestWallet, testContract: TestContract, from: AztecAddress): Promise<TxHash> {
+  const tx = await proveInteraction(wallet, testContract.methods.emit_nullifier(Fr.random()), { from });
+  return await tx.send({ wait: NO_WAIT });
+}
+
+async function waitForTriggerTx(node: AztecNode, txHash: TxHash): Promise<TxReceipt> {
+  const receipt = await waitForTx(node, txHash, { waitForStatus: TxStatus.CHECKPOINTED });
+  if (!receipt.blockNumber) {
+    throw new Error('Trigger tx was checkpointed without a block number');
+  }
+  return receipt;
+}
 
 describe('HA Full Setup', () => {
   jest.setTimeout(20 * 60 * 1000); // 20 minutes
@@ -71,16 +94,19 @@ describe('HA Full Setup', () => {
   let logger: Logger;
   let wallet: TestWallet;
   let ownerAddress: AztecAddress;
+  let testContract: TestContract;
   let aztecNode: AztecNode;
   let config: AztecNodeConfig;
-  let teardown: () => Promise<void>;
-  let initialFundedAccounts: InitialAccountData[];
+  let teardown: () => Promise<void> = async () => {};
+  let accounts: AztecAddress[];
   let dateProvider: TestDateProvider;
   let genesis: GenesisData | undefined;
 
   // HA specific resources
   let haNodePools: Pool[]; // Database pools for HA nodes (for cleanup)
   let haNodeServices: AztecNodeService[]; // All N HA peer nodes
+  let haSequencersStarted = false;
+  const stoppedHANodeIndexes = new Set<number>();
   let haKeystoreDirs: string[];
   let mainPool: Pool;
   let databaseConfig: HADatabaseConfig;
@@ -97,6 +123,37 @@ describe('HA Full Setup', () => {
     chainId: config.l1ChainId,
     rollupAddress: deployL1ContractsValues.l1ContractAddresses.rollupAddress,
   });
+
+  const startHASequencers = async () => {
+    if (haSequencersStarted) {
+      return;
+    }
+
+    await Promise.all(
+      haNodeServices.map(async (service, i) => {
+        logger.info(`Starting HA peer node ${i} sequencer`);
+        await service.getSequencer()?.start();
+      }),
+    );
+    haSequencersStarted = true;
+    logger.info('All HA peer sequencers started');
+  };
+
+  const sendTriggerTx = async (): Promise<TxReceipt> => {
+    await startHASequencers();
+    const txHash = await submitTriggerTx(wallet, testContract, ownerAddress);
+    return await waitForTriggerTx(aztecNode, txHash);
+  };
+
+  const stopHANode = async (nodeIndex: number) => {
+    if (stoppedHANodeIndexes.has(nodeIndex)) {
+      return;
+    }
+
+    logger.info(`Stopping HA peer node ${nodeIndex}`);
+    await haNodeServices[nodeIndex].stop();
+    stoppedHANodeIndexes.add(nodeIndex);
+  };
 
   beforeAll(async () => {
     // Check required environment variables
@@ -146,46 +203,53 @@ describe('HA Full Setup', () => {
 
     const initialValidators = createInitialValidatorsFromPrivateKeys(attesterPrivateKeys);
 
-    ({
-      teardown,
-      logger,
-      wallet,
-      aztecNode,
-      config,
-      initialFundedAccounts,
-      dateProvider,
-      deployL1ContractsValues,
-      genesis,
-    } = await setup(
-      1,
-      {
-        ...PIPELINING_SETUP_OPTS,
-        initialValidators,
-        sequencerPublisherPrivateKeys: [new SecretValue(publisherPrivateKeys[0])],
-        aztecTargetCommitteeSize: COMMITTEE_SIZE,
-        archiverPollingIntervalMS: 200,
-        sequencerPollingIntervalMS: 200,
-        worldStateBlockCheckIntervalMS: 200,
-        blockCheckIntervalMS: 200,
-        startProverNode: true,
-        // Disable validation on this node
-        disableValidator: true,
-        skipAccountDeployment: true,
-        // Enable P2P for transaction gossip
-        p2pEnabled: true,
-        // Enable slashing for testing governance + slashing vote coordination
-        slasherEnabled: true,
-        slashingRoundSizeInEpochs: 1, // 32 slots (1 epoch)
-        slashingQuorum: 17, // >50% of 32 slots for tally quorum,
-      },
-      { syncChainTip: 'proven' },
-    ));
+    ({ teardown, logger, wallet, aztecNode, config, accounts, dateProvider, deployL1ContractsValues, genesis } =
+      await setup(
+        // A single default initializerless account, created/funded/registered by setup with no on-chain
+        // deploy tx -- the bootstrap node can't build blocks (disableValidator), so the owner must be usable
+        // without one.
+        1,
+        {
+          ...PIPELINING_SETUP_OPTS,
+          automineL1Setup: true,
+          initialValidators,
+          sequencerPublisherPrivateKeys: [new SecretValue(publisherPrivateKeys[0])],
+          aztecTargetCommitteeSize: COMMITTEE_SIZE,
+          // The full HA docker/Web3Signer stack can still be joining and syncing after the shared
+          // 12s pipelining preset's 2.5s start window has closed. Keep real sequencing, but give
+          // HA validators enough time to pass the enforced build-start gate in CI.
+          aztecSlotDuration: 16,
+          // This suite validates HA coordination on tx-bearing checkpoints. Requiring one tx avoids a startup empty
+          // checkpoint from occupying the shared HA publisher while the trigger tx is still being prepared.
+          minTxsPerBlock: 1,
+          archiverPollingIntervalMS: 200,
+          sequencerPollingIntervalMS: 200,
+          worldStateBlockCheckIntervalMS: 200,
+          blockCheckIntervalMS: 200,
+          startProverNode: true,
+          // The bootstrap node is only an RPC/P2P anchor. HA validators are the first block producers in this suite.
+          disableValidator: true,
+          // This node cannot build blocks (validation is disabled and the committee's HA nodes start later),
+          // so setup must not wait for a block past genesis.
+          advancePastGenesis: false,
+          // Enable P2P for transaction gossip
+          p2pEnabled: true,
+          // Enable slashing for testing governance + slashing vote coordination
+          slasherEnabled: true,
+          slashingRoundSizeInEpochs: 1, // 32 slots (1 epoch)
+          slashingQuorum: 17, // >50% of 32 slots for tally quorum,
+        },
+        { syncChainTip: 'proven' },
+      ));
+
+    ownerAddress = accounts[0];
+    testContract = await registerTestContract(wallet);
 
     if (!dateProvider) {
       throw new Error('dateProvider must be provided by setup for HA tests');
     }
 
-    logger.info(`Bootstrap node setup complete (validation disabled)`);
+    logger.info('Bootstrap node setup complete; funded initializerless account and test contract registered locally');
 
     // Get bootstrap node's P2P ENR for HA nodes to connect to
     const bootstrapNodeEnr = await aztecNode.getEncodedEnr();
@@ -256,7 +320,11 @@ describe('HA Full Setup', () => {
       };
 
       const nodeService = await withLoggerBindings({ actor: `HA-${i}` }, async () => {
-        return await AztecNodeService.createAndSync(nodeConfig, { dateProvider }, { genesis });
+        return await AztecNodeService.createAndSync(
+          nodeConfig,
+          { dateProvider },
+          { genesis, dontStartSequencer: true },
+        );
       });
 
       haNodeServices.push(nodeService);
@@ -264,7 +332,7 @@ describe('HA Full Setup', () => {
     }
 
     logger.info(`All ${NODE_COUNT} HA peer nodes started and coordinating via PostgreSQL database`);
-    logger.info('Waiting for HA peer nodes to join the tx gossip mesh before deploying the test account');
+    logger.info('Waiting for HA peer nodes to join the tx gossip mesh');
     await retryUntil(
       async () => {
         const meshStates = await Promise.all(
@@ -289,55 +357,39 @@ describe('HA Full Setup', () => {
       1,
     );
 
-    // Now deploy the account - blocks can be built by the HA nodes
-    logger.info('Deploying test account now that validators are running');
-    const accountData = initialFundedAccounts[0];
-    const accountManager = await wallet.createSchnorrAccount(
-      accountData.secret,
-      accountData.salt,
-      accountData.signingKey,
-    );
-    const deployMethod = await accountManager.getDeployMethod();
-    await deployMethod.send({ from: NO_FROM, wait: { waitForStatus: TxStatus.CHECKPOINTED } });
-    ownerAddress = accountManager.address;
-    logger.info(`Test account deployed at ${ownerAddress}`);
+    // The owner is an initializerless account, so it needs no deployment tx -- it was funded at genesis
+    // and registered during setup, and is ready to transact as soon as the HA nodes start building blocks.
+    logger.info(`Test account ready at ${ownerAddress}`);
   });
 
   afterAll(async () => {
-    const cleanupErrors: string[] = [];
-
-    dateProvider?.reset();
-
-    // Stop all HA peer nodes in parallel with a per-node deadline. A single stuck node can otherwise
-    // block the serial loop long enough to blow the jest hook timeout, so report the stuck node directly
-    // instead of letting the suite pass and later fail with Jest open handles.
+    // Stop all sequencers before tearing down the nodes: a sequencer stop awaits its in-flight
+    // iteration, which can spend tens of seconds finishing a vote or checkpoint publish on L1.
+    // Stops must be awaited fully — jest runs without forceExit, so a node abandoned mid-stop
+    // outlives the test environment and keeps the worker process alive until the CI job timeout.
+    // The dateProvider reset must wait until nodes are stopped: it rewinds the shared clock from
+    // chain time to wall time (minutes apart after the automine deploy burst), and any publisher
+    // deadline armed against the rewound clock would block shutdown until wall time catches up.
     if (haNodeServices) {
-      const STOP_DEADLINE_MS = 30_000;
-      const stopResults = await Promise.allSettled(
-        haNodeServices.map((service, i) => {
-          logger.info(`Stopping HA peer node ${i}`);
-          return Promise.race([
-            service.stop().catch(error => {
-              const message = `Failed to stop HA peer node ${i}: ${error}`;
-              logger.error(message);
-              return message;
-            }),
-            sleep(STOP_DEADLINE_MS).then(() => {
-              const message = `HA peer node ${i} stop did not return within ${STOP_DEADLINE_MS}ms; abandoning`;
-              logger.error(message);
-              return message;
-            }),
-          ]);
+      await Promise.allSettled(
+        haNodeServices.map(async (service, i) => {
+          try {
+            await service.getSequencer()?.stop();
+          } catch (error) {
+            logger.error(`Failed to stop sequencer of HA peer node ${i}: ${error}`);
+          }
         }),
       );
-      for (const result of stopResults) {
-        if (result.status === 'rejected') {
-          cleanupErrors.push(`Unexpected HA node stop error: ${result.reason}`);
-        } else if (result.value) {
-          cleanupErrors.push(result.value);
-        }
-      }
+      await Promise.allSettled(
+        haNodeServices.map((_, i) =>
+          stopHANode(i).catch(error => {
+            logger.error(`Failed to stop HA peer node ${i}: ${error}`);
+          }),
+        ),
+      );
     }
+
+    dateProvider?.reset();
 
     // Cleanup HA keystore temp directories
     if (haKeystoreDirs) {
@@ -365,10 +417,6 @@ describe('HA Full Setup', () => {
 
     // Cleanup bootstrap node and test infrastructure (this cleans up the shared data directory)
     await teardown();
-
-    if (cleanupErrors.length > 0) {
-      throw new Error(cleanupErrors.join('\n'));
-    }
   });
 
   afterEach(async () => {
@@ -387,20 +435,15 @@ describe('HA Full Setup', () => {
   it('should produce blocks with HA coordination and attestations', async () => {
     logger.info('Testing full HA setup: block production, attestations, and coordination');
 
-    // Deploy a contract to trigger block building
-    const deployer = new ContractDeployer(StatefulTestContractArtifact, wallet);
-    logger.info(`Deploying contract from ${ownerAddress}`);
-    const { receipt } = await deployer.deploy([ownerAddress, 1], { salt: new Fr(BigInt(1)) }).send({
-      from: ownerAddress,
-      wait: { waitForStatus: TxStatus.CHECKPOINTED },
-    });
-
-    await waitForProven(aztecNode, receipt, {
-      provenTimeout: (config.aztecProofSubmissionEpochs + 1) * config.aztecEpochDuration * config.aztecSlotDuration,
-    });
+    // Send a tx to trigger block building. The account and contract are funded/registered at genesis,
+    // so HA validators are the first block producers exercised by this suite.
+    logger.info(`Sending trigger tx from ${ownerAddress}`);
+    const txHash = await submitTriggerTx(wallet, testContract, ownerAddress);
+    await startHASequencers();
+    const receipt = await waitForTriggerTx(aztecNode, txHash);
 
     expect(receipt.blockNumber).toBeDefined();
-    logger.info(`Contract deployed in block ${receipt.blockNumber}`);
+    logger.info(`Trigger tx checkpointed in block ${receipt.blockNumber}`);
 
     // Get the block with attestations
     const [block] = await aztecNode.getBlocks(receipt.blockNumber!, 1, {
@@ -512,11 +555,7 @@ describe('HA Full Setup', () => {
 
     // Send a transaction to trigger block building which will also trigger voting
     logger.info('Sending transaction to trigger block building...');
-    const deployer = new ContractDeployer(StatefulTestContractArtifact, wallet);
-    const { receipt } = await deployer.deploy([ownerAddress, 42], { salt: Fr.random() }).send({
-      from: ownerAddress,
-      wait: { waitForStatus: TxStatus.CHECKPOINTED },
-    });
+    const receipt = await sendTriggerTx();
     expect(receipt.blockNumber).toBeDefined();
     logger.info(`Transaction mined in block ${receipt.blockNumber}`);
 
@@ -699,13 +738,9 @@ describe('HA Full Setup', () => {
         verifyNodeAttesters(i, i < 3 ? groupB : groupA, i < 3 ? 'group B (swapped)' : 'group A (swapped)');
       }
 
-      const deployer = new ContractDeployer(StatefulTestContractArtifact, wallet);
-      const receipt = await deployer.deploy([ownerAddress, 201], { salt: new Fr(201) }).send({
-        from: ownerAddress,
-        wait: { waitForStatus: TxStatus.CHECKPOINTED },
-      });
-      expect(receipt.receipt.blockNumber).toBeDefined();
-      const [block] = await aztecNode.getBlocks(receipt.receipt.blockNumber!, 1, {
+      const receipt = await sendTriggerTx();
+      expect(receipt.blockNumber).toBeDefined();
+      const [block] = await aztecNode.getBlocks(receipt.blockNumber!, 1, {
         includeL1PublishInfo: true,
         includeAttestations: true,
         includeTransactions: true,
@@ -714,7 +749,7 @@ describe('HA Full Setup', () => {
       const [cp] = await aztecNode.getCheckpoints(block!.checkpointNumber, 1, { includeAttestations: true });
       const att = (cp.attestations ?? []).filter(a => !a.signature.isEmpty());
       expect(att.length).toBeGreaterThanOrEqual(quorum);
-      logger.info(`Phase 2: block ${receipt.receipt.blockNumber}, ${att.length} attestations (quorum ${quorum})`);
+      logger.info(`Phase 2: block ${receipt.blockNumber}, ${att.length} attestations (quorum ${quorum})`);
     } finally {
       // Restore each node's saved initial keystore so subsequent tests see original state
       for (let i = 0; i < NODE_COUNT; i++) {
@@ -746,11 +781,7 @@ describe('HA Full Setup', () => {
       logger.info(`\n=== Producing block ${i + 1}/${blockCount} ===`);
       logger.info(`Active nodes: ${haNodeServices.length - killedNodes.length}/${NODE_COUNT}`);
 
-      const deployer = new ContractDeployer(StatefulTestContractArtifact, wallet);
-      const { receipt } = await deployer.deploy([ownerAddress, i + 100], { salt: new Fr(BigInt(i + 100)) }).send({
-        from: ownerAddress,
-        wait: { waitForStatus: TxStatus.CHECKPOINTED },
-      });
+      const receipt = await sendTriggerTx();
 
       expect(receipt.blockNumber).toBeDefined();
 
@@ -783,20 +814,24 @@ describe('HA Full Setup', () => {
       blockProducers.set(i, blockProposalDuty.nodeId);
       logger.info(`Block ${receipt.blockNumber} produced by node ${blockProposalDuty.nodeId}`);
 
+      const producerNodeId = blockProposalDuty.nodeId;
+      const producerNodeIndex = nodeIds.findIndex(nodeId => nodeId === producerNodeId);
+
+      if (producerNodeIndex === -1) {
+        throw new Error(`Could not find active node with ID ${producerNodeId}`);
+      }
+
       // Kill the node that produced this block, unless it's the last block
       if (i < blockCount - 1) {
-        const producerNodeId = blockProposalDuty.nodeId;
-        const nodeIndexToKill = nodeIds.findIndex(nodeId => nodeId === producerNodeId);
-
-        if (nodeIndexToKill === -1) {
-          throw new Error(`Could not find active node with ID ${producerNodeId}`);
-        }
-
         logger.info(`Killing node ${producerNodeId} that produced this block`);
-        await haNodeServices[nodeIndexToKill].stop();
-        killedNodes.push(nodeIndexToKill);
+        await stopHANode(producerNodeIndex);
+        killedNodes.push(producerNodeIndex);
       } else {
-        logger.info(`Last block produced.`);
+        // The final survivor is kept online for the slash-offense assertion below, but its sequencer
+        // is no longer needed. Stop it before running the remaining assertions so it cannot start a
+        // new empty checkpoint and then block service shutdown while awaiting a delayed L1 publish.
+        logger.info(`Last block produced; stopping sequencer for survivor ${producerNodeId}`);
+        await haNodeServices[producerNodeIndex].getSequencer()?.stop();
       }
 
       logger.info(`Block ${i + 1}/${blockCount} completed. Killed nodes: ${killedNodes.length}/${NODE_COUNT}`);
@@ -899,6 +934,8 @@ describe('HA Full Setup', () => {
       o => o.offenseType === OffenseType.DUPLICATE_ATTESTATION || o.offenseType === OffenseType.DUPLICATE_PROPOSAL,
     );
     expect(equivocationOffenses).toEqual([]);
+
+    await Promise.all(haNodeServices.map((_, nodeIndex) => stopHANode(nodeIndex)));
   });
 
   describe('Clock Skew and Timezone Safety', () => {
@@ -977,7 +1014,7 @@ describe('HA Full Setup', () => {
       }
     });
 
-    it('should not delete recent duties when node clock is ahead (using cleanupOldDuties)', async () => {
+    it('should not delete recent duties via cleanupOldDuties when node clock is ahead', async () => {
       const spDb = new PostgresSlashingProtectionDatabase(mainPool);
 
       // Ensure clean slate for this test
@@ -1039,7 +1076,7 @@ describe('HA Full Setup', () => {
       expect(result.rows.length).toBe(1);
     });
 
-    it('should delete old duties based on DB time, not node time (using cleanupOldDuties)', async () => {
+    it('should delete old duties via cleanupOldDuties based on DB time, not node time', async () => {
       const spDb = new PostgresSlashingProtectionDatabase(mainPool);
 
       // Ensure clean slate for this test
@@ -1108,7 +1145,7 @@ describe('HA Full Setup', () => {
       expect(result.rows.length).toBe(0);
     });
 
-    it('should not delete recent stuck duties when node clock is ahead (using cleanupOwnStuckDuties)', async () => {
+    it('should not delete recent stuck duties via cleanupOwnStuckDuties when node clock is ahead', async () => {
       const spDb = new PostgresSlashingProtectionDatabase(mainPool);
 
       // Create a signing duty (stuck, not completed) using our actual method

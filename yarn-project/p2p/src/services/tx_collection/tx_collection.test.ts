@@ -262,7 +262,8 @@ describe('TxCollection', () => {
       expect(nodes[0].getTxsByHash).toHaveBeenCalledWith([txHashes[3]]);
       expect(nodes[0].getTxsByHash).not.toHaveBeenCalledWith(txHashes);
 
-      expect(dateProvider.now()).toBeGreaterThanOrEqual(+deadline);
+      // Allow 5ms tolerance: setTimeout in RequestTracker can fire slightly before dateProvider.now() catches up
+      expect(dateProvider.now()).toBeGreaterThanOrEqual(+deadline - 5);
       expect(sortByHash(collected)).toEqual(sortByHash([txs[0], txs[1], txs[2]]));
     });
 

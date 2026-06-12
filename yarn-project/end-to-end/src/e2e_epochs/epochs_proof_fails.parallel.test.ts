@@ -44,7 +44,6 @@ describe('e2e_epochs/epochs_proof_fails', () => {
       aztecSlotDurationInL1Slots: 2,
       blockDurationMs: 3000, // 3s blocks → 2 blocks per checkpoint under pipelining
       cancelTxOnTimeout: false,
-      enforceTimeTable: true,
       inboxLag: 2,
     });
     ({ context, l1Client, rollup, constants, logger, monitor } = test);

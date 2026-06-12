@@ -9,7 +9,7 @@ import type { Wallet } from '@aztec/aztec.js/wallet';
 import type { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
-import { type EndToEndContext, type SetupOptions, deployAccounts, setup, teardown } from '../fixtures/setup.js';
+import { type EndToEndContext, type SetupOptions, setup, teardown } from '../fixtures/setup.js';
 import type { TestWallet } from '../test-wallet/test_wallet.js';
 
 export class DeployTest {
@@ -26,32 +26,19 @@ export class DeployTest {
 
   async setup(opts: Partial<SetupOptions> = {}) {
     this.logger.info('Setting up test environment');
-    this.context = await setup(0, {
+    this.context = await setup(1, {
       ...opts,
       fundSponsoredFPC: true,
-      skipAccountDeployment: true,
     });
     this.aztecNode = this.context.aztecNodeService;
     this.wallet = this.context.wallet;
     this.aztecNodeAdmin = this.context.aztecNodeService;
-    await this.applyInitialAccount();
+    this.defaultAccountAddress = this.context.accounts[0];
     return this;
   }
 
   async teardown() {
     await teardown(this.context);
-  }
-
-  private async applyInitialAccount() {
-    this.logger.info('Applying initial account setup');
-    const { deployedAccounts } = await deployAccounts(
-      1,
-      this.logger,
-    )({
-      wallet: this.context.wallet,
-      initialFundedAccounts: this.context.initialFundedAccounts,
-    });
-    this.defaultAccountAddress = deployedAccounts[0].address;
   }
 
   async registerContract<T extends ContractBase>(

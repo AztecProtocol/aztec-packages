@@ -164,6 +164,7 @@ export class PeerManager implements PeerManagerInterface {
   public async heartbeat() {
     this.heartbeatCounter++;
     this.peerScoring.decayAllScores();
+    this.peerScoring.pruneExpiredBans();
     this.cleanupExpiredTimeouts();
 
     await this.setupDirectPeersIfValidator();
@@ -494,15 +495,38 @@ export class PeerManager implements PeerManagerInterface {
    *
    * @returns: True if node is allowed to connect, otherwise false
    * */
-  public isNodeAllowedToConnect(id: string | PeerId): boolean {
-    const entry = this.failedAuthHandshakes.get(id.toString());
+  /**
+   * Whether a peer is allowed to connect, given its peer id. Rejects peers serving an active ban and
+   * peers that have exceeded the failed auth-handshake limit. Use this once the peer id is known —
+   * i.e. for the encrypted-inbound gater and when dialing.
+   */
+  public isPeerAllowedToConnect(peerId: string | PeerId): boolean {
+    const id = peerId.toString();
+    if (this.peerScoring.getScoreState(id) === PeerScoreState.Banned) {
+      return false;
+    }
+    return this.isWithinFailedAuthLimit(id);
+  }
+
+  /**
+   * Whether a connection from an address is allowed. Bans are keyed by peer id, which isn't known at
+   * the raw-inbound layer, so only the failed auth-handshake limit (also tracked per address) is
+   * enforced here; the ban is applied once the peer id is known via {@link isPeerAllowedToConnect}.
+   */
+  public isAddressAllowedToConnect(address: string): boolean {
+    return this.isWithinFailedAuthLimit(address);
+  }
+
+  /** Whether the failed auth-handshake count for a peer id or address is below the configured limit. */
+  private isWithinFailedAuthLimit(key: string): boolean {
+    const entry = this.failedAuthHandshakes.get(key);
     if (!entry) {
       return true;
     }
 
     // In case entry is too old, remove it and allow connection
     if (this.dateProvider.now() - entry.lastFailureTimestamp > FAILED_AUTH_HANDSHAKE_EXPIRY_MS) {
-      this.failedAuthHandshakes.delete(id.toString());
+      this.failedAuthHandshakes.delete(key);
       return true;
     }
 
@@ -729,9 +753,9 @@ export class PeerManager implements PeerManagerInterface {
       return;
     }
 
-    // Don't dial peers that have exceeded the auth failure threshold
-    if (!this.isNodeAllowedToConnect(peerId)) {
-      this.logger.trace(`Skipping peer ${peerId} due to failed auth handshake attempts`);
+    // Don't dial banned peers or those that have exceeded the auth failure threshold
+    if (!this.isPeerAllowedToConnect(peerId)) {
+      this.logger.trace(`Skipping peer ${peerId} due to ban or failed auth handshake attempts`);
       return;
     }
 

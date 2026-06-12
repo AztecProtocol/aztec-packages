@@ -119,6 +119,10 @@ export class InMemoryTxPool extends EventEmitter implements TxPoolV2 {
     return Promise.resolve();
   }
 
+  unprotectTxs(_txHashes: TxHash[], _slotNumber: SlotNumber): Promise<void> {
+    return Promise.resolve();
+  }
+
   handlePrunedBlocks(_latestBlock: L2BlockId, _options?: { deleteAllTxs?: boolean }): Promise<void> {
     return Promise.resolve();
   }

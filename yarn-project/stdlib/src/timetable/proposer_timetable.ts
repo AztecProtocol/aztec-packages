@@ -1,11 +1,11 @@
 import type { SlotNumber } from '@aztec/foundation/branded-types';
+import type { Logger } from '@aztec/foundation/log';
 
 import { type ResolvedTimingBudgets, getDefaultCheckpointProposalSyncGrace, resolveTimingBudgets } from './budgets.js';
 import { ConsensusTimetable, type SlotTimingConstants } from './consensus_timetable.js';
 
 /** Result of selecting the next block sub-slot to build. */
 export type SubslotSelection =
-  | { canStart: true; index: number; deadline: undefined; isLastBlock: true }
   | { canStart: false; index: undefined; deadline: undefined; isLastBlock: false }
   | { canStart: true; index: number; deadline: number; isLastBlock: boolean };
 
@@ -19,6 +19,10 @@ export type SubslotSelection =
  *
  * The single hard deadline {@link getAttestationDeadline} is inherited from the composed
  * {@link ConsensusTimetable}, so the proposer uses one object.
+ *
+ * `maxBlocksPerCheckpoint` is computed from the local operational budgets and then clamped down to the optional
+ * network-provided value when that value is lower; a network value at or above the computed count leaves the
+ * computed count in effect. When clamping down occurs and a logger is supplied, a warning is emitted.
  */
 export class ProposerTimetable extends ConsensusTimetable {
   /** Minimum block-building time (`min_block_duration`) in seconds. */
@@ -33,21 +37,25 @@ export class ProposerTimetable extends ConsensusTimetable {
   /** Proposer initialization budget (`checkpoint_proposal_init_time`) reserved before the first sub-slot, in seconds. */
   public readonly checkpointProposalInitTime: number;
 
-  /** Whether the proposer enforces sub-slot/start deadlines (false keeps the single-mined-block test mode). */
-  public readonly enforce: boolean;
-
-  /** Maximum number of full-duration block sub-slots derivable from this timing config. */
+  /**
+   * Effective maximum number of block sub-slots per checkpoint: the value the local operational budgets compute,
+   * clamped down to the explicit network value when that value is lower. A network value above the computed
+   * count has no effect (the computed count is used) and is not logged.
+   */
   public readonly maxBlocksPerCheckpoint: number;
 
   constructor(opts: {
     l1Constants: SlotTimingConstants;
-    blockDuration: number | undefined;
+    blockDuration: number;
     minBlockDuration: number;
     p2pPropagationTime: number;
     checkpointProposalPrepareTime: number;
     checkpointProposalInitTime: number;
     checkpointProposalSyncGrace?: number;
-    enforce: boolean;
+    /** Explicit network max blocks per checkpoint; the effective value is clamped down to this when it is lower. */
+    maxBlocksPerCheckpoint?: number;
+    /** Optional logger; warns when the local budgets compute more blocks than the network value allows. */
+    logger?: Logger;
   }) {
     super({
       l1Constants: opts.l1Constants,
@@ -67,29 +75,34 @@ export class ProposerTimetable extends ConsensusTimetable {
     this.p2pPropagationTime = budgets.p2pPropagationTime;
     this.checkpointProposalPrepareTime = budgets.checkpointProposalPrepareTime;
     this.checkpointProposalInitTime = budgets.checkpointProposalInitTime;
-    this.enforce = opts.enforce;
 
     // Clamp min block duration to the block duration so a single sub-slot is always startable.
-    this.minBlockDuration =
-      this.blockDuration !== undefined
-        ? Math.min(budgets.minBlockDuration, this.blockDuration)
-        : budgets.minBlockDuration;
+    this.minBlockDuration = Math.min(budgets.minBlockDuration, this.blockDuration);
 
-    this.maxBlocksPerCheckpoint = this.computeMaxBlocksPerCheckpoint();
+    const computed = this.computeMaxBlocksPerCheckpoint();
+    this.maxBlocksPerCheckpoint =
+      opts.maxBlocksPerCheckpoint !== undefined ? Math.min(computed, opts.maxBlocksPerCheckpoint) : computed;
+    if (opts.maxBlocksPerCheckpoint !== undefined && opts.maxBlocksPerCheckpoint < computed) {
+      opts.logger?.warn(`Locally computed max blocks per checkpoint clamped down to the network-provided value`, {
+        computed,
+        maxBlocksPerCheckpoint: opts.maxBlocksPerCheckpoint,
+      });
+    }
+    if (this.maxBlocksPerCheckpoint < 1) {
+      throw new Error(
+        `Invalid timing configuration: derived ${this.maxBlocksPerCheckpoint} blocks per checkpoint for ` +
+          `slot duration ${this.aztecSlotDuration}s and block duration ${this.blockDuration}s.`,
+      );
+    }
   }
 
   /**
    * Computes the maximum number of full-duration block sub-slots in a checkpoint from the already-resolved
    * budgets. Derived from the spec's `max_blocks_per_checkpoint = floor((last_block_build_time -
    * first_subslot_start) / D)`, where the first sub-slot starts one `checkpoint_proposal_init_time` (`init`)
-   * after `build_frame_start`, so it simplifies to `floor((S - init - D - 2P - prepCp) / D)`. Single-block
-   * mode (`blockDuration` undefined) returns 1.
+   * after `build_frame_start`, so it simplifies to `floor((S - init - D - 2P - prepCp) / D)`.
    */
   private computeMaxBlocksPerCheckpoint(): number {
-    if (this.blockDuration === undefined) {
-      return 1;
-    }
-
     // last_block_build_time - (build_frame_start + init) = S - init - D - 2P - prepCp.
     const timeAvailableForBlocks =
       this.aztecSlotDuration -
@@ -103,14 +116,13 @@ export class ProposerTimetable extends ConsensusTimetable {
   /**
    * Ideal time the last block must finish building by to make the ideal L1 publish path:
    * `target_slot_start - E - D - 2P - prepCp` (= `checkpoint_proposal_send_time - prepCp`). Single value;
-   * the proposer sizes block production around the ideal L1-publish path only. In single-block mode
-   * (`blockDuration` undefined) the `D` term drops out, since the single block is itself the final block.
+   * the proposer sizes block production around the ideal L1-publish path only.
    */
   public getLastBlockBuildTime(slot: SlotNumber): number {
     return (
       this.getTargetSlotStart(slot) -
       this.ethereumSlotDuration -
-      (this.blockDuration ?? 0) -
+      this.blockDuration -
       2 * this.p2pPropagationTime -
       this.checkpointProposalPrepareTime
     );
@@ -123,15 +135,9 @@ export class ProposerTimetable extends ConsensusTimetable {
    * intentionally earlier (by `P`) than the consensus receive gate would strictly allow, and
    * conservatively no later than the final sub-slot's start cutoff in {@link selectNextSubslot}.
    *
-   * Single-block mode (`blockDuration` undefined): `attestation_deadline - 2 * min_block_duration`,
-   * matching {@link selectNextSubslot}'s single-block branch (which needs `min_block_duration` for
-   * execution and another for re-execution before the attestation deadline). This keeps the build-entry
-   * start gate from abandoning a slot that {@link selectNextSubslot} would still allow to start.
    */
   public getBuildStartDeadline(slot: SlotNumber): number {
-    return this.blockDuration === undefined
-      ? this.getAttestationDeadline(slot) - 2 * this.minBlockDuration
-      : this.getLastBlockBuildTime(slot) - this.minBlockDuration;
+    return this.getLastBlockBuildTime(slot) - this.minBlockDuration;
   }
 
   /** Ideal L1 publish/send time: `target_slot_start - E`. Also the ideal attestation-receipt target. */
@@ -147,11 +153,7 @@ export class ProposerTimetable extends ConsensusTimetable {
    * prologue finishes rather than being eaten by it.
    */
   public getBlockBuildDeadline(slot: SlotNumber, blockIndex: number): number {
-    return (
-      this.getBuildFrameStart(slot) +
-      this.checkpointProposalInitTime +
-      (blockIndex + 1) * this.requireBlockDurationForSchedule()
-    );
+    return this.getBuildFrameStart(slot) + this.checkpointProposalInitTime + (blockIndex + 1) * this.blockDuration;
   }
 
   /** Latest time to keep waiting for txs for sub-slot `k`: `block_build_deadline(k) - min_block_duration`. */
@@ -170,29 +172,10 @@ export class ProposerTimetable extends ConsensusTimetable {
    * Scans sub-slots in order and picks the first whose build deadline is at least `min_block_duration`
    * in the future. Sub-slots with insufficient remaining headroom are skipped.
    *
-   * When enforcement is disabled, always allows building a single block with no deadline (test/sandbox
-   * mode). In single-block mode (`blockDuration === undefined`) enforced, splits the remaining time
-   * between execution and re-execution against the attestation deadline.
-   *
    * @param slot - Target slot the checkpoint commits to.
    * @param now - Current wall-clock time in seconds.
    */
   public selectNextSubslot(slot: SlotNumber, now: number): SubslotSelection {
-    if (!this.enforce) {
-      return { canStart: true, index: 0, deadline: undefined, isLastBlock: true };
-    }
-
-    if (this.blockDuration === undefined) {
-      // Single-block enforced mode: execution and re-execution run sequentially, so split the time
-      // remaining until the attestation deadline in half.
-      const maxAllowed = this.getAttestationDeadline(slot);
-      const available = (maxAllowed - now) / 2;
-      const canStart = available >= this.minBlockDuration;
-      return canStart
-        ? { canStart: true, index: 0, deadline: now + available, isLastBlock: true }
-        : { canStart: false, index: undefined, deadline: undefined, isLastBlock: false };
-    }
-
     const maxBlocks = this.maxBlocksPerCheckpoint;
     for (let index = 0; index < maxBlocks; index++) {
       const deadline = this.getBlockBuildDeadline(slot, index);
@@ -203,12 +186,5 @@ export class ProposerTimetable extends ConsensusTimetable {
     }
 
     return { canStart: false, index: undefined, deadline: undefined, isLastBlock: false };
-  }
-
-  private requireBlockDurationForSchedule(): number {
-    if (this.blockDuration === undefined) {
-      throw new Error('blockDuration is required for sub-slot scheduling');
-    }
-    return this.blockDuration;
   }
 }

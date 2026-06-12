@@ -1,3 +1,4 @@
+import { MAX_PROCESSABLE_L2_GAS, MAX_TX_DA_GAS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { KeyStore } from '@aztec/key-store';
 import { OracleVersionCheckContractArtifact } from '@aztec/noir-test-contracts.js/OracleVersionCheck';
@@ -6,7 +7,7 @@ import { FunctionCall, FunctionSelector, FunctionType, encodeArguments } from '@
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2TipsProvider } from '@aztec/stdlib/block';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
-import { GasFees, GasSettings } from '@aztec/stdlib/gas';
+import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { BlockHeader, HashedValues, TxContext, TxExecutionRequest } from '@aztec/stdlib/tx';
 
@@ -137,7 +138,10 @@ describe('Oracle Version Check test suite', () => {
         txContext: TxContext.from({
           chainId: new Fr(10),
           version: new Fr(20),
-          gasSettings: GasSettings.fallback({ maxFeesPerGas: new GasFees(10, 10) }),
+          gasSettings: GasSettings.fallback({
+            gasLimits: new Gas(MAX_TX_DA_GAS, MAX_PROCESSABLE_L2_GAS),
+            maxFeesPerGas: new GasFees(10, 10),
+          }),
         }),
         argsOfCalls: [hashedArguments],
         authWitnesses: [],
