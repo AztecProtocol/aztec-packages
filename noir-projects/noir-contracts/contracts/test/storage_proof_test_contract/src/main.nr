@@ -12,7 +12,6 @@ contract StorageProofTest {
         utils::to_nibbles,
     };
     use aztec::{
-        context::calls::PrivateCall,
         macros::functions::{external, internal, only_self, view},
         oracle::capsules,
         protocol::{
@@ -90,15 +89,15 @@ contract StorageProofTest {
 
         let storage_trie_key = keccak256(slot_key, 32);
 
-        let (slot_leaf_hash, slot_nibble_index) = call_verify_storage_proof_path_recursively(
-            self.address,
-            0,
-            hinted_storage_proof_length,
-            0,
-            hinted_account.storage_hash,
-            to_nibbles(storage_trie_key),
-            storage_proof_capsule_key,
-        )
+        let (slot_leaf_hash, slot_nibble_index) = StorageProofTest::at(self.address)
+            .verify_storage_proof_path_recursively(
+                0,
+                hinted_storage_proof_length,
+                0,
+                hinted_account.storage_hash,
+                to_nibbles(storage_trie_key),
+                storage_proof_capsule_key,
+            )
             .call(self.context);
 
         assert_eq(slot_leaf_hash, compute_slot_hash(slot_contents, slot_nibble_index, storage_trie_key));
@@ -146,40 +145,17 @@ contract StorageProofTest {
         if new_num_processed_nodes == num_total_nodes {
             (child_hash, end_nibble_index)
         } else {
-            call_verify_storage_proof_path_recursively(
-                self.address,
-                new_num_processed_nodes,
-                num_total_nodes,
-                end_nibble_index,
-                child_hash,
-                storage_trie_key_nibbles,
-                storage_proof_capsule_key,
-            )
+            StorageProofTest::at(self.address)
+                .verify_storage_proof_path_recursively(
+                    new_num_processed_nodes,
+                    num_total_nodes,
+                    end_nibble_index,
+                    child_hash,
+                    storage_trie_key_nibbles,
+                    storage_proof_capsule_key,
+                )
                 .call(self.context)
         }
-    }
-
-    // TODO(#7729): apply no_predicates to the contract interface method directly instead of having to use a wrapper
-    // like we do here.
-    #[no_predicates]
-    #[contract_library_method]
-    fn call_verify_storage_proof_path_recursively(
-        this_address: AztecAddress,
-        num_processed_nodes: u32,
-        num_total_nodes: u32,
-        start_nibble_index: u32,
-        parent_hash: [u64; 4],
-        storage_trie_key_nibbles: [u8; 64],
-        storage_proof_capsule_key: Field,
-    ) -> PrivateCall<37, 72, ([u64; 4], u32)> {
-        StorageProofTest::at(this_address).verify_storage_proof_path_recursively(
-            num_processed_nodes,
-            num_total_nodes,
-            start_nibble_index,
-            parent_hash,
-            storage_trie_key_nibbles,
-            storage_proof_capsule_key,
-        )
     }
 
     #[contract_library_method]
