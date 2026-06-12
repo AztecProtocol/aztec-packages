@@ -120,7 +120,6 @@ export function arenaColourSizes(p: {
     // clears/writes on Adreno.)
     // activeBuckets is sized for (bid, n) PAIRS (walker_index v2's idx_alloc
     // writes both); the v1 path uses the first half as plain bids.
-    // activeCount carries [count, alloc_total] — 2 u32.
     a(sBTotal * 8) +
       a(sBTotal * 4) +
       a(scalarsBytes) +
@@ -5959,11 +5958,6 @@ export class MsmV2 {
   }
 
   /**
-   * Run ONLY the MSB-histogram kernel and read back its outputs (split-c Phase 1
-   * validation). Requires `splitC` + a prior `prepare()`. Returns the 256-bin
-   * histogram and the per-scalar msb array; compare against {@link computeMsbHistogram}.
-   */
-  /**
    * Read back the is_present plane and red_buf x-plane first words, summed per
    * window — splits "window empty because presence never marked" from
    * "presence fine but bucket sums never written". Diagnostic readback only.
@@ -6032,6 +6026,11 @@ export class MsmV2 {
     };
   }
 
+  /**
+   * Run ONLY the MSB-histogram kernel and read back its outputs (split-c Phase 1
+   * validation). Requires `splitC` + a prior `prepare()`. Returns the 256-bin
+   * histogram and the per-scalar msb array; compare against {@link computeMsbHistogram}.
+   */
   async debugMsbHistogram(): Promise<{ hist: Uint32Array; msbPerScalar: Uint32Array }> {
     if (this.preparedFor === null) throw new Error('MsmV2.debugMsbHistogram: call prepare() first');
     if (!this.msbHistBind || !this.msbHistBuf || !this.msbPerScalarBuf) {
