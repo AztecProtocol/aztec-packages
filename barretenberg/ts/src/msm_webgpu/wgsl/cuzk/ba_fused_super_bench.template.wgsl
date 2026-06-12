@@ -1,13 +1,4 @@
-{{> structs }}
-{{> bigint_funcs }}
-{{> montgomery_product_funcs }}
-{{> field_funcs }}
-{{> bigint_by_funcs }}
 {{> inverse_funcs }}
-
-{{{ dec_unpack }}}
-
-{{{ dec_pack }}}
 
 {{> field8_funcs }}
 
@@ -83,10 +74,10 @@ fn load_active_y(idx: u32, M: u32) -> array<u32, 8> {
     if ((packed & L0_SIGN_BIT) == 0u) {
         return y;
     }
-    // Lever D: negate y on the fly (-y = 0 - y mod p) — the level-0 point
-    // pool carries no precomputed -y plane.
-    let zero: array<u32, 8> = array<u32, 8>(0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u);
-    return fr_sub_f8(zero, y);
+    // Lever D: negate y on the fly — the level-0 point pool carries no
+    // precomputed -y plane. Pool y is a curve point's coordinate
+    // (y ≢ 0 mod p, < 2p), so the unconditional 2p - y stays in (0, 2p).
+    return fr_neg_wide_f8(y);
 }
 {{/l0_index_mode}}
 {{^l0_index_mode}}
@@ -216,7 +207,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         // r_x = lambda^2 - p_lx - p_rx.
         let p_lx: array<u32, 8> = load_active_x(idx_l, M_old);
         let p_rx: array<u32, 8> = load_active_x(idx_r, M_old);
-        var r_x: array<u32, 8> = montgomery_product_f8(lambda, lambda);
+        var r_x: array<u32, 8> = montgomery_square_f8(lambda);
         let x_sum: array<u32, 8> = fr_add_f8(p_lx, p_rx);
         r_x = fr_sub_f8(r_x, x_sum);
 

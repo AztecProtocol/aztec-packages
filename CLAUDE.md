@@ -120,3 +120,39 @@ Avoid recurring AI-isms in chat replies, PR descriptions, commit messages, code 
 <attribution>
 Attribute work to the git author, not to Claude. Do not add `Co-Authored-By: Claude` trailers or `Generated with Claude Code` in PR descriptions. The git author (from `git config user.name`) is the author of record.
 </attribution>
+
+<msm_webgpu_benchmarking>
+This worktree (`zw/webgpu-compilation`) works on WebGPU MSM v2 shader-compilation times (`barretenberg/ts/src/msm_webgpu/`). Benchmarking and profiling rules:
+
+**Devices and tooling**
+- The `webgpu-gpu-trace` skill produces perfetto traces with GPU counter data for two phones: Samsung S25+ (Adreno) and Google Pixel 9A (Mali). One-line script: `bash ~/.claude/skills/webgpu-gpu-trace/scripts/profile_both.sh <port> "<url>" <out>` (~2 minutes, slow).
+- The fastest path to correctness and benchmark data is local on the MacBook Pro (M4). Local measurement is Chrome timestamps only — the mac webgpu profiling skill (`webgpu-gpu-trace-mac`) is BROKEN; do not use it.
+
+**Testing/profiling heuristics (in order)**
+1. Test correctness locally (MacBook Pro M4).
+2. Run quick A/B benchmarks locally (MacBook Pro M4).
+3. Benchmark refined algorithms on the phones via the `webgpu-gpu-trace` skill's one-line `profile_both.sh` script (~2 min per run).
+
+**Baseline traces (source of truth, N=2^17 MSM)**
+- Adreno: `~/barretenberg-msm-webgpu-experiments/msm_single_adreno.perfetto`
+- Mali: `~/barretenberg-msm-webgpu-experiments/msm_single_mali.perfetto`
+These cover GPU execution time. Shader-compilation time is CPU-side and is NOT in these traces; measure it via page logs (`[gpu-warm] MsmV2 ready in N ms`) or a dedicated compile harness.
+
+**Bench lock — MANDATORY**
+Multiple agents in sibling worktrees run benchmarks on the same mac and phones. Concurrent runs corrupt measurements. NEVER run a measurement (local or phone) without holding the corresponding lock via `~/barretenberg-msm-webgpu-experiments/bench-lock.sh`; if another agent holds it, WAIT — do not measure:
+
+```bash
+LOCK=/Users/zac/barretenberg-msm-webgpu-experiments/bench-lock.sh
+SK=~/.claude/skills/webgpu-gpu-trace/scripts
+
+# Phone profiling
+bash $LOCK phones acquire "zw/webgpu-compilation"
+bash $SK/profile_both.sh 5198 "http://localhost:5198/..." ./myresult
+bash $LOCK phones release
+
+# Mac-local benchmarking
+bash $LOCK mac acquire "zw/webgpu-compilation"
+# ... run local bench ...
+bash $LOCK mac release
+```
+</msm_webgpu_benchmarking>

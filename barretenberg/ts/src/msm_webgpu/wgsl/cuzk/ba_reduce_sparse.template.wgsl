@@ -1,13 +1,4 @@
-{{> structs }}
-{{> bigint_funcs }}
-{{> montgomery_product_funcs }}
-{{> field_funcs }}
-{{> bigint_by_funcs }}
 {{> inverse_funcs }}
-
-{{{ dec_unpack }}}
-
-{{{ dec_pack }}}
 
 {{> field8_funcs }}
 
@@ -67,7 +58,7 @@ fn aff_add(a: Pt, b: Pt) -> Pt {
     let dx = fr_sub_f8(b.x, a.x);
     let dy = fr_sub_f8(b.y, a.y);
     let lambda = montgomery_product_f8(dy, finv(dx));
-    var rx = montgomery_product_f8(lambda, lambda);
+    var rx = montgomery_square_f8(lambda);
     rx = fr_sub_f8(rx, a.x);
     rx = fr_sub_f8(rx, b.x);
     var ry = fr_sub_f8(a.x, rx);
@@ -78,13 +69,13 @@ fn aff_add(a: Pt, b: Pt) -> Pt {
 
 // Affine double: 2a.
 fn aff_dbl(a: Pt) -> Pt {
-    let x2 = montgomery_product_f8(a.x, a.x);
+    let x2 = montgomery_square_f8(a.x);
     var num = fr_add_f8(x2, x2);
     num = fr_add_f8(num, x2);            // 3x^2
     let den = fr_add_f8(a.y, a.y);       // 2y
     let lambda = montgomery_product_f8(num, finv(den));
     let two_x = fr_add_f8(a.x, a.x);
-    var rx = montgomery_product_f8(lambda, lambda);
+    var rx = montgomery_square_f8(lambda);
     rx = fr_sub_f8(rx, two_x);
     var ry = fr_sub_f8(a.x, rx);
     ry = montgomery_product_f8(lambda, ry);

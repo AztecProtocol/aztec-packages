@@ -1,11 +1,3 @@
-{{> structs }}
-{{> bigint_funcs }}
-{{> montgomery_product_funcs }}
-{{> field_funcs }}
-
-{{{ dec_unpack }}}
-
-{{{ dec_pack }}}
 
 {{> field8_funcs }}
 
@@ -76,8 +68,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     var y_val: array<u32, 8> = array<u32, 8>(q0y.x, q0y.y, q0y.z, q0y.w, q1y.x, q1y.y, q1y.z, q1y.w);
 
     if (sign) {
-        let zero: array<u32, 8> = array<u32, 8>(0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u);
-        y_val = fr_sub_f8(zero, y_val);
+        // Pool y is a curve point's coordinate (y ≢ 0 mod p, < 2p), so the
+        // unconditional 2p - y stays in (0, 2p).
+        y_val = fr_neg_wide_f8(y_val);
     }
 
     let window = bucket_idx >> WBID_SHIFT;

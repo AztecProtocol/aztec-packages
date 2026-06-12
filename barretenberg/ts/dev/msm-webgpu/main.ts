@@ -24,7 +24,6 @@
 import { bn254 } from '@noble/curves/bn254';
 
 import { get_device } from '../../src/msm_webgpu/cuzk/gpu.js';
-import { runMicrobench } from './microbench.js';
 import { MsmV2, MsmV2Pool, type MsmConfig, pickC, MEM_BUDGET, hostWindowCombine } from '../../src/msm_webgpu/msm_v2.js';
 import { planBatch, computeGeom } from '../../src/msm_webgpu/batch_scheduler.js';
 import { runUnionPacks, type BridgeDescriptor } from '../../src/msm_webgpu/bridge/union_runner.js';
@@ -119,8 +118,6 @@ const gpuKnobs: MsmConfig = (() => {
     wgi: optInt('wgi'),
     reduceWg: optInt('reducewg'),
     l0Log: optInt('l0log'),
-    invVariant: q.get('inv') === 'loop' ? 'loop' : q.get('inv') === 'pk' ? 'pk' : undefined,
-    pk14Inverse: q.get('pk14') === '1' || undefined,
     montmul:
       q.get('montmul') === 'cios_unrolled' ? 'cios_unrolled' : q.get('montmul') === 'karat' ? 'karat' : undefined,
     jacobianCrossover: (() => {
@@ -3065,75 +3062,24 @@ function hideProgress(): void {
       const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
       log('err', `[batch-bench] state=error FATAL: ${msg}`);
     }
-  } else if (autorun === 'micro') {
-    // Isolated montmul/inverse microbench (profiling harness):
-    //   ?autorun=micro&op=mul|inv&montmul=&pk14=1&chain_k=&threads=&reps=
-    // GPU-only, no WASM/SRS — hold a GPU-counter capture over the run to
-    // attribute one field op's cost independent of MSM geometry.
-    const op: 'mul' | 'inv' = qp.get('op') === 'inv' ? 'inv' : 'mul';
-    const montmul = (gpuKnobs.montmul ?? 'karat') as MsmConfig['montmul'];
-    const pk14 = gpuKnobs.pk14Inverse === true;
-    const chainK = parseInt(qp.get('chain_k') ?? (op === 'inv' ? '6' : '64'), 10);
-    const nthreads = parseInt(qp.get('threads') ?? '65536', 10);
-    const reps = parseInt(qp.get('reps') ?? '20', 10);
-    const client = makeResultsClient({ page: 'micro' });
-    const lines: string[] = [];
-    const mlog = (k: 'info' | 'ok' | 'err', m: string): void => {
-      lines.push(m);
-      log(k, m);
-    };
-    try {
-      mlog('info', `[micro] op=${op} montmul=${montmul} pk14=${pk14} K=${chainK} threads=${nthreads} reps=${reps}`);
-      const res = await runMicrobench({ op, montmul: montmul ?? 'karat', pk14, nthreads, chainK, reps });
-      mlog('ok', `[micro] median=${res.medianMs.toFixed(3)}ms min=${res.minMs.toFixed(3)}ms groups=${res.numGroups}`);
-      mlog('ok', `[micro] state=done`);
-      await client.postResults({
-        state: 'done',
-        params: { op, montmul, pk14, chainK, nthreads, reps, page: 'micro' },
-        results: {
-          medianMs: res.medianMs,
-          minMs: res.minMs,
-          walls: res.walls,
-          samples: res.walls.map(w => ({ wallMs: w })),
-          medianWallMs: res.medianMs,
-        },
-        error: null,
-        log: lines.slice(-50),
-        userAgent: navigator.userAgent,
-        hardwareConcurrency: navigator.hardwareConcurrency,
-      });
-    } catch (e) {
-      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
-      mlog('err', `[micro] FATAL: ${msg}`);
-      mlog('err', `[micro] state=error`);
-      await client.postResults({
-        state: 'error',
-        params: { op, montmul, pk14, chainK, nthreads, reps, page: 'micro' },
-        results: null,
-        error: msg,
-        log: lines.slice(-50),
-        userAgent: navigator.userAgent,
-        hardwareConcurrency: navigator.hardwareConcurrency,
-      });
-    }
   } else if (autorun === 'msm-matrix') {
     // FAST benchmark matrix — the iteration-speed path. ONE page load: acquire the
     // device, decompress the SRS into ONE point pool, generate inputs, then loop
-    // over montmul×inverse configs IN-PAGE, building a fresh MsmV2 per config that
+    // over montmul configs IN-PAGE, building a fresh MsmV2 per config that
     // shares the pool's WGSL-keyed pipeline cache. So montmul-independent kernels
-    // (planner/transpose/decompose/reduce-schedule) compile ONCE and are reused;
-    // flipping pk14 only recompiles the walker. NO WASM, NO cross-check, NO page
-    // reloads. Correctness is covered by the M2 byte-identical oracle; this is
-    // pure GPU wall timing (profile=false, wall-around-submit).
+    // (planner/transpose/decompose/reduce-schedule) compile ONCE and are reused.
+    // NO WASM, NO cross-check, NO page reloads. Correctness is covered by the M2
+    // byte-identical oracle; this is pure GPU wall timing (profile=false,
+    // wall-around-submit).
     //   ?autorun=msm-matrix&logn=17&reps=8&scalar_dist=profile&profile=A
-    //     &configs=karat:loop,cios_unrolled:loop,karat:pk14,cios_unrolled:pk14
+    //     &configs=karat,cios_unrolled
     const autorunLogN = Math.min(17, parseInt(qp.get('logn') ?? '17', 10) || 17);
     const reps = Math.max(1, parseInt(qp.get('reps') ?? '8', 10));
     const warmups = Math.max(1, parseInt(qp.get('warmups') ?? '2', 10));
-    const configsStr = qp.get('configs') ?? 'karat:loop,cios_unrolled:loop,karat:pk14,cios_unrolled:pk14';
+    const configsStr = qp.get('configs') ?? 'karat,cios_unrolled';
     const configs = configsStr.split(',').map(s => {
-      const [mm, inv] = s.split(':');
-      return { montmul: (mm || 'karat') as MsmConfig['montmul'], pk14: inv === 'pk14' };
+      const [mm] = s.split(':');
+      return { montmul: (mm || 'karat') as MsmConfig['montmul'] };
     });
     const client = makeResultsClient({ page: 'msm-matrix' });
     const lines: string[] = [];
@@ -3164,7 +3110,6 @@ function hideProgress(): void {
         const knobs: MsmConfig = {
           ...gpuKnobs,
           montmul: cfg.montmul,
-          pk14Inverse: cfg.pk14,
           profile: false,
           combineOnHost: false,
           warmupRuns: 0,
@@ -3185,7 +3130,6 @@ function hideProgress(): void {
         const min = walls[0];
         rows.push({
           montmul: cfg.montmul,
-          pk14: cfg.pk14,
           median: +median.toFixed(1),
           min: +min.toFixed(1),
           buildMs: +buildMs.toFixed(0),
@@ -3193,7 +3137,7 @@ function hideProgress(): void {
         });
         mlog(
           'ok',
-          `[matrix] ${String(cfg.montmul).padEnd(13)} inv=${cfg.pk14 ? 'pk14' : 'loop'}: median=${median.toFixed(1)}ms min=${min.toFixed(1)}ms (build+compile ${buildMs.toFixed(0)}ms)`,
+          `[matrix] ${String(cfg.montmul).padEnd(13)}: median=${median.toFixed(1)}ms min=${min.toFixed(1)}ms (build+compile ${buildMs.toFixed(0)}ms)`,
         );
         msm.destroy();
       }

@@ -1,6 +1,5 @@
 import mustache from 'mustache';
 import {
-  barrett as barrett_funcs,
   ba_reduce_level_bench as ba_reduce_level_bench_shader,
   ba_reduce_sparse as ba_reduce_sparse_shader,
   ba_reduce_level_jacobian as ba_reduce_level_jacobian_shader,
@@ -38,8 +37,6 @@ import {
   ba_walker_pt_dispatch_chain as ba_walker_pt_dispatch_chain_shader,
   ba_unified_combine as ba_unified_combine_shader,
   ba_walker_pt_finalize as ba_walker_pt_finalize_shader,
-  bigint as bigint_funcs,
-  bigint_by as bigint_by_funcs,
   // The ONLY inverse: packed-14-bit native safegcd (f8 in/out), fr_inv_by_loop_pk.
   by_inverse_loop_pk14_native as by_inverse_loop_pk14_native_funcs,
   convert_points_only as convert_points_only_shader,
@@ -47,13 +44,10 @@ import {
   csr_to_v2_meta as csr_to_v2_meta_shader,
   decompose_scalars_booth as decompose_scalars_booth_shader,
   decompress_g1_bn254 as decompress_g1_bn254_shader,
-  extract_word_from_bytes_le as extract_word_from_bytes_le_funcs,
-  field as field_funcs,
   field8 as field8_funcs,
-  microbench as microbench_shader,
   mont_pro_product_f8_native as montgomery_product_f8_native_funcs,
   mont_pro_product_karat_yuval as montgomery_product_karat_yuval_funcs,
-  structs,
+  mont_pro_square_f8_native as montgomery_square_f8_native_funcs,
   transpose_parallel_scan as transpose_parallel_scan_shader,
   transpose_count_tiled as transpose_count_tiled_shader,
   transpose_reduce_tiled as transpose_reduce_tiled_shader,
@@ -160,19 +154,16 @@ export class ShaderManager {
   // (BATCH=26 / NUM_OUTER=29 on 20 x 13-bit BigInt). Single u32, since 26
   // bits fit comfortably.
   public p_inv_by_a_lo: number;
-  // Pre-rendered u32 Montgomery product source used as the
-  // `montgomery_product_funcs` mustache partial by every MSM shader that
-  // needs a base-field multiply. Defaults to the Karatsuba + Yuval body
-  // (see `renderKaratYuvalMont`), which benches ~27% faster than the
-  // runtime-loop CIOS at n=2^20, k=100 on Apple GPU. Both bodies expose
-  // the same `fn montgomery_product(x, y) -> BigInt` symbol and the same
-  // `get_p` / `conditional_reduce` helpers, so swapping the partial is
-  // a drop-in change at every callsite.
-  public mont_product_src: string;
-  // Packed-native f8 montgomery_product_f8 source. Empty unless
-  // montmul='cios_unrolled'; field8's `f8_native` flag then selects this
-  // packed CIOS multiply (no x20/r/s BigInt temps) over the unpack wrapper.
+  // The base-field Montgomery multiply, packed 8x u32 in/out — the ONE
+  // representation every kernel uses. Injected as the
+  // `montgomery_product_f8_native` partial wherever field8 is included.
+  // Two bodies behind the same `montgomery_product_f8` symbol, selected
+  // by `montmul`: the grouped Karatsuba+Yuval emit ('karat') or the
+  // register-lean packed CIOS ('cios_unrolled').
   public mont_f8_native_src: string;
+  // The matching Montgomery square body (montgomery_square_f8), injected as
+  // the `montgomery_square_f8_native` partial alongside the multiply.
+  public mont_square_f8_native_src: string;
   // The selected montmul variant (karat | cios_unrolled).
   private montmul: MontMulVariant;
   public curveConfig: CurveConfig;
@@ -183,11 +174,11 @@ export class ShaderManager {
     input_size: number,
     curveConfig: CurveConfig = BN254_CURVE_CONFIG,
     force_recompile = false,
-    // Base-field multiply selector. 'karat' (default) is the generic
-    // 20×13-limb Karatsuba+Yuval body — the high-register path (e.g. Apple).
-    // 'cios_unrolled' selects the packed-native 8×u32 CIOS multiply
-    // (f8_native) on every kernel — the register-lean Adreno/Mali path
-    // (−26% on Mali-G715, BN254 @ 20×13 only).
+    // Base-field multiply body selector — both are packed 8x u32 in/out
+    // behind the same montgomery_product_f8 symbol. 'karat' (default) is
+    // the grouped Karatsuba+Yuval emit (the high-register path, e.g.
+    // Apple); 'cios_unrolled' is the register-lean CIOS (the Adreno/Mali
+    // path, −26% on Mali-G715). BN254 @ 20×13 only.
     montmul: MontMulVariant = 'karat',
   ) {
     this.curveConfig = curveConfig;
@@ -223,15 +214,29 @@ export class ShaderManager {
     // Option A 26-bit p_inv (single u32) for the BATCH=26 BY driver.
     this.p_inv_by_a_lo = compute_by_p_inv_a(this.p);
 
-    // The generic 20×13-limb Karatsuba+Yuval Mont body: the `montmul=karat`
-    // multiply, and the BigInt body the field8 wrapper expands to in the karat
-    // path. In the `montmul=cios_unrolled` (f8_native) path every kernel uses
-    // the packed multiply below, so this body is dead-code-eliminated there.
-    this.mont_product_src = this.renderKaratYuvalMont();
-    // The packed-native 8×u32 CIOS multiply (`montmul=cios_unrolled` / f8_native):
-    // the Adreno fast path (no x20/r/s BigInt spill). field8's `f8_native` branch
-    // injects it on every kernel; empty in the karat path.
-    this.mont_f8_native_src = montmul === 'cios_unrolled' ? montgomery_product_f8_native_funcs.trim() : '';
+    // Both montmul bodies are packed 8x u32 in/out. The karat body carries
+    // its own const block (NUM_WORDS/MASK/N0/...); the CIOS template relies
+    // on those consts from the assembled module, so prefix them here —
+    const fieldConsts =
+      `const NUM_WORDS: u32 = ${this.num_words}u;\n` +
+      `const WORD_SIZE: u32 = ${this.word_size}u;\n` +
+      `const MASK: u32      = ${this.mask}u;\n` +
+      `const TWO_POW_WORD_SIZE: u32 = ${this.two_pow_word_size}u;\n` +
+      `const N0: u32        = ${this.n0}u;\n` +
+      `const P_INV_MOD_2W: u32 = ${this.p_inv_mod_2w}u;\n`;
+    this.mont_f8_native_src =
+      montmul === 'cios_unrolled'
+        ? fieldConsts + montgomery_product_f8_native_funcs.trim()
+        : this.renderKaratYuval(false);
+    // The dedicated Montgomery square (montgomery_square_f8) of the SAME
+    // family — ~24% (cios) / ~14% (karat) fewer int32 muls than the
+    // multiply at x = y. Rendered without its own const block: it always
+    // follows the multiply body (field8 includes both), which carries the
+    // shared constants.
+    this.mont_square_f8_native_src =
+      montmul === 'cios_unrolled'
+        ? montgomery_square_f8_native_funcs.trim()
+        : this.renderKaratYuval(true);
     this.montmul = montmul;
 
     if (force_recompile) {
@@ -243,109 +248,28 @@ export class ShaderManager {
     }
   }
 
-  // DECOUPLED (full-ILP) pack/unpack WGSL for the packed 8×u32 storage
-  // path. For limb i (WS bits) the source word and shift are compile-time
-  // constants derived from WS / num_words / 256-bit / 8-word:
-  //   w0 = (WS*i) div 32 ;  s0 = (WS*i) mod 32
-  //   value = (packed[w0] >> s0) & LIMB_MASK
-  //   if s0+WS > 32: value |= (packed[w0+1] << (32-s0)) & LIMB_MASK
-  // Pack is symmetric: each output u32 word j is the OR of the constant
-  // set of limbs whose bit window overlaps [32*j, 32*j+32). Produces the
-  // bit-identical integer to a serial bit-cursor (sum limbs[i]*2^(WS*i)
-  // == sum w[j]*2^(32*j)); same Montgomery domain, no R correction.
-  private decoupledPackUnpackWgsl(): { unpack: string; pack: string } {
-    const WS = this.word_size;
-    const NW = this.num_words;
-    const PACKED = 8;
-    const LIMB_MASK = (1 << WS) - 1;
-
-    const unpackLines: string[] = [];
-    for (let i = 0; i < NW; i++) {
-      const bitpos = WS * i;
-      const w0 = Math.floor(bitpos / 32);
-      const s0 = bitpos % 32;
-      let expr = `(w[${w0}u] >> ${s0}u)`;
-      if (s0 + WS > 32 && w0 + 1 < PACKED) {
-        expr = `(${expr} | (w[${w0 + 1}u] << ${32 - s0}u))`;
-      }
-      unpackLines.push(`    b.limbs[${i}u] = ${expr} & ${LIMB_MASK}u;`);
-    }
-    const unpack = `fn unpack256_to_limbs(w: array<u32, 8>) -> BigInt {
-    var b: BigInt;
-${unpackLines.join('\n')}
-    return b;
-}`;
-
-    const wordTerms: string[][] = Array.from({ length: PACKED }, () => []);
-    for (let i = 0; i < NW; i++) {
-      const bitpos = WS * i;
-      const w0 = Math.floor(bitpos / 32);
-      const s0 = bitpos % 32;
-      const limbExpr = `(b.limbs[${i}u] & ${LIMB_MASK}u)`;
-      if (w0 < PACKED) {
-        wordTerms[w0].push(s0 === 0 ? limbExpr : `(${limbExpr} << ${s0}u)`);
-      }
-      if (s0 + WS > 32 && w0 + 1 < PACKED) {
-        wordTerms[w0 + 1].push(`(${limbExpr} >> ${32 - s0}u)`);
-      }
-    }
-    const packLines: string[] = [];
-    for (let j = 0; j < PACKED; j++) {
-      const terms = wordTerms[j];
-      packLines.push(`    w[${j}u] = ${terms.length ? terms.join(' | ') : '0u'};`);
-    }
-    const pack = `fn pack_limbs_to_256(bp: ptr<function, BigInt>) -> array<u32, 8> {
-    let b = *bp;
-    var w: array<u32, 8>;
-${packLines.join('\n')}
-    return w;
-}`;
-
-    return { unpack, pack };
-  }
-
-  public gen_convert_points_only_shader(workgroup_size: number, num_y_workgroups: number, packed = false): string {
-    const num_16_bit_words_per_coord = Math.ceil((this.num_words * this.word_size) / 16);
-    const coord_u32_words = this.curveConfig.coordinateByteLength / 4;
-    const dec = this.decoupledPackUnpackWgsl();
+  public gen_convert_points_only_shader(workgroup_size: number, num_y_workgroups: number): string {
+    // R² mod p packed as 8x u32: montgomery_product_f8(x, R²) = x·R, the
+    // canonical -> Montgomery conversion in one packed multiply.
+    const r2 = (this.r * this.r) % this.p;
+    const { p8_consts, r8_csv, f8_words } = this.f8Context();
     return mustache.render(
       convert_points_only_shader,
       {
-        packed,
-        dec_pack: dec.pack,
         workgroup_size,
         num_y_workgroups,
+        r2_csv: words8Csv(r2),
+        p8_consts,
+        r8_csv,
+        f8_words,
         num_words: this.num_words,
-        word_size: this.word_size,
-        n0: this.n0,
-        mask: this.mask,
-        two_pow_word_size: this.two_pow_word_size,
-        p_inv_mod_2w: this.p_inv_mod_2w,
-        p_limbs: this.p_limbs,
-        r_limbs: this.r_limbs,
-        mu_limbs: this.mu_limbs,
-        w_mask: this.w_mask,
-        slack: this.slack,
-        num_words_mul_two: this.num_words * 2,
-        num_words_plus_one: this.num_words + 1,
-        num_16_bit_words_per_coord,
-        coord_u32_words,
-        coord_u32_words_mul_two: coord_u32_words * 2,
         recompile: this.recompile,
       },
-      {
-        structs,
-        bigint_funcs,
-        field_funcs,
-        barrett_funcs,
-        montgomery_product_funcs: this.mont_product_src,
-        extract_word_from_bytes_le_funcs,
-      },
+      { field8_funcs, montgomery_product_f8_native: this.mont_f8_native_src },
     );
   }
 
   public gen_decompress_g1_bn254_shader(workgroup_size: number): string {
-    const dec = this.decoupledPackUnpackWgsl();
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
     // Packed curve constants for the f8 path: R^2 (native -> Montgomery),
     // 3·R (Montgomery b), and the raw closed-form sqrt exponent (q+1)/4.
@@ -371,21 +295,14 @@ ${packLines.join('\n')}
         p8_consts,
         r8_csv,
         f8_words,
-        f8_native: this.montmul === 'cios_unrolled',
-        dec_unpack: dec.unpack,
-        dec_pack: dec.pack,
         r_squared_csv: words8Csv(r_squared),
         b3_mont_csv: words8Csv(b3_mont),
         sqrt_exp_csv: words8Csv(sqrt_exp),
         recompile: this.recompile,
       },
       {
-        structs,
-        bigint_funcs,
-        field_funcs,
-        barrett_funcs,
-        montgomery_product_funcs: this.mont_product_src,
         montgomery_product_f8_native: this.mont_f8_native_src,
+        montgomery_square_f8_native: this.mont_square_f8_native_src,
         field8_funcs,
       },
     );
@@ -583,10 +500,14 @@ ${packLines.join('\n')}
    * fr_sub_f8 and the get_r_f8 seed, plus the 0..7 unroll index list.
    */
   private f8Context() {
+    // val2 = the matching word of 2p (p < 2^255, so 2p fits 256 bits) —
+    // WGSL const-eval rejects `P8 << 1` when a set bit shifts out, so the
+    // TWOP8 constants are emitted as literals alongside P8.
+    const twop8 = words8(2n * this.p);
     return {
-      p8_consts: words8(this.p).map((val, idx) => ({ idx, val })),
+      p8_consts: words8(this.p).map((val, idx) => ({ idx, val, val2: twop8[idx] })),
       r8_csv: words8Csv(this.r),
-      f8_words: [0, 1, 2, 3, 4, 5, 6, 7].map(i => ({ i })),
+      f8_words: [0, 1, 2, 3, 4, 5, 6, 7].map(i => ({ i, mid: i > 0 && i < 7 })),
     };
   }
 
@@ -622,70 +543,17 @@ ${packLines.join('\n')}
   }
 
   /**
-   * Isolated montmul / inverse microbench (profiling harness). op='mul' chains
-   * the BigInt `montgomery_product` (the montmul body selected by `montmul`);
-   * op='inv' chains a field inverse. `pk14` selects the packed-14-bit safegcd
-   * inverse (f8 in/out, the walker's hot path) over the default BigInt loop
-   * inverse — the same two paths the stream-walker offers, so the microbench can
-   * attribute the inverse cost in isolation under a GPU-counter capture. Drives a
-   * dependent + stored chain so the work can't be DCE'd. See `runMicrobench`.
-   */
-  public gen_microbench_shader(op: 'mul' | 'inv', chain_k: number, nthreads: number, pk14 = false): string {
-    const dec = this.decoupledPackUnpackWgsl();
-    const inverse_funcs = by_inverse_loop_pk14_native_funcs;
-    const inv_fn = 'fr_inv_by_loop_pk';
-    return mustache.render(
-      microbench_shader,
-      {
-        is_mul: op === 'mul',
-        is_inv: op === 'inv',
-        inv_f8: true,
-        inv_fn,
-        chain_k,
-        nthreads,
-        in_stride: 2 * this.num_words,
-        word_size: this.word_size,
-        num_words: this.num_words,
-        n0: this.n0,
-        p_limbs: this.p_limbs,
-        r_limbs: this.r_limbs,
-        mask: this.mask,
-        two_pow_word_size: this.two_pow_word_size,
-        p_inv_mod_2w: this.p_inv_mod_2w,
-        p_inv_by_a_lo: this.p_inv_by_a_lo,
-        dec_unpack: dec.unpack,
-        dec_pack: dec.pack,
-        recompile: this.recompile,
-      },
-      {
-        structs,
-        bigint_funcs,
-        montgomery_product_funcs: this.mont_product_src,
-        montgomery_product_f8_native: this.mont_f8_native_src,
-        field_funcs,
-        bigint_by_funcs,
-        inverse_funcs,
-      },
-    );
-  }
-
-  /**
    * Reduction-stage level kernel. ONE kernel handles all three kinds
    * (0 = phase-A suffix add, 1 = phase-B/D tree-add, 2 = phase-C double)
    * via runtime branch on `lparams.w` — uniform across the workgroup, so
    * the compiler specialises per-dispatch with no SIMT divergence.
    */
-  public gen_ba_reduce_level_bench_shader(
-    workgroup_size: number,
-    variant: 'loop' | 'pk' = 'pk',
-    addsub: 'native' | 'unpack' = 'native',
-  ): string {
+  public gen_ba_reduce_level_bench_shader(workgroup_size: number): string {
     if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
       throw new Error(
         `gen_ba_reduce_level_bench_shader: workgroup_size (${workgroup_size}) must be a positive integer`,
       );
     }
-    const dec = this.decoupledPackUnpackWgsl();
     const inverse_funcs = by_inverse_loop_pk14_native_funcs;
     const inv_fn = 'fr_inv_by_loop_pk';
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
@@ -694,11 +562,9 @@ ${packLines.join('\n')}
       {
         workgroup_size,
         inv_fn,
-        addsub_unpack: addsub === 'unpack',
         p8_consts,
         r8_csv,
         f8_words,
-        f8_native: this.montmul === 'cios_unrolled',
         word_size: this.word_size,
         num_words: this.num_words,
         n0: this.n0,
@@ -708,18 +574,12 @@ ${packLines.join('\n')}
         two_pow_word_size: this.two_pow_word_size,
         p_inv_mod_2w: this.p_inv_mod_2w,
         p_inv_by_a_lo: this.p_inv_by_a_lo,
-        dec_unpack: dec.unpack,
-        dec_pack: dec.pack,
         recompile: this.recompile,
       },
       {
-        structs,
-        bigint_funcs,
-        montgomery_product_funcs: this.mont_product_src,
         montgomery_product_f8_native: this.mont_f8_native_src,
-        field_funcs,
+        montgomery_square_f8_native: this.mont_square_f8_native_src,
         field8_funcs,
-        bigint_by_funcs,
         inverse_funcs,
       },
     );
@@ -728,11 +588,10 @@ ${packLines.join('\n')}
   // Sparse bucket reduction (SPARSE_REDUCE_PLAN.md). Same field/inverse context
   // as the dense reduce; the kernel skips empty buckets via a gap-aware suffix
   // sum so structured wires don't pay for empty high-window buckets.
-  public gen_ba_reduce_sparse_shader(workgroup_size: number, variant: 'loop' | 'pk' = 'pk'): string {
+  public gen_ba_reduce_sparse_shader(workgroup_size: number): string {
     if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
       throw new Error(`gen_ba_reduce_sparse_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
     }
-    const dec = this.decoupledPackUnpackWgsl();
     const inverse_funcs = by_inverse_loop_pk14_native_funcs;
     const inv_fn = 'fr_inv_by_loop_pk';
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
@@ -744,7 +603,6 @@ ${packLines.join('\n')}
         p8_consts,
         r8_csv,
         f8_words,
-        f8_native: this.montmul === 'cios_unrolled',
         word_size: this.word_size,
         num_words: this.num_words,
         n0: this.n0,
@@ -754,18 +612,12 @@ ${packLines.join('\n')}
         two_pow_word_size: this.two_pow_word_size,
         p_inv_mod_2w: this.p_inv_mod_2w,
         p_inv_by_a_lo: this.p_inv_by_a_lo,
-        dec_unpack: dec.unpack,
-        dec_pack: dec.pack,
         recompile: this.recompile,
       },
       {
-        structs,
-        bigint_funcs,
-        montgomery_product_funcs: this.mont_product_src,
         montgomery_product_f8_native: this.mont_f8_native_src,
-        field_funcs,
+        montgomery_square_f8_native: this.mont_square_f8_native_src,
         field8_funcs,
-        bigint_by_funcs,
         inverse_funcs,
       },
     );
@@ -774,17 +626,14 @@ ${packLines.join('\n')}
   public gen_ba_fused_super_bench_shader(
     workgroup_size: number,
     s: number,
-    variant: 'loop' | 'pk' = 'pk',
     tiled = false,
     l0_index_mode = false,
-    addsub: 'native' | 'unpack' = 'native',
   ): string {
     if (workgroup_size <= 0 || s <= 0 || !Number.isInteger(workgroup_size) || !Number.isInteger(s)) {
       throw new Error(
         `gen_ba_fused_super_bench_shader: workgroup_size (${workgroup_size}) and s (${s}) must be positive integers`,
       );
     }
-    const dec = this.decoupledPackUnpackWgsl();
     const inverse_funcs = by_inverse_loop_pk14_native_funcs;
     const inv_fn = 'fr_inv_by_loop_pk';
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
@@ -796,11 +645,9 @@ ${packLines.join('\n')}
         inv_fn,
         tiled,
         l0_index_mode,
-        addsub_unpack: addsub === 'unpack',
         p8_consts,
         r8_csv,
         f8_words,
-        f8_native: this.montmul === 'cios_unrolled',
         word_size: this.word_size,
         num_words: this.num_words,
         n0: this.n0,
@@ -810,18 +657,12 @@ ${packLines.join('\n')}
         two_pow_word_size: this.two_pow_word_size,
         p_inv_mod_2w: this.p_inv_mod_2w,
         p_inv_by_a_lo: this.p_inv_by_a_lo,
-        dec_unpack: dec.unpack,
-        dec_pack: dec.pack,
         recompile: this.recompile,
       },
       {
-        structs,
-        bigint_funcs,
-        montgomery_product_funcs: this.mont_product_src,
         montgomery_product_f8_native: this.mont_f8_native_src,
-        field_funcs,
+        montgomery_square_f8_native: this.mont_square_f8_native_src,
         field8_funcs,
-        bigint_by_funcs,
         inverse_funcs,
       },
     );
@@ -877,27 +718,21 @@ ${packLines.join('\n')}
     if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
       throw new Error(`gen_ba_carry_copy_bench_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
     }
-    // l0_index_mode pulls in the field stack to negate y while
+    // l0_index_mode pulls in field8 (fr_sub_f8) to negate y while
     // materializing a level-0 (point index | sign) carry from the pool.
-    const dec = this.decoupledPackUnpackWgsl();
+    const { p8_consts, r8_csv, f8_words } = this.f8Context();
     return mustache.render(
       ba_carry_copy_bench_shader,
       {
         workgroup_size,
         l0_index_mode,
-        word_size: this.word_size,
+        p8_consts,
+        r8_csv,
+        f8_words,
         num_words: this.num_words,
-        n0: this.n0,
-        p_limbs: this.p_limbs,
-        r_limbs: this.r_limbs,
-        mask: this.mask,
-        two_pow_word_size: this.two_pow_word_size,
-        p_inv_mod_2w: this.p_inv_mod_2w,
-        dec_unpack: dec.unpack,
-        dec_pack: dec.pack,
         recompile: this.recompile,
       },
-      { structs, bigint_funcs, montgomery_product_funcs: this.mont_product_src, field_funcs },
+      { field8_funcs, montgomery_product_f8_native: this.mont_f8_native_src },
     );
   }
 
@@ -912,27 +747,21 @@ ${packLines.join('\n')}
         `gen_ba_finalize_copy_bench_shader: workgroup_size (${workgroup_size}) must be a positive integer`,
       );
     }
-    // l0_index_mode pulls in the field stack to negate y while
+    // l0_index_mode pulls in field8 (fr_sub_f8) to negate y while
     // materializing a level-0 (point index | sign) element from the pool.
-    const dec = this.decoupledPackUnpackWgsl();
+    const { p8_consts, r8_csv, f8_words } = this.f8Context();
     return mustache.render(
       ba_finalize_copy_bench_shader,
       {
         workgroup_size,
         l0_index_mode,
-        word_size: this.word_size,
+        p8_consts,
+        r8_csv,
+        f8_words,
         num_words: this.num_words,
-        n0: this.n0,
-        p_limbs: this.p_limbs,
-        r_limbs: this.r_limbs,
-        mask: this.mask,
-        two_pow_word_size: this.two_pow_word_size,
-        p_inv_mod_2w: this.p_inv_mod_2w,
-        dec_unpack: dec.unpack,
-        dec_pack: dec.pack,
         recompile: this.recompile,
       },
-      { structs, bigint_funcs, montgomery_product_funcs: this.mont_product_src, field_funcs },
+      { field8_funcs, montgomery_product_f8_native: this.mont_f8_native_src },
     );
   }
 
@@ -946,14 +775,12 @@ ${packLines.join('\n')}
   public gen_ba_finalize_accumulate_bench_shader(
     workgroup_size: number,
     l0_index_mode = false,
-    variant: 'loop' | 'pk' = 'pk',
   ): string {
     if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
       throw new Error(
         `gen_ba_finalize_accumulate_bench_shader: workgroup_size (${workgroup_size}) must be a positive integer`,
       );
     }
-    const dec = this.decoupledPackUnpackWgsl();
     const inverse_funcs = by_inverse_loop_pk14_native_funcs;
     const inv_fn = 'fr_inv_by_loop_pk';
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
@@ -966,7 +793,6 @@ ${packLines.join('\n')}
         p8_consts,
         r8_csv,
         f8_words,
-        f8_native: this.montmul === 'cios_unrolled',
         word_size: this.word_size,
         num_words: this.num_words,
         n0: this.n0,
@@ -976,18 +802,12 @@ ${packLines.join('\n')}
         two_pow_word_size: this.two_pow_word_size,
         p_inv_mod_2w: this.p_inv_mod_2w,
         p_inv_by_a_lo: this.p_inv_by_a_lo,
-        dec_unpack: dec.unpack,
-        dec_pack: dec.pack,
         recompile: this.recompile,
       },
       {
-        structs,
-        bigint_funcs,
-        montgomery_product_funcs: this.mont_product_src,
         montgomery_product_f8_native: this.mont_f8_native_src,
-        field_funcs,
+        montgomery_square_f8_native: this.mont_square_f8_native_src,
         field8_funcs,
-        bigint_by_funcs,
         inverse_funcs,
       },
     );
@@ -1001,7 +821,7 @@ ${packLines.join('\n')}
    * `cap` is the max points a bucket may carry at the trigger level (= the
    * shared array length); workgroup_size must be >= cap.
    */
-  public gen_ba_fused_tail_coop_shader(workgroup_size: number, cap: number, variant: 'loop' | 'pk' = 'pk'): string {
+  public gen_ba_fused_tail_coop_shader(workgroup_size: number, cap: number): string {
     if (workgroup_size <= 0 || !Number.isInteger(workgroup_size) || cap <= 0 || !Number.isInteger(cap)) {
       throw new Error(
         `gen_ba_fused_tail_coop_shader: workgroup_size (${workgroup_size}) and cap (${cap}) must be positive integers`,
@@ -1010,7 +830,6 @@ ${packLines.join('\n')}
     if (cap > workgroup_size) {
       throw new Error(`gen_ba_fused_tail_coop_shader: cap (${cap}) must be <= workgroup_size (${workgroup_size})`);
     }
-    const dec = this.decoupledPackUnpackWgsl();
     const inverse_funcs = by_inverse_loop_pk14_native_funcs;
     const inv_fn = 'fr_inv_by_loop_pk';
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
@@ -1023,7 +842,6 @@ ${packLines.join('\n')}
         p8_consts,
         r8_csv,
         f8_words,
-        f8_native: this.montmul === 'cios_unrolled',
         word_size: this.word_size,
         num_words: this.num_words,
         n0: this.n0,
@@ -1033,18 +851,12 @@ ${packLines.join('\n')}
         two_pow_word_size: this.two_pow_word_size,
         p_inv_mod_2w: this.p_inv_mod_2w,
         p_inv_by_a_lo: this.p_inv_by_a_lo,
-        dec_unpack: dec.unpack,
-        dec_pack: dec.pack,
         recompile: this.recompile,
       },
       {
-        structs,
-        bigint_funcs,
-        montgomery_product_funcs: this.mont_product_src,
         montgomery_product_f8_native: this.mont_f8_native_src,
-        field_funcs,
+        montgomery_square_f8_native: this.mont_square_f8_native_src,
         field8_funcs,
-        bigint_by_funcs,
         inverse_funcs,
       },
     );
@@ -1074,7 +886,6 @@ ${packLines.join('\n')}
         `gen_ba_reduce_level_jacobian_shader: workgroup_size (${workgroup_size}) must be a positive integer`,
       );
     }
-    const dec = this.decoupledPackUnpackWgsl();
     const inverse_funcs = by_inverse_loop_pk14_native_funcs;
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
     return mustache.render(
@@ -1084,7 +895,6 @@ ${packLines.join('\n')}
         p8_consts,
         r8_csv,
         f8_words,
-        f8_native: this.montmul === 'cios_unrolled',
         word_size: this.word_size,
         num_words: this.num_words,
         n0: this.n0,
@@ -1094,18 +904,12 @@ ${packLines.join('\n')}
         two_pow_word_size: this.two_pow_word_size,
         p_inv_mod_2w: this.p_inv_mod_2w,
         p_inv_by_a_lo: this.p_inv_by_a_lo,
-        dec_unpack: dec.unpack,
-        dec_pack: dec.pack,
         recompile: this.recompile,
       },
       {
-        structs,
-        bigint_funcs,
-        montgomery_product_funcs: this.mont_product_src,
         montgomery_product_f8_native: this.mont_f8_native_src,
-        field_funcs,
+        montgomery_square_f8_native: this.mont_square_f8_native_src,
         field8_funcs,
-        bigint_by_funcs,
         inverse_funcs,
       },
     );
@@ -1122,13 +926,12 @@ ${packLines.join('\n')}
 
   // Per-window Jacobian -> affine (Montgomery) at the window root slot; one
   // inversion per window. Same partial/param set as the bench kernel.
-  public gen_ba_reduce_jac_finalize_shader(workgroup_size: number, variant: 'loop' | 'pk' = 'pk'): string {
+  public gen_ba_reduce_jac_finalize_shader(workgroup_size: number): string {
     if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
       throw new Error(
         `gen_ba_reduce_jac_finalize_shader: workgroup_size (${workgroup_size}) must be a positive integer`,
       );
     }
-    const dec = this.decoupledPackUnpackWgsl();
     const inverse_funcs = by_inverse_loop_pk14_native_funcs;
     const inv_fn = 'fr_inv_by_loop_pk';
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
@@ -1140,7 +943,6 @@ ${packLines.join('\n')}
         p8_consts,
         r8_csv,
         f8_words,
-        f8_native: this.montmul === 'cios_unrolled',
         word_size: this.word_size,
         num_words: this.num_words,
         n0: this.n0,
@@ -1150,18 +952,12 @@ ${packLines.join('\n')}
         two_pow_word_size: this.two_pow_word_size,
         p_inv_mod_2w: this.p_inv_mod_2w,
         p_inv_by_a_lo: this.p_inv_by_a_lo,
-        dec_unpack: dec.unpack,
-        dec_pack: dec.pack,
         recompile: this.recompile,
       },
       {
-        structs,
-        bigint_funcs,
-        montgomery_product_funcs: this.mont_product_src,
         montgomery_product_f8_native: this.mont_f8_native_src,
-        field_funcs,
+        montgomery_square_f8_native: this.mont_square_f8_native_src,
         field8_funcs,
-        bigint_by_funcs,
         inverse_funcs,
       },
     );
@@ -1170,13 +966,12 @@ ${packLines.join('\n')}
   // Batched Jacobian -> affine convert of all live slots (step-4 per-level cut).
   // Bridges a mid-schedule jac->affine flip: prefix-product of Z over a chunk ->
   // one safegcd -> backward peel -> x=X/Z^2, y=Y/Z^3, restore is_present.
-  public gen_ba_reduce_jac_to_affine_shader(workgroup_size: number, variant: 'loop' | 'pk' = 'pk'): string {
+  public gen_ba_reduce_jac_to_affine_shader(workgroup_size: number): string {
     if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
       throw new Error(
         `gen_ba_reduce_jac_to_affine_shader: workgroup_size (${workgroup_size}) must be a positive integer`,
       );
     }
-    const dec = this.decoupledPackUnpackWgsl();
     const inverse_funcs = by_inverse_loop_pk14_native_funcs;
     const inv_fn = 'fr_inv_by_loop_pk';
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
@@ -1188,7 +983,6 @@ ${packLines.join('\n')}
         p8_consts,
         r8_csv,
         f8_words,
-        f8_native: this.montmul === 'cios_unrolled',
         word_size: this.word_size,
         num_words: this.num_words,
         n0: this.n0,
@@ -1198,18 +992,12 @@ ${packLines.join('\n')}
         two_pow_word_size: this.two_pow_word_size,
         p_inv_mod_2w: this.p_inv_mod_2w,
         p_inv_by_a_lo: this.p_inv_by_a_lo,
-        dec_unpack: dec.unpack,
-        dec_pack: dec.pack,
         recompile: this.recompile,
       },
       {
-        structs,
-        bigint_funcs,
-        montgomery_product_funcs: this.mont_product_src,
         montgomery_product_f8_native: this.mont_f8_native_src,
-        field_funcs,
+        montgomery_square_f8_native: this.mont_square_f8_native_src,
         field8_funcs,
-        bigint_by_funcs,
         inverse_funcs,
       },
     );
@@ -1220,7 +1008,15 @@ ${packLines.join('\n')}
   // sub-sub-products → inner combines → outer combine → Yuval reduce →
   // final canonicalize) via mustache `{{#each}}` sections. The TS here
   // just provides the index arrays + r_inv limb constants.
-  private renderKaratYuvalMont(): string {
+  //
+  // square = true renders montgomery_square_f8 instead: identical structure,
+  // but each 5×5 schoolbook becomes a 15-mul square (off-diagonal column
+  // terms grouped and shifted-doubled). The per-column TOTALS equal the
+  // multiply's with y = x — only the addend grouping changes — so the
+  // template's u32 wrap/unwind proof (karat_intermediate_check.mjs) carries
+  // over unchanged. The square render skips the shared const block (the
+  // multiply body, always present first in field8, provides it).
+  private renderKaratYuval(square: boolean): string {
     const N = this.num_words; // 20
     const WS = this.word_size; // 13
     const W = 1n << BigInt(WS);
@@ -1254,8 +1050,19 @@ ${packLines.join('\n')}
     // outputs are live at a time, not all 81. Identical arithmetic to a
     // flat emit (same 225 multiplies, same combine adds); the tighter
     // live-range schedule roughly halves the register peak.
-    const xlimb = (i: number): string => `(*x_ptr).limbs[${i}u]`;
-    const ylimb = (i: number): string => `(*y_ptr).limbs[${i}u]`;
+    // Inline packed-word limb extraction: limb i = bits [13i, 13i+13) of the
+    // 8x u32 operand, as a compile-time funnel shift. Fully parenthesized —
+    // WGSL requires parens when & mixes with + in the surrounding sums.
+    const limb = (src: string, i: number): string => {
+      const bit = WS * i;
+      const w = bit >> 5;
+      const sh = bit & 31;
+      return sh + WS > 32 && w < 7
+        ? `(((${src}[${w}u] >> ${sh}u) | (${src}[${w + 1}u] << ${32 - sh}u)) & MASK)`
+        : `((${src}[${w}u] >> ${sh}u) & MASK)`;
+    };
+    const xlimb = (i: number): string => limb('x', i);
+    const ylimb = (i: number): string => limb('y', i);
     const chunkSum = (limb: (i: number) => string, bases: number[], k: number): string =>
       bases.map(b => limb(b + k)).join(' + ');
     // 5×5 schoolbook column expressions over operand prefixes xp / yp.
@@ -1269,6 +1076,20 @@ ${packLines.join('\n')}
       `${xp}2 * ${yp}4 + ${xp}3 * ${yp}3 + ${xp}4 * ${yp}2`,
       `${xp}3 * ${yp}4 + ${xp}4 * ${yp}3`,
       `${xp}4 * ${yp}4`,
+    ];
+    // 5×5 square columns: 15 muls (vs 25) — off-diagonal pairs computed once
+    // and shifted-doubled. Column totals identical to sbCol(xp, xp), so the
+    // u32 wrap analysis is the multiply's.
+    const sqCol = (xp: string): string[] => [
+      `${xp}0 * ${xp}0`,
+      `((${xp}0 * ${xp}1) << 1u)`,
+      `((${xp}0 * ${xp}2) << 1u) + ${xp}1 * ${xp}1`,
+      `((${xp}0 * ${xp}3 + ${xp}1 * ${xp}2) << 1u)`,
+      `((${xp}0 * ${xp}4 + ${xp}1 * ${xp}3) << 1u) + ${xp}2 * ${xp}2`,
+      `((${xp}1 * ${xp}4 + ${xp}2 * ${xp}3) << 1u)`,
+      `((${xp}2 * ${xp}4) << 1u) + ${xp}3 * ${xp}3`,
+      `((${xp}3 * ${xp}4) << 1u)`,
+      `${xp}4 * ${xp}4`,
     ];
     // P_X[k] from this group's ll / hh / c schoolbook outputs — the inner
     // Karatsuba combine, unchanged from the flat emit.
@@ -1325,12 +1146,42 @@ ${packLines.join('\n')}
         const cols = sbCol(xp, yp);
         for (let m = 0; m < 9; m++) mb.push(`        let ${out}${m}: u32 = ${cols[m]};`);
       };
-      emitSb('ll', `x${g.tag}l`, `y${g.tag}l`, g.llB);
-      emitSb('hh', `x${g.tag}h`, `y${g.tag}h`, g.hhB);
-      emitSb('c', `x${g.tag}c`, `y${g.tag}c`, g.cB);
-      for (let k = 0; k < 19; k++) {
-        const folds = g.folds.map(f => `t${k + f.off} = t${k + f.off} ${f.sign} p;`).join(' ');
-        mb.push(`        { let p: u32 = ${pExpr(k)}; ${folds} }`);
+      if (square) {
+        // Temporaries-lean square emit. Two structural cuts vs the multiply
+        // emitter: (1) the c-schoolbook chunks are the sums of the ll/hh
+        // chunk lets already in registers (cB = llB ∪ hhB for every group),
+        // not re-extractions; (2) the c columns are consumed exactly once
+        // (by fold k+5), so they are fused inline into the fold expressions
+        // instead of being materialized — 9 fewer simultaneously-live lets
+        // per group on top of the 40-slot accumulator.
+        const xl = `x${g.tag}l`;
+        const xh = `x${g.tag}h`;
+        const xc = `x${g.tag}c`;
+        for (let k = 0; k < 5; k++) mb.push(`        let ${xl}${k}: u32 = ${chunkSum(xlimb, g.llB, k)};`);
+        sqCol(xl).forEach((e, m) => mb.push(`        let ll${m}: u32 = ${e};`));
+        for (let k = 0; k < 5; k++) mb.push(`        let ${xh}${k}: u32 = ${chunkSum(xlimb, g.hhB, k)};`);
+        sqCol(xh).forEach((e, m) => mb.push(`        let hh${m}: u32 = ${e};`));
+        for (let k = 0; k < 5; k++) mb.push(`        let ${xc}${k}: u32 = ${xl}${k} + ${xh}${k};`);
+        const cCols = sqCol(xc);
+        const pSq = (k: number): string => {
+          if (k <= 4) return `ll${k}`;
+          if (k <= 8) return `ll${k} + (${cCols[k - 5]}) - ll${k - 5} - hh${k - 5}`;
+          if (k === 9) return `(${cCols[4]}) - ll4 - hh4`;
+          if (k <= 13) return `(${cCols[k - 5]}) - ll${k - 5} - hh${k - 5} + hh${k - 10}`;
+          return `hh${k - 10}`;
+        };
+        for (let k = 0; k < 19; k++) {
+          const folds = g.folds.map(f => `t${k + f.off} = t${k + f.off} ${f.sign} p;`).join(' ');
+          mb.push(`        { let p: u32 = ${pSq(k)}; ${folds} }`);
+        }
+      } else {
+        emitSb('ll', `x${g.tag}l`, `y${g.tag}l`, g.llB);
+        emitSb('hh', `x${g.tag}h`, `y${g.tag}h`, g.hhB);
+        emitSb('c', `x${g.tag}c`, `y${g.tag}c`, g.cB);
+        for (let k = 0; k < 19; k++) {
+          const folds = g.folds.map(f => `t${k + f.off} = t${k + f.off} ${f.sign} p;`).join(' ');
+          mb.push(`        { let p: u32 = ${pExpr(k)}; ${folds} }`);
+        }
       }
       mb.push('    }');
     }
@@ -1354,9 +1205,6 @@ ${packLines.join('\n')}
     const final_drain: Array<{ slot: number }> = [];
     for (let i = 0; i < N; i++) final_drain.push({ slot: N + i });
 
-    const extract: Array<{ out_k: number; src_slot: number }> = [];
-    for (let i = 0; i < N; i++) extract.push({ out_k: i, src_slot: N + i });
-
     return mustache.render(montgomery_product_karat_yuval_funcs, {
       num_words: N,
       word_size: WS,
@@ -1364,7 +1212,6 @@ ${packLines.join('\n')}
       mask: this.mask,
       two_pow_word_size: this.two_pow_word_size,
       p_inv_mod_2w: this.p_inv_mod_2w,
-      p_limbs: this.p_limbs,
       r_inv_consts,
       p_limbs_consts,
       multiply_body,
@@ -1372,7 +1219,7 @@ ${packLines.join('\n')}
       i_std,
       standard_writes,
       final_drain,
-      extract,
+      square,
     });
   }
 
@@ -1424,7 +1271,6 @@ ${packLines.join('\n')}
   }
 
   public gen_ba_size1_shader(bw: number, stride: number, m_red: number): string {
-    const dec = this.decoupledPackUnpackWgsl();
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
     return mustache.render(
       ba_size1_shader,
@@ -1435,7 +1281,6 @@ ${packLines.join('\n')}
         p8_consts,
         r8_csv,
         f8_words,
-        f8_native: this.montmul === 'cios_unrolled',
         word_size: this.word_size,
         num_words: this.num_words,
         n0: this.n0,
@@ -1444,11 +1289,9 @@ ${packLines.join('\n')}
         mask: this.mask,
         two_pow_word_size: this.two_pow_word_size,
         p_inv_mod_2w: this.p_inv_mod_2w,
-        dec_unpack: dec.unpack,
-        dec_pack: dec.pack,
         recompile: this.recompile,
       },
-      { structs, bigint_funcs, montgomery_product_funcs: this.mont_product_src, field_funcs, field8_funcs },
+      { field8_funcs, montgomery_product_f8_native: this.mont_f8_native_src },
     );
   }
 
@@ -1541,17 +1384,13 @@ ${packLines.join('\n')}
     bw: number,
     stride: number,
     m_red: number,
-    variant: 'loop' | 'pk' = 'pk',
-    pk14 = false,
     l0Precompute = true,
   ): string {
-    const dec = this.decoupledPackUnpackWgsl();
-    // pk14: the packed-native 14-bit safegcd inverse (Montgomery-form output via
-    // an e0=R^2 seed), consuming/producing the f8 packed form directly (inv_f8) —
-    // no BigInt round-trip. Adreno register-pressure win; byte-identical output.
-    // Otherwise the existing BigInt-roundtrip inverse (loop/pk).
-    const inverse_funcs = pk14 ? by_inverse_loop_pk14_native_funcs : by_inverse_loop_pk14_native_funcs;
-    const inv_fn = pk14 || 'fr_inv_by_loop_pk';
+    // The canonical inverse: the packed-native 14-bit safegcd (Montgomery-form
+    // output via an e0=R^2 seed), consuming/producing the f8 packed form
+    // directly — no BigInt round-trip.
+    const inverse_funcs = by_inverse_loop_pk14_native_funcs;
+    const inv_fn = 'fr_inv_by_loop_pk';
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
     return mustache.render(
       ba_stream_walker_shader,
@@ -1567,7 +1406,6 @@ ${packLines.join('\n')}
         p8_consts,
         r8_csv,
         f8_words,
-        f8_native: this.montmul === 'cios_unrolled',
         word_size: this.word_size,
         num_words: this.num_words,
         n0: this.n0,
@@ -1577,18 +1415,12 @@ ${packLines.join('\n')}
         two_pow_word_size: this.two_pow_word_size,
         p_inv_mod_2w: this.p_inv_mod_2w,
         p_inv_by_a_lo: this.p_inv_by_a_lo,
-        dec_unpack: dec.unpack,
-        dec_pack: dec.pack,
         recompile: this.recompile,
       },
       {
-        structs,
-        bigint_funcs,
-        montgomery_product_funcs: this.mont_product_src,
         montgomery_product_f8_native: this.mont_f8_native_src,
-        field_funcs,
+        montgomery_square_f8_native: this.mont_square_f8_native_src,
         field8_funcs,
-        bigint_by_funcs,
         inverse_funcs,
       },
     );
@@ -1629,8 +1461,7 @@ ${packLines.join('\n')}
     });
   }
 
-  public gen_ba_unified_combine_shader(workgroup_size: number, s: number, variant: 'loop' | 'pk' = 'pk'): string {
-    const dec = this.decoupledPackUnpackWgsl();
+  public gen_ba_unified_combine_shader(workgroup_size: number, s: number): string {
     const inverse_funcs = by_inverse_loop_pk14_native_funcs;
     const inv_fn = 'fr_inv_by_loop_pk';
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
@@ -1643,7 +1474,6 @@ ${packLines.join('\n')}
         p8_consts,
         r8_csv,
         f8_words,
-        f8_native: this.montmul === 'cios_unrolled',
         word_size: this.word_size,
         num_words: this.num_words,
         n0: this.n0,
@@ -1653,18 +1483,12 @@ ${packLines.join('\n')}
         two_pow_word_size: this.two_pow_word_size,
         p_inv_mod_2w: this.p_inv_mod_2w,
         p_inv_by_a_lo: this.p_inv_by_a_lo,
-        dec_unpack: dec.unpack,
-        dec_pack: dec.pack,
         recompile: this.recompile,
       },
       {
-        structs,
-        bigint_funcs,
-        montgomery_product_funcs: this.mont_product_src,
         montgomery_product_f8_native: this.mont_f8_native_src,
-        field_funcs,
+        montgomery_square_f8_native: this.mont_square_f8_native_src,
         field8_funcs,
-        bigint_by_funcs,
         inverse_funcs,
       },
     );
@@ -1676,9 +1500,7 @@ ${packLines.join('\n')}
     bw: number,
     stride: number,
     m_red: number,
-    variant: 'loop' | 'pk' = 'pk',
   ): string {
-    const dec = this.decoupledPackUnpackWgsl();
     const inverse_funcs = by_inverse_loop_pk14_native_funcs;
     const inv_fn = 'fr_inv_by_loop_pk';
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
@@ -1694,7 +1516,6 @@ ${packLines.join('\n')}
         p8_consts,
         r8_csv,
         f8_words,
-        f8_native: this.montmul === 'cios_unrolled',
         word_size: this.word_size,
         num_words: this.num_words,
         n0: this.n0,
@@ -1704,18 +1525,12 @@ ${packLines.join('\n')}
         two_pow_word_size: this.two_pow_word_size,
         p_inv_mod_2w: this.p_inv_mod_2w,
         p_inv_by_a_lo: this.p_inv_by_a_lo,
-        dec_unpack: dec.unpack,
-        dec_pack: dec.pack,
         recompile: this.recompile,
       },
       {
-        structs,
-        bigint_funcs,
-        montgomery_product_funcs: this.mont_product_src,
         montgomery_product_f8_native: this.mont_f8_native_src,
-        field_funcs,
+        montgomery_square_f8_native: this.mont_square_f8_native_src,
         field8_funcs,
-        bigint_by_funcs,
         inverse_funcs,
       },
     );

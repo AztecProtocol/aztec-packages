@@ -1,13 +1,4 @@
-{{> structs }}
-{{> bigint_funcs }}
-{{> montgomery_product_funcs }}
-{{> field_funcs }}
-{{> bigint_by_funcs }}
 {{> inverse_funcs }}
-
-{{{ dec_unpack }}}
-
-{{{ dec_pack }}}
 
 {{> field8_funcs }}
 
@@ -159,7 +150,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         // KIND_PAIR
         var lambda = fr_sub_f8(ryk, lyk);
         lambda = montgomery_product_f8(lambda, inv_dx);
-        var new_x = montgomery_product_f8(lambda, lambda);
+        var new_x = montgomery_square_f8(lambda);
         let x_sum = fr_add_f8(lxk, rxk);
         new_x = fr_sub_f8(new_x, x_sum);
         var new_y = fr_sub_f8(lxk, new_x);

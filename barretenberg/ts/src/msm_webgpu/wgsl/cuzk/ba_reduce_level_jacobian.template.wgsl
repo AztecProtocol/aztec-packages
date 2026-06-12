@@ -1,13 +1,4 @@
-{{> structs }}
-{{> bigint_funcs }}
-{{> montgomery_product_funcs }}
-{{> field_funcs }}
-{{> bigint_by_funcs }}
 {{> inverse_funcs }}
-
-{{{ dec_unpack }}}
-
-{{{ dec_pack }}}
 
 {{> field8_funcs }}
 
@@ -97,17 +88,19 @@ struct Jac { x: array<u32, 8>, y: array<u32, 8>, z: array<u32, 8>, }
 // EFD g1p/shortw-jacobian-0/dbl-2009-l (a = 0). Infinity-safe: Z == 0 in =>
 // Z3 = 2*Y*Z = 0 out, so the result stays the point at infinity.
 fn jac_double(p: Jac) -> Jac {
-    let A = montgomery_product_f8(p.x, p.x);
-    let B = montgomery_product_f8(p.y, p.y);
-    let C = montgomery_product_f8(B, B);
+    let A = montgomery_square_f8(p.x);
+    let B = montgomery_square_f8(p.y);
+    let C = montgomery_square_f8(B);
     let XpB = fr_add_f8(p.x, B);
-    let s = fr_sub_f8(montgomery_product_f8(XpB, XpB), fr_add_f8(A, C));
+    let s = fr_sub_f8(montgomery_square_f8(XpB), fr_add_f8(A, C));
     let D = fr_dbl_f8(s);
     let E = fr_add_f8(fr_dbl_f8(A), A);          // 3A
-    let F = montgomery_product_f8(E, E);
+    let F = montgomery_square_f8(E);
     let X3 = fr_sub_f8(F, fr_dbl_f8(D));
     let C8 = fr_dbl_f8(fr_dbl_f8(fr_dbl_f8(C))); // 8C
     let Y3 = fr_sub_f8(montgomery_product_f8(E, fr_sub_f8(D, X3)), C8);
+    // Z3 stays reducing: it is stored, and an exact-zero Z (infinity) must
+    // propagate as the exact-zero bit pattern (mm(y, 0) = 0; 0 + 0 = 0).
     let Z3 = fr_dbl_f8(montgomery_product_f8(p.y, p.z));
     return Jac(X3, Y3, Z3);
 }
@@ -115,23 +108,23 @@ fn jac_double(p: Jac) -> Jac {
 // EFD add-2007-bl (general Jacobian + Jacobian). Result is only valid when
 // both inputs are finite; the caller selects against the Z == 0 cases.
 fn jac_add_raw(p1: Jac, p2: Jac) -> Jac {
-    let Z1Z1 = montgomery_product_f8(p1.z, p1.z);
-    let Z2Z2 = montgomery_product_f8(p2.z, p2.z);
+    let Z1Z1 = montgomery_square_f8(p1.z);
+    let Z2Z2 = montgomery_square_f8(p2.z);
     let U1 = montgomery_product_f8(p1.x, Z2Z2);
     let U2 = montgomery_product_f8(p2.x, Z1Z1);
     let S1 = montgomery_product_f8(montgomery_product_f8(p1.y, p2.z), Z2Z2);
     let S2 = montgomery_product_f8(montgomery_product_f8(p2.y, p1.z), Z1Z1);
     let H = fr_sub_f8(U2, U1);
     let twoH = fr_dbl_f8(H);
-    let I = montgomery_product_f8(twoH, twoH);
+    let I = montgomery_square_f8(twoH);
     let J = montgomery_product_f8(H, I);
     let r = fr_dbl_f8(fr_sub_f8(S2, S1));
     let V = montgomery_product_f8(U1, I);
-    let X3 = fr_sub_f8(fr_sub_f8(montgomery_product_f8(r, r), J), fr_dbl_f8(V));
+    let X3 = fr_sub_f8(fr_sub_f8(montgomery_square_f8(r), J), fr_dbl_f8(V));
     let S1J = montgomery_product_f8(S1, J);
     let Y3 = fr_sub_f8(montgomery_product_f8(r, fr_sub_f8(V, X3)), fr_dbl_f8(S1J));
     let ZpZ = fr_add_f8(p1.z, p2.z);
-    let Z3 = montgomery_product_f8(fr_sub_f8(fr_sub_f8(montgomery_product_f8(ZpZ, ZpZ), Z1Z1), Z2Z2), H);
+    let Z3 = montgomery_product_f8(fr_sub_f8(fr_sub_f8(montgomery_square_f8(ZpZ), Z1Z1), Z2Z2), H);
     return Jac(X3, Y3, Z3);
 }
 

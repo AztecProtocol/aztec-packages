@@ -39,6 +39,12 @@ const PORT = String(arg('port', '5197'));
 const LOGN = Math.min(17, parseInt(arg('logn', '17'), 10) || 17); // HARD CAP 17
 const REPS = parseInt(arg('reps', '5'), 10);
 const PROFILE = String(arg('profile', 'A')).toUpperCase();
+const MONTMUL = String(arg('montmul', ''));
+if (MONTMUL && MONTMUL !== 'karat' && MONTMUL !== 'cios_unrolled') {
+  // A typo here would silently bench the default variant — fail loudly instead.
+  console.error(`--montmul must be 'karat' or 'cios_unrolled' (got '${MONTMUL}')`);
+  process.exit(2);
+}
 const TIMEOUT_MS = parseInt(arg('timeout-s', '600'), 10) * 1000;
 const WORKTREE = String(arg('worktree', join(homedir(), 'localclaudebox', 'aztec-pr23575', 'barretenberg', 'ts')));
 const RESULTS = String(arg('results', join(homedir(), 'localclaudebox', 'phonetests', `fastbench_results_${PORT}.jsonl`)));
@@ -93,7 +99,7 @@ try {
   console.log(`reverse: phone localhost:${PORT} -> mac 127.0.0.1:${PORT}`);
 
   // ── 2. ONE page load. The GPU-only autorun does warmup + reps internally. ──
-  const url = `http://localhost:${PORT}/dev/msm-webgpu/index.html?coi=1&autorun=msm-bench&no_wasm=1&logn=${LOGN}&reps=${REPS}&scalar_dist=profile&profile=${PROFILE}`;
+  const url = `http://localhost:${PORT}/dev/msm-webgpu/index.html?coi=1&autorun=msm-bench&no_wasm=1&logn=${LOGN}&reps=${REPS}&scalar_dist=profile&profile=${PROFILE}${MONTMUL ? `&montmul=${MONTMUL}` : ''}`;
   const baseline = readRows(RESULTS).length;
   console.log(`\n── single load (timeout ${TIMEOUT_MS / 1000}s, incl. first-ever SRS cold-load)`);
   console.log(`   open: ${url}`);

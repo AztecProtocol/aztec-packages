@@ -1,13 +1,4 @@
-{{> structs }}
-{{> bigint_funcs }}
-{{> montgomery_product_funcs }}
-{{> field_funcs }}
-{{> bigint_by_funcs }}
 {{> inverse_funcs }}
-
-{{{ dec_unpack }}}
-
-{{{ dec_pack }}}
 
 {{> field8_funcs }}
 
@@ -131,8 +122,9 @@ fn load_pt_y(cursor: u32) -> array<u32, 8> {
     let q1 = point_y[2u * pt + 1u];
     let y = array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
     if ((packed & L0_SIGN_BIT) == 0u) { return y; }
-    let zero = array<u32, 8>(0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u);
-    return fr_sub_f8(zero, y);
+    // Pool y is a curve point's coordinate (y ≢ 0 mod p, < 2p), so the
+    // unconditional 2p - y stays in (0, 2p).
+    return fr_neg_wide_f8(y);
 }
 
 fn store_pref(k: u32, t: u32, pref_off: u32, k_stride: u32, val: array<u32, 8>) {
@@ -324,13 +316,21 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
     const MAX_WALKER_ITERS: u32 = 32768u;
     var walker_iter: u32 = 0u;
     loop {
-        if (walker_iter >= MAX_WALKER_ITERS) { break; }
-        walker_iter = walker_iter + 1u;
         var any_active: bool = false;
         for (var k: u32 = 0u; k < S; k = k + 1u) {
             if ((((slot_done_m >> k) & 1u) == 0u)) { any_active = true; }
         }
         if (!any_active) { break; }
+        if (walker_iter >= MAX_WALKER_ITERS) {
+            // Cap hit WITH work remaining: upstream corruption (stale
+            // task_cuts, partition wraparound, ...) — the MSM result is
+            // wrong and the host must treat it as fatal. Flag the sentinel
+            // on partial_dest's probe tail slot (checked by the host's
+            // checkWalkerGuard; calibration peak counts can never reach it).
+            atomicStore(&partial_dest[M_partials + 1u], 0xDEADBEEFu);
+            break;
+        }
+        walker_iter = walker_iter + 1u;
 
         // Forward prefix of dx across the S slots (idle slots use the pad
         // trio so the product stays invertible), exactly as ba_stream_accum.
@@ -340,9 +340,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             var p_rx: array<u32, 8>;
             let sd_b = (slot_done_m >> k) & 1u;
             let isf_b = (is_first_m >> k) & 1u;
-            let rx_addr = select(select(cursor[k], cursor[k] + 1u, isf_b == 1u), IDLE_ANCHOR + 1u, sd_b == 1u);
+            let rx_addr = select(cursor[k] + isf_b, IDLE_ANCHOR + 1u, sd_b == 1u);
             p_rx = load_pt_x(rx_addr);
-            if (sd_b == 1u || isf_b == 1u) {
+            if (bool(sd_b | isf_b)) {
                 p_lx = load_pt_x(select(cursor[k], IDLE_ANCHOR, sd_b == 1u));
             } else {
                 p_lx = acc_x[k];
@@ -375,9 +375,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             var p_rx: array<u32, 8>;
             let sd_b = (slot_done_m >> k) & 1u;
             let isf_b = (is_first_m >> k) & 1u;
-            let rx_addr = select(select(cursor[k], cursor[k] + 1u, isf_b == 1u), IDLE_ANCHOR + 1u, sd_b == 1u);
+            let rx_addr = select(cursor[k] + isf_b, IDLE_ANCHOR + 1u, sd_b == 1u);
             p_rx = load_pt_x(rx_addr);
-            if (sd_b == 1u || isf_b == 1u) {
+            if (bool(sd_b | isf_b)) {
                 p_lx = load_pt_x(select(cursor[k], IDLE_ANCHOR, sd_b == 1u));
             } else {
                 p_lx = acc_x[k];
@@ -409,21 +409,22 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             // Y-coord loads + cursor advance.
             var p_ly: array<u32, 8>;
             var p_ry: array<u32, 8>;
-            let ry_addr = select(cursor[k], cursor[k] + 1u, isf_b == 1u);
+            let ry_addr = cursor[k] + isf_b;
             p_ry = load_pt_y(ry_addr);
             if (isf_b == 1u) {
                 p_ly = load_pt_y(cursor[k]);
             } else {
                 p_ly = acc_y[k];
             }
-            cursor[k] = cursor[k] + select(1u, 2u, isf_b == 1u);
+            cursor[k] = cursor[k] + 1u + isf_b;
 
             // Affine add using inv_dx (in register). p_rx already consumed.
             var lambda = fr_sub_f8(p_ry, p_ly);
             lambda = montgomery_product_f8(lambda, inv_dx);
-            var r_x = montgomery_product_f8(lambda, lambda);
+            var r_x = montgomery_square_f8(lambda);
             r_x = fr_sub_f8(r_x, x_sum);
             var r_y = fr_sub_f8(p_lx, r_x);
+            // p_lx - r_x + 
             r_y = montgomery_product_f8(lambda, r_y);
             r_y = fr_sub_f8(r_y, p_ly);
 
@@ -433,19 +434,24 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             let task_done = (cur_sorted[k] == task_end_sort[k]) && (cursor[k] >= task_end_cur[k]);
             let bucket_done = cursor[k] >= bucket_end[k];
 
-            if (task_done) {
-                let is_partial = ((((split_start_m >> k) & 1u) == 1u)) || (cursor[k] < bucket_end[k]);
+            if (task_done || bucket_done) {
+                // Unified retirement: one bid load, one split test, one
+                // store_partial site and one store_bucket_sum site (each
+                // store helper inlines the full 4x vec4 pack, so two inlined
+                // copies instead of four). The partial slot is the task-end
+                // slot (+1) when the task finishes, else the split-start
+                // slot (+0); is_partial folds both branches' predicates.
+                let bid = sorted_bucket_list[cur_sorted[k]];
+                let split_b = (split_start_m >> k) & 1u;
+                let is_partial = bool(split_b) || (task_done && cursor[k] < bucket_end[k]);
                 if (is_partial) {
-                    store_partial(2u * (t * S + k) + 1u, sorted_bucket_list[cur_sorted[k]], M_partials, r_x, r_y);
+                    store_partial(2u * (t * S + k) + select(0u, 1u, task_done), bid, M_partials, r_x, r_y);
                 } else {
-                    store_bucket_sum(sorted_bucket_list[cur_sorted[k]], r_x, r_y);
+                    store_bucket_sum(bid, r_x, r_y);
                 }
-                slot_done_m = slot_done_m | (1u << k);
-            } else if (bucket_done) {
-                if ((((split_start_m >> k) & 1u) == 1u)) {
-                    store_partial(2u * (t * S + k) + 0u, sorted_bucket_list[cur_sorted[k]], M_partials, r_x, r_y);
-                } else {
-                    store_bucket_sum(sorted_bucket_list[cur_sorted[k]], r_x, r_y);
+                if (task_done) {
+                    slot_done_m = slot_done_m | (1u << k);
+                    continue;
                 }
                 // Advance to the next bucket within the task. Subsequent
                 // buckets always begin fresh (never split-start).

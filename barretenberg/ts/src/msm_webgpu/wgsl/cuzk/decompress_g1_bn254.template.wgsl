@@ -15,15 +15,6 @@
 // sqrt per point — 256 squarings + ~126 mults of `montgomery_product_f8`
 // over a 254-bit exponent. One thread per point.
 
-{{> structs }}
-{{> bigint_funcs }}
-{{> field_funcs }}
-{{> barrett_funcs }}
-{{> montgomery_product_funcs }}
-
-{{{ dec_unpack }}}
-
-{{{ dec_pack }}}
 
 {{> field8_funcs }}
 
@@ -74,7 +65,7 @@ fn fr_pow_f8(base: array<u32, 8>, exp: array<u32, 8>) -> array<u32, 8> {
             if ((bits & 1u) == 1u) {
                 result = montgomery_product_f8(result, b);
             }
-            b = montgomery_product_f8(b, b);
+            b = montgomery_square_f8(b);
             bits = bits >> 1u;
         }
     }
@@ -105,7 +96,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let x_mont: array<u32, 8> = montgomery_product_f8(x, get_r_squared_f8());
 
     // y^2_mont = x_mont^3 + 3·R mod q.
-    let x_sq_mont: array<u32, 8> = montgomery_product_f8(x_mont, x_mont);
+    let x_sq_mont: array<u32, 8> = montgomery_square_f8(x_mont);
     let x_cu_mont: array<u32, 8> = montgomery_product_f8(x_sq_mont, x_mont);
     let y_sq_mont: array<u32, 8> = fr_add_f8(x_cu_mont, get_b3_mont_f8());
 
@@ -113,17 +104,21 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let y_mont: array<u32, 8> = fr_pow_f8(y_sq_mont, get_sqrt_exp_f8());
 
     // Convert y back to native: mp(y_mont, 1) = y_mont · 1 · R^-1 = y.
+    // This multiply-by-one is self-canonicalizing even under the lazy
+    // montmul (no final reduce): t < p + y_mont/R <= p, and t ≡ y with
+    // 0 < y < p forces t = y exactly. The parity test below depends on
+    // this — do not replace it with a cheaper conversion.
     var one: array<u32, 8>;
     one[0] = 1u;
     var y: array<u32, 8> = montgomery_product_f8(y_mont, one);
 
     // Parity flip: if the recovered parity disagrees with the encoded
-    // bit, negate mod q. SRS points are non-zero affine, so y != 0 and
-    // q - y (= 0 - y under the borrow path) is canonical.
+    // bit, negate mod q. SRS points are non-zero affine, so y != 0; the
+    // canon keeps the decompressed-SRS contract (x, y < q) that the
+    // validate-srs audit and the parity convention rely on.
     let parity: u32 = y[0] & 1u;
     if (parity != y_bit) {
-        var zero: array<u32, 8>;
-        y = fr_sub_f8(zero, y);
+        y = fr_canon_f8(fr_neg_wide_f8(y));
     }
 
     // Write 8 LE u32s for x, then 8 for y — 16 u32s per point.

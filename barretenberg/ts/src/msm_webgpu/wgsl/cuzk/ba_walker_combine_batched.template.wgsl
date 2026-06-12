@@ -1,13 +1,4 @@
-{{> structs }}
-{{> bigint_funcs }}
-{{> montgomery_product_funcs }}
-{{> field_funcs }}
-{{> bigint_by_funcs }}
 {{> inverse_funcs }}
-
-{{{ dec_unpack }}}
-
-{{{ dec_pack }}}
 
 {{> field8_funcs }}
 
@@ -238,7 +229,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             // Phase 5: affine add using inv_dx (in register).
             var lambda = fr_sub_f8(p_ry, p_ly);
             lambda = montgomery_product_f8(lambda, inv_dx);
-            var r_x = montgomery_product_f8(lambda, lambda);
+            var r_x = montgomery_square_f8(lambda);
             let x_sum = fr_add_f8(p_lx, p_rx);
             r_x = fr_sub_f8(r_x, x_sum);
             var r_y = fr_sub_f8(p_lx, r_x);

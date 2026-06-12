@@ -1,13 +1,4 @@
-{{> structs }}
-{{> bigint_funcs }}
-{{> montgomery_product_funcs }}
-{{> field_funcs }}
-{{> bigint_by_funcs }}
 {{> inverse_funcs }}
-
-{{{ dec_unpack }}}
-
-{{{ dec_pack }}}
 
 {{> field8_funcs }}
 
@@ -180,12 +171,12 @@ fn main(@builtin(workgroup_id) wgid: vec3<u32>, @builtin(local_invocation_id) li
             let xv: array<u32, 8> = load_x(slot, M);
             let yv: array<u32, 8> = load_y(slot, M);
             let real_denom: array<u32, 8> = fr_add_f8(yv, yv); // 2y
-            let x2: array<u32, 8> = montgomery_product_f8(xv, xv);
+            let x2: array<u32, 8> = montgomery_square_f8(xv);
             var num: array<u32, 8> = fr_add_f8(x2, x2);
             num = fr_add_f8(num, x2); // 3x^2
             let lambda: array<u32, 8> = montgomery_product_f8(num, inv_denom);
             let two_x: array<u32, 8> = fr_add_f8(xv, xv);
-            var r_x: array<u32, 8> = montgomery_product_f8(lambda, lambda);
+            var r_x: array<u32, 8> = montgomery_square_f8(lambda);
             r_x = fr_sub_f8(r_x, two_x);
             var r_y: array<u32, 8> = fr_sub_f8(xv, r_x);
             r_y = montgomery_product_f8(lambda, r_y);
@@ -219,7 +210,7 @@ fn main(@builtin(workgroup_id) wgid: vec3<u32>, @builtin(local_invocation_id) li
             let dx: array<u32, 8> = fr_sub_f8(x_s, x_d);
             var lambda: array<u32, 8> = fr_sub_f8(y_s, y_d);
             lambda = montgomery_product_f8(lambda, inv_denom);
-            var add_rx: array<u32, 8> = montgomery_product_f8(lambda, lambda);
+            var add_rx: array<u32, 8> = montgomery_square_f8(lambda);
             let x_sum: array<u32, 8> = fr_add_f8(x_d, x_s);
             add_rx = fr_sub_f8(add_rx, x_sum);
             var add_ry: array<u32, 8> = fr_sub_f8(x_d, add_rx);
