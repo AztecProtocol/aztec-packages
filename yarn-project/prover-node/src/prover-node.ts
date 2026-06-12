@@ -268,12 +268,11 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
     }
     const l1Constants = await this.getL1Constants();
 
-    // Cap the catch-up at the two most recent epochs' worth of checkpoints. With at most one checkpoint per
-    // slot, an epoch spans at most `epochDuration` checkpoints, so two epochs is `2 * epochDuration`. When the
-    // cursor is much further behind (e.g. resyncing after a long time offline), fetching the whole gap could
+    // Cap the catch-up at the `(proofSubmissionEpochs + 1) * epochDuration` most recent checkpoints.
+    // When the cursor is much further behind (e.g. resyncing after a long time offline), fetching the whole gap could
     // load thousands of checkpoints we cannot act on: anything older than the last two epochs is already past
     // its proof-submission window, so we skip it and jump the cursor forward to the start of the capped range.
-    const maxCheckpoints = 2 * l1Constants.epochDuration;
+    const maxCheckpoints = (l1Constants.proofSubmissionEpochs + 1) * l1Constants.epochDuration;
     let from = CheckpointNumber(this.lastProcessedCheckpoint + 1);
     if (Number(targetCheckpoint - from) + 1 > maxCheckpoints) {
       const cappedFrom = CheckpointNumber(targetCheckpoint - maxCheckpoints + 1);
