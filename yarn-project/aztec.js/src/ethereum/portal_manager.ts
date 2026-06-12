@@ -43,6 +43,7 @@ function stringifyEthAddress(address: EthAddress | Hex, name?: string) {
   return name ? `${name} (${address.toString()})` : address.toString();
 }
 
+/** Waits for an L1 transaction receipt, optionally using a caller-provided timeout. */
 function waitForTransactionReceipt(
   extendedClient: ExtendedViemWalletClient,
   hash: Hex,
