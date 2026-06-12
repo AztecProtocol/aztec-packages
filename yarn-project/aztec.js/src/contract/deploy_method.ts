@@ -18,8 +18,8 @@ import type { ProfileOptions, SendOptions, SimulateOptions, Wallet } from '../wa
 import { BaseContractInteraction } from './base_contract_interaction.js';
 import type { ContractBase } from './contract_base.js';
 import { ContractFunctionInteraction } from './contract_function_interaction.js';
-import { getGasLimits } from './get_gas_limits.js';
 import {
+  type InteractionFeeOptions,
   type InteractionWaitOptions,
   NO_FROM,
   NO_WAIT,
@@ -28,7 +28,6 @@ import {
   type ProfileInteractionOptions,
   type RequestInteractionOptions,
   type SendInteractionOptionsWithoutWait,
-  type SimulationInteractionFeeOptions,
   type SimulationResult,
   type TxSendResultImmediate,
   extractOffchainOutput,
@@ -191,7 +190,7 @@ export type DeployOptions<W extends InteractionWaitOptions = undefined> = Deploy
  */
 export type SimulateDeployOptions = Omit<DeployOptionsWithoutWait, 'fee'> & {
   /** The fee options for the transaction. */
-  fee?: SimulationInteractionFeeOptions;
+  fee?: InteractionFeeOptions;
   /** Simulate without checking for the validity of the resulting transaction,
    * e.g. whether it emits any existing nullifiers. */
   skipTxValidation?: boolean;
@@ -585,10 +584,6 @@ export abstract class DeployMethod<TContract extends ContractBase = ContractBase
       this.convertDeployOptionsToSimulateOptions(options),
     );
 
-    const { gasLimits, teardownGasLimits } = getGasLimits(simulatedTx, options.fee?.estimatedGasPadding);
-    this.log.verbose(
-      `Estimated gas limits for tx: DA=${gasLimits.daGas} L2=${gasLimits.l2Gas} teardownDA=${teardownGasLimits.daGas} teardownL2=${teardownGasLimits.l2Gas}`,
-    );
     return {
       stats: simulatedTx.stats!,
       ...extractOffchainOutput(
@@ -596,7 +591,7 @@ export abstract class DeployMethod<TContract extends ContractBase = ContractBase
         simulatedTx.publicInputs.constants.anchorBlockHeader.globalVariables.timestamp,
       ),
       result: undefined,
-      estimatedGas: { gasLimits, teardownGasLimits },
+      gasUsed: simulatedTx.gasUsed,
     };
   }
 

@@ -42,35 +42,25 @@ export interface P2PConfig
     TxFileStoreConfig,
     Pick<
       SequencerConfig,
-      | 'blockDurationMs'
       | 'expectedBlockProposalsPerSlot'
       | 'maxTxsPerBlock'
-      | 'attestationPropagationTime'
-      | 'checkpointProposalPrepareTime'
       | 'checkpointProposalSyncGraceSeconds'
-      | 'minBlockDuration'
       | 'maxBlocksPerCheckpoint'
-    > {
+    >,
+    // `blockDurationMs` is optional on the loose `SequencerConfig` but is always populated for p2p via
+    // the shared `numberConfigHelper(3000)` mapping, so it is required here.
+    Required<Pick<SequencerConfig, 'blockDurationMs'>> {
   /** Maximum transactions per block for validation. Overrides maxTxsPerBlock for gossip validation when set. */
   validateMaxTxsPerBlock?: number;
 
   /** Maximum transactions per checkpoint for validation. Used as fallback for maxTxsPerBlock when that is not set. */
   validateMaxTxsPerCheckpoint?: number;
 
-  /** Maximum L2 gas per block for validation. When set, txs exceeding this limit are rejected. */
-  validateMaxL2BlockGas?: number;
-
-  /** Maximum DA gas per block for validation. When set, txs exceeding this limit are rejected. */
-  validateMaxDABlockGas?: number;
-
   /** A flag dictating whether the P2P subsystem should be enabled. */
   p2pEnabled: boolean;
 
   /** The frequency in which to check for new L2 blocks. */
   blockCheckIntervalMS: number;
-
-  /** The frequency in which to check for new L2 slots. */
-  slotCheckIntervalMS: number;
 
   /** The number of blocks to fetch in a single batch. */
   blockRequestBatchSize: number;
@@ -173,6 +163,9 @@ export interface P2PConfig
 
   /** The values for the peer scoring system. Passed as a comma separated list of values in order: low, mid, high tolerance errors. */
   peerPenaltyValues: number[];
+
+  /** How long (in seconds) a peer is banned for once its score drops below the ban threshold. */
+  peerBanDurationSeconds: number;
 
   /** Limit of transactions to archive in the tx pool. Once the archived tx limit is reached, the oldest archived txs will be purged. */
   archivedTxLimit: number;
@@ -287,16 +280,6 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
       'Maximum transactions per checkpoint for validation. Used as fallback for maxTxsPerBlock when that is not set.',
     ...optionalNumberConfigHelper(),
   },
-  validateMaxL2BlockGas: {
-    env: 'VALIDATOR_MAX_L2_BLOCK_GAS',
-    description: 'Maximum L2 gas per block for validation. When set, txs exceeding this limit are rejected.',
-    ...optionalNumberConfigHelper(),
-  },
-  validateMaxDABlockGas: {
-    env: 'VALIDATOR_MAX_DA_BLOCK_GAS',
-    description: 'Maximum DA gas per block for validation. When set, txs exceeding this limit are rejected.',
-    ...optionalNumberConfigHelper(),
-  },
   p2pEnabled: {
     env: 'P2P_ENABLED',
     description: 'A flag dictating whether the P2P subsystem should be enabled.',
@@ -311,11 +294,6 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     env: 'P2P_BLOCK_CHECK_INTERVAL_MS',
     description: 'The frequency in which to check for new L2 blocks.',
     ...numberConfigHelper(100),
-  },
-  slotCheckIntervalMS: {
-    env: 'P2P_SLOT_CHECK_INTERVAL_MS',
-    description: 'The frequency in which to check for new L2 slots.',
-    ...numberConfigHelper(1000),
   },
   debugDisableColocationPenalty: {
     env: 'DEBUG_P2P_DISABLE_COLOCATION_PENALTY',
@@ -476,6 +454,11 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
       'The values for the peer scoring system. Passed as a comma separated list of values in order: low, mid, high tolerance errors.',
     defaultValue: [2, 10, 50],
   },
+  peerBanDurationSeconds: {
+    env: 'P2P_PEER_BAN_DURATION_SECONDS',
+    description: 'How long (in seconds) a peer is banned for once its score drops below the ban threshold.',
+    ...numberConfigHelper(24 * 60 * 60),
+  },
   doubleSpendSeverePeerPenaltyWindow: {
     env: 'P2P_DOUBLE_SPEND_SEVERE_PEER_PENALTY_WINDOW',
     description: 'The "age" (in L2 blocks) of a tx after which we heavily penalize a peer for sending it.',
@@ -625,7 +608,13 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
       'Minimum percentage fee increase required to replace an existing tx via RPC. Even at 0%, replacement still requires paying at least 1 unit more.',
     ...bigintConfigHelper(10n),
   },
-  ...sharedSequencerConfigMappings,
+  ...pickConfigMappings(sharedSequencerConfigMappings, [
+    'expectedBlockProposalsPerSlot',
+    'maxTxsPerBlock',
+    'checkpointProposalSyncGraceSeconds',
+    'maxBlocksPerCheckpoint',
+    'blockDurationMs',
+  ]),
   ...p2pReqRespConfigMappings,
   ...batchTxRequesterConfigMappings,
   ...chainConfigMappings,

@@ -222,7 +222,7 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
         await this.handleCheckpointEvent(event.checkpoint);
         break;
       case 'chain-pruned':
-        await this.handlePruneEvent(event.checkpoint);
+        await this.handlePruneEvent(event.checkpointed.checkpoint);
         break;
       case 'chain-proven':
         this.publishingService?.onChainProven(BlockNumber(event.block.number));

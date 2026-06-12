@@ -76,7 +76,7 @@ async function main() {
   const rpcOptions = { maxBodySizeBytes: '50mb' };
 
   // Serve node RPC
-  const nodeRpcServer = createNamespacedSafeJsonRpcServer({ node: [node, AztecNodeApiSchema] }, rpcOptions);
+  const nodeRpcServer = createNamespacedSafeJsonRpcServer({ aztec: [node, AztecNodeApiSchema] }, rpcOptions);
   const nodeHttpServer = await startHttpRpcServer(nodeRpcServer, { port: NODE_PORT });
   logger.info(`Node JSON-RPC server listening on port ${nodeHttpServer.port}`);
 

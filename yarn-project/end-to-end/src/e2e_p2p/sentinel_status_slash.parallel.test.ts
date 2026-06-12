@@ -48,6 +48,7 @@ const COMMITTEE_SIZE = NUM_VALIDATORS;
 const BOOT_NODE_UDP_PORT = 4700;
 const ETHEREUM_SLOT_DURATION = process.env.CI ? 8 : 4;
 const AZTEC_SLOT_DURATION = ETHEREUM_SLOT_DURATION * 2;
+const BLOCK_DURATION_MS = ETHEREUM_SLOT_DURATION * 500;
 const AZTEC_EPOCH_DURATION = 2;
 const SLASHING_UNIT = BigInt(1e18);
 const SLASHING_AMOUNT = SLASHING_UNIT * 3n;
@@ -75,6 +76,7 @@ describe('e2e_p2p_sentinel_status_slash', () => {
         aztecTargetCommitteeSize: COMMITTEE_SIZE,
         aztecSlotDuration: AZTEC_SLOT_DURATION,
         ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
+        blockDurationMs: BLOCK_DURATION_MS,
         aztecEpochDuration: AZTEC_EPOCH_DURATION,
         aztecProofSubmissionEpochs: 1024,
         minTxsPerBlock: 0,

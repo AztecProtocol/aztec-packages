@@ -40,9 +40,14 @@ export type CreateAutomineSequencerArgs = {
   worldStateSynchronizer: WorldStateSynchronizer;
   archiver: L2BlockSource &
     L1ToL2MessageSource &
-    Pick<Archiver, 'rollbackTo' | 'addBlock' | 'addProposedCheckpoint' | 'syncImmediate'>;
+    Pick<
+      Archiver,
+      'rollbackTo' | 'addBlock' | 'addProposedCheckpoint' | 'syncImmediate' | 'removeUncheckpointedBlocksAfter'
+    >;
   p2pClient: P2P & Pick<ConcreteP2PClient, 'sync'>;
   l1Constants: { l1GenesisTime: bigint; slotDuration: number; ethereumSlotDuration: number; rollupManaLimit: number };
+  /** When true, run the auto-settle / clock-reconcile loop (local-network only). */
+  autoSettle?: boolean;
   log: Logger;
 };
 
@@ -71,6 +76,7 @@ export async function createAutomineSequencer({
   archiver,
   p2pClient,
   l1Constants,
+  autoSettle,
   log,
 }: CreateAutomineSequencerArgs): Promise<AutomineSequencer> {
   const publisherManager = new PublisherManager(l1TxUtils, getPublisherConfigFromSequencerConfig(config), {
@@ -136,6 +142,7 @@ export async function createAutomineSequencer({
     config,
     archiver,
     l1TxUtils: reorgResetL1TxUtils,
+    autoSettle,
     stopExtras: () => publisherManager.stop(),
     log: log.createChild('automine-sequencer'),
   });
