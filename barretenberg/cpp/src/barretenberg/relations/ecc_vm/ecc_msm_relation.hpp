@@ -137,13 +137,23 @@ template <typename FF_> class ECCVMMSMRelationImpl {
         // the resulting MSM accumulators are swapped between segments — letting an op queue that
         // should be rejected pass verification.
         MSM_PC_CONTINUITY = 49,
+        // msm_pc is constant across consecutive SKEW rows of an MSM segment. MSM_PC_CONTINUITY
+        // excludes q_skew (so it does not fire on the trace-final skew row, followed by idle rows
+        // where msm_transition_shift = 0), which leaves interior skew rows — present once a segment
+        // has >= 3 skew rows, i.e. msm_size >= 9 — pinned by neither MSM_PC_CONTINUITY nor
+        // MSM_TRANSITION_PC. A symmetric swap of (msm_pc, slice, x, y) between two segments on such a
+        // row balances the lookup multiset but swaps the segments' skew corrections. This term fires
+        // only between two consecutive skew rows (q_skew * q_skew_shift = 1), never at the trailing
+        // skew->idle boundary (where q_skew_shift = 0), so it closes the gap without the false
+        // positive that motivated dropping q_skew from MSM_PC_CONTINUITY.
+        MSM_PC_SKEW_CONTINUITY = 50,
         NUM_SUBRELATIONS,
     };
 
-    static constexpr std::array<size_t, 50> SUBRELATION_PARTIAL_LENGTHS{ 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+    static constexpr std::array<size_t, 51> SUBRELATION_PARTIAL_LENGTHS{ 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
                                                                          8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
                                                                          8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
-                                                                         8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8 };
+                                                                         8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8 };
     static_assert(NUM_SUBRELATIONS == SUBRELATION_PARTIAL_LENGTHS.size());
 
     template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
