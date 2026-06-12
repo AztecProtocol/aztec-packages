@@ -12,11 +12,17 @@ namespace bb {
 
 // Tail-halving support {E-1, E-2, N/2, N/2-1, N/4, N/4-1, ..., 2, 1} truncated
 // or tail-filled to exactly min(2d, 2^d) entries, where N = 2^d and
-// E = round_up(extent, 2). See SHPLEMINI_ZK_MASKING.md for the rank argument.
+// E = round_up(extent, 2). The machine-checked masking theorem
+// (productionTailHalvingSparseMasking_of_staircase, shplemini_lean/) covers
+// exactly this generator for every d >= 3 and every extent with
+// N/2 < extent <= N, collision extents included; the asserts below pin that
+// proven domain. See SHPLEMINI_ZK_MASKING.md for the argument and its
+// machine-checked status.
 inline std::vector<size_t> tail_halving_support(size_t d, size_t extent)
 {
     const size_t n = size_t{ 1 } << d;
-    BB_ASSERT_GT(extent, 0U);
+    BB_ASSERT_GTE(d, 3U);
+    BB_ASSERT_GT(2 * extent, n);
     BB_ASSERT_LTE(extent, n);
     const size_t E = std::min(n, ((extent % 2) == 0) ? extent : extent + 1);
     const size_t target = std::min(2 * d, n);

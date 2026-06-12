@@ -134,6 +134,52 @@ not an additional informal bad set. After specialising to a finite field,
 Schwartz-Zippel bounds the failure probability by
 $\deg(\mathcal E_E)/|\mathbb F|$.
 
+## Implementation note and machine-checked status
+
+The Lean development in `shplemini_lean/` (`ParameterizedFinal.lean` and its
+dependencies) machine-checks this note end to end, with three deliberate
+strengthenings of the statements as written above:
+
+1. **No exceptional-`E` selection.** The implementation does not choose `E`
+   to avoid `\{B, B+2\}`: `tail_halving_support` keeps
+   `E = round_up_even(e)` and de-duplicates/tail-fills on collision. The
+   machine-checked theorem covers *every* extent with `N/2 < E <= N`,
+   collisions included: each support entry above is a member of the
+   generated support for every extent (de-dup never removes, fill only
+   appends), and the rank witnesses use column sets that are pairwise
+   distinct in each regime (below `3N/4` the `N/2` anchor column is the
+   one deleted by Section 8, which is the only possible collision there).
+   The non-exceptional selection rule is therefore unnecessary; it is kept
+   above as the historical derivation.
+2. **`d >= 3` uniformly.** The formal theorems assume only `d >= 3`; the
+   saturated `d = 3, E = 6` case of Appendix B is an instance of the main
+   argument (low tail, collision handled per item 1) rather than a separate
+   case.
+3. **Pointwise conditional form.** Instead of the rational function field
+   `K` with specialisation, the Lean theorems are stated over an arbitrary
+   field with the factors of `R_E`, the `tau + r_t`, and the Shplonk/KZG
+   denominators as explicit non-vanishing hypotheses
+   (`StaircaseChallenges`, `GoodChallenges`) — the same exceptional locus,
+   point by point. The hypotheses are `decide`-witnessed satisfiable,
+   including on the Gemini-specialised locus `r_t = r^(2^t)`. The
+   Schwartz–Zippel bound of Section 9 stays on paper, as here.
+
+Correspondence of the main statements (`FINAL_PROOF_STATUS.md` has the full
+DAG): the containment theorem is
+`productionTailHalvingSparseMasking_of_staircase`; Lemma 4.1 is `midDet_eq`;
+Lemmas 6.1–6.3 are `pair_antisym_*`, `casoratian_Xlong`, and
+`boundary_functional_cleared` / `elimRow_functional_cleared`; Lemma 7.1 is
+`highTail_boundary_det_functional`, and the displayed
+`det B~_E = (prod det T_k) det U_E^hi` is `ordSupport_det_identity` (up to
+the same column-ordering sign, realised as `parSupport_det_eq_sign_mul_-
+ordSupport`); the Section 8 reduced minor is `ordSupportLow_det_identity`
+with the hyperplane bridge
+`productionTriangularContainment_of_lower_terminal_projected_det`. The raw
+`det B_E` display with the restored `tau + r_t` factors is not separately
+formalised; the raw-to-triangular relation enters at the span level
+(`geminiRowsFin_mem_triangularRowsFin_span`), which is what the containment
+consumes.
+
 ## Theorem
 
 Let

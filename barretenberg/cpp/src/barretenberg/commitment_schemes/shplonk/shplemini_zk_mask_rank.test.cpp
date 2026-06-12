@@ -97,5 +97,38 @@ TEST(ShpleminiZkMaskSupport, OddExtentRoundsUp)
     EXPECT_TRUE(seen.count(E - 2)) << "missing rounded-up top entry E-2";
 }
 
+// The proven theorem needs the staircase columns inside the generated
+// support for every extent in (N/2, N], including the collision extents
+// E in {B, B+2} where the naive descending list would repeat a dyadic
+// anchor and the generator de-duplicates and tail-fills instead. Pin the
+// witness columns: the top pair {E-1, E-2}, the level anchors
+// {2^(k+1)-1, 2^k} for k = 1..d-2, the N/2 anchor, and column 1.
+TEST(ShpleminiZkMaskSupport, StaircaseColumnsPresentAcrossProvenDomain)
+{
+    for (size_t d : kDValues) {
+        const size_t n = size_t{ 1 } << d;
+        // Sweep the proven domain N/2 < extent <= N, hitting the collision
+        // extent E = N/2 + 2 and the 3N/4 threshold on the way.
+        for (size_t extent = (n / 2) + 1; extent <= n; ++extent) {
+            const auto support = tail_halving_support(d, extent);
+            const std::unordered_set<size_t> seen(support.begin(), support.end());
+            const size_t E = std::min(n, ((extent % 2) == 0) ? extent : extent + 1);
+
+            EXPECT_TRUE(seen.count(E - 1)) << "missing E-1 at d=" << d << " extent=" << extent;
+            EXPECT_TRUE(seen.count(E - 2)) << "missing E-2 at d=" << d << " extent=" << extent;
+            EXPECT_TRUE(seen.count(1)) << "missing column 1 at d=" << d << " extent=" << extent;
+            for (size_t k = 1; k + 2 <= d; ++k) {
+                EXPECT_TRUE(seen.count((size_t{ 1 } << (k + 1)) - 1))
+                    << "missing 2^(k+1)-1 at d=" << d << " extent=" << extent << " k=" << k;
+                EXPECT_TRUE(seen.count(size_t{ 1 } << k))
+                    << "missing 2^k at d=" << d << " extent=" << extent << " k=" << k;
+            }
+            // The N/2 anchor is only consumed by the high-tail (3N/4 < E)
+            // staircase; the generator still always emits it.
+            EXPECT_TRUE(seen.count(n / 2)) << "missing N/2 at d=" << d << " extent=" << extent;
+        }
+    }
+}
+
 } // namespace
 } // namespace bb
