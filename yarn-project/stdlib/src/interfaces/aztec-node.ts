@@ -23,9 +23,15 @@ import { z } from 'zod';
 import type { AztecAddress } from '../aztec-address/index.js';
 import { type BlockData, BlockDataSchema } from '../block/block_data.js';
 import { BlockHash } from '../block/block_hash.js';
-import { type BlockParameter, BlockParameterSchema } from '../block/block_parameter.js';
+import { type BlockParameter, BlockParameterSchema, BlockTagWithoutLatestSchema } from '../block/block_parameter.js';
 import { type DataInBlock, dataInBlockSchemaFor } from '../block/in_block.js';
-import { type CheckpointsQuery, CheckpointsQuerySchema } from '../block/l2_block_source.js';
+import {
+  type CheckpointsQuery,
+  CheckpointsQuerySchema,
+  type L2BlockTag,
+  type L2Tips,
+  L2TipsSchema,
+} from '../block/l2_block_source.js';
 import { type CheckpointData, CheckpointDataSchema } from '../checkpoint/checkpoint_data.js';
 import {
   type ContractClassPublic,
@@ -80,7 +86,7 @@ import {
   type BlocksIncludeOptions,
   BlocksIncludeOptionsSchema,
 } from './block_response.js';
-import { type ChainTip, ChainTipSchema, type ChainTips, ChainTipsSchema } from './chain_tips.js';
+import { type CheckpointTag, CheckpointTagSchema } from './chain_tips.js';
 import { type CheckpointParameter, CheckpointParameterSchema } from './checkpoint_parameter.js';
 import {
   type CheckpointIncludeOptions,
@@ -232,23 +238,20 @@ export interface AztecNode {
   ): Promise<L2ToL1MembershipWitness | undefined>;
 
   /**
-   * Returns the block number at a given chain tip, or the latest proposed block number when
+   * Returns the block number at a given block tag, or the latest proposed block number when
    * `tip` is omitted.
    */
-  getBlockNumber(tip?: ChainTip): Promise<BlockNumber>;
+  getBlockNumber(tip?: L2BlockTag): Promise<BlockNumber>;
 
   /**
-   * Returns the checkpoint number at a given chain tip, or the latest checkpoint number when
-   * `tip` is omitted.
-   *
-   * @remarks **Semantic foot-gun**: block-side `'proposed'` means "latest proposed block" (chain
-   * head), but checkpoint-side `'proposed'` means "latest confirmed checkpoint" — pre-L1-confirm
-   * checkpoints are not exposed over RPC. `'checkpointed'` on the checkpoint side is equivalent.
+   * Returns the checkpoint number at a given checkpoint tag, or the latest checkpointed number when
+   * `tip` is omitted. The proposed-but-unconfirmed checkpoint frontier is archiver-internal and not
+   * exposed over RPC, so `'proposed'` is not a valid checkpoint tag (see {@link CheckpointTag}).
    */
-  getCheckpointNumber(tip?: ChainTip): Promise<CheckpointNumber>;
+  getCheckpointNumber(tip?: CheckpointTag): Promise<CheckpointNumber>;
 
   /** Returns the tips of the L2 chain. */
-  getChainTips(): Promise<ChainTips>;
+  getChainTips(): Promise<L2Tips>;
 
   /** Returns the rollup constants for the current chain. */
   getL1Constants(): Promise<L1RollupConstants>;
@@ -622,11 +625,11 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
     output: L2ToL1MembershipWitnessSchema.optional(),
   }),
 
-  getBlockNumber: z.function({ input: z.tuple([optional(ChainTipSchema)]), output: BlockNumberSchema }),
+  getBlockNumber: z.function({ input: z.tuple([optional(BlockTagWithoutLatestSchema)]), output: BlockNumberSchema }),
 
-  getCheckpointNumber: z.function({ input: z.tuple([optional(ChainTipSchema)]), output: CheckpointNumberSchema }),
+  getCheckpointNumber: z.function({ input: z.tuple([optional(CheckpointTagSchema)]), output: CheckpointNumberSchema }),
 
-  getChainTips: z.function({ input: z.tuple([]), output: ChainTipsSchema }),
+  getChainTips: z.function({ input: z.tuple([]), output: L2TipsSchema }),
 
   getL1Constants: z.function({ input: z.tuple([]), output: L1RollupConstantsSchema }),
 

@@ -2079,9 +2079,11 @@ describe('Archiver Sync', () => {
       const tips = await archiver.getL2Tips();
       const proposedCheckpointResult = await archiver.getProposedCheckpoint();
       expect(proposedCheckpointResult).toBeDefined();
-      expect(proposedCheckpointResult!.tip.checkpoint.number).toEqual(CheckpointNumber(2));
+      expect(proposedCheckpointResult!.checkpointNumber).toEqual(CheckpointNumber(2));
       expect(tips.checkpointed.checkpoint.number).toEqual(CheckpointNumber(1));
-      expect(proposedCheckpointResult!.tip.block.number).toBeGreaterThan(tips.checkpointed.block.number);
+      const proposedCheckpointLastBlock =
+        proposedCheckpointResult!.startBlock + proposedCheckpointResult!.blockCount - 1;
+      expect(proposedCheckpointLastBlock).toBeGreaterThan(tips.checkpointed.block.number);
     }, 15_000);
 
     it('prunes blocks and clears stale pending checkpoint when slot ends', async () => {

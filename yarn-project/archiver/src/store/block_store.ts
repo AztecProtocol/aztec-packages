@@ -17,7 +17,6 @@ import {
   L2Block,
   type L2TipId,
   type L2Tips,
-  type ProposedCheckpoint,
   type ValidateCheckpointResult,
   deserializeValidateCheckpointResult,
   serializeValidateCheckpointResult,
@@ -866,13 +865,13 @@ export class BlockStore {
   }
 
   /**
-   * Returns the latest proposed checkpoint that leads the checkpointed frontier, paired with its
-   * derived chain tip, in a single read-only transaction so the tip and payload are a coherent
+   * Returns the payload of the latest proposed checkpoint that leads the checkpointed frontier, in
+   * a single read-only transaction so the leading-frontier check and the payload are a coherent
    * snapshot. Returns undefined when no proposed checkpoint exists beyond the latest confirmed
-   * checkpoint. The tip's block number is `startBlock + blockCount - 1` and its block hash is read
-   * from the block store; the checkpoint hash is derived from the stored header.
+   * checkpoint. Callers derive the proposed tip from the payload (last block is
+   * `startBlock + blockCount - 1`).
    */
-  async getProposedCheckpoint(): Promise<ProposedCheckpoint | undefined> {
+  async getProposedCheckpoint(): Promise<ProposedCheckpointData | undefined> {
     return await this.db.transactionAsync(async () => {
       const [entry] = await toArray(this.#proposedCheckpoints.entriesAsync({ reverse: true, limit: 1 }));
       if (entry === undefined) {
@@ -882,18 +881,7 @@ export class BlockStore {
       if (entry[0] <= latestCheckpointNumber) {
         return undefined;
       }
-      const data = this.convertToProposedCheckpointData(entry[1]);
-      const blockNumber = BlockNumber(data.startBlock + data.blockCount - 1);
-      const blockStorage = await this.#blocks.getAsync(blockNumber);
-      if (!blockStorage) {
-        throw new BlockNotFoundError(blockNumber);
-      }
-      const blockHash = BlockHash.fromBuffer(blockStorage.blockHash).toString();
-      const tip: L2TipId = {
-        block: { number: blockNumber, hash: blockHash },
-        checkpoint: { number: data.checkpointNumber, hash: data.header.hash().toString() },
-      };
-      return { tip, data };
+      return this.convertToProposedCheckpointData(entry[1]);
     });
   }
 

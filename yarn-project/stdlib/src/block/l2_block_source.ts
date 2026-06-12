@@ -248,13 +248,13 @@ export interface L2BlockSource {
   getProposedCheckpointData(query?: ProposedCheckpointQuery): Promise<ProposedCheckpointData | undefined>;
 
   /**
-   * Returns the latest proposed (not-yet-L1-confirmed) checkpoint that leads the checkpointed
-   * frontier, together with its derived chain tip, in a single atomic store read. The tip is
-   * derived entirely from the payload — checkpoint number, header hash, and last block
-   * (`startBlock + blockCount - 1`) — so callers never need a second read to reconcile tip and
-   * payload. Returns `undefined` when no proposed checkpoint exists beyond the checkpointed tip.
+   * Returns the payload of the latest proposed (not-yet-L1-confirmed) checkpoint that leads the
+   * checkpointed frontier, in a single atomic store read. Returns `undefined` when no proposed
+   * checkpoint exists beyond the checkpointed tip. Callers derive the proposed tip from the payload
+   * (checkpoint number, and last block `startBlock + blockCount - 1`); unlike
+   * {@link getProposedCheckpointData}, this applies the leading-frontier filter.
    */
-  getProposedCheckpoint(): Promise<ProposedCheckpoint | undefined>;
+  getProposedCheckpoint(): Promise<ProposedCheckpointData | undefined>;
 
   /** Force a sync. */
   syncImmediate(): Promise<void>;
@@ -369,13 +369,6 @@ export type CheckpointId = { number: CheckpointNumber; hash: string };
 
 export type L2TipId = { block: L2BlockId; checkpoint: CheckpointId };
 
-/**
- * A proposed (not-yet-L1-confirmed) checkpoint paired with its derived chain tip. Returned by
- * {@link L2BlockSource.getProposedCheckpoint} as a single atomic read so the `tip` and `data`
- * are always a coherent snapshot of the same proposed checkpoint.
- */
-export type ProposedCheckpoint = { tip: L2TipId; data: ProposedCheckpointData };
-
 /** Creates an L2 block id */
 export function makeL2BlockId(number: BlockNumber, hash?: string): L2BlockId {
   if (number !== 0 && !hash) {
@@ -399,7 +392,7 @@ const L2CheckpointIdSchema = z.object({
   hash: z.string(),
 });
 
-export const L2TipIdSchema = z.object({
+const L2TipIdSchema = z.object({
   block: L2BlockIdSchema,
   checkpoint: L2CheckpointIdSchema,
 });
