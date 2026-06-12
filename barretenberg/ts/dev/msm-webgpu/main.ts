@@ -654,6 +654,13 @@ async function ensureWebGpuWarmed(inputs: TestInputs): Promise<MsmV2> {
     msmV2 = await MsmV2.create(gpuDevice, inputs.n, msmV2Pool, gpuKnobs);
     msmV2LogN = logN;
     log('ok', `[gpu-warm] MsmV2 ready in ${(performance.now() - t0).toFixed(0)} ms`);
+    if (new URLSearchParams(window.location.search).get('prog_digest') === '1') {
+      // Cross-device program-equivalence audit: every compiled shader's
+      // source hash. Diff these lines between devices to PROVE the same
+      // program was compiled (or find the kernel that differs).
+      for (const d of msmV2.programDigest) log('info', `[prog] ${d}`);
+      log('info', `[prog] total=${msmV2.programDigest.length}`);
+    }
   }
   return msmV2;
 }
@@ -863,6 +870,21 @@ async function runWebGpuOnce(
     }
   } else {
     xy = await foldWindowSums(gpu.windowSums, msm.windowSchedule);
+  }
+  if (new URLSearchParams(window.location.search).get('win_digest') === '1') {
+    // Per-window sum digests: cross-device/run diff localizes a wrong final
+    // result to the window(s) that diverge, and repeated runs distinguish
+    // deterministic wrongness from a timing race.
+    const wd = gpu.windowSums.map(p => Number(p.x & 0xffffffffn).toString(16).padStart(8, '0')).join(' ');
+    log('info', `[win] ${wd}`);
+    if (msmV2) {
+      const dp = await msmV2.debugPresence();
+      log('info', `[win] present=${dp.present.join(',')}`);
+      log('info', `[win] rednz=${dp.redNonzero.join(',')}`);
+      const ws = await msmV2.debugWiState();
+      log('info', `[win] wi=${ws.wiArgs.join(',')} cb=${ws.cbArgs.join(',')} pt=${ws.ptArgs.join(',')}`);
+      log('info', `[win] active=${ws.active.join(',')} hist=${ws.hist.join(',')} planner=${ws.planner.join(',')}`);
+    }
   }
   const ms = performance.now() - t0;
   const g = window as unknown as { __lastFoldMs?: number; __lastFoldMode?: string };

@@ -113,15 +113,15 @@ export function arenaColourSizes(p: {
   const { sT, sS, sBTotal, sRadixTiles, batchSlots, redM, rowPtrLen, reducePrefBytes, scalarsBytes, l0Slots } = p;
   const soa = 2 * PG * redM * 4 * 4; // soaSize(redM)
   return [
-    // A0: activeBuckets activeCount binOffsets partialWritePos reducePrefScratch sortedCountList scalarsRawBuf l0IdxBuf
+    // A0: activeBuckets sortedCountList scalarsRawBuf l0IdxBuf
+    // (activeCount/binOffsets/partialWritePos live in wiCounters and
+    // reducePrefScratch is standalone — they are WRITTEN by kernels while the
+    // walker binds all of A0 read-only, and that double mapping breaks their
+    // clears/writes on Adreno.)
     // activeBuckets is sized for (bid, n) PAIRS (walker_index v2's idx_alloc
     // writes both); the v1 path uses the first half as plain bids.
     // activeCount carries [count, alloc_total] — 2 u32.
     a(sBTotal * 8) +
-      a(8) +
-      a(64 * 4) +
-      a(sBTotal * 4) +
-      a(reducePrefBytes) +
       a(sBTotal * 4) +
       a(scalarsBytes) +
       a(l0Slots * 4),
@@ -1056,7 +1056,11 @@ interface SharedScratch {
   redBuf: GPUBufferBinding;
   isPresentBuf: GPUBufferBinding;
   redZBuf: GPUBufferBinding; // arena A5 — Jacobian Z-plane for the Thread-1 reduce
-  reducePrefScratch: GPUBufferBinding;
+  // Standalone (was an arena-A0 carve): written by the dense reduce, the
+  // halving ba inversion chain, and the jac->affine convert. Inside A0 those
+  // writes were double-mapped against the walker's whole-buffer read-only
+  // binding — the Adreno visibility failure behind the small-N corruption.
+  reducePrefScratch: GPUBuffer;
   // Streaming planner + accumulator buffers (Phase 1-4).
   streamPlannerMeta: GPUBuffer;
   // pp2 preprocess bin-count / cursor matrix: [window][bin][tile] + sentinel.
@@ -1093,7 +1097,14 @@ interface SharedScratch {
   // combine_batched thread's S=8 slots have matching N → zero tail divergence.
   // MAX_N = 64 bins (sized in ba_walker_combine_sort_*.template.wgsl).
   countHistogram: GPUBufferBinding; // arena slot — MAX_N × atomic<u32>
-  binOffsets: GPUBufferBinding; // arena slot — MAX_N × u32 — exclusive prefix sum
+  binOffsets: GPUBufferBinding; // wiCounters slot — MAX_N × u32 — exclusive prefix sum
+  // Dedicated buffer backing activeCount/binOffsets/partialWritePos. These
+  // were arena-A0 carves; A0 is also bound whole-buffer read-only by the
+  // walker, and on Adreno the offset-range clears of cells double-mapped that
+  // way silently fail — the counters accumulated across the page's encodes
+  // (the small-N corruption). A standalone buffer with a whole-buffer clear
+  // avoids the double mapping entirely.
+  wiCounters: GPUBuffer;
   binWritePos: GPUBufferBinding; // arena slot — MAX_N × atomic<u32>
   sortedActiveBuckets: GPUBufferBinding; // arena slot — bTotal × u32 — active_buckets in N order
   // Pair-tree hot-bucket combine. pt_scratch holds intermediate level
@@ -1500,6 +1511,7 @@ export class MsmV2Pool {
     let activeCount = s?.activeCount;
     let countHistogram = s?.countHistogram;
     let binOffsets = s?.binOffsets;
+    let wiCounters = s?.wiCounters;
     let binWritePos = s?.binWritePos;
     let sortedActiveBuckets = s?.sortedActiveBuckets;
     let ptScratch = s?.ptScratch;
@@ -1594,10 +1606,10 @@ export class MsmV2Pool {
     isPresentBuf = carve(1, cur.redM * 4);
     redBuf = carve(1, soaSize(cur.redM));
     activeBuckets = carve(0, sBTotal * 8); // (bid, n) pairs on the v2 path; v1 uses bid-only entries
-    activeCount = carve(0, 8); // [active_count, alloc_total]
-    binOffsets = carve(0, 64 * 4);
-    partialWritePos = carve(0, sBTotal * 4);
-    reducePrefScratch = carve(0, cur.reducePrefBytes);
+    if (!reducePrefScratch || reducePrefScratch.size < cur.reducePrefBytes) {
+      reducePrefScratch?.destroy();
+      reducePrefScratch = ibuf(cur.reducePrefBytes);
+    }
     sortedCountList = carve(0, sBTotal * 4);
     scalarsRawBuf = carve(0, cur.scalarsBytes);
     l0IdxBuf = carve(0, cur.l0Slots * 4);
@@ -1617,6 +1629,7 @@ export class MsmV2Pool {
       ptPersistentDispatchArgs?.destroy();
       ptBucketWg?.destroy();
       ptWgMeta?.destroy();
+      wiCounters?.destroy();
       ptWgBucketList?.destroy();
       ptWgBucketStarts?.destroy();
       ptChunks?.destroy();
@@ -1626,6 +1639,8 @@ export class MsmV2Pool {
       grow(dims.streamQueueEntries > cur.streamQueueEntries, 'streamQueueEntries');
       grow(dims.streamRadixTiles > cur.streamRadixTiles, 'streamRadixTiles');
       streamPlannerMeta = ibuf(Math.max((20 + sT) * 4, 256));
+      // [activeCount @0 (8B) | binOffsets @256 (256B) | partialWritePos @512].
+      wiCounters = ibuf(512 + sBTotal * 4);
       // Step 9: legacy stream-accum buffers shrunk — only the dead
       // ba_stream_accum / ba_partial_sum / ba_planner_emit / ba_emit_fixup /
       // ba_debug_accum / ba_recompute_split pipelines reference these.
@@ -1702,6 +1717,9 @@ export class MsmV2Pool {
     const padXOffset = planeBytes - padBytesPerPlane;
     const padYOffset = planeBytes + planeBytes - padBytesPerPlane;
 
+    activeCount = { buffer: wiCounters!, offset: 0, size: 8 };
+    binOffsets = { buffer: wiCounters!, offset: 256, size: 256 };
+    partialWritePos = { buffer: wiCounters!, offset: 512, size: sBTotal * 4 };
     const newScratch: SharedScratch = {
       bufA: bufA!,
       bufB: bufB!,
@@ -1746,6 +1764,7 @@ export class MsmV2Pool {
       partialCount: partialCount!,
       partialOffset: partialOffset!,
       partialWritePos: partialWritePos!,
+      wiCounters: wiCounters!,
       partialLayout: partialLayout!,
       activeBuckets: activeBuckets!,
       activeCount: activeCount!,
@@ -2181,6 +2200,8 @@ export class MsmV2 {
   // specific R to exercise the refit path, or pin a known device R without the
   // throwaway probe run.
   private residentWgOverride = 0;
+  /** Per-kernel FNV-1a digests of every compiled shader source (label:hash:len). */
+  readonly programDigest: string[] = [];
   private streamS = 8;
   private numRadixTiles = 1;
   // layouts (needed by prepare to build bind groups)
@@ -3092,8 +3113,15 @@ export class MsmV2 {
     // cache reuse it across every n the pool serves. Every compileOne()
     // here routes through `pool.cache.getPipeline()` keyed on the WGSL
     // source; identical sources collapse to one compile per pool. ---
-    const compile = (code: string, label: string, layout: GPUBindGroupLayout) =>
-      pool.cache.getPipeline(code, layout, label);
+    const compile = (code: string, label: string, layout: GPUBindGroupLayout): Promise<GPUComputePipeline> => {
+      // Program-equivalence audit: FNV-1a of every generated shader source,
+      // exposed for cross-device diffing (dev page logs them under
+      // ?prog_digest=1). Proves the devices compile identical programs.
+      let h = 0x811c9dc5;
+      for (let i = 0; i < code.length; i++) h = Math.imul(h ^ code.charCodeAt(i), 0x01000193);
+      m.programDigest.push(`${label}:${(h >>> 0).toString(16).padStart(8, '0')}:${code.length}`);
+      return pool.cache.getPipeline(code, layout, label);
+    };
     m.decomposePipe = await compile(sm.gen_decompose_scalars_booth_shader(WGI), `decompose`, m.decomposeLayout);
     m.msbHistPipe = await compile(sm.gen_ba_msb_histogram_shader(), `msb_histogram`, m.msbHistLayout);
     m.msbDecidePipe = await compile(sm.gen_ba_decide_window_split_shader(), `decide_window_split`, m.msbDecideLayout);
@@ -5557,8 +5585,11 @@ export class MsmV2 {
       // walker_combine atomic counters — must be per-batch, not per-MSM.
       // See note above the batch loop for the failure mode if cumulative.
       clearSlot(enc, this.pool.scratch!.partialCount);
-      clearSlot(enc, this.pool.scratch!.partialWritePos);
-      clearSlot(enc, this.pool.scratch!.activeCount);
+      // Whole-buffer clear of the dedicated counter buffer (covers
+      // activeCount + binOffsets + partialWritePos; binOffsets is fully
+      // overwritten by the epilogue anyway). Offset-range clears of these
+      // cells inside A0 silently failed on Adreno — see SharedScratch.
+      enc.clearBuffer(this.pool.scratch!.wiCounters);
       clearSlot(enc, this.pool.scratch!.countHistogram);
       // walkerPartialDest needs no per-batch clear: the index kernels bound
       // their reads by the walker's true range (2*S*num_active_threads from
@@ -5919,6 +5950,75 @@ export class MsmV2 {
    * validation). Requires `splitC` + a prior `prepare()`. Returns the 256-bin
    * histogram and the per-scalar msb array; compare against {@link computeMsbHistogram}.
    */
+  /**
+   * Read back the is_present plane and red_buf x-plane first words, summed per
+   * window — splits "window empty because presence never marked" from
+   * "presence fine but bucket sums never written". Diagnostic readback only.
+   */
+  async debugPresence(): Promise<{ present: number[]; redNonzero: number[] }> {
+    if (this.preparedFor === null) throw new Error('MsmV2.debugPresence: call prepare() first');
+    const sc = this.pool.scratch!;
+    const stride = this.stride;
+    const nw = this.numWindows;
+    const read = async (slot: ScratchSlot, bytes: number): Promise<Uint32Array> => {
+      const staging = this.device.createBuffer({ size: bytes, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+      const enc = this.device.createCommandEncoder();
+      enc.copyBufferToBuffer(slotBuf(slot), slotOff(slot), staging, 0, bytes);
+      this.device.queue.submit([enc.finish()]);
+      await staging.mapAsync(GPUMapMode.READ);
+      const out = new Uint32Array(staging.getMappedRange().slice(0));
+      staging.unmap();
+      staging.destroy();
+      return out;
+    };
+    const pres = await read(sc.isPresentBuf, this.redM * 4);
+    const red = await read(sc.redBuf, this.redM * 32);
+    const present: number[] = [];
+    const redNonzero: number[] = [];
+    for (let w = 0; w < nw; w++) {
+      let p = 0;
+      let r = 0;
+      for (let s = 0; s < stride; s++) {
+        const slot = w * stride + s;
+        if (pres[slot] !== 0) p++;
+        for (let i = 0; i < 8; i++) {
+          if (red[slot * 8 + i] !== 0) {
+            r++;
+            break;
+          }
+        }
+      }
+      present.push(p);
+      redNonzero.push(r);
+    }
+    return { present, redNonzero };
+  }
+
+  /** Post-run walker-index chain state: dispatch args, histogram, active counts. */
+  async debugWiState(): Promise<Record<string, number[]>> {
+    if (this.preparedFor === null) throw new Error('MsmV2.debugWiState: call prepare() first');
+    const sc = this.pool.scratch!;
+    const read = async (slot: ScratchSlot, bytes: number): Promise<Uint32Array> => {
+      const staging = this.device.createBuffer({ size: bytes, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+      const enc = this.device.createCommandEncoder();
+      enc.copyBufferToBuffer(slotBuf(slot), slotOff(slot), staging, 0, bytes);
+      this.device.queue.submit([enc.finish()]);
+      await staging.mapAsync(GPUMapMode.READ);
+      const out = new Uint32Array(staging.getMappedRange().slice(0));
+      staging.unmap();
+      staging.destroy();
+      return out;
+    };
+    return {
+      wiArgs: Array.from(await read(sc.wiIdxArgs, 36)),
+      cbArgs: Array.from(await read(sc.cbDispatchArgs, 12)),
+      ptArgs: Array.from(await read(sc.ptDispatchArgs, 12)),
+      active: Array.from(await read(sc.activeCount, 8)),
+      hist: Array.from((await read(sc.countHistogram, 64 * 4)).slice(0, 16)),
+      planner: Array.from((await read(sc.streamPlannerMeta, 32)).slice(0, 8)),
+    };
+  }
+
   async debugMsbHistogram(): Promise<{ hist: Uint32Array; msbPerScalar: Uint32Array }> {
     if (this.preparedFor === null) throw new Error('MsmV2.debugMsbHistogram: call prepare() first');
     if (!this.msbHistBind || !this.msbHistBuf || !this.msbPerScalarBuf) {
