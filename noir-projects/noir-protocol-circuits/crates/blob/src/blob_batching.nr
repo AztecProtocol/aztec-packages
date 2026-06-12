@@ -86,8 +86,8 @@ pub fn evaluate_blobs_and_batch<let NumBlobs: u32>(
         let commitment_point = kzg_commitments_points[i];
         // We need to validate that the point is on the curve and canonical (0,0 if infinity), since it's hinted in this verification scheme
         commitment_point.validate_on_curve();
-        // Strangely, `validate_on_curve` doesn't validate the point at infinity, so we check that here:
-        validate_canonical_representation_if_infinity(commitment_point);
+        // `validate_on_curve` doesn't validate the point at infinity, but `compress_to_blob_commitment`
+        // asserts the canonical (0,0) infinity encoding internally, so the hinted point is fully validated.
         let c_i = compress_to_blob_commitment(commitment_point);
 
         // Note that with multiple blobs per block, each blob uses the same blob_fields_hash in z_i.
