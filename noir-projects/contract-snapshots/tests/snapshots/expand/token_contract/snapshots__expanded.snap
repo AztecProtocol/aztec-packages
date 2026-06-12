@@ -2,6 +2,7 @@
 source: tests/snapshots.rs
 expression: stdout
 ---
+
 use aztec::macros::aztec;
 use aztec::macros::aztec;
 
@@ -2720,7 +2721,7 @@ pub contract Token {
         } else {
             assert(authwit_nonce == 0_Field, "Invalid authwit nonce. When 'from' and 'msg_sender' are the same, 'authwit_nonce' must be zero");
         };
-        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery::onchain_constrained());
+        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery::onchain_constrained().with_sender(self.msg_sender()));
         self.enqueue_self._reduce_total_supply(amount);
         assert(within_revertible_phase == self.context.in_revertible_phase(), f"Phase change detected on function with phase check. If this is expected, use #[allow_phase_change]");
         self.context.finish()
@@ -2801,7 +2802,7 @@ pub contract Token {
         } else {
             assert(authwit_nonce == 0_Field, "Invalid authwit nonce. When 'from' and 'msg_sender' are the same, 'authwit_nonce' must be zero");
         };
-        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery::onchain_constrained());
+        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery::onchain_constrained().with_sender(self.msg_sender()));
         partial_note.complete_from_private(self.context, self.msg_sender(), self.storage.balances.get_storage_slot(), amount);
         assert(within_revertible_phase == self.context.in_revertible_phase(), f"Phase change detected on function with phase check. If this is expected, use #[allow_phase_change]");
         self.context.finish()
@@ -3042,8 +3043,8 @@ pub contract Token {
         } else {
             assert(authwit_nonce == 0_Field, "Invalid authwit nonce. When 'from' and 'msg_sender' are the same, 'authwit_nonce' must be zero");
         };
-        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery::onchain_constrained());
-        self.storage.balances.at(to).add(amount).deliver(MessageDelivery::onchain_constrained());
+        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery::onchain_constrained().with_sender(self.msg_sender()));
+        self.storage.balances.at(to).add(amount).deliver(MessageDelivery::onchain_constrained().with_sender(self.msg_sender()));
         assert(within_revertible_phase == self.context.in_revertible_phase(), f"Phase change detected on function with phase check. If this is expected, use #[allow_phase_change]");
         self.context.finish()
     }
@@ -3192,7 +3193,7 @@ pub contract Token {
         } else {
             assert(authwit_nonce == 0_Field, "Invalid authwit nonce. When 'from' and 'msg_sender' are the same, 'authwit_nonce' must be zero");
         };
-        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery::onchain_constrained());
+        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery::onchain_constrained().with_sender(self.msg_sender()));
         self.enqueue_self._increase_public_balance(to, amount);
         assert(within_revertible_phase == self.context.in_revertible_phase(), f"Phase change detected on function with phase check. If this is expected, use #[allow_phase_change]");
         self.context.finish()
@@ -3247,7 +3248,7 @@ pub contract Token {
         } else {
             assert(authwit_nonce == 0_Field, "Invalid authwit nonce. When 'from' and 'msg_sender' are the same, 'authwit_nonce' must be zero");
         };
-        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery::onchain_constrained());
+        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery::onchain_constrained().with_sender(self.msg_sender()));
         self.enqueue_self._increase_public_balance(to, amount);
         let macro__returned__values: PartialUintNote = self.internal._prepare_private_balance_increase(from);
         let serialized_params: [Field; 1] = <PartialUintNote as aztec::protocol::traits::Serialize>::serialize(macro__returned__values);
