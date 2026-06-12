@@ -63,7 +63,13 @@ export class StoredFact {
   }
 }
 
-/** Dedup row key for a specific fact; incorporates a payload hash to bound key size for large payloads. */
-export function factRowKeyOf(fact: StoredFact): string {
+/**
+ * Dedup row key for a specific fact, `entityKey:factTypeId:payloadHash`. The payload hash (rather than the raw
+ * payload) bounds key size for large payloads.
+ */
+export type FactRowKey = string;
+
+/** Builds the {@link FactRowKey} for the given fact. */
+export function factRowKeyOf(fact: StoredFact): FactRowKey {
   return `${entityKeyOf(fact)}:${fact.factTypeId}:${fact.payloadHash()}`;
 }

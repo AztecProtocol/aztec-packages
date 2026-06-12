@@ -5,11 +5,23 @@ import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap } from '@azte
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import type { StagedStore } from '../../job_coordinator/job_coordinator.js';
-import { type OriginBlock, entityKey, entityKeyOf, scopeKey, scopeKeyOf } from './entity_keys.js';
+import {
+  type EntityKey,
+  type OriginBlock,
+  type ScopeKey,
+  entityKey,
+  entityKeyOf,
+  scopeKey,
+  scopeKeyOf,
+} from './entity_keys.js';
 import { StoredEntity } from './stored_entity.js';
-import { StoredFact, factRowKeyOf } from './stored_fact.js';
+import { type FactRowKey, StoredFact, factRowKeyOf } from './stored_fact.js';
 
 type JobId = string;
+type BlockNum = number;
+type EntityIdStr = string;
+type StoredEntityBuffer = Buffer;
+type StoredFactBuffer = Buffer;
 
 /** A pending mutation for a job: create an entity, record a fact, or terminate (delete) an entity. */
 type StagedOp =
@@ -28,18 +40,18 @@ export class EntityStore implements StagedStore {
   readonly storeName: string = 'entity';
 
   #store: AztecAsyncKVStore;
-  /** Primary entity records, keyed by entityKey; holds the entity payload and optional origin block. */
-  #entities: AztecAsyncMap<string, Buffer>;
-  /** Index from blockNumber to entityKey, for delete-on-prune of retractable entities (those with an origin block). */
-  #entitiesByBlock: AztecAsyncMultiMap<number, string>;
-  /** Primary fact records, keyed by factRowKey (deduplication row key). */
-  #facts: AztecAsyncMap<string, Buffer>;
-  /** Index from entityKey to factRowKey for efficient entity-level fold. */
-  #factsByEntity: AztecAsyncMultiMap<string, string>;
-  /** Index from scopeKey to entityId string for active-entity enumeration. */
-  #entitiesByScope: AztecAsyncMultiMap<string, string>;
-  /** Index from blockNumber to factRowKey, for delete-on-prune (retractable facts only). */
-  #factsByBlock: AztecAsyncMultiMap<number, string>;
+  /** Primary entity records; each row holds the entity payload and optional origin block. */
+  #entities: AztecAsyncMap<EntityKey, StoredEntityBuffer>;
+  /** Index for delete-on-prune of retractable entities (those with an origin block). */
+  #entitiesByBlock: AztecAsyncMultiMap<BlockNum, EntityKey>;
+  /** Primary fact records, deduplicated by row key. */
+  #facts: AztecAsyncMap<FactRowKey, StoredFactBuffer>;
+  /** Index for efficient entity-level fold. */
+  #factsByEntity: AztecAsyncMultiMap<EntityKey, FactRowKey>;
+  /** Index for active-entity enumeration. */
+  #entitiesByScope: AztecAsyncMultiMap<ScopeKey, EntityIdStr>;
+  /** Index for delete-on-prune (retractable facts only). */
+  #factsByBlock: AztecAsyncMultiMap<BlockNum, FactRowKey>;
 
   #opsForJob: Map<JobId, StagedOp[]>;
   #jobLocks: Map<JobId, Semaphore>;
@@ -194,8 +206,8 @@ export class EntityStore implements StagedStore {
   async activeEntities(contract: AztecAddress, scope: AztecAddress, entityTypeId: Fr, jobId: string): Promise<Fr[]> {
     const sKey = scopeKey(contract, scope, entityTypeId);
     const active = await this.#store.transactionAsync(async () => {
-      const seen = new Set<string>();
-      const result = new Set<string>();
+      const seen = new Set<EntityIdStr>();
+      const result = new Set<EntityIdStr>();
       for await (const entityId of this.#entitiesByScope.getValuesAsync(sKey)) {
         if (seen.has(entityId)) {
           continue;
@@ -280,18 +292,18 @@ export class EntityStore implements StagedStore {
    * has uncommitted staged writes, since rolling back mid-job could re-introduce records originating from deleted
    * blocks.
    */
-  async rollback(toBlock: number): Promise<void> {
+  async rollback(toBlock: BlockNum): Promise<void> {
     if (this.#opsForJob.size > 0) {
       throw new Error('PXE entity store rollback is not allowed while jobs are running');
     }
 
     // Pass 1: delete retractable entities originating above toBlock wholesale. Snapshot before mutating so we never
     // delete from the multimap we are iterating.
-    const orphanedEntities: string[] = [];
+    const orphanedEntities: EntityKey[] = [];
     for await (const [, eKey] of this.#entitiesByBlock.entriesAsync({ start: toBlock + 1 })) {
       orphanedEntities.push(eKey);
     }
-    const deletedEntities = new Set<string>();
+    const deletedEntities = new Set<EntityKey>();
     let removedEntities = 0;
     for (const eKey of orphanedEntities) {
       const buf = await this.#entities.getAsync(eKey);
@@ -308,7 +320,7 @@ export class EntityStore implements StagedStore {
 
     // Pass 2: delete remaining retractable facts originating above toBlock whose entity survived pass 1. Pass 1 already
     // removed the facts_by_block rows of pruned entities, so any leftover row here belongs to a surviving entity.
-    const orphanedFacts: { block: number; rowKey: string }[] = [];
+    const orphanedFacts: { block: BlockNum; rowKey: FactRowKey }[] = [];
     for await (const [block, rowKey] of this.#factsByBlock.entriesAsync({ start: toBlock + 1 })) {
       orphanedFacts.push({ block, rowKey });
     }
@@ -338,8 +350,8 @@ export class EntityStore implements StagedStore {
   // ---- private helpers ----
 
   /** Loads the committed facts for an entity keyed by their dedup row key. Caller may wrap in a transaction. */
-  async #loadCommittedFacts(eKey: string): Promise<Map<string, StoredFact>> {
-    const rows = new Map<string, StoredFact>();
+  async #loadCommittedFacts(eKey: EntityKey): Promise<Map<FactRowKey, StoredFact>> {
+    const rows = new Map<FactRowKey, StoredFact>();
     for await (const rowKey of this.#factsByEntity.getValuesAsync(eKey)) {
       const buf = await this.#facts.getAsync(rowKey);
       if (buf) {
@@ -354,7 +366,7 @@ export class EntityStore implements StagedStore {
    * terminate clears the entity's facts. Order matters so a terminate-then-record sequence resolves to the re-recorded
    * fact. createEntity ops do not affect the fact set.
    */
-  #replayFactOps(byRow: Map<string, StoredFact>, eKey: string, jobId: string): void {
+  #replayFactOps(byRow: Map<FactRowKey, StoredFact>, eKey: EntityKey, jobId: string): void {
     for (const op of this.#stagedOps(jobId)) {
       if (op.kind === 'record') {
         if (entityKeyOf(op.fact) === eKey) {
@@ -372,7 +384,7 @@ export class EntityStore implements StagedStore {
    */
   async #deleteEntity(contract: AztecAddress, scope: AztecAddress, entityTypeId: Fr, entityId: Fr): Promise<void> {
     const eKey = entityKey(contract, scope, entityTypeId, entityId);
-    const rowKeys: string[] = [];
+    const rowKeys: FactRowKey[] = [];
     for await (const rowKey of this.#factsByEntity.getValuesAsync(eKey)) {
       rowKeys.push(rowKey);
     }
