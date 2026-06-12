@@ -153,22 +153,83 @@ function validate-webapp-tutorial {
     rm -rf node_modules .yarn .yarnrc.yml
     : > yarn.lock
 
-    # Replace #include_aztec_version with link: paths to local yarn-project packages
+    # Replace #include_aztec_version with links to local packages and install
+    # their package dependencies, since Yarn's link protocol does not resolve
+    # dependencies from the linked package manifests.
     echo_stderr "Linking local @aztec packages..."
-    node -e "
+    REPO_ROOT="$REPO_ROOT" YP="$YP" node <<'NODE'
       const fs = require('fs');
+      const path = require('path');
+
+      const repoRoot = process.env.REPO_ROOT;
+      const yp = process.env.YP;
       const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-      const yp = '$YP';
+      pkg.dependencies ??= {};
+
+      const visited = new Set();
+      const queue = [];
+
+      function packagePath(name) {
+        if (name === '@aztec/bb.js') {
+          return path.join(repoRoot, 'barretenberg', 'ts');
+        }
+        if (name.startsWith('@aztec/')) {
+          const yarnProjectPath = path.join(yp, name.replace('@aztec/', ''));
+          if (fs.existsSync(path.join(yarnProjectPath, 'package.json'))) {
+            return yarnProjectPath;
+          }
+        }
+        if (name.startsWith('@aztec/noir-')) {
+          return path.join(repoRoot, 'noir', 'packages', name.replace('@aztec/noir-', ''));
+        }
+        return undefined;
+      }
+
+      function linkPackage(name) {
+        const localPath = packagePath(name);
+        if (!localPath || !fs.existsSync(path.join(localPath, 'package.json'))) {
+          return undefined;
+        }
+        return { localPath, spec: `link:${localPath}` };
+      }
+
+      function addLinkedPackage(name, section = 'dependencies') {
+        const linked = linkPackage(name);
+        if (!linked) {
+          return false;
+        }
+        pkg[section] ??= {};
+        pkg[section][name] = linked.spec;
+        if (!visited.has(name)) {
+          visited.add(name);
+          queue.push({ name, localPath: linked.localPath });
+        }
+        return true;
+      }
+
       for (const section of ['dependencies', 'devDependencies']) {
         for (const [name, ver] of Object.entries(pkg[section] || {})) {
-          if (ver === '#include_aztec_version' && name.startsWith('@aztec/')) {
-            const dir = name.replace('@aztec/', '');
-            pkg[section][name] = 'link:' + yp + '/' + dir;
+          if (ver === '#include_aztec_version') {
+            addLinkedPackage(name, section);
           }
         }
       }
+
+      for (let i = 0; i < queue.length; i++) {
+        const { localPath } = queue[i];
+        const localPkg = JSON.parse(fs.readFileSync(path.join(localPath, 'package.json'), 'utf8'));
+        for (const [depName, depVersion] of Object.entries(localPkg.dependencies || {})) {
+          if (addLinkedPackage(depName)) {
+            continue;
+          }
+          if (!depVersion.startsWith('workspace:') && !depVersion.startsWith('portal:')) {
+            pkg.dependencies[depName] ??= depVersion;
+          }
+        }
+      }
+
       fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
-    "
+NODE
 
     # Fresh yarn setup for linking
     yarn config set nodeLinker node-modules 2>/dev/null || true

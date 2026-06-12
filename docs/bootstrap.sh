@@ -60,11 +60,21 @@ function check_orphaned_urls {
   # diff. The committed snapshot only grows the protected set for future PRs;
   # the check a PR must satisfy is the base-branch version it cannot edit.
   local snapshot=snapshots/published-urls.txt
-  local base_ref="${GITHUB_BASE_REF:-next}"
+  local base_ref="${GITHUB_BASE_REF:-${PR_BASE_REF:-}}"
+  if [[ -z "$base_ref" && "${GITHUB_REF_NAME:-}" == gh-readonly-queue/* ]]; then
+    base_ref="${TARGET_BRANCH:-}"
+  fi
+  base_ref="${base_ref:-next}"
+  base_ref="${base_ref#refs/heads/}"
   local tmp
   tmp=$(mktemp)
   # shellcheck disable=SC2064
   trap "rm -f '$tmp'" RETURN
+
+  local fetch_depth=()
+  if [[ "$(git rev-parse --is-shallow-repository 2>/dev/null || echo false)" == "true" ]]; then
+    fetch_depth=(--depth=1)
+  fi
 
   # Resolve the base branch first, distinguishing "base unreachable" from "base
   # reachable but snapshot absent". Only the latter is a legitimate fallback (it
@@ -73,7 +83,10 @@ function check_orphaned_urls {
   local base_obj=""
   if git rev-parse --verify -q "origin/${base_ref}" >/dev/null; then
     base_obj="origin/${base_ref}"
-  elif git fetch -q origin "$base_ref" 2>/dev/null; then
+  elif git fetch -q "${fetch_depth[@]}" origin \
+    "refs/heads/${base_ref}:refs/remotes/origin/${base_ref}" 2>/dev/null; then
+    base_obj="origin/${base_ref}"
+  elif git fetch -q "${fetch_depth[@]}" origin "$base_ref" 2>/dev/null; then
     base_obj="FETCH_HEAD"
   fi
 
