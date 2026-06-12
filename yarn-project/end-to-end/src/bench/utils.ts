@@ -15,7 +15,6 @@ import type { BenchmarkDataPoint, BenchmarkMetricsType, BenchmarkTelemetryClient
 
 import { mkdirSync, writeFileSync } from 'fs';
 import path from 'path';
-import { cornTestnet } from 'viem/chains';
 
 import { PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
 import {
@@ -70,14 +69,6 @@ export async function benchmarkSetup(
     await origTeardown();
   };
   return { telemetry, context, contract, sequencer };
-}
-
-async function getBenchmarkAccountData(): Promise<InitialAccountData> {
-  const contract = new SchnorrHardcodedKeyAccountContract();
-  const secret = Fr.random();
-  const salt = Fr.random();
-  const address = await getAccountContractAddress(contract, secret, salt);
-  return { secret, salt, signingKey: SCHNORR_HARDCODED_PRIVATE_KEY, address };
 }
 
 function getSequencerClient(context: EndToEndContext) {

@@ -1,5 +1,5 @@
 import { EcdsaRAccountContractArtifact } from '@aztec/accounts/ecdsa';
-import { SchnorrAccountContract, SchnorrAccountContractArtifact } from '@aztec/accounts/schnorr';
+import { SchnorrAccountContractArtifact } from '@aztec/accounts/schnorr';
 import { NO_FROM } from '@aztec/aztec.js/account';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { BatchCall } from '@aztec/aztec.js/contracts';
