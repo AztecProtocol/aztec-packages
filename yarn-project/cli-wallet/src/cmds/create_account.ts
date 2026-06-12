@@ -71,7 +71,9 @@ export async function createAccount(
 
   let txHash: TxHash | undefined;
   let txReceipt: TxReceipt | undefined;
-  if (!registerOnly) {
+  // Initializerless accounts have no deployment tx — creating one only registers it locally — so there is
+  // nothing to deploy on-chain.
+  if (!registerOnly && accountType !== 'schnorr_initializerless') {
     const { paymentMethod, gasSettings } = await feeOpts.toUserFeeOptions(aztecNode, wallet, address);
 
     const delegatedDeployment = deployer && !account.address.equals(deployer);
