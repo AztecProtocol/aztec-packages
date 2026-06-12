@@ -204,6 +204,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     protected readonly l1ChainId: number,
     protected readonly version: number,
     protected readonly globalVariableBuilder: GlobalVariableBuilderInterface,
+    protected readonly rollupContract: RollupContract | undefined,
     protected readonly feeProvider: FeeProvider,
     protected readonly epochCache: EpochCacheInterface,
     protected readonly packageVersion: string,
@@ -220,13 +221,17 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     this.metrics = new NodeMetrics(telemetry, 'AztecNodeService');
     this.tracer = telemetry.getTracer('AztecNodeService');
 
+    // The node never represents a proposer's payout addresses, so the simulator zeroes coinbase and
+    // fee recipient. The signature context only needs chain id + rollup address (see signature_utils).
     this.nodePublicCallsSimulator = new NodePublicCallsSimulator({
       blockSource: this.blockSource,
       worldStateSynchronizer: this.worldStateSynchronizer,
       l1ToL2MessageSource: this.l1ToL2MessageSource,
       contractDataSource: this.contractDataSource,
       globalVariableBuilder: this.globalVariableBuilder,
+      rollupContract: this.rollupContract,
       epochCache: this.epochCache,
+      signatureContext: { chainId: this.l1ChainId, rollupAddress: this.config.rollupAddress },
       config: this.config,
       telemetry: this.telemetry,
       log: this.log.createChild('public-calls-simulator'),
@@ -670,7 +675,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
         slotDuration: Number(slotDuration),
       };
 
-      const globalVariableBuilder = new GlobalVariableBuilder(dateProvider, publicClient, globalVariableBuilderConfig);
+      const globalVariableBuilder = new GlobalVariableBuilder(publicClient, globalVariableBuilderConfig);
       const feeProvider = new FeeProviderImpl(dateProvider, publicClient, globalVariableBuilderConfig);
 
       const proverOnly = config.enableProverNode && config.disableValidator;
@@ -1027,6 +1032,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
         ethereumChain.chainInfo.id,
         config.rollupVersion,
         globalVariableBuilder,
+        rollupContract,
         feeProvider,
         epochCache,
         packageVersion,

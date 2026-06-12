@@ -5,6 +5,7 @@
   "exports": {
     ".": "./dest/index.js",
     "./automine": "./dest/sequencer/automine/index.js",
+    "./chain-state-overrides": "./dest/sequencer/chain_state_overrides.js",
     "./config": "./dest/config.js",
     "./test": "./dest/test/index.js"
   },
