@@ -56,6 +56,9 @@ const GAME_ID = 42;
 
 const TIMEOUT = 600_000;
 
+// End-to-end test for the CardGame contract: buying packs, joining games, playing rounds,
+// claiming won cards. Uses setup(3, AUTOMINE_E2E_OPTS) with one node, automine sequencer,
+// and three funded accounts (players). jest.setTimeout(600s).
 describe('e2e_card_game', () => {
   jest.setTimeout(TIMEOUT);
 
@@ -115,6 +118,8 @@ describe('e2e_card_game', () => {
     logger.info(`L2 contract deployed at ${contract.address}`);
   };
 
+  // Calls buy_pack for firstPlayer with seed=27, then reads the collection and compares against
+  // the TS-reproduced card generation logic.
   it('should be able to buy packs', async () => {
     const seed = 27n;
     // docs:start:send_tx
@@ -127,6 +132,7 @@ describe('e2e_card_game', () => {
     expect(boundedVecToArray(collection)).toMatchObject(expected);
   });
 
+  // Tests joining a game: buying packs for two players and verifying game state after joining.
   describe('game join', () => {
     const seed = 27n;
     let firstPlayerCollection: Card[];
@@ -141,6 +147,8 @@ describe('e2e_card_game', () => {
       );
     });
 
+    // First player joins with two specific cards; second player tries to join with an already-played
+    // card from first player and expects a revert. Verifies game state reflects only first player.
     it('should be able to join games', async () => {
       await contract.methods
         .join_game(GAME_ID, [cardToField(firstPlayerCollection[0]), cardToField(firstPlayerCollection[2])])
@@ -178,6 +186,7 @@ describe('e2e_card_game', () => {
       });
     });
 
+    // Both players join, first player calls start_game, verifies game state has both players and started=true.
     it('should start games', async () => {
       const secondPlayerCollection = boundedVecToArray(
         (await contract.methods.view_collection_cards(secondPlayer, 0).simulate({ from: secondPlayer }))
@@ -216,6 +225,8 @@ describe('e2e_card_game', () => {
     });
   });
 
+  // Full happy-path game play: three players buy packs, two play a game, winner claims cards
+  // and plays a second match.
   describe('game play', () => {
     let firstPlayerCollection: Card[];
     let secondPlayerCollection: Card[];
@@ -270,6 +281,8 @@ describe('e2e_card_game', () => {
       return finalGameState;
     }
 
+    // Two players join and start a game; all rounds are played; winner claims won cards; loser cannot
+    // claim; winner and thirdPlayer play a second game using the won cards.
     it('should play a game, claim the winned cards and play another match with winned cards', async () => {
       const firstPlayerGameDeck = [firstPlayerCollection[0], firstPlayerCollection[2]];
       const secondPlayerGameDeck = [secondPlayerCollection[0], secondPlayerCollection[2]];

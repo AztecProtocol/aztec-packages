@@ -33,6 +33,9 @@ import { setup } from './fixtures/utils.js';
 import { TestWallet } from './test-wallet/test_wallet.js';
 import { proveInteraction } from './test-wallet/utils.js';
 
+// Tests block building mechanics under the production sequencer with pipelining:
+// multi-tx blocks, double-spend rejection, log ordering, regressions, and L1 reorgs.
+// Uses setup() with PIPELINING_SETUP_OPTS. CI job has TIMEOUT=25m.
 describe('e2e_block_building', () => {
   jest.setTimeout(20 * 60 * 1000); // 20 minutes
 
@@ -51,6 +54,8 @@ describe('e2e_block_building', () => {
     jest.restoreAllMocks();
   });
 
+  // Tests assembling blocks with multiple simultaneous transactions under pipelining.
+  // setup(2, PIPELINING_SETUP_OPTS) with fast polling intervals; minTxsPerBlock set per test.
   describe('multi-txs block', () => {
     beforeAll(async () => {
       let sequencerClient: SequencerClient | undefined;
@@ -95,6 +100,8 @@ describe('e2e_block_building', () => {
     // than fit in one sub-slot, the proposer must cut the block off at the deadline and roll the excess
     // txs into the next sub-slot (and the next checkpoint when the slot ends). It must NOT pack everything
     // into a single block and burn the whole slot on it.
+    // Configures BLOCK_DURATION_MS=2s and FAKE_DELAY_PER_TX=500ms, floods 10 txs, asserts they span
+    // at least 2 distinct blocks (sub-slot deadline enforced).
     it('processes txs until hitting timetable', async () => {
       // The timetable is always enforced. Fixture defaults under pipelining: aztecSlotDuration=12s,
       // ethereumSlotDuration=4s. With ethereumSlotDuration<8 the timing model normalizes to
@@ -147,6 +154,8 @@ describe('e2e_block_building', () => {
       expect(unique(blockNumbers).length).toBeGreaterThanOrEqual(2);
     });
 
+    // Sends 8 StatefulTestContract deploys simultaneously, waits for all to mine, and asserts
+    // all land in the same block with INITIALIZED status.
     it('assembles a block with multiple txs', async () => {
       // Assemble N contract deployment txs
       // We need to create them sequentially since we cannot have parallel calls to a circuit
@@ -195,6 +204,8 @@ describe('e2e_block_building', () => {
       expect(areInitialized).toEqual(times(TX_COUNT, () => ContractInitializationStatus.INITIALIZED));
     });
 
+    // Sends 4 public increment_public_value calls simultaneously, waits for all to mine,
+    // and asserts all land in the same block.
     it('assembles a block with multiple txs with public fns', async () => {
       // First deploy the contract
       const { contract } = await StatefulTestContract.deploy(wallet, ownerAddress, 1).send({ from: ownerAddress });
@@ -258,6 +269,7 @@ describe('e2e_block_building', () => {
     });
 
     // Uses priority fees to guarantee the deploy tx is ordered before the call tx within the same block.
+    // Sends two txs with different priority fees, asserts they both land in the same block.
     it('can call public function from different tx in same block as deployed', async () => {
       // Ensure both txs will land on the same block
       await aztecNodeAdmin.setConfig({ minTxsPerBlock: 2 });
@@ -298,6 +310,8 @@ describe('e2e_block_building', () => {
     });
   });
 
+  // Tests that duplicate nullifiers are rejected, both within the same block and across blocks.
+  // setup(1, PIPELINING_SETUP_OPTS), one node, production sequencer.
   describe('double-spends', () => {
     let contract: TestContract;
     let teardown: () => Promise<void>;
@@ -317,7 +331,10 @@ describe('e2e_block_building', () => {
 
     // Regressions for https://github.com/AztecProtocol/aztec-packages/issues/2502
     // Note that the order in which the TX are processed is not guaranteed.
+    // Both txs race to the same block; exactly one succeeds and the other fails.
     describe('in the same block, different tx', () => {
+      // Sends two private emit_nullifier txs with the same nullifier simultaneously;
+      // asserts one succeeds and one rejects with DUPLICATE_NULLIFIER_ERROR.
       it('private <-> private', async () => {
         const nullifier = Fr.random();
         const txs = await sendAndWait(
@@ -335,6 +352,7 @@ describe('e2e_block_building', () => {
         ]);
       });
 
+      // Same as private<->private but both txs use public nullifier emission.
       it('public -> public', async () => {
         const nullifier = Fr.random();
         const txs = await sendAndWait(
@@ -352,6 +370,7 @@ describe('e2e_block_building', () => {
         ]);
       });
 
+      // One private and one public tx emit the same nullifier simultaneously; one must fail.
       it('private -> public', async () => {
         const nullifier = Fr.random();
         const txs = await sendAndWait(
@@ -369,6 +388,7 @@ describe('e2e_block_building', () => {
         ]);
       });
 
+      // One public and one private tx emit the same nullifier simultaneously; one must fail.
       it('public -> private', async () => {
         const nullifier = Fr.random();
         const txs = await sendAndWait(
@@ -387,7 +407,9 @@ describe('e2e_block_building', () => {
       });
     });
 
+    // Double-spend rejection when the second tx arrives in a later block (nullifier already in the tree).
     describe('across blocks', () => {
+      // Emits a private nullifier, then tries to emit the same in a subsequent tx and expects rejection.
       it('private -> private', async () => {
         const nullifier = Fr.random();
         await contract.methods.emit_nullifier(nullifier).send({ from: ownerAddress });
@@ -396,6 +418,7 @@ describe('e2e_block_building', () => {
         );
       });
 
+      // Emits a public nullifier, then tries again in a subsequent tx and expects rejection.
       it('public -> public', async () => {
         const nullifier = Fr.random();
         await contract.methods.emit_nullifier_public(nullifier).send({ from: ownerAddress });
@@ -404,6 +427,7 @@ describe('e2e_block_building', () => {
         );
       });
 
+      // Emits via private then tries public with the same nullifier in a later block; expects rejection.
       it('private -> public', async () => {
         const nullifier = Fr.random();
         await contract.methods.emit_nullifier(nullifier).send({ from: ownerAddress });
@@ -412,6 +436,7 @@ describe('e2e_block_building', () => {
         );
       });
 
+      // Emits via public then tries private with the same nullifier in a later block; expects rejection.
       it('public -> private', async () => {
         const nullifier = Fr.random();
         await contract.methods.emit_nullifier_public(nullifier).send({ from: ownerAddress });
@@ -422,6 +447,8 @@ describe('e2e_block_building', () => {
     });
   });
 
+  // Verifies that private encrypted logs and unencrypted logs emitted from nested calls are ordered
+  // correctly in the block. setup(1, PIPELINING_SETUP_OPTS).
   describe('logs in nested calls are ordered as expected', () => {
     // This test was originally written for e2e_nested, but it was refactored
     // to not use TestContract.
@@ -442,6 +469,8 @@ describe('e2e_block_building', () => {
 
     afterAll(() => teardown());
 
+    // Sends emit_array_as_encrypted_log, retrieves ExampleEvent private logs and a raw siloed log,
+    // and asserts ordering and field values are correct.
     it('calls a method with nested encrypted logs', async () => {
       const values = {
         value0: 5n,
@@ -493,6 +522,7 @@ describe('e2e_block_building', () => {
     }, 60_000);
   });
 
+  // Regression tests for specific sequencer bugs; each creates its own setup().
   describe('regressions', () => {
     afterEach(async () => {
       if (teardown) {
@@ -501,6 +531,7 @@ describe('e2e_block_building', () => {
     });
 
     // Regression for https://github.com/AztecProtocol/aztec-packages/issues/7918
+    // Waits for block number >= 3 with buildCheckpointIfEmpty=true to confirm empty checkpoints are built.
     it('publishes two empty blocks', async () => {
       ({ teardown, wallet, logger, aztecNode } = await setup(0, {
         ...PIPELINING_SETUP_OPTS,
@@ -510,10 +541,12 @@ describe('e2e_block_building', () => {
 
       // Under pipelining, with `aztecSlotDuration=12s`, each empty checkpoint contains one empty
       // block and lands roughly every 12s. Allow up to 60s for three empty blocks to appear.
+      // REFACTOR: raw retryUntil poll on block number; replace with a waitForBlock(n) DSL helper
       await retryUntil(async () => (await aztecNode.getBlockNumber()) >= 3, 'wait-block', 60, 1);
     });
 
     // Regression for https://github.com/AztecProtocol/aztec-packages/issues/7537
+    // Deploys an account on block 1 with minTxsPerBlock=0 to verify the first block can accept txs.
     it('sends a tx on the first block', async () => {
       const context = await setup(0, {
         ...PIPELINING_SETUP_OPTS,
@@ -521,6 +554,7 @@ describe('e2e_block_building', () => {
         additionallyFundedAccounts: await generateSchnorrAccounts(1, 'schnorr'),
       });
       ({ teardown, logger, aztecNode, wallet } = context);
+      // REFACTOR: sleep-based wait; replace with a waitForBlock(1) or equivalent readiness helper
       await sleep(1000);
 
       const [accountData] = context.additionallyFundedAccounts;
@@ -532,6 +566,7 @@ describe('e2e_block_building', () => {
       });
     });
 
+    // Floods 24 Token.mint_to_public txs while the sequencer is building blocks and asserts all land.
     it('can simulate public txs while building a block', async () => {
       ({
         teardown,
@@ -571,6 +606,7 @@ describe('e2e_block_building', () => {
     // The culprit is a nullifier not being cleared up from world state during block building if a tx fails processing,
     // which translates in an incorrect end state for world state. We can easily detect this by checking whether the nullifier
     // tree next available leaf index is a multiple of 64.
+    // Injects a fakeThrowAfterProcessingTxCount=2 to force AVM failure, verifies nullifier tree alignment.
     it('clears up all nullifiers if tx processing fails', async () => {
       const context = await setup(1, { ...PIPELINING_SETUP_OPTS, minTxsPerBlock: 1 });
       ({
@@ -624,6 +660,9 @@ describe('e2e_block_building', () => {
     });
   });
 
+  // Tests that the sequencer handles L2 reorgs correctly: detects stale proofs, prunes affected txs,
+  // and re-includes those that were built against a proven block.
+  // Uses cheatCodes.rollup.advanceToNextEpoch, markAsProven, advanceToEpoch, retryUntil.
   describe('reorgs', () => {
     let contract: StatefulTestContract;
     let cheatCodes: CheatCodes;
@@ -652,11 +691,15 @@ describe('e2e_block_building', () => {
       // interval mining, so we drive proven manually here (and again inside each test).
       await cheatCodes.rollup.markAsProven();
       const bn = await aztecNode.getBlockNumber();
+      // REFACTOR: raw retryUntil poll on proven block number; replace with waitForProvenBlock(n) helper
       await retryUntil(async () => (await aztecNode.getBlockNumber('proven')) >= bn, 'wait-proven', 60, 1);
     });
 
     afterEach(() => teardown());
 
+    // Advances epoch, marks proven, sends two txs, then advances past the proof-submission window
+    // causing a reorg. Waits for tx1 to be pruned then re-included at the same block number.
+    // Asserts tx2 is dropped, tx1 is re-included, and a subsequent tx lands cleanly.
     it('detects an upcoming reorg and builds a block for the correct slot', async () => {
       // Advance to a fresh epoch and mark the current one as proven
       await cheatCodes.rollup.advanceToNextEpoch();
@@ -683,6 +726,7 @@ describe('e2e_block_building', () => {
 
       // Wait until the sequencer kicks out tx1
       logger.info(`Waiting for node to prune tx1`);
+      // REFACTOR: raw retryUntil polling for tx status transition; replace with a waitForTxPruned() helper
       await retryUntil(
         async () => (await aztecNode.getTxReceipt(tx1.txHash)).status === TxStatus.PENDING,
         'wait for pruning',
@@ -692,6 +736,7 @@ describe('e2e_block_building', () => {
 
       // And wait until it is brought back tx1
       logger.info(`Waiting for node to re-include tx1`);
+      // REFACTOR: raw retryUntil polling for re-inclusion; replace with a waitForTxReincluded() helper
       await retryUntil(
         async () => {
           const receipt = await aztecNode.getTxReceipt(tx1.txHash);

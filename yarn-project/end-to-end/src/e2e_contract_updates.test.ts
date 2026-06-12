@@ -34,6 +34,9 @@ const INITIAL_UPDATABLE_CONTRACT_VALUE = 1n;
 // Constant copied over from Updated contract
 const UPDATED_CONTRACT_PUBLIC_VALUE = 27n;
 
+// Tests the contract class update mechanism: scheduling an upgrade, time-warping past the delay,
+// and verifying the new class is active. Also tests simulation overrides for post-upgrade calls.
+// Uses setup(1, AUTOMINE_E2E_OPTS) with genesisPublicData and initialFundedAccounts per test.
 describe('e2e_contract_updates', () => {
   let wallet: TestWallet;
   let defaultAccountAddress: AztecAddress;
@@ -113,6 +116,8 @@ describe('e2e_contract_updates', () => {
 
   afterEach(() => teardown());
 
+  // Schedules an update to UpdatedContractClassId, warps L2 time past DEFAULT_TEST_UPDATE_DELAY,
+  // then calls new private and public methods only available in the updated class.
   it('should update the contract', async () => {
     expect(
       (await contract.methods.get_private_value(defaultAccountAddress).simulate({ from: defaultAccountAddress }))
@@ -144,6 +149,8 @@ describe('e2e_contract_updates', () => {
     );
   });
 
+  // Increases the delay by 1, schedules an update, warps past the new delay, verifies the update
+  // took effect.
   it('should change the update delay and then update the contract', async () => {
     expect((await contract.methods.get_update_delay().simulate({ from: defaultAccountAddress })).result).toEqual(
       BigInt(DEFAULT_TEST_UPDATE_DELAY),
@@ -168,12 +175,15 @@ describe('e2e_contract_updates', () => {
     await updatedContract.methods.set_private_value().send({ from: defaultAccountAddress });
   });
 
+  // Tries to set a delay below MINIMUM_UPDATE_DELAY and expects a revert "New update delay is too low".
   it('should not allow to change the delay to a value lower than the minimum', async () => {
     await expect(
       contract.methods.set_update_delay(BigInt(MINIMUM_UPDATE_DELAY) - 1n).simulate({ from: defaultAccountAddress }),
     ).rejects.toThrow('New update delay is too low');
   });
 
+  // Tries to register the instance against UpdatedContract.artifact before the upgrade window passes;
+  // expects the PXE to reject with a class mismatch error.
   it('should not allow to instantiate a contract with an updated class before the update happens', async () => {
     await expect(wallet.registerContract(instance, UpdatedContract.artifact)).rejects.toThrow(
       'Could not update contract to a class different from the current one',
@@ -184,6 +194,7 @@ describe('e2e_contract_updates', () => {
   // have different function selectors. Without an upgrade, only the deployed Updatable's
   // (Field) selector exists; with a fastForwardContractUpdate override, the AVM dispatches
   // against UpdatedContract's bytecode and the no-args selector resolves.
+  // Asserts that without overrides the call fails, with overrides it succeeds, and real storage is unaffected.
   it('fastForwardContractUpdate enables simulation of post-upgrade public calls', async () => {
     // Local construction with the new artifact - no PXE/wallet side effect, no chain mutation.
     const updatedContract = UpdatedContract.at(contract.address, wallet);
@@ -213,6 +224,7 @@ describe('e2e_contract_updates', () => {
   // UpdatedContract.set_private_value is a private function that doesn't exist on UpdatableContract.
   // For PXE-side ACIR dispatch to find it, the artifact must be registered locally first via
   // wallet.registerContractClass; the helper itself only takes the class id.
+  // Asserts that without local artifact registration the call fails, with it the call succeeds under overrides.
   it('fastForwardContractUpdate enables simulation of post-upgrade private calls', async () => {
     const updatedContract = UpdatedContract.at(contract.address, wallet);
 
