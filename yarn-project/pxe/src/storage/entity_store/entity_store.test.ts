@@ -82,7 +82,7 @@ describe('EntityStore', () => {
     expect(facts).toHaveLength(1);
   });
 
-  it('re-recording a fact keeps its creation position', async () => {
+  it('re-recording a fact is a no-op keeping its creation position and origin block', async () => {
     await store.recordFact(keyA, RECEIVED, [new Fr(9n)], undefined, JOB);
     await store.recordFact(keyA, RECEIVED, [new Fr(1n)], undefined, JOB);
     await kv.transactionAsync(() => store.commit(JOB));
@@ -93,20 +93,19 @@ describe('EntityStore', () => {
 
     const { facts } = await store.getEntity(keyA, JOB);
     expect(facts.map(f => f.payload[0].toBigInt())).toEqual([9n, 1n]);
-    expect(facts[0].originBlock?.blockNumber).toBe(5);
+    expect(facts[0].originBlock).toBeUndefined();
   });
 
-  it('re-recording a fact with a changed origin block updates its retraction block', async () => {
-    await store.recordFact(keyA, RECEIVED, [new Fr(9n)], { blockNumber: 10, blockHash: new Fr(1n) }, JOB);
+  it('re-recording a fact keeps its original origin block (first write wins)', async () => {
+    await store.recordFact(keyA, RECEIVED, [new Fr(9n)], { blockNumber: 5, blockHash: new Fr(1n) }, JOB);
     await kv.transactionAsync(() => store.commit(JOB));
 
-    // Re-record the identical fact originating at an earlier block: same dedup row, new origin.
+    // Re-record the identical fact at a later block: a no-op, so the fact still originates at block 5.
     const JOB2 = 'rerecord-job';
-    await store.recordFact(keyA, RECEIVED, [new Fr(9n)], { blockNumber: 5, blockHash: new Fr(2n) }, JOB2);
+    await store.recordFact(keyA, RECEIVED, [new Fr(9n)], { blockNumber: 10, blockHash: new Fr(2n) }, JOB2);
     await kv.transactionAsync(() => store.commit(JOB2));
 
-    // Prune above block 7: the fact now originates at block 5 and must survive. A stale block-10 index entry would
-    // make pass 2 delete it.
+    // Prune above block 7: the fact was first derived at block 5, which survives, so the fact must survive.
     await kv.transactionAsync(() => store.rollback(7));
     expect((await store.getEntity(keyA, JOB)).facts).toHaveLength(1);
 
@@ -147,24 +146,24 @@ describe('EntityStore', () => {
     expect(entities[0].facts).toHaveLength(0);
   });
 
-  it('creating the same entity twice keeps the last body and lists it once', async () => {
+  it('creating the same entity twice keeps the first body and lists it once', async () => {
     await store.createEntity(keyA, [new Fr(1n)], undefined, JOB);
     await store.createEntity(keyA, [new Fr(2n)], undefined, JOB);
     await kv.transactionAsync(() => store.commit(JOB));
 
-    expect((await store.getEntity(keyA, JOB)).body.map(f => f.toBigInt())).toEqual([2n]);
+    expect((await store.getEntity(keyA, JOB)).body.map(f => f.toBigInt())).toEqual([1n]);
     expect(entityIdsOf(await store.getEntities(scopeKey, JOB))).toEqual([corrA.toBigInt()]);
 
-    // Re-creating in a later commit overwrites again and still lists the entity exactly once.
+    // Re-creating in a later commit is a no-op too, and still lists the entity exactly once.
     const JOB2 = 'recreate-job';
     await store.createEntity(keyA, [new Fr(3n)], undefined, JOB2);
     await kv.transactionAsync(() => store.commit(JOB2));
 
-    expect((await store.getEntity(keyA, JOB)).body.map(f => f.toBigInt())).toEqual([3n]);
+    expect((await store.getEntity(keyA, JOB)).body.map(f => f.toBigInt())).toEqual([1n]);
     expect(entityIdsOf(await store.getEntities(scopeKey, JOB))).toEqual([corrA.toBigInt()]);
   });
 
-  it('re-creating an entity keeps the facts it already owns', async () => {
+  it('re-creating an entity is a no-op keeping its body and facts', async () => {
     await store.createEntity(keyA, [new Fr(1n)], undefined, JOB);
     await store.recordFact(keyA, RECEIVED, [new Fr(9n)], undefined, JOB);
     await kv.transactionAsync(() => store.commit(JOB));
@@ -172,14 +171,14 @@ describe('EntityStore', () => {
     const JOB2 = 'recreate-job';
     await store.createEntity(keyA, [new Fr(2n)], undefined, JOB2);
 
-    // Both before and after commit, the new body is paired with the existing facts.
+    // Both before and after commit, the original body is paired with the existing facts.
     const staged = await store.getEntities(scopeKey, JOB2);
-    expect(staged[0].entity.body.map(f => f.toBigInt())).toEqual([2n]);
+    expect(staged[0].entity.body.map(f => f.toBigInt())).toEqual([1n]);
     expect(staged[0].facts).toHaveLength(1);
 
     await kv.transactionAsync(() => store.commit(JOB2));
     const { body, facts } = await store.getEntity(keyA, JOB);
-    expect(body.map(f => f.toBigInt())).toEqual([2n]);
+    expect(body.map(f => f.toBigInt())).toEqual([1n]);
     expect(facts).toHaveLength(1);
   });
 
@@ -314,36 +313,40 @@ describe('EntityStore', () => {
     expect(entityIdsOf(await store.getEntities(scopeKey, JOB))).toEqual([corrA.toBigInt()]);
   });
 
-  it('re-creating an entity with a changed origin block clears the stale by-block index', async () => {
+  it('re-creating an entity keeps its original origin block (first write wins)', async () => {
     await store.createEntity(keyA, [new Fr(5n)], { blockNumber: 6, blockHash: new Fr(1n) }, JOB);
     await kv.transactionAsync(() => store.commit(JOB));
 
-    // Re-create the same entity originating at a different block.
+    // Re-creating at a later block is a no-op, so the entity still originates at block 6.
     const JOB2 = 'recreate-job';
     await store.createEntity(keyA, [new Fr(5n)], { blockNumber: 8, blockHash: new Fr(2n) }, JOB2);
     await kv.transactionAsync(() => store.commit(JOB2));
 
-    // Prune above block 5: the entity (origin block 8) is deleted exactly once. A stale block-6 index entry would make
-    // pass 1 visit it a second time and throw "Entity not found".
+    // Prune above block 7: the entity was first derived at block 6, which survives, so the entity must survive.
+    await kv.transactionAsync(() => store.rollback(7));
+    expect(entityIdsOf(await store.getEntities(scopeKey, JOB))).toEqual([corrA.toBigInt()]);
+
+    // Prune above block 5: the entity originates above the target and is deleted exactly once.
     await expect(kv.transactionAsync(() => store.rollback(5))).resolves.not.toThrow();
     expect((await store.getEntity(keyA, JOB)).body).toEqual([]);
     expect(await store.getEntities(scopeKey, JOB)).toHaveLength(0);
   });
 
-  it('re-creating a retractable entity as non-retractable lets it survive a prune', async () => {
+  it('replacing an entity requires an explicit terminate-then-create', async () => {
     await store.createEntity(keyA, [new Fr(5n)], { blockNumber: 6, blockHash: new Fr(1n) }, JOB);
     await kv.transactionAsync(() => store.commit(JOB));
 
-    // Re-create the same entity without an origin block: it is now non-retractable and must survive reorgs.
-    const JOB2 = 'recreate-job';
-    await store.createEntity(keyA, [new Fr(5n)], undefined, JOB2);
+    // A plain re-create as non-retractable is a no-op; terminate-then-create replaces the entity for real.
+    const JOB2 = 'replace-job';
+    await store.terminateEntity(keyA, JOB2);
+    await store.createEntity(keyA, [new Fr(7n)], undefined, JOB2);
     await kv.transactionAsync(() => store.commit(JOB2));
 
     await kv.transactionAsync(() => store.rollback(5));
 
-    // Survived: the stale block-6 index entry was cleared when the entity was re-created.
+    // Survived: the replacement entity is non-retractable.
     const { body } = await store.getEntity(keyA, JOB);
-    expect(body.map(f => f.toBigInt())).toEqual([5n]);
+    expect(body.map(f => f.toBigInt())).toEqual([7n]);
     expect(entityIdsOf(await store.getEntities(scopeKey, JOB))).toEqual([corrA.toBigInt()]);
   });
 

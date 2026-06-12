@@ -68,6 +68,7 @@ export class EntityStore implements StagedStore {
   #entitiesByScope: AztecAsyncMultiMap<ScopeKeyStr, EntityIdStr>;
   /** Index for delete-on-prune (retractable facts only). */
   #factsByBlock: AztecAsyncMultiMap<BlockNum, FactKeyStr>;
+  // Martin: mmm, wonder if we can do something simpler with this
   /** Monotonic counter assigning each newly committed fact its creation-order sequence number. */
   #factSeq: AztecAsyncSingleton<number>;
 
@@ -90,14 +91,18 @@ export class EntityStore implements StagedStore {
   }
 
   /**
-   * Stages an entity record (with its own body and optional origin block) under the given job.
+   * Creates an entity.
    *
    * `originBlock === undefined` marks the entity non-retractable (it survives reorgs; only its own retractable facts
    * are pruned). A defined origin block marks the whole entity retractable: on a prune above its block, the entity and
    * all its facts are deleted.
    *
-   * The entity becomes immediately active, independently of whether it owns any facts. Re-creating an existing entity
-   * overwrites its record (body and origin block, last write wins) and keeps the facts it already owns.
+   * The entity becomes immediately active, independently of whether it owns any facts.
+   *
+   * Idempotent: creating an entity that already exists is a no-op (first write wins), keeping the existing body,
+   * origin block and facts. Keeping the earliest origin block makes retraction correct when the same entity is
+   * re-derived at a later block: it must survive while its first derivation block is canonical. To genuinely replace
+   * an entity, terminate and re-create it within the same job.
    */
   createEntity(key: EntityKey, body: Fr[], originBlock: OriginBlock | undefined, jobId: string): Promise<void> {
     return this.#withJobLock(jobId, () => {
@@ -120,9 +125,10 @@ export class EntityStore implements StagedStore {
    * `originBlock === undefined` marks the fact non-retractable (it survives reorgs); a defined origin block ties the
    * fact to a specific block and it will be deleted on prune.
    *
-   * Facts are returned in creation order by the read methods. Idempotent: duplicate (entity, factType, payload)
-   * tuples collapse to a single stored fact via the dedup fact key; a re-recorded fact keeps its original creation position
-   * while its origin block is updated (last write wins).
+   * Facts are returned in creation order by the read methods.
+   *
+   * Idempotent: re-recording an existing (entity, factType, payload) tuple is a no-op (first write wins), keeping
+   * the fact's origin block and creation position.
    */
   recordFact(
     key: EntityKey,
@@ -159,16 +165,17 @@ export class EntityStore implements StagedStore {
    *
    * The body comes from the entity record (empty when no entity record exists); the facts come from the per-entity
    * fact index. This job's staged ops are layered over committed state for read-your-writes: a createEntity sets the
-   * body, a record adds/dedups a fact, a terminate clears both body and facts.
+   * body if the entity is absent, a record adds a fact if absent, a terminate clears both body and facts.
    *
    * @param key - The key identifying the entity.
    * @param jobId - The job whose staged writes are layered over committed state.
    */
   async getEntity(key: EntityKey, jobId: string): Promise<{ body: Fr[]; facts: StoredFact[] }> {
     const eKey = entityKeyStrOf(key);
-    const { body, factsByKey } = await this.#store.transactionAsync(async () => {
+    const { exists, body, factsByKey } = await this.#store.transactionAsync(async () => {
       const entityBuf = await this.#entities.getAsync(eKey);
       return {
+        exists: entityBuf !== undefined,
         body: entityBuf ? StoredEntity.fromBuffer(entityBuf).body : [],
         factsByKey: await this.#loadCommittedFacts(eKey),
       };
@@ -177,16 +184,19 @@ export class EntityStore implements StagedStore {
     // both replays at the same position in the op sequence), so replaying them separately is equivalent to a single
     // in-order replay.
     this.#replayFactOps(factsByKey, eKey, jobId);
+    let currentExists = exists;
     let currentBody = body;
     for (const op of this.#stagedOps(jobId)) {
       switch (op.kind) {
         case 'createEntity':
-          if (entityKeyStrOf(op.entity) === eKey) {
+          if (!currentExists && entityKeyStrOf(op.entity) === eKey) {
+            currentExists = true;
             currentBody = op.entity.body;
           }
           break;
         case 'terminate':
           if (entityKeyStrOf(op.key) === eKey) {
+            currentExists = false;
             currentBody = [];
           }
           break;
@@ -203,7 +213,7 @@ export class EntityStore implements StagedStore {
    * entity owns any facts.
    *
    * This job's staged ops are layered over committed state for read-your-writes: a createEntity activates the entity
-   * (keeping any facts it already owns), a record adds/dedups a fact, a terminate deactivates the entity.
+   * if absent (keeping any facts it already owns), a record adds a fact if absent, a terminate deactivates the entity.
    */
   async getEntities(scopeKey: ScopeKey, jobId: string): Promise<{ entity: StoredEntity; facts: StoredFact[] }[]> {
     const sKey = scopeKeyStrOf(scopeKey);
@@ -256,11 +266,13 @@ export class EntityStore implements StagedStore {
     }
     for (const op of this.#stagedOps(jobId)) {
       switch (op.kind) {
-        case 'createEntity':
-          if (scopeKeyStrOf(op.entity) === sKey) {
-            entities.get(op.entity.entityId.toString())!.entity = op.entity;
+        case 'createEntity': {
+          const e = scopeKeyStrOf(op.entity) === sKey ? entities.get(op.entity.entityId.toString()) : undefined;
+          if (e && e.entity === undefined) {
+            e.entity = op.entity;
           }
           break;
+        }
         case 'terminate': {
           const e = scopeKeyStrOf(op.key) === sKey ? entities.get(op.key.entityId.toString()) : undefined;
           if (e) {
@@ -290,15 +302,13 @@ export class EntityStore implements StagedStore {
         case 'createEntity': {
           const entity = op.entity;
           const eKey = entityKeyStrOf(entity);
-          // Re-creating an entity may change or drop its origin block; clear any stale by-block index entry from the
-          // record first, so a later prune can neither double-visit this entity (and throw) nor wrongly delete one
-          // that has since become non-retractable.
-          const priorBuf = await this.#entities.getAsync(eKey);
-          if (priorBuf) {
-            const prior = StoredEntity.fromBuffer(priorBuf);
-            if (prior.originBlock !== undefined) {
-              await this.#entitiesByBlock.deleteValue(prior.originBlock.blockNumber, eKey);
-            }
+          // Idempotent: creating an existing entity is a no-op (first write wins). Keeping the earliest origin block
+          // is what makes retraction correct: the entity must survive while its first derivation block is canonical.
+          // A welcome side effect is that an entity's record never changes in place, so the by-block index can never
+          // go stale.
+          if (await this.#entities.hasAsync(eKey)) {
+            this.logger.debug(`Ignoring createEntity for an already existing entity`, { entityKey: eKey, jobId });
+            break;
           }
           await this.#entities.set(eKey, entity.toBuffer());
           await this.#entitiesByScope.set(scopeKeyStrOf(entity), entity.entityId.toString());
@@ -310,19 +320,13 @@ export class EntityStore implements StagedStore {
         case 'record': {
           const fact = op.fact;
           const fKey = factKeyStrOf(fact);
-          // Re-recording a fact may change or drop its origin block; keep its original sequence number (so it keeps
-          // its creation position) and clear any stale by-block index entry, mirroring the createEntity guard above.
-          const priorBuf = await this.#facts.getAsync(fKey);
-          let seq: number;
-          if (priorBuf) {
-            const prior = deserializeFact(priorBuf);
-            seq = prior.seq;
-            if (prior.fact.originBlock !== undefined) {
-              await this.#factsByBlock.deleteValue(prior.fact.originBlock.blockNumber, fKey);
-            }
-          } else {
-            seq = await this.#nextFactSeq();
+          // Idempotent: re-recording an existing fact is a no-op (first write wins), mirroring createEntity above.
+          // The fact keeps its earliest origin block and its original creation position.
+          if (await this.#facts.hasAsync(fKey)) {
+            this.logger.debug(`Ignoring already recorded fact`, { factKey: fKey, jobId });
+            break;
           }
+          const seq = await this.#nextFactSeq();
           await this.#facts.set(fKey, serializeFact(seq, fact));
           await this.#factsByEntity.set(entityKeyStrOf(fact), fKey);
           if (fact.originBlock !== undefined) {
@@ -439,15 +443,15 @@ export class EntityStore implements StagedStore {
   }
 
   /**
-   * Replays a job's staged ops over a committed fact map for read-your-writes: a record sets (dedups) a fact, a
-   * terminate clears the entity's facts. Order matters so a terminate-then-record sequence resolves to the re-recorded
-   * fact. createEntity ops do not affect the fact set.
+   * Replays a job's staged ops over a committed fact map for read-your-writes: a record adds a fact if absent
+   * (re-records are no-ops, mirroring commit), a terminate clears the entity's facts. Order matters so a
+   * terminate-then-record sequence resolves to the re-recorded fact. createEntity ops do not affect the fact set.
    */
   #replayFactOps(factsByKey: Map<FactKeyStr, StoredFact>, eKey: EntityKeyStr, jobId: string): void {
     for (const op of this.#stagedOps(jobId)) {
       switch (op.kind) {
         case 'record':
-          if (entityKeyStrOf(op.fact) === eKey) {
+          if (entityKeyStrOf(op.fact) === eKey && !factsByKey.has(factKeyStrOf(op.fact))) {
             factsByKey.set(factKeyStrOf(op.fact), op.fact);
           }
           break;
