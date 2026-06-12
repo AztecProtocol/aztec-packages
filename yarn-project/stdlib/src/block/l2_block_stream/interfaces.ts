@@ -90,4 +90,11 @@ export type L2BlockStreamEvent =
 
 export type L2TipsStore = L2BlockStreamEventHandler &
   L2TipsProvider &
-  Pick<L2BlockStreamLocalDataProvider, 'getL2BlockHash'>;
+  Pick<L2BlockStreamLocalDataProvider, 'getL2BlockHash'> & {
+    /**
+     * Records `(number → hash)` witnesses into the walk-back hash index without moving any tip cursor. Consumers that
+     * materialize per-height state should record a witness for each height they materialize, so a reorg below the
+     * nearest sparse anchor does not produce an over-deep prune event. See {@link L2TipsStoreBase.recordBlockHashes}.
+     */
+    recordBlockHashes(blocks: L2BlockId[]): Promise<void>;
+  };

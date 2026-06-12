@@ -1422,6 +1422,56 @@ describe('L2BlockStream', () => {
       expect(await store.getL2BlockHash(BlockNumber(3))).toBeUndefined();
     });
   });
+
+  describe('tips-only prune depth vs recorded witnesses', () => {
+    // Shrunk version of the over-deep example: synced sparse anchors at 8 and 10 (the "80 and 100"), reorg to 9 (the
+    // "90"). The walk-back rolls back to the nearest recorded hash at or below the true divergence, so without a
+    // witness at 9 it overshoots to the older anchor at 8; recording a witness at 9 lands the prune exactly there.
+    const syncSparseAnchors = async (store: TestL2TipsMemoryStore, handler: TestL2BlockStreamEventHandler) => {
+      const stream = new TestL2BlockStream(blockSource, store, handler, undefined, { tipsOnly: true });
+      for (const tip of [8, 10]) {
+        setRemoteTips(tip);
+        await stream.work();
+      }
+      handler.clearEvents();
+      return stream;
+    };
+
+    it('prunes over-deep to the older anchor when no witness covers the divergence', async () => {
+      const store = new TestL2TipsMemoryStore();
+      const handler = new TestL2BlockStreamEventHandler(store);
+      const stream = await syncSparseAnchors(store, handler);
+
+      // Reorg drops the proposed tip to 9: the source still serves blocks 1-9 (matching hashes) but no longer serves
+      // 10. With sparse history (anchors only at 8 and 10), the walk-back finds no recorded hash at 9 and overshoots
+      // to the anchor at 8.
+      setRemoteTips(9);
+      await stream.work();
+
+      const prune = handler.events.find(
+        (e): e is Extract<L2BlockStreamEvent, { type: 'chain-pruned' }> => e.type === 'chain-pruned',
+      );
+      expect(prune!.block.number).toBe(8);
+    });
+
+    it('prunes exactly to the divergence when a witness covers it', async () => {
+      const store = new TestL2TipsMemoryStore();
+      const handler = new TestL2BlockStreamEventHandler(store);
+      const stream = await syncSparseAnchors(store, handler);
+
+      // A consumer that materialized per-height state at 9 records a witness there before the reorg.
+      await store.recordBlockHashes([{ number: BlockNumber(9), hash: makeHash(9) }]);
+
+      // Same reorg to 9: now the walk-back finds the recorded hash at 9 (matching the source) and stops there.
+      setRemoteTips(9);
+      await stream.work();
+
+      const prune = handler.events.find(
+        (e): e is Extract<L2BlockStreamEvent, { type: 'chain-pruned' }> => e.type === 'chain-pruned',
+      );
+      expect(prune!.block.number).toBe(9);
+    });
+  });
 });
 
 /** Collapses runs of identical adjacent items into one, so a batched event run (e.g. blocks-added) counts once. */

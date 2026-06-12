@@ -76,6 +76,25 @@ export abstract class L2TipsStoreBase implements L2BlockStreamEventHandler, L2Bl
     });
   }
 
+  /**
+   * Records `(number → hash)` witnesses into the block-hash index without moving any tip cursor. Entries with no hash
+   * are skipped. In tips-only mode the stream never delivers blocks, so the hash history is sparse — one anchor per
+   * tip-moving poll. The reorg walk-back rolls back to the nearest recorded hash at or below the true divergence, so
+   * a consumer that materializes per-height state (e.g. a per-block index) should record a witness for every height it
+   * materializes: otherwise a reorg below the nearest anchor produces a prune event that is over-deep by the gap to
+   * that anchor (it reports more pruned blocks than were actually rolled back). Recording witnesses does not change
+   * which fork the store believes it is on — only a tip event moves a cursor — so this is always safe to call.
+   */
+  public async recordBlockHashes(blocks: L2BlockId[]): Promise<void> {
+    await this.runInTransaction(async () => {
+      for (const block of blocks) {
+        if (block.hash) {
+          await this.setBlockHash(block.number, block.hash);
+        }
+      }
+    });
+  }
+
   public async handleBlockStreamEvent(event: L2BlockStreamEvent): Promise<void> {
     switch (event.type) {
       case 'blocks-added':
