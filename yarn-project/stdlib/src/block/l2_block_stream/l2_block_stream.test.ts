@@ -61,14 +61,7 @@ describe('L2BlockStream', () => {
   });
 
   /** Sets the remote tips. All tips default to 0 except latest. */
-  const setRemoteTips = (
-    latest_: number,
-    checkpointed_?: number,
-    proven?: number,
-    finalized?: number,
-    proposedCheckpoint_?: number,
-  ) => {
-    proposedCheckpoint_ = proposedCheckpoint_ ?? 0;
+  const setRemoteTips = (latest_: number, checkpointed_?: number, proven?: number, finalized?: number) => {
     checkpointed_ = checkpointed_ ?? 0;
     proven = proven ?? 0;
     finalized = finalized ?? 0;
@@ -77,7 +70,6 @@ describe('L2BlockStream', () => {
     blockSource.getL2Tips.mockResolvedValue({
       proposed: { number: BlockNumber(latest), hash: makeHash(latest) },
       checkpointed: makeTipId(checkpointed_),
-      proposedCheckpoint: makeTipId(proposedCheckpoint_),
       proven: makeTipId(proven),
       finalized: makeTipId(finalized),
     });

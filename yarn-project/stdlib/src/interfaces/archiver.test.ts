@@ -153,7 +153,6 @@ describe('ArchiverApiSchema', () => {
     expect(result).toEqual({
       proposed: { number: 1, hash: `0x01` },
       checkpointed: expectedTipId,
-      proposedCheckpoint: expectedTipId,
       proven: expectedTipId,
       finalized: expectedTipId,
     });
@@ -477,7 +476,6 @@ class MockArchiver implements ArchiverApi {
     return Promise.resolve({
       proposed: { number: BlockNumber(1), hash: `0x01` },
       checkpointed: tipId,
-      proposedCheckpoint: tipId,
       proven: tipId,
       finalized: tipId,
     });

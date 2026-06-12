@@ -70,6 +70,7 @@ import {
   type CommitteeAttestation,
   type DataInBlock,
   type L2BlockSource,
+  type L2BlockTag,
   type L2Tips,
   type NormalizedBlockParameter,
   inspectBlockParameter,
@@ -98,11 +99,10 @@ import type {
   BlockIncludeOptions,
   BlockResponse,
   BlocksIncludeOptions,
-  ChainTip,
-  ChainTips,
   CheckpointIncludeOptions,
   CheckpointParameter,
   CheckpointResponse,
+  CheckpointTag,
   GetTxByHashOptions,
   PeerInfo,
   ProposalsForSlot,
@@ -249,9 +249,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     return status.syncSummary;
   }
 
-  public async getChainTips(): Promise<ChainTips> {
-    const { proposed, checkpointed, proven, finalized } = await this.blockSource.getL2Tips();
-    return { proposed, checkpointed, proven, finalized };
+  public getChainTips(): Promise<L2Tips> {
+    return this.blockSource.getL2Tips();
   }
 
   public getL1Constants() {
@@ -274,21 +273,19 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     return this.blockSource.getCheckpointsData(query);
   }
 
-  public async getBlockNumber(tip?: ChainTip): Promise<BlockNumber> {
+  public async getBlockNumber(tip?: L2BlockTag): Promise<BlockNumber> {
     if (tip === undefined || tip === 'proposed') {
       return this.blockSource.getBlockNumber();
     }
     return (await this.blockSource.getBlockNumber({ tag: tip })) ?? BlockNumber.ZERO;
   }
 
-  public async getCheckpointNumber(tip?: ChainTip): Promise<CheckpointNumber> {
+  public async getCheckpointNumber(tip?: CheckpointTag): Promise<CheckpointNumber> {
     const tips = await this.blockSource.getL2Tips();
     switch (tip) {
       case undefined:
       case 'checkpointed':
         return tips.checkpointed.checkpoint.number;
-      case 'proposed':
-        return tips.proposedCheckpoint.checkpoint.number;
       case 'proven':
         return tips.proven.checkpoint.number;
       case 'finalized':
@@ -296,8 +293,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     }
   }
 
-  private isChainTip(value: unknown): value is ChainTip {
-    return value === 'proposed' || value === 'checkpointed' || value === 'proven' || value === 'finalized';
+  private isCheckpointTag(value: unknown): value is CheckpointTag {
+    return value === 'checkpointed' || value === 'proven' || value === 'finalized';
   }
 
   /**
@@ -345,10 +342,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   /**
    * Resolves a {@link CheckpointParameter} into a concrete `{ number }` or `{ slot }` query.
    *
-   * Tag-based parameters (`'proposed'`, `'checkpointed'`, `'proven'`, `'finalized'`) are
-   * translated up-front to the corresponding tip's checkpoint number via {@link L2BlockSource.getL2Tips}.
-   * After resolution the unified {@link getCheckpoint} flow can perform a single
-   * confirmed→proposed lookup against either store.
+   * Tag-based parameters (`'checkpointed'`, `'proven'`, `'finalized'`) are translated up-front to the
+   * corresponding tip's checkpoint number via {@link L2BlockSource.getL2Tips}. After resolution the
+   * unified {@link getCheckpoint} flow can perform a single confirmed→proposed lookup against either
+   * store.
    */
   private async resolveCheckpointParameter(
     param: CheckpointParameter,
@@ -356,11 +353,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     if (typeof param === 'number') {
       return { number: param as CheckpointNumber };
     }
-    if (this.isChainTip(param)) {
+    if (this.isCheckpointTag(param)) {
       const tips = await this.blockSource.getL2Tips();
       switch (param) {
-        case 'proposed':
-          return { number: tips.proposedCheckpoint.checkpoint.number };
         case 'checkpointed':
           return { number: tips.checkpointed.checkpoint.number };
         case 'proven':
@@ -1666,19 +1661,27 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     const coinbase = EthAddress.ZERO;
     const feeRecipient = AztecAddress.ZERO;
 
+    // Resolve the proposed-checkpoint frontier (latest proposed checkpoint, which leads the
+    // checkpointed tip, falling back to the checkpointed tip when none exists). The proposed payload
+    // carries its header slot, so no extra block fetch is needed to derive the slot.
+    const proposedCheckpoint = await this.blockSource.getProposedCheckpointData();
+    const proposedCheckpointBlockNumber = proposedCheckpoint
+      ? BlockNumber(proposedCheckpoint.startBlock + proposedCheckpoint.blockCount - 1)
+      : l2Tips.checkpointed.block.number;
+    const proposedCheckpointNumber = proposedCheckpoint?.checkpointNumber ?? l2Tips.checkpointed.checkpoint.number;
+
     // Define the slot for simulation as the max of the next L1 timestamp slot, the slot after the proposed
     // checkpoint, and the latest proposed block's slot.
-    const proposedCheckpointBlockData = await this.blockSource.getBlockData({
-      number: l2Tips.proposedCheckpoint.block.number,
-    });
-    const proposedCheckpointSlot = proposedCheckpointBlockData?.header.getSlot();
+    const proposedCheckpointSlot =
+      proposedCheckpoint?.header.slotNumber ??
+      (await this.blockSource.getBlockData({ number: proposedCheckpointBlockNumber }))?.header.getSlot();
     let slotAfterProposedCheckpoint: SlotNumber | undefined;
     if (proposedCheckpointSlot !== undefined) {
       slotAfterProposedCheckpoint = SlotNumber.fromBigInt(BigInt(proposedCheckpointSlot) + 1n);
     }
 
     let latestProposedBlockSlot: SlotNumber | undefined;
-    if (l2Tips.proposed.number > l2Tips.proposedCheckpoint.block.number) {
+    if (l2Tips.proposed.number > proposedCheckpointBlockNumber) {
       latestProposedBlockSlot = (
         await this.blockSource.getBlockData({ number: l2Tips.proposed.number })
       )?.header.getSlot();
@@ -1715,11 +1718,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     // the world state tree so simulation can take them into account. We detect if the next block would
     // start a new checkpoint by checking if the proposed checkpoint's block number matches the latest block number,
     // which means the next block would be the first block of the next checkpoint.
-    const targetCheckpoint = CheckpointNumber(
-      (l2Tips.proposedCheckpoint.checkpoint.number ?? CheckpointNumber.ZERO) + 1,
-    );
+    const targetCheckpoint = CheckpointNumber(proposedCheckpointNumber + 1);
     const nextCheckpointMessages: Fr[] | undefined =
-      l2Tips.proposedCheckpoint.block.number === l2Tips.proposed.number
+      proposedCheckpointBlockNumber === l2Tips.proposed.number
         ? await this.l1ToL2MessageSource.getL1ToL2Messages(targetCheckpoint).catch(err => {
             if (isErrorClass(err, L1ToL2MessagesNotReadyError)) {
               this.log.warn(
@@ -1741,7 +1742,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     if (nextCheckpointMessages !== undefined) {
       this.log.debug(
         `Appending ${nextCheckpointMessages.length} L1-to-L2 messages to the world state tree for the next checkpoint`,
-        { checkpointNumber: l2Tips.proposedCheckpoint.checkpoint.number + 1 },
+        { checkpointNumber: targetCheckpoint },
       );
       await appendL1ToL2MessagesToTree(merkleTreeFork, nextCheckpointMessages);
     }

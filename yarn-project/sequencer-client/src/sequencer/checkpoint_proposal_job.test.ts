@@ -258,10 +258,6 @@ describe('CheckpointProposalJob', () => {
         block: { number: BlockNumber.ZERO, hash: 'block-hash' },
         checkpoint: { number: CheckpointNumber.ZERO, hash: 'checkpointed-ckpt-hash' },
       },
-      proposedCheckpoint: {
-        block: { number: BlockNumber.ZERO, hash: 'block-hash' },
-        checkpoint: { number: CheckpointNumber.ZERO, hash: 'proposed-ckpt-hash' },
-      },
       proven: {
         block: { number: BlockNumber.ZERO, hash: 'proven-hash' },
         checkpoint: { number: CheckpointNumber.ZERO, hash: 'proven-ckpt-hash' },
@@ -1092,10 +1088,6 @@ describe('CheckpointProposalJob', () => {
             number: opts.checkpointedNumber ?? CheckpointNumber(1),
             hash: opts.checkpointedHash ?? parentCheckpointHash,
           },
-        },
-        proposedCheckpoint: {
-          block: { number: BlockNumber(1), hash: 'block-hash' },
-          checkpoint: { number: CheckpointNumber(1), hash: parentCheckpointHash },
         },
         proven: {
           block: { number: BlockNumber.ZERO, hash: 'proven-hash' },
