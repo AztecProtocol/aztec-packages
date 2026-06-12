@@ -20,7 +20,7 @@ unconstrained fn test_custom_sync_hook_is_called() {
     assert_eq(count, 1);
 
     // Reading the note via a utility function triggers another sync
-    let result = env.execute_utility(owner, target.read_value(owner));
+    let result = env.execute_utility(target.read_value(owner));
 
     let count = get_sync_count(env, contract_address, owner);
     assert_eq(count, 2);

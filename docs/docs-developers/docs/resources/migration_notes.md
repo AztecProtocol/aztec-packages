@@ -15,18 +15,15 @@ Utility functions can read their caller via `self.msg_sender()`, mirroring priva
 
 This change has several parts:
 
-#### [Aztec.nr] `TestEnvironment::execute_utility` takes a leading `from`
+#### [Aztec.nr] `ExecuteUtilityOptions` gains `with_from` to set the observed `msg_sender`
 
-`execute_utility` and `execute_utility_opts` now take a positional `from: AztecAddress` as their first argument, mirroring `call_private(from, call)`. The `from` address becomes the utility's observed `msg_sender`.
+To set the `msg_sender` a utility function observes (by default it observes no caller), use `execute_utility_opts` with the new `ExecuteUtilityOptions::with_from` builder method:
 
-**Migration:**
-
-```diff
-- env.execute_utility(target.read_value(owner))
-+ env.execute_utility(owner, target.read_value(owner))
-
-- env.execute_utility_opts(opts, call)
-+ env.execute_utility_opts(from, opts, call)
+```rust
+let secret = env.execute_utility_opts(
+    ExecuteUtilityOptions::new().with_from(caller),
+    Registry::at(registry_address).get_app_siloed_secret(sender, recipient, mode),
+);
 ```
 
 #### [Aztec.js] Simulating a utility with `from` sets its top-level `msg_sender`

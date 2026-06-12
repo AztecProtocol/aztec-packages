@@ -148,11 +148,10 @@ mod test {
     #[test]
     unconstrained fn transient_arrays_are_shared_across_nested_utility_frames() {
         let mut env = TestEnvironment::new();
-        let caller = env.create_light_account();
 
         let parent_address = env.deploy("TransientParent").without_initializer();
 
-        let result: [Field; 4] = env.execute_utility(caller, TransientParent::at(parent_address).sharing_via_utility());
+        let result: [Field; 4] = env.execute_utility(TransientParent::at(parent_address).sharing_via_utility());
 
         // The nested same-contract utility frame's push is visible: length 3, values [100, 200, 300].
         assert_eq(result[0], 3, "shared transient array length should be 3");

@@ -69,18 +69,12 @@ unconstrained fn add_liquidity_twice_and_remove_liquidity() {
     assert_eq(env.view_public(token1.balance_of_public(amm_address)), initial_amount1 + expected_amount_1_in);
 
     // Liquidity provider 2 should have 0 token0 and the refund amount of token1
-    assert_eq(env.execute_utility(liquidity_provider_2, token0.balance_of_private(liquidity_provider_2)), 0);
-    assert_eq(
-        env.execute_utility(liquidity_provider_2, token1.balance_of_private(liquidity_provider_2)),
-        expected_refund_amount1,
-    );
+    assert_eq(env.execute_utility(token0.balance_of_private(liquidity_provider_2)), 0);
+    assert_eq(env.execute_utility(token1.balance_of_private(liquidity_provider_2)), expected_refund_amount1);
 
     // Check liquidity provider 2 received liquidity tokens proportional to their contribution
     let expected_liquidity_tokens = (expected_amount_0_in * initial_liquidity_token_supply) / initial_amount0;
-    assert_eq(
-        env.execute_utility(liquidity_provider_2, liquidity_token.balance_of_private(liquidity_provider_2)),
-        expected_liquidity_tokens,
-    );
+    assert_eq(env.execute_utility(liquidity_token.balance_of_private(liquidity_provider_2)), expected_liquidity_tokens);
 
     // REMOVING LIQUIDITY
     let liquidity_to_remove = AMM::INITIAL_LIQUIDITY / 2;
@@ -100,18 +94,12 @@ unconstrained fn add_liquidity_twice_and_remove_liquidity() {
     // Verify liquidity provider 1 got tokens back (proportional to liquidity burned)
     let expected_token0_back = (liquidity_to_remove * initial_amount0) / initial_liquidity_token_supply;
     let expected_token1_back = (liquidity_to_remove * initial_amount1) / initial_liquidity_token_supply;
-    assert_eq(
-        env.execute_utility(liquidity_provider_1, token0.balance_of_private(liquidity_provider_1)),
-        expected_token0_back,
-    );
-    assert_eq(
-        env.execute_utility(liquidity_provider_1, token1.balance_of_private(liquidity_provider_1)),
-        expected_token1_back,
-    );
+    assert_eq(env.execute_utility(token0.balance_of_private(liquidity_provider_1)), expected_token0_back);
+    assert_eq(env.execute_utility(token1.balance_of_private(liquidity_provider_1)), expected_token1_back);
 
     // Check remaining liquidity tokens
     assert_eq(
-        env.execute_utility(liquidity_provider_1, liquidity_token.balance_of_private(liquidity_provider_1)),
+        env.execute_utility(liquidity_token.balance_of_private(liquidity_provider_1)),
         // The expected remaining liquidity is the other half of the initial liquidity.
         AMM::INITIAL_LIQUIDITY / 2,
     );
@@ -165,9 +153,9 @@ unconstrained fn swap_exact_tokens_for_tokens() {
     );
 
     // Verify swap occurred - all of input tokens should be spent and hence the swapper should have 0 token0 balance.
-    assert_eq(env.execute_utility(swapper, token0.balance_of_private(swapper)), 0);
+    assert_eq(env.execute_utility(token0.balance_of_private(swapper)), 0);
     // The exact amount out depends on the AMM formula, but should be > amount_out_min
-    assert(env.execute_utility(swapper, token1.balance_of_private(swapper)) >= amount_out_min);
+    assert(env.execute_utility(token1.balance_of_private(swapper)) >= amount_out_min);
 }
 
 #[test]
@@ -219,9 +207,9 @@ unconstrained fn swap_tokens_for_exact_tokens() {
     );
 
     // Verify swap occurred - should get exact amount out
-    assert_eq(env.execute_utility(swapper, token1.balance_of_private(swapper)), amount_out);
+    assert_eq(env.execute_utility(token1.balance_of_private(swapper)), amount_out);
     // Should have some token0 change returned
-    let swapper_token0_balance = env.execute_utility(swapper, token0.balance_of_private(swapper));
+    let swapper_token0_balance = env.execute_utility(token0.balance_of_private(swapper));
     assert(swapper_token0_balance > 0);
     assert(swapper_token0_balance < amount_in_max);
 }

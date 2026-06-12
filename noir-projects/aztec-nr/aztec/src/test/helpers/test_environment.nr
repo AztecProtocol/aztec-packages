@@ -1,7 +1,7 @@
 use crate::protocol::{
     abis::{function_selector::FunctionSelector, gas::Gas, gas_fees::GasFees, gas_settings::GasSettings},
     address::AztecAddress,
-    constants::{MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, MAX_PROCESSABLE_L2_GAS},
+    constants::{MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, MAX_PROCESSABLE_L2_GAS, NULL_MSG_SENDER_CONTRACT_ADDRESS},
     traits::{Deserialize, Empty, FromField, Packable, Serialize},
 };
 
@@ -385,32 +385,41 @@ struct EventDiscoveryOptions {
 ///
 /// ```noir
 /// env.execute_utility_opts(
-///     caller,
-///     ExecuteUtilityOptions::new().with_authorized_utility_call_targets([target]),
+///     ExecuteUtilityOptions::new().with_from(caller).with_authorized_utility_call_targets([target]),
 ///     SomeContract::at(addr).some_utility_function(),
 /// );
 /// ```
 pub struct ExecuteUtilityOptions<let T: u32> {
+    from: Option<AztecAddress>,
     authorized_utility_call_targets: [AztecAddress; T],
 }
 
 impl ExecuteUtilityOptions<0> {
     /// Creates default `ExecuteUtilityOptions`.
     pub fn new() -> Self {
-        ExecuteUtilityOptions { authorized_utility_call_targets: [] }
+        ExecuteUtilityOptions { from: Option::none(), authorized_utility_call_targets: [] }
     }
 }
 
 impl<let T: u32> ExecuteUtilityOptions<T> {
+    /// Sets the `msg_sender` observed by the called utility function, mirroring the `from` address a dapp supplies
+    /// when simulating a utility call.
+    ///
+    /// By default no `from` is set and the called function observes no caller.
+    pub fn with_from(&mut self, from: AztecAddress) -> Self {
+        self.from = Option::some(from);
+        *self
+    }
+
     /// Authorizes cross-contract utility calls to given targets.
     ///
     /// By default, cross-contract utility calls are denied. This method lets the test author specify which target
     /// contracts are allowed to be called via utility functions during execution.
     pub fn with_authorized_utility_call_targets<let T_2: u32>(
-        _self: Self,
+        self: Self,
         targets: [AztecAddress; T_2],
     ) -> ExecuteUtilityOptions<T_2> {
-        ExecuteUtilityOptions { authorized_utility_call_targets: targets }
+        ExecuteUtilityOptions { from: self.from, authorized_utility_call_targets: targets }
     }
 }
 
@@ -1024,32 +1033,27 @@ impl TestEnvironment {
 
     /// Performs a utility contract function call and returns the result of the called function.
     ///
-    /// `from` sets the `msg_sender` observed by the called utility function, mirroring the `from` address a dapp
-    /// supplies when simulating a utility call.
+    /// The called function observes no caller ([`maybe_msg_sender()`](crate::context::UtilityContext::maybe_msg_sender)
+    /// returns `Option::none`). To set the `msg_sender`
+    /// it observes, use [`TestEnvironment::execute_utility_opts`] with [`ExecuteUtilityOptions::with_from`].
     ///
     /// The `call` value can be obtained by calling the appropriate method on a contract type. E.g.:
     ///
     /// ```noir
-    /// let caller = env.create_light_account();
     /// let contract_addr = env.deploy("SampleContract").without_initializer();
-    /// let return_value = env.execute_utility(caller, SampleContract::at(contract_addr).sample_utility_function());
+    /// let return_value = env.execute_utility(SampleContract::at(contract_addr).sample_utility_function());
     /// ```
-    pub unconstrained fn execute_utility<let M: u32, let N: u32, T>(
-        self: Self,
-        from: AztecAddress,
-        call: UtilityCall<M, N, T>,
-    ) -> T
+    pub unconstrained fn execute_utility<let M: u32, let N: u32, T>(self: Self, call: UtilityCall<M, N, T>) -> T
     where
         T: Deserialize,
     {
-        self.execute_utility_opts(from, ExecuteUtilityOptions::new(), call)
+        self.execute_utility_opts(ExecuteUtilityOptions::new(), call)
     }
 
     /// Variant of `execute_utility` which allows specifying configuration values via `ExecuteUtilityOptions`, such as
-    /// authorizing cross-contract utility calls.
+    /// the `msg_sender` observed by the called function or authorizing cross-contract utility calls.
     pub unconstrained fn execute_utility_opts<let M: u32, let N: u32, let U: u32, T>(
         _self: Self,
-        from: AztecAddress,
         opts: ExecuteUtilityOptions<U>,
         call: UtilityCall<M, N, T>,
     ) -> T
@@ -1057,7 +1061,7 @@ impl TestEnvironment {
         T: Deserialize,
     {
         let serialized_return_values = txe_oracles::execute_utility_function(
-            from,
+            opts.from.unwrap_or(NULL_MSG_SENDER_CONTRACT_ADDRESS),
             call.target_contract,
             call.selector,
             call.args,
@@ -1091,7 +1095,7 @@ impl TestEnvironment {
     /// let messages = env.offchain_messages();
     /// let mut batch: BoundedVec<_, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL> = BoundedVec::new();
     /// for i in 0..messages.len() { batch.push(messages.get(i)); }
-    /// env.execute_utility(recipient, Token::at(token).offchain_receive(batch));
+    /// env.execute_utility(Token::at(token).offchain_receive(batch));
     /// ```
     pub unconstrained fn offchain_messages(
         _self: Self,

@@ -72,10 +72,7 @@ pub unconstrained fn check_private_balance(
     address: AztecAddress,
     address_amount: u128,
 ) {
-    assert_eq(
-        env.execute_utility(address, Token::at(token_contract_address).balance_of_private(address)),
-        address_amount,
-    );
+    assert_eq(env.execute_utility(Token::at(token_contract_address).balance_of_private(address)), address_amount);
 }
 
 // While authwits authorize a contract to perform an action, spending private notes still requires

@@ -29,7 +29,7 @@ unconstrained fn transfer_in_private_with_offchain_delivery_updates_both_balance
     for i in 0..messages.len() {
         batch.push(messages.get(i));
     }
-    env.execute_utility(recipient, Token::at(token_contract_address).offchain_receive(batch));
+    env.execute_utility(Token::at(token_contract_address).offchain_receive(batch));
 
     utils::check_private_balance(
         env,

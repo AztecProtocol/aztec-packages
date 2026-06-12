@@ -65,6 +65,9 @@ impl<Storage, CallSelf> ContractSelfUtility<Storage, CallSelf> {
     /// panics.
     ///
     /// If you need to handle these cases, use [`UtilityContext::maybe_msg_sender`].
+    ///
+    /// Note that utility functions are simulated client-side and never proven, so this value is unconstrained: see
+    /// [`UtilityContext::maybe_msg_sender`] for why it must not be relied on as a security guarantee.
     pub fn msg_sender(self) -> AztecAddress {
         self.context.maybe_msg_sender().expect(
             f"msg_sender() called on a top-level utility with no caller; use maybe_msg_sender() instead",
