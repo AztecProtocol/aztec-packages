@@ -5143,8 +5143,10 @@ const PTREE_S: u32 = {{ ptree_s }}u;
 const PTREE_TPB: u32 = {{ ptree_tpb }}u;
 const PTREE_FIN_TPB: u32 = {{ ptree_fin_tpb }}u;
 const PTREE_FIN_SN: u32 = {{ ptree_fin_sn }}u;
-// Survivor scratch capacity (96 B Jacobian slots in the 1 MB region).
-const PTREE_SURV_SLOTS: u32 = 10240u;
+// Survivor scratch capacity (96 B Jacobian slots), baked from the host's
+// ptreeSurvLayout(M): always >= the k*=LEVELS+1 worst case (2·cap_bin +
+// mass chunks), so the scratch-fit loop below can never terminate unfit.
+const PTREE_SURV_SLOTS: u32 = {{ ptree_surv_slots }}u;
 
 fn ptree_pairs_k(n: u32, k: u32) -> u32 {
     let half = 1u << (k - 1u);

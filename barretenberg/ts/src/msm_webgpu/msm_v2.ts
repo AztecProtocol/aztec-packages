@@ -100,6 +100,21 @@ const PTREE_FIN_SN = 1;
 // sizing AND the finalize kernel's own TPB — a mismatch silently skips (or
 // double-runs) survivors, exactly like a FIN_SN mismatch.
 const PTREE_FIN_TPB = 256;
+// Survivor-scratch sizing for an instance with M partials. The epilogue's
+// scratch-fit loop must ALWAYS terminate fit: the worst case is the
+// k* = LEVELS+1 fallthrough (stride 2^LEVELS), where survivors = cap_bin,
+// and the deep pipeline adds <= cap_bin + cap_mass/(2^LEVELS·512) chunk
+// slots, with cap_bin <= M/63 (every cap bucket holds >= 63 partials) and
+// cap_mass <= M. M is residency-fit per DEVICE (not per N) — 2·sT·sS —
+// so this only grows past the 1 MB floor on GPUs with M ≳ 340K. One
+// Jacobian slot = 96 B. The slots value is BAKED into the epilogue shader
+// (PTREE_SURV_SLOTS) and must match the region carved in prepare().
+const ptreeSurvLayout = (M: number): { bytes: number; slots: number } => {
+  const capBinMax = Math.floor(M / 63);
+  const worstSlots = 2 * capBinMax + Math.floor(M / ((1 << PTREE_LEVELS) * 512)) + 65;
+  const bytes = Math.max(1024 * 1024, Math.ceil((worstSlots * 96) / 4096) * 4096);
+  return { bytes, slots: Math.floor(bytes / 96) };
+};
 // Slots per level-kernel thread (A/B'd: 16 flat on M4).
 const PTREE_S = 8;
 
@@ -2219,6 +2234,10 @@ export class MsmV2 {
   private ptreeArgsBuf: GPUBuffer | null = null;
   private ptreeMetaRegion!: GPUBufferBinding;
   private ptreeM = 0; // bind-time M_partials (desc planes + checker)
+  // Set when the epilogue compiles (slots baked into PTREE_SURV_SLOTS);
+  // prepare() carves the matching region and cross-checks against its M.
+  private ptreeSurvSlots = 0;
+  private ptreeSurvBytes = 0;
   private ptInitScanPipe!: GPUComputePipeline;
   private ptInitScanLayout!: GPUBindGroupLayout;
   private ptInitScanBind!: GPUBindGroup;
@@ -3364,6 +3383,9 @@ export class MsmV2 {
     }
     m.ptInitScanPipe = await compile(sm.gen_ba_walker_pt_init_scan_shader(m.BW), `pt-init-scan`, m.ptInitScanLayout);
     if (m.ptree) {
+      const ptreeSurv = ptreeSurvLayout(2 * STREAM_T * STREAM_S);
+      m.ptreeSurvSlots = ptreeSurv.slots;
+      m.ptreeSurvBytes = ptreeSurv.bytes;
       const ptreeEpilogueCode = sm.gen_ba_walker_idx_epilogue_shader(WI_IDX_TPB, {
         levels: PTREE_LEVELS,
         theta: m.ptreeTheta,
@@ -3371,6 +3393,7 @@ export class MsmV2 {
         tpb: PTREE_TPB,
         fin_tpb: PTREE_FIN_TPB,
         fin_sn: PTREE_FIN_SN,
+        surv_slots: ptreeSurv.slots,
       });
       m.ptreeEpiloguePipe = await compile(ptreeEpilogueCode, `ptree-epilogue`, m.ptreeEpilogueLayout);
       m.ptreeLevelPipe = await compile(
@@ -4806,11 +4829,16 @@ export class MsmV2 {
         if (this.ptree) {
           // === Pair-tree binds. Regions inside ptScratch: descriptor planes
           // right after the X/Y partial planes; meta (64 KB) + survivor
-          // scratch (1 MB) at the end of the slot.
+          // scratch (M-derived, >= 1 MB) at the end of the slot.
           // M_partials_walker (= 2*sT*sS) is the outer-scope value used by
           // wiParams — the scatter's rem-plane offset MUST match the level
           // kernels' params.w or every descriptor read lands off-plane.
-          const ptreeRegion = 64 * 1024 + 1024 * 1024;
+          if (ptreeSurvLayout(M_partials_walker).slots !== this.ptreeSurvSlots) {
+            throw new Error(
+              `ptree: PTREE_SURV_SLOTS baked at compile (${this.ptreeSurvSlots}, M=2·sT·sS) does not match this instance M=${M_partials_walker} — the scratch-fit loop could terminate unfit`,
+            );
+          }
+          const ptreeRegion = 64 * 1024 + this.ptreeSurvBytes;
           const ptreeByteOff = Math.floor((slotSize(scratch.ptScratch) - ptreeRegion) / 256) * 256;
           const descByteOff = 64 * M_partials_walker;
           const descBytes = 8 * M_partials_walker;
@@ -4826,7 +4854,7 @@ export class MsmV2 {
           const survBind: GPUBufferBinding = {
             buffer: slotBuf(scratch.ptScratch),
             offset: slotOff(scratch.ptScratch) + ptreeByteOff + 64 * 1024,
-            size: 1024 * 1024,
+            size: this.ptreeSurvBytes,
           };
           const descBind: GPUBufferBinding = {
             buffer: slotBuf(scratch.ptScratch),

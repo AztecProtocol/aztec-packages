@@ -2427,7 +2427,17 @@ function hideProgress(): void {
         const cases: Array<[string, string]> = [
           [
             'ptree-epilogue',
-            sm.gen_ba_walker_idx_epilogue_shader(64, { levels: 8, theta: 65536, s: 8, tpb: 64, fin_tpb: 256, fin_sn: 1 }),
+            // surv_slots: ptreeSurvLayout(131072) = 1 MB floor / 96 B —
+            // the production value on every current device.
+            sm.gen_ba_walker_idx_epilogue_shader(64, {
+              levels: 8,
+              theta: 65536,
+              s: 8,
+              tpb: 64,
+              fin_tpb: 256,
+              fin_sn: 1,
+              surv_slots: 10922,
+            }),
           ],
           ['ptree-level', sm.gen_ba_walker_ptree_level_shader(64, 8)],
           ['ptree-scatter', sm.gen_ba_walker_idx_scatter_shader(64, 8, 64, true)],
@@ -2481,6 +2491,7 @@ function hideProgress(): void {
             tpb: 64,
             fin_tpb: 256,
             fin_sn: 1,
+            surv_slots: 10922,
           });
           const mod = gpuDevice.createShaderModule({ code });
           const pipe = await gpuDevice.createComputePipelineAsync({

@@ -1492,7 +1492,7 @@ ${packLines.join('\n')}
 
   public gen_ba_walker_idx_epilogue_shader(
     sort_tpb: number,
-    ptree?: { levels: number; theta: number; s: number; tpb: number; fin_tpb: number; fin_sn: number },
+    ptree?: { levels: number; theta: number; s: number; tpb: number; fin_tpb: number; fin_sn: number; surv_slots: number },
   ): string {
     return mustache.render(ba_walker_idx_epilogue_shader, {
       sort_tpb,
@@ -1503,6 +1503,7 @@ ${packLines.join('\n')}
       ptree_tpb: ptree?.tpb ?? 0,
       ptree_fin_tpb: ptree?.fin_tpb ?? 0,
       ptree_fin_sn: ptree?.fin_sn ?? 0,
+      ptree_surv_slots: ptree?.surv_slots ?? 0,
       recompile: this.recompile,
     });
   }
