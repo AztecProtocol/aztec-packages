@@ -20,6 +20,15 @@ export const get_device = async (): Promise<GPUDevice> => {
   if (adapter.features.has('timestamp-query')) {
     requiredFeatures.push('timestamp-query');
   }
+  // The pair-tree ufold kernel computes each point add on a subgroup lane
+  // PAIR (cooperative montgomery multiplier) — subgroups are required, not
+  // optional. Universal on the Chrome WebGPU targets we ship to (Metal,
+  // Mali/Adreno Vulkan).
+  if (adapter.features.has('subgroups' as GPUFeatureName)) {
+    requiredFeatures.push('subgroups' as GPUFeatureName);
+  } else {
+    throw new Error('[gpu] adapter lacks the "subgroups" feature (required by the msm combine stage)');
+  }
 
   const requiredLimits: Record<string, number> = {};
   const adapterLimits = adapter.limits as unknown as Record<string, number>;
