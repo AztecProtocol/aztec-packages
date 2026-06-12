@@ -27,7 +27,7 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import type { BlockSynchronizerConfig } from '../config/index.js';
 import type { ContractSyncService } from '../contract_sync/contract_sync_service.js';
 import { AnchorBlockStore } from '../storage/anchor_block_store/anchor_block_store.js';
-import { EntityKey, ScopeKey } from '../storage/entity_store/entity_keys.js';
+import { EntityKey, EntityTypeKey } from '../storage/entity_store/entity_keys.js';
 import { EntityStore } from '../storage/entity_store/entity_store.js';
 import { NoteStore } from '../storage/note_store/note_store.js';
 import { PrivateEventStore } from '../storage/private_event_store/private_event_store.js';
@@ -330,7 +330,7 @@ describe('BlockSynchronizer', () => {
 
       // Both entities and all their facts must be present before the prune.
       expect(
-        await entityStore.getEntities(ScopeKey.from({ contractAddress: contract, scope, entityTypeId }), jobId),
+        await entityStore.getEntities(EntityTypeKey.from({ contractAddress: contract, scope, entityTypeId }), jobId),
       ).toHaveLength(2);
       expect((await entityStore.getEntity(prunedKey, jobId)).facts).toHaveLength(1);
       expect((await entityStore.getEntity(survivingKey, jobId)).facts).toHaveLength(2);
@@ -354,7 +354,7 @@ describe('BlockSynchronizer', () => {
 
       // The retractable entity is gone wholesale; the non-retractable one keeps only its non-retractable fact.
       const active = await entityStore.getEntities(
-        ScopeKey.from({ contractAddress: contract, scope, entityTypeId }),
+        EntityTypeKey.from({ contractAddress: contract, scope, entityTypeId }),
         jobId,
       );
       expect(active).toHaveLength(1);

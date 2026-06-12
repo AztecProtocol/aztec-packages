@@ -7,25 +7,25 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
  */
 export type OriginBlock = { blockNumber: number; blockHash: Fr };
 
-/** Serialized form of a {@link ScopeKey} (`contract:scope:entityTypeId`), used as kv-store map keys. */
-export type ScopeKeyStr = string;
+/** Serialized form of a {@link EntityTypeKey} (`contract:scope:entityTypeId`), used as kv-store map keys. */
+export type EntityTypeKeyStr = string;
 
-/** Serialized form of an {@link EntityKey} (`scopeKeyStr:entityId`), used as kv-store map keys. */
+/** Serialized form of an {@link EntityKey} (`entityTypeKeyStr:entityId`), used as kv-store map keys. */
 export type EntityKeyStr = string;
 
 /** Identifies all entities of one type within a contract+scope. */
-export class ScopeKey {
+export class EntityTypeKey {
   constructor(
     public readonly contractAddress: AztecAddress,
     public readonly scope: AztecAddress,
     public readonly entityTypeId: Fr,
   ) {}
 
-  static from(fields: FieldsOf<ScopeKey>): ScopeKey {
-    return new ScopeKey(fields.contractAddress, fields.scope, fields.entityTypeId);
+  static from(fields: FieldsOf<EntityTypeKey>): EntityTypeKey {
+    return new EntityTypeKey(fields.contractAddress, fields.scope, fields.entityTypeId);
   }
 
-  toString(): ScopeKeyStr {
+  toString(): EntityTypeKeyStr {
     return `${this.contractAddress}:${this.scope}:${this.entityTypeId}`;
   }
 }
@@ -44,11 +44,11 @@ export class EntityKey {
   }
 
   /** The key grouping this entity with the other entities of its type within the same contract+scope. */
-  scopeKey(): ScopeKey {
-    return new ScopeKey(this.contractAddress, this.scope, this.entityTypeId);
+  entityTypeKey(): EntityTypeKey {
+    return new EntityTypeKey(this.contractAddress, this.scope, this.entityTypeId);
   }
 
   toString(): EntityKeyStr {
-    return `${this.scopeKey()}:${this.entityId}`;
+    return `${this.entityTypeKey()}:${this.entityId}`;
   }
 }

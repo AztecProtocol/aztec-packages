@@ -38,7 +38,7 @@
       "kind": "multimap"
     },
     {
-      "name": "entities_by_scope",
+      "name": "entities_by_entity_type",
       "kind": "multimap"
     },
     {

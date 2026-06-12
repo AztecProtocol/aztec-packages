@@ -31,7 +31,7 @@ describe('StoredFact', () => {
 
   it('derives stable composite keys', () => {
     const fact = new StoredFact(key, factType, [new Fr(9n)], undefined);
-    expect(fact.key.scopeKey().toString()).toBe(`${contract}:${scope}:${entityType}`);
+    expect(fact.key.entityTypeKey().toString()).toBe(`${contract}:${scope}:${entityType}`);
     expect(fact.key.toString()).toBe(`${contract}:${scope}:${entityType}:${entityId}`);
     expect(factKeyStrOf(fact)).toBe(fact.key.toString() + `:${factType}:${fact.payloadHash()}`);
   });

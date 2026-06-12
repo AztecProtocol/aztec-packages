@@ -4,7 +4,7 @@ import { Semaphore } from '@aztec/foundation/queue';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap, AztecAsyncSingleton } from '@aztec/kv-store';
 
 import type { StagedStore } from '../../job_coordinator/job_coordinator.js';
-import type { EntityKey, EntityKeyStr, OriginBlock, ScopeKey, ScopeKeyStr } from './entity_keys.js';
+import type { EntityKey, EntityKeyStr, EntityTypeKey, EntityTypeKeyStr, OriginBlock } from './entity_keys.js';
 import { StoredEntity } from './stored_entity.js';
 import { type Fact, type FactKeyStr, StoredFact, deserializeFact, factKeyStrOf, serializeFact } from './stored_fact.js';
 
@@ -59,7 +59,7 @@ export class EntityStore implements StagedStore {
   #entitiesByBlock: AztecAsyncMultiMap<BlockNum, EntityKeyStr>;
 
   /** Index for active-entity enumeration. */
-  #entitiesByScope: AztecAsyncMultiMap<ScopeKeyStr, EntityIdStr>;
+  #entitiesByEntityType: AztecAsyncMultiMap<EntityTypeKeyStr, EntityIdStr>;
 
   /** Primary fact records, deduplicated by fact key. */
   #facts: AztecAsyncMap<FactKeyStr, FactBuffer>;
@@ -87,7 +87,7 @@ export class EntityStore implements StagedStore {
     this.#entitiesByBlock = store.openMultiMap('entities_by_block');
     this.#facts = store.openMap('facts');
     this.#factsByEntity = store.openMultiMap('facts_by_entity');
-    this.#entitiesByScope = store.openMultiMap('entities_by_scope');
+    this.#entitiesByEntityType = store.openMultiMap('entities_by_entity_type');
     this.#factsByBlock = store.openMultiMap('facts_by_block');
     this.#factSeq = store.openSingleton('fact_seq');
     this.#opsForJob = new Map();
@@ -159,122 +159,62 @@ export class EntityStore implements StagedStore {
    */
   async getEntity(key: EntityKey, jobId: string): Promise<Entity> {
     const eKey = key.toString();
-    const { entity, factsByKey } = await this.#store.transactionAsync(async () => {
-      const entityBuf = await this.#entities.getAsync(eKey);
-      return {
-        entity: entityBuf ? StoredEntity.fromBuffer(entityBuf) : undefined,
-        factsByKey: await this.#loadCommittedFacts(eKey),
-      };
-    });
-    // The entity record and the fact set are updated independently by each op kind (a terminate clears both, but does
-    // so in both replays at the same position in the op sequence), so replaying them separately is equivalent to a
-    // single in-order replay.
-    this.#replayFactOps(factsByKey, eKey, jobId);
-    let current = entity;
-    for (const op of this.#stagedOps(jobId)) {
-      switch (op.kind) {
-        case 'createEntity':
-          if (current === undefined && op.entity.key.toString() === eKey) {
-            current = op.entity;
-          }
-          break;
-        case 'terminate':
-          if (op.key.toString() === eKey) {
-            current = undefined;
-          }
-          break;
-        case 'record':
-          break;
-      }
-    }
-    return { key, body: current?.body ?? [], facts: Array.from(factsByKey.values(), f => f.toFact()) };
+    const dbEntities = await this.#store.transactionAsync(() => this.#readEntitiesAndFactsFromDb([eKey]));
+    const { entity, facts } = dbEntities.get(eKey)!;
+
+    // Since this store is append-only, we can compute the current job's view of an entity by reading it from the
+    // persistent storage and "replaying" staged entity creation and termination ops, as well as staged facts.
+    const currentEntity = this.#replayEntityOps(entity, eKey, jobId);
+    const currentFacts = this.#replayFactOps(facts, eKey, jobId);
+
+    return { key, body: currentEntity?.body ?? [], facts: Array.from(currentFacts.values(), f => f.toFact()) };
   }
 
   /**
-   * Returns all active entities under (contract, scope, entityTypeId) — entities that have an entity record and have
-   * not been terminated — together with their facts in creation order. Entity presence is independent of whether the
-   * entity owns any facts.
-   *
-   * This job's staged ops are layered over committed state for read-your-writes: a createEntity activates the entity
-   * if absent (keeping any facts it already owns), a record adds a fact if absent, a terminate deactivates the entity.
+   * Returns all active entities of a given type, together with their facts in creation order.
    */
-  async getEntities(scopeKey: ScopeKey, jobId: string): Promise<Entity[]> {
-    const sKey = scopeKey.toString();
-    // Ids staged for creation join the candidate set up front, so the committed-state load below also picks up any
-    // facts already committed for them (facts are stored independently of entity records).
-    const stagedCreatedIds: EntityIdStr[] = [];
+  async getEntities(entityTypeKey: EntityTypeKey, jobId: string): Promise<Entity[]> {
+    const tKey = entityTypeKey.toString();
+
+    // Entities staged for creation join the candidate set up front, so the committed-state load below also picks up
+    // any facts already committed for them (facts are stored independently of entity records).
+    const stagedCreatedEKeys: EntityKeyStr[] = [];
     for (const op of this.#stagedOps(jobId)) {
-      if (op.kind === 'createEntity' && op.entity.key.scopeKey().toString() === sKey) {
-        stagedCreatedIds.push(op.entity.key.entityId.toString());
+      if (op.kind === 'createEntity' && op.entity.key.entityTypeKey().toString() === tKey) {
+        stagedCreatedEKeys.push(op.entity.key.toString());
       }
     }
-    const entities = await this.#store.transactionAsync(async () => {
+
+    const { committedEKeys, committed } = await this.#store.transactionAsync(async () => {
       // Snapshot the scope index before issuing point reads so we never interleave reads with a live cursor.
       const committedIds: EntityIdStr[] = [];
-      for await (const entityId of this.#entitiesByScope.getValuesAsync(sKey)) {
+      for await (const entityId of this.#entitiesByEntityType.getValuesAsync(tKey)) {
         committedIds.push(entityId);
       }
-      const result = new Map<
-        EntityIdStr,
-        { entity: StoredEntity | undefined; factsByKey: Map<FactKeyStr, StoredFact> }
-      >();
-      for (const entityId of committedIds) {
-        const eKey = `${sKey}:${entityId}`;
-        const buf = await this.#entities.getAsync(eKey);
-        if (!buf) {
-          // An #entitiesByScope entry must always reference a live #entities entry; a missing one means the indexes
-          // are corrupt, so fail loudly rather than surface a ghost entity or silently hide the corruption.
-          throw new Error(`Entity not found for entityKey ${eKey}`);
-        }
-        result.set(entityId, {
-          entity: StoredEntity.fromBuffer(buf),
-          factsByKey: await this.#loadCommittedFacts(eKey),
-        });
-      }
-      for (const entityId of stagedCreatedIds) {
-        if (!result.has(entityId)) {
-          result.set(entityId, {
-            entity: undefined,
-            factsByKey: await this.#loadCommittedFacts(`${sKey}:${entityId}`),
-          });
-        }
-      }
-      return result;
+      const committedEKeys: EntityKeyStr[] = committedIds.map(entityId => `${tKey}:${entityId}`);
+      const candidateEKeys = [...new Set([...committedEKeys, ...stagedCreatedEKeys])];
+      return { committedEKeys, committed: await this.#readEntitiesAndFactsFromDb(candidateEKeys) };
     });
-    // Layer this job's staged ops over committed state. Each entity's fact set replays exactly as in getEntity;
-    // entity-record presence (createEntity activates, terminate deactivates) replays separately, which is equivalent
-    // to a single in-order replay because the two are updated independently by each op kind.
-    for (const [entityId, e] of entities) {
-      this.#replayFactOps(e.factsByKey, `${sKey}:${entityId}`, jobId);
-    }
-    for (const op of this.#stagedOps(jobId)) {
-      switch (op.kind) {
-        case 'createEntity': {
-          const e =
-            op.entity.key.scopeKey().toString() === sKey ? entities.get(op.entity.key.entityId.toString()) : undefined;
-          if (e && e.entity === undefined) {
-            e.entity = op.entity;
-          }
-          break;
-        }
-        case 'terminate': {
-          const e = op.key.scopeKey().toString() === sKey ? entities.get(op.key.entityId.toString()) : undefined;
-          if (e) {
-            e.entity = undefined;
-          }
-          break;
-        }
-        case 'record':
-          break;
+
+    // An #entitiesByEntityType entry must always reference a live #entities entry; a missing one means the indexes are
+    // corrupt, so fail loudly rather than surface a ghost entity or silently hide the corruption.
+    for (const eKey of committedEKeys) {
+      if (committed.get(eKey)!.entity === undefined) {
+        throw new Error(`Entity not found for entityKey ${eKey}`);
       }
     }
-    return Array.from(entities.values())
-      .filter(e => e.entity !== undefined)
-      .map(({ entity, factsByKey }) => ({
-        key: entity!.key,
-        body: entity!.body,
-        facts: Array.from(factsByKey.values(), f => f.toFact()),
-      }));
+
+    // Replay each candidate entity's record and fact set from staged state, exactly as in getEntity.
+    const result: Entity[] = [];
+    for (const [eKey, e] of committed) {
+      const entity = this.#replayEntityOps(e.entity, eKey, jobId);
+      if (entity === undefined) {
+        continue;
+      }
+      const facts = this.#replayFactOps(e.facts, eKey, jobId);
+      result.push({ key: entity.key, body: entity.body, facts: Array.from(facts.values(), f => f.toFact()) });
+    }
+    return result;
   }
 
   /**
@@ -299,7 +239,7 @@ export class EntityStore implements StagedStore {
             break;
           }
           await this.#entities.set(eKey, entity.toBuffer());
-          await this.#entitiesByScope.set(entity.key.scopeKey().toString(), entity.key.entityId.toString());
+          await this.#entitiesByEntityType.set(entity.key.entityTypeKey().toString(), entity.key.entityId.toString());
           if (entity.originBlock !== undefined) {
             await this.#entitiesByBlock.set(entity.originBlock.blockNumber, eKey);
           }
@@ -403,6 +343,24 @@ export class EntityStore implements StagedStore {
   // ---- private helpers ----
 
   /**
+   * Reads the committed records (undefined when none exists) and facts of the given entities from the database,
+   * keyed by entity key. Reads are not wrapped in a transaction: the caller owns the transaction boundary.
+   */
+  async #readEntitiesAndFactsFromDb(
+    eKeys: EntityKeyStr[],
+  ): Promise<Map<EntityKeyStr, { entity: StoredEntity | undefined; facts: Map<FactKeyStr, StoredFact> }>> {
+    const result = new Map<EntityKeyStr, { entity: StoredEntity | undefined; facts: Map<FactKeyStr, StoredFact> }>();
+    for (const eKey of eKeys) {
+      const entityBuf = await this.#entities.getAsync(eKey);
+      result.set(eKey, {
+        entity: entityBuf ? StoredEntity.fromBuffer(entityBuf) : undefined,
+        facts: await this.#loadCommittedFacts(eKey),
+      });
+    }
+    return result;
+  }
+
+  /**
    * Loads the committed facts for an entity keyed by their dedup fact key, in creation order. Caller may wrap in a
    * transaction.
    */
@@ -431,27 +389,64 @@ export class EntityStore implements StagedStore {
   }
 
   /**
-   * Replays a job's staged ops over a committed fact map for read-your-writes: a record adds a fact if absent
-   * (re-records are no-ops, mirroring commit), a terminate clears the entity's facts. Order matters so a
-   * terminate-then-record sequence resolves to the re-recorded fact. createEntity ops do not affect the fact set.
+   * Replays a job's staged ops over a committed fact map for read-your-writes, returning a fresh map (the input is
+   * not mutated): a record adds a fact if absent (re-records are no-ops, mirroring commit), a terminate clears the
+   * entity's facts. Order matters so a terminate-then-record sequence resolves to the re-recorded fact. createEntity
+   * ops do not affect the fact set.
    */
-  #replayFactOps(factsByKey: Map<FactKeyStr, StoredFact>, eKey: EntityKeyStr, jobId: string): void {
+  #replayFactOps(
+    committed: Map<FactKeyStr, StoredFact>,
+    eKey: EntityKeyStr,
+    jobId: string,
+  ): Map<FactKeyStr, StoredFact> {
+    const result = new Map(committed);
     for (const op of this.#stagedOps(jobId)) {
       switch (op.kind) {
         case 'record':
-          if (op.fact.key.toString() === eKey && !factsByKey.has(factKeyStrOf(op.fact))) {
-            factsByKey.set(factKeyStrOf(op.fact), op.fact);
+          if (op.fact.key.toString() === eKey && !result.has(factKeyStrOf(op.fact))) {
+            result.set(factKeyStrOf(op.fact), op.fact);
           }
           break;
         case 'terminate':
           if (op.key.toString() === eKey) {
-            factsByKey.clear();
+            result.clear();
           }
           break;
         case 'createEntity':
           break;
       }
     }
+    return result;
+  }
+
+  /**
+   * Replays a job's staged ops over a committed entity record for read-your-writes, returning the resulting record:
+   * a createEntity activates the entity if absent (re-creates are no-ops, mirroring commit), a terminate deactivates
+   * it. Record ops do not affect the entity record.
+   *
+   * The entity record and its fact set are updated independently by each op kind (a terminate clears both, but does
+   * so in this replay and in {@link #replayFactOps} at the same position in the op sequence), so replaying them
+   * separately is equivalent to a single in-order replay.
+   */
+  #replayEntityOps(committed: StoredEntity | undefined, eKey: EntityKeyStr, jobId: string): StoredEntity | undefined {
+    let current = committed;
+    for (const op of this.#stagedOps(jobId)) {
+      switch (op.kind) {
+        case 'createEntity':
+          if (current === undefined && op.entity.key.toString() === eKey) {
+            current = op.entity;
+          }
+          break;
+        case 'terminate':
+          if (op.key.toString() === eKey) {
+            current = undefined;
+          }
+          break;
+        case 'record':
+          break;
+      }
+    }
+    return current;
   }
 
   /** Returns the next fact sequence number, persisting the incremented counter. */
@@ -493,7 +488,7 @@ export class EntityStore implements StagedStore {
         await this.#entitiesByBlock.deleteValue(entity.originBlock.blockNumber, eKey);
       }
     }
-    await this.#entitiesByScope.deleteValue(key.scopeKey().toString(), key.entityId.toString());
+    await this.#entitiesByEntityType.deleteValue(key.entityTypeKey().toString(), key.entityId.toString());
   }
 
   #opsFor(jobId: string): StagedOp[] {
