@@ -6,7 +6,7 @@ mod test;
 #[aztec]
 pub contract ConstrainedDeliveryTest {
     use aztec::{
-        macros::functions::external,
+        macros::{events::event, functions::external, storage::storage},
         messages::delivery::{
             constrained_delivery::{compute_constrained_msg_nullifier, resolve_secret_and_index},
             MessageDelivery,
@@ -17,7 +17,21 @@ pub contract ConstrainedDeliveryTest {
             constants::DOM_SEP__CONSTRAINED_MSG_LOG_TAG,
             hash::{compute_log_tag, poseidon2_hash},
         },
+        state_vars::{Owned, PrivateSet},
     };
+    use balance_set::BalanceSet;
+    use field_note::FieldNote;
+
+    #[event]
+    struct DeliveryEvent {
+        value: Field,
+    }
+
+    #[storage]
+    struct Storage<Context> {
+        notes: Owned<PrivateSet<FieldNote, Context>, Context>,
+        balances: Owned<BalanceSet<Context>, Context>,
+    }
 
     /// Calls the helper and returns the resolved `(app_siloed_secret, index)` tuple.
     #[external("private")]
@@ -49,6 +63,28 @@ pub contract ConstrainedDeliveryTest {
     #[external("private")]
     fn emit_chain_nullifier(sender: AztecAddress, recipient: AztecAddress, secret: Field, index: u32) {
         self.context.push_nullifier_unsafe(compute_constrained_msg_nullifier(sender, recipient, secret, index));
+    }
+
+    #[external("private")]
+    fn emit_note(sender: AztecAddress, recipient: AztecAddress) {
+        self.storage.notes.at(recipient).insert(FieldNote { value: 1 }).deliver(MessageDelivery::onchain_constrained()
+            .with_sender(sender));
+    }
+
+    #[external("private")]
+    fn emit_maybe_note(sender: AztecAddress, recipient: AztecAddress) {
+        self.storage.balances.at(recipient).add(1).deliver_to(
+            recipient,
+            MessageDelivery::onchain_constrained().with_sender(sender),
+        );
+    }
+
+    #[external("private")]
+    fn emit_event(sender: AztecAddress, recipient: AztecAddress) {
+        self.emit(DeliveryEvent { value: 1 }).deliver_to(
+            recipient,
+            MessageDelivery::onchain_constrained().with_sender(sender),
+        );
     }
 
     /// Test-only: emits a log under the constrained tag for `(secret, index)` WITHOUT the chain nullifier. A landed

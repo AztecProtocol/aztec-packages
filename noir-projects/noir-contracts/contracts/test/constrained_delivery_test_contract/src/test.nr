@@ -10,7 +10,8 @@ use crate::ConstrainedDeliveryTest;
 use aztec::{
     messages::delivery::{MessageDelivery, OnchainDeliveryMode},
     protocol::address::AztecAddress,
-    test::helpers::test_environment::{CallPrivateOptions, TestEnvironment},
+    standard_addresses::STANDARD_HANDSHAKE_REGISTRY_ADDRESS,
+    test::helpers::test_environment::{CallPrivateOptions, DeployOptions, TestEnvironment},
 };
 use handshake_registry_contract::HandshakeRegistry;
 
@@ -23,7 +24,11 @@ unconstrained fn setup() -> (TestEnvironment, AztecAddress, AztecAddress, AztecA
     let sender = env.create_light_account();
     let recipient = env.create_light_account();
 
-    let registry_address = env.deploy("@handshake_registry_contract/HandshakeRegistry").without_initializer();
+    let registry_address = env
+        .deploy_opts(DeployOptions::new().with_salt(1).with_secret(0), "@handshake_registry_contract/HandshakeRegistry")
+        .without_initializer();
+    assert_eq(registry_address, STANDARD_HANDSHAKE_REGISTRY_ADDRESS);
+
     let test_address = env.deploy("ConstrainedDeliveryTest").without_initializer();
 
     (env, registry_address, test_address, sender, recipient)
@@ -144,6 +149,69 @@ unconstrained fn advances_index_above_zero_when_prior_nullifier_exists() {
 
     assert_eq(second_secret, secret);
     assert_eq(second_index, 1);
+}
+
+#[test]
+unconstrained fn note_delivery_advances_index_above_zero() {
+    let (env, _registry_address, test_address, sender, recipient) = setup();
+    let test_contract = ConstrainedDeliveryTest::at(test_address);
+
+    env.call_private_opts(
+        sender,
+        helper_options(STANDARD_HANDSHAKE_REGISTRY_ADDRESS),
+        test_contract.emit_note(sender, recipient),
+    );
+
+    let (secret, index) = env.call_private_opts(
+        sender,
+        helper_options(STANDARD_HANDSHAKE_REGISTRY_ADDRESS),
+        test_contract.resolve_and_return(STANDARD_HANDSHAKE_REGISTRY_ADDRESS, sender, recipient),
+    );
+
+    assert(secret != 0, "delivery should bootstrap a non-zero secret");
+    assert_eq(index, 1);
+}
+
+#[test]
+unconstrained fn maybe_note_delivery_advances_index_above_zero() {
+    let (env, _registry_address, test_address, sender, recipient) = setup();
+    let test_contract = ConstrainedDeliveryTest::at(test_address);
+
+    env.call_private_opts(
+        sender,
+        helper_options(STANDARD_HANDSHAKE_REGISTRY_ADDRESS),
+        test_contract.emit_maybe_note(sender, recipient),
+    );
+
+    let (secret, index) = env.call_private_opts(
+        sender,
+        helper_options(STANDARD_HANDSHAKE_REGISTRY_ADDRESS),
+        test_contract.resolve_and_return(STANDARD_HANDSHAKE_REGISTRY_ADDRESS, sender, recipient),
+    );
+
+    assert(secret != 0, "delivery should bootstrap a non-zero secret");
+    assert_eq(index, 1);
+}
+
+#[test]
+unconstrained fn event_delivery_advances_index_above_zero() {
+    let (env, _registry_address, test_address, sender, recipient) = setup();
+    let test_contract = ConstrainedDeliveryTest::at(test_address);
+
+    env.call_private_opts(
+        sender,
+        helper_options(STANDARD_HANDSHAKE_REGISTRY_ADDRESS),
+        test_contract.emit_event(sender, recipient),
+    );
+
+    let (secret, index) = env.call_private_opts(
+        sender,
+        helper_options(STANDARD_HANDSHAKE_REGISTRY_ADDRESS),
+        test_contract.resolve_and_return(STANDARD_HANDSHAKE_REGISTRY_ADDRESS, sender, recipient),
+    );
+
+    assert(secret != 0, "delivery should bootstrap a non-zero secret");
+    assert_eq(index, 1);
 }
 
 // Without a prior chain nullifier the `index > 0` branch cannot prove its predecessor. We advance the per-secret
