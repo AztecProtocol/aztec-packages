@@ -189,12 +189,8 @@ function build {
   if [ -f pinned-build.tar.gz ]; then
     echo_stderr "Using pinned-build.tar.gz instead of compiling."
     rm -rf target
-<<<<<<< HEAD
     mkdir -p target
     tar xzf pinned-build.tar.gz -C target
-    return
-=======
-    tar xzf pinned-build.tar.gz
     mkdir -p $key_dir
     # The pin freezes bytecode AND VKs, but VKs depend on the current bb: a proof-system change can
     # alter the VK for unchanged bytecode, and a stale pinned VK makes proofs fail self-verification
@@ -208,7 +204,6 @@ function build {
     cat joblog.txt
     set -e
     return $code
->>>>>>> 96912451ca4 (fix(noir-protocol-circuits): fail when pinned VKs do not match (#364))
   fi
 
   if [[ -z NOIR_PROTOCOL_CIRCUITS_SKIP_CHECK_WARNINGS ]]; then
