@@ -1,0 +1,97 @@
+[1mdiff --git a/noir-projects/aztec-nr/aztec/src/messages/delivery/mod.nr b/noir-projects/aztec-nr/aztec/src/messages/delivery/mod.nr[m
+[1mindex 3bfa8581d2..2c1e671514 100644[m
+[1m--- a/noir-projects/aztec-nr/aztec/src/messages/delivery/mod.nr[m
+[1m+++ b/noir-projects/aztec-nr/aztec/src/messages/delivery/mod.nr[m
+[36m@@ -159,43 +159,60 @@[m [mfn calculate_tag_for_mode([m
+     recipient: AztecAddress,[m
+ ) -> Field {[m
+     if resolved_tag_secret_derivation == TagSecretDerivation::address_secret() {[m
+[31m-        let sender = resolve_address_secret_sender(sender_override);[m
+[31m-        // Safety: address-derived delivery is unconstrained; invalid recipients get a random tag to preserve log shape.[m
+[31m-        unsafe {[m
+[31m-            get_app_tagging_secret(sender, recipient).map_or_else([m
+[31m-                || compute_log_tag(random(), tag_domain_separator(mode)),[m
+[31m-                |secret| {[m
+[31m-                    let index = get_next_tagging_index(secret, mode);[m
+[31m-                    calculate_tag(secret, index, mode)[m
+[31m-                },[m
+[31m-            )[m
+[31m-        }[m
+[32m+[m[32m        calculate_address_secret_tag(sender_override, recipient, mode)[m
+     } else {[m
+[31m-        let sender = sender_override.expect(f"non-interactive handshake tag derivation requires an explicit sender");[m
+[31m-        let (secret, bootstrapped) = get_or_create_app_siloed_handshake_secret([m
+[31m-            context,[m
+[31m-            STANDARD_HANDSHAKE_REGISTRY_ADDRESS,[m
+[31m-            sender,[m
+[31m-            recipient,[m
+[31m-            mode,[m
+[31m-        );[m
+[31m-[m
+[31m-        // Safety: the returned index is untrusted and is constrained before the tag is emitted.[m
+[31m-        let index = unsafe { get_next_tagging_index(secret, mode) };[m
+[31m-        constrain_constrained_secret_and_emit_nullifier([m
+[31m-            context,[m
+[31m-            STANDARD_HANDSHAKE_REGISTRY_ADDRESS,[m
+[31m-            sender,[m
+[31m-            recipient,[m
+[31m-            secret,[m
+[31m-            bootstrapped,[m
+[31m-            index,[m
+[31m-        );[m
+[32m+[m[32m        calculate_non_interactive_handshake_tag(context, sender_override, recipient, mode)[m
+[32m+[m[32m    }[m
+[32m+[m[32m}[m
+ [m
+[31m-        calculate_tag(secret, index, mode)[m
+[32m+[m[32mfn calculate_address_secret_tag([m
+[32m+[m[32m    sender_override: Option<AztecAddress>,[m
+[32m+[m[32m    recipient: AztecAddress,[m
+[32m+[m[32m    mode: OnchainDeliveryMode,[m
+[32m+[m[32m) -> Field {[m
+[32m+[m[32m    let sender = resolve_address_secret_sender(sender_override);[m
+[32m+[m[32m    // Safety: address-derived delivery is unconstrained; invalid recipients get a random tag to preserve log shape.[m
+[32m+[m[32m    unsafe {[m
+[32m+[m[32m        get_app_tagging_secret(sender, recipient).map_or_else([m
+[32m+[m[32m            || compute_log_tag(random(), tag_domain_separator(mode)),[m
+[32m+[m[32m            |secret| {[m
+[32m+[m[32m                let index = get_next_tagging_index(secret, mode);[m
+[32m+[m[32m                calculate_tag(secret, index, mode)[m
+[32m+[m[32m            },[m
+[32m+[m[32m        )[m
+     }[m
+ }[m
+ [m
+[32m+[m[32mfn calculate_non_interactive_handshake_tag([m
+[32m+[m[32m    context: &mut PrivateContext,[m
+[32m+[m[32m    sender_override: Option<AztecAddress>,[m
+[32m+[m[32m    recipient: AztecAddress,[m
+[32m+[m[32m    mode: OnchainDeliveryMode,[m
+[32m+[m[32m) -> Field {[m
+[32m+[m[32m    let sender = sender_override.expect(f"non-interactive handshake tag derivation requires an explicit sender");[m
+[32m+[m[32m    let (secret, bootstrapped) = get_or_create_app_siloed_handshake_secret([m
+[32m+[m[32m        context,[m
+[32m+[m[32m        STANDARD_HANDSHAKE_REGISTRY_ADDRESS,[m
+[32m+[m[32m        sender,[m
+[32m+[m[32m        recipient,[m
+[32m+[m[32m        mode,[m
+[32m+[m[32m    );[m
+[32m+[m
+[32m+[m[32m    // Safety: the returned index is untrusted and is constrained before the tag is emitted.[m
+[32m+[m[32m    let index = unsafe { get_next_tagging_index(secret, mode) };[m
+[32m+[m[32m    constrain_constrained_secret_and_emit_nullifier([m
+[32m+[m[32m        context,[m
+[32m+[m[32m        STANDARD_HANDSHAKE_REGISTRY_ADDRESS,[m
+[32m+[m[32m        sender,[m
+[32m+[m[32m        recipient,[m
+[32m+[m[32m        secret,[m
+[32m+[m[32m        bootstrapped,[m
+[32m+[m[32m        index,[m
+[32m+[m[32m    );[m
+[32m+[m
+[32m+[m[32m    calculate_tag(secret, index, mode)[m
+[32m+[m[32m}[m
+[32m+[m
+ fn assert_valid_tag_derivation_for_mode([m
+     mode: DeliveryMode,[m
+     tag_secret_derivation: TagSecretDerivation,[m

@@ -159,41 +159,58 @@ fn calculate_tag_for_mode(
     recipient: AztecAddress,
 ) -> Field {
     if resolved_tag_secret_derivation == TagSecretDerivation::address_secret() {
-        let sender = resolve_address_secret_sender(sender_override);
-        // Safety: address-derived delivery is unconstrained; invalid recipients get a random tag to preserve log shape.
-        unsafe {
-            get_app_tagging_secret(sender, recipient).map_or_else(
-                || compute_log_tag(random(), tag_domain_separator(mode)),
-                |secret| {
-                    let index = get_next_tagging_index(secret, mode);
-                    calculate_tag(secret, index, mode)
-                },
-            )
-        }
+        calculate_address_secret_tag(sender_override, recipient, mode)
     } else {
-        let sender = sender_override.expect(f"non-interactive handshake tag derivation requires an explicit sender");
-        let (secret, bootstrapped) = get_or_create_app_siloed_handshake_secret(
-            context,
-            STANDARD_HANDSHAKE_REGISTRY_ADDRESS,
-            sender,
-            recipient,
-            mode,
-        );
-
-        // Safety: the returned index is untrusted and is constrained before the tag is emitted.
-        let index = unsafe { get_next_tagging_index(secret, mode) };
-        constrain_constrained_secret_and_emit_nullifier(
-            context,
-            STANDARD_HANDSHAKE_REGISTRY_ADDRESS,
-            sender,
-            recipient,
-            secret,
-            bootstrapped,
-            index,
-        );
-
-        calculate_tag(secret, index, mode)
+        calculate_non_interactive_handshake_tag(context, sender_override, recipient, mode)
     }
+}
+
+fn calculate_address_secret_tag(
+    sender_override: Option<AztecAddress>,
+    recipient: AztecAddress,
+    mode: OnchainDeliveryMode,
+) -> Field {
+    let sender = resolve_address_secret_sender(sender_override);
+    // Safety: address-derived delivery is unconstrained; invalid recipients get a random tag to preserve log shape.
+    unsafe {
+        get_app_tagging_secret(sender, recipient).map_or_else(
+            || compute_log_tag(random(), tag_domain_separator(mode)),
+            |secret| {
+                let index = get_next_tagging_index(secret, mode);
+                calculate_tag(secret, index, mode)
+            },
+        )
+    }
+}
+
+fn calculate_non_interactive_handshake_tag(
+    context: &mut PrivateContext,
+    sender_override: Option<AztecAddress>,
+    recipient: AztecAddress,
+    mode: OnchainDeliveryMode,
+) -> Field {
+    let sender = sender_override.expect(f"non-interactive handshake tag derivation requires an explicit sender");
+    let (secret, bootstrapped) = get_or_create_app_siloed_handshake_secret(
+        context,
+        STANDARD_HANDSHAKE_REGISTRY_ADDRESS,
+        sender,
+        recipient,
+        mode,
+    );
+
+    // Safety: the returned index is untrusted and is constrained before the tag is emitted.
+    let index = unsafe { get_next_tagging_index(secret, mode) };
+    constrain_constrained_secret_and_emit_nullifier(
+        context,
+        STANDARD_HANDSHAKE_REGISTRY_ADDRESS,
+        sender,
+        recipient,
+        secret,
+        bootstrapped,
+        index,
+    );
+
+    calculate_tag(secret, index, mode)
 }
 
 fn assert_valid_tag_derivation_for_mode(
