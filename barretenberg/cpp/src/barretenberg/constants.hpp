@@ -73,7 +73,7 @@ static constexpr size_t CHONK_MAX_NUM_APPS = 41;
 static constexpr size_t compute_chonk_max_num_circuits()
 {
     return CHONK_MAX_NUM_APPS + ((CHONK_MAX_NUM_APPS + MAX_APPS_PER_KERNEL - 1) / MAX_APPS_PER_KERNEL) +
-           /*trailing kernels*/ 3;
+           /*trailing kernels*/ NUM_TRAILING_KERNELS;
 }
 static constexpr size_t CHONK_MAX_NUM_CIRCUITS = compute_chonk_max_num_circuits();
 

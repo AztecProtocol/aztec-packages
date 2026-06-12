@@ -77,12 +77,12 @@ class ChonkTranscriptInvariantTests : public ::testing::Test {
  *     2. batch_merge_transcript - for final batch merge verification
  *     3. PairingPoints::aggregate_multiple
  *
- * Total: 0 + 0 + 0 + 3 + 0 + 3 + 2 + 2 + 3 = 13 transcripts
+ * Total: 0 + 0 + 0 + 3 + 0 + 3 + 2 + 3 = 11 transcripts
  */
 TEST_F(ChonkTranscriptInvariantTests, AccumulationTranscriptCount)
 {
     // Pinned expected transcript count for 4 app circuits
-    constexpr size_t EXPECTED_TOTAL_TRANSCRIPTS = 13;
+    constexpr size_t EXPECTED_TOTAL_TRANSCRIPTS = 11;
     constexpr size_t EXPECTED_NUM_CIRCUITS = 8;
     constexpr std::array<size_t, EXPECTED_NUM_CIRCUITS> EXPECTED_CIRCUIT_TRANSCRIPTS = { 0, 0, 0, 3, 0, 3, 2, 3 };
 
