@@ -1,8 +1,8 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
-import { entityKeyOf, scopeKeyOf } from './entity_keys.js';
-import { StoredFact, deserializeFactRow, factRowKeyOf, serializeFactRow } from './stored_fact.js';
+import { entityKeyStrOf, scopeKeyStrOf } from './entity_keys.js';
+import { StoredFact, deserializeFactRow, factRowKeyStrOf, serializeFactRow } from './stored_fact.js';
 
 describe('StoredFact', () => {
   const contract = AztecAddress.fromBigInt(100n);
@@ -30,9 +30,9 @@ describe('StoredFact', () => {
 
   it('derives stable composite keys', () => {
     const fact = new StoredFact(contract, scope, entityType, entityId, factType, [new Fr(9n)], undefined);
-    expect(scopeKeyOf(fact)).toBe(`${contract}:${scope}:${entityType}`);
-    expect(entityKeyOf(fact)).toBe(`${contract}:${scope}:${entityType}:${entityId}`);
-    expect(factRowKeyOf(fact)).toBe(entityKeyOf(fact) + `:${factType}:${fact.payloadHash()}`);
+    expect(scopeKeyStrOf(fact)).toBe(`${contract}:${scope}:${entityType}`);
+    expect(entityKeyStrOf(fact)).toBe(`${contract}:${scope}:${entityType}:${entityId}`);
+    expect(factRowKeyStrOf(fact)).toBe(entityKeyStrOf(fact) + `:${factType}:${fact.payloadHash()}`);
   });
 
   it('gives distinct payload hashes for distinct payloads and equal for equal', () => {

@@ -3,7 +3,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
-import { type OriginBlock, entityKeyOf } from './entity_keys.js';
+import { type OriginBlock, entityKeyStrOf } from './entity_keys.js';
 
 /**
  * A single immutable fact about an entity. `originBlock === undefined` marks the fact non-retractable (an external
@@ -64,14 +64,14 @@ export class StoredFact {
 }
 
 /**
- * Dedup row key for a specific fact, `entityKey:factTypeId:payloadHash`. The payload hash (rather than the raw
+ * Dedup row key for a specific fact, `entityKeyStr:factTypeId:payloadHash`. The payload hash (rather than the raw
  * payload) bounds key size for large payloads.
  */
-export type FactRowKey = string;
+export type FactRowKeyStr = string;
 
-/** Builds the {@link FactRowKey} for the given fact. */
-export function factRowKeyOf(fact: StoredFact): FactRowKey {
-  return `${entityKeyOf(fact)}:${fact.factTypeId}:${fact.payloadHash()}`;
+/** Builds the {@link FactRowKeyStr} for the given fact. */
+export function factRowKeyStrOf(fact: StoredFact): FactRowKeyStr {
+  return `${entityKeyStrOf(fact)}:${fact.factTypeId}:${fact.payloadHash()}`;
 }
 
 /**

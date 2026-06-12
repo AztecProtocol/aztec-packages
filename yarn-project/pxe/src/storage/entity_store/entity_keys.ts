@@ -6,38 +6,28 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
  */
 export type OriginBlock = { blockNumber: number; blockHash: Fr };
 
-/** The contract+scope+entityType coordinates identifying one entity type within a contract+scope. */
-export type ScopeCoords = {
+/** Identifies all entities of one type within a contract+scope. */
+export type ScopeKey = {
   contractAddress: AztecAddress;
   scope: AztecAddress;
   entityTypeId: Fr;
 };
 
-/** The contract+scope+entityType+entityId coordinates shared by facts and entity records. */
-export type EntityCoords = ScopeCoords & { entityId: Fr };
+/** Uniquely identifies a single entity; all its facts share this key. */
+export type EntityKey = ScopeKey & { entityId: Fr };
 
-/** Key that groups all entities of the same type within a contract+scope (`contract:scope:entityTypeId`). */
-export type ScopeKey = string;
+/** Serialized form of a {@link ScopeKey} (`contract:scope:entityTypeId`), used as kv-store map keys. */
+export type ScopeKeyStr = string;
 
-/** Key that uniquely identifies a single entity, `scopeKey:entityId`. All its facts share this key prefix. */
-export type EntityKey = string;
+/** Serialized form of an {@link EntityKey} (`scopeKeyStr:entityId`), used as kv-store map keys. */
+export type EntityKeyStr = string;
 
-/** Builds the {@link ScopeKey} for the given coordinates. */
-export function scopeKey(contract: AztecAddress, scope: AztecAddress, entityTypeId: Fr): ScopeKey {
-  return `${contract}:${scope}:${entityTypeId}`;
+/** Serializes a {@link ScopeKey}. */
+export function scopeKeyStrOf(key: ScopeKey): ScopeKeyStr {
+  return `${key.contractAddress}:${key.scope}:${key.entityTypeId}`;
 }
 
-/** Builds the {@link EntityKey} for the given coordinates. */
-export function entityKey(contract: AztecAddress, scope: AztecAddress, entityTypeId: Fr, entityId: Fr): EntityKey {
-  return `${scopeKey(contract, scope, entityTypeId)}:${entityId}`;
-}
-
-/** Builds the {@link ScopeKey} for the given coordinates. */
-export function scopeKeyOf(coords: ScopeCoords): ScopeKey {
-  return scopeKey(coords.contractAddress, coords.scope, coords.entityTypeId);
-}
-
-/** Builds the {@link EntityKey} for the given coordinates. */
-export function entityKeyOf(coords: EntityCoords): EntityKey {
-  return entityKey(coords.contractAddress, coords.scope, coords.entityTypeId, coords.entityId);
+/** Serializes an {@link EntityKey}. */
+export function entityKeyStrOf(key: EntityKey): EntityKeyStr {
+  return `${scopeKeyStrOf(key)}:${key.entityId}`;
 }
