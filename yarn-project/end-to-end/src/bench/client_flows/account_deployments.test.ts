@@ -33,7 +33,7 @@ describe('Deployment benchmark', () => {
     await t.setup();
     await t.applyDeploySponsoredFPC();
     ({ adminWallet, adminAddress, userWallet, sponsoredFPCInstance } = t);
-    // Ensure both account contract classes are already deployed, to avoid benchmarking an extra call to the ContractClassRegistry
+    // Ensure both account contract classes are already registered, to avoid benchmarking an extra call to the ContractClassRegistry
     // The typical interaction would be for a user to deploy an account contract that is already registered in the
     // network.
     const interactions = [
