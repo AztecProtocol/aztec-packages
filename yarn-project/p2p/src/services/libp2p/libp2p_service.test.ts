@@ -1277,7 +1277,7 @@ describe('LibP2PService', () => {
       service.registerDuplicateProposalCallback(duplicateProposalCallback);
     });
 
-    it('first oversized block proposal: accepts (re-broadcast), retains as evidence, does NOT process, no penalty', async () => {
+    it('oversized block proposal: accepts (re-broadcast), stores as evidence, does NOT process, no penalty', async () => {
       const proposal = await makeBlockProposal({
         signer,
         blockHeader: makeBlockHeader(1, { slotNumber: targetSlot }),
@@ -1292,12 +1292,32 @@ describe('LibP2PService', () => {
       // But never processed/attested, and the relaying peer is not penalized
       expect(blockReceivedCallback).not.toHaveBeenCalled();
       expect(mockPeerManager.penalizePeer).not.toHaveBeenCalled();
-      // Retained in the pool as evidence for the watcher
+      // Stored in the pool as evidence for the watcher
       const stored = await attestationPool.getBlockProposalByArchive(proposal.archive.toString());
       expect(stored).toBeDefined();
     });
 
-    it('second oversized block proposal (same slot+proposer): ignores, does not store, no penalty', async () => {
+    it('duplicate oversized block proposal: ignores, no penalty', async () => {
+      const proposal = await makeBlockProposal({
+        signer,
+        blockHeader: makeBlockHeader(1, { slotNumber: targetSlot }),
+        indexWithinCheckpoint: oversizedIndex,
+        archiveRoot: Fr.random(),
+      });
+      await service.processBlockFromPeer(proposal.toBuffer(), 'msg-1', mockPeerId);
+
+      reportMessageValidationResultSpy.mockClear();
+      blockReceivedCallback.mockClear();
+      mockPeerManager.penalizePeer.mockClear();
+
+      await service.processBlockFromPeer(proposal.toBuffer(), 'msg-2', mockPeerId);
+
+      expect(reportMessageValidationResultSpy).toHaveBeenCalledWith('msg-2', MOCK_PEER_ID, TopicValidatorResult.Ignore);
+      expect(blockReceivedCallback).not.toHaveBeenCalled();
+      expect(mockPeerManager.penalizePeer).not.toHaveBeenCalled();
+    });
+
+    it('equivocating oversized block proposals: accepts and fires the duplicate-proposal callback, no penalty', async () => {
       const first = await makeBlockProposal({
         signer,
         blockHeader: makeBlockHeader(1, { slotNumber: targetSlot }),
@@ -1312,22 +1332,49 @@ describe('LibP2PService', () => {
 
       const second = await makeBlockProposal({
         signer,
+        blockHeader: makeBlockHeader(1, { slotNumber: targetSlot }),
+        indexWithinCheckpoint: oversizedIndex,
+        archiveRoot: Fr.random(),
+      });
+      await service.processBlockFromPeer(second.toBuffer(), 'msg-2', mockPeerId);
+
+      // Equivocation at an illegal index is still equivocation: re-broadcast and flag the proposer,
+      // but never process the proposal or penalize the relaying peer
+      expect(reportMessageValidationResultSpy).toHaveBeenCalledWith('msg-2', MOCK_PEER_ID, TopicValidatorResult.Accept);
+      expect(duplicateProposalCallback).toHaveBeenCalledWith({
+        slot: targetSlot,
+        proposer: signer.address,
+        type: 'block',
+      });
+      expect(blockReceivedCallback).not.toHaveBeenCalled();
+      expect(mockPeerManager.penalizePeer).not.toHaveBeenCalled();
+    });
+
+    it('distinct oversized block proposals at different indices: each accepted and stored, no penalty', async () => {
+      const first = await makeBlockProposal({
+        signer,
+        blockHeader: makeBlockHeader(1, { slotNumber: targetSlot }),
+        indexWithinCheckpoint: oversizedIndex,
+        archiveRoot: Fr.random(),
+      });
+      await service.processBlockFromPeer(first.toBuffer(), 'msg-1', mockPeerId);
+
+      const second = await makeBlockProposal({
+        signer,
         blockHeader: makeBlockHeader(2, { slotNumber: targetSlot }),
         indexWithinCheckpoint: secondOversizedIndex,
         archiveRoot: Fr.random(),
       });
       await service.processBlockFromPeer(second.toBuffer(), 'msg-2', mockPeerId);
 
-      // Not first for (slot, proposer): ignored, not re-broadcast, not penalized
-      expect(reportMessageValidationResultSpy).toHaveBeenCalledWith('msg-2', MOCK_PEER_ID, TopicValidatorResult.Ignore);
+      expect(reportMessageValidationResultSpy).toHaveBeenCalledWith('msg-2', MOCK_PEER_ID, TopicValidatorResult.Accept);
       expect(blockReceivedCallback).not.toHaveBeenCalled();
       expect(mockPeerManager.penalizePeer).not.toHaveBeenCalled();
-      // The second oversized proposal is not stored
       const stored = await attestationPool.getBlockProposalByArchive(second.archive.toString());
-      expect(stored).toBeUndefined();
+      expect(stored).toBeDefined();
     });
 
-    it('first oversized checkpoint terminal block: accepts checkpoint (re-broadcast), processes neither block nor checkpoint, no penalty', async () => {
+    it('oversized checkpoint terminal block: accepts checkpoint (re-broadcast), processes neither block nor checkpoint, no penalty', async () => {
       const proposal = await makeCheckpointProposal({
         signer,
         checkpointHeader: makeCheckpointHeader(1, { slotNumber: targetSlot }),
@@ -1354,8 +1401,8 @@ describe('LibP2PService', () => {
       expect(storedBlock).toBeDefined();
     });
 
-    it('second oversized checkpoint (same slot+proposer): ignores, processes neither, no penalty', async () => {
-      const first = await makeCheckpointProposal({
+    it('duplicate oversized checkpoint: ignores, processes neither, no penalty', async () => {
+      const proposal = await makeCheckpointProposal({
         signer,
         checkpointHeader: makeCheckpointHeader(1, { slotNumber: targetSlot }),
         lastBlock: {
@@ -1364,7 +1411,7 @@ describe('LibP2PService', () => {
         },
         archiveRoot: Fr.random(),
       });
-      await service.handleGossipedCheckpointProposal(first.toBuffer(), 'msg-1', mockPeerId);
+      await service.handleGossipedCheckpointProposal(proposal.toBuffer(), 'msg-1', mockPeerId);
 
       reportMessageValidationResultSpy.mockClear();
       blockReceivedCallback.mockClear();
@@ -1372,32 +1419,19 @@ describe('LibP2PService', () => {
       validatorCheckpointReceivedCallback.mockClear();
       mockPeerManager.penalizePeer.mockClear();
 
-      const second = await makeCheckpointProposal({
-        signer,
-        checkpointHeader: makeCheckpointHeader(2, { slotNumber: targetSlot }),
-        lastBlock: {
-          blockHeader: makeBlockHeader(2, { slotNumber: targetSlot }),
-          indexWithinCheckpoint: secondOversizedIndex,
-        },
-        archiveRoot: Fr.random(),
-      });
-      await service.handleGossipedCheckpointProposal(second.toBuffer(), 'msg-2', mockPeerId);
+      await service.handleGossipedCheckpointProposal(proposal.toBuffer(), 'msg-2', mockPeerId);
 
-      // Not first for (slot, proposer): ignored, not re-broadcast, not penalized, nothing processed
+      // The terminal block is an exact duplicate, so nothing new was retained: ignored, not
+      // re-broadcast, not penalized, nothing processed
       expect(reportMessageValidationResultSpy).toHaveBeenCalledWith('msg-2', MOCK_PEER_ID, TopicValidatorResult.Ignore);
       expect(blockReceivedCallback).not.toHaveBeenCalled();
       expect(allNodesCheckpointReceivedCallback).not.toHaveBeenCalled();
       expect(validatorCheckpointReceivedCallback).not.toHaveBeenCalled();
       expect(mockPeerManager.penalizePeer).not.toHaveBeenCalled();
-      const storedBlock = await attestationPool.getBlockProposalByArchive(
-        second.getBlockProposal()!.archive.toString(),
-      );
-      expect(storedBlock).toBeUndefined();
     });
 
-    it('first oversized block proposal at the per-position cap: ignores instead of re-broadcasting unretained evidence', async () => {
-      // Fill the (slot, index) position to its cap directly in the pool, bypassing the service so the
-      // first-oversized tracker has not seen this (slot, proposer) yet.
+    it('oversized block proposal at the per-position cap: ignores instead of penalizing the relaying peer', async () => {
+      // Fill the (slot, index) position to its cap directly in the pool.
       for (let i = 0; i < 2; i++) {
         const existing = await makeBlockProposal({
           signer,
