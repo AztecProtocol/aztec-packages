@@ -28,6 +28,7 @@ import {
   makeCheckpointProposal,
   mockTx,
 } from '@aztec/stdlib/testing';
+import { ConsensusTimetable } from '@aztec/stdlib/timetable';
 import { TxHash } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 import { INSERT_SCHEMA_VERSION, SCHEMA_SETUP, SCHEMA_VERSION } from '@aztec/validator-ha-signer/db';
@@ -105,7 +106,9 @@ describe('ValidatorClient HA Integration', () => {
     worldState = mock<WorldStateSynchronizer>();
     epochCache = mock<EpochCache>();
     epochCache.getL1Constants.mockReturnValue({
+      l1GenesisTime: 0n,
       slotDuration,
+      ethereumSlotDuration: 4,
     } as any);
     // Default mock: return all addresses passed (all are in committee)
     epochCache.filterInCommittee.mockImplementation((_slot, addresses) => Promise.resolve(addresses));
@@ -216,18 +219,15 @@ describe('ValidatorClient HA Integration', () => {
 
     // Create block proposal handler
     const metrics = new ValidatorMetrics(getTelemetryClient());
-<<<<<<< HEAD
-    const blockProposalValidator = new BlockProposalValidator(epochCache, {
-=======
     const consensusTimetable = new ConsensusTimetable({
       l1Constants: epochCache.getL1Constants(),
       blockDuration: 3,
     });
     const blockProposalValidator = new BlockProposalValidator(epochCache, consensusTimetable, {
->>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
       txsPermitted: true,
       maxTxsPerBlock: undefined,
       signatureContext: TEST_COORDINATION_SIGNATURE_CONTEXT,
+      clockDisparityMs: 500,
     });
     const proposalHandler = new ProposalHandler(
       checkpointsBuilder,
@@ -237,6 +237,7 @@ describe('ValidatorClient HA Integration', () => {
       txProvider,
       blockProposalValidator,
       epochCache,
+      consensusTimetable,
       config,
       blobClient,
       new CheckpointReexecutionTracker(),

@@ -48,10 +48,7 @@ import {
   PublicLogsQuerySchema,
 } from '../logs/logs_query.js';
 import { type L2ToL1MembershipWitness, L2ToL1MembershipWitnessSchema } from '../messaging/l2_to_l1_membership.js';
-<<<<<<< HEAD
-=======
 import { CheckpointAttestation } from '../p2p/checkpoint_attestation.js';
->>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
 import { type ApiSchemaFor, optional, schemas } from '../schemas/schemas.js';
 import { MerkleTreeId } from '../trees/merkle_tree_id.js';
 import { NullifierMembershipWitness } from '../trees/nullifier_membership_witness.js';
@@ -95,12 +92,9 @@ import { type GetTxByHashOptions, GetTxByHashOptionsSchema } from './get_tx_by_h
 import { type PeerInfo, PeerInfoSchema, type ProposalsForSlot, ProposalsForSlotSchema } from './p2p.js';
 import { type WorldStateSyncStatus, WorldStateSyncStatusSchema } from './world_state.js';
 
-<<<<<<< HEAD
-=======
 export type { GetTxByHashOptions } from './get_tx_by_hash_options.js';
 export { GetTxByHashOptionsSchema } from './get_tx_by_hash_options.js';
 
->>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
 /**
  * The aztec node.
  * We will probably implement the additional interfaces by means other than Aztec Node as it's currently a privacy leak
@@ -447,10 +441,13 @@ export interface AztecNode {
   getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined>;
 
   /**
-   * Method to retrieve pending txs.
+   * Method to retrieve pending txs. The txs' proofs are stripped unless `includeProof` is set.
+   * @param limit - The number of items to return.
+   * @param after - The last known pending tx. Used for pagination.
+   * @param options - Options for the returned txs (eg whether to include their proofs).
    * @returns The pending txs.
    */
-  getPendingTxs(limit?: number, after?: TxHash): Promise<Tx[]>;
+  getPendingTxs(limit?: number, after?: TxHash, options?: GetTxByHashOptions): Promise<Tx[]>;
 
   /**
    * Retrieves the number of pending txs
@@ -459,18 +456,20 @@ export interface AztecNode {
   getPendingTxCount(): Promise<number>;
 
   /**
-   * Method to retrieve a single pending tx.
+   * Method to retrieve a single pending tx. The tx's proof is stripped unless `includeProof` is set.
    * @param txHash - The transaction hash to return.
+   * @param options - Options for the returned tx (eg whether to include its proof).
    * @returns The pending tx if it exists.
    */
-  getTxByHash(txHash: TxHash): Promise<Tx | undefined>;
+  getTxByHash(txHash: TxHash, options?: GetTxByHashOptions): Promise<Tx | undefined>;
 
   /**
-   * Method to retrieve multiple pending txs.
+   * Method to retrieve multiple pending txs. The txs' proofs are stripped unless `includeProof` is set.
    * @param txHash - The transaction hashes to return.
+   * @param options - Options for the returned txs (eg whether to include their proofs).
    * @returns The pending txs if exist.
    */
-  getTxsByHash(txHashes: TxHash[]): Promise<Tx[]>;
+  getTxsByHash(txHashes: TxHash[], options?: GetTxByHashOptions): Promise<Tx[]>;
 
   /**
    * Gets the storage value at the given contract storage slot.
@@ -720,16 +719,20 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
     input: z.tuple([
       optional(z.number().gte(1).lte(MAX_RPC_TXS_LEN).default(MAX_RPC_TXS_LEN)),
       optional(TxHash.schema),
+      optional(GetTxByHashOptionsSchema),
     ]),
     output: z.array(Tx.schema),
   }),
 
   getPendingTxCount: z.function({ input: z.tuple([]), output: z.number() }),
 
-  getTxByHash: z.function({ input: z.tuple([TxHash.schema]), output: Tx.schema.optional() }),
+  getTxByHash: z.function({
+    input: z.tuple([TxHash.schema, optional(GetTxByHashOptionsSchema)]),
+    output: Tx.schema.optional(),
+  }),
 
   getTxsByHash: z.function({
-    input: z.tuple([z.array(TxHash.schema).max(MAX_RPC_TXS_LEN)]),
+    input: z.tuple([z.array(TxHash.schema).max(MAX_RPC_TXS_LEN), optional(GetTxByHashOptionsSchema)]),
     output: z.array(Tx.schema),
   }),
 

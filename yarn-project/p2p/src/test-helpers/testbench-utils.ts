@@ -241,6 +241,10 @@ export class InMemoryAttestationPool {
     return Promise.resolve(this.checkpoints.get(slot)?.[0]);
   }
 
+  hasCheckpointProposalForSlot(slot: SlotNumber): Promise<boolean> {
+    return Promise.resolve(this.checkpoints.has(slot));
+  }
+
   getProposalsForSlot(slot: SlotNumber): Promise<{
     blockProposals: BlockProposal[];
     checkpointProposals: CheckpointProposalCore[];

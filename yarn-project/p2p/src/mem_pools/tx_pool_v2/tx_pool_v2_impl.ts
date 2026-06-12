@@ -65,7 +65,10 @@ export interface TxPoolV2Callbacks {
 export class TxPoolV2Impl {
   // === Persistence ===
   #store: AztecAsyncKVStore;
+  /** Tx data without its proof. Proofs live in #proofsDB so a tx can be read without loading its proof. */
   #txsDB: AztecAsyncMap<string, Buffer>;
+  /** Tx proofs, keyed by tx hash. Written and deleted in lockstep with #txsDB. */
+  #proofsDB: AztecAsyncMap<string, Buffer>;
 
   // === Dependencies ===
   #l2BlockSource: L2BlockSource;
@@ -99,6 +102,7 @@ export class TxPoolV2Impl {
   ) {
     this.#store = store;
     this.#txsDB = store.openMap('txs');
+    this.#proofsDB = store.openMap('tx_proofs');
 
     this.#l2BlockSource = deps.l2BlockSource;
     this.#worldStateSynchronizer = deps.worldStateSynchronizer;
@@ -108,7 +112,7 @@ export class TxPoolV2Impl {
     this.#config = { ...DEFAULT_TX_POOL_V2_CONFIG, ...config };
     this.#evictedTxHashes = FifoSet.withLimit<string>(this.#config.evictedTxCacheSize);
     this.#archive = new TxArchive(archiveStore, this.#config.archivedTxLimit, log);
-    this.#deletedPool = new DeletedPool(store, this.#txsDB, log);
+    this.#deletedPool = new DeletedPool(store, txHashStr => this.#deleteTxData(txHashStr), log);
     this.#dateProvider = dateProvider;
     this.#instrumentation = new TxPoolV2Instrumentation(telemetry, () => this.#indices.getTotalMetadataBytes());
     this.#log = log;
@@ -216,7 +220,7 @@ export class TxPoolV2Impl {
     }
     await this.#store.transactionAsync(async () => {
       for (const txHashStr of toDelete) {
-        await this.#txsDB.delete(txHashStr);
+        await this.#deleteTxData(txHashStr);
       }
     });
     this.#log.info(`Deleted ${toDelete.length} invalid/rejected transactions on startup`, { txHashes: toDelete });
@@ -462,10 +466,11 @@ export class TxPoolV2Impl {
           // Update protection for existing tx
           this.#indices.updateProtection(txHashStr, slotNumber);
         } else if (this.#deletedPool.isSoftDeleted(txHashStr)) {
-          // Resurrect soft-deleted tx as protected
+          // Resurrect soft-deleted tx as protected. Load the proof too: #addTx rewrites both entries, so re-adding
+          // a proofless tx would wipe the stored proof.
           const buffer = await this.#txsDB.getAsync(txHashStr);
           if (buffer) {
-            const tx = Tx.fromBuffer(buffer);
+            const tx = await this.#loadTxWithProof(txHashStr, buffer);
             await this.#addTx(tx, { protected: slotNumber });
             softDeletedHits++;
           } else {
@@ -744,18 +749,34 @@ export class TxPoolV2Impl {
 
   // === Query Methods ===
 
-  async getTxByHash(txHash: TxHash): Promise<Tx | undefined> {
-    const buffer = await this.#txsDB.getAsync(txHash.toString());
-    return buffer ? Tx.fromBuffer(buffer) : undefined;
+  async getTxByHash(txHash: TxHash, opts: { includeProof?: boolean } = {}): Promise<Tx | undefined> {
+    const txHashStr = txHash.toString();
+    const buffer = await this.#txsDB.getAsync(txHashStr);
+    if (!buffer) {
+      return undefined;
+    }
+    return opts.includeProof === false ? Tx.fromBuffer(buffer) : this.#loadTxWithProof(txHashStr, buffer);
   }
 
-  async getTxsByHash(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
+  async getTxsByHash(txHashes: TxHash[], opts: { includeProof?: boolean } = {}): Promise<(Tx | undefined)[]> {
     const results: (Tx | undefined)[] = [];
     for (const h of txHashes) {
-      const buffer = await this.#txsDB.getAsync(h.toString());
-      results.push(buffer ? Tx.fromBuffer(buffer) : undefined);
+      results.push(await this.getTxByHash(h, opts));
     }
     return results;
+  }
+
+  /** Deserializes a tx blob loaded from #txsDB together with its separately-stored proof. */
+  async #loadTxWithProof(txHashStr: string, buffer: Buffer): Promise<Tx> {
+    const proofBuffer = await this.#proofsDB.getAsync(txHashStr);
+    if (!proofBuffer) {
+      // #addTx always writes a proof entry (an empty proof serializes to a 4-byte sentinel), so a missing entry
+      // means the blob/proof invariant is broken. Return the proofless tx but flag it, since a consumer that needs
+      // the proof (eg serving peers) would otherwise fail far away from the root cause.
+      this.#log.warn(`Missing stored proof for tx ${txHashStr}`, { txHash: txHashStr });
+      return Tx.fromBuffer(buffer);
+    }
+    return Tx.fromBuffers(buffer, proofBuffer);
   }
 
   hasTxs(txHashes: TxHash[]): boolean[] {
@@ -884,7 +905,8 @@ export class TxPoolV2Impl {
     const meta = precomputedMeta ?? (await buildTxMetaData(tx));
     meta.receivedAt = this.#dateProvider.now();
 
-    await this.#txsDB.set(txHashStr, tx.toBuffer());
+    await this.#txsDB.set(txHashStr, tx.withoutProof().toBuffer());
+    await this.#proofsDB.set(txHashStr, tx.chonkProof.toBuffer());
     await this.#deletedPool.clearSoftDeleted(txHashStr);
     this.#callbacks.onTxsAdded([tx], opts);
 
@@ -921,6 +943,12 @@ export class TxPoolV2Impl {
     this.#indices.remove(txHashStr);
     this.#callbacks.onTxsRemoved([txHashStr]);
     await this.#deletedPool.deleteTx(txHashStr);
+  }
+
+  /** Hard-deletes a tx's stored data (tx blob and proof) from the DB. */
+  async #deleteTxData(txHashStr: string): Promise<void> {
+    await this.#txsDB.delete(txHashStr);
+    await this.#proofsDB.delete(txHashStr);
   }
 
   /** Deletes a batch of transactions, emitting callbacks individually for each. */

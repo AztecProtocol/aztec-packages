@@ -49,10 +49,6 @@ export interface SequencerConfig {
   txPublicSetupAllowListExtend?: AllowedElement[];
   /** Payload address to vote for */
   governanceProposerPayload?: EthAddress;
-<<<<<<< HEAD
-  /** Whether to enforce the time table when building blocks */
-  enforceTimeTable?: boolean;
-=======
   /**
    * Minimum block-building time (`min_block_duration`) still worth allocating if the proposer starts
    * late, in seconds.
@@ -63,7 +59,6 @@ export interface SequencerConfig {
    * checkpoint proposal being ready for p2p send, in seconds.
    */
   checkpointProposalPrepareTime?: number;
->>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
   /** How much time (in seconds) we allow in the slot for publishing the L1 tx. */
   l1PublishingTime?: number;
   /** Used for testing to introduce a fake delay after processing each tx */
@@ -107,6 +102,8 @@ export interface SequencerConfig {
   shuffleAttestationOrdering?: boolean;
   /** Duration per block in milliseconds, used to derive how many blocks fit in a slot (defaults to 3000 ms). */
   blockDurationMs?: number;
+  /** Consensus grace in seconds for a received checkpoint proposal to materialize into local proposed state. */
+  checkpointProposalSyncGraceSeconds?: number;
   /** Expected number of block proposals per slot for P2P peer scoring. 0 disables scoring, undefined falls back to blocksPerSlot - 1. */
   expectedBlockProposalsPerSlot?: number;
   /** Have sequencer build and publish an empty checkpoint if there are no txs */
@@ -151,14 +148,9 @@ export const SequencerConfigSchema = zodFor<SequencerConfig>()(
     acvmBinaryPath: z.string().optional(),
     txPublicSetupAllowListExtend: z.array(AllowedElementSchema).optional(),
     governanceProposerPayload: schemas.EthAddress.optional(),
-<<<<<<< HEAD
-    l1PublishingTime: z.number().optional(),
-    enforceTimeTable: z.boolean().optional(),
-=======
     minBlockDuration: z.number().positive().optional(),
     checkpointProposalPrepareTime: z.number().nonnegative().optional(),
     l1PublishingTime: z.number().optional(),
->>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
     fakeProcessingDelayPerTxMs: z.number().optional(),
     fakeThrowAfterProcessingTxCount: z.number().optional(),
     attestationPropagationTime: z.number().optional(),
@@ -176,6 +168,7 @@ export const SequencerConfigSchema = zodFor<SequencerConfig>()(
     fishermanMode: z.boolean().optional(),
     shuffleAttestationOrdering: z.boolean().optional(),
     blockDurationMs: z.number().positive().optional(),
+    checkpointProposalSyncGraceSeconds: z.number().nonnegative().optional(),
     expectedBlockProposalsPerSlot: z.number().nonnegative().optional(),
     buildCheckpointIfEmpty: z.boolean().optional(),
     skipPushProposedBlocksToArchiver: z.boolean().optional(),
@@ -189,10 +182,6 @@ export const SequencerConfigSchema = zodFor<SequencerConfig>()(
 
 type SequencerConfigOptionalKeys =
   | 'governanceProposerPayload'
-<<<<<<< HEAD
-  | 'blockDurationMs'
-=======
->>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
   | 'expectedBlockProposalsPerSlot'
   | 'coinbase'
   | 'feeRecipient'
@@ -200,7 +189,8 @@ type SequencerConfigOptionalKeys =
   | 'acvmBinaryPath'
   | 'fakeProcessingDelayPerTxMs'
   | 'fakeThrowAfterProcessingTxCount'
-  | 'l1PublishingTime'
+  | 'minBlockDuration'
+  | 'checkpointProposalPrepareTime'
   | 'txPublicSetupAllowListExtend'
   | 'invalidBlockProposalIndexWithinCheckpoint'
   | 'minValidTxsPerBlock'

@@ -162,13 +162,8 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
   },
   l1PublishingTime: {
     env: 'SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT',
-<<<<<<< HEAD
-    description: 'How much time (in seconds) we allow in the slot for publishing the L1 tx (defaults to 1 L1 slot).',
-    ...optionalNumberConfigHelper(),
-=======
     description: 'How much time in seconds to allow in the slot for publishing the L1 transaction.',
     ...numberConfigHelper(DefaultSequencerConfig.l1PublishingTime),
->>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
   },
   fakeProcessingDelayPerTxMs: {
     description: 'Used for testing to introduce a fake delay after processing each tx',

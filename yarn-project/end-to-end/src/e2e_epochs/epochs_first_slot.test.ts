@@ -82,7 +82,6 @@ describe('e2e_epochs/epochs_first_slot', () => {
       test.createValidatorNode([privateKey], {
         dontStartSequencer: true,
         txDelayerMaxInclusionTimeIntoSlot: 2,
-        l1PublishingTime: test.L1_BLOCK_TIME_IN_S - 1,
       }),
     );
     logger.warn(`Started ${NODE_COUNT} validator nodes.`, { validators: validators.map(v => v.attester.toString()) });

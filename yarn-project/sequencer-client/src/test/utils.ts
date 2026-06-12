@@ -8,11 +8,8 @@ import { Signature } from '@aztec/foundation/eth-signature';
 import type { P2P } from '@aztec/p2p';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { CommitteeAttestation, L2Block } from '@aztec/stdlib/block';
-<<<<<<< HEAD
-=======
 import { DEFAULT_BLOCK_DURATION_MS } from '@aztec/stdlib/config';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
->>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
 import { BlockProposal, CheckpointAttestation, CheckpointProposal, ConsensusPayload } from '@aztec/stdlib/p2p';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import {
@@ -20,6 +17,13 @@ import {
   makeAppendOnlyTreeSnapshot,
   mockTxForRollup,
 } from '@aztec/stdlib/testing';
+import {
+  DEFAULT_CHECKPOINT_PROPOSAL_INIT_TIME,
+  DEFAULT_CHECKPOINT_PROPOSAL_PREPARE_TIME,
+  DEFAULT_MIN_BLOCK_DURATION,
+  DEFAULT_P2P_PROPAGATION_TIME,
+  ProposerTimetable,
+} from '@aztec/stdlib/timetable';
 import { BlockHeader, GlobalVariables, type Tx, makeProcessedTxFromPrivateOnlyTx } from '@aztec/stdlib/tx';
 
 import type { MockProxy } from 'jest-mock-extended';
@@ -28,8 +32,6 @@ import type { MockProxy } from 'jest-mock-extended';
 export { MockCheckpointBuilder, MockCheckpointsBuilder } from './mock_checkpoint_builder.js';
 
 /**
-<<<<<<< HEAD
-=======
  * Builds a {@link ProposerTimetable} for tests from a millisecond block duration and optional budgets,
  * filling unset budgets with the shared `DEFAULT_*` values the sequencer config layer applies. Mirrors how
  * the sequencer constructs its timetable so tests exercise the same budget resolution.
@@ -52,7 +54,6 @@ export function makeProposerTimetable(opts: {
 }
 
 /**
->>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
  * Creates a mock transaction with a specific seed for deterministic testing
  */
 export async function makeTx(seed?: number, chainId?: Fr): Promise<Tx> {

@@ -62,12 +62,7 @@ export const PIPELINING_SETUP_OPTS = {
  * - Swaps the production Sequencer for an AutomineSequencer that builds one block per
  *   submitted tx, publishes synchronously to L1, and owns all time control through a
  *   serial queue (see `sequencer-client/src/sequencer/automine/automine_sequencer.ts`).
-<<<<<<< HEAD
- * - Disables the validator client and AnvilTestWatcher (the AutomineSequencer needs
- *   neither).
-=======
  * - Disables the validator client (the AutomineSequencer needs none).
->>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
  * - Uses `inboxLag: 1` (synchronous) since the AutomineSequencer publishes one block per tx.
  * - Switches anvil into automine mode at setup time (no interval mining); each L1 tx
  *   mines an L1 block immediately.
@@ -76,10 +71,6 @@ export const PIPELINING_SETUP_OPTS = {
  */
 export const AUTOMINE_E2E_OPTS = {
   useAutomineSequencer: true,
-<<<<<<< HEAD
-  disableAnvilTestWatcher: true,
-=======
->>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
   inboxLag: 1,
   minTxsPerBlock: 0,
   aztecSlotDuration: 12,

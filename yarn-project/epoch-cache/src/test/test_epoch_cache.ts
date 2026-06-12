@@ -1,7 +1,12 @@
 import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
-import { getEpochAtSlot, getSlotAtTimestamp, getTimestampRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
+import {
+  getEpochAtSlot,
+  getSlotAtTimestamp,
+  getTimestampForSlot,
+  getTimestampRangeForEpoch,
+} from '@aztec/stdlib/epoch-helpers';
 
 import {
   type EpochAndSlot,
@@ -137,8 +142,11 @@ export class TestEpochCache implements EpochCacheInterface {
   }
 
   getEpochAndSlotNow(): EpochAndSlot & { nowMs: bigint } {
+    // Model "now" as the start of the current slot (mirroring the real EpochCache, which derives nowMs
+    // from the wall clock). Using the slot start rather than the epoch start keeps nowMs consistent with
+    // currentSlot, which the pipelining receive-window check (clock_tolerance) relies on.
     const epochNow = getEpochAtSlot(this.currentSlot, this.l1Constants);
-    const ts = getTimestampRangeForEpoch(epochNow, this.l1Constants)[0];
+    const ts = getTimestampForSlot(this.currentSlot, this.l1Constants);
     return {
       epoch: epochNow,
       slot: this.currentSlot,

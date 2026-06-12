@@ -16,11 +16,7 @@ import { makeBackoff, retry, retryUntil } from '@aztec/foundation/retry';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { Gas } from '@aztec/stdlib/gas';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
-<<<<<<< HEAD
-import { TxStatus } from '@aztec/stdlib/tx';
-=======
 import { getGasLimits } from '@aztec/wallet-sdk/base-wallet';
->>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
 import { registerInitialLocalNetworkAccountsInWallet } from '@aztec/wallets/testing';
 
 import { getACVMConfig } from '../fixtures/get_acvm_config.js';
@@ -433,9 +429,7 @@ export async function performTransfers({
 
     const provenTxs = await Promise.all(txs);
 
-    // Wait only for the txs to be proposed, not checkpointed. This is enough to keep the chain
-    // loaded for the reorg scenario, and avoids each round blocking on the (slower) checkpoint lag.
-    await Promise.all(provenTxs.map(t => t.send({ wait: { timeout: 600, waitForStatus: TxStatus.PROPOSED } })));
+    await Promise.all(provenTxs.map(t => t.send({ wait: { timeout: 600 } })));
 
     logger.info(`Completed round ${i + 1} / ${rounds}`);
   }

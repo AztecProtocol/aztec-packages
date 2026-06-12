@@ -25,10 +25,7 @@ import {
   getTopicsForConfig,
   metricsTopicStrToLabels,
 } from '@aztec/stdlib/p2p';
-<<<<<<< HEAD
-=======
 import { ConsensusTimetable, getDefaultCheckpointProposalSyncGrace } from '@aztec/stdlib/timetable';
->>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import { Tx, type TxValidationResult } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
@@ -122,8 +119,6 @@ import type {
 } from '../service.js';
 import { P2PInstrumentation } from './instrumentation.js';
 
-<<<<<<< HEAD
-=======
 /**
  * Builds the {@link ConsensusTimetable} shared by the gossip validators for proposal/attestation receive-window
  * bounds. Derived purely from protocol slot-timing constants plus the block sub-slot duration and the consensus
@@ -142,7 +137,6 @@ function buildConsensusTimetable(
   });
 }
 
->>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
 interface ValidationResult {
   name: string;
   isValid: TxValidationResult;
@@ -259,34 +253,39 @@ export class LibP2PService extends WithTracer implements P2PService {
       this.protocolVersion,
     );
 
-<<<<<<< HEAD
-    const p2pPropagationTime = config.attestationPropagationTime;
-=======
     // Build the consensus timetable once from protocol slot-timing constants and inject it into every
     // validator so they share one set of receive-window bounds, independent of proposer operational budgets.
     const consensusTimetable = buildConsensusTimetable(config, epochCache.getL1Constants());
->>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
     const proposalValidatorOpts = {
       txsPermitted: !config.disableTransactions,
       maxTxsPerBlock: config.validateMaxTxsPerBlock ?? config.validateMaxTxsPerCheckpoint,
       maxBlocksPerCheckpoint: config.maxBlocksPerCheckpoint,
-      p2pPropagationTime,
       skipSlotValidation: config.skipProposalSlotValidation,
       signatureContext: {
         chainId: config.l1ChainId,
         rollupAddress: config.rollupAddress,
       },
+      clockDisparityMs: config.maxGossipClockDisparityMs,
     };
-    this.blockProposalValidator = new BlockProposalValidator(epochCache, proposalValidatorOpts);
-    this.checkpointProposalValidator = new CheckpointProposalValidator(epochCache, proposalValidatorOpts);
+    this.blockProposalValidator = new BlockProposalValidator(epochCache, consensusTimetable, proposalValidatorOpts);
+    this.checkpointProposalValidator = new CheckpointProposalValidator(
+      epochCache,
+      consensusTimetable,
+      proposalValidatorOpts,
+    );
     const attestationValidatorOpts = {
-      l1PublishingTime: config.l1PublishingTime,
-      p2pPropagationTime,
       signatureContext: proposalValidatorOpts.signatureContext,
+      clockDisparityMs: config.maxGossipClockDisparityMs,
     };
     this.checkpointAttestationValidator = config.fishermanMode
-      ? new FishermanAttestationValidator(epochCache, mempools.attestationPool, telemetry, attestationValidatorOpts)
-      : new CheckpointAttestationValidator(epochCache, attestationValidatorOpts);
+      ? new FishermanAttestationValidator(
+          epochCache,
+          consensusTimetable,
+          mempools.attestationPool,
+          telemetry,
+          attestationValidatorOpts,
+        )
+      : new CheckpointAttestationValidator(epochCache, consensusTimetable, attestationValidatorOpts);
 
     this.gossipSubEventHandler = this.handleGossipSubEvent.bind(this);
 
@@ -397,26 +396,15 @@ export class LibP2PService extends WithTracer implements P2PService {
 
     const announceTcpMultiaddr = config.p2pIp ? [convertToMultiaddr(config.p2pIp, p2pPort, 'tcp')] : [];
 
-<<<<<<< HEAD
-    // Create dynamic topic score params based on network configuration
-=======
     // Create dynamic topic score params based on network configuration. Scoring uses the network-wide
     // max-blocks-per-checkpoint config value directly to size expected per-slot message rates; these are
     // peer-rate thresholds, not consensus deadlines, so they need no proposer operational budgets.
->>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
     const l1Constants = epochCache.getL1Constants();
     const topicScoreParams = createAllTopicScoreParams(protocolVersion, {
       slotDurationMs: l1Constants.slotDuration * 1000,
-      ethereumSlotDuration: l1Constants.ethereumSlotDuration,
       heartbeatIntervalMs: config.gossipsubInterval,
       targetCommitteeSize: l1Constants.targetCommitteeSize,
-<<<<<<< HEAD
-      blockDurationMs: config.blockDurationMs,
-      l1PublishingTime: config.l1PublishingTime,
-      p2pPropagationTime: config.attestationPropagationTime,
-=======
       maxBlocksPerCheckpoint: config.maxBlocksPerCheckpoint ?? DEFAULT_MAX_BLOCKS_PER_CHECKPOINT,
->>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
       expectedBlockProposalsPerSlot: config.expectedBlockProposalsPerSlot,
     });
 

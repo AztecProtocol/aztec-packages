@@ -183,7 +183,6 @@ describe('e2e_slashing_attested_invalid_proposal', () => {
         maxBlocksPerCheckpoint: BLOCKS_PER_CHECKPOINT,
         publishTxsWithProposals: true,
         blockDurationMs: BLOCK_DURATION_MS,
-        l1PublishingTime: 2,
         attestationPropagationTime: 0.5,
         slashDuplicateProposalPenalty: 1n,
       },

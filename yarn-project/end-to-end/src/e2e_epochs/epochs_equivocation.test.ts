@@ -72,7 +72,6 @@ describe('e2e_epochs/epochs_equivocation', () => {
       aztecSlotDuration: 36,
       blockDurationMs: 8000,
       attestationPropagationTime: 0.5,
-      l1PublishingTime: 2,
       aztecTargetCommitteeSize: 4,
       skipInitialSequencer: true,
       // Enable the slasher so we can assert the equivocating proposer is detected for slashing.

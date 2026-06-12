@@ -49,11 +49,6 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
         aztecSlotDuration: AZTEC_SLOT_DURATION,
         ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
         blockDurationMs: 6000,
-<<<<<<< HEAD
-        l1PublishingTime: 8,
-        enforceTimeTable: true,
-=======
->>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
         aztecProofSubmissionEpochs: 1024, // effectively do not reorg
         listenAddress: '127.0.0.1',
         minTxsPerBlock: 0,

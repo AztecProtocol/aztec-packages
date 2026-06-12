@@ -462,7 +462,8 @@ export class AutomineSequencer {
       this.log.getBindings(),
     );
 
-    const pendingTxs = this.deps.p2pClient.iterateEligiblePendingTxs();
+    // Block building only executes txs, and automine publishes straight to L1, so the proofs are never needed.
+    const pendingTxs = this.deps.p2pClient.iterateEligiblePendingTxs({ includeProof: false });
 
     const buildResult = await this.tryBuildBlock(
       checkpointBuilder,

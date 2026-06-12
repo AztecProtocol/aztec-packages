@@ -1,6 +1,6 @@
 import {
-  MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT,
   MAX_PROCESSABLE_L2_GAS,
+  MAX_TX_DA_GAS,
   PRIVATE_TX_L2_GAS_OVERHEAD,
   PUBLIC_TX_L2_GAS_OVERHEAD,
   TX_DA_GAS_OVERHEAD,
@@ -9,6 +9,7 @@ import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint, SlotNumber } from
 import { timesAsync } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { DateProvider } from '@aztec/foundation/timer';
+import type { AztecAsyncMap } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { RevertCode } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -22,7 +23,7 @@ import {
   PublicDataTreeLeaf,
   PublicDataTreeLeafPreimage,
 } from '@aztec/stdlib/trees';
-import { BlockHeader, GlobalVariables, type Tx, TxEffect, TxHash, type TxValidator } from '@aztec/stdlib/tx';
+import { BlockHeader, GlobalVariables, Tx, TxEffect, TxHash, type TxValidator } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -36,7 +37,6 @@ import { AztecKVTxPoolV2 } from './tx_pool_v2.js';
 type MockTx = Awaited<ReturnType<typeof mockTx>>;
 
 // Default maxFeesPerGas used by mockTx is GasFees(10, 10).
-// Fee limit per tx = MAX_PROCESSABLE_L2_GAS * 10 + MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT * 10.
 const DEFAULT_MAX_FEES_PER_GAS = new GasFees(10, 10);
 const DEFAULT_GAS_LIMITS = new Gas(MAX_TX_DA_GAS, MAX_PROCESSABLE_L2_GAS);
 const TEARDOWN_DA_GAS = 98_304;
@@ -527,6 +527,62 @@ describe('TxPoolV2', () => {
     });
   });
 
+  describe('proof storage', () => {
+    it('returns the full tx including its proof by default', async () => {
+      const tx = await mockTx(1);
+      await pool.addPendingTxs([tx]);
+
+      const retrieved = await pool.getTxByHash(tx.getTxHash());
+      expect(retrieved).toBeDefined();
+      expect(retrieved!.chonkProof.isEmpty()).toBe(false);
+      expect(retrieved!.toBuffer().equals(tx.toBuffer())).toBe(true);
+    });
+
+    it('returns the tx without its proof when includeProof is false', async () => {
+      const tx = await mockTx(1);
+      await pool.addPendingTxs([tx]);
+
+      const retrieved = await pool.getTxByHash(tx.getTxHash(), { includeProof: false });
+      expect(retrieved).toBeDefined();
+      expect(retrieved!.chonkProof.isEmpty()).toBe(true);
+      expect(retrieved!.toBuffer().equals(tx.withoutProof().toBuffer())).toBe(true);
+    });
+
+    it('threads includeProof through getTxsByHash', async () => {
+      const tx1 = await mockTx(1);
+      const tx2 = await mockTx(2);
+      await pool.addPendingTxs([tx1, tx2]);
+      const hashes = [tx1.getTxHash(), tx2.getTxHash()];
+
+      const withProofs = await pool.getTxsByHash(hashes);
+      expect(withProofs.map(tx => tx!.chonkProof.isEmpty())).toEqual([false, false]);
+
+      const withoutProofs = await pool.getTxsByHash(hashes, { includeProof: false });
+      expect(withoutProofs.map(tx => tx!.chonkProof.isEmpty())).toEqual([true, true]);
+    });
+
+    it('stores the proof separately from the tx data and deletes both on hard delete', async () => {
+      const tx = await mockTx(1);
+      await pool.addPendingTxs([tx]);
+      const txHashStr = tx.getTxHash().toString();
+
+      const txsDB: AztecAsyncMap<string, Buffer> = store.openMap('txs');
+      const proofsDB: AztecAsyncMap<string, Buffer> = store.openMap('tx_proofs');
+
+      const storedTx = await txsDB.getAsync(txHashStr);
+      expect(Tx.fromBuffer(storedTx!).chonkProof.isEmpty()).toBe(true);
+      expect(await proofsDB.getAsync(txHashStr)).toBeDefined();
+
+      // Slot-soft-delete the tx, then advance two slots to trigger hard deletion.
+      await pool.handleFailedExecution([tx.getTxHash()]);
+      await pool.prepareForSlot(SlotNumber(1));
+      await pool.prepareForSlot(SlotNumber(2));
+
+      expect(await txsDB.getAsync(txHashStr)).toBeUndefined();
+      expect(await proofsDB.getAsync(txHashStr)).toBeUndefined();
+    });
+  });
+
   describe('validator rejection', () => {
     let rejectingPool: AztecKVTxPoolV2;
     let rejectingValidator: TxValidator<TxMetaData>;
@@ -746,12 +802,9 @@ describe('TxPoolV2', () => {
     });
 
     it('rejects public tx if L2 gas limit is too high', async () => {
-      const tx = await makePublicTxWithGas(
-        1,
-        new Gas(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, MAX_PROCESSABLE_L2_GAS + 1),
-      );
+      const tx = await makePublicTxWithGas(1, new Gas(MAX_TX_DA_GAS, MAX_PROCESSABLE_L2_GAS + 1));
       tx.data.constants.txContext.gasSettings = GasSettings.fallback({
-        gasLimits: new Gas(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, MAX_PROCESSABLE_L2_GAS + 1),
+        gasLimits: new Gas(MAX_TX_DA_GAS, MAX_PROCESSABLE_L2_GAS + 1),
         maxFeesPerGas: DEFAULT_MAX_FEES_PER_GAS,
         teardownGasLimits: new Gas(TEARDOWN_DA_GAS, 1),
       });
@@ -761,12 +814,9 @@ describe('TxPoolV2', () => {
     });
 
     it('rejects private tx if L2 gas limit is too high', async () => {
-      const tx = await makePrivateTxWithGas(
-        1,
-        new Gas(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, MAX_PROCESSABLE_L2_GAS + 1),
-      );
+      const tx = await makePrivateTxWithGas(1, new Gas(MAX_TX_DA_GAS, MAX_PROCESSABLE_L2_GAS + 1));
       tx.data.constants.txContext.gasSettings = GasSettings.fallback({
-        gasLimits: new Gas(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, MAX_PROCESSABLE_L2_GAS + 1),
+        gasLimits: new Gas(MAX_TX_DA_GAS, MAX_PROCESSABLE_L2_GAS + 1),
         maxFeesPerGas: DEFAULT_MAX_FEES_PER_GAS,
         teardownGasLimits: new Gas(TEARDOWN_DA_GAS, 1),
       });
@@ -1370,6 +1420,17 @@ describe('TxPoolV2', () => {
         // hasTxs should return true (in indices, not just soft-deleted)
         const [hasTx] = await poolWithValidator.hasTxs([tx.getTxHash()]);
         expect(hasTx).toBe(true);
+      });
+
+      it('resurrecting a soft-deleted tx preserves its stored proof', async () => {
+        const tx = await mockTx(1);
+        await softDeleteTx(tx);
+
+        await poolWithValidator.protectTxs([tx.getTxHash()], slot2Header);
+
+        const retrieved = await poolWithValidator.getTxByHash(tx.getTxHash());
+        expect(retrieved!.chonkProof.isEmpty()).toBe(false);
+        expect(retrieved!.toBuffer().equals(tx.toBuffer())).toBe(true);
       });
 
       it('resurrected tx is unprotected on the next slot', async () => {

@@ -91,7 +91,6 @@ describe('e2e_epochs/epochs_high_tps_block_building', () => {
       aztecProofSubmissionEpochs: 1024,
       startProverNode: false,
       ethereumSlotDuration: L1_BLOCK_TIME_S,
-      l1PublishingTime: L1_BLOCK_TIME_S,
       aztecSlotDuration: L2_SLOT_DURATION_S,
       blockDurationMs: BLOCK_DURATION_MS,
       fakeProcessingDelayPerTxMs: TX_DURATION_MS,

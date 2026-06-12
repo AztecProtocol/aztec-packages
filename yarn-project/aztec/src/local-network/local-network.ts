@@ -113,6 +113,7 @@ export async function createLocalNetwork(config: Partial<LocalNetworkConfig> = {
   const aztecNodeConfig: AztecNodeConfig = {
     ...envConfig,
     ...config,
+    skipOrphanProposedBlockPruning: true,
     txPublicSetupAllowListExtend: [...tokenAllowList, ...(config.txPublicSetupAllowListExtend ?? [])],
     // The local network runs against anvil with no committee, so it defaults to the deterministic
     // AutomineSequencer, which owns L1 time control (warps the dateProvider and L1 timestamps to slot

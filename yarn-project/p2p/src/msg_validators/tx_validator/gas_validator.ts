@@ -1,5 +1,6 @@
 import {
   MAX_PROCESSABLE_L2_GAS,
+  MAX_TX_DA_GAS,
   PRIVATE_TX_L2_GAS_OVERHEAD,
   PUBLIC_TX_L2_GAS_OVERHEAD,
   TX_DA_GAS_OVERHEAD,
@@ -73,19 +74,11 @@ export class GasLimitsValidator<T extends HasGasLimitData> implements TxValidato
    */
   constructor(opts?: { maxTxL2Gas?: number; maxTxDAGas?: number; bindings?: LoggerBindings }) {
     this.#log = createLogger('sequencer:tx_validator:tx_gas', opts?.bindings);
-<<<<<<< HEAD
-    this.#rollupManaLimit = opts?.rollupManaLimit ?? Infinity;
-    this.#maxBlockL2Gas = opts?.maxBlockL2Gas ?? Infinity;
-    this.#maxBlockDAGas = opts?.maxBlockDAGas ?? Infinity;
-    this.#effectiveMaxL2Gas = Math.min(MAX_PROCESSABLE_L2_GAS, this.#rollupManaLimit, this.#maxBlockL2Gas);
-    this.#effectiveMaxDAGas = Math.min(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, this.#maxBlockDAGas);
-=======
     // The passed limits are network admission limits; clamp to the per-tx protocol maxima as a hard ceiling.
     // MAX_TX_DA_GAS bounds DA by what a single tx can actually post to a blob; declaring more is meaningless
     // and would let a tx reserve checkpoint/block DA budget during proposal building it can't use.
     this.#effectiveMaxL2Gas = Math.min(MAX_PROCESSABLE_L2_GAS, opts?.maxTxL2Gas ?? Infinity);
     this.#effectiveMaxDAGas = Math.min(MAX_TX_DA_GAS, opts?.maxTxDAGas ?? Infinity);
->>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
   }
 
   validateTx(tx: T): Promise<TxValidationResult> {

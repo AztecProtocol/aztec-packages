@@ -377,26 +377,6 @@ describe('HA Full Setup', () => {
   });
 
   afterAll(async () => {
-<<<<<<< HEAD:yarn-project/end-to-end/src/composed/ha/e2e_ha_full.test.ts
-    // Stop all HA peer nodes in parallel with a per-node deadline. A single stuck node can otherwise
-    // block the serial loop long enough to blow the jest hook timeout — e.g. a sequencer.stop() that
-    // awaits an L1 publish whose tx-timeout was computed on a test-warped clock and never fires.
-    if (haNodeServices) {
-      const STOP_DEADLINE_MS = 30_000;
-      await Promise.allSettled(
-        haNodeServices.map((service, i) => {
-          logger.info(`Stopping HA peer node ${i}`);
-          return Promise.race([
-            service.stop().catch(error => {
-              logger.error(`Failed to stop HA peer node ${i}: ${error}`);
-            }),
-            sleep(STOP_DEADLINE_MS).then(() => {
-              logger.error(`HA peer node ${i} stop did not return within ${STOP_DEADLINE_MS}ms; abandoning`);
-            }),
-          ]);
-        }),
-      );
-=======
     // Stop all sequencers before tearing down the nodes: a sequencer stop awaits its in-flight
     // iteration, which can spend tens of seconds finishing a vote or checkpoint publish on L1.
     // Stops must be awaited fully — jest runs without forceExit, so a node abandoned mid-stop
@@ -421,7 +401,6 @@ describe('HA Full Setup', () => {
           }),
         ),
       );
->>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975)):yarn-project/end-to-end/src/composed/ha/e2e_ha_full.parallel.test.ts
     }
 
     dateProvider?.reset();

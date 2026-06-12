@@ -84,12 +84,9 @@ export type ValidatorClientConfig = ValidatorHASignerConfig &
 
 export type ValidatorClientFullConfig = ValidatorClientConfig &
   Pick<SequencerConfig, 'txPublicSetupAllowListExtend' | 'broadcastInvalidBlockProposal' | 'maxBlocksPerCheckpoint'> &
-<<<<<<< HEAD
-=======
   // `blockDurationMs` is optional on the loose `SequencerConfig` but is always populated via the shared
   // `numberConfigHelper(3000)` mapping, so it is required on the fully-resolved validator config.
   Required<Pick<SequencerConfig, 'blockDurationMs'>> &
->>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
   Pick<
     SlasherConfig,
     | 'slashBroadcastedInvalidBlockPenalty'
@@ -103,6 +100,12 @@ export type ValidatorClientFullConfig = ValidatorClientConfig &
      * @remarks This should match the property in P2PConfig. It's not picked from there to avoid circular dependencies.
      */
     disableTransactions?: boolean;
+
+    /**
+     * Maximum clock-disparity tolerance (ms) applied to proposal/attestation receive windows.
+     * @remarks Mirrors the property in P2PConfig. It's not picked from there to avoid circular dependencies.
+     */
+    maxGossipClockDisparityMs?: number;
   };
 
 export const ValidatorClientConfigSchema = zodFor<Omit<ValidatorClientConfig, 'validatorPrivateKeys'>>()(
@@ -137,6 +140,7 @@ export const ValidatorClientFullConfigSchema = zodFor<Omit<ValidatorClientFullCo
     slashDuplicateAttestationPenalty: schemas.BigInt,
     slashAttestInvalidCheckpointProposalPenalty: schemas.BigInt,
     disableTransactions: z.boolean().optional(),
+    maxGossipClockDisparityMs: z.number().optional(),
   }),
 );
 

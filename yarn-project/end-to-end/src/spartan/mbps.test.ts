@@ -86,11 +86,6 @@ describe('multi-blocks-per-slot network test', () => {
       minTxsPerBlock: 1,
       maxTxsPerBlock: 1,
       blockDurationMs: BLOCK_DURATION_MS,
-<<<<<<< HEAD
-      enforceTimeTable: true,
-      l1PublishingTime: 2,
-=======
->>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
       attestationPropagationTime: 0.5,
     });
     logger.info(
@@ -99,11 +94,6 @@ describe('multi-blocks-per-slot network test', () => {
           minTxsPerBlock: sequencerConfig.minTxsPerBlock,
           maxTxsPerBlock: sequencerConfig.maxTxsPerBlock,
           blockDurationMs: sequencerConfig.blockDurationMs,
-<<<<<<< HEAD
-          enforceTimeTable: sequencerConfig.enforceTimeTable,
-          l1PublishingTime: sequencerConfig.l1PublishingTime,
-=======
->>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
           attestationPropagationTime: sequencerConfig.attestationPropagationTime,
         })),
       )}`,

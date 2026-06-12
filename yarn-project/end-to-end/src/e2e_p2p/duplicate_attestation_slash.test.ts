@@ -84,7 +84,6 @@ describe('e2e_p2p_duplicate_attestation_slash', () => {
         slashAmountMedium: slashingUnit * 2n,
         slashAmountLarge: slashingUnit * 3n,
         blockDurationMs: BLOCK_DURATION * 1000,
-        l1PublishingTime: 1,
         slashDuplicateProposalPenalty: slashingUnit,
         slashDuplicateAttestationPenalty: slashingUnit,
         slashingOffsetInRounds: 1,

@@ -1612,8 +1612,16 @@ function createTestLibP2PService(options: CreateTestLibP2PServiceOptions): TestL
   } = options;
 
   epochCache.getL1Constants.mockReturnValue({
+    l1GenesisTime: 0n,
     slotDuration: 36,
+    ethereumSlotDuration: 12,
   } as any);
+
+  // Pin wall-clock time inside the pipelined receive window for the slot the proposal tests use
+  // (SlotNumber(100)). With genesis 0, S=36, E=12, slot 100 starts at 3600s, so its checkpoint
+  // receive window is [3552s, 3588s] and its attestation window is [3552s, 3612s]; 3570s sits inside
+  // both. The validators read `getEpochAndSlotNow().nowMs` as the current time.
+  epochCache.getEpochAndSlotNow.mockReturnValue({ nowMs: 3_570_000n } as any);
 
   const mempools = mock<MemPools>();
   mempools.attestationPool = attestationPool;

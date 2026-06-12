@@ -62,7 +62,6 @@ describe('e2e_epochs/epochs_ha_sync', () => {
       ethereumSlotDuration: 4,
       aztecSlotDuration: 36,
       blockDurationMs: 8000,
-      l1PublishingTime: 2,
       attestationPropagationTime: 0.5,
       aztecTargetCommitteeSize: VALIDATOR_COUNT,
       minTxsPerBlock: 1,

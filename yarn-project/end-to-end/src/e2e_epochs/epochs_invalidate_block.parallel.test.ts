@@ -66,11 +66,6 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
       ethereumSlotDuration: 8,
       aztecSlotDuration: 32,
       blockDurationMs: 6000,
-<<<<<<< HEAD
-      l1PublishingTime: 8,
-      enforceTimeTable: true,
-=======
->>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
       numberOfAccounts: 0,
       initialValidators: validators,
       mockGossipSubNetwork: true,

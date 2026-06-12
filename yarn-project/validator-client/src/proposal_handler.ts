@@ -2,7 +2,7 @@ import type { Archiver } from '@aztec/archiver';
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { type Blob, encodeCheckpointBlobDataFromBlocks, getBlobsPerL1Block } from '@aztec/blob-lib';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
-import { type EpochCache, PROPOSER_PIPELINING_SLOT_OFFSET } from '@aztec/epoch-cache';
+import type { EpochCache } from '@aztec/epoch-cache';
 import { validateFeeAssetPriceModifier } from '@aztec/ethereum/contracts';
 import {
   BlockNumber,
@@ -22,7 +22,7 @@ import { BlockProposalValidator } from '@aztec/p2p/msg_validators';
 import type { BlockData, L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
 import type { CheckpointReexecutionTracker, ReexecutionOutcome } from '@aztec/stdlib/checkpoint';
 import { getPreviousCheckpointOutHashes, validateCheckpoint } from '@aztec/stdlib/checkpoint';
-import { getEpochAtSlot, getLastL1SlotTimestampForL2Slot, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
+import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import { Gas } from '@aztec/stdlib/gas';
 import type { ITxProvider, ValidatorClientFullConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import {
@@ -31,6 +31,7 @@ import {
   computeInHashFromL1ToL2Messages,
 } from '@aztec/stdlib/messaging';
 import type { BlockProposal, CheckpointAttestation, CheckpointProposalCore } from '@aztec/stdlib/p2p';
+import type { ConsensusTimetable } from '@aztec/stdlib/timetable';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { CheckpointGlobalVariables, FailedTx, Tx } from '@aztec/stdlib/tx';
 import {
@@ -164,7 +165,7 @@ export class ProposalHandler {
   };
 
   /** Archiver reference for setting proposed checkpoints (pipelining). Set via register(). */
-  private archiver?: Pick<Archiver, 'addProposedCheckpoint'>;
+  private archiver?: Pick<Archiver, 'addProposedCheckpoint' | 'getProposedCheckpointData'>;
 
   /** Returns current validator addresses for own-proposal detection. Set via register(). */
   private getOwnValidatorAddresses?: () => string[];
@@ -182,6 +183,7 @@ export class ProposalHandler {
     private txProvider: ITxProvider,
     private blockProposalValidator: BlockProposalValidator,
     private epochCache: EpochCache,
+    private timetable: ConsensusTimetable,
     private config: ValidatorClientFullConfig,
     private blobClient: BlobClientInterface,
     private reexecutionTracker: CheckpointReexecutionTracker,
@@ -230,7 +232,7 @@ export class ProposalHandler {
   register(
     p2pClient: P2P,
     shouldReexecute: boolean,
-    archiver?: Pick<Archiver, 'addProposedCheckpoint'>,
+    archiver?: Pick<Archiver, 'addProposedCheckpoint' | 'getProposedCheckpointData'>,
     getOwnValidatorAddresses?: () => string[],
   ): ProposalHandler {
     this.p2pClient = p2pClient;
@@ -296,25 +298,29 @@ export class ProposalHandler {
           return undefined;
         }
 
-        // For own proposals, skip validation and return: the proposer already built and validated the
-        // checkpoint, and the sequencer's checkpoint proposal job pushed the proposed checkpoint to the
-        // archiver from local data before broadcasting. Gossipsub doesn't echo our own messages back, so
-        // this branch is normally unreachable — it remains as defense if an own proposal arrives by some
-        // other path.
+        // A proposal is "own" when it was signed by a validator key this node also owns. The true local
+        // proposer already built, validated, and stored this checkpoint before broadcasting, so a matching
+        // proposed checkpoint is already in its archiver — skip the redundant re-validation. An HA peer that
+        // shares the proposer's keys sees the same "own" proposal over gossip but never built it, so it has
+        // nothing stored; it falls through to the normal validate-and-persist path below to hydrate the
+        // proposed-checkpoint metadata it needs to build the next slot on top of this checkpoint.
         const proposer = proposal.getSender();
         const ownAddresses = this.getOwnValidatorAddresses?.();
         const isOwnProposal = proposer && ownAddresses?.some(addr => addr === proposer.toString());
 
         if (isOwnProposal) {
-          this.log.debug(`Skipping validation for own checkpoint proposal at slot ${proposal.slotNumber}`);
-          return undefined;
+          const existing = await this.archiver?.getProposedCheckpointData({ slot: proposal.slotNumber });
+          if (existing?.archive.root.equals(proposal.archive)) {
+            this.log.debug(`Skipping sync for existing own checkpoint proposal at slot ${proposal.slotNumber}`);
+            return undefined;
+          }
         }
 
         const result = await this.handleCheckpointProposal(proposal, proposalInfo);
         if (!result.isValid) {
           await this.checkpointProposalValidationFailureCallback?.(proposal, result, proposalInfo);
         } else if (this.archiver) {
-          const set = await this.setProposedCheckpointFromValidation(proposal);
+          const set = await this.setProposedCheckpoint(proposal);
           if (set) {
             this.metrics?.recordCheckpointProposalToPipelinedStateDuration(pipeliningTimer.ms());
           }
@@ -337,7 +343,6 @@ export class ProposalHandler {
   ): Promise<BlockProposalValidationResult> {
     const slotNumber = proposal.slotNumber;
     const proposer = proposal.getSender();
-    const config = this.checkpointsBuilder.getConfig();
 
     // Reject proposals with invalid signatures
     if (!proposer) {
@@ -416,7 +421,7 @@ export class ProposalHandler {
     // and we do it even if we don't plan to re-execute the txs, so that we have them if another node needs them.
     const { txs, missingTxs } = await this.txProvider.getTxsForBlockProposal(proposal, blockNumber, {
       pinnedPeer: proposalSender,
-      deadline: this.getReexecutionDeadline(slotNumber, config),
+      deadline: this.getReexecutionDeadline(slotNumber),
     });
 
     // Record the tx-collection outcome on the re-execution tracker
@@ -524,16 +529,14 @@ export class ProposalHandler {
 
   private async getParentBlock(proposal: BlockProposal): Promise<'genesis' | BlockData | undefined> {
     const parentArchive = proposal.blockHeader.lastArchive.root;
-    const config = this.checkpointsBuilder.getConfig();
     const { genesisArchiveRoot } = await this.blockSource.getGenesisValues();
 
     if (parentArchive.equals(genesisArchiveRoot)) {
       return 'genesis';
     }
 
-    const deadline = this.getReexecutionDeadline(proposal.slotNumber, config);
-    const currentTime = this.dateProvider.now();
-    const timeoutDurationMs = deadline.getTime() - currentTime;
+    const deadline = this.getReexecutionDeadline(proposal.slotNumber);
+    const timeoutDurationMs = deadline.getTime() - this.dateProvider.now();
 
     try {
       return (
@@ -544,7 +547,7 @@ export class ProposalHandler {
               () =>
                 this.blockSource.syncImmediate().then(() => this.blockSource.getBlockData({ archive: parentArchive })),
               'force archiver sync',
-              timeoutDurationMs / 1000,
+              { deadline, dateProvider: this.dateProvider },
               0.5,
             ))
       );
@@ -681,15 +684,14 @@ export class ProposalHandler {
     return undefined;
   }
 
-  private getReexecutionDeadline(
-    slotNumber: SlotNumber,
-    config: { l1GenesisTime: bigint; slotDuration: number },
-  ): Date {
-    // Under proposer pipelining, the proposal slot may be ahead of wall clock time.
-    // Reexecution budgets should still be bounded by the current slot we are in now.
-    const wallclockSlot = slotNumber - PROPOSER_PIPELINING_SLOT_OFFSET;
-    const nextSlotTimestampSeconds = Number(getTimestampForSlot(SlotNumber(wallclockSlot + 1), config));
-    return new Date(nextSlotTimestampSeconds * 1000);
+  /**
+   * Hard re-execution/validation deadline for any block or checkpoint proposal targeting `slotNumber`:
+   * the single consensus `attestation_deadline` (`target_slot_start + S - 2E`). This is the latest the
+   * checkpoint can land on L1 in the target slot; all nodes agree on it. Loosened from the previous
+   * next-wall-clock-slot-boundary bound (see the timetable spec / refactor notes).
+   */
+  private getReexecutionDeadline(slotNumber: SlotNumber): Date {
+    return new Date(this.timetable.getAttestationDeadline(slotNumber) * 1000);
   }
 
   private getReexecuteFailureReason(err: any): BlockProposalValidationFailureReason {
@@ -769,7 +771,7 @@ export class ProposalHandler {
     );
 
     // Build the new block
-    const deadline = this.getReexecutionDeadline(slot, config);
+    const deadline = this.getReexecutionDeadline(slot);
     const maxBlockGas =
       this.config.validateMaxL2BlockGas !== undefined || this.config.validateMaxDABlockGas !== undefined
         ? new Gas(this.config.validateMaxDABlockGas ?? Infinity, this.config.validateMaxL2BlockGas ?? Infinity)
@@ -901,18 +903,15 @@ export class ProposalHandler {
   ): Promise<CheckpointProposalValidationResult> {
     const slot = proposal.slotNumber;
 
-    // Block-sync deadline = the L1 publish deadline, i.e. the latest moment the proposer can submit
-    // this checkpoint and still have it land on L1 in the target slot. That is 12s (one Ethereum
-    // slot) before the last L1 block of the target slot, which is later than the target-slot start
-    // used for block re-execution. Keeping validation/attestation alive until then lets validators
-    // keep attesting right up to the proposer's real publish cutoff.
-    const l1Constants = this.epochCache.getL1Constants();
-    const publishDeadlineSeconds =
-      Number(getLastL1SlotTimestampForL2Slot(slot, l1Constants)) - l1Constants.ethereumSlotDuration;
-    const deadline = new Date(publishDeadlineSeconds * 1000);
-    const timeoutSeconds = Math.max(1, Math.floor((deadline.getTime() - this.dateProvider.now()) / 1000));
+    // Block-sync/validation deadline = the single consensus attestation_deadline (target_slot_start + S
+    // - 2E): the latest moment the proposer can submit this checkpoint and still have it land on L1 in
+    // the target slot. Keeping validation/attestation alive until then lets validators keep attesting
+    // right up to the proposer's real publish cutoff.
+    const deadline = this.getReexecutionDeadline(slot);
 
-    // Wait for last block to sync by archive
+    // Wait for last block to sync by archive. The deadline is passed to retryUntil as an absolute date so
+    // the remaining budget is derived from the date provider; a deadline already in the past times out
+    // after a single attempt instead of looping (the immediate-timeout semantics of the deadline overload).
     let lastBlockData;
     try {
       lastBlockData = await retryUntil(
@@ -921,7 +920,7 @@ export class ProposalHandler {
           return await this.blockSource.getBlockData({ archive: proposal.archive });
         },
         `waiting for block with archive ${proposal.archive.toString()} for slot ${slot}`,
-        timeoutSeconds,
+        { deadline, dateProvider: this.dateProvider },
         0.5,
       );
     } catch (err) {
@@ -1132,11 +1131,11 @@ export class ProposalHandler {
   }
 
   /**
-   * Derives proposed checkpoint data from validated blocks and sets it on the archiver.
-   * Used after successful validation of a foreign proposal.
-   * Does not retry since we already waited for the block during validation.
+   * Derives proposed checkpoint data from validated blocks and sets it on the archiver, so this node can
+   * pipeline building on top of the checkpoint. Does not retry, since validation already waited for the
+   * last block to sync.
    */
-  private async setProposedCheckpointFromValidation(proposal: CheckpointProposalCore): Promise<boolean> {
+  private async setProposedCheckpoint(proposal: CheckpointProposalCore): Promise<boolean> {
     if (!this.archiver) {
       return false;
     }

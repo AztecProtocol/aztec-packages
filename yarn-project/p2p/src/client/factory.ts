@@ -75,14 +75,10 @@ export async function createP2PClient(
   }
 
   const bindings = logger.getBindings();
-<<<<<<< HEAD
-  const store = deps.store ?? (await createStore(P2P_STORE_NAME, 2, config, bindings));
-=======
   // Schema version 4: L2 tips store resolves checkpoint tips from per-tip ids in l2_tip_checkpoints; the
   // block->checkpoint mapping and checkpoint maps were dropped. Bumped to wipe stores whose tips predate
   // per-tip ids, which would otherwise make getL2Tips throw on every read.
   const store = deps.store ?? (await createStore(P2P_STORE_NAME, 4, config, bindings));
->>>>>>> ab5413c72dc (feat: merge-train/spartan-v5 (#23975))
   const archive = await createStore(P2P_ARCHIVE_STORE_NAME, 1, config, bindings);
   const peerStore = await createStore(P2P_PEER_STORE_NAME, 1, config, bindings);
   const attestationStore = await createStore(P2P_ATTESTATION_STORE_NAME, 2, config, bindings);
