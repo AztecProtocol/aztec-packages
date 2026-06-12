@@ -15,6 +15,7 @@
 #include "barretenberg/relations/translator_vm/translator_extra_short_relations_impl.hpp"
 #include "barretenberg/relations/translator_vm/translator_non_native_field_short_relation_impl.hpp"
 #include "barretenberg/relations/translator_vm/translator_permutation_short_relation_impl.hpp"
+#include "barretenberg/relations/translator_vm/translator_shiftable_first_coeff_zero_short_relation_impl.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
 namespace bb {

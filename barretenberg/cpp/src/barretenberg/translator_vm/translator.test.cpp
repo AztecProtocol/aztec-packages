@@ -12,6 +12,7 @@
 #include "barretenberg/relations/translator_vm/translator_non_native_field_short_relation_impl.hpp"
 #include "barretenberg/relations/translator_vm/translator_permutation_relation_impl.hpp"
 #include "barretenberg/relations/translator_vm/translator_permutation_short_relation_impl.hpp"
+#include "barretenberg/relations/translator_vm/translator_shiftable_first_coeff_zero_short_relation_impl.hpp"
 #include "barretenberg/sumcheck/sumcheck_round.hpp"
 #include "barretenberg/transcript/transcript_manifest.hpp"
 #include "barretenberg/translator_vm/translator_circuit_builder.hpp"
