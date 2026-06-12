@@ -181,6 +181,38 @@ TEST_F(TranslatorRelationConsistency, DeltaRangeConstraintRelation)
     run_test(/*random_inputs=*/true);
 };
 
+TEST_F(TranslatorRelationConsistency, ShiftableFirstCoeffZeroRelation)
+{
+    const auto run_test = [](bool random_inputs) {
+        using Relation = TranslatorShiftableFirstCoeffZeroRelation<FF>;
+        using RelationValues = typename Relation::SumcheckArrayOfValuesOverSubrelations;
+
+        const InputElements input_elements = random_inputs ? get_random_input() : get_special_input();
+
+        const auto& ordered_range_constraints_0 = input_elements.ordered_range_constraints_0;
+        const auto& ordered_range_constraints_1 = input_elements.ordered_range_constraints_1;
+        const auto& ordered_range_constraints_2 = input_elements.ordered_range_constraints_2;
+        const auto& ordered_range_constraints_3 = input_elements.ordered_range_constraints_3;
+        const auto& ordered_range_constraints_4 = input_elements.ordered_range_constraints_4;
+        const auto& lagrange_first = input_elements.lagrange_first;
+
+        RelationValues expected_values;
+
+        const auto parameters = RelationParameters<FF>::get_random();
+
+        // Each ordered_range_constraints wire must be zero at the first row (lower endpoint of the sorted range).
+        expected_values[0] = lagrange_first * ordered_range_constraints_0;
+        expected_values[1] = lagrange_first * ordered_range_constraints_1;
+        expected_values[2] = lagrange_first * ordered_range_constraints_2;
+        expected_values[3] = lagrange_first * ordered_range_constraints_3;
+        expected_values[4] = lagrange_first * ordered_range_constraints_4;
+
+        validate_relation_execution<Relation>(expected_values, input_elements, parameters);
+    };
+    run_test(/*random_inputs=*/false);
+    run_test(/*random_inputs=*/true);
+};
+
 TEST_F(TranslatorRelationConsistency, DecompositionRelation)
 {
     const auto run_test = [](bool random_inputs) {

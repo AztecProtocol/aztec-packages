@@ -25,6 +25,7 @@
 #include "barretenberg/relations/translator_vm/translator_extra_relations.hpp"
 #include "barretenberg/relations/translator_vm/translator_non_native_field_relation.hpp"
 #include "barretenberg/relations/translator_vm/translator_permutation_relation.hpp"
+#include "barretenberg/relations/translator_vm/translator_shiftable_first_coeff_zero_relation.hpp"
 #include "barretenberg/translator_vm/translator_circuit_builder.hpp"
 #include "barretenberg/translator_vm/translator_fixed_vk.hpp"
 #include "barretenberg/translator_vm/translator_selectors.hpp"
@@ -132,7 +133,8 @@ class TranslatorFlavor {
                                   TranslatorAccumulatorTransferRelation<FF>,
                                   TranslatorDecompositionRelation<FF>,
                                   TranslatorNonNativeFieldRelation<FF>,
-                                  TranslatorZeroConstraintsRelation<FF>>;
+                                  TranslatorZeroConstraintsRelation<FF>,
+                                  TranslatorShiftableFirstCoeffZeroRelation<FF>>;
     using Relations = Relations_<FF>;
 
     static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
