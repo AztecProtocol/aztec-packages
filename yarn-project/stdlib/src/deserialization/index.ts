@@ -11,10 +11,6 @@ export const MAX_TXS_PER_BLOCK = 2 ** 16;
 /** Max committee size - theoretical max from bitmap design (256 bytes × 8 bits) */
 export const MAX_COMMITTEE_SIZE = 2048;
 
-<<<<<<< HEAD
-/** Max blocks per checkpoint */
-export const MAX_BLOCKS_PER_CHECKPOINT = 72;
-=======
 /**
  * Maximum number of L2 blocks in a provable checkpoint. Used for deserialization and when ingesting
  * checkpoints already accepted by L1.
@@ -50,7 +46,6 @@ export const MAX_CAPACITY_BLOCKS_PER_CHECKPOINT = 2457;
  * which is the higher ceiling we tolerate when deserializing checkpoints already accepted by L1.
  */
 export const MAX_ATTESTABLE_BLOCKS_PER_CHECKPOINT = 72;
->>>>>>> 7baab8368b0 (feat: merge-train/spartan-v5 (#23965))
 
 /** Max tx effects per body (based on blob capacity per checkpoint) */
 export const MAX_TX_EFFECTS_PER_BODY = BLOBS_PER_CHECKPOINT * FIELDS_PER_BLOB;
