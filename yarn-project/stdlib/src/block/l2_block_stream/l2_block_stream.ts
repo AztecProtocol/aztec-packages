@@ -88,10 +88,17 @@ export class L2BlockStream {
         );
       }
 
-      // Check if there was a reorg and emit a chain-pruned event
+      // Check if there was a reorg and emit a chain-pruned event. The walk-back is floored at the local finalized
+      // tip: a legitimate reorg can never reach it, since finalized means the proving tx is itself L1-finalized.
       let latestBlockNumber = localTips.proposed.number;
       const sourceCache = new BlockHashCache([sourceTips.proposed]);
-      while (!(await this.areBlockHashesEqualAt(latestBlockNumber, { sourceCache }))) {
+      const walkFloor = localTips.finalized.block.number;
+      while (
+        !(await this.areBlockHashesEqualAt(latestBlockNumber, {
+          sourceCache,
+          sourceProposed: sourceTips.proposed.number,
+        }))
+      ) {
         if (latestBlockNumber === 0) {
           // We walked all the way back to genesis and the hashes still differ. This means the
           // local store and the source disagree on the genesis block itself — typically because
@@ -107,6 +114,20 @@ export class L2BlockStream {
               'This usually indicates the two sides were configured with different genesis values ' +
               '(e.g. genesisTimestamp or prefilled public data).',
           );
+        }
+        if (latestBlockNumber <= walkFloor) {
+          // Disagreement at or below the finalized tip cannot be a reorg: the source is contradicting
+          // locally-finalized state (corrupted local store, broken source, or a different network). Walking deeper
+          // would prune finalized state on evidence that cannot be a reorg, so stop the walk-back here and prune
+          // at most to the finalized tip.
+          this.log.warn(`Block hash mismatch at or below the local finalized tip; stopping the walk-back here`, {
+            blockNumber: latestBlockNumber,
+            finalizedBlockNumber: walkFloor,
+            localBlockHash: await this.localData.getL2BlockHash(latestBlockNumber),
+            sourceBlockHash:
+              sourceCache.get(latestBlockNumber) ?? (await this.getBlockHashFromSource(latestBlockNumber)),
+          });
+          break;
         }
         latestBlockNumber--;
       }
@@ -282,9 +303,13 @@ export class L2BlockStream {
   /**
    * Returns whether the source and local agree on the block hash at a given height.
    * @param blockNumber - The block number to test.
-   * @param args - A cache of data already requested from source, to avoid re-requesting it.
+   * @param args - A cache of data already requested from source (to avoid re-requesting it) and the source's
+   * advertised proposed tip from the pass snapshot (to detect an incoherent source).
    */
-  private async areBlockHashesEqualAt(blockNumber: BlockNumber, args: { sourceCache: BlockHashCache }) {
+  private async areBlockHashesEqualAt(
+    blockNumber: BlockNumber,
+    args: { sourceCache: BlockHashCache; sourceProposed: BlockNumber },
+  ) {
     const localBlockHash = await this.localData.getL2BlockHash(blockNumber);
     if (!localBlockHash && this.opts.skipFinalized) {
       // Failing to find a block hash when skipping finalized blocks can be highly problematic as we'd potentially need
@@ -309,6 +334,15 @@ export class L2BlockStream {
     const sourceBlockHash = args.sourceCache.get(blockNumber) ?? (await this.getBlockHashFromSource(blockNumber));
     if (!sourceBlockHashFromCache && sourceBlockHash) {
       args.sourceCache.add({ number: blockNumber, hash: sourceBlockHash });
+    }
+    if (!sourceBlockHash && blockNumber !== 0 && blockNumber <= args.sourceProposed) {
+      // No source data for a height at or below the source's own advertised proposed tip: the source is contradicting
+      // itself (mid-reorg unwind on the source, or a transient read failure).
+      this.log.warn(`Source has no data for a block at or below its proposed tip; skipping this sync pass`, {
+        blockNumber,
+        sourceProposed: args.sourceProposed,
+      });
+      throw new AbortError();
     }
 
     this.log.trace(`Comparing block hashes for block ${blockNumber}`, { localBlockHash, sourceBlockHash });

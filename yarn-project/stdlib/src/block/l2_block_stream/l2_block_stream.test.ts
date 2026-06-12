@@ -972,6 +972,111 @@ describe('L2BlockStream', () => {
       expect(provenEvents[0].block.number).toBe(6);
     });
   });
+
+  describe('walk-back floor and source coherence', () => {
+    let localData: TestL2BlockStreamLocalDataProvider;
+    let handler: TestL2BlockStreamEventHandler;
+
+    beforeEach(() => {
+      localData = new TestL2BlockStreamLocalDataProvider();
+      handler = new TestL2BlockStreamEventHandler();
+    });
+
+    it('stops the walk-back at the local finalized tip instead of pruning deeper', async () => {
+      // Local synced to 10 with finalized at 5. The source disagrees on every height from 3 up — a fork reaching
+      // below our finalized tip, which no legitimate reorg can produce (finalized means the proof tx is itself
+      // L1-final). Its proposed tip is 8 with blocks 3-8 carrying forked hashes.
+      localData.setProposed(10);
+      localData.setFinalized(5);
+      blockSource.getL2Tips.mockResolvedValue({
+        proposed: { number: BlockNumber(8), hash: new Fr(1008).toString() },
+        checkpointed: makeTipId(0),
+        proven: makeTipId(0),
+        finalized: makeTipId(0),
+      });
+      blockSource.getBlockData.mockImplementation(query => {
+        if (!('number' in query) || query.number > 8) {
+          return Promise.resolve(undefined);
+        }
+        const forked = query.number >= 3;
+        return Promise.resolve({
+          header: { hash: () => Promise.resolve(new BlockHash(new Fr(forked ? query.number + 1000 : query.number))) },
+        } as unknown as BlockData);
+      });
+
+      const log = mock<Logger>();
+      const blockStream = new TestL2BlockStream(blockSource, localData, handler, log, { batchSize: 10 });
+      await blockStream.work();
+
+      // The walk stops at the floor: the prune target is the finalized tip (5), never the true divergence (2).
+      const pruneEvents = handler.events.filter(
+        (e): e is Extract<L2BlockStreamEvent, { type: 'chain-pruned' }> => e.type === 'chain-pruned',
+      );
+      expect(pruneEvents).toHaveLength(1);
+      expect(pruneEvents[0].block.number).toBe(5);
+      expect(log.warn).toHaveBeenCalledWith(expect.stringContaining('stopping the walk-back'), expect.anything());
+    });
+
+    it('aborts the pass when the source has no data below its own proposed tip, then recovers', async () => {
+      // Local synced to 10; the source advertises proposed=12 but cannot serve block 10 (e.g. mid-unwind on the
+      // source, or a transient read failure). Treating the unreadable height as divergence would walk the prune
+      // deeper on phantom evidence, so the pass must be skipped instead.
+      localData.setProposed(10);
+      setRemoteTips(12);
+      blockSource.getBlockData.mockResolvedValue(undefined);
+
+      const log = mock<Logger>();
+      const blockStream = new TestL2BlockStream(blockSource, localData, handler, log, { batchSize: 10 });
+      await blockStream.work();
+
+      expect(handler.events).toEqual([]);
+      expect(log.warn).toHaveBeenCalledWith(
+        expect.stringContaining('no data for a block at or below its proposed tip'),
+        expect.anything(),
+      );
+
+      // Next pass the source serves data again: the stream catches up normally with no prune.
+      blockSource.getBlockData.mockImplementation(query =>
+        Promise.resolve(
+          'number' in query && query.number <= 12 ? makeBlockData(query.number, query.number) : undefined,
+        ),
+      );
+      await blockStream.work();
+      expect(handler.events.filter(e => e.type === 'chain-pruned')).toEqual([]);
+      expect(handler.events.filter(e => e.type === 'blocks-added')).toHaveLength(1);
+    });
+
+    it('still allows a legitimate prune to genesis when nothing is finalized', async () => {
+      // Local synced to 10 with finalized still at 0 (nothing proven or finalized yet, e.g. a young chain). The
+      // source forked from genesis: blocks 1-4 carry forked hashes. With no finalized floor, the walk may legally
+      // reach block 0 and the prune-to-genesis goes through.
+      localData.setProposed(10);
+      blockSource.getL2Tips.mockResolvedValue({
+        proposed: { number: BlockNumber(4), hash: new Fr(1004).toString() },
+        checkpointed: makeTipId(0),
+        proven: makeTipId(0),
+        finalized: makeTipId(0),
+      });
+      blockSource.getBlockData.mockImplementation(query => {
+        if (!('number' in query) || query.number > 4) {
+          return Promise.resolve(undefined);
+        }
+        const forked = query.number >= 1;
+        return Promise.resolve({
+          header: { hash: () => Promise.resolve(new BlockHash(new Fr(forked ? query.number + 1000 : query.number))) },
+        } as unknown as BlockData);
+      });
+
+      const blockStream = new TestL2BlockStream(blockSource, localData, handler, undefined, { batchSize: 10 });
+      await blockStream.work();
+
+      const pruneEvents = handler.events.filter(
+        (e): e is Extract<L2BlockStreamEvent, { type: 'chain-pruned' }> => e.type === 'chain-pruned',
+      );
+      expect(pruneEvents).toHaveLength(1);
+      expect(pruneEvents[0].block.number).toBe(0);
+    });
+  });
 });
 
 /** Shared block-hash function: hashes `this.number`. A single reference so makeBlock(n) objects compare equal. */
