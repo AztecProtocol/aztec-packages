@@ -505,11 +505,15 @@ function simplifyZodType(expr: string): string {
 const METHOD_GROUPS: { heading: string; namespace: string; methods: string[] }[] = [
   {
     heading: 'Block queries',
-    namespace: 'node',
+    namespace: 'aztec',
     methods: [
       'getBlockNumber',
       'getCheckpointNumber',
       'getChainTips',
+      'getL1Constants',
+      'getSyncedL2SlotNumber',
+      'getSyncedL2EpochNumber',
+      'getSyncedL1Timestamp',
       'getBlock',
       'getBlockData',
       'getBlocks',
@@ -520,7 +524,7 @@ const METHOD_GROUPS: { heading: string; namespace: string; methods: string[] }[]
   },
   {
     heading: 'Transaction operations',
-    namespace: 'node',
+    namespace: 'aztec',
     methods: [
       'sendTx',
       'getTxReceipt',
@@ -535,12 +539,12 @@ const METHOD_GROUPS: { heading: string; namespace: string; methods: string[] }[]
   },
   {
     heading: 'State queries',
-    namespace: 'node',
+    namespace: 'aztec',
     methods: ['getPublicStorageAt', 'getWorldStateSyncStatus'],
   },
   {
     heading: 'Membership witnesses',
-    namespace: 'node',
+    namespace: 'aztec',
     methods: [
       'findLeavesIndexes',
       'getNullifierMembershipWitness',
@@ -552,7 +556,7 @@ const METHOD_GROUPS: { heading: string; namespace: string; methods: string[] }[]
   },
   {
     heading: 'L1 to L2 messages',
-    namespace: 'node',
+    namespace: 'aztec',
     methods: [
       'getL1ToL2MessageMembershipWitness',
       'getL1ToL2MessageCheckpoint',
@@ -562,27 +566,22 @@ const METHOD_GROUPS: { heading: string; namespace: string; methods: string[] }[]
   },
   {
     heading: 'Log queries',
-    namespace: 'node',
-    methods: [
-      'getPublicLogs',
-      'getContractClassLogs',
-      'getPrivateLogsByTags',
-      'getPublicLogsByTagsFromContract',
-    ],
+    namespace: 'aztec',
+    methods: ['getPrivateLogsByTags', 'getPublicLogsByTags'],
   },
   {
     heading: 'Contract queries',
-    namespace: 'node',
+    namespace: 'aztec',
     methods: ['getContractClass', 'getContract'],
   },
   {
     heading: 'Fee queries',
-    namespace: 'node',
+    namespace: 'aztec',
     methods: ['getCurrentMinFees', 'getPredictedMinFees', 'getMaxPriorityFees'],
   },
   {
     heading: 'Node information',
-    namespace: 'node',
+    namespace: 'aztec',
     methods: [
       'isReady',
       'getNodeInfo',
@@ -596,22 +595,29 @@ const METHOD_GROUPS: { heading: string; namespace: string; methods: string[] }[]
   },
   {
     heading: 'Validator queries',
-    namespace: 'node',
+    namespace: 'aztec',
     methods: ['getValidatorsStats', 'getValidatorStats'],
   },
   {
+    heading: 'P2P queries',
+    namespace: 'aztec',
+    methods: ['getPeers', 'getCheckpointAttestationsForSlot', 'getProposalsForSlot'],
+  },
+  {
     heading: 'Debug operations',
-    namespace: 'node',
+    namespace: 'aztec',
     methods: ['registerContractFunctionSignatures', 'getAllowedPublicSetup'],
   },
   {
     heading: 'Admin API',
-    namespace: 'nodeAdmin',
+    namespace: 'aztecAdmin',
     methods: [
       'getConfig',
       'setConfig',
       'pauseSync',
       'resumeSync',
+      'pauseSequencer',
+      'resumeSequencer',
       'rollbackTo',
       'startSnapshotUpload',
       'getSlashOffenses',
@@ -734,7 +740,7 @@ function generateMethodMarkdown(method: MethodInfo, isAdmin: boolean): string {
   return lines.join('\n');
 }
 
-function generateDocument(allMethods: Map<string, MethodInfo>, schemaMethodNames: { node: string[]; nodeAdmin: string[] }): string {
+function generateDocument(allMethods: Map<string, MethodInfo>, schemaMethodNames: { aztec: string[]; aztecAdmin: string[] }): string {
   const lines: string[] = [];
 
   // Frontmatter
@@ -759,13 +765,13 @@ function generateDocument(allMethods: Map<string, MethodInfo>, schemaMethodNames
   lines.push('');
   lines.push('Note that the above ports are only defaults, and can be modified by setting `--port` and `--admin-port` flags upon startup.');
   lines.push('');
-  lines.push('All methods use standard JSON RPC 2.0 format with methods prefixed by `node_` or `nodeAdmin_`.');
+  lines.push('All methods use standard JSON RPC 2.0 format with methods prefixed by `aztec_` or `aztecAdmin_`.');
   lines.push('');
 
   const rendered = new Set<string>();
 
   for (const group of METHOD_GROUPS) {
-    const isAdmin = group.namespace === 'nodeAdmin';
+    const isAdmin = group.namespace === 'aztecAdmin';
 
     const groupMethods: MethodInfo[] = [];
     for (const methodName of group.methods) {
@@ -782,7 +788,7 @@ function generateDocument(allMethods: Map<string, MethodInfo>, schemaMethodNames
     if (isAdmin) {
       lines.push('## Admin API');
       lines.push('');
-      lines.push('Administrative operations are exposed on port 8880 under the `nodeAdmin_` namespace.');
+      lines.push('Administrative operations are exposed on port 8880 under the `aztecAdmin_` namespace.');
       lines.push('');
       lines.push(':::warning Security: Admin API Access');
       lines.push('For security reasons, the admin port (8880) should **not be exposed** to the host machine in Docker deployments. The examples below show both CLI and Docker methods:');
@@ -815,10 +821,10 @@ function generateDocument(allMethods: Map<string, MethodInfo>, schemaMethodNames
 
   // Ungrouped methods
   const allSchemaKeys = [
-    ...schemaMethodNames.node.map(m => `node:${m}`),
-    ...schemaMethodNames.nodeAdmin.map(m => `nodeAdmin:${m}`),
+    ...schemaMethodNames.aztec.map((m) => `aztec:${m}`),
+    ...schemaMethodNames.aztecAdmin.map((m) => `aztecAdmin:${m}`),
   ];
-  const ungrouped = allSchemaKeys.filter(k => !rendered.has(k));
+  const ungrouped = allSchemaKeys.filter((k) => !rendered.has(k));
   if (ungrouped.length > 0) {
     lines.push('## Other methods');
     lines.push('');
@@ -828,7 +834,7 @@ function generateDocument(allMethods: Map<string, MethodInfo>, schemaMethodNames
     for (const key of ungrouped) {
       const info = allMethods.get(key);
       if (info) {
-        const isAdmin = key.startsWith('nodeAdmin:');
+        const isAdmin = key.startsWith('aztecAdmin:');
         lines.push(generateMethodMarkdown(info, isAdmin));
         lines.push('');
       }
@@ -892,13 +898,13 @@ function main() {
     const schema = nodeSchemaInfo.get(name)!;
     const jsdoc = mergedJSDoc.get(name) || { description: '', params: [], returns: '' };
     if (!mergedJSDoc.has(name)) {
-      console.warn(`WARNING: node_${name} is missing JSDoc — rendered without description`);
+      console.warn(`WARNING: aztec_${name} is missing JSDoc — rendered without description`);
     }
     const paramNames = mergedParamNames.get(name) || [];
 
-    allMethods.set(`node:${name}`, {
+    allMethods.set(`aztec:${name}`, {
       name,
-      namespace: 'node',
+      namespace: 'aztec',
       jsdoc,
       paramTypes: schema.paramTypes,
       paramNames: paramNames.length > 0 ? paramNames : schema.paramTypes.map((_, i) => `param${i + 1}`),
@@ -910,13 +916,13 @@ function main() {
     const schema = adminSchemaInfo.get(name)!;
     const jsdoc = adminInterface.jsdoc.get(name) || { description: '', params: [], returns: '' };
     if (!adminInterface.jsdoc.has(name)) {
-      console.warn(`WARNING: nodeAdmin_${name} is missing JSDoc — rendered without description`);
+      console.warn(`WARNING: aztecAdmin_${name} is missing JSDoc — rendered without description`);
     }
     const paramNames = adminInterface.paramNames.get(name) || [];
 
-    allMethods.set(`nodeAdmin:${name}`, {
+    allMethods.set(`aztecAdmin:${name}`, {
       name,
-      namespace: 'nodeAdmin',
+      namespace: 'aztecAdmin',
       jsdoc,
       paramTypes: schema.paramTypes,
       paramNames: paramNames.length > 0 ? paramNames : schema.paramTypes.map((_, i) => `param${i + 1}`),
@@ -924,7 +930,7 @@ function main() {
     });
   }
 
-  const markdown = generateDocument(allMethods, { node: nodeMethodNames, nodeAdmin: adminMethodNames });
+  const markdown = generateDocument(allMethods, { aztec: nodeMethodNames, aztecAdmin: adminMethodNames });
   fs.writeFileSync(output, markdown, 'utf-8');
   console.log(`Written to ${output}`);
 
@@ -934,10 +940,10 @@ function main() {
     for (const m of group.methods) allGrouped.add(`${group.namespace}:${m}`);
   }
   const allKeys = [
-    ...nodeMethodNames.map(m => `node:${m}`),
-    ...adminMethodNames.map(m => `nodeAdmin:${m}`),
+    ...nodeMethodNames.map((m) => `aztec:${m}`),
+    ...adminMethodNames.map((m) => `aztecAdmin:${m}`),
   ];
-  const ungrouped = allKeys.filter(k => !allGrouped.has(k));
+  const ungrouped = allKeys.filter((k) => !allGrouped.has(k));
   if (ungrouped.length > 0) {
     console.warn(`\nWARNING: ${ungrouped.length} ungrouped method(s) (rendered in "Other methods"):`);
     for (const k of ungrouped) console.warn(`  - ${k.replace(':', '_')}`);
@@ -953,7 +959,7 @@ function main() {
     }
   }
 
-  console.log(`\nTotal: ${nodeMethodNames.length} node_ + ${adminMethodNames.length} nodeAdmin_ = ${nodeMethodNames.length + adminMethodNames.length} methods`);
+  console.log( `\nTotal: ${nodeMethodNames.length} aztec_ + ${adminMethodNames.length} aztecAdmin_ = ${nodeMethodNames.length + adminMethodNames.length} methods`);
 }
 
 main();

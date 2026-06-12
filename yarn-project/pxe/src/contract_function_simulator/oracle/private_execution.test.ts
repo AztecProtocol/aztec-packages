@@ -1,4 +1,4 @@
-import { DomainSeparator } from '@aztec/constants';
+import { DomainSeparator, MAX_PROCESSABLE_L2_GAS, MAX_TX_DA_GAS } from '@aztec/constants';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
@@ -35,7 +35,7 @@ import {
   getContractClassFromArtifact,
   getContractInstanceFromInstantiationParams,
 } from '@aztec/stdlib/contract';
-import { GasFees, GasSettings } from '@aztec/stdlib/gas';
+import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import { computeNoteHashNonce, computeSecretHash, computeUniqueNoteHash, siloNoteHash } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
@@ -148,7 +148,10 @@ describe('Private Execution test suite', () => {
   const txContextFields: FieldsOf<TxContext> = {
     chainId: new Fr(10),
     version: new Fr(20),
-    gasSettings: GasSettings.fallback({ maxFeesPerGas: new GasFees(10, 10) }),
+    gasSettings: GasSettings.fallback({
+      gasLimits: new Gas(MAX_TX_DA_GAS, MAX_PROCESSABLE_L2_GAS),
+      maxFeesPerGas: new GasFees(10, 10),
+    }),
   };
 
   let contracts: { [address: string]: ContractArtifact };

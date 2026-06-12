@@ -14,6 +14,7 @@ import { protocolContractNames } from '@aztec/protocol-contracts';
 import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
 import { FunctionType, decodeFunctionSignature } from '@aztec/stdlib/abi';
 import type { ArchiverEmitter, BlockHash } from '@aztec/stdlib/block';
+import { DEFAULT_BLOCK_DURATION_MS } from '@aztec/stdlib/config';
 import { type ContractClassPublicWithCommitment, computePublicBytecodeCommitment } from '@aztec/stdlib/contract';
 import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 import {
@@ -137,12 +138,10 @@ export async function createArchiver(
       skipHistoricalLogsCheck: false,
       checkpointProposalSyncGrace:
         config.checkpointProposalSyncGraceSeconds ??
-        getDefaultCheckpointProposalSyncGrace(
-          config.blockDurationMs !== undefined ? config.blockDurationMs / 1000 : undefined,
-        ),
+        getDefaultCheckpointProposalSyncGrace((config.blockDurationMs ?? DEFAULT_BLOCK_DURATION_MS) / 1000),
       orphanPruneNoProposalTolerance: DEFAULT_ORPHAN_PRUNE_NO_PROPOSAL_TOLERANCE,
       skipOrphanProposedBlockPruning: false,
-      blockDuration: config.blockDurationMs !== undefined ? config.blockDurationMs / 1000 : undefined,
+      blockDuration: (config.blockDurationMs ?? DEFAULT_BLOCK_DURATION_MS) / 1000,
     },
     mapArchiverConfig(config),
   );

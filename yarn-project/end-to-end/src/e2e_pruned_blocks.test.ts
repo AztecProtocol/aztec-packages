@@ -94,8 +94,8 @@ describe('e2e_pruned_blocks', () => {
     ).toBeGreaterThan(0);
 
     // Mine enough empty blocks past the first mint block so it becomes eligible for pruning, then
-    // mark the chain as proven. AUTOMINE_E2E_OPTS disables AnvilTestWatcher (no auto-markAsProven
-    // loop) and no EpochTestSettler is wired in the e2e fixture, so we mark explicitly here.
+    // mark the chain as proven. Under AUTOMINE_E2E_OPTS the AutomineSequencer does not mark blocks
+    // proven and no EpochTestSettler is wired in the e2e fixture, so we mark explicitly here.
     // World-state prunes on the chain-finalized event; with Anvil's `finalized = latest - 2`
     // heuristic, we need a couple of additional L1 blocks after markAsProven so the archiver's
     // `getFinalizedL1Block` query resolves to a block that already sees the new proven tip.

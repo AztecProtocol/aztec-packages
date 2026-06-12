@@ -25,7 +25,7 @@ import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 import { type PXEConfig, getPXEConfig } from '@aztec/pxe/server';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
-import { GasSettings } from '@aztec/stdlib/gas';
+import { Gas, GasSettings } from '@aztec/stdlib/gas';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 
 import { AUTOMINE_E2E_OPTS, MNEMONIC, getPaddedMaxFeesPerGas } from '../../fixtures/fixtures.js';
@@ -389,7 +389,8 @@ export class ClientFlowsBenchmark {
     // The private fee paying method assembled on the app side requires knowledge of the maximum
     // fee the user is willing to pay
     const maxFeesPerGas = await getPaddedMaxFeesPerGas(this.aztecNode);
-    const gasSettings = GasSettings.fallback({ maxFeesPerGas });
+    const gasLimits = Gas.from((await this.aztecNode.getNodeInfo()).txsLimits.gas);
+    const gasSettings = GasSettings.fallback({ gasLimits, maxFeesPerGas });
     return new PrivateFeePaymentMethod(this.bananaFPC.address, sender, wallet, gasSettings);
   }
 

@@ -72,7 +72,8 @@ Transaction throughput is dominated by the Aztec L2 slot duration -- each send m
 for the next block. Four things bring per-transaction time from ~35s down to ~4-5s:
 
 1. **Fast slots.** The setup script starts the sandbox with 5-second L1/L2 slot durations
-   (default 36s/12s) and disables sequencer timetable enforcement.
+   (default 36s/12s). On v5 images, the local sandbox owns its local chain and uses the
+   automine sequencer, so it does not need a sequencer timetable override.
 2. **Persistent bridge.** `wallet-bridge.mjs` keeps a single Node.js wallet instance alive inside
    the container. Without it, each operation would shell out to the CLI wallet, paying a
    ~1.5s Node.js cold-start every time.
@@ -131,7 +132,6 @@ docker run -d --rm --name aztec-sandbox-nightly \
   -e ETHEREUM_SLOT_DURATION=5 \
   -e AZTEC_SLOT_DURATION=5 \
   -e AZTEC_EPOCH_DURATION=4 \
-  -e SEQ_ENFORCE_TIME_TABLE=false \
   --entrypoint "" \
   aztecprotocol/aztec:5.0.0-nightly.20260224 \
   bash -c '/opt/foundry/bin/anvil --host 0.0.0.0 --port 8545 & \
@@ -298,7 +298,7 @@ The internal prefix wasn't stripped. Ensure `bb-avm aztec_process` ran successfu
 ### Wallet "inquirer not found" error
 Run step 3.
 
-### "Method not found: node_getCurrentBaseFees"
+### "Method not found: aztec_getCurrentBaseFees"
 Using the host `aztec-wallet` (`~/.aztec/bin/`) which is the `latest` version. The bridge
 uses the container's wallet SDK directly, so this shouldn't happen with the bridge.
 
@@ -308,8 +308,10 @@ happens when using the old `nightly` tag (Jan 2026) with `AZTEC_SLOT_DURATION` e
 Use a dated nightly (`5.0.0-nightly.YYYYMMDD`) instead.
 
 ### "Block proposal initialize deadline cannot be negative"
-The slot duration is too short. Even with `SEQ_ENFORCE_TIME_TABLE=false`, the sequencer
-needs some minimum headroom. 5 seconds works; lower values may not.
+The slot duration is too short for the sequencer timetable. 5 seconds works on older images;
+lower values may not. From v5, `SEQ_ENFORCE_TIME_TABLE` is gone and this error no longer
+applies to the local sandbox: the local network runs the automine sequencer, which has no
+slot timetable.
 
 ## Architecture Notes
 

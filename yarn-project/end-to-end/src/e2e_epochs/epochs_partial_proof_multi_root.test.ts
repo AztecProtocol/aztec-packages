@@ -51,6 +51,10 @@ describe('e2e_epochs/epochs_partial_proof_multi_root', () => {
     test = await EpochsTestContext.setup({
       numberOfAccounts: 1,
       minTxsPerBlock: 1,
+      // With the enforced timetable this setup can have 5 blocks per checkpoint. The default
+      // fallback DA gas for the TestContract deploy is based on a 4-block checkpoint, so give the
+      // first block enough of the checkpoint DA budget to include the deploy tx.
+      perBlockAllocationMultiplier: 1.3,
       // Long epoch so 4 well-spaced checkpoints comfortably fit before the boundary.
       aztecEpochDuration: 1000,
       // Don't let the real prover land a partial proof under us. We drive Outbox state via the
@@ -58,7 +62,6 @@ describe('e2e_epochs/epochs_partial_proof_multi_root', () => {
       // submission window.
       aztecProofSubmissionEpochs: 1024,
       startProverNode: false,
-      disableAnvilTestWatcher: true,
     });
     ({ logger } = test);
     node = test.context.aztecNode;

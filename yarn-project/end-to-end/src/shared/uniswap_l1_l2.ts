@@ -88,8 +88,6 @@ export const uniswapL1L2TestSuite = (
 
       l1Client = deployL1ContractsValues.l1Client;
 
-      t.watcher.setIsMarkingAsProven(false);
-
       if (Number(await l1Client.getBlockNumber()) < expectedForkBlockNumber) {
         throw new Error('This test must be run on a fork of mainnet with the expected fork block');
       }
