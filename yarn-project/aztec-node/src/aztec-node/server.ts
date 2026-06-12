@@ -1,4 +1,4 @@
-import { Archiver, L1ToL2MessagesNotReadyError, createArchiver } from '@aztec/archiver';
+import { Archiver, createArchiver } from '@aztec/archiver';
 import { BBCircuitVerifier, BatchChonkVerifier, QueuedIVCVerifier } from '@aztec/bb-prover';
 import { TestCircuitVerifier } from '@aztec/bb-prover/test';
 import { type BlobClientInterface, createBlobClientWithFileStores } from '@aztec/blob-client/client';
@@ -26,7 +26,6 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { count } from '@aztec/foundation/string';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { MembershipWitness, SiblingPath } from '@aztec/foundation/trees';
-import { isErrorClass } from '@aztec/foundation/types';
 import { type KeyStore, KeystoreManager, loadKeystores, mergeKeystores } from '@aztec/node-keystore';
 import { trySnapshotSync, uploadSnapshot } from '@aztec/node-lib/actions';
 import { createForwarderL1TxUtilsFromSigners, createL1TxUtilsFromSigners } from '@aztec/node-lib/factories';
@@ -47,7 +46,6 @@ import {
   type SequencerPublisher,
 } from '@aztec/sequencer-client';
 import { AutomineSequencer, createAutomineSequencer } from '@aztec/sequencer-client/automine';
-import { PublicContractsDB, PublicProcessorFactory } from '@aztec/simulator/server';
 import {
   AttestationsBlockWatcher,
   AttestedInvalidProposalWatcher,
@@ -59,7 +57,6 @@ import {
   createSlasher,
 } from '@aztec/slasher';
 import { STANDARD_MULTI_CALL_ENTRYPOINT_ADDRESS } from '@aztec/standard-contracts/multi-call-entrypoint';
-import { CollectionLimitsConfig, PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type BlockData,
@@ -119,12 +116,7 @@ import {
 } from '@aztec/stdlib/interfaces/server';
 import type { DebugLogStore, LogResult, PrivateLogsQuery, PublicLogsQuery } from '@aztec/stdlib/logs';
 import { InMemoryDebugLogStore, NullDebugLogStore } from '@aztec/stdlib/logs';
-import {
-  InboxLeaf,
-  type L1ToL2MessageSource,
-  type L2ToL1MembershipWitness,
-  appendL1ToL2MessagesToTree,
-} from '@aztec/stdlib/messaging';
+import { InboxLeaf, type L1ToL2MessageSource, type L2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
 import type { CheckpointAttestation } from '@aztec/stdlib/p2p';
 import type { Offense } from '@aztec/stdlib/slashing';
 import type { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
@@ -134,7 +126,6 @@ import {
   type FeeProvider,
   type GetTxReceiptOptions,
   type GlobalVariableBuilder as GlobalVariableBuilderInterface,
-  GlobalVariables,
   type IndexedTxEffect,
   MinedTxReceipt,
   type MinedTxStatus,
@@ -182,7 +173,7 @@ import {
 } from './block_response_helpers.js';
 import { type AztecNodeConfig, createKeyStoreForValidator } from './config.js';
 import { NodeMetrics } from './node_metrics.js';
-import { applyPublicDataOverrides } from './public_data_overrides.js';
+import { NodePublicCallsSimulator } from './node_public_calls_simulator.js';
 
 /**
  * The aztec node.
@@ -193,6 +184,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   private isUploadingSnapshot = false;
   // Saved minTxsPerBlock used by `pauseSequencer` to restore production-sequencer config on resume.
   private sequencerPausedMinTxsPerBlock: number | undefined;
+  private readonly nodePublicCallsSimulator: NodePublicCallsSimulator;
 
   public readonly tracer: Tracer;
 
@@ -212,6 +204,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     protected readonly l1ChainId: number,
     protected readonly version: number,
     protected readonly globalVariableBuilder: GlobalVariableBuilderInterface,
+    protected readonly rollupContract: RollupContract | undefined,
     protected readonly feeProvider: FeeProvider,
     protected readonly epochCache: EpochCacheInterface,
     protected readonly packageVersion: string,
@@ -227,6 +220,22 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   ) {
     this.metrics = new NodeMetrics(telemetry, 'AztecNodeService');
     this.tracer = telemetry.getTracer('AztecNodeService');
+
+    // The node never represents a proposer's payout addresses, so the simulator zeroes coinbase and
+    // fee recipient. The signature context only needs chain id + rollup address (see signature_utils).
+    this.nodePublicCallsSimulator = new NodePublicCallsSimulator({
+      blockSource: this.blockSource,
+      worldStateSynchronizer: this.worldStateSynchronizer,
+      l1ToL2MessageSource: this.l1ToL2MessageSource,
+      contractDataSource: this.contractDataSource,
+      globalVariableBuilder: this.globalVariableBuilder,
+      rollupContract: this.rollupContract,
+      epochCache: this.epochCache,
+      signatureContext: { chainId: this.l1ChainId, rollupAddress: this.config.rollupAddress },
+      config: this.config,
+      telemetry: this.telemetry,
+      log: this.log.createChild('public-calls-simulator'),
+    });
 
     this.log.info(`Aztec Node version: ${this.packageVersion}`);
     this.log.info(`Aztec Node started on chain 0x${l1ChainId.toString(16)}`, pickL1ContractAddresses(config));
@@ -666,7 +675,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
         slotDuration: Number(slotDuration),
       };
 
-      const globalVariableBuilder = new GlobalVariableBuilder(dateProvider, publicClient, globalVariableBuilderConfig);
+      const globalVariableBuilder = new GlobalVariableBuilder(publicClient, globalVariableBuilderConfig);
       const feeProvider = new FeeProviderImpl(dateProvider, publicClient, globalVariableBuilderConfig);
 
       const proverOnly = config.enableProverNode && config.disableValidator;
@@ -1023,6 +1032,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
         ethereumChain.chainInfo.id,
         config.rollupVersion,
         globalVariableBuilder,
+        rollupContract,
         feeProvider,
         epochCache,
         packageVersion,
@@ -1633,155 +1643,12 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   @trackSpan('AztecNodeService.simulatePublicCalls', (tx: Tx) => ({
     [Attributes.TX_HASH]: tx.getTxHash().toString(),
   }))
-  public async simulatePublicCalls(
+  public simulatePublicCalls(
     tx: Tx,
     skipFeeEnforcement = false,
     overrides?: SimulationOverrides,
   ): Promise<PublicSimulationOutput> {
-    // Check total gas limit for simulation
-    const gasSettings = tx.data.constants.txContext.gasSettings;
-    const txGasLimit = gasSettings.gasLimits.l2Gas;
-    const teardownGasLimit = gasSettings.teardownGasLimits.l2Gas;
-    if (txGasLimit + teardownGasLimit > this.config.rpcSimulatePublicMaxGasLimit) {
-      throw new BadRequestError(
-        `Transaction total gas limit ${
-          txGasLimit + teardownGasLimit
-        } (${txGasLimit} + ${teardownGasLimit}) exceeds maximum gas limit ${
-          this.config.rpcSimulatePublicMaxGasLimit
-        } for simulation`,
-      );
-    }
-
-    const txHash = tx.getTxHash();
-    const l2Tips = await this.blockSource.getL2Tips();
-    const latestBlockNumber = l2Tips.proposed.number;
-    const blockNumber = BlockNumber.add(latestBlockNumber, 1);
-
-    // If sequencer is not initialized, we just set these values to zero for simulation.
-    const coinbase = EthAddress.ZERO;
-    const feeRecipient = AztecAddress.ZERO;
-
-    // Resolve the proposed-checkpoint frontier (latest proposed checkpoint, which leads the
-    // checkpointed tip, falling back to the checkpointed tip when none exists). The proposed payload
-    // carries its header slot, so no extra block fetch is needed to derive the slot.
-    const proposedCheckpoint = await this.blockSource.getProposedCheckpointData();
-    const proposedCheckpointBlockNumber = proposedCheckpoint
-      ? BlockNumber(proposedCheckpoint.startBlock + proposedCheckpoint.blockCount - 1)
-      : l2Tips.checkpointed.block.number;
-    const proposedCheckpointNumber = proposedCheckpoint?.checkpointNumber ?? l2Tips.checkpointed.checkpoint.number;
-
-    // Define the slot for simulation as the max of the next L1 timestamp slot, the slot after the proposed
-    // checkpoint, and the latest proposed block's slot.
-    const proposedCheckpointSlot =
-      proposedCheckpoint?.header.slotNumber ??
-      (await this.blockSource.getBlockData({ number: proposedCheckpointBlockNumber }))?.header.getSlot();
-    let slotAfterProposedCheckpoint: SlotNumber | undefined;
-    if (proposedCheckpointSlot !== undefined) {
-      slotAfterProposedCheckpoint = SlotNumber.fromBigInt(BigInt(proposedCheckpointSlot) + 1n);
-    }
-
-    let latestProposedBlockSlot: SlotNumber | undefined;
-    if (l2Tips.proposed.number > proposedCheckpointBlockNumber) {
-      latestProposedBlockSlot = (
-        await this.blockSource.getBlockData({ number: l2Tips.proposed.number })
-      )?.header.getSlot();
-    }
-    const slotFromNextL1Timestamp = this.epochCache.getEpochAndSlotInNextL1Slot().slot;
-    const targetSlot = SlotNumber(
-      Math.max(...compactArray([slotFromNextL1Timestamp, slotAfterProposedCheckpoint, latestProposedBlockSlot])),
-    );
-
-    const checkpointGlobalVariables = await this.globalVariableBuilder.buildCheckpointGlobalVariables(
-      coinbase,
-      feeRecipient,
-      targetSlot,
-    );
-    const newGlobalVariables = GlobalVariables.from({ blockNumber, ...checkpointGlobalVariables });
-
-    const publicProcessorFactory = new PublicProcessorFactory(
-      this.contractDataSource,
-      new DateProvider(),
-      this.telemetry,
-      this.log.getBindings(),
-    );
-
-    this.log.verbose(`Simulating public calls for tx ${txHash}`, {
-      globalVariables: newGlobalVariables.toInspect(),
-      txHash,
-      blockNumber,
-    });
-
-    // Ensure world-state has caught up with the latest block we loaded from the archiver
-    await this.worldStateSynchronizer.syncImmediate(latestBlockNumber);
-
-    // If we detect the next block would start a new checkpoint, then insert L1-to-L2 messages into
-    // the world state tree so simulation can take them into account. We detect if the next block would
-    // start a new checkpoint by checking if the proposed checkpoint's block number matches the latest block number,
-    // which means the next block would be the first block of the next checkpoint.
-    const targetCheckpoint = CheckpointNumber(proposedCheckpointNumber + 1);
-    const nextCheckpointMessages: Fr[] | undefined =
-      proposedCheckpointBlockNumber === l2Tips.proposed.number
-        ? await this.l1ToL2MessageSource.getL1ToL2Messages(targetCheckpoint).catch(err => {
-            if (isErrorClass(err, L1ToL2MessagesNotReadyError)) {
-              this.log.warn(
-                `L1-to-L2 messages for checkpoint ${targetCheckpoint} are not ready yet (simulating without them)`,
-              );
-            } else {
-              this.log.error(
-                `Failed to get L1-to-L2 messages for checkpoint ${targetCheckpoint} (simulating without them)`,
-                err,
-              );
-            }
-            return undefined;
-          })
-        : undefined;
-
-    // Request a new fork of the world state at the latest block number, and apply any overrides and next checkpoint messages to it before simulation
-    await using merkleTreeFork = await this.worldStateSynchronizer.fork(latestBlockNumber);
-
-    if (nextCheckpointMessages !== undefined) {
-      this.log.debug(
-        `Appending ${nextCheckpointMessages.length} L1-to-L2 messages to the world state tree for the next checkpoint`,
-        { checkpointNumber: targetCheckpoint },
-      );
-      await appendL1ToL2MessagesToTree(merkleTreeFork, nextCheckpointMessages);
-    }
-    await applyPublicDataOverrides(merkleTreeFork, overrides?.publicStorage);
-
-    const config = PublicSimulatorConfig.from({
-      skipFeeEnforcement,
-      collectDebugLogs: true,
-      collectHints: false,
-      collectCallMetadata: true,
-      collectStatistics: false,
-      collectionLimits: CollectionLimitsConfig.from({
-        maxDebugLogMemoryReads: this.config.rpcSimulatePublicMaxDebugLogMemoryReads,
-      }),
-    });
-
-    const contractsDB = new PublicContractsDB(this.contractDataSource, this.log.getBindings());
-    if (overrides?.contracts) {
-      contractsDB.addContracts(Object.values(overrides.contracts).map(({ instance }) => instance));
-    }
-    const processor = publicProcessorFactory.create(merkleTreeFork, newGlobalVariables, config, contractsDB);
-
-    // REFACTOR: Consider merging ProcessReturnValues into ProcessedTx
-    const [processedTxs, failedTxs, _usedTxs, returns, debugLogs] = await processor.process([tx]);
-    // REFACTOR: Consider returning the error rather than throwing
-    if (failedTxs.length) {
-      this.log.warn(`Simulated tx ${txHash} fails: ${failedTxs[0].error}`, { txHash });
-      throw failedTxs[0].error;
-    }
-
-    const [processedTx] = processedTxs;
-    return new PublicSimulationOutput(
-      processedTx.revertReason,
-      processedTx.globalVariables,
-      processedTx.txEffect,
-      returns,
-      processedTx.gasUsed,
-      debugLogs,
-    );
+    return this.nodePublicCallsSimulator.simulate(tx, skipFeeEnforcement, overrides);
   }
 
   public async isValidTx(
