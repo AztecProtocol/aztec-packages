@@ -228,7 +228,7 @@ fn pk_apply_matrix_fg(m: vec4i, f: ptr<function, array<u32, 10>>, g: ptr<functio
     let v_lo: i32 = m[1] & 0x3fff; let v_hi: i32 = m[1] >> 14u;
     let q_lo: i32 = m[2] & 0x3fff; let q_hi: i32 = m[2] >> 14u;
     let r_lo: i32 = m[3] & 0x3fff; let r_hi: i32 = m[3] >> 14u;
-    var cf: i32 = 0; var cg: i32 = 0; var fp: i32 = 0; var gp: i32 = 0;
+    var cf: i32 = 0; var cg: i32 = 0;
 
     var active_f: i32 = i32((*f)[0u]);
     var active_g: i32 = i32((*g)[0u]);
@@ -237,9 +237,9 @@ fn pk_apply_matrix_fg(m: vec4i, f: ptr<function, array<u32, 10>>, g: ptr<functio
     var glo = active_g & 0x3fff;
     var ghi = active_g >> 14u;
     {
-        let nf = u_lo*(flo) + v_lo*(glo) + u_hi*fp + v_hi*gp + cf;
+        let nf = u_lo*(flo) + v_lo*(glo) + cf;
         cf = nf >> 14u;
-        let ng = q_lo*(flo) + r_lo*(glo) + q_hi*fp + r_hi*gp + cg; 
+        let ng = q_lo*(flo) + r_lo*(glo) + cg; 
         cg = ng >> 14u;
     }
     { 
@@ -270,8 +270,6 @@ fn pk_apply_matrix_fg(m: vec4i, f: ptr<function, array<u32, 10>>, g: ptr<functio
 
         (*f)[0u] |= ((u32(nf) & 0x3fffu) << 14u);
         (*g)[0u] |= ((u32(ng) & 0x3fffu) << 14u);
-         fp = fhi; 
-         gp = ghi; 
      }
     // word 2 (limbs 4,5) -> output word 1
     { active_f = i32((*f)[2u]); active_g = i32((*g)[2u]); flo = active_f & 0x3fff; glo = active_g & 0x3fff;
@@ -350,7 +348,7 @@ fn pk_apply_matrix_fg_w6(m: vec4i, f: ptr<function, array<u32, 10>>, g: ptr<func
     let v_lo: i32 = m[1] & 0x3fff; let v_hi: i32 = m[1] >> 14u;
     let q_lo: i32 = m[2] & 0x3fff; let q_hi: i32 = m[2] >> 14u;
     let r_lo: i32 = m[3] & 0x3fff; let r_hi: i32 = m[3] >> 14u;
-    var cf: i32 = 0; var cg: i32 = 0; var fp: i32 = 0; var gp: i32 = 0;
+    var cf: i32 = 0; var cg: i32 = 0;
 
     var active_f: i32 = i32((*f)[0u]);
     var active_g: i32 = i32((*g)[0u]);
@@ -359,9 +357,9 @@ fn pk_apply_matrix_fg_w6(m: vec4i, f: ptr<function, array<u32, 10>>, g: ptr<func
     var glo = active_g & 0x3fff;
     var ghi = active_g >> 14u;
     {
-        let nf = u_lo*(flo) + v_lo*(glo) + u_hi*fp + v_hi*gp + cf;
+        let nf = u_lo*(flo) + v_lo*(glo) + cf;
         cf = nf >> 14u;
-        let ng = q_lo*(flo) + r_lo*(glo) + q_hi*fp + r_hi*gp + cg;
+        let ng = q_lo*(flo) + r_lo*(glo) + cg;
         cg = ng >> 14u;
     }
     {
@@ -391,8 +389,6 @@ fn pk_apply_matrix_fg_w6(m: vec4i, f: ptr<function, array<u32, 10>>, g: ptr<func
         cg = ng >> 14u;
         (*f)[0u] |= ((u32(nf) & 0x3fffu) << 14u);
         (*g)[0u] |= ((u32(ng) & 0x3fffu) << 14u);
-        fp = fhi;
-        gp = ghi;
     }
     // word 2 (limbs 4,5) -> output word 1
     { active_f = i32((*f)[2u]); active_g = i32((*g)[2u]); flo = active_f & 0x3fff; glo = active_g & 0x3fff;
