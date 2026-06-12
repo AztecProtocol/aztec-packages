@@ -1,5 +1,5 @@
 import type { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import { LruMap } from '@aztec/foundation/collection';
+import { LruMap, compactArray } from '@aztec/foundation/collection';
 
 import type { StateOverride } from 'viem';
 
@@ -219,21 +219,31 @@ export class RollupFeeReader {
 }
 
 /**
- * Stable string fingerprint of a viem `StateOverride`'s content: per address (sorted), the sorted
- * `slot:value` pairs of its `stateDiff`. Two overrides with identical content produce the same string
- * regardless of entry ordering; any difference in a single slot or value byte produces a distinct one.
+ * Stable string fingerprint of a viem `StateOverride`'s content. Two overrides with identical content
+ * produce the same string regardless of entry ordering; any difference in a single byte produces a
+ * distinct one. Every field viem supports on an override entry is serialized — not just the
+ * `stateDiff` our builders emit today — so a future override shape cannot silently alias cache
+ * entries that differ in a field the fingerprint ignores.
  */
 function fingerprintStateOverride(stateOverride: StateOverride): string {
   if (stateOverride.length === 0) {
     return '';
   }
+  const slotValues = (pairs: { slot: `0x${string}`; value: `0x${string}` }[]) =>
+    pairs
+      .map(({ slot, value }) => `${slot.toLowerCase()}:${value.toLowerCase()}`)
+      .sort()
+      .join(',');
   return stateOverride
     .map(entry => {
-      const diffs = (entry.stateDiff ?? [])
-        .map(({ slot, value }) => `${slot.toLowerCase()}:${value.toLowerCase()}`)
-        .sort()
-        .join(',');
-      return `${entry.address.toLowerCase()}={${diffs}}`;
+      const parts = compactArray([
+        entry.stateDiff && `diff{${slotValues(entry.stateDiff)}}`,
+        entry.state && `state{${slotValues(entry.state)}}`,
+        entry.balance !== undefined ? `balance:${entry.balance}` : undefined,
+        entry.nonce !== undefined ? `nonce:${entry.nonce}` : undefined,
+        entry.code && `code:${entry.code.toLowerCase()}`,
+      ]);
+      return `${entry.address.toLowerCase()}=${parts.join('|')}`;
     })
     .sort()
     .join(';');
