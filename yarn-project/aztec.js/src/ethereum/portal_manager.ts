@@ -43,6 +43,16 @@ function stringifyEthAddress(address: EthAddress | Hex, name?: string) {
   return name ? `${name} (${address.toString()})` : address.toString();
 }
 
+function waitForTransactionReceipt(
+  extendedClient: ExtendedViemWalletClient,
+  hash: Hex,
+  receiptTimeoutMs: number | undefined,
+) {
+  return extendedClient.waitForTransactionReceipt(
+    receiptTimeoutMs === undefined ? { hash } : { hash, timeout: receiptTimeoutMs },
+  );
+}
+
 /** Generates a pair secret and secret hash */
 export async function generateClaimSecret(logger?: Logger): Promise<[Fr, Fr]> {
   const secret = Fr.random();
@@ -63,6 +73,7 @@ export class L1TokenManager {
     public readonly handlerAddress: EthAddress | undefined,
     private readonly extendedClient: ExtendedViemWalletClient,
     private logger: Logger,
+    private readonly receiptTimeoutMs?: number,
   ) {
     this.contract = getContract({
       address: this.tokenAddress.toString(),
@@ -108,9 +119,11 @@ export class L1TokenManager {
     const mintAmount = await this.getMintAmount();
     this.logger.info(`Minting ${mintAmount} tokens for ${stringifyEthAddress(address, addressName)}`);
     // NOTE: the handler mints a fixed amount.
-    await this.extendedClient.waitForTransactionReceipt({
-      hash: await this.handler.write.mint([address]),
-    });
+    await waitForTransactionReceipt(
+      this.extendedClient,
+      await this.handler.write.mint([address]),
+      this.receiptTimeoutMs,
+    );
   }
 
   /**
@@ -121,9 +134,11 @@ export class L1TokenManager {
    */
   public async approve(amount: bigint, address: Hex, addressName = '') {
     this.logger.info(`Approving ${amount} tokens for ${stringifyEthAddress(address, addressName)}`);
-    await this.extendedClient.waitForTransactionReceipt({
-      hash: await this.contract.write.approve([address, amount]),
-    });
+    await waitForTransactionReceipt(
+      this.extendedClient,
+      await this.contract.write.approve([address, amount]),
+      this.receiptTimeoutMs,
+    );
   }
 }
 
@@ -138,8 +153,9 @@ export class L1FeeJuicePortalManager {
     handlerAddress: EthAddress | undefined,
     private readonly extendedClient: ExtendedViemWalletClient,
     private readonly logger: Logger,
+    private readonly receiptTimeoutMs?: number,
   ) {
-    this.tokenManager = new L1TokenManager(tokenAddress, handlerAddress, extendedClient, logger);
+    this.tokenManager = new L1TokenManager(tokenAddress, handlerAddress, extendedClient, logger, receiptTimeoutMs);
     this.contract = getContract({
       address: portalAddress.toString(),
       abi: FeeJuicePortalAbi,
@@ -176,9 +192,11 @@ export class L1FeeJuicePortalManager {
 
     await this.contract.simulate.depositToAztecPublic(args);
 
-    const txReceipt = await this.extendedClient.waitForTransactionReceipt({
-      hash: await this.contract.write.depositToAztecPublic(args),
-    });
+    const txReceipt = await waitForTransactionReceipt(
+      this.extendedClient,
+      await this.contract.write.depositToAztecPublic(args),
+      this.receiptTimeoutMs,
+    );
 
     this.logger.info('Deposited to Aztec public successfully', { txReceipt });
 
@@ -256,8 +274,9 @@ export class L1ToL2TokenPortalManager {
     handlerAddress: EthAddress | undefined,
     protected extendedClient: ExtendedViemWalletClient,
     protected logger: Logger,
+    protected readonly receiptTimeoutMs?: number,
   ) {
-    this.tokenManager = new L1TokenManager(tokenAddress, handlerAddress, extendedClient, logger);
+    this.tokenManager = new L1TokenManager(tokenAddress, handlerAddress, extendedClient, logger, receiptTimeoutMs);
     this.portal = getContract({
       address: portalAddress.toString(),
       abi: TokenPortalAbi,
@@ -286,9 +305,11 @@ export class L1ToL2TokenPortalManager {
       claimSecretHash.toString(),
     ]);
 
-    const txReceipt = await this.extendedClient.waitForTransactionReceipt({
-      hash: await this.extendedClient.writeContract(request),
-    });
+    const txReceipt = await waitForTransactionReceipt(
+      this.extendedClient,
+      await this.extendedClient.writeContract(request),
+      this.receiptTimeoutMs,
+    );
 
     const log = extractEvent(
       txReceipt.logs,
@@ -336,9 +357,11 @@ export class L1ToL2TokenPortalManager {
     this.logger.info('Sending L1 tokens to L2 to be claimed privately');
     const { request } = await this.portal.simulate.depositToAztecPrivate([amount, claimSecretHash.toString()]);
 
-    const txReceipt = await this.extendedClient.waitForTransactionReceipt({
-      hash: await this.extendedClient.writeContract(request),
-    });
+    const txReceipt = await waitForTransactionReceipt(
+      this.extendedClient,
+      await this.extendedClient.writeContract(request),
+      this.receiptTimeoutMs,
+    );
 
     const log = extractEvent(
       txReceipt.logs,
@@ -398,8 +421,9 @@ export class L1TokenPortalManager extends L1ToL2TokenPortalManager {
     outboxAddress: EthAddress,
     extendedClient: ExtendedViemWalletClient,
     logger: Logger,
+    receiptTimeoutMs?: number,
   ) {
-    super(portalAddress, tokenAddress, handlerAddress, extendedClient, logger);
+    super(portalAddress, tokenAddress, handlerAddress, extendedClient, logger, receiptTimeoutMs);
     this.outbox = getContract({
       address: outboxAddress.toString(),
       abi: OutboxAbi,
@@ -447,9 +471,11 @@ export class L1TokenPortalManager extends L1ToL2TokenPortalManager {
       siblingPath.toBufferArray().map((buf: Buffer): Hex => `0x${buf.toString('hex')}`),
     ]);
 
-    await this.extendedClient.waitForTransactionReceipt({
-      hash: await this.extendedClient.writeContract(withdrawRequest),
-    });
+    await waitForTransactionReceipt(
+      this.extendedClient,
+      await this.extendedClient.writeContract(withdrawRequest),
+      this.receiptTimeoutMs,
+    );
 
     const isConsumedAfter = await this.outbox.read.hasMessageBeenConsumedAtEpoch([BigInt(epochNumber), messageLeafId]);
     if (!isConsumedAfter) {

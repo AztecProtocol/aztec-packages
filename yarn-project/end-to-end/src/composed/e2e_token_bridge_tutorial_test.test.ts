@@ -35,6 +35,7 @@ const l1Client = createExtendedL1Client(ETHEREUM_HOSTS.split(','), MNEMONIC);
 const ownerEthAddress = l1Client.account.address;
 
 const MINT_AMOUNT = BigInt(1e15);
+const L1_TX_RECEIPT_TIMEOUT_MS = 600_000;
 
 const setupLocalNetwork = async () => {
   const { AZTEC_NODE_URL = 'http://localhost:8080' } = process.env;
@@ -138,10 +139,17 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
     await l2TokenContract.methods.set_minter(l2BridgeContract.address, true).send({ from: ownerAztecAddress });
 
     // Initialize L1 portal contract
-    await l1Portal.write.initialize(
-      [l1ContractAddresses.registryAddress.toString(), l1TokenContract.toString(), l2BridgeContract.address.toString()],
-      {},
-    );
+    await l1Client.waitForTransactionReceipt({
+      hash: await l1Portal.write.initialize(
+        [
+          l1ContractAddresses.registryAddress.toString(),
+          l1TokenContract.toString(),
+          l2BridgeContract.address.toString(),
+        ],
+        {},
+      ),
+      timeout: L1_TX_RECEIPT_TIMEOUT_MS,
+    });
     logger.info('L1 portal contract initialized');
 
     const l1PortalManager = new L1TokenPortalManager(
@@ -151,6 +159,7 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
       l1ContractAddresses.outboxAddress,
       l1Client,
       logger,
+      L1_TX_RECEIPT_TIMEOUT_MS,
     );
 
     const claim = await l1PortalManager.bridgeTokensPublic(ownerAztecAddress, MINT_AMOUNT, true);
