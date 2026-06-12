@@ -72,8 +72,8 @@ fi
 # the same tag/ref concurrently under the same role, and must not reap each
 # other's instances. The key stays stable across re-runs within a repo, so the
 # orphan cleanup still works.
-repo=${GITHUB_REPOSITORY##*/}
-repo=${repo:-aztec-packages}
+repo=${GITHUB_REPOSITORY:-aztec-packages}
+repo=${repo##*/}
 if [[ "$REF_NAME" =~ ^gh-readonly-queue/.*(pr-[0-9]+) ]]; then
   instance_name="${repo}_${BASH_REMATCH[1]}_$arch"
 else
