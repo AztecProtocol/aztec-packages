@@ -29,9 +29,7 @@ import {
   ba_walker_idx_epilogue as ba_walker_idx_epilogue_shader,
   ba_walker_idx_scatter as ba_walker_idx_scatter_shader,
   ba_walker_ptree_level as ba_walker_ptree_level_shader,
-  ba_walker_ptree_fold as ba_walker_ptree_fold_shader,
-  ba_walker_ptree_deep_pair as ba_walker_ptree_deep_pair_shader,
-  ba_walker_ptree_deep_combine as ba_walker_ptree_deep_combine_shader,
+  ba_walker_ptree_ufold as ba_walker_ptree_ufold_shader,
   ba_walker_ptree_finalize as ba_walker_ptree_finalize_shader,
   ba_walker_idx_sort as ba_walker_idx_sort_shader,
   ba_walker_idx_p1 as ba_walker_idx_p1_shader,
@@ -1657,19 +1655,9 @@ ${packLines.join('\n')}
   }
 
 
-  public gen_ba_walker_ptree_fold_shader(workgroup_size: number): string {
+  public gen_ba_walker_ptree_ufold_shader(workgroup_size: number): string {
     const [ctx, partials] = this.jacKernelContext({ workgroup_size, wg_words: workgroup_size * 8 });
-    return mustache.render(ba_walker_ptree_fold_shader, ctx, partials);
-  }
-
-  public gen_ba_walker_ptree_deep_pair_shader(workgroup_size: number): string {
-    const [ctx, partials] = this.jacKernelContext({ workgroup_size, wg_words: workgroup_size * 8 });
-    return mustache.render(ba_walker_ptree_deep_pair_shader, ctx, partials);
-  }
-
-  public gen_ba_walker_ptree_deep_combine_shader(workgroup_size: number): string {
-    const [ctx, partials] = this.jacKernelContext({ workgroup_size, wg_words: workgroup_size * 8 });
-    return mustache.render(ba_walker_ptree_deep_combine_shader, ctx, partials);
+    return mustache.render(ba_walker_ptree_ufold_shader, ctx, partials);
   }
 
 

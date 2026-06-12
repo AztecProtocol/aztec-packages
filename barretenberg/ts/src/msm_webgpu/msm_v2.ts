@@ -2092,12 +2092,12 @@ export class MsmV2 {
   private ptreeLevelPipe!: GPUComputePipeline;
   private ptreeLevelLayout!: GPUBindGroupLayout;
   private ptreeLevelBinds: GPUBindGroup[][] = [];
-  private ptreeFoldPipes: GPUComputePipeline[] = [];
+  private ptreeUfoldPipe!: GPUComputePipeline;
   private ptreeScatterPipe!: GPUComputePipeline;
   private ptreeScatterLayout!: GPUBindGroupLayout;
   private ptreeScatterBinds: GPUBindGroup[] = [];
   private ptreeFoldLayout!: GPUBindGroupLayout;
-  private ptreeFoldBind!: GPUBindGroup;
+  private ptreeUfoldBinds: GPUBindGroup[] = [];
   private ptreeFinLayout!: GPUBindGroupLayout;
   private ptreeSurvFinPipe!: GPUComputePipeline;
   private ptreeSurvFinBinds: GPUBindGroup[] = [];
@@ -2850,6 +2850,7 @@ export class MsmV2 {
       'uniform',
       'uniform',
       'storage',
+      'uniform',
     ]);
     //   ptree finalize (resolve + survfin): meta (rw atomic), sorted actives,
     //   active_meta, arena_a2, partial_offset (ro), partials_buf (ro),
@@ -3144,11 +3145,11 @@ export class MsmV2 {
         `ptree-level`,
         m.ptreeLevelLayout,
       );
-      m.ptreeFoldPipes = [
-        await compile(sm.gen_ba_walker_ptree_fold_shader(PTREE_TPB), `ptree-fold-shallow`, m.ptreeFoldLayout),
-        await compile(sm.gen_ba_walker_ptree_deep_pair_shader(PTREE_FOLD_TPB), `ptree-deep-pair`, m.ptreeFoldLayout),
-        await compile(sm.gen_ba_walker_ptree_deep_combine_shader(PTREE_TPB), `ptree-deep-combine`, m.ptreeFoldLayout),
-      ];
+      m.ptreeUfoldPipe = await compile(
+        sm.gen_ba_walker_ptree_ufold_shader(PTREE_FOLD_TPB),
+        `ptree-ufold`,
+        m.ptreeFoldLayout,
+      );
       m.ptreeScatterPipe = await compile(
         sm.gen_ba_walker_idx_scatter_shader(WI_IDX_TPB, STREAM_S, STREAM_PLANNER_TPB),
         `ptree-scatter`,
@@ -4614,18 +4615,23 @@ export class MsmV2 {
               ]),
             ),
           );
-          this.ptreeFoldBind = mkBind(this.ptreeFoldLayout, [
-            metaBind,
-            a2Buf,
-            poffset,
-            wp,
-            survBind,
-            ptreeParams,
-            ptreeArenaOff,
-            jpSurv,
-            ptreeBw,
-            sabkts,
-          ]);
+          // One bind group per ufold role (0 shallow / 1 deep-pair /
+          // 2 deep-combine) — identical except the 4-byte mode uniform.
+          this.ptreeUfoldBinds = [0, 1, 2].map(mode =>
+            mkBind(this.ptreeFoldLayout, [
+              metaBind,
+              a2Buf,
+              poffset,
+              wp,
+              survBind,
+              ptreeParams,
+              ptreeArenaOff,
+              jpSurv,
+              ptreeBw,
+              sabkts,
+              ubuf(new Uint32Array([mode, 0, 0, 0])),
+            ]),
+          );
           const finBind = (bwb: GPUBuffer): GPUBindGroup =>
             mkBind(this.ptreeFinLayout, [
               metaBind,
@@ -5095,9 +5101,9 @@ export class MsmV2 {
           indirectDispatch(this.ptreeLevelPipe, this.ptreeLevelBinds[bi][k - 1], this.ptreeArgsBuf!, 16 * k);
         }
         setPhase('ptree_tail');
-        indirectDispatch(this.ptreeFoldPipes[0], this.ptreeFoldBind, this.ptreeArgsBuf!, 16 * 18);
-        indirectDispatch(this.ptreeFoldPipes[1], this.ptreeFoldBind, this.ptreeArgsBuf!, 16 * 16);
-        indirectDispatch(this.ptreeFoldPipes[2], this.ptreeFoldBind, this.ptreeArgsBuf!, 16 * 17);
+        indirectDispatch(this.ptreeUfoldPipe, this.ptreeUfoldBinds[0], this.ptreeArgsBuf!, 16 * 18);
+        indirectDispatch(this.ptreeUfoldPipe, this.ptreeUfoldBinds[1], this.ptreeArgsBuf!, 16 * 16);
+        indirectDispatch(this.ptreeUfoldPipe, this.ptreeUfoldBinds[2], this.ptreeArgsBuf!, 16 * 17);
         setPhase('finalize');
         indirectDispatch(this.ptreeSurvFinPipe, this.ptreeSurvFinBinds[bi], this.ptreeArgsBuf!, 16 * 19);
       }

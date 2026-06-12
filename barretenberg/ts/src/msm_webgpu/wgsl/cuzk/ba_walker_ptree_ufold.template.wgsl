@@ -10,24 +10,31 @@
 
 {{> field8_funcs }}
 
-// Walker pair-tree: workgroup fold for the survivor tail (ONE dispatch,
-// one WG per survivor). A survivor's residuals sit at segment-relative
-// offsets j * 2^(k*-1) in the in-place stream. Threads stride-fold them in
-// Jacobian (affine lift, inversion-free), then a fixed log2(TPB)-level
-// shared-memory tree (FLAT u32 planes — Adreno rejects struct arrays)
-// reduces to one Jacobian point per survivor, written to the survivor
-// scratch for the batched finalize.
+// Walker pair-tree: UNIFIED fold kernel — one pipeline serves all three
+// fold roles, selected by the ufold_mode uniform (workgroup-uniform, so
+// barriers stay in uniform control flow):
+//   0 = shallow fold: FOUR survivor buckets per WG (<= 64 residuals
+//       each, one per 64-lane quarter — keeps threads-per-bucket and
+//       shared-memory-per-bucket identical to a TPB-64 kernel, so packing
+//       costs no occupancy), mmadd-pair seed from the CSR stream,
+//       shared-memory tree, Jacobian to the survivor scratch slot.
+//   1 = deep stage A: one WG per 512-residual chunk of a cap-bin bucket;
+//       same seed+tree, chunk partial to the deep-partial region.
+//   2 = deep stage B: one WG per cap bucket; loads its stage-A chunk
+//       partials and tree-folds them to the survivor scratch slot.
+// ONE kernel = the montgomery multiplier bodies (4-lane jac_add + 2-lane
+// mmadd) are compiled ONCE for all three roles — compile cost scales
+// quasi-quadratically with bodies per kernel, and linearly with kernels.
 //
 // jac_params: .x = survivor-scratch base (vec4 units, in merge scratch);
-// params.w = M_partials. meta[20] = k*, survivor bids at meta[32+w].
+// params.w = M_partials.
 
 const PG: u32 = 2u;
 const TPB: u32 = {{ workgroup_size }}u;
-// Survivors are the contiguous TAIL of the sorted active list (static
-// schedule): bucket = sorted_active[meta[23] + w], scratch slot = w. This
-// kernel folds buckets with <= TPB residuals; deeper (cap-bin) buckets
-// belong to the two-stage deep pipeline (pair + combine).
+// Shallow buckets hold <= 64 residuals regardless of TPB; deeper (cap-bin)
+// buckets belong to the deep modes.
 const TPB64: u32 = 64u;
+const CHUNK: u32 = 512u;
 // Packed-window bid (SPLIT_C_PLAN.md): bid = (window << WBID_SHIFT) | mag.
 const WBID_SHIFT:    u32 = 15u;
 const WBID_MAG_MASK: u32 = 0x7fffu;
@@ -51,6 +58,10 @@ fn flat_bid(bid: u32, bw: u32) -> u32 {
 @group(0) @binding(8) var<uniform>             bw_geom:        vec4<u32>;
 // rw (read-only use): shares arena A5 with partial_offset.
 @group(0) @binding(9) var<storage, read_write> sorted_active:  array<u32>;
+// .x = role (0 shallow / 1 deep-pair / 2 deep-combine). A uniform-buffer
+// value, so Tint's uniformity analysis accepts barriers around code that
+// branches on it.
+@group(0) @binding(10) var<uniform>            ufold_mode:     vec4<u32>;
 
 fn pc_at(i: u32) -> u32 { return arena_a2[arena_off.x + i]; }
 fn pl_at(i: u32) -> u32 { return arena_a2[arena_off.y + i]; }
@@ -255,6 +266,20 @@ fn jac_mmadd(x1: array<u32, 8>, y1: array<u32, 8>, x2: array<u32, 8>, y2: array<
 }
 
 
+fn load_partial_jac(slot: u32) -> Jac {
+    let b = jac_params.x + 6u * slot;
+    let x0 = surv_scratch[b + 0u];
+    let x1 = surv_scratch[b + 1u];
+    let y0 = surv_scratch[b + 2u];
+    let y1 = surv_scratch[b + 3u];
+    let z0 = surv_scratch[b + 4u];
+    let z1 = surv_scratch[b + 5u];
+    return Jac(
+        array<u32, 8>(x0.x, x0.y, x0.z, x0.w, x1.x, x1.y, x1.z, x1.w),
+        array<u32, 8>(y0.x, y0.y, y0.z, y0.w, y1.x, y1.y, y1.z, y1.w),
+        array<u32, 8>(z0.x, z0.y, z0.z, z0.w, z1.x, z1.y, z1.z, z1.w));
+}
+
 var<workgroup> wg_x: array<u32, {{ wg_words }}>;
 var<workgroup> wg_y: array<u32, {{ wg_words }}>;
 var<workgroup> wg_z: array<u32, {{ wg_words }}>;
@@ -285,45 +310,148 @@ fn main(@builtin(workgroup_id) wgid: vec3<u32>,
         @builtin(local_invocation_id) lid: vec3<u32>) {
     let w = wgid.x;
     let l = lid.x;
-    // Plain per-thread reads, stride PRECOMPUTED by ptree_scan (meta[22]):
+    let mode = ufold_mode.x;
+    // Plain per-thread reads, stride PRECOMPUTED by the epilogue (meta[22]):
     // both workgroupUniformLoad and the runtime shift fed Apple's Metal
     // compiler-service crash (XPC_ERROR_CONNECTION_INTERRUPTED).
     let stride = ptree_meta[22];
     let M_partials = params.w;
 
-    // Position mapping (see epilogue): the exact non-cap range first, then
-    // the cap tail (cap buckets with few residuals are this kernel's via
-    // the n_resid guard; deeper ones belong to the deep pipeline).
-    var pos: u32;
-    if (w < ptree_meta[29]) {
-        pos = ptree_meta[27] + w;
-    } else {
-        pos = ptree_meta[30] + (w - ptree_meta[29]);
+    // Per-role prologue: everything here is scalar bookkeeping (no
+    // barriers, no multiplies). Each role produces:
+    //   seg_eff  — CSR base for mmadd-pair seeding (roles 0/1)
+    //   jbase    — stage-A partial base (role 2)
+    //   n_eff    — residuals (0/1) or chunk partials (2) this WG folds
+    //   pop      — tree population after the seed
+    //   proceed  — whether this WG does real work (uniform per WG)
+    //   out_slot — destination slot in the survivor scratch
+    // Shallow packs 4 buckets per WG: lane/group split. Deep roles use
+    // the whole WG (grp = 0). pop/proceed/out_slot are GROUP-uniform in
+    // shallow mode (not WG-uniform) — every barrier below is unconditional,
+    // so that is sound.
+    var grp: u32 = 0u;
+    var lane: u32 = l;
+    if (mode == 0u) {
+        grp = l >> 6u;
+        lane = l & 63u;
     }
-    let bid = sorted_active[pos];
-    let fb = flat_bid(bid, bw_geom.x);
-    let seg = partial_offset[fb] & 0x7fffffffu; // v2: bit 31 flags singles
-    let cnt = pc_at(fb);
-    let n_resid = (cnt + stride - 1u) / stride;
-    // Cap-bin buckets that closed in-tree sit inside the range, and the
-    // two variants split the range by residual count. The predicate is
-    // workgroup-uniform in fact (per-bucket), but Tint cannot prove it —
-    // so no early returns: skipped buckets just fold infinities through
-    // the (barrier-bearing) tree below.
-    let proceed = cnt > stride && n_resid <= TPB64;
+    let gbase = grp * 64u;
+    var seg_eff: u32 = 0u;
+    var jbase: u32 = 0u;
+    var n_eff: u32 = 0u;
+    var pop: u32 = 0u;
+    var proceed: bool = false;
+    var out_slot: u32 = 0u;
+    switch mode {
+        case 0u: {
+            // Shallow: exact non-cap range first, then the cap tail (cap
+            // buckets with few residuals are this role's via the n_eff
+            // guard; deeper ones belong to the deep roles). idx = this
+            // group's bucket; the dispatch is ceil(count/4) WGs, so tail
+            // groups guard on the true count.
+            let idx = w * 4u + grp;
+            let cap_size = (ptree_meta[23] + ptree_meta[24]) - ptree_meta[30];
+            let n_shallow = ptree_meta[29] + cap_size;
+            if (idx < n_shallow) {
+                var pos: u32;
+                if (idx < ptree_meta[29]) {
+                    pos = ptree_meta[27] + idx;
+                } else {
+                    pos = ptree_meta[30] + (idx - ptree_meta[29]);
+                }
+                let bid = sorted_active[pos];
+                let fb = flat_bid(bid, bw_geom.x);
+                seg_eff = partial_offset[fb] & 0x7fffffffu; // v2: bit 31 flags singles
+                let cnt = pc_at(fb);
+                let n_resid = (cnt + stride - 1u) / stride;
+                n_eff = n_resid;
+                pop = (n_resid + 1u) >> 1u;
+                proceed = cnt > stride && n_resid <= TPB64;
+                out_slot = pos - ptree_meta[23];
+            }
+        }
+        case 1u: {
+            // Deep stage A: map this WG to a (bucket, chunk) by scanning
+            // the FULL cap bin (no iteration ceiling: structured inputs
+            // make cap bins of hundreds of entries, and a capped scan
+            // silently orphans every chunk past the cap). Overdispatched
+            // WGs exit via the total.
+            let cap_base = ptree_meta[30];
+            let n_active_end = ptree_meta[23] + ptree_meta[24];
+            var ww = w;
+            var pos = cap_base;
+            var found = false;
+            var chunk: u32 = 0u;
+            var n_resid: u32 = 0u;
+            loop {
+                if (pos >= n_active_end) { break; }
+                let bid = sorted_active[pos];
+                let fb = flat_bid(bid, bw_geom.x);
+                let cnt = pc_at(fb);
+                let nr = (cnt + stride - 1u) / stride;
+                let g = (nr + CHUNK - 1u) / CHUNK;
+                if (ww < g) {
+                    seg_eff = (partial_offset[fb] & 0x7fffffffu) + ww * CHUNK * stride;
+                    n_resid = nr;
+                    chunk = ww;
+                    found = true;
+                    break;
+                }
+                ww = ww - g;
+                pos = pos + 1u;
+            }
+            var rem: u32 = 0u;
+            if (found && n_resid > chunk * CHUNK) {
+                rem = min(n_resid - chunk * CHUNK, CHUNK);
+            }
+            n_eff = rem;
+            pop = (rem + 1u) >> 1u;
+            proceed = found;
+            out_slot = ptree_meta[24] + w;
+        }
+        case 2u: {
+            // Deep stage B: this bucket's stage-A base = sum of earlier
+            // cap buckets' chunk counts — the FULL prefix (truncating it
+            // misaddresses every later bucket's chunks).
+            let cap_base = ptree_meta[30];
+            let pos = cap_base + w;
+            var base: u32 = 0u;
+            for (var c: u32 = cap_base; c < pos; c = c + 1u) {
+                let cb = sorted_active[c];
+                let cnt_c = pc_at(flat_bid(cb, bw_geom.x));
+                let nr_c = (cnt_c + stride - 1u) / stride;
+                base = base + (nr_c + CHUNK - 1u) / CHUNK;
+            }
+            let bid = sorted_active[pos];
+            let fb = flat_bid(bid, bw_geom.x);
+            let cnt = pc_at(fb);
+            let n_resid = (cnt + stride - 1u) / stride;
+            let g = (n_resid + CHUNK - 1u) / CHUNK;
+            jbase = ptree_meta[24] + base;
+            n_eff = g;
+            pop = g;
+            // Shallow-owned cap buckets (<= 64 residuals) have no chunks.
+            proceed = n_resid > TPB64;
+            out_slot = pos - ptree_meta[23];
+        }
+        default: {}
+    }
 
-    // Seed: mmadd-pair adjacent residuals (6 muls, both inputs affine) so
-    // the tree starts at half the population.
-    let pop = (n_resid + 1u) >> 1u;
+    // Seed. Roles 0/1: mmadd-pair adjacent residuals (both inputs affine)
+    // so the tree starts at half the population — ONE mmadd call site.
+    // Role 2: plain Jacobian loads of the stage-A chunk partials.
     let zero = array<u32, 8>(0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u);
     var acc = Jac(zero, zero, zero); // infinity
-    if (proceed && 2u * l < n_resid) {
-        let j0 = 2u * l;
-        let s0 = pl_at(seg + j0 * stride);
+    if (mode == 2u) {
+        if (proceed && l < n_eff) {
+            acc = load_partial_jac(jbase + l);
+        }
+    } else if (proceed && 2u * lane < n_eff) {
+        let s0 = pl_at(seg_eff + (2u * lane) * stride);
         let x0 = load_partial_x(s0);
         let y0 = load_partial_y(s0, M_partials);
-        if (j0 + 1u < n_resid) {
-            let s1 = pl_at(seg + (j0 + 1u) * stride);
+        if (2u * lane + 1u < n_eff) {
+            let s1 = pl_at(seg_eff + (2u * lane + 1u) * stride);
             acc = jac_mmadd(x0, y0, load_partial_x(s1), load_partial_y(s1, M_partials));
         } else {
             // Odd tail: straight-line affine lift (constant R is only
@@ -331,26 +459,31 @@ fn main(@builtin(workgroup_id) wgid: vec3<u32>,
             acc = Jac(x0, y0, get_r_f8());
         }
     }
-    wg_store(l, acc);
+    wg_store(gbase + lane, acc);
     workgroupBarrier();
 
-    // proceed and n_resid are uniform per workgroup (one bucket per WG);
+    // proceed and pop are uniform per workgroup (one bucket/chunk per WG);
     // the barrier stays outside the guard, so skipped workgroups pay
-    // barriers only. s < n_resid additionally skips tree levels above the
-    // bucket's population — slots there hold infinities, so the adds are
-    // exact no-ops costing full montgomery chains. Chain depth becomes
-    // ceil(log2(n_resid)): a 2-residual bucket pays ONE add, not log2(TPB).
+    // barriers only. s < pop additionally skips tree levels above the
+    // population — slots there hold infinities, so the adds are exact
+    // no-ops costing full montgomery chains. ONE jac_add call site.
+    // Tree over each group's slots (shallow: 64-slot sub-trees, one per
+    // bucket; deep roles: the whole WG, gbase = 0). s < pop skips levels
+    // above the population; early high-s rounds are barrier-only for
+    // shallow groups (pop <= 32).
     var s: u32 = TPB / 2u;
     loop {
         if (s == 0u) { break; }
-        if (l < s && proceed && s < pop) { wg_store(l, jac_add(wg_load(l), wg_load(l + s))); }
+        if (lane < s && proceed && s < pop) {
+            wg_store(gbase + lane, jac_add(wg_load(gbase + lane), wg_load(gbase + lane + s)));
+        }
         workgroupBarrier();
         s = s / 2u;
     }
 
-    if (l == 0u && proceed) {
-        let total = wg_load(0u);
-        let b = jac_params.x + 6u * (pos - ptree_meta[23]);
+    if (lane == 0u && proceed) {
+        let total = wg_load(gbase);
+        let b = jac_params.x + 6u * out_slot;
         surv_scratch[b + 0u] = vec4<u32>(total.x[0], total.x[1], total.x[2], total.x[3]);
         surv_scratch[b + 1u] = vec4<u32>(total.x[4], total.x[5], total.x[6], total.x[7]);
         surv_scratch[b + 2u] = vec4<u32>(total.y[0], total.y[1], total.y[2], total.y[3]);

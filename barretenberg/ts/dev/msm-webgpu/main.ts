@@ -2457,9 +2457,7 @@ function hideProgress(): void {
           ],
           ['ptree-level', sm.gen_ba_walker_ptree_level_shader(64, 8)],
           ['ptree-scatter', sm.gen_ba_walker_idx_scatter_shader(64, 8, 64)],
-          ['ptree-fold-shallow', sm.gen_ba_walker_ptree_fold_shader(64)],
-          ['ptree-deep-pair', sm.gen_ba_walker_ptree_deep_pair_shader(256)],
-          ['ptree-deep-combine', sm.gen_ba_walker_ptree_deep_combine_shader(64)],
+          ['ptree-ufold', sm.gen_ba_walker_ptree_ufold_shader(256)],
           ['ptree-survfin', sm.gen_ba_walker_ptree_finalize_shader(256, 1)],
         ];
         const stResults: Array<{ name: string; ms: number; ok: boolean; err?: string }> = [];

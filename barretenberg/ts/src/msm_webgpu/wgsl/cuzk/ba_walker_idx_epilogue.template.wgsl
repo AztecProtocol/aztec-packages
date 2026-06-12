@@ -134,11 +134,11 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>) {
         ptree_meta[256u + 4u * k + 1u] = 1u;
         ptree_meta[256u + 4u * k + 2u] = 1u;
     }
-    // Slot 18 = shallow fold (one WG per bucket, <= 64 residuals — its
-    // variable-depth tree makes tiny buckets cost ceil(log2(n_resid))
-    // adds, so no separate micro tier), 17 = deep fold (cap tail only),
-    // 19 = survivor finalize.
-    ptree_meta[256u + 4u * 18u + 0u] = pt_shallow_exact + pt_cap_size;
+    // Slot 18 = shallow fold (FOUR buckets per WG, <= 64 residuals each —
+    // the ufold kernel's variable-depth sub-trees make tiny buckets cost
+    // ceil(log2(n_resid)) adds, so no separate micro tier), 17 = deep
+    // fold stage B (cap tail only), 19 = survivor finalize.
+    ptree_meta[256u + 4u * 18u + 0u] = (pt_shallow_exact + pt_cap_size + 3u) / 4u;
     ptree_meta[256u + 4u * 18u + 1u] = 1u;
     ptree_meta[256u + 4u * 18u + 2u] = 1u;
     // Deep stage A: one WG per 512-residual chunk of cap-bin buckets —
