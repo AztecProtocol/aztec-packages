@@ -27,12 +27,15 @@ describe('L2BlockStream', () => {
 
   const makeHash = (number: number) => new Fr(number).toString();
 
+  // `hash` is a shared function reference (not a per-call closure) so two makeBlock(n) objects compare equal under
+  // toEqual; called as a method it hashes `this.number`. The completion check in downloadBlocks calls it.
   const makeBlock = (number: number) =>
     ({
       number: BlockNumber(number),
       checkpointNumber: CheckpointNumber(number),
       indexWithinCheckpoint: 0,
-    }) as L2Block;
+      hash: blockHashFromNumber,
+    }) as unknown as L2Block;
 
   const makeBlockData = (number: number, checkpointNum: number): BlockData =>
     ({
@@ -619,7 +622,377 @@ describe('L2BlockStream', () => {
       );
     });
   });
+
+  describe('walk-back missing-local-hash regression', () => {
+    // A missing LOCAL hash must compare UNEQUAL, so the walk-back continues past sparse gaps to the true divergence
+    // (or genesis) and the prune target never lands ABOVE the divergence. Uses the memory store for genuinely sparse
+    // history (heights never written have no hash).
+    let localData: TestL2TipsMemoryStore;
+    let handler: TestL2BlockStreamEventHandler;
+
+    beforeEach(() => {
+      localData = new TestL2TipsMemoryStore();
+      handler = new TestL2BlockStreamEventHandler(localData);
+    });
+
+    it('walks past both-undefined heights when the source proposed tip dropped below the local tip', async () => {
+      // Block-mode sync to proposed=10 (records dense hashes 1-10).
+      const blockStream = new TestL2BlockStream(blockSource, localData, handler, undefined, {
+        batchSize: 10,
+        ignoreCheckpoints: true,
+      });
+      setRemoteTips(10);
+      await blockStream.work();
+      handler.clearEvents();
+
+      // Now drop a gap into the local history: delete the hash for block 7 (simulating sparse history), so the
+      // walk-back hits a both-undefined height inside (sourceProposed, localProposed].
+      const store = localData as unknown as { blockHashes: Map<number, string> };
+      store.blockHashes.delete(7);
+
+      // Source reorgs below the local proposed tip: blocks 4+ changed, new proposed=6 on a fork. Block 4 onward has
+      // new hashes; the source no longer serves blocks above 6. True divergence is after block 3.
+      blockSource.getBlockData.mockImplementation(query => {
+        if (!('number' in query) || query.number > 6) {
+          return Promise.resolve(undefined);
+        }
+        const forked = query.number >= 4;
+        return Promise.resolve({
+          header: { hash: () => Promise.resolve(new BlockHash(new Fr(forked ? query.number + 1000 : query.number))) },
+        } as unknown as BlockData);
+      });
+      blockSource.getL2Tips.mockResolvedValue({
+        proposed: { number: BlockNumber(6), hash: new Fr(1006).toString() },
+        checkpointed: makeTipId(0),
+        proven: makeTipId(0),
+        finalized: makeTipId(0),
+      });
+
+      await blockStream.work();
+
+      // The walk continues past the missing height (7) and the forked heights; the prune target lands at or below the
+      // true divergence (block 3), never above it.
+      const pruneEvents = handler.events.filter(
+        (e): e is Extract<L2BlockStreamEvent, { type: 'chain-pruned' }> => e.type === 'chain-pruned',
+      );
+      expect(pruneEvents).toHaveLength(1);
+      expect(pruneEvents[0].block.number).toBeLessThanOrEqual(3);
+    });
+
+    // Seeding the walk-back cache with a stale tier tip poisons the walk: the snapshot's checkpointed tip sits at a
+    // reorged height carrying the OLD-fork hash, so it equals the local old-fork hash there and fakes agreement,
+    // stopping the walk ABOVE the true divergence (an under-deep prune). Only the proposed tip may seed the cache.
+    it('does not stop the walk-back at a stale tier-tip seed when the source reorged after the snapshot', async () => {
+      // Block-mode sync to proposed=10 (records dense old-fork hashes 1-10).
+      const blockStream = new TestL2BlockStream(blockSource, localData, handler, undefined, {
+        batchSize: 10,
+        ignoreCheckpoints: true,
+      });
+      setRemoteTips(10);
+      await blockStream.work();
+      handler.clearEvents();
+
+      // The source reorged after the snapshot. Live getBlockData reflects the post-reorg chain: heights 6-11 carry
+      // new-fork hashes, heights <= 5 keep the old (shared) hashes. True divergence is after block 5.
+      blockSource.getBlockData.mockImplementation(query => {
+        if (!('number' in query) || query.number > 11) {
+          return Promise.resolve(undefined);
+        }
+        const forked = query.number >= 6;
+        return Promise.resolve({
+          header: { hash: () => Promise.resolve(new BlockHash(new Fr(forked ? query.number + 1000 : query.number))) },
+        } as unknown as BlockData);
+      });
+
+      // FIRST getL2Tips (the pass snapshot) reports proposed=11 (old-fork hash, so the walk's first comparison at 10
+      // misses the cache) and checkpointed=8 with the OLD-fork hash — the stale tier seed that, if cached, equals the
+      // local old-fork hash at the reorged height 8 and stops the walk there. The post-divergence re-read returns the
+      // fresh post-reorg tips (proposed=6 on the new fork).
+      let getTipsCall = 0;
+      blockSource.getL2Tips.mockImplementation(() => {
+        getTipsCall++;
+        return Promise.resolve(
+          getTipsCall === 1
+            ? {
+                proposed: { number: BlockNumber(11), hash: makeHash(11) },
+                checkpointed: makeTipId(8),
+                proven: makeTipId(8),
+                finalized: makeTipId(8),
+              }
+            : {
+                proposed: { number: BlockNumber(6), hash: new Fr(1006).toString() },
+                checkpointed: makeTipId(0),
+                proven: makeTipId(0),
+                finalized: makeTipId(0),
+              },
+        );
+      });
+
+      await blockStream.work();
+
+      // The walk must reach the true divergence at block 5, NOT stop at the poisoned tier seed (block 8).
+      const pruneEvents = handler.events.filter(
+        (e): e is Extract<L2BlockStreamEvent, { type: 'chain-pruned' }> => e.type === 'chain-pruned',
+      );
+      expect(pruneEvents).toHaveLength(1);
+      expect(pruneEvents[0].block.number).toBeLessThanOrEqual(5);
+    });
+  });
+
+  describe('pass atomicity (block mode)', () => {
+    let localData: TestL2TipsMemoryStore;
+    let handler: TestL2BlockStreamEventHandler;
+    let blockStream: TestL2BlockStream;
+
+    beforeEach(() => {
+      localData = new TestL2TipsMemoryStore();
+      handler = new TestL2BlockStreamEventHandler(localData);
+      blockStream = new TestL2BlockStream(blockSource, localData, handler, undefined, {
+        batchSize: 10,
+        ignoreCheckpoints: true,
+      });
+    });
+
+    // (a) Empty getBlocks mid-plan: the source advertises a proposed tip it cannot deliver. No tier events fire; the
+    // next pass (with a deliverable tip) reconciles.
+    it('skips reconciliation when getBlocks returns empty below the target, then recovers next pass', async () => {
+      // Source advertises proposed=10 and finalized=8, but getBlocks delivers nothing (blocks not actually available).
+      blockSource.getL2Tips.mockResolvedValue({
+        proposed: { number: BlockNumber(10), hash: makeHash(10) },
+        checkpointed: makeTipId(0),
+        proven: makeTipId(0),
+        finalized: makeTipId(8),
+      });
+      blockSource.getBlocks.mockResolvedValue([]);
+
+      await blockStream.work();
+
+      // No blocks delivered ⇒ plan incomplete ⇒ no finalized (or any tier) event this pass.
+      expect(handler.events.filter(e => e.type === 'chain-finalized')).toEqual([]);
+
+      // Next pass the source can deliver: reconciliation runs and the tiers catch up.
+      blockSource.getBlocks.mockImplementation((query: BlocksQuery) =>
+        'from' in query
+          ? Promise.resolve(
+              compactArray(times(query.limit, i => (query.from + i > 10 ? undefined : makeBlock(query.from + i)))),
+            )
+          : Promise.resolve([]),
+      );
+      latest = 10;
+      handler.clearEvents();
+
+      await blockStream.work();
+      expect(handler.events.filter(e => e.type === 'chain-finalized')).toEqual([
+        { type: 'chain-finalized', block: makeBlockId(8), checkpoint: makeCheckpointId(8) },
+      ]);
+    });
+
+    // (b) Loop completes but the last block's hash differs from the snapshot proposed hash: a same-height fork swap
+    // happened mid-pass. No tier events.
+    it('skips reconciliation when the delivered proposed-block hash differs from the snapshot', async () => {
+      // Snapshot proposed hash is makeHash(5), but getBlocks delivers a block 5 carrying a different (forked) hash.
+      blockSource.getL2Tips.mockResolvedValue({
+        proposed: { number: BlockNumber(5), hash: makeHash(5) },
+        checkpointed: makeTipId(0),
+        proven: makeTipId(0),
+        finalized: makeTipId(3),
+      });
+      blockSource.getBlocks.mockResolvedValue(times(5, i => makeForkedBlock(i + 1)));
+
+      await blockStream.work();
+
+      // The delivered block-5 hash (forked) != snapshot proposed hash ⇒ plan incomplete ⇒ no tier events.
+      expect(handler.events.filter(e => e.type === 'chain-finalized')).toEqual([]);
+      // blocks-added still emitted (it only populates hash history).
+      expect(handler.events.filter(e => e.type === 'blocks-added')).toHaveLength(1);
+    });
+
+    // (c) startingBlock fast-forward past the tip still reconciles (A-1061 regression): the loop never runs, the plan
+    // is trivially complete, and the snapshot tiers are emitted.
+    it('reconciles when startingBlock fast-forwards past the proposed tip (A-1061)', async () => {
+      const freshStore = new TestL2TipsMemoryStore();
+      const freshHandler = new TestL2BlockStreamEventHandler(freshStore);
+      const stream = new TestL2BlockStream(blockSource, freshStore, freshHandler, undefined, {
+        startingBlock: 40,
+        ignoreCheckpoints: true,
+      });
+      setRemoteTips(35, 0, 25, 10);
+
+      await stream.work();
+
+      // The download loop never runs (startingBlock 40 > proposed 35), yet proven/finalized still reconcile.
+      expect(freshHandler.events.filter(e => e.type === 'chain-proven')).toEqual([
+        { type: 'chain-proven', block: makeBlockId(25), checkpoint: makeCheckpointId(25) },
+      ]);
+      expect(freshHandler.events.filter(e => e.type === 'chain-finalized')).toEqual([
+        { type: 'chain-finalized', block: makeBlockId(10), checkpoint: makeCheckpointId(10) },
+      ]);
+    });
+  });
+
+  describe('prune payload freshness', () => {
+    // The walk-back detection uses live getBlockData reads; the prune event's clamp payload must come from a re-read
+    // taken AFTER divergence is detected, not from the (now stale) pass snapshot.
+    let localData: TestL2TipsMemoryStore;
+    let handler: TestL2BlockStreamEventHandler;
+
+    beforeEach(() => {
+      localData = new TestL2TipsMemoryStore();
+      handler = new TestL2BlockStreamEventHandler(localData);
+    });
+
+    it('carries the re-read checkpointed/proven tips on the prune event, not the snapshot ones', async () => {
+      const blockStream = new TestL2BlockStream(blockSource, localData, handler, undefined, { batchSize: 10 });
+      // Sync to proposed=10, checkpointed=10, proven=10, finalized=0.
+      setRemoteTips(10, 10, 10, 0);
+      await blockStream.work();
+      handler.clearEvents();
+
+      // The reorg drops the source to proposed=6 (blocks 7-10 gone; 1-6 unchanged). Between the pass snapshot and the
+      // walk-back the source's confirmed tips move: the FIRST getL2Tips (snapshot) still reports the proven tip behind
+      // at block 4; the SECOND (post-divergence re-read) reports it caught up to 6. The stream must clamp the prune
+      // event from the re-read, not the snapshot, so p2p's isEpochPrune sees the checkpoint id AFTER the prune.
+      let getTipsCall = 0;
+      blockSource.getL2Tips.mockImplementation(() => {
+        getTipsCall++;
+        if (getTipsCall === 1) {
+          // Pass snapshot: proven still lagging at block 4 (valid: proven <= checkpointed <= proposed).
+          return Promise.resolve({
+            proposed: { number: BlockNumber(6), hash: makeHash(6) },
+            checkpointed: makeTipId(6),
+            proven: makeTipId(4),
+            finalized: makeTipId(0),
+          });
+        }
+        // Post-divergence re-read: the confirmed post-prune chain (proven caught up to 6).
+        return Promise.resolve({
+          proposed: { number: BlockNumber(6), hash: makeHash(6) },
+          checkpointed: makeTipId(6),
+          proven: makeTipId(6),
+          finalized: makeTipId(0),
+        });
+      });
+      latest = 6;
+
+      await blockStream.work();
+
+      const pruneEvent = handler.events.find(
+        (e): e is Extract<L2BlockStreamEvent, { type: 'chain-pruned' }> => e.type === 'chain-pruned',
+      );
+      expect(pruneEvent).toBeDefined();
+      // Clamp payload comes from the re-read (proven=6), NOT the stale snapshot (proven=4).
+      expect(pruneEvent!.checkpointed).toEqual(makeTipId(6));
+      expect(pruneEvent!.proven).toEqual(makeTipId(6));
+    });
+
+    // The re-read drives more than the prune clamp: the download loop must run THROUGH the re-read proposed tip and
+    // tier reconciliation must use the re-read tiers. First snapshot proposed=5/proven=4, re-read proposed=8/proven=6.
+    it('downloads through the re-read proposed tip and reconciles from the re-read tiers', async () => {
+      const store = new TestL2TipsMemoryStore();
+      const storeHandler = new TestL2BlockStreamEventHandler(store);
+      const blockStream = new TestL2BlockStream(blockSource, store, storeHandler, undefined, {
+        batchSize: 10,
+        ignoreCheckpoints: true,
+      });
+
+      // Sync the local store to proposed=5 on the old fork (dense hashes 1-5).
+      setRemoteTips(5);
+      await blockStream.work();
+      storeHandler.clearEvents();
+      blockSource.getBlocks.mockClear();
+
+      // Reorg after block 3: heights 1-3 keep their old (shared) hashes, heights 4+ are on the new fork. The new fork
+      // extends to proposed=8.
+      blockSource.getBlockData.mockImplementation(query => {
+        if (!('number' in query) || query.number > 8) {
+          return Promise.resolve(undefined);
+        }
+        const forked = query.number >= 4;
+        return Promise.resolve({
+          header: { hash: () => Promise.resolve(new BlockHash(new Fr(forked ? query.number + 1000 : query.number))) },
+        } as unknown as BlockData);
+      });
+      blockSource.getBlocks.mockImplementation((query: BlocksQuery) =>
+        'from' in query
+          ? Promise.resolve(
+              compactArray(
+                times(query.limit, i => {
+                  const n = query.from + i;
+                  return n > 8 ? undefined : n >= 4 ? makeForkedBlock(n) : makeBlock(n);
+                }),
+              ),
+            )
+          : Promise.resolve([]),
+      );
+
+      // FIRST snapshot: a same-height fork already swapped block 5 (forked hash, != the local old-fork hash there), so
+      // the walk detects divergence and walks down to block 3 before re-reading; proven still lags at 4. The re-read
+      // reports the post-reorg chain: proposed=8 (new-fork hash), proven=6.
+      let getTipsCall = 0;
+      blockSource.getL2Tips.mockImplementation(() => {
+        getTipsCall++;
+        return Promise.resolve(
+          getTipsCall === 1
+            ? {
+                proposed: { number: BlockNumber(5), hash: new Fr(1005).toString() },
+                checkpointed: makeTipId(5),
+                proven: makeTipId(4),
+                finalized: makeTipId(0),
+              }
+            : {
+                proposed: { number: BlockNumber(8), hash: new Fr(1008).toString() },
+                checkpointed: {
+                  block: { number: BlockNumber(8), hash: new Fr(1008).toString() },
+                  checkpoint: makeCheckpointId(8),
+                },
+                proven: {
+                  block: { number: BlockNumber(6), hash: new Fr(1006).toString() },
+                  checkpoint: makeCheckpointId(6),
+                },
+                finalized: makeTipId(0),
+              },
+        );
+      });
+
+      await blockStream.work();
+
+      // The download loop must run through the re-read proposed tip (8), not the stale snapshot tip (5): the highest
+      // requested block reaches 8.
+      const requestedThrough = Math.max(
+        ...blockSource.getBlocks.mock.calls.map(([q]) => ('from' in q ? q.from + q.limit - 1 : 0)),
+      );
+      expect(requestedThrough).toBeGreaterThanOrEqual(8);
+
+      // Tier reconciliation uses the re-read tiers: chain-proven carries the re-read proven tip (6), not the snapshot's
+      // lagging tip (4).
+      const provenEvents = storeHandler.events.filter(
+        (e): e is Extract<L2BlockStreamEvent, { type: 'chain-proven' }> => e.type === 'chain-proven',
+      );
+      expect(provenEvents).toHaveLength(1);
+      expect(provenEvents[0].block.number).toBe(6);
+    });
+  });
 });
+
+/** Shared block-hash function: hashes `this.number`. A single reference so makeBlock(n) objects compare equal. */
+function blockHashFromNumber(this: { number: number }): Promise<BlockHash> {
+  return Promise.resolve(new BlockHash(new Fr(this.number)));
+}
+
+/** Shared forked block-hash function: hashes `this.number + 1000`, simulating a same-height fork swap. */
+function forkedBlockHashFromNumber(this: { number: number }): Promise<BlockHash> {
+  return Promise.resolve(new BlockHash(new Fr(this.number + 1000)));
+}
+
+/** A block whose hash is forked (number + 1000), used to simulate same-height fork swaps. */
+function makeForkedBlock(number: number) {
+  return {
+    number: BlockNumber(number),
+    checkpointNumber: CheckpointNumber(number),
+    indexWithinCheckpoint: 0,
+    hash: forkedBlockHashFromNumber,
+  } as unknown as L2Block;
+}
 
 /** Builds a checkpoint id from a plain number, isolated so the branded-type lint rule sees no BlockNumber flow. */
 function makeTipCheckpointId(checkpointNumber: number) {
