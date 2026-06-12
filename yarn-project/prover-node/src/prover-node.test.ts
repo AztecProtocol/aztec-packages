@@ -192,6 +192,29 @@ describe('ProverNode', () => {
     expect(proverNode.getLastProcessedCheckpoint()).toEqual(CheckpointNumber(3));
   });
 
+  it('throws on a prune whose target block data is missing, leaving provers and cursor untouched for retry', async () => {
+    // The cursor floor is resolved before any prover is marked, so a missing-data prune throws without side effects
+    // and the next pass retries the whole handler (the tips cursor only advances on success).
+    setupNotFullyProven();
+    await proverNode.handleBlockStreamEvent(mineCheckpoint(makeCheckpoint(3, 3, 3)));
+    expect(proverNode.getLastProcessedCheckpoint()).toEqual(CheckpointNumber(3));
+    const registeredProver = proverNode.getCheckpointStore().listAll()[0];
+
+    l2BlockSource.getBlockData.mockResolvedValue(undefined);
+    await expect(
+      proverNode.handleBlockStreamEvent({
+        type: 'chain-pruned',
+        block: { number: BlockNumber(2), hash: '0x02' },
+        checkpointed: makeTipId(3),
+        proven: makeTipId(2),
+      }),
+    ).rejects.toThrow(/No block data found for prune target/);
+
+    expect(registeredProver.isPruned()).toBe(false);
+    expect(sessionManager.onPrune).not.toHaveBeenCalled();
+    expect(proverNode.getLastProcessedCheckpoint()).toEqual(CheckpointNumber(3));
+  });
+
   it('dispatches chain-proven to publishingService.onChainProven', async () => {
     await proverNode.handleBlockStreamEvent({
       type: 'chain-proven',

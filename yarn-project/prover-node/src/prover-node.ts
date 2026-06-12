@@ -339,14 +339,13 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
     await this.checkpointStore.addOrUpdate(checkpoint, registerData);
     await this.sessionManager?.onCheckpointAdded(epochNumber);
 
-    // Record a walk-back witness for every block in the checkpoint. In tips-only mode the stream never delivers
-    // blocks, so the tips store would otherwise only hold sparse tip anchors; recording a witness per checkpointed
-    // block keeps the walk-back's nearest-recorded-hash floor tight, so a reorg that lands inside this checkpoint's
-    // range produces a prune event at the true divergence rather than one over-deep by the witness gap.
-    const witnesses = await Promise.all(
-      checkpoint.blocks.map(async block => ({ number: block.number, hash: (await block.header.hash()).toString() })),
+    // Tips-only mode delivers no blocks, so record one witness per checkpointed block: a reorg into the checkpoint's
+    // range then prunes at the true divergence instead of the nearest sparse tip anchor.
+    await this.tipsStore.recordBlockHashes(
+      await Promise.all(
+        checkpoint.blocks.map(async block => ({ number: block.number, hash: (await block.header.hash()).toString() })),
+      ),
     );
-    await this.tipsStore.recordBlockHashes(witnesses);
   }
 
   /**
@@ -376,29 +375,39 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
   }
 
   /**
-   * Marks every prover orphaned by the prune as pruned and notifies the session manager. Keyed off the prune target
-   * block (`event.block`, the highest surviving block) rather than the source's current checkpointed tip: when the
-   * source has already re-checkpointed past the divergence (e.g. a restart spanning a prune+rebuild, or a same-number
-   * checkpoint replacement observed atomically), that tip sits ABOVE the prune target, so a checkpoint-number key
-   * would leave orphaned provers canonical and under-clamp the cursor. The surviving block, by construction, survives
-   * on the source.
+   * Marks every prover orphaned by the prune as pruned, clamps the catch-up cursor below the prune target's
+   * checkpoint, and notifies the session manager. Keyed off the prune target block (the highest surviving block)
+   * rather than the source's checkpointed tip, which can sit above the target after a re-checkpoint and would leave
+   * orphaned provers canonical. Throws (rather than warning) if the cursor floor cannot be resolved, so the pass
+   * fails and the prune is retried next iteration.
    */
   private async handlePruneEvent(prunedToBlock: L2BlockId) {
     this.log.warn(`Chain pruned to block ${prunedToBlock.number}`, { prunedToBlock });
 
-    // Mark every prover holding a block above the prune target. This needs no source lookup: each prover carries its
-    // checkpoint's blocks, and a checkpoint is orphaned iff its last block is above the target (a straddling range is
-    // partially orphaned and must be marked).
+    // Resolve the cursor floor BEFORE marking provers: markPrunedAboveBlock returns only newly-marked provers, so a
+    // throw after marking would leave a retry pass with nothing to act on. Resolving first means a throw leaves
+    // everything untouched and the next pass retries the whole handler (the tips cursor only advances on success).
+    let cursorFloor: CheckpointNumber;
+    if (prunedToBlock.number === 0) {
+      cursorFloor = CheckpointNumber.ZERO;
+    } else {
+      const targetData = await this.l2BlockSource.getBlockData({ number: prunedToBlock.number });
+      if (targetData === undefined) {
+        throw new Error(
+          `No block data found for prune target block ${prunedToBlock.number}; cannot clamp checkpoint cursor`,
+        );
+      }
+      // Clamp to `cpAtTarget - 1`: a mid-checkpoint target leaves that checkpoint partially orphaned and it must be
+      // reprocessed. Over-clamping merely re-registers a checkpoint (at-least-once by design — A-1041); under-clamping
+      // would permanently skip a rebuilt same-number checkpoint.
+      cursorFloor = CheckpointNumber(Math.max(0, Number(targetData.checkpointNumber) - 1));
+    }
+
     const affected = this.checkpointStore.markPrunedAboveBlock(prunedToBlock.number);
 
-    // Clamp the catch-up cursor to one checkpoint below the prune target's checkpoint so reprocessing resumes there.
-    // We resolve the checkpoint at the target rather than trusting the event's checkpointed tip (which can lead the
-    // target after a re-checkpoint). Clamping to `cpAtTarget - 1` rather than `cpAtTarget` is deliberate: if the
-    // target is mid-checkpoint, that checkpoint is partially orphaned and must be reprocessed; over-clamping by one
-    // merely re-registers one checkpoint, which is safe (registration is at-least-once by design — A-1041 —
-    // `addOrUpdate` tolerates re-adds and pruned provers keep their sub-tree work warm). Under-clamping is the
-    // dangerous direction, since it would permanently skip a rebuilt checkpoint with the same number.
-    await this.clampCursorToPruneTarget(prunedToBlock);
+    if (this.lastProcessedCheckpoint > cursorFloor) {
+      this.lastProcessedCheckpoint = cursorFloor;
+    }
 
     if (affected.length === 0) {
       return;
@@ -411,31 +420,6 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
     // publishingService.withdraw(uuid) for each candidate; no separate notification to the
     // publishing service is needed.
     await this.sessionManager?.onPrune(affectedEpochs);
-  }
-
-  /**
-   * Clamps `lastProcessedCheckpoint` down to one below the checkpoint that contains the prune target block. A prune to
-   * genesis (`block.number === 0`) clamps the cursor to 0. If the source cannot serve block data for a non-zero target
-   * (a source race), we conservatively clamp to 0 and warn rather than leaving a stale cursor: over-clamping only
-   * re-registers checkpoints (safe), whereas a stale cursor could under-clamp and skip a rebuilt checkpoint.
-   */
-  private async clampCursorToPruneTarget(prunedToBlock: L2BlockId): Promise<void> {
-    if (prunedToBlock.number === 0) {
-      this.lastProcessedCheckpoint = CheckpointNumber.ZERO;
-      return;
-    }
-    const targetData = await this.l2BlockSource.getBlockData({ number: prunedToBlock.number });
-    if (targetData === undefined) {
-      this.log.warn(`No block data for prune target ${prunedToBlock.number}; clamping catch-up cursor to genesis`, {
-        prunedToBlock,
-      });
-      this.lastProcessedCheckpoint = CheckpointNumber.ZERO;
-      return;
-    }
-    const cursorFloor = CheckpointNumber(Math.max(0, Number(targetData.checkpointNumber) - 1));
-    if (this.lastProcessedCheckpoint > cursorFloor) {
-      this.lastProcessedCheckpoint = cursorFloor;
-    }
   }
 
   /**

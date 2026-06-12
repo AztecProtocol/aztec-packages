@@ -37,11 +37,11 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
     bindings?: LoggerBindings,
   ) {
     this.log = createLogger('pxe:block_synchronizer', bindings);
-    this.blockStream = this.createBlockStream(config);
+    this.blockStream = this.createBlockStream();
     this.eventQueue.start();
   }
 
-  protected createBlockStream(_config: Partial<BlockSynchronizerConfig>): L2BlockStream {
+  protected createBlockStream(): L2BlockStream {
     return new L2BlockStream(
       blockStreamSourceFromAztecNode(this.node),
       this.l2TipsStore,
@@ -176,17 +176,6 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
     this.contractSyncService.wipe();
     this.log.verbose(`Updated pxe last block to ${blockHeader.getBlockNumber()}`, blockHeader.toInspect());
     await this.anchorBlockStore.setHeader(blockHeader);
-
-    // Record a walk-back witness at the anchor height. In tips-only mode the stream delivers no blocks, so the tips
-    // store's hash history is sparse; the note and private-event stores materialize per-height state and roll back to
-    // this anchor on a prune. Pinning the anchor height to its fork hash keeps the walk-back's prune target at the
-    // true divergence rather than over-deep by the gap to the nearest recorded tip. The hash matches what the stream
-    // reads from the node (both derive from the block header), so it is a valid walk-back comparison point.
-    const blockNumber = blockHeader.getBlockNumber();
-    if (blockNumber > 0) {
-      const blockHash = (await blockHeader.hash()).toString();
-      await this.l2TipsStore.recordBlockHashes([{ number: blockNumber, hash: blockHash }]);
-    }
   }
 
   /**
