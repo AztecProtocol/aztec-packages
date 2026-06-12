@@ -10,7 +10,6 @@ import { type Fact, type FactKeyStr, StoredFact, deserializeFact, factKeyStrOf, 
 
 type JobId = string;
 type BlockNum = number;
-type EntityIdStr = string;
 type StoredEntityBuffer = Buffer;
 type FactBuffer = Buffer;
 
@@ -59,7 +58,7 @@ export class EntityStore implements StagedStore {
   #entitiesByBlock: AztecAsyncMultiMap<BlockNum, EntityKeyStr>;
 
   /** Index for active-entity enumeration. */
-  #entitiesByEntityType: AztecAsyncMultiMap<EntityTypeKeyStr, EntityIdStr>;
+  #entitiesByEntityType: AztecAsyncMultiMap<EntityTypeKeyStr, EntityKeyStr>;
 
   /** Primary fact records, deduplicated by fact key. */
   #facts: AztecAsyncMap<FactKeyStr, FactBuffer>;
@@ -174,46 +173,46 @@ export class EntityStore implements StagedStore {
    * Returns all active entities of a given type, together with their facts in creation order.
    */
   async getEntities(entityTypeKey: EntityTypeKey, jobId: string): Promise<Entity[]> {
-    const tKey = entityTypeKey.toString();
+    const typeKey = entityTypeKey.toString();
 
     // Entities staged for creation join the candidate set up front, so the committed-state load below also picks up
-    // any facts already committed for them (facts are stored independently of entity records).
-    const stagedCreatedEKeys: EntityKeyStr[] = [];
-    for (const op of this.#stagedOps(jobId)) {
-      if (op.kind === 'createEntity' && op.entity.key.entityTypeKey().toString() === tKey) {
-        stagedCreatedEKeys.push(op.entity.key.toString());
-      }
-    }
+    // any facts already committed for them.
+    const entityKeysInStage = this.#entitiesInStage(typeKey, jobId).map(entity => entity.key.toString());
 
-    const { committedEKeys, committed } = await this.#store.transactionAsync(async () => {
-      // Snapshot the scope index before issuing point reads so we never interleave reads with a live cursor.
-      const committedIds: EntityIdStr[] = [];
-      for await (const entityId of this.#entitiesByEntityType.getValuesAsync(tKey)) {
-        committedIds.push(entityId);
+    const entitiesAndFactsInDb = await this.#store.transactionAsync(async () => {
+      const entityKeysInDb: EntityKeyStr[] = [];
+      for await (const eKey of this.#entitiesByEntityType.getValuesAsync(typeKey)) {
+        entityKeysInDb.push(eKey);
       }
-      const committedEKeys: EntityKeyStr[] = committedIds.map(entityId => `${tKey}:${entityId}`);
-      const candidateEKeys = [...new Set([...committedEKeys, ...stagedCreatedEKeys])];
-      return { committedEKeys, committed: await this.#readEntitiesAndFactsFromDb(candidateEKeys) };
+      const candidateEKeys = [...new Set([...entityKeysInDb, ...entityKeysInStage])];
+      return await this.#readEntitiesAndFactsFromDb(candidateEKeys);
     });
 
-    // An #entitiesByEntityType entry must always reference a live #entities entry; a missing one means the indexes are
-    // corrupt, so fail loudly rather than surface a ghost entity or silently hide the corruption.
-    for (const eKey of committedEKeys) {
-      if (committed.get(eKey)!.entity === undefined) {
+    // Replay each candidate entity's record and fact set from staged state, exactly as in getEntity.
+    const stagedKeys = new Set(entityKeysInStage);
+    const result: Entity[] = [];
+    for (const [eKey, { entity, facts }] of entitiesAndFactsInDb) {
+      // Defensive, implies index corruption. Only entities staged for creation in this job may legitimately lack a
+      // committed record; every other candidate key came from the index and must reference one.
+      if (entity === undefined && !stagedKeys.has(eKey)) {
         throw new Error(`Entity not found for entityKey ${eKey}`);
       }
-    }
 
-    // Replay each candidate entity's record and fact set from staged state, exactly as in getEntity.
-    const result: Entity[] = [];
-    for (const [eKey, e] of committed) {
-      const entity = this.#replayEntityOps(e.entity, eKey, jobId);
-      if (entity === undefined) {
+      const currentEntity = this.#replayEntityOps(entity, eKey, jobId);
+
+      // i.e.: entity was terminated in current job
+      if (currentEntity === undefined) {
         continue;
       }
-      const facts = this.#replayFactOps(e.facts, eKey, jobId);
-      result.push({ key: entity.key, body: entity.body, facts: Array.from(facts.values(), f => f.toFact()) });
+
+      const currentFacts = this.#replayFactOps(facts, eKey, jobId);
+      result.push({
+        key: currentEntity.key,
+        body: currentEntity.body,
+        facts: Array.from(currentFacts.values(), f => f.toFact()),
+      });
     }
+
     return result;
   }
 
@@ -239,7 +238,7 @@ export class EntityStore implements StagedStore {
             break;
           }
           await this.#entities.set(eKey, entity.toBuffer());
-          await this.#entitiesByEntityType.set(entity.key.entityTypeKey().toString(), entity.key.entityId.toString());
+          await this.#entitiesByEntityType.set(entity.key.entityTypeKey().toString(), eKey);
           if (entity.originBlock !== undefined) {
             await this.#entitiesByBlock.set(entity.originBlock.blockNumber, eKey);
           }
@@ -341,6 +340,17 @@ export class EntityStore implements StagedStore {
   }
 
   // ---- private helpers ----
+
+  /** Returns the entities of the given type staged for creation under the given job. */
+  #entitiesInStage(tKey: EntityTypeKeyStr, jobId: string): StoredEntity[] {
+    const entities: StoredEntity[] = [];
+    for (const op of this.#stagedOps(jobId)) {
+      if (op.kind === 'createEntity' && op.entity.key.entityTypeKey().toString() === tKey) {
+        entities.push(op.entity);
+      }
+    }
+    return entities;
+  }
 
   /**
    * Reads the committed records (undefined when none exists) and facts of the given entities from the database,
@@ -488,7 +498,7 @@ export class EntityStore implements StagedStore {
         await this.#entitiesByBlock.deleteValue(entity.originBlock.blockNumber, eKey);
       }
     }
-    await this.#entitiesByEntityType.deleteValue(key.entityTypeKey().toString(), key.entityId.toString());
+    await this.#entitiesByEntityType.deleteValue(key.entityTypeKey().toString(), eKey);
   }
 
   #opsFor(jobId: string): StagedOp[] {

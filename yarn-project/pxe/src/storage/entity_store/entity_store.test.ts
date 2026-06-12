@@ -660,7 +660,7 @@ describe('EntityStore', () => {
     it('getEntities fails loudly when the scope index references a missing entity', async () => {
       await kv
         .openMultiMap<string, string>('entities_by_entity_type')
-        .set(entityTypeKey.toString(), new Fr(0xdeadn).toString());
+        .set(entityTypeKey.toString(), EntityKey.from({ ...keyA, entityId: new Fr(0xdeadn) }).toString());
       await expect(store.getEntities(entityTypeKey, JOB)).rejects.toThrow('Entity not found for entityKey');
     });
 
