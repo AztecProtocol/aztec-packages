@@ -39,6 +39,7 @@ import { AddressStore } from '../address_store/address_store.js';
 import { AnchorBlockStore } from '../anchor_block_store/index.js';
 import { CapsuleStore } from '../capsule_store/capsule_store.js';
 import { ContractStore } from '../contract_store/contract_store.js';
+import { EntityKey } from '../entity_store/entity_keys.js';
 import { EntityStore } from '../entity_store/entity_store.js';
 import { NoteStore } from '../note_store/note_store.js';
 import { PrivateEventStore } from '../private_event_store/private_event_store.js';
@@ -223,8 +224,8 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
       const contract = AztecAddress.fromBigInt(100n);
       const scope = AztecAddress.fromBigInt(1n);
       const entityTypeId = new Fr(7n);
-      const keyA = { contractAddress: contract, scope, entityTypeId, entityId: new Fr(0xaan) };
-      const keyB = { contractAddress: contract, scope, entityTypeId, entityId: new Fr(0xbbn) };
+      const keyA = EntityKey.from({ contractAddress: contract, scope, entityTypeId, entityId: new Fr(0xaan) });
+      const keyB = EntityKey.from({ contractAddress: contract, scope, entityTypeId, entityId: new Fr(0xbbn) });
       // Retractable entity (origin block 6): the entity and all its facts are pruned on a reorg above block 6.
       await entityStore.createEntity(keyA, [new Fr(5n)], { blockNumber: 6, blockHash: new Fr(2n) }, jobId);
       // Non-retractable entity carrying a body, with a non-retractable and a retractable fact.

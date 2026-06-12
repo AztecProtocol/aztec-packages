@@ -1,4 +1,5 @@
 import type { Fr } from '@aztec/foundation/curves/bn254';
+import type { FieldsOf } from '@aztec/foundation/types';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 /**
@@ -6,28 +7,48 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
  */
 export type OriginBlock = { blockNumber: number; blockHash: Fr };
 
-/** Identifies all entities of one type within a contract+scope. */
-export type ScopeKey = {
-  contractAddress: AztecAddress;
-  scope: AztecAddress;
-  entityTypeId: Fr;
-};
-
-/** Uniquely identifies a single entity; all its facts share this key. */
-export type EntityKey = ScopeKey & { entityId: Fr };
-
 /** Serialized form of a {@link ScopeKey} (`contract:scope:entityTypeId`), used as kv-store map keys. */
 export type ScopeKeyStr = string;
 
 /** Serialized form of an {@link EntityKey} (`scopeKeyStr:entityId`), used as kv-store map keys. */
 export type EntityKeyStr = string;
 
-/** Serializes a {@link ScopeKey}. */
-export function scopeKeyStrOf(key: ScopeKey): ScopeKeyStr {
-  return `${key.contractAddress}:${key.scope}:${key.entityTypeId}`;
+/** Identifies all entities of one type within a contract+scope. */
+export class ScopeKey {
+  constructor(
+    public readonly contractAddress: AztecAddress,
+    public readonly scope: AztecAddress,
+    public readonly entityTypeId: Fr,
+  ) {}
+
+  static from(fields: FieldsOf<ScopeKey>): ScopeKey {
+    return new ScopeKey(fields.contractAddress, fields.scope, fields.entityTypeId);
+  }
+
+  toString(): ScopeKeyStr {
+    return `${this.contractAddress}:${this.scope}:${this.entityTypeId}`;
+  }
 }
 
-/** Serializes an {@link EntityKey}. */
-export function entityKeyStrOf(key: EntityKey): EntityKeyStr {
-  return `${scopeKeyStrOf(key)}:${key.entityId}`;
+/** Uniquely identifies a single entity; all its facts share this key. */
+export class EntityKey {
+  constructor(
+    public readonly contractAddress: AztecAddress,
+    public readonly scope: AztecAddress,
+    public readonly entityTypeId: Fr,
+    public readonly entityId: Fr,
+  ) {}
+
+  static from(fields: FieldsOf<EntityKey>): EntityKey {
+    return new EntityKey(fields.contractAddress, fields.scope, fields.entityTypeId, fields.entityId);
+  }
+
+  /** The key grouping this entity with the other entities of its type within the same contract+scope. */
+  scopeKey(): ScopeKey {
+    return new ScopeKey(this.contractAddress, this.scope, this.entityTypeId);
+  }
+
+  toString(): EntityKeyStr {
+    return `${this.scopeKey()}:${this.entityId}`;
+  }
 }

@@ -3,7 +3,7 @@ import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
-import { entityKeyStrOf, scopeKeyStrOf } from './entity_keys.js';
+import { EntityKey, ScopeKey } from './entity_keys.js';
 import { EntityStore } from './entity_store.js';
 
 describe('EntityStore', () => {
@@ -14,9 +14,9 @@ describe('EntityStore', () => {
   const PROCESSED = new Fr(2n);
   const corrA = new Fr(0xaan);
   const corrB = new Fr(0xbbn);
-  const keyA = { contractAddress: contract, scope, entityTypeId: ENTITY, entityId: corrA };
-  const keyB = { contractAddress: contract, scope, entityTypeId: ENTITY, entityId: corrB };
-  const scopeKey = { contractAddress: contract, scope, entityTypeId: ENTITY };
+  const keyA = EntityKey.from({ contractAddress: contract, scope, entityTypeId: ENTITY, entityId: corrA });
+  const keyB = EntityKey.from({ contractAddress: contract, scope, entityTypeId: ENTITY, entityId: corrB });
+  const scopeKey = ScopeKey.from({ contractAddress: contract, scope, entityTypeId: ENTITY });
   const JOB = 'fact-store-test-job';
 
   let kv: AztecAsyncKVStore;
@@ -30,7 +30,7 @@ describe('EntityStore', () => {
     await kv.close();
   });
 
-  const entityIdsOf = (entities: { entity: { entityId: Fr } }[]) => entities.map(e => e.entity.entityId.toBigInt());
+  const entityIdsOf = (entities: { key: EntityKey }[]) => entities.map(e => e.key.entityId.toBigInt());
 
   it('records facts and loads an entity fact set after commit', async () => {
     await store.recordFact(keyA, RECEIVED, [new Fr(9n)], undefined, JOB);
@@ -133,7 +133,7 @@ describe('EntityStore', () => {
 
     const entities = await store.getEntities(scopeKey, JOB);
     expect(entities).toHaveLength(1);
-    expect(entities[0].entity.body.map(f => f.toBigInt())).toEqual([5n]);
+    expect(entities[0].body.map(f => f.toBigInt())).toEqual([5n]);
     expect(entities[0].facts.map(f => f.factTypeId.toBigInt())).toEqual([RECEIVED.toBigInt(), PROCESSED.toBigInt()]);
   });
 
@@ -173,7 +173,7 @@ describe('EntityStore', () => {
 
     // Both before and after commit, the original body is paired with the existing facts.
     const staged = await store.getEntities(scopeKey, JOB2);
-    expect(staged[0].entity.body.map(f => f.toBigInt())).toEqual([1n]);
+    expect(staged[0].body.map(f => f.toBigInt())).toEqual([1n]);
     expect(staged[0].facts).toHaveLength(1);
 
     await kv.transactionAsync(() => store.commit(JOB2));
@@ -375,7 +375,7 @@ describe('EntityStore', () => {
       expect(staged.facts).toHaveLength(0);
       const stagedEntities = await store.getEntities(scopeKey, JOB2);
       expect(stagedEntities).toHaveLength(1);
-      expect(stagedEntities[0].entity.body.map(f => f.toBigInt())).toEqual([2n]);
+      expect(stagedEntities[0].body.map(f => f.toBigInt())).toEqual([2n]);
       expect(stagedEntities[0].facts).toHaveLength(0);
 
       // The committed view matches the staged view.
@@ -482,7 +482,7 @@ describe('EntityStore', () => {
   describe('isolation', () => {
     it('entities under different scopes are isolated', async () => {
       const scope2 = AztecAddress.fromBigInt(2n);
-      const keyScope2 = { ...keyA, scope: scope2 };
+      const keyScope2 = EntityKey.from({ ...keyA, scope: scope2 });
       await store.createEntity(keyA, [new Fr(1n)], undefined, JOB);
       await store.recordFact(keyA, RECEIVED, [new Fr(9n)], undefined, JOB);
       await store.createEntity(keyScope2, [new Fr(2n)], undefined, JOB);
@@ -492,29 +492,29 @@ describe('EntityStore', () => {
       expect((await store.getEntity(keyA, JOB)).body.map(f => f.toBigInt())).toEqual([1n]);
       expect((await store.getEntity(keyScope2, JOB)).body.map(f => f.toBigInt())).toEqual([2n]);
       expect((await store.getEntity(keyScope2, JOB)).facts).toHaveLength(0);
-      expect(await store.getEntities({ ...scopeKey, scope: scope2 }, JOB)).toHaveLength(1);
+      expect(await store.getEntities(ScopeKey.from({ ...scopeKey, scope: scope2 }), JOB)).toHaveLength(1);
 
       // Terminating in one scope leaves the other untouched.
       const TERM = 'terminate-job';
       await store.terminateEntity(keyA, TERM);
       await kv.transactionAsync(() => store.commit(TERM));
       expect(await store.getEntities(scopeKey, JOB)).toHaveLength(0);
-      expect(await store.getEntities({ ...scopeKey, scope: scope2 }, JOB)).toHaveLength(1);
+      expect(await store.getEntities(ScopeKey.from({ ...scopeKey, scope: scope2 }), JOB)).toHaveLength(1);
     });
 
     it('entities under different contracts and entity types are isolated', async () => {
       const contract2 = AztecAddress.fromBigInt(200n);
       const ENTITY2 = new Fr(8n);
       await store.createEntity(keyA, [new Fr(1n)], undefined, JOB);
-      await store.createEntity({ ...keyA, contractAddress: contract2 }, [new Fr(2n)], undefined, JOB);
-      await store.createEntity({ ...keyA, entityTypeId: ENTITY2 }, [new Fr(3n)], undefined, JOB);
+      await store.createEntity(EntityKey.from({ ...keyA, contractAddress: contract2 }), [new Fr(2n)], undefined, JOB);
+      await store.createEntity(EntityKey.from({ ...keyA, entityTypeId: ENTITY2 }), [new Fr(3n)], undefined, JOB);
       await kv.transactionAsync(() => store.commit(JOB));
 
       const inScope = await store.getEntities(scopeKey, JOB);
       expect(inScope).toHaveLength(1);
-      expect(inScope[0].entity.body.map(f => f.toBigInt())).toEqual([1n]);
-      expect(await store.getEntities({ ...scopeKey, contractAddress: contract2 }, JOB)).toHaveLength(1);
-      expect(await store.getEntities({ ...scopeKey, entityTypeId: ENTITY2 }, JOB)).toHaveLength(1);
+      expect(inScope[0].body.map(f => f.toBigInt())).toEqual([1n]);
+      expect(await store.getEntities(ScopeKey.from({ ...scopeKey, contractAddress: contract2 }), JOB)).toHaveLength(1);
+      expect(await store.getEntities(ScopeKey.from({ ...scopeKey, entityTypeId: ENTITY2 }), JOB)).toHaveLength(1);
     });
   });
 
@@ -532,7 +532,7 @@ describe('EntityStore', () => {
       expect((await store.getEntity(keyB, JOB)).facts.map(f => f.payload[0].toBigInt())).toEqual([8n, 2n]);
       // getEntities returns the same per-entity order.
       const entities = await store.getEntities(scopeKey, JOB);
-      const byId = new Map(entities.map(e => [e.entity.entityId.toBigInt(), e.facts]));
+      const byId = new Map(entities.map(e => [e.key.entityId.toBigInt(), e.facts]));
       expect(byId.get(corrA.toBigInt())!.map(f => f.payload[0].toBigInt())).toEqual([9n, 3n]);
       expect(byId.get(corrB.toBigInt())!.map(f => f.payload[0].toBigInt())).toEqual([8n, 2n]);
     });
@@ -654,21 +654,19 @@ describe('EntityStore', () => {
 
   describe('index corruption detection', () => {
     it('getEntities fails loudly when the scope index references a missing entity', async () => {
-      await kv
-        .openMultiMap<string, string>('entities_by_scope')
-        .set(scopeKeyStrOf(scopeKey), new Fr(0xdeadn).toString());
+      await kv.openMultiMap<string, string>('entities_by_scope').set(scopeKey.toString(), new Fr(0xdeadn).toString());
       await expect(store.getEntities(scopeKey, JOB)).rejects.toThrow('Entity not found for entityKey');
     });
 
     it('getEntity fails loudly when the fact index references a missing row', async () => {
-      await kv.openMultiMap<string, string>('facts_by_entity').set(entityKeyStrOf(keyA), 'bogus-fact-key');
+      await kv.openMultiMap<string, string>('facts_by_entity').set(keyA.toString(), 'bogus-fact-key');
       await expect(store.getEntity(keyA, JOB)).rejects.toThrow('Fact not found for factKey bogus-fact-key');
     });
 
     it('rollback fails loudly when the entity by-block index references a missing entity', async () => {
       await kv
         .openMultiMap<number, string>('entities_by_block')
-        .set(7, entityKeyStrOf({ ...keyA, entityId: new Fr(0xdeadn) }));
+        .set(7, EntityKey.from({ ...keyA, entityId: new Fr(0xdeadn) }).toString());
       await expect(kv.transactionAsync(() => store.rollback(5))).rejects.toThrow('Entity not found for entityKey');
     });
 

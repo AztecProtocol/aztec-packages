@@ -4,23 +4,18 @@ import { Semaphore } from '@aztec/foundation/queue';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap, AztecAsyncSingleton } from '@aztec/kv-store';
 
 import type { StagedStore } from '../../job_coordinator/job_coordinator.js';
-import {
-  type EntityKey,
-  type EntityKeyStr,
-  type OriginBlock,
-  type ScopeKey,
-  type ScopeKeyStr,
-  entityKeyStrOf,
-  scopeKeyStrOf,
-} from './entity_keys.js';
+import type { EntityKey, EntityKeyStr, OriginBlock, ScopeKey, ScopeKeyStr } from './entity_keys.js';
 import { StoredEntity } from './stored_entity.js';
-import { type FactKeyStr, StoredFact, deserializeFact, factKeyStrOf, serializeFact } from './stored_fact.js';
+import { type Fact, type FactKeyStr, StoredFact, deserializeFact, factKeyStrOf, serializeFact } from './stored_fact.js';
 
 type JobId = string;
 type BlockNum = number;
 type EntityIdStr = string;
 type StoredEntityBuffer = Buffer;
 type FactBuffer = Buffer;
+
+/** An entity as returned by the store: its key and body, plus its facts in creation order. */
+export type Entity = { key: EntityKey; body: Fr[]; facts: Fact[] };
 
 /** A pending mutation for a job: create an entity, record a fact, or terminate (delete) an entity. */
 type StagedOp =
@@ -56,23 +51,32 @@ export class EntityStore implements StagedStore {
   readonly storeName: string = 'entity';
 
   #store: AztecAsyncKVStore;
+
   /** Primary entity records; each holds the entity body and optional origin block. */
   #entities: AztecAsyncMap<EntityKeyStr, StoredEntityBuffer>;
+
   /** Index for delete-on-prune of retractable entities (those with an origin block). */
   #entitiesByBlock: AztecAsyncMultiMap<BlockNum, EntityKeyStr>;
-  /** Primary fact records, deduplicated by fact key. */
-  #facts: AztecAsyncMap<FactKeyStr, FactBuffer>;
-  /** Index for efficient entity-level fold. */
-  #factsByEntity: AztecAsyncMultiMap<EntityKeyStr, FactKeyStr>;
+
   /** Index for active-entity enumeration. */
   #entitiesByScope: AztecAsyncMultiMap<ScopeKeyStr, EntityIdStr>;
+
+  /** Primary fact records, deduplicated by fact key. */
+  #facts: AztecAsyncMap<FactKeyStr, FactBuffer>;
+
+  /** Index for efficient entity-level fold. */
+  #factsByEntity: AztecAsyncMultiMap<EntityKeyStr, FactKeyStr>;
+
   /** Index for delete-on-prune (retractable facts only). */
   #factsByBlock: AztecAsyncMultiMap<BlockNum, FactKeyStr>;
-  // Martin: mmm, wonder if we can do something simpler with this
+
   /** Monotonic counter assigning each newly committed fact its creation-order sequence number. */
   #factSeq: AztecAsyncSingleton<number>;
 
+  /** Job uncommitted data */
   #opsForJob: Map<JobId, StagedOp[]>;
+
+  /** Per-job locks */
   #jobLocks: Map<JobId, Semaphore>;
 
   logger = createLogger('entity_store');
@@ -100,21 +104,16 @@ export class EntityStore implements StagedStore {
    * The entity becomes immediately active, independently of whether it owns any facts.
    *
    * Idempotent: creating an entity that already exists is a no-op (first write wins), keeping the existing body,
-   * origin block and facts. Keeping the earliest origin block makes retraction correct when the same entity is
-   * re-derived at a later block: it must survive while its first derivation block is canonical. To genuinely replace
-   * an entity, terminate and re-create it within the same job.
+   * origin block and facts.
    */
-  createEntity(key: EntityKey, body: Fr[], originBlock: OriginBlock | undefined, jobId: string): Promise<void> {
+  createEntity(
+    entityKey: EntityKey,
+    entityBody: Fr[],
+    originBlock: OriginBlock | undefined,
+    jobId: string,
+  ): Promise<void> {
     return this.#withJobLock(jobId, () => {
-      const entity = new StoredEntity(
-        key.contractAddress,
-        key.scope,
-        key.entityTypeId,
-        key.entityId,
-        body,
-        originBlock,
-      );
-      this.#opsFor(jobId).push({ kind: 'createEntity', entity });
+      this.#opsFor(jobId).push({ kind: 'createEntity', entity: new StoredEntity(entityKey, entityBody, originBlock) });
       return Promise.resolve();
     });
   }
@@ -131,28 +130,19 @@ export class EntityStore implements StagedStore {
    * the fact's origin block and creation position.
    */
   recordFact(
-    key: EntityKey,
+    entityKey: EntityKey,
     factTypeId: Fr,
     payload: Fr[],
     originBlock: OriginBlock | undefined,
     jobId: string,
   ): Promise<void> {
     return this.#withJobLock(jobId, () => {
-      const fact = new StoredFact(
-        key.contractAddress,
-        key.scope,
-        key.entityTypeId,
-        key.entityId,
-        factTypeId,
-        payload,
-        originBlock,
-      );
-      this.#opsFor(jobId).push({ kind: 'record', fact });
+      this.#opsFor(jobId).push({ kind: 'record', fact: new StoredFact(entityKey, factTypeId, payload, originBlock) });
       return Promise.resolve();
     });
   }
 
-  /** Permanently delete an entity (all its facts). Staged within the job; applied on commit. */
+  /** Permanently delete an entity (and all its facts). Staged within the job; applied on commit. */
   terminateEntity(key: EntityKey, jobId: string): Promise<void> {
     return this.#withJobLock(jobId, () => {
       this.#opsFor(jobId).push({ kind: 'terminate', key });
@@ -161,50 +151,43 @@ export class EntityStore implements StagedStore {
   }
 
   /**
-   * Returns one entity's body together with its facts in creation order.
-   *
-   * The body comes from the entity record (empty when no entity record exists); the facts come from the per-entity
-   * fact index. This job's staged ops are layered over committed state for read-your-writes: a createEntity sets the
-   * body if the entity is absent, a record adds a fact if absent, a terminate clears both body and facts.
+   * Returns one entity's body together with its facts in creation order. The body is empty when no entity record
+   * exists; facts are stored independently of entity records.
    *
    * @param key - The key identifying the entity.
    * @param jobId - The job whose staged writes are layered over committed state.
    */
-  async getEntity(key: EntityKey, jobId: string): Promise<{ body: Fr[]; facts: StoredFact[] }> {
-    const eKey = entityKeyStrOf(key);
-    const { exists, body, factsByKey } = await this.#store.transactionAsync(async () => {
+  async getEntity(key: EntityKey, jobId: string): Promise<Entity> {
+    const eKey = key.toString();
+    const { entity, factsByKey } = await this.#store.transactionAsync(async () => {
       const entityBuf = await this.#entities.getAsync(eKey);
       return {
-        exists: entityBuf !== undefined,
-        body: entityBuf ? StoredEntity.fromBuffer(entityBuf).body : [],
+        entity: entityBuf ? StoredEntity.fromBuffer(entityBuf) : undefined,
         factsByKey: await this.#loadCommittedFacts(eKey),
       };
     });
-    // The body and the fact set are updated independently by each op kind (a terminate clears both, but does so in
-    // both replays at the same position in the op sequence), so replaying them separately is equivalent to a single
-    // in-order replay.
+    // The entity record and the fact set are updated independently by each op kind (a terminate clears both, but does
+    // so in both replays at the same position in the op sequence), so replaying them separately is equivalent to a
+    // single in-order replay.
     this.#replayFactOps(factsByKey, eKey, jobId);
-    let currentExists = exists;
-    let currentBody = body;
+    let current = entity;
     for (const op of this.#stagedOps(jobId)) {
       switch (op.kind) {
         case 'createEntity':
-          if (!currentExists && entityKeyStrOf(op.entity) === eKey) {
-            currentExists = true;
-            currentBody = op.entity.body;
+          if (current === undefined && op.entity.key.toString() === eKey) {
+            current = op.entity;
           }
           break;
         case 'terminate':
-          if (entityKeyStrOf(op.key) === eKey) {
-            currentExists = false;
-            currentBody = [];
+          if (op.key.toString() === eKey) {
+            current = undefined;
           }
           break;
         case 'record':
           break;
       }
     }
-    return { body: currentBody, facts: Array.from(factsByKey.values()) };
+    return { key, body: current?.body ?? [], facts: Array.from(factsByKey.values(), f => f.toFact()) };
   }
 
   /**
@@ -215,14 +198,14 @@ export class EntityStore implements StagedStore {
    * This job's staged ops are layered over committed state for read-your-writes: a createEntity activates the entity
    * if absent (keeping any facts it already owns), a record adds a fact if absent, a terminate deactivates the entity.
    */
-  async getEntities(scopeKey: ScopeKey, jobId: string): Promise<{ entity: StoredEntity; facts: StoredFact[] }[]> {
-    const sKey = scopeKeyStrOf(scopeKey);
+  async getEntities(scopeKey: ScopeKey, jobId: string): Promise<Entity[]> {
+    const sKey = scopeKey.toString();
     // Ids staged for creation join the candidate set up front, so the committed-state load below also picks up any
     // facts already committed for them (facts are stored independently of entity records).
     const stagedCreatedIds: EntityIdStr[] = [];
     for (const op of this.#stagedOps(jobId)) {
-      if (op.kind === 'createEntity' && scopeKeyStrOf(op.entity) === sKey) {
-        stagedCreatedIds.push(op.entity.entityId.toString());
+      if (op.kind === 'createEntity' && op.entity.key.scopeKey().toString() === sKey) {
+        stagedCreatedIds.push(op.entity.key.entityId.toString());
       }
     }
     const entities = await this.#store.transactionAsync(async () => {
@@ -267,14 +250,15 @@ export class EntityStore implements StagedStore {
     for (const op of this.#stagedOps(jobId)) {
       switch (op.kind) {
         case 'createEntity': {
-          const e = scopeKeyStrOf(op.entity) === sKey ? entities.get(op.entity.entityId.toString()) : undefined;
+          const e =
+            op.entity.key.scopeKey().toString() === sKey ? entities.get(op.entity.key.entityId.toString()) : undefined;
           if (e && e.entity === undefined) {
             e.entity = op.entity;
           }
           break;
         }
         case 'terminate': {
-          const e = scopeKeyStrOf(op.key) === sKey ? entities.get(op.key.entityId.toString()) : undefined;
+          const e = op.key.scopeKey().toString() === sKey ? entities.get(op.key.entityId.toString()) : undefined;
           if (e) {
             e.entity = undefined;
           }
@@ -286,7 +270,11 @@ export class EntityStore implements StagedStore {
     }
     return Array.from(entities.values())
       .filter(e => e.entity !== undefined)
-      .map(({ entity, factsByKey }) => ({ entity: entity!, facts: Array.from(factsByKey.values()) }));
+      .map(({ entity, factsByKey }) => ({
+        key: entity!.key,
+        body: entity!.body,
+        facts: Array.from(factsByKey.values(), f => f.toFact()),
+      }));
   }
 
   /**
@@ -301,7 +289,7 @@ export class EntityStore implements StagedStore {
       switch (op.kind) {
         case 'createEntity': {
           const entity = op.entity;
-          const eKey = entityKeyStrOf(entity);
+          const eKey = entity.key.toString();
           // Idempotent: creating an existing entity is a no-op (first write wins). Keeping the earliest origin block
           // is what makes retraction correct: the entity must survive while its first derivation block is canonical.
           // A welcome side effect is that an entity's record never changes in place, so the by-block index can never
@@ -311,7 +299,7 @@ export class EntityStore implements StagedStore {
             break;
           }
           await this.#entities.set(eKey, entity.toBuffer());
-          await this.#entitiesByScope.set(scopeKeyStrOf(entity), entity.entityId.toString());
+          await this.#entitiesByScope.set(entity.key.scopeKey().toString(), entity.key.entityId.toString());
           if (entity.originBlock !== undefined) {
             await this.#entitiesByBlock.set(entity.originBlock.blockNumber, eKey);
           }
@@ -328,7 +316,7 @@ export class EntityStore implements StagedStore {
           }
           const seq = await this.#nextFactSeq();
           await this.#facts.set(fKey, serializeFact(seq, fact));
-          await this.#factsByEntity.set(entityKeyStrOf(fact), fKey);
+          await this.#factsByEntity.set(fact.key.toString(), fKey);
           if (fact.originBlock !== undefined) {
             await this.#factsByBlock.set(fact.originBlock.blockNumber, fKey);
           }
@@ -378,7 +366,7 @@ export class EntityStore implements StagedStore {
         throw new Error(`Entity not found for entityKey ${eKey}`);
       }
       const entity = StoredEntity.fromBuffer(buf);
-      await this.#deleteEntity(entity);
+      await this.#deleteEntity(entity.key);
       deletedEntities.add(eKey);
       removedEntities++;
     }
@@ -398,7 +386,7 @@ export class EntityStore implements StagedStore {
         throw new Error(`Fact not found for factKey ${fKey}`);
       }
       const { fact } = deserializeFact(buf);
-      const eKey = entityKeyStrOf(fact);
+      const eKey = fact.key.toString();
       // Belt-and-braces: a fact whose entity was pruned in pass 1 must not be re-processed here. With #deleteEntity
       // clearing the by-block index this is unreachable, but the guard keeps pass 2 correct if that ever changes.
       if (deletedEntities.has(eKey)) {
@@ -451,12 +439,12 @@ export class EntityStore implements StagedStore {
     for (const op of this.#stagedOps(jobId)) {
       switch (op.kind) {
         case 'record':
-          if (entityKeyStrOf(op.fact) === eKey && !factsByKey.has(factKeyStrOf(op.fact))) {
+          if (op.fact.key.toString() === eKey && !factsByKey.has(factKeyStrOf(op.fact))) {
             factsByKey.set(factKeyStrOf(op.fact), op.fact);
           }
           break;
         case 'terminate':
-          if (entityKeyStrOf(op.key) === eKey) {
+          if (op.key.toString() === eKey) {
             factsByKey.clear();
           }
           break;
@@ -478,7 +466,7 @@ export class EntityStore implements StagedStore {
    * Called during commit for 'terminate' ops and during pass 1 of rollback for pruned retractable entities.
    */
   async #deleteEntity(key: EntityKey): Promise<void> {
-    const eKey = entityKeyStrOf(key);
+    const eKey = key.toString();
     const fKeys: FactKeyStr[] = [];
     for await (const fKey of this.#factsByEntity.getValuesAsync(eKey)) {
       fKeys.push(fKey);
@@ -505,7 +493,7 @@ export class EntityStore implements StagedStore {
         await this.#entitiesByBlock.deleteValue(entity.originBlock.blockNumber, eKey);
       }
     }
-    await this.#entitiesByScope.deleteValue(scopeKeyStrOf(key), key.entityId.toString());
+    await this.#entitiesByScope.deleteValue(key.scopeKey().toString(), key.entityId.toString());
   }
 
   #opsFor(jobId: string): StagedOp[] {

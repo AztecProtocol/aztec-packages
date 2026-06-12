@@ -3,7 +3,10 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
-import { type OriginBlock, entityKeyStrOf } from './entity_keys.js';
+import { EntityKey, type OriginBlock } from './entity_keys.js';
+
+/** A fact as returned by the entity store: its type and payload, plus the optional origin block it is tied to. */
+export type Fact = { factTypeId: Fr; payload: Fr[]; originBlock: OriginBlock | undefined };
 
 /**
  * A single immutable fact about an entity. `originBlock === undefined` marks the fact non-retractable (an external
@@ -11,10 +14,7 @@ import { type OriginBlock, entityKeyStrOf } from './entity_keys.js';
  */
 export class StoredFact {
   constructor(
-    public readonly contractAddress: AztecAddress,
-    public readonly scope: AztecAddress,
-    public readonly entityTypeId: Fr,
-    public readonly entityId: Fr,
+    public readonly key: EntityKey,
     public readonly factTypeId: Fr,
     public readonly payload: Fr[],
     public readonly originBlock: OriginBlock | undefined,
@@ -25,18 +25,23 @@ export class StoredFact {
     return this.originBlock !== undefined;
   }
 
-  /** Stable digest of the payload, used in the dedup row key (keeps the LMDB key bounded for large payloads). */
+  /** Stable digest of the payload, used in the dedup fact key (keeps the LMDB key bounded for large payloads). */
   payloadHash(): Fr {
     return sha256ToField([this.payload.length, ...this.payload]);
+  }
+
+  /** Returns the externally facing view of this fact, without the storage coordinates. */
+  toFact(): Fact {
+    return { factTypeId: this.factTypeId, payload: this.payload, originBlock: this.originBlock };
   }
 
   toBuffer(): Buffer {
     const originBlockTag = this.originBlock ? 1 : 0;
     return serializeToBuffer(
-      this.contractAddress,
-      this.scope,
-      this.entityTypeId,
-      this.entityId,
+      this.key.contractAddress,
+      this.key.scope,
+      this.key.entityTypeId,
+      this.key.entityId,
       this.factTypeId,
       this.payload.length,
       ...this.payload,
@@ -59,7 +64,12 @@ export class StoredFact {
     const blockNumber = reader.readNumber();
     const blockHash = reader.readObject(Fr);
     const originBlock = originBlockTag === 1 ? { blockNumber, blockHash } : undefined;
-    return new StoredFact(contractAddress, scope, entityTypeId, entityId, factTypeId, [...payload], originBlock);
+    return new StoredFact(
+      new EntityKey(contractAddress, scope, entityTypeId, entityId),
+      factTypeId,
+      [...payload],
+      originBlock,
+    );
   }
 }
 
@@ -71,7 +81,7 @@ export type FactKeyStr = string;
 
 /** Builds the {@link FactKeyStr} for the given fact. */
 export function factKeyStrOf(fact: StoredFact): FactKeyStr {
-  return `${entityKeyStrOf(fact)}:${fact.factTypeId}:${fact.payloadHash()}`;
+  return `${fact.key}:${fact.factTypeId}:${fact.payloadHash()}`;
 }
 
 /**
