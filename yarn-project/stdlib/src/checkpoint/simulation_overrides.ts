@@ -1,4 +1,5 @@
 import {
+  type CheckpointLog,
   type FeeHeader,
   RollupContract,
   SimulationOverridesBuilder,
@@ -11,9 +12,22 @@ import type { CoordinationSignatureContext } from '../p2p/signature_utils.js';
 import type { ProposedCheckpointData } from './checkpoint_data.js';
 import { computeCheckpointPayloadDigest } from './digest.js';
 
+/**
+ * Narrow view of the L1 fee reads these plan builders need. Satisfied by both `RollupContract` and
+ * the cached `RollupFeeReader`, so callers can route the grandparent fee-header read through the
+ * shared reader and share its cache. `computeChildFeeHeader` is a static pure function on
+ * `RollupContract`, so it is not part of this interface.
+ */
+export type RollupFeeReads = {
+  /** Reads a checkpoint log, optionally pinned to a specific L1 block. */
+  getCheckpoint(checkpointNumber: CheckpointNumber, options?: { blockNumber?: bigint }): Promise<CheckpointLog>;
+  /** Reads the current mana target. */
+  getManaTarget(): Promise<bigint>;
+};
+
 type CheckpointSimulationOverridesPlanInput = {
-  /** Target rollup contract. */
-  rollup: RollupContract;
+  /** L1 fee reads (the shared reader or a raw rollup contract). */
+  rollup: RollupFeeReads;
   /** Checkpoint number to be proposed. */
   checkpointNumber: CheckpointNumber;
   /** Logger instance. */
@@ -142,7 +156,7 @@ function derivePendingCheckpointNumber(input: CheckpointSimulationOverridesPlanI
 type PipelinedParentFeeHeaderInput = {
   checkpointNumber: CheckpointNumber;
   proposedCheckpointData: ProposedCheckpointData;
-  rollup: RollupContract;
+  rollup: RollupFeeReads;
   log: Logger;
   /** L1 block number to pin the grandparent checkpoint read to. */
   l1BlockNumber?: bigint;

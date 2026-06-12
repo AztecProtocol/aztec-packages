@@ -1,6 +1,6 @@
 import { getKzg } from '@aztec/blob-lib';
 import { type EpochCache, PROPOSER_PIPELINING_SLOT_OFFSET } from '@aztec/epoch-cache';
-import { NoCommitteeError, type RollupContract } from '@aztec/ethereum/contracts';
+import { NoCommitteeError, type RollupContract, type RollupFeeReader } from '@aztec/ethereum/contracts';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { merge, omit, pick } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -131,6 +131,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     protected dateProvider: DateProvider,
     protected epochCache: EpochCache,
     protected rollupContract: RollupContract,
+    protected feeReader: RollupFeeReader,
     config: SequencerConfig & Pick<ChainConfig, 'l1ChainId' | 'rollupAddress'>,
     protected telemetry: TelemetryClient = getTelemetryClient(),
     protected log = createLogger('sequencer'),
@@ -566,7 +567,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       proposedCheckpointData: syncedTo.hasProposedCheckpoint ? syncedTo.proposedCheckpointData : undefined,
       invalidateToPendingCheckpointNumber: invalidateCheckpoint?.forcePendingCheckpointNumber,
       checkpointedCheckpointNumber: syncedTo.checkpointedCheckpointNumber,
-      rollup: this.rollupContract,
+      rollup: this.feeReader,
       signatureContext: this.signatureContext,
       log: this.log,
     });
@@ -691,6 +692,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       invalidateCheckpoint,
       this.validatorClient,
       this.globalsBuilder,
+      this.feeReader,
       this.p2pClient,
       this.worldState,
       this.l1ToL2MessageSource,

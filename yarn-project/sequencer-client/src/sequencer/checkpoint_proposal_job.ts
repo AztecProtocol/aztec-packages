@@ -1,5 +1,5 @@
 import { type EpochCache, PROPOSER_PIPELINING_SLOT_OFFSET } from '@aztec/epoch-cache';
-import type { SimulationOverridesPlan } from '@aztec/ethereum/contracts';
+import type { RollupFeeReader, SimulationOverridesPlan } from '@aztec/ethereum/contracts';
 import {
   BlockNumber,
   CheckpointNumber,
@@ -135,6 +135,7 @@ export class CheckpointProposalJob implements Traceable {
     private readonly invalidateCheckpoint: InvalidateCheckpointRequest | undefined,
     private readonly validatorClient: ValidatorClient,
     private readonly globalsBuilder: GlobalVariableBuilder,
+    private readonly feeReader: RollupFeeReader,
     private readonly p2pClient: P2P,
     private readonly worldState: WorldStateSynchronizer,
     private readonly l1ToL2MessageSource: L1ToL2MessageSource,
@@ -599,7 +600,7 @@ export class CheckpointProposalJob implements Traceable {
         proposedCheckpointData: this.proposedCheckpointData,
         invalidateToPendingCheckpointNumber: this.invalidateCheckpoint?.forcePendingCheckpointNumber,
         checkpointedCheckpointNumber: this.checkpointedCheckpointNumber,
-        rollup: this.publisher.rollupContract,
+        rollup: this.feeReader,
         signatureContext: this.signatureContext,
         log: this.log,
       });

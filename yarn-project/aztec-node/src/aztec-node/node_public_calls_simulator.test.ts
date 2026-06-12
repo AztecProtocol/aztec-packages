@@ -1,6 +1,6 @@
 import { L1ToL2MessagesNotReadyError } from '@aztec/archiver';
-import type { EpochCacheInterface } from '@aztec/epoch-cache';
-import { type FeeHeader, RollupContract } from '@aztec/ethereum/contracts';
+import { type EpochCacheInterface, PROPOSER_PIPELINING_SLOT_OFFSET } from '@aztec/epoch-cache';
+import { type FeeHeader, RollupContract, RollupFeeReader, SimulationOverridesBuilder } from '@aztec/ethereum/contracts';
 import {
   BlockNumber,
   CheckpointNumber,
@@ -12,6 +12,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { unfreeze } from '@aztec/foundation/types';
+import { GlobalVariableBuilder as GlobalVariableBuilderImpl } from '@aztec/sequencer-client';
 import { PublicProcessor, PublicProcessorFactory } from '@aztec/simulator/server';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
@@ -55,12 +56,15 @@ describe('NodePublicCallsSimulator', () => {
   let contractDataSource: MockProxy<ContractDataSource>;
   let globalVariableBuilder: MockProxy<GlobalVariableBuilder>;
   let rollupContract: MockProxy<RollupContract>;
+  // Real reader over the mocked rollup contract, so cross-component sharing and per-block caching are
+  // exercised end to end rather than stubbed.
+  let feeReader: RollupFeeReader;
   let epochCache: MockProxy<EpochCacheInterface>;
   let merkleTreeFork: MockProxy<MerkleTreeWriteOperations>;
 
   let simulator: NodePublicCallsSimulator;
 
-  // The L1 block number the stubbed rollup client reports; tests mutate it to rotate the fee-cache key.
+  // The L1 block number the stubbed rollup client reports; tests mutate it to rotate cache keys.
   let l1BlockNumber: bigint;
 
   // Captures the globals the simulator builds for the next block by intercepting the processor it
@@ -137,12 +141,50 @@ describe('NodePublicCallsSimulator', () => {
     epochCache = mock<EpochCacheInterface>();
     merkleTreeFork = mock<MerkleTreeWriteOperations>();
 
-    // The simulator reads the current L1 block number off the rollup contract's client to key the
-    // fee cache and pin its L1 reads; `client` is not auto-mocked, so stand up a minimal stub.
+    // The fee reader reads the current L1 block number off the rollup contract's client to scope its
+    // cache keys and pin reads; `client` is not auto-mocked, so stand up a minimal stub.
     l1BlockNumber = 1000n;
     (rollupContract as unknown as { client: { getBlockNumber: () => Promise<bigint> } }).client = {
       getBlockNumber: () => Promise.resolve(l1BlockNumber),
     };
+
+    // The reader translates the plan into a state override via these methods before the min-fee call.
+    // Return overrides whose content reflects their inputs so two plans with different override content
+    // produce different fingerprints (and therefore different cache keys), while identical plans collide.
+    (rollupContract as unknown as { address: string }).address = ROLLUP_ADDRESS.toString();
+    rollupContract.getManaTarget.mockResolvedValue(1000n);
+    rollupContract.getManaMinFeeAt.mockResolvedValue(0n);
+    rollupContract.makeChainTipsOverride.mockImplementation(override =>
+      Promise.resolve([
+        {
+          address: ROLLUP_ADDRESS.toString(),
+          stateDiff: [{ slot: '0x00', value: `0x${(override.pending ?? 0).toString(16).padStart(64, '0')}` }],
+        },
+      ]),
+    );
+    rollupContract.makeArchiveOverride.mockImplementation((_n, archive) => [
+      { address: ROLLUP_ADDRESS.toString(), stateDiff: [{ slot: '0x01', value: archive.toString() }] },
+    ]);
+    rollupContract.makeTempCheckpointLogOverride.mockImplementation((_n, fields) =>
+      Promise.resolve([
+        {
+          address: ROLLUP_ADDRESS.toString(),
+          stateDiff: [
+            { slot: '0x02', value: (fields.headerHash ?? Fr.ZERO).toString() },
+            {
+              slot: '0x03',
+              value: `0x${(fields.feeHeader?.manaUsed ?? 0n).toString(16).padStart(64, '0')}`,
+            },
+            {
+              slot: '0x04',
+              value: `0x${(fields.feeHeader?.ethPerFeeAsset ?? 0n).toString(16).padStart(64, '0')}`,
+            },
+          ],
+        },
+      ]),
+    );
+
+    feeReader = new RollupFeeReader(rollupContract);
 
     worldStateSynchronizer.syncImmediate.mockResolvedValue(BlockNumber.ZERO);
     // The fork is an AsyncDisposable; provide the hook so `await using` does not throw.
@@ -180,7 +222,7 @@ describe('NodePublicCallsSimulator', () => {
       l1ToL2MessageSource,
       contractDataSource,
       globalVariableBuilder,
-      rollupContract,
+      feeReader,
       epochCache,
       signatureContext: { chainId: CHAIN_ID.toNumber(), rollupAddress: ROLLUP_ADDRESS },
       config: { rpcSimulatePublicMaxGasLimit: 1e11, rpcSimulatePublicMaxDebugLogMemoryReads: 100 },
@@ -425,54 +467,13 @@ describe('NodePublicCallsSimulator', () => {
       });
   });
 
-  describe('caching the fee computation', () => {
-    // Opening a new checkpoint while idle: the latest proposed block coincides with the checkpointed tip.
-    const setupBoundary = () => {
-      blockSource.getL2Tips.mockResolvedValue(
-        makeTips({ proposed: BlockNumber(5), checkpointedBlock: BlockNumber(5), checkpointed: CheckpointNumber(1) }),
-      );
-      blockSource.getBlockData.mockImplementation((query: BlockQuery) =>
-        Promise.resolve('number' in query ? makeBlockData(query.number, SlotNumber(5)) : undefined),
-      );
-      mockNextL1Slot(SlotNumber(20));
-    };
-
-    it('shares one fee computation between concurrent simulations against the same state', async () => {
-      setupBoundary();
-      // Hold the fee computation open so the second call arrives while the first is still in flight.
-      const deferred = promiseWithResolvers<CheckpointGlobalVariables>();
-      globalVariableBuilder.buildCheckpointGlobalVariables.mockReturnValueOnce(deferred.promise);
-
-      const first = simulator.simulate(await lowGasTx());
-      const second = simulator.simulate(await lowGasTx());
-      await new Promise(resolve => setImmediate(resolve));
-
-      deferred.resolve(checkpointGlobals(SlotNumber(21)));
-      await Promise.all([first, second]);
-
-      // A single fee computation served both simulations.
-      expect(globalVariableBuilder.buildCheckpointGlobalVariables).toHaveBeenCalledTimes(1);
-    });
-
-    it('reuses the cached result for repeated simulations against unchanged state', async () => {
-      setupBoundary();
-
-      await simulator.simulate(await lowGasTx());
-      await simulator.simulate(await lowGasTx());
-
-      expect(globalVariableBuilder.buildCheckpointGlobalVariables).toHaveBeenCalledTimes(1);
-    });
-
-    it('recomputes when the L1 block number advances', async () => {
-      setupBoundary();
-
-      await simulator.simulate(await lowGasTx());
-      l1BlockNumber = 1001n;
-      await simulator.simulate(await lowGasTx());
-
-      expect(globalVariableBuilder.buildCheckpointGlobalVariables).toHaveBeenCalledTimes(2);
-    });
-
+  // The simulator no longer caches fees itself; the L1 reads it triggers go through the shared
+  // RollupFeeReader, which caches per L1 block. These tests assert that *shared* behavior: repeated
+  // simulations against unchanged state reuse the reader's cache, while anything that changes the
+  // translated override content (and the slot/block) recomputes — emergently, because each such change
+  // alters the bytes the reader fingerprints into its key. The observable cached read on the pipelining
+  // path is `getCheckpoint` (the grandparent fee-header read).
+  describe('sharing fee reads through the RollupFeeReader', () => {
     // Opening a new checkpoint while pipelining: a proposed (not yet L1-confirmed) parent exists, so
     // the fee computation reads the grandparent fee header off the rollup. Returns the base args for
     // `makeProposedCheckpointData` so tests can vary a single field of the proposed parent.
@@ -483,8 +484,6 @@ describe('NodePublicCallsSimulator', () => {
       blockSource.getBlockData.mockResolvedValue(undefined);
       mockNextL1Slot(SlotNumber(5));
       rollupContract.getCheckpoint.mockResolvedValue({ feeHeader: makeFeeHeader() } as any);
-      rollupContract.getManaTarget.mockResolvedValue(1000n);
-      jest.spyOn(RollupContract, 'computeChildFeeHeader').mockReturnValue(makeFeeHeader());
 
       return {
         checkpointNumber: CheckpointNumber(3),
@@ -494,82 +493,203 @@ describe('NodePublicCallsSimulator', () => {
       };
     };
 
-    it('recomputes when the proposed checkpoint changes hash but not its numbers', async () => {
+    it('reuses the cached grandparent read for repeated simulations against unchanged state', async () => {
       const base = setupPipelining();
-      blockSource.getProposedCheckpointData.mockResolvedValueOnce(makeProposedCheckpointData(base));
+      blockSource.getProposedCheckpointData.mockResolvedValue(makeProposedCheckpointData(base));
+
+      await simulator.simulate(await lowGasTx());
       await simulator.simulate(await lowGasTx());
 
-      // Same checkpoint number and slot, different header content (a re-proposed checkpoint).
+      // The grandparent fee-header read is served from the reader's cache the second time.
+      expect(rollupContract.getCheckpoint).toHaveBeenCalledTimes(1);
+    });
+
+    it('shares one grandparent read between concurrent simulations against the same state', async () => {
+      const base = setupPipelining();
+      blockSource.getProposedCheckpointData.mockResolvedValue(makeProposedCheckpointData(base));
+      // Hold the grandparent read open so the second simulation arrives while the first is in flight.
+      const deferred = promiseWithResolvers<{ feeHeader: FeeHeader }>();
+      rollupContract.getCheckpoint.mockReturnValueOnce(deferred.promise as any);
+
+      const first = simulator.simulate(await lowGasTx());
+      const second = simulator.simulate(await lowGasTx());
+      await new Promise(resolve => setImmediate(resolve));
+
+      deferred.resolve({ feeHeader: makeFeeHeader() });
+      await Promise.all([first, second]);
+
+      // Single-flight: both simulations shared one in-flight read.
+      expect(rollupContract.getCheckpoint).toHaveBeenCalledTimes(1);
+    });
+
+    it('recomputes when the L1 block number advances', async () => {
+      const base = setupPipelining();
+      blockSource.getProposedCheckpointData.mockResolvedValue(makeProposedCheckpointData(base));
+
+      await simulator.simulate(await lowGasTx());
+      l1BlockNumber = 1001n;
+      await simulator.simulate(await lowGasTx());
+
+      expect(rollupContract.getCheckpoint).toHaveBeenCalledTimes(2);
+    });
+
+    it('recomputes the min fee when the proposed checkpoint changes hash but not its numbers', async () => {
+      const base = setupPipelining();
+      blockSource.getProposedCheckpointData.mockResolvedValueOnce(makeProposedCheckpointData(base));
+      await simulateThroughRealBuilder();
+
+      // Same checkpoint number and slot, different header content (a re-proposed checkpoint): the
+      // changed header hash flows into the temp-checkpoint-log override and rotates the min-fee key.
       blockSource.getProposedCheckpointData.mockResolvedValueOnce(
         makeProposedCheckpointData({ ...base, headerArchiveRoot: Fr.fromString('0xbeef') }),
       );
-      await simulator.simulate(await lowGasTx());
+      await simulateThroughRealBuilder();
 
-      expect(globalVariableBuilder.buildCheckpointGlobalVariables).toHaveBeenCalledTimes(2);
+      expect(rollupContract.getManaMinFeeAt).toHaveBeenCalledTimes(2);
     });
 
-    it('recomputes when only the fee asset price modifier of the proposed checkpoint changes', async () => {
+    it('recomputes the min fee when only the fee asset price modifier of the proposed checkpoint changes', async () => {
       const base = setupPipelining();
+      jest
+        .spyOn(RollupContract, 'computeChildFeeHeader')
+        .mockImplementation((_p, _m, modifier) => ({ ...makeFeeHeader(), ethPerFeeAsset: 100n + modifier }));
       blockSource.getProposedCheckpointData.mockResolvedValueOnce(makeProposedCheckpointData(base));
-      await simulator.simulate(await lowGasTx());
+      await simulateThroughRealBuilder();
 
-      // The header hash does not commit to the modifier, so the key must catch this change on its own.
+      // The header hash does not commit to the modifier, but it changes the derived fee header (and thus
+      // the fee-header override content), which rotates the min-fee key on its own.
       blockSource.getProposedCheckpointData.mockResolvedValueOnce(
         makeProposedCheckpointData({ ...base, feeAssetPriceModifier: 9n }),
       );
-      await simulator.simulate(await lowGasTx());
+      await simulateThroughRealBuilder();
 
-      expect(globalVariableBuilder.buildCheckpointGlobalVariables).toHaveBeenCalledTimes(2);
+      expect(rollupContract.getManaMinFeeAt).toHaveBeenCalledTimes(2);
     });
 
-    it('recomputes when only the stored total mana used of the proposed checkpoint changes', async () => {
+    it('recomputes the min fee when only the stored total mana used of the proposed checkpoint changes', async () => {
       const base = setupPipelining();
+      jest
+        .spyOn(RollupContract, 'computeChildFeeHeader')
+        .mockImplementation((_p, manaUsed) => ({ ...makeFeeHeader(), manaUsed }));
       blockSource.getProposedCheckpointData.mockResolvedValueOnce(makeProposedCheckpointData(base));
-      await simulator.simulate(await lowGasTx());
+      await simulateThroughRealBuilder();
 
-      // The fee-header override consumes the separately-stored bigint, not the header's committed field.
+      // The fee-header override consumes the separately-stored bigint, which feeds the derived fee
+      // header and therefore the override content and key.
       blockSource.getProposedCheckpointData.mockResolvedValueOnce(
         makeProposedCheckpointData({ ...base, totalManaUsed: 556n }),
       );
-      await simulator.simulate(await lowGasTx());
+      await simulateThroughRealBuilder();
 
-      expect(globalVariableBuilder.buildCheckpointGlobalVariables).toHaveBeenCalledTimes(2);
+      expect(rollupContract.getManaMinFeeAt).toHaveBeenCalledTimes(2);
     });
 
-    it('recomputes when the pending chain validation status changes', async () => {
-      setupBoundary();
+    it('recomputes the min fee when the pending chain validation status changes', async () => {
       blockSource.getL2Tips.mockResolvedValue(
         makeTips({ proposed: BlockNumber(5), checkpointedBlock: BlockNumber(5), checkpointed: CheckpointNumber(5) }),
       );
+      blockSource.getBlockData.mockResolvedValue(undefined);
+      mockNextL1Slot(SlotNumber(20));
 
-      await simulator.simulate(await lowGasTx());
+      await simulateThroughRealBuilder();
+      // Becoming invalid changes the pending-tip override (it pins to a different checkpoint number),
+      // which changes the override content and rotates the key.
       blockSource.getPendingChainValidationStatus.mockResolvedValue(makeInvalidStatus(CheckpointNumber(4)));
-      await simulator.simulate(await lowGasTx());
+      await simulateThroughRealBuilder();
 
-      expect(globalVariableBuilder.buildCheckpointGlobalVariables).toHaveBeenCalledTimes(2);
+      expect(rollupContract.getManaMinFeeAt).toHaveBeenCalledTimes(2);
     });
 
-    it('recomputes when the target slot advances', async () => {
-      setupBoundary();
+    it('recomputes the min fee when the target slot advances', async () => {
+      blockSource.getL2Tips.mockResolvedValue(
+        makeTips({ proposed: BlockNumber(5), checkpointedBlock: BlockNumber(5), checkpointed: CheckpointNumber(1) }),
+      );
+      blockSource.getBlockData.mockResolvedValue(undefined);
+      mockNextL1Slot(SlotNumber(20));
 
-      await simulator.simulate(await lowGasTx());
+      await simulateThroughRealBuilder();
       mockNextL1Slot(SlotNumber(21));
-      await simulator.simulate(await lowGasTx());
+      await simulateThroughRealBuilder();
 
-      expect(globalVariableBuilder.buildCheckpointGlobalVariables).toHaveBeenCalledTimes(2);
+      // The slot (and thus the timestamp) is part of the min-fee key.
+      expect(rollupContract.getManaMinFeeAt).toHaveBeenCalledTimes(2);
     });
 
-    it('does not cache a failed fee computation and retries on the next call', async () => {
-      setupBoundary();
-      globalVariableBuilder.buildCheckpointGlobalVariables.mockRejectedValueOnce(new Error('L1 read failed'));
+    it('does not cache a failed grandparent read and retries on the next call', async () => {
+      const base = setupPipelining();
+      blockSource.getProposedCheckpointData.mockResolvedValue(makeProposedCheckpointData(base));
+      rollupContract.getCheckpoint.mockRejectedValueOnce(new Error('L1 read failed'));
 
       await expect(simulator.simulate(await lowGasTx())).rejects.toThrow('L1 read failed');
 
       // The retry recomputes (the rejected promise was evicted) and succeeds.
+      rollupContract.getCheckpoint.mockResolvedValue({ feeHeader: makeFeeHeader() } as any);
       await expect(simulator.simulate(await lowGasTx())).resolves.toBeDefined();
-      expect(globalVariableBuilder.buildCheckpointGlobalVariables).toHaveBeenCalledTimes(2);
+      expect(rollupContract.getCheckpoint).toHaveBeenCalledTimes(2);
+    });
+
+    it('shares one min-fee eth_call between the simulator and a direct global-variable build', async () => {
+      blockSource.getL2Tips.mockResolvedValue(
+        makeTips({ proposed: BlockNumber(5), checkpointedBlock: BlockNumber(5), checkpointed: CheckpointNumber(1) }),
+      );
+      blockSource.getBlockData.mockResolvedValue(undefined);
+      mockNextL1Slot(SlotNumber(20));
+
+      // The simulator targets the next L1 slot plus the pipelining offset, and builds globals for it
+      // through the real builder over the shared reader.
+      const targetSlot = SlotNumber(20 + PROPOSER_PIPELINING_SLOT_OFFSET);
+      await simulateThroughRealBuilder();
+
+      // A direct build for the same slot, with the same (pinned) plan, hits the shared reader's cache.
+      const builder = new GlobalVariableBuilderImpl(
+        { chain: { id: CHAIN_ID.toNumber() } } as any,
+        {
+          rollupAddress: ROLLUP_ADDRESS,
+          ethereumSlotDuration: 12,
+          rollupVersion: BigInt(ROLLUP_VERSION.toNumber()),
+          slotDuration: 72,
+          l1GenesisTime: 0n,
+        },
+        feeReader,
+      );
+      const plan = new SimulationOverridesBuilder()
+        .withChainTips({ pending: CheckpointNumber(1), proven: CheckpointNumber(1) })
+        .withL1BlockNumber(l1BlockNumber)
+        .build();
+      await builder.buildCheckpointGlobalVariables(EthAddress.ZERO, AztecAddress.ZERO, targetSlot, plan);
+
+      // One eth_call served both the simulator and the direct build.
+      expect(rollupContract.getManaMinFeeAt).toHaveBeenCalledTimes(1);
     });
   });
+
+  // Simulates through a real GlobalVariableBuilder wired over the shared reader, so the simulator's
+  // plan actually triggers the min-fee eth_call (the mocked builder used elsewhere would not).
+  async function simulateThroughRealBuilder(): Promise<void> {
+    const realBuilder = new GlobalVariableBuilderImpl(
+      { chain: { id: CHAIN_ID.toNumber() } } as any,
+      {
+        rollupAddress: ROLLUP_ADDRESS,
+        ethereumSlotDuration: 12,
+        rollupVersion: BigInt(ROLLUP_VERSION.toNumber()),
+        slotDuration: 72,
+        l1GenesisTime: 0n,
+      },
+      feeReader,
+    );
+    const realSimulator = new NodePublicCallsSimulator({
+      blockSource,
+      worldStateSynchronizer,
+      l1ToL2MessageSource,
+      contractDataSource,
+      globalVariableBuilder: realBuilder,
+      feeReader,
+      epochCache,
+      signatureContext: { chainId: CHAIN_ID.toNumber(), rollupAddress: ROLLUP_ADDRESS },
+      config: { rpcSimulatePublicMaxGasLimit: 1e11, rpcSimulatePublicMaxDebugLogMemoryReads: 100 },
+    });
+    await realSimulator.simulate(await lowGasTx());
+  }
 });
 
 function makeFeeHeader(): FeeHeader {

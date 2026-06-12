@@ -59,6 +59,7 @@ export class TXEStateMachine {
       CHAIN_ID,
       new TXEGlobalVariablesBuilder(),
       undefined,
+      undefined,
       new TXEFeeProvider(),
       new MockEpochCache(),
       PACKAGE_VERSION,

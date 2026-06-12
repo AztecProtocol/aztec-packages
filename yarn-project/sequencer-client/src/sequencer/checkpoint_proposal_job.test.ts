@@ -1,4 +1,5 @@
 import { EpochCache } from '@aztec/epoch-cache';
+import type { RollupFeeReader } from '@aztec/ethereum/contracts';
 import {
   BlockNumber,
   CheckpointNumber,
@@ -81,6 +82,7 @@ describe('CheckpointProposalJob', () => {
   let epochCache: MockProxy<EpochCache>;
   let validatorClient: MockProxy<ValidatorClient>;
   let globalVariableBuilder: MockProxy<GlobalVariableBuilder>;
+  let feeReader: MockProxy<RollupFeeReader>;
   let p2p: MockProxy<P2P>;
   let worldState: MockProxy<WorldStateSynchronizer>;
   let checkpointsBuilder: MockCheckpointsBuilder;
@@ -186,12 +188,13 @@ describe('CheckpointProposalJob', () => {
     publisher.enqueueGovernanceCastSignal.mockResolvedValue(true);
     publisher.enqueueSlashingActions.mockResolvedValue(true);
 
-    // Default rollup contract reads used by pipelined fee-header derivation. Tests that exercise
-    // the failure modes override these via jest.spyOn.
-    jest.spyOn(publisher.rollupContract, 'getCheckpoint').mockResolvedValue({
+    // Default fee reader reads used by pipelined fee-header derivation. Tests that exercise the
+    // failure modes override these via jest.spyOn / mockResolvedValueOnce.
+    feeReader = mockDeep<RollupFeeReader>();
+    feeReader.getCheckpoint.mockResolvedValue({
       feeHeader: { manaUsed: 0n, excessMana: 0n, ethPerFeeAsset: 1n, congestionCost: 0n, proverCost: 0n },
     } as any);
-    jest.spyOn(publisher.rollupContract, 'getManaTarget').mockResolvedValue(10_000n);
+    feeReader.getManaTarget.mockResolvedValue(10_000n);
     publisher.sendRequestsAt.mockResolvedValue({
       result: { receipt: { status: 'success' } as TransactionReceipt },
       successfulActions: ['propose'],
@@ -775,6 +778,7 @@ describe('CheckpointProposalJob', () => {
       undefined, // invalidateBlock
       validatorClient,
       globalVariableBuilder,
+      feeReader,
       p2p,
       worldState,
       l1ToL2MessageSource,

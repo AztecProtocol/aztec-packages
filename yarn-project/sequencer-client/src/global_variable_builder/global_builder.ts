@@ -1,8 +1,4 @@
-import {
-  RollupContract,
-  type SimulationOverridesPlan,
-  buildSimulationOverridesStateOverride,
-} from '@aztec/ethereum/contracts';
+import type { RollupFeeReader, SimulationOverridesPlan } from '@aztec/ethereum/contracts';
 import type { ViemPublicClient } from '@aztec/ethereum/types';
 import type { SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -24,9 +20,12 @@ export type GlobalVariableBuilderConfig = {
 
 /**
  * Simple global variables builder.
+ *
+ * The min-fee `eth_call` (and the state-override translation it needs) is routed through the shared
+ * {@link RollupFeeReader}, so a simulation that already computed the same slot's fee against the same
+ * plan reuses that result instead of hitting L1 again.
  */
 export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
-  private readonly rollupContract: RollupContract;
   private readonly aztecSlotDuration: number;
   private readonly l1GenesisTime: bigint;
 
@@ -34,16 +33,15 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
   private version: Fr;
 
   constructor(
-    private readonly publicClient: ViemPublicClient,
+    publicClient: ViemPublicClient,
     config: GlobalVariableBuilderConfig,
+    private readonly feeReader: RollupFeeReader,
   ) {
     this.version = new Fr(config.rollupVersion);
-    this.chainId = new Fr(this.publicClient.chain!.id);
+    this.chainId = new Fr(publicClient.chain!.id);
 
     this.aztecSlotDuration = config.slotDuration;
     this.l1GenesisTime = config.l1GenesisTime;
-
-    this.rollupContract = new RollupContract(this.publicClient, config.rollupAddress);
   }
 
   /** Builds global variables that are constant throughout a checkpoint. */
@@ -60,13 +58,7 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
       l1GenesisTime: this.l1GenesisTime,
     });
 
-    const stateOverride = await buildSimulationOverridesStateOverride(this.rollupContract, simulationOverridesPlan);
-    const gasFees = new GasFees(
-      0,
-      await this.rollupContract.getManaMinFeeAt(timestamp, true, stateOverride, {
-        blockNumber: simulationOverridesPlan?.l1BlockNumber,
-      }),
-    );
+    const gasFees = new GasFees(0, await this.feeReader.getManaMinFeeAt(timestamp, true, simulationOverridesPlan));
 
     return { chainId, version, slotNumber, timestamp, coinbase, feeRecipient, gasFees };
   }

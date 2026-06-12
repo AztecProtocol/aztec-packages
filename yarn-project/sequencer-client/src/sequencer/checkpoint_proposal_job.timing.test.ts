@@ -1,4 +1,5 @@
 import { EpochCache, PROPOSER_PIPELINING_SLOT_OFFSET } from '@aztec/epoch-cache';
+import type { RollupFeeReader } from '@aztec/ethereum/contracts';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -210,6 +211,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
   let epochCache: MockProxy<EpochCache>;
   let validatorClient: MockProxy<ValidatorClient>;
   let globalVariableBuilder: MockProxy<GlobalVariableBuilder>;
+  let feeReader: MockProxy<RollupFeeReader>;
   let p2p: MockProxy<P2P>;
   let worldState: MockProxy<WorldStateSynchronizer>;
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
@@ -320,6 +322,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
       undefined, // invalidateCheckpoint
       validatorClient,
       globalVariableBuilder,
+      feeReader,
       p2p,
       worldState,
       l1ToL2MessageSource,
@@ -424,6 +427,8 @@ describe('CheckpointProposalJob Timing Tests', () => {
 
     globalVariableBuilder = mock<GlobalVariableBuilder>();
     globalVariableBuilder.buildCheckpointGlobalVariables.mockResolvedValue(checkpointConstants);
+
+    feeReader = mockDeep<RollupFeeReader>();
 
     p2p = mock<P2P>({
       getStatus: mockFn().mockResolvedValue({

@@ -1,5 +1,4 @@
-import { RollupContract } from '@aztec/ethereum/contracts';
-import type { ViemPublicClient } from '@aztec/ethereum/types';
+import type { RollupFeeReader } from '@aztec/ethereum/contracts';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import type { DateProvider } from '@aztec/foundation/timer';
 import { getNextL1SlotTimestamp } from '@aztec/stdlib/epoch-helpers';
@@ -9,26 +8,28 @@ import type { FeeProvider } from '@aztec/stdlib/tx';
 import { FeePredictor } from './fee_predictor.js';
 import type { GlobalVariableBuilderConfig } from './global_builder.js';
 
-/** Provides current and predicted fee information based on on-chain state. */
+/**
+ * Provides current and predicted fee information based on on-chain state.
+ *
+ * All L1 reads go through the shared {@link RollupFeeReader}, which caches each result per L1 block.
+ * There is no caching here: a repeated call within the same L1 block is served from the reader's
+ * caches, and a new L1 block produces new keys there. This keeps every fee-related L1 read in the
+ * process behind a single caching layer.
+ */
 export class FeeProviderImpl implements FeeProvider {
-  private currentMinFees: Promise<GasFees> = Promise.resolve(new GasFees(0, 0));
-  private currentL1BlockNumber: bigint | undefined = undefined;
-
-  private readonly rollupContract: RollupContract;
   private readonly feePredictor: FeePredictor;
   private readonly ethereumSlotDuration: number;
   private readonly l1GenesisTime: bigint;
 
   constructor(
     private readonly dateProvider: DateProvider,
-    private readonly publicClient: ViemPublicClient,
+    private readonly feeReader: RollupFeeReader,
     config: GlobalVariableBuilderConfig,
   ) {
     this.ethereumSlotDuration = config.ethereumSlotDuration;
     this.l1GenesisTime = config.l1GenesisTime;
 
-    this.rollupContract = new RollupContract(this.publicClient, config.rollupAddress);
-    this.feePredictor = new FeePredictor(this.rollupContract, this.publicClient, this.dateProvider, {
+    this.feePredictor = new FeePredictor(this.feeReader, this.dateProvider, {
       slotDuration: config.slotDuration,
       l1GenesisTime: config.l1GenesisTime,
       ethereumSlotDuration: config.ethereumSlotDuration,
@@ -36,7 +37,8 @@ export class FeeProviderImpl implements FeeProvider {
   }
 
   /**
-   * Computes the "current" min fees, e.g., the price that you currently should pay to get include in the next block
+   * Computes the "current" min fees, e.g., the price that you currently should pay to get included in the next block.
+   * Resolves the L1 block once and threads it so the pending-checkpoint and min-fee reads share one snapshot.
    * @returns Min fees for the next block
    */
   private async computeCurrentMinFees(): Promise<GasFees> {
@@ -44,8 +46,9 @@ export class FeeProviderImpl implements FeeProvider {
     // we need to fetch the last block written, and estimate the earliest timestamp for the next block.
     // The timestamp of that last block will act as a lower bound for the next block.
 
-    const lastCheckpoint = await this.rollupContract.getPendingCheckpoint();
-    const earliestTimestamp = await this.rollupContract.getTimestampForSlot(
+    const blockNumber = await this.feeReader.getL1BlockNumber();
+    const lastCheckpoint = await this.feeReader.getPendingCheckpoint({ blockNumber });
+    const earliestTimestamp = await this.feeReader.getTimestampForSlot(
       SlotNumber.fromBigInt(BigInt(lastCheckpoint.slotNumber) + 1n),
     );
     const nextEthTimestamp = getNextL1SlotTimestamp(this.dateProvider.nowInSeconds(), {
@@ -54,19 +57,11 @@ export class FeeProviderImpl implements FeeProvider {
     });
     const timestamp = earliestTimestamp > nextEthTimestamp ? earliestTimestamp : nextEthTimestamp;
 
-    return new GasFees(0, await this.rollupContract.getManaMinFeeAt(timestamp, true));
+    return new GasFees(0, await this.feeReader.getManaMinFeeAt(timestamp, true, { l1BlockNumber: blockNumber }));
   }
 
-  public async getCurrentMinFees(): Promise<GasFees> {
-    // Get the current block number
-    const blockNumber = await this.publicClient.getBlockNumber({ cacheTime: 0 });
-
-    // If the L1 block number has changed then chain a new promise to get the current min fees
-    if (this.currentL1BlockNumber === undefined || blockNumber > this.currentL1BlockNumber) {
-      this.currentL1BlockNumber = blockNumber;
-      this.currentMinFees = this.currentMinFees.then(() => this.computeCurrentMinFees());
-    }
-    return this.currentMinFees;
+  public getCurrentMinFees(): Promise<GasFees> {
+    return this.computeCurrentMinFees();
   }
 
   public async getPredictedMinFees(manaUsage?: ManaUsageEstimate): Promise<GasFees[]> {

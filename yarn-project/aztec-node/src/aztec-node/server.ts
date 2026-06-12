@@ -7,7 +7,7 @@ import { ARCHIVE_HEIGHT, type L1_TO_L2_MSG_TREE_HEIGHT, type NOTE_HASH_TREE_HEIG
 import { EpochCache, type EpochCacheInterface } from '@aztec/epoch-cache';
 import { createEthereumChain } from '@aztec/ethereum/chain';
 import { getPublicClient, makeL1HttpTransport } from '@aztec/ethereum/client';
-import { RegistryContract, RollupContract } from '@aztec/ethereum/contracts';
+import { RegistryContract, RollupContract, RollupFeeReader } from '@aztec/ethereum/contracts';
 import { type L1ContractAddresses, pickL1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import type { L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import {
@@ -205,6 +205,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     protected readonly version: number,
     protected readonly globalVariableBuilder: GlobalVariableBuilderInterface,
     protected readonly rollupContract: RollupContract | undefined,
+    protected readonly feeReader: RollupFeeReader | undefined,
     protected readonly feeProvider: FeeProvider,
     protected readonly epochCache: EpochCacheInterface,
     protected readonly packageVersion: string,
@@ -229,7 +230,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       l1ToL2MessageSource: this.l1ToL2MessageSource,
       contractDataSource: this.contractDataSource,
       globalVariableBuilder: this.globalVariableBuilder,
-      rollupContract: this.rollupContract,
+      feeReader: this.feeReader,
       epochCache: this.epochCache,
       signatureContext: { chainId: this.l1ChainId, rollupAddress: this.config.rollupAddress },
       config: this.config,
@@ -593,6 +594,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     Object.assign(config, l1ContractsAddresses);
 
     const rollupContract = new RollupContract(publicClient, config.rollupAddress.toString());
+    // One fee reader per node, wrapping the single rollup contract. Every fee-related L1 read on this
+    // node (sequencer, public-calls simulator, global-variable builder, fee getters) flows through it
+    // so results are cached once and shared across all consumers.
+    const feeReader = new RollupFeeReader(rollupContract);
     const [l1GenesisTime, slotDuration, epochDuration, rollupVersionFromRollup, rollupManaLimit] = await Promise.all([
       rollupContract.getL1GenesisTime(),
       rollupContract.getSlotDuration(),
@@ -675,8 +680,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
         slotDuration: Number(slotDuration),
       };
 
-      const globalVariableBuilder = new GlobalVariableBuilder(publicClient, globalVariableBuilderConfig);
-      const feeProvider = new FeeProviderImpl(dateProvider, publicClient, globalVariableBuilderConfig);
+      const globalVariableBuilder = new GlobalVariableBuilder(publicClient, globalVariableBuilderConfig, feeReader);
+      const feeProvider = new FeeProviderImpl(dateProvider, feeReader, globalVariableBuilderConfig);
 
       const proverOnly = config.enableProverNode && config.disableValidator;
       if (proverOnly) {
@@ -972,6 +977,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
             blobClient,
             nodeKeyStore: keyStoreManager!,
             globalVariableBuilder,
+            feeReader,
           });
         }
       }
@@ -1033,6 +1039,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
         config.rollupVersion,
         globalVariableBuilder,
         rollupContract,
+        feeReader,
         feeProvider,
         epochCache,
         packageVersion,

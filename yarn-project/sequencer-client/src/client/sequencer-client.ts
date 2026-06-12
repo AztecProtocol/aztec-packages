@@ -2,7 +2,7 @@ import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT } from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
 import { getPublicClient } from '@aztec/ethereum/client';
-import { GovernanceProposerContract, RollupContract } from '@aztec/ethereum/contracts';
+import { GovernanceProposerContract, type RollupFeeReader } from '@aztec/ethereum/contracts';
 import { type Delayer, L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import { PublisherManager } from '@aztec/ethereum/publisher-manager';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -66,6 +66,8 @@ export class SequencerClient {
       funderL1TxUtils?: L1TxUtils;
       nodeKeyStore: KeystoreManager;
       globalVariableBuilder: GlobalVariableBuilder;
+      /** Shared cached fee reader, so the sequencer's fee L1 reads share with the rest of the node. */
+      feeReader: RollupFeeReader;
     },
   ) {
     const {
@@ -91,7 +93,10 @@ export class SequencerClient {
       bindings: log.getBindings(),
       funder: deps.funderL1TxUtils,
     });
-    const rollupContract = new RollupContract(publicClient, config.rollupAddress.toString());
+    // Reuse the node's shared fee reader (and the rollup contract it wraps) so all of the
+    // sequencer's fee-related L1 reads share one cache with the rest of the node.
+    const feeReader = deps.feeReader;
+    const rollupContract = feeReader.rollupContract;
     const [l1GenesisTime, slotDuration, rollupManaLimit] = await Promise.all([
       rollupContract.getL1GenesisTime(),
       rollupContract.getSlotDuration(),
@@ -157,6 +162,7 @@ export class SequencerClient {
       deps.dateProvider,
       epochCache,
       rollupContract,
+      feeReader,
       { ...config, maxL2BlockGas, maxDABlockGas, maxTxsPerBlock },
       telemetryClient,
       log,

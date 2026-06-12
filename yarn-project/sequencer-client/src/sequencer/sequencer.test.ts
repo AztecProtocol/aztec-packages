@@ -1,6 +1,6 @@
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { type EpochCache, type EpochCommitteeInfo, PROPOSER_PIPELINING_SLOT_OFFSET } from '@aztec/epoch-cache';
-import type { RollupContract } from '@aztec/ethereum/contracts';
+import type { RollupContract, RollupFeeReader } from '@aztec/ethereum/contracts';
 import {
   BlockNumber,
   CheckpointNumber,
@@ -72,6 +72,7 @@ describe('sequencer', () => {
   let publisherFactory: MockProxy<SequencerPublisherFactory>;
 
   let rollupContract: MockProxy<RollupContract>;
+  let feeReader: MockProxy<RollupFeeReader>;
 
   let dateProvider: TestDateProvider;
 
@@ -253,11 +254,13 @@ describe('sequencer', () => {
 
     rollupContract = mockDeep<RollupContract>();
     rollupContract.isEscapeHatchOpen.mockResolvedValue(false);
-    // Default rollup reads used by pipelined fee-header derivation.
-    rollupContract.getCheckpoint.mockResolvedValue({
+
+    // The sequencer routes its pipelined fee-header reads through the shared fee reader.
+    feeReader = mockDeep<RollupFeeReader>();
+    feeReader.getCheckpoint.mockResolvedValue({
       feeHeader: { manaUsed: 0n, excessMana: 0n, ethPerFeeAsset: 1n, congestionCost: 0n, proverCost: 0n },
     } as any);
-    rollupContract.getManaTarget.mockResolvedValue(10_000n);
+    feeReader.getManaTarget.mockResolvedValue(10_000n);
 
     globalVariableBuilder = mock<GlobalVariableBuilder>();
     globalVariableBuilder.buildCheckpointGlobalVariables.mockResolvedValue(omit(globalVariables, 'blockNumber'));
@@ -390,6 +393,7 @@ describe('sequencer', () => {
       dateProvider,
       epochCache,
       rollupContract,
+      feeReader,
       config,
     );
     sequencer.updateConfig(config);

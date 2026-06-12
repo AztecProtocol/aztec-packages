@@ -1,4 +1,4 @@
-import { type L1FeeData, MAX_FEE_ASSET_PRICE_MODIFIER_BPS, type RollupContract } from '@aztec/ethereum/contracts';
+import { type L1FeeData, MAX_FEE_ASSET_PRICE_MODIFIER_BPS, type RollupFeeReader } from '@aztec/ethereum/contracts';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import type { DateProvider } from '@aztec/foundation/timer';
@@ -12,7 +12,7 @@ import {
   computeManaMinFee,
 } from '@aztec/stdlib/gas';
 
-/** Cached rollup state for fee prediction. Refreshed once per L1 block. */
+/** Snapshot of rollup state used for a single fee-prediction computation. */
 type FeeOracleState = {
   lastSlot: SlotNumber;
   excessMana: bigint;
@@ -28,20 +28,16 @@ type FeeOracleState = {
 /**
  * Predicts min fees for LAG upcoming slots based on the L1 oracle state.
  * A new oracle update can activate at startSlot + LAG, so only the first LAG entries
- * are guaranteed stable. Caches L1 queries per L1 block and recomputes predictions
- * for each mana usage estimate.
+ * are guaranteed stable. Recomputes predictions for each mana usage estimate; the underlying L1
+ * reads are cached per L1 block by the shared {@link RollupFeeReader}, so no caching happens here.
  */
 export class FeePredictor {
-  private cachedState: Promise<FeeOracleState> | undefined;
-  private cachedL1BlockNumber: bigint | undefined;
-
   private readonly slotDuration: number;
   private readonly l1GenesisTime: bigint;
   private readonly ethereumSlotDuration: number;
 
   constructor(
-    private readonly rollupContract: RollupContract,
-    private readonly publicClient: { getBlockNumber: (opts?: { cacheTime?: number }) => Promise<bigint> },
+    private readonly feeReader: RollupFeeReader,
     private readonly dateProvider: DateProvider,
     config: { slotDuration: number; l1GenesisTime: bigint; ethereumSlotDuration: number },
   ) {
@@ -52,37 +48,32 @@ export class FeePredictor {
 
   /** Returns predicted min fees for each slot in the prediction window. */
   async getPredictedMinFees(manaUsage: ManaUsageEstimate): Promise<GasFees[]> {
-    const state = await this.getState();
+    const state = await this.fetchState();
     return this.computePredictions(state, manaUsage);
   }
 
-  /** Fetches and caches rollup state. Refreshes when L1 block number advances. */
-  private async getState(): Promise<FeeOracleState> {
-    const blockNumber = await this.publicClient.getBlockNumber({ cacheTime: 0 });
-    if (this.cachedL1BlockNumber === undefined || blockNumber > this.cachedL1BlockNumber) {
-      this.cachedL1BlockNumber = blockNumber;
-      this.cachedState = this.fetchState(blockNumber);
-    }
-    return this.cachedState!;
-  }
-
-  private async fetchState(blockNumber: bigint): Promise<FeeOracleState> {
-    // Pin all non-constant queries to this L1 block number for a consistent snapshot.
+  /**
+   * Reads rollup state through the shared fee reader. Each underlying read is cached per L1 block.
+   * The current L1 block is resolved once and threaded through every non-constant read so the
+   * snapshot is consistent even if a new L1 block lands mid-computation.
+   */
+  private async fetchState(): Promise<FeeOracleState> {
+    const blockNumber = await this.feeReader.getL1BlockNumber();
     const opts = { blockNumber };
 
     // Cached constants don't need pinning
     const [manaTarget, manaLimit, provingCostPerManaEth, epochDuration] = await Promise.all([
-      this.rollupContract.getManaTarget(),
-      this.rollupContract.getManaLimit(),
-      this.rollupContract.getProvingCostPerMana(),
-      this.rollupContract.getEpochDuration(),
+      this.feeReader.getManaTarget(),
+      this.feeReader.getManaLimit(),
+      this.feeReader.getProvingCostPerMana(),
+      this.feeReader.getEpochDuration(),
     ]);
 
     // First, compute the earliest possible nextSlot independently of the checkpoint, so we can
     // evaluate pruneability at the prediction start timestamp instead of the current L1 block time.
     // This avoids an epoch-boundary edge case where the effective parent differs between now and nextSlot.
     const slotConfig = { slotDuration: this.slotDuration, l1GenesisTime: this.l1GenesisTime };
-    const currentSlot = await this.rollupContract.getSlotNumber(opts);
+    const currentSlot = await this.feeReader.getSlotNumber(opts);
 
     const slotAtNextL1Block = getSlotAtNextL1Block(BigInt(this.dateProvider.nowInSeconds()), {
       l1GenesisTime: this.l1GenesisTime,
@@ -93,7 +84,7 @@ export class FeePredictor {
     const nextSlotTimestamp = getTimestampForSlot(preliminaryNextSlot, slotConfig);
 
     // Resolve the effective checkpoint at the prediction start timestamp
-    const lastCheckpoint = await this.rollupContract.getEffectivePendingCheckpoint(nextSlotTimestamp, opts);
+    const lastCheckpoint = await this.feeReader.getEffectivePendingCheckpoint(nextSlotTimestamp, opts);
     const lastSlot = lastCheckpoint.slotNumber;
     // Refine nextSlot: also account for the slot after the last checkpoint
     const nextSlot = SlotNumber(Math.max(SlotNumber.add(lastSlot, 1), preliminaryNextSlot));
@@ -101,7 +92,7 @@ export class FeePredictor {
 
     const slotCount = FEE_ORACLE_LAG;
     const timestamps = times(slotCount, i => getTimestampForSlot(SlotNumber.add(nextSlot, i), slotConfig));
-    const l1FeesBySlot = await Promise.all(timestamps.map(ts => this.rollupContract.getL1FeesAt(ts, opts)));
+    const l1FeesBySlot = await Promise.all(timestamps.map(ts => this.feeReader.getL1FeesAt(ts, opts)));
 
     return {
       lastSlot,
