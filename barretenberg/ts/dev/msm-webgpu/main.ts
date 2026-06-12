@@ -140,8 +140,6 @@ const gpuKnobs: MsmConfig = (() => {
     numBatchesOverride: optInt('nb'),
     budgetMiB: optInt('budgetmib'),
     varSched: q.get('varsched') === '1' || undefined,
-    // ?ptree=1 enables the addition-centric pair-tree combine.
-    ptree: q.get('ptree') === '1' || undefined,
     // ?ptree_theta=N overrides the pair-tree level->fold switch threshold.
     ptreeTheta: optInt('ptree_theta'),
     preprocessV2: q.get('ppv2') === '0' ? false : q.get('ppv2') === '1' ? true : undefined,
@@ -2267,10 +2265,11 @@ function hideProgress(): void {
   const qp = new URLSearchParams(window.location.search);
   const autorun = qp.get('autorun');
   if (autorun === 'msm-jac-check') {
-    // GPU-vs-GPU A/B correctness: the SAME inputs through the pair-tree
-    // combine (?ptree=1 semantics) and the default combine_batched + pt
-    // chain (the oracle), compared bit-exact on the final result point.
-    // WASM-free — runs headless without COI/SharedArrayBuffer.
+    // GPU correctness gates for the (only) combine path:
+    //   default     — GPU final point vs the bb.js WASM reference MSM,
+    //                 bit-exact. Needs &coi=1 (WASM wants COOP/COEP).
+    //   &ab=ptree   — TWO GPU instances on one pool, per-window bit-exact
+    //                 (seeded determinism probe; WASM-free).
     void (async () => {
       const autorunLogN = Math.min(17, parseInt(qp.get('logn') ?? '17', 10) || 17);
       const client = makeResultsClient({ page: 'msm-jac-check' });
@@ -2293,15 +2292,10 @@ function hideProgress(): void {
         const inputs = await generateInputs(autorunLogN, false, baseSeed === undefined ? undefined : baseSeed + runI);
         if (gpuDevice === null) gpuDevice = await get_device();
         if (pool === null) {
-          log('info', `[jac-check] building pool + ptree/oracle MsmV2 pair`);
+          log('info', `[jac-check] building pool + MsmV2`);
           pool = await MsmV2Pool.create(gpuDevice, inputs.pointsBuf);
         }
-        // &ab=oracle: BOTH oracle (harness sanity). &ab=ptree: BOTH ptree
-        // (self-determinism probe).
-        const msmPt = await MsmV2.create(gpuDevice, inputs.n, pool, {
-          ...gpuKnobs,
-          ptree: qp.get('ab') !== 'oracle',
-        });
+        const msmPt = await MsmV2.create(gpuDevice, inputs.n, pool, { ...gpuKnobs });
         msmPt.prepare(inputs.scalarsBuf);
         const a = await msmPt.run();
       if (qp.get('desccheck') === '1') {
@@ -2318,75 +2312,88 @@ function hideProgress(): void {
           log('info', `[jac-check] args L1..L8=${dcc.args.slice(4, 36).filter((_, i) => i % 4 === 0).join(',')} f64=${dcc.args[72]} f256=${dcc.args[68]} fin=${dcc.args[76]}`);
           for (const smp of dc.samples) log('info', `[jac-check]   ${smp}`);
         }
-        // ?jaccmp=last: oracle + compare only on the FINAL run; earlier runs
-        // are ptree-only, so pooled scratch reaches the last run exactly as
-        // production back-to-back MSMs leave it. (The oracle's pt chain
-        // reuses ptScratch and would otherwise scrub cross-run leftovers.)
+        // ?jaccmp=last: compare only on the FINAL run; earlier runs leave
+        // pooled scratch exactly as production back-to-back MSMs would
+        // (no second instance touching it between runs).
         if (qp.get('jaccmp') === 'last' && runI < jacRuns - 1) {
-          log('info', `[jac-check] [run ${runI + 1}/${jacRuns}] ptree-only (compare on last run)`);
+          log('info', `[jac-check] [run ${runI + 1}/${jacRuns}] run-only (compare on last run)`);
           (msmPt as unknown as { destroy?: () => void }).destroy?.();
           continue;
         }
-        const msmOracle = await MsmV2.create(gpuDevice, inputs.n, pool, {
-          ...gpuKnobs,
-          ptree: qp.get('ab') === 'ptree',
-        });
-        const REDN = 0; // 0 = full x-plane
-        type Dbg = {
-          debugRedSnapshot(n: number): Promise<Uint32Array>;
-          debugCounts(): Promise<Uint32Array>;
-          redSlotToBid(slot: number): { window: number; mag: number };
-        };
-        const redA = qp.get('reddiff') === '1' ? await (msmPt as unknown as Dbg).debugRedSnapshot(REDN) : null;
-        msmOracle.prepare(inputs.scalarsBuf);
-        const b = await msmOracle.run();
-        if (redA) {
-          const dbg = msmPt as unknown as Dbg;
-          const redB = await (msmOracle as unknown as Dbg).debugRedSnapshot(REDN);
-          const counts = await dbg.debugCounts();
-          const BW = (msmPt as unknown as { BW: number }).BW;
-          let nbad = 0;
-          for (let slot = 0; slot < redA.length / 8; slot++) {
-            let diff = false;
-            for (let k = 0; k < 8; k++) if (redA[slot * 8 + k] !== redB[slot * 8 + k]) diff = true;
-            if (!diff) continue;
-            nbad++;
-            if (nbad <= 10) {
-              const { window, mag } = dbg.redSlotToBid(slot);
-              const fb = window * BW + mag;
-              log(
-                'info',
-                `[jac-check] redDiff slot=${slot} w=${window} mag=${mag} cnt=${counts[fb] ?? -1} a=0x${redA[slot * 8].toString(16)} b=0x${redB[slot * 8].toString(16)}`,
-              );
+        const runTag = jacRuns > 1 ? ` [run ${runI + 1}/${jacRuns}]` : '';
+        let ok: boolean;
+        if (qp.get('ab') === 'ptree') {
+          // Determinism probe: a second instance on the same pool must
+          // reproduce every window sum bit-exactly.
+          const msmB = await MsmV2.create(gpuDevice, inputs.n, pool, { ...gpuKnobs });
+          const REDN = 0; // 0 = full x-plane
+          type Dbg = {
+            debugRedSnapshot(n: number): Promise<Uint32Array>;
+            debugCounts(): Promise<Uint32Array>;
+            redSlotToBid(slot: number): { window: number; mag: number };
+          };
+          const redA = qp.get('reddiff') === '1' ? await (msmPt as unknown as Dbg).debugRedSnapshot(REDN) : null;
+          msmB.prepare(inputs.scalarsBuf);
+          const b = await msmB.run();
+          if (redA) {
+            const dbg = msmPt as unknown as Dbg;
+            const redB = await (msmB as unknown as Dbg).debugRedSnapshot(REDN);
+            const counts = await dbg.debugCounts();
+            const BW = (msmPt as unknown as { BW: number }).BW;
+            let nbad = 0;
+            for (let slot = 0; slot < redA.length / 8; slot++) {
+              let diff = false;
+              for (let k = 0; k < 8; k++) if (redA[slot * 8 + k] !== redB[slot * 8 + k]) diff = true;
+              if (!diff) continue;
+              nbad++;
+              if (nbad <= 10) {
+                const { window, mag } = dbg.redSlotToBid(slot);
+                const fb = window * BW + mag;
+                log(
+                  'info',
+                  `[jac-check] redDiff slot=${slot} w=${window} mag=${mag} cnt=${counts[fb] ?? -1} a=0x${redA[slot * 8].toString(16)} b=0x${redB[slot * 8].toString(16)}`,
+                );
+              }
+            }
+            log('info', `[jac-check] redDiff nbad=${nbad} of ${redA.length / 8}`);
+          }
+          ok = a.windowSums.length === b.windowSums.length;
+          let firstBad = -1;
+          for (let w = 0; ok && w < a.windowSums.length; w++) {
+            if (a.windowSums[w].x !== b.windowSums[w].x || a.windowSums[w].y !== b.windowSums[w].y) {
+              ok = false;
+              firstBad = w;
             }
           }
-          log('info', `[jac-check] redDiff nbad=${nbad} of ${redA.length / 8}`);
-        }
-        // run() no longer folds to a final point (the fold is page-side on
-        // the v2 base) — compare the per-window sums bit-exact instead.
-        let ok = a.windowSums.length === b.windowSums.length;
-        let firstBad = -1;
-        for (let w = 0; ok && w < a.windowSums.length; w++) {
-          if (a.windowSums[w].x !== b.windowSums[w].x || a.windowSums[w].y !== b.windowSums[w].y) {
-            ok = false;
-            firstBad = w;
+          if (ok) {
+            const x0 = a.windowSums[0]?.x ?? 0n;
+            log('ok', `[jac-check]${runTag} runs agree (${a.windowSums.length} windows, w0.x=0x${x0.toString(16).slice(0, 16)}…)`);
+          } else if (firstBad >= 0) {
+            log(
+              'err',
+              `[jac-check]${runTag} MISMATCH window ${firstBad}: a.x=0x${a.windowSums[firstBad].x.toString(16)} b.x=0x${b.windowSums[firstBad].x.toString(16)}`,
+            );
+          } else {
+            log('err', `[jac-check]${runTag} MISMATCH window-count ${a.windowSums.length} vs ${b.windowSums.length}`);
           }
-        }
-        const runTag = jacRuns > 1 ? ` [run ${runI + 1}/${jacRuns}]` : '';
-        if (ok) {
-          const x0 = a.windowSums[0]?.x ?? 0n;
-          log('ok', `[jac-check]${runTag} jac and legacy agree (${a.windowSums.length} windows, w0.x=0x${x0.toString(16).slice(0, 16)}…)`);
-        } else if (firstBad >= 0) {
-          log(
-            'err',
-            `[jac-check]${runTag} MISMATCH window ${firstBad}: jac.x=0x${a.windowSums[firstBad].x.toString(16)} legacy.x=0x${b.windowSums[firstBad].x.toString(16)}`,
-          );
+          (msmB as unknown as { destroy?: () => void }).destroy?.();
         } else {
-          log('err', `[jac-check]${runTag} MISMATCH window-count ${a.windowSums.length} vs ${b.windowSums.length}`);
+          // WASM reference: fold the GPU window sums to a final point and
+          // compare bit-exact against a full bb.js MSM of the same inputs.
+          const wasm = await ensureWasmBooted();
+          const sched = (msmPt as unknown as { windowSchedule: number[] }).windowSchedule;
+          const gpuPt = await foldWindowSums(a.windowSums, sched);
+          await wasm.loadMsm(inputs.pointsBuf, inputs.scalarsBuf);
+          const ref = parseAffineLE(await wasm.runMsm(0));
+          ok = gpuPt.x === ref.x && gpuPt.y === ref.y;
+          if (ok) {
+            log('ok', `[jac-check]${runTag} gpu and wasm agree (x=0x${gpuPt.x.toString(16).slice(0, 16)}…)`);
+          } else {
+            log('err', `[jac-check]${runTag} MISMATCH vs wasm: gpu.x=0x${gpuPt.x.toString(16)} ref.x=0x${ref.x.toString(16)}`);
+          }
         }
         allOk = allOk && ok;
         (msmPt as unknown as { destroy?: () => void }).destroy?.();
-        (msmOracle as unknown as { destroy?: () => void }).destroy?.();
         }
         log('ok', `[jac-check] state=done ab_ok=${allOk}`);
         await client.postResults({
@@ -2440,7 +2447,7 @@ function hideProgress(): void {
             }),
           ],
           ['ptree-level', sm.gen_ba_walker_ptree_level_shader(64, 8)],
-          ['ptree-scatter', sm.gen_ba_walker_idx_scatter_shader(64, 8, 64, true)],
+          ['ptree-scatter', sm.gen_ba_walker_idx_scatter_shader(64, 8, 64)],
           ['ptree-fold-shallow', sm.gen_ba_walker_ptree_fold_shader(64)],
           ['ptree-deep-pair', sm.gen_ba_walker_ptree_deep_pair_shader(256)],
           ['ptree-deep-combine', sm.gen_ba_walker_ptree_deep_combine_shader(64)],

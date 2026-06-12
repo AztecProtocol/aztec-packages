@@ -1,46 +1,30 @@
-// walker_index v2 — E: bin offsets + indirect args epilogue.
+// walker_index v2 — E: bin offsets + pair-tree schedule epilogue.
 //
 // One workgroup of 64 threads (one per histogram bin). Thread 0 runs the
-// same serial 64-bin exclusive scan + arg emission as the v1 sort_scan (so
-// pt/cb dispatch args stay byte-identical); the other lanes zero
-// bin_write_pos in parallel. Additionally emits the sorted-scatter (W5)
-// indirect args from active_meta[0] and writes the alloc total to
-// partial_offset[num_dense] (compat slot — nothing is known to read it).
+// serial 64-bin exclusive scan, emits the sorted-scatter (W5) indirect
+// args from active_meta[0], then computes the ENTIRE pair-tree combine
+// schedule from the count histogram: level count k*, tier boundaries, and
+// every combine-stage indirect dispatch arg. The other lanes zero
+// bin_write_pos in parallel.
 //
 // active_meta[0] = active_count, active_meta[1] = alloc total.
 
 const MAX_N: u32 = 64u;
-const HOT_THRESHOLD: u32 = 8u;
-const PT_TPB: u32 = 64u;
-const CB_TPB: u32 = 64u;
-const CB_S: u32 = 8u;
 const SORT_TPB: u32 = {{ sort_tpb }}u;
 
-@group(0) @binding(0) var<storage, read>       count_histogram:    array<u32>;
-@group(0) @binding(1) var<storage, read_write> active_meta:        array<u32>;
-@group(0) @binding(2) var<storage, read_write> bin_offsets:        array<u32>;
-@group(0) @binding(3) var<storage, read_write> bin_write_pos:      array<atomic<u32>>;
-@group(0) @binding(4) var<storage, read_write> pt_dispatch_args:   array<u32>;
-@group(0) @binding(5) var<storage, read_write> pt_persistent_args: array<u32>;
-@group(0) @binding(6) var<storage, read_write> cb_dispatch_args:   array<u32>;
-@group(0) @binding(7) var<storage, read_write> wi_idx_args:        array<u32>;
-{{^ptree}}
-@group(0) @binding(8) var<storage, read_write> partial_offset:     array<u32>;
-{{/ptree}}
-{{#ptree}}
-// Replaces the compat partial_offset binding (a write nothing reads): the
-// pair-tree schedule + its indirect dispatch args live in the ptree meta
-// region. Args at u32 index 256 + 4k (k = arg slot); schedule words at
-// [20..28]. Keeps the variant at exactly 10 storage bindings.
-@group(0) @binding(8) var<storage, read_write> ptree_meta:         array<u32>;
-{{/ptree}}
-@group(0) @binding(9) var<storage, read>       planner_meta:       array<u32>;
-{{#ptree}}
-// Pair-tree STATIC schedule (gated; byte-identical output when off):
-// adds at level k = Σ hist[n]·pairs_k(n) (exact while the 63-cap bin is
-// empty; a non-empty cap bin forces full depth and the bounded folds
-// absorb the rest); survivors are the contiguous TAIL of the sorted
-// active list from bin_offsets[thr+1].
+@group(0) @binding(0) var<storage, read>       count_histogram: array<u32>;
+@group(0) @binding(1) var<storage, read_write> active_meta:     array<u32>;
+@group(0) @binding(2) var<storage, read_write> bin_offsets:     array<u32>;
+@group(0) @binding(3) var<storage, read_write> bin_write_pos:   array<atomic<u32>>;
+@group(0) @binding(4) var<storage, read_write> wi_idx_args:     array<u32>;
+// Pair-tree schedule + its indirect dispatch args. Args at u32 index
+// 256 + 4k (k = arg slot); schedule words at [20..30].
+@group(0) @binding(5) var<storage, read_write> ptree_meta:      array<u32>;
+
+// Pair-tree STATIC schedule: adds at level k = Σ hist[n]·pairs_k(n)
+// (exact while the 63-cap bin is empty; a non-empty cap bin forces full
+// depth and the bounded folds absorb the rest); survivors are the
+// contiguous TAIL of the sorted active list from bin_offsets[thr+1].
 const PTREE_LEVELS: u32 = {{ ptree_levels }}u;
 const PTREE_THETA: u32 = {{ ptree_theta }}u;
 const PTREE_S: u32 = {{ ptree_s }}u;
@@ -57,7 +41,6 @@ fn ptree_pairs_k(n: u32, k: u32) -> u32 {
     if (n <= half) { return 0u; }
     return (n - half + (1u << k) - 1u) >> k;
 }
-{{/ptree}}
 
 @compute @workgroup_size(64)
 fn main(@builtin(local_invocation_id) lid: vec3<u32>) {
@@ -66,25 +49,10 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>) {
     if (l != 0u) { return; }
 
     var sum: u32 = 0u;
-    var hot_count: u32 = 0u;
-    var cb_count: u32 = 0u;
     for (var i: u32 = 0u; i < MAX_N; i = i + 1u) {
         bin_offsets[i] = sum;
         sum = sum + count_histogram[i];
-        if (i > HOT_THRESHOLD) { hot_count = hot_count + count_histogram[i]; }
-        if (i >= 2u) { cb_count = cb_count + count_histogram[i]; }
     }
-    let dx = (hot_count + PT_TPB - 1u) / PT_TPB;
-    pt_dispatch_args[0] = dx;
-    pt_dispatch_args[1] = 1u;
-    pt_dispatch_args[2] = 1u;
-    pt_persistent_args[0] = 0u;
-    pt_persistent_args[1] = 1u;
-    pt_persistent_args[2] = 1u;
-    let cb = (cb_count + CB_TPB * CB_S - 1u) / (CB_TPB * CB_S);
-    cb_dispatch_args[0] = cb;
-    cb_dispatch_args[1] = 1u;
-    cb_dispatch_args[2] = 1u;
 
     // W5 (sorted scatter) indirect args from the true active count.
     let n_active = active_meta[0];
@@ -92,12 +60,6 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>) {
     wi_idx_args[7] = 1u;
     wi_idx_args[8] = 1u;
 
-    // Compat: the v1 scan published the total at partial_offset[num_dense].
-{{^ptree}}
-    partial_offset[planner_meta[1]] = active_meta[1];
-{{/ptree}}
-
-{{#ptree}}
     // === Pair-tree schedule emission (thread 0, after the bin scan). ===
     let pt_n_active = active_meta[0];
     let pt_p_total = active_meta[1];
@@ -194,7 +156,6 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>) {
     ptree_meta[256u + 4u * 19u + 0u] = (pt_range + PTREE_FIN_TPB * PTREE_FIN_SN - 1u) / (PTREE_FIN_TPB * PTREE_FIN_SN);
     ptree_meta[256u + 4u * 19u + 1u] = 1u;
     ptree_meta[256u + 4u * 19u + 2u] = 1u;
-{{/ptree}}
 
     {{{ recompile }}}
 }

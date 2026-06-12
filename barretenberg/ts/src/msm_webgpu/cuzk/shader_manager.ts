@@ -24,7 +24,6 @@ import {
   ba_planner_partition_task as ba_planner_partition_task_shader,
   ba_planner_resolve_l0base as ba_planner_resolve_l0base_shader,
   ba_stream_walker as ba_stream_walker_shader,
-  ba_walker_combine_batched as ba_walker_combine_batched_shader,
   ba_walker_idx_count as ba_walker_idx_count_shader,
   ba_walker_idx_alloc as ba_walker_idx_alloc_shader,
   ba_walker_idx_epilogue as ba_walker_idx_epilogue_shader,
@@ -37,12 +36,6 @@ import {
   ba_walker_idx_sort as ba_walker_idx_sort_shader,
   ba_walker_idx_p1 as ba_walker_idx_p1_shader,
   ba_walker_idx_p2 as ba_walker_idx_p2_shader,
-  ba_walker_pt_init_scan as ba_walker_pt_init_scan_shader,
-  ba_walker_pt_init_copy as ba_walker_pt_init_copy_shader,
-  ba_walker_pt_build as ba_walker_pt_build_shader,
-  ba_walker_pt_dispatch_chain as ba_walker_pt_dispatch_chain_shader,
-  ba_unified_combine as ba_unified_combine_shader,
-  ba_walker_pt_finalize as ba_walker_pt_finalize_shader,
   bigint as bigint_funcs,
   bigint_by as bigint_by_funcs,
   // The ONLY inverse: packed-14-bit native safegcd (f8 in/out), fr_inv_by_loop_pk.
@@ -1492,24 +1485,23 @@ ${packLines.join('\n')}
 
   public gen_ba_walker_idx_epilogue_shader(
     sort_tpb: number,
-    ptree?: { levels: number; theta: number; s: number; tpb: number; fin_tpb: number; fin_sn: number; surv_slots: number },
+    ptree: { levels: number; theta: number; s: number; tpb: number; fin_tpb: number; fin_sn: number; surv_slots: number },
   ): string {
     return mustache.render(ba_walker_idx_epilogue_shader, {
       sort_tpb,
-      ptree: !!ptree,
-      ptree_levels: ptree?.levels ?? 0,
-      ptree_theta: ptree?.theta ?? 0,
-      ptree_s: ptree?.s ?? 0,
-      ptree_tpb: ptree?.tpb ?? 0,
-      ptree_fin_tpb: ptree?.fin_tpb ?? 0,
-      ptree_fin_sn: ptree?.fin_sn ?? 0,
-      ptree_surv_slots: ptree?.surv_slots ?? 0,
+      ptree_levels: ptree.levels,
+      ptree_theta: ptree.theta,
+      ptree_s: ptree.s,
+      ptree_tpb: ptree.tpb,
+      ptree_fin_tpb: ptree.fin_tpb,
+      ptree_fin_sn: ptree.fin_sn,
+      ptree_surv_slots: ptree.surv_slots,
       recompile: this.recompile,
     });
   }
 
-  public gen_ba_walker_idx_scatter_shader(workgroup_size: number, s: number, thread_tpb: number, ptree_desc = false): string {
-    return mustache.render(ba_walker_idx_scatter_shader, { workgroup_size, s, thread_tpb, ptree_desc, recompile: this.recompile });
+  public gen_ba_walker_idx_scatter_shader(workgroup_size: number, s: number, thread_tpb: number): string {
+    return mustache.render(ba_walker_idx_scatter_shader, { workgroup_size, s, thread_tpb, recompile: this.recompile });
   }
 
   public gen_ba_walker_idx_sort_shader(workgroup_size: number): string {
@@ -1622,73 +1614,6 @@ ${packLines.join('\n')}
 
 
 
-  public gen_ba_walker_pt_init_scan_shader(bw: number): string {
-    return mustache.render(ba_walker_pt_init_scan_shader, { bw, recompile: this.recompile });
-  }
-
-  public gen_ba_walker_pt_init_copy_shader(workgroup_size: number, bw: number): string {
-    return mustache.render(ba_walker_pt_init_copy_shader, { workgroup_size, bw, recompile: this.recompile });
-  }
-
-  public gen_ba_walker_pt_build_shader(workgroup_size: number): string {
-    return mustache.render(ba_walker_pt_build_shader, { workgroup_size, recompile: this.recompile });
-  }
-
-  public gen_ba_walker_pt_dispatch_chain_shader(): string {
-    return mustache.render(ba_walker_pt_dispatch_chain_shader, { recompile: this.recompile });
-  }
-
-  public gen_ba_walker_pt_finalize_shader(workgroup_size: number, bw: number, stride: number, m_red: number): string {
-    return mustache.render(ba_walker_pt_finalize_shader, {
-      workgroup_size,
-      bw,
-      stride,
-      m_red,
-      recompile: this.recompile,
-    });
-  }
-
-  public gen_ba_unified_combine_shader(workgroup_size: number, s: number, variant: 'loop' | 'pk' = 'pk'): string {
-    const dec = this.decoupledPackUnpackWgsl();
-    const inverse_funcs = by_inverse_loop_pk14_native_funcs;
-    const inv_fn = 'fr_inv_by_loop_pk';
-    const { p8_consts, r8_csv, f8_words } = this.f8Context();
-    return mustache.render(
-      ba_unified_combine_shader,
-      {
-        workgroup_size,
-        s,
-        inv_fn,
-        p8_consts,
-        r8_csv,
-        f8_words,
-        f8_native: this.montmul === 'cios_unrolled',
-        word_size: this.word_size,
-        num_words: this.num_words,
-        n0: this.n0,
-        p_limbs: this.p_limbs,
-        r_limbs: this.r_limbs,
-        mask: this.mask,
-        two_pow_word_size: this.two_pow_word_size,
-        p_inv_mod_2w: this.p_inv_mod_2w,
-        p_inv_by_a_lo: this.p_inv_by_a_lo,
-        dec_unpack: dec.unpack,
-        dec_pack: dec.pack,
-        recompile: this.recompile,
-      },
-      {
-        structs,
-        bigint_funcs,
-        montgomery_product_funcs: this.mont_product_src,
-        montgomery_product_f8_native: this.mont_f8_native_src,
-        field_funcs,
-        field8_funcs,
-        bigint_by_funcs,
-        inverse_funcs,
-      },
-    );
-  }
-
   private jacKernelContext(extra: Record<string, unknown>): [Record<string, unknown>, Record<string, string>] {
     const dec = this.decoupledPackUnpackWgsl();
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
@@ -1753,54 +1678,4 @@ ${packLines.join('\n')}
     return mustache.render(ba_walker_ptree_finalize_shader, ctx, partials);
   }
 
-  public gen_ba_walker_combine_batched_shader(
-    workgroup_size: number,
-    s: number,
-    bw: number,
-    stride: number,
-    m_red: number,
-    variant: 'loop' | 'pk' = 'pk',
-  ): string {
-    const dec = this.decoupledPackUnpackWgsl();
-    const inverse_funcs = by_inverse_loop_pk14_native_funcs;
-    const inv_fn = 'fr_inv_by_loop_pk';
-    const { p8_consts, r8_csv, f8_words } = this.f8Context();
-    return mustache.render(
-      ba_walker_combine_batched_shader,
-      {
-        workgroup_size,
-        s,
-        inv_fn,
-        bw,
-        stride,
-        m_red,
-        p8_consts,
-        r8_csv,
-        f8_words,
-        f8_native: this.montmul === 'cios_unrolled',
-        word_size: this.word_size,
-        num_words: this.num_words,
-        n0: this.n0,
-        p_limbs: this.p_limbs,
-        r_limbs: this.r_limbs,
-        mask: this.mask,
-        two_pow_word_size: this.two_pow_word_size,
-        p_inv_mod_2w: this.p_inv_mod_2w,
-        p_inv_by_a_lo: this.p_inv_by_a_lo,
-        dec_unpack: dec.unpack,
-        dec_pack: dec.pack,
-        recompile: this.recompile,
-      },
-      {
-        structs,
-        bigint_funcs,
-        montgomery_product_funcs: this.mont_product_src,
-        montgomery_product_f8_native: this.mont_f8_native_src,
-        field_funcs,
-        field8_funcs,
-        bigint_by_funcs,
-        inverse_funcs,
-      },
-    );
-  }
 }
