@@ -721,7 +721,6 @@ export class ShaderManager {
       {
         montgomery_product_f8_native: this.mont_f8_native_src,
         montgomery_square_f8_native: this.mont_square_f8_native_src,
-        montgomery_product_f8_native: this.mont_f8_native_src,
         field8_funcs,
         inverse_funcs,
       },
@@ -760,7 +759,6 @@ export class ShaderManager {
       {
         montgomery_product_f8_native: this.mont_f8_native_src,
         montgomery_square_f8_native: this.mont_square_f8_native_src,
-        montgomery_product_f8_native: this.mont_f8_native_src,
         field8_funcs,
       },
     );
@@ -1029,7 +1027,6 @@ export class ShaderManager {
       {
         montgomery_product_f8_native: this.mont_f8_native_src,
         montgomery_square_f8_native: this.mont_square_f8_native_src,
-        montgomery_product_f8_native: this.mont_f8_native_src,
         field8_funcs,
       },
     );
@@ -1242,7 +1239,6 @@ export class ShaderManager {
       {
         montgomery_product_f8_native: this.mont_f8_native_src,
         montgomery_square_f8_native: this.mont_square_f8_native_src,
-        montgomery_product_f8_native: this.mont_f8_native_src,
         field8_funcs,
         inverse_funcs,
       },
@@ -1310,7 +1306,6 @@ export class ShaderManager {
       {
         montgomery_product_f8_native: this.mont_f8_native_src,
         montgomery_square_f8_native: this.mont_square_f8_native_src,
-        montgomery_product_f8_native: this.mont_f8_native_src,
         field8_funcs,
         inverse_funcs,
       },
@@ -1356,7 +1351,6 @@ export class ShaderManager {
       {
         montgomery_product_f8_native: this.mont_f8_native_src,
         montgomery_square_f8_native: this.mont_square_f8_native_src,
-        montgomery_product_f8_native: this.mont_f8_native_src,
         field8_funcs,
       },
     );
@@ -1394,7 +1388,6 @@ export class ShaderManager {
       {
         montgomery_product_f8_native: this.mont_f8_native_src,
         montgomery_square_f8_native: this.mont_square_f8_native_src,
-        montgomery_product_f8_native: this.mont_f8_native_src,
         field8_funcs,
       },
     );
@@ -1540,7 +1533,6 @@ export class ShaderManager {
       {
         montgomery_product_f8_native: this.mont_f8_native_src,
         montgomery_square_f8_native: this.mont_square_f8_native_src,
-        montgomery_product_f8_native: this.mont_f8_native_src,
         field8_funcs,
         inverse_funcs,
       },
@@ -1589,7 +1581,6 @@ export class ShaderManager {
       {
         montgomery_product_f8_native: this.mont_f8_native_src,
         montgomery_square_f8_native: this.mont_square_f8_native_src,
-        montgomery_product_f8_native: this.mont_f8_native_src,
         field8_funcs,
       },
     );
@@ -1628,7 +1619,6 @@ export class ShaderManager {
       {
         montgomery_product_f8_native: this.mont_f8_native_src,
         montgomery_square_f8_native: this.mont_square_f8_native_src,
-        montgomery_product_f8_native: this.mont_f8_native_src,
         field8_funcs,
       },
     );
