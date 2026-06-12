@@ -25,13 +25,19 @@ import { AuthRegistryArtifact, getStandardAuthRegistry } from '@aztec/standard-c
 import { registerInitialLocalNetworkAccountsInWallet } from '@aztec/wallets/testing';
 
 import { getContract } from 'viem';
+import { mnemonicToAccount } from 'viem/accounts';
 
 import { TestWallet } from '../test-wallet/test_wallet.js';
 
 const MNEMONIC = 'test test test test test test test test test test test junk';
 const { ETHEREUM_HOSTS = 'http://localhost:8545' } = process.env;
+// Address index 0 is used by the local-network sequencer publisher.
+const L1_ACCOUNT_ADDRESS_INDEX = 1;
 
-const l1Client = createExtendedL1Client(ETHEREUM_HOSTS.split(','), MNEMONIC);
+const l1Client = createExtendedL1Client(
+  ETHEREUM_HOSTS.split(','),
+  mnemonicToAccount(MNEMONIC, { addressIndex: L1_ACCOUNT_ADDRESS_INDEX }),
+);
 const ownerEthAddress = l1Client.account.address;
 
 const MINT_AMOUNT = BigInt(1e15);
