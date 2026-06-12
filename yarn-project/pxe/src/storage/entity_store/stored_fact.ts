@@ -73,3 +73,23 @@ export type FactRowKey = string;
 export function factRowKeyOf(fact: StoredFact): FactRowKey {
   return `${entityKeyOf(fact)}:${fact.factTypeId}:${fact.payloadHash()}`;
 }
+
+/**
+ * The persisted form of a fact: the fact plus the monotonic sequence number assigned when it was first committed.
+ * Multimap value order is backend-dependent (insertion order on IndexedDB, value-sorted on LMDB), so reads sort by
+ * `seq` to return facts in creation order.
+ */
+export type FactRow = { seq: number; fact: StoredFact };
+
+/** Serializes a {@link FactRow} for storage. */
+export function serializeFactRow(row: FactRow): Buffer {
+  return serializeToBuffer(row.seq, row.fact);
+}
+
+/** Deserializes a {@link FactRow} from storage. */
+export function deserializeFactRow(buffer: Buffer): FactRow {
+  const reader = BufferReader.asReader(buffer);
+  const seq = reader.readNumber();
+  const fact = StoredFact.fromBuffer(reader);
+  return { seq, fact };
+}

@@ -1,57 +1,58 @@
-import { Fr } from '@aztec/foundation/curves/bn254';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { Semaphore } from '@aztec/foundation/queue';
-import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap } from '@aztec/kv-store';
-import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap, AztecAsyncSingleton } from '@aztec/kv-store';
 
 import type { StagedStore } from '../../job_coordinator/job_coordinator.js';
 import {
+  type EntityCoords,
   type EntityKey,
   type OriginBlock,
+  type ScopeCoords,
   type ScopeKey,
-  entityKey,
   entityKeyOf,
-  scopeKey,
   scopeKeyOf,
 } from './entity_keys.js';
 import { StoredEntity } from './stored_entity.js';
-import { type FactRowKey, StoredFact, factRowKeyOf } from './stored_fact.js';
+import { type FactRowKey, StoredFact, deserializeFactRow, factRowKeyOf, serializeFactRow } from './stored_fact.js';
 
 type JobId = string;
 type BlockNum = number;
 type EntityIdStr = string;
 type StoredEntityBuffer = Buffer;
-type StoredFactBuffer = Buffer;
+type FactRowBuffer = Buffer;
 
 /** A pending mutation for a job: create an entity, record a fact, or terminate (delete) an entity. */
 type StagedOp =
   | { kind: 'createEntity'; entity: StoredEntity }
   | { kind: 'record'; fact: StoredFact }
-  | { kind: 'terminate'; contract: AztecAddress; scope: AztecAddress; entityTypeId: Fr; entityId: Fr };
+  | { kind: 'terminate'; coords: EntityCoords };
 
 /**
  * Stores immutable facts about entities, grouped by contract, scope, entity type, and entity id.
  *
  * Append-only within a job commit. Retractable facts (those with an origin block) are deleted on block prune.
  * Non-retractable facts (originBlock === undefined) survive reorgs as external inputs. Writes are staged per-job and
- * flushed atomically on commit.
+ * flushed atomically on commit. Facts are returned in creation order.
  */
 export class EntityStore implements StagedStore {
   readonly storeName: string = 'entity';
 
   #store: AztecAsyncKVStore;
-  /** Primary entity records; each row holds the entity payload and optional origin block. */
+  /** Primary entity records; each row holds the entity body and optional origin block. */
   #entities: AztecAsyncMap<EntityKey, StoredEntityBuffer>;
   /** Index for delete-on-prune of retractable entities (those with an origin block). */
   #entitiesByBlock: AztecAsyncMultiMap<BlockNum, EntityKey>;
   /** Primary fact records, deduplicated by row key. */
-  #facts: AztecAsyncMap<FactRowKey, StoredFactBuffer>;
+  #facts: AztecAsyncMap<FactRowKey, FactRowBuffer>;
   /** Index for efficient entity-level fold. */
   #factsByEntity: AztecAsyncMultiMap<EntityKey, FactRowKey>;
   /** Index for active-entity enumeration. */
   #entitiesByScope: AztecAsyncMultiMap<ScopeKey, EntityIdStr>;
   /** Index for delete-on-prune (retractable facts only). */
   #factsByBlock: AztecAsyncMultiMap<BlockNum, FactRowKey>;
+  /** Monotonic counter assigning each newly committed fact its creation-order sequence number. */
+  #factSeq: AztecAsyncSingleton<number>;
 
   #opsForJob: Map<JobId, StagedOp[]>;
   #jobLocks: Map<JobId, Semaphore>;
@@ -66,212 +67,235 @@ export class EntityStore implements StagedStore {
     this.#factsByEntity = store.openMultiMap('facts_by_entity');
     this.#entitiesByScope = store.openMultiMap('entities_by_scope');
     this.#factsByBlock = store.openMultiMap('facts_by_block');
+    this.#factSeq = store.openSingleton('fact_seq');
     this.#opsForJob = new Map();
     this.#jobLocks = new Map();
   }
 
   /**
-   * Stages an entity record (with its own payload and optional origin block) under the given job.
-   * `originBlock === undefined` marks the entity non-retractable (it survives reorgs; only its own retractable
-   * facts are pruned); a defined origin block marks the whole entity retractable — on a prune above its block, the
-   * entity and all its facts are deleted.
-   * The entity becomes active once committed, independently of whether it owns any facts.
+   * Stages an entity record (with its own body and optional origin block) under the given job.
+   *
+   * `originBlock === undefined` marks the entity non-retractable (it survives reorgs; only its own retractable facts
+   * are pruned). A defined origin block marks the whole entity retractable: on a prune above its block, the entity and
+   * all its facts are deleted.
+   *
+   * The entity becomes immediately active, independently of whether it owns any facts. Re-creating an existing entity
+   * overwrites its record (body and origin block, last write wins) and keeps the facts it already owns.
    */
-  createEntity(
-    contract: AztecAddress,
-    scope: AztecAddress,
-    entityTypeId: Fr,
-    entityId: Fr,
-    payload: Fr[],
-    originBlock: OriginBlock | undefined,
-    jobId: string,
-  ): Promise<void> {
+  createEntity(coords: EntityCoords, body: Fr[], originBlock: OriginBlock | undefined, jobId: string): Promise<void> {
     return this.#withJobLock(jobId, () => {
-      const entity = new StoredEntity(contract, scope, entityTypeId, entityId, payload, originBlock);
+      const entity = new StoredEntity(
+        coords.contractAddress,
+        coords.scope,
+        coords.entityTypeId,
+        coords.entityId,
+        body,
+        originBlock,
+      );
       this.#opsFor(jobId).push({ kind: 'createEntity', entity });
       return Promise.resolve();
     });
   }
 
   /**
-   * Stages a fact for recording under the given job. `originBlock === undefined` marks the fact non-retractable (it
-   * survives reorgs); a defined origin block ties the fact to a specific block and it will be deleted on prune.
-   * Idempotent: duplicate (entity, factType, payload) tuples collapse to a single row via the dedup row key.
+   * Stages a fact for recording under the given job.
+   *
+   * `originBlock === undefined` marks the fact non-retractable (it survives reorgs); a defined origin block ties the
+   * fact to a specific block and it will be deleted on prune.
+   *
+   * Facts are returned in creation order by the read methods. Idempotent: duplicate (entity, factType, payload)
+   * tuples collapse to a single row via the dedup row key; a re-recorded fact keeps its original creation position
+   * while its origin block is updated (last write wins).
    */
   recordFact(
-    contract: AztecAddress,
-    scope: AztecAddress,
-    entityTypeId: Fr,
-    entityId: Fr,
+    coords: EntityCoords,
     factTypeId: Fr,
     payload: Fr[],
     originBlock: OriginBlock | undefined,
     jobId: string,
   ): Promise<void> {
     return this.#withJobLock(jobId, () => {
-      const fact = new StoredFact(contract, scope, entityTypeId, entityId, factTypeId, payload, originBlock);
+      const fact = new StoredFact(
+        coords.contractAddress,
+        coords.scope,
+        coords.entityTypeId,
+        coords.entityId,
+        factTypeId,
+        payload,
+        originBlock,
+      );
       this.#opsFor(jobId).push({ kind: 'record', fact });
       return Promise.resolve();
     });
   }
 
   /** Permanently delete an entity (all its facts). Staged within the job; applied on commit. */
-  terminateEntity(
-    contract: AztecAddress,
-    scope: AztecAddress,
-    entityTypeId: Fr,
-    entityId: Fr,
-    jobId: string,
-  ): Promise<void> {
+  terminateEntity(coords: EntityCoords, jobId: string): Promise<void> {
     return this.#withJobLock(jobId, () => {
-      this.#opsFor(jobId).push({ kind: 'terminate', contract, scope, entityTypeId, entityId });
+      this.#opsFor(jobId).push({ kind: 'terminate', coords });
       return Promise.resolve();
     });
   }
 
   /**
-   * Returns the facts for one entity.
+   * Returns one entity's body together with its facts in creation order.
    *
-   * @param contract - The contract address owning the entity.
-   * @param scope - The scope (recipient address) under which facts were recorded.
-   * @param entityTypeId - Discriminates entity kinds within a contract+scope.
-   * @param entityId - Identifies the specific entity instance.
-   * @param jobId - The job whose staged writes are layered over committed state.
-   */
-  async getEntityFacts(
-    contract: AztecAddress,
-    scope: AztecAddress,
-    entityTypeId: Fr,
-    entityId: Fr,
-    jobId: string,
-  ): Promise<StoredFact[]> {
-    const eKey = entityKey(contract, scope, entityTypeId, entityId);
-    const byRow = await this.#store.transactionAsync(() => this.#loadCommittedFacts(eKey));
-    this.#replayFactOps(byRow, eKey, jobId);
-    return Array.from(byRow.values());
-  }
-
-  /**
-   * Returns one entity's payload together with its facts.
-   *
-   * The payload comes from the entity record (empty when no entity record exists); the facts come from the per-entity
+   * The body comes from the entity record (empty when no entity record exists); the facts come from the per-entity
    * fact index. This job's staged ops are layered over committed state for read-your-writes: a createEntity sets the
-   * payload, a record adds/dedups a fact, a terminate clears both payload and facts.
+   * body, a record adds/dedups a fact, a terminate clears both body and facts.
    *
-   * @param contract - The contract address owning the entity.
-   * @param scope - The scope (recipient address) under which the entity was created.
-   * @param entityTypeId - Discriminates entity kinds within a contract+scope.
-   * @param entityId - Identifies the specific entity instance.
+   * @param coords - The coordinates identifying the entity.
    * @param jobId - The job whose staged writes are layered over committed state.
    */
-  async getEntity(
-    contract: AztecAddress,
-    scope: AztecAddress,
-    entityTypeId: Fr,
-    entityId: Fr,
-    jobId: string,
-  ): Promise<{ payload: Fr[]; facts: StoredFact[] }> {
-    const eKey = entityKey(contract, scope, entityTypeId, entityId);
-    const { payload, byRow } = await this.#store.transactionAsync(async () => {
+  async getEntity(coords: EntityCoords, jobId: string): Promise<{ body: Fr[]; facts: StoredFact[] }> {
+    const eKey = entityKeyOf(coords);
+    const { body, byRow } = await this.#store.transactionAsync(async () => {
       const entityBuf = await this.#entities.getAsync(eKey);
       return {
-        payload: entityBuf ? StoredEntity.fromBuffer(entityBuf).payload : [],
+        body: entityBuf ? StoredEntity.fromBuffer(entityBuf).body : [],
         byRow: await this.#loadCommittedFacts(eKey),
       };
     });
-    // Replay this job's staged ops in order over committed state. Order matters so a terminate-then-create sequence
-    // resolves to the re-created entity, and a terminate clears both payload and facts.
-    let currentPayload = payload;
+    // The body and the fact set are updated independently by each op kind (a terminate clears both, but does so in
+    // both replays at the same position in the op sequence), so replaying them separately is equivalent to a single
+    // in-order replay.
+    this.#replayFactOps(byRow, eKey, jobId);
+    let currentBody = body;
     for (const op of this.#stagedOps(jobId)) {
-      if (op.kind === 'createEntity') {
-        if (entityKeyOf(op.entity) === eKey) {
-          currentPayload = op.entity.payload;
-        }
-      } else if (op.kind === 'record') {
-        if (entityKeyOf(op.fact) === eKey) {
-          byRow.set(factRowKeyOf(op.fact), op.fact);
-        }
-      } else if (entityKey(op.contract, op.scope, op.entityTypeId, op.entityId) === eKey) {
-        currentPayload = [];
-        byRow.clear();
+      switch (op.kind) {
+        case 'createEntity':
+          if (entityKeyOf(op.entity) === eKey) {
+            currentBody = op.entity.body;
+          }
+          break;
+        case 'terminate':
+          if (entityKeyOf(op.coords) === eKey) {
+            currentBody = [];
+          }
+          break;
+        case 'record':
+          break;
       }
     }
-    return { payload: currentPayload, facts: Array.from(byRow.values()) };
+    return { body: currentBody, facts: Array.from(byRow.values()) };
   }
 
   /**
-   * Returns the entity ids of all active entities under (contract, scope, entityTypeId) — entities that have an
-   * entity record and have not been terminated. Entity presence is independent of whether the entity owns any facts.
+   * Returns all active entities under (contract, scope, entityTypeId) — entities that have an entity record and have
+   * not been terminated — together with their facts in creation order. Entity presence is independent of whether the
+   * entity owns any facts.
+   *
+   * This job's staged ops are layered over committed state for read-your-writes: a createEntity activates the entity
+   * (keeping any facts it already owns), a record adds/dedups a fact, a terminate deactivates the entity.
    */
-  async activeEntities(contract: AztecAddress, scope: AztecAddress, entityTypeId: Fr, jobId: string): Promise<Fr[]> {
-    const sKey = scopeKey(contract, scope, entityTypeId);
-    const active = await this.#store.transactionAsync(async () => {
-      const seen = new Set<EntityIdStr>();
-      const result = new Set<EntityIdStr>();
+  async getEntities(coords: ScopeCoords, jobId: string): Promise<{ entity: StoredEntity; facts: StoredFact[] }[]> {
+    const sKey = scopeKeyOf(coords);
+    const entities = await this.#store.transactionAsync(async () => {
+      // Snapshot the scope index before issuing point reads so we never interleave reads with a live cursor.
+      const entityIds: EntityIdStr[] = [];
       for await (const entityId of this.#entitiesByScope.getValuesAsync(sKey)) {
-        if (seen.has(entityId)) {
-          continue;
+        entityIds.push(entityId);
+      }
+      const result = new Map<EntityIdStr, { entity: StoredEntity; byRow: Map<FactRowKey, StoredFact> }>();
+      for (const entityId of entityIds) {
+        const eKey = `${sKey}:${entityId}`;
+        const buf = await this.#entities.getAsync(eKey);
+        if (!buf) {
+          // An #entitiesByScope entry must always reference a live #entities row; a missing one means the indexes
+          // are corrupt, so fail loudly rather than surface a ghost entity or silently hide the corruption.
+          throw new Error(`Entity not found for entityKey ${eKey}`);
         }
-        seen.add(entityId);
-        // Guard against stale index entries: once terminate/rollback delete an entity record, its entity id
-        // should be gone from #entitiesByScope, but we re-check the entity record exists so a missed index update
-        // can never surface a ghost entity as active.
-        if (await this.#entities.getAsync(`${sKey}:${entityId}`)) {
-          result.add(entityId);
-        }
+        result.set(entityId, { entity: StoredEntity.fromBuffer(buf), byRow: await this.#loadCommittedFacts(eKey) });
       }
       return result;
     });
     // Replay this job's staged ops in order: a createEntity activates the entity, a terminate deactivates it.
     for (const op of this.#stagedOps(jobId)) {
-      if (op.kind === 'createEntity') {
-        if (scopeKeyOf(op.entity) === sKey) {
-          active.add(op.entity.entityId.toString());
+      switch (op.kind) {
+        case 'createEntity': {
+          if (scopeKeyOf(op.entity) !== sKey) {
+            break;
+          }
+          // A re-created entity keeps the facts it already owns; a new one starts with none.
+          const prior = entities.get(op.entity.entityId.toString());
+          entities.set(op.entity.entityId.toString(), { entity: op.entity, byRow: prior?.byRow ?? new Map() });
+          break;
         }
-      } else if (op.kind === 'terminate' && scopeKey(op.contract, op.scope, op.entityTypeId) === sKey) {
-        active.delete(op.entityId.toString());
+        case 'record': {
+          if (scopeKeyOf(op.fact) !== sKey) {
+            break;
+          }
+          // A fact recorded for an entity with no record is stored but only surfaces once the entity is created,
+          // mirroring committed behavior (facts never activate an entity).
+          entities.get(op.fact.entityId.toString())?.byRow.set(factRowKeyOf(op.fact), op.fact);
+          break;
+        }
+        case 'terminate':
+          if (scopeKeyOf(op.coords) === sKey) {
+            entities.delete(op.coords.entityId.toString());
+          }
+          break;
       }
     }
-    return Array.from(active, Fr.fromString);
+    return Array.from(entities.values(), ({ entity, byRow }) => ({ entity, facts: Array.from(byRow.values()) }));
   }
 
   /**
    * Commits all staged operations for the given job to persistent storage.
    *
    * Must be called inside a transaction owned by the caller (JobCoordinator wraps all commits in a single
-   * transactionAsync, and IndexedDB does not support nested transactions). Do not call #withJobLock here — awaiting
+   * transactionAsync, and IndexedDB does not support nested transactions). Do not call #withJobLock here: awaiting
    * the lock creates a microtask boundary that causes IndexedDB to auto-commit the outer transaction.
    */
   async commit(jobId: string): Promise<void> {
     for (const op of this.#opsFor(jobId)) {
-      if (op.kind === 'createEntity') {
-        const entity = op.entity;
-        const eKey = entityKeyOf(entity);
-        // Re-creating an entity may change or drop its origin block; clear any stale by-block index entry from the
-        // record first, so a later prune can neither double-visit this entity (and throw) nor wrongly delete one that
-        // has since become non-retractable.
-        const priorBuf = await this.#entities.getAsync(eKey);
-        if (priorBuf) {
-          const prior = StoredEntity.fromBuffer(priorBuf);
-          if (prior.originBlock !== undefined) {
-            await this.#entitiesByBlock.deleteValue(prior.originBlock.blockNumber, eKey);
+      switch (op.kind) {
+        case 'createEntity': {
+          const entity = op.entity;
+          const eKey = entityKeyOf(entity);
+          // Re-creating an entity may change or drop its origin block; clear any stale by-block index entry from the
+          // record first, so a later prune can neither double-visit this entity (and throw) nor wrongly delete one
+          // that has since become non-retractable.
+          const priorBuf = await this.#entities.getAsync(eKey);
+          if (priorBuf) {
+            const prior = StoredEntity.fromBuffer(priorBuf);
+            if (prior.originBlock !== undefined) {
+              await this.#entitiesByBlock.deleteValue(prior.originBlock.blockNumber, eKey);
+            }
           }
+          await this.#entities.set(eKey, entity.toBuffer());
+          await this.#entitiesByScope.set(scopeKeyOf(entity), entity.entityId.toString());
+          if (entity.originBlock !== undefined) {
+            await this.#entitiesByBlock.set(entity.originBlock.blockNumber, eKey);
+          }
+          break;
         }
-        await this.#entities.set(eKey, entity.toBuffer());
-        await this.#entitiesByScope.set(scopeKeyOf(entity), entity.entityId.toString());
-        if (entity.originBlock !== undefined) {
-          await this.#entitiesByBlock.set(entity.originBlock.blockNumber, eKey);
+        case 'record': {
+          const fact = op.fact;
+          const rowKey = factRowKeyOf(fact);
+          // Re-recording a fact may change or drop its origin block; keep its original sequence number (so it keeps
+          // its creation position) and clear any stale by-block index entry, mirroring the createEntity guard above.
+          const priorBuf = await this.#facts.getAsync(rowKey);
+          let seq: number;
+          if (priorBuf) {
+            const prior = deserializeFactRow(priorBuf);
+            seq = prior.seq;
+            if (prior.fact.originBlock !== undefined) {
+              await this.#factsByBlock.deleteValue(prior.fact.originBlock.blockNumber, rowKey);
+            }
+          } else {
+            seq = await this.#nextFactSeq();
+          }
+          await this.#facts.set(rowKey, serializeFactRow({ seq, fact }));
+          await this.#factsByEntity.set(entityKeyOf(fact), rowKey);
+          if (fact.originBlock !== undefined) {
+            await this.#factsByBlock.set(fact.originBlock.blockNumber, rowKey);
+          }
+          break;
         }
-      } else if (op.kind === 'record') {
-        const fact = op.fact;
-        const rowKey = factRowKeyOf(fact);
-        await this.#facts.set(rowKey, fact.toBuffer());
-        await this.#factsByEntity.set(entityKeyOf(fact), rowKey);
-        if (fact.originBlock !== undefined) {
-          await this.#factsByBlock.set(fact.originBlock.blockNumber, rowKey);
-        }
-      } else {
-        await this.#deleteEntity(op.contract, op.scope, op.entityTypeId, op.entityId);
+        case 'terminate':
+          await this.#deleteEntity(op.coords);
+          break;
       }
     }
     this.#clearJobData(jobId);
@@ -285,7 +309,7 @@ export class EntityStore implements StagedStore {
 
   /**
    * Delete-on-prune in two passes. Pass 1 deletes every retractable entity whose origin block is strictly above
-   * `toBlock` wholesale — its payload and every fact it owns, regardless of each fact's own flag. Pass 2 deletes any
+   * `toBlock` wholesale: its body and every fact it owns, regardless of each fact's own flag. Pass 2 deletes any
    * remaining retractable fact originating above `toBlock` whose entity survived pass 1. Non-retractable entities and
    * facts are untouched (they never enter the by-block indexes). Must run inside a caller-owned transaction (the
    * reorg path wraps it with the sibling stores' rollbacks; IndexedDB has no nested transactions). Throws if any job
@@ -313,7 +337,7 @@ export class EntityStore implements StagedStore {
         throw new Error(`Entity not found for entityKey ${eKey}`);
       }
       const entity = StoredEntity.fromBuffer(buf);
-      await this.#deleteEntity(entity.contractAddress, entity.scope, entity.entityTypeId, entity.entityId);
+      await this.#deleteEntity(entity);
       deletedEntities.add(eKey);
       removedEntities++;
     }
@@ -332,7 +356,7 @@ export class EntityStore implements StagedStore {
         // and the by-block entry for pruned entities), so fail loudly rather than leave a dangling index entry.
         throw new Error(`Fact not found for rowKey ${rowKey}`);
       }
-      const fact = StoredFact.fromBuffer(buf);
+      const { fact } = deserializeFactRow(buf);
       const eKey = entityKeyOf(fact);
       // Belt-and-braces: a fact whose entity was pruned in pass 1 must not be re-processed here. With #deleteEntity
       // clearing the by-block index this is unreachable, but the guard keeps pass 2 correct if that ever changes.
@@ -349,16 +373,32 @@ export class EntityStore implements StagedStore {
 
   // ---- private helpers ----
 
-  /** Loads the committed facts for an entity keyed by their dedup row key. Caller may wrap in a transaction. */
+  /**
+   * Loads the committed facts for an entity keyed by their dedup row key, in creation order. Caller may wrap in a
+   * transaction.
+   */
   async #loadCommittedFacts(eKey: EntityKey): Promise<Map<FactRowKey, StoredFact>> {
-    const rows = new Map<FactRowKey, StoredFact>();
+    // Snapshot the index before issuing point reads so we never interleave reads with a live cursor (IndexedDB
+    // cursors are sensitive to what runs between iterations).
+    const rowKeys: FactRowKey[] = [];
     for await (const rowKey of this.#factsByEntity.getValuesAsync(eKey)) {
-      const buf = await this.#facts.getAsync(rowKey);
-      if (buf) {
-        rows.set(rowKey, StoredFact.fromBuffer(buf));
-      }
+      rowKeys.push(rowKey);
     }
-    return rows;
+    const rows: { rowKey: FactRowKey; seq: number; fact: StoredFact }[] = [];
+    for (const rowKey of rowKeys) {
+      const buf = await this.#facts.getAsync(rowKey);
+      if (!buf) {
+        // A #factsByEntity entry must always reference a live #facts row; a missing one means the indexes are
+        // corrupt, so fail loudly rather than silently drop the fact.
+        throw new Error(`Fact not found for rowKey ${rowKey}`);
+      }
+      const { seq, fact } = deserializeFactRow(buf);
+      rows.push({ rowKey, seq, fact });
+    }
+    // Multimap value order is backend-dependent (insertion order on IndexedDB, value-sorted on LMDB); sort by the
+    // commit-assigned sequence so facts always come back in creation order.
+    rows.sort((a, b) => a.seq - b.seq);
+    return new Map(rows.map(({ rowKey, fact }) => [rowKey, fact]));
   }
 
   /**
@@ -368,22 +408,36 @@ export class EntityStore implements StagedStore {
    */
   #replayFactOps(byRow: Map<FactRowKey, StoredFact>, eKey: EntityKey, jobId: string): void {
     for (const op of this.#stagedOps(jobId)) {
-      if (op.kind === 'record') {
-        if (entityKeyOf(op.fact) === eKey) {
-          byRow.set(factRowKeyOf(op.fact), op.fact);
-        }
-      } else if (op.kind === 'terminate' && entityKey(op.contract, op.scope, op.entityTypeId, op.entityId) === eKey) {
-        byRow.clear();
+      switch (op.kind) {
+        case 'record':
+          if (entityKeyOf(op.fact) === eKey) {
+            byRow.set(factRowKeyOf(op.fact), op.fact);
+          }
+          break;
+        case 'terminate':
+          if (entityKeyOf(op.coords) === eKey) {
+            byRow.clear();
+          }
+          break;
+        case 'createEntity':
+          break;
       }
     }
+  }
+
+  /** Returns the next fact sequence number, persisting the incremented counter. */
+  async #nextFactSeq(): Promise<number> {
+    const next = ((await this.#factSeq.getAsync()) ?? 0) + 1;
+    await this.#factSeq.set(next);
+    return next;
   }
 
   /**
    * Deletes an entity wholesale from every index: its record, all its facts, and the scope/block index entries.
    * Called during commit for 'terminate' ops and during pass 1 of rollback for pruned retractable entities.
    */
-  async #deleteEntity(contract: AztecAddress, scope: AztecAddress, entityTypeId: Fr, entityId: Fr): Promise<void> {
-    const eKey = entityKey(contract, scope, entityTypeId, entityId);
+  async #deleteEntity(coords: EntityCoords): Promise<void> {
+    const eKey = entityKeyOf(coords);
     const rowKeys: FactRowKey[] = [];
     for await (const rowKey of this.#factsByEntity.getValuesAsync(eKey)) {
       rowKeys.push(rowKey);
@@ -395,7 +449,7 @@ export class EntityStore implements StagedStore {
         // corrupt, so fail loudly rather than silently skip cleanup.
         throw new Error(`Fact not found for rowKey ${rowKey}`);
       }
-      const fact = StoredFact.fromBuffer(buf);
+      const { fact } = deserializeFactRow(buf);
       await this.#facts.delete(rowKey);
       await this.#factsByEntity.deleteValue(eKey, rowKey);
       if (fact.originBlock !== undefined) {
@@ -410,7 +464,7 @@ export class EntityStore implements StagedStore {
         await this.#entitiesByBlock.deleteValue(entity.originBlock.blockNumber, eKey);
       }
     }
-    await this.#entitiesByScope.deleteValue(scopeKey(contract, scope, entityTypeId), entityId.toString());
+    await this.#entitiesByScope.deleteValue(scopeKeyOf(coords), coords.entityId.toString());
   }
 
   #opsFor(jobId: string): StagedOp[] {

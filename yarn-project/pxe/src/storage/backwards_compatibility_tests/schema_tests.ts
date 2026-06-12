@@ -223,31 +223,14 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
       const contract = AztecAddress.fromBigInt(100n);
       const scope = AztecAddress.fromBigInt(1n);
       const entityTypeId = new Fr(7n);
-      const corrA = new Fr(0xaan);
-      const corrB = new Fr(0xbbn);
+      const coordsA = { contractAddress: contract, scope, entityTypeId, entityId: new Fr(0xaan) };
+      const coordsB = { contractAddress: contract, scope, entityTypeId, entityId: new Fr(0xbbn) };
       // Retractable entity (origin block 6): the entity and all its facts are pruned on a reorg above block 6.
-      await entityStore.createEntity(
-        contract,
-        scope,
-        entityTypeId,
-        corrA,
-        [new Fr(5n)],
-        { blockNumber: 6, blockHash: new Fr(2n) },
-        jobId,
-      );
-      // Non-retractable entity carrying a payload, with a non-retractable and a retractable fact.
-      await entityStore.createEntity(contract, scope, entityTypeId, corrB, [new Fr(8n)], undefined, jobId);
-      await entityStore.recordFact(contract, scope, entityTypeId, corrB, new Fr(1n), [new Fr(9n)], undefined, jobId);
-      await entityStore.recordFact(
-        contract,
-        scope,
-        entityTypeId,
-        corrB,
-        new Fr(2n),
-        [],
-        { blockNumber: 5, blockHash: new Fr(1n) },
-        jobId,
-      );
+      await entityStore.createEntity(coordsA, [new Fr(5n)], { blockNumber: 6, blockHash: new Fr(2n) }, jobId);
+      // Non-retractable entity carrying a body, with a non-retractable and a retractable fact.
+      await entityStore.createEntity(coordsB, [new Fr(8n)], undefined, jobId);
+      await entityStore.recordFact(coordsB, new Fr(1n), [new Fr(9n)], undefined, jobId);
+      await entityStore.recordFact(coordsB, new Fr(2n), [], { blockNumber: 5, blockHash: new Fr(1n) }, jobId);
       await kvStore.transactionAsync(() => entityStore.commit(jobId));
     },
     snapshotStore: async kvStore => ({
@@ -257,6 +240,7 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
       facts: await snapshotMap(kvStore.openMap<string, Buffer>('facts')),
       facts_by_entity: await snapshotMap(kvStore.openMultiMap<string, string>('facts_by_entity')),
       facts_by_block: await snapshotMap(kvStore.openMultiMap<number, string>('facts_by_block')),
+      fact_seq: await snapshotSingleton(kvStore.openSingleton<number>('fact_seq')),
     }),
   },
 

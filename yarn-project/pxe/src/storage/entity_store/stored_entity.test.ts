@@ -26,10 +26,10 @@ describe('StoredEntity', () => {
     expect(back.isRetractable).toBe(false);
   });
 
-  it('round-trips an entity with an empty payload', () => {
+  it('round-trips an entity with an empty body', () => {
     const entity = new StoredEntity(contract, scope, entityType, entityId, [], undefined);
     const back = StoredEntity.fromBuffer(entity.toBuffer());
     expect(back).toEqual(entity);
-    expect(back.payload).toEqual([]);
+    expect(back.body).toEqual([]);
   });
 });
