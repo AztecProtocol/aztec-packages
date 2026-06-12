@@ -769,20 +769,27 @@ function debugStagedPartials(
   let badCoords = 0;
   let present = 0;
   const L: { x: bigint; y: bigint }[] = [];
+  const presBits: string[] = [];
   for (let w = 0; w < numWindows; w++) {
     let acc = BN254_JACOBIAN_ZERO;
+    let bits = '';
     for (let a = 0; a < partials; a++) {
       const off = (w * partials + a) * 96;
       const x = rd(off);
       const y = rd(off + 32);
       const z = rd(off + 64);
       if (x >= P || y >= P || z >= P) badCoords++;
+      bits += z === 0n ? '0' : '1';
       if (z === 0n) continue;
       present++;
       acc = addBn254Jacobian(acc, { x, y, z });
     }
+    presBits.push(bits);
     const aff = toAffineBn254Jacobian(acc);
     L.push(aff.infinity ? { x: 0n, y: 0n } : { x: aff.x, y: aff.y });
+  }
+  for (let w = 0; w < numWindows; w += 10) {
+    log('info', `[ee-debug] p${String(w).padStart(2, '0')}: ${presBits.slice(w, w + 10).join(' ')}`);
   }
   const js = hostWindowCombine(L, windowCs);
   // Per-window FNV-1a over the raw record bytes: one 8-hex digest per

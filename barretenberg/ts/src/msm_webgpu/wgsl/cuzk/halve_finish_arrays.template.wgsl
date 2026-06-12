@@ -129,6 +129,10 @@ fn gstore(idx: u32, v: Jac) {
 // in workgroup memory; composite array<u32,8> copies at dynamic LDS indices
 // are untrodden driver ground.
 var<workgroup> sh: array<u32, {{ sh_words }}>;
+// Per-slot pending-double counters: scheduled Horner/carry doubles and
+// equal-point collision doubles both route through one executor pass, so the
+// module carries exactly one doubling body (Adreno compile-size envelope).
+var<workgroup> dbl_flags: array<u32, {{ lf_slots }}>;
 
 fn sl_x(i: u32) -> array<u32, 8> {
     let b = 24u * i;
