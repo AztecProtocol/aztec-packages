@@ -1430,7 +1430,7 @@ describe('LibP2PService', () => {
       expect(mockPeerManager.penalizePeer).not.toHaveBeenCalled();
     });
 
-    it('oversized block proposal at the per-position cap: ignores instead of penalizing the relaying peer', async () => {
+    it('oversized block proposal at the per-position cap: rejects and penalizes the relaying peer', async () => {
       // Fill the (slot, index) position to its cap directly in the pool.
       for (let i = 0; i < 2; i++) {
         const existing = await makeBlockProposal({
@@ -1451,15 +1451,16 @@ describe('LibP2PService', () => {
       });
       await service.processBlockFromPeer(third.toBuffer(), 'msg-1', mockPeerId);
 
-      // Not retained (cap reached), so not re-broadcast either; the relaying peer is not penalized
-      expect(reportMessageValidationResultSpy).toHaveBeenCalledWith('msg-1', MOCK_PEER_ID, TopicValidatorResult.Ignore);
+      // A peer should not relay more than the cap per slot+index, even for an oversized proposal: reject
+      // and penalize the relaying peer, do not re-broadcast, do not process.
+      expect(reportMessageValidationResultSpy).toHaveBeenCalledWith('msg-1', MOCK_PEER_ID, TopicValidatorResult.Reject);
+      expect(mockPeerManager.penalizePeer).toHaveBeenCalledWith(mockPeerId, PeerErrorSeverity.HighToleranceError);
       expect(blockReceivedCallback).not.toHaveBeenCalled();
-      expect(mockPeerManager.penalizePeer).not.toHaveBeenCalled();
       const stored = await attestationPool.getBlockProposalByArchive(third.archive.toString());
       expect(stored).toBeUndefined();
     });
 
-    it('oversized checkpoint at the per-slot checkpoint cap: ignores instead of penalizing the relaying peer', async () => {
+    it('oversized checkpoint at the per-slot checkpoint cap: rejects and penalizes the relaying peer', async () => {
       // Fill the slot's checkpoint-proposal cap directly in the pool (e.g. a proposer that equivocated
       // two checkpoints before sending an oversized one).
       for (let i = 0; i < 2; i++) {
@@ -1483,13 +1484,14 @@ describe('LibP2PService', () => {
       });
       await service.handleGossipedCheckpointProposal(oversized.toBuffer(), 'msg-1', mockPeerId);
 
-      // The checkpoint is dropped without penalty or processing, but the oversized terminal block was
-      // already retained as evidence for the watcher
-      expect(reportMessageValidationResultSpy).toHaveBeenCalledWith('msg-1', MOCK_PEER_ID, TopicValidatorResult.Ignore);
+      // The per-slot cap is about checkpoint proposals, not block proposals: reject and penalize the
+      // relaying peer. The oversized terminal block was added before the cap check, so it is still
+      // retained as evidence for the watcher.
+      expect(reportMessageValidationResultSpy).toHaveBeenCalledWith('msg-1', MOCK_PEER_ID, TopicValidatorResult.Reject);
+      expect(mockPeerManager.penalizePeer).toHaveBeenCalledWith(mockPeerId, PeerErrorSeverity.HighToleranceError);
       expect(blockReceivedCallback).not.toHaveBeenCalled();
       expect(allNodesCheckpointReceivedCallback).not.toHaveBeenCalled();
       expect(validatorCheckpointReceivedCallback).not.toHaveBeenCalled();
-      expect(mockPeerManager.penalizePeer).not.toHaveBeenCalled();
       const storedBlock = await attestationPool.getBlockProposalByArchive(
         oversized.getBlockProposal()!.archive.toString(),
       );
