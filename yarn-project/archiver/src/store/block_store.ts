@@ -865,27 +865,6 @@ export class BlockStore {
   }
 
   /**
-   * Returns the payload of the latest proposed checkpoint that leads the checkpointed frontier, in
-   * a single read-only transaction so the leading-frontier check and the payload are a coherent
-   * snapshot. Returns undefined when no proposed checkpoint exists beyond the latest confirmed
-   * checkpoint. Callers derive the proposed tip from the payload (last block is
-   * `startBlock + blockCount - 1`).
-   */
-  async getProposedCheckpoint(): Promise<ProposedCheckpointData | undefined> {
-    return await this.db.transactionAsync(async () => {
-      const [entry] = await toArray(this.#proposedCheckpoints.entriesAsync({ reverse: true, limit: 1 }));
-      if (entry === undefined) {
-        return undefined;
-      }
-      const latestCheckpointNumber = await this.getLatestCheckpointNumber();
-      if (entry[0] <= latestCheckpointNumber) {
-        return undefined;
-      }
-      return this.convertToProposedCheckpointData(entry[1]);
-    });
-  }
-
-  /**
    * Evicts all pending checkpoints with checkpoint number >= fromNumber.
    * Used for divergent-mined-checkpoint cleanup: when L1 mines checkpoint N with a different archive,
    * all pending >= N must be evicted since they chain off the now-invalid pending N.

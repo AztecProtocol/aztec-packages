@@ -745,7 +745,7 @@ describe('aztec node', () => {
       const proposedCheckpointBlockNumber = BlockNumber(9);
       const targetSlot = SlotNumber(10);
       l2BlockSource.getL2Tips.mockResolvedValue(makeTips({ proposed: proposedCheckpointBlockNumber }));
-      l2BlockSource.getProposedCheckpoint.mockResolvedValue(
+      l2BlockSource.getProposedCheckpointData.mockResolvedValue(
         makeProposedCheckpoint({
           checkpointNumber,
           blockNumber: proposedCheckpointBlockNumber,
@@ -780,7 +780,7 @@ describe('aztec node', () => {
       const proposedCheckpointBlockNumber = BlockNumber(9);
       const targetSlot = SlotNumber(12);
       l2BlockSource.getL2Tips.mockResolvedValue(makeTips({ proposed: proposedCheckpointBlockNumber }));
-      l2BlockSource.getProposedCheckpoint.mockResolvedValue(
+      l2BlockSource.getProposedCheckpointData.mockResolvedValue(
         makeProposedCheckpoint({
           checkpointNumber,
           blockNumber: proposedCheckpointBlockNumber,
@@ -815,7 +815,7 @@ describe('aztec node', () => {
       const latestProposedBlockNumber = BlockNumber(12);
       const targetSlot = SlotNumber(12);
       l2BlockSource.getL2Tips.mockResolvedValue(makeTips({ proposed: latestProposedBlockNumber }));
-      l2BlockSource.getProposedCheckpoint.mockResolvedValue(
+      l2BlockSource.getProposedCheckpointData.mockResolvedValue(
         makeProposedCheckpoint({
           checkpointNumber,
           blockNumber: proposedCheckpointBlockNumber,
@@ -855,7 +855,7 @@ describe('aztec node', () => {
       const latestProposedBlockNumber = BlockNumber(12);
       const targetSlot = SlotNumber(13);
       l2BlockSource.getL2Tips.mockResolvedValue(makeTips({ proposed: latestProposedBlockNumber }));
-      l2BlockSource.getProposedCheckpoint.mockResolvedValue(
+      l2BlockSource.getProposedCheckpointData.mockResolvedValue(
         makeProposedCheckpoint({
           checkpointNumber,
           blockNumber: proposedCheckpointBlockNumber,
@@ -896,7 +896,7 @@ describe('aztec node', () => {
       l2BlockSource.getL2Tips.mockResolvedValue(
         makeTips({ proposed: proposedCheckpointBlockNumber, checkpointed: checkpointNumber }),
       );
-      l2BlockSource.getProposedCheckpoint.mockResolvedValue(undefined);
+      l2BlockSource.getProposedCheckpointData.mockResolvedValue(undefined);
       l2BlockSource.getBlockData.mockResolvedValue(
         makeSimulationBlockData(proposedCheckpointBlockNumber, SlotNumber(0), checkpointNumber),
       );

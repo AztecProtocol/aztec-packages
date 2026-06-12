@@ -2077,7 +2077,7 @@ describe('Archiver Sync', () => {
 
       // Proposed checkpoint should lead the checkpointed tip
       const tips = await archiver.getL2Tips();
-      const proposedCheckpointResult = await archiver.getProposedCheckpoint();
+      const proposedCheckpointResult = await archiver.getProposedCheckpointData();
       expect(proposedCheckpointResult).toBeDefined();
       expect(proposedCheckpointResult!.checkpointNumber).toEqual(CheckpointNumber(2));
       expect(tips.checkpointed.checkpoint.number).toEqual(CheckpointNumber(1));
@@ -2148,7 +2148,7 @@ describe('Archiver Sync', () => {
 
       // Proposed checkpoint should be cleared, so no proposed checkpoint leads the checkpointed tip
       expect(await archiverStore.blocks.getLastProposedCheckpoint()).toBeUndefined();
-      expect(await archiver.getProposedCheckpoint()).toBeUndefined();
+      expect(await archiver.getProposedCheckpointData()).toBeUndefined();
     }, 15_000);
   });
 

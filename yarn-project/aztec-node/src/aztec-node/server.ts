@@ -1636,10 +1636,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     const coinbase = EthAddress.ZERO;
     const feeRecipient = AztecAddress.ZERO;
 
-    // Resolve the proposed-checkpoint frontier (latest proposed checkpoint that leads the checkpointed
-    // tip, falling back to the checkpointed tip when none leads it). The leading case carries its header
-    // slot in the payload, so no extra block fetch is needed to derive the slot.
-    const proposedCheckpoint = await this.blockSource.getProposedCheckpoint();
+    // Resolve the proposed-checkpoint frontier (latest proposed checkpoint, which leads the
+    // checkpointed tip, falling back to the checkpointed tip when none exists). The proposed payload
+    // carries its header slot, so no extra block fetch is needed to derive the slot.
+    const proposedCheckpoint = await this.blockSource.getProposedCheckpointData();
     const proposedCheckpointBlockNumber = proposedCheckpoint
       ? BlockNumber(proposedCheckpoint.startBlock + proposedCheckpoint.blockCount - 1)
       : l2Tips.checkpointed.block.number;
