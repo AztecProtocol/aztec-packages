@@ -1016,31 +1016,20 @@ ${packLines.join('\n')}
     body.push(`        iters = min(iters, dn - 2u);`);
     body.push(`    }`);
     body.push(`    let NOSLOT = 0xffffffffu;`);
-    body.push(`    for (var i = t; i < Lf; i = i + WG) { dbl_flags[i] = 0u; }`);
-    body.push(`    workgroupBarrier();`);
-    body.push(`    // One drain iteration past the schedule: an equal-point collision in`);
-    body.push(`    // the LAST add flags its slot for doubling, executed next iteration.`);
-    body.push(`    for (var it = 0u; it < iters + 1u; it = it + 1u) {`);
-    body.push(`        if (it >= lgLf && it < iters && t == 0u) {`);
-    body.push(`            // Scheduled Horner/carry doubles route through the same flag`);
-    body.push(`            // mechanism as collision doubles — ONE cdbl block total. The`);
-    body.push(`            // counter form handles a slot needing both in one iteration.`);
+    body.push(`    for (var it = 0u; it < iters; it = it + 1u) {`);
+    body.push(`        var dslot = NOSLOT;`);
+    body.push(`        if (it >= lgLf && t == 0u) {`);
     body.push(`            if (a == 0u) {`);
     body.push(`                if ((it - lgLf) + 1u < lgLf) {`);
-    body.push(`                    dbl_flags[Lf >> 1u] = dbl_flags[Lf >> 1u] + 1u;`);
+    body.push(`                    dslot = Lf >> 1u;`);
     body.push(`                }`);
     body.push(`            } else {`);
-    body.push(`                dbl_flags[0] = dbl_flags[0] + 1u;`);
+    body.push(`                dslot = 0u;`);
     body.push(`            }`);
     body.push(`        }`);
-    body.push(`        workgroupBarrier();`);
-    body.push(`        for (var fi = t; fi < Lf; fi = fi + WG) {`);
-    body.push(`            var dcnt = dbl_flags[fi];`);
-    body.push(`            dbl_flags[fi] = 0u;`);
+    body.push(`        if (dslot != NOSLOT) {`);
     body.push(`            // dbl-2009-l, inline on components — no struct-valued calls in`);
     body.push(`            // the hot loop. z == 0 (absent) stays absent: skip.`);
-    body.push(`            for (var dj = 0u; dj < dcnt; dj = dj + 1u) {`);
-    body.push(`            let dslot = fi;`);
     body.push(`            let z0 = sl_z(dslot);`);
     body.push(`            if (!fr_is_zero_f8(z0)) {`);
     body.push(`                let x0 = sl_x(dslot);`);
@@ -1060,15 +1049,12 @@ ${packLines.join('\n')}
     body.push(`                ss_y(dslot, Y3d);`);
     body.push(`                ss_z(dslot, Z3d);`);
     body.push(`            }`);
-    body.push(`            }`);
     body.push(`        }`);
     body.push(`        workgroupBarrier();`);
     body.push(`        var di = 0u;`);
     body.push(`        var si = 0u;`);
     body.push(`        var valid = false;`);
-    body.push(`        if (it >= iters) {`);
-    body.push(`            // Drain iteration: flags only, no scheduled work.`);
-    body.push(`        } else if (it < lgLf) {`);
+    body.push(`        if (it < lgLf) {`);
     body.push(`            let k = it;`);
     body.push(`            let log2half = lgLf - k - 1u;`);
     body.push(`            let half = 1u << log2half;`);
@@ -1101,14 +1087,12 @@ ${packLines.join('\n')}
     body.push(`            valid = true;`);
     body.push(`        }`);
     body.push(`        if (valid) {`);
-    body.push(`            // add-2007-bl, inline on components, COMPLETE. Equal-x is NOT`);
-    body.push(`            // impossible here: the zd==0 branch copies points verbatim and`);
-    body.push(`            // the weighted tree re-reads slots, so identical operands (and`);
-    body.push(`            // exact cancellations from the halving recursion's internal`);
-    body.push(`            // combinations) do occur — the dlog argument only covers the`);
-    body.push(`            // walker's disjoint subset sums. An incomplete add at H == 0`);
-    body.push(`            // emits Z3 = 0: the value silently turns "absent" and the whole`);
-    body.push(`            // window contribution is lost (seed-dependent wrong results).`);
+    body.push(`            // add-2007-bl, inline on components, COMPLETE: equal operands DO`);
+    body.push(`            // occur here (the zd == 0 branch copies points verbatim and the`);
+    body.push(`            // weighted tree re-reads slots; the dlog argument covers only the`);
+    body.push(`            // walker's disjoint subset sums). At H == 0 the formulas emit`);
+    body.push(`            // Z3 = 0 — correct for P == -Q, silently LOSES the value for`);
+    body.push(`            // P == Q; the flat patch below repairs that case with a double.`);
     body.push(`            let zs = sl_z(si);`);
     body.push(`            if (!fr_is_zero_f8(zs)) {`);
     body.push(`                let zd = sl_z(di);`);
@@ -1128,17 +1112,6 @@ ${packLines.join('\n')}
     body.push(`                    let S1 = montgomery_product_f8(montgomery_product_f8(yd, zs), Z2Z2);`);
     body.push(`                    let S2 = montgomery_product_f8(montgomery_product_f8(ys, zd), Z1Z1);`);
     body.push(`                    let H = fr_sub_f8(U2, U1);`);
-    body.push(`                    if (fr_is_zero_f8(H)) {`);
-    body.push(`                        if (fr_is_zero_f8(fr_sub_f8(S2, S1))) {`);
-    body.push(`                            // P == Q: di already holds P — flag it for the`);
-    body.push(`                            // doubling pass at the next iteration's top (the`);
-    body.push(`                            // single cdbl block; no second inline double).`);
-    body.push(`                            dbl_flags[di] = dbl_flags[di] + 1u;`);
-    body.push(`                        } else {`);
-    body.push(`                            // P == -Q: identity.`);
-    body.push(`                            ss_z(di, array<u32, 8>(0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u));`);
-    body.push(`                        }`);
-    body.push(`                    } else {`);
     body.push(`                    let twoH = fr_dbl_f8(H);`);
     body.push(`                    let I = montgomery_product_f8(twoH, twoH);`);
     body.push(`                    let J = montgomery_product_f8(H, I);`);
@@ -1152,6 +1125,19 @@ ${packLines.join('\n')}
     body.push(`                    ss_x(di, X3);`);
     body.push(`                    ss_y(di, Y3);`);
     body.push(`                    ss_z(di, Z3);`);
+    body.push(`                    // Completeness patch, single flat branch (deeper nests and`);
+    body.push(`                    // shared-flag machinery here miscompile on Adreno).`);
+    body.push(`                    if (fr_is_zero_f8(H) && fr_is_zero_f8(rr)) {`);
+    body.push(`                        let dA = montgomery_product_f8(xd, xd);`);
+    body.push(`                        let dB = montgomery_product_f8(yd, yd);`);
+    body.push(`                        let dC = montgomery_product_f8(dB, dB);`);
+    body.push(`                        let XpB = fr_add_f8(xd, dB);`);
+    body.push(`                        let dD = fr_dbl_f8(fr_sub_f8(montgomery_product_f8(XpB, XpB), fr_add_f8(dA, dC)));`);
+    body.push(`                        let dE = fr_add_f8(fr_dbl_f8(dA), dA);`);
+    body.push(`                        let X3d = fr_sub_f8(montgomery_product_f8(dE, dE), fr_dbl_f8(dD));`);
+    body.push(`                        ss_x(di, X3d);`);
+    body.push(`                        ss_y(di, fr_sub_f8(montgomery_product_f8(dE, fr_sub_f8(dD, X3d)), fr_dbl_f8(fr_dbl_f8(fr_dbl_f8(dC)))));`);
+    body.push(`                        ss_z(di, fr_dbl_f8(montgomery_product_f8(yd, zd)));`);
     body.push(`                    }`);
     body.push(`                }`);
     body.push(`            }`);
@@ -1180,7 +1166,6 @@ ${packLines.join('\n')}
       {
         workgroup_size,
         sh_words: Lf * 24,
-        lf_slots: Lf,
         f1_body: body.join('\n'),
         p8_consts,
         r8_csv,

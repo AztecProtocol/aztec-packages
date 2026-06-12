@@ -92,7 +92,13 @@ export function buildHalvingSchedule(
   let jacSeen = false;
   let d = 0;
   let L = stride;
-  while (L >= 2 && (1 + d) * L > cap) {
+  // The finisher runs only at L <= 8: each (stride, finisherDepth) pair
+  // compiles its own module variant, and the completeness-patched finisher
+  // is verified green on Adreno at the Lf=8-class shapes — the Lf=128
+  // variant (small-N df=0 schedules) miscompiles there and returns wrong
+  // window sums. Wide depths use the separately-proven ba/jac kernels, so
+  // clamping costs a few extra tiny dispatches at small N only.
+  while (L >= 2 && ((1 + d) * L > cap || L > 8)) {
     const pairsPerWindow = ((1 + d) * L) / 2;
     const total = pairsPerWindow * numWindows;
     let mode: HalveMode;

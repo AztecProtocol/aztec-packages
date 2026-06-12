@@ -3347,6 +3347,19 @@ export class MsmV2 {
       m.foldSumPipe = await compile(sm.gen_ba_reduce_fold_sum_shader(32), `reduce-fold-sum`, m.foldJacLayout!);
     }
 
+    // Halving ships only at stride >= 4096 (c >= 13, logn >= 16): the
+    // small-stride schedule variants (Lf=128 finisher / tiny-geometry jac
+    // and ba depths) return wrong results or hang on Adreno, and dense is
+    // both verified-correct and faster there (n10: ~23ms dense vs ~35ms
+    // halving on S25+). Every shipped halving shape is the on-device
+    // verified one.
+    if (m.halvingReduce && 2 ** (m.c - 1) < 4096) {
+      m.halvingReduce = false;
+      // Early-exit staging exists only to carry the halving finisher's
+      // output; with halving gated off the dense path must produce normal
+      // window sums or the readback stages garbage.
+      m.earlyExitMode = false;
+    }
     if (m.halvingReduce) {
       if (m.splitC) {
         throw new Error('halvingReduce does not support split-c windows yet');
