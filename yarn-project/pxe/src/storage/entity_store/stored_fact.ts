@@ -64,30 +64,27 @@ export class StoredFact {
 }
 
 /**
- * Dedup row key for a specific fact, `entityKeyStr:factTypeId:payloadHash`. The payload hash (rather than the raw
- * payload) bounds key size for large payloads.
+ * Serialized key that identifies and dedups a fact (`entityKeyStr:factTypeId:payloadHash`). The payload hash (rather
+ * than the raw payload) bounds key size for large payloads.
  */
-export type FactRowKeyStr = string;
+export type FactKeyStr = string;
 
-/** Builds the {@link FactRowKeyStr} for the given fact. */
-export function factRowKeyStrOf(fact: StoredFact): FactRowKeyStr {
+/** Builds the {@link FactKeyStr} for the given fact. */
+export function factKeyStrOf(fact: StoredFact): FactKeyStr {
   return `${entityKeyStrOf(fact)}:${fact.factTypeId}:${fact.payloadHash()}`;
 }
 
 /**
- * The persisted form of a fact: the fact plus the monotonic sequence number assigned when it was first committed.
+ * Serializes a fact for storage, prefixed with the monotonic sequence number assigned when it was first committed.
  * Multimap value order is backend-dependent (insertion order on IndexedDB, value-sorted on LMDB), so reads sort by
  * `seq` to return facts in creation order.
  */
-export type FactRow = { seq: number; fact: StoredFact };
-
-/** Serializes a {@link FactRow} for storage. */
-export function serializeFactRow(row: FactRow): Buffer {
-  return serializeToBuffer(row.seq, row.fact);
+export function serializeFact(seq: number, fact: StoredFact): Buffer {
+  return serializeToBuffer(seq, fact);
 }
 
-/** Deserializes a {@link FactRow} from storage. */
-export function deserializeFactRow(buffer: Buffer): FactRow {
+/** Deserializes a fact and its sequence number from storage. */
+export function deserializeFact(buffer: Buffer): { seq: number; fact: StoredFact } {
   const reader = BufferReader.asReader(buffer);
   const seq = reader.readNumber();
   const fact = StoredFact.fromBuffer(reader);

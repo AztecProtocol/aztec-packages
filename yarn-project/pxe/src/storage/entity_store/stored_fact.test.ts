@@ -2,7 +2,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import { entityKeyStrOf, scopeKeyStrOf } from './entity_keys.js';
-import { StoredFact, deserializeFactRow, factRowKeyStrOf, serializeFactRow } from './stored_fact.js';
+import { StoredFact, deserializeFact, factKeyStrOf, serializeFact } from './stored_fact.js';
 
 describe('StoredFact', () => {
   const contract = AztecAddress.fromBigInt(100n);
@@ -32,7 +32,7 @@ describe('StoredFact', () => {
     const fact = new StoredFact(contract, scope, entityType, entityId, factType, [new Fr(9n)], undefined);
     expect(scopeKeyStrOf(fact)).toBe(`${contract}:${scope}:${entityType}`);
     expect(entityKeyStrOf(fact)).toBe(`${contract}:${scope}:${entityType}:${entityId}`);
-    expect(factRowKeyStrOf(fact)).toBe(entityKeyStrOf(fact) + `:${factType}:${fact.payloadHash()}`);
+    expect(factKeyStrOf(fact)).toBe(entityKeyStrOf(fact) + `:${factType}:${fact.payloadHash()}`);
   });
 
   it('gives distinct payload hashes for distinct payloads and equal for equal', () => {
@@ -43,13 +43,13 @@ describe('StoredFact', () => {
     expect(a.payloadHash()).toEqual(c.payloadHash());
   });
 
-  it('round-trips a fact row, preserving the sequence number', () => {
+  it('round-trips a stored fact with its sequence number', () => {
     const fact = new StoredFact(contract, scope, entityType, entityId, factType, [new Fr(9n)], {
       blockNumber: 12,
       blockHash: new Fr(0xabcn),
     });
     for (const seq of [0, 1, 2 ** 32 - 1]) {
-      const back = deserializeFactRow(serializeFactRow({ seq, fact }));
+      const back = deserializeFact(serializeFact(seq, fact));
       expect(back.seq).toBe(seq);
       expect(back.fact).toEqual(fact);
     }

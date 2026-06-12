@@ -14,19 +14,13 @@ import {
   scopeKeyStrOf,
 } from './entity_keys.js';
 import { StoredEntity } from './stored_entity.js';
-import {
-  type FactRowKeyStr,
-  StoredFact,
-  deserializeFactRow,
-  factRowKeyStrOf,
-  serializeFactRow,
-} from './stored_fact.js';
+import { type FactKeyStr, StoredFact, deserializeFact, factKeyStrOf, serializeFact } from './stored_fact.js';
 
 type JobId = string;
 type BlockNum = number;
 type EntityIdStr = string;
 type StoredEntityBuffer = Buffer;
-type FactRowBuffer = Buffer;
+type FactBuffer = Buffer;
 
 /** A pending mutation for a job: create an entity, record a fact, or terminate (delete) an entity. */
 type StagedOp =
@@ -35,28 +29,45 @@ type StagedOp =
   | { kind: 'terminate'; key: EntityKey };
 
 /**
- * Stores immutable facts about entities, grouped by contract, scope, entity type, and entity id.
+ * Stores immutable facts about entities, isolated by contract and scope.
  *
- * Append-only within a job commit. Retractable facts (those with an origin block) are deleted on block prune.
- * Non-retractable facts (originBlock === undefined) survive reorgs as external inputs. Writes are staged per-job and
- * flushed atomically on commit. Facts are returned in creation order.
+ * Both entities and facts can be retractable or non-retractable. They are retractable if they are associated to an
+ * origin block; they are non-retractable if they are not associated to an origin block.
+ *
+ * Retractable entities and all their facts are removed from the store when their origin block is pruned (typically due
+ * to a reorg). Retractable facts are likewise removed from the store when their origin block is pruned.
+ *
+ * Conversely, non-retractable entities and facts survive reorgs. Non-retractable entities must then be explicitly
+ * terminated, so as not to keep consuming resources (storage and compute) indefinitely.
+ *
+ * Order of facts in an entity is stable, respecting original creation order.
+ *
+ * This enables Aztec.nr to implement complex workflows such as offchain reception or partial note processing by
+ * storing structured data that is guaranteed to exist conditionally to certain blocks being included in the chain,
+ * while leaving the complexity of ensuring said guarantees to PXE.
+ *
+ * A key design driver is that PXE knows nothing about the actual entity and fact contents: it just manages enough
+ * metadata to provide the guarantees mentioned above. That way, concepts such as offchain delivery or partial notes
+ * are completely defined by Aztec.nr, opening the door to further extension without the need for ad-hoc PXE support.
+ *
+ * As with most other PXE stores, writes are staged per-job and flushed atomically on commit.
  */
 export class EntityStore implements StagedStore {
   readonly storeName: string = 'entity';
 
   #store: AztecAsyncKVStore;
-  /** Primary entity records; each row holds the entity body and optional origin block. */
+  /** Primary entity records; each holds the entity body and optional origin block. */
   #entities: AztecAsyncMap<EntityKeyStr, StoredEntityBuffer>;
   /** Index for delete-on-prune of retractable entities (those with an origin block). */
   #entitiesByBlock: AztecAsyncMultiMap<BlockNum, EntityKeyStr>;
-  /** Primary fact records, deduplicated by row key. */
-  #facts: AztecAsyncMap<FactRowKeyStr, FactRowBuffer>;
+  /** Primary fact records, deduplicated by fact key. */
+  #facts: AztecAsyncMap<FactKeyStr, FactBuffer>;
   /** Index for efficient entity-level fold. */
-  #factsByEntity: AztecAsyncMultiMap<EntityKeyStr, FactRowKeyStr>;
+  #factsByEntity: AztecAsyncMultiMap<EntityKeyStr, FactKeyStr>;
   /** Index for active-entity enumeration. */
   #entitiesByScope: AztecAsyncMultiMap<ScopeKeyStr, EntityIdStr>;
   /** Index for delete-on-prune (retractable facts only). */
-  #factsByBlock: AztecAsyncMultiMap<BlockNum, FactRowKeyStr>;
+  #factsByBlock: AztecAsyncMultiMap<BlockNum, FactKeyStr>;
   /** Monotonic counter assigning each newly committed fact its creation-order sequence number. */
   #factSeq: AztecAsyncSingleton<number>;
 
@@ -110,7 +121,7 @@ export class EntityStore implements StagedStore {
    * fact to a specific block and it will be deleted on prune.
    *
    * Facts are returned in creation order by the read methods. Idempotent: duplicate (entity, factType, payload)
-   * tuples collapse to a single row via the dedup row key; a re-recorded fact keeps its original creation position
+   * tuples collapse to a single stored fact via the dedup fact key; a re-recorded fact keeps its original creation position
    * while its origin block is updated (last write wins).
    */
   recordFact(
@@ -155,17 +166,17 @@ export class EntityStore implements StagedStore {
    */
   async getEntity(key: EntityKey, jobId: string): Promise<{ body: Fr[]; facts: StoredFact[] }> {
     const eKey = entityKeyStrOf(key);
-    const { body, byRow } = await this.#store.transactionAsync(async () => {
+    const { body, factsByKey } = await this.#store.transactionAsync(async () => {
       const entityBuf = await this.#entities.getAsync(eKey);
       return {
         body: entityBuf ? StoredEntity.fromBuffer(entityBuf).body : [],
-        byRow: await this.#loadCommittedFacts(eKey),
+        factsByKey: await this.#loadCommittedFacts(eKey),
       };
     });
     // The body and the fact set are updated independently by each op kind (a terminate clears both, but does so in
     // both replays at the same position in the op sequence), so replaying them separately is equivalent to a single
     // in-order replay.
-    this.#replayFactOps(byRow, eKey, jobId);
+    this.#replayFactOps(factsByKey, eKey, jobId);
     let currentBody = body;
     for (const op of this.#stagedOps(jobId)) {
       switch (op.kind) {
@@ -183,7 +194,7 @@ export class EntityStore implements StagedStore {
           break;
       }
     }
-    return { body: currentBody, facts: Array.from(byRow.values()) };
+    return { body: currentBody, facts: Array.from(factsByKey.values()) };
   }
 
   /**
@@ -212,21 +223,27 @@ export class EntityStore implements StagedStore {
       }
       const result = new Map<
         EntityIdStr,
-        { entity: StoredEntity | undefined; byRow: Map<FactRowKeyStr, StoredFact> }
+        { entity: StoredEntity | undefined; factsByKey: Map<FactKeyStr, StoredFact> }
       >();
       for (const entityId of committedIds) {
         const eKey = `${sKey}:${entityId}`;
         const buf = await this.#entities.getAsync(eKey);
         if (!buf) {
-          // An #entitiesByScope entry must always reference a live #entities row; a missing one means the indexes
+          // An #entitiesByScope entry must always reference a live #entities entry; a missing one means the indexes
           // are corrupt, so fail loudly rather than surface a ghost entity or silently hide the corruption.
           throw new Error(`Entity not found for entityKey ${eKey}`);
         }
-        result.set(entityId, { entity: StoredEntity.fromBuffer(buf), byRow: await this.#loadCommittedFacts(eKey) });
+        result.set(entityId, {
+          entity: StoredEntity.fromBuffer(buf),
+          factsByKey: await this.#loadCommittedFacts(eKey),
+        });
       }
       for (const entityId of stagedCreatedIds) {
         if (!result.has(entityId)) {
-          result.set(entityId, { entity: undefined, byRow: await this.#loadCommittedFacts(`${sKey}:${entityId}`) });
+          result.set(entityId, {
+            entity: undefined,
+            factsByKey: await this.#loadCommittedFacts(`${sKey}:${entityId}`),
+          });
         }
       }
       return result;
@@ -235,7 +252,7 @@ export class EntityStore implements StagedStore {
     // entity-record presence (createEntity activates, terminate deactivates) replays separately, which is equivalent
     // to a single in-order replay because the two are updated independently by each op kind.
     for (const [entityId, e] of entities) {
-      this.#replayFactOps(e.byRow, `${sKey}:${entityId}`, jobId);
+      this.#replayFactOps(e.factsByKey, `${sKey}:${entityId}`, jobId);
     }
     for (const op of this.#stagedOps(jobId)) {
       switch (op.kind) {
@@ -257,7 +274,7 @@ export class EntityStore implements StagedStore {
     }
     return Array.from(entities.values())
       .filter(e => e.entity !== undefined)
-      .map(({ entity, byRow }) => ({ entity: entity!, facts: Array.from(byRow.values()) }));
+      .map(({ entity, factsByKey }) => ({ entity: entity!, facts: Array.from(factsByKey.values()) }));
   }
 
   /**
@@ -292,24 +309,24 @@ export class EntityStore implements StagedStore {
         }
         case 'record': {
           const fact = op.fact;
-          const rowKey = factRowKeyStrOf(fact);
+          const fKey = factKeyStrOf(fact);
           // Re-recording a fact may change or drop its origin block; keep its original sequence number (so it keeps
           // its creation position) and clear any stale by-block index entry, mirroring the createEntity guard above.
-          const priorBuf = await this.#facts.getAsync(rowKey);
+          const priorBuf = await this.#facts.getAsync(fKey);
           let seq: number;
           if (priorBuf) {
-            const prior = deserializeFactRow(priorBuf);
+            const prior = deserializeFact(priorBuf);
             seq = prior.seq;
             if (prior.fact.originBlock !== undefined) {
-              await this.#factsByBlock.deleteValue(prior.fact.originBlock.blockNumber, rowKey);
+              await this.#factsByBlock.deleteValue(prior.fact.originBlock.blockNumber, fKey);
             }
           } else {
             seq = await this.#nextFactSeq();
           }
-          await this.#facts.set(rowKey, serializeFactRow({ seq, fact }));
-          await this.#factsByEntity.set(entityKeyStrOf(fact), rowKey);
+          await this.#facts.set(fKey, serializeFact(seq, fact));
+          await this.#factsByEntity.set(entityKeyStrOf(fact), fKey);
           if (fact.originBlock !== undefined) {
-            await this.#factsByBlock.set(fact.originBlock.blockNumber, rowKey);
+            await this.#factsByBlock.set(fact.originBlock.blockNumber, fKey);
           }
           break;
         }
@@ -352,7 +369,7 @@ export class EntityStore implements StagedStore {
     for (const eKey of orphanedEntities) {
       const buf = await this.#entities.getAsync(eKey);
       if (!buf) {
-        // An #entitiesByBlock entry must always reference a live #entities row; a missing one means the indexes are
+        // An #entitiesByBlock entry must always reference a live #entities entry; a missing one means the indexes are
         // corrupt, so fail loudly rather than leave a ghost entity behind.
         throw new Error(`Entity not found for entityKey ${eKey}`);
       }
@@ -363,29 +380,29 @@ export class EntityStore implements StagedStore {
     }
 
     // Pass 2: delete remaining retractable facts originating above toBlock whose entity survived pass 1. Pass 1 already
-    // removed the facts_by_block rows of pruned entities, so any leftover row here belongs to a surviving entity.
-    const orphanedFacts: { block: BlockNum; rowKey: FactRowKeyStr }[] = [];
-    for await (const [block, rowKey] of this.#factsByBlock.entriesAsync({ start: toBlock + 1 })) {
-      orphanedFacts.push({ block, rowKey });
+    // removed the facts_by_block entries of pruned entities, so any leftover entry here belongs to a surviving entity.
+    const orphanedFacts: { block: BlockNum; fKey: FactKeyStr }[] = [];
+    for await (const [block, fKey] of this.#factsByBlock.entriesAsync({ start: toBlock + 1 })) {
+      orphanedFacts.push({ block, fKey });
     }
     let removedFacts = 0;
-    for (const { block, rowKey } of orphanedFacts) {
-      const buf = await this.#facts.getAsync(rowKey);
+    for (const { block, fKey } of orphanedFacts) {
+      const buf = await this.#facts.getAsync(fKey);
       if (!buf) {
-        // A still-present by-block entry with no fact row means the indexes are corrupt (pass 1 removes both the row
+        // A still-present by-block entry with no fact means the indexes are corrupt (pass 1 removes both the fact
         // and the by-block entry for pruned entities), so fail loudly rather than leave a dangling index entry.
-        throw new Error(`Fact not found for rowKey ${rowKey}`);
+        throw new Error(`Fact not found for factKey ${fKey}`);
       }
-      const { fact } = deserializeFactRow(buf);
+      const { fact } = deserializeFact(buf);
       const eKey = entityKeyStrOf(fact);
       // Belt-and-braces: a fact whose entity was pruned in pass 1 must not be re-processed here. With #deleteEntity
       // clearing the by-block index this is unreachable, but the guard keeps pass 2 correct if that ever changes.
       if (deletedEntities.has(eKey)) {
         continue;
       }
-      await this.#facts.delete(rowKey);
-      await this.#factsByBlock.deleteValue(block, rowKey);
-      await this.#factsByEntity.deleteValue(eKey, rowKey);
+      await this.#facts.delete(fKey);
+      await this.#factsByBlock.deleteValue(block, fKey);
+      await this.#factsByEntity.deleteValue(eKey, fKey);
       removedFacts++;
     }
     this.logger.verbose('rolled back entity store', { removedEntities, removedFacts, toBlock });
@@ -394,49 +411,49 @@ export class EntityStore implements StagedStore {
   // ---- private helpers ----
 
   /**
-   * Loads the committed facts for an entity keyed by their dedup row key, in creation order. Caller may wrap in a
+   * Loads the committed facts for an entity keyed by their dedup fact key, in creation order. Caller may wrap in a
    * transaction.
    */
-  async #loadCommittedFacts(eKey: EntityKeyStr): Promise<Map<FactRowKeyStr, StoredFact>> {
+  async #loadCommittedFacts(eKey: EntityKeyStr): Promise<Map<FactKeyStr, StoredFact>> {
     // Snapshot the index before issuing point reads so we never interleave reads with a live cursor (IndexedDB
     // cursors are sensitive to what runs between iterations).
-    const rowKeys: FactRowKeyStr[] = [];
-    for await (const rowKey of this.#factsByEntity.getValuesAsync(eKey)) {
-      rowKeys.push(rowKey);
+    const fKeys: FactKeyStr[] = [];
+    for await (const fKey of this.#factsByEntity.getValuesAsync(eKey)) {
+      fKeys.push(fKey);
     }
-    const rows: { rowKey: FactRowKeyStr; seq: number; fact: StoredFact }[] = [];
-    for (const rowKey of rowKeys) {
-      const buf = await this.#facts.getAsync(rowKey);
+    const loaded: { fKey: FactKeyStr; seq: number; fact: StoredFact }[] = [];
+    for (const fKey of fKeys) {
+      const buf = await this.#facts.getAsync(fKey);
       if (!buf) {
-        // A #factsByEntity entry must always reference a live #facts row; a missing one means the indexes are
+        // A #factsByEntity entry must always reference a live #facts entry; a missing one means the indexes are
         // corrupt, so fail loudly rather than silently drop the fact.
-        throw new Error(`Fact not found for rowKey ${rowKey}`);
+        throw new Error(`Fact not found for factKey ${fKey}`);
       }
-      const { seq, fact } = deserializeFactRow(buf);
-      rows.push({ rowKey, seq, fact });
+      const { seq, fact } = deserializeFact(buf);
+      loaded.push({ fKey, seq, fact });
     }
     // Multimap value order is backend-dependent (insertion order on IndexedDB, value-sorted on LMDB); sort by the
     // commit-assigned sequence so facts always come back in creation order.
-    rows.sort((a, b) => a.seq - b.seq);
-    return new Map(rows.map(({ rowKey, fact }) => [rowKey, fact]));
+    loaded.sort((a, b) => a.seq - b.seq);
+    return new Map(loaded.map(({ fKey, fact }) => [fKey, fact]));
   }
 
   /**
-   * Replays a job's staged ops over a committed fact map for read-your-writes: a record sets (dedups) a fact row, a
+   * Replays a job's staged ops over a committed fact map for read-your-writes: a record sets (dedups) a fact, a
    * terminate clears the entity's facts. Order matters so a terminate-then-record sequence resolves to the re-recorded
    * fact. createEntity ops do not affect the fact set.
    */
-  #replayFactOps(byRow: Map<FactRowKeyStr, StoredFact>, eKey: EntityKeyStr, jobId: string): void {
+  #replayFactOps(factsByKey: Map<FactKeyStr, StoredFact>, eKey: EntityKeyStr, jobId: string): void {
     for (const op of this.#stagedOps(jobId)) {
       switch (op.kind) {
         case 'record':
           if (entityKeyStrOf(op.fact) === eKey) {
-            byRow.set(factRowKeyStrOf(op.fact), op.fact);
+            factsByKey.set(factKeyStrOf(op.fact), op.fact);
           }
           break;
         case 'terminate':
           if (entityKeyStrOf(op.key) === eKey) {
-            byRow.clear();
+            factsByKey.clear();
           }
           break;
         case 'createEntity':
@@ -458,22 +475,22 @@ export class EntityStore implements StagedStore {
    */
   async #deleteEntity(key: EntityKey): Promise<void> {
     const eKey = entityKeyStrOf(key);
-    const rowKeys: FactRowKeyStr[] = [];
-    for await (const rowKey of this.#factsByEntity.getValuesAsync(eKey)) {
-      rowKeys.push(rowKey);
+    const fKeys: FactKeyStr[] = [];
+    for await (const fKey of this.#factsByEntity.getValuesAsync(eKey)) {
+      fKeys.push(fKey);
     }
-    for (const rowKey of rowKeys) {
-      const buf = await this.#facts.getAsync(rowKey);
+    for (const fKey of fKeys) {
+      const buf = await this.#facts.getAsync(fKey);
       if (!buf) {
-        // A #factsByEntity entry must always reference a live #facts row; a missing one means the indexes are
+        // A #factsByEntity entry must always reference a live #facts entry; a missing one means the indexes are
         // corrupt, so fail loudly rather than silently skip cleanup.
-        throw new Error(`Fact not found for rowKey ${rowKey}`);
+        throw new Error(`Fact not found for factKey ${fKey}`);
       }
-      const { fact } = deserializeFactRow(buf);
-      await this.#facts.delete(rowKey);
-      await this.#factsByEntity.deleteValue(eKey, rowKey);
+      const { fact } = deserializeFact(buf);
+      await this.#facts.delete(fKey);
+      await this.#factsByEntity.deleteValue(eKey, fKey);
       if (fact.originBlock !== undefined) {
-        await this.#factsByBlock.deleteValue(fact.originBlock.blockNumber, rowKey);
+        await this.#factsByBlock.deleteValue(fact.originBlock.blockNumber, fKey);
       }
     }
     const entityBuf = await this.#entities.getAsync(eKey);

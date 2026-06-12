@@ -658,8 +658,8 @@ describe('EntityStore', () => {
     });
 
     it('getEntity fails loudly when the fact index references a missing row', async () => {
-      await kv.openMultiMap<string, string>('facts_by_entity').set(entityKeyStrOf(keyA), 'bogus-row-key');
-      await expect(store.getEntity(keyA, JOB)).rejects.toThrow('Fact not found for rowKey bogus-row-key');
+      await kv.openMultiMap<string, string>('facts_by_entity').set(entityKeyStrOf(keyA), 'bogus-fact-key');
+      await expect(store.getEntity(keyA, JOB)).rejects.toThrow('Fact not found for factKey bogus-fact-key');
     });
 
     it('rollback fails loudly when the entity by-block index references a missing entity', async () => {
@@ -670,9 +670,9 @@ describe('EntityStore', () => {
     });
 
     it('rollback fails loudly when the fact by-block index references a missing row', async () => {
-      await kv.openMultiMap<number, string>('facts_by_block').set(7, 'bogus-row-key');
+      await kv.openMultiMap<number, string>('facts_by_block').set(7, 'bogus-fact-key');
       await expect(kv.transactionAsync(() => store.rollback(5))).rejects.toThrow(
-        'Fact not found for rowKey bogus-row-key',
+        'Fact not found for factKey bogus-fact-key',
       );
     });
   });
