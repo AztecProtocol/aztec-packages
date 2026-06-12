@@ -6,6 +6,7 @@ import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { ChildContract } from '@aztec/noir-test-contracts.js/Child';
+import type { AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
 
 import { expect, jest } from '@jest/globals';
 
@@ -19,7 +20,7 @@ const TIMEOUT = 300_000;
 describe('e2e_2_pxes', () => {
   jest.setTimeout(TIMEOUT);
 
-  let aztecNode: AztecNode;
+  let aztecNode: AztecNode & AztecNodeDebug;
   let walletA: TestWallet;
   let walletB: TestWallet;
   let accountAAddress: AztecAddress;
@@ -30,12 +31,12 @@ describe('e2e_2_pxes', () => {
   let teardownB: () => Promise<void>;
 
   async function setupSecondaryPXE(
-    node: AztecNode,
+    node: AztecNode & AztecNodeDebug,
     fundedAccounts: InitialAccountData[],
     accountIndex: number,
     pxeName: string,
   ) {
-    const { wallet, teardown } = await setupPXEAndGetWallet(node, {}, undefined, pxeName);
+    const { wallet, teardown } = await setupPXEAndGetWallet(node, node, {}, undefined, pxeName);
     const accountManager = await wallet.createSchnorrAccount(
       fundedAccounts[accountIndex].secret,
       fundedAccounts[accountIndex].salt,

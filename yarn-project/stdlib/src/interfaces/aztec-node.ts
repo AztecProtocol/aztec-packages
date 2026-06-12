@@ -386,12 +386,6 @@ export interface AztecNode {
   getProtocolContractAddresses(): Promise<ProtocolContractAddresses>;
 
   /**
-   * Registers contract function signatures for debugging purposes.
-   * @param functionSignatures - An array of function signatures to register by selector.
-   */
-  registerContractFunctionSignatures(functionSignatures: string[]): Promise<void>;
-
-  /**
    * Gets private logs matching the given tags. Returns one inner array per element of `query.tags`, in
    * input order. An empty inner array means no logs matched that tag. Set `query.includeEffects` to also
    * receive the tx's note hashes and nullifiers.
@@ -569,9 +563,6 @@ export interface AztecNode {
   getProposalsForSlot(slot: SlotNumber): Promise<ProposalsForSlot>;
 }
 
-const MAX_SIGNATURES_PER_REGISTER_CALL = 100;
-const MAX_SIGNATURE_LEN = 10000;
-
 export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   getWorldStateSyncStatus: z.function({ input: z.tuple([]), output: WorldStateSyncStatusSchema }),
 
@@ -693,11 +684,6 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   getL1ContractAddresses: z.function({ input: z.tuple([]), output: L1ContractAddressesSchema }),
 
   getProtocolContractAddresses: z.function({ input: z.tuple([]), output: ProtocolContractAddressesSchema }),
-
-  registerContractFunctionSignatures: z.function({
-    input: z.tuple([z.array(z.string().max(MAX_SIGNATURE_LEN)).max(MAX_SIGNATURES_PER_REGISTER_CALL)]),
-    output: z.void(),
-  }),
 
   getPrivateLogsByTags: z.function({
     input: z.tuple([PrivateLogsQuerySchema]),

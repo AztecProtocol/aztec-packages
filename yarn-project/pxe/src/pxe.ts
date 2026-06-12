@@ -28,7 +28,7 @@ import {
   getContractClassFromArtifact,
 } from '@aztec/stdlib/contract';
 import { SimulationError } from '@aztec/stdlib/errors';
-import type { AztecNode, PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
+import type { AztecNode, AztecNodeDebug, PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
 import type {
   PrivateExecutionStep,
   PrivateKernelExecutionProofOutput,
@@ -162,6 +162,11 @@ export type PreloadedContractsProvider = {
 export type PXECreateArgs = {
   /** The Aztec node to connect to. */
   node: AztecNode;
+  /**
+   * Optional debug API client. When provided, public function signatures are registered with the node so that
+   * node-side public-execution stack traces can be named. Skipped when the node does not expose the debug API.
+   */
+  nodeDebug?: AztecNodeDebug;
   /** The key-value store for persisting PXE state. */
   store: AztecAsyncKVStore;
   /** The prover for generating private kernel proofs. */
@@ -187,6 +192,7 @@ export type PXECreateArgs = {
 export class PXE {
   private constructor(
     private node: AztecNode,
+    private nodeDebug: AztecNodeDebug | undefined,
     private db: AztecAsyncKVStore,
     private blockStateSynchronizer: BlockSynchronizer,
     private keyStore: KeyStore,
@@ -224,6 +230,7 @@ export class PXE {
    */
   public static async create({
     node,
+    nodeDebug,
     store,
     proofCreator,
     simulator,
@@ -302,6 +309,7 @@ export class PXE {
 
     const pxe = new PXE(
       node,
+      nodeDebug,
       store,
       synchronizer,
       keyStore,
@@ -766,7 +774,7 @@ export class PXE {
         .filter(fn => fn.functionType === FunctionType.PUBLIC)
         .map(fn => decodeFunctionSignature(fn.name, fn.parameters));
       if (publicFunctionSignatures.length > 0) {
-        await this.node.registerContractFunctionSignatures(publicFunctionSignatures);
+        await this.nodeDebug?.registerContractFunctionSignatures(publicFunctionSignatures);
       }
     } else {
       // Otherwise, make sure there is an artifact already registered for that class id
@@ -815,7 +823,7 @@ export class PXE {
         .filter(fn => fn.functionType === FunctionType.PUBLIC)
         .map(fn => decodeFunctionSignature(fn.name, fn.parameters));
       if (publicFunctionSignatures.length > 0) {
-        await this.node.registerContractFunctionSignatures(publicFunctionSignatures);
+        await this.nodeDebug?.registerContractFunctionSignatures(publicFunctionSignatures);
       }
 
       currentInstance.currentContractClassId = contractClass.id;
