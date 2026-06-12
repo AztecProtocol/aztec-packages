@@ -73,10 +73,10 @@ export class EmbeddedWallet extends BaseEmbeddedWallet {
    * Creates a new EmbeddedWallet connected to the given Aztec node URL.
    * Sets up an in-browser PXE and registers the SponsoredFPC contract.
    */
-  static async initialize(nodeUrl: string) {
+  static async initialize(nodeUrl: string): Promise<EmbeddedWallet> {
     const isLocal =
       nodeUrl.includes('localhost') || nodeUrl.includes('127.0.0.1');
-    const wallet = await EmbeddedWallet.create(nodeUrl, {
+    const wallet = await EmbeddedWallet.create<EmbeddedWallet>(nodeUrl, {
       ephemeral: true,
       pxeConfig: { proverEnabled: !isLocal },
     });
