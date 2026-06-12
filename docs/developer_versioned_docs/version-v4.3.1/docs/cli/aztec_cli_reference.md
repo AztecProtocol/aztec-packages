@@ -1294,7 +1294,7 @@ aztec setup-protocol-contracts [options]
   *Environment: `$SEQ_SKIP_CHECKPOINT_PUBLISH_PERCENT`*
 
 - `--sequencer.txPublicSetupAllowListExtend <value>`
-  Additional entries to extend the default setup allow list. Format: I:address:selector[:flags],C:classId:selector[:flags]. Flags: os (onlySelf), rn (rejectNullMsgSender), cl=N (calldataLength), joined with +.
+  Additional entries to extend the default setup allow list. Format: `I:address:selector[:flags],C:classId:selector[:flags]`. Flags: os (onlySelf), rn (rejectNullMsgSender), cl=N (calldataLength), joined with +.
   *Environment: `$TX_PUBLIC_SETUP_ALLOWLIST`*
 
 - `--sequencer.keyStoreDirectory <value>`
@@ -1559,6 +1559,8 @@ aztec setup-protocol-contracts [options]
   Optional proof input store for the prover
   *Environment: `$PROVER_PROOF_STORE`*
 
+**P2P SUBSYSTEM**
+
 - `--p2p-enabled [value]`
   Enable P2P subsystem
   *Environment: `$P2P_ENABLED`*
@@ -1728,7 +1730,7 @@ aztec setup-protocol-contracts [options]
   *Environment: `$P2P_STORE_MAP_SIZE_KB`*
 
 - `--p2p.txPublicSetupAllowListExtend <value>`
-  Additional entries to extend the default setup allow list. Format: I:address:selector[:flags],C:classId:selector[:flags]. Flags: os (onlySelf), rn (rejectNullMsgSender), cl=N (calldataLength), joined with +.
+  Additional entries to extend the default setup allow list. Format: `I:address:selector[:flags],C:classId:selector[:flags]`. Flags: os (onlySelf), rn (rejectNullMsgSender), cl=N (calldataLength), joined with +.
   *Environment: `$TX_PUBLIC_SETUP_ALLOWLIST`*
 
 - `--p2p.maxPendingTxCount <value>` (default: `1000`)
@@ -1922,6 +1924,8 @@ aztec setup-protocol-contracts [options]
   Enable uploading transactions to file storage
   *Environment: `$TX_FILE_STORE_ENABLED`*
 
+**P2P BOOTSTRAP**
+
 - `--p2p-bootstrap`
   Starts Aztec P2P Bootstrap with options
 
@@ -1934,8 +1938,186 @@ aztec setup-protocol-contracts [options]
   *Environment: `$PEER_ID_PRIVATE_KEY_PATH`*
 
 - `--p2pBootstrap.queryForIp <value>`
-  If announceUdpAddress or announceTcpAddress are not provided, query for the IP address of the machine. Defau
+  If announceUdpAddress or announceTcpAddress are not provided, query for the IP address of the machine. Default is false.
   *Environment: `$P2P_QUERY_FOR_IP`*
+
+**TELEMETRY**
+
+- `--tel.metricsCollectorUrl <value>`
+  The URL of the telemetry collector for metrics
+  *Environment: `$OTEL_EXPORTER_OTLP_METRICS_ENDPOINT`*
+
+- `--tel.tracesCollectorUrl <value>`
+  The URL of the telemetry collector for traces
+  *Environment: `$OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`*
+
+- `--tel.logsCollectorUrl <value>`
+  The URL of the telemetry collector for logs
+  *Environment: `$OTEL_EXPORTER_OTLP_LOGS_ENDPOINT`*
+
+- `--tel.otelCollectIntervalMs <value>` (default: `60000`)
+  The interval at which to collect metrics
+  *Environment: `$OTEL_COLLECT_INTERVAL_MS`*
+
+- `--tel.otelExportTimeoutMs <value>` (default: `30000`)
+  The timeout for exporting metrics
+  *Environment: `$OTEL_EXPORT_TIMEOUT_MS`*
+
+- `--tel.otelExcludeMetrics <value>`
+  A list of metric prefixes to exclude from export
+  *Environment: `$OTEL_EXCLUDE_METRICS`*
+
+- `--tel.otelIncludeMetrics <value>`
+  A list of metric prefixes to include in export (ignored if OTEL_EXCLUDE_METRICS is set)
+  *Environment: `$OTEL_INCLUDE_METRICS`*
+
+- `--tel.publicMetricsCollectorUrl <value>`
+  A URL to publish a subset of metrics for public consumption
+  *Environment: `$PUBLIC_OTEL_EXPORTER_OTLP_METRICS_ENDPOINT`*
+
+- `--tel.publicMetricsCollectFrom <value>`
+  The role types to collect metrics from
+  *Environment: `$PUBLIC_OTEL_COLLECT_FROM`*
+
+- `--tel.publicIncludeMetrics <value>`
+  A list of metric prefixes to publicly export
+  *Environment: `$PUBLIC_OTEL_INCLUDE_METRICS`*
+
+- `--tel.publicMetricsOptOut <value>` (default: `true`)
+  Whether to opt out of sharing optional telemetry
+  *Environment: `$PUBLIC_OTEL_OPT_OUT`*
+
+**BOT**
+
+- `--bot`
+  Starts Aztec Bot with options
+
+- `--bot.nodeUrl <value>`
+  The URL to the Aztec node to check for tx pool status.
+  *Environment: `$AZTEC_NODE_URL`*
+
+- `--bot.nodeAdminUrl <value>`
+  The URL to the Aztec node admin API to force-flush txs if configured.
+  *Environment: `$AZTEC_NODE_ADMIN_URL`*
+
+- `--bot.l1Mnemonic <value>`
+  The mnemonic for the account to bridge fee juice from L1.
+  *Environment: `$BOT_L1_MNEMONIC`*
+
+- `--bot.l1PrivateKey <value>`
+  The private key for the account to bridge fee juice from L1.
+  *Environment: `$BOT_L1_PRIVATE_KEY`*
+
+- `--bot.l1ToL2MessageTimeoutSeconds <value>` (default: `3600`)
+  How long to wait for L1 to L2 messages to become available on L2
+  *Environment: `$BOT_L1_TO_L2_TIMEOUT_SECONDS`*
+
+- `--bot.senderPrivateKey <value>`
+  Signing private key for the sender account.
+  *Environment: `$BOT_PRIVATE_KEY`*
+
+- `--bot.senderSalt <value>`
+  The salt to use to deploy the sender account.
+  *Environment: `$BOT_ACCOUNT_SALT`*
+
+- `--bot.tokenSalt <value>` (default: `0x0000000000000000000000000000000000000000000000000000000000000001`)
+  The salt to use to deploy the token contract.
+  *Environment: `$BOT_TOKEN_SALT`*
+
+- `--bot.txIntervalSeconds <value>` (default: `60`)
+  Every how many seconds should a new tx be sent.
+  *Environment: `$BOT_TX_INTERVAL_SECONDS`*
+
+- `--bot.privateTransfersPerTx <value>` (default: `1`)
+  How many private token transfers are executed per tx.
+  *Environment: `$BOT_PRIVATE_TRANSFERS_PER_TX`*
+
+- `--bot.publicTransfersPerTx <value>` (default: `1`)
+  How many public token transfers are executed per tx.
+  *Environment: `$BOT_PUBLIC_TRANSFERS_PER_TX`*
+
+- `--bot.feePaymentMethod <value>` (default: `fee_juice`)
+  How to handle fee payments. (Options: fee_juice)
+  *Environment: `$BOT_FEE_PAYMENT_METHOD`*
+
+- `--bot.minFeePadding <value>` (default: `3`)
+  How much is the bot willing to overpay vs. the current base fee
+  *Environment: `$BOT_MIN_FEE_PADDING`*
+
+- `--bot.noStart <value>`
+  True to not automatically setup or start the bot on initialization.
+  *Environment: `$BOT_NO_START`*
+
+- `--bot.txMinedWaitSeconds <value>` (default: `180`)
+  How long to wait for a tx to be mined before reporting an error.
+  *Environment: `$BOT_TX_MINED_WAIT_SECONDS`*
+
+- `--bot.followChain <value>` (default: `NONE`)
+  Which chain the bot follows
+  *Environment: `$BOT_FOLLOW_CHAIN`*
+
+- `--bot.maxPendingTxs <value>` (default: `128`)
+  Do not send a tx if the node's tx pool already has this many pending txs.
+  *Environment: `$BOT_MAX_PENDING_TXS`*
+
+- `--bot.flushSetupTransactions <value>`
+  Make a request for the sequencer to build a block after each setup transaction.
+  *Environment: `$BOT_FLUSH_SETUP_TRANSACTIONS`*
+
+- `--bot.l2GasLimit <value>`
+  L2 gas limit for the tx (empty to let the bot's wallet estimate).
+  *Environment: `$BOT_L2_GAS_LIMIT`*
+
+- `--bot.daGasLimit <value>`
+  DA gas limit for the tx (empty to let the bot's wallet estimate).
+  *Environment: `$BOT_DA_GAS_LIMIT`*
+
+- `--bot.contract <value>` (default: `TokenContract`)
+  Token contract to use
+  *Environment: `$BOT_TOKEN_CONTRACT`*
+
+- `--bot.maxConsecutiveErrors <value>`
+  The maximum number of consecutive errors before the bot shuts down
+  *Environment: `$BOT_MAX_CONSECUTIVE_ERRORS`*
+
+- `--bot.stopWhenUnhealthy <value>`
+  Stops the bot if service becomes unhealthy
+  *Environment: `$BOT_STOP_WHEN_UNHEALTHY`*
+
+- `--bot.botMode <value>` (default: `transfer`)
+  Bot mode: transfer, amm, or crosschain
+  *Environment: `$BOT_MODE`*
+
+- `--bot.l2ToL1MessagesPerTx <value>` (default: `1`)
+  Number of L2→L1 messages per tx (crosschain mode)
+  *Environment: `$BOT_L2_TO_L1_MESSAGES_PER_TX`*
+
+- `--bot.l1ToL2SeedCount <value>` (default: `1`)
+  Max L1→L2 messages to keep in-flight (crosschain mode)
+  *Environment: `$BOT_L1_TO_L2_SEED_COUNT`*
+
+**PXE**
+
+- `--pxe.l2BlockBatchSize <value>` (default: `50`)
+  Maximum amount of blocks to pull from the stream in one request when synchronizing
+  *Environment: `$PXE_L2_BLOCK_BATCH_SIZE`*
+
+- `--pxe.proverEnabled <value>` (default: `true`)
+  Enable real proofs
+  *Environment: `$PXE_PROVER_ENABLED`*
+
+- `--pxe.syncChainTip <value>` (default: `proposed`)
+  Which chain tip to sync to (proposed, checkpointed, proven, finalized)
+  *Environment: `$PXE_SYNC_CHAIN_TIP`*
+
+- `--pxe.nodeUrl <value>`
+  Custom Aztec Node URL to connect to
+  *Environment: `$AZTEC_NODE_URL`*
+
+**TXE**
+
+- `--txe`
+  Starts Aztec TXE with options
 
 ### aztec test
 

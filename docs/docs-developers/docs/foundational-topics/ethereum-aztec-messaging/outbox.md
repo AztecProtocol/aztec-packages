@@ -46,8 +46,8 @@ Allows a recipient to consume a message from the `Outbox`.
 - Will revert with `Outbox__VersionMismatch(uint256 expected, uint256 actual)` if the message version does not match the Outbox version.
 - Will revert with `Outbox__InvalidRecipient(address expected, address actual)` if `msg.sender != _message.recipient.actor`.
 - Will revert with `Outbox__InvalidChainId()` if `block.chainid != _message.recipient.chainId`.
-- Will revert with `Outbox__NothingToConsumeAtEpoch(uint256 epochNumber)` if the root for the epoch has not been set.
-- Will revert with `Outbox__AlreadyNullified(uint256 epochNumber, uint256 leafIndex)` if the message has already been consumed.
+- Will revert with `Outbox__NothingToConsumeAtEpoch(Epoch epoch)` if the root for the epoch has not been set.
+- Will revert with `Outbox__AlreadyNullified(Epoch epoch, uint256 leafIndex)` if the message has already been consumed.
 - Will revert with `MerkleLib__InvalidIndexForPathLength()` if the leaf index has bits set beyond the tree height.
 - Will revert with `MerkleLib__InvalidRoot(bytes32 expected, bytes32 actual, bytes32 leaf, uint256 leafIndex)` if the merkle proof verification fails.
 
