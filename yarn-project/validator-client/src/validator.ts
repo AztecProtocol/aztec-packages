@@ -250,7 +250,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     const metrics = new ValidatorMetrics(telemetry);
     const consensusTimetable = new ConsensusTimetable({
       l1Constants: epochCache.getL1Constants(),
-      blockDuration: config.blockDurationMs !== undefined ? config.blockDurationMs / 1000 : undefined,
+      blockDuration: config.blockDurationMs / 1000,
     });
     const blockProposalValidator = new BlockProposalValidator(epochCache, consensusTimetable, {
       txsPermitted: !config.disableTransactions,

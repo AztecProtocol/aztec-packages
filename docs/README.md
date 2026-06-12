@@ -276,8 +276,8 @@ The Node JSON-RPC API reference is auto-generated from the TypeScript interface 
 
 **Source files:**
 
-- `yarn-project/stdlib/src/interfaces/aztec-node.ts` — `AztecNode` interface (`node_` methods)
-- `yarn-project/stdlib/src/interfaces/aztec-node-admin.ts` — `AztecNodeAdmin` interface (`nodeAdmin_` methods)
+- `yarn-project/stdlib/src/interfaces/aztec-node.ts` — `AztecNode` interface (`aztec_` methods)
+- `yarn-project/stdlib/src/interfaces/aztec-node-admin.ts` — `AztecNodeAdmin` interface (`aztecAdmin_` methods)
 - `yarn-project/stdlib/src/block/l2_block_source.ts` — `L2BlockSource` interface (JSDoc for inherited methods)
 
 **Prerequisites:** `yarn-project` must have `node_modules/` installed so `npx tsx` can resolve `typescript`. Run `yarn install` from `yarn-project` if needed. No build is required — the generator parses source `.ts` files via the TypeScript Compiler API, not compiled output.

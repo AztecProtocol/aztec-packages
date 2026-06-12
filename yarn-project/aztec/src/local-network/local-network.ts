@@ -6,20 +6,17 @@ import { Fr } from '@aztec/aztec.js/fields';
 import { createLogger } from '@aztec/aztec.js/log';
 import { type BlobClientInterface, createBlobClient } from '@aztec/blob-client/client';
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
-import { createEthereumChain } from '@aztec/ethereum/chain';
 import { waitForPublicClient } from '@aztec/ethereum/client';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
 import { NULL_KEY } from '@aztec/ethereum/constants';
 import { deployAztecL1Contracts } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
-import { EthCheatCodes } from '@aztec/ethereum/test';
 import { SecretValue } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { LogFn } from '@aztec/foundation/log';
 import { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
-import { SequencerState } from '@aztec/sequencer-client';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ProvingJobBroker } from '@aztec/stdlib/interfaces/server';
 import { TxStatus } from '@aztec/stdlib/tx';
@@ -30,17 +27,15 @@ import {
   initTelemetryClient,
 } from '@aztec/telemetry-client';
 import { EmbeddedWallet } from '@aztec/wallets/embedded';
-import { deployFundedSchnorrAccounts } from '@aztec/wallets/testing';
+import { createFundedInitializerlessAccounts } from '@aztec/wallets/testing';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
-import { type Hex, createPublicClient, fallback, http as httpViemTransport } from 'viem';
+import type { Hex } from 'viem';
 import { mnemonicToAccount, privateKeyToAddress } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
 import { createAccountLogs } from '../cli/util.js';
 import { DefaultMnemonic } from '../mnemonic.js';
-import { AnvilTestWatcher } from '../testing/anvil_test_watcher.js';
-import { EpochTestSettler } from '../testing/epoch_test_settler.js';
 import { getTokenAllowedSetupFunctions } from '../testing/token_allowed_setup.js';
 import { publishStandardAuthRegistry } from './auth_registry.js';
 import { getBananaFPCAddress, setupBananaFPC } from './banana_fpc.js';
@@ -53,8 +48,6 @@ const logger = createLogger('local-network');
 // pruned before its checkpoint is published, dropping a tx we already moved on from ("Tx dropped by
 // P2P node"). Wait for the checkpoint so each setup tx is durably included before the next is sent.
 const setupWaitOpts = { waitForStatus: TxStatus.CHECKPOINTED };
-
-const localAnvil = foundry;
 
 /**
  * Function to deploy our L1 contracts to the local network L1
@@ -116,11 +109,29 @@ export async function createLocalNetwork(config: Partial<LocalNetworkConfig> = {
   // in the setup allowlist so FPC-based fee payments work out of the box.
   const tokenAllowList = await getTokenAllowedSetupFunctions();
 
+  const envConfig = getConfigEnvVars();
   const aztecNodeConfig: AztecNodeConfig = {
-    ...getConfigEnvVars(),
+    ...envConfig,
     ...config,
     skipOrphanProposedBlockPruning: true,
     txPublicSetupAllowListExtend: [...tokenAllowList, ...(config.txPublicSetupAllowListExtend ?? [])],
+    // The local network runs against anvil with no committee, so it defaults to the deterministic
+    // AutomineSequencer, which owns L1 time control (warps the dateProvider and L1 timestamps to slot
+    // boundaries as it builds), replacing the deleted AnvilTestWatcher. This remains true when p2p is
+    // enabled for local peer testing; local-network is not a mode for connecting to an existing network.
+    useAutomineSequencer: config.useAutomineSequencer ?? true,
+    // The AutomineSequencer owns epoch proving in the local network — it writes epoch out hashes to
+    // the L1 Outbox and advances the proven tip as checkpoints land, through the same serial queue as
+    // its builds — replacing the standalone EpochTestSettler that used to race the build loop.
+    automineEnableProveEpoch: config.automineEnableProveEpoch ?? true,
+    // Defaults for the local network / sandbox; callers (e.g. the CLI) may override. No real proving
+    // happens here — the AutomineSequencer synthetically settles epochs. Short epochs let it write out
+    // hashes quickly (so users can consume L2-to-L1 messages without a long wait), with a wider
+    // proof-submission window so the synthetic settler has headroom before the rollup would prune an
+    // unproven checkpoint.
+    realProofs: config.realProofs ?? false,
+    aztecEpochDuration: config.aztecEpochDuration ?? 4,
+    aztecProofSubmissionEpochs: config.aztecProofSubmissionEpochs ?? 2,
   };
   const hdAccount = mnemonicToAccount(config.l1Mnemonic || DefaultMnemonic);
   if (
@@ -144,7 +155,7 @@ export async function createLocalNetwork(config: Partial<LocalNetworkConfig> = {
   const initialAccounts = await (async () => {
     if (config.testAccounts === true || config.testAccounts === undefined) {
       if (aztecNodeConfig.p2pEnabled) {
-        userLog(`Not setting up test accounts as we are connecting to a network`);
+        userLog(`Not setting up test accounts when p2p is enabled`);
       } else {
         userLog(`Setting up test accounts`);
         return await getInitialTestAccountsData();
@@ -165,84 +176,17 @@ export async function createLocalNetwork(config: Partial<LocalNetworkConfig> = {
 
   const dateProvider = new TestDateProvider();
 
-  let cheatcodes: EthCheatCodes | undefined;
-  let rollupAddress: EthAddress | undefined;
-  let watcher: AnvilTestWatcher | undefined;
   if (!aztecNodeConfig.p2pEnabled) {
-    ({ rollupAddress } = await deployContractsToL1(
-      aztecNodeConfig,
-      aztecNodeConfig.validatorPrivateKeys.getValue()[0],
-      {
-        genesisArchiveRoot,
-        feeJuicePortalInitialBalance: fundingNeeded,
-      },
-    ));
-
-    const chain =
-      aztecNodeConfig.l1RpcUrls.length > 0
-        ? createEthereumChain([l1RpcUrl], aztecNodeConfig.l1ChainId)
-        : { chainInfo: localAnvil };
-
-    const publicClient = createPublicClient({
-      chain: chain.chainInfo,
-      transport: fallback([httpViemTransport(l1RpcUrl)]) as any,
+    await deployContractsToL1(aztecNodeConfig, aztecNodeConfig.validatorPrivateKeys.getValue()[0], {
+      genesisArchiveRoot,
+      feeJuicePortalInitialBalance: fundingNeeded,
     });
-
-    cheatcodes = new EthCheatCodes([l1RpcUrl], dateProvider);
-
-    watcher = new AnvilTestWatcher(cheatcodes, rollupAddress, publicClient, dateProvider);
-    watcher.setisLocalNetwork(true);
-    watcher.setIsMarkingAsProven(false); // Do not mark as proven in the watcher. It's marked in the epochTestSettler after the out hash is set.
-
-    await watcher.start();
   }
 
   const telemetry = await initTelemetryClient(getTelemetryClientConfig());
   // Create a local blob client client inside the local network, no http connectivity
   const blobClient = createBlobClient();
   const node = await createAztecNode(aztecNodeConfig, { telemetry, blobClient, dateProvider }, { genesis });
-
-  // Now that the node is up, let the watcher check for pending txs so it can skip unfilled slots faster when
-  // transactions are waiting in the mempool. Also let it check if the sequencer is actively building, to avoid
-  // warping time out from under an in-progress block.
-  watcher?.setGetPendingTxCount(() => node.getPendingTxCount());
-  const sequencer = node.getSequencer()?.getSequencer();
-  if (sequencer) {
-    const idleStates: Set<string> = new Set([
-      SequencerState.STOPPED,
-      SequencerState.STOPPING,
-      SequencerState.IDLE,
-      SequencerState.SYNCHRONIZING,
-    ]);
-    watcher?.setIsSequencerBuilding(() => !idleStates.has(sequencer.getState()));
-    // Under proposer pipelining the L1 publish for slot N happens during wall-clock slot N,
-    // but the proposer for slot N has already built the checkpoint during slot N-1 and is
-    // waiting for L1 to advance. We need to fast-forward L1 to wake that wait — and the wait
-    // we have to break first is `waitForValidParentCheckpointOnL1`, which blocks the
-    // checkpoint_proposal_job's background submission task until the archiver has synced past
-    // the build slot. That wait happens *before* `PUBLISHING_CHECKPOINT` is set, so a hook on
-    // that state transition would be circular (L1 has to advance before the state we'd use to
-    // advance L1 fires). The earliest pre-wait signal is `block-proposed`, which the sequencer
-    // emits once each block is built. In sandbox single-block-per-slot mode this is
-    // effectively "checkpoint built", and the watcher warp is harmless if a subsequent
-    // assembly/validation/parent-wait step aborts: L1 just sits one slot ahead, which the
-    // cascade absorbs.
-    if (watcher) {
-      sequencer.on('block-proposed', ({ slot }) => watcher!.setProposedTargetSlot(Number(slot)));
-    }
-  }
-
-  let epochTestSettler: EpochTestSettler | undefined;
-  if (!aztecNodeConfig.p2pEnabled) {
-    epochTestSettler = new EpochTestSettler(
-      cheatcodes!,
-      rollupAddress!,
-      node.getBlockSource(),
-      logger.createChild('epoch-settler'),
-      { pollingIntervalMs: 200 },
-    );
-    await epochTestSettler.start();
-  }
 
   if (initialAccounts.length) {
     const wallet = await EmbeddedWallet.create(node, {
@@ -251,7 +195,7 @@ export async function createLocalNetwork(config: Partial<LocalNetworkConfig> = {
     });
 
     userLog('Setting up funded test accounts...');
-    const accountManagers = await deployFundedSchnorrAccounts(wallet, initialAccounts, setupWaitOpts);
+    const accountManagers = await createFundedInitializerlessAccounts(wallet, initialAccounts);
     const accLogs = await createAccountLogs(accountManagers, wallet);
     userLog(accLogs.join(''));
 
@@ -268,8 +212,6 @@ export async function createLocalNetwork(config: Partial<LocalNetworkConfig> = {
 
   const stop = async () => {
     await node.stop();
-    await watcher?.stop();
-    await epochTestSettler?.stop();
   };
 
   return { node, stop };

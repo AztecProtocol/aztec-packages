@@ -163,7 +163,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
       checkpointProposalSyncGrace: number;
       orphanPruneNoProposalTolerance: number;
       skipOrphanProposedBlockPruning: boolean;
-      blockDuration: number | undefined;
+      blockDuration: number;
     },
     private readonly blobClient: BlobClientInterface,
     instrumentation: ArchiverInstrumentation,
@@ -662,6 +662,15 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
 
   public removeCheckpointsAfter(checkpointNumber: CheckpointNumber): Promise<boolean> {
     return this.updater.removeCheckpointsAfter(checkpointNumber);
+  }
+
+  /**
+   * Removes all uncheckpointed blocks strictly after `blockNumber`, along with the proposed checkpoints
+   * that referenced them. Used by the AutomineSequencer to undo a local insert whose propose tx failed
+   * to land on L1 (no reorg needed — nothing reached L1). Refuses to touch checkpointed blocks.
+   */
+  public removeUncheckpointedBlocksAfter(blockNumber: BlockNumber): Promise<L2Block[]> {
+    return this.updater.removeUncheckpointedBlocksAfter(blockNumber);
   }
 
   /** Used by TXE to add checkpoints directly without syncing from L1. */

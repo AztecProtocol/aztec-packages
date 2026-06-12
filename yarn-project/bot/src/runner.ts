@@ -2,6 +2,7 @@ import { createLogger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { omit } from '@aztec/foundation/collection';
 import { RunningPromise } from '@aztec/foundation/running-promise';
+import type { BlockTag } from '@aztec/stdlib/block';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 import type { EmbeddedWallet } from '@aztec/wallets/embedded';
@@ -30,6 +31,7 @@ export class BotRunner implements BotRunnerApi, Traceable {
     private readonly telemetry: TelemetryClient,
     private readonly aztecNodeAdmin: AztecNodeAdmin | undefined,
     private readonly store: BotStore,
+    private readonly syncChainTip?: BlockTag,
   ) {
     this.tracer = telemetry.getTracer('Bot');
 
@@ -149,13 +151,34 @@ export class BotRunner implements BotRunnerApi, Traceable {
     try {
       switch (this.config.botMode) {
         case 'crosschain':
-          this.bot = CrossChainBot.create(this.config, this.wallet, this.aztecNode, this.aztecNodeAdmin, this.store);
+          this.bot = CrossChainBot.create(
+            this.config,
+            this.wallet,
+            this.aztecNode,
+            this.aztecNodeAdmin,
+            this.store,
+            this.syncChainTip,
+          );
           break;
         case 'amm':
-          this.bot = AmmBot.create(this.config, this.wallet, this.aztecNode, this.aztecNodeAdmin, this.store);
+          this.bot = AmmBot.create(
+            this.config,
+            this.wallet,
+            this.aztecNode,
+            this.aztecNodeAdmin,
+            this.store,
+            this.syncChainTip,
+          );
           break;
         case 'transfer':
-          this.bot = Bot.create(this.config, this.wallet, this.aztecNode, this.aztecNodeAdmin, this.store);
+          this.bot = Bot.create(
+            this.config,
+            this.wallet,
+            this.aztecNode,
+            this.aztecNodeAdmin,
+            this.store,
+            this.syncChainTip,
+          );
           break;
         default: {
           const _exhaustive: never = this.config.botMode;

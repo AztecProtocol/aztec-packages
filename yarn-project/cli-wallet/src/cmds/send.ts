@@ -42,10 +42,10 @@ export async function send(
   const localStart = performance.now();
   const sim = await call.simulate({
     ...sendOptions,
-    fee: { ...sendOptions.fee, estimateGas: true },
+    includeMetadata: true,
   });
-  // estimateGas: true guarantees these fields are present
-  const estimatedGas = sim.estimatedGas!;
+  // includeMetadata: true guarantees these fields are present
+  const estimatedGas = await wallet.estimateGasLimits(sim.gasUsed!);
   const stats = sim.stats!;
 
   if (feeOpts.estimateOnly) {

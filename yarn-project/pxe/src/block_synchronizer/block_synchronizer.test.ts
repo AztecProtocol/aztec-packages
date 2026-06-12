@@ -136,7 +136,14 @@ describe('BlockSynchronizer', () => {
     await synchronizer.handleBlockStreamEvent({
       type: 'chain-pruned',
       block: makeL2BlockId(reorgBlock.number, reorgResponse.hash.toString()),
-      checkpoint: makeL2CheckpointId(CheckpointNumber.ZERO, GENESIS_CHECKPOINT_HEADER_HASH.toString()),
+      checkpointed: {
+        block: makeL2BlockId(BlockNumber.ZERO, GENESIS_BLOCK_HEADER_HASH.toString()),
+        checkpoint: makeL2CheckpointId(CheckpointNumber.ZERO, GENESIS_CHECKPOINT_HEADER_HASH.toString()),
+      },
+      proven: {
+        block: makeL2BlockId(BlockNumber.ZERO, GENESIS_BLOCK_HEADER_HASH.toString()),
+        checkpoint: makeL2CheckpointId(CheckpointNumber.ZERO, GENESIS_CHECKPOINT_HEADER_HASH.toString()),
+      },
     });
 
     // The anchor block should be updated to the reorg block header.
@@ -230,7 +237,14 @@ describe('BlockSynchronizer', () => {
       await synchronizer.handleBlockStreamEvent({
         type: 'chain-pruned',
         block: block3,
-        checkpoint: makeL2CheckpointId(CheckpointNumber.ZERO, GENESIS_CHECKPOINT_HEADER_HASH.toString()),
+        checkpointed: {
+          block: makeL2BlockId(BlockNumber.ZERO, GENESIS_BLOCK_HEADER_HASH.toString()),
+          checkpoint: makeL2CheckpointId(CheckpointNumber.ZERO, GENESIS_CHECKPOINT_HEADER_HASH.toString()),
+        },
+        proven: {
+          block: makeL2BlockId(BlockNumber.ZERO, GENESIS_BLOCK_HEADER_HASH.toString()),
+          checkpoint: makeL2CheckpointId(CheckpointNumber.ZERO, GENESIS_CHECKPOINT_HEADER_HASH.toString()),
+        },
       });
 
       // Rows at blocks 4 and 5 must be gone.
@@ -265,6 +279,7 @@ describe('BlockSynchronizer', () => {
       await synchronizer.handleBlockStreamEvent({
         type: 'chain-finalized',
         block: block9,
+        checkpoint: makeL2CheckpointId(CheckpointNumber(1), Fr.random().toString()),
       });
 
       // Finalization is a no-op for storage under delete-on-prune, every row at and below the tip survives.
@@ -304,7 +319,14 @@ describe('BlockSynchronizer', () => {
       await synchronizer.handleBlockStreamEvent({
         type: 'chain-pruned',
         block: block1,
-        checkpoint: makeL2CheckpointId(CheckpointNumber.ZERO, GENESIS_CHECKPOINT_HEADER_HASH.toString()),
+        checkpointed: {
+          block: makeL2BlockId(BlockNumber.ZERO, GENESIS_BLOCK_HEADER_HASH.toString()),
+          checkpoint: makeL2CheckpointId(CheckpointNumber.ZERO, GENESIS_CHECKPOINT_HEADER_HASH.toString()),
+        },
+        proven: {
+          block: makeL2BlockId(BlockNumber.ZERO, GENESIS_BLOCK_HEADER_HASH.toString()),
+          checkpoint: makeL2CheckpointId(CheckpointNumber.ZERO, GENESIS_CHECKPOINT_HEADER_HASH.toString()),
+        },
       });
 
       // Blocks 2 and 3 deleted.
@@ -408,6 +430,7 @@ describe('BlockSynchronizer', () => {
       await synchronizer.handleBlockStreamEvent({
         type: 'chain-proven',
         block: { number: BlockNumber(5), hash: '0x789' },
+        checkpoint: { number: CheckpointNumber(1), hash: '0x789c' },
       });
 
       const obtainedHeader = await anchorBlockStore.getBlockHeader();
@@ -428,6 +451,7 @@ describe('BlockSynchronizer', () => {
       await synchronizer.handleBlockStreamEvent({
         type: 'chain-finalized',
         block: { number: BlockNumber(10), hash: '0xabc' },
+        checkpoint: { number: CheckpointNumber(2), hash: '0xabcc' },
       });
 
       const obtainedHeader = await anchorBlockStore.getBlockHeader();
@@ -445,7 +469,14 @@ describe('BlockSynchronizer', () => {
       await synchronizer.handleBlockStreamEvent({
         type: 'chain-pruned',
         block: { number: BlockNumber(3), hash: '0x3' },
-        checkpoint: makeL2CheckpointId(CheckpointNumber.ZERO, GENESIS_CHECKPOINT_HEADER_HASH.toString()),
+        checkpointed: {
+          block: makeL2BlockId(BlockNumber.ZERO, GENESIS_BLOCK_HEADER_HASH.toString()),
+          checkpoint: makeL2CheckpointId(CheckpointNumber.ZERO, GENESIS_CHECKPOINT_HEADER_HASH.toString()),
+        },
+        proven: {
+          block: makeL2BlockId(BlockNumber.ZERO, GENESIS_BLOCK_HEADER_HASH.toString()),
+          checkpoint: makeL2CheckpointId(CheckpointNumber.ZERO, GENESIS_CHECKPOINT_HEADER_HASH.toString()),
+        },
       });
 
       // Anchor should be unchanged

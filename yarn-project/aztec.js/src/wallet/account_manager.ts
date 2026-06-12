@@ -62,7 +62,7 @@ export class AccountManager {
       salt,
       publicKeys,
       deployer: opts?.deployer,
-      immutablesHash: opts?.immutablesHash,
+      immutablesHash: opts?.immutablesHash ?? (await accountContract.getImmutablesHash()),
     });
 
     return new AccountManager(wallet, secretKey, accountContract, instance);
