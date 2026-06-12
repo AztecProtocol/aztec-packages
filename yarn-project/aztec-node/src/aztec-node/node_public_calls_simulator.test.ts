@@ -473,7 +473,10 @@ describe('NodePublicCallsSimulator', () => {
       expect(globalVariableBuilder.buildCheckpointGlobalVariables).toHaveBeenCalledTimes(2);
     });
 
-    it('recomputes when the proposed checkpoint changes hash but not its numbers', async () => {
+    // Opening a new checkpoint while pipelining: a proposed (not yet L1-confirmed) parent exists, so
+    // the fee computation reads the grandparent fee header off the rollup. Returns the base args for
+    // `makeProposedCheckpointData` so tests can vary a single field of the proposed parent.
+    const setupPipelining = () => {
       blockSource.getL2Tips.mockResolvedValue(
         makeTips({ proposed: BlockNumber(5), checkpointedBlock: BlockNumber(5), checkpointed: CheckpointNumber(2) }),
       );
@@ -483,18 +486,50 @@ describe('NodePublicCallsSimulator', () => {
       rollupContract.getManaTarget.mockResolvedValue(1000n);
       jest.spyOn(RollupContract, 'computeChildFeeHeader').mockReturnValue(makeFeeHeader());
 
-      const base = {
+      return {
         checkpointNumber: CheckpointNumber(3),
         lastBlock: BlockNumber(5),
         slotNumber: SlotNumber(30),
         archiveRoot: Fr.fromString('0xabcabc'),
       };
+    };
+
+    it('recomputes when the proposed checkpoint changes hash but not its numbers', async () => {
+      const base = setupPipelining();
       blockSource.getProposedCheckpointData.mockResolvedValueOnce(makeProposedCheckpointData(base));
       await simulator.simulate(await lowGasTx());
 
       // Same checkpoint number and slot, different header content (a re-proposed checkpoint).
       blockSource.getProposedCheckpointData.mockResolvedValueOnce(
         makeProposedCheckpointData({ ...base, headerArchiveRoot: Fr.fromString('0xbeef') }),
+      );
+      await simulator.simulate(await lowGasTx());
+
+      expect(globalVariableBuilder.buildCheckpointGlobalVariables).toHaveBeenCalledTimes(2);
+    });
+
+    it('recomputes when only the fee asset price modifier of the proposed checkpoint changes', async () => {
+      const base = setupPipelining();
+      blockSource.getProposedCheckpointData.mockResolvedValueOnce(makeProposedCheckpointData(base));
+      await simulator.simulate(await lowGasTx());
+
+      // The header hash does not commit to the modifier, so the key must catch this change on its own.
+      blockSource.getProposedCheckpointData.mockResolvedValueOnce(
+        makeProposedCheckpointData({ ...base, feeAssetPriceModifier: 9n }),
+      );
+      await simulator.simulate(await lowGasTx());
+
+      expect(globalVariableBuilder.buildCheckpointGlobalVariables).toHaveBeenCalledTimes(2);
+    });
+
+    it('recomputes when only the stored total mana used of the proposed checkpoint changes', async () => {
+      const base = setupPipelining();
+      blockSource.getProposedCheckpointData.mockResolvedValueOnce(makeProposedCheckpointData(base));
+      await simulator.simulate(await lowGasTx());
+
+      // The fee-header override consumes the separately-stored bigint, not the header's committed field.
+      blockSource.getProposedCheckpointData.mockResolvedValueOnce(
+        makeProposedCheckpointData({ ...base, totalManaUsed: 556n }),
       );
       await simulator.simulate(await lowGasTx());
 
@@ -550,6 +585,7 @@ function makeProposedCheckpointData(args: {
   // (e.g. an equivocation), so their header hashes — and thus the fee-cache key — differ.
   headerArchiveRoot?: Fr;
   feeAssetPriceModifier?: bigint;
+  totalManaUsed?: bigint;
 }): ProposedCheckpointData {
   return {
     checkpointNumber: args.checkpointNumber,
@@ -559,7 +595,7 @@ function makeProposedCheckpointData(args: {
     }),
     startBlock: args.lastBlock,
     blockCount: 1,
-    totalManaUsed: 555n,
+    totalManaUsed: args.totalManaUsed ?? 555n,
     feeAssetPriceModifier: args.feeAssetPriceModifier ?? 7n,
     archive: new AppendOnlyTreeSnapshot(args.archiveRoot ?? Fr.ZERO, 0),
     checkpointOutHash: Fr.fromString('0xfeed'),

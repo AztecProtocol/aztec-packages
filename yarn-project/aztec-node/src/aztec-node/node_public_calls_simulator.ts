@@ -355,13 +355,17 @@ export class NodePublicCallsSimulator {
     checkpointedCheckpoint: L2Tips['checkpointed']['checkpoint'];
     validationStatus: ValidateCheckpointResult;
   }): Promise<CheckpointGlobalVariables> {
+    // With no rollup contract there are no L1 round trips to save and no L1 block number to bound
+    // staleness with, so skip caching entirely rather than cache under a key with no L1 component.
+    if (!this.rollupContract) {
+      return this.buildCheckpointGlobalVariables({ ...inputs, l1BlockNumber: undefined });
+    }
+
     // Read the L1 block once and bake it into the key, mirroring `FeePredictor.getState`: the fee
     // inputs are frozen for the slot we target except for a sliver at the L1 block boundary, which the
     // block number closes (≤ one L1 block of staleness). The same block pins every L1 read inside the
-    // computation so the snapshot matches the key. With no rollup contract there are no pinnable reads.
-    const l1BlockNumber = this.rollupContract
-      ? await this.rollupContract.client.getBlockNumber({ cacheTime: 0 })
-      : undefined;
+    // computation so the snapshot matches the key.
+    const l1BlockNumber = await this.rollupContract.client.getBlockNumber({ cacheTime: 0 });
 
     const key = this.feeCacheKey({ ...inputs, l1BlockNumber });
 
@@ -381,24 +385,25 @@ export class NodePublicCallsSimulator {
   /**
    * Cache key for the fee computation. Components are spelled out explicitly because the result is not
    * a pure function of the checkpoint numbers: invalidations and prunes reuse numbers, so tip *hashes*
-   * are included. The proposed tip's header hash commits to `slotNumber` and `totalManaUsed` but not to
-   * `feeAssetPriceModifier` (which lives outside the header yet feeds the fee-header override), so the
-   * modifier is included separately. The L1 block number bounds staleness from L1-side fee inputs.
+   * are included. The fee-header override consumes `feeAssetPriceModifier` and the separately-stored
+   * `totalManaUsed` bigint, neither of which the proposed tip's header hash commits to (the hash covers
+   * the header's own `totalManaUsed` field, which should mirror the bigint but is distinct storage), so
+   * both are included explicitly. The L1 block number bounds staleness from L1-side fee inputs.
    */
   private feeCacheKey(inputs: {
     targetSlot: SlotNumber;
     proposedCheckpointData: ProposedCheckpointData | undefined;
     checkpointedCheckpoint: L2Tips['checkpointed']['checkpoint'];
     validationStatus: ValidateCheckpointResult;
-    l1BlockNumber: bigint | undefined;
+    l1BlockNumber: bigint;
   }): string {
     const { proposedCheckpointData, checkpointedCheckpoint, validationStatus } = inputs;
     const proposed = proposedCheckpointData
-      ? `${proposedCheckpointData.checkpointNumber}:${proposedCheckpointData.header.hash().toString()}:${proposedCheckpointData.feeAssetPriceModifier}`
+      ? `${proposedCheckpointData.checkpointNumber}:${proposedCheckpointData.header.hash().toString()}:${proposedCheckpointData.totalManaUsed}:${proposedCheckpointData.feeAssetPriceModifier}`
       : 'none';
     const checkpointed = `${checkpointedCheckpoint.number}:${checkpointedCheckpoint.hash}`;
     const validation = validationStatus.valid ? 'valid' : `invalid@${validationStatus.checkpoint.checkpointNumber}`;
-    return [inputs.targetSlot, proposed, checkpointed, validation, inputs.l1BlockNumber ?? 'none'].join('|');
+    return [inputs.targetSlot, proposed, checkpointed, validation, inputs.l1BlockNumber].join('|');
   }
 
   /** Builds the fresh checkpoint globals for a new checkpoint, performing the L1 fee reads. */
