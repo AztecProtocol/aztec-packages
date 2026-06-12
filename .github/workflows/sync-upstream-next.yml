@@ -8,10 +8,11 @@ name: Sync Upstream Next
 on:
   # Primary trigger: dispatched by the PUBLIC repo's "Notify Private Sync" workflow on every push to
   # upstream next (replaces the old 15-minute poll). The daily cron is only a safety net in case a
-  # dispatch is missed.
+  # dispatch is missed; it runs at 03:00 UTC, the quietest part of the day for the global team, so the
+  # nightly deployment chain that flows from it builds off a stable end-of-day snapshot.
   workflow_dispatch:
   schedule:
-    - cron: "0 7 * * *"
+    - cron: "0 3 * * *"
 
 jobs:
   sync:
