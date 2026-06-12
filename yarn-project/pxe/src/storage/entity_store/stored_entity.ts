@@ -2,7 +2,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
-import type { OriginBlock } from './entity_keys.js';
+import { EntityKey, type OriginBlock } from './entity_keys.js';
 
 /**
  * The record for a single entity, with its own body and optional origin block. `originBlock === undefined` marks
@@ -12,10 +12,7 @@ import type { OriginBlock } from './entity_keys.js';
  */
 export class StoredEntity {
   constructor(
-    public readonly contractAddress: AztecAddress,
-    public readonly scope: AztecAddress,
-    public readonly entityTypeId: Fr,
-    public readonly entityId: Fr,
+    public readonly key: EntityKey,
     public readonly body: Fr[],
     public readonly originBlock: OriginBlock | undefined,
   ) {}
@@ -28,10 +25,10 @@ export class StoredEntity {
   toBuffer(): Buffer {
     const originBlockTag = this.originBlock ? 1 : 0;
     return serializeToBuffer(
-      this.contractAddress,
-      this.scope,
-      this.entityTypeId,
-      this.entityId,
+      this.key.contractAddress,
+      this.key.scope,
+      this.key.entityTypeId,
+      this.key.entityId,
       this.body.length,
       ...this.body,
       originBlockTag,
@@ -52,6 +49,6 @@ export class StoredEntity {
     const blockNumber = reader.readNumber();
     const blockHash = reader.readObject(Fr);
     const originBlock = originBlockTag === 1 ? { blockNumber, blockHash } : undefined;
-    return new StoredEntity(contractAddress, scope, entityTypeId, entityId, [...body], originBlock);
+    return new StoredEntity(new EntityKey(contractAddress, scope, entityTypeId, entityId), [...body], originBlock);
   }
 }
