@@ -1,18 +1,16 @@
 import { z } from 'zod';
 
-import { type L2BlockTag, type L2Tips, L2TipsSchema } from '../block/l2_block_source.js';
+/**
+ * Public checkpoint-tip selectors usable in RPC requests.
+ *
+ * `'proposed'` is intentionally excluded: the proposed-but-unconfirmed checkpoint frontier is an
+ * archiver-internal pipelining concept, not part of the public chain-tip surface. Select the
+ * proposed *block* tip with a block tag (`L2BlockTag`) instead.
+ */
+export type CheckpointTag = 'checkpointed' | 'proven' | 'finalized';
 
-/** Public chain-tip selectors usable in RPC requests. */
-export type ChainTip = L2BlockTag;
-
-export const ChainTipSchema = z.union([
-  z.literal('proposed'),
+export const CheckpointTagSchema = z.union([
   z.literal('checkpointed'),
   z.literal('proven'),
   z.literal('finalized'),
-]) satisfies z.ZodType<ChainTip>;
-
-/** Tips of the L2 chain. */
-export type ChainTips = L2Tips;
-
-export const ChainTipsSchema = L2TipsSchema;
+]) satisfies z.ZodType<CheckpointTag>;

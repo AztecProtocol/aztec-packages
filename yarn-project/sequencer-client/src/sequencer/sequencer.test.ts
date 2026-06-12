@@ -26,11 +26,10 @@ import {
   L2Block,
   type L2BlockSink,
   type L2BlockSource,
-  type ProposedCheckpoint,
   type ProposedCheckpointSink,
   type ValidateCheckpointNegativeResult,
 } from '@aztec/stdlib/block';
-import { Checkpoint } from '@aztec/stdlib/checkpoint';
+import { Checkpoint, type ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
 import type { ChainConfig } from '@aztec/stdlib/config';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
@@ -1269,7 +1268,6 @@ describe('sequencer', () => {
       // Override to non-genesis state so checkSync doesn't take the genesis path.
       // The proposed checkpoint has number 1 > checkpointed tip 0, so hasProposedCheckpoint is true.
       const nonGenesisHash = Fr.random().toString();
-      const proposedCheckpointHash = Fr.random().toString();
       worldState.status.mockResolvedValue({
         state: WorldStateRunningState.IDLE,
         syncSummary: {
@@ -1308,20 +1306,14 @@ describe('sequencer', () => {
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
       } satisfies BlockData);
       l2BlockSource.getProposedCheckpoint.mockResolvedValue({
-        tip: {
-          block: { number: BlockNumber(1), hash: nonGenesisHash },
-          checkpoint: { number: CheckpointNumber(1), hash: proposedCheckpointHash },
-        },
-        data: {
-          checkpointNumber: CheckpointNumber(1),
-          header: CheckpointHeader.empty(),
-          archive: AppendOnlyTreeSnapshot.empty(),
-          checkpointOutHash: Fr.ZERO,
-          startBlock: BlockNumber(1),
-          blockCount: 1,
-          totalManaUsed: 0n,
-          feeAssetPriceModifier: 0n,
-        },
+        checkpointNumber: CheckpointNumber(1),
+        header: CheckpointHeader.empty(),
+        archive: AppendOnlyTreeSnapshot.empty(),
+        checkpointOutHash: Fr.ZERO,
+        startBlock: BlockNumber(1),
+        blockCount: 1,
+        totalManaUsed: 0n,
+        feeAssetPriceModifier: 0n,
       });
 
       await sequencer.work();
@@ -1338,7 +1330,6 @@ describe('sequencer', () => {
       // Confirmed checkpoint is 1, pending is 2, proposed tip is in checkpoint 3.
       // So sequencer would try to build checkpoint 4, which exceeds the 1-deep pipeline limit.
       const nonGenesisHash = Fr.random().toString();
-      const proposedCheckpointHash = Fr.random().toString();
       const checkpointedHash = Fr.random().toString();
       worldState.status.mockResolvedValue({
         state: WorldStateRunningState.IDLE,
@@ -1377,13 +1368,7 @@ describe('sequencer', () => {
         checkpointNumber: CheckpointNumber(3),
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
       } satisfies BlockData);
-      l2BlockSource.getProposedCheckpoint.mockResolvedValue({
-        tip: {
-          block: { number: BlockNumber(2), hash: nonGenesisHash },
-          checkpoint: { number: CheckpointNumber(2), hash: proposedCheckpointHash },
-        },
-        data: { checkpointNumber: CheckpointNumber(2) },
-      } as any);
+      l2BlockSource.getProposedCheckpoint.mockResolvedValue({ checkpointNumber: CheckpointNumber(2) } as any);
 
       await sequencer.work();
 
@@ -1408,7 +1393,6 @@ describe('sequencer', () => {
 
       // Set up a pipelined parent (pending override = parentCheckpointNumber = 1).
       const nonGenesisHash = Fr.random().toString();
-      const proposedCheckpointHash = Fr.random().toString();
       worldState.status.mockResolvedValue({
         state: WorldStateRunningState.IDLE,
         syncSummary: {
@@ -1447,20 +1431,14 @@ describe('sequencer', () => {
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
       } satisfies BlockData);
       l2BlockSource.getProposedCheckpoint.mockResolvedValue({
-        tip: {
-          block: { number: BlockNumber(1), hash: nonGenesisHash },
-          checkpoint: { number: CheckpointNumber(1), hash: proposedCheckpointHash },
-        },
-        data: {
-          checkpointNumber: CheckpointNumber(1),
-          header: CheckpointHeader.empty(),
-          archive: AppendOnlyTreeSnapshot.empty(),
-          checkpointOutHash: Fr.ZERO,
-          startBlock: BlockNumber(1),
-          blockCount: 1,
-          totalManaUsed: 0n,
-          feeAssetPriceModifier: 0n,
-        },
+        checkpointNumber: CheckpointNumber(1),
+        header: CheckpointHeader.empty(),
+        archive: AppendOnlyTreeSnapshot.empty(),
+        checkpointOutHash: Fr.ZERO,
+        startBlock: BlockNumber(1),
+        blockCount: 1,
+        totalManaUsed: 0n,
+        feeAssetPriceModifier: 0n,
       });
 
       await sequencer.work();
@@ -1503,7 +1481,7 @@ describe('sequencer', () => {
       blockSlot: SlotNumber;
       blockCheckpointNumber: CheckpointNumber;
       checkpointedCheckpointNumber: CheckpointNumber;
-      proposedCheckpoint: ProposedCheckpoint | undefined;
+      proposedCheckpoint: ProposedCheckpointData | undefined;
     }) => {
       const hash = Fr.random().toString();
       const checkpointHash = Fr.random().toString();
@@ -1582,20 +1560,14 @@ describe('sequencer', () => {
         blockCheckpointNumber: CheckpointNumber(3),
         checkpointedCheckpointNumber: CheckpointNumber(2),
         proposedCheckpoint: {
-          tip: {
-            block: { number: BlockNumber(3), hash: Fr.random().toString() },
-            checkpoint: { number: CheckpointNumber(3), hash: Fr.random().toString() },
-          },
-          data: {
-            checkpointNumber: CheckpointNumber(3),
-            header: CheckpointHeader.empty(),
-            archive: AppendOnlyTreeSnapshot.empty(),
-            checkpointOutHash: Fr.ZERO,
-            startBlock: BlockNumber(3),
-            blockCount: 1,
-            totalManaUsed: 0n,
-            feeAssetPriceModifier: 0n,
-          },
+          checkpointNumber: CheckpointNumber(3),
+          header: CheckpointHeader.empty(),
+          archive: AppendOnlyTreeSnapshot.empty(),
+          checkpointOutHash: Fr.ZERO,
+          startBlock: BlockNumber(3),
+          blockCount: 1,
+          totalManaUsed: 0n,
+          feeAssetPriceModifier: 0n,
         },
       });
 

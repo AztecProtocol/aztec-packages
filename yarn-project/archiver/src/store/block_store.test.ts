@@ -2637,7 +2637,7 @@ describe('BlockStore', () => {
       expect(await blockStore.getProposedCheckpoint()).toBeUndefined();
     });
 
-    it('returns the leading proposed checkpoint with a tip derived from its payload', async () => {
+    it('returns the leading proposed checkpoint payload', async () => {
       // Add checkpoint 1
       const checkpoint1 = makePublishedCheckpoint(
         await Checkpoint.random(CheckpointNumber(1), { numBlocks: 1, startBlockNumber: 1 }),
@@ -2666,14 +2666,11 @@ describe('BlockStore', () => {
 
       const proposedCheckpoint = await blockStore.getProposedCheckpoint();
       expect(proposedCheckpoint).toBeDefined();
-      // Tip is derived from the payload: last block = startBlock + blockCount - 1, checkpoint number
-      // and header hash from the stored proposed checkpoint.
-      expect(proposedCheckpoint!.tip.block.number).toBe(BlockNumber(2));
-      expect(proposedCheckpoint!.tip.block.hash).toBe((await block2.hash()).toString());
-      expect(proposedCheckpoint!.tip.checkpoint.number).toBe(CheckpointNumber(2));
-      expect(proposedCheckpoint!.tip.checkpoint.hash).toBe(header.hash().toString());
-      expect(proposedCheckpoint!.data.checkpointNumber).toBe(CheckpointNumber(2));
-      expect(proposedCheckpoint!.data.totalManaUsed).toBe(100n);
+      // Callers derive the tip from the payload: last block = startBlock + blockCount - 1.
+      expect(proposedCheckpoint!.checkpointNumber).toBe(CheckpointNumber(2));
+      expect(proposedCheckpoint!.startBlock).toBe(BlockNumber(2));
+      expect(proposedCheckpoint!.blockCount).toBe(1);
+      expect(proposedCheckpoint!.totalManaUsed).toBe(100n);
     });
   });
 

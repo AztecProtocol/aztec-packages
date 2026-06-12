@@ -27,7 +27,6 @@ import {
   L2Block,
   type L2BlockSource,
   type L2Tips,
-  type ProposedCheckpoint,
   type ProposedCheckpointQuery,
   type ValidateCheckpointResult,
 } from '@aztec/stdlib/block';
@@ -594,7 +593,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     return Promise.resolve(undefined);
   }
 
-  getProposedCheckpoint(): Promise<ProposedCheckpoint | undefined> {
+  getProposedCheckpoint(): Promise<ProposedCheckpointData | undefined> {
     return Promise.resolve(undefined);
   }
 

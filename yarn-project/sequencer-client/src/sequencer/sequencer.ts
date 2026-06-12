@@ -812,9 +812,8 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.l2BlockSource.getProposedCheckpoint(),
     ] as const);
 
-    const [worldState, l2Tips, p2p, l1ToL2MessageSourceTips, pendingChainValidationStatus, proposedCheckpoint] =
+    const [worldState, l2Tips, p2p, l1ToL2MessageSourceTips, pendingChainValidationStatus, proposedCheckpointData] =
       syncedBlocks;
-    const proposedCheckpointData = proposedCheckpoint?.data;
 
     const result =
       worldState.hash === l2Tips.proposed.hash &&
@@ -851,16 +850,17 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // matching proposed checkpoint (e.g. it crashed before assembling it). Building on this orphan block
     // would fork the chain off a tip no other node can follow. The archiver prunes these orphan blocks
     // once their build slot ends; this guard is the correctness barrier during the grace window before.
-    // `getProposedCheckpoint` returns the leading proposed checkpoint and its payload as a single atomic
-    // snapshot, so tip and payload are always coherent — no split-read reconciliation is needed.
+    // `getProposedCheckpoint` returns the leading proposed checkpoint payload in a single atomic
+    // read, so the frontier check and the checkpoint number it reports are always coherent — no
+    // split-read reconciliation is needed.
     if (
       blockData.checkpointNumber > l2Tips.checkpointed.checkpoint.number &&
-      proposedCheckpoint?.tip.checkpoint.number !== blockData.checkpointNumber
+      proposedCheckpointData?.checkpointNumber !== blockData.checkpointNumber
     ) {
       const logCtx = {
         blockCheckpointNumber: blockData.checkpointNumber,
         checkpointedCheckpointNumber: l2Tips.checkpointed.checkpoint.number,
-        proposedCheckpointTipNumber: proposedCheckpoint?.tip.checkpoint.number,
+        proposedCheckpointTipNumber: proposedCheckpointData?.checkpointNumber,
         blockNumber: blockData.header.getBlockNumber(),
         blockSlot: blockData.header.getSlot(),
         syncedL2Slot,
@@ -871,7 +871,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       return undefined;
     }
 
-    const hasProposedCheckpoint = proposedCheckpoint !== undefined;
+    const hasProposedCheckpoint = proposedCheckpointData !== undefined;
 
     // Check that the proposed checkpoint is indeed the parent of the checkpoint we'll be building
     // The checkpoint number to build is derived as blockData.checkpointNumber + 1

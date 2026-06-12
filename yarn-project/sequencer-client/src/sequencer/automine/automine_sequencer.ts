@@ -422,7 +422,7 @@ export class AutomineSequencer {
     await this.deps.worldState.syncImmediate(BlockNumber(syncedToBlockNumber));
 
     const nextBlockNumber = BlockNumber(syncedToBlockNumber + 1);
-    const parentCheckpointNumber = proposedCheckpoint?.tip.checkpoint.number ?? tips.checkpointed.checkpoint.number;
+    const parentCheckpointNumber = proposedCheckpoint?.checkpointNumber ?? tips.checkpointed.checkpoint.number;
     const checkpointNumber = CheckpointNumber(parentCheckpointNumber + 1);
     const targetEpoch = getEpochAtSlot(SlotNumber(targetSlot), this.deps.l1Constants);
 
