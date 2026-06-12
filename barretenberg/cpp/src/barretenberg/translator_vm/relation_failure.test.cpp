@@ -21,6 +21,9 @@
  *   DeltaRangeFailsOnFirstSortedValueTooLarge         — position 0->1 transition (virtual zero start)
  *   DeltaRangeFailsOnFifthOrderedPolyCorruption       — 5th ordered poly (different build path)
  *
+ * Shiftable first coeff zero relation (TranslatorShiftableFirstCoeffZeroRelation) — 1 test:
+ *   ShiftableFirstCoeffZeroFailsOnOrderedNonZero      — nonzero ordered_i at lagrange_first row (subrelations 0-4)
+ *
  * Accumulator transfer relation (TranslatorAccumulatorTransferRelation) — 6 tests:
  *   AccumulatorTransferFailsOnOddRowCorruption        — interior odd row (transfer chain)
  *   AccumulatorTransferFailsOnZeroInitCorruption      — last minicircuit row (zero-init)
@@ -320,6 +323,46 @@ TEST_F(TranslatorRelationFailureTests, PermutationFailsOnZPermNonZeroAtFirstRow)
     // Sub-relation 2 (lagrange_first * z_perm = 0) should catch this
     EXPECT_TRUE(failures.contains(2)) << "Sub-relation 2 (z_perm init) should catch the corruption";
     EXPECT_EQ(failures.at(2), static_cast<uint32_t>(first_row)) << "Failure should be at lagrange_first row";
+}
+
+/**
+ * @brief Test that each ordered_range_constraints wire must be zero at the lagrange_first row.
+ *
+ * @details Soundness of the 14-bit range check requires each sorted chain to start at 0; otherwise field wraparound
+ * lets an out-of-range value (e.g. -3 = p-3) sit at the chain start with the delta to the next row still in {0,1,2,3}.
+ * The Gemini/Shplemini shift mechanic forces the constant term of a to-be-shifted polynomial to 0, so this is not
+ * exploitable, but TranslatorShiftableFirstCoeffZeroRelation anchors it explicitly as defense-in-depth.
+ */
+TEST_F(TranslatorRelationFailureTests, ShiftableFirstCoeffZeroFailsOnOrderedNonZero)
+{
+    auto [key, params] = build_valid_translator_state();
+    auto& pp = key.proving_key->polynomials;
+
+    // Baseline: the relation passes on valid data
+    auto baseline = RelationChecker<Flavor>::check<TranslatorShiftableFirstCoeffZeroRelation<FF>>(
+        pp, params, "TranslatorShiftableFirstCoeffZeroRelation");
+    EXPECT_TRUE(baseline.empty()) << "Baseline shiftable-first-coeff-zero should pass";
+
+    // Derive the lagrange_first position from the ordered poly's shiftable structure and cross-check it.
+    ASSERT_TRUE(pp.ordered_range_constraints_0.is_shiftable());
+    const size_t first_row = pp.ordered_range_constraints_0.start_index() - 1;
+    ASSERT_NE(pp.lagrange_first[first_row], FF(0)) << "lagrange_first should be active at the ordered poly's zero row";
+
+    // Expand to a full polynomial so we can write at the zero row. The shift drops index 0, so the unshifted/shift
+    // views stay consistent after we only touch the zero row.
+    pp.ordered_range_constraints_0 = pp.ordered_range_constraints_0.full();
+    pp.ordered_range_constraints_0_shift = pp.ordered_range_constraints_0_shift.full();
+    ASSERT_EQ(pp.ordered_range_constraints_0[first_row], FF(0));
+
+    // Tamper: place an out-of-range micro-limb (-3 = p-3) at the sorted-chain start.
+    pp.ordered_range_constraints_0.at(first_row) = -FF(3);
+
+    auto failures = RelationChecker<Flavor>::check<TranslatorShiftableFirstCoeffZeroRelation<FF>>(
+        pp, params, "TranslatorShiftableFirstCoeffZeroRelation - After setting ordered_range_constraints_0[0] != 0");
+    EXPECT_FALSE(failures.empty()) << "Relation should fail after nonzero first sorted value";
+    // Sub-relation 0 (lagrange_first * ordered_range_constraints_0 = 0) should catch this
+    EXPECT_TRUE(failures.contains(0)) << "Sub-relation 0 (ordered_0 first-coeff anchor) should catch the corruption";
+    EXPECT_EQ(failures.at(0), static_cast<uint32_t>(first_row)) << "Failure should be at lagrange_first row";
 }
 
 /**
