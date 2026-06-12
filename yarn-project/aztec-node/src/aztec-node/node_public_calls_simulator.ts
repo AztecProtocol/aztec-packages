@@ -7,7 +7,7 @@ import {
   type SimulationOverridesPlan,
 } from '@aztec/ethereum/contracts';
 import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import { compactArray } from '@aztec/foundation/collection';
+import { LruMap, compactArray } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { BadRequestError } from '@aztec/foundation/json-rpc';
@@ -17,13 +17,14 @@ import { isErrorClass } from '@aztec/foundation/types';
 import { PublicContractsDB, PublicProcessorFactory } from '@aztec/simulator/server';
 import { CollectionLimitsConfig, PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { L2BlockSource, L2Tips } from '@aztec/stdlib/block';
+import type { L2BlockSource, L2Tips, ValidateCheckpointResult } from '@aztec/stdlib/block';
 import { type ProposedCheckpointData, buildCheckpointSimulationOverridesPlan } from '@aztec/stdlib/checkpoint';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { type L1ToL2MessageSource, appendL1ToL2MessagesToTree } from '@aztec/stdlib/messaging';
 import type { CoordinationSignatureContext } from '@aztec/stdlib/p2p';
 import {
+  type CheckpointGlobalVariables,
   type GlobalVariableBuilder,
   GlobalVariables,
   PublicSimulationOutput,
@@ -77,9 +78,19 @@ export interface NodePublicCallsSimulatorDeps {
  * - **When the next block opens a new checkpoint** (the latest proposed block coincides with the
  *   proposed-checkpoint frontier): we compute fresh globals for the slot the next block will land in,
  *   applying the same `SimulationOverridesPlan` the sequencer applies so the simulated mana min fee
- *   matches what the sequencer will write into the block header.
+ *   matches what the sequencer will write into the block header. This path pays up to three L1 round
+ *   trips, so its result is cached single-flight (keyed by target slot, archiver fingerprint, and L1
+ *   block number) and reused across simulations against unchanged state.
  */
 export class NodePublicCallsSimulator {
+  /**
+   * Bound on the number of distinct fee-computation results kept in flight. The cache is keyed by
+   * target slot plus archiver fingerprint plus L1 block number, all of which advance monotonically,
+   * so old keys are never queried again; a handful of entries covers concurrent in-flight requests
+   * around a slot/block boundary.
+   */
+  private static readonly FEE_CACHE_SIZE = 4;
+
   private readonly blockSource: L2BlockSource;
   private readonly worldStateSynchronizer: WorldStateSynchronizer;
   private readonly l1ToL2MessageSource: L1ToL2MessageSource;
@@ -91,6 +102,16 @@ export class NodePublicCallsSimulator {
   private readonly config: NodePublicCallsSimulatorConfig;
   private readonly telemetry: TelemetryClient;
   private readonly log: Logger;
+
+  /**
+   * Single-flight cache for the L1-touching fee computation when opening a new checkpoint. Keyed by a
+   * string fingerprint of everything the result depends on; concurrent simulations against the same
+   * fingerprint share one set of L1 round trips. Stores the in-flight promise so a rejection is not
+   * cached (the entry is evicted on failure) and the next call retries.
+   */
+  private readonly feeCache = new LruMap<string, Promise<CheckpointGlobalVariables>>(
+    NodePublicCallsSimulator.FEE_CACHE_SIZE,
+  );
 
   constructor(deps: NodePublicCallsSimulatorDeps) {
     this.blockSource = deps.blockSource;
@@ -295,26 +316,112 @@ export class NodePublicCallsSimulator {
     proposedCheckpointData: ProposedCheckpointData | undefined,
     blockNumber: BlockNumber,
   ): Promise<{ globalVariables: GlobalVariables; targetCheckpoint: CheckpointNumber }> {
-    const checkpointedCheckpointNumber = l2Tips.checkpointed.checkpoint.number;
+    const checkpointedCheckpoint = l2Tips.checkpointed.checkpoint;
+    const checkpointedCheckpointNumber = checkpointedCheckpoint.number;
     // The new checkpoint sits on top of the proposed one when pipelining, otherwise on the
     // checkpointed tip. The target slot and the overrides plan both derive from the single
     // `proposedCheckpointData` read, so they cannot disagree about the proposed parent.
     const proposedCheckpointNumber = proposedCheckpointData?.checkpointNumber ?? checkpointedCheckpointNumber;
 
     const targetSlot = this.computeTargetSlot(proposedCheckpointData);
-    const plan = await this.buildSimulationOverridesPlan(proposedCheckpointData, checkpointedCheckpointNumber);
 
-    const checkpointGlobalVariables = await this.globalVariableBuilder.buildCheckpointGlobalVariables(
-      EthAddress.ZERO,
-      AztecAddress.ZERO,
+    // Validation status is fetched up front so it can participate in the cache key even on the
+    // pipelining path (where it does not affect the plan); the non-pipelining path reuses it.
+    const validationStatus = await this.blockSource.getPendingChainValidationStatus();
+
+    const checkpointGlobalVariables = await this.computeCheckpointGlobalVariables({
       targetSlot,
-      plan,
-    );
+      proposedCheckpointData,
+      checkpointedCheckpoint,
+      validationStatus,
+    });
 
     return {
       globalVariables: GlobalVariables.from({ blockNumber, ...checkpointGlobalVariables }),
       targetCheckpoint: CheckpointNumber(proposedCheckpointNumber + 1),
     };
+  }
+
+  /**
+   * Runs the L1-touching fee computation for a new checkpoint through a single-flight LRU cache.
+   * The key fingerprints everything the result depends on; concurrent simulations sharing a key share
+   * one set of L1 round trips, and repeated simulations against unchanged archiver and L1 state reuse
+   * the cached result instead of paying the round trips again. The cached promise is evicted on
+   * rejection so a failed computation is retried rather than cached.
+   */
+  private async computeCheckpointGlobalVariables(inputs: {
+    targetSlot: SlotNumber;
+    proposedCheckpointData: ProposedCheckpointData | undefined;
+    checkpointedCheckpoint: L2Tips['checkpointed']['checkpoint'];
+    validationStatus: ValidateCheckpointResult;
+  }): Promise<CheckpointGlobalVariables> {
+    // Read the L1 block once and bake it into the key, mirroring `FeePredictor.getState`: the fee
+    // inputs are frozen for the slot we target except for a sliver at the L1 block boundary, which the
+    // block number closes (≤ one L1 block of staleness). The same block pins every L1 read inside the
+    // computation so the snapshot matches the key. With no rollup contract there are no pinnable reads.
+    const l1BlockNumber = this.rollupContract
+      ? await this.rollupContract.client.getBlockNumber({ cacheTime: 0 })
+      : undefined;
+
+    const key = this.feeCacheKey({ ...inputs, l1BlockNumber });
+
+    const cached = this.feeCache.get(key);
+    if (cached) {
+      return cached;
+    }
+
+    const promise = this.buildCheckpointGlobalVariables({ ...inputs, l1BlockNumber }).catch(err => {
+      this.feeCache.delete(key);
+      throw err;
+    });
+    this.feeCache.set(key, promise);
+    return promise;
+  }
+
+  /**
+   * Cache key for the fee computation. Components are spelled out explicitly because the result is not
+   * a pure function of the checkpoint numbers: invalidations and prunes reuse numbers, so tip *hashes*
+   * are included. The proposed tip's header hash commits to `slotNumber` and `totalManaUsed` but not to
+   * `feeAssetPriceModifier` (which lives outside the header yet feeds the fee-header override), so the
+   * modifier is included separately. The L1 block number bounds staleness from L1-side fee inputs.
+   */
+  private feeCacheKey(inputs: {
+    targetSlot: SlotNumber;
+    proposedCheckpointData: ProposedCheckpointData | undefined;
+    checkpointedCheckpoint: L2Tips['checkpointed']['checkpoint'];
+    validationStatus: ValidateCheckpointResult;
+    l1BlockNumber: bigint | undefined;
+  }): string {
+    const { proposedCheckpointData, checkpointedCheckpoint, validationStatus } = inputs;
+    const proposed = proposedCheckpointData
+      ? `${proposedCheckpointData.checkpointNumber}:${proposedCheckpointData.header.hash().toString()}:${proposedCheckpointData.feeAssetPriceModifier}`
+      : 'none';
+    const checkpointed = `${checkpointedCheckpoint.number}:${checkpointedCheckpoint.hash}`;
+    const validation = validationStatus.valid ? 'valid' : `invalid@${validationStatus.checkpoint.checkpointNumber}`;
+    return [inputs.targetSlot, proposed, checkpointed, validation, inputs.l1BlockNumber ?? 'none'].join('|');
+  }
+
+  /** Builds the fresh checkpoint globals for a new checkpoint, performing the L1 fee reads. */
+  private async buildCheckpointGlobalVariables(inputs: {
+    targetSlot: SlotNumber;
+    proposedCheckpointData: ProposedCheckpointData | undefined;
+    checkpointedCheckpoint: L2Tips['checkpointed']['checkpoint'];
+    validationStatus: ValidateCheckpointResult;
+    l1BlockNumber: bigint | undefined;
+  }): Promise<CheckpointGlobalVariables> {
+    const plan = await this.buildSimulationOverridesPlan(
+      inputs.proposedCheckpointData,
+      inputs.checkpointedCheckpoint.number,
+      inputs.validationStatus,
+      inputs.l1BlockNumber,
+    );
+
+    return this.globalVariableBuilder.buildCheckpointGlobalVariables(
+      EthAddress.ZERO,
+      AztecAddress.ZERO,
+      inputs.targetSlot,
+      plan,
+    );
   }
 
   /**
@@ -346,9 +453,11 @@ export class NodePublicCallsSimulator {
    * is always valid) fall back to pinning both pending and proven tips to the checkpointed tip, which
    * neutralizes prunes in fee computation at the cost of non-pipelined fees.
    */
-  private async buildSimulationOverridesPlan(
+  private buildSimulationOverridesPlan(
     proposedCheckpointData: ProposedCheckpointData | undefined,
     checkpointedCheckpointNumber: CheckpointNumber,
+    validationStatus: ValidateCheckpointResult,
+    l1BlockNumber: bigint | undefined,
   ): Promise<SimulationOverridesPlan | undefined> {
     const rollup = this.rollupContract;
     if (rollup) {
@@ -360,10 +469,10 @@ export class NodePublicCallsSimulator {
           rollup,
           signatureContext: this.signatureContext,
           log: this.log,
+          l1BlockNumber,
         });
       }
 
-      const validationStatus = await this.blockSource.getPendingChainValidationStatus();
       if (!validationStatus.valid) {
         return buildCheckpointSimulationOverridesPlan({
           checkpointNumber: CheckpointNumber(checkpointedCheckpointNumber + 1),
@@ -372,12 +481,18 @@ export class NodePublicCallsSimulator {
           rollup,
           signatureContext: this.signatureContext,
           log: this.log,
+          l1BlockNumber,
         });
       }
     }
 
-    return new SimulationOverridesBuilder()
-      .withChainTips({ pending: checkpointedCheckpointNumber, proven: checkpointedCheckpointNumber })
-      .build();
+    const builder = new SimulationOverridesBuilder().withChainTips({
+      pending: checkpointedCheckpointNumber,
+      proven: checkpointedCheckpointNumber,
+    });
+    if (l1BlockNumber !== undefined) {
+      builder.withL1BlockNumber(l1BlockNumber);
+    }
+    return Promise.resolve(builder.build());
   }
 }

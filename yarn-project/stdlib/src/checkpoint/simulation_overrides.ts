@@ -40,6 +40,11 @@ type CheckpointSimulationOverridesPlanInput = {
    * once the parent lands.
    */
   signatureContext: CoordinationSignatureContext;
+  /**
+   * L1 block number to pin all reads to (the grandparent checkpoint read here, and the downstream
+   * chain-tips and `getManaMinFeeAt` reads via the built plan). When omitted, reads hit `latest`.
+   */
+  l1BlockNumber?: bigint;
 };
 
 /**
@@ -101,10 +106,15 @@ export async function buildCheckpointSimulationOverridesPlan(
       proposedCheckpointData: input.proposedCheckpointData,
       rollup: input.rollup,
       log: input.log,
+      l1BlockNumber: input.l1BlockNumber,
     });
     if (feeHeader) {
       builder.withPendingFeeHeader(feeHeader);
     }
+  }
+
+  if (input.l1BlockNumber !== undefined) {
+    builder.withL1BlockNumber(input.l1BlockNumber);
   }
 
   return builder.build();
@@ -134,6 +144,8 @@ type PipelinedParentFeeHeaderInput = {
   proposedCheckpointData: ProposedCheckpointData;
   rollup: RollupContract;
   log: Logger;
+  /** L1 block number to pin the grandparent checkpoint read to. */
+  l1BlockNumber?: bigint;
 };
 
 /**
@@ -151,8 +163,10 @@ export async function computePipelinedParentFeeHeader(
 
   const grandparentCheckpointNumber = CheckpointNumber(input.checkpointNumber - 2);
 
+  // `getManaTarget` is governance config that is owner-only and rate-limited, and the rollup wrapper
+  // memoizes it; it is treated as constant and left unpinned, mirroring `FeePredictor.fetchState`.
   const [grandparentCheckpoint, manaTarget] = await Promise.all([
-    input.rollup.getCheckpoint(grandparentCheckpointNumber),
+    input.rollup.getCheckpoint(grandparentCheckpointNumber, { blockNumber: input.l1BlockNumber }),
     input.rollup.getManaTarget(),
   ]);
 

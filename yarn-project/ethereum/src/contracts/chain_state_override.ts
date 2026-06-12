@@ -33,6 +33,13 @@ export type SimulationOverridesPlan = {
   chainTipsOverride?: ChainTipsOverride;
   pendingCheckpointState?: PendingCheckpointOverrideState;
   disableBlobCheck?: boolean;
+  /**
+   * L1 block number the plan was built against. When set, reads that translate the plan into a
+   * state override (and the downstream eth_call that consumes it) pin to this block so the snapshot
+   * matches the block the plan's other inputs were read at, instead of racing `latest` across an L1
+   * block boundary.
+   */
+  l1BlockNumber?: bigint;
 };
 
 /** Builds a single-checkpoint simulation plan before it is translated into a viem state override. */
@@ -40,6 +47,7 @@ export class SimulationOverridesBuilder {
   private chainTipsOverride?: ChainTipsOverride;
   private pendingCheckpointState?: PendingCheckpointOverrideState;
   private disableBlobCheck = false;
+  private l1BlockNumber?: bigint;
 
   /** Starts from an existing plan so callers can extend or specialize it. */
   public static from(plan: SimulationOverridesPlan | undefined): SimulationOverridesBuilder {
@@ -63,6 +71,9 @@ export class SimulationOverridesBuilder {
       this.pendingCheckpointState = merge(this.pendingCheckpointState ?? {}, plan.pendingCheckpointState);
     }
     this.disableBlobCheck = this.disableBlobCheck || (plan.disableBlobCheck ?? false);
+    if (plan.l1BlockNumber !== undefined) {
+      this.l1BlockNumber = plan.l1BlockNumber;
+    }
 
     return this;
   }
@@ -119,8 +130,15 @@ export class SimulationOverridesBuilder {
     return this;
   }
 
+  /** Pins the plan's L1 reads to a specific block number for a consistent snapshot. */
+  public withL1BlockNumber(blockNumber: bigint): this {
+    this.l1BlockNumber = blockNumber;
+    return this;
+  }
+
   /** Builds the final plan, or `undefined` when no overrides were configured. */
   public build(): SimulationOverridesPlan | undefined {
+    // An L1 block number on its own produces no state diff, so it does not make an otherwise-empty plan.
     if (!this.pendingCheckpointState && !this.chainTipsOverride && !this.disableBlobCheck) {
       return undefined;
     }
@@ -129,6 +147,7 @@ export class SimulationOverridesBuilder {
       chainTipsOverride: this.chainTipsOverride,
       pendingCheckpointState: this.pendingCheckpointState,
       disableBlobCheck: this.disableBlobCheck || undefined,
+      l1BlockNumber: this.l1BlockNumber,
     };
   }
 
@@ -151,7 +170,11 @@ export async function buildSimulationOverridesStateOverride(
   const rollupStateDiff: NonNullable<StateOverride[number]['stateDiff']> = [];
 
   if (plan.chainTipsOverride) {
-    rollupStateDiff.push(...extractRollupStateDiff(await rollup.makeChainTipsOverride(plan.chainTipsOverride)));
+    rollupStateDiff.push(
+      ...extractRollupStateDiff(
+        await rollup.makeChainTipsOverride(plan.chainTipsOverride, { blockNumber: plan.l1BlockNumber }),
+      ),
+    );
   }
 
   if (plan.pendingCheckpointState && plan.chainTipsOverride?.pending === undefined) {

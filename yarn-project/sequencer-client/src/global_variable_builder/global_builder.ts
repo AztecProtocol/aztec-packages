@@ -61,7 +61,12 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
     });
 
     const stateOverride = await buildSimulationOverridesStateOverride(this.rollupContract, simulationOverridesPlan);
-    const gasFees = new GasFees(0, await this.rollupContract.getManaMinFeeAt(timestamp, true, stateOverride));
+    const gasFees = new GasFees(
+      0,
+      await this.rollupContract.getManaMinFeeAt(timestamp, true, stateOverride, {
+        blockNumber: simulationOverridesPlan?.l1BlockNumber,
+      }),
+    );
 
     return { chainId, version, slotNumber, timestamp, coinbase, feeRecipient, gasFees };
   }

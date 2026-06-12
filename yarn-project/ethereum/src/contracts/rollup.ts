@@ -1151,8 +1151,17 @@ export class RollupContract {
     return this.rollup.read.getHasSubmitted([BigInt(epochNumber), BigInt(numberOfCheckpointsInEpoch), prover]);
   }
 
-  getManaMinFeeAt(timestamp: bigint, inFeeAsset: boolean, stateOverride?: StateOverride): Promise<bigint> {
-    return this.rollup.read.getManaMinFeeAt([timestamp, inFeeAsset], { stateOverride });
+  async getManaMinFeeAt(
+    timestamp: bigint,
+    inFeeAsset: boolean,
+    stateOverride?: StateOverride,
+    options?: { blockNumber?: bigint },
+  ): Promise<bigint> {
+    await checkBlockTag(options?.blockNumber, this.client);
+    return this.rollup.read.getManaMinFeeAt([timestamp, inFeeAsset], {
+      stateOverride,
+      blockNumber: options?.blockNumber,
+    });
   }
 
   async getManaMinFeeComponentsAt(timestamp: bigint, inFeeAsset: boolean): Promise<ManaMinFeeComponents> {
