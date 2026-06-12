@@ -1199,12 +1199,6 @@ export const PROVING_AGENT_IDLE: MetricDefinition = {
   valueType: ValueType.DOUBLE,
 };
 
-export const PROVER_NODE_EXECUTION_DURATION: MetricDefinition = {
-  name: 'aztec.prover_node.execution.duration',
-  description: 'Duration of execution of an epoch by the prover',
-  unit: 'ms',
-  valueType: ValueType.INT,
-};
 export const PROVER_NODE_JOB_DURATION: MetricDefinition = {
   name: 'aztec.prover_node.job_duration',
   description: 'Duration of proving job',
@@ -1241,6 +1235,23 @@ export const PROVER_NODE_BLOCK_PROCESSING_DURATION: MetricDefinition = {
 export const PROVER_NODE_CHECKPOINT_PROCESSING_DURATION: MetricDefinition = {
   name: 'aztec.prover_node.checkpoint_processing.duration',
   description: 'Duration of processing a single checkpoint in epoch proving job',
+  unit: 'ms',
+  valueType: ValueType.INT,
+};
+export const PROVER_NODE_CHECKPOINT_BLOCKS: MetricDefinition = {
+  name: 'aztec.prover_node.checkpoint_blocks',
+  description: 'Number of blocks in a proven checkpoint',
+  valueType: ValueType.INT,
+};
+export const PROVER_NODE_CHECKPOINT_TRANSACTIONS: MetricDefinition = {
+  name: 'aztec.prover_node.checkpoint_transactions',
+  description: 'Number of transactions in a proven checkpoint',
+  valueType: ValueType.INT,
+};
+export const PROVER_NODE_CHECKPOINT_PROVING_DURATION: MetricDefinition = {
+  name: 'aztec.prover_node.checkpoint_proving.duration',
+  description:
+    'Duration from the start of checkpoint processing to its block proofs being ready (excludes tx gathering)',
   unit: 'ms',
   valueType: ValueType.INT,
 };
