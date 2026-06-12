@@ -26,11 +26,18 @@ describe('FeeAssetPriceOracle E2E', () => {
 
   // Beware, if you use "mainnet" here it will be completely broken due to blobs...
   const chain = foundry;
+  // Convergence is gated by L1 checkpoint publication. Under real sequencer timing, a parent checkpoint can land late
+  // and cause pipelined work to be rebuilt, so leave room for multiple checkpoint publications.
+  const PRICE_CONVERGENCE_TIMEOUT_SECONDS = 240;
+  const PRICE_CONVERGENCE_POLL_INTERVAL_SECONDS = 1;
 
   beforeAll(async () => {
     logger = getLogger();
 
-    const anvilResult = await startAnvil({ chainId: chain.id });
+    const anvilResult = await startAnvil({
+      chainId: chain.id,
+      l1BlockTime: PIPELINING_SETUP_OPTS.ethereumSlotDuration,
+    });
     anvil = anvilResult.anvil;
     const rpcUrl = anvilResult.rpcUrl;
 
@@ -89,14 +96,14 @@ describe('FeeAssetPriceOracle E2E', () => {
         return diffInBps(currentPrice, targetOraclePrice) == 0n;
       },
       'price convergence toward oracle',
-      120, // timeout in seconds
-      5, // check interval in seconds
+      PRICE_CONVERGENCE_TIMEOUT_SECONDS,
+      PRICE_CONVERGENCE_POLL_INTERVAL_SECONDS,
     );
 
     const priceAfterFirstAlignment = await rollup.getEthPerFeeAsset();
     const targetOraclePrice2 = (BigInt(priceAfterFirstAlignment) * 995n) / 1000n;
     await mockStateView.setEthPerFeeAsset(targetOraclePrice2);
-    logger.info(`Set uniswap price to ${targetOraclePrice}`);
+    logger.info(`Set uniswap price to ${targetOraclePrice2}`);
 
     await retryUntil(
       async () => {
@@ -105,8 +112,8 @@ describe('FeeAssetPriceOracle E2E', () => {
         return diffInBps(currentPrice, targetOraclePrice2) == 0n;
       },
       'price convergence toward oracle',
-      120, // timeout in seconds
-      5, // check interval in seconds
+      PRICE_CONVERGENCE_TIMEOUT_SECONDS,
+      PRICE_CONVERGENCE_POLL_INTERVAL_SECONDS,
     );
 
     const finalPrice = await rollup.getEthPerFeeAsset();

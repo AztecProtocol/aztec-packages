@@ -6,7 +6,6 @@ import {
   NO_WAIT,
   type SendReturn,
   type WaitOpts,
-  getGasLimits,
 } from '@aztec/aztec.js/contracts';
 import type {
   Aliased,
@@ -45,7 +44,7 @@ import {
   collectOffchainEffects,
   mergeExecutionPayloads,
 } from '@aztec/stdlib/tx';
-import { BaseWallet, type SimulateViaEntrypointOptions } from '@aztec/wallet-sdk/base-wallet';
+import { BaseWallet, type SimulateViaEntrypointOptions, getGasLimits } from '@aztec/wallet-sdk/base-wallet';
 
 import type { AccountContractsProvider } from './account-contract-providers/types.js';
 import { type AccountType, WalletDB } from './wallet_db.js';
@@ -212,7 +211,8 @@ export class EmbeddedWallet extends BaseWallet {
         executionPayload.authWitnesses.push(authwit);
       }
     }
-    const estimated = getGasLimits(simulationResult, this.estimatedGasPadding);
+    const maxTxGasLimits = await this.getMaxTxGasLimits();
+    const estimated = getGasLimits(simulationResult.gasUsed, maxTxGasLimits, this.estimatedGasPadding);
     this.log.verbose(
       `Estimated gas limits for tx: DA=${estimated.gasLimits.daGas} L2=${estimated.gasLimits.l2Gas} teardownDA=${estimated.teardownGasLimits.daGas} teardownL2=${estimated.teardownGasLimits.l2Gas}`,
     );

@@ -90,13 +90,11 @@ describe('e2e_epochs/epochs_mbps', () => {
       numberOfAccounts: 0,
       initialValidators: validators,
       mockGossipSubNetwork: true,
-      disableAnvilTestWatcher: true,
       startProverNode: true,
       // Mirrors the pipeline-MBPS sibling: more blocks per slot needs a larger per-block gas
       // allocation multiplier so each block can fit non-trivial txs.
       perBlockAllocationMultiplier: 8,
       aztecEpochDuration: 4,
-      enforceTimeTable: true,
       // L1 slot duration - mirrors the pipeline-MBPS test for headroom on the parent's L1 tx
       ethereumSlotDuration: 12,
       // L2 slot duration - should fit several blocks (5.5s each) with pipelining overhead

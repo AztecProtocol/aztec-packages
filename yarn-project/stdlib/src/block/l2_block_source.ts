@@ -351,6 +351,13 @@ export type L2Tips = {
   finalized: L2TipId;
 };
 
+/**
+ * Tips of the L2 chain as tracked by a local provider (world-state, l2-tips-store). Omits
+ * `proposedCheckpoint`, which is degenerate in local stores (always equal to `checkpointed`) and
+ * is only meaningful on the archiver side via {@link L2BlockSource}.
+ */
+export type LocalL2Tips = Omit<L2Tips, 'proposedCheckpoint'>;
+
 export const GENESIS_CHECKPOINT_HEADER_HASH = CheckpointHeader.empty().hash();
 
 /** Identifies a block by number and hash. */

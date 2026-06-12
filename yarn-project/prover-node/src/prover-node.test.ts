@@ -81,6 +81,12 @@ describe('ProverNode', () => {
 
   // ---------------- event dispatch ----------------
 
+  /** Builds an L2TipId (block + checkpoint id) for block/checkpoint number `n`. */
+  const makeTipId = (n: number) => ({
+    block: { number: BlockNumber(n), hash: `0x0${n}` },
+    checkpoint: { number: CheckpointNumber(n), hash: `0x0${n}` },
+  });
+
   it('dispatches chain-checkpointed to handleCheckpointEvent', async () => {
     setupNotFullyProven();
     const checkpoint = makeCheckpoint(1, 1, 1);
@@ -100,8 +106,9 @@ describe('ProverNode', () => {
     // No registered checkpoints — nothing to prune.
     await proverNode.handleBlockStreamEvent({
       type: 'chain-pruned',
-      checkpoint: { number: CheckpointNumber(0), hash: '0x00' },
       block: { number: BlockNumber(0), hash: '0x00' },
+      checkpointed: makeTipId(0),
+      proven: makeTipId(0),
     });
     expect(sessionManager.onPrune).not.toHaveBeenCalled();
 
@@ -115,8 +122,9 @@ describe('ProverNode', () => {
 
     await proverNode.handleBlockStreamEvent({
       type: 'chain-pruned',
-      checkpoint: { number: CheckpointNumber(1), hash: '0x01' },
       block: { number: BlockNumber(1), hash: '0x01' },
+      checkpointed: makeTipId(1),
+      proven: makeTipId(1),
     });
     expect(sessionManager.onPrune).toHaveBeenCalledWith([EpochNumber(2)]);
   });
@@ -125,6 +133,7 @@ describe('ProverNode', () => {
     await proverNode.handleBlockStreamEvent({
       type: 'chain-proven',
       block: { number: BlockNumber(7), hash: '0x07' },
+      checkpoint: { number: CheckpointNumber(7), hash: '0x07' },
     });
     expect(publishingService.onChainProven).toHaveBeenCalledWith(BlockNumber(7));
   });
@@ -149,6 +158,7 @@ describe('ProverNode', () => {
     await proverNode.handleBlockStreamEvent({
       type: 'chain-finalized',
       block: { number: BlockNumber(1), hash: '0x01' },
+      checkpoint: { number: CheckpointNumber(1), hash: '0x01' },
     });
 
     expect(cache.get(txHash)).toBeUndefined();
@@ -164,6 +174,7 @@ describe('ProverNode', () => {
     await proverNode.handleBlockStreamEvent({
       type: 'chain-finalized',
       block: { number: BlockNumber(1), hash: '0x01' },
+      checkpoint: { number: CheckpointNumber(1), hash: '0x01' },
     });
     expect(reapSpy.mock.calls.length).toBe(3);
     reapSpy.mockClear();
@@ -172,6 +183,7 @@ describe('ProverNode', () => {
     await proverNode.handleBlockStreamEvent({
       type: 'chain-finalized',
       block: { number: BlockNumber(1), hash: '0x01' },
+      checkpoint: { number: CheckpointNumber(1), hash: '0x01' },
     });
     expect(reapSpy).not.toHaveBeenCalled();
   });
@@ -183,6 +195,7 @@ describe('ProverNode', () => {
     await proverNode.handleBlockStreamEvent({
       type: 'chain-finalized',
       block: { number: BlockNumber(1), hash: '0x01' },
+      checkpoint: { number: CheckpointNumber(1), hash: '0x01' },
     });
     expect(reapSpy).not.toHaveBeenCalled();
   });
@@ -318,6 +331,7 @@ describe('ProverNode', () => {
     await proverNode.handleBlockStreamEvent({
       type: 'chain-finalized',
       block: { number: BlockNumber(1), hash: '0x01' },
+      checkpoint: { number: CheckpointNumber(1), hash: '0x01' },
     });
 
     expect(reapSpy).not.toHaveBeenCalled();
@@ -338,6 +352,7 @@ describe('ProverNode', () => {
     await proverNode.handleBlockStreamEvent({
       type: 'chain-finalized',
       block: { number: BlockNumber(1), hash: '0x01' },
+      checkpoint: { number: CheckpointNumber(1), hash: '0x01' },
     });
 
     expect(reapSpy.mock.calls.map(([e]) => Number(e))).toEqual([0, 1, 2]);
@@ -372,8 +387,9 @@ describe('ProverNode', () => {
     sessionManager.onPrune.mockClear();
     await proverNode.handleBlockStreamEvent({
       type: 'chain-pruned',
-      checkpoint: { number: CheckpointNumber(0), hash: '0x00' },
       block: { number: BlockNumber(0), hash: '0x00' },
+      checkpointed: makeTipId(0),
+      proven: makeTipId(0),
     });
     expect(sessionManager.onPrune).toHaveBeenCalledTimes(1);
     expect(sessionManager.onPrune).toHaveBeenCalledWith([EpochNumber(3)]);
@@ -594,6 +610,7 @@ describe('ProverNode', () => {
       header: { slotNumber: SlotNumber(slot) },
       archive: { root: archiveRoot },
       blocks: [{ number: blockNumber, header: { hash: () => Promise.resolve('0x01') } }],
+      hash: () => new Fr(checkpointNumber),
     } as unknown as Checkpoint;
   }
 

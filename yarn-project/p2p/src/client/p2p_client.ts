@@ -6,7 +6,6 @@ import {
   SlotNumber,
 } from '@aztec/foundation/branded-types';
 import { createLogger } from '@aztec/foundation/log';
-import { RunningPromise } from '@aztec/foundation/promise';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { AztecAsyncKVStore, AztecAsyncSingleton } from '@aztec/kv-store';
 import { L2TipsKVStore } from '@aztec/kv-store/stores';
@@ -20,8 +19,8 @@ import {
   type L2BlockSource,
   L2BlockStream,
   type L2BlockStreamEvent,
-  type L2Tips,
   type L2TipsStore,
+  type LocalL2Tips,
 } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
@@ -82,9 +81,6 @@ export class P2PClient extends WithTracer implements P2P {
 
   /** Tracks the last slot for which we called prepareForSlot */
   private lastSlotProcessed: SlotNumber = SlotNumber.ZERO;
-
-  /** Polls for slot changes and calls prepareForSlot on the tx pool */
-  private slotMonitor: RunningPromise | undefined;
 
   constructor(
     private store: AztecAsyncKVStore,
@@ -152,7 +148,7 @@ export class P2PClient extends WithTracer implements P2P {
     this.p2pService.updateConfig(config);
   }
 
-  public getL2Tips(): Promise<L2Tips> {
+  public getL2Tips(): Promise<LocalL2Tips> {
     return this.l2Tips.getL2Tips();
   }
 
@@ -178,7 +174,7 @@ export class P2PClient extends WithTracer implements P2P {
         break;
       case 'chain-pruned':
         this.txCollection.stopCollectingForBlocksAfter(event.block.number);
-        await this.handlePruneL2Blocks(event.block, event.checkpoint);
+        await this.handlePruneL2Blocks(event.block, event.checkpointed.checkpoint);
         break;
       case 'chain-checkpointed':
         break;
@@ -268,14 +264,6 @@ export class P2PClient extends WithTracer implements P2P {
     this.blockStream.start();
     this.txFileStore?.start();
 
-    // Start slot monitor to call prepareForSlot when the slot changes
-    this.slotMonitor = new RunningPromise(
-      () => this.maybeCallPrepareForSlot(),
-      this.log,
-      this.config.slotCheckIntervalMS,
-    );
-    this.slotMonitor.start();
-
     return this.syncPromise;
   }
 
@@ -302,8 +290,6 @@ export class P2PClient extends WithTracer implements P2P {
    */
   public async stop() {
     this.log.debug('Stopping p2p client...');
-    await this.slotMonitor?.stop();
-    this.log.debug('Stopped slot monitor');
     await tryStop(this.txCollection);
     this.log.debug('Stopped tx collection service');
     await this.txFileStore?.stop();
@@ -642,11 +628,16 @@ export class P2PClient extends WithTracer implements P2P {
       return;
     }
 
-    await this.handleMinedBlocks(blocks);
-    await this.maybeCallPrepareForSlot();
-    await this.collectingMissingTxs(blocks);
     const lastBlock = blocks.at(-1)!;
-    await this.synchedLatestSlot.set(BigInt(lastBlock.header.getSlot()));
+    const lastSlot = lastBlock.header.getSlot();
+
+    // Mark txs mined before releasing protections: a block landing at this slot supersedes any
+    // protection for txs it includes, so mined-marking must run first to keep just-landed txs from
+    // being unprotected into pending where they could be evicted before they are recorded as mined.
+    await this.handleMinedBlocks(blocks);
+    await this.maybeCallPrepareForSlot(lastSlot);
+    await this.collectingMissingTxs(blocks);
+    await this.synchedLatestSlot.set(BigInt(lastSlot));
   }
 
   /** Request txs for unproven blocks so the prover node can prove. */
@@ -741,20 +732,8 @@ export class P2PClient extends WithTracer implements P2P {
     return isEpochPrune;
   }
 
-  /** Checks if the slot has changed and calls prepareForSlot if so. */
-  private async maybeCallPrepareForSlot(): Promise<void> {
-    // If we have a proposed checkpoint available, we want to prepare the target slot - otherwise we prepare the current slot
-    const l2Tips = await this.l2Tips.getL2Tips();
-    const hasProposedCheckpoint = l2Tips.proposedCheckpoint.checkpoint.number > l2Tips.checkpointed.checkpoint.number;
-
-    let slot;
-    if (hasProposedCheckpoint) {
-      const { targetSlot } = this.epochCache.getTargetAndNextSlot();
-      slot = targetSlot;
-    } else {
-      const { currentSlot } = this.epochCache.getCurrentAndNextSlot();
-      slot = currentSlot;
-    }
+  /** Calls prepareForSlot for the given slot if it advances past the last slot we prepared for. */
+  private async maybeCallPrepareForSlot(slot: SlotNumber): Promise<void> {
     if (slot <= this.lastSlotProcessed) {
       return;
     }

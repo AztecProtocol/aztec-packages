@@ -14,7 +14,9 @@ import { createExtendedL1Client } from '@aztec/ethereum/client';
 import type { Logger } from '@aztec/foundation/log';
 import { makeBackoff, retry, retryUntil } from '@aztec/foundation/retry';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import { Gas } from '@aztec/stdlib/gas';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
+import { getGasLimits } from '@aztec/wallet-sdk/base-wallet';
 import { registerInitialLocalNetworkAccountsInWallet } from '@aztec/wallets/testing';
 
 import { getACVMConfig } from '../fixtures/get_acvm_config.js';
@@ -141,8 +143,9 @@ async function deployAccountWithDiagnostics(
   const deployMethod = await account.getDeployMethod();
   let gasSettings: any;
   if (estimateGas) {
-    const sim = await deployMethod.simulate({ from: NO_FROM, fee: { paymentMethod } });
-    gasSettings = sim.estimatedGas;
+    const sim = await deployMethod.simulate({ from: NO_FROM, fee: { paymentMethod }, includeMetadata: true });
+    const { txsLimits } = await aztecNode.getNodeInfo();
+    gasSettings = getGasLimits(sim.gasUsed!, Gas.from(txsLimits.gas));
     logger.info(`${accountLabel} estimated gas: DA=${gasSettings.gasLimits.daGas} L2=${gasSettings.gasLimits.l2Gas}`);
   }
 
