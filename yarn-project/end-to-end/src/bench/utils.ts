@@ -15,6 +15,7 @@ import type { BenchmarkDataPoint, BenchmarkMetricsType, BenchmarkTelemetryClient
 
 import { mkdirSync, writeFileSync } from 'fs';
 import path from 'path';
+import { cornTestnet } from 'viem/chains';
 
 import { PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
 import {
@@ -38,21 +39,12 @@ export async function benchmarkSetup(
     benchOutput?: string;
   },
 ) {
-  const benchmarkAccountData = await getBenchmarkAccountData();
-  const context = await setup(0, {
+  const context = await setup(1, {
     ...PIPELINING_SETUP_OPTS,
     ...opts,
-    initialFundedAccounts: [benchmarkAccountData],
-    skipAccountDeployment: true,
     telemetryConfig: { benchmark: true },
   });
-  const accountManager = await context.wallet.createAccount({
-    secret: benchmarkAccountData.secret,
-    salt: benchmarkAccountData.salt,
-    contract: new SchnorrHardcodedKeyAccountContract(),
-  });
-  const defaultAccountAddress = accountManager.address;
-  context.accounts = [defaultAccountAddress];
+  const [defaultAccountAddress] = context.accounts;
   const sequencer = getSequencerClient(context);
   await waitForSequencerIdle(sequencer.getSequencer());
   const deployment = BenchmarkingContract.deploy(context.wallet);
