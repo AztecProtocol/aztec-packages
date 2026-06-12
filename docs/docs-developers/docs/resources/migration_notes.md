@@ -63,7 +63,7 @@ The `estimateGas` and `estimatedGasPadding` fee options are gone, and the `estim
 + import { getGasLimits } from '@aztec/wallet-sdk/base-wallet';
 + const { txsLimits } = await node.getNodeInfo();
 + const { gasLimits, teardownGasLimits } = getGasLimits(simulationResult.gasUsed, Gas.from(txsLimits.gas), 0.1);
-````
+```
 
 ### [Aztec.js / PXE] `NodeInfo.txsLimits` is now required
 
