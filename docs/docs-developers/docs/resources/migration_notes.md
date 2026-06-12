@@ -93,6 +93,12 @@ All Aztec node JSON-RPC method prefixes have changed:
 If you call the node RPC directly (e.g. via `curl` or a custom client), update all method names accordingly.
 Clients created via `createAztecNodeClient`, `createAztecNodeAdminClient`, and `createAztecNodeDebugClient` are updated automatically.
 
+### [Node RPC] `registerContractFunctionSignatures` moved to the debug API
+
+`registerContractFunctionSignatures` is no longer part of the main node JSON-RPC API (`aztec_` namespace). It is now a debug-only method exposed under the `aztecDebug_` namespace, which is only mounted when the node runs with debug endpoints enabled (`--node-debug`, always on in the in-process sandbox). This removes an unauthenticated write to node memory from prod-like nodes.
+
+Clients that registered public function signatures over `aztec_registerContractFunctionSignatures` should call `aztecDebug_registerContractFunctionSignatures` against a debug-enabled node instead. In the PXE, this is now driven by an optional debug client: pass a `nodeDebug` client (e.g. `createAztecNodeDebugClient(nodeUrl)`) when creating the PXE to keep named public-execution traces; when it is absent, signature registration is skipped. Client-side error enrichment from the contract ABI is unaffected.
+
 ### [Aztec.nr] `get_pending_tagged_logs` oracle interface updated (oracle version 28)
 
 The `aztec_utl_getPendingTaggedLogs` oracle now takes an additional `provided_secrets` parameter of type `EphemeralArray<ProvidedSecret>`. This lets apps pass tagging secrets that PXE cannot derive on its own (e.g. handshake-derived secrets) alongside the secrets PXE manages internally.

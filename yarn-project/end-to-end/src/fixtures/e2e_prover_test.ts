@@ -186,6 +186,7 @@ export class FullProverTest {
     this.logger.verbose(`Main setup completed, initializing full prover PXE, Node, and Prover Node`);
     const { wallet: provenWallet, teardown: provenTeardown } = await setupPXEAndGetWallet(
       this.aztecNode,
+      this.context.aztecNode,
       { proverEnabled: this.realProofs },
       undefined,
       'pxe-proven',

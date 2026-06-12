@@ -307,10 +307,6 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toEqual(Object.fromEntries(ProtocolContractsNames.map(name => [name, expect.any(AztecAddress)])));
   });
 
-  it('registerContractFunctionSignatures', async () => {
-    await context.client.registerContractFunctionSignatures(['test()']);
-  });
-
   it('getPrivateLogsByTags', async () => {
     const response = await context.client.getPrivateLogsByTags({ tags: [SiloedTag.random()] });
     expect(response).toHaveLength(1);
@@ -812,9 +808,6 @@ class MockAztecNode implements AztecNode {
       ProtocolContractsNames.map(async name => [name, await AztecAddress.random()]),
     );
     return Object.fromEntries(protocolContracts) as ProtocolContractAddresses;
-  }
-  registerContractFunctionSignatures(_signatures: string[]): Promise<void> {
-    return Promise.resolve();
   }
   getPrivateLogsByTags(query: PrivateLogsQuery): Promise<LogResult[][]> {
     expect(Array.isArray(query.tags)).toBe(true);
