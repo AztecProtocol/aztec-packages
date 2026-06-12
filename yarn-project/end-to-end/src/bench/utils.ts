@@ -1,9 +1,6 @@
-import type { InitialAccountData } from '@aztec/accounts/testing';
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { getAccountContractAddress } from '@aztec/aztec.js/account';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { BatchCall, NO_WAIT, type WaitOpts } from '@aztec/aztec.js/contracts';
-import { Fr } from '@aztec/aztec.js/fields';
 import { waitForTx } from '@aztec/aztec.js/node';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import { mean, stdDev, times } from '@aztec/foundation/collection';
@@ -17,10 +14,6 @@ import { mkdirSync, writeFileSync } from 'fs';
 import path from 'path';
 
 import { PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
-import {
-  SCHNORR_HARDCODED_PRIVATE_KEY,
-  SchnorrHardcodedKeyAccountContract,
-} from '../fixtures/schnorr_hardcoded_account_contract.js';
 import { type EndToEndContext, type SetupOptions, setup } from '../fixtures/utils.js';
 
 const MAX_BENCH_WAIT_BLOCKS = 6;
@@ -38,21 +31,12 @@ export async function benchmarkSetup(
     benchOutput?: string;
   },
 ) {
-  const benchmarkAccountData = await getBenchmarkAccountData();
-  const context = await setup(0, {
+  const context = await setup(1, {
     ...PIPELINING_SETUP_OPTS,
     ...opts,
-    initialFundedAccounts: [benchmarkAccountData],
-    skipAccountDeployment: true,
     telemetryConfig: { benchmark: true },
   });
-  const accountManager = await context.wallet.createAccount({
-    secret: benchmarkAccountData.secret,
-    salt: benchmarkAccountData.salt,
-    contract: new SchnorrHardcodedKeyAccountContract(),
-  });
-  const defaultAccountAddress = accountManager.address;
-  context.accounts = [defaultAccountAddress];
+  const [defaultAccountAddress] = context.accounts;
   const sequencer = getSequencerClient(context);
   await waitForSequencerIdle(sequencer.getSequencer());
   const deployment = BenchmarkingContract.deploy(context.wallet);
@@ -78,14 +62,6 @@ export async function benchmarkSetup(
     await origTeardown();
   };
   return { telemetry, context, contract, sequencer };
-}
-
-async function getBenchmarkAccountData(): Promise<InitialAccountData> {
-  const contract = new SchnorrHardcodedKeyAccountContract();
-  const secret = Fr.random();
-  const salt = Fr.random();
-  const address = await getAccountContractAddress(contract, secret, salt);
-  return { secret, salt, signingKey: SCHNORR_HARDCODED_PRIVATE_KEY, address };
 }
 
 function getSequencerClient(context: EndToEndContext) {

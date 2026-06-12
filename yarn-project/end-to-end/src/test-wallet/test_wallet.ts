@@ -1,6 +1,6 @@
 import { EcdsaKAccountContract, EcdsaRAccountContract } from '@aztec/accounts/ecdsa';
 import { StubEcdsaAccountContractArtifact, createStubEcdsaAccount } from '@aztec/accounts/ecdsa/stub';
-import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
+import { SchnorrAccountContract, SchnorrInitializerlessAccountContract } from '@aztec/accounts/schnorr';
 import { StubSchnorrAccountContractArtifact, createStubSchnorrAccount } from '@aztec/accounts/schnorr/stub';
 import { type Account, type AccountContract, NO_FROM } from '@aztec/aztec.js/account';
 import type { CompleteAddress } from '@aztec/aztec.js/addresses';
@@ -13,6 +13,7 @@ import {
   isContractFunctionInteractionCallIntent,
   lookupValidity,
 } from '@aztec/aztec.js/authorization';
+import { ContractFunctionInteraction } from '@aztec/aztec.js/contracts';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { AccountManager, type SendOptions } from '@aztec/aztec.js/wallet';
 import { TxSimulationResultWithAppOffset } from '@aztec/aztec.js/wallet';
@@ -96,6 +97,16 @@ export class TestWallet extends BaseWallet {
     return this.createAccount({ secret, salt, type: 'schnorr', contract: new SchnorrAccountContract(signingKey) });
   }
 
+  createSchnorrInitializerlessAccount(secret: Fr, salt: Fr, signingKey?: Fq): Promise<AccountManager> {
+    signingKey = signingKey ?? deriveSigningKey(secret);
+    return this.createAccount({
+      secret,
+      salt,
+      type: 'schnorr_initializerless',
+      contract: new SchnorrInitializerlessAccountContract(signingKey),
+    });
+  }
+
   createECDSARAccount(secret: Fr, salt: Fr, signingKey: Buffer): Promise<AccountManager> {
     return this.createAccount({
       secret,
@@ -131,6 +142,8 @@ export class TestWallet extends BaseWallet {
     await this.pxe.registerContractClass(StubEcdsaAccountContractArtifact);
 
     this.stubClassIds.set('schnorr', schnorrClassId);
+    // Initializerless accounts share the schnorr stub class for kernelless simulation.
+    this.stubClassIds.set('schnorr_initializerless', schnorrClassId);
     this.stubClassIds.set('ecdsasecp256k1', ecdsaClassId);
     this.stubClassIds.set('ecdsasecp256r1', ecdsaClassId);
   }
@@ -178,7 +191,8 @@ export class TestWallet extends BaseWallet {
   }
 
   private getStubAccountFor(address: AztecAddress, completeAddress: CompleteAddress) {
-    return this.getTypeFor(address) === 'schnorr'
+    const type = this.getTypeFor(address);
+    return type === 'schnorr' || type === 'schnorr_initializerless'
       ? createStubSchnorrAccount(completeAddress)
       : createStubEcdsaAccount(completeAddress);
   }
@@ -221,6 +235,10 @@ export class TestWallet extends BaseWallet {
     const type = accountData?.type ?? 'schnorr';
     const contract = accountData?.contract ?? new SchnorrAccountContract(GrumpkinScalar.random());
 
+    // Initializerless accounts have no deployment tx: the address commits to the signing public key
+    // (via the contract's immutablesHash, resolved by AccountManager.create) and the constructor's
+    // storage writes are materialized locally via a simulated "store" call below.
+    // Mirrors EmbeddedWallet.createAccountInternal.
     const accountManager = await AccountManager.create(this, secret, contract, { salt });
 
     const instance = accountManager.getInstance();
@@ -230,6 +248,16 @@ export class TestWallet extends BaseWallet {
 
     const address = accountManager.address.toString();
     this.accounts.set(address, { account: await accountManager.getAccount(), type });
+
+    if (contract instanceof SchnorrInitializerlessAccountContract) {
+      const constructorAbi = artifact.functions.find(f => f.name === 'constructor');
+      if (!constructorAbi) {
+        throw new Error('Could not create SchnorrInitializerlessAccount: constructor ABI not found');
+      }
+      const { x, y } = await contract.getSigningPublicKey();
+      const storeCall = new ContractFunctionInteraction(this, instance.address, constructorAbi, [x, y]);
+      await storeCall.simulate({ from: instance.address });
+    }
 
     return accountManager;
   }

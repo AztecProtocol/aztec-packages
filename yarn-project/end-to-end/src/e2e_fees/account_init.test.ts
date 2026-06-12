@@ -153,6 +153,7 @@ describe('e2e_fees account_init', () => {
       const paymentMethod = new PublicFeePaymentMethod(bananaFPC.address, bobsAddress, wallet, gasSettings);
       const { receipt: tx } = await bobsDeployMethod.send({
         from: NO_FROM,
+        skipClassPublication: false,
         skipInstancePublication: false,
         fee: { paymentMethod },
       });

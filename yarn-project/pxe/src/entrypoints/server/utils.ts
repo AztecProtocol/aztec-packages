@@ -5,9 +5,9 @@ import { createStore } from '@aztec/kv-store/lmdb-v2';
 import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
 import { MemoryCircuitRecorder, SimulatorRecorderWrapper, WASMSimulator } from '@aztec/simulator/client';
 import { FileCircuitRecorder } from '@aztec/simulator/testing';
-import { getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry/lazy';
-import { getStandardHandshakeRegistry } from '@aztec/standard-contracts/handshake-registry/lazy';
-import { getStandardMultiCallEntrypoint } from '@aztec/standard-contracts/multi-call-entrypoint/lazy';
+import { getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry';
+import { getStandardHandshakeRegistry } from '@aztec/standard-contracts/handshake-registry';
+import { getStandardMultiCallEntrypoint } from '@aztec/standard-contracts/multi-call-entrypoint';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 
 import type { PXEConfig } from '../../config/index.js';

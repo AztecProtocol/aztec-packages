@@ -6,6 +6,7 @@
  */
 import { getAccountContractAddress } from '@aztec/aztec.js/account';
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
 import type { ContractArtifact } from '@aztec/stdlib/abi';
@@ -28,6 +29,15 @@ export const SchnorrInitializerlessAccountContractArtifact = loadContractArtifac
 export class SchnorrInitializerlessAccountContract extends SchnorrBaseAccountContract {
   constructor(signingPrivateKey: GrumpkinScalar) {
     super(signingPrivateKey);
+  }
+
+  override getInitializationFunctionAndArgs() {
+    return Promise.resolve(undefined);
+  }
+
+  override async getImmutablesHash(): Promise<Fr> {
+    const signingPublicKey = await this.getSigningPublicKey();
+    return poseidon2Hash([signingPublicKey.x, signingPublicKey.y]);
   }
 
   override getContractArtifact(): Promise<ContractArtifact> {

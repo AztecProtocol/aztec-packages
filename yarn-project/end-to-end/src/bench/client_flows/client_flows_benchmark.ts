@@ -29,7 +29,7 @@ import { Gas, GasSettings } from '@aztec/stdlib/gas';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 
 import { AUTOMINE_E2E_OPTS, MNEMONIC, getPaddedMaxFeesPerGas } from '../../fixtures/fixtures.js';
-import { type EndToEndContext, type SetupOptions, deployAccounts, setup, teardown } from '../../fixtures/setup.js';
+import { type EndToEndContext, type SetupOptions, setup, teardown } from '../../fixtures/setup.js';
 import { mintTokensToPrivate } from '../../fixtures/token_utils.js';
 import { setupSponsoredFPC } from '../../fixtures/utils.js';
 import { CrossChainTestHarness } from '../../shared/cross_chain_test_harness.js';
@@ -135,10 +135,9 @@ export class ClientFlowsBenchmark {
     this.logger.info('Setting up subsystems from fresh');
     // Token allowlist entries are test-only: FPC-based fee payment with custom tokens won't work on mainnet alpha.
     const tokenAllowList = await getTokenAllowedSetupFunctions();
-    this.context = await setup(0, {
+    this.context = await setup(2, {
       ...this.setupOptions,
       fundSponsoredFPC: true,
-      skipAccountDeployment: true,
       l1ContractsArgs: this.setupOptions,
       txPublicSetupAllowListExtend: [...(this.setupOptions.txPublicSetupAllowListExtend ?? []), ...tokenAllowList],
     });
@@ -203,15 +202,7 @@ export class ClientFlowsBenchmark {
 
   async applyInitialAccounts() {
     this.logger.info('Applying initial accounts setup');
-    const { deployedAccounts } = await deployAccounts(
-      2,
-      this.logger,
-    )({
-      wallet: this.context.wallet,
-      initialFundedAccounts: this.context.initialFundedAccounts,
-    });
-
-    const [{ address: adminAddress }, { address: sequencerAddress }] = deployedAccounts;
+    const [adminAddress, sequencerAddress] = this.context.accounts;
 
     this.adminWallet = this.context.wallet;
     this.aztecNode = this.context.aztecNodeService;
