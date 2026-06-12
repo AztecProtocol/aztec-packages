@@ -186,7 +186,7 @@ describe('NodePublicCallsSimulator', () => {
     await expect(simulator.simulate(tx)).rejects.toThrow(/gas/i);
   });
 
-  describe('Case A: mid-checkpoint continuation', () => {
+  describe('continuing an in-progress checkpoint', () => {
     // A proposed checkpoint (#2) terminates at block 5, but the latest proposed block (block 9) is
     // ahead of it, so the next block continues the in-progress checkpoint built on top of the proposed one.
     const setupMidCheckpoint = () => {
@@ -214,7 +214,7 @@ describe('NodePublicCallsSimulator', () => {
       expect(builtGlobals!.blockNumber).toEqual(BlockNumber(10));
       expect(builtGlobals!.slotNumber).toEqual(headerSlot);
       expect(builtGlobals!.gasFees).toEqual(headerGasFees);
-      // No fresh globals built and no L1 reads for fees in Case A.
+      // No fresh globals built and no L1 reads for fees when continuing an in-progress checkpoint.
       expect(globalVariableBuilder.buildCheckpointGlobalVariables).not.toHaveBeenCalled();
       expect(rollupContract.getManaTarget).not.toHaveBeenCalled();
     });
@@ -242,14 +242,14 @@ describe('NodePublicCallsSimulator', () => {
 
       await expect(simulator.simulate(tx)).rejects.toThrow();
 
-      // Must not fall through to Case B and re-insert the ongoing checkpoint's messages.
+      // Must not treat the next block as opening a new checkpoint and re-insert the ongoing checkpoint's messages.
       expect(l1ToL2MessageSource.getL1ToL2Messages).not.toHaveBeenCalled();
       expect(merkleTreeFork.appendLeaves).not.toHaveBeenCalled();
       expect(globalVariableBuilder.buildCheckpointGlobalVariables).not.toHaveBeenCalled();
     });
   });
 
-  describe('Case B: opening a new checkpoint', () => {
+  describe('opening a new checkpoint', () => {
     // The latest proposed block (5) coincides with the proposed-checkpoint frontier, so the next
     // block opens a new checkpoint. Tests that pipeline on a proposed checkpoint additionally mock
     // `getProposedCheckpointData`; otherwise the frontier is the checkpointed tip (block 5).
@@ -367,7 +367,7 @@ describe('NodePublicCallsSimulator', () => {
       expect(plan?.chainTipsOverride).toEqual({ pending: CheckpointNumber(3), proven: CheckpointNumber(3) });
     });
 
-    it('fails loudly when pipelining without a rollup contract instead of degrading to non-pipelined fees', async () => {
+    it('degrades to a pinned-tips plan when pipelining without a rollup contract', async () => {
       const tx = await lowGasTx();
       simulator = makeSimulatorWithoutRollupContract();
       blockSource.getL2Tips.mockResolvedValue(setupBoundary({ checkpointed: CheckpointNumber(2) }));
@@ -381,7 +381,12 @@ describe('NodePublicCallsSimulator', () => {
         }),
       );
 
-      await expect(simulator.simulate(tx)).rejects.toThrow(/rollup contract/);
+      await simulator.simulate(tx);
+
+      const [, , , plan] = globalVariableBuilder.buildCheckpointGlobalVariables.mock.calls[0];
+      // No rollup contract: pin tips to the checkpointed tip (2) without pipelining overrides.
+      expect(plan?.chainTipsOverride).toEqual({ pending: CheckpointNumber(2), proven: CheckpointNumber(2) });
+      expect(plan?.pendingCheckpointState).toBeUndefined();
     });
 
     it('simulates without a rollup contract when idle (the TXE shape)', async () => {

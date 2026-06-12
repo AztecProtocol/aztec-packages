@@ -50,10 +50,10 @@ export interface NodePublicCallsSimulatorDeps {
   contractDataSource: ContractDataSource;
   globalVariableBuilder: GlobalVariableBuilder;
   /**
-   * Rollup contract used to build the fee-relevant L1 state overrides for Case B. Only needed when a
-   * proposed parent checkpoint exists (pipelining) or the pending chain is invalid; may be omitted in
-   * environments that never reach those states (e.g. TXE), but reaching them without it fails the
-   * simulation rather than degrading to non-pipelined fees.
+   * Rollup contract used to build the fee-relevant L1 state overrides when opening a new checkpoint.
+   * Only needed when a proposed parent checkpoint exists (pipelining) or the pending chain is invalid;
+   * may be omitted in environments that never reach those states (e.g. TXE). When omitted, those paths
+   * degrade to a pinned-tips plan (non-pipelined fees) instead.
    */
   rollupContract?: RollupContract;
   epochCache: EpochCacheInterface;
@@ -70,12 +70,14 @@ export interface NodePublicCallsSimulatorDeps {
  * standing up the whole node, and to keep `server.ts` smaller.
  *
  * The simulator picks globals in one of two ways, mirroring how the sequencer builds the next block:
- * - **Case A — mid-checkpoint continuation:** every block in a checkpoint shares the same
+ * - **When the next block continues an in-progress checkpoint** (the latest proposed block is ahead of
+ *   the proposed-checkpoint frontier): every block in a checkpoint shares the same
  *   `CheckpointGlobalVariables`, so we copy the latest proposed block's globals verbatim and only
  *   bump the block number. No L1 calls, no L1-to-L2 message insertion.
- * - **Case B — opening a new checkpoint:** we compute fresh globals for the slot the next block will
- *   land in, applying the same `SimulationOverridesPlan` the sequencer applies so the simulated mana
- *   min fee matches what the sequencer will write into the block header.
+ * - **When the next block opens a new checkpoint** (the latest proposed block coincides with the
+ *   proposed-checkpoint frontier): we compute fresh globals for the slot the next block will land in,
+ *   applying the same `SimulationOverridesPlan` the sequencer applies so the simulated mana min fee
+ *   matches what the sequencer will write into the block header.
  */
 export class NodePublicCallsSimulator {
   private readonly blockSource: L2BlockSource;
@@ -149,7 +151,7 @@ export class NodePublicCallsSimulator {
     const atCheckpointBoundary = proposedCheckpointLastBlock === l2Tips.proposed.number;
 
     // `targetCheckpoint` is the checkpoint whose L1-to-L2 messages must be inserted into the fork
-    // before simulation. Only set in Case B, where the next block is the first of a new checkpoint.
+    // before simulation. Only set when opening a new checkpoint, where the next block is its first block.
     const { globalVariables: newGlobalVariables, targetCheckpoint } = atCheckpointBoundary
       ? await this.buildGlobalVariablesForNewCheckpoint(l2Tips, proposedCheckpointData, blockNumber)
       : { globalVariables: await this.copyGlobalVariablesFromLatestProposedBlock(latestBlockNumber, blockNumber) };
@@ -171,28 +173,7 @@ export class NodePublicCallsSimulator {
     // Ensure world-state has caught up with the latest block we loaded from the archiver
     await this.worldStateSynchronizer.syncImmediate(latestBlockNumber);
 
-    // Insert the next checkpoint's L1-to-L2 messages into the fork only in Case B. In Case A the
-    // ongoing checkpoint's messages were already applied when its first block synced, so inserting
-    // here would double-count them — which is why a missing Case A header throws rather than falling
-    // through to this path.
-    const nextCheckpointMessages: Fr[] | undefined =
-      targetCheckpoint !== undefined
-        ? await this.l1ToL2MessageSource.getL1ToL2Messages(targetCheckpoint).catch(err => {
-            if (isErrorClass(err, L1ToL2MessagesNotReadyError)) {
-              this.log.warn(
-                `L1-to-L2 messages for checkpoint ${targetCheckpoint} are not ready yet (simulating without them)`,
-                { checkpointNumber: targetCheckpoint },
-              );
-            } else {
-              this.log.error(
-                `Failed to get L1-to-L2 messages for checkpoint ${targetCheckpoint} (simulating without them)`,
-                err,
-                { checkpointNumber: targetCheckpoint },
-              );
-            }
-            return undefined;
-          })
-        : undefined;
+    const nextCheckpointMessages = await this.getNextCheckpointMessages(targetCheckpoint);
 
     // Request a new fork of the world state at the latest block number, and apply any overrides and next checkpoint messages to it before simulation
     await using merkleTreeFork = await this.worldStateSynchronizer.fork(latestBlockNumber);
@@ -204,6 +185,7 @@ export class NodePublicCallsSimulator {
       );
       await appendL1ToL2MessagesToTree(merkleTreeFork, nextCheckpointMessages);
     }
+
     await applyPublicDataOverrides(merkleTreeFork, overrides?.publicStorage);
 
     const config = PublicSimulatorConfig.from({
@@ -243,15 +225,47 @@ export class NodePublicCallsSimulator {
   }
 
   /**
-   * Case A — mid-checkpoint continuation. Every block in a checkpoint shares the same
-   * `CheckpointGlobalVariables`, so the next block's globals are the latest proposed block's globals
-   * with only the block number bumped — including the proposer's real coinbase/feeRecipient. No L1
-   * reads and no L1-to-L2 message insertion happen here.
+   * Fetches the next checkpoint's L1-to-L2 messages to insert into the fork before simulation. Only set
+   * when opening a new checkpoint; when continuing an in-progress checkpoint the ongoing checkpoint's
+   * messages were already applied when its first block synced, so inserting here would double-count them
+   * — which is why a missing header for the latest proposed block throws rather than falling through to
+   * this path. A not-ready or failed fetch degrades to simulating without the messages rather than
+   * failing the request.
+   */
+  private async getNextCheckpointMessages(targetCheckpoint: CheckpointNumber | undefined): Promise<Fr[] | undefined> {
+    if (targetCheckpoint === undefined) {
+      return undefined;
+    }
+    try {
+      return await this.l1ToL2MessageSource.getL1ToL2Messages(targetCheckpoint);
+    } catch (err) {
+      if (isErrorClass(err, L1ToL2MessagesNotReadyError)) {
+        this.log.warn(
+          `L1-to-L2 messages for checkpoint ${targetCheckpoint} are not ready yet (simulating without them)`,
+          { checkpointNumber: targetCheckpoint },
+        );
+      } else {
+        this.log.error(
+          `Failed to get L1-to-L2 messages for checkpoint ${targetCheckpoint} (simulating without them)`,
+          err,
+          { checkpointNumber: targetCheckpoint },
+        );
+      }
+      return undefined;
+    }
+  }
+
+  /**
+   * Continues an in-progress checkpoint: the next block extends the checkpoint the latest proposed
+   * block belongs to. Every block in a checkpoint shares the same `CheckpointGlobalVariables`, so the
+   * next block's globals are the latest proposed block's globals with only the block number bumped —
+   * including the proposer's real coinbase/feeRecipient. No L1 reads and no L1-to-L2 message insertion
+   * happen here.
    *
    * A missing header means the archiver reported a proposed tip via `getL2Tips` but no longer has its
-   * data (a torn snapshot). We throw a transient/retryable error rather than falling through to Case B:
-   * the fork at `latestBlockNumber` already contains the ongoing checkpoint's L1-to-L2 messages, so a
-   * Case B insertion for the next checkpoint would append them a second time.
+   * data (a torn snapshot). We throw a transient/retryable error rather than treating the next block as
+   * opening a new checkpoint: the fork at `latestBlockNumber` already contains the ongoing checkpoint's
+   * L1-to-L2 messages, so inserting the next checkpoint's messages would append them a second time.
    */
   private async copyGlobalVariablesFromLatestProposedBlock(
     latestBlockNumber: BlockNumber,
@@ -268,12 +282,13 @@ export class NodePublicCallsSimulator {
   }
 
   /**
-   * Case B — the next block opens a new checkpoint. Picks the slot the next block will land in,
-   * mirroring the sequencer, and builds the same `SimulationOverridesPlan` the sequencer applies so
-   * the simulated mana min fee matches what the sequencer will write into the block header. Coinbase
-   * and fee recipient stay zero (we cannot know the future proposer's payout addresses), unlike Case A
-   * which inherits the real ones from the proposed header. Returns the target checkpoint so the caller
-   * inserts that checkpoint's L1-to-L2 messages into the fork.
+   * Opens a new checkpoint: the next block is the first of a fresh checkpoint. Picks the slot the next
+   * block will land in, mirroring the sequencer, and builds the same `SimulationOverridesPlan` the
+   * sequencer applies so the simulated mana min fee matches what the sequencer will write into the
+   * block header. Coinbase and fee recipient stay zero (we cannot know the future proposer's payout
+   * addresses), unlike continuing an in-progress checkpoint which inherits the real ones from the
+   * proposed header. Returns the target checkpoint so the caller inserts that checkpoint's L1-to-L2
+   * messages into the fork.
    */
   private async buildGlobalVariablesForNewCheckpoint(
     l2Tips: L2Tips,
@@ -325,52 +340,42 @@ export class NodePublicCallsSimulator {
    * Builds the chain-state overrides plan the simulator passes to `buildCheckpointGlobalVariables`,
    * mirroring the sequencer (which always pins tips to neutralize prunes). When pipelining, the plan
    * carries the proposed parent's archive, temp-checkpoint-log cell, and locally-derived fee header.
+   *
+   * Both the pipelining and invalid-pending-chain paths need a rollup contract for the L1 fee reads.
+   * Environments that omit it (e.g. TXE, which never has a proposed checkpoint and whose pending chain
+   * is always valid) fall back to pinning both pending and proven tips to the checkpointed tip, which
+   * neutralizes prunes in fee computation at the cost of non-pipelined fees.
    */
   private async buildSimulationOverridesPlan(
     proposedCheckpointData: ProposedCheckpointData | undefined,
     checkpointedCheckpointNumber: CheckpointNumber,
   ): Promise<SimulationOverridesPlan | undefined> {
-    if (proposedCheckpointData) {
-      return buildCheckpointSimulationOverridesPlan({
-        checkpointNumber: CheckpointNumber(proposedCheckpointData.checkpointNumber + 1),
-        proposedCheckpointData,
-        checkpointedCheckpointNumber,
-        rollup: this.requireRollupContract('simulate on top of a proposed checkpoint'),
-        signatureContext: this.signatureContext,
-        log: this.log,
-      });
+    const rollup = this.rollupContract;
+    if (rollup) {
+      if (proposedCheckpointData) {
+        return buildCheckpointSimulationOverridesPlan({
+          checkpointNumber: CheckpointNumber(proposedCheckpointData.checkpointNumber + 1),
+          proposedCheckpointData,
+          checkpointedCheckpointNumber,
+          rollup,
+          signatureContext: this.signatureContext,
+          log: this.log,
+        });
+      }
+
+      const validationStatus = await this.blockSource.getPendingChainValidationStatus();
+      if (!validationStatus.valid) {
+        return buildCheckpointSimulationOverridesPlan({
+          checkpointNumber: CheckpointNumber(checkpointedCheckpointNumber + 1),
+          invalidateToPendingCheckpointNumber: CheckpointNumber(validationStatus.checkpoint.checkpointNumber - 1),
+          checkpointedCheckpointNumber,
+          rollup,
+          signatureContext: this.signatureContext,
+          log: this.log,
+        });
+      }
     }
 
-    const validationStatus = await this.blockSource.getPendingChainValidationStatus();
-    if (!validationStatus.valid) {
-      return buildCheckpointSimulationOverridesPlan({
-        checkpointNumber: CheckpointNumber(checkpointedCheckpointNumber + 1),
-        invalidateToPendingCheckpointNumber: CheckpointNumber(validationStatus.checkpoint.checkpointNumber - 1),
-        checkpointedCheckpointNumber,
-        rollup: this.requireRollupContract('simulate against an invalid pending chain'),
-        signatureContext: this.signatureContext,
-        log: this.log,
-      });
-    }
-
-    return this.pinTipsPlan(checkpointedCheckpointNumber);
-  }
-
-  /**
-   * The rollup contract may be omitted only by environments that never see a proposed checkpoint or
-   * an invalid pending chain (e.g. TXE, which never has a proposed checkpoint and whose pending chain is
-   * always valid). Reaching a path that needs it without one means the node was misconstructed; failing
-   * loudly beats silently returning non-pipelined fees.
-   */
-  private requireRollupContract(context: string): RollupContract {
-    if (!this.rollupContract) {
-      throw new Error(`NodePublicCallsSimulator has no rollup contract but needs one to ${context}`);
-    }
-    return this.rollupContract;
-  }
-
-  /** Pins both pending and proven tips to the checkpointed tip to neutralize prunes in simulation. */
-  private pinTipsPlan(checkpointedCheckpointNumber: CheckpointNumber): SimulationOverridesPlan | undefined {
     return new SimulationOverridesBuilder()
       .withChainTips({ pending: checkpointedCheckpointNumber, proven: checkpointedCheckpointNumber })
       .build();
