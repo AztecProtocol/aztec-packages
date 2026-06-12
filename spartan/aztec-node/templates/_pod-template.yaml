@@ -182,6 +182,18 @@ spec:
         - name: NETWORK
           value: "{{ .Values.global.aztecNetwork }}"
         {{- end }}
+        {{- if .Values.global.allowOverridingNetworkConfig }}
+        - name: ALLOW_OVERRIDING_NETWORK_CONFIG
+          value: "{{ .Values.global.allowOverridingNetworkConfig }}"
+        {{- end }}
+        {{- if .Values.global.aztecSlotDuration }}
+        - name: AZTEC_SLOT_DURATION
+          value: "{{ .Values.global.aztecSlotDuration }}"
+        {{- end }}
+        {{- if .Values.global.aztecEpochDuration }}
+        - name: AZTEC_EPOCH_DURATION
+          value: "{{ .Values.global.aztecEpochDuration }}"
+        {{- end }}
         - name: NODE_OPTIONS
           value: {{ join " " .Values.node.nodeJsOptions | quote }}
         - name: AZTEC_PORT

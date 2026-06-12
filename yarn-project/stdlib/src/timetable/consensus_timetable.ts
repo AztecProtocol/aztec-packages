@@ -24,8 +24,8 @@ export class ConsensusTimetable {
   /** Ethereum slot duration (`E`) in seconds. */
   public readonly ethereumSlotDuration: number;
 
-  /** Block sub-slot duration (`D`) in seconds, or undefined in single-block mode. */
-  public readonly blockDuration: number | undefined;
+  /** Block sub-slot duration (`D`) in seconds. */
+  public readonly blockDuration: number;
 
   /** L1 genesis timestamp in seconds (`genesis`), the anchor all slot timings derive from. */
   public readonly genesisTime: bigint;
@@ -33,11 +33,7 @@ export class ConsensusTimetable {
   /** Consensus grace for received checkpoint proposals to materialize into local proposed state. */
   public readonly checkpointProposalSyncGrace: number;
 
-  constructor(opts: {
-    l1Constants: SlotTimingConstants;
-    blockDuration: number | undefined;
-    checkpointProposalSyncGrace?: number;
-  }) {
+  constructor(opts: { l1Constants: SlotTimingConstants; blockDuration: number; checkpointProposalSyncGrace?: number }) {
     const { l1Constants, blockDuration } = opts;
     const checkpointProposalSyncGrace =
       opts.checkpointProposalSyncGrace ?? getDefaultCheckpointProposalSyncGrace(blockDuration);
@@ -47,8 +43,8 @@ export class ConsensusTimetable {
     if (l1Constants.ethereumSlotDuration <= 0) {
       throw new Error(`ethereumSlotDuration must be positive (got ${l1Constants.ethereumSlotDuration})`);
     }
-    if (blockDuration !== undefined && blockDuration <= 0) {
-      throw new Error(`blockDuration must be positive when provided (got ${blockDuration})`);
+    if (blockDuration <= 0) {
+      throw new Error(`blockDuration must be positive (got ${blockDuration})`);
     }
     if (checkpointProposalSyncGrace < 0) {
       throw new Error(`checkpointProposalSyncGrace must be non-negative (got ${checkpointProposalSyncGrace})`);
@@ -85,12 +81,10 @@ export class ConsensusTimetable {
 
   /**
    * Hard consensus receive deadline for a checkpoint proposal: `target_slot_start - E - D`. Validators
-   * reject proposals arriving after this, and the next proposer does not build on them. In single-block
-   * mode (`blockDuration` undefined) the `D` term drops to zero, giving `target_slot_start - E` (the
-   * next proposer's build-frame boundary), so this remains usable rather than throwing.
+   * reject proposals arriving after this, and the next proposer does not build on them.
    */
   public getCheckpointProposalReceiveDeadline(slot: SlotNumber): number {
-    return this.getTargetSlotStart(slot) - this.ethereumSlotDuration - (this.blockDuration ?? 0);
+    return this.getTargetSlotStart(slot) - this.ethereumSlotDuration - this.blockDuration;
   }
 
   /**
@@ -100,7 +94,7 @@ export class ConsensusTimetable {
    */
   public getCheckpointProposalSyncedDeadline(slot: SlotNumber): number {
     return Math.ceil(
-      this.getCheckpointProposalReceiveDeadline(slot) + (this.blockDuration ?? 0) + this.checkpointProposalSyncGrace,
+      this.getCheckpointProposalReceiveDeadline(slot) + this.blockDuration + this.checkpointProposalSyncGrace,
     );
   }
 

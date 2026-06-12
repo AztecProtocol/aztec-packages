@@ -96,8 +96,6 @@ describe('e2e_p2p_add_rollup', () => {
     await t.removeInitialNode();
 
     l1TxUtils = createL1TxUtils(t.ctx.deployL1ContractsValues.l1Client);
-
-    t.ctx.watcher.setIsMarkingAsProven(false);
   });
 
   afterAll(async () => {

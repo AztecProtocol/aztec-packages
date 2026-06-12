@@ -325,12 +325,11 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
     const contents = [Fr.random(), Fr.random()];
     const messages = contents.map(content => makeL2ToL1Message(recipient, content));
 
-    // Enable multiple-blocks-per-checkpoint: enforce the timetable so the sequencer splits the slot
-    // into per-block sub-slots, cap each block at a single tx, and require (and accept at most) two
-    // blocks before publishing the checkpoint. With the two txs below this yields one checkpoint
-    // holding two single-tx blocks.
+    // Enable multiple-blocks-per-checkpoint: the always-enforced timetable splits the slot into
+    // per-block sub-slots (blockDurationMs=2000), cap each block at a single tx, and require (and
+    // accept at most) two blocks before publishing the checkpoint. With the two txs below this
+    // yields one checkpoint holding two single-tx blocks.
     await aztecNodeAdmin.setConfig({
-      enforceTimeTable: true,
       blockDurationMs: 2000,
       minTxsPerBlock: 1,
       maxTxsPerBlock: 1,

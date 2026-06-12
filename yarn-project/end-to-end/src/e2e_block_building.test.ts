@@ -7,7 +7,7 @@ import type { Logger } from '@aztec/aztec.js/log';
 import { type AztecNode, waitForTx } from '@aztec/aztec.js/node';
 import { TxStatus } from '@aztec/aztec.js/tx';
 import { ContractInitializationStatus } from '@aztec/aztec.js/wallet';
-import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec/testing';
+import { CheatCodes } from '@aztec/aztec/testing';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { times, unique } from '@aztec/foundation/collection';
@@ -45,7 +45,6 @@ describe('e2e_block_building', () => {
   let aztecNode: AztecNode;
   let aztecNodeAdmin: AztecNodeAdmin;
   let _sequencer: TestSequencerClient;
-  let watcher: AnvilTestWatcher;
   let teardown: () => Promise<void>;
 
   afterEach(() => {
@@ -82,8 +81,7 @@ describe('e2e_block_building', () => {
         fakeProcessingDelayPerTxMs: 0,
         minTxsPerBlock: 1,
         maxTxsPerBlock: undefined, // reset to default
-        enforceTimeTable: false, // reset to false (as it is in setup())
-        blockDurationMs: undefined, // reset to single-block-per-slot mode
+        blockDurationMs: 3000, // reset to the PIPELINING_SETUP_OPTS fixture default (2 blocks/slot)
       });
       // Clean up any mocks
       jest.restoreAllMocks();
@@ -98,10 +96,13 @@ describe('e2e_block_building', () => {
     // txs into the next sub-slot (and the next checkpoint when the slot ends). It must NOT pack everything
     // into a single block and burn the whole slot on it.
     it('processes txs until hitting timetable', async () => {
-      // Fixture defaults under pipelining: aztecSlotDuration=12s, ethereumSlotDuration=4s. With
-      // ethereumSlotDuration<8 the timing model uses checkpointInitializationTime=0.5s,
-      // checkpointAssembleTime=0.5s, p2pPropagationTime=0, minExecutionTime=1s. Picking a 2s sub-slot
-      // gives floor((12 - 0.5 - (0.5 + 2)) / 2) = 4 sub-slots per slot.
+      // The timetable is always enforced. Fixture defaults under pipelining: aztecSlotDuration=12s,
+      // ethereumSlotDuration=4s. With ethereumSlotDuration<8 the timing model normalizes to
+      // checkpointInitializationTime=0.5s, checkpointAssembleTime=0.5s, p2pPropagationTime=0,
+      // minExecutionTime=1s. We override blockDurationMs to a 2s sub-slot for this test, giving
+      // maxBlocks = floor((12 - 0.5 - (0.5 + 0 + 2)) / 2) = floor(9/2) = 4 sub-slots per slot — more
+      // sub-slots than the fixture default (3s -> 2 blocks/slot) so the cut-across-blocks invariant
+      // is easier to assert. Sub-slot build deadlines fall at 0.5 + k*2s into the slot.
       const BLOCK_DURATION_MS = 2000;
       // Fake delay per tx, sized so ~3 txs fit in a 2s sub-slot before the builder cuts at the deadline.
       const FAKE_DELAY_PER_TX_MS = 500;
@@ -123,7 +124,6 @@ describe('e2e_block_building', () => {
         fakeProcessingDelayPerTxMs: FAKE_DELAY_PER_TX_MS,
         minTxsPerBlock: 1,
         maxTxsPerBlock: TX_COUNT, // intentionally large; we want to flex the sub-slot deadline, not this cap
-        enforceTimeTable: true,
         blockDurationMs: BLOCK_DURATION_MS,
       });
 
@@ -549,8 +549,12 @@ describe('e2e_block_building', () => {
         },
       );
 
-      logger.info('Updating txs per block to 4');
-      await aztecNodeAdmin.setConfig({ minTxsPerBlock: 4, maxTxsPerBlock: 4 });
+      // Cap blocks at 4 txs so building spans several blocks while the 24 sends below simulate concurrently.
+      // minTxsPerBlock must stay at 1: with the timetable always enforced, a leftover batch smaller than
+      // minTxsPerBlock can never form a block (the sub-slot deadline cuts and discards it every slot), so a
+      // higher minimum livelocks the test if the tx count doesn't divide evenly into blocks.
+      logger.info('Updating max txs per block to 4');
+      await aztecNodeAdmin.setConfig({ minTxsPerBlock: 1, maxTxsPerBlock: 4 });
 
       logger.info('Spamming the network with public txs');
       const txs = [];
@@ -634,7 +638,6 @@ describe('e2e_block_building', () => {
         logger,
         wallet,
         cheatCodes,
-        watcher,
         accounts: [ownerAddress],
       } = await setup(1, { ...PIPELINING_SETUP_OPTS, minTxsPerBlock: 1 }));
 
@@ -645,13 +648,11 @@ describe('e2e_block_building', () => {
       await cheatCodes.rollup.advanceToNextEpoch();
 
       // Mark all blocks up to the current pending tip as proven so the contract-deployment block
-      // is anchored against a proven checkpoint. The e2e fixture's AnvilTestWatcher does NOT
-      // auto-prove under interval mining (only under automining), so we must drive proven manually.
+      // is anchored against a proven checkpoint. Nothing auto-proves under the e2e fixture's L1
+      // interval mining, so we drive proven manually here (and again inside each test).
       await cheatCodes.rollup.markAsProven();
       const bn = await aztecNode.getBlockNumber();
       await retryUntil(async () => (await aztecNode.getBlockNumber('proven')) >= bn, 'wait-proven', 60, 1);
-
-      watcher.setIsMarkingAsProven(false);
     });
 
     afterEach(() => teardown());

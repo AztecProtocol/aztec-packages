@@ -5,6 +5,7 @@ import { TxHash } from '@aztec/aztec.js/tx';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { retryUntil } from '@aztec/foundation/retry';
+import { sleep } from '@aztec/foundation/sleep';
 import { ENR, type P2PClient, type P2PService, type PeerId } from '@aztec/p2p';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import { CheckpointAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
@@ -40,6 +41,7 @@ const NUM_VALIDATORS = 3;
 const NUM_PREFERRED_NODES = 2;
 const NUM_TXS_PER_NODE = 2;
 const BOOT_NODE_UDP_PORT = 4500;
+const BLOCK_DURATION_MS = 10_000;
 
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'gossip-'));
 
@@ -138,6 +140,7 @@ describe('e2e_p2p_preferred_network', () => {
         ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
         aztecSlotDuration: 24,
         aztecEpochDuration: 4,
+        blockDurationMs: BLOCK_DURATION_MS,
         listenAddress: '127.0.0.1',
         p2pDisableStatusHandshake: false,
         // Just for testing be aggressive here, don't allow any auth handshake failures
@@ -335,6 +338,17 @@ describe('e2e_p2p_preferred_network', () => {
     // those nodes actually form the committee, and so we cannot build
     // blocks without them (since targetCommitteeSize is set to the number of nodes)
     await t.setupAccount();
+
+    t.logger.info('Waiting for first checkpoint to be published');
+    await retryUntil(
+      async () => (await validators[0].getBlockNumber('checkpointed')) > 0,
+      'first checkpoint published',
+      120,
+    );
+    t.logger.info('First checkpoint published');
+
+    const ethereumSlotDuration = t.ctx.aztecNodeConfig.ethereumSlotDuration ?? 4;
+    await sleep((ethereumSlotDuration + 1) * 1000);
 
     // Send the required number of transactions to each node
     t.logger.info('Submitting transactions');

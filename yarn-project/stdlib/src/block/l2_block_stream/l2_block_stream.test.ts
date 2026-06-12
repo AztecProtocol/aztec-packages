@@ -1,6 +1,7 @@
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { compactArray } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import type { Logger } from '@aztec/foundation/log';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -16,9 +17,14 @@ import {
   GENESIS_CHECKPOINT_HEADER_HASH,
   type L2BlockId,
   type L2BlockSource,
-  type L2Tips,
+  type LocalL2Tips,
 } from '../l2_block_source.js';
-import type { L2BlockStreamEvent, L2BlockStreamEventHandler, L2BlockStreamLocalDataProvider } from './interfaces.js';
+import type {
+  L2BlockStreamEvent,
+  L2BlockStreamEventHandler,
+  L2BlockStreamLocalDataProvider,
+  LocalChainTips,
+} from './interfaces.js';
 import { L2BlockStream } from './l2_block_stream.js';
 import { L2TipsMemoryStore } from './l2_tips_memory_store.js';
 
@@ -242,7 +248,7 @@ describe('L2BlockStream', () => {
 
       await blockStream.work();
       expect(handler.events).toEqual([
-        { type: 'chain-pruned', block: makeBlockId(36), checkpoint: makeCheckpointId(0) },
+        { type: 'chain-pruned', block: makeBlockId(36), checkpointed: makeTipId(0), proven: makeTipId(0) },
         { type: 'blocks-added', blocks: times(9, i => makeBlock(i + 37)) },
       ] satisfies L2BlockStreamEvent[]);
     });
@@ -256,8 +262,8 @@ describe('L2BlockStream', () => {
       await blockStream.work();
       expect(handler.events).toEqual([
         { type: 'blocks-added', blocks: times(5, i => makeBlock(i + 41)) },
-        { type: 'chain-proven', block: makeBlockId(40) },
-        { type: 'chain-finalized', block: makeBlockId(35) },
+        { type: 'chain-proven', block: makeBlockId(40), checkpoint: makeCheckpointId(40) },
+        { type: 'chain-finalized', block: makeBlockId(35), checkpoint: makeCheckpointId(35) },
       ] satisfies L2BlockStreamEvent[]);
     });
 
@@ -323,7 +329,8 @@ describe('L2BlockStream', () => {
       expect(handler.events[0]).toEqual({
         type: 'chain-pruned',
         block: makeBlockId(3),
-        checkpoint: makeCheckpointId(3),
+        checkpointed: makeTipId(3),
+        proven: makeTipId(0),
       });
     });
 
@@ -384,8 +391,8 @@ describe('L2BlockStream', () => {
         expectBlocksAdded([30]),
         expectCheckpointed(30),
         { type: 'blocks-added', blocks: times(5, i => makeBlock(i + 31)) },
-        { type: 'chain-proven', block: makeBlockId(25) },
-        { type: 'chain-finalized', block: makeBlockId(10) },
+        { type: 'chain-proven', block: makeBlockId(25), checkpoint: makeCheckpointId(25) },
+        { type: 'chain-finalized', block: makeBlockId(10), checkpoint: makeCheckpointId(10) },
       ]);
       handler.clearEvents();
 
@@ -393,8 +400,34 @@ describe('L2BlockStream', () => {
       setRemoteTips(25, 25, 25, 10);
       await blockStream.work();
       expect(handler.events).toEqual([
-        { type: 'chain-pruned', block: makeBlockId(25), checkpoint: makeCheckpointId(25) },
+        { type: 'chain-pruned', block: makeBlockId(25), checkpointed: makeTipId(25), proven: makeTipId(25) },
       ]);
+    });
+
+    // Regression test for the checkpoint-replay storm: pruning to an uncheckpointed block ahead of
+    // the checkpointed tip must not reset the checkpointed cursor, otherwise the next work() replays
+    // every checkpoint from 1 to the source tip.
+    it('does not replay checkpoints after pruning to an uncheckpointed block ahead of the checkpointed tip', async () => {
+      // Sync blocks 1-7: blocks 1-5 are checkpointed (checkpoints 1-5), blocks 6-7 uncheckpointed.
+      setRemoteTips(7, 5);
+      await blockStream.work();
+      const checkpointEventsOnSync = handler.events.filter(e => e.type === 'chain-checkpointed');
+      expect(checkpointEventsOnSync).toHaveLength(5);
+      handler.clearEvents();
+
+      // Source drops its proposed tip to block 6 (uncheckpointed, still ahead of checkpointed=5).
+      // The stream prunes the local proposed tip from 7 back to 6.
+      setRemoteTips(6, 5);
+      await blockStream.work();
+      expect(handler.events).toEqual([
+        { type: 'chain-pruned', block: makeBlockId(6), checkpointed: makeTipId(5), proven: makeTipId(0) },
+      ]);
+      handler.clearEvents();
+
+      // The next sync must NOT re-emit any chain-checkpointed events: the checkpointed cursor was
+      // left at block 5 / checkpoint 5, so there is nothing to replay.
+      await blockStream.work();
+      expect(handler.events.filter(e => e.type === 'chain-checkpointed')).toEqual([]);
     });
   });
 
@@ -1069,7 +1102,12 @@ describe('L2BlockStream', () => {
           {
             type: 'chain-pruned',
             block: makeBlockId(6),
-            checkpoint: expect.objectContaining({ number: CheckpointNumber(2) }),
+            checkpointed: expect.objectContaining({
+              checkpoint: expect.objectContaining({ number: CheckpointNumber(2) }),
+            }),
+            proven: expect.objectContaining({
+              block: expect.objectContaining({ number: BlockNumber(0) }),
+            }),
           },
         ]);
 
@@ -1109,7 +1147,7 @@ describe('L2BlockStream', () => {
           expectBlocksAdded([7, 8, 9]),
           expectCheckpointed(3),
           expectBlocksAdded([10, 11, 12]),
-          { type: 'chain-proven', block: makeBlockId(6) },
+          { type: 'chain-proven', block: makeBlockId(6), checkpoint: makeCheckpointId(2) },
         ]);
 
         handler.clearEvents();
@@ -1132,12 +1170,18 @@ describe('L2BlockStream', () => {
 
         await blockStream.work();
 
-        // Should emit chain-pruned back to block 6
+        // Should emit chain-pruned back to block 6, carrying the source proven tip (block 6 / ckpt 2)
         expect(handler.events).toEqual([
           {
             type: 'chain-pruned',
             block: makeBlockId(6),
-            checkpoint: expect.objectContaining({ number: CheckpointNumber(2) }),
+            checkpointed: expect.objectContaining({
+              checkpoint: expect.objectContaining({ number: CheckpointNumber(2) }),
+            }),
+            proven: expect.objectContaining({
+              block: expect.objectContaining({ number: BlockNumber(6) }),
+              checkpoint: expect.objectContaining({ number: CheckpointNumber(2) }),
+            }),
           },
         ]);
 
@@ -1165,7 +1209,7 @@ describe('L2BlockStream', () => {
           expectCheckpointed(4),
           expectBlocksAdded([13, 14, 15]),
           expectCheckpointed(5),
-          { type: 'chain-proven', block: makeBlockId(9) },
+          { type: 'chain-proven', block: makeBlockId(9), checkpoint: makeCheckpointId(3) },
         ]);
       });
 
@@ -1203,7 +1247,12 @@ describe('L2BlockStream', () => {
           {
             type: 'chain-pruned',
             block: makeBlockId(3),
-            checkpoint: expect.objectContaining({ number: CheckpointNumber(1) }),
+            checkpointed: expect.objectContaining({
+              checkpoint: expect.objectContaining({ number: CheckpointNumber(1) }),
+            }),
+            proven: expect.objectContaining({
+              block: expect.objectContaining({ number: BlockNumber(0) }),
+            }),
           },
         ]);
 
@@ -1258,7 +1307,12 @@ describe('L2BlockStream', () => {
           {
             type: 'chain-pruned',
             block: makeBlockId(0),
-            checkpoint: expect.objectContaining({ number: CheckpointNumber(0) }),
+            checkpointed: expect.objectContaining({
+              checkpoint: expect.objectContaining({ number: CheckpointNumber(0) }),
+            }),
+            proven: expect.objectContaining({
+              block: expect.objectContaining({ number: BlockNumber(0) }),
+            }),
           },
         ]);
 
@@ -1318,7 +1372,12 @@ describe('L2BlockStream', () => {
           {
             type: 'chain-pruned',
             block: makeBlockId(0),
-            checkpoint: expect.objectContaining({ number: CheckpointNumber(0) }),
+            checkpointed: expect.objectContaining({
+              checkpoint: expect.objectContaining({ number: CheckpointNumber(0) }),
+            }),
+            proven: expect.objectContaining({
+              block: expect.objectContaining({ number: BlockNumber(0) }),
+            }),
           },
         ]);
 
@@ -1425,7 +1484,12 @@ describe('L2BlockStream', () => {
           {
             type: 'chain-pruned',
             block: makeBlockId(6),
-            checkpoint: expect.objectContaining({ number: CheckpointNumber(2) }),
+            checkpointed: expect.objectContaining({
+              checkpoint: expect.objectContaining({ number: CheckpointNumber(2) }),
+            }),
+            proven: expect.objectContaining({
+              block: expect.objectContaining({ number: BlockNumber(0) }),
+            }),
           },
         ]);
       });
@@ -1466,7 +1530,12 @@ describe('L2BlockStream', () => {
           {
             type: 'chain-pruned',
             block: makeBlockId(3),
-            checkpoint: expect.objectContaining({ number: CheckpointNumber(1) }),
+            checkpointed: expect.objectContaining({
+              checkpoint: expect.objectContaining({ number: CheckpointNumber(1) }),
+            }),
+            proven: expect.objectContaining({
+              block: expect.objectContaining({ number: BlockNumber(0) }),
+            }),
           },
         ]);
       });
@@ -1482,8 +1551,8 @@ describe('L2BlockStream', () => {
           expectBlocksAdded([1, 2, 3]),
           expectBlocksAdded([4, 5, 6]),
           expectBlocksAdded([7, 8, 9]),
-          { type: 'chain-proven', block: makeBlockId(6) },
-          { type: 'chain-finalized', block: makeBlockId(3) },
+          { type: 'chain-proven', block: makeBlockId(6), checkpoint: makeCheckpointId(2) },
+          { type: 'chain-finalized', block: makeBlockId(3), checkpoint: makeCheckpointId(1) },
         ]);
       });
 
@@ -1515,8 +1584,8 @@ describe('L2BlockStream', () => {
           expectBlocksAdded([6]),
           expectBlocksAdded([7, 8, 9]),
           expectBlocksAdded([10, 11, 12]),
-          { type: 'chain-proven', block: makeBlockId(9) },
-          { type: 'chain-finalized', block: makeBlockId(6) },
+          { type: 'chain-proven', block: makeBlockId(9), checkpoint: makeCheckpointId(3) },
+          { type: 'chain-finalized', block: makeBlockId(6), checkpoint: makeCheckpointId(2) },
         ]);
       });
 
@@ -1552,7 +1621,12 @@ describe('L2BlockStream', () => {
           {
             type: 'chain-pruned',
             block: makeBlockId(6),
-            checkpoint: expect.objectContaining({ number: CheckpointNumber(2) }),
+            checkpointed: expect.objectContaining({
+              checkpoint: expect.objectContaining({ number: CheckpointNumber(2) }),
+            }),
+            proven: expect.objectContaining({
+              block: expect.objectContaining({ number: BlockNumber(0) }),
+            }),
           },
         ]);
 
@@ -1603,8 +1677,8 @@ describe('L2BlockStream', () => {
       // Instead of fetching the next local block (6), we skip ahead to the latest finalized (35) and go from there.
       expect(handler.events).toEqual([
         { type: 'blocks-added', blocks: times(6, i => makeBlock(i + 35)) },
-        { type: 'chain-proven', block: makeBlockId(38) },
-        { type: 'chain-finalized', block: makeBlockId(35) },
+        { type: 'chain-proven', block: makeBlockId(38), checkpoint: makeCheckpointId(38) },
+        { type: 'chain-finalized', block: makeBlockId(35), checkpoint: makeCheckpointId(35) },
       ] satisfies L2BlockStreamEvent[]);
     });
 
@@ -1663,8 +1737,8 @@ describe('L2BlockStream', () => {
         expectBlocksAdded([9]),
         expectCheckpointed(9),
         { type: 'blocks-added', blocks: times(3, i => makeBlock(i + 10)) },
-        { type: 'chain-proven', block: makeBlockId(9) },
-        { type: 'chain-finalized', block: makeBlockId(6) },
+        { type: 'chain-proven', block: makeBlockId(9), checkpoint: makeCheckpointId(9) },
+        { type: 'chain-finalized', block: makeBlockId(6), checkpoint: makeCheckpointId(6) },
       ]);
     });
 
@@ -1734,9 +1808,53 @@ describe('L2BlockStream', () => {
           }),
         }),
         { type: 'blocks-added', blocks: times(2, i => makeBlock(i + 39)) },
-        { type: 'chain-proven', block: makeBlockId(38) },
-        { type: 'chain-finalized', block: makeBlockId(35) },
+        { type: 'chain-proven', block: makeBlockId(38), checkpoint: makeCheckpointId(38) },
+        { type: 'chain-finalized', block: makeBlockId(35), checkpoint: makeCheckpointId(35) },
       ]);
+    });
+  });
+
+  describe('local provider without checkpointed tip', () => {
+    let localData: TestLocalChainTipsProvider;
+    let handler: TestL2BlockStreamEventHandler;
+
+    beforeEach(() => {
+      localData = new TestLocalChainTipsProvider();
+      handler = new TestL2BlockStreamEventHandler();
+    });
+
+    it('syncs blocks with ignoreCheckpoints when no checkpointed tip is provided', async () => {
+      setRemoteTips(5, 5);
+      const blockStream = new TestL2BlockStream(blockSource, localData, handler, undefined, {
+        batchSize: 10,
+        ignoreCheckpoints: true,
+      });
+
+      await blockStream.work();
+
+      // All 5 blocks are synced (one per checkpoint in the mock) and no checkpoint events are emitted.
+      expect(handler.events).toEqual([
+        expectBlocksAdded([1]),
+        expectBlocksAdded([2]),
+        expectBlocksAdded([3]),
+        expectBlocksAdded([4]),
+        expectBlocksAdded([5]),
+      ]);
+      expect(handler.events.every(e => e.type === 'blocks-added')).toBe(true);
+    });
+
+    it('surfaces a loud error when checkpoint emission is enabled without a checkpointed tip', async () => {
+      setRemoteTips(5, 5);
+      const log = mock<Logger>();
+      const blockStream = new TestL2BlockStream(blockSource, localData, handler, log, { batchSize: 10 });
+
+      await blockStream.work();
+
+      expect(handler.events).toEqual([]);
+      expect(log.error).toHaveBeenCalledWith(
+        `Error processing block stream`,
+        expect.objectContaining({ message: expect.stringContaining('does not expose a checkpointed tip') }),
+      );
     });
   });
 });
@@ -1772,10 +1890,6 @@ class TestL2BlockStreamLocalDataProvider implements L2BlockStreamLocalDataProvid
     block: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
     checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
   };
-  public proposedCheckpointed = {
-    block: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
-    checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
-  };
   public proven = {
     block: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
     checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
@@ -1791,11 +1905,33 @@ class TestL2BlockStreamLocalDataProvider implements L2BlockStreamLocalDataProvid
     );
   }
 
-  public getL2Tips(): Promise<L2Tips> {
+  public getL2Tips(): Promise<LocalL2Tips> {
     return Promise.resolve({
       proposed: this.proposed,
       checkpointed: this.checkpointed,
-      proposedCheckpoint: this.proposedCheckpointed,
+      proven: this.proven,
+      finalized: this.finalized,
+    });
+  }
+}
+
+/** Local provider that omits `checkpointed`, mirroring world-state's `ignoreCheckpoints` configuration. */
+class TestLocalChainTipsProvider implements L2BlockStreamLocalDataProvider {
+  public readonly blockHashes: Record<number, string> = {};
+
+  public proposed = { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() };
+  public proven = { block: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() } };
+  public finalized = { block: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() } };
+
+  public getL2BlockHash(number: number): Promise<string | undefined> {
+    return Promise.resolve(
+      number > this.proposed.number ? undefined : (this.blockHashes[number] ?? new Fr(number).toString()),
+    );
+  }
+
+  public getL2Tips(): Promise<LocalChainTips> {
+    return Promise.resolve({
+      proposed: this.proposed,
       proven: this.proven,
       finalized: this.finalized,
     });
