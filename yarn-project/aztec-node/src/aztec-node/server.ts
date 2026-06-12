@@ -49,7 +49,6 @@ import { AutomineSequencer, createAutomineSequencer } from '@aztec/sequencer-cli
 import {
   AttestationsBlockWatcher,
   AttestedInvalidProposalWatcher,
-  BroadcastedInvalidBlockProposalWatcher,
   BroadcastedInvalidCheckpointProposalWatcher,
   CheckpointEquivocationWatcher,
   DataWithholdingWatcher,
@@ -789,7 +788,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       let dataWithholdingWatcher: DataWithholdingWatcher | undefined;
       let attestationsBlockWatcher: AttestationsBlockWatcher | undefined;
       let attestedInvalidProposalWatcher: AttestedInvalidProposalWatcher | undefined;
-      let broadcastedInvalidBlockProposalWatcher: BroadcastedInvalidBlockProposalWatcher | undefined;
       let broadcastedInvalidCheckpointProposalWatcher: BroadcastedInvalidCheckpointProposalWatcher | undefined;
       let checkpointEquivocationWatcher: CheckpointEquivocationWatcher | undefined;
 
@@ -809,14 +807,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
           config,
         );
         watchers.push(dataWithholdingWatcher);
-
-        broadcastedInvalidBlockProposalWatcher = new BroadcastedInvalidBlockProposalWatcher(
-          p2pClient,
-          archiver,
-          epochCache,
-          config,
-        );
-        watchers.push(broadcastedInvalidBlockProposalWatcher);
 
         broadcastedInvalidCheckpointProposalWatcher = new BroadcastedInvalidCheckpointProposalWatcher(
           p2pClient,
@@ -849,7 +839,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
         validatorsSentinel,
         dataWithholdingWatcher,
         attestationsBlockWatcher,
-        broadcastedInvalidBlockProposalWatcher,
         broadcastedInvalidCheckpointProposalWatcher,
         attestedInvalidProposalWatcher,
         checkpointEquivocationWatcher,

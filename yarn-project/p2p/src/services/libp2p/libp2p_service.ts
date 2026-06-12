@@ -114,6 +114,7 @@ import type {
   P2PCheckpointAttestationCallback,
   P2PCheckpointReceivedCallback,
   P2PDuplicateAttestationCallback,
+  P2POversizedProposalCallback,
   P2PService,
   PeerDiscoveryService,
 } from '../service.js';
@@ -171,6 +172,9 @@ export class LibP2PService extends WithTracer implements P2PService {
     proposer: EthAddress;
     type: 'checkpoint' | 'block';
   }) => void;
+
+  /** Callback invoked when an oversized block proposal is stored as slashing evidence (triggers slashing). */
+  private oversizedProposalCallback?: P2POversizedProposalCallback;
 
   /** Callback invoked when a duplicate attestation is detected (triggers slashing). */
   private duplicateAttestationCallback?: P2PDuplicateAttestationCallback;
@@ -763,6 +767,13 @@ export class LibP2PService extends WithTracer implements P2PService {
   }
 
   /**
+   * Registers a callback to be invoked when an oversized block proposal is stored as slashing evidence.
+   */
+  public registerOversizedProposalCallback(callback: P2POversizedProposalCallback): void {
+    this.oversizedProposalCallback = callback;
+  }
+
+  /**
    * Registers a callback to be invoked when a duplicate attestation is detected.
    * A validator signing attestations for different proposals at the same slot.
    * This callback is triggered on the first duplicate (when count goes from 1 to 2).
@@ -1315,6 +1326,22 @@ export class LibP2PService extends WithTracer implements P2PService {
         metadata: { isEquivocated, isOversized },
         severity: PeerErrorSeverity.HighToleranceError,
       };
+    }
+
+    // The proposal was stored: if oversized, invoke the oversized callback so the proposer can be
+    // slashed. Fired alongside (not instead of) equivocation detection below.
+    if (isOversized) {
+      const proposer = block.getSender();
+      if (proposer) {
+        this.logger.warn(`Detected oversized block proposal at slot ${block.slotNumber}`, {
+          ...block.toBlockInfo(),
+          indexWithinCheckpoint: block.indexWithinCheckpoint,
+          maxBlocksPerCheckpoint: this.config.maxBlocksPerCheckpoint,
+          source: peerId.toString(),
+          proposer: proposer.toString(),
+        });
+        this.oversizedProposalCallback?.({ slot: block.slotNumber, proposer });
+      }
     }
 
     // If this was a duplicate proposal, do not process it, but do invoke the duplicate callback,
