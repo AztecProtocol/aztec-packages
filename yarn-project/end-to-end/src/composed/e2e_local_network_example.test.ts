@@ -11,7 +11,7 @@ import { createAztecNodeClient, waitForNode } from '@aztec/aztec.js/node';
 import { getFeeJuiceBalance } from '@aztec/aztec.js/utils';
 import { timesParallel } from '@aztec/foundation/collection';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
-import { GasSettings } from '@aztec/stdlib/gas';
+import { Gas, GasSettings } from '@aztec/stdlib/gas';
 import { registerInitialLocalNetworkAccountsInWallet } from '@aztec/wallets/testing';
 
 import { format } from 'util';
@@ -183,7 +183,8 @@ describe('e2e_local_network_example', () => {
     // The private fee paying method assembled on the app side requires knowledge of the maximum
     // fee the user is willing to pay
     const maxFeesPerGas = await getPaddedMaxFeesPerGas(node);
-    const gasSettings = GasSettings.fallback({ maxFeesPerGas });
+    const gasLimits = Gas.from((await node.getNodeInfo()).txsLimits.gas);
+    const gasSettings = GasSettings.fallback({ gasLimits, maxFeesPerGas });
     const paymentMethod = new PrivateFeePaymentMethod(bananaFPCAddress, alice, wallet, gasSettings);
     const { receipt: receiptForAlice } = await bananaCoin.methods
       .transfer(bob, amountTransferToBob)

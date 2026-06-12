@@ -1,3 +1,4 @@
+import { generateSchnorrAccounts } from '@aztec/accounts/testing';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import type { GrumpkinScalar } from '@aztec/aztec.js/fields';
 import { computeAppNullifierHidingKey, deriveMasterNullifierHidingKey } from '@aztec/aztec.js/keys';
@@ -11,6 +12,7 @@ import { jest } from '@jest/globals';
 
 import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
+import type { TestWallet } from './test-wallet/test_wallet.js';
 
 /* eslint-disable camelcase */
 
@@ -60,7 +62,7 @@ describe('e2e_card_game', () => {
   let logger: Logger;
   let teardown: () => Promise<void>;
 
-  let wallet: Wallet;
+  let wallet: TestWallet;
   let masterNullifierHidingKeys: GrumpkinScalar[];
 
   let firstPlayer: AztecAddress;
@@ -87,14 +89,18 @@ describe('e2e_card_game', () => {
   };
 
   beforeAll(async () => {
-    const context = await setup(3, { ...AUTOMINE_E2E_OPTS });
+    // This test derives nullifier-hiding keys from the players' secrets, so we provide and create the
+    // accounts ourselves.
+    const players = await generateSchnorrAccounts(3);
+    const context = await setup(0, { ...AUTOMINE_E2E_OPTS, additionallyFundedAccounts: players });
     ({ logger, teardown, wallet } = context);
 
-    [firstPlayer, secondPlayer, thirdPlayer] = context.accounts;
+    for (const player of players) {
+      await wallet.createSchnorrInitializerlessAccount(player.secret, player.salt, player.signingKey);
+    }
+    [firstPlayer, secondPlayer, thirdPlayer] = players.map(p => p.address);
 
-    masterNullifierHidingKeys = context.initialFundedAccounts.map(({ secret }) =>
-      deriveMasterNullifierHidingKey(secret),
-    );
+    masterNullifierHidingKeys = players.map(({ secret }) => deriveMasterNullifierHidingKey(secret));
   });
 
   beforeEach(async () => {

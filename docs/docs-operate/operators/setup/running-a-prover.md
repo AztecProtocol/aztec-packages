@@ -207,7 +207,7 @@ If you need to access admin endpoints, use `docker exec`:
 ```bash
 docker exec -it prover-node curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"nodeAdmin_getConfig","params":[],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztecAdmin_getConfig","params":[],"id":1}'
 ```
 :::
 

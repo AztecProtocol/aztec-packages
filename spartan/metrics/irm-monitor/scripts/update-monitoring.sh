@@ -72,7 +72,7 @@ done
 echo "Retrieving rollup contract address..."
 
 L1_CONTRACTS=$(curl -s -X POST -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getL1ContractAddresses","params":[],"id":1}' \
+  -d '{"jsonrpc":"2.0","method":"aztec_getL1ContractAddresses","params":[],"id":1}' \
   "http://localhost:8080" 2>&1)
 
 if [ $? -ne 0 ]; then

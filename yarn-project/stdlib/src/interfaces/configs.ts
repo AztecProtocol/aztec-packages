@@ -30,6 +30,11 @@ export interface SequencerConfig {
   maxDABlockGas?: number;
   /** Per-block gas budget multiplier for both L2 and DA gas. Budget = (checkpointLimit / maxBlocks) * multiplier. */
   perBlockAllocationMultiplier?: number;
+  /**
+   * Per-block budget multiplier applied to DA gas and blob fields in place of `perBlockAllocationMultiplier`.
+   * Defaults higher than the general multiplier so the largest contract class deploy fits a single block.
+   */
+  perBlockDAAllocationMultiplier?: number;
   /** Redistribute remaining checkpoint budget evenly across remaining blocks instead of allowing a single block to consume the entire remaining budget. */
   redistributeCheckpointBudget?: boolean;
   /** Recipient of block reward. */
@@ -44,8 +49,6 @@ export interface SequencerConfig {
   txPublicSetupAllowListExtend?: AllowedElement[];
   /** Payload address to vote for */
   governanceProposerPayload?: EthAddress;
-  /** Whether to enforce the time table when building blocks */
-  enforceTimeTable?: boolean;
   /**
    * Minimum block-building time (`min_block_duration`) still worth allocating if the proposer starts
    * late, in seconds.
@@ -56,6 +59,8 @@ export interface SequencerConfig {
    * checkpoint proposal being ready for p2p send, in seconds.
    */
   checkpointProposalPrepareTime?: number;
+  /** How much time (in seconds) we allow in the slot for publishing the L1 tx. */
+  l1PublishingTime?: number;
   /** Used for testing to introduce a fake delay after processing each tx */
   fakeProcessingDelayPerTxMs?: number;
   /** Used for testing to throw an error after processing N txs */
@@ -95,7 +100,7 @@ export interface SequencerConfig {
   fishermanMode?: boolean;
   /** Shuffle attestation ordering to create invalid ordering (for testing only) */
   shuffleAttestationOrdering?: boolean;
-  /** Duration per block in milliseconds when building multiple blocks per slot (default: undefined = single block per slot) */
+  /** Duration per block in milliseconds, used to derive how many blocks fit in a slot (defaults to 3000 ms). */
   blockDurationMs?: number;
   /** Consensus grace in seconds for a received checkpoint proposal to materialize into local proposed state. */
   checkpointProposalSyncGraceSeconds?: number;
@@ -135,6 +140,7 @@ export const SequencerConfigSchema = zodFor<SequencerConfig>()(
     publishTxsWithProposals: z.boolean().optional(),
     maxDABlockGas: z.number().optional(),
     perBlockAllocationMultiplier: z.number().optional(),
+    perBlockDAAllocationMultiplier: z.number().optional(),
     redistributeCheckpointBudget: z.boolean().optional(),
     coinbase: schemas.EthAddress.optional(),
     feeRecipient: schemas.AztecAddress.optional(),
@@ -144,7 +150,7 @@ export const SequencerConfigSchema = zodFor<SequencerConfig>()(
     governanceProposerPayload: schemas.EthAddress.optional(),
     minBlockDuration: z.number().positive().optional(),
     checkpointProposalPrepareTime: z.number().nonnegative().optional(),
-    enforceTimeTable: z.boolean().optional(),
+    l1PublishingTime: z.number().optional(),
     fakeProcessingDelayPerTxMs: z.number().optional(),
     fakeThrowAfterProcessingTxCount: z.number().optional(),
     attestationPropagationTime: z.number().optional(),
@@ -176,8 +182,6 @@ export const SequencerConfigSchema = zodFor<SequencerConfig>()(
 
 type SequencerConfigOptionalKeys =
   | 'governanceProposerPayload'
-  | 'blockDurationMs'
-  | 'checkpointProposalSyncGraceSeconds'
   | 'expectedBlockProposalsPerSlot'
   | 'coinbase'
   | 'feeRecipient'

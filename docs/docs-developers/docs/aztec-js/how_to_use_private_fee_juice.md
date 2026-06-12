@@ -59,7 +59,7 @@ Cold-start exists for users who have no other way to pay fees: the bridged amoun
 Because neither `pay_fee` nor `mint_and_pay_fee` makes public cross-contract token calls in setup (they only deduct from the FPC's internal private balance and invoke `set_as_fee_payer`), the [setup-phase allowlist](../foundational-topics/transactions.md#setup-phase-non-revertible) never blocks these flows.
 
 :::note No refund
-`PrivateFPC.pay_fee()` deducts the full `max_gas_cost` and does not refund unused gas. Use `estimateGas` (see [Estimate mana costs](./how_to_pay_fees.md#estimate-mana-costs)) to right-size your limits.
+`PrivateFPC.pay_fee()` deducts the full `max_gas_cost` and does not refund unused gas. Read `gasUsed` from a simulation (see [Estimate mana costs](./how_to_pay_fees.md#estimate-mana-costs)) to right-size your limits.
 :::
 
 ## Share one FPC address across the ecosystem

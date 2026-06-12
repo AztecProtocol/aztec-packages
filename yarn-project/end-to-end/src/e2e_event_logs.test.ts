@@ -18,7 +18,7 @@ import {
 import { jest } from '@jest/globals';
 
 import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
-import { ensureAccountContractsPublished, setup } from './fixtures/utils.js';
+import { setup } from './fixtures/utils.js';
 
 const TIMEOUT = 300_000;
 
@@ -43,9 +43,6 @@ describe('Logs', () => {
       aztecNode,
       logger: log,
     } = await setup(2, { ...AUTOMINE_E2E_OPTS }));
-
-    log.warn(`Setup complete, checking account contracts published`);
-    await ensureAccountContractsPublished(wallet, [account1Address, account2Address]);
 
     log.warn(`Deploying test contract`);
     ({ contract: testLogContract } = await TestLogContract.deploy(wallet).send({ from: account1Address }));

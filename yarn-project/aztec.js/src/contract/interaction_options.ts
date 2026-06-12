@@ -2,7 +2,7 @@ import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { FieldsOf } from '@aztec/foundation/types';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { GasSettings, ManaUsageEstimate } from '@aztec/stdlib/gas';
+import type { GasSettings, GasUsed, ManaUsageEstimate } from '@aztec/stdlib/gas';
 import {
   type Capsule,
   OFFCHAIN_MESSAGE_IDENTIFIER,
@@ -16,16 +16,6 @@ import {
 import type { FeePaymentMethod } from '../fee/fee_payment_method.js';
 import type { ProfileOptions, SendOptions, SimulateOptions } from '../wallet/index.js';
 import type { WaitOpts } from './wait_opts.js';
-
-/**
- * Options used to tweak the simulation and add gas estimation capabilities
- */
-export type FeeEstimationOptions = {
-  /** Whether to modify the fee settings of the simulation with high gas limit to figure out actual gas settings. */
-  estimateGas?: boolean;
-  /** Percentage to pad the estimated gas limits by, if empty, defaults to 0.1. Only relevant if estimateGas is set. */
-  estimatedGasPadding?: number;
-};
 
 /**
  * Interactions allow configuring a custom fee payment method that gets bundled with the transaction before
@@ -55,9 +45,6 @@ export type GasSettingsOption = {
 
 /** Fee options as set by a user. */
 export type InteractionFeeOptions = GasSettingsOption & FeePaymentMethodOption;
-
-/**  Fee options that can be set for simulation *only* */
-export type SimulationInteractionFeeOptions = InteractionFeeOptions & FeeEstimationOptions;
 
 /**
  * Represents the options to configure a request from a contract interaction.
@@ -150,12 +137,12 @@ export type SendInteractionOptions<W extends InteractionWaitOptions = undefined>
  */
 export type SimulateInteractionOptions = Omit<SendInteractionOptions, 'fee'> & {
   /** The fee options for the transaction. */
-  fee?: SimulationInteractionFeeOptions;
+  fee?: InteractionFeeOptions;
   /** Simulate without checking for the validity of the resulting transaction, e.g. whether it emits any existing nullifiers. */
   skipTxValidation?: boolean;
   /** Whether to ensure the fee payer is not empty and has enough balance to pay for the fee. */
   skipFeeEnforcement?: boolean;
-  /** Whether to include metadata such as performance statistics (e.g. timing information of the different circuits and oracles) and gas estimation
+  /** Whether to include metadata such as performance statistics (e.g. timing information of the different circuits and oracles) and simulated gas usage
    * in the simulation result, in addition to the return value and offchain effects */
   includeMetadata?: boolean;
   /** Pre-simulation overrides applied to the ephemeral fork and contract DB (publicStorage writes, contract instance overrides). */
@@ -220,15 +207,19 @@ export function extractOffchainOutput(effects: OffchainEffect[], anchorBlockTime
 /**
  * Represents the result of a simulation.
  * Always includes the return value and offchain output.
- * When `includeMetadata` or `fee.estimateGas` is set, also includes stats and gas estimation.
+ * When `includeMetadata` is set, also includes stats and the simulated gas usage.
  */
 export type SimulationResult = {
   /** Return value of the function */
   result: any;
   /** Additional stats about the simulation. Present when `includeMetadata` is set. */
   stats?: SimulationStats;
-  /** Gas estimation results. Present when `includeMetadata` or `fee.estimateGas` is set. */
-  estimatedGas?: Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>;
+  /**
+   * Raw gas consumed by the simulated transaction. Present when `includeMetadata` is set. Apps that want to
+   * declare explicit gas limits should derive their own from this (e.g. pad `totalGas`) and pass them via the
+   * fee options; otherwise the wallet fills in the network's per-tx admission limits automatically.
+   */
+  gasUsed?: GasUsed;
 } & OffchainOutput;
 
 /** Result of sendTx when not waiting for mining. */
@@ -293,8 +284,6 @@ export function toSimulateOptions(options: SimulateInteractionOptions): Simulate
         ...options.fee?.gasSettings,
       },
       congestionEstimate: options.fee?.congestionEstimate,
-      estimateGas: options.fee?.estimateGas,
-      estimatedGasPadding: options.fee?.estimatedGasPadding,
     },
   };
 }

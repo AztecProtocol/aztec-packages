@@ -14,7 +14,9 @@ import {
   Gas,
   GasFees,
   GasSettings,
+  type GasUsed,
 } from '@aztec/stdlib/gas';
+import { getGasLimits } from '@aztec/wallet-sdk/base-wallet';
 
 import { jest } from '@jest/globals';
 import { inspect } from 'util';
@@ -73,11 +75,18 @@ describe('e2e_fees gas_estimation', () => {
     ({ wallet, aliceAddress, bobAddress, bananaCoin, bananaFPC, gasSettings, logger, aztecNode } = t);
   });
 
+  // Derives declared gas limits from simulated usage with zero padding, mirroring what the old
+  // `estimateGas: true, estimatedGasPadding: 0` flow produced: `gasLimits == manaUsed`.
+  const estimateGasLimits = async (gasUsed: GasUsed): Promise<Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>> => {
+    const { txsLimits } = await aztecNode.getNodeInfo();
+    return getGasLimits(gasUsed, Gas.from(txsLimits.gas), 0);
+  };
+
   beforeEach(async () => {
     // Pad max fees per gas to absorb pipelined fee-asset price evolution between snapshot and
     // submission. The assertions below compare `transactionFee` (manaUsed * block.gasFees) against
     // `estimatedGas.gasLimits.computeFee(block.gasFees)`, so they only require `gasLimits == manaUsed`
-    // (guaranteed by `estimatedGasPadding: 0`); they do not require `maxFeesPerGas == block.gasFees`.
+    // (guaranteed by zero padding); they do not require `maxFeesPerGas == block.gasFees`.
     const paddedMaxFees = await getPaddedMaxFeesPerGas(aztecNode);
     gasSettings = GasSettings.from({
       ...gasSettings,
@@ -116,9 +125,10 @@ describe('e2e_fees gas_estimation', () => {
   it('estimates gas with Fee Juice payment method', async () => {
     const sim = await makeTransferRequest().simulate({
       from: aliceAddress,
-      fee: { gasSettings, estimateGas: true, estimatedGasPadding: 0 },
+      fee: { gasSettings },
+      includeMetadata: true,
     });
-    const estimatedGas = sim.estimatedGas!;
+    const estimatedGas = await estimateGasLimits(sim.gasUsed!);
     logGasEstimate(estimatedGas);
 
     const sequencer = t.context.sequencer!.getSequencer();
@@ -160,9 +170,10 @@ describe('e2e_fees gas_estimation', () => {
 
     const sim2 = await makeTransferRequest().simulate({
       from: aliceAddress,
-      fee: { paymentMethod, estimatedGasPadding: 0, estimateGas: true },
+      fee: { paymentMethod },
+      includeMetadata: true,
     });
-    const estimatedGas = sim2.estimatedGas!;
+    const estimatedGas = await estimateGasLimits(sim2.gasUsed!);
     logGasEstimate(estimatedGas);
 
     const [withEstimate, withoutEstimate] = await sendTransfers(estimatedGas, paymentMethod);
@@ -202,12 +213,9 @@ describe('e2e_fees gas_estimation', () => {
     const sim3 = await deployMethod().simulate({
       from: aliceAddress,
       skipClassPublication: true,
-      fee: {
-        estimateGas: true,
-        estimatedGasPadding: 0,
-      },
+      includeMetadata: true,
     });
-    const estimatedGas = sim3.estimatedGas!;
+    const estimatedGas = await estimateGasLimits(sim3.gasUsed!);
     logGasEstimate(estimatedGas);
 
     const [{ receipt: withEstimate }, { receipt: withoutEstimate }] = await Promise.all([
