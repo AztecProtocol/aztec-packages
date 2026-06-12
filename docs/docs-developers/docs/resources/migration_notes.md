@@ -39,16 +39,17 @@ Wallets now reject a transaction whose declared `gasLimits` exceed the network's
 
 The `estimateGas` and `estimatedGasPadding` fee options are gone, and the `estimatedGas` field on simulation results is replaced by `gasUsed` (the raw gas the simulation consumed). Apps that want explicit gas limits read `gasUsed` and pad it themselves; otherwise the wallet fills in the network's admission limits automatically.
 
+**Migration:**
+
+```diff
 - const { estimatedGas } = await contract.methods.foo(args).simulate({
-- from,
-- fee: { estimateGas: true, estimatedGasPadding: 0.1 },
+-   from,
+-   fee: { estimateGas: true, estimatedGasPadding: 0.1 },
 - });
 - const gasLimits = estimatedGas.gasLimits;
-
-* const { gasUsed } = await contract.methods.foo(args).simulate({ from, includeMetadata: true });
-* const gasLimits = gasUsed.totalGas.mul(1.1); // pad yourself
-
-````
++ const { gasUsed } = await contract.methods.foo(args).simulate({ from, includeMetadata: true });
++ const gasLimits = gasUsed.totalGas.mul(1.1); // pad yourself
+```
 
 ### [Aztec.js] `getGasLimits` moved to `@aztec/wallet-sdk` and is no longer exported from `@aztec/aztec.js`
 
