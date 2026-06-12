@@ -24,13 +24,13 @@ template <typename Flavor_>
 typename MultilinearBatchingVerifierInternal<Flavor_>::FF MultilinearBatchingVerifierInternal<
     Flavor_>::compute_target_sum(const FF& alpha,
                                  const std::vector<VerifierClaim>& claims,
-                                 const std::vector<FF>& slot_scalars) const
+                                 const std::span<const FF> scalars) const
 {
     FF non_shifted_target(0);
     FF shifted_target(0);
     for (size_t idx = 0; idx < NUM_CLAIMS; ++idx) {
-        non_shifted_target += claims[idx].non_shifted_evaluation * slot_scalars[idx];
-        shifted_target += claims[idx].shifted_evaluation * slot_scalars[idx];
+        non_shifted_target += claims[idx].non_shifted_evaluation * scalars[idx];
+        shifted_target += claims[idx].shifted_evaluation * scalars[idx];
     }
     return non_shifted_target + shifted_target * alpha;
 }
@@ -39,7 +39,7 @@ template <typename Flavor_>
 typename MultilinearBatchingVerifierInternal<Flavor_>::VerifierClaim MultilinearBatchingVerifierInternal<
     Flavor_>::compute_new_claim(const SumcheckOutput<Flavor>& sumcheck_result,
                                 const std::vector<VerifierClaim>& claims,
-                                std::vector<FF> slot_scalars)
+                                std::vector<FF> scalars)
 {
     std::vector<Commitment> non_shifted_commitments;
     std::vector<Commitment> shifted_commitments;
@@ -50,17 +50,14 @@ typename MultilinearBatchingVerifierInternal<Flavor_>::VerifierClaim Multilinear
         shifted_commitments.emplace_back(claims[idx].shifted_commitment);
     }
 
-    Commitment non_shifted_commitment = Curve::Element::batch_mul(non_shifted_commitments, slot_scalars);
-    Commitment shifted_commitment = Curve::Element::batch_mul(shifted_commitments, slot_scalars);
+    Commitment non_shifted_commitment = Curve::Element::batch_mul(non_shifted_commitments, scalars);
+    Commitment shifted_commitment = Curve::Element::batch_mul(shifted_commitments, scalars);
 
-    // The sumcheck claimed evaluations are the evaluations of the original slot polynomials, so the batched
-    // evaluation is their ρ-weighted sum — matching the ρ-weighted commitment P = Σ ρ^i P_i at the sumcheck challenge
-    // point. ρ is fresh (drawn after the evaluations were bound), so the single decider opening binds each P_i(r).
     FF non_shifted_evaluation(0);
     FF shifted_evaluation(0);
     for (size_t idx = 0; idx < NUM_CLAIMS; ++idx) {
-        non_shifted_evaluation += slot_scalars[idx] * sumcheck_result.claimed_evaluations.non_shifted(idx);
-        shifted_evaluation += slot_scalars[idx] * sumcheck_result.claimed_evaluations.shifted(idx);
+        non_shifted_evaluation += scalars[idx] * sumcheck_result.claimed_evaluations.non_shifted(idx);
+        shifted_evaluation += scalars[idx] * sumcheck_result.claimed_evaluations.shifted(idx);
     }
 
     return VerifierClaim{ .challenge = sumcheck_result.challenge,
@@ -98,20 +95,16 @@ MultilinearBatchingVerifierInternal<Flavor_>::verify_proof(const std::vector<Ver
     // The batching sumcheck is read from the shared transcript, which already holds the group's instance sumchecks
     // followed by the loaded batching proof.
     //
-    // γ separates the input claims: it weights the target sum (slot i by γ^i) and is fed to the relation as a public
-    // per-slot coefficient. It is NOT used to merge the output claims — that is done with the fresh ρ below.
+    // γ separates the input claims: it weights the target sum (i-th evaluation by γ^i) and is fed to the relation as a
+    // public coefficient. It is NOT used to merge the output claims — that is done with the fresh ρ below.
     const FF claim_batching_challenge = transcript->template get_challenge<FF>("claim_batching_challenge");
-    std::vector<FF> batching_scalars(NUM_CLAIMS);
-    batching_scalars[0] = FF(1);
-    for (size_t idx = 1; idx < NUM_CLAIMS; ++idx) {
-        batching_scalars[idx] = batching_scalars[idx - 1] * claim_batching_challenge;
-    }
+    RelationParameters<FF> relation_parameters;
+    relation_parameters.compute_multilinear_batching_challenges(claim_batching_challenge, NUM_CLAIMS);
+    const std::span<const FF> batching_scalars(relation_parameters.multilinear_batching_challenges.data(), NUM_CLAIMS);
 
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
     FF target_sum = compute_target_sum(alpha, claims, batching_scalars);
 
-    RelationParameters<FF> relation_parameters;
-    relation_parameters.gamma = claim_batching_challenge;
     Sumcheck sumcheck(transcript, alpha, Flavor::VIRTUAL_LOG_N, target_sum);
     const auto sumcheck_result = sumcheck.verify(relation_parameters, {});
 
@@ -142,10 +135,10 @@ template <size_t NumClaims>
 std::pair<bool, typename MultilinearBatchingVerifier<IsRecursive_>::VerifierClaim> MultilinearBatchingVerifier<
     IsRecursive_>::verify_with_width(const std::vector<VerifierClaim>& claims)
 {
-    using FlavorW = std::conditional_t<IsRecursive_,
-                                       MultilinearBatchingRecursiveFlavor_<NumClaims>,
-                                       MultilinearBatchingFlavor_<NumClaims>>;
-    MultilinearBatchingVerifierInternal<FlavorW> internal(transcript);
+    using Flavor = std::conditional_t<IsRecursive_,
+                                      MultilinearBatchingRecursiveFlavor_<NumClaims>,
+                                      MultilinearBatchingFlavor_<NumClaims>>;
+    MultilinearBatchingVerifierInternal<Flavor> internal(transcript);
     return internal.verify_proof(claims);
 }
 

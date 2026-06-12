@@ -13,8 +13,9 @@ namespace bb {
 /**
  * @brief Relation for the multilinear batching sumcheck.
  *
- * @details The prover supplies exactly NumClaims accumulator claims. The batching challenge γ enters as a public
- * per-slot coefficient (`relation_parameters.gamma`, with slot i weighted by γ^i), so the sumcheck proves
+ * @details The prover supplies exactly NumClaims accumulator claims. The powers of the batching challenge γ enter as
+ * public coefficients (`relation_parameters.multilinear_batching_challenges`, with the i-th polynomial weighted by
+ * γ^i), so the sumcheck proves
  *
  *   Σ_i γ^i · P_i(r_i)       = Σ_x Σ_i γ^i · P_i(x)       · eq(x, r_i)
  *   Σ_i γ^i · P_i_shift(r_i) = Σ_x Σ_i γ^i · P_i_shift(x) · eq(x, r_i)
@@ -35,7 +36,9 @@ template <typename FF_, size_t NumClaims> class MultilinearBatchingRelationImpl 
     template <typename AllEntities> static bool skip(const AllEntities& in)
     {
         for (size_t idx = 0; idx < NumClaims; ++idx) {
-            if (!(in.non_shifted(idx).is_zero() && in.shifted(idx).is_zero()) && !in.eq(idx).is_zero()) {
+            const bool should_skip =
+                (in.non_shifted(idx).is_zero() && in.shifted(idx).is_zero()) || in.eq(idx).is_zero();
+            if (!should_skip) {
                 return false;
             }
         }
@@ -48,16 +51,16 @@ template <typename FF_, size_t NumClaims> class MultilinearBatchingRelationImpl 
                            const RelationParameters<FF>& relation_parameters = {},
                            [[maybe_unused]] const FF& scaling_factor = {})
     {
+        static_assert(NumClaims <= RelationParameters<FF>::NUM_MULTILINEAR_BATCHING_CHALLENGES);
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
 
-        // The batching challenge γ lives in `gamma`; the i-th polynomial i is weighted by γ^i.
-        const FF& gamma = relation_parameters.gamma;
-        FF gamma_pow = FF(1);
+        // The powers of the batching challenge γ are precomputed by the caller; the i-th polynomial is weighted by
+        // γ^i = multilinear_batching_challenges[i].
+        const auto& gamma_powers = relation_parameters.multilinear_batching_challenges;
         for (size_t idx = 0; idx < NumClaims; ++idx) {
-            const auto eq = Accumulator(in.eq(idx)) * gamma_pow;
+            const auto eq = Accumulator(in.eq(idx)) * gamma_powers[idx];
             std::get<0>(evals) += Accumulator(in.non_shifted(idx)) * eq;
             std::get<1>(evals) += Accumulator(in.shifted(idx)) * eq;
-            gamma_pow *= gamma;
         }
     };
 };

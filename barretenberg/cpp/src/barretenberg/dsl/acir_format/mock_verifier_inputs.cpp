@@ -72,46 +72,28 @@ template <typename Flavor> HonkProof create_mock_sumcheck_proof()
     return proof;
 }
 
-template <size_t NumClaims> static HonkProof create_mock_multilinear_batch_proof_impl()
-{
-    using Flavor = MultilinearBatchingFlavor_<NumClaims>;
-    // The claims are held in memory by the verifier and not sent in the proof, so the batching proof contains only the
-    // batching sumcheck.
-    return create_mock_sumcheck_proof<Flavor>();
-}
-
 HonkProof create_mock_multilinear_batch_proof(size_t num_claims)
 {
-    switch (num_claims) {
-    case 2:
-        return create_mock_multilinear_batch_proof_impl<2>();
-    case 3:
-        return create_mock_multilinear_batch_proof_impl<3>();
-    case 4:
-        return create_mock_multilinear_batch_proof_impl<4>();
-    case 5:
-        return create_mock_multilinear_batch_proof_impl<5>();
-    default:
-        throw_or_abort("create_mock_multilinear_batch_proof: unsupported batch width");
-    }
-    static_assert(CHONK_MAX_CLAIMS_PER_KERNEL == 5,
-                  "Mock batching proof must cover every width up to CHONK_MAX_CLAIMS_PER_KERNEL");
+    std::optional<HonkProof> proof;
+    constexpr_for<2, CHONK_MAX_CLAIMS_PER_KERNEL + 1, 1>([&]<size_t NumClaims>() {
+        if (num_claims == NumClaims) {
+            proof = create_mock_sumcheck_proof<MultilinearBatchingFlavor_<NumClaims>>();
+        }
+    });
+    BB_ASSERT(proof.has_value(), "Unmatched num_claims in create_mock_multilinear_batch_proof");
+
+    return proof.value();
 }
 
-template <typename Flavor, class PublicInputs> HonkProof create_mock_hyper_nova_proof(bool include_fold)
+template <typename Flavor, class PublicInputs> HonkProof create_mock_sumcheck_to_accumulator_proof()
 {
     HonkProof oink_proof = create_mock_oink_proof<Flavor, PublicInputs>(/*acir_public_inputs_size=*/0);
     HonkProof sumcheck_proof = create_mock_sumcheck_proof<Flavor>();
-    HonkProof multilinear_batch_proof;
-    if (include_fold) {
-        // HyperNova folding batches two claims: the carried accumulator and the incoming instance.
-        multilinear_batch_proof = create_mock_multilinear_batch_proof(/*num_claims=*/2);
-    }
+
     HonkProof proof;
-    proof.reserve(oink_proof.size() + sumcheck_proof.size() + multilinear_batch_proof.size());
+    proof.reserve(oink_proof.size() + sumcheck_proof.size());
     proof.insert(proof.end(), oink_proof.begin(), oink_proof.end());
     proof.insert(proof.end(), sumcheck_proof.begin(), sumcheck_proof.end());
-    proof.insert(proof.end(), multilinear_batch_proof.begin(), multilinear_batch_proof.end());
 
     return proof;
 }
@@ -658,11 +640,11 @@ construct_arbitrary_valid_honk_proof_and_vk<UltraZKFlavor, stdlib::recursion::ho
 template std::pair<HonkProof, std::shared_ptr<UltraFlavor::VerificationKey>>
 construct_arbitrary_valid_honk_proof_and_vk<UltraFlavor, stdlib::recursion::honk::RollupIO>(const size_t);
 
-template HonkProof create_mock_hyper_nova_proof<MegaFlavor, stdlib::recursion::honk::AppIO>(bool);
-template HonkProof create_mock_hyper_nova_proof<MegaFlavor, stdlib::recursion::honk::KernelIO>(bool);
-template HonkProof create_mock_hyper_nova_proof<MegaAppFlavor, stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>(
-    bool);
-template HonkProof create_mock_hyper_nova_proof<MegaKernelFlavor, stdlib::recursion::honk::KernelIO>(bool);
+template HonkProof create_mock_sumcheck_to_accumulator_proof<MegaFlavor, stdlib::recursion::honk::AppIO>();
+template HonkProof create_mock_sumcheck_to_accumulator_proof<MegaFlavor, stdlib::recursion::honk::KernelIO>();
+template HonkProof create_mock_sumcheck_to_accumulator_proof<MegaAppFlavor,
+                                                             stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>();
+template HonkProof create_mock_sumcheck_to_accumulator_proof<MegaKernelFlavor, stdlib::recursion::honk::KernelIO>();
 
 template HonkProof create_mock_chonk_proof<UltraCircuitBuilder>(const size_t);
 template HonkProof create_mock_chonk_proof<MegaCircuitBuilder>(const size_t);

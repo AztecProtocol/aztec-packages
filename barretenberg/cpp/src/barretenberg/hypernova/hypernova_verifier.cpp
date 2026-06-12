@@ -130,13 +130,9 @@ std::tuple<bool, bool, typename HypernovaFoldingVerifier<Flavor>::Accumulator> H
         ProofLength::HypernovaFolding<Flavor, MultilinearBatchingFlavor_<2>>::derive_num_public_inputs(
             proof.size(), Flavor::VIRTUAL_LOG_N);
 
-    // Turn the incoming instance into an accumulator claim. This loads the folding proof onto the shared transcript and
-    // reads its instance sumcheck (sumcheck_output_to_accumulator draws the per-entity batching challenges). The
-    // batching sumcheck that follows is read by the batching verifier below from the same transcript.
     auto sumcheck_output = sumcheck_on_incoming_instance(instance, proof, num_public_inputs);
     Accumulator incoming_accumulator = sumcheck_output_to_accumulator(sumcheck_output, instance);
 
-    // Batch the carried accumulator with the incoming one via the shared multilinear batching sumcheck.
     std::vector<Accumulator> claims{ accumulator, incoming_accumulator };
     BatchingVerifier batching_verifier(transcript);
     auto [sumcheck_batching_result, new_accumulator] = batching_verifier.verify_proof(claims);

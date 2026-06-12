@@ -58,8 +58,8 @@ template <typename Flavor> void MultilinearBatchingProverInternal<Flavor>::execu
     // instance_to_accumulator). The batching challenge is derived from the shared transcript, whose state already
     // commits to those claims via the group's instance sumchecks, so it binds them without any explicit hashing.
     //
-    // γ is not baked into the polynomials: it is fed to the relation as a public per-slot coefficient (slot i is
-    // weighted by γ^i)
+    // γ is not baked into the polynomials: it is fed to the relation as a public per-polynomials coefficient (the i-th
+    // polynomial is weighted by γ^i)
     claim_batching_challenge = transcript->template get_challenge<FF>("claim_batching_challenge");
 }
 
@@ -69,8 +69,15 @@ template <typename Flavor> void MultilinearBatchingProverInternal<Flavor>::execu
     using Sumcheck = SumcheckProver<Flavor>;
 
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
-    Sumcheck sumcheck(key.circuit_size, key.polynomials, transcript, alpha, Flavor::VIRTUAL_LOG_N);
-    sumcheck.relation_parameters.gamma = claim_batching_challenge;
+    RelationParameters<FF> relation_parameters;
+    relation_parameters.compute_multilinear_batching_challenges(claim_batching_challenge, Flavor::NUM_CLAIMS);
+    Sumcheck sumcheck(key.circuit_size,
+                      key.polynomials,
+                      transcript,
+                      alpha,
+                      /*gate_challenges=*/{}, // No need for gate challenges, all the relations are linearly dependent
+                      relation_parameters,
+                      Flavor::VIRTUAL_LOG_N);
     sumcheck_output = sumcheck.prove();
 
     // Draw the merge challenge after the sumcheck's claimed evaluations are bound to the transcript, so that
@@ -82,9 +89,8 @@ template <typename Flavor> MultilinearBatchingProverClaim MultilinearBatchingPro
 {
     BB_BENCH();
 
-    // Merge the output claims using the fresh challenge ρ: the new commitment/evaluation/polynomial are the ρ-weighted
-    // combinations of the per-slot ones. ρ is drawn after the claimed evaluations are bound, so the single decider
-    // opening binds each P_i(r) individually (Σ ρ^i (a_i − P_i(r)) = 0 over a fresh ρ forces every a_i = P_i(r)).
+    // Merge the output claims using the fresh challenge ρ. ρ is drawn after the claimed evaluations are bound, so the
+    // single decider opening binds each P_i(r) individually
     std::vector<FF> scalars(Flavor::NUM_CLAIMS);
     scalars[0] = FF(1);
     for (size_t idx = 1; idx < Flavor::NUM_CLAIMS; ++idx) {

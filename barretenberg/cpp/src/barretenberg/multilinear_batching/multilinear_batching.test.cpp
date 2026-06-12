@@ -4,6 +4,7 @@
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
+#include "barretenberg/hypernova/hypernova_decider_prover.hpp"
 #include "barretenberg/multilinear_batching/multilinear_batching_prover.hpp"
 #include "barretenberg/multilinear_batching/multilinear_batching_verifier.hpp"
 
@@ -33,7 +34,7 @@ using NativeTranscriptType = NativeTranscript;
 // 2^VIRTUAL_LOG_N virtual variables, so the actual size only needs to be small.
 constexpr size_t LOG_N = 5;
 constexpr size_t VIRTUAL_LOG_N = MultilinearBatchingFlavor::VIRTUAL_LOG_N;
-// Per-slot round univariate length (the relation is degree 2, so 3 evaluations per round).
+// Per round univariate length (the relation is degree 2, so 3 evaluations per round).
 constexpr size_t UNIVARIATE_LENGTH = MultilinearBatchingFlavor::BATCHED_RELATION_PARTIAL_LENGTH;
 // In production the batching transcript is shared and already holds the group's instance sumchecks, so the first
 // batching challenge is never drawn from an empty transcript. The standalone tests reproduce that by sending one seed
@@ -52,7 +53,8 @@ enum class FaultMode : uint8_t {
     FALSE_SHIFTED_EVAL,          // verifier holds a wrong shifted input claim -> sumcheck target is wrong
     TAMPER_CLAIMED_EVAL,         // corrupt one claimed evaluation -> sumcheck final relation check fails
     WRONG_NONSHIFTED_COMMITMENT, // verifier holds a wrong input commitment -> output claim is not bound to it
-    BREAK_EVAL_BINDING,          // per-slot evals that keep the γ-weighted relation but break the ρ-merge binding
+    WRONG_SHIFTED_COMMITMENT,    // verifier holds a wrong input commitment -> output claim is not bound to it
+    BREAK_EVAL_BINDING, // polynomial evaluations that keep the γ-weighted relation but break the ρ-merge binding
 };
 
 /**
@@ -76,7 +78,7 @@ FF mle_padded(const Polynomial<FF>& poly, const std::vector<FF>& r, bool shift =
 struct ClaimSet {
     std::vector<ProverClaim> prover_claims;
     std::vector<VerifierClaim> verifier_claims;
-    // Copies of the slot polynomials (the prover consumes prover_claims), used to recompute the honest output claim.
+    // Copies of the polynomials used to recompute the honest output claim.
     std::vector<Polynomial<FF>> non_shifted_polynomials;
     std::vector<Polynomial<FF>> shifted_polynomials; // pre-shift form (start index 1)
 };
@@ -98,7 +100,6 @@ ClaimSet build_honest_claims(size_t num_claims)
         }
 
         Polynomial<FF> non_shifted = Polynomial<FF>::random(dyadic_size);
-        // A to-be-shifted polynomial must start at index 1 (index 0 is the implicit zero that the shift drops).
         Polynomial<FF> shifted = Polynomial<FF>::random(dyadic_size - 1, dyadic_size, /*start_index=*/1);
 
         const FF non_shifted_eval = mle_padded(non_shifted, challenge);
@@ -161,8 +162,9 @@ DerivedChallenges replay_challenges(const HonkProof& proof, size_t num_claims)
 }
 
 /**
- * @brief Check that the verifier's output claim is a faithful (commitment, evaluation) of the honest batched
- * polynomial Σ ρ^i P_i at the sumcheck point — i.e. exactly what the downstream PCS opening will enforce.
+ * @brief Given a proof, the set of claims with which the prover has constructed the proof, and the claim output by the
+ * verifier at the end of proof verification, check that the claim built from the proof and the prover's data matches
+ * the verifier's view.
  */
 bool output_claim_is_bound(const ClaimSet& set, const HonkProof& proof, const VerifierClaim& new_claim)
 {
@@ -201,7 +203,6 @@ bool output_claim_is_bound(const ClaimSet& set, const HonkProof& proof, const Ve
 
 /**
  * @brief Build an honest native proof and apply the requested fault to the proof / verifier-held claims.
- * @details The prover is always native; only the verification path differs between the native and recursive fixtures.
  * @return the (faulted) proof and the verifier-held input claims, plus the original honest ClaimSet for binding.
  */
 struct FaultyProof {
@@ -222,6 +223,8 @@ FaultyProof build_faulty_proof(size_t num_claims, FaultMode fault)
         verifier_claims[0].shifted_evaluation += FF(1);
     } else if (fault == FaultMode::WRONG_NONSHIFTED_COMMITMENT) {
         verifier_claims[0].non_shifted_commitment = verifier_claims[0].non_shifted_commitment + Commitment::one();
+    } else if (fault == FaultMode::WRONG_SHIFTED_COMMITMENT) {
+        verifier_claims[0].shifted_commitment = verifier_claims[0].shifted_commitment + Commitment::one();
     }
 
     auto prover_transcript = std::make_shared<NativeTranscriptType>();
@@ -230,14 +233,14 @@ FaultyProof build_faulty_proof(size_t num_claims, FaultMode fault)
     MultilinearBatchingProver prover(std::move(set.prover_claims), prover_transcript);
     HonkProof proof = prover.construct_proof();
 
-    // Proof-side faults are applied after the honest proof is built; the verifier re-derives Fiat-Shamir from the
-    // tampered bytes, so the proof stays internally consistent.
+    // Proof-side faults are applied after the honest proof is built; this maintains consistency of FS because the
+    // prover doesn't send anything to the verifier after the claimed evaluations
     if (fault == FaultMode::TAMPER_CLAIMED_EVAL) {
         proof[EVALS_OFFSET] += FF(1);
     } else if (fault == FaultMode::BREAK_EVAL_BINDING) {
         // Perturb the first three non-shifted claimed evals by a δ that lies in the joint kernel of BOTH the sumcheck
         // final relation form (a·δ = 0, with a_i = γ^i·eq_i(r)) AND the γ-weighted merge (b·δ = 0, with b_i = γ^i),
-        // while leaving the eq evaluations untouched. Then:
+        // Then:
         //   - the sumcheck and eq-consistency checks still pass (a·δ = 0), so `verified` stays true;
         //   - a hypothetical γ-weighted output merge would still be correct (b·δ = 0)
         //   - the fresh merge challenge ρ is drawn only after δ is committed, so Σ ρ^i δ_i ≠ 0 and the bound
@@ -266,13 +269,13 @@ FaultyProof build_faulty_proof(size_t num_claims, FaultMode fault)
 
 template <bool Recursive, size_t Claims> struct Config {
     static constexpr bool IsRecursive = Recursive;
-    static constexpr size_t Width = Claims;
+    static constexpr size_t NumClaims = Claims;
 };
 
 template <typename Params> class MultilinearBatchingTests : public ::testing::Test {
   public:
     static constexpr bool IsRecursive = Params::IsRecursive;
-    static constexpr size_t Width = Params::Width;
+    static constexpr size_t NumClaims = Params::NumClaims;
 
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
@@ -285,7 +288,7 @@ template <typename Params> class MultilinearBatchingTests : public ::testing::Te
 
     static RunResult run(FaultMode fault)
     {
-        FaultyProof faulty = build_faulty_proof(Width, fault);
+        FaultyProof faulty = build_faulty_proof(NumClaims, fault);
 
         bool verified = false;
         bool circuit_ok = true;
@@ -377,9 +380,9 @@ TYPED_TEST(MultilinearBatchingTests, TamperedClaimedEvalFails)
     EXPECT_FALSE(TestFixture::run(FaultMode::TAMPER_CLAIMED_EVAL).accepted());
 }
 
-// A wrong input commitment slips past the sumcheck (which never reads commitments), but the output claim is no longer
-// bound to it — the downstream PCS opening would reject it.
-TYPED_TEST(MultilinearBatchingTests, WrongInputCommitmentBreaksBinding)
+// A wrong non shifted commitment slips past the sumcheck (which never reads commitments), but the output claim is no
+// longer bound to it — the downstream PCS opening would reject it.
+TYPED_TEST(MultilinearBatchingTests, WrongNonShiftedCommitment)
 {
     auto result = TestFixture::run(FaultMode::WRONG_NONSHIFTED_COMMITMENT);
     EXPECT_TRUE(result.verified);
@@ -387,11 +390,21 @@ TYPED_TEST(MultilinearBatchingTests, WrongInputCommitmentBreaksBinding)
     EXPECT_FALSE(result.claim_bound);
 }
 
-// The core soundness property of the fresh-ρ merge: per-slot evaluations crafted to satisfy the γ-weighted sumcheck
+// A wrong shifted commitment slips past the sumcheck (which never reads commitments), but the output claim is no longer
+// bound to it — the downstream PCS opening would reject it.
+TYPED_TEST(MultilinearBatchingTests, WrongShiftedCommitment)
+{
+    auto result = TestFixture::run(FaultMode::WRONG_SHIFTED_COMMITMENT);
+    EXPECT_TRUE(result.verified);
+    EXPECT_TRUE(result.circuit_ok);
+    EXPECT_FALSE(result.claim_bound);
+}
+
+// The core soundness property of the fresh-ρ merge: polynomials evaluations crafted to satisfy the γ-weighted sumcheck
 // (and eq consistency) still fail to bind, because the merge challenge ρ is drawn only after they are committed.
 TYPED_TEST(MultilinearBatchingTests, BrokenEvalBindingIsCaughtByMerge)
 {
-    if (TestFixture::Width < 3) {
+    if (TestFixture::NumClaims < 3) {
         GTEST_SKIP() << "The eval-binding attack needs >= 3 claims (2 constraints, 3 unknowns) to also satisfy the "
                         "pre-fix γ-weighted merge; with 2 claims no such non-trivial perturbation exists.";
     }

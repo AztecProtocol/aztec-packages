@@ -48,18 +48,16 @@ template <typename Flavor> bb::HonkProof create_mock_sumcheck_proof();
 
 /**
  * @brief Create a mock multilinear batching proof of the given width (number of batched claims).
- * @details Has the correct structure for that width but is not in general valid. HyperNova folding uses width 2
- * (carried accumulator + incoming instance); a kernel uses one claim per proof in its group plus the carried
- * accumulator.
+ * @details Has the correct structure for that width but is not in general valid.
  */
 bb::HonkProof create_mock_multilinear_batch_proof(size_t num_claims);
 
 /**
- * @brief Create a mock Hypernova proof that has the correct structure but is not in general valid
+ * @brief Create a mock proof turning an instance into an Hypernova accumulator that has the correct structure but is
+ * not in general valid
  *
- * @param include_fold If true, the proof contains a mock multilinear batching sumcheck proof
  */
-template <typename Flavor, class PublicInputs> bb::HonkProof create_mock_hyper_nova_proof(bool include_fold = false);
+template <typename Flavor, class PublicInputs> bb::HonkProof create_mock_sumcheck_to_accumulator_proof();
 
 /**
  * @brief Create a mock PCS proof that has the correct structure but is not in general valid

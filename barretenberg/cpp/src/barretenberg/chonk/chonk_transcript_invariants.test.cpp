@@ -56,7 +56,7 @@ class ChonkTranscriptInvariantTests : public ::testing::Test {
  * Any change to this count indicates a structural change in how transcripts are managed, which
  * could have security implications (e.g., unexpected transcript isolation or sharing).
  *
- * The 4-app IVC flow creates 6 circuits: app0 -> app1 -> app2 -> kernel1 -> app3 -> kernel2 -> reset -> tail -> hiding
+ * The 4-app IVC flow creates 6 circuits: app0 -> app1 -> app2 -> kernel1 -> app3 -> kernel2 -> reset-tail -> hiding
  *
  * Per-circuit transcript breakdown (from complete_kernel_circuit_logic). The per-kernel multilinear batching (and the
  * hiding kernel's decider) continue on the shared accumulation transcript, so they create no additional transcripts:
@@ -69,10 +69,10 @@ class ChonkTranscriptInvariantTests : public ::testing::Test {
  *     1. accumulation_recursive_transcript - shared across recursive verification
  *     2. PairingPoints::aggregate_multiple - for batching pairing points with Fiat-Shamir separator
  *     3. hash_transcript - for computing accumulator hash to propagate in public inputs
- * - Reset and tail kernels (6, 7): 2 transcripts each:
+ * - Reset-tail kernels (6): 2 transcripts:
  *     1. accumulation_recursive_transcript
  *     2. hash_transcript - for computing accumulator hash to propagate in public inputs
- * - Hiding kernel (8): 3 transcripts:
+ * - Hiding kernel (7): 3 transcripts:
  *     1. accumulation_recursive_transcript
  *     2. batch_merge_transcript - for final batch merge verification
  *     3. PairingPoints::aggregate_multiple
@@ -83,8 +83,8 @@ TEST_F(ChonkTranscriptInvariantTests, AccumulationTranscriptCount)
 {
     // Pinned expected transcript count for 4 app circuits
     constexpr size_t EXPECTED_TOTAL_TRANSCRIPTS = 13;
-    constexpr size_t EXPECTED_NUM_CIRCUITS = 9;
-    constexpr std::array<size_t, EXPECTED_NUM_CIRCUITS> EXPECTED_CIRCUIT_TRANSCRIPTS = { 0, 0, 0, 3, 0, 3, 2, 2, 3 };
+    constexpr size_t EXPECTED_NUM_CIRCUITS = 8;
+    constexpr std::array<size_t, EXPECTED_NUM_CIRCUITS> EXPECTED_CIRCUIT_TRANSCRIPTS = { 0, 0, 0, 3, 0, 3, 2, 3 };
 
     // Record transcript index before IVC
     size_t index_before_ivc = bb::unique_transcript_index.load();

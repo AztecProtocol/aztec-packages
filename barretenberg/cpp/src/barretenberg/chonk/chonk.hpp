@@ -82,8 +82,8 @@ class Chonk {
     // Folding: the Hypernova accumulator is flavor-agnostic, so all kinds share one accumulator type.
     using FoldingProver = HypernovaFoldingProver;
     using DeciderProver = HypernovaDeciderProver;
-    // The decider proves/verifies the flavor-agnostic batched accumulator; the kernel recursive flavor matches the
-    // native MegaFlavor decider's entity layout.
+    // The decider is flavor-independent, it uses the flavor only to get HasZK (= false) and whether we are in-circuit
+    // or not
     using RecursiveDeciderVerifier = HypernovaDeciderVerifier<KernelRecursiveFlavor>;
     using ProverAccumulator = FoldingProver::Accumulator;
     using VerifierAccumulator = MultilinearBatchingVerifierClaim<curve::BN254>;
@@ -201,14 +201,8 @@ class Chonk {
 
     VerifierAccumulator recursive_verifier_native_accum; // native value of the accumulator carried between kernels
 #ifndef NDEBUG
-    // Native mirror of the prover state, maintained by the debug-only native verification: the accumulator carried
-    // between kernels (counterpart of prover_accumulator) and the current group's sumcheck claims (counterpart of
-    // multilinear_batch_prover_accumulators).
     VerifierAccumulator native_verifier_accum;
     std::vector<VerifierAccumulator> multilinear_batch_native_claims;
-    // Verifier counterpart of prover_accumulation_transcript: fed every proof of the group so its state tracks the
-    // prover's across the group's instance sumchecks, the batching proof and, before the hiding kernel, the decider
-    // proof. Reset together with the prover transcript at each kernel boundary.
     std::shared_ptr<Transcript> native_verifier_accumulation_transcript = std::make_shared<Transcript>();
 #endif
 
@@ -239,7 +233,7 @@ class Chonk {
                                                const std::vector<StdlibCircuitVKAndHash>& input_keys = {});
 
     [[nodiscard("Claim and pairing points should be collected")]] std::
-        tuple<RecursiveVerifierAccumulator, std::vector<PairingPoints>, StdlibFF>
+        tuple<RecursiveVerifierAccumulator, PairingPoints, StdlibFF>
         recursive_verification_and_consistency_checks(
             ClientCircuit& circuit,
             const StdlibVerifierInputs& verifier_inputs,
@@ -304,13 +298,13 @@ class Chonk {
 
     // Native (non-recursive) verification of a single queue entry's instance sumcheck, in `NativeFlavor`.
     // Debug-only cross-check that the prover's sumcheck claim matches a freshly verified one; the claim is
-    // collected for the kernel-boundary batching check.
+    // collected for the multilinear batching check.
     template <typename NativeFlavor>
-    void run_native_folding_verifier(const std::shared_ptr<typename NativeFlavor::VerificationKey>& honk_vk,
-                                     const VerifierInputs& queue_entry);
+    void run_native_instance_sumcheck(const std::shared_ptr<typename NativeFlavor::VerificationKey>& honk_vk,
+                                      const VerifierInputs& queue_entry);
 
     /**
-     * @brief Natively verify the kernel-boundary multilinear batching proof and update the native verifier
+     * @brief Natively verify the multilinear batching proof and update the native verifier
      * accumulator. Useful for debugging.
      *
      * @details Batches the accumulator carried in from the previous kernel (absent for the init group) with the

@@ -10,6 +10,7 @@
 #include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
+#include <span>
 #include <utility>
 
 namespace bb {
@@ -46,13 +47,11 @@ template <typename Flavor_> class MultilinearBatchingVerifierInternal {
   private:
     std::shared_ptr<Transcript> transcript;
 
-    FF compute_target_sum(const FF& alpha,
-                          const std::vector<VerifierClaim>& claims,
-                          const std::vector<FF>& slot_scalars) const;
+    FF compute_target_sum(const FF& alpha, const std::vector<VerifierClaim>& claims, std::span<const FF> scalars) const;
 
     VerifierClaim compute_new_claim(const SumcheckOutput<Flavor>& sumcheck_result,
                                     const std::vector<VerifierClaim>& claims,
-                                    std::vector<FF> slot_scalars);
+                                    std::vector<FF> scalars);
 
     bool check_eq_consistency(const SumcheckOutput<Flavor>& sumcheck_result, const std::vector<VerifierClaim>& claims);
 };

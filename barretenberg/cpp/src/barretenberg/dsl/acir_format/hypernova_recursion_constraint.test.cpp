@@ -743,8 +743,7 @@ TEST_F(HypernovaRecursionConstraintTest, FailsOnConstraintIndicesSizeMismatch)
 {
     auto ivc = std::make_shared<Chonk>(std::vector<CircuitKind>{
         CircuitKind::App, CircuitKind::Kernel, CircuitKind::Kernel, CircuitKind::HidingKernel });
-
-    construct_and_accumulate_mock_app(ivc);
+    acir_format::mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::OINK, /*is_kernel=*/false);
 
     AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
 
@@ -764,8 +763,7 @@ TEST_F(HypernovaRecursionConstraintTest, FailsOnAcirQueueSizeMismatch)
 {
     auto ivc = std::make_shared<Chonk>(std::vector<CircuitKind>{
         CircuitKind::App, CircuitKind::Kernel, CircuitKind::Kernel, CircuitKind::HidingKernel });
-
-    construct_and_accumulate_mock_app(ivc);
+    acir_format::mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::OINK, /*is_kernel=*/false);
 
     AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
 
@@ -786,8 +784,7 @@ TEST_F(HypernovaRecursionConstraintTest, FailsOnNonEmptyPublicInputs)
 {
     auto ivc = std::make_shared<Chonk>(std::vector<CircuitKind>{
         CircuitKind::App, CircuitKind::Kernel, CircuitKind::Kernel, CircuitKind::HidingKernel });
-
-    construct_and_accumulate_mock_app(ivc);
+    acir_format::mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::OINK, /*is_kernel=*/false);
 
     AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
 
@@ -807,8 +804,7 @@ TEST_F(HypernovaRecursionConstraintTest, FailsOnProofTypeMismatch)
 {
     auto ivc = std::make_shared<Chonk>(std::vector<CircuitKind>{
         CircuitKind::App, CircuitKind::Kernel, CircuitKind::Kernel, CircuitKind::HidingKernel });
-
-    construct_and_accumulate_mock_app(ivc);
+    acir_format::mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::OINK, /*is_kernel=*/false);
 
     AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
 

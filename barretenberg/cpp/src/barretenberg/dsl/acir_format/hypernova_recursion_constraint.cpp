@@ -128,19 +128,13 @@ Chonk::VerifierInputs create_mock_verification_queue_entry(const Chonk::QUEUE_TY
                          verification_type == Chonk::QUEUE_TYPE::HN_FINAL,
                      true);
 
-        // Per-kernel batching removes the per-circuit multilinear batching proof from every proof; each proof now
-        // carries only its sumcheck.
-        constexpr bool include_fold = false;
-        entry.proof = create_mock_hyper_nova_proof<KernelFlavor, KernelIO>(include_fold);
+        entry.proof = create_mock_sumcheck_to_accumulator_proof<KernelFlavor, KernelIO>();
         entry.kernel_honk_vk = create_mock_honk_vk<KernelFlavor, KernelIO>(1 << KernelFlavor::VIRTUAL_LOG_N);
     } else {
         using AppIO = stdlib::recursion::honk::AppIO;
         BB_ASSERT_EQ(verification_type == Chonk::QUEUE_TYPE::OINK || verification_type == Chonk::QUEUE_TYPE::HN, true);
 
-        // Per-kernel batching: each app proof carries only its sumcheck (no per-circuit multilinear batching), and
-        // OINK proofs never include folding data.
-        constexpr bool include_fold = false;
-        entry.proof = create_mock_hyper_nova_proof<AppFlavor, AppIO>(include_fold);
+        entry.proof = create_mock_sumcheck_to_accumulator_proof<AppFlavor, AppIO>();
         entry.app_honk_vk = create_mock_honk_vk<AppFlavor, AppIO>(1 << AppFlavor::VIRTUAL_LOG_N);
     }
 

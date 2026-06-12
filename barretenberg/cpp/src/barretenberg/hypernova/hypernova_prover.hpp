@@ -110,8 +110,6 @@ class HypernovaFoldingProver {
         BB_BENCH_NAME("HypernovaFoldingProver::fold");
         Accumulator incoming_accumulator = instance_to_accumulator<InstanceFlavor>(instance, honk_vk);
 
-        // Batch the carried accumulator with the incoming one via the shared multilinear batching sumcheck. The claim
-        // order (carried accumulator first, incoming second) must match the verifier in HypernovaFoldingVerifier.
         std::vector<Accumulator> claims;
         claims.emplace_back(std::move(accumulator));
         claims.emplace_back(std::move(incoming_accumulator));

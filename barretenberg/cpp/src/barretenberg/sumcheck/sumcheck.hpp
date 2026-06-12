@@ -336,21 +336,6 @@ template <typename Flavor> class SumcheckProver {
 
     RowDisablingPolynomial<FF> row_disabling_polynomial;
 
-    // SumcheckProver constructor for multilinear batching flavors.
-    SumcheckProver(size_t multivariate_n,
-                   ProverPolynomials& prover_polynomials,
-                   std::shared_ptr<Transcript> transcript,
-                   const FF& relation_separator,
-                   const size_t virtual_log_n)
-        : multivariate_n(multivariate_n)
-        , multivariate_d(numeric::get_msb(multivariate_n))
-        , full_polynomials(prover_polynomials)
-        , transcript(std::move(transcript))
-        , round(multivariate_n)
-        , alphas(initialize_relation_separator<FF, Flavor::NUM_SUBRELATIONS - 1>(relation_separator))
-        , gate_challenges({})
-        , virtual_log_n(virtual_log_n) {};
-
     // SumcheckProver constructor for the Flavors that generate a single challenge `alpha` and use its powers as
     // subrelation seperator challenges.
     SumcheckProver(size_t multivariate_n,
@@ -368,7 +353,14 @@ template <typename Flavor> class SumcheckProver {
         , alphas(initialize_relation_separator<FF, Flavor::NUM_SUBRELATIONS - 1>(alpha))
         , gate_challenges(gate_challenges)
         , relation_parameters(relation_parameters)
-        , virtual_log_n(virtual_log_n) {};
+        , virtual_log_n(virtual_log_n)
+    {
+        if constexpr (isMultilinearBatchingFlavor) {
+            BB_ASSERT_EQ(relation_parameters.num_multilinear_batching_challenges,
+                         Flavor::NUM_CLAIMS,
+                         "Incorrect number of computed multilinear batching challenges.");
+        }
+    };
     /**
      * @brief Non-ZK version: Compute round univariate, place it in transcript, compute challenge, partially evaluate.
      * Repeat until final round, then get full evaluations of prover polynomials, and place them in transcript.
@@ -788,6 +780,8 @@ template <typename Flavor> class SumcheckVerifier {
     using SubrelationSeparators = std::array<FF, Flavor::NUM_SUBRELATIONS - 1>;
     using Commitment = typename Flavor::Commitment;
 
+    static constexpr bool isMultilinearBatchingFlavor = bb::isMultilinearBatchingFlavor<Flavor>;
+
     /**
      * @brief Maximum partial algebraic degree of the relation  \f$\tilde F = pow_{\beta} \cdot F \f$, i.e. \ref
      * MAX_PARTIAL_RELATION_LENGTH "MAX_PARTIAL_RELATION_LENGTH + 1".
@@ -829,6 +823,12 @@ template <typename Flavor> class SumcheckVerifier {
     SumcheckOutput<Flavor> verify(const bb::RelationParameters<FF>& relation_parameters,
                                   const std::vector<FF>& gate_challenges)
     {
+        if constexpr (isMultilinearBatchingFlavor) {
+            BB_ASSERT_EQ(relation_parameters.num_multilinear_batching_challenges,
+                         Flavor::NUM_CLAIMS,
+                         "Incorrect number of computed multilinear batching challenges.");
+        }
+
         bb::GateSeparatorPolynomial<FF> gate_separators(gate_challenges);
         // Construct a ZKHandler to handle all the libra related information in the transcript
         VerifierZKCorrectionHandler<Flavor> zk_correction_handler(transcript);

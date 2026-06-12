@@ -59,7 +59,7 @@ template <size_t NumClaims> class MultilinearBatchingFlavor_ {
     using Relations = Relations_<FF>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
-    // There is no gating polynomial in the relation (the only relation is linearly dependent), so the batched relation
+    // There is no gate polynomial in the relation (the only relation is linearly dependent), so the batched relation
     // partial length is equal to max partial relation length
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH;
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
@@ -156,7 +156,7 @@ template <size_t NumClaims> class MultilinearBatchingFlavor_ {
      *   sum_x [ sum_i \gamma^i P_i(x) * eq(x, r_i) ] = \sum_i \gamma^i v_i
      *
      * where eq(x, r) is the equality polynomial that is 1 when x = r and 0 elsewhere on the hypercube, and \gamma is
-     * the slot batching challenge applied as a public per-slot relation coefficient.
+     * the polynomial batching challenge applied as a public per-slot relation coefficient.
      *
      * After sumcheck, all claims are reduced to evaluations of the original polynomials at a new random point u. These
      * are then combined into a single accumulator claim using a fresh challenge \rho (drawn once the claimed
@@ -208,30 +208,18 @@ template <size_t NumClaims> class MultilinearBatchingFlavor_ {
                                                         const std::vector<FF>& multivariate_challenge,
                                                         const size_t round_idx)
     {
-        std::vector<FF> index_1_challenge(VIRTUAL_LOG_N);
+        std::vector<FF> round_challenge(VIRTUAL_LOG_N);
         for (size_t i = 0; i < round_idx; i++) {
-            index_1_challenge[i] = multivariate_challenge[i];
+            round_challenge[i] = multivariate_challenge[i];
         }
-        index_1_challenge[round_idx] = FF(1);
+        round_challenge[round_idx] = FF(1);
 
-        for (size_t slot = 0; slot < NUM_CLAIMS; ++slot) {
-            auto force_virtual_extension_shape = [](Polynomial& polynomial) {
-                if (polynomial.size() <= 1) {
-                    return;
-                }
-                auto new_polynomial = Polynomial(2, polynomial.virtual_size());
-                new_polynomial.at(0) = polynomial.at(0);
-                new_polynomial.at(1) = FF(0);
-                polynomial = new_polynomial;
-            };
-            force_virtual_extension_shape(partially_evaluated_polynomials.non_shifted(slot));
-            force_virtual_extension_shape(partially_evaluated_polynomials.shifted(slot));
-
-            auto& eq_polynomial = partially_evaluated_polynomials.eq(slot);
+        for (size_t idx = 0; idx < NUM_CLAIMS; ++idx) {
+            auto& eq_polynomial = partially_evaluated_polynomials.eq(idx);
             auto new_eq_polynomial = Polynomial(2, eq_polynomial.virtual_size());
             new_eq_polynomial.at(0) = eq_polynomial.at(0);
-            new_eq_polynomial.at(1) = VerifierEqPolynomial<FF>::eval(
-                partially_evaluated_polynomials.claim_challenges[slot], index_1_challenge);
+            new_eq_polynomial.at(1) =
+                VerifierEqPolynomial<FF>::eval(partially_evaluated_polynomials.claim_challenges[idx], round_challenge);
             eq_polynomial = new_eq_polynomial;
         }
     }
