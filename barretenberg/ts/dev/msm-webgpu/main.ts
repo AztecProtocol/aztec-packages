@@ -2430,23 +2430,10 @@ function hideProgress(): void {
         const { ShaderManager } = await import('../../src/msm_webgpu/cuzk/shader_manager.js');
         const { BN254_CURVE_CONFIG } = await import('../../src/msm_webgpu/cuzk/curve_config.js');
         if (gpuDevice === null) gpuDevice = await get_device();
-        // Production mix: combine kernels render with the packed 8×u32 CIOS
-        // body (what MsmV2.create ships); ?montmul= overrides for A/B.
-        const mmOverride = qp.get('montmul');
-        const sm = new ShaderManager(
-          4,
-          1 << 17,
-          BN254_CURVE_CONFIG,
-          false,
-          mmOverride === 'cios_unrolled' ? 'cios_unrolled' : 'karat',
-        );
-        const smC = new ShaderManager(
-          4,
-          1 << 17,
-          BN254_CURVE_CONFIG,
-          false,
-          mmOverride === 'karat' ? 'karat' : 'cios_unrolled',
-        );
+        // Mirrors the production mix exactly (msm_v2 create): level renders
+        // with karat, ufold/survfin with the packed 8×u32 CIOS body.
+        const sm = new ShaderManager(4, 1 << 17, BN254_CURVE_CONFIG, false, 'karat');
+        const smC = new ShaderManager(4, 1 << 17, BN254_CURVE_CONFIG, false, 'cios_unrolled');
         const cases: Array<[string, string]> = [
           [
             'ptree-epilogue',
@@ -2469,41 +2456,6 @@ function hideProgress(): void {
         ];
         const stResults: Array<{ name: string; ms: number; ok: boolean; err?: string }> = [];
         const stClient = makeResultsClient({ page: 'msm-shader-test' });
-        // ?parallel=1: createComputePipelineAsync ALL kernels at once and
-        // report the WALL — the shape production create() actually uses.
-        // Sequential mode (default) attributes cost per kernel instead.
-        if (qp.get('parallel') === '1') {
-          const t0 = performance.now();
-          await Promise.all(
-            cases.map(async ([name, code]) => {
-              try {
-                const mod = gpuDevice!.createShaderModule({ code });
-                await gpuDevice!.createComputePipelineAsync({
-                  layout: 'auto',
-                  compute: { module: mod, entryPoint: 'main' },
-                });
-                stResults.push({ name, ms: Math.round(performance.now() - t0), ok: true });
-                log('ok', `[shader-test] ${name}: done at +${(performance.now() - t0).toFixed(0)} ms`);
-              } catch (e) {
-                stResults.push({ name, ms: Math.round(performance.now() - t0), ok: false, err: (e as Error).message });
-                log('err', `[shader-test] ${name}: FAIL ${(e as Error).message}`);
-              }
-            }),
-          );
-          const wall = Math.round(performance.now() - t0);
-          log('ok', `[shader-test] PARALLEL WALL ${wall} ms for ${cases.length} kernels`);
-          await stClient.postResults({
-            state: 'done',
-            params: { page: 'msm-shader-test', dev: qp.get('dev') ?? '', parallel: true },
-            results: { kernels: stResults, wallMs: wall },
-            error: null,
-            log: [],
-            userAgent: navigator.userAgent,
-            hardwareConcurrency: navigator.hardwareConcurrency,
-          });
-          log('ok', `[shader-test] state=done`);
-          return;
-        }
         for (const [name, code] of cases) {
           const t0 = performance.now();
           try {
