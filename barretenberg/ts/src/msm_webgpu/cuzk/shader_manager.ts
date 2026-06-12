@@ -1662,7 +1662,12 @@ ${packLines.join('\n')}
 
 
   public gen_ba_walker_ptree_finalize_shader(workgroup_size: number, sn: number): string {
-    const [ctx, partials] = this.jacKernelContext({ workgroup_size, sn, inv_fn: 'fr_inv_by_loop_pk' });
+    const [ctx, partials] = this.jacKernelContext({
+      workgroup_size,
+      sn,
+      sn_gt1: sn > 1,
+      inv_fn: 'fr_inv_by_loop_pk',
+    });
     return mustache.render(ba_walker_ptree_finalize_shader, ctx, partials);
   }
 

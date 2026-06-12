@@ -5319,9 +5319,12 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         zsub[k] = z;
         if (k == 0u) {
             prod = z;
-        } else {
+        }
+{{#sn_gt1}}
+        else {
             prod = montgomery_product_f8(prod, z);
         }
+{{/sn_gt1}}
         if (k + 1u < SN) { pref[k] = prod; }
     }
 
@@ -5329,13 +5332,19 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 
     for (var kk: u32 = 0u; kk < SN; kk = kk + 1u) {
         let k = SN - 1u - kk;
+        // At SN = 1 (production) the batch prefix/peel multiplies are
+        // statically elided — they would never execute, but their inlined
+        // bodies would still be paid at compile time.
         var zinv: array<u32, 8>;
         if (k == 0u) {
             zinv = inv;
-        } else {
+        }
+{{#sn_gt1}}
+        else {
             zinv = montgomery_product_f8(inv, pref[k - 1u]);
             inv = montgomery_product_f8(inv, zsub[k]);
         }
+{{/sn_gt1}}
         if (t0 + k >= n_surv) { continue; }
 
         let i = t0 + k;
@@ -5344,12 +5353,27 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         let b = jac_params.x + 6u * i;
         let X = load_surv_f8(b);
         let Y = load_surv_f8(b + 2u);
-        let z2 = montgomery_product_f8(zinv, zinv);
-        let z3 = montgomery_product_f8(z2, zinv);
-        write_red(
-            bid,
-            montgomery_product_f8(X, z2),
-            montgomery_product_f8(Y, z3));
+        // z² → z³ → X·z² → Y·z³ through ONE multiplier site (4-iteration
+        // constant-case router; the chain is serial apart from X·z², so
+        // this costs one mul latency on a ~35-mul chain while the kernel
+        // inlines one body instead of four).
+        var z2: array<u32, 8>;
+        var z3: array<u32, 8>;
+        var Xn: array<u32, 8>;
+        var Yn: array<u32, 8>;
+        var np: array<u32, 8> = zinv;
+        var nq: array<u32, 8> = zinv;
+        for (var t: u32 = 0u; t < 4u; t = t + 1u) {
+            let m = montgomery_product_f8(np, nq);
+            switch t {
+                case 0u: { z2 = m; np = m; nq = zinv; }
+                case 1u: { z3 = m; np = X; nq = z2; }
+                case 2u: { Xn = m; np = Y; nq = z3; }
+                case 3u: { Yn = m; }
+                default: {}
+            }
+        }
+        write_red(bid, Xn, Yn);
     }
 
     {{{ recompile }}}
