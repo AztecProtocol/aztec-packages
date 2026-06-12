@@ -13,5 +13,6 @@ export * from './multicall.js';
 export * from './outbox.js';
 export * from './registry.js';
 export * from './rollup.js';
+export * from './rollup_fee_reader.js';
 export * from './slashing_proposer.js';
 export * from './slasher_contract.js';
