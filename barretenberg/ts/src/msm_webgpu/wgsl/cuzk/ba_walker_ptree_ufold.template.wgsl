@@ -16,14 +16,14 @@
 //   0 = shallow fold: FOUR survivor buckets per WG (<= 64 residuals
 //       each, one per 64-lane quarter — keeps threads-per-bucket and
 //       shared-memory-per-bucket identical to a TPB-64 kernel, so packing
-//       costs no occupancy), mmadd-pair seed from the CSR stream,
+//       costs no occupancy), complete-add pair seed from the CSR stream,
 //       shared-memory tree, Jacobian to the survivor scratch slot.
 //   1 = deep stage A: one WG per 512-residual chunk of a cap-bin bucket;
 //       same seed+tree, chunk partial to the deep-partial region.
 //   2 = deep stage B: one WG per cap bucket; loads its stage-A chunk
 //       partials and tree-folds them to the survivor scratch slot.
-// ONE kernel = the montgomery multiplier bodies (4-lane jac_add + 2-lane
-// mmadd) are compiled ONCE for all three roles — compile cost scales
+// ONE kernel + ONE microcoded multiplier body (the vmpack VM) for all
+// three roles — compile cost scales
 // quasi-quadratically with bodies per kernel, and linearly with kernels.
 //
 // jac_params: .x = survivor-scratch base (vec4 units, in merge scratch);
@@ -78,193 +78,196 @@ fn load_partial_y(slot: u32, M: u32) -> array<u32, 8> {
     return array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
 }
 
-fn fr_dbl_f8(a: array<u32, 8>) -> array<u32, 8> { return fr_add_f8(a, a); }
-
-fn fr_select_f8(a: array<u32, 8>, b: array<u32, 8>, cond: bool) -> array<u32, 8> {
-    return array<u32, 8>(
-        select(a[0], b[0], cond), select(a[1], b[1], cond),
-        select(a[2], b[2], cond), select(a[3], b[3], cond),
-        select(a[4], b[4], cond), select(a[5], b[5], cond),
-        select(a[6], b[6], cond), select(a[7], b[7], cond));
-}
-
 struct Jac { x: array<u32, 8>, y: array<u32, 8>, z: array<u32, 8>, }
 
-// EFD add-2007-bl + branchless infinity handling (incomplete for equal
-// finite points — standing assumption).
-// EFD add-2007-bl, micro-coded 4-ISSUE: the same 16 multiplies packed
-// into 5 loop iterations of 4 independent lanes (3 idle lanes pad the
-// schedule off the critical path). Dependency depth is FIVE multiplies —
-// shallower than the straight-lined form's compiler schedule — while
-// the kernel inlines only four multiplier bodies (Mali's compile cost
-// scales with inlined bodies). Routing is constant-case switches over
-// named locals: registers only, no dynamic indexing.
-fn jac_add_raw(p1: Jac, p2: Jac) -> Jac {
-    var Z1Z1: array<u32, 8>;
-    var Z2Z2: array<u32, 8>;
-    var U1: array<u32, 8>;
-    var U2: array<u32, 8>;
-    var S1: array<u32, 8>;
-    var S2: array<u32, 8>;
-    var T1: array<u32, 8>;
-    var T2: array<u32, 8>;
-    var H: array<u32, 8>;
-    var I: array<u32, 8>;
-    var J: array<u32, 8>;
-    var r: array<u32, 8>;
-    var RR: array<u32, 8>;
-    var V: array<u32, 8>;
-    var ZZ: array<u32, 8>;
-    var X3: array<u32, 8>;
-    var Y3: array<u32, 8>;
-    var Z3: array<u32, 8>;
-    var a1: array<u32, 8>;
-    var b1: array<u32, 8>;
-    var a2: array<u32, 8>;
-    var b2: array<u32, 8>;
-    var a3: array<u32, 8>;
-    var b3: array<u32, 8>;
-    var a4: array<u32, 8>;
-    var b4: array<u32, 8>;
-    for (var st: u32 = 0u; st < 5u; st = st + 1u) {
-        switch st {
-            case 0u: {
-                a1 = p1.z; b1 = p1.z;
-                a2 = p2.z; b2 = p2.z;
-                a3 = p1.y; b3 = p2.z;
-                a4 = p2.y; b4 = p1.z;
-            }
-            case 1u: {
-                a1 = p1.x; b1 = Z2Z2;
-                a2 = p2.x; b2 = Z1Z1;
-                a3 = T1; b3 = Z2Z2;
-                a4 = T2; b4 = Z1Z1;
-            }
-            case 2u: {
-                let tw = fr_dbl_f8(H);
-                let zp = fr_add_f8(p1.z, p2.z);
-                a1 = tw; b1 = tw;
-                a2 = r; b2 = r;
-                a3 = zp; b3 = zp;
-                a4 = r; b4 = r;
-            }
-            case 3u: {
-                a1 = H; b1 = I;
-                a2 = U1; b2 = I;
-                a3 = H; b3 = I;
-                a4 = H; b4 = I;
-            }
-            case 4u: {
-                a1 = S1; b1 = J;
-                a2 = r; b2 = fr_sub_f8(V, X3);
-                a3 = fr_sub_f8(fr_sub_f8(ZZ, Z1Z1), Z2Z2); b3 = H;
-                a4 = S1; b4 = J;
-            }
-            default: {}
-        }
-        let m1 = montgomery_product_f8(a1, b1);
-        let m2 = montgomery_product_f8(a2, b2);
-        let m3 = montgomery_product_f8(a3, b3);
-        let m4 = montgomery_product_f8(a4, b4);
-        switch st {
-            case 0u: { Z1Z1 = m1; Z2Z2 = m2; T1 = m3; T2 = m4; }
-            case 1u: {
-                U1 = m1;
-                U2 = m2;
-                S1 = m3;
-                S2 = m4;
-                H = fr_sub_f8(U2, U1);
-                r = fr_dbl_f8(fr_sub_f8(S2, S1));
-            }
-            case 2u: { I = m1; RR = m2; ZZ = m3; }
-            case 3u: {
-                J = m1;
-                V = m2;
-                X3 = fr_sub_f8(fr_sub_f8(RR, J), fr_dbl_f8(V));
-            }
-            case 4u: {
-                Y3 = fr_sub_f8(m2, fr_dbl_f8(m1));
-                Z3 = m3;
-            }
-            default: {}
-        }
-    }
-    return Jac(X3, Y3, Z3);
+// === vmpack: complete RCB projective add (a=0, b3=9), microcoded with a
+// PACKED 2x13-bit register file. The montmul is written ONCE and called
+// from the 26-step loop, so the driver keeps a single multiplier body
+// (fast cold compile, no Metal crash) while the body itself stays
+// unrolled (named accumulator) for full speed. The formula is COMPLETE:
+// the same op adds, doubles (P==Q) and absorbs the identity (0:1:0) —
+// no incomplete-add hazard, no infinity selects.
+const VM_N_STEPS: u32 = 26u;
+const VM_MASK: u32 = 8191u;
+const VM_N0:   u32 = 905u;
+const VM_PL = array<u32,20>(7495u, 999u, 1462u, 280u, 5058u, 1350u, 455u, 4653u, 362u, 3260u, 5655u, 770u, 7016u, 2082u, 1761u, 5125u, 305u, 5015u, 6419u, 96u);
+const VM_MONT_ONE = array<u32,20>(1204u, 6119u, 61u, 1041u, 1109u, 1236u, 2726u, 2359u, 2312u, 4684u, 82u, 798u, 472u, 5264u, 7702u, 3657u, 7095u, 4720u, 1424u, 62u);
+struct VmAcc { s0:u32, s1:u32, s2:u32, s3:u32, s4:u32, s5:u32, s6:u32, s7:u32, s8:u32, s9:u32, s10:u32, s11:u32, s12:u32, s13:u32, s14:u32, s15:u32, s16:u32, s17:u32, s18:u32, }
+fn vm_mont_iter(wx: u32, b: ptr<function, array<u32,20>>, a: ptr<function, VmAcc>) {
+  let t  = (*a).s0 + wx * (*b)[0];
+  let qi = (VM_N0 * (t & VM_MASK)) & VM_MASK;
+  let c  = (t + qi * 7495u) >> 13u;
+  (*a).s0 = (*a).s1 + wx * (*b)[1] + qi * 999u;
+  (*a).s1 = (*a).s2 + wx * (*b)[2] + qi * 1462u;
+  (*a).s2 = (*a).s3 + wx * (*b)[3] + qi * 280u;
+  (*a).s3 = (*a).s4 + wx * (*b)[4] + qi * 5058u;
+  (*a).s4 = (*a).s5 + wx * (*b)[5] + qi * 1350u;
+  (*a).s5 = (*a).s6 + wx * (*b)[6] + qi * 455u;
+  (*a).s6 = (*a).s7 + wx * (*b)[7] + qi * 4653u;
+  (*a).s7 = (*a).s8 + wx * (*b)[8] + qi * 362u;
+  (*a).s8 = (*a).s9 + wx * (*b)[9] + qi * 3260u;
+  (*a).s9 = (*a).s10 + wx * (*b)[10] + qi * 5655u;
+  (*a).s10 = (*a).s11 + wx * (*b)[11] + qi * 770u;
+  (*a).s11 = (*a).s12 + wx * (*b)[12] + qi * 7016u;
+  (*a).s12 = (*a).s13 + wx * (*b)[13] + qi * 2082u;
+  (*a).s13 = (*a).s14 + wx * (*b)[14] + qi * 1761u;
+  (*a).s14 = (*a).s15 + wx * (*b)[15] + qi * 5125u;
+  (*a).s15 = (*a).s16 + wx * (*b)[16] + qi * 305u;
+  (*a).s16 = (*a).s17 + wx * (*b)[17] + qi * 5015u;
+  (*a).s17 = (*a).s18 + wx * (*b)[18] + qi * 6419u;
+  (*a).s18 =            wx * (*b)[19] + qi * 96u;
+  (*a).s0  = (*a).s0 + c;
+}
+fn vm_cond_sub_p(s: array<u32,20>) -> array<u32,20> {
+  var d: array<u32,20>; var bw=0u;
+  for (var j=0u;j<20u;j=j+1u){ let t=s[j]+8192u-VM_PL[j]-bw; d[j]=t&VM_MASK; bw=1u-(t>>13u); }
+  var r: array<u32,20>;
+  for (var j=0u;j<20u;j=j+1u){ r[j]=select(d[j],s[j],bw==1u); }
+  return r;
+}
+fn vm_montmul(xa: array<u32,20>, bv: array<u32,20>) -> array<u32,20> {
+  var b = bv; var a: VmAcc;
+  a.s0=0u; a.s1=0u; a.s2=0u; a.s3=0u; a.s4=0u; a.s5=0u; a.s6=0u; a.s7=0u; a.s8=0u; a.s9=0u; a.s10=0u; a.s11=0u; a.s12=0u; a.s13=0u; a.s14=0u; a.s15=0u; a.s16=0u; a.s17=0u; a.s18=0u;
+  vm_mont_iter(xa[0], &b, &a);
+  vm_mont_iter(xa[1], &b, &a);
+  vm_mont_iter(xa[2], &b, &a);
+  vm_mont_iter(xa[3], &b, &a);
+  vm_mont_iter(xa[4], &b, &a);
+  vm_mont_iter(xa[5], &b, &a);
+  vm_mont_iter(xa[6], &b, &a);
+  vm_mont_iter(xa[7], &b, &a);
+  vm_mont_iter(xa[8], &b, &a);
+  vm_mont_iter(xa[9], &b, &a);
+  vm_mont_iter(xa[10], &b, &a);
+  vm_mont_iter(xa[11], &b, &a);
+  vm_mont_iter(xa[12], &b, &a);
+  vm_mont_iter(xa[13], &b, &a);
+  vm_mont_iter(xa[14], &b, &a);
+  vm_mont_iter(xa[15], &b, &a);
+  vm_mont_iter(xa[16], &b, &a);
+  vm_mont_iter(xa[17], &b, &a);
+  vm_mont_iter(xa[18], &b, &a);
+  vm_mont_iter(xa[19], &b, &a);
+  a.s1+=a.s0>>13u; a.s0&=VM_MASK;
+  a.s2+=a.s1>>13u; a.s1&=VM_MASK;
+  a.s3+=a.s2>>13u; a.s2&=VM_MASK;
+  a.s4+=a.s3>>13u; a.s3&=VM_MASK;
+  a.s5+=a.s4>>13u; a.s4&=VM_MASK;
+  a.s6+=a.s5>>13u; a.s5&=VM_MASK;
+  a.s7+=a.s6>>13u; a.s6&=VM_MASK;
+  a.s8+=a.s7>>13u; a.s7&=VM_MASK;
+  a.s9+=a.s8>>13u; a.s8&=VM_MASK;
+  a.s10+=a.s9>>13u; a.s9&=VM_MASK;
+  a.s11+=a.s10>>13u; a.s10&=VM_MASK;
+  a.s12+=a.s11>>13u; a.s11&=VM_MASK;
+  a.s13+=a.s12>>13u; a.s12&=VM_MASK;
+  a.s14+=a.s13>>13u; a.s13&=VM_MASK;
+  a.s15+=a.s14>>13u; a.s14&=VM_MASK;
+  a.s16+=a.s15>>13u; a.s15&=VM_MASK;
+  a.s17+=a.s16>>13u; a.s16&=VM_MASK;
+  a.s18+=a.s17>>13u; a.s17&=VM_MASK;
+  var r: array<u32,20>;
+  r[0]=a.s0;
+  r[1]=a.s1;
+  r[2]=a.s2;
+  r[3]=a.s3;
+  r[4]=a.s4;
+  r[5]=a.s5;
+  r[6]=a.s6;
+  r[7]=a.s7;
+  r[8]=a.s8;
+  r[9]=a.s9;
+  r[10]=a.s10;
+  r[11]=a.s11;
+  r[12]=a.s12;
+  r[13]=a.s13;
+  r[14]=a.s14;
+  r[15]=a.s15;
+  r[16]=a.s16;
+  r[17]=a.s17;
+  r[18]=a.s18 & VM_MASK; r[19]=a.s18 >> 13u;
+  return vm_cond_sub_p(r);
+}
+fn vm_fr_add(a: array<u32,20>, b: array<u32,20>) -> array<u32,20> {
+  var s: array<u32,20>; var cy=0u;
+  for (var j=0u;j<20u;j=j+1u){ let v=a[j]+b[j]+cy; s[j]=v&VM_MASK; cy=v>>13u; }
+  return vm_cond_sub_p(s);
+}
+fn vm_fr_sub(a: array<u32,20>, b: array<u32,20>) -> array<u32,20> {
+  var d: array<u32,20>; var bw=0u;
+  for (var j=0u;j<20u;j=j+1u){ let t=a[j]+8192u-b[j]-bw; d[j]=t&VM_MASK; bw=1u-(t>>13u); }
+  var r: array<u32,20>; var cy=0u;
+  for (var j=0u;j<20u;j=j+1u){ let ad=select(0u,VM_PL[j],bw==1u); let v=d[j]+ad+cy; r[j]=v&VM_MASK; cy=v>>13u; }
+  return r;
+}
+fn vm_nine(a: array<u32,20>) -> array<u32,20> { let a2=vm_fr_add(a,a); let a4=vm_fr_add(a2,a2); let a8=vm_fr_add(a4,a4); return vm_fr_add(a8,a); }
+fn vm_three(a: array<u32,20>) -> array<u32,20> { return vm_fr_add(vm_fr_add(a,a),a); }
+fn vm_pack(x: array<u32,20>) -> array<u32,10> { var p: array<u32,10>; for (var k=0u;k<10u;k=k+1u){ p[k]=x[2u*k] | (x[2u*k+1u]<<13u); } return p; }
+fn vm_unpack(p: array<u32,10>) -> array<u32,20> { var x: array<u32,20>; for (var k=0u;k<10u;k=k+1u){ x[2u*k]=p[k]&VM_MASK; x[2u*k+1u]=p[k]>>13u; } return x; }
+const VM_VOP = array<u32,26>(3u,3u,0u,0u,0u,0u,0u,1u,0u,0u,1u,0u,0u,1u,4u,1u,2u,0u,0u,2u,0u,0u,1u,0u,0u,1u);
+const VM_VA  = array<u32,26>(2u,5u,0u,1u,2u,0u,1u,11u,1u,2u,12u,0u,6u,13u,8u,9u,9u,11u,12u,17u,16u,13u,18u,15u,14u,19u);
+const VM_VB  = array<u32,26>(0u,0u,3u,4u,7u,4u,3u,12u,5u,4u,13u,7u,3u,14u,0u,10u,10u,16u,13u,18u,15u,14u,19u,12u,11u,20u);
+const VM_VO  = array<u32,26>(6u,7u,8u,9u,10u,11u,12u,11u,12u,13u,12u,13u,14u,13u,14u,15u,16u,17u,18u,17u,18u,19u,18u,19u,20u,19u);
+fn vm_padd(X1: array<u32,20>, Y1: array<u32,20>, Z1: array<u32,20>, X2: array<u32,20>, Y2: array<u32,20>, Z2: array<u32,20>) -> array<array<u32,20>, 3> {
+  var v: array<array<u32,10>, 21>;
+  v[0]=vm_pack(X1); v[1]=vm_pack(Y1); v[2]=vm_pack(Z1); v[3]=vm_pack(X2); v[4]=vm_pack(Y2); v[5]=vm_pack(Z2);
+  for (var s=0u; s<VM_N_STEPS; s=s+1u) {
+    let a = vm_unpack(v[VM_VA[s]]); let b = vm_unpack(v[VM_VB[s]]); let op = VM_VOP[s];
+    var r: array<u32,20>;
+    if (op==0u) { r=vm_montmul(a,b); } else if (op==1u) { r=vm_fr_add(a,b); } else if (op==2u) { r=vm_fr_sub(a,b); } else if (op==3u) { r=vm_nine(a); } else { r=vm_three(a); }
+    v[VM_VO[s]] = vm_pack(r);
+  }
+  return array<array<u32,20>,3>(vm_unpack(v[17]), vm_unpack(v[18]), vm_unpack(v[19]));
 }
 
-fn jac_add(dst: Jac, src: Jac) -> Jac {
-    let sum = jac_add_raw(dst, src);
-    let src_inf = is_zero_f8(src.z);
-    let dst_inf = is_zero_f8(dst.z);
-    var rx = fr_select_f8(sum.x, src.x, dst_inf);
-    var ry = fr_select_f8(sum.y, src.y, dst_inf);
-    var rz = fr_select_f8(sum.z, src.z, dst_inf);
-    rx = fr_select_f8(rx, dst.x, src_inf);
-    ry = fr_select_f8(ry, dst.y, src_inf);
-    rz = fr_select_f8(rz, dst.z, src_inf);
-    return Jac(rx, ry, rz);
+
+// Both-affine complete add (Z1 = Z2 = 1 folded out of the RCB table):
+// 10 multiplies instead of 15, same op bodies, same completeness (P == Q
+// doubles; affine inputs are never the identity). Used only by the seed.
+const VM_NINE_ONE = array<u32,20>(6129u, 920u, 1437u, 7968u, 1075u, 4372u, 5875u, 6160u, 2613u, 1282u, 5234u, 3328u, 1936u, 4194u, 3173u, 7295u, 4986u, 1028u, 5299u, 75u);
+const VM_A_STEPS: u32 = 20u;
+const VM_AOP = array<u32,20>(0u,0u,0u,0u,1u,1u,1u,3u,4u,1u,2u,0u,0u,2u,0u,0u,1u,0u,0u,1u);
+const VM_AA  = array<u32,20>(0u,1u,0u,1u,6u,1u,0u,8u,4u,5u,5u,6u,7u,12u,11u,8u,13u,10u,9u,14u);
+const VM_AB  = array<u32,20>(2u,3u,3u,2u,7u,3u,2u,0u,0u,16u,16u,11u,8u,13u,10u,9u,14u,7u,6u,15u);
+const VM_AO  = array<u32,20>(4u,5u,6u,7u,6u,7u,8u,8u,9u,10u,11u,12u,13u,12u,13u,14u,13u,14u,15u,14u);
+fn vm_aadd(X1: array<u32,20>, Y1: array<u32,20>, X2: array<u32,20>, Y2: array<u32,20>) -> array<array<u32,20>, 3> {
+  var v: array<array<u32,10>, 21>;
+  v[0]=vm_pack(X1); v[1]=vm_pack(Y1); v[2]=vm_pack(X2); v[3]=vm_pack(Y2); v[16]=vm_pack(VM_NINE_ONE);
+  for (var s=0u; s<VM_A_STEPS; s=s+1u) {
+    let a = vm_unpack(v[VM_AA[s]]); let b = vm_unpack(v[VM_AB[s]]); let op = VM_AOP[s];
+    var r: array<u32,20>;
+    if (op==0u) { r=vm_montmul(a,b); } else if (op==1u) { r=vm_fr_add(a,b); } else if (op==2u) { r=vm_fr_sub(a,b); } else if (op==3u) { r=vm_nine(a); } else { r=vm_three(a); }
+    v[VM_AO[s]] = vm_pack(r);
+  }
+  return array<array<u32,20>,3>(vm_unpack(v[12]), vm_unpack(v[13]), vm_unpack(v[14]));
 }
 
-// EFD mmadd-2007-bl: affine + affine -> Jacobian (Z1 = Z2 = 1). 6 montmuls,
-// micro-coded 2-ISSUE: 3 loop iterations of 2 independent lanes, so the
-// kernel inlines TWO multiplier bodies instead of six (compile cost
-// scales quasi-quadratically with inlined bodies). Dependency depth is
-// three multiplies — the same as the straight-lined form's critical
-// path (HH -> {J, V} -> Y3 terms). Routing is constant-case switches
-// over named locals: registers only, no dynamic indexing.
-// Incomplete: assumes x1 != x2 (walker's standing distinct-x assumption).
-fn jac_mmadd(x1: array<u32, 8>, y1: array<u32, 8>, x2: array<u32, 8>, y2: array<u32, 8>) -> Jac {
-    let H = fr_sub_f8(x2, x1);
-    let r = fr_dbl_f8(fr_sub_f8(y2, y1));
-    var HH: array<u32, 8>;
-    var RR: array<u32, 8>;
-    var I: array<u32, 8>;
-    var J: array<u32, 8>;
-    var V: array<u32, 8>;
-    var X3: array<u32, 8>;
-    var Y3: array<u32, 8>;
-    var a1: array<u32, 8>;
-    var b1: array<u32, 8>;
-    var a2: array<u32, 8>;
-    var b2: array<u32, 8>;
-    for (var st: u32 = 0u; st < 3u; st = st + 1u) {
-        switch st {
-            case 0u: {
-                a1 = H; b1 = H;
-                a2 = r; b2 = r;
-            }
-            case 1u: {
-                a1 = H; b1 = I;
-                a2 = x1; b2 = I;
-            }
-            case 2u: {
-                a1 = y1; b1 = J;
-                a2 = r; b2 = fr_sub_f8(V, X3);
-            }
-            default: {}
-        }
-        let m1 = montgomery_product_f8(a1, b1);
-        let m2 = montgomery_product_f8(a2, b2);
-        switch st {
-            case 0u: {
-                HH = m1;
-                RR = m2;
-                I = fr_dbl_f8(fr_dbl_f8(HH));
-            }
-            case 1u: {
-                J = m1;
-                V = m2;
-                X3 = fr_sub_f8(fr_sub_f8(RR, J), fr_dbl_f8(V));
-            }
-            case 2u: {
-                Y3 = fr_sub_f8(m2, fr_dbl_f8(m1));
-            }
-            default: {}
-        }
-    }
-    return Jac(X3, Y3, fr_dbl_f8(H));
+// Packed-256 <-> 20-limb bridges around the VM (the pipeline stores all
+// field elements as 8xu32 Montgomery; the VM computes in 20x13 limbs).
+fn pj_add(p: Jac, q: Jac) -> Jac {
+    var pb: BigInt; var r: Jac;
+    let res = vm_padd(
+        unpack256_to_limbs(p.x).limbs, unpack256_to_limbs(p.y).limbs, unpack256_to_limbs(p.z).limbs,
+        unpack256_to_limbs(q.x).limbs, unpack256_to_limbs(q.y).limbs, unpack256_to_limbs(q.z).limbs);
+    pb.limbs = res[0]; r.x = pack_limbs_to_256(&pb);
+    pb.limbs = res[1]; r.y = pack_limbs_to_256(&pb);
+    pb.limbs = res[2]; r.z = pack_limbs_to_256(&pb);
+    return r;
 }
 
+// Both-affine seed: lift both inputs with Z = 1 (VM_MONT_ONE) and run the
+// same complete add — duplicate partials (P == Q) double correctly, which
+// retires the old mmadd x1 != x2 assumption.
+fn pj_madd2(x1: array<u32, 8>, y1: array<u32, 8>, x2: array<u32, 8>, y2: array<u32, 8>) -> Jac {
+    var pb: BigInt; var r: Jac;
+    let res = vm_aadd(
+        unpack256_to_limbs(x1).limbs, unpack256_to_limbs(y1).limbs,
+        unpack256_to_limbs(x2).limbs, unpack256_to_limbs(y2).limbs);
+    pb.limbs = res[0]; r.x = pack_limbs_to_256(&pb);
+    pb.limbs = res[1]; r.y = pack_limbs_to_256(&pb);
+    pb.limbs = res[2]; r.z = pack_limbs_to_256(&pb);
+    return r;
+}
 
 fn load_partial_jac(slot: u32) -> Jac {
     let b = jac_params.x + 6u * slot;
@@ -441,7 +444,7 @@ fn main(@builtin(workgroup_id) wgid: vec3<u32>,
     // so the tree starts at half the population — ONE mmadd call site.
     // Role 2: plain Jacobian loads of the stage-A chunk partials.
     let zero = array<u32, 8>(0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u);
-    var acc = Jac(zero, zero, zero); // infinity
+    var acc = Jac(zero, get_r_f8(), zero); // projective identity (0 : 1 : 0)
     if (mode == 2u) {
         if (proceed && l < n_eff) {
             acc = load_partial_jac(jbase + l);
@@ -452,7 +455,7 @@ fn main(@builtin(workgroup_id) wgid: vec3<u32>,
         let y0 = load_partial_y(s0, M_partials);
         if (2u * lane + 1u < n_eff) {
             let s1 = pl_at(seg_eff + (2u * lane + 1u) * stride);
-            acc = jac_mmadd(x0, y0, load_partial_x(s1), load_partial_y(s1, M_partials));
+            acc = pj_madd2(x0, y0, load_partial_x(s1), load_partial_y(s1, M_partials));
         } else {
             // Odd tail: straight-line affine lift (constant R is only
             // hazardous inside loops).
@@ -466,7 +469,7 @@ fn main(@builtin(workgroup_id) wgid: vec3<u32>,
     // the barrier stays outside the guard, so skipped workgroups pay
     // barriers only. s < pop additionally skips tree levels above the
     // population — slots there hold infinities, so the adds are exact
-    // no-ops costing full montgomery chains. ONE jac_add call site.
+    // no-ops costing one complete add. ONE point-add call site (the VM).
     // Tree over each group's slots (shallow: 64-slot sub-trees, one per
     // bucket; deep roles: the whole WG, gbase = 0). s < pop skips levels
     // above the population; early high-s rounds are barrier-only for
@@ -475,7 +478,7 @@ fn main(@builtin(workgroup_id) wgid: vec3<u32>,
     loop {
         if (s == 0u) { break; }
         if (lane < s && proceed && s < pop) {
-            wg_store(gbase + lane, jac_add(wg_load(gbase + lane), wg_load(gbase + lane + s)));
+            wg_store(gbase + lane, pj_add(wg_load(gbase + lane), wg_load(gbase + lane + s)));
         }
         workgroupBarrier();
         s = s / 2u;

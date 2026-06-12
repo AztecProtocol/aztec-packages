@@ -161,23 +161,16 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         let b = jac_params.x + 6u * i;
         let X = load_surv_f8(b);
         let Y = load_surv_f8(b + 2u);
-        // z² → z³ → X·z² → Y·z³ through ONE multiplier site (4-iteration
-        // constant-case router; the chain is serial apart from X·z², so
-        // this costs one mul latency on a ~35-mul chain while the kernel
-        // inlines one body instead of four).
-        var z2: array<u32, 8>;
-        var z3: array<u32, 8>;
+        // Survivor points are homogeneous PROJECTIVE (vmpack complete add):
+        // affine x = X·Z⁻¹, y = Y·Z⁻¹ — two multiplies through ONE site.
         var Xn: array<u32, 8>;
         var Yn: array<u32, 8>;
-        var np: array<u32, 8> = zinv;
-        var nq: array<u32, 8> = zinv;
-        for (var t: u32 = 0u; t < 4u; t = t + 1u) {
-            let m = montgomery_product_f8(np, nq);
+        var np: array<u32, 8> = X;
+        for (var t: u32 = 0u; t < 2u; t = t + 1u) {
+            let m = montgomery_product_f8(np, zinv);
             switch t {
-                case 0u: { z2 = m; np = m; nq = zinv; }
-                case 1u: { z3 = m; np = X; nq = z2; }
-                case 2u: { Xn = m; np = Y; nq = z3; }
-                case 3u: { Yn = m; }
+                case 0u: { Xn = m; np = Y; }
+                case 1u: { Yn = m; }
                 default: {}
             }
         }
