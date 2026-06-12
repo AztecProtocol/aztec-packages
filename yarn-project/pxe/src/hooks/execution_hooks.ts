@@ -5,7 +5,7 @@ import type { GetDeliveryPrivacyPreference } from './get_delivery_privacy_prefer
  * Hooks that PXE invokes during client-side simulation to gate or steer operations that the protocol
  * does not restrict on its own. They give the wallet a chance to apply custom policies (e.g.
  * prompting the user, consulting a dynamic allowlist, or inspecting call arguments) before the
- * execution proceeds. Every hook is optional, and when a hook is absent PXE applies a safe default.
+ * execution proceeds. All hooks are optional, and when a hook is absent PXE applies a safe default.
  *
  * For example, {@link authorizeUtilityCall} is called whenever a utility function makes a cross-contract call. A call
  * made by a malicious contract could leak private information, so the hook lets the wallet decide, per-call, whether

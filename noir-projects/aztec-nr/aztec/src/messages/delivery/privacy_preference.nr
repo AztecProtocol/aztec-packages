@@ -1,4 +1,4 @@
-use crate::protocol::{traits::Deserialize, utils::reader::Reader};
+use crate::protocol::{traits::{Deserialize, Serialize}, utils::reader::Reader};
 
 /// A wallet-owned policy that selects the tag-secret derivation used by message delivery when the contract does not
 /// pin one.
@@ -30,6 +30,7 @@ use crate::protocol::{traits::Deserialize, utils::reader::Reader};
 /// - [`best_effort`](Self::best_effort): tags are derived from a non-interactive handshake, reusing an existing one
 ///   or establishing it on the fly, letting the recipient discover the message without any prior sender-recipient
 ///   coordination. Establishing it publishes an on-chain handshake that reveals information about the recipient.
+#[derive(Eq, Serialize)]
 pub struct DeliveryPrivacyPreference {
     inner: u8,
 }
@@ -57,7 +58,7 @@ impl DeliveryPrivacyPreference {
         let preference = Self { inner };
         assert(
             (preference == Self::max_privacy()) | (preference == Self::best_effort()),
-            "unrecognized delivery privacy preference",
+            f"unrecognized delivery privacy preference: {inner}",
         );
         preference
     }
@@ -75,20 +76,17 @@ impl Deserialize for DeliveryPrivacyPreference {
     }
 }
 
-impl Eq for DeliveryPrivacyPreference {
-    fn eq(self, other: Self) -> bool {
-        self.inner == other.inner
-    }
-}
-
 mod test {
-    use crate::protocol::traits::Deserialize;
+    use crate::protocol::traits::{Deserialize, Serialize};
     use super::DeliveryPrivacyPreference;
 
     #[test]
-    fn deserialize_roundtrips_valid_preferences() {
-        assert(DeliveryPrivacyPreference::deserialize([1]) == DeliveryPrivacyPreference::max_privacy());
-        assert(DeliveryPrivacyPreference::deserialize([2]) == DeliveryPrivacyPreference::best_effort());
+    fn preference_roundtrips_through_serialization() {
+        let max_privacy = DeliveryPrivacyPreference::max_privacy();
+        let best_effort = DeliveryPrivacyPreference::best_effort();
+
+        assert(DeliveryPrivacyPreference::deserialize(max_privacy.serialize()) == max_privacy);
+        assert(DeliveryPrivacyPreference::deserialize(best_effort.serialize()) == best_effort);
     }
 
     #[test(should_fail_with = "unrecognized delivery privacy preference")]

@@ -44,7 +44,7 @@ a malicious or compromised contract could leak private information to an untrust
 contract utility calls by default and requires explicit authorization via an execution hook. Calls to standard contracts
 (such as the HandshakeRegistry, which is queried during every contract's sync) are always automatically authorized.
 
-When a contract executes a utility function that calls into a different contract, PXE asks an [execution hook](../foundational-topics/pxe/execution_hooks.md) whether the call should be allowed. If no hook is configured, or the hook denies the request, you will see:
+When a contract executes a utility function that calls into a different contract, PXE asks the wallet through an [execution hook](../foundational-topics/pxe/execution_hooks.md) whether the call should be allowed. If no hook is configured, or the wallet denies the request, you will see:
 
 ```
 Cross-contract utility call denied: <reason>. <caller> attempted to call <target>:<selector> (<name>).

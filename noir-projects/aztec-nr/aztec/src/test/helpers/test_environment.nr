@@ -85,6 +85,37 @@ pub struct TestEnvironment {
     contract_deployment_salt: Counter,
 }
 
+/// Configuration values for [`TestEnvironment::new_opts`]. Meant to be used by calling `new` and then chaining
+/// methods setting each value, e.g.:
+/// ```noir
+/// let env = TestEnvironment::new_opts(
+///     TestEnvironmentOptions::new().with_delivery_privacy_preference(DeliveryPrivacyPreference::best_effort()),
+/// );
+/// ```
+pub struct TestEnvironmentOptions {
+    delivery_privacy_preference: Option<DeliveryPrivacyPreference>,
+}
+
+impl TestEnvironmentOptions {
+    /// Creates a new `TestEnvironmentOptions` with default values, i.e. the same as if using
+    /// [`TestEnvironment::new`] instead of [`TestEnvironment::new_opts`]. Use
+    /// [`with_delivery_privacy_preference`](TestEnvironmentOptions::with_delivery_privacy_preference) and other
+    /// methods to set the desired configuration values.
+    pub fn new() -> Self {
+        Self { delivery_privacy_preference: Option::none() }
+    }
+
+    /// Sets the [`DeliveryPrivacyPreference`](crate::messages::delivery::DeliveryPrivacyPreference) that the wallet
+    /// reports through the oracle in [`delivery_privacy_preference`](crate::oracle::delivery_privacy_preference),
+    /// affecting message delivery in private executions.
+    ///
+    /// If not set, defaults to [`DeliveryPrivacyPreference::max_privacy`].
+    pub fn with_delivery_privacy_preference(&mut self, preference: DeliveryPrivacyPreference) -> Self {
+        self.delivery_privacy_preference = Option::some(preference);
+        *self
+    }
+}
+
 /// Configuration values for [`TestEnvironment::private_context_opts`]. Meant to be used by calling `new` and then
 /// chaining methods setting each value, e.g.:
 /// ```noir
@@ -560,9 +591,29 @@ fn resolve_gas_settings(
 
 impl TestEnvironment {
     /// Creates a new `TestEnvironment`. This function should only be called once per test.
+    ///
+    /// See [`new_opts`](TestEnvironment::new_opts) for a variant that allows configuring the environment.
     pub unconstrained fn new() -> Self {
+        Self::new_opts(TestEnvironmentOptions::new())
+    }
+
+    /// Creates a new `TestEnvironment` with the configuration values in `options`. This function should only be
+    /// called once per test.
+    ///
+    /// ### Sample usage
+    /// ```noir
+    /// let env = TestEnvironment::new_opts(
+    ///     TestEnvironmentOptions::new().with_delivery_privacy_preference(DeliveryPrivacyPreference::best_effort()),
+    /// );
+    /// ```
+    pub unconstrained fn new_opts(options: TestEnvironmentOptions) -> Self {
         assert_compatible_oracle_version();
         txe_oracles::assert_compatible_txe_oracle_version();
+
+        if options.delivery_privacy_preference.is_some() {
+            txe_oracles::set_delivery_privacy_preference(options.delivery_privacy_preference.unwrap());
+        }
+
         Self {
             // Use an offset to avoid secret collision with account secrets. Without this, when
             // deploying multiple contracts and creating accounts, they could end up with identical
@@ -809,13 +860,6 @@ impl TestEnvironment {
     /// Sets the timestamp of the next block to be mined to be ahead of the last one by `duration`.
     pub unconstrained fn advance_next_block_timestamp_by(_self: Self, duration: u64) {
         txe_oracles::advance_timestamp_by(duration);
-    }
-
-    /// Sets the [`DeliveryPrivacyPreference`](crate::messages::delivery::DeliveryPrivacyPreference) that the wallet
-    /// reports through the oracle in [`delivery_privacy_preference`](crate::oracle::delivery_privacy_preference),
-    /// affecting message delivery in subsequent private executions.
-    pub unconstrained fn set_delivery_privacy_preference(_self: Self, preference: DeliveryPrivacyPreference) {
-        txe_oracles::set_delivery_privacy_preference(preference);
     }
 
     /// Creates a new account that can be used as the `from` parameter in contract calls, e.g. in `private_call` or

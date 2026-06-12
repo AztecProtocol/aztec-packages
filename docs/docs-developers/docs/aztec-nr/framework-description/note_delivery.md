@@ -172,14 +172,14 @@ The preference is consulted whenever a message needs a tagging secret and the co
 
 ### Max privacy vs best effort
 
-- **Max privacy** (the PXE default): nothing that could link sender and recipient is ever published, and delivery relies on sender-recipient coordination. Unconstrained delivery uses a secret derived from the sender and recipient addresses, which leaves no onchain trace, but the recipient only finds the message if they registered the sender in their PXE. Constrained delivery requires an interactive handshake with the recipient, and fails when none exists, because there is no privacy-preserving way to establish a secret on the fly.
+- **Max privacy** (the PXE default): nothing that could link sender and recipient is ever published, and delivery relies on sender-recipient coordination. Unconstrained delivery uses a secret derived from the sender and recipient addresses, which leaves no onchain trace, but the recipient only finds the message if they registered the sender in their PXE. Constrained delivery requires an interactive handshake with the recipient: when none exists the transaction itself cannot be proven, because there is no privacy-preserving way to establish a secret on the fly.
 - **Best effort**: tags are derived from a non-interactive handshake, reusing an existing one or establishing it onchain as part of the send. The recipient discovers the message without knowing the sender in advance or coordinating with them in any other way, at the cost of publishing a handshake that reveals information about the recipient.
 
 | | Max privacy | Best effort |
 |---|---|---|
 | Onchain footprint when establishing a secret | None | A handshake revealing information about the recipient |
 | Unconstrained delivery to an unknown recipient | Found only if the recipient registered the sender | Found without sender-recipient coordination |
-| Constrained delivery | Requires an interactive handshake signed by the recipient | Works without recipient involvement |
+| Constrained delivery | Transaction is unprovable without an interactive handshake signed by the recipient | Works without recipient involvement |
 
 ### Configuring the preference
 
@@ -189,7 +189,7 @@ The defaults differ by environment:
 
 - **PXE**: max privacy. A bare PXE makes the conservative choice and never leaks without opt-in.
 - **Embedded wallet** (`@aztec/wallets/embedded`): best effort. It targets development scenarios where delivery working out of the box matters more than handshake privacy. Override it by passing your own `hooks.getDeliveryPrivacyPreference` in its `pxe` options.
-- **TXE tests**: max privacy, matching the bare PXE. Tests opt into best effort via `env.set_delivery_privacy_preference(DeliveryPrivacyPreference::best_effort())`.
+- **`TestEnvironment` tests**: max privacy, matching the bare PXE. Tests opt into best effort by passing `TestEnvironmentOptions::new().with_delivery_privacy_preference(DeliveryPrivacyPreference::best_effort())` to `TestEnvironment::new_opts`.
 
 ## Note Discovery and the Sender
 
