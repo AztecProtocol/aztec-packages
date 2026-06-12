@@ -76,8 +76,7 @@ export class L2BlockStream {
   protected async work() {
     try {
       // The source tips snapshot is the plan for this pass. It is replaced by a fresh read if the walk-back below
-      // detects a divergence, so the prune event's clamp tips and the download/reconciliation targets all reflect
-      // the chain AFTER the prune rather than the (now stale) pre-prune snapshot.
+      // detects a divergence, so we push fresh tips with the chain-pruned event.
       let sourceTips = await this.l2BlockSource.getL2Tips();
       const localTips = await this.localData.getL2Tips();
       this.log.trace(`Running L2 block stream`, { sourceTips, localTips });
@@ -89,13 +88,7 @@ export class L2BlockStream {
         );
       }
 
-      // Check if there was a reorg and emit a chain-pruned event if so. Seed the cache with ONLY the proposed tip.
-      // The tier tips (checkpointed/proven/finalized) must NOT be seeded: they are all <= proposed, i.e. at heights
-      // the walk-back visits, and a snapshot tier entry that went stale (the source reorged between this getL2Tips
-      // and the walk) equals the local OLD-fork hash at a reorged height, faking agreement and stopping the walk
-      // ABOVE the true divergence — an under-deep prune that no later pass re-detects. The proposed seed's staleness
-      // mode is benign: a stale proposed entry can only mask divergence at the tip height for one pass (equivalent to
-      // the pass having run a moment earlier). Fresh entries appended after the post-divergence re-read are safe.
+      // Check if there was a reorg and emit a chain-pruned event
       let latestBlockNumber = localTips.proposed.number;
       const sourceCache = new BlockHashCache([sourceTips.proposed]);
       while (!(await this.areBlockHashesEqualAt(latestBlockNumber, { sourceCache }))) {
@@ -120,12 +113,8 @@ export class L2BlockStream {
 
       let pruned = false;
       if (latestBlockNumber < localTips.proposed.number) {
-        // Divergence confirmed. Re-read the source tips so the prune event's clamp payload describes the chain after
-        // the prune (p2p feeds event.checkpointed.checkpoint into isEpochPrune, whose contract is "the checkpoint id
-        // AFTER the prune"; a stale id there can drive an irreversible mempool wipe). The re-read becomes the pass's
-        // source tips for everything that follows: the prune clamp tips, the #13471 prune-target clamp, the download
-        // target, and tier reconciliation. We do NOT abort if the re-read's proposed tip moved on — on a busy chain
-        // the tip advances every pass and prune emission would otherwise starve.
+        // Re-read the source tips, since they may have changed after the walk-back, which can take some time. This
+        // ensures that we report propoer checkpointed and proven tips as part of the chain-pruned event.
         sourceTips = await this.l2BlockSource.getL2Tips();
         // Append only the re-read proposed tip: it serves the prune-event hash lookup just below, and unlike the tier
         // tips it is a fresh post-re-read entry, so it cannot poison the (already finished) walk. The walk is over by
@@ -149,13 +138,13 @@ export class L2BlockStream {
         pruned = true;
       }
 
-      // Whether the download plan completed and the tier cursors may advance from this snapshot (pass atomicity).
-      const planComplete = await this.downloadBlocks(latestBlockNumber, sourceTips);
-
-      if (!planComplete) {
-        // The snapshot promised blocks the source no longer has (or served a fork mid-pass). It is provably stale, so
-        // we end the pass WITHOUT advancing any tier cursor and let the next poll re-snapshot. Any blocks-added events
-        // already emitted stay emitted (they only populate hash history); the next pass's prune corrects the cursors.
+      // Whether the download plan completed and the tier cursors may advance from this snapshot.
+      // This is meant to catch a prune while we're downloading blocks: if that happens, the source
+      // will not be able to serve the blocks we expected to get and won't reach the proposed chain tip.
+      // If that happened, we cannot emit chain checkpointed and proven events with the stale tips, since
+      // those may have been pruned as well. And that's bad, because we may be emitting chain checkpointed
+      // or proven events for blocks that the consumer never saw.
+      if (!(await this.downloadBlocks(latestBlockNumber, sourceTips))) {
         return;
       }
 
