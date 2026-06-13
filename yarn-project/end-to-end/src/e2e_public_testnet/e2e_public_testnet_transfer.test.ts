@@ -29,10 +29,9 @@ describe(`deploys and transfers a private only token`, () => {
     const chain = chainId == sepolia.id ? sepolia : foundry; // Not the best way of doing this.
     let accounts: AztecAddress[];
     ({ logger, teardown, wallet, accounts } = await setup(
-      2, // Deploy 2 accounts.
+      2, // Create + fund 2 accounts.
       {
         ...PIPELINING_SETUP_OPTS,
-        numberOfInitialFundedAccounts: 2, // Fund 2 accounts.
         stateLoad: undefined,
       },
       {},
