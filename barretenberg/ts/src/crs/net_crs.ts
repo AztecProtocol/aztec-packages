@@ -188,8 +188,8 @@ export class NetGrumpkinCrs {
     };
 
     return await fetchWithFallback(
-      `${CRS_PRIMARY_HOST}/grumpkin_g1.dat`,
-      `${CRS_FALLBACK_HOST}/grumpkin_g1.dat`,
+      `${CRS_PRIMARY_HOST}/grumpkin_g1_v2.dat`,
+      `${CRS_FALLBACK_HOST}/grumpkin_g1_v2.dat`,
       options,
     );
   }
