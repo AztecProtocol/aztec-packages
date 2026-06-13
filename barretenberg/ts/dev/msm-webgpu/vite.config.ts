@@ -232,9 +232,44 @@ function resultsCollector(): PluginOption {
 // Vite at `barretenberg/ts/` so relative imports from `dev/msm-webgpu/main.ts`
 // into `src/msm_webgpu/...` and `src/barretenberg/...` resolve naturally.
 // Run from `barretenberg/ts/` with `yarn dev:msm-webgpu`.
+// Serve the cached Chonk Commit/BatchCommit scalar dumps for the
+// msm-chonk-replay autorun. Files live outside the served tree (the
+// persistent data dir), so a small static middleware streams them at
+// /dev/msm-webgpu/chonk-data/<file>.
+function serveChonkData(): PluginOption {
+  const dataDir = path.resolve(
+    process.env.HOME ?? '',
+    'barretenberg-msm-webgpu-experiments/chonk-msm-data/ecdsar1-transfer1-recursion',
+  );
+  const prefix = '/dev/msm-webgpu/chonk-data/';
+  return {
+    name: 'serve-chonk-data',
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        if (!req.url || !req.url.startsWith(prefix)) {
+          next();
+          return;
+        }
+        const name = path.basename(decodeURIComponent(req.url.slice(prefix.length).split('?')[0]));
+        const file = path.join(dataDir, name);
+        if (!existsSync(file) || !file.startsWith(dataDir)) {
+          res.statusCode = 404;
+          res.end(`not found: ${name}`);
+          return;
+        }
+        res.setHeader('Content-Type', name.endsWith('.json') ? 'application/json' : 'application/octet-stream');
+        res.setHeader('Content-Length', statSync(file).size);
+        res.setHeader('Cache-Control', 'no-store');
+        res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
+        createReadStream(file).pipe(res);
+      });
+    },
+  };
+}
+
 export default defineConfig({
   root: tsRoot,
-  plugins: [serveBarretenbergWasm(), serveSrsProxy(), conditionalCoiHeaders(), resultsCollector()],
+  plugins: [serveBarretenbergWasm(), serveSrsProxy(), serveChonkData(), conditionalCoiHeaders(), resultsCollector()],
   resolve: {
     // The src/ tree hard-codes `bb_backends/node/` and similar `node/`
     // sub-paths in import specifiers; the production browser bundle

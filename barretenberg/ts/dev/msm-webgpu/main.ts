@@ -30,7 +30,15 @@ import {
   addBn254Jacobian,
   toAffineBn254Jacobian,
 } from '../../src/msm_webgpu/cuzk/bn254.js';
-import { MsmV2, MsmV2Pool, type MsmConfig, pickC, MEM_BUDGET, hostWindowCombine } from '../../src/msm_webgpu/msm_v2.js';
+import {
+  MsmV2,
+  MsmV2Pool,
+  type MsmConfig,
+  type BatchMember,
+  pickC,
+  MEM_BUDGET,
+  hostWindowCombine,
+} from '../../src/msm_webgpu/msm_v2.js';
 import { planBatch, computeGeom } from '../../src/msm_webgpu/batch_scheduler.js';
 import { runUnionPacks, type BridgeDescriptor } from '../../src/msm_webgpu/bridge/union_runner.js';
 import { WebGpuMsmHost } from '../../src/msm_webgpu/bridge/main.js';
@@ -3915,6 +3923,221 @@ function hideProgress(): void {
     } catch (e) {
       const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
       log('err', `[batch-bench] state=error FATAL: ${msg}`);
+    }
+  } else if (autorun === 'msm-chonk-replay') {
+    // GPU replay of the cached Chonk Commit / BatchCommit MSMs. Models the real
+    // ChonkApi::Prove dispatch shape:
+    //   - ONE MsmV2 pool + instance at the max routed size (arena + SRS upload +
+    //     pipeline compile are one-time setup, EXCLUDED — in the real flow the
+    //     SRS upload overlaps serial CPU work and is hidden).
+    //   - MSMs smaller than 2^13 are NOT routed to the GPU (CPU does those);
+    //     they are reported as cpu-routed with no GPU time.
+    //   - every routed MSM (Commit = 1 member, BatchCommit = its >=2^13 polys)
+    //     goes through the batch path (prepareBatch), which packs arbitrary
+    //     member sizes <= maxN with no padding.
+    //   - per call we measure scalar H2D upload (isolated) + batch compute; the
+    //     upload is what the existing harness omits (it warms then times run()).
+    const GPU_MIN_N = 1 << (parseInt(qp.get('gpu_min_log') ?? '13', 10) || 13);
+    const reps = Math.max(1, parseInt(qp.get('reps') ?? '5', 10));
+    const client = makeResultsClient({ page: 'msm-chonk-replay' });
+    const DATA = '/dev/msm-webgpu/chonk-data/';
+    type PolyMeta = { start_index: number; size: number };
+    type CallMeta = { file: string; kind: string; curve_tag: string; polys: PolyMeta[] };
+    log('info', `[chonk-gpu] GPU_MIN_N=${GPU_MIN_N} reps=${reps}`);
+    try {
+      for (let i = 0; i < 1200 && srsBuf === null; i++) await new Promise(r => setTimeout(r, 500));
+      if (srsBuf === null) throw new Error('SRS never became ready');
+      if (gpuDevice === null) gpuDevice = await get_device();
+      const device = gpuDevice;
+
+      const manifest = (await (await fetch(`${DATA}manifest.json`)).json()) as { calls: CallMeta[] };
+      // BN254 commits only (tag c0001); the cfd47/Grumpkin MSMs need a Grumpkin GPU path.
+      const calls = manifest.calls.filter(c => c.curve_tag === 'c0001');
+
+      // Instance sized to the largest routed member (next pow2); the pool arena
+      // is sized once by warming the worst-case pack below.
+      let maxMember = GPU_MIN_N;
+      let maxPackScalars = 0;
+      for (const c of calls) {
+        let pack = 0;
+        for (const p of c.polys)
+          if (p.size >= GPU_MIN_N) {
+            maxMember = Math.max(maxMember, p.size);
+            pack += p.size;
+          }
+        maxPackScalars = Math.max(maxPackScalars, pack);
+      }
+      const maxN = 1 << Math.ceil(Math.log2(maxMember));
+      const cfg: MsmConfig = { ...gpuKnobs, profile: false };
+      log('info', `[chonk-gpu] maxN=${maxN} maxPackScalars=${maxPackScalars} — pool+instance (once)`);
+      const pool = await MsmV2Pool.create(device, new Uint8Array(srsBuf.buffer, srsBuf.byteOffset, maxN * 64));
+      const inst = await MsmV2.create(device, maxN, pool, cfg);
+      const uploadBuf = device.createBuffer({
+        size: Math.max(64, maxPackScalars * 32),
+        usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.STORAGE,
+      });
+
+      const fetchMembers = async (c: CallMeta): Promise<Uint8Array[]> => {
+        const ab = await (await fetch(`${DATA}${c.file}`)).arrayBuffer();
+        const buf = new Uint8Array(ab);
+        const isBatch = c.file.startsWith('batch_');
+        let off = isBatch ? 8 + c.polys.length * 16 : 16; // skip header
+        const out: Uint8Array[] = [];
+        for (const p of c.polys) {
+          out.push(buf.subarray(off, off + p.size * 32));
+          off += p.size * 32;
+        }
+        return out;
+      };
+
+      // numWindows for one member of a given size (memoized via planBatch).
+      const winCache = new Map<number, number>();
+      const memberWindows = (size: number): number => {
+        let w = winCache.get(size);
+        if (w === undefined) {
+          w = planBatch([{ n: size, srsOffset: 0 }]).descs[0].numWindows;
+          winCache.set(size, w);
+        }
+        return w;
+      };
+      // A 13-wide 2^17 pack is 533 MiB > the 160 MiB budget, so a BatchCommit is
+      // split into packs whose total window count fits. Each pack is one real
+      // batched dispatch; a call's GPU cost is the sum over its packs.
+      const WINDOW_CAP = parseInt(qp.get('win_cap') ?? '48', 10) || 48;
+
+      type Member = { size: number; scalars: Uint8Array };
+      const groupRouted = (c: CallMeta, members: Uint8Array[]): Member[][] => {
+        const groups: Member[][] = [];
+        let cur: Member[] = [];
+        let curW = 0;
+        for (let i = 0; i < c.polys.length; i++) {
+          const sz = c.polys[i].size;
+          if (sz < GPU_MIN_N) continue;
+          const w = memberWindows(sz);
+          if (cur.length > 0 && curW + w > WINDOW_CAP) {
+            groups.push(cur);
+            cur = [];
+            curW = 0;
+          }
+          cur.push({ size: sz, scalars: members[i] });
+          curW += w;
+        }
+        if (cur.length > 0) groups.push(cur);
+        return groups;
+      };
+      const buildGroupPack = (
+        group: Member[],
+      ): { members: BatchMember[]; concat: Uint8Array; windowDescTable: Uint32Array; reduceOffsets: number[] } => {
+        const plan = planBatch(group.map(g => ({ n: g.size, srsOffset: 0 })));
+        const concat = new Uint8Array(plan.totalScalarBytes);
+        for (let k = 0; k < group.length; k++) concat.set(group[k].scalars, plan.descs[k].scalarBase);
+        return {
+          members: plan.descs.map(d => ({
+            n: d.n,
+            scalarBaseBytes: d.scalarBase,
+            schedOff: d.schedOff,
+            numWindows: d.numWindows,
+          })),
+          concat,
+          windowDescTable: plan.windowDescTable,
+          reduceOffsets: plan.reduceOffsets,
+        };
+      };
+
+      // Warm the arena once with the largest groups across the top routed calls.
+      const routed = calls
+        .map(c => ({ c, pack: c.polys.filter(p => p.size >= GPU_MIN_N).reduce((a, p) => a + p.size, 0) }))
+        .filter(x => x.pack > 0)
+        .sort((a, b) => b.pack - a.pack);
+      for (const { c } of routed.slice(0, 3)) {
+        const m = await fetchMembers(c);
+        for (const g of groupRouted(c, m)) {
+          const pk = buildGroupPack(g);
+          inst.prepareBatch(pk.members, pk.concat, pk.windowDescTable, pk.reduceOffsets);
+          await inst.run();
+        }
+      }
+      log('info', `[chonk-gpu] warmed; measuring ${calls.length} calls (${routed.length} routed to GPU)`);
+
+      const rows: Record<string, unknown>[] = [];
+      for (const c of calls) {
+        const members = await fetchMembers(c);
+        const groups = groupRouted(c, members);
+        const totalScalars = c.polys.reduce((a, p) => a + p.size, 0);
+        if (groups.length === 0) {
+          rows.push({
+            file: c.file,
+            kind: c.kind,
+            routed: 'cpu',
+            polys: c.polys.length,
+            total_scalars: totalScalars,
+            max_size: Math.max(0, ...c.polys.map(p => p.size)),
+          });
+          continue;
+        }
+        let compute = 0;
+        let upload = 0;
+        let gpuMembers = 0;
+        let gpuScalars = 0;
+        for (const g of groups) {
+          const pk = buildGroupPack(g);
+          gpuMembers += g.length;
+          gpuScalars += g.reduce((a, m) => a + m.size, 0);
+          // compute: prepareBatch + warm run, then timed run()s (scalars resident).
+          inst.prepareBatch(pk.members, pk.concat, pk.windowDescTable, pk.reduceOffsets);
+          await inst.run();
+          let gComp = Infinity;
+          for (let r = 0; r < reps; r++) {
+            const t0 = performance.now();
+            await inst.run();
+            gComp = Math.min(gComp, performance.now() - t0);
+          }
+          // upload: isolated H2D of this pack's scalars (writeBuffer flushes on
+          // submit; onSubmittedWorkDone awaits the transfer).
+          let gUp = Infinity;
+          for (let r = 0; r < reps + 1; r++) {
+            const t0 = performance.now();
+            device.queue.writeBuffer(uploadBuf, 0, pk.concat, 0, pk.concat.byteLength);
+            device.queue.submit([]);
+            await device.queue.onSubmittedWorkDone();
+            const ms = performance.now() - t0;
+            if (r > 0) gUp = Math.min(gUp, ms);
+          }
+          compute += gComp;
+          upload += gUp;
+        }
+        rows.push({
+          file: c.file,
+          kind: c.kind,
+          routed: 'gpu',
+          polys: c.polys.length,
+          gpu_members: gpuMembers,
+          packs: groups.length,
+          total_scalars: totalScalars,
+          gpu_scalars: gpuScalars,
+          upload_ms: +upload.toFixed(4),
+          compute_ms: +compute.toFixed(4),
+          total_ms: +(upload + compute).toFixed(4),
+        });
+        log(
+          'info',
+          `[chonk-gpu] ${c.file} ${c.kind} gpuMembers=${gpuMembers}/${c.polys.length} packs=${groups.length} ` +
+            `n=${gpuScalars} upload=${upload.toFixed(3)} compute=${compute.toFixed(3)} total=${(upload + compute).toFixed(3)}ms`,
+        );
+      }
+      (window as unknown as { __benchSamples: unknown }).__benchSamples = { kind: 'chonk-replay', maxN, reps, rows };
+      const nGpu = rows.filter(r => r.routed === 'gpu').length;
+      await client.postResults({
+        state: 'done',
+        params: { page: 'msm-chonk-replay', maxN, reps, gpuMinN: GPU_MIN_N },
+        results: { rows },
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      log('ok', `[chonk-gpu] state=done ${nGpu}/${rows.length} routed to GPU`);
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      log('err', `[chonk-gpu] state=error FATAL: ${msg}`);
     }
   } else if (autorun === 'msm-matrix') {
     // FAST benchmark matrix — the iteration-speed path. ONE page load: acquire the
