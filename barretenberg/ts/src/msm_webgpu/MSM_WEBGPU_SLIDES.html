@@ -1,0 +1,1192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no">
+  <title>WebGPU MSM — Implementation Walkthrough</title>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4.6.1/dist/reset.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4.6.1/dist/reveal.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4.6.1/dist/theme/black.css" id="theme">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+
+  <style>
+    :root {
+      --bg:     #0f1115;
+      --panel:  #1c1f26;
+      --code:   #0a0c10;
+      --ink:    #e6e6e6;
+      --muted:  #9aa0a6;
+      --faint:  #6c7280;
+      --rule:   #353a45;
+      --accent: #7ab7ff;    /* GPU-blue accent for this deck */
+      --warm:   #ff6b6b;    /* secondary highlight */
+      --good:   #5fd38a;
+      --amber-bg: #3a2e10;
+      --amber-fg: #ffd166;
+      --teal-bg:  #163644;
+      --teal-fg:  #8fd0e2;
+    }
+    .reveal-viewport { background: var(--bg); }
+    .reveal { font-size: 28px; color: var(--ink); }
+    .reveal h1 { font-size: 1.7em; color: var(--accent); }
+    .reveal h2 { font-size: 1.3em; color: var(--accent); margin-bottom: 0.6em; }
+    .reveal h3 { font-size: 1.0em; color: var(--accent); }
+    .reveal p, .reveal li, .reveal td, .reveal th { color: var(--ink); }
+    .reveal a { color: var(--accent); }
+    .reveal pre  { box-shadow: none; background: var(--code); border: 1px solid var(--rule); }
+    .reveal pre code { padding: 0.8em 1em; font-size: 0.55em; line-height: 1.35; background: transparent; max-height: none; color: var(--ink); }
+    .reveal code { color: #f3a96e; }
+    .reveal table { font-size: 0.7em; border-collapse: collapse; margin: 0 auto; }
+    .reveal table th, .reveal table td { padding: 0.3em 0.7em; border: 1px solid var(--rule); }
+    .reveal table th { background: var(--panel); color: var(--ink); }
+    .reveal .small  { font-size: 0.75em; color: var(--muted); }
+    .reveal .tiny   { font-size: 0.55em; color: var(--faint); }
+    .reveal .accent { color: var(--accent); font-weight: 600; }
+    .reveal .warm   { color: var(--warm); font-weight: 600; }
+    .reveal .good   { color: var(--good); font-weight: 600; }
+    .reveal .dim    { opacity: 0.4; }
+    .reveal .panel  { background: var(--panel); border-radius: 6px; padding: 0.6em 1em; margin: 0.4em 0; text-align: left; }
+    .reveal .step-tag { display: inline-block; background: var(--accent); color: #00111f; border-radius: 4px; padding: 0.15em 0.5em; font-size: 0.7em; margin-right: 0.5em; font-weight: 700; }
+    .reveal .label  { font-weight: 600; color: var(--accent); font-size: 0.8em; }
+    .reveal kbd { background: var(--panel); border: 1px solid var(--rule); border-radius: 3px; padding: 0 0.4em; font-family: monospace; color: var(--ink); }
+    .reveal .katex { color: var(--ink); }
+
+    /* ─── flow cards ─── */
+    .reveal .flow { display: flex; flex-direction: column; gap: 0.35em; max-width: 92%; margin: 0.4em auto; }
+    .reveal .flow-card { background: var(--panel); border-radius: 8px; border-left: 4px solid var(--accent); padding: 0.45em 0.9em; text-align: left; font-size: 0.62em; }
+    .reveal .flow-card .title { font-weight: 700; color: var(--accent); margin: 0 0 0.15em; font-size: 1.05em; }
+    .reveal .flow-card .body  { color: var(--ink); line-height: 1.4; }
+    .reveal .flow-card .body code { font-size: 0.95em; color: #f3a96e; }
+    .reveal .flow-card.good { border-left-color: var(--good); }
+    .reveal .flow-card.warm { border-left-color: var(--warm); }
+    .reveal .flow-card.muted { border-left-color: var(--muted); opacity: 0.85; }
+    .reveal .flow-arrow { text-align: center; font-size: 1.3em; color: var(--muted); line-height: 0.8; user-select: none; }
+    .reveal .flow-row { display: flex; gap: 0.4em; }
+    .reveal .flow-row > .flow-card { flex: 1; }
+
+    /* ─── GPU thread grid visualisation ─── */
+    .reveal .gpu-grid { display: flex; flex-wrap: wrap; gap: 2px; background: var(--code); padding: 6px; border-radius: 6px; max-width: 95%; margin: 0.5em auto; justify-content: center; border: 1px solid var(--rule); }
+    .reveal .thread-cell { width: 1.5em; height: 1.5em; background: var(--panel); border: 1px solid var(--rule); border-radius: 2px; font-size: 0.45em; display: flex; align-items: center; justify-content: center; font-family: monospace; color: var(--ink); flex: 0 0 auto; }
+    .reveal .thread-cell.active { background: rgba(95, 211, 138, 0.28); border-color: var(--good); color: var(--good); font-weight: 700; }
+    .reveal .thread-cell.busy   { background: rgba(255, 209, 102, 0.22); border-color: var(--amber-fg); color: var(--amber-fg); }
+    .reveal .thread-cell.idle   { opacity: 0.3; }
+    .reveal .thread-cell.read   { background: rgba(122, 183, 255, 0.20); border-color: var(--accent); color: var(--accent); }
+    .reveal .thread-cell.write  { background: rgba(255, 107, 107, 0.20); border-color: var(--warm); color: var(--warm); }
+    .reveal .grid-caption { font-size: 0.55em; color: var(--muted); text-align: center; margin-top: 0.2em; font-family: monospace; }
+    .reveal .grid-wrap { display: flex; flex-direction: column; align-items: center; margin: 0.4em 0; }
+
+    /* ─── workgroup hierarchy ─── */
+    .reveal .wg-hier { display: inline-block; padding: 0.8em; background: var(--code); border: 2px solid var(--accent); border-radius: 10px; margin: 0.4em auto; max-width: 92%; }
+    .reveal .wg-hier .wg { display: inline-block; padding: 0.5em; background: var(--panel); border: 1.5px solid var(--good); border-radius: 8px; margin: 0.25em; vertical-align: top; }
+    .reveal .wg-hier .wg-label { font-size: 0.55em; color: var(--good); font-family: monospace; margin-bottom: 0.3em; font-weight: 700; }
+    .reveal .wg-hier .wg-threads { display: flex; flex-wrap: wrap; gap: 2px; }
+    .reveal .wg-hier .wg-th { width: 1em; height: 1em; background: rgba(122, 183, 255, 0.3); border: 1px solid var(--accent); border-radius: 2px; }
+    .reveal .dispatch-label { font-size: 0.6em; color: var(--accent); font-family: monospace; margin-bottom: 0.4em; font-weight: 700; }
+
+    /* ─── buffer visualisation ─── */
+    .reveal .buffer-viz { display: inline-flex; gap: 1px; font-family: monospace; font-size: 0.55em; margin: 0.3em auto; flex-wrap: wrap; max-width: 95%; justify-content: center; }
+    .reveal .buffer-cell { padding: 0.2em 0.45em; background: var(--panel); border: 1px solid var(--rule); border-radius: 2px; min-width: 2.5em; text-align: center; color: var(--ink); }
+    .reveal .buffer-cell.read    { background: rgba(122, 183, 255, 0.20); border-color: var(--accent); color: var(--accent); }
+    .reveal .buffer-cell.write   { background: rgba(95, 211, 138, 0.22); border-color: var(--good); color: var(--good); }
+    .reveal .buffer-cell.warn    { background: rgba(255, 107, 107, 0.18); border-color: var(--warm); color: var(--warm); }
+    .reveal .buffer-cell.empty   { color: var(--faint); border-style: dashed; background: transparent; }
+    .reveal .buffer-cell.head    { background: var(--code); color: var(--muted); }
+    .reveal .buffer-cell strong  { color: inherit; }
+    .reveal .buf-label { font-size: 0.55em; color: var(--muted); margin-right: 0.5em; font-family: monospace; min-width: 6em; text-align: right; display: inline-block; vertical-align: middle; }
+    .reveal .buf-row { display: flex; align-items: center; gap: 0.5em; margin: 0.25em 0; flex-wrap: wrap; justify-content: center; }
+
+    /* ─── side-by-side comparison ─── */
+    .reveal .cmp { display: flex; gap: 0.8em; margin: 0.4em auto; max-width: 95%; }
+    .reveal .cmp .cmp-col { flex: 1; background: var(--panel); border-radius: 8px; padding: 0.6em; font-size: 0.6em; }
+    .reveal .cmp .cmp-col.cpu { border-top: 4px solid var(--warm); }
+    .reveal .cmp .cmp-col.gpu { border-top: 4px solid var(--accent); }
+    .reveal .cmp .cmp-col h4 { margin: 0 0 0.4em; color: var(--ink); font-size: 1em; }
+    .reveal .cmp .cmp-col .badge { display: inline-block; padding: 0.1em 0.5em; border-radius: 4px; font-size: 0.85em; font-weight: 700; }
+    .reveal .cmp .cmp-col.cpu .badge { background: var(--warm); color: #200; }
+    .reveal .cmp .cmp-col.gpu .badge { background: var(--accent); color: #001; }
+
+    /* ─── profile/perf bars ─── */
+    .reveal .perf-bar { display: flex; height: 1.6em; max-width: 96%; margin: 0.2em auto; border-radius: 4px; overflow: hidden; font-size: 0.45em; font-family: monospace; border: 1px solid var(--rule); }
+    .reveal .perf-bar .seg { display: flex; align-items: center; justify-content: center; padding: 0 0.3em; white-space: nowrap; overflow: hidden; color: #001; font-weight: 700; }
+    .reveal .perf-row { display: flex; align-items: center; gap: 0.5em; max-width: 96%; margin: 0.18em auto; }
+    .reveal .perf-row .perf-label { flex: 0 0 4.5em; text-align: right; font-family: monospace; font-size: 0.55em; color: var(--muted); }
+    .reveal .perf-row .perf-bar { flex: 1; margin: 0; }
+    .reveal .perf-legend { font-size: 0.55em; color: var(--muted); margin-top: 0.5em; text-align: center; font-family: monospace; }
+    .reveal .perf-legend .ll { display: inline-block; margin: 0 0.4em; }
+    .reveal .perf-legend .ll::before { content: '■'; margin-right: 0.2em; }
+
+    /* ─── tables for example ─── */
+    .reveal .scalar-table { font-size: 0.55em; margin: 0.4em auto; border-collapse: collapse; }
+    .reveal .scalar-table th, .reveal .scalar-table td { padding: 0.2em 0.5em; border: 1px solid var(--rule); text-align: center; font-family: monospace; }
+    .reveal .scalar-table th { background: var(--panel); color: var(--accent); }
+
+    /* ─── bottleneck pie/donut ─── */
+    .reveal .donut-wrap { display: flex; align-items: center; gap: 1.5em; justify-content: center; margin: 0.5em auto; max-width: 95%; }
+    .reveal .donut { width: 200px; height: 200px; flex: 0 0 200px; }
+    .reveal .donut-legend { font-size: 0.6em; font-family: monospace; }
+    .reveal .donut-legend .row { display: flex; align-items: center; gap: 0.5em; margin: 0.15em 0; }
+    .reveal .donut-legend .swatch { display: inline-block; width: 0.9em; height: 0.9em; border-radius: 2px; }
+  </style>
+</head>
+<body>
+<div class="reveal">
+  <div class="slides">
+
+  <!-- ================================ TITLE ================================ -->
+  <section>
+    <h1>WebGPU BN254 MSM</h1>
+    <p>Implementation walkthrough — design choices, parallelism, and where the time goes</p>
+    <p class="small" style="margin-top:1em;">Source: <code>barretenberg/ts/src/msm_webgpu/</code></p>
+    <p class="tiny" style="margin-top:2em;">
+      ← / → to navigate &nbsp;·&nbsp; ↓ for sub-slides &nbsp;·&nbsp; <kbd>F</kbd> for fullscreen
+    </p>
+  </section>
+
+  <!-- ============================ WHY GPU =============================== -->
+  <section>
+    <h2>Why GPU?</h2>
+    <p>MSM is <em>embarrassingly parallel</em>:</p>
+    <ul class="small">
+      <li class="fragment">$n$ independent point additions</li>
+      <li class="fragment">$n \cdot T$ independent digit extractions</li>
+      <li class="fragment">$\sim n$ independent affine adds per round (in batch-affine SMVP)</li>
+      <li class="fragment">$T \cdot W$ independent partial reductions in BPR</li>
+    </ul>
+    <div class="cmp fragment" style="margin-top:0.8em;">
+      <div class="cmp-col cpu">
+        <h4>CPU (WASM-MT, 14 threads)</h4>
+        <span class="badge">~14× wide</span>
+        <p style="margin-top:0.4em;">Each thread runs full Pippenger on its slice. Limited by core count + memory bandwidth.</p>
+      </div>
+      <div class="cmp-col gpu">
+        <h4>GPU (WebGPU)</h4>
+        <span class="badge">~10,000+ threads</span>
+        <p style="margin-top:0.4em;">Pipeline split into stages, each stage massively parallel. Limited by per-thread compute &amp; field-mul cost.</p>
+      </div>
+    </div>
+    <p class="fragment small" style="margin-top:0.4em;">
+      Trade-off: GPU per-thread arithmetic is $\sim 25\times$ slower than native &mdash; but parallelism wins at scale.
+    </p>
+  </section>
+
+  <!-- ============================ MEASURED RESULTS ======================= -->
+  <section>
+    <h2>The result we're after</h2>
+    <p class="small">Measured medians, $n = 2^{16}$ to $2^{20}$:</p>
+    <table>
+      <tr><th>$\log_2 n$</th><th>$n$</th><th>WebGPU (ms)</th><th>WASM-MT 14t (ms)</th><th>speedup</th></tr>
+      <tr class="fragment"><td>16</td><td>65,536</td><td>75.3</td><td>77.7</td><td>1.03×</td></tr>
+      <tr class="fragment"><td>17</td><td>131,072</td><td>91.9</td><td>127.4</td><td>1.39×</td></tr>
+      <tr class="fragment"><td>18</td><td>262,144</td><td>139.6</td><td>226.0</td><td>1.62×</td></tr>
+      <tr class="fragment"><td>19</td><td>524,288</td><td>222.7</td><td>422.4</td><td>1.90×</td></tr>
+      <tr class="fragment"><td>20</td><td>1,048,576</td><td>396.9</td><td>816.2</td><td><strong class="good">2.06×</strong></td></tr>
+    </table>
+    <p class="fragment good small" style="margin-top:0.5em;">
+      Speedup grows with $n$: fixed costs amortise, parallelism is exposed.
+    </p>
+  </section>
+
+  <!-- ============================ WEBGPU MODEL =========================== -->
+  <section>
+    <h2>WebGPU execution model</h2>
+    <p class="small">Dispatch = 3-D grid of <em>workgroups</em>. Each workgroup = fixed grid of <em>threads</em>.</p>
+    <div class="wg-hier">
+      <div class="dispatch-label">dispatch(x=4, y=1, z=1)</div>
+      <div class="wg">
+        <div class="wg-label">workgroup [0, 0, 0]</div>
+        <div class="wg-threads">
+          <span class="wg-th"></span><span class="wg-th"></span><span class="wg-th"></span><span class="wg-th"></span>
+          <span class="wg-th"></span><span class="wg-th"></span><span class="wg-th"></span><span class="wg-th"></span>
+        </div>
+      </div>
+      <div class="wg">
+        <div class="wg-label">workgroup [1, 0, 0]</div>
+        <div class="wg-threads">
+          <span class="wg-th"></span><span class="wg-th"></span><span class="wg-th"></span><span class="wg-th"></span>
+          <span class="wg-th"></span><span class="wg-th"></span><span class="wg-th"></span><span class="wg-th"></span>
+        </div>
+      </div>
+      <div class="wg">
+        <div class="wg-label">workgroup [2, 0, 0]</div>
+        <div class="wg-threads">
+          <span class="wg-th"></span><span class="wg-th"></span><span class="wg-th"></span><span class="wg-th"></span>
+          <span class="wg-th"></span><span class="wg-th"></span><span class="wg-th"></span><span class="wg-th"></span>
+        </div>
+      </div>
+      <div class="wg">
+        <div class="wg-label">workgroup [3, 0, 0]</div>
+        <div class="wg-threads">
+          <span class="wg-th"></span><span class="wg-th"></span><span class="wg-th"></span><span class="wg-th"></span>
+          <span class="wg-th"></span><span class="wg-th"></span><span class="wg-th"></span><span class="wg-th"></span>
+        </div>
+      </div>
+    </div>
+    <ul class="small">
+      <li class="fragment">Threads in same workgroup share <em>workgroup memory</em> &amp; can <code>workgroupBarrier()</code>.</li>
+      <li class="fragment">Threads across workgroups: independent, no sync.</li>
+      <li class="fragment">Pipeline = compiled WGSL shader + bind-group layout. Built once, dispatched many times.</li>
+    </ul>
+  </section>
+
+  <!-- ============================ MEMORY MODEL =========================== -->
+  <section>
+    <h2>Memory model + the persistent context trick</h2>
+    <div class="flow">
+      <div class="flow-card">
+        <div class="title">Storage buffers</div>
+        <div class="body">Large (GBs), R/W from shaders. Where the bulk MSM state lives: point coords, scalars, bucket sums, scratch arrays.</div>
+      </div>
+      <div class="flow-card fragment">
+        <div class="title">Uniform buffers</div>
+        <div class="body">Small (≤ 16 KiB), R-only. Used for kernel parameters: $n$, $T$, $c$, num-subtasks, etc.</div>
+      </div>
+      <div class="flow-card fragment">
+        <div class="title">Bind groups</div>
+        <div class="body">Bind a set of buffers to a pipeline's slots. WebGPU requires them to be re-created when the underlying <code>GPUBuffer</code> identity changes.</div>
+      </div>
+      <div class="flow-card good fragment">
+        <div class="title">Persistent <code>GpuContext</code> &mdash; the big perf win</div>
+        <div class="body">
+          One <code>GPUDevice</code>, cached pipelines, cached buffers (keyed by curve + chunk_size + $n$), cached bind groups. Across 20–50 MSMs in a Honk proof, per-call overhead drops from $\sim 200$ ms (cold) to $\sim 0$.
+        </div>
+      </div>
+      <div class="flow-card warm fragment">
+        <div class="title"><code>CachedBases</code></div>
+        <div class="body">
+          SRS uploaded &amp; converted to Montgomery form <strong>once</strong>. Subsequent MSMs only upload scalars ($n \cdot 32$ B), not points ($n \cdot 64$ B + Stage-1 Barrett/Montgomery).
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ cuZK PARADIGM ========================== -->
+  <section>
+    <h2>The cuZK paradigm — MSM as sparse $M \cdot \mathbf{P}$</h2>
+    <p>View the digit decomposition as a $T \times n$ <em>incidence matrix</em>:</p>
+    <p class="fragment">
+      $$ M_{j,i} \;=\; \begin{cases} s_{i,j} & \text{if } s_{i,j} \neq 0 \\ 0 & \text{else}\end{cases} $$
+    </p>
+    <p class="fragment small">Then the MSM splits as:</p>
+    <p class="fragment">
+      $$ S \;=\; \sum_j 2^{jc}\, W_j, \qquad W_j \;=\; \sum_{i=0}^{n-1} M_{j,i}\, P_i $$
+    </p>
+    <p class="fragment small">
+      Each $W_j$ is a sparse matrix-vector product. <strong>Group columns by digit value</strong> (= CSC representation) and the inner loop becomes parallelisable per-bucket.
+    </p>
+    <p class="fragment accent" style="margin-top:0.5em;">
+      Key insight: MSM ≡ <em>"transpose, then accumulate"</em>.
+    </p>
+  </section>
+
+  <!-- ============================ PIPELINE OVERVIEW ====================== -->
+  <section>
+    <h2>5-stage pipeline</h2>
+    <div class="flow">
+      <div class="flow-card">
+        <div class="title">Stage 1 &mdash; <code>decompose_scalars_only</code></div>
+        <div class="body">scalars ($n \cdot 32$ B) → digit chunks ($T \cdot n$ u32) &nbsp;·&nbsp; <strong>1 dispatch, $n$ threads</strong></div>
+      </div>
+      <div class="flow-arrow">↓</div>
+      <div class="flow-card">
+        <div class="title">Stage 2 &mdash; parallel transpose (CSR → CSC)</div>
+        <div class="body">3 dispatches: <code>count</code>, <code>scan</code>, <code>scatter</code> &nbsp;·&nbsp; <strong>$\Theta(Tn)$ threads</strong></div>
+      </div>
+      <div class="flow-arrow">↓</div>
+      <div class="flow-card">
+        <div class="title">Stage 3 &mdash; batch-affine SMVP</div>
+        <div class="body"><code>init</code> → [<code>schedule</code>, <code>inverse</code>, <code>apply</code>] × MAX_ROUNDS → <code>finalize</code> &nbsp;·&nbsp; <strong>per-round parallel over buckets / pairs</strong></div>
+      </div>
+      <div class="flow-arrow">↓</div>
+      <div class="flow-card">
+        <div class="title">Stage 4 &mdash; BPR (Bucket Points Reduction)</div>
+        <div class="body">Parallel suffix-sum: $W$ threads per window &nbsp;·&nbsp; <strong>$T \cdot W$ threads</strong></div>
+      </div>
+      <div class="flow-arrow">↓</div>
+      <div class="flow-card good">
+        <div class="title">Stage 5 &mdash; <code>subtask_reduce</code> (Horner on GPU)</div>
+        <div class="body">Single workgroup, $T$ threads, $c(T{-}1)$ doublings + $(T{-}1)$ adds. CPU reads back $\sim 240$ bytes.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ STAGE 1 ================================ -->
+  <section>
+    <h2>Stage 1: Decompose scalars</h2>
+    <p class="small">Per-thread work:</p>
+    <p>$$ \text{chunks}[t \cdot n + i] \;=\; \text{signed\_slice}_t(s_i),\quad t \in [0, T) $$</p>
+    <p class="small">Each thread reads <em>one</em> scalar ($32$ B), writes $T$ digits. <strong>One dispatch, $n$ threads.</strong></p>
+    <div class="grid-wrap fragment">
+      <div class="gpu-grid">
+        <span class="thread-cell active">t0</span>
+        <span class="thread-cell active">t1</span>
+        <span class="thread-cell active">t2</span>
+        <span class="thread-cell active">t3</span>
+        <span class="thread-cell active">t4</span>
+        <span class="thread-cell active">t5</span>
+        <span class="thread-cell active">t6</span>
+        <span class="thread-cell active">t7</span>
+        <span class="thread-cell active">…</span>
+        <span class="thread-cell active">tₙ₋₁</span>
+      </div>
+      <div class="grid-caption">$n$ threads in parallel — each owns one scalar $s_i$</div>
+    </div>
+    <p class="fragment small good" style="margin-top:0.5em;">
+      <strong>Warm-path optimisation:</strong> each thread also <code>atomicAdd</code>s into <code>col_ptr</code> for its digit → fuses Stage-1 with Stage-2a's count phase. Saves $\sim 3$ ms at $n = 2^{16}$.
+    </p>
+  </section>
+
+  <!-- ============================ STAGE 2 INTRO =========================== -->
+  <section>
+    <h2>Stage 2: Parallel transpose</h2>
+    <p class="small">After Stage 1, the digit array is in <strong>CSR</strong> order (grouped by window/row).</p>
+    <p class="small">Stage 3 needs <strong>CSC</strong> order (grouped by bucket/column). Hence the transpose.</p>
+    <div class="cmp">
+      <div class="cmp-col cpu">
+        <h4>CPU bberg: MSD radix sort</h4>
+        <p>One-pass, in-place, 8-bit radix. Cache-friendly, sequential.</p>
+      </div>
+      <div class="cmp-col gpu">
+        <h4>GPU: 3-phase parallel</h4>
+        <p>Atomic counts → prefix scan → atomic scatter. 3 dispatches, $\Theta(Tn)$ threads each.</p>
+      </div>
+    </div>
+    <p class="fragment small" style="margin-top:0.4em;">
+      Same end result; very different memory access patterns. (↓ for each phase)
+    </p>
+  </section>
+
+  <!-- ============================ STAGE 2 PHASES ======================== -->
+  <section>
+
+    <section>
+      <h3><span class="step-tag">2a</span> Count phase</h3>
+      <p class="small">For each $(i, t)$, atomically increment <code>col_count[t·(B+1) + chunks[t·n+i] + 1]</code>.</p>
+      <div class="grid-wrap">
+        <div class="gpu-grid">
+          <span class="thread-cell write">t0</span>
+          <span class="thread-cell write">t1</span>
+          <span class="thread-cell write">t2</span>
+          <span class="thread-cell write">t3</span>
+          <span class="thread-cell write">t4</span>
+          <span class="thread-cell write">t5</span>
+          <span class="thread-cell write">t6</span>
+          <span class="thread-cell write">t7</span>
+        </div>
+        <div class="grid-caption">all $n$ threads atomicAdd in parallel</div>
+      </div>
+      <p class="fragment small">Output buffer <code>col_count[t·(B+1)]</code>: count of each bucket's occurrences within each window.</p>
+      <p class="fragment tiny" style="color:var(--warm);">
+        ⚠ Atomic contention possible when multiple threads hit the same bucket — but spread is wide for random scalars.
+      </p>
+    </section>
+
+    <section>
+      <h3><span class="step-tag">2b</span> Prefix scan phase</h3>
+      <p class="small">Exclusive prefix sum on <code>col_count</code> within each window.</p>
+      <p>$$ \texttt{col\_ptr}[t \cdot (B{+}1) + b] \;=\; \sum_{k < b} \texttt{col\_count}[t \cdot (B{+}1) + k] $$</p>
+      <p class="small">Gives the <em>start position</em> of each bucket in the final <code>val_idx</code> array.</p>
+      <div class="grid-wrap">
+        <div class="gpu-grid">
+          <span class="thread-cell read">b₀</span>
+          <span class="thread-cell read">b₁</span>
+          <span class="thread-cell read">b₂</span>
+          <span class="thread-cell read">b₃</span>
+          <span class="thread-cell read">b₄</span>
+          <span class="thread-cell read">b₅</span>
+          <span class="thread-cell read">b₆</span>
+          <span class="thread-cell read">b₇</span>
+        </div>
+        <div class="grid-caption">$B$ threads per window, Hillis-Steele $\log_2 B$-depth scan</div>
+      </div>
+      <p class="fragment small">One dispatch per window (or fused across windows), $B$ threads per workgroup.</p>
+    </section>
+
+    <section>
+      <h3><span class="step-tag">2c</span> Scatter phase</h3>
+      <p class="small">Each thread (one per CSR entry) writes its <code>point_idx</code> to the right slot in <code>val_idx</code>.</p>
+      <p style="font-size:0.7em;">
+        $$ \texttt{pos} = \texttt{atomicAdd}(\texttt{current}[t \cdot B + k], 1) $$
+        $$ \texttt{val\_idx}[t \cdot n + \texttt{col\_ptr}[t \cdot (B{+}1) + k] + \texttt{pos}] = i $$
+      </p>
+      <div class="grid-wrap">
+        <div class="gpu-grid">
+          <span class="thread-cell write">t0</span>
+          <span class="thread-cell write">t1</span>
+          <span class="thread-cell write">t2</span>
+          <span class="thread-cell write">t3</span>
+          <span class="thread-cell write">t4</span>
+          <span class="thread-cell write">t5</span>
+          <span class="thread-cell write">t6</span>
+          <span class="thread-cell write">t7</span>
+        </div>
+        <div class="grid-caption">$n$ threads write in parallel — each owns one CSR entry</div>
+      </div>
+      <p class="fragment good small">Output: <code>val_idx</code> = point indices, grouped by bucket. Same end result as bberg's MSD radix sort.</p>
+    </section>
+  </section>
+
+  <!-- ============================ STAGE 3 INTRO ========================== -->
+  <section>
+    <h2>Stage 3: Batch-affine SMVP — rounds, not recirculation</h2>
+    <div class="cmp">
+      <div class="cmp-col cpu">
+        <h4>CPU bberg: <span style="font-weight:400">recirculation</span></h4>
+        <ol style="font-size:0.9em;">
+          <li>Walk sorted schedule</li>
+          <li>4-case classifier; queue pairs</li>
+          <li>Batch invert when scratch full</li>
+          <li><strong>Feed outputs back through classifier</strong></li>
+          <li>Repeat until empty</li>
+        </ol>
+        <p class="warm small">↺ Inherently sequential</p>
+      </div>
+      <div class="cmp-col gpu">
+        <h4>GPU: <span style="font-weight:400">rounds</span></h4>
+        <ol style="font-size:0.9em;">
+          <li>Init: seed running sums per bucket</li>
+          <li>For round = 0 .. MAX_ROUNDS:
+            <ul>
+              <li>schedule: each active bucket queues its <em>next</em> pair</li>
+              <li>parallel batch invert all queued deltas</li>
+              <li>parallel apply to running sums</li>
+            </ul>
+          </li>
+          <li>Finalize: pack into Jacobian + signed-neg</li>
+        </ol>
+        <p class="good small">∥ Each step is parallel</p>
+      </div>
+    </div>
+    <p class="fragment small" style="margin-top:0.4em;">
+      Same affine trick math; very different control flow. GPU trades extra dispatches for full parallelism within each step.
+    </p>
+  </section>
+
+  <!-- ============================ STAGE 3 PHASES =========================== -->
+  <section>
+
+    <section>
+      <h3><span class="step-tag">3a</span> Init</h3>
+      <p class="small">One thread per bucket. For each non-empty bucket $b$:</p>
+      <ul class="small">
+        <li><code>running[b]</code> ← <code>P[val_idx[row_begin[b]]]</code> &nbsp; <em>(first point in bucket)</em></li>
+        <li><code>cursor[b]</code> ← <code>row_begin[b] + 1</code></li>
+        <li><code>active[b]</code> ← <code>cursor[b] &lt; row_end[b]</code></li>
+      </ul>
+      <p class="small">Empty bucket: <code>cursor[b]</code> ← <code>row_end[b]</code>, <code>active[b]</code> ← 0 (skipped from now on).</p>
+      <div class="grid-wrap fragment">
+        <div class="gpu-grid">
+          <span class="thread-cell active">b0</span>
+          <span class="thread-cell active">b1</span>
+          <span class="thread-cell active">b2</span>
+          <span class="thread-cell active">b3</span>
+          <span class="thread-cell idle">b4</span>
+          <span class="thread-cell idle">b5</span>
+          <span class="thread-cell active">b6</span>
+          <span class="thread-cell active">b7</span>
+        </div>
+        <div class="grid-caption">$B$ threads &mdash; active/idle based on bucket emptiness</div>
+      </div>
+    </section>
+
+    <section>
+      <h3><span class="step-tag">3b</span> Schedule (per round)</h3>
+      <p class="small">Each <em>active</em> bucket queues the next pair: <code>(running[b], P[val_idx[cursor[b]]])</code>.</p>
+      <pre><code>fn schedule(b: u32) {
+  if cursor[b] &lt; row_end[b] &amp;&amp; active[b] {
+    let next_pt = P[val_idx[cursor[b]]];
+    let delta = next_pt.x - running[b].x;
+    let pos = atomicAdd(&amp;pair_counter, 1u);
+    pair_delta[pos] = delta;
+    pair_meta[pos] = b;     // remember target
+    cursor[b] += 1;
+  }
+}</code></pre>
+      <p class="fragment small">$\sim B$ threads run; only buckets with $\geq 2$ pending points actually queue.</p>
+      <p class="fragment good small">Output: a packed array of $m$ independent pair-deltas, ready for one big batch invert.</p>
+    </section>
+
+    <section>
+      <h3><span class="step-tag">3c</span> Batch inverse (parallel)</h3>
+      <p class="small">Compute $m$ inverses sharing one Fermat inversion. Adapted Montgomery prefix-product:</p>
+      <p>$$ \pi_k = \delta_0 \delta_1 \cdots \delta_k, \quad \rho_m = \pi_m^{-1} \quad\textit{(1 inv)} $$</p>
+      <p>$$ \delta_k^{-1} = \rho_{k+1} \cdot \pi_{k-1}, \quad \rho_{k-1} = \rho_k \cdot \delta_k $$</p>
+      <p class="small">Multi-workgroup mode: $m$ deltas split into <code>NUM_SUB_WGS</code> slices, each independently inverted by a workgroup of 64 threads.</p>
+      <p class="fragment small warm">
+        ⚠ This stage is the <strong>dominant cost at large $n$</strong> (47% of GPU wall at $2^{20}$). The per-workgroup Fermat inversion stays sequential.
+      </p>
+    </section>
+
+    <section>
+      <h3><span class="step-tag">3d</span> Apply (parallel)</h3>
+      <p class="small">One thread per pair. Read $(P, Q, \delta^{-1})$ from the pair pool; compute affine sum; write to <code>running[target]</code>.</p>
+      <p>$$ \mu = (Q_y - P_y) \cdot \delta^{-1},\quad R_x = \mu^2 - P_x - Q_x,\quad R_y = \mu(P_x - R_x) - P_y $$</p>
+      <div class="grid-wrap fragment">
+        <div class="gpu-grid">
+          <span class="thread-cell write">p0</span>
+          <span class="thread-cell write">p1</span>
+          <span class="thread-cell write">p2</span>
+          <span class="thread-cell write">…</span>
+          <span class="thread-cell write">pₘ₋₁</span>
+        </div>
+        <div class="grid-caption">$m$ threads, one per queued pair &mdash; fully parallel</div>
+      </div>
+      <p class="fragment small">Cost per pair: $\sim 3 \,|M| + |I|/m$. With $m = 1024$, $|I| \approx 332 |M|$: $\sim 3.3 |M|$ per pair.</p>
+      <p class="fragment good small">After apply: <code>running[]</code> has each bucket's partial sum, ready for the next round.</p>
+    </section>
+
+    <section>
+      <h3><span class="step-tag">3e</span> Finalize</h3>
+      <p class="small">After MAX_ROUNDS, pack each bucket's running affine sum into Jacobian $(X, Y, Z{=}R)$ for downstream BPR:</p>
+      <p>$$ \texttt{bucket\_x[b]} \leftarrow \texttt{running\_x[b]}, \quad \texttt{bucket\_y[b]} \leftarrow \texttt{running\_y[b]},\quad \texttt{bucket\_z[b]} \leftarrow R $$</p>
+      <p class="small">Apply signed-digit negation: $-(x, y) = (x, -y)$ for negative-bucket entries.</p>
+      <p class="small">Buckets that had a final unflushed pair go through a 2-pass finalize (collect → batch invert → apply).</p>
+      <div class="grid-wrap fragment">
+        <div class="gpu-grid">
+          <span class="thread-cell write">b0</span>
+          <span class="thread-cell write">b1</span>
+          <span class="thread-cell write">b2</span>
+          <span class="thread-cell write">b3</span>
+          <span class="thread-cell write">b4</span>
+          <span class="thread-cell write">b5</span>
+          <span class="thread-cell write">b6</span>
+          <span class="thread-cell write">b7</span>
+        </div>
+        <div class="grid-caption">$B$ threads in parallel — finalize</div>
+      </div>
+    </section>
+  </section>
+
+  <!-- ============================ STAGE 4 BPR ============================ -->
+  <section>
+    <h2>Stage 4: BPR — parallel suffix-sum</h2>
+    <p class="small">For each window $j$, compute $W_j = \sum_k k \cdot B_{j,k}$. Same math as the CPU bberg suffix-sum, parallelised.</p>
+    <p class="label">Strategy: split $B$ buckets among $W$ threads per window</p>
+    <pre><code>// per-thread, slice of B/W buckets
+thread t handles  k ∈ [t · B/W, (t+1) · B/W)
+
+// Each computes a local (m_partial, g_partial)
+m_t = sum of B[k] for k in slice
+g_t = thread t's contribution to g, AS IF
+      thread t were the only thread
+
+// BPR-2 combines W threads:
+// every thread's g_t needs the "carry"
+// from threads with higher slices.</code></pre>
+    <p class="small">Total: $T \cdot W$ threads (e.g. $17 \times 256 \approx 4{,}352$ at $n = 2^{16}$).</p>
+    <p class="fragment small warm">
+      ⚠ At small $n$, BPR-1 dominates (37% of GPU wall at $n{=}2^{16}$). Cost is <strong>independent of $n$</strong> &mdash; scales with $B = 2^{c-1}$.
+    </p>
+  </section>
+
+  <!-- ============================ STAGE 5 HORNER ========================== -->
+  <section>
+    <h2>Stage 5: Horner on GPU</h2>
+    <p class="small">Combine the $T$ window points $W_0, \ldots, W_{T-1}$ into the final $S$:</p>
+    <p>$$ S \;=\; W_0 \;+\; 2^c\, W_1 \;+\; 2^{2c}\, W_2 \;+\; \cdots \;+\; 2^{(T-1)c}\, W_{T-1} $$</p>
+    <p class="small">Single workgroup, $T$ threads:</p>
+    <ol class="small">
+      <li class="fragment">Each thread reads its window sum $W_j$ into workgroup memory</li>
+      <li class="fragment"><code>workgroupBarrier()</code></li>
+      <li class="fragment">Thread 0 walks the Horner chain: $c$ doublings + 1 add per step, $T{-}1$ steps total</li>
+      <li class="fragment">Thread 0 writes result $(X, Y, Z)$ to <code>result_xyz[0]</code></li>
+    </ol>
+    <p class="fragment small">For $T = 17$, $c = 15$: $\;240$ doublings $+$ $16$ adds $\approx 4{,}000$ field ops.</p>
+    <p class="fragment good small">CPU reads back $\sim 240$ B (one Jacobian point), normalises to affine, returns.</p>
+  </section>
+
+  <!-- ============================ DESIGN CHOICES ========================== -->
+  <section>
+    <h2>Key design choices</h2>
+    <div class="flow">
+      <div class="flow-card">
+        <div class="title">$c = 15$ (not the textbook $c = 14$)</div>
+        <div class="body">
+          BPR-1 cost $\propto T \cdot B = T \cdot 2^{c-1}$. At $c{=}15$: $17 \cdot 2^{14} = 278{,}528$. At $c{=}16$: $16 \cdot 2^{15} = 524{,}288$ &mdash; <strong>1.88× more</strong>. Stage-1/2/3 costs change marginally. Empirical sweet spot.
+        </div>
+      </div>
+      <div class="flow-card fragment">
+        <div class="title">13-bit limbs ($L = 20$)</div>
+        <div class="body">
+          WGSL has u32 only. For $u32 \times u32$ accumulator safety: $2w + \lceil \log_2 L \rceil \leq 32$. Solving: $13 + 13 + 5 = 31$ ✓, but $14 + 14 + 5 = 33$ ✗. <strong>$w = 13$ is the max safe width on WGSL.</strong>
+        </div>
+      </div>
+      <div class="flow-card fragment">
+        <div class="title">Persistent context + cached bases</div>
+        <div class="body">
+          Cold path: $\sim 200$ ms per MSM (device + shaders + Stage-1). Warm: bases pre-converted, pipelines cached, buffers reused. Per-call cost down to $\sim 70$ ms at $n=2^{16}$.
+        </div>
+      </div>
+      <div class="flow-card good fragment">
+        <div class="title">Batch-affine over Jacobian mixed-add</div>
+        <div class="body">
+          Mixed-add: $\sim 11\,|M|$ per add. Batch-affine: $\sim 3.3\,|M|$. <strong>$\sim 3.3\times$ on the hottest path.</strong>
+        </div>
+      </div>
+      <div class="flow-card warm fragment">
+        <div class="title">Rounds over recirculation</div>
+        <div class="body">
+          Recirculation is sequential; GPU thrives on parallel-within-step. Trade extra dispatches for full inner parallelism.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ WORKED EXAMPLE TITLE =================== -->
+  <section data-background-color="#0a0c10">
+    <h1 style="font-size:2em;">A worked example, on the GPU</h1>
+    <p style="font-size:1.1em;">Same 8 inputs as the bberg example. Watch the parallelism unfold.</p>
+    <p class="small" style="margin-top:1em;">
+      Parameters: $n = 8$, $c = 3$, $T = 2$, $B = 8$ (unsigned).
+    </p>
+    <p class="tiny" style="margin-top:2em;">↓ to walk through</p>
+  </section>
+
+  <!-- ============================ WORKED EXAMPLE TRACE ==================== -->
+  <section>
+
+    <!-- Setup -->
+    <section>
+      <h2>Setup &mdash; 8 inputs</h2>
+      <table class="scalar-table">
+        <tr><th>$i$</th><th>$s_i$</th><th>$s_{i,0}$ (low)</th><th>$s_{i,1}$ (high)</th></tr>
+        <tr><td>0</td><td>25</td><td>1</td><td>3</td></tr>
+        <tr><td>1</td><td>14</td><td>6</td><td>1</td></tr>
+        <tr><td>2</td><td>3</td> <td>3</td><td>0</td></tr>
+        <tr><td>3</td><td>18</td><td>2</td><td>2</td></tr>
+        <tr><td>4</td><td>11</td><td>3</td><td>1</td></tr>
+        <tr><td>5</td><td>25</td><td>1</td><td>3</td></tr>
+        <tr><td>6</td><td>7</td> <td>7</td><td>0</td></tr>
+        <tr><td>7</td><td>41</td><td>1</td><td>5</td></tr>
+      </table>
+      <p class="small fragment">Goal: $S = 25P_0 + 14P_1 + 3P_2 + 18P_3 + 11P_4 + 25P_5 + 7P_6 + 41P_7$</p>
+    </section>
+
+    <!-- Stage 1 -->
+    <section>
+      <h3><span class="step-tag">stage 1</span> Decompose — 8 threads in parallel</h3>
+      <div class="grid-wrap">
+        <div class="gpu-grid">
+          <span class="thread-cell active">t0</span>
+          <span class="thread-cell active">t1</span>
+          <span class="thread-cell active">t2</span>
+          <span class="thread-cell active">t3</span>
+          <span class="thread-cell active">t4</span>
+          <span class="thread-cell active">t5</span>
+          <span class="thread-cell active">t6</span>
+          <span class="thread-cell active">t7</span>
+        </div>
+        <div class="grid-caption">each thread $t_i$ reads $s_i$, writes 2 digits</div>
+      </div>
+      <p class="small fragment">After 1 dispatch:</p>
+      <div class="buf-row fragment">
+        <span class="buf-label">chunks[w0]:</span>
+        <span class="buffer-cell write">1</span>
+        <span class="buffer-cell write">6</span>
+        <span class="buffer-cell write">3</span>
+        <span class="buffer-cell write">2</span>
+        <span class="buffer-cell write">3</span>
+        <span class="buffer-cell write">1</span>
+        <span class="buffer-cell write">7</span>
+        <span class="buffer-cell write">1</span>
+      </div>
+      <div class="buf-row fragment">
+        <span class="buf-label">chunks[w1]:</span>
+        <span class="buffer-cell write">3</span>
+        <span class="buffer-cell write">1</span>
+        <span class="buffer-cell write">0</span>
+        <span class="buffer-cell write">2</span>
+        <span class="buffer-cell write">1</span>
+        <span class="buffer-cell write">3</span>
+        <span class="buffer-cell write">0</span>
+        <span class="buffer-cell write">5</span>
+      </div>
+      <p class="fragment small good">Done in 1 dispatch with $n = 8$ threads.</p>
+    </section>
+
+    <!-- Stage 2: Count phase -->
+    <section>
+      <h3><span class="step-tag">stage 2a</span> Count (window 0) &mdash; 8 atomic adds in parallel</h3>
+      <div class="buf-row">
+        <span class="buf-label">chunks[w0]:</span>
+        <span class="buffer-cell read">1</span>
+        <span class="buffer-cell read">6</span>
+        <span class="buffer-cell read">3</span>
+        <span class="buffer-cell read">2</span>
+        <span class="buffer-cell read">3</span>
+        <span class="buffer-cell read">1</span>
+        <span class="buffer-cell read">7</span>
+        <span class="buffer-cell read">1</span>
+      </div>
+      <p class="small fragment">All 8 threads <code>atomicAdd</code> into <code>col_count[w0]</code> at their digit's slot:</p>
+      <div class="buf-row fragment">
+        <span class="buf-label">col_count[w0]:</span>
+        <span class="buffer-cell head">b0</span>
+        <span class="buffer-cell head">b1</span>
+        <span class="buffer-cell head">b2</span>
+        <span class="buffer-cell head">b3</span>
+        <span class="buffer-cell head">b4</span>
+        <span class="buffer-cell head">b5</span>
+        <span class="buffer-cell head">b6</span>
+        <span class="buffer-cell head">b7</span>
+      </div>
+      <div class="buf-row fragment">
+        <span class="buf-label"></span>
+        <span class="buffer-cell">0</span>
+        <span class="buffer-cell write">3</span>
+        <span class="buffer-cell write">1</span>
+        <span class="buffer-cell write">2</span>
+        <span class="buffer-cell">0</span>
+        <span class="buffer-cell">0</span>
+        <span class="buffer-cell write">1</span>
+        <span class="buffer-cell write">1</span>
+      </div>
+      <p class="fragment small">Result: bucket 1 sees 3 points; bucket 2 sees 1; bucket 3 sees 2; etc.</p>
+    </section>
+
+    <!-- Stage 2: Scan -->
+    <section>
+      <h3><span class="step-tag">stage 2b</span> Prefix scan &mdash; $B$ threads cooperate</h3>
+      <p class="small">Exclusive prefix sum on <code>col_count[w0]</code> gives <code>col_ptr[w0]</code> (start indices):</p>
+      <div class="buf-row">
+        <span class="buf-label">col_count[w0]:</span>
+        <span class="buffer-cell read">0</span>
+        <span class="buffer-cell read">3</span>
+        <span class="buffer-cell read">1</span>
+        <span class="buffer-cell read">2</span>
+        <span class="buffer-cell read">0</span>
+        <span class="buffer-cell read">0</span>
+        <span class="buffer-cell read">1</span>
+        <span class="buffer-cell read">1</span>
+      </div>
+      <p class="small fragment">↓ scan ↓</p>
+      <div class="buf-row fragment">
+        <span class="buf-label">col_ptr[w0]:</span>
+        <span class="buffer-cell write">0</span>
+        <span class="buffer-cell write">0</span>
+        <span class="buffer-cell write">3</span>
+        <span class="buffer-cell write">4</span>
+        <span class="buffer-cell write">6</span>
+        <span class="buffer-cell write">6</span>
+        <span class="buffer-cell write">6</span>
+        <span class="buffer-cell write">7</span>
+        <span class="buffer-cell write">8</span>
+      </div>
+      <p class="fragment small">Bucket $b$ owns positions $\big[\texttt{col\_ptr}[b],\, \texttt{col\_ptr}[b{+}1]\big)$ in <code>val_idx</code>.</p>
+    </section>
+
+    <!-- Stage 2: Scatter -->
+    <section>
+      <h3><span class="step-tag">stage 2c</span> Scatter &mdash; 8 parallel writes</h3>
+      <p class="small">Each thread writes its $i$ to the right slot in <code>val_idx</code> using <code>col_ptr</code> + an atomic cursor.</p>
+      <div class="buf-row">
+        <span class="buf-label">val_idx[w0]:</span>
+        <span class="buffer-cell write">0</span>
+        <span class="buffer-cell write">5</span>
+        <span class="buffer-cell write">7</span>
+        <span class="buffer-cell write">3</span>
+        <span class="buffer-cell write">2</span>
+        <span class="buffer-cell write">4</span>
+        <span class="buffer-cell write">1</span>
+        <span class="buffer-cell write">6</span>
+      </div>
+      <p class="small">Reading <code>val_idx</code> with <code>col_ptr</code>:</p>
+      <table class="scalar-table fragment">
+        <tr><th>bucket</th><th>range in val_idx</th><th>contents</th></tr>
+        <tr><td>1</td><td>[0, 3)</td><td>$P_0, P_5, P_7$</td></tr>
+        <tr><td>2</td><td>[3, 4)</td><td>$P_3$</td></tr>
+        <tr><td>3</td><td>[4, 6)</td><td>$P_2, P_4$</td></tr>
+        <tr><td>6</td><td>[6, 7)</td><td>$P_1$</td></tr>
+        <tr><td>7</td><td>[7, 8)</td><td>$P_6$</td></tr>
+      </table>
+      <p class="fragment good small">Same end result as bberg's MSD radix sort &mdash; achieved with 3 parallel dispatches.</p>
+    </section>
+
+    <!-- Stage 3: Init -->
+    <section>
+      <h3><span class="step-tag">stage 3a</span> Init &mdash; 8 threads, one per bucket</h3>
+      <div class="grid-wrap">
+        <div class="gpu-grid">
+          <span class="thread-cell idle">b0</span>
+          <span class="thread-cell active">b1</span>
+          <span class="thread-cell active">b2</span>
+          <span class="thread-cell active">b3</span>
+          <span class="thread-cell idle">b4</span>
+          <span class="thread-cell idle">b5</span>
+          <span class="thread-cell active">b6</span>
+          <span class="thread-cell active">b7</span>
+        </div>
+        <div class="grid-caption">5 active buckets, 3 idle (empty)</div>
+      </div>
+      <p class="small fragment">After init:</p>
+      <table class="scalar-table fragment">
+        <tr><th>bucket</th><th>running[b]</th><th>cursor[b]</th><th>row_end[b]</th><th>active?</th></tr>
+        <tr><td>1</td><td>$P_0$</td><td>1</td><td>3</td><td><span class="good">yes</span></td></tr>
+        <tr><td>2</td><td>$P_3$</td><td>4</td><td>4</td><td><span class="warm">no (single-pt)</span></td></tr>
+        <tr><td>3</td><td>$P_2$</td><td>5</td><td>6</td><td><span class="good">yes</span></td></tr>
+        <tr><td>6</td><td>$P_1$</td><td>7</td><td>7</td><td><span class="warm">no (single-pt)</span></td></tr>
+        <tr><td>7</td><td>$P_6$</td><td>8</td><td>8</td><td><span class="warm">no (single-pt)</span></td></tr>
+      </table>
+      <p class="fragment small">Only buckets 1 and 3 need any rounds. Single-pt buckets are done after init.</p>
+    </section>
+
+    <!-- Stage 3: Round 1 -->
+    <section>
+      <h3><span class="step-tag">round 1</span> &nbsp; 2 buckets emit pairs in parallel</h3>
+      <p class="label">Schedule (parallel over buckets):</p>
+      <div class="buf-row">
+        <span class="buf-label">pair_delta:</span>
+        <span class="buffer-cell write">δ₁ = $P_5.x - P_0.x$</span>
+        <span class="buffer-cell write">δ₂ = $P_4.x - P_2.x$</span>
+      </div>
+      <div class="buf-row">
+        <span class="buf-label">pair_meta (target):</span>
+        <span class="buffer-cell">b1</span>
+        <span class="buffer-cell">b3</span>
+      </div>
+      <p class="label fragment" style="margin-top:0.5em;">Batch inverse (parallel chain, 1 Fermat inv):</p>
+      <p class="fragment">$$ \pi_2 = \delta_1 \delta_2,\quad \rho_2 = \pi_2^{-1},\quad \delta_1^{-1} = \rho_2 \delta_2,\quad \delta_2^{-1} = \rho_2 \delta_1 $$</p>
+      <p class="label fragment">Apply (parallel, 2 threads):</p>
+      <div class="grid-wrap fragment">
+        <div class="gpu-grid">
+          <span class="thread-cell write">p0</span>
+          <span class="thread-cell write">p1</span>
+        </div>
+        <div class="grid-caption">2 affine adds in parallel</div>
+      </div>
+      <p class="fragment small">After: <code>running[1]</code> = $P_0 + P_5$; <code>running[3]</code> = $P_2 + P_4$.</p>
+    </section>
+
+    <!-- Stage 3: Round 2 -->
+    <section>
+      <h3><span class="step-tag">round 2</span> &nbsp; only bucket 1 still has work</h3>
+      <div class="buf-row">
+        <span class="buf-label">pair_delta:</span>
+        <span class="buffer-cell write">δ = $P_7.x - (P_0{+}P_5).x$</span>
+      </div>
+      <p class="small fragment">$m = 1$ pair. Batch invert collapses to a single Fermat inv.</p>
+      <p class="small fragment">After apply: <code>running[1]</code> = $P_0 + P_5 + P_7$.</p>
+      <p class="fragment label">All buckets now finalised. Final bucket sums:</p>
+      <table class="scalar-table fragment">
+        <tr><th>$k$</th><th>$B_{0,k}$</th></tr>
+        <tr><td>1</td><td>$P_0 + P_5 + P_7$</td></tr>
+        <tr><td>2</td><td>$P_3$</td></tr>
+        <tr><td>3</td><td>$P_2 + P_4$</td></tr>
+        <tr><td>6</td><td>$P_1$</td></tr>
+        <tr><td>7</td><td>$P_6$</td></tr>
+      </table>
+      <p class="fragment good small">3 affine adds, ~3 inversions. Same algorithm as bberg, different control flow.</p>
+    </section>
+
+    <!-- Stage 4: BPR -->
+    <section>
+      <h3><span class="step-tag">stage 4</span> BPR &mdash; parallel per-window reduce</h3>
+      <p class="small">$T = 2$ windows. With $B = 8$, $W = 2$ threads per window, each handles 4 buckets.</p>
+      <table class="scalar-table">
+        <tr><th>thread</th><th>slice</th><th>buckets in slice</th><th>partial $m$</th><th>partial $g$ (own slice)</th></tr>
+        <tr><td>w0/t0</td><td>$k = 0..3$</td><td>—, $B_1$, $B_2$, $B_3$</td><td>$B_1 + B_2 + B_3$</td><td>$B_1 + 2B_2 + 3B_3$</td></tr>
+        <tr><td>w0/t1</td><td>$k = 4..7$</td><td>—, —, $B_6$, $B_7$</td><td>$B_6 + B_7$</td><td>$B_6 + 2B_7$</td></tr>
+      </table>
+      <p class="small fragment">BPR-2 combines: adds the higher-slice carry (count of "rows below") to the lower-slice $g$:</p>
+      <p class="fragment small">
+        $W_0 = (B_1 + 2B_2 + 3B_3) + 4 \cdot (B_6 + B_7) + (B_6 + 2B_7)$
+      </p>
+      <p class="fragment small">
+        $= P_0 + 6P_1 + 3P_2 + 2P_3 + 3P_4 + P_5 + 7P_6 + P_7$ &nbsp;<span class="good">✓</span>
+      </p>
+      <p class="fragment small">Same for window 1: $W_1 = 3P_0 + P_1 + 2P_3 + P_4 + 3P_5 + 5P_7$.</p>
+    </section>
+
+    <!-- Stage 5: Horner -->
+    <section>
+      <h3><span class="step-tag">stage 5</span> Horner &mdash; single workgroup, $T{=}2$ threads</h3>
+      <p class="small">Thread 0 walks the chain:</p>
+      <table class="scalar-table">
+        <tr><th>step</th><th>$S$ after</th><th>op</th></tr>
+        <tr><td>init</td><td>$\mathcal{O}$</td><td>—</td></tr>
+        <tr class="fragment"><td>add $W_1$</td><td>$W_1$</td><td>1 add</td></tr>
+        <tr class="fragment"><td>double</td><td>$2W_1$</td><td>1 dbl</td></tr>
+        <tr class="fragment"><td>double</td><td>$4W_1$</td><td>1 dbl</td></tr>
+        <tr class="fragment"><td>double</td><td>$8W_1$</td><td>1 dbl &nbsp; (= $\cdot 2^c$)</td></tr>
+        <tr class="fragment"><td>add $W_0$</td><td>$8W_1 + W_0$</td><td>1 add</td></tr>
+      </table>
+      <p class="fragment small good" style="margin-top:0.4em;">
+        $S = 25P_0 + 14P_1 + 3P_2 + 18P_3 + 11P_4 + 25P_5 + 7P_6 + 41P_7$ &nbsp;✓
+      </p>
+      <p class="fragment tiny">CPU reads back $\sim 240$ B; normalises to affine; returns. Done.</p>
+    </section>
+  </section>
+
+  <!-- ============================ WHERE WEBGPU SHINES ===================== -->
+  <section>
+    <h2>Where WebGPU shines</h2>
+    <ul>
+      <li class="fragment"><span class="accent">Stage 1</span> &mdash; $n$ scalars decomposed in <strong>1 dispatch</strong>. CPU bberg interleaves digit extraction with each window.</li>
+      <li class="fragment"><span class="accent">Stage 2 scatter</span> &mdash; $n$ parallel atomic writes. CPU bberg radix-sorts sequentially.</li>
+      <li class="fragment"><span class="accent">Stage 3 schedule/apply</span> &mdash; up to $\sim B$ pairs queued and applied per round, fully parallel. CPU bberg processes pairs sequentially through the classifier.</li>
+      <li class="fragment"><span class="accent">Stage 4 BPR</span> &mdash; $T \cdot W$ threads cooperate. CPU bberg walks each window's buckets sequentially.</li>
+    </ul>
+    <p class="fragment good small" style="margin-top:0.6em;">
+      Wider $n$ means more work per stage to amortise the fixed cost of kernel launches and shader pipelining. <strong>Speedup grows with $n$.</strong>
+    </p>
+  </section>
+
+  <!-- ============================ PROFILE DATA ============================ -->
+  <section>
+    <h2>Where the GPU spends its time</h2>
+    <p class="small">Measured per-stage median (ms), subtasks/rounds summed within rep:</p>
+    <div class="perf-row">
+      <span class="perf-label">2^16</span>
+      <div class="perf-bar">
+        <span class="seg" style="background:#7ab7ff; flex: 24.6;">ba_inv 24.6</span>
+        <span class="seg" style="background:#5fd38a; flex: 7.3;">apply 7.3</span>
+        <span class="seg" style="background:#ffd166; flex: 29.2;">bpr_1 29.2</span>
+        <span class="seg" style="background:#ff6b6b; flex: 18.6;">other 18.6</span>
+      </div>
+    </div>
+    <div class="perf-row">
+      <span class="perf-label">2^17</span>
+      <div class="perf-bar">
+        <span class="seg" style="background:#7ab7ff; flex: 31.3;">ba_inv 31.3</span>
+        <span class="seg" style="background:#5fd38a; flex: 11.2;">apply 11.2</span>
+        <span class="seg" style="background:#ffd166; flex: 26.6;">bpr_1 26.6</span>
+        <span class="seg" style="background:#ff6b6b; flex: 22.8;">other 22.8</span>
+      </div>
+    </div>
+    <div class="perf-row">
+      <span class="perf-label">2^18</span>
+      <div class="perf-bar">
+        <span class="seg" style="background:#7ab7ff; flex: 50.2;">ba_inv 50.2</span>
+        <span class="seg" style="background:#5fd38a; flex: 22.2;">apply 22.2</span>
+        <span class="seg" style="background:#ffd166; flex: 26.5;">bpr_1 26.5</span>
+        <span class="seg" style="background:#ff6b6b; flex: 41.5;">other 41.5</span>
+      </div>
+    </div>
+    <div class="perf-row">
+      <span class="perf-label">2^19</span>
+      <div class="perf-bar">
+        <span class="seg" style="background:#7ab7ff; flex: 88.1;">ba_inv 88.1</span>
+        <span class="seg" style="background:#5fd38a; flex: 42.7;">apply 42.7</span>
+        <span class="seg" style="background:#ffd166; flex: 27.2;">bpr_1 27.2</span>
+        <span class="seg" style="background:#ff6b6b; flex: 60.4;">other 60.4</span>
+      </div>
+    </div>
+    <div class="perf-row">
+      <span class="perf-label">2^20</span>
+      <div class="perf-bar">
+        <span class="seg" style="background:#7ab7ff; flex: 175.2;">ba_inv 175.2</span>
+        <span class="seg" style="background:#5fd38a; flex: 76.7;">apply 76.7</span>
+        <span class="seg" style="background:#ffd166; flex: 31.6;">bpr_1 31.6</span>
+        <span class="seg" style="background:#ff6b6b; flex: 90.5;">other 90.5</span>
+      </div>
+    </div>
+    <p class="perf-legend">
+      <span class="ll" style="color:#7ab7ff;">ba_inverse</span>
+      <span class="ll" style="color:#5fd38a;">ba_apply</span>
+      <span class="ll" style="color:#ffd166;">bpr_1</span>
+      <span class="ll" style="color:#ff6b6b;">rest of pipeline</span>
+    </p>
+    <p class="fragment small" style="margin-top:0.5em;">
+      Two stages dominate: <strong>ba_inverse</strong> (grows linearly with $n$) and <strong>bpr_1</strong> (flat — fixed in $B$).
+    </p>
+  </section>
+
+  <!-- ============================ BOTTLENECK 1 ============================ -->
+  <section>
+    <h2>Bottleneck 1: <code>ba_inverse</code></h2>
+    <p>$47\%$ of GPU wall at $n = 2^{20}$. Grows linearly with $n$.</p>
+    <div class="flow">
+      <div class="flow-card">
+        <div class="title">What it does</div>
+        <div class="body">Per round, batch-inverts $m$ pair-deltas. Multi-workgroup parallel mode: $m$ deltas split into $\texttt{NUM\_SUB\_WGS}$ slices.</div>
+      </div>
+      <div class="flow-card warm fragment">
+        <div class="title">Why it's slow</div>
+        <div class="body">Each workgroup runs a <em>sequential</em> Fermat inversion ($\sim 254$ squarings + multiplies). Many rounds → many such inversions.</div>
+      </div>
+      <div class="flow-card good fragment">
+        <div class="title">How to improve</div>
+        <div class="body">
+          <ul>
+            <li>Increase $\texttt{NUM\_SUB\_WGS}$ at large $n$ (more SM occupancy, more inversion concurrency)</li>
+            <li>Reduce MAX_ROUNDS by packing more pairs per round</li>
+            <li>Explore Bos–Coster style batch inversion (slightly different math)</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <p class="fragment small good" style="margin-top:0.4em;">
+      Predicted: $2\times$ improvement here → wall drops from 397 ms to $\sim 280$ ms at $n = 2^{20}$.
+    </p>
+  </section>
+
+  <!-- ============================ BOTTLENECK 2 ============================ -->
+  <section>
+    <h2>Bottleneck 2: <code>ba_apply</code></h2>
+    <p>$21\%$ of GPU wall at $n = 2^{20}$. Grows linearly with $n$.</p>
+    <div class="flow">
+      <div class="flow-card">
+        <div class="title">What it does</div>
+        <div class="body">$m$ threads compute parallel affine adds: $\mu, x_3, y_3$ formulas. Reads pair-deltas, $\delta^{-1}$, $P, Q$ coords; writes updated <code>running[b]</code>.</div>
+      </div>
+      <div class="flow-card warm fragment">
+        <div class="title">Why it's slow</div>
+        <div class="body">Likely <strong>memory-bandwidth bound</strong>: each thread reads $\sim 2 \times 20 \times 4 = 160$ B of BigInt coords. At $n = 2^{20}$, that's $\sim 200$ MB of buffer traffic per round.</div>
+      </div>
+      <div class="flow-card good fragment">
+        <div class="title">How to confirm + fix</div>
+        <div class="body">
+          <ul>
+            <li>Run the roofline microbench (<code>gen_roofline_microbench_shader</code>) to compare BW vs compute throughput</li>
+            <li>If BW-bound: convert AoS pair pool → SoA (split-coord arrays)</li>
+            <li>Bigger limb width ($w = 13 \to 16$, $L = 20 \to 16$) → 20% BW saving but needs WGSL carry redo</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ BOTTLENECK 3 ============================ -->
+  <section>
+    <h2>Bottleneck 3: <code>bpr_1</code></h2>
+    <p>$37\%$ at $n = 2^{16}$; only $8\%$ at $n = 2^{20}$. Cost is <strong>fixed in $n$</strong> (scales with $B = 2^{c-1}$).</p>
+    <div class="flow">
+      <div class="flow-card">
+        <div class="title">What it does</div>
+        <div class="body">Per-window parallel suffix-sum reduce: $W$ threads compute local $(m_t, g_t)$ partials over slices of $B/W$ buckets each.</div>
+      </div>
+      <div class="flow-card warm fragment">
+        <div class="title">Why it's slow at small $n$</div>
+        <div class="body">$B \cdot T$ work is constant ($\sim 280{,}000$ G$_1$ adds with $c = 15$). At small $n$, this fixed cost is the largest fraction.</div>
+      </div>
+      <div class="flow-card good fragment">
+        <div class="title">Free / cheap wins</div>
+        <div class="body">
+          <ul>
+            <li><code>bpr_inner_loop = "mixed_safe"</code> — saves $\sim 8$ ms (10% on $n=2^{16}$ wall). Already in the library.</li>
+            <li><code>bpr_inner_loop = "assume_affine"</code> — saves $\sim 13$–$25$ ms (Tint codegen sensitive).</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <p class="fragment small accent" style="margin-top:0.5em;">
+      These knobs are <em>1 parameter</em> at the entry point. <strong>Try them first.</strong>
+    </p>
+  </section>
+
+  <!-- ============================ ROADMAP ================================= -->
+  <section>
+    <h2>Optimization roadmap (ranked)</h2>
+    <div class="flow">
+      <div class="flow-card good">
+        <div class="title">Tier 1 &mdash; <code>bpr_inner_loop</code> variants</div>
+        <div class="body">Already in the lib. Flip default. <strong>10–25% win at $n = 2^{16}$, low risk.</strong></div>
+      </div>
+      <div class="flow-card fragment">
+        <div class="title">Tier 2 &mdash; <code>ba_inverse</code> parallelism budget</div>
+        <div class="body">Tune <code>NUM_SUB_WGS</code> as function of $n$. Re-tune <code>MAX_ROUNDS</code>. Potential $2\times$ on large $n$.</div>
+      </div>
+      <div class="flow-card fragment">
+        <div class="title">Tier 3 &mdash; roofline <code>ba_apply</code></div>
+        <div class="body">Microbench BW vs compute. If BW-bound, SoA + limb-width refactor. 20% saving possible.</div>
+      </div>
+      <div class="flow-card fragment">
+        <div class="title">Tier 4 &mdash; GLV / endomorphism</div>
+        <div class="body">Decompose 254-bit scalars into two 128-bit halves using bn254's $\phi$. <strong>Halves $T$.</strong> Big algorithmic lever. Removed from current code; needs re-wire.</div>
+      </div>
+      <div class="flow-card fragment">
+        <div class="title">Tier 5 &mdash; Hide <code>writeBuffer(scalars)</code></div>
+        <div class="body">CPU upload is sync today (~15 ms at $n = 2^{20}$). Overlap with previous dispatch.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ SPECIALIZED CASES ======================= -->
+  <section>
+    <h2>Specialized scalar distributions</h2>
+    <div class="cmp">
+      <div class="cmp-col gpu">
+        <h4>Case A: 32-bit scalars</h4>
+        <p>$T = \lceil 32/c \rceil$ drops from 17 to 2 (or 3). All linear stages shrink by $\sim 8\times$. BPR-1 shrinks by 8×.</p>
+        <p class="good">Modelled: $n=2^{16}$ wall <strong>75 → 14 ms</strong> (5.4× speedup).</p>
+      </div>
+      <div class="cmp-col warm">
+        <h4>Case B: 90% zero, 10% small</h4>
+        <p>Current pipeline gains nothing — every stage iterates over $n$ regardless of sparsity.</p>
+        <p>Need a <strong>zero-filter compaction front-end</strong> (one pass + atomicAdd to produce a list of nonzero scalars).</p>
+        <p class="good">Modelled (with zero-filter + small $c$): $n=2^{16}$ wall <strong>75 → 5–8 ms</strong> (10–15× speedup).</p>
+      </div>
+    </div>
+    <p class="fragment small" style="margin-top:0.5em;">
+      Both require new entry points but the underlying shaders are unchanged. The infrastructure (<code>glv_override</code> shape) exists.
+    </p>
+  </section>
+
+  <!-- ============================ TAKEAWAYS ================================ -->
+  <section>
+    <h2>Takeaways</h2>
+    <ol>
+      <li class="fragment">WebGPU MSM is a <strong>different shape</strong> of the same Pippenger: rounds over recirculation, parallel transpose over radix sort, parallel BPR over sequential suffix-sum.</li>
+      <li class="fragment">It pays $\sim 25\times$ per-thread field-mul cost vs native, and wins by running $\sim 10^4$ threads in parallel.</li>
+      <li class="fragment">Persistent context + cached bases are <strong>load-bearing</strong>: without them the cold-path cost dominates.</li>
+      <li class="fragment">At $n = 2^{20}$ we're <strong>2.06× faster</strong> than 14-thread WASM-MT. The speedup grows with $n$.</li>
+      <li class="fragment good">Two dominant stages: <strong>ba_inverse</strong> (linear in $n$) and <strong>bpr_1</strong> (flat in $n$). Optimisation strategy depends on which $n$ matters.</li>
+      <li class="fragment accent">For sparse / small-scalar workloads, a sparse-aware front-end can deliver <strong>10–15×</strong> on top of the current pipeline.</li>
+    </ol>
+  </section>
+
+  <!-- ============================ SOURCE MAP =============================== -->
+  <section>
+    <h2>Source map</h2>
+    <ul class="small">
+      <li><code>index.ts</code> — public entry points: warm + cold + persistent context</li>
+      <li><code>msm.ts</code> — top-level orchestrator and 5-stage pipeline</li>
+      <li><code>cuzk/curve_config.ts</code> — BN254 constants ($w = 13$, $L = 20$)</li>
+      <li><code>cuzk/shader_manager.ts</code> — WGSL template renderer + pipeline cache</li>
+      <li><code>cuzk/gpu_context.ts</code> — persistent device + pipeline + buffer + bind-group caches</li>
+      <li><code>cuzk/cached_bases.ts</code> — one-time SRS upload + Montgomery conversion</li>
+      <li><code>cuzk/batch_affine.ts</code> — Stage-3 host driver (init → rounds → finalize)</li>
+      <li><code>wgsl/cuzk/</code> — all WGSL shader sources</li>
+      <li><code>dev/msm-webgpu/</code> — comparison harness against bb.js WASM Pippenger</li>
+    </ul>
+    <p class="small" style="margin-top:0.8em;">
+      Companion docs:
+      <a href="MSM_DESIGN_ANALYSIS.md"><code>MSM_DESIGN_ANALYSIS.md</code></a>
+      ·
+      <a href="MSM_BBERG_SLIDES.html"><code>MSM_BBERG_SLIDES.html</code></a>
+    </p>
+    <p style="margin-top:1.5em;" class="accent"><strong>Questions?</strong></p>
+  </section>
+
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@4.6.1/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@4.6.1/plugin/math/math.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@4.6.1/plugin/notes/notes.js"></script>
+<script>
+  Reveal.initialize({
+    hash: true,
+    controls: true,
+    progress: true,
+    center: false,
+    transition: 'slide',
+    transitionSpeed: 'fast',
+    backgroundTransition: 'fade',
+
+    katex: {
+      version: '0.16.9',
+      delimiters: [
+        { left: '$$', right: '$$', display: true },
+        { left: '$',  right: '$',  display: false },
+        { left: '\\[', right: '\\]', display: true },
+        { left: '\\(', right: '\\)', display: false }
+      ],
+      ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre']
+    },
+
+    plugins: [ RevealMath.KaTeX, RevealNotes ]
+  });
+</script>
+</body>
+</html>

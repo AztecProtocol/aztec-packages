@@ -45,6 +45,9 @@ export class BarretenbergWasmAsyncBackend implements IMsgpackBackendAsync {
   private constructor(
     private wasm: BarretenbergWasmMain | BarretenbergWasmMainWorker,
     private worker?: any,
+    // Bridge handle when webgpuMsm was wired during init. Destroyed alongside
+    // the backend so the GPUDevice + MSM point pool are released.
+    private webgpuBridge?: { destroy: () => Promise<void> },
   ) {}
 
   /**
@@ -55,6 +58,7 @@ export class BarretenbergWasmAsyncBackend implements IMsgpackBackendAsync {
    * @param options.memory Optional initial and maximum memory configuration
    * @param options.useWorker Run on worker thread (default: true for browser safety)
    * @param options.unref Unref worker handles so they don't prevent process exit
+   * @param options.webgpuMsm Wire the WebGPU MSM bridge (browser + worker mode only)
    */
   static async new(
     options: {
@@ -64,6 +68,9 @@ export class BarretenbergWasmAsyncBackend implements IMsgpackBackendAsync {
       memory?: { initial?: number; maximum?: number };
       useWorker?: boolean;
       unref?: boolean;
+      webgpuMsm?: boolean;
+      msmCsvMode?: boolean;
+      oracleRouteSeqs?: number[];
     } = {},
   ): Promise<BarretenbergWasmAsyncBackend> {
     // Default to worker mode for browser safety
@@ -73,6 +80,18 @@ export class BarretenbergWasmAsyncBackend implements IMsgpackBackendAsync {
       // Worker-based mode: runs on worker thread (browser-safe)
       const worker = await createMainWorker();
       const wasm = getRemoteBarretenbergWasm<BarretenbergWasmMainWorker>(worker);
+
+      // WebGPU bridge wiring. Must happen BEFORE wasm.init() so the worker's
+      // env imports for bb_external_msm_bn254 / bb_publish_srs_bn254 are
+      // overridden with the SAB-backed bridge stubs in time for WASM
+      // instantiation. Browser-only; main-thread-only (the GPUDevice lives
+      // there). Skipped silently if navigator.gpu is unavailable.
+      let webgpuBridge: { destroy: () => Promise<void> } | undefined;
+      if (options.webgpuMsm && typeof navigator !== 'undefined' && 'gpu' in navigator) {
+        const { setupWebGpuMsmBridge } = await import('../msm_webgpu/setup.js');
+        webgpuBridge = await setupWebGpuMsmBridge(worker as unknown as Worker);
+      }
+
       const { module, threads } = await fetchModuleAndThreads(options.threads, options.wasmPath, options.logger);
       await wasm.init(
         module,
@@ -81,15 +100,54 @@ export class BarretenbergWasmAsyncBackend implements IMsgpackBackendAsync {
         options.memory?.initial,
         options.memory?.maximum,
       );
+
+      // After init the WASM memory exists. Have the worker post it back to
+      // the bridge host (handled by setupWebGpuMsmBridge's message listener),
+      // then flip the runtime gate so batch_multi_scalar_mul starts routing
+      // BN254 MSMs at or above WEBGPU_MSM_THRESHOLD through the bridge.
+      if (webgpuBridge) {
+        await wasm.publishWebGpuMemory();
+        await wasm.call('bb_set_webgpu_msm_enabled', 1);
+        // Batch-size-aware small-MSM delegation. When a batch_multi_scalar_mul holds
+        // >= BD_K MSMs, MSMs of size >= BD_SMALL are delegated to the GPU union
+        // (instead of the compile-time 2^14), so the union batches the small ones —
+        // which saturate the GPU (MULTI_MSM_PERF.md) where one-at-a-time would starve
+        // it. In csv-measurement mode every MSM is delegated (k=1, small=1) so each
+        // commit is timed on the GPU; otherwise the shipped batch-size-aware config.
+        const [BD_K, BD_SMALL] = options.msmCsvMode ? [1, 1] : [2, 512];
+        if (BD_K !== 0xffffffff) {
+          await wasm.call('bb_set_webgpu_batch_delegate', BD_K >>> 0, BD_SMALL >>> 0);
+        }
+        // Oracle routing: dispatch exactly the per-seq set the caller selected
+        // (e.g. the GPU-faster MSMs from a per-MSM CPU-vs-GPU oracle CSV) instead
+        // of the size predicate. seq counts MSMs in deterministic commit order.
+        if (options.oracleRouteSeqs && options.oracleRouteSeqs.length > 0) {
+          await wasm.call('bb_webgpu_route_clear');
+          for (const seq of options.oracleRouteSeqs) {
+            await wasm.call('bb_webgpu_route_add', seq >>> 0);
+          }
+          await wasm.call('bb_webgpu_route_enable', 1);
+        }
+      }
+      if (options.msmCsvMode) {
+        await wasm.call('bb_set_msm_csv_mode', 1);
+      }
+
       if (options.unref) {
         worker.unref();
       }
-      return new BarretenbergWasmAsyncBackend(wasm, worker);
+      return new BarretenbergWasmAsyncBackend(wasm, worker, webgpuBridge);
     } else {
-      // Direct mode: runs on calling thread (faster but blocks thread)
+      // Direct mode: runs on calling thread (faster but blocks thread). The
+      // WebGPU bridge is worker-mode only — the bridge protocol assumes a
+      // worker that can block on Atomics.wait while the main thread services
+      // GPU work, which is the inverse topology of direct mode.
       const wasm = new BarretenbergWasmMain();
       const { module, threads } = await fetchModuleAndThreads(options.threads, options.wasmPath, options.logger);
       await wasm.init(module, threads, options.logger, options.memory?.initial, options.memory?.maximum, options.unref);
+      if (options.msmCsvMode) {
+        await wasm.call('bb_set_msm_csv_mode', 1);
+      }
       return new BarretenbergWasmAsyncBackend(wasm);
     }
   }
@@ -100,6 +158,9 @@ export class BarretenbergWasmAsyncBackend implements IMsgpackBackendAsync {
 
   async destroy(): Promise<void> {
     await this.wasm.destroy();
+    if (this.webgpuBridge) {
+      await this.webgpuBridge.destroy();
+    }
     if (this.worker) {
       await this.worker.terminate();
     }

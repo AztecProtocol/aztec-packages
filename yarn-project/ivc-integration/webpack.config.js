@@ -18,6 +18,12 @@ export default {
       {
         test: /\.tsx?$/,
         loader: 'ts-loader',
+        // The bundle's only entry is src/serve.ts; we don't need ts-loader
+        // to type-check the rest of the monorepo (test files, sibling
+        // packages whose codegen hasn't run, etc.). Type errors from
+        // tsc.sh are the source of truth; this just gets the bundle
+        // built.
+        options: { transpileOnly: true },
       },
     ],
   },
@@ -38,6 +44,14 @@ export default {
   ],
   resolve: {
     plugins: [new ResolveTypeScriptPlugin()],
+    // Force the browser export of @aztec/bb.js (with the WebGPU MSM bridge
+    // and worker-based WASM). Webpack's exports-field resolution picks
+    // node-cjs here because the yarn portal protocol short-circuits the
+    // conditional-export pickoff for some webpack versions; alias straight
+    // to the browser bundle.
+    alias: {
+      '@aztec/bb.js$': resolve(dirname(fileURLToPath(import.meta.url)), '../../barretenberg/ts/dest/browser/index.js'),
+    },
     fallback: {
       tty: false,
       os: false,

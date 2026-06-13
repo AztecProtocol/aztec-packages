@@ -10,6 +10,9 @@
 
 #include "./process_buckets.hpp"
 #include "./scalar_multiplication.hpp"
+#ifdef BBERG_WEBGPU_MSM_HOOK
+#include "./webgpu_msm_hook.hpp"
+#endif
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
@@ -682,6 +685,29 @@ std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
     bool handle_edge_cases,
     std::span<const uint8_t> dedup_hints) noexcept
 {
+#ifdef BBERG_WEBGPU_MSM_HOOK
+    // WebGPU hook: when the runtime flag is on (bb_set_webgpu_msm_enabled from
+    // JS), route BN254 batch MSM to the bb.js GPU bridge. Adapt the (shared
+    // points + per-MSM PolynomialSpan) shape to the hook's per-MSM (points
+    // span, scalar span) form — mirroring the legacy adapter below; the hook
+    // decides each MSM individually via WEBGPU_MSM_THRESHOLD.
+    if constexpr (std::is_same_v<Curve, curve::BN254>) {
+        if (!handle_edge_cases && webgpu_msm_runtime_enabled()) {
+            const size_t kw = scalars.size();
+            std::vector<std::span<const AffineElement>> hook_points;
+            std::vector<std::span<ScalarField>> hook_scalars;
+            hook_points.reserve(kw);
+            hook_scalars.reserve(kw);
+            for (size_t i = 0; i < kw; ++i) {
+                const size_t start_i = std::min(scalars[i].start_index, points.size());
+                const size_t n = std::min(scalars[i].span.size(), points.size() - start_i);
+                hook_points.push_back(points.subspan(start_i, n));
+                hook_scalars.push_back(scalars[i].span);
+            }
+            return batch_multi_scalar_mul_webgpu_bn254(hook_points, hook_scalars, {});
+        }
+    }
+#endif
     if (use_legacy_msm()) {
         // Adapt the rewrite's (single shared points + per-MSM PolynomialSpan) shape to the
         // legacy per-MSM (points span, scalar span) shape. dedup_hints are dropped.

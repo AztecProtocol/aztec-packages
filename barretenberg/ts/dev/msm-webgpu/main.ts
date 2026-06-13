@@ -1,0 +1,4398 @@
+// In-browser MSM comparison harness for the BN254 WebGPU port.
+//   Compares, for sizes 2^10..2^20 over a real prefix of the public SRS:
+//     - WebGPU MSM via the v2 pair-tree pipeline (`MsmV2`, msm_v2.ts —
+//       the memory-bounded carry-free-Booth / pair-tree / fused-reduction
+//       port; runs on the warm path with a persistent GPUDevice, an MsmV2
+//       rebuilt per logN, and one warm-up dispatch before timed runs)
+//     - Barretenberg WASM Pippenger, multi-threaded (numThreads = hw)
+//   The WASM path uses `bb_native_pippenger_bn254_load` (decode + upload
+//   inputs, untimed) followed by `bb_native_pippenger_bn254_run` (the
+//   timed `batch_multi_scalar_mul_native` compute) — direct WASM exports that
+//   skip the BBERG_WEBGPU_MSM_HOOK delegation, since calling the regular batch
+//   entry point from a hooked WASM would recurse back into the WebGPU
+//   bridge. Splitting load from run keeps input-structure population out
+//   of the measured window.
+//
+//   Noble correctness check runs only at log₂(n) = 16. At larger sizes
+//   noble's bigint Pippenger is too slow to be a useful in-loop check.
+//
+// Layout assumptions (matches webgpu_msm_marshalling.hpp:marshal_points):
+//   - `pointsBuf` is `n × 64` LE bytes: `[x_0[32] || y_0[32] || x_1[32] || y_1[32] || ...]`,
+//     non-Montgomery, interleaved per point.
+//   - `scalarsBuf` is `n × 32` LE bytes, non-Montgomery Fr.
+
+import { bn254 } from '@noble/curves/bn254';
+
+import { get_device } from '../../src/msm_webgpu/cuzk/gpu.js';
+import {
+  BN254_BASE_FIELD,
+  BN254_JACOBIAN_ZERO,
+  type Bn254Jacobian,
+  addBn254Jacobian,
+  doubleBn254Jacobian,
+  scalarMultBn254Jacobian,
+  toAffineBn254Jacobian,
+  isBn254OnCurve,
+} from '../../src/msm_webgpu/cuzk/bn254.js';
+import {
+  MsmV2,
+  MsmV2Pool,
+  type MsmConfig,
+  type BatchMember,
+  pickC,
+  MEM_BUDGET,
+  hostWindowCombine,
+} from '../../src/msm_webgpu/msm_v2.js';
+import { planBatch, computeGeom } from '../../src/msm_webgpu/batch_scheduler.js';
+import { runUnionPacks, type BridgeDescriptor } from '../../src/msm_webgpu/bridge/union_runner.js';
+import { WebGpuMsmHost } from '../../src/msm_webgpu/bridge/main.js';
+import {
+  createControlBuffer,
+  OP_BATCH_MSM,
+  OP_PUBLISH_SRS,
+  SLOT_BATCH_LABELS_PTR,
+  SLOT_BATCH_META_PTR,
+  SLOT_N,
+  SLOT_OPCODE,
+  SLOT_POINTS_PTR,
+  SLOT_RESULT_PTR,
+  SLOT_SCALARS_PTR,
+  SLOT_STATE,
+  STATE_DONE,
+} from '../../src/msm_webgpu/bridge/protocol.js';
+import {
+  computeMsbHistogram,
+  chooseVarWindowSplit,
+  buildVarWindowSchedule,
+  effectiveNumBits,
+  buildWindowDescReference,
+} from '../../src/msm_webgpu/var_window_split.js';
+import { createWasmPippenger, parseAffineLE, type WasmPippengerHandle } from './pippenger_wasm.js';
+import { loadSrsPoints, type SrsEvent } from './srs.js';
+import { makeResultsClient } from './results_post.js';
+
+type LogLevel = 'info' | 'ok' | 'err' | 'warn';
+
+// Per-rep profiling capture consumed by the sweep aggregator. `runWebGpuOnce`
+// only ever produces `{ profile: null }` (MsmV2's own ProfileBreakdown is a
+// different, flat shape), so the breakdown table renders empty GPU rows — this
+// type just keeps the aggregation code compiling.
+type ProfileCapture = {
+  profile: { label: string; kind: string; ms: number }[] | null;
+  cpu_phases?: { phases: { label: string; ms: number }[]; total_wall_ms: number };
+  gpu_readback?: {
+    gpu_compute_wall: number;
+    profiled_passes_sum: number;
+    untimestamped: number;
+    readback_total?: number;
+    mapasync_overhead?: number;
+  };
+};
+
+const $log = document.getElementById('log') as HTMLDivElement;
+const $progress = document.getElementById('srs-progress') as HTMLDivElement;
+const $status = document.getElementById('status') as HTMLSpanElement;
+const $run = document.getElementById('run') as HTMLButtonElement;
+const $runBench = document.getElementById('run-bench') as HTMLButtonElement;
+const $runSweep = document.getElementById('run-sweep') as HTMLButtonElement;
+const $runSanity = document.getElementById('run-sanity') as HTMLButtonElement;
+const $stop = document.getElementById('stop') as HTMLButtonElement;
+const $logn = document.getElementById('logn') as HTMLInputElement;
+const $nDisplay = document.getElementById('n-display') as HTMLSpanElement;
+const $mtThreads = document.getElementById('mt-threads') as HTMLInputElement;
+const $hwThreads = document.getElementById('hw-threads') as HTMLSpanElement;
+const $noble = document.getElementById('noble') as HTMLInputElement;
+const $results = document.getElementById('results') as HTMLDivElement;
+
+// The sweep spans 2^10..2^20 — small sizes show where the GPU pipeline
+// overtakes the WASM Pippenger; the v2 pipeline has no size floor.
+const LOGN_MIN = 7;
+const LOGN_MAX = 20;
+const SRS_NUM_POINTS = 1 << LOGN_MAX;
+
+const SWEEP_LOGN: number[] = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
+const NOBLE_REFERENCE_LOGN = 16;
+const SWEEP_REPS = 5;
+
+// GPU pipeline knobs from the URL — forwarded to every MsmV2 (unset = defaults).
+// Lets index.html A/B-test a knob against the WASM Pippenger, e.g. ?s=4&wgi=128.
+const gpuKnobs: MsmConfig = (() => {
+  const q = new URLSearchParams(window.location.search);
+  const optInt = (k: string): number | undefined => {
+    const raw = q.get(k);
+    if (raw === null) return undefined;
+    const v = Number(raw);
+    return Number.isInteger(v) && v > 0 ? v : undefined;
+  };
+  const optNum = (k: string): number | undefined => {
+    const raw = q.get(k);
+    if (raw === null) return undefined;
+    const v = Number(raw);
+    return Number.isFinite(v) && v >= 0 ? v : undefined;
+  };
+  return {
+    c: optInt('c'),
+    s: optInt('s'),
+    wgi: optInt('wgi'),
+    reduceWg: optInt('reducewg'),
+    l0Log: optInt('l0log'),
+    montmul:
+      q.get('montmul') === 'cios_unrolled' ? 'cios_unrolled' : q.get('montmul') === 'karat' ? 'karat' : undefined,
+    schedEmitOnly: q.get('sched_emit_only') === '1' || undefined,
+    jacobianCrossover: (() => {
+      const raw = q.get('jaccross');
+      if (raw === null) return undefined;
+      const v = Number(raw);
+      return Number.isInteger(v) ? v : undefined;
+    })(),
+    perLevelJac: q.get('perlevel') === '1' || undefined,
+    highMemPingpong: q.get('himem') === '1' || undefined,
+    pingpongBelow: optInt('ppbelow'),
+    reduceSatThreshold: optInt('redsat'),
+    convChunk: optInt('convc'),
+    convertBound: optInt('convbound'),
+    maxPlannerWorkgroups: optInt('mpw'),
+    residentWgOverride: optInt('force_r'),
+    numBatchesOverride: optInt('nb'),
+    budgetMiB: optInt('budgetmib'),
+    varSched: q.get('varsched') === '1' || undefined,
+    // ?ptree_theta=N overrides the pair-tree level->fold switch threshold.
+    ptreeTheta: optInt('ptree_theta'),
+    preprocessV2: q.get('ppv2') === '0' ? false : q.get('ppv2') === '1' ? true : undefined,
+    combineOnHost: false,
+    splitC: q.get('split') === '1' || q.get('autorun') === 'msm-msbhist' || undefined,
+    wiProbe: q.get('wiprobe') === '1' || undefined,
+    foldMTower: (() => {
+      const f = q.get('fold_m');
+      if (!f) return undefined;
+      const parts = f.split(',').map(x => parseInt(x, 10));
+      return parts.length > 0 && parts.every(x => Number.isInteger(x) && x >= 2) ? parts : undefined;
+    })(),
+    foldTailMax: optInt('fold_tailmax'),
+    foldSat: optInt('fold_sat'),
+    foldK: optInt('fold_k'),
+    foldCoop: q.get('fold_coop') === '1' || undefined,
+    foldTlocal: q.get('fold_tlocal') === '1' || undefined,
+    halveCap: optInt('halve_cap'),
+    halveBa4Floor: optInt('halve_ba4floor'),
+    // halve_stop=0 / halve_iter=0 are meaningful — optInt rejects 0.
+    halveStop: q.get('halve_stop') !== null ? Math.max(0, Number(q.get('halve_stop'))) : undefined,
+    halveIter: q.get('halve_iter') !== null ? Math.max(0, Number(q.get('halve_iter'))) : undefined,
+    reduceCostWeight: optNum('reduce_cost_weight'),
+    maxCLo: optInt('max_clo'),
+    forceSplit: (() => {
+      const f = q.get('forcesplit');
+      if (!f) return undefined;
+      const parts = f.split(',').map(x => parseInt(x, 10));
+      return parts.length === 3 && parts.every(x => x > 0) ? (parts as [number, number, number]) : undefined;
+    })(),
+    // profile=0 overrides the autorun forcing: timestamp-query passes add
+    // real overhead, so clean-wall benches need profiling truly off.
+    profile:
+      q.get('profile') === '0'
+        ? undefined
+        : q.get('profile') === '1' ||
+          q.get('autorun') === 'msm-bench' ||
+          q.get('autorun') === 'msm-trace' ||
+          q.get('autorun') === 'walker-index-stats' ||
+          undefined,
+  };
+})();
+
+// Default to the machine's reported logical thread count, capped at
+// MT_THREADS_MAX. Falls back to 4 if `navigator.hardwareConcurrency`
+// is undefined.
+const MT_THREADS_MAX = 32;
+const MT_THREADS_DEFAULT = Math.min(MT_THREADS_MAX, navigator.hardwareConcurrency ?? 4);
+
+// WASM heap maximum. A log₂(n)=20 MSM keeps ~96 MiB of decoded points +
+// scalars resident (the load/run split holds them between calls), and on top
+// of that the in-tree multithreaded Pippenger needs its working set while
+// _load needs a transient ~96 MiB upload buffer — a sweep drives all of this
+// through one worker. 256 MiB is not enough: log₂(n)=20 traps with
+// `unreachable` mid-_load. 1 GiB is ample headroom. `maximum` only reserves
+// shared-memory address space (cheap on 64-bit hosts) — physical pages are
+// committed lazily as the heap grows. The wasm itself permits 4 GiB.
+const WASM_MEM_INITIAL_PAGES = 256; //  16 MiB
+const WASM_MEM_MAX_PAGES = 16384; // 1 GiB
+
+// The dev page runs in two modes:
+//   - Default (no `?coi=1`)        — no COOP/COEP set by the dev server.
+//                                    WebGPU works. SharedArrayBuffer is
+//                                    unavailable, so the threaded WASM
+//                                    Pippenger path can't run.
+//   - `?coi=1` in the URL          — Vite dev server emits COOP/COEP.
+//                                    SharedArrayBuffer is available;
+//                                    the WASM MT path comes online.
+// We default to no-COI because adding COOP/COEP unconditionally was
+// observed to break the WebGPU MSM in this dev page (see the original
+// vite.config.ts comment); they're also unrelated to the WebGPU path.
+const COI_REQUESTED = /[?&]coi=1\b/.test(window.location.search);
+const COI_ACTIVE = (self as any).crossOriginIsolated === true;
+const WASM_AVAILABLE = COI_ACTIVE;
+
+let srsBuf: Uint8Array | null = null;
+// One bb.js WASM worker hosts the multi-threaded Pippenger. It's lazy —
+// created on the first action that needs it, torn down on Stop. bb's
+// `parallel_for` pool is a function-static `ThreadPool(get_num_cpus() -
+// 1)` sized on the first call and then locked, so the worker's thread
+// count is fixed at boot. If you change the MT threads input
+// mid-session, hit Stop first so the next click reboots at the new
+// value.
+let wasmMtPippenger: WasmPippengerHandle | null = null;
+let wasmMtBootInFlight: Promise<WasmPippengerHandle> | null = null;
+// Persistent WebGPU state. One GPUDevice is reused across every dispatch
+// on the page; one MsmV2 (the v2 pair-tree pipeline — buffers, pipelines,
+// the Montgomery-form SRS for the current logN) is held alongside it and
+// rebuilt when logN changes. Without this, every dispatch would re-acquire
+// a device and recompile every pipeline. MsmV2.create runs one warm-up
+// dispatch so the first timed run doesn't pay shader JIT.
+let gpuDevice: GPUDevice | null = null;
+let msmV2: MsmV2 | null = null;
+let msmV2Pool: MsmV2Pool | null = null;
+let msmV2LogN: number | null = null;
+// Cooperative cancellation flag for in-flight sweeps. The actual MSM
+// call inside the WASM worker can't be preempted from JS, but we check
+// this between reps / sizes so Stop becomes effective at the next yield.
+let abortRequested = false;
+
+function readLogN(): number {
+  const raw = parseInt($logn.value, 10);
+  if (!Number.isFinite(raw)) return 16;
+  return Math.max(LOGN_MIN, Math.min(LOGN_MAX, raw));
+}
+
+function readMtThreads(): number {
+  const raw = parseInt($mtThreads.value, 10);
+  if (!Number.isFinite(raw)) return MT_THREADS_DEFAULT;
+  return Math.max(1, Math.min(MT_THREADS_MAX, raw));
+}
+
+function updateNDisplay(): void {
+  const logN = readLogN();
+  const n = 1 << logN;
+  $nDisplay.textContent = `(n = ${n.toLocaleString()})`;
+}
+
+$logn.addEventListener('input', updateNDisplay);
+updateNDisplay();
+$hwThreads.textContent = String(navigator.hardwareConcurrency ?? '?');
+$mtThreads.value = String(MT_THREADS_DEFAULT);
+
+function log(level: LogLevel, msg: string): void {
+  const span = document.createElement('span');
+  if (level !== 'info') span.className = level;
+  span.textContent = msg + '\n';
+  $log.appendChild(span);
+  $log.scrollTop = $log.scrollHeight;
+}
+
+/**
+ * Yield to the browser between steps. Lets the renderer paint pending
+ * log lines, lets click handlers (Stop!) fire, lets the OS swap. We
+ * keep individual steps short enough that 0 ms is enough; bumping to
+ * 16 ms (one frame) when we expect a long pause coming up.
+ */
+async function yieldToBrowser(ms: number = 0): Promise<void> {
+  await new Promise<void>(resolve => setTimeout(resolve, ms));
+}
+
+/** Log a memory-pressure snapshot if the browser exposes it (Chrome-only). */
+function logMemSnapshot(label: string): void {
+  // @ts-expect-error performance.memory is non-standard Chrome
+  const mem = performance.memory as
+    | { usedJSHeapSize: number; totalJSHeapSize: number; jsHeapSizeLimit: number }
+    | undefined;
+  if (!mem) return;
+  const mib = (b: number) => (b / 1024 / 1024).toFixed(0);
+  log(
+    'info',
+    `[mem] ${label}: used=${mib(mem.usedJSHeapSize)} MiB, ` +
+      `total=${mib(mem.totalJSHeapSize)} MiB, ` +
+      `limit=${mib(mem.jsHeapSizeLimit)} MiB`,
+  );
+}
+
+function setBusy(busy: boolean, text = ''): void {
+  // SRS load gates everything (we slice from it). WASM boot is lazy —
+  // buttons are enabled even before WASM exists; the first click triggers
+  // the boot via ensureWasmBooted().
+  const ready = srsBuf !== null;
+  $runSanity.disabled = busy || !ready;
+  // Sweep / Run / Run × 5 exercise the WASM paths in addition to WebGPU
+  // — disable them when COI is off (the threaded WASM can't load without
+  // SharedArrayBuffer). The user can still hit Quick Sanity Check to run
+  // WebGPU on its own.
+  $run.disabled = busy || !ready || !WASM_AVAILABLE;
+  $runBench.disabled = busy || !ready || !WASM_AVAILABLE;
+  $runSweep.disabled = busy || !ready || !WASM_AVAILABLE;
+  // Stop is only meaningful while something is in flight, WASM is booted,
+  // or a GPU context is alive (so the user can free GPU memory on demand).
+  $stop.disabled = !busy && wasmMtPippenger === null && gpuDevice === null;
+  $status.textContent = text;
+}
+
+/**
+ * Boots the bb.js WASM worker lazily on first use. Subsequent calls
+ * reuse the handle; concurrent callers await the same in-flight boot.
+ * The worker is booted with the user-chosen multi-threaded count.
+ */
+async function ensureWasmBooted(): Promise<WasmPippengerHandle> {
+  if (!WASM_AVAILABLE) {
+    throw new Error(
+      'WASM paths are disabled: page is not cross-origin isolated. ' +
+        "Click 'Enable WASM (reload with COI)' to reload with COOP/COEP headers.",
+    );
+  }
+  if (wasmMtPippenger !== null) return wasmMtPippenger;
+  if (wasmMtBootInFlight !== null) return wasmMtBootInFlight;
+  const threads = readMtThreads();
+  // The thread count is captured at boot time; lock the input until the
+  // handle is torn down so the displayed value matches what's live in
+  // the worker.
+  $mtThreads.disabled = true;
+  log('info', `[wasm-boot] starting (threads=${threads}, ` + `max-mem=${(WASM_MEM_MAX_PAGES * 64) / 1024} MiB)`);
+  logMemSnapshot('pre-wasm-boot');
+  const t0 = performance.now();
+  const boot = createWasmPippenger(threads, m => log('info', `[wasm-boot] ${m}`), {
+    initialPages: WASM_MEM_INITIAL_PAGES,
+    maxPages: WASM_MEM_MAX_PAGES,
+  })
+    .then(handle => {
+      wasmMtPippenger = handle;
+      log('ok', `[wasm-boot] ready (${handle.threads} threads, ` + `${(performance.now() - t0).toFixed(0)} ms)`);
+      logMemSnapshot('post-wasm-boot');
+      return handle;
+    })
+    .catch(err => {
+      log('err', `[wasm-boot] failed: ${err instanceof Error ? err.message : String(err)}`);
+      $mtThreads.disabled = false;
+      throw err;
+    })
+    .finally(() => {
+      wasmMtBootInFlight = null;
+    });
+  wasmMtBootInFlight = boot;
+  return boot;
+}
+
+/**
+ * Tear down the bb.js WASM (terminates the main bb worker and all
+ * pthread sub-workers). Also flips the cooperative abort flag so any
+ * in-flight sweep stops at its next yield point. Safe to call from a
+ * click handler while runs are in flight.
+ */
+async function stopAndDestroyWasm(reason: string): Promise<void> {
+  abortRequested = true;
+  $status.textContent = `${reason}; stopping…`;
+  const handle = wasmMtPippenger;
+  wasmMtPippenger = null;
+  if (handle !== null) {
+    try {
+      await handle.destroy();
+    } catch (err) {
+      log('warn', `[stop] destroy threw: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+  $mtThreads.disabled = false;
+  log('info', `[stop] WASM workers terminated`);
+  // Tear down persistent WebGPU state too. Destroying the device
+  // invalidates every buffer / pipeline it owns (MsmV2's included —
+  // `msmV2.destroy()` on top is belt-and-braces). Next run lazily
+  // re-creates everything via ensureWebGpuWarmed.
+  if (msmV2 !== null || gpuDevice !== null) {
+    try {
+      msmV2?.destroy();
+    } catch (err) {
+      log('warn', `[stop/gpu] msmV2.destroy threw: ${err instanceof Error ? err.message : String(err)}`);
+    }
+    try {
+      gpuDevice?.destroy();
+    } catch (err) {
+      log('warn', `[stop/gpu] device.destroy threw: ${err instanceof Error ? err.message : String(err)}`);
+    }
+    msmV2 = null;
+    msmV2LogN = null;
+    gpuDevice = null;
+    log('info', `[stop] GPU device destroyed`);
+  }
+}
+
+$stop.addEventListener('click', async () => {
+  $stop.disabled = true;
+  await stopAndDestroyWasm('user clicked Stop');
+  setBusy(false);
+});
+
+// Toggle between COI-on / COI-off by reloading with a different URL.
+// Implemented as a reload because the COOP/COEP headers are only
+// honoured by the browser at the moment the document is fetched.
+const $toggleCoi = document.getElementById('toggle-coi') as HTMLButtonElement;
+$toggleCoi.textContent = COI_ACTIVE ? 'Disable WASM (reload without COI)' : 'Enable WASM (reload with COI)';
+$toggleCoi.addEventListener('click', () => {
+  const url = new URL(window.location.href);
+  if (COI_ACTIVE) {
+    url.searchParams.delete('coi');
+  } else {
+    url.searchParams.set('coi', '1');
+  }
+  window.location.href = url.toString();
+});
+
+function throwIfAborted(): void {
+  if (abortRequested) {
+    throw new Error('aborted by Stop');
+  }
+}
+
+// Bigint → 32 LE bytes. Throws on out-of-range to catch coordinate-pack
+// bugs early (silent truncation would look like a GPU bug).
+function biToLe32(v: bigint, label: string): Uint8Array {
+  if (v < 0n || v >= 1n << 256n) {
+    throw new Error(`${label} out of range for 32-byte LE: ${v}`);
+  }
+  const out = new Uint8Array(32);
+  let x = v;
+  for (let i = 0; i < 32; i++) {
+    out[i] = Number(x & 0xffn);
+    x >>= 8n;
+  }
+  return out;
+}
+
+const FR_ORDER = bn254.fields.Fr.ORDER;
+// Deterministic-seed PRNG for cross-run reproducibility (debug only).
+// Set via `?scalar_seed=N` URL param. When unset, falls back to crypto.
+let scalarPrngState: number | null = null;
+function maybeInitScalarPrng(): void {
+  if (scalarPrngState !== null) return;
+  const s = new URLSearchParams(window.location.search).get('scalar_seed');
+  if (s === null) return;
+  scalarPrngState = parseInt(s, 10) >>> 0 || 1;
+  log('info', `[gen] using deterministic scalar PRNG with seed=${scalarPrngState}`);
+}
+function nextScalarPrngBytes(out: Uint8Array): void {
+  let s = scalarPrngState as number;
+  for (let i = 0; i < out.length; i += 4) {
+    s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
+    out[i] = s & 0xff;
+    out[i + 1] = (s >>> 8) & 0xff;
+    out[i + 2] = (s >>> 16) & 0xff;
+    out[i + 3] = (s >>> 24) & 0xff;
+  }
+  scalarPrngState = s;
+}
+function randomFr(): bigint {
+  maybeInitScalarPrng();
+  for (;;) {
+    const bytes = new Uint8Array(32);
+    if (scalarPrngState !== null) {
+      nextScalarPrngBytes(bytes);
+    } else {
+      crypto.getRandomValues(bytes);
+    }
+    bytes[31] &= 0x3f;
+    let v = 0n;
+    for (let i = 31; i >= 0; i--) v = (v << 8n) | BigInt(bytes[i]);
+    if (v < FR_ORDER) return v;
+  }
+}
+
+interface TestInputs {
+  n: number;
+  points: { x: bigint; y: bigint }[] | null;
+  scalars: bigint[] | null;
+  pointsBuf: Uint8Array;
+  scalarsBuf: Uint8Array;
+}
+
+function readSrsPointAt(buf: Uint8Array, i: number): { x: bigint; y: bigint } {
+  const off = i * 64;
+  let x = 0n;
+  for (let k = 31; k >= 0; k--) x = (x << 8n) | BigInt(buf[off + k]);
+  let y = 0n;
+  for (let k = 31; k >= 0; k--) y = (y << 8n) | BigInt(buf[off + 32 + k]);
+  return { x, y };
+}
+
+// Takes log₂(n), not n. This was a footgun in the previous shape that
+// took `n` directly — callers always have a `logN` variable in scope and
+// it's easy to forget the `1 << logN` conversion, producing a tiny
+// logN-point MSM instead of a 2^logN-point one.
+async function generateInputs(logN: number, mirrorForNoble: boolean, seedOverride?: number): Promise<TestInputs> {
+  if (srsBuf === null) {
+    throw new Error('[gen] SRS not loaded yet — wait for the [srs] ready line');
+  }
+  // ?msm_dump=<name> — load real production scalars dumped from bb prove (header
+  // u64 n, then n×32 LE canonical Fr — already the GPU's non-Montgomery format).
+  // Points come from the SRS; arbitrary (non-power-of-2) n. Used to bench/cross-
+  // check the GPU on the actual Chonk wire-commit distributions.
+  const dumpName = new URLSearchParams(window.location.search).get('msm_dump');
+  if (dumpName) {
+    const resp = await fetch(`/dev/msm-webgpu/dumps/${dumpName}.bin`);
+    if (!resp.ok) throw new Error(`[gen] dump '${dumpName}' not found (${resp.status})`);
+    const ab = await resp.arrayBuffer();
+    const dn = Number(new DataView(ab).getBigUint64(0, true));
+    if (dn * 64 > srsBuf.length) throw new Error(`[gen] dump n=${dn} exceeds SRS (${srsBuf.length / 64} pts)`);
+    const scalarsBuf = new Uint8Array(ab.slice(8, 8 + dn * 32));
+    const pointsBuf = new Uint8Array(srsBuf.buffer, srsBuf.byteOffset, dn * 64);
+    log('info', `[gen] loaded MSM dump '${dumpName}': n=${dn.toLocaleString()}`);
+    return { n: dn, points: null, scalars: null, pointsBuf, scalarsBuf };
+  }
+  if (logN < LOGN_MIN || logN > LOGN_MAX) {
+    throw new Error(`[gen] logN=${logN} outside the supported [${LOGN_MIN}, ${LOGN_MAX}] range`);
+  }
+  const n = 1 << logN;
+  if (n * 64 > srsBuf.length) {
+    throw new Error(`[gen] requested ${n} points but SRS only has ${srsBuf.length / 64}; bump LOGN_MAX`);
+  }
+
+  log('info', `[gen] preparing ${n} SRS points + ${n} random scalars…`);
+  const t0 = performance.now();
+
+  const pointsBuf = new Uint8Array(srsBuf.buffer, srsBuf.byteOffset, n * 64);
+
+  const points = mirrorForNoble ? new Array<{ x: bigint; y: bigint }>(n) : null;
+  const scalars = mirrorForNoble ? new Array<bigint>(n) : null;
+  if (mirrorForNoble) {
+    for (let i = 0; i < n; i++) points![i] = readSrsPointAt(srsBuf, i);
+  }
+
+  // Scalar distribution modes:
+  //   ?scalar_dist=uniform                  (default) — random Fr per input
+  //   ?scalar_dist=clustered&num_distinct=K — K distinct values, sampled
+  //                                          across n inputs (stresses high-N)
+  //   ?scalar_dist=profile&profile=[A-E]    — canonical msm_v2_ptr_bench
+  //                                          profiles A/B/C/D/E from
+  //                                          aztec-packages/.../msm_v2_ptr_bench.ts:
+  //     A: 100% random
+  //     B: 30% small (< 2^14) + 70% random
+  //     C: 80% small + 20% random
+  //     D: 50% random + 50% in {0,1,2,3}
+  //     E: 100% in [0, 16)
+  const distMode = new URLSearchParams(window.location.search).get('scalar_dist') ?? 'uniform';
+  const scalarBytes = new Uint8Array(n * 32);
+  // ?seed=N: deterministic scalars (mulberry32) so failures reproduce.
+  // seedOverride wins over the URL — multi-run probes (jacruns) step it.
+  const seedParam = new URLSearchParams(window.location.search).get('seed');
+  if (seedOverride !== undefined || seedParam !== null) {
+    let a = (seedOverride !== undefined ? seedOverride : parseInt(seedParam!, 10) || 1) >>> 0;
+    const mulberry = (): number => {
+      a |= 0;
+      a = (a + 0x6d2b79f5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+    Math.random = mulberry;
+    log('info', `[gen] seeded PRNG: seed=${seedOverride !== undefined ? seedOverride : seedParam}`);
+  }
+  const smallScalar = (maxExclusive: number): bigint => BigInt(Math.floor(Math.random() * maxExclusive));
+  if (distMode === 'clustered') {
+    const Kparam = new URLSearchParams(window.location.search).get('num_distinct');
+    const K = Math.max(1, Math.min(n, parseInt(Kparam ?? String(Math.max(1, n >> 8)), 10) || n >> 8));
+    log('info', `[gen] clustered scalars: ${K} distinct values sampled across ${n} inputs`);
+    const pool = new Array<bigint>(K);
+    for (let j = 0; j < K; j++) pool[j] = randomFr();
+    for (let i = 0; i < n; i++) {
+      const j = Math.floor(Math.random() * K);
+      const s = pool[j];
+      if (mirrorForNoble) scalars![i] = s;
+      scalarBytes.set(biToLe32(s, `scalar[${i}]`), i * 32);
+    }
+  } else if (distMode === 'monster') {
+    // Worst-case partial concentration: 99.9% of scalars share ONE random
+    // value (every window's digit lands in a single bucket → the partial
+    // stream concentrates into ~numWindows giant segments), 0.1% random so
+    // the host window-combine stays non-degenerate. Stresses the combine
+    // stage's maximum per-bucket partial count / recursion depth.
+    const r = randomFr();
+    log('info', `[gen] monster scalars: 99.9% single value + 0.1% random`);
+    for (let i = 0; i < n; i++) {
+      const s = Math.random() < 0.001 ? randomFr() : r;
+      if (mirrorForNoble) scalars![i] = s;
+      scalarBytes.set(biToLe32(s, `scalar[${i}]`), i * 32);
+    }
+  } else if (distMode === 'witness') {
+    // ZK-SNARK witness shape: a huge fraction of scalars are 1 (booleans),
+    // plus repeated small values and a few random field elements. Every
+    // scalar=1 contributes to ONE bucket (window 0, mag 1) — the partial-
+    // merge worst case: that bucket's partial count approaches the buffer
+    // cap. Production-representative; gate combine changes on this.
+    log('info', `[gen] witness scalars: 85% ones + 10% small + 5% random`);
+    for (let i = 0; i < n; i++) {
+      const r = Math.random();
+      let s: bigint;
+      if (r < 0.85) s = 1n;
+      else if (r < 0.95) s = smallScalar(16);
+      else s = randomFr();
+      if (mirrorForNoble) scalars![i] = s;
+      scalarBytes.set(biToLe32(s, `scalar[${i}]`), i * 32);
+    }
+  } else if (distMode === 'witmix') {
+    // Witness mass + wide structured spread: a big ones fraction (one mega
+    // bucket → the deep pipeline) + a band over K distinct full-size values
+    // (cap-bin buckets across every window) + a random tail. The only shape
+    // with BOTH a >64-residual bucket and a cap bin wider than 64 entries —
+    // gates the deep chunk→bucket mapping at realistic width.
+    // Tunable: ?wm_ones= (default 0.8), ?wm_rep= (0.15), ?wm_k= (64).
+    const wmq = new URLSearchParams(window.location.search);
+    const onesF = parseFloat(wmq.get('wm_ones') ?? '0.8');
+    const repF = parseFloat(wmq.get('wm_rep') ?? '0.15');
+    const K = parseInt(wmq.get('wm_k') ?? '64', 10) || 64;
+    const pool = new Array<bigint>(K);
+    for (let j = 0; j < K; j++) pool[j] = randomFr();
+    log('info', `[gen] witmix scalars: ${onesF} ones + ${repF} over ${K} repeats + rest random`);
+    for (let i = 0; i < n; i++) {
+      const r = Math.random();
+      let s: bigint;
+      if (r < onesF) s = 1n;
+      else if (r < onesF + repF) s = pool[Math.floor(Math.random() * K)];
+      else s = randomFr();
+      if (mirrorForNoble) scalars![i] = s;
+      scalarBytes.set(biToLe32(s, `scalar[${i}]`), i * 32);
+    }
+  } else if (distMode === 'powerlaw') {
+    // Zipf-ish over 64 distinct values: a few huge buckets, a long warm
+    // tail, plenty of singles — the mixed structured shape the per-class
+    // combine must not cliff on.
+    const K = 64;
+    const pool = new Array<bigint>(K);
+    for (let j = 0; j < K; j++) pool[j] = randomFr();
+    log('info', `[gen] powerlaw scalars over ${K} distinct values`);
+    for (let i = 0; i < n; i++) {
+      const j = Math.min(K - 1, Math.floor(K * Math.pow(Math.random(), 3)));
+      const s = Math.random() < 0.02 ? randomFr() : pool[j];
+      if (mirrorForNoble) scalars![i] = s;
+      scalarBytes.set(biToLe32(s, `scalar[${i}]`), i * 32);
+    }
+  } else if (distMode === 'profile') {
+    const profile = (new URLSearchParams(window.location.search).get('profile') ?? 'A').toUpperCase();
+    log('info', `[gen] profile=${profile}`);
+    for (let i = 0; i < n; i++) {
+      const r = Math.random();
+      let s: bigint;
+      if (profile === 'A') {
+        s = randomFr();
+      } else if (profile === 'B') {
+        s = r < 0.3 ? smallScalar(1 << 14) : randomFr();
+      } else if (profile === 'C') {
+        s = r < 0.8 ? smallScalar(1 << 14) : randomFr();
+      } else if (profile === 'D') {
+        s = r < 0.5 ? smallScalar(4) : randomFr();
+      } else {
+        s = smallScalar(16);
+      }
+      if (mirrorForNoble) scalars![i] = s;
+      scalarBytes.set(biToLe32(s, `scalar[${i}]`), i * 32);
+    }
+  } else {
+    for (let i = 0; i < n; i++) {
+      const s = randomFr();
+      if (mirrorForNoble) scalars![i] = s;
+      scalarBytes.set(biToLe32(s, `scalar[${i}]`), i * 32);
+    }
+  }
+
+  log('info', `[gen] done in ${(performance.now() - t0).toFixed(0)} ms`);
+  return { n, points, scalars, pointsBuf, scalarsBuf: scalarBytes };
+}
+
+function referenceMsm(points: { x: bigint; y: bigint }[], scalars: bigint[]): { x: bigint; y: bigint } {
+  log('info', `[noble] computing reference MSM on CPU (noble pippenger)…`);
+  const t0 = performance.now();
+  const projPoints = points.map(p => bn254.G1.ProjectivePoint.fromAffine(p));
+  const result = bn254.G1.ProjectivePoint.msm(projPoints, scalars);
+  const aff = result.toAffine();
+  log('info', `[noble] done in ${(performance.now() - t0).toFixed(0)} ms`);
+  return aff;
+}
+
+function pointsEqual(a: { x: bigint; y: bigint }, b: { x: bigint; y: bigint }): boolean {
+  return a.x === b.x && a.y === b.y;
+}
+
+/**
+ * Lazily bring the WebGPU side to a warmed-up `MsmV2` for `inputs.n`:
+ *   1. Acquire a `GPUDevice` on first call (reused across every dispatch).
+ *   2. When n changes, build an `MsmV2Pool` (upload the SRS slice + GPU-convert
+ *      it to Montgomery form) and an `MsmV2` bound to it — compiles the v2
+ *      pair-tree pipelines and runs warm-up dispatches so the next run pays
+ *      no JIT.
+ */
+async function ensureWebGpuWarmed(inputs: TestInputs): Promise<MsmV2> {
+  const logN = Math.log2(inputs.n);
+  if (gpuDevice === null) {
+    log('info', '[gpu-warm] acquiring GPUDevice (one-time)');
+    const t0 = performance.now();
+    gpuDevice = await get_device();
+    log('ok', `[gpu-warm] device ready in ${(performance.now() - t0).toFixed(0)} ms`);
+  }
+  if (msmV2 === null || msmV2LogN !== logN) {
+    if (msmV2 !== null) {
+      log('info', `[gpu-warm] logN changed (${msmV2LogN} → ${logN}); rebuilding MsmV2`);
+      msmV2.destroy();
+      msmV2Pool?.destroy();
+      msmV2 = null;
+      msmV2Pool = null;
+      msmV2LogN = null;
+    }
+    const knobStr = Object.entries(gpuKnobs)
+      .filter(([, v]) => v !== undefined)
+      .map(([k, v]) => `${k}=${v}`)
+      .join(' ');
+    log('info', `[gpu-warm] building MsmV2 for ${inputs.n.toLocaleString()} points${knobStr ? ` [${knobStr}]` : ''}`);
+    const t0 = performance.now();
+    msmV2Pool = await MsmV2Pool.create(gpuDevice, inputs.pointsBuf);
+    msmV2 = await MsmV2.create(gpuDevice, inputs.n, msmV2Pool, gpuKnobs);
+    msmV2LogN = logN;
+    log('ok', `[gpu-warm] MsmV2 ready in ${(performance.now() - t0).toFixed(0)} ms`);
+    if (new URLSearchParams(window.location.search).get('prog_digest') === '1') {
+      // Cross-device program-equivalence audit: every compiled shader's
+      // source hash. Diff these lines between devices to PROVE the same
+      // program was compiled (or find the kernel that differs).
+      for (const d of msmV2.programDigest) log('info', `[prog] ${d}`);
+      log('info', `[prog] total=${msmV2.programDigest.length}`);
+    }
+  }
+  return msmV2;
+}
+
+// Measured GPU<->CPU clock calibration (NOT fitted to counters). Bracket each tiny GPU dispatch
+// between two CPU timestamps (REALTIME ns, convertible to the AGI counter clock MONOTONIC_RAW via
+// the trace's clock snapshot): the dispatch's own GPU begin/end timestamps must fall inside that
+// CPU bracket, so across many samples the brackets pin Dawn's GPU->CPU calibration offset directly.
+// Returns [cpu_before_ns, gpu_begin, gpu_end, cpu_after_ns] per sample.
+async function calibrateClock(device: GPUDevice, N = 96): Promise<Array<[string, string, string, string]>> {
+  const mod = device.createShaderModule({ code: '@compute @workgroup_size(1) fn main() {}' });
+  const pipe = await device.createComputePipelineAsync({
+    layout: 'auto',
+    compute: { module: mod, entryPoint: 'main' },
+  });
+  const qs = device.createQuerySet({ type: 'timestamp', count: 2 });
+  const resolve = device.createBuffer({ size: 16, usage: GPUBufferUsage.QUERY_RESOLVE | GPUBufferUsage.COPY_SRC });
+  const out: Array<[string, string, string, string]> = [];
+  for (let i = 0; i < N; i++) {
+    const stage = device.createBuffer({ size: 16, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ });
+    const enc = device.createCommandEncoder();
+    const pass = enc.beginComputePass({
+      timestampWrites: { querySet: qs, beginningOfPassWriteIndex: 0, endOfPassWriteIndex: 1 },
+    });
+    pass.setPipeline(pipe);
+    pass.dispatchWorkgroups(1);
+    pass.end();
+    enc.resolveQuerySet(qs, 0, 2, resolve, 0);
+    enc.copyBufferToBuffer(resolve, 0, stage, 0, 16);
+    const tBefore = (performance.timeOrigin + performance.now()) * 1e6; // REALTIME ns
+    device.queue.submit([enc.finish()]);
+    await device.queue.onSubmittedWorkDone();
+    const tAfter = (performance.timeOrigin + performance.now()) * 1e6;
+    await stage.mapAsync(GPUMapMode.READ);
+    const ts = new BigUint64Array(stage.getMappedRange().slice(0));
+    stage.unmap();
+    stage.destroy();
+    out.push([Math.round(tBefore).toString(), ts[0].toString(), ts[1].toString(), Math.round(tAfter).toString()]);
+  }
+  qs.destroy();
+  resolve.destroy();
+  return out;
+}
+
+// Fold per-window sums to the final affine point, page-side — the same
+// composition production uses (run() ships windowSums; the bridge's C++ hook
+// Horner-folds them). With the wasm oracle booted, the fold is a tiny wasm
+// MSM over the non-empty window sums weighted by 2^bit_base (the
+// bb_native_pippenger exports come from the same webgpu_msm_hook.cpp family
+// as production's combine_windows); without it, the exported JS combine.
+// Publishes __lastFoldMs/__lastFoldMode for the bench drivers.
+async function foldWindowSums(L: { x: bigint; y: bigint }[], windowCs: number[]): Promise<{ x: bigint; y: bigint }> {
+  const t0 = performance.now();
+  let out: { x: bigint; y: bigint };
+  let mode: string;
+  const live: { p: { x: bigint; y: bigint }; bitBase: number }[] = [];
+  let bb = 0;
+  for (let w = 0; w < L.length; w++) {
+    if (!(L[w].x === 0n && L[w].y === 0n)) live.push({ p: L[w], bitBase: bb });
+    bb += windowCs[w];
+  }
+  if (wasmMtPippenger && live.length > 0) {
+    const pts = new Uint8Array(live.length * 64);
+    const scs = new Uint8Array(live.length * 32);
+    for (let i = 0; i < live.length; i++) {
+      pts.set(biToLe32(live[i].p.x, `fold pt ${i} x`), i * 64);
+      pts.set(biToLe32(live[i].p.y, `fold pt ${i} y`), i * 64 + 32);
+      scs.set(biToLe32(1n << BigInt(live[i].bitBase), `fold sc ${i}`), i * 32);
+    }
+    await wasmMtPippenger.loadMsm(pts, scs);
+    out = parseAffineLE(await wasmMtPippenger.runMsm(0));
+    mode = 'wasm';
+  } else {
+    out = hostWindowCombine(L, windowCs);
+    mode = 'js';
+  }
+  const g = window as unknown as { __lastFoldMs?: number; __lastFoldMode?: string };
+  g.__lastFoldMs = performance.now() - t0;
+  g.__lastFoldMode = mode;
+  return out;
+}
+
+// ===== addition-schedule validator (?schedcheck=1, SCHED_COMBINE_PLAN.md) =====
+type SchedDump = {
+  meta: Uint32Array;
+  entries: Uint32Array;
+  norm: Uint32Array;
+  layout: Uint32Array;
+  counts: Uint32Array;
+  offsets: Uint32Array;
+  sorted: Uint32Array;
+  active: number;
+  pTotal: number;
+  M: number;
+  BW: number;
+  boundary: number;
+  partialsX: Uint32Array;
+  partialsY: Uint32Array;
+  redX: Uint32Array;
+  redY: Uint32Array;
+  redM: number;
+};
+
+// Reconstructs the ENTIRE expected schedule (planner + emitter mirror,
+// bit-for-bit except root red indices, which are validated semantically
+// via the oracle), then replays every bucket's partial sum in bigint and
+// compares against the normal-mode instance's red planes.
+function validateSchedule(
+  sd: SchedDump,
+  oracle: { x: Uint32Array; y: Uint32Array },
+): { ok: boolean; detail: string; lines: string[] } {
+  const LAYERS = 18;
+  const MAX_N = 64;
+  const FLAG = 0x80000000;
+  const MASK = 0x7fffffff;
+  const lines: string[] = [];
+  const adds = (m: number, k: number): number => (Math.ceil(m / 2 ** (k - 1)) >> 1) >>> 0;
+  const lastPair = (p: number, m: number, k: number): number => {
+    const d = m - p;
+    if (d < 2) return 0;
+    let j = 31 - Math.clz32(d - 1) + 1;
+    const ctz = p === 0 ? 31 : Math.log2(p & -p);
+    return Math.min(j, Math.min(ctz, k - 1));
+  };
+
+  // Active buckets in sorted order, with exact counts + layout bases.
+  const act: { bid: number; m: number; off: number }[] = [];
+  for (let i = 0; i < sd.active; i++) {
+    const bid = sd.sorted[i];
+    const fb = (bid >>> 15) * sd.BW + (bid & 0x7fff);
+    act.push({ bid, m: sd.counts[fb], off: sd.offsets[fb] & MASK });
+  }
+  // Planner mirror: histogram, bin offsets, layer totals/bases, cap
+  // prefixes, boundary, bin/norm bases.
+  const hist = new Array<number>(MAX_N).fill(0);
+  for (const a of act) hist[Math.min(a.m, MAX_N - 1)]++;
+  const binOff = new Array<number>(MAX_N).fill(0);
+  for (let n = 1; n < MAX_N; n++) binOff[n] = binOff[n - 1] + hist[n - 1];
+  const capLo = binOff[MAX_N - 1];
+  const layerAdds = new Array<number>(LAYERS).fill(0);
+  const binLayerBase: number[][] = Array.from({ length: MAX_N }, () => new Array<number>(LAYERS).fill(0));
+  const capPrefix: number[][] = [];
+  for (let k = 1; k <= LAYERS; k++) {
+    let acc = 0;
+    for (let n = 2; n < MAX_N - 1; n++) {
+      binLayerBase[n][k - 1] = acc;
+      acc += hist[n] * adds(n, k);
+    }
+    binLayerBase[MAX_N - 1][k - 1] = acc;
+    let capAcc = 0;
+    for (let ci = 0; ci + capLo < sd.active; ci++) {
+      if (k === 1) capPrefix.push(new Array<number>(LAYERS).fill(0));
+      capPrefix[ci][k - 1] = capAcc;
+      capAcc += adds(act[capLo + ci].m, k);
+    }
+    layerAdds[k - 1] = acc + capAcc;
+  }
+  let b = 6;
+  for (let k = 2; k < 6; k++) {
+    if (layerAdds[k - 1] < 12288) {
+      b = k;
+      break;
+    }
+  }
+  const layerBase = new Array<number>(LAYERS).fill(0);
+  for (let k = 2; k <= LAYERS; k++) layerBase[k - 1] = layerBase[k - 2] + layerAdds[k - 2];
+  const mThresh = 1 << (b - 1);
+  const normBinBase = new Array<number>(MAX_N).fill(0);
+  let normAcc = 0;
+  for (let n = 2; n < MAX_N - 1; n++) {
+    normBinBase[n] = normAcc;
+    if (n > mThresh) normAcc += hist[n];
+  }
+  const normCapBase = normAcc;
+  const normTotal = normAcc + (sd.active - capLo);
+  const totalEntries = layerBase[LAYERS - 1] + layerAdds[LAYERS - 1];
+
+  // Planner cross-check against the GPU meta words.
+  let planBad = 0;
+  for (let k = 1; k <= LAYERS; k++) {
+    if (sd.meta[k - 1] !== layerAdds[k - 1]) {
+      planBad++;
+      if (planBad <= 3) lines.push(`plan: layer ${k} adds ${sd.meta[k - 1]} != expected ${layerAdds[k - 1]}`);
+    }
+    if (sd.meta[24 + k - 1] !== layerBase[k - 1]) {
+      planBad++;
+      if (planBad <= 6) lines.push(`plan: layer ${k} base ${sd.meta[24 + k - 1]} != expected ${layerBase[k - 1]}`);
+    }
+  }
+  if (sd.boundary !== b) {
+    planBad++;
+    lines.push(`plan: boundary ${sd.boundary} != expected ${b}`);
+  }
+  if (sd.meta[19] !== normTotal) {
+    planBad++;
+    lines.push(`plan: norm_total ${sd.meta[19]} != expected ${normTotal}`);
+  }
+
+  // Emitter mirror: every entry word (root red indices excluded — those
+  // are validated by the oracle comparison below).
+  let emitBad = 0;
+  let rootsSeen = 0;
+  const rootRed: { rs: number; m: number; off: number; bid: number }[] = [];
+  for (let i = 0; i < sd.active; i++) {
+    const { m, off, bid } = act[i];
+    const nb = Math.min(m, MAX_N - 1);
+    const kRoot = 32 - Math.clz32(m - 1);
+    for (let k = 1; k <= LAYERS; k++) {
+      const na = adds(m, k);
+      if (na === 0) continue;
+      let cursor: number;
+      if (nb === MAX_N - 1) {
+        cursor = binLayerBase[MAX_N - 1][k - 1] + capPrefix[i - capLo][k - 1];
+      } else {
+        cursor = binLayerBase[nb][k - 1] + (i - binOff[nb]) * na;
+      }
+      const half = 1 << (k - 1);
+      for (let j = 0; j < na; j++) {
+        const rel = j << k;
+        const e = 4 * (layerBase[k - 1] + cursor + j);
+        const sa = sd.layout[off + rel];
+        const sb = sd.layout[off + rel + half];
+        let exp: [number, number, number, number];
+        if (k < b) {
+          const isRoot = rel === 0 && m <= 1 << k;
+          exp = [sa, 0, sb, isRoot ? -1 : sa];
+          if (isRoot) {
+            rootsSeen++;
+            rootRed.push({ rs: sd.entries[e + 3] & MASK, m, off, bid });
+            if ((sd.entries[e + 3] & FLAG) === 0) {
+              emitBad++;
+              if (emitBad <= 4) lines.push(`emit: bucket ${i} root entry missing RED flag`);
+            }
+          }
+        } else {
+          const ja = lastPair(rel, m, k);
+          const jb = lastPair(rel + half, m, k);
+          const w0 = ja >= b && ja > 0 ? (sa | FLAG) >>> 0 : sa;
+          const w1 = ja >= b && ja > 0 ? sd.layout[off + rel + (1 << (ja - 1))] : 0;
+          const w2 = jb >= b && jb > 0 ? (sb | FLAG) >>> 0 : sb;
+          const w3 = jb >= b && jb > 0 ? sd.layout[off + rel + half + (1 << (jb - 1))] : 0;
+          exp = [w0, w1, w2, w3];
+        }
+        for (let w = 0; w < 4; w++) {
+          if (exp[w] === -1) continue;
+          if (sd.entries[e + w] !== exp[w]) {
+            emitBad++;
+            if (emitBad <= 8) {
+              lines.push(
+                `emit: bucket ${i} (m=${m}) k=${k} j=${j} word ${w}: ${sd.entries[e + w]} != expected ${exp[w]}`,
+              );
+            }
+          }
+        }
+      }
+      if (k === kRoot && kRoot >= b) {
+        const nc = nb === MAX_N - 1 ? normCapBase + (i - capLo) : normBinBase[nb] + (i - binOff[nb]);
+        const ne = 4 * nc;
+        const expXy = sd.layout[off];
+        const expZ = sd.layout[off + (1 << (kRoot - 1))];
+        if (sd.norm[ne] !== expXy || sd.norm[ne + 1] !== expZ) {
+          emitBad++;
+          if (emitBad <= 12)
+            lines.push(`norm: bucket ${i} entry {${sd.norm[ne]},${sd.norm[ne + 1]}} != {${expXy},${expZ}}`);
+        }
+        rootRed.push({ rs: sd.norm[ne + 2], m, off, bid });
+      }
+    }
+  }
+
+  // Value replay: per-bucket bigint sum of the pristine partials vs the
+  // oracle red planes (Montgomery 2^260 domain on both sides — convert).
+  const P = BN254_BASE_FIELD;
+  const R = (1n << 260n) % P;
+  const Rinv = bn254.fields.Fp.inv(R);
+  const toPlain = (v: bigint): bigint => bn254.fields.Fp.mul(v, Rinv);
+  const rd8 = (a: Uint32Array, slot: number): bigint => {
+    let v = 0n;
+    for (let i = 7; i >= 0; i--) v = (v << 32n) | BigInt(a[slot * 8 + i]);
+    return v;
+  };
+  let valBad = 0;
+  for (const r of rootRed) {
+    let acc = BN254_JACOBIAN_ZERO;
+    for (let p = 0; p < r.m; p++) {
+      const slot = sd.layout[r.off + p];
+      acc = addBn254Jacobian(acc, {
+        x: toPlain(rd8(sd.partialsX, slot)),
+        y: toPlain(rd8(sd.partialsY, slot)),
+        z: 1n,
+      });
+    }
+    const aff = toAffineBn254Jacobian(acc);
+    const ox = toPlain(rd8(oracle.x, r.rs));
+    const oy = toPlain(rd8(oracle.y, r.rs));
+    if (aff.infinity || aff.x !== ox || aff.y !== oy) {
+      valBad++;
+      if (valBad <= 6) {
+        // Diagnose the failure class for tiny buckets: does the oracle
+        // match a sub-sum, a sign-flipped combination, or the negated sum?
+        let cls = '?';
+        if (r.m === 2) {
+          const p0 = {
+            x: toPlain(rd8(sd.partialsX, sd.layout[r.off])),
+            y: toPlain(rd8(sd.partialsY, sd.layout[r.off])),
+            z: 1n,
+          };
+          const p1 = {
+            x: toPlain(rd8(sd.partialsX, sd.layout[r.off + 1])),
+            y: toPlain(rd8(sd.partialsY, sd.layout[r.off + 1])),
+            z: 1n,
+          };
+          const neg = (q: { x: bigint; y: bigint; z: bigint }): { x: bigint; y: bigint; z: bigint } => ({
+            x: q.x,
+            y: (P - q.y) % P,
+            z: 1n,
+          });
+          const cand: [string, { x: bigint; y: bigint; z: bigint }[]][] = [
+            ['p0', [p0]],
+            ['p1', [p1]],
+            ['p0-p1', [p0, neg(p1)]],
+            ['p1-p0', [neg(p0), p1]],
+            ['-(p0+p1)', [neg(p0), neg(p1)]],
+          ];
+          for (const [name, pts] of cand) {
+            let a2 = BN254_JACOBIAN_ZERO;
+            for (const q of pts) a2 = addBn254Jacobian(a2, q);
+            const f2 = toAffineBn254Jacobian(a2);
+            if (!f2.infinity && f2.x === ox && f2.y === oy) {
+              cls = name;
+              break;
+            }
+          }
+        }
+        // Where does MY sum actually live in the oracle plane (if anywhere)?
+        let foundAt = -1;
+        if (!aff.infinity) {
+          for (let s = 0; s < sd.redM; s++) {
+            if (toPlain(rd8(oracle.x, s)) === aff.x) {
+              foundAt = s;
+              break;
+            }
+          }
+        }
+        lines.push(
+          `replay: bid=0x${r.bid.toString(16)} (w=${r.bid >>> 15} mag=${r.bid & 0x7fff}) m=${r.m} red=${r.rs} ` +
+            `sumFoundAtRed=${foundAt} oracleIs=${cls}`,
+        );
+      }
+    }
+  }
+
+  const ok = planBad === 0 && emitBad === 0 && valBad === 0;
+  return {
+    ok,
+    detail:
+      `${ok ? 'PASS' : 'FAIL'} active=${sd.active} P=${sd.pTotal} entries=${totalEntries} ` +
+      `b=${b} layers=[${layerAdds.filter(x => x > 0).join(',')}] norm=${normTotal} ` +
+      `buckets=${rootRed.length} planBad=${planBad} emitBad=${emitBad} valBad=${valBad}`,
+    lines,
+  };
+}
+
+// Three-way isolation for the early-exit chain (?early_exit_debug=1): decode
+// the staged records in JS (standard-form LE integers per the wire contract),
+// Jacobian-sum each window, Horner-combine with the window schedule, and
+// compare against the native finish+combine result. JS == native ≠ golden ⇒
+// the staged bytes are wrong (GPU emission/readback); JS == golden ≠ native
+// ⇒ the native decode/combine is wrong; JS matching neither ⇒ the wire-format
+// assumptions are wrong (domain, limb order, record layout).
+function debugStagedPartials(
+  staged: Uint8Array,
+  numWindows: number,
+  partials: number,
+  windowCs: number[],
+  nativeXy: { x: bigint; y: bigint },
+): void {
+  const P = BN254_BASE_FIELD;
+  const dv = new DataView(staged.buffer, staged.byteOffset, staged.byteLength);
+  const rd = (off: number): bigint => {
+    let v = 0n;
+    for (let i = 7; i >= 0; i--) {
+      v = (v << 32n) | BigInt(dv.getUint32(off + i * 4, true));
+    }
+    return v;
+  };
+  let badCoords = 0;
+  let present = 0;
+  const L: { x: bigint; y: bigint }[] = [];
+  const presBits: string[] = [];
+  for (let w = 0; w < numWindows; w++) {
+    let acc = BN254_JACOBIAN_ZERO;
+    let bits = '';
+    for (let a = 0; a < partials; a++) {
+      const off = (w * partials + a) * 96;
+      const x = rd(off);
+      const y = rd(off + 32);
+      const z = rd(off + 64);
+      if (x >= P || y >= P || z >= P) badCoords++;
+      bits += z === 0n ? '0' : '1';
+      if (z === 0n) continue;
+      present++;
+      acc = addBn254Jacobian(acc, { x, y, z });
+    }
+    presBits.push(bits);
+    const aff = toAffineBn254Jacobian(acc);
+    L.push(aff.infinity ? { x: 0n, y: 0n } : { x: aff.x, y: aff.y });
+  }
+  for (let w = 0; w < numWindows; w += 10) {
+    log('info', `[ee-debug] p${String(w).padStart(2, '0')}: ${presBits.slice(w, w + 10).join(' ')}`);
+  }
+  const js = hostWindowCombine(L, windowCs);
+  // Per-window FNV-1a over the raw record bytes: one 8-hex digest per
+  // window, comparable across devices/runs (and across halve_stop depths
+  // for the bisection dumps, where records are raw arena slots).
+  {
+    const hashes: string[] = [];
+    for (let w = 0; w < numWindows; w++) {
+      let h = 0x811c9dc5;
+      for (let i = w * partials * 96; i < (w + 1) * partials * 96; i++) {
+        h = Math.imul(h ^ staged[i], 0x01000193);
+      }
+      hashes.push((h >>> 0).toString(16).padStart(8, '0'));
+    }
+    for (let w = 0; w < numWindows; w += 8) {
+      log('info', `[ee-debug] h${String(w).padStart(2, '0')}: ${hashes.slice(w, w + 8).join(' ')}`);
+    }
+  }
+  log('info', `[ee-debug] records=${numWindows}x${partials} present=${present} badCoords=${badCoords}`);
+  log('info', `[ee-debug] js.x     = 0x${js.x.toString(16)}`);
+  log('info', `[ee-debug] native.x = 0x${nativeXy.x.toString(16)}`);
+  log(js.x === nativeXy.x ? 'ok' : 'err', `[ee-debug] js ${js.x === nativeXy.x ? '==' : '!='} native`);
+  // Compact per-window digest (12 hex of x, "------------" = absent): lets two
+  // runs / two devices be diffed line-by-line to localize wrong workgroups.
+  for (let w = 0; w < numWindows; w += 4) {
+    const cells = [];
+    for (let i = w; i < Math.min(w + 4, numWindows); i++) {
+      cells.push(L[i].x === 0n && L[i].y === 0n ? '------------' : L[i].x.toString(16).padStart(64, '0').slice(0, 12));
+    }
+    log('info', `[ee-debug] w${String(w).padStart(2, '0')}: ${cells.join(' ')}`);
+  }
+}
+
+async function runWebGpuOnce(
+  inputs: TestInputs,
+): Promise<{ ms: number; xy: { x: bigint; y: bigint }; capture: ProfileCapture }> {
+  if (!('gpu' in navigator)) {
+    throw new Error('navigator.gpu is undefined — no WebGPU in this browser');
+  }
+  const msm = await ensureWebGpuWarmed(inputs);
+  // The reduction always early-exits: the staged partials go to the native
+  // finish+combine, so the WASM worker must be live before the timed window
+  // (production's caller IS the wasm — boot cost is not part of the MSM).
+  if (WASM_AVAILABLE && !wasmMtPippenger) {
+    await ensureWasmBooted();
+  }
+  log('info', `[gpu] dispatch n=${inputs.n.toLocaleString()}`);
+  // Plan the level tree for these scalars + (re)build the data-dependent
+  // buffers — untimed setup, outside the `t0` window.
+  msm.prepare(inputs.scalarsBuf);
+  // prepare() reallocates every data-dependent buffer; the first run() on
+  // those fresh buffers pays a one-time first-use cost (driver lazy
+  // zero-init / first-touch). Warm it out of the timed window so the
+  // measurement is steady-state GPU, matching the bench's reused buffers.
+  // Reset the per-pass timestamp accumulator so this rep's aligned-trace
+  // slices cover BOTH the warm-up and measured run() (run() appends).
+  (window as unknown as { __lastPassTimes?: Array<[string, string, string]> }).__lastPassTimes = [];
+  await msm.run();
+  const t0 = performance.now();
+  const gpu = await msm.run();
+  // Page-side fold INSIDE the timed window — the wall stays an end-to-end
+  // proxy for the production shape (GPU + readback + native-family combine).
+  // Early exit: the staged partials go through the SAME single native call
+  // production uses (bb_webgpu_finish_combine_bn254) — finishing sum +
+  // Horner combine in one WASM invocation, nothing GPU-side after.
+  let xy: { x: bigint; y: bigint };
+  if (gpu.stagedPartials !== null && gpu.partialsPerWindow > 0) {
+    const tF = performance.now();
+    if (!wasmMtPippenger) {
+      log('err', '[gpu] early_exit needs the WASM oracle for the finish+combine (run with ?coi=1); result is zeros');
+      xy = { x: 0n, y: 0n };
+      (window as unknown as { __lastFoldMode?: string }).__lastFoldMode = 'missing-wasm';
+    } else {
+      xy = parseAffineLE(
+        await wasmMtPippenger.finishCombine(gpu.stagedPartials, msm.numWindows, gpu.partialsPerWindow, gpu.c),
+      );
+      const g = window as unknown as { __lastFoldMs?: number; __lastFoldMode?: string };
+      g.__lastFoldMs = performance.now() - tF;
+      g.__lastFoldMode = 'wasm-early-exit';
+      if (new URLSearchParams(window.location.search).get('early_exit_debug') === '1') {
+        debugStagedPartials(gpu.stagedPartials, msm.numWindows, gpu.partialsPerWindow, msm.windowSchedule, xy);
+      }
+    }
+  } else {
+    xy = await foldWindowSums(gpu.windowSums, msm.windowSchedule);
+  }
+  if (new URLSearchParams(window.location.search).get('win_digest') === '1') {
+    // Per-window sum digests: cross-device/run diff localizes a wrong final
+    // result to the window(s) that diverge, and repeated runs distinguish
+    // deterministic wrongness from a timing race.
+    const wd = gpu.windowSums
+      .map(p =>
+        Number(p.x & 0xffffffffn)
+          .toString(16)
+          .padStart(8, '0'),
+      )
+      .join(' ');
+    log('info', `[win] ${wd}`);
+    if (msmV2) {
+      const dp = await msmV2.debugPresence();
+      log('info', `[win] present=${dp.present.join(',')}`);
+      log('info', `[win] rednz=${dp.redNonzero.join(',')}`);
+      const ws = await msmV2.debugWiState();
+      log('info', `[win] wi=${ws.wiArgs.join(',')} cb=${ws.cbArgs.join(',')} pt=${ws.ptArgs.join(',')}`);
+      log('info', `[win] active=${ws.active.join(',')} hist=${ws.hist.join(',')} planner=${ws.planner.join(',')}`);
+    }
+  }
+  const ms = performance.now() - t0;
+  const g = window as unknown as { __lastFoldMs?: number; __lastFoldMode?: string };
+  log('info', `[gpu] returned in ${ms.toFixed(1)} ms (fold ${g.__lastFoldMode}=${(g.__lastFoldMs ?? 0).toFixed(2)}ms)`);
+  return { ms, xy, capture: { profile: null } };
+}
+
+/**
+ * Multi-MSM batch-check (MULTI_MSM_PLAN.md step 4, runtime side): run K MSMs both
+ * solo and as ONE concatenated super-MSM through `MsmV2.prepareBatch`, and assert
+ * each member's per-window GPU output is byte-identical between the two. This is
+ * the real multi-MSM path — a SINGLE dispatch over the union of all members'
+ * windows (global-window bid + table-driven kernels), not K coexisting `MsmV2`
+ * instances (which tripped Dawn's submit-while-destroyed lifecycle). At K=1 it is
+ * the batch-of-1 ≡ single-MSM invariant; at K>1 it is batch-of-K ≡ K-separate.
+ * The union packs one size class, so members must be homogeneous (same n) — drive
+ * K>1 with a repeated logN, e.g. `?logns=16,16`.
+ */
+interface PackMeasurement {
+  ok: boolean;
+  detail: string;
+  ns: number[];
+  totalWindows: number;
+  footprintMiB: number;
+  heterogeneous: boolean;
+  reps: number;
+  soloWallMs: number; // Σ_k median(member_k run wall)
+  soloGpuMs: number; // Σ_k median(member_k GPU-compute)
+  unionWallMs: number; // median(union run wall)
+  unionGpuMs: number; // median(union GPU-compute)
+  soloPhaseMs: Record<string, number>; // Σ_k median(member_k per-stage GPU)
+  unionPhaseMs: Record<string, number>; // median(union per-stage GPU)
+}
+
+// Canonical pipeline-stage order for the per-stage attribution table (the coarse
+// phase labels `MsmV2.run()` writes to `window.__lastPhaseMs` via `setPhase` in
+// encodeIntoBatch — distinct from the finer `profiler.stage` STAGE_ORDER above,
+// which the encodeIntoBatch refactor no longer populates).
+const BATCH_STAGE_ORDER = [
+  'preprocess',
+  'planner',
+  'accumulate',
+  'size1',
+  'stream_walker',
+  'walker_index',
+  // walker_index sub-kernels (encodeIntoBatch labels each of the phase's
+  // dispatches individually; 'walker_index' itself remains for old traces;
+  // wi_p1/wi_p2 are the ?wiprobe=1 cost probes).
+  'wi_p1',
+  'wi_p2',
+  'wi_count',
+  'wi_alloc',
+  'wi_epilogue',
+  'wi_scatter',
+  'wi_sort',
+  'combine_batched',
+  'pt_init',
+  'pt_loop',
+  'pt_finalize',
+  'reduce',
+  'misc',
+];
+
+// The per-stage GPU ms of the LAST run() (timestamp-query, summed per phase). run()
+// writes this global when profile mode is on; Σ over phases == readProfileGpuMs().
+function readLastPhaseMs(): Record<string, number> {
+  return { ...((window as unknown as { __lastPhaseMs?: Record<string, number> }).__lastPhaseMs ?? {}) };
+}
+
+// Reduce `reps` per-stage records to the median total GPU ms and the median ms per
+// stage. Median is taken independently per stage and on the summed total, so the
+// reported total may differ slightly from Σ(stage medians) — that's intended (each
+// is the robust central estimate of its own quantity).
+function reducePhaseReps(repsRecs: Record<string, number>[]): { totalMs: number; phaseMs: Record<string, number> } {
+  const phases = new Set<string>();
+  for (const r of repsRecs) for (const k of Object.keys(r)) phases.add(k);
+  const phaseMs: Record<string, number> = {};
+  for (const ph of phases) phaseMs[ph] = median(repsRecs.map(r => r[ph] ?? 0));
+  const totalMs = median(repsRecs.map(r => Object.values(r).reduce((a, b) => a + b, 0)));
+  return { totalMs, phaseMs };
+}
+
+// Measure one pack of K MSMs (given as a list of logN) two ways: each member run
+// SOLO on its own isolated instance (Σ = the K-separate cost), and as the
+// concatenated UNION (one MsmV2 over Σ NW windows, a single dispatch). Returns the
+// median-over-`reps` wall AND GPU-compute time for both, plus the byte-identical
+// union≡solo verdict. GPU-compute time (timestamp-query) isolates the saturation /
+// throughput win from the launch+mapAsync amortisation that wall time also folds in:
+// the GPU runs K-separate (or one batched-encoder's) passes sequentially, so Σ solo
+// GPU ≈ the current bridge's GPU cost — union GPU vs Σ solo GPU is the genuine win.
+async function measurePack(device: GPUDevice, logNs: number[], reps: number): Promise<PackMeasurement> {
+  // Force GPU timestamps on regardless of the URL `?profile=` (overloaded for the
+  // scalar-distribution A–E selector); the bench always wants per-pass GPU ms.
+  const cfg: MsmConfig = { ...gpuKnobs, profile: true };
+
+  const ns: number[] = [];
+  const scalars: Uint8Array[] = [];
+  let poolPoints: Uint8Array | null = null;
+  let poolPointsN = -1;
+  const soloWS: { x: bigint; y: bigint }[][] = [];
+  let soloWallMs = 0;
+  let soloGpuMs = 0;
+  const soloPhaseMs: Record<string, number> = {};
+
+  // ── Solo baselines on ISOLATED pools (one pool+instance per MSM, fully
+  // independent), each timed over `reps` runs after a warm-up. prepare()'s slow
+  // path destroys+recreates the instance's own prepBuffers, so an isolated pool
+  // per member avoids the shared-pool lifecycle entirely for the reference.
+  for (const logN of logNs) {
+    const inp = await generateInputs(logN, false);
+    ns.push(inp.n);
+    scalars.push(inp.scalarsBuf);
+    if (inp.n > poolPointsN) {
+      poolPoints = inp.pointsBuf;
+      poolPointsN = inp.n;
+    }
+    const soloPool = await MsmV2Pool.create(device, inp.pointsBuf);
+    const soloInst = await MsmV2.create(device, inp.n, soloPool, cfg);
+    try {
+      soloInst.prepare(inp.scalarsBuf);
+      await soloInst.run(); // warm-up: first-touch zero-init out of the timed window
+      const walls: number[] = [];
+      const phaseRecs: Record<string, number>[] = [];
+      let ws: { x: bigint; y: bigint }[] = [];
+      for (let r = 0; r < reps; r++) {
+        const t0 = performance.now();
+        ws = (await soloInst.run()).windowSums;
+        walls.push(performance.now() - t0);
+        phaseRecs.push(readLastPhaseMs());
+      }
+      const { totalMs, phaseMs } = reducePhaseReps(phaseRecs);
+      soloWallMs += median(walls);
+      soloGpuMs += totalMs;
+      for (const ph of Object.keys(phaseMs)) soloPhaseMs[ph] = (soloPhaseMs[ph] ?? 0) + phaseMs[ph];
+      soloWS.push(ws);
+    } finally {
+      soloInst.destroy();
+      soloPool.destroy();
+    }
+  }
+
+  // ── Union pass: ONE MsmV2 over the concatenated super-MSM, one dispatch over
+  // Σ NW windows. Members of arbitrary n/c pack with no padding (point_offsets +
+  // per-window table). The instance is created at the pack's max n so its baked
+  // BW/stride/c are the envelope maxima. Shared SRS prefix (srsOffset 0).
+  const maxN = Math.max(...ns);
+  const heterogeneous = !ns.every(x => x === maxN);
+  const pool = await MsmV2Pool.create(device, poolPoints!);
+  const inst = await MsmV2.create(device, maxN, pool, cfg);
+  try {
+    const plan = planBatch(ns.map(n => ({ n, srsOffset: 0 })));
+    const concat = new Uint8Array(plan.totalScalarBytes);
+    for (let k = 0; k < scalars.length; k++) concat.set(scalars[k], plan.descs[k].scalarBase);
+    const members = plan.descs.map(d => ({
+      n: d.n,
+      scalarBaseBytes: d.scalarBase,
+      schedOff: d.schedOff,
+      numWindows: d.numWindows,
+    }));
+    inst.prepareBatch(members, concat, plan.windowDescTable, plan.reduceOffsets);
+    await inst.run(); // warm-up
+    const walls: number[] = [];
+    const phaseRecs: Record<string, number>[] = [];
+    let union: { x: bigint; y: bigint }[] = [];
+    for (let r = 0; r < reps; r++) {
+      const t0 = performance.now();
+      union = (await inst.run()).windowSums; // Σ NW windows; member k at schedOff_k
+      walls.push(performance.now() - t0);
+      phaseRecs.push(readLastPhaseMs());
+    }
+    const { totalMs: unionGpuMs, phaseMs: unionPhaseMs } = reducePhaseReps(phaseRecs);
+
+    const diffs: string[] = [];
+    for (let k = 0; k < plan.descs.length; k++) {
+      const off = plan.descs[k].schedOff;
+      const solo = soloWS[k];
+      for (let w = 0; w < solo.length; w++) {
+        const u = union[off + w];
+        if (!u || u.x !== solo[w].x || u.y !== solo[w].y) {
+          diffs.push(
+            `msm${k} n=${ns[k]} window ${w}: union.x=${(u?.x ?? 0n).toString(16).slice(0, 12)} != solo.x=${solo[w].x.toString(16).slice(0, 12)}`,
+          );
+          break;
+        }
+      }
+    }
+    // The per-member union≡solo check only exercises scalarBase if the members
+    // actually have distinct scalars — otherwise member k reading member 0's
+    // region would pass vacuously. Assert distinctness so the validation is real.
+    const distinct =
+      plan.descs.length < 2 || soloWS.some(ws => ws[0].x !== soloWS[0][0].x || ws[0].y !== soloWS[0][0].y);
+    const ok = distinct && diffs.length === 0;
+    const detail = !distinct
+      ? `members had identical scalars — scalarBase NOT exercised (re-run without a fixed scalar_seed)`
+      : ok
+        ? `all ${plan.descs.length} members byte-identical union≡solo (windows=${plan.totalWindows}, distinct scalars)`
+        : diffs.slice(0, 5).join(' | ');
+
+    return {
+      ok,
+      detail,
+      ns,
+      totalWindows: plan.totalWindows,
+      footprintMiB: plan.footprintBytes / (1 << 20),
+      heterogeneous,
+      reps,
+      soloWallMs,
+      soloGpuMs,
+      unionWallMs: median(walls),
+      unionGpuMs,
+      soloPhaseMs,
+      unionPhaseMs,
+    };
+  } finally {
+    inst.destroy();
+    pool.destroy();
+  }
+}
+
+async function runBatchCheck(logNs: number[]): Promise<{ ok: boolean; detail: string }> {
+  if (gpuDevice === null) gpuDevice = await get_device();
+  const device = gpuDevice;
+  const reps = Math.max(1, parseInt(new URLSearchParams(window.location.search).get('reps') ?? '5', 10));
+  const m = await measurePack(device, logNs, reps);
+  log(
+    'info',
+    `[batch-check] ${logNs.length} MSMs n=[${m.ns.join(', ')}] totalWindows=${m.totalWindows} ` +
+      `footprint=${m.footprintMiB.toFixed(1)}MiB reps=${reps}${m.heterogeneous ? ' (heterogeneous, no padding)' : ''}`,
+  );
+  log(
+    'info',
+    `[batch-check] perf: union wall=${m.unionWallMs.toFixed(2)}ms gpu=${m.unionGpuMs.toFixed(2)}ms vs ` +
+      `${logNs.length}× solo wall=${m.soloWallMs.toFixed(2)}ms gpu=${m.soloGpuMs.toFixed(2)}ms | ` +
+      `wall-speedup=${(m.soloWallMs / m.unionWallMs).toFixed(2)}× gpu-throughput=${(m.soloGpuMs / m.unionGpuMs).toFixed(2)}×`,
+  );
+  // Per-stage attribution: which pipeline stages saturate under packing. `×` is the
+  // per-stage throughput (Σ-soloGPU/unionGPU); `%` is the stage's share of the union
+  // GPU total (where the packed pipeline now spends its time).
+  log('info', `[batch-check] per-stage GPU ms (Σ-solo → union | throughput× | union-share%):`);
+  const extraPhases = Object.keys(m.unionPhaseMs).filter(p => !BATCH_STAGE_ORDER.includes(p));
+  for (const ph of [...BATCH_STAGE_ORDER, ...extraPhases]) {
+    const s = m.soloPhaseMs[ph] ?? 0;
+    const u = m.unionPhaseMs[ph] ?? 0;
+    if (s < 0.005 && u < 0.005) continue;
+    const sp = u > 0 ? s / u : 0;
+    const share = m.unionGpuMs > 0 ? (100 * u) / m.unionGpuMs : 0;
+    log(
+      'info',
+      `    ${ph.padEnd(15)} ${s.toFixed(2).padStart(7)} → ${u.toFixed(2).padStart(6)} | ` +
+        `${sp.toFixed(2).padStart(5)}× | ${share.toFixed(0).padStart(3)}%`,
+    );
+  }
+  return { ok: m.ok, detail: m.detail };
+}
+
+// Validate the BRIDGE's union plumbing (descriptor decode → candidate split →
+// pack → scalars-reorder → prepareBatch → per-member scatter) end-to-end against
+// the production `runUnionPacks` core — the SAME function `bridge/main.ts` calls.
+// The union MATH is already byte-identical (`runBatchCheck`); this exercises the
+// NEW plumbing risk the bridge adds, deterministically:
+//   • a global scalars region laid out in REVERSE descriptor order, so each
+//     descriptor's `scalarsOff` ≠ planBatch's per-pack `scalarBase` — a runner
+//     that wrongly assumed contiguity reads the wrong member's scalars and fails;
+//   • a trailing `srsOffset≠0` member, which MUST be excluded from packs and
+//     surface in `fallback` (the per-MSM path owns it);
+//   • every packable member's scattered per-window sums asserted byte-identical
+//     to its isolated solo run (transitively oracle-validated).
+async function runBridgeCheck(logNs: number[]): Promise<{ ok: boolean; detail: string }> {
+  if (gpuDevice === null) gpuDevice = await get_device();
+  const device = gpuDevice;
+  const qp = new URLSearchParams(window.location.search);
+  const budgetMiB = parseInt(qp.get('bridge_budget_mib') ?? '', 10);
+  const budgetBytes = Number.isFinite(budgetMiB) && budgetMiB > 0 ? budgetMiB * (1 << 20) : MEM_BUDGET;
+  const cfg: MsmConfig = { ...gpuKnobs, combineOnHost: false, profile: false, warmupRuns: 0 };
+
+  // ── Members (mixed n). pointsBuf is the SRS prefix [0,n) — the same points a
+  // solo run sees, so union-vs-solo is byte-comparable.
+  const members: { n: number; scalars: Uint8Array; pointsBuf: Uint8Array; ref: { x: bigint; y: bigint } }[] = [];
+  let maxN = 0;
+  let poolPoints: Uint8Array | null = null;
+  for (const logN of logNs) {
+    const inp = await generateInputs(logN, true);
+    // CPU reference (fast Jacobian double-and-add) — the value each member must match.
+    let refJac = BN254_JACOBIAN_ZERO;
+    for (let i = 0; i < inp.points!.length; i++) {
+      refJac = addBn254Jacobian(
+        refJac,
+        scalarMultBn254Jacobian({ x: inp.points![i].x, y: inp.points![i].y, z: 1n }, inp.scalars![i]),
+      );
+    }
+    members.push({ n: inp.n, scalars: inp.scalarsBuf, pointsBuf: inp.pointsBuf, ref: toAffineBn254Jacobian(refJac) });
+    if (inp.n > maxN) {
+      maxN = inp.n;
+      poolPoints = inp.pointsBuf;
+    }
+  }
+
+  // ── Descriptors: the K members (srsOffset=0, packable) + one trailing excluded
+  // member (reserved≠0, off-SRS, must fall back — the only exclusion now that the
+  // union handles srsOffset by grouping). Scalars are placed in the global region in
+  // REVERSE descriptor order so scalarsOff ≠ planBatch scalarBase.
+  const excludedIdx = members.length;
+  const descMeta: { n: number; srsOffset: number; reserved: number; scalars: Uint8Array }[] = [
+    ...members.map(m => ({ n: m.n, srsOffset: 0, reserved: 0, scalars: m.scalars })),
+    { n: members[0].n, srsOffset: 0, reserved: 1, scalars: members[0].scalars },
+  ];
+  const lens = descMeta.map(d => d.n * 32);
+  const totalScalarBytes = lens.reduce((a, b) => a + b, 0);
+  // Reverse layout: descriptor i lives after every LATER descriptor's bytes.
+  const scalarsOffOf = (i: number): number => lens.slice(i + 1).reduce((a, b) => a + b, 0);
+  const globalScalars = new Uint8Array(totalScalarBytes);
+  const descriptors: BridgeDescriptor[] = descMeta.map((d, i) => {
+    const off = scalarsOffOf(i);
+    globalScalars.set(d.scalars, off);
+    return { n: d.n, srsOffset: d.srsOffset, scalarsOff: off, resultOff: i * 64, reserved: d.reserved };
+  });
+  const readScalars = (off: number, byteLen: number): Uint8Array => globalScalars.subarray(off, off + byteLen);
+
+  // ── Union path via the production core. One cached instance per pack max-n,
+  // bound to the shared srsN-sized pool (so srsBytes is real — the srsBytes trap).
+  const pool = await MsmV2Pool.create(device, poolPoints!);
+  const srsBytes = pool.srsBudgetBytes();
+  const unionCache = new Map<number, MsmV2>();
+  const getUnionMsm = async (m: number): Promise<MsmV2> => {
+    const hit = unionCache.get(m);
+    if (hit) return hit;
+    const inst = await MsmV2.create(device, m, pool, cfg);
+    unionCache.set(m, inst);
+    return inst;
+  };
+
+  try {
+    const out = await runUnionPacks(getUnionMsm, descriptors, readScalars, { srsBytes, budgetBytes });
+
+    const diffs: string[] = [];
+    // The excluded member must be the (only) fallback.
+    if (out.fallback.length !== 1 || out.fallback[0] !== excludedIdx) {
+      diffs.push(`fallback expected [${excludedIdx}] got [${out.fallback.join(',')}]`);
+    }
+    // Every packable member's combined staged result must equal its CPU MSM.
+    const seen = new Set<number>();
+    for (const r of out.results) {
+      seen.add(r.descIdx);
+      const got = combineStagedPartials(r.stagedBytes, r.numWindows, r.partialsPerWindow, r.c);
+      const ref = members[r.descIdx].ref;
+      if (!isBn254OnCurve(got) || got.x !== ref.x || got.y !== ref.y) {
+        diffs.push(
+          `msm${r.descIdx} n=${members[r.descIdx].n} c=${r.c}: ` +
+            `union.x=${got.x.toString(16).slice(0, 12)} != ref.x=${ref.x.toString(16).slice(0, 12)}`,
+        );
+      }
+    }
+    for (let k = 0; k < members.length; k++) {
+      if (!seen.has(k)) diffs.push(`msm${k} missing from union results`);
+    }
+    // Distinct-scalars guard so the reverse-layout scalarBase isn't validated vacuously.
+    const distinct =
+      members.length < 2 || members.some(m => m.ref.x !== members[0].ref.x || m.ref.y !== members[0].ref.y);
+    if (!distinct) diffs.push('members had identical scalars — scalarBase NOT exercised (drop the scalar_seed)');
+
+    const ok = diffs.length === 0;
+    const detail = ok
+      ? `${out.results.length} members byte-identical union≡solo across ${out.packCount} pack(s) ` +
+        `(${out.totalUnionWindows} union windows, ${excludedIdx} excluded→fallback, reverse-layout reorder, budget=${(budgetBytes / (1 << 20)).toFixed(0)}MiB)`
+      : diffs.slice(0, 6).join(' | ');
+    return { ok, detail };
+  } finally {
+    for (const inst of unionCache.values()) inst.destroy();
+    pool.destroy();
+  }
+}
+
+// End-to-end BRIDGE acceptance: drive the REAL `WebGpuMsmHost.runBatchMsm` (the
+// production class wired into Chonk via setup.ts) over a synthetic WASM memory +
+// control SAB, and assert the union path writes the result + meta regions
+// BYTE-IDENTICALLY to the legacy per-MSM path. The proof is a pure function of
+// those regions, so byte-identical here ⇒ identical proof — the acceptance gate,
+// isolated to the bridge (no full C++ prove needed). Exercises the real descriptor
+// decode from WASM, the real scalars-region reads, the candidate split + fallback
+// (a trailing srsOffset≠0 member), and the per-member scatter back to WASM.
+// JS mirror of webgpu_marshalling::finish_and_combine_windows. Sums each window's
+// `partialsPerWindow` staged Jacobian partials (96 B LE: X||Y||Z, Z=0=∞), then
+// Horner-folds the per-window sums high→low (acc = acc·2^c + L[w]). Validates the
+// union path's per-member staged bytes against a CPU MSM reference.
+function combineStagedPartials(
+  staged: Uint8Array,
+  numWindows: number,
+  partialsPerWindow: number,
+  c: number,
+): { x: bigint; y: bigint } {
+  const rd = (off: number): bigint => {
+    let v = 0n;
+    for (let i = 31; i >= 0; i--) v = (v << 8n) | BigInt(staged[off + i]);
+    return v;
+  };
+  const windowSums: Bn254Jacobian[] = [];
+  for (let w = 0; w < numWindows; w++) {
+    let acc = BN254_JACOBIAN_ZERO;
+    for (let p = 0; p < partialsPerWindow; p++) {
+      const base = (w * partialsPerWindow + p) * 96;
+      const z = rd(base + 64);
+      if (z === 0n) continue; // ∞ / absent partial
+      acc = addBn254Jacobian(acc, { x: rd(base), y: rd(base + 32), z });
+    }
+    windowSums.push(acc);
+  }
+  let acc = windowSums[numWindows - 1];
+  for (let w = numWindows - 2; w >= 0; w--) {
+    for (let d = 0; d < c; d++) acc = doubleBn254Jacobian(acc);
+    acc = addBn254Jacobian(acc, windowSums[w]);
+  }
+  return toAffineBn254Jacobian(acc);
+}
+
+// Validate the multi-MSM union path end-to-end: each member's staged bytes, combined
+// in JS, must equal the noble CPU MSM of that member. Isolates the union (vs the
+// per-MSM path) on the REAL `runUnionPacks` core. All members srsOffset=0.
+async function runUnionValidate(logNs: number[]): Promise<{ ok: boolean; detail: string }> {
+  if (gpuDevice === null) gpuDevice = await get_device();
+  const device = gpuDevice;
+  const cfg: MsmConfig = { combineOnHost: false, profile: false, warmupRuns: 0 };
+
+  const members: { n: number; scalarsBuf: Uint8Array; ref: { x: bigint; y: bigint } }[] = [];
+  let maxN = 0;
+  let poolPoints: Uint8Array | null = null;
+  for (const logN of logNs) {
+    const inp = await generateInputs(logN, true); // true ⇒ also materialise points/scalars bigints for the ref
+    // Fast Jacobian reference MSM (double-and-add, no per-add modInverse — affine MSM
+    // is O(n·256) inverses and too slow at n=2048). Same EC convention as the combine.
+    let refJac = BN254_JACOBIAN_ZERO;
+    for (let i = 0; i < inp.points!.length; i++) {
+      const pj = { x: inp.points![i].x, y: inp.points![i].y, z: 1n };
+      refJac = addBn254Jacobian(refJac, scalarMultBn254Jacobian(pj, inp.scalars![i]));
+    }
+    const ref = toAffineBn254Jacobian(refJac);
+    members.push({ n: inp.n, scalarsBuf: inp.scalarsBuf, ref });
+    if (inp.n > maxN) {
+      maxN = inp.n;
+      poolPoints = inp.pointsBuf;
+    }
+  }
+
+  // One contiguous scalars region; descriptors are all packable (srsOffset=0).
+  const lens = members.map(m => m.n * 32);
+  const globalScalars = new Uint8Array(lens.reduce((a, b) => a + b, 0));
+  const descriptors: BridgeDescriptor[] = [];
+  let off = 0;
+  for (let i = 0; i < members.length; i++) {
+    globalScalars.set(members[i].scalarsBuf, off);
+    descriptors.push({ n: members[i].n, srsOffset: 0, scalarsOff: off, resultOff: i * 64, reserved: 0 });
+    off += lens[i];
+  }
+  const readScalars = (o: number, byteLen: number): Uint8Array => globalScalars.subarray(o, o + byteLen);
+
+  const pool = await MsmV2Pool.create(device, poolPoints!);
+  const srsBytes = pool.srsBudgetBytes();
+  const unionCache = new Map<number, MsmV2>();
+  const getUnionMsm = async (m: number): Promise<MsmV2> => {
+    const hit = unionCache.get(m);
+    if (hit) return hit;
+    const inst = await MsmV2.create(device, m, pool, cfg);
+    unionCache.set(m, inst);
+    return inst;
+  };
+
+  try {
+    const out = await runUnionPacks(getUnionMsm, descriptors, readScalars, { srsBytes, budgetBytes: MEM_BUDGET });
+    log(
+      'info',
+      `[union-validate] results=${out.results.length} packs=${out.packCount} fallback=[${out.fallback.join(',')}]`,
+    );
+    const diffs: string[] = [];
+    for (const r of out.results) {
+      const got = combineStagedPartials(r.stagedBytes, r.numWindows, r.partialsPerWindow, r.c);
+      const ref = members[r.descIdx].ref;
+      const onCurve = isBn254OnCurve(got);
+      const match = onCurve && got.x === ref.x && got.y === ref.y;
+      log(
+        match ? 'info' : 'err',
+        `[union-validate] msm${r.descIdx} n=${members[r.descIdx].n} c=${r.c} NW=${r.numWindows} P=${r.partialsPerWindow} ` +
+          `onCurve=${onCurve} ${match ? 'MATCH' : `MISMATCH got.x=${got.x.toString(16).slice(0, 14)} ref.x=${ref.x.toString(16).slice(0, 14)}`}`,
+      );
+      if (!match) diffs.push(`msm${r.descIdx}(n=${members[r.descIdx].n})`);
+    }
+    const ok = out.results.length === members.length && diffs.length === 0;
+    return {
+      ok,
+      detail: ok
+        ? `${out.results.length} members: union staged ≡ CPU MSM (${out.packCount} pack(s))`
+        : `MISMATCH: ${diffs.join(', ')}`,
+    };
+  } finally {
+    for (const inst of unionCache.values()) inst.destroy();
+    pool.destroy();
+  }
+}
+
+async function runBridgeE2E(logNs: number[]): Promise<{ ok: boolean; detail: string }> {
+  if (srsBuf === null) throw new Error('[bridge-e2e] SRS not loaded yet');
+  const align4 = (x: number): number => (x + 3) & ~3;
+
+  // Descriptors: a srsOffset=0 group + a MULTI-member srsOffset=1 group (the real
+  // Chonk shape — shifted-wire commitments cluster at srsOffset=1) + a singleton
+  // srsOffset=2. The union groups by srsOffset and folds each group's offset into the
+  // point-fetch base; points are the published SRS prefix [srsOffset, +n).
+  const memberNs = logNs.map(l => 1 << l);
+  const maxN = Math.max(...memberNs);
+  const srsN = maxN;
+  if (srsN * 64 > srsBuf.length) throw new Error(`[bridge-e2e] srsN=${srsN} exceeds loaded SRS`);
+  const fit = (n: number, off: number): number => Math.max(1, Math.min(n, srsN - off));
+  const descs: { n: number; srsOffset: number }[] = [
+    ...memberNs.map(n => ({ n, srsOffset: 0 })),
+    ...memberNs.map(n => ({ n: fit(n, 1), srsOffset: 1 })), // multi-member srsOffset=1 group
+    { n: fit(1 << 10, 2), srsOffset: 2 },
+  ];
+  const batchCount = descs.length;
+  const nws = descs.map(d => computeGeom(d.n).numWindows);
+
+  // Random scalars per descriptor (high byte zeroed ⇒ < r). Same bytes feed both
+  // runs (one shared memory), so this validates the union vs legacy contract, not
+  // an oracle — legacy is the trusted, oracle-validated production path.
+  const scalarsPer = descs.map(d => {
+    const b = new Uint8Array(d.n * 32);
+    for (let off = 0; off < b.length; off += 65536)
+      crypto.getRandomValues(b.subarray(off, Math.min(off + 65536, b.length)));
+    for (let i = 0; i < d.n; i++) b[i * 32 + 31] = 0;
+    return b;
+  });
+
+  // ── WASM-memory layout: SRS | scalars | results | meta | descriptors.
+  const srsBytes = srsN * 64;
+  const scalarOffs: number[] = [];
+  let sAcc = 0;
+  for (const d of descs) {
+    scalarOffs.push(sAcc);
+    sAcc += d.n * 32;
+  }
+  const resultOffs: number[] = [];
+  let rAcc = 0;
+  for (const nw of nws) {
+    resultOffs.push(rAcc);
+    rAcc += nw * 64;
+  }
+  const srsPtr = 0;
+  const scalarsBase = align4(srsPtr + srsBytes);
+  const resultsBase = align4(scalarsBase + sAcc);
+  const metaBase = align4(resultsBase + rAcc);
+  const descPtr = align4(metaBase + batchCount * 8);
+  const endByte = descPtr + batchCount * 20;
+  const memory = new WebAssembly.Memory({ initial: Math.ceil(endByte / 65536) + 4 });
+  const mem = new Uint8Array(memory.buffer);
+
+  mem.set(srsBuf.subarray(0, srsBytes), srsPtr);
+  for (let k = 0; k < batchCount; k++) mem.set(scalarsPer[k], scalarsBase + scalarOffs[k]);
+  const descView = new DataView(memory.buffer, descPtr, batchCount * 20);
+  for (let k = 0; k < batchCount; k++) {
+    const o = k * 20;
+    descView.setUint32(o + 0, descs[k].n, true);
+    descView.setUint32(o + 4, descs[k].srsOffset, true);
+    descView.setUint32(o + 8, scalarOffs[k], true);
+    descView.setUint32(o + 12, resultOffs[k], true);
+    descView.setUint32(o + 16, 0, true); // reserved
+  }
+
+  // ── Solo oracle: each member's window sums on an isolated pool of its OWN points
+  // (SRS prefix [srsOffset, srsOffset+n)), serialized into the result-region layout.
+  // This is exactly the per-window sum the bridge ships to the C++ Horner combine.
+  if (gpuDevice === null) gpuDevice = await get_device();
+  const oracleDevice = gpuDevice;
+  const writeLE32 = (out: Uint8Array, off: number, v: bigint): void => {
+    let cur = v;
+    for (let i = 0; i < 32; i++) {
+      out[off + i] = Number(cur & 0xffn);
+      cur >>= 8n;
+    }
+  };
+  const oracle = new Uint8Array(rAcc);
+  for (let k = 0; k < batchCount; k++) {
+    const d = descs[k];
+    const ptBytes = srsBuf.subarray(d.srsOffset * 64, (d.srsOffset + d.n) * 64);
+    const soloPool = await MsmV2Pool.create(oracleDevice, ptBytes);
+    const soloInst = await MsmV2.create(oracleDevice, d.n, soloPool, {
+      ...gpuKnobs,
+      combineOnHost: false,
+      profile: false,
+      warmupRuns: 0,
+    });
+    try {
+      soloInst.prepare(scalarsPer[k]);
+      const ws = (await soloInst.run()).windowSums;
+      for (let w = 0; w < ws.length; w++) {
+        writeLE32(oracle, resultOffs[k] + w * 64, ws[w].x);
+        writeLE32(oracle, resultOffs[k] + w * 64 + 32, ws[w].y);
+      }
+    } finally {
+      soloInst.destroy();
+      soloPool.destroy();
+    }
+  }
+
+  // ── Drive each path on its OWN fresh host so neither contaminates the other's
+  // shared pool scratch (in production the union path is the default — legacy never
+  // runs alongside it, so a one-host union-then-legacy sequence is not a real case).
+  const runPathFreshHost = async (unionOn: boolean): Promise<Uint8Array> => {
+    (globalThis as { __msm_union_bridge?: boolean }).__msm_union_bridge = unionOn;
+    const ctrlSab = createControlBuffer();
+    const ctrl = new Int32Array(ctrlSab);
+    const host = new WebGpuMsmHost(ctrlSab);
+    host.setWasmMemory(memory);
+    const drive = async (): Promise<void> => {
+      await host.handleMessage('msm_request');
+      if (Atomics.load(ctrl, SLOT_STATE) !== STATE_DONE) {
+        throw new Error(`[bridge-e2e] host error: ${host.getLastErrorMessage() ?? 'unknown'}`);
+      }
+    };
+    try {
+      Atomics.store(ctrl, SLOT_OPCODE, OP_PUBLISH_SRS);
+      Atomics.store(ctrl, SLOT_N, srsN);
+      Atomics.store(ctrl, SLOT_POINTS_PTR, srsPtr);
+      await drive();
+      mem.fill(0, resultsBase, metaBase + batchCount * 8); // clear results + meta
+      Atomics.store(ctrl, SLOT_OPCODE, OP_BATCH_MSM);
+      Atomics.store(ctrl, SLOT_N, batchCount);
+      Atomics.store(ctrl, SLOT_POINTS_PTR, descPtr);
+      Atomics.store(ctrl, SLOT_SCALARS_PTR, scalarsBase);
+      Atomics.store(ctrl, SLOT_RESULT_PTR, resultsBase);
+      Atomics.store(ctrl, SLOT_BATCH_META_PTR, metaBase);
+      Atomics.store(ctrl, SLOT_BATCH_LABELS_PTR, 0);
+      await drive();
+      return mem.slice(resultsBase, metaBase + batchCount * 8); // results + meta
+    } finally {
+      await host.destroy();
+      (globalThis as { __msm_union_bridge?: boolean }).__msm_union_bridge = undefined;
+    }
+  };
+
+  const unionOut = await runPathFreshHost(true);
+  const legacyOut = await runPathFreshHost(false);
+
+  const firstDiffVs = (snap: Uint8Array): number => {
+    for (let i = 0; i < oracle.length; i++) if (snap[i] !== oracle[i]) return i;
+    return -1;
+  };
+  const unionDiff = firstDiffVs(unionOut);
+  const legacyDiff = firstDiffVs(legacyOut);
+  let mutual = -1;
+  for (let i = 0; i < unionOut.length; i++) {
+    if (unionOut[i] !== legacyOut[i]) {
+      mutual = i;
+      break;
+    }
+  }
+  const nonTrivial = oracle.some(b => b !== 0);
+  // ACCEPTANCE: the union path (the new production default) must be byte-identical
+  // to the solo oracle — that IS the per-window sum the C++ Horner combine consumes,
+  // so identical ⇒ identical proof. The legacy comparison is ADVISORY: the legacy
+  // single-encoder path runs every member in one command buffer over shared pool
+  // scratch, a multi-member concurrency path the union replaces; it can diverge on a
+  // synthetic many-large-member batch independently of the union wiring.
+  const ok = unionDiff === -1 && nonTrivial;
+  const legacyNote =
+    legacyDiff === -1
+      ? 'legacy≡oracle too'
+      : `legacy≠oracle@${legacyDiff} (legacy single-encoder path; advisory, union replaces it)`;
+  const detail = !nonTrivial
+    ? 'oracle result region all zero — test setup bug'
+    : ok
+      ? `union ≡ solo-oracle byte-identical via the REAL host: ${batchCount} MSMs ` +
+        `(srsOffset groups {0,1,2}, all unioned), ${rAcc} result + ${batchCount * 8} meta bytes; ${legacyNote}`
+      : `UNION-vs-oracle@${unionDiff} (union[${unionDiff}]=${unionOut[unionDiff]} oracle=${oracle[unionDiff]}); ${legacyNote}`;
+  return { ok, detail };
+}
+
+// Decode + upload the inputs into the WASM worker's native point/scalar
+// vectors. UNTIMED — kept out of runWasmOnce's measured window so the
+// benchmark reports Pippenger compute, not input-structure population.
+async function loadWasmInputs(inputs: TestInputs): Promise<void> {
+  const handle = await ensureWasmBooted();
+  throwIfAborted();
+  log(
+    'info',
+    `[wasm] load n=${inputs.n.toLocaleString()} ` +
+      `(${((inputs.pointsBuf.length + inputs.scalarsBuf.length) / 1024 / 1024).toFixed(1)} MiB in)`,
+  );
+  await handle.loadMsm(inputs.pointsBuf, inputs.scalarsBuf);
+}
+
+// Time one batch_multi_scalar_mul_native run over the inputs from the last
+// loadWasmInputs. The buffer copy + native-vector decode are NOT in the
+// timed window — only the Pippenger compute is measured.
+async function runWasmOnce(): Promise<{ ms: number; xy: { x: bigint; y: bigint } }> {
+  const handle = await ensureWasmBooted();
+  // If Stop destroyed the handle while ensureWasmBooted was already
+  // resolved (e.g. for the previous rep), the next call would crash
+  // inside comlink with a confusing "channel closed" message.
+  throwIfAborted();
+  // Pass num_threads explicitly so bb's static parallel_for pool
+  // gets sized to match the pthread count this worker was actually
+  // booted with. The override is read on the main WASM thread on
+  // the FIRST call (before the static `ThreadPool(get_num_cpus()-1)`
+  // initialiser runs); after that the pool size is locked. We use
+  // `handle.threads` rather than re-reading the UI input because the
+  // user may have changed it since boot.
+  const numThreads = handle.threads;
+  const t0 = performance.now();
+  const resultBytes = await handle.runMsm(numThreads);
+  const ms = performance.now() - t0;
+  log('info', `[wasm] returned in ${ms.toFixed(1)} ms`);
+  return { ms, xy: parseAffineLE(resultBytes) };
+}
+
+interface BackendSample {
+  ms: number;
+  // Tracked once per (logN, backend) pair — we cross-check the first
+  // result of each backend against noble (at NOBLE_REFERENCE_LOGN) and
+  // against the WebGPU result (at all sizes, so a regression in any one
+  // backend is visible without paying for noble).
+  xy: { x: bigint; y: bigint };
+  // Populated only for the WebGPU backend — the library writes per-pass
+  // GPU times, CPU phase totals, and a readback decomposition into this
+  // out-param when `profile_capture` is passed. Used to render the
+  // per-stage breakdown table.
+  capture?: ProfileCapture;
+}
+
+interface SweepRow {
+  logN: number;
+  webgpu: BackendSample[];
+  wasmMt: BackendSample[];
+  nobleOk: boolean | null;
+  crossOk: boolean | null; // WASM-MT matches WebGPU?
+}
+
+function median(samples: number[]): number {
+  if (samples.length === 0) return NaN;
+  const sorted = samples.slice().sort((a, b) => a - b);
+  return sorted[Math.floor(sorted.length / 2)];
+}
+
+function fmtMs(samples: BackendSample[]): string {
+  if (samples.length === 0) return '—';
+  return median(samples.map(s => s.ms)).toFixed(1);
+}
+
+function fmtSamples(samples: BackendSample[]): string {
+  if (samples.length === 0) return '—';
+  return `[${samples.map(s => s.ms.toFixed(0)).join(', ')}]`;
+}
+
+function fmtSpeedup(ms: number, baseline: number): string {
+  if (!Number.isFinite(ms) || !Number.isFinite(baseline) || baseline === 0) return '—';
+  const ratio = baseline / ms;
+  return ratio >= 1 ? `${ratio.toFixed(2)}× faster` : `${(1 / ratio).toFixed(2)}× slower`;
+}
+
+function fmtCheck(v: boolean | null): string {
+  if (v === null) return '—';
+  return v ? '<span class="ok">pass</span>' : '<span class="err">FAIL</span>';
+}
+
+// Pipeline-execution order so breakdown rows read top-to-bottom along
+// the dataflow. Stages not in this list (future labels, fallbacks) are
+// appended at the end. Labels match the `profiler.stage(...)` calls in
+// msm.ts and batch_affine.ts after `[…]` rollup (subtasks/rounds are
+// summed within a rep, then medianised across reps).
+const STAGE_ORDER = [
+  'decompose_scalars_only',
+  'convert_points',
+  'transpose_count',
+  'transpose_scan',
+  'transpose_scatter',
+  'transpose',
+  'ba_init',
+  'ba_schedule',
+  'ba_inverse',
+  'ba_apply',
+  'ba_finalize_collect',
+  'ba_finalize_inverse',
+  'ba_finalize_apply',
+  'smvp',
+  'bpr_1',
+  'bpr_2',
+  'subtask_reduce',
+];
+
+function rollupLabel(label: string): string {
+  const idx = label.indexOf('[');
+  return idx >= 0 ? label.substring(0, idx) : label;
+}
+
+interface AggregatedProfile {
+  perStage: Map<string, number>;
+  perRegion: Map<string, number>;
+  gpuWallMs: number | null;
+  profiledSumMs: number | null;
+  untimestampedMs: number | null;
+  readbackMs: number | null;
+  mapasyncMs: number | null;
+  cpuTotalWallMs: number | null;
+  cpuPhases: Map<string, number>;
+}
+
+function aggregateCaptures(captures: ProfileCapture[]): AggregatedProfile | null {
+  if (captures.length === 0) return null;
+  // Per-rep stage sums (rolled up across subtasks/rounds), medianised
+  // across reps. Region entries are tracked separately — they overlap
+  // their inner stages and would distort the per-stage totals.
+  const perRepByStage = new Map<string, number[]>();
+  const perRepByRegion = new Map<string, number[]>();
+  for (const c of captures) {
+    if (!c.profile) continue;
+    const repStageTotals = new Map<string, number>();
+    const repRegionTotals = new Map<string, number>();
+    for (const e of c.profile) {
+      const k = rollupLabel(e.label);
+      if (e.kind === 'region') {
+        repRegionTotals.set(k, (repRegionTotals.get(k) ?? 0) + e.ms);
+      } else {
+        repStageTotals.set(k, (repStageTotals.get(k) ?? 0) + e.ms);
+      }
+    }
+    for (const [k, v] of repStageTotals) {
+      if (!perRepByStage.has(k)) perRepByStage.set(k, []);
+      perRepByStage.get(k)!.push(v);
+    }
+    for (const [k, v] of repRegionTotals) {
+      if (!perRepByRegion.has(k)) perRepByRegion.set(k, []);
+      perRepByRegion.get(k)!.push(v);
+    }
+  }
+  const perStage = new Map<string, number>();
+  for (const [k, samples] of perRepByStage) perStage.set(k, median(samples));
+  const perRegion = new Map<string, number>();
+  for (const [k, samples] of perRepByRegion) perRegion.set(k, median(samples));
+
+  const fld = (pick: (c: ProfileCapture) => number | undefined): number | null => {
+    const xs: number[] = [];
+    for (const c of captures) {
+      const v = pick(c);
+      if (v !== undefined && Number.isFinite(v)) xs.push(v);
+    }
+    return xs.length ? median(xs) : null;
+  };
+
+  const cpuByPhase = new Map<string, number[]>();
+  for (const c of captures) {
+    if (!c.cpu_phases) continue;
+    for (const { label, ms } of c.cpu_phases.phases) {
+      if (!cpuByPhase.has(label)) cpuByPhase.set(label, []);
+      cpuByPhase.get(label)!.push(ms);
+    }
+  }
+  const cpuPhases = new Map<string, number>();
+  for (const [k, samples] of cpuByPhase) cpuPhases.set(k, median(samples));
+
+  return {
+    perStage,
+    perRegion,
+    gpuWallMs: fld(c => c.gpu_readback?.gpu_compute_wall),
+    profiledSumMs: fld(c => c.gpu_readback?.profiled_passes_sum),
+    untimestampedMs: fld(c => c.gpu_readback?.untimestamped),
+    readbackMs: fld(c => c.gpu_readback?.readback_total),
+    mapasyncMs: fld(c => c.gpu_readback?.mapasync_overhead),
+    cpuTotalWallMs: fld(c => c.cpu_phases?.total_wall_ms),
+    cpuPhases,
+  };
+}
+
+function fmtCell(v: number | null | undefined): string {
+  if (v === null || v === undefined || !Number.isFinite(v)) return '—';
+  return v.toFixed(1);
+}
+
+function fmtPctCell(v: number | null | undefined, total: number | null): string {
+  if (v === null || v === undefined || total === null || !total) return fmtCell(v);
+  if (!Number.isFinite(v) || !Number.isFinite(total)) return fmtCell(v);
+  return `${fmtCell(v)}<span class="samples"> (${((100 * v) / total).toFixed(0)}%)</span>`;
+}
+
+function renderBreakdownTable(entries: { logN: number; captures: ProfileCapture[] }[]): string {
+  const aggregates = entries.map(e => ({
+    logN: e.logN,
+    agg: aggregateCaptures(e.captures),
+  }));
+  if (aggregates.every(({ agg }) => agg === null)) return '';
+
+  const seenStages = new Set<string>();
+  const seenRegions = new Set<string>();
+  const seenCpuPhases = new Set<string>();
+  for (const { agg } of aggregates) {
+    if (!agg) continue;
+    for (const k of agg.perStage.keys()) seenStages.add(k);
+    for (const k of agg.perRegion.keys()) seenRegions.add(k);
+    for (const k of agg.cpuPhases.keys()) seenCpuPhases.add(k);
+  }
+  const orderedStages: string[] = [
+    ...STAGE_ORDER.filter(k => seenStages.has(k)),
+    ...Array.from(seenStages).filter(k => !STAGE_ORDER.includes(k)),
+  ];
+
+  const headCells = aggregates
+    .map(({ logN }) => `<th>2^${logN}<br/><span class="samples">n=${(1 << logN).toLocaleString()}</span></th>`)
+    .join('');
+
+  const stageRows = orderedStages
+    .map(stage => {
+      const cells = aggregates
+        .map(({ agg }) => {
+          if (!agg) return `<td>—</td>`;
+          return `<td>${fmtPctCell(agg.perStage.get(stage), agg.gpuWallMs)}</td>`;
+        })
+        .join('');
+      return `<tr><td>${stage}</td>${cells}</tr>`;
+    })
+    .join('');
+
+  const sumRow = (label: string, pick: (a: AggregatedProfile) => number | null, withPct = false): string => {
+    const cells = aggregates
+      .map(({ agg }) => {
+        if (!agg) return `<td>—</td>`;
+        const v = pick(agg);
+        return `<td>${withPct ? fmtPctCell(v, agg.gpuWallMs) : fmtCell(v)}</td>`;
+      })
+      .join('');
+    return `<tr><td><b>${label}</b></td>${cells}</tr>`;
+  };
+
+  const cpuRows = Array.from(seenCpuPhases)
+    .map(phase => {
+      const cells = aggregates
+        .map(({ agg }) => {
+          if (!agg) return `<td>—</td>`;
+          return `<td>${fmtCell(agg.cpuPhases.get(phase))}</td>`;
+        })
+        .join('');
+      return `<tr><td>${phase}</td>${cells}</tr>`;
+    })
+    .join('');
+
+  const regionRows = Array.from(seenRegions)
+    .map(region => {
+      const cells = aggregates
+        .map(({ agg }) => {
+          if (!agg) return `<td>—</td>`;
+          return `<td>${fmtPctCell(agg.perRegion.get(region), agg.gpuWallMs)}</td>`;
+        })
+        .join('');
+      return `<tr><td>[region] ${region}</td>${cells}</tr>`;
+    })
+    .join('');
+
+  // `inter_pass_overhead` = encoder_all − Σ(inner stages). This is the
+  // Dawn-side barrier/state-change cost between consecutive compute
+  // passes — invisible to `timestampWrites`, only inferable from the
+  // outer-region delta.
+  const interPassRow = (() => {
+    const cells = aggregates
+      .map(({ agg }) => {
+        if (!agg) return `<td>—</td>`;
+        const region = agg.perRegion.get('encoder_all');
+        const stagesSum = agg.profiledSumMs;
+        if (region === undefined || stagesSum === null) return `<td>—</td>`;
+        const v = Math.max(0, region - stagesSum);
+        return `<td>${fmtPctCell(v, agg.gpuWallMs)}</td>`;
+      })
+      .join('');
+    return `<tr><td><b>inter_pass_overhead</b><br/><span class="samples">encoder_all − Σ stages</span></td>${cells}</tr>`;
+  })();
+
+  // `post_encoder_tail` = gpu_compute_wall − encoder_all. The work
+  // that runs in the same encoder *after* the outer region closes:
+  // `profiler.resolve()` (resolveQuerySet + 12.8 KB copy) plus the
+  // staging copies inside `read_from_gpu`.
+  const postTailRow = (() => {
+    const cells = aggregates
+      .map(({ agg }) => {
+        if (!agg) return `<td>—</td>`;
+        const region = agg.perRegion.get('encoder_all');
+        const wall = agg.gpuWallMs;
+        if (region === undefined || wall === null) return `<td>—</td>`;
+        const v = Math.max(0, wall - region);
+        return `<td>${fmtPctCell(v, wall)}</td>`;
+      })
+      .join('');
+    return `<tr><td><b>post_encoder_tail</b><br/><span class="samples">wall − encoder_all</span></td>${cells}</tr>`;
+  })();
+
+  return `
+  <h3>GPU per-pass breakdown (median ms; subtasks/rounds summed within each rep)</h3>
+  <table>
+    <tr><th>Stage</th>${headCells}</tr>
+    ${stageRows}
+    ${sumRow('profiled passes (Σ)', a => a.profiledSumMs, true)}
+    ${sumRow('untimestamped', a => a.untimestampedMs, true)}
+    ${sumRow('GPU compute wall', a => a.gpuWallMs)}
+    ${regionRows}
+    ${interPassRow}
+    ${postTailRow}
+    ${sumRow('readback_total', a => a.readbackMs)}
+    ${sumRow('mapasync_overhead', a => a.mapasyncMs)}
+  </table>
+  <h3>CPU host phases (median ms)</h3>
+  <table>
+    <tr><th>Phase</th>${headCells}</tr>
+    ${cpuRows}
+    ${sumRow('total wall (CPU)', a => a.cpuTotalWallMs)}
+  </table>`;
+}
+
+function captureEntriesFromRows(rows: SweepRow[]): { logN: number; captures: ProfileCapture[] }[] {
+  return rows.map(r => ({
+    logN: r.logN,
+    captures: r.webgpu.map(s => s.capture).filter((c): c is ProfileCapture => c !== undefined),
+  }));
+}
+
+function renderSweepTable(rows: SweepRow[]): void {
+  // Two tables: a consistency check at log₂n = NOBLE_REFERENCE_LOGN
+  // (cross-checks WebGPU / WASM-MT / Noble pairwise), and a perf
+  // comparison of WebGPU vs WASM MT across every sweep size. Noble
+  // lives in the consistency table only because it's too slow to run
+  // at larger n. Followed by a per-pass GPU/CPU breakdown built from
+  // the `profile_capture` out-params collected on every WebGPU rep.
+  const refRow = rows.find(r => r.logN === NOBLE_REFERENCE_LOGN);
+  $results.innerHTML =
+    renderConsistencyTable(refRow) + renderPerfTable(rows) + renderBreakdownTable(captureEntriesFromRows(rows));
+  $results.classList.add('visible');
+}
+
+function renderConsistencyTable(row: SweepRow | undefined): string {
+  // Re-derive pairwise outcomes from the first rep's stored xy values
+  // so each cell can be FAIL-pinpointed individually. Cells stay as
+  // "—" until the reference row has run at least one rep.
+  const gpu = row?.webgpu[0]?.xy;
+  const mt = row?.wasmMt[0]?.xy;
+  const eq = (a: { x: bigint; y: bigint } | undefined, b: { x: bigint; y: bigint } | undefined): boolean | null =>
+    !a || !b ? null : pointsEqual(a, b);
+  return `
+  <h3>Consistency (log₂n = ${NOBLE_REFERENCE_LOGN}, n = ${(1 << NOBLE_REFERENCE_LOGN).toLocaleString()})</h3>
+  <table>
+    <tr>
+      <th>WebGPU vs WASM MT</th>
+      <th>Noble vs WebGPU</th>
+    </tr>
+    <tr>
+      <td>${fmtCheck(eq(gpu, mt))}</td>
+      <td>${fmtCheck(row?.nobleOk ?? null)}</td>
+    </tr>
+  </table>`;
+}
+
+// Per-row correctness badge for the perf table: WebGPU output xy vs
+// WASM MT output xy at the same logN. Returns "" until both backends
+// have a stored result. The check is symmetric, so we render the same
+// badge on both the WebGPU and WASM MT cells — each cell advertises
+// that its MSM output has been cross-verified.
+function fmtMatchBadge(match: boolean | null): string {
+  if (match === null) return '';
+  return match
+    ? ' <span class="ok" title="WebGPU output matches WASM MT">✓</span>'
+    : ' <span class="err" title="WebGPU output disagrees with WASM MT">✗</span>';
+}
+
+function renderPerfTable(rows: SweepRow[]): string {
+  const head = `
+    <tr>
+      <th>log₂(n)</th>
+      <th>n</th>
+      <th>WebGPU<br/>median ms</th>
+      <th>WASM MT (${readMtThreads()}t)<br/>median ms</th>
+      <th>WebGPU vs<br/>WASM MT</th>
+    </tr>`;
+  const body = rows
+    .map(r => {
+      const webgpuMs = median(r.webgpu.map(s => s.ms));
+      const mtMs = median(r.wasmMt.map(s => s.ms));
+      const gpuXy = r.webgpu[0]?.xy;
+      const mtXy = r.wasmMt[0]?.xy;
+      const match: boolean | null = gpuXy && mtXy ? pointsEqual(gpuXy, mtXy) : null;
+      const badge = fmtMatchBadge(match);
+      return `
+    <tr>
+      <td>${r.logN}</td>
+      <td>${(1 << r.logN).toLocaleString()}</td>
+      <td>${fmtMs(r.webgpu)}${badge}<br/><span class="samples">${fmtSamples(r.webgpu)}</span></td>
+      <td>${fmtMs(r.wasmMt)}${badge}<br/><span class="samples">${fmtSamples(r.wasmMt)}</span></td>
+      <td>${fmtSpeedup(webgpuMs, mtMs)}</td>
+    </tr>`;
+    })
+    .join('');
+  return `
+  <h3>Performance — WebGPU vs Barretenberg WASM MT</h3>
+  <table>${head}${body}</table>`;
+}
+
+$run.addEventListener('click', async () => {
+  $log.innerHTML = '';
+  abortRequested = false;
+  setBusy(true, 'running…');
+  try {
+    const logN = readLogN();
+    const checkNoble = $noble.checked && logN === NOBLE_REFERENCE_LOGN;
+    const inputs = await generateInputs(logN, checkNoble);
+    await yieldToBrowser();
+
+    const gpu = await runWebGpuOnce(inputs);
+    log('info', `[gpu] x=0x${gpu.xy.x.toString(16).slice(0, 16)}…`);
+    await yieldToBrowser();
+
+    throwIfAborted();
+    await loadWasmInputs(inputs);
+    const mt = await runWasmOnce();
+    await yieldToBrowser();
+
+    const cross = pointsEqual(gpu.xy, mt.xy);
+    if (cross) {
+      log('ok', `[cross-check] WebGPU and WASM MT agree`);
+    } else {
+      log('err', `[cross-check] disagreement: gpu=${gpu.xy.x}, mt=${mt.xy.x}`);
+    }
+    if (checkNoble && inputs.points && inputs.scalars) {
+      const noble = referenceMsm(inputs.points, inputs.scalars);
+      const nobleOk = pointsEqual(noble, gpu.xy);
+      if (nobleOk) {
+        log('ok', `[noble] matches GPU at log₂(n) = ${logN}`);
+      } else {
+        log('err', `[noble] mismatch: noble.x=${noble.x}, gpu.x=${gpu.xy.x}`);
+      }
+    }
+  } catch (err) {
+    log(abortRequested ? 'warn' : 'err', `[run] ${err instanceof Error ? err.message : String(err)}`);
+    if (!abortRequested && err instanceof Error && err.stack) log('err', err.stack);
+  } finally {
+    setBusy(false);
+  }
+});
+
+$runBench.addEventListener('click', async () => {
+  $log.innerHTML = '';
+  $results.classList.remove('visible');
+  abortRequested = false;
+  setBusy(true, 'benchmarking…');
+  try {
+    const logN = readLogN();
+    const inputs = await generateInputs(logN, false);
+    const gpuSamples: number[] = [];
+    const mtSamples: number[] = [];
+    const gpuCaptures: ProfileCapture[] = [];
+    // Load the WASM inputs once — the byte copy + native-vector decode
+    // are not part of the timed Pippenger window.
+    await loadWasmInputs(inputs);
+    for (let i = 0; i < SWEEP_REPS; i++) {
+      throwIfAborted();
+      log('info', `[bench] iter ${i + 1}/${SWEEP_REPS}`);
+      const gpu = await runWebGpuOnce(inputs);
+      throwIfAborted();
+      const mt = await runWasmOnce();
+      gpuSamples.push(gpu.ms);
+      gpuCaptures.push(gpu.capture);
+      mtSamples.push(mt.ms);
+      log('info', `  gpu=${gpu.ms.toFixed(1)}, mt=${mt.ms.toFixed(1)}`);
+    }
+    log('ok', `[bench] medians: gpu=${median(gpuSamples).toFixed(1)}, mt=${median(mtSamples).toFixed(1)} ms`);
+    // Surface the per-pass GPU/CPU breakdown for the single logN
+    // benched. Same renderer the sweep uses, just with one column.
+    $results.innerHTML = renderBreakdownTable([{ logN, captures: gpuCaptures }]);
+    $results.classList.add('visible');
+  } catch (err) {
+    log(abortRequested ? 'warn' : 'err', `[bench] ${err instanceof Error ? err.message : String(err)}`);
+    if (!abortRequested && err instanceof Error && err.stack) log('err', err.stack);
+  } finally {
+    setBusy(false);
+  }
+});
+
+$runSweep.addEventListener('click', async () => {
+  $log.innerHTML = '';
+  $results.classList.remove('visible');
+  abortRequested = false;
+  setBusy(true, 'sweeping…');
+
+  const mtThreads = readMtThreads();
+  const nobleEnabled = $noble.checked;
+  log('info', `[sweep] start: mt-threads=${mtThreads}, noble=${nobleEnabled ? 'on' : 'off'}`);
+  logMemSnapshot('sweep-start');
+
+  const rows: SweepRow[] = SWEEP_LOGN.map(logN => ({
+    logN,
+    webgpu: [],
+    wasmMt: [],
+    nobleOk: null,
+    crossOk: null,
+  }));
+  renderSweepTable(rows);
+
+  try {
+    for (const row of rows) {
+      throwIfAborted();
+      const checkNoble = nobleEnabled && row.logN === NOBLE_REFERENCE_LOGN;
+      log('info', '');
+      log('info', `[sweep] === log₂(n) = ${row.logN} (n = ${(1 << row.logN).toLocaleString()}) ===`);
+
+      log('info', `[sweep] step 1/4: generateInputs (mirrorForNoble=${checkNoble})`);
+      await yieldToBrowser();
+      const tGen = performance.now();
+      const inputs = await generateInputs(row.logN, checkNoble);
+      log('info', `[sweep] step 1/4 done in ${(performance.now() - tGen).toFixed(0)} ms`);
+      logMemSnapshot(`after generateInputs(${row.logN})`);
+      await yieldToBrowser();
+
+      let noble: { x: bigint; y: bigint } | null = null;
+      if (checkNoble && inputs.points && inputs.scalars) {
+        log('info', `[sweep] step 2/4: noble reference (blocking ~10s)`);
+        await yieldToBrowser(16); // let the warning render before we block
+        const tNoble = performance.now();
+        noble = referenceMsm(inputs.points, inputs.scalars);
+        log('info', `[sweep] step 2/4 done in ${(performance.now() - tNoble).toFixed(0)} ms`);
+        await yieldToBrowser();
+      } else {
+        log('info', `[sweep] step 2/4: noble skipped`);
+      }
+
+      log('info', `[sweep] step 3/4: ensure the WASM worker is booted, then load this size's inputs`);
+      // Pre-warm the WASM boot before the timed reps so we don't fold
+      // the spawn time into the first rep's wall clock. Also if Stop
+      // hits during boot we abort here cleanly rather than mid-MSM.
+      await ensureWasmBooted();
+      throwIfAborted();
+      // Decode + upload the WASM inputs once per size — untimed, kept
+      // out of every rep's measured window.
+      await loadWasmInputs(inputs);
+      throwIfAborted();
+      await yieldToBrowser();
+      log('info', `[sweep] step 3/4 done`);
+
+      log('info', `[sweep] step 4/4: ${SWEEP_REPS} reps × {gpu, wasm-mt}`);
+      for (let i = 0; i < SWEEP_REPS; i++) {
+        throwIfAborted();
+        setBusy(true, `sweeping log₂(n)=${row.logN} (rep ${i + 1}/${SWEEP_REPS})…`);
+        log('info', `[sweep]   rep ${i + 1}/${SWEEP_REPS}`);
+
+        const gpu = await runWebGpuOnce(inputs);
+        await yieldToBrowser();
+        throwIfAborted();
+
+        const mt = await runWasmOnce();
+        await yieldToBrowser();
+
+        row.webgpu.push(gpu);
+        row.wasmMt.push(mt);
+        if (i === 0) {
+          row.crossOk = pointsEqual(gpu.xy, mt.xy);
+          if (noble !== null) row.nobleOk = pointsEqual(noble, gpu.xy);
+          if (!row.crossOk) {
+            log('err', `[sweep]   cross-check FAILED at log₂(n)=${row.logN}`);
+            log('err', `         gpu.x=${gpu.xy.x.toString(16)}`);
+            log('err', `         mt.x =${mt.xy.x.toString(16)}`);
+          }
+        }
+        renderSweepTable(rows);
+      }
+      log(
+        'info',
+        `[sweep]   medians: gpu=${median(row.webgpu.map(s => s.ms)).toFixed(1)}, ` +
+          `mt=${median(row.wasmMt.map(s => s.ms)).toFixed(1)} ms`,
+      );
+      logMemSnapshot(`after log₂(n)=${row.logN}`);
+    }
+    log('ok', `[sweep] done — see comparison table above.`);
+  } catch (err) {
+    log(abortRequested ? 'warn' : 'err', `[sweep] ${err instanceof Error ? err.message : String(err)}`);
+    if (!abortRequested && err instanceof Error && err.stack) log('err', err.stack);
+  } finally {
+    setBusy(false);
+  }
+});
+
+/**
+ * Tiniest possible WebGPU touch — request adapter, request device,
+ * read out adapter info, destroy device. Allocates no compute pipelines,
+ * no big buffers, no shaders. If this hangs or crashes, the GPU driver
+ * itself is in a bad state and the rest of the page can't help. After
+ * a Sanity Check crash, restart the browser (or reboot if necessary)
+ * before retrying — the macOS Metal driver has been observed to hold
+ * a wedged state across page reloads.
+ */
+const $probeGpu = document.getElementById('probe-gpu') as HTMLButtonElement;
+$probeGpu?.addEventListener('click', async () => {
+  $log.innerHTML = '';
+  setBusy(true, 'probing GPU…');
+  try {
+    log('info', '[probe] navigator.gpu in?: ' + ('gpu' in navigator));
+    if (!('gpu' in navigator)) {
+      log('err', '[probe] no WebGPU available — stop here');
+      return;
+    }
+    await yieldToBrowser();
+    log('info', '[probe] requesting adapter…');
+    const t0 = performance.now();
+    const adapter = await navigator.gpu.requestAdapter();
+    log('info', `[probe] requestAdapter returned in ${(performance.now() - t0).toFixed(0)} ms`);
+    if (adapter === null) {
+      log('err', '[probe] adapter is null — GPU not usable from this page');
+      return;
+    }
+    // @ts-expect-error adapter.info is non-standard but widely available
+    const info = adapter.info ?? (await adapter.requestAdapterInfo?.()) ?? {};
+    log(
+      'info',
+      `[probe] adapter: vendor=${info.vendor ?? '?'} arch=${info.architecture ?? '?'} ` +
+        `device=${info.device ?? '?'} description=${info.description ?? '?'}`,
+    );
+    log('info', '[probe] requesting device…');
+    const t1 = performance.now();
+    const device = await adapter.requestDevice();
+    log('info', `[probe] requestDevice returned in ${(performance.now() - t1).toFixed(0)} ms`);
+    log('info', '[probe] destroying device immediately…');
+    device.destroy();
+    log('ok', '[probe] PASS — basic WebGPU access is healthy');
+  } catch (err) {
+    log('err', `[probe] FAIL: ${err instanceof Error ? err.message : String(err)}`);
+    if (err instanceof Error && err.stack) log('err', err.stack);
+  } finally {
+    setBusy(false);
+  }
+});
+
+/**
+ * Lightweight smoke test for the page. Runs ONE WebGPU MSM at log₂(n)=16
+ * — no noble, no WASM, no worker spawns, no thread storms. If this hangs
+ * or crashes, the problem is in the WebGPU path itself (or the SRS), not
+ * the threaded WASM. Always the first thing to try after a fresh reload.
+ *
+ * The pre-flight logs every input invariant we depend on (n, byte
+ * counts, byte offsets) before touching the GPU, so a crash inside the
+ * WebGPU pipeline leaves an audit trail. Several recent crashes have
+ * been "right after `[gpu] dispatch`" with no further detail — checking
+ * the input shape here separates "we sent garbage" from "GPU went
+ * sideways on a valid input". On the warm path, the sanity check also
+ * exercises `get_device` and `MsmV2.create` — a hang during device
+ * acquisition or pipeline compile shows up in the `[gpu-warm]` lines.
+ */
+$runSanity.addEventListener('click', async () => {
+  $log.innerHTML = '';
+  abortRequested = false;
+  (window as unknown as { __sanity?: unknown }).__sanity = { state: 'running' };
+  setBusy(true, 'sanity check…');
+  try {
+    log('info', '[sanity] WebGPU-only smoke test, log₂(n)=16, no WASM, no noble');
+    logMemSnapshot('sanity-start');
+
+    log('info', '[sanity] step 1/3: generateInputs (no noble mirror)');
+    await yieldToBrowser();
+    const tGen = performance.now();
+    const inputs = await generateInputs(16, false);
+    log('info', `[sanity] step 1/3 done in ${(performance.now() - tGen).toFixed(0)} ms`);
+    logMemSnapshot('after generateInputs');
+    await yieldToBrowser();
+
+    log('info', '[sanity] step 2/3: input invariant checks (pre-GPU)');
+    const expectedPointBytes = inputs.n * 64;
+    const expectedScalarBytes = inputs.n * 32;
+    log('info', `[sanity]   inputs.n = ${inputs.n} (must be ≥ ${1 << LOGN_MIN})`);
+    log(
+      'info',
+      `[sanity]   pointsBuf:  length=${inputs.pointsBuf.byteLength} (expected ${expectedPointBytes}), ` +
+        `offset=${inputs.pointsBuf.byteOffset}, buffer.byteLength=${inputs.pointsBuf.buffer.byteLength}`,
+    );
+    log(
+      'info',
+      `[sanity]   scalarsBuf: length=${inputs.scalarsBuf.byteLength} (expected ${expectedScalarBytes}), ` +
+        `offset=${inputs.scalarsBuf.byteOffset}, buffer.byteLength=${inputs.scalarsBuf.buffer.byteLength}`,
+    );
+    if (inputs.n < 1 << LOGN_MIN) {
+      throw new Error(`[sanity] n=${inputs.n} is below LOGN_MIN (WebGPU MSM is known to crash below 2^16)`);
+    }
+    if (inputs.pointsBuf.byteLength !== expectedPointBytes) {
+      throw new Error(`[sanity] pointsBuf has ${inputs.pointsBuf.byteLength} bytes, expected ${expectedPointBytes}`);
+    }
+    if (inputs.scalarsBuf.byteLength !== expectedScalarBytes) {
+      throw new Error(`[sanity] scalarsBuf has ${inputs.scalarsBuf.byteLength} bytes, expected ${expectedScalarBytes}`);
+    }
+    // Spot-check the first point's bytes aren't all-zero (would indicate
+    // an uninitialised slice). The SRS first point is the BN254 generator
+    // (1, 2) in non-Montgomery LE — x[0] = 1.
+    const firstByte = inputs.pointsBuf[0];
+    log(
+      'info',
+      `[sanity]   pointsBuf[0..3] = ${Array.from(inputs.pointsBuf.subarray(0, 4)).join(',')} ` +
+        `(should be "1,0,0,0" for the SRS generator)`,
+    );
+    if (firstByte === 0) {
+      log('warn', `[sanity]   first SRS byte is 0 — SRS may be uninitialised`);
+    }
+    log('ok', `[sanity] step 2/3 input invariants OK`);
+    await yieldToBrowser();
+
+    log('info', '[sanity] step 3/3: WebGPU MSM (here we go)');
+    throwIfAborted();
+    const gpu = await runWebGpuOnce(inputs);
+    log('info', `[sanity] gpu.x=0x${gpu.xy.x.toString(16).slice(0, 16)}…`);
+    logMemSnapshot('sanity-end');
+    log('ok', `[sanity] PASS in ${gpu.ms.toFixed(0)} ms`);
+    // Single-capture breakdown — same renderer the sweep / bench use,
+    // with one column. Useful as a one-click "where is my time going"
+    // view after a fresh page reload.
+    $results.innerHTML = renderBreakdownTable([{ logN: 16, captures: [gpu.capture] }]);
+    $results.classList.add('visible');
+    // Expose the raw capture so Playwright-driven profile scripts can
+    // pull per-stage GPU times without scraping the rendered table.
+    // Cleared at the start of every click, so a stale value from a
+    // previous run never bleeds into the next read.
+    (window as unknown as { __sanity?: unknown }).__sanity = {
+      state: 'done',
+      logN: 16,
+      ms: gpu.ms,
+      capture: JSON.parse(JSON.stringify(gpu.capture)),
+    };
+  } catch (err) {
+    log(abortRequested ? 'warn' : 'err', `[sanity] ${err instanceof Error ? err.message : String(err)}`);
+    if (!abortRequested && err instanceof Error && err.stack) log('err', err.stack);
+    (window as unknown as { __sanity?: unknown }).__sanity = {
+      state: 'error',
+      error: err instanceof Error ? err.message : String(err),
+    };
+  } finally {
+    setBusy(false);
+  }
+});
+
+// Boot-time diagnostics so we have context for any crash report.
+log('info', `Boot diagnostics:`);
+log('info', `  webgpu: ${'gpu' in navigator ? 'available' : 'MISSING'}`);
+log('info', `  COI requested: ${COI_REQUESTED ? 'yes (?coi=1)' : 'no'}`);
+log('info', `  crossOriginIsolated: ${COI_ACTIVE ? 'yes' : 'no — WASM paths disabled'}`);
+log('info', `  hardwareConcurrency: ${navigator.hardwareConcurrency ?? '?'}`);
+log('info', `  user-agent: ${navigator.userAgent}`);
+log('info', `  SharedArrayBuffer: ${typeof SharedArrayBuffer !== 'undefined' ? 'yes' : 'NO'}`);
+logMemSnapshot('page-load');
+
+if (COI_REQUESTED && !COI_ACTIVE) {
+  log(
+    'warn',
+    `[boot] ?coi=1 was requested but crossOriginIsolated is still false. ` +
+      `Restart the dev server or hard-reload (Cmd+Shift+R) so the new ` +
+      `COOP/COEP headers take effect.`,
+  );
+}
+// NOTE: no automatic GPU adapter probe at boot. Calling
+// `navigator.gpu.requestAdapter()` proactively has been observed to
+// wedge the GPU driver on macOS when the GPU is already in a degraded
+// state from a previous crash. The "Probe GPU" button below does this
+// on demand instead — and only after the user has clicked it.
+
+// tqdm-style fixed-width progress bar renderer. Updates the
+// #srs-progress element in place — no log spam, no scroll churn.
+const BAR_WIDTH = 30;
+function formatBytes(n: number): string {
+  if (n >= 1024 * 1024) return `${(n / 1024 / 1024).toFixed(1)} MB`;
+  if (n >= 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${n} B`;
+}
+function formatCount(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
+  return `${n}`;
+}
+function formatDuration(secs: number): string {
+  if (!Number.isFinite(secs) || secs < 0) return '--:--';
+  const s = Math.round(secs);
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  if (m >= 60) {
+    const h = Math.floor(m / 60);
+    return `${h}:${String(m % 60).padStart(2, '0')}:${String(r).padStart(2, '0')}`;
+  }
+  return `${String(m).padStart(2, '0')}:${String(r).padStart(2, '0')}`;
+}
+function renderProgress(event: SrsEvent): void {
+  if (event.kind !== 'phase') return;
+  const { phase, current, total, elapsedMs } = event;
+  const frac = total > 0 ? Math.min(1, current / total) : 0;
+  const filledCells = Math.round(frac * BAR_WIDTH);
+  const emptyCells = BAR_WIDTH - filledCells;
+  const pct = (frac * 100).toFixed(1).padStart(5);
+  const elapsedSec = elapsedMs / 1000;
+  const rate = elapsedSec > 0 ? current / elapsedSec : 0;
+  const remaining = rate > 0 ? (total - current) / rate : Infinity;
+  const fmt = event.unit === 'B' ? formatBytes : formatCount;
+  const rateStr = event.unit === 'B' ? `${formatBytes(rate)}/s` : `${formatCount(rate)} pt/s`;
+
+  $progress.classList.add('visible');
+  $progress.innerHTML = '';
+  const phaseLabel = phase.padEnd(11);
+  const head = document.createTextNode(`${phaseLabel} ${pct}% [`);
+  const filled = document.createElement('span');
+  filled.className = 'bar-fill';
+  filled.textContent = '█'.repeat(filledCells);
+  const empty = document.createElement('span');
+  empty.className = 'bar-empty';
+  empty.textContent = '░'.repeat(emptyCells);
+  const tail = document.createTextNode(
+    `] ${fmt(current)}/${fmt(total)} [${formatDuration(elapsedSec)}<${formatDuration(remaining)}, ${rateStr}]`,
+  );
+  $progress.appendChild(head);
+  $progress.appendChild(filled);
+  $progress.appendChild(empty);
+  $progress.appendChild(tail);
+}
+function hideProgress(): void {
+  $progress.classList.remove('visible');
+}
+
+// Page-load boot: load the SRS only. The barretenberg WASM (which forks
+// `mt-threads` workers) stays cold until the user clicks Run / Run × 5 /
+// Sweep — ensureWasmBooted() takes care of the first-click boot. The SRS
+// fetch is a download + mandatory GPU decompression (no native workers),
+// so it's safe to run unconditionally at page load.
+(async () => {
+  setBusy(true, 'loading SRS…');
+  try {
+    srsBuf = await loadSrsPoints(SRS_NUM_POINTS, event => {
+      if (event.kind === 'info') {
+        log('info', event.msg);
+      } else if (event.kind === 'phase') {
+        renderProgress(event);
+      } else if (event.kind === 'done') {
+        hideProgress();
+      }
+    });
+    log('ok', `SRS loaded: ${SRS_NUM_POINTS.toLocaleString()} points available.`);
+    log(
+      'info',
+      `WASM not booted yet (lazy). Click Run / Sweep — it'll spin up ` +
+        `${readMtThreads()} pthread workers. Stop tears them down.`,
+    );
+  } catch (err) {
+    log('err', `[boot] ${err instanceof Error ? err.message : String(err)}`);
+    if (err instanceof Error && err.stack) log('err', err.stack);
+    hideProgress();
+  } finally {
+    setBusy(false);
+  }
+
+  // Autorun support for BrowserStack-driven integration testing.
+  // URL params:
+  //   ?autorun=msm-cross-check    Click Run, capture gpu/mt result pair
+  //   ?logn=N                     logN to test (default keeps page default)
+  //   ?use_tree_reduce=1          Route SMVP through tree-reduce pipeline
+  // Results posted via the standard /results endpoint so the BS harness
+  // can pick them up from JSONL.
+  const qp = new URLSearchParams(window.location.search);
+  const autorun = qp.get('autorun');
+  if (autorun === 'msm-jac-check') {
+    // GPU correctness gates for the (only) combine path:
+    //   default     — GPU final point vs the bb.js WASM reference MSM,
+    //                 bit-exact. Needs &coi=1 (WASM wants COOP/COEP).
+    //   &ab=ptree   — TWO GPU instances on one pool, per-window bit-exact
+    //                 (seeded determinism probe; WASM-free).
+    void (async () => {
+      const autorunLogN = Math.min(17, parseInt(qp.get('logn') ?? '17', 10) || 17);
+      const client = makeResultsClient({ page: 'msm-jac-check' });
+      // ?jacruns=N: repeat generate→run→compare N times on the SAME pool
+      // (fresh MsmV2 instances each run, seed stepped by 1) — the production
+      // bridge pattern. Catches cross-run state leaks in pooled scratch that
+      // single-shot runs can never see (e.g. stale desc planes).
+      const jacRuns = Math.max(1, parseInt(qp.get('jacruns') ?? '1', 10) || 1);
+      const baseSeedParam = qp.get('seed');
+      const baseSeed = baseSeedParam === null ? undefined : (parseInt(baseSeedParam, 10) || 1) >>> 0;
+      log('info', `[jac-check] logN=${autorunLogN} runs=${jacRuns}`);
+      try {
+        for (let i = 0; i < 1200 && srsBuf === null; i++) await new Promise(r => setTimeout(r, 500));
+        if (srsBuf === null) throw new Error('SRS never became ready');
+        $logn.value = String(autorunLogN);
+        $logn.dispatchEvent(new Event('input'));
+        let pool: MsmV2Pool | null = null;
+        let allOk = true;
+        for (let runI = 0; runI < jacRuns; runI++) {
+          const inputs = await generateInputs(autorunLogN, false, baseSeed === undefined ? undefined : baseSeed + runI);
+          if (gpuDevice === null) gpuDevice = await get_device();
+          if (pool === null) {
+            log('info', `[jac-check] building pool + MsmV2`);
+            pool = await MsmV2Pool.create(gpuDevice, inputs.pointsBuf);
+          }
+          const msmPt = await MsmV2.create(gpuDevice, inputs.n, pool, { ...gpuKnobs });
+          msmPt.prepare(inputs.scalarsBuf);
+          const a = await msmPt.run();
+          // ?schedcheck=1 (SCHED_COMBINE_PLAN.md §Validation): build a SECOND
+          // instance in schedEmitOnly mode over the same scalars (no combine
+          // executes — pristine partials + the emitted schedule), reconstruct
+          // the expected schedule bit-for-bit in JS, replay the actual one in
+          // bigint, and compare every bucket sum against msmPt's red oracle.
+          if (qp.get('schedcheck') === '1') {
+            console.log(`[sched-check] creating schedEmitOnly instance`);
+            const prevErr = gpuDevice.onuncapturederror;
+            gpuDevice.onuncapturederror = (ev: GPUUncapturedErrorEvent): void => {
+              console.log(`[sched-check] UNCAPTURED GPU ERROR: ${ev.error.message}`);
+            };
+            // Snapshot the ptree oracle BEFORE msmS runs: the pool scratch is
+            // shared, and msmS's encode clears red_buf without refilling it.
+            const oracleRedM = (msmPt as unknown as { redM: number }).redM;
+            const oracle = await (
+              msmPt as unknown as { debugRedSnapshotXY(n: number): Promise<{ x: Uint32Array; y: Uint32Array }> }
+            ).debugRedSnapshotXY(oracleRedM);
+            const msmS = await MsmV2.create(gpuDevice, inputs.n, pool, {
+              ...gpuKnobs,
+              schedEmitOnly: true,
+              warmupRuns: 0,
+            });
+            console.log(`[sched-check] created; preparing`);
+            msmS.prepare(inputs.scalarsBuf);
+            console.log(`[sched-check] prepared; running`);
+            try {
+              await msmS.run();
+            } catch (e) {
+              console.log(`[sched-check] run REJECTED: ${e instanceof Error ? `${e.message}\n${e.stack}` : String(e)}`);
+              throw e;
+            }
+            console.log(`[sched-check] ran; dumping`);
+            gpuDevice.onuncapturederror = prevErr;
+            const sd = await (msmS as unknown as { debugSchedDump(): Promise<SchedDump> }).debugSchedDump();
+            const sr = validateSchedule(sd, oracle);
+            log(sr.ok ? 'ok' : 'err', `[sched-check] ${sr.detail}`);
+            for (const li of sr.lines.slice(0, 24)) log(sr.ok ? 'info' : 'err', `[sched-check] ${li}`);
+            allOk = allOk && sr.ok;
+            (msmS as unknown as { destroy?: () => void }).destroy?.();
+          }
+          // ?jaccmp=last: compare only on the FINAL run; earlier runs leave
+          // pooled scratch exactly as production back-to-back MSMs would
+          // (no second instance touching it between runs).
+          if (qp.get('jaccmp') === 'last' && runI < jacRuns - 1) {
+            log('info', `[jac-check] [run ${runI + 1}/${jacRuns}] run-only (compare on last run)`);
+            (msmPt as unknown as { destroy?: () => void }).destroy?.();
+            continue;
+          }
+          const runTag = jacRuns > 1 ? ` [run ${runI + 1}/${jacRuns}]` : '';
+          let ok: boolean;
+          if (qp.get('ab') === 'det') {
+            // Determinism probe: a second instance on the same pool must
+            // reproduce every window sum bit-exactly.
+            const msmB = await MsmV2.create(gpuDevice, inputs.n, pool, { ...gpuKnobs });
+            const REDN = 0; // 0 = full x-plane
+            type Dbg = {
+              debugRedSnapshot(n: number): Promise<Uint32Array>;
+              debugCounts(): Promise<Uint32Array>;
+              redSlotToBid(slot: number): { window: number; mag: number };
+            };
+            const redA = qp.get('reddiff') === '1' ? await (msmPt as unknown as Dbg).debugRedSnapshot(REDN) : null;
+            msmB.prepare(inputs.scalarsBuf);
+            const b = await msmB.run();
+            if (redA) {
+              const dbg = msmPt as unknown as Dbg;
+              const redB = await (msmB as unknown as Dbg).debugRedSnapshot(REDN);
+              const counts = await dbg.debugCounts();
+              const BW = (msmPt as unknown as { BW: number }).BW;
+              let nbad = 0;
+              for (let slot = 0; slot < redA.length / 8; slot++) {
+                let diff = false;
+                for (let k = 0; k < 8; k++) if (redA[slot * 8 + k] !== redB[slot * 8 + k]) diff = true;
+                if (!diff) continue;
+                nbad++;
+                if (nbad <= 10) {
+                  const { window, mag } = dbg.redSlotToBid(slot);
+                  const fb = window * BW + mag;
+                  log(
+                    'info',
+                    `[jac-check] redDiff slot=${slot} w=${window} mag=${mag} cnt=${counts[fb] ?? -1} a=0x${redA[slot * 8].toString(16)} b=0x${redB[slot * 8].toString(16)}`,
+                  );
+                }
+              }
+              log('info', `[jac-check] redDiff nbad=${nbad} of ${redA.length / 8}`);
+            }
+            // Early-exit contract: the run's output IS the staged partials.
+            const sa = a.stagedPartials ?? new Uint8Array(0);
+            const sb2 = b.stagedPartials ?? new Uint8Array(0);
+            ok = sa.length === sb2.length && sa.length > 0;
+            let firstBad = -1;
+            for (let i = 0; ok && i < sa.length; i++) {
+              if (sa[i] !== sb2[i]) {
+                ok = false;
+                firstBad = i;
+              }
+            }
+            if (ok) {
+              log('ok', `[jac-check]${runTag} runs agree (${sa.length} staged bytes)`);
+            } else if (firstBad >= 0) {
+              log('err', `[jac-check]${runTag} MISMATCH staged byte ${firstBad}: a=${sa[firstBad]} b=${sb2[firstBad]}`);
+            } else {
+              log('err', `[jac-check]${runTag} MISMATCH staged length ${sa.length} vs ${sb2.length}`);
+            }
+            (msmB as unknown as { destroy?: () => void }).destroy?.();
+          } else {
+            // WASM reference: fold the GPU window sums to a final point and
+            // compare bit-exact against a full bb.js MSM of the same inputs.
+            const wasm = await ensureWasmBooted();
+            const sched = (msmPt as unknown as { windowSchedule: number[] }).windowSchedule;
+            const gpuPt = await foldWindowSums(a.windowSums, sched);
+            await wasm.loadMsm(inputs.pointsBuf, inputs.scalarsBuf);
+            const ref = parseAffineLE(await wasm.runMsm(0));
+            ok = gpuPt.x === ref.x && gpuPt.y === ref.y;
+            if (ok) {
+              log('ok', `[jac-check]${runTag} gpu and wasm agree (x=0x${gpuPt.x.toString(16).slice(0, 16)}…)`);
+            } else {
+              log(
+                'err',
+                `[jac-check]${runTag} MISMATCH vs wasm: gpu.x=0x${gpuPt.x.toString(16)} ref.x=0x${ref.x.toString(16)}`,
+              );
+            }
+          }
+          allOk = allOk && ok;
+          (msmPt as unknown as { destroy?: () => void }).destroy?.();
+        }
+        log('ok', `[jac-check] state=done ab_ok=${allOk}`);
+        await client.postResults({
+          state: 'done',
+          params: { logN: autorunLogN, page: 'msm-jac-check', runs: jacRuns },
+          results: { ab_ok: allOk },
+          error: null,
+          log: [],
+          userAgent: navigator.userAgent,
+          hardwareConcurrency: navigator.hardwareConcurrency,
+        });
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        log('err', `[jac-check] FATAL: ${msg}`);
+        await client.postResults({
+          state: 'error',
+          params: { logN: autorunLogN, page: 'msm-jac-check' },
+          results: null,
+          error: msg,
+          log: [],
+          userAgent: navigator.userAgent,
+          hardwareConcurrency: navigator.hardwareConcurrency,
+        });
+      }
+    })();
+    return;
+  }
+  if (autorun === 'msm-shader-test') {
+    // Compile-only isolation for the pair-tree kernels: renders each shader
+    // and awaits createComputePipelineAsync one at a time, so a Metal/driver
+    // compiler blowup names its culprit. No MSM, no SRS.
+    void (async () => {
+      try {
+        const { ShaderManager } = await import('../../src/msm_webgpu/cuzk/shader_manager.js');
+        const { BN254_CURVE_CONFIG } = await import('../../src/msm_webgpu/cuzk/curve_config.js');
+        if (gpuDevice === null) gpuDevice = await get_device();
+        // Mirrors the production mix exactly (msm_v2 create): level renders
+        // with karat, ufold/survfin with the packed 8×u32 CIOS body.
+        const sm = new ShaderManager(4, 1 << 17, BN254_CURVE_CONFIG, false, 'karat');
+        const smC = new ShaderManager(4, 1 << 17, BN254_CURVE_CONFIG, false, 'cios_unrolled');
+        const cases: Array<[string, string]> = [
+          [
+            'ptree-epilogue',
+            // surv_slots: ptreeSurvLayout(131072) = 1 MB floor / 96 B —
+            // the production value on every current device.
+            sm.gen_ba_walker_idx_epilogue_shader(64, {
+              levels: 8,
+              theta: 65536,
+              s: 8,
+              tpb: 64,
+              fin_tpb: 256,
+              fin_sn: 1,
+              surv_slots: 10922,
+            }),
+          ],
+          ['ptree-level', sm.gen_ba_walker_ptree_level_shader(64, 8)],
+          ['ptree-scatter', sm.gen_ba_walker_idx_scatter_shader(64, 8, 64)],
+          ['ptree-ufold', smC.gen_ba_walker_ptree_ufold_shader(256)],
+          ['ptree-survfin', smC.gen_ba_walker_ptree_finalize_shader(256, 1)],
+        ];
+        const stResults: Array<{ name: string; ms: number; ok: boolean; err?: string }> = [];
+        const stClient = makeResultsClient({ page: 'msm-shader-test' });
+        for (const [name, code] of cases) {
+          const t0 = performance.now();
+          try {
+            const mod = gpuDevice.createShaderModule({ code });
+            await gpuDevice.createComputePipelineAsync({
+              layout: 'auto',
+              compute: { module: mod, entryPoint: 'main' },
+            });
+            const ms = performance.now() - t0;
+            stResults.push({ name, ms: Math.round(ms), ok: true });
+            log('ok', `[shader-test] ${name}: OK in ${ms.toFixed(0)} ms (${code.length} chars)`);
+          } catch (e) {
+            stResults.push({ name, ms: Math.round(performance.now() - t0), ok: false, err: (e as Error).message });
+            log('err', `[shader-test] ${name}: FAIL ${(e as Error).message}`);
+          }
+          // Post incrementally: if a later kernel hangs the compiler, the
+          // rows show the last one that finished.
+          await stClient.postResults({
+            state: 'progress',
+            params: { page: 'msm-shader-test', dev: qp.get('dev') ?? '' },
+            results: { kernels: stResults },
+            error: null,
+            log: [],
+            userAgent: navigator.userAgent,
+            hardwareConcurrency: navigator.hardwareConcurrency,
+          });
+        }
+        await stClient.postResults({
+          state: 'done',
+          params: { page: 'msm-shader-test', dev: qp.get('dev') ?? '' },
+          results: { kernels: stResults },
+          error: null,
+          log: [],
+          userAgent: navigator.userAgent,
+          hardwareConcurrency: navigator.hardwareConcurrency,
+        });
+        // Functional probe: run the ptree epilogue variant standalone with
+        // layout:'auto' and dummy buffers; read back the meta region.
+        try {
+          const code = sm.gen_ba_walker_idx_epilogue_shader(64, {
+            levels: 8,
+            theta: 65536,
+            s: 8,
+            tpb: 64,
+            fin_tpb: 256,
+            fin_sn: 1,
+            surv_slots: 10922,
+          });
+          const mod = gpuDevice.createShaderModule({ code });
+          const pipe = await gpuDevice.createComputePipelineAsync({
+            layout: 'auto',
+            compute: { module: mod, entryPoint: 'main' },
+          });
+          const mk = (n: number, usage = GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC) =>
+            gpuDevice!.createBuffer({ size: n, usage });
+          const hist = mk(256);
+          const histData = new Uint32Array(64);
+          histData[2] = 100; // 100 buckets of 2 partials
+          gpuDevice.queue.writeBuffer(hist, 0, histData);
+          const acntB = mk(64);
+          gpuDevice.queue.writeBuffer(acntB, 0, new Uint32Array([100, 200]));
+          const boffsB = mk(256);
+          const bwposB = mk(256);
+          const ptdB = mk(16);
+          const ptpB = mk(16);
+          const cbB = mk(16);
+          const wiB = mk(64);
+          const metaB = mk(8192);
+          const plannerB = mk(32);
+          const probeB = gpuDevice.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+          const bg = gpuDevice.createBindGroup({
+            layout: pipe.getBindGroupLayout(0),
+            entries: [
+              { binding: 0, resource: { buffer: hist } },
+              { binding: 1, resource: { buffer: acntB } },
+              { binding: 2, resource: { buffer: boffsB } },
+              { binding: 3, resource: { buffer: bwposB } },
+              { binding: 4, resource: { buffer: ptdB } },
+              { binding: 5, resource: { buffer: ptpB } },
+              { binding: 6, resource: { buffer: cbB } },
+              { binding: 7, resource: { buffer: wiB } },
+              { binding: 8, resource: { buffer: metaB } },
+              // binding 9 (planner_meta) is unused in the variant — auto
+              // layout drops it; an explicit entry would invalidate the group.
+              { binding: 10, resource: { buffer: probeB } },
+            ],
+          });
+          const enc2 = gpuDevice.createCommandEncoder();
+          const pass = enc2.beginComputePass();
+          pass.setPipeline(pipe);
+          pass.setBindGroup(0, bg);
+          pass.dispatchWorkgroups(1);
+          pass.end();
+          const stg = gpuDevice.createBuffer({
+            size: 8192 + 256,
+            usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+          });
+          enc2.copyBufferToBuffer(metaB, 0, stg, 0, 8192);
+          enc2.copyBufferToBuffer(boffsB, 0, stg, 8192, 256);
+          gpuDevice.queue.submit([enc2.finish()]);
+          await stg.mapAsync(GPUMapMode.READ);
+          const u = new Uint32Array(stg.getMappedRange().slice(0));
+          stg.unmap();
+          log(
+            'ok',
+            `[shader-test] epilogue-functional: magic=${u[0].toString(16)} kstar=${u[20]} P=${u[28]} L1args=${u[260]} | upstream boffs[3]=${u[2048 + 3]} boffs[63]=${u[2048 + 63]}`,
+          );
+          const mi = code.indexOf('BEEF0001');
+          log(
+            'info',
+            `[shader-test] code around magic: ${JSON.stringify(code.slice(Math.max(0, mi - 300), mi + 120))}`,
+          );
+        } catch (e) {
+          log('err', `[shader-test] epilogue-functional FAIL: ${(e as Error).message}`);
+        }
+        log('ok', `[shader-test] state=done`);
+      } catch (e) {
+        log('err', `[shader-test] FATAL: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    })();
+    return;
+  }
+  if (autorun === 'msm-trace') {
+    // Perfetto trace capture: `reps` measured warm MSM runs via NORMAL run()
+    // calls. The batched captureWarmRuns command stream (swapped queryset +
+    // deferred resolve) crashes Xcode 26.5's GPU profiler when the .gputrace is
+    // counter-profiled; plain run() calls — the same shape as traces that
+    // profile cleanly — do not. One discarded warm-up, then `reps` measured
+    // run()s, each appending its per-pass timeline to window.__lastPassTimes.
+    // GPU-only (no WASM/noble). Emits `[bench] DONE`.
+    const traceLogN = parseInt(qp.get('logn') ?? '17', 10);
+    const traceReps = Math.max(1, parseInt(qp.get('reps') ?? '2', 10));
+    void (async () => {
+      try {
+        // generateInputs needs the SRS (srsBuf); wait for it (no WASM needed).
+        for (let i = 0; i < 1200 && srsBuf === null; i++) await new Promise(r => setTimeout(r, 500));
+        log('info', `[trace] msm-trace logN=${traceLogN} reps=${traceReps} (normal warm runs)`);
+        const inputs = await generateInputs(traceLogN, false);
+        const msm = await ensureWebGpuWarmed(inputs);
+        msm.prepare(inputs.scalarsBuf);
+        await msm.run(); // warm-up to steady state (discarded)
+        const W = window as unknown as { __lastPassTimes?: Array<[string, string, string]> };
+        W.__lastPassTimes = []; // capture only the measured runs below
+        for (let r = 0; r < traceReps; r++) await msm.run(); // each measured run() appends its timeline
+        log('ok', `[bench] DONE — ${traceReps} warm runs`);
+      } catch (e) {
+        log('err', `[trace] ${e instanceof Error ? e.message : String(e)}`);
+        log('err', 'state=error');
+      }
+    })();
+    return;
+  }
+  if (autorun === 'msm-bench' && qp.get('no_wasm') === '1') {
+    // FAST GPU-ONLY BENCH (fastbench harness).
+    // ONE page load → generateInputs once → `reps` timed GPU runs via
+    // runWebGpuOnce directly. No WASM boot, no cross-check, no per-rep
+    // page reload. Per-rep wall-time is read straight from runWebGpuOnce's
+    // return value (the same `[gpu] returned in N ms` number), so the
+    // capture is reliable — no log-scraping race. Gates on SRS only
+    // (srsBuf !== null), so it runs without COI/SharedArrayBuffer.
+    // Fully additive: leaves the existing msm-bench (cross-check) path
+    // and the msm-cross-check path untouched.
+    const autorunLogN = Math.min(20, parseInt(qp.get('logn') ?? '17', 10) || 17);
+    const reps = parseInt(qp.get('reps') ?? '5', 10);
+    const client = makeResultsClient({ page: 'msm-bench' });
+    log('info', `[bench] GPU-ONLY (no_wasm=1) logN=${autorunLogN} reps=${reps}`);
+    try {
+      // Wait for SRS ready (no WASM/COI dependency).
+      for (let i = 0; i < 1200; i++) {
+        if (srsBuf !== null) break;
+        await new Promise(r => setTimeout(r, 500));
+      }
+      if (srsBuf === null) throw new Error('SRS never became ready');
+      $logn.value = String(autorunLogN);
+      $logn.dispatchEvent(new Event('input'));
+      // Generate inputs ONCE (honours ?scalar_dist / ?profile).
+      const inputs = await generateInputs(autorunLogN, false);
+      // One warm-up run (builds + warms MsmV2 — outside the timed loop).
+      log('info', `[bench] warmup run`);
+      const warm = await runWebGpuOnce(inputs);
+      // With ?scalar_seed this is comparable against the golden hashes
+      // (identity check on devices that can't run the WASM cross-check).
+      log('info', `[bench] gpu.x=0x${warm.xy.x.toString(16).slice(0, 16)}…`);
+
+      // Kernel-isolation profiling: ?iso=<kernel> loops ONE kernel ~13 s so an
+      // external GPU-counter capture attributes ALU/SFU/occupancy to exactly that
+      // kernel (timestamp-free — the WebGPU timestamp-query is quantized/coalesced
+      // and useless on-device). Kernels: size1 | stream_walker | combine_batched |
+      // pt_combine | reduce. See PROFILING_RUNBOOK.md.
+      const isoK = qp.get('iso');
+      if (isoK) {
+        const msm = await ensureWebGpuWarmed(inputs);
+        log('info', `[iso] looping ${isoK} for 13s (hold the counter capture over this)...`);
+        const iters = await msm.profileKernel(isoK, 13000);
+        log('ok', `[iso] DONE ${isoK}: ${iters} dispatches`);
+        log('ok', `[iso] state=done`);
+        const isoLines: string[] = [];
+        for (let i = 0; i < $log.children.length; i++) isoLines.push($log.children[i].textContent ?? '');
+        await client.postResults({
+          state: 'done',
+          params: { iso: isoK, logN: autorunLogN, page: 'iso' },
+          results: { iters },
+          log: isoLines.slice(-60),
+          userAgent: navigator.userAgent,
+          hardwareConcurrency: navigator.hardwareConcurrency,
+        });
+        return;
+      }
+
+      // Clean per-dispatch trace: ?trace=1 runs ONE MSM per rep, with a 60ms idle
+      // gap so each rep's compute burst is a distinct plateau in the Perfetto
+      // capture. prepare()+warm-up happen ONCE here (outside the capture), so each
+      // recorded run is a single steady-state MSM. The app's own passTimes (Dawn
+      // timestamp queries, CLOCK_MONOTONIC_RAW — same clock as the counters) ARE
+      // the labeled timeline; calibrateClock pins the GPU<->CPU offset for the
+      // join. See PROFILING_RUNBOOK.md + join_passtimes.py.
+      if (qp.get('trace') === '1') {
+        const msm = await ensureWebGpuWarmed(inputs);
+        msm.prepare(inputs.scalarsBuf);
+        // Calibrate the GPU<->CPU clock FIRST (setup phase), so calibrateClock's 96 tiny no-op
+        // dispatches land before the visible warm-up + profiled MSMs instead of cluttering the
+        // trace after them. The clock rate is constant, so calibrating early is equivalent.
+        let traceCalib: Array<[string, string, string, string]> = [];
+        try {
+          traceCalib = gpuDevice ? await calibrateClock(gpuDevice) : [];
+        } catch {
+          /* ignore */
+        }
+        log('info', '[trace] warming buffers (prepare + 3 runs, outside capture)');
+        await msm.run();
+        await msm.run();
+        await msm.run();
+        await new Promise(res => setTimeout(res, 250)); // clear gap so warm-up can't blur into rep 1
+        const W = window as unknown as { __lastPassTimes?: Array<[string, string, string]> };
+        const traceSamples: {
+          wallMs: number;
+          gpuMs: number;
+          phases: Record<string, number>;
+          passTimes?: Array<[string, string, string]>;
+        }[] = [];
+        log('info', `[trace] ${reps} single MSM runs, 60ms idle between — hold the counter capture over this`);
+        for (let r = 0; r < reps; r++) {
+          W.__lastPassTimes = [];
+          const t0 = performance.now();
+          const out = await msm.run();
+          await foldWindowSums(out.windowSums, msm.windowSchedule);
+          const wallMs = performance.now() - t0;
+          const pt = W.__lastPassTimes ?? [];
+          traceSamples.push({ wallMs, gpuMs: 0, phases: {}, passTimes: pt });
+          const fg = window as unknown as { __lastFoldMs?: number; __lastFoldMode?: string };
+          log(
+            'info',
+            `[trace] rep ${r + 1}/${reps}: wall=${wallMs.toFixed(1)}ms passes=${pt.length} ` +
+              `fold(${fg.__lastFoldMode})=${(fg.__lastFoldMs ?? 0).toFixed(2)}ms`,
+          );
+          await new Promise(res => setTimeout(res, 60));
+        }
+        (window as unknown as { __benchSamples?: typeof traceSamples }).__benchSamples = traceSamples;
+        const traceLog: string[] = [];
+        for (let i = 0; i < $log.children.length; i++) traceLog.push($log.children[i].textContent ?? '');
+        await client.postResults({
+          state: 'done',
+          params: { logN: autorunLogN, reps, page: 'msm-bench', dev: qp.get('dev') ?? '' },
+          results: { samples: traceSamples, calib: traceCalib },
+          log: traceLog.slice(-60),
+          userAgent: navigator.userAgent,
+          hardwareConcurrency: navigator.hardwareConcurrency,
+        });
+        log('ok', `[bench] DONE (trace) ${reps} single runs posted`);
+        return;
+      }
+      const samples: { wallMs: number; gpuMs: number; phases: Record<string, number> }[] = [];
+      for (let r = 0; r < reps; r++) {
+        const gpu = await runWebGpuOnce(inputs);
+        const wallMs = gpu.ms;
+        // profile mode is forced on for autorun=msm-bench, so run() populates
+        // __lastPhaseMs (timestamp-query per-pass GPU ms) — capture it per rep.
+        const phases = readLastPhaseMs();
+        const gpuMs = Object.values(phases).reduce((a, b) => a + (b ?? 0), 0);
+        samples.push({ wallMs, gpuMs, phases });
+        log('info', `[bench] rep ${r + 1}/${reps}: wall=${wallMs.toFixed(1)}ms gpu=${gpuMs.toFixed(1)}ms`);
+      }
+      const walls = samples.map(s => s.wallMs);
+      const avg = (arr: number[]) => arr.reduce((a, b) => a + b, 0) / arr.length;
+      const med = (arr: number[]) => {
+        const s = [...arr].sort((a, b) => a - b);
+        return s[Math.floor(s.length / 2)];
+      };
+      const avgWall = avg(walls);
+      const medWall = med(walls);
+      const allPhaseKeys = Array.from(new Set(samples.flatMap(s => Object.keys(s.phases))));
+      const medPhases: Record<string, number> = {};
+      for (const key of allPhaseKeys) medPhases[key] = med(samples.map(s => s.phases[key] ?? 0));
+      (window as unknown as { __benchSamples?: typeof samples }).__benchSamples = samples;
+      log(
+        'ok',
+        `[bench] DONE logN=${autorunLogN} reps=${reps}: ` +
+          `wall median=${medWall.toFixed(1)}ms avg=${avgWall.toFixed(1)}ms ` +
+          `samples=[${walls.map(w => w.toFixed(1)).join(', ')}]`,
+      );
+      const allLines: string[] = [];
+      for (let i = 0; i < $log.children.length; i++) allLines.push($log.children[i].textContent ?? '');
+      await client.postResults({
+        state: 'done',
+        params: { logN: autorunLogN, reps, page: 'msm-bench', no_wasm: true, dev: qp.get('dev') ?? '' },
+        results: { samples, averages: { wallMs: avgWall, gpuMs: 0 }, medianWallMs: medWall, medianPhaseMs: medPhases },
+        error: null,
+        log: allLines.slice(-100),
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      log('ok', `[bench] state=done`);
+      log('ok', `[autorun] state=done`);
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      log('err', `[bench] FATAL: ${msg}`);
+      const allLines: string[] = [];
+      for (let i = 0; i < $log.children.length; i++) allLines.push($log.children[i].textContent ?? '');
+      await client.postResults({
+        state: 'error',
+        params: { logN: autorunLogN, reps, page: 'msm-bench', no_wasm: true, dev: qp.get('dev') ?? '' },
+        results: null,
+        error: msg,
+        log: allLines.slice(-100),
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      log('err', `[autorun] state=error`);
+    }
+  } else if (autorun === 'msm-bench') {
+    const autorunLogN = parseInt(qp.get('logn') ?? '17', 10);
+    const reps = parseInt(qp.get('reps') ?? '5', 10);
+    const client = makeResultsClient({ page: 'msm-bench' });
+    log('info', `[bench] logN=${autorunLogN} reps=${reps}`);
+    try {
+      // Wait for SRS + WASM ready (Run button enables)
+      for (let i = 0; i < 1200; i++) {
+        if (!$run.disabled) break;
+        await new Promise(r => setTimeout(r, 500));
+      }
+      $logn.value = String(autorunLogN);
+      $logn.dispatchEvent(new Event('input'));
+      // Use the existing globals path — click Run once for warmup
+      $run.click();
+      for (let i = 0; i < 60; i++) {
+        if ($run.disabled) break;
+        await new Promise(r => setTimeout(r, 100));
+      }
+      for (let i = 0; i < 1200; i++) {
+        if (!$run.disabled) break;
+        await new Promise(r => setTimeout(r, 500));
+      }
+      // After warmup: msmV2 is built and ready. Run N timed iterations
+      // by clicking Run for each rep and collecting __lastPhaseMs.
+      const samples: { wallMs: number; gpuMs: number; phases: Record<string, number> }[] = [];
+      for (let r = 0; r < reps; r++) {
+        $run.click();
+        for (let i = 0; i < 60; i++) {
+          if ($run.disabled) break;
+          await new Promise(r => setTimeout(r, 100));
+        }
+        for (let i = 0; i < 1200; i++) {
+          if (!$run.disabled) break;
+          await new Promise(r => setTimeout(r, 500));
+        }
+        // Parse the [gpu] returned in X ms line. The Run handler clears the
+        // log at click time, so everything in it belongs to this rep — take
+        // the last match rather than slicing from a pre-click index.
+        const newLines: string[] = [];
+        for (let i = 0; i < $log.children.length; i++) {
+          newLines.push($log.children[i].textContent ?? '');
+        }
+        const gpuLine = newLines.filter(l => /\[gpu\] returned in/.test(l)).pop();
+        const wallMs = gpuLine ? parseFloat(gpuLine.match(/in\s+([\d.]+)\s+ms/)?.[1] ?? '0') : 0;
+        const phases = (window as unknown as { __lastPhaseMs?: Record<string, number> }).__lastPhaseMs ?? {};
+        const gpuMs = Object.values(phases).reduce((a, b) => a + (b ?? 0), 0);
+        samples.push({ wallMs, gpuMs, phases });
+        const phaseStr = Object.entries(phases)
+          .map(([k, v]) => `${k}=${v.toFixed(1)}`)
+          .join(' ');
+        log('info', `[bench] rep ${r + 1}/${reps}: wall=${wallMs.toFixed(1)}ms gpu=${gpuMs.toFixed(1)}ms ${phaseStr}`);
+      }
+      const avg = (arr: number[]) => arr.reduce((a, b) => a + b, 0) / arr.length;
+      const avgWall = avg(samples.map(s => s.wallMs));
+      const avgGpu = avg(samples.map(s => s.gpuMs));
+      const allPhaseKeys = Array.from(new Set(samples.flatMap(s => Object.keys(s.phases))));
+      const avgPhases: Record<string, number> = {};
+      for (const key of allPhaseKeys) avgPhases[key] = avg(samples.map(s => s.phases[key] ?? 0));
+      const avgPhaseStr = Object.entries(avgPhases)
+        .map(([k, v]) => `${k}=${v.toFixed(1)}`)
+        .join(' ');
+      (window as unknown as { __benchSamples?: typeof samples }).__benchSamples = samples;
+      log(
+        'ok',
+        `[bench] DONE logN=${autorunLogN} reps=${reps}: ` +
+          `wall=${avgWall.toFixed(1)}ms gpu=${avgGpu.toFixed(1)}ms ${avgPhaseStr}`,
+      );
+      const allLines: string[] = [];
+      for (let i = 0; i < $log.children.length; i++) allLines.push($log.children[i].textContent ?? '');
+      await client.postResults({
+        state: 'done',
+        params: { logN: autorunLogN, reps, page: 'msm-bench' },
+        results: { samples, averages: { wallMs: avgWall, gpuMs: avgGpu, ...avgPhases } },
+        error: null,
+        log: allLines.slice(-100),
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      log('ok', `[bench] state=done`);
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      log('err', `[bench] FATAL: ${msg}`);
+      const allLines: string[] = [];
+      for (let i = 0; i < $log.children.length; i++) allLines.push($log.children[i].textContent ?? '');
+      await client.postResults({
+        state: 'error',
+        params: { logN: autorunLogN, reps, page: 'msm-bench' },
+        results: null,
+        error: msg,
+        log: allLines.slice(-100),
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+    }
+  } else if (autorun === 'wi2-check') {
+    // walker_index v2 correctness gate: same inputs through a v1 instance and
+    // a v2 instance (isolated pools, the measurePack pattern), assert the
+    // final point AND every per-window sum match exactly. With ?noble=1 the
+    // smaller sizes are also checked against the noble JS reference (no WASM
+    // needed). Honors ?scalar_dist / ?profile; sizes via ?logns=10,14.
+    const logNs = (qp.get('logns') ?? '10,14')
+      .split(',')
+      .map(x => parseInt(x, 10))
+      .filter(x => Number.isFinite(x));
+    const useNoble = qp.get('noble') === '1';
+    const client = makeResultsClient({ page: 'wi2-check' });
+    try {
+      for (let i = 0; i < 1200; i++) {
+        if (srsBuf !== null) break;
+        await new Promise(r => setTimeout(r, 500));
+      }
+      if (srsBuf === null) throw new Error('SRS never became ready');
+      if (gpuDevice === null) gpuDevice = await get_device();
+      const failures: string[] = [];
+      const summary: Record<string, string> = {};
+      // Two fresh instances on the same inputs: identical window sums prove
+      // run-to-run determinism of the final sums (offsets/layout order are
+      // allocation-ordered and may differ); noble (logn<=14) anchors absolute
+      // correctness.
+      for (const logN of logNs) {
+        const nobleHere = useNoble && logN <= 14;
+        const inp = await generateInputs(logN, nobleHere);
+        const runOne = async (_second: boolean): Promise<{ x: bigint; y: bigint; ws: { x: bigint; y: bigint }[] }> => {
+          const pool = await MsmV2Pool.create(gpuDevice!, inp.pointsBuf);
+          const cfg: MsmConfig = { ...gpuKnobs };
+          const inst = await MsmV2.create(gpuDevice!, inp.n, pool, cfg);
+          try {
+            inst.prepare(inp.scalarsBuf);
+            const r = await inst.run();
+            return { x: r.x, y: r.y, ws: inst.windowSums.map(p => ({ x: p.x, y: p.y })) };
+          } finally {
+            inst.destroy();
+            pool.destroy();
+          }
+        };
+        const r1 = await runOne(false);
+        const r2 = await runOne(true);
+        let ok = r1.x === r2.x && r1.y === r2.y && r1.ws.length === r2.ws.length;
+        let wsBad = -1;
+        for (let w = 0; ok && w < r1.ws.length; w++) {
+          if (r1.ws[w].x !== r2.ws[w].x || r1.ws[w].y !== r2.ws[w].y) {
+            ok = false;
+            wsBad = w;
+          }
+        }
+        let nobleOk = true;
+        if (nobleHere && inp.points && inp.scalars) {
+          const ref = referenceMsm(inp.points, inp.scalars);
+          nobleOk = pointsEqual(ref, { x: r1.x, y: r1.y }) && pointsEqual(ref, { x: r2.x, y: r2.y });
+        }
+        const verdict = ok && nobleOk ? 'PASS' : `FAIL (v1==v2:${ok} wsBad:${wsBad} noble:${nobleOk})`;
+        summary[`logn${logN}`] = verdict;
+        if (!(ok && nobleOk)) failures.push(`logn=${logN}: ${verdict}`);
+        log(ok && nobleOk ? 'ok' : 'err', `[wi2-check] logn=${logN} ${verdict}`);
+      }
+      const state = failures.length === 0 ? 'done' : 'error';
+      await client.postResults({
+        state,
+        params: {
+          page: 'wi2-check',
+          logns: logNs.join(','),
+          scalar_dist: qp.get('scalar_dist') ?? 'uniform',
+          profile: qp.get('profile') ?? '',
+        },
+        results: summary,
+        error: failures.length ? failures.join('; ') : null,
+        log: [],
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      log(failures.length === 0 ? 'ok' : 'err', `[autorun] state=${state}`);
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      log('err', `[wi2-check] FATAL: ${msg}`);
+      await client.postResults({
+        state: 'error',
+        params: { page: 'wi2-check' },
+        results: null,
+        error: msg,
+        log: [],
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      log('err', `[autorun] state=error`);
+    }
+  } else if (autorun === 'walker-index-stats') {
+    // walker_index workload probe: one prepared run, then read back the
+    // phase's true sizes (num_dense, partials, N-histogram, actives) so the
+    // index kernels can be sized/validated against real data rather than
+    // envelope bounds. Honors ?scalar_dist / ?profile / ?logn.
+    const autorunLogN = parseInt(qp.get('logn') ?? '17', 10);
+    const client = makeResultsClient({ page: 'walker-index-stats' });
+    try {
+      // Gate on SRS only (no WASM dependency), like the no_wasm bench path.
+      for (let i = 0; i < 1200; i++) {
+        if (srsBuf !== null) break;
+        await new Promise(r => setTimeout(r, 500));
+      }
+      if (srsBuf === null) throw new Error('SRS never became ready');
+      const inputs = await generateInputs(autorunLogN, false);
+      const msm = await ensureWebGpuWarmed(inputs);
+      msm.prepare(inputs.scalarsBuf);
+      await msm.run();
+      const stats: Record<string, unknown> = await msm.debugWalkerIndexStats();
+      // ?deep=1 — Phase-0 sorted-runs validation (WALKER_INDEX_PLAN.md):
+      // monotonicity + hole structure + exact head/count rule simulation.
+      if (qp.get('deep') === '1') {
+        stats.deep = await msm.debugWalkerIndexMonotonicity();
+      }
+      const phases = readLastPhaseMs();
+      log('ok', `[wi-stats] ${JSON.stringify(stats)}`);
+      await client.postResults({
+        state: 'done',
+        params: {
+          logN: autorunLogN,
+          page: 'walker-index-stats',
+          scalar_dist: qp.get('scalar_dist') ?? 'uniform',
+          profile: qp.get('profile') ?? '',
+        },
+        results: { ...stats, phaseMs: phases },
+        error: null,
+        log: [],
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      log('ok', `[autorun] state=done`);
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      log('err', `[wi-stats] FATAL: ${msg}`);
+      await client.postResults({
+        state: 'error',
+        params: { logN: autorunLogN, page: 'walker-index-stats' },
+        results: null,
+        error: msg,
+        log: [],
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      log('err', `[autorun] state=error`);
+    }
+  } else if (autorun === 'msm-msbhist') {
+    // split-c Phase 1: validate the GPU MSB histogram against the host oracle.
+    const autorunLogN = parseInt(qp.get('logn') ?? '17', 10);
+    log('info', `[msbhist] logN=${autorunLogN} — GPU histogram vs host oracle`);
+    const waitForRun = async (): Promise<void> => {
+      for (let i = 0; i < 1200; i++) {
+        if (!$run.disabled) return;
+        await new Promise(r => setTimeout(r, 500));
+      }
+      throw new Error('Run button never enabled within 10 minutes');
+    };
+    try {
+      await waitForRun();
+      const inputs = await generateInputs(autorunLogN, false);
+      const msm = await ensureWebGpuWarmed(inputs);
+      msm.prepare(inputs.scalarsBuf);
+      const { hist, msbPerScalar } = await msm.debugMsbHistogram();
+      const scalarsU32 = new Uint32Array(inputs.scalarsBuf.buffer, inputs.scalarsBuf.byteOffset, inputs.n * 8);
+      const hostHist = computeMsbHistogram(scalarsU32, inputs.n);
+      let mismatches = 0;
+      let firstBad = -1;
+      for (let bin = 0; bin < 256; bin++) {
+        if (hist[bin] !== hostHist[bin]) {
+          mismatches++;
+          if (firstBad < 0) firstBad = bin;
+        }
+      }
+      const gpuSum = hist.reduce((a, b) => a + b, 0);
+      // Spot-check msb_per_scalar against a host recompute for the first few scalars.
+      let mpsBad = 0;
+      for (let i = 0; i < Math.min(inputs.n, 4096); i++) {
+        const base = i * 8;
+        let msb = -1;
+        for (let w = 7; w >= 0; w--) {
+          if (scalarsU32[base + w] !== 0) {
+            msb = w * 32 + (31 - Math.clz32(scalarsU32[base + w]));
+            break;
+          }
+        }
+        const expect = msb < 0 ? 255 : msb;
+        if (msbPerScalar[i] !== expect) mpsBad++;
+      }
+      if (mismatches === 0 && gpuSum === inputs.n && mpsBad === 0) {
+        log('ok', `[msbhist] PASS — 256 bins match host, sum=${gpuSum}=n, msb_per_scalar OK (4096 spot-checked)`);
+      } else {
+        log(
+          'error',
+          `[msbhist] FAIL — ${mismatches} bin mismatches (first bin ${firstBad}), gpuSum=${gpuSum} n=${inputs.n}, mpsBad=${mpsBad}`,
+        );
+      }
+      // Diagnostic: run the natural decision on the GPU histogram and log the
+      // schedule it would choose (consumption is Phase 2; this validates the
+      // decision end-to-end on the real distribution).
+      const enb = effectiveNumBits(hist);
+      const dec = chooseVarWindowSplit(hist, inputs.n, enb, pickC);
+      if (dec.isSplit) {
+        const widths = buildVarWindowSchedule(dec, enb);
+        log(
+          'info',
+          `[msbhist] decision: SPLIT b*=${dec.bStar} cLo=${dec.cLo} cHi=${dec.cHi} → ${widths.length} windows (effNumBits=${enb})`,
+        );
+      } else {
+        log('info', `[msbhist] decision: NO_SPLIT (effNumBits=${enb}, c=${pickC(inputs.n)})`);
+      }
+      // Validate the GPU decide kernel: its WindowDesc + summary must match the
+      // reference exactly (the Phase 2 exit criterion — unit-test the kernel).
+      const { windowDesc: gpuWd, summary: gpuSummary } = await msm.debugDecideWindowSplit();
+      const ref = buildWindowDescReference(hist, inputs.n, pickC(inputs.n), 128, pickC);
+      const nW = ref.summary.numWindows;
+      const sumExp = [
+        ref.summary.isSplit,
+        ref.summary.bStar,
+        ref.summary.cLo,
+        ref.summary.cHi,
+        ref.summary.nLarge,
+        ref.summary.wLo,
+        ref.summary.wHi,
+        ref.summary.numWindows,
+        ref.summary.effNumBits,
+      ];
+      let sumBad = -1;
+      for (let i = 0; i < sumExp.length; i++)
+        if (gpuSummary[i] !== sumExp[i]) {
+          sumBad = i;
+          break;
+        }
+      let rowBad = -1;
+      for (let i = 0; i < nW * 8 && rowBad < 0; i++) if (gpuWd[i] !== ref.windowDesc[i]) rowBad = i;
+      if (sumBad < 0 && rowBad < 0) {
+        log('ok', `[msbhist] decide PASS — WindowDesc(${nW}w) + summary match reference (isSplit=${gpuSummary[0]})`);
+      } else {
+        log(
+          'error',
+          `[msbhist] decide FAIL — summary field ${sumBad} (gpu=${gpuSummary.slice(0, 9)} ref=${sumExp}), row word ${rowBad}`,
+        );
+      }
+      // Validate idx_large compaction: count == n_large, every entry has msb >= b_star-1.
+      const { count: idxCount, idxLarge } = await msm.debugIdxLarge();
+      const bStar = ref.summary.bStar;
+      let idxBad = -1;
+      if (bStar > 0) {
+        for (let k = 0; k < idxCount && idxBad < 0; k++) {
+          const i = idxLarge[k];
+          const base = i * 8;
+          let msb = -1;
+          for (let w = 7; w >= 0; w--) {
+            if (scalarsU32[base + w] !== 0) {
+              msb = w * 32 + (31 - Math.clz32(scalarsU32[base + w]));
+              break;
+            }
+          }
+          if (msb < bStar - 1) idxBad = k;
+        }
+      }
+      if (idxCount === ref.summary.nLarge && idxBad < 0) {
+        log('ok', `[msbhist] idx_large PASS — count=${idxCount}=n_large, all msb>=${bStar > 0 ? bStar - 1 : 0}`);
+      } else {
+        log('error', `[msbhist] idx_large FAIL — count=${idxCount} n_large=${ref.summary.nLarge}, badEntry=${idxBad}`);
+      }
+    } catch (e) {
+      log('error', `[msbhist] ERROR: ${e instanceof Error ? e.message : String(e)}`);
+    }
+    log('ok', `[bench] state=done`); // drive-persist completion marker
+  } else if (autorun === 'msm-cross-check') {
+    const autorunLogN = parseInt(qp.get('logn') ?? '14', 10);
+    const tree = qp.get('use_tree_reduce') === '1';
+    const debugSmvp = qp.get('debug_smvp') === '1';
+    const debugTreeOut = qp.get('debug_tree_output') === '1';
+    // Flags are NOT set here — they'd fire during warmup and abort the
+    // page before the real run executes. We set them after waitForRun
+    // (= SRS + warmup complete) just before clicking Run.
+    const client = makeResultsClient({ page: 'msm-autorun' });
+    log('info', `[autorun] msm-cross-check logN=${autorunLogN} tree=${tree} debug_smvp=${debugSmvp}`);
+    // Wait for Run button to enable (SRS + WASM ready).
+    const waitForRun = async (): Promise<void> => {
+      for (let i = 0; i < 1200; i++) {
+        if (!$run.disabled) return;
+        await new Promise(r => setTimeout(r, 500));
+      }
+      throw new Error('Run button never enabled within 10 minutes');
+    };
+    try {
+      await waitForRun();
+      $logn.value = String(autorunLogN);
+      $logn.dispatchEvent(new Event('input'));
+      // First click: warmup happens during this click (no debug, runs
+      // to completion and produces a real gpu.x).
+      $run.click();
+      for (let i = 0; i < 60; i++) {
+        if ($run.disabled) break;
+        await new Promise(r => setTimeout(r, 100));
+      }
+      for (let i = 0; i < 1200; i++) {
+        if (!$run.disabled) break;
+        await new Promise(r => setTimeout(r, 500));
+      }
+      // If debug flags requested, set them now (after warmup) and click
+      // Run again to exercise the real MSM with debug instrumentation.
+      // The debug throw aborts before finalize, but the running_x /
+      // tree_output dumps still get captured.
+      if (debugSmvp || debugTreeOut) {
+        if (debugSmvp) {
+          (window as unknown as { __msm_debug_after_smvp: boolean }).__msm_debug_after_smvp = true;
+        }
+        if (debugTreeOut) {
+          (window as unknown as { __msm_debug_tree_output: boolean }).__msm_debug_tree_output = true;
+        }
+        $run.click();
+        for (let i = 0; i < 60; i++) {
+          if ($run.disabled) break;
+          await new Promise(r => setTimeout(r, 100));
+        }
+        for (let i = 0; i < 1200; i++) {
+          if (!$run.disabled) break;
+          await new Promise(r => setTimeout(r, 500));
+        }
+      }
+      // The click handler clears $log at the very start; all remaining
+      // children belong to this run.
+      const lines: string[] = [];
+      for (let i = 0; i < $log.children.length; i++) {
+        lines.push($log.children[i].textContent ?? '');
+      }
+      const crossOk = lines.some(l => /cross-check.*\bagree\b/i.test(l));
+      const crossErr = lines.find(l => /cross-check.*disagreement/i.test(l));
+      const gpuLine = lines.find(l => /\[gpu\] x=0x/.test(l));
+      const errLines = lines.filter(l => /^\[err\]/.test(l));
+      const dump = (window as unknown as { __msm_debug_dump?: number[] }).__msm_debug_dump;
+      const treeDump = (window as unknown as { __msm_debug_tree_dump?: unknown }).__msm_debug_tree_dump;
+      const params = { logN: autorunLogN, tree, page: 'msm-autorun' };
+      const abDiag = (window as unknown as { __abDiag?: unknown }).__abDiag ?? null;
+      const results = {
+        cross_ok: crossOk,
+        cross_err: crossErr ?? null,
+        gpu_line: gpuLine ?? null,
+        err_count: errLines.length,
+        debug_dump: dump ?? null,
+        tree_dump: treeDump ?? null,
+        ab_diag: abDiag,
+      };
+      const state =
+        debugSmvp || debugTreeOut
+          ? dump !== undefined || treeDump !== undefined
+            ? 'done'
+            : 'error'
+          : crossOk && errLines.length === 0
+            ? 'done'
+            : 'error';
+      await client.postResults({
+        state,
+        params,
+        results,
+        error: errLines.length > 0 ? errLines.slice(0, 5).join('\n') : null,
+        log: lines.slice(-100),
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      log(state === 'done' ? 'ok' : 'err', `[autorun] state=${state}`);
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      log('err', `[autorun] FATAL: ${msg}`);
+      await client.postResults({
+        state: 'error',
+        params: { logN: autorunLogN, tree, page: 'msm-autorun' },
+        results: null,
+        error: msg,
+        log: [],
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+    }
+  } else if (autorun === 'validate-srs') {
+    // Field-validity audit of the ACTUAL decompressed SRS points the MSM
+    // consumes. The GPU decompresses + caches these per-device, but only the
+    // first 16 are checked at decompress time (srs.ts). Here we verify EVERY
+    // coordinate is a canonical field element (x,y < p) and the point is
+    // on-curve (y^2 == x^3 + 3 mod p). Run per-device to confirm its cache is
+    // clean — a non-canonical coord (>= p) is an out-of-field montmul input.
+    const client = makeResultsClient({ page: 'validate-srs' });
+    const P = 21888242871839275222246405745257275088696311157297823662689037894645226208583n;
+    if (srsBuf === null) {
+      log('err', '[validate-srs] SRS not loaded');
+      await client.postResults({
+        state: 'error',
+        params: { page: 'validate-srs' },
+        results: null,
+        error: 'srs not loaded',
+        log: [],
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      return;
+    }
+    const loaded = srsBuf.length / 64;
+    const n = Math.min(parseInt(qp.get('n') ?? String(loaded), 10), loaded);
+    log('info', `[validate-srs] auditing ${n.toLocaleString()} points: x<p, y<p, on-curve`);
+    let badGE = 0;
+    let badCurve = 0;
+    let firstBad = -1;
+    for (let i = 0; i < n; i++) {
+      const { x, y } = readSrsPointAt(srsBuf, i);
+      let ok = true;
+      if (x >= P || y >= P) {
+        badGE++;
+        ok = false;
+      } else {
+        const lhs = (y * y) % P;
+        const rhs = (((((x * x) % P) * x) % P) + 3n) % P;
+        if (lhs !== rhs) {
+          badCurve++;
+          ok = false;
+        }
+      }
+      if (!ok && firstBad < 0) firstBad = i;
+    }
+    const bad = badGE + badCurve;
+    if (firstBad >= 0) {
+      const { x, y } = readSrsPointAt(srsBuf, firstBad);
+      log('err', `[validate-srs] firstBad idx=${firstBad} x=0x${x.toString(16)} y=0x${y.toString(16)}`);
+    }
+    log(
+      bad === 0 ? 'ok' : 'err',
+      `[validate-srs] DONE n=${n} bad=${bad} (ge_p=${badGE} off_curve=${badCurve}) firstBad=${firstBad}`,
+    );
+    await client.postResults({
+      state: bad === 0 ? 'done' : 'error',
+      params: { page: 'validate-srs', n },
+      results: { n, bad, badGE, badCurve, firstBad },
+      error: bad === 0 ? null : `${bad} invalid points`,
+      log: [],
+      userAgent: navigator.userAgent,
+      hardwareConcurrency: navigator.hardwareConcurrency,
+    });
+  } else if (autorun === 'msm-batch-check') {
+    // Multi-MSM batch-of-K ≡ K-separate byte-identical check (MULTI_MSM_PLAN.md
+    // step 1 runtime side). GPU-only — gates on SRS readiness, not WASM.
+    const logNs = (qp.get('logns') ?? '16')
+      .split(',')
+      .map(s => parseInt(s.trim(), 10))
+      .filter(x => x >= 7 && x <= 17);
+    log('info', `[batch-check] autorun logns=${logNs.join(',')}`);
+    const waitForSrs = async (): Promise<void> => {
+      for (let i = 0; i < 1200; i++) {
+        if (!$runSanity.disabled) return;
+        await new Promise(r => setTimeout(r, 500));
+      }
+      throw new Error('SRS never became ready within 10 minutes');
+    };
+    try {
+      await waitForSrs();
+      const res = await runBatchCheck(logNs);
+      log(res.ok ? 'ok' : 'err', `[batch-check] state=${res.ok ? 'done' : 'error'} ${res.detail}`);
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      log('err', `[batch-check] state=error FATAL: ${msg}`);
+    }
+  } else if (autorun === 'msm-bridge-check') {
+    // Bridge union-plumbing check: descriptor decode → candidate split → pack →
+    // scalars-reorder → prepareBatch → per-member scatter, via the production
+    // `runUnionPacks` core. GPU-only — gates on SRS readiness, not WASM.
+    //   ?autorun=msm-bridge-check&logns=14,16,17  (add &bridge_budget_mib=70 to
+    //   force multi-pack splits + the budget-peel fallback; &profile=E etc.)
+    const logNs = (qp.get('logns') ?? '14,16,17')
+      .split(',')
+      .map(s => parseInt(s.trim(), 10))
+      .filter(x => x >= 7 && x <= 17);
+    log('info', `[bridge-check] autorun logns=${logNs.join(',')}`);
+    const waitForSrs = async (): Promise<void> => {
+      for (let i = 0; i < 1200; i++) {
+        if (!$runSanity.disabled) return;
+        await new Promise(r => setTimeout(r, 500));
+      }
+      throw new Error('SRS never became ready within 10 minutes');
+    };
+    try {
+      await waitForSrs();
+      const res = await runBridgeCheck(logNs);
+      log(res.ok ? 'ok' : 'err', `[bridge-check] state=${res.ok ? 'done' : 'error'} ${res.detail}`);
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      log('err', `[bridge-check] state=error FATAL: ${msg}`);
+    }
+  } else if (autorun === 'msm-union-validate') {
+    // Union end-to-end correctness: each member's staged bytes, combined in JS,
+    // must equal the noble CPU MSM. Reproduces the multi-member union bug fast.
+    //   ?autorun=msm-union-validate&logns=10,11
+    const logNs = (qp.get('logns') ?? '10,11')
+      .split(',')
+      .map(s => parseInt(s.trim(), 10))
+      .filter(x => x >= 7 && x <= 17);
+    log('info', `[union-validate] autorun logns=${logNs.join(',')}`);
+    const waitForSrs = async (): Promise<void> => {
+      for (let i = 0; i < 1200; i++) {
+        if (!$runSanity.disabled) return;
+        await new Promise(r => setTimeout(r, 500));
+      }
+      throw new Error('SRS never became ready within 10 minutes');
+    };
+    try {
+      await waitForSrs();
+      const res = await runUnionValidate(logNs);
+      log(res.ok ? 'ok' : 'err', `[union-validate] state=${res.ok ? 'done' : 'error'} ${res.detail}`);
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      log('err', `[union-validate] state=error FATAL: ${msg}`);
+    }
+  } else if (autorun === 'msm-bridge-e2e') {
+    // End-to-end bridge acceptance: drive the REAL WebGpuMsmHost and assert the
+    // union path's WASM result+meta regions are byte-identical to the legacy path
+    // (⇒ identical proof). ?autorun=msm-bridge-e2e&logns=14,16,17
+    const logNs = (qp.get('logns') ?? '14,16,17')
+      .split(',')
+      .map(s => parseInt(s.trim(), 10))
+      .filter(x => x >= 7 && x <= 17);
+    log('info', `[bridge-e2e] autorun logns=${logNs.join(',')}`);
+    const waitForSrs = async (): Promise<void> => {
+      for (let i = 0; i < 1200; i++) {
+        if (!$runSanity.disabled) return;
+        await new Promise(r => setTimeout(r, 500));
+      }
+      throw new Error('SRS never became ready within 10 minutes');
+    };
+    try {
+      await waitForSrs();
+      const res = await runBridgeE2E(logNs);
+      log(res.ok ? 'ok' : 'err', `[bridge-e2e] state=${res.ok ? 'done' : 'error'} ${res.detail}`);
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      log('err', `[bridge-e2e] state=error FATAL: ${msg}`);
+    }
+  } else if (autorun === 'msm-batch-bench') {
+    // Saturation sweep for the small-MSM batching regime (the multi-MSM win):
+    // homogeneous packs of K copies of n, swept over n × K, reporting median-over-
+    // reps wall AND GPU-throughput speedup (union vs Σ solo) per cell. One warm
+    // page load runs the whole grid (no per-cell chromium relaunch).
+    //   ?ns=128,256,512,1024,2048,4096&Ks=2,4,8,16,32&reps=5
+    //   scalar distribution via ?scalar_dist=profile&profile=E (hard rule #0).
+    if (gpuDevice === null) gpuDevice = await get_device();
+    const device = gpuDevice;
+    const nsList = (qp.get('ns') ?? '128,256,512,1024,2048,4096')
+      .split(',')
+      .map(s => parseInt(s.trim(), 10))
+      .filter(x => x >= 128 && (x & (x - 1)) === 0);
+    const ksList = (qp.get('Ks') ?? '2,4,8,16,32')
+      .split(',')
+      .map(s => parseInt(s.trim(), 10))
+      .filter(x => x >= 1);
+    const reps = Math.max(1, parseInt(qp.get('reps') ?? '5', 10));
+    const dist = qp.get('scalar_dist') === 'profile' ? (qp.get('profile') ?? 'A').toUpperCase() : 'uniform';
+    log('info', `[batch-bench] ns=[${nsList.join(',')}] Ks=[${ksList.join(',')}] reps=${reps} dist=${dist}`);
+    const waitForSrs = async (): Promise<void> => {
+      for (let i = 0; i < 1200; i++) {
+        if (!$runSanity.disabled) return;
+        await new Promise(r => setTimeout(r, 500));
+      }
+      throw new Error('SRS never became ready within 10 minutes');
+    };
+    const rows: Record<string, unknown>[] = [];
+    try {
+      await waitForSrs();
+      for (const n of nsList) {
+        const logN = Math.round(Math.log2(n));
+        for (const K of ksList) {
+          try {
+            const m = await measurePack(device, new Array<number>(K).fill(logN), reps);
+            const wall = m.soloWallMs / m.unionWallMs;
+            const gput = m.soloGpuMs / m.unionGpuMs;
+            rows.push({
+              n,
+              K,
+              ok: m.ok,
+              footprintMiB: +m.footprintMiB.toFixed(1),
+              soloWallMs: +m.soloWallMs.toFixed(2),
+              unionWallMs: +m.unionWallMs.toFixed(2),
+              soloGpuMs: +m.soloGpuMs.toFixed(2),
+              unionGpuMs: +m.unionGpuMs.toFixed(2),
+              wallSpeedup: +wall.toFixed(2),
+              gpuThroughput: +gput.toFixed(2),
+              soloPhaseMs: m.soloPhaseMs,
+              unionPhaseMs: m.unionPhaseMs,
+            });
+            log(
+              m.ok ? 'ok' : 'err',
+              `[batch-bench] n=${String(n).padStart(5)} K=${String(K).padStart(3)} | ` +
+                `wall ${m.unionWallMs.toFixed(1)} vs ${m.soloWallMs.toFixed(1)}ms = ${wall.toFixed(2)}× | ` +
+                `gpu ${m.unionGpuMs.toFixed(2)} vs ${m.soloGpuMs.toFixed(2)}ms = ${gput.toFixed(2)}× | ` +
+                `${m.footprintMiB.toFixed(0)}MiB ${m.ok ? 'OK' : 'MISMATCH(' + m.detail + ')'}`,
+            );
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            rows.push({ n, K, ok: false, error: msg.slice(0, 200) });
+            log('err', `[batch-bench] n=${n} K=${K} SKIP: ${msg.slice(0, 140)}`);
+          }
+        }
+      }
+      (window as unknown as { __benchSamples: unknown }).__benchSamples = { kind: 'batch-bench', dist, reps, rows };
+      const okN = rows.filter(r => r.ok).length;
+      log('ok', `[batch-bench] state=done ${okN}/${rows.length} cells byte-identical`);
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      log('err', `[batch-bench] state=error FATAL: ${msg}`);
+    }
+  } else if (autorun === 'msm-chonk-replay') {
+    // GPU replay of the cached Chonk Commit / BatchCommit MSMs. Models the real
+    // ChonkApi::Prove dispatch shape:
+    //   - ONE MsmV2 pool + instance at the max routed size (arena + SRS upload +
+    //     pipeline compile are one-time setup, EXCLUDED — in the real flow the
+    //     SRS upload overlaps serial CPU work and is hidden).
+    //   - MSMs smaller than 2^13 are NOT routed to the GPU (CPU does those);
+    //     they are reported as cpu-routed with no GPU time.
+    //   - every routed MSM (Commit = 1 member, BatchCommit = its >=2^13 polys)
+    //     goes through the batch path (prepareBatch), which packs arbitrary
+    //     member sizes <= maxN with no padding.
+    //   - per call we measure scalar H2D upload (isolated) + batch compute; the
+    //     upload is what the existing harness omits (it warms then times run()).
+    const GPU_MIN_N = 1 << (parseInt(qp.get('gpu_min_log') ?? '13', 10) || 13);
+    const reps = Math.max(1, parseInt(qp.get('reps') ?? '5', 10));
+    const client = makeResultsClient({ page: 'msm-chonk-replay' });
+    const DATA = '/dev/msm-webgpu/chonk-data/';
+    type PolyMeta = { start_index: number; size: number };
+    type CallMeta = { file: string; kind: string; curve_tag: string; polys: PolyMeta[] };
+    log('info', `[chonk-gpu] GPU_MIN_N=${GPU_MIN_N} reps=${reps}`);
+    try {
+      for (let i = 0; i < 1200 && srsBuf === null; i++) await new Promise(r => setTimeout(r, 500));
+      if (srsBuf === null) throw new Error('SRS never became ready');
+      if (gpuDevice === null) gpuDevice = await get_device();
+      const device = gpuDevice;
+
+      const manifest = (await (await fetch(`${DATA}manifest.json`)).json()) as { calls: CallMeta[] };
+      // BN254 commits only (tag c0001); the cfd47/Grumpkin MSMs need a Grumpkin GPU path.
+      const calls = manifest.calls.filter(c => c.curve_tag === 'c0001');
+
+      // Instance sized to the largest routed member (next pow2); the pool arena
+      // is sized once by warming the worst-case pack below.
+      let maxMember = GPU_MIN_N;
+      let maxPackScalars = 0;
+      for (const c of calls) {
+        let pack = 0;
+        for (const p of c.polys)
+          if (p.size >= GPU_MIN_N) {
+            maxMember = Math.max(maxMember, p.size);
+            pack += p.size;
+          }
+        maxPackScalars = Math.max(maxPackScalars, pack);
+      }
+      const maxN = 1 << Math.ceil(Math.log2(maxMember));
+      const cfg: MsmConfig = { ...gpuKnobs, profile: false };
+      log('info', `[chonk-gpu] maxN=${maxN} maxPackScalars=${maxPackScalars} — pool+instance (once)`);
+      const pool = await MsmV2Pool.create(device, new Uint8Array(srsBuf.buffer, srsBuf.byteOffset, maxN * 64));
+      const inst = await MsmV2.create(device, maxN, pool, cfg);
+      const uploadBuf = device.createBuffer({
+        size: Math.max(64, maxPackScalars * 32),
+        usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.STORAGE,
+      });
+
+      const fetchMembers = async (c: CallMeta): Promise<Uint8Array[]> => {
+        const ab = await (await fetch(`${DATA}${c.file}`)).arrayBuffer();
+        const buf = new Uint8Array(ab);
+        const isBatch = c.file.startsWith('batch_');
+        let off = isBatch ? 8 + c.polys.length * 16 : 16; // skip header
+        const out: Uint8Array[] = [];
+        for (const p of c.polys) {
+          out.push(buf.subarray(off, off + p.size * 32));
+          off += p.size * 32;
+        }
+        return out;
+      };
+
+      // numWindows for one member of a given size (memoized via planBatch).
+      const winCache = new Map<number, number>();
+      const memberWindows = (size: number): number => {
+        let w = winCache.get(size);
+        if (w === undefined) {
+          w = planBatch([{ n: size, srsOffset: 0 }]).descs[0].numWindows;
+          winCache.set(size, w);
+        }
+        return w;
+      };
+      // A 13-wide 2^17 pack is 533 MiB > the 160 MiB budget, so a BatchCommit is
+      // split into packs whose total window count fits. Each pack is one real
+      // batched dispatch; a call's GPU cost is the sum over its packs.
+      const WINDOW_CAP = parseInt(qp.get('win_cap') ?? '48', 10) || 48;
+
+      type Member = { size: number; scalars: Uint8Array };
+      const groupRouted = (c: CallMeta, members: Uint8Array[]): Member[][] => {
+        const groups: Member[][] = [];
+        let cur: Member[] = [];
+        let curW = 0;
+        for (let i = 0; i < c.polys.length; i++) {
+          const sz = c.polys[i].size;
+          if (sz < GPU_MIN_N) continue;
+          const w = memberWindows(sz);
+          if (cur.length > 0 && curW + w > WINDOW_CAP) {
+            groups.push(cur);
+            cur = [];
+            curW = 0;
+          }
+          cur.push({ size: sz, scalars: members[i] });
+          curW += w;
+        }
+        if (cur.length > 0) groups.push(cur);
+        return groups;
+      };
+      const buildGroupPack = (
+        group: Member[],
+      ): { members: BatchMember[]; concat: Uint8Array; windowDescTable: Uint32Array; reduceOffsets: number[] } => {
+        const plan = planBatch(group.map(g => ({ n: g.size, srsOffset: 0 })));
+        const concat = new Uint8Array(plan.totalScalarBytes);
+        for (let k = 0; k < group.length; k++) concat.set(group[k].scalars, plan.descs[k].scalarBase);
+        return {
+          members: plan.descs.map(d => ({
+            n: d.n,
+            scalarBaseBytes: d.scalarBase,
+            schedOff: d.schedOff,
+            numWindows: d.numWindows,
+          })),
+          concat,
+          windowDescTable: plan.windowDescTable,
+          reduceOffsets: plan.reduceOffsets,
+        };
+      };
+
+      // Warm the arena once with the largest groups across the top routed calls.
+      const routed = calls
+        .map(c => ({ c, pack: c.polys.filter(p => p.size >= GPU_MIN_N).reduce((a, p) => a + p.size, 0) }))
+        .filter(x => x.pack > 0)
+        .sort((a, b) => b.pack - a.pack);
+      for (const { c } of routed.slice(0, 3)) {
+        const m = await fetchMembers(c);
+        for (const g of groupRouted(c, m)) {
+          const pk = buildGroupPack(g);
+          inst.prepareBatch(pk.members, pk.concat, pk.windowDescTable, pk.reduceOffsets);
+          await inst.run();
+        }
+      }
+      log('info', `[chonk-gpu] warmed; measuring ${calls.length} calls (${routed.length} routed to GPU)`);
+
+      const rows: Record<string, unknown>[] = [];
+      for (const c of calls) {
+        const members = await fetchMembers(c);
+        const groups = groupRouted(c, members);
+        const totalScalars = c.polys.reduce((a, p) => a + p.size, 0);
+        if (groups.length === 0) {
+          rows.push({
+            file: c.file,
+            kind: c.kind,
+            routed: 'cpu',
+            polys: c.polys.length,
+            total_scalars: totalScalars,
+            max_size: Math.max(0, ...c.polys.map(p => p.size)),
+          });
+          continue;
+        }
+        let compute = 0;
+        let upload = 0;
+        let gpuMembers = 0;
+        let gpuScalars = 0;
+        for (const g of groups) {
+          const pk = buildGroupPack(g);
+          gpuMembers += g.length;
+          gpuScalars += g.reduce((a, m) => a + m.size, 0);
+          // compute: prepareBatch + warm run, then timed run()s (scalars resident).
+          inst.prepareBatch(pk.members, pk.concat, pk.windowDescTable, pk.reduceOffsets);
+          await inst.run();
+          let gComp = Infinity;
+          for (let r = 0; r < reps; r++) {
+            const t0 = performance.now();
+            await inst.run();
+            gComp = Math.min(gComp, performance.now() - t0);
+          }
+          // upload: isolated H2D of this pack's scalars (writeBuffer flushes on
+          // submit; onSubmittedWorkDone awaits the transfer).
+          let gUp = Infinity;
+          for (let r = 0; r < reps + 1; r++) {
+            const t0 = performance.now();
+            device.queue.writeBuffer(uploadBuf, 0, pk.concat, 0, pk.concat.byteLength);
+            device.queue.submit([]);
+            await device.queue.onSubmittedWorkDone();
+            const ms = performance.now() - t0;
+            if (r > 0) gUp = Math.min(gUp, ms);
+          }
+          compute += gComp;
+          upload += gUp;
+        }
+        rows.push({
+          file: c.file,
+          kind: c.kind,
+          routed: 'gpu',
+          polys: c.polys.length,
+          gpu_members: gpuMembers,
+          packs: groups.length,
+          total_scalars: totalScalars,
+          gpu_scalars: gpuScalars,
+          upload_ms: +upload.toFixed(4),
+          compute_ms: +compute.toFixed(4),
+          total_ms: +(upload + compute).toFixed(4),
+        });
+        log(
+          'info',
+          `[chonk-gpu] ${c.file} ${c.kind} gpuMembers=${gpuMembers}/${c.polys.length} packs=${groups.length} ` +
+            `n=${gpuScalars} upload=${upload.toFixed(3)} compute=${compute.toFixed(3)} total=${(upload + compute).toFixed(3)}ms`,
+        );
+      }
+      (window as unknown as { __benchSamples: unknown }).__benchSamples = { kind: 'chonk-replay', maxN, reps, rows };
+      const nGpu = rows.filter(r => r.routed === 'gpu').length;
+      await client.postResults({
+        state: 'done',
+        params: { page: 'msm-chonk-replay', maxN, reps, gpuMinN: GPU_MIN_N },
+        results: { rows },
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      log('ok', `[chonk-gpu] state=done ${nGpu}/${rows.length} routed to GPU`);
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      log('err', `[chonk-gpu] state=error FATAL: ${msg}`);
+    }
+  } else if (autorun === 'msm-matrix') {
+    // FAST benchmark matrix — the iteration-speed path. ONE page load: acquire the
+    // device, decompress the SRS into ONE point pool, generate inputs, then loop
+    // over montmul configs IN-PAGE, building a fresh MsmV2 per config that
+    // shares the pool's WGSL-keyed pipeline cache. So montmul-independent kernels
+    // (planner/transpose/decompose/reduce-schedule) compile ONCE and are reused.
+    // NO WASM, NO cross-check, NO page reloads. Correctness is covered by the M2
+    // byte-identical oracle; this is pure GPU wall timing (profile=false,
+    // wall-around-submit).
+    //   ?autorun=msm-matrix&logn=17&reps=8&scalar_dist=profile&profile=A
+    //     &configs=karat,cios_unrolled
+    const autorunLogN = Math.min(20, parseInt(qp.get('logn') ?? '17', 10) || 17);
+    const reps = Math.max(1, parseInt(qp.get('reps') ?? '8', 10));
+    const warmups = Math.max(1, parseInt(qp.get('warmups') ?? '2', 10));
+    const configsStr = qp.get('configs') ?? 'karat,cios_unrolled';
+    const configs = configsStr.split(',').map(s => {
+      const [mm] = s.split(':');
+      return { montmul: (mm || 'karat') as MsmConfig['montmul'] };
+    });
+    const client = makeResultsClient({ page: 'msm-matrix' });
+    const lines: string[] = [];
+    const mlog = (k: 'info' | 'ok' | 'err', m: string): void => {
+      lines.push(m);
+      log(k, m);
+    };
+    try {
+      for (let i = 0; i < 1200 && srsBuf === null; i++) await new Promise(r => setTimeout(r, 500));
+      if (srsBuf === null) throw new Error('SRS never became ready');
+      $logn.value = String(autorunLogN);
+      $logn.dispatchEvent(new Event('input'));
+      const inputs = await generateInputs(autorunLogN, false);
+      if (gpuDevice === null) gpuDevice = await get_device();
+      const dist = `${qp.get('scalar_dist') ?? 'uniform'}${qp.get('profile') ? '/' + qp.get('profile') : ''}`;
+      mlog(
+        'info',
+        `[matrix] logN=${autorunLogN} reps=${reps} dist=${dist} configs=${configs.length} (one page load, shared pool+pipeline cache)`,
+      );
+      const tPool = performance.now();
+      const pool = await MsmV2Pool.create(gpuDevice, inputs.pointsBuf);
+      mlog(
+        'info',
+        `[matrix] pool (SRS decompress) ready in ${(performance.now() - tPool).toFixed(0)}ms — reused across all configs`,
+      );
+      const rows: Array<Record<string, unknown>> = [];
+      for (const cfg of configs) {
+        const knobs: MsmConfig = {
+          ...gpuKnobs,
+          montmul: cfg.montmul,
+          profile: false,
+          combineOnHost: false,
+          warmupRuns: 0,
+        };
+        const tBuild = performance.now();
+        const msm = await MsmV2.create(gpuDevice, inputs.n, pool, knobs);
+        msm.prepare(inputs.scalarsBuf);
+        const buildMs = performance.now() - tBuild;
+        for (let w = 0; w < warmups; w++) await msm.run(); // first-use + steady-state warm
+        const walls: number[] = [];
+        for (let r = 0; r < reps; r++) {
+          const t0 = performance.now();
+          await msm.run();
+          walls.push(performance.now() - t0);
+        }
+        walls.sort((a, b) => a - b);
+        const median = walls[walls.length >> 1];
+        const min = walls[0];
+        rows.push({
+          montmul: cfg.montmul,
+          median: +median.toFixed(1),
+          min: +min.toFixed(1),
+          buildMs: +buildMs.toFixed(0),
+          walls: walls.map(x => +x.toFixed(1)),
+        });
+        mlog(
+          'ok',
+          `[matrix] ${String(cfg.montmul).padEnd(13)}: median=${median.toFixed(1)}ms min=${min.toFixed(1)}ms (build+compile ${buildMs.toFixed(0)}ms)`,
+        );
+        msm.destroy();
+      }
+      mlog('ok', `[matrix] state=done`);
+      (window as unknown as { __benchSamples?: unknown }).__benchSamples = { kind: 'matrix', dist, reps, rows };
+      await client.postResults({
+        state: 'done',
+        params: { logN: autorunLogN, reps, configs: configsStr, page: 'msm-matrix' },
+        results: { rows },
+        error: null,
+        log: lines.slice(-80),
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      mlog('err', `[matrix] FATAL: ${msg}`);
+      mlog('err', `[matrix] state=error`);
+      await client.postResults({
+        state: 'error',
+        params: { configs: configsStr, page: 'msm-matrix' },
+        results: null,
+        error: msg,
+        log: lines.slice(-80),
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+    }
+  }
+})();

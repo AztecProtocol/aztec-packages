@@ -70,4 +70,31 @@ export type BackendOptions = {
    * don't need proving/verification capabilities.
    */
   skipSrsInit?: boolean;
+
+  /**
+   * @description Wire the WebGPU MSM bridge into the WASM worker so BN254 batch MSMs
+   * at or above WEBGPU_MSM_THRESHOLD are dispatched to a GPU host on the main
+   * thread instead of running the in-tree native Pippenger. Browser-only; ignored
+   * in Node. Requires a WASM built with -DBBERG_WEBGPU_MSM_HOOK=ON.
+   */
+  webgpuMsm?: boolean;
+
+  /**
+   * @description Per-MSM CSV measurement mode. When true, every call to
+   * `MSM::batch_multi_scalar_mul` runs each MSM solo (multi-threaded
+   * Pippenger, but one at a time) and emits a `[msm-csv-cpu] name=<entity>
+   * n=<size> cpu_ms=<ms>` log line per MSM. Used by the bench harness to
+   * build a per-MSM (named) CSV table of CPU times. Off in production —
+   * removes the cross-MSM thread-balancing in batch MSMs.
+   */
+  msmCsvMode?: boolean;
+
+  /**
+   * @description Oracle MSM routing. When set, the WebGPU hook dispatches
+   * exactly the listed MSM sequence indices (deterministic commit order) to
+   * the GPU and keeps the rest on CPU — used to measure a per-MSM CPU-vs-GPU
+   * oracle's prove wall. Requires webgpuMsm. Empty/undefined uses the size
+   * predicate.
+   */
+  oracleRouteSeqs?: number[];
 };

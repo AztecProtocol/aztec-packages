@@ -14,6 +14,9 @@
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/ref_span.hpp"
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
+#ifdef BBERG_WEBGPU_MSM_HOOK
+#include "barretenberg/ecc/scalar_multiplication/webgpu_msm_hook.hpp"
+#endif
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/srs/factories/crs_factory.hpp"
 #include "barretenberg/srs/global_crs.hpp"
@@ -85,6 +88,22 @@ template <class Curve> class CommitmentKey {
                                   " points with an SRS of size ",
                                   get_monomial_size()));
         }
+#ifdef BBERG_WEBGPU_MSM_HOOK
+        // Route solo BN254 commits through the batch path as a size-1 batch so
+        // big single commits (e.g. n=131072) also reach the WebGPU bridge. The
+        // full monomial SRS is registered (idempotent) so the GPU host serves
+        // every commit as a prefix-with-offset of one uploaded pool.
+        if constexpr (std::is_same_v<Curve, curve::BN254>) {
+            if (scalar_multiplication::webgpu_msm_runtime_enabled()) {
+                scalar_multiplication::webgpu_register_full_srs_bn254(point_table.data(), point_table.size());
+                auto* scalars_ptr = const_cast<Fr*>(polynomial.span.data());
+                std::array<PolynomialSpan<Fr>, 1> spans{ PolynomialSpan<Fr>{
+                    polynomial.start_index, std::span<Fr>{ scalars_ptr, polynomial.size() } } };
+                return scalar_multiplication::MSM<Curve>::batch_multi_scalar_mul(
+                    point_table, std::span<PolynomialSpan<Fr>>(spans), /*handle_edge_cases=*/false)[0];
+            }
+        }
+#endif
         return scalar_multiplication::pippenger_unsafe<Curve>(polynomial, point_table, has_duplicates_hint);
     };
     /**
@@ -116,6 +135,16 @@ template <class Curve> class CommitmentKey {
             scalar_spans.emplace_back(polynomial.start_index(), polynomial.coeffs());
         }
 
+#ifdef BBERG_WEBGPU_MSM_HOOK
+        // Register the full monomial SRS so the GPU host serves every commit in
+        // the batch as a prefix-with-offset of one uploaded pool (idempotent).
+        if constexpr (std::is_same_v<Curve, curve::BN254>) {
+            if (scalar_multiplication::webgpu_msm_runtime_enabled()) {
+                const auto monomial = get_monomial_points();
+                scalar_multiplication::webgpu_register_full_srs_bn254(monomial.data(), monomial.size());
+            }
+        }
+#endif
         auto results = scalar_multiplication::MSM<Curve>::batch_multi_scalar_mul(
             get_monomial_points(), scalar_spans, /*handle_edge_cases=*/false, has_duplicates_hints);
         return std::vector<Commitment>(results.begin(), results.end());

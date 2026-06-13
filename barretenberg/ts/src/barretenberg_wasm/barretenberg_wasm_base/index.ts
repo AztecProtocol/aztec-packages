@@ -5,10 +5,51 @@ import { randomBytes } from '../../random/index.js';
  * Contains code that is common to the "main thread" implementation and the "child thread" implementation.
  */
 export class BarretenbergWasmBase {
-
   protected memory!: WebAssembly.Memory;
   protected instance!: WebAssembly.Instance;
   protected logger: (msg: string) => void = () => {};
+
+  // Extra entries to merge into the `env` import object. The WebGPU MSM
+  // bridge uses this to inject `bb_external_msm_bn254` and
+  // `bb_publish_srs_bn254` into a `BBERG_WEBGPU_MSM_HOOK`-built WASM
+  // without the base class needing to know about WebGPU. Set this
+  // before calling `init` / `WebAssembly.instantiate`.
+  //
+  // Default-initialized with the BBERG_WEBGPU_MSM_HOOK stubs so any
+  // wasm instance instantiated from a hook-enabled WASM links cleanly,
+  // regardless of which factory path created it (sync, async-direct,
+  // worker, pthread). Each path can override via setExtraEnvImports
+  // (e.g. the browser bridge swaps in the real implementations).
+  protected extraEnvImports: Record<string, unknown> = {
+    /* eslint-disable @typescript-eslint/naming-convention */
+    bb_external_msm_bn254: () => {
+      throw new Error(
+        'bb_external_msm_bn254 invoked without a WebGPU bridge installed. ' +
+          'Call setupWebGpuMsmBridge() (browser) or rebuild WASM without BBERG_WEBGPU_MSM_HOOK.',
+      );
+    },
+    bb_external_batch_msm_bn254: (
+      _batch_count: number,
+      _descriptors_ptr: number,
+      _scalars_base: number,
+      _results_base: number,
+      _meta_base: number,
+      _labels_packed: number,
+    ) => {
+      throw new Error(
+        'bb_external_batch_msm_bn254 invoked without a WebGPU bridge installed. ' +
+          'Call setupWebGpuMsmBridge() (browser) or rebuild WASM without BBERG_WEBGPU_MSM_HOOK.',
+      );
+    },
+    bb_publish_srs_bn254: () => {
+      // No-op. The bridge overrides this when present.
+    },
+    /* eslint-enable @typescript-eslint/naming-convention */
+  };
+
+  public setExtraEnvImports(imports: Record<string, unknown>): void {
+    this.extraEnvImports = { ...this.extraEnvImports, ...imports };
+  }
 
   protected getImportObj(memory: WebAssembly.Memory) {
     /* eslint-disable camelcase */
@@ -56,6 +97,11 @@ export class BarretenbergWasmBase {
         },
 
         memory,
+
+        // Merge in caller-provided extra env imports (e.g. the WebGPU
+        // MSM bridge's `bb_external_msm_bn254`). Listed last so the
+        // built-in entries take precedence on name collision.
+        ...this.extraEnvImports,
       },
     };
     /* eslint-enable camelcase */
@@ -102,6 +148,18 @@ export class BarretenbergWasmBase {
 
   public getMemory() {
     return new Uint8Array(this.memory.buffer);
+  }
+
+  // The raw WebAssembly.Memory backing this instance. Used by the WebGPU
+  // MSM bridge to share the WASM heap with the main-thread host (which
+  // reads request payloads — points + scalars — directly from this memory
+  // via a Uint8Array view on the SAB-backed buffer). Returns the
+  // SAB-backed WebAssembly.Memory object so the host can postMessage it
+  // back through `webgpu-wasm-memory`.
+  public publishWebGpuMemory(): void {
+    if (typeof self !== 'undefined' && this.memory) {
+      self.postMessage({ kind: 'webgpu-wasm-memory', memory: this.memory });
+    }
   }
 
   // PRIVATE METHODS

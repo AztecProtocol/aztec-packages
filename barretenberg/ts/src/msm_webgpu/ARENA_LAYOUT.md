@@ -1,0 +1,523 @@
+# GPU MSM Arena Layout — phone-tight (≤160 MB), split-c-ready
+
+Target: the live `stream_walker` + multi-dispatch pair-tree in `msm_v2.ts`
+(`SharedScratch` on `MsmV2Pool`). Hard budget: **160 MB total GPU buffers.**
+Designed to (a) collapse the ~49-buffer `SharedScratch` to a handful of arenas
+(b) be sized deterministically against a fixed budget rather than grown
+monotonically, (c) pack multiple MSMs per dispatch, and (d) accept the
+variable-window **split-c** schedule as a layout-table swap, not a re-architecture.
+
+**All sizes below are exact, traced to source — no estimates.** The one term not
+closed-form from `n` alone (`reducePrefScratch`'s `MAXC`) is flagged.
+
+> **WebGPU USAGE-SCOPE RULE (the real constraint; Dawn error verbatim below).**
+> A buffer may not be used as **read-write storage AND read-only storage in the
+> same usage scope** (a compute-pass dispatch). Dawn: *"usage
+> (Storage(read-write)|Storage(read-only)) includes writable usage and another
+> usage in the same synchronization scope"* → the command buffer is rejected →
+> output 0. Co-binding the same buffer twice is **fine** if the accesses match
+> (all-rw or all-ro); only the **ro+rw mix** is illegal. This bit the arena
+> because `ptCombine` binds `pt_tasks` (read-only) and `pt_buf` (read-write) — once
+> they share one arena buffer, that buffer is ro+rw in one scope.
+> **Fix:** two buffers may share an arena only if they are never co-bound with
+> *mismatched* access (one ro, one rw) in the same bind group. Partition by that
+> conflict graph (edge = co-bound with mixed access; graph-colour). Buffers that
+> are read-only where they meet a read-write co-tenant go in a different arena.
+> Still collapses ~49 buffers to a few arenas; co-bound-same-access buffers share
+> freely (e.g. `ptScratch`+`denseBucketList` — never co-bound — validated together).
+
+---
+
+## 0. What this fixes (and what was already fine)
+
+Storage buffers are **already persistent** — one `SharedScratch`, grown
+monotonically and reused (`ensureScratch`, `msm_v2.ts:755`); only the small
+UNIFORM buffers are per-call. So "stop resizing every MSM" is already true for
+storage. What actually costs per MSM on the slow path is the **bind-group
+rebuild across ~49 bindings**, and what blocks the phone is the **fixed
+thread-scratch (exactly 45.9 MiB at `sT=8192`, `ptScratch` alone 32 MiB — §3)**
+plus the absence of a real memory-budget gate. The `MEM_BUDGET=248MB` /
+`estimateMem` scaffold (`msm_v2.ts:41,2048`) is vestigial — batch count is driven
+only by the 65 k-workgroup cap (`wgFits`, `msm_v2.ts:2069`) — **and `estimateMem`
+omits the THREAD zone entirely, so wiring it as-is would under-budget by
+~46 MiB.** The arena addresses all four.
+
+---
+
+## 1. Three allocations
+
+| Allocation | Lifetime | Size | Binding |
+|---|---|---|---|
+| **SRS** `srsX`,`srsY` (SoA, 8×u32 Montgomery) | **session** (uploaded once, prefix-routed by `srsOffset`) | `2·srsN·32` = **8.0 MiB** at `srsN=2^17` | 2 storage |
+| **arena** (one STORAGE buffer) | **batch** (bump-reset) | high-water of workload, ≤ budget−SRS (chonk: ~60 MiB at `sT=2048`, §3) | 1 storage |
+| **layout** (offset table) | batch | a few KB (§4) | 1 storage |
+| per-pass `params` | per dispatch | 16–64 B | 1 uniform (dynamic offset) |
+
+**SRS stays outside the arena** — its lifetime is the session; the arena is
+bump-reset per batch.
+
+**Binding model.** One bind group `{arena, layout, srsX, srsY, params}` ≈ **5
+entries**, rebuilt only when the arena buffer is reallocated (workload high-water
+grows — rare after warm-up). The ~49-binding rebuild that is today's slow path
+disappears.
+
+**128 MiB phone storage-binding limit.** WebGPU's portable
+`maxStorageBufferBindingSize` floor is 128 MiB (Mali/Adreno sit near it). We
+**size the arena to the deterministic high-water (~60–95 MiB), not to the
+budget**, so a single whole-arena binding is legal. If a workload's high-water
+ever exceeds 128 MiB, bind the arena in zone-ranges (each ≤128 MiB) — flagged,
+not needed for chonk.
+
+---
+
+## 2. Lifetime zones & the exact overlay map
+
+Zones: **IN** (scalars, per-MSM) · **RED** (`redBuf`/`isPresent` accumulator) ·
+**PASS-scatter** + **PASS-csr** (per-pass) · **GRID** (planner/sort, full-NW
+today) · **THREAD** (`sT·sS`-scaled) · **REDUCE** (`reducePrefScratch`). Overlay
+= share arena bytes between buffers with disjoint `[first-touch, last-read]`
+dispatch intervals. Intervals are **exact from the dispatch trace**
+(`encodeIntoBatch`, `msm_v2.ts:2592-2833`); `clearBuffer` counts as a write.
+
+### Dominant overlay: scatter → ptScratch (reclaims ~30 MiB)
+
+| buffer | live interval | bytes @sT=8192 |
+|---|---|---|
+| `bucketAndSign` | [0, 5] | 10.0 MiB |
+| `valIdx` | [4, 5] | 10.0 MiB |
+| `l0Idx` | [1, 31] | 10.0 MiB |
+| **scatter free after disp 31** | | **30 MiB** |
+| `ptScratch` | **[33, 85]** | 32.0 MiB |
+
+`31 < 33` ⇒ disjoint. The 30 MiB scatter region hosts the 32 MiB `ptScratch`
+(net `ptScratch` cost ≈ 2 MiB). This single overlay is why the arena is far below
+the naive sum, and it is provable, not heuristic.
+
+> **RECONCILIATION (6-colour build — this overlay is NOT realizable as written).**
+> The table above assumes the original **single-arena** design (§1). The build
+> that shipped is **6 colour-partitioned arenas** (forced by the ro+rw usage-scope
+> rule). The three scatter buffers land in *different* colours
+> (`bucketAndSign`∈A1, `valIdx`∈A2, `l0Idx`∈A0) and `ptScratch`∈A4. `ptScratch`
+> sits in the forcing 6-clique with `isPresent`∈A1, `partialCount`∈A2 and
+> `activeCount`∈A0, so it **cannot legally share an arena with any scatter
+> buffer** — every scatter buffer's colour already holds a clique member that
+> conflicts with `ptScratch`. The cross-zone 30 MiB reclaim is therefore lost to
+> the colouring. **Achievable instead: within-colour overlay** — a dead scatter
+> buffer hosts *later-lived buffers of its own colour* via a lifetime-aware
+> `carve` (interval-graph allocation per colour, replacing the static bump-sum):
+> - **A1**: `bucketAndSign` (10 MiB, dead after disp 5) hosts `redBuf`+`isPresent`
+>   ([22,end], ~5.3 MiB). **~5.3 MiB.**
+> - **A2**: `valIdx` (10 MiB, dead after 5) hosts `partialCount`/`partialLayout`/
+>   `size1BucketList`/`taskCuts` (~2 MiB). **~2 MiB.**
+> - **A0**: `l0Idx` (10 MiB, dead after 31) hosts `reducePrefScratch` (~1.25 MiB).
+>   **~1.25 MiB.**
+>
+> Total **~8.5 MiB** at any `sT` (the scatter & `redBuf` sizes are `sT`-independent),
+> vs the single-arena dream's 30. **Deferred, not done:** the gain is ~8 % of a
+> 100 MiB footprint that already sits 60 MiB under budget, while a lifetime-aware
+> allocator adds exact-interval tracing and the §2 clear-relocation hazard (a
+> mis-scoped `clearBuffer` silently zeroes the co-tenant → output 0, no error).
+> The THREAD memory the cross-zone overlay chased is instead reclaimed by the
+> budget-aware `sT` lever (§8, `chooseBudgetMpw`), which drops ~34 MiB with zero
+> aliasing risk. Revisit within-colour overlay only if packing makes a colour the
+> binding constraint.
+
+### Always-live — exclude from overlay
+`redBuf`,`isPresent`: **[22, end]** (accumulation + reduce). Long tails into the
+17-level pt loop: `activeCount`[27,85], `binOffsets`[29,85],
+`sortedActiveBuckets`[30,85], `ptOff`[32,85] — overlay only with buffers dead
+before their first-write.
+
+### Short disjoint scratch — collapse to one shared slot (all tiny, sT-independent)
+`valIdx`[4,5] · `wgCuts`[19,20] · `threadCuts`[20,21] · `cumulativeAdds`[18,21] ·
+`partialWritePos`[26,26] · `countHistogram`[28,29] · `binWritePos`[29,30]. These
+are pairwise/chain-disjoint.
+
+### Clears that MUST move (correctness)
+Pre-batch `clearBuffer` of `walkerPartials`,`taskCuts`,`threadCuts`,`redBuf`,
+`isPresent`,`bucketHead`,`walkerNodeCounter`,`ptTotalTasks` (`msm_v2.ts:2639-2656`)
+and per-batch clears of `streamPlannerMeta`,`cumulativeAdds`,`partialCount`,
+`partialWritePos`,`activeCount`,`countHistogram`,`walkerPartialDest`
+(`msm_v2.ts:2680-2704`) establish a write at "pre-dispatch". **A shared overlay
+slot may only be cleared for its current occupant** — relocate each clear into
+its occupant's scope or it will zero the co-tenant.
+
+### Confirmed (closed — no longer uncertain)
+- `walkerPartials` is one buffer = persisted partials region + an intra-dispatch
+  pref tail at `pref_off=4·M_partials`; treat the whole buffer live **[23, 33]**.
+- `streamPlannerMeta` doubles as the **INDIRECT dispatch-args** source for
+  dispatches 22 & 23 — respect those indirect reads (not just shader reads).
+- **`bucketHead`, `walkerNodesSlot`, `walkerNodesNext`, `walkerNodeCounter` are
+  DEAD (~1.33 MiB).** Assigned to locals at `msm_v2.ts:2405-2408` but never put
+  in any `mkBind` (audited `:2420-2479`) — the Task #19 linked-list combine was
+  superseded by the sort-based combine. **Drop them.**
+- **`ptMeta` (16 B) is bound to `ptInitScan` (write, `:2470`) but never read.**
+  Keep the 16-B slot (the bind layout requires it); it carries no live data, so
+  it overlays freely. Not worth removing.
+
+---
+
+## 3. Sizing model (exact)
+
+### Constants (from source)
+| symbol | value | source |
+|---|---|---|
+| `NUMBITS` | 254 | `msm_v2.ts:40` |
+| `PG` | 2 | `msm_v2.ts:37` |
+| `PLANNER_TPB` | 256 | `msm_v2.ts:38` |
+| `STREAM_S` (`sS`) | 8 | `ba_stream_plan.ts:6` |
+| `STREAM_WALKER_TPB` | 64 | `ba_stream_plan.ts:37` |
+| `MAX_PLANNER_WORKGROUPS` | 32 | `ba_stream_plan.ts:34` |
+| `STREAM_NUM_THREADS` (`sT`) | `= MPW·PLANNER_TPB = `**8192** | `ba_stream_plan.ts:36` |
+| `sT·sS` | 65536 | |
+| `soaSize(M)` | `2·PG·M·4·4 = `**64·M** B | `msm_v2.ts:771` |
+| walker workgroups | `sT/64 = 128` | |
+
+**`sT` is not a free knob** — it is `MAX_PLANNER_WORKGROUPS × 256`. The phone
+lever is lowering `MAX_PLANNER_WORKGROUPS` (8→`sT`=2048; 4→`sT`=1024).
+
+### Window geometry (exact; `c = pickC(round(log₂ n))`, `msm_v2.ts:401`)
+`NW = ⌈254/c⌉`, `stride = 2^(c−1)`, `BW = ⌈(2^(c−1)+1)/256⌉·256`,
+`bTotal = NW·BW`, `redM = NW·stride`.
+
+| round(log₂n) | c | NW | stride | BW | bTotal | redM |
+|---|---|---|---|---|---|---|
+| 14 | 8 | 32 | 128 | 256 | 8 192 | 4 096 |
+| 15 | 10 | 26 | 512 | 768 | 19 968 | 13 312 |
+| 16–17 | 13 | 20 | 4 096 | 4 352 | 87 040 | 81 920 |
+| 18–20 | 15 | 17 | 16 384 | 16 640 | 282 880 | 278 528 |
+
+Chonk's 17 distinct N round to log₂∈{14,15,16,17} → c∈{8,10,13,13}.
+
+### Per-buffer byte formulas (exact, `ensureScratch` `msm_v2.ts:766-1113`)
+`bw = ⌈NW/numBatches⌉`; `numBatches` = smallest `nb` with `⌈bw·n/128⌉ < 65000`
+(`wgFits`, `msm_v2.ts:2069`). **At logN17, `nb=1` (`bw=NW=20`).**
+
+| zone | buffer | bytes | scales with |
+|---|---|---|---|
+| IN | `scalarsRaw` | `32·n` | n |
+| RED (full NW) | `redBuf` | **`64·redM`** | NW |
+| | `isPresent` | `4·redM` | NW |
+| PASS-scatter | `bucketAndSign` | `4·bw·n` | bw·n |
+| | `valIdx` | `4·bw·n` | bw·n |
+| | `l0Idx` | `4·(bw·n+3)` | bw·n |
+| PASS-csr | `counts[2]`+`offsets[2]` | `16·bw·BW` | bw·BW |
+| | `rowPtr` | `4·bw·(BW+1)` | bw·BW |
+| GRID (full NW) | `size1`(8·bTotal)+14 lists(4·bTotal) | **`64·bTotal`** | bTotal |
+| | `radixHist` | `1024·sRadixTiles` | tiny |
+| THREAD | `ptScratch` | **`512·sT·sS`** | sT |
+| | `walkerPartials` | `160·sT·sS` | sT |
+| | `ptTasks` | `32·sT·sS` | sT |
+| | `walkerPartialDest` | `8·sT·sS` | sT |
+| | `partialLayout` | `8·sT·sS` | sT |
+| | `ptChunks` | `4·sT·sS` | sT |
+| | `taskCuts` | `8·sT·(sS+1)` | sT |
+| | `threadCuts`+`streamPlannerMeta` | `8·sT + 4·(20+sT)` | sT |
+| REDUCE | `reducePrefScratch` | `32·NW·REDUCE_WG·⌈(stride/2)/REDUCE_WG⌉` | NW |
+| DEAD (drop) | `walkerNodesSlot`/`Next` | `8·sT·sS` each | — |
+| | `bucketHead` | `4·bTotal` | — |
+| | ~14 legacy stubs | 4 each | — |
+
+`REDUCE_WG = pickReduceWg(c) ∈ {32,64,128}` (`msm_v2.ts:433`). `MAXC = ⌈ppw/REDUCE_WG⌉`
+maximised over reduce passes (`:2086`); the max `ppw` is `stride/2` (the `mm=1`
+pass, `:1658`), so `MAXC = ⌈(stride/2)/REDUCE_WG⌉` and `reducePrefBytes =
+32·NW·REDUCE_WG·MAXC` (`:2215`). c=13 → 16 → **1.25 MiB**; c=10 → 0.20; c=8 → 0.06.
+Closed-form from `n`.
+
+`l0Idx`'s `max()` (`:2170`,`:2182`) is pinned to the `batchSlots+3` branch — the
+code throws if the transpose-partials matrix (`batchWindows·partialStride`) would
+exceed it, so that branch always wins; `l0Idx = 4·(bw·n+3)` exactly.
+
+### Exact footprint — logN=17 (n=131072, c=13, NW=20, nb=1, bw=20)
+
+| buffer | sT=8192 (MiB) | sT=2048 (MiB) |
+|---|---|---|
+| scalarsRaw | 4.00 | 4.00 |
+| bucketAndSign | 10.00 | 10.00 |
+| valIdx | 10.00 | 10.00 |
+| l0Idx | 10.00 | 10.00 |
+| counts+offsets | 1.33 | 1.33 |
+| rowPtr | 0.33 | 0.33 |
+| redBuf | 5.00 | 5.00 |
+| isPresent | 0.31 | 0.31 |
+| GRID | 5.31 | 5.31 |
+| **ptScratch** | **32.00** | **8.00** |
+| walkerPartials | 10.00 | 2.50 |
+| ptTasks | 2.00 | 0.50 |
+| other THREAD | 1.90 | 0.50 |
+| reducePref | 1.25 | 1.25 |
+| **arena (live)** | **~93.4** | **~59.0** |
+| **total (arena + SRS 8.0)** | **~101** | **~67** |
+
+(`bucketHead`/`walkerNodes*` add ~1.33 MiB in the *current* code but are dead —
+excluded here, dropped in the redesign. §2.) The `sT=8192` total (~101 MiB incl.
+SRS) is confirmed against a device buffer-budget measurement at N=2¹⁷ (~a little
+over 100 MB) — the byte model reproduces the real allocation.
+
+The 160 MB cap is comfortable at chonk's max. At `sT=8192` the THREAD zone is
+45.9 of the 93.4 MiB (`ptScratch` 32 alone). **With the §2 scatter→ptScratch
+overlay, drop ~30 MiB** → ~63 MiB (sT=8192) / ~51 MiB (sT=2048). The cap becomes
+binding only for wide packing or if `sT` stays 8192.
+
+### The budget inequality the planner enforces
+`SRS + IN + RED + GRID + PASS(bw,pack) + THREAD(sT) + REDUCE ≤ 160 MB`.
+Phone priority of levers: **(1) `sT = MPW·256`** (THREAD −34 MiB, 8192→2048);
+**(2) overlay** scatter→ptScratch (§2, −~`ptScratch`); **(3) stage** `bw=⌈NW/nb⌉`
+(scatter & csr ∝ `bw`); **(4) pack-count** for small MSMs.
+
+---
+
+## 4. The offset table (`layout`)
+
+Two levels: per-MSM (outer, packing) and per-window (inner, split-c). Storage
+buffer (per-window arrays would waste uniform alignment):
+
+```ts
+struct MsmDesc {          // 32 B
+  in_off:u32, out_off:u32, n:u32, num_windows:u32,
+  sched_off:u32,          // index of this MSM's first WindowDesc
+  n_large:u32,            // split-c upper-region scalar count (= n if no split)
+  _pad0:u32, _pad1:u32,
+}
+struct WindowDesc {       // 16 B
+  work_off:u32,           // window base in PASS working-bucket region
+  reduce_off:u32,         // window base in the reduce/bucket-sum region
+  window_bits:u32,        // c_w (uniform c when no split)
+  bit_base:u32,           // Σ_{k<w} c_k (= w·c when no split)
+}
+// layout = [MsmDesc × num_msms] ++ [WindowDesc × Σ num_windows]
+```
+
+Kernel addressing replaces the compiled-in strides (`bid/BW`, `bid%BW`, and
+`red_slot = w·STRIDE + (local−1)` — see `ba_walker_combine_filter.template.wgsl`):
+
+```wgsl
+let m  = layout_msm[msm_idx];
+let wd = layout_win[m.sched_off + w];
+let work_addr = PASS_WORK_BASE  + wd.work_off  + b;       // working bucket b
+let rslot     = PASS_RED_BASE   + wd.reduce_off + (b - 1u);
+```
+
+**No-split = uniform fill** (`work_off[w]=w·BW`, `reduce_off[w]=w·STRIDE`,
+`window_bits=c`, `bit_base=w·c`) — the same indexing runs both modes. That
+identity is the whole point: split-c is a different table, nothing else.
+
+---
+
+## 5. Split-c integration
+
+`VariableWindowSchedule` (CPU ref `scalar_multiplication.cpp:633`) precomputes the
+inner table: `window_bits_per_window[w]`, `bit_base[w]`, `num_buckets[w]`.
+
+1. **Decide the schedule** from a 256-bin MSB histogram. The histogram is a **GPU
+   kernel** (one `atomicAdd`/scalar, workgroup-reduced — like `radixHist`), NOT a
+   host pass: reading all `n` scalars back to bin them is a 4 MB round-trip to
+   avoid a 1 KB one, and the scalars may be GPU-resident in `ChonkApi::Prove`. The
+   histogram kernel also writes `msb_per_scalar[n]` so `idx_large` reuses the MSB.
+   The decision (`choose_var_window_split`, `:721`) runs in a **GPU single-workgroup
+   kernel** (input is 256 bins, not `n`) and writes `WindowDesc[]` + the front-end
+   indirect-dispatch args directly. `work_off`/`reduce_off` are prefix sums of the
+   variable `num_buckets[w]`, not `w·BW`/`w·STRIDE`. **See `SPLIT_C_PLAN.md`.**
+2. **Two populations.** Lower windows iterate all `n`; upper windows iterate only
+   `idx_large` (msb ≥ `b_star-1`), built by GPU stream-compaction reusing
+   `msb_per_scalar`. decompose/transpose are **region-split + indirect-dispatched**
+   sized by `n` / `n_large` (never one dispatch padded to `n` — split makes more,
+   narrower windows). Total scatter `= 4·(n·W_lo + n_large·W_hi)·(3 buffers)` —
+   **smaller** than uniform, never larger.
+3. **Variable-c decode** in `decompose`: read `wd.window_bits`/`wd.bit_base`
+   (already runtime params today). **Packed-window bid** (`(window<<15)|mag`) keeps
+   the bucket→window decode a shift, not a runtime divide — see `SPLIT_C_PLAN.md`.
+4. **Reduction/walker** iterate `num_buckets[w]` per window (unified dispatch).
+
+**Sizing stays bounded:** the CPU sizer uses the unsplit `num_buckets` as the
+conservative B_eff bound *before* the split (`scalar_multiplication.cpp:2525`).
+Size the arena to the **unsplit** envelope (§3 tables); split only redistributes
+within it. **Make the split decision budget-aware** — reject any schedule whose
+arena bytes (a pure function of the table) exceed 160 MB.
+
+Kernels touched (constant stride → `layout_win` lookup, same arithmetic):
+`decompose`, `classify`, `csr_to_v2_meta`, `stream_walker`, all `combine`/`sort`,
+`pt_finalize`, `reduce-level`. The reduction *algorithm* is untouched.
+
+---
+
+## 6. Packing multiple MSMs
+
+IN and OUT concatenate per MSM (`MsmDesc.in_off`/`out_off`). PASS and THREAD are
+**shared**: one walker dispatch over all packed MSMs, decoding `(msm,window,bucket)`
+from a per-pass work-tile table. Group by size class (homogeneous → simple 2-D
+`(msm,point)` grid); flatten only when forced to mix sizes.
+
+**Unified scheduler.** A *work-tile* = `(msm_idx, window_range)`. A small MSM is
+one tile; a large MSM is several (`bw`-window subsets). Bin-pack tiles into
+budget-sized passes — packing small MSMs and staging a large one are the same
+operation. One pass = one arena fill = one dispatch = one submit; OUT read back
+once per batch.
+
+**Residency constraint:** a large MSM's IN scalars persist across all its passes.
+Process its tiles consecutively and close it before opening the next large MSM,
+else two big IN blocks co-reside. Small MSMs (single tile) pack freely.
+
+---
+
+## 7. Migration from `SharedScratch`
+
+| Current buffer(s) | Arena destination |
+|---|---|
+| `poolX`,`poolY` | **SRS** (outside arena) |
+| `scalarsRawBuf` | IN |
+| `bucketAndSignBuf`,`valIdxBuf`,`l0IdxBuf` | PASS-scatter (overlays `ptScratch`, §2) |
+| `countsBufs[2]`,`offsetsBufs[2]`,`rowPtrBuf` | PASS-csr |
+| dense/sorted/active lists, `partialOffset`,`ptOff`,`ptCount`,`ptBucketWg`,`ptWgBucketList`,`size1BucketList`,`cumulativeAdds`,`radixHist` | GRID |
+| `redBuf`,`isPresentBuf` | RED — **see restructure** |
+| `walkerPartials`,`walkerPartialDest`,`partialLayout`,`taskCuts`,`threadCuts` | THREAD |
+| `ptScratch`,`ptTasks`,`ptChunks`,`ptWg*` | THREAD |
+| `streamPlannerMeta`, indirect-args (`pt*DispatchArgs`,`cbDispatchArgs`) | small fixed region at arena head (INDIRECT usage) |
+| `reducePrefScratch` | REDUCE |
+| ~14 dead 4-B stubs + `bucketHead`/`walkerNodesSlot`/`walkerNodesNext`/`walkerNodeCounter` (confirmed unwired, `:2405-2408` never bound) | **delete (~1.33 MiB)** |
+
+**Reduce restructure (the one compute-flow change).** Today `redBuf` is
+`64·redM` (all NW windows) and `reduce-level` runs at the end. To make bucket
+storage per-pass, each pass reduces its `bw` windows' buckets to `bw` points
+immediately and accumulates into a persistent `windowSums[NW]` (the `S_w`). This
+matches the existing `combineOnHost=true` flow (already reads back per-window
+points and Horner-combines on host); host readback becomes `NW·64` B regardless
+of `n`. RED storage drops from `64·NW·stride` to `64·bw·stride`.
+
+> **IMPLEMENTATION NOTES (more invasive than the paragraph implies — analysed,
+> deferred into Packing).** Three findings from auditing the live dispatch flow:
+> 1. **`M_RED` is a compile-time constant**, not a uniform. `redBuf`'s Y-plane
+>    offset `PG·M_RED` (`M_RED = redM = NW·stride`) is baked into **6 shaders**:
+>    `ba_stream_walker`, `ba_size1`, `ba_walker_combine_filter`,
+>    `ba_walker_combine_batched`, `ba_walker_pt_finalize`, `ba_reduce_level_bench`.
+>    Shrinking `redBuf` to `bw·stride` needs `M_RED = bw·stride`. Two routes:
+>    (a) make `M_RED` a runtime uniform — but a spare field already exists, the
+>    `batch_offset: vec4<u32>` those shaders carry (`.x` is the only field used),
+>    so pass `M_RED` in `batch_offset.y` and add **no new binding**; or
+>    (b) compute `numBatches` at `create()` (it depends only on `n`/`NW`/`sT`/
+>    `budget`, all known there) and compile each shader with a per-instance
+>    `M_RED = batchWindows·stride`. Route (a) is less coupling.
+> 2. **`batch_offset.x → 0` is the whole batch-local switch.** Walker/combine/
+>    pt_finalize already add `batch_offset.x` (`= bi·batchWindows`) to the local
+>    window index; feeding 0 makes them write batch-local with no WGSL change.
+>    The reduce + per-window gather (`msm_v2.ts` ~`reduce` loop + the
+>    `copyBufferToBuffer` window gather) move **into** the per-batch loop — the
+>    planner already runs per-batch, so the structure supports it. The gather's
+>    `dst` offset becomes `bi·bw·64`.
+> 3. **The `batch_offset` asymmetry — `size1` was BATCH-LOCAL all along (FIXED,
+>    `96d8739bb6`).** An earlier read of this guessed `size1`'s `bid` was global;
+>    it is not. `classify` reads `counts` (written batch-local by `convMeta` over
+>    `[0,batchBuckets)`), so its emitted `bid` is **batch-local** (`bid/BW` = local
+>    window), same convention the walker uses. `ba_size1` simply *forgot* to add
+>    `batch_offset`, so it wrote the local window slice → the multi-batch staging
+>    bug (see §7 LATENT BUG → FIXED). Now `size1` adds `params.x = bi·batchWindows`
+>    like the walker. **Consequence for the batch-local-`redBuf` restructure:** feed
+>    ALL global-writers (`walker`, `combine_filter`, `size1`) `batch_offset.x = 0`
+>    so they write the bw-window slice; that's the *only* change to the writers.
+>
+> **Risk is bounded:** at `numBatches=1` the change is byte-identical *by
+> construction* (`batchWindows=NW` ⇒ `M_RED=NW·stride`, `batch_offset.x=0=0·NW`),
+> so the golden path can't regress; the `nb>1` path is checked by `?nb=` forced
+> staging against golden (the MSM is batch-invariant — verified at nb=1/4/20).
+> **Benefit only at `numBatches>1`** (packing or logN≥18): `redBuf`+`isPresent`
+> drop `64·NW·stride+4·NW·stride → 64·bw·stride+4·bw·stride` (~5 MiB at logN17
+> fully staged). For single MSMs the `sT` lever (§8) already dominates the memory
+> win, so **fold this into Packing (step 5)**, where `numBatches>1` is the norm
+> and the benefit actually lands.
+
+**Wire the budget gate.** ✅ **DONE** (`3cc7ce72a3`): the `wgFits`-only loop is
+replaced by one that raises the batch count until each batch fits both the 65k-wg
+cap and the budget, using `arenaColourSizes` (the THREAD terms the old estimate
+omitted) + SRS + CSR. The budget is device-configurable (`budgetMiB`, default 160,
+`3bd8ea957f`). Pack-count staging is the remaining piece, deferred into step 5.
+
+> **FIXED — multi-batch staging corruption: `ba_size1` missing `batch_offset`**
+> (bug `5b9aa5068e` guarded → root-caused & fixed `96d8739bb6`, guard removed
+> `ab90ad555e`). `ba_size1` wrote `red_slot = (bid/BW)*STRIDE + (bid%BW-1)`
+> **without** the `batch_offset` that `ba_stream_walker` and
+> `ba_walker_combine_filter` both add. Its `bid` is batch-local, so for batches
+> `bi>0` the size-1 buckets landed in the *local* `red_buf` window slice instead
+> of the *global* one — batch `bi`'s size-1 buckets corrupting batch 0's windows.
+>
+> The "BW > 8192 / c ≥ 14" threshold was a **coincidence**: what matters is
+> **points-per-bucket = n/stride**. `c=13 @ logN16` = 16 pts/bucket → ~0 size-1
+> buckets → `size1` never runs → looked fine; `c=14` = 8 pts/bucket → ~420 size-1
+> buckets → corruption. Confirmed by forcing few pts/bucket at `c=13` (BW=4352,
+> *below* the cap): `?logn=14&c=13&nb=2` and `?logn=13&c=13&nb=2` were also wrong.
+>
+> **Bisection that found it** (kept as a debugging recipe): per-window-sum dump
+> (`run()` decode of `windowSums`) showed structural, data-independent wrong-window
+> sets → ruled out data corruption. A pre-reduce snapshot of `red_buf` + `is_present`
+> showed **batch 0 GAINS buckets while batch 1 LOSES** them → a writer with no
+> `batch_offset` → `size1` (the only one). **Fix:** `size1` is now per-batch with
+> `params.x = bi·batchWindows` added to `bid/BW`, identical to the walker; `= 0` at
+> `numBatches=1` so the single-batch path is byte-identical. Validated: all of
+> `c=13/14/15 nb=2/5/17` and `D/E nb=4` agree with the oracle; golden unchanged.
+
+---
+
+## 8. `sT` is the phone lever (exact)
+
+THREAD bytes `= (512+160+32+8+8+4)·sT·sS + 8·sT·(sS+1) + 8·sT + 4·(20+sT)`
+`= 724·sT·sS + O(sT)`. At `sS=8`:
+
+| `sT` (`MPW`) | THREAD | `ptScratch` |
+|---|---|---|
+| 8192 (32) | 45.9 MiB | 32.0 MiB |
+| 2048 (8) | 11.5 MiB | 8.0 MiB |
+| 1024 (4) | 5.7 MiB | 4.0 MiB |
+
+`ptScratch` (`512·sT·sS`) is ~70 % of it. THREAD does **not** shrink with
+window-staging — only with `sT = MAX_PLANNER_WORKGROUPS·256`
+(`ba_stream_plan.ts:34-36`). A phone GPU (Mali-G715 ~7 cores; Adreno) is
+oversubscribed at `sT=8192` (128 walker workgroups), so `MPW=8 → sT=2048` likely
+costs little and reclaims ~34 MiB. Also check `STREAM_WALKER_TPB=64` against the
+phone's `maxComputeWorkgroupStorageSize` (needs `2·64·8·16 = 16 KiB`; some phones
+cap at 16 KiB). Make `MPW` (hence `sT`) device-adaptive.
+
+---
+
+## Build order (lowest risk first)
+
+1. **Consolidate `SharedScratch` → usage-partitioned arenas.** The mixed-access
+   conflict graph over the 37 bind groups (edge = co-bound with mismatched ro/rw
+   access) has chromatic number **6** (proven: a 6-clique
+   `{activeCount, isPresentBuf, partialCount, ptScratch, sortedActiveBuckets,
+   walkerPartials}` forced by `ptInitCopy`/`ptFinalize`). Optimal colouring →
+   **6 arenas** (the 5 indirect-args buffers + 2 SRS stay standalone):
+   - **A0**: activeBuckets, activeCount, binOffsets, countsBufs0, l0IdxBuf, offsetsBufs0, partialWritePos, reducePrefScratch, scalarsRawBuf, sortedCountList
+   - **A1**: binWritePos, bucketAndSignBuf, cumulativeAdds, denseBucketList, denseCountList, isPresentBuf, ptCount, ptMeta, ptTasks, ptTotalTasks, redBuf, rowPtrBuf, walkerPartialDest
+   - **A2**: partialCount, partialLayout, size1BucketList, streamPlannerMeta*, taskCuts, valIdxBuf
+   - **A3**: countHistogram, ptOff, radixHist, threadCuts, walkerPartials
+   - **A4**: ptScratch, sortedBucketList, wgCuts
+   - **A5**: partialOffset, sortedActiveBuckets
+
+   (\*`streamPlannerMeta` needs INDIRECT usage + indirect-offset math — keep it
+   standalone, move it to an arena last if at all.) Verified: every bind group
+   binds each arena with a single access. ✅ **DONE — all 6 arenas (A0–A5)
+   migrated and validated byte-identical** at logN 14/15/16/17 + profiles D/E.
+   The 36 scratch buffers carve from the 6 arenas; slot-aware
+   `clearSlot`/`writeSlot`; `arenaColourSizes` is the single source of truth for
+   both the carve sites and the budget gate.
+2. **`sT` device-adaptive** (`MPW`). ✅ **DONE — budget-aware** (`chooseBudgetMpw`,
+   `cddfe01d54`): the cap defaults to the largest `MPW` whose working set fits
+   160 MB, overridable via `config.maxPlannerWorkgroups` / `?mpw=`. Desktop keeps
+   32 (byte-identical); `?mpw=8` reclaims 34 MiB (100.57→66.33 @ logN17),
+   byte-identical + D/E oracle-agree. Phone perf-bench of `sT=2048` still open.
+3. **Reduce restructure** → per-pass RED. The 160 MB gate incl. THREAD terms is
+   ✅ wired (`3cc7ce72a3`) + device-configurable (`3bd8ea957f`); the multi-batch
+   path is ✅ validated golden (`?nb=1/4/20`, `15c708e231`). The remaining
+   compute-flow change (batch-local `redBuf` so `bw < NW` shrinks RED) is
+   **analysed + deferred into step 5** — see §7 IMPLEMENTATION NOTES (compile-time
+   `M_RED`, the `batch_offset.x→0` switch, and the now-resolved `ba_size1`
+   global-vs-local convention: `size1` also needs a subtract-batch-base term).
+   Its benefit only lands at `numBatches>1`, which is Packing's regime.
+4. **Overlay.** ~~scatter→`ptScratch`~~ — **infeasible under the 6-colour build**
+   (the cross-zone reclaim is blocked by the ro+rw colouring; see §2
+   RECONCILIATION). Achievable substitute: **within-colour** overlay via a
+   lifetime-aware `carve` (~8.5 MiB), with clears relocated into per-occupant
+   scope. **Deferred** — modest gain vs the budget headroom + clear-relocation
+   hazard; the THREAD reclaim it targeted is delivered by the `sT` lever (step 2).
+5. **Packing** (work-tile scheduler, shared PASS/THREAD). Validate profiles A–E.
+6. **Split-c**: `VariableWindowSchedule`-derived `WindowDesc[]` + `idx_large`
+   compaction + budget-aware decision. Arena unchanged.

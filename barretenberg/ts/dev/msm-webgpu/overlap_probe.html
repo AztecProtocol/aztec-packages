@@ -1,0 +1,71 @@
+<!doctype html><html><head><meta charset="utf-8"><title>dispatch overlap probe</title>
+<style>body{font:16px monospace;background:#111;color:#0f0;padding:12px}</style></head>
+<body><pre id="o">running…</pre>
+<script type="module">
+const el = document.getElementById('o');
+const lines = [];
+const log = m => { el.textContent += '\n' + m; console.log('PROBE ' + m); lines.push(m); };
+try {
+  const ad = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
+  const dev = await ad.requestDevice();
+  log('arch=' + (ad.info?.architecture || '?') + ' vendor=' + (ad.info?.vendor || '?'));
+
+  // A compute-bound kernel: long dependent integer loop per thread (no memory traffic
+  // mid-loop), so each dispatch saturates the ALU for a measurable span.
+  const WGS = 2048, TPB = 64, ITERS = 60000;
+  const code = `
+@group(0) @binding(0) var<storage, read_write> out: array<u32>;
+@compute @workgroup_size(${TPB})
+fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+  var x = gid.x * 2654435761u + 1u;
+  for (var i = 0u; i < ${ITERS}u; i = i + 1u) {
+    x = x * 1664525u + 1013904223u;
+    x = x ^ (x >> 15u);
+    x = x * 2246822519u;
+  }
+  out[gid.x] = x;
+}`;
+  const mod = dev.createShaderModule({ code });
+  const pipe = await dev.createComputePipelineAsync({ layout: 'auto', compute: { module: mod, entryPoint: 'main' } });
+  const mk = () => dev.createBuffer({ size: WGS * TPB * 4, usage: GPUBufferUsage.STORAGE });
+  const bufA = mk(), bufB = mk();
+  const bg = b => dev.createBindGroup({ layout: pipe.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: b } }] });
+  const bgA = bg(bufA), bgB = bg(bufB);
+
+  async function run(groups, wgs, n = 6) {
+    let best = 1e9;
+    for (let r = 0; r < n; r++) {
+      const enc = dev.createCommandEncoder();
+      for (const g of groups) {                 // separate compute passes, disjoint buffers, NO barrier
+        const p = enc.beginComputePass();
+        p.setPipeline(pipe); p.setBindGroup(0, g); p.dispatchWorkgroups(wgs); p.end();
+      }
+      const t0 = performance.now();
+      dev.queue.submit([enc.finish()]);
+      await dev.queue.onSubmittedWorkDone();
+      const t = performance.now() - t0;
+      if (t < best) best = t;
+    }
+    return best;
+  }
+
+  await run([bgA], 64, 3);                         // warm
+  // Sweep dispatch size. At large wgs each dispatch saturates the GPU, so a serial
+  // result there could just be "no free cores for B". At small wgs BOTH dispatches
+  // fit simultaneously — a serial result there means a HARD per-dispatch barrier
+  // (B genuinely waits for A to finish), which kills the separate-pass interleave.
+  for (const wgs of [2048, 256, 32, 8]) {
+    const tA = await run([bgA], wgs);
+    const tB = await run([bgB], wgs);
+    const tAB = await run([bgA, bgB], wgs);
+    const serial = tA + tB, over = Math.max(tA, tB);
+    const frac = (serial - tAB) / Math.max(serial - over, 0.001);  // 1 = full overlap, 0 = serial
+    log(`wgs=${String(wgs).padStart(4)}: tA=${tA.toFixed(2)} tB=${tB.toFixed(2)} tAB=${tAB.toFixed(2)} | serial=${serial.toFixed(2)} maxOverlap=${over.toFixed(2)} overlap_fraction=${frac.toFixed(2)}`);
+  }
+  log('overlap_fraction ~1 = concurrent dispatches (interleave works); ~0 = serialized.');
+  log('A ~0 at SMALL wgs (both halves fit) = HARD dispatch barrier → splitting the walker is strictly worse, fix must stay in ONE dispatch.');
+} catch (e) { log('ERR ' + e.message + '\n' + (e.stack || '')); }
+finally {
+  try { await fetch('/results', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ probe: lines }) }); } catch (_) {}
+}
+</script></body></html>
