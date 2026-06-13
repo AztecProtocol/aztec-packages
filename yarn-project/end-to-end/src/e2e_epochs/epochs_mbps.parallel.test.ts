@@ -325,7 +325,12 @@ describe('e2e_epochs/epochs_mbps', () => {
   });
 
   it('builds multiple blocks per slot with L1 to L2 messages', async () => {
-    await setupTest({ syncChainTip: 'proposed', minTxsPerBlock: 1, maxTxsPerBlock: 1 });
+    // L1→L2 messages only become ready once the chain advances `inboxLag` checkpoints past where they
+    // were inboxed, and a checkpoint only advances when a block is built in a new slot. With
+    // skipInitialSequencer the chain won't move on its own, and a one-shot burst of filler txs lands
+    // within a single checkpoint — so let the sequencer keep building (empty) blocks each slot to drive
+    // the chain forward until the messages are ready.
+    await setupTest({ syncChainTip: 'proposed', minTxsPerBlock: 0, maxTxsPerBlock: 1, buildCheckpointIfEmpty: true });
 
     // Start sequencers first, then deploy cross-chain contract (needs running sequencer to mine).
     await Promise.all(nodes.map(n => n.getSequencer()!.start()));

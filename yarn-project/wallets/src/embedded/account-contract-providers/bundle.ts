@@ -1,6 +1,6 @@
 import { EcdsaKAccountContract, EcdsaRAccountContract } from '@aztec/accounts/ecdsa';
 import { StubEcdsaAccountContractArtifact, createStubEcdsaAccount } from '@aztec/accounts/ecdsa/stub';
-import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
+import { SchnorrAccountContract, SchnorrInitializerlessAccountContract } from '@aztec/accounts/schnorr';
 import { StubSchnorrAccountContractArtifact, createStubSchnorrAccount } from '@aztec/accounts/schnorr/stub';
 import type { Account, AccountContract } from '@aztec/aztec.js/account';
 import type { Fq } from '@aztec/foundation/curves/bn254';
@@ -17,6 +17,10 @@ import type { AccountContractsProvider } from './types.js';
 export class BundleAccountContractsProvider implements AccountContractsProvider {
   getSchnorrAccountContract(signingKey: Fq): Promise<AccountContract> {
     return Promise.resolve(new SchnorrAccountContract(signingKey));
+  }
+
+  getSchnorrInitializerlessAccountContract(signingKey: Fq): Promise<AccountContract> {
+    return Promise.resolve(new SchnorrInitializerlessAccountContract(signingKey));
   }
 
   getEcdsaRAccountContract(signingKey: Buffer): Promise<AccountContract> {

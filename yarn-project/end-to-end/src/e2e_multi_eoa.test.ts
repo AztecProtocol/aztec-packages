@@ -95,6 +95,16 @@ describe('e2e_multi_eoa', () => {
       sequencer = sequencerClient! as TestSequencerClient;
       publisherManager = sequencer.publisherManager;
       aztecNodeAdmin = maybeAztecNodeAdmin!;
+
+      // Initializerless accounts deploy nothing during setup, so the chain sits at the single empty
+      // genesis block (one publisher used). Send a couple of txs from the default account so the
+      // sequencer publishes more blocks across rotated publishers.
+      for (let i = 0; i < 2; i++) {
+        await StatefulTestContract.deploy(wallet, defaultAccountAddress, 0, {
+          salt: Fr.random(),
+          deployer: defaultAccountAddress,
+        }).send({ from: defaultAccountAddress });
+      }
     });
 
     beforeEach(async () => {

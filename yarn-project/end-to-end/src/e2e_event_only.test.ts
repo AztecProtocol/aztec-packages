@@ -7,7 +7,7 @@ import { EventOnlyContract, type TestEvent } from '@aztec/noir-test-contracts.js
 import { jest } from '@jest/globals';
 
 import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
-import { ensureAccountContractsPublished, setup } from './fixtures/utils.js';
+import { setup } from './fixtures/utils.js';
 
 const TIMEOUT = 300_000;
 
@@ -26,7 +26,6 @@ describe('EventOnly', () => {
       wallet,
       accounts: [defaultAccountAddress],
     } = await setup(1, { ...AUTOMINE_E2E_OPTS }));
-    await ensureAccountContractsPublished(wallet, [defaultAccountAddress]);
     ({ contract: eventOnlyContract } = await EventOnlyContract.deploy(wallet).send({ from: defaultAccountAddress }));
   });
 

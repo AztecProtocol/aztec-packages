@@ -9,6 +9,26 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.js] Prefunded local network test accounts are now initializerless
+
+The genesis-funded test accounts in the local network (sandbox), returned by `getInitialTestAccountsData()`, are now initializerless Schnorr accounts (`schnorr_initializerless`). An initializerless account has no onchain deployment transaction: its address commits to the signing public key (through `immutables_hash`) and its contract state is materialized locally in the PXE, so these accounts are usable right away.
+
+Because their address is derived differently from a regular Schnorr account, register them with `createSchnorrInitializerlessAccount` rather than `createSchnorrAccount`.
+
+**Migration:**
+
+```diff
+const [alice] = await getInitialTestAccountsData();
+- await wallet.createSchnorrAccount(alice.secret, alice.salt);
++ await wallet.createSchnorrInitializerlessAccount(alice.secret, alice.salt);
+```
+
+### [Aztec.js] `AccountContract` interface adds `getImmutablesHash()`
+
+The `AccountContract` interface now declares `getImmutablesHash(): Promise<Fr | undefined>`, which returns the hash of the account's immutable instantiation parameters committed into its address, or `undefined` if the feature is not used. `getAccountContractAddress()` and `AccountManager.create()` call it to derive the address when an `immutablesHash` is not passed explicitly, so the address of an initializerless account is now resolved from the contract itself.
+
+Account contracts that extend `DefaultAccountContract` inherit a default implementation that returns `undefined` and need no changes.
+
 ### [Aztec.js] Wallets validate declared gas limits against the network's per-tx admission limit
 
 Wallets now reject a transaction whose declared `gasLimits` exceed the network's per-tx admission limit (the node-advertised `txsLimits.gas`), throwing before the tx is sent — e.g. `Declared DA gas limit (X) exceeds the maximum this network allows per tx (Y)`. When you declare no gas limits, the wallet fills in the network's admission limits for you. This mirrors the node's inbound `GasLimitsValidator`, surfacing the rejection locally instead of on submission.
@@ -70,6 +90,8 @@ The following exports have been removed from `@aztec/stdlib`:
 - `FALLBACK_TEARDOWN_DA_GAS_LIMIT`
 
 **Impact**: Any code that imported these symbols must switch to the live node-advertised limits via the node's `txsLimits.gas`.
+
+> > > > > > > ab5413c72dc5377107943b8614130ec8050bf06c
 
 ### [Aztec.nr] `messages::message_delivery` module moved to `messages::delivery`
 
