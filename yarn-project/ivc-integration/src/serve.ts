@@ -538,6 +538,17 @@ async function autorunFromQuery(): Promise<void> {
   const setStatus = (s: string) => {
     statusEl.textContent = s;
   };
+  // Headless capture: POST the terminal result back to the serving origin so a
+  // phone run (content_shell over adb reverse, no DevTools) can be scraped from
+  // the server log without parsing logcat. Best-effort; the on-page <pre>,
+  // console line, and document.title remain the primary signals.
+  const postResult = (payload: Record<string, unknown>) => {
+    try {
+      navigator.sendBeacon('/result', JSON.stringify(payload));
+    } catch {
+      /* best effort */
+    }
+  };
 
   try {
     setStatus(`[CHONK-RUNNING] autorun=${mode} flow=${flow} threads=${chonkThreads}`);
@@ -578,11 +589,13 @@ async function autorunFromQuery(): Promise<void> {
     console.log(line);
     logger.info(line);
     setStatus(line);
+    postResult({ title: document.title, ...summary });
   } catch (err) {
     const msg = err instanceof Error ? (err.stack ?? err.message) : String(err);
     console.log('[CHONK-ERROR] ' + msg);
     setStatus('[CHONK-ERROR] ' + msg);
     document.title = 'CHONK-ERROR';
+    postResult({ title: 'CHONK-ERROR', mode, flow, error: msg });
   }
 }
 

@@ -14,7 +14,7 @@
 // Usage:
 //   node serve-phone.mjs                 # PORT=5300, binds 0.0.0.0
 //   PORT=5301 node serve-phone.mjs
-import { existsSync, readFileSync } from 'fs';
+import { appendFileSync, existsSync, readFileSync } from 'fs';
 import { createServer } from 'http';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
@@ -25,6 +25,9 @@ const pinnedInputsRoot = join(__dirname, '..', 'end-to-end', 'example-app-ivc-in
 
 const PORT = parseInt(process.env.PORT ?? '5300', 10);
 const HOST = process.env.HOST ?? '0.0.0.0';
+// When set, terminal [CHONK-RESULT] beacons are appended here (one JSON line
+// each) so a phone runner can wait on the file instead of scraping logcat.
+const RESULTS_FILE = process.env.RESULTS_FILE ?? '';
 
 const CONTENT_TYPES = {
   js: 'application/javascript; charset=utf-8',
@@ -57,6 +60,26 @@ const server = createServer((req, res) => {
 
   // URL minus query string for routing; serve.ts reads the query itself.
   const url = (req.url ?? '/').split('?')[0];
+
+  // Terminal result beacon from the autorun page (sendBeacon POST). Log it so a
+  // headless phone run (content_shell, no DevTools) is scrapable from stdout.
+  if (req.method === 'POST' && url === '/result') {
+    let body = '';
+    req.on('data', chunk => (body += chunk));
+    req.on('end', () => {
+      console.log(`[serve-phone] RESULT: ${body}`);
+      if (RESULTS_FILE) {
+        try {
+          appendFileSync(RESULTS_FILE, body + '\n');
+        } catch (e) {
+          console.warn(`[serve-phone] could not append RESULTS_FILE: ${e.message}`);
+        }
+      }
+      res.writeHead(204);
+      res.end();
+    });
+    return;
+  }
 
   if (url === '/' || url === '/index.html' || url === '/test.html') {
     res.writeHead(200, { 'Content-Type': CONTENT_TYPES.html });
