@@ -14,6 +14,12 @@ const logger = createLogger('aztec:ivc-test');
 
 /* eslint-disable no-console */
 
+// WASM thread count for the prove. 16 matches the Mac M4 harness; phones with
+// fewer cores can lower it via `?threads=` on the autorun URL (oversubscription
+// still works but wastes context switches). Module-level so the autorun query
+// handler can set it before any runChonkOnce call.
+let chonkThreads = 16;
+
 // Expose APIs on window for browser testing
 (window as any).Barretenberg = Barretenberg;
 (window as any).AztecClientBackend = AztecClientBackend;
@@ -58,7 +64,7 @@ async function runChonkOnce(
   oracleRouteSeqs?: number[],
 ): Promise<{ result: ChonkWebGpuBenchRunResult; vk: Uint8Array }> {
   const bb = await Barretenberg.initSingleton({
-    threads: 16,
+    threads: chonkThreads,
     logger: loggerOverride ?? ((m: string) => logger.info(m)),
     webgpuMsm,
     msmCsvMode,
@@ -194,6 +200,39 @@ async function runChonkWebGpuBench(
 }
 
 (window as any).runChonkWebGpuBench = runChonkWebGpuBench;
+
+/**
+ * On-only ChonkApi::prove — runs the pinned flow once with the WebGPU MSM
+ * bridge enabled and reports the prove/verify walls. Used as the fast phone
+ * smoke-test: it answers "can this device complete a GPU-backed prove at all?"
+ * without paying for the (slower, all-CPU) `off` run that the vks_match
+ * cross-check in runChonkWebGpuBench requires.
+ */
+async function runChonkProveOn(
+  flow: string = 'ecdsar1+transfer_1_recursions+sponsored_fpc',
+): Promise<{ flow: string; adapter: string; proveMs: number; verifyMs: number; verified: boolean; proofLength: number }> {
+  let adapterInfo = 'unavailable';
+  if ('gpu' in navigator) {
+    try {
+      const adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
+      if (adapter) {
+        const info = (adapter as any).info ?? (await (adapter as any).requestAdapterInfo?.());
+        adapterInfo = info
+          ? `${info.vendor ?? '?'} / ${info.architecture ?? '?'} / ${info.device ?? '?'} / ${info.description ?? '?'}`
+          : 'unknown';
+      }
+    } catch (err) {
+      adapterInfo = `error: ${err instanceof Error ? err.message : String(err)}`;
+    }
+  }
+  logger.info(`[smoke] GPU adapter: ${adapterInfo}`);
+  const { bytecodes, witnesses, vks, functionNames } = await loadPinnedInputs(flow);
+  logger.info(`[smoke] running webgpu=on on flow=${flow} (${bytecodes.length} circuits, threads=${chonkThreads})`);
+  const on = await runChonkOnce(true, bytecodes, witnesses, vks, functionNames);
+  logger.info(`[smoke] webgpu=on: prove=${on.result.proveMs.toFixed(0)}ms verify=${on.result.verifyMs.toFixed(0)}ms`);
+  return { flow, adapter: adapterInfo, ...on.result };
+}
+(window as any).runChonkProveOn = runChonkProveOn;
 
 /**
  * End-to-end ChonkApi::prove three ways in one session for a clean comparison:
@@ -472,10 +511,94 @@ function setupConsoleOutput() {
   };
 }
 
-// Only set up the interactive UI if this is not being used for automated testing
+/**
+ * Autorun dispatcher — drives a prove straight from the URL query so a phone
+ * (or any headless log scraper) runs ChonkApi::prove by just loading a URL, no
+ * interaction. `?autorun=chonk-on` runs the on-only smoke test (fastest "does
+ * this device prove at all?" check); `?autorun=chonk-webgpu` runs the full
+ * off+on vks_match bench. `?flow=` and `?threads=` override the flow and WASM
+ * thread count. The terminal result is emitted as a single-line
+ * `[CHONK-RESULT] {json}` console log (and an on-page <pre>) so a CDP/logcat
+ * listener can detect completion; failures emit `[CHONK-ERROR] …`.
+ * `document.title` is set to a terminal sentinel (CHONK-DONE-OK /
+ * CHONK-DONE-FAIL / CHONK-ERROR) for pollers that watch the title.
+ */
+async function autorunFromQuery(): Promise<void> {
+  const params = new URLSearchParams(window.location.search);
+  const mode = params.get('autorun');
+  if (!mode) return;
+  const flow = params.get('flow') ?? 'ecdsar1+transfer_1_recursions+sponsored_fpc';
+  const threadsParam = params.get('threads');
+  if (threadsParam) chonkThreads = parseInt(threadsParam, 10);
+
+  const statusEl = document.createElement('pre');
+  statusEl.id = 'autorun-status';
+  statusEl.style.whiteSpace = 'pre-wrap';
+  document.body.appendChild(statusEl);
+  const setStatus = (s: string) => {
+    statusEl.textContent = s;
+  };
+
+  try {
+    setStatus(`[CHONK-RUNNING] autorun=${mode} flow=${flow} threads=${chonkThreads}`);
+    document.title = 'CHONK-RUNNING';
+    let summary: Record<string, unknown>;
+    if (mode === 'chonk-on') {
+      const r = await runChonkProveOn(flow);
+      summary = {
+        mode,
+        flow,
+        adapter: r.adapter,
+        prove_ms: Math.round(r.proveMs),
+        verify_ms: Math.round(r.verifyMs),
+        verified: r.verified,
+        proof_len: r.proofLength,
+      };
+      document.title = r.verified ? 'CHONK-DONE-OK' : 'CHONK-DONE-FAIL';
+    } else if (mode === 'chonk-webgpu' || mode === 'chonk') {
+      const r = await runChonkWebGpuBench(flow);
+      summary = {
+        mode,
+        flow,
+        adapter: r.adapter,
+        off_ms: Math.round(r.off.proveMs),
+        on_ms: Math.round(r.on.proveMs),
+        speedup: +(r.off.proveMs / r.on.proveMs).toFixed(2),
+        verified_off: r.off.verified,
+        verified_on: r.on.verified,
+        vks_match: r.vksMatch,
+      };
+      document.title = r.vksMatch && r.off.verified && r.on.verified ? 'CHONK-DONE-OK' : 'CHONK-DONE-FAIL';
+    } else {
+      setStatus(`[CHONK-ERROR] unknown autorun mode '${mode}'`);
+      document.title = 'CHONK-ERROR';
+      return;
+    }
+    const line = '[CHONK-RESULT] ' + JSON.stringify(summary);
+    console.log(line);
+    logger.info(line);
+    setStatus(line);
+  } catch (err) {
+    const msg = err instanceof Error ? (err.stack ?? err.message) : String(err);
+    console.log('[CHONK-ERROR] ' + msg);
+    setStatus('[CHONK-ERROR] ' + msg);
+    document.title = 'CHONK-ERROR';
+  }
+}
+
+// Only set up the interactive / autorun UI if this is not the automated
+// Puppeteer harness (which serves test.html with a #status div and drives
+// window.runChonk* directly via page.evaluate — it must not have console
+// overridden or an autorun fire underneath it).
 if (!document.getElementById('status')) {
   document.addEventListener('DOMContentLoaded', function () {
     setupConsoleOutput(); // Initialize console output capture
+
+    // Phone / headless path: a `?autorun=` query runs a prove with no tap.
+    if (new URLSearchParams(window.location.search).has('autorun')) {
+      void autorunFromQuery();
+      return;
+    }
 
     // WebGPU on/off ChonkApi::prove benchmark on the pinned ECDSA-r1
     // transfer flow. Mirrors chonk_browser_webgpu_bench.test.ts; the
