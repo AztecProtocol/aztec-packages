@@ -87,6 +87,14 @@ std::atomic<uint32_t> g_small_threshold{ static_cast<uint32_t>(webgpu_msm_thresh
 std::atomic<bool> g_split_model_enabled{ false };
 MsmCostModel g_split_model{};
 
+// CPU/GPU work-sharing (CPU_GPU_WORKSHARE_PLAN.md §4b). When enabled (from JS via
+// bb_set_msm_worksharing_enabled), the batch hook kicks off the GPU dispatch
+// asynchronously (bb_external_batch_msm_bn254_start) and runs the CPU-routed MSMs
+// concurrently before awaiting, so makespan is max(C, G) instead of C + G. Default
+// off ⇒ the original blocking dispatch. Safe only with the shared (threaded) WASM
+// memory the prover uses — see the _start/_await import note in the header.
+std::atomic<bool> g_worksharing_enabled{ false };
+
 // Marshal + ship the first `count` points of g_full_srs_base. Replaces
 // any previously-uploaded pool on the JS side (bb_publish_srs_bn254
 // destroys the prior MsmV2Pool and rebuilds from the new bytes). Updates
@@ -156,6 +164,11 @@ void set_msm_split_model(const MsmCostModel& model, bool enabled) noexcept
 {
     g_split_model = model;
     g_split_model_enabled.store(enabled, std::memory_order_release);
+}
+
+void set_msm_worksharing_enabled(bool enabled) noexcept
+{
+    g_worksharing_enabled.store(enabled, std::memory_order_release);
 }
 
 // Per-MSM cost-model routing: GPU iff predicted t_gpu(n) < t_cpu(nnz). Returns
@@ -352,6 +365,8 @@ std::vector<curve::BN254::AffineElement> batch_multi_scalar_mul_webgpu_bn254(
     batch_items.reserve(batch_size);
     std::size_t total_scalars_bytes = 0;
     std::size_t total_results_bytes = 0;
+    // CPU-routed MSMs, deferred so they can overlap the GPU batch (work-sharing).
+    std::vector<size_t> cpu_items;
 
     for (size_t i = 0; i < batch_size; ++i) {
         const size_t n = scalars[i].size();
@@ -360,12 +375,11 @@ std::vector<curve::BN254::AffineElement> batch_multi_scalar_mul_webgpu_bn254(
             continue;
         }
         if (route[i] == 0) {
-            // Below-threshold / un-routed: run the native single MSM. `MSM::msm`
-            // dispatches to the fast (or legacy) Pippenger and is hook-free — the
-            // BBERG_WEBGPU_MSM_HOOK delegation lives only in the batch facade, so
-            // this does not recurse back into the bridge.
-            results[i] = MSM<curve::BN254>::msm(
-                points[i].subspan(0, n), PolynomialSpan<const curve::BN254::ScalarField>{ 0, scalars[i] }, false);
+            // Below-threshold / un-routed: defer to the native single MSM, run
+            // after the GPU batch is kicked off so the two overlap. `MSM::msm` is
+            // hook-free (the delegation is only in this batch facade), so it does
+            // not recurse into the bridge.
+            cpu_items.push_back(i);
             continue;
         }
         // SRS-prefix detection (range check, byte-aligned).
@@ -406,17 +420,22 @@ std::vector<curve::BN254::AffineElement> batch_multi_scalar_mul_webgpu_bn254(
         total_results_bytes += static_cast<size_t>(MAX_WINDOWS) * MAX_PARTIALS * 96;
     }
 
+    // Pack descriptors + scalars contiguously. Hoisted out of the dispatch branch
+    // so it precedes the async `_start` (the host reads these buffers); the vectors
+    // live to function scope, staying valid while the host reads them concurrently
+    // with the CPU work below.
+    constexpr std::size_t DESC_WORDS = 5;
+    std::vector<uint32_t> descriptors;
+    std::vector<uint8_t> scalars_packed;
+    std::vector<uint8_t> results_packed;
+    std::vector<uint32_t> meta;
+    // Labels packed as [u8 len, len bytes ASCII] per MSM, in batch_items order.
+    std::vector<uint8_t> labels_packed;
     if (!batch_items.empty()) {
-        // Pack descriptors + scalars contiguously, allocate result + meta
-        // regions, and dispatch the single batched bridge call.
-        constexpr std::size_t DESC_WORDS = 5;
-        std::vector<uint32_t> descriptors(batch_items.size() * DESC_WORDS);
-        std::vector<uint8_t> scalars_packed(total_scalars_bytes);
-        std::vector<uint8_t> results_packed(total_results_bytes);
-        std::vector<uint32_t> meta(batch_items.size() * 2);
-        // Labels packed as [u8 len, len bytes ASCII] per MSM, in
-        // batch_items order. Empty when no labels were passed in.
-        std::vector<uint8_t> labels_packed;
+        descriptors.resize(batch_items.size() * DESC_WORDS);
+        scalars_packed.resize(total_scalars_bytes);
+        results_packed.resize(total_results_bytes);
+        meta.resize(batch_items.size() * 2);
         if (have_labels) {
             std::size_t labels_bytes = 0;
             for (const auto& it : batch_items) {
@@ -446,12 +465,41 @@ std::vector<curve::BN254::AffineElement> batch_multi_scalar_mul_webgpu_bn254(
                                      lbl.begin() + static_cast<std::string::difference_type>(lbl_len));
             }
         }
-        bb_external_batch_msm_bn254(static_cast<uint32_t>(batch_items.size()),
-                                    reinterpret_cast<const uint8_t*>(descriptors.data()),
-                                    scalars_packed.data(),
-                                    results_packed.data(),
-                                    reinterpret_cast<uint8_t*>(meta.data()),
-                                    have_labels ? labels_packed.data() : nullptr);
+    }
+    const uint8_t* labels_arg = have_labels ? labels_packed.data() : nullptr;
+
+    // Work-sharing (CPU_GPU_WORKSHARE_PLAN.md §4b): kick off the GPU batch
+    // asynchronously so the deferred CPU MSMs run concurrently on the worker pool.
+    // Default off ⇒ the GPU batch is dispatched with the blocking call AFTER the
+    // CPU work, which is the original serial behaviour.
+    const bool worksharing = g_worksharing_enabled.load(std::memory_order_acquire) && !batch_items.empty();
+    if (worksharing) {
+        bb_external_batch_msm_bn254_start(static_cast<uint32_t>(batch_items.size()),
+                                          reinterpret_cast<const uint8_t*>(descriptors.data()),
+                                          scalars_packed.data(),
+                                          results_packed.data(),
+                                          reinterpret_cast<uint8_t*>(meta.data()),
+                                          labels_arg);
+    }
+
+    // Deferred CPU-routed MSMs — overlap the GPU when work-sharing is on.
+    for (const size_t i : cpu_items) {
+        const size_t n = scalars[i].size();
+        results[i] = MSM<curve::BN254>::msm(
+            points[i].subspan(0, n), PolynomialSpan<const curve::BN254::ScalarField>{ 0, scalars[i] }, false);
+    }
+
+    if (!batch_items.empty()) {
+        if (worksharing) {
+            bb_external_batch_msm_bn254_await();
+        } else {
+            bb_external_batch_msm_bn254(static_cast<uint32_t>(batch_items.size()),
+                                        reinterpret_cast<const uint8_t*>(descriptors.data()),
+                                        scalars_packed.data(),
+                                        results_packed.data(),
+                                        reinterpret_cast<uint8_t*>(meta.data()),
+                                        labels_arg);
+        }
         // Finish (early-exit staged partials) and/or Horner-combine each
         // MSM's window sums. meta[k*2] packs (partials << 16) | num_windows;
         // partials == 0 is the legacy finished-roots shape.
@@ -503,6 +551,15 @@ WASM_EXPORT void bb_set_msm_split_model(const uint8_t* coeffs_le, uint32_t enabl
     model.gpu_b_union = c[4];
     model.gpu_b_union_valid = c[4] > 0.0;
     bb::scalar_multiplication::set_msm_split_model(model, enabled != 0);
+}
+
+// Enable/disable CPU/GPU work-sharing overlap (CPU_GPU_WORKSHARE_PLAN.md §4b):
+// the batch hook dispatches the GPU asynchronously and runs the CPU-routed MSMs
+// concurrently. Requires a bridge that provides the `_start`/`_await` imports.
+// Default off (the blocking, serial dispatch). on != 0 enables.
+WASM_EXPORT void bb_set_msm_worksharing_enabled(uint8_t on)
+{
+    bb::scalar_multiplication::set_msm_worksharing_enabled(on != 0);
 }
 
 // Per-MSM CSV-measurement mode. When set, `MSM::batch_multi_scalar_mul` runs

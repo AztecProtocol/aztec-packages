@@ -73,6 +73,15 @@ export class WebGpuMsmWorkerStub {
       meta_base: number,
       labels_packed: number,
     ) => void;
+    bb_external_batch_msm_bn254_start: (
+      batch_count: number,
+      descriptors_ptr: number,
+      scalars_base: number,
+      results_base: number,
+      meta_base: number,
+      labels_packed: number,
+    ) => void;
+    bb_external_batch_msm_bn254_await: () => void;
     bb_publish_srs_bn254: (points_ptr: number, n: number) => void;
   } {
     /* eslint-disable @typescript-eslint/naming-convention */
@@ -87,6 +96,18 @@ export class WebGpuMsmWorkerStub {
         meta_base,
         labels_packed,
       ) => this.callBatchMsm(batch_count, descriptors_ptr, scalars_base, results_base, meta_base, labels_packed),
+      // CPU/GPU work-sharing: post the batch request without blocking (`_start`),
+      // then block for the result later (`_await`). Between the two the C++ side
+      // runs the CPU-routed MSMs, overlapping the GPU.
+      bb_external_batch_msm_bn254_start: (
+        batch_count,
+        descriptors_ptr,
+        scalars_base,
+        results_base,
+        meta_base,
+        labels_packed,
+      ) => this.startBatchMsm(batch_count, descriptors_ptr, scalars_base, results_base, meta_base, labels_packed),
+      bb_external_batch_msm_bn254_await: () => this.waitForDone(),
       bb_publish_srs_bn254: (points_ptr, n) => this.callPublishSrs(points_ptr, n),
     };
     /* eslint-enable @typescript-eslint/naming-convention */
@@ -99,7 +120,7 @@ export class WebGpuMsmWorkerStub {
    * + result regions into contiguous WASM-memory buffers and points the host
    * at them via the SAB slots.
    */
-  private callBatchMsm(
+  private storeBatchSlots(
     batch_count: number,
     descriptors_ptr: number,
     scalars_base: number,
@@ -114,7 +135,32 @@ export class WebGpuMsmWorkerStub {
     Atomics.store(this.ctrl, SLOT_SCALARS_PTR, scalars_base);
     Atomics.store(this.ctrl, SLOT_RESULT_PTR, results_base);
     Atomics.store(this.ctrl, SLOT_BATCH_META_PTR, meta_base);
+  }
+
+  private callBatchMsm(
+    batch_count: number,
+    descriptors_ptr: number,
+    scalars_base: number,
+    results_base: number,
+    meta_base: number,
+    labels_packed: number,
+  ): void {
+    this.storeBatchSlots(batch_count, descriptors_ptr, scalars_base, results_base, meta_base, labels_packed);
     this.signalAndWait();
+  }
+
+  /** Post a batch request and RETURN without blocking — the result is collected
+   *  by a later `waitForDone()`. The C++ side runs the CPU MSMs in between. */
+  private startBatchMsm(
+    batch_count: number,
+    descriptors_ptr: number,
+    scalars_base: number,
+    results_base: number,
+    meta_base: number,
+    labels_packed: number,
+  ): void {
+    this.storeBatchSlots(batch_count, descriptors_ptr, scalars_base, results_base, meta_base, labels_packed);
+    this.signal();
   }
 
   /**
@@ -149,16 +195,24 @@ export class WebGpuMsmWorkerStub {
   }
 
   private signalAndWait(): void {
+    this.signal();
+    this.waitForDone();
+  }
+
+  /** Publish the request and wake the host, without waiting for the result. */
+  private signal(): void {
     Atomics.store(this.ctrl, SLOT_STATE, STATE_REQUEST);
     this.post('msm_request');
-    // Block until the main thread flips STATE_REQUEST → STATE_DONE or
-    // STATE_ERROR. The third argument is a timeout — `Infinity` means
-    // wait forever, but in practice the main thread should always
-    // resolve quickly.
+  }
+
+  /** Block until the host flips STATE_REQUEST → STATE_DONE / STATE_ERROR. */
+  private waitForDone(): void {
+    // The third argument is a timeout — `Infinity` means wait forever, but in
+    // practice the main thread should always resolve quickly. If the host
+    // already finished (state moved past REQUEST before we waited, e.g. when the
+    // CPU work in a work-sharing window outlasted the GPU), `Atomics.wait`
+    // returns 'not-equal' immediately — fine, we always re-read the state slot.
     const waitResult = Atomics.wait(this.ctrl, SLOT_STATE, STATE_REQUEST);
-    // `Atomics.wait` returns 'ok' if woken, 'not-equal' if the value
-    // changed before we waited, 'timed-out' if a timeout was set. Any
-    // result is fine here — we always re-read the state slot.
     void waitResult;
     const state = Atomics.load(this.ctrl, SLOT_STATE);
     if (state === STATE_ERROR) {

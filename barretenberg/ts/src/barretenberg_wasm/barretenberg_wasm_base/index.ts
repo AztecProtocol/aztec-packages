@@ -41,6 +41,23 @@ export class BarretenbergWasmBase {
           'Call setupWebGpuMsmBridge() (browser) or rebuild WASM without BBERG_WEBGPU_MSM_HOOK.',
       );
     },
+    // CPU/GPU work-sharing async variants (default off; only the bridge's worker
+    // stub supplies real implementations). Present so a hook-enabled WASM that
+    // imports them still instantiates without the bridge — they are never called
+    // unless bb_set_msm_worksharing_enabled(1) is set, which only the bridge does.
+    bb_external_batch_msm_bn254_start: (
+      _batch_count: number,
+      _descriptors_ptr: number,
+      _scalars_base: number,
+      _results_base: number,
+      _meta_base: number,
+      _labels_packed: number,
+    ) => {
+      throw new Error('bb_external_batch_msm_bn254_start invoked without a WebGPU bridge installed.');
+    },
+    bb_external_batch_msm_bn254_await: () => {
+      throw new Error('bb_external_batch_msm_bn254_await invoked without a WebGPU bridge installed.');
+    },
     bb_publish_srs_bn254: () => {
       // No-op. The bridge overrides this when present.
     },

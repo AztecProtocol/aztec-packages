@@ -119,6 +119,27 @@ void bb_external_batch_msm_bn254(uint32_t batch_count,
                                  uint8_t* meta_base,
                                  const uint8_t* labels_packed);
 
+// Async (overlapping) variant of the batched-MSM bridge, for CPU/GPU work-sharing
+// (CPU_GPU_WORKSHARE_PLAN.md §4b). `_start` posts the same request as
+// `bb_external_batch_msm_bn254` but RETURNS IMMEDIATELY (the worker does not block);
+// the host runs the GPU pipeline while the C++ side computes the CPU-routed MSMs
+// (and any per-MSM CPU slices) inline on the worker pool. `_await` then blocks
+// until the host has written all results + meta into the buffers passed to
+// `_start`. Safe because the prover's WASM memory is SHARED (threaded build): it
+// grows in place, so the host's views of the descriptor/scalar/result regions are
+// never detached by the worker's concurrent allocations, and the regions the two
+// sides touch are read-only inputs / disjoint result slots.
+WASM_IMPORT("bb_external_batch_msm_bn254_start")
+void bb_external_batch_msm_bn254_start(uint32_t batch_count,
+                                       const uint8_t* descriptors,
+                                       const uint8_t* scalars_base,
+                                       uint8_t* results_base,
+                                       uint8_t* meta_base,
+                                       const uint8_t* labels_packed);
+
+WASM_IMPORT("bb_external_batch_msm_bn254_await")
+void bb_external_batch_msm_bn254_await();
+
 // SRS publisher. May be called more than once per session — every call uploads
 // (or re-uploads) a new SRS pool, discarding any previously-uploaded one. Used
 // by `webgpu_register_full_srs_bn254` to push the full monomial-points table
