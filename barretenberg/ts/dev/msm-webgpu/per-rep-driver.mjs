@@ -36,7 +36,7 @@ try {
     for (const [ph, b, e] of s.passTimes ?? []) {
       per.set(ph, (per.get(ph) ?? 0) + (Number(e) - Number(b)) / 1e6);
     }
-    const rows = [...per.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
+    const rows = [...per.entries()].sort((a, b) => b[1] - a[1]).slice(0, 14);
     const tot = [...per.values()].reduce((a, b) => a + b, 0);
     console.log(
       `rep${r + 1}: wall=${s.wallMs.toFixed(1)}ms gpuTot=${tot.toFixed(1)} | ` +

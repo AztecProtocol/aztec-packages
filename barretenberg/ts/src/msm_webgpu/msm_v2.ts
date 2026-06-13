@@ -84,42 +84,6 @@ const clearSlot = (enc: GPUCommandEncoder, x: ScratchSlot): void =>
   enc.clearBuffer(slotBuf(x), slotOff(x), slotSize(x));
 const writeSlot = (q: GPUQueue, x: ScratchSlot, off: number, data: BufferSource): void =>
   q.writeBuffer(slotBuf(x), slotOff(x) + off, data);
-// ==== Pair-tree combine (addition-centric, ?ptree=1) ====
-const PTREE_LEVELS = 8;
-// Switch to the workgroup-fold tail below this many adds/level. High on
-// purpose: the depth-aware stop is what keeps deep-bucket distributions
-// (witness/monster) in the tree; flat distributions stop after level 1.
-const PTREE_THETA = 65536;
-const PTREE_TPB = 64;
-// Fold workgroup size for deep survivors (24 KB of flat u32 planes).
-const PTREE_FOLD_TPB = 256;
-// Survivor-finalize batch width: 1 — the dispatch is a few hundred
-// threads (latency-bound), and batching Z-inversions LENGTHENS each
-// thread's serial chain (prefix + peel on top of the same safegcd) while
-// halving threads. Batch widths only pay in throughput-bound normalizes.
-const PTREE_FIN_SN = 1;
-// Survivor-finalize TPB. SINGLE SOURCE for the epilogue's slot-19 dispatch
-// sizing AND the finalize kernel's own TPB — a mismatch silently skips (or
-// double-runs) survivors, exactly like a FIN_SN mismatch.
-const PTREE_FIN_TPB = 256;
-// Survivor-scratch sizing for an instance with M partials. The epilogue's
-// scratch-fit loop must ALWAYS terminate fit: the worst case is the
-// k* = LEVELS+1 fallthrough (stride 2^LEVELS), where survivors = cap_bin,
-// and the deep pipeline adds <= cap_bin + cap_mass/(2^LEVELS·512) chunk
-// slots, with cap_bin <= M/63 (every cap bucket holds >= 63 partials) and
-// cap_mass <= M. M is residency-fit per DEVICE (not per N) — 2·sT·sS —
-// so this only grows past the 1 MB floor on GPUs with M ≳ 340K. One
-// Jacobian slot = 96 B. The slots value is BAKED into the epilogue shader
-// (PTREE_SURV_SLOTS) and must match the region carved in prepare().
-const ptreeSurvLayout = (M: number): { bytes: number; slots: number } => {
-  const capBinMax = Math.floor(M / 63);
-  const worstSlots = 2 * capBinMax + Math.floor(M / ((1 << PTREE_LEVELS) * 512)) + 65;
-  const bytes = Math.max(1024 * 1024, Math.ceil((worstSlots * 96) / 4096) * 4096);
-  return { bytes, slots: Math.floor(bytes / 96) };
-};
-// Slots per level-kernel thread (A/B'd: 16 flat on M4).
-const PTREE_S = 8;
-
 // Addition-schedule combine (SCHED_COMBINE_PLAN.md). Layers are 1-based;
 // counts <= P < 2^18 bound the tree depth.
 const SCHED_MAX_LAYERS = 18;
@@ -127,8 +91,8 @@ const SCHED_MAX_LAYERS = 18;
 // slots keep headroom without growing the arg copy).
 const SCHED_MAX_AFF = 8;
 // Affine->projective starvation threshold (adds at which S=8 batch-affine
-// no longer fills the machine). Initial value; tuned by A/B before the
-// ptree is deleted.
+// no longer fills the machine). A/B'd on M4: 12288 == 8192 walls; 4096
+// regresses n10 (+1.3 ms) by keeping starved affine layers.
 const SCHED_COOP_THRESH = 12288;
 const SCHED_EMIT_TPB = 64;
 const SCHED_AFF_TPB = 64;
@@ -349,18 +313,11 @@ export interface MsmConfig {
   /** Base-field Montgomery-multiply body. Default 'karat'; 'cios_unrolled' is the
    *  device-validated register-resident CIOS variant (−26% on Mali-G715, BN254 only). */
   montmul?: MontMulVariant;
-  // DEV (deleted with the ptree): run ONLY the addition-schedule
-  // planner+emitter — no combine executes at all, so the partial planes
-  // stay pristine for the JS replay validator (the red oracle comes from
-  // a separate normal-mode instance over the same scalars).
+  // Diagnostic (?schedcheck=1): run ONLY the addition-schedule
+  // planner+emitter — no executor touches the partial planes, so the JS
+  // replay validator reads pristine values (the red oracle comes from a
+  // separate normal-mode instance over the same scalars).
   schedEmitOnly?: boolean;
-  // DEV (becomes the only combine): execute the addition schedule INSTEAD
-  // of the ptree combine.
-  schedCombine?: boolean;
-  // DEV bisect: with schedEmitOnly, 1 = dispatch the planner but not the
-  // emitter; 2 = dispatch neither (isolates a GPU-side stall between my
-  // kernels and the rest of the pipeline running without a combine).
-  schedPlanOnly?: number;
   /** ba_fused_super 8×u32 fr_add/fr_sub: 'native' or 'unpack'-repack. Default 'native'. */
   /** Record per-pass GPU timestamps in `run()` (needs the `timestamp-query` feature). */
   profile?: boolean;
@@ -1167,10 +1124,9 @@ interface SharedScratch {
   wiCounters: GPUBuffer;
   binWritePos: GPUBufferBinding; // arena slot — MAX_N × atomic<u32>
   sortedActiveBuckets: GPUBufferBinding; // arena slot — bTotal × u32 — active_buckets in N order
-  // Pair-tree combine working memory: descriptor planes + meta/args region
-  // + survivor scratch, all carved inside this one slot (see the ptree
-  // binds in prepare()).
-  ptScratch: GPUBufferBinding; // arena slot — pt_buf (512·sT·sS B ≈ 32 MB)
+  // Addition-schedule working memory: meta + cap-prefix + entries + norm
+  // list at the top of the slot; wi-probe scratch (dev) at the base.
+  ptScratch: GPUBufferBinding; // arena slot — sched_buf (512·sT·sS B ≈ 32 MB)
   // walker_index indirect args: [0..2] slot-wide (idx_count/idx_scatter,
   // written by partition_task), [3..5] dense-wide (idx_alloc, partition_task),
   // [6..8] active-wide (idx_sort, written by idx_epilogue).
@@ -2222,34 +2178,14 @@ export class MsmV2 {
   private idxProbeLayout!: GPUBindGroupLayout;
   private idxP1Bind!: GPUBindGroup;
   private idxP2Bind!: GPUBindGroup;
-  private ptreeEpiloguePipe!: GPUComputePipeline;
-  private ptreeEpilogueLayout!: GPUBindGroupLayout;
-  private ptreeEpilogueBind!: GPUBindGroup;
-  private ptreeLevelPipe!: GPUComputePipeline;
-  private ptreeLevelLayout!: GPUBindGroupLayout;
-  private ptreeLevelBinds: GPUBindGroup[][] = [];
-  private ptreeUfoldPipe!: GPUComputePipeline;
-  private ptreeScatterPipe!: GPUComputePipeline;
-  private ptreeScatterLayout!: GPUBindGroupLayout;
-  private ptreeScatterBinds: GPUBindGroup[] = [];
-  private ptreeFoldLayout!: GPUBindGroupLayout;
-  private ptreeUfoldBinds: GPUBindGroup[] = [];
-  private ptreeFinLayout!: GPUBindGroupLayout;
-  private ptreeSurvFinPipe!: GPUComputePipeline;
-  private ptreeSurvFinBinds: GPUBindGroup[] = [];
-  private ptreeArgsBase = 0; // byte offset of dispatch args inside ptScratch
-  private ptreeArgsBuf: GPUBuffer | null = null;
-  private ptreeMetaRegion!: GPUBufferBinding;
-  private ptreeM = 0; // bind-time M_partials (desc planes + checker)
-  // Set when the epilogue compiles (slots baked into PTREE_SURV_SLOTS);
-  // prepare() carves the matching region and cross-checks against its M.
-  private ptreeSurvSlots = 0;
-  private ptreeSurvBytes = 0;
-
+  private idxEpiloguePipe!: GPUComputePipeline;
+  private idxEpilogueLayout!: GPUBindGroupLayout;
+  private idxEpilogueBind!: GPUBindGroup;
+  private idxScatterPipe!: GPUComputePipeline;
+  private idxScatterLayout!: GPUBindGroupLayout;
+  private idxScatterBinds: GPUBindGroup[] = [];
   // --- addition-schedule combine (SCHED_COMBINE_PLAN.md) ---
   private schedEmitOnly = false;
-  private schedCombine = false;
-  private schedPlanOnly = 0;
   private schedPlanPipe: GPUComputePipeline | null = null;
   private schedEmitPipe: GPUComputePipeline | null = null;
   private schedAffinePipe: GPUComputePipeline | null = null;
@@ -2472,8 +2408,6 @@ export class MsmV2 {
     m.reduceWg = config?.reduceWg ?? pickReduceWg(m.c);
     m.montmul = config?.montmul ?? 'karat';
     m.schedEmitOnly = config?.schedEmitOnly ?? false;
-    m.schedCombine = config?.schedCombine ?? false;
-    m.schedPlanOnly = config?.schedPlanOnly ?? 0;
     m.jacobianCrossover = config?.jacobianCrossover ?? 0;
     // High-mem ping-pong is enabled either by the forced flag OR the small-N
     // auto-gate (`pingpongBelow`: use ping-pong when n ≤ threshold). The mode
@@ -2974,38 +2908,12 @@ export class MsmV2 {
       'read-only-storage',
       'uniform',
     ]);
-    //   idx_epilogue: count_histogram, active_meta(rw — A0 colour-mate of bin_offsets),
-    //   bin_offsets(rw), bin_write_pos(rw), pt args ×3 (rw), wi_idx_args(rw),
-    //   partial_offset(rw), planner_meta
-    //   ptree epilogue (static schedule): count_histogram (ro); active_meta,
-    //   bin_offsets, bin_write_pos, wi_idx_args, ptree_meta (rw).
-    m.ptreeEpilogueLayout = lt([
-      'read-only-storage',
-      'storage',
-      'storage',
-      'storage',
-      'storage',
-      'storage',
-    ]);
-    //   ptree-level: arena_a2 (ro); partials_buf, pair_meta, desc, red_buf (rw);
-    //   window_desc (ro); partial_dest (rw — A1 mate of red_buf); params,
-    //   arena_off, lvl, batch_offset.
-    m.ptreeLevelLayout = lt([
-      'read-only-storage',
-      'storage',
-      'storage',
-      'storage',
-      'storage',
-      'read-only-storage',
-      'storage',
-      'uniform',
-      'uniform',
-      'uniform',
-      'uniform',
-    ]);
-    //   ptree scatter (desc variant): idx_scatter with partial_layout
-    //   addressed via the A2 monolith + desc planes + arena offsets.
-    m.ptreeScatterLayout = lt([
+    //   idx_epilogue: count_histogram (ro); active_meta, bin_offsets,
+    //   bin_write_pos, wi_idx_args (rw).
+    m.idxEpilogueLayout = lt(['read-only-storage', 'storage', 'storage', 'storage', 'storage']);
+    //   idx_scatter: partial_layout addressed via the A2 monolith + arena
+    //   offsets; single-partial red_buf copy inlined.
+    m.idxScatterLayout = lt([
       'storage',
       'read-only-storage',
       'storage',
@@ -3014,42 +2922,6 @@ export class MsmV2 {
       'storage',
       'read-only-storage',
       'read-only-storage',
-      'uniform',
-      'uniform',
-      'storage',
-      'uniform',
-    ]);
-    //   ptree-fold: ptree_meta (rw), arena_a2, partial_offset (ro), partials_buf
-    //   (rw... ro suffices but A3-mate safety), surv_scratch (rw); params,
-    //   arena_off, jac_params, bw_geom.
-    m.ptreeFoldLayout = lt([
-      'storage',
-      'read-only-storage',
-      'storage',
-      'read-only-storage',
-      'storage',
-      'uniform',
-      'uniform',
-      'uniform',
-      'uniform',
-      'storage',
-      'uniform',
-    ]);
-    //   ptree finalize (resolve + survfin): meta (rw atomic), sorted actives,
-    //   active_meta, arena_a2, partial_offset (ro), partials_buf (ro),
-    //   surv_scratch (rw), red_buf (rw), window_desc (ro); 5 uniforms.
-    m.ptreeFinLayout = lt([
-      'storage',
-      'storage',
-      'read-only-storage',
-      'read-only-storage',
-      'storage',
-      'read-only-storage',
-      'storage',
-      'storage',
-      'read-only-storage',
-      'uniform',
-      'uniform',
       'uniform',
       'uniform',
       'uniform',
@@ -3428,45 +3300,20 @@ export class MsmV2 {
       }
     }
     {
-      const ptreeSurv = ptreeSurvLayout(2 * STREAM_T * STREAM_S);
-      m.ptreeSurvSlots = ptreeSurv.slots;
-      m.ptreeSurvBytes = ptreeSurv.bytes;
-      const ptreeEpilogueCode = sm.gen_ba_walker_idx_epilogue_shader(WI_IDX_TPB, {
-        levels: PTREE_LEVELS,
-        theta: PTREE_THETA,
-        s: PTREE_S,
-        tpb: PTREE_TPB,
-        fin_tpb: PTREE_FIN_TPB,
-        fin_sn: PTREE_FIN_SN,
-        surv_slots: ptreeSurv.slots,
-      });
-      queue(p => (m.ptreeEpiloguePipe = p), ptreeEpilogueCode, `ptree-epilogue`, m.ptreeEpilogueLayout);
       queue(
-        p => (m.ptreeLevelPipe = p),
-        smCombine.gen_ba_walker_ptree_level_shader(PTREE_TPB, PTREE_S),
-        `ptree-level`,
-        m.ptreeLevelLayout,
+        p => (m.idxEpiloguePipe = p),
+        sm.gen_ba_walker_idx_epilogue_shader(WI_IDX_TPB),
+        `wi-epilogue`,
+        m.idxEpilogueLayout,
       );
       queue(
-        p => (m.ptreeUfoldPipe = p),
-        smCombine.gen_ba_walker_ptree_ufold_shader(PTREE_FOLD_TPB),
-        `ptree-ufold`,
-        m.ptreeFoldLayout,
-      );
-      queue(
-        p => (m.ptreeScatterPipe = p),
+        p => (m.idxScatterPipe = p),
         sm.gen_ba_walker_idx_scatter_shader(WI_IDX_TPB, STREAM_S, STREAM_PLANNER_TPB),
-        `ptree-scatter`,
-        m.ptreeScatterLayout,
-      );
-      queue(
-        p => (m.ptreeSurvFinPipe = p),
-        smCombine.gen_ba_walker_ptree_finalize_shader(PTREE_FIN_TPB, PTREE_FIN_SN),
-        `ptree-survfin`,
-        m.ptreeFinLayout,
+        `wi-scatter`,
+        m.idxScatterLayout,
       );
     }
-    if (m.schedEmitOnly || m.schedCombine) {
+    {
       queue(
         p => (m.schedPlanPipe = p),
         sm.gen_wi_sched_plan_shader({
@@ -3482,26 +3329,24 @@ export class MsmV2 {
         m.schedPlanLayout,
       );
       queue(p => (m.schedEmitPipe = p), sm.gen_wi_sched_emit_shader(SCHED_EMIT_TPB), `sched-emit`, m.schedEmitLayout);
-      if (m.schedCombine) {
-        queue(
-          p => (m.schedAffinePipe = p),
-          smCombine.gen_sched_affine_shader(SCHED_AFF_TPB, SCHED_AFF_S),
-          `sched-affine`,
-          m.schedAffineLayout,
-        );
-        queue(
-          p => (m.schedCoop2Pipe = p),
-          smCombine.gen_sched_coop2_shader(SCHED_COOP_TPB),
-          `sched-coop2`,
-          m.schedCoop2Layout,
-        );
-        queue(
-          p => (m.schedNormalizePipe = p),
-          smCombine.gen_sched_normalize_shader(SCHED_NORM_TPB, SCHED_NORM_C),
-          `sched-normalize`,
-          m.schedNormalizeLayout,
-        );
-      }
+      queue(
+        p => (m.schedAffinePipe = p),
+        smCombine.gen_sched_affine_shader(SCHED_AFF_TPB, SCHED_AFF_S),
+        `sched-affine`,
+        m.schedAffineLayout,
+      );
+      queue(
+        p => (m.schedCoop2Pipe = p),
+        smCombine.gen_sched_coop2_shader(SCHED_COOP_TPB),
+        `sched-coop2`,
+        m.schedCoop2Layout,
+      );
+      queue(
+        p => (m.schedNormalizePipe = p),
+        smCombine.gen_sched_normalize_shader(SCHED_NORM_TPB, SCHED_NORM_C),
+        `sched-normalize`,
+        m.schedNormalizeLayout,
+      );
       for (let k = 1; k <= SCHED_MAX_LAYERS; k++) {
         m.schedLvlUbufs.push(
           device.createBuffer({
@@ -5089,64 +4934,20 @@ export class MsmV2 {
         ]);
         this.idxSortBind = mkBind(this.idxSortLayout, [abkts, acnt, boffs, bwpos, sabkts]);
         {
-          // === Pair-tree binds. Regions inside ptScratch: descriptor planes
-          // right after the X/Y partial planes; meta (64 KB) + survivor
-          // scratch (M-derived, >= 1 MB) at the end of the slot.
-          // M_partials_walker (= 2*sT*sS) is the outer-scope value used by
-          // wiParams — the scatter's rem-plane offset MUST match the level
-          // kernels' params.w or every descriptor read lands off-plane.
-          if (ptreeSurvLayout(M_partials_walker).slots !== this.ptreeSurvSlots) {
-            throw new Error(
-              `ptree: PTREE_SURV_SLOTS baked at compile (${this.ptreeSurvSlots}, M=2·sT·sS) does not match this instance M=${M_partials_walker} — the scratch-fit loop could terminate unfit`,
-            );
-          }
-          const ptreeRegion = 64 * 1024 + this.ptreeSurvBytes;
-          const ptreeByteOff = Math.floor((slotSize(scratch.ptScratch) - ptreeRegion) / 256) * 256;
-          const descByteOff = 64 * M_partials_walker;
-          const descBytes = 8 * M_partials_walker;
-          if (descByteOff + descBytes > ptreeByteOff) {
-            throw new Error('ptree: ptScratch too small for desc + meta + survivor regions');
-          }
-          this.ptreeM = M_partials_walker;
-          const metaBind: GPUBufferBinding = {
-            buffer: slotBuf(scratch.ptScratch),
-            offset: slotOff(scratch.ptScratch) + ptreeByteOff,
-            size: 64 * 1024,
-          };
-          const survBind: GPUBufferBinding = {
-            buffer: slotBuf(scratch.ptScratch),
-            offset: slotOff(scratch.ptScratch) + ptreeByteOff + 64 * 1024,
-            size: this.ptreeSurvBytes,
-          };
-          const descBind: GPUBufferBinding = {
-            buffer: slotBuf(scratch.ptScratch),
-            offset: slotOff(scratch.ptScratch) + descByteOff,
-            size: descBytes,
-          };
-          this.ptreeMetaRegion = metaBind;
+          // === Walker-index + addition-schedule binds. The schedule region
+          // (meta + cap-prefix table + entries + norm list) sits 256-aligned
+          // at the TOP of the ptScratch slot; the low slot space holds only
+          // the wi-probe scratch (dev) far below it.
           const a2Buf = slotBuf(scratch.partialCount);
           if (slotBuf(scratch.partialLayout) !== a2Buf) {
-            throw new Error('ptree: partial_count and partial_layout must share arena A2');
+            throw new Error('sched: partial_count and partial_layout must share arena A2');
           }
-          const ptreeArenaOff = ubuf(
+          const wiArenaOff = ubuf(
             new Uint32Array([slotOff(scratch.partialCount) / 4, slotOff(scratch.partialLayout) / 4, 0, 0]),
           );
-          const ptreeParams = ubuf(new Uint32Array([this.BW, 0, 0, M_partials_walker]));
-          const ptreeBw = ubuf(new Uint32Array([this.BW, 0, 0, 0]));
-          const jpSurv = ubuf(new Uint32Array([0, 0, 0, 0]));
-          // The epilogue writes dispatch args into the meta region (its
-          // storage-binding budget is exactly full); a 320 B copy then
-          // moves them to this INDIRECT-only buffer, which no shader ever
-          // binds — sidestepping both the 10-storage cap and the
-          // indirect-source/writable-storage aliasing rule.
-          this.ptreeArgsBuf = device.createBuffer({
-            size: 20 * 16,
-            usage: GPUBufferUsage.INDIRECT | GPUBufferUsage.COPY_DST,
-          });
-          this.prepBuffers.push(this.ptreeArgsBuf);
-          this.ptreeArgsBase = (this.ptreeMetaRegion.offset ?? 0) + 1024;
-          this.ptreeScatterBinds = batchWindowBaseBufs.map(bwb =>
-            mkBind(this.ptreeScatterLayout, [
+          const wiSchedParams = ubuf(new Uint32Array([this.BW, 0, 0, M_partials_walker]));
+          this.idxScatterBinds = batchWindowBaseBufs.map(bwb =>
+            mkBind(this.idxScatterLayout, [
               pdest,
               poffset,
               pwpos,
@@ -5157,159 +4958,96 @@ export class MsmV2 {
               windowDescBuf,
               wiParams,
               bwb,
-              descBind,
-              ptreeArenaOff,
+              wiArenaOff,
             ]),
           );
-          this.ptreeEpilogueBind = mkBind(this.ptreeEpilogueLayout, [chist, acnt, boffs, bwpos, wiArgs, metaBind]);
-          const lvlBufs: GPUBuffer[] = [];
-          for (let k = 1; k <= PTREE_LEVELS; k++) {
-            lvlBufs.push(ubuf(new Uint32Array([k, 0, 0, 0])));
+          this.idxEpilogueBind = mkBind(this.idxEpilogueLayout, [chist, acnt, boffs, bwpos, wiArgs]);
+
+          const schedCapMax = Math.floor(M_partials_walker / 63) + 1;
+          const schedCapBytes = SCHED_MAX_LAYERS * schedCapMax * 4;
+          const schedEntriesBytes = M_partials_walker * 16;
+          const schedNormBytes = (M_partials_walker / 2) * 16;
+          const schedBytes =
+            Math.ceil((SCHED_META_WORDS * 4 + schedCapBytes + schedEntriesBytes + schedNormBytes) / 256) * 256;
+          const schedByteOff = Math.floor((slotSize(scratch.ptScratch) - schedBytes) / 256) * 256;
+          // The wi-probe (dev) writes up to ~16*M bytes at the slot base.
+          if (schedByteOff < 64 * M_partials_walker) {
+            throw new Error('sched: ptScratch too small for the addition-schedule region');
           }
-          this.ptreeLevelBinds = batchWindowBaseBufs.map(bwb =>
-            lvlBufs.map(lvlBuf =>
-              mkBind(this.ptreeLevelLayout, [
-                a2Buf,
+          this.schedRegionByteOff = schedByteOff;
+          const schedBind: GPUBufferBinding = {
+            buffer: slotBuf(scratch.ptScratch),
+            offset: slotOff(scratch.ptScratch) + schedByteOff,
+            size: schedBytes,
+          };
+          // u32-unit offsets within the region; the entries base is
+          // 16 B-aligned so the executors' vec4 view (base/4) is exact.
+          const capOffU32 = SCHED_META_WORDS;
+          const entriesOffU32 = Math.ceil((capOffU32 + SCHED_MAX_LAYERS * schedCapMax) / 4) * 4;
+          const schedOffPlanEmit = ubuf(new Uint32Array([0, capOffU32, schedCapMax, entriesOffU32]));
+          const schedOffExec = ubuf(new Uint32Array([0, 0, 0, entriesOffU32 / 4]));
+          this.schedArgsByteOff = (schedBind.offset ?? 0) + 128 * 4;
+          this.schedPlanBind = mkBind(this.schedPlanLayout, [
+            sabkts,
+            acnt,
+            chist,
+            boffs,
+            a2Buf,
+            schedBind,
+            wiSchedParams,
+            wiArenaOff,
+            schedOffPlanEmit,
+          ]);
+          this.schedEmitBinds = batchWindowBaseBufs.map(bwb =>
+            mkBind(this.schedEmitLayout, [
+              sabkts,
+              acnt,
+              boffs,
+              a2Buf,
+              poffset,
+              schedBind,
+              windowDescBuf,
+              wiSchedParams,
+              wiArenaOff,
+              schedOffPlanEmit,
+              bwb,
+            ]),
+          );
+          this.schedAffineBinds = batchWindowBaseBufs.map(bwb =>
+            Array.from({ length: SCHED_MAX_AFF }, (_, i) =>
+              mkBind(this.schedAffineLayout, [
+                schedBind,
+                schedBind,
                 wp,
-                metaBind,
-                descBind,
                 scratch.redBuf,
-                windowDescBuf,
-                pdest,
-                ptreeParams,
-                ptreeArenaOff,
-                lvlBuf,
+                this.schedLvlUbufs[i],
+                wiSchedParams,
                 bwb,
+                schedOffExec,
               ]),
             ),
           );
-          // One bind group per ufold role (0 shallow / 1 deep-pair /
-          // 2 deep-combine) — identical except the 4-byte mode uniform.
-          this.ptreeUfoldBinds = [0, 1, 2].map(mode =>
-            mkBind(this.ptreeFoldLayout, [
-              metaBind,
-              a2Buf,
-              poffset,
+          this.schedCoop2Binds = Array.from({ length: SCHED_MAX_LAYERS - 1 }, (_, i) =>
+            mkBind(this.schedCoop2Layout, [
+              schedBind,
+              schedBind,
               wp,
-              survBind,
-              ptreeParams,
-              ptreeArenaOff,
-              jpSurv,
-              ptreeBw,
-              sabkts,
-              ubuf(new Uint32Array([mode, 0, 0, 0])),
+              this.schedLvlUbufs[i + 1],
+              wiSchedParams,
+              schedOffExec,
             ]),
           );
-          const finBind = (bwb: GPUBuffer): GPUBindGroup =>
-            mkBind(this.ptreeFinLayout, [
-              metaBind,
-              sabkts,
-              acnt,
-              a2Buf,
-              poffset,
-              wp,
-              survBind,
-              scratch.redBuf,
-              windowDescBuf,
-              ptreeParams,
-              bwb,
-              ptreeArenaOff,
-              ptreeBw,
-              jpSurv,
-            ]);
-          this.ptreeSurvFinBinds = batchWindowBaseBufs.map(bwb => finBind(bwb));
-
-          if (this.schedEmitOnly || this.schedCombine) {
-            // Addition-schedule region: meta + cap-prefix table + entries +
-            // norm list, 256-aligned directly below the ptree meta/survivor
-            // tail (both regions coexist until the ptree is deleted).
-            const schedCapMax = Math.floor(M_partials_walker / 63) + 1;
-            const schedCapBytes = SCHED_MAX_LAYERS * schedCapMax * 4;
-            const schedEntriesBytes = M_partials_walker * 16;
-            const schedNormBytes = (M_partials_walker / 2) * 16;
-            const schedBytes =
-              Math.ceil((SCHED_META_WORDS * 4 + schedCapBytes + schedEntriesBytes + schedNormBytes) / 256) * 256;
-            const schedByteOff = Math.floor((ptreeByteOff - schedBytes) / 256) * 256;
-            if (descByteOff + descBytes > schedByteOff) {
-              throw new Error('sched: ptScratch too small for the addition-schedule region');
-            }
-            this.schedRegionByteOff = schedByteOff;
-            const schedBind: GPUBufferBinding = {
-              buffer: slotBuf(scratch.ptScratch),
-              offset: slotOff(scratch.ptScratch) + schedByteOff,
-              size: schedBytes,
-            };
-            // u32-unit offsets within the region; the entries base is
-            // 16 B-aligned so the executors' vec4 view (base/4) is exact.
-            const capOffU32 = SCHED_META_WORDS;
-            const entriesOffU32 = Math.ceil((capOffU32 + SCHED_MAX_LAYERS * schedCapMax) / 4) * 4;
-            const schedOffPlanEmit = ubuf(new Uint32Array([0, capOffU32, schedCapMax, entriesOffU32]));
-            const schedOffExec = ubuf(new Uint32Array([0, 0, 0, entriesOffU32 / 4]));
-            this.schedArgsByteOff = (schedBind.offset ?? 0) + 128 * 4;
-            this.schedPlanBind = mkBind(this.schedPlanLayout, [
-              sabkts,
-              acnt,
-              chist,
-              boffs,
-              a2Buf,
+          this.schedNormalizeBinds = batchWindowBaseBufs.map(bwb =>
+            mkBind(this.schedNormalizeLayout, [
               schedBind,
-              ptreeParams,
-              ptreeArenaOff,
-              schedOffPlanEmit,
-            ]);
-            this.schedEmitBinds = batchWindowBaseBufs.map(bwb =>
-              mkBind(this.schedEmitLayout, [
-                sabkts,
-                acnt,
-                boffs,
-                a2Buf,
-                poffset,
-                schedBind,
-                windowDescBuf,
-                ptreeParams,
-                ptreeArenaOff,
-                schedOffPlanEmit,
-                bwb,
-              ]),
-            );
-            if (this.schedCombine) {
-              this.schedAffineBinds = batchWindowBaseBufs.map(bwb =>
-                Array.from({ length: SCHED_MAX_AFF }, (_, i) =>
-                  mkBind(this.schedAffineLayout, [
-                    schedBind,
-                    schedBind,
-                    wp,
-                    scratch.redBuf,
-                    this.schedLvlUbufs[i],
-                    ptreeParams,
-                    bwb,
-                    schedOffExec,
-                  ]),
-                ),
-              );
-              this.schedCoop2Binds = Array.from({ length: SCHED_MAX_LAYERS - 1 }, (_, i) =>
-                mkBind(this.schedCoop2Layout, [
-                  schedBind,
-                  schedBind,
-                  wp,
-                  this.schedLvlUbufs[i + 1],
-                  ptreeParams,
-                  schedOffExec,
-                ]),
-              );
-              this.schedNormalizeBinds = batchWindowBaseBufs.map(bwb =>
-                mkBind(this.schedNormalizeLayout, [
-                  schedBind,
-                  schedBind,
-                  wp,
-                  scratch.redBuf,
-                  ptreeParams,
-                  bwb,
-                  schedOffExec,
-                ]),
-              );
-            }
-          }
+              schedBind,
+              wp,
+              scratch.redBuf,
+              wiSchedParams,
+              bwb,
+              schedOffExec,
+            ]),
+          );
         }
         if (this.wiProbe) {
           // Probe scratch regions inside ptScratch (u32 elements): exports at
@@ -5360,8 +5098,7 @@ export class MsmV2 {
           passes += prePasses + 16 + 3 + 3 + 3 + (2 + 17 * 3 + 1);
           // Addition schedule: plan + emit (+ affine/coop/normalize when
           // it is the combine).
-          if (this.schedEmitOnly || this.schedCombine) passes += 2;
-          if (this.schedCombine) passes += SCHED_MAX_AFF + (SCHED_MAX_LAYERS - 1) + 1;
+          passes += 2 + SCHED_MAX_AFF + (SCHED_MAX_LAYERS - 1) + 1;
         }
       }
       // Reduce = the halving depths + finisher (+1 keeps the historical
@@ -5755,13 +5492,13 @@ export class MsmV2 {
         setPhase('wi_alloc');
         indirectDispatch(this.idxAllocPipe, this.idxAllocBind, wiArgs, 12);
         setPhase('wi_epilogue');
-        dispatch(this.ptreeEpiloguePipe, this.ptreeEpilogueBind, 1, 1);
+        dispatch(this.idxEpiloguePipe, this.idxEpilogueBind, 1, 1);
         setPhase('wi_scatter');
-        indirectDispatch(this.ptreeScatterPipe, this.ptreeScatterBinds[bi], wiArgs, 0);
+        indirectDispatch(this.idxScatterPipe, this.idxScatterBinds[bi], wiArgs, 0);
         setPhase('wi_sort');
         indirectDispatch(this.idxSortPipe, this.idxSortBind, wiArgs, 24);
       }
-      if ((this.schedEmitOnly || this.schedCombine) && this.schedPlanOnly < 2) {
+      {
         // Addition schedule: plan (one WG, after the sort) -> args copy ->
         // emitter (one thread per active bucket x layer).
         setPhase('sched_plan');
@@ -5773,33 +5510,13 @@ export class MsmV2 {
           0,
           SCHED_ARG_SLOTS * 16,
         );
-        if (this.schedPlanOnly < 1) {
-          setPhase('sched_emit');
-          indirectDispatch(this.schedEmitPipe!, this.schedEmitBinds[bi], this.schedArgsBuf!, 0);
-        }
+        setPhase('sched_emit');
+        indirectDispatch(this.schedEmitPipe!, this.schedEmitBinds[bi], this.schedArgsBuf!, 0);
       }
-      if (!this.schedCombine && !this.schedEmitOnly) {
-        // === Addition-centric pair-tree combine, STATIC schedule: the
-        // epilogue precomputed every dispatch arg from the count histogram
-        // — batched-affine levels (direct-close) then both fold variants
-        // over the sorted survivor tail, then the micro-batched survivor
-        // normalize. No mid-flight measurement.
-        setPhase('ptree');
-        enc.copyBufferToBuffer(slotBuf(this.pool.scratch!.ptScratch), this.ptreeArgsBase, this.ptreeArgsBuf!, 0, 20 * 16);
-        for (let k = 1; k <= PTREE_LEVELS; k++) {
-          indirectDispatch(this.ptreeLevelPipe, this.ptreeLevelBinds[bi][k - 1], this.ptreeArgsBuf!, 16 * k);
-        }
-        setPhase('ptree_tail');
-        indirectDispatch(this.ptreeUfoldPipe, this.ptreeUfoldBinds[0], this.ptreeArgsBuf!, 16 * 18);
-        indirectDispatch(this.ptreeUfoldPipe, this.ptreeUfoldBinds[1], this.ptreeArgsBuf!, 16 * 16);
-        indirectDispatch(this.ptreeUfoldPipe, this.ptreeUfoldBinds[2], this.ptreeArgsBuf!, 16 * 17);
-        setPhase('finalize');
-        indirectDispatch(this.ptreeSurvFinPipe, this.ptreeSurvFinBinds[bi], this.ptreeArgsBuf!, 16 * 19);
-      } else if (this.schedCombine) {
-        // === Addition-schedule combine: affine layers (S=8 batched
-        // inversion), then the projective coop2 layers, then the batched
-        // normalize. Every dispatch indirect; empty layers cost zero
-        // workgroups.
+      if (!this.schedEmitOnly) {
+        // Execute the schedule: affine layers (S=8 batched inversion),
+        // projective coop2 layers, then the batched normalize. Every
+        // dispatch indirect; empty layers cost zero workgroups.
         setPhase('sched_affine');
         for (let k = 1; k <= SCHED_MAX_AFF; k++) {
           indirectDispatch(this.schedAffinePipe!, this.schedAffineBinds[bi][k - 1], this.schedArgsBuf!, 16 * k);
@@ -6032,8 +5749,8 @@ export class MsmV2 {
    * Debug readback of the addition schedule plus everything a JS replay
    * needs to validate it (SCHED_COMBINE_PLAN.md §Validation): the sched
    * meta words, the entry + normalize regions, the CSR structures, and
-   * the partial / red planes. Requires schedEmitOnly or schedCombine and
-   * a completed run(). Heavy (full partial planes) — debug only.
+   * the partial / red planes. Requires a completed run(); pair with
+   * schedEmitOnly for pristine partials. Heavy (full planes) — debug only.
    */
   async debugSchedDump(): Promise<{
     meta: Uint32Array;
@@ -6109,95 +5826,6 @@ export class MsmV2 {
    * validation). Requires `splitC` + a prior `prepare()`. Returns the 256-bin
    * histogram and the per-scalar msb array; compare against {@link computeMsbHistogram}.
    */
-  /**
-   * Debug: validate the ptree scatter-built descriptors against
-   * partial_count/partial_offset (offsets carry SINGLE_FLAG in bit 31 on
-   * the walker_index v2 pipeline). Returns counts and first corrupt rows.
-   */
-  async debugDescCheck(): Promise<{
-    checked: number;
-    bad: number;
-    samples: string[];
-    pTotal: number;
-    singles: number;
-    maxCnt: number;
-    classes: { micro: number; shallow: number; deep: number };
-    meta: number[];
-    args: number[];
-  }> {
-    const sc = this.pool.scratch!;
-    const M = this.ptreeM;
-    const cntBytes = this.bTotal * 4;
-    const offBytes = (this.bTotal + 1) * 4;
-    const descBytes = 8 * M;
-    const metaBytes = 1024 + 320 + 64; // schedule + args + spare (layout below)
-    const staging = this.device.createBuffer({
-      size: cntBytes + offBytes + descBytes + metaBytes,
-      usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
-    });
-    const enc = this.device.createCommandEncoder();
-    enc.copyBufferToBuffer(slotBuf(sc.partialCount), slotOff(sc.partialCount), staging, 0, cntBytes);
-    enc.copyBufferToBuffer(slotBuf(sc.partialOffset), slotOff(sc.partialOffset), staging, cntBytes, offBytes);
-    enc.copyBufferToBuffer(slotBuf(sc.ptScratch), slotOff(sc.ptScratch) + 64 * M, staging, cntBytes + offBytes, descBytes);
-    enc.copyBufferToBuffer(
-      slotBuf(this.ptreeMetaRegion),
-      this.ptreeMetaRegion.offset ?? 0,
-      staging,
-      cntBytes + offBytes + descBytes,
-      metaBytes - 64,
-    );
-
-    this.device.queue.submit([enc.finish()]);
-    await staging.mapAsync(GPUMapMode.READ);
-    const u = new Uint32Array(staging.getMappedRange().slice(0));
-    staging.unmap();
-    staging.destroy();
-    const cnt = u.subarray(0, this.bTotal);
-    const off = u.subarray(this.bTotal, 2 * this.bTotal + 1);
-    const desc = u.subarray(2 * this.bTotal + 1, 2 * this.bTotal + 1 + 2 * M);
-    const metaAll = u.subarray(2 * this.bTotal + 1 + 2 * M);
-    const meta = Array.from(metaAll.subarray(0, 32));
-    const args = Array.from(metaAll.subarray(256, 256 + 80));
-    let pTotal = 0;
-    let checked = 0;
-    let bad = 0;
-    let singles = 0;
-    let maxCnt = 0;
-    const samples: string[] = [];
-    const kstar = meta[20];
-    const thr = 1 << Math.max(kstar, 1) - 1;
-    const classes = { micro: 0, shallow: 0, deep: 0 };
-    for (let fb = 0; fb < this.bTotal; fb++) {
-      const c = cnt[fb];
-      if (c === 0) continue;
-      pTotal += c;
-      if (c > maxCnt) maxCnt = c;
-      if (c === 1) {
-        singles++;
-        if (singles <= 3) {
-          const so = off[fb] & 0x7fffffff;
-          samples.push(`SINGLE fb=${fb} off=${so} flag=${off[fb] >>> 31} desc=(${desc[so]},${desc[M + so]})`);
-        }
-      }
-      if (c > thr) {
-        const nr = Math.ceil(c / thr);
-        if (nr <= 8) classes.micro++;
-        else if (nr <= 64) classes.shallow++;
-        else classes.deep++;
-      }
-      const o = off[fb] & 0x7fffffff;
-      for (let j = 0; j < c; j++) {
-        checked++;
-        const rel = desc[o + j];
-        const rem = desc[M + o + j];
-        if (rel !== j || rem !== c - j) {
-          bad++;
-          if (samples.length < 8) samples.push(`fb=${fb} cnt=${c} j=${j} pos=${o + j} rel=${rel} rem=${rem}`);
-        }
-      }
-    }
-    return { checked, bad, samples, pTotal, singles, maxCnt, classes, meta, args };
-  }
 
   /** Debug: snapshot the first n red_buf slots' x-halves (32 B each).
    *  n=0 snapshots the whole x-plane (half the red slot). */

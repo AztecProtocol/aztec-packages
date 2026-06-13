@@ -2,7 +2,7 @@
 //
 // One thread per (active bucket, layer): gid.x indexes the sorted active
 // list, gid.y = layer-1 (k = gid.y + 1). The bucket's pairing tree is the
-// ptree level rule — at layer k, pairs are (rel, rel + 2^(k-1)) for
+// in-place pairing rule — at layer k, pairs are (rel, rel + 2^(k-1)) for
 // rel = j*2^k with the partner in range — which is closed-form on
 // (count, position) because in-place adds never move a value between
 // positions. So each thread derives every entry of its (bucket, layer)

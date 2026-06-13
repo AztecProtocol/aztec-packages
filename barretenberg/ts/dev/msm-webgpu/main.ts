@@ -127,11 +127,6 @@ const gpuKnobs: MsmConfig = (() => {
     montmul:
       q.get('montmul') === 'cios_unrolled' ? 'cios_unrolled' : q.get('montmul') === 'karat' ? 'karat' : undefined,
     schedEmitOnly: q.get('sched_emit_only') === '1' || undefined,
-    schedCombine: q.get('sched_combine') === '1' || undefined,
-    schedPlanOnly: (() => {
-      const v = parseInt(q.get('sched_plan_only') ?? '', 10);
-      return Number.isInteger(v) && v > 0 ? v : undefined;
-    })(),
     jacobianCrossover: (() => {
       const raw = q.get('jaccross');
       if (raw === null) return undefined;
@@ -2739,20 +2734,6 @@ function hideProgress(): void {
         const msmPt = await MsmV2.create(gpuDevice, inputs.n, pool, { ...gpuKnobs });
         msmPt.prepare(inputs.scalarsBuf);
         const a = await msmPt.run();
-      if (qp.get('desccheck') === '1') {
-          const dc = await (
-            msmPt as unknown as {
-              debugDescCheck(): Promise<{ checked: number; bad: number; samples: string[]; pTotal: number }>;
-            }
-          ).debugDescCheck();
-          const dcc = dc as unknown as { singles: number; maxCnt: number; classes: { micro: number; shallow: number; deep: number }; meta: number[]; args: number[] };
-          log(
-            'info',
-            `[jac-check] descCheck pTotal=${dc.pTotal} bad=${dc.bad} singles=${dcc.singles} maxcnt=${dcc.maxCnt} classes=${dcc.classes.micro}/${dcc.classes.shallow}/${dcc.classes.deep} kstar=${dcc.meta[20]} stride=${dcc.meta[22]} base=${dcc.meta[23]} range=${dcc.meta[24]} cap=${dcc.meta[24] - dcc.meta[29]} P=${dcc.meta[28]}`,
-          );
-          log('info', `[jac-check] args L1..L8=${dcc.args.slice(4, 36).filter((_, i) => i % 4 === 0).join(',')} f64=${dcc.args[72]} f256=${dcc.args[68]} fin=${dcc.args[76]}`);
-          for (const smp of dc.samples) log('info', `[jac-check]   ${smp}`);
-        }
         // ?schedcheck=1 (SCHED_COMBINE_PLAN.md §Validation): build a SECOND
         // instance in schedEmitOnly mode over the same scalars (no combine
         // executes — pristine partials + the emitted schedule), reconstruct
@@ -2803,7 +2784,7 @@ function hideProgress(): void {
         }
         const runTag = jacRuns > 1 ? ` [run ${runI + 1}/${jacRuns}]` : '';
         let ok: boolean;
-        if (qp.get('ab') === 'ptree') {
+        if (qp.get('ab') === 'det') {
           // Determinism probe: a second instance on the same pool must
           // reproduce every window sum bit-exactly.
           const msmB = await MsmV2.create(gpuDevice, inputs.n, pool, { ...gpuKnobs });
@@ -2838,24 +2819,23 @@ function hideProgress(): void {
             }
             log('info', `[jac-check] redDiff nbad=${nbad} of ${redA.length / 8}`);
           }
-          ok = a.windowSums.length === b.windowSums.length;
+          // Early-exit contract: the run's output IS the staged partials.
+          const sa = a.stagedPartials ?? new Uint8Array(0);
+          const sb2 = b.stagedPartials ?? new Uint8Array(0);
+          ok = sa.length === sb2.length && sa.length > 0;
           let firstBad = -1;
-          for (let w = 0; ok && w < a.windowSums.length; w++) {
-            if (a.windowSums[w].x !== b.windowSums[w].x || a.windowSums[w].y !== b.windowSums[w].y) {
+          for (let i = 0; ok && i < sa.length; i++) {
+            if (sa[i] !== sb2[i]) {
               ok = false;
-              firstBad = w;
+              firstBad = i;
             }
           }
           if (ok) {
-            const x0 = a.windowSums[0]?.x ?? 0n;
-            log('ok', `[jac-check]${runTag} runs agree (${a.windowSums.length} windows, w0.x=0x${x0.toString(16).slice(0, 16)}…)`);
+            log('ok', `[jac-check]${runTag} runs agree (${sa.length} staged bytes)`);
           } else if (firstBad >= 0) {
-            log(
-              'err',
-              `[jac-check]${runTag} MISMATCH window ${firstBad}: a.x=0x${a.windowSums[firstBad].x.toString(16)} b.x=0x${b.windowSums[firstBad].x.toString(16)}`,
-            );
+            log('err', `[jac-check]${runTag} MISMATCH staged byte ${firstBad}: a=${sa[firstBad]} b=${sb2[firstBad]}`);
           } else {
-            log('err', `[jac-check]${runTag} MISMATCH window-count ${a.windowSums.length} vs ${b.windowSums.length}`);
+            log('err', `[jac-check]${runTag} MISMATCH staged length ${sa.length} vs ${sb2.length}`);
           }
           (msmB as unknown as { destroy?: () => void }).destroy?.();
         } else {

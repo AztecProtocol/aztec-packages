@@ -1,7 +1,8 @@
-// vmpack coop2 machinery — extracted verbatim from ba_walker_ptree_ufold
-// (the 2-lane cooperative complete RCB projective add, a=0 b3=9, lazy
-// reduction). One textual copy: the ufold's inline block is deleted with
-// the ptree; every schedule-era kernel includes this partial.
+// vmpack coop2 machinery: the 2-lane cooperative complete RCB
+// projective add (a=0, b3=9) with lazy reduction. Every field element is
+// distributed 10 limbs per subgroup lane (packed 2x13-bit per u32); all
+// product-class ops route through one fused sum-of-products core. This
+// partial is the single textual copy.
 
 struct VmBig {
     limbs: array<u32, 20>

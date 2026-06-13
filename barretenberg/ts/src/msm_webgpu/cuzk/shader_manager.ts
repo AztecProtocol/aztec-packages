@@ -37,9 +37,6 @@ import {
   ba_walker_idx_alloc as ba_walker_idx_alloc_shader,
   ba_walker_idx_epilogue as ba_walker_idx_epilogue_shader,
   ba_walker_idx_scatter as ba_walker_idx_scatter_shader,
-  ba_walker_ptree_level as ba_walker_ptree_level_shader,
-  ba_walker_ptree_ufold as ba_walker_ptree_ufold_shader,
-  ba_walker_ptree_finalize as ba_walker_ptree_finalize_shader,
   wi_sched_plan as wi_sched_plan_shader,
   wi_sched_emit as wi_sched_emit_shader,
   sched_affine as sched_affine_shader,
@@ -2373,21 +2370,8 @@ export class ShaderManager {
     });
   }
 
-  public gen_ba_walker_idx_epilogue_shader(
-    sort_tpb: number,
-    ptree: { levels: number; theta: number; s: number; tpb: number; fin_tpb: number; fin_sn: number; surv_slots: number },
-  ): string {
-    return mustache.render(ba_walker_idx_epilogue_shader, {
-      sort_tpb,
-      ptree_levels: ptree.levels,
-      ptree_theta: ptree.theta,
-      ptree_s: ptree.s,
-      ptree_tpb: ptree.tpb,
-      ptree_fin_tpb: ptree.fin_tpb,
-      ptree_fin_sn: ptree.fin_sn,
-      ptree_surv_slots: ptree.surv_slots,
-      recompile: this.recompile,
-    });
+  public gen_ba_walker_idx_epilogue_shader(sort_tpb: number): string {
+    return mustache.render(ba_walker_idx_epilogue_shader, { sort_tpb, recompile: this.recompile });
   }
 
   public gen_ba_walker_idx_scatter_shader(workgroup_size: number, s: number, thread_tpb: number): string {
@@ -2523,27 +2507,10 @@ export class ShaderManager {
   }
 
 
-  public gen_ba_walker_ptree_level_shader(workgroup_size: number, s: number): string {
-    const [ctx, partials] = this.jacKernelContext({ workgroup_size, s, inv_fn: 'fr_inv_by_loop_pk' });
-    return mustache.render(ba_walker_ptree_level_shader, ctx, partials);
-  }
 
 
-  public gen_ba_walker_ptree_ufold_shader(workgroup_size: number): string {
-    const [ctx, partials] = this.jacKernelContext({ workgroup_size, wg_words: workgroup_size * 8 });
-    return mustache.render(ba_walker_ptree_ufold_shader, ctx, partials);
-  }
 
 
-  public gen_ba_walker_ptree_finalize_shader(workgroup_size: number, sn: number): string {
-    const [ctx, partials] = this.jacKernelContext({
-      workgroup_size,
-      sn,
-      sn_gt1: sn > 1,
-      inv_fn: 'fr_inv_by_loop_pk',
-    });
-    return mustache.render(ba_walker_ptree_finalize_shader, ctx, partials);
-  }
 
   /**
    * Addition-schedule planner (SCHED_COMBINE_PLAN.md): one workgroup,

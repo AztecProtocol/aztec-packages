@@ -7,9 +7,10 @@
 // incomplete add (the walker discipline: partials are run-sums over an
 // SRS, so equal/negated operands are dlog-excluded), result to the
 // entry's dst — srcA's slot, or red_buf when the RED flag marks a
-// bucket-closing add. The batch/peel structure and the single
-// multiplier call site are the ptree level kernel's, verbatim; pair
-// discovery is gone — entries arrive resolved.
+// bucket-closing add. Entries arrive resolved; the kernel does no pair
+// discovery. The three serial multiplies of the affine add route through
+// ONE call site (driver inlining cost is quasi-quadratic in multiplier
+// bodies per kernel).
 //
 // Entry: {srcA_slot, 0, srcB_slot, dst | RED_FLAG?}.
 //
@@ -127,8 +128,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             let y_l = load_y(lslot[s_i], M_partials);
             let y_r = load_y(rslot[s_i], M_partials);
             // λ = (y_r−y_l)·inv_dx; x_n = λ² − (x_l+x_r); y_n = λ·(x_l−x_n)
-            // − y_l — three SERIAL multiplies through ONE call site (the
-            // level kernel's compile-cost discipline).
+            // − y_l — three SERIAL multiplies through ONE call site.
             var lambda: array<u32, 8>;
             var x_n: array<u32, 8>;
             var y_n: array<u32, 8>;
