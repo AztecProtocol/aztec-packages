@@ -44,6 +44,8 @@ import {
   hostWindowCombine,
 } from '../../src/msm_webgpu/msm_v2.js';
 import { planBatch, computeGeom } from '../../src/msm_webgpu/batch_scheduler.js';
+import { calibrateMsmEngine, type CpuMsmTimer } from '../../src/msm_webgpu/calibration.js';
+import { planBatch as planWorkSplit, type MsmCostModel } from '../../src/msm_webgpu/split_planner.js';
 import { runUnionPacks, type BridgeDescriptor } from '../../src/msm_webgpu/bridge/union_runner.js';
 import { WebGpuMsmHost } from '../../src/msm_webgpu/bridge/main.js';
 import {
@@ -1763,6 +1765,106 @@ async function runUnionValidate(logNs: number[]): Promise<{ ok: boolean; detail:
     };
   } finally {
     for (const inst of unionCache.values()) inst.destroy();
+    pool.destroy();
+  }
+}
+
+/**
+ * Validate the GPU calibration end-to-end on the real device + native Pippenger
+ * (CPU_GPU_WORKSHARE_PLAN.md §1). Measures the montmul A/B + the CPU/GPU cost
+ * models, prints the fitted model + the <1 s budget, and sanity-replays the
+ * split planner against a Chonk-like batch so the model's implied routing is
+ * visible. GPU measurement — hold the bench lock.
+ */
+async function runCalibrate(): Promise<{ ok: boolean; detail: string }> {
+  if (gpuDevice === null) gpuDevice = await get_device();
+  const device = gpuDevice;
+
+  let adapterInfo: GPUAdapterInfo | undefined;
+  try {
+    const adapter = await navigator.gpu.requestAdapter();
+    // @ts-expect-error adapter.info is non-standard but widely available
+    adapterInfo = (adapter?.info ?? (await adapter?.requestAdapterInfo?.())) as GPUAdapterInfo | undefined;
+  } catch {
+    /* prior falls back to the desktop default */
+  }
+
+  // SRS-prefix points (2^17) feed BOTH the GPU pool and the CPU Pippenger timer.
+  const inp = await generateInputs(17, false);
+  const pool = await MsmV2Pool.create(device, inp.pointsBuf);
+  const handle = await ensureWasmBooted();
+
+  const cpuTimer: CpuMsmTimer = {
+    async time(points, scalars, _n, threads): Promise<number> {
+      await handle.loadMsm(points, scalars);
+      const t0 = performance.now();
+      await handle.runMsm(threads);
+      return performance.now() - t0;
+    },
+  };
+
+  const reps = Math.max(1, parseInt(new URLSearchParams(window.location.search).get('reps') ?? '2', 10) || 2);
+  try {
+    const cal = await calibrateMsmEngine({
+      device,
+      pool,
+      srsCanonicalBytes: inp.pointsBuf,
+      cpuTimer,
+      adapterInfo,
+      reps,
+    });
+
+    log(
+      'info',
+      `[calibrate] adapter=${cal.adapterKey} montmul=${cal.montmul} R=${cal.limbRadix} trusted=${cal.trusted}`,
+    );
+    log(
+      'info',
+      `[calibrate] budget: measure=${cal.measureMs.toFixed(0)} ms (excl. compile) + compile=${cal.compileMs.toFixed(0)} ms = ${cal.elapsedMs.toFixed(0)} ms total`,
+    );
+    log(
+      'info',
+      `[calibrate] CPU: ${(cal.cpu.aPerNnz * 1e6).toFixed(3)} ns/nnz + ${cal.cpu.bFixed.toFixed(2)} ms   ` +
+        `GPU: ${(cal.gpu.aPerPoint * 1e6).toFixed(3)} ns/pt + ${cal.gpu.bFloor.toFixed(2)} ms`,
+    );
+    for (const s of cal.raw.montmulAb) {
+      log(
+        'info',
+        `[calibrate]   montmul ${s.variant} @n=${s.n}: ${Number.isFinite(s.ms) ? s.ms.toFixed(2) + ' ms' : 'FAILED'}`,
+      );
+    }
+    for (const s of cal.raw.cpuSamples) log('info', `[calibrate]   cpu n=${s.n}: ${s.ms.toFixed(2)} ms`);
+    for (const s of cal.raw.gpuSamples) log('info', `[calibrate]   gpu n=${s.n}: ${s.ms.toFixed(2)} ms`);
+    for (const note of cal.raw.notes) log('info', `[calibrate]   note: ${note}`);
+
+    // Implied routing on a Chonk-like batch (4 dense wires + sparse range/calldata).
+    const model: MsmCostModel = { cpu: cal.cpu, gpu: cal.gpu };
+    const demoJobs = [
+      { n: 88899, nnz: 88899 },
+      { n: 88899, nnz: 88899 },
+      { n: 88899, nnz: 88899 },
+      { n: 131071, nnz: 131071 },
+      ...Array.from({ length: 8 }, () => ({ n: 131071, nnz: 40 })),
+    ];
+    const plan = planWorkSplit(demoJobs, model);
+    const allCpu = demoJobs.reduce((a, j) => a + model.cpu.aPerNnz * j.nnz + model.cpu.bFixed, 0);
+    log(
+      'info',
+      `[calibrate] demo batch: makespan=${plan.makespanMs.toFixed(1)} ms (cpu=${plan.cpuTimeMs.toFixed(1)} gpu=${plan.gpuTimeMs.toFixed(1)}) ` +
+        `vs all-CPU ${allCpu.toFixed(1)} ms; GPU pts=${plan.gpuPointTotal}; split job=${plan.splitJobIndex}`,
+    );
+    log(
+      'info',
+      `[calibrate] result=${JSON.stringify({ adapterKey: cal.adapterKey, montmul: cal.montmul, cpu: cal.cpu, gpu: cal.gpu, elapsedMs: cal.elapsedMs, trusted: cal.trusted })}`,
+    );
+
+    // Budget is the MEASUREMENT time (compile is paid by warm-up regardless).
+    const ok = cal.trusted && cal.measureMs < 1000;
+    return {
+      ok,
+      detail: `${cal.montmul}, measure=${cal.measureMs.toFixed(0)} ms${cal.measureMs < 1000 ? ' (<1s ✓)' : ' (OVER 1s)'} (+${cal.compileMs.toFixed(0)} compile), trusted=${cal.trusted}`,
+    };
+  } finally {
     pool.destroy();
   }
 }
@@ -3978,6 +4080,20 @@ function hideProgress(): void {
     } catch (e) {
       const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
       log('err', `[union-validate] state=error FATAL: ${msg}`);
+    }
+  } else if (autorun === 'msm-calibrate') {
+    // GPU calibration end-to-end (CPU_GPU_WORKSHARE_PLAN.md §1): montmul A/B +
+    // CPU/GPU cost-model fit under the <1 s first-visit budget.
+    //   ?autorun=msm-calibrate&reps=2
+    log('info', '[calibrate] autorun');
+    try {
+      for (let i = 0; i < 1200 && srsBuf === null; i++) await new Promise(r => setTimeout(r, 500));
+      if (srsBuf === null) throw new Error('SRS never became ready');
+      const res = await runCalibrate();
+      log(res.ok ? 'ok' : 'err', `[calibrate] state=${res.ok ? 'done' : 'error'} ${res.detail}`);
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      log('err', `[calibrate] state=error FATAL: ${msg}`);
     }
   } else if (autorun === 'msm-bridge-e2e') {
     // End-to-end bridge acceptance: drive the REAL WebGpuMsmHost and assert the

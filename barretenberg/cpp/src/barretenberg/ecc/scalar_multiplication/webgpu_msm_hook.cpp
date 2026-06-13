@@ -9,6 +9,7 @@
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/common/wasm_export.hpp"
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
+#include "msm_split_planner.hpp"
 #include "webgpu_msm_marshalling.hpp"
 
 namespace bb::scalar_multiplication {
@@ -77,6 +78,15 @@ std::atomic<bool> g_oracle_route_mode{ false };
 std::atomic<uint32_t> g_batch_delegate_k{ UINT32_MAX };
 std::atomic<uint32_t> g_small_threshold{ static_cast<uint32_t>(webgpu_msm_threshold) };
 
+// Calibrated CPU/GPU cost model (CPU_GPU_WORKSHARE_PLAN.md). When enabled (set
+// from JS via bb_set_msm_split_model after calibration), per-MSM delegation
+// routes by predicted cost — GPU iff t_gpu(n) < t_cpu(nnz) — instead of the size
+// gate, so dense large MSMs go to the GPU and sparse ones stay on the CPU (the
+// −40% oracle in MSM_CPU_VS_GPU_REPORT.md). Default off ⇒ size-gate behaviour.
+// Set once before proving (release on the flag); readers acquire the flag.
+std::atomic<bool> g_split_model_enabled{ false };
+MsmCostModel g_split_model{};
+
 // Marshal + ship the first `count` points of g_full_srs_base. Replaces
 // any previously-uploaded pool on the JS side (bb_publish_srs_bn254
 // destroys the prior MsmV2Pool and rebuilds from the new bytes). Updates
@@ -140,6 +150,35 @@ void set_webgpu_batch_delegate(uint32_t k, uint32_t small_threshold) noexcept
 {
     g_batch_delegate_k.store(k, std::memory_order_relaxed);
     g_small_threshold.store(small_threshold, std::memory_order_relaxed);
+}
+
+void set_msm_split_model(const MsmCostModel& model, bool enabled) noexcept
+{
+    g_split_model = model;
+    g_split_model_enabled.store(enabled, std::memory_order_release);
+}
+
+// Per-MSM cost-model routing: GPU iff predicted t_gpu(n) < t_cpu(nnz). Returns
+// false (⇒ the caller keeps the MSM on the CPU) when the model is disabled or the
+// runtime gate is off. Skips the O(n) non-zero scan when the GPU loses even at
+// full density (nnz = n), so sparse-but-large MSMs cost only one cheap compare.
+bool route_to_gpu_by_model(std::size_t n, std::span<const curve::BN254::ScalarField> scalars) noexcept
+{
+    if (!g_split_model_enabled.load(std::memory_order_acquire) || !webgpu_msm_runtime_enabled() || n == 0) {
+        return false;
+    }
+    const MsmCostModel& m = g_split_model;
+    const double t_gpu = m.gpu_time_solo(n);
+    if (t_gpu >= m.cpu_time(n)) {
+        return false; // GPU loses even at full density — no need to count non-zeros
+    }
+    uint64_t nnz = 0;
+    for (const auto& s : scalars) {
+        if (!s.is_zero()) {
+            ++nnz;
+        }
+    }
+    return t_gpu < m.cpu_time(nnz);
 }
 
 void webgpu_route_clear() noexcept
@@ -232,6 +271,10 @@ std::vector<curve::BN254::AffineElement> batch_multi_scalar_mul_webgpu_bn254(
         if (oracle_route) {
             const size_t seq = static_cast<size_t>(next_msm_seq());
             go = n > 0 && seq < g_route_mask.size() && g_route_mask[seq] != 0;
+        } else if (g_split_model_enabled.load(std::memory_order_acquire)) {
+            // Calibrated routing: GPU only when the model predicts it's faster
+            // for this MSM's density. Replaces the size gate.
+            go = route_to_gpu_by_model(n, scalars[i]);
         } else {
             go = should_delegate(n);
         }
@@ -440,6 +483,26 @@ std::vector<curve::BN254::AffineElement> batch_multi_scalar_mul_webgpu_bn254(
 WASM_EXPORT void bb_set_webgpu_msm_enabled(uint8_t on)
 {
     bb::scalar_multiplication::set_webgpu_msm_enabled(on != 0);
+}
+
+// Push the calibrated CPU/GPU cost model from JS (after `calibrateMsmEngine`).
+// coeffs_le is 5 little-endian f64 (ms units):
+//   [cpu_a_per_nnz, cpu_b_fixed, gpu_a_per_point, gpu_b_floor, gpu_b_union]
+// enabled != 0 turns on cost-model routing (GPU iff t_gpu(n) < t_cpu(nnz),
+// CPU_GPU_WORKSHARE_PLAN.md §3); 0 restores the size gate. gpu_b_union > 0 marks
+// the union floor as valid (used by the batch overlap planner).
+WASM_EXPORT void bb_set_msm_split_model(const uint8_t* coeffs_le, uint32_t enabled)
+{
+    std::array<double, 5> c{};
+    std::memcpy(c.data(), coeffs_le, sizeof(c));
+    bb::scalar_multiplication::MsmCostModel model;
+    model.cpu_a_per_nnz = c[0];
+    model.cpu_b_fixed = c[1];
+    model.gpu_a_per_point = c[2];
+    model.gpu_b_floor = c[3];
+    model.gpu_b_union = c[4];
+    model.gpu_b_union_valid = c[4] > 0.0;
+    bb::scalar_multiplication::set_msm_split_model(model, enabled != 0);
 }
 
 // Per-MSM CSV-measurement mode. When set, `MSM::batch_multi_scalar_mul` runs

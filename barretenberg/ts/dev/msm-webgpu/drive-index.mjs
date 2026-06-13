@@ -26,7 +26,7 @@ try {
   await page.waitForFunction(
     () => {
       const t = document.getElementById('log')?.textContent ?? '';
-      return /\[(autorun|batch-check|bridge-check|union-validate)\] state=/.test(t);
+      return /\[(autorun|batch-check|bridge-check|union-validate|calibrate)\] state=/.test(t);
     },
     { timeout: 600000 },
   );
