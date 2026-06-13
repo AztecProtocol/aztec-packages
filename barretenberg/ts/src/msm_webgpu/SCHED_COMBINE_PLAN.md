@@ -72,9 +72,10 @@ the same rank trick over the count-suffix.
 
 Boundary = first layer whose add count drops below a starvation
 threshold (occupancy arithmetic, smooth cost both sides; baked constant
-tuned by A/B). The epilogue computes totals, boundary, bases, bin
-tables, dispatch args; the emit kernel (one thread per active bucket ×
-layer, `dispatch(ceil(active/TPB), MAX_LAYERS, 1)`) writes entries.
+tuned by A/B). The planner (`wi_sched_plan`, one workgroup after the
+sort) computes totals, boundary, bases, bin tables and every indirect
+dispatch arg; the emit kernel (one thread per active bucket × layer,
+`dispatch(ceil(active/TPB), MAX_LAYERS, 1)`) writes entries.
 
 MAX_LAYERS = 18 (counts ≤ P < 2^18). Empty layers dispatch zero
 workgroups via indirect args.
