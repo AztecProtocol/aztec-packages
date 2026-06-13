@@ -530,6 +530,26 @@ async function autorunFromQuery(): Promise<void> {
   const flow = params.get('flow') ?? 'ecdsar1+transfer_1_recursions+sponsored_fpc';
   const threadsParam = params.get('threads');
   if (threadsParam) chonkThreads = parseInt(threadsParam, 10);
+  // Diagnostic knob: ?union=0 forces the bridge's legacy per-MSM path (disables
+  // the multi-MSM union packing) to localize device-specific MSM correctness bugs.
+  const unionParam = params.get('union');
+  if (unionParam === '0' || unionParam === 'false') {
+    (globalThis as { __msm_union_bridge?: boolean }).__msm_union_bridge = false;
+  }
+
+  // Buffer the bridge's per-MSM [msm]/[batch]/[bridge] telemetry so a failing
+  // on-device run can report which MSM was in flight — the phone has no DevTools
+  // and content_shell does not forward console.log to logcat.
+  const msmTrace: string[] = [];
+  const origConsoleLog = console.log.bind(console);
+  console.log = (...a: unknown[]) => {
+    const s = a.map(x => (typeof x === 'string' ? x : '')).join(' ');
+    if (s.includes('[msm]') || s.includes('[batch') || s.includes('[bridge')) {
+      msmTrace.push(s);
+      if (msmTrace.length > 80) msmTrace.shift();
+    }
+    origConsoleLog(...(a as []));
+  };
 
   const statusEl = document.createElement('pre');
   statusEl.id = 'autorun-status';
@@ -593,9 +613,9 @@ async function autorunFromQuery(): Promise<void> {
   } catch (err) {
     const msg = err instanceof Error ? (err.stack ?? err.message) : String(err);
     console.log('[CHONK-ERROR] ' + msg);
-    setStatus('[CHONK-ERROR] ' + msg);
+    setStatus('[CHONK-ERROR] ' + msg + '\n--- last MSMs ---\n' + msmTrace.slice(-12).join('\n'));
     document.title = 'CHONK-ERROR';
-    postResult({ title: 'CHONK-ERROR', mode, flow, error: msg });
+    postResult({ title: 'CHONK-ERROR', mode, flow, error: msg, msmTrace: msmTrace.slice(-25) });
   }
 }
 

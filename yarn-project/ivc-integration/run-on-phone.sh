@@ -52,7 +52,7 @@ curl -s -o /dev/null -w "[phone] server: HTTP %{http_code}\n" "http://127.0.0.1:
 
 adb -s "$SER" reverse tcp:$PORT tcp:$PORT
 
-URL="http://localhost:${PORT}/?autorun=${MODE}&flow=${FLOW}"
+URL="http://localhost:${PORT}/?autorun=${MODE}&flow=${FLOW}${EXTRA_QS:-}"
 adb -s "$SER" shell "echo '_ --enable-unsafe-webgpu --enable-webgpu-developer-features ${URL}' > /data/local/tmp/content-shell-command-line"
 adb -s "$SER" shell am force-stop "$CS" || true
 adb -s "$SER" shell am start -n "$ACT" -d "$URL" >/dev/null
