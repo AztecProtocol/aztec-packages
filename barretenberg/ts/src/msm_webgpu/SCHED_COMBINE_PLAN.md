@@ -23,8 +23,8 @@ executors are dumb: they stream `(src, src, dst)` entries and add points.
 
 ## The schedule
 
-Tree pairing is the ptree level rule, which is closed-form on positions
-(in-place writes never move a value between positions): at layer `k`
+Tree pairing is closed-form on positions (in-place writes never move a
+value between positions): at layer `k`
 (1-based), pairs are `(rel, rel + 2^(k-1))` for `rel ≡ 0 mod 2^k`,
 partner-in-range. Therefore every entry — sources, destination, z-slots,
 root detection — is pure bit arithmetic on `(cnt, rel, k)` plus
@@ -81,18 +81,17 @@ workgroups via indirect args.
 
 ## Memory
 
-Schedule entries + normalize list + cap prefix table live in the ptree
-scratch region (combine color), sized `(P+pad)*16 B` ≤ ~2.1 MB — far under
-the ufold survivor scratch it replaces. Z values occupy freed partial
-X-cells; no new point storage.
+Schedule meta + cap prefix table + entries + normalize list live at the
+top of the ptScratch slot (~3 MB at full geometry). Z values occupy freed
+partial X-cells; no new point storage.
 
 ## Validation
 
-- `schedcheck=1`: read back meta + entries + layout + partials; JS
-  validates structure (each position consumed exactly once per pairing
-  rule, z-slot liveness, flags) and replays the schedule in bigint,
-  comparing per-bucket sums against red_buf (ptree oracle while it
-  exists, WASM cross-check after).
-- Full matrix before the ptree is deleted: cross-checks n10–19 × seeds ×
-  {uniform, monster, witness, clustered, profile E, LCG}, same-window
-  walls vs both parents (n11–14 must recover; n17 must not regress).
+- `schedcheck=1`: a schedEmitOnly instance leaves the partial planes
+  pristine; JS reconstructs the expected schedule bit-for-bit (planner +
+  emitter mirror) and replays every bucket in bigint against a
+  normal-mode instance's red_buf snapshotted with `halve_stop=0` (the
+  in-place reduce mutates red_buf after the combine).
+- End-to-end: WASM cross-checks across sizes, seeds and scalar shapes
+  (uniform / clustered / monster / witness); `ab=det` compares staged
+  bytes across two instances on one pool.
