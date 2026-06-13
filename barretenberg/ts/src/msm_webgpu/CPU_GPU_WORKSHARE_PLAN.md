@@ -230,38 +230,38 @@ supports overlap — the WASM prover worker posts over a SharedArrayBuffer and
 `Atomics.wait`s while a **separate host thread** drives the GPU — so the worker just
 has to **defer its wait** and do CPU work in between. The pieces:
 
-1. **Async import ABI** (`worker_stub.ts`, `protocol.ts`): split the batch import
-   into `…_start` (post, return) and `…_await` (wait, read results).
-2. **C++ reorder + split** (`webgpu_msm_hook.cpp`): build the GPU batch (incl. each
-   split MSM's `n_g`-point slice) → `…_start()` → run all CPU work inline (whole-CPU
-   MSMs + each split MSM's `n_c`-point slice via `MSM::msm`) overlapping the GPU →
-   `…_await()` → EC-add each split MSM's two partials. The planner (`msm_split_planner.hpp`)
-   produces the routing + the one boundary split.
+**BUILT (overlap, default-off):**
+1. **Async import ABI** (`worker_stub.ts`): `signalAndWait` split into `signal()`
+   (post, return) + `waitForDone()` (wait, read), exposed as the `_start` / `_await`
+   env imports. Throwing stubs added to `barretenberg_wasm_base` so a hook-enabled
+   WASM that imports them still instantiates without the bridge.
+2. **C++ reorder** (`webgpu_msm_hook.cpp`): defer the CPU-routed MSMs, hoist the
+   batch packing, `_start()` → run the CPU MSMs (overlap) → `_await()` → combine.
+   `bb_set_msm_worksharing_enabled` gates it; default off ⇒ the original blocking
+   dispatch. Compiles + links into `barretenberg.wasm` (imports + export verified).
 
-**The correctness hazard that makes 4b a careful job — the WASM-memory-grow race.**
-Today the worker is *blocked* during the GPU dispatch (the union runner relies on
-"worker can't grow/detach memory while we read its bytes", `main.ts` ~L890). With
-overlap the worker runs Pippenger concurrently, which `malloc`s — and a
-`memory.grow` **replaces the SharedArrayBuffer**, invalidating the host's views of
-the descriptors/scalars/results. The fix is a **3-state handshake** so the host only
-touches WASM memory while the worker is blocked:
+**Why the elaborate handshake turned out to be unnecessary.** The earlier draft
+feared a `memory.grow` detach race (the worker `malloc`s while the host reads its
+bytes). But the prover uses the **threaded → SHARED `WebAssembly.Memory`**, and the
+spec mandates that shared memory grows **in place** — you cannot detach a SAB other
+threads hold. So the host's views are never invalidated by the worker's concurrent
+allocations. With inputs read-only, result slots disjoint, and the `STATE`
+release/acquire giving the worker happens-before visibility of the host's result
+writes, a plain `start`/`await` split is data-race-free. No host (`main.ts`) change.
+(If a non-shared-memory path ever routes here, restore the handshake.)
 
-```
-worker _start : STATE=REQUEST; post; Atomics.wait until STATE==INPUTS_COPIED; return
-host  on REQUEST: snapshot ALL inputs out of WASM → STATE=INPUTS_COPIED; notify;
-                  then run the GPU compute async, holding results host-side
-worker         : (returns from _start) runs CPU Pippenger — may grow memory; host
-                  is NOT touching WASM in this window
-worker _await : STATE=AWAITING; notify; Atomics.wait until STATE==DONE
-host          : after GPU done AND STATE==AWAITING (waitAsync/poll on the main
-                  thread): re-acquire a FRESH wasm view, write results → STATE=DONE
-```
+**Still a refinement — §4c per-MSM split (not built).** 4a+4b route *whole* MSMs
+(CPU gets sparse, GPU gets dense, concurrently) — the dominant case for Chonk's
+batched `batch_commit`. The per-MSM boundary split (one MSM partly on each engine,
+the planner's `splitJobIndex`) helps a *single* large commit + the batch boundary.
+It needs the GPU slice + the CPU tail (`MSM::msm` over `points.subspan(n_g)`) + an
+EC-add of the two partials in the combine — the planner (`plan_batch`) already
+emits the `n_gpu`/`n_cpu` per MSM. A hot-path restructure; gated on `vks_match`.
 
-Both host↔WASM windows (read inputs, write results) occur while the worker is
-blocked; the GPU compute touches no WASM. Get this subtly wrong → **intermittent
-wrong proofs**, which only surface under the slow wasm+chonk loop (~10 min/iter). So
-4b lands behind a **default-off `bb_set_msm_worksharing_enabled` flag** and is not
-trusted until `vks_match` is green across repeated runs.
+**Enable sequence (JS, after calibration):** push the model then flip the flags —
+`bb_set_msm_split_model(serializeMsmModel(cal), 1)` (calibrated routing, §4a) and/or
+`bb_set_msm_worksharing_enabled(1)` (overlap, §4b). Either is independent: overlap
+works with the size-gate routing; the model refines routing with or without overlap.
 
 ---
 
@@ -311,11 +311,19 @@ known vendor removes the loser's compile.
   variance — a quiet first-visit, min-of-more-reps, or cache-and-refine-on-revisit
   is the mitigation. The safe fallback when untrusted is all-CPU.
 
-**Not yet done:**
-- **§4a enable-gate** — run `chonk_browser_webgpu_bench.test.ts` with the model
-  pushed + enabled, assert `vks_match=true` (a no-crash smoke-test; both engines are
-  already validated). Needs the wasm-deploy + webpack + chonk loop.
-- **§4b overlap + per-MSM split** — the async ABI + C++ reorder + the WASM-memory
-  handshake (§4b above). The genuinely subtle part; behind a default-off flag,
-  untrusted until repeated `vks_match` is green. The C++ planner is ready; the
-  handshake protocol is the careful work.
+**§4b overlap — BUILT (default-off):** `worker_stub` start/await split + the
+C++ reorder + `bb_set_msm_worksharing_enabled`. Compiles + links into
+`barretenberg.wasm`; the `_start`/`_await` imports + the export are verified in the
+binary. Shared-memory analysis (above) shows the plain start/await is race-free, so
+no handshake. TS: protocol round-trip test still green; base env stubs added so all
+instantiation paths link.
+
+**Not yet done (all gated on the same wasm-deploy + chonk loop):**
+- **Enable-gate** — run `chonk_browser_webgpu_bench.test.ts` with `bb_set_msm_split_model`
+  + `bb_set_msm_worksharing_enabled`, assert `vks_match=true`. Both engines are
+  already validated, so it's a no-crash / overlap-correctness smoke-test. This is the
+  gate before flipping either flag on in production.
+- **§4c per-MSM split** — the GPU-slice + CPU-tail + EC-add combine, driven by
+  `plan_batch`'s `n_gpu`/`split_job_index`. Helps single large commits + the batch
+  boundary. A hot-path restructure deliberately left for the validated loop (a
+  subtle EC-combine bug ⇒ wrong proofs), not rushed unvalidated.
