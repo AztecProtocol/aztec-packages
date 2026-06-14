@@ -28,9 +28,7 @@ import { MNEMONIC } from '../fixtures/fixtures.js';
 import {
   type EndToEndContext,
   type SetupOptions,
-  deployAccounts,
   ensureAuthRegistryPublished,
-  publicDeployAccounts,
   setup,
   teardown,
 } from '../fixtures/setup.js';
@@ -97,12 +95,11 @@ export class CrossChainMessagingTest {
     // Recompute requireEpochProven from the merged options so per-call startProverNode is honored.
     this.requireEpochProven = opts.startProverNode ?? this.setupOptions.startProverNode ?? false;
     this.context = await setup(
-      0,
+      3,
       {
         ...this.setupOptions,
         ...opts,
         fundSponsoredFPC: true,
-        skipAccountDeployment: true,
         l1ContractsArgs: { ...this.deployL1ContractsArgs, ...opts.l1ContractsArgs },
         // `advanceToEpochProven` warps anvil's L1 clock forward by up to a full epoch in one
         // step. The prover-node tracks L1 time via `dateProvider.setTime(...)`, so any
@@ -173,24 +170,12 @@ export class CrossChainMessagingTest {
       await this.epochTestSettler.start();
     }
 
-    // Deploy 3 accounts
-    this.logger.info('Applying 3_accounts setup');
-    const { deployedAccounts } = await deployAccounts(
-      3,
-      this.logger,
-    )({
-      wallet: this.context.wallet,
-      initialFundedAccounts: this.context.initialFundedAccounts,
-    });
-    [this.ownerAddress, this.user1Address, this.user2Address] = deployedAccounts.map(a => a.address);
+    [this.ownerAddress, this.user1Address, this.user2Address] = this.context.accounts;
 
     // Set up cross chain messaging
     this.logger.info('Applying e2e_cross_chain_messaging setup');
 
     await ensureAuthRegistryPublished(this.wallet, this.ownerAddress);
-    // Create the token contract state.
-    this.logger.verbose(`Public deploy accounts...`);
-    await publicDeployAccounts(this.wallet, [this.ownerAddress, this.user1Address, this.user2Address]);
 
     this.l1Client = createExtendedL1Client(this.aztecNodeConfig.l1RpcUrls, MNEMONIC);
 

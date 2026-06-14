@@ -27,9 +27,7 @@ import { L1_DIRECT_WRITE_ACCOUNT_INDEX, MNEMONIC, getPaddedMaxFeesPerGas } from 
 import {
   type EndToEndContext,
   type SetupOptions,
-  deployAccounts,
   ensureAuthRegistryPublished,
-  publicDeployAccounts,
   setup,
   teardown,
 } from '../fixtures/setup.js';
@@ -109,12 +107,11 @@ export class FeesTest {
     this.logger.verbose('Setting up fresh context...');
     // Token allowlist entries are test-only: FPC-based fee payment with custom tokens won't work on mainnet alpha.
     const tokenAllowList = await getTokenAllowedSetupFunctions();
-    this.context = await setup(0, {
+    this.context = await setup(this.numberOfAccounts, {
       startProverNode: true,
       ...this.setupOptions,
       ...opts,
       fundSponsoredFPC: true,
-      skipAccountDeployment: true,
       l1ContractsArgs: { ...this.setupOptions },
       txPublicSetupAllowListExtend: [...(this.setupOptions.txPublicSetupAllowListExtend ?? []), ...tokenAllowList],
     });
@@ -175,7 +172,6 @@ export class FeesTest {
   public async applyBaseSetup() {
     await this.applyInitialAccounts();
     await this.applyEnsureAuthRegistryPublished();
-    await this.applyPublicDeployAccounts();
     await this.applySetupFeeJuice();
     await this.applyDeployBananaToken();
   }
@@ -188,14 +184,6 @@ export class FeesTest {
   async applyInitialAccounts() {
     this.logger.info('Applying initial accounts setup');
 
-    const { deployedAccounts } = await deployAccounts(
-      this.numberOfAccounts,
-      this.logger,
-    )({
-      wallet: this.context.wallet,
-      initialFundedAccounts: this.context.initialFundedAccounts,
-    });
-
     this.wallet = this.context.wallet;
     this.aztecNode = this.context.aztecNodeService;
     this.aztecNodeAdmin = this.context.aztecNodeService;
@@ -204,7 +192,7 @@ export class FeesTest {
       maxFeesPerGas: await getPaddedMaxFeesPerGas(this.aztecNode),
     });
     this.cheatCodes = this.context.cheatCodes;
-    this.accounts = deployedAccounts.map(a => a.address);
+    this.accounts = this.context.accounts;
     this.accounts.forEach((a, i) => this.logger.verbose(`Account ${i} address: ${a}`));
     [this.aliceAddress, this.bobAddress, this.sequencerAddress] = this.accounts.slice(0, 3);
 
@@ -213,11 +201,6 @@ export class FeesTest {
 
     const canonicalFeeJuice = await getCanonicalFeeJuice();
     this.feeJuiceContract = FeeJuiceContract.at(canonicalFeeJuice.address, this.wallet);
-  }
-
-  async applyPublicDeployAccounts() {
-    this.logger.info('Applying public deploy accounts setup');
-    await publicDeployAccounts(this.wallet, this.accounts);
   }
 
   async applySetupFeeJuice() {

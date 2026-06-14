@@ -58,7 +58,9 @@ async function main() {
   // incompatible with Node.js import attribute enforcement.
   const testAccountsData = await getInitialTestAccountsData();
   const accounts = await Promise.all(
-    testAccountsData.map(({ secret, salt, signingKey }) => wallet.createSchnorrAccount(secret, salt, signingKey)),
+    testAccountsData.map(({ secret, salt, signingKey }) =>
+      wallet.createSchnorrInitializerlessAccount(secret, salt, signingKey),
+    ),
   );
 
   // Register and deploy the 4th account.
