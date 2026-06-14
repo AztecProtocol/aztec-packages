@@ -198,9 +198,10 @@ function avm_check_circuit_cmds {
   # Commands run from repo root via parallelize, so use path from top
   local dump_dir_from_top="yarn-project/end-to-end/$default_avm_inputs_dump_dir"
 
-  # Specify timeout and resources. Some generated traces are large enough that
-  # check-circuit can exceed 30s under the default 2-CPU isolated CI quota.
-  local timeout="${AVM_CHECK_CIRCUIT_TIMEOUT:-60s}"
+  # Specify timeout and resources.
+  # Most e2e test txs are small and check-circuit on them finishes in a few seconds, but heavier txs
+  # can need noticeably more time under the default 2-CPU isolated CI quota.
+  local timeout="${AVM_CHECK_CIRCUIT_TIMEOUT:-120s}"
   local prefix="$hash:ISOLATE=1:TIMEOUT=$timeout"
 
   # Find all .bin files in the dump directory (handles nested dirs)
