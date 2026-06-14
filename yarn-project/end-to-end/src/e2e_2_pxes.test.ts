@@ -1,4 +1,4 @@
-import type { InitialAccountData } from '@aztec/accounts/testing';
+import { type InitialAccountData, generateSchnorrAccounts } from '@aztec/accounts/testing';
 import { NO_FROM } from '@aztec/aztec.js/account';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
@@ -25,7 +25,7 @@ describe('e2e_2_pxes', () => {
   let walletB: TestWallet;
   let accountAAddress: AztecAddress;
   let accountBAddress: AztecAddress;
-  let initialFundedAccounts: InitialAccountData[];
+  let additionallyFundedAccounts: InitialAccountData[];
   let logger: Logger;
   let teardownA: () => Promise<void>;
   let teardownB: () => Promise<void>;
@@ -49,18 +49,22 @@ describe('e2e_2_pxes', () => {
   beforeEach(async () => {
     ({
       aztecNode,
-      initialFundedAccounts,
+      additionallyFundedAccounts,
       wallet: walletA,
       accounts: [accountAAddress],
       logger,
       teardown: teardownA,
-    } = await setup(1, { ...AUTOMINE_E2E_OPTS, numberOfInitialFundedAccounts: 3 }));
+      // accountA is the default initializerless account; accountB/C are created+deployed from these.
+    } = await setup(1, {
+      ...AUTOMINE_E2E_OPTS,
+      additionallyFundedAccounts: await generateSchnorrAccounts(3, 'schnorr'),
+    }));
 
     ({
       wallet: walletB,
       address: accountBAddress,
       teardown: teardownB,
-    } = await setupSecondaryPXE(aztecNode, initialFundedAccounts, 1, 'pxe-b'));
+    } = await setupSecondaryPXE(aztecNode, additionallyFundedAccounts, 1, 'pxe-b'));
 
     await walletA.registerSender(accountBAddress, 'accountB');
     await walletB.registerSender(accountAAddress, 'accountA');
@@ -189,7 +193,7 @@ describe('e2e_2_pxes', () => {
     const transferAmount2 = 323n;
 
     // setup an account that is shared across PXEs
-    const sharedAccount = initialFundedAccounts[2];
+    const sharedAccount = additionallyFundedAccounts[2];
     const sharedAccountOnAManager = await walletA.createSchnorrAccount(sharedAccount.secret, sharedAccount.salt);
     const sharedAccountOnADeployMethod = await sharedAccountOnAManager.getDeployMethod();
     await sharedAccountOnADeployMethod.send({ from: NO_FROM });
@@ -233,7 +237,7 @@ describe('e2e_2_pxes', () => {
       wallet: walletC,
       address: accountCAddress,
       teardown: teardownC,
-    } = await setupSecondaryPXE(aztecNode, initialFundedAccounts, 2, 'pxe-c');
+    } = await setupSecondaryPXE(aztecNode, additionallyFundedAccounts, 2, 'pxe-c');
     await walletC.registerContract(instance, TokenContract.artifact);
 
     // Transfer from A to C

@@ -6,8 +6,8 @@ const nodeUrl = process.env.AZTEC_NODE_URL ?? "http://localhost:8080";
 const wallet = await EmbeddedWallet.create(nodeUrl, { ephemeral: true });
 
 const [alice, bob] = await getInitialTestAccountsData();
-await wallet.createSchnorrAccount(alice.secret, alice.salt);
-await wallet.createSchnorrAccount(bob.secret, bob.salt);
+await wallet.createSchnorrInitializerlessAccount(alice.secret, alice.salt);
+await wallet.createSchnorrInitializerlessAccount(bob.secret, bob.salt);
 // docs:end:setup
 
 // docs:start:deploy

@@ -16,6 +16,11 @@ export class LazyAccountContractsProvider implements AccountContractsProvider {
     return new SchnorrAccountContract(signingKey);
   }
 
+  async getSchnorrInitializerlessAccountContract(signingKey: Fq): Promise<AccountContract> {
+    const { SchnorrInitializerlessAccountContract } = await import('@aztec/accounts/schnorr/lazy');
+    return new SchnorrInitializerlessAccountContract(signingKey);
+  }
+
   async getEcdsaRAccountContract(signingKey: Buffer): Promise<AccountContract> {
     const { EcdsaRAccountContract } = await import('@aztec/accounts/ecdsa/lazy');
     return new EcdsaRAccountContract(signingKey);

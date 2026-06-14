@@ -120,7 +120,7 @@ describe('e2e_debug_trace_transaction', () => {
         }
       });
 
-    expect(await aztecNode.getBlockNumber()).toBeGreaterThanOrEqual(2);
+    expect(await aztecNode.getBlockNumber()).toBeGreaterThanOrEqual(1);
 
     // The current config requires at least 1 tx per block, so the block number won't be increasing
 
@@ -242,7 +242,7 @@ describe('e2e_debug_trace_transaction', () => {
         }
       });
 
-    expect(await aztecNode.getBlockNumber()).toBeGreaterThanOrEqual(2);
+    expect(await aztecNode.getBlockNumber()).toBeGreaterThanOrEqual(1);
 
     const numBlocksToMine = 3;
     const startBlockNumber = await aztecNode.getBlockNumber();

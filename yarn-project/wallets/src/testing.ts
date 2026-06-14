@@ -1,32 +1,25 @@
 import type { InitialAccountData } from '@aztec/accounts/testing';
 import { getInitialTestAccountsData } from '@aztec/accounts/testing/lazy';
-import { NO_FROM } from '@aztec/aztec.js/account';
-import type { WaitOpts } from '@aztec/aztec.js/contracts';
 import type { AccountManager } from '@aztec/aztec.js/wallet';
 import type { Fq, Fr } from '@aztec/foundation/curves/bn254';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 interface WalletWithSchnorrAccounts {
-  createSchnorrAccount(secret: Fr, salt: Fr, signingKey?: Fq, alias?: string): Promise<AccountManager>;
+  createSchnorrInitializerlessAccount(secret: Fr, salt: Fr, signingKey?: Fq, alias?: string): Promise<AccountManager>;
 }
 
-export async function deployFundedSchnorrAccounts(
+/**
+ * Creates the given (genesis-funded) test accounts as initializerless schnorr accounts. Initializerless
+ * accounts need no deployment tx — creating one registers the instance and materializes its immutable keys
+ * locally — so the accounts are usable as soon as they are created, funded via genesis at their addresses.
+ */
+export async function createFundedInitializerlessAccounts(
   wallet: WalletWithSchnorrAccounts,
   accountsData: InitialAccountData[],
-  waitOptions?: WaitOpts,
 ) {
   const accountManagers = [];
-  // Serial due to https://github.com/AztecProtocol/aztec-packages/issues/12045
-  for (let i = 0; i < accountsData.length; i++) {
-    const { secret, salt, signingKey } = accountsData[i];
-    const accountManager = await wallet.createSchnorrAccount(secret, salt, signingKey);
-    const deployMethod = await accountManager.getDeployMethod();
-    await deployMethod.send({
-      from: NO_FROM,
-      skipClassPublication: i !== 0,
-      wait: waitOptions,
-    });
-    accountManagers.push(accountManager);
+  for (const { secret, salt, signingKey } of accountsData) {
+    accountManagers.push(await wallet.createSchnorrInitializerlessAccount(secret, salt, signingKey));
   }
   return accountManagers;
 }
@@ -37,7 +30,8 @@ export async function registerInitialLocalNetworkAccountsInWallet(
   const testAccounts = await getInitialTestAccountsData();
   return Promise.all(
     testAccounts.map(async account => {
-      return (await wallet.createSchnorrAccount(account.secret, account.salt, account.signingKey)).address;
+      return (await wallet.createSchnorrInitializerlessAccount(account.secret, account.salt, account.signingKey))
+        .address;
     }),
   );
 }

@@ -98,14 +98,14 @@ function build {
     download_with_fallback "$g2" "g2.dat"
   fi
 
-  # TODO: This grumpkin CRS in S3 still has the 28 byte header on it. Remove.
-  # And if we ever need more than transcript00.dat, concatenate to single file like we did with bn254 above.
+  # grumpkin_g1_v2.dat: regenerated after affine_element::from_compressed started rejecting
+  # non-canonical x coordinates, so it must match binaries built with that fix.
   crs_size=$((2**18))
   crs_size_bytes=$((crs_size*64))
-  gg1=$crs_path/grumpkin_g1.flat.dat
+  gg1=$crs_path/grumpkin_g1_v2.flat.dat
   if [ ! -f "$gg1" ] || [ $(stat -c%s "$gg1") -lt $crs_size_bytes ]; then
     echo "Downloading grumpkin crs of size: ${crs_size} ($((crs_size_bytes/(1024*1024)))MB)"
-    download_with_fallback "$gg1" "grumpkin_g1.dat" "bytes=0-$((crs_size_bytes-1))"
+    download_with_fallback "$gg1" "grumpkin_g1_v2.dat" "bytes=0-$((crs_size_bytes-1))"
   fi
 }
 

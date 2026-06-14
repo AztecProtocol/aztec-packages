@@ -35,7 +35,7 @@ const node = createAztecNodeClient(nodeUrl);
 await waitForNode(node);
 const wallet = await EmbeddedWallet.create(node, { ephemeral: true });
 const [accData] = await getInitialTestAccountsData();
-const account = await wallet.createSchnorrAccount(
+const account = await wallet.createSchnorrInitializerlessAccount(
   accData.secret,
   accData.salt,
   accData.signingKey,
@@ -385,7 +385,9 @@ const isLocalNetwork =
   nodeUrl.includes("localhost") ||
   nodeUrl.includes("127.0.0.1") ||
   nodeUrl.includes("local-network");
-const nodeDebug = isLocalNetwork ? createAztecNodeDebugClient(nodeUrl) : undefined;
+const nodeDebug = isLocalNetwork
+  ? createAztecNodeDebugClient(nodeUrl)
+  : undefined;
 
 console.log("Waiting for block to be proven...\n");
 

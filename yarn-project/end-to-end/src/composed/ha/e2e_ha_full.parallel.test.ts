@@ -5,9 +5,7 @@
  * and Web3Signer for remote signing. Verifies that blocks are produced,
  * attestations are signed, and no double-signing occurs.
  */
-import type { InitialAccountData } from '@aztec/accounts/testing';
 import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
-import { getAccountContractAddress } from '@aztec/aztec.js/account';
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
 import { NO_WAIT, getContractInstanceFromInstantiationParams } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
@@ -51,10 +49,6 @@ import {
   setupHADatabase,
   verifyNoDuplicateAttestations,
 } from '../../fixtures/ha_setup.js';
-import {
-  SCHNORR_HARDCODED_PRIVATE_KEY,
-  SchnorrHardcodedKeyAccountContract,
-} from '../../fixtures/schnorr_hardcoded_account_contract.js';
 import { getPrivateKeyFromIndex, setup } from '../../fixtures/utils.js';
 import {
   createWeb3SignerKeystore,
@@ -68,21 +62,6 @@ import { proveInteraction } from '../../test-wallet/utils.js';
 const NODE_COUNT = 5;
 const VALIDATOR_COUNT = 4;
 const COMMITTEE_SIZE = 4;
-
-async function getHardcodedAccountData(secret: Fr, salt: Fr): Promise<InitialAccountData> {
-  const contract = new SchnorrHardcodedKeyAccountContract();
-  const address = await getAccountContractAddress(contract, secret, salt);
-  return { secret, salt, signingKey: SCHNORR_HARDCODED_PRIVATE_KEY, address };
-}
-
-async function registerHardcodedAccount(wallet: TestWallet, accountData: InitialAccountData): Promise<AztecAddress> {
-  const accountManager = await wallet.createAccount({
-    secret: accountData.secret,
-    salt: accountData.salt,
-    contract: new SchnorrHardcodedKeyAccountContract(),
-  });
-  return accountManager.address;
-}
 
 async function registerTestContract(wallet: TestWallet): Promise<TestContract> {
   const instance = await getContractInstanceFromInstantiationParams(TestContract.artifact, {
@@ -119,6 +98,7 @@ describe('HA Full Setup', () => {
   let aztecNode: AztecNode;
   let config: AztecNodeConfig;
   let teardown: () => Promise<void> = async () => {};
+  let accounts: AztecAddress[];
   let dateProvider: TestDateProvider;
   let genesis: GenesisData | undefined;
 
@@ -222,50 +202,54 @@ describe('HA Full Setup', () => {
     );
 
     const initialValidators = createInitialValidatorsFromPrivateKeys(attesterPrivateKeys);
-    const hardcodedAccountData = await getHardcodedAccountData(Fr.random(), Fr.random());
 
-    ({ teardown, logger, wallet, aztecNode, config, dateProvider, deployL1ContractsValues, genesis } = await setup(
-      0,
-      {
-        ...PIPELINING_SETUP_OPTS,
-        automineL1Setup: true,
-        initialFundedAccounts: [hardcodedAccountData],
-        initialValidators,
-        sequencerPublisherPrivateKeys: [new SecretValue(publisherPrivateKeys[0])],
-        aztecTargetCommitteeSize: COMMITTEE_SIZE,
-        // The full HA docker/Web3Signer stack can still be joining and syncing after the shared
-        // 12s pipelining preset's 2.5s start window has closed. Keep real sequencing, but give
-        // HA validators enough time to pass the enforced build-start gate in CI.
-        aztecSlotDuration: 16,
-        // This suite validates HA coordination on tx-bearing checkpoints. Requiring one tx avoids a startup empty
-        // checkpoint from occupying the shared HA publisher while the trigger tx is still being prepared.
-        minTxsPerBlock: 1,
-        archiverPollingIntervalMS: 200,
-        sequencerPollingIntervalMS: 200,
-        worldStateBlockCheckIntervalMS: 200,
-        blockCheckIntervalMS: 200,
-        startProverNode: true,
-        // The bootstrap node is only an RPC/P2P anchor. HA validators are the first block producers in this suite.
-        disableValidator: true,
-        skipAccountDeployment: true,
-        // Enable P2P for transaction gossip
-        p2pEnabled: true,
-        // Enable slashing for testing governance + slashing vote coordination
-        slasherEnabled: true,
-        slashingRoundSizeInEpochs: 1, // 32 slots (1 epoch)
-        slashingQuorum: 17, // >50% of 32 slots for tally quorum,
-      },
-      { syncChainTip: 'proven' },
-    ));
+    ({ teardown, logger, wallet, aztecNode, config, accounts, dateProvider, deployL1ContractsValues, genesis } =
+      await setup(
+        // A single default initializerless account, created/funded/registered by setup with no on-chain
+        // deploy tx -- the bootstrap node can't build blocks (disableValidator), so the owner must be usable
+        // without one.
+        1,
+        {
+          ...PIPELINING_SETUP_OPTS,
+          automineL1Setup: true,
+          initialValidators,
+          sequencerPublisherPrivateKeys: [new SecretValue(publisherPrivateKeys[0])],
+          aztecTargetCommitteeSize: COMMITTEE_SIZE,
+          // The full HA docker/Web3Signer stack can still be joining and syncing after the shared
+          // 12s pipelining preset's 2.5s start window has closed. Keep real sequencing, but give
+          // HA validators enough time to pass the enforced build-start gate in CI.
+          aztecSlotDuration: 16,
+          // This suite validates HA coordination on tx-bearing checkpoints. Requiring one tx avoids a startup empty
+          // checkpoint from occupying the shared HA publisher while the trigger tx is still being prepared.
+          minTxsPerBlock: 1,
+          archiverPollingIntervalMS: 200,
+          sequencerPollingIntervalMS: 200,
+          worldStateBlockCheckIntervalMS: 200,
+          blockCheckIntervalMS: 200,
+          startProverNode: true,
+          // The bootstrap node is only an RPC/P2P anchor. HA validators are the first block producers in this suite.
+          disableValidator: true,
+          // This node cannot build blocks (validation is disabled and the committee's HA nodes start later),
+          // so setup must not wait for a block past genesis.
+          advancePastGenesis: false,
+          // Enable P2P for transaction gossip
+          p2pEnabled: true,
+          // Enable slashing for testing governance + slashing vote coordination
+          slasherEnabled: true,
+          slashingRoundSizeInEpochs: 1, // 32 slots (1 epoch)
+          slashingQuorum: 17, // >50% of 32 slots for tally quorum,
+        },
+        { syncChainTip: 'proven' },
+      ));
 
-    ownerAddress = await registerHardcodedAccount(wallet, hardcodedAccountData);
+    ownerAddress = accounts[0];
     testContract = await registerTestContract(wallet);
 
     if (!dateProvider) {
       throw new Error('dateProvider must be provided by setup for HA tests');
     }
 
-    logger.info('Bootstrap node setup complete; registered funded hardcoded account and test contract locally');
+    logger.info('Bootstrap node setup complete; funded initializerless account and test contract registered locally');
 
     // Get bootstrap node's P2P ENR for HA nodes to connect to
     const bootstrapNodeEnr = await aztecNode.getEncodedEnr();
@@ -373,7 +357,9 @@ describe('HA Full Setup', () => {
       1,
     );
 
-    logger.info(`Test account registered at ${ownerAddress}`);
+    // The owner is an initializerless account, so it needs no deployment tx -- it was funded at genesis
+    // and registered during setup, and is ready to transact as soon as the HA nodes start building blocks.
+    logger.info(`Test account ready at ${ownerAddress}`);
   });
 
   afterAll(async () => {
