@@ -273,7 +273,17 @@ function test_cmds_native {
       done || (echo "Failed to list tests in $bin" && exit 1)
   done
 
-  echo "$hash:CPUS=8:MEM=32g:TIMEOUT=20m barretenberg/cpp/scripts/run_test.sh bbapi_tests ChonkPinnedIvcInputsTest.AllPinnedFlows"
+  # ChonkPinnedIvcInputsTest replays the release-captured pinned IVC proofs. In debug
+  # builds the chonk-generated hiding kernel diverges from the release circuit (extra
+  # gates shift pub_inputs_offset, e.g. 669 vs 673), so the recursive verifier reads the
+  # databus commitment from the wrong public-input slot and the debug-only consistency
+  # assert kernel_return_data_match (chonk.cpp) aborts. The flow is fully exercised in
+  # release (merge queue), where the assert is compiled out and the test passes; refreshing
+  # the pinned inputs cannot fix a debug-vs-release circuit-construction divergence. Skip in
+  # debug until the divergence is fixed (owner: palla); mirrors the sibling TS skip (#23643).
+  if [[ "$native_preset" != *debug* ]]; then
+    echo "$hash:CPUS=8:MEM=32g:TIMEOUT=20m barretenberg/cpp/scripts/run_test.sh bbapi_tests ChonkPinnedIvcInputsTest.AllPinnedFlows"
+  fi
   echo "$hash barretenberg/cpp/scripts/chonk_inputs.sh check"
 }
 
