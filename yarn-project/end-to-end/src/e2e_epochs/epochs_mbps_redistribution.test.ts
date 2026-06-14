@@ -101,6 +101,10 @@ describe('e2e_epochs/epochs_mbps_redistribution', () => {
       ethereumSlotDuration: 4,
       aztecSlotDuration: 36,
       blockDurationMs: 8000,
+      // Match the 2s L1-publish budget assumed in the timing calculation above. The sequencer config
+      // defaults to 12s, which inflates the per-block timetable and makes late txs spill across two
+      // blocks instead of all landing in the last one (flaky `Set(lateBlockNumbers).size` assertion).
+      l1PublishingTime: 2,
       attestationPropagationTime: 0.5,
       aztecTargetCommitteeSize: 3,
       // Allow empty blocks so that early sub-slots without txs still produce blocks.
