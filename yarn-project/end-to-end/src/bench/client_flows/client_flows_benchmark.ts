@@ -28,18 +28,13 @@ import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { Gas, GasSettings } from '@aztec/stdlib/gas';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 
-<<<<<<< HEAD
 import {
   AUTOMINE_E2E_OPTS,
   L1_DIRECT_WRITE_ACCOUNT_INDEX,
   MNEMONIC,
   getPaddedMaxFeesPerGas,
 } from '../../fixtures/fixtures.js';
-import { type EndToEndContext, type SetupOptions, deployAccounts, setup, teardown } from '../../fixtures/setup.js';
-=======
-import { AUTOMINE_E2E_OPTS, MNEMONIC, getPaddedMaxFeesPerGas } from '../../fixtures/fixtures.js';
 import { type EndToEndContext, type SetupOptions, setup, teardown } from '../../fixtures/setup.js';
->>>>>>> origin/v5-next
 import { mintTokensToPrivate } from '../../fixtures/token_utils.js';
 import { setupSponsoredFPC } from '../../fixtures/utils.js';
 import { CrossChainTestHarness } from '../../shared/cross_chain_test_harness.js';
