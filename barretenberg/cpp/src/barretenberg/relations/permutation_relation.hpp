@@ -154,50 +154,113 @@ template <typename FF_> class UltraPermutationRelationImpl {
         const CoefficientAccumulator sigma_3_m(in[AllEntities::EntityId::sigma_3]);
         const CoefficientAccumulator sigma_4_m(in[AllEntities::EntityId::sigma_4]);
 
-        const ParameterCoefficientAccumulator gamma_m(params.gamma);
-        const ParameterCoefficientAccumulator beta_m(params.beta);
+        Accumulator numerator;
+        Accumulator denominator;
+        if constexpr (requires { Accumulator::LENGTH; }) {
+            // Prover path. beta, gamma are scalars (RelationParameters<FF> with native FF), so each
+            // grand-product factor stays a degree-1 coefficient-basis monomial (LENGTH 2). Multiply
+            // the factors pairwise with the LENGTH-2 Karatsuba (3 muls each, into a degree-2 product),
+            // then promote the two quadratics and combine with a single Accumulator multiply --
+            // 12 muls/chain instead of 18. Both verifiers (scalar Accumulator) keep the original
+            // chained product below, so the in-circuit verifier's gate count is unchanged.
+            const auto w_1_plus_gamma = w_1_m + params.gamma;
+            const auto w_2_plus_gamma = w_2_m + params.gamma;
+            const auto w_3_plus_gamma = w_3_m + params.gamma;
+            const auto w_4_plus_gamma = w_4_m + params.gamma;
 
-        const auto w_1_plus_gamma = w_1_m + gamma_m;
-        const auto w_2_plus_gamma = w_2_m + gamma_m;
-        const auto w_3_plus_gamma = w_3_m + gamma_m;
-        const auto w_4_plus_gamma = w_4_m + gamma_m;
+            auto t1 = id_1_m * params.beta;
+            t1 += w_1_plus_gamma;
+            t1 *= scaling_factor;
+            auto t2 = id_2_m * params.beta;
+            t2 += w_2_plus_gamma;
+            auto t3 = id_3_m * params.beta;
+            t3 += w_3_plus_gamma;
+            auto t4 = id_4_m * params.beta;
+            t4 += w_4_plus_gamma;
 
-        auto t1 = (id_1_m * beta_m);
-        t1 += w_1_plus_gamma;
-        t1 *= scaling_factor;
-        auto t2 = id_2_m * beta_m;
-        t2 += w_2_plus_gamma;
-        auto t3 = id_3_m * beta_m;
-        t3 += w_3_plus_gamma;
-        auto t4 = id_4_m * beta_m;
-        t4 += w_4_plus_gamma;
+            auto t5 = sigma_1_m * params.beta;
+            t5 += w_1_plus_gamma;
+            t5 *= scaling_factor;
+            auto t6 = sigma_2_m * params.beta;
+            t6 += w_2_plus_gamma;
+            auto t7 = sigma_3_m * params.beta;
+            t7 += w_3_plus_gamma;
+            auto t8 = sigma_4_m * params.beta;
+            t8 += w_4_plus_gamma;
 
-        auto t5 = sigma_1_m * beta_m;
-        t5 += w_1_plus_gamma;
-        t5 *= scaling_factor;
-        auto t6 = sigma_2_m * beta_m;
-        t6 += w_2_plus_gamma;
-        auto t7 = sigma_3_m * beta_m;
-        t7 += w_3_plus_gamma;
-        auto t8 = sigma_4_m * beta_m;
-        t8 += w_4_plus_gamma;
+            numerator = Accumulator(t1 * t2);
+            numerator *= Accumulator(t3 * t4);
+            denominator = Accumulator(t5 * t6);
+            denominator *= Accumulator(t7 * t8);
+        } else {
+            const ParameterCoefficientAccumulator gamma_m(params.gamma);
+            const ParameterCoefficientAccumulator beta_m(params.beta);
 
-        Accumulator numerator(t1);
-        numerator *= Accumulator(t2);
-        numerator *= Accumulator(t3);
-        numerator *= Accumulator(t4);
+            const auto w_1_plus_gamma = w_1_m + gamma_m;
+            const auto w_2_plus_gamma = w_2_m + gamma_m;
+            const auto w_3_plus_gamma = w_3_m + gamma_m;
+            const auto w_4_plus_gamma = w_4_m + gamma_m;
 
-        Accumulator denominator(t5);
-        denominator *= Accumulator(t6);
-        denominator *= Accumulator(t7);
-        denominator *= Accumulator(t8);
+            auto t1 = (id_1_m * beta_m);
+            t1 += w_1_plus_gamma;
+            t1 *= scaling_factor;
+            auto t2 = id_2_m * beta_m;
+            t2 += w_2_plus_gamma;
+            auto t3 = id_3_m * beta_m;
+            t3 += w_3_plus_gamma;
+            auto t4 = id_4_m * beta_m;
+            t4 += w_4_plus_gamma;
 
-        const ParameterCoefficientAccumulator public_input_delta_m(params.public_input_delta);
+            auto t5 = sigma_1_m * beta_m;
+            t5 += w_1_plus_gamma;
+            t5 *= scaling_factor;
+            auto t6 = sigma_2_m * beta_m;
+            t6 += w_2_plus_gamma;
+            auto t7 = sigma_3_m * beta_m;
+            t7 += w_3_plus_gamma;
+            auto t8 = sigma_4_m * beta_m;
+            t8 += w_4_plus_gamma;
+
+            numerator = Accumulator(t1);
+            numerator *= Accumulator(t2);
+            numerator *= Accumulator(t3);
+            numerator *= Accumulator(t4);
+
+            denominator = Accumulator(t5);
+            denominator *= Accumulator(t6);
+            denominator *= Accumulator(t7);
+            denominator *= Accumulator(t8);
+        }
+
         const auto z_perm_m = CoefficientAccumulator(in[AllEntities::EntityId::z_perm]);
         const auto z_perm_shift_m = CoefficientAccumulator(in[AllEntities::EntityId::z_perm_shift]);
         const auto lagrange_first_m = CoefficientAccumulator(in[AllEntities::EntityId::lagrange_first]);
         const auto lagrange_last_m = CoefficientAccumulator(in[AllEntities::EntityId::lagrange_last]);
 
+        using ShortAccumulator = std::tuple_element_t<1, ContainerOverSubrelations>;
+        using InitAccumulator = std::tuple_element_t<2, ContainerOverSubrelations>;
+
+        // Prover fast path. lagrange_first/lagrange_last are one-hot (zero on all but the first/last
+        // rows) and stay zero on the vast majority of edge pairs under folding. When both vanish on
+        // this edge, public_input_term collapses to z_perm_shift, the (z_perm + L_first) factor to
+        // z_perm, and subrelations (2),(3) contribute zero -- an identical accumulator value to the
+        // general path, skipping ~12 muls.
+        //
+        // Guarded on the accumulator type: the prover accumulates into Univariates (Accumulator has
+        // ::LENGTH), whereas both verifiers accumulate into scalars (Accumulator = FF, no ::LENGTH).
+        // This keeps the data-dependent branch out of the in-circuit verifier (which must not branch
+        // on witness values) and out of the native verifier's pointwise evaluation; both keep the
+        // straight-line audited computation below.
+        if constexpr (requires { Accumulator::LENGTH; }) {
+            if (lagrange_first_m.is_zero() && lagrange_last_m.is_zero()) {
+                const Accumulator public_input_term(z_perm_shift_m);
+                std::get<0>(accumulators) +=
+                    ((Accumulator(z_perm_m) * numerator) - (public_input_term * denominator));
+                return;
+            }
+        }
+
+        const ParameterCoefficientAccumulator public_input_delta_m(params.public_input_delta);
         auto public_input_term_m = lagrange_last_m * public_input_delta_m;
         public_input_term_m += z_perm_shift_m;
         const Accumulator public_input_term(public_input_term_m);
@@ -206,14 +269,11 @@ template <typename FF_> class UltraPermutationRelationImpl {
             ((Accumulator(z_perm_m + lagrange_first_m) * numerator) - (public_input_term * denominator));
 
         // Contribution (2)
-        using ShortAccumulator = std::tuple_element_t<1, ContainerOverSubrelations>;
-
         std::get<1>(accumulators) += ShortAccumulator((lagrange_last_m * z_perm_shift_m) * scaling_factor);
 
         // Contribution (3): Enforce z_perm starts at 0. The grand product initialization relies on
         // z_perm[0] = 0 so that (z_perm + L_first) evaluates to 1 at the first row.
         // Without this constraint, a cheating prover could set z_perm[0] to a non-zero value.
-        using InitAccumulator = std::tuple_element_t<2, ContainerOverSubrelations>;
         std::get<2>(accumulators) += InitAccumulator((lagrange_first_m * z_perm_m) * scaling_factor);
     };
 };

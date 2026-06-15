@@ -94,18 +94,27 @@ template <typename FF_> class Poseidon2TransitionEntryRelationImpl {
         const auto q_o = CoeffAcc(in[AllEntities::EntityId::q_o]);
         const auto q_sel = CoeffAcc(in[AllEntities::EntityId::q_poseidon2_transition_entry]);
 
-        auto pow5 = [](const Accumulator& x) -> Accumulator {
-            auto sq = x.sqr();
-            auto quart = sq.sqr();
-            return quart * x;
+        // The pow5 input is degree 1. In the prover (Accumulator is a Univariate, so it has ::LENGTH)
+        // the first square is taken in coefficient basis (3 muls) before promoting to the length-7
+        // Lagrange accumulator. Both verifiers accumulate into scalars (Accumulator = FF, no ::LENGTH)
+        // and keep the original promote-then-square path, so their constraints are unchanged.
+        auto pow5 = [](const auto& x_m) -> Accumulator {
+            const Accumulator x(x_m);
+            if constexpr (requires { Accumulator::LENGTH; }) {
+                const Accumulator sq(x_m.sqr());
+                return sq.sqr() * x;
+            } else {
+                const auto sq = x.sqr();
+                return sq.sqr() * x;
+            }
         };
 
         // u_0 = (w_l + q_l)^5
-        auto u_0 = pow5(Accumulator(w_l + q_l));
+        auto u_0 = pow5(w_l + q_l);
         // u_1 = (w_r_shift + q_r)^5
-        auto u_1 = pow5(Accumulator(w_r_shift + q_r));
+        auto u_1 = pow5(w_r_shift + q_r);
         // u_2 = (w_o_shift + q_o)^5
-        auto u_2 = pow5(Accumulator(w_o_shift + q_o));
+        auto u_2 = pow5(w_o_shift + q_o);
 
         const auto q_by_scaling_m = q_sel * scaling_factor;
         const auto q_by_scaling = Accumulator(q_by_scaling_m);

@@ -219,6 +219,20 @@ template <class Fr, size_t domain_end, bool has_a0_plus_a1> class UnivariateCoef
         return result;
     }
 
+    // True iff the represented polynomial is identically zero. Checks the genuine coefficients
+    // a0, a1 (and a2 for LENGTH 3); for has_a0_plus_a1 layouts coefficients[2] = a0 + a1 is then
+    // also zero, so it need not be checked separately.
+    bool is_zero() const
+    {
+        if (!coefficients[0].is_zero() || !coefficients[1].is_zero()) {
+            return false;
+        }
+        if constexpr (domain_end == 3) {
+            return coefficients[2].is_zero();
+        }
+        return true;
+    }
+
     // Operations between Univariate and scalar
     UnivariateCoefficientBasis& operator+=(const Fr& scalar)
         requires(!has_a0_plus_a1)

@@ -115,16 +115,26 @@ template <typename FF_> class Poseidon2ExternalRelationImpl {
 
         // add round constants which are loaded in selectors
 
-        auto sbox = [](const Accumulator& x) {
-            auto t2 = x.sqr();  // x^2
-            auto t4 = t2.sqr(); // x^4
-            return t4 * x;      // x^5
+        // The sbox input (w_i + c_i) is degree 1. In the prover (Accumulator is a Univariate, so it
+        // has ::LENGTH) the first square is taken in coefficient basis (3 muls) and only then
+        // promoted to the length-7 Lagrange accumulator. Both verifiers accumulate into scalars
+        // (Accumulator = FF, no ::LENGTH) and keep the original promote-then-square path, so their
+        // computation -- and the in-circuit verifier's constraint system -- is unchanged.
+        auto sbox = [](const auto& x_m) {
+            const Accumulator x(x_m);
+            if constexpr (requires { Accumulator::LENGTH; }) {
+                const Accumulator t2(x_m.sqr()); // x^2
+                return t2.sqr() * x;             // x^4 * x = x^5
+            } else {
+                const auto t2 = x.sqr(); // x^2
+                return t2.sqr() * x;     // x^4 * x = x^5
+            }
         };
         // apply s-box round
-        auto u1 = sbox(Accumulator(w_1 + c_1));
-        auto u2 = sbox(Accumulator(w_2 + c_2));
-        auto u3 = sbox(Accumulator(w_3 + c_3));
-        auto u4 = sbox(Accumulator(w_4 + c_4));
+        auto u1 = sbox(w_1 + c_1);
+        auto u2 = sbox(w_2 + c_2);
+        auto u3 = sbox(w_3 + c_3);
+        auto u4 = sbox(w_4 + c_4);
         // Matrix mul v = M_E * u with 14 additions.
         // Precompute common summands.
         auto t0 = u1 + u2; // u_1 + u_2

@@ -18,6 +18,8 @@
 #include "zk_sumcheck_data.hpp"
 
 #include <algorithm>
+#include <array>
+#include <bitset>
 
 namespace bb {
 
@@ -56,6 +58,11 @@ template <typename Flavor> class SumcheckProverRound {
     using ExtendedEdges = std::conditional_t<Flavor::USE_SHORT_MONOMIALS,
                                              typename Flavor::template ProverUnivariates<2>,
                                              typename Flavor::ExtendedEdges>;
+    // Lazy per-column edge materialization applies to short-monomial flavors that expose the
+    // generated array layout (EntityId-keyed access) -- i.e. Ultra/Mega. ECCVM/Translator are
+    // short-monomial but lack a nested EntityId, so they keep the eager extend_edges path.
+    static constexpr bool USE_LAZY_SHORT_EDGES =
+        Flavor::USE_SHORT_MONOMIALS && requires { typename Flavor::template ProverUnivariates<2>::EntityId; };
     using ZKData = ZKSumcheckData<Flavor>;
     /**
      * @brief In Round \f$i = 0,\ldots, d-1\f$, equals \f$2^{d-i}\f$.
@@ -174,6 +181,73 @@ template <typename Flavor> class SumcheckProverRound {
                                         .template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
                 }
             }
+        }
+    }
+
+    /**
+     * @brief Lazy edge container for USE_SHORT_MONOMIALS flavors.
+     * @details For short-monomial flavors the edge "extension" is the identity (relations consume the
+     * degree-1 edge \f$\{P_j(\text{edge}), P_j(\text{edge}+1)\}\f$ directly), so the eager `extend_edges`
+     * copies all NUM_ALL_ENTITIES columns up front, including columns of relations that `skip()` on this
+     * row. This container instead materializes each entity's edge on first access for the current edge,
+     * so columns never read by an active relation are never touched. Values are cached in inline storage
+     * and returned by reference, so `UnivariateView` consumers (which alias their operand) stay valid.
+     * Relations index exclusively via `operator[](EntityId)` (verified across the relation set), so the
+     * named accessors / `get_all` of the materialized container are not needed here.
+     */
+    template <typename Multivariates> class LazyExtendedEdges {
+      public:
+        using EntityId = typename Flavor::template ProverUnivariates<2>::EntityId;
+
+        explicit LazyExtendedEdges(const Multivariates& multivariates)
+            : multivariates(multivariates)
+        {}
+
+        void set_current_edge(const size_t edge_idx)
+        {
+            current_edge = edge_idx;
+            materialized.reset();
+        }
+
+        const bb::Univariate<FF, 2>& operator[](const EntityId id) const
+        {
+            const size_t index = static_cast<size_t>(id);
+            if (!materialized.test(index)) {
+                const auto& multivariate = multivariates.get_all()[index];
+                cache[index] = bb::Univariate<FF, 2>({ multivariate[current_edge], multivariate[current_edge + 1] });
+                materialized.set(index);
+            }
+            return cache[index];
+        }
+
+      private:
+        const Multivariates& multivariates;
+        mutable std::array<bb::Univariate<FF, 2>, Flavor::NUM_ALL_ENTITIES> cache{};
+        size_t current_edge = 0;
+        mutable std::bitset<Flavor::NUM_ALL_ENTITIES> materialized;
+    };
+
+    // Construct the per-thread edge container: lazy for AVM and short-monomial flavors (materialize
+    // columns on demand), eager (full copy via extend_edges) otherwise.
+    template <typename Multivariates> auto make_extended_edges(const Multivariates& multivariates)
+    {
+        if constexpr (isAvmFlavor<Flavor>) {
+            return ExtendedEdges(multivariates);
+        } else if constexpr (USE_LAZY_SHORT_EDGES) {
+            return LazyExtendedEdges<Multivariates>(multivariates);
+        } else {
+            return ExtendedEdges{};
+        }
+    }
+
+    // Point an edge container produced by make_extended_edges at edge_idx.
+    template <typename Edges, typename Multivariates>
+    void load_edge(Edges& edges, const Multivariates& multivariates, const size_t edge_idx)
+    {
+        if constexpr (isAvmFlavor<Flavor> || USE_LAZY_SHORT_EDGES) {
+            edges.set_current_edge(edge_idx);
+        } else {
+            extend_edges(edges, multivariates, edge_idx);
         }
     }
 
@@ -528,12 +602,12 @@ template <typename Flavor> class SumcheckProverRound {
 
             parallel_for(chunks.num_slots(), [&](size_t slot_id) {
                 // Construct extended univariates container; reused across every chunk this slot claims.
-                ExtendedEdges extended_edges;
+                auto extended_edges = make_extended_edges(polynomials);
                 auto& accum = thread_univariate_accumulators[slot_id];
                 while (auto range = chunks.pop()) {
                     const auto [start, end] = *range;
                     for (size_t edge_idx = start; edge_idx < end; edge_idx += 2) {
-                        extend_edges(extended_edges, polynomials, edge_idx);
+                        load_edge(extended_edges, polynomials, edge_idx);
                         // Compute the \f$ \ell \f$-th edge's univariate contribution,
                         // scale it by the corresponding \f$ pow_{\beta} \f$ contribution and add it to the accumulators
                         // for \f$ \tilde{S}^i(X_i) \f$. If \f$ \ell \f$'s binary representation is given by \f$
@@ -568,23 +642,41 @@ template <typename Flavor> class SumcheckProverRound {
 
         // Construct univariate accumulator containers; one per thread
         // Note: std::vector will trigger {}-initialization of the contents. Therefore no need to zero the univariates.
-        std::vector<SumcheckTupleOfTuplesOfUnivariates> thread_univariate_accumulators(get_num_cpus());
+        // Flatten the manifest into fixed-size chunks handed out via an atomic counter (work
+        // stealing), as in the non-manifest branch above. A static per-block ThreadChunk split
+        // leaves threads idle on fragmented manifests (Translator's round-0 manifest has many
+        // small blocks) and stalls on stragglers when cores are heterogeneous; measured on a
+        // 2^17 Translator round this branch scaled only ~1.5x from 2 to 4 cores versus ~1.9x
+        // for the chunk-stealing branch.
+        constexpr size_t manifest_rows_per_chunk = 64;
+        std::vector<BlockOfContiguousRows> chunk_list;
+        for (const BlockOfContiguousRows& block : round_manifest) {
+            for (size_t offset = 0; offset < block.size; offset += manifest_rows_per_chunk) {
+                chunk_list.push_back(BlockOfContiguousRows{
+                    .starting_edge_idx = block.starting_edge_idx + offset,
+                    .size = std::min(manifest_rows_per_chunk, block.size - offset),
+                });
+            }
+        }
+        std::atomic<size_t> next_chunk{ 0 };
+        const size_t num_slots = std::min(get_num_cpus(), std::max<size_t>(chunk_list.size(), 1));
+        std::vector<SumcheckTupleOfTuplesOfUnivariates> thread_univariate_accumulators(num_slots);
 
-        parallel_for([&](ThreadChunk chunk) {
+        parallel_for(num_slots, [&](size_t slot_id) {
             BB_BENCH_NAME("compute_univariate_with_row_skipping/accumulate_blocks");
-            // Construct extended univariates containers; one per thread
-            ExtendedEdges extended_edges;
+            // Construct extended univariates containers; one per slot
+            auto extended_edges = make_extended_edges(polynomials);
+            auto& accum = thread_univariate_accumulators[slot_id];
 
-            // Process each block, dividing work within each block
-            for (const BlockOfContiguousRows& block : round_manifest) {
-                size_t block_iterations = block.size / 2;
-
-                // Get the range of iterations this thread should process for this block
-                auto iteration_range = chunk.range(block_iterations);
-
-                for (size_t i : iteration_range) {
-                    size_t edge_idx = block.starting_edge_idx + (i * 2);
-                    extend_edges(extended_edges, polynomials, edge_idx);
+            while (true) {
+                const size_t chunk_idx = next_chunk.fetch_add(1, std::memory_order_relaxed);
+                if (chunk_idx >= chunk_list.size()) {
+                    break;
+                }
+                const BlockOfContiguousRows& chunk = chunk_list[chunk_idx];
+                for (size_t edge_idx = chunk.starting_edge_idx; edge_idx < chunk.starting_edge_idx + chunk.size;
+                     edge_idx += 2) {
+                    load_edge(extended_edges, polynomials, edge_idx);
                     // Compute the \f$ \ell \f$-th edge's univariate contribution,
                     // scale it by the corresponding \f$ pow_{\beta} \f$ contribution and add it to the accumulators
                     // for \f$
@@ -598,10 +690,7 @@ template <typename Flavor> class SumcheckProverRound {
                     if constexpr (!isMultilinearBatchingFlavor<Flavor>) {
                         scaling_factor = gate_separators[edge_idx];
                     }
-                    accumulate_relation_univariates(thread_univariate_accumulators[chunk.thread_index],
-                                                    extended_edges,
-                                                    relation_parameters,
-                                                    scaling_factor);
+                    accumulate_relation_univariates(accum, extended_edges, relation_parameters, scaling_factor);
                 }
             }
         });
@@ -645,10 +734,10 @@ template <typename Flavor> class SumcheckProverRound {
         requires UseRowDisablingPolynomial<Flavor>
     {
         SumcheckTupleOfTuplesOfUnivariates univariate_accumulator{};
-        ExtendedEdges extended_edges;
+        auto extended_edges = make_extended_edges(polynomials);
 
         for (size_t edge_idx = 0; edge_idx < excluded_head_size; edge_idx += 2) {
-            extend_edges(extended_edges, polynomials, edge_idx);
+            load_edge(extended_edges, polynomials, edge_idx);
             accumulate_relation_univariates(
                 univariate_accumulator, extended_edges, relation_parameters, gate_separators[edge_idx]);
         }
@@ -678,18 +767,8 @@ template <typename Flavor> class SumcheckProverRound {
         const size_t virtual_contribution_edge_idx = 0;
 
         // Perform the usual sumcheck accumulation, but for a single edge.
-        // Note: we use a combination of `auto`, constexpr and a lambda to construct different types.
-        auto extended_edges = [&]() {
-            if constexpr (isAvmFlavor<Flavor>) {
-                auto lazy_extended_edges = ExtendedEdges(polynomials);
-                lazy_extended_edges.set_current_edge(virtual_contribution_edge_idx);
-                return lazy_extended_edges;
-            } else {
-                ExtendedEdges extended_edges;
-                extend_edges(extended_edges, polynomials, virtual_contribution_edge_idx);
-                return extended_edges;
-            }
-        }();
+        auto extended_edges = make_extended_edges(polynomials);
+        load_edge(extended_edges, polynomials, virtual_contribution_edge_idx);
 
         // The tail of G(X) = \prod_{k} (1 + X_k(\beta_k - 1) ) evaluated at the edge (0, ..., 0).
         const FF gate_separator_tail{ 1 };
@@ -780,7 +859,9 @@ template <typename Flavor> class SumcheckProverRound {
         const ExtendedUnivariate main_factor = main_linear.template extend_to<ExtendedUnivariate::LENGTH>();
         const ExtendedUnivariate offset_factor = offset_linear.template extend_to<ExtendedUnivariate::LENGTH>();
 
-        constexpr_for<0, std::tuple_size_v<TupleOfTuplesOfUnivariates>, 1>([&]<size_t relation_idx>() {
+        // Extend and batch one relation's subrelation accumulators, applying the appropriate
+        // row-disabling factor. Independent across relations, so it can run serially or in parallel.
+        auto batch_one_relation = [&]<size_t relation_idx>() -> ExtendedUnivariate {
             using Relation = typename std::tuple_element_t<relation_idx, Relations>;
             const auto& outer_element = std::get<relation_idx>(tuple);
 
@@ -807,11 +888,37 @@ template <typename Flavor> class SumcheckProverRound {
                 });
 
             if constexpr (IsOffsetOnlyRelation<Relation>) {
-                result += per_relation * offset_factor;
+                return per_relation * offset_factor;
             } else {
-                result += per_relation * main_factor;
+                return per_relation * main_factor;
             }
-        });
+        };
+
+        constexpr size_t num_relations_in_tuple = std::tuple_size_v<TupleOfTuplesOfUnivariates>;
+        // Batching runs every round at a fixed cost independent of the round size, so for flavors
+        // with many high-degree subrelations (ECCVM: ~86 subrelations extended to length 24) it
+        // dominates the geometrically shrinking sumcheck tail as a serial per-round floor. Batch
+        // per-relation in parallel for such flavors; light flavors (Mega/Ultra/Translator) keep
+        // the serial loop, where thread dispatch would cost more than it saves.
+        constexpr bool parallel_batch =
+            Flavor::NUM_SUBRELATIONS * ExtendedUnivariate::LENGTH * ExtendedUnivariate::LENGTH > 20000;
+        if constexpr (parallel_batch) {
+            std::array<ExtendedUnivariate, num_relations_in_tuple> per_relation_results;
+            parallel_for(num_relations_in_tuple, [&](size_t r) {
+                constexpr_for<0, num_relations_in_tuple, 1>([&]<size_t relation_idx>() {
+                    if (relation_idx == r) {
+                        per_relation_results[relation_idx] = batch_one_relation.template operator()<relation_idx>();
+                    }
+                });
+            });
+            for (const auto& per_relation : per_relation_results) {
+                result += per_relation;
+            }
+        } else {
+            constexpr_for<0, num_relations_in_tuple, 1>([&]<size_t relation_idx>() {
+                result += batch_one_relation.template operator()<relation_idx>();
+            });
+        }
     }
 
     /**
