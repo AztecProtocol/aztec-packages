@@ -101,12 +101,6 @@ class ChonkPinnedIvcInputsTest : public ::testing::Test {
         }
 
         auto prove_response = bb::bbapi::ChonkProve{}.execute(request);
-<<<<<<< HEAD
-        auto vk_response = bb::bbapi::ChonkComputeVk{ .circuit = { .bytecode = hiding_bytecode },
-                                                      .kind = bb::CircuitKind::HidingKernel }
-                               .execute();
-=======
->>>>>>> origin/public-next
 
         auto verify_response =
             bb::bbapi::ChonkVerify{ .proof = std::move(prove_response.proof), .vk = hiding_vk }.execute();
