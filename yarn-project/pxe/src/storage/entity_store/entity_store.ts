@@ -16,8 +16,8 @@ type FactBuffer = Buffer;
 /** An entity as returned by the store: its key and body, plus its facts in creation order. */
 export type Entity = { key: EntityKey; body: Fr[]; facts: Fact[] };
 
-/** An entity record together with its facts keyed by fact key — the shape the DB read and entity replay pass around. */
-type EntityWithFacts = { entity: StoredEntity; facts: Map<FactKeyStr, StoredFact> };
+/** Internal auxiliary type to deal with fact ordering and idempotency */
+type EntityWithFacts = { key: EntityKey; body: Fr[]; facts: Map<FactKeyStr, Fact> };
 
 /** A pending mutation for a job: create an entity, record a fact, or terminate (delete) an entity. */
 type StagedOp =
@@ -116,16 +116,16 @@ export class EntityStore implements StagedStore {
   }
 
   /**
-   * Stages a fact for recording under the given job.
+   * Records a fact.
    *
    * Rejects if its entity does not exist.
    *
    * `originBlock === undefined` marks the fact non-retractable (it survives reorgs); a defined origin block ties the
    * fact to a specific block and it will be deleted on prune.
    *
-   * Facts are returned in creation order by the read methods.
+   * Facts are returned in creation order by the getEntity and getEntities read methods.
    *
-   * Idempotent: re-recording an identical fact — same entity, fact type, payload, and origin block — is a no-op,
+   * Idempotent: re-recording an identical fact (same entity, fact type, payload, and origin block) is a no-op,
    * keeping its creation position. The same payload tied to a different origin block is a distinct fact.
    */
   recordFact(
@@ -161,20 +161,13 @@ export class EntityStore implements StagedStore {
   }
 
   /**
-   * Returns one entity's body together with its facts in creation order, or undefined if no such entity is active in
-   * the job's view.
+   * Returns one entity, if found.
    */
   async getEntity(key: EntityKey, jobId: string): Promise<Entity | undefined> {
     const entityKey = key.toString();
     const entitiesAndFactsFromDb = await this.#store.transactionAsync(async () => {
-      // A miss means "not committed", not "absent": the fold below still surfaces a staged-but-uncommitted create,
-      // so we hand it a 0-or-1-entry map rather than short-circuiting here.
-      const entities = new Map<EntityKeyStr, StoredEntity>();
-      const buf = await this.#entities.getAsync(entityKey);
-      if (buf !== undefined) {
-        entities.set(entityKey, StoredEntity.fromBuffer(buf));
-      }
-      return this.#readEntitiesAndFactsFromDb(entities);
+      const entities = await this.#readEntitiesFromDb(entityKey);
+      return this.#readFactsFromDb(entities);
     });
 
     const entity = this.#foldStagedOps(entitiesAndFactsFromDb, jobId).get(entityKey);
@@ -182,7 +175,7 @@ export class EntityStore implements StagedStore {
       return undefined;
     }
 
-    return { key, body: entity.entity.body, facts: Array.from(entity.facts.values(), f => f.toFact()) };
+    return { key, body: entity.body, facts: Array.from(entity.facts.values()) };
   }
 
   /**
@@ -195,12 +188,8 @@ export class EntityStore implements StagedStore {
 
     // Combine DB state with staged state; foldStagedOps keeps the result scoped to this type.
     const result: Entity[] = [];
-    for (const { entity, facts } of this.#foldStagedOps(entitiesAndFactsFromDb, jobId, typeKey).values()) {
-      result.push({
-        key: entity.key,
-        body: entity.body,
-        facts: Array.from(facts.values(), f => f.toFact()),
-      });
+    for (const { key, body, facts } of this.#foldStagedOps(entitiesAndFactsFromDb, jobId, typeKey).values()) {
+      result.push({ key, body, facts: Array.from(facts.values()) });
     }
 
     return result;
@@ -312,11 +301,12 @@ export class EntityStore implements StagedStore {
   async #entityExists(key: EntityKey, jobId: string): Promise<boolean> {
     const entityKey = key.toString();
     const buf = await this.#store.transactionAsync(() => this.#entities.getAsync(entityKey));
-    // Implementation note: the next 4 lines are a bit boilerplatey, but they let us reuse #foldStagedOps and keep it
+    // Implementation note: the lines below are a bit boilerplatey, but they let us reuse #foldStagedOps and keep it
     // ergonomic for the more central `getEntity` and `getEntities` functions, so I settled for this tradeoff.
     const committed = new Map<EntityKeyStr, EntityWithFacts>();
     if (buf) {
-      committed.set(entityKey, { entity: StoredEntity.fromBuffer(buf), facts: new Map<FactKeyStr, StoredFact>() });
+      const stored = StoredEntity.fromBuffer(buf);
+      committed.set(entityKey, { key: stored.key, body: stored.body, facts: new Map<FactKeyStr, Fact>() });
     }
     return this.#foldStagedOps(committed, jobId).has(entityKey);
   }
@@ -334,8 +324,22 @@ export class EntityStore implements StagedStore {
       for await (const [entityKey, buf] of this.#entities.entriesAsync({ start: `${typeKey}:`, end: `${typeKey};` })) {
         entities.set(entityKey, StoredEntity.fromBuffer(buf));
       }
-      return await this.#readEntitiesAndFactsFromDb(entities);
+      return await this.#readFactsFromDb(entities);
     });
+  }
+
+  /**
+   * Reads a single entity record (without its facts) by key into a 0-or-1-entry map — the input shape
+   * {@link #readFactsFromDb} consumes. A missing record yields an empty map. Reads are not wrapped in a transaction:
+   * the caller owns the transaction boundary.
+   */
+  async #readEntitiesFromDb(entityKey: EntityKeyStr): Promise<Map<EntityKeyStr, StoredEntity>> {
+    const entities = new Map<EntityKeyStr, StoredEntity>();
+    const buf = await this.#entities.getAsync(entityKey);
+    if (buf !== undefined) {
+      entities.set(entityKey, StoredEntity.fromBuffer(buf));
+    }
+    return entities;
   }
 
   /**
@@ -343,12 +347,10 @@ export class EntityStore implements StagedStore {
    * Callers supply only entities that exist, so every input yields an output pair. Reads are not wrapped in a
    * transaction: the caller owns the transaction boundary.
    */
-  async #readEntitiesAndFactsFromDb(
-    entities: Map<EntityKeyStr, StoredEntity>,
-  ): Promise<Map<EntityKeyStr, EntityWithFacts>> {
+  async #readFactsFromDb(entities: Map<EntityKeyStr, StoredEntity>): Promise<Map<EntityKeyStr, EntityWithFacts>> {
     const result = new Map<EntityKeyStr, EntityWithFacts>();
     for (const [eKey, entity] of entities) {
-      result.set(eKey, { entity, facts: await this.#loadCommittedFacts(eKey) });
+      result.set(eKey, { key: entity.key, body: entity.body, facts: await this.#loadCommittedFacts(eKey) });
     }
     return result;
   }
@@ -357,7 +359,7 @@ export class EntityStore implements StagedStore {
    * Loads the committed facts for an entity keyed by their dedup fact key, in creation order. Caller may wrap in a
    * transaction.
    */
-  async #loadCommittedFacts(eKey: EntityKeyStr): Promise<Map<FactKeyStr, StoredFact>> {
+  async #loadCommittedFacts(eKey: EntityKeyStr): Promise<Map<FactKeyStr, Fact>> {
     // Snapshot the index before issuing point reads so we never interleave reads with a live cursor (IndexedDB
     // cursors are sensitive to what runs between iterations).
     const fKeys: FactKeyStr[] = [];
@@ -378,7 +380,7 @@ export class EntityStore implements StagedStore {
     // Multimap value order is backend-dependent (insertion order on IndexedDB, value-sorted on LMDB); sort by the
     // commit-assigned sequence so facts always come back in creation order.
     loaded.sort((a, b) => a.seq - b.seq);
-    return new Map(loaded.map(({ fKey, fact }) => [fKey, fact]));
+    return new Map(loaded.map(({ fKey, fact }) => [fKey, fact.toFact()]));
   }
 
   /**
@@ -398,14 +400,18 @@ export class EntityStore implements StagedStore {
     typeKey?: EntityTypeKeyStr,
   ): Map<EntityKeyStr, EntityWithFacts> {
     const result = new Map<EntityKeyStr, EntityWithFacts>();
-    for (const [key, { entity, facts }] of committed) {
-      result.set(key, { entity, facts: new Map(facts) });
+    for (const [entityKey, { key, body, facts }] of committed) {
+      result.set(entityKey, { key, body, facts: new Map(facts) });
     }
     for (const op of this.#stagedOpsFor(jobId)) {
       switch (op.kind) {
         case 'createEntity':
           if (typeKey === undefined || op.entity.key.entityTypeKey().toString() === typeKey) {
-            result.set(op.entity.key.toString(), { entity: op.entity, facts: new Map<FactKeyStr, StoredFact>() });
+            result.set(op.entity.key.toString(), {
+              key: op.entity.key,
+              body: op.entity.body,
+              facts: new Map<FactKeyStr, Fact>(),
+            });
           }
           break;
         case 'terminate':
@@ -415,7 +421,7 @@ export class EntityStore implements StagedStore {
           const current = result.get(op.fact.key.toString());
           const fKey = factKeyStrOf(op.fact);
           if (current && !current.facts.has(fKey)) {
-            current.facts.set(fKey, op.fact);
+            current.facts.set(fKey, op.fact.toFact());
           }
           break;
         }
