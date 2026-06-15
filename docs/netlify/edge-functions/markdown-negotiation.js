@@ -26,8 +26,17 @@ export default async (request, context) => {
   const url = new URL(request.url);
 
   // Already a concrete file (asset, sitemap, llms.txt, or a .md page): let the
-  // CDN serve it directly. This is also the recursion guard for the fetch below.
-  if (/\.[a-z0-9]+$/i.test(url.pathname)) return;
+  // CDN serve it directly. This is also the recursion guard for the .md fetch
+  // below. Match only known static-file extensions, not any trailing dot, so
+  // doc routes whose last segment contains a dot (e.g. a changelog page like
+  // ".../changelog/v2.0.2") still negotiate to their .md sibling.
+  if (
+    /\.(md|html?|xml|txt|json|js|mjs|cjs|map|css|png|jpe?g|gif|svg|webp|avif|ico|bmp|woff2?|ttf|otf|eot|pdf|zip|gz|wasm|mp4|webm|csv|ya?ml)$/i.test(
+      url.pathname,
+    )
+  ) {
+    return;
+  }
 
   const markdownUrl = new URL(url.toString());
   markdownUrl.pathname = toMarkdownPath(url.pathname);
