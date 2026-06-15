@@ -335,6 +335,9 @@ describe('BlockSynchronizer', () => {
       expect((await entityStore.getEntity(prunedKey, jobId)).facts).toHaveLength(1);
       expect((await entityStore.getEntity(survivingKey, jobId)).facts).toHaveLength(2);
 
+      // The verification reads above pin the job; release it so the prune's rollback is not blocked.
+      await entityStore.discardStaged(jobId);
+
       // Set the anchor to block 10 so the prune guard passes (anchor is above the fork point).
       const anchorBlock10 = await L2Block.random(BlockNumber(10));
       await anchorBlockStore.setHeader(anchorBlock10.header);

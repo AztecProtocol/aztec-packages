@@ -33,6 +33,7 @@ describe('EntityStore', () => {
   const entityIdsOf = (entities: { key: EntityKey }[]) => entities.map(e => e.key.entityId.toBigInt());
 
   it('records facts and loads an entity fact set after commit', async () => {
+    await store.createEntity(keyA, [], undefined, JOB);
     await store.recordFact(keyA, RECEIVED, [new Fr(9n)], undefined, JOB);
     await store.recordFact(keyA, PROCESSED, [], { blockNumber: 5, blockHash: new Fr(1n) }, JOB);
     await kv.transactionAsync(() => store.commit(JOB));
@@ -44,6 +45,7 @@ describe('EntityStore', () => {
   it('returns facts in creation order', async () => {
     // Payload values chosen so that creation order differs from the dedup row key (payload hash) order.
     const payloads = [9n, 3n, 7n, 1n, 8n, 2n, 6n, 4n];
+    await store.createEntity(keyA, [], undefined, JOB);
     for (const value of payloads.slice(0, 5)) {
       await store.recordFact(keyA, RECEIVED, [new Fr(value)], undefined, JOB);
     }
@@ -61,6 +63,7 @@ describe('EntityStore', () => {
   });
 
   it('staged facts follow committed facts in creation order (read-your-writes)', async () => {
+    await store.createEntity(keyA, [], undefined, JOB);
     await store.recordFact(keyA, RECEIVED, [new Fr(9n)], undefined, JOB);
     await store.recordFact(keyA, RECEIVED, [new Fr(3n)], undefined, JOB);
     await kv.transactionAsync(() => store.commit(JOB));
@@ -74,6 +77,7 @@ describe('EntityStore', () => {
   });
 
   it('dedups identical (entity, factType, payload) records idempotently', async () => {
+    await store.createEntity(keyA, [], undefined, JOB);
     await store.recordFact(keyA, RECEIVED, [new Fr(9n)], undefined, JOB);
     await store.recordFact(keyA, RECEIVED, [new Fr(9n)], undefined, JOB);
     await kv.transactionAsync(() => store.commit(JOB));
@@ -83,6 +87,7 @@ describe('EntityStore', () => {
   });
 
   it('re-recording a fact is a no-op keeping its creation position and origin block', async () => {
+    await store.createEntity(keyA, [], undefined, JOB);
     await store.recordFact(keyA, RECEIVED, [new Fr(9n)], undefined, JOB);
     await store.recordFact(keyA, RECEIVED, [new Fr(1n)], undefined, JOB);
     await kv.transactionAsync(() => store.commit(JOB));
@@ -97,6 +102,7 @@ describe('EntityStore', () => {
   });
 
   it('re-recording a fact keeps its original origin block (first write wins)', async () => {
+    await store.createEntity(keyA, [], undefined, JOB);
     await store.recordFact(keyA, RECEIVED, [new Fr(9n)], { blockNumber: 5, blockHash: new Fr(1n) }, JOB);
     await kv.transactionAsync(() => store.commit(JOB));
 
@@ -108,6 +114,7 @@ describe('EntityStore', () => {
     // Prune above block 7: the fact was first derived at block 5, which survives, so the fact must survive.
     await kv.transactionAsync(() => store.rollback(7));
     expect((await store.getEntity(keyA, JOB)).facts).toHaveLength(1);
+    await store.discardStaged(JOB); // reads pin the job; release it so the next rollback isn't blocked
 
     // Prune above block 4: the fact originates above the target and is deleted exactly once.
     await kv.transactionAsync(() => store.rollback(4));
@@ -146,40 +153,18 @@ describe('EntityStore', () => {
     expect(entities[0].facts).toHaveLength(0);
   });
 
-  it('creating the same entity twice keeps the first body and lists it once', async () => {
+  it('createEntity rejects an entity already staged for creation in the same job', async () => {
     await store.createEntity(keyA, [new Fr(1n)], undefined, JOB);
-    await store.createEntity(keyA, [new Fr(2n)], undefined, JOB);
-    await kv.transactionAsync(() => store.commit(JOB));
-
-    expect((await store.getEntity(keyA, JOB)).body.map(f => f.toBigInt())).toEqual([1n]);
-    expect(entityIdsOf(await store.getEntities(entityTypeKey, JOB))).toEqual([corrA.toBigInt()]);
-
-    // Re-creating in a later commit is a no-op too, and still lists the entity exactly once.
-    const JOB2 = 'recreate-job';
-    await store.createEntity(keyA, [new Fr(3n)], undefined, JOB2);
-    await kv.transactionAsync(() => store.commit(JOB2));
-
-    expect((await store.getEntity(keyA, JOB)).body.map(f => f.toBigInt())).toEqual([1n]);
-    expect(entityIdsOf(await store.getEntities(entityTypeKey, JOB))).toEqual([corrA.toBigInt()]);
+    await expect(store.createEntity(keyA, [new Fr(2n)], undefined, JOB)).rejects.toThrow('already existing entity');
   });
 
-  it('re-creating an entity is a no-op keeping its body and facts', async () => {
+  it('createEntity rejects an entity already committed to disk', async () => {
     await store.createEntity(keyA, [new Fr(1n)], undefined, JOB);
-    await store.recordFact(keyA, RECEIVED, [new Fr(9n)], undefined, JOB);
     await kv.transactionAsync(() => store.commit(JOB));
 
-    const JOB2 = 'recreate-job';
-    await store.createEntity(keyA, [new Fr(2n)], undefined, JOB2);
-
-    // Both before and after commit, the original body is paired with the existing facts.
-    const staged = await store.getEntities(entityTypeKey, JOB2);
-    expect(staged[0].body.map(f => f.toBigInt())).toEqual([1n]);
-    expect(staged[0].facts).toHaveLength(1);
-
-    await kv.transactionAsync(() => store.commit(JOB2));
-    const { body, facts } = await store.getEntity(keyA, JOB);
-    expect(body.map(f => f.toBigInt())).toEqual([1n]);
-    expect(facts).toHaveLength(1);
+    await expect(store.createEntity(keyA, [new Fr(2n)], undefined, 'recreate-job')).rejects.toThrow(
+      'already existing entity',
+    );
   });
 
   it("reflects a job's own staged createEntity before commit (read-your-writes)", async () => {
@@ -250,6 +235,19 @@ describe('EntityStore', () => {
     expect((await store.getEntity(keyA, 'reader')).facts).toHaveLength(1);
   });
 
+  it('terminateEntity rejects a non-existent entity', async () => {
+    await expect(store.terminateEntity(keyA, JOB)).rejects.toThrow('non-existent entity');
+  });
+
+  it('terminateEntity rejects an entity already terminated earlier in the same job', async () => {
+    await store.createEntity(keyA, [new Fr(1n)], undefined, JOB);
+    await kv.transactionAsync(() => store.commit(JOB));
+
+    const TERM = 'terminate-job';
+    await store.terminateEntity(keyA, TERM);
+    await expect(store.terminateEntity(keyA, TERM)).rejects.toThrow('non-existent entity');
+  });
+
   it('terminateEntity deletes the entity record, all its facts, and drops it from active enumeration', async () => {
     await store.createEntity(keyA, [new Fr(5n)], undefined, JOB);
     await store.createEntity(keyB, [], undefined, JOB);
@@ -313,30 +311,11 @@ describe('EntityStore', () => {
     expect(entityIdsOf(await store.getEntities(entityTypeKey, JOB))).toEqual([corrA.toBigInt()]);
   });
 
-  it('re-creating an entity keeps its original origin block (first write wins)', async () => {
-    await store.createEntity(keyA, [new Fr(5n)], { blockNumber: 6, blockHash: new Fr(1n) }, JOB);
-    await kv.transactionAsync(() => store.commit(JOB));
-
-    // Re-creating at a later block is a no-op, so the entity still originates at block 6.
-    const JOB2 = 'recreate-job';
-    await store.createEntity(keyA, [new Fr(5n)], { blockNumber: 8, blockHash: new Fr(2n) }, JOB2);
-    await kv.transactionAsync(() => store.commit(JOB2));
-
-    // Prune above block 7: the entity was first derived at block 6, which survives, so the entity must survive.
-    await kv.transactionAsync(() => store.rollback(7));
-    expect(entityIdsOf(await store.getEntities(entityTypeKey, JOB))).toEqual([corrA.toBigInt()]);
-
-    // Prune above block 5: the entity originates above the target and is deleted exactly once.
-    await expect(kv.transactionAsync(() => store.rollback(5))).resolves.not.toThrow();
-    expect((await store.getEntity(keyA, JOB)).body).toEqual([]);
-    expect(await store.getEntities(entityTypeKey, JOB)).toHaveLength(0);
-  });
-
   it('replacing an entity requires an explicit terminate-then-create', async () => {
     await store.createEntity(keyA, [new Fr(5n)], { blockNumber: 6, blockHash: new Fr(1n) }, JOB);
     await kv.transactionAsync(() => store.commit(JOB));
 
-    // A plain re-create as non-retractable is a no-op; terminate-then-create replaces the entity for real.
+    // A plain re-create now rejects; terminate-then-create is the supported way to replace the entity.
     const JOB2 = 'replace-job';
     await store.terminateEntity(keyA, JOB2);
     await store.createEntity(keyA, [new Fr(7n)], undefined, JOB2);
@@ -385,26 +364,18 @@ describe('EntityStore', () => {
       expect(committed.facts).toHaveLength(0);
     });
 
-    it('a terminate-then-record sequence resolves to the re-recorded fact', async () => {
+    it('a terminate-then-record sequence rejects the record: the entity no longer exists', async () => {
       await store.createEntity(keyA, [new Fr(1n)], undefined, JOB);
       await store.recordFact(keyA, RECEIVED, [new Fr(9n)], undefined, JOB);
       await kv.transactionAsync(() => store.commit(JOB));
 
+      // The staged terminate removes the entity from the job's view, so recording against it is rejected. Replaying a
+      // re-recorded fact onto a re-created entity is covered by 'facts re-recorded after a terminate ...'.
       const JOB2 = 'rerecord-job';
       await store.terminateEntity(keyA, JOB2);
-      await store.recordFact(keyA, PROCESSED, [new Fr(3n)], undefined, JOB2);
-
-      // Staged view: only the re-recorded fact survives the terminate; the entity record is gone.
-      const staged = await store.getEntity(keyA, JOB2);
-      expect(staged.body).toEqual([]);
-      expect(staged.facts.map(f => f.factTypeId.toBigInt())).toEqual([PROCESSED.toBigInt()]);
-
-      // The committed view matches the staged view.
-      await kv.transactionAsync(() => store.commit(JOB2));
-      const committed = await store.getEntity(keyA, 'reader');
-      expect(committed.body).toEqual([]);
-      expect(committed.facts.map(f => f.factTypeId.toBigInt())).toEqual([PROCESSED.toBigInt()]);
-      expect(await store.getEntities(entityTypeKey, 'reader')).toHaveLength(0);
+      await expect(store.recordFact(keyA, PROCESSED, [new Fr(3n)], undefined, JOB2)).rejects.toThrow(
+        'non-existent entity',
+      );
     });
 
     it('a create-then-terminate sequence leaves the entity deleted', async () => {
@@ -421,27 +392,29 @@ describe('EntityStore', () => {
       await kv.transactionAsync(() => store.commit(JOB));
       expect((await store.getEntity(keyA, 'reader')).body).toEqual([]);
       expect(await store.getEntities(entityTypeKey, 'reader')).toHaveLength(0);
+      await store.discardStaged('reader'); // reads pin the job; release it so the rollback isn't blocked
       await expect(kv.transactionAsync(() => store.rollback(0))).resolves.not.toThrow();
     });
 
-    it('a fact staged before its entity is created in the same job surfaces with the entity', async () => {
-      await store.recordFact(keyA, RECEIVED, [new Fr(9n)], undefined, JOB);
-      await store.createEntity(keyA, [new Fr(5n)], undefined, JOB);
+    it('recording a fact before its entity is created in the same job is rejected', async () => {
+      await expect(store.recordFact(keyA, RECEIVED, [new Fr(9n)], undefined, JOB)).rejects.toThrow(
+        'non-existent entity',
+      );
 
-      // Staged view and committed view must agree: the entity is active and owns the fact.
+      // Creating the entity first, then recording, is the supported order.
+      await store.createEntity(keyA, [new Fr(5n)], undefined, JOB);
+      await store.recordFact(keyA, RECEIVED, [new Fr(9n)], undefined, JOB);
       const staged = await store.getEntities(entityTypeKey, JOB);
       expect(staged).toHaveLength(1);
       expect(staged[0].facts.map(f => f.factTypeId.toBigInt())).toEqual([RECEIVED.toBigInt()]);
-
-      await kv.transactionAsync(() => store.commit(JOB));
-      const committed = await store.getEntities(entityTypeKey, 'reader');
-      expect(committed).toHaveLength(1);
-      expect(committed[0].facts.map(f => f.factTypeId.toBigInt())).toEqual([RECEIVED.toBigInt()]);
     });
   });
 
   describe('cross-job behavior', () => {
     it("commit persists only the given job's ops", async () => {
+      await store.createEntity(keyA, [], undefined, 'setup-job');
+      await kv.transactionAsync(() => store.commit('setup-job'));
+
       const JOB2 = 'second-job';
       await store.recordFact(keyA, RECEIVED, [new Fr(9n)], undefined, JOB);
       await store.recordFact(keyA, RECEIVED, [new Fr(1n)], undefined, JOB2);
@@ -455,9 +428,15 @@ describe('EntityStore', () => {
       expect((await store.getEntity(keyA, 'reader')).facts.map(f => f.payload[0].toBigInt())).toEqual([9n, 1n]);
     });
 
-    it('read-only access with a fresh job id does not block rollback', async () => {
+    it('a job that has only read still blocks rollback until it is discarded', async () => {
       await store.getEntity(keyA, 'reader-job');
       await store.getEntities(entityTypeKey, 'reader-job');
+      // Reads pin the job as in flight, so a rollback is refused until the job releases it.
+      await expect(kv.transactionAsync(() => store.rollback(0))).rejects.toThrow(
+        'PXE entity store rollback is not allowed while jobs are running',
+      );
+
+      await store.discardStaged('reader-job');
       await expect(kv.transactionAsync(() => store.rollback(0))).resolves.not.toThrow();
     });
 
@@ -466,16 +445,15 @@ describe('EntityStore', () => {
       await kv.transactionAsync(() => store.commit(JOB));
 
       const JOB2 = 'discarded-job';
-      await store.createEntity(keyA, [new Fr(2n)], undefined, JOB2);
+      await store.createEntity(keyB, [new Fr(2n)], undefined, JOB2);
       await store.recordFact(keyA, RECEIVED, [new Fr(9n)], undefined, JOB2);
       await store.discardStaged(JOB2);
 
       // The discarded writes are gone from the job's own view, and committing the job persists nothing.
-      expect((await store.getEntity(keyA, JOB2)).body.map(f => f.toBigInt())).toEqual([1n]);
+      expect(entityIdsOf(await store.getEntities(entityTypeKey, JOB2))).toEqual([corrA.toBigInt()]);
       await kv.transactionAsync(() => store.commit(JOB2));
-      const { body, facts } = await store.getEntity(keyA, 'reader');
-      expect(body.map(f => f.toBigInt())).toEqual([1n]);
-      expect(facts).toHaveLength(0);
+      expect((await store.getEntity(keyA, 'reader')).facts).toHaveLength(0);
+      expect((await store.getEntity(keyB, 'reader')).body).toEqual([]);
     });
   });
 
@@ -571,6 +549,7 @@ describe('EntityStore', () => {
     });
 
     it('creation order continues across store reopens', async () => {
+      await store.createEntity(keyA, [], undefined, JOB);
       await store.recordFact(keyA, RECEIVED, [new Fr(9n)], undefined, JOB);
       await store.recordFact(keyA, RECEIVED, [new Fr(3n)], undefined, JOB);
       await kv.transactionAsync(() => store.commit(JOB));
@@ -597,6 +576,7 @@ describe('EntityStore', () => {
       const { body, facts } = await store.getEntity(keyA, JOB);
       expect(body.map(f => f.toBigInt())).toEqual([5n]);
       expect(facts).toHaveLength(1);
+      await store.discardStaged(JOB); // reads pin the job; release it so the next rollback isn't blocked
 
       await kv.transactionAsync(() => store.rollback(4));
       expect((await store.getEntity(keyA, JOB)).body).toEqual([]);
@@ -612,6 +592,7 @@ describe('EntityStore', () => {
 
       await kv.transactionAsync(() => store.rollback(5));
       expect((await store.getEntity(keyA, JOB)).facts).toHaveLength(0);
+      await store.discardStaged(JOB); // reads pin the job; release it so the next rollback isn't blocked
 
       // A dangling block-4 fact index entry would make this second prune throw "Fact not found".
       await expect(kv.transactionAsync(() => store.rollback(3))).resolves.not.toThrow();
@@ -628,42 +609,34 @@ describe('EntityStore', () => {
     });
   });
 
-  describe('facts without an entity record', () => {
-    it('a committed fact does not activate an entity; creating it later surfaces the fact', async () => {
-      await store.recordFact(keyA, RECEIVED, [new Fr(9n)], undefined, JOB);
-      await kv.transactionAsync(() => store.commit(JOB));
+  describe('recordFact requires an existing entity', () => {
+    it('rejects when the entity exists only as a staged creation on another job', async () => {
+      const OTHER = 'other-job';
+      await store.createEntity(keyA, [new Fr(5n)], undefined, OTHER);
 
-      // The fact is stored and readable, but the entity is not active.
-      expect((await store.getEntity(keyA, JOB)).facts).toHaveLength(1);
-      expect(await store.getEntities(entityTypeKey, JOB)).toHaveLength(0);
-
-      // Creating the entity in a later job surfaces the previously committed fact, both staged and committed.
-      const JOB2 = 'create-job';
-      await store.createEntity(keyA, [new Fr(5n)], undefined, JOB2);
-      const staged = await store.getEntities(entityTypeKey, JOB2);
-      expect(staged).toHaveLength(1);
-      expect(staged[0].facts).toHaveLength(1);
-
-      await kv.transactionAsync(() => store.commit(JOB2));
-      const committed = await store.getEntities(entityTypeKey, JOB);
-      expect(committed).toHaveLength(1);
-      expect(committed[0].facts).toHaveLength(1);
+      // keyA is staged on OTHER, neither visible to this job nor committed, so the record is rejected.
+      await expect(store.recordFact(keyA, RECEIVED, [new Fr(9n)], undefined, JOB)).rejects.toThrow(
+        'non-existent entity',
+      );
     });
 
-    it('a staged fact for an unknown entity does not activate it', async () => {
-      await store.recordFact(keyB, RECEIVED, [new Fr(8n)], undefined, JOB);
-      expect(await store.getEntities(entityTypeKey, JOB)).toHaveLength(0);
+    it('accepts a fact for an entity staged for creation earlier in the same job', async () => {
+      await store.createEntity(keyA, [new Fr(5n)], undefined, JOB);
+      await store.recordFact(keyA, RECEIVED, [new Fr(9n)], undefined, JOB);
+      expect((await store.getEntity(keyA, JOB)).facts).toHaveLength(1);
+    });
+
+    it('accepts a fact for an entity already committed to disk', async () => {
+      await store.createEntity(keyA, [new Fr(5n)], undefined, JOB);
+      await kv.transactionAsync(() => store.commit(JOB));
+
+      const JOB2 = 'record-job';
+      await store.recordFact(keyA, RECEIVED, [new Fr(9n)], undefined, JOB2);
+      expect((await store.getEntity(keyA, JOB2)).facts).toHaveLength(1);
     });
   });
 
   describe('index corruption detection', () => {
-    it('getEntities fails loudly when the scope index references a missing entity', async () => {
-      await kv
-        .openMultiMap<string, string>('entities_by_entity_type')
-        .set(entityTypeKey.toString(), EntityKey.from({ ...keyA, entityId: new Fr(0xdeadn) }).toString());
-      await expect(store.getEntities(entityTypeKey, JOB)).rejects.toThrow('Entity not found for entityKey');
-    });
-
     it('getEntity fails loudly when the fact index references a missing row', async () => {
       await kv.openMultiMap<string, string>('facts_by_entity').set(keyA.toString(), 'bogus-fact-key');
       await expect(store.getEntity(keyA, JOB)).rejects.toThrow('Fact not found for factKey bogus-fact-key');

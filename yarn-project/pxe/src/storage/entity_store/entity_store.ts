@@ -96,14 +96,8 @@ export class EntityStore implements StagedStore {
   /**
    * Creates an entity.
    *
-   * `originBlock === undefined` marks the entity non-retractable (it survives reorgs; only its own retractable facts
-   * are pruned). A defined origin block marks the whole entity retractable: on a prune above its block, the entity and
-   * all its facts are deleted.
-   *
-   * The entity becomes immediately active, independently of whether it owns any facts.
-   *
-   * Idempotent: creating an entity that already exists is a no-op (first write wins), keeping the existing body,
-   * origin block and facts.
+   * If `originBlock === undefined`, the entity is non-retractable: it survives reorgs. A defined origin block makes the
+   * entity retractable: on a prune above its block, the entity and all its facts are deleted.
    */
   createEntity(
     entityKey: EntityKey,
@@ -111,14 +105,18 @@ export class EntityStore implements StagedStore {
     originBlock: OriginBlock | undefined,
     jobId: string,
   ): Promise<void> {
-    return this.#withJobLock(jobId, () => {
+    return this.#withJobLock(jobId, async () => {
+      if (await this.#entityExists(entityKey, jobId)) {
+        throw new Error(`Cannot create an already existing entity ${entityKey.toString()}`);
+      }
       this.#opsFor(jobId).push({ kind: 'createEntity', entity: new StoredEntity(entityKey, entityBody, originBlock) });
-      return Promise.resolve();
     });
   }
 
   /**
-   * Stages a fact for recording under the given job.
+   * Stages a fact for recording under the given job. The entity must be active in this job's view — committed to disk
+   * (and not terminated earlier in this job) or staged for creation earlier in this same job — otherwise this rejects:
+   * a fact can never exist without its entity.
    *
    * `originBlock === undefined` marks the fact non-retractable (it survives reorgs); a defined origin block ties the
    * fact to a specific block and it will be deleted on prune.
@@ -135,36 +133,43 @@ export class EntityStore implements StagedStore {
     originBlock: OriginBlock | undefined,
     jobId: string,
   ): Promise<void> {
-    return this.#withJobLock(jobId, () => {
+    return this.#withJobLock(jobId, async () => {
+      if (!(await this.#entityExists(entityKey, jobId))) {
+        throw new Error(`Cannot record a fact for non-existent entity ${entityKey.toString()}`);
+      }
       this.#opsFor(jobId).push({ kind: 'record', fact: new StoredFact(entityKey, factTypeId, payload, originBlock) });
-      return Promise.resolve();
-    });
-  }
-
-  /** Permanently delete an entity (and all its facts). Staged within the job; applied on commit. */
-  terminateEntity(key: EntityKey, jobId: string): Promise<void> {
-    return this.#withJobLock(jobId, () => {
-      this.#opsFor(jobId).push({ kind: 'terminate', key });
-      return Promise.resolve();
     });
   }
 
   /**
-   * Returns one entity's body together with its facts in creation order. The body is empty when no entity record
-   * exists; facts are stored independently of entity records.
+   * Permanently delete an entity (and all its facts). Staged within the job; applied on commit. Rejects if the entity
+   * is not active in this job's view — committed to disk (and not terminated earlier in this job) or staged for
+   * creation earlier in this same job.
+   */
+  terminateEntity(key: EntityKey, jobId: string): Promise<void> {
+    return this.#withJobLock(jobId, async () => {
+      if (!(await this.#entityExists(key, jobId))) {
+        throw new Error(`Cannot terminate a non-existent entity ${key.toString()}`);
+      }
+      this.#opsFor(jobId).push({ kind: 'terminate', key });
+    });
+  }
+
+  /**
+   * Returns one entity's body together with its facts in creation order.
    *
    * @param key - The key identifying the entity.
    * @param jobId - The job whose staged writes are layered over committed state.
    */
   async getEntity(key: EntityKey, jobId: string): Promise<Entity> {
-    const eKey = key.toString();
-    const dbEntities = await this.#store.transactionAsync(() => this.#readEntitiesAndFactsFromDb([eKey]));
-    const { entity, facts } = dbEntities.get(eKey)!;
+    const entityKey = key.toString();
+    const entitiesInDb = await this.#store.transactionAsync(() => this.#readEntitiesAndFactsFromDb([entityKey]));
+    const { entity, facts } = entitiesInDb.get(entityKey)!;
 
     // Since this store is append-only, we can compute the current job's view of an entity by reading it from the
     // persistent storage and "replaying" staged entity creation and termination ops, as well as staged facts.
-    const currentEntity = this.#replayEntityOps(entity, eKey, jobId);
-    const currentFacts = this.#replayFactOps(facts, eKey, jobId);
+    const currentEntity = this.#replayEntityOps(entity, entityKey, jobId);
+    const currentFacts = this.#replayFactOps(facts, entityKey, jobId);
 
     return { key, body: currentEntity?.body ?? [], facts: Array.from(currentFacts.values(), f => f.toFact()) };
   }
@@ -175,37 +180,26 @@ export class EntityStore implements StagedStore {
   async getEntities(entityTypeKey: EntityTypeKey, jobId: string): Promise<Entity[]> {
     const typeKey = entityTypeKey.toString();
 
-    // Entities staged for creation join the candidate set up front, so the committed-state load below also picks up
-    // any facts already committed for them.
-    const entityKeysInStage = this.#entitiesInStage(typeKey, jobId).map(entity => entity.key.toString());
+    const entitiesAndFacts = await this.#readEntitiesAndFactsFromDbByType(typeKey);
 
-    const entitiesAndFactsInDb = await this.#store.transactionAsync(async () => {
-      const entityKeysInDb: EntityKeyStr[] = [];
-      for await (const eKey of this.#entitiesByEntityType.getValuesAsync(typeKey)) {
-        entityKeysInDb.push(eKey);
+    for (const stagedEntity of this.#entitiesInStage(typeKey, jobId)) {
+      const entityKey = stagedEntity.key.toString();
+      if (!entitiesAndFacts.has(entityKey)) {
+        entitiesAndFacts.set(entityKey, { entity: undefined, facts: new Map<FactKeyStr, StoredFact>() });
       }
-      const candidateEKeys = [...new Set([...entityKeysInDb, ...entityKeysInStage])];
-      return await this.#readEntitiesAndFactsFromDb(candidateEKeys);
-    });
+    }
 
-    // Replay each candidate entity's record and fact set from staged state, exactly as in getEntity.
-    const stagedKeys = new Set(entityKeysInStage);
+    // Replay each entity's record and fact set from staged state, exactly as in getEntity.
     const result: Entity[] = [];
-    for (const [eKey, { entity, facts }] of entitiesAndFactsInDb) {
-      // Defensive, implies index corruption. Only entities staged for creation in this job may legitimately lack a
-      // committed record; every other candidate key came from the index and must reference one.
-      if (entity === undefined && !stagedKeys.has(eKey)) {
-        throw new Error(`Entity not found for entityKey ${eKey}`);
-      }
-
-      const currentEntity = this.#replayEntityOps(entity, eKey, jobId);
+    for (const [entityKey, { entity, facts }] of entitiesAndFacts) {
+      const currentEntity = this.#replayEntityOps(entity, entityKey, jobId);
 
       // i.e.: entity was terminated in current job
       if (currentEntity === undefined) {
         continue;
       }
 
-      const currentFacts = this.#replayFactOps(facts, eKey, jobId);
+      const currentFacts = this.#replayFactOps(facts, entityKey, jobId);
       result.push({
         key: currentEntity.key,
         body: currentEntity.body,
@@ -229,10 +223,10 @@ export class EntityStore implements StagedStore {
         case 'createEntity': {
           const entity = op.entity;
           const eKey = entity.key.toString();
-          // Idempotent: creating an existing entity is a no-op (first write wins). Keeping the earliest origin block
-          // is what makes retraction correct: the entity must survive while its first derivation block is canonical.
-          // A welcome side effect is that an entity's record never changes in place, so the by-block index can never
-          // go stale.
+          // createEntity rejects duplicates at stage time, so a same-job duplicate never reaches here; this only fires
+          // on a cross-job race where two jobs each stage a create for the same new entity and both reach commit. Keep
+          // the first committed write: re-setting would add a duplicate entities_by_entity_type entry and let the
+          // record change in place, staling the by-block index.
           if (await this.#entities.hasAsync(eKey)) {
             this.logger.debug(`Ignoring createEntity for an already existing entity`, { entityKey: eKey, jobId });
             break;
@@ -281,8 +275,8 @@ export class EntityStore implements StagedStore {
    * remaining retractable fact originating above `toBlock` whose entity survived pass 1. Non-retractable entities and
    * facts are untouched (they never enter the by-block indexes). Must run inside a caller-owned transaction (the
    * reorg path wraps it with the sibling stores' rollbacks; IndexedDB has no nested transactions). Throws if any job
-   * has uncommitted staged writes, since rolling back mid-job could re-introduce records originating from deleted
-   * blocks.
+   * is in flight (has accessed the store and not yet committed or discarded), since rolling back mid-job could
+   * re-introduce records originating from deleted blocks or change committed state underneath a job's view.
    */
   async rollback(toBlock: BlockNum): Promise<void> {
     if (this.#opsForJob.size > 0) {
@@ -344,12 +338,35 @@ export class EntityStore implements StagedStore {
   /** Returns the entities of the given type staged for creation under the given job. */
   #entitiesInStage(tKey: EntityTypeKeyStr, jobId: string): StoredEntity[] {
     const entities: StoredEntity[] = [];
-    for (const op of this.#stagedOps(jobId)) {
+    for (const op of this.#opsFor(jobId)) {
       if (op.kind === 'createEntity' && op.entity.key.entityTypeKey().toString() === tKey) {
         entities.push(op.entity);
       }
     }
     return entities;
+  }
+
+  /**
+   * Whether the entity is active in the job's view: its committed record (if any) still exists after replaying the
+   * job's staged createEntity/terminate ops. This is the same liveness the read methods compute, used to reject facts
+   * for entities that do not (yet) exist.
+   */
+  async #entityExists(key: EntityKey, jobId: string): Promise<boolean> {
+    const eKey = key.toString();
+    const buf = await this.#store.transactionAsync(() => this.#entities.getAsync(eKey));
+    const committed = buf ? StoredEntity.fromBuffer(buf) : undefined;
+    return this.#replayEntityOps(committed, eKey, jobId) !== undefined;
+  }
+
+  /** Reads every committed entity of the given type with its facts, keyed by entity key, in one transaction. */
+  #readEntitiesAndFactsFromDbByType(typeKey: EntityTypeKeyStr) {
+    return this.#store.transactionAsync(async () => {
+      const entityKeysInDb: EntityKeyStr[] = [];
+      for await (const entityKey of this.#entitiesByEntityType.getValuesAsync(typeKey)) {
+        entityKeysInDb.push(entityKey);
+      }
+      return await this.#readEntitiesAndFactsFromDb(entityKeysInDb);
+    });
   }
 
   /**
@@ -410,7 +427,7 @@ export class EntityStore implements StagedStore {
     jobId: string,
   ): Map<FactKeyStr, StoredFact> {
     const result = new Map(committed);
-    for (const op of this.#stagedOps(jobId)) {
+    for (const op of this.#opsFor(jobId)) {
       switch (op.kind) {
         case 'record':
           if (op.fact.key.toString() === eKey && !result.has(factKeyStrOf(op.fact))) {
@@ -440,7 +457,7 @@ export class EntityStore implements StagedStore {
    */
   #replayEntityOps(committed: StoredEntity | undefined, eKey: EntityKeyStr, jobId: string): StoredEntity | undefined {
     let current = committed;
-    for (const op of this.#stagedOps(jobId)) {
+    for (const op of this.#opsFor(jobId)) {
       switch (op.kind) {
         case 'createEntity':
           if (current === undefined && op.entity.key.toString() === eKey) {
@@ -501,6 +518,12 @@ export class EntityStore implements StagedStore {
     await this.#entitiesByEntityType.deleteValue(key.entityTypeKey().toString(), eKey);
   }
 
+  /**
+   * Returns the job's staged-ops array, creating it on first access. Any access registers the job as in flight, so a
+   * read also pins the job until it commits or is discarded — and {@link rollback} refuses to run while it is pinned.
+   * That is intentional: rolling back while a job holds a view of committed state could change that state underneath
+   * the job.
+   */
   #opsFor(jobId: string): StagedOp[] {
     let ops = this.#opsForJob.get(jobId);
     if (ops === undefined) {
@@ -508,14 +531,6 @@ export class EntityStore implements StagedStore {
       this.#opsForJob.set(jobId, ops);
     }
     return ops;
-  }
-
-  /**
-   * Read-only view of a job's staged ops for read-your-writes. Unlike {@link #opsFor}, it never creates an entry, so a
-   * read for a job with no writes does not register a phantom in-flight job (which would trip the `rollback` guard).
-   */
-  #stagedOps(jobId: string): StagedOp[] {
-    return this.#opsForJob.get(jobId) ?? [];
   }
 
   #clearJobData(jobId: string) {
