@@ -3,11 +3,7 @@ import { retryUntil } from '@aztec/foundation/retry';
 
 import { jest } from '@jest/globals';
 
-import {
-  L1_DIRECT_WRITE_ACCOUNT_INDEX,
-  NO_L1_TO_L2_MSG_ERROR,
-  PIPELINING_SETUP_OPTS,
-} from '../fixtures/fixtures.js';
+import { L1_DIRECT_WRITE_ACCOUNT_INDEX, NO_L1_TO_L2_MSG_ERROR, PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
 import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';
 
 describe('e2e_cross_chain_messaging token_bridge_public', () => {
