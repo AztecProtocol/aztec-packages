@@ -5,10 +5,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { EntityKey, type OriginBlock } from './entity_store_keys.js';
 
 /**
- * The record for a single entity, with its own body and optional origin block. `originBlock === undefined` marks
- * the entity non-retractable (it survives reorgs; only its own retractable facts are pruned); an origin block marks
- * the whole entity retractable — on a prune above its block, the entity body and every fact it owns are deleted
- * wholesale.
+ * The record for a single entity.
  */
 export class StoredEntity {
   constructor(
