@@ -421,8 +421,9 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
         p1 !== undefined &&
         p2 !== undefined &&
         preBadProposers.some(proposer => proposer !== undefined && (proposer.equals(p1) || proposer.equals(p2)));
+      const badSlotsHaveDistinctProposers = p1 !== undefined && p2 !== undefined && !p1.equals(p2);
 
-      if (p1 && p2 && !badProposerHasUnsnapshottedPreBadSlot) {
+      if (badSlotsHaveDistinctProposers && !badProposerHasUnsnapshottedPreBadSlot) {
         badSlot1 = candidateSlot1;
         badSlot2 = candidateSlot2;
         badProposers = [p1, p2];
