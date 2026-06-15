@@ -276,6 +276,9 @@ fn resolve_tag_secret_derivation(
     tag_secret_derivation: TagSecretDerivation,
 ) -> TagSecretDerivation {
     if tag_secret_derivation == TagSecretDerivation::wallet_default() {
+        // TODO(F-699): Resolve wallet-default by first reusing an existing handshake for `(sender, recipient, mode)`
+        // without consulting wallet policy. If none exists, consult the wallet delivery privacy preference before
+        // choosing address-secret delivery or creating a non-interactive handshake.
         if mode == DeliveryMode::onchain_constrained() {
             TagSecretDerivation::non_interactive_handshake()
         } else {
