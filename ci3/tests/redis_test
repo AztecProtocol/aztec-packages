@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+
+export CI=1
+export CI_REDIS_AVAILABLE=0
+export DASHBOARD_URL=http://ci.aztec-labs.com
+
+NO_CD=1 source "$ROOT/ci3/source"
+
+tmpdir=$(mktemp -d)
+trap 'rm -rf "$tmpdir"' EXIT
+
+input="$tmpdir/input"
+stdout="$tmpdir/stdout"
+stderr="$tmpdir/stderr"
+
+for i in $(seq 1 1000); do
+  printf 'redis_setexz regression line %s\n' "$i"
+done >"$input"
+
+set +e
+cat "$input" | redis_setexz "redis-test-key" 5 >"$stdout" 2>"$stderr"
+code=$?
+set -e
+
+if [ "$code" -ne 0 ]; then
+  echo "redis_setexz failed without Redis: exit code $code" >&2
+  cat "$stderr" >&2
+  exit 1
+fi
+
+if [ -s "$stderr" ]; then
+  echo "redis_setexz wrote stderr without Redis:" >&2
+  cat "$stderr" >&2
+  exit 1
+fi
+
+echo "redis_setexz drains stdin when Redis is unavailable"
