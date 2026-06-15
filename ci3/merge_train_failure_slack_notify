@@ -45,12 +45,66 @@ fi
 
 TOPDIR=$(git rev-parse --show-toplevel)
 
+github_api() {
+  local path="$1"
+  curl -fsS \
+    -H "Authorization: Bearer $GITHUB_TOKEN" \
+    -H "Accept: application/vnd.github+json" \
+    -H "X-GitHub-Api-Version: 2022-11-28" \
+    "https://api.github.com/$path"
+}
+
+find_dequeued_failure_url() {
+  local repo="${GITHUB_REPOSITORY:-AztecProtocol/aztec-packages}"
+  local sha="${PR_HEAD_SHA:-}"
+  if [[ -z "${GITHUB_TOKEN:-}" || -z "$sha" ]]; then
+    return 0
+  fi
+
+  local url
+  url="$(github_api "repos/$repo/commits/$sha/check-runs?per_page=100" \
+    | jq -r '
+      [.check_runs[]?
+        | select(.conclusion == "failure"
+          or .conclusion == "timed_out"
+          or .conclusion == "action_required"
+          or .conclusion == "cancelled"
+          or .conclusion == "startup_failure")
+        | {url: (.details_url // .html_url // ""), at: (.completed_at // .started_at // "")}]
+      | sort_by(.at)
+      | reverse
+      | .[0].url // empty
+    ' 2>/dev/null || true)"
+  if [[ -n "$url" ]]; then
+    printf '%s\n' "$url"
+    return 0
+  fi
+
+  github_api "repos/$repo/commits/$sha/status" \
+    | jq -r '
+      [.statuses[]?
+        | select(.state == "failure" or .state == "error")
+        | {url: (.target_url // ""), at: (.updated_at // "")}]
+      | sort_by(.at)
+      | reverse
+      | .[0].url // empty
+    ' 2>/dev/null || true
+}
+
 set -x
 
 if [[ "$MODE" == "dequeued" ]]; then
+  failure_url="$(find_dequeued_failure_url)"
+  failure_link=""
+  failure_prompt=""
+  if [[ -n "$failure_url" ]]; then
+    failure_link="$(printf ' | <%s|View failing CI run>' "$failure_url")"
+    failure_prompt=" Failing CI run: $failure_url."
+  fi
+
   "$TOPDIR/ci3/slack_notify_with_claudebox_kickoff" "$channel" \
-    "$(printf 'PR was removed from the merge queue: <%s|View PR>\n%s by %s (🤖)' "$PR_URL" "$commit_title" "$commit_author")" \
-    "PR was dequeued from merge queue for $REF_NAME: $PR_URL — $commit_title by $commit_author. Investigate why the PR was dequeued (check CI logs, merge conflicts, etc.), fix the issue, and create a PR targeting $REF_NAME (the exact merge-train branch). Run ./bootstrap.sh ci to verify the fix locally and iterate until CI passes. Follow the merge-trains skill (.claude/skills/merge-trains/SKILL.md)." \
+    "$(printf 'PR was removed from the merge queue: <%s|View PR>%s\n%s by %s (🤖)' "$PR_URL" "$failure_link" "$commit_title" "$commit_author")" \
+    "PR was dequeued from merge queue for $REF_NAME: $PR_URL.${failure_prompt} $commit_title by $commit_author. Investigate why the PR was dequeued (check CI logs, merge conflicts, etc.), fix the issue, and create a PR targeting $REF_NAME (the exact merge-train branch). Run ./bootstrap.sh ci to verify the fix locally and iterate until CI passes. Follow the merge-trains skill (.claude/skills/merge-trains/SKILL.md)." \
     --target-ref "origin/$REF_NAME"
 
 elif [[ "$MODE" == "merged" ]]; then
