@@ -52,7 +52,13 @@ describe('full_prover', () => {
   beforeAll(async () => {
     t.logger.warn(`Running suite with ${REAL_PROOFS ? 'real' : 'fake'} proofs`);
 
-    await t.setup({ ...PIPELINING_SETUP_OPTS });
+    await t.setup({
+      ...PIPELINING_SETUP_OPTS,
+      // Real epoch proving takes longer than the default one-epoch proof-submission window.
+      // Keep the window open for the duration of this test so the chain does not prune/reorg
+      // the epoch while the prover is still working.
+      aztecProofSubmissionEpochs: 640,
+    });
 
     ({ provenAsset, accounts, tokenSim, logger, cheatCodes, provenWallet, aztecNode } = t);
     [sender, recipient] = accounts;
