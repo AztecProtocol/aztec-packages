@@ -31,16 +31,16 @@ describe('StoredFact', () => {
 
   it('derives stable composite keys including the origin block', () => {
     const nonRetractable = new StoredFact(key, factType, [new Fr(9n)], undefined);
-    expect(nonRetractable.key.entityTypeKey().toString()).toBe(`${contract}:${scope}:${entityType}`);
-    expect(nonRetractable.key.toString()).toBe(`${contract}:${scope}:${entityType}:${entityId}`);
+    expect(nonRetractable.entityKey.entityTypeKey().toString()).toBe(`${contract}:${scope}:${entityType}`);
+    expect(nonRetractable.entityKey.toString()).toBe(`${contract}:${scope}:${entityType}:${entityId}`);
     expect(factKeyStrOf(nonRetractable)).toBe(
-      nonRetractable.key.toString() + `:${factType}:${nonRetractable.payloadHash()}:none`,
+      nonRetractable.entityKey.toString() + `:${factType}:${nonRetractable.payloadHash()}:none`,
     );
 
     const blockHash = new Fr(0xabcn);
     const retractable = new StoredFact(key, factType, [new Fr(9n)], { blockNumber: 5, blockHash });
     expect(factKeyStrOf(retractable)).toBe(
-      retractable.key.toString() + `:${factType}:${retractable.payloadHash()}:5:${blockHash}`,
+      retractable.entityKey.toString() + `:${factType}:${retractable.payloadHash()}:5:${blockHash}`,
     );
   });
 

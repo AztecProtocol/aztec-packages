@@ -14,7 +14,7 @@ export type Fact = { factTypeId: Fr; payload: Fr[]; originBlock: OriginBlock | u
  */
 export class StoredFact {
   constructor(
-    public readonly key: EntityKey,
+    public readonly entityKey: EntityKey,
     public readonly factTypeId: Fr,
     public readonly payload: Fr[],
     public readonly originBlock: OriginBlock | undefined,
@@ -38,10 +38,10 @@ export class StoredFact {
   toBuffer(): Buffer {
     const originBlockTag = this.originBlock ? 1 : 0;
     return serializeToBuffer(
-      this.key.contractAddress,
-      this.key.scope,
-      this.key.entityTypeId,
-      this.key.entityId,
+      this.entityKey.contractAddress,
+      this.entityKey.scope,
+      this.entityKey.entityTypeId,
+      this.entityKey.entityId,
       this.factTypeId,
       this.payload.length,
       ...this.payload,
@@ -83,7 +83,7 @@ export type FactKeyStr = string;
 /** Builds the {@link FactKeyStr} for the given fact. */
 export function factKeyStrOf(fact: StoredFact): FactKeyStr {
   const origin = fact.originBlock ? `${fact.originBlock.blockNumber}:${fact.originBlock.blockHash}` : 'none';
-  return `${fact.key}:${fact.factTypeId}:${fact.payloadHash()}:${origin}`;
+  return `${fact.entityKey}:${fact.factTypeId}:${fact.payloadHash()}:${origin}`;
 }
 
 /**
