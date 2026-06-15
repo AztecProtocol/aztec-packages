@@ -44,6 +44,7 @@ export const DefaultSequencerConfig = {
   sequencerPollingIntervalMS: 500,
   minTxsPerBlock: 1,
   buildCheckpointIfEmpty: false,
+  waitForBuildDeadlineOnFinalBlock: false,
   publishTxsWithProposals: false,
   perBlockAllocationMultiplier: MIN_PER_BLOCK_ALLOCATION_MULTIPLIER,
   perBlockDAAllocationMultiplier: MIN_PER_BLOCK_DA_ALLOCATION_MULTIPLIER,
@@ -240,6 +241,12 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     env: 'SEQ_BUILD_CHECKPOINT_IF_EMPTY',
     description: 'Have sequencer build and publish an empty checkpoint if there are no txs',
     ...booleanConfigHelper(DefaultSequencerConfig.buildCheckpointIfEmpty),
+  },
+  waitForBuildDeadlineOnFinalBlock: {
+    description:
+      'Wait until the build deadline before sealing the final block of a checkpoint instead of sealing as ' +
+      'soon as minTxsPerBlock are available (for testing only)',
+    ...booleanConfigHelper(DefaultSequencerConfig.waitForBuildDeadlineOnFinalBlock),
   },
   skipPushProposedBlocksToArchiver: {
     description: 'Skip pushing proposed blocks to archiver (default: true)',

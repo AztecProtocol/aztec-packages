@@ -108,6 +108,12 @@ export interface SequencerConfig {
   expectedBlockProposalsPerSlot?: number;
   /** Have sequencer build and publish an empty checkpoint if there are no txs */
   buildCheckpointIfEmpty?: boolean;
+  /**
+   * On the final block of a checkpoint, wait until the block build deadline before sealing rather than
+   * sealing as soon as `minTxsPerBlock` are available. This lets a burst of txs submitted late in the slot
+   * all land in the final block instead of spilling into the next checkpoint (for testing only).
+   */
+  waitForBuildDeadlineOnFinalBlock?: boolean;
   /** Skip pushing proposed blocks to archiver (default: false) */
   skipPushProposedBlocksToArchiver?: boolean;
   /** Minimum number of blocks required for a checkpoint proposal (test only, defaults to undefined = no minimum) */
@@ -171,6 +177,7 @@ export const SequencerConfigSchema = zodFor<SequencerConfig>()(
     checkpointProposalSyncGraceSeconds: z.number().nonnegative().optional(),
     expectedBlockProposalsPerSlot: z.number().nonnegative().optional(),
     buildCheckpointIfEmpty: z.boolean().optional(),
+    waitForBuildDeadlineOnFinalBlock: z.boolean().optional(),
     skipPushProposedBlocksToArchiver: z.boolean().optional(),
     minBlocksForCheckpoint: z.number().positive().optional(),
     skipPublishingCheckpointsPercent: z.number().gte(0).lte(100).optional(),

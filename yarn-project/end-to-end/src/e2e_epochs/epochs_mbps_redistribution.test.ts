@@ -109,6 +109,10 @@ describe('e2e_epochs/epochs_mbps_redistribution', () => {
       // With 3 blocks and multiplier 1.2: maxTxsPerBlock = ceil(TOTAL_TX_COUNT/3*1.2).
       // The redistribution should cap early blocks, preserving budget for the last block.
       maxTxsPerCheckpoint: TOTAL_TX_COUNT,
+      // Make the final block collect txs until its build deadline rather than sealing on the first late tx.
+      // Otherwise the proposer snapshots the mempool mid-arrival and the late txs (which propagate over gossip
+      // one at a time) spill across two blocks, making the `lateBlockNumbers` assertion flaky.
+      waitForBuildDeadlineOnFinalBlock: true,
       // PXE syncs on checkpointed chain tip.
       pxeOpts: { syncChainTip: 'checkpointed' },
       ...contextConfigOverride,

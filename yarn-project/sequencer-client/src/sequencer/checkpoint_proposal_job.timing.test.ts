@@ -561,6 +561,59 @@ describe('CheckpointProposalJob Timing Tests', () => {
       expect(checkpointMetrics.noteCheckpointBroadcast).toHaveBeenCalledWith(expect.any(Number));
     });
 
+    // 30s block duration in the 72s slot derives exactly one block, so the single built block is also the
+    // last block of the checkpoint - the only block affected by waitForBuildDeadlineOnFinalBlock.
+    const singleBlockTimetable = () =>
+      makeProposerTimetable({
+        l1Constants,
+        p2pPropagationTime: P2P_PROPAGATION_TIME,
+        checkpointProposalPrepareTime: CHECKPOINT_ASSEMBLE_TIME,
+        blockDurationMs: 30000,
+      });
+
+    it('seals the final block as soon as txs are available by default', async () => {
+      const { blocks, txs } = await createTestBlocksAndTxs(1);
+      mockP2pWithTxs(txs);
+      checkpointBuilder.seedBlocks(blocks, [[txs[0]]]);
+      checkpointBuilder.setExecutionDurations([1]);
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(blocks[0]));
+
+      setTimeInSlot(0.5);
+
+      const job = createJob();
+      job.setTimetable(singleBlockTimetable());
+
+      await job.execute();
+
+      expect(checkpointBuilder.buildBlockCalls.length).toBe(1);
+      // A tx is available from the start (0.5s), so the block is built immediately rather than waiting.
+      expect(checkpointBuilder.recordedBuildTimes[0].startTime).toBeLessThan(2);
+    });
+
+    it('waits until the build deadline before sealing the final block when waitForBuildDeadlineOnFinalBlock is set', async () => {
+      const { blocks, txs } = await createTestBlocksAndTxs(1);
+      mockP2pWithTxs(txs);
+      checkpointBuilder.seedBlocks(blocks, [[txs[0]]]);
+      checkpointBuilder.setExecutionDurations([1]);
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(blocks[0]));
+
+      setTimeInSlot(0.5);
+
+      const job = createJob();
+      job.setTimetable(singleBlockTimetable());
+      job.updateConfig({ waitForBuildDeadlineOnFinalBlock: true });
+
+      await job.execute();
+
+      expect(checkpointBuilder.buildBlockCalls.length).toBe(1);
+      // Even though the tx is available from the start, the final block now waits until its build deadline
+      // (minus min_block_duration) before sealing, so a late burst of txs would still be picked up.
+      const deadline = checkpointBuilder.buildBlockCalls[0].opts.deadline!;
+      const startBuildingDeadline =
+        deadline.getTime() / 1000 - getSlotStartTime(slotNumber) - job.getTimetable().minBlockDuration;
+      expect(checkpointBuilder.recordedBuildTimes[0].startTime).toBeGreaterThanOrEqual(startBuildingDeadline - 0.01);
+    });
+
     it('builds maximum blocks when given enough time', async () => {
       const { blocks, txs } = await createTestBlocksAndTxs(EXPECTED_MAX_BLOCKS);
       mockP2pWithTxs(txs);

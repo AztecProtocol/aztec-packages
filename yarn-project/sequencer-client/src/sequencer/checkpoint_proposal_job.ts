@@ -906,6 +906,7 @@ export class CheckpointProposalJob implements Traceable {
         blockTimestamp: timestamp,
         // Create an empty block if we haven't already and this is the last one
         forceCreate: timingInfo.isLastBlock && blocksBuilt === 0 && this.config.buildCheckpointIfEmpty,
+        isLastBlock: timingInfo.isLastBlock,
         buildDeadline: new Date(timingInfo.deadline * 1000),
         blockNumber,
         indexWithinCheckpoint,
@@ -1030,6 +1031,7 @@ export class CheckpointProposalJob implements Traceable {
     checkpointBuilder: CheckpointBuilder,
     opts: {
       forceCreate?: boolean;
+      isLastBlock: boolean;
       blockTimestamp: bigint;
       blockNumber: BlockNumber;
       indexWithinCheckpoint: IndexWithinCheckpoint;
@@ -1238,11 +1240,12 @@ export class CheckpointProposalJob implements Traceable {
   @trackSpan('CheckpointProposalJob.waitForMinTxs')
   private async waitForMinTxs(opts: {
     forceCreate?: boolean;
+    isLastBlock: boolean;
     blockNumber: BlockNumber;
     indexWithinCheckpoint: IndexWithinCheckpoint;
     buildDeadline: Date | undefined;
   }): Promise<{ canStartBuilding: boolean; availableTxs: number; minTxs: number }> {
-    const { indexWithinCheckpoint, blockNumber, buildDeadline, forceCreate } = opts;
+    const { indexWithinCheckpoint, blockNumber, buildDeadline, forceCreate, isLastBlock } = opts;
 
     // We only allow a block with 0 txs in the first block of the checkpoint
     const minTxs = indexWithinCheckpoint > 0 && this.config.minTxsPerBlock === 0 ? 1 : this.config.minTxsPerBlock;
@@ -1252,19 +1255,33 @@ export class CheckpointProposalJob implements Traceable {
       ? new Date(buildDeadline.getTime() - this.timetable.minBlockDuration * 1000)
       : undefined;
 
+    // When enabled, the final block of a checkpoint keeps collecting txs until its build deadline rather than
+    // sealing as soon as minTxs are available. This lets a burst of txs submitted late in the slot all land in
+    // the final block instead of spilling into the next checkpoint. Opt-in (test only); production seals early.
+    const waitForBuildDeadline = isLastBlock && !!this.config.waitForBuildDeadlineOnFinalBlock;
+
     let availableTxs = await this.p2pClient.getPendingTxCount();
 
-    while (!forceCreate && availableTxs < minTxs) {
-      // If we're past deadline, or we have no deadline, give up
+    while (!forceCreate) {
       const now = this.dateProvider.nowAsDate();
-      if (startBuildingDeadline === undefined || now >= startBuildingDeadline) {
+      const pastDeadline = startBuildingDeadline === undefined || now >= startBuildingDeadline;
+      const haveMinTxs = availableTxs >= minTxs;
+
+      // Earlier blocks (and the final block by default) seal as soon as they reach minTxs. With
+      // waitForBuildDeadlineOnFinalBlock set, the final block instead waits until its build deadline.
+      const doneWaiting = waitForBuildDeadline ? pastDeadline && haveMinTxs : haveMinTxs;
+      if (doneWaiting) {
+        break;
+      }
+      // Out of time without minTxs: give up.
+      if (pastDeadline) {
         return { canStartBuilding: false, availableTxs, minTxs };
       }
 
       // Wait a bit before checking again
       this.setState(SequencerState.WAITING_FOR_TXS);
       this.log.verbose(
-        `Waiting for enough txs to build block ${blockNumber} at index ${indexWithinCheckpoint} in slot ${this.targetSlot} (have ${availableTxs} but need ${minTxs})`,
+        `Waiting for txs to build block ${blockNumber} at index ${indexWithinCheckpoint} in slot ${this.targetSlot} (have ${availableTxs}, need ${minTxs}${waitForBuildDeadline ? ', final block collecting until build deadline' : ''})`,
         { blockNumber, slot: this.targetSlot, indexWithinCheckpoint },
       );
       await this.waitForTxsPollingInterval();

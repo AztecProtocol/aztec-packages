@@ -1352,6 +1352,7 @@ describe('CheckpointProposalJob', () => {
       const result = await job.buildSingleBlock(checkpointBuilder, {
         blockNumber: newBlockNumber,
         indexWithinCheckpoint: IndexWithinCheckpoint(1),
+        isLastBlock: false,
         buildDeadline: undefined,
         blockTimestamp: 0n,
         txHashesAlreadyIncluded: new Set<string>(),
@@ -1373,6 +1374,7 @@ describe('CheckpointProposalJob', () => {
       const result = await job.buildSingleBlock(checkpointBuilder, {
         blockNumber: newBlockNumber,
         indexWithinCheckpoint: IndexWithinCheckpoint(1),
+        isLastBlock: false,
         buildDeadline: undefined,
         blockTimestamp: 0n,
         txHashesAlreadyIncluded: new Set<string>(),
@@ -1742,6 +1744,7 @@ class TestCheckpointProposalJob extends CheckpointProposalJob {
     checkpointBuilder: CheckpointBuilder,
     opts: {
       forceCreate?: boolean;
+      isLastBlock: boolean;
       blockTimestamp: bigint;
       blockNumber: BlockNumber;
       indexWithinCheckpoint: IndexWithinCheckpoint;
