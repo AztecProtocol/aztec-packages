@@ -13,7 +13,7 @@ variable "GCP_REGION" {
 variable "K8S_CLUSTER_CONTEXT" {
   description = "Kubernetes context for the GKE cluster."
   type        = string
-  nullable    = false
+  default     = "gke_testnet-440309_us-west1-a_aztec-gke-public"
 }
 
 variable "V4_AZTEC_DOCKER_IMAGE" {
@@ -24,5 +24,4 @@ variable "V4_AZTEC_DOCKER_IMAGE" {
 variable "CANONICAL_AZTEC_DOCKER_IMAGE" {
   description = "Aztec Docker image to deploy for the canonical RPC once that route is enabled."
   type        = string
-  default     = ""
 }

@@ -54,15 +54,14 @@ locals {
   }
 
   rpcs = {
-    # TODO enable canonical RPC once canonical routes are ready
-    # canonical = merge(local.l1_secret_names, {
-    #   aztec_docker_image = var.CANONICAL_AZTEC_DOCKER_IMAGE
-    #   hosts              = ["mainnet-new.rpc.aztec-labs.com"]
-    #   storage_size       = "8Gi"
-    #   env = merge(local.env, {
-    #     ROLLUP_VERSION = ""
-    #   })
-    # })
+    canonical = merge(local.l1_secret_names, {
+      aztec_docker_image = var.CANONICAL_AZTEC_DOCKER_IMAGE
+      hosts              = ["canonical.mainnet.rpc.aztec-labs.com"]
+      storage_size       = "8Gi"
+      env = merge(local.env, {
+        ROLLUP_VERSION = ""
+      })
+    })
     v4 = merge(local.l1_secret_names, {
       aztec_docker_image = var.V4_AZTEC_DOCKER_IMAGE
       hosts              = ["v4.mainnet.rpc.aztec-labs.com"]
@@ -87,4 +86,13 @@ module "environment" {
   RELEASE_PREFIX  = "mainnet"
   RPCS            = local.rpcs
   ALLOW_ANONYMOUS = false
+  CONSUMERS = {
+    client1 = {
+      username                       = "mainnet-rpc-consumer-client1"
+      gcp_secret_manager_secret_name = "mainnet-rpc-consumer-client1"
+      rate_limit_minute              = 0
+    }
+  }
+
+  IRM_METRICS_ENABLED = true
 }

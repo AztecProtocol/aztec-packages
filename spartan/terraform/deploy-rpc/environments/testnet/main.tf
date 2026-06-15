@@ -87,4 +87,6 @@ module "environment" {
   RELEASE_PREFIX  = "testnet"
   RPCS            = local.rpcs
   ALLOW_ANONYMOUS = true
+
+  IRM_METRICS_ENABLED = false
 }
