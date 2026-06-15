@@ -60,7 +60,7 @@ class ChonkTranscriptInvariantTests : public ::testing::Test {
  *
  * Per-circuit transcript breakdown (from complete_kernel_circuit_logic). The per-kernel multilinear batching (and the
  * hiding kernel's decider) continue on the shared accumulation transcript, so they create no additional transcripts:
- * - App circuits (0, 1, 2): 0 transcripts - use native HN folding prover
+ * - App circuits (0, 1, 2, 4): 0 transcripts - use native HN folding prover
  * - Init kernel (3): 3 transcripts:
  *     1. accumulation_recursive_transcript
  *     2. PairingPoints::aggregate_multiple - for batching pairing points with Fiat-Shamir separator

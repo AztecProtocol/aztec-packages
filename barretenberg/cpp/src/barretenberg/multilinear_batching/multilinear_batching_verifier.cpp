@@ -106,7 +106,7 @@ MultilinearBatchingVerifierInternal<Flavor_>::verify_proof(const std::vector<Ver
     FF target_sum = compute_target_sum(alpha, claims, batching_scalars);
 
     Sumcheck sumcheck(transcript, alpha, Flavor::VIRTUAL_LOG_N, target_sum);
-    const auto sumcheck_result = sumcheck.verify(relation_parameters, {});
+    const auto sumcheck_result = sumcheck.verify(relation_parameters, /*gate_challenges=*/{});
 
     bool eq_consistent = check_eq_consistency(sumcheck_result, claims);
 

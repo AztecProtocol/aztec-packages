@@ -381,7 +381,7 @@ std::tuple<Chonk::RecursiveVerifierAccumulator, Chonk::PairingPoints, Chonk::Std
  *
  * The method performs the following steps:
  *   1. SETUP: Initialize transcript and determine kernel type
- *   2. VERIFICATION LOOP: Process each entry in stdlib_verification_queue (folding + merge + databus)
+ *   2. VERIFICATION LOOP: Process each entry in stdlib_verification_queue
  *   3. OUTPUT: Set public inputs (KernelIO or HidingKernelIO) for propagation to next kernel
  *
  * @param circuit The kernel circuit to append verification logic to
@@ -676,15 +676,17 @@ void Chonk::accumulate_and_fold(ClientCircuit& circuit, QUEUE_TYPE queue_type, c
 #ifndef NDEBUG
     verify_native_instance_sumcheck(queue_entry);
 #endif
-    goblin.op_queue->merge();
-
-    num_circuits_accumulated++;
 
     // If a kernel follows, the circuit just folded was the last of that kernel's group: produce the batching
     // proof the kernel will recursively verify.
     if (following_kind == CircuitKind::Kernel || following_kind == CircuitKind::HidingKernel) {
         prove_multilinear_batching();
     }
+
+    // Merge the ecc ops from this round of accumulation
+    goblin.op_queue->merge();
+
+    num_circuits_accumulated++;
 }
 
 Chonk::CircuitKind Chonk::current_kind() const

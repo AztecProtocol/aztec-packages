@@ -8,7 +8,6 @@
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
-#include <sstream>
 #include <vector>
 
 using namespace bb;
@@ -165,13 +164,6 @@ TEST_F(MultilinearBatchingWitnessDuplicateTests, RecursiveVerifierWitnessDuplica
     EXPECT_EQ(variables_in_one_gate.size(), 0);
 
     analyzer.fill_witness_duplicate_map({}, cdg::WitnessDuplicateFilterMode::TRIAGE_VALUE_FILTERS);
-    for (const auto& [value, witness_indices] : analyzer.get_witness_duplicate_map()) {
-        std::stringstream indices_stream;
-        for (const uint32_t witness_idx : witness_indices) {
-            indices_stream << witness_idx << " ";
-        }
-        info("Value: ", value, ", witness indices: ", indices_stream.str());
-    }
     EXPECT_TRUE(analyzer.get_witness_duplicate_map().empty());
 }
 

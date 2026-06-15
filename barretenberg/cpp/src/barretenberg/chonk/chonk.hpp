@@ -297,9 +297,10 @@ class Chonk {
      */
     void verify_native_instance_sumcheck(const VerifierInputs& queue_entry);
 
-    // Native (non-recursive) verification of a single queue entry's instance sumcheck, in `NativeFlavor`.
-    // Debug-only cross-check that the prover's sumcheck claim matches a freshly verified one; the claim is
-    // collected for the multilinear batching check.
+    /**
+     * @brief Templated native verification of the instance to accumulator sumcheck.
+     *
+     */
     template <typename NativeFlavor>
     void run_native_instance_sumcheck(const std::shared_ptr<typename NativeFlavor::VerificationKey>& honk_vk,
                                       const VerifierInputs& queue_entry);
