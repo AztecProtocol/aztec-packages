@@ -29,18 +29,22 @@ template <typename FF_> class TranslatorOpcodeConstraintRelationImpl {
      */
     template <typename AllEntities> static bool skip(const AllEntities& in)
     {
-        // Skip evaluation when not at even indices in the minicircuit and not in the masking area
-        // as the contribution is zero in these regions.
-        return (in.lagrange_even_in_minicircuit + in.lagrange_mini_masking).is_zero();
+        // Skip evaluation outside the genuine-op processing range (i.e. at neither even nor odd minicircuit indices),
+        // where every contribution is zero. The masking region has both lagranges zero and is therefore skipped.
+        return (in.lagrange_even_in_minicircuit + in.lagrange_odd_in_minicircuit).is_zero();
     }
     /**
-     * @brief Enforces two constraints on the opcode value:
-     *          1. opcode ∈ {0,3,4,8} (nop, eq and reset, mul or add)
-     *          2. at even indices when op = 0 (no-op), accumulator limbs stay the same
+     * @brief Enforces constraints on the opcode value:
+     *          1. on even indices: opcode ∈ {0,3,4,8} (nop, eq and reset, mul or add)
+     *          2. on odd indices:  opcode = 0
+     *          3. on even indices when op = 0 (no-op), accumulator limbs stay the same
      *
-     * @details The first constraint validates that the opcode is one of the described values on even rows.
-     * On odd rows, the opcode value is set to 0 and so it is always valid, so the check is trivial. The second
-     * constraint ensures that at even indices when the opcode is 0 (no-op), the accumulator limbs do not change
+     * @details Constraints 1 and 2 are a single subrelation gated by lagrange_even/lagrange_odd respectively.
+     * Constraint 2 is required for soundness: a genuine opcode placed on an odd row would be skipped by the
+     * non-native accumulator (which is gated by lagrange_even·op), so without it a prover could drop an ECC op
+     * from the batched evaluation. Random masking ops are exempt because both lagrange selectors are zero in the
+     * masking regions. Constraint 3 ensures that at even indices when the opcode is 0 (no-op), the accumulator
+     * limbs do not change.
      *
      * @param evals transformed to `evals + C(in(X)...)*scaling_factor`
      * @param in an std::array containing the fully extended Univariate edges.

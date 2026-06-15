@@ -33,6 +33,10 @@
  *   NonNativeFieldRejectsAccumulatorAlias              — #2492 regression: acc += q, quot -= 1 caught
  *                                                       by higher carry check (subrelation 1)
  *
+ * Opcode constraint relation (TranslatorOpcodeConstraintRelation) — 1 test:
+ *   OpcodeConstraintFailsOnGenuineOpcodeAtOddRow       — genuine opcode on an odd row must be rejected
+ *                                                       (subrelation 0: lagrange_odd * op == 0)
+ *
  * Pipeline correctness — 1 test:
  *   InRangeValueInMaskingFlowsToOrderedTail           — trace FF(42) from wire masking through
  *                                                       concatenation into ordered poly tail
@@ -855,4 +859,39 @@ TEST_F(TranslatorRelationFailureTests, NonNativeFieldRejectsAccumulatorAlias)
 
     // The native-field check (subrelation 2) should still pass — the mod-r projection is preserved.
     EXPECT_FALSE(failures.contains(2)) << "Subrelation 2 (native check) should pass under the alias mutation";
+}
+
+// ======================== Opcode Constraint Relation: op on odd rows ========================
+
+/**
+ * @brief A genuine opcode must never appear on an odd minicircuit row.
+ *
+ * @details The non-native accumulator only advances on even rows (every advance subrelation is gated by
+ * lagrange_even_in_minicircuit * op). An opcode placed on an odd row would therefore be skipped by the
+ * accumulator, letting a prover exclude an ECC op from the batched evaluation while the rest of the circuit
+ * stays consistent. Subrelation 0 of the opcode-constraint relation forbids this by enforcing
+ * lagrange_odd_in_minicircuit * op == 0. Random masking ops are exempt because both lagrange selectors are zero
+ * in the masking regions.
+ */
+TEST_F(TranslatorRelationFailureTests, OpcodeConstraintFailsOnGenuineOpcodeAtOddRow)
+{
+    auto [key, params] = build_valid_accumulator_transfer_state();
+    auto& pp = key.proving_key->polynomials;
+
+    auto baseline = RelationChecker<Flavor>::check<TranslatorOpcodeConstraintRelation<FF>>(
+        pp, params, "TranslatorOpcodeConstraintRelation");
+    EXPECT_TRUE(baseline.empty()) << "Baseline opcode constraint should pass";
+
+    // Row 9 is the first odd row in the genuine-op processing range (lagrange_odd_in_minicircuit = 1, op = 0).
+    const size_t odd_row = Flavor::RESULT_ROW + 1;
+    ASSERT_EQ(pp.op[odd_row], FF(0));
+
+    // Place a genuine opcode (3 = eq + reset) on the odd row.
+    pp.op.at(odd_row) = FF(3);
+
+    auto failures = RelationChecker<Flavor>::check<TranslatorOpcodeConstraintRelation<FF>>(
+        pp, params, "TranslatorOpcodeConstraintRelation");
+    EXPECT_FALSE(failures.empty()) << "Opcode constraint should fail with a genuine opcode on an odd row";
+    EXPECT_TRUE(failures.contains(0)) << "Subrelation 0 (opcode validity) should catch the odd-row opcode";
+    EXPECT_EQ(failures.at(0), static_cast<uint32_t>(odd_row)) << "Failure should be at the odd row";
 }
