@@ -24,7 +24,7 @@ import type { PXEConfig } from '@aztec/pxe/server';
 import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
-import { MNEMONIC } from '../fixtures/fixtures.js';
+import { L1_DIRECT_WRITE_ACCOUNT_INDEX, MNEMONIC } from '../fixtures/fixtures.js';
 import {
   type EndToEndContext,
   type SetupOptions,
@@ -177,7 +177,13 @@ export class CrossChainMessagingTest {
 
     await ensureAuthRegistryPublished(this.wallet, this.ownerAddress);
 
-    this.l1Client = createExtendedL1Client(this.aztecNodeConfig.l1RpcUrls, MNEMONIC);
+    this.l1Client = createExtendedL1Client(
+      this.aztecNodeConfig.l1RpcUrls,
+      MNEMONIC,
+      undefined,
+      undefined,
+      L1_DIRECT_WRITE_ACCOUNT_INDEX,
+    );
 
     const underlyingERC20Address = await deployL1Contract(this.l1Client, TestERC20Abi, TestERC20Bytecode, [
       'Underlying',
@@ -206,7 +212,13 @@ export class CrossChainMessagingTest {
     this.ethAccount = EthAddress.fromString(crossChainContext.ethAccount.toString());
     const tokenPortalAddress = EthAddress.fromString(crossChainContext.tokenPortal.toString());
 
-    const l1Client = createExtendedL1Client(this.aztecNodeConfig.l1RpcUrls, MNEMONIC);
+    const l1Client = createExtendedL1Client(
+      this.aztecNodeConfig.l1RpcUrls,
+      MNEMONIC,
+      undefined,
+      undefined,
+      L1_DIRECT_WRITE_ACCOUNT_INDEX,
+    );
     this.l1Client = l1Client;
 
     const l1Contracts = pickL1ContractAddresses(this.aztecNodeConfig);
