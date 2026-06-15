@@ -35,6 +35,14 @@ Called whenever a utility function makes a cross-contract call. A call made by a
 
 Unlike [authentication witnesses (authwits)](../../aztec-js/how_to_use_authwit.md), the hook is invoked live, while execution is underway. Authwits can be recorded during simulation and signed once at the end, but the PXE cannot predict what a utility call would return, so it must ask before continuing. Most of the time the wallet should answer on its own, for example against a list of audited or previously trusted contracts, to avoid interrupting execution multiple times asking the user for confirmation.
 
+### Deciding what to authorize
+
+Private state is siloed per contract: a utility function runs on your device with access to its own contract's private state, and nothing else. Reading your own balance through a token contract's utility function is fine, and the hook never fires, because no contract boundary is crossed. The risk appears only when one contract's utility function calls into a *different* contract, because that call can reach private state the caller could not read on its own.
+
+Consider a single cross-contract operation, reading your token balance, made by two different callers. When a DeFi router calls the token's balance utility to quote you a swap, that is a legitimate cross-contract read, and you want it allowed. When an unknown, possibly malicious contract makes the very same call to snoop your balance, you want it denied. The exposed data is identical in both cases; the only thing that differs is *who is making the call*, which is exactly the decision the hook delegates to the wallet.
+
+The wallet makes that decision by inspecting the request, which identifies the caller and target by both address and contract class ID, to judge whether the call is safe to authorize.
+
 ### In Noir tests
 
 When testing cross-contract utility calls in Noir using `TestEnvironment`, use `with_authorized_utility_call_targets` on your call options:
