@@ -4,7 +4,14 @@ pragma solidity >=0.8.27;
 
 import {IVerifier} from "./../interfaces/IVerifier.sol";
 import {CommitmentSchemeLib} from "./CommitmentScheme.sol";
-import {SUBGROUP_GENERATOR, SUBGROUP_GENERATOR_INVERSE, SUBGROUP_SIZE, Fr, FrLib} from "./Fr.sol";
+import {
+    SUBGROUP_GENERATOR,
+    SUBGROUP_GENERATOR_INVERSE,
+    SUBGROUP_SIZE,
+    SUBGROUP_SIZE_INVERSE,
+    Fr,
+    FrLib
+} from "./Fr.sol";
 import {
     Honk,
     NUMBER_OF_ENTITIES,
@@ -41,7 +48,7 @@ abstract contract BaseZKHonkVerifier is IVerifier {
         Fr lagrangeFirst;
         Fr lagrangeLast;
         Fr rootPower;
-        Fr[SUBGROUP_SIZE] denominators; // this has to disappear
+        Fr[] denominators;
         Fr diff;
     }
 
@@ -211,19 +218,18 @@ abstract contract BaseZKHonkVerifier is IVerifier {
 
         // To compute the next target sum, we evaluate the given univariate at a point u (challenge).
 
-        // TODO: opt: use same array mem for each iteratioon
-        // Performing Barycentric evaluations
-        // Compute B(x)
+        // Performing Barycentric evaluations.
+        // Compute B(x) = ∏ (x - i) and the per-point denominators DENOM[i]·(x - i) in a single
+        // pass, caching (x - i) which both use, then invert all denominators with one modexp.
         Fr numeratorValue = Fr.wrap(1);
+        Fr[] memory denominators = new Fr[](ZK_BATCHED_RELATION_PARTIAL_LENGTH);
         for (uint256 i = 0; i < ZK_BATCHED_RELATION_PARTIAL_LENGTH; ++i) {
-            numeratorValue = numeratorValue * (roundChallenge - Fr.wrap(i));
+            Fr challengeMinusI = roundChallenge - Fr.wrap(i);
+            numeratorValue = numeratorValue * challengeMinusI;
+            denominators[i] = BARYCENTRIC_LAGRANGE_DENOMINATORS[i] * challengeMinusI;
         }
 
-        // Calculate domain size $N of inverses -- TODO: montgomery's trick
-        Fr[ZK_BATCHED_RELATION_PARTIAL_LENGTH] memory denominatorInverses;
-        for (uint256 i = 0; i < ZK_BATCHED_RELATION_PARTIAL_LENGTH; ++i) {
-            denominatorInverses[i] = FrLib.invert(BARYCENTRIC_LAGRANGE_DENOMINATORS[i] * (roundChallenge - Fr.wrap(i)));
-        }
+        Fr[] memory denominatorInverses = FrLib.batchInvert(denominators);
 
         for (uint256 i = 0; i < ZK_BATCHED_RELATION_PARTIAL_LENGTH; ++i) {
             targetSum = targetSum + roundUnivariates[i] * denominatorInverses[i];
@@ -246,12 +252,26 @@ abstract contract BaseZKHonkVerifier is IVerifier {
         Fr[] memory scalars = new Fr[]($MSMSize);
         Honk.G1Point[] memory commitments = new Honk.G1Point[]($MSMSize);
 
-        mem.posInvertedDenominator = (tp.shplonkZ - powers_of_evaluation_challenge[0]).invert();
-        mem.negInvertedDenominator = (tp.shplonkZ + powers_of_evaluation_challenge[0]).invert();
+        // Batch-invert every Shplonk/Gemini denominator with a single modexp:
+        //   [i]            = z - r^{2^i}   for i in [0, $LOG_N)
+        //   [$LOG_N + i]   = z + r^{2^i}   for i in [0, $LOG_N)
+        //   [2*$LOG_N]     = r             (for the 1/r shift factor)
+        //   [2*$LOG_N + 1] = z - g·r       (Libra denominator; z - r is reused from index 0)
+        mem.shplonkInverses = new Fr[](2 * $LOG_N + 2);
+        for (uint256 i = 0; i < $LOG_N; ++i) {
+            mem.shplonkInverses[i] = tp.shplonkZ - powers_of_evaluation_challenge[i];
+            mem.shplonkInverses[$LOG_N + i] = tp.shplonkZ + powers_of_evaluation_challenge[i];
+        }
+        mem.shplonkInverses[2 * $LOG_N] = tp.geminiR;
+        mem.shplonkInverses[2 * $LOG_N + 1] = tp.shplonkZ - SUBGROUP_GENERATOR * tp.geminiR;
+        mem.shplonkInverses = FrLib.batchInvert(mem.shplonkInverses);
+
+        mem.posInvertedDenominator = mem.shplonkInverses[0];
+        mem.negInvertedDenominator = mem.shplonkInverses[$LOG_N];
 
         mem.unshiftedScalar = mem.posInvertedDenominator + (tp.shplonkNu * mem.negInvertedDenominator);
-        mem.shiftedScalar =
-            tp.geminiR.invert() * (mem.posInvertedDenominator - (tp.shplonkNu * mem.negInvertedDenominator));
+        mem.shiftedScalar = mem.shplonkInverses[2 * $LOG_N]
+            * (mem.posInvertedDenominator - (tp.shplonkNu * mem.negInvertedDenominator));
 
         scalars[0] = Fr.wrap(1);
         commitments[0] = proof.shplonkQ;
@@ -401,9 +421,9 @@ abstract contract BaseZKHonkVerifier is IVerifier {
             bool dummy_round = i >= ($LOG_N - 1);
 
             if (!dummy_round) {
-                // Update inverted denominators
-                mem.posInvertedDenominator = (tp.shplonkZ - powers_of_evaluation_challenge[i + 1]).invert();
-                mem.negInvertedDenominator = (tp.shplonkZ + powers_of_evaluation_challenge[i + 1]).invert();
+                // Inverted denominators for r^{2^(i+1)}, precomputed in the batch above
+                mem.posInvertedDenominator = mem.shplonkInverses[i + 1];
+                mem.negInvertedDenominator = mem.shplonkInverses[$LOG_N + i + 1];
 
                 // Compute the scalar multipliers for Aₗ(± r^{2ˡ}) and [Aₗ]
                 mem.scalingFactorPos = mem.batchingChallenge * mem.posInvertedDenominator;
@@ -424,9 +444,10 @@ abstract contract BaseZKHonkVerifier is IVerifier {
 
         boundary += $LOG_N - 1;
 
-        // Finalize the batch opening claim
-        mem.denominators[0] = Fr.wrap(1).div(tp.shplonkZ - tp.geminiR);
-        mem.denominators[1] = Fr.wrap(1).div(tp.shplonkZ - SUBGROUP_GENERATOR * tp.geminiR);
+        // Finalize the batch opening claim. Both Libra denominators were inverted in the batch
+        // above: 1/(z - r) is index 0 (since r^{2^0} = r) and 1/(z - g·r) is index 2*$LOG_N + 1.
+        mem.denominators[0] = mem.shplonkInverses[0];
+        mem.denominators[1] = mem.shplonkInverses[2 * $LOG_N + 1];
         mem.denominators[2] = mem.denominators[0];
         mem.denominators[3] = mem.denominators[0];
 
@@ -486,7 +507,14 @@ abstract contract BaseZKHonkVerifier is IVerifier {
         Fr libraEval
     ) internal view returns (bool check) {
         Fr one = Fr.wrap(1);
-        Fr vanishingPolyEval = geminiR.pow(SUBGROUP_SIZE) - one;
+
+        // vanishingPolyEval = r^SUBGROUP_SIZE - 1. SUBGROUP_SIZE is a power of two, so r^SUBGROUP_SIZE
+        // is obtained by repeated squaring rather than a modexp.
+        Fr vanishingPolyEval = geminiR;
+        for (uint256 sq = 1; sq < SUBGROUP_SIZE; sq <<= 1) {
+            vanishingPolyEval = vanishingPolyEval.sqr();
+        }
+        vanishingPolyEval = vanishingPolyEval - one;
         require(vanishingPolyEval != Fr.wrap(0), Errors.GeminiChallengeInSubgroup());
 
         SmallSubgroupIpaIntermediates memory mem;
@@ -499,16 +527,24 @@ abstract contract BaseZKHonkVerifier is IVerifier {
             }
         }
 
+        // All SUBGROUP_SIZE denominators g^{-idx}·r - 1 are known up front, so invert them with a
+        // single modexp. They are guaranteed non-zero here: a zero denominator means r = g^idx lies
+        // in the subgroup, which forces r^SUBGROUP_SIZE = 1 and would already have tripped the
+        // GeminiChallengeInSubgroup revert above.
+        mem.denominators = new Fr[](SUBGROUP_SIZE);
         mem.rootPower = one;
-        mem.challengePolyEval = Fr.wrap(0);
         for (uint256 idx = 0; idx < SUBGROUP_SIZE; idx++) {
             mem.denominators[idx] = mem.rootPower * geminiR - one;
-            mem.denominators[idx] = mem.denominators[idx].invert();
-            mem.challengePolyEval = mem.challengePolyEval + mem.challengePolyLagrange[idx] * mem.denominators[idx];
             mem.rootPower = mem.rootPower * SUBGROUP_GENERATOR_INVERSE;
         }
+        mem.denominators = FrLib.batchInvert(mem.denominators);
 
-        Fr numerator = vanishingPolyEval * Fr.wrap(SUBGROUP_SIZE).invert();
+        mem.challengePolyEval = Fr.wrap(0);
+        for (uint256 idx = 0; idx < SUBGROUP_SIZE; idx++) {
+            mem.challengePolyEval = mem.challengePolyEval + mem.challengePolyLagrange[idx] * mem.denominators[idx];
+        }
+
+        Fr numerator = vanishingPolyEval * SUBGROUP_SIZE_INVERSE;
         mem.challengePolyEval = mem.challengePolyEval * numerator;
         mem.lagrangeFirst = mem.denominators[0] * numerator;
         mem.lagrangeLast = mem.denominators[SUBGROUP_SIZE - 1] * numerator;
@@ -539,7 +575,14 @@ abstract contract BaseZKHonkVerifier is IVerifier {
         assembly {
             let free := mload(0x40)
 
-            let count := 0x01
+            // scalars[0] is statically 1, so the first MSM term equals commitments[0] (shplonkQ).
+            // Seed the accumulator with it directly, skipping one ecMul. Its on-curve validity is
+            // still enforced by the first in-loop ecAdd, which rejects off-curve inputs.
+            let first := mload(add(base, 0x20))
+            mstore(free, mload(first))
+            mstore(add(free, 0x20), mload(add(first, 0x20)))
+
+            let count := 0x02
             for {} lt(count, add(limit, 1)) { count := add(count, 1) } {
                 // Get loop offsets
                 let base_base := add(base, mul(count, 0x20))
