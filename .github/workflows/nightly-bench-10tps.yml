@@ -187,8 +187,8 @@ jobs:
           NO_SPOT: 1
         run: ./.github/ci3.sh network-teardown bench-10tps bench-10tps
 
-  notify-failure:
-    if: ${{ always() && failure() && github.event_name != 'workflow_dispatch' && (github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages') }}
+  notify:
+    if: (success() || failure()) && github.event_name != 'workflow_dispatch' && (github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages')
     needs:
       - select-image
       - deploy-bench-10tps-network
@@ -202,7 +202,20 @@ jobs:
         with:
           ref: ${{ needs.select-image.outputs.source_ref }}
 
-      - name: Notify Slack on failure
+      - name: Notify Slack on success
+        if: success()
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        run: |
+          export CI=1
+          IMAGE="${{ needs.select-image.outputs.image_label || 'unknown' }}"
+          RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          ./ci3/slack_notify \
+            "Nightly 10 TPS benchmark PASSED (image ${IMAGE}) :white_check_mark: <${RUN_URL}|View Run>" \
+            "#alerts-next-scenario"
+
+      - name: Notify Slack and dispatch ClaudeBox on failure
+        if: failure()
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}

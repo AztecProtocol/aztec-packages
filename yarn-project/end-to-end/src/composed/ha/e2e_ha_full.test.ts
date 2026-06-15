@@ -304,24 +304,39 @@ describe('HA Full Setup', () => {
   });
 
   afterAll(async () => {
+    const cleanupErrors: string[] = [];
+
+    dateProvider?.reset();
+
     // Stop all HA peer nodes in parallel with a per-node deadline. A single stuck node can otherwise
-    // block the serial loop long enough to blow the jest hook timeout — e.g. a sequencer.stop() that
-    // awaits an L1 publish whose tx-timeout was computed on a test-warped clock and never fires.
+    // block the serial loop long enough to blow the jest hook timeout, so report the stuck node directly
+    // instead of letting the suite pass and later fail with Jest open handles.
     if (haNodeServices) {
       const STOP_DEADLINE_MS = 30_000;
-      await Promise.allSettled(
+      const stopResults = await Promise.allSettled(
         haNodeServices.map((service, i) => {
           logger.info(`Stopping HA peer node ${i}`);
           return Promise.race([
             service.stop().catch(error => {
-              logger.error(`Failed to stop HA peer node ${i}: ${error}`);
+              const message = `Failed to stop HA peer node ${i}: ${error}`;
+              logger.error(message);
+              return message;
             }),
             sleep(STOP_DEADLINE_MS).then(() => {
-              logger.error(`HA peer node ${i} stop did not return within ${STOP_DEADLINE_MS}ms; abandoning`);
+              const message = `HA peer node ${i} stop did not return within ${STOP_DEADLINE_MS}ms; abandoning`;
+              logger.error(message);
+              return message;
             }),
           ]);
         }),
       );
+      for (const result of stopResults) {
+        if (result.status === 'rejected') {
+          cleanupErrors.push(`Unexpected HA node stop error: ${result.reason}`);
+        } else if (result.value) {
+          cleanupErrors.push(result.value);
+        }
+      }
     }
 
     // Cleanup HA keystore temp directories
@@ -350,6 +365,10 @@ describe('HA Full Setup', () => {
 
     // Cleanup bootstrap node and test infrastructure (this cleans up the shared data directory)
     await teardown();
+
+    if (cleanupErrors.length > 0) {
+      throw new Error(cleanupErrors.join('\n'));
+    }
   });
 
   afterEach(async () => {

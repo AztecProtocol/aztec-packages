@@ -173,10 +173,11 @@ export class CheckpointProposalJob implements Traceable {
     await this.pendingL1Submission;
   }
 
-  /** Interrupts job-owned waits so shutdown can finish. */
+  /** Interrupts job-owned waits, including the publisher's send-at-slot sleep, so shutdown can finish. */
   public interrupt(): void {
     this.interrupted = true;
     this.interruptibleSleep.interrupt(true);
+    this.publisher.interrupt();
   }
 
   private async awaitInterruptibleSleep(ms: number): Promise<void> {
