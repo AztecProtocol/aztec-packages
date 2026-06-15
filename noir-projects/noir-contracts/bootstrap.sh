@@ -121,8 +121,11 @@ function compile {
   local json_path="./target/$filename"
   local contract_hash=$(get_contract_hash $1 $2)
   if ! cache_download contract-$contract_hash.tar.gz; then
-    $NARGO compile --package $contract --inliner-aggressiveness 0 --deny-warnings
-    $BB aztec_process -i $json_path
+    local compile_cmd
+    printf -v compile_cmd '%q compile --package %q --inliner-aggressiveness 0 --deny-warnings && %q aztec_process -i %q' \
+      "$NARGO" "$contract" "$BB" "$json_path"
+    RETRY_SLEEP=10 retry -p 'Could not resolve host|Temporary failure in name resolution|Failed to connect|Connection timed out|Operation timed out|Connection reset|connection reset|TLS|SSL' \
+      "$compile_cmd || { rm -rf \"\$HOME/nargo/github.com/noir-lang\"; exit 1; }"
     cache_upload contract-$contract_hash.tar.gz $json_path
   fi
   # Stamp the version after the cache block so the field is always present, whether the artifact came from a fresh

@@ -60,6 +60,14 @@ function pinned_chonk_inputs_s3_uri {
   echo "${PINNED_CHONK_S3_BUCKET}/bb-chonk-inputs-${hash}.tar.gz"
 }
 
+function curl_pinned_chonk_inputs {
+  curl --retry 3 \
+       --retry-all-errors \
+       --retry-delay 5 \
+       --connect-timeout 20 \
+       -sSfL "$@"
+}
+
 function reset_pinned_chonk_state_subdir {
   local name=${1:?state subdir required}
   local dir="$PINNED_CHONK_STATE_DIR/$name"
@@ -128,7 +136,7 @@ function download_pinned_chonk_inputs {
   local state_dir tarball
   state_dir="$(make_pinned_chonk_state_tmpdir download)"
   tarball="$state_dir/bb-chonk-inputs-${pinned_chonk_inputs_hash}.tar.gz"
-  if ! curl -sSf "$url" -o "$tarball"; then
+  if ! curl_pinned_chonk_inputs "$url" -o "$tarball"; then
     echo_stderr "ERROR: failed to download pinned chonk inputs from $url"
     echo_stderr "pinned_chonk_inputs_hash='${pinned_chonk_inputs_hash}' may be stale."
     echo_stderr "Add the ci-refresh-chonk label to the PR, or put --ci-refresh-chonk in the head commit message, to regenerate."
@@ -232,7 +240,7 @@ function assert_chonk_inputs_object_exists {
   fi
   local url
   url="$(pinned_chonk_inputs_url "$hash")"
-  if ! curl -sSfI "$url" >/dev/null; then
+  if ! curl_pinned_chonk_inputs -I "$url" >/dev/null; then
     echo_stderr "ERROR: uploaded chonk inputs artifact is not visible at ${url}"
     return 1
   fi

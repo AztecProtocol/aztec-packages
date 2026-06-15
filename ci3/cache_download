@@ -36,20 +36,58 @@ else
   endpoint="https://build-cache.aztec-labs.com"
 fi
 
-# Downloads the artifact from remote to stdout.
+function is_retryable_download_error {
+  grep -Eqi \
+    "Could not resolve host|Temporary failure in name resolution|Resolving timed out|Failed to connect|Connection timed out|Operation timed out|Connection reset|connection reset|TLS|SSL|HTTP (408|429|5[0-9][0-9])" \
+    "$1"
+}
+
+# Downloads the artifact from remote into the given file.
 function download_from_remote {
+  local out_file=${1:?output file required}
   if [[ -n "${S3_BUILD_CACHE_AWS_PARAMS:-}" ]]; then
     # Use AWS CLI with custom params (e.g., custom endpoint)
     # NOTE: This is NOT currently used, but allows for using minio or other S3-compatible storage for tests.
     s3_uri="s3://aztec-ci-artifacts/build-cache/$tar_file"
-    aws $S3_BUILD_CACHE_AWS_PARAMS s3 cp "$s3_uri" "-" 2>/dev/null
+    aws $S3_BUILD_CACHE_AWS_PARAMS s3 cp "$s3_uri" "$out_file"
   elif [[ -n "${CACHE_SSH_HOST:-}" ]]; then
     # Run remote download on remote host via SSH jump and pipe back
-    ssh "$CACHE_SSH_HOST" "curl -s -f \"$endpoint/$tar_file\""
+    ssh "$CACHE_SSH_HOST" "curl -sSfL --connect-timeout 20 \"$endpoint/$tar_file\"" > "$out_file"
   else
     # Default to download from remote via curl
-    curl -s -f "$endpoint/$tar_file"
+    curl -sSfL --connect-timeout 20 "$endpoint/$tar_file" -o "$out_file"
   fi
+}
+
+function download_from_remote_with_retries {
+  local out_file=${1:?output file required}
+  local attempts=${CACHE_DOWNLOAD_ATTEMPTS:-3}
+  local sleep_seconds=${CACHE_DOWNLOAD_RETRY_SLEEP:-5}
+  local err_file
+  err_file=$(mktemp)
+
+  local attempt code
+  for attempt in $(seq 1 "$attempts"); do
+    rm -f "$out_file"
+    if download_from_remote "$out_file" 2>"$err_file"; then
+      rm -f "$err_file"
+      return 0
+    else
+      code=$?
+    fi
+
+    if (( attempt == attempts )) || ! is_retryable_download_error "$err_file"; then
+      cat "$err_file" >&2
+      rm -f "$err_file"
+      return "$code"
+    fi
+
+    echo_stderr "Cache download of $tar_file hit a retryable network error (attempt $attempt/$attempts); retrying in ${sleep_seconds}s."
+    cat "$err_file" >&2
+    sleep "$sleep_seconds"
+  done
+
+  rm -f "$err_file"
 }
 
 # Local cache: if CACHE_LOCAL_DIR is set, check local cache first,
@@ -65,25 +103,41 @@ if [[ -n "${CACHE_LOCAL_DIR:-}" ]]; then
 
   if [[ -f "$local_cache_file" ]]; then
     echo_stderr "Local cache hit for $tar_file."
-    extract_tar < "$local_cache_file"
+    if ! extract_tar < "$local_cache_file"; then
+      echo_stderr "Cache extraction of $tar_file from local cache failed."
+      exit 1
+    fi
     echo_stderr "Cache extraction of $tar_file from local cache complete in ${SECONDS}s."
     exit 0
   fi
 
   echo_stderr "Local cache miss for $tar_file, downloading from remote."
-  if ! download_from_remote > "$local_cache_file"; then
-    rm -f "$local_cache_file"
+  local_cache_tmp=$(mktemp "$CACHE_LOCAL_DIR/.cache-download.XXXXXXXX")
+  if ! download_from_remote_with_retries "$local_cache_tmp"; then
+    rm -f "$local_cache_tmp"
     echo_stderr "Cache download of $tar_file failed."
     exit 1
   fi
+  mv "$local_cache_tmp" "$local_cache_file"
 
-  extract_tar < "$local_cache_file"
+  if ! extract_tar < "$local_cache_file"; then
+    echo_stderr "Cache extraction of $tar_file failed."
+    exit 1
+  fi
   echo_stderr "Cache download and extraction of $tar_file complete in ${SECONDS}s."
   exit 0
 fi
 
-if ! download_from_remote | extract_tar; then
+tmp_cache_file=$(mktemp)
+trap 'rm -f "$tmp_cache_file"' EXIT
+
+if ! download_from_remote_with_retries "$tmp_cache_file"; then
   echo_stderr "Cache download of $tar_file failed."
+  exit 1
+fi
+
+if ! extract_tar < "$tmp_cache_file"; then
+  echo_stderr "Cache extraction of $tar_file failed."
   exit 1
 fi
 
