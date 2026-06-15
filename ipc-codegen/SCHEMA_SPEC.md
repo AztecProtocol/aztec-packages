@@ -1,159 +1,158 @@
 # IPC Schema Format Specification
 
-This document specifies the JSON schema format used for cross-language code generation
-in the IPC codegen system. The schema is the contract between a producer's
-schema export command and all language code generators.
+This document specifies the schema format used for cross-language code generation
+in the IPC codegen system. A schema is a single hand-authored JSONC file per
+service and is the source of truth: ipc-codegen reads it to generate the wire
+types, client, and server dispatch for every target language (TypeScript, C++,
+Rust, Zig). The committed golden msgpack corpus is the cross-language wire-format
+contract; the schema is a normal reviewed source file.
 
-## Overview
+JSONC is plain JSON with `//` and `/* */` comments stripped before parsing — no
+extra dependencies.
 
-Each IPC service exports its schema as JSON, typically via a subcommand:
+## Top-level structure
 
-```bash
-./my-service msgpack schema   # Outputs JSON to stdout
-```
+A schema is a single object describing one service:
 
-The output is a JSON object representing the service's API, derived at compile time
-from C++ type metadata via the `MsgpackSchemaPacker` infrastructure.
-
-## Top-Level Structure
-
-```json
+```jsonc
 {
-  "commands": ["named_union", [
-    ["CommandNameA", { "__typename": "CommandNameA", "field1": <type>, ... }],
-    ["CommandNameB", { "__typename": "CommandNameB", "field1": <type>, ... }]
-  ]],
-  "responses": ["named_union", [
-    ["ResponseNameA", { "__typename": "ResponseNameA", "field1": <type>, ... }],
-    ["ErrorResponse", { "__typename": "ErrorResponse", "message": "string" }]
-  ]]
-}
-```
+  "service": "Echo",
 
-- `commands` and `responses` are both **NamedUnion** types (see below).
-- Commands and responses are paired by name: command `Foo` corresponds to the
-  response named `FooResponse`. The error response (ending in `ErrorResponse`)
-  is shared across all commands.
+  // Named byte aliases — nominal 32-byte types. Only bin32 today.
+  "aliases": {
+    "Fr": "bin32"
+  },
 
-### Validation rules
+  // Shared struct types, referenced by name from commands or other types.
+  "types": {
+    "EchoInner": {
+      "values": "bytes[]",
+      "flag":   "bool?"
+    }
+  },
 
-Schemas are validated at generation time; violations are hard errors:
+  // The error variant, declared once and shared by every command.
+  "error": { "message": "string" },
 
-- Exactly one response variant named `*ErrorResponse` must exist, with
-  exactly one field `message: string`. Generated servers wrap handler
-  failures into this variant; generated clients surface its message.
-- Every command `Foo` must have a matching response `FooResponse`, and the
-  number of commands must equal the number of non-error responses.
-- Command names must be unique.
-- Response schemas must be struct definitions, not type-name strings.
-- Field names must not map (via the snake_case or camelCase projection) to a
-  reserved word in any target language, and two field names in one struct
-  must not collapse to the same projected identifier.
-- C++ `SERIALIZATION_FIELDS` supports at most 20 fields per struct.
+  // command -> { request, response }.
+  "commands": {
+    "Bytes":   { "request":  { "data": "bytes" },
+                 "response": { "data": "bytes" } },
 
-## Type Encodings
+    "Fields":  { "request":  { "a": "u32", "b": "u64", "name": "string" },
+                 "response": { "a": "u32", "b": "u64", "name": "string" } },
 
-Types in the schema are represented as one of:
+    "Nested":  { "request":  { "inner": "EchoInner" },
+                 "response": { "inner": "EchoInner" } },
 
-### Primitive Types (JSON strings)
+    "Aliases": { "request":  { "treeId": "u32", "hash": "Fr",
+                               "maybeHash": "Fr?", "hashes": "Fr[]" },
+                 "response": { "treeId": "u32", "hash": "Fr",
+                               "maybeHash": "Fr?", "hashes": "Fr[]" } },
 
-| Schema String | C++ Type | Description |
-|---------------|----------|-------------|
-| `"bool"` | `bool` | Boolean |
-| `"int"` | `int` | Signed 32-bit integer |
-| `"unsigned int"` | `unsigned int` / `uint32_t` | Unsigned 32-bit integer |
-| `"unsigned short"` | `unsigned short` / `uint16_t` | Unsigned 16-bit integer |
-| `"unsigned long"` | `unsigned long` / `uint64_t` | Unsigned 64-bit integer |
-| `"unsigned char"` | `unsigned char` / `uint8_t` | Unsigned 8-bit integer |
-| `"double"` | `double` | 64-bit floating point |
-| `"string"` | `std::string` | UTF-8 string |
-| `"bin32"` | `std::array<uint8_t, 32>` | Fixed 32-byte binary value |
+    "Blobs":   { "request":  { "maybeData": "bytes?", "parts": "bytes[2]" },
+                 "response": { "maybeData": "bytes?", "parts": "bytes[2]" } },
 
-Domain names such as `Fr`, `MerkleTreeId`, `ForkId`, `LeafIndex`, or service-specific IDs are not primitives. Express them as aliases over the primitive wire type.
-
-### Container Types (JSON arrays)
-
-Container types are encoded as 2-element arrays: `[kind, [args...]]`
-
-#### `vector`
-```json
-["vector", [<element_type>]]
-```
-Example: `["vector", ["unsigned char"]]` = `std::vector<uint8_t>` = byte array
-
-**Special case**: `["vector", ["unsigned char"]]` is treated as raw bytes, not an array of integers.
-
-#### `array`
-```json
-["array", [<element_type>, <size>]]
-```
-Example: `["array", ["unsigned char", 32]]` = `std::array<uint8_t, 32>` = 32-byte fixed buffer
-
-`["array", ["unsigned char", N]]` is a fixed-length array of integer bytes. Use `"bin32"` or `["alias", ["Name", "bin32"]]` for fixed 32-byte binary values that must encode as msgpack `bin`.
-
-#### `optional`
-```json
-["optional", [<element_type>]]
-```
-Example: `["optional", ["string"]]` = `std::optional<std::string>`
-
-#### `shared_ptr`
-```json
-["shared_ptr", [<element_type>]]
-```
-Treated as a transparent wrapper; the inner type is used directly.
-
-#### `alias`
-```json
-["alias", [<schema_name>, <msgpack_name>]]
-```
-Alias for a named schema type that serializes as a primitive wire type.
-The second element must be a primitive schema string. Code generators emit a named type alias over the primitive wire shape.
-
-Examples:
-
-```json
-["alias", ["Fr", "bin32"]]
-["alias", ["MerkleTreeId", "unsigned int"]]
-["alias", ["ForkId", "unsigned long"]]
-```
-
-### Struct Types (JSON objects)
-
-Structs are JSON objects with a `__typename` field and named fields:
-
-```json
-{
-  "__typename": "SomeStruct",
-  "field_a": "unsigned int",
-  "field_b": ["vector", ["unsigned char"]],
-  "field_c": {
-    "__typename": "NestedStruct",
-    "x": "unsigned long"
+    "Fail":    { "request":  { "message": "string" },
+                 "response": {} }
   }
 }
 ```
 
-- `__typename` identifies the struct for deduplication and named reference.
-- Field names are the original C++ field names (snake_case by convention).
-- Field values are type encodings (primitives, containers, or nested structs).
-- Nested structs are inlined on first occurrence and referenced by `__typename` string thereafter.
+### `service`
 
-### NamedUnion Type
+The service name. It is the prefix for generated **type** names and is *not*
+included in **method** names:
 
-```json
-["named_union", [
-  ["VariantName1", <type_schema_1>],
-  ["VariantName2", <type_schema_2>]
-]]
-```
+- Command `Bytes` under `"service": "Echo"` generates the wire type `EchoBytes`
+  and the response type `EchoBytesResponse`.
+- The corresponding client method / server handler is the bare command name
+  (`bytes` / `handle_bytes`), projected to each language's casing convention.
 
-A tagged union where each variant has a string name and a type schema.
-This is the top-level type for both `commands` and `responses`.
+The error type is named `<service>ErrorResponse` (e.g. `EchoErrorResponse`).
 
-## Wire Protocol
+### `aliases`
 
-The schema defines the types; this section specifies how they are serialized on the wire.
+A map of alias name to underlying type. Two kinds:
+
+- **Nominal byte alias** (`bin32`): a distinct named 32-byte value (e.g. `Fr` is
+  a field element, not raw bytes). It carries its name as a dispatch tag and is
+  generated as a distinct wrapper type per language. `bin32` is the only nominal
+  byte width supported today.
+- **Scalar synonym**: an alias whose underlying is a primitive (e.g.
+  `MerkleTreeId: u32`). These are transparent — generated as plain type
+  aliases — so consumers can `static_cast`/coerce them to and from the
+  underlying integer or enum. Because they are transparent, declaring them is
+  optional: a field may simply use the primitive (`u32`) directly.
+
+### `types`
+
+Named shared struct types, each a field-name → type-reference map. A type is
+inlined at every reference and deduplicated by name, so it may be referenced
+from multiple commands or from other `types`.
+
+### `error`
+
+The error struct, declared once. It must have exactly one field `message`
+of type `string`. Generated servers wrap handler failures into this variant;
+generated clients surface its `message`.
+
+### `commands`
+
+A map of command name to `{ request, response }`, where each of `request` and
+`response` is a field-name → type-reference map. An empty object `{}` denotes a
+command with no fields (e.g. a `Fail` command whose response carries nothing).
+
+A `response` may instead be a **string** naming another command's response type
+to reuse its shape — e.g. `"response": "AliasesResponse"` reuses the
+`EchoAliases` response. Use the generated response type name (`<service><Command>Response`).
+
+## Type-reference shorthand grammar
+
+Every field type is a shorthand string. The grammar is a leaf type optionally
+followed by suffixes, applied right to left:
+
+| Suffix  | Meaning           |
+|---------|-------------------|
+| `T?`    | optional          |
+| `T[]`   | vector of `T`     |
+| `T[N]`  | fixed array of N  |
+
+Suffixes compose, e.g. `Fr[]`, `bytes?`, `Fr[2]`, `EchoInner[]`.
+
+Leaf types:
+
+| Leaf            | Meaning                                  |
+|-----------------|------------------------------------------|
+| `bool`          | boolean                                  |
+| `u8 u16 u32 u64`| unsigned 8/16/32/64-bit integers         |
+| `f64`           | 64-bit float                             |
+| `string`        | UTF-8 string                             |
+| `bytes`         | variable-length byte string (msgpack bin)|
+| `bin32`         | fixed 32-byte value (msgpack bin)        |
+| alias name      | a declared `aliases` entry (e.g. `Fr`)   |
+| type name       | a declared `types` entry (e.g. `EchoInner`) |
+
+## Validation rules
+
+Schemas are validated at generation time; violations are hard errors:
+
+- `service` must be a non-empty string.
+- The `error` struct must have exactly one field, `message: string`.
+- Each command produces a matching `<command>Response`; the command and
+  non-error response counts must agree.
+- Command names must be unique.
+- A type reference must resolve to a primitive, a declared alias, or a declared
+  type.
+- Field names must not project (via the snake_case or camelCase mapping) to a
+  reserved word in any target language, and two fields in one struct must not
+  collapse to the same projected identifier.
+- A struct supports at most 20 fields (the C++ serialization macro limit).
+
+## Wire protocol
+
+The schema defines the types; this section specifies how a value of each type
+is serialized. The golden corpus pins these encodings across all languages.
 
 ### Framing
 
@@ -163,96 +162,67 @@ All messages use length-prefix framing:
 [4 bytes: payload length, little-endian uint32][payload: msgpack bytes]
 ```
 
-### Request Wire Format
+### Request wire format
 
-A request is a 1-element msgpack **array** containing a NamedUnion:
-
-```
-msgpack array(1) [
-  msgpack array(2) [
-    msgpack string: "CommandName",
-    msgpack map: { field1: value1, field2: value2, ... }
-  ]
-]
-```
-
-In msgpack terms: `[[command_name, {fields...}]]`
-
-The outer array (tuple wrapper) exists for extensibility. The inner 2-element array
-is the NamedUnion encoding.
-
-### Response Wire Format
-
-A response is a NamedUnion (no tuple wrapper):
+A request is a 1-element msgpack array wrapping a `[name, payload]` pair:
 
 ```
-msgpack array(2) [
-  msgpack string: "ResponseName" | "ErrorResponse",
-  msgpack map: { field1: value1, field2: value2, ... }
-]
+array(1) [ array(2) [ str: "<service><Command>", map: { field: value, ... } ] ]
 ```
 
-If the response variant name ends with `ErrorResponse`, the response indicates an error.
-The error struct always has a `message` field (string).
+The dispatch tag is the generated command type name (e.g. `EchoBytes`). The
+outer array exists for extensibility.
 
-### NamedUnion Wire Encoding
+### Response wire format
 
-A NamedUnion value is always encoded as a **2-element msgpack array**:
-- Element 0: `string` — the variant name (matches `MSGPACK_SCHEMA_NAME` in C++)
-- Element 1: `map` — the variant's fields, encoded as a msgpack map with string keys
+A response is a `[name, payload]` pair (no outer wrapper):
 
-### Struct Wire Encoding
+```
+array(2) [ str: "<service><Command>Response" | "<service>ErrorResponse", map: { ... } ]
+```
 
-Structs are encoded as msgpack **maps** with string keys matching the original C++ field names.
-The `__typename` field from the schema is NOT included in the wire encoding — it is only
-used for schema identification.
+A response whose name is `<service>ErrorResponse` indicates an error; its
+`message` field carries the text.
 
-### Type Wire Encoding Summary
+### Type wire encoding
 
-| Schema Type | msgpack Encoding |
-|-------------|------------------|
-| `bool` | msgpack bool |
-| `unsigned int`, `int` | msgpack integer (smallest encoding that fits) |
-| `unsigned short` | msgpack integer |
-| `unsigned long` | msgpack integer |
-| `unsigned char` | msgpack integer |
-| `double` | msgpack float64 |
-| `string` | msgpack str |
-| `bin32`, `bytes` | msgpack bin |
-| `vector<unsigned char>` | msgpack bin (NOT array of integers) |
-| `array<unsigned char, N>` | msgpack array of integers |
-| `vector<T>` | msgpack array |
-| `array<T, N>` | msgpack array (fixed length) |
-| `optional<T>` | msgpack nil (if absent) or value |
-| `alias<T>` | same msgpack encoding as its primitive target |
-| struct | msgpack map with string keys |
-| NamedUnion | msgpack array(2): [string, map] |
+| Schema type        | msgpack encoding                              |
+|--------------------|-----------------------------------------------|
+| `bool`             | bool                                          |
+| `u8 u16 u32 u64`   | integer (smallest encoding that fits)         |
+| `f64`              | float64                                       |
+| `string`           | str                                           |
+| `bytes`            | bin                                           |
+| `bin32`            | bin (32 bytes)                                |
+| `T?` (optional)    | nil if absent, else the encoding of `T`       |
+| `T[]` (vector)     | array                                         |
+| `T[N]` (array)     | array (fixed length)                          |
+| alias              | same encoding as the alias's underlying type  |
+| struct             | map with string keys (field names)            |
 
-### Integer Encoding Note
+### Integer encoding note
 
-msgpack uses the **smallest encoding that fits the value**, not the declared type.
-A `uint64_t` value of `5` encodes as a single byte (positive fixint), not as a
-uint64 encoding. Decoders MUST accept any integer encoding width for any integer field.
+msgpack uses the smallest encoding that fits the value, not the declared type:
+a `u64` of `5` encodes as a single positive-fixint byte. Decoders MUST accept
+any integer encoding width for any integer field.
 
-## Schema Versioning
+## Schema versioning
 
-Schema compatibility can be validated by computing a SHA-256 hash of the raw JSON schema
-output. This hash should be checked at connection time when possible. A mismatch indicates
-that the service binary and client were generated from different schema versions.
+A SHA-256 hash of the schema can be computed and embedded in generated code for
+optional compatibility checking at connection time. A mismatch indicates the
+service binary and client were generated from different schema versions.
 
-## Adding a New Command
+## Adding a new command
 
-To add a new command to a service:
+1. Add an entry to `commands` with its `request`/`response` field maps (declare
+   any new `types`/`aliases` it needs).
+2. Re-run ipc-codegen for every target language and confirm everything compiles.
+3. If the change alters the wire format, refresh the golden corpus
+   (`./bootstrap.sh update_goldens`) and review the byte-level diff — any
+   change is breaking for external implementations of the schema.
 
-1. Define the command struct in C++ with `MSGPACK_SCHEMA_NAME` and `SERIALIZATION_FIELDS`
-2. Add a nested `Response` struct with its own `MSGPACK_SCHEMA_NAME` and `SERIALIZATION_FIELDS`
-3. Add both to the service's `Command` and `CommandResponse` NamedUnion types
-4. Re-snapshot the schema JSON and re-run ipc-codegen for every target language
-5. Verify generated code compiles in all target languages
+## Source files
 
-## Source Files
-
-- Schema visitor (IR compiler): `ipc-codegen/src/schema_visitor.ts`
+- Schema front-end + IR compiler: `ipc-codegen/src/schema_visitor.ts`
 - CLI entry point: `ipc-codegen/src/generate.ts`
-
-The schema JSON is produced by the consumer's own C++ msgpack reflection (typically a `<binary> msgpack schema` subcommand that walks `SERIALIZATION_FIELDS` and `NamedUnion`s and prints the IR). ipc-codegen treats the resulting JSON as the source of truth and never reaches back into the producer.
+- Example schema: `ipc-codegen/echo_example/schema/schema.jsonc`

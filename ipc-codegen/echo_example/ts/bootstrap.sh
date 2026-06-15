@@ -7,12 +7,11 @@ REPO_ROOT="$(cd "$CODEGEN/.." && pwd)"
 NODE="node --experimental-strip-types --experimental-transform-types --no-warnings"
 
 $NODE "$CODEGEN/src/generate.ts" \
-  --schema "$DIR/../schema/schema.json" \
+  --schema "$DIR/../schema/schema.jsonc" \
   --lang ts \
   --server \
   --client \
-  --out "$DIR/src/generated" \
-  --prefix Echo
+  --out "$DIR/src/generated"
 
 (cd "$REPO_ROOT/ipc-runtime" && ./bootstrap.sh)
 (cd "$REPO_ROOT/ipc-runtime/ts" && yarn install --immutable && yarn build)

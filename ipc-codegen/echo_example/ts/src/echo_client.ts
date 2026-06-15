@@ -58,12 +58,12 @@ async function run() {
 
   // Test 1: EchoBytes
   const testData = Uint8Array.from([0xde, 0xad, 0xbe, 0xef, 0x42]);
-  const resp1 = await api.echoBytes({ data: testData });
+  const resp1 = await api.bytes({ data: testData });
   assertBytes(resp1.data, testData, "EchoBytes data");
   console.error("echo_client(ts): EchoBytes OK");
 
   // Test 2: EchoFields
-  const resp2 = await api.echoFields({
+  const resp2 = await api.fields({
     a: 42,
     b: 999999,
     name: "hello wire compat",
@@ -78,7 +78,7 @@ async function run() {
     values: [Uint8Array.from([1, 2, 3]), Uint8Array.from([4, 5])],
     flag: true,
   };
-  const resp3 = await api.echoNested({ inner });
+  const resp3 = await api.nested({ inner });
   assertEqual(resp3.inner.flag, true, "EchoNested flag");
   assertEqual(resp3.inner.values.length, 2, "EchoNested values length");
   assertBytes(resp3.inner.values[0]!, inner.values[0]!, "EchoNested values[0]");
@@ -87,7 +87,7 @@ async function run() {
   // Test 4: EchoAliases
   const hash = testHash(0x10);
   const second = testHash(0x40);
-  const resp4 = await api.echoAliases({
+  const resp4 = await api.aliases({
     treeId: 7,
     hash,
     maybeHash: second,
@@ -102,7 +102,7 @@ async function run() {
   console.error("echo_client(ts): EchoAliases OK");
 
   // Test 5: EchoAliases with maybeHash absent (optional over live IPC)
-  const resp5 = await api.echoAliases({
+  const resp5 = await api.aliases({
     treeId: 7,
     hash,
     maybeHash: null,
@@ -113,12 +113,12 @@ async function run() {
 
   // Test 6: EchoFields with b > 2^32 (uint64 wire encoding over live IPC)
   const big = Number.MAX_SAFE_INTEGER;
-  const resp6 = await api.echoFields({ a: 42, b: big, name: "big" });
+  const resp6 = await api.fields({ a: 42, b: big, name: "big" });
   assertEqual(resp6.b, big, "EchoFields u64");
   // Values past 2^53 must throw client-side rather than silently lose precision.
   let threw = false;
   try {
-    await api.echoFields({ a: 42, b: 2 ** 60, name: "too big" });
+    await api.fields({ a: 42, b: 2 ** 60, name: "too big" });
   } catch {
     threw = true;
   }
@@ -126,7 +126,7 @@ async function run() {
   console.error("echo_client(ts): EchoFields u64 OK");
 
   // Test 7: EchoBlobs — optional bytes Some/None and fixed [bytes; 2]
-  const resp7 = await api.echoBlobs({
+  const resp7 = await api.blobs({
     maybeData: Uint8Array.from([0xaa, 0xbb]),
     parts: [Uint8Array.from([1, 2, 3]), Uint8Array.from([4])],
   });
@@ -141,7 +141,7 @@ async function run() {
     "EchoBlobs parts[0]",
   );
   assertBytes(resp7.parts[1]!, Uint8Array.from([4]), "EchoBlobs parts[1]");
-  const resp7b = await api.echoBlobs({
+  const resp7b = await api.blobs({
     maybeData: null,
     parts: [Uint8Array.from([]), Uint8Array.from([9])],
   });
@@ -151,7 +151,7 @@ async function run() {
   // Test 8: EchoFail — server error surfaces with its message
   let failMessage = "";
   try {
-    await api.echoFail({ message: "deliberate failure" });
+    await api.fail({ message: "deliberate failure" });
   } catch (e: any) {
     failMessage = e.message;
   }

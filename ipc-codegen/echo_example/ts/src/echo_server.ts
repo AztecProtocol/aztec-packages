@@ -30,16 +30,16 @@ if (!socketPath) {
 }
 
 const handler: Handler = {
-  async echoBytes(cmd: EchoBytes): Promise<EchoBytesResponse> {
+  async bytes(cmd: EchoBytes): Promise<EchoBytesResponse> {
     return { data: cmd.data };
   },
-  async echoFields(cmd: EchoFields): Promise<EchoFieldsResponse> {
+  async fields(cmd: EchoFields): Promise<EchoFieldsResponse> {
     return { a: cmd.a, b: cmd.b, name: cmd.name };
   },
-  async echoNested(cmd: EchoNested): Promise<EchoNestedResponse> {
+  async nested(cmd: EchoNested): Promise<EchoNestedResponse> {
     return { inner: cmd.inner };
   },
-  async echoAliases(cmd: EchoAliases): Promise<EchoAliasesResponse> {
+  async aliases(cmd: EchoAliases): Promise<EchoAliasesResponse> {
     return {
       treeId: cmd.treeId,
       hash: cmd.hash,
@@ -47,10 +47,10 @@ const handler: Handler = {
       hashes: cmd.hashes,
     };
   },
-  async echoBlobs(cmd: EchoBlobs): Promise<EchoBlobsResponse> {
+  async blobs(cmd: EchoBlobs): Promise<EchoBlobsResponse> {
     return { maybeData: cmd.maybeData, parts: cmd.parts };
   },
-  async echoFail(cmd: EchoFail): Promise<EchoFailResponse> {
+  async fail(cmd: EchoFail): Promise<EchoFailResponse> {
     throw new Error(cmd.message);
   },
 };

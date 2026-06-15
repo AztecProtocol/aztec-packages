@@ -55,7 +55,6 @@ function test_cmds {
   echo "$prefix $script golden ts"
   echo "$prefix $script golden cpp"
   echo "$prefix $script golden zig"
-  echo "$prefix ipc-codegen/echo_example/cpp/build/bin/schema_reflection_test --schema ipc-codegen/echo_example/schema/schema.json"
   echo "$prefix ipc-codegen/echo_example/ts_package/test.sh uds"
   echo "$prefix ipc-codegen/echo_example/ts_package/test.sh shm"
 

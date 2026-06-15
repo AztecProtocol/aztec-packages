@@ -6,14 +6,12 @@ CODEGEN="$(cd "$DIR/../.." && pwd)"
 NODE="node --experimental-strip-types --experimental-transform-types --no-warnings"
 
 $NODE "$CODEGEN/src/generate.ts" \
-  --schema "$DIR/../schema/schema.json" \
+  --schema "$DIR/../schema/schema.jsonc" \
   --lang cpp \
   --server \
   --client \
-  --strip-method-prefix \
   --out "$DIR/src/generated" \
-  --prefix Echo \
   --cpp-namespace echo
 
 cmake -S "$DIR" -B "$DIR/build"
-cmake --build "$DIR/build" --target echo_server echo_client schema_reflection_test golden_test
+cmake --build "$DIR/build" --target echo_server echo_client golden_test

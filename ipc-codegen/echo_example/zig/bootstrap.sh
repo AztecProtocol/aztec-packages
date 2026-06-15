@@ -6,14 +6,12 @@ CODEGEN="$(cd "$DIR/../.." && pwd)"
 NODE="node --experimental-strip-types --experimental-transform-types --no-warnings"
 
 $NODE "$CODEGEN/src/generate.ts" \
-  --schema "$DIR/../schema/schema.json" \
+  --schema "$DIR/../schema/schema.jsonc" \
   --lang zig \
   --server \
   --client \
-  --strip-method-prefix \
   --uds \
   --ffi \
-  --out "$DIR/src/generated" \
-  --prefix Echo
+  --out "$DIR/src/generated"
 
 (cd "$DIR" && zig build)

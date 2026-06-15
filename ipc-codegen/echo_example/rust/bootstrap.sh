@@ -6,15 +6,13 @@ CODEGEN="$(cd "$DIR/../.." && pwd)"
 NODE="node --experimental-strip-types --experimental-transform-types --no-warnings"
 
 $NODE "$CODEGEN/src/generate.ts" \
-  --schema "$DIR/../schema/schema.json" \
+  --schema "$DIR/../schema/schema.jsonc" \
   --lang rust \
   --server \
   --client \
-  --strip-method-prefix \
   --uds \
   --ffi \
-  --out "$DIR/src/generated" \
-  --prefix Echo
+  --out "$DIR/src/generated"
 
 (cd "$DIR" && cargo build --locked --quiet)
 # Compile-check the generated FFI backend (not linked into the binaries).

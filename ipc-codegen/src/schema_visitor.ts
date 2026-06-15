@@ -506,3 +506,173 @@ export class SchemaVisitor {
     }
   }
 }
+
+// ---------------------------------------------------------------------------
+// Friendly (human-authored) schema front-end
+//
+// The committed schemas are hand-edited. The friendly format is a single
+// object per service with shorthand string type references; this front-end
+// lowers it to the positional ["named_union", ...] form that SchemaVisitor
+// already consumes, so the generators are untouched and the produced
+// CompiledSchema is identical to the equivalent positional schema.
+// ---------------------------------------------------------------------------
+
+/** Strip line and block comments from JSONC, preserving string contents. */
+export function stripJsonc(text: string): string {
+  let out = "";
+  let inStr = false;
+  let strCh = "";
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    const n = text[i + 1];
+    if (inStr) {
+      out += c;
+      if (c === "\\") {
+        out += n ?? "";
+        i++;
+      } else if (c === strCh) {
+        inStr = false;
+      }
+      continue;
+    }
+    if (c === '"' || c === "'") {
+      inStr = true;
+      strCh = c;
+      out += c;
+      continue;
+    }
+    if (c === "/" && n === "/") {
+      while (i < text.length && text[i] !== "\n") i++;
+      continue;
+    }
+    if (c === "/" && n === "*") {
+      i += 2;
+      while (i < text.length && !(text[i] === "*" && text[i + 1] === "/")) i++;
+      i++; // skip the closing '/'
+      continue;
+    }
+    out += c;
+  }
+  return out;
+}
+
+/** A parsed friendly schema is recognised by its top-level `service` key. */
+export function isFriendlySchema(parsed: any): boolean {
+  return (
+    parsed != null &&
+    typeof parsed === "object" &&
+    !Array.isArray(parsed) &&
+    typeof parsed.service === "string"
+  );
+}
+
+// u32 etc. -> the positional primitive spellings resolvePrimitive() accepts.
+const PRIMITIVE_SHORTHAND: Record<string, string> = {
+  bool: "bool",
+  u8: "unsigned char",
+  u16: "unsigned short",
+  u32: "unsigned int",
+  u64: "unsigned long",
+  f64: "double",
+  string: "string",
+  bin32: "bin32",
+};
+
+/**
+ * Lower a friendly schema object into the positional `{ commands, responses }`
+ * named_union pair, plus the service name (used as the type prefix). Type names
+ * are `service + commandKey`; method names are derived by the generators via
+ * the service prefix. Named `types` are inlined at every reference — visit()
+ * dedups them by `__typename`, so the resulting CompiledSchema matches the
+ * positional form exactly.
+ */
+export function friendlyToPositional(parsed: any): {
+  commands: any;
+  responses: any;
+  service: string;
+} {
+  const service: string = parsed.service;
+  if (!service) {
+    throw new Error("Friendly schema requires a non-empty string 'service'");
+  }
+  const aliases: Record<string, string> = parsed.aliases ?? {};
+  const types: Record<string, any> = parsed.types ?? {};
+  // An alias is either a nominal byte type (bin32) or a transparent scalar
+  // synonym over a primitive (e.g. MerkleTreeId = u32). The underlying is given
+  // in shorthand; map it to the positional spelling visitType() consumes.
+  const aliasUnderlying = (name: string): string => {
+    const u = aliases[name];
+    if (u === "bin32") return "bin32";
+    const prim = PRIMITIVE_SHORTHAND[u];
+    if (!prim) {
+      throw new Error(
+        `Alias '${name}' underlying '${u}' is not 'bin32' or a primitive`,
+      );
+    }
+    return prim;
+  };
+  for (const [name] of Object.entries(aliases)) {
+    aliasUnderlying(name); // validate up front
+  }
+
+  const parseTypeRef = (ref: string): any => {
+    const s = ref.trim();
+    if (s.endsWith("?")) {
+      return ["optional", [parseTypeRef(s.slice(0, -1))]];
+    }
+    if (s.endsWith("]")) {
+      const lb = s.lastIndexOf("[");
+      if (lb < 0) throw new Error(`Malformed type reference '${ref}'`);
+      const inner = s.slice(0, lb);
+      const n = s.slice(lb + 1, -1).trim();
+      if (n === "") {
+        return ["vector", [parseTypeRef(inner)]];
+      }
+      const size = Number(n);
+      if (!Number.isInteger(size) || size <= 0) {
+        throw new Error(`Bad fixed-array size in type reference '${ref}'`);
+      }
+      return ["array", [parseTypeRef(inner), size]];
+    }
+    if (s === "bytes") return ["vector", ["unsigned char"]];
+    if (s in PRIMITIVE_SHORTHAND) return PRIMITIVE_SHORTHAND[s];
+    if (s in aliases) return ["alias", [s, aliasUnderlying(s)]];
+    if (s in types) return inlineType(s);
+    throw new Error(
+      `Unknown type reference '${ref}' (not a primitive, declared alias, or declared type)`,
+    );
+  };
+
+  const structBody = (fieldObj: Record<string, string>, typename: string) => {
+    const body: any = { __typename: typename };
+    for (const [fname, fref] of Object.entries(fieldObj ?? {})) {
+      body[fname] = parseTypeRef(fref);
+    }
+    return body;
+  };
+
+  const inlineType = (typeName: string): any =>
+    structBody(types[typeName], typeName);
+
+  const commands: any = ["named_union", []];
+  const responses: any = ["named_union", []];
+
+  for (const [key, def] of Object.entries<any>(parsed.commands ?? {})) {
+    const cmdName = service + key;
+    commands[1].push([cmdName, structBody(def.request, cmdName)]);
+
+    if (typeof def.response === "string") {
+      // Reuse another command's response shape: dedup string-ref form.
+      const respName = service + def.response;
+      responses[1].push([respName, respName]);
+    } else {
+      const respName = `${cmdName}Response`;
+      responses[1].push([respName, structBody(def.response, respName)]);
+    }
+  }
+
+  const errorName = `${service}ErrorResponse`;
+  responses[1].push([errorName, structBody(parsed.error, errorName)]);
+
+  return { commands, responses, service };
+}

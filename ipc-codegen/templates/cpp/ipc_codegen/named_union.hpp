@@ -1,16 +1,16 @@
 #pragma once
 /**
  * @file named_union.hpp
- * @brief Tagged-union with msgpack [name, payload] wire format. Single source
- *        of truth used by codegen-emitted dispatchers and schema reflection.
+ * @brief Tagged-union with msgpack [name, payload] wire format, used by
+ *        codegen-emitted dispatchers.
  *
  * Each type in the union must declare:
  *   static constexpr const char MSGPACK_SCHEMA_NAME[] = "...";
  */
 #include "throw.hpp"
 
-#include <concepts>
 #include "msgpack_include.hpp"
+#include <concepts>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -111,21 +111,6 @@ public:
                                std::string(type_name));
     }
     value_ = construct_by_index(*index_opt, arr.ptr[1]);
-  }
-
-  // Schema reflection — emits ["named_union", [[name, schema], ...]] via
-  // the schema packer (see reflect.hpp).
-  void msgpack_schema(auto &packer) const {
-    packer.pack_array(2);
-    packer.pack("named_union");
-    packer.pack_array(sizeof...(Types));
-    (
-        [&packer]() {
-          packer.pack_array(2);
-          packer.pack(Types::MSGPACK_SCHEMA_NAME);
-          packer.pack_schema(*std::make_unique<Types>());
-        }(),
-        ...);
   }
 };
 

@@ -388,10 +388,9 @@ ${methods}
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([name, { underlying, schemaName }]) => {
         // bin32 aliases are nominal types (a fixed 32-byte value with a name),
-        // so they reflect their alias name. Scalar aliases are transparent
+        // so they are distinct wrapper structs. Scalar aliases are transparent
         // synonyms — consumers static_cast them to/from enums and integers —
-        // so they are plain `using` and do not carry their name through
-        // reflection.
+        // so they are plain `using`.
         if (underlying === "std::array<uint8_t, 32>") {
           return `struct ${name} : ::ipc::Bin32Alias<${name}> {
     using ::ipc::Bin32Alias<${name}>::Bin32Alias;
@@ -466,7 +465,6 @@ ${methods}
 // ---------------------------------------------------------------------------
 // Self-contained serialization macro for generated wire types.
 // Defines a msgpack() method that enumerates field name/value pairs.
-// Works with msgpack packers (serialization) and schema reflectors.
 // ---------------------------------------------------------------------------
 #ifndef IPC_CODEGEN_SERIALIZATION_FIELDS
 #define _SF_E1(x) #x, x
@@ -500,7 +498,7 @@ ${methods}
 
 // ---------------------------------------------------------------------------
 // Wire aliases for primitive schema aliases. bin32 aliases are nominal wrappers
-// so schema reflection can preserve their alias names.
+// carrying their alias name as the MSGPACK_SCHEMA_NAME dispatch tag.
 // ---------------------------------------------------------------------------
 
 #ifndef IPC_CODEGEN_BIN32_ALIAS_DEFINED
@@ -544,7 +542,6 @@ template <typename Tag> struct Bin32Alias {
         }
     }
 
-    void msgpack_schema(auto& packer) const { packer.pack_alias(Tag::MSGPACK_SCHEMA_NAME, "bin32"); }
     bool operator==(const Bin32Alias&) const = default;
 };
 } // namespace ipc
@@ -572,22 +569,6 @@ ${this.opts.wireNamespace ? `} // namespace ${this.opts.wireNamespace}` : ""}
     const { namespace: ns, prefix } = this.opts;
     const errorTypeName = schema.errorTypeName;
     const typesHeader = `${toSnakeCase(prefix)}_types.hpp`;
-    const prefixLower = toSnakeCase(prefix);
-
-    // Per-service NamedUnions + schema reflection. The codegen-emitted
-    // <Prefix>Command / <Prefix>CommandResponse aggregate every wire type
-    // so the binary can pack its own schema back out via
-    // ipc::msgpack_schema_to_string. This is the C++-canonical dev workflow:
-    // edit a wire type, rebuild, dump the schema, commit the JSON.
-    const cmdUnionMembers = schema.commands
-      .map((c) => `wire::${c.name}`)
-      .join(",\n                                   ");
-    // Union members must be emitted in schema order so that reflecting the
-    // generated types reproduces the committed schema byte-for-byte.
-    const respUnionMembers = [...schema.responses.keys()]
-      .map((r) => `wire::${r}`)
-      .join(",\n                                           ");
-
     // Handler declarations — template<typename Ctx>
     const handlerDecls = schema.commands
       .map((c) => {
@@ -635,8 +616,6 @@ ${this.opts.wireNamespace ? `} // namespace ${this.opts.wireNamespace}` : ""}
 #pragma once
 
 #include "${typesHeader}"
-#include "ipc_codegen/named_union.hpp"
-#include "ipc_codegen/schema.hpp"
 #include "ipc_codegen/msgpack_adaptor.hpp"
 
 // Pull in THROW/RETHROW — 'throw' natively, abort-on-throw under
@@ -722,34 +701,6 @@ ${handlerEntries},
         }
 #endif
     };
-}
-
-// ---------------------------------------------------------------------------
-// Schema reflection — the binary serialises its own understanding of the wire
-// format. Edit a wire type, rebuild, dump the schema, commit the JSON.
-// ---------------------------------------------------------------------------
-
-using ${prefix}Command = ::ipc::NamedUnion<${cmdUnionMembers}>;
-using ${prefix}CommandResponse = ::ipc::NamedUnion<${respUnionMembers}>;
-
-namespace detail {
-// Reflects as the bare {"commands": ..., "responses": ...} document so the
-// output is exactly the committable schema (no wrapper __typename).
-struct ${prefix}Api {
-    void msgpack_schema(auto& packer) const
-    {
-        packer.pack_map(2);
-        packer.pack("commands");
-        packer.pack_schema(${prefix}Command{});
-        packer.pack("responses");
-        packer.pack_schema(${prefix}CommandResponse{});
-    }
-};
-} // namespace detail
-
-inline std::string get_${prefixLower}_schema_as_json()
-{
-    return ::ipc::msgpack_schema_to_string(detail::${prefix}Api{});
 }
 
 } // namespace ${ns}

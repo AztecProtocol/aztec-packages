@@ -178,12 +178,6 @@ export class RustCodegen {
     const serdeRename =
       struct.name !== rustName ? `\n#[serde(rename = "${struct.name}")]` : "";
 
-    // Commands have a __typename used for NamedUnion identification, but it's handled
-    // by the Command enum's custom serde, not by the struct itself.
-    const typenameField = isCommand
-      ? `    #[serde(rename = "__typename", skip, default)]\n    pub type_name: String,\n`
-      : "";
-
     // Generate constructor for commands
     const constructor = isCommand
       ? this.generateConstructor(struct, rustName)
@@ -192,7 +186,7 @@ export class RustCodegen {
     return `/// ${struct.name}
 #[derive(Debug, Clone, Serialize, Deserialize)]${serdeRename}
 pub struct ${rustName} {
-${typenameField}${fields}
+${fields}
 }${constructor}`;
   }
 
@@ -202,10 +196,9 @@ ${typenameField}${fields}
       .map((f) => `${toSnakeCase(f.name)}: ${this.mapType(f.type)}`)
       .join(", ");
 
-    const fieldInits = [
-      `            type_name: "${struct.name}".to_string(),`,
-      ...struct.fields.map((f) => `            ${toSnakeCase(f.name)},`),
-    ].join("\n");
+    const fieldInits = struct.fields
+      .map((f) => `            ${toSnakeCase(f.name)},`)
+      .join("\n");
 
     return `
 
@@ -487,7 +480,8 @@ mod serde_opt_bytes {
   // Generate types file
   generateTypes(schema: CompiledSchema, schemaHash?: string): string {
     this.errorTypeName = schema.errorTypeName;
-    // Create set of top-level command struct names (only these need __typename)
+    // Command structs get a generated `new()` constructor; response/shared
+    // structs do not.
     const commandNames = new Set(schema.commands.map((c) => c.name));
 
     const aliasTypes = new Map<string, string>();

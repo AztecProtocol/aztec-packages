@@ -3,7 +3,11 @@
  *   node --experimental-strip-types --no-warnings test/schema_visitor.test.ts
  * Exits non-zero on failure.
  */
-import { SchemaVisitor } from "../src/schema_visitor.ts";
+import {
+  SchemaVisitor,
+  stripJsonc,
+  friendlyToPositional,
+} from "../src/schema_visitor.ts";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
@@ -41,10 +45,11 @@ const errResp = ["FooErrorResponse", { message: "string" }];
 expectOk("echo schema is valid", () => {
   const schemaPath = path.join(
     import.meta.dirname,
-    "../echo_example/schema/schema.json",
+    "../echo_example/schema/schema.jsonc",
   );
-  const schema = JSON.parse(fs.readFileSync(schemaPath, "utf8"));
-  new SchemaVisitor().visit(schema.commands, schema.responses);
+  const parsed = JSON.parse(stripJsonc(fs.readFileSync(schemaPath, "utf8")));
+  const { commands, responses } = friendlyToPositional(parsed);
+  new SchemaVisitor().visit(commands, responses);
 });
 
 expectThrows(

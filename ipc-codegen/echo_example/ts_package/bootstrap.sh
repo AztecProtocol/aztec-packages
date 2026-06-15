@@ -7,12 +7,10 @@ REPO_ROOT="$(cd "$CODEGEN/.." && pwd)"
 NODE="node --experimental-strip-types --experimental-transform-types --no-warnings"
 
 $NODE "$CODEGEN/src/generate.ts" \
-  --schema "$DIR/../schema/schema.json" \
+  --schema "$DIR/../schema/schema.jsonc" \
   --lang ts \
   --client \
   --out "$DIR/src/generated" \
-  --prefix Echo \
-  --strip-method-prefix \
   --package "$DIR" \
   --package-name "@aztec/echo-ipc" \
   --binary-name echo_server \

@@ -27,7 +27,13 @@ import {
 import { execSync } from "child_process";
 import { dirname, join, resolve } from "path";
 import { fileURLToPath } from "url";
-import { SchemaVisitor, type CompiledSchema } from "./schema_visitor.ts";
+import {
+  SchemaVisitor,
+  friendlyToPositional,
+  isFriendlySchema,
+  stripJsonc,
+  type CompiledSchema,
+} from "./schema_visitor.ts";
 import { TypeScriptCodegen } from "./typescript_codegen.ts";
 import {
   defaultBinaryEnvVar,
@@ -230,13 +236,27 @@ function computeSchemaHash(schemaJson: string): string {
 function loadSchema(schemaPath: string): {
   compiled: CompiledSchema;
   schemaHash: string;
+  service?: string;
 } {
   const rawJson = readFileSync(schemaPath, "utf-8").trim();
-  const schema = JSON.parse(rawJson);
+  const parsed = JSON.parse(stripJsonc(rawJson));
+  let commandsUnion: any;
+  let responsesUnion: any;
+  let service: string | undefined;
+  if (isFriendlySchema(parsed)) {
+    ({
+      commands: commandsUnion,
+      responses: responsesUnion,
+      service,
+    } = friendlyToPositional(parsed));
+  } else {
+    commandsUnion = parsed.commands;
+    responsesUnion = parsed.responses;
+  }
   const visitor = new SchemaVisitor();
-  const compiled = visitor.visit(schema.commands, schema.responses);
+  const compiled = visitor.visit(commandsUnion, responsesUnion);
   const schemaHash = computeSchemaHash(rawJson);
-  return { compiled, schemaHash };
+  return { compiled, schemaHash, service };
 }
 
 /** Detect common prefix from command names (e.g. WsdbGetTreeInfo, WsdbCreateFork → Wsdb) */
@@ -308,8 +328,12 @@ function generate(args: Args) {
   const absOut = resolve(args.out);
   mkdirSync(absOut, { recursive: true });
 
-  const { compiled, schemaHash } = loadSchema(absSchema);
-  const prefix = args.prefix || detectPrefix(compiled);
+  const { compiled, schemaHash, service } = loadSchema(absSchema);
+  // Friendly schemas fold the type prefix and method-prefix stripping into
+  // `service`: generated type names are `service + command`, method names are
+  // the bare command. Positional schemas keep the legacy --prefix/--strip flags.
+  const prefix = service || args.prefix || detectPrefix(compiled);
+  const stripMethodPrefix = service ? true : args.stripMethodPrefix;
 
   console.log(
     `Schema: ${absSchema} (${compiled.commands.length} commands, prefix=${prefix})`,
@@ -334,7 +358,7 @@ function generate(args: Args) {
   switch (args.lang) {
     case "ts": {
       const gen = new TypeScriptCodegen({
-        stripMethodPrefix: args.stripMethodPrefix ? prefix : undefined,
+        stripMethodPrefix: stripMethodPrefix ? prefix : undefined,
       });
       writeFile("api_types.ts", gen.generateTypes(compiled, schemaHash));
       if (args.server) {
@@ -406,7 +430,10 @@ function generate(args: Args) {
       break;
     }
     case "rust": {
-      const gen = new RustCodegen({ prefix, stripMethodPrefix: args.stripMethodPrefix });
+      const gen = new RustCodegen({
+        prefix,
+        stripMethodPrefix: stripMethodPrefix,
+      });
       writeFile(
         `${toSnakeCase(prefix)}_types.rs`,
         gen.generateTypes(compiled, schemaHash),
@@ -436,7 +463,11 @@ function generate(args: Args) {
       break;
     }
     case "zig": {
-      const gen = new ZigCodegen({ prefix, clientName: `${prefix}Client`, stripMethodPrefix: args.stripMethodPrefix });
+      const gen = new ZigCodegen({
+        prefix,
+        clientName: `${prefix}Client`,
+        stripMethodPrefix: stripMethodPrefix,
+      });
       writeFile(
         `${toSnakeCase(prefix)}_types.zig`,
         gen.generateTypes(compiled, schemaHash),
@@ -475,7 +506,7 @@ function generate(args: Args) {
         prefix,
         wireNamespace: wireNs,
         generatedIncludeDir: args.cppIncludeDir,
-        stripMethodPrefix: args.stripMethodPrefix,
+        stripMethodPrefix: stripMethodPrefix,
       });
 
       cppFiles.push(
@@ -513,7 +544,6 @@ function generate(args: Args) {
           ),
         );
       }
-
 
       formatCpp(cppFiles);
       break;
