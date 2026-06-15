@@ -7,6 +7,11 @@
   command = "yarn build"
   functions = "netlify/functions"
 
+# Serve pre-built markdown to agents that request `Accept: text/markdown`.
+[[edge_functions]]
+  path = "/*"
+  function = "markdown-negotiation"
+
 # Install nargo only for preview deploys (not needed for production)
 [context.deploy-preview]
   command = "./scripts/netlify-preview-build.sh"
