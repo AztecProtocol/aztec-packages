@@ -6,7 +6,7 @@ import type { AppTaggingSecretKind } from '@aztec/stdlib/logs';
  * does not pin one. Max privacy never leaks information and instead relies on sender-recipient coordination for
  * delivery. Best effort accepts a privacy leak so that delivery requires no sender-recipient coordination at all.
  *
- * The send flow consults this value whenever a message needs a tagging secret.
+ * The send flow consults this value only when it must establish a new tagging secret; an existing handshake is reused as-is.
  */
 export enum DeliveryPrivacyPreference {
   /**
@@ -50,9 +50,10 @@ export type DeliveryPrivacyPreferenceRequest = {
 };
 
 /**
- * Hook called when message delivery needs a tagging secret and the executing contract has not pinned a tag-secret
- * derivation, letting the wallet choose between maximum privacy and delivery that requires no sender-recipient
- * coordination (see {@link DeliveryPrivacyPreference} for the trade-offs involved).
+ * Hook called when message delivery must establish a new tagging secret rather than reuse an existing handshake, and
+ * the executing contract has not pinned a tag-secret derivation, letting the wallet choose between maximum privacy
+ * and delivery that requires no sender-recipient coordination (see {@link DeliveryPrivacyPreference} for the
+ * trade-offs involved). An existing handshake is reused without invoking the hook.
  *
  * The request identifies the message (executing contract, sender, recipient and delivery mode), so wallets can apply
  * per-application or per-recipient policies, or surface the decision to the user, instead of returning a fixed value.

@@ -69,7 +69,7 @@ When the hook is absent, cross-contract utility calls are denied. See [Cross-con
 
 ## `getDeliveryPrivacyPreference`
 
-Called when message delivery needs a tagging secret and the executing contract has not pinned a tag-secret derivation. The hook lets the wallet choose between maximum privacy and delivery that requires no sender-recipient coordination; see [Delivery privacy preference](../../aztec-nr/framework-description/note_delivery.md#delivery-privacy-preference) for the trade-offs and the defaults in each environment.
+Called when message delivery must establish a new tagging secret rather than reuse an existing handshake, and the executing contract has not pinned a tag-secret derivation. An existing handshake is reused without invoking the hook. The hook lets the wallet choose between maximum privacy and delivery that requires no sender-recipient coordination; see [Delivery privacy preference](../../aztec-nr/framework-description/note_delivery.md#delivery-privacy-preference) for the trade-offs and the defaults in each environment.
 
 ### In Noir tests
 

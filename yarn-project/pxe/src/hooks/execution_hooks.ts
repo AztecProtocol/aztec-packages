@@ -13,9 +13,10 @@ import type { GetDeliveryPrivacyPreference } from './get_delivery_privacy_prefer
  * time which contracts will be invoked during execution. Calls to standard contracts (such as the HandshakeRegistry)
  * bypass this hook and are always authorized. When the hook is absent, cross-contract utility calls are denied.
  *
- * Similarly, {@link getDeliveryPrivacyPreference} is called when message delivery needs a tagging secret and the
- * contract has not pinned a tag-secret derivation, letting the wallet choose between maximum privacy and delivery
- * that requires no sender-recipient coordination. When the hook is absent, PXE assumes maximum privacy.
+ * Similarly, {@link getDeliveryPrivacyPreference} is called when message delivery must establish a new tagging
+ * secret rather than reuse an existing handshake, and the contract has not pinned a tag-secret derivation, letting
+ * the wallet choose between maximum privacy and delivery that requires no sender-recipient coordination. An existing
+ * handshake is reused without invoking the hook. When the hook is absent, PXE assumes maximum privacy.
  *
  * Note: hooks are unrelated to authentication witnesses (authwits). Authwits are an on-chain
  * mechanism where a contract verifies that a caller was authorized by a specific account; hooks
@@ -43,8 +44,8 @@ export interface ExecutionHooks {
   /** Called when a contract attempts a cross-contract utility call. Calls are denied when absent. */
   authorizeUtilityCall?: AuthorizeUtilityCall;
   /**
-   * Called when message delivery needs a tagging secret and the contract has not pinned a tag-secret derivation.
-   * Maximum privacy is assumed when absent.
+   * Called when message delivery must establish a new tagging secret rather than reuse an existing handshake, and
+   * the contract has not pinned a tag-secret derivation. Maximum privacy is assumed when absent.
    */
   getDeliveryPrivacyPreference?: GetDeliveryPrivacyPreference;
 }

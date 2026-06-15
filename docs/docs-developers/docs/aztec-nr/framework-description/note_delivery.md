@@ -168,7 +168,7 @@ Onchain delivery tags every message so the recipient can find it efficiently (se
 - **Contracts** choose a delivery mode, and can optionally pin a tag-secret derivation via the `MessageDelivery` builders. By default they pin nothing and delegate the decision to the wallet. This is the recommended setting unless the contract requires a specific mechanism to work.
 - **Wallets** answer that delegation with the **delivery privacy preference**: a wallet-level setting with two values, **max privacy** and **best effort**. It decides how much privacy the user is willing to trade so that delivery works with less sender-recipient coordination.
 
-The preference is consulted whenever a message needs a tagging secret and the contract has not pinned a derivation.
+The preference is consulted only when delivery must establish a *new* tagging secret rather than reuse an existing handshake, and the contract has not pinned a derivation.
 
 ### Max privacy vs best effort
 
@@ -180,6 +180,8 @@ The preference is consulted whenever a message needs a tagging secret and the co
 | Onchain footprint when establishing a secret | None | A handshake revealing information about the recipient |
 | Unconstrained delivery to an unknown recipient | Found only if the recipient registered the sender | Found without sender-recipient coordination |
 | Constrained delivery | Transaction is unprovable without an interactive handshake signed by the recipient | Works without recipient involvement |
+
+Reuse is independent of the preference. If a non-interactive handshake was already established for a sender, recipient, and mode (for example by an earlier best effort send, or by another application), later messages reuse that secret even under max privacy. The preference governs how a secret is established, not whether an existing one is reused, so switching to max privacy does not retract a handshake that already exists.
 
 ### Configuring the preference
 
