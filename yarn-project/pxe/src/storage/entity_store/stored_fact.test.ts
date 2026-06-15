@@ -29,11 +29,27 @@ describe('StoredFact', () => {
     expect(back.isRetractable).toBe(false);
   });
 
-  it('derives stable composite keys', () => {
-    const fact = new StoredFact(key, factType, [new Fr(9n)], undefined);
-    expect(fact.key.entityTypeKey().toString()).toBe(`${contract}:${scope}:${entityType}`);
-    expect(fact.key.toString()).toBe(`${contract}:${scope}:${entityType}:${entityId}`);
-    expect(factKeyStrOf(fact)).toBe(fact.key.toString() + `:${factType}:${fact.payloadHash()}`);
+  it('derives stable composite keys including the origin block', () => {
+    const nonRetractable = new StoredFact(key, factType, [new Fr(9n)], undefined);
+    expect(nonRetractable.key.entityTypeKey().toString()).toBe(`${contract}:${scope}:${entityType}`);
+    expect(nonRetractable.key.toString()).toBe(`${contract}:${scope}:${entityType}:${entityId}`);
+    expect(factKeyStrOf(nonRetractable)).toBe(
+      nonRetractable.key.toString() + `:${factType}:${nonRetractable.payloadHash()}:none`,
+    );
+
+    const blockHash = new Fr(0xabcn);
+    const retractable = new StoredFact(key, factType, [new Fr(9n)], { blockNumber: 5, blockHash });
+    expect(factKeyStrOf(retractable)).toBe(
+      retractable.key.toString() + `:${factType}:${retractable.payloadHash()}:5:${blockHash}`,
+    );
+  });
+
+  it('keys the same payload at different origin blocks as distinct facts', () => {
+    const noOrigin = new StoredFact(key, factType, [new Fr(9n)], undefined);
+    const atBlock5 = new StoredFact(key, factType, [new Fr(9n)], { blockNumber: 5, blockHash: new Fr(1n) });
+    const atBlock10 = new StoredFact(key, factType, [new Fr(9n)], { blockNumber: 10, blockHash: new Fr(2n) });
+    expect(factKeyStrOf(noOrigin)).not.toBe(factKeyStrOf(atBlock5));
+    expect(factKeyStrOf(atBlock5)).not.toBe(factKeyStrOf(atBlock10));
   });
 
   it('gives distinct payload hashes for distinct payloads and equal for equal', () => {

@@ -38,10 +38,6 @@
       "kind": "multimap"
     },
     {
-      "name": "entities_by_entity_type",
-      "kind": "multimap"
-    },
-    {
       "name": "events_by_block_number",
       "kind": "multimap"
     },

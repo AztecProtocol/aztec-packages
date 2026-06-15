@@ -332,8 +332,8 @@ describe('BlockSynchronizer', () => {
       expect(
         await entityStore.getEntities(EntityTypeKey.from({ contractAddress: contract, scope, entityTypeId }), jobId),
       ).toHaveLength(2);
-      expect((await entityStore.getEntity(prunedKey, jobId)).facts).toHaveLength(1);
-      expect((await entityStore.getEntity(survivingKey, jobId)).facts).toHaveLength(2);
+      expect((await entityStore.getEntity(prunedKey, jobId))!.facts).toHaveLength(1);
+      expect((await entityStore.getEntity(survivingKey, jobId))!.facts).toHaveLength(2);
 
       // The verification reads above pin the job; release it so the prune's rollback is not blocked.
       await entityStore.discardStaged(jobId);
@@ -362,8 +362,8 @@ describe('BlockSynchronizer', () => {
       );
       expect(active).toHaveLength(1);
       expect(active[0].key.entityId.equals(survivingEntityId)).toBe(true);
-      expect((await entityStore.getEntity(prunedKey, jobId)).facts).toHaveLength(0);
-      const remaining = (await entityStore.getEntity(survivingKey, jobId)).facts;
+      expect(await entityStore.getEntity(prunedKey, jobId)).toBeUndefined();
+      const remaining = (await entityStore.getEntity(survivingKey, jobId))!.facts;
       expect(remaining).toHaveLength(1);
       expect(remaining[0].factTypeId.equals(nonRetractableFactType)).toBe(true);
     });

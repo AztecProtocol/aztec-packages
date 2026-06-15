@@ -237,7 +237,6 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
     snapshotStore: async kvStore => ({
       entities: await snapshotMap(kvStore.openMap<string, Buffer>('entities')),
       entities_by_block: await snapshotMap(kvStore.openMultiMap<number, string>('entities_by_block')),
-      entities_by_entity_type: await snapshotMap(kvStore.openMultiMap<string, string>('entities_by_entity_type')),
       facts: await snapshotMap(kvStore.openMap<string, Buffer>('facts')),
       facts_by_entity: await snapshotMap(kvStore.openMultiMap<string, string>('facts_by_entity')),
       facts_by_block: await snapshotMap(kvStore.openMultiMap<number, string>('facts_by_block')),

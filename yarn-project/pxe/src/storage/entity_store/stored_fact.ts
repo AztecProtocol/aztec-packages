@@ -74,14 +74,16 @@ export class StoredFact {
 }
 
 /**
- * Serialized key that identifies and dedups a fact (`entityKeyStr:factTypeId:payloadHash`). The payload hash (rather
- * than the raw payload) bounds key size for large payloads.
+ * Serialized key that identifies and dedups a fact (`entityKeyStr:factTypeId:payloadHash:originBlock`). The payload
+ * hash (rather than the raw payload) bounds key size for large payloads. The origin block (height and hash, or `none`
+ * when non-retractable) is part of the identity, so the same payload derived at different blocks is a distinct fact.
  */
 export type FactKeyStr = string;
 
 /** Builds the {@link FactKeyStr} for the given fact. */
 export function factKeyStrOf(fact: StoredFact): FactKeyStr {
-  return `${fact.key}:${fact.factTypeId}:${fact.payloadHash()}`;
+  const origin = fact.originBlock ? `${fact.originBlock.blockNumber}:${fact.originBlock.blockHash}` : 'none';
+  return `${fact.key}:${fact.factTypeId}:${fact.payloadHash()}:${origin}`;
 }
 
 /**

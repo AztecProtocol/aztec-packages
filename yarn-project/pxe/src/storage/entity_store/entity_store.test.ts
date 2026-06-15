@@ -38,7 +38,7 @@ describe('EntityStore', () => {
     await store.recordFact(keyA, PROCESSED, [], { blockNumber: 5, blockHash: new Fr(1n) }, JOB);
     await kv.transactionAsync(() => store.commit(JOB));
 
-    const { facts } = await store.getEntity(keyA, JOB);
+    const { facts } = (await store.getEntity(keyA, JOB))!;
     expect(facts.map(f => f.factTypeId.toBigInt())).toEqual([RECEIVED.toBigInt(), PROCESSED.toBigInt()]);
   });
 
@@ -58,7 +58,7 @@ describe('EntityStore', () => {
     }
     await kv.transactionAsync(() => store.commit(JOB2));
 
-    const { facts } = await store.getEntity(keyA, JOB);
+    const { facts } = (await store.getEntity(keyA, JOB))!;
     expect(facts.map(f => f.payload[0].toBigInt())).toEqual(payloads);
   });
 
@@ -72,53 +72,60 @@ describe('EntityStore', () => {
     await store.recordFact(keyA, RECEIVED, [new Fr(7n)], undefined, JOB2);
     await store.recordFact(keyA, RECEIVED, [new Fr(1n)], undefined, JOB2);
 
-    const { facts } = await store.getEntity(keyA, JOB2);
+    const { facts } = (await store.getEntity(keyA, JOB2))!;
     expect(facts.map(f => f.payload[0].toBigInt())).toEqual([9n, 3n, 7n, 1n]);
   });
 
-  it('dedups identical (entity, factType, payload) records idempotently', async () => {
+  it('dedups identical (entity, factType, payload, originBlock) records idempotently', async () => {
     await store.createEntity(keyA, [], undefined, JOB);
     await store.recordFact(keyA, RECEIVED, [new Fr(9n)], undefined, JOB);
     await store.recordFact(keyA, RECEIVED, [new Fr(9n)], undefined, JOB);
     await kv.transactionAsync(() => store.commit(JOB));
 
-    const { facts } = await store.getEntity(keyA, JOB);
+    const { facts } = (await store.getEntity(keyA, JOB))!;
     expect(facts).toHaveLength(1);
   });
 
-  it('re-recording a fact is a no-op keeping its creation position and origin block', async () => {
+  it('re-recording an identical fact (same origin block) is a no-op keeping its creation position', async () => {
     await store.createEntity(keyA, [], undefined, JOB);
-    await store.recordFact(keyA, RECEIVED, [new Fr(9n)], undefined, JOB);
+    await store.recordFact(keyA, RECEIVED, [new Fr(9n)], { blockNumber: 5, blockHash: new Fr(1n) }, JOB);
     await store.recordFact(keyA, RECEIVED, [new Fr(1n)], undefined, JOB);
     await kv.transactionAsync(() => store.commit(JOB));
 
+    // Re-recording the block-5 fact verbatim in a later job is a no-op.
     const JOB2 = 'rerecord-job';
     await store.recordFact(keyA, RECEIVED, [new Fr(9n)], { blockNumber: 5, blockHash: new Fr(1n) }, JOB2);
     await kv.transactionAsync(() => store.commit(JOB2));
 
-    const { facts } = await store.getEntity(keyA, JOB);
+    const { facts } = (await store.getEntity(keyA, JOB))!;
     expect(facts.map(f => f.payload[0].toBigInt())).toEqual([9n, 1n]);
-    expect(facts[0].originBlock).toBeUndefined();
+    expect(facts[0].originBlock?.blockNumber).toBe(5);
   });
 
-  it('re-recording a fact keeps its original origin block (first write wins)', async () => {
+  it('the same payload at a different origin block is a distinct fact', async () => {
     await store.createEntity(keyA, [], undefined, JOB);
     await store.recordFact(keyA, RECEIVED, [new Fr(9n)], { blockNumber: 5, blockHash: new Fr(1n) }, JOB);
+    await store.recordFact(keyA, RECEIVED, [new Fr(9n)], { blockNumber: 10, blockHash: new Fr(2n) }, JOB);
     await kv.transactionAsync(() => store.commit(JOB));
 
-    // Re-record the identical fact at a later block: a no-op, so the fact still originates at block 5.
-    const JOB2 = 'rerecord-job';
-    await store.recordFact(keyA, RECEIVED, [new Fr(9n)], { blockNumber: 10, blockHash: new Fr(2n) }, JOB2);
-    await kv.transactionAsync(() => store.commit(JOB2));
+    const { facts } = (await store.getEntity(keyA, JOB))!;
+    expect(facts.map(f => f.originBlock?.blockNumber)).toEqual([5, 10]);
+  });
 
-    // Prune above block 7: the fact was first derived at block 5, which survives, so the fact must survive.
+  it('the same payload at two origin blocks yields independent facts pruned per block', async () => {
+    await store.createEntity(keyA, [], undefined, JOB);
+    await store.recordFact(keyA, RECEIVED, [new Fr(9n)], { blockNumber: 5, blockHash: new Fr(1n) }, JOB);
+    await store.recordFact(keyA, RECEIVED, [new Fr(9n)], { blockNumber: 10, blockHash: new Fr(2n) }, JOB);
+    await kv.transactionAsync(() => store.commit(JOB));
+
+    // Prune above block 7: the block-10 derivation is deleted, the block-5 one survives.
     await kv.transactionAsync(() => store.rollback(7));
-    expect((await store.getEntity(keyA, JOB)).facts).toHaveLength(1);
+    expect((await store.getEntity(keyA, JOB))!.facts.map(f => f.originBlock?.blockNumber)).toEqual([5]);
     await store.discardStaged(JOB); // reads pin the job; release it so the next rollback isn't blocked
 
-    // Prune above block 4: the fact originates above the target and is deleted exactly once.
+    // Prune above block 4: the block-5 derivation is deleted too.
     await kv.transactionAsync(() => store.rollback(4));
-    expect((await store.getEntity(keyA, JOB)).facts).toHaveLength(0);
+    expect((await store.getEntity(keyA, JOB))!.facts).toHaveLength(0);
   });
 
   it('enumerates active entities (created and not terminated) for a scope', async () => {
@@ -172,12 +179,12 @@ describe('EntityStore', () => {
     await store.recordFact(keyA, RECEIVED, [new Fr(9n)], undefined, JOB);
 
     // Same job, before commit: the staged entity is active and its fact is visible.
-    const { facts } = await store.getEntity(keyA, JOB);
+    const { facts } = (await store.getEntity(keyA, JOB))!;
     expect(facts.map(f => f.factTypeId.toBigInt())).toEqual([RECEIVED.toBigInt()]);
     expect(entityIdsOf(await store.getEntities(entityTypeKey, JOB))).toEqual([corrA.toBigInt()]);
 
     // A different job does not see the uncommitted write.
-    expect((await store.getEntity(keyA, 'other-job')).facts).toHaveLength(0);
+    expect(await store.getEntity(keyA, 'other-job')).toBeUndefined();
     expect(await store.getEntities(entityTypeKey, 'other-job')).toHaveLength(0);
   });
 
@@ -187,7 +194,7 @@ describe('EntityStore', () => {
     await store.recordFact(keyA, PROCESSED, [], { blockNumber: 5, blockHash: new Fr(1n) }, JOB);
     await kv.transactionAsync(() => store.commit(JOB));
 
-    const { body, facts } = await store.getEntity(keyA, JOB);
+    const { body, facts } = (await store.getEntity(keyA, JOB))!;
     expect(body.map(f => f.toBigInt())).toEqual([5n, 6n]);
     expect(facts.map(f => f.factTypeId.toBigInt())).toEqual([RECEIVED.toBigInt(), PROCESSED.toBigInt()]);
   });
@@ -196,27 +203,25 @@ describe('EntityStore', () => {
     await store.createEntity(keyA, [new Fr(5n)], undefined, JOB);
     await kv.transactionAsync(() => store.commit(JOB));
 
-    const { body, facts } = await store.getEntity(keyA, JOB);
+    const { body, facts } = (await store.getEntity(keyA, JOB))!;
     expect(body.map(f => f.toBigInt())).toEqual([5n]);
     expect(facts).toHaveLength(0);
   });
 
-  it('getEntity returns an empty body when no entity record exists', async () => {
-    const { body, facts } = await store.getEntity(keyA, JOB);
-    expect(body).toEqual([]);
-    expect(facts).toHaveLength(0);
+  it('getEntity returns undefined when no entity record exists', async () => {
+    expect(await store.getEntity(keyA, JOB)).toBeUndefined();
   });
 
   it("getEntity reflects a job's own staged createEntity before commit (read-your-writes)", async () => {
     await store.createEntity(keyA, [new Fr(5n)], undefined, JOB);
     await store.recordFact(keyA, RECEIVED, [new Fr(9n)], undefined, JOB);
 
-    const { body, facts } = await store.getEntity(keyA, JOB);
+    const { body, facts } = (await store.getEntity(keyA, JOB))!;
     expect(body.map(f => f.toBigInt())).toEqual([5n]);
     expect(facts.map(f => f.factTypeId.toBigInt())).toEqual([RECEIVED.toBigInt()]);
 
     // A different job does not see the uncommitted write.
-    expect((await store.getEntity(keyA, 'other-job')).body).toEqual([]);
+    expect(await store.getEntity(keyA, 'other-job')).toBeUndefined();
   });
 
   it('hides an entity from its own job after a staged terminate, even over committed facts', async () => {
@@ -229,10 +234,9 @@ describe('EntityStore', () => {
     const TERM = 'terminate-job';
     await store.terminateEntity(keyA, TERM);
 
-    expect((await store.getEntity(keyA, TERM)).facts).toHaveLength(0);
-    expect((await store.getEntity(keyA, TERM)).body).toEqual([]);
+    expect(await store.getEntity(keyA, TERM)).toBeUndefined();
     expect(await store.getEntities(entityTypeKey, TERM)).toHaveLength(0);
-    expect((await store.getEntity(keyA, 'reader')).facts).toHaveLength(1);
+    expect((await store.getEntity(keyA, 'reader'))!.facts).toHaveLength(1);
   });
 
   it('terminateEntity rejects a non-existent entity', async () => {
@@ -260,11 +264,10 @@ describe('EntityStore', () => {
     await store.terminateEntity(keyA, TERM);
     await kv.transactionAsync(() => store.commit(TERM));
 
-    expect((await store.getEntity(keyA, JOB)).facts).toHaveLength(0);
-    expect((await store.getEntity(keyA, JOB)).body).toEqual([]);
+    expect(await store.getEntity(keyA, JOB)).toBeUndefined();
     expect(entityIdsOf(await store.getEntities(entityTypeKey, JOB))).toEqual([corrB.toBigInt()]);
     // The neighbouring entity is untouched.
-    expect((await store.getEntity(keyB, JOB)).facts).toHaveLength(1);
+    expect((await store.getEntity(keyB, JOB))!.facts).toHaveLength(1);
   });
 
   it('rollback deletes a retractable entity wholesale (body + every fact) above the target block', async () => {
@@ -276,9 +279,7 @@ describe('EntityStore', () => {
 
     await kv.transactionAsync(() => store.rollback(5));
 
-    const { body, facts } = await store.getEntity(keyA, JOB);
-    expect(body).toEqual([]);
-    expect(facts).toHaveLength(0);
+    expect(await store.getEntity(keyA, JOB)).toBeUndefined();
     expect(await store.getEntities(entityTypeKey, JOB)).toHaveLength(0);
   });
 
@@ -291,7 +292,7 @@ describe('EntityStore', () => {
 
     await kv.transactionAsync(() => store.rollback(5));
 
-    const { body, facts } = await store.getEntity(keyA, JOB);
+    const { body, facts } = (await store.getEntity(keyA, JOB))!;
     expect(body.map(f => f.toBigInt())).toEqual([5n]);
     expect(facts.map(f => f.factTypeId.toBigInt())).toEqual([RECEIVED.toBigInt()]); // Processed pruned, Received kept
     // Entity stays active because the entity record survives.
@@ -305,7 +306,7 @@ describe('EntityStore', () => {
 
     await kv.transactionAsync(() => store.rollback(10));
 
-    const { body, facts } = await store.getEntity(keyA, JOB);
+    const { body, facts } = (await store.getEntity(keyA, JOB))!;
     expect(body.map(f => f.toBigInt())).toEqual([5n]);
     expect(facts.map(f => f.factTypeId.toBigInt())).toEqual([PROCESSED.toBigInt()]);
     expect(entityIdsOf(await store.getEntities(entityTypeKey, JOB))).toEqual([corrA.toBigInt()]);
@@ -324,7 +325,7 @@ describe('EntityStore', () => {
     await kv.transactionAsync(() => store.rollback(5));
 
     // Survived: the replacement entity is non-retractable.
-    const { body } = await store.getEntity(keyA, JOB);
+    const { body } = (await store.getEntity(keyA, JOB))!;
     expect(body.map(f => f.toBigInt())).toEqual([7n]);
     expect(entityIdsOf(await store.getEntities(entityTypeKey, JOB))).toEqual([corrA.toBigInt()]);
   });
@@ -349,7 +350,7 @@ describe('EntityStore', () => {
       await store.createEntity(keyA, [new Fr(2n)], undefined, JOB2);
 
       // Staged view: the re-created entity, with the terminate having wiped the committed fact.
-      const staged = await store.getEntity(keyA, JOB2);
+      const staged = (await store.getEntity(keyA, JOB2))!;
       expect(staged.body.map(f => f.toBigInt())).toEqual([2n]);
       expect(staged.facts).toHaveLength(0);
       const stagedEntities = await store.getEntities(entityTypeKey, JOB2);
@@ -359,7 +360,7 @@ describe('EntityStore', () => {
 
       // The committed view matches the staged view.
       await kv.transactionAsync(() => store.commit(JOB2));
-      const committed = await store.getEntity(keyA, 'reader');
+      const committed = (await store.getEntity(keyA, 'reader'))!;
       expect(committed.body.map(f => f.toBigInt())).toEqual([2n]);
       expect(committed.facts).toHaveLength(0);
     });
@@ -384,13 +385,12 @@ describe('EntityStore', () => {
       await store.terminateEntity(keyA, JOB);
 
       // Staged view: gone.
-      expect((await store.getEntity(keyA, JOB)).body).toEqual([]);
-      expect((await store.getEntity(keyA, JOB)).facts).toHaveLength(0);
+      expect(await store.getEntity(keyA, JOB)).toBeUndefined();
       expect(await store.getEntities(entityTypeKey, JOB)).toHaveLength(0);
 
       // Committed view: gone too, and no index residue blocks a later rollback.
       await kv.transactionAsync(() => store.commit(JOB));
-      expect((await store.getEntity(keyA, 'reader')).body).toEqual([]);
+      expect(await store.getEntity(keyA, 'reader')).toBeUndefined();
       expect(await store.getEntities(entityTypeKey, 'reader')).toHaveLength(0);
       await store.discardStaged('reader'); // reads pin the job; release it so the rollback isn't blocked
       await expect(kv.transactionAsync(() => store.rollback(0))).resolves.not.toThrow();
@@ -421,11 +421,11 @@ describe('EntityStore', () => {
       await kv.transactionAsync(() => store.commit(JOB));
 
       // Only job 1's fact is committed; job 2 still layers its staged fact on top.
-      expect((await store.getEntity(keyA, 'reader')).facts.map(f => f.payload[0].toBigInt())).toEqual([9n]);
-      expect((await store.getEntity(keyA, JOB2)).facts.map(f => f.payload[0].toBigInt())).toEqual([9n, 1n]);
+      expect((await store.getEntity(keyA, 'reader'))!.facts.map(f => f.payload[0].toBigInt())).toEqual([9n]);
+      expect((await store.getEntity(keyA, JOB2))!.facts.map(f => f.payload[0].toBigInt())).toEqual([9n, 1n]);
 
       await kv.transactionAsync(() => store.commit(JOB2));
-      expect((await store.getEntity(keyA, 'reader')).facts.map(f => f.payload[0].toBigInt())).toEqual([9n, 1n]);
+      expect((await store.getEntity(keyA, 'reader'))!.facts.map(f => f.payload[0].toBigInt())).toEqual([9n, 1n]);
     });
 
     it('a job that has only read still blocks rollback until it is discarded', async () => {
@@ -440,6 +440,17 @@ describe('EntityStore', () => {
       await expect(kv.transactionAsync(() => store.rollback(0))).resolves.not.toThrow();
     });
 
+    it('commit rejects a createEntity whose entity was already committed by a racing job', async () => {
+      // The write-time guard only inspects the calling job's staged ops plus committed state, so two jobs can
+      // both stage a create for the same key without seeing each other. The second to commit must be rejected.
+      const JOB2 = 'racing-job';
+      await store.createEntity(keyA, [new Fr(1n)], undefined, JOB);
+      await store.createEntity(keyA, [new Fr(2n)], undefined, JOB2);
+
+      await kv.transactionAsync(() => store.commit(JOB));
+      await expect(kv.transactionAsync(() => store.commit(JOB2))).rejects.toThrow('already existing entity');
+    });
+
     it('discardStaged drops staged writes without touching committed state', async () => {
       await store.createEntity(keyA, [new Fr(1n)], undefined, JOB);
       await kv.transactionAsync(() => store.commit(JOB));
@@ -452,8 +463,8 @@ describe('EntityStore', () => {
       // The discarded writes are gone from the job's own view, and committing the job persists nothing.
       expect(entityIdsOf(await store.getEntities(entityTypeKey, JOB2))).toEqual([corrA.toBigInt()]);
       await kv.transactionAsync(() => store.commit(JOB2));
-      expect((await store.getEntity(keyA, 'reader')).facts).toHaveLength(0);
-      expect((await store.getEntity(keyB, 'reader')).body).toEqual([]);
+      expect((await store.getEntity(keyA, 'reader'))!.facts).toHaveLength(0);
+      expect(await store.getEntity(keyB, 'reader')).toBeUndefined();
     });
   });
 
@@ -467,9 +478,9 @@ describe('EntityStore', () => {
       await kv.transactionAsync(() => store.commit(JOB));
 
       // Same contract, type and entity id, but each scope only sees its own entity.
-      expect((await store.getEntity(keyA, JOB)).body.map(f => f.toBigInt())).toEqual([1n]);
-      expect((await store.getEntity(keyScope2, JOB)).body.map(f => f.toBigInt())).toEqual([2n]);
-      expect((await store.getEntity(keyScope2, JOB)).facts).toHaveLength(0);
+      expect((await store.getEntity(keyA, JOB))!.body.map(f => f.toBigInt())).toEqual([1n]);
+      expect((await store.getEntity(keyScope2, JOB))!.body.map(f => f.toBigInt())).toEqual([2n]);
+      expect((await store.getEntity(keyScope2, JOB))!.facts).toHaveLength(0);
       expect(await store.getEntities(EntityTypeKey.from({ ...entityTypeKey, scope: scope2 }), JOB)).toHaveLength(1);
 
       // Terminating in one scope leaves the other untouched.
@@ -510,8 +521,8 @@ describe('EntityStore', () => {
       await store.recordFact(keyB, RECEIVED, [new Fr(2n)], undefined, JOB);
       await kv.transactionAsync(() => store.commit(JOB));
 
-      expect((await store.getEntity(keyA, JOB)).facts.map(f => f.payload[0].toBigInt())).toEqual([9n, 3n]);
-      expect((await store.getEntity(keyB, JOB)).facts.map(f => f.payload[0].toBigInt())).toEqual([8n, 2n]);
+      expect((await store.getEntity(keyA, JOB))!.facts.map(f => f.payload[0].toBigInt())).toEqual([9n, 3n]);
+      expect((await store.getEntity(keyB, JOB))!.facts.map(f => f.payload[0].toBigInt())).toEqual([8n, 2n]);
       // getEntities returns the same per-entity order.
       const entities = await store.getEntities(entityTypeKey, JOB);
       const byId = new Map(entities.map(e => [e.key.entityId.toBigInt(), e.facts]));
@@ -528,7 +539,7 @@ describe('EntityStore', () => {
 
       await kv.transactionAsync(() => store.rollback(5));
 
-      expect((await store.getEntity(keyA, JOB)).facts.map(f => f.payload[0].toBigInt())).toEqual([9n, 7n]);
+      expect((await store.getEntity(keyA, JOB))!.facts.map(f => f.payload[0].toBigInt())).toEqual([9n, 7n]);
     });
 
     it('facts re-recorded after a terminate take fresh creation positions', async () => {
@@ -545,7 +556,7 @@ describe('EntityStore', () => {
       await store.recordFact(keyA, RECEIVED, [new Fr(9n)], undefined, JOB2);
       await kv.transactionAsync(() => store.commit(JOB2));
 
-      expect((await store.getEntity(keyA, JOB)).facts.map(f => f.payload[0].toBigInt())).toEqual([1n, 9n]);
+      expect((await store.getEntity(keyA, JOB))!.facts.map(f => f.payload[0].toBigInt())).toEqual([1n, 9n]);
     });
 
     it('creation order continues across store reopens', async () => {
@@ -561,7 +572,7 @@ describe('EntityStore', () => {
       await reopened.recordFact(keyA, RECEIVED, [new Fr(1n)], undefined, JOB2);
       await kv.transactionAsync(() => reopened.commit(JOB2));
 
-      expect((await reopened.getEntity(keyA, JOB2)).facts.map(f => f.payload[0].toBigInt())).toEqual([9n, 3n, 7n, 1n]);
+      expect((await reopened.getEntity(keyA, JOB2))!.facts.map(f => f.payload[0].toBigInt())).toEqual([9n, 3n, 7n, 1n]);
     });
   });
 
@@ -573,14 +584,13 @@ describe('EntityStore', () => {
 
       // Only records strictly above the target block are pruned.
       await kv.transactionAsync(() => store.rollback(5));
-      const { body, facts } = await store.getEntity(keyA, JOB);
+      const { body, facts } = (await store.getEntity(keyA, JOB))!;
       expect(body.map(f => f.toBigInt())).toEqual([5n]);
       expect(facts).toHaveLength(1);
       await store.discardStaged(JOB); // reads pin the job; release it so the next rollback isn't blocked
 
       await kv.transactionAsync(() => store.rollback(4));
-      expect((await store.getEntity(keyA, JOB)).body).toEqual([]);
-      expect((await store.getEntity(keyA, JOB)).facts).toHaveLength(0);
+      expect(await store.getEntity(keyA, JOB)).toBeUndefined();
     });
 
     it('pruning an entity clears the by-block entries of facts below the prune point', async () => {
@@ -591,7 +601,7 @@ describe('EntityStore', () => {
       await kv.transactionAsync(() => store.commit(JOB));
 
       await kv.transactionAsync(() => store.rollback(5));
-      expect((await store.getEntity(keyA, JOB)).facts).toHaveLength(0);
+      expect(await store.getEntity(keyA, JOB)).toBeUndefined();
       await store.discardStaged(JOB); // reads pin the job; release it so the next rollback isn't blocked
 
       // A dangling block-4 fact index entry would make this second prune throw "Fact not found".
@@ -623,7 +633,7 @@ describe('EntityStore', () => {
     it('accepts a fact for an entity staged for creation earlier in the same job', async () => {
       await store.createEntity(keyA, [new Fr(5n)], undefined, JOB);
       await store.recordFact(keyA, RECEIVED, [new Fr(9n)], undefined, JOB);
-      expect((await store.getEntity(keyA, JOB)).facts).toHaveLength(1);
+      expect((await store.getEntity(keyA, JOB))!.facts).toHaveLength(1);
     });
 
     it('accepts a fact for an entity already committed to disk', async () => {
@@ -632,28 +642,41 @@ describe('EntityStore', () => {
 
       const JOB2 = 'record-job';
       await store.recordFact(keyA, RECEIVED, [new Fr(9n)], undefined, JOB2);
-      expect((await store.getEntity(keyA, JOB2)).facts).toHaveLength(1);
+      expect((await store.getEntity(keyA, JOB2))!.facts).toHaveLength(1);
     });
   });
 
-  describe('index corruption detection', () => {
+  describe('index inconsistency handling', () => {
     it('getEntity fails loudly when the fact index references a missing row', async () => {
+      await store.createEntity(keyA, [new Fr(5n)], undefined, JOB);
+      await kv.transactionAsync(() => store.commit(JOB));
+
       await kv.openMultiMap<string, string>('facts_by_entity').set(keyA.toString(), 'bogus-fact-key');
       await expect(store.getEntity(keyA, JOB)).rejects.toThrow('Fact not found for factKey bogus-fact-key');
     });
 
-    it('rollback fails loudly when the entity by-block index references a missing entity', async () => {
+    it('rollback tolerates a dangling entity by-block index entry and still prunes real entities', async () => {
+      // A real retractable entity above the prune point, alongside a by-block entry pointing at a missing entity.
+      await store.createEntity(keyA, [new Fr(5n)], { blockNumber: 8, blockHash: new Fr(1n) }, JOB);
+      await kv.transactionAsync(() => store.commit(JOB));
       await kv
         .openMultiMap<number, string>('entities_by_block')
         .set(7, EntityKey.from({ ...keyA, entityId: new Fr(0xdeadn) }).toString());
-      await expect(kv.transactionAsync(() => store.rollback(5))).rejects.toThrow('Entity not found for entityKey');
+
+      // The dangling entry is skipped rather than aborting the rollback, and the real entity is still pruned.
+      await kv.transactionAsync(() => store.rollback(5));
+      expect(await store.getEntity(keyA, 'reader')).toBeUndefined();
     });
 
-    it('rollback fails loudly when the fact by-block index references a missing row', async () => {
+    it('rollback tolerates a dangling fact by-block index entry and still prunes real facts', async () => {
+      await store.createEntity(keyA, [], undefined, JOB);
+      await store.recordFact(keyA, RECEIVED, [new Fr(9n)], { blockNumber: 8, blockHash: new Fr(1n) }, JOB);
+      await kv.transactionAsync(() => store.commit(JOB));
       await kv.openMultiMap<number, string>('facts_by_block').set(7, 'bogus-fact-key');
-      await expect(kv.transactionAsync(() => store.rollback(5))).rejects.toThrow(
-        'Fact not found for factKey bogus-fact-key',
-      );
+
+      // The dangling entry is skipped rather than aborting the rollback, and the real fact is still pruned.
+      await kv.transactionAsync(() => store.rollback(5));
+      expect((await store.getEntity(keyA, 'reader'))!.facts).toHaveLength(0);
     });
   });
 });
