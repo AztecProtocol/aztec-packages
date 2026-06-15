@@ -183,16 +183,14 @@ export class EntityStore implements StagedStore {
    */
   async getEntities(entityTypeKey: EntityTypeKey, jobId: string): Promise<Entity[]> {
     const typeKey = entityTypeKey.toString();
-
     const entitiesAndFactsFromDb = await this.#readEntitiesAndFactsFromDbByType(typeKey);
 
     // Combine DB state with staged state; foldStagedOps keeps the result scoped to this type.
-    const result: Entity[] = [];
-    for (const { key, body, facts } of this.#foldStagedOps(entitiesAndFactsFromDb, jobId, typeKey).values()) {
-      result.push({ key, body, facts: Array.from(facts.values()) });
-    }
-
-    return result;
+    return Array.from(this.#foldStagedOps(entitiesAndFactsFromDb, jobId, typeKey).values(), ({ key, body, facts }) => ({
+      key,
+      body,
+      facts: Array.from(facts.values()),
+    }));
   }
 
   /**
