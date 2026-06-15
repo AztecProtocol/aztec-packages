@@ -248,19 +248,20 @@ class Chonk {
     /**
      * @brief Accumulate a circuit into the running IVC.
      *
-     * @details Single entry point for all three circuit kinds; behavior is selected by `current_kind()`
-     * (the kinds are provided at construction):
-     *   - `CircuitKind::App`          → MegaAppFlavor, fold into `prover_accumulator`.
-     *   - `CircuitKind::Kernel`       → MegaKernelFlavor, fold (with the previous kernel's
-     *                                   accumulator); HN_FINAL also runs the Decider.
-     *   - `CircuitKind::HidingKernel` → MegaZKFlavor; build the prover instance only, proving is
-     *                                   deferred to `prove()`.
+     * @details Single entry point for circuit accumulation. Internally, it selects the correct flavor for
+     * accumulation based on the kind of the circuit processed (which are provided to Chonk at construction):
+     *   - `CircuitKind::App`          → MegaAppFlavor
+     *   - `CircuitKind::Kernel`       → MegaKernelFlavor
+     *   - `CircuitKind::HidingKernel` → MegaZKFlavor
      *
-     * When the next circuit is a kernel, the circuit being accumulated completes that kernel's group, so this
-     * method also produces the kernel's multilinear batching proof (and the decider proof when the next circuit
-     * is the hiding kernel).
+     * Each accumulation step:
+     * - Transforms the incoming circuit into an Hypernova accumulator
+     * - When the next circuit is a kernel, also produces the kernel's multilinear batching proof
+     * - When the next circuit is the hiding kernel, also produces the decider proof
      *
-     * The caller must pass the VK variant alternative matching `current_kind()`; mismatches throw
+     * If we are accumulating the hiding kernel, we construct its prover_instance.
+     *
+     * @note The caller must pass the VK variant alternative matching `current_kind()`; mismatches throw
      * `std::bad_variant_access`.
      */
     void accumulate(ClientCircuit& circuit, const CircuitVerificationKey& vk);

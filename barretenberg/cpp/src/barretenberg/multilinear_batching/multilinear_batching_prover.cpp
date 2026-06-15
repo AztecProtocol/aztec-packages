@@ -50,22 +50,9 @@ MultilinearBatchingProverInternal<Flavor>::MultilinearBatchingProverInternal(
     , key(std::move(claims))
 {}
 
-template <typename Flavor> void MultilinearBatchingProverInternal<Flavor>::execute_claims_round()
-{
-    BB_BENCH();
-
-    // The claims being batched are not sent in the proof: the verifier holds them in memory (it produced them via
-    // instance_to_accumulator). The batching challenge is derived from the shared transcript, whose state already
-    // commits to those claims via the group's instance sumchecks, so it binds them without any explicit hashing.
-    //
-    // γ is not baked into the polynomials: it is fed to the relation as a public per-polynomials coefficient (the i-th
-    // polynomial is weighted by γ^i)
-    claim_batching_challenge = transcript->template get_challenge<FF>("claim_batching_challenge");
-}
-
 template <typename Flavor> void MultilinearBatchingProverInternal<Flavor>::execute_relation_check_rounds()
 {
-    BB_BENCH();
+    BB_BENCH_NAME("MultilinearBatchingProver::execute_relation_check_rounds");
     using Sumcheck = SumcheckProver<Flavor>;
 
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
@@ -164,7 +151,13 @@ template <typename Flavor> HonkProof MultilinearBatchingProverInternal<Flavor>::
 {
     BB_BENCH_NAME("MultilinearBatchingProver::construct_proof");
 
-    execute_claims_round();
+    // The claims being batched are not sent in the proof: the verifier holds them in memory (it produced them via
+    // instance_to_accumulator). The batching challenge is derived from the shared transcript, whose state already
+    // commits to those claims via the group's instance sumchecks, so it binds them without any explicit hashing.
+    //
+    // γ is fed to the relation as a public per-polynomials coefficient (the i-th polynomial is weighted by γ^i)
+    claim_batching_challenge = transcript->template get_challenge<FF>("claim_batching_challenge");
+
     execute_relation_check_rounds();
 
     vinfo("MultilinearBatchingProver:: Computed batching proof");

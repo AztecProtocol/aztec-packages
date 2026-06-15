@@ -31,7 +31,6 @@ template <typename Flavor_> class MultilinearBatchingProverInternal {
     MultilinearBatchingProverInternal(std::vector<MultilinearBatchingProverClaim>&& claims,
                                       std::shared_ptr<Transcript> transcript);
 
-    BB_PROFILE void execute_claims_round();
     BB_PROFILE void execute_relation_check_rounds();
     BB_PROFILE MultilinearBatchingProverClaim compute_new_claim();
 

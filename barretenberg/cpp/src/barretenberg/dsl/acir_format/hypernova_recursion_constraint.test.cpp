@@ -374,7 +374,6 @@ TEST_F(HypernovaRecursionConstraintTest, GenerateResetKernelVKFromConstraints)
         // Construct and accumulate a mock INIT kernel (oink recursion for app accumulation)
         construct_and_accumulate_mock_kernel(ivc);
         EXPECT_TRUE(ivc->verification_queue.size() == 1);
-        info("Hi", static_cast<size_t>(ivc->verification_queue[0].type));
         EXPECT_TRUE(ivc->verification_queue[0].type == bb::Chonk::QUEUE_TYPE::HN);
 
         // Construct and accumulate a mock RESET kernel (HN recursion for kernel accumulation)
