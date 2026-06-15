@@ -30,9 +30,10 @@ using ProverClaim = MultilinearBatchingProverClaim;
 using VerifierClaim = MultilinearBatchingVerifierClaim<Curve>;
 using NativeTranscriptType = NativeTranscript;
 
-// Size of the slot polynomials used in the tests. The protocol pads every polynomial up to
-// 2^VIRTUAL_LOG_N virtual variables, so the actual size only needs to be small.
-constexpr size_t LOG_N = 5;
+// Base log-size of the slot polynomials used in the tests. To exercise the protocol's support for mixed-size inputs,
+// claim i is built on 2^(LOG_N_BASE + i) points (so three claims use LOG_N 5, 6, 7). The protocol pads every
+// polynomial up to 2^VIRTUAL_LOG_N virtual variables, so the actual sizes only need to be small.
+constexpr size_t LOG_N_BASE = 5;
 constexpr size_t VIRTUAL_LOG_N = MultilinearBatchingFlavor::VIRTUAL_LOG_N;
 // Per round univariate length (the relation is degree 2, so 3 evaluations per round).
 constexpr size_t UNIVARIATE_LENGTH = MultilinearBatchingFlavor::BATCHED_RELATION_PARTIAL_LENGTH;
@@ -49,24 +50,39 @@ constexpr size_t EVALS_OFFSET = SEED_FRS + (VIRTUAL_LOG_N * UNIVARIATE_LENGTH);
  */
 enum class FaultMode : uint8_t {
     NONE,
-    FALSE_NONSHIFTED_EVAL,       // verifier holds a wrong non-shifted input claim -> sumcheck target is wrong
-    FALSE_SHIFTED_EVAL,          // verifier holds a wrong shifted input claim -> sumcheck target is wrong
-    TAMPER_CLAIMED_EVAL,         // corrupt one claimed evaluation -> sumcheck final relation check fails
-    WRONG_NONSHIFTED_COMMITMENT, // verifier holds a wrong input commitment -> output claim is not bound to it
-    WRONG_SHIFTED_COMMITMENT,    // verifier holds a wrong input commitment -> output claim is not bound to it
+    // The next six faults corrupt a verifier-held input claim so the sumcheck target / eq-consistency check is wrong.
+    // Each of the three batched components (non-shifted eval, shifted eval, eq polynomial via the claim's challenge) is
+    // targeted on both the first claim (batched with coefficient γ^0 = 1) and the second claim (coefficient γ^1 = γ).
+    FALSE_NONSHIFTED_EVAL_FIRST,  // wrong non-shifted evaluation on claim 0
+    FALSE_NONSHIFTED_EVAL_SECOND, // wrong non-shifted evaluation on claim 1
+    FALSE_SHIFTED_EVAL_FIRST,     // wrong shifted evaluation on claim 0
+    FALSE_SHIFTED_EVAL_SECOND,    // wrong shifted evaluation on claim 1
+    FALSE_EQ_FIRST,               // wrong challenge on claim 0 -> eq polynomial mismatch
+    FALSE_EQ_SECOND,              // wrong challenge on claim 1 -> eq polynomial mismatch
+    // The next six faults corrupt one prover-sent claimed evaluation in the proof. The non-shifted/shifted variants
+    // break the sumcheck final relation check; the eq variants break eq-consistency. Each of the three components is
+    // tampered on both the first claim (idx 0) and the second claim (idx 1).
+    TAMPER_NONSHIFTED_EVAL_FIRST,  // corrupt claimed non-shifted evaluation of claim 0
+    TAMPER_NONSHIFTED_EVAL_SECOND, // corrupt claimed non-shifted evaluation of claim 1
+    TAMPER_SHIFTED_EVAL_FIRST,     // corrupt claimed shifted evaluation of claim 0
+    TAMPER_SHIFTED_EVAL_SECOND,    // corrupt claimed shifted evaluation of claim 1
+    TAMPER_EQ_EVAL_FIRST,          // corrupt claimed eq evaluation of claim 0
+    TAMPER_EQ_EVAL_SECOND,         // corrupt claimed eq evaluation of claim 1
+    WRONG_NONSHIFTED_COMMITMENT,   // verifier holds a wrong input commitment -> output claim is not bound to it
+    WRONG_SHIFTED_COMMITMENT,      // verifier holds a wrong input commitment -> output claim is not bound to it
     BREAK_EVAL_BINDING, // polynomial evaluations that keep the γ-weighted relation but break the ρ-merge binding
 };
 
 /**
  * @brief Evaluate the (zero-padded) multilinear extension of `poly` at the full VIRTUAL_LOG_N-variate point `r`.
- * @details The slot polynomials live on 2^LOG_N points and are implicitly extended by zero to 2^VIRTUAL_LOG_N. The
- * extension multiplies the LOG_N-variate evaluation by ∏_{j >= LOG_N} (1 - r_j).
+ * @details The polynomial lives on 2^log_n points and is implicitly extended by zero to 2^VIRTUAL_LOG_N. The
+ * extension multiplies the log_n-variate evaluation by ∏_{j >= log_n} (1 - r_j).
  */
-FF mle_padded(const Polynomial<FF>& poly, const std::vector<FF>& r, bool shift = false)
+FF mle_padded(const Polynomial<FF>& poly, const std::vector<FF>& r, size_t log_n, bool shift = false)
 {
-    std::vector<FF> head(r.begin(), r.begin() + LOG_N);
+    std::vector<FF> head(r.begin(), r.begin() + static_cast<std::ptrdiff_t>(log_n));
     FF value = poly.evaluate_mle(head, shift);
-    for (size_t j = LOG_N; j < r.size(); ++j) {
+    for (size_t j = log_n; j < r.size(); ++j) {
         value *= (FF(1) - r[j]);
     }
     return value;
@@ -81,6 +97,7 @@ struct ClaimSet {
     // Copies of the polynomials used to recompute the honest output claim.
     std::vector<Polynomial<FF>> non_shifted_polynomials;
     std::vector<Polynomial<FF>> shifted_polynomials; // pre-shift form (start index 1)
+    std::vector<size_t> log_ns;                      // per-claim log-size, needed to re-pad the MLE evaluations
 };
 
 /**
@@ -88,11 +105,16 @@ struct ClaimSet {
  */
 ClaimSet build_honest_claims(size_t num_claims)
 {
-    const size_t dyadic_size = 1UL << LOG_N;
-    CommitmentKey<Curve> commitment_key(dyadic_size);
+    // Claim i lives on 2^(LOG_N_BASE + i) points, so the largest claim sizes the commitment key (it can commit any
+    // smaller polynomial using a prefix of the same SRS).
+    const size_t max_dyadic_size = 1UL << (LOG_N_BASE + num_claims - 1);
+    CommitmentKey<Curve> commitment_key(max_dyadic_size);
 
     ClaimSet set;
     for (size_t i = 0; i < num_claims; ++i) {
+        const size_t log_n = LOG_N_BASE + i;
+        const size_t dyadic_size = 1UL << log_n;
+
         // Independent random evaluation point per claim, of full sumcheck length.
         std::vector<FF> challenge(VIRTUAL_LOG_N);
         for (auto& c : challenge) {
@@ -102,13 +124,14 @@ ClaimSet build_honest_claims(size_t num_claims)
         Polynomial<FF> non_shifted = Polynomial<FF>::random(dyadic_size);
         Polynomial<FF> shifted = Polynomial<FF>::random(dyadic_size - 1, dyadic_size, /*start_index=*/1);
 
-        const FF non_shifted_eval = mle_padded(non_shifted, challenge);
-        const FF shifted_eval = mle_padded(shifted, challenge, /*shift=*/true);
+        const FF non_shifted_eval = mle_padded(non_shifted, challenge, log_n);
+        const FF shifted_eval = mle_padded(shifted, challenge, log_n, /*shift=*/true);
         const Commitment non_shifted_commitment = commitment_key.commit(non_shifted);
         const Commitment shifted_commitment = commitment_key.commit(shifted);
 
         set.non_shifted_polynomials.push_back(non_shifted);
         set.shifted_polynomials.push_back(shifted);
+        set.log_ns.push_back(log_n);
 
         set.prover_claims.push_back(ProverClaim{ .challenge = challenge,
                                                  .non_shifted_evaluation = non_shifted_eval,
@@ -186,8 +209,10 @@ bool output_claim_is_bound(const ClaimSet& set, const HonkProof& proof, const Ve
     std::vector<Commitment> non_shifted_commitments;
     std::vector<Commitment> shifted_commitments;
     for (size_t i = 0; i < num_claims; ++i) {
-        expected_non_shifted_eval += rho_powers[i] * mle_padded(set.non_shifted_polynomials[i], challenges.r);
-        expected_shifted_eval += rho_powers[i] * mle_padded(set.shifted_polynomials[i], challenges.r, /*shift=*/true);
+        expected_non_shifted_eval +=
+            rho_powers[i] * mle_padded(set.non_shifted_polynomials[i], challenges.r, set.log_ns[i]);
+        expected_shifted_eval +=
+            rho_powers[i] * mle_padded(set.shifted_polynomials[i], challenges.r, set.log_ns[i], /*shift=*/true);
         non_shifted_commitments.push_back(set.verifier_claims[i].non_shifted_commitment);
         shifted_commitments.push_back(set.verifier_claims[i].shifted_commitment);
     }
@@ -217,10 +242,18 @@ FaultyProof build_faulty_proof(size_t num_claims, FaultMode fault)
 
     // The verifier-held input claims; some faults corrupt these without touching the proof.
     std::vector<VerifierClaim> verifier_claims = set.verifier_claims;
-    if (fault == FaultMode::FALSE_NONSHIFTED_EVAL) {
+    if (fault == FaultMode::FALSE_NONSHIFTED_EVAL_FIRST) {
         verifier_claims[0].non_shifted_evaluation += FF(1);
-    } else if (fault == FaultMode::FALSE_SHIFTED_EVAL) {
+    } else if (fault == FaultMode::FALSE_NONSHIFTED_EVAL_SECOND) {
+        verifier_claims[1].non_shifted_evaluation += FF(1);
+    } else if (fault == FaultMode::FALSE_SHIFTED_EVAL_FIRST) {
         verifier_claims[0].shifted_evaluation += FF(1);
+    } else if (fault == FaultMode::FALSE_SHIFTED_EVAL_SECOND) {
+        verifier_claims[1].shifted_evaluation += FF(1);
+    } else if (fault == FaultMode::FALSE_EQ_FIRST) {
+        verifier_claims[0].challenge[0] += FF(1);
+    } else if (fault == FaultMode::FALSE_EQ_SECOND) {
+        verifier_claims[1].challenge[0] += FF(1);
     } else if (fault == FaultMode::WRONG_NONSHIFTED_COMMITMENT) {
         verifier_claims[0].non_shifted_commitment = verifier_claims[0].non_shifted_commitment + Commitment::one();
     } else if (fault == FaultMode::WRONG_SHIFTED_COMMITMENT) {
@@ -234,9 +267,20 @@ FaultyProof build_faulty_proof(size_t num_claims, FaultMode fault)
     HonkProof proof = prover.construct_proof();
 
     // Proof-side faults are applied after the honest proof is built; this maintains consistency of FS because the
-    // prover doesn't send anything to the verifier after the claimed evaluations
-    if (fault == FaultMode::TAMPER_CLAIMED_EVAL) {
-        proof[EVALS_OFFSET] += FF(1);
+    // prover doesn't send anything to the verifier after the claimed evaluations. The claimed-evaluation block is laid
+    // out as [non_shifted(0..n-1)][shifted(0..n-1)][eq(0..n-1)] (see MultilinearBatchingFlavor::AllEntities).
+    if (fault == FaultMode::TAMPER_NONSHIFTED_EVAL_FIRST) {
+        proof[EVALS_OFFSET + 0] += FF(1);
+    } else if (fault == FaultMode::TAMPER_NONSHIFTED_EVAL_SECOND) {
+        proof[EVALS_OFFSET + 1] += FF(1);
+    } else if (fault == FaultMode::TAMPER_SHIFTED_EVAL_FIRST) {
+        proof[EVALS_OFFSET + num_claims + 0] += FF(1);
+    } else if (fault == FaultMode::TAMPER_SHIFTED_EVAL_SECOND) {
+        proof[EVALS_OFFSET + num_claims + 1] += FF(1);
+    } else if (fault == FaultMode::TAMPER_EQ_EVAL_FIRST) {
+        proof[EVALS_OFFSET + (2 * num_claims) + 0] += FF(1);
+    } else if (fault == FaultMode::TAMPER_EQ_EVAL_SECOND) {
+        proof[EVALS_OFFSET + (2 * num_claims) + 1] += FF(1);
     } else if (fault == FaultMode::BREAK_EVAL_BINDING) {
         // Perturb the first three non-shifted claimed evals by a δ that lies in the joint kernel of BOTH the sumcheck
         // final relation form (a·δ = 0, with a_i = γ^i·eq_i(r)) AND the γ-weighted merge (b·δ = 0, with b_i = γ^i),
@@ -341,12 +385,18 @@ template <typename Params> class MultilinearBatchingTests : public ::testing::Te
     }
 };
 
+// Cover every supported batch width, 2 .. CHONK_MAX_CLAIMS_PER_KERNEL, in both the native and recursive verifier.
+// the static_assert flags when bumping CHONK_MAX_CLAIMS_PER_KERNEL leaves a width uncovered
+static_assert(CHONK_MAX_CLAIMS_PER_KERNEL == 5,
+              "Update TestConfigs to cover every width in 2 .. CHONK_MAX_CLAIMS_PER_KERNEL.");
 using TestConfigs = ::testing::Types<Config<false, 2>,
                                      Config<false, 3>,
-                                     Config<false, CHONK_MAX_CLAIMS_PER_KERNEL>,
+                                     Config<false, 4>,
+                                     Config<false, 5>,
                                      Config<true, 2>,
                                      Config<true, 3>,
-                                     Config<true, CHONK_MAX_CLAIMS_PER_KERNEL>>;
+                                     Config<true, 4>,
+                                     Config<true, 5>>;
 
 TYPED_TEST_SUITE(MultilinearBatchingTests, TestConfigs);
 
@@ -359,25 +409,88 @@ TYPED_TEST(MultilinearBatchingTests, ValidProofPasses)
     EXPECT_TRUE(result.claim_bound);
 }
 
-// A wrong non-shifted input claim makes the sumcheck target inconsistent with the polynomials.
-TYPED_TEST(MultilinearBatchingTests, FalseNonShiftedClaimFails)
+// A wrong non-shifted input claim makes the sumcheck target inconsistent with the polynomials. Targeted on both the
+// first claim (coefficient γ^0 = 1) and the second claim (coefficient γ^1 = γ).
+TYPED_TEST(MultilinearBatchingTests, FalseNonShiftedClaimFirstFails)
 {
     BB_DISABLE_ASSERTS();
-    EXPECT_FALSE(TestFixture::run(FaultMode::FALSE_NONSHIFTED_EVAL).accepted());
+    EXPECT_FALSE(TestFixture::run(FaultMode::FALSE_NONSHIFTED_EVAL_FIRST).accepted());
 }
 
-// A wrong shifted input claim makes the sumcheck target inconsistent with the polynomials.
-TYPED_TEST(MultilinearBatchingTests, FalseShiftedClaimFails)
+TYPED_TEST(MultilinearBatchingTests, FalseNonShiftedClaimSecondFails)
 {
     BB_DISABLE_ASSERTS();
-    EXPECT_FALSE(TestFixture::run(FaultMode::FALSE_SHIFTED_EVAL).accepted());
+    EXPECT_FALSE(TestFixture::run(FaultMode::FALSE_NONSHIFTED_EVAL_SECOND).accepted());
 }
 
-// Corrupting a single claimed evaluation breaks the sumcheck final relation check.
-TYPED_TEST(MultilinearBatchingTests, TamperedClaimedEvalFails)
+// A wrong shifted input claim makes the sumcheck target inconsistent with the polynomials. Targeted on both the first
+// claim (coefficient 1) and the second claim (coefficient γ).
+TYPED_TEST(MultilinearBatchingTests, FalseShiftedClaimFirstFails)
 {
     BB_DISABLE_ASSERTS();
-    EXPECT_FALSE(TestFixture::run(FaultMode::TAMPER_CLAIMED_EVAL).accepted());
+    EXPECT_FALSE(TestFixture::run(FaultMode::FALSE_SHIFTED_EVAL_FIRST).accepted());
+}
+
+TYPED_TEST(MultilinearBatchingTests, FalseShiftedClaimSecondFails)
+{
+    BB_DISABLE_ASSERTS();
+    EXPECT_FALSE(TestFixture::run(FaultMode::FALSE_SHIFTED_EVAL_SECOND).accepted());
+}
+
+// A wrong claim challenge makes the eq polynomial evaluated by the verifier inconsistent with the one the prover
+// committed to, so eq-consistency fails. Targeted on both the first claim (coefficient 1) and the second claim (γ).
+TYPED_TEST(MultilinearBatchingTests, FalseEqFirstFails)
+{
+    BB_DISABLE_ASSERTS();
+    EXPECT_FALSE(TestFixture::run(FaultMode::FALSE_EQ_FIRST).accepted());
+}
+
+TYPED_TEST(MultilinearBatchingTests, FalseEqSecondFails)
+{
+    BB_DISABLE_ASSERTS();
+    EXPECT_FALSE(TestFixture::run(FaultMode::FALSE_EQ_SECOND).accepted());
+}
+
+// Corrupting a claimed non-shifted evaluation breaks the sumcheck final relation check. Tampered on both the first
+// claim (idx 0) and the second claim (idx 1).
+TYPED_TEST(MultilinearBatchingTests, TamperedNonShiftedEvalFirstFails)
+{
+    BB_DISABLE_ASSERTS();
+    EXPECT_FALSE(TestFixture::run(FaultMode::TAMPER_NONSHIFTED_EVAL_FIRST).accepted());
+}
+
+TYPED_TEST(MultilinearBatchingTests, TamperedNonShiftedEvalSecondFails)
+{
+    BB_DISABLE_ASSERTS();
+    EXPECT_FALSE(TestFixture::run(FaultMode::TAMPER_NONSHIFTED_EVAL_SECOND).accepted());
+}
+
+// Corrupting a claimed shifted evaluation breaks the sumcheck final relation check. Tampered on both the first claim
+// (idx 0) and the second claim (idx 1).
+TYPED_TEST(MultilinearBatchingTests, TamperedShiftedEvalFirstFails)
+{
+    BB_DISABLE_ASSERTS();
+    EXPECT_FALSE(TestFixture::run(FaultMode::TAMPER_SHIFTED_EVAL_FIRST).accepted());
+}
+
+TYPED_TEST(MultilinearBatchingTests, TamperedShiftedEvalSecondFails)
+{
+    BB_DISABLE_ASSERTS();
+    EXPECT_FALSE(TestFixture::run(FaultMode::TAMPER_SHIFTED_EVAL_SECOND).accepted());
+}
+
+// Corrupting a claimed eq evaluation breaks the eq-consistency check. Tampered on both the first claim (idx 0) and the
+// second claim (idx 1).
+TYPED_TEST(MultilinearBatchingTests, TamperedEqEvalFirstFails)
+{
+    BB_DISABLE_ASSERTS();
+    EXPECT_FALSE(TestFixture::run(FaultMode::TAMPER_EQ_EVAL_FIRST).accepted());
+}
+
+TYPED_TEST(MultilinearBatchingTests, TamperedEqEvalSecondFails)
+{
+    BB_DISABLE_ASSERTS();
+    EXPECT_FALSE(TestFixture::run(FaultMode::TAMPER_EQ_EVAL_SECOND).accepted());
 }
 
 // A wrong non shifted commitment slips past the sumcheck (which never reads commitments), but the output claim is no
@@ -412,6 +525,42 @@ TYPED_TEST(MultilinearBatchingTests, BrokenEvalBindingIsCaughtByMerge)
     EXPECT_TRUE(result.verified);
     EXPECT_TRUE(result.circuit_ok);
     EXPECT_FALSE(result.claim_bound);
+}
+
+/**
+ * @brief Run the native verifier over an honest `prover_num_claims`-claim proof while supplying `verifier_num_claims`
+ * input claims. A count mismatch is a usage error and must be rejected before producing an output claim.
+ */
+bool verify_with_mismatched_claim_count(size_t prover_num_claims, size_t verifier_num_claims)
+{
+    const HonkProof proof = build_faulty_proof(prover_num_claims, FaultMode::NONE).proof;
+    const std::vector<VerifierClaim> claims = build_honest_claims(verifier_num_claims).verifier_claims;
+
+    auto transcript = std::make_shared<NativeTranscriptType>();
+    transcript->load_proof(proof);
+    [[maybe_unused]] FF seed = transcript->template receive_from_prover<FF>("init");
+    MultilinearBatchingNativeVerifier verifier(transcript);
+    return std::get<0>(verifier.verify_proof(claims));
+}
+
+class MultilinearBatchingClaimCountTests : public ::testing::Test {
+  protected:
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
+};
+
+// The verifier supplies one more claim than the prover proved. The wider verifier tries to read 3·(N+1) claimed
+// evaluations from a proof that only carries 3·N, so the transcript runs out of bounds and the verifier throws.
+TEST_F(MultilinearBatchingClaimCountTests, MoreClaimsThanProvedThrows)
+{
+    BB_DISABLE_ASSERTS();
+    EXPECT_ANY_THROW(verify_with_mismatched_claim_count(/*prover_num_claims=*/2, /*verifier_num_claims=*/3));
+}
+
+// The verifier supplies one fewer claim than the prover proved. This produces a transcript mismatch and therefore the
+// verifier rejects
+TEST_F(MultilinearBatchingClaimCountTests, FewerClaimsThanProvedThrows)
+{
+    EXPECT_FALSE(verify_with_mismatched_claim_count(/*prover_num_claims=*/3, /*verifier_num_claims=*/2));
 }
 
 } // namespace
