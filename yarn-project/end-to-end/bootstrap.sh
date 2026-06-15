@@ -198,11 +198,12 @@ function avm_check_circuit_cmds {
   # Commands run from repo root via parallelize, so use path from top
   local dump_dir_from_top="yarn-project/end-to-end/$default_avm_inputs_dump_dir"
 
-  # Specify timeout and resources
-  # WARNING: theoretically, transactions could need more CPU and MEM than we allocate by default.
-  # In that case, they might start timing out. For now, all of the e2e test txs seem to be relatively
-  # small and the AVM can run check-circuit with limited resources.
-  local prefix="$hash:ISOLATE=1:TIMEOUT=30s"
+  # Default timeout and resources. Most e2e test txs produce small AVM circuits that
+  # check-circuit in a few seconds with 2 CPUs, so the budget is kept tight to maximize
+  # parallelism. Transactions with large circuits get a per-test override below.
+  # WARNING: as new transactions grow their circuits, they may exceed this default and start
+  # timing out. When that happens, add the offending test dir to the case statement below.
+  local default_prefix="$hash:ISOLATE=1:TIMEOUT=30s"
 
   # Find all .bin files in the dump directory (handles nested dirs)
   for input_file in "$default_avm_inputs_dump_dir"/*/*.bin "$default_avm_inputs_dump_dir"/*/*/*.bin; do
@@ -222,6 +223,17 @@ function avm_check_circuit_cmds {
     # Create safe name (replace / with _)
     local safe_test_dir="${test_dir//\//_}"
     local name="avm_cc_${safe_test_dir}_${short_hash}"
+
+    # Per-test resource overrides for transactions with large AVM circuits.
+    # e2e_multiple_blobs txs produce ~700k-row circuits whose trace generation plus
+    # check exceeds the default 30s/2-CPU budget; give them more CPUs and time.
+    # A later VAR=val in the prefix overrides an earlier one.
+    local prefix="$default_prefix"
+    case "$test_dir" in
+      e2e_multiple_blobs*)
+        prefix="$default_prefix:CPUS=8:TIMEOUT=180s"
+        ;;
+    esac
 
     # Use full path from repo root for the command (parallelize runs from there)
     local input_path="$dump_dir_from_top/$rel_path"
