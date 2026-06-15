@@ -317,7 +317,7 @@ describe('BlockSynchronizer', () => {
         entityId: survivingEntityId,
       });
 
-      // A retractable entity originating on the abandoned fork: the prune must delete it wholesale, taking even its
+      // A retractable entity originating on the abandoned fork: the prune must delete it, taking even its
       // non-retractable fact with it.
       await entityStore.createEntity(prunedKey, [Fr.random()], orphanedOriginBlock, jobId);
       await entityStore.recordFact(prunedKey, nonRetractableFactType, [Fr.random()], undefined, jobId);
