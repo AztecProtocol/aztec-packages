@@ -2,7 +2,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
-import { EntityKey, type OriginBlock } from './entity_keys.js';
+import { EntityKey, type OriginBlock } from './entity_store_keys.js';
 
 /**
  * The record for a single entity, with its own body and optional origin block. `originBlock === undefined` marks

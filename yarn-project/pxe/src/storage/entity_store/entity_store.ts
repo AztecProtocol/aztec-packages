@@ -4,7 +4,7 @@ import { Semaphore } from '@aztec/foundation/queue';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap, AztecAsyncSingleton } from '@aztec/kv-store';
 
 import type { StagedStore } from '../../job_coordinator/job_coordinator.js';
-import type { EntityKey, EntityKeyStr, EntityTypeKey, EntityTypeKeyStr, OriginBlock } from './entity_keys.js';
+import type { EntityKey, EntityKeyStr, EntityTypeKey, EntityTypeKeyStr, OriginBlock } from './entity_store_keys.js';
 import { StoredEntity } from './stored_entity.js';
 import { type Fact, type FactKeyStr, StoredFact, deserializeFact, factKeyStrOf, serializeFact } from './stored_fact.js';
 

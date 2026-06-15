@@ -3,7 +3,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
-import { EntityKey, type OriginBlock } from './entity_keys.js';
+import { EntityKey, type OriginBlock } from './entity_store_keys.js';
 
 /** A fact as returned by the entity store: its type and payload, plus the optional origin block it is tied to. */
 export type Fact = { factTypeId: Fr; payload: Fr[]; originBlock: OriginBlock | undefined };

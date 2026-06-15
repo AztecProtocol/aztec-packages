@@ -3,8 +3,8 @@ import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
-import { EntityKey, EntityTypeKey } from './entity_keys.js';
 import { EntityStore } from './entity_store.js';
+import { EntityKey, EntityTypeKey } from './entity_store_keys.js';
 
 describe('EntityStore', () => {
   const contract = AztecAddress.fromBigInt(100n);

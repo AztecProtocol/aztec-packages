@@ -1,7 +1,7 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
-import { EntityKey } from './entity_keys.js';
+import { EntityKey } from './entity_store_keys.js';
 import { StoredFact, deserializeFact, factKeyStrOf, serializeFact } from './stored_fact.js';
 
 describe('StoredFact', () => {
