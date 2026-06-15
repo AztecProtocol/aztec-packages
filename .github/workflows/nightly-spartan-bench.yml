@@ -2,7 +2,7 @@ name: Nightly Spartan Benchmarks
 
 on:
   schedule:
-    - cron: "30 7 * * *"
+    - cron: "0 6 * * *"
   workflow_dispatch:
     inputs:
       nightly_tag:
@@ -223,7 +223,20 @@ jobs:
         with:
           ref: ${{ needs.select-image.outputs.source_ref }}
 
+      - name: Notify Slack on success
+        if: success()
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        run: |
+          export CI=1
+          TAG="${{ needs.select-image.outputs.nightly_tag || 'unknown' }}"
+          RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          ./ci3/slack_notify \
+            "Nightly Spartan TPS benchmarks PASSED (nightly tag ${TAG}) :white_check_mark: <${RUN_URL}|View Run>" \
+            "#alerts-next-scenario"
+
       - name: Notify Slack and dispatch ClaudeBox on failure
+        if: failure()
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
@@ -378,7 +391,20 @@ jobs:
         with:
           ref: ${{ needs.select-image.outputs.source_ref }}
 
+      - name: Notify Slack on success
+        if: success()
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        run: |
+          export CI=1
+          TAG="${{ needs.select-image.outputs.nightly_tag || 'unknown' }}"
+          RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          ./ci3/slack_notify \
+            "Nightly proving benchmarks passed (nightly tag ${TAG}) :white_check_mark: <${RUN_URL}|View Run>" \
+            "#alerts-next-scenario"
+
       - name: Notify Slack and dispatch ClaudeBox on failure
+        if: failure()
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
@@ -533,7 +559,20 @@ jobs:
         with:
           ref: ${{ needs.select-image.outputs.source_ref }}
 
+      - name: Notify Slack on success
+        if: success()
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        run: |
+          export CI=1
+          TAG="${{ needs.select-image.outputs.nightly_tag || 'unknown' }}"
+          RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          ./ci3/slack_notify \
+            "Nightly block capacity benchmarks passed (nightly tag ${TAG}) :white_check_mark: <${RUN_URL}|View Run>" \
+            "#alerts-next-scenario"
+
       - name: Notify Slack and dispatch ClaudeBox on failure
+        if: failure()
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
