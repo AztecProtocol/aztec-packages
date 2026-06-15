@@ -30,6 +30,7 @@
     "@aztec/kv-store": "#include_aztec_version",
     "@aztec/noir-contracts.js": "#include_aztec_version",
     "@aztec/pxe": "#include_aztec_version",
+    "@aztec/standard-contracts": "#include_aztec_version",
     "@aztec/stdlib": "#include_aztec_version",
     "@aztec/wallet-sdk": "#include_aztec_version",
     "@aztec/wallets": "#include_aztec_version",

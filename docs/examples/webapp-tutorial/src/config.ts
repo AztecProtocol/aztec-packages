@@ -22,7 +22,7 @@ export function getNodeUrl(network: NetworkType): string {
 export async function createLocalPXE(nodeUrl: string) {
   const aztecNode = createAztecNodeClient(nodeUrl);
   const config = getPXEConfig();
-  config.l1Contracts = await aztecNode.getL1ContractAddresses();
+  config.rollupAddress = (await aztecNode.getL1ContractAddresses()).rollupAddress;
   const isLocal = nodeUrl.includes('localhost') || nodeUrl.includes('127.0.0.1');
   config.proverEnabled = !isLocal;
   const pxe = await createPXE(aztecNode, config, {});

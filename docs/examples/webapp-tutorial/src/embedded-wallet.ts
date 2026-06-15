@@ -6,11 +6,9 @@ import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
 import { Fr } from '@aztec/aztec.js/fields';
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
 import { AccountFeePaymentMethodOptions } from '@aztec/entrypoints/account';
-import type { FieldsOf } from '@aztec/foundation/types';
 import { getInitialTestAccountsData } from '@aztec/accounts/testing/lazy';
 import type { ContractArtifact } from '@aztec/stdlib/abi';
-import { GasSettings } from '@aztec/stdlib/gas';
-import { type FeeOptions } from '@aztec/wallet-sdk/base-wallet';
+import { type CompleteFeeOptionsConfig, type FeeOptions } from '@aztec/wallet-sdk/base-wallet';
 import { EmbeddedWallet as BaseEmbeddedWallet } from '@aztec/wallets/embedded';
 // docs:end:embedded-wallet-imports
 
@@ -34,36 +32,20 @@ export class EmbeddedWallet extends BaseEmbeddedWallet {
    * Uses SponsoredFPC for fee payment by default, so users
    * don't need to hold fee tokens.
    */
-  override async completeFeeOptions(
-    from: AztecAddress | NoFrom,
-    feePayer?: AztecAddress,
-    gasSettings?: Partial<FieldsOf<GasSettings>>,
-  ): Promise<FeeOptions> {
-    const maxFeesPerGas =
-      gasSettings?.maxFeesPerGas ??
-      (await this.aztecNode.getCurrentMinFees()).mul(1 + this.minFeePadding);
+  override async completeFeeOptions(config: CompleteFeeOptionsConfig): Promise<FeeOptions> {
+    const base = await super.completeFeeOptions(config);
 
-    let walletFeePaymentMethod;
-    let accountFeePaymentMethodOptions;
-
-    if (!feePayer) {
-      const fpc = await EmbeddedWallet.#getSponsoredFPCContract();
-      walletFeePaymentMethod = new SponsoredFeePaymentMethod(
-        fpc.instance.address,
-      );
-      if (from !== NO_FROM) {
-        accountFeePaymentMethodOptions = AccountFeePaymentMethodOptions.EXTERNAL;
-      }
-    } else if (from !== NO_FROM) {
-      accountFeePaymentMethodOptions = from.equals(feePayer)
-        ? AccountFeePaymentMethodOptions.FEE_JUICE_WITH_CLAIM
-        : AccountFeePaymentMethodOptions.EXTERNAL;
+    if (config.feePayer) {
+      return base;
     }
 
+    const fpc = await EmbeddedWallet.#getSponsoredFPCContract();
+
     return {
-      gasSettings: GasSettings.default({ ...gasSettings, maxFeesPerGas }),
-      walletFeePaymentMethod,
-      accountFeePaymentMethodOptions,
+      ...base,
+      walletFeePaymentMethod: new SponsoredFeePaymentMethod(fpc.instance.address),
+      accountFeePaymentMethodOptions:
+        config.from !== NO_FROM ? AccountFeePaymentMethodOptions.EXTERNAL : base.accountFeePaymentMethodOptions,
     };
   }
   // docs:end:fee-options
