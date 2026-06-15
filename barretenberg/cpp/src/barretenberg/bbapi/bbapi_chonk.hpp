@@ -111,14 +111,16 @@ struct ChonkProve {
 
     /**
      * @struct Response
-     * @brief Contains the generated IVC proof
+     * @brief Contains the generated IVC proof and its hiding-kernel verification key
      */
     struct Response {
         static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkProveResponse";
 
         /** @brief Complete IVC proof for all accumulated circuits */
         ChonkProof proof;
-        SERIALIZATION_FIELDS(proof);
+        /** @brief Serialized MegaZK verification key used for the hiding-kernel proof */
+        std::vector<uint8_t> vk;
+        SERIALIZATION_FIELDS(proof, vk);
         bool operator==(const Response&) const = default;
     };
     Response execute(BBApiRequest& request) &&;

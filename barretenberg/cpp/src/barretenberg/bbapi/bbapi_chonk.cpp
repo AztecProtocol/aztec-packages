@@ -180,6 +180,7 @@ ChonkProve::Response ChonkProve::execute(BBApiRequest& request) &&
     }
 
     response.proof = std::move(proof);
+    response.vk = to_buffer(*vk_and_hash->vk);
 
     request.ivc_in_progress.reset();
     request.ivc_stack_depth = 0;

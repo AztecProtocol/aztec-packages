@@ -295,13 +295,7 @@ export interface AztecClientProveResult {
  * The order matches the C++ ChonkProof::to_field_elements() layout.
  */
 export function flattenChonkProofFields(proof: ChonkProof): Uint8Array[] {
-  return [
-    proof.hidingOinkProof,
-    proof.mergeProof,
-    proof.eccvmProof,
-    proof.ipaProof,
-    proof.jointProof,
-  ].flat();
+  return [proof.hidingOinkProof, proof.mergeProof, proof.eccvmProof, proof.ipaProof, proof.jointProof].flat();
 }
 
 export class AztecClientBackend {
@@ -334,7 +328,6 @@ export class AztecClientBackend {
     this.api.chonkStart({ numCircuits: this.acirBuf.length });
 
     // Queue load and accumulate for each circuit
-    const lastIdx = this.acirBuf.length - 1;
     for (let i = 0; i < this.acirBuf.length; i++) {
       const bytecode = this.acirBuf[i];
       const witness = witnessBuf[i] || new Uint8Array(0);
@@ -359,19 +352,11 @@ export class AztecClientBackend {
     const proveResult = await this.api.chonkProve({});
     // The API currently expects a msgpack-encoded API.
     const proof = new Encoder({ useRecords: false }).encode(fromChonkProof(proveResult.proof));
-    // Generate the hiding kernel VK (always the last circuit, proven as MegaZK).
-    const vkResult = await this.api.chonkComputeVk({
-      circuit: {
-        name: this.circuitNames[lastIdx] || 'circuit',
-        bytecode: this.acirBuf[lastIdx],
-      },
-      useZkFlavor: true,
-    });
 
     const proofFields = flattenChonkProofFields(proveResult.proof);
 
     // Verify using native proof directly to avoid redundant encode/decode cycle
-    if (!(await this.verifyNative(proveResult.proof, vkResult.bytes))) {
+    if (!(await this.verifyNative(proveResult.proof, proveResult.vk))) {
       throw new AztecClientBackendError('Failed to verify the private (Chonk) transaction proof!');
     }
 
@@ -379,7 +364,7 @@ export class AztecClientBackend {
       ? (await this.api.chonkCompressProof({ proof: proveResult.proof })).compressedProof
       : undefined;
 
-    return { proofFields, proof, vk: vkResult.bytes, compressedProof };
+    return { proofFields, proof, vk: proveResult.vk, compressedProof };
   }
 
   async verify(proof: Uint8Array, vk: Uint8Array): Promise<boolean> {
@@ -493,4 +478,3 @@ export function fieldToString(field: Uint8Array, radix: number = 10): string {
 export function fieldsToStrings(fields: Uint8Array[], radix: number = 10): string[] {
   return fields.map(field => fieldToString(field, radix));
 }
-

@@ -22,6 +22,24 @@
 namespace bb {
 namespace { // anonymous namespace
 
+void write_chonk_vk_bytes(const std::vector<uint8_t>& vk_bytes,
+                          const std::filesystem::path& output_path,
+                          const API::Flags& flags)
+{
+    const bool is_stdout = output_path == "-";
+    if (is_stdout) {
+        write_bytes_to_stdout(vk_bytes);
+    } else if (flags.output_format == "json") {
+        auto vk = from_buffer<Chonk::MegaVerificationKey>(vk_bytes);
+        // Note: Chonk VK doesn't have a hash, so we pass an empty string
+        std::string json_content = VkJson::build(vk.to_field_elements(), "", flags.scheme);
+        write_file(output_path / "vk.json", std::vector<uint8_t>(json_content.begin(), json_content.end()));
+        info("VK (JSON) saved to ", output_path / "vk.json");
+    } else {
+        write_file(output_path / "vk", vk_bytes);
+    }
+}
+
 /**
  * @brief Compute and write to file a MegaHonk VK for a circuit to be accumulated by Chonk.
  * @note This method differes from write_vk_honk<MegaFlavor> in that it handles kernel circuits which require special
@@ -37,17 +55,7 @@ void write_chonk_vk(std::vector<uint8_t> bytecode, const std::filesystem::path& 
         bbapi::ChonkComputeVk{ .circuit = { .bytecode = std::move(bytecode) }, .use_zk_flavor = flags.use_zk_flavor }
             .execute();
 
-    const bool is_stdout = output_path == "-";
-    if (is_stdout) {
-        write_bytes_to_stdout(response.bytes);
-    } else if (flags.output_format == "json") {
-        // Note: Chonk VK doesn't have a hash, so we pass an empty string
-        std::string json_content = VkJson::build(response.fields, "", flags.scheme);
-        write_file(output_path / "vk.json", std::vector<uint8_t>(json_content.begin(), json_content.end()));
-        info("VK (JSON) saved to ", output_path / "vk.json");
-    } else {
-        write_file(output_path / "vk", response.bytes);
-    }
+    write_chonk_vk_bytes(response.bytes, output_path, flags);
 }
 } // anonymous namespace
 
@@ -74,7 +82,8 @@ void ChonkAPI::prove(const Flags& flags,
         bbapi::ChonkAccumulate{ .witness = step.witness }.execute(request);
     }
 
-    auto proof = bbapi::ChonkProve{}.execute(request).proof;
+    auto prove_response = bbapi::ChonkProve{}.execute(request);
+    auto proof = std::move(prove_response.proof);
 
     const bool output_to_stdout = output_dir == "-";
 
@@ -99,10 +108,7 @@ void ChonkAPI::prove(const Flags& flags,
 
     if (flags.write_vk) {
         vinfo("writing Chonk vk in directory ", output_dir);
-        // Write CHONK vk for the hiding kernel (last step) — proven as MegaZK.
-        Flags hiding_flags = flags;
-        hiding_flags.use_zk_flavor = true;
-        write_chonk_vk(raw_steps[raw_steps.size() - 1].bytecode, output_dir, hiding_flags);
+        write_chonk_vk_bytes(prove_response.vk, output_dir, flags);
     }
 }
 
