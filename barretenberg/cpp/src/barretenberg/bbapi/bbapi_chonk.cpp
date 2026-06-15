@@ -4,6 +4,7 @@
 #include "barretenberg/chonk/proof_compression.hpp"
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/memory_profile.hpp"
 #include "barretenberg/common/serialize.hpp"
@@ -330,6 +331,10 @@ ChonkBatchVerify::Response ChonkBatchVerify::execute(const BBApiRequest& /*reque
 static std::shared_ptr<Chonk::MegaVerificationKey> compute_chonk_vk_from_program(acir_format::AcirProgram& program,
                                                                                  bool use_zk_flavor)
 {
+    // VK derivation is independent of witness values. Chonk's recursive-kernel bytecode can contain debug assertions
+    // over witness-backed public-input consistency checks; callers of ChonkComputeVk do not provide those witnesses.
+    BB_DISABLE_ASSERTS();
+
     Chonk::ClientCircuit builder = acir_format::create_circuit<Chonk::ClientCircuit>(program);
     if (use_zk_flavor) {
         return std::make_shared<Chonk::MegaVerificationKey>(
