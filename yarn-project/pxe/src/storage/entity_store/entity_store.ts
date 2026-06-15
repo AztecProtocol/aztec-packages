@@ -6,7 +6,7 @@ import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap, AztecAsyncSi
 import type { StagedStore } from '../../job_coordinator/job_coordinator.js';
 import type { EntityKey, EntityTypeKey, OriginBlock } from './entity_store_keys.js';
 import { StoredEntity } from './stored_entity.js';
-import { type Fact, type FactKeyStr, StoredFact, deserializeFact, factKeyStrOf, serializeFact } from './stored_fact.js';
+import { type Fact, StoredFact, deserializeFact, factKeyStrOf, serializeFact } from './stored_fact.js';
 
 type JobId = string;
 type BlockNum = number;
@@ -18,6 +18,9 @@ type EntityTypeKeyStr = string;
 
 /** Serialized form of an {@link EntityKey} (`entityTypeKeyStr:entityId`), used as kv-store map keys. */
 type EntityKeyStr = string;
+
+/** Serialized form of a fact's identity (built by {@link factKeyStrOf}), used as kv-store map keys. */
+type FactKeyStr = string;
 
 /** An entity as returned by the store: its key and body, plus its facts in creation order. */
 export type Entity = { key: EntityKey; body: Fr[]; facts: Fact[] };

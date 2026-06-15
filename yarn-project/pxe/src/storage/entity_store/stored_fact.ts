@@ -9,8 +9,7 @@ import { EntityKey, type OriginBlock } from './entity_store_keys.js';
 export type Fact = { factTypeId: Fr; payload: Fr[]; originBlock: OriginBlock | undefined };
 
 /**
- * A single immutable fact about an entity. `originBlock === undefined` marks the fact non-retractable (an external
- * input that survives reorgs); an origin block marks it retractable (re-derivable, deleted when its block is pruned).
+ * A single immutable fact about an entity.
  */
 export class StoredFact {
   constructor(
@@ -25,12 +24,12 @@ export class StoredFact {
     return this.originBlock !== undefined;
   }
 
-  /** Stable digest of the payload, used in the dedup fact key (keeps the LMDB key bounded for large payloads). */
+  /** Stable digest of the payload, used to deduplicate. */
   payloadHash(): Fr {
     return sha256ToField([this.payload.length, ...this.payload]);
   }
 
-  /** Returns the externally facing view of this fact, without the storage coordinates. */
+  /** Returns the externally facing view of this fact. */
   toFact(): Fact {
     return { factTypeId: this.factTypeId, payload: this.payload, originBlock: this.originBlock };
   }
@@ -74,28 +73,21 @@ export class StoredFact {
 }
 
 /**
- * Serialized key that identifies and dedups a fact (`entityKeyStr:factTypeId:payloadHash:originBlock`). The payload
- * hash (rather than the raw payload) bounds key size for large payloads. The origin block (height and hash, or `none`
- * when non-retractable) is part of the identity, so the same payload derived at different blocks is a distinct fact.
+ * Builds the serialized key that identifies a fact in the store.
  */
-export type FactKeyStr = string;
-
-/** Builds the {@link FactKeyStr} for the given fact. */
-export function factKeyStrOf(fact: StoredFact): FactKeyStr {
+export function factKeyStrOf(fact: StoredFact): string {
   const origin = fact.originBlock ? `${fact.originBlock.blockNumber}:${fact.originBlock.blockHash}` : 'none';
   return `${fact.entityKey}:${fact.factTypeId}:${fact.payloadHash()}:${origin}`;
 }
 
 /**
  * Serializes a fact for storage, prefixed with the monotonic sequence number assigned when it was first committed.
- * Multimap value order is backend-dependent (insertion order on IndexedDB, value-sorted on LMDB), so reads sort by
- * `seq` to return facts in creation order.
  */
 export function serializeFact(seq: number, fact: StoredFact): Buffer {
   return serializeToBuffer(seq, fact);
 }
 
-/** Deserializes a fact and its sequence number from storage. */
+/** Deserializes a fact. */
 export function deserializeFact(buffer: Buffer): { seq: number; fact: StoredFact } {
   const reader = BufferReader.asReader(buffer);
   const seq = reader.readNumber();
