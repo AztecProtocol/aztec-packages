@@ -105,7 +105,7 @@ export class EntityStore implements StagedStore {
     jobId: string,
   ): Promise<void> {
     return this.#withJobLock(jobId, async () => {
-      if (await this.#entityExists(entityKey, jobId)) {
+      if ((await this.getEntity(entityKey, jobId)) !== undefined) {
         throw new Error(`Cannot create an already existing entity ${entityKey.toString()}`);
       }
       this.#stagedOpsFor(jobId).push({
@@ -136,7 +136,7 @@ export class EntityStore implements StagedStore {
     jobId: string,
   ): Promise<void> {
     return this.#withJobLock(jobId, async () => {
-      if (!(await this.#entityExists(entityKey, jobId))) {
+      if ((await this.getEntity(entityKey, jobId)) === undefined) {
         throw new Error(`Cannot record a fact for non-existent entity ${entityKey.toString()}`);
       }
       this.#stagedOpsFor(jobId).push({
@@ -153,7 +153,7 @@ export class EntityStore implements StagedStore {
    */
   terminateEntity(key: EntityKey, jobId: string): Promise<void> {
     return this.#withJobLock(jobId, async () => {
-      if (!(await this.#entityExists(key, jobId))) {
+      if ((await this.getEntity(key, jobId)) === undefined) {
         throw new Error(`Cannot terminate a non-existent entity ${key.toString()}`);
       }
       this.#stagedOpsFor(jobId).push({ kind: 'terminate', key });
@@ -205,33 +205,12 @@ export class EntityStore implements StagedStore {
   async commit(jobId: string): Promise<void> {
     for (const op of this.#stagedOpsFor(jobId)) {
       switch (op.kind) {
-        case 'createEntity': {
-          const entityKey = op.entity.key.toString();
-          // Defensive, would only be a problem if we increase job concurrency for the same contract and scope.
-          if (await this.#entities.hasAsync(entityKey)) {
-            throw new Error(`Cannot commit createEntity for an already existing entity ${entityKey}`);
-          }
-          await this.#entities.set(entityKey, op.entity.toBuffer());
-          if (op.entity.originBlock !== undefined) {
-            await this.#entitiesByBlock.set(op.entity.originBlock.blockNumber, entityKey);
-          }
+        case 'createEntity':
+          await this.#commitEntity(op.entity);
           break;
-        }
-        case 'record': {
-          const factKey = factKeyStrOf(op.fact);
-          // Idempotent: re-recording an identical fact is a no-op.
-          if (await this.#facts.hasAsync(factKey)) {
-            this.logger.debug(`Ignoring already recorded fact`, { factKey });
-            break;
-          }
-          const seq = await this.#nextFactSeq();
-          await this.#facts.set(factKey, serializeFact(seq, op.fact));
-          await this.#factsByEntity.set(op.fact.key.toString(), factKey);
-          if (op.fact.originBlock !== undefined) {
-            await this.#factsByBlock.set(op.fact.originBlock.blockNumber, factKey);
-          }
+        case 'record':
+          await this.#commitRecord(op.fact);
           break;
-        }
         case 'terminate':
           await this.#deleteEntity(op.key.toString());
           break;
@@ -294,22 +273,6 @@ export class EntityStore implements StagedStore {
   }
 
   /**
-   * Whether the entity exists.
-   */
-  async #entityExists(key: EntityKey, jobId: string): Promise<boolean> {
-    const entityKey = key.toString();
-    const buf = await this.#store.transactionAsync(() => this.#entities.getAsync(entityKey));
-    // Implementation note: the lines below are a bit boilerplatey, but they let us reuse #foldStagedOps and keep it
-    // ergonomic for the more central `getEntity` and `getEntities` functions, so I settled for this tradeoff.
-    const committed = new Map<EntityKeyStr, EntityWithFacts>();
-    if (buf) {
-      const stored = StoredEntity.fromBuffer(buf);
-      committed.set(entityKey, { key: stored.key, body: stored.body, facts: new Map<FactKeyStr, Fact>() });
-    }
-    return this.#foldStagedOps(committed, jobId).has(entityKey);
-  }
-
-  /**
    * Reads every entity of the given type with its facts from the db.
    *
    * Note entity keys are `${typeKey}:${entityId}`, which lets us filter by type without additional indexes.
@@ -347,38 +310,40 @@ export class EntityStore implements StagedStore {
    */
   async #readFactsFromDb(entities: Map<EntityKeyStr, StoredEntity>): Promise<Map<EntityKeyStr, EntityWithFacts>> {
     const result = new Map<EntityKeyStr, EntityWithFacts>();
-    for (const [eKey, entity] of entities) {
-      result.set(eKey, { key: entity.key, body: entity.body, facts: await this.#loadCommittedFacts(eKey) });
+    for (const [entityKey, entity] of entities) {
+      result.set(entityKey, { key: entity.key, body: entity.body, facts: await this.#loadCommittedFacts(entityKey) });
     }
     return result;
   }
 
   /**
-   * Loads the committed facts for an entity keyed by their dedup fact key, in creation order. Caller may wrap in a
-   * transaction.
+   * Loads the committed facts for an entity keyed by their fact key, in creation order.
+   *
+   * Caller must wrap in a transaction.
    */
-  async #loadCommittedFacts(eKey: EntityKeyStr): Promise<Map<FactKeyStr, Fact>> {
-    // Snapshot the index before issuing point reads so we never interleave reads with a live cursor (IndexedDB
-    // cursors are sensitive to what runs between iterations).
-    const fKeys: FactKeyStr[] = [];
-    for await (const fKey of this.#factsByEntity.getValuesAsync(eKey)) {
-      fKeys.push(fKey);
+  async #loadCommittedFacts(entityKey: EntityKeyStr): Promise<Map<FactKeyStr, Fact>> {
+    // Snapshot the index to avoid IndexedDB transaction aliveness quirks.
+    const factKeys: FactKeyStr[] = [];
+    for await (const factKey of this.#factsByEntity.getValuesAsync(entityKey)) {
+      factKeys.push(factKey);
     }
-    const loaded: { fKey: FactKeyStr; seq: number; fact: StoredFact }[] = [];
-    for (const fKey of fKeys) {
-      const buf = await this.#facts.getAsync(fKey);
+
+    const loaded: { factKey: FactKeyStr; seq: number; fact: StoredFact }[] = [];
+    for (const factKey of factKeys) {
+      const buf = await this.#facts.getAsync(factKey);
       if (!buf) {
-        // A #factsByEntity entry must always reference a live #facts entry; a missing one means the indexes are
-        // corrupt, so fail loudly rather than silently drop the fact.
-        throw new Error(`Fact not found for factKey ${fKey}`);
+        // A #factsByEntity entry must always reference a live #facts entry. A missing one means the indexes are
+        // corrupt.
+        throw new Error(`Fact not found for factKey ${factKey}`);
       }
       const { seq, fact } = deserializeFact(buf);
-      loaded.push({ fKey, seq, fact });
+      loaded.push({ factKey: factKey, seq, fact });
     }
-    // Multimap value order is backend-dependent (insertion order on IndexedDB, value-sorted on LMDB); sort by the
-    // commit-assigned sequence so facts always come back in creation order.
+
+    // Multimap value order is backend-dependent (insertion order on IndexedDB, value-sorted on LMDB). We sort by the
+    // a sequence number so facts always come back in creation order without needing to resort to timestamps.
     loaded.sort((a, b) => a.seq - b.seq);
-    return new Map(loaded.map(({ fKey, fact }) => [fKey, fact.toFact()]));
+    return new Map(loaded.map(({ factKey, fact }) => [factKey, fact.toFact()]));
   }
 
   /**
@@ -433,6 +398,40 @@ export class EntityStore implements StagedStore {
     const next = ((await this.#factSeq.getAsync()) ?? 0) + 1;
     await this.#factSeq.set(next);
     return next;
+  }
+
+  /**
+   * Writes a newly created entity to its record and (when retractable) the by-block index. The existence check is
+   * defensive: it would only fire if job concurrency for the same contract and scope let two jobs stage the same
+   * create, since the write-time guard cannot see a sibling job's uncommitted ops.
+   */
+  async #commitEntity(entity: StoredEntity): Promise<void> {
+    const entityKey = entity.key.toString();
+    if (await this.#entities.hasAsync(entityKey)) {
+      throw new Error(`Cannot commit createEntity for an already existing entity ${entityKey}`);
+    }
+    await this.#entities.set(entityKey, entity.toBuffer());
+    if (entity.originBlock !== undefined) {
+      await this.#entitiesByBlock.set(entity.originBlock.blockNumber, entityKey);
+    }
+  }
+
+  /**
+   * Writes a fact to its record, the per-entity index, and (when retractable) the by-block index, assigning it the next
+   * creation-order sequence number. Idempotent: re-recording an identical fact (same dedup key) is a no-op.
+   */
+  async #commitRecord(fact: StoredFact): Promise<void> {
+    const factKey = factKeyStrOf(fact);
+    if (await this.#facts.hasAsync(factKey)) {
+      this.logger.debug(`Ignoring already recorded fact`, { factKey });
+      return;
+    }
+    const seq = await this.#nextFactSeq();
+    await this.#facts.set(factKey, serializeFact(seq, fact));
+    await this.#factsByEntity.set(fact.key.toString(), factKey);
+    if (fact.originBlock !== undefined) {
+      await this.#factsByBlock.set(fact.originBlock.blockNumber, factKey);
+    }
   }
 
   /**
