@@ -7,12 +7,6 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
  */
 export type OriginBlock = { blockNumber: number; blockHash: Fr };
 
-/** Serialized form of a {@link EntityTypeKey} (`contract:scope:entityTypeId`), used as kv-store map keys. */
-export type EntityTypeKeyStr = string;
-
-/** Serialized form of an {@link EntityKey} (`entityTypeKeyStr:entityId`), used as kv-store map keys. */
-export type EntityKeyStr = string;
-
 /** Identifies all entities of one type within a contract+scope. */
 export class EntityTypeKey {
   constructor(
@@ -25,7 +19,7 @@ export class EntityTypeKey {
     return new EntityTypeKey(fields.contractAddress, fields.scope, fields.entityTypeId);
   }
 
-  toString(): EntityTypeKeyStr {
+  toString(): string {
     return `${this.contractAddress}:${this.scope}:${this.entityTypeId}`;
   }
 }
@@ -48,7 +42,7 @@ export class EntityKey {
     return new EntityTypeKey(this.contractAddress, this.scope, this.entityTypeId);
   }
 
-  toString(): EntityKeyStr {
+  toString(): string {
     return `${this.entityTypeKey()}:${this.entityId}`;
   }
 }
