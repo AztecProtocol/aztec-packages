@@ -251,7 +251,20 @@ Use these terms consistently throughout:
 - **Emphasis**: Use _italics_ sparingly for emphasis
 - **File paths**: Always use forward slashes (e.g., `/usr/local/bin`)
 - **Placeholders**: Use `[PLACEHOLDER_NAME]` format in examples
-- **Punctuation**: Do not use em-dashes (`—`) or en-dashes (`–`). Use commas, colons, parentheses, or separate sentences instead.
+- **Punctuation**: Do not use em-dashes (`—`) or en-dashes (`–`). Prefer separate sentences, commas, or parentheses. Do not simply swap an em-dash for a colon: a colon that joins two clauses or introduces a dramatic explanation (e.g. "It settles atomically: the taker's asset moves in, then the escrow pays out") reads as a mechanical em-dash replacement and is itself an AI tell. Reserve colons for introducing lists, code blocks, and `**Label:**`-style definition entries. See "Avoiding AI writing tells".
+
+### Avoiding AI writing tells
+
+Generated docs often pass the em-dash rule but still read as machine-written because of a handful of recurring tics. Watch for and rewrite these:
+
+- **Colon-as-em-dash.** See "Formatting Conventions" above. Restructure into separate sentences rather than dropping a colon where an em-dash would have gone.
+- **One-sentence emphasis fragments.** Avoid dramatic sentence fragments such as "Nothing more.", "Not anymore.", or "And that's the point." Fold the thought into the preceding sentence.
+- **Overused antithesis.** The "X, not Y" and "not just X, but Y" construction is fine occasionally, but stacking several across nearby sentences ("is protocol state, not a UI label" … "is a design decision, not a fixed feature" … "a transport object, not contract state") is a tell. Keep it only where the contrast carries real information, and vary the phrasing.
+- **Marketing or flourish words.** Cut words like _marquee_, _seamless_, _robust_, _powerful_, _effortless_, _unlock_ (as a noun), _leverage_ (as a verb), _delve_, and _realm_. State plainly what something does.
+- **Rule-of-three padding.** Triads ("build, test, and deploy") read well in moderation; do not force every list into three parallel items when two or four is the honest count.
+- **Hollow intensifiers.** Drop _simply_, _just_, _of course_, _it's worth noting that_, and _at the end of the day_ unless they add meaning.
+
+When in doubt, read the passage aloud: if it sounds like a launch announcement rather than a developer explaining a system to another developer, rewrite it.
 
 ### Heading Capitalization
 
@@ -301,6 +314,7 @@ The description should:
 - ✅ Broken markdown formatting
 - ✅ Headings using Title Case instead of sentence case (see "Heading Capitalization")
 - ✅ Em-dashes (`—`) in prose (see "Formatting Conventions")
+- ✅ AI writing tells: colon-as-em-dash, emphasis fragments, overused "X, not Y" antithesis, flourish words (see "Avoiding AI writing tells")
 - ✅ Missing alt text for images
 - ✅ Security implications of commands or configurations
 
@@ -367,5 +381,5 @@ Approved external documentation sources:
 - Suggest improvements even if they go beyond pure editing
 - When making changes to documentation processes or tooling, remember to check and update READMEs, project documentation (like this file), and code comments
 
-Last updated: 2026-04-21
-Version: 1.7
+Last updated: 2026-06-15
+Version: 1.8

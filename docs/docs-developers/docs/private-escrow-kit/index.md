@@ -5,11 +5,11 @@ tags: [escrow, privacy, tooling, ai]
 description: Build private peer-to-peer marketplaces and escrows on Aztec with secret contracts, shared private state, lifecycle phases, and conditional release.
 ---
 
-The Private Escrow Kit is a set of AI agent skills that scaffold a complete private escrow project on Aztec: Noir contracts plus a TypeScript SDK, ready to build, test, and deploy. You describe the escrow you want in plain language, and the skill generates a working starting point built around the privacy patterns this page explains.
+The Private Escrow Kit is a set of AI agent skills that scaffold a complete private escrow project on Aztec, including Noir contracts and a TypeScript SDK that are ready to build, test, and deploy. You describe the escrow you want in plain language, and the skill generates a working starting point built around the privacy patterns this page explains.
 
-An escrow holds an asset until an agreed condition is met, then either releases it to the counterparty or refunds it to the creator. On a transparent chain, every deposit, match, and release is public. On Aztec, the escrow's terms, balances, and participants stay private by default, and you choose exactly what to disclose and to whom. That makes Aztec a natural foundation for **conditional private escrow**: the building block behind peer-to-peer marketplaces, over-the-counter (OTC) swaps, intent and request-for-quote (RFQ) flows, milestone payments, and private orderbooks.
+An escrow holds an asset until an agreed condition is met, then either releases it to the counterparty or refunds it to the creator. On a transparent chain, every deposit, match, and release is public. On Aztec, the escrow's terms, balances, and participants stay private by default, and you choose exactly what to disclose and to whom. That makes Aztec a natural foundation for **conditional private escrow**, the building block behind peer-to-peer marketplaces, over-the-counter (OTC) swaps, intent and request-for-quote (RFQ) flows, milestone payments, and private orderbooks.
 
-This guide is a conceptual overview of how private escrows work on Aztec and how the kit assembles them. It is the recommended way to start an escrow project, but the patterns stand on their own: even if you write every line by hand, the privacy model, lifecycle, and handoff mechanics below are what a correct private escrow needs.
+This guide is a conceptual overview of how private escrows work on Aztec and how the kit assembles them. It is the recommended way to start an escrow project, but the patterns stand on their own. Even if you write every line by hand, the privacy model, lifecycle, and handoff mechanics below are what a private escrow needs.
 
 :::info Sources
 The kit is delivered as the [aztec-private-escrow-skills](https://github.com/aztec-pioneers/aztec-private-escrow-skills) repository, and the [Escrow Kit landing page](https://github.com/AztecProtocol/escrow-landing) shows the broader vision and the BAZaar marketplace demo. The skills target **Aztec v4.2.0**. The repository is the source of truth for the exact, current API; the code on this page is illustrative and may differ from the version you install.
@@ -33,11 +33,11 @@ The default the kit scaffolds is the OTC atomic swap. It is the smallest shape t
 
 The kit ships as three [agent skills](../../ai_tooling.md), each scoped to one job:
 
-| Skill                     | What it does                                                                                                |
-| ------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `scaffold-escrow-project` | Creates the project: Noir sources, generated artifacts, the TypeScript SDK, and a Bun localnet test harness |
-| `write-escrow-contract`   | Designs and adapts the Noir contract: storage, roles, lifecycle, token calls, and SDK helpers               |
-| `build-escrow-contract`   | Compiles the Noir contract and regenerates the TypeScript bindings                                          |
+| Skill                     | What it does                                                                                                 |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `scaffold-escrow-project` | Creates the project (Noir sources, generated artifacts, the TypeScript SDK, and a Bun localnet test harness) |
+| `write-escrow-contract`   | Designs and adapts the Noir contract (storage, roles, lifecycle, token calls, and SDK helpers)               |
+| `build-escrow-contract`   | Compiles the Noir contract and regenerates the TypeScript bindings                                           |
 
 To use them, add the skills to your coding agent (for Claude Code, place the skill folders under `.claude/skills/`; for Codex, reference them from your `AGENTS.md`), then ask the agent to run `scaffold-escrow-project`. See [AI Tooling](../../ai_tooling.md) for how to set up an agent for Aztec and Noir development.
 
@@ -67,17 +67,17 @@ aztec start --local-network
 
 ## The privacy model
 
-The kit is built on the patterns below which, together, let a small group of participants share a private view of one escrow without making it publicly discoverable.
+The kit is built on the patterns below. Together, they let a small group of participants share a private view of one escrow without making it publicly discoverable.
 
 ### Secret contracts
 
-A normal Aztec deployment publishes the contract class and instance so any node can look them up by address (see [contract creation](../foundational-topics/contract_creation.md)). What the kit calls a **secret contract** is a deployment that skips both, using `skipClassPublication` and `skipInstancePublication`. Its functions and state are known only to participants, who receive the contract artifact and instance material out of band and register it locally.
+A normal Aztec deployment publishes the contract class and instance so any node can look them up by address (see [contract creation](../foundational-topics/contract_creation.md)). What the kit calls a **secret contract** is a deployment that skips both, using `skipClassPublication` and `skipInstancePublication`. Its functions and state are known only to participants, who receive the contract artifact and instance material out of band (e.g. via direct messages) and register it locally.
 
 Because there is no public bytecode to look up, you prove a secret escrow exists from its deployment and initialization effects (such as the initialization nullifier), not from a node lookup. Publish the class or instance only when public functions, public discovery, upgrades, or non-participant callers need it.
 
 ### Contract-owned shared private state
 
-Participants who must agree on the same private facts (the terms, the current phase) read **contract-owned notes**: notes stored under the contract's own address (`self.address`) rather than any participant's address. Anyone who registers the contract instance with its secret key can read them; nobody else can.
+Participants who must agree on the same private facts (the terms, the current phase) read **contract-owned notes**, which are notes stored under the contract's own address (`self.address`) rather than any participant's address. Anyone who registers the contract instance with its secret key can read them; nobody else can.
 
 The kit splits this state in two:
 
@@ -93,18 +93,6 @@ struct Storage<Context> {
 ```
 
 Private calls that read or nullify these notes must include the contract address in `additionalScopes`, so the caller's [PXE](../foundational-topics/pxe/index.md) can discover them.
-
-### Capability boundaries
-
-Reading shared state and being allowed to act on the escrow are deliberately separate. The contract secret key lets you _see_ the escrow's notes; it does not, by itself, grant any business authority. Authority comes from role checks in Noir.
-
-| Material                | Enables                                                   | Does not enable                                       |
-| ----------------------- | --------------------------------------------------------- | ----------------------------------------------------- |
-| Artifact + instance     | Reconstructing and registering the wrapper, forming calls | Reading encrypted contract-owned notes                |
-| Contract secret key     | Reading and potentially nullifying contract-owned notes   | Business authority, unless Noir grants it             |
-| Participant account key | Sending and proving as that account                       | Reading contract-owned notes without the contract key |
-| Role secret             | Proving a caller-bound maker/taker/filler pseudonym       | Reading shared state, or authorizing another address  |
-| Authwit                 | One specific cross-contract action                        | General escrow authority                              |
 
 ### Role-secret pseudonyms
 
@@ -127,7 +115,7 @@ For an atomic one-shot escrow, only the creator gets a role secret by default. B
 
 ### Encrypted manifest handoff
 
-To bring a counterparty into a secret escrow, you hand them an **escrow manifest**: the minimum data needed to register the wrapper and read shared state. Nothing more.
+To bring a counterparty into a secret escrow, you hand them an **escrow manifest**, which contains just the data they need to register the wrapper and read shared state.
 
 ```typescript
 export type EscrowManifestData = {
@@ -145,7 +133,7 @@ A recipient who does not get the contract secret key does not have a complete ma
 
 ### Sensitive-term commitments
 
-Some terms are recoverable from a small search space: usernames, email addresses, payment handles, shipping addresses, locker codes. These are poor candidates for any onchain log, even an encrypted one, because they invite capture-now-decrypt-later attacks. Store only a **salted commitment** onchain and deliver the plaintext offchain through the same secure channel as the contract secret key.
+Some terms are recoverable from a small search space (e.g. usernames, email addresses, payment handles, shipping addresses, locker codes). These are poor candidates for any onchain log, even an encrypted one, because they invite capture-now-decrypt-later attacks. Store only a **salted commitment** onchain and deliver the plaintext offchain through the same secure channel as the contract secret key.
 
 Domain-separate commitments so a payment-handle commitment cannot be replayed as a shipping-address commitment, and keep non-sensitive context (such as a `platform` tag) in plain config.
 
@@ -169,7 +157,7 @@ Choose the smallest phase graph that protects both sides:
 
 A few invariants keep the state machine sound:
 
-- Terminal phases are exclusive: an order cannot be both `VOID` and `FILLED`.
+- Terminal phases are exclusive. An order cannot be both `VOID` and `FILLED`.
 - Phase transitions consume and replace the prior `StateNote` rather than relying on custom nullifiers.
 - A `VOID` after `ACCEPTED` or `SETTLEMENT_IN_PROGRESS` must follow an explicit timeout or recovery rule, not act as a maker escape hatch.
 - Timing windows are immutable contract configuration once deployed.
@@ -179,9 +167,9 @@ A few invariants keep the state machine sound:
 The BAZaar marketplace demo labels its phases Listed, Locked, Released, and Refunded. Those map onto `OPEN`, `ACCEPTED`, `FILLED`, and `VOID`. The kit does not bind to any particular names; name phases to fit your protocol.
 :::
 
-## Conditional release: triggers as a design dimension
+## Conditional release as a design dimension
 
-What makes a `FILLED` transition fire is the escrow's **release condition**, sometimes called a trigger. This is a design decision, not a fixed feature. The kit gives you the lifecycle and privacy scaffolding; you choose what proves the condition and wire it into the transition. Always give the escrow an exit so funds are never permanently stuck: the OTC default lets the creator `VOID` an unfilled order, and delayed or offchain flows should add a time-based fallback.
+What makes a `FILLED` transition fire is the escrow's **release condition**, sometimes called a trigger. This is a design decision, not a fixed feature. The kit gives you the lifecycle and privacy scaffolding; you choose what proves the condition and wire it into the transition. Always give the escrow an exit so funds are never permanently stuck. The OTC default lets the creator `VOID` an unfilled order, and delayed or offchain flows should add a time-based fallback.
 
 | Release condition                          | What it proves                                                                                        | Status in the kit                                                                                               |
 | ------------------------------------------ | ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
@@ -193,10 +181,10 @@ What makes a `FILLED` transition fire is the escrow's **release condition**, som
 | Onchain event                              | Another contract on Aztec or Ethereum L1 fired                                                        | Pattern you implement                                                                                           |
 
 :::caution Proof-based triggers are patterns, not a plug-in interface
-The landing page presents pluggable triggers, with zkTLS (via Primus) as the marquee unlock for pulling verified web facts onchain. In the current kit, proof-based release conditions are **design patterns with stubbed verifiers**, not a finished interface. Generated tests mark zkTLS, zkEmail, payment, and locker-code flows as skipped, naming the missing verifier and the expected phase transition. Treat conditional release as something you design and implement on top of the lifecycle, and verify the integration end to end before relying on it.
+The landing page presents pluggable triggers, with zkTLS (via Primus) as the main example for pulling verified web facts onchain. In the current kit, proof-based release conditions are **design patterns with stubbed verifiers**, not a finished interface. Generated tests mark zkTLS, zkEmail, payment, and locker-code flows as skipped, naming the missing verifier and the expected phase transition. Treat conditional release as something you design and implement on top of the lifecycle, and verify the integration end to end before relying on it.
 :::
 
-Proof-only delivery often does not move a token into escrow at all: the taker submits a proof that matches the config, and the escrow pays out from its own funds. When a release proof needs to carry data, prefer a salted commitment in the event or state and deliver the plaintext offchain, rather than emitting recoverable identifiers onchain.
+Proof-only delivery often does not move a token into escrow at all. The taker submits a proof that matches the config, and the escrow pays out from its own funds. When a release proof needs to carry data, prefer a salted commitment in the event or state and deliver the plaintext offchain, rather than emitting recoverable identifiers onchain.
 
 ## The generated project
 
@@ -222,7 +210,7 @@ aztec-otc-desk/
             └── artifacts/         # generated bindings
 ```
 
-Token amounts use `u128` and the contract is decimal-agnostic: any display or denomination logic belongs in your app, never baked into the contract.
+Token amounts use `u128`, and the contract is decimal-agnostic. Any display or denomination logic belongs in your app, never baked into the contract.
 
 The kit uses [`defi-wonderland/aztec-standards`](https://github.com/defi-wonderland/aztec-standards) as the token implementation. The Noir contract calls that token's concrete methods (`transfer_private_to_private`, `initialize_transfer_commitment`, `transfer_private_to_commitment`), and the SDK exposes capability-named helpers around them: `deployEscrowContract`, `fillOTCOrder`, `voidEscrow`, and `getPrivateTransferAuthwit`. If you switch token standards, inspect the binding and remap both the Noir calls and the helpers.
 
@@ -311,7 +299,7 @@ fn constructor(
 }
 ```
 
-`fill_order` is open to any caller who satisfies the terms. It advances the phase first, then settles atomically: the taker's asset moves into escrow, the escrow completes the maker's receive commitment, and only then does the escrow release the offered asset to the taker. A receipt event records the fill.
+`fill_order` is open to any caller who satisfies the terms. It advances the phase first, then settles atomically. The taker's asset moves into escrow, the escrow completes the maker's receive commitment, and only then does the escrow release the offered asset to the taker. A receipt event records the fill.
 
 ```rust
 #[external("private")]
@@ -335,7 +323,7 @@ fn fill_order(_nonce: Field) {
 }
 ```
 
-`void_order` is role-gated: it recomputes the caller's pseudonym from the supplied secret, asserts it matches the stored creator pseudonym, moves the phase to `VOID`, and refunds the offered asset. Possessing the contract key alone is not enough to void.
+`void_order` is role-gated. It recomputes the caller's pseudonym from the supplied secret, asserts it matches the stored creator pseudonym, moves the phase to `VOID`, and refunds the offered asset. Possessing the contract key alone is not enough to void.
 
 Deliver contract-owned notes and the escrow-addressed fill receipt with `ONCHAIN_CONSTRAINED`, so a malicious caller cannot brick future readers by withholding the replacement message. Deliver the caller's own `RoleAdded` recovery event with `ONCHAIN_UNCONSTRAINED`.
 
