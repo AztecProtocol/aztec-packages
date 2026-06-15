@@ -132,19 +132,19 @@ inline constexpr size_t INIT_KERNEL_GATE_COUNT = 12589;
 inline constexpr size_t INIT_KERNEL_ECC_ROWS = 524 + MSM_ROWS_OFFSET;
 inline constexpr size_t INIT_KERNEL_ULTRA_OPS = 60;
 
-// Inner kernel gate counts (verifies HN proof for previous kernel + HN for app)
-inline constexpr size_t INNER_KERNEL_GATE_COUNT_HN = 29306;
-inline constexpr size_t INNER_KERNEL_ECC_ROWS = 1180 + MSM_ROWS_OFFSET;
-inline constexpr size_t INNER_KERNEL_ULTRA_OPS = 136;
+// Inner kernel gate counts (verifies HN proof for previous kernel + HN for app, then a width-3 per-kernel batching)
+inline constexpr size_t INNER_KERNEL_GATE_COUNT_HN = 26430;
+inline constexpr size_t INNER_KERNEL_ECC_ROWS = 1242 + MSM_ROWS_OFFSET;
+inline constexpr size_t INNER_KERNEL_ULTRA_OPS = 140;
 
-// Tail kernel gate counts (verifies HN_TAIL proof)
-inline constexpr size_t TAIL_KERNEL_GATE_COUNT = 16699;
-inline constexpr size_t TAIL_KERNEL_ECC_ROWS = 623 + MSM_ROWS_OFFSET;
-inline constexpr size_t TAIL_KERNEL_ULTRA_OPS = 69;
+// Tail kernel gate counts (verifies HN_TAIL proof, then a width-2 per-kernel batching)
+inline constexpr size_t TAIL_KERNEL_GATE_COUNT = 16601;
+inline constexpr size_t TAIL_KERNEL_ECC_ROWS = 718 + MSM_ROWS_OFFSET;
+inline constexpr size_t TAIL_KERNEL_ULTRA_OPS = 73;
 
-// Hiding kernel gate counts (verifies HN_FINAL proof)
-inline constexpr size_t HIDING_KERNEL_GATE_COUNT = 41670;
-inline constexpr size_t HIDING_KERNEL_ECC_ROWS = 5301 + MSM_ROWS_OFFSET;
+// Hiding kernel gate counts (verifies HN_FINAL proof, then a width-2 per-kernel batching + decider)
+inline constexpr size_t HIDING_KERNEL_GATE_COUNT = 41207;
+inline constexpr size_t HIDING_KERNEL_ECC_ROWS = 5330 + MSM_ROWS_OFFSET;
 inline constexpr size_t HIDING_KERNEL_ULTRA_OPS = 359;
 
 // ========================================

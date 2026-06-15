@@ -70,7 +70,7 @@ ChonkStart::Response ChonkStart::execute(BBApiRequest& request) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
 
-    request.ivc_in_progress = std::make_shared<ChonkStepProcessor>(num_circuits);
+    request.ivc_in_progress = std::make_shared<ChonkStepProcessor>(std::move(kinds));
 
     // Clear any stale loaded-circuit state from a previous session so that
     // ChonkAccumulate cannot silently reuse a circuit loaded before this ChonkStart.

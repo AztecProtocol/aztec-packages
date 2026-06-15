@@ -16,7 +16,7 @@ using namespace bb;
  * @details 53 rounds total. The two slim flavors differ only in: which databus columns are
  * committed (derived from F::BUILDER_BUS_INDICES) and whether LogDerivLookup is present (apps keep
  * it, kernels drop it). Rounds: oink (0-2), main sumcheck (3-26), sumcheck batching (27), MLB
- * sumcheck (28-51), MLB final (52).
+ * sumcheck (28-51), MLB final batched evaluations + merge challenge ρ (52).
  */
 template <typename F> static TranscriptManifest build_expected_folding_manifest()
 {
@@ -95,6 +95,7 @@ template <typename F> static TranscriptManifest build_expected_folding_manifest(
     for (size_t i = 0; i < F::NUM_SHIFTED_ENTITIES - 1; ++i) {
         manifest.add_challenge(round, "shifted_challenge_" + std::to_string(i));
     }
+    manifest.add_challenge(round, "claim_batching_challenge");
     manifest.add_challenge(round, "Sumcheck:alpha");
     manifest.add_entry(round, "Sumcheck:evaluations", F::NUM_ALL_ENTITIES);
     round++;
@@ -102,13 +103,13 @@ template <typename F> static TranscriptManifest build_expected_folding_manifest(
     // MLB sumcheck univariates
     for (size_t i = 0; i < NUM_SUMCHECK_UNIVARIATES; ++i) {
         manifest.add_challenge(round, "Sumcheck:u_" + std::to_string(i));
-        manifest.add_entry(round, "Sumcheck:univariate_" + std::to_string(i), 4);
+        manifest.add_entry(round, "Sumcheck:univariate_" + std::to_string(i), 3);
         round++;
     }
 
-    // Final evaluations + claim_batching_challenge
-    manifest.add_challenge(round, "claim_batching_challenge");
+    // Final batched evaluations of the original polynomials, followed by the merge challenge ρ drawn from them
     manifest.add_entry(round, "Sumcheck:evaluations", 6);
+    manifest.add_challenge(round, "claim_merge_challenge");
 
     return manifest;
 }

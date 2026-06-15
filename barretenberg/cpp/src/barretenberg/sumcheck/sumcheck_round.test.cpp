@@ -1,7 +1,6 @@
 #include "sumcheck_round.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/tuple.hpp"
-#include "barretenberg/flavor/multilinear_batching_flavor.hpp"
 #include "barretenberg/flavor/sumcheck_test_flavor.hpp"
 #include "barretenberg/flavor/ultra_recursive_flavor.hpp"
 #include "barretenberg/relations/utils.hpp"
@@ -401,7 +400,7 @@ TEST(SumcheckRound, ExtendEdgesShortMonomial)
 
 /**
  * @brief Test extend_edges with full barycentric extension (non-short-monomial flavor)
- * @details Uses MultilinearBatchingFlavor which has USE_SHORT_MONOMIALS=false to test that
+ * @details Uses a flavor with USE_SHORT_MONOMIALS=false to test that
  * the barycentric extension to MAX_PARTIAL_RELATION_LENGTH works correctly.
  */
 TEST(SumcheckRound, ExtendEdges)

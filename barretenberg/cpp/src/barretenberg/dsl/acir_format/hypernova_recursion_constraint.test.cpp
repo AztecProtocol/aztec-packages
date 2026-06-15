@@ -28,8 +28,6 @@ class HypernovaRecursionConstraintTest : public ::testing::Test {
     using VerificationQueue = Chonk::VerificationQueue;
     using PairingPoints = Chonk::PairingPoints;
 
-    static constexpr size_t NUM_TRAILING_KERNELS = 3; // reset, tail, hiding
-
     /**
      * @brief Constuct a simple arbitrary circuit to represent a mock app circuit
      *
@@ -58,12 +56,7 @@ class HypernovaRecursionConstraintTest : public ::testing::Test {
     static void construct_and_accumulate_trailing_kernels(const std::shared_ptr<Chonk>& ivc)
     {
 
-        // Reset kernel
-        EXPECT_EQ(ivc->verification_queue.size(), 1);
-        EXPECT_EQ(ivc->verification_queue[0].type, QUEUE_TYPE::HN);
-        construct_and_accumulate_mock_kernel(ivc);
-
-        // Tail kernel
+        // Reset-tail kernel
         EXPECT_EQ(ivc->verification_queue.size(), 1);
         EXPECT_EQ(ivc->verification_queue[0].type, QUEUE_TYPE::HN_TAIL);
         construct_and_accumulate_mock_kernel(ivc);
@@ -214,26 +207,26 @@ class HypernovaRecursionConstraintTest : public ::testing::Test {
 
     static void construct_and_accumulate_mock_kernel(std::shared_ptr<Chonk> ivc)
     {
+        BB_ASSERT_NEQ(ivc->current_kind(), CircuitKind::App);
         // construct a mock kernel program (acir) from the ivc verification queue
         const ProgramMetadata metadata{ ivc };
         AcirProgram mock_kernel_program = construct_mock_kernel_program(ivc->verification_queue);
         auto kernel = acir_format::create_circuit<Builder>(mock_kernel_program, metadata);
-        const CircuitKind kind = ivc->next_circuit_kind();
-        // Build the VK in the flavor matching `kind` (Kernel / HidingKernel) from the kernel circuit.
-        Chonk::CircuitVerificationKey vk = dispatch_kind(kind, [&]<CircuitKind K>() {
+        // Build the VK in the flavor matching the current kind (Kernel / HidingKernel) from the kernel circuit.
+        Chonk::CircuitVerificationKey vk = dispatch_kind(ivc->current_kind(), [&]<CircuitKind K>() {
             using FlavorT = flavor_for<K>;
             using VK = typename FlavorT::VerificationKey;
             return Chonk::CircuitVerificationKey{ std::make_shared<VK>(
                 ProverInstance_<FlavorT>(kernel).get_precomputed()) };
         });
-        ivc->accumulate(kernel, kind, vk);
+        ivc->accumulate(kernel, vk);
     }
 
     static void construct_and_accumulate_mock_app(std::shared_ptr<Chonk> ivc)
     {
+        BB_ASSERT_EQ(ivc->current_kind(), CircuitKind::App);
         auto app_circuit = construct_mock_app_circuit(ivc);
-        const CircuitKind kind = ivc->next_circuit_kind();
-        ivc->accumulate(app_circuit, kind, make_circuit_vk(app_circuit, kind));
+        ivc->accumulate(app_circuit, make_circuit_vk(app_circuit, ivc->current_kind()));
     }
 
     /**
@@ -266,7 +259,8 @@ TEST_F(HypernovaRecursionConstraintTest, MockMergeProofSize)
  */
 TEST_F(HypernovaRecursionConstraintTest, AccumulateSingleApp)
 {
-    auto ivc = std::make_shared<Chonk>(/*num_circuits=*/5 /* app, kernel, reset, tail, hiding */);
+    auto ivc = std::make_shared<Chonk>(std::vector<CircuitKind>{
+        CircuitKind::App, CircuitKind::Kernel, CircuitKind::Kernel, CircuitKind::HidingKernel });
 
     // construct a mock app_circuit
     construct_and_accumulate_mock_app(ivc);
@@ -291,8 +285,13 @@ TEST_F(HypernovaRecursionConstraintTest, AccumulateSingleApp)
  */
 TEST_F(HypernovaRecursionConstraintTest, AccumulateTwoApps)
 {
-    // 4 ciruits and the tail kernel
-    auto ivc = std::make_shared<Chonk>(/*num_circuits=*/7);
+    // app, kernel, app, kernel, then the trailing reset, tail and hiding kernels
+    auto ivc = std::make_shared<Chonk>(std::vector<CircuitKind>{ CircuitKind::App,
+                                                                 CircuitKind::Kernel,
+                                                                 CircuitKind::App,
+                                                                 CircuitKind::Kernel,
+                                                                 CircuitKind::Kernel,
+                                                                 CircuitKind::HidingKernel });
 
     // construct a mock app_circuit
     construct_and_accumulate_mock_app(ivc);
@@ -325,7 +324,8 @@ TEST_F(HypernovaRecursionConstraintTest, GenerateInitKernelVKFromConstraints)
     // First, construct the kernel VK by running the full IVC (accumulate one app and one kernel)
     std::shared_ptr<Chonk::KernelVerificationKey> expected_kernel_vk;
     {
-        auto ivc = std::make_shared<Chonk>(/*num_circuits=*/5);
+        auto ivc = std::make_shared<Chonk>(std::vector<CircuitKind>{
+            CircuitKind::App, CircuitKind::Kernel, CircuitKind::Kernel, CircuitKind::HidingKernel });
 
         // Construct and accumulate mock app_circuit
         construct_and_accumulate_mock_app(ivc);
@@ -338,7 +338,8 @@ TEST_F(HypernovaRecursionConstraintTest, GenerateInitKernelVKFromConstraints)
     // Now, construct the kernel VK by mocking the post app accumulation state of the IVC
     std::shared_ptr<Chonk::KernelVerificationKey> kernel_vk;
     {
-        auto ivc = std::make_shared<Chonk>(/*num_circuits=*/5);
+        auto ivc = std::make_shared<Chonk>(std::vector<CircuitKind>{
+            CircuitKind::App, CircuitKind::Kernel, CircuitKind::Kernel, CircuitKind::HidingKernel });
 
         // Construct kernel consisting only of the kernel completion logic
         acir_format::mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::OINK, /*is_kernel=*/false);
@@ -359,7 +360,11 @@ TEST_F(HypernovaRecursionConstraintTest, GenerateResetKernelVKFromConstraints)
     // First, construct the kernel VK by running the full IVC (accumulate one app and one kernel)
     std::shared_ptr<Chonk::KernelVerificationKey> expected_kernel_vk;
     {
-        auto ivc = std::make_shared<Chonk>(/*num_circuits=*/5);
+        auto ivc = std::make_shared<Chonk>(std::vector<CircuitKind>{ CircuitKind::App,
+                                                                     CircuitKind::Kernel,
+                                                                     CircuitKind::Kernel,
+                                                                     CircuitKind::Kernel,
+                                                                     CircuitKind::HidingKernel });
 
         const ProgramMetadata metadata{ ivc };
 
@@ -379,7 +384,11 @@ TEST_F(HypernovaRecursionConstraintTest, GenerateResetKernelVKFromConstraints)
     // Now, construct the kernel VK by mocking the IVC state prior to kernel construction
     std::shared_ptr<Chonk::KernelVerificationKey> kernel_vk;
     {
-        auto ivc = std::make_shared<Chonk>(/*num_circuits=*/5);
+        auto ivc = std::make_shared<Chonk>(std::vector<CircuitKind>{ CircuitKind::App,
+                                                                     CircuitKind::Kernel,
+                                                                     CircuitKind::Kernel,
+                                                                     CircuitKind::Kernel,
+                                                                     CircuitKind::HidingKernel });
 
         // Construct kernel consisting only of the kernel completion logic
         acir_format::mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::HN, /*is_kernel=*/true);
@@ -399,7 +408,8 @@ TEST_F(HypernovaRecursionConstraintTest, GenerateTailKernelVKFromConstraints)
     // First, construct the kernel VK by running the full IVC (accumulate one app and one kernel)
     std::shared_ptr<Chonk::KernelVerificationKey> expected_kernel_vk;
     {
-        auto ivc = std::make_shared<Chonk>(/*num_circuits=*/5);
+        auto ivc = std::make_shared<Chonk>(std::vector<CircuitKind>{
+            CircuitKind::App, CircuitKind::Kernel, CircuitKind::Kernel, CircuitKind::HidingKernel });
 
         const ProgramMetadata metadata{ ivc };
 
@@ -409,10 +419,7 @@ TEST_F(HypernovaRecursionConstraintTest, GenerateTailKernelVKFromConstraints)
         // Construct and accumulate a mock INIT kernel (oink recursion for app accumulation)
         construct_and_accumulate_mock_kernel(ivc);
 
-        // Construct and accumulate a mock RESET kernel (HN recursion for kernel accumulation)
-        construct_and_accumulate_mock_kernel(ivc);
-
-        // Construct and accumulate a mock TAIL kernel (HN recursion for kernel accumulation)
+        // Construct and accumulate a mock RESET-TAIL kernel (HN recursion for kernel accumulation)
         EXPECT_TRUE(ivc->verification_queue.size() == 1);
         EXPECT_TRUE(ivc->verification_queue[0].type == bb::Chonk::QUEUE_TYPE::HN_TAIL);
         construct_and_accumulate_mock_kernel(ivc);
@@ -423,7 +430,8 @@ TEST_F(HypernovaRecursionConstraintTest, GenerateTailKernelVKFromConstraints)
     // Now, construct the kernel VK by mocking the IVC state prior to kernel construction
     std::shared_ptr<Chonk::KernelVerificationKey> kernel_vk;
     {
-        auto ivc = std::make_shared<Chonk>(/*num_circuits=*/5);
+        auto ivc = std::make_shared<Chonk>(std::vector<CircuitKind>{
+            CircuitKind::App, CircuitKind::Kernel, CircuitKind::Kernel, CircuitKind::HidingKernel });
 
         // Construct kernel consisting only of the kernel completion logic
         acir_format::mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::HN_TAIL, /*is_kernel=*/true);
@@ -444,9 +452,14 @@ TEST_F(HypernovaRecursionConstraintTest, GenerateInnerKernelVKFromConstraints)
     // First, construct the kernel VK by running the full IVC (accumulate one app and one kernel)
     std::shared_ptr<Chonk::KernelVerificationKey> expected_kernel_vk;
     {
-        // we have to set the number of circuits one more than the number of circuits we're accumulating as otherwise
+        // we have to set the stack one circuit longer than the number of circuits we're accumulating as otherwise
         // the last circuit will be seen as a tail
-        auto ivc = std::make_shared<Chonk>(/*num_circuits=*/6);
+        auto ivc = std::make_shared<Chonk>(std::vector<CircuitKind>{ CircuitKind::App,
+                                                                     CircuitKind::Kernel,
+                                                                     CircuitKind::App,
+                                                                     CircuitKind::Kernel,
+                                                                     CircuitKind::Kernel,
+                                                                     CircuitKind::HidingKernel });
 
         const ProgramMetadata metadata{ ivc };
 
@@ -473,7 +486,12 @@ TEST_F(HypernovaRecursionConstraintTest, GenerateInnerKernelVKFromConstraints)
     // Now, construct the kernel VK by mocking the IVC state prior to kernel construction
     std::shared_ptr<Chonk::KernelVerificationKey> kernel_vk;
     {
-        auto ivc = std::make_shared<Chonk>(/*num_circuits=*/4);
+        auto ivc = std::make_shared<Chonk>(std::vector<CircuitKind>{ CircuitKind::App,
+                                                                     CircuitKind::Kernel,
+                                                                     CircuitKind::App,
+                                                                     CircuitKind::Kernel,
+                                                                     CircuitKind::Kernel,
+                                                                     CircuitKind::HidingKernel });
 
         // Construct kernel consisting only of the kernel completion logic
         acir_format::mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::HN, /*is_kernel=*/true);
@@ -497,7 +515,8 @@ TEST_F(HypernovaRecursionConstraintTest, GenerateMegaVerificationKeyFromConstrai
     // `verification_queue`).
     std::shared_ptr<Chonk::MegaZKVerificationKey> expected_hiding_kernel_vk;
     {
-        auto ivc = std::make_shared<Chonk>(/*num_circuits=*/5);
+        auto ivc = std::make_shared<Chonk>(std::vector<CircuitKind>{
+            CircuitKind::App, CircuitKind::Kernel, CircuitKind::Kernel, CircuitKind::HidingKernel });
         construct_and_accumulate_mock_app(ivc);
         construct_and_accumulate_mock_kernel(ivc);
         construct_and_accumulate_trailing_kernels(ivc);
@@ -507,7 +526,8 @@ TEST_F(HypernovaRecursionConstraintTest, GenerateMegaVerificationKeyFromConstrai
     // Now, construct the kernel VK by mocking the IVC state prior to hiding-kernel construction.
     std::shared_ptr<Chonk::MegaZKVerificationKey> kernel_vk;
     {
-        auto ivc = std::make_shared<Chonk>(/*num_circuits=*/5);
+        auto ivc = std::make_shared<Chonk>(std::vector<CircuitKind>{
+            CircuitKind::App, CircuitKind::Kernel, CircuitKind::Kernel, CircuitKind::HidingKernel });
         acir_format::mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::HN_FINAL, /*is_kernel=*/true);
         AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
         program.witness = {}; // remove the witness to mimick VK construction context
@@ -524,15 +544,15 @@ TEST_F(HypernovaRecursionConstraintTest, GenerateMegaVerificationKeyFromConstrai
  */
 TEST_F(HypernovaRecursionConstraintTest, RecursiveVerifierAppCircuit)
 {
-    auto ivc = std::make_shared<Chonk>(/*num_circuits*/ 5);
+    auto ivc = std::make_shared<Chonk>(std::vector<CircuitKind>{
+        CircuitKind::App, CircuitKind::Kernel, CircuitKind::Kernel, CircuitKind::HidingKernel });
 
     // construct a mock app_circuit with an UH recursion call
     Builder app_circuit = construct_mock_UH_recursion_app_circuit(ivc, /*tamper_vk=*/false);
 
     // Complete instance and generate an oink proof
     {
-        const CircuitKind kind = ivc->next_circuit_kind();
-        ivc->accumulate(app_circuit, kind, make_circuit_vk(app_circuit, kind));
+        ivc->accumulate(app_circuit, make_circuit_vk(app_circuit, ivc->current_kind()));
     }
 
     // Construct kernel consisting only of the kernel completion logic
@@ -555,13 +575,13 @@ TEST_F(HypernovaRecursionConstraintTest, RecursiveVerifierAppCircuitFailure)
 {
     BB_DISABLE_ASSERTS(); // Disable assert in HN prover
 
-    auto ivc = std::make_shared<Chonk>(/*num_circuits*/ 5);
+    auto ivc = std::make_shared<Chonk>(std::vector<CircuitKind>{
+        CircuitKind::App, CircuitKind::Kernel, CircuitKind::Kernel, CircuitKind::HidingKernel });
 
     // construct and accumulate mock app_circuit that has bad pairing point object
     Builder app_circuit = construct_mock_UH_recursion_app_circuit(ivc, /*tamper_vk=*/true);
     {
-        const CircuitKind kind = ivc->next_circuit_kind();
-        ivc->accumulate(app_circuit, kind, make_circuit_vk(app_circuit, kind));
+        ivc->accumulate(app_circuit, make_circuit_vk(app_circuit, ivc->current_kind()));
     }
 
     // Construct kernel consisting only of the kernel completion logic
@@ -584,7 +604,8 @@ TEST_F(HypernovaRecursionConstraintTest, RecursiveVerifierAppCircuitFailure)
 TEST_F(HypernovaRecursionConstraintTest, InitKernelGateCount)
 {
     BB_DISABLE_ASSERTS();
-    auto ivc = std::make_shared<Chonk>(/*num_circuits=*/5);
+    auto ivc = std::make_shared<Chonk>(std::vector<CircuitKind>{
+        CircuitKind::App, CircuitKind::Kernel, CircuitKind::Kernel, CircuitKind::HidingKernel });
 
     // Mock the post-app accumulation state (OINK proof ready to be verified)
     acir_format::mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::OINK, /*is_kernel=*/false);
@@ -616,7 +637,8 @@ TEST_F(HypernovaRecursionConstraintTest, InitKernelGateCount)
 TEST_F(HypernovaRecursionConstraintTest, InnerKernelGateCount)
 {
     BB_DISABLE_ASSERTS();
-    auto ivc = std::make_shared<Chonk>(/*num_circuits=*/4);
+    auto ivc = std::make_shared<Chonk>(std::vector<CircuitKind>{
+        CircuitKind::App, CircuitKind::Kernel, CircuitKind::Kernel, CircuitKind::HidingKernel });
 
     // Mock the state where we need to verify a previous kernel (HN) and a new app (HN)
     acir_format::mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::HN, /*is_kernel=*/true);
@@ -649,7 +671,8 @@ TEST_F(HypernovaRecursionConstraintTest, InnerKernelGateCount)
 TEST_F(HypernovaRecursionConstraintTest, TailKernelGateCount)
 {
     BB_DISABLE_ASSERTS();
-    auto ivc = std::make_shared<Chonk>(/*num_circuits=*/5);
+    auto ivc = std::make_shared<Chonk>(std::vector<CircuitKind>{
+        CircuitKind::App, CircuitKind::Kernel, CircuitKind::Kernel, CircuitKind::HidingKernel });
 
     // Mock the state where we need to verify a tail kernel proof
     acir_format::mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::HN_TAIL, /*is_kernel=*/true);
@@ -681,7 +704,8 @@ TEST_F(HypernovaRecursionConstraintTest, TailKernelGateCount)
 TEST_F(HypernovaRecursionConstraintTest, HidingKernelGateCount)
 {
     BB_DISABLE_ASSERTS();
-    auto ivc = std::make_shared<Chonk>(/*num_circuits=*/5);
+    auto ivc = std::make_shared<Chonk>(std::vector<CircuitKind>{
+        CircuitKind::App, CircuitKind::Kernel, CircuitKind::Kernel, CircuitKind::HidingKernel });
 
     // Mock the state where we need to verify a hiding kernel proof
     acir_format::mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::HN_FINAL, /*is_kernel=*/true);
@@ -716,7 +740,8 @@ TEST_F(HypernovaRecursionConstraintTest, HidingKernelGateCount)
  */
 TEST_F(HypernovaRecursionConstraintTest, FailsOnConstraintIndicesSizeMismatch)
 {
-    auto ivc = std::make_shared<Chonk>(/*num_circuits=*/5);
+    auto ivc = std::make_shared<Chonk>(std::vector<CircuitKind>{
+        CircuitKind::App, CircuitKind::Kernel, CircuitKind::Kernel, CircuitKind::HidingKernel });
     acir_format::mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::OINK, /*is_kernel=*/false);
 
     AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
@@ -735,7 +760,8 @@ TEST_F(HypernovaRecursionConstraintTest, FailsOnConstraintIndicesSizeMismatch)
  */
 TEST_F(HypernovaRecursionConstraintTest, FailsOnAcirQueueSizeMismatch)
 {
-    auto ivc = std::make_shared<Chonk>(/*num_circuits=*/5);
+    auto ivc = std::make_shared<Chonk>(std::vector<CircuitKind>{
+        CircuitKind::App, CircuitKind::Kernel, CircuitKind::Kernel, CircuitKind::HidingKernel });
     acir_format::mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::OINK, /*is_kernel=*/false);
 
     AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
@@ -755,7 +781,8 @@ TEST_F(HypernovaRecursionConstraintTest, FailsOnAcirQueueSizeMismatch)
  */
 TEST_F(HypernovaRecursionConstraintTest, FailsOnNonEmptyPublicInputs)
 {
-    auto ivc = std::make_shared<Chonk>(/*num_circuits=*/5);
+    auto ivc = std::make_shared<Chonk>(std::vector<CircuitKind>{
+        CircuitKind::App, CircuitKind::Kernel, CircuitKind::Kernel, CircuitKind::HidingKernel });
     acir_format::mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::OINK, /*is_kernel=*/false);
 
     AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
@@ -774,7 +801,8 @@ TEST_F(HypernovaRecursionConstraintTest, FailsOnNonEmptyPublicInputs)
  */
 TEST_F(HypernovaRecursionConstraintTest, FailsOnProofTypeMismatch)
 {
-    auto ivc = std::make_shared<Chonk>(/*num_circuits=*/5);
+    auto ivc = std::make_shared<Chonk>(std::vector<CircuitKind>{
+        CircuitKind::App, CircuitKind::Kernel, CircuitKind::Kernel, CircuitKind::HidingKernel });
     acir_format::mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::OINK, /*is_kernel=*/false);
 
     AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);

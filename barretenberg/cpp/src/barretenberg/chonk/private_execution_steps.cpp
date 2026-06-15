@@ -168,7 +168,7 @@ void PrivateExecutionSteps::parse(std::vector<PrivateExecutionStepRaw>&& steps)
 
 std::shared_ptr<Chonk> PrivateExecutionSteps::accumulate()
 {
-    auto step_processor = ChonkStepProcessor(/*num_circuits=*/folding_stack.size());
+    auto step_processor = ChonkStepProcessor(kinds);
 
     for (auto& vk : precomputed_vks) {
         if (vk.empty()) {

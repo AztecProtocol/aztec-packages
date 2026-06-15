@@ -3,13 +3,22 @@
 // Establish concepts for testing flavor attributes
 #include "barretenberg/common/type_traits.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
+#include <cstddef>
 #include <string>
+#include <type_traits>
 namespace bb {
 class TranslatorShortMonomialFlavor;
 
 // clang-format off
 
 class ECCVMShortMonomialFlavor;
+
+// Recognise any instantiation of the multilinear batching flavors, independent of NumClaims.
+template <typename T> struct IsMultilinearBatchingFlavorImpl : std::false_type {};
+template <size_t NumClaims> struct IsMultilinearBatchingFlavorImpl<MultilinearBatchingFlavor_<NumClaims>> : std::true_type {};
+
+template <typename T> struct IsMultilinearBatchingRecursiveFlavorImpl : std::false_type {};
+template <size_t NumClaims> struct IsMultilinearBatchingRecursiveFlavorImpl<MultilinearBatchingRecursiveFlavor_<NumClaims>> : std::true_type {};
 
 #ifdef STARKNET_GARAGA_FLAVORS
 template <typename T>
@@ -45,14 +54,14 @@ concept IsRecursiveFlavor = IsAnyOf<T, UltraRecursiveFlavor_<UltraCircuitBuilder
                                        MegaKernelRecursiveFlavor,
                                        TranslatorRecursiveFlavor,
                                        ECCVMRecursiveFlavor,
-                                       MultilinearBatchingRecursiveFlavor,
-                                       avm2::AvmRecursiveFlavor>;
+                                       avm2::AvmRecursiveFlavor> ||
+                                       IsMultilinearBatchingRecursiveFlavorImpl<T>::value;
 
 template <typename T>
 concept IsKeccakFlavor = IsAnyOf<T, UltraKeccakFlavor, UltraKeccakZKFlavor>;
 
 template <typename T>
-concept isMultilinearBatchingFlavor =IsAnyOf<T, MultilinearBatchingFlavor>;
+concept isMultilinearBatchingFlavor = IsMultilinearBatchingFlavorImpl<T>::value || IsMultilinearBatchingRecursiveFlavorImpl<T>::value;
 
 // This concept is relevant for the Sumcheck Prover, where the logic differs between BN254 and Grumpkin
 template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, ECCVMFlavor, ECCVMShortMonomialFlavor, ECCVMRecursiveFlavor, SumcheckTestFlavorGrumpkinZK>;

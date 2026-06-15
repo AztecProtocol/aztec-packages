@@ -30,7 +30,7 @@ class ChonkBatchVerifierTests : public ::testing::Test {
     {
         CircuitProducer circuit_producer(num_app_circuits);
         const size_t num_circuits = circuit_producer.total_num_circuits;
-        Chonk ivc{ num_circuits };
+        Chonk ivc{ circuit_producer.circuit_kinds() };
         TestSettings settings{ .log2_num_gates = SMALL_LOG_2_NUM_GATES };
         for (size_t j = 0; j < num_circuits; ++j) {
             circuit_producer.construct_and_accumulate_next_circuit(ivc, settings);
