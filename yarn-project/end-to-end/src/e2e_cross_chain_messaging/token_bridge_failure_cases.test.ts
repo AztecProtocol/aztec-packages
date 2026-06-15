@@ -5,11 +5,21 @@ import { sha256ToField } from '@aztec/foundation/crypto/sha256';
 
 import { toFunctionSelector } from 'viem';
 
-import { NO_L1_TO_L2_MSG_ERROR, PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
+import {
+  L1_DIRECT_WRITE_ACCOUNT_INDEX,
+  NO_L1_TO_L2_MSG_ERROR,
+  PIPELINING_SETUP_OPTS,
+} from '../fixtures/fixtures.js';
 import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';
 
 describe('e2e_cross_chain_messaging token_bridge_failure_cases', () => {
-  const t = new CrossChainMessagingTest('token_bridge_failure_cases');
+  const t = new CrossChainMessagingTest(
+    'token_bridge_failure_cases',
+    {},
+    {},
+    {},
+    L1_DIRECT_WRITE_ACCOUNT_INDEX,
+  );
   let version: number = 1;
 
   let { crossChainTestHarness, ethAccount, l2Bridge, ownerAddress, user1Address, user2Address, rollup } = t;

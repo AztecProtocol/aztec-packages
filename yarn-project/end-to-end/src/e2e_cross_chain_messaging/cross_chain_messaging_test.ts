@@ -24,7 +24,7 @@ import type { PXEConfig } from '@aztec/pxe/server';
 import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
-import { L1_DIRECT_WRITE_ACCOUNT_INDEX, MNEMONIC } from '../fixtures/fixtures.js';
+import { MNEMONIC } from '../fixtures/fixtures.js';
 import {
   type EndToEndContext,
   type SetupOptions,
@@ -40,6 +40,7 @@ export class CrossChainMessagingTest {
   private setupOptions: SetupOptions;
   private deployL1ContractsArgs: Partial<DeployAztecL1ContractsArgs>;
   private pxeOpts: Partial<PXEConfig>;
+  private l1HarnessAccountIndex?: number;
   logger: Logger;
   context!: EndToEndContext;
   aztecNode!: AztecNode;
@@ -79,6 +80,7 @@ export class CrossChainMessagingTest {
     opts: SetupOptions = {},
     deployL1ContractsArgs: Partial<DeployAztecL1ContractsArgs> = {},
     pxeOpts: Partial<PXEConfig> = {},
+    l1HarnessAccountIndex?: number,
   ) {
     this.logger = createLogger(`e2e:e2e_cross_chain_messaging:${testName}`);
     this.setupOptions = opts;
@@ -87,6 +89,7 @@ export class CrossChainMessagingTest {
       ...deployL1ContractsArgs,
     };
     this.pxeOpts = pxeOpts;
+    this.l1HarnessAccountIndex = l1HarnessAccountIndex;
     this.requireEpochProven = opts.startProverNode ?? false;
   }
 
@@ -177,24 +180,24 @@ export class CrossChainMessagingTest {
 
     await ensureAuthRegistryPublished(this.wallet, this.ownerAddress);
 
-    this.l1Client = createExtendedL1Client(
+    const harnessL1Client = createExtendedL1Client(
       this.aztecNodeConfig.l1RpcUrls,
       MNEMONIC,
       undefined,
       undefined,
-      L1_DIRECT_WRITE_ACCOUNT_INDEX,
+      this.l1HarnessAccountIndex,
     );
 
-    const underlyingERC20Address = await deployL1Contract(this.l1Client, TestERC20Abi, TestERC20Bytecode, [
+    const underlyingERC20Address = await deployL1Contract(harnessL1Client, TestERC20Abi, TestERC20Bytecode, [
       'Underlying',
       'UND',
-      this.l1Client.account.address,
+      harnessL1Client.account.address,
     ]).then(({ address }) => address);
 
     this.logger.verbose(`Setting up cross chain harness...`);
     this.crossChainTestHarness = await CrossChainTestHarness.new(
       this.aztecNode,
-      this.l1Client,
+      harnessL1Client,
       this.wallet,
       this.ownerAddress,
       this.logger,
@@ -212,13 +215,7 @@ export class CrossChainMessagingTest {
     this.ethAccount = EthAddress.fromString(crossChainContext.ethAccount.toString());
     const tokenPortalAddress = EthAddress.fromString(crossChainContext.tokenPortal.toString());
 
-    const l1Client = createExtendedL1Client(
-      this.aztecNodeConfig.l1RpcUrls,
-      MNEMONIC,
-      undefined,
-      undefined,
-      L1_DIRECT_WRITE_ACCOUNT_INDEX,
-    );
+    const l1Client = createExtendedL1Client(this.aztecNodeConfig.l1RpcUrls, MNEMONIC);
     this.l1Client = l1Client;
 
     const l1Contracts = pickL1ContractAddresses(this.aztecNodeConfig);
@@ -234,7 +231,7 @@ export class CrossChainMessagingTest {
       this.ethAccount,
       tokenPortalAddress,
       crossChainContext.underlying,
-      l1Client,
+      harnessL1Client,
       pickL1ContractAddresses(this.aztecNodeConfig),
       this.wallet,
       this.ownerAddress,

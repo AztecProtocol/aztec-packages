@@ -3,7 +3,11 @@ import { retryUntil } from '@aztec/foundation/retry';
 
 import { jest } from '@jest/globals';
 
-import { NO_L1_TO_L2_MSG_ERROR, PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
+import {
+  L1_DIRECT_WRITE_ACCOUNT_INDEX,
+  NO_L1_TO_L2_MSG_ERROR,
+  PIPELINING_SETUP_OPTS,
+} from '../fixtures/fixtures.js';
 import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';
 
 describe('e2e_cross_chain_messaging token_bridge_public', () => {
@@ -11,7 +15,13 @@ describe('e2e_cross_chain_messaging token_bridge_public', () => {
   // needs more than the default 300s per-test budget.
   jest.setTimeout(15 * 60 * 1000);
 
-  const t = new CrossChainMessagingTest('token_bridge_public', { startProverNode: true });
+  const t = new CrossChainMessagingTest(
+    'token_bridge_public',
+    { startProverNode: true },
+    {},
+    {},
+    L1_DIRECT_WRITE_ACCOUNT_INDEX,
+  );
 
   let { crossChainTestHarness, ethAccount, aztecNode, logger, ownerAddress, l2Bridge, l2Token, wallet, user2Address } =
     t;
