@@ -111,17 +111,20 @@ export class FileCircuitRecorder extends CircuitRecorder {
    * Finalizes the recording file by adding closing brackets. Without calling this method, the recording file is
    * incomplete and it fails to parse.
    */
-  override async finish(): Promise<CircuitRecording> {
+  override async finish(): Promise<CircuitRecording | undefined> {
     // Finish sets the recording to undefined if we are at the topmost circuit,
     // so we save the current file path before that
-    const filePath = this.recording!.filePath;
+    if (!this.recording) {
+      return super.finish();
+    }
+    const filePath = this.recording.filePath;
     const result = await super.finish();
     try {
       await fs.appendFile(filePath, '  ]\n}\n');
     } catch (err) {
       this.logger.error('Failed to finalize recording file', { error: err });
     }
-    return result!;
+    return result;
   }
 
   /**
@@ -129,10 +132,13 @@ export class FileCircuitRecorder extends CircuitRecorder {
    * the recording file is incomplete and it fails to parse.
    * @param error - The error that occurred during circuit execution
    */
-  override async finishWithError(error: unknown): Promise<CircuitRecording> {
+  override async finishWithError(error: unknown): Promise<CircuitRecording | undefined> {
     // Finish sets the recording to undefined if we are at the topmost circuit,
     // so we save the current file path before that
-    const filePath = this.recording!.filePath;
+    if (!this.recording) {
+      return super.finishWithError(error);
+    }
+    const filePath = this.recording.filePath;
     const result = await super.finishWithError(error);
     try {
       await fs.appendFile(filePath, '  ],\n');
@@ -141,7 +147,7 @@ export class FileCircuitRecorder extends CircuitRecorder {
     } catch (err) {
       this.logger.error('Failed to finalize recording file with error', { error: err });
     }
-    return result!;
+    return result;
   }
 }
 

@@ -235,10 +235,16 @@ export class CircuitRecorder {
   /**
    * Finalizes the recording by resetting the state and returning the recording object.
    */
-  finish(): Promise<CircuitRecording> {
+  finish(): Promise<CircuitRecording | undefined> {
     const result = this.recording;
+    // No active recording (e.g. start() created none, or it was already finalized). Reset to a clean
+    // top-level state and return nothing rather than dereferencing an absent recording.
+    if (!result) {
+      this.newCircuit = true;
+      return Promise.resolve(undefined);
+    }
     // If this is the top-level circuit recording, we reset the state for the next simulator call
-    if (!result!.parent) {
+    if (!result.parent) {
       this.newCircuit = true;
       this.recording = undefined;
     } else {
@@ -246,18 +252,20 @@ export class CircuitRecorder {
       // Note: we don't set newCircuit=false here because:
       // - For privateCallPrivateFunction, the callback wrapper will set it to false
       // - For utility calls, we want newCircuit to remain true so the next circuit creates its own recording
-      this.recording = result!.parent;
+      this.recording = result.parent;
     }
-    return Promise.resolve(result!);
+    return Promise.resolve(result);
   }
 
   /**
    * Finalizes the recording by resetting the state and returning the recording object with an attached error.
    * @param error - The error that occurred during circuit execution
    */
-  async finishWithError(error: unknown): Promise<CircuitRecording> {
+  async finishWithError(error: unknown): Promise<CircuitRecording | undefined> {
     const result = await this.finish();
-    result.error = JSON.stringify(error);
+    if (result) {
+      result.error = JSON.stringify(error);
+    }
     return result;
   }
 }
