@@ -140,12 +140,13 @@ self.storage.balances.at(admin).add(amount)
 
 **Onchain delivery with guaranteed correct content.**
 
-**WARNING**: This mode is [currently NOT fully constrained](https://github.com/AztecProtocol/aztec-packages/issues/14565). The log's tag is unconstrained, meaning a malicious sender could prevent the recipient from finding the message.
-
 - **Use when:** The sender cannot be trusted to deliver correctly (e.g., paying fees, creating notes for others, multisig configuration changes). Use this when you need to prove to a contract that the delivery has been done correctly. You can imagine a private NFT sale escrow contract where the escrow would be holding the NFT (the contract itself would be the NFT note owner) and then the escrow would release the NFT to the buyer once the NFT buyer pays the seller. In this case the `NFTSale::buy(...)` function would trigger the payment token transfer from the buyer to the seller and it would need to use `ONCHAIN_CONSTRAINED` delivery otherwise the escrow contract would be willing to transfer the NFT without the NFT seller actually being able to then spend the money. Note that for the transfer of the NFT from the escrow contract to the buyer you could use `OFFCHAIN` delivery because the delivery and encryption would be done in the buyer's PXE and hence there is alignment.
 - **Costs:** DA gas fees for the encrypted log, proving time overhead for encryption and tagging
-- **Guarantees:** Recipient receives correctly encrypted content (once tag constraining is implemented, recipient will be able to find it)
+- **Guarantees:** Recipient receives correctly encrypted content and can discover the message through constrained tags
 - **Privacy:** High - encrypted log reveals minimal information
+
+By default, constrained delivery uses the private function's `self.msg_sender()` as the sender for note discovery.
+Use `.with_sender(...)` when the intended sender differs from the caller.
 
 ```rust
 // Minting to an arbitrary recipient - must guarantee delivery
@@ -167,28 +168,41 @@ When a note is delivered, recipients need to discover it among all the encrypted
 
 ### Who is the "Sender"?
 
-The "sender" for note discovery is **not the contract calling `.deliver()`**. Instead, it's the **account contract** that initiated the transaction.
+The "sender" for note discovery is **not necessarily the contract calling `.deliver()`**. For address-secret delivery,
+including the default `MessageDelivery::onchain_unconstrained()` path, the wallet tells PXE which address to use as the
+sender for tags (typically the originating account). This sender address is used along with the recipient address to
+compute the shared secret that generates the tag. Contracts can override this default with the `with_sender` builder
+method, e.g. `MessageDelivery::onchain_unconstrained().with_sender(address)`.
 
-When your wallet submits a transaction, it tells PXE which address to use as the sender for tags (typically the originating account). This sender address is then used along with the recipient address to compute a shared secret (via [Diffie-Hellman key exchange](https://www.geeksforgeeks.org/computer-networks/diffie-hellman-key-exchange-and-perfect-forward-secrecy/)), which generates the tag that allows recipients to efficiently find their notes. Contracts can override the sender at message delivery via the `with_sender` builder method, e.g. `MessageDelivery::onchain_unconstrained().with_sender(address)`.
+Constrained delivery adds a second discovery path. For `MessageDelivery::onchain_constrained()`, the default sender is
+the private function's `self.msg_sender()`, and that sender is used for the handshake registry tuple and constrained tag
+chain. Contracts can still override it with `.with_sender(address)` when the intended sender differs from the caller.
 
-**Example:** If Alice uses her account contract to call a token contract that mints tokens to Bob, the "sender for tags" is Alice's account contract address, not the token contract address.
+**Example:** If Alice uses her account contract to call a token contract that mints tokens to Bob with constrained
+delivery, the default sender for discovery is Alice's account contract address, not the token contract address.
 
 ### Discovering Notes from Unknown Senders
 
-**You cannot receive notes from an unknown sender** without additional mechanisms. The tagging system requires you to know the sender's address in advance to compute the shared secret needed to find the note (i.e., the sender needs to be added to your wallet).
+For address-secret tagging, **you cannot receive notes from an unknown sender** without additional mechanisms. The
+tagging system requires you to know the sender's address in advance to compute the shared secret needed to find the note
+(i.e., the sender needs to be added to your wallet). This applies to the default `onchain_unconstrained()` sender-for-tags
+path.
 
 There are three approaches to solve this:
 
 **a) Brute force search** - Download every log and attempt to decrypt it. This becomes prohibitively expensive as the network grows.
 
-**b) Known sender tagging** (current implementation) - Only receive notes from senders whose addresses you've registered in your PXE. This is very fast and allows you to block spammers by removing them from your sender list. However, you must know who might send you notes in advance.
+**b) Known sender tagging** - Only receive notes from senders whose addresses you've registered in your PXE. This is very fast and allows you to block spammers by removing them from your sender list. However, you must know who might send you notes in advance.
 
-**c) Handshaking protocols** (not yet implemented) - A two-phase approach where senders first perform a "handshake" that notifies you of their existence, then use regular tagging afterward. This trades off either privacy (public handshake events) or performance (scanning all handshake logs).
+**c) Handshaking protocols** - A two-phase approach where senders first perform a handshake that notifies you of their
+existence, then use regular tagging afterward. Constrained delivery uses this kind of approach through the standard
+handshake registry: the sender emits a recipient-discoverable handshake, then uses regular constrained tags derived from
+that handshake secret.
 
 **Workarounds for receiving notes from unknown senders:**
 - Require senders to register in a contract first, then search for notes from all registered senders
 - Share sender addresses through offchain communication
-- Implement a custom discovery mechanism in your contract
+- Use constrained delivery when you need recipient-discoverable handshakes and constrained message tags
 
 See the [Note Discovery](../../foundational-topics/advanced/storage/note_discovery.md) documentation for technical details on the tagging mechanism.
 
@@ -234,8 +248,8 @@ fn transfer(amount: u128, sender: AztecAddress, recipient: AztecAddress) {
 #[external("private")]
 #[initializer]
 fn constructor(admin: AztecAddress) {
-    // Admin is the owner of the note and is motivated to receive it
-    // Use unconstrained delivery since we don't know if deployer is incentivized
+    // Admin is the owner of the note.
+    // Use constrained delivery since we don't know if the deployer is incentivized.
     self.storage.admin
         .initialize(AddressNote { address: admin }, admin)
         .deliver(MessageDelivery::onchain_constrained());

@@ -283,8 +283,8 @@ impl OnchainConstrainedDelivery {
     /// Overrides the sender address used for discovery tag derivation.
     ///
     /// On-chain messages are tagged so that the recipient can find them efficiently without scanning all logs. The tag
-    /// is derived from a shared secret between a "sender" and the recipient. Constrained delivery currently requires
-    /// this sender to be provided explicitly.
+    /// is derived from a shared secret between a "sender" and the recipient. By default, constrained delivery uses
+    /// `self.msg_sender()`.
     ///
     /// ## Examples
     ///

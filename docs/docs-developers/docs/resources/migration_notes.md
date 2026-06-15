@@ -132,7 +132,9 @@ The `set_sender_for_tags` oracle has been removed. Contracts that used it to ove
 + note.deliver(MessageDelivery::onchain_constrained().with_sender(some_address));
 ```
 
-When `with_sender` is not called, `MessageDelivery` uses the wallet-supplied default sender.
+When `with_sender` is not called, `MessageDelivery::onchain_unconstrained()` keeps using the wallet-supplied sender for
+tags. `MessageDelivery::onchain_constrained()` defaults to the private function's `self.msg_sender()` instead. Use
+`with_sender` when the intended sender for discovery differs from the relevant default.
 
 ### [Aztec.nr] `MessageDelivery` API syntax change
 

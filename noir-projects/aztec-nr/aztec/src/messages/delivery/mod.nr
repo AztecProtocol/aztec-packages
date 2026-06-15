@@ -113,8 +113,9 @@ fn do_onchain_private_message_delivery<Env, let MESSAGE_PLAINTEXT_LEN: u32>(
     assert_constant(is_constrained);
 
     assert(!deliver_as_offchain_message, "on-chain message delivery expected");
-    assert_valid_tag_derivation_for_mode(mode, resolved_tag_secret_derivation, sender_override);
+    assert_valid_tag_derivation_for_mode(mode, resolved_tag_secret_derivation);
     let onchain_mode = to_onchain_delivery_mode(mode);
+    let sender = resolve_sender(context, onchain_mode, sender_override);
 
     let contract_address = context.this_address();
 
@@ -127,7 +128,7 @@ fn do_onchain_private_message_delivery<Env, let MESSAGE_PLAINTEXT_LEN: u32>(
         context,
         onchain_mode,
         resolved_tag_secret_derivation,
-        sender_override,
+        sender,
         recipient,
     );
 
@@ -155,22 +156,17 @@ fn calculate_tag_for_mode(
     context: &mut PrivateContext,
     mode: OnchainDeliveryMode,
     resolved_tag_secret_derivation: TagSecretDerivation,
-    sender_override: Option<AztecAddress>,
+    sender: AztecAddress,
     recipient: AztecAddress,
 ) -> Field {
     if resolved_tag_secret_derivation == TagSecretDerivation::address_secret() {
-        calculate_address_secret_tag(sender_override, recipient, mode)
+        calculate_address_secret_tag(sender, recipient, mode)
     } else {
-        calculate_non_interactive_handshake_tag(context, sender_override, recipient, mode)
+        calculate_non_interactive_handshake_tag(context, sender, recipient, mode)
     }
 }
 
-fn calculate_address_secret_tag(
-    sender_override: Option<AztecAddress>,
-    recipient: AztecAddress,
-    mode: OnchainDeliveryMode,
-) -> Field {
-    let sender = resolve_address_secret_sender(sender_override);
+fn calculate_address_secret_tag(sender: AztecAddress, recipient: AztecAddress, mode: OnchainDeliveryMode) -> Field {
     // Safety: address-derived delivery is unconstrained; invalid recipients get a random tag to preserve log shape.
     unsafe {
         get_app_tagging_secret(sender, recipient).map_or_else(
@@ -185,11 +181,10 @@ fn calculate_address_secret_tag(
 
 fn calculate_non_interactive_handshake_tag(
     context: &mut PrivateContext,
-    sender_override: Option<AztecAddress>,
+    sender: AztecAddress,
     recipient: AztecAddress,
     mode: OnchainDeliveryMode,
 ) -> Field {
-    let sender = sender_override.expect(f"non-interactive handshake tag derivation requires an explicit sender");
     let (secret, bootstrapped) = get_or_create_app_siloed_handshake_secret(
         context,
         STANDARD_HANDSHAKE_REGISTRY_ADDRESS,
@@ -213,19 +208,11 @@ fn calculate_non_interactive_handshake_tag(
     calculate_tag(secret, index, mode)
 }
 
-fn assert_valid_tag_derivation_for_mode(
-    mode: DeliveryMode,
-    tag_secret_derivation: TagSecretDerivation,
-    sender_override: Option<AztecAddress>,
-) {
+fn assert_valid_tag_derivation_for_mode(mode: DeliveryMode, tag_secret_derivation: TagSecretDerivation) {
     if mode == DeliveryMode::onchain_constrained() {
         std::static_assert(
             tag_secret_derivation == TagSecretDerivation::non_interactive_handshake(),
             "constrained delivery requires non-interactive handshake tag derivation",
-        );
-        std::static_assert(
-            sender_override.is_some(),
-            "constrained delivery requires an explicit sender",
         );
     } else {
         // Unconstrained handshake-origin delivery is not yet implemented; see F-698.
@@ -236,15 +223,23 @@ fn assert_valid_tag_derivation_for_mode(
     }
 }
 
-fn resolve_address_secret_sender(sender_override: Option<AztecAddress>) -> AztecAddress {
-    // Safety: address-derived delivery is unconstrained; the sender either comes from the builder override or the
-    // wallet-provided default tag sender.
-    unsafe {
-        sender_override.unwrap_or_else(|| {
+fn resolve_sender(
+    context: &mut PrivateContext,
+    mode: OnchainDeliveryMode,
+    sender_override: Option<AztecAddress>,
+) -> AztecAddress {
+    if sender_override.is_some() {
+        sender_override.unwrap_unchecked()
+    } else if mode == OnchainDeliveryMode::onchain_constrained() {
+        context.maybe_msg_sender().unwrap()
+    } else {
+        // Safety: address-derived delivery is unconstrained; the sender either comes from the builder override or the
+        // wallet-provided default tag sender.
+        unsafe {
             get_sender_for_tags().expect(
                 f"Sender for tags is not set when emitting a private log and no override is set. Ensure the wallet provides a default sender.",
             )
-        })
+        }
     }
 }
 
@@ -299,10 +294,10 @@ mod test {
         hash::{compute_log_tag, poseidon2_hash},
         traits::FromField,
     };
-    use crate::test::helpers::test_environment::TestEnvironment;
+    use crate::test::helpers::test_environment::{PrivateContextOptions, TestEnvironment};
     use super::{
-        calculate_tag, calculate_tag_for_mode, DeliveryMode, OnchainDeliveryMode, resolve_tag_secret_derivation,
-        TagSecretDerivation,
+        calculate_tag, calculate_tag_for_mode, DeliveryMode, OnchainDeliveryMode, resolve_sender,
+        resolve_tag_secret_derivation, TagSecretDerivation,
     };
     use std::test::OracleMock;
 
@@ -370,18 +365,75 @@ mod test {
     }
 
     #[test(should_fail_with = "Sender for tags is not set")]
-    unconstrained fn address_secret_tag_requires_sender() {
+    unconstrained fn unconstrained_sender_resolution_requires_wallet_default_sender() {
         let env = TestEnvironment::new();
-        let recipient = AztecAddress::from_field(2);
         let _ = OracleMock::mock("aztec_prv_getSenderForTags").returns(Option::<AztecAddress>::none());
 
         env.private_context(|context| {
-            let _ = calculate_tag_for_mode(
+            let _ = resolve_sender(
                 context,
                 OnchainDeliveryMode::onchain_unconstrained(),
-                TagSecretDerivation::address_secret(),
                 Option::none(),
-                recipient,
+            );
+        });
+    }
+
+    #[test]
+    unconstrained fn sender_resolution_uses_override() {
+        let env = TestEnvironment::new();
+        let sender = AztecAddress::from_field(1);
+
+        env.private_context(|context| {
+            assert_eq(
+                resolve_sender(
+                    context,
+                    OnchainDeliveryMode::onchain_unconstrained(),
+                    Option::some(sender),
+                ),
+                sender,
+            );
+            assert_eq(
+                resolve_sender(
+                    context,
+                    OnchainDeliveryMode::onchain_constrained(),
+                    Option::some(sender),
+                ),
+                sender,
+            );
+        });
+    }
+
+    #[test]
+    unconstrained fn unconstrained_sender_resolution_uses_wallet_default_sender() {
+        let env = TestEnvironment::new();
+        let sender = AztecAddress::from_field(1);
+        let _ = OracleMock::mock("aztec_prv_getSenderForTags").returns(Option::some(sender));
+
+        env.private_context(|context| {
+            assert_eq(
+                resolve_sender(
+                    context,
+                    OnchainDeliveryMode::onchain_unconstrained(),
+                    Option::none(),
+                ),
+                sender,
+            );
+        });
+    }
+
+    #[test]
+    unconstrained fn constrained_sender_resolution_uses_private_msg_sender() {
+        let env = TestEnvironment::new();
+        let sender = AztecAddress::from_field(1);
+
+        env.private_context_opts(PrivateContextOptions::new().with_msg_sender(sender), |context| {
+            assert_eq(
+                resolve_sender(
+                    context,
+                    OnchainDeliveryMode::onchain_constrained(),
+                    Option::none(),
+                ),
+                sender,
             );
         });
     }
@@ -403,7 +455,7 @@ mod test {
                     context,
                     OnchainDeliveryMode::onchain_unconstrained(),
                     TagSecretDerivation::address_secret(),
-                    Option::none(),
+                    sender,
                     recipient,
                 ),
                 compute_log_tag(
@@ -430,7 +482,7 @@ mod test {
                     context,
                     OnchainDeliveryMode::onchain_unconstrained(),
                     TagSecretDerivation::address_secret(),
-                    Option::none(),
+                    sender,
                     recipient,
                 ),
                 compute_log_tag(random_tag, DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG),

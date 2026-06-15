@@ -53,13 +53,20 @@ When the log is emitted, the protocol kernel **siloes** the tag with the contrac
 
 #### The sender in note tagging
 
-The "sender" in note tagging is **not necessarily the transaction sender**. It's the **sender for tags**, which the wallet supplies as a default (typically the originating account address). Contracts can override this at message delivery by using `MessageDelivery::onchain_unconstrained().with_sender(address)`.
+The "sender" in note tagging is **not necessarily the transaction sender**. For address-secret delivery, including the
+default `MessageDelivery::onchain_unconstrained()` path, it is the sender for tags, which the wallet supplies as a
+default (typically the originating account address). Contracts can override this at message delivery by using
+`MessageDelivery::onchain_unconstrained().with_sender(address)`.
 
 This sender address is used along with the recipient address to compute the shared secret via Diffie-Hellman key exchange, which is then used to derive the tag.
 
+Constrained delivery adds a second discovery path. For `MessageDelivery::onchain_constrained()`, the default sender is
+the private function's `self.msg_sender()`, and that sender is used for the handshake registry tuple and constrained tag
+chain. Contracts can override it with `.with_sender(address)` when the intended sender differs from the caller.
+
 #### Registering known senders
 
-To discover notes from a particular sender, the recipient's PXE must know the sender's address in advance so it can compute the shared tagging secret. Register senders using the wallet API:
+To discover address-secret notes from a particular sender, the recipient's PXE must know the sender's address in advance so it can compute the shared tagging secret. Register senders using the wallet API:
 
 ```typescript
 // Register a sender so your PXE can discover notes from them
@@ -67,6 +74,7 @@ await wallet.registerSender(senderAddress);
 ```
 
 Notes sent to yourself are always discoverable — the PXE automatically adds all local accounts as implicit senders.
+Constrained-delivery handshakes are discovered through the handshake registry instead.
 
 ### The sync process
 
@@ -96,25 +104,28 @@ This means there's a practical limit on how many logs a single sender can emit t
 
 ### Limitations and solutions
 
-#### You cannot receive tagged notes from an unknown sender
+#### You cannot receive address-secret tagged notes from an unknown sender
 
-Without knowing the sender's address, you cannot create the shared secret needed to derive the note tag. This is a fundamental limitation of the current tagging scheme.
+Without knowing the sender's address, you cannot create the shared secret needed to derive an address-secret note tag.
+This is a fundamental limitation of address-secret tagging.
 
 There are three broad families of solutions to this problem:
 
 **a) Brute force search** - Scan every single log and test if it decrypts. This has obvious performance issues as the network grows and becomes prohibitively expensive.
 
-**b) Tagging with known sender** (current implementation) - You know who will send you messages and search for those specifically. This is very fast and allows you to remove senders who spam you. However, we don't currently have a mechanism for constraining this (i.e., guaranteeing that the recipient will find the message).
+**b) Tagging with known sender** - You know who will send you messages and search for those specifically. This is very fast and allows you to remove senders who spam you. However, address-secret tagging requires knowing who might send you notes in advance.
 
-**c) Tagging with handshaking** - An intermediate solution where you can be notified of new senders. A handshake occurs onchain that lets the recipient discover a new sender, and from that point on there's regular tagging. This design either:
+**c) Tagging with handshaking** - An intermediate solution where the sender performs a handshake that lets the recipient discover a new sender, and from that point on there's regular tagging. This design either:
 - Is fast but leaks privacy (e.g., a public event with "new handshake for Alice!")
 - Is slow but doesn't leak (you brute force scan all logs from a handshake contract, testing if any handshakes are for you)
 
 The handshaking design space is large — for example, you could set up infrastructure where a server searches handshakes for you, trading off infrastructure requirements for performance.
 
-**Handshaking is not currently implemented in Aztec.nr.** For now, if you need to receive notes from unknown senders, potential workarounds include:
+Aztec.nr's constrained delivery uses the standard handshake registry for this purpose. If you need recipient-discoverable handshakes and constrained message tags, use `MessageDelivery::onchain_constrained()`.
+
+Other potential workarounds include:
 - Having senders register themselves in a contract first, allowing recipients to search for note tags from all registered senders
-- Using offchain communication to share sender addresses with recipients, who then call `wallet.registerSender(address)` to enable discovery
+- Using offchain communication to share sender addresses with recipients, who then call `wallet.registerSender(address)` to enable address-secret discovery
 - Implementing a custom discovery mechanism in your contract
 
 See the [Note Delivery](../../../aztec-nr/framework-description/note_delivery.md) documentation for more details on how the sender is used when delivering notes.
