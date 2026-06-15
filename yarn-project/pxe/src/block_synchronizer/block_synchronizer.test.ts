@@ -352,7 +352,14 @@ describe('BlockSynchronizer', () => {
       await synchronizer.handleBlockStreamEvent({
         type: 'chain-pruned',
         block: block5,
-        checkpoint: makeL2CheckpointId(CheckpointNumber.ZERO, GENESIS_CHECKPOINT_HEADER_HASH.toString()),
+        checkpointed: {
+          block: makeL2BlockId(BlockNumber.ZERO, GENESIS_BLOCK_HEADER_HASH.toString()),
+          checkpoint: makeL2CheckpointId(CheckpointNumber.ZERO, GENESIS_CHECKPOINT_HEADER_HASH.toString()),
+        },
+        proven: {
+          block: makeL2BlockId(BlockNumber.ZERO, GENESIS_BLOCK_HEADER_HASH.toString()),
+          checkpoint: makeL2CheckpointId(CheckpointNumber.ZERO, GENESIS_CHECKPOINT_HEADER_HASH.toString()),
+        },
       });
 
       // The retractable entity is gone wholesale; the non-retractable one keeps only its non-retractable fact.
