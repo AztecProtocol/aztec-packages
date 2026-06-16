@@ -52,7 +52,11 @@ fn fr_select_f8(a: array<u32, 8>, b: array<u32, 8>, cond: bool) -> array<u32, 8>
 fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let mb = sched_off.x;
     let n_roots = sched_meta[mb + 19u];
-    let total_entries = sched_meta[mb + 24u + (MAX_LAYERS - 1u)] + sched_meta[mb + (MAX_LAYERS - 1u)];
+    // Hoist the composed index: Adreno miscompiles the inline subscript
+    // sched_meta[mb + 24u + (MAX_LAYERS - 1u)]. See sched_coop2 for the same fix.
+    let lastL = MAX_LAYERS - 1u;
+    let teidx = mb + 24u + lastL;
+    let total_entries = sched_meta[teidx] + sched_meta[mb + lastL];
     let nbase = sched_off.w + total_entries;
     let M_partials = params.w;
     let base = gid.x * C;

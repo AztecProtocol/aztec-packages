@@ -59,8 +59,20 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
         @builtin(subgroup_invocation_id) sgid: u32) {
     let k = lvl.x;
     let mb = sched_off.x;
-    let n_entries = sched_meta[mb + (k - 1u)];
-    let ebase = sched_off.w + sched_meta[mb + 24u + (k - 1u)];
+    // ADRENO COMPILER BUG — keep these indices hoisted into their own `let`s;
+    // do NOT fold them back into the sched_meta[...] subscripts. The Adreno
+    // (Qualcomm) WGSL compiler miscompiles a storage-buffer subscript whose
+    // index is an *inline* expression built from uniform-buffer reads (here
+    // mb = sched_off.x and k = lvl.x): `sched_meta[mb + 24u + (k - 1u)]` resolves
+    // to the WRONG element, so ebase is wrong, every schedule entry then reads
+    // the wrong point slots, and the whole MSM is silently wrong on the S25+
+    // (it is correct on Apple/Mali). Materialising the index in a `let` first
+    // makes the driver get it right. Apply this same hoist to any new
+    // uniform-derived storage index — see sched_affine / sched_normalize.
+    let kk = k - 1u;
+    let eidx = mb + 24u + kk;
+    let n_entries = sched_meta[mb + kk];
+    let ebase = sched_off.w + sched_meta[eidx];
     let M_partials = params.w;
 
     let role = sgid & 1u;

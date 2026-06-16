@@ -6868,8 +6868,13 @@ fn fr_select_f8(a: array<u32, 8>, b: array<u32, 8>, cond: bool) -> array<u32, 8>
 fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let k = lvl.x;
     let mb = sched_off.x;
-    let n_entries = sched_meta[mb + (k - 1u)];
-    let ebase = sched_off.w + sched_meta[mb + 24u + (k - 1u)];
+    // Hoist the entry-base index: Adreno miscompiles the inline subscript
+    // sched_meta[mb + 24u + (k - 1u)] (wrong element -> wrong ebase -> all-wrong
+    // on S25+). See sched_coop2 for the same fix.
+    let kk = k - 1u;
+    let eidx = mb + 24u + kk;
+    let n_entries = sched_meta[mb + kk];
+    let ebase = sched_off.w + sched_meta[eidx];
     let M_partials = params.w;
     let base = gid.x * S;
 
@@ -7048,8 +7053,20 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
         @builtin(subgroup_invocation_id) sgid: u32) {
     let k = lvl.x;
     let mb = sched_off.x;
-    let n_entries = sched_meta[mb + (k - 1u)];
-    let ebase = sched_off.w + sched_meta[mb + 24u + (k - 1u)];
+    // ADRENO COMPILER BUG — keep these indices hoisted into their own \`let\`s;
+    // do NOT fold them back into the sched_meta[...] subscripts. The Adreno
+    // (Qualcomm) WGSL compiler miscompiles a storage-buffer subscript whose
+    // index is an *inline* expression built from uniform-buffer reads (here
+    // mb = sched_off.x and k = lvl.x): \`sched_meta[mb + 24u + (k - 1u)]\` resolves
+    // to the WRONG element, so ebase is wrong, every schedule entry then reads
+    // the wrong point slots, and the whole MSM is silently wrong on the S25+
+    // (it is correct on Apple/Mali). Materialising the index in a \`let\` first
+    // makes the driver get it right. Apply this same hoist to any new
+    // uniform-derived storage index — see sched_affine / sched_normalize.
+    let kk = k - 1u;
+    let eidx = mb + 24u + kk;
+    let n_entries = sched_meta[mb + kk];
+    let ebase = sched_off.w + sched_meta[eidx];
     let M_partials = params.w;
 
     let role = sgid & 1u;
@@ -7141,7 +7158,11 @@ fn fr_select_f8(a: array<u32, 8>, b: array<u32, 8>, cond: bool) -> array<u32, 8>
 fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let mb = sched_off.x;
     let n_roots = sched_meta[mb + 19u];
-    let total_entries = sched_meta[mb + 24u + (MAX_LAYERS - 1u)] + sched_meta[mb + (MAX_LAYERS - 1u)];
+    // Hoist the composed index: Adreno miscompiles the inline subscript
+    // sched_meta[mb + 24u + (MAX_LAYERS - 1u)]. See sched_coop2 for the same fix.
+    let lastL = MAX_LAYERS - 1u;
+    let teidx = mb + 24u + lastL;
+    let total_entries = sched_meta[teidx] + sched_meta[mb + lastL];
     let nbase = sched_off.w + total_entries;
     let M_partials = params.w;
     let base = gid.x * C;

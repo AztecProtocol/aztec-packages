@@ -57,8 +57,13 @@ fn fr_select_f8(a: array<u32, 8>, b: array<u32, 8>, cond: bool) -> array<u32, 8>
 fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let k = lvl.x;
     let mb = sched_off.x;
-    let n_entries = sched_meta[mb + (k - 1u)];
-    let ebase = sched_off.w + sched_meta[mb + 24u + (k - 1u)];
+    // Hoist the entry-base index: Adreno miscompiles the inline subscript
+    // sched_meta[mb + 24u + (k - 1u)] (wrong element -> wrong ebase -> all-wrong
+    // on S25+). See sched_coop2 for the same fix.
+    let kk = k - 1u;
+    let eidx = mb + 24u + kk;
+    let n_entries = sched_meta[mb + kk];
+    let ebase = sched_off.w + sched_meta[eidx];
     let M_partials = params.w;
     let base = gid.x * S;
 
