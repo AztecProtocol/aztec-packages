@@ -42,13 +42,15 @@ function build {
 }
 
 function test_cmds {
-  echo "$hash:CPUS=1:TIMEOUT=120s ipc-runtime/scripts/run_tests.sh"
+  echo "$hash:CPUS=1:TIMEOUT=120s ipc-runtime/cpp/build/ipc_runtime_tests"
+  echo "$hash:CPUS=4:TIMEOUT=300s ipc-runtime/scripts/run_rust_tests.sh"
+  echo "$hash:CPUS=1:TIMEOUT=120s ipc-runtime/scripts/run_ts_tests.sh"
 }
 
 function test {
   echo_header "ipc-runtime test"
   build
-  "$BUILD_DIR"/ipc_runtime_tests
+  test_cmds | filter_test_cmds | parallelize
 }
 
 function clean {

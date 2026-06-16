@@ -280,6 +280,57 @@ fn main() {
         }
     );
 
+    // ============ Blob / fail / error cases ============
+
+    check_request!("echo_blobs_request.msgpack", EchoBlobs, |v: &EchoBlobs| {
+        if v.maybe_data != Some(vec![0xAA, 0xBB]) || v.parts != [vec![1u8, 2, 3], vec![4]] {
+            Err("blobs".into())
+        } else {
+            Ok(())
+        }
+    });
+    check_request!("echo_blobs_none.msgpack", EchoBlobs, |v: &EchoBlobs| {
+        if v.maybe_data.is_some() || v.parts != [Vec::<u8>::new(), vec![9]] {
+            Err("expected maybeData=None + [[], [9]]".into())
+        } else {
+            Ok(())
+        }
+    });
+    check_response!(
+        "echo_blobs_response.msgpack",
+        EchoBlobsResponse,
+        |v: &EchoBlobsResponse| {
+            if v.maybe_data != Some(vec![0xAA, 0xBB]) || v.parts != [vec![1u8, 2, 3], vec![4]] {
+                Err("blobs".into())
+            } else {
+                Ok(())
+            }
+        }
+    );
+    check_request!("echo_fail_request.msgpack", EchoFail, |v: &EchoFail| {
+        if v.message != "deliberate failure" {
+            Err(format!("message mismatch: {:?}", v.message))
+        } else {
+            Ok(())
+        }
+    });
+    check_response!(
+        "echo_fail_response.msgpack",
+        EchoFailResponse,
+        |_v: &EchoFailResponse| Ok(())
+    );
+    check_response!(
+        "echo_error_response.msgpack",
+        EchoErrorResponse,
+        |v: &EchoErrorResponse| {
+            if v.message != "deliberate failure" {
+                Err(format!("message mismatch: {:?}", v.message))
+            } else {
+                Ok(())
+            }
+        }
+    );
+
     eprintln!("\nResults: {pass}/{} passed, {fail} failed", pass + fail);
     if fail > 0 {
         std::process::exit(1);

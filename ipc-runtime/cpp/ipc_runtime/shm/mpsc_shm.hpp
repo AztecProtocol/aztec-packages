@@ -24,13 +24,10 @@ namespace ipc {
  * Carefully aligned to avoid false sharing between producer and consumer.
  */
 struct alignas(64) MpscDoorbell {
-    // Producer-written (written by producers in publish())
+    // Producer-written (written by producers in publish()). Consumers wait on
+    // this seq with a futex; producers bump it and wake unconditionally.
     alignas(64) std::atomic<uint32_t> seq;
     std::array<uint8_t, 60> _pad0;
-
-    // Consumer-written (written by consumer in wait_for_data())
-    alignas(64) std::atomic<bool> consumer_blocked; // Set RIGHT BEFORE futex_wait, cleared RIGHT AFTER
-    std::array<uint8_t, 63> _pad1;
 };
 
 /**
@@ -70,7 +67,7 @@ class MpscConsumer {
      * @param timeout_ns Total timeout in nanoseconds (spins 10ms, then futex waits for remainder)
      * @return Ring index with data, or -1 on timeout
      */
-    int wait_for_data(uint32_t timeout_ns);
+    int wait_for_data(uint64_t timeout_ns);
 
     /**
      * @brief Peek data from specific ring
@@ -79,7 +76,7 @@ class MpscConsumer {
      * @param timeout_ns Timeout in nanoseconds
      * @return Pointer to data, or nullptr on timeout
      */
-    void* peek(size_t ring_idx, size_t want, uint32_t timeout_ns);
+    void* peek(size_t ring_idx, size_t want, uint64_t timeout_ns);
 
     /**
      * @brief Release data from specific ring
@@ -134,7 +131,7 @@ class MpscProducer {
      * @param timeout_ns Timeout in nanoseconds
      * @return Pointer to buffer, or nullptr on timeout
      */
-    void* claim(size_t want, uint32_t timeout_ns);
+    void* claim(size_t want, uint64_t timeout_ns);
 
     /**
      * @brief Publish data to producer's ring (rings doorbell)

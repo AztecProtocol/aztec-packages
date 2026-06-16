@@ -11,8 +11,16 @@ path = "src/echo_server.rs"
 name = "echo_client"
 path = "src/echo_client.rs"
 
+[features]
+default = ["ipc-runtime"]
+ipc-runtime = ["dep:ipc-runtime"]
+# Compile-checks the generated FFI backend (no real FFI library is linked;
+# the extern symbol is only required at link time of a consumer binary).
+ffi = ["dep:libc"]
+
 [dependencies]
 rmp-serde = "1.1"
 serde = { version = "1.0", features = ["derive"] }
 thiserror = "1.0"
-ipc-runtime = { path = "../../../ipc-runtime/rust" }
+ipc-runtime = { path = "../../../ipc-runtime/rust", optional = true }
+libc = { version = "0.2", optional = true }

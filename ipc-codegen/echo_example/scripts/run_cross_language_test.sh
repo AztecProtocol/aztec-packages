@@ -4,7 +4,7 @@
 # All binaries are expected to be prebuilt by `ipc-codegen/bootstrap.sh build`.
 #
 # Usage:
-#   run_cross_language_test.sh golden <lang>            # lang in {rust, ts}
+#   run_cross_language_test.sh golden <lang>            # lang in {rust, ts, cpp, zig}
 #   run_cross_language_test.sh matrix <server-lang> <client-lang> [transport]
 #                                                       # langs in {rust, ts, cpp, zig}
 #                                                       # transport in {uds, shm}, default uds
@@ -15,8 +15,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-EXAMPLES_DIR="$(dirname "$SCRIPT_DIR")"
-cd "$EXAMPLES_DIR"
+EXAMPLE_DIR="$(dirname "$SCRIPT_DIR")"
+cd "$EXAMPLE_DIR"
 
 # Map language -> server command / client command. Each command is run with
 # `--socket <path>` appended.
@@ -49,8 +49,14 @@ run_golden() {
     ts)
       ts/node_modules/.bin/tsx ts/src/golden_test.ts
       ;;
+    cpp)
+      cpp/build/bin/golden_test --golden-dir schema/golden
+      ;;
+    zig)
+      zig/zig-out/bin/golden_test --golden-dir schema/golden
+      ;;
     *)
-      echo "golden tests only defined for rust and ts (got: $lang)" >&2
+      echo "golden tests only defined for rust, ts, cpp and zig (got: $lang)" >&2
       exit 1
       ;;
   esac

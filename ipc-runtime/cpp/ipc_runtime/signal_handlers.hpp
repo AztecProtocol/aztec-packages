@@ -4,8 +4,10 @@
  * @brief Default lifecycle signal handlers for IPC servers.
  *
  * Wires:
- *   - SIGTERM / SIGINT → IpcServer::request_shutdown() (graceful drain)
- *   - SIGBUS / SIGSEGV → IpcServer::close() + exit(1)
+ *   - SIGTERM / SIGINT → IpcServer::request_shutdown_from_signal()
+ *     (graceful drain; the run() loop exits on its next poll iteration)
+ *   - SIGBUS / SIGSEGV → best-effort unlink of the server's socket/SHM
+ *     files (cached at install time) + _Exit(128 + sig)
  *   - Parent-process death watch via prctl(PR_SET_PDEATHSIG) on Linux
  *     and a kqueue NOTE_EXIT watcher on macOS — so spawn-and-forget
  *     services die with their parent rather than turning into orphans.

@@ -33,6 +33,11 @@ MsgpackClientAsync::MsgpackClientAsync(const Napi::CallbackInfo& info)
     }
 }
 
+MsgpackClientAsync::~MsgpackClientAsync()
+{
+    close_internal();
+}
+
 Napi::Value MsgpackClientAsync::setResponseCallback(const Napi::CallbackInfo& info)
 {
     Napi::Env env = info.Env();
@@ -44,10 +49,8 @@ Napi::Value MsgpackClientAsync::setResponseCallback(const Napi::CallbackInfo& in
     // Store callback for lazy TSFN creation in acquire().
     js_callback_ = Napi::Persistent(info[0].As<Napi::Function>());
 
-    // Start the response poller. Detached — runs until process exit; no need
-    // for explicit shutdown.
+    // Start the response poller. Joined by close().
     poll_thread_ = std::thread(&MsgpackClientAsync::poll_responses, this);
-    poll_thread_.detach();
 
     return env.Undefined();
 }
@@ -56,10 +59,12 @@ void MsgpackClientAsync::poll_responses()
 {
     constexpr uint64_t TIMEOUT_NS = 1'000'000'000; // 1s
 
-    while (true) {
+    while (!shutdown_.load(std::memory_order_acquire)) {
         std::span<const uint8_t> response = client_->receive(TIMEOUT_NS);
-        if (response.empty()) {
-            continue; // timeout — keep polling
+        // data() == nullptr means timeout; a non-null empty span is a valid
+        // zero-length response and must be delivered.
+        if (response.data() == nullptr) {
+            continue; // timeout — keep polling (and re-check shutdown)
         }
 
         // Copy out — span is invalidated by release().
@@ -67,6 +72,14 @@ void MsgpackClientAsync::poll_responses()
         client_->release(response.size());
 
         std::lock_guard<std::mutex> lock(tsfn_mutex_);
+        // Only call into the TSFN while a reference is held (ref_count_ > 0).
+        // Calling a released TSFN — or the default-constructed one before the
+        // first acquire(), e.g. for a stale response already in the ring — is
+        // undefined behaviour.
+        if (ref_count_ == 0) {
+            delete response_data;
+            continue;
+        }
         auto status = tsfn_.NonBlockingCall(
             response_data, [](Napi::Env env, Napi::Function js_callback, std::vector<uint8_t>* data) {
                 auto js_buffer = Napi::Buffer<uint8_t>::Copy(env, data->data(), data->size());
@@ -87,13 +100,17 @@ Napi::Value MsgpackClientAsync::call(const Napi::CallbackInfo& info)
     if (info.Length() < 1 || !info[0].IsBuffer()) {
         throw Napi::TypeError::New(env, "First argument must be a Buffer");
     }
+    if (shutdown_.load(std::memory_order_acquire)) {
+        throw Napi::Error::New(env, "Client is closed");
+    }
 
     auto input_buffer = info[0].As<Napi::Buffer<uint8_t>>();
     const uint8_t* input_data = input_buffer.Data();
     size_t input_len = input_buffer.Length();
 
-    // Non-blocking write (timeout_ns=0). TS owns the promise queue.
-    if (!client_->send(input_data, input_len, 0)) {
+    // Single non-blocking attempt: claim() treats timeout 1 as an immediate
+    // check (0 would be normalized to infinite). TS owns the promise queue.
+    if (!client_->send(input_data, input_len, 1)) {
         throw Napi::Error::New(env, "Failed to send request, ring buffer full. Make it bigger?");
     }
 
@@ -120,11 +137,46 @@ Napi::Value MsgpackClientAsync::acquire(const Napi::CallbackInfo& info)
 Napi::Value MsgpackClientAsync::release(const Napi::CallbackInfo& info)
 {
     std::lock_guard<std::mutex> lock(tsfn_mutex_);
+    if (ref_count_ == 0) {
+        return info.Env().Undefined(); // Unbalanced release — ignore
+    }
     ref_count_--;
     if (ref_count_ == 0) {
         tsfn_.Release(); // 1 → 0
     }
     return info.Env().Undefined();
+}
+
+Napi::Value MsgpackClientAsync::close(const Napi::CallbackInfo& info)
+{
+    close_internal();
+    return info.Env().Undefined();
+}
+
+void MsgpackClientAsync::close_internal()
+{
+    if (shutdown_.exchange(true, std::memory_order_acq_rel)) {
+        return; // Already closed
+    }
+    // Wake the poll thread out of a blocking receive, then join it.
+    if (client_) {
+        client_->wakeup();
+    }
+    if (poll_thread_.joinable()) {
+        poll_thread_.join();
+    }
+    {
+        std::lock_guard<std::mutex> lock(tsfn_mutex_);
+        // Release the TSFN reference held on behalf of in-flight calls —
+        // otherwise the libuv loop stays referenced and Node never exits.
+        if (ref_count_ > 0) {
+            ref_count_ = 0;
+            tsfn_.Release();
+        }
+    }
+    if (client_) {
+        client_->close();
+    }
 }
 
 Napi::Function MsgpackClientAsync::get_class(Napi::Env env)
@@ -137,6 +189,7 @@ Napi::Function MsgpackClientAsync::get_class(Napi::Env env)
             MsgpackClientAsync::InstanceMethod("call", &MsgpackClientAsync::call),
             MsgpackClientAsync::InstanceMethod("acquire", &MsgpackClientAsync::acquire),
             MsgpackClientAsync::InstanceMethod("release", &MsgpackClientAsync::release),
+            MsgpackClientAsync::InstanceMethod("close", &MsgpackClientAsync::close),
         });
 }
 

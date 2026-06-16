@@ -29,13 +29,11 @@ struct alignas(SPSC_CACHELINE) SpscCtrl {
     // Producer-owned (written by producer, read by consumer)
     alignas(SPSC_CACHELINE) std::atomic<uint64_t> head; // bytes written
     uint64_t wrap_head; // Head value when last message wrapped (UINT64_MAX = no wrap), synchronized by head
-    std::atomic<bool> producer_blocked; // Written by producer in wait_for_space()
-    std::array<char, SPSC_CACHELINE - sizeof(head) - sizeof(wrap_head) - sizeof(producer_blocked)> _pad0;
+    std::array<char, SPSC_CACHELINE - sizeof(head) - sizeof(wrap_head)> _pad0;
 
     // Consumer-owned (written by consumer, read by producer)
     alignas(SPSC_CACHELINE) std::atomic<uint64_t> tail; // bytes consumed
-    std::atomic<bool> consumer_blocked;                 // Written by consumer in wait_for_data()
-    std::array<char, SPSC_CACHELINE - sizeof(tail) - sizeof(consumer_blocked)> _pad1;
+    std::array<char, SPSC_CACHELINE - sizeof(tail)> _pad1;
 
     // Immutable capacity information
     alignas(SPSC_CACHELINE) uint64_t capacity; // power of two
@@ -115,7 +113,7 @@ class SpscShm {
      * IMPORTANT: The size passed to claim(want) must exactly match the size passed to the
      * corresponding peek(want) call by the consumer. Otherwise wrap decisions will be inconsistent.
      */
-    void* claim(size_t want, uint32_t timeout_ns);
+    void* claim(size_t want, uint64_t timeout_ns);
 
     /**
      * @brief Publish n bytes previously claimed
@@ -137,7 +135,7 @@ class SpscShm {
      * IMPORTANT: The size passed to peek(want) must exactly match the size passed to the
      * corresponding claim(want) call by the producer. Otherwise wrap decisions will be inconsistent.
      */
-    void* peek(size_t want, uint32_t timeout_ns);
+    void* peek(size_t want, uint64_t timeout_ns);
 
     /**
      * @brief Release n bytes previously peeked
@@ -156,8 +154,8 @@ class SpscShm {
      */
     void wakeup_all();
 
-    bool wait_for_data(size_t need, uint32_t spin_ns);
-    bool wait_for_space(size_t need, uint32_t spin_ns);
+    bool wait_for_data(size_t need, uint64_t timeout_ns);
+    bool wait_for_space(size_t need, uint64_t timeout_ns);
 
     /**
      * @brief Dump internal ring buffer state for debugging

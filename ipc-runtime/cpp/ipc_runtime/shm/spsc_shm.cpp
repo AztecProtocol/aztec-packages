@@ -147,8 +147,6 @@ SpscShm SpscShm::create(const std::string& name, size_t min_capacity)
     // Initialize atomics with release ordering to ensure capacity/mask/wrap_head are visible
     ctrl->head.store(0ULL, std::memory_order_release);
     ctrl->tail.store(0ULL, std::memory_order_release);
-    ctrl->consumer_blocked.store(false, std::memory_order_release);
-    ctrl->producer_blocked.store(false, std::memory_order_release);
 
     auto* buf = reinterpret_cast<uint8_t*>(ctrl + 1);
     return SpscShm(fd, map_len, ctrl, buf);
@@ -201,7 +199,7 @@ uint64_t SpscShm::available() const
     return head - tail;
 }
 
-void* SpscShm::claim(size_t want, uint32_t timeout_ns)
+void* SpscShm::claim(size_t want, uint64_t timeout_ns)
 {
     // Wait for contiguous space to be available
     if (!wait_for_space(want, timeout_ns)) {
@@ -241,17 +239,19 @@ void SpscShm::publish(size_t n)
         ctrl_->wrap_head = head;
     }
 
-    // Advance head atomically with release - synchronizes wrap_head write
+    // Advance head with release so the consumer's acquire load of head
+    // synchronizes with the data and wrap_head writes above.
     ctrl_->head.store(head + total_advance, std::memory_order_release);
 
-    if (ctrl_->consumer_blocked.load(std::memory_order_acquire)) {
-        // Ensure that head update is visible before waking consumer.
-        std::atomic_thread_fence(std::memory_order_release);
-        futex_wake(reinterpret_cast<volatile uint32_t*>(&ctrl_->head), 1);
-    }
+    // Wake any blocked consumer unconditionally: futex_wake with no waiter is a
+    // cheap no-op, and the consumer's head value-check keeps the fast path
+    // syscall-free. Do not gate the wake on a "consumer blocked" flag — that
+    // cross-process flag/head handshake races and can drop the wake, stranding
+    // the consumer asleep on already-published data.
+    futex_wake(reinterpret_cast<volatile uint32_t*>(&ctrl_->head), 1);
 }
 
-void* SpscShm::peek(size_t want, uint32_t timeout_ns)
+void* SpscShm::peek(size_t want, uint64_t timeout_ns)
 {
     // Wait for contiguous data to be available
     if (!wait_for_data(want, timeout_ns)) {
@@ -303,19 +303,17 @@ void SpscShm::release(size_t n)
     uint64_t new_tail = tail + total_release;
     ctrl_->tail.store(new_tail, std::memory_order_release);
 
-    if (ctrl_->producer_blocked.load(std::memory_order_acquire)) {
-        // Ensure that tail update is visible before waking producer.
-        std::atomic_thread_fence(std::memory_order_release);
-        futex_wake(reinterpret_cast<volatile uint32_t*>(&ctrl_->tail), 1);
-    }
+    // Wake any producer blocked on a full ring, unconditionally — see publish()
+    // for why the wake is never gated on a "producer blocked" flag.
+    futex_wake(reinterpret_cast<volatile uint32_t*>(&ctrl_->tail), 1);
 }
 
-bool SpscShm::wait_for_data(size_t need, uint32_t timeout_ns)
+bool SpscShm::wait_for_data(size_t need, uint64_t timeout_ns)
 {
     uint64_t cap = ctrl_->capacity;
     uint64_t mask = ctrl_->mask;
 
-    // Check if we need contiguous data that would wrap
+    // Check if we need contiguous data that would wrap.
     auto check_available = [this, cap, mask, need]() -> bool {
         uint64_t head = ctrl_->head.load(std::memory_order_acquire);
         uint64_t tail = ctrl_->tail.load(std::memory_order_relaxed);
@@ -394,27 +392,28 @@ bool SpscShm::wait_for_data(size_t need, uint32_t timeout_ns)
         return false;
     }
 
-    // About to block - load seq, final check, then block
+    // About to block. Capture the head value we're waiting to change and arm the
+    // futex against it. The producer wakes unconditionally on every publish (see
+    // publish()), and futex_wait re-checks *head == head_now atomically under the
+    // futex bucket lock, so a publish that lands between this load and the
+    // syscall returns EAGAIN immediately rather than sleeping. No separate
+    // "blocked" flag is involved — the arm-value and the producer's wake are the
+    // whole protocol.
     uint32_t head_now = static_cast<uint32_t>(ctrl_->head.load(std::memory_order_acquire));
 
-    ctrl_->consumer_blocked.store(true, std::memory_order_release);
-
     if (check_available()) {
-        ctrl_->consumer_blocked.store(false, std::memory_order_relaxed);
         previous_had_data_ = true; // Found data before blocking
         return true;
     }
 
-    // Wait on futex for producer to signal new data
     futex_wait_timeout(reinterpret_cast<volatile uint32_t*>(&ctrl_->head), head_now, remaining_timeout);
-    ctrl_->consumer_blocked.store(false, std::memory_order_relaxed);
 
     bool result = check_available();
     previous_had_data_ = result; // Update flag based on final result
     return result;
 }
 
-bool SpscShm::wait_for_space(size_t need, uint32_t timeout_ns)
+bool SpscShm::wait_for_space(size_t need, uint64_t timeout_ns)
 {
     uint64_t cap = ctrl_->capacity;
     uint64_t mask = ctrl_->mask;
@@ -498,20 +497,19 @@ bool SpscShm::wait_for_space(size_t need, uint32_t timeout_ns)
         return false;
     }
 
-    // About to block - load seq, final check, then block
+    // About to block. Arm the futex against the current tail; release() wakes
+    // unconditionally and futex_wait re-checks *tail == tail_now atomically, so a
+    // release between this load and the syscall returns EAGAIN rather than
+    // sleeping. Mirrors wait_for_data — the arm-value plus the unconditional wake
+    // are the whole protocol.
     uint32_t tail_now = static_cast<uint32_t>(ctrl_->tail.load(std::memory_order_acquire));
 
-    // Wait on futex for consumer to signal freed space
-    ctrl_->producer_blocked.store(true, std::memory_order_release);
-
     if (check_space()) {
-        ctrl_->producer_blocked.store(false, std::memory_order_relaxed);
         previous_had_space_ = true; // Found space before blocking
         return true;
     }
 
     futex_wait_timeout(reinterpret_cast<volatile uint32_t*>(&ctrl_->tail), tail_now, remaining_timeout);
-    ctrl_->producer_blocked.store(false, std::memory_order_relaxed);
 
     bool result = check_space();
     previous_had_space_ = result; // Update flag based on final result

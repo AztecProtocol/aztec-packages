@@ -11,7 +11,6 @@ $NODE "$CODEGEN/src/generate.ts" \
   --lang ts \
   --server \
   --client \
-  --uds \
   --out "$DIR/src/generated" \
   --prefix Echo
 
@@ -19,3 +18,4 @@ $NODE "$CODEGEN/src/generate.ts" \
 (cd "$REPO_ROOT/ipc-runtime/ts" && yarn install --immutable && yarn build)
 rm -rf "$DIR/node_modules"
 (cd "$DIR" && npm install --no-package-lock --quiet)
+(cd "$DIR" && node_modules/.bin/tsc --noEmit)

@@ -44,9 +44,14 @@ pub trait Backend {
 }
 
 // Bridge impl so ipc_runtime::IpcClient (UDS / MPSC-SHM transport) plugs
-// directly into any generated <Service>Api as the Backend. Consumers using
-// only the FFI backend can ignore this — it requires the `ipc-runtime`
-// crate to be a dependency of the consumer's Cargo.toml.
+// directly into any generated <Service>Api as the Backend. Gated behind the
+// consumer crate's `ipc-runtime` feature so FFI-only consumers don't need
+// the ipc-runtime dependency at all:
+//
+//     [features]
+//     default = ["ipc-runtime"]
+//     ipc-runtime = ["dep:ipc-runtime"]
+#[cfg(feature = "ipc-runtime")]
 impl Backend for ipc_runtime::IpcClient {
     fn call(&mut self, input: &[u8]) -> Result<Vec<u8>> {
         ipc_runtime::IpcClient::call(self, input)

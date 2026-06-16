@@ -15,19 +15,13 @@ import type {
   Field,
   Command,
 } from "./schema_visitor.ts";
-import { toSnakeCase, toPascalCase } from "./naming.ts";
-
-// Convert a schema alias name into its Zig type name. Strips a trailing `_t`
-// (uint256_t → Uint256) and PascalCases the rest, so `fr` → `Fr`,
-// `secp256k1_fr` → `Secp256k1Fr`, `uint256_t` → `Uint256`.
-function toAliasName(name: string): string {
-  const trimmed = name.endsWith("_t") ? name.slice(0, -2) : name;
-  return toPascalCase(trimmed);
-}
+import { toSnakeCase, toPascalCase, toAliasName, dedupeStructsByName } from "./naming.ts";
 
 export interface ZigCodegenOptions {
-  /** Service prefix to strip from method names (e.g., 'Wsdb') */
+  /** Type prefix (e.g., 'Wsdb') */
   prefix?: string;
+  /** Strip the prefix from method names, e.g. WsdbGetLeaf -> get_leaf */
+  stripMethodPrefix?: boolean;
   /** Client struct name (e.g., 'WsdbClient') */
   clientName?: string;
 }
@@ -40,6 +34,7 @@ export class ZigCodegen {
     this.opts = {
       prefix: options?.prefix ?? "",
       clientName: options?.clientName ?? "Client",
+      stripMethodPrefix: options?.stripMethodPrefix ?? false,
     };
   }
 
@@ -150,13 +145,13 @@ export class ZigCodegen {
           case "bool":
             return `try ${payloadExpr}.asBool()`;
           case "u8":
-            return `@intCast(try ${payloadExpr}.asUint())`;
+            return `try payloadCastUint(u8, ${payloadExpr})`;
           case "u16":
-            return `@intCast(try ${payloadExpr}.asUint())`;
+            return `try payloadCastUint(u16, ${payloadExpr})`;
           case "u32":
-            return `@intCast(try ${payloadExpr}.asUint())`;
+            return `try payloadCastUint(u32, ${payloadExpr})`;
           case "u64":
-            return `try ${payloadExpr}.asUint()`;
+            return `try payloadCastUint(u64, ${payloadExpr})`;
           case "f64":
             return `try ${payloadExpr}.asFloat()`;
           case "string":
@@ -262,46 +257,6 @@ ${fromPayloadFields}
 };`;
   }
 
-  /** Generate serialize function for a struct */
-  private generateSerializeFn(struct: Struct): string {
-    const zigName = toPascalCase(struct.name);
-    const fieldCount = struct.fields.length;
-
-    const fieldPacks = struct.fields
-      .map((f) => {
-        const zigFieldName = toSnakeCase(f.name);
-        return `    try packField(packer, "${f.name}", self.${zigFieldName});`;
-      })
-      .join("\n");
-
-    return `pub fn serialize${zigName}(self: ${zigName}, packer: anytype) !void {
-    try packer.writeMapHeader(${fieldCount});
-${fieldPacks}
-}`;
-  }
-
-  /** Generate deserialize function for a struct */
-  private generateDeserializeFn(struct: Struct): string {
-    const zigName = toPascalCase(struct.name);
-
-    const fieldReads = struct.fields
-      .map((f) => {
-        const zigFieldName = toSnakeCase(f.name);
-        const zigType = this.mapType(f.type);
-        return `        .${zigFieldName} = try readField(${zigType}, unpacker, "${f.name}"),`;
-      })
-      .join("\n");
-
-    return `pub fn deserialize${zigName}(unpacker: anytype, allocator: std.mem.Allocator) !${zigName} {
-    _ = allocator;
-    const map_len = try unpacker.readMapHeader();
-    _ = map_len;
-    return ${zigName}{
-${fieldReads}
-    };
-}`;
-  }
-
   /** Generate the Command tagged union */
   private generateCommandUnion(schema: CompiledSchema): string {
     const variants = schema.commands
@@ -334,7 +289,7 @@ ${nameMap}
     const commandResponseTypes = Array.from(
       new Set(schema.commands.map((c) => c.responseType)),
     );
-    const errorName = schema.errorTypeName || "ErrorResponse";
+    const errorName = schema.errorTypeName;
     const responseTypes = schema.responses.has(errorName)
       ? [...commandResponseTypes, errorName]
       : commandResponseTypes;
@@ -354,12 +309,12 @@ ${variants}
 
   /** Generate the types file */
   generateTypes(schema: CompiledSchema, schemaHash?: string): string {
-    this.errorTypeName = schema.errorTypeName || "ErrorResponse";
+    this.errorTypeName = schema.errorTypeName;
 
-    const allStructs = [
+    const allStructs = dedupeStructsByName([
       ...schema.structs.values(),
       ...schema.responses.values(),
-    ];
+    ]);
 
     const aliasTypes = new Map<string, string>();
     const collect = (type: Type): void => {
@@ -406,6 +361,18 @@ const msgpack = @import("msgpack");
 const Payload = msgpack.Payload;
 const PackerIO = msgpack.PackerIO;
 ${hashLine}
+/// Decode an unsigned wire integer with range checking. Accepts both msgpack
+/// uint and non-negative int encodings: some encoders (e.g. msgpackr via
+/// bigint) emit positive values with the signed int64 (0xd3) format.
+pub fn payloadCastUint(comptime T: type, payload: Payload) !T {
+    const wide: u64 = switch (payload) {
+        .uint => |v| v,
+        .int => |v| if (v >= 0) @as(u64, @intCast(v)) else return error.InvalidType,
+        else => return error.InvalidType,
+    };
+    return std.math.cast(T, wide) orelse error.InvalidType;
+}
+
 // ---------------------------------------------------------------------------
 // Primitive schema aliases. Bin32 aliases use [32]u8 and are encoded as
 // msgpack bin32 by fieldToPayload / fieldFromPayload; scalar aliases use
@@ -430,10 +397,12 @@ ${this.generateResponseUnion(schema)}
 `;
   }
 
-  /** Strip service prefix from command name for method naming */
+  /** Convert a command name to a Zig method name (snake_case) */
   private methodName(commandName: string): string {
     const withoutPrefix =
-      this.opts.prefix && commandName.startsWith(this.opts.prefix)
+      this.opts.stripMethodPrefix &&
+      this.opts.prefix &&
+      commandName.startsWith(this.opts.prefix)
         ? commandName.slice(this.opts.prefix.length)
         : commandName;
     return toSnakeCase(withoutPrefix);
@@ -441,7 +410,7 @@ ${this.generateResponseUnion(schema)}
 
   /** Generate the client wrapper — typed methods parameterized on backend type */
   generateClient(schema: CompiledSchema): string {
-    this.errorTypeName = schema.errorTypeName || "ErrorResponse";
+    this.errorTypeName = schema.errorTypeName;
     const { prefix } = this.opts;
     const errorRespName = toPascalCase(this.errorTypeName);
     const typesFile = `${toSnakeCase(prefix)}_types.zig`;
@@ -457,7 +426,10 @@ ${this.generateResponseUnion(schema)}
             const response_bytes = try self.backend.call(request_bytes);
             defer alloc.free(response_bytes);
             const resp_name, const resp_payload = try Self.decode(response_bytes);
-            if (std.mem.eql(u8, resp_name, "${this.errorTypeName}")) return error.ServerError;
+            if (std.mem.eql(u8, resp_name, "${this.errorTypeName}")) {
+                self.last_server_error = extractErrorMessage(resp_payload);
+                return error.ServerError;
+            }
             return try types.${zigRespName}.fromPayload(resp_payload);
         }`;
       })
@@ -484,6 +456,10 @@ pub fn Client(comptime BackendType: type) type {
     return struct {
         const Self = @This();
         backend: *BackendType,
+        /// Message from the most recent server error response. Zig errors
+        /// carry no payload, so error.ServerError callers read this for the
+        /// server's diagnostic. Valid until the next call on this client.
+        last_server_error: ?[]const u8 = null,
 
         pub fn init(backend: *BackendType) Self {
             return .{ .backend = backend };
@@ -522,56 +498,51 @@ ${methods}
         }
     };
 }
+
+fn extractErrorMessage(payload: Payload) ?[]const u8 {
+    const msg = (payload.mapGet("message") catch return null) orelse return null;
+    return msg.asStr() catch null;
+}
 `;
   }
 
-  /** Generate the server wrapper — dispatch + stub handlers over generic IPC server */
+  /** Generate the server wrapper — typed dispatch parameterized on a handler type */
   generateServer(schema: CompiledSchema): string {
-    this.errorTypeName = schema.errorTypeName || "ErrorResponse";
+    this.errorTypeName = schema.errorTypeName;
     const { prefix } = this.opts;
-    const errorRespName = toPascalCase(this.errorTypeName);
     const typesFile = `${toSnakeCase(prefix)}_types.zig`;
+
+    const handlerMethodNames = schema.commands.map((c) =>
+      this.methodName(c.name),
+    );
 
     // Dispatch cases: match command name → deserialize → call handler → serialize response
     const dispatchCases = schema.commands
       .map((c) => {
         const methodName = this.methodName(c.name);
         const zigCmdName = toPascalCase(c.name);
-        const zigRespName = toPascalCase(c.responseType);
-        return `        if (std.mem.eql(u8, cmd_name, "${c.name}")) {
-            const cmd = types.${zigCmdName}.fromPayload(cmd_fields) catch return makeError("deser failed");
-            const resp = ${methodName}(cmd) catch return makeError("not implemented: ${c.name}");
-            return .{ .resp_name = "${c.responseType}", .resp_payload = resp.toPayload(alloc) };
-        }`;
+        return `            if (std.mem.eql(u8, cmd_name, "${c.name}")) {
+                const cmd = types.${zigCmdName}.fromPayload(cmd_fields) catch |err| return makeErrorFmt("decode of ${c.name} failed: {s}", .{@errorName(err)});
+                const resp = self.handler.${methodName}(cmd) catch |err| return self.handlerError("${c.name}", err);
+                const resp_payload = resp.toPayload(alloc) catch |err| return makeErrorFmt("encode of ${c.responseType} failed: {s}", .{@errorName(err)});
+                return .{ .resp_name = "${c.responseType}", .resp_payload = resp_payload };
+            }`;
       })
       .join("\n");
 
-    // Stub handler functions
-    const stubs = schema.commands
-      .map((c) => {
-        const methodName = this.methodName(c.name);
-        const zigCmdName = toPascalCase(c.name);
-        const zigRespName = toPascalCase(c.responseType);
-        return `/// TODO: implement ${c.name}
-fn ${methodName}(cmd: types.${zigCmdName}) !types.${zigRespName} {
-    _ = cmd;
-    return error.NotImplemented;
-}`;
-      })
-      .join("\n\n");
-
     return `//! AUTOGENERATED - DO NOT EDIT
-//! ${prefix} IPC server — typed dispatch + stub handlers.
+//! ${prefix} IPC server — typed dispatch parameterized on a handler type.
 //!
-//! Wire this dispatcher into the transport of your choice. The recommended
-//! path is @import("ipc_runtime"):
+//! The handler is any type with one method per command:
+//!     pub fn ${handlerMethodNames[0] ?? "command"}(self: *@This(), cmd: types.${toPascalCase(schema.commands[0]?.name ?? "Command")}) !types.${toPascalCase(schema.commands[0]?.responseType ?? "Response")}
+//! Handler failures are wrapped into the schema error variant.
 //!
+//! Wire it into a transport, e.g. @import("ipc_runtime"):
+//!
+//!     var dispatcher = Dispatcher(MyHandler).init(&handler);
 //!     var server = try ipc_runtime.Server.fromPath(path);
 //!     try server.listen();
-//!     server.run(*MyCtx, &ctx, byteHandler);
-//!
-//! Where \`byteHandler\` calls \`dispatch(cmd_name, fields)\` on the decoded
-//! [name, payload] msgpack request. See the echo example for the full shape.
+//!     server.run(*Dispatcher(MyHandler), &dispatcher, Dispatcher(MyHandler).handleRequest);
 
 const std = @import("std");
 const msgpack = @import("msgpack");
@@ -580,190 +551,109 @@ const types = @import("${typesFile}");
 
 const alloc = std.heap.page_allocator;
 
-/// Result of dispatching one command. The caller msgpack-encodes
-/// [resp_name, resp_payload] and returns the resulting bytes to the
-/// transport.
-pub const DispatchResult = struct { resp_name: []const u8, resp_payload: anyerror!Payload };
+/// Result of dispatching one command.
+pub const DispatchResult = struct { resp_name: []const u8, resp_payload: Payload };
 
-pub fn dispatch(cmd_name: []const u8, cmd_fields: Payload) DispatchResult {
-    // Command dispatch
+/// Comptime check that HandlerType has every command handler method.
+pub fn assertHandler(comptime HandlerType: type) void {
+${handlerMethodNames
+  .map(
+    (m) => `    if (!@hasDecl(HandlerType, "${m}")) {
+        @compileError(@typeName(HandlerType) ++ " is missing handler method '${m}'");
+    }`,
+  )
+  .join("\n")}
+}
+
+pub fn Dispatcher(comptime HandlerType: type) type {
+    comptime assertHandler(HandlerType);
+
+    return struct {
+        const Self = @This();
+        handler: *HandlerType,
+        // Per-request response scratch; freed on the next call. The transport
+        // contract requires the returned slice to stay valid until then.
+        resp_scratch: ?[]u8 = null,
+
+        pub fn init(handler: *HandlerType) Self {
+            return .{ .handler = handler };
+        }
+
+        /// Typed dispatch of a decoded [name, payload] command.
+        pub fn dispatch(self: *Self, cmd_name: []const u8, cmd_fields: Payload) DispatchResult {
 ${dispatchCases}
 
-    return makeError("unknown command");
+            return makeErrorFmt("unknown command: {s}", .{cmd_name});
+        }
+
+        /// Transport entry point: decode framed request bytes, dispatch, and
+        /// encode framed response bytes. All failures (malformed framing
+        /// included) produce the schema error variant.
+        pub fn handleRequest(self: *Self, client_id: i32, request_bytes: []const u8) []u8 {
+            _ = client_id;
+            if (self.resp_scratch) |prev| alloc.free(prev);
+            self.resp_scratch = null;
+
+            const parsed = parseRequest(request_bytes) catch |err| {
+                return self.encodeResponse(makeErrorFmt("malformed request: {s}", .{@errorName(err)}));
+            };
+            return self.encodeResponse(self.dispatch(parsed.cmd_name, parsed.cmd_fields));
+        }
+
+        /// Build the error variant for a failed handler call. Zig errors
+        /// carry no payload, so a handler can stash a rich diagnostic in an
+        /// optional \`error_message: ?[]const u8\` field on itself before
+        /// returning; otherwise the error name is used.
+        fn handlerError(self: *Self, command_name: []const u8, err: anyerror) DispatchResult {
+            if (comptime @hasField(HandlerType, "error_message")) {
+                if (self.handler.error_message) |message| {
+                    self.handler.error_message = null;
+                    return makeErrorFmt("{s}", .{message});
+                }
+            }
+            return makeErrorFmt("{s} failed: {s}", .{ command_name, @errorName(err) });
+        }
+
+        fn encodeResponse(self: *Self, result: DispatchResult) []u8 {
+            const bytes = encodeNamed(result.resp_name, result.resp_payload) catch
+                encodeNamed("${this.errorTypeName}", makeErrorFmt("response encode failed", .{}).resp_payload) catch
+                @panic("cannot encode error response");
+            self.resp_scratch = bytes;
+            return bytes;
+        }
+    };
 }
 
-fn makeError(message: []const u8) DispatchResult {
+const ParsedRequest = struct { cmd_name: []const u8, cmd_fields: Payload };
+
+fn parseRequest(request_bytes: []const u8) !ParsedRequest {
+    var reader = std.Io.Reader.fixed(request_bytes);
+    var unpacker = msgpack.PackerIO.init(&reader, undefined);
+    const request = try unpacker.read(alloc);
+    if (try request.getArrLen() != 1) return error.BadOuterArray;
+    const inner = try request.getArrElement(0);
+    if (try inner.getArrLen() != 2) return error.BadInnerArray;
+    const cmd_name = try (try inner.getArrElement(0)).asStr();
+    const cmd_fields = try inner.getArrElement(1);
+    return .{ .cmd_name = cmd_name, .cmd_fields = cmd_fields };
+}
+
+fn encodeNamed(name: []const u8, payload: Payload) ![]u8 {
+    var resp = try Payload.arrPayload(2, alloc);
+    try resp.setArrElement(0, try Payload.strToPayload(name, alloc));
+    try resp.setArrElement(1, payload);
+    var allocating_writer = std.Io.Writer.Allocating.init(alloc);
+    var packer = msgpack.PackerIO.init(undefined, &allocating_writer.writer);
+    try packer.write(resp);
+    return try allocating_writer.toOwnedSlice();
+}
+
+fn makeErrorFmt(comptime fmt: []const u8, args: anytype) DispatchResult {
+    const message = std.fmt.allocPrint(alloc, fmt, args) catch "error";
     var err_map = Payload.mapPayload(alloc);
-    err_map.mapPut("message", Payload.strToPayload(message, alloc) catch return .{ .resp_name = "${errorRespName}", .resp_payload = Payload.mapPayload(alloc) }) catch {};
-    return .{ .resp_name = "${errorRespName}", .resp_payload = err_map };
+    err_map.mapPut("message", Payload.strToPayload(message, alloc) catch Payload{ .nil = {} }) catch {};
+    return .{ .resp_name = "${this.errorTypeName}", .resp_payload = err_map };
 }
-
-// ---------------------------------------------------------------------------
-// Handler stubs — implement these to build your ${prefix} service.
-// ---------------------------------------------------------------------------
-
-${stubs}
-`;
-  }
-
-  // -----------------------------------------------------------------------
-  // Skeleton generation (one-time handler stubs + main + build files)
-  // -----------------------------------------------------------------------
-
-  /** Generate handler stub implementations that return error.NotImplemented */
-  generateHandlerStubs(schema: CompiledSchema): string {
-    const { prefix } = this.opts;
-    const typesFile = `${toSnakeCase(prefix)}_types.zig`;
-    const serverFile = `${toSnakeCase(prefix)}_server.zig`;
-    const ctxName = `${prefix}Context`;
-
-    const stubs = schema.commands
-      .map((c) => {
-        const methodName = this.methodName(c.name);
-        const zigCmdName = toPascalCase(c.name);
-        const zigRespName = toPascalCase(c.responseType);
-        return `pub fn ${methodName}(ctx: *${ctxName}, cmd: types.${zigCmdName}) !types.${zigRespName} {
-    _ = ctx;
-    _ = cmd;
-    return error.NotImplemented;
-}`;
-      })
-      .join("\n\n");
-
-    return `// Handler stubs — implement your service logic here.
-// This file is generated ONCE. Edit freely — it will not be overwritten.
-
-const std = @import("std");
-const types = @import("generated/${typesFile}");
-
-/// Shared context for your service — add database connections, state, etc.
-pub const ${ctxName} = struct {
-    // Add your shared state here
-};
-
-// ---------------------------------------------------------------------------
-// Handler implementations — fill these in with your service logic.
-// ---------------------------------------------------------------------------
-
-${stubs}
-`;
-  }
-
-  /** Generate a main.zig entry point for a standalone service */
-  generateMain(schema: CompiledSchema): string {
-    const { prefix } = this.opts;
-    const serverFile = `${toSnakeCase(prefix)}_server`;
-    const handlersFile = `${toSnakeCase(prefix)}_handlers`;
-
-    return `// Entry point for ${prefix} service.
-// This file is generated ONCE. Edit freely — it will not be overwritten.
-
-const std = @import("std");
-const server = @import("generated/${serverFile}.zig");
-
-pub fn main() !void {
-    const args = try std.process.argsAlloc(std.heap.page_allocator);
-    defer std.process.argsFree(std.heap.page_allocator, args);
-
-    if (args.len < 2) {
-        std.debug.print("Usage: ${toSnakeCase(prefix)} <socket_path>\\n", .{});
-        std.process.exit(1);
-    }
-
-    const socket_path = args[1];
-    std.debug.print("${prefix} server starting on {s}\\n", .{socket_path});
-    try server.serve(socket_path);
-}
-`;
-  }
-
-  /** Generate build.zig for a standalone service */
-  generateBuildFile(schema: CompiledSchema): string {
-    const { prefix } = this.opts;
-    const binName = toSnakeCase(prefix);
-
-    return `const std = @import("std");
-
-pub fn build(b: *std.Build) void {
-    const target = b.standardTargetOptions(.{});
-    const optimize = b.standardOptimizeOption(.{});
-
-    const msgpack_dep = b.dependency("zig-msgpack", .{
-        .target = target,
-        .optimize = optimize,
-    });
-
-    const exe = b.addExecutable(.{
-        .name = "${binName}",
-        .root_source_file = b.path("main.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-    exe.root_module.addImport("msgpack", msgpack_dep.module("msgpack"));
-    b.installArtifact(exe);
-
-    const run_cmd = b.addRunArtifact(exe);
-    run_cmd.step.dependOn(b.getInstallStep());
-    if (b.args) |args| {
-        run_cmd.addArgs(args);
-    }
-
-    const run_step = b.step("run", "Run the ${prefix} service");
-    run_step.dependOn(&run_cmd.step);
-}
-`;
-  }
-
-  /** Generate build.zig.zon for dependency management */
-  generateBuildZon(schema: CompiledSchema): string {
-    const { prefix } = this.opts;
-    const binName = toSnakeCase(prefix);
-
-    return `.{
-    .name = "${binName}-service",
-    .version = "0.1.0",
-    .dependencies = .{
-        .@"zig-msgpack" = .{
-            .url = "https://github.com/zig-msgpack/zig-msgpack/archive/refs/heads/main.tar.gz",
-        },
-    },
-    .paths = .{
-        "build.zig",
-        "build.zig.zon",
-        "main.zig",
-        "generated",
-    },
-}
-`;
-  }
-
-  /** Generate .gitignore for the skeleton project */
-  generateGitignore(): string {
-    return `# Generated IPC code — do not edit, re-run generate.sh instead
-generated/
-zig-out/
-zig-cache/
-.zig-cache/
-`;
-  }
-
-  /** Generate a shell script to re-run codegen */
-  generateGenerateScript(schemaPath: string): string {
-    const { prefix } = this.opts;
-    return `#!/usr/bin/env bash
-# Re-generate IPC types, server, and client from schema.
-# Run from the project root directory.
-set -euo pipefail
-
-SCRIPT_DIR="$(cd "$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
-SCHEMA="${schemaPath}"
-
-node --experimental-strip-types "$(dirname "$SCRIPT_DIR")/codegen/src/generate.ts" \\
-  --schema "$SCHEMA" \\
-  --lang zig \\
-  --out "$SCRIPT_DIR/generated" \\
-  --prefix ${prefix} \\
-  --server
 `;
   }
 }

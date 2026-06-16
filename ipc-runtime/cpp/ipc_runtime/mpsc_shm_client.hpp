@@ -1,5 +1,6 @@
 #pragma once
 
+#include "constants.hpp"
 #include "ipc_client.hpp"
 #include "shm/mpsc_shm.hpp"
 #include "shm/spsc_shm.hpp"
@@ -42,8 +43,8 @@ class MpscShmClient : public IpcClient {
             return true; // Already connected
         }
 
-        constexpr size_t max_attempts = 100;
-        constexpr auto retry_delay = std::chrono::milliseconds(10);
+        constexpr size_t max_attempts = CONNECT_RETRY_BUDGET_MS / CONNECT_RETRY_DELAY_MS;
+        constexpr auto retry_delay = std::chrono::milliseconds(CONNECT_RETRY_DELAY_MS);
 
         for (size_t attempt = 0; attempt < max_attempts; ++attempt) {
             try {
@@ -76,7 +77,7 @@ class MpscShmClient : public IpcClient {
 
         // Claim space for length prefix + data
         size_t total_size = sizeof(uint32_t) + len;
-        void* buf = producer_->claim(total_size, static_cast<uint32_t>(timeout_ns));
+        void* buf = producer_->claim(total_size, normalize_call_timeout(timeout_ns));
         if (buf == nullptr) {
             return false;
         }
@@ -96,7 +97,7 @@ class MpscShmClient : public IpcClient {
         if (!response_ring_.has_value()) {
             return {};
         }
-        return ring_receive_msg(response_ring_.value(), timeout_ns);
+        return ring_receive_msg(response_ring_.value(), normalize_call_timeout(timeout_ns));
     }
 
     void release(size_t message_size) override
@@ -111,6 +112,13 @@ class MpscShmClient : public IpcClient {
     {
         producer_.reset();
         response_ring_.reset();
+    }
+
+    void wakeup() override
+    {
+        if (response_ring_.has_value()) {
+            response_ring_->wakeup_all();
+        }
     }
 
   private:

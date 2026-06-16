@@ -2,6 +2,7 @@
 #include "ipc_runtime/ipc_server.hpp"
 #include "ipc_runtime/shm/spsc_shm.hpp"
 #include "ipc_runtime/shm_client.hpp"
+#include "ipc_runtime/shm_common.hpp"
 #include "ipc_runtime/shm_server.hpp"
 #include <array>
 #include <atomic>
@@ -29,7 +30,8 @@ TEST(ShmTest, SingleClientSmallRingHighVolume)
 {
     constexpr size_t RING_SIZE = 2UL * 1024;
     constexpr size_t NUM_ITERATIONS = 10000000;
-    // Sizing ensures that no matter that state of the internal ring buffer, we can't deadlock.
+    // Sizing ensures that no matter that state of the internal ring buffer, we
+    // can't deadlock.
     constexpr size_t MAX_MSG_SIZE = (RING_SIZE / 2) - 4;
 
     // Use short name for macOS compatibility (31-char limit)
@@ -83,7 +85,8 @@ TEST(ShmTest, SingleClientSmallRingHighVolume)
                 std::cerr << iter << " Server send size " << request.size() << " timeout, retrying..." << '\n';
                 dynamic_cast<ShmServer*>(server.get())->debug_dump();
             }
-            // std::cerr << "Server sent response of " << request.size() << " bytes" << '\n';
+            // std::cerr << "Server sent response of " << request.size() << " bytes"
+            // << '\n';
             iter++;
         }
     });
@@ -111,10 +114,12 @@ TEST(ShmTest, SingleClientSmallRingHighVolume)
 
         for (size_t iter = 0; iter < NUM_ITERATIONS; iter++) {
             size_t size = iteration_sizes[iter];
-            // std::cerr << "Client: Iteration " << iter << ": sending " << size << " bytes" << '\n';
+            // std::cerr << "Client: Iteration " << iter << ": sending " << size << "
+            // bytes" << '\n';
 
             // Fill buffer with iteration-specific pattern
-            // First byte is iteration number (mod 256), rest is XOR pattern with offset
+            // First byte is iteration number (mod 256), rest is XOR pattern with
+            // offset
             uint8_t iter_byte = static_cast<uint8_t>(iter & 0xFF);
             for (size_t i = 0; i < size; i++) {
                 send_buffer[i] = static_cast<uint8_t>((iter_byte ^ i) & 0xFF);
@@ -140,7 +145,8 @@ TEST(ShmTest, SingleClientSmallRingHighVolume)
                 std::cerr << iter << " Client receive timeout, retrying..." << '\n';
                 // Timeout - retry
             }
-            // std::cerr << "Client received response of " << response.size() << " bytes" << '\n';
+            // std::cerr << "Client received response of " << response.size() << "
+            // bytes" << '\n';
 
             ASSERT_EQ(response.size(), expected_size) << "Size mismatch at iteration " << iter;
 
@@ -175,51 +181,110 @@ TEST(ShmTest, SingleClientSmallRingHighVolume)
 }
 
 /**
- * Test to reproduce deadlock with specific message size sequence
- * This test uses a single-threaded, deterministic approach to control
- * the exact ordering of client and server operations.
+ * A handler returning an empty vector must still produce a (zero-length)
+ * response frame, otherwise the client deadlocks waiting for it.
  */
-// TEST(ShmTest, DeadlockReproduction)
-// {
-//     constexpr size_t RING_SIZE = 8UL * 1024; // 8KB rings
-//     // Max message size is half capacity minus 4 bytes (length prefix)
-//     constexpr size_t MAX_MSG_SIZE = RING_SIZE / 2 - 4;
+TEST(ShmTest, ZeroLengthResponseRoundTrip)
+{
+    constexpr size_t RING_SIZE = 4UL * 1024;
+    std::string base_name = "shm_zlen_" + std::to_string(getpid());
+    auto server = IpcServer::create_shm(base_name, RING_SIZE, RING_SIZE);
+    ASSERT_TRUE(server->listen());
 
-//     std::string test_shm = "shm_deadlock_" + std::to_string(getpid());
-//     auto server = IpcServer::create_shm(test_shm, RING_SIZE, RING_SIZE);
-//     ASSERT_TRUE(server->listen()) << "Deadlock test server failed to listen";
+    std::thread server_thread(
+        [&] { server->run([](int, std::span<const uint8_t>) { return std::vector<uint8_t>{}; }); });
 
-//     auto client = IpcClient::create_shm(test_shm);
-//     ASSERT_TRUE(client->connect());
+    auto client = IpcClient::create_shm(base_name);
+    ASSERT_TRUE(client->connect());
 
-// #define snd(s)
-//     {
-//         ASSERT_TRUE(client->send(std::vector<uint8_t>(s, 0).data(), s, 0));
-//         dynamic_cast<ShmClient*>(client.get())->debug_dump();
-//     }
-// #define rcv()
-//     {
-//         auto request = server->receive(0);
-//         ASSERT_FALSE(request.empty());
-//         server->release(0, request.size());
-//         dynamic_cast<ShmServer*>(server.get())->debug_dump();
-//     }
+    uint8_t byte = 42;
+    ASSERT_TRUE(client->send(&byte, 1, 1'000'000'000ULL));
 
-//     snd(MAX_MSG_SIZE - 1);
-//     snd(MAX_MSG_SIZE);
-//     rcv();
-//     rcv();
-//     snd(MAX_MSG_SIZE);
+    // Bounded retry loop: data() == nullptr means timeout, a non-null span of
+    // size 0 is a successful zero-length response.
+    std::span<const uint8_t> resp;
+    for (int i = 0; i < 50 && resp.data() == nullptr; i++) {
+        resp = client->receive(100'000'000ULL);
+    }
+    EXPECT_NE(resp.data(), nullptr) << "zero-length response should be success, not timeout";
+    EXPECT_EQ(resp.size(), 0U);
+    client->release(resp.size());
 
-//     client->close();
-//     server->close();
-// } // namespace
+    client->close();
+    server->request_shutdown();
+    server_thread.join();
+    server->close();
+}
 
 /**
- * Sanity check for the MPSC (multi-producer single-consumer) SHM transport: two clients
- * concurrently send distinct payloads and each receives back its own echoed response.
- * This is the load-bearing property MPSC adds over SPSC — multiple producers must not
- * mix up responses or block each other.
+ * A timeout ≥ ~4.295s must be honored at full width: the ring API takes a
+ * uint64 ns timeout, so it must not narrow to uint32 and wrap (e.g. 4.5s →
+ * ~205ms). Verify a 4.5s wait_for_data survives past the 32-bit-ns wrap point
+ * and sees data published at the 2s mark.
+ */
+TEST(ShmTest, TimeoutDoesNotWrapAbove4Seconds)
+{
+    constexpr size_t RING_SIZE = 4UL * 1024;
+    std::string base_name = "shm_tmo_" + std::to_string(getpid());
+    auto server = IpcServer::create_shm(base_name, RING_SIZE, RING_SIZE);
+    ASSERT_TRUE(server->listen());
+
+    auto client = IpcClient::create_shm(base_name);
+    ASSERT_TRUE(client->connect());
+
+    std::thread sender([&] {
+        std::this_thread::sleep_for(std::chrono::seconds(2));
+        uint8_t byte = 1;
+        client->send(&byte, 1, 1'000'000'000ULL);
+    });
+
+    auto start = std::chrono::steady_clock::now();
+    int client_id = server->wait_for_data(4'500'000'000ULL); // 4.5s — would wrap to ~205ms as uint32
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start);
+
+    EXPECT_EQ(client_id, 0) << "wait_for_data should see the data sent at the 2s mark";
+    EXPECT_GE(elapsed.count(), 1500) << "returned before the 2s publish — timeout wrapped";
+    EXPECT_LT(elapsed.count(), 4400);
+
+    sender.join();
+    auto request = server->receive(0);
+    if (!request.empty()) {
+        server->release(0, request.size());
+    }
+    client->close();
+    server->close();
+}
+
+/**
+ * A corrupt length prefix in the ring (larger than any message the send side
+ * could legally publish) must error out rather than waiting forever for the
+ * bytes to arrive.
+ */
+TEST(ShmTest, RingRejectsCorruptLengthPrefix)
+{
+    constexpr size_t RING_SIZE = 4UL * 1024;
+    std::string ring_name = "shm_corrupt_" + std::to_string(getpid());
+    SpscShm::unlink(ring_name);
+    auto producer = SpscShm::create(ring_name, RING_SIZE);
+    auto consumer = SpscShm::connect(ring_name);
+
+    // Forge a frame whose length prefix claims far more than capacity/2.
+    void* buf = producer.claim(8, 1'000'000'000ULL);
+    ASSERT_NE(buf, nullptr);
+    uint32_t bogus_len = 0xFFFFFF00;
+    std::memcpy(buf, &bogus_len, sizeof(bogus_len));
+    producer.publish(8);
+
+    EXPECT_THROW((void)ring_receive_msg(consumer, 10'000'000ULL), std::runtime_error);
+
+    SpscShm::unlink(ring_name);
+}
+
+/**
+ * Sanity check for the MPSC (multi-producer single-consumer) SHM transport: two
+ * clients concurrently send distinct payloads and each receives back its own
+ * echoed response. This is the load-bearing property MPSC adds over SPSC —
+ * multiple producers must not mix up responses or block each other.
  */
 TEST(ShmTest, MpscEchoTwoClients)
 {
@@ -262,7 +327,8 @@ TEST(ShmTest, MpscEchoTwoClients)
 
         for (size_t iter = 0; iter < NUM_MESSAGES; iter++) {
             std::vector<uint8_t> payload(MSG_SIZE);
-            // First byte tags the client; remaining bytes encode (client_id, iter, offset).
+            // First byte tags the client; remaining bytes encode (client_id, iter,
+            // offset).
             payload[0] = static_cast<uint8_t>(client_id);
             for (size_t i = 1; i < MSG_SIZE; i++) {
                 payload[i] = static_cast<uint8_t>((client_id ^ iter ^ i) & 0xFF);
@@ -278,7 +344,8 @@ TEST(ShmTest, MpscEchoTwoClients)
             }
 
             ASSERT_EQ(response.size(), MSG_SIZE) << "client " << client_id << " iter " << iter;
-            // The crucial MPSC invariant: client sees its own payload back, not another client's.
+            // The crucial MPSC invariant: client sees its own payload back, not
+            // another client's.
             ASSERT_EQ(response[0], static_cast<uint8_t>(client_id))
                 << "client " << client_id << " got cross-client response at iter " << iter;
             for (size_t i = 1; i < MSG_SIZE; i++) {

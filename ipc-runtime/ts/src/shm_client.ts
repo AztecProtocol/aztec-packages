@@ -27,6 +27,8 @@ export interface NapiMsgpackClientAsync {
   call(input: Buffer): void;
   acquire(): void;
   release(): void;
+  /** Stop the native poll thread, release any held TSFN ref, close the client. */
+  close(): void;
 }
 
 /** Wraps a sync NAPI msgpack client behind the IpcClientSync interface. */
@@ -63,23 +65,37 @@ interface PendingCallback {
  */
 export class NapiShmAsyncClient implements IpcClientAsync {
   private readonly pending: PendingCallback[] = [];
+  private destroyed = false;
 
   constructor(private inner: NapiMsgpackClientAsync) {
     this.inner.setResponseCallback((response: Buffer) => {
+      if (this.destroyed) {
+        // Late response delivered after destroy(); the native close already
+        // balanced the TSFN reference.
+        return;
+      }
       const cb = this.pending.shift();
       if (cb) {
         cb.resolve(new Uint8Array(response));
+        if (this.pending.length === 0) {
+          this.inner.release();
+        }
       } else {
-        // Unexpected — a response arrived but no caller is waiting.
-        // Drop it; there is no caller left to resolve.
-      }
-      if (this.pending.length === 0) {
-        this.inner.release();
+        // Protocol desync — every response should match a pending call.
+        // Don't release: no acquire was taken for an orphan response.
+        console.warn(
+          "NapiShmAsyncClient: dropping response with no pending caller",
+        );
       }
     });
   }
 
   call(input: Uint8Array): Promise<Uint8Array> {
+    if (this.destroyed) {
+      return Promise.reject(
+        new Error("NapiShmAsyncClient: call() after destroy()"),
+      );
+    }
     const buf = Buffer.isBuffer(input)
       ? input
       : Buffer.from(input.buffer, input.byteOffset, input.byteLength);
@@ -106,11 +122,19 @@ export class NapiShmAsyncClient implements IpcClientAsync {
   }
 
   async destroy(): Promise<void> {
+    if (this.destroyed) {
+      return;
+    }
+    this.destroyed = true;
     // Reject anything still in flight.
     while (this.pending.length > 0) {
       const cb = this.pending.shift();
       cb?.reject(new Error("ipc-runtime SHM client destroyed before response"));
     }
+    // Stops the native poll thread and releases the TSFN reference taken
+    // when the queue went 0 → 1 — without this, Node never exits when
+    // destroyed with calls in flight.
+    this.inner.close();
   }
 }
 

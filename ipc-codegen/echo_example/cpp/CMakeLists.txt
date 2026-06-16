@@ -50,3 +50,6 @@ target_link_libraries(echo_client PRIVATE echo_common ipc_runtime)
 
 add_executable(schema_reflection_test src/schema_reflection_test.cpp)
 target_link_libraries(schema_reflection_test PRIVATE echo_common)
+
+add_executable(golden_test src/golden_test.cpp)
+target_link_libraries(golden_test PRIVATE echo_common)

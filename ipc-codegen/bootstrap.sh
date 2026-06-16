@@ -46,10 +46,15 @@ function test_cmds {
   local prefix="$hash:CPUS=1:TIMEOUT=120s"
   local script="ipc-codegen/echo_example/scripts/run_cross_language_test.sh"
 
-  # Golden tests (Rust + TS each verify they can deserialize the goldens
-  # baked by build()).
+  # Generator unit tests (schema validation).
+  echo "$prefix node --experimental-strip-types --no-warnings ipc-codegen/test/schema_visitor.test.ts"
+
+  # Golden tests (each language verifies it can deserialize the goldens
+  # baked by build(), and re-encode them byte-identically).
   echo "$prefix $script golden rust"
   echo "$prefix $script golden ts"
+  echo "$prefix $script golden cpp"
+  echo "$prefix $script golden zig"
   echo "$prefix ipc-codegen/echo_example/cpp/build/bin/schema_reflection_test --schema ipc-codegen/echo_example/schema/schema.json"
   echo "$prefix ipc-codegen/echo_example/ts_package/test.sh uds"
   echo "$prefix ipc-codegen/echo_example/ts_package/test.sh shm"
@@ -71,14 +76,12 @@ function test_cmds {
     done
   done
 
-  # TS SHM client coverage requires the NAPI addon built by
-  # ipc-runtime/bootstrap.sh under ts/build/<arch>-<os>/.
-  local napi_dir="$(cd ../ipc-runtime/ts 2>/dev/null && pwd)/build"
-  if [ -d "$napi_dir" ] && compgen -G "$napi_dir/*/ipc_runtime_napi.node" > /dev/null; then
-    for server in "${shm_server_langs[@]}"; do
-      echo "$prefix $script matrix $server ts shm"
-    done
-  fi
+  # TS SHM client coverage. The NAPI addon is built by ipc-runtime/bootstrap.sh
+  # during build(); a missing addon should fail these tests loudly rather than
+  # silently dropping coverage.
+  for server in "${shm_server_langs[@]}"; do
+    echo "$prefix $script matrix $server ts shm"
+  done
 }
 
 function test {

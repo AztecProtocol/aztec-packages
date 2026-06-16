@@ -109,7 +109,7 @@ MpscConsumer MpscConsumer::create(const std::string& name, size_t num_producers,
 
     // Initialize doorbell (use placement new to avoid memset on non-trivial type)
     new (doorbell) MpscDoorbell{};
-    doorbell->consumer_blocked.store(false, std::memory_order_release);
+    doorbell->seq.store(0, std::memory_order_release);
 
     // Create all SPSC rings
     std::vector<SpscShm> rings;
@@ -148,7 +148,7 @@ bool MpscConsumer::unlink(const std::string& name, size_t num_producers)
     return true;
 }
 
-int MpscConsumer::wait_for_data(uint32_t timeout_ns)
+int MpscConsumer::wait_for_data(uint64_t timeout_ns)
 {
     size_t num_rings = rings_.size();
 
@@ -210,7 +210,11 @@ int MpscConsumer::wait_for_data(uint32_t timeout_ns)
         return -1;
     }
 
-    // About to block - load seq, final check, then block
+    // About to block. Capture the doorbell seq and arm the futex against it.
+    // Producers bump seq on every publish and wake unconditionally (see
+    // MpscProducer::publish), and futex_wait re-checks *seq == seq atomically, so
+    // a publish that lands before we sleep returns EAGAIN. The arm-value plus the
+    // unconditional wake are the whole protocol — no "blocked" flag.
     uint32_t seq = doorbell_->seq.load(std::memory_order_acquire);
 
     // Final check before blocking
@@ -223,11 +227,7 @@ int MpscConsumer::wait_for_data(uint32_t timeout_ns)
         }
     }
 
-    // Set blocked flag RIGHT BEFORE futex_wait
-    doorbell_->consumer_blocked.store(true, std::memory_order_release);
     futex_wait_timeout(reinterpret_cast<volatile uint32_t*>(&doorbell_->seq), seq, remaining_timeout);
-    // Clear blocked flag RIGHT AFTER futex_wait returns
-    doorbell_->consumer_blocked.store(false, std::memory_order_relaxed);
 
     // After waking, poll again
     for (size_t i = 0; i < num_rings; i++) {
@@ -239,11 +239,11 @@ int MpscConsumer::wait_for_data(uint32_t timeout_ns)
         }
     }
 
-    previous_had_data_ = false; // Timeout or spurious wakeup - disable spinning on next call
-    return -1;                  // No data available (timeout or spurious wakeup)
+    previous_had_data_ = false; // Timeout - disable spinning on next call
+    return -1;                  // No data available (timeout)
 }
 
-void* MpscConsumer::peek(size_t ring_idx, size_t want, uint32_t timeout_ns)
+void* MpscConsumer::peek(size_t ring_idx, size_t want, uint64_t timeout_ns)
 {
     if (ring_idx >= rings_.size()) {
         return nullptr;
@@ -366,7 +366,7 @@ MpscProducer MpscProducer::connect(const std::string& name, size_t producer_id)
     }
 }
 
-void* MpscProducer::claim(size_t want, uint32_t timeout_ns)
+void* MpscProducer::claim(size_t want, uint64_t timeout_ns)
 {
     return ring_.claim(want, timeout_ns);
 }
@@ -376,14 +376,12 @@ void MpscProducer::publish(size_t n)
     // Publish to ring first
     ring_.publish(n);
 
-    // Ring doorbell to wake consumer
-    // Always increment seq (for futex synchronization)
+    // Ring doorbell to wake the consumer. Bump seq (release) so a consumer
+    // mid-block sees the value change and its futex_wait returns immediately,
+    // then wake unconditionally — never gated on a "consumer blocked" flag (see
+    // SpscShm::publish for why that handshake is unsafe across processes).
     doorbell_->seq.fetch_add(1, std::memory_order_release);
-
-    // Conditional wake: Only wake if consumer is blocked on futex
-    if (doorbell_->consumer_blocked.load(std::memory_order_acquire)) {
-        futex_wake(reinterpret_cast<volatile uint32_t*>(&doorbell_->seq), 1);
-    }
+    futex_wake(reinterpret_cast<volatile uint32_t*>(&doorbell_->seq), 1);
 }
 
 } // namespace ipc

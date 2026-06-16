@@ -41,4 +41,28 @@ pub fn build(b: *std.Build) void {
     client_exe.root_module.addImport("msgpack", msgpack_mod);
     client_exe.root_module.addImport("ipc_runtime", ipc_runtime_mod);
     b.installArtifact(client_exe);
+
+    // Golden wire-format conformance test (no transport, msgpack only)
+    const golden_exe = b.addExecutable(.{
+        .name = "golden_test",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/golden_test.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    golden_exe.root_module.addImport("msgpack", msgpack_mod);
+    b.installArtifact(golden_exe);
+
+    // Compile coverage for the generated FFI backend (stub extern symbol).
+    const ffi_check_exe = b.addExecutable(.{
+        .name = "ffi_check",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/ffi_check.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    ffi_check_exe.root_module.addImport("msgpack", msgpack_mod);
+    b.installArtifact(ffi_check_exe);
 }

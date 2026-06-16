@@ -10,8 +10,12 @@ $NODE "$CODEGEN/src/generate.ts" \
   --lang rust \
   --server \
   --client \
+  --strip-method-prefix \
   --uds \
+  --ffi \
   --out "$DIR/src/generated" \
   --prefix Echo
 
-(cd "$DIR" && cargo build --quiet)
+(cd "$DIR" && cargo build --locked --quiet)
+# Compile-check the generated FFI backend (not linked into the binaries).
+(cd "$DIR" && cargo check --locked --quiet --features ffi)

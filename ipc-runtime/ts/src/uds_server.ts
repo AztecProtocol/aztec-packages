@@ -1,5 +1,6 @@
 import * as net from "node:net";
 import * as fs from "node:fs";
+import { MAX_FRAME_SIZE } from "./types.js";
 
 /**
  * Handler signature mirrors the C++ ipc::IpcServer::Handler: receive raw
@@ -16,10 +17,21 @@ export type IpcServerHandler = (
  * UDS server with the same 4-byte-LE-length-prefix wire as UdsIpcClient and
  * the C++ ipc::IpcServer socket transport. Accepts multiple concurrent
  * connections; handler invocations are serialised per-connection.
+ *
+ * Signal handling is the caller's responsibility (unlike the C++ server's
+ * install_default_signal_handlers); the socket file is unlinked on close()
+ * and best-effort on process exit.
  */
 export class UdsIpcServer {
   private server: net.Server;
   private nextClientId = 0;
+  private readonly unlinkOnExit = () => {
+    try {
+      fs.unlinkSync(this.socketPath);
+    } catch {
+      /* may already be gone */
+    }
+  };
 
   private constructor(
     server: net.Server,
@@ -56,11 +68,19 @@ export class UdsIpcServer {
       server.listen(socketPath);
     });
 
+    // Restrict the socket to the owner, matching the C++ server (and the
+    // 0600 mode used for SHM segments).
+    fs.chmodSync(socketPath, 0o600);
+
+    // Best-effort cleanup if the process exits without close().
+    process.on("exit", instance.unlinkOnExit);
+
     return instance;
   }
 
   async close(): Promise<void> {
     await new Promise<void>((resolve) => this.server.close(() => resolve()));
+    process.removeListener("exit", this.unlinkOnExit);
     try {
       fs.unlinkSync(this.socketPath);
     } catch {
@@ -80,6 +100,16 @@ export class UdsIpcServer {
           : Buffer.concat([buffer, chunk]);
       while (buffer.length >= 4) {
         const len = buffer.readUInt32LE(0);
+        if (len > MAX_FRAME_SIZE) {
+          // Corrupt/malicious frame — drop the connection instead of
+          // buffering up to the claimed size.
+          conn.destroy(
+            new Error(
+              `UdsIpcServer: oversized frame (${len} bytes exceeds MAX_FRAME_SIZE)`,
+            ),
+          );
+          return;
+        }
         if (buffer.length < 4 + len) break;
         const payload = new Uint8Array(buffer.subarray(4, 4 + len));
         buffer = buffer.subarray(4 + len);

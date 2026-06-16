@@ -25,8 +25,6 @@ namespace ipc {
  */
 class MpscShmServer : public IpcServer {
   public:
-    static constexpr size_t DEFAULT_RING_SIZE = 1 << 20; // 1MB
-
     MpscShmServer(std::string base_name,
                   size_t max_clients,
                   size_t request_ring_size = DEFAULT_RING_SIZE,
@@ -81,7 +79,7 @@ class MpscShmServer : public IpcServer {
             return -1;
         }
         // MpscConsumer::wait_for_data returns ring index = client_id
-        return request_consumer_->wait_for_data(static_cast<uint32_t>(timeout_ns));
+        return request_consumer_->wait_for_data(timeout_ns);
     }
 
     std::span<const uint8_t> receive(int client_id) override
@@ -96,6 +94,13 @@ class MpscShmServer : public IpcServer {
         }
         uint32_t msg_len = 0;
         std::memcpy(&msg_len, len_ptr, sizeof(uint32_t));
+
+        // A prefix larger than the send side could legally publish means the
+        // ring is corrupt — error out instead of waiting for it.
+        if (msg_len > MAX_FRAME_SIZE || msg_len > request_ring_size_ / 2 - sizeof(uint32_t)) {
+            throw std::runtime_error("MpscShmServer::receive: corrupt length prefix (" + std::to_string(msg_len) +
+                                     " bytes exceeds ring/frame limits)");
+        }
 
         void* msg_ptr = request_consumer_->peek(static_cast<size_t>(client_id), sizeof(uint32_t) + msg_len, 100000000);
         if (msg_ptr == nullptr) {
@@ -140,6 +145,17 @@ class MpscShmServer : public IpcServer {
         for (auto& ring : response_rings_) {
             ring.wakeup_all();
         }
+    }
+
+    CleanupPaths cleanup_paths() const override
+    {
+        CleanupPaths paths;
+        paths.shm_unlink_names.push_back(base_name_ + "_req_doorbell");
+        for (size_t i = 0; i < max_clients_; i++) {
+            paths.shm_unlink_names.push_back(base_name_ + "_req_ring_" + std::to_string(i));
+            paths.shm_unlink_names.push_back(base_name_ + "_resp_" + std::to_string(i));
+        }
+        return paths;
     }
 
   private:

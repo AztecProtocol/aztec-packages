@@ -9,9 +9,11 @@
 #include <cstdint>
 #include <time.h> // NOLINT(modernize-deprecated-headers) - need POSIX clock_gettime/CLOCK_MONOTONIC
 
-#if defined(__x86_64__) || defined(_M_X64)
+#if defined(__x86_64__)
 #include <immintrin.h>
 #define IPC_PAUSE() _mm_pause()
+#elif defined(__aarch64__)
+#define IPC_PAUSE() asm volatile("yield")
 #else
 #define IPC_PAUSE()                                                                                                    \
     do {                                                                                                               \

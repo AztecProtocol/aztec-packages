@@ -1,4 +1,5 @@
-import { EchoService, type EchoTransport } from "./index.js";
+import { EchoService, SyncApi, type EchoTransport } from "./index.js";
+import { createNapiShmSyncClient } from "@aztec/ipc-runtime";
 
 const args = process.argv.slice(2);
 const transportArg = args[args.indexOf("--transport") + 1] ?? "uds";
@@ -63,6 +64,21 @@ try {
   assertBytes(aliases.hash, hash, "aliases.hash");
   assertBytes(aliases.maybeHash!, second, "aliases.maybeHash");
   assertEqual(aliases.hashes.length, 2, "aliases.hashes.length");
+  // The generated SyncApi shares the wire format; exercise it over the
+  // same spawned service (SHM supports multiple client slots).
+  if (transport === "shm") {
+    const shmName = service.getIpcPath().replace(/\.shm$/, "");
+    const syncApi = new SyncApi(
+      createNapiShmSyncClient(shmName, { clientId: 1 }),
+    );
+    try {
+      const syncResp = syncApi.bytes({ data: Uint8Array.from([7, 8]) });
+      assertBytes(syncResp.data, Uint8Array.from([7, 8]), "sync bytes.data");
+      console.error("echo ts package: SyncApi over shm OK");
+    } finally {
+      syncApi.destroy();
+    }
+  }
 } finally {
   await service.destroy();
 }

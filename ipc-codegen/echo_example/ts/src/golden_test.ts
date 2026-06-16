@@ -19,11 +19,7 @@ const decoder = new Decoder({ useRecords: false });
 // a semantically-equivalent but byte-different encoding, so round-tripping
 // the goldens would fail even though the wire is otherwise correct.
 const encoder = new Encoder({ useRecords: false, variableMapSize: true });
-const goldenDir = path.join(
-  import.meta.dirname!,
-  "../../schema",
-  "golden",
-);
+const goldenDir = path.join(import.meta.dirname!, "../../schema", "golden");
 
 let pass = 0;
 let fail = 0;
@@ -224,6 +220,48 @@ check(
 check(
   "echo_nested_flag_false.msgpack",
   req("EchoNested", { inner: { values: [new Uint8Array()], flag: false } }),
+);
+
+// ============ Blob / fail / error cases ============
+
+// Optional<bytes> = Some plus fixed-size [bytes; 2] array.
+check(
+  "echo_blobs_request.msgpack",
+  req("EchoBlobs", {
+    maybeData: new Uint8Array([0xaa, 0xbb]),
+    parts: [new Uint8Array([1, 2, 3]), new Uint8Array([4])],
+  }),
+);
+
+// Optional<bytes> = None (nil on the wire) plus an empty first array element.
+check(
+  "echo_blobs_none.msgpack",
+  req("EchoBlobs", {
+    maybeData: null,
+    parts: [new Uint8Array(), new Uint8Array([9])],
+  }),
+);
+
+check(
+  "echo_blobs_response.msgpack",
+  resp("EchoBlobsResponse", {
+    maybeData: new Uint8Array([0xaa, 0xbb]),
+    parts: [new Uint8Array([1, 2, 3]), new Uint8Array([4])],
+  }),
+);
+
+check(
+  "echo_fail_request.msgpack",
+  req("EchoFail", { message: "deliberate failure" }),
+);
+
+// Empty struct — payload is a fixmap with zero entries.
+check("echo_fail_response.msgpack", resp("EchoFailResponse", {}));
+
+// Pins the error variant's wire format.
+check(
+  "echo_error_response.msgpack",
+  resp("EchoErrorResponse", { message: "deliberate failure" }),
 );
 
 console.log(`\nResults: ${pass}/${pass + fail} passed, ${fail} failed`);

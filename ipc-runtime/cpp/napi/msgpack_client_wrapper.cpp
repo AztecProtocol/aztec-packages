@@ -3,7 +3,9 @@
 #include "ipc_runtime/ipc_client.hpp"
 #include "napi.h"
 
+#include <chrono>
 #include <cstdint>
+#include <span>
 #include <string>
 
 namespace ipc::napi {
@@ -58,15 +60,33 @@ Napi::Value MsgpackClientWrapper::call(const Napi::CallbackInfo& info)
     const uint8_t* input_data = input_buffer.Data();
     size_t input_len = input_buffer.Length();
 
-    // timeout_ns=0 means IMMEDIATE timeout (not infinite). Retry on backpressure.
-    constexpr uint64_t TIMEOUT_NS = 1'000'000'000; // 1 second
+    // Retry on backpressure, but with an overall deadline: this is a blocking
+    // call on the Node main thread, and a dead/wedged server must surface as
+    // an error rather than hanging the process forever.
+    constexpr uint64_t TIMEOUT_NS = 1'000'000'000;        // 1s per attempt
+    constexpr uint64_t CALL_DEADLINE_NS = 60'000'000'000; // 60s overall
+
+    auto now_ns = [] {
+        return static_cast<uint64_t>(
+            std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch())
+                .count());
+    };
+    const uint64_t start_ns = now_ns();
+
     while (!client_->send(input_data, input_len, TIMEOUT_NS)) {
-        // request ring full, consumer behind — retry
+        // request ring full, consumer behind — retry until the deadline
+        if (now_ns() - start_ns > CALL_DEADLINE_NS) {
+            throw Napi::Error::New(env, "IPC call timed out sending request (server unresponsive?)");
+        }
     }
 
+    // data() == nullptr means timeout; a non-null empty span is a valid
+    // zero-length response.
     std::span<const uint8_t> response;
-    while ((response = client_->receive(TIMEOUT_NS)).empty()) {
-        // response not ready yet — retry
+    while ((response = client_->receive(TIMEOUT_NS)).data() == nullptr) {
+        if (now_ns() - start_ns > CALL_DEADLINE_NS) {
+            throw Napi::Error::New(env, "IPC call timed out waiting for response (server unresponsive?)");
+        }
     }
 
     auto js_buffer = Napi::Buffer<uint8_t>::Copy(env, response.data(), response.size());
