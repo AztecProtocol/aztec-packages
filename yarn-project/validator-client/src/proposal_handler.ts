@@ -968,6 +968,7 @@ export class ProposalHandler {
       };
     }
 
+    // Note this condition should never trigger, since we dont process block proposals that exceed indexWithinCheckpoint
     const maxBlocksPerCheckpoint = this.config.maxBlocksPerCheckpoint;
     if (maxBlocksPerCheckpoint !== undefined && blocks.length > maxBlocksPerCheckpoint) {
       this.log.warn(`Checkpoint proposal exceeds maxBlocksPerCheckpoint`, {

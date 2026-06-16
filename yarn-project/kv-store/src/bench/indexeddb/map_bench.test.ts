@@ -3,15 +3,16 @@
  * Skipped by default; set `VITE_BENCH=1` to run (or invoke this file directly
  * via `yarn test:browser src/bench/indexeddb/map_bench.test.ts`).
  */
-import { createLogger } from '@aztec/foundation/log';
-
-import { AztecIndexedDBStore } from '../../indexeddb/store.js';
-import { mockLogger } from '../../interfaces/utils.js';
-import { describeAztecMapBench } from '../shared_map_bench.js';
-
 const shouldRun = (import.meta as ImportMeta & { env?: { VITE_BENCH?: string } }).env?.VITE_BENCH === '1';
 
 if (shouldRun) {
+  const [{ createLogger }, { AztecIndexedDBStore }, { mockLogger }, { describeAztecMapBench }] = await Promise.all([
+    import('@aztec/foundation/log'),
+    import('../../indexeddb/store.js'),
+    import('../../interfaces/utils.js'),
+    import('../shared_map_bench.js'),
+  ]);
+
   describeAztecMapBench(
     'IndexedDB',
     () => AztecIndexedDBStore.open(mockLogger, undefined, true),

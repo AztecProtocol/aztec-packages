@@ -3,15 +3,16 @@
  * Skipped by default; set `VITE_BENCH=1` to run (or invoke this file directly
  * via `yarn test:browser src/bench/sqlite-opfs/map_bench.test.ts`).
  */
-import { createLogger } from '@aztec/foundation/log';
-
-import { mockLogger } from '../../interfaces/utils.js';
-import { AztecSQLiteOPFSStore } from '../../sqlite-opfs/store.js';
-import { describeAztecMapBench } from '../shared_map_bench.js';
-
 const shouldRun = (import.meta as ImportMeta & { env?: { VITE_BENCH?: string } }).env?.VITE_BENCH === '1';
 
 if (shouldRun) {
+  const [{ createLogger }, { mockLogger }, { AztecSQLiteOPFSStore }, { describeAztecMapBench }] = await Promise.all([
+    import('@aztec/foundation/log'),
+    import('../../interfaces/utils.js'),
+    import('../../sqlite-opfs/store.js'),
+    import('../shared_map_bench.js'),
+  ]);
+
   describeAztecMapBench(
     'SQLite-OPFS',
     () => AztecSQLiteOPFSStore.open(mockLogger, undefined, true),

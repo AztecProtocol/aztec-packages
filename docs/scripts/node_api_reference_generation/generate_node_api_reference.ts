@@ -606,7 +606,7 @@ const METHOD_GROUPS: { heading: string; namespace: string; methods: string[] }[]
   {
     heading: 'Debug operations',
     namespace: 'aztec',
-    methods: ['registerContractFunctionSignatures', 'getAllowedPublicSetup'],
+    methods: ['getAllowedPublicSetup'],
   },
   {
     heading: 'Admin API',

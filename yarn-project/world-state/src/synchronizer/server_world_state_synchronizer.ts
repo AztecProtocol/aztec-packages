@@ -308,6 +308,15 @@ export class ServerWorldStateSynchronizer
       case 'chain-finalized':
         await this.handleChainFinalized(event.block.number);
         break;
+      // World state runs in block mode with ignoreCheckpoints: it tracks tips via blocks-added/pruned/proven/finalized
+      // and ignores the thin tip events (it never anchors on them).
+      case 'chain-proposed':
+      case 'chain-checkpointed':
+        break;
+      default: {
+        const _: never = event;
+        break;
+      }
     }
   }
 
