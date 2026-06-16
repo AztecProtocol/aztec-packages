@@ -42,9 +42,9 @@ describe('constrained delivery', () => {
     const { result: secret } = await registry.methods
       .get_app_siloed_secret(sender, recipient, ONCHAIN_CONSTRAINED, contract.address)
       .simulate({ from: sender });
-    expect(secret._is_some).toBe(true);
+    expect(secret).toBeDefined();
 
-    const { result: index } = await contract.methods.next_index_for_secret(secret._value).simulate({ from: sender });
+    const { result: index } = await contract.methods.next_index_for_secret(secret).simulate({ from: sender });
 
     expect(index).toEqual(2n);
   });
