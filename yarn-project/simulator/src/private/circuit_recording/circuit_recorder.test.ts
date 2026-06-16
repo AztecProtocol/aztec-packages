@@ -23,7 +23,8 @@ describe('CircuitRecorder', () => {
 
 describe('recordCall without an active recording', () => {
   // Under concurrent use the shared recorder can be reset (recording === undefined) between an oracle returning
-  // and its recordCall() bookkeeping. recordCall() must record best-effort and never throw into the execution path.
+  // and its recordCall() bookkeeping. recordCall() must not throw into the execution path; dropped recorder data is
+  // acceptable until recorder state is isolated.
   const expectedEntry = { name: 'loadCapsule', inputs: [['0x01']], outputs: ['0x02'], time: 5, stackDepth: 0 };
 
   it('MemoryCircuitRecorder.recordCall() returns the entry without pushing to an absent recording', async () => {

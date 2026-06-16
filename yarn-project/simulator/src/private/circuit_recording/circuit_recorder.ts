@@ -15,7 +15,7 @@ export type OracleCall = {
   // oracle calls performed after a foreign call (which is itself an oracle call)
   // We keep track of the stack depth in this variable to ensure the recorded oracle
   // calls are correctly associated with the right circuit.
-  // This is only use as a debugging tool
+  // This is only used as a debugging tool
   stackDepth: number;
 };
 
@@ -228,7 +228,8 @@ export class CircuitRecorder {
       time,
       stackDepth,
     };
-    // Under concurrent use the shared recording can be reset mid-flight; record best-effort and never throw.
+    // Recording is opportunistic under overlapping simulations; recorder failures must not affect execution.
+    // TODO: Isolate recorder state per simulation so concurrent executions cannot drop or misattribute calls.
     this.recording?.oracleCalls.push(entry);
     return Promise.resolve(entry);
   }
