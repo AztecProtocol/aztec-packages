@@ -379,6 +379,54 @@ export async function runProfile(device: GPUDevice, logN: number, log: Logger): 
   log('info', `  host: decode ${r.decodeMs.toFixed(1)} ms · scaling ${r.scalingMs.toFixed(1)} ms · wall ${r.totalMs.toFixed(1)} ms · gpuMs ${r.gpuMs.toFixed(1)} ms`);
 }
 
+/**
+ * Per-kernel GPU profile of the SINGLE-SUBMISSION engine across ALL rounds, to find
+ * where its time goes vs the multi-round engine. Sums each kernel type's dispatch
+ * durations and reports the `encoder_all` span (full GPU wall incl. inter-pass
+ * barriers); span minus summed compute is the "bubble" — GPU idle draining the
+ * dependent chain (notably the single-threaded Poseidon2 transcript, once per round).
+ * Needs timestamp-query (Chrome/Metal has it; logs a warning and exits if absent).
+ */
+export async function runSingleSubmitProfile(device: GPUDevice, logN: number, log: Logger): Promise<void> {
+  const alpha = makeRng(0xb0_07_5eedn)();
+  const ssShared = {
+    cache: new Map() as PipelineCache,
+    foldRunner: await makeFoldRunner(device),
+    reduceRunner: await makeReduceRunner(device),
+    batch: await makeBatchRunner(device),
+    transcript: await makeTranscriptRunner(device),
+  };
+  const n = 1 << logN;
+  const betas = Array.from({ length: logN }, (_, i) => makeRng(0xbe7a_77n + BigInt(i))());
+  const { initColBytes, relParamBytes } = buildInputs(n);
+  await runSingleSubmitSumcheck(device, n, alpha, betas, relParamBytes, initColBytes, ssShared); // warmup/compile
+  const r = await runSingleSubmitSumcheck(device, n, alpha, betas, relParamBytes, initColBytes, ssShared, WG, true);
+
+  log('info', `  single-submit per-kernel GPU profile · all ${logN} rounds · 2^${logN}`);
+  if (!r.profile) { log('warn', '  timestamp-query unavailable — no per-kernel timing on this device.'); return; }
+  const sum = (label: string) => r.profile!.filter(e => e.label === label).reduce((s, e) => s + e.ms, 0);
+  const accumulate = sum('accumulate'), reduce = sum('reduce'), batch = sum('batch');
+  const transcript = sum('transcript'), fold = sum('fold');
+  const compute = accumulate + reduce + batch + transcript + fold;
+  const span = r.profile.find(e => e.label === 'encoder_all')?.ms ?? compute;
+  const bubble = Math.max(0, span - compute);
+  const pct = (x: number) => (span ? (100 * x / span).toFixed(1) : '0') + '%';
+  log(
+    'ok',
+    `  accumulate ${accumulate.toFixed(2)} ms (${pct(accumulate)}) · reduce ${reduce.toFixed(2)} (${pct(reduce)}) · ` +
+      `batch ${batch.toFixed(2)} (${pct(batch)}) · transcript ${transcript.toFixed(2)} (${pct(transcript)}) · fold ${fold.toFixed(2)} (${pct(fold)})`,
+  );
+  log(
+    'ok',
+    `  Σcompute ${compute.toFixed(2)} ms · bubble (barriers/idle) ${bubble.toFixed(2)} ms (${pct(bubble)}) · encoder span ${span.toFixed(2)} ms`,
+  );
+  log(
+    'info',
+    `  transcript = ${logN} rounds @ ${(transcript / logN).toFixed(2)} ms/round · ` +
+      `wall ${r.totalMs.toFixed(1)} ms · gpuMs ${r.gpuMs.toFixed(1)} ms · setup ${r.setupMs.toFixed(1)} ms`,
+  );
+}
+
 export interface WgSweepRow {
   wg: number;
   gpuMs: number;

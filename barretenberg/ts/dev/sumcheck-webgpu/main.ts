@@ -34,7 +34,7 @@ import { batchSuite } from './batch_gpu.js';
 import { poseidon2Suite } from './poseidon2_gpu.js';
 import { singleSubmitSuite } from './suite_singlesubmit.js';
 import { runSingleSubmitBench } from './single_submit.js';
-import { runBenchmark, runWgSweep, runProfile, runHybridBenchmark, type BenchRow, type HybridRow } from './bench.js';
+import { runBenchmark, runWgSweep, runProfile, runSingleSubmitProfile, runHybridBenchmark, type BenchRow, type HybridRow } from './bench.js';
 
 const REGISTRY: Suite[] = [
   frSuite, monoSuite, arithSuite, deltaSuite, eccSuite, pos2InitSuite,
@@ -174,6 +174,34 @@ const profBtn = document.createElement('button');
 profBtn.textContent = 'Profile';
 profBtn.addEventListener('click', () => void runProfileAuto());
 $controls.appendChild(profBtn);
+
+// Per-kernel GPU profile of the single-submission engine (all rounds) — where its
+// time goes vs multi-round (accumulate/reduce/batch/transcript/fold + barrier bubble).
+async function runSSProfileAuto(): Promise<boolean> {
+  if (running) return false;
+  running = true;
+  setButtonsDisabled(true);
+  $log.replaceChildren();
+  const logN = Math.max(4, Math.min(20, parseInt($logn.value, 10) || 14));
+  let ok = true;
+  try {
+    await runSingleSubmitProfile(await getDevice(), logN, log);
+  } catch (e) {
+    ok = false;
+    log('err', `error: ${(e as Error).message}`);
+    // eslint-disable-next-line no-console
+    console.error(e);
+  } finally {
+    running = false;
+    setButtonsDisabled(false);
+    log('muted', `[autorun] state=${ok ? 'ok' : 'err'}`);
+  }
+  return ok;
+}
+const ssProfBtn = document.createElement('button');
+ssProfBtn.textContent = 'SS profile';
+ssProfBtn.addEventListener('click', () => void runSSProfileAuto());
+$controls.appendChild(ssProfBtn);
 
 // Single-submission GPU Fiat-Shamir sumcheck vs WASM across sizes (probe the 3x goal).
 async function runSSBenchAuto(): Promise<boolean> {
@@ -360,6 +388,8 @@ if (autorun === 'bench') {
   void runWgSweepAuto();
 } else if (autorun === 'profile') {
   void runProfileAuto();
+} else if (autorun === 'ssprofile') {
+  void runSSProfileAuto();
 } else if (autorun === 'ssbench') {
   void runSSBenchAuto();
 } else if (autorun) {

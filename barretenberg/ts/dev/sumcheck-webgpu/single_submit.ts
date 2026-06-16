@@ -28,7 +28,7 @@ import { NUM_RELATIONS } from '../../src/msm_webgpu/accumulator.js';
 import { ALL_RELATIONS } from './descriptors.js';
 import {
   create_and_write_sb, create_and_write_ub, create_sb, create_bind_group_layout, create_bind_group,
-  create_compute_pipeline, execute_pipeline, create_readback_buffer,
+  create_compute_pipeline, execute_pipeline, create_readback_buffer, Profiler,
 } from '../../src/msm_webgpu/cuzk/gpu.js';
 import {
   type PipelineCache, type RelationDescriptor, type Logger,
@@ -55,6 +55,11 @@ export interface SingleSubmitResult {
   gpuMs: number;   // submit + the single readback await
   totalMs: number; // rounds wall (encode + submit + readback + decode)
   setupMs: number; // one-time host precompute (schedule, matrices, constants, uploads)
+  // Per-kernel GPU timing across ALL rounds (only when `profile` is set and the
+  // device has timestamp-query): one entry per dispatch labelled by kernel type
+  // (accumulate/reduce/batch/transcript/fold), plus an `encoder_all` region whose
+  // ms is the full GPU span (first pass begin -> last pass end, barriers included).
+  profile: { label: string; ms: number }[] | null;
 }
 
 interface Shared {
@@ -92,6 +97,7 @@ export async function runSingleSubmitSumcheck(
   initColBytes: Uint8Array[],
   shared?: Shared,
   accWG: number = WG,
+  profile = false,
 ): Promise<SingleSubmitResult> {
   const d = Math.round(Math.log2(n));
   const relCache: PipelineCache = shared?.cache ?? new Map();
@@ -188,6 +194,11 @@ export async function runSingleSubmitSumcheck(
   };
   const setupMs = performance.now() - tSetup;
 
+  // Per-kernel profiler: one timestamped stage per dispatch across ALL rounds (the
+  // transcript cost is per-round, so round-0-only profiling would under-count it).
+  const passesPerRound = ALL_RELATIONS.length * 4 + 2; // acc+r1+r2+fold per rel, + batch + transcript
+  const profiler = profile ? new Profiler(device, d * passesPerRound + 4) : null;
+
   // ---- Encode ALL rounds into ONE command buffer ----
   const t0 = performance.now();
   const enc = device.createCommandEncoder();
@@ -204,25 +215,25 @@ export async function runSingleSubmitSumcheck(
       const acc = await accPipeline(desc);
       const aBufs: GPUBuffer[] = [cur[r], perEdge, create_and_write_ub(device, u32x4(pairs)), scalBufs[i]];
       if (relParamBufs[r]) aBufs.push(relParamBufs[r]!);
-      await execute_pipeline(enc, acc.pipeline, create_bind_group(device, acc.layout, aBufs), Math.ceil(pairs / accWG));
+      await execute_pipeline(enc, acc.pipeline, create_bind_group(device, acc.layout, aBufs), Math.ceil(pairs / accWG), 1, 1, profiler?.stage('accumulate'));
       const r1 = create_bind_group(device, reduceRunner.layout, [
         perEdge, partsScratch, create_and_write_ub(device, u32x4(pairs, desc.outLen, chunk, 0)),
       ]);
-      await execute_pipeline(enc, reduceRunner.pipeline, r1, groups);
+      await execute_pipeline(enc, reduceRunner.pipeline, r1, groups, 1, 1, profiler?.stage('reduce'));
       const r2 = create_bind_group(device, reduceRunner.layout, [
         partsScratch, accBuf, create_and_write_ub(device, u32x4(groups, desc.outLen, groups, finalBase[r])),
       ]);
-      await execute_pipeline(enc, reduceRunner.pipeline, r2, 1);
+      await execute_pipeline(enc, reduceRunner.pipeline, r2, 1, 1, 1, profiler?.stage('reduce'));
     }
 
     // batch: accBuf -> univBuf (round univariate); reads beta_i + GPU c_i
     const bBg = create_bind_group(device, batch.layout, [accBuf, liBuf, ldBuf, powBuf, betaBufs[i], cBuf, univBuf]);
-    await execute_pipeline(enc, batch.pipeline, bBg, Math.ceil(BATCHED_LEN / WG));
+    await execute_pipeline(enc, batch.pipeline, bBg, Math.ceil(BATCHED_LEN / WG), 1, 1, profiler?.stage('batch'));
     enc.copyBufferToBuffer(univBuf, 0, staging, uniOff + i * BATCHED_LEN * 32, BATCHED_LEN * 32);
 
     // transcript: univBuf -> u_i (uBuf), advance running + c
     const tBg = create_bind_group(device, transcript.layout, [univBuf, rcBuf, diagBuf, runBuf, cBuf, uBuf, scalarsBufs[i], p2pBuf]);
-    await execute_pipeline(enc, transcript.pipeline, tBg, 1);
+    await execute_pipeline(enc, transcript.pipeline, tBg, 1, 1, 1, profiler?.stage('transcript'));
     enc.copyBufferToBuffer(uBuf, 0, staging, chalOff + i * 32, 32);
 
     // fold every column at u_i (cur -> other)
@@ -232,12 +243,13 @@ export async function runSingleSubmitSumcheck(
       const fBg = create_bind_group(device, foldRunner.layout, [
         cur[r], other[r], create_and_write_ub(device, u32x4(numOut, pairs)), uBuf,
       ]);
-      await execute_pipeline(enc, foldRunner.pipeline, fBg, Math.ceil(numOut / WG));
+      await execute_pipeline(enc, foldRunner.pipeline, fBg, Math.ceil(numOut / WG), 1, 1, profiler?.stage('fold'));
     }
     [cur, other] = [other, cur];
     curLen = pairs;
   }
 
+  profiler?.resolve(enc);
   const tg = performance.now();
   device.queue.submit([enc.finish()]);
   await staging.mapAsync(GPUMapMode.READ, 0, stagingBytes);
@@ -273,7 +285,10 @@ export async function runSingleSubmitSumcheck(
     ALL_RELATIONS.forEach((desc, idx) => { finalColBytes[desc.relationIndex] = all.slice(offs[idx], offs[idx] + sizes[idx]); });
   }
 
-  return { univariates, challenges, finalColBytes, gpuMs, totalMs, setupMs };
+  const profileReport = profiler ? (await profiler.report())?.map(e => ({ label: e.label, ms: e.ms })) ?? null : null;
+  profiler?.destroy();
+
+  return { univariates, challenges, finalColBytes, gpuMs, totalMs, setupMs, profile: profileReport };
 }
 
 // Build random per-relation inputs for one size (deterministic per (size, relation)).
