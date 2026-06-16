@@ -2,10 +2,16 @@
 //!
 //! See [`constrain_secret`] for the rule that anchors an untrusted `(secret, index)` to the registry.
 //!
-//! Sends on a single `(sender, recipient, secret)` chain are strictly sequential across transactions: the
-//! first send (index 0) bootstraps the handshake, whose initialization nullifier collides if two first-sends
-//! run in parallel, and every later send proves its predecessor's nullifier exists, which only holds once
-//! that predecessor has landed. Distinct chains carry no such dependency and can be sent in parallel.
+//! A chain is identified by `(sender, recipient, secret)`, so each `recipient` (per mode) is a distinct
+//! chain. Sends on one chain are strictly sequential across transactions: the first send (index 0)
+//! bootstraps the handshake, whose initialization nullifier collides if two first-sends run in parallel, and
+//! every later send proves its predecessor's nullifier exists, which only holds once that predecessor has
+//! landed.
+//!
+//! To send several messages on the same chain at once, batch them into a single transaction: each later send
+//! discharges its predecessor check against a same-transaction pending nullifier, so the whole chain segment
+//! advances within one tx. Sends to distinct recipients are distinct chains and carry no such dependency, so
+//! they can go in parallel.
 
 use crate::context::PrivateContext;
 use crate::messages::delivery::OnchainDeliveryMode;
