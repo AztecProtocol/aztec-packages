@@ -145,8 +145,9 @@ self.storage.balances.at(admin).add(amount)
 - **Guarantees:** Recipient receives correctly encrypted content and can discover the message through constrained tags
 - **Privacy:** High - encrypted log reveals minimal information
 
-By default, constrained delivery uses the private function's `self.msg_sender()` as the sender for note discovery.
-Use `.with_sender(...)` when the intended sender differs from the caller.
+By default, constrained delivery uses the wallet-supplied sender for tags (typically the account that initiated the
+transaction), the same default as unconstrained delivery. Use `.with_sender(...)` when the intended sender differs from
+that account.
 
 ```rust
 // Minting to an arbitrary recipient - must guarantee delivery
@@ -168,18 +169,11 @@ When a note is delivered, recipients need to discover it among all the encrypted
 
 ### Who is the "Sender"?
 
-The "sender" for note discovery is **not necessarily the contract calling `.deliver()`**. For address-secret delivery,
-including the default `MessageDelivery::onchain_unconstrained()` path, the wallet tells PXE which address to use as the
-sender for tags (typically the originating account). This sender address is used along with the recipient address to
-compute the shared secret that generates the tag. Contracts can override this default with the `with_sender` builder
-method, e.g. `MessageDelivery::onchain_unconstrained().with_sender(address)`.
+The "sender" for note discovery is **not the contract calling `.deliver()`**. Instead, it's the **account contract** that initiated the transaction.
 
-Constrained delivery adds a second discovery path. For `MessageDelivery::onchain_constrained()`, the default sender is
-the private function's `self.msg_sender()`, and that sender is used for the handshake registry tuple and constrained tag
-chain. Contracts can still override it with `.with_sender(address)` when the intended sender differs from the caller.
+When your wallet submits a transaction, it tells PXE which address to use as the sender for tags (typically the originating account). This sender address is then used along with the recipient address to compute a shared secret (via [Diffie-Hellman key exchange](https://www.geeksforgeeks.org/computer-networks/diffie-hellman-key-exchange-and-perfect-forward-secrecy/)), which generates the tag that allows recipients to efficiently find their notes. Contracts can override the sender at message delivery via the `with_sender` builder method, e.g. `MessageDelivery::onchain_unconstrained().with_sender(address)`.
 
-**Example:** If Alice uses her account contract to call a token contract that mints tokens to Bob with constrained
-delivery, the default sender for discovery is Alice's account contract address, not the token contract address.
+**Example:** If Alice uses her account contract to call a token contract that mints tokens to Bob, the "sender for tags" is Alice's account contract address, not the token contract address.
 
 ### Discovering Notes from Unknown Senders
 

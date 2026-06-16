@@ -283,8 +283,9 @@ impl OnchainConstrainedDelivery {
     /// Overrides the sender address used for discovery tag derivation.
     ///
     /// On-chain messages are tagged so that the recipient can find them efficiently without scanning all logs. The tag
-    /// is derived from a shared secret between a "sender" and the recipient. By default, constrained delivery uses
-    /// `self.msg_sender()`.
+    /// is derived from a shared secret between a "sender" and the recipient. By default, the sender is the
+    /// wallet-supplied address (typically the account that initiated the transaction), the same default as
+    /// [`OnchainUnconstrainedDelivery`]; override it when the intended sender differs from that account.
     ///
     /// ## Examples
     ///

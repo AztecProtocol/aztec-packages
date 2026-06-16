@@ -91,7 +91,6 @@ pub struct TestEnvironment {
 /// ```
 pub struct PrivateContextOptions {
     contract_address: Option<AztecAddress>,
-    msg_sender: Option<AztecAddress>,
     anchor_block_number: Option<u32>,
     gas_limits: Option<Gas>,
     teardown_gas_limits: Option<Gas>,
@@ -107,7 +106,6 @@ impl PrivateContextOptions {
     pub fn new() -> Self {
         Self {
             contract_address: Option::none(),
-            msg_sender: Option::none(),
             anchor_block_number: Option::none(),
             gas_limits: Option::none(),
             teardown_gas_limits: Option::none(),
@@ -128,12 +126,6 @@ impl PrivateContextOptions {
     /// siloing, storage access, etc.
     pub fn at_contract_address(&mut self, contract_address: AztecAddress) -> Self {
         self.contract_address = Option::some(contract_address);
-        *self
-    }
-
-    /// Sets the private call sender in the created context.
-    pub fn with_msg_sender(&mut self, msg_sender: AztecAddress) -> Self {
-        self.msg_sender = Option::some(msg_sender);
         *self
     }
 
@@ -704,17 +696,14 @@ impl TestEnvironment {
         opts: PrivateContextOptions,
         f: unconstrained fn[Env](&mut PrivateContext) -> T,
     ) -> T {
-        let maybe_msg_sender = opts.msg_sender;
-        let mut inputs = txe_oracles::set_private_txe_context(
-            opts.contract_address,
-            opts.anchor_block_number,
-            opts.resolve_gas_settings(),
+        let mut context = PrivateContext::new(
+            txe_oracles::set_private_txe_context(
+                opts.contract_address,
+                opts.anchor_block_number,
+                opts.resolve_gas_settings(),
+            ),
+            0,
         );
-        if maybe_msg_sender.is_some() {
-            inputs.call_context.msg_sender = maybe_msg_sender.unwrap_unchecked();
-        }
-
-        let mut context = PrivateContext::new(inputs, 0);
 
         let ret_value = f(&mut context);
 

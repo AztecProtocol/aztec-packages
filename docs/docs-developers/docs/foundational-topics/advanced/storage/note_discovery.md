@@ -53,16 +53,9 @@ When the log is emitted, the protocol kernel **siloes** the tag with the contrac
 
 #### The sender in note tagging
 
-The "sender" in note tagging is **not necessarily the transaction sender**. For address-secret delivery, including the
-default `MessageDelivery::onchain_unconstrained()` path, it is the sender for tags, which the wallet supplies as a
-default (typically the originating account address). Contracts can override this at message delivery by using
-`MessageDelivery::onchain_unconstrained().with_sender(address)`.
+The "sender" in note tagging is **not necessarily the transaction sender**. It's the **sender for tags**, which the wallet supplies as a default (typically the originating account address). Contracts can override this at message delivery by using `MessageDelivery::onchain_unconstrained().with_sender(address)`.
 
 This sender address is used along with the recipient address to compute the shared secret via Diffie-Hellman key exchange, which is then used to derive the tag.
-
-Constrained delivery adds a second discovery path. For `MessageDelivery::onchain_constrained()`, the default sender is
-the private function's `self.msg_sender()`, and that sender is used for the handshake registry tuple and constrained tag
-chain. Contracts can override it with `.with_sender(address)` when the intended sender differs from the caller.
 
 #### Registering known senders
 

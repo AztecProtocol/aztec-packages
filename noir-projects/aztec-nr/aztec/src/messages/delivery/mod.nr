@@ -115,7 +115,7 @@ fn do_onchain_private_message_delivery<Env, let MESSAGE_PLAINTEXT_LEN: u32>(
     assert(!deliver_as_offchain_message, "on-chain message delivery expected");
     assert_valid_tag_derivation_for_mode(mode, resolved_tag_secret_derivation);
     let onchain_mode = to_onchain_delivery_mode(mode);
-    let sender = resolve_sender(context, onchain_mode, sender_override);
+    let sender = resolve_sender(sender_override);
 
     let contract_address = context.this_address();
 
@@ -223,23 +223,16 @@ fn assert_valid_tag_derivation_for_mode(mode: DeliveryMode, tag_secret_derivatio
     }
 }
 
-fn resolve_sender(
-    context: &mut PrivateContext,
-    mode: OnchainDeliveryMode,
-    sender_override: Option<AztecAddress>,
-) -> AztecAddress {
-    if sender_override.is_some() {
-        sender_override.unwrap_unchecked()
-    } else if mode == OnchainDeliveryMode::onchain_constrained() {
-        context.maybe_msg_sender().unwrap()
-    } else {
-        // Safety: address-derived delivery is unconstrained; the sender either comes from the builder override or the
-        // wallet-provided default tag sender.
-        unsafe {
+fn resolve_sender(sender_override: Option<AztecAddress>) -> AztecAddress {
+    // Safety: tag senders are unconstrained; the sender comes from the builder override or the wallet-provided
+    // default tag sender, which must be an account the PXE controls so it can own and recover the resulting
+    // tagging/handshake state.
+    unsafe {
+        sender_override.unwrap_or_else(|| {
             get_sender_for_tags().expect(
                 f"Sender for tags is not set when emitting a private log and no override is set. Ensure the wallet provides a default sender.",
             )
-        }
+        })
     }
 }
 
@@ -294,7 +287,7 @@ mod test {
         hash::{compute_log_tag, poseidon2_hash},
         traits::FromField,
     };
-    use crate::test::helpers::test_environment::{PrivateContextOptions, TestEnvironment};
+    use crate::test::helpers::test_environment::TestEnvironment;
     use super::{
         calculate_tag, calculate_tag_for_mode, DeliveryMode, OnchainDeliveryMode, resolve_sender,
         resolve_tag_secret_derivation, TagSecretDerivation,
@@ -365,17 +358,11 @@ mod test {
     }
 
     #[test(should_fail_with = "Sender for tags is not set")]
-    unconstrained fn unconstrained_sender_resolution_requires_wallet_default_sender() {
+    unconstrained fn sender_resolution_requires_wallet_default_sender() {
         let env = TestEnvironment::new();
         let _ = OracleMock::mock("aztec_prv_getSenderForTags").returns(Option::<AztecAddress>::none());
 
-        env.private_context(|context| {
-            let _ = resolve_sender(
-                context,
-                OnchainDeliveryMode::onchain_unconstrained(),
-                Option::none(),
-            );
-        });
+        env.private_context(|_context| { let _ = resolve_sender(Option::none()); });
     }
 
     #[test]
@@ -383,59 +370,16 @@ mod test {
         let env = TestEnvironment::new();
         let sender = AztecAddress::from_field(1);
 
-        env.private_context(|context| {
-            assert_eq(
-                resolve_sender(
-                    context,
-                    OnchainDeliveryMode::onchain_unconstrained(),
-                    Option::some(sender),
-                ),
-                sender,
-            );
-            assert_eq(
-                resolve_sender(
-                    context,
-                    OnchainDeliveryMode::onchain_constrained(),
-                    Option::some(sender),
-                ),
-                sender,
-            );
-        });
+        env.private_context(|_context| { assert_eq(resolve_sender(Option::some(sender)), sender); });
     }
 
     #[test]
-    unconstrained fn unconstrained_sender_resolution_uses_wallet_default_sender() {
+    unconstrained fn sender_resolution_uses_wallet_default_sender() {
         let env = TestEnvironment::new();
         let sender = AztecAddress::from_field(1);
         let _ = OracleMock::mock("aztec_prv_getSenderForTags").returns(Option::some(sender));
 
-        env.private_context(|context| {
-            assert_eq(
-                resolve_sender(
-                    context,
-                    OnchainDeliveryMode::onchain_unconstrained(),
-                    Option::none(),
-                ),
-                sender,
-            );
-        });
-    }
-
-    #[test]
-    unconstrained fn constrained_sender_resolution_uses_private_msg_sender() {
-        let env = TestEnvironment::new();
-        let sender = AztecAddress::from_field(1);
-
-        env.private_context_opts(PrivateContextOptions::new().with_msg_sender(sender), |context| {
-            assert_eq(
-                resolve_sender(
-                    context,
-                    OnchainDeliveryMode::onchain_constrained(),
-                    Option::none(),
-                ),
-                sender,
-            );
-        });
+        env.private_context(|_context| { assert_eq(resolve_sender(Option::none()), sender); });
     }
 
     #[test]
