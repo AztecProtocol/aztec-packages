@@ -10,8 +10,12 @@
 //!
 //! To send several messages on the same chain at once, batch them into a single transaction: each later send
 //! discharges its predecessor check against a same-transaction pending nullifier, so the whole chain segment
-//! advances within one tx. Sends to distinct recipients are distinct chains and carry no such dependency, so
-//! they can go in parallel.
+//! advances within one tx. This requires the handshake to already be committed. The registry lookup that
+//! decides whether to reuse or bootstrap ([`get_or_create_app_siloed_handshake_secret`]) is a utility call that
+//! reads committed state, so a bootstrap performed earlier in the same tx is invisible to a later send: that
+//! send re-handshakes onto a separate chain instead of reusing the pending one. A brand-new recipient therefore
+//! takes one landed tx to establish the chain before further sends can be batched onto it. Sends to distinct
+//! recipients are distinct chains and carry no such dependency, so they can go in parallel.
 
 use crate::context::PrivateContext;
 use crate::messages::delivery::OnchainDeliveryMode;
