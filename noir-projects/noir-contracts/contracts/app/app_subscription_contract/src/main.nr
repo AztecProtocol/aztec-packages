@@ -150,7 +150,7 @@ pub contract AppSubscription {
             .subscriptions
             .at(subscriber)
             .initialize_or_replace(|_| SubscriptionNote { expiry_block_number, remaining_txs: tx_count })
-            .deliver(MessageDelivery::onchain_constrained().with_sender(self.msg_sender()));
+            .deliver(MessageDelivery::onchain_constrained());
         // docs:end:owned_private_mutable_initialize
     }
 

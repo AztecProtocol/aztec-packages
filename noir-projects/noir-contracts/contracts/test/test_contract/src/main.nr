@@ -132,8 +132,7 @@ pub contract Test {
     #[external("private")]
     fn call_create_note(value: u128, owner: AztecAddress, storage_slot: Field, make_tx_hybrid: bool) {
         let note = UintNote { value };
-        create_note(self.context, owner, storage_slot, note).deliver(MessageDelivery::onchain_constrained()
-            .with_sender(self.msg_sender()));
+        create_note(self.context, owner, storage_slot, note).deliver(MessageDelivery::onchain_constrained());
 
         if make_tx_hybrid {
             self.enqueue_self.dummy_public_call();

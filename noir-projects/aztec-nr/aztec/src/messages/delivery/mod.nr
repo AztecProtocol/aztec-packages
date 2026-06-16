@@ -1,5 +1,6 @@
 mod builder;
 mod mode;
+mod tag;
 mod tag_secret_derivation;
 
 pub mod constrained_delivery;
@@ -8,22 +9,15 @@ pub mod handshake;
 use crate::{
     context::PrivateContext,
     messages::{
-        delivery::constrained_delivery::{
-            constrain_secret_and_emit_nullifier, get_or_create_app_siloed_handshake_secret,
-        },
         encryption::{aes128::AES128, message_encryption::MessageEncryption},
         offchain_messages::deliver_offchain_message,
     },
-    oracle::{notes::{get_app_tagging_secret, get_next_tagging_index, get_sender_for_tags}, random::random},
-    standard_addresses::STANDARD_HANDSHAKE_REGISTRY_ADDRESS,
+    oracle::notes::get_sender_for_tags,
     utils::remove_constraints::remove_constraints_if,
 };
-use crate::protocol::{
-    address::AztecAddress,
-    constants::{DOM_SEP__CONSTRAINED_MSG_LOG_TAG, DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG},
-    hash::{compute_log_tag, poseidon2_hash},
-};
+use crate::protocol::address::AztecAddress;
 use mode::DeliveryMode;
+use tag::derive_log_tag;
 use tag_secret_derivation::TagSecretDerivation;
 
 pub use builder::{
@@ -107,12 +101,9 @@ fn do_onchain_private_message_delivery<Env, let MESSAGE_PLAINTEXT_LEN: u32>(
     resolved_tag_secret_derivation: TagSecretDerivation,
     sender_override: Option<AztecAddress>,
 ) {
-    let deliver_as_offchain_message = mode == DeliveryMode::offchain();
     let is_constrained = mode == DeliveryMode::onchain_constrained();
-    assert_constant(deliver_as_offchain_message);
     assert_constant(is_constrained);
 
-    assert(!deliver_as_offchain_message, "on-chain message delivery expected");
     assert_valid_tag_derivation_for_mode(mode, resolved_tag_secret_derivation);
     let onchain_mode = to_onchain_delivery_mode(mode);
     let sender = resolve_sender(sender_override);
@@ -124,7 +115,7 @@ fn do_onchain_private_message_delivery<Env, let MESSAGE_PLAINTEXT_LEN: u32>(
         || AES128::encrypt(encode_into_message_plaintext(), recipient, contract_address),
     );
 
-    let log_tag = calculate_tag_for_mode(
+    let log_tag = derive_log_tag(
         context,
         onchain_mode,
         resolved_tag_secret_derivation,
@@ -150,62 +141,6 @@ fn do_onchain_private_message_delivery<Env, let MESSAGE_PLAINTEXT_LEN: u32>(
     } else {
         context.emit_private_log_unsafe(log_tag, log);
     }
-}
-
-fn calculate_tag_for_mode(
-    context: &mut PrivateContext,
-    mode: OnchainDeliveryMode,
-    resolved_tag_secret_derivation: TagSecretDerivation,
-    sender: AztecAddress,
-    recipient: AztecAddress,
-) -> Field {
-    if resolved_tag_secret_derivation == TagSecretDerivation::address_secret() {
-        calculate_address_secret_tag(sender, recipient, mode)
-    } else {
-        calculate_non_interactive_handshake_tag(context, sender, recipient, mode)
-    }
-}
-
-fn calculate_address_secret_tag(sender: AztecAddress, recipient: AztecAddress, mode: OnchainDeliveryMode) -> Field {
-    // Safety: address-derived delivery is unconstrained; invalid recipients get a random tag to preserve log shape.
-    unsafe {
-        get_app_tagging_secret(sender, recipient).map_or_else(
-            || compute_log_tag(random(), tag_domain_separator(mode)),
-            |secret| {
-                let index = get_next_tagging_index(secret, mode);
-                calculate_tag(secret, index, mode)
-            },
-        )
-    }
-}
-
-fn calculate_non_interactive_handshake_tag(
-    context: &mut PrivateContext,
-    sender: AztecAddress,
-    recipient: AztecAddress,
-    mode: OnchainDeliveryMode,
-) -> Field {
-    let (secret, bootstrapped) = get_or_create_app_siloed_handshake_secret(
-        context,
-        STANDARD_HANDSHAKE_REGISTRY_ADDRESS,
-        sender,
-        recipient,
-        mode,
-    );
-
-    // Safety: the returned index is untrusted and is constrained before the tag is emitted.
-    let index = unsafe { get_next_tagging_index(secret, mode) };
-    constrain_secret_and_emit_nullifier(
-        context,
-        STANDARD_HANDSHAKE_REGISTRY_ADDRESS,
-        sender,
-        recipient,
-        secret,
-        bootstrapped,
-        index,
-    );
-
-    calculate_tag(secret, index, mode)
 }
 
 fn assert_valid_tag_derivation_for_mode(mode: DeliveryMode, tag_secret_derivation: TagSecretDerivation) {
@@ -244,21 +179,6 @@ fn to_onchain_delivery_mode(mode: DeliveryMode) -> OnchainDeliveryMode {
     }
 }
 
-fn tag_domain_separator(mode: OnchainDeliveryMode) -> u32 {
-    if mode == OnchainDeliveryMode::onchain_constrained() {
-        DOM_SEP__CONSTRAINED_MSG_LOG_TAG
-    } else {
-        DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG
-    }
-}
-
-fn calculate_tag(secret: Field, index: u32, mode: OnchainDeliveryMode) -> Field {
-    compute_log_tag(
-        poseidon2_hash([secret, index as Field]),
-        tag_domain_separator(mode),
-    )
-}
-
 fn resolve_tag_secret_derivation(
     mode: DeliveryMode,
     tag_secret_derivation: TagSecretDerivation,
@@ -278,20 +198,9 @@ fn resolve_tag_secret_derivation(
 }
 
 mod test {
-    use crate::messages::delivery::constrained_delivery::{
-        compute_constrained_msg_nullifier, constrain_secret_and_emit_nullifier,
-    };
-    use crate::protocol::{
-        address::AztecAddress,
-        constants::{DOM_SEP__CONSTRAINED_MSG_LOG_TAG, DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG},
-        hash::{compute_log_tag, poseidon2_hash},
-        traits::FromField,
-    };
+    use crate::protocol::{address::AztecAddress, traits::FromField};
     use crate::test::helpers::test_environment::TestEnvironment;
-    use super::{
-        calculate_tag, calculate_tag_for_mode, DeliveryMode, OnchainDeliveryMode, resolve_sender,
-        resolve_tag_secret_derivation, TagSecretDerivation,
-    };
+    use super::{DeliveryMode, resolve_sender, resolve_tag_secret_derivation, TagSecretDerivation};
     use std::test::OracleMock;
 
     #[test]
@@ -330,33 +239,6 @@ mod test {
         );
     }
 
-    #[test]
-    fn calculate_tag_uses_mode_domain_separator() {
-        let secret: Field = 1234;
-        let index: u32 = 7;
-        let raw_tag = poseidon2_hash([secret, index as Field]);
-
-        assert_eq(
-            calculate_tag(secret, index, OnchainDeliveryMode::onchain_unconstrained()),
-            compute_log_tag(raw_tag, DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG),
-        );
-        assert_eq(
-            calculate_tag(secret, index, OnchainDeliveryMode::onchain_constrained()),
-            compute_log_tag(raw_tag, DOM_SEP__CONSTRAINED_MSG_LOG_TAG),
-        );
-    }
-
-    #[test]
-    fn same_secret_and_index_have_distinct_tags_across_modes() {
-        let secret: Field = 1234;
-        let index: u32 = 7;
-
-        assert(
-            calculate_tag(secret, index, OnchainDeliveryMode::onchain_unconstrained())
-                != calculate_tag(secret, index, OnchainDeliveryMode::onchain_constrained()),
-        );
-    }
-
     #[test(should_fail_with = "Sender for tags is not set")]
     unconstrained fn sender_resolution_requires_wallet_default_sender() {
         let env = TestEnvironment::new();
@@ -380,77 +262,5 @@ mod test {
         let _ = OracleMock::mock("aztec_prv_getSenderForTags").returns(Option::some(sender));
 
         env.private_context(|_context| { assert_eq(resolve_sender(Option::none()), sender); });
-    }
-
-    #[test]
-    unconstrained fn address_secret_tag_uses_secret_index_and_mode_domain() {
-        let env = TestEnvironment::new();
-        let sender = AztecAddress::from_field(1);
-        let recipient = AztecAddress::from_field(2);
-        let secret: Field = 7;
-        let index: u32 = 3;
-        let _ = OracleMock::mock("aztec_prv_getSenderForTags").returns(Option::some(sender));
-        let _ = OracleMock::mock("aztec_prv_getAppTaggingSecret").returns(Option::some(secret));
-        let _ = OracleMock::mock("aztec_prv_getNextTaggingIndex").returns(index);
-
-        env.private_context(|context| {
-            assert_eq(
-                calculate_tag_for_mode(
-                    context,
-                    OnchainDeliveryMode::onchain_unconstrained(),
-                    TagSecretDerivation::address_secret(),
-                    sender,
-                    recipient,
-                ),
-                compute_log_tag(
-                    poseidon2_hash([secret, index as Field]),
-                    DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG,
-                ),
-            );
-        });
-    }
-
-    #[test]
-    unconstrained fn address_secret_tag_uses_random_tag_for_invalid_recipient() {
-        let env = TestEnvironment::new();
-        let sender = AztecAddress::from_field(1);
-        let recipient = AztecAddress::from_field(2);
-        let random_tag = 42;
-        let _ = OracleMock::mock("aztec_prv_getSenderForTags").returns(Option::some(sender));
-        let _ = OracleMock::mock("aztec_prv_getAppTaggingSecret").returns(Option::<Field>::none());
-        let _ = OracleMock::mock("aztec_misc_getRandomField").returns(random_tag);
-
-        env.private_context(|context| {
-            assert_eq(
-                calculate_tag_for_mode(
-                    context,
-                    OnchainDeliveryMode::onchain_unconstrained(),
-                    TagSecretDerivation::address_secret(),
-                    sender,
-                    recipient,
-                ),
-                compute_log_tag(random_tag, DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG),
-            );
-        });
-    }
-
-    #[test]
-    unconstrained fn constrained_helper_emits_current_nullifier() {
-        let env = TestEnvironment::new();
-        let registry = AztecAddress::from_field(1);
-        let sender = AztecAddress::from_field(2);
-        let recipient = AztecAddress::from_field(4);
-        let secret: Field = 1234;
-        let index: u32 = 0;
-
-        env.private_context(|context| {
-            constrain_secret_and_emit_nullifier(context, registry, sender, recipient, secret, true, index);
-
-            assert_eq(context.nullifiers.len(), 1);
-            assert_eq(
-                context.nullifiers.get(0).inner.value,
-                compute_constrained_msg_nullifier(sender, recipient, secret, index),
-            );
-        });
     }
 }

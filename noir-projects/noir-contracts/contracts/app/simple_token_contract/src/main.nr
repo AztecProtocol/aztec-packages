@@ -125,8 +125,7 @@ pub contract SimpleToken {
     #[authorize_once("from", "authwit_nonce")]
     #[external("private")]
     fn transfer_from_private_to_public(from: AztecAddress, to: AztecAddress, amount: u128, authwit_nonce: Field) {
-        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery::onchain_constrained().with_sender(self
-            .msg_sender()));
+        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery::onchain_constrained());
         self.enqueue_self._increase_public_balance(to, amount);
     }
 
@@ -144,8 +143,7 @@ pub contract SimpleToken {
     #[authorize_once("from", "authwit_nonce")]
     #[external("private")]
     fn burn_private(from: AztecAddress, amount: u128, authwit_nonce: Field) {
-        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery::onchain_constrained().with_sender(self
-            .msg_sender()));
+        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery::onchain_constrained());
         self.enqueue_self._reduce_total_supply(amount);
     }
 

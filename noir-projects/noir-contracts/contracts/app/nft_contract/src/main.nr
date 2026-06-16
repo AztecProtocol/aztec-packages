@@ -221,7 +221,7 @@ pub contract NFT {
 
         let new_note = NFTNote { token_id };
 
-        nfts.at(to).insert(new_note).deliver(MessageDelivery::onchain_constrained().with_sender(self.msg_sender()));
+        nfts.at(to).insert(new_note).deliver(MessageDelivery::onchain_constrained());
     }
 
     #[authorize_once("from", "authwit_nonce")]

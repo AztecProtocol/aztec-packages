@@ -98,8 +98,7 @@ pub contract StateVars {
         let owner = self.msg_sender();
         let new_note = FieldNote { value };
 
-        self.storage.private_immutable.at(owner).initialize(new_note).deliver(MessageDelivery::onchain_constrained()
-            .with_sender(self.msg_sender()));
+        self.storage.private_immutable.at(owner).initialize(new_note).deliver(MessageDelivery::onchain_constrained());
     }
 
     #[external("private")]
@@ -108,7 +107,7 @@ pub contract StateVars {
         let private_mutable = FieldNote { value };
 
         self.storage.private_mutable.at(owner).initialize(private_mutable).deliver(
-            MessageDelivery::onchain_constrained().with_sender(self.msg_sender()),
+            MessageDelivery::onchain_constrained(),
         );
     }
 
@@ -116,7 +115,7 @@ pub contract StateVars {
     fn update_private_mutable(randomness: Field, value: Field) {
         let owner = self.msg_sender();
         self.storage.private_mutable.at(owner).replace(|_old_note| FieldNote { value }).deliver(
-            MessageDelivery::onchain_constrained().with_sender(self.msg_sender()),
+            MessageDelivery::onchain_constrained(),
         );
     }
 
@@ -132,7 +131,7 @@ pub contract StateVars {
                 let new_value = old_note.value + 1;
                 FieldNote { value: new_value }
             })
-            .deliver(MessageDelivery::onchain_constrained().with_sender(self.msg_sender()));
+            .deliver(MessageDelivery::onchain_constrained());
     }
 
     #[external("utility")]

@@ -23,7 +23,7 @@ pub contract Escrow {
     #[initializer]
     fn constructor(owner: AztecAddress) {
         let note = AddressNote { address: owner };
-        self.storage.owner.initialize(note).deliver(MessageDelivery::onchain_constrained().with_sender(self.msg_sender()));
+        self.storage.owner.initialize(note).deliver(MessageDelivery::onchain_constrained());
     }
 
     // Withdraws balance. Requires that msg.sender is the owner.

@@ -1,6 +1,9 @@
 use crate::protocol::{traits::{Deserialize, Serialize, ToField}, utils::reader::Reader};
 
 /// Noir does not support enums, so this wrapper models delivery variants while keeping raw discriminants private.
+///
+/// This is the private superset covering every delivery medium (including off-chain);
+/// [`OnchainDeliveryMode`] is the serializable on-chain subset used in external ABIs.
 pub(crate) struct DeliveryMode {
     inner: u8,
 }

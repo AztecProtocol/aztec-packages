@@ -76,21 +76,32 @@ import { buildACIRCallback } from './acir_callback.js';
 import type { IMiscOracle, IUtilityExecutionOracle } from './interfaces.js';
 import { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
 
-const STANDARD_HANDSHAKE_REGISTRY_UTILITY_READ_SELECTORS = [
-  FunctionSelector.fromSignature('get_handshakes((Field),u32)'),
-  FunctionSelector.fromSignature('get_app_siloed_secret((Field),(Field),(u8),(Field))'),
-];
+const STANDARD_HANDSHAKE_REGISTRY_GET_HANDSHAKES_SELECTOR =
+  FunctionSelector.fromSignature('get_handshakes((Field),u32)');
+const STANDARD_HANDSHAKE_REGISTRY_GET_APP_SILOED_SECRET_SELECTOR = FunctionSelector.fromSignature(
+  'get_app_siloed_secret((Field),(Field),(u8),(Field))',
+);
 
 async function isStandardHandshakeRegistryUtilityRead(
   targetContractAddress: AztecAddress,
   functionSelector: FunctionSelector,
+  args: Fr[],
+  caller: AztecAddress,
 ): Promise<boolean> {
   if (!targetContractAddress.equals(STANDARD_HANDSHAKE_REGISTRY_ADDRESS)) {
     return false;
   }
 
-  const selectors = await Promise.all(STANDARD_HANDSHAKE_REGISTRY_UTILITY_READ_SELECTORS);
-  return selectors.some(selector => functionSelector.equals(selector));
+  if (functionSelector.equals(await STANDARD_HANDSHAKE_REGISTRY_GET_HANDSHAKES_SELECTOR)) {
+    return true;
+  }
+
+  return (
+    functionSelector.equals(await STANDARD_HANDSHAKE_REGISTRY_GET_APP_SILOED_SECRET_SELECTOR) &&
+    args.length >= 4 &&
+    // TODO(F-671): will be replaced with `self.msg_sender()` once utility context exposes it.
+    args[3].equals(caller.toField())
+  );
 }
 
 /** Args for UtilityExecutionOracle constructor. */
@@ -863,7 +874,14 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     );
 
     if (!targetContractAddress.equals(this.contractAddress)) {
-      if (!(await isStandardHandshakeRegistryUtilityRead(targetContractAddress, functionSelector))) {
+      if (
+        !(await isStandardHandshakeRegistryUtilityRead(
+          targetContractAddress,
+          functionSelector,
+          args,
+          this.contractAddress,
+        ))
+      ) {
         const [callerInstance, targetInstance] = await Promise.all([
           this.getContractInstance(this.contractAddress),
           this.getContractInstance(targetContractAddress),

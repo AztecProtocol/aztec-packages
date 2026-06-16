@@ -1,4 +1,6 @@
 //! Sender-side helpers for constrained message delivery.
+//!
+//! See [`constrain_secret`] for the rule that anchors an untrusted `(secret, index)` to the registry.
 
 use crate::context::PrivateContext;
 use crate::messages::delivery::OnchainDeliveryMode;
@@ -42,6 +44,7 @@ pub(crate) fn get_or_create_app_siloed_handshake_secret(
             registry,
             GET_APP_SILOED_SECRET_SELECTOR,
             // TODO(F-671): Replace explicit caller argument once utility context exposes msg_sender().
+            // https://linear.app/aztec-labs/issue/F-671/add-msg-sender-to-utility-context
             [sender.to_field(), recipient.to_field(), mode_field, caller.to_field()],
         );
         Deserialize::deserialize(returns)
@@ -88,6 +91,12 @@ pub(crate) fn constrain_secret_and_emit_nullifier(
     context.push_nullifier_unsafe(compute_constrained_msg_nullifier(sender, recipient, secret, index));
 }
 
+/// Anchors an untrusted `(secret, index)` to the registry before its constrained tag is emitted.
+///
+/// - bootstrapped: the secret is the constrained `non_interactive_handshake` return (source of
+///   truth), so only its `index == 0` start is asserted.
+/// - reuse at index 0: `validate_handshake` binds the oracle-supplied secret to the stored handshake.
+/// - reuse at index > 0: the prior chain nullifier must exist, anchoring back to the index-0 check.
 fn constrain_secret(
     context: &mut PrivateContext,
     registry: AztecAddress,
@@ -129,4 +138,30 @@ pub(crate) fn compute_constrained_msg_nullifier(
         [sender.to_field(), recipient.to_field(), secret, index as Field],
         DOM_SEP__CONSTRAINED_MSG_NULLIFIER,
     )
+}
+
+mod test {
+    use crate::protocol::{address::AztecAddress, traits::FromField};
+    use crate::test::helpers::test_environment::TestEnvironment;
+    use super::{compute_constrained_msg_nullifier, constrain_secret_and_emit_nullifier};
+
+    #[test]
+    unconstrained fn constrained_helper_emits_current_nullifier() {
+        let env = TestEnvironment::new();
+        let registry = AztecAddress::from_field(1);
+        let sender = AztecAddress::from_field(2);
+        let recipient = AztecAddress::from_field(4);
+        let secret: Field = 1234;
+        let index: u32 = 0;
+
+        env.private_context(|context| {
+            constrain_secret_and_emit_nullifier(context, registry, sender, recipient, secret, true, index);
+
+            assert_eq(context.nullifiers.len(), 1);
+            assert_eq(
+                context.nullifiers.get(0).inner.value,
+                compute_constrained_msg_nullifier(sender, recipient, secret, index),
+            );
+        });
+    }
 }
