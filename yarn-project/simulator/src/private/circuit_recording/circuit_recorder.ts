@@ -3,6 +3,8 @@ import { type Logger, type LoggerBindings, resolveLogger } from '@aztec/foundati
 import { Timer } from '@aztec/foundation/timer';
 import type { ForeignCallHandler, ForeignCallInput, ForeignCallOutput } from '@aztec/noir-acvm_js';
 
+import { AsyncLocalStorage } from 'node:async_hooks';
+
 import type { ACIRCallback } from '../acvm/acvm.js';
 import type { ACVMWitness } from '../acvm/acvm_types.js';
 
@@ -43,9 +45,22 @@ export class CircuitRecording {
   }
 }
 
+/** Inputs needed to open a recording for a single circuit execution. */
+export type RecordingMetadata = {
+  input: ACVMWitness;
+  bytecode: Buffer;
+  circuitName: string;
+  functionName: string;
+};
+
 /**
  * Class responsible for recording circuit inputs necessary to replay the circuit. These inputs are the initial witness
  * map and the oracle calls made during the circuit execution/witness generation.
+ *
+ * The active recording for an execution lives in `AsyncLocalStorage`, so each (possibly nested) circuit execution owns
+ * its own recording and concurrent or re-entrant executions cannot corrupt one another's state. Nested executions
+ * (`aztec_prv_callPrivateFunction`, utility calls) re-enter {@link record}, which links the child to the recording
+ * active in the enclosing async context and lets ALS restore the parent automatically when the child completes.
  *
  * Example recording object:
  * ```json
@@ -91,37 +106,44 @@ export class CircuitRecording {
 export class CircuitRecorder {
   protected readonly logger: Logger;
 
-  protected recording?: CircuitRecording;
-
-  private stackDepth: number = 0;
-  private newCircuit: boolean = true;
+  readonly #recordings = new AsyncLocalStorage<CircuitRecording>();
 
   protected constructor(loggerOrBindings?: Logger | LoggerBindings) {
     this.logger = resolveLogger('simulator:acvm:recording', loggerOrBindings);
   }
 
   /**
-   * Initializes a new circuit recording session.
-   * @param recordDir - Directory to store the recording
-   * @param input - Circuit input witness
-   * @param circuitBytecode - Compiled circuit bytecode
-   * @param circuitName - Name of the circuit
-   * @param functionName - Name of the circuit function (defaults to 'main'). This is meaningful only for
-   * contracts as protocol circuits artifacts always contain a single entrypoint function called 'main'.
+   * Records a single circuit execution. Opens a recording for the circuit (linked as a child of the recording active
+   * in the current async context, if any), runs `fn` within that recording's context, and finalizes it. The recording
+   * is returned alongside the result so callers can derive per-circuit stats (e.g. oracle timings).
+   *
+   * Recorder bookkeeping never alters execution: if `fn` throws, the error is attached to the recording and re-thrown
+   * unchanged.
+   * @param metadata - Identifies the circuit and its initial witness.
+   * @param fn - Runs the circuit execution; its oracle calls are recorded into this recording.
    */
-  start(input: ACVMWitness, circuitBytecode: Buffer, circuitName: string, functionName: string): Promise<void> {
-    if (this.newCircuit) {
-      const parentRef = this.recording;
-      this.recording = new CircuitRecording(
-        circuitName,
-        functionName,
-        sha512(circuitBytecode).toString('hex'),
-        Object.fromEntries(input),
-      );
-      this.recording.setParent(parentRef);
-    }
+  record<T>(metadata: RecordingMetadata, fn: () => Promise<T>): Promise<{ result: T; recording: CircuitRecording }> {
+    const parent = this.#recordings.getStore();
+    const recording = new CircuitRecording(
+      metadata.circuitName,
+      metadata.functionName,
+      sha512(metadata.bytecode).toString('hex'),
+      Object.fromEntries(metadata.input),
+    );
+    recording.setParent(parent);
 
-    return Promise.resolve();
+    return this.#recordings.run(recording, async () => {
+      await this.onStart(recording);
+      try {
+        const result = await fn();
+        await this.onFinish(recording);
+        return { result, recording };
+      } catch (error) {
+        recording.error = JSON.stringify(error);
+        await this.onError(recording, error);
+        throw error;
+      }
+    });
   }
 
   /**
@@ -147,7 +169,9 @@ export class CircuitRecorder {
   }
 
   /**
-   * Wraps a user circuit callback to record all oracle calls.
+   * Wraps a user circuit callback to record all oracle calls. A nested circuit entered via an oracle (e.g.
+   * `aztec_prv_callPrivateFunction`) re-enters {@link record}, so its own oracle calls land on the child recording and
+   * this circuit's calls (including the entering oracle call itself) land on this recording once the child completes.
    * @param callback - The original circuit callback.
    * @returns A wrapped callback that records all oracle interactions which is to be provided to the ACVM.
    */
@@ -161,38 +185,16 @@ export class CircuitRecorder {
         throw new Error(`Oracle method ${name} not found when setting up recording callback`);
       }
 
-      const isExternalCall = (name as keyof ACIRCallback) === 'aztec_prv_callPrivateFunction';
-
       recordingCallback[name as keyof ACIRCallback] = (...args: ForeignCallInput[]): ReturnType<typeof fn> => {
         const timer = new Timer();
-        // If we're entering another circuit via `aztec_prv_callPrivateFunction`, we increase the stack depth and set the
-        // newCircuit variable to ensure we are creating a new recording object.
-        if (isExternalCall) {
-          this.stackDepth++;
-          this.newCircuit = true;
-        }
         const result = fn.call(callback, ...args);
         if (result instanceof Promise) {
           return result.then(async r => {
-            // Once we leave the nested circuit, we decrease the stack depth and set newCircuit to false
-            // so that the parent circuit continues with its existing recording
-            // Note: recording restoration is handled by finish()
-            if (isExternalCall) {
-              this.stackDepth--;
-              this.newCircuit = false;
-            }
-            await this.recordCall(name, args, r, timer.ms(), this.stackDepth);
+            await this.recordCall(name, args, r, timer.ms());
             return r;
           }) as ReturnType<typeof fn>;
         }
-        // Once we leave the nested circuit, we decrease the stack depth and set newCircuit to false
-        // so that the parent circuit continues with its existing recording
-        // Note: recording restoration is handled by finish()
-        if (isExternalCall) {
-          this.stackDepth--;
-          this.newCircuit = false;
-        }
-        void this.recordCall(name, args, result, timer.ms(), this.stackDepth);
+        void this.recordCall(name, args, result, timer.ms());
         return result;
       };
     }
@@ -209,64 +211,59 @@ export class CircuitRecorder {
     return async (name: string, inputs: ForeignCallInput[]): Promise<ForeignCallOutput[]> => {
       const timer = new Timer();
       const result = await callback(name, inputs);
-      await this.recordCall(name, inputs, result, timer.ms(), 0);
+      await this.recordCall(name, inputs, result, timer.ms());
       return result;
     };
   }
 
   /**
-   * Records a single oracle/foreign call with its inputs and outputs.
+   * Records a single oracle/foreign call with its inputs and outputs against the recording active in the current
+   * async context.
    * @param name - Name of the call
    * @param inputs - Input arguments
    * @param outputs - Output results
    */
-  recordCall(name: string, inputs: unknown[], outputs: unknown, time: number, stackDepth: number): Promise<OracleCall> {
+  recordCall(name: string, inputs: unknown[], outputs: unknown, time: number): Promise<OracleCall> {
+    const recording = this.#recordings.getStore();
     const entry = {
       name,
       inputs,
       outputs,
       time,
-      stackDepth,
+      stackDepth: depthOf(recording),
     };
-    // Under concurrent use the shared recording can be reset mid-flight; record best-effort and never throw.
-    this.recording?.oracleCalls.push(entry);
+    // Outside any active recording context (e.g. a stray call after the scope closed, or a direct unit-test call)
+    // there is nowhere to record; return the entry without throwing into the execution path.
+    recording?.oracleCalls.push(entry);
     return Promise.resolve(entry);
   }
 
-  /**
-   * Finalizes the recording by resetting the state and returning the recording object.
-   */
-  finish(): Promise<CircuitRecording | undefined> {
-    const result = this.recording;
-    // No active recording (e.g. start() created none, or it was already finalized). Reset to a clean
-    // top-level state and return nothing rather than dereferencing an absent recording.
-    if (!result) {
-      this.newCircuit = true;
-      return Promise.resolve(undefined);
-    }
-    // If this is the top-level circuit recording, we reset the state for the next simulator call
-    if (!result.parent) {
-      this.newCircuit = true;
-      this.recording = undefined;
-    } else {
-      // For nested circuits (utility calls, nested contract calls), restore to parent recording
-      // Note: we don't set newCircuit=false here because:
-      // - For privateCallPrivateFunction, the callback wrapper will set it to false
-      // - For utility calls, we want newCircuit to remain true so the next circuit creates its own recording
-      this.recording = result.parent;
-    }
-    return Promise.resolve(result);
+  /** The recording active in the current async context, if any. */
+  protected currentRecording(): CircuitRecording | undefined {
+    return this.#recordings.getStore();
   }
 
-  /**
-   * Finalizes the recording by resetting the state and returning the recording object with an attached error.
-   * @param error - The error that occurred during circuit execution
-   */
-  async finishWithError(error: unknown): Promise<CircuitRecording | undefined> {
-    const result = await this.finish();
-    if (result) {
-      result.error = JSON.stringify(error);
-    }
-    return result;
+  /** Hook invoked when a recording opens, within the recording's context. Overridden to persist recordings. */
+  protected onStart(_recording: CircuitRecording): Promise<void> {
+    return Promise.resolve();
   }
+
+  /** Hook invoked when a recording completes successfully, within the recording's context. */
+  protected onFinish(_recording: CircuitRecording): Promise<void> {
+    return Promise.resolve();
+  }
+
+  /** Hook invoked when a recording's execution throws, within the recording's context. */
+  protected onError(_recording: CircuitRecording, _error: unknown): Promise<void> {
+    return Promise.resolve();
+  }
+}
+
+/** Depth of a recording in the call tree: 0 for a top-level circuit, incremented per nested circuit. */
+function depthOf(recording: CircuitRecording | undefined): number {
+  let depth = 0;
+  for (let ancestor = recording?.parent; ancestor; ancestor = ancestor.parent) {
+    depth++;
+  }
+  return depth;
 }

@@ -3,11 +3,13 @@ import type { Logger } from '@aztec/foundation/log';
 import fs from 'fs/promises';
 import path from 'path';
 
-import type { ACVMWitness } from '../acvm/acvm_types.js';
 import { CircuitRecorder, type CircuitRecording } from './circuit_recorder.js';
 
+/** Per-recording file state, keyed by recording so concurrent/nested executions don't share it. */
+type RecordingFileState = { filePath: string; isFirstCall: boolean };
+
 export class FileCircuitRecorder extends CircuitRecorder {
-  declare recording?: CircuitRecording & { filePath: string; isFirstCall: boolean };
+  readonly #fileState = new WeakMap<CircuitRecording, RecordingFileState>();
 
   constructor(
     private readonly recordDir: string,
@@ -16,22 +18,9 @@ export class FileCircuitRecorder extends CircuitRecorder {
     super(logger);
   }
 
-  override async start(
-    input: ACVMWitness,
-    circuitBytecode: Buffer,
-    circuitName: string,
-    functionName: string = 'main',
-  ) {
-    await super.start(input, circuitBytecode, circuitName, functionName);
-
-    // Concurrent resets can leave no active recording (newCircuit was false); there is nothing to write.
-    const recording = this.recording;
-    if (!recording) {
-      return;
-    }
-
+  protected override async onStart(recording: CircuitRecording): Promise<void> {
     const recordingStringWithoutClosingBracket = JSON.stringify(
-      { ...recording, isFirstCall: undefined, parent: undefined, oracleCalls: undefined, filePath: undefined },
+      { ...recording, parent: undefined, oracleCalls: undefined },
       null,
       2,
     ).slice(0, -2);
@@ -51,13 +40,13 @@ export class FileCircuitRecorder extends CircuitRecorder {
       }
     }
 
-    recording.isFirstCall = true;
-    recording.filePath = await FileCircuitRecorder.#computeFilePathAndStoreInitialRecording(
+    const filePath = await FileCircuitRecorder.#computeFilePathAndStoreInitialRecording(
       this.recordDir,
       recording.circuitName,
       recording.functionName,
       recordingStringWithoutClosingBracket,
     );
+    this.#fileState.set(recording, { filePath, isFirstCall: true });
   }
 
   /**
@@ -101,14 +90,15 @@ export class FileCircuitRecorder extends CircuitRecorder {
    * @param inputs - Input arguments
    * @param outputs - Output results
    */
-  override async recordCall(name: string, inputs: unknown[], outputs: unknown, time: number, stackDepth: number) {
-    const entry = await super.recordCall(name, inputs, outputs, time, stackDepth);
-    // super.recordCall already built and returned the entry; only persist it when a recording is still active.
-    if (this.recording) {
+  override async recordCall(name: string, inputs: unknown[], outputs: unknown, time: number) {
+    const entry = await super.recordCall(name, inputs, outputs, time);
+    const recording = this.currentRecording();
+    const state = recording && this.#fileState.get(recording);
+    if (state) {
       try {
-        const prefix = this.recording.isFirstCall ? '    ' : '    ,';
-        this.recording.isFirstCall = false;
-        await fs.appendFile(this.recording.filePath, prefix + JSON.stringify(entry) + '\n');
+        const prefix = state.isFirstCall ? '    ' : '    ,';
+        state.isFirstCall = false;
+        await fs.appendFile(state.filePath, prefix + JSON.stringify(entry) + '\n');
       } catch (err) {
         this.logger.error('Failed to log circuit call', { error: err });
       }
@@ -116,47 +106,32 @@ export class FileCircuitRecorder extends CircuitRecorder {
     return entry;
   }
 
-  /**
-   * Finalizes the recording file by adding closing brackets. Without calling this method, the recording file is
-   * incomplete and it fails to parse.
-   */
-  override async finish(): Promise<CircuitRecording | undefined> {
-    // Finish sets the recording to undefined if we are at the topmost circuit,
-    // so we save the current file path before that
-    if (!this.recording) {
-      return super.finish();
+  /** Closes the recording file with the trailing brackets so the JSON parses. */
+  protected override async onFinish(recording: CircuitRecording): Promise<void> {
+    const state = this.#fileState.get(recording);
+    if (!state) {
+      return;
     }
-    const filePath = this.recording.filePath;
-    const result = await super.finish();
     try {
-      await fs.appendFile(filePath, '  ]\n}\n');
+      await fs.appendFile(state.filePath, '  ]\n}\n');
     } catch (err) {
       this.logger.error('Failed to finalize recording file', { error: err });
     }
-    return result;
   }
 
-  /**
-   * Finalizes the recording file by adding the error and closing brackets. Without calling this method or `finish`,
-   * the recording file is incomplete and it fails to parse.
-   * @param error - The error that occurred during circuit execution
-   */
-  override async finishWithError(error: unknown): Promise<CircuitRecording | undefined> {
-    // Finish sets the recording to undefined if we are at the topmost circuit,
-    // so we save the current file path before that
-    if (!this.recording) {
-      return super.finishWithError(error);
+  /** Closes the recording file with the execution error and trailing brackets so the JSON parses. */
+  protected override async onError(recording: CircuitRecording, error: unknown): Promise<void> {
+    const state = this.#fileState.get(recording);
+    if (!state) {
+      return;
     }
-    const filePath = this.recording.filePath;
-    const result = await super.finishWithError(error);
     try {
-      await fs.appendFile(filePath, '  ],\n');
-      await fs.appendFile(filePath, `  "error": ${JSON.stringify(error)}\n`);
-      await fs.appendFile(filePath, '}\n');
+      await fs.appendFile(state.filePath, '  ],\n');
+      await fs.appendFile(state.filePath, `  "error": ${JSON.stringify(error)}\n`);
+      await fs.appendFile(state.filePath, '}\n');
     } catch (err) {
       this.logger.error('Failed to finalize recording file with error', { error: err });
     }
-    return result;
   }
 }
 

@@ -1,0 +1,629 @@
+[1mdiff --git a/yarn-project/simulator/src/private/circuit_recording/circuit_recorder.test.ts b/yarn-project/simulator/src/private/circuit_recording/circuit_recorder.test.ts[m
+[1mindex e2ee4f4028..36eb303be3 100644[m
+[1m--- a/yarn-project/simulator/src/private/circuit_recording/circuit_recorder.test.ts[m
+[1m+++ b/yarn-project/simulator/src/private/circuit_recording/circuit_recorder.test.ts[m
+[36m@@ -1,72 +1,145 @@[m
+ import type { FunctionArtifactWithContractName } from '@aztec/stdlib/abi';[m
+ [m
+[32m+[m[32mimport type { ACIRCallback, ACIRExecutionResult } from '../acvm/acvm.js';[m
+[32m+[m[32mimport type { ACVMWitness } from '../acvm/acvm_types.js';[m
+ import type { CircuitSimulator } from '../circuit_simulator.js';[m
+[32m+[m[32mimport type { RecordingMetadata } from './circuit_recorder.js';[m
+ import { FileCircuitRecorder } from './file_circuit_recorder.js';[m
+ import { MemoryCircuitRecorder } from './memory_circuit_recorder.js';[m
+ import { SimulatorRecorderWrapper } from './simulator_recorder_wrapper.js';[m
+ [m
+[32m+[m[32mconst witness = () => new Map<number, string>() as ACVMWitness;[m
+[32m+[m[32mconst meta = (circuitName: string): RecordingMetadata => ({[m
+[32m+[m[32m  input: witness(),[m
+[32m+[m[32m  bytecode: Buffer.from(circuitName),[m
+[32m+[m[32m  circuitName,[m
+[32m+[m[32m  functionName: 'main',[m
+[32m+[m[32m});[m
+[32m+[m
+ describe('CircuitRecorder', () => {[m
+[31m-  describe('finalizing without an active recording', () => {[m
+[31m-    it('finish() resolves to undefined instead of dereferencing an absent recording', async () => {[m
+[32m+[m[32m  describe('recordCall outside an active recording', () => {[m
+[32m+[m[32m    // recordCall must never throw when there is no recording in context (e.g. a stray call after the scope closed):[m
+[32m+[m[32m    // it returns the entry it would have recorded without pushing it anywhere.[m
+[32m+[m[32m    const expectedEntry = { name: 'loadCapsule', inputs: [['0x01']], outputs: ['0x02'], time: 5, stackDepth: 0 };[m
+[32m+[m
+[32m+[m[32m    it('MemoryCircuitRecorder.recordCall() returns the entry without pushing to an absent recording', async () => {[m
+       const recorder = new MemoryCircuitRecorder();[m
+ [m
+[31m-      await expect((async () => await recorder.finish())()).resolves.toBeUndefined();[m
+[32m+[m[32m      await expect(recorder.recordCall('loadCapsule', [['0x01']], ['0x02'], 5)).resolves.toEqual(expectedEntry);[m
+     });[m
+ [m
+[31m-    it('finishWithError() resolves to undefined rather than throwing while decorating an absent recording', async () => {[m
+[31m-      const recorder = new MemoryCircuitRecorder();[m
+[32m+[m[32m    it('FileCircuitRecorder.recordCall() returns the entry without touching the recording file', async () => {[m
+[32m+[m[32m      const recorder = new FileCircuitRecorder('/tmp/circuit-recorder-test-unused');[m
+ [m
+[31m-      await expect(recorder.finishWithError(new Error('underlying noir failure'))).resolves.toBeUndefined();[m
+[32m+[m[32m      await expect(recorder.recordCall('loadCapsule', [['0x01']], ['0x02'], 5)).resolves.toEqual(expectedEntry);[m
+     });[m
+   });[m
+[31m-});[m
+ [m
+[31m-describe('recordCall without an active recording', () => {[m
+[31m-  // Under concurrent use the shared recorder can be reset (recording === undefined) between an oracle returning[m
+[31m-  // and its recordCall() bookkeeping. recordCall() must record best-effort and never throw into the execution path.[m
+[31m-  const expectedEntry = { name: 'loadCapsule', inputs: [['0x01']], outputs: ['0x02'], time: 5, stackDepth: 0 };[m
+[32m+[m[32m  describe('record', () => {[m
+[32m+[m[32m    it('isolates oracle calls between concurrent recordings sharing one recorder', async () => {[m
+[32m+[m[32m      const recorder = new MemoryCircuitRecorder();[m
+[32m+[m[32m      let releaseA: () => void;[m
+[32m+[m[32m      const gateA = new Promise<void>(resolve => (releaseA = resolve));[m
+ [m
+[31m-  it('MemoryCircuitRecorder.recordCall() returns the entry without pushing to an absent recording', async () => {[m
+[31m-    const recorder = new MemoryCircuitRecorder();[m
+[32m+[m[32m      // A records a1, suspends so B interleaves, then records a2. With a single shared recording this corrupts; with[m
+[32m+[m[32m      // a per-recording context each recording sees only its own calls regardless of interleaving.[m
+[32m+[m[32m      const a = recorder.record(meta('A'), async () => {[m
+[32m+[m[32m        await recorder.recordCall('a1', [], [], 0);[m
+[32m+[m[32m        await gateA;[m
+[32m+[m[32m        await recorder.recordCall('a2', [], [], 0);[m
+[32m+[m[32m        return 'A';[m
+[32m+[m[32m      });[m
+[32m+[m[32m      const b = recorder.record(meta('B'), async () => {[m
+[32m+[m[32m        await recorder.recordCall('b1', [], [], 0);[m
+[32m+[m[32m        releaseA();[m
+[32m+[m[32m        return 'B';[m
+[32m+[m[32m      });[m
+ [m
+[31m-    await expect((async () => await recorder.recordCall('loadCapsule', [['0x01']], ['0x02'], 5, 0))()).resolves.toEqual([m
+[31m-      expectedEntry,[m
+[31m-    );[m
+[31m-  });[m
+[32m+[m[32m      const [resultA, resultB] = await Promise.all([a, b]);[m
+[32m+[m[32m      expect(resultA.recording.oracleCalls.map(o => o.name)).toEqual(['a1', 'a2']);[m
+[32m+[m[32m      expect(resultB.recording.oracleCalls.map(o => o.name)).toEqual(['b1']);[m
+[32m+[m[32m    });[m
+ [m
+[31m-  it('FileCircuitRecorder.recordCall() returns the entry without touching the recording file', async () => {[m
+[31m-    const recorder = new FileCircuitRecorder('/tmp/circuit-recorder-test-unused');[m
+[32m+[m[32m    it('attaches the error to the recording and re-throws it unchanged', async () => {[m
+[32m+[m[32m      const recorder = new MemoryCircuitRecorder();[m
+[32m+[m[32m      const underlyingError = new Error('schnorr_initializerless: capsule load failed');[m
+ [m
+[31m-    await expect((async () => await recorder.recordCall('loadCapsule', [['0x01']], ['0x02'], 5, 0))()).resolves.toEqual([m
+[31m-      expectedEntry,[m
+[31m-    );[m
+[32m+[m[32m      await expect(recorder.record(meta('X'), () => Promise.reject(underlyingError))).rejects.toBe(underlyingError);[m
+[32m+[m[32m    });[m
+   });[m
+ });[m
+ [m
+ describe('SimulatorRecorderWrapper', () => {[m
+[31m-  // Models the production state where start() leaves no active recording (newCircuit === false), so the error[m
+[31m-  // path reaches finishWithError() with `recording` undefined.[m
+[31m-  class NoStartRecorder extends MemoryCircuitRecorder {[m
+[31m-    override start(): Promise<void> {[m
+[31m-      return Promise.resolve();[m
+[31m-    }[m
+[31m-  }[m
+[31m-[m
+[31m-  it('surfaces the original simulator error instead of masking it when there is no active recording', async () => {[m
+[32m+[m[32m  const artifact = (name: string) =>[m
+[32m+[m[32m    ({ bytecode: Buffer.from(name), contractName: 'TestContract', name }) as FunctionArtifactWithContractName;[m
+[32m+[m
+[32m+[m[32m  it('surfaces the original simulator error instead of masking it', async () => {[m
+     const underlyingError = new Error('schnorr_initializerless: capsule load failed');[m
+     const simulator: CircuitSimulator = {[m
+       executeUserCircuit: () => Promise.reject(underlyingError),[m
+       executeProtocolCircuit: () => Promise.reject(new Error('not used in this test')),[m
+     };[m
+[31m-    const wrapper = new SimulatorRecorderWrapper(simulator, new NoStartRecorder());[m
+[31m-    const artifact = {[m
+[31m-      bytecode: Buffer.alloc(0),[m
+[31m-      contractName: 'TestContract',[m
+[31m-      name: 'test_fn',[m
+[31m-    } as FunctionArtifactWithContractName;[m
+[31m-[m
+[31m-    await expect(wrapper.executeUserCircuit(new Map<number, string>(), artifact, {})).rejects.toThrow([m
+[32m+[m[32m    const wrapper = new SimulatorRecorderWrapper(simulator, new MemoryCircuitRecorder());[m
+[32m+[m
+[32m+[m[32m    await expect(wrapper.executeUserCircuit(witness(), artifact('test_fn'), {})).rejects.toThrow([m
+       'schnorr_initializerless: capsule load failed',[m
+     );[m
+   });[m
+[32m+[m
+[32m+[m[32m  // A top-level circuit makes a nested private call (via the aztec_prv_callPrivateFunction oracle, which re-enters[m
+[32m+[m[32m  // the simulator) followed by a utility execution (a direct re-entry, as utility_execution_oracle.ts does). Each[m
+[32m+[m[32m  // re-entry shares the same recorder, so oracle calls must stay attributed to the circuit that made them and the[m
+[32m+[m[32m  // parent recording must survive its children.[m
+[32m+[m[32m  it('attributes oracle calls to the right circuit across nested private and utility re-entries', async () => {[m
+[32m+[m[32m    const recorder = new MemoryCircuitRecorder();[m
+[32m+[m[32m    const oracle = (): ReturnType<ACIRCallback[string]> => Promise.resolve([]);[m
+[32m+[m
+[32m+[m[32m    let childResult: ACIRExecutionResult | undefined;[m
+[32m+[m[32m    let utilityResult: ACIRExecutionResult | undefined;[m
+[32m+[m
+[32m+[m[32m    // Indirection so the scripted simulator and callbacks can re-enter through the recorder-wrapped simulator, which[m
+[32m+[m[32m    // is constructed below (it wraps `simulator`, so the two reference each other).[m
+[32m+[m[32m    const reentry: { wrapper?: CircuitSimulator } = {};[m
+[32m+[m
+[32m+[m[32m    const childCallback: ACIRCallback = { childOracle: oracle };[m
+[32m+[m[32m    const utilityCallback: ACIRCallback = { utilityOracle: oracle };[m
+[32m+[m[32m    const parentCallback: ACIRCallback = { getNotes: oracle, getMore: oracle };[m
+[32m+[m[32m    // The wrapped aztec_prv_callPrivateFunction triggers a nested circuit execution, mirroring private_execution.ts.[m
+[32m+[m[32m    parentCallback['aztec_prv_callPrivateFunction'] = async () => {[m
+[32m+[m[32m      childResult = await reentry.wrapper!.executeUserCircuit(witness(), artifact('child'), childCallback);[m
+[32m+[m[32m      return [];[m
+[32m+[m[32m    };[m
+[32m+[m
+[32m+[m[32m    const simulator: CircuitSimulator = {[m
+[32m+[m[32m      executeProtocolCircuit: () => Promise.reject(new Error('not used in this test')),[m
+[32m+[m[32m      executeUserCircuit: async (_input, artifactArg, callback) => {[m
+[32m+[m[32m        switch (artifactArg.name) {[m
+[32m+[m[32m          case 'parent':[m
+[32m+[m[32m            await callback.getNotes();[m
+[32m+[m[32m            await callback['aztec_prv_callPrivateFunction']();[m
+[32m+[m[32m            // Utility re-entry: a direct nested executeUserCircuit, not via aztec_prv_callPrivateFunction.[m
+[32m+[m[32m            utilityResult = await reentry.wrapper!.executeUserCircuit(witness(), artifact('utility'), utilityCallback);[m
+[32m+[m[32m            await callback.getMore();[m
+[32m+[m[32m            break;[m
+[32m+[m[32m          case 'child':[m
+[32m+[m[32m            await callback.childOracle();[m
+[32m+[m[32m            break;[m
+[32m+[m[32m          case 'utility':[m
+[32m+[m[32m            await callback.utilityOracle();[m
+[32m+[m[32m            break;[m
+[32m+[m[32m        }[m
+[32m+[m[32m        return { partialWitness: new Map(), returnWitness: new Map() } as ACIRExecutionResult;[m
+[32m+[m[32m      },[m
+[32m+[m[32m    };[m
+[32m+[m
+[32m+[m[32m    reentry.wrapper = new SimulatorRecorderWrapper(simulator, recorder);[m
+[32m+[m[32m    const parentResult = await reentry.wrapper.executeUserCircuit(witness(), artifact('parent'), parentCallback);[m
+[32m+[m
+[32m+[m[32m    // The parent recording survives both children, with only the parent's own oracle calls attributed to it.[m
+[32m+[m[32m    expect(parentResult.oracles).toBeDefined();[m
+[32m+[m[32m    expect(Object.keys(parentResult.oracles!).sort()).toEqual(['aztec_prv_callPrivateFunction', 'getMore', 'getNotes']);[m
+[32m+[m[32m    // Each child circuit only sees its own oracle call, not the parent's.[m
+[32m+[m[32m    expect(Object.keys(childResult!.oracles!)).toEqual(['childOracle']);[m
+[32m+[m[32m    expect(Object.keys(utilityResult!.oracles!)).toEqual(['utilityOracle']);[m
+[32m+[m[32m  });[m
+ });[m
+[1mdiff --git a/yarn-project/simulator/src/private/circuit_recording/circuit_recorder.ts b/yarn-project/simulator/src/private/circuit_recording/circuit_recorder.ts[m
+[1mindex bbd13edbb1..9692ac3c1c 100644[m
+[1m--- a/yarn-project/simulator/src/private/circuit_recording/circuit_recorder.ts[m
+[1m+++ b/yarn-project/simulator/src/private/circuit_recording/circuit_recorder.ts[m
+[36m@@ -3,6 +3,8 @@[m [mimport { type Logger, type LoggerBindings, resolveLogger } from '@aztec/foundati[m
+ import { Timer } from '@aztec/foundation/timer';[m
+ import type { ForeignCallHandler, ForeignCallInput, ForeignCallOutput } from '@aztec/noir-acvm_js';[m
+ [m
+[32m+[m[32mimport { AsyncLocalStorage } from 'node:async_hooks';[m
+[32m+[m
+ import type { ACIRCallback } from '../acvm/acvm.js';[m
+ import type { ACVMWitness } from '../acvm/acvm_types.js';[m
+ [m
+[36m@@ -43,10 +45,23 @@[m [mexport class CircuitRecording {[m
+   }[m
+ }[m
+ [m
+[32m+[m[32m/** Inputs needed to open a recording for a single circuit execution. */[m
+[32m+[m[32mexport type RecordingMetadata = {[m
+[32m+[m[32m  input: ACVMWitness;[m
+[32m+[m[32m  bytecode: Buffer;[m
+[32m+[m[32m  circuitName: string;[m
+[32m+[m[32m  functionName: string;[m
+[32m+[m[32m};[m
+[32m+[m
+ /**[m
+  * Class responsible for recording circuit inputs necessary to replay the circuit. These inputs are the initial witness[m
+  * map and the oracle calls made during the circuit execution/witness generation.[m
+  *[m
+[32m+[m[32m * The active recording for an execution lives in `AsyncLocalStorage`, so each (possibly nested) circuit execution owns[m
+[32m+[m[32m * its own recording and concurrent or re-entrant executions cannot corrupt one another's state. Nested executions[m
+[32m+[m[32m * (`aztec_prv_callPrivateFunction`, utility calls) re-enter {@link record}, which links the child to the recording[m
+[32m+[m[32m * active in the enclosing async context and lets ALS restore the parent automatically when the child completes.[m
+[32m+[m[32m *[m
+  * Example recording object:[m
+  * ```json[m
+  * {[m
+[36m@@ -91,37 +106,44 @@[m [mexport class CircuitRecording {[m
+ export class CircuitRecorder {[m
+   protected readonly logger: Logger;[m
+ [m
+[31m-  protected recording?: CircuitRecording;[m
+[31m-[m
+[31m-  private stackDepth: number = 0;[m
+[31m-  private newCircuit: boolean = true;[m
+[32m+[m[32m  readonly #recordings = new AsyncLocalStorage<CircuitRecording>();[m
+ [m
+   protected constructor(loggerOrBindings?: Logger | LoggerBindings) {[m
+     this.logger = resolveLogger('simulator:acvm:recording', loggerOrBindings);[m
+   }[m
+ [m
+   /**[m
+[31m-   * Initializes a new circuit recording session.[m
+[31m-   * @param recordDir - Directory to store the recording[m
+[31m-   * @param input - Circuit input witness[m
+[31m-   * @param circuitBytecode - Compiled circuit bytecode[m
+[31m-   * @param circuitName - Name of the circuit[m
+[31m-   * @param functionName - Name of the circuit function (defaults to 'main'). This is meaningful only for[m
+[31m-   * contracts as protocol circuits artifacts always contain a single entrypoint function called 'main'.[m
+[32m+[m[32m   * Records a single circuit execution. Opens a recording for the circuit (linked as a child of the recording active[m
+[32m+[m[32m   * in the current async context, if any), runs `fn` within that recording's context, and finalizes it. The recording[m
+[32m+[m[32m   * is returned alongside the result so callers can derive per-circuit stats (e.g. oracle timings).[m
+[32m+[m[32m   *[m
+[32m+[m[32m   * Recorder bookkeeping never alters execution: if `fn` throws, the error is attached to the recording and re-thrown[m
+[32m+[m[32m   * unchanged.[m
+[32m+[m[32m   * @param metadata - Identifies the circuit and its initial witness.[m
+[32m+[m[32m   * @param fn - Runs the circuit execution; its oracle calls are recorded into this recording.[m
+    */[m
+[31m-  start(input: ACVMWitness, circuitBytecode: Buffer, circuitName: string, functionName: string): Promise<void> {[m
+[31m-    if (this.newCircuit) {[m
+[31m-      const parentRef = this.recording;[m
+[31m-      this.recording = new CircuitRecording([m
+[31m-        circuitName,[m
+[31m-        functionName,[m
+[31m-        sha512(circuitBytecode).toString('hex'),[m
+[31m-        Object.fromEntries(input),[m
+[31m-      );[m
+[31m-      this.recording.setParent(parentRef);[m
+[31m-    }[m
+[32m+[m[32m  record<T>(metadata: RecordingMetadata, fn: () => Promise<T>): Promise<{ result: T; recording: CircuitRecording }> {[m
+[32m+[m[32m    const parent = this.#recordings.getStore();[m
+[32m+[m[32m    const recording = new CircuitRecording([m
+[32m+[m[32m      metadata.circuitName,[m
+[32m+[m[32m      metadata.functionName,[m
+[32m+[m[32m      sha512(metadata.bytecode).toString('hex'),[m
+[32m+[m[32m      Object.fromEntries(metadata.input),[m
+[32m+[m[32m    );[m
+[32m+[m[32m    recording.setParent(parent);[m
+ [m
+[31m-    return Promise.resolve();[m
+[32m+[m[32m    return this.#recordings.run(recording, async () => {[m
+[32m+[m[32m      await this.onStart(recording);[m
+[32m+[m[32m      try {[m
+[32m+[m[32m        const result = await fn();[m
+[32m+[m[32m        await this.onFinish(recording);[m
+[32m+[m[32m        return { result, recording };[m
+[32m+[m[32m      } catch (error) {[m
+[32m+[m[32m        recording.error = JSON.stringify(error);[m
+[32m+[m[32m        await this.onError(recording, error);[m
+[32m+[m[32m        throw error;[m
+[32m+[m[32m      }[m
+[32m+[m[32m    });[m
+   }[m
+ [m
+   /**[m
+[36m@@ -147,7 +169,9 @@[m [mexport class CircuitRecorder {[m
+   }[m
+ [m
+   /**[m
+[31m-   * Wraps a user circuit callback to record all oracle calls.[m
+[32m+[m[32m   * Wraps a user circuit callback to record all oracle calls. A nested circuit entered via an oracle (e.g.[m
+[32m+[m[32m   * `aztec_prv_callPrivateFunction`) re-enters {@link record}, so its own oracle calls land on the child recording and[m
+[32m+[m[32m   * this circuit's calls (including the entering oracle call itself) land on this recording once the child completes.[m
+    * @param callback - The original circuit callback.[m
+    * @returns A wrapped callback that records all oracle interactions which is to be provided to the ACVM.[m
+    */[m
+[36m@@ -161,38 +185,16 @@[m [mexport class CircuitRecorder {[m
+         throw new Error(`Oracle method ${name} not found when setting up recording callback`);[m
+       }[m
+ [m
+[31m-      const isExternalCall = (name as keyof ACIRCallback) === 'aztec_prv_callPrivateFunction';[m
+[31m-[m
+       recordingCallback[name as keyof ACIRCallback] = (...args: ForeignCallInput[]): ReturnType<typeof fn> => {[m
+         const timer = new Timer();[m
+[31m-        // If we're entering another circuit via `aztec_prv_callPrivateFunction`, we increase the stack depth and set the[m
+[31m-        // newCircuit variable to ensure we are creating a new recording object.[m
+[31m-        if (isExternalCall) {[m
+[31m-          this.stackDepth++;[m
+[31m-          this.newCircuit = true;[m
+[31m-        }[m
+         const result = fn.call(callback, ...args);[m
+         if (result instanceof Promise) {[m
+           return result.then(async r => {[m
+[31m-            // Once we leave the nested circuit, we decrease the stack depth and set newCircuit to false[m
+[31m-            // so that the parent circuit continues with its existing recording[m
+[31m-            // Note: recording restoration is handled by finish()[m
+[31m-            if (isExternalCall) {[m
+[31m-              this.stackDepth--;[m
+[31m-              this.newCircuit = false;[m
+[31m-            }[m
+[31m-            await this.recordCall(name, args, r, timer.ms(), this.stackDepth);[m
+[32m+[m[32m            await this.recordCall(name, args, r, timer.ms());[m
+             return r;[m
+           }) as ReturnType<typeof fn>;[m
+         }[m
+[31m-        // Once we leave the nested circuit, we decrease the stack depth and set newCircuit to false[m
+[31m-        // so that the parent circuit continues with its existing recording[m
+[31m-        // Note: recording restoration is handled by finish()[m
+[31m-        if (isExternalCall) {[m
+[31m-          this.stackDepth--;[m
+[31m-          this.newCircuit = false;[m
+[31m-        }[m
+[31m-        void this.recordCall(name, args, result, timer.ms(), this.stackDepth);[m
+[32m+[m[32m        void this.recordCall(name, args, result, timer.ms());[m
+         return result;[m
+       };[m
+     }[m
+[36m@@ -209,64 +211,59 @@[m [mexport class CircuitRecorder {[m
+     return async (name: string, inputs: ForeignCallInput[]): Promise<ForeignCallOutput[]> => {[m
+       const timer = new Timer();[m
+       const result = await callback(name, inputs);[m
+[31m-      await this.recordCall(name, inputs, result, timer.ms(), 0);[m
+[32m+[m[32m      await this.recordCall(name, inputs, result, timer.ms());[m
+       return result;[m
+     };[m
+   }[m
+ [m
+   /**[m
+[31m-   * Records a single oracle/foreign call with its inputs and outputs.[m
+[32m+[m[32m   * Records a single oracle/foreign call with its inputs and outputs against the recording active in the current[m
+[32m+[m[32m   * async context.[m
+    * @param name - Name of the call[m
+    * @param inputs - Input arguments[m
+    * @param outputs - Output results[m
+    */[m
+[31m-  recordCall(name: string, inputs: unknown[], outputs: unknown, time: number, stackDepth: number): Promise<OracleCall> {[m
+[32m+[m[32m  recordCall(name: string, inputs: unknown[], outputs: unknown, time: number): Promise<OracleCall> {[m
+[32m+[m[32m    const recording = this.#recordings.getStore();[m
+     const entry = {[m
+       name,[m
+       inputs,[m
+       outputs,[m
+       time,[m
+[31m-      stackDepth,[m
+[32m+[m[32m      stackDepth: depthOf(recording),[m
+     };[m
+[31m-    // Under concurrent use the shared recording can be reset mid-flight; record best-effort and never throw.[m
+[31m-    this.recording?.oracleCalls.push(entry);[m
+[32m+[m[32m    // Outside any active recording context (e.g. a stray call after the scope closed, or a direct unit-test call)[m
+[32m+[m[32m    // there is nowhere to record; return the entry without throwing into the execution path.[m
+[32m+[m[32m    recording?.oracleCalls.push(entry);[m
+     return Promise.resolve(entry);[m
+   }[m
+ [m
+[31m-  /**[m
+[31m-   * Finalizes the recording by resetting the state and returning the recording object.[m
+[31m-   */[m
+[31m-  finish(): Promise<CircuitRecording | undefined> {[m
+[31m-    const result = this.recording;[m
+[31m-    // No active recording (e.g. start() created none, or it was already finalized). Reset to a clean[m
+[31m-    // top-level state and return nothing rather than dereferencing an absent recording.[m
+[31m-    if (!result) {[m
+[31m-      this.newCircuit = true;[m
+[31m-      return Promise.resolve(undefined);[m
+[31m-    }[m
+[31m-    // If this is the top-level circuit recording, we reset the state for the next simulator call[m
+[31m-    if (!result.parent) {[m
+[31m-      this.newCircuit = true;[m
+[31m-      this.recording = undefined;[m
+[31m-    } else {[m
+[31m-      // For nested circuits (utility calls, nested contract calls), restore to parent recording[m
+[31m-      // Note: we don't set newCircuit=false here because:[m
+[31m-      // - For privateCallPrivateFunction, the callback wrapper will set it to false[m
+[31m-      // - For utility calls, we want newCircuit to remain true so the next circuit creates its own recording[m
+[31m-      this.recording = result.parent;[m
+[31m-    }[m
+[31m-    return Promise.resolve(result);[m
+[32m+[m[32m  /** The recording active in the current async context, if any. */[m
+[32m+[m[32m  protected currentRecording(): CircuitRecording | undefined {[m
+[32m+[m[32m    return this.#recordings.getStore();[m
+   }[m
+ [m
+[31m-  /**[m
+[31m-   * Finalizes the recording by resetting the state and returning the recording object with an attached error.[m
+[31m-   * @param error - The error that occurred during circuit execution[m
+[31m-   */[m
+[31m-  async finishWithError(error: unknown): Promise<CircuitRecording | undefined> {[m
+[31m-    const result = await this.finish();[m
+[31m-    if (result) {[m
+[31m-      result.error = JSON.stringify(error);[m
+[31m-    }[m
+[31m-    return result;[m
+[32m+[m[32m  /** Hook invoked when a recording opens, within the recording's context. Overridden to persist recordings. */[m
+[32m+[m[32m  protected onStart(_recording: CircuitRecording): Promise<void> {[m
+[32m+[m[32m    return Promise.resolve();[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  /** Hook invoked when a recording completes successfully, within the recording's context. */[m
+[32m+[m[32m  protected onFinish(_recording: CircuitRecording): Promise<void> {[m
+[32m+[m[32m    return Promise.resolve();[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  /** Hook invoked when a recording's execution throws, within the recording's context. */[m
+[32m+[m[32m  protected onError(_recording: CircuitRecording, _error: unknown): Promise<void> {[m
+[32m+[m[32m    return Promise.resolve();[m
+[32m+[m[32m  }[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32m/** Depth of a recording in the call tree: 0 for a top-level circuit, incremented per nested circuit. */[m
+[32m+[m[32mfunction depthOf(recording: CircuitRecording | undefined): number {[m
+[32m+[m[32m  let depth = 0;[m
+[32m+[m[32m  for (let ancestor = recording?.parent; ancestor; ancestor = ancestor.parent) {[m
+[32m+[m[32m    depth++;[m
+   }[m
+[32m+[m[32m  return depth;[m
+ }[m
+[1mdiff --git a/yarn-project/simulator/src/private/circuit_recording/file_circuit_recorder.ts b/yarn-project/simulator/src/private/circuit_recording/file_circuit_recorder.ts[m
+[1mindex 2e01e2fe83..369af7a590 100644[m
+[1m--- a/yarn-project/simulator/src/private/circuit_recording/file_circuit_recorder.ts[m
+[1m+++ b/yarn-project/simulator/src/private/circuit_recording/file_circuit_recorder.ts[m
+[36m@@ -3,11 +3,13 @@[m [mimport type { Logger } from '@aztec/foundation/log';[m
+ import fs from 'fs/promises';[m
+ import path from 'path';[m
+ [m
+[31m-import type { ACVMWitness } from '../acvm/acvm_types.js';[m
+ import { CircuitRecorder, type CircuitRecording } from './circuit_recorder.js';[m
+ [m
+[32m+[m[32m/** Per-recording file state, keyed by recording so concurrent/nested executions don't share it. */[m
+[32m+[m[32mtype RecordingFileState = { filePath: string; isFirstCall: boolean };[m
+[32m+[m
+ export class FileCircuitRecorder extends CircuitRecorder {[m
+[31m-  declare recording?: CircuitRecording & { filePath: string; isFirstCall: boolean };[m
+[32m+[m[32m  readonly #fileState = new WeakMap<CircuitRecording, RecordingFileState>();[m
+ [m
+   constructor([m
+     private readonly recordDir: string,[m
+[36m@@ -16,22 +18,9 @@[m [mexport class FileCircuitRecorder extends CircuitRecorder {[m
+     super(logger);[m
+   }[m
+ [m
+[31m-  override async start([m
+[31m-    input: ACVMWitness,[m
+[31m-    circuitBytecode: Buffer,[m
+[31m-    circuitName: string,[m
+[31m-    functionName: string = 'main',[m
+[31m-  ) {[m
+[31m-    await super.start(input, circuitBytecode, circuitName, functionName);[m
+[31m-[m
+[31m-    // Concurrent resets can leave no active recording (newCircuit was false); there is nothing to write.[m
+[31m-    const recording = this.recording;[m
+[31m-    if (!recording) {[m
+[31m-      return;[m
+[31m-    }[m
+[31m-[m
+[32m+[m[32m  protected override async onStart(recording: CircuitRecording): Promise<void> {[m
+     const recordingStringWithoutClosingBracket = JSON.stringify([m
+[31m-      { ...recording, isFirstCall: undefined, parent: undefined, oracleCalls: undefined, filePath: undefined },[m
+[32m+[m[32m      { ...recording, parent: undefined, oracleCalls: undefined },[m
+       null,[m
+       2,[m
+     ).slice(0, -2);[m
+[36m@@ -51,13 +40,13 @@[m [mexport class FileCircuitRecorder extends CircuitRecorder {[m
+       }[m
+     }[m
+ [m
+[31m-    recording.isFirstCall = true;[m
+[31m-    recording.filePath = await FileCircuitRecorder.#computeFilePathAndStoreInitialRecording([m
+[32m+[m[32m    const filePath = await FileCircuitRecorder.#computeFilePathAndStoreInitialRecording([m
+       this.recordDir,[m
+       recording.circuitName,[m
+       recording.functionName,[m
+       recordingStringWithoutClosingBracket,[m
+     );[m
+[32m+[m[32m    this.#fileState.set(recording, { filePath, isFirstCall: true });[m
+   }[m
+ [m
+   /**[m
+[36m@@ -101,14 +90,15 @@[m [mexport class FileCircuitRecorder extends CircuitRecorder {[m
+    * @param inputs - Input arguments[m
+    * @param outputs - Output results[m
+    */[m
+[31m-  override async recordCall(name: string, inputs: unknown[], outputs: unknown, time: number, stackDepth: number) {[m
+[31m-    const entry = await super.recordCall(name, inputs, outputs, time, stackDepth);[m
+[31m-    // super.recordCall already built and returned the entry; only persist it when a recording is still active.[m
+[31m-    if (this.recording) {[m
+[32m+[m[32m  override async recordCall(name: string, inputs: unknown[], outputs: unknown, time: number) {[m
+[32m+[m[32m    const entry = await super.recordCall(name, inputs, outputs, time);[m
+[32m+[m[32m    const recording = this.currentRecording();[m
+[32m+[m[32m    const state = recording && this.#fileState.get(recording);[m
+[32m+[m[32m    if (state) {[m
+       try {[m
+[31m-        const prefix = this.recording.isFirstCall ? '    ' : '    ,';[m
+[31m-        this.recording.isFirstCall = false;[m
+[31m-        await fs.appendFile(this.recording.filePath, prefix + JSON.stringify(entry) + '\n');[m
+[32m+[m[32m        const prefix = state.isFirstCall ? '    ' : '    ,';[m
+[32m+[m[32m        state.isFirstCall = false;[m
+[32m+[m[32m        await fs.appendFile(state.filePath, prefix + JSON.stringify(entry) + '\n');[m
+       } catch (err) {[m
+         this.logger.error('Failed to log circuit call', { error: err });[m
+       }[m
+[36m@@ -116,47 +106,32 @@[m [mexport class FileCircuitRecorder extends CircuitRecorder {[m
+     return entry;[m
+   }[m
+ [m
+[31m-  /**[m
+[31m-   * Finalizes the recording file by adding closing brackets. Without calling this method, the recording file is[m
+[31m-   * incomplete and it fails to parse.[m
+[31m-   */[m
+[31m-  override async finish(): Promise<CircuitRecording | undefined> {[m
+[31m-    // Finish sets the recording to undefined if we are at the topmost circuit,[m
+[31m-    // so we save the current file path before that[m
+[31m-    if (!this.recording) {[m
+[31m-      return super.finish();[m
+[32m+[m[32m  /** Closes the recording file with the trailing brackets so the JSON parses. */[m
+[32m+[m[32m  protected override async onFinish(recording: CircuitRecording): Promise<void> {[m
+[32m+[m[32m    const state = this.#fileState.get(recording);[m
+[32m+[m[32m    if (!state) {[m
+[32m+[m[32m      return;[m
+     }[m
+[31m-    const filePath = this.recording.filePath;[m
+[31m-    const result = await super.finish();[m
+     try {[m
+[31m-      await fs.appendFile(filePath, '  ]\n}\n');[m
+[32m+[m[32m      await fs.appendFile(state.filePath, '  ]\n}\n');[m
+     } catch (err) {[m
+       this.logger.error('Failed to finalize recording file', { error: err });[m
+     }[m
+[31m-    return result;[m
+   }[m
+ [m
+[31m-  /**[m
+[31m-   * Finalizes the recording file by adding the error and closing brackets. Without calling this method or `finish`,[m
+[31m-   * the recording file is incomplete and it fails to parse.[m
+[31m-   * @param error - The error that occurred during circuit execution[m
+[31m-   */[m
+[31m-  override async finishWithError(error: unknown): Promise<CircuitRecording | undefined> {[m
+[31m-    // Finish sets the recording to undefined if we are at the topmost circuit,[m
+[31m-    // so we save the current file path before that[m
+[31m-    if (!this.recording) {[m
+[31m-      return super.finishWithError(error);[m
+[32m+[m[32m  /** Closes the recording file with the execution error and trailing brackets so the JSON parses. */[m
+[32m+[m[32m  protected override async onError(recording: CircuitRecording, error: unknown): Promise<void> {[m
+[32m+[m[32m    const state = this.#fileState.get(recording);[m
+[32m+[m[32m    if (!state) {[m
+[32m+[m[32m      return;[m
+     }[m
+[31m-    const filePath = this.recording.filePath;[m
+[31m-    const result = await super.finishWithError(error);[m
+     try {[m
+[31m-      await fs.appendFile(filePath, '  ],\n');[m
+[31m-      await fs.appendFile(filePath, `  "error": ${JSON.stringify(error)}\n`);[m
+[31m-      await fs.appendFile(filePath, '}\n');[m
+[32m+[m[32m      await fs.appendFile(state.filePath, '  ],\n');[m
+[32m+[m[32m      await fs.appendFile(state.filePath, `  "error": ${JSON.stringify(error)}\n`);[m
+[32m+[m[32m      await fs.appendFile(state.filePath, '}\n');[m
+     } catch (err) {[m
+       this.logger.error('Failed to finalize recording file with error', { error: err });[m
+     }[m
+[31m-    return result;[m
+   }[m
+ }[m
+ [m
+[1mdiff --git a/yarn-project/simulator/src/private/circuit_recording/simulator_recorder_wrapper.ts b/yarn-project/simulator/src/private/circuit_recording/simulator_recorder_wrapper.ts[m
+[1mindex 3f51bdd9da..019d9c22b8 100644[m
+[1m--- a/yarn-project/simulator/src/private/circuit_recording/simulator_recorder_wrapper.ts[m
+[1m+++ b/yarn-project/simulator/src/private/circuit_recording/simulator_recorder_wrapper.ts[m
+[36m@@ -58,24 +58,18 @@[m [mexport class SimulatorRecorderWrapper implements CircuitSimulator {[m
+     functionName: string,[m
+     callback: C,[m
+   ): Promise<T> {[m
+[31m-    // Start recording circuit execution[m
+[31m-    await this.recorder.start(input, bytecode, contractName, functionName);[m
+[31m-[m
+[31m-    // If callback was provided, we wrap it in a circuit recorder callback wrapper[m
+[32m+[m[32m    // If a callback was provided, we wrap it so that its oracle calls are recorded. The wrapped callback reads the[m
+[32m+[m[32m    // active recording lazily, so it picks up the recording opened by record() below.[m
+     const wrappedCallback = this.recorder.wrapCallback(callback);[m
+[31m-    let result: T;[m
+[31m-    try {[m
+[31m-      result = await simulateFn(wrappedCallback as C);[m
+[31m-    } catch (error) {[m
+[31m-      // If an error occurs, we finalize the recording file with the error[m
+[31m-      await this.recorder.finishWithError(error);[m
+[31m-      throw error;[m
+[31m-    }[m
+ [m
+[31m-    // Witness generation is complete so we finish the circuit recorder[m
+[31m-    const recording = await this.recorder.finish();[m
+[32m+[m[32m    // record() opens a recording for this circuit, runs the simulation within it, and finalizes it. A simulation[m
+[32m+[m[32m    // failure is re-thrown unchanged, so recorder bookkeeping never masks the underlying error.[m
+[32m+[m[32m    const { result, recording } = await this.recorder.record([m
+[32m+[m[32m      { input, bytecode, circuitName: contractName, functionName },[m
+[32m+[m[32m      () => simulateFn(wrappedCallback as C),[m
+[32m+[m[32m    );[m
+ [m
+[31m-    (result as ACIRExecutionResult).oracles = recording?.oracleCalls?.reduce([m
+[32m+[m[32m    (result as ACIRExecutionResult).oracles = recording.oracleCalls.reduce([m
+       (acc, { time, name }) => {[m
+         if (!acc[name]) {[m
+           acc[name] = { times: [] };[m
