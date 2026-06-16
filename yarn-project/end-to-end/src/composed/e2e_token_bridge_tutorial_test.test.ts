@@ -31,7 +31,16 @@ import { TestWallet } from '../test-wallet/test_wallet.js';
 const MNEMONIC = 'test test test test test test test test test test test junk';
 const { ETHEREUM_HOSTS = 'http://localhost:8545' } = process.env;
 
-const l1Client = createExtendedL1Client(ETHEREUM_HOSTS.split(','), MNEMONIC);
+const TUTORIAL_L1_ACCOUNT_INDEX = 1;
+// The composed local node publishes from mnemonic index 0. Keep the tutorial's direct L1 writes on a
+// separate funded account so raw viem writes do not race the node publisher's nonce stream.
+const l1Client = createExtendedL1Client(
+  ETHEREUM_HOSTS.split(','),
+  MNEMONIC,
+  undefined,
+  undefined,
+  TUTORIAL_L1_ACCOUNT_INDEX,
+);
 const ownerEthAddress = l1Client.account.address;
 
 const MINT_AMOUNT = BigInt(1e15);
