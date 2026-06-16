@@ -34,8 +34,6 @@
 #include "barretenberg/hypernova/hypernova_decider_verifier.hpp"
 #include "barretenberg/hypernova/hypernova_prover.hpp"
 #include "barretenberg/hypernova/hypernova_verifier.hpp"
-#include "barretenberg/multilinear_batching/multilinear_batching_prover.hpp"
-#include "barretenberg/multilinear_batching/multilinear_batching_verifier.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 #include "barretenberg/transcript/transcript_manifest.hpp"
@@ -58,19 +56,20 @@ class ChonkTranscriptInvariantTests : public ::testing::Test {
  * Any change to this count indicates a structural change in how transcripts are managed, which
  * could have security implications (e.g., unexpected transcript isolation or sharing).
  *
- * The 4-app IVC flow creates 6 circuits: app0 -> app1 -> app2 -> kernel1 -> app3 -> kernel2 -> reset -> tail -> hiding
+ * The 4-app IVC flow creates 6 circuits: app0 -> app1 -> app2 -> kernel1 -> app3 -> kernel2 -> reset-tail -> hiding
  *
- * Per-circuit transcript breakdown (from complete_kernel_circuit_logic):
- * - App circuits (0, 1, 2): 0 transcripts - use native HN folding prover
+ * Per-circuit transcript breakdown (from complete_kernel_circuit_logic). The per-kernel multilinear batching (and the
+ * hiding kernel's decider) continue on the shared accumulation transcript, so they create no additional transcripts:
+ * - App circuits (0, 1, 2, 4): 0 transcripts - use native HN folding prover
  * - Init kernel (3): 3 transcripts:
  *     1. accumulation_recursive_transcript
  *     2. PairingPoints::aggregate_multiple - for batching pairing points with Fiat-Shamir separator
  *     3. hash_transcript - for computing accumulator hash to propagate in public inputs
- * - Intermediate kernel (4): 3 transcripts:
+ * - Intermediate kernel (5): 3 transcripts:
  *     1. accumulation_recursive_transcript - shared across recursive verification
  *     2. PairingPoints::aggregate_multiple - for batching pairing points with Fiat-Shamir separator
  *     3. hash_transcript - for computing accumulator hash to propagate in public inputs
- * - Reset and tail kernels (5, 6): 2 transcripts each:
+ * - Reset-tail kernels (6): 2 transcripts:
  *     1. accumulation_recursive_transcript
  *     2. hash_transcript - for computing accumulator hash to propagate in public inputs
  * - Hiding kernel (7): 3 transcripts:
@@ -78,14 +77,14 @@ class ChonkTranscriptInvariantTests : public ::testing::Test {
  *     2. batch_merge_transcript - for final batch merge verification
  *     3. PairingPoints::aggregate_multiple
  *
- * Total: 0 + 0 + 0 + 3 + 3 + 2 + 2 + 3 = 13 transcripts
+ * Total: 0 + 0 + 0 + 3 + 0 + 3 + 2 + 3 = 11 transcripts
  */
 TEST_F(ChonkTranscriptInvariantTests, AccumulationTranscriptCount)
 {
     // Pinned expected transcript count for 4 app circuits
-    constexpr size_t EXPECTED_TOTAL_TRANSCRIPTS = 13;
-    constexpr size_t EXPECTED_NUM_CIRCUITS = 9;
-    constexpr std::array<size_t, EXPECTED_NUM_CIRCUITS> EXPECTED_CIRCUIT_TRANSCRIPTS = { 0, 0, 0, 3, 0, 3, 2, 2, 3 };
+    constexpr size_t EXPECTED_TOTAL_TRANSCRIPTS = 11;
+    constexpr size_t EXPECTED_NUM_CIRCUITS = 8;
+    constexpr std::array<size_t, EXPECTED_NUM_CIRCUITS> EXPECTED_CIRCUIT_TRANSCRIPTS = { 0, 0, 0, 3, 0, 3, 2, 3 };
 
     // Record transcript index before IVC
     size_t index_before_ivc = bb::unique_transcript_index.load();
@@ -100,7 +99,7 @@ TEST_F(ChonkTranscriptInvariantTests, AccumulationTranscriptCount)
     const size_t num_circuits = circuit_producer.total_num_circuits;
     ASSERT_EQ(num_circuits, EXPECTED_NUM_CIRCUITS) << "Circuit count mismatch - test assumptions invalid";
 
-    Chonk ivc{ num_circuits };
+    Chonk ivc{ circuit_producer.circuit_kinds() };
 
     for (size_t j = 0; j < num_circuits; ++j) {
         indices_before_accumulation.push_back(bb::unique_transcript_index.load());
@@ -151,7 +150,7 @@ TEST_F(ChonkTranscriptInvariantTests, RecursiveVerificationTranscriptCount)
     constexpr size_t NUM_APP_CIRCUITS = 1;
     PrivateFunctionExecutionMockCircuitProducer circuit_producer(NUM_APP_CIRCUITS);
     const size_t num_circuits = circuit_producer.total_num_circuits;
-    Chonk ivc{ num_circuits };
+    Chonk ivc{ circuit_producer.circuit_kinds() };
 
     for (size_t j = 0; j < num_circuits; ++j) {
         circuit_producer.construct_and_accumulate_next_circuit(ivc);

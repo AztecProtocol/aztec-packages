@@ -18,7 +18,7 @@ std::pair<ChonkProof, std::shared_ptr<MegaZKFlavor::VKAndHash>> accumulate_and_p
     PrivateFunctionExecutionMockCircuitProducer& circuit_producer, const PrecomputedVks& precomputed_vks)
 {
     const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
-    Chonk ivc{ NUM_CIRCUITS };
+    Chonk ivc{ circuit_producer.circuit_kinds() };
 
     BB_ASSERT_EQ(
         precomputed_vks.per_circuit_vks.size(), NUM_CIRCUITS, "There should be a precomputed VK for each circuit");
@@ -29,7 +29,7 @@ std::pair<ChonkProof, std::shared_ptr<MegaZKFlavor::VKAndHash>> accumulate_and_p
             BB_BENCH_NAME("construct_circuits");
             circuit = circuit_producer.create_next_circuit(ivc);
         }
-        ivc.accumulate(circuit, ivc.next_circuit_kind(), precomputed_vks.per_circuit_vks[circuit_idx]);
+        ivc.accumulate(circuit, precomputed_vks.per_circuit_vks[circuit_idx]);
     }
     return { ivc.prove(), ivc.get_hiding_kernel_vk_and_hash() };
 }
@@ -58,15 +58,14 @@ std::pair<ChonkProof, std::shared_ptr<MegaZKFlavor::VKAndHash>> accumulate_and_p
 inline PrecomputedVks precompute_vks(PrivateFunctionExecutionMockCircuitProducer& circuit_producer)
 {
     const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
-    Chonk ivc{ NUM_CIRCUITS };
+    Chonk ivc{ circuit_producer.circuit_kinds() };
 
     PrecomputedVks out;
     out.per_circuit_vks.reserve(NUM_CIRCUITS);
     for (size_t j = 0; j < NUM_CIRCUITS; ++j) {
         auto circuit = circuit_producer.create_next_circuit(ivc);
-        const Chonk::CircuitKind kind = ivc.next_circuit_kind();
 
-        Chonk::CircuitVerificationKey vk = dispatch_kind(kind, [&]<Chonk::CircuitKind K>() {
+        Chonk::CircuitVerificationKey vk = dispatch_kind(ivc.current_kind(), [&]<Chonk::CircuitKind K>() {
             using FlavorT = flavor_for<K>;
             using VK = typename FlavorT::VerificationKey;
             MegaCircuitBuilder_<bb::fr> builder{ circuit };
@@ -76,7 +75,7 @@ inline PrecomputedVks precompute_vks(PrivateFunctionExecutionMockCircuitProducer
         });
 
         out.per_circuit_vks.push_back(vk);
-        ivc.accumulate(circuit, kind, vk);
+        ivc.accumulate(circuit, vk);
     }
 
     return out;

@@ -29,7 +29,7 @@ class ChonkWitnessDuplicateTests : public ::testing::Test {
     static ChonkProverOutput construct_chonk_prover_output()
     {
         CircuitProducer circuit_producer(NUM_APP_CIRCUITS, /*large_first_app=*/false);
-        Chonk ivc{ circuit_producer.total_num_circuits };
+        Chonk ivc{ circuit_producer.circuit_kinds() };
         TestSettings settings{ .log2_num_gates = SMALL_LOG_2_NUM_GATES };
 
         for (size_t idx = 0; idx < circuit_producer.total_num_circuits; ++idx) {
@@ -43,16 +43,14 @@ class ChonkWitnessDuplicateTests : public ::testing::Test {
 TEST_F(ChonkWitnessDuplicateTests, InitKernelWitnessDuplicates)
 {
     CircuitProducer circuit_producer(NUM_APP_CIRCUITS);
-    const size_t num_circuits = circuit_producer.total_num_circuits;
-    Chonk ivc{ num_circuits };
+    Chonk ivc{ circuit_producer.circuit_kinds() };
     TestSettings settings{ .log2_num_gates = SMALL_LOG_2_NUM_GATES };
 
     circuit_producer.construct_and_accumulate_next_circuit(ivc, settings);
 
     auto kernel_circuit =
         circuit_producer.create_next_circuit(ivc, settings.log2_num_gates, settings.num_public_inputs);
-    const auto kind = ivc.next_circuit_kind();
-    auto vk = CircuitProducer::make_circuit_verification_key(kind, kernel_circuit);
+    auto vk = CircuitProducer::make_circuit_verification_key(ivc.current_kind(), kernel_circuit);
 
     info("Init kernel: num gates = ", kernel_circuit.num_gates());
 
@@ -60,14 +58,14 @@ TEST_F(ChonkWitnessDuplicateTests, InitKernelWitnessDuplicates)
     analyzer.fill_witness_duplicate_map({}, cdg::WitnessDuplicateFilterMode::TRIAGE_VALUE_FILTERS);
     EXPECT_TRUE(analyzer.get_witness_duplicate_map().empty());
 
-    ivc.accumulate(kernel_circuit, kind, vk);
+    ivc.accumulate(kernel_circuit, vk);
 }
 
 TEST_F(ChonkWitnessDuplicateTests, TailKernelWitnessDuplicates)
 {
     CircuitProducer circuit_producer(NUM_APP_CIRCUITS);
     const size_t num_circuits = circuit_producer.total_num_circuits;
-    Chonk ivc{ num_circuits };
+    Chonk ivc{ circuit_producer.circuit_kinds() };
     TestSettings settings{ .log2_num_gates = SMALL_LOG_2_NUM_GATES };
 
     for (size_t j = 0; j < num_circuits - 2; ++j) {
@@ -76,8 +74,7 @@ TEST_F(ChonkWitnessDuplicateTests, TailKernelWitnessDuplicates)
 
     auto kernel_circuit =
         circuit_producer.create_next_circuit(ivc, settings.log2_num_gates, settings.num_public_inputs);
-    const auto kind = ivc.next_circuit_kind();
-    auto vk = CircuitProducer::make_circuit_verification_key(kind, kernel_circuit);
+    auto vk = CircuitProducer::make_circuit_verification_key(ivc.current_kind(), kernel_circuit);
 
     info("Tail kernel: num gates = ", kernel_circuit.num_gates());
 
@@ -85,14 +82,14 @@ TEST_F(ChonkWitnessDuplicateTests, TailKernelWitnessDuplicates)
     analyzer.fill_witness_duplicate_map({}, cdg::WitnessDuplicateFilterMode::TRIAGE_VALUE_FILTERS);
     EXPECT_TRUE(analyzer.get_witness_duplicate_map().empty());
 
-    ivc.accumulate(kernel_circuit, kind, vk);
+    ivc.accumulate(kernel_circuit, vk);
 }
 
 TEST_F(ChonkWitnessDuplicateTests, HidingKernelWitnessDuplicates)
 {
     CircuitProducer circuit_producer(NUM_APP_CIRCUITS);
     const size_t num_circuits = circuit_producer.total_num_circuits;
-    Chonk ivc{ num_circuits };
+    Chonk ivc{ circuit_producer.circuit_kinds() };
     TestSettings settings{ .log2_num_gates = SMALL_LOG_2_NUM_GATES };
 
     for (size_t j = 0; j < num_circuits - 1; ++j) {
@@ -100,8 +97,7 @@ TEST_F(ChonkWitnessDuplicateTests, HidingKernelWitnessDuplicates)
     }
 
     auto kernel_circuit = circuit_producer.create_next_circuit(ivc);
-    const auto kind = ivc.next_circuit_kind();
-    auto vk = CircuitProducer::make_circuit_verification_key(kind, kernel_circuit);
+    auto vk = CircuitProducer::make_circuit_verification_key(ivc.current_kind(), kernel_circuit);
 
     info("Hiding kernel: num gates = ", kernel_circuit.num_gates());
 
@@ -109,7 +105,7 @@ TEST_F(ChonkWitnessDuplicateTests, HidingKernelWitnessDuplicates)
     analyzer.fill_witness_duplicate_map({}, cdg::WitnessDuplicateFilterMode::TRIAGE_VALUE_FILTERS);
     EXPECT_TRUE(analyzer.get_witness_duplicate_map().empty());
 
-    ivc.accumulate(kernel_circuit, kind, vk);
+    ivc.accumulate(kernel_circuit, vk);
 }
 
 TEST_F(ChonkWitnessDuplicateTests, RecursiveVerifierWitnessDuplicates)

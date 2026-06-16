@@ -339,7 +339,7 @@ export class AztecClientBackend {
       throw new AztecClientBackendError('Witness and VKs must have the same stack depth!');
     }
 
-    this.api.chonkStart({ numCircuits: this.acirBuf.length });
+    this.api.chonkStart({ kinds: this.circuitKinds });
 
     const lastIdx = this.acirBuf.length - 1;
     for (let i = 0; i < this.acirBuf.length; i++) {

@@ -30,7 +30,7 @@ struct ChonkExecutionStep {
 
 class ChonkStepProcessor {
   public:
-    explicit ChonkStepProcessor(size_t num_circuits);
+    explicit ChonkStepProcessor(std::vector<CircuitKind> circuit_kinds);
 
     std::shared_ptr<Chonk> get_ivc() const { return ivc; }
     size_t get_num_circuits_accumulated() const { return ivc->num_circuits_accumulated; }

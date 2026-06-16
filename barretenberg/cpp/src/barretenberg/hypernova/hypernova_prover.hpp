@@ -110,7 +110,10 @@ class HypernovaFoldingProver {
         BB_BENCH_NAME("HypernovaFoldingProver::fold");
         Accumulator incoming_accumulator = instance_to_accumulator<InstanceFlavor>(instance, honk_vk);
 
-        MultilinearBatchingProver batching_prover(std::move(accumulator), std::move(incoming_accumulator), transcript);
+        std::vector<Accumulator> claims;
+        claims.emplace_back(std::move(accumulator));
+        claims.emplace_back(std::move(incoming_accumulator));
+        MultilinearBatchingProver batching_prover(std::move(claims), transcript);
 
         HonkProof proof = batching_prover.construct_proof();
         return { proof, batching_prover.compute_new_claim() };

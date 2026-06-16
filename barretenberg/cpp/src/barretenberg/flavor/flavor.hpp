@@ -54,7 +54,6 @@ class TranslatorShortMonomialFlavor;
 class ECCVMShortMonomialFlavor;
 class ECCVMRecursiveFlavor;
 class TranslatorRecursiveFlavor;
-class MultilinearBatchingRecursiveFlavor;
 
 template <typename BuilderType> class UltraRecursiveFlavor_;
 template <typename BuilderType> class UltraZKRecursiveFlavor_;

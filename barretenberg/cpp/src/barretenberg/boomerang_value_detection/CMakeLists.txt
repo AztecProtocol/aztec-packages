@@ -4,4 +4,5 @@ barretenberg_module(boomerang_value_detection stdlib_circuit_builders circuit_ch
                     goblin
                     goblin_avm
                     chonk
-                    commitment_schemes)
+                    commitment_schemes
+                    multilinear_batching)

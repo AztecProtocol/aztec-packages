@@ -151,10 +151,28 @@ class PrivateFunctionExecutionMockCircuitProducer {
 
     MockDatabusProducer mock_databus;
     bool large_first_app = true;
-    constexpr static size_t NUM_TRAILING_KERNELS = 3; // reset, tail, hiding
+    constexpr static size_t NUM_TRAILING_KERNELS = bb::NUM_TRAILING_KERNELS; // reset-tail, hiding
 
   public:
     size_t total_num_circuits = 0;
+
+    /**
+     * @brief Per-circuit kinds for the full mock IVC stack, as required by the Chonk constructor.
+     */
+    std::vector<Chonk::CircuitKind> circuit_kinds() const
+    {
+        std::vector<Chonk::CircuitKind> kinds;
+        kinds.reserve(total_num_circuits);
+        for (size_t idx = 0; idx < total_num_circuits; ++idx) {
+            if (!is_kernel_flags[idx]) {
+                kinds.push_back(Chonk::CircuitKind::App);
+            } else {
+                kinds.push_back(idx + 1 == total_num_circuits ? Chonk::CircuitKind::HidingKernel
+                                                              : Chonk::CircuitKind::Kernel);
+            }
+        }
+        return kinds;
+    }
 
     PrivateFunctionExecutionMockCircuitProducer(size_t num_app_circuits, bool large_first_app = true)
         : large_first_app(large_first_app)
@@ -295,8 +313,7 @@ class PrivateFunctionExecutionMockCircuitProducer {
         }
         auto circuit =
             create_next_circuit(ivc, settings.log2_num_gates, settings.num_public_inputs, check_circuit_sizes);
-        const Chonk::CircuitKind kind = ivc.next_circuit_kind();
-        ivc.accumulate(circuit, kind, make_circuit_verification_key(kind, circuit));
+        ivc.accumulate(circuit, make_circuit_verification_key(ivc.current_kind(), circuit));
     }
 
   public:

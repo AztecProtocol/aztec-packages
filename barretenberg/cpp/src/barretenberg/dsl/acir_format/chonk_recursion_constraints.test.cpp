@@ -35,7 +35,7 @@ class ChonkRecursionConstraintTest : public ::testing::Test {
 
         PrivateFunctionExecutionMockCircuitProducer circuit_producer(NUM_APP_CIRCUITS);
         const size_t num_circuits = circuit_producer.total_num_circuits;
-        Chonk ivc{ num_circuits };
+        Chonk ivc{ circuit_producer.circuit_kinds() };
 
         for (size_t j = 0; j < num_circuits; ++j) {
             circuit_producer.construct_and_accumulate_next_circuit(ivc);

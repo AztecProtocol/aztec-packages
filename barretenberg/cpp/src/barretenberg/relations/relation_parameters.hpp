@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/constants.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include <array>
 
@@ -20,6 +21,7 @@ template <typename T> struct RelationParameters {
     static constexpr int NUM_BINARY_LIMBS_IN_GOBLIN_TRANSLATOR = 4;
     static constexpr int NUM_NATIVE_LIMBS_IN_GOBLIN_TRANSLATOR = 1;
     static constexpr int NUM_CHALLENGE_POWERS_IN_GOBLIN_TRANSLATOR = 4;
+    static constexpr size_t NUM_MULTILINEAR_BATCHING_CHALLENGES = CHONK_MAX_CLAIMS_PER_KERNEL;
 
     T eta{ 0 };       // Aux Memory (eta)
     T eta_two{ 0 };   // Aux Memory (eta²)
@@ -46,6 +48,24 @@ template <typename T> struct RelationParameters {
         beta_sqr = beta * beta;
         beta_cube = beta_sqr * beta;
     }
+
+    // Multilinear batching (γ^0, ..., γ^{num_claims - 1}); entries past the claim count are left untouched so that
+    // a recursive verifier does not spend gates on powers that are never consumed.
+    std::array<T, NUM_MULTILINEAR_BATCHING_CHALLENGES> multilinear_batching_challenges = {};
+    size_t num_multilinear_batching_challenges = 0;
+
+    void compute_multilinear_batching_challenges(const T& batching_challenge, const size_t num_claims)
+    {
+        BB_ASSERT_LTE(num_claims,
+                      NUM_MULTILINEAR_BATCHING_CHALLENGES,
+                      "num_claims is larger than the maximum number of claims that can be processed.");
+        num_multilinear_batching_challenges = num_claims;
+        multilinear_batching_challenges[0] = T(1);
+        for (size_t idx = 1; idx < num_claims; ++idx) {
+            multilinear_batching_challenges[idx] = multilinear_batching_challenges[idx - 1] * batching_challenge;
+        }
+    }
+
     // `eccvm_set_permutation_delta` is used in the set membership gadget in eccvm/ecc_set_relation.hpp, specifically to
     // constrain (pc, round, wnaf_slice) to match between the MSM table and the Precomputed table. The number of rows we
     // add per short scalar `mul` is slightly less in the Precomputed table as in the MSM table, so to get the

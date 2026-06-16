@@ -55,8 +55,8 @@ void accumulate_next_chonk_circuit(Chonk& ivc,
 {
     // Throw (not BB_ASSERT) so it survives release/WASM: `kind` defaults to None (an unset step, or
     // one from an old/external msgpack) and never matches the expected kind, failing clearly here.
-    if (kind != ivc.next_circuit_kind()) {
-        throw_or_abort("ChonkStepProcessor: supplied CircuitKind disagrees with IVC state machine");
+    if (kind != ivc.current_kind()) {
+        throw_or_abort("ChonkStepProcessor: supplied CircuitKind disagrees with the kinds the IVC was started with");
     }
 
     dispatch_kind(kind, [&]<Chonk::CircuitKind K>() {
@@ -77,14 +77,14 @@ void accumulate_next_chonk_circuit(Chonk& ivc,
                 }
             }
         }
-        ivc.accumulate(circuit, K, Chonk::CircuitVerificationKey{ vk });
+        ivc.accumulate(circuit, Chonk::CircuitVerificationKey{ vk });
     });
 }
 
 } // namespace
 
-ChonkStepProcessor::ChonkStepProcessor(size_t num_circuits)
-    : ivc(std::make_shared<Chonk>(num_circuits))
+ChonkStepProcessor::ChonkStepProcessor(std::vector<CircuitKind> circuit_kinds)
+    : ivc(std::make_shared<Chonk>(std::move(circuit_kinds)))
 {}
 
 void ChonkStepProcessor::process_step(ChonkExecutionStep&& step, ChonkPrecomputedVkPolicy policy)

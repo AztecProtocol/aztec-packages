@@ -45,10 +45,12 @@ struct ChonkStart {
         void msgpack(auto&& pack_fn) { pack_fn(); }
         bool operator==(const Response&) const = default;
     };
-    // Number of circuits to be accumulated.
-    uint32_t num_circuits;
+    // Kind of every circuit to be accumulated, in accumulation order. The IVC needs the full stack layout
+    // upfront so the prover can tell, while accumulating a circuit, whether a kernel follows (which triggers
+    // the group's multilinear batching proof).
+    std::vector<CircuitKind> kinds;
     Response execute(BBApiRequest& request) &&;
-    SERIALIZATION_FIELDS(num_circuits);
+    SERIALIZATION_FIELDS(kinds);
     bool operator==(const ChonkStart&) const = default;
 };
 
