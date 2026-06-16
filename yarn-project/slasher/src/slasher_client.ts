@@ -17,9 +17,11 @@ import {
   getOffenseTypeName,
   getSlashConsensusVotesFromOffenses,
 } from '@aztec/stdlib/slashing';
+import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import type { Hex } from 'viem';
 
+import { SlasherMetrics } from './metrics.js';
 import {
   SlashOffensesCollector,
   type SlashOffensesCollectorConfig,
@@ -101,6 +103,7 @@ export class SlasherClient implements ProposerSlashActionProvider, SlasherClient
     private dateProvider: DateProvider,
     private offensesStore: SlasherOffensesStore,
     private log = createLogger('slasher:consensus'),
+    private readonly metrics = new SlasherMetrics(getTelemetryClient()),
   ) {
     this.roundMonitor = new SlashRoundMonitor(settings, dateProvider);
     this.offensesCollector = new SlashOffensesCollector(config, settings, watchers, offensesStore);
@@ -161,6 +164,7 @@ export class SlasherClient implements ProposerSlashActionProvider, SlasherClient
 
   /** Called when we see a RoundExecuted event on the SlashingProposer (just for logging). */
   protected async handleRoundExecuted(round: bigint, slashCount: bigint, l1BlockHash: Hex) {
+    this.metrics.recordRoundExecuted();
     const slashes = await this.rollup.getSlashEvents(l1BlockHash);
     this.log.info(`Slashing round ${round} has been executed with ${slashCount} slashes`, { slashes });
   }
