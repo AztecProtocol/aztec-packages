@@ -1,3 +1,4 @@
+use crate::macros::oracle_testing::auto_serialization_test;
 use crate::messages::delivery::OnchainDeliveryMode;
 use crate::note::{HintedNote, note_interface::NoteType};
 
@@ -58,6 +59,7 @@ unconstrained fn notify_created_note_oracle_wrapper<let N: u32>(
     );
 }
 
+#[auto_serialization_test]
 #[oracle(aztec_prv_notifyCreatedNote)]
 unconstrained fn notify_created_note_oracle<let N: u32>(
     _owner: AztecAddress,
@@ -73,6 +75,7 @@ unconstrained fn notify_nullified_note_oracle_wrapper(nullifier: Field, note_has
     notify_nullified_note_oracle(nullifier, note_hash, counter);
 }
 
+#[auto_serialization_test]
 #[oracle(aztec_prv_notifyNullifiedNote)]
 unconstrained fn notify_nullified_note_oracle(_nullifier: Field, _note_hash: Field, _counter: u32) {}
 
@@ -186,6 +189,7 @@ pub unconstrained fn get_app_tagging_secret(sender: AztecAddress, recipient: Azt
     get_app_tagging_secret_oracle(sender, recipient)
 }
 
+#[auto_serialization_test]
 #[oracle(aztec_prv_getAppTaggingSecret)]
 unconstrained fn get_app_tagging_secret_oracle(_sender: AztecAddress, _recipient: AztecAddress) -> Option<Field> {}
 
@@ -221,24 +225,6 @@ pub(crate) unconstrained fn get_sender_for_tags() -> Option<AztecAddress> {
     get_sender_for_tags_oracle()
 }
 
+#[auto_serialization_test]
 #[oracle(aztec_prv_getSenderForTags)]
 unconstrained fn get_sender_for_tags_oracle() -> Option<AztecAddress> {}
-
-mod test {
-    use crate::macros::oracle_testing::oracle_test;
-    use crate::protocol::{address::AztecAddress, traits::FromField};
-    use super::get_sender_for_tags_oracle;
-
-    #[oracle_test("some")]
-    unconstrained fn get_sender_for_tags_some() {
-        let result = get_sender_for_tags_oracle();
-        assert(result.is_some(), "expected Some");
-        assert_eq(result.unwrap(), AztecAddress::from_field(42));
-    }
-
-    #[oracle_test("none")]
-    unconstrained fn get_sender_for_tags_none() {
-        let result = get_sender_for_tags_oracle();
-        assert(result.is_none(), "expected None");
-    }
-}

@@ -1,3 +1,5 @@
+use crate::macros::oracle_testing::auto_serialization_test;
+#[auto_serialization_test]
 #[oracle(aztec_utl_getAuthWitness)]
 unconstrained fn get_auth_witness_oracle<let N: u32>(_message_hash: Field) -> [Field; N] {}
 

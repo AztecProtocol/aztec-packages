@@ -1,5 +1,9 @@
-use crate::protocol::{abis::function_selector::FunctionSelector, address::AztecAddress};
+use crate::{
+    macros::oracle_testing::auto_serialization_test,
+    protocol::{abis::function_selector::FunctionSelector, address::AztecAddress},
+};
 
+#[auto_serialization_test]
 #[oracle(aztec_utl_callUtilityFunction)]
 unconstrained fn call_utility_function_oracle<let M: u32, let N: u32>(
     _contract_address: AztecAddress,

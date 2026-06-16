@@ -1,3 +1,4 @@
+use crate::macros::oracle_testing::auto_serialization_test;
 /// Returns an unconstrained random value. Note that it is not possible to constrain this value to prove that it is
 /// truly random: we assume that the oracle is cooperating and returning random values. In some applications this
 /// behavior might not be acceptable and other techniques might be more suitable, such as producing pseudo-random
@@ -6,5 +7,6 @@ pub unconstrained fn random() -> Field {
     rand_oracle()
 }
 
+#[auto_serialization_test]
 #[oracle(aztec_misc_getRandomField)]
 unconstrained fn rand_oracle() -> Field {}

@@ -1,6 +1,6 @@
 //! Nullifier creation, existence checks, etc.
 
-use crate::protocol::address::aztec_address::AztecAddress;
+use crate::{macros::oracle_testing::auto_serialization_test, protocol::address::aztec_address::AztecAddress};
 
 /// Notifies the simulator that a nullifier has been created, so that its correct status (pending or settled) can be
 /// determined when reading nullifiers in subsequent private function calls. The first non-revertible nullifier emitted
@@ -11,6 +11,7 @@ pub fn notify_created_nullifier(inner_nullifier: Field) {
     unsafe { notify_created_nullifier_oracle(inner_nullifier) };
 }
 
+#[auto_serialization_test]
 #[oracle(aztec_prv_notifyCreatedNullifier)]
 unconstrained fn notify_created_nullifier_oracle(_inner_nullifier: Field) {}
 
@@ -26,6 +27,7 @@ pub unconstrained fn is_nullifier_pending(inner_nullifier: Field, contract_addre
     is_nullifier_pending_oracle(inner_nullifier, contract_address)
 }
 
+#[auto_serialization_test]
 #[oracle(aztec_prv_isNullifierPending)]
 unconstrained fn is_nullifier_pending_oracle(_inner_nullifier: Field, _contract_address: AztecAddress) -> bool {}
 
@@ -38,5 +40,6 @@ pub unconstrained fn check_nullifier_exists(inner_nullifier: Field) -> bool {
     does_nullifier_exist_oracle(inner_nullifier)
 }
 
+#[auto_serialization_test]
 #[oracle(aztec_utl_doesNullifierExist)]
 unconstrained fn does_nullifier_exist_oracle(_inner_nullifier: Field) -> bool {}

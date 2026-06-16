@@ -1,3 +1,4 @@
+use crate::macros::oracle_testing::auto_serialization_test;
 /// Validates public calldata by checking that the preimage exists and the cumulative size is within limits.
 ///
 /// The check is unconstrained and the only purpose of it is to fail early in case of calldata overflow or a bug in
@@ -14,5 +15,6 @@ unconstrained fn assert_valid_public_call_data_oracle_wrapper(calldata_hash: Fie
     assert_valid_public_call_data_oracle(calldata_hash)
 }
 
+#[auto_serialization_test]
 #[oracle(aztec_prv_assertValidPublicCalldata)]
 unconstrained fn assert_valid_public_call_data_oracle(_calldata_hash: Field) {}

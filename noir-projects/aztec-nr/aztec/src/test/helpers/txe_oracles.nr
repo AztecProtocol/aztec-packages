@@ -1,6 +1,6 @@
 use crate::{
-    context::inputs::PrivateContextInputs, event::EventSelector, messages::encoding::MESSAGE_CIPHERTEXT_LEN,
-    test::helpers::utils::TestAccount,
+    context::inputs::PrivateContextInputs, event::EventSelector, macros::oracle_testing::auto_serialization_test,
+    messages::encoding::MESSAGE_CIPHERTEXT_LEN, test::helpers::utils::TestAccount,
 };
 
 use crate::protocol::{
@@ -27,6 +27,7 @@ pub unconstrained fn assert_compatible_txe_oracle_version() {
     assert_compatible_txe_oracle_version_oracle_call(TXE_ORACLE_VERSION_MAJOR, TXE_ORACLE_VERSION_MINOR);
 }
 
+#[auto_serialization_test]
 #[oracle(aztec_txe_assertCompatibleOracleVersion)]
 unconstrained fn assert_compatible_txe_oracle_version_oracle_call(major: Field, minor: Field) {}
 
@@ -121,12 +122,15 @@ pub unconstrained fn execute_utility_function<let M: u32, let N: u32, let T: u32
     )
 }
 
+#[auto_serialization_test]
 #[oracle(aztec_txe_getNextBlockNumber)]
 pub unconstrained fn get_next_block_number() -> u32 {}
 
+#[auto_serialization_test]
 #[oracle(aztec_txe_getNextBlockTimestamp)]
 pub unconstrained fn get_next_block_timestamp() -> u64 {}
 
+#[auto_serialization_test]
 #[oracle(aztec_txe_getLastBlockTimestamp)]
 pub unconstrained fn get_last_block_timestamp() -> u64 {}
 
@@ -199,6 +203,7 @@ pub struct TXECallContext {
 #[oracle(aztec_txe_getLastCallContext)]
 pub unconstrained fn get_last_call_context() -> TXECallContext {}
 
+#[auto_serialization_test]
 #[oracle(aztec_txe_getDefaultAddress)]
 pub unconstrained fn get_default_address() -> AztecAddress {}
 
@@ -228,9 +233,11 @@ unconstrained fn get_private_events_oracle(
     scope: AztecAddress,
     ) -> ([[Field; MAX_EVENT_SERIALIZATION_LENGTH]; MAX_PRIVATE_EVENTS_PER_TXE_QUERY], [u32; MAX_PRIVATE_EVENTS_PER_TXE_QUERY], u32) {}
 
+#[auto_serialization_test]
 #[oracle(aztec_txe_advanceBlocksBy)]
 pub unconstrained fn advance_blocks_by(blocks: u32) {}
 
+#[auto_serialization_test]
 #[oracle(aztec_txe_advanceTimestampBy)]
 pub unconstrained fn advance_timestamp_by(duration: u64) {}
 
@@ -250,6 +257,7 @@ pub unconstrained fn create_account(secret: Field) -> TestAccount {}
 #[oracle(aztec_txe_addAccount)]
 pub unconstrained fn add_account(secret: Field) -> TestAccount {}
 
+#[auto_serialization_test]
 #[oracle(aztec_txe_addAuthWitness)]
 pub unconstrained fn add_authwit(address: AztecAddress, message_hash: Field) {}
 
@@ -275,6 +283,7 @@ unconstrained fn public_call_new_flow_oracle<let M: u32, let N: u32>(
     gas_settings: [Field; GAS_SETTINGS_LENGTH],
 ) -> [Field; N] {}
 
+#[auto_serialization_test]
 #[oracle(aztec_txe_executeUtilityFunction)]
 unconstrained fn execute_utility_function_oracle<let M: u32, let N: u32, let T: u32>(
     contract_address: AztecAddress,
@@ -283,6 +292,7 @@ unconstrained fn execute_utility_function_oracle<let M: u32, let N: u32, let T: 
     authorized_utility_call_targets: [AztecAddress; T],
 ) -> [Field; N] {}
 
+#[auto_serialization_test]
 #[oracle(aztec_txe_setTopLevelTXEContext)]
 pub unconstrained fn set_top_level_txe_context() {}
 
@@ -293,8 +303,10 @@ unconstrained fn set_private_txe_context_oracle(
     _gas_settings: [Field; GAS_SETTINGS_LENGTH],
 ) -> PrivateContextInputs {}
 
+#[auto_serialization_test]
 #[oracle(aztec_txe_setPublicTXEContext)]
 pub unconstrained fn set_public_txe_context(contract_address: Option<AztecAddress>) {}
 
+#[auto_serialization_test]
 #[oracle(aztec_txe_setUtilityTXEContext)]
 pub unconstrained fn set_utility_txe_context(contract_address: Option<AztecAddress>) {}
