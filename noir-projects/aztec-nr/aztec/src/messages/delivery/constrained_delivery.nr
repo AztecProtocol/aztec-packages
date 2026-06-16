@@ -1,21 +1,13 @@
 //! Sender-side helpers for constrained message delivery.
 //!
-//! See [`constrain_secret`] for the rule that anchors an untrusted `(secret, index)` to the registry.
+//! Constrained messages form per-`(sender, recipient, secret)` chains, each send anchored to the handshake
+//! registry at an incrementing index. Two consequences shape the whole flow: sends on one chain are sequential
+//! across transactions (parallel sends collide or fail the predecessor check, while distinct recipients are
+//! distinct chains and parallelize), and batching several sends onto one chain within a transaction requires an
+//! already-committed handshake.
 //!
-//! A chain is identified by `(sender, recipient, secret)`, so each `recipient` (per mode) is a distinct
-//! chain. Sends on one chain are strictly sequential across transactions: the first send (index 0)
-//! bootstraps the handshake, whose initialization nullifier collides if two first-sends run in parallel, and
-//! every later send proves its predecessor's nullifier exists, which only holds once that predecessor has
-//! landed.
-//!
-//! To send several messages on the same chain at once, batch them into a single transaction: each later send
-//! discharges its predecessor check against a same-transaction pending nullifier, so the whole chain segment
-//! advances within one tx. This requires the handshake to already be committed. The registry lookup that
-//! decides whether to reuse or bootstrap ([`get_or_create_app_siloed_handshake_secret`]) is a utility call that
-//! reads committed state, so a bootstrap performed earlier in the same tx is invisible to a later send: that
-//! send re-handshakes onto a separate chain instead of reusing the pending one. A brand-new recipient therefore
-//! takes one landed tx to establish the chain before further sends can be batched onto it. Sends to distinct
-//! recipients are distinct chains and carry no such dependency, so they can go in parallel.
+//! See [`constrain_secret`] for how a send is anchored to the registry, and
+//! [`get_or_create_app_siloed_handshake_secret`] for the bootstrap/reuse decision and its batching constraint.
 
 use crate::context::PrivateContext;
 use crate::messages::delivery::OnchainDeliveryMode;
@@ -40,6 +32,19 @@ pub global NON_INTERACTIVE_HANDSHAKE_SELECTOR: FunctionSelector =
 pub global VALIDATE_HANDSHAKE_SELECTOR: FunctionSelector =
     comptime { FunctionSelector::from_signature("validate_handshake((Field),(Field),(u8),Field)") };
 
+/// Resolves the app-siloed handshake secret for `(sender, recipient, mode)`, bootstrapping a fresh handshake via
+/// the registry when none exists yet.
+///
+/// Returns `(secret, bootstrapped)`, where `bootstrapped` is true when this call created the handshake.
+///
+/// ## Batching
+///
+/// Several sends can share one transaction on the same chain (each later send proves its predecessor as a
+/// same-transaction pending nullifier), but only once the handshake is committed. The reuse-vs-bootstrap decision
+/// here is a utility call that reads committed state, so a bootstrap performed earlier in the same transaction is
+/// invisible: a later send re-handshakes onto a separate chain (each handshake mints a fresh secret) rather than
+/// reusing the pending one. A brand-new recipient therefore needs one landed transaction to establish the chain
+/// before further sends can be batched onto it.
 pub(crate) fn get_or_create_app_siloed_handshake_secret(
     context: &mut PrivateContext,
     registry: AztecAddress,
