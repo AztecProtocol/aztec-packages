@@ -9,6 +9,43 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.nr] `for_each` visits elements in order; removing during iteration no longer supported
+
+`CapsuleArray::for_each` and `EphemeralArray::for_each` previously iterated backwards (from the last element to the first) so that the callback could safely remove the current element. They now visit elements in order, from first to last, as is usually expected in other languages. Structurally mutating the array (e.g. via `push` or `remove`) from inside the callback is no longer supported.
+
+For `EphemeralArray`, replace remove-during-iteration with `filter`:
+
+```diff
+- array.for_each(|index, value| {
+-     if should_remove(value) {
+-         array.remove(index);
+-     }
+- });
++ let kept = array.filter(|value| !should_remove(value));
+```
+
+`filter` collects the kept elements into a fresh array at a new slot. If the original slot matters (e.g. a `TransientArray` slot shared with other call frames), rebuild it from the filtered result:
+
+```noir
+let kept = array.filter(|value| !should_remove(value));
+let _ = array.clear();
+kept.for_each(|_index, value| array.push(value));
+```
+
+`EphemeralArray`'s are cheap and by nature not persistent though, so in most cases you probably can just work with the new copy instead of going through this hassle. 
+
+`CapsuleArray` has no `filter`, so iterate manually, backwards. Removing the current element is safe in a backward loop because it only shifts elements at higher indices:
+
+```noir
+let mut i = array.len();
+while i > 0 {
+    i -= 1;
+    if should_remove(array.get(i)) {
+        array.remove(i);
+    }
+}
+```
+
 ### [Aztec.js] Prefunded local network test accounts are now initializerless
 
 The genesis-funded test accounts in the local network (sandbox), returned by `getInitialTestAccountsData()`, are now initializerless Schnorr accounts (`schnorr_initializerless`). An initializerless account has no onchain deployment transaction: its address commits to the signing public key (through `immutables_hash`) and its contract state is materialized locally in the PXE, so these accounts are usable right away.
