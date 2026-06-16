@@ -202,15 +202,15 @@ export async function runSingleSubmitSumcheck(
     for (const desc of ALL_RELATIONS) {
       const r = desc.relationIndex;
       const acc = await accPipeline(desc);
-      const aBufs: GPUBuffer[] = [cur[r], perEdge, create_and_write_sb(device, u32x4(pairs)), scalBufs[i]];
+      const aBufs: GPUBuffer[] = [cur[r], perEdge, create_and_write_ub(device, u32x4(pairs)), scalBufs[i]];
       if (relParamBufs[r]) aBufs.push(relParamBufs[r]!);
       await execute_pipeline(enc, acc.pipeline, create_bind_group(device, acc.layout, aBufs), Math.ceil(pairs / accWG));
       const r1 = create_bind_group(device, reduceRunner.layout, [
-        perEdge, partsScratch, create_and_write_sb(device, u32x4(pairs, desc.outLen, chunk, 0)),
+        perEdge, partsScratch, create_and_write_ub(device, u32x4(pairs, desc.outLen, chunk, 0)),
       ]);
       await execute_pipeline(enc, reduceRunner.pipeline, r1, groups);
       const r2 = create_bind_group(device, reduceRunner.layout, [
-        partsScratch, accBuf, create_and_write_sb(device, u32x4(groups, desc.outLen, groups, finalBase[r])),
+        partsScratch, accBuf, create_and_write_ub(device, u32x4(groups, desc.outLen, groups, finalBase[r])),
       ]);
       await execute_pipeline(enc, reduceRunner.pipeline, r2, 1);
     }
@@ -230,7 +230,7 @@ export async function runSingleSubmitSumcheck(
       const r = desc.relationIndex;
       const numOut = desc.numEdges * pairs;
       const fBg = create_bind_group(device, foldRunner.layout, [
-        cur[r], other[r], create_and_write_sb(device, u32x4(numOut, pairs)), uBuf,
+        cur[r], other[r], create_and_write_ub(device, u32x4(numOut, pairs)), uBuf,
       ]);
       await execute_pipeline(enc, foldRunner.pipeline, fBg, Math.ceil(numOut / WG));
     }
