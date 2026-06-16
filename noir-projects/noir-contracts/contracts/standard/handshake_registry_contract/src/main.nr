@@ -20,13 +20,10 @@ global NON_INTERACTIVE_HANDSHAKE: u8 = 1;
 ///
 /// # Privacy
 /// The siloing described above means reading handshakes never compromises message secrecy: a reader only ever
-/// derives secrets siloed to its own address. Handshake metadata is weaker, though. Incoming handshakes are announced
-/// via a bootstrap log under a tag derived from the recipient address (see
-/// [`HandshakeRegistry::non_interactive_handshake`]), so their existence, count, and timing are observable by anyone
-/// who knows that address, and [`HandshakeRegistry::get_handshakes`] exposes their decrypted payload to in-scope
-/// callers.
+/// derives secrets siloed to its own address. Handshake metadata is weaker, though; see
+/// [`HandshakeRegistry::non_interactive_handshake`] for privacy details.
 ///
-/// Currently only implements the non-interactive flow (see [`HandshakeRegistry::non_interactive_handshake`]).
+/// Only non-interactive handshakes are currently implemented.
 #[aztec(::aztec::macros::AztecConfig::new().custom_sync_state(crate::handshake_registry_sync))]
 pub contract HandshakeRegistry {
     use crate::{handshake_note::HandshakeNote, NON_INTERACTIVE_HANDSHAKE, sync::get_all_handshakes};
@@ -69,6 +66,15 @@ pub contract HandshakeRegistry {
     ///    included so the recipient knows which delivery domain to search for tagged logs.
     /// 3. Returns the app-siloed shared secret for `msg_sender()`, allowing the caller to fold "handshake + first
     ///    tag" into one call without a second hop into the registry.
+    ///
+    /// # Privacy
+    /// Non-interactive handshakes are announced via a bootstrap log under a tag derived from the recipient address.
+    /// Their existence, count, and timing are observable by anyone who knows that address. See
+    /// [`HandshakeRegistry::get_handshakes`] for the discovery read's privacy notes. The raw shared-secret point
+    /// remains protected: callers only receive secrets siloed to their own address.
+    ///
+    /// Interactive handshakes can avoid this recipient-keyed bootstrap leakage, but require recipient
+    /// cooperation before the sender can create the shared secret.
     ///
     /// # Panics
     /// If `mode` is not a recognized delivery mode.
