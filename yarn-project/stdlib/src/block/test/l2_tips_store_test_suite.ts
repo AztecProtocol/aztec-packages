@@ -127,6 +127,71 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
     expect(await tipsStore.getL2BlockHash(3)).toEqual(blockHashes.get(3));
   });
 
+  it('records the proposed tip number and hash from a chain-proposed event', async () => {
+    // chain-proposed is the sole writer of proposed-tip history in tips-only mode: no preceding blocks-added.
+    await tipsStore.handleBlockStreamEvent({
+      type: 'chain-proposed',
+      block: { number: BlockNumber(5), hash: new Fr(500).toString() },
+    });
+
+    const tips = await tipsStore.getL2Tips();
+    expect(tips.proposed).toEqual({ number: BlockNumber(5), hash: new Fr(500).toString() });
+    // The hash is recorded in the same index the walk-back reads, so it resolves as a sparse anchor.
+    expect(await tipsStore.getL2BlockHash(5)).toEqual(new Fr(500).toString());
+  });
+
+  it('serves sparse proposed anchors from chain-proposed events for the walk-back', async () => {
+    // Two tip-moving polls in tips-only mode, with no blocks in between (sparse history).
+    await tipsStore.handleBlockStreamEvent({
+      type: 'chain-proposed',
+      block: { number: BlockNumber(4), hash: new Fr(400).toString() },
+    });
+    await tipsStore.handleBlockStreamEvent({
+      type: 'chain-proposed',
+      block: { number: BlockNumber(9), hash: new Fr(900).toString() },
+    });
+
+    // Both recorded heights resolve; the heights between them were never seen and stay undefined.
+    expect(await tipsStore.getL2BlockHash(4)).toEqual(new Fr(400).toString());
+    expect(await tipsStore.getL2BlockHash(9)).toEqual(new Fr(900).toString());
+    expect(await tipsStore.getL2BlockHash(6)).toBeUndefined();
+
+    const tips = await tipsStore.getL2Tips();
+    expect(tips.proposed).toEqual({ number: BlockNumber(9), hash: new Fr(900).toString() });
+  });
+
+  it('records block-hash witnesses without moving any tip cursor', async () => {
+    // Establish a proposed tip at 9 in tips-only fashion (sole writer of proposed history).
+    await tipsStore.handleBlockStreamEvent({
+      type: 'chain-proposed',
+      block: { number: BlockNumber(9), hash: new Fr(900).toString() },
+    });
+
+    // Record sparse witnesses at heights below the tip (e.g. a consumer materializing per-height state).
+    await tipsStore.recordBlockHashes([
+      { number: BlockNumber(4), hash: new Fr(404).toString() },
+      { number: BlockNumber(6), hash: new Fr(606).toString() },
+    ]);
+
+    // Each recorded height resolves; an unrecorded gap stays undefined.
+    expect(await tipsStore.getL2BlockHash(4)).toEqual(new Fr(404).toString());
+    expect(await tipsStore.getL2BlockHash(6)).toEqual(new Fr(606).toString());
+    expect(await tipsStore.getL2BlockHash(5)).toBeUndefined();
+
+    // No tip cursor moved: the proposed tip is still 9, and every other tier is at genesis.
+    const tips = await tipsStore.getL2Tips();
+    expect(tips.proposed).toEqual({ number: BlockNumber(9), hash: new Fr(900).toString() });
+    expect(tips.checkpointed.block).toEqual(makeTip(0));
+    expect(tips.proven.block).toEqual(makeTip(0));
+    expect(tips.finalized.block).toEqual(makeTip(0));
+  });
+
+  it('skips witnesses with no hash and tolerates an empty list', async () => {
+    await tipsStore.recordBlockHashes([]);
+    await tipsStore.recordBlockHashes([{ number: BlockNumber(3), hash: '' }]);
+    expect(await tipsStore.getL2BlockHash(3)).toBeUndefined();
+  });
+
   it('checkpoints all proposed blocks', async () => {
     // Propose blocks 1-5
     const blocks = await Promise.all(times(5, i => makeBlock(i + 1)));

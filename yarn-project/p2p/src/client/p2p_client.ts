@@ -179,6 +179,8 @@ export class P2PClient extends WithTracer implements P2P {
         break;
       case 'chain-checkpointed':
         break;
+      case 'chain-proposed':
+        break;
       default: {
         const _: never = event;
         break;

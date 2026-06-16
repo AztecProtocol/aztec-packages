@@ -12,6 +12,7 @@ import { getLastSiblingPath } from '@aztec/prover-client/helpers';
 import { ChonkCache } from '@aztec/prover-client/orchestrator';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
 import {
+  type L2BlockId,
   type L2BlockSource,
   L2BlockStream,
   type L2BlockStreamEvent,
@@ -234,14 +235,22 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
         await this.processCheckpointJump(event.checkpoint.number);
         break;
       case 'chain-pruned':
-        await this.handlePruneEvent(event.checkpointed.checkpoint);
+        await this.handlePruneEvent(event.block);
         break;
       case 'chain-proven':
         this.publishingService?.onChainProven(BlockNumber(event.block.number));
         break;
+      // The proposed tip drives only the tips store's walk-back history (recorded below); the prover-node
+      // tracks checkpoints, not proposed blocks. `blocks-added` is never emitted in tips-only mode, and
+      // `chain-finalized` carries nothing the prover-node acts on.
+      case 'chain-proposed':
       case 'chain-finalized':
       case 'blocks-added':
         break;
+      default: {
+        const _: never = event;
+        break;
+      }
     }
     // Expiry is driven by the archiver's latest synced L2 slot
     await this.checkEpochExpiry();
@@ -329,6 +338,14 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
     const registerData = await this.collectRegisterData(checkpoint, published.attestations);
     await this.checkpointStore.addOrUpdate(checkpoint, registerData);
     await this.sessionManager?.onCheckpointAdded(epochNumber);
+
+    // Tips-only mode delivers no blocks, so record one witness per checkpointed block: a reorg into the checkpoint's
+    // range then prunes at the true divergence instead of the nearest sparse tip anchor.
+    await this.tipsStore.recordBlockHashes(
+      await Promise.all(
+        checkpoint.blocks.map(async block => ({ number: block.number, hash: (await block.header.hash()).toString() })),
+      ),
+    );
   }
 
   /**
@@ -357,15 +374,41 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
     };
   }
 
-  /** Mark every prover above the prune threshold as pruned and notify the session manager. */
-  private async handlePruneEvent(prunedCheckpoint: { number: CheckpointNumber; hash: string }) {
-    this.log.warn(`Chain pruned to checkpoint ${prunedCheckpoint.number}`, { prunedCheckpoint });
-    // Clamp the catch-up cursor down to the (post-prune) checkpointed tip so reprocessing resumes from the
-    // first checkpoint above the prune target rather than from a stale, now-orphaned cursor.
-    if (this.lastProcessedCheckpoint > prunedCheckpoint.number) {
-      this.lastProcessedCheckpoint = prunedCheckpoint.number;
+  /**
+   * Marks every prover orphaned by the prune as pruned, clamps the catch-up cursor below the prune target's
+   * checkpoint, and notifies the session manager. Keyed off the prune target block (the highest surviving block)
+   * rather than the source's checkpointed tip, which can sit above the target after a re-checkpoint and would leave
+   * orphaned provers canonical. Throws (rather than warning) if the cursor floor cannot be resolved, so the pass
+   * fails and the prune is retried next iteration.
+   */
+  private async handlePruneEvent(prunedToBlock: L2BlockId) {
+    this.log.warn(`Chain pruned to block ${prunedToBlock.number}`, { prunedToBlock });
+
+    // Resolve the cursor floor BEFORE marking provers: markPrunedAboveBlock returns only newly-marked provers, so a
+    // throw after marking would leave a retry pass with nothing to act on. Resolving first means a throw leaves
+    // everything untouched and the next pass retries the whole handler (the tips cursor only advances on success).
+    let cursorFloor: CheckpointNumber;
+    if (prunedToBlock.number === 0) {
+      cursorFloor = CheckpointNumber.ZERO;
+    } else {
+      const targetData = await this.l2BlockSource.getBlockData({ number: prunedToBlock.number });
+      if (targetData === undefined) {
+        throw new Error(
+          `No block data found for prune target block ${prunedToBlock.number}; cannot clamp checkpoint cursor`,
+        );
+      }
+      // Clamp to `cpAtTarget - 1`: a mid-checkpoint target leaves that checkpoint partially orphaned and it must be
+      // reprocessed. Over-clamping merely re-registers a checkpoint (at-least-once by design — A-1041); under-clamping
+      // would permanently skip a rebuilt same-number checkpoint.
+      cursorFloor = CheckpointNumber(Math.max(0, Number(targetData.checkpointNumber) - 1));
     }
-    const affected = this.checkpointStore.markPrunedAfter(prunedCheckpoint.number);
+
+    const affected = this.checkpointStore.markPrunedAboveBlock(prunedToBlock.number);
+
+    if (this.lastProcessedCheckpoint > cursorFloor) {
+      this.lastProcessedCheckpoint = cursorFloor;
+    }
+
     if (affected.length === 0) {
       return;
     }
@@ -476,12 +519,12 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
     // Now that the store + manager exist, arm the live-state observable gauges.
     this.jobMetrics.observeState(this.checkpointStore, this.sessionManager);
 
-    const { startingBlock, lastFullyProvenEpoch } = await this.computeStartupState();
+    const { lastFullyProvenEpoch } = await this.resolveLastFullyProvenEpoch();
     this.lastExpiredEpoch = lastFullyProvenEpoch;
     this.lastProcessedCheckpoint = await this.computeStartingCheckpoint(lastFullyProvenEpoch);
     this.blockStream = new L2BlockStream(this.l2BlockSource, this.tipsStore, this, this.log, {
       pollIntervalMS: this.config.proverNodePollingIntervalMs,
-      startingBlock,
+      tipsOnly: true,
     });
     this.blockStream.start();
 
@@ -630,38 +673,27 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
   }
 
   /**
-   * Resolves the L2BlockStream's starting block and the last fully-proven epoch in one
-   * pass. The starting block is the first block of the next unproven epoch (or the start
-   * of the partially-proven epoch if the proven tip falls mid-epoch). The fully-proven
-   * epoch is `provenEpoch` when the proven tip is the last block of its epoch, otherwise
-   * `provenEpoch - 1`, or `undefined` if no block is proven yet.
+   * Resolves the last fully-proven epoch from L1 proven state, used to seed the catch-up cursor (via
+   * `computeStartingCheckpoint`) and `lastExpiredEpoch`. The fully-proven epoch is `provenEpoch` when the
+   * proven tip is the last block of its epoch, otherwise `provenEpoch - 1`, or `undefined` if no block is
+   * proven yet (so a restart reprocesses the partially-proven epoch rather than trusting a stale tip).
    */
-  protected async computeStartupState(): Promise<{
-    startingBlock: BlockNumber;
-    lastFullyProvenEpoch: EpochNumber | undefined;
-  }> {
+  protected async resolveLastFullyProvenEpoch(): Promise<{ lastFullyProvenEpoch: EpochNumber | undefined }> {
     const provenBlockNumber = await this.l2BlockSource.getBlockNumber({ tag: 'proven' });
     if (!provenBlockNumber || provenBlockNumber <= 0) {
-      return { startingBlock: BlockNumber(1), lastFullyProvenEpoch: undefined };
+      return { lastFullyProvenEpoch: undefined };
     }
     const l1Constants = await this.getL1Constants();
     const provenHeader = (await this.l2BlockSource.getBlockData({ number: BlockNumber(provenBlockNumber) }))?.header;
     if (!provenHeader) {
-      return { startingBlock: BlockNumber(provenBlockNumber + 1), lastFullyProvenEpoch: undefined };
+      return { lastFullyProvenEpoch: undefined };
     }
     const provenEpoch = getEpochAtSlot(provenHeader.getSlot(), l1Constants);
     if (await this.isProvenBlockLastOfItsEpoch(BlockNumber(provenBlockNumber), provenEpoch, l1Constants)) {
-      return { startingBlock: BlockNumber(provenBlockNumber + 1), lastFullyProvenEpoch: provenEpoch };
+      return { lastFullyProvenEpoch: provenEpoch };
     }
-    const epochCheckpoints = await this.l2BlockSource.getCheckpointsData({ epoch: provenEpoch });
-    const firstBlockOfEpoch =
-      epochCheckpoints.length > 0 ? epochCheckpoints[0].startBlock : BlockNumber(provenBlockNumber);
-    this.log.info(
-      `Starting L2BlockStream at block ${firstBlockOfEpoch} (start of partially-proven epoch ${provenEpoch})`,
-      { provenBlockNumber, provenEpoch, firstBlockOfEpoch },
-    );
     const lastFullyProvenEpoch = provenEpoch > 0 ? EpochNumber(provenEpoch - 1) : undefined;
-    return { startingBlock: firstBlockOfEpoch, lastFullyProvenEpoch };
+    return { lastFullyProvenEpoch };
   }
 
   /**

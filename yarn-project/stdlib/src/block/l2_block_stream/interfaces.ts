@@ -46,6 +46,16 @@ export type L2BlockStreamEvent =
       blocks: L2Block[];
     }
   | /**
+   * Reports the new proposed tip of the chain. Emitted once per sync pass when the source's proposed tip differs
+   * from the pre-pass local one (downloads, a prune, or a thin tip movement). Carries only the block id; in block
+   * mode the corresponding payloads arrive via preceding `blocks-added` events, while in tips-only mode this is the
+   * sole signal that the proposed tip moved. Consumers that only track the proposed tip can ignore `blocks-added`
+   * entirely and anchor on this event instead.
+   */ {
+      type: 'chain-proposed';
+      block: L2BlockId;
+    }
+  | /**
    * Reports a new checkpointed tip. Emitted at most once per sync pass when the source's checkpointed tip
    * leads the local one. Carries only the block + checkpoint ids; consumers that need the full checkpoint
    * payload fetch it on demand from the block source.
@@ -80,4 +90,11 @@ export type L2BlockStreamEvent =
 
 export type L2TipsStore = L2BlockStreamEventHandler &
   L2TipsProvider &
-  Pick<L2BlockStreamLocalDataProvider, 'getL2BlockHash'>;
+  Pick<L2BlockStreamLocalDataProvider, 'getL2BlockHash'> & {
+    /**
+     * Records `(number → hash)` witnesses into the walk-back hash index without moving any tip cursor. Consumers that
+     * materialize per-height state should record a witness for each height they materialize, so a reorg below the
+     * nearest sparse anchor does not produce an over-deep prune event. See {@link L2TipsStoreBase.recordBlockHashes}.
+     */
+    recordBlockHashes(blocks: L2BlockId[]): Promise<void>;
+  };
