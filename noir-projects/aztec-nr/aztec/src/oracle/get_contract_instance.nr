@@ -11,7 +11,7 @@ unconstrained fn get_contract_instance_internal(address: AztecAddress) -> Contra
     get_contract_instance_oracle(address)
 }
 
-// NOTE: this is for use in private only
+/// Returns `address`'s [`ContractInstance`].
 pub fn get_contract_instance(address: AztecAddress) -> ContractInstance {
     // Safety: The to_address function combines all values in the instance object to produce an address, so by checking
     // that we get the expected address we validate the entire struct.
@@ -30,7 +30,9 @@ struct GetContractInstanceResult {
 #[oracle(aztec_avm_getContractInstanceDeployer)]
 unconstrained fn get_contract_instance_deployer_oracle_avm(_address: AztecAddress) -> [GetContractInstanceResult; 1] {}
 #[oracle(aztec_avm_getContractInstanceClassId)]
-unconstrained fn get_contract_instance_class_id_oracle_avm(_address: AztecAddress) -> [GetContractInstanceResult; 1] {}
+unconstrained fn get_contract_instance_current_class_id_oracle_avm(
+    _address: AztecAddress,
+) -> [GetContractInstanceResult; 1] {}
 #[oracle(aztec_avm_getContractInstanceInitializationHash)]
 unconstrained fn get_contract_instance_initialization_hash_oracle_avm(
     _address: AztecAddress,
@@ -43,8 +45,10 @@ unconstrained fn get_contract_instance_immutables_hash_oracle_avm(
 unconstrained fn get_contract_instance_deployer_internal_avm(address: AztecAddress) -> [GetContractInstanceResult; 1] {
     get_contract_instance_deployer_oracle_avm(address)
 }
-unconstrained fn get_contract_instance_class_id_internal_avm(address: AztecAddress) -> [GetContractInstanceResult; 1] {
-    get_contract_instance_class_id_oracle_avm(address)
+unconstrained fn get_contract_instance_current_class_id_internal_avm(
+    address: AztecAddress,
+) -> [GetContractInstanceResult; 1] {
+    get_contract_instance_current_class_id_oracle_avm(address)
 }
 unconstrained fn get_contract_instance_initialization_hash_internal_avm(
     address: AztecAddress,
@@ -67,10 +71,15 @@ pub fn get_contract_instance_deployer_avm(address: AztecAddress) -> Option<Aztec
         Option::none()
     }
 }
-pub fn get_contract_instance_class_id_avm(address: AztecAddress) -> Option<ContractClassId> {
+/// Returns `address` current contract class, or `Option::none` if unpublished.
+///
+/// The current contract class is the one that would be used to determine the code of the contract's functions if it
+/// were to be executed in this transaction. This is not necessarily the contract's original class if it has been
+/// upgraded via the `ContractInstanceRegistry`, and it could similarly change in the future.
+pub fn get_contract_instance_current_class_id_avm(address: AztecAddress) -> Option<ContractClassId> {
     // Safety: AVM opcodes are constrained by the AVM itself
     let GetContractInstanceResult { exists, member } =
-        unsafe { get_contract_instance_class_id_internal_avm(address)[0] };
+        unsafe { get_contract_instance_current_class_id_internal_avm(address)[0] };
     if exists {
         Option::some(ContractClassId::from_field(member))
     } else {

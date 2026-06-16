@@ -9,6 +9,34 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.nr] `ContractInstance.contract_class_id` renamed to `original_contract_class_id`
+
+The `contract_class_id` field of the `ContractInstance` struct (returned by `get_contract_instance`) has been renamed to `original_contract_class_id`. The struct is the contract's *address preimage*, so this field is the class id the contract was deployed with: for contracts whose class was later updated via the `ContractInstanceRegistry`, it is NOT the class currently executing. The rename makes that explicit.
+
+**Migration:**
+
+```diff
+let instance = get_contract_instance(address);
+- let class_id = instance.contract_class_id;
++ let class_id = instance.original_contract_class_id;
+```
+
+Note that this value is not available during public execution, which only has access to the _current_ contract class.
+
+### [Aztec.nr] `get_contract_instance_class_id_avm` renamed to `get_contract_instance_current_class_id_avm`
+
+The AVM contract-instance class id getter has been renamed to make explicit that it returns the *current* class id, i.e. it reflects updates performed via the `ContractInstanceRegistry`.
+
+**Migration:**
+
+```diff
+- use aztec::oracle::get_contract_instance::get_contract_instance_class_id_avm;
++ use aztec::oracle::get_contract_instance::get_contract_instance_current_class_id_avm;
+
+- let class_id = get_contract_instance_class_id_avm(address);
++ let class_id = get_contract_instance_current_class_id_avm(address);
+```
+
 ### [Aztec.js] Prefunded local network test accounts are now initializerless
 
 The genesis-funded test accounts in the local network (sandbox), returned by `getInitialTestAccountsData()`, are now initializerless Schnorr accounts (`schnorr_initializerless`). An initializerless account has no onchain deployment transaction: its address commits to the signing public key (through `immutables_hash`) and its contract state is materialized locally in the PXE, so these accounts are usable right away.
