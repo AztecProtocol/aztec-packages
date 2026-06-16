@@ -1,16 +1,11 @@
 import type { SimulationOverridesPlan } from '@aztec/ethereum/contracts';
-import { BlockNumber, type SlotNumber } from '@aztec/foundation/branded-types';
+import type { SlotNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { FEE_ORACLE_LAG, GasFees } from '@aztec/stdlib/gas';
 import { makeGlobalVariables } from '@aztec/stdlib/testing';
-import {
-  type CheckpointGlobalVariables,
-  type FeeProvider,
-  type GlobalVariableBuilder,
-  GlobalVariables,
-} from '@aztec/stdlib/tx';
+import type { CheckpointGlobalVariables, FeeProvider, GlobalVariableBuilder } from '@aztec/stdlib/tx';
 
 /** Simple FeeProvider for TXE that returns zero fees. */
 export class TXEFeeProvider implements FeeProvider {
@@ -24,15 +19,6 @@ export class TXEFeeProvider implements FeeProvider {
 }
 
 export class TXEGlobalVariablesBuilder implements GlobalVariableBuilder {
-  public buildGlobalVariables(
-    _blockNumber: BlockNumber,
-    _coinbase: EthAddress,
-    _feeRecipient: AztecAddress,
-    _slotNumber?: SlotNumber,
-  ): Promise<GlobalVariables> {
-    return Promise.resolve(makeGlobalVariables());
-  }
-
   public buildCheckpointGlobalVariables(
     _coinbase: EthAddress,
     _feeRecipient: AztecAddress,

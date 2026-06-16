@@ -453,6 +453,8 @@ describe('e2e_synching', () => {
         l1ChainId: 31337,
         ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
         aztecSlotDuration: AZTEC_SLOT_DURATION,
+        sequencerPublisherPreviousL1BlockWaitTimeoutMs: config.sequencerPublisherPreviousL1BlockWaitTimeoutMs,
+        sequencerPublisherPreviousL1BlockWaitPollIntervalMs: config.sequencerPublisherPreviousL1BlockWaitPollIntervalMs,
       },
       {
         blobClient,
@@ -559,7 +561,7 @@ describe('e2e_synching', () => {
             const aztecNode = await AztecNodeService.createAndSync(opts.config!, {}, { genesis: opts.genesis });
             const sequencer = aztecNode.getSequencer();
 
-            const { wallet } = await setupPXEAndGetWallet(aztecNode!);
+            const { wallet } = await setupPXEAndGetWallet(aztecNode!, aztecNode!);
             variant.setWallet(wallet);
             const defaultAccountAddress = (
               await variant.deployAccounts(opts.additionallyFundedAccounts!.slice(0, 1))
@@ -702,7 +704,7 @@ describe('e2e_synching', () => {
           expect(await aztecNode.getBlockNumber()).toBeLessThan(blockBeforePrune);
 
           // We need to start the pxe after the re-org for now, because it won't handle it otherwise
-          const { wallet } = await setupPXEAndGetWallet(aztecNode!);
+          const { wallet } = await setupPXEAndGetWallet(aztecNode!, aztecNode!);
           variant.setWallet(wallet);
 
           const blockBefore = await aztecNode.getBlock(await aztecNode.getBlockNumber());
@@ -753,7 +755,7 @@ describe('e2e_synching', () => {
           const aztecNode = await AztecNodeService.createAndSync(opts.config!, {}, { genesis: opts.genesis });
           const sequencer = aztecNode.getSequencer();
 
-          const { wallet: newWallet } = await setupPXEAndGetWallet(aztecNode!);
+          const { wallet: newWallet } = await setupPXEAndGetWallet(aztecNode!, aztecNode!);
           variant.setWallet(newWallet);
 
           const blockBefore = await aztecNode.getBlock(await aztecNode.getBlockNumber());
