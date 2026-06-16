@@ -252,6 +252,36 @@ sudo systemctl mask --now apt-daily.timer apt-daily-upgrade.timer apt-daily.serv
 sudo sysctl fs.inotify.max_user_watches=1048576 &>/dev/null
 sudo sysctl fs.inotify.max_user_instances=1048576 &>/dev/null
 
+# DNS caching. CI's massively parallel jobs resolve the same handful of hosts (S3,
+# Docker Hub, npm, cargo, github) thousands of times. By default every lookup — from
+# the devbox container and nested docker-in-docker alike — goes straight to the VPC
+# resolver, which AWS caps at ~1024 pps per ENI for link-local services; over that,
+# packets are silently dropped and surface as "could not resolve host".
+# Route container lookups through the host's (caching) systemd-resolved instead, by
+# exposing its stub on the instance's primary private IP — the one address reachable
+# from both the devbox container and nested dind — and pointing containers at it via
+# --dns on docker run below. priv_ip is cleared (and --dns omitted, leaving DNS
+# unchanged) if any step fails, so this can only help, never break resolution.
+priv_ip=\$(ip -4 route get 169.254.169.253 2>/dev/null | awk '{for(i=1;i<=NF;i++) if(\$i=="src"){print \$(i+1); exit}}' || true)
+if [ -n "\$priv_ip" ] && systemctl is-active --quiet systemd-resolved \
+   && echo "DNSStubListenerExtra=\$priv_ip" | sudo tee -a /etc/systemd/resolved.conf >/dev/null \
+   && sudo systemctl restart systemd-resolved; then
+  # Only route containers to the cache once it's actually listening on priv_ip.
+  for _ in 1 2 3 4 5; do
+    sudo ss -lnu "sport = :53" 2>/dev/null | grep -qF "\$priv_ip:53" && { dns_ready=1; break; }
+    sleep 0.5
+  done
+  if [ "\${dns_ready:-0}" = 1 ]; then
+    echo "HOST: DNS cache active on \$priv_ip (systemd-resolved)."
+  else
+    echo "HOST: DNS cache failed to bind \$priv_ip; using default resolver."
+    priv_ip=
+  fi
+else
+  echo "HOST: DNS cache not configured; using default resolver."
+  priv_ip=
+fi
+
 # Pin host processes to top CPU cores to keep benchmark cores clean.
 # CPU layout: physical cores 0..N/2-1, hyperthreads N/2..N-1.
 # OS gets top 8 physical cores + their hyperthread siblings.
@@ -302,7 +332,7 @@ start_build() {
   local_uid=\$(id -u)
   local_gid=\$(id -g)
 
-  docker run --privileged --rm \${docker_args:-} \
+  docker run --privileged --rm \${docker_args:-} \${priv_ip:+--dns \$priv_ip} \
     --name aztec_build \
     --hostname $docker_hostname \
     -v bootstrap_ci_local_docker:/var/lib/docker \
