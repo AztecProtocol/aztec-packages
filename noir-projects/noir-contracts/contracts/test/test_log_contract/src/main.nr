@@ -66,18 +66,22 @@ pub contract TestLog {
         self.context.emit_private_log_unsafe(tag3, BoundedVec::from_array(payload3));
     }
 
+    // Uses unconstrained delivery on purpose: the event-decoding tests fan these out across many parallel txs,
+    // and constrained delivery serializes per `(sender, recipient, secret)` chain (parallel sends on one chain
+    // collide on the chain nullifier). This function only exercises log emission and decoding, so the delivery
+    // mode is incidental.
     #[external("private")]
     fn emit_encrypted_events(other: AztecAddress, preimages: [Field; 4]) {
         let event0 = ExampleEvent0 { value0: preimages[0], value1: preimages[1] };
 
-        self.emit(event0).deliver_to(self.msg_sender(), MessageDelivery::onchain_constrained());
+        self.emit(event0).deliver_to(self.msg_sender(), MessageDelivery::onchain_unconstrained());
 
         // We duplicate the emission, but swapping the sender and recipient:
-        self.emit(event0).deliver_to(other, MessageDelivery::onchain_constrained());
+        self.emit(event0).deliver_to(other, MessageDelivery::onchain_unconstrained());
 
         let event1 = ExampleEvent1 { value2: AztecAddress::from_field(preimages[2]), value3: preimages[3] as u8 };
 
-        self.emit(event1).deliver_to(self.msg_sender(), MessageDelivery::onchain_constrained());
+        self.emit(event1).deliver_to(self.msg_sender(), MessageDelivery::onchain_unconstrained());
     }
 
     #[external("public")]

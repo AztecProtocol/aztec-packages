@@ -48,4 +48,16 @@ describe('constrained delivery', () => {
 
     expect(index).toEqual(2n);
   });
+
+  // Constrained sends on one `(sender, recipient)` chain are strictly sequential: the first send bootstraps the
+  // handshake and every send emits a chain nullifier keyed only on `(sender, recipient, secret, index)`. Two sends
+  // fired in parallel read the same index and collide, so one tx is rejected. Marked `it.failing` because this is a
+  // protocol limitation, not a bug: it documents the constraint and will start failing (prompting its removal) if
+  // parallel sends on a single chain ever become supported.
+  it.failing('cannot fan out constrained sends on the same chain in parallel', async () => {
+    await Promise.all([
+      contract.methods.emit_note(sender, recipient).send({ from: sender }),
+      contract.methods.emit_note(sender, recipient).send({ from: sender }),
+    ]);
+  });
 });

@@ -1,6 +1,11 @@
 //! Sender-side helpers for constrained message delivery.
 //!
 //! See [`constrain_secret`] for the rule that anchors an untrusted `(secret, index)` to the registry.
+//!
+//! Sends on a single `(sender, recipient, secret)` chain are strictly sequential across transactions: the
+//! first send (index 0) bootstraps the handshake, whose initialization nullifier collides if two first-sends
+//! run in parallel, and every later send proves its predecessor's nullifier exists, which only holds once
+//! that predecessor has landed. Distinct chains carry no such dependency and can be sent in parallel.
 
 use crate::context::PrivateContext;
 use crate::messages::delivery::OnchainDeliveryMode;
