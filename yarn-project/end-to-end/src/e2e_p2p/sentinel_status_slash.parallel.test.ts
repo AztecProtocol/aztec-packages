@@ -255,19 +255,20 @@ describe('e2e_p2p_sentinel_status_slash', () => {
     const epochCache = (nodes[0] as TestAztecNodeService).epochCache;
     const cheatCodes = t.ctx.cheatCodes.rollup;
     const maxEpochAttempts = 20;
-    // Minimum slots between the warp landing (`targetSlot - 1`) and where we currently are.
-    // Without this, the malicious's bad broadcast lands while observers are still transitioning
-    // across the epoch boundary and gossipsub may drop the proposal. Two slots of real-time
-    // is enough for everyone to stabilise.
-    const minBufferSlots = 2;
 
     for (let attempt = 0; attempt < maxEpochAttempts; attempt++) {
       const currentSlot = Number(await cheatCodes.getSlot());
       const currentEpoch = Math.floor(currentSlot / AZTEC_EPOCH_DURATION);
-      // Search the remainder of the current epoch and all of the next epoch (the second-next
-      // epoch's committee may revert with EpochNotStable). Skip slots within `minBufferSlots`
-      // of the current slot — too close to warp into safely.
-      const searchStart = currentSlot + minBufferSlots;
+      // Probe every slot of the next epoch. The current epoch is partly elapsed and the second-next
+      // epoch's committee may revert with EpochNotStable, so the next epoch is the only fully
+      // available window. Scan the WHOLE epoch — both slot parities: the proposer is a different
+      // RANDAO-shuffled committee member per slot, so probing only part of the epoch can
+      // systematically never land on the target. (Deriving the start from `currentSlot +
+      // minBufferSlots` previously collapsed this to a single, always-odd slot whenever the buffer
+      // was comparable to AZTEC_EPOCH_DURATION — here both are 2 — leaving the 1-of-N target
+      // effectively unreachable. The pre-warp buffer is unnecessary: landing at `targetSlot - 2`
+      // below already gives the network a full slot of real-time to settle after any warp.)
+      const searchStart = (currentEpoch + 1) * AZTEC_EPOCH_DURATION;
       const searchEnd = (currentEpoch + 2) * AZTEC_EPOCH_DURATION - 1;
 
       let targetSlot: number | undefined;
@@ -285,12 +286,13 @@ describe('e2e_p2p_sentinel_status_slash', () => {
         continue;
       }
 
-      // Land 2 slots before the target. The malicious's sequencer pipelines for slot N during
-      // slot N-1, so landing at N-2 gives the network one full slot (N-1) of real-time to
-      // settle after the warp before the malicious starts building. Use the absolute-slot
-      // helper rather than `advanceSlots(N)` so any real-time elapsed between the slot search
-      // above and this call doesn't push us past the intended landing slot.
-      const landingSlot = SlotNumber(targetSlot - 2);
+      // Land 2 slots before the target (clamped so we never warp backwards). The malicious's
+      // sequencer pipelines for slot N during slot N-1, so landing at N-2 gives the network one
+      // full slot (N-1) of real-time to settle after the warp before the malicious starts
+      // building. Use the absolute-slot helper rather than `advanceSlots(N)` so any real-time
+      // elapsed between the slot search above and this call doesn't push us past the intended
+      // landing slot.
+      const landingSlot = SlotNumber(Math.max(targetSlot - 2, currentSlot));
       t.logger.warn(
         `Target proposes at slot ${targetSlot}; warping to slot ${landingSlot} (target is 2 slots ahead to let gossipsub stabilise before the malicious broadcasts)`,
       );
