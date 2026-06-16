@@ -224,12 +224,20 @@ function benchLog(level: Level, msg: string): void {
 function appendBenchRow(r: BenchRow): void {
   const tr = document.createElement('tr');
   const wasm = r.wasmMs === null ? '<span class="pending">— rebuild wasm</span>' : r.wasmMs.toFixed(1);
-  let speed = '<span class="pending">—</span>';
-  if (r.speedup !== null) {
-    const cls = r.speedup >= 1 ? 'faster' : 'slower';
-    speed = `<span class="${cls}">${r.speedup.toFixed(2)}×</span>`;
-  }
-  tr.innerHTML = `<td>2^${r.logN}</td><td>${r.webgpuGpuMs.toFixed(1)}</td><td>${r.webgpuWallMs.toFixed(1)}</td><td>${wasm}</td><td>${speed}</td>`;
+  // outputs cell: ✓/✗ over all available checks; superscript = how many independent
+  // engines agreed (2 = both GPU engines, 3 = + the CPU reference at small n). Hover
+  // shows the per-check breakdown.
+  const cpuRan = r.cpuRefMatch !== null;
+  const cls = r.outputsMatch ? 'faster' : 'slower';
+  const title =
+    `Fiat-Shamir (GPU vs CPU re-derive): ${r.fiatShamirOk ? '✓' : '✗'}  ·  ` +
+    `multi-round ≡ single-submit: ${r.multiVsSingle ? '✓' : '✗'}  ·  ` +
+    `CPU reference: ${r.cpuRefMatch === null ? 'skipped (n too large)' : r.cpuRefMatch ? '✓' : '✗'}`;
+  const match = `<span class="${cls}" title="${title}">${r.outputsMatch ? '✓' : '✗'}<sup>${cpuRan ? 3 : 2}</sup></span>`;
+  tr.innerHTML =
+    `<td>2^${r.logN}</td><td>${r.webgpuGpuMs.toFixed(1)}</td><td>${r.webgpuWallMs.toFixed(1)}</td>` +
+    `<td>${r.ssGpuMs.toFixed(1)}</td><td>${r.ssWallMs.toFixed(1)}</td><td>${wasm}</td>` +
+    `<td>${fmtFactor(r.speedup)}</td><td>${fmtFactor(r.ssSpeedup)}</td><td>${match}</td>`;
   $benchTbody.appendChild(tr);
 }
 

@@ -8,23 +8,18 @@
 //       GPU challenges, AND the GPU challenges equal a CPU Poseidon2 re-derivation
 //       of the challenge chain from those univariates (confirms GPU Fiat-Shamir).
 
-import {
-  runSumcheckRounds, checkTelescoping, evaluateUnivariate,
-} from '../../src/msm_webgpu/multiround.js';
-import { GateSeparatorPolynomial } from '../../src/msm_webgpu/gate_separator.js';
+import { checkTelescoping, evaluateUnivariate } from '../../src/msm_webgpu/multiround.js';
 import { sumcheckRoundChallenge, SUMCHECK_TRANSCRIPT_SEED } from '../../src/msm_webgpu/cuzk/poseidon2_cpu.js';
-import {
-  NUM_RELATIONS, RELATION_ACC_OFFSET, RELATION_NAMES, assembleAccumulator, reduceEdges,
-} from '../../src/msm_webgpu/accumulator.js';
+import { RELATION_ACC_OFFSET, RELATION_NAMES } from '../../src/msm_webgpu/accumulator.js';
 import {
   SUBREL_START, SUBREL_LIN_INDEP, SUBREL_RELATION, NUM_SUBRELATIONS,
 } from '../../src/msm_webgpu/batch_tail.js';
-import { fold as cpuFold } from '../../src/msm_webgpu/fold.js';
 import { ALL_RELATIONS } from './descriptors.js';
 import { encodeColumnsToBytes } from './gpu_pipeline.js';
 import { runSingleSubmitSumcheck } from './single_submit.js';
+import { cpuReferenceUnivariates } from './cpu_reference.js';
 import {
-  type Suite, type SuiteCtx, type RelationDescriptor,
+  type Suite, type SuiteCtx,
   mod, makeRng, packParams, fromMont, le32ToBi,
 } from './harness.js';
 
@@ -38,15 +33,6 @@ for (let g = 0; g < NUM_SUBRELATIONS; g++) {
   const r = RELATION_NAMES.indexOf(name);
   subrelRelIdx.push(r);
   subrelLocalFr.push(SUBREL_START[g] - RELATION_ACC_OFFSET[r]);
-}
-
-function cpuRelationSlice(desc: RelationDescriptor, cols: bigint[][], params: bigint[], gs: GateSeparatorPolynomial): bigint[] {
-  const pairs = cols[0].length >> 1;
-  const perEdge: bigint[][] = [];
-  for (let p = 0; p < pairs; p++) {
-    perEdge.push(desc.polyRef(cols.map(c => [c[2 * p], c[2 * p + 1]]), gs.edgeScaling(p), params));
-  }
-  return reduceEdges(perEdge, desc.outLen);
 }
 
 async function run({ device, n, log }: SuiteCtx): Promise<boolean> {
@@ -78,24 +64,11 @@ async function run({ device, n, log }: SuiteCtx): Promise<boolean> {
   // the GPU challenges equal a CPU Poseidon2 re-derivation from those univariates.
   const FULL_DIFF = n <= 1 << 10;
   if (FULL_DIFF) {
-    const cpuCols = initCols.map(rcols => rcols.map(c => c.slice()));
-    const cpu = await runSumcheckRounds(betas, d, {
-      numRounds: d,
-      challenges: ch,
-      accumulate: (_round, gs) => {
-        const slices: (bigint[] | null)[] = new Array(NUM_RELATIONS).fill(null);
-        for (const desc of ALL_RELATIONS) {
-          slices[desc.relationIndex] = cpuRelationSlice(desc, cpuCols[desc.relationIndex], paramsByRel[desc.relationIndex], gs);
-        }
-        return assembleAccumulator(slices);
-      },
-      roundUnivariate: (acc, gs) => gs.roundUnivariate(acc, alpha),
-      fold: (_round, u) => { for (let r = 0; r < NUM_RELATIONS; r++) cpuCols[r] = cpuCols[r].map(c => cpuFold(c, u)); },
-    });
+    const cpuUnivariates = await cpuReferenceUnivariates(initCols, paramsByRel, betas, alpha, ch);
     for (let i = 0; i < d; i++) {
       for (let k = 0; k < gpu.univariates[i].length; k++) {
-        if (gpu.univariates[i][k] !== cpu.univariates[i][k]) {
-          log('err', `  round ${i} ✗  k=${k} gpu=${gpu.univariates[i][k]} cpu=${cpu.univariates[i][k]}`);
+        if (gpu.univariates[i][k] !== cpuUnivariates[i][k]) {
+          log('err', `  round ${i} ✗  k=${k} gpu=${gpu.univariates[i][k]} cpu=${cpuUnivariates[i][k]}`);
           return false;
         }
       }

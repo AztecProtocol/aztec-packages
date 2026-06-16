@@ -55,9 +55,17 @@
     <!-- ===== Benchmark tab ===== -->
     <section id="tab-bench" class="tab">
       <p class="muted">
-        Times the full multi-round sumcheck across sizes: the resident-byte <strong>WebGPU</strong> engine
-        vs the <strong>WASM</strong> prover (bb.js bbapi <code>SumcheckBench</code>). Both run in this browser.
-        WebGPU shows GPU dispatch and end-to-end wall (the latter includes the CPU tail + per-round decode).
+        Times the full sumcheck across sizes for three provers: the resident-byte <strong>multi-round</strong>
+        WebGPU engine (per-round CPU readback for Fiat-Shamir), the <strong>single-submit</strong> WebGPU engine
+        (GPU-derived Fiat-Shamir, whole protocol in one command buffer), and the <strong>WASM</strong> prover
+        (bb.js bbapi <code>SumcheckBench</code>). All run in this browser. Each GPU engine shows GPU dispatch and
+        end-to-end wall (the latter includes the CPU tail + decode); the <code>×WASM</code> columns are
+        WASM÷wall (&gt;1 = GPU faster). <strong>outputs</strong> cross-checks correctness independently — the
+        superscript is how many engines agreed (² = both GPU engines, ³ = + the CPU reference at small n;
+        hover for the per-check breakdown). Three checks: single-submit's GPU Fiat-Shamir is re-derived on the
+        CPU (Poseidon2) and must match; the multi-round engine, run on that verified chain, must produce the
+        same round univariates bit-for-bit; and below 2^13 a fully independent canonical-bigint CPU reference
+        must match too. WASM is timing-only — its bbapi reports no univariates, so it is not output-checked.
         The WASM column is empty until <code>barretenberg.wasm</code> is rebuilt with the command.
       </p>
       <div class="controls">
@@ -67,7 +75,7 @@
       </div>
       <table class="bench">
         <thead>
-          <tr><th>size</th><th>WebGPU GPU (ms)</th><th>WebGPU wall (ms)</th><th>WASM (ms)</th><th>speedup (wall)</th></tr>
+          <tr><th>size</th><th>multi GPU (ms)</th><th>multi wall (ms)</th><th>single-submit GPU (ms)</th><th>single-submit wall (ms)</th><th>WASM (ms)</th><th>multi ×WASM</th><th>single-submit ×WASM</th><th>outputs</th></tr>
         </thead>
         <tbody id="bench-tbody"></tbody>
       </table>

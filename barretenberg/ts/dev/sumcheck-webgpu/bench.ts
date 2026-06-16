@@ -1,19 +1,31 @@
-// Benchmark: full multi-round MegaFlavor sumcheck, WebGPU vs WASM, across sizes.
+// Benchmark: full multi-round MegaFlavor sumcheck across sizes, comparing three
+// provers — two WebGPU engines and WASM.
 //
-// The WebGPU column runs the resident-byte GPU engine (gpu_pipeline.ts) and reports
-// both the GPU dispatch time and the end-to-end wall time (which also includes the
-// CPU tail + the per-round decode/reduce — the known JS-side overhead). The WASM
-// column calls a barretenberg bbapi `SumcheckBench` command via bb.js; until the
-// wasm is rebuilt with that command, it returns null and the table shows "rebuild
-// wasm". Both run in the same browser, so the GPU is whatever drives the page.
+// The two WebGPU columns share the same resident-byte kernels but differ in how
+// Fiat-Shamir is sequenced: the "multi-round" engine (gpu_pipeline.ts) reads each
+// round's univariate back to the CPU to draw the challenge, while the "single-
+// submit" engine (single_submit.ts) derives the challenge on the GPU (Poseidon2
+// transcript) and encodes the whole d-round protocol into ONE command buffer, read
+// back once. Both report GPU dispatch time and end-to-end wall (which adds the CPU
+// tail + decode). The WASM column calls a barretenberg bbapi `SumcheckBench` command
+// via bb.js; until the wasm is rebuilt with that command it returns null and the
+// table shows "rebuild wasm". All three run in the same browser, so the GPU is
+// whatever drives the page.
 
 import {
   runResidentGpuSumcheck, encodeColumnsToBytes, makeFoldRunner, makeReduceRunner,
   type FoldRunner, type ReduceRunner,
 } from './gpu_pipeline.js';
+import { runSingleSubmitSumcheck, makeBatchRunner, makeTranscriptRunner } from './single_submit.js';
+import { cpuReferenceUnivariates } from './cpu_reference.js';
 import { ALL_RELATIONS } from './descriptors.js';
 import { type PipelineCache, type Logger, WG, makeRng, packParams } from './harness.js';
+import { sumcheckRoundChallenge, SUMCHECK_TRANSCRIPT_SEED } from '../../src/msm_webgpu/cuzk/poseidon2_cpu.js';
 import { Barretenberg } from '../../src/barretenberg/index.js';
+
+// Above this size the independent CPU reference (O(n) bigint host work) is skipped;
+// the two GPU engines + the CPU Fiat-Shamir re-derivation still cross-check.
+const CPU_REF_MAX_LOGN = 12;
 
 // The bb.js async API once initialized; null if the WASM backend is unavailable.
 type WasmApi = Awaited<ReturnType<typeof Barretenberg.new>>;
@@ -21,23 +33,72 @@ type WasmApi = Awaited<ReturnType<typeof Barretenberg.new>>;
 export interface BenchRow {
   logN: number;
   n: number;
-  webgpuGpuMs: number; // GPU dispatch + readback only
-  webgpuWallMs: number; // end-to-end (incl. CPU tail + decode/reduce)
+  webgpuGpuMs: number; // multi-round GPU dispatch + per-round readback
+  webgpuWallMs: number; // multi-round end-to-end (incl. CPU tail + decode/reduce)
+  ssGpuMs: number; // single-submit GPU: submit + the single final readback
+  ssWallMs: number; // single-submit end-to-end (encode + submit + readback + decode)
   wasmMs: number | null; // null => bb.js SumcheckBench not available (rebuild wasm)
-  speedup: number | null; // wasmMs / webgpuWallMs
+  speedup: number | null; // wasmMs / webgpuWallMs (multi-round vs WASM)
+  ssSpeedup: number | null; // wasmMs / ssWallMs (single-submit vs WASM)
+  // Correctness cross-checks on this size's round univariates:
+  outputsMatch: boolean; // all available checks below agree
+  fiatShamirOk: boolean; // single-submit's GPU challenges == independent CPU Poseidon2 re-derivation
+  multiVsSingle: boolean; // multi-round univariates == single-submit univariates (bit-for-bit)
+  cpuRefMatch: boolean | null; // multi-round univariates == independent CPU reference (null => skipped, n too large)
 }
 
-// Build the per-relation inputs for one size: random columns (encoded to resident
-// Montgomery bytes) + fixed relation_parameters. Deterministic per (size, relation).
-function buildInputs(n: number): { initColBytes: Uint8Array[]; relParamBytes: (Uint8Array | undefined)[] } {
+/**
+ * First (round, eval) at which two round-univariate sequences disagree, or null if
+ * they are bit-for-bit identical. Used to cross-check the two WebGPU engines, which
+ * must produce the same univariates when fed the same challenges.
+ */
+function firstUnivariateMismatch(
+  a: bigint[][],
+  b: bigint[][],
+): { round: number; k: number; a: bigint; b: bigint } | null {
+  const rounds = Math.min(a.length, b.length);
+  for (let i = 0; i < rounds; i++) {
+    const len = Math.min(a[i].length, b[i].length);
+    for (let k = 0; k < len; k++) {
+      if (a[i][k] !== b[i][k]) return { round: i, k, a: a[i][k], b: b[i][k] };
+    }
+  }
+  return a.length === b.length ? null : { round: rounds, k: 0, a: 0n, b: 0n };
+}
+
+interface FullInputs {
+  initColBytes: Uint8Array[];
+  relParamBytes: (Uint8Array | undefined)[];
+  initCols: bigint[][][]; // bigint columns indexed by relationIndex (for the CPU reference)
+  paramsByRel: bigint[][];
+}
+
+// Build the per-relation inputs for one size: random columns + fixed relation_parameters,
+// in BOTH the resident Montgomery-byte form (for the GPU) and the canonical bigint form
+// (for the CPU reference) — from the same draws, so the two are provably identical data.
+// Deterministic per (size, relation).
+function buildInputsFull(n: number): FullInputs {
   const initColBytes: Uint8Array[] = [];
   const relParamBytes: (Uint8Array | undefined)[] = [];
+  const initCols: bigint[][][] = [];
+  const paramsByRel: bigint[][] = [];
   for (const desc of ALL_RELATIONS) {
+    const r = desc.relationIndex;
     const rng = makeRng((desc.seed ^ 0x5151_5151_5151n) + BigInt(n));
-    relParamBytes[desc.relationIndex] = desc.makeParams ? packParams(desc.makeParams(rng)) : undefined;
+    const params = desc.makeParams ? desc.makeParams(rng) : [];
+    paramsByRel[r] = params;
+    relParamBytes[r] = desc.makeParams ? packParams(params) : undefined;
     const cols = Array.from({ length: desc.numEdges }, () => Array.from({ length: n }, () => rng()));
-    initColBytes[desc.relationIndex] = encodeColumnsToBytes(cols, n);
+    initCols[r] = cols;
+    initColBytes[r] = encodeColumnsToBytes(cols, n);
   }
+  return { initColBytes, relParamBytes, initCols, paramsByRel };
+}
+
+// GPU-only inputs (bytes). The bigint columns are materialized transiently and dropped,
+// so large sizes pay no bigint-retention cost.
+function buildInputs(n: number): { initColBytes: Uint8Array[]; relParamBytes: (Uint8Array | undefined)[] } {
+  const { initColBytes, relParamBytes } = buildInputsFull(n);
   return { initColBytes, relParamBytes };
 }
 
@@ -80,9 +141,12 @@ export async function runWasmSumcheck(api: WasmApi | null, logN: number): Promis
 }
 
 /**
- * Sweep `logNs` (e.g. [10,12,14,16]). For each size, time the WebGPU engine and the
- * WASM baseline, logging a row as it completes. Pipelines compile once (shared
- * cache + a warmup) so per-size GPU timing excludes shader compilation.
+ * Sweep `logNs` (e.g. [10,12,14,16]). For each size, time both WebGPU engines
+ * (multi-round + single-submit) and the WASM baseline, logging a row as it
+ * completes. Pipelines compile once (shared caches + a warmup) so per-size GPU
+ * timing excludes shader compilation. The two GPU engines share the fold/reduce
+ * runners; the single-submit engine additionally compiles the batch + Poseidon2
+ * transcript pipelines.
  */
 export async function runBenchmark(device: GPUDevice, logNs: number[], log: Logger, onRow?: (row: BenchRow) => void): Promise<BenchRow[]> {
   const alpha = makeRng(0xb0_07_5eedn)();
@@ -90,38 +154,98 @@ export async function runBenchmark(device: GPUDevice, logNs: number[], log: Logg
   const foldRunner: FoldRunner = await makeFoldRunner(device);
   const reduceRunner: ReduceRunner = await makeReduceRunner(device);
   const shared = { cache, foldRunner, reduceRunner };
+  const ssShared = {
+    cache: new Map() as PipelineCache,
+    foldRunner,
+    reduceRunner,
+    batch: await makeBatchRunner(device),
+    transcript: await makeTranscriptRunner(device),
+  };
   const wasm = await initWasm(log);
   if (wasm) log('info', `  WASM backend ready (bb.js threads)`);
 
-  // Warmup at the smallest size to trigger all shader compiles into the cache.
+  // Warmup at the smallest size to trigger all shader compiles into the caches.
   {
     const wn = 1 << Math.min(...logNs);
     const warm = buildInputs(wn);
     const wb = Array.from({ length: Math.round(Math.log2(wn)) }, (_, i) => makeRng(0x1234n + BigInt(i))());
     const wc = Array.from({ length: wb.length }, (_, i) => makeRng(0x9999n + BigInt(i))());
     await runResidentGpuSumcheck(device, wn, alpha, wb, wc, warm.relParamBytes, warm.initColBytes, shared);
+    await runSingleSubmitSumcheck(device, wn, alpha, wb, warm.relParamBytes, warm.initColBytes, ssShared);
   }
 
   const rows: BenchRow[] = [];
   for (const logN of logNs) {
     const n = 1 << logN;
     const betas = Array.from({ length: logN }, (_, i) => makeRng(0xbe7a_77n + BigInt(i))());
-    const challenges = Array.from({ length: logN }, (_, i) => makeRng(0xc4a1_77n + BigInt(i))());
-    const { initColBytes, relParamBytes } = buildInputs(n);
+    const runCpuRef = logN <= CPU_REF_MAX_LOGN;
+    const full = runCpuRef ? buildInputsFull(n) : null;
+    const { initColBytes, relParamBytes } = full ?? buildInputs(n);
 
-    const gpu = await runResidentGpuSumcheck(device, n, alpha, betas, challenges, relParamBytes, initColBytes, shared);
+    // Single-submit derives the Fiat-Shamir challenges on the GPU.
+    const ss = await runSingleSubmitSumcheck(device, n, alpha, betas, relParamBytes, initColBytes, ssShared);
+
+    // (1) Independently re-derive the challenge chain on the CPU (Poseidon2 mirror)
+    //     from single-submit's univariates, and verify it equals the GPU-derived
+    //     challenges — confirms the on-GPU Fiat-Shamir at every size (just d hashes).
+    const cpuChallenges: bigint[] = [];
+    let running = SUMCHECK_TRANSCRIPT_SEED;
+    let fiatShamirOk = true;
+    for (let i = 0; i < ss.univariates.length; i++) {
+      const { challenge, nextRunning } = sumcheckRoundChallenge(running, ss.univariates[i]);
+      if (challenge !== ss.challenges[i]) fiatShamirOk = false;
+      cpuChallenges.push(challenge);
+      running = nextRunning;
+    }
+
+    // (2) Multi-round engine on that verified chain; its univariates must equal
+    //     single-submit's bit-for-bit (independent kernels + command-buffer shape).
+    const gpu = await runResidentGpuSumcheck(device, n, alpha, betas, cpuChallenges, relParamBytes, initColBytes, shared);
+    const multiVsSingle = firstUnivariateMismatch(gpu.univariates, ss.univariates) === null;
+
+    // (3) Fully independent CPU reference (gated to small n: O(n) bigint host work).
+    let cpuRefMatch: boolean | null = null;
+    if (full) {
+      const cpuUni = await cpuReferenceUnivariates(full.initCols, full.paramsByRel, betas, alpha, cpuChallenges);
+      cpuRefMatch = firstUnivariateMismatch(ss.univariates, cpuUni) === null;
+    }
+
     const wasmMs = await runWasmSumcheck(wasm, logN);
-
+    const outputsMatch = fiatShamirOk && multiVsSingle && (cpuRefMatch ?? true);
     const row: BenchRow = {
       logN, n,
       webgpuGpuMs: gpu.gpuMs,
       webgpuWallMs: gpu.totalMs,
+      ssGpuMs: ss.gpuMs,
+      ssWallMs: ss.totalMs,
       wasmMs,
       speedup: wasmMs === null ? null : wasmMs / gpu.totalMs,
+      ssSpeedup: wasmMs === null ? null : wasmMs / ss.totalMs,
+      outputsMatch,
+      fiatShamirOk,
+      multiVsSingle,
+      cpuRefMatch,
     };
     rows.push(row);
     onRow?.(row);
-    log('ok', `  2^${logN}: WebGPU ${gpu.totalMs.toFixed(1)} ms (GPU ${gpu.gpuMs.toFixed(1)} ms · host: decode ${gpu.decodeMs.toFixed(0)}, scaling ${gpu.scalingMs.toFixed(0)}) · WASM ${wasmMs === null ? '—' : wasmMs.toFixed(1) + ' ms'}${row.speedup ? `  →  ${row.speedup.toFixed(2)}× ` : ''}`);
+    const tail =
+      wasmMs === null ? '' : `  →  multi ${row.speedup!.toFixed(2)}× · single-submit ${row.ssSpeedup!.toFixed(2)}×`;
+    const cpuTag = cpuRefMatch === null ? 'cpu —' : `cpu ${cpuRefMatch ? '✓' : '✗'}`;
+    log(
+      'ok',
+      `  2^${logN}: multi ${gpu.totalMs.toFixed(1)} ms (GPU ${gpu.gpuMs.toFixed(1)}) · ` +
+        `single-submit ${ss.totalMs.toFixed(1)} ms (GPU ${ss.gpuMs.toFixed(1)}) · ` +
+        `WASM ${wasmMs === null ? '—' : wasmMs.toFixed(1) + ' ms'}${tail}` +
+        `  · outputs ${outputsMatch ? '✓' : '✗'} (fs ${fiatShamirOk ? '✓' : '✗'}, multi≡single ${multiVsSingle ? '✓' : '✗'}, ${cpuTag})`,
+    );
+    if (!outputsMatch) {
+      const m = firstUnivariateMismatch(gpu.univariates, ss.univariates);
+      log(
+        'err',
+        `  2^${logN}: correctness FAIL — fs=${fiatShamirOk} multi≡single=${multiVsSingle} cpuRef=${cpuRefMatch}` +
+          (m ? ` · first multi/single diff at round ${m.round} eval ${m.k}: ${m.a} vs ${m.b}` : ''),
+      );
+    }
   }
   await wasm?.destroy();
   return rows;
