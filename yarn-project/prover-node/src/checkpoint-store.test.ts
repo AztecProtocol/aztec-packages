@@ -93,7 +93,11 @@ describe('CheckpointStore', () => {
     // Four single-block checkpoints occupying blocks 1..4 (one block each). Pruning to block 2 orphans the
     // checkpoints whose last block is above 2 — checkpoints 3 and 4 — and leaves 1 and 2 canonical.
     const cps = await timesAsync(4, i =>
-      Checkpoint.random(CheckpointNumber(i + 1), { numBlocks: 1, startBlockNumber: i + 1 }),
+      Checkpoint.random(CheckpointNumber(i + 1), {
+        numBlocks: 1,
+        startBlockNumber: i + 1,
+        slotNumber: SlotNumber(i + 1),
+      }),
     );
     for (const cp of cps) {
       await store.addOrUpdate(cp, makeRegisterData());
