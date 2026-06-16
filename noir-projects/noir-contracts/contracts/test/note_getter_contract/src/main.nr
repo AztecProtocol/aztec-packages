@@ -25,12 +25,16 @@ pub contract NoteGetter {
         packed_set: Owned<PrivateSet<PackedNote, Context>, Context>,
     }
 
+    // Uses unconstrained delivery on purpose: the note getter tests insert notes in parallel from the same sender,
+    // and constrained delivery serializes per `(sender, recipient, secret)` chain (parallel sends on one chain
+    // collide on the chain nullifier). These functions only exercise note filtering, so the delivery mode is
+    // incidental.
     #[external("private")]
     fn insert_note(value: Field) {
         let owner = self.msg_sender();
         let note = FieldNote { value };
 
-        self.storage.set.at(owner).insert(note).deliver(MessageDelivery::onchain_constrained());
+        self.storage.set.at(owner).insert(note).deliver(MessageDelivery::onchain_unconstrained());
     }
 
     #[external("utility")]
@@ -48,7 +52,7 @@ pub contract NoteGetter {
         let owner = self.msg_sender();
         let note = PackedNote { high, low };
 
-        self.storage.packed_set.at(owner).insert(note).deliver(MessageDelivery::onchain_constrained());
+        self.storage.packed_set.at(owner).insert(note).deliver(MessageDelivery::onchain_unconstrained());
     }
 
     #[external("utility")]
