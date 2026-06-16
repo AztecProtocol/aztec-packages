@@ -33,7 +33,7 @@ import { mock } from 'jest-mock-extended';
 import type { _MockProxy } from 'jest-mock-extended/lib/Mock.js';
 
 import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
-import { MessageContextService } from '../../messages/message_context_service.js';
+import { TxResolverService } from '../../messages/tx_resolver_service.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import { CapsuleService } from '../../storage/capsule_store/capsule_service.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
@@ -66,7 +66,7 @@ describe('Utility Execution test suite', () => {
   let privateEventStore: ReturnType<typeof mock<PrivateEventStore>>;
   let contractSyncService: ReturnType<typeof mock<ContractSyncService>>;
   let l2TipsStore: ReturnType<typeof mock<L2TipsProvider>>;
-  let messageContextService: MessageContextService;
+  let txResolver: TxResolverService;
   let acirSimulator: ContractFunctionSimulator;
   let owner: AztecAddress;
   let ownerCompleteAddress: CompleteAddress;
@@ -90,7 +90,7 @@ describe('Utility Execution test suite', () => {
     privateEventStore = mock<PrivateEventStore>();
     contractSyncService = mock<ContractSyncService>();
     l2TipsStore = mock<L2TipsProvider>();
-    messageContextService = new MessageContextService(aztecNode);
+    txResolver = new TxResolverService(aztecNode);
     const capsuleArrays = new Map<string, Fr[][]>();
     anchorBlockHeader = BlockHeader.random();
     senderTaggingStore.getLastFinalizedIndex.mockResolvedValue(undefined);
@@ -123,7 +123,7 @@ describe('Utility Execution test suite', () => {
       privateEventStore,
       simulator,
       contractSyncService,
-      messageContextService,
+      txResolver,
     });
 
     const ownerPartialAddress = Fr.random();
@@ -435,7 +435,9 @@ describe('Utility Execution test suite', () => {
       });
     });
 
-    describe('getMessageContextsByTxHash', () => {
+    // The `getMessageContextsByTxHash` oracle is a backwards-compatibility shim for contract artifacts that predate
+    // `get_resolved_txs`; it derives the lean `MessageContext` (without block fields) from the resolved tx.
+    describe('getMessageContextsByTxHash (compat shim)', () => {
       const service = new EphemeralArrayService();
 
       it('sets null in response for zero tx hashes', async () => {
@@ -451,6 +453,8 @@ describe('Utility Execution test suite', () => {
         const txHash = TxHash.random();
         const noteHash = Fr.random();
         const firstNullifier = Fr.random();
+        const blockHash = BlockHash.random();
+        const blockNumber = syncedBlockNumber - 1;
 
         aztecNode.getTxReceipt.mockResolvedValueOnce(
           new MinedTxReceipt(
@@ -458,8 +462,8 @@ describe('Utility Execution test suite', () => {
             TxStatus.PROPOSED,
             TxExecutionResult.SUCCESS,
             0n,
-            BlockHash.random(),
-            BlockNumber(syncedBlockNumber - 1),
+            blockHash,
+            BlockNumber(blockNumber),
             SlotNumber(0),
             0,
             EpochNumber(1),
@@ -607,7 +611,7 @@ describe('Utility Execution test suite', () => {
         senderAddressBookStore,
         capsuleService: new CapsuleService(capsuleStore, scopes),
         privateEventStore,
-        messageContextService,
+        txResolver,
         contractSyncService,
         jobId: 'test-job-id',
         scopes,

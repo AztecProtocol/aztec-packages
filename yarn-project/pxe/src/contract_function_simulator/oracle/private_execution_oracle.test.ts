@@ -13,7 +13,7 @@ import { type BlockHeader, CallContext, type Capsule, TxContext } from '@aztec/s
 import { mock } from 'jest-mock-extended';
 
 import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
-import type { MessageContextService } from '../../messages/message_context_service.js';
+import type { TxResolverService } from '../../messages/tx_resolver_service.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import { CapsuleService } from '../../storage/capsule_store/capsule_service.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
@@ -91,7 +91,7 @@ describe('PrivateExecutionOracle', () => {
       senderAddressBookStore: mock<SenderAddressBookStore>(),
       capsuleService: new CapsuleService(mock<CapsuleStore>(), []),
       privateEventStore: mock<PrivateEventStore>(),
-      messageContextService: mock<MessageContextService>(),
+      txResolver: mock<TxResolverService>(),
       contractSyncService: mock<ContractSyncService>(),
       l2TipsStore: mock<L2TipsProvider>(),
       jobId: 'test',

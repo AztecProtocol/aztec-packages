@@ -92,7 +92,7 @@ import {
 
 import type { ContractSyncService } from '../contract_sync/contract_sync_service.js';
 import type { ExecutionHooks } from '../hooks/index.js';
-import type { MessageContextService } from '../messages/message_context_service.js';
+import type { TxResolverService } from '../messages/tx_resolver_service.js';
 import type { AddressStore } from '../storage/address_store/address_store.js';
 import { CapsuleService } from '../storage/capsule_store/capsule_service.js';
 import type { CapsuleStore } from '../storage/capsule_store/capsule_store.js';
@@ -145,7 +145,7 @@ export type ContractFunctionSimulatorArgs = {
   privateEventStore: PrivateEventStore;
   simulator: CircuitSimulator;
   contractSyncService: ContractSyncService;
-  messageContextService: MessageContextService;
+  txResolver: TxResolverService;
   hooks?: ExecutionHooks;
 };
 
@@ -167,7 +167,7 @@ export class ContractFunctionSimulator {
   private readonly privateEventStore: PrivateEventStore;
   private readonly simulator: CircuitSimulator;
   private readonly contractSyncService: ContractSyncService;
-  private readonly messageContextService: MessageContextService;
+  private readonly txResolver: TxResolverService;
   private readonly hooks: ExecutionHooks | undefined;
 
   constructor(args: ContractFunctionSimulatorArgs) {
@@ -184,7 +184,7 @@ export class ContractFunctionSimulator {
     this.privateEventStore = args.privateEventStore;
     this.simulator = args.simulator;
     this.contractSyncService = args.contractSyncService;
-    this.messageContextService = args.messageContextService;
+    this.txResolver = args.txResolver;
     this.hooks = args.hooks;
     this.log = createLogger('simulator');
   }
@@ -261,7 +261,7 @@ export class ContractFunctionSimulator {
       senderAddressBookStore: this.senderAddressBookStore,
       capsuleService: new CapsuleService(this.capsuleStore, scopes),
       privateEventStore: this.privateEventStore,
-      messageContextService: this.messageContextService,
+      txResolver: this.txResolver,
       contractSyncService: this.contractSyncService,
       jobId,
       totalPublicCalldataCount: 0,
@@ -362,7 +362,7 @@ export class ContractFunctionSimulator {
       senderAddressBookStore: this.senderAddressBookStore,
       capsuleService: new CapsuleService(this.capsuleStore, scopes),
       privateEventStore: this.privateEventStore,
-      messageContextService: this.messageContextService,
+      txResolver: this.txResolver,
       contractSyncService: this.contractSyncService,
       l2TipsStore: this.l2TipsStore,
       jobId,

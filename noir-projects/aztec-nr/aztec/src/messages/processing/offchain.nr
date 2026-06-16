@@ -2,7 +2,7 @@ use crate::{
     capsules::CapsuleArray,
     context::UtilityContext,
     ephemeral::EphemeralArray,
-    messages::{encoding::MESSAGE_CIPHERTEXT_LEN, processing::OffchainMessageWithContext},
+    messages::{encoding::MESSAGE_CIPHERTEXT_LEN, processing::{MessageContext, OffchainMessageWithContext}},
     oracle::contract_sync::set_contract_sync_cache_invalid,
     protocol::{
         address::AztecAddress,
@@ -154,12 +154,10 @@ pub unconstrained fn sync_inbox(
         i += 1;
     }
 
-    // Ask PXE to resolve contexts for all requested tx hashes. The oracle returns responses in a new
-    // ephemeral array.
-    let resolved_contexts =
-        crate::oracle::message_processing::get_message_contexts_by_tx_hash(context_resolution_requests);
+    // Ask PXE to resolve all requested tx hashes. The oracle returns responses in a new ephemeral array.
+    let resolved_txs = crate::oracle::tx::get_resolved_txs(context_resolution_requests);
 
-    assert_eq(resolved_contexts.len(), inbox_len);
+    assert_eq(resolved_txs.len(), inbox_len);
 
     let now = UtilityContext::new().timestamp();
 
@@ -185,10 +183,10 @@ pub unconstrained fn sync_inbox(
         // from the inbox.
         //
         // Note: the loop runs backwards because it might call `inbox.remove(j)` to purge expired messages and we also
-        // need to align it with `resolved_contexts.get(j)`. Going from last to first simplifies the algorithm as
+        // need to align it with `resolved_txs.get(j)`. Going from last to first simplifies the algorithm as
         // not yet visited element indexes remain stable.
         j -= 1;
-        let maybe_ctx = resolved_contexts.get(j);
+        let maybe_resolved = resolved_txs.get(j);
         let msg = inbox.get(j);
 
         // Compute the message's effective expiration timestamp to determine if we can purge it from the inbox.
@@ -202,7 +200,7 @@ pub unconstrained fn sync_inbox(
         // Scenario 1: associated TX not yet available. We keep the message in the inbox, as it might become
         // processable as new blocks get mined.
         // Scenario 2: no TX associated to message. The message will sit in the inbox until it expires.
-        if maybe_ctx.is_none() {
+        if maybe_resolved.is_none() {
             continue;
         }
 
@@ -210,7 +208,12 @@ pub unconstrained fn sync_inbox(
         // consider it has expired: this is because we need to account for reorgs. If reorg occurs after we processed
         // a message, the effects of processing the message get rewind. However, the associated TX can be included in
         // a subsequent block. Should that happen, the message must be re-processed to ensure consistency.
-        let message_context = maybe_ctx.unwrap();
+        let resolved = maybe_resolved.unwrap();
+        let message_context = MessageContext {
+            tx_hash: resolved.tx_hash,
+            unique_note_hashes_in_tx: resolved.unique_note_hashes_in_tx,
+            first_nullifier_in_tx: resolved.first_nullifier_in_tx,
+        };
         ready_to_process.push(OffchainMessageWithContext { message_ciphertext: msg.ciphertext, message_context });
     }
 

@@ -41,6 +41,7 @@ import {
   PROVIDED_SECRET,
   PUBLIC_DATA_WITNESS,
   PUBLIC_KEYS_AND_PARTIAL_ADDRESS,
+  RESOLVED_TX,
   STR,
   TX_EFFECT,
   TX_HASH,
@@ -73,6 +74,7 @@ export {
   PENDING_TAGGED_LOG,
   POINT,
   PROVIDED_SECRET,
+  RESOLVED_TX,
   STR,
   U32,
   type InputSlot,
@@ -103,6 +105,7 @@ type OracleRegistryName =
   | 'aztec_utl_getPendingTaggedLogs'
   | 'aztec_utl_validateAndStoreEnqueuedNotesAndEvents'
   | 'aztec_utl_getLogsByTag'
+  | 'aztec_utl_getResolvedTxs'
   | 'aztec_utl_getMessageContextsByTxHash'
   | 'aztec_utl_getTxEffect'
   | 'aztec_utl_setCapsule'
@@ -299,6 +302,13 @@ export const ORACLE_REGISTRY: OracleRegistry = {
     returnType: EPHEMERAL_ARRAY(EPHEMERAL_ARRAY(LOG_RETRIEVAL_RESPONSE)),
   }),
 
+  aztec_utl_getResolvedTxs: makeEntry({
+    params: [{ name: 'requests', type: EPHEMERAL_ARRAY(FIELD) }],
+    returnType: EPHEMERAL_ARRAY(OPTION(RESOLVED_TX)),
+  }),
+
+  // Backwards-compatibility shim for contract artifacts that predate `get_resolved_txs` (see the matching handler in
+  // utility_execution_oracle.ts). Remove once those artifacts are recompiled.
   aztec_utl_getMessageContextsByTxHash: makeEntry({
     params: [{ name: 'requests', type: EPHEMERAL_ARRAY(FIELD) }],
     returnType: EPHEMERAL_ARRAY(OPTION(MESSAGE_CONTEXT)),

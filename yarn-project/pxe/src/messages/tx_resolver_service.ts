@@ -1,21 +1,22 @@
 import { uniqueBy } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
-import { MessageContext } from '@aztec/stdlib/logs';
 import { type IndexedTxEffect, TxHash } from '@aztec/stdlib/tx';
 
-/** Resolves transaction hashes into the context needed to process messages. */
-export class MessageContextService {
+import { ResolvedTx } from '../contract_function_simulator/noir-structs/resolved_tx.js';
+
+/** Resolves transaction hashes into their on-chain context (note hashes, first nullifier, and mined block). */
+export class TxResolverService {
   constructor(private readonly aztecNode: AztecNode) {}
 
   /**
-   * Resolves a list of tx hashes into their message contexts.
+   * Resolves a list of tx hashes into their on-chain context.
    *
-   * For each tx hash, looks up the corresponding tx effect and extracts the note hashes and first nullifier needed to
-   * process messages that originated from that transaction. Returns `null` for tx hashes that are zero, not yet
-   * available, or in blocks beyond the anchor block.
+   * For each tx hash, looks up the corresponding tx effect and extracts the note hashes, first nullifier, and the
+   * number and hash of the block it was mined in. Returns `null` for tx hashes that are zero, not yet available, or in
+   * blocks beyond the anchor block.
    */
-  async getMessageContextsByTxHash(txHashes: Fr[], anchorBlockNumber: number): Promise<(MessageContext | null)[]> {
+  async resolveTxs(txHashes: Fr[], anchorBlockNumber: number): Promise<(ResolvedTx | null)[]> {
     const nonZeroTxHashes = txHashes.filter(h => !h.isZero()).map(h => TxHash.fromField(h));
     const uniqueTxHashes = uniqueBy(nonZeroTxHashes, h => h.toString());
     const fetched = await Promise.all(
@@ -56,7 +57,13 @@ export class MessageContextService {
         throw new Error(`Tx effect for ${txHash} has no nullifiers`);
       }
 
-      return new MessageContext(data.txHash, data.noteHashes, data.nullifiers[0]);
+      return new ResolvedTx(
+        data.txHash,
+        data.noteHashes,
+        data.nullifiers[0],
+        txEffect.l2BlockNumber,
+        txEffect.l2BlockHash.toFr(),
+      );
     });
   }
 }

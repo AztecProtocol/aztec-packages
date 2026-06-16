@@ -467,7 +467,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       // contract would perform, including setting senderForTags.
       senderForTags: from,
       simulator,
-      messageContextService: this.stateMachine.messageContextService,
+      txResolver: this.stateMachine.txResolver,
       l2TipsStore: this.stateMachine.l2TipsProvider,
       hooks: composeHooks({
         authorizeUtilityCall: this.buildAuthorizeUtilityCallHook(
@@ -843,7 +843,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
         senderAddressBookStore: this.senderAddressBookStore,
         capsuleService: new CapsuleService(this.capsuleStore, scopes),
         privateEventStore: this.privateEventStore,
-        messageContextService: this.stateMachine.messageContextService,
+        txResolver: this.stateMachine.txResolver,
         contractSyncService: this.stateMachine.contractSyncService,
         l2TipsStore: this.stateMachine.l2TipsProvider,
         jobId,

@@ -11,6 +11,7 @@ pub(crate) mod ephemeral_oracles;
 pub(crate) mod transient_oracles;
 pub mod contract_sync;
 pub mod public_call;
+pub mod tx;
 pub mod tx_phase;
 pub mod execution;
 pub mod execution_cache;
