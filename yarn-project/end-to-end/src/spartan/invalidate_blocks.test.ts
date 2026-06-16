@@ -122,8 +122,9 @@ describe('invalidate blocks test', () => {
       minTxsPerBlock: 0,
     });
 
-    // Wait for the invalidation to happen (should not take more than 2 slots, but we wait for 4 just in case)
-    await waitForCheckpointInvalidated(constants.slotDuration * 4);
+    // Wait up to 6 slots because proposer pipelining can leave one checkpoint already in flight, and
+    // inbox lag can cause the next checkpoint opportunity to be missed.
+    await waitForCheckpointInvalidated(constants.slotDuration * 6);
 
     // Restore sequencer configs to normal
     await updateSequencersConfig(config, { skipCollectingAttestations: false });
