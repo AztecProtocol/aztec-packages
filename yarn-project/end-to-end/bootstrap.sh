@@ -198,11 +198,13 @@ function avm_check_circuit_cmds {
   # Commands run from repo root via parallelize, so use path from top
   local dump_dir_from_top="yarn-project/end-to-end/$default_avm_inputs_dump_dir"
 
-  # Specify timeout and resources
-  # WARNING: theoretically, transactions could need more CPU and MEM than we allocate by default.
-  # In that case, they might start timing out. For now, all of the e2e test txs seem to be relatively
-  # small and the AVM can run check-circuit with limited resources.
-  local prefix="$hash:ISOLATE=1:TIMEOUT=30s"
+  # Specify timeout and resources.
+  # WARNING: larger transactions need more wall time than smaller ones because they produce bigger
+  # circuits. Under the default per-test allocation (CPUS=2), trace generation plus check-circuit for
+  # the largest e2e txs (e.g. e2e_multiple_blobs, ~700k rows) takes well over 30s and was timing out
+  # (exit 124). The timeout below is the upper bound for a single check-circuit run, sized to leave
+  # headroom for the largest current inputs and CPU contention while still catching genuine hangs.
+  local prefix="$hash:ISOLATE=1:TIMEOUT=120s"
 
   # Find all .bin files in the dump directory (handles nested dirs)
   for input_file in "$default_avm_inputs_dump_dir"/*/*.bin "$default_avm_inputs_dump_dir"/*/*/*.bin; do
