@@ -145,7 +145,6 @@ pub contract HandshakeRegistry {
         recipient: AztecAddress,
         mode: OnchainDeliveryMode,
         // TODO(F-671): replace with `self.msg_sender()` once utility context exposes it.
-        // https://linear.app/aztec-labs/issue/F-671/add-msg-sender-to-utility-context
         // The explicit param forces hooks to also gate on the caller; otherwise any contract that can authorize
         // (target, selector) can read another caller's siloed secret.
         caller: AztecAddress,

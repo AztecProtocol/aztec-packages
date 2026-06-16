@@ -44,7 +44,6 @@ pub(crate) fn get_or_create_app_siloed_handshake_secret(
             registry,
             GET_APP_SILOED_SECRET_SELECTOR,
             // TODO(F-671): Replace explicit caller argument once utility context exposes msg_sender().
-            // https://linear.app/aztec-labs/issue/F-671/add-msg-sender-to-utility-context
             [sender.to_field(), recipient.to_field(), mode_field, caller.to_field()],
         );
         Deserialize::deserialize(returns)
