@@ -93,12 +93,16 @@ pub contract StateVars {
         self.storage.public_immutable.read()
     }
 
+    // These private state-var writes use unconstrained delivery on purpose: the tests assert note-hash and nullifier
+    // counts to exercise state-var semantics (initialize creates a note, replace nullifies the prior one), not message
+    // delivery. Constrained delivery would add its handshake-bootstrap note hash and chain nullifier, which is
+    // incidental noise here; constrained delivery itself is covered by e2e_constrained_delivery.
     #[external("private")]
     fn initialize_private_immutable(randomness: Field, value: Field) {
         let owner = self.msg_sender();
         let new_note = FieldNote { value };
 
-        self.storage.private_immutable.at(owner).initialize(new_note).deliver(MessageDelivery::onchain_constrained());
+        self.storage.private_immutable.at(owner).initialize(new_note).deliver(MessageDelivery::onchain_unconstrained());
     }
 
     #[external("private")]
@@ -107,7 +111,7 @@ pub contract StateVars {
         let private_mutable = FieldNote { value };
 
         self.storage.private_mutable.at(owner).initialize(private_mutable).deliver(
-            MessageDelivery::onchain_constrained(),
+            MessageDelivery::onchain_unconstrained(),
         );
     }
 
@@ -115,7 +119,7 @@ pub contract StateVars {
     fn update_private_mutable(randomness: Field, value: Field) {
         let owner = self.msg_sender();
         self.storage.private_mutable.at(owner).replace(|_old_note| FieldNote { value }).deliver(
-            MessageDelivery::onchain_constrained(),
+            MessageDelivery::onchain_unconstrained(),
         );
     }
 
@@ -131,7 +135,7 @@ pub contract StateVars {
                 let new_value = old_note.value + 1;
                 FieldNote { value: new_value }
             })
-            .deliver(MessageDelivery::onchain_constrained());
+            .deliver(MessageDelivery::onchain_unconstrained());
     }
 
     #[external("utility")]
