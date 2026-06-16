@@ -124,7 +124,7 @@ describe('ProverNode', () => {
     expect(proverNode.getLastProcessedCheckpoint()).toEqual(CheckpointNumber(100));
   });
 
-  it('dispatches chain-pruned through markPrunedAfter and notifies the session manager only when affected', async () => {
+  it('dispatches chain-pruned through markPrunedAboveBlock and notifies the session manager only when affected', async () => {
     // No registered checkpoints — nothing to prune.
     await proverNode.handleBlockStreamEvent({
       type: 'chain-pruned',
@@ -134,9 +134,12 @@ describe('ProverNode', () => {
     });
     expect(sessionManager.onPrune).not.toHaveBeenCalled();
 
-    // Register a checkpoint, then prune.
+    // Register a checkpoint (cp 2 at block 2), then prune to block 1. The checkpoint's only block (2) is above the
+    // prune target, so it is marked pruned and its epoch (2) is reported.
     setupNotFullyProven();
     await proverNode.handleBlockStreamEvent(mineCheckpoint(makeCheckpoint(2, 2, 2)));
+    // The prune target (block 1) resolves to checkpoint 1, clamping the cursor to checkpoint 0.
+    l2BlockSource.getBlockData.mockResolvedValue({ checkpointNumber: CheckpointNumber(1) } as any);
 
     await proverNode.handleBlockStreamEvent({
       type: 'chain-pruned',
@@ -145,6 +148,71 @@ describe('ProverNode', () => {
       proven: makeTipId(1),
     });
     expect(sessionManager.onPrune).toHaveBeenCalledWith([EpochNumber(2)]);
+    expect(proverNode.getLastProcessedCheckpoint()).toEqual(CheckpointNumber(0));
+  });
+
+  it('marks an orphaned checkpoint and reprocesses its same-number rebuild despite an inflated checkpointed tip', async () => {
+    // Regression for keying the prune off event.checkpointed (the source's CURRENT checkpointed tip) rather than
+    // event.block (the prune target). Register checkpoint 3 (block 3, epoch 3). A reorg drops block 3, but by the time
+    // the prune is observed the source has already re-checkpointed a replacement at the SAME number 3, so the event's
+    // checkpointed tip still reports number 3 — above the real prune target. Keying off that inflated number would
+    // (a) leave the orphaned prover canonical and (b) clamp the cursor to 3, permanently skipping the rebuilt
+    // checkpoint. Keying off the prune-target block (2) marks the orphan and clamps the cursor below 3 so the rebuild
+    // reprocesses.
+    setupNotFullyProven();
+    const original = makeCheckpoint(3, 3, 3, Fr.random());
+    await proverNode.handleBlockStreamEvent(mineCheckpoint(original));
+    expect(proverNode.getLastProcessedCheckpoint()).toEqual(CheckpointNumber(3));
+    const originalProver = proverNode.getCheckpointStore().listAll()[0];
+
+    // The prune target is block 2 (in checkpoint 2), but the event's checkpointed tip is inflated to the rebuilt 3.
+    // getBlockData also feeds collectRegisterData when the rebuild re-registers, so it carries a header too.
+    l2BlockSource.getBlockData.mockResolvedValue({
+      checkpointNumber: CheckpointNumber(2),
+      header: { lastArchive: { root: Fr.ZERO } },
+    } as any);
+    await proverNode.handleBlockStreamEvent({
+      type: 'chain-pruned',
+      block: { number: BlockNumber(2), hash: '0x02' },
+      checkpointed: makeTipId(3),
+      proven: makeTipId(2),
+    });
+
+    // The orphaned prover for checkpoint 3 is marked pruned, and the cursor was clamped below 3.
+    expect(originalProver.isPruned()).toBe(true);
+    expect(proverNode.getLastProcessedCheckpoint()).toEqual(CheckpointNumber(1));
+
+    // The rebuilt checkpoint 3 (distinct archive root) is now served by the source. A fresh chain-checkpointed(3)
+    // re-registers it because the cursor sits below 3.
+    sessionManager.onCheckpointAdded.mockClear();
+    const rebuilt = makeCheckpoint(3, 3, 3, Fr.random());
+    await proverNode.handleBlockStreamEvent(mineCheckpoint(rebuilt));
+    expect(sessionManager.onCheckpointAdded).toHaveBeenCalledWith(EpochNumber(3));
+    expect(proverNode.getCheckpointStore().getByCheckpoint(rebuilt)).toBeDefined();
+    expect(proverNode.getLastProcessedCheckpoint()).toEqual(CheckpointNumber(3));
+  });
+
+  it('throws on a prune whose target block data is missing, leaving provers and cursor untouched for retry', async () => {
+    // The cursor floor is resolved before any prover is marked, so a missing-data prune throws without side effects
+    // and the next pass retries the whole handler (the tips cursor only advances on success).
+    setupNotFullyProven();
+    await proverNode.handleBlockStreamEvent(mineCheckpoint(makeCheckpoint(3, 3, 3)));
+    expect(proverNode.getLastProcessedCheckpoint()).toEqual(CheckpointNumber(3));
+    const registeredProver = proverNode.getCheckpointStore().listAll()[0];
+
+    l2BlockSource.getBlockData.mockResolvedValue(undefined);
+    await expect(
+      proverNode.handleBlockStreamEvent({
+        type: 'chain-pruned',
+        block: { number: BlockNumber(2), hash: '0x02' },
+        checkpointed: makeTipId(3),
+        proven: makeTipId(2),
+      }),
+    ).rejects.toThrow(/No block data found for prune target/);
+
+    expect(registeredProver.isPruned()).toBe(false);
+    expect(sessionManager.onPrune).not.toHaveBeenCalled();
+    expect(proverNode.getLastProcessedCheckpoint()).toEqual(CheckpointNumber(3));
   });
 
   it('dispatches chain-proven to publishingService.onChainProven', async () => {
@@ -307,17 +375,18 @@ describe('ProverNode', () => {
     await expect(proverNode.getJobs()).resolves.toEqual([]);
   });
 
-  // ---------------- handleBlockStreamEvent: blocks-added is a no-op + still triggers expiry ----------------
+  // ---------------- handleBlockStreamEvent: chain-proposed is a no-op + still triggers expiry ----------------
 
-  it("'blocks-added' invokes no event handler but still runs the expiry sweep", async () => {
+  it("'chain-proposed' invokes no event handler but still runs the expiry sweep", async () => {
     // latestSlot=4 ⇒ epochs 0..2 expire.
     l2BlockSource.getSyncedL2SlotNumber.mockResolvedValue(SlotNumber(4));
     l2BlockSource.getCheckpointsData.mockResolvedValue([]);
     const reapSpy = jest.spyOn(proverNode.getCheckpointStore(), 'reapExpired');
 
-    // Use a real (random) L2Block so the tips-store handler doesn't choke on an empty array.
-    const block = await L2Block.random(BlockNumber(1));
-    await proverNode.handleBlockStreamEvent({ type: 'blocks-added', blocks: [block] });
+    await proverNode.handleBlockStreamEvent({
+      type: 'chain-proposed',
+      block: { number: BlockNumber(1), hash: '0x01' },
+    });
 
     // No checkpoint, prune, or proven handler should have fired.
     expect(sessionManager.onCheckpointAdded).not.toHaveBeenCalled();
@@ -325,6 +394,8 @@ describe('ProverNode', () => {
     expect(publishingService.onChainProven).not.toHaveBeenCalled();
     // But the expiry sweep ran.
     expect(reapSpy.mock.calls.map(([e]) => Number(e))).toEqual([0, 1, 2]);
+    // The tips store recorded the proposed tip (it is the walk-back history in tips-only mode).
+    expect(await proverNode.getTipsStore().getL2BlockHash(1)).toEqual('0x01');
   });
 
   // ---------------- checkEpochExpiry: latestEpoch < offset is a no-op ----------------
@@ -380,8 +451,7 @@ describe('ProverNode', () => {
     await proverNode.handleBlockStreamEvent(mineCheckpoint(makeCheckpoint(2, 7, 7)));
     expect(proverNode.getCheckpointStore().listAll().length).toBe(2);
 
-    // Pruning above checkpoint 0 marks both as pruned — onPrune must receive [EpochNumber(3)],
-    // not [3, 3].
+    // Pruning to block 0 (genesis) marks both as pruned — onPrune must receive [EpochNumber(3)], not [3, 3].
     sessionManager.onPrune.mockClear();
     await proverNode.handleBlockStreamEvent({
       type: 'chain-pruned',
@@ -468,27 +538,25 @@ describe('ProverNode', () => {
     });
   });
 
-  // ---------------- computeStartupState branches ----------------
+  // ---------------- resolveLastFullyProvenEpoch branches ----------------
 
-  describe('computeStartupState', () => {
-    it('returns starting block 1 and no fully-proven epoch when nothing is proven', async () => {
+  describe('resolveLastFullyProvenEpoch', () => {
+    it('returns no fully-proven epoch when nothing is proven', async () => {
       l2BlockSource.getBlockNumber.mockResolvedValue(undefined);
-      await expect(proverNode.callComputeStartupState()).resolves.toEqual({
-        startingBlock: BlockNumber(1),
+      await expect(proverNode.callResolveLastFullyProvenEpoch()).resolves.toEqual({
         lastFullyProvenEpoch: undefined,
       });
     });
 
-    it('returns provenBlock+1 and no fully-proven epoch when the proven block has no archiver header', async () => {
+    it('returns no fully-proven epoch when the proven block has no archiver header', async () => {
       l2BlockSource.getBlockNumber.mockResolvedValue(BlockNumber(5));
       l2BlockSource.getBlockData.mockResolvedValue(undefined);
-      await expect(proverNode.callComputeStartupState()).resolves.toEqual({
-        startingBlock: BlockNumber(6),
+      await expect(proverNode.callResolveLastFullyProvenEpoch()).resolves.toEqual({
         lastFullyProvenEpoch: undefined,
       });
     });
 
-    it('returns provenBlock+1 and provenEpoch when the proven block is the last of its epoch', async () => {
+    it('returns provenEpoch when the proven block is the last of its epoch', async () => {
       // epochDuration=1: slot 5 ⇒ epoch 5; next slot 6 ⇒ epoch 6 > 5 ⇒ last of epoch.
       l2BlockSource.getBlockNumber.mockResolvedValue(BlockNumber(5));
       l2BlockSource.getBlockData.mockImplementation((q: any) => {
@@ -500,13 +568,12 @@ describe('ProverNode', () => {
         }
         return Promise.resolve(undefined);
       });
-      await expect(proverNode.callComputeStartupState()).resolves.toEqual({
-        startingBlock: BlockNumber(6),
+      await expect(proverNode.callResolveLastFullyProvenEpoch()).resolves.toEqual({
         lastFullyProvenEpoch: EpochNumber(5),
       });
     });
 
-    it('returns provenBlock+1 and provenEpoch via the isEpochComplete fallback when there is no next-block header', async () => {
+    it('returns provenEpoch via the isEpochComplete fallback when there is no next-block header', async () => {
       l2BlockSource.getBlockNumber.mockResolvedValue(BlockNumber(5));
       l2BlockSource.getBlockData.mockImplementation((q: any) => {
         if (q.number === 5) {
@@ -515,13 +582,12 @@ describe('ProverNode', () => {
         return Promise.resolve(undefined);
       });
       l2BlockSource.isEpochComplete.mockResolvedValue(true);
-      await expect(proverNode.callComputeStartupState()).resolves.toEqual({
-        startingBlock: BlockNumber(6),
+      await expect(proverNode.callResolveLastFullyProvenEpoch()).resolves.toEqual({
         lastFullyProvenEpoch: EpochNumber(5),
       });
     });
 
-    it("returns the partially-proven epoch's first block and provenEpoch-1 when proven is mid-epoch", async () => {
+    it('returns provenEpoch-1 when proven is mid-epoch', async () => {
       // epochDuration=2: slot 5 ⇒ epoch 2; next slot 5 ⇒ same epoch ⇒ mid-epoch.
       const l1ConstantsTwo = { ...EmptyL1RollupConstants, epochDuration: 2, proofSubmissionEpochs: 1 };
       l2BlockSource.getL1Constants.mockResolvedValue(l1ConstantsTwo);
@@ -535,10 +601,8 @@ describe('ProverNode', () => {
         }
         return Promise.resolve(undefined);
       });
-      l2BlockSource.getCheckpointsData.mockResolvedValue([{ startBlock: BlockNumber(3) } as any]);
 
-      await expect(proverNode.callComputeStartupState()).resolves.toEqual({
-        startingBlock: BlockNumber(3),
+      await expect(proverNode.callResolveLastFullyProvenEpoch()).resolves.toEqual({
         lastFullyProvenEpoch: EpochNumber(1),
       });
     });
@@ -557,10 +621,8 @@ describe('ProverNode', () => {
         }
         return Promise.resolve(undefined);
       });
-      l2BlockSource.getCheckpointsData.mockResolvedValue([{ startBlock: BlockNumber(1) } as any]);
 
-      await expect(proverNode.callComputeStartupState()).resolves.toEqual({
-        startingBlock: BlockNumber(1),
+      await expect(proverNode.callResolveLastFullyProvenEpoch()).resolves.toEqual({
         lastFullyProvenEpoch: undefined,
       });
     });
@@ -677,8 +739,8 @@ class TestProverNode extends ProverNode {
 
   // ---------------- direct access for unit tests ----------------
 
-  public callComputeStartupState() {
-    return this.computeStartupState();
+  public callResolveLastFullyProvenEpoch() {
+    return this.resolveLastFullyProvenEpoch();
   }
 
   public callIsEpochFullyProven(epoch: EpochNumber, l1Constants: { epochDuration: number }) {

@@ -1,4 +1,4 @@
-import type { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import type { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/promise';
 import type { L2BlockSource } from '@aztec/stdlib/block';
@@ -97,14 +97,19 @@ export class CheckpointStore {
   }
 
   /**
-   * Marks every canonical prover whose checkpoint number is strictly greater than
-   * `prunedNumber` as pruned. Sub-tree work keeps running so a re-add of the same
-   * content can pick it up. Returns the affected provers.
+   * Marks every canonical prover that holds a block above the prune target as pruned. A checkpoint is orphaned by a
+   * prune to block `targetBlockNumber` iff its last block sits above the target — including a checkpoint whose range
+   * straddles the target (partially orphaned), which block-range marking catches without boundary ambiguity. Keying
+   * off the surviving block number (rather than a checkpoint number) is correct even when the source has already
+   * re-checkpointed past the divergence: the prune event reports the highest surviving block, which by construction
+   * survives on the source, whereas the source's current checkpointed tip can sit above the prune target.
+   * Sub-tree work keeps running so a re-add of the same content can pick it up. Returns the affected provers.
    */
-  public markPrunedAfter(prunedNumber: CheckpointNumber): CheckpointProver[] {
+  public markPrunedAboveBlock(targetBlockNumber: BlockNumber): CheckpointProver[] {
     const affected: CheckpointProver[] = [];
     for (const prover of this.provers.values()) {
-      if (prover.checkpoint.number > prunedNumber && !prover.isPruned()) {
+      const lastBlockNumber = prover.checkpoint.blocks.at(-1)!.number;
+      if (lastBlockNumber > targetBlockNumber && !prover.isPruned()) {
         prover.markPruned();
         affected.push(prover);
       }
