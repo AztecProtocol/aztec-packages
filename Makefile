@@ -197,6 +197,11 @@ bb-cpp-gcc:
 bb-cpp-fuzzing:
 	$(call build,$@,barretenberg/cpp,build_fuzzing_syntax_check_only)
 
+# Windows cross-compile syntax check (CI only, non-release) - the Windows binary is otherwise
+# only built on the release path, so this gates Windows-only breakages at PR time.
+bb-cpp-windows:
+	$(call build,$@,barretenberg/cpp,build_windows_syntax_check_only)
+
 # Address sanitizer build (CI only, non-release)
 bb-cpp-asan:
 	$(call build,$@,barretenberg/cpp,build_preset asan-fast)
@@ -208,7 +213,7 @@ bb-cpp-smt:
 bb-cpp-release-dir: bb-cpp-native bb-cpp-cross
 	$(call build,$@,barretenberg/cpp,build_release_dir)
 
-bb-cpp-full: bb-cpp bb-cpp-gcc bb-cpp-fuzzing bb-cpp-asan bb-cpp-smt bb-cpp-cross-arm64-macos bb-cpp-cross-arm64-ios bb-cpp-cross-arm64-android
+bb-cpp-full: bb-cpp bb-cpp-gcc bb-cpp-fuzzing bb-cpp-windows bb-cpp-asan bb-cpp-smt bb-cpp-cross-arm64-macos bb-cpp-cross-arm64-ios bb-cpp-cross-arm64-android
 
 # BB TypeScript - TypeScript bindings
 bb-ts: bb-cpp-wasm bb-cpp-wasm-threads bb-cpp-native

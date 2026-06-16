@@ -17,9 +17,11 @@
 #include "barretenberg/serialize/msgpack_check_eq.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 
-#ifndef __wasm__
+#ifdef BB_HAS_BATCH_VERIFIER_SERVICE
+#include <algorithm>
 #include <cerrno>
 #include <chrono>
+#include <climits>
 #include <csignal>
 #include <cstring>
 #include <fcntl.h>
@@ -399,14 +401,17 @@ ChonkDecompressProof::Response ChonkDecompressProof::execute(const BBApiRequest&
 
 // ── Batch Verifier Service ──────────────────────────────────────────────────
 
-#ifndef __wasm__
+#ifdef BB_HAS_BATCH_VERIFIER_SERVICE
 
 namespace {
 
 bool write_all(int fd, const uint8_t* ptr, size_t len)
 {
     while (len > 0) {
-        const ssize_t written = ::write(fd, ptr, len);
+        // ::write takes a size_t count on POSIX but an unsigned int on Windows (MinGW _write), so cap each
+        // call to INT_MAX and cast explicitly to keep the count in range and the return value representable.
+        const auto chunk = static_cast<unsigned int>(std::min(len, static_cast<size_t>(INT_MAX)));
+        const ssize_t written = ::write(fd, ptr, chunk);
         if (written > 0) {
             ptr += written;
             len -= static_cast<size_t>(written);
@@ -658,24 +663,24 @@ ChonkBatchVerifierStop::Response ChonkBatchVerifierStop::execute(BBApiRequest& r
     return {};
 }
 
-#else // __wasm__
+#else // BB_HAS_BATCH_VERIFIER_SERVICE
 
 ChonkBatchVerifierStart::Response ChonkBatchVerifierStart::execute(BBApiRequest& /*request*/) &&
 {
-    throw_or_abort("ChonkBatchVerifierStart is not supported in WASM builds");
+    throw_or_abort("ChonkBatchVerifierStart is not supported on this platform (wasm/Windows)");
 }
 
 ChonkBatchVerifierQueue::Response ChonkBatchVerifierQueue::execute(BBApiRequest& /*request*/) &&
 {
-    throw_or_abort("ChonkBatchVerifierQueue is not supported in WASM builds");
+    throw_or_abort("ChonkBatchVerifierQueue is not supported on this platform (wasm/Windows)");
 }
 
 ChonkBatchVerifierStop::Response ChonkBatchVerifierStop::execute(BBApiRequest& /*request*/) &&
 {
-    throw_or_abort("ChonkBatchVerifierStop is not supported in WASM builds");
+    throw_or_abort("ChonkBatchVerifierStop is not supported on this platform (wasm/Windows)");
 }
 
-#endif // __wasm__
+#endif // BB_HAS_BATCH_VERIFIER_SERVICE
 
 #undef BBAPI_CHONK_EXCEPTION_WHAT
 

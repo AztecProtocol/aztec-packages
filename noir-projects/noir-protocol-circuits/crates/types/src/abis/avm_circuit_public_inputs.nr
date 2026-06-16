@@ -220,6 +220,12 @@ fn set_l2_to_l1_msg_array_in_cols<let SIZE: u32>(
     }
 }
 
+// Serializes the public logs into the column layout.
+//
+// NOTE: the entire fixed-capacity payload (all `FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH`, currently 4096,
+// entries) is written here regardless of `logs.length`; the active entry count is conveyed separately
+// via the `length` header written below. This keeps the serialized layout a constant size, so the
+// Barretenberg/AVM side must mirror it by zero-filling every payload slot beyond `length`.
 fn set_public_logs_in_cols(
     logs: PublicLogs,
     cols: &mut [[Field; AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH]; AVM_NUM_PUBLIC_INPUT_COLUMNS],
@@ -545,6 +551,23 @@ fn flat_columns_of_empty_avm_circuit_public_inputs() {
     let flat = item.serialize_to_columns();
     // some assertion just to make sure it isn't optimized away
     assert(flat.len() == AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH);
+}
+
+#[test]
+fn set_public_logs_in_cols_writes_full_payload_regardless_of_length() {
+    // The documented behavior: the entire fixed-capacity payload is serialized, regardless of `length`.
+    let mut logs = PublicLogs::empty();
+    logs.length = 5; // small active count...
+    logs.payload[10] = 42; // ...yet a value beyond `length` must still be written
+    let last = logs.payload.len() - 1;
+    logs.payload[last] = 99; // ...including the final capacity slot
+
+    let mut cols = [[0; AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH]; AVM_NUM_PUBLIC_INPUT_COLUMNS];
+    set_public_logs_in_cols(logs, &mut cols, 0);
+
+    assert_eq(cols[0][0], 5); // header carries the active length
+    assert_eq(cols[0][10 + FLAT_PUBLIC_LOGS_HEADER_LENGTH], 42);
+    assert_eq(cols[0][last + FLAT_PUBLIC_LOGS_HEADER_LENGTH], 99);
 }
 
 #[test]

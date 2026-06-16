@@ -116,7 +116,7 @@ function main {
       if [ -n "$pr_number" ]; then
         local head_branch
         head_branch=$(GH_TOKEN="$GITHUB_TOKEN" gh pr view "$pr_number" --json headRefName -q '.headRefName' 2>/dev/null || true)
-        if [ "$head_branch" == "merge-train/spartan" ] || [ "$head_branch" == "merge-train/spartan-v5" ]; then
+        if [ "$head_branch" == "merge-train/spartan-v5" ]; then
           ci_mode="merge-queue-heavy"
         elif [ "$head_branch" == "merge-train/ci" ]; then
           ci_mode="merge-queue-ci"

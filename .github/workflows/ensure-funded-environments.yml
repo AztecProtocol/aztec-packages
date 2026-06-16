@@ -17,8 +17,8 @@ on:
         type: string
         default: "1.0"
   schedule:
-    # Run daily at 2 AM UTC
-    - cron: "0 2 * * *"
+    # Run daily at 4 AM UTC
+    - cron: "0 4 * * *"
 
 concurrency:
   group: ensure-funded-environments
@@ -50,7 +50,8 @@ jobs:
         run: |
           # Static environments
           static='[
-            {"environment":"staging"},
+            {"environment":"staging-public"},
+            {"environment":"staging-internal"},
             {"environment":"next-net"},
             {"environment":"testnet"}
           ]'
