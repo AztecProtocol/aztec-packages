@@ -228,7 +228,8 @@ export class CircuitRecorder {
       time,
       stackDepth,
     };
-    this.recording!.oracleCalls.push(entry);
+    // Under concurrent use the shared recording can be reset mid-flight; record best-effort and never throw.
+    this.recording?.oracleCalls.push(entry);
     return Promise.resolve(entry);
   }
 

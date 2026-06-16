@@ -24,8 +24,14 @@ export class FileCircuitRecorder extends CircuitRecorder {
   ) {
     await super.start(input, circuitBytecode, circuitName, functionName);
 
+    // Concurrent resets can leave no active recording (newCircuit was false); there is nothing to write.
+    const recording = this.recording;
+    if (!recording) {
+      return;
+    }
+
     const recordingStringWithoutClosingBracket = JSON.stringify(
-      { ...this.recording, isFirstCall: undefined, parent: undefined, oracleCalls: undefined, filePath: undefined },
+      { ...recording, isFirstCall: undefined, parent: undefined, oracleCalls: undefined, filePath: undefined },
       null,
       2,
     ).slice(0, -2);
@@ -45,11 +51,11 @@ export class FileCircuitRecorder extends CircuitRecorder {
       }
     }
 
-    this.recording!.isFirstCall = true;
-    this.recording!.filePath = await FileCircuitRecorder.#computeFilePathAndStoreInitialRecording(
+    recording.isFirstCall = true;
+    recording.filePath = await FileCircuitRecorder.#computeFilePathAndStoreInitialRecording(
       this.recordDir,
-      this.recording!.circuitName,
-      this.recording!.functionName,
+      recording.circuitName,
+      recording.functionName,
       recordingStringWithoutClosingBracket,
     );
   }
@@ -97,12 +103,15 @@ export class FileCircuitRecorder extends CircuitRecorder {
    */
   override async recordCall(name: string, inputs: unknown[], outputs: unknown, time: number, stackDepth: number) {
     const entry = await super.recordCall(name, inputs, outputs, time, stackDepth);
-    try {
-      const prefix = this.recording!.isFirstCall ? '    ' : '    ,';
-      this.recording!.isFirstCall = false;
-      await fs.appendFile(this.recording!.filePath, prefix + JSON.stringify(entry) + '\n');
-    } catch (err) {
-      this.logger.error('Failed to log circuit call', { error: err });
+    // super.recordCall already built and returned the entry; only persist it when a recording is still active.
+    if (this.recording) {
+      try {
+        const prefix = this.recording.isFirstCall ? '    ' : '    ,';
+        this.recording.isFirstCall = false;
+        await fs.appendFile(this.recording.filePath, prefix + JSON.stringify(entry) + '\n');
+      } catch (err) {
+        this.logger.error('Failed to log circuit call', { error: err });
+      }
     }
     return entry;
   }
