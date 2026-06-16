@@ -75,7 +75,7 @@ export class SimulatorRecorderWrapper implements CircuitSimulator {
     // Witness generation is complete so we finish the circuit recorder
     const recording = await this.recorder.finish();
 
-    (result as ACIRExecutionResult).oracles = recording.oracleCalls?.reduce(
+    (result as ACIRExecutionResult).oracles = recording?.oracleCalls?.reduce(
       (acc, { time, name }) => {
         if (!acc[name]) {
           acc[name] = { times: [] };
