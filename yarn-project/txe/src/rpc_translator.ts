@@ -815,6 +815,64 @@ export class RPCTranslator {
     });
   }
 
+  // eslint-disable-next-line camelcase
+  aztec_utl_createEntity(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_createEntity',
+      inputs,
+      handler: ([contractAddress, scope, entityTypeId, entityId, body, originBlock]) =>
+        this.handlerAsUtility().createEntity(contractAddress, scope, entityTypeId, entityId, body, originBlock),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_recordFact(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_recordFact',
+      inputs,
+      handler: ([contractAddress, scope, entityTypeId, entityId, factTypeId, payload, originBlock]) =>
+        this.handlerAsUtility().recordFact(
+          contractAddress,
+          scope,
+          entityTypeId,
+          entityId,
+          factTypeId,
+          payload,
+          originBlock,
+        ),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_getEntities(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_getEntities',
+      inputs,
+      handler: ([contractAddress, scope, entityTypeId]) =>
+        this.handlerAsUtility().getEntities(contractAddress, scope, entityTypeId),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_getEntity(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_getEntity',
+      inputs,
+      handler: ([contractAddress, scope, entityTypeId, entityId]) =>
+        this.handlerAsUtility().getEntity(contractAddress, scope, entityTypeId, entityId),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_terminateEntity(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_terminateEntity',
+      inputs,
+      handler: ([contractAddress, scope, entityTypeId, entityId]) =>
+        this.handlerAsUtility().terminateEntity(contractAddress, scope, entityTypeId, entityId),
+    });
+  }
+
   // AVM opcodes
 
   // eslint-disable-next-line camelcase

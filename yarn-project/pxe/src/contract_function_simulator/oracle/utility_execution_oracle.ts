@@ -55,6 +55,8 @@ import { ORACLE_VERSION_MAJOR } from '../../oracle_version.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import type { CapsuleService } from '../../storage/capsule_store/capsule_service.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
+import { EntityKey, EntityTypeKey } from '../../storage/entity_store/index.js';
+import type { Entity, EntityService, OriginBlock } from '../../storage/entity_store/index.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../../storage/private_event_store/private_event_store.js';
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
@@ -76,6 +78,7 @@ import type { TransientArrayService } from '../transient_array_service.js';
 import { buildACIRCallback } from './acir_callback.js';
 import type { IMiscOracle, IUtilityExecutionOracle } from './interfaces.js';
 import { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
+import type { EntityOutput, FactOutput } from './oracle_type_mappings.js';
 
 /** Args for UtilityExecutionOracle constructor. */
 export type UtilityExecutionOracleArgs = {
@@ -92,6 +95,7 @@ export type UtilityExecutionOracleArgs = {
   recipientTaggingStore: RecipientTaggingStore;
   senderAddressBookStore: SenderAddressBookStore;
   capsuleService: CapsuleService;
+  entityService: EntityService;
   privateEventStore: PrivateEventStore;
   txResolver: TxResolverService;
   contractSyncService: ContractSyncService;
@@ -134,6 +138,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   protected readonly recipientTaggingStore: RecipientTaggingStore;
   protected readonly senderAddressBookStore: SenderAddressBookStore;
   protected readonly capsuleService: CapsuleService;
+  protected readonly entityService: EntityService;
   protected readonly privateEventStore: PrivateEventStore;
   protected readonly txResolver: TxResolverService;
   protected readonly contractSyncService: ContractSyncService;
@@ -158,6 +163,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     this.recipientTaggingStore = args.recipientTaggingStore;
     this.senderAddressBookStore = args.senderAddressBookStore;
     this.capsuleService = args.capsuleService;
+    this.entityService = args.entityService;
     this.privateEventStore = args.privateEventStore;
     this.txResolver = args.txResolver;
     this.contractSyncService = args.contractSyncService;
@@ -736,6 +742,131 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   }
 
   /**
+   * Asserts the executing contract may access `contractAddress`'s entity store. Entities are isolated per contract, so
+   * a contract may only operate on its own entities.
+   */
+  private assertOwnContract(contractAddress: AztecAddress): void {
+    if (!contractAddress.equals(this.contractAddress)) {
+      // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
+      throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
+    }
+  }
+
+  /** Builds the Noir-facing ENTITY output (body + facts as nested ephemeral arrays) from a stored entity. */
+  private toEntityOutput(entity: Entity): EntityOutput {
+    return {
+      body: EphemeralArray.fromValues(this.ephemeralArrayService, entity.body),
+      facts: EphemeralArray.fromValues(
+        this.ephemeralArrayService,
+        entity.facts.map(
+          (fact): FactOutput => ({
+            factTypeId: fact.factTypeId,
+            payload: EphemeralArray.fromValues(this.ephemeralArrayService, fact.payload),
+          }),
+        ),
+      ),
+    };
+  }
+
+  /**
+   * Creates an entity. A `Some` origin block makes it retractable (pruned, with all its facts, if that block is
+   * reorg'd away); a `None` origin block makes it non-retractable, surviving reorgs.
+   */
+  public createEntity(
+    contractAddress: AztecAddress,
+    scope: AztecAddress,
+    entityTypeId: Fr,
+    entityId: Fr,
+    body: Fr[],
+    originBlock: Option<OriginBlock>,
+  ): Promise<void> {
+    this.assertOwnContract(contractAddress);
+    return this.entityService.createEntity(
+      new EntityKey(contractAddress, scope, entityTypeId, entityId),
+      body,
+      originBlock.isSome() ? originBlock.value : undefined,
+      this.jobId,
+    );
+  }
+
+  /**
+   * Records a fact about an entity. A `Some` origin block makes the fact retractable (pruned on reorg of that block);
+   * a `None` origin block makes it a permanent fact that survives reorgs.
+   */
+  public recordFact(
+    contractAddress: AztecAddress,
+    scope: AztecAddress,
+    entityTypeId: Fr,
+    entityId: Fr,
+    factTypeId: Fr,
+    payload: Fr[],
+    originBlock: Option<OriginBlock>,
+  ): Promise<void> {
+    this.assertOwnContract(contractAddress);
+    return this.entityService.recordFact(
+      new EntityKey(contractAddress, scope, entityTypeId, entityId),
+      factTypeId,
+      payload,
+      originBlock.isSome() ? originBlock.value : undefined,
+      this.jobId,
+    );
+  }
+
+  /**
+   * Returns every active entity under (contract, scope, entityTypeId).
+   */
+  public async getEntities(
+    contractAddress: AztecAddress,
+    scope: AztecAddress,
+    entityTypeId: Fr,
+  ): Promise<EphemeralArray<EntityOutput>> {
+    this.assertOwnContract(contractAddress);
+    const entities = await this.entityService.getEntities(
+      new EntityTypeKey(contractAddress, scope, entityTypeId),
+      this.jobId,
+    );
+    return EphemeralArray.fromValues(
+      this.ephemeralArrayService,
+      entities.map(entity => this.toEntityOutput(entity)),
+    );
+  }
+
+  /** Returns an entity's payload and facts. Throws if the entity does not exist. */
+  public async getEntity(
+    contractAddress: AztecAddress,
+    scope: AztecAddress,
+    entityTypeId: Fr,
+    entityId: Fr,
+  ): Promise<EntityOutput> {
+    this.assertOwnContract(contractAddress);
+    const entity = await this.entityService.getEntity(
+      new EntityKey(contractAddress, scope, entityTypeId, entityId),
+      this.jobId,
+    );
+    if (entity === undefined) {
+      throw new Error(
+        `Entity not found: contract=${contractAddress.toString()} scope=${scope.toString()} ` +
+          `typeId=${entityTypeId.toString()} id=${entityId.toString()}`,
+      );
+    }
+    return this.toEntityOutput(entity);
+  }
+
+  /** Permanently deletes an entity and all of its facts. */
+  public terminateEntity(
+    contractAddress: AztecAddress,
+    scope: AztecAddress,
+    entityTypeId: Fr,
+    entityId: Fr,
+  ): Promise<void> {
+    this.assertOwnContract(contractAddress);
+    return this.entityService.terminateEntity(
+      new EntityKey(contractAddress, scope, entityTypeId, entityId),
+      this.jobId,
+    );
+  }
+
+  /**
    * Clears cached sync state for a contract for a set of scopes, forcing re-sync on the next query so that newly
    * stored notes or events are discovered.
    */
@@ -927,6 +1058,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       recipientTaggingStore: this.recipientTaggingStore,
       senderAddressBookStore: this.senderAddressBookStore,
       capsuleService: this.capsuleService,
+      entityService: this.entityService,
       privateEventStore: this.privateEventStore,
       txResolver: this.txResolver,
       contractSyncService: this.contractSyncService,

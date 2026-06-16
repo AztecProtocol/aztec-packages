@@ -18,6 +18,7 @@ import {
   CONTRACT_CLASS_LOG_INPUT,
   CONTRACT_INSTANCE,
   DELIVERY_MODE,
+  ENTITY,
   EPHEMERAL_ARRAY,
   EVENT_VALIDATION_REQUEST,
   FIELD,
@@ -35,6 +36,7 @@ import {
   NOTE_VALIDATION_REQUEST,
   NULLIFIER_MEMBERSHIP_WITNESS,
   OPTION,
+  ORIGIN_BLOCK,
   type OutputSlot,
   PENDING_TAGGED_LOG,
   POINT,
@@ -116,6 +118,11 @@ type OracleRegistryName =
   | 'aztec_utl_getSharedSecrets'
   | 'aztec_utl_setContractSyncCacheInvalid'
   | 'aztec_utl_emitOffchainEffect'
+  | 'aztec_utl_createEntity'
+  | 'aztec_utl_recordFact'
+  | 'aztec_utl_getEntities'
+  | 'aztec_utl_getEntity'
+  | 'aztec_utl_terminateEntity'
   | 'aztec_utl_callUtilityFunction'
   | 'aztec_utl_pushEphemeral'
   | 'aztec_utl_popEphemeral'
@@ -383,6 +390,57 @@ export const ORACLE_REGISTRY: OracleRegistry = {
 
   aztec_utl_emitOffchainEffect: makeEntry({
     params: [{ name: 'data', type: ARRAY(FIELD) }],
+  }),
+
+  aztec_utl_createEntity: makeEntry({
+    params: [
+      { name: 'contractAddress', type: AZTEC_ADDRESS },
+      { name: 'scope', type: AZTEC_ADDRESS },
+      { name: 'entityTypeId', type: FIELD },
+      { name: 'entityId', type: FIELD },
+      { name: 'body', type: ARRAY(FIELD) },
+      { name: 'originBlock', type: OPTION(ORIGIN_BLOCK) },
+    ],
+  }),
+
+  aztec_utl_recordFact: makeEntry({
+    params: [
+      { name: 'contractAddress', type: AZTEC_ADDRESS },
+      { name: 'scope', type: AZTEC_ADDRESS },
+      { name: 'entityTypeId', type: FIELD },
+      { name: 'entityId', type: FIELD },
+      { name: 'factTypeId', type: FIELD },
+      { name: 'payload', type: ARRAY(FIELD) },
+      { name: 'originBlock', type: OPTION(ORIGIN_BLOCK) },
+    ],
+  }),
+
+  aztec_utl_getEntities: makeEntry({
+    params: [
+      { name: 'contractAddress', type: AZTEC_ADDRESS },
+      { name: 'scope', type: AZTEC_ADDRESS },
+      { name: 'entityTypeId', type: FIELD },
+    ],
+    returnType: EPHEMERAL_ARRAY(ENTITY),
+  }),
+
+  aztec_utl_getEntity: makeEntry({
+    params: [
+      { name: 'contractAddress', type: AZTEC_ADDRESS },
+      { name: 'scope', type: AZTEC_ADDRESS },
+      { name: 'entityTypeId', type: FIELD },
+      { name: 'entityId', type: FIELD },
+    ],
+    returnType: ENTITY,
+  }),
+
+  aztec_utl_terminateEntity: makeEntry({
+    params: [
+      { name: 'contractAddress', type: AZTEC_ADDRESS },
+      { name: 'scope', type: AZTEC_ADDRESS },
+      { name: 'entityTypeId', type: FIELD },
+      { name: 'entityId', type: FIELD },
+    ],
   }),
 
   aztec_utl_callUtilityFunction: makeEntry({

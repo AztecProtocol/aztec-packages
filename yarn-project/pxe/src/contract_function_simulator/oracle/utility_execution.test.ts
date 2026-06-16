@@ -3,6 +3,7 @@ import { Grumpkin } from '@aztec/foundation/crypto/grumpkin';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
 import type { KeyStore } from '@aztec/key-store';
+import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { WASMSimulator } from '@aztec/simulator/client';
 import { FunctionCall, FunctionSelector, FunctionType, encodeArguments } from '@aztec/stdlib/abi';
@@ -38,6 +39,8 @@ import type { AddressStore } from '../../storage/address_store/address_store.js'
 import { CapsuleService } from '../../storage/capsule_store/capsule_service.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
+import { EntityService, EntityStore } from '../../storage/entity_store/index.js';
+import type { OriginBlock } from '../../storage/entity_store/index.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../../storage/private_event_store/private_event_store.js';
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
@@ -47,6 +50,7 @@ import { ContractFunctionSimulator } from '../contract_function_simulator.js';
 import { EphemeralArrayService } from '../ephemeral_array_service.js';
 import { BoundedVec } from '../noir-structs/bounded_vec.js';
 import { EphemeralArray } from '../noir-structs/ephemeral_array.js';
+import { Option } from '../noir-structs/option.js';
 import { ProvidedSecret } from '../noir-structs/provided_secret.js';
 import { TransientArrayService } from '../transient_array_service.js';
 import { UtilityExecutionOracle, type UtilityExecutionOracleArgs } from './utility_execution_oracle.js';
@@ -63,6 +67,7 @@ describe('Utility Execution test suite', () => {
   let recipientTaggingStore: ReturnType<typeof mock<RecipientTaggingStore>>;
   let senderAddressBookStore: ReturnType<typeof mock<SenderAddressBookStore>>;
   let capsuleStore: ReturnType<typeof mock<CapsuleStore>>;
+  let entityStore: EntityStore;
   let privateEventStore: ReturnType<typeof mock<PrivateEventStore>>;
   let contractSyncService: ReturnType<typeof mock<ContractSyncService>>;
   let l2TipsStore: ReturnType<typeof mock<L2TipsProvider>>;
@@ -87,6 +92,7 @@ describe('Utility Execution test suite', () => {
     recipientTaggingStore = mock<RecipientTaggingStore>();
     senderAddressBookStore = mock<SenderAddressBookStore>();
     capsuleStore = mock<CapsuleStore>();
+    entityStore = new EntityStore(await openTmpStore('utility-exec-entity-test'));
     privateEventStore = mock<PrivateEventStore>();
     contractSyncService = mock<ContractSyncService>();
     l2TipsStore = mock<L2TipsProvider>();
@@ -120,6 +126,7 @@ describe('Utility Execution test suite', () => {
       recipientTaggingStore,
       senderAddressBookStore,
       capsuleStore,
+      entityStore,
       privateEventStore,
       simulator,
       contractSyncService,
@@ -595,6 +602,92 @@ describe('Utility Execution test suite', () => {
       });
     });
 
+    describe('entity store', () => {
+      const service = new EphemeralArrayService();
+      const typeId = new Fr(10);
+      const entityId = new Fr(20);
+      const factTypeId = new Fr(30);
+      const noBlock = Option.none<OriginBlock>();
+
+      it('creates an entity and reads it back via getEntity', async () => {
+        const oracle = makeOracle({ scopes: [scope] });
+        await oracle.createEntity(contractAddress, scope, typeId, entityId, [new Fr(99)], noBlock);
+
+        const entity = await oracle.getEntity(contractAddress, scope, typeId, entityId);
+        expect(entity.body.readAll(service)).toEqual([new Fr(99)]);
+        expect(entity.facts.readAll(service)).toEqual([]);
+      });
+
+      it('records a fact and returns it within the entity', async () => {
+        const oracle = makeOracle({ scopes: [scope] });
+        await oracle.createEntity(contractAddress, scope, typeId, entityId, [new Fr(99)], noBlock);
+        await oracle.recordFact(contractAddress, scope, typeId, entityId, factTypeId, [new Fr(7)], noBlock);
+
+        const entity = await oracle.getEntity(contractAddress, scope, typeId, entityId);
+        const facts = entity.facts.readAll(service);
+        expect(facts).toHaveLength(1);
+        expect(facts[0].factTypeId).toEqual(factTypeId);
+        expect(facts[0].payload.readAll(service)).toEqual([new Fr(7)]);
+      });
+
+      it('returns only the surviving entities of a type after some are terminated', async () => {
+        const oracle = makeOracle({ scopes: [scope] });
+
+        // Create a handful of entities of the same type, each with a distinct id and a body that encodes that id, so
+        // we can tell which ones come back.
+        const ids = [1, 2, 3, 4, 5];
+        for (const id of ids) {
+          await oracle.createEntity(contractAddress, scope, typeId, new Fr(id), [new Fr(100 + id)], noBlock);
+        }
+
+        // Terminate two of them; the rest must remain active.
+        await oracle.terminateEntity(contractAddress, scope, typeId, new Fr(2));
+        await oracle.terminateEntity(contractAddress, scope, typeId, new Fr(4));
+
+        const entities = (await oracle.getEntities(contractAddress, scope, typeId)).readAll(service);
+
+        // Exactly the survivors come back, with their bodies intact (order is not guaranteed, so compare as a set).
+        const bodies = entities.map(entity => entity.body.readAll(service));
+        expect(bodies.every(body => body.length === 1)).toBe(true);
+        const survivingValues = bodies.map(([value]) => value.toNumber()).sort((a, b) => a - b);
+        expect(survivingValues).toEqual([101, 103, 105]);
+      });
+
+      it('stores a retractable entity when given an origin block', async () => {
+        const oracle = makeOracle({ scopes: [scope] });
+        const originBlock = Option.some<OriginBlock>({ blockNumber: 5, blockHash: new Fr(0xabc) });
+        await oracle.createEntity(contractAddress, scope, typeId, entityId, [new Fr(42)], originBlock);
+
+        const entity = await oracle.getEntity(contractAddress, scope, typeId, entityId);
+        expect(entity.body.readAll(service)).toEqual([new Fr(42)]);
+      });
+
+      it('terminates an entity', async () => {
+        const oracle = makeOracle({ scopes: [scope] });
+        await oracle.createEntity(contractAddress, scope, typeId, entityId, [new Fr(1)], noBlock);
+        await oracle.terminateEntity(contractAddress, scope, typeId, entityId);
+
+        const entities = (await oracle.getEntities(contractAddress, scope, typeId)).readAll(service);
+        expect(entities).toEqual([]);
+      });
+
+      it('rejects access to another contract', async () => {
+        const oracle = makeOracle({ scopes: [scope] });
+        const otherContract = await AztecAddress.random();
+        expect(() => oracle.createEntity(otherContract, scope, typeId, entityId, [new Fr(1)], noBlock)).toThrow(
+          /not allowed to access/,
+        );
+      });
+
+      it('rejects a scope outside the allowed list', async () => {
+        const oracle = makeOracle({ scopes: [scope] });
+        const otherScope = await AztecAddress.random();
+        expect(() => oracle.createEntity(contractAddress, otherScope, typeId, entityId, [new Fr(1)], noBlock)).toThrow(
+          /not in the allowed scopes/,
+        );
+      });
+    });
+
     const makeOracle = (overrides?: Partial<UtilityExecutionOracleArgs>) => {
       const scopes = overrides?.scopes ?? [];
       return new UtilityExecutionOracle({
@@ -610,6 +703,7 @@ describe('Utility Execution test suite', () => {
         recipientTaggingStore,
         senderAddressBookStore,
         capsuleService: new CapsuleService(capsuleStore, scopes),
+        entityService: new EntityService(entityStore, scopes),
         privateEventStore,
         txResolver,
         contractSyncService,

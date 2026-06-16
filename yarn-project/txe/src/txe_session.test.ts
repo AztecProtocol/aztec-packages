@@ -21,6 +21,7 @@ describe('TXESession.processFunction', () => {
       {} as any, // recipientTaggingStore
       {} as any, // senderAddressBook
       {} as any, // capsuleStore
+      {} as any, // entityStore
       {} as any, // privateEventStore
       {} as any, // jobCoordinator
       {} as any, // initialJobId

@@ -10,6 +10,8 @@ import {
   CapsuleService,
   CapsuleStore,
   ContractStore,
+  EntityService,
+  EntityStore,
   JobCoordinator,
   NoteService,
   NoteStore,
@@ -253,6 +255,7 @@ export class TXESession implements TXESessionStateHandler {
     private recipientTaggingStore: RecipientTaggingStore,
     private senderAddressBookStore: SenderAddressBookStore,
     private capsuleStore: CapsuleStore,
+    private entityStore: EntityStore,
     private privateEventStore: PrivateEventStore,
     private jobCoordinator: JobCoordinator,
     private currentJobId: string,
@@ -304,12 +307,14 @@ export class TXESession implements TXESessionStateHandler {
     const recipientTaggingStore = new RecipientTaggingStore(store);
     const senderAddressBookStore = new SenderAddressBookStore(store);
     const capsuleStore = new CapsuleStore(store);
+    const entityStore = new EntityStore(store);
     const keyStore = new KeyStore(store);
     const accountStore = new TXEAccountStore(store);
 
     const jobCoordinator = new JobCoordinator(store);
     jobCoordinator.registerStores([
       capsuleStore,
+      entityStore,
       senderTaggingStore,
       recipientTaggingStore,
       privateEventStore,
@@ -339,6 +344,7 @@ export class TXESession implements TXESessionStateHandler {
       recipientTaggingStore,
       senderAddressBookStore,
       capsuleStore,
+      entityStore,
       privateEventStore,
       nextBlockTimestamp,
       version,
@@ -365,6 +371,7 @@ export class TXESession implements TXESessionStateHandler {
       recipientTaggingStore,
       senderAddressBookStore,
       capsuleStore,
+      entityStore,
       privateEventStore,
       jobCoordinator,
       initialJobId,
@@ -652,6 +659,7 @@ export class TXESession implements TXESessionStateHandler {
       this.recipientTaggingStore,
       this.senderAddressBookStore,
       this.capsuleStore,
+      this.entityStore,
       this.privateEventStore,
       this.nextBlockTimestamp,
       this.version,
@@ -721,6 +729,7 @@ export class TXESession implements TXESessionStateHandler {
       recipientTaggingStore: this.recipientTaggingStore,
       senderAddressBookStore: this.senderAddressBookStore,
       capsuleService: new CapsuleService(this.capsuleStore, await this.keyStore.getAccounts()),
+      entityService: new EntityService(this.entityStore, await this.keyStore.getAccounts()),
       privateEventStore: this.privateEventStore,
       contractSyncService: this.stateMachine.contractSyncService,
       l2TipsStore: this.stateMachine.l2TipsProvider,
@@ -808,6 +817,7 @@ export class TXESession implements TXESessionStateHandler {
       recipientTaggingStore: this.recipientTaggingStore,
       senderAddressBookStore: this.senderAddressBookStore,
       capsuleService: new CapsuleService(this.capsuleStore, await this.keyStore.getAccounts()),
+      entityService: new EntityService(this.entityStore, await this.keyStore.getAccounts()),
       privateEventStore: this.privateEventStore,
       txResolver: this.stateMachine.txResolver,
       contractSyncService: this.stateMachine.contractSyncService,
@@ -910,6 +920,7 @@ export class TXESession implements TXESessionStateHandler {
           recipientTaggingStore: this.recipientTaggingStore,
           senderAddressBookStore: this.senderAddressBookStore,
           capsuleService: new CapsuleService(this.capsuleStore, scopes),
+          entityService: new EntityService(this.entityStore, scopes),
           privateEventStore: this.privateEventStore,
           txResolver: this.stateMachine.txResolver,
           contractSyncService: this.stateMachine.contractSyncService,

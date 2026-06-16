@@ -58,6 +58,7 @@ import type { TxResolverService } from '../../messages/tx_resolver_service.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
+import type { EntityStore } from '../../storage/entity_store/index.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../../storage/private_event_store/private_event_store.js';
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
@@ -110,6 +111,7 @@ describe('Private Execution test suite', () => {
   let senderAddressBookStore: MockProxy<SenderAddressBookStore>;
   let aztecNode: MockProxy<AztecNode>;
   let capsuleStore: MockProxy<CapsuleStore>;
+  let entityStore: MockProxy<EntityStore>;
   let privateEventStore: MockProxy<PrivateEventStore>;
   let contractSyncService: MockProxy<ContractSyncService>;
   let txResolver: MockProxy<TxResolverService>;
@@ -288,6 +290,7 @@ describe('Private Execution test suite', () => {
     aztecNode = mock<AztecNode>();
     keyStore = mock<KeyStore>();
     capsuleStore = mock<CapsuleStore>();
+    entityStore = mock<EntityStore>();
     l2TipsStore = mock<L2TipsProvider>();
     privateEventStore = mock<PrivateEventStore>();
     senderAddressBookStore = mock<SenderAddressBookStore>();
@@ -459,6 +462,7 @@ describe('Private Execution test suite', () => {
       recipientTaggingStore,
       senderAddressBookStore,
       capsuleStore,
+      entityStore,
       privateEventStore,
       simulator,
       contractSyncService,
