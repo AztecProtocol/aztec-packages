@@ -122,8 +122,7 @@ describe('invalidate blocks test', () => {
       minTxsPerBlock: 0,
     });
 
-    // Wait up to 6 slots because proposer pipelining can leave one checkpoint already in flight, and
-    // inbox lag can cause the next checkpoint opportunity to be missed.
+    // Wait up to 6 slots because proposer pipelining can leave one checkpoint already in flight.
     await waitForCheckpointInvalidated(constants.slotDuration * 6);
 
     // Restore sequencer configs to normal
