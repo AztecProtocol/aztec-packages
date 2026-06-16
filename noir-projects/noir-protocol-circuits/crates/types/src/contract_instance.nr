@@ -6,11 +6,18 @@ use crate::{
 };
 use std::meta::derive;
 
+/// The complete preimage of an [`AztecAddress`].
+///
+/// All of these values are hashed into the contract's `AztecAddress` (see [`Self::to_address`]), so they are fixed
+/// at deployment time and never change.
+///
+/// In particular, `original_contract_class_id` is the class the contract was *deployed* with. For upgradeable contracts
+/// which utilize the `ContractInstanceRegistry` this is NOT the class currently executing i.e. the 'current' class.
 #[derive(Deserialize, Eq, Serialize)]
 pub struct ContractInstance {
     pub salt: Field,
     pub deployer: AztecAddress,
-    pub contract_class_id: ContractClassId,
+    pub original_contract_class_id: ContractClassId,
     pub initialization_hash: Field,
     pub immutables_hash: Field,
     pub public_keys: PublicKeys,
@@ -27,7 +34,7 @@ impl ContractInstance {
         AztecAddress::compute(
             self.public_keys,
             PartialAddress::compute(
-                self.contract_class_id,
+                self.original_contract_class_id,
                 self.salt,
                 self.initialization_hash,
                 self.deployer,
@@ -52,7 +59,7 @@ mod test {
         let instance = ContractInstance {
             salt: 6,
             deployer: AztecAddress::from_field(12),
-            contract_class_id: ContractClassId::from_field(13),
+            original_contract_class_id: ContractClassId::from_field(13),
             initialization_hash: 156,
             immutables_hash: 789,
             public_keys: PublicKeys::default(),
