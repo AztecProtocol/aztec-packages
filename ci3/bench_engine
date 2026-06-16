@@ -1,38 +1,28 @@
 #!/usr/bin/env bash
 # Uses strict scheduling to run benchmarks in parallel on their own cpus.
 # For benchmarks that can't be parallelized, runs them one at a time to avoid resource contention.
-# Isolates benchmark CPUs from OS and pins all other processes to non-bench CPUs to avoid interference.
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 
 bench_cmds_file=$1
 
+# Turn hyperthreading off and schedule benches over the bottom half of the logical CPUs
+# (one thread per physical core). Timing-sensitive benches (e.g. the p2p client benches)
+# degrade nonlinearly when a sibling thread on the same physical core runs other work, so
+# we offline the siblings outright. The strict scheduler then pools exactly these physical
+# cores via BENCH_CPU_COUNT.
 function isolate_bench_cpus {
   [ "$CI" -eq 0 ] && return
 
   # CPU layout assumption: physical cores are 0..N/2-1, hyperthreads are N/2..N-1.
   local total_cpus=$(nproc)
-  local total_physical=$((total_cpus / 2))
-  local os_reserve=8
-  local bench_count=$((total_physical - os_reserve))
+  local physical=$((total_cpus / 2))
 
-  # Disable hyperthread siblings of benchmark cores (N/2 .. N/2+bench_count-1).
-  # OS cores' hyperthreads (N/2+bench_count .. N-1) stay on for extra OS capacity.
-  for cpu in $(seq $total_physical $((total_physical + bench_count - 1))); do
+  for cpu in $(seq $physical $((total_cpus - 1))); do
     sudo sh -c "echo 0 > /sys/devices/system/cpu/cpu$cpu/online" 2>/dev/null || true
   done
 
-  # Pin all container processes to OS CPUs so they can't land on benchmark cores.
-  # exec_test's taskset overrides this for each benchmark with its allocated CPUs.
-  local os_cpu_list="$bench_count-$((total_physical - 1)),$((total_physical + bench_count))-$((total_cpus - 1))"
-  echo "Pinning container processes to OS CPUs ($os_cpu_list)..."
-  for pid in $(ps -eo pid= 2>/dev/null); do
-    taskset -apc "$os_cpu_list" $pid &>/dev/null || true
-  done
-
-  export BENCH_CPU_COUNT=$bench_count
-
-  echo "Benchmark CPU isolation: CPUs 0-$((bench_count - 1)) ($bench_count cores, hyperthreads off) for benchmarks."
-  echo "OS CPUs: $os_cpu_list."
+  export BENCH_CPU_COUNT=$physical
+  echo "Benchmark CPU isolation: CPUs 0-$((physical - 1)) ($physical cores, hyperthreads off) for benchmarks."
 }
 
 function unisolate_bench_cpus {
@@ -42,10 +32,6 @@ function unisolate_bench_cpus {
   local total_cpus=$(nproc --all)
   for cpu in $(seq 1 $((total_cpus - 1))); do
     sudo sh -c "echo 1 > /sys/devices/system/cpu/cpu$cpu/online" 2>/dev/null || true
-  done
-  # Unpin all processes (were pinned to OS CPUs during bench).
-  for pid in $(ps -eo pid= 2>/dev/null); do
-    taskset -apc 0-$((total_cpus - 1)) $pid &>/dev/null || true
   done
   echo "All CPUs re-enabled. Online CPUs: $(nproc)"
 }
