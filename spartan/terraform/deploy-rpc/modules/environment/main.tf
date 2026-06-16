@@ -13,9 +13,6 @@ terraform {
 }
 
 locals {
-  # route requests from the same client to the same RPC node in order to have a consisten view of the chain
-  sticky_policy_name = "${var.RELEASE_PREFIX}-rpc-sticky-sessions"
-
   irm_alloy_name      = "${var.RELEASE_PREFIX}-rpc-irm-alloy"
   irm_secret_name     = "${local.irm_alloy_name}-grafana-cloud"
   irm_metric_regex    = "up|kong_http_requests_total|kong_request_latency_ms_bucket|kong_latency_bucket|kong_upstream_target_health"
@@ -86,8 +83,7 @@ module "rpc_gateway" {
   RELEASE_PREFIX     = var.RELEASE_PREFIX
   CONSUMER_NAMESPACE = var.NAMESPACE
 
-  STICKY_SESSIONS_ENABLED    = true
-  STICKY_SESSION_POLICY_NAME = local.sticky_policy_name
+  KONG_TRUSTED_IP_RANGES = ["35.191.0.0/16", "130.211.0.0/22"] # Google LB IP ranges https://docs.cloud.google.com/load-balancing/docs/firewall-rules
 
   ROUTES                            = local.rpc_routes
   CONSUMERS                         = var.CONSUMERS

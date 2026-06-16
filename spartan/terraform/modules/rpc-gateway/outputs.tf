@@ -33,9 +33,9 @@ output "kong_namespace" {
   value       = local.kong_namespace
 }
 
-output "sticky_session_policy_name" {
-  description = "KongUpstreamPolicy name for sticky sessions, or null when disabled."
-  value       = var.STICKY_SESSIONS_ENABLED ? local.sticky_session_policy_name : null
+output "upstream_policy_name" {
+  description = "KongUpstreamPolicy name for RPC upstream balancing, or null when disabled."
+  value       = local.upstream_policy_name
 }
 
 output "metrics_service_name" {
