@@ -58,24 +58,18 @@ export class SimulatorRecorderWrapper implements CircuitSimulator {
     functionName: string,
     callback: C,
   ): Promise<T> {
-    // Start recording circuit execution
-    await this.recorder.start(input, bytecode, contractName, functionName);
-
-    // If callback was provided, we wrap it in a circuit recorder callback wrapper
+    // If a callback was provided, we wrap it so that its oracle calls are recorded. The wrapped callback reads the
+    // active recording lazily, so it picks up the recording opened by record() below.
     const wrappedCallback = this.recorder.wrapCallback(callback);
-    let result: T;
-    try {
-      result = await simulateFn(wrappedCallback as C);
-    } catch (error) {
-      // If an error occurs, we finalize the recording file with the error
-      await this.recorder.finishWithError(error);
-      throw error;
-    }
 
-    // Witness generation is complete so we finish the circuit recorder
-    const recording = await this.recorder.finish();
+    // record() opens a recording for this circuit, runs the simulation within it, and finalizes it. A simulation
+    // failure is re-thrown unchanged, so recorder bookkeeping never masks the underlying error.
+    const { result, recording } = await this.recorder.record(
+      { input, bytecode, circuitName: contractName, functionName },
+      () => simulateFn(wrappedCallback as C),
+    );
 
-    (result as ACIRExecutionResult).oracles = recording?.oracleCalls?.reduce(
+    (result as ACIRExecutionResult).oracles = recording.oracleCalls.reduce(
       (acc, { time, name }) => {
         if (!acc[name]) {
           acc[name] = { times: [] };

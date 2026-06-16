@@ -16,7 +16,6 @@ contract StorageProofTest {
     use crate::storage_proofs::types::Node;
     use crate::storage_proofs::types::StorageSlot;
     use crate::storage_proofs::utils::to_nibbles;
-    use aztec::context::calls::PrivateCall;
     use aztec::macros::functions::external;
     use aztec::macros::functions::internal;
     use aztec::macros::functions::only_self;
@@ -52,12 +51,6 @@ contract StorageProofTest {
     #[deprecated(deny, "Direct invocation of private functions is not supported. You attempted to call verify_storage_proof_path_recursively. See https://docs.aztec.network/errors/6")]
     #[contract_library_method]
     fn verify_storage_proof_path_recursively(num_processed_nodes: u32, num_total_nodes: u32, start_nibble_index: u32, parent_hash: [u64; 4], storage_trie_key_nibbles: [u8; 64], storage_proof_capsule_key: Field) -> ([u64; 4], u32);
-
-    #[no_predicates]
-    #[contract_library_method]
-    fn call_verify_storage_proof_path_recursively(this_address: AztecAddress, num_processed_nodes: u32, num_total_nodes: u32, start_nibble_index: u32, parent_hash: [u64; 4], storage_trie_key_nibbles: [u8; 64], storage_proof_capsule_key: Field) -> PrivateCall<37, 72, ([u64; 4], u32)> {
-        StorageProofTest::at(this_address).verify_storage_proof_path_recursively(num_processed_nodes, num_total_nodes, start_nibble_index, parent_hash, storage_trie_key_nibbles, storage_proof_capsule_key)
-    }
 
     #[contract_library_method]
     fn compute_address_capsule_key(eth_storage_root: [u64; 4], address: EthAddress) -> Field {
@@ -134,7 +127,7 @@ contract StorageProofTest {
             Self { target_contract: AztecAddress::zero()}
         }
 
-        pub fn verify_storage_proof_path_recursively(self, num_processed_nodes: u32, num_total_nodes: u32, start_nibble_index: u32, parent_hash: [u64; 4], storage_trie_key_nibbles: [u8; 64], storage_proof_capsule_key: Field) -> PrivateCall<37, 72, ([u64; 4], u32)> {
+        pub fn verify_storage_proof_path_recursively(self, num_processed_nodes: u32, num_total_nodes: u32, start_nibble_index: u32, parent_hash: [u64; 4], storage_trie_key_nibbles: [u8; 64], storage_proof_capsule_key: Field) -> aztec::context::calls::PrivateCall<37, 72, ([u64; 4], u32)> {
             let mut serialized_params: [Field; 72] = [0_Field; 72];
             let mut offset: u32 = 0_u32;
             let serialized_member: [Field; 1] = num_processed_nodes.serialize();
@@ -174,10 +167,10 @@ contract StorageProofTest {
             };
             offset = offset + serialized_member_len;
             let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(2237949917_Field);
-            PrivateCall::<37, 72, ([u64; 4], u32)>::new(self.target_contract, selector, "verify_storage_proof_path_recursively", serialized_params)
+            aztec::context::calls::PrivateCall::<37, 72, ([u64; 4], u32)>::new(self.target_contract, selector, "verify_storage_proof_path_recursively", serialized_params)
         }
 
-        pub fn storage_proof(self, address: EthAddress, slot_key: [u8; 32], slot_contents: StorageSlot, eth_storage_root: [u64; 4]) -> PrivateCall<13, 70, ()> {
+        pub fn storage_proof(self, address: EthAddress, slot_key: [u8; 32], slot_contents: StorageSlot, eth_storage_root: [u64; 4]) -> aztec::context::calls::PrivateCall<13, 70, ()> {
             let mut serialized_params: [Field; 70] = [0_Field; 70];
             let mut offset: u32 = 0_u32;
             let serialized_member: [Field; 1] = address.serialize();
@@ -205,7 +198,7 @@ contract StorageProofTest {
             };
             offset = offset + serialized_member_len;
             let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(2067008734_Field);
-            PrivateCall::<13, 70, ()>::new(self.target_contract, selector, "storage_proof", serialized_params)
+            aztec::context::calls::PrivateCall::<13, 70, ()>::new(self.target_contract, selector, "storage_proof", serialized_params)
         }
 
         pub fn account_proof(self, account: Account, root: [u64; 4], nodes: [Node; 15], node_length: u32) -> aztec::context::calls::PublicStaticCall<13, 1290, ()> {
@@ -576,7 +569,7 @@ contract StorageProofTest {
         };
         assert(hinted_storage_proof_length > 0_u32, "Storage proof length must be greater than 0");
         let storage_trie_key: [u8; 32] = keccak256(slot_key, 32_u32);
-        let (slot_leaf_hash, slot_nibble_index): ([u64; 4], u32) = call_verify_storage_proof_path_recursively(self.address, 0_u32, hinted_storage_proof_length, 0_u32, hinted_account.storage_hash, to_nibbles(storage_trie_key), storage_proof_capsule_key).call(self.context);
+        let (slot_leaf_hash, slot_nibble_index): ([u64; 4], u32) = StorageProofTest::at(self.address).verify_storage_proof_path_recursively(0_u32, hinted_storage_proof_length, 0_u32, hinted_account.storage_hash, to_nibbles(storage_trie_key), storage_proof_capsule_key).call(self.context);
         assert(slot_leaf_hash == compute_slot_hash(slot_contents, slot_nibble_index, storage_trie_key));
         assert(within_revertible_phase == self.context.in_revertible_phase(), f"Phase change detected on function with phase check. If this is expected, use #[allow_phase_change]");
         self.context.finish()
@@ -659,7 +652,7 @@ contract StorageProofTest {
         let macro__returned__values: ([u64; 4], u32) = if new_num_processed_nodes == num_total_nodes {
             (child_hash, end_nibble_index)
         } else {
-            call_verify_storage_proof_path_recursively(self.address, new_num_processed_nodes, num_total_nodes, end_nibble_index, child_hash, storage_trie_key_nibbles, storage_proof_capsule_key).call(self.context)
+            StorageProofTest::at(self.address).verify_storage_proof_path_recursively(new_num_processed_nodes, num_total_nodes, end_nibble_index, child_hash, storage_trie_key_nibbles, storage_proof_capsule_key).call(self.context)
         };
         let serialized_params: [Field; (4 * 1) + 1] = macro__returned__values.serialize();
         self.context.set_return_hash(serialized_params);
