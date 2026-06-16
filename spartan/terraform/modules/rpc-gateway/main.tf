@@ -13,17 +13,18 @@ terraform {
 }
 
 locals {
-  kong_namespace         = var.KONG_NAMESPACE != "" ? var.KONG_NAMESPACE : "${var.RELEASE_PREFIX}-rpc-kong"
+  kong_namespace         = var.KONG_NAMESPACE != "" ? var.KONG_NAMESPACE : var.CONSUMER_NAMESPACE
   kong_helm_release_name = var.KONG_HELM_RELEASE_NAME != "" ? var.KONG_HELM_RELEASE_NAME : "${var.RELEASE_PREFIX}-rpc-kong"
   kong_ingress_class     = var.KONG_INGRESS_CLASS != "" ? var.KONG_INGRESS_CLASS : "${var.RELEASE_PREFIX}-rpc-kong"
 
-  sticky_session_policy_name   = var.STICKY_SESSION_POLICY_NAME != "" ? var.STICKY_SESSION_POLICY_NAME : "${var.RELEASE_PREFIX}-rpc-sticky-sessions"
+  upstream_policy_name         = "${var.RELEASE_PREFIX}-rpc-upstream-policy"
   frontend_static_ip_name      = var.FRONTEND_STATIC_IP_NAME != "" ? var.FRONTEND_STATIC_IP_NAME : "${var.RELEASE_PREFIX}-rpc-frontend"
   frontend_service_name        = var.FRONTEND_SERVICE_NAME != "" ? var.FRONTEND_SERVICE_NAME : "${local.kong_helm_release_name}-gateway-proxy"
   managed_certificate_name     = var.GCP_MANAGED_CERTIFICATE_NAME != "" ? var.GCP_MANAGED_CERTIFICATE_NAME : "${var.RELEASE_PREFIX}-rpc-cert"
   frontend_backend_config_name = "${var.RELEASE_PREFIX}-rpc-kong-backend"
   frontend_hosts               = toset(flatten([for _, route in var.ROUTES : route.hosts]))
   frontend_load_balancer_ip    = var.FRONTEND_ENABLED && var.FRONTEND_STATIC_IP_ENABLED ? try(google_compute_global_address.frontend[0].address, "") : ""
+  kong_trusted_ips             = concat(var.KONG_TRUSTED_IP_RANGES, var.FRONTEND_ENABLED && var.FRONTEND_STATIC_IP_ENABLED ? [local.frontend_load_balancer_ip] : [])
 
   kong_proxy_service_annotations = merge(
     var.FRONTEND_ENABLED ? {
@@ -87,9 +88,16 @@ resource "helm_release" "kong" {
   values = concat([
     yamlencode({
       gateway = {
-        env = {
-          database = "off"
-        }
+        env = merge(
+          {
+            database          = "off"
+            real_ip_header    = "X-Forwarded-For"
+            real_ip_recursive = "on"
+          },
+          length(local.kong_trusted_ips) > 0 ? {
+            trusted_ips = join(",", local.kong_trusted_ips)
+          } : {}
+        )
         proxy = {
           type                     = var.KONG_PROXY_SERVICE_TYPE
           annotations              = local.kong_proxy_service_annotations
@@ -150,6 +158,9 @@ resource "kubernetes_manifest" "frontend_backend_config" {
         type        = "HTTP"
         requestPath = "/status"
         port        = 8100
+      }
+      customRequestHeaders = {
+        headers = ["X-Forwarded-For:{client_ip_address},{server_ip_address}"]
       }
     }
   }
@@ -536,27 +547,43 @@ resource "kubernetes_manifest" "otel_collector_deployment" {
   ]
 }
 
-resource "kubernetes_manifest" "sticky_session_policy" {
-  for_each = var.STICKY_SESSIONS_ENABLED ? toset(distinct([for _, route in var.ROUTES : route.route_namespace])) : toset([])
+resource "kubernetes_manifest" "upstream_policy" {
+  for_each = toset(distinct([for _, route in var.ROUTES : route.route_namespace]))
 
   manifest = {
     apiVersion = "configuration.konghq.com/v1beta1"
     kind       = "KongUpstreamPolicy"
     metadata = {
-      name      = local.sticky_session_policy_name
+      name      = local.upstream_policy_name
       namespace = each.value
       annotations = {
         "kubernetes.io/ingress.class" = local.kong_ingress_class
       }
     }
     spec = {
-      algorithm = "sticky-sessions"
+      algorithm = "consistent-hashing"
       hashOn = {
-        input = "none"
+        input = "ip"
       }
-      stickySessions = {
-        cookie     = var.STICKY_SESSION_COOKIE_NAME
-        cookiePath = var.STICKY_SESSION_COOKIE_PATH
+      healthchecks = {
+        active = {
+          type        = "http"
+          httpPath    = "/status"
+          timeout     = 3
+          concurrency = 10
+          healthy = {
+            interval     = 10
+            successes    = 1
+            httpStatuses = [200]
+          }
+          unhealthy = {
+            interval     = 5
+            httpFailures = 3
+            tcpFailures  = 3
+            timeouts     = 3
+            httpStatuses = [404, 429, 500, 501, 502, 503, 504, 505]
+          }
+        }
       }
     }
   }
@@ -807,6 +834,6 @@ resource "kubernetes_manifest" "rpc_route" {
   depends_on = [
     kubernetes_manifest.key_auth_plugin,
     kubernetes_manifest.prometheus_plugin,
-    kubernetes_manifest.sticky_session_policy,
+    kubernetes_manifest.upstream_policy,
   ]
 }

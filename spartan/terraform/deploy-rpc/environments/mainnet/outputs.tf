@@ -8,9 +8,9 @@ output "kong_routes" {
   value       = module.environment.kong_routes
 }
 
-output "kong_sticky_session_policy_name" {
-  description = "Kong sticky session policy name, or null when disabled."
-  value       = module.environment.kong_sticky_session_policy_name
+output "kong_upstream_policy_name" {
+  description = "Kong upstream policy name, or null when disabled."
+  value       = module.environment.kong_upstream_policy_name
 }
 
 output "kong_metrics_service" {
