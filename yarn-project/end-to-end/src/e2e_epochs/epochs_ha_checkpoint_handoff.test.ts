@@ -92,12 +92,10 @@ describe('e2e_epochs/epochs_ha_checkpoint_handoff', () => {
     test = await EpochsTestContext.setup({
       initialValidators: validators,
       mockGossipSubNetwork: true,
-      disableAnvilTestWatcher: true,
       startProverNode: false,
       skipInitialSequencer: true,
       aztecEpochDuration: 8,
       aztecProofSubmissionEpochs: 1024,
-      enforceTimeTable: true,
       ethereumSlotDuration: 6,
       aztecSlotDuration: 36,
       blockDurationMs: 8000,

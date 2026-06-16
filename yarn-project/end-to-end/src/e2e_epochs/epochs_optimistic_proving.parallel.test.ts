@@ -219,7 +219,6 @@ describe('e2e_epochs/epochs_optimistic_proving', () => {
         aztecSlotDuration: 36,
         blockDurationMs: 8000,
         minTxsPerBlock: 0,
-        enforceTimeTable: true,
         aztecProofSubmissionEpochs: 1000,
         anvilSlotsInAnEpoch: 32,
         inboxLag: 2,
@@ -363,7 +362,6 @@ describe('e2e_epochs/epochs_optimistic_proving', () => {
         aztecSlotDuration: 36,
         blockDurationMs: 8000,
         minTxsPerBlock: 0,
-        enforceTimeTable: true,
         aztecProofSubmissionEpochs: 1000,
         anvilSlotsInAnEpoch: 32,
       });
@@ -470,7 +468,6 @@ describe('e2e_epochs/epochs_optimistic_proving', () => {
         aztecSlotDuration: 36,
         blockDurationMs: 8000,
         minTxsPerBlock: 0,
-        enforceTimeTable: true,
         aztecProofSubmissionEpochs: 1000,
         anvilSlotsInAnEpoch: 32,
       });
@@ -555,7 +552,6 @@ describe('e2e_epochs/epochs_optimistic_proving', () => {
         aztecSlotDuration: 36,
         blockDurationMs: 8000,
         minTxsPerBlock: 0,
-        enforceTimeTable: true,
         aztecProofSubmissionEpochs: 1000,
         anvilSlotsInAnEpoch: 32,
         inboxLag: 2,
@@ -643,7 +639,6 @@ describe('e2e_epochs/epochs_optimistic_proving', () => {
         aztecSlotDuration: 36,
         blockDurationMs: 8000,
         minTxsPerBlock: 0,
-        enforceTimeTable: true,
         aztecProofSubmissionEpochs: 1000,
         anvilSlotsInAnEpoch: 32,
       });
@@ -777,7 +772,6 @@ describe('e2e_epochs/epochs_optimistic_proving', () => {
         aztecSlotDuration: 36,
         blockDurationMs: 8000,
         minTxsPerBlock: 0,
-        enforceTimeTable: true,
         aztecProofSubmissionEpochs: 1000,
         anvilSlotsInAnEpoch: 32,
       });

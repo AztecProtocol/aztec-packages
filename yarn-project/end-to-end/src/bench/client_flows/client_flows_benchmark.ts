@@ -25,10 +25,15 @@ import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 import { type PXEConfig, getPXEConfig } from '@aztec/pxe/server';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
-import { GasSettings } from '@aztec/stdlib/gas';
+import { Gas, GasSettings } from '@aztec/stdlib/gas';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 
-import { AUTOMINE_E2E_OPTS, MNEMONIC, getPaddedMaxFeesPerGas } from '../../fixtures/fixtures.js';
+import {
+  AUTOMINE_E2E_OPTS,
+  L1_DIRECT_WRITE_ACCOUNT_INDEX,
+  MNEMONIC,
+  getPaddedMaxFeesPerGas,
+} from '../../fixtures/fixtures.js';
 import { type EndToEndContext, type SetupOptions, setup, teardown } from '../../fixtures/setup.js';
 import { mintTokensToPrivate } from '../../fixtures/token_utils.js';
 import { setupSponsoredFPC } from '../../fixtures/utils.js';
@@ -235,7 +240,15 @@ export class ClientFlowsBenchmark {
     this.feeJuiceBridgeTestHarness = await FeeJuicePortalTestingHarnessFactory.create({
       aztecNode: this.context.aztecNodeService,
       aztecNodeAdmin: this.context.aztecNodeService,
-      l1Client: this.context.deployL1ContractsValues.l1Client,
+      // Bridge from a dedicated L1 account so its direct writes don't race the sequencer publisher's
+      // txs on the deployer account (see L1_DIRECT_WRITE_ACCOUNT_INDEX).
+      l1Client: createExtendedL1Client(
+        this.context.config.l1RpcUrls,
+        MNEMONIC,
+        undefined,
+        undefined,
+        L1_DIRECT_WRITE_ACCOUNT_INDEX,
+      ),
       wallet: this.adminWallet,
       logger: this.logger,
     });
@@ -380,7 +393,8 @@ export class ClientFlowsBenchmark {
     // The private fee paying method assembled on the app side requires knowledge of the maximum
     // fee the user is willing to pay
     const maxFeesPerGas = await getPaddedMaxFeesPerGas(this.aztecNode);
-    const gasSettings = GasSettings.fallback({ maxFeesPerGas });
+    const gasLimits = Gas.from((await this.aztecNode.getNodeInfo()).txsLimits.gas);
+    const gasSettings = GasSettings.fallback({ gasLimits, maxFeesPerGas });
     return new PrivateFeePaymentMethod(this.bananaFPC.address, sender, wallet, gasSettings);
   }
 

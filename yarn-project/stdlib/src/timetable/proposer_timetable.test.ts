@@ -1,4 +1,7 @@
 import { SlotNumber } from '@aztec/foundation/branded-types';
+import { createLogger } from '@aztec/foundation/log';
+
+import { jest } from '@jest/globals';
 
 import type { L1RollupConstants } from '../epoch-helpers/index.js';
 import { ProposerTimetable } from './proposer_timetable.js';
@@ -49,7 +52,6 @@ describe('ProposerTimetable', () => {
       minBlockDuration: 2,
       p2pPropagationTime: 2,
       checkpointProposalPrepareTime: 1,
-      enforce: true,
     });
 
     it('derives max_blocks = 10', () => {
@@ -92,7 +94,6 @@ describe('ProposerTimetable', () => {
       minBlockDuration: 1,
       p2pPropagationTime: 0.5,
       checkpointProposalPrepareTime: 0.5,
-      enforce: true,
     });
     const slot = SlotNumber(3);
     const targetSlotStart = 36 * slot;
@@ -117,7 +118,6 @@ describe('ProposerTimetable', () => {
       minBlockDuration: 1,
       p2pPropagationTime: 0.5,
       checkpointProposalPrepareTime: 0.5,
-      enforce: true,
     });
 
     it('derives max_blocks = 3', () => {
@@ -139,7 +139,6 @@ describe('ProposerTimetable', () => {
       minBlockDuration: 2,
       p2pPropagationTime: 2,
       checkpointProposalPrepareTime: 1,
-      enforce: true,
     });
 
     it('selects the first sub-slot at the build frame start', () => {
@@ -192,7 +191,6 @@ describe('ProposerTimetable', () => {
         minBlockDuration: 2,
         p2pPropagationTime: 2,
         checkpointProposalPrepareTime: 1,
-        enforce: true,
       });
 
       it('clamps budgets to the fast profile', () => {
@@ -226,70 +224,6 @@ describe('ProposerTimetable', () => {
       });
     });
   });
-
-  describe('non-enforced mode', () => {
-    const timetable = makeProposerTimetable({
-      l1Constants: l1Constants(72, 12),
-      blockDuration: 6,
-      enforce: false,
-    });
-
-    it('always allows starting a single last block with no deadline', () => {
-      const result = timetable.selectNextSubslot(SlotNumber(5), Number.MAX_SAFE_INTEGER);
-      expect(result.canStart).toBe(true);
-      expect(result.isLastBlock).toBe(true);
-      expect(result.deadline).toBeUndefined();
-    });
-  });
-
-  describe('single-block enforced mode (no blockDuration)', () => {
-    const S = 72;
-    const E = 12;
-    const slot = SlotNumber(5);
-    const targetSlotStart = S * slot;
-
-    const timetable = makeProposerTimetable({
-      l1Constants: l1Constants(S, E),
-      blockDuration: undefined,
-      minBlockDuration: 2,
-      enforce: true,
-    });
-
-    it('reports a single block per checkpoint', () => {
-      expect(timetable.getMaxBlocksPerCheckpoint()).toBe(1);
-    });
-
-    it('splits the remaining time until the attestation deadline between execution and re-execution', () => {
-      const now = targetSlotStart - 20;
-      const attestationDeadline = targetSlotStart + 48;
-      const available = (attestationDeadline - now) / 2;
-      const result = timetable.selectNextSubslot(slot, now);
-      expect(result.canStart).toBe(true);
-      expect(result.isLastBlock).toBe(true);
-      expect(result.deadline).toBe(now + available);
-    });
-
-    it('refuses to start when the split time falls below minD', () => {
-      const attestationDeadline = targetSlotStart + 48;
-      const now = attestationDeadline - 2 * 2 + 0.1; // less than 2*minD remaining
-      const result = timetable.selectNextSubslot(slot, now);
-      expect(result.canStart).toBe(false);
-    });
-
-    it('keeps the start deadline at attestation_deadline - 2*minD (matching selectNextSubslot)', () => {
-      const attestationDeadline = targetSlotStart + 48;
-      expect(timetable.getBuildStartDeadline(slot)).toBe(attestationDeadline - 2 * 2);
-    });
-
-    it('never abandons a slot that selectNextSubslot would still allow to start', () => {
-      // The latest now at which the single-block branch still allows a start: now <= attestationDeadline
-      // - 2*minD. The build-entry gate must not give up before then, so getBuildStartDeadline must be >= it.
-      const startDeadline = timetable.getBuildStartDeadline(slot);
-      expect(timetable.selectNextSubslot(slot, startDeadline).canStart).toBe(true);
-      // Just past the start deadline both must agree the slot is gone.
-      expect(timetable.selectNextSubslot(slot, startDeadline + 0.001).canStart).toBe(false);
-    });
-  });
 });
 
 describe('ProposerTimetable.getMaxBlocksPerCheckpoint', () => {
@@ -299,7 +233,6 @@ describe('ProposerTimetable.getMaxBlocksPerCheckpoint', () => {
       blockDuration: 6,
       p2pPropagationTime: 2,
       checkpointProposalPrepareTime: 1,
-      enforce: true,
     });
     expect(timetable.getMaxBlocksPerCheckpoint()).toBe(10);
   });
@@ -310,7 +243,6 @@ describe('ProposerTimetable.getMaxBlocksPerCheckpoint', () => {
       blockDuration: 6,
       p2pPropagationTime: 0.5,
       checkpointProposalPrepareTime: 0.5,
-      enforce: true,
     });
     expect(timetable.getMaxBlocksPerCheckpoint()).toBe(4);
   });
@@ -321,16 +253,14 @@ describe('ProposerTimetable.getMaxBlocksPerCheckpoint', () => {
       blockDuration: 8,
       p2pPropagationTime: 0.5,
       checkpointProposalPrepareTime: 0.5,
-      enforce: true,
     });
     expect(timetable.getMaxBlocksPerCheckpoint()).toBe(3);
   });
 
-  it('returns 1 for single-block mode', () => {
+  it('can derive one block per checkpoint with a concrete block duration', () => {
     const timetable = makeProposerTimetable({
       l1Constants: l1Constants(72, 12),
-      blockDuration: undefined,
-      enforce: true,
+      blockDuration: 24,
     });
     expect(timetable.getMaxBlocksPerCheckpoint()).toBe(1);
   });
@@ -344,7 +274,6 @@ describe('ProposerTimetable.getMaxBlocksPerCheckpoint', () => {
       blockDuration: 8,
       p2pPropagationTime: 2,
       checkpointProposalPrepareTime: 1,
-      enforce: true,
     });
     expect(timetable.getMaxBlocksPerCheckpoint()).toBe(3);
   });
@@ -356,7 +285,6 @@ describe('ProposerTimetable.getMaxBlocksPerCheckpoint', () => {
       blockDuration: 6,
       p2pPropagationTime: 2,
       checkpointProposalPrepareTime: 1,
-      enforce: true,
     });
     expect(timetable.getMaxBlocksPerCheckpoint()).toBe(4);
   });
@@ -421,7 +349,6 @@ describe('e2e multi-block-per-checkpoint capacity', () => {
       const timetable = makeProposerTimetable({
         l1Constants: l1Constants(S, E),
         blockDuration: D,
-        enforce: true,
         ...budgets,
       });
       const derived = timetable.getMaxBlocksPerCheckpoint();
@@ -429,4 +356,67 @@ describe('e2e multi-block-per-checkpoint capacity', () => {
       expect(derived).toBe(expected);
     },
   );
+});
+
+describe('ProposerTimetable explicit network maxBlocksPerCheckpoint', () => {
+  // Production profile derives 10 locally achievable blocks.
+  const productionOpts = {
+    l1Constants: l1Constants(72, 12),
+    blockDuration: 6,
+    minBlockDuration: 2,
+    p2pPropagationTime: 2,
+    checkpointProposalPrepareTime: 1,
+  };
+
+  it('uses the network value when below the locally computed count', () => {
+    const timetable = makeProposerTimetable({ ...productionOpts, maxBlocksPerCheckpoint: 4 });
+    expect(timetable.getMaxBlocksPerCheckpoint()).toBe(4);
+  });
+
+  it('clamps the network value down to the locally computed count when the network value is higher', () => {
+    const timetable = makeProposerTimetable({ ...productionOpts, maxBlocksPerCheckpoint: 20 });
+    expect(timetable.getMaxBlocksPerCheckpoint()).toBe(10);
+  });
+
+  it('keeps every offered sub-slot build deadline within the last block build time when clamped', () => {
+    const timetable = makeProposerTimetable({ ...productionOpts, maxBlocksPerCheckpoint: 20 });
+    const slot = SlotNumber(5);
+    const effective = timetable.getMaxBlocksPerCheckpoint();
+    expect(timetable.getBlockBuildDeadline(slot, effective - 1)).toBeLessThanOrEqual(
+      timetable.getLastBlockBuildTime(slot),
+    );
+  });
+
+  it('uses the locally computed count when no network value is given', () => {
+    const timetable = makeProposerTimetable(productionOpts);
+    expect(timetable.getMaxBlocksPerCheckpoint()).toBe(10);
+  });
+
+  it('warns when the locally computed count exceeds the network value (clamps down)', () => {
+    const logger = createLogger('test:stdlib:proposer_timetable');
+    const warnSpy = jest.spyOn(logger, 'warn');
+    const timetable = makeProposerTimetable({ ...productionOpts, maxBlocksPerCheckpoint: 4, logger });
+    expect(timetable.getMaxBlocksPerCheckpoint()).toBe(4);
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not warn when the network value is at or above the locally computed count', () => {
+    const logger = createLogger('test:stdlib:proposer_timetable');
+    const warnSpy = jest.spyOn(logger, 'warn');
+    const atComputed = makeProposerTimetable({ ...productionOpts, maxBlocksPerCheckpoint: 10, logger });
+    expect(atComputed.getMaxBlocksPerCheckpoint()).toBe(10);
+    const aboveComputed = makeProposerTimetable({ ...productionOpts, maxBlocksPerCheckpoint: 20, logger });
+    expect(aboveComputed.getMaxBlocksPerCheckpoint()).toBe(10);
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+
+  it('throws when local budgets cannot fit a single block even with an explicit network value', () => {
+    expect(() =>
+      makeProposerTimetable({
+        l1Constants: l1Constants(72, 12),
+        blockDuration: 72,
+        maxBlocksPerCheckpoint: 5,
+      }),
+    ).toThrow(/blocks per checkpoint/);
+  });
 });

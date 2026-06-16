@@ -7,7 +7,7 @@ import { Fr } from '@aztec/aztec.js/fields';
 import { type Logger, createLogger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
-import { AnvilTestWatcher, type AnvilTestWatcherOpts, CheatCodes } from '@aztec/aztec/testing';
+import { CheatCodes } from '@aztec/aztec/testing';
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
 import { isAnvilTestChain } from '@aztec/ethereum/chain';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
@@ -109,6 +109,8 @@ export async function setupSharedBlobStorage(config: { dataDirectory?: string } 
 /**
  * Sets up Private eXecution Environment (PXE) and returns the corresponding test wallet.
  * @param aztecNode - An instance of Aztec Node.
+ * @param nodeDebug - The node's debug API, used to register public function signatures for named traces; pass
+ *   `undefined` when the node does not expose it.
  * @param opts - Partial configuration for the PXE.
  * @param logger - The logger to be used.
  * @param actor - Actor label to include in log output (e.g., 'pxe-test').
@@ -116,6 +118,7 @@ export async function setupSharedBlobStorage(config: { dataDirectory?: string } 
  */
 export async function setupPXEAndGetWallet(
   aztecNode: AztecNode,
+  nodeDebug: AztecNodeDebug | undefined,
   opts: Partial<PXEConfig> = {},
   logger = getLogger(),
   actor?: string,
@@ -136,7 +139,10 @@ export async function setupPXEAndGetWallet(
 
   const teardown = configuredDataDirectory ? () => Promise.resolve() : () => tryRmDir(PXEConfig.dataDirectory!);
 
-  const wallet = await TestWallet.create(aztecNode, PXEConfig, { loggerActorLabel: actor });
+  const wallet = await TestWallet.create(aztecNode, PXEConfig, {
+    loggerActorLabel: actor,
+    nodeDebug,
+  });
 
   return {
     wallet,
@@ -178,9 +184,6 @@ export type SetupOptions = {
   mockGossipSubNetwork?: boolean;
   /** Whether to add simulated latency to the mock gossipsub network (in ms) */
   mockGossipSubNetworkLatency?: number;
-  /** Whether to disable the anvil test watcher (can still be manually started) */
-  disableAnvilTestWatcher?: boolean;
-  anvilTestWatcherOpts?: AnvilTestWatcherOpts;
   /** Whether to enable anvil automine during deployment of L1 contracts (consider defaulting this to true). */
   automineL1Setup?: boolean;
   /** How many accounts to seed and unlock in anvil. */
@@ -249,8 +252,6 @@ export type EndToEndContext = {
   cheatCodes: CheatCodes;
   /** The cheat codes for L1 */
   ethCheatCodes: EthCheatCodes;
-  /** The anvil test watcher. */
-  watcher: AnvilTestWatcher;
   /** Allows tweaking current system time, used by the epoch cache only. */
   dateProvider: TestDateProvider;
   /** Telemetry client */
@@ -325,8 +326,6 @@ export async function setup(
     config.maxPendingTxCount = opts.maxPendingTxCount ?? TEST_MAX_PENDING_TX_POOL_COUNT;
     // For tests we only want proving enabled if specifically requested
     config.realProofs = !!opts.realProofs;
-    // Only enforce the time table if requested
-    config.enforceTimeTable = !!opts.enforceTimeTable;
     // Enable the tx delayer for tests (default config has it disabled, so we force-enable it here)
     config.enableDelayer = true;
     config.listenAddress = '127.0.0.1';
@@ -482,25 +481,14 @@ export async function setup(
     }
 
     // In compose mode (no local anvil), sync dateProvider to L1 time since it may have drifted
-    // ahead of system time due to the local-network watcher warping time forward on each filled slot.
-    // When running with a local anvil, the dateProvider is kept in sync via the stdout listener.
+    // ahead of system time. When running with a local anvil, the dateProvider is kept in sync via
+    // the stdout listener.
     if (!anvil) {
       dateProvider.setTime((await ethCheatCodes.lastBlockTimestamp()) * 1000);
     }
 
     if (opts.l2StartTime) {
       await ethCheatCodes.warp(opts.l2StartTime, { resetBlockInterval: true });
-    }
-
-    const watcher = new AnvilTestWatcher(
-      new EthCheatCodesWithState(config.l1RpcUrls, dateProvider),
-      deployL1ContractsValues.l1ContractAddresses.rollupAddress,
-      deployL1ContractsValues.l1Client,
-      dateProvider,
-      opts.anvilTestWatcherOpts,
-    );
-    if (!opts.disableAnvilTestWatcher) {
-      await watcher.start();
     }
 
     // Use metricsPort-based telemetry if provided, otherwise use the regular telemetry client
@@ -538,10 +526,20 @@ export async function setup(
     if (originalMinTxsPerBlock === undefined) {
       throw new Error('minTxsPerBlock is undefined in e2e test setup');
     }
+    const originalBuildCheckpointIfEmpty = config.buildCheckpointIfEmpty ?? false;
 
     // Allow an empty checkpoint so the empty block can be built; leave untouched when not advancing.
     const advancePastGenesis = (opts.advancePastGenesis ?? true) && !opts.skipInitialSequencer;
     config.minTxsPerBlock = advancePastGenesis ? 0 : originalMinTxsPerBlock;
+    // Pipelining is always on: the proposer builds during slot N-1 for slot N. A tx submitted at slot N
+    // start arrives after that build, so forcing minTxsPerBlock=1 would stall the chain on alternating
+    // slots -- hence empty checkpoints are allowed (minTxsPerBlock=0) while advancing past genesis.
+    // Automine is unaffected: its runBuild clamps mempool builds to Math.max(minTxsPerBlock ?? 1, 1) and
+    // still requires minValidTxs: 1.
+    const shouldTemporarilyBuildEmptyCheckpoints = advancePastGenesis && config.useAutomineSequencer !== true;
+    if (shouldTemporarilyBuildEmptyCheckpoints) {
+      config.buildCheckpointIfEmpty = true;
+    }
 
     config.p2pEnabled = opts.mockGossipSubNetwork || config.p2pEnabled;
     config.p2pIp = opts.p2pIp ?? config.p2pIp ?? '127.0.0.1';
@@ -606,6 +604,8 @@ export async function setup(
     pxeConfig.proverEnabled = !!pxeOpts.proverEnabled;
     const wallet = await TestWallet.create(aztecNodeService, pxeConfig, {
       loggerActorLabel: 'pxe-0',
+      // In-process node implements the debug API, so register public function signatures for named traces.
+      nodeDebug: aztecNodeService,
       ...opts.pxeCreationOptions,
     });
 
@@ -660,8 +660,15 @@ export async function setup(
     }
 
     // Now we restore the original minTxsPerBlock setting if we changed it.
-    if (sequencerClient && config.minTxsPerBlock !== originalMinTxsPerBlock) {
-      sequencerClient.getSequencer().updateConfig({ minTxsPerBlock: originalMinTxsPerBlock });
+    if (sequencerClient) {
+      const sequencer = sequencerClient.getSequencer();
+      if (config.minTxsPerBlock !== originalMinTxsPerBlock) {
+        sequencer.updateConfig({ minTxsPerBlock: originalMinTxsPerBlock });
+      }
+      if (shouldTemporarilyBuildEmptyCheckpoints) {
+        sequencer.updateConfig({ buildCheckpointIfEmpty: originalBuildCheckpointIfEmpty });
+        config.buildCheckpointIfEmpty = originalBuildCheckpointIfEmpty;
+      }
     }
 
     const teardown = async () => {
@@ -678,7 +685,6 @@ export async function setup(
           await bbConfig.cleanup();
         }
 
-        await tryStop(watcher, logger);
         await tryStop(anvil, logger);
 
         await tryRmDir(directoryToCleanup, logger);
@@ -716,7 +722,6 @@ export async function setup(
       telemetryClient,
       wallet,
       accounts,
-      watcher,
       acvmConfig,
       bbConfig,
       directoryToCleanup,

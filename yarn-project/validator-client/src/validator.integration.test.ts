@@ -185,6 +185,7 @@ describe('ValidatorClient Integration', () => {
         l1ChainId: chainId.toNumber(),
         validatorPrivateKeys: new SecretValue([privateKey]),
         attestationPollingIntervalMs: 100,
+        blockDurationMs: 3000,
         disableValidator: false,
         disabledValidators: [],
         slashBroadcastedInvalidBlockPenalty: 10n,

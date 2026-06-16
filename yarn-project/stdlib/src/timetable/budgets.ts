@@ -1,3 +1,6 @@
+/** Default block sub-slot duration (`D`) in seconds, used to derive how many blocks fit in a slot. */
+export const DEFAULT_BLOCK_DURATION = 3;
+
 /** Default minimum block-building duration (`min_block_duration`) in seconds. */
 export const DEFAULT_MIN_BLOCK_DURATION = 2;
 
@@ -49,8 +52,8 @@ export type ResolvedTimingBudgets = {
 };
 
 /** Default consensus grace for received checkpoint proposals to materialize locally. */
-export function getDefaultCheckpointProposalSyncGrace(blockDuration: number | undefined): number {
-  return 2 * (blockDuration ?? DEFAULT_MIN_BLOCK_DURATION);
+export function getDefaultCheckpointProposalSyncGrace(blockDuration: number): number {
+  return 2 * blockDuration;
 }
 
 /**

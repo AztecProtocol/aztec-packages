@@ -25,10 +25,10 @@ import { ProposalValidator } from './proposal_validator.js';
 const TEST_CLOCK_DISPARITY_MS = 500;
 
 /** Builds a multi-block timetable (S=72, E=12, D=6) matching the test's mocked l1 constants. */
-function makeTimetable(blockDurationMs: number | undefined = 6000) {
+function makeTimetable(blockDurationMs = 6000) {
   return new ConsensusTimetable({
     l1Constants: { l1GenesisTime: 0n, slotDuration: 72, ethereumSlotDuration: 12 },
-    blockDuration: blockDurationMs !== undefined ? blockDurationMs / 1000 : undefined,
+    blockDuration: blockDurationMs / 1000,
   });
 }
 
@@ -371,38 +371,6 @@ describe('ProposalValidator', () => {
       const result = await validator.validate(proposal);
       expect(result).toEqual({ result: 'reject', severity: PeerErrorSeverity.HighToleranceError });
     });
-
-    it('does not throw and accepts a checkpoint proposal in single-block mode (no blockDuration)', async () => {
-      // Single-block mode: blockDuration undefined → receive deadline drops the D term to
-      // target_slot_start - E = 7188s. Window [7116, 7188]; now = 7150 is inside.
-      validator = new ProposalValidator(
-        epochCache,
-        makeTimetable(undefined),
-        {
-          txsPermitted: true,
-          signatureContext: TEST_COORDINATION_SIGNATURE_CONTEXT,
-          clockDisparityMs: TEST_CLOCK_DISPARITY_MS,
-        },
-        'test',
-      );
-      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
-
-      const proposal = await makeCheckpointProposal({
-        checkpointHeader: makeCheckpointHeader(0, { slotNumber: currentSlot }),
-        signer,
-      });
-
-      epochCache.getEpochAndSlotNow.mockReturnValue({
-        epoch: EpochNumber(1),
-        slot: currentSlot,
-        ts: 7150n,
-        nowMs: 7150_000n,
-      });
-
-      // validate must not throw in single-block mode (the receive deadline drops the D term instead of
-      // calling the old requireBlockDuration); a thrown error would fail this await directly.
-      await expect(validator.validate(proposal)).resolves.toEqual({ result: 'accept' });
-    });
   });
 
   describe('clock-disparity widening of the proposal receive window', () => {
@@ -586,10 +554,32 @@ describe('ProposalValidator', () => {
       epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
     });
 
-    it('rejects a block proposal whose indexWithinCheckpoint equals the cap (5 >= 5)', async () => {
+    it('accepts a block proposal whose indexWithinCheckpoint equals the consensus cap (5 >= 5) as slashing evidence', async () => {
+      // Over the consensus limit but below the hard attestable ceiling: structurally valid proposer
+      // misbehavior, so gossip validation accepts it for retention/re-broadcast rather than rejecting.
       const proposal = await makeBlockProposal({
         blockHeader: makeBlockHeader(0, { slotNumber: currentSlot }),
         indexWithinCheckpoint: IndexWithinCheckpoint(5),
+        signer,
+      });
+      const result = await validator.validate(proposal);
+      expect(result).toEqual({ result: 'accept' });
+    });
+
+    it('accepts a block proposal at an over-consensus index well within the attestable ceiling', async () => {
+      const proposal = await makeBlockProposal({
+        blockHeader: makeBlockHeader(0, { slotNumber: currentSlot }),
+        indexWithinCheckpoint: IndexWithinCheckpoint(MAX_ATTESTABLE_BLOCKS_PER_CHECKPOINT - 1),
+        signer,
+      });
+      const result = await validator.validate(proposal);
+      expect(result).toEqual({ result: 'accept' });
+    });
+
+    it('rejects a block proposal at the hard attestable ceiling even with a lower consensus cap', async () => {
+      const proposal = await makeBlockProposal({
+        blockHeader: makeBlockHeader(0, { slotNumber: currentSlot }),
+        indexWithinCheckpoint: IndexWithinCheckpoint(MAX_ATTESTABLE_BLOCKS_PER_CHECKPOINT),
         signer,
       });
       const result = await validator.validate(proposal);

@@ -16,6 +16,7 @@ import { submitTransactions } from './shared.js';
 const NUM_VALIDATORS = 4;
 const NUM_TXS_PER_NODE = 2;
 const BOOT_NODE_UDP_PORT = 4500;
+const BLOCK_DURATION_MS = 10_000;
 
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'rediscovery-'));
 
@@ -34,6 +35,7 @@ describe('e2e_p2p_rediscovery', () => {
       initialConfig: {
         ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
         aztecSlotDuration: 24,
+        blockDurationMs: BLOCK_DURATION_MS,
         listenAddress: '127.0.0.1',
         inboxLag: 2,
       },
@@ -100,8 +102,7 @@ describe('e2e_p2p_rediscovery', () => {
     }
     nodes = newNodes;
 
-    // wait a bit for peers to discover each other
-    await sleep(2000);
+    await t.waitForP2PMeshConnectivity(newNodes, NUM_VALIDATORS, 120);
 
     for (const node of newNodes) {
       const txs = await submitTransactions(t.logger, node, NUM_TXS_PER_NODE, t.fundedAccount);

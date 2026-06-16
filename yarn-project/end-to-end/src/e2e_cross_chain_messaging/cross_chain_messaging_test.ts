@@ -40,6 +40,7 @@ export class CrossChainMessagingTest {
   private setupOptions: SetupOptions;
   private deployL1ContractsArgs: Partial<DeployAztecL1ContractsArgs>;
   private pxeOpts: Partial<PXEConfig>;
+  private l1HarnessAccountIndex?: number;
   logger: Logger;
   context!: EndToEndContext;
   aztecNode!: AztecNode;
@@ -65,10 +66,10 @@ export class CrossChainMessagingTest {
   /**
    * Background loop that marks each completed epoch as proven on L1. Started in `applyBaseSetup`
    * when the test runs without a real prover node, because the e2e fixture uses L1 interval mining
-   * and the AnvilTestWatcher's auto-prove loop only runs under L1 automine. Without this, L1's
-   * `aztecProofSubmissionEpochs` window expires mid-test and triggers a chain prune that drops
-   * in-flight wallet txs. Tests that intentionally pause proving (e.g. inbox drift tests) can
-   * stop it via `await t.epochTestSettler?.stop()`.
+   * and nothing marks blocks proven automatically. Without this, L1's `aztecProofSubmissionEpochs`
+   * window expires mid-test and triggers a chain prune that drops in-flight wallet txs. Tests that
+   * intentionally pause proving (e.g. inbox drift tests) can stop it via
+   * `await t.epochTestSettler?.stop()`.
    */
   epochTestSettler?: EpochTestSettler;
 
@@ -79,6 +80,7 @@ export class CrossChainMessagingTest {
     opts: SetupOptions = {},
     deployL1ContractsArgs: Partial<DeployAztecL1ContractsArgs> = {},
     pxeOpts: Partial<PXEConfig> = {},
+    l1HarnessAccountIndex?: number,
   ) {
     this.logger = createLogger(`e2e:e2e_cross_chain_messaging:${testName}`);
     this.setupOptions = opts;
@@ -87,6 +89,7 @@ export class CrossChainMessagingTest {
       ...deployL1ContractsArgs,
     };
     this.pxeOpts = pxeOpts;
+    this.l1HarnessAccountIndex = l1HarnessAccountIndex;
     this.requireEpochProven = opts.startProverNode ?? false;
   }
 
@@ -155,14 +158,11 @@ export class CrossChainMessagingTest {
     this.deployL1ContractsValues = this.context.deployL1ContractsValues;
     this.aztecNodeAdmin = this.context.aztecNodeService;
 
-    if (this.requireEpochProven) {
-      // Turn off the watcher to prevent it from keep marking blocks as proven.
-      this.context.watcher.setIsMarkingAsProven(false);
-    } else {
+    if (!this.requireEpochProven) {
       // When no real prover is running, the L1 proof window (aztecProofSubmissionEpochs) would
-      // otherwise expire mid-test and trigger a chain prune. The AnvilTestWatcher's auto-prove
-      // loop is dormant under L1 interval mining (it gates on `isAutoMining`), so start an
-      // EpochTestSettler to mark each completed epoch as proven on L1.
+      // otherwise expire mid-test and trigger a chain prune. The e2e fixture runs L1 on interval
+      // mining and nothing marks blocks proven automatically, so start an EpochTestSettler to mark
+      // each completed epoch as proven on L1.
       this.epochTestSettler = new EpochTestSettler(
         this.context.ethCheatCodes,
         this.context.deployL1ContractsValues.l1ContractAddresses.rollupAddress,
@@ -180,18 +180,24 @@ export class CrossChainMessagingTest {
 
     await ensureAuthRegistryPublished(this.wallet, this.ownerAddress);
 
-    this.l1Client = createExtendedL1Client(this.aztecNodeConfig.l1RpcUrls, MNEMONIC);
+    const harnessL1Client = createExtendedL1Client(
+      this.aztecNodeConfig.l1RpcUrls,
+      MNEMONIC,
+      undefined,
+      undefined,
+      this.l1HarnessAccountIndex,
+    );
 
-    const underlyingERC20Address = await deployL1Contract(this.l1Client, TestERC20Abi, TestERC20Bytecode, [
+    const underlyingERC20Address = await deployL1Contract(harnessL1Client, TestERC20Abi, TestERC20Bytecode, [
       'Underlying',
       'UND',
-      this.l1Client.account.address,
+      harnessL1Client.account.address,
     ]).then(({ address }) => address);
 
     this.logger.verbose(`Setting up cross chain harness...`);
     this.crossChainTestHarness = await CrossChainTestHarness.new(
       this.aztecNode,
-      this.l1Client,
+      harnessL1Client,
       this.wallet,
       this.ownerAddress,
       this.logger,
@@ -225,7 +231,7 @@ export class CrossChainMessagingTest {
       this.ethAccount,
       tokenPortalAddress,
       crossChainContext.underlying,
-      l1Client,
+      harnessL1Client,
       pickL1ContractAddresses(this.aztecNodeConfig),
       this.wallet,
       this.ownerAddress,

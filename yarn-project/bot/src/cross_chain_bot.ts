@@ -31,6 +31,7 @@ import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { TestContract } from '@aztec/noir-test-contracts.js/Test';
+import type { BlockTag } from '@aztec/stdlib/block';
 import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import type { EmbeddedWallet } from '@aztec/wallets/embedded';
 
@@ -60,6 +61,7 @@ export class CrossChainBot extends BaseBot {
     private readonly rollupVersion: bigint,
     private readonly store: BotStore,
     config: BotConfig,
+    private readonly syncChainTip?: BlockTag,
   ) {
     super(node, wallet, defaultAccountAddress, config);
   }
@@ -70,11 +72,12 @@ export class CrossChainBot extends BaseBot {
     aztecNode: AztecNode,
     aztecNodeAdmin: AztecNodeAdmin | undefined,
     store: BotStore,
+    syncChainTip?: BlockTag,
   ): Promise<CrossChainBot> {
     if (config.followChain === 'NONE') {
       throw new Error(`CrossChainBot requires followChain to be set (got NONE)`);
     }
-    const factory = new BotFactory(config, wallet, store, aztecNode, aztecNodeAdmin);
+    const factory = new BotFactory(config, wallet, store, aztecNode, aztecNodeAdmin, syncChainTip);
     const { defaultAccountAddress, contract, l1Client, rollupVersion } = await factory.setupCrossChain();
     const l1Recipient = EthAddress.fromString(l1Client.account!.address);
     const { l1ContractAddresses } = await aztecNode.getNodeInfo();
@@ -90,6 +93,7 @@ export class CrossChainBot extends BaseBot {
       rollupVersion,
       store,
       config,
+      syncChainTip,
     );
   }
 
@@ -176,7 +180,7 @@ export class CrossChainBot extends BaseBot {
   ): Promise<PendingL1ToL2Message | undefined> {
     const now = Date.now();
     for (const msg of pendingMessages) {
-      const ready = await isL1ToL2MessageReady(this.node, Fr.fromHexString(msg.msgHash));
+      const ready = await isL1ToL2MessageReady(this.node, Fr.fromHexString(msg.msgHash), this.syncChainTip);
       if (ready) {
         return msg;
       }

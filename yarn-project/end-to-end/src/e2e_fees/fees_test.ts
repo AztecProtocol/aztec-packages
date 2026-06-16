@@ -18,12 +18,12 @@ import { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
 import { CounterContract } from '@aztec/noir-test-contracts.js/Counter';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
-import { GasSettings } from '@aztec/stdlib/gas';
+import { Gas, GasSettings } from '@aztec/stdlib/gas';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
 import { getContract } from 'viem';
 
-import { MNEMONIC, getPaddedMaxFeesPerGas } from '../fixtures/fixtures.js';
+import { L1_DIRECT_WRITE_ACCOUNT_INDEX, MNEMONIC, getPaddedMaxFeesPerGas } from '../fixtures/fixtures.js';
 import {
   type EndToEndContext,
   type SetupOptions,
@@ -129,10 +129,6 @@ export class FeesTest {
     await teardown(this.context);
   }
 
-  setIsMarkingAsProven(b: boolean) {
-    this.context.watcher.setIsMarkingAsProven(b);
-  }
-
   async catchUpProvenChain() {
     const bn = await this.aztecNode.getBlockNumber();
     while ((await this.aztecNode.getBlockNumber('proven')) < bn) {
@@ -192,6 +188,7 @@ export class FeesTest {
     this.aztecNode = this.context.aztecNodeService;
     this.aztecNodeAdmin = this.context.aztecNodeService;
     this.gasSettings = GasSettings.fallback({
+      gasLimits: Gas.from((await this.aztecNode.getNodeInfo()).txsLimits.gas),
       maxFeesPerGas: await getPaddedMaxFeesPerGas(this.aztecNode),
     });
     this.cheatCodes = this.context.cheatCodes;
@@ -216,7 +213,15 @@ export class FeesTest {
     this.feeJuiceBridgeTestHarness = await FeeJuicePortalTestingHarnessFactory.create({
       aztecNode: this.context.aztecNodeService,
       aztecNodeAdmin: this.context.aztecNodeService,
-      l1Client: this.context.deployL1ContractsValues.l1Client,
+      // Bridge from a dedicated L1 account so its direct writes don't race the sequencer publisher's
+      // txs on the deployer account (see L1_DIRECT_WRITE_ACCOUNT_INDEX).
+      l1Client: createExtendedL1Client(
+        this.context.config.l1RpcUrls,
+        MNEMONIC,
+        undefined,
+        undefined,
+        L1_DIRECT_WRITE_ACCOUNT_INDEX,
+      ),
       wallet: this.wallet,
       logger: this.logger,
     });

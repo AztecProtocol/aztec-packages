@@ -177,7 +177,6 @@ log "Starting Aztec node on port 8080..."
     ETHEREUM_SLOT_DURATION=5 \
     AZTEC_SLOT_DURATION=5 \
     AZTEC_EPOCH_DURATION=4 \
-    SEQ_ENFORCE_TIME_TABLE=false \
     LOG_LEVEL=info \
     node --no-warnings ./aztec/dest/bin/index.js start \
         --local-network \

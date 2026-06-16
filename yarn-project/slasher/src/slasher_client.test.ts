@@ -9,12 +9,16 @@ import { DateProvider } from '@aztec/foundation/timer';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
 import { type Offense, OffenseType, type ProposerSlashAction } from '@aztec/stdlib/slashing';
+import { Metrics } from '@aztec/telemetry-client';
+import { BenchmarkTelemetryClient } from '@aztec/telemetry-client/bench';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mockDeep } from 'jest-mock-extended';
 import assert from 'node:assert';
+import type { Hex } from 'viem';
 
 import { DefaultSlasherConfig } from './config.js';
+import { SlasherMetrics } from './metrics.js';
 import { SlasherClient, type SlasherSettings } from './slasher_client.js';
 import { SlasherOffensesStore } from './stores/offenses_store.js';
 import { DummyWatcher } from './test/dummy_watcher.js';
@@ -31,6 +35,7 @@ describe('SlasherClient', () => {
   let dateProvider: DateProvider;
   let logger: Logger;
   let mockEpochCache: MockProxy<EpochCache>;
+  let telemetryClient: BenchmarkTelemetryClient;
 
   let committee: EthAddress[];
 
@@ -123,6 +128,7 @@ describe('SlasherClient', () => {
     dummyWatcher = new DummyWatcher();
     dateProvider = new DateProvider();
     logger = createLogger('test');
+    telemetryClient = new BenchmarkTelemetryClient();
     committee = times(settings.targetCommitteeSize, i => EthAddress.fromNumber(i + 1));
 
     // Create mock EpochCache
@@ -179,6 +185,7 @@ describe('SlasherClient', () => {
       dateProvider,
       offensesStore,
       logger,
+      new SlasherMetrics(telemetryClient),
     );
   });
 
@@ -188,6 +195,20 @@ describe('SlasherClient', () => {
   });
 
   describe('getProposerActions', () => {
+    describe('round execution metrics', () => {
+      it('records a metric when a slashing round is executed', async () => {
+        rollup.getSlashEvents.mockResolvedValue([]);
+
+        await slasherClient.handleRoundExecuted(7n, 2n, '0x1');
+
+        const metric = telemetryClient
+          .getMeters()
+          .flatMap(meter => meter.metrics)
+          .find(metric => metric.name === Metrics.SLASHER_ROUND_EXECUTED_COUNT.name);
+        expect(metric?.points.map(point => point.value)).toEqual([0, 1]);
+      });
+    });
+
     describe('vote-offenses', () => {
       it('should return vote-offenses action when offenses are available for the target round', async () => {
         // Round 5 votes on round 3 (offset of 2)
@@ -1093,6 +1114,10 @@ describe('SlasherClient', () => {
 
 // Test helper class that exposes protected methods for testing
 class TestSlasherClient extends SlasherClient {
+  public override handleRoundExecuted(round: bigint, slashCount: bigint, l1BlockHash: Hex): Promise<void> {
+    return super.handleRoundExecuted(round, slashCount, l1BlockHash);
+  }
+
   public override handleNewRound(round: bigint): Promise<void> {
     return super.handleNewRound(round);
   }

@@ -132,9 +132,6 @@ export class FullProverTest {
 
     this.logger.info(`Enabling proving`, { realProofs: this.realProofs });
 
-    // We don't wish to mark as proven automatically, so we set the flag to false
-    this.context.watcher.setIsMarkingAsProven(false);
-
     this.simulatedProverAztecNode = this.context.proverNode!;
     ({
       aztecNode: this.aztecNode,
@@ -180,6 +177,7 @@ export class FullProverTest {
     this.logger.verbose(`Main setup completed, initializing full prover PXE, Node, and Prover Node`);
     const { wallet: provenWallet, teardown: provenTeardown } = await setupPXEAndGetWallet(
       this.aztecNode,
+      this.context.aztecNode,
       { proverEnabled: this.realProofs },
       undefined,
       'pxe-proven',

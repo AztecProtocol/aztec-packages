@@ -110,7 +110,7 @@ environment:
 
 ## Creating and uploading snapshots
 
-You can create snapshots of your node's state for backup purposes or to share with other nodes. This is done by calling the `nodeAdmin_startSnapshotUpload` method on the node admin API.
+You can create snapshots of your node's state for backup purposes or to share with other nodes. This is done by calling the `aztecAdmin_startSnapshotUpload` method on the node admin API.
 
 ### How snapshot upload works
 
@@ -132,7 +132,7 @@ Use the node admin API to trigger a snapshot upload. You can upload to Google Cl
 docker exec -it aztec-node curl -XPOST http://localhost:8880 \
   -H 'Content-Type: application/json' \
   -d '{
-    "method": "nodeAdmin_startSnapshotUpload",
+    "method": "aztecAdmin_startSnapshotUpload",
     "params": ["gs://your-bucket/snapshots/"],
     "id": 1,
     "jsonrpc": "2.0"
@@ -144,7 +144,7 @@ docker exec -it aztec-node curl -XPOST http://localhost:8880 \
 docker exec -it aztec-node curl -XPOST http://localhost:8880 \
   -H 'Content-Type: application/json' \
   -d '{
-    "method": "nodeAdmin_startSnapshotUpload",
+    "method": "aztecAdmin_startSnapshotUpload",
     "params": ["s3://your-bucket/snapshots/"],
     "id": 1,
     "jsonrpc": "2.0"
@@ -156,7 +156,7 @@ docker exec -it aztec-node curl -XPOST http://localhost:8880 \
 docker exec -it aztec-node curl -XPOST http://localhost:8880 \
   -H 'Content-Type: application/json' \
   -d '{
-    "method": "nodeAdmin_startSnapshotUpload",
+    "method": "aztecAdmin_startSnapshotUpload",
     "params": ["s3://your-bucket/snapshots/?endpoint=https://[ACCOUNT_ID].r2.cloudflarestorage.com"],
     "id": 1,
     "jsonrpc": "2.0"
@@ -209,7 +209,7 @@ To verify your sync configuration is working:
 
 ### Snapshot upload fails
 
-**Issue**: The `nodeAdmin_startSnapshotUpload` command returns an error.
+**Issue**: The `aztecAdmin_startSnapshotUpload` command returns an error.
 
 **Solutions**:
 - Verify storage credentials are properly configured (Google Cloud, AWS, or Cloudflare R2)

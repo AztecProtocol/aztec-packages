@@ -131,6 +131,9 @@ export class TxPoolIndices {
     meta.minedL2BlockId = blockId;
     // Safe to call unconditionally - removeFromPendingIndices is idempotent
     this.#removeFromPendingIndices(meta);
+    // A mined tx supersedes any protection: drop the stale entry so it can't linger in the map and
+    // be matched by later protection scans.
+    this.#protectedTransactions.delete(meta.txHash);
   }
 
   /** Clears the mined status from a transaction */
@@ -314,6 +317,15 @@ export class TxPoolIndices {
       }
     }
     return result;
+  }
+
+  /**
+   * From the given hashes, returns those whose protection is recorded at exactly the given slot.
+   * Used to release the protections a single block proposal created without disturbing entries a
+   * later proposal raised to a higher slot via updateProtection.
+   */
+  findProtectedTxsAtSlot(txHashes: string[], slotNumber: SlotNumber): string[] {
+    return txHashes.filter(txHash => this.#protectedTransactions.get(txHash) === slotNumber);
   }
 
   /** Filters out transactions that are currently protected */

@@ -210,16 +210,13 @@ describe('Archiver misc', () => {
   describe('isPruneDueAtSlot', () => {
     /**
      * Builds a fake L2Tips. `pending` is the L1-confirmed pending checkpoint (= `tips.checkpointed`
-     * in production). `proposedCheckpoint` is set to `pending + 1` to catch any implementation that
-     * accidentally reads the local-optimistic proposed checkpoint instead of the L1-confirmed one.
+     * in production).
      */
     function makeTips(pending: CheckpointNumber, proven: CheckpointNumber): L2Tips {
       const block = { number: BlockNumber(0), hash: '0x' };
       const tip = (n: CheckpointNumber) => ({ block, checkpoint: { number: n, hash: '0x' } });
-      const proposedAhead = CheckpointNumber(Number(pending) + 1);
       return {
         proposed: block,
-        proposedCheckpoint: tip(proposedAhead),
         checkpointed: tip(pending),
         proven: tip(proven),
         finalized: tip(proven),

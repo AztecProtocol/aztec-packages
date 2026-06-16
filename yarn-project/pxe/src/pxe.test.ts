@@ -23,7 +23,7 @@ import {
 } from '@aztec/stdlib/block';
 import { emptyChainConfig } from '@aztec/stdlib/config';
 import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
-import type { AztecNode, BlockResponse } from '@aztec/stdlib/interfaces/client';
+import type { AztecNode, AztecNodeDebug, BlockResponse } from '@aztec/stdlib/interfaces/client';
 import {
   randomContractArtifact,
   randomContractInstanceWithAddress,
@@ -43,10 +43,12 @@ describe('PXE', () => {
   let pxe: PXE;
   let kvStore: AztecLMDBStoreV2;
   let node: MockProxy<AztecNode>;
+  let nodeDebug: MockProxy<AztecNodeDebug>;
 
   beforeAll(async () => {
     kvStore = await openTmpStore('test');
     node = mock<AztecNode>();
+    nodeDebug = mock<AztecNodeDebug>();
     const simulator = new WASMSimulator();
     const kernelProver = new BBBundlePrivateKernelProver(simulator);
     const protocolContractsProvider = new BundledProtocolContractsProvider();
@@ -95,10 +97,12 @@ describe('PXE', () => {
         multiCallEntrypoint: await AztecAddress.random(),
       },
       realProofs: true,
+      txsLimits: { gas: { daGas: 117_668, l2Gas: 6_540_000 } },
     });
 
     pxe = await PXE.create({
       node,
+      nodeDebug,
       store: kvStore,
       proofCreator: kernelProver,
       simulator,
@@ -201,11 +205,11 @@ describe('PXE', () => {
 
   it('does not call registerContractFunctionSignatures for contracts without public functions', async () => {
     const { artifact, instance } = await randomDeployedContract();
-    node.registerContractFunctionSignatures.mockClear();
+    nodeDebug.registerContractFunctionSignatures.mockClear();
 
     await pxe.registerContract({ artifact, instance });
 
-    expect(node.registerContractFunctionSignatures).not.toHaveBeenCalled();
+    expect(nodeDebug.registerContractFunctionSignatures).not.toHaveBeenCalled();
   });
 
   it('calls registerContractFunctionSignatures for contracts with public functions', async () => {
@@ -226,11 +230,11 @@ describe('PXE', () => {
     ];
     const contractClass = await getContractClassFromArtifact(artifact);
     const instance = await randomContractInstanceWithAddress({ contractClassId: contractClass.id });
-    node.registerContractFunctionSignatures.mockClear();
+    nodeDebug.registerContractFunctionSignatures.mockClear();
 
     await pxe.registerContract({ artifact, instance });
 
-    expect(node.registerContractFunctionSignatures).toHaveBeenCalledWith(['my_public_fn()']);
+    expect(nodeDebug.registerContractFunctionSignatures).toHaveBeenCalledWith(['my_public_fn()']);
   });
 
   // These tests are meant to quickly exercise PXE as a frontier API so we don't need to rely on slower E2E tests

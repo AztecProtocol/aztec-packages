@@ -44,7 +44,11 @@ describe('EmbeddedWallet', () => {
   describe('sendTx', () => {
     it('passes sendMessagesAs as senderForTags to PXE simulation', async () => {
       getPredictedMinFees.mockResolvedValue([new GasFees(2, 2)]);
-      getNodeInfo.mockResolvedValue({ l1ChainId: 1, rollupVersion: 1 } as any);
+      getNodeInfo.mockResolvedValue({
+        l1ChainId: 1,
+        rollupVersion: 1,
+        txsLimits: { gas: { daGas: 117_668, l2Gas: 6_540_000 } },
+      } as any);
       simulateTx.mockResolvedValue(makeMinimalSimResult());
       proveTx.mockRejectedValue(new Error('stop-at-prove'));
 
@@ -67,6 +71,36 @@ describe('EmbeddedWallet', () => {
         expect.anything(),
         expect.objectContaining({ senderForTags: sendMessagesAs }),
       );
+    });
+
+    it('rejects caller-provided gas limits above the network admission limit', async () => {
+      getPredictedMinFees.mockResolvedValue([new GasFees(2, 2)]);
+      getNodeInfo.mockResolvedValue({
+        l1ChainId: 1,
+        rollupVersion: 1,
+        txsLimits: { gas: { daGas: 1000, l2Gas: 2000 } },
+      } as any);
+      simulateTx.mockResolvedValue(makeMinimalSimResult());
+      proveTx.mockRejectedValue(new Error('stop-at-prove'));
+
+      const call = FunctionCall.from({
+        name: 'test',
+        to: await AztecAddress.random(),
+        selector: FunctionSelector.random(),
+        type: FunctionType.PRIVATE,
+        hideMsgSender: false,
+        isStatic: false,
+        args: [],
+        returnTypes: [],
+      });
+      const payload = new ExecutionPayload([call], [], []);
+
+      await expect(
+        wallet.sendTx(payload, {
+          from: NO_FROM,
+          fee: { gasSettings: { gasLimits: Gas.from({ daGas: 5000, l2Gas: 2000 }) } },
+        }),
+      ).rejects.toThrow('Declared DA gas limit (5000) exceeds the maximum this network allows per tx (1000)');
     });
   });
 });

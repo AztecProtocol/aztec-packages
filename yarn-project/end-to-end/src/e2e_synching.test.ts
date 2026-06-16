@@ -39,7 +39,6 @@ import { BatchCall, type Contract, NO_WAIT } from '@aztec/aztec.js/contracts';
 import { Fr, GrumpkinScalar } from '@aztec/aztec.js/fields';
 import { type Logger, createLogger } from '@aztec/aztec.js/log';
 import { waitForTx } from '@aztec/aztec.js/node';
-import { AnvilTestWatcher } from '@aztec/aztec/testing';
 import { createBlobClientWithFileStores } from '@aztec/blob-client/client';
 import { Blob } from '@aztec/blob-lib';
 import { EpochCache } from '@aztec/epoch-cache';
@@ -421,7 +420,6 @@ describe('e2e_synching', () => {
       cheatCodes,
       aztecNode,
       sequencer,
-      watcher,
       wallet,
       additionallyFundedAccounts,
       dateProvider,
@@ -433,7 +431,6 @@ describe('e2e_synching', () => {
 
     await (aztecNode as any).stop();
     await (sequencer as any).stop();
-    await watcher.stop();
 
     const blobClient = await createBlobClientWithFileStores(config, createLogger('test:blob-client:client'));
 
@@ -456,6 +453,8 @@ describe('e2e_synching', () => {
         l1ChainId: 31337,
         ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
         aztecSlotDuration: AZTEC_SLOT_DURATION,
+        sequencerPublisherPreviousL1BlockWaitTimeoutMs: config.sequencerPublisherPreviousL1BlockWaitTimeoutMs,
+        sequencerPublisherPreviousL1BlockWaitPollIntervalMs: config.sequencerPublisherPreviousL1BlockWaitPollIntervalMs,
       },
       {
         blobClient,
@@ -559,17 +558,10 @@ describe('e2e_synching', () => {
 
           const contracts: Contract[] = [];
           {
-            const watcher = new AnvilTestWatcher(
-              opts.cheatCodes!.eth,
-              opts.deployL1ContractsValues!.l1ContractAddresses.rollupAddress,
-              opts.deployL1ContractsValues!.l1Client,
-            );
-            await watcher.start();
-
             const aztecNode = await AztecNodeService.createAndSync(opts.config!, {}, { genesis: opts.genesis });
             const sequencer = aztecNode.getSequencer();
 
-            const { wallet } = await setupPXEAndGetWallet(aztecNode!);
+            const { wallet } = await setupPXEAndGetWallet(aztecNode!, aztecNode!);
             variant.setWallet(wallet);
             const defaultAccountAddress = (
               await variant.deployAccounts(opts.additionallyFundedAccounts!.slice(0, 1))
@@ -593,7 +585,6 @@ describe('e2e_synching', () => {
               ).contract,
             );
 
-            await watcher.stop();
             await sequencer?.stop();
             await aztecNode.stop();
           }
@@ -705,13 +696,6 @@ describe('e2e_synching', () => {
 
           await opts.cheatCodes!.eth.warp(Number(timeJumpTo), { resetBlockInterval: true });
 
-          const watcher = new AnvilTestWatcher(
-            opts.cheatCodes!.eth,
-            opts.deployL1ContractsValues!.l1ContractAddresses.rollupAddress,
-            opts.deployL1ContractsValues!.l1Client,
-          );
-          await watcher.start();
-
           await opts.deployL1ContractsValues!.l1Client.waitForTransactionReceipt({
             hash: await rollup.write.prune(),
           });
@@ -720,7 +704,7 @@ describe('e2e_synching', () => {
           expect(await aztecNode.getBlockNumber()).toBeLessThan(blockBeforePrune);
 
           // We need to start the pxe after the re-org for now, because it won't handle it otherwise
-          const { wallet } = await setupPXEAndGetWallet(aztecNode!);
+          const { wallet } = await setupPXEAndGetWallet(aztecNode!, aztecNode!);
           variant.setWallet(wallet);
 
           const blockBefore = await aztecNode.getBlock(await aztecNode.getBlockNumber());
@@ -736,7 +720,6 @@ describe('e2e_synching', () => {
 
           await sequencer?.stop();
           await aztecNode.stop();
-          await watcher.stop();
         },
         ASSUME_PROVEN_THROUGH,
       );
@@ -768,18 +751,11 @@ describe('e2e_synching', () => {
 
           await rollup.write.prune();
 
-          const watcher = new AnvilTestWatcher(
-            opts.cheatCodes!.eth,
-            opts.deployL1ContractsValues!.l1ContractAddresses.rollupAddress,
-            opts.deployL1ContractsValues!.l1Client,
-          );
-          await watcher.start();
-
           // The sync here could likely be avoided by using the node we just synched.
           const aztecNode = await AztecNodeService.createAndSync(opts.config!, {}, { genesis: opts.genesis });
           const sequencer = aztecNode.getSequencer();
 
-          const { wallet: newWallet } = await setupPXEAndGetWallet(aztecNode!);
+          const { wallet: newWallet } = await setupPXEAndGetWallet(aztecNode!, aztecNode!);
           variant.setWallet(newWallet);
 
           const blockBefore = await aztecNode.getBlock(await aztecNode.getBlockNumber());
@@ -795,7 +771,6 @@ describe('e2e_synching', () => {
 
           await sequencer?.stop();
           await aztecNode.stop();
-          await watcher.stop();
         },
         ASSUME_PROVEN_THROUGH,
       );
