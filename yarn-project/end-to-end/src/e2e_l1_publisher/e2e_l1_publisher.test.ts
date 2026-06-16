@@ -319,7 +319,6 @@ describe('L1Publisher integration', () => {
           checkpointed: tipId,
           proven: tipId,
           finalized: tipId,
-          proposedCheckpoint: tipId,
         };
       },
       getBlockNumber(): Promise<BlockNumber> {
@@ -356,6 +355,8 @@ describe('L1Publisher integration', () => {
         l1ChainId: chainId,
         ethereumSlotDuration: config.ethereumSlotDuration,
         aztecSlotDuration: config.aztecSlotDuration,
+        sequencerPublisherPreviousL1BlockWaitTimeoutMs: config.sequencerPublisherPreviousL1BlockWaitTimeoutMs,
+        sequencerPublisherPreviousL1BlockWaitPollIntervalMs: config.sequencerPublisherPreviousL1BlockWaitPollIntervalMs,
       },
       {
         blobClient,

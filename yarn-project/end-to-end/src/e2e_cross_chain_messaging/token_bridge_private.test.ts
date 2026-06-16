@@ -8,7 +8,7 @@ import type { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
 
 import { jest } from '@jest/globals';
 
-import { PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
+import { L1_DIRECT_WRITE_ACCOUNT_INDEX, PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
 import type { CrossChainTestHarness } from '../shared/cross_chain_test_harness.js';
 import type { TestWallet } from '../test-wallet/test_wallet.js';
 import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';
@@ -18,7 +18,13 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
   // needs more than the default 300s per-test budget.
   jest.setTimeout(15 * 60 * 1000);
 
-  const t = new CrossChainMessagingTest('token_bridge_private', { startProverNode: true });
+  const t = new CrossChainMessagingTest(
+    'token_bridge_private',
+    { startProverNode: true },
+    {},
+    {},
+    L1_DIRECT_WRITE_ACCOUNT_INDEX,
+  );
 
   let crossChainTestHarness: CrossChainTestHarness;
   let ethAccount: EthAddress;

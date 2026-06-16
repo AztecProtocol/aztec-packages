@@ -1167,14 +1167,13 @@ export class BlockStore {
   }
 
   /**
-   * Resolves all five L2 chain tips (proposed, proposedCheckpoint, checkpointed, proven, finalized)
-   * in a single read-only transaction so the snapshot is internally consistent. Each underlying
-   * record is read at most once: latest block, latest confirmed checkpoint, and latest pending
-   * checkpoint are each loaded directly (no separate "find the number, then look up data" hop),
-   * the proven/finalized checkpoint singletons are read once and their storage entries are
-   * reused if they coincide with the latest checkpoint, and per-tip block hashes are deduped
-   * when two tips land on the same block (e.g. finalized == proven, or proposedCheckpoint falls
-   * back to checkpointed when no pending checkpoint exists).
+   * Resolves all four L2 chain tips (proposed, checkpointed, proven, finalized) in a single
+   * read-only transaction so the snapshot is internally consistent. Each underlying record is
+   * read at most once: latest block and latest confirmed checkpoint are loaded directly (no
+   * separate "find the number, then look up data" hop), the proven/finalized checkpoint
+   * singletons are read once and their storage entries are reused if they coincide with the
+   * latest checkpoint, and per-tip block hashes are deduped when two tips land on the same block
+   * (e.g. finalized == proven).
    *
    * The result is guaranteed to satisfy `finalized <= proven <= checkpointed <= proposed` (by
    * block number). Genesis is represented by `(INITIAL_L2_BLOCK_NUM - 1)` and the supplied
@@ -1197,9 +1196,6 @@ export class BlockStore {
 
       // Load latest block and checkpoint entries
       const [latestBlockEntry] = await toArray(this.#blocks.entriesAsync({ reverse: true, limit: 1 }));
-      const [proposedCheckpointEntry] = await toArray(
-        this.#proposedCheckpoints.entriesAsync({ reverse: true, limit: 1 }),
-      );
       const [latestCheckpointEntry] = await toArray(this.#checkpoints.entriesAsync({ reverse: true, limit: 1 }));
       const latestCheckpointNumber = latestCheckpointEntry
         ? CheckpointNumber(latestCheckpointEntry[0])
@@ -1285,14 +1281,6 @@ export class BlockStore {
       const provenTip = await buildTipFromCheckpoint(provenCheckpoint);
       const finalizedTip = await buildTipFromCheckpoint(finalizedCheckpoint);
 
-      // Proposed checkpoint falls back to the checkpoint tip if it's not set. And if local storage is
-      // inconsistent and the proposed checkpoint is behind the checkpointed tip, we patch that and
-      // report the checkpointed tip as the proposed checkpoint to maintain the invariant.
-      const proposedCheckpointTip =
-        proposedCheckpointEntry === undefined || proposedCheckpointEntry[0] <= latestCheckpointNumber
-          ? checkpointedTip
-          : await buildTipFromCheckpoint(proposedCheckpointEntry[1]);
-
       // A checkpointed block past the latest stored block would mean a checkpoint
       // references blocks that aren't in blocks.
       if (proposedBlockId.number < checkpointedTip.block.number) {
@@ -1304,11 +1292,10 @@ export class BlockStore {
       // Assert that checkpoint numbers are increasing
       if (
         finalizedTip.checkpoint.number > provenTip.checkpoint.number ||
-        provenTip.checkpoint.number > checkpointedTip.checkpoint.number ||
-        checkpointedTip.checkpoint.number > proposedCheckpointTip.checkpoint.number
+        provenTip.checkpoint.number > checkpointedTip.checkpoint.number
       ) {
         throw new Error(
-          `Inconsistent checkpoint numbers in chain tips: finalized=${finalizedTip.checkpoint.number} proven=${provenTip.checkpoint.number} checkpointed=${checkpointedTip.checkpoint.number} proposed=${proposedCheckpointTip.checkpoint.number}`,
+          `Inconsistent checkpoint numbers in chain tips: finalized=${finalizedTip.checkpoint.number} proven=${provenTip.checkpoint.number} checkpointed=${checkpointedTip.checkpoint.number}`,
         );
       }
 
@@ -1316,17 +1303,15 @@ export class BlockStore {
       if (
         finalizedTip.block.number > provenTip.block.number ||
         provenTip.block.number > checkpointedTip.block.number ||
-        checkpointedTip.block.number > proposedCheckpointTip.block.number ||
-        proposedCheckpointTip.block.number > proposedBlockId.number
+        checkpointedTip.block.number > proposedBlockId.number
       ) {
         throw new Error(
-          `Inconsistent block numbers in chain tips: finalized=${finalizedTip.block.number} proven=${provenTip.block.number} checkpointed=${checkpointedTip.block.number} proposedCheckpoint=${proposedCheckpointTip.block.number} proposed=${proposedBlockId.number}`,
+          `Inconsistent block numbers in chain tips: finalized=${finalizedTip.block.number} proven=${provenTip.block.number} checkpointed=${checkpointedTip.block.number} proposed=${proposedBlockId.number}`,
         );
       }
 
       return {
         proposed: proposedBlockId,
-        proposedCheckpoint: proposedCheckpointTip,
         checkpointed: checkpointedTip,
         proven: provenTip,
         finalized: finalizedTip,
