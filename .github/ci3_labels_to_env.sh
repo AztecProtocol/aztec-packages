@@ -149,9 +149,13 @@ function main {
   echo "CI_MODE=$ci_mode" >> $GITHUB_ENV
   echo "CI mode: $ci_mode"
 
-  # Determine if benchmarks should be uploaded (merge-queue, full, or full-no-test-cache modes)
+  # Benching modes run their benches on a dedicated, fixed-hardware box (stable numbers)
+  # and publish the result; ci-fast never benches. For grind runs (merge-queue-heavy fires
+  # ~10 instances) only the first instance keeps BENCH_UPLOAD=1 — multi_job_run forces the
+  # rest to 0 so they bench inline as a breakage check without racing the upload. The
+  # destination (bench/next vs bench/prs) is BENCH_BRANCH below.
   if [[ "$ci_mode" == "merge-queue" || "$ci_mode" == "merge-queue-heavy" || "$ci_mode" == "full" || "$ci_mode" == "full-no-test-cache" ]]; then
-    echo "SHOULD_UPLOAD_BENCHMARKS=1" >> $GITHUB_ENV
+    echo "BENCH_UPLOAD=1" >> $GITHUB_ENV
   fi
 
   # Determine the branch label for benchmark publishing.
