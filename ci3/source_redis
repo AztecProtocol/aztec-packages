@@ -77,11 +77,15 @@ fi
 function redis_cli {
   if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
     timeout 30 redis-cli --raw -h $CI_REDIS "$@" || true
+  elif [[ " $* " == *" -x "* ]]; then
+    # Redis is unavailable, but the caller is piping a value in via stdin.
+    # Drain it so the producer does not hit SIGPIPE under `set -o pipefail`.
+    cat >/dev/null || true
   fi
 }
 
 function redis_setexz {
-  gzip | redis_cli -x SETEX $1 $2 &>/dev/null
+  gzip | redis_cli -x SETEX "$1" "$2" &>/dev/null
 }
 
 function redis_getz {

@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+
+export CI=1
+export CI_REDIS_AVAILABLE=0
+export DASHBOARD_URL=http://ci.aztec-labs.com
+export NO_CD=1
+
+source "$ROOT/ci3/source"
+
+dd if=/dev/zero bs=1024 count=1024 2>/dev/null | redis_cli -x SETEX ci3-test-key 60
+dd if=/dev/zero bs=1024 count=1024 2>/dev/null | redis_setexz ci3-test-key 60
+
+echo "redis helpers drain stdin when redis is unavailable"
