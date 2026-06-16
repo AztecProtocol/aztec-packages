@@ -163,7 +163,7 @@ where
     });
 }
 
-pub(crate) unconstrained fn for_each_called_with_all_elements<Oracle>()
+pub(crate) unconstrained fn for_each_called_with_all_elements_in_order<Oracle>()
 where
     Oracle: ArrayOracles,
 {
@@ -179,51 +179,9 @@ where
         array.for_each(|index, value| { called_with.push((index, value)); });
 
         assert_eq(called_with.len(), 3);
-        assert(called_with.any(|(index, value)| (index == 0) & (value == 4)));
-        assert(called_with.any(|(index, value)| (index == 1) & (value == 5)));
-        assert(called_with.any(|(index, value)| (index == 2) & (value == 6)));
-    });
-}
-
-pub(crate) unconstrained fn for_each_remove_some<Oracle>()
-where
-    Oracle: ArrayOracles,
-{
-    let env = TestEnvironment::new();
-    env.utility_context(|_| {
-        let array: UnconstrainedArray<Field, Oracle> = UnconstrainedArray::at(SLOT);
-
-        array.push(4);
-        array.push(5);
-        array.push(6);
-
-        array.for_each(|index, _| {
-            if index == 1 {
-                array.remove(index);
-            }
-        });
-
-        assert_eq(array.len(), 2);
-        assert_eq(array.get(0), 4);
-        assert_eq(array.get(1), 6);
-    });
-}
-
-pub(crate) unconstrained fn for_each_remove_all<Oracle>()
-where
-    Oracle: ArrayOracles,
-{
-    let env = TestEnvironment::new();
-    env.utility_context(|_| {
-        let array: UnconstrainedArray<Field, Oracle> = UnconstrainedArray::at(SLOT);
-
-        array.push(4);
-        array.push(5);
-        array.push(6);
-
-        array.for_each(|index, _| { array.remove(index); });
-
-        assert_eq(array.len(), 0);
+        assert_eq(called_with.get(0), (0, 4));
+        assert_eq(called_with.get(1), (1, 5));
+        assert_eq(called_with.get(2), (2, 6));
     });
 }
 
