@@ -25,8 +25,19 @@ const INITIAL_COUNTER_VALUE = 0n;
 test('Counter deploys and increments through codegen bindings', async () => {
   const wallet = await EmbeddedWallet.create(NODE_URL, { ephemeral: true });
 
-  const [test0] = await getInitialTestAccountsData();
-  await wallet.createSchnorrAccount(test0.secret, test0.salt, test0.signingKey);
+  const [test0] = (await getInitialTestAccountsData()) as Array<
+    Awaited<ReturnType<typeof getInitialTestAccountsData>>[number] & { type?: string }
+  >;
+  assert.match(test0.type ?? 'schnorr', /^schnorr(_initializerless)?$/, 'supported test account type');
+  const accountManager =
+    test0.type === 'schnorr_initializerless'
+      ? await createSchnorrInitializerlessAccount(wallet, test0)
+      : await wallet.createSchnorrAccount(test0.secret, test0.salt, test0.signingKey);
+  assert.equal(
+    accountManager.address.toString(),
+    test0.address.toString(),
+    `imported ${test0.type ?? 'schnorr'} test account address`,
+  );
   const owner = test0.address;
 
   const { contract: counter } = await CounterContract.deploy(wallet, INITIAL_COUNTER_VALUE, owner).send({
@@ -41,3 +52,18 @@ test('Counter deploys and increments through codegen bindings', async () => {
   const afterIncrement = await counter.methods.get_counter(owner).simulate({ from: owner });
   assert.equal(afterIncrement.result, INITIAL_COUNTER_VALUE + 1n, 'counter value after increment');
 });
+
+async function createSchnorrInitializerlessAccount(
+  wallet: Awaited<ReturnType<typeof EmbeddedWallet.create>>,
+  account: Awaited<ReturnType<typeof getInitialTestAccountsData>>[number],
+) {
+  const createAccount = (
+    wallet as typeof wallet & {
+      createSchnorrInitializerlessAccount?: typeof wallet.createSchnorrAccount;
+    }
+  ).createSchnorrInitializerlessAccount;
+  if (typeof createAccount !== 'function') {
+    assert.fail('installed wallet supports schnorr_initializerless test accounts');
+  }
+  return await createAccount.call(wallet, account.secret, account.salt, account.signingKey);
+}
