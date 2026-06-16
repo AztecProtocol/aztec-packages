@@ -210,74 +210,78 @@ describe('e2e_gov_proposal', () => {
   it('should vote even when unable to build blocks', async () => {
     const monitor = new ChainMonitor(rollup, dateProvider).start();
 
-    // Disable the in-process proposer→archiver block shortcut (validator-client and
-    // checkpoint_proposal_job both push the just-built block into the local archiver) and then
-    // disable the blob client. The archiver-side `skipPromoteProposedCheckpointDuringL1Sync`
-    // shortcut is disabled at setup() — without it the L1 synchronizer would promote the locally
-    // proposed checkpoint into a published one without going through the blob client, and the
-    // tx would still be observed as `checkpointed` regardless of the disabled blob client. With
-    // all three shortcuts off the node has no choice but to rely on the blob client for sync.
-    await aztecNodeAdmin!.setConfig({ skipPushProposedBlocksToArchiver: true });
-    ((aztecNodeAdmin as AztecNodeService).getBlobClient() as HttpBlobClient).setDisabled(true);
-    await sleep(1000);
-    const lastBlockSynced = await aztecNode!.getBlockNumber();
-    const lastCheckpointOnL1 = await rollup.getCheckpointNumber();
-    logger.warn(`blob client is disabled`, { lastBlockSynced, lastCheckpointOnL1 });
+    try {
+      // Disable the in-process proposer→archiver block shortcut (validator-client and
+      // checkpoint_proposal_job both push the just-built block into the local archiver) and then
+      // disable the blob client. The archiver-side `skipPromoteProposedCheckpointDuringL1Sync`
+      // shortcut is disabled at setup() — without it the L1 synchronizer would promote the locally
+      // proposed checkpoint into a published one without going through the blob client, and the
+      // tx would still be observed as `checkpointed` regardless of the disabled blob client. With
+      // all three shortcuts off the node has no choice but to rely on the blob client for sync.
+      await aztecNodeAdmin!.setConfig({ skipPushProposedBlocksToArchiver: true });
+      ((aztecNodeAdmin as AztecNodeService).getBlobClient() as HttpBlobClient).setDisabled(true);
+      await sleep(1000);
+      const lastBlockSynced = await aztecNode!.getBlockNumber();
+      const lastCheckpointOnL1 = await rollup.getCheckpointNumber();
+      logger.warn(`blob client is disabled`, { lastBlockSynced, lastCheckpointOnL1 });
 
-    // And send a tx which shouldnt be syncable but does move the block forward.
-    // Under proposer pipelining the proposer builds in slot N-1 and the L1 propose mines in slot N, so a single
-    // slot is not enough to observe the L1 checkpoint advance. Wait at least two slots before declaring the tx
-    // un-syncable and before checking that L1 has progressed.
-    await expect(() =>
-      testContract.methods
-        .create_l2_to_l1_message_arbitrary_recipient_private(Fr.random(), EthAddress.random())
-        .send({ from: defaultAccountAddress, wait: { timeout: AZTEC_SLOT_DURATION * 2 + 2 } }),
-    ).rejects.toThrow(TimeoutError);
-    logger.warn(`Test tx timed out as expected`);
+      // And send a tx which shouldnt be syncable but does move the block forward.
+      // Under proposer pipelining the proposer builds in slot N-1 and the L1 propose mines in slot N, so a single
+      // slot is not enough to observe the L1 checkpoint advance. Wait at least two slots before declaring the tx
+      // un-syncable and before checking that L1 has progressed.
+      await expect(() =>
+        testContract.methods
+          .create_l2_to_l1_message_arbitrary_recipient_private(Fr.random(), EthAddress.random())
+          .send({ from: defaultAccountAddress, wait: { timeout: AZTEC_SLOT_DURATION * 2 + 2 } }),
+      ).rejects.toThrow(TimeoutError);
+      logger.warn(`Test tx timed out as expected`);
 
-    // Check that the checkpoint number has indeed increased on L1 so sequencers cant pass the sync check.
-    // Allow another slot for any in-flight L1 propose to mine, since the work loop above hits its wait timeout the
-    // moment the tx misses L2 sync, not the moment the L1 tx lands.
-    const checkpointAfterBlobDisable = await retryUntil(
-      async () => {
-        const snapshot = await monitor.run();
-        return snapshot.checkpointNumber > lastCheckpointOnL1 ? snapshot : undefined;
-      },
-      'L1 checkpoint to advance after disabling blob client',
-      AZTEC_SLOT_DURATION + 5,
-      1,
-    );
-    expect(checkpointAfterBlobDisable.checkpointNumber).toBeGreaterThan(lastCheckpointOnL1);
-    logger.warn(`L1 checkpoint number has increased`, {
-      checkpointNumber: checkpointAfterBlobDisable.checkpointNumber,
-      l2SlotNumber: checkpointAfterBlobDisable.l2SlotNumber,
-    });
+      // Check that the checkpoint number has indeed increased on L1 so sequencers cant pass the sync check.
+      // Allow another slot for any in-flight L1 propose to mine, since the work loop above hits its wait timeout the
+      // moment the tx misses L2 sync, not the moment the L1 tx lands.
+      const checkpointAfterBlobDisable = await retryUntil(
+        async () => {
+          const snapshot = await monitor.run();
+          return snapshot.checkpointNumber > lastCheckpointOnL1 ? snapshot : undefined;
+        },
+        'L1 checkpoint to advance after disabling blob client',
+        AZTEC_SLOT_DURATION + 5,
+        1,
+      );
+      expect(checkpointAfterBlobDisable.checkpointNumber).toBeGreaterThan(lastCheckpointOnL1);
+      logger.warn(`L1 checkpoint number has increased`, {
+        checkpointNumber: checkpointAfterBlobDisable.checkpointNumber,
+        l2SlotNumber: checkpointAfterBlobDisable.l2SlotNumber,
+      });
 
-    await aztecNodeAdmin!.setConfig({ governanceProposerPayload: newGovernanceProposerAddress });
+      await aztecNodeAdmin!.setConfig({ governanceProposerPayload: newGovernanceProposerAddress });
 
-    // The checkpoint that advanced L1 may have a pipelined successor still waiting for the disabled blob client.
-    // Wait through the target slot end plus the two-L1-slot sync tolerance before starting the vote-only round.
-    const voteOnlySlot = SlotNumber(Number(checkpointAfterBlobDisable.l2SlotNumber) + 2);
-    logger.warn(`Waiting until slot ${voteOnlySlot} before starting vote-only round`);
-    await retryUntil(
-      async () => ((await rollup.getSlotNumber()) >= voteOnlySlot ? true : undefined),
-      'stale pipelined checkpoint to expire after disabling blob client',
-      AZTEC_SLOT_DURATION * 4,
-      1,
-    );
+      // The checkpoint that advanced L1 may have a pipelined successor still waiting for the disabled blob client.
+      // Wait through the target slot end plus the two-L1-slot sync tolerance before starting the vote-only round.
+      const voteOnlySlot = SlotNumber(Number(checkpointAfterBlobDisable.l2SlotNumber) + 2);
+      logger.warn(`Waiting until slot ${voteOnlySlot} before starting vote-only round`);
+      await retryUntil(
+        async () => ((await rollup.getSlotNumber()) >= voteOnlySlot ? true : undefined),
+        'stale pipelined checkpoint to expire after disabling blob client',
+        AZTEC_SLOT_DURATION * 4,
+        1,
+      );
 
-    // Select the voting round.
-    const { round, roundDuration, nextRoundBeginsAtSlot } = await setupVotingRound();
+      // Select the voting round.
+      const { round, roundDuration, nextRoundBeginsAtSlot } = await setupVotingRound();
 
-    // And wait until the round is over. Add one extra slot to absorb pipelining catch-up after the L1 warp in
-    // setupVotingRound — the proposer for round_start builds during the slot before it, so the L1 chain takes
-    // an extra slot to advance past nextRoundEndsAtSlot.
-    const nextRoundEndsAtSlot = SlotNumber(nextRoundBeginsAtSlot + Number(roundDuration));
-    const timeout = AZTEC_SLOT_DURATION * Number(roundDuration + 2n) + 20;
-    logger.warn(`Waiting until slot ${nextRoundEndsAtSlot} for round to end (timeout ${timeout}s)`);
-    await retryUntil(() => rollup.getSlotNumber().then(s => s > nextRoundEndsAtSlot), 'round end', timeout, 1);
+      // And wait until the round is over. Add one extra slot to absorb pipelining catch-up after the L1 warp in
+      // setupVotingRound — the proposer for round_start builds during the slot before it, so the L1 chain takes
+      // an extra slot to advance past nextRoundEndsAtSlot.
+      const nextRoundEndsAtSlot = SlotNumber(nextRoundBeginsAtSlot + Number(roundDuration));
+      const timeout = AZTEC_SLOT_DURATION * Number(roundDuration + 2n) + 20;
+      logger.warn(`Waiting until slot ${nextRoundEndsAtSlot} for round to end (timeout ${timeout}s)`);
+      await retryUntil(() => rollup.getSlotNumber().then(s => s > nextRoundEndsAtSlot), 'round end', timeout, 1);
 
-    // We should have voted despite being unable to build blocks
-    await verifyVotes(round, roundDuration);
+      // We should have voted despite being unable to build blocks
+      await verifyVotes(round, roundDuration);
+    } finally {
+      await monitor.stop();
+    }
   });
 });
