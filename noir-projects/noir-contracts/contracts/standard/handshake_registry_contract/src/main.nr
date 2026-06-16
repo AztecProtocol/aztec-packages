@@ -171,8 +171,7 @@ pub contract HandshakeRegistry {
     /// # Privacy
     /// Returns the decrypted discovery payload (`eph_pk`, `mode`) to any caller that knows `recipient` and has it in
     /// scope. `mode` narrows the category of apps the recipient uses; `eph_pk` does not weaken secrecy. See the
-    /// contract's privacy notes above for the full model. Restricting this read to contract-sync execution is a
-    /// possible future hardening.
+    /// contract's privacy notes above for the full model.
     #[external("utility")]
     unconstrained fn get_handshakes(recipient: AztecAddress, page_offset: u32) -> HandshakePage {
         let handshakes = get_all_handshakes(self.context.this_address(), recipient);
