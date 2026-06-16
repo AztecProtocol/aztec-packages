@@ -2,6 +2,7 @@
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 export CRS_PATH="../cpp/srs_db"
+export FOUNDRY_SOLC="${FOUNDRY_SOLC:-$(git rev-parse --show-toplevel)/l1-contracts/solc-0.8.30}"
 
 export hash=$(cache_content_hash \
   ^barretenberg/sol/ \
@@ -19,7 +20,7 @@ function test_cmds {
 }
 
 function test_cmds_internal {
-    echo "cd barretenberg/sol && forge test --no-match-contract Base"
+    echo 'cd l1-contracts && ./bootstrap.sh download_solc && cd ../barretenberg/sol && FOUNDRY_SOLC=../../l1-contracts/solc-0.8.30 forge test --offline --no-match-contract Base'
 }
 
 function build_sol {
@@ -34,7 +35,7 @@ function build_sol {
         git submodule update --init --recursive ./lib
 
         forge fmt || true
-        denoise "forge build"
+        denoise "forge build --offline"
 
         cache_upload $artifact out
     fi
@@ -77,7 +78,7 @@ function bench {
   # Run forge test with gas report using JSON flag
   echo "Running gas report for verifier contracts..."
   # Do not include foundry std err messages in the output
-  FORGE_GAS_REPORT=true forge test --no-match-contract Base --mt "(testValidProof|test_ValidProof)" --json 2>&1 | grep -v "non-empty stderr" > gas_report.json
+  FORGE_GAS_REPORT=true forge test --offline --no-match-contract Base --mt "(testValidProof|test_ValidProof)" --json 2>&1 | grep -v "non-empty stderr" > gas_report.json
 
   # Check if we got any output
   if [ ! -s gas_report.json ]; then
