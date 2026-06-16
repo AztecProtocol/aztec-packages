@@ -70,6 +70,10 @@ export interface ResidentSumcheckResult {
   gpuMs: number;
   /** Wall time for the whole multi-round run (rounds only, not setup/upload). */
   totalMs: number;
+  /** Wall time for the trailing readback of the resident columns after the last
+   * round ran (length-1 for a full run; length 2^(d-maxRounds) for a partial run).
+   * For the hybrid bench this is the GPU->WASM handoff cost of the folded columns. */
+  finalReadbackMs: number;
   /** Host-side per-phase diagnostics (ms, summed over rounds). */
   scalingMs: number;
   decodeMs: number;
@@ -90,6 +94,11 @@ interface Shared {
  * Montgomery bytes of length n (encode with encodeColumnsToBytes); they are
  * uploaded once and never read back until the final length-1 columns (for the
  * caller's purported-value anchor).
+ *
+ * `maxRounds` (default = d) stops the run after that many rounds and reads back the
+ * partially-folded columns (size 2^(d-maxRounds)) instead of the length-1 ones —
+ * this is the GPU front of the hybrid GPU/WASM split, where the heavy early rounds
+ * run here and the cheaper tail is handed to the WASM prover.
  */
 export async function runResidentGpuSumcheck(
   device: GPUDevice,
@@ -102,8 +111,10 @@ export async function runResidentGpuSumcheck(
   shared?: Shared,
   accWG: number = WG,
   profile = false,
+  maxRounds?: number,
 ): Promise<ResidentSumcheckResult> {
   const d = Math.round(Math.log2(n));
+  const rounds = Math.max(1, Math.min(maxRounds ?? d, d));
   const relCache: PipelineCache = shared?.cache ?? new Map();
   const foldRunner = shared?.foldRunner ?? (await makeFoldRunner(device));
   const reduceRunner = shared?.reduceRunner ?? (await makeReduceRunner(device));
@@ -172,7 +183,7 @@ export async function runResidentGpuSumcheck(
   let gpuMs = 0, scalingMs = 0, decodeMs = 0;
   const t0 = performance.now();
   const { univariates, challenges: used } = await runSumcheckRounds(betas, d, {
-    numRounds: d,
+    numRounds: rounds,
     challenges,
     accumulate: async (_round, gs) => {
       const m = curLen;
@@ -264,11 +275,15 @@ export async function runResidentGpuSumcheck(
   const profileReport = profiler ? (await profiler.report())?.map(e => ({ label: e.label, ms: e.ms })) ?? null : null;
   profiler?.destroy();
 
-  // Final (length-1) columns for the purported-value anchor — one small readback.
+  // Trailing readback of the resident columns: length-1 for a full run (the
+  // purported-value anchor), or the folded columns (size 2^(d-rounds)) for a
+  // partial run — the GPU->WASM handoff payload in the hybrid bench.
+  const tReadback = performance.now();
   const finalEnc = device.createCommandEncoder();
   const finalBytes = await read_from_gpu(device, finalEnc, ALL_RELATIONS.map(desc => colBuf[desc.relationIndex]));
+  const finalReadbackMs = performance.now() - tReadback;
   const finalColBytes: Uint8Array[] = new Array(NUM_RELATIONS);
   ALL_RELATIONS.forEach((desc, i) => { finalColBytes[desc.relationIndex] = finalBytes[i]; });
 
-  return { univariates, challenges: used, finalColBytes, gpuMs, totalMs, scalingMs, decodeMs, profile: profileReport };
+  return { univariates, challenges: used, finalColBytes, gpuMs, totalMs, finalReadbackMs, scalingMs, decodeMs, profile: profileReport };
 }

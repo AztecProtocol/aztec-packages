@@ -127,6 +127,106 @@ export async function runBenchmark(device: GPUDevice, logNs: number[], log: Logg
   return rows;
 }
 
+export interface HybridRow {
+  logN: number; // d = total sumcheck rounds
+  gpuRounds: number; // k rounds run on WebGPU (the heavy front)
+  gpuRoundsMs: number; // wall for the first k GPU rounds (rounds only)
+  handoffMs: number; // readback of the folded columns at the GPU->WASM handoff
+  wasmTailMs: number | null; // WASM time for the remaining d-k rounds (SumcheckBench(d-k))
+  hybridMs: number | null; // gpuRoundsMs + handoffMs + wasmTailMs
+  fullWasmMs: number | null; // WASM time for all d rounds
+  fullGpuMs: number; // WebGPU wall for all d rounds
+  vsWasm: number | null; // fullWasmMs / hybridMs  (>1 => hybrid beats full WASM)
+  vsGpu: number | null; // fullGpuMs / hybridMs   (>1 => hybrid beats full GPU)
+}
+
+/**
+ * Hybrid GPU/WASM sumcheck sweep: run the first `k` rounds on the WebGPU engine
+ * (the heavy front — round 0 alone is ~half the field work, and each round halves
+ * what remains), hand the folded columns off, and let the WASM prover finish the
+ * `d-k`-round tail.
+ *
+ * Because sumcheck is recursive, the tail (rounds k..d-1 of a d-round instance) has
+ * exactly the per-round cost profile of a fresh (d-k)-round sumcheck, so the WASM
+ * tail is timed with the existing `SumcheckBench(logN = d-k)` — no resume command
+ * or wasm rebuild needed. The cross-runtime memcpy of the folded bytes into wasm
+ * memory is not modelled (it would be a small fraction of the tail); the GPU-side
+ * handoff readback is, and is reported separately so the split is transparent.
+ *
+ * For each size we also time the two pure baselines (full WASM, full GPU) so the
+ * table shows whether the split actually wins.
+ */
+export async function runHybridBenchmark(
+  device: GPUDevice,
+  logNs: number[],
+  splits: number[],
+  log: Logger,
+  onRow?: (row: HybridRow) => void,
+): Promise<HybridRow[]> {
+  const alpha = makeRng(0xb0_07_5eedn)();
+  const cache: PipelineCache = new Map();
+  const foldRunner: FoldRunner = await makeFoldRunner(device);
+  const reduceRunner: ReduceRunner = await makeReduceRunner(device);
+  const shared = { cache, foldRunner, reduceRunner };
+  const wasm = await initWasm(log);
+  if (wasm) log('info', `  WASM backend ready (bb.js threads)`);
+
+  // Warmup at the smallest size to compile all shaders into the shared cache.
+  {
+    const wn = 1 << Math.min(...logNs);
+    const warm = buildInputs(wn);
+    const wb = Array.from({ length: Math.round(Math.log2(wn)) }, (_, i) => makeRng(0x1234n + BigInt(i))());
+    const wc = Array.from({ length: wb.length }, (_, i) => makeRng(0x9999n + BigInt(i))());
+    await runResidentGpuSumcheck(device, wn, alpha, wb, wc, warm.relParamBytes, warm.initColBytes, shared);
+  }
+
+  const rows: HybridRow[] = [];
+  for (const logN of logNs) {
+    const n = 1 << logN;
+    const betas = Array.from({ length: logN }, (_, i) => makeRng(0xbe7a_77n + BigInt(i))());
+    const challenges = Array.from({ length: logN }, (_, i) => makeRng(0xc4a1_77n + BigInt(i))());
+    const { initColBytes, relParamBytes } = buildInputs(n);
+
+    // Pure baselines for this size, measured once.
+    const full = await runResidentGpuSumcheck(device, n, alpha, betas, challenges, relParamBytes, initColBytes, shared);
+    const fullGpuMs = full.totalMs;
+    const fullWasmMs = await runWasmSumcheck(wasm, logN);
+
+    for (const k of splits) {
+      if (k >= logN) continue; // need at least one round left for the WASM tail
+      const part = await runResidentGpuSumcheck(
+        device, n, alpha, betas, challenges, relParamBytes, initColBytes, shared, WG, false, k,
+      );
+      const wasmTailMs = await runWasmSumcheck(wasm, logN - k);
+      const hybridMs = wasmTailMs === null ? null : part.totalMs + part.finalReadbackMs + wasmTailMs;
+      const row: HybridRow = {
+        logN,
+        gpuRounds: k,
+        gpuRoundsMs: part.totalMs,
+        handoffMs: part.finalReadbackMs,
+        wasmTailMs,
+        hybridMs,
+        fullWasmMs,
+        fullGpuMs,
+        vsWasm: hybridMs !== null && fullWasmMs !== null ? fullWasmMs / hybridMs : null,
+        vsGpu: hybridMs !== null ? fullGpuMs / hybridMs : null,
+      };
+      rows.push(row);
+      onRow?.(row);
+      log(
+        'ok',
+        `  2^${logN} · GPU ${k}r + WASM ${logN - k}r: ` +
+          `GPU ${part.totalMs.toFixed(1)} + handoff ${part.finalReadbackMs.toFixed(1)} + ` +
+          `WASM ${wasmTailMs === null ? '—' : wasmTailMs.toFixed(1)} = ${hybridMs === null ? '—' : hybridMs.toFixed(1)} ms` +
+          ` · full WASM ${fullWasmMs === null ? '—' : fullWasmMs.toFixed(1)} · full GPU ${fullGpuMs.toFixed(1)}` +
+          `${row.vsWasm ? `  →  ${row.vsWasm.toFixed(2)}× vs WASM` : ''}`,
+      );
+    }
+  }
+  await wasm?.destroy();
+  return rows;
+}
+
 /**
  * Per-kernel GPU profile of round 0 at one size, to confirm where GPU time goes
  * (the ceiling argument rests on accumulate dominating reduce + fold). Needs

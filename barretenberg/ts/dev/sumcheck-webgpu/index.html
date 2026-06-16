@@ -35,6 +35,7 @@
     <div class="tabbar">
       <button id="tab-btn-testing" class="active" data-tab="testing">Testing</button>
       <button id="tab-btn-bench" data-tab="bench">Benchmark (WebGPU vs WASM)</button>
+      <button id="tab-btn-hybrid" data-tab="hybrid">Hybrid (GPU front + WASM tail)</button>
     </div>
 
     <!-- ===== Testing tab ===== -->
@@ -71,6 +72,36 @@
         <tbody id="bench-tbody"></tbody>
       </table>
       <div id="bench-log"></div>
+    </section>
+
+    <!-- ===== Hybrid tab ===== -->
+    <section id="tab-hybrid" class="tab">
+      <p class="muted">
+        Splits the multi-round sumcheck: the first <strong>k</strong> rounds run on the
+        <strong>WebGPU</strong> engine (the heavy front — round 0 alone is ~half the field work,
+        and each round halves what remains), then the <strong>WASM</strong> prover finishes the
+        remaining <code>d−k</code> rounds. Sumcheck is recursive, so the WASM tail is timed with
+        <code>SumcheckBench(d−k)</code>. <em>Hybrid</em> = GPU k rounds + folded-column handoff
+        readback + WASM tail, shown against the full-WASM and full-GPU baselines.
+        Needs <code>?coi=1</code> + a WASM build for the tail.
+      </p>
+      <div class="controls">
+        <label>from 2^<input id="hybrid-min" type="number" value="12" min="2" max="20" /></label>
+        <label>to 2^<input id="hybrid-max" type="number" value="18" min="2" max="22" /></label>
+        <label>GPU rounds (k) <input id="hybrid-splits" type="text" value="1,2,3" style="width:7ch" /></label>
+        <button id="hybrid-run">Run hybrid sweep</button>
+      </div>
+      <table class="bench">
+        <thead>
+          <tr>
+            <th>size</th><th>GPU k</th><th>GPU k-rounds (ms)</th><th>handoff (ms)</th>
+            <th>WASM tail (ms)</th><th>hybrid (ms)</th><th>full WASM (ms)</th><th>full GPU (ms)</th>
+            <th>vs WASM</th><th>vs GPU</th>
+          </tr>
+        </thead>
+        <tbody id="hybrid-tbody"></tbody>
+      </table>
+      <div id="hybrid-log"></div>
     </section>
 
     <script type="module" src="/dev/sumcheck-webgpu/main.ts"></script>

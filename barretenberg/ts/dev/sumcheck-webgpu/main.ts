@@ -30,13 +30,17 @@ import { databusSuite } from './suite_databus.js';
 import { integrationSuite } from './suite_integration.js';
 import { foldSuite } from './suite_fold.js';
 import { roundsSuite } from './suite_rounds.js';
-import { runBenchmark, runWgSweep, runProfile, type BenchRow } from './bench.js';
+import { batchSuite } from './batch_gpu.js';
+import { poseidon2Suite } from './poseidon2_gpu.js';
+import { singleSubmitSuite } from './suite_singlesubmit.js';
+import { runSingleSubmitBench } from './single_submit.js';
+import { runBenchmark, runWgSweep, runProfile, runHybridBenchmark, type BenchRow, type HybridRow } from './bench.js';
 
 const REGISTRY: Suite[] = [
   frSuite, monoSuite, arithSuite, deltaSuite, eccSuite, pos2InitSuite,
   nnfSuite, ellipticSuite, permSuite, logderivSuite, memorySuite,
   pos2ExtSuite, pos2TransSuite, pos2QuadTermSuite, pos2QuadSuite, databusSuite,
-  foldSuite, integrationSuite, roundsSuite,
+  foldSuite, batchSuite, poseidon2Suite, integrationSuite, roundsSuite, singleSubmitSuite,
 ];
 
 const $log = document.getElementById('log') as HTMLDivElement;
@@ -171,6 +175,27 @@ profBtn.textContent = 'Profile';
 profBtn.addEventListener('click', () => void runProfileAuto());
 $controls.appendChild(profBtn);
 
+// Single-submission GPU Fiat-Shamir sumcheck vs WASM across sizes (probe the 3x goal).
+async function runSSBenchAuto(): Promise<boolean> {
+  if (running) return false;
+  running = true;
+  setButtonsDisabled(true);
+  $log.replaceChildren();
+  const lo = Math.max(2, Math.min(20, parseInt($logn.value, 10) || 10));
+  const hi = Math.max(lo, Math.min(22, parseInt(($benchMax && $benchMax.value) || '', 10) || 16));
+  const logNs = Array.from({ length: hi - lo + 1 }, (_, i) => lo + i);
+  log('info', `single-submission sumcheck (GPU Fiat-Shamir) vs WASM · 2^${lo}..2^${hi}`);
+  let ok = true;
+  try { await runSingleSubmitBench(await getDevice(), logNs, log); }
+  catch (e) { ok = false; log('err', `error: ${(e as Error).message}`); console.error(e); }
+  finally { running = false; setButtonsDisabled(false); log('muted', `[autorun] state=${ok ? 'ok' : 'err'}`); }
+  return ok;
+}
+const ssBtn = document.createElement('button');
+ssBtn.textContent = 'SS bench';
+ssBtn.addEventListener('click', () => void runSSBenchAuto());
+$controls.appendChild(ssBtn);
+
 // ===== Tab switching =====
 document.querySelectorAll<HTMLButtonElement>('.tabbar button').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -234,7 +259,82 @@ $benchRun.addEventListener('click', () => void (async () => {
   }
 })());
 
-// Autorun: ?autorun=all | <suite id> | bench | wgsweep
+// ===== Hybrid tab (GPU front + WASM tail) =====
+const $hybridLog = document.getElementById('hybrid-log') as HTMLDivElement;
+const $hybridTbody = document.getElementById('hybrid-tbody') as HTMLTableSectionElement;
+const $hybridRun = document.getElementById('hybrid-run') as HTMLButtonElement;
+const $hybridMin = document.getElementById('hybrid-min') as HTMLInputElement;
+const $hybridMax = document.getElementById('hybrid-max') as HTMLInputElement;
+const $hybridSplits = document.getElementById('hybrid-splits') as HTMLInputElement;
+
+function hybridLog(level: Level, msg: string): void {
+  const div = document.createElement('div');
+  if (level !== 'info') div.className = level;
+  div.textContent = msg;
+  $hybridLog.appendChild(div);
+  // eslint-disable-next-line no-console
+  console.log(msg);
+}
+
+function fmtFactor(x: number | null): string {
+  if (x === null) return '<span class="pending">—</span>';
+  const cls = x >= 1 ? 'faster' : 'slower';
+  return `<span class="${cls}">${x.toFixed(2)}×</span>`;
+}
+
+function appendHybridRow(r: HybridRow): void {
+  const tr = document.createElement('tr');
+  const wasmTail = r.wasmTailMs === null ? '<span class="pending">— rebuild wasm</span>' : r.wasmTailMs.toFixed(1);
+  const hybrid = r.hybridMs === null ? '<span class="pending">—</span>' : r.hybridMs.toFixed(1);
+  const fullWasm = r.fullWasmMs === null ? '<span class="pending">—</span>' : r.fullWasmMs.toFixed(1);
+  tr.innerHTML =
+    `<td>2^${r.logN}</td><td>${r.gpuRounds}</td><td>${r.gpuRoundsMs.toFixed(1)}</td>` +
+    `<td>${r.handoffMs.toFixed(1)}</td><td>${wasmTail}</td><td>${hybrid}</td>` +
+    `<td>${fullWasm}</td><td>${r.fullGpuMs.toFixed(1)}</td>` +
+    `<td>${fmtFactor(r.vsWasm)}</td><td>${fmtFactor(r.vsGpu)}</td>`;
+  $hybridTbody.appendChild(tr);
+}
+
+function parseSplits(raw: string): number[] {
+  const ks = raw
+    .split(',')
+    .map(s => parseInt(s.trim(), 10))
+    .filter(k => Number.isFinite(k) && k >= 1);
+  return ks.length ? Array.from(new Set(ks)).sort((a, b) => a - b) : [1, 2, 3];
+}
+
+async function runHybridAuto(): Promise<boolean> {
+  if (running) return false;
+  running = true;
+  $hybridRun.disabled = true;
+  $hybridTbody.replaceChildren();
+  $hybridLog.replaceChildren();
+  const lo = Math.max(2, Math.min(20, parseInt($hybridMin.value, 10) || 12));
+  const hi = Math.max(lo, Math.min(22, parseInt($hybridMax.value, 10) || 18));
+  const logNs = Array.from({ length: hi - lo + 1 }, (_, i) => lo + i);
+  const splits = parseSplits($hybridSplits.value);
+  hybridLog('info', `sweeping 2^${lo} … 2^${hi}   ·   GPU first {${splits.join(', ')}} round(s) + WASM tail`);
+  let ok = true;
+  try {
+    const device = await getDevice();
+    await runHybridBenchmark(device, logNs, splits, hybridLog, appendHybridRow);
+    hybridLog('ok', '✓ hybrid sweep complete');
+  } catch (e) {
+    ok = false;
+    hybridLog('err', `error: ${(e as Error).message}`);
+    // eslint-disable-next-line no-console
+    console.error(e);
+  } finally {
+    running = false;
+    $hybridRun.disabled = false;
+    hybridLog('muted', 'done');
+    log('muted', `[autorun] state=${ok ? 'ok' : 'err'}`); // mirror to #log for the headless driver
+  }
+  return ok;
+}
+$hybridRun.addEventListener('click', () => void runHybridAuto());
+
+// Autorun: ?autorun=all | <suite id> | bench | wgsweep | hybrid
 const autorun = new URLSearchParams(window.location.search).get('autorun');
 if (autorun === 'bench') {
   (document.getElementById('tab-btn-bench') as HTMLButtonElement).click();
@@ -243,10 +343,17 @@ if (autorun === 'bench') {
   const lognParam = new URLSearchParams(window.location.search).get('logn');
   if (lognParam) $benchMax.value = lognParam;
   $benchRun.click();
+} else if (autorun === 'hybrid') {
+  (document.getElementById('tab-btn-hybrid') as HTMLButtonElement).click();
+  const lognParam = new URLSearchParams(window.location.search).get('logn');
+  if (lognParam) $hybridMax.value = lognParam;
+  $hybridRun.click();
 } else if (autorun === 'wgsweep') {
   void runWgSweepAuto();
 } else if (autorun === 'profile') {
   void runProfileAuto();
+} else if (autorun === 'ssbench') {
+  void runSSBenchAuto();
 } else if (autorun) {
   const suites = autorun === 'all' ? REGISTRY : REGISTRY.filter(s => s.id === autorun);
   if (suites.length > 0) void runSuites(suites);
