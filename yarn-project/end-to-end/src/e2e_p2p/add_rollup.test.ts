@@ -1,6 +1,5 @@
 import { type InitialAccountData, getInitialTestAccountsData } from '@aztec/accounts/testing';
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { NO_FROM } from '@aztec/aztec.js/account';
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import { waitForProven } from '@aztec/aztec.js/contracts';
 import { generateClaimSecret } from '@aztec/aztec.js/ethereum';
@@ -97,8 +96,6 @@ describe('e2e_p2p_add_rollup', () => {
     await t.removeInitialNode();
 
     l1TxUtils = createL1TxUtils(t.ctx.deployL1ContractsValues.l1Client);
-
-    t.ctx.watcher.setIsMarkingAsProven(false);
   });
 
   afterAll(async () => {
@@ -291,11 +288,10 @@ describe('e2e_p2p_add_rollup', () => {
         { ...getPXEConfig(), proverEnabled: false, syncChainTip: 'checkpointed' },
         { loggerActorLabel: 'pxe-bridge' },
       );
-      const aliceAccountManager = await wallet.createSchnorrAccount(aliceAccount.secret, aliceAccount.salt);
-      const aliceDeploymethod = await aliceAccountManager.getDeployMethod();
-      await aliceDeploymethod.send({
-        from: NO_FROM,
-      });
+      const aliceAccountManager = await wallet.createSchnorrInitializerlessAccount(
+        aliceAccount.secret,
+        aliceAccount.salt,
+      );
 
       const aliceAddress = aliceAccountManager.address;
 
@@ -433,7 +429,7 @@ describe('e2e_p2p_add_rollup', () => {
 
     await bridging(
       nodes[0],
-      t.ctx.initialFundedAccounts[0],
+      t.ctx.additionallyFundedAccounts[0],
       t.ctx.deployL1ContractsValues.l1Client,
       t.ctx.deployL1ContractsValues.l1ContractAddresses,
       BigInt(t.ctx.aztecNodeConfig.rollupVersion),

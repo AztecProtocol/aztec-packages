@@ -18,13 +18,17 @@ case "$type" in
   ;;
   "compose")
     # TODO: Replace this file with test_simple.sh, and just emit the below as part of test_cmds.
-    TEST=$test exec run_compose_test $test end-to-end $PWD
+    # Remove volumes on cleanup so the local-network logs volume doesn't persist across runs.
+    TEST=$test REMOVE_COMPOSE_VOLUMES=1 exec run_compose_test $test end-to-end $PWD
   ;;
   "web3signer")
     TEST=$test exec run_compose_test $test end-to-end $PWD/web3signer
   ;;
   "ha")
-    # Remove volumes on cleanup for HA tests to ensure clean database state on retries
-    TEST=$test REMOVE_COMPOSE_VOLUMES=1 exec run_compose_test $test end-to-end $PWD/ha
+    # Remove volumes on cleanup for HA tests to ensure clean database state on retries.
+    # NAME_POSTFIX namespaces the compose project per test so parallel per-test jobs don't collide.
+    # Compose project names must be lowercase alphanumerics, hyphens, and underscores.
+    postfix=$(echo "$test_name" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/_/g')
+    TEST=$test TEST_NAME=$test_name NAME_POSTFIX=${postfix:+_$postfix} REMOVE_COMPOSE_VOLUMES=1 exec run_compose_test $test end-to-end $PWD/ha
   ;;
 esac

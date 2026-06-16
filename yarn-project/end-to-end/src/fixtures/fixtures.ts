@@ -26,13 +26,19 @@ export const PIPELINED_FEE_PADDING = 30;
  *
  *     await setup(N, { ...PIPELINING_SETUP_OPTS, ...otherOpts });
  *
- * The preset sets:
+ * The preset runs the production Sequencer with the always-enforced timetable at real (wall-clock)
+ * timing, yielding exactly 2 blocks per slot. It sets:
  * - `inboxLag: 2` so the sequencer sources L1->L2 messages from checkpoint N-1 (already sealed),
  *   avoiding `L1ToL2MessagesNotReadyError` when building for slot N during slot N-1.
  * - `minTxsPerBlock: 0` so empty checkpoints land even when a tx arrives late in the build window
  *   (otherwise the chain stalls on alternating slots).
  * - `aztecSlotDuration: 12` / `ethereumSlotDuration: 4` so the pipelined cycle fits inside the
  *   default 300s Jest hook budget. Tests that depend on the env-default 72s/12s should override.
+ * - `blockDurationMs: 3000` to cut exactly 2 blocks per slot. With `ethereumSlotDuration < 8` the
+ *   timing model normalizes to `init=0.5`, `assemble=0.5`, `P=0`, `minExec=1`, so
+ *   `maxBlocks = floor((S - init - (assemble + 2P + D)) / D) = floor((12 - 0.5 - (0.5 + 0 + 3)) / 3)
+ *   = floor(8/3) = 2`. (`blockDurationMs: 2000` would give 4 blocks/slot; 3000 also matches the
+ *   production default.)
  * - `walletMinFeePadding: PIPELINED_FEE_PADDING` (30x) to absorb the wider fee evolution window.
  */
 export const PIPELINING_SETUP_OPTS = {
@@ -40,6 +46,7 @@ export const PIPELINING_SETUP_OPTS = {
   minTxsPerBlock: 0,
   aztecSlotDuration: 12,
   ethereumSlotDuration: 4,
+  blockDurationMs: 3000,
   walletMinFeePadding: PIPELINED_FEE_PADDING,
 } as const;
 
@@ -55,8 +62,7 @@ export const PIPELINING_SETUP_OPTS = {
  * - Swaps the production Sequencer for an AutomineSequencer that builds one block per
  *   submitted tx, publishes synchronously to L1, and owns all time control through a
  *   serial queue (see `sequencer-client/src/sequencer/automine/automine_sequencer.ts`).
- * - Disables the validator client and AnvilTestWatcher (the AutomineSequencer needs
- *   neither).
+ * - Disables the validator client (the AutomineSequencer needs none).
  * - Uses `inboxLag: 1` (synchronous) since the AutomineSequencer publishes one block per tx.
  * - Switches anvil into automine mode at setup time (no interval mining); each L1 tx
  *   mines an L1 block immediately.
@@ -65,7 +71,6 @@ export const PIPELINING_SETUP_OPTS = {
  */
 export const AUTOMINE_E2E_OPTS = {
   useAutomineSequencer: true,
-  disableAnvilTestWatcher: true,
   inboxLag: 1,
   minTxsPerBlock: 0,
   aztecSlotDuration: 12,

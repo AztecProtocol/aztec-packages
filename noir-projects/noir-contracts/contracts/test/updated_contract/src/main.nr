@@ -5,7 +5,7 @@ use aztec::macros::aztec;
 contract Updated {
     use aztec::{
         macros::{functions::external, storage::storage},
-        messages::message_delivery::MessageDelivery,
+        messages::delivery::MessageDelivery,
         protocol::{address::AztecAddress, constants::CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS},
         state_vars::{Owned, PrivateMutable, PublicMutable},
     };

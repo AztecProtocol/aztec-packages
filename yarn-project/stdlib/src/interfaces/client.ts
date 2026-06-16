@@ -1,6 +1,7 @@
 export * from './aztec-node.js';
 export * from './aztec-node-admin.js';
 export * from './aztec-node-debug.js';
+export { type PeerInfo, type ProposalsForSlot } from './p2p.js';
 export * from './block_response.js';
 export * from './chain_tips.js';
 export * from './checkpoint_parameter.js';

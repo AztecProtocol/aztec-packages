@@ -586,7 +586,7 @@ describe('LibP2PService', () => {
         mockEpochCache,
       );
 
-      blockReceivedCallback = jest.fn().mockImplementation(() => Promise.resolve(true));
+      blockReceivedCallback = jest.fn().mockImplementation(() => Promise.resolve<boolean>(true));
       duplicateProposalCallback = jest.fn();
       service.registerBlockReceivedCallback(blockReceivedCallback as any);
       service.registerDuplicateProposalCallback(duplicateProposalCallback);
@@ -783,6 +783,29 @@ describe('LibP2PService', () => {
 
       // Verify message was rejected
       expect(reportMessageValidationResultSpy).toHaveBeenCalledWith('msg-1', MOCK_PEER_ID, TopicValidatorResult.Reject);
+    });
+
+    it('local validation failure releases the protections it created', async () => {
+      const header = makeBlockHeader(1, { slotNumber: targetSlot });
+      const proposal = await makeBlockProposal({ signer, blockHeader: header });
+      blockReceivedCallback.mockImplementationOnce(() => Promise.resolve(false));
+
+      await service.processBlockFromPeer(proposal.toBuffer(), 'msg-1', mockPeerId);
+
+      expect(mockTxPool.protectTxs).toHaveBeenCalledTimes(1);
+      // The failed proposal releases exactly the txs it protected, keyed to its slot.
+      expect(mockTxPool.unprotectTxs).toHaveBeenCalledTimes(1);
+      expect(mockTxPool.unprotectTxs).toHaveBeenCalledWith(proposal.txHashes, targetSlot);
+    });
+
+    it('successful local validation does not release protections', async () => {
+      const header = makeBlockHeader(1, { slotNumber: targetSlot });
+      const proposal = await makeBlockProposal({ signer, blockHeader: header });
+
+      await service.processBlockFromPeer(proposal.toBuffer(), 'msg-1', mockPeerId);
+
+      expect(mockTxPool.protectTxs).toHaveBeenCalledTimes(1);
+      expect(mockTxPool.unprotectTxs).not.toHaveBeenCalled();
     });
 
     // Regression for A-1013: payloads sharing (slot, position, archive) but differing on another
@@ -1589,8 +1612,16 @@ function createTestLibP2PService(options: CreateTestLibP2PServiceOptions): TestL
   } = options;
 
   epochCache.getL1Constants.mockReturnValue({
+    l1GenesisTime: 0n,
     slotDuration: 36,
+    ethereumSlotDuration: 12,
   } as any);
+
+  // Pin wall-clock time inside the pipelined receive window for the slot the proposal tests use
+  // (SlotNumber(100)). With genesis 0, S=36, E=12, slot 100 starts at 3600s, so its checkpoint
+  // receive window is [3552s, 3588s] and its attestation window is [3552s, 3612s]; 3570s sits inside
+  // both. The validators read `getEpochAndSlotNow().nowMs` as the current time.
+  epochCache.getEpochAndSlotNow.mockReturnValue({ nowMs: 3_570_000n } as any);
 
   const mempools = mock<MemPools>();
   mempools.attestationPool = attestationPool;

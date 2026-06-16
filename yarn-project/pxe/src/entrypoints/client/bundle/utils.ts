@@ -3,6 +3,8 @@ import { createLogger } from '@aztec/foundation/log';
 import { createStore } from '@aztec/kv-store/indexeddb';
 import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
 import { WASMSimulator } from '@aztec/simulator/client';
+import { getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry';
+import { getStandardHandshakeRegistry } from '@aztec/standard-contracts/handshake-registry';
 import { getStandardMultiCallEntrypoint } from '@aztec/standard-contracts/multi-call-entrypoint';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 
@@ -51,7 +53,11 @@ export async function createPXE(
   }
   const protocolContractsProvider = new BundledProtocolContractsProvider();
   const preloadedContractsProvider = options.preloadedContractsProvider ?? {
-    getPreloadedContracts: async () => [await getStandardMultiCallEntrypoint()],
+    getPreloadedContracts: async () => [
+      await getStandardMultiCallEntrypoint(),
+      await getStandardAuthRegistry(),
+      await getStandardHandshakeRegistry(),
+    ],
   };
 
   const pxeLogger = loggers.pxe ?? createLogger('pxe:service', { actor });

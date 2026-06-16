@@ -1,3 +1,4 @@
+import { registerAztecNodeRpcHandlers } from '@aztec/aztec-node';
 import { getActiveNetworkName } from '@aztec/foundation/config';
 import {
   type NamespacedApiHandlers,
@@ -7,7 +8,6 @@ import {
 } from '@aztec/foundation/json-rpc/server';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import type { ChainConfig } from '@aztec/stdlib/config';
-import { AztecNodeAdminApiSchema, AztecNodeApiSchema, AztecNodeDebugApiSchema } from '@aztec/stdlib/interfaces/client';
 import { getPackageVersion } from '@aztec/stdlib/update-checker';
 import { getVersioningMiddleware } from '@aztec/stdlib/versioning';
 import { getOtelJsonRpcDiagnosticsMiddleware, getOtelJsonRpcPropagationMiddleware } from '@aztec/telemetry-client';
@@ -36,21 +36,13 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
         l1Mnemonic: localNetwork.l1Mnemonic,
         l1RpcUrls: options.l1RpcUrls,
         testAccounts: localNetwork.testAccounts,
-        realProofs: false,
-        // Setting the epoch duration to 2 by default for local network. This allows the epoch to be "proven" faster, so
-        // the users can consume out hash without having to wait for a long time.
-        // Note: We are not proving anything in the local network (realProofs == false). But in `createLocalNetwork`,
-        // the EpochTestSettler will set the out hash to the outbox when an epoch is complete.
-        aztecEpochDuration: 2,
       },
       userLog,
     );
 
     // Start Node and PXE JSON-RPC server
     signalHandlers.push(stop);
-    services.node = [node, AztecNodeApiSchema];
-    adminServices.node = [node, AztecNodeAdminApiSchema];
-    services.nodeDebug = [node, AztecNodeDebugApiSchema];
+    registerAztecNodeRpcHandlers(node, services, adminServices, { debug: true });
   } else {
     // Route --prover-node through startNode
     if (options.proverNode && !options.node) {
@@ -61,9 +53,6 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
       const { startNode } = await import('./cmds/start_node.js');
       const networkName = getActiveNetworkName(options.network);
       ({ config } = await startNode(options, signalHandlers, services, adminServices, userLog, networkName));
-      if (options.nodeDebug && services.node) {
-        services.nodeDebug = [services.node[0], AztecNodeDebugApiSchema];
-      }
     } else if (options.bot) {
       const { startBot } = await import('./cmds/start_bot.js');
       await startBot(options, signalHandlers, services, userLog);
@@ -94,7 +83,7 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
 
   // Start the main JSON-RPC server
   if (Object.entries(services).length > 0) {
-    if (services.node) {
+    if (services.aztec) {
       const { BarretenbergSync } = await import('@aztec/bb.js');
       // JSON-RPC schema parsing may decompress compressed Chonk proofs before the node handler runs.
       await BarretenbergSync.initSingleton();

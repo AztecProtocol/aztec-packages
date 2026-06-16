@@ -59,7 +59,7 @@ export class FeeProviderImpl implements FeeProvider {
 
   public async getCurrentMinFees(): Promise<GasFees> {
     // Get the current block number
-    const blockNumber = await this.publicClient.getBlockNumber();
+    const blockNumber = await this.publicClient.getBlockNumber({ cacheTime: 0 });
 
     // If the L1 block number has changed then chain a new promise to get the current min fees
     if (this.currentL1BlockNumber === undefined || blockNumber > this.currentL1BlockNumber) {
@@ -69,7 +69,12 @@ export class FeeProviderImpl implements FeeProvider {
     return this.currentMinFees;
   }
 
-  public getPredictedMinFees(manaUsage?: ManaUsageEstimate): Promise<GasFees[]> {
-    return this.feePredictor.getPredictedMinFees(manaUsage ?? ManaUsageEstimate.Target);
+  public async getPredictedMinFees(manaUsage?: ManaUsageEstimate): Promise<GasFees[]> {
+    const [currentMinFees, predictedMinFees] = await Promise.all([
+      this.getCurrentMinFees(),
+      this.feePredictor.getPredictedMinFees(manaUsage ?? ManaUsageEstimate.Target),
+    ]);
+
+    return [currentMinFees, ...predictedMinFees];
   }
 }

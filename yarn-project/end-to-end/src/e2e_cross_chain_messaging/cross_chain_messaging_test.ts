@@ -15,20 +15,20 @@ import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
 import { pickL1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { EpochNumber } from '@aztec/foundation/branded-types';
+import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { TestERC20Abi, TestERC20Bytecode } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
 import type { PXEConfig } from '@aztec/pxe/server';
+import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
 import { MNEMONIC } from '../fixtures/fixtures.js';
 import {
   type EndToEndContext,
   type SetupOptions,
-  deployAccounts,
   ensureAuthRegistryPublished,
-  publicDeployAccounts,
   setup,
   teardown,
 } from '../fixtures/setup.js';
@@ -65,10 +65,10 @@ export class CrossChainMessagingTest {
   /**
    * Background loop that marks each completed epoch as proven on L1. Started in `applyBaseSetup`
    * when the test runs without a real prover node, because the e2e fixture uses L1 interval mining
-   * and the AnvilTestWatcher's auto-prove loop only runs under L1 automine. Without this, L1's
-   * `aztecProofSubmissionEpochs` window expires mid-test and triggers a chain prune that drops
-   * in-flight wallet txs. Tests that intentionally pause proving (e.g. inbox drift tests) can
-   * stop it via `await t.epochTestSettler?.stop()`.
+   * and nothing marks blocks proven automatically. Without this, L1's `aztecProofSubmissionEpochs`
+   * window expires mid-test and triggers a chain prune that drops in-flight wallet txs. Tests that
+   * intentionally pause proving (e.g. inbox drift tests) can stop it via
+   * `await t.epochTestSettler?.stop()`.
    */
   epochTestSettler?: EpochTestSettler;
 
@@ -95,13 +95,21 @@ export class CrossChainMessagingTest {
     // Recompute requireEpochProven from the merged options so per-call startProverNode is honored.
     this.requireEpochProven = opts.startProverNode ?? this.setupOptions.startProverNode ?? false;
     this.context = await setup(
-      0,
+      3,
       {
         ...this.setupOptions,
         ...opts,
         fundSponsoredFPC: true,
-        skipAccountDeployment: true,
         l1ContractsArgs: { ...this.deployL1ContractsArgs, ...opts.l1ContractsArgs },
+        // `advanceToEpochProven` warps anvil's L1 clock forward by up to a full epoch in one
+        // step. The prover-node tracks L1 time via `dateProvider.setTime(...)`, so any
+        // in-flight tx-gather sees its deadline jump into the past and short-circuits. Use
+        // a generous gather window so the deadline survives the warp.
+        proverNodeConfig: {
+          ...this.setupOptions.proverNodeConfig,
+          ...opts.proverNodeConfig,
+          txGatheringTimeoutMs: opts.proverNodeConfig?.txGatheringTimeoutMs ?? 10 * 60 * 1000,
+        },
       },
       { ...this.pxeOpts, ...pxeOpts },
     );
@@ -110,7 +118,14 @@ export class CrossChainMessagingTest {
 
   async advanceToEpochProven(l2TxReceipt: TxReceipt): Promise<EpochNumber> {
     const block = await this.aztecNode.getBlock(l2TxReceipt.blockNumber!);
-    const epoch = await this.rollup.getEpochNumberForCheckpoint(block!.checkpointNumber);
+    const cp = await retryUntil(
+      async () => (await this.aztecNode.getCheckpoints(block!.checkpointNumber, 1))[0],
+      `archiver indexes checkpoint ${block!.checkpointNumber}`,
+      120,
+      0.5,
+    );
+    const epochDuration = await this.rollup.getEpochDuration();
+    const epoch = getEpochAtSlot(cp.header.slotNumber, { epochDuration });
     // Warp to the next epoch.
     await this.cheatCodes.rollup.advanceToEpoch(EpochNumber(epoch + 1));
     // Wait for the tx to be proven.
@@ -140,14 +155,11 @@ export class CrossChainMessagingTest {
     this.deployL1ContractsValues = this.context.deployL1ContractsValues;
     this.aztecNodeAdmin = this.context.aztecNodeService;
 
-    if (this.requireEpochProven) {
-      // Turn off the watcher to prevent it from keep marking blocks as proven.
-      this.context.watcher.setIsMarkingAsProven(false);
-    } else {
+    if (!this.requireEpochProven) {
       // When no real prover is running, the L1 proof window (aztecProofSubmissionEpochs) would
-      // otherwise expire mid-test and trigger a chain prune. The AnvilTestWatcher's auto-prove
-      // loop is dormant under L1 interval mining (it gates on `isAutoMining`), so start an
-      // EpochTestSettler to mark each completed epoch as proven on L1.
+      // otherwise expire mid-test and trigger a chain prune. The e2e fixture runs L1 on interval
+      // mining and nothing marks blocks proven automatically, so start an EpochTestSettler to mark
+      // each completed epoch as proven on L1.
       this.epochTestSettler = new EpochTestSettler(
         this.context.ethCheatCodes,
         this.context.deployL1ContractsValues.l1ContractAddresses.rollupAddress,
@@ -158,24 +170,12 @@ export class CrossChainMessagingTest {
       await this.epochTestSettler.start();
     }
 
-    // Deploy 3 accounts
-    this.logger.info('Applying 3_accounts setup');
-    const { deployedAccounts } = await deployAccounts(
-      3,
-      this.logger,
-    )({
-      wallet: this.context.wallet,
-      initialFundedAccounts: this.context.initialFundedAccounts,
-    });
-    [this.ownerAddress, this.user1Address, this.user2Address] = deployedAccounts.map(a => a.address);
+    [this.ownerAddress, this.user1Address, this.user2Address] = this.context.accounts;
 
     // Set up cross chain messaging
     this.logger.info('Applying e2e_cross_chain_messaging setup');
 
     await ensureAuthRegistryPublished(this.wallet, this.ownerAddress);
-    // Create the token contract state.
-    this.logger.verbose(`Public deploy accounts...`);
-    await publicDeployAccounts(this.wallet, [this.ownerAddress, this.user1Address, this.user2Address]);
 
     this.l1Client = createExtendedL1Client(this.aztecNodeConfig.l1RpcUrls, MNEMONIC);
 

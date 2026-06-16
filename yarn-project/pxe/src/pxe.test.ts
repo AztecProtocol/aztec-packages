@@ -7,6 +7,8 @@ import { AztecLMDBStoreV2, openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { TestContractArtifact } from '@aztec/noir-test-contracts.js/Test';
 import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
 import { WASMSimulator } from '@aztec/simulator/client';
+import { getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry';
+import { getStandardHandshakeRegistry } from '@aztec/standard-contracts/handshake-registry';
 import {
   STANDARD_MULTI_CALL_ENTRYPOINT_ADDRESS,
   getStandardMultiCallEntrypoint,
@@ -48,7 +50,13 @@ describe('PXE', () => {
     const simulator = new WASMSimulator();
     const kernelProver = new BBBundlePrivateKernelProver(simulator);
     const protocolContractsProvider = new BundledProtocolContractsProvider();
-    const preloadedContractsProvider = { getPreloadedContracts: async () => [await getStandardMultiCallEntrypoint()] };
+    const preloadedContractsProvider = {
+      getPreloadedContracts: async () => [
+        await getStandardMultiCallEntrypoint(),
+        await getStandardAuthRegistry(),
+        await getStandardHandshakeRegistry(),
+      ],
+    };
     const config: PXEConfig = {
       ...emptyChainConfig,
       l2BlockBatchSize: 50,
@@ -87,6 +95,7 @@ describe('PXE', () => {
         multiCallEntrypoint: await AztecAddress.random(),
       },
       realProofs: true,
+      txsLimits: { gas: { daGas: 117_668, l2Gas: 6_540_000 } },
     });
 
     pxe = await PXE.create({
@@ -225,10 +234,9 @@ describe('PXE', () => {
     expect(node.registerContractFunctionSignatures).toHaveBeenCalledWith(['my_public_fn()']);
   });
 
-  // These tests are meant to quickly exercise PXE as a
-  // frontier API so we don't need to rely on slower E2E
-  // tests (which in turn are more meaningful for acceptance).
-  // For finer grained tests check out storage/private_event_store.test.ts
+  // These tests are meant to quickly exercise PXE as a frontier API so we don't need to rely on slower E2E tests
+  // (which in turn are more meaningful for acceptance). For finer grained tests check out
+  // storage/private_event_store.test.ts
   describe('getPrivateEvents', () => {
     let contractAddress: AztecAddress;
     let eventSelector: EventSelector;

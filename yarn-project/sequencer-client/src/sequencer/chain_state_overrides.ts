@@ -1,4 +1,9 @@
-import { RollupContract, SimulationOverridesBuilder, type SimulationOverridesPlan } from '@aztec/ethereum/contracts';
+import {
+  type FeeHeader,
+  RollupContract,
+  SimulationOverridesBuilder,
+  type SimulationOverridesPlan,
+} from '@aztec/ethereum/contracts';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import type { Logger } from '@aztec/foundation/log';
 import { type ProposedCheckpointData, computeCheckpointPayloadDigest } from '@aztec/stdlib/checkpoint';
@@ -135,7 +140,9 @@ type PipelinedParentFeeHeaderInput = {
  * checkpoint); all other failure modes (missing grandparent state, missing fee header, RPC
  * errors) throw so callers don't silently desync the fee-header override.
  */
-export async function computePipelinedParentFeeHeader(input: PipelinedParentFeeHeaderInput) {
+export async function computePipelinedParentFeeHeader(
+  input: PipelinedParentFeeHeaderInput,
+): Promise<FeeHeader | undefined> {
   if (input.checkpointNumber < 2) {
     return undefined;
   }

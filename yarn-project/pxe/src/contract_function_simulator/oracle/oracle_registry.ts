@@ -81,7 +81,71 @@ export {
   type TypeMapping,
 } from './oracle_type_mappings.js';
 
-export const ORACLE_REGISTRY = {
+type OracleRegistryName =
+  | 'aztec_misc_assertCompatibleOracleVersion'
+  | 'aztec_misc_getRandomField'
+  | 'aztec_misc_log'
+  | 'aztec_utl_getUtilityContext'
+  | 'aztec_utl_getKeyValidationRequest'
+  | 'aztec_utl_getContractInstance'
+  | 'aztec_utl_getNoteHashMembershipWitness'
+  | 'aztec_utl_getBlockHashMembershipWitness'
+  | 'aztec_utl_getNullifierMembershipWitness'
+  | 'aztec_utl_getLowNullifierMembershipWitness'
+  | 'aztec_utl_getPublicDataWitness'
+  | 'aztec_utl_getBlockHeader'
+  | 'aztec_utl_getAuthWitness'
+  | 'aztec_utl_getPublicKeysAndPartialAddress'
+  | 'aztec_utl_doesNullifierExist'
+  | 'aztec_utl_getL1ToL2MembershipWitness'
+  | 'aztec_utl_getFromPublicStorage'
+  | 'aztec_utl_getNotes'
+  | 'aztec_utl_getPendingTaggedLogs'
+  | 'aztec_utl_validateAndStoreEnqueuedNotesAndEvents'
+  | 'aztec_utl_getLogsByTag'
+  | 'aztec_utl_getMessageContextsByTxHash'
+  | 'aztec_utl_getTxEffect'
+  | 'aztec_utl_setCapsule'
+  | 'aztec_utl_getCapsule'
+  | 'aztec_utl_deleteCapsule'
+  | 'aztec_utl_copyCapsule'
+  | 'aztec_utl_decryptAes128'
+  | 'aztec_utl_getSharedSecrets'
+  | 'aztec_utl_setContractSyncCacheInvalid'
+  | 'aztec_utl_emitOffchainEffect'
+  | 'aztec_utl_callUtilityFunction'
+  | 'aztec_utl_pushEphemeral'
+  | 'aztec_utl_popEphemeral'
+  | 'aztec_utl_getEphemeral'
+  | 'aztec_utl_setEphemeral'
+  | 'aztec_utl_getEphemeralLen'
+  | 'aztec_utl_removeEphemeral'
+  | 'aztec_utl_clearEphemeral'
+  | 'aztec_utl_pushTransient'
+  | 'aztec_utl_popTransient'
+  | 'aztec_utl_getTransient'
+  | 'aztec_utl_setTransient'
+  | 'aztec_utl_getTransientLen'
+  | 'aztec_utl_removeTransient'
+  | 'aztec_utl_clearTransient'
+  | 'aztec_prv_setHashPreimage'
+  | 'aztec_prv_getHashPreimage'
+  | 'aztec_prv_notifyCreatedNote'
+  | 'aztec_prv_notifyNullifiedNote'
+  | 'aztec_prv_notifyCreatedNullifier'
+  | 'aztec_prv_isNullifierPending'
+  | 'aztec_prv_notifyCreatedContractClassLog'
+  | 'aztec_prv_callPrivateFunction'
+  | 'aztec_prv_assertValidPublicCalldata'
+  | 'aztec_prv_notifyRevertiblePhaseStart'
+  | 'aztec_prv_isExecutionInRevertiblePhase'
+  | 'aztec_prv_getAppTaggingSecret'
+  | 'aztec_prv_getNextTaggingIndex'
+  | 'aztec_prv_getSenderForTags';
+
+type OracleRegistry = Record<OracleRegistryName, OracleRegistryEntry>;
+
+export const ORACLE_REGISTRY: OracleRegistry = {
   aztec_misc_assertCompatibleOracleVersion: makeEntry({
     params: [
       { name: 'major', type: U32 },
@@ -365,6 +429,51 @@ export const ORACLE_REGISTRY = {
     params: [{ name: 'slot', type: FIELD }],
   }),
 
+  aztec_utl_pushTransient: makeEntry({
+    params: [
+      { name: 'slot', type: FIELD },
+      { name: 'elements', type: ARRAY(FIELD) },
+    ],
+    returnType: U32,
+  }),
+
+  aztec_utl_popTransient: makeEntry({
+    params: [{ name: 'slot', type: FIELD }],
+    returnType: ARRAY(FIELD),
+  }),
+
+  aztec_utl_getTransient: makeEntry({
+    params: [
+      { name: 'slot', type: FIELD },
+      { name: 'index', type: U32 },
+    ],
+    returnType: ARRAY(FIELD),
+  }),
+
+  aztec_utl_setTransient: makeEntry({
+    params: [
+      { name: 'slot', type: FIELD },
+      { name: 'index', type: U32 },
+      { name: 'elements', type: ARRAY(FIELD) },
+    ],
+  }),
+
+  aztec_utl_getTransientLen: makeEntry({
+    params: [{ name: 'slot', type: FIELD }],
+    returnType: U32,
+  }),
+
+  aztec_utl_removeTransient: makeEntry({
+    params: [
+      { name: 'slot', type: FIELD },
+      { name: 'index', type: U32 },
+    ],
+  }),
+
+  aztec_utl_clearTransient: makeEntry({
+    params: [{ name: 'slot', type: FIELD }],
+  }),
+
   aztec_prv_setHashPreimage: makeEntry({
     params: [
       { name: 'values', type: ARRAY(FIELD) },
@@ -457,28 +566,7 @@ export const ORACLE_REGISTRY = {
   }),
 
   aztec_prv_getSenderForTags: makeEntry({ returnType: OPTION(AZTEC_ADDRESS) }),
-} satisfies Record<string, OracleRegistryEntry>;
-
-/**
- * Deserializes oracle inputs, calls the handler with typed params, and serializes the result.
- */
-export async function callHandler<K extends keyof typeof ORACLE_REGISTRY>({
-  oracle,
-  inputs,
-  handler,
-}: {
-  oracle: K;
-  inputs: InputSlot[];
-  handler: (
-    params: ParamTypes<ReturnType<(typeof ORACLE_REGISTRY)[K]['deserializeParams']>>,
-  ) => MaybePromise<Parameters<(typeof ORACLE_REGISTRY)[K]['serializeReturn']>[0]>;
-}): Promise<OutputSlot[]> {
-  const entry = ORACLE_REGISTRY[oracle] as OracleRegistryEntry;
-  const named = entry.deserializeParams(inputs);
-  const positional = named.map(p => p.value);
-  const result = await handler(positional as any);
-  return entry.serializeReturn(result);
-}
+};
 
 // ─── Registry Infrastructure ─────────────────────────────────────────────────
 

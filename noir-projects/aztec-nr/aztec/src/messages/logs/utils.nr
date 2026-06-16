@@ -1,4 +1,4 @@
-use crate::messages::message_delivery::ONCHAIN_UNCONSTRAINED;
+use crate::messages::delivery::MessageDelivery;
 use crate::oracle::{notes::{get_app_tagging_secret, get_next_tagging_index, get_sender_for_tags}, random::random};
 use crate::protocol::{address::AztecAddress, hash::poseidon2_hash};
 
@@ -26,7 +26,7 @@ pub(crate) fn compute_discovery_tag(recipient: AztecAddress, sender_override: Op
                 random()
             },
             |secret| {
-                let index = get_next_tagging_index(secret, ONCHAIN_UNCONSTRAINED);
+                let index = get_next_tagging_index(secret, MessageDelivery::onchain_unconstrained());
                 poseidon2_hash([secret, index as Field])
             },
         )

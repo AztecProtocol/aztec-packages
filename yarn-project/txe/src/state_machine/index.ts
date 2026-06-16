@@ -83,10 +83,7 @@ export class TXEStateMachine {
   public get l2TipsProvider(): L2TipsProvider {
     const node = this.node;
     return {
-      getL2Tips: async () => {
-        const tips = await node.getChainTips();
-        return { ...tips, proposedCheckpoint: tips.checkpointed };
-      },
+      getL2Tips: () => node.getChainTips(),
     };
   }
 

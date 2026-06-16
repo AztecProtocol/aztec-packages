@@ -39,10 +39,10 @@ pub comptime fn runtime_loop(
 pub fn balance_to_field(balance: [u8; 32], balance_length: u8) -> Field {
     let mut result: Field = 0;
     runtime_loop!(
-        quote {i},
-        quote {0},
-        quote {(balance_length as u32)},
-        quote {32},
+        quote { i },
+        quote { 0 },
+        quote { (balance_length as u32) },
+        quote { 32 },
         quote {
             result = result * 256;
             result = result + balance[i] as Field;

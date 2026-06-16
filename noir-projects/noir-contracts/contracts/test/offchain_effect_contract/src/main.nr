@@ -8,8 +8,7 @@ contract OffchainEffect {
     use aztec::{
         macros::{events::event, functions::{external, view}, storage::storage},
         messages::{
-            encoding::MESSAGE_CIPHERTEXT_LEN, message_delivery::MessageDelivery,
-            offchain_messages::deliver_offchain_message,
+            delivery::MessageDelivery, encoding::MESSAGE_CIPHERTEXT_LEN, offchain_messages::deliver_offchain_message,
         },
         note::note_viewer_options::NoteViewerOptions,
         oracle::offchain_effect::emit_offchain_effect,

@@ -3,7 +3,7 @@
 `cargo insta` snapshot tests for noir contracts. Two test categories live here:
 
 - **`expand/`** — runs `nargo expand` on a curated set of aztec-nr contracts (mirrors what CI benchmarks already exercise) and snapshots the expanded source. Surface for catching macro regressions that pass typechecking but silently change generated code.
-- **`compile_failure/`** — drives `nargo compile` on intentionally invalid aztec-nr contracts and snapshots the full stderr.
+- **`compile_failure/`** — drives `nargo compile` on intentionally invalid aztec-nr contracts and snapshots the full stderr. Locations inside the aztec-nr macro sources are scrubbed to `<line>`/`<col>` markers (like the `<repo>` path marker) so macro edits don't churn every snapshot; locations in the test program itself and in the stdlib are kept.
 
 ### Layout
 

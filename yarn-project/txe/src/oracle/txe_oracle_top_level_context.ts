@@ -29,9 +29,10 @@ import {
   ExecutionTaggingIndexCache,
   HashedValuesCache,
   type IMiscOracle,
-  Oracle,
   PrivateExecutionOracle,
+  TransientArrayService,
   UtilityExecutionOracle,
+  buildACIRCallback,
   executePrivateFunction,
   generateSimulatedProvingResult,
 } from '@aztec/pxe/simulator';
@@ -173,7 +174,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     return (await this.stateMachine.node.getBlockData('latest'))!.header.globalVariables.timestamp;
   }
 
-  async getLastTxEffects() {
+  async getLastTxEffects(): ReturnType<ITxeExecutionOracle['getLastTxEffects']> {
     const latestBlockNumber = await this.stateMachine.archiver.getBlockNumber();
     const block = await this.stateMachine.archiver.getBlock({ number: latestBlockNumber });
 
@@ -435,6 +436,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     const simulator = new WASMSimulator();
 
+    const transientArrayService = new TransientArrayService();
     const privateExecutionOracle = new PrivateExecutionOracle({
       argsHash,
       txContext,
@@ -473,6 +475,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
           authorizedUtilityCallTargets,
         ),
       }),
+      transientArrayService,
     });
 
     // Note: This is a slight modification of simulator.run without any of the checks. Maybe we should modify simulator.run with a boolean value to skip checks.
@@ -824,7 +827,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       const anchorBlockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
       const simulator = new WASMSimulator();
       const utilityExecutor = async (syncCall: FunctionCall, execScopes: AztecAddress[]) => {
-        await this.executeUtilityCall(syncCall, execScopes, jobId, authorizedUtilityCallTargets);
+        await this.executeUtilityCall(syncCall, execScopes, jobId);
       };
       const oracle = new UtilityExecutionOracle({
         contractAddress: call.to,
@@ -846,13 +849,15 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
         jobId,
         scopes,
         simulator,
-        utilityExecutor,
         hooks: composeHooks({
           authorizeUtilityCall: this.buildAuthorizeUtilityCallHook('utility', authorizedUtilityCallTargets),
         }),
+        utilityExecutor,
+        // Execution-tree root (top-level utility run or contract sync): own store; nested frames inherit it.
+        transientArrayService: new TransientArrayService(),
       });
       const acirExecutionResult = await simulator
-        .executeUserCircuit(toACVMWitness(0, call.args), entryPointArtifact, new Oracle(oracle).toACIRCallback())
+        .executeUserCircuit(toACVMWitness(0, call.args), entryPointArtifact, buildACIRCallback(oracle))
         .catch((err: Error) => {
           err.message = resolveAssertionMessageFromError(err, entryPointArtifact);
           throw new ExecutionError(

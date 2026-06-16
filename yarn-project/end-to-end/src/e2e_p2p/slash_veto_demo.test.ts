@@ -30,6 +30,7 @@ const NUM_VALIDATORS = NUM_NODES + 1; // We create an extra validator, who will 
 const BOOT_NODE_UDP_PORT = 4500;
 const ETHEREUM_SLOT_DURATION = 4;
 const AZTEC_SLOT_DURATION = 8;
+const BLOCK_DURATION_MS = 2000;
 const EPOCH_DURATION = 2;
 // how many l2 slots make up a slashing round
 const SLASHING_ROUND_SIZE = 4;
@@ -76,6 +77,7 @@ describe('veto slash', () => {
         anvilSlotsInAnEpoch: 4,
         aztecSlotDuration: AZTEC_SLOT_DURATION,
         ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
+        blockDurationMs: BLOCK_DURATION_MS,
         aztecProofSubmissionEpochs: 1024, // effectively do not reorg
         listenAddress: '127.0.0.1',
         minTxsPerBlock: 0,
@@ -94,6 +96,7 @@ describe('veto slash', () => {
         slashingDisableDuration: SLASHING_DISABLE_DURATION_SECONDS,
         slashingVetoer: VETOER_ADDRESS,
         slashInactivityTargetPercentage: SLASH_INACTIVITY_TARGET_PERCENTAGE,
+        proverBrokerMaxEpochsToKeepResultsFor: 20,
       },
     });
 

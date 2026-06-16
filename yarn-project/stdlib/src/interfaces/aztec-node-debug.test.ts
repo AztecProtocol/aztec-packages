@@ -1,3 +1,4 @@
+import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 
 import { type AztecNodeDebug, AztecNodeDebugApiSchema } from './aztec-node-debug.js';
@@ -26,10 +27,19 @@ describe('AztecNodeDebugApiSchema', () => {
   it('mineBlock', async () => {
     await context.client.mineBlock();
   });
+
+  it('prove', async () => {
+    expect(await context.client.prove()).toEqual(7);
+    expect(await context.client.prove(CheckpointNumber(3))).toEqual(3);
+  });
 });
 
 class MockAztecNodeDebug implements AztecNodeDebug {
   mineBlock(): Promise<void> {
     return Promise.resolve();
+  }
+
+  prove(upToCheckpoint?: CheckpointNumber): Promise<CheckpointNumber> {
+    return Promise.resolve(upToCheckpoint ?? CheckpointNumber(7));
   }
 }

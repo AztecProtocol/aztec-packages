@@ -47,12 +47,9 @@ describe('e2e_fees failures', () => {
     await ensureAuthRegistryPublished(wallet, aliceAddress);
     aztecNode = t.aztecNode;
 
-    // Prove up until the current state by just marking it as proven.
-    // Then turn off the watcher to prevent it from keep proving
-    await t.context.watcher.trigger();
+    // Prove up until the current state by advancing the epoch and waiting for the prover node.
     await t.cheatCodes.rollup.advanceToNextEpoch();
     await t.catchUpProvenChain();
-    t.setIsMarkingAsProven(false);
   });
 
   afterAll(async () => {
@@ -93,7 +90,6 @@ describe('e2e_fees failures', () => {
     await expectMapping(t.getGasBalanceFn, [aliceAddress, bananaFPC.address], [initialAliceGas, initialFPCGas]);
 
     // We wait until the proven chain is caught up so all previous fees are paid out.
-    await t.context.watcher.trigger();
     await t.cheatCodes.rollup.advanceToNextEpoch();
     await t.catchUpProvenChain();
 
@@ -116,7 +112,6 @@ describe('e2e_fees failures', () => {
 
     // @note There is a potential race condition here if other tests send transactions that get into the same
     // epoch and thereby pays out fees at the same time (when proven).
-    await t.context.watcher.trigger();
     await t.cheatCodes.rollup.advanceToNextEpoch();
     const provenTimeout =
       (t.context.config.aztecProofSubmissionEpochs + 1) *
@@ -349,7 +344,6 @@ describe('e2e_fees failures', () => {
     );
 
     // Prove the block containing the teardown-reverted tx (revert_code = 2).
-    await t.context.watcher.trigger();
     await t.cheatCodes.rollup.advanceToNextEpoch();
     const provenTimeout =
       (t.context.config.aztecProofSubmissionEpochs + 1) *
@@ -375,7 +369,6 @@ describe('e2e_fees failures', () => {
     expect(receipt.executionResult).toBe(TxExecutionResult.REVERTED);
     expect(receipt.transactionFee).toBeGreaterThan(0n);
 
-    await t.context.watcher.trigger();
     await t.cheatCodes.rollup.advanceToNextEpoch();
     const provenTimeout =
       (t.context.config.aztecProofSubmissionEpochs + 1) *

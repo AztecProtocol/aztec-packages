@@ -168,7 +168,11 @@ export type PXECreateArgs = {
   simulator: CircuitSimulator;
   /** Provider for protocol contract artifacts and instances. */
   protocolContractsProvider: ProtocolContractsProvider;
-  /** Provider for the "nice to have" contracts the PXE preloads. */
+  /**
+   * Contracts to preload on startup. Injected by the entrypoint with the bundle-or-lazy flavor that
+   * matches the runtime (bundle for node/eager browser, lazy for code-split browser), so the PXE
+   * never statically imports a standard-contract artifact and the bundle/lazy split stays intact.
+   */
   preloadedContractsProvider: PreloadedContractsProvider;
   /** PXE configuration options. */
   config: PXEConfig;

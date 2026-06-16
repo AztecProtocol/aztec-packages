@@ -11,7 +11,7 @@ pub contract NestedUtility {
     use crate::pow_note::PowNote;
     use aztec::macros::{functions::{external, view}, storage::storage};
     use aztec::{
-        messages::message_delivery::MessageDelivery,
+        messages::delivery::MessageDelivery,
         protocol::address::AztecAddress,
         state_vars::{Owned, PrivateMutable},
     };

@@ -40,7 +40,15 @@ pub fn validate_log_squashing<let LogsLen: u32, let SquashingHintsLen: u32, let 
     // - kept and propagated forward, or
     // - squashed along with its associated note hash.
     let mut kept_logs_counter = 0;
+    // Slots in `[logs.length, LogsLen)` are unconstrained by the previous kernel. A note log planted
+    // there could otherwise take the squashed branch below and inflate the implicit squashed-log
+    // count, silently dropping a real kept log. Forcing such slots to be "kept"
+    // bounds log squashing to within the claimed length, mirroring how the note-hash / nullifier
+    // squash is bounded by `num_active_squashing_hints`. This flag flips false once `i == logs.length`.
+    let mut within_length = true;
     for i in 0..LogsLen {
+        within_length &= i != logs.length;
+
         let log = logs.array[i];
         let linked_source_indices = note_log_linked_source_indices[i];
 
@@ -67,9 +75,12 @@ pub fn validate_log_squashing<let LogsLen: u32, let SquashingHintsLen: u32, let 
         // (which would mean the log is to be squashed) or the `kept_note_hash_index` (which would mean the
         // log is to be kept).
         // A log will be kept if:
+        // - it is beyond the claimed length (such slots must never be squashed; see above), OR
         // - it is not a note log, OR
         // - it is a note log which is linked to a _kept_ note hash.
-        let is_kept = !is_note_log | is_log_linked_to_note_hash(log, expected_kept_note_hash);
+        let is_kept = !within_length
+            | !is_note_log
+            | is_log_linked_to_note_hash(log, expected_kept_note_hash);
 
         if is_kept {
             if is_note_log {
@@ -147,7 +158,45 @@ pub fn validate_log_squashing<let LogsLen: u32, let SquashingHintsLen: u32, let 
 
 mod tests {
     use crate::reset::transient_data::tests::{mock_log, TransientDataFixtureBuilder};
-    use types::{abis::{nullifier::Nullifier, private_log::PrivateLogData}, side_effect::Counted};
+    use types::{
+        abis::{nullifier::Nullifier, private_log::PrivateLogData},
+        address::AztecAddress,
+        side_effect::Counted,
+        traits::FromField,
+    };
+
+    // PoC for kernels-audit #529 (https://github.com/AztecProtocol/aztec-claude/issues/529).
+    // `validate_log_squashing` loops over the full physical array
+    // `0..LogsLen` (not `logs.length`) and derives `num_squashed_logs = LogsLen - kept_logs_counter`.
+    // A planted slot beyond `logs.length` that links to a hint-squashed note hash takes the squashed
+    // branch, inflating `num_squashed_logs` by 1 and under-counting `expected_kept_logs.length`,
+    // silently dropping a real kept log. The fix forces slots beyond `logs.length` to be "kept", so
+    // the planted note log can no longer be squashed and is rejected (regression test).
+    #[test(should_fail_with = "Index of linked kept note hash exceeds claimed length")]
+    fn poc_529_drop_kept_log_via_planted_slot_beyond_length() {
+        let mut builder = TransientDataFixtureBuilder::new();
+
+        // One squashable transient (note, nullifier) pair: note_A at counter 1, squashed by hint (0, 0).
+        builder.add_note_hashes([Counted::new(11, 1)]);
+        builder.add_nullifiers([Nullifier { value: 505, note_hash: 11 }.count(5)]);
+        builder.add_squashing_hint(0, 0);
+
+        // logs[0] = log_A (note log, squashed with note_A); logs[1] = log_B (non-note, MUST be kept).
+        builder.add_logs([
+            PrivateLogData { log: mock_log(101), note_hash_counter: 1 }.count(7),
+            PrivateLogData { log: mock_log(202), note_hash_counter: 0 }.count(8),
+        ]);
+
+        // Claim 0 kept logs, but stage log_B at index 0 so the per-iteration assertion at i=1 passes.
+        builder.expected_kept_logs.array[0] = builder.logs.array[1];
+
+        // Plant a fake slot beyond logs.length (= 2) whose note_hash_counter matches squashed note_A.
+        builder.logs.array[2] = PrivateLogData { log: mock_log(999), note_hash_counter: 1 }
+            .count(42)
+            .scope(AztecAddress::from_field(987654));
+
+        builder.validate();
+    }
 
     // =============
     // Non-note logs

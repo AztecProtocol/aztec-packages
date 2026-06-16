@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 6,
+  "schemaVersion": 8,
   "stores": [
     {
       "name": "address_book",
@@ -58,7 +58,15 @@
       "kind": "map"
     },
     {
-      "name": "note_block_number_to_nullifier",
+      "name": "note_nullifications_by_block",
+      "kind": "multimap"
+    },
+    {
+      "name": "note_nullifications_by_nullifier",
+      "kind": "map"
+    },
+    {
+      "name": "note_nullifiers_by_block",
       "kind": "multimap"
     },
     {
@@ -82,11 +90,7 @@
       "kind": "map"
     },
     {
-      "name": "pxe_l2_block_number_to_checkpoint_number",
-      "kind": "map"
-    },
-    {
-      "name": "pxe_l2_checkpoint_store",
+      "name": "pxe_l2_tip_checkpoints",
       "kind": "map"
     },
     {

@@ -43,16 +43,19 @@ jest.setTimeout(1000 * 60 * 10);
 //                (L1 frozen mid-slot N) → STUCK FOREVER
 //            ✓ with fix: slotFromCheckpoint = N (CP_N is on L1)
 //                → checkSync passes
-//          ─→ PROPOSER_CHECK(slot=N+1)  ← TEST WAITS
+//          ─→ INITIALIZING_CHECKPOINT(slot=N+2 target)  ← TEST WAITS
 //          ─→ canProposeAt rollup check ✗ blocks further progress until parent CP_N+1 is on L1
 //                (pipelining override needs hasProposedCheckpoint, which is sourced from L1 and
 //                 is false while CP_N+1's tx sits in mempool during the pause).
 //
-// Test signal: state-changed with newState=PROPOSER_CHECK && slot=N+1 (wall-clock).
-//   - PROPOSER_CHECK is reached only after `checkSync` returns syncedTo (line ~290 of
-//     sequencer.ts), so observing it for wall-clock slot N+1 directly proves the bug fix:
-//     without the fix, checkSync would block on slot N+1 forever during the L1 pause.
-//   - Slot N+1 (wall-clock) is unique to this cycle: the prior cycle ran at wall-clock N.
+// Test signal: state-changed with newState=INITIALIZING_CHECKPOINT && targetSlot=N+2.
+//   - INITIALIZING_CHECKPOINT is reached only after `checkSync` returns syncedTo and the
+//     proposer check passes (sequencer.ts ~line 290/410), so observing the N+1 wall-clock cycle's
+//     target slot directly proves the bug fix: without the fix, checkSync would block on slot N+1
+//     forever during the L1 pause.
+//   - All slot-carrying sequencer state events report the target slot (the checkpoint job sets its
+//     state via setStateFn(state, targetSlot)). Slot N+2 is unique to this cycle: the prior cycle
+//     targeted N+1.
 describe('e2e_epochs/epochs_missed_l1_slot', () => {
   let test: EpochsTestContext;
   let contract: TestContract;
@@ -84,8 +87,6 @@ describe('e2e_epochs/epochs_missed_l1_slot', () => {
       aztecSlotDurationInL1Slots: L1_SLOTS_PER_L2_SLOT,
       startProverNode: false,
       aztecProofSubmissionEpochs: 1024,
-      disableAnvilTestWatcher: true,
-      enforceTimeTable: true,
       inboxLag: 2,
       // Required for the proposer's own broadcasts to route through the local
       // proposal handler (the dummy p2p service drops them). Without this, the
@@ -190,23 +191,31 @@ describe('e2e_epochs/epochs_missed_l1_slot', () => {
 
     // Step 3: During the pause, wait for the sequencer cycle running at wall-clock = N+1
     // to pass `checkSync(slot=N+1)`. We wait for `state-changed` with
-    // `newState=PROPOSER_CHECK && slot=N+1`: PROPOSER_CHECK is set right after `checkSync`
-    // returns a non-undefined sync result (sequencer.ts line ~290/330), so observing it for
-    // wall-clock slot N+1 directly proves the regression is fixed. We do NOT wait for any
-    // later state because the canProposeAt rollup-contract check fails while CP_N+1's L1 tx
-    // sits in mempool during the pause (pipelining's override depends on
-    // `hasProposedCheckpoint`, which is sourced from L1 and is false in this window).
+    // `newState=INITIALIZING_CHECKPOINT && slot=N+2`: INITIALIZING_CHECKPOINT is set by the
+    // checkpoint job once it begins building, which only happens after `checkSync` returned a
+    // non-undefined sync result and the proposer check passed (sequencer.ts ~line 290/410), so
+    // observing it directly proves the regression is fixed. We do NOT wait for any later state
+    // because the canProposeAt rollup-contract check fails while CP_N+1's L1 tx sits in mempool
+    // during the pause (pipelining's override depends on `hasProposedCheckpoint`, which is sourced
+    // from L1 and is false in this window).
     const sequencer = context.sequencer!.getSequencer();
+    // The bug-fix cycle runs at wall-clock slot N+1 (= nextSlotNumber) and builds the checkpoint that
+    // commits to target slot N+2 (= targetSlotForBugFixCycle). Sequencer state events report the target
+    // slot (the checkpoint job sets state against its own targetSlot), not the wall-clock build slot.
     const targetSlotForBugFixCycle = SlotNumber(nextSlotNumber + 1);
 
     logger.info(
-      `Waiting for sequencer to reach INITIALIZING_CHECKPOINT for target slot ${targetSlotForBugFixCycle} during mining pause...`,
+      `Waiting for sequencer to reach INITIALIZING_CHECKPOINT for target slot ${targetSlotForBugFixCycle} ` +
+        `(build slot ${nextSlotNumber}) during mining pause...`,
     );
     await executeTimeout(
       signal =>
         new Promise<void>((res, rej) => {
-          const stateListener = (args: { newState: SequencerState; slot?: SlotNumber }) => {
-            if (args.newState === SequencerState.INITIALIZING_CHECKPOINT && args.slot === targetSlotForBugFixCycle) {
+          const stateListener = (args: { newState: SequencerState; targetSlot?: SlotNumber }) => {
+            if (
+              args.newState === SequencerState.INITIALIZING_CHECKPOINT &&
+              args.targetSlot === targetSlotForBugFixCycle
+            ) {
               sequencer.off('state-changed', stateListener);
               res();
             }
