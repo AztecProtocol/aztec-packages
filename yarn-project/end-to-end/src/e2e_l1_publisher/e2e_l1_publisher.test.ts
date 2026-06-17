@@ -491,7 +491,12 @@ describe('L1Publisher integration', () => {
 
   describe('block building', () => {
     beforeEach(async () => {
-      await setup();
+      // This suite proposes consecutive checkpoints and models the inbox lag by hand (a checkpoint
+      // consumes the L1->L2 messages sent during the previous checkpoint -- see the shift at the
+      // bottom of buildAndPublishBlock). That bookkeeping assumes a single-checkpoint lag, so pin
+      // inboxLag to 1 rather than inheriting the network default (now 2); with only two consecutive
+      // blocks a lag of 2 would mean no checkpoint ever consumes a real message.
+      await setup({ inboxLag: 1 });
     });
 
     const buildAndPublishBlock = async (numTxs: number, jsonFileNamePrefix: string) => {
