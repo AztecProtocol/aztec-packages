@@ -31,8 +31,8 @@ type EntityWithFacts = { key: EntityKey; body: Fr[]; facts: Map<FactKeyStr, Fact
 /** A pending mutation for a job: create an entity, record a fact, or terminate (delete) an entity. */
 type StagedOp =
   | { kind: 'createEntity'; entity: StoredEntity }
-  | { kind: 'record'; fact: StoredFact }
-  | { kind: 'terminate'; key: EntityKey };
+  | { kind: 'recordFact'; fact: StoredFact }
+  | { kind: 'terminateEntity'; key: EntityKey };
 
 /**
  * Stores immutable facts about entities, isolated by contract and scope.
@@ -159,7 +159,7 @@ export class EntityStore implements StagedStore {
         throw new Error(`Cannot record a fact for non-existent entity ${entityKey.toString()}`);
       }
       this.#stagedOpsFor(jobId).push({
-        kind: 'record',
+        kind: 'recordFact',
         fact: new StoredFact(entityKey, factTypeId, payload, originBlock),
       });
     });
@@ -175,7 +175,7 @@ export class EntityStore implements StagedStore {
       if ((await this.getEntity(key, jobId)) === undefined) {
         throw new Error(`Cannot terminate a non-existent entity ${key.toString()}`);
       }
-      this.#stagedOpsFor(jobId).push({ kind: 'terminate', key });
+      this.#stagedOpsFor(jobId).push({ kind: 'terminateEntity', key });
     });
   }
 
@@ -227,10 +227,10 @@ export class EntityStore implements StagedStore {
         case 'createEntity':
           await this.#commitEntity(op.entity);
           break;
-        case 'record':
+        case 'recordFact':
           await this.#commitFact(op.fact);
           break;
-        case 'terminate':
+        case 'terminateEntity':
           await this.#deleteEntity(op.key.toString());
           break;
       }
@@ -419,10 +419,10 @@ export class EntityStore implements StagedStore {
           }
           break;
         }
-        case 'terminate':
+        case 'terminateEntity':
           result.delete(op.key.toString());
           break;
-        case 'record': {
+        case 'recordFact': {
           const current = result.get(op.fact.entityKey.toString());
           const fKey = factKeyStrOf(op.fact);
           if (current && !current.facts.has(fKey)) {
