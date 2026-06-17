@@ -11,10 +11,9 @@ const argv = process.argv.slice(2);
 const headed = argv.includes('--headed');
 const which = argv.find(a => !a.startsWith('--')) ?? 'all';
 const logn = process.env.LOGN ?? '14';
-// The benchmark/hybrid WASM column uses bb.js threads, which need cross-origin
-// isolation (SharedArrayBuffer); request it via ?coi=1 for those targets
-// (profilereport bundles bench + hybrid, so it needs it too).
-const coi = which === 'bench' || which === 'hybrid' || which === 'profilereport' ? '&coi=1' : '';
+// The benchmark's WASM column uses bb.js threads, which need cross-origin
+// isolation (SharedArrayBuffer); request it via ?coi=1 for the bench target.
+const coi = which === 'bench' ? '&coi=1' : '';
 const target = `http://localhost:5173/dev/sumcheck-webgpu/index.html?autorun=${which}&logn=${logn}${coi}`;
 
 const browser = await chromium.launch({

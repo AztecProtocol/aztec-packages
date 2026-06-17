@@ -2,114 +2,165 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>sumcheck-webgpu — tests & benchmark</title>
+    <meta name="color-scheme" content="dark" />
+    <title>sumcheck-webgpu — benchmark & tests</title>
     <style>
-      body { font-family: ui-sans-serif, system-ui, sans-serif; max-width: 960px; margin: 2rem auto; padding: 0 1rem; line-height: 1.45; }
-      h1 { font-size: 1.4rem; margin-bottom: 0.3rem; }
-      .controls { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; margin: 1rem 0; }
-      #controls { display: flex; gap: 0.5rem; flex-wrap: wrap; }
-      input[type="number"] { width: 9ch; padding: 0.25rem 0.4rem; }
-      button { padding: 0.4rem 0.9rem; cursor: pointer; }
-      button:disabled { opacity: 0.5; cursor: not-allowed; }
-      #log, #bench-log { background: #0b1020; color: #e6e6e6; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; padding: 0.75rem; border-radius: 6px; white-space: pre-wrap; overflow-x: auto; min-height: 12rem; }
-      .ok { color: #6ee7b7; } .err { color: #fca5a5; } .warn { color: #fde68a; } .muted { color: #93a4c3; }
-      code { background: #f1f5f9; padding: 0.05rem 0.3rem; border-radius: 3px; }
+      :root {
+        --bg: #0a0d14;
+        --panel: #11161f;
+        --panel-2: #161c27;
+        --border: #222a38;
+        --text: #d7e0ee;
+        --muted: #8593a8;
+        --accent: #5b9dff;
+        --accent-2: #2dd4bf;
+        --ok: #5ee9a3;
+        --err: #fb8585;
+        --warn: #f8cf6b;
+      }
+      * { box-sizing: border-box; }
+      html { color-scheme: dark; }
+      body {
+        background: var(--bg); color: var(--text);
+        font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+        max-width: 1040px; margin: 0 auto; padding: 2.5rem 1.25rem 4rem;
+        line-height: 1.5; -webkit-font-smoothing: antialiased;
+      }
+      h1 { font-size: 1.35rem; font-weight: 650; letter-spacing: -0.01em; margin: 0 0 0.2rem; }
+      h1 .tag { color: var(--muted); font-size: 0.78rem; font-weight: 400; }
+      .lede { color: var(--muted); font-size: 0.875rem; max-width: 72ch; margin: 0 0 1.25rem; }
+      a { color: var(--accent); }
+      code {
+        background: var(--panel-2); border: 1px solid var(--border);
+        padding: 0.04rem 0.35rem; border-radius: 4px; font-size: 0.85em;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: #cdd6e4;
+      }
+      strong { color: #e7eefb; font-weight: 600; }
+
       /* tabs */
-      .tabbar { display: flex; gap: 0.3rem; border-bottom: 2px solid #e2e8f0; margin: 1rem 0 1.2rem; }
-      .tabbar button { background: none; border: none; border-bottom: 2px solid transparent; margin-bottom: -2px; padding: 0.5rem 0.9rem; font-size: 0.95rem; color: #475569; }
-      .tabbar button.active { color: #0f172a; border-bottom-color: #2563eb; font-weight: 600; }
+      .tabbar { display: flex; gap: 0.25rem; border-bottom: 1px solid var(--border); margin: 0 0 1.5rem; }
+      .tabbar button {
+        background: none; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px;
+        padding: 0.55rem 0.95rem; font-size: 0.9rem; color: var(--muted); cursor: pointer; transition: color .15s;
+      }
+      .tabbar button:hover { color: var(--text); }
+      .tabbar button.active { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
       .tab { display: none; } .tab.active { display: block; }
+
+      /* controls panel */
+      .controls {
+        display: flex; gap: 1.4rem; align-items: center; flex-wrap: wrap; margin: 1.25rem 0;
+        padding: 0.95rem 1.1rem; background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+      }
+      .controls label { display: inline-flex; align-items: center; gap: 0.45rem; font-size: 0.85rem; color: var(--muted); }
+      input[type="number"] {
+        width: 4.5rem; padding: 0.3rem 0.5rem; background: var(--panel-2); border: 1px solid var(--border);
+        border-radius: 6px; color: var(--text); font-size: 0.85rem; font-family: ui-monospace, monospace; text-align: center;
+      }
+      input[type="number"]:focus, input[type="range"]:focus { outline: none; border-color: var(--accent); }
+
+      button {
+        padding: 0.45rem 1.05rem; cursor: pointer; background: var(--accent); color: #0a0d14;
+        border: 0; border-radius: 7px; font-size: 0.85rem; font-weight: 600; transition: filter .15s, opacity .15s;
+      }
+      button:hover:not(:disabled) { filter: brightness(1.08); }
+      button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+      /* threshold slider */
+      .slider-wrap { display: inline-flex; align-items: center; gap: 0.7rem; }
+      .slider-wrap .val { font-family: ui-monospace, monospace; color: var(--accent-2); font-weight: 700; min-width: 1.5ch; text-align: right; }
+      input[type="range"] {
+        -webkit-appearance: none; appearance: none; height: 4px; width: 150px;
+        background: var(--border); border-radius: 3px; cursor: pointer;
+      }
+      input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none; width: 15px; height: 15px; border-radius: 50%;
+        background: var(--accent); border: 2px solid var(--bg); cursor: pointer;
+      }
+      input[type="range"]::-moz-range-thumb {
+        width: 15px; height: 15px; border-radius: 50%; background: var(--accent); border: 2px solid var(--bg); cursor: pointer;
+      }
+
+      /* suite buttons (Testing tab) */
+      #controls { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+      #controls button { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); font-weight: 500; }
+      #controls button:hover:not(:disabled) { border-color: var(--accent); filter: none; }
+
+      /* log panels */
+      #log, #bench-log {
+        background: #070a10; color: #c4cee0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 12px; padding: 0.85rem 1rem; border-radius: 10px; white-space: pre-wrap;
+        overflow-x: auto; min-height: 11rem; border: 1px solid var(--border);
+      }
+      .ok { color: var(--ok); } .err { color: var(--err); } .warn { color: var(--warn); } .muted { color: var(--muted); }
+
       /* bench table */
-      table.bench { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 13px; }
-      table.bench th, table.bench td { border: 1px solid #e2e8f0; padding: 0.4rem 0.6rem; text-align: right; }
-      table.bench th { background: #f8fafc; text-align: right; }
-      table.bench td:first-child, table.bench th:first-child { text-align: left; }
-      table.bench tr:nth-child(even) td { background: #fafafa; }
-      .pending { color: #94a3b8; }
-      .faster { color: #16a34a; font-weight: 600; } .slower { color: #dc2626; font-weight: 600; }
+      table.bench { border-collapse: collapse; width: 100%; margin: 1.25rem 0 1rem; font-size: 13px; }
+      table.bench th, table.bench td { border-bottom: 1px solid var(--border); padding: 0.5rem 0.7rem; text-align: right; }
+      table.bench th {
+        color: var(--muted); font-weight: 600; font-size: 0.7rem; text-transform: uppercase;
+        letter-spacing: 0.04em; white-space: nowrap;
+      }
+      table.bench td { font-variant-numeric: tabular-nums; }
+      table.bench td:first-child, table.bench th:first-child,
+      table.bench td:nth-child(2), table.bench th:nth-child(2) { text-align: left; }
+      table.bench tbody tr:hover td { background: var(--panel); }
+      .pending { color: #57637a; }
+      .faster { color: var(--ok); font-weight: 600; } .slower { color: var(--err); font-weight: 600; }
+      .split { color: var(--accent-2); font-weight: 600; }
     </style>
   </head>
   <body>
-    <h1>sumcheck-webgpu <span class="muted" style="font-size:0.8rem">(BN254 F<sub>r</sub>, MegaFlavor)</span></h1>
+    <h1>sumcheck-webgpu <span class="tag">BN254 F<sub>r</sub> · MegaFlavor</span></h1>
 
     <div class="tabbar">
-      <button id="tab-btn-testing" class="active" data-tab="testing">Testing</button>
-      <button id="tab-btn-bench" data-tab="bench">Benchmark (WebGPU vs WASM)</button>
-      <button id="tab-btn-hybrid" data-tab="hybrid">Hybrid (GPU front + WASM tail)</button>
+      <button id="tab-btn-bench" class="active" data-tab="bench">Benchmark</button>
+      <button id="tab-btn-testing" data-tab="testing">Testing</button>
     </div>
 
-    <!-- ===== Testing tab ===== -->
-    <section id="tab-testing" class="tab active">
-      <p class="muted">
-        WebGPU correctness checks diffed against CPU references: the F<sub>r</sub> Montgomery primitives, the
-        short-monomial (<code>Mono</code>) arithmetic, the relation accumulate kernels, the fold, and the
-        full multi-round sumcheck. Pick a suite or <strong>Run All</strong>. Needs no WASM build.
-      </p>
-      <div class="controls">
-        <label>count 2^<input id="logn" type="number" value="14" min="4" max="20" /></label>
-        <div id="controls"></div>
-      </div>
-      <div id="log"></div>
-    </section>
-
-    <!-- ===== Benchmark tab ===== -->
-    <section id="tab-bench" class="tab">
-      <p class="muted">
-        Times the full sumcheck across sizes for three provers: the resident-byte <strong>multi-round</strong>
-        WebGPU engine (per-round CPU readback for Fiat-Shamir), the <strong>single-submit</strong> WebGPU engine
-        (GPU-derived Fiat-Shamir, whole protocol in one command buffer), and the <strong>WASM</strong> prover
-        (bb.js bbapi <code>SumcheckBench</code>). All run in this browser. Each GPU engine shows GPU dispatch and
-        end-to-end wall (the latter includes the CPU tail + decode); the <code>×WASM</code> columns are
-        WASM÷wall (&gt;1 = GPU faster). <strong>outputs</strong> cross-checks correctness independently — the
-        superscript is how many engines agreed (² = both GPU engines, ³ = + the CPU reference at small n;
-        hover for the per-check breakdown). Three checks: single-submit's GPU Fiat-Shamir is re-derived on the
-        CPU (Poseidon2) and must match; the multi-round engine, run on that verified chain, must produce the
-        same round univariates bit-for-bit; and below 2^13 a fully independent canonical-bigint CPU reference
-        must match too. WASM is timing-only — its bbapi reports no univariates, so it is not output-checked.
-        The WASM column is empty until <code>barretenberg.wasm</code> is rebuilt with the command.
+    <!-- ===== Benchmark tab (WASM vs WebGPU, multi-pass) ===== -->
+    <section id="tab-bench" class="tab active">
+      <p class="lede">
+        One sumcheck benchmark with a configurable <strong>WASM-fallback threshold</strong> 2<sup>T</sup>.
+        Sizes ≤ 2<sup>T</sup> run entirely on the <strong>WASM</strong> prover. Larger sizes fold their first
+        <code>d − T</code> rounds on the <strong>WebGPU</strong> engine — the heavy front, where round 0 alone is
+        ~half the field work and each later round halves the rest — then hand the folded columns to WASM for the
+        final <code>T</code> rounds. Each row also times full WASM as the baseline; <strong>vs WASM &gt; 1</strong>
+        means the split wins. The WASM column needs <code>?coi=1</code> + a WASM build.
       </p>
       <div class="controls">
         <label>from 2^<input id="bench-min" type="number" value="10" min="2" max="20" /></label>
-        <label>to 2^<input id="bench-max" type="number" value="16" min="2" max="22" /></label>
+        <label>to 2^<input id="bench-max" type="number" value="18" min="2" max="22" /></label>
+        <label class="slider-wrap">
+          WASM fallback ≤ 2^<span id="bench-thresh-val" class="val">13</span>
+          <input id="bench-thresh" type="range" min="4" max="20" value="13" step="1" />
+        </label>
         <button id="bench-run">Run benchmark</button>
       </div>
       <table class="bench">
         <thead>
-          <tr><th>size</th><th>multi GPU (ms)</th><th>multi wall (ms)</th><th>single-submit GPU (ms)</th><th>single-submit wall (ms)</th><th>WASM (ms)</th><th>multi ×WASM</th><th>single-submit ×WASM</th><th>outputs</th></tr>
+          <tr>
+            <th>size</th><th>split</th><th>GPU (ms)</th><th>handoff (ms)</th>
+            <th>WASM tail (ms)</th><th>multi-pass (ms)</th><th>full WASM (ms)</th><th>vs WASM</th>
+          </tr>
         </thead>
         <tbody id="bench-tbody"></tbody>
       </table>
       <div id="bench-log"></div>
     </section>
 
-    <!-- ===== Hybrid tab ===== -->
-    <section id="tab-hybrid" class="tab">
-      <p class="muted">
-        Splits the multi-round sumcheck: the first <strong>k</strong> rounds run on the
-        <strong>WebGPU</strong> engine (the heavy front — round 0 alone is ~half the field work,
-        and each round halves what remains), then the <strong>WASM</strong> prover finishes the
-        remaining <code>d−k</code> rounds. Sumcheck is recursive, so the WASM tail is timed with
-        <code>SumcheckBench(d−k)</code>. <em>Hybrid</em> = GPU k rounds + folded-column handoff
-        readback + WASM tail, shown against the full-WASM and full-GPU baselines.
-        Needs <code>?coi=1</code> + a WASM build for the tail.
+    <!-- ===== Testing tab ===== -->
+    <section id="tab-testing" class="tab">
+      <p class="lede">
+        WebGPU correctness checks diffed against CPU references: the F<sub>r</sub> Montgomery primitives, the
+        short-monomial (<code>Mono</code>) arithmetic, the relation accumulate kernels, the fold, and the full
+        multi-round sumcheck. Pick a suite or <strong>Run All</strong>. Needs no WASM build.
       </p>
       <div class="controls">
-        <label>from 2^<input id="hybrid-min" type="number" value="12" min="2" max="20" /></label>
-        <label>to 2^<input id="hybrid-max" type="number" value="18" min="2" max="22" /></label>
-        <label>GPU rounds (k) <input id="hybrid-splits" type="text" value="1,2,3" style="width:7ch" /></label>
-        <button id="hybrid-run">Run hybrid sweep</button>
+        <label>count 2^<input id="logn" type="number" value="14" min="4" max="20" /></label>
+        <div id="controls"></div>
       </div>
-      <table class="bench">
-        <thead>
-          <tr>
-            <th>size</th><th>GPU k</th><th>GPU k-rounds (ms)</th><th>handoff (ms)</th>
-            <th>WASM tail (ms)</th><th>hybrid (ms)</th><th>full WASM (ms)</th><th>full GPU (ms)</th>
-            <th>vs WASM</th><th>vs GPU</th>
-          </tr>
-        </thead>
-        <tbody id="hybrid-tbody"></tbody>
-      </table>
-      <div id="hybrid-log"></div>
+      <div id="log"></div>
     </section>
 
     <script type="module" src="/dev/sumcheck-webgpu/main.ts"></script>

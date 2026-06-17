@@ -1,10 +1,15 @@
-// Unified sumcheck-webgpu test dashboard. Registers each test suite, builds a
-// button per suite plus "Run All", shares a single GPUDevice across runs, and
-// emits the `[autorun] state=ok|err` marker the headless driver waits on.
+// Unified sumcheck-webgpu dashboard. Two tabs:
+//   - Benchmark: the single WASM-vs-WebGPU multi-pass sumcheck benchmark. A
+//     configurable WASM-fallback threshold T routes sizes <= 2^T to pure WASM and
+//     folds the first (d-T) rounds of larger sizes on the WebGPU engine before
+//     handing the tail to WASM (see runMultiPassBenchmark).
+//   - Testing: the WebGPU correctness suites diffed against CPU references; one
+//     button per suite plus "Run All".
+// A single GPUDevice is shared across runs, and the `[autorun] state=ok|err` marker
+// the headless driver waits on is emitted to #log.
 //
-// Run: `yarn dev:sumcheck-webgpu`, open the page, click a suite (or Run All).
-// Headless: `node dev/sumcheck-webgpu/drive.mjs [all|fr|mono|arith]` (autoruns
-// via `?autorun=<id>`).
+// Run: `yarn dev:sumcheck-webgpu`, open the page, click Run.
+// Headless: `node dev/sumcheck-webgpu/drive.mjs [all|fr|mono|...|bench]`.
 //
 // Adding a relation = write a suite_<name>.ts exporting a Suite and add it to
 // REGISTRY below.
@@ -33,8 +38,7 @@ import { roundsSuite } from './suite_rounds.js';
 import { batchSuite } from './batch_gpu.js';
 import { poseidon2Suite } from './poseidon2_gpu.js';
 import { singleSubmitSuite } from './suite_singlesubmit.js';
-import { runSingleSubmitBench } from './single_submit.js';
-import { runBenchmark, runWgSweep, runProfile, runSingleSubmitProfile, runProfileReport, runHybridBenchmark, type BenchRow, type HybridRow } from './bench.js';
+import { runMultiPassBenchmark, type MultiPassRow } from './bench.js';
 
 const REGISTRY: Suite[] = [
   frSuite, monoSuite, arithSuite, deltaSuite, eccSuite, pos2InitSuite,
@@ -104,7 +108,7 @@ async function runSuites(suites: Suite[]): Promise<boolean> {
   return allOk;
 }
 
-// Build one button per suite + Run All.
+// Build one button per suite + Run All (Testing tab).
 for (const suite of REGISTRY) {
   const btn = document.createElement('button');
   btn.textContent = suite.label;
@@ -117,140 +121,6 @@ allBtn.style.fontWeight = '600';
 allBtn.addEventListener('click', () => void runSuites(REGISTRY));
 $controls.appendChild(allBtn);
 
-// Occupancy experiment: sweep the accumulate-kernel workgroup size at the current
-// size to find the GPU-compute sweet spot for the register-heavy relations.
-const WG_SWEEP = [32, 64, 96, 128, 192, 256];
-async function runWgSweepAuto(): Promise<boolean> {
-  if (running) return false;
-  running = true;
-  setButtonsDisabled(true);
-  $log.replaceChildren();
-  const logN = Math.max(4, Math.min(20, parseInt($logn.value, 10) || 14));
-  log('info', `WG occupancy sweep · 2^${logN} · accumulate workgroup size ∈ {${WG_SWEEP.join(', ')}}`);
-  let ok = true;
-  try {
-    const device = await getDevice();
-    await runWgSweep(device, logN, WG_SWEEP, log);
-  } catch (e) {
-    ok = false;
-    log('err', `error: ${(e as Error).message}`);
-    // eslint-disable-next-line no-console
-    console.error(e);
-  } finally {
-    running = false;
-    setButtonsDisabled(false);
-    log('muted', `[autorun] state=${ok ? 'ok' : 'err'}`);
-  }
-  return ok;
-}
-const wgBtn = document.createElement('button');
-wgBtn.textContent = 'WG sweep';
-wgBtn.addEventListener('click', () => void runWgSweepAuto());
-$controls.appendChild(wgBtn);
-
-// Per-kernel GPU profile (round 0) to see where GPU time actually goes.
-async function runProfileAuto(): Promise<boolean> {
-  if (running) return false;
-  running = true;
-  setButtonsDisabled(true);
-  $log.replaceChildren();
-  const logN = Math.max(4, Math.min(20, parseInt($logn.value, 10) || 14));
-  let ok = true;
-  try {
-    await runProfile(await getDevice(), logN, log);
-  } catch (e) {
-    ok = false;
-    log('err', `error: ${(e as Error).message}`);
-    // eslint-disable-next-line no-console
-    console.error(e);
-  } finally {
-    running = false;
-    setButtonsDisabled(false);
-    log('muted', `[autorun] state=${ok ? 'ok' : 'err'}`);
-  }
-  return ok;
-}
-const profBtn = document.createElement('button');
-profBtn.textContent = 'Profile';
-profBtn.addEventListener('click', () => void runProfileAuto());
-$controls.appendChild(profBtn);
-
-// Per-kernel GPU profile of the single-submission engine (all rounds) — where its
-// time goes vs multi-round (accumulate/reduce/batch/transcript/fold + barrier bubble).
-async function runSSProfileAuto(): Promise<boolean> {
-  if (running) return false;
-  running = true;
-  setButtonsDisabled(true);
-  $log.replaceChildren();
-  const logN = Math.max(4, Math.min(20, parseInt($logn.value, 10) || 14));
-  let ok = true;
-  try {
-    await runSingleSubmitProfile(await getDevice(), logN, log);
-  } catch (e) {
-    ok = false;
-    log('err', `error: ${(e as Error).message}`);
-    // eslint-disable-next-line no-console
-    console.error(e);
-  } finally {
-    running = false;
-    setButtonsDisabled(false);
-    log('muted', `[autorun] state=${ok ? 'ok' : 'err'}`);
-  }
-  return ok;
-}
-const ssProfBtn = document.createElement('button');
-ssProfBtn.textContent = 'SS profile';
-ssProfBtn.addEventListener('click', () => void runSSProfileAuto());
-$controls.appendChild(ssProfBtn);
-
-// One-click aggregator: runs all five profiling passes at fixed sizes and prints
-// the ready-to-paste PROFILE_DATA literal. Needs ?coi=1 for the WASM columns.
-async function runProfileReportAuto(): Promise<boolean> {
-  if (running) return false;
-  running = true;
-  setButtonsDisabled(true);
-  $log.replaceChildren();
-  let ok = true;
-  try {
-    await runProfileReport(await getDevice(), log);
-  } catch (e) {
-    ok = false;
-    log('err', `error: ${(e as Error).message}`);
-    // eslint-disable-next-line no-console
-    console.error(e);
-  } finally {
-    running = false;
-    setButtonsDisabled(false);
-    log('muted', `[autorun] state=${ok ? 'ok' : 'err'}`);
-  }
-  return ok;
-}
-const reportBtn = document.createElement('button');
-reportBtn.textContent = 'Profile report';
-reportBtn.addEventListener('click', () => void runProfileReportAuto());
-$controls.appendChild(reportBtn);
-
-// Single-submission GPU Fiat-Shamir sumcheck vs WASM across sizes (probe the 3x goal).
-async function runSSBenchAuto(): Promise<boolean> {
-  if (running) return false;
-  running = true;
-  setButtonsDisabled(true);
-  $log.replaceChildren();
-  const lo = Math.max(2, Math.min(20, parseInt($logn.value, 10) || 10));
-  const hi = Math.max(lo, Math.min(22, parseInt(($benchMax && $benchMax.value) || '', 10) || 16));
-  const logNs = Array.from({ length: hi - lo + 1 }, (_, i) => lo + i);
-  log('info', `single-submission sumcheck (GPU Fiat-Shamir) vs WASM · 2^${lo}..2^${hi}`);
-  let ok = true;
-  try { await runSingleSubmitBench(await getDevice(), logNs, log); }
-  catch (e) { ok = false; log('err', `error: ${(e as Error).message}`); console.error(e); }
-  finally { running = false; setButtonsDisabled(false); log('muted', `[autorun] state=${ok ? 'ok' : 'err'}`); }
-  return ok;
-}
-const ssBtn = document.createElement('button');
-ssBtn.textContent = 'SS bench';
-ssBtn.addEventListener('click', () => void runSSBenchAuto());
-$controls.appendChild(ssBtn);
-
 // ===== Tab switching =====
 document.querySelectorAll<HTMLButtonElement>('.tabbar button').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -260,12 +130,16 @@ document.querySelectorAll<HTMLButtonElement>('.tabbar button').forEach(btn => {
   });
 });
 
-// ===== Benchmark tab =====
+// ===== Benchmark tab (multi-pass WASM vs WebGPU) =====
 const $benchLog = document.getElementById('bench-log') as HTMLDivElement;
 const $benchTbody = document.getElementById('bench-tbody') as HTMLTableSectionElement;
 const $benchRun = document.getElementById('bench-run') as HTMLButtonElement;
 const $benchMin = document.getElementById('bench-min') as HTMLInputElement;
 const $benchMax = document.getElementById('bench-max') as HTMLInputElement;
+const $thresh = document.getElementById('bench-thresh') as HTMLInputElement;
+const $threshVal = document.getElementById('bench-thresh-val') as HTMLSpanElement;
+
+$thresh.addEventListener('input', () => { $threshVal.textContent = $thresh.value; });
 
 function benchLog(level: Level, msg: string): void {
   const div = document.createElement('div');
@@ -276,23 +150,25 @@ function benchLog(level: Level, msg: string): void {
   console.log(msg);
 }
 
-function appendBenchRow(r: BenchRow): void {
+function fmtFactor(x: number | null): string {
+  if (x === null) return '<span class="pending">—</span>';
+  const cls = x >= 1 ? 'faster' : 'slower';
+  return `<span class="${cls}">${x.toFixed(2)}×</span>`;
+}
+
+function appendMultiPassRow(r: MultiPassRow): void {
   const tr = document.createElement('tr');
-  const wasm = r.wasmMs === null ? '<span class="pending">— rebuild wasm</span>' : r.wasmMs.toFixed(1);
-  // outputs cell: ✓/✗ over all available checks; superscript = how many independent
-  // engines agreed (2 = both GPU engines, 3 = + the CPU reference at small n). Hover
-  // shows the per-check breakdown.
-  const cpuRan = r.cpuRefMatch !== null;
-  const cls = r.outputsMatch ? 'faster' : 'slower';
-  const title =
-    `Fiat-Shamir (GPU vs CPU re-derive): ${r.fiatShamirOk ? '✓' : '✗'}  ·  ` +
-    `multi-round ≡ single-submit: ${r.multiVsSingle ? '✓' : '✗'}  ·  ` +
-    `CPU reference: ${r.cpuRefMatch === null ? 'skipped (n too large)' : r.cpuRefMatch ? '✓' : '✗'}`;
-  const match = `<span class="${cls}" title="${title}">${r.outputsMatch ? '✓' : '✗'}<sup>${cpuRan ? 3 : 2}</sup></span>`;
+  const dash = '<span class="pending">—</span>';
+  const ms = (x: number | null): string => (x === null ? dash : x.toFixed(1));
+  const pureWasm = r.gpuRounds === 0;
+  const split = pureWasm
+    ? '<span class="muted">WASM only</span>'
+    : `<span class="split">${r.gpuRounds} GPU</span><span class="muted"> + ${r.logN - r.gpuRounds} WASM</span>`;
   tr.innerHTML =
-    `<td>2^${r.logN}</td><td>${r.webgpuGpuMs.toFixed(1)}</td><td>${r.webgpuWallMs.toFixed(1)}</td>` +
-    `<td>${r.ssGpuMs.toFixed(1)}</td><td>${r.ssWallMs.toFixed(1)}</td><td>${wasm}</td>` +
-    `<td>${fmtFactor(r.speedup)}</td><td>${fmtFactor(r.ssSpeedup)}</td><td>${match}</td>`;
+    `<td>2^${r.logN}</td><td>${split}</td>` +
+    `<td>${pureWasm ? dash : r.gpuMs.toFixed(1)}</td><td>${pureWasm ? dash : r.handoffMs.toFixed(1)}</td>` +
+    `<td>${ms(r.wasmTailMs)}</td><td>${ms(r.multipassMs)}</td><td>${ms(r.fullWasmMs)}</td>` +
+    `<td>${fmtFactor(r.speedup)}</td>`;
   $benchTbody.appendChild(tr);
 }
 
@@ -303,12 +179,16 @@ $benchRun.addEventListener('click', () => void (async () => {
   $benchTbody.replaceChildren();
   $benchLog.replaceChildren();
   const lo = Math.max(2, Math.min(20, parseInt($benchMin.value, 10) || 10));
-  const hi = Math.max(lo, Math.min(22, parseInt($benchMax.value, 10) || 16));
+  const hi = Math.max(lo, Math.min(22, parseInt($benchMax.value, 10) || 18));
+  const threshold = Math.max(2, Math.min(22, parseInt($thresh.value, 10) || 13));
   const logNs = Array.from({ length: hi - lo + 1 }, (_, i) => lo + i);
-  benchLog('info', `sweeping 2^${lo} … 2^${hi}   ·   full multi-round MegaFlavor sumcheck`);
+  benchLog(
+    'info',
+    `sweeping 2^${lo} … 2^${hi}  ·  WASM fallback ≤ 2^${threshold}  ·  larger sizes fold their first (d−${threshold}) rounds on WebGPU`,
+  );
   try {
     const device = await getDevice();
-    await runBenchmark(device, logNs, benchLog, appendBenchRow);
+    await runMultiPassBenchmark(device, logNs, threshold, benchLog, appendMultiPassRow);
     benchLog('ok', '✓ benchmark complete');
   } catch (e) {
     benchLog('err', `error: ${(e as Error).message}`);
@@ -322,106 +202,17 @@ $benchRun.addEventListener('click', () => void (async () => {
   }
 })());
 
-// ===== Hybrid tab (GPU front + WASM tail) =====
-const $hybridLog = document.getElementById('hybrid-log') as HTMLDivElement;
-const $hybridTbody = document.getElementById('hybrid-tbody') as HTMLTableSectionElement;
-const $hybridRun = document.getElementById('hybrid-run') as HTMLButtonElement;
-const $hybridMin = document.getElementById('hybrid-min') as HTMLInputElement;
-const $hybridMax = document.getElementById('hybrid-max') as HTMLInputElement;
-const $hybridSplits = document.getElementById('hybrid-splits') as HTMLInputElement;
-
-function hybridLog(level: Level, msg: string): void {
-  const div = document.createElement('div');
-  if (level !== 'info') div.className = level;
-  div.textContent = msg;
-  $hybridLog.appendChild(div);
-  // eslint-disable-next-line no-console
-  console.log(msg);
-}
-
-function fmtFactor(x: number | null): string {
-  if (x === null) return '<span class="pending">—</span>';
-  const cls = x >= 1 ? 'faster' : 'slower';
-  return `<span class="${cls}">${x.toFixed(2)}×</span>`;
-}
-
-function appendHybridRow(r: HybridRow): void {
-  const tr = document.createElement('tr');
-  const wasmTail = r.wasmTailMs === null ? '<span class="pending">— rebuild wasm</span>' : r.wasmTailMs.toFixed(1);
-  const hybrid = r.hybridMs === null ? '<span class="pending">—</span>' : r.hybridMs.toFixed(1);
-  const fullWasm = r.fullWasmMs === null ? '<span class="pending">—</span>' : r.fullWasmMs.toFixed(1);
-  tr.innerHTML =
-    `<td>2^${r.logN}</td><td>${r.gpuRounds}</td><td>${r.gpuRoundsMs.toFixed(1)}</td>` +
-    `<td>${r.handoffMs.toFixed(1)}</td><td>${wasmTail}</td><td>${hybrid}</td>` +
-    `<td>${fullWasm}</td><td>${r.fullGpuMs.toFixed(1)}</td>` +
-    `<td>${fmtFactor(r.vsWasm)}</td><td>${fmtFactor(r.vsGpu)}</td>`;
-  $hybridTbody.appendChild(tr);
-}
-
-function parseSplits(raw: string): number[] {
-  const ks = raw
-    .split(',')
-    .map(s => parseInt(s.trim(), 10))
-    .filter(k => Number.isFinite(k) && k >= 1);
-  return ks.length ? Array.from(new Set(ks)).sort((a, b) => a - b) : [1, 2, 3];
-}
-
-async function runHybridAuto(): Promise<boolean> {
-  if (running) return false;
-  running = true;
-  $hybridRun.disabled = true;
-  $hybridTbody.replaceChildren();
-  $hybridLog.replaceChildren();
-  const lo = Math.max(2, Math.min(20, parseInt($hybridMin.value, 10) || 12));
-  const hi = Math.max(lo, Math.min(22, parseInt($hybridMax.value, 10) || 18));
-  const logNs = Array.from({ length: hi - lo + 1 }, (_, i) => lo + i);
-  const splits = parseSplits($hybridSplits.value);
-  hybridLog('info', `sweeping 2^${lo} … 2^${hi}   ·   GPU first {${splits.join(', ')}} round(s) + WASM tail`);
-  let ok = true;
-  try {
-    const device = await getDevice();
-    await runHybridBenchmark(device, logNs, splits, hybridLog, appendHybridRow);
-    hybridLog('ok', '✓ hybrid sweep complete');
-  } catch (e) {
-    ok = false;
-    hybridLog('err', `error: ${(e as Error).message}`);
-    // eslint-disable-next-line no-console
-    console.error(e);
-  } finally {
-    running = false;
-    $hybridRun.disabled = false;
-    hybridLog('muted', 'done');
-    log('muted', `[autorun] state=${ok ? 'ok' : 'err'}`); // mirror to #log for the headless driver
-  }
-  return ok;
-}
-$hybridRun.addEventListener('click', () => void runHybridAuto());
-
-// Autorun: ?autorun=all | <suite id> | bench | wgsweep | hybrid
+// Autorun: ?autorun=bench | all | <suite id>
 const autorun = new URLSearchParams(window.location.search).get('autorun');
 if (autorun === 'bench') {
   (document.getElementById('tab-btn-bench') as HTMLButtonElement).click();
-  // Let `?logn=N` (LOGN=N via drive.mjs) raise the sweep's upper bound, e.g. to
-  // probe 2^17+ where the per-round sync amortizes further against compute.
+  // Let `?logn=N` (LOGN=N via drive.mjs) raise the sweep's upper bound, e.g. to probe
+  // 2^17+ where the GPU front carries more rounds before the WASM tail.
   const lognParam = new URLSearchParams(window.location.search).get('logn');
   if (lognParam) $benchMax.value = lognParam;
   $benchRun.click();
-} else if (autorun === 'hybrid') {
-  (document.getElementById('tab-btn-hybrid') as HTMLButtonElement).click();
-  const lognParam = new URLSearchParams(window.location.search).get('logn');
-  if (lognParam) $hybridMax.value = lognParam;
-  $hybridRun.click();
-} else if (autorun === 'wgsweep') {
-  void runWgSweepAuto();
-} else if (autorun === 'profile') {
-  void runProfileAuto();
-} else if (autorun === 'ssprofile') {
-  void runSSProfileAuto();
-} else if (autorun === 'profilereport') {
-  void runProfileReportAuto();
-} else if (autorun === 'ssbench') {
-  void runSSBenchAuto();
 } else if (autorun) {
+  (document.getElementById('tab-btn-testing') as HTMLButtonElement).click();
   const suites = autorun === 'all' ? REGISTRY : REGISTRY.filter(s => s.id === autorun);
   if (suites.length > 0) void runSuites(suites);
   else log('err', `unknown autorun target "${autorun}" (have: ${REGISTRY.map(s => s.id).join(', ')}, all)`);

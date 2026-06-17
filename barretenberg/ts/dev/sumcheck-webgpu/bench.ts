@@ -351,6 +351,111 @@ export async function runHybridBenchmark(
   return rows;
 }
 
+export interface MultiPassRow {
+  logN: number; // d = total sumcheck rounds
+  n: number;
+  threshold: number; // T: sizes with d <= T run pure WASM; for d > T the WASM tail is the final (d-k)=T rounds
+  gpuRounds: number; // k = max(0, d - T): rounds run on the WebGPU front
+  gpuMs: number; // wall for the k GPU front rounds (0 when pure WASM)
+  handoffMs: number; // readback of the folded columns at the GPU->WASM handoff (0 when pure WASM)
+  wasmTailMs: number | null; // WASM time for the (d-k)-round tail (== full WASM when pure WASM)
+  multipassMs: number | null; // gpuMs + handoffMs + wasmTailMs (== fullWasmMs when pure WASM)
+  fullWasmMs: number | null; // baseline: full d-round WASM
+  speedup: number | null; // fullWasmMs / multipassMs  (>1 => the split beats full WASM)
+}
+
+/**
+ * The single sumcheck benchmark: a configurable WASM-fallback threshold `T` splits
+ * each size between the WebGPU front and the WASM prover.
+ *
+ *   - d <= T: the whole sumcheck runs on WASM (no GPU). The reported multi-pass time
+ *     IS the full-WASM time, so the speedup is 1.00x by construction.
+ *   - d  > T: the first k = d - T rounds run on the WebGPU engine (the heavy front —
+ *     round 0 alone is ~half the field work, and each later round halves the rest),
+ *     folding every column down to length 2^T; those folded columns are read back
+ *     (the handoff) and the WASM prover finishes the remaining T rounds. Sumcheck is
+ *     recursive, so the tail has the per-round cost of a fresh T-round sumcheck and is
+ *     timed with `SumcheckBench(d - k = T)` — no resume command or wasm rebuild needed.
+ *
+ * Every size also times full WASM as the baseline, so the table shows whether the
+ * split actually wins. Timing-only: correctness is covered by the Testing tab's round
+ * suite, which runs the same GPU engine against a CPU reference.
+ */
+export async function runMultiPassBenchmark(
+  device: GPUDevice,
+  logNs: number[],
+  threshold: number,
+  log: Logger,
+  onRow?: (row: MultiPassRow) => void,
+): Promise<MultiPassRow[]> {
+  const alpha = makeRng(0xb0_07_5eedn)();
+  const cache: PipelineCache = new Map();
+  const foldRunner: FoldRunner = await makeFoldRunner(device);
+  const reduceRunner: ReduceRunner = await makeReduceRunner(device);
+  const shared = { cache, foldRunner, reduceRunner };
+  const wasm = await initWasm(log);
+  if (wasm) log('info', '  WASM backend ready (bb.js threads)');
+
+  // Warmup the GPU pipelines (compile every shader into the shared cache) at the
+  // smallest size that actually uses the GPU, so per-size timing excludes compilation.
+  const gpuSizes = logNs.filter(d => d > threshold);
+  if (gpuSizes.length) {
+    const wn = 1 << Math.min(...gpuSizes);
+    const wd = Math.round(Math.log2(wn));
+    const warm = buildInputs(wn);
+    const wb = Array.from({ length: wd }, (_, i) => makeRng(0x1234n + BigInt(i))());
+    const wc = Array.from({ length: wd }, (_, i) => makeRng(0x9999n + BigInt(i))());
+    await runResidentGpuSumcheck(device, wn, alpha, wb, wc, warm.relParamBytes, warm.initColBytes, shared);
+  }
+
+  const rows: MultiPassRow[] = [];
+  for (const logN of logNs) {
+    const n = 1 << logN;
+    const k = Math.max(0, logN - threshold);
+    const fullWasmMs = await runWasmSumcheck(wasm, logN);
+
+    let gpuMs = 0;
+    let handoffMs = 0;
+    let wasmTailMs: number | null;
+    let multipassMs: number | null;
+    if (k === 0) {
+      // Pure WASM: the multi-pass run is the full-WASM run, so reuse the baseline.
+      wasmTailMs = fullWasmMs;
+      multipassMs = fullWasmMs;
+    } else {
+      const betas = Array.from({ length: logN }, (_, i) => makeRng(0xbe7a_77n + BigInt(i))());
+      const challenges = Array.from({ length: logN }, (_, i) => makeRng(0xc4a1_77n + BigInt(i))());
+      const { initColBytes, relParamBytes } = buildInputs(n);
+      const part = await runResidentGpuSumcheck(
+        device, n, alpha, betas, challenges, relParamBytes, initColBytes, shared, WG, false, k,
+      );
+      gpuMs = part.totalMs;
+      handoffMs = part.finalReadbackMs;
+      wasmTailMs = await runWasmSumcheck(wasm, logN - k);
+      multipassMs = wasmTailMs === null ? null : gpuMs + handoffMs + wasmTailMs;
+    }
+    const speedup =
+      multipassMs !== null && multipassMs > 0 && fullWasmMs !== null ? fullWasmMs / multipassMs : null;
+    const row: MultiPassRow = {
+      logN, n, threshold, gpuRounds: k, gpuMs, handoffMs, wasmTailMs, multipassMs, fullWasmMs, speedup,
+    };
+    rows.push(row);
+    onRow?.(row);
+    const split = k === 0 ? 'WASM only' : `${k} GPU + ${logN - k} WASM`;
+    log(
+      'ok',
+      k === 0
+        ? `  2^${logN} · ${split}: WASM ${fullWasmMs === null ? '—' : fullWasmMs.toFixed(1) + ' ms'}`
+        : `  2^${logN} · ${split}: GPU ${gpuMs.toFixed(1)} + handoff ${handoffMs.toFixed(1)} + ` +
+            `WASM ${wasmTailMs === null ? '—' : wasmTailMs.toFixed(1)} = ${multipassMs === null ? '—' : multipassMs.toFixed(1)} ms` +
+            ` · full WASM ${fullWasmMs === null ? '—' : fullWasmMs.toFixed(1)} ms` +
+            `${speedup === null ? '' : `  →  ${speedup.toFixed(2)}× vs WASM`}`,
+    );
+  }
+  await wasm?.destroy();
+  return rows;
+}
+
 export interface MultiProfileData {
   logN: number;
   accumulateMs: number;
