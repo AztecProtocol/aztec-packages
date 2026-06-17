@@ -5,6 +5,7 @@ import type { TxSimulationResultWithAppOffset } from '../wallet/tx_simulation_re
 import type { BatchedMethod, Wallet } from '../wallet/wallet.js';
 import { BaseContractInteraction } from './base_contract_interaction.js';
 import {
+  NO_FROM,
   type RequestInteractionOptions,
   type SimulateInteractionOptions,
   type SimulationResult,
@@ -90,14 +91,7 @@ export class BatchCall extends BaseContractInteraction {
     for (const [call] of utility) {
       batchRequests.push({
         name: 'executeUtility' as const,
-        args: [
-          call,
-          {
-            from: options.from,
-            authWitnesses: options.authWitnesses,
-            additionalScopes: options.additionalScopes,
-          },
-        ],
+        args: [call, { scopes: options.from === NO_FROM ? [] : [options.from], authWitnesses: options.authWitnesses }],
       });
     }
 

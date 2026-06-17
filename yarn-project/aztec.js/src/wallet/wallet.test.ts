@@ -22,7 +22,6 @@ import { DEV_VERSION } from '@aztec/stdlib/update-checker';
 
 import {
   type InteractionWaitOptions,
-  NO_FROM,
   NO_WAIT,
   type OffchainMessage,
   type SendReturn,
@@ -35,7 +34,6 @@ import type {
   BatchedMethod,
   ContractClassMetadata,
   ContractMetadata,
-  ExecuteUtilityOptions,
   PrivateEvent,
   PrivateEventFilter,
   ProfileOptions,
@@ -205,9 +203,8 @@ describe('WalletSchema', () => {
       returnTypes: [],
     });
     const result = await context.client.executeUtility(call, {
-      from: NO_FROM,
+      scopes: [await AztecAddress.random()],
       authWitnesses: [AuthWitness.random()],
-      additionalScopes: [await AztecAddress.random()],
     });
     expect(result).toBeInstanceOf(UtilityExecutionResult);
   });
@@ -379,10 +376,7 @@ describe('WalletSchema', () => {
       { name: 'getAccounts', args: [] },
       { name: 'registerContract', args: [mockInstance, mockArtifact, undefined] },
       { name: 'simulateTx', args: [exec, simulateOpts] },
-      {
-        name: 'executeUtility',
-        args: [call, { from: NO_FROM, authWitnesses: [AuthWitness.random()], additionalScopes: [address3] }],
-      },
+      { name: 'executeUtility', args: [call, { scopes: [address3], authWitnesses: [AuthWitness.random()] }] },
       { name: 'profileTx', args: [exec, profileOpts] },
       { name: 'sendTx', args: [exec, opts] },
       { name: 'createAuthWit', args: [address1, { consumer: await AztecAddress.random(), innerHash: Fr.random() }] },
@@ -498,7 +492,10 @@ class MockWallet implements Wallet {
     return TxSimulationResultWithAppOffset.fromResultAndOffset(await TxSimulationResult.random(), 0);
   }
 
-  executeUtility(_call: any, _opts: ExecuteUtilityOptions): Promise<UtilityExecutionResult> {
+  executeUtility(
+    _call: any,
+    _opts: { scopes: AztecAddress[]; authWitnesses?: AuthWitness[] },
+  ): Promise<UtilityExecutionResult> {
     return Promise.resolve(UtilityExecutionResult.random());
   }
 

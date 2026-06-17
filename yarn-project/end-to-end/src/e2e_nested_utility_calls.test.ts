@@ -63,14 +63,14 @@ describe('Nested utility calls', () => {
     ).rejects.toThrow('Cross-contract utility call denied');
   });
 
-  it('exposes the supplied `from` as the top-level utility msg_sender', async () => {
-    const { result } = await contractA.methods.get_msg_sender().simulate({ from: defaultAccountAddress });
-    expect(result).toEqual(defaultAccountAddress);
-  });
+  it('top-level utility has no caller, so its msg_sender is none', async () => {
+    // A top-level utility call is not reached via a cross-contract call, so it observes no caller regardless of the
+    // `from` supplied for the simulation.
+    const withFrom = await contractA.methods.get_msg_sender().simulate({ from: defaultAccountAddress });
+    expect(withFrom.result).toBeUndefined();
 
-  it('top-level utility msg_sender is none when called without a `from`', async () => {
-    const { result } = await contractA.methods.get_msg_sender().simulate({ from: NO_FROM });
-    expect(result).toBeUndefined();
+    const withoutFrom = await contractA.methods.get_msg_sender().simulate({ from: NO_FROM });
+    expect(withoutFrom.result).toBeUndefined();
   });
 });
 

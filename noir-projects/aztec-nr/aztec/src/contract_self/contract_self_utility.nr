@@ -60,11 +60,10 @@ impl<Storage, CallSelf> ContractSelfUtility<Storage, CallSelf> {
     ///
     /// ## Direct Invocation
     ///
-    /// A utility function invoked directly (e.g. by a wallet or dApp) rather than from another contract sees the
-    /// `from` address supplied for the simulation. When no `from` was supplied there is no caller, and this function
-    /// panics.
+    /// A utility function invoked directly (e.g. by a wallet or dApp) rather than from another contract has no caller,
+    /// and this function panics. Only a nested (cross-contract) utility call has a `msg_sender`.
     ///
-    /// If you need to handle these cases, use [`UtilityContext::maybe_msg_sender`].
+    /// If you need to handle the no-caller case, use [`UtilityContext::maybe_msg_sender`].
     ///
     /// Note that utility functions are simulated client-side and never proven, so this value is unconstrained: see
     /// [`UtilityContext::maybe_msg_sender`] for why it must not be relied on as a security guarantee.

@@ -126,23 +126,6 @@ export type ContractSimulatorRunOpts = {
   jobId: string;
 };
 
-/** Options for ContractFunctionSimulator.runUtility. */
-export type ContractSimulatorRunUtilityOpts = {
-  /** Authentication witnesses required for the function call. Defaults to none. */
-  authwits?: AuthWitness[];
-  /** The block header to use as base state for this run. */
-  anchorBlockHeader: BlockHeader;
-  /** The accounts whose notes we can access in this call. */
-  scopes: AztecAddress[];
-  /** The job ID for staged writes. */
-  jobId: string;
-  /**
-   * The address to expose as the top-level utility's `msg_sender`. Omitted means no caller. Nested utility calls set
-   * their own `msg_sender` to the calling contract.
-   */
-  msgSender?: AztecAddress;
-};
-
 /** Args for ContractFunctionSimulator constructor. */
 export type ContractFunctionSimulatorArgs = {
   contractStore: ContractStore;
@@ -254,7 +237,7 @@ export class ContractFunctionSimulator {
       callContext,
       anchorBlockHeader,
       utilityExecutor: async (call, execScopes) => {
-        await this.runUtility(call, { anchorBlockHeader, scopes: execScopes, jobId });
+        await this.runUtility(call, [], anchorBlockHeader, execScopes, jobId);
       },
       authWitnesses: request.authWitnesses,
       capsules: request.capsules,
@@ -339,13 +322,10 @@ export class ContractFunctionSimulator {
    */
   public async runUtility(
     call: FunctionCall,
-    {
-      authwits = [],
-      anchorBlockHeader,
-      scopes,
-      jobId,
-      msgSender = AztecAddress.NULL_MSG_SENDER,
-    }: ContractSimulatorRunUtilityOpts,
+    authwits: AuthWitness[],
+    anchorBlockHeader: BlockHeader,
+    scopes: AztecAddress[],
+    jobId: string,
   ): Promise<{ result: Fr[]; offchainEffects: OffchainEffect[] }> {
     const entryPointArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(call.to, call.selector);
 
@@ -354,12 +334,12 @@ export class ContractFunctionSimulator {
     }
 
     const utilityExecutor = async (syncCall: FunctionCall, execScopes: AztecAddress[]) => {
-      await this.runUtility(syncCall, { anchorBlockHeader, scopes: execScopes, jobId });
+      await this.runUtility(syncCall, [], anchorBlockHeader, execScopes, jobId);
     };
 
     const oracle = new UtilityExecutionOracle({
       callContext: CallContext.from({
-        msgSender,
+        msgSender: AztecAddress.NULL_MSG_SENDER,
         contractAddress: call.to,
         functionSelector: call.selector,
         isStaticCall: true,

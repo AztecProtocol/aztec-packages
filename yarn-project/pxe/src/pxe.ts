@@ -139,8 +139,6 @@ export type ExecuteUtilityOpts = {
   authwits?: AuthWitness[];
   /** The accounts whose notes we can access in this call */
   scopes: AztecAddress[];
-  /** The address to use as the top-level utility's `msg_sender`. Omitted means no caller. */
-  msgSender?: AztecAddress;
 };
 
 /**
@@ -464,7 +462,7 @@ export class PXE {
         contractAddress,
         functionSelector,
         (privateSyncCall, execScopes) =>
-          this.#executeUtility(contractFunctionSimulator, privateSyncCall, { scopes: execScopes, jobId }),
+          this.#executeUtility(contractFunctionSimulator, privateSyncCall, [], execScopes, jobId),
         anchorBlockHeader,
         jobId,
         scopes,
@@ -490,30 +488,28 @@ export class PXE {
    * Execute a utility function call on the given contract.
    * @param contractFunctionSimulator - The simulator to use for the function call.
    * @param call - The function call to execute.
-   * @param opts - Execution options: the `authwits` required for the call, the `scopes` whose notes are
-   * accessible, the `jobId` for staged writes, and the `msgSender` to expose as the top-level utility's `msg_sender`
-   * (omitted means no caller).
+   * @param authWitnesses - Authentication witnesses required for the function call.
+   * @param scopes - Optional array of account addresses whose notes can be accessed in this call. Defaults to all
+   * accounts if not specified.
+   * @param jobId - The job ID for staged writes.
    * @returns The execution result containing the outputs of the utility function.
    */
   async #executeUtility(
     contractFunctionSimulator: ContractFunctionSimulator,
     call: FunctionCall,
-    {
-      authwits,
-      scopes,
-      jobId,
-      msgSender,
-    }: { authwits?: AuthWitness[]; scopes: AztecAddress[]; jobId: string; msgSender?: AztecAddress },
+    authWitnesses: AuthWitness[] | undefined,
+    scopes: AztecAddress[],
+    jobId: string,
   ) {
     try {
       const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
-      const { result, offchainEffects } = await contractFunctionSimulator.runUtility(call, {
-        authwits,
+      const { result, offchainEffects } = await contractFunctionSimulator.runUtility(
+        call,
+        authWitnesses ?? [],
         anchorBlockHeader,
         scopes,
         jobId,
-        msgSender,
-      });
+      );
       return { result, offchainEffects };
     } catch (err) {
       if (err instanceof SimulationError) {
@@ -1188,7 +1184,7 @@ export class PXE {
    */
   public executeUtility(
     call: FunctionCall,
-    { authwits, scopes, msgSender }: ExecuteUtilityOpts = { scopes: [] },
+    { authwits, scopes }: ExecuteUtilityOpts = { scopes: [] },
   ): Promise<UtilityExecutionResult> {
     // We disable concurrent executions since those might execute oracles which read and write to the PXE stores (e.g.
     // to the capsules), and we need to prevent concurrent runs from interfering with one another (e.g. attempting to
@@ -1207,7 +1203,7 @@ export class PXE {
           call.to,
           call.selector,
           (privateSyncCall, execScopes) =>
-            this.#executeUtility(contractFunctionSimulator, privateSyncCall, { scopes: execScopes, jobId }),
+            this.#executeUtility(contractFunctionSimulator, privateSyncCall, [], execScopes, jobId),
           anchorBlockHeader,
           jobId,
           scopes,
@@ -1216,12 +1212,9 @@ export class PXE {
         const { result: executionResult, offchainEffects } = await this.#executeUtility(
           contractFunctionSimulator,
           call,
-          {
-            authwits,
-            scopes,
-            jobId,
-            msgSender,
-          },
+          authwits ?? [],
+          scopes,
+          jobId,
         );
         const functionTime = functionTimer.ms();
 
@@ -1286,7 +1279,7 @@ export class PXE {
         filter.contractAddress,
         null,
         async (privateSyncCall, execScopes) =>
-          await this.#executeUtility(contractFunctionSimulator, privateSyncCall, { scopes: execScopes, jobId }),
+          await this.#executeUtility(contractFunctionSimulator, privateSyncCall, [], execScopes, jobId),
         anchorBlockHeader,
         jobId,
         filter.scopes,

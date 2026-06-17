@@ -44,8 +44,7 @@ impl UtilityContext {
     ///
     /// This is similar to `msg.sender` in Solidity (hence the name). A utility function called by another contract
     /// (via a nested utility call) sees that contract's address. A utility function invoked directly (e.g. by a wallet
-    /// or dApp) sees the `from` address supplied for the simulation, or `Option::none` when no `from` was supplied
-    /// (i.e. when there is no caller).
+    /// or dApp) has no caller and sees `Option::none`.
     ///
     /// Important Note: utility functions are simulated client-side and never proven, so this value is whatever the
     /// simulator (PXE) set it to: nothing about it is verified onchain. It exists to assist simulation in a

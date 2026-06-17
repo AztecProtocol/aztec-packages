@@ -1,13 +1,11 @@
-use aztec::{protocol::address::AztecAddress, test::helpers::test_environment::TestEnvironment};
 use logging_example::LoggingExample;
+use aztec::{protocol::address::AztecAddress, test::helpers::test_environment::TestEnvironment};
 
 pub unconstrained fn setup() -> (TestEnvironment, AztecAddress, AztecAddress) {
     let mut env = TestEnvironment::new();
     let owner = env.create_light_account();
-    let contract_address = env.deploy("@logging_example/LoggingExample").with_public_initializer(
-        owner,
-        LoggingExample::interface().constructor(),
-    );
+    let contract_address = env.deploy("@logging_example/LoggingExample")
+        .with_public_initializer(owner, LoggingExample::interface().constructor());
     (env, contract_address, owner)
 }
 
@@ -32,13 +30,19 @@ unconstrained fn test_all_log_levels() {
 #[test]
 unconstrained fn test_format_patterns() {
     let (env, contract_address, owner) = setup();
-    env.call_private(owner, LoggingExample::at(contract_address).log_format_patterns(10, 20, 30));
+    env.call_private(
+        owner,
+        LoggingExample::at(contract_address).log_format_patterns(10, 20, 30),
+    );
 }
 
 #[test]
 unconstrained fn test_log_with_address() {
     let (env, contract_address, owner) = setup();
-    env.call_private(owner, LoggingExample::at(contract_address).log_with_address(owner));
+    env.call_private(
+        owner,
+        LoggingExample::at(contract_address).log_with_address(owner),
+    );
 }
 
 #[test]

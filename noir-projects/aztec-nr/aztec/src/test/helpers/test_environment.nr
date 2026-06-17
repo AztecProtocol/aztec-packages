@@ -402,10 +402,11 @@ impl ExecuteUtilityOptions<0> {
 }
 
 impl<let T: u32> ExecuteUtilityOptions<T> {
-    /// Sets the `msg_sender` observed by the called utility function, mirroring the `from` address a dapp supplies
-    /// when simulating a utility call.
+    /// Sets the `msg_sender` observed by the called utility function, simulating a cross-contract caller without
+    /// having to route through an actual nested utility call.
     ///
-    /// By default no `from` is set and the called function observes no caller.
+    /// In production only a nested (cross-contract) utility call has a `msg_sender`; a top-level call from a wallet or
+    /// dapp has no caller. By default no `from` is set and the called function observes no caller.
     pub fn with_from(&mut self, from: AztecAddress) -> Self {
         self.from = Option::some(from);
         *self

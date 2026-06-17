@@ -11,13 +11,6 @@ import type { NotesFilter } from '../notes_filter.js';
 import type { AnchorBlockStore } from '../storage/index.js';
 import type { NoteStore } from '../storage/note_store/note_store.js';
 
-/** The PXE's internal utility execution helper, injected via {@link PXEDebugUtils.setPXEHelpers}. */
-type ExecuteUtilityFn = (
-  contractFunctionSimulator: ContractFunctionSimulator,
-  call: FunctionCall,
-  opts: { authwits?: AuthWitness[]; scopes: AztecAddress[]; jobId: string; msgSender?: AztecAddress },
-) => Promise<any>;
-
 /**
  * Methods provided by this class might help debugging but must not be used in production.
  * No backwards compatibility or API stability should be expected. Use at your own risk.
@@ -25,7 +18,13 @@ type ExecuteUtilityFn = (
 export class PXEDebugUtils {
   #putJobInQueue!: <T>(job: (jobId: string) => Promise<T>) => Promise<T>;
   #getSimulatorForTx!: (overrides?: { contracts?: ContractOverrides }) => ContractFunctionSimulator;
-  #executeUtility!: ExecuteUtilityFn;
+  #executeUtility!: (
+    contractFunctionSimulator: ContractFunctionSimulator,
+    call: FunctionCall,
+    authWitnesses: AuthWitness[] | undefined,
+    scopes: AztecAddress[],
+    jobId: string,
+  ) => Promise<any>;
 
   constructor(
     private contractSyncService: ContractSyncService,
@@ -38,7 +37,13 @@ export class PXEDebugUtils {
   public setPXEHelpers(
     putJobInQueue: <T>(job: (jobId: string) => Promise<T>) => Promise<T>,
     getSimulatorForTx: (overrides?: { contracts?: ContractOverrides }) => ContractFunctionSimulator,
-    executeUtility: ExecuteUtilityFn,
+    executeUtility: (
+      contractFunctionSimulator: ContractFunctionSimulator,
+      call: FunctionCall,
+      authWitnesses: AuthWitness[] | undefined,
+      scopes: AztecAddress[],
+      jobId: string,
+    ) => Promise<any>,
   ) {
     this.#putJobInQueue = putJobInQueue;
     this.#getSimulatorForTx = getSimulatorForTx;
@@ -68,7 +73,7 @@ export class PXEDebugUtils {
         filter.contractAddress,
         null,
         async (privateSyncCall, execScopes) =>
-          await this.#executeUtility(contractFunctionSimulator, privateSyncCall, { scopes: execScopes, jobId }),
+          await this.#executeUtility(contractFunctionSimulator, privateSyncCall, [], execScopes, jobId),
         anchorBlockHeader,
         jobId,
         filter.scopes,

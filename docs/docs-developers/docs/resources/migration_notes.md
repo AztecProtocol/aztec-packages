@@ -9,43 +9,21 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
-### Utility calls now have a `msg_sender`
+### Cross-contract utility calls now have a `msg_sender`
 
-Utility functions can read their caller via `self.msg_sender()`, mirroring private and public functions. A nested call (utility to utility, or private to utility) sees the calling contract's address. A top-level utility call sees the `from` address supplied for the simulation, or has no caller when none was supplied. `self.msg_sender()` panics when there is no caller; use `self.context.maybe_msg_sender()`, which returns an `Option<AztecAddress>`, to handle that case.
+A utility function called by another contract (utility to utility, or private to utility) can read the calling contract's address via `self.msg_sender()`, mirroring private and public functions. A top-level utility call (e.g. invoked directly by a wallet or dapp) has no caller: `self.msg_sender()` panics, and `self.context.maybe_msg_sender()` returns `Option::none()`.
 
-This change has several parts:
+`msg_sender` is only set for cross-contract calls, where it is taken from the call graph and so cannot be forged. A directly-invoked utility (from a wallet or dapp) has no verifiable caller, so it exposes none rather than trusting a value the caller could pick freely.
 
-#### [Aztec.nr] `ExecuteUtilityOptions` gains `with_from` to set the observed `msg_sender`
+#### [Aztec.nr] `ExecuteUtilityOptions` gains `with_from` to simulate a cross-contract caller in tests
 
-To set the `msg_sender` a utility function observes (by default it observes no caller), use `execute_utility_opts` with the new `ExecuteUtilityOptions::with_from` builder method:
+In `TestEnvironment`, use `execute_utility_opts` with the new `ExecuteUtilityOptions::with_from` builder method to set the `msg_sender` a utility observes, simulating a cross-contract caller without routing through an actual nested call (by default it observes no caller):
 
 ```rust
 let secret = env.execute_utility_opts(
     ExecuteUtilityOptions::new().with_from(caller),
     Registry::at(registry_address).get_app_siloed_secret(sender, recipient, mode),
 );
-```
-
-#### [Aztec.js] Simulating a utility with `from` sets its top-level `msg_sender`
-
-When you simulate a utility function with `from`, that address is now also the utility's top-level `msg_sender`, in addition to determining which notes and keys are visible. This lets a dapp simulate a utility call as if a specific account or contract were the caller:
-
-```ts
-// `appAddress` is observed by the utility as `self.msg_sender()`
-const { result } = await contract.methods.get_app_data().simulate({ from: appAddress });
-```
-
-Simulating with `NO_FROM` leaves `msg_sender` unset, so `self.context.maybe_msg_sender()` returns `Option::none()` and `self.msg_sender()` panics. This is additive: existing call sites that already pass a `from` need no changes.
-
-#### [Aztec.js] `Wallet.executeUtility` takes `{ from, additionalScopes }` instead of `{ scopes }`
-
-The options for `Wallet.executeUtility` now use the same `{ from, additionalScopes }` shape as the other wallet methods (such as `simulateTx` and `sendTx`), replacing the `scopes` array. `from` determines which notes and keys are visible and becomes the utility's top-level `msg_sender` (see the note above). Pass `NO_FROM` when there is no acting account.
-
-**Migration:**
-
-```diff
-- await wallet.executeUtility(call, { scopes: [account, other] });
-+ await wallet.executeUtility(call, { from: account, additionalScopes: [other] });
 ```
 
 ### [Aztec.js] Prefunded local network test accounts are now initializerless

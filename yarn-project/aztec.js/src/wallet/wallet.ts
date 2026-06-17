@@ -42,7 +42,6 @@ import {
   type InteractionWaitOptions,
   NO_FROM,
   NO_WAIT,
-  type NoFrom,
   type ProfileInteractionOptions,
   type SendInteractionOptionsWithoutWait,
   type SendReturn,
@@ -256,18 +255,10 @@ export type ContractClassMetadata = {
  * Options for executing a utility function call.
  */
 export type ExecuteUtilityOptions = {
-  /**
-   * The caller address: it becomes the utility's `msg_sender` and determines which notes and keys are visible
-   * during execution. Pass `NO_FROM` when there is no acting account.
-   */
-  from: AztecAddress | NoFrom;
+  /** The scopes for the utility execution (determines which notes and keys are visible). */
+  scopes: AztecAddress[];
   /** Optional auth witnesses to use during execution. */
   authWitnesses?: AuthWitness[];
-  /**
-   * Additional addresses whose private state and keys should be accessible during execution, beyond `from`'s.
-   * Required when the call needs to access private state or keys belonging to an address other than `from`.
-   */
-  additionalScopes?: AztecAddress[];
 };
 
 /**
@@ -599,9 +590,8 @@ const WalletMethodSchemas = {
     input: z.tuple([
       FunctionCall.schema,
       z.object({
-        from: FromSchema,
+        scopes: z.array(schemas.AztecAddress),
         authWitnesses: optional(z.array(AuthWitness.schema)),
-        additionalScopes: optional(z.array(schemas.AztecAddress)),
       }),
     ]),
     output: UtilityExecutionResult.schema,

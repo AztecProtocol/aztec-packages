@@ -799,8 +799,13 @@ export class TXESession implements TXESessionStateHandler {
     ).syncNoteNullifiers(contractAddress, await this.keyStore.getAccounts());
 
     this.oracleHandler = new UtilityExecutionOracle({
-      // No specific function is being executed in this inlined utility context, hence the empty selector.
-      callContext: new CallContext(AztecAddress.NULL_MSG_SENDER, contractAddress, FunctionSelector.empty(), true),
+      callContext: CallContext.from({
+        msgSender: AztecAddress.NULL_MSG_SENDER,
+        contractAddress,
+        // No specific function is being executed in this inlined utility context, hence the empty selector.
+        functionSelector: FunctionSelector.empty(),
+        isStaticCall: true,
+      }),
       authWitnesses: [],
       capsules: [],
       anchorBlockHeader,
@@ -902,7 +907,12 @@ export class TXESession implements TXESessionStateHandler {
       try {
         const simulator = new WASMSimulator();
         const oracle = new UtilityExecutionOracle({
-          callContext: new CallContext(AztecAddress.NULL_MSG_SENDER, call.to, call.selector, true),
+          callContext: CallContext.from({
+            msgSender: AztecAddress.NULL_MSG_SENDER,
+            contractAddress: call.to,
+            functionSelector: call.selector,
+            isStaticCall: true,
+          }),
           authWitnesses: [],
           capsules: [],
           anchorBlockHeader: anchorBlock!,

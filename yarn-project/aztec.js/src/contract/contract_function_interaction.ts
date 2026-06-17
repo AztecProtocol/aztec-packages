@@ -18,6 +18,7 @@ import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
 import type { Wallet } from '../wallet/wallet.js';
 import { BaseContractInteraction } from './base_contract_interaction.js';
 import {
+  NO_FROM,
   type ProfileInteractionOptions,
   type RequestInteractionOptions,
   type SimulateInteractionOptions,
@@ -131,10 +132,10 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
         throw new Error('overrides are not supported for utility function simulation.');
       }
       const call = await this.getFunctionCall();
+      const scopes = [...(options.additionalScopes ?? [])];
       const utilityResult = await this.wallet.executeUtility(call, {
-        from: options.from,
+        scopes: options.from === NO_FROM ? scopes : [options.from, ...scopes],
         authWitnesses: options.authWitnesses,
-        additionalScopes: options.additionalScopes,
       });
 
       // Decode the raw field elements to the actual return type

@@ -187,7 +187,7 @@ describe('Oracle Version Check test suite', () => {
       });
 
       // Call the utility function
-      await acirSimulator.runUtility(execRequest, { anchorBlockHeader, scopes: [], jobId: 'test' });
+      await acirSimulator.runUtility(execRequest, [], anchorBlockHeader, [], 'test');
 
       expect(assertCompatibleOracleVersionSpy).toHaveBeenCalledTimes(1);
     }, 30_000);
