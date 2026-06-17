@@ -36,12 +36,17 @@ const EXPECTED_BLOCKS_PER_CHECKPOINT = 8;
 // Send enough transactions to trigger multiple blocks within a checkpoint assuming 2 txs per block.
 const TX_COUNT = 34;
 
-// Four-validator pipelining + MBPS suite. Verifies blocks are built in slot N by the proposer
-// scheduled for slot N+1 (the pipelining +1 offset). Includes a prover node (fake proofs) and
-// uses 500ms mock gossip latency to simulate adverse network conditions. Two tests: (1) normal
-// pipelining flow asserting build-vs-submission slot offsets and blob-fetch promotion; (2) a
-// proposer skips its checkpoint publish, triggering an uncheckpointed-blocks prune followed by
-// recovery. Uses EpochsTestContext with mockGossipSubNetwork and no initial sequencer.
+/**
+ * E2E tests for proposer pipelining with Multiple Blocks Per Slot (MBPS).
+ * Verifies that the block proposer in slot N is the validator scheduled on L1 for slot N+1
+ * (the proposer view uses a +1 slot offset).
+ *
+ * Four-validator suite with a prover node (fake proofs) and 500ms mock gossip latency to simulate
+ * adverse network conditions. Two tests: (1) normal pipelining flow asserting build-vs-submission
+ * slot offsets and blob-fetch promotion; (2) a proposer skips its checkpoint publish, triggering an
+ * uncheckpointed-blocks prune followed by recovery. Uses EpochsTestContext with mockGossipSubNetwork
+ * and no initial sequencer.
+ */
 describe('e2e_epochs/epochs_mbps_pipeline', () => {
   let context: EndToEndContext;
   let logger: Logger;

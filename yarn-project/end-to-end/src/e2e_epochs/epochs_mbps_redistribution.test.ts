@@ -273,13 +273,11 @@ describe('e2e_epochs/epochs_mbps_redistribution', () => {
     expect(lastTwoLateCount).toBe(LATE_TX_COUNT);
   });
 
-  // Configures nodes 0/1 with perBlockAllocationMultiplier=10 and nodes 2/3 with the default (1.2).
-  // Keeps the mempool topped up with a background loop. Watches checkpoints via EpochCache proposer
-  // lookup and waits until a high-multiplier proposer's checkpoint has >1 tx in the first block.
-  // If normal-multiplier validators applied their own cap during re-execution the chain would stall.
-  // Verifies the chain does NOT stall and high-multiplier proposers can pack multiple txs per block.
   /**
    * Verifies that validators do NOT apply the proposer's fair-share multiplier when re-executing blocks.
+   *
+   * Configures nodes 0/1 with perBlockAllocationMultiplier=10 and nodes 2/3 with the default (1.2),
+   * and keeps the mempool topped up with a background loop.
    *
    * Two of the four validator nodes are configured with a very large `perBlockAllocationMultiplier` (10),
    * allowing their proposer to pack multiple txs into a single block. The other two keep the default

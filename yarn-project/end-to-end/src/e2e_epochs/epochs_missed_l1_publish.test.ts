@@ -25,12 +25,33 @@ jest.setTimeout(1000 * 60 * 15);
 
 const NODE_COUNT = 4;
 
-// Four-validator pipelining suite exercising the missed-L1-publish scenario. One node per
-// validator key. Finds four consecutive slots with distinct proposers, disables L1 publishing
-// on proposerOne, then warps to one L1 block before slotZero. Verifies: proposed chain advances
-// to slotOne then slotTwo via gossip; all archivers prune uncheckpointed blocks when slotOne ends
-// without a checkpoint; recovery produces a checkpointed block at slotThree after re-enabling
-// publishing. Uses EpochsTestContext with mockGossipSubNetwork, no initial sequencer, no prover node.
+/**
+ * E2E test for the "missed L1 publish" scenario under proposer pipelining.
+ *
+ * Each of 4 nodes holds exactly one validator key. We pick four consecutive slots
+ * (slotZero, slotOne, slotTwo, slotThree) such that the proposers for slotOne, slotTwo, and
+ * slotThree are three distinct validators, then warp to one L1 block before slotZero begins.
+ * The proposer for slotOne is configured to skip its L1 publish.
+ *
+ * With pipelining, the proposer for slot N+1 builds and gossips its checkpoint during slot N,
+ * then publishes that checkpoint to L1 during slot N+1. So gossip-driven `proposed` chain
+ * advances arrive one slot earlier than the L1-driven `checkpointed` advance.
+ *
+ * Expected behavior:
+ *  - During slotZero, the pipelined proposer for slotOne gossips its build → every node's
+ *    `proposed` tip advances to a block at slotOne.
+ *  - During slotOne, the pipelined proposer for slotTwo gossips on top of the slotOne proposal →
+ *    `proposed` advances to a block at slotTwo. Meanwhile the proposer for slotOne attempts L1
+ *    publish but is configured to skip it, so no checkpoint lands.
+ *  - When slotOne ends with no checkpoint mined, every node's archiver prunes the
+ *    uncheckpointed slotOne and slotTwo blocks; we verify rollback via the prune event.
+ *    We then re-enable publishing on the formerly suppressed node so recovery can proceed.
+ *  - During slotTwo, the pipelined proposer for slotThree builds on top of the (now genesis)
+ *    checkpointed tip → `proposed` advances again.
+ *  - During slotThree, that pipelined work is published → `checkpointed` finally advances.
+ *
+ * Uses EpochsTestContext with mockGossipSubNetwork, no initial sequencer, and no prover node.
+ */
 describe('e2e_epochs/epochs_missed_l1_publish', () => {
   let logger: Logger;
   let test: EpochsTestContext;

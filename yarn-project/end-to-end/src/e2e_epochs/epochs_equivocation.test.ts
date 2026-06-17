@@ -22,14 +22,24 @@ jest.setTimeout(1000 * 60 * 15);
 
 const NODE_COUNT = 4;
 
-// Four-validator suite testing equivocation recovery. Node A holds all four keys, publishes the
-// canonical checkpoint to L1 but suppresses its gossip broadcast. Nodes B and C each hold two
-// validator keys and broadcast an equivocating gossip-only checkpoint to the network but skip
-// L1 publishing. Node D is an observer with no keys. The suite verifies that L1-confirmed state
-// overrides the gossip-only equivocating proposal, that the chain heals after node A is stopped,
-// and that every observing validator records a DUPLICATE_PROPOSAL slashing offense.
-// Uses EpochsTestContext with mockGossipSubNetwork, no initial sequencer, slasherEnabled, and
-// custom per-validator skipBroadcastProposals / skipPublishingCheckpointsPercent config.
+/**
+ * E2E test for the equivocation recovery scenario under proposer pipelining.
+ *
+ * Two conflicting checkpoint proposals are gossiped during the same slot:
+ * - Node A (holds all 4 validator keys) publishes the "real" checkpoint to L1
+ *   but never broadcasts via gossipsub (`skipBroadcastProposals + skipIncomingProposals`).
+ * - The "X" node (B or C, whichever holds the slot proposer's key) broadcasts an
+ *   alternative checkpoint that reaches B/C/D via gossipsub but never lands on L1
+ *   (`skipPublishingCheckpointsPercent: 100`).
+ *
+ * The test verifies that L1 sync overrides the gossip-only proposal on all observer
+ * nodes (B, C, D) once A's L1-confirmed checkpoint propagates via the archiver.
+ *
+ * It additionally verifies that the chain heals after node A is stopped, and that every observing
+ * validator records a DUPLICATE_PROPOSAL slashing offense.
+ *
+ * Uses EpochsTestContext with mockGossipSubNetwork, no initial sequencer, and slasherEnabled.
+ */
 describe('e2e_epochs/epochs_equivocation', () => {
   let logger: Logger;
   let test: EpochsTestContext;

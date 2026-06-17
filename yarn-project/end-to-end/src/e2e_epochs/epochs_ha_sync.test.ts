@@ -28,12 +28,17 @@ jest.setTimeout(1000 * 60 * 20);
 const VALIDATOR_COUNT = 4;
 const TX_COUNT = 6;
 
-// HA (High Availability) proposed-chain sync suite. Creates two HA pairs (nodes sharing validator
-// keys) with a shared SlashingProtectionDatabase per pair. Disables checkpoint publishing on all
-// validator nodes. Verifies that every node, including the HA peer that did NOT build a given
-// block, syncs to the proposed chain tip via P2P before any checkpoint lands on L1.
-// Uses EpochsTestContext with mockGossipSubNetwork, pxeOpts syncChainTip='proposed', no prover node
-// during block-building phase.
+/**
+ * E2E test for HA (High Availability) proposed chain sync.
+ * Verifies that nodes sharing validator keys with the proposer still process
+ * block proposals and sync to the proposed chain, rather than ignoring them.
+ *
+ * Creates two HA pairs (nodes sharing validator keys) with a shared SlashingProtectionDatabase per
+ * pair, and disables checkpoint publishing on all validator nodes so every node — including the HA
+ * peer that did NOT build a given block — must sync to the proposed chain tip via P2P before any
+ * checkpoint lands on L1. Uses EpochsTestContext with mockGossipSubNetwork and pxeOpts
+ * syncChainTip='proposed'.
+ */
 describe('e2e_epochs/epochs_ha_sync', () => {
   let context: EndToEndContext;
   let logger: Logger;

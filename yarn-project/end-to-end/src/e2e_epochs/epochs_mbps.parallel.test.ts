@@ -44,11 +44,16 @@ const EXPECTED_BLOCKS_PER_CHECKPOINT = 3;
 // - Checkpoint 2: Block 1 (2 txs), Block 2 (2 txs), Block 3 (2 txs)
 const TX_COUNT = 10;
 
-// Four-validator MBPS suite testing multiple blocks per checkpoint under mock gossip. Includes
-// prover node (fake proofs). PXE mode varies per test (checkpointed vs proposed). Exercises
-// MBPS with: checkpointed-anchored txs, proposed-anchored txs, L2→L1 messages, L1→L2 messages,
-// non-validator re-execution sync, cross-slot contract deploy+call, and prover proving MBPS
-// checkpoints. Uses EpochsTestContext with mockGossipSubNetwork, no initial sequencer.
+/**
+ * E2E tests for Multiple Blocks Per Slot (MBPS) functionality.
+ * Tests that the system correctly builds multiple blocks within a single slot/checkpoint.
+ *
+ * Four-validator suite under mock gossip with a prover node (fake proofs); PXE mode varies per test
+ * (checkpointed vs proposed). Exercises MBPS with: checkpointed-anchored txs, proposed-anchored txs,
+ * L2→L1 messages, L1→L2 messages, non-validator re-execution sync, cross-slot contract deploy+call,
+ * and prover proving MBPS checkpoints. Uses EpochsTestContext with mockGossipSubNetwork and no
+ * initial sequencer.
+ */
 describe('e2e_epochs/epochs_mbps', () => {
   let context: EndToEndContext;
   let logger: Logger;
