@@ -82,9 +82,9 @@ template <typename AffineElement>
 // Constantine signed-Booth window recoder (scalar + SIMD x4 paths) lives in
 // pippenger_constantine.hpp.
 
-// `choose_window_bits` and `build_var_window_schedule` are defined inline in
+// `choose_window_bits` and `build_window_schedule` are defined inline in
 // `pippenger_arena_layout.hpp` so the test suite can build identical schedules.
-// `VAR_WINDOW_MAX_WINDOWS` and `VariableWindowSchedule` likewise live there.
+// `MAX_SCHEDULE_WINDOWS` and `WindowSchedule` likewise live there.
 
 // Sentinel value for `msb_per_scalar[i]` when scalar i is zero. uint8_t fits the 254 valid msb
 // positions (0..253) plus this sentinel; matching `msb_hist` bin layout uses bin 0 = zero count
@@ -1137,7 +1137,7 @@ size_t compute_arena_bytes_for_msm(size_t n_input, bool external_glv_provided, b
     using round_parallel_detail::MIN_BATCH_CAPACITY;
     using round_parallel_detail::SUBCHUNK_ENTRIES_CAP;
 
-    // window-bits selection uses the ideal per-window oversubscription factor (not the dispatch lmul).
+    // window-bits selection uses the ideal per-window oversubscription factor (not the actual thread dispatch count).
     const size_t num_logical_threads_for_c = bb::get_num_cpus() * window_bits_tuning_oversub_factor(n_input);
     const size_t window_bits =
         round_parallel_detail::choose_window_bits(n, NUM_BITS, n_input, num_logical_threads_for_c);
@@ -1192,7 +1192,7 @@ size_t compute_arena_bytes_for_msm(size_t n_input, bool external_glv_provided, b
     const size_t worker_union_bytes = union_layout.per_worker_union_bytes;
 
     const size_t fixed_overhead = (worker_union_bytes * worker_total_for_budget) +
-                                  (size_t{ 96 } * round_parallel_detail::VAR_WINDOW_MAX_WINDOWS) // window_sums_storage
+                                  (size_t{ 96 } * round_parallel_detail::MAX_SCHEDULE_WINDOWS) // window_sums_storage
                                   + (size_t{ 8 } * (num_threads + 1)) // rebalanced_bucket_lo_partition
                                   + phase_one_prologue_bytes;
 
@@ -1213,11 +1213,9 @@ size_t compute_arena_bytes_for_msm(size_t n_input, bool external_glv_provided, b
                                             : size_t{ 0 };
     auto arena_bytes_for_window_layout = [&](size_t bit_budget) {
         const size_t wb = round_parallel_detail::choose_window_bits(n, bit_budget, n_input, num_logical_threads_for_c);
-        const auto layout_sched = round_parallel_detail::build_var_window_schedule(bit_budget, wb);
-        size_t B_eff_layout = (size_t{ 1 } << (wb - 1)) + 1;
-        for (size_t w = 0; w < layout_sched.num_windows; ++w) {
-            B_eff_layout = std::max(B_eff_layout, static_cast<size_t>(layout_sched.num_buckets[w]));
-        }
+        const auto layout_sched = round_parallel_detail::build_window_schedule(bit_budget, wb);
+        // Uniform schedule: the widest window's bucket count is the per-window cap.
+        const size_t B_eff_layout = (size_t{ 1 } << (wb - 1)) + 1;
         const size_t dense_stride_layout = round_parallel_detail::compute_dense_stride(B_eff_layout, num_threads);
         const size_t per_window_bytes_layout = round_parallel_detail::compute_per_window_bytes<Curve>(
             num_threads, B_eff_layout, n, dense_stride_layout, worker_total_for_budget);
@@ -1495,9 +1493,9 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     // Variable-window split was removed from the production path after Chonk traces showed
     // it regressing this rewrite. Keep the schedule uniform and run one region over all
     // non-zero scalars.
-    const auto sched = round_parallel_detail::build_var_window_schedule(effective_num_bits, window_bits);
+    const auto sched = round_parallel_detail::build_window_schedule(effective_num_bits, window_bits);
     BB_ASSERT_LTE(sched.num_windows,
-                  round_parallel_detail::VAR_WINDOW_MAX_WINDOWS,
+                  round_parallel_detail::MAX_SCHEDULE_WINDOWS,
                   "window schedule exceeds compile-time max window count");
 
     using round_parallel_detail::BATCH_CAPACITY;
@@ -1505,10 +1503,10 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     using round_parallel_detail::MIN_BATCH_CAPACITY;
     using round_parallel_detail::SUBCHUNK_ENTRIES_CAP;
 
-    // Thread count: aim for `lmul × physical_cpus` logical tasks so the rpmsm pool can
-    // FIFO-balance heterogeneous P/E cores; cap at `n / MIN_BATCH_CAPACITY` so each chunk
-    // can saturate the batched-affine drains. `bb::get_num_cpus() <= 1` is the chonk
-    // batch-verifier's signal that outer parallelism owns all cores — run sequentially.
+    // Thread count: one parallel_for task per available core, capped at
+    // `n / MIN_BATCH_CAPACITY` so each task's chunk stays large enough to saturate the
+    // batched-affine drains. `bb::get_num_cpus() <= 1` is the chonk batch-verifier's
+    // signal that outer parallelism owns all cores — run sequentially.
     const size_t desired_threads = std::max<size_t>(1, bb::get_num_cpus());
     const size_t max_threads_for_min_batch = std::max<size_t>(1, n / MIN_BATCH_CAPACITY);
     const size_t num_threads = std::min(desired_threads, max_threads_for_min_batch);
@@ -1525,11 +1523,9 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     // exactly. Anyone adding an arena buffer must update both the alloc and the corresponding
     // term in those formulas, otherwise windows_per_batch drifts off the BATCH_MEM_BUDGET.
 
-    // Per-(w, t) slot stride must fit the widest schedule window.
-    size_t B_eff = num_buckets;
-    for (size_t w = 0; w < sched.num_windows; ++w) {
-        B_eff = std::max(B_eff, static_cast<size_t>(sched.num_buckets[w]));
-    }
+    // Per-(w, t) slot stride must fit the widest schedule window. The schedule is uniform, so the
+    // widest window's bucket count is the per-window cap computed above.
+    const size_t B_eff = num_buckets;
 
     const size_t worker_total_for_budget = num_threads;
     const size_t dense_stride_est = round_parallel_detail::compute_dense_stride(B_eff, num_threads);
@@ -1562,7 +1558,7 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     const size_t worker_union_bytes_for_budget = budget_layout.per_worker_union_bytes;
 
     const size_t fixed_overhead = (worker_union_bytes_for_budget * worker_total_for_budget) +
-                                  (size_t{ 96 } * round_parallel_detail::VAR_WINDOW_MAX_WINDOWS) // window_sums_storage
+                                  (size_t{ 96 } * round_parallel_detail::MAX_SCHEDULE_WINDOWS) // window_sums_storage
                                   + (size_t{ 8 } * (num_threads + 1)) // rebalanced_bucket_lo_partition
                                   + phase_one_prologue_bytes;
 
@@ -1585,12 +1581,11 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
         (global_max_chunk_len + SUBCHUNK_ENTRIES_CAP - 1) / SUBCHUNK_ENTRIES_CAP;
     const size_t chunk_capacity = std::max(SUBCHUNK_ENTRIES_CAP, 2 * global_max_overflow_per_window);
 
-    // Per-OS-thread scratch. The rpmsm pool dispatches `num_threads` logical tasks across
-    // `worker_total = num_threads = physical_cpus` OS threads. Tasks on the same
-    // OS thread run sequentially (FIFO claim), so they share scratch — every field in
-    // ThreadScratch is overwritten fresh at task start, never read across tasks. Indexing
-    // by `worker_id` (rather than `tid`) keeps memory linear in physical_cpus instead of
-    // num_threads = lmul × physical_cpus.
+    // Per-task scratch. Every parallel_for stage below runs `num_threads` tasks, and
+    // `thread_scratch` holds one slot per task index, so no two concurrent tasks ever
+    // share a slot. Every field is overwritten fresh at task start; nothing is read
+    // across tasks. Phase A scratch overlays the same arena bytes (see Zone W below)
+    // because the Phase A and Stage 6 parallel phases never run concurrently.
     const size_t worker_total = num_threads;
     std::vector<round_parallel_detail::ThreadScratch<Curve>> thread_scratch(worker_total);
     std::vector<round_parallel_detail::PhaseAScratch<Curve>> phase_a_scratch;
@@ -1662,9 +1657,9 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
 
     // Zone P extra (post-decision permanent state): window_sums + dedup state. Sized
     // with the strict alignment a bump cursor would apply.
-    constexpr size_t VAR_WINDOW_WINDOW_SUMS_CAP = round_parallel_detail::VAR_WINDOW_MAX_WINDOWS;
+    constexpr size_t WINDOW_SUMS_CAP = round_parallel_detail::MAX_SCHEDULE_WINDOWS;
     size_t bytes_P_extra_layout = 0;
-    layout_add(bytes_P_extra_layout, sizeof(Element) * VAR_WINDOW_WINDOW_SUMS_CAP, alignof(Element));
+    layout_add(bytes_P_extra_layout, sizeof(Element) * WINDOW_SUMS_CAP, alignof(Element));
     if (dedup_active) {
         layout_add(bytes_P_extra_layout, sizeof(uint32_t) * n, alignof(uint32_t));
         layout_add(bytes_P_extra_layout,
@@ -1924,8 +1919,8 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     auto orig_thread_hi = zone_S_alloc.template operator()<size_t>(windows_per_batch * num_threads);
 
     // Zone P: window_sums (Stage 7 accumulator — survives the whole MSM_fast).
-    auto window_sums = zone_P_alloc.template operator()<typename Curve::Element>(VAR_WINDOW_WINDOW_SUMS_CAP);
-    std::fill_n(window_sums.begin(), VAR_WINDOW_WINDOW_SUMS_CAP, Curve::Group::point_at_infinity);
+    auto window_sums = zone_P_alloc.template operator()<typename Curve::Element>(WINDOW_SUMS_CAP);
+    std::fill_n(window_sums.begin(), WINDOW_SUMS_CAP, Curve::Group::point_at_infinity);
 
     // Zone P: dedup state — written by Phase A and read through Stage 6a of every batch,
     // so it must outlive every batch.

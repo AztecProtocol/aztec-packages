@@ -16,8 +16,8 @@ namespace round_parallel_detail {
 
 // One per shared-SRS-prefix group. Membership is keyed on identical
 // `point_arrays[m].data()` pointers — that is the actual sharing relation
-// `commit_to_wires` exposes. Static-lifetime so the doubled buffer survives
-// across calls (typical workloads commit the same SRS prefix repeatedly).
+// `commit_to_wires` exposes. Lives for one batch-commit call: the GLV-doubled buffer is a local
+// `unique_ptr` (`master_doubled_owner`), recomputed per batch and freed at return.
 template <typename Curve> struct BatchMsmGlvGroup {
     const typename Curve::AffineElement* base_ptr = nullptr; // SRS prefix pointer
     size_t group_max_n = 0;                                  // max n_input across MSMs in this group

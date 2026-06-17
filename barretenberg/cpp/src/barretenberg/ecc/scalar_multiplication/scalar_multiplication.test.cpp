@@ -55,7 +55,7 @@ bool pippenger_bn254_arena_layout_fits_for_test(size_t n_input,
     const size_t num_logical_threads_for_c =
         bb::get_num_cpus() * scalar_multiplication::window_bits_tuning_oversub_factor(n_input);
     const size_t window_bits = rpd::choose_window_bits(n, actual_num_bits, n_input, num_logical_threads_for_c);
-    const auto sched = rpd::build_var_window_schedule(actual_num_bits, window_bits);
+    const auto sched = rpd::build_window_schedule(actual_num_bits, window_bits);
     const size_t num_buckets = (size_t{ 1 } << (window_bits - 1)) + 1;
 
     using rpd::BATCH_CAPACITY;
@@ -69,10 +69,8 @@ bool pippenger_bn254_arena_layout_fits_for_test(size_t n_input,
     const size_t profile_threads = std::max<size_t>(1, bb::get_num_cpus());
     const size_t worker_total = num_threads;
 
-    size_t B_eff = num_buckets;
-    for (size_t w = 0; w < sched.num_windows; ++w) {
-        B_eff = std::max(B_eff, static_cast<size_t>(sched.num_buckets[w]));
-    }
+    // Uniform schedule: the widest window's bucket count is the per-window cap.
+    const size_t B_eff = num_buckets;
     const size_t dense_stride_est =
         std::max<size_t>(2, std::bit_ceil((B_eff > 1) ? ((B_eff - 1 + num_threads - 1) / num_threads) : size_t{ 1 }));
     const size_t bucket_partials_per_window_max = (B_eff > 0) ? (B_eff - 1 + num_threads - 1) : 0;
@@ -111,7 +109,7 @@ bool pippenger_bn254_arena_layout_fits_for_test(size_t n_input,
         /*dense_stride_est=*/0);
     const size_t worker_union_bytes_for_budget = budget_layout.per_worker_union_bytes;
     const size_t fixed_overhead = (worker_union_bytes_for_budget * worker_total) +
-                                  (size_t{ 96 } * rpd::VAR_WINDOW_MAX_WINDOWS) + (size_t{ 8 } * (num_threads + 1)) +
+                                  (size_t{ 96 } * rpd::MAX_SCHEDULE_WINDOWS) + (size_t{ 8 } * (num_threads + 1)) +
                                   phase_one_prologue_bytes;
     const size_t available_budget =
         (BATCH_MEM_BUDGET > fixed_overhead) ? (BATCH_MEM_BUDGET - fixed_overhead) : size_t{ 0 };
@@ -178,7 +176,7 @@ bool pippenger_bn254_arena_layout_fits_for_test(size_t n_input,
         const size_t per_worker_bytes = worker_layout.per_worker_bytes;
 
         size_t bytes_P_extra_layout = 0;
-        layout_add(bytes_P_extra_layout, sizeof(Element) * rpd::VAR_WINDOW_MAX_WINDOWS, alignof(Element));
+        layout_add(bytes_P_extra_layout, sizeof(Element) * rpd::MAX_SCHEDULE_WINDOWS, alignof(Element));
         if (dedup_active) {
             layout_add(bytes_P_extra_layout, sizeof(uint32_t) * n, alignof(uint32_t));
             layout_add(bytes_P_extra_layout, sizeof(AffineElement) * rpd::DEDUP_MAX_CLUSTERS, alignof(AffineElement));
@@ -1936,7 +1934,7 @@ TYPED_TEST(ScalarMultiplicationTest, BatchDriverSharedPathRagged)
 // Variable-c (split-c) Pippenger dispatch — synthetic distributions per spec §"Validation".
 // These force SPLIT to fire (cliff / decaying / half-zero / all-large) or to fall through
 // (uniform-random / all-zero) and validate the result against `naive_msm`.
-template <class Curve> class VariableWindowSplitDispatchTest : public ::testing::Test {
+template <class Curve> class WindowSplitDispatchTest : public ::testing::Test {
   public:
     using Group = typename Curve::Group;
     using Element = typename Curve::Element;
@@ -2067,8 +2065,7 @@ template <class Curve> class VariableWindowSplitDispatchTest : public ::testing:
         check_against_naive(ss, pts);
     }
 
-    // Synthetic minimal repro for the SPLIT bookkeeping bug:
-    // half scalars with msb < 64, half full-range. SPLIT may fire (set VAR_WINDOW_FORCE_SPLIT to be sure).
+    // Mixed-magnitude coverage: half the scalars have msb < 64, half are full-range.
     void test_mid_distribution()
     {
         auto pts = make_points(kN);
@@ -2082,10 +2079,8 @@ template <class Curve> class VariableWindowSplitDispatchTest : public ::testing:
         check_against_naive(ss, pts);
     }
 
-    // All scalars with canonical msb < 192. Triggers GLV path's regular (non-shortcut) lattice
-    // reduction for inputs that fit in 192 bits but not 128 — exposing whether scalars
-    // strictly below the 128-bit shortcut threshold but with non-trivial msb cause a SPLIT
-    // bookkeeping bug.
+    // All scalars with canonical msb < 192. Triggers the GLV path's regular (non-shortcut) lattice
+    // reduction for inputs that fit in 192 bits but not 128.
     void test_below_192()
     {
         auto pts = make_points(kN);
@@ -2096,10 +2091,9 @@ template <class Curve> class VariableWindowSplitDispatchTest : public ::testing:
         check_against_naive(ss, pts);
     }
 
-    // Pin-style bitwise-identity check: with VAR_WINDOW_FORCE_SPLIT setting window_bits_lo == window_bits_hi ==
-    // window_bits_unsplit and b_star at a clean multiple of window_bits_unsplit, the SPLIT path's window decomposition
-    // is structurally identical to NO_SPLIT. Any divergence in the resulting MSM points to a bookkeeping bug
-    // (per-region driver, schedule layout, idx_large gating in upper region).
+    // Correctness pin for the adaptive window dispatch: an all-sub-2^160 distribution checked
+    // bitwise against the naive MSM. A divergence points to a schedule-layout or bucket-range
+    // bookkeeping bug.
     void test_force_split_bitwise_identity()
     {
         auto pts = make_points(kN);
@@ -2112,42 +2106,42 @@ template <class Curve> class VariableWindowSplitDispatchTest : public ::testing:
 };
 
 #ifndef __wasm__
-using VariableWindowCurveTypes = ::testing::Types<bb::curve::BN254, bb::curve::Grumpkin>;
-TYPED_TEST_SUITE(VariableWindowSplitDispatchTest, VariableWindowCurveTypes);
+using WindowSplitCurveTypes = ::testing::Types<bb::curve::BN254, bb::curve::Grumpkin>;
+TYPED_TEST_SUITE(WindowSplitDispatchTest, WindowSplitCurveTypes);
 
-TYPED_TEST(VariableWindowSplitDispatchTest, Cliff)
+TYPED_TEST(WindowSplitDispatchTest, Cliff)
 {
     this->test_cliff();
 }
-TYPED_TEST(VariableWindowSplitDispatchTest, Decaying)
+TYPED_TEST(WindowSplitDispatchTest, Decaying)
 {
     this->test_decaying();
 }
-TYPED_TEST(VariableWindowSplitDispatchTest, UniformRandom)
+TYPED_TEST(WindowSplitDispatchTest, UniformRandom)
 {
     this->test_uniform_random();
 }
-TYPED_TEST(VariableWindowSplitDispatchTest, AllZero)
+TYPED_TEST(WindowSplitDispatchTest, AllZero)
 {
     this->test_all_zero();
 }
-TYPED_TEST(VariableWindowSplitDispatchTest, HalfZero)
+TYPED_TEST(WindowSplitDispatchTest, HalfZero)
 {
     this->test_half_zero();
 }
-TYPED_TEST(VariableWindowSplitDispatchTest, AllLarge)
+TYPED_TEST(WindowSplitDispatchTest, AllLarge)
 {
     this->test_all_large();
 }
-TYPED_TEST(VariableWindowSplitDispatchTest, MidDistribution)
+TYPED_TEST(WindowSplitDispatchTest, MidDistribution)
 {
     this->test_mid_distribution();
 }
-TYPED_TEST(VariableWindowSplitDispatchTest, Below192)
+TYPED_TEST(WindowSplitDispatchTest, Below192)
 {
     this->test_below_192();
 }
-TYPED_TEST(VariableWindowSplitDispatchTest, ForceSplitBitwiseIdentity)
+TYPED_TEST(WindowSplitDispatchTest, ForceSplitBitwiseIdentity)
 {
     this->test_force_split_bitwise_identity();
 }

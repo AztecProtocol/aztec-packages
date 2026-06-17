@@ -36,7 +36,7 @@ typename Curve::Element trivial_msm(PolynomialSpan<const typename Curve::ScalarF
  * Splits the input across `bb::parallel_for` workers and runs `Element::straus_msm` on
  * each slice. Zero-scalar entries are compacted out before dispatch (callers reach this
  * function precisely when n_active << n, so straus_msm shouldn't burn time on dead pairs).
- * Sharing the rpmsm pool with the main pippenger_fast keeps per-call dispatch cheap.
+ * Running on the shared `bb::parallel_for` pool keeps per-call dispatch cheap.
  */
 template <typename Curve>
 typename Curve::Element trivial_msm_threaded(PolynomialSpan<const typename Curve::ScalarField> scalars_span,
@@ -74,8 +74,8 @@ typename Curve::Element trivial_msm_threaded(PolynomialSpan<const typename Curve
         return Curve::Group::point_at_infinity;
     }
 
-    // Cap at `bb::get_num_cpus()` rather than `bb::get_num_cpus()`:
-    //   1. Want one task per OS worker, not lmul-oversubscribed — straus_msm slices
+    // Cap at `bb::get_num_cpus()` (one task per logical CPU):
+    //   1. Want one task per OS worker, not oversubscribed — straus_msm slices
     //      have non-trivial fixed cost so dynamic-claim averaging isn't worth the
     //      extra dispatch tax at the trivial-MSM_fast sizes this function handles.
     //   2. `bb::get_num_cpus() <= 1` is the chonk-batch-verifier serial gate; the

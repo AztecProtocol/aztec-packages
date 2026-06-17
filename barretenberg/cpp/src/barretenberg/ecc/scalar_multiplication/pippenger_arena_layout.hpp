@@ -39,27 +39,29 @@ namespace bb::scalar_multiplication::round_parallel_detail {
 // the actual Zone P / Zone W / Zone S allocator for representative inputs and
 // asserts the result fits in `compute_arena_bytes_for_msm`'s promise. Its body
 // lives in `scalar_multiplication.test.cpp`, which means the helpers it needs
-// (`choose_window_bits`, `build_var_window_schedule`, `ChunkOutput`,
-// `DEDUP_MAX_*`, `VAR_WINDOW_MAX_WINDOWS`, `compute_arena_bytes_for_msm`) need
+// (`choose_window_bits`, `build_window_schedule`, `ChunkOutput`,
+// `DEDUP_MAX_*`, `MAX_SCHEDULE_WINDOWS`, `compute_arena_bytes_for_msm`) need
 // header-visible declarations.
 // ============================================================================
 
-// Per-window count cap shared by `VariableWindowSchedule` arrays and the live
+// Per-window count cap shared by `WindowSchedule` arrays and the live
 // allocator's `window_sums_storage` slot.
-inline constexpr size_t VAR_WINDOW_MAX_WINDOWS = 128;
+inline constexpr size_t MAX_SCHEDULE_WINDOWS = 128;
 
 // Dedup pre-pass caps. DEDUP_MAX_CLUSTERS bounds `extra_points` at ≤ 1 MB;
 // DEDUP_MAX_MEMBERS bounds the per-worker `cluster_members` slab.
 inline constexpr size_t DEDUP_MAX_CLUSTERS = 16384;
 inline constexpr size_t DEDUP_MAX_MEMBERS = 32768;
 
-// Uniform window schedule produced by `build_var_window_schedule`. Holds the
-// per-window `c` value and bucket count for downstream sizing/dispatch.
-struct VariableWindowSchedule {
+// Uniform window schedule produced by `build_window_schedule`. Holds the per-window `c` value
+// (`window_bits_per_window`) and its bit offset (`bit_base`). The per-window bucket count is not
+// stored: the schedule is uniform, so the widest window's bucket count is always
+// `(1 << (window_bits - 1)) + 1`, computed directly where needed. (Storing it as `uint16_t` also
+// overflowed at `window_bits >= 17`, reachable for circuits near the SRS cap.)
+struct WindowSchedule {
     size_t num_windows = 0;
-    std::array<uint8_t, VAR_WINDOW_MAX_WINDOWS> window_bits_per_window{}; // window_bits_w for each w
-    std::array<uint16_t, VAR_WINDOW_MAX_WINDOWS> bit_base{};              // B_w = Σ_{k<w} c_k, B_0 = 0
-    std::array<uint16_t, VAR_WINDOW_MAX_WINDOWS> num_buckets{};           // 2^(window_bits_w - 1) + 1
+    std::array<uint8_t, MAX_SCHEDULE_WINDOWS> window_bits_per_window{}; // window_bits_w for each w
+    std::array<uint16_t, MAX_SCHEDULE_WINDOWS> bit_base{};              // B_w = Σ_{k<w} c_k, B_0 = 0
 };
 
 // Per-chunk recursive-affine bucket-reduce output (Stage 6b output cell).
@@ -119,18 +121,17 @@ template <typename Curve> struct ChunkOutput {
 // Build a uniform window schedule for the given bit budget and chosen `c`. Every window
 // is `window_bits` wide except the final one, which takes the remaining bits. The +2 on
 // the bit budget accommodates the carry-less top bit of the Constantine recoder.
-inline VariableWindowSchedule build_var_window_schedule(size_t num_bits, size_t window_bits) noexcept
+inline WindowSchedule build_window_schedule(size_t num_bits, size_t window_bits) noexcept
 {
-    VariableWindowSchedule sched{};
+    WindowSchedule sched{};
 
     size_t bits_remaining = num_bits + 2;
     size_t bit_offset = 0;
     size_t w = 0;
-    while (bits_remaining > 0 && w < VAR_WINDOW_MAX_WINDOWS) {
+    while (bits_remaining > 0 && w < MAX_SCHEDULE_WINDOWS) {
         const size_t window_bits_w = std::min<size_t>(window_bits, bits_remaining);
         sched.bit_base[w] = static_cast<uint16_t>(bit_offset);
         sched.window_bits_per_window[w] = static_cast<uint8_t>(window_bits_w);
-        sched.num_buckets[w] = static_cast<uint16_t>((size_t{ 1 } << (window_bits_w - 1)) + 1);
         bit_offset += window_bits_w;
         bits_remaining -= window_bits_w;
         ++w;
