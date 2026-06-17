@@ -913,3 +913,8 @@
     # Unexpected error: how to report issues
     from = "/errors/13"
     to = "/developers/docs/aztec-nr/debugging#reporting-issues"
+
+[[redirects]]
+    # Aztec-nr: contract errors
+    from = "/errors/14"
+    to = "/developers/docs/aztec-nr/debugging#contract-errors"
