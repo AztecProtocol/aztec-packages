@@ -287,21 +287,24 @@ export class EntityStore implements StagedStore {
    *  Requires to be run in a transactionAsync context.
    */
   async #retractFacts(toBlock: BlockNum): Promise<number> {
+    // Snapshot the orphaned (block, factKey) pairs before mutating so we never delete from the cursor we are iterating.
     const factsToRetract: { block: BlockNum; factKey: FactKeyStr }[] = [];
     for await (const [block, factKey] of this.#factsByBlock.entriesAsync({ start: toBlock + 1 })) {
       factsToRetract.push({ block, factKey });
     }
-    for (const { block, factKey } of factsToRetract) {
-      const buf = await this.#facts.getAsync(factKey);
-      if (!buf) {
-        continue;
-      }
-      const { fact } = deserializeFact(buf);
-      const entityKey = fact.entityKey.toString();
-      await this.#facts.delete(factKey);
-      await this.#factsByBlock.deleteValue(block, factKey);
-      await this.#factsByEntity.deleteValue(entityKey, factKey);
-    }
+    await Promise.all(
+      factsToRetract.map(async ({ block, factKey }) => {
+        const buf = await this.#facts.getAsync(factKey);
+        if (!buf) {
+          return;
+        }
+        const { fact } = deserializeFact(buf);
+        const entityKey = fact.entityKey.toString();
+        await this.#facts.delete(factKey);
+        await this.#factsByBlock.deleteValue(block, factKey);
+        await this.#factsByEntity.deleteValue(entityKey, factKey);
+      }),
+    );
     return factsToRetract.length;
   }
 
@@ -331,13 +334,16 @@ export class EntityStore implements StagedStore {
    * Reads are not wrapped in a transaction: the caller owns the transaction boundary.
    */
   async #readEntitiesFromDb(entityKeys: EntityKeyStr[]): Promise<Map<EntityKeyStr, StoredEntity>> {
+    // Issue every read up front so a DB request is always in flight: a sequential await-loop would let the IndexedDB
+    // transaction auto-commit between reads.
+    const bufs = await Promise.all(entityKeys.map(entityKey => this.#entities.getAsync(entityKey)));
     const entities = new Map<EntityKeyStr, StoredEntity>();
-    for (const entityKey of entityKeys) {
-      const buf = await this.#entities.getAsync(entityKey);
+    entityKeys.forEach((entityKey, i) => {
+      const buf = bufs[i];
       if (buf !== undefined) {
         entities.set(entityKey, StoredEntity.fromBuffer(buf));
       }
-    }
+    });
     return entities;
   }
 
@@ -360,26 +366,33 @@ export class EntityStore implements StagedStore {
    * Caller must wrap in a transaction.
    */
   async #loadCommittedFacts(entityKey: EntityKeyStr): Promise<Map<FactKeyStr, Fact>> {
-    // Snapshot the index to avoid IndexedDB transaction aliveness quirks.
-    const factKeys: FactKeyStr[] = [];
+    // Kick off each fact read while iterating the index so a DB request is always pending. Draining the cursor and only
+    // then reading the facts one `await` at a time would let the IndexedDB transaction auto-commit at the boundary
+    // (IndexedDB auto-commits once control returns to the event loop with no pending request), throwing mid-read on the
+    // browser backend.
+    const factReads = new Map<FactKeyStr, Promise<FactBuffer | undefined>>();
     for await (const factKey of this.#factsByEntity.getValuesAsync(entityKey)) {
-      factKeys.push(factKey);
+      factReads.set(factKey, this.#facts.getAsync(factKey));
     }
+    const factKeys = [...factReads.keys()];
+    const bufs = await Promise.all(factReads.values());
 
+    // Await-free tail: deserialize and order. No DB ops from here on.
     const loaded: { factKey: FactKeyStr; seq: number; fact: StoredFact }[] = [];
-    for (const factKey of factKeys) {
-      const buf = await this.#facts.getAsync(factKey);
+    for (let i = 0; i < factKeys.length; i++) {
+      const factKey = factKeys[i];
+      const buf = bufs[i];
       if (!buf) {
-        // Defensive: a #factsByEntity entry must always reference a live #facts entry. A missing one means the indexes are
-        // corrupt.
+        // Defensive: a #factsByEntity entry must always reference a live #facts entry. A missing one means the indexes
+        // are corrupt.
         throw new Error(`Fact not found for factKey ${factKey}`);
       }
       const { seq, fact } = deserializeFact(buf);
-      loaded.push({ factKey: factKey, seq, fact });
+      loaded.push({ factKey, seq, fact });
     }
 
     // Multimap value order is backend-dependent (insertion order on IndexedDB, value-sorted on LMDB). We sort by the
-    // a sequence number so facts always come back in creation order without needing to resort to timestamps.
+    // sequence number so facts always come back in creation order without needing to resort to timestamps.
     loaded.sort((a, b) => a.seq - b.seq);
     return new Map(loaded.map(({ factKey, fact }) => [factKey, fact.toFact()]));
   }
@@ -389,7 +402,7 @@ export class EntityStore implements StagedStore {
    */
   async #doesEntityExist(key: EntityKey, jobId: string): Promise<boolean> {
     const entityKey = key.toString();
-    let exists = await this.#entities.hasAsync(entityKey);
+    let exists = await this.#store.transactionAsync(() => this.#entities.hasAsync(entityKey));
     for (const op of this.#stagedOpsFor(jobId)) {
       if (op.kind === 'createEntity' && op.entity.key.toString() === entityKey) {
         exists = true;
@@ -496,24 +509,27 @@ export class EntityStore implements StagedStore {
    * Deletes an entity from persistent storage.
    */
   async #deleteEntity(entityKey: EntityKeyStr): Promise<void> {
+    // Snapshot the fact index before mutating so we never delete from the cursor we are iterating.
     const factKeys: FactKeyStr[] = [];
     for await (const factKey of this.#factsByEntity.getValuesAsync(entityKey)) {
       factKeys.push(factKey);
     }
-    for (const factKey of factKeys) {
-      const buf = await this.#facts.getAsync(factKey);
-      if (!buf) {
-        // A #factsByEntity entry must always reference a live #facts entry; a missing one means the indexes are
-        // corrupt, so fail loudly rather than silently skip cleanup.
-        throw new Error(`Fact not found for factKey ${factKey}`);
-      }
-      const { fact } = deserializeFact(buf);
-      await this.#facts.delete(factKey);
-      await this.#factsByEntity.deleteValue(entityKey, factKey);
-      if (fact.originBlock !== undefined) {
-        await this.#factsByBlock.deleteValue(fact.originBlock.blockNumber, factKey);
-      }
-    }
+    await Promise.all(
+      factKeys.map(async factKey => {
+        const buf = await this.#facts.getAsync(factKey);
+        if (!buf) {
+          // A #factsByEntity entry must always reference a live #facts entry, a missing one means the indexes are
+          // corrupt.
+          throw new Error(`Fact not found for factKey ${factKey}`);
+        }
+        const { fact } = deserializeFact(buf);
+        await this.#facts.delete(factKey);
+        await this.#factsByEntity.deleteValue(entityKey, factKey);
+        if (fact.originBlock !== undefined) {
+          await this.#factsByBlock.deleteValue(fact.originBlock.blockNumber, factKey);
+        }
+      }),
+    );
     const entityBuf = await this.#entities.getAsync(entityKey);
     if (entityBuf) {
       const entity = StoredEntity.fromBuffer(entityBuf);
