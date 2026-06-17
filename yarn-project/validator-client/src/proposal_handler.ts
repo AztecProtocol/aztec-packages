@@ -569,7 +569,7 @@ export class ProposalHandler {
    * Resolves whether a block genuinely already exists at `blockNumber`. Returns the existing block only if
    * it is a true duplicate of the proposal (matching archive). During a reorg the archiver can still hold a
    * stale fork at this number (different archive) that is about to be pruned; in that case this forces L1
-   * sync and waits, bounded by the attestation deadline, for the prune to land, then returns `undefined` so
+   * sync and waits, bounded by the re-execution deadline, for the prune to land, then returns `undefined` so
    * the rebuilt block proposal can be processed in time to attest. If the prune does not complete before the
    * deadline it returns the stale block, so the caller falls back to the safe `block_number_already_exists`
    * rejection.
@@ -584,33 +584,31 @@ export class ProposalHandler {
       return existingBlock;
     }
 
-    // A different block already occupies this number: it is a stale fork being pruned during a reorg, not a
-    // genuine duplicate. Wait for the local prune rather than permanently rejecting the rebuilt proposal.
+    // A different block already occupies this number: it may be a stale fork being pruned during a reorg, not a
+    // genuine duplicate. Wait for the local prune rather than permanently rejecting the proposal.
     const deadline = this.getReexecutionDeadline(slotNumber);
     if (deadline.getTime() - this.dateProvider.now() <= 0) {
       return existingBlock;
     }
 
-    this.log.warn(`Block number ${blockNumber} held by a stale fork, awaiting prune before processing proposal`, {
+    this.log.warn(`Block number ${blockNumber} already exists, awaiting potential prune`, {
       blockNumber,
       existingArchive: existingBlock.archive.root.toString(),
       proposalArchive: proposalArchive.toString(),
     });
 
     try {
-      const { block } = await retryUntil(
+      await retryUntil(
         async () => {
           await this.blockSource.syncImmediate();
           const block = await this.blockSource.getBlockData({ number: blockNumber });
-          // Resolve once the stale fork is gone (pruned) or has been replaced by the rebuilt block. Wrap in
-          // an object so an `undefined` (pruned) block is still a truthy result that ends the retry loop.
-          return block === undefined || block.archive.root.equals(proposalArchive) ? { block } : undefined;
+          return block === undefined;
         },
         `prune of stale block ${blockNumber}`,
         { deadline, dateProvider: this.dateProvider },
         0.5,
       );
-      return block;
+      return undefined;
     } catch (err) {
       if (err instanceof TimeoutError) {
         this.log.warn(`Timed out waiting for stale block ${blockNumber} to be pruned`, { blockNumber });
