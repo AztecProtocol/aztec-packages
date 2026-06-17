@@ -97,7 +97,7 @@ mod test {
     use crate::context::PrivateContext;
     use crate::hash::hash_args;
     use crate::messages::delivery::OnchainDeliveryMode;
-    use crate::protocol::{address::AztecAddress, traits::{FromField, ToField}};
+    use crate::protocol::{address::AztecAddress, hash::compute_siloed_nullifier, traits::{FromField, ToField}};
     use crate::test::helpers::test_environment::TestEnvironment;
     use super::{compute_constrained_msg_nullifier, constrain_secret_and_emit_nullifier, VALIDATE_HANDSHAKE_SELECTOR};
     use std::test::OracleMock;
@@ -197,6 +197,8 @@ mod test {
         let index: u32 = 3;
 
         env.private_context(|context| {
+            let _ = OracleMock::mock("aztec_prv_isNullifierPending").returns(false).times(1);
+
             constrain_secret_and_emit_nullifier(context, registry, sender, recipient, secret, false, index);
 
             assert_current_nullifier_emitted(context, sender, recipient, secret, index);
@@ -204,10 +206,13 @@ mod test {
             assert_eq(context.nullifier_read_requests.len(), 1);
 
             let read_request = context.nullifier_read_requests.get(0);
-            assert_eq(read_request.contract_address, context.this_address());
+            assert_eq(read_request.contract_address, AztecAddress::zero());
             assert_eq(
                 read_request.inner.inner,
-                compute_constrained_msg_nullifier(sender, recipient, secret, index - 1),
+                compute_siloed_nullifier(
+                    context.this_address(),
+                    compute_constrained_msg_nullifier(sender, recipient, secret, index - 1),
+                ),
             );
         });
     }
