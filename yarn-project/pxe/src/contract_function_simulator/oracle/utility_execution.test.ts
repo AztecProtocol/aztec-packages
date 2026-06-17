@@ -444,6 +444,9 @@ describe('Utility Execution test suite', () => {
       });
     });
 
+    // Pins the production oracle's default-authorization allowlist for cross-contract utility reads of the
+    // standard HandshakeRegistry: only get_handshakes and caller-bound get_app_siloed_secret are allowed,
+    // everything else is denied.
     describe('cross-contract utility authorization', () => {
       const defaultAuthorizedHandshakeRegistryReads = new Set(['get_handshakes', 'get_app_siloed_secret']);
 

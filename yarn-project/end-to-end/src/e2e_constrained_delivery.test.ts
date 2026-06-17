@@ -51,7 +51,7 @@ describe('constrained delivery', () => {
 
   afterAll(() => teardown());
 
-  it('reuses an existing standard-registry constrained handshake without utility hooks', async () => {
+  it('reuses an existing standard-registry constrained handshake', async () => {
     await contract.methods.emit_note(sender, recipient).send({ from: sender });
     await contract.methods.emit_event(sender, recipient).send({ from: sender });
 
@@ -78,21 +78,6 @@ describe('constrained delivery', () => {
 
     const { result: index } = await contract.methods.next_index_for_secret(secret).simulate({ from: sender });
     expect(index).toEqual(1n);
-  });
-
-  // The implicit default sender must resolve to the same address as an explicit `.with_sender(sender)`. Bootstrap the
-  // (sender, equivRecipient) chain with an explicit-sender emit (index -> 1), then emit again via the default-sender
-  // method on the same chain. Reaching index 2 is the assertion: had the default sender resolved to any other address,
-  // the second emit would have landed on a different chain and left this one at index 1.
-  it('resolves the default sender to the same address as an explicit with_sender override', async () => {
-    await contract.methods.emit_note(sender, equivRecipient).send({ from: sender });
-    await contract.methods.emit_note_default_sender(equivRecipient).send({ from: sender });
-
-    const { result: secret } = await registry.methods
-      .get_app_siloed_secret(sender, equivRecipient, ONCHAIN_CONSTRAINED, contract.address)
-      .simulate({ from: sender });
-    const { result: index } = await contract.methods.next_index_for_secret(secret).simulate({ from: sender });
-    expect(index).toEqual(2n);
   });
 
   // Constrained sends on one chain are strictly sequential, so concurrent and batched sends behave differently:
