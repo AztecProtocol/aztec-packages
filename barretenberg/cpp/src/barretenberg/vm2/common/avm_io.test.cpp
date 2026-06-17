@@ -39,7 +39,7 @@ TEST(AvmInputsTest, FormatTransformations)
 
     EXPECT_THAT(as_cols, SizeIs(AVM_NUM_PUBLIC_INPUT_COLUMNS));
     for (size_t i = 0; i < AVM_NUM_PUBLIC_INPUT_COLUMNS; ++i) {
-        EXPECT_THAT(as_cols[i], SizeIs(AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH));
+        EXPECT_THAT(as_cols[i], SizeIs(AVM_PUBLIC_INPUTS_COLUMN_LENGTHS[i]));
     }
     EXPECT_THAT(flattened, SizeIs(AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH));
 
@@ -183,11 +183,11 @@ TEST(AvmInputsTest, ValuesInColumns)
     auto flat = PublicInputs::columns_to_flat(columns);
     EXPECT_THAT(flat, SizeIs(AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH));
 
-    // Define column offsets based on the total number of rows per column
+    // Define column offsets (cumulative per-column lengths, not a uniform stride)
     const size_t col0_offset = 0;
-    const size_t col1_offset = static_cast<size_t>(AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH);
-    const size_t col2_offset = static_cast<size_t>(2 * AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH);
-    const size_t col3_offset = static_cast<size_t>(3 * AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH);
+    const size_t col1_offset = col0_offset + AVM_PUBLIC_INPUTS_COLUMN_LENGTHS[0];
+    const size_t col2_offset = col1_offset + AVM_PUBLIC_INPUTS_COLUMN_LENGTHS[1];
+    const size_t col3_offset = col2_offset + AVM_PUBLIC_INPUTS_COLUMN_LENGTHS[2];
 
     // Verify that some specific values are at the expected positions
 

@@ -30,6 +30,8 @@ use crate::{
         AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX,
         AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX,
         AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX,
+        AVM_PUBLIC_INPUTS_COLUMN_0_LENGTH, AVM_PUBLIC_INPUTS_COLUMN_1_LENGTH,
+        AVM_PUBLIC_INPUTS_COLUMN_2_LENGTH, AVM_PUBLIC_INPUTS_COLUMN_3_LENGTH,
         AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH, AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH,
         AVM_PUBLIC_INPUTS_EFFECTIVE_GAS_FEES_ROW_IDX, AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX,
         AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_L1_TO_L2_MESSAGE_TREE_ROW_IDX,
@@ -525,10 +527,25 @@ impl SerializeToColumns<AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH> for AvmCircui
         let mut flat = [0; AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH];
 
         let cols = self.to_columns();
-        for col in 0..AVM_NUM_PUBLIC_INPUT_COLUMNS {
-            for row in 0..AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH {
-                flat[col * AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH + row] = cols[col][row];
-            }
+
+        // Columns are concatenated back-to-back using each column's exact length, so the trailing
+        // zeros of the shorter columns (1-3) are omitted. Offsets are cumulative, not a uniform stride.
+        let col0_offset = 0;
+        let col1_offset = col0_offset + AVM_PUBLIC_INPUTS_COLUMN_0_LENGTH;
+        let col2_offset = col1_offset + AVM_PUBLIC_INPUTS_COLUMN_1_LENGTH;
+        let col3_offset = col2_offset + AVM_PUBLIC_INPUTS_COLUMN_2_LENGTH;
+
+        for row in 0..AVM_PUBLIC_INPUTS_COLUMN_0_LENGTH {
+            flat[col0_offset + row] = cols[0][row];
+        }
+        for row in 0..AVM_PUBLIC_INPUTS_COLUMN_1_LENGTH {
+            flat[col1_offset + row] = cols[1][row];
+        }
+        for row in 0..AVM_PUBLIC_INPUTS_COLUMN_2_LENGTH {
+            flat[col2_offset + row] = cols[2][row];
+        }
+        for row in 0..AVM_PUBLIC_INPUTS_COLUMN_3_LENGTH {
+            flat[col3_offset + row] = cols[3][row];
         }
 
         flat
@@ -621,10 +638,10 @@ fn flat_columns_of_avm_circuit_public_inputs() {
     let flat = item.serialize_to_columns();
 
     // Verify length
-    // Define column offsets
+    // Define column offsets (cumulative per-column lengths, not a uniform stride)
     let col0_offset = 0;
-    let col1_offset = col0_offset + AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH;
-    let col2_offset = col1_offset + AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH;
+    let col1_offset = col0_offset + AVM_PUBLIC_INPUTS_COLUMN_0_LENGTH;
+    let col2_offset = col1_offset + AVM_PUBLIC_INPUTS_COLUMN_1_LENGTH;
 
     // Verify serialized values are at the expected positions
 

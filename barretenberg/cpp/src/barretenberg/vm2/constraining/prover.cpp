@@ -79,7 +79,9 @@ void AvmProver::execute_public_inputs_round()
     for (size_t i = 0; i < public_input_columns.size(); ++i) {
         const Polynomial& public_input_col = prover_polynomials.get(public_input_columns[i]);
         size_t public_input_col_size = public_input_col.size();
-        for (size_t j = 0; j < AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH; ++j) {
+        // Only hash each column's used rows; the trailing rows are zero (pinned by the public input
+        // consistency check in the recursive verifier) and would only add cost to hashing and the MLE.
+        for (size_t j = 0; j < AVM_PUBLIC_INPUTS_COLUMN_LENGTHS[i]; ++j) {
             // The public inputs are added to the hash buffer, but do not increase the size of the proof
             transcript->add_to_hash_buffer("public_input_" + std::to_string(i) + "_" + std::to_string(j),
                                            j < public_input_col_size ? public_input_col.at(j) : FF(0));
