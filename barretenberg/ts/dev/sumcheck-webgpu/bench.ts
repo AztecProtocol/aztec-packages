@@ -351,12 +351,20 @@ export async function runHybridBenchmark(
   return rows;
 }
 
+export interface MultiProfileData {
+  logN: number;
+  accumulateMs: number;
+  reduceMs: number;
+  foldMs: number;
+  topRelations: { label: string; ms: number }[];
+}
+
 /**
  * Per-kernel GPU profile of round 0 at one size, to confirm where GPU time goes
  * (the ceiling argument rests on accumulate dominating reduce + fold). Needs
- * timestamp-query (Chrome/Metal has it; logs a warning and exits if absent).
+ * timestamp-query (Chrome/Metal has it; logs a warning and returns null if absent).
  */
-export async function runProfile(device: GPUDevice, logN: number, log: Logger): Promise<void> {
+export async function runProfile(device: GPUDevice, logN: number, log: Logger): Promise<MultiProfileData | null> {
   const alpha = makeRng(0xb0_07_5eedn)();
   const cache: PipelineCache = new Map();
   const shared = { cache, foldRunner: await makeFoldRunner(device), reduceRunner: await makeReduceRunner(device) };
@@ -368,7 +376,7 @@ export async function runProfile(device: GPUDevice, logN: number, log: Logger): 
   const r = await runResidentGpuSumcheck(device, n, alpha, betas, challenges, relParamBytes, initColBytes, shared, WG, true);
 
   log('info', `  per-kernel GPU profile · round 0 · 2^${logN} (edges = ${n >> 1})`);
-  if (!r.profile) { log('warn', '  timestamp-query unavailable — no per-kernel timing on this device.'); return; }
+  if (!r.profile) { log('warn', '  timestamp-query unavailable — no per-kernel timing on this device.'); return null; }
   const sum = (pfx: string) => r.profile!.filter(e => e.label.startsWith(pfx)).reduce((s, e) => s + e.ms, 0);
   const acc = sum('acc:'), r1 = sum('r1:'), r2 = sum('r2:'), fold = sum('fold:');
   const tot = acc + r1 + r2 + fold;
@@ -377,6 +385,7 @@ export async function runProfile(device: GPUDevice, logN: number, log: Logger): 
   const accByRel = r.profile.filter(e => e.label.startsWith('acc:')).sort((a, b) => b.ms - a.ms);
   for (const e of accByRel.slice(0, 6)) log('info', `    ${e.label.padEnd(18)} ${e.ms.toFixed(3)} ms`);
   log('info', `  host: decode ${r.decodeMs.toFixed(1)} ms · scaling ${r.scalingMs.toFixed(1)} ms · wall ${r.totalMs.toFixed(1)} ms · gpuMs ${r.gpuMs.toFixed(1)} ms`);
+  return { logN, accumulateMs: acc, reduceMs: r1 + r2, foldMs: fold, topRelations: accByRel.slice(0, 6).map(e => ({ label: e.label, ms: e.ms })) };
 }
 
 /**
@@ -387,7 +396,17 @@ export async function runProfile(device: GPUDevice, logN: number, log: Logger): 
  * dependent chain (notably the single-threaded Poseidon2 transcript, once per round).
  * Needs timestamp-query (Chrome/Metal has it; logs a warning and exits if absent).
  */
-export async function runSingleSubmitProfile(device: GPUDevice, logN: number, log: Logger): Promise<void> {
+export interface SsProfileData {
+  logN: number;
+  accumulateMs: number;
+  reduceMs: number;
+  batchMs: number;
+  transcriptMs: number;
+  foldMs: number;
+  bubbleMs: number;
+}
+
+export async function runSingleSubmitProfile(device: GPUDevice, logN: number, log: Logger): Promise<SsProfileData | null> {
   const alpha = makeRng(0xb0_07_5eedn)();
   const ssShared = {
     cache: new Map() as PipelineCache,
@@ -403,7 +422,7 @@ export async function runSingleSubmitProfile(device: GPUDevice, logN: number, lo
   const r = await runSingleSubmitSumcheck(device, n, alpha, betas, relParamBytes, initColBytes, ssShared, WG, true);
 
   log('info', `  single-submit per-kernel GPU profile · all ${logN} rounds · 2^${logN}`);
-  if (!r.profile) { log('warn', '  timestamp-query unavailable — no per-kernel timing on this device.'); return; }
+  if (!r.profile) { log('warn', '  timestamp-query unavailable — no per-kernel timing on this device.'); return null; }
   const sum = (label: string) => r.profile!.filter(e => e.label === label).reduce((s, e) => s + e.ms, 0);
   const accumulate = sum('accumulate'), reduce = sum('reduce'), batch = sum('batch');
   const transcript = sum('transcript'), fold = sum('fold');
@@ -425,6 +444,72 @@ export async function runSingleSubmitProfile(device: GPUDevice, logN: number, lo
     `  transcript = ${logN} rounds @ ${(transcript / logN).toFixed(2)} ms/round · ` +
       `wall ${r.totalMs.toFixed(1)} ms · gpuMs ${r.gpuMs.toFixed(1)} ms · setup ${r.setupMs.toFixed(1)} ms`,
   );
+  return { logN, accumulateMs: accumulate, reduceMs: reduce, batchMs: batch, transcriptMs: transcript, foldMs: fold, bubbleMs: bubble };
+}
+
+/**
+ * One-click profiling-report aggregator: runs all five data-collection passes at
+ * the fixed sizes the analysis wants, then emits a single ready-to-paste
+ * `PROFILE_DATA = { … }` JS literal (logged to #log and the console). Sizes are
+ * baked in (size sweep 2^10..2^18, multi/ss/wg profiles at 2^16, hybrid at 2^18)
+ * so there is nothing to configure — one button, one copy.
+ */
+export async function runProfileReport(device: GPUDevice, log: Logger): Promise<void> {
+  const n1 = (x: number | null): string => (x === null ? 'null' : x.toFixed(1));
+  const n2 = (x: number | null): string => (x === null ? 'null' : x.toFixed(2));
+  const pad = (s: string, w: number): string => s.padStart(w);
+
+  log('info', '═══ profiling report · this runs all five passes (~1–3 min), then prints PROFILE_DATA ═══');
+
+  // [1/5] size sweep — suppress runBenchmark's long per-size line; print a clean
+  // aligned table via onRow as each size completes.
+  log('info', '[1/5] size sweep 2^10..2^18 — wall ms:');
+  log('info', `      ${pad('size', 4)} │ ${pad('multi', 7)} │ ${pad('single', 7)} │ ${pad('WASM', 7)} │ ok`);
+  const quiet: Logger = (lvl, msg) => { if (!/^\s*2\^\d+: multi/.test(msg)) log(lvl, msg); };
+  const sweep = await runBenchmark(device, Array.from({ length: 9 }, (_, i) => 10 + i), quiet, r => {
+    log('ok', `      ${pad('2^' + r.logN, 4)} │ ${pad(n1(r.webgpuWallMs), 7)} │ ${pad(n1(r.ssWallMs), 7)} │ ${pad(n1(r.wasmMs), 7)} │ ${r.outputsMatch ? '✓' : '✗'}`);
+  });
+
+  log('info', '[2/5] multi-round round-0 per-kernel profile · 2^16…');
+  const mp = await runProfile(device, 16, log);
+
+  log('info', '[3/5] single-submit per-kernel profile · 2^16…');
+  const sp = await runSingleSubmitProfile(device, 16, log);
+
+  log('info', '[4/5] accumulate workgroup-size sweep · 2^16…');
+  const wg = await runWgSweep(device, 16, [32, 64, 96, 128, 192, 256], log);
+
+  log('info', '[5/5] hybrid GPU-front + WASM-tail · 2^18 · splits {1,2,3,4,6}…');
+  const hy = await runHybridBenchmark(device, [18], [1, 2, 3, 4, 6], log);
+
+  const sweepLits = sweep
+    .map(r => `    { logN: ${pad(String(r.logN), 2)}, multiWallMs: ${pad(n1(r.webgpuWallMs), 6)}, ssWallMs: ${pad(n1(r.ssWallMs), 6)}, wasmMs: ${pad(n1(r.wasmMs), 6)} },`)
+    .join('\n');
+  const mpLit = mp
+    ? `{ logN: ${mp.logN}, accumulateMs: ${n2(mp.accumulateMs)}, reduceMs: ${n2(mp.reduceMs)}, foldMs: ${n2(mp.foldMs)}, ` +
+      `topRelations: [${mp.topRelations.map(t => `{ label: "${t.label}", ms: ${t.ms.toFixed(3)} }`).join(', ')}] }`
+    : 'null';
+  const spLit = sp
+    ? `{ logN: ${sp.logN}, accumulateMs: ${n2(sp.accumulateMs)}, reduceMs: ${n2(sp.reduceMs)}, batchMs: ${n2(sp.batchMs)}, ` +
+      `transcriptMs: ${n2(sp.transcriptMs)}, foldMs: ${n2(sp.foldMs)}, bubbleMs: ${n2(sp.bubbleMs)} }`
+    : 'null';
+  const wgLit = wg.map(w => `{ wg: ${pad(String(w.wg), 3)}, gpuMs: ${pad(n1(w.gpuMs), 6)} }`).join(', ');
+  const hyPoints = hy.map(h => `{ k: ${h.gpuRounds}, hybridMs: ${pad(n1(h.hybridMs), 7)} }`).join(', ');
+  const hyLit = `{ logN: 18, fullWasmMs: ${n1(hy[0]?.fullWasmMs ?? null)}, fullGpuMs: ${n1(hy[0]?.fullGpuMs ?? null)}, points: [${hyPoints}] }`;
+
+  const literal =
+    `const PROFILE_DATA = {\n` +
+    `  sizeSweep: [\n${sweepLits}\n  ],\n` +
+    `  multiProfile: ${mpLit},\n` +
+    `  ssProfile: ${spLit},\n` +
+    `  wgSweep: [${wgLit}],\n` +
+    `  hybrid: ${hyLit},\n` +
+    `};`;
+
+  log('ok', '═══ PROFILE_DATA (copy everything below) ═══');
+  log('info', literal);
+  // eslint-disable-next-line no-console
+  console.log(literal);
 }
 
 export interface WgSweepRow {
