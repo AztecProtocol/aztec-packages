@@ -10,8 +10,6 @@ pub contract Token {
     use std::ops::Sub;
     use compressed_string::FieldCompressedString;
     use aztec::authwit::auth::compute_authwit_nullifier;
-    use aztec::context::calls::PrivateCall;
-    use aztec::context::PrivateContext;
     use aztec::macros::events::event;
     use aztec::macros::functions::authorize_once;
     use aztec::macros::functions::external;
@@ -207,12 +205,6 @@ pub contract Token {
     #[deprecated(deny, "Direct invocation of private internal functions is not supported. You attempted to call subtract_balance. See https://docs.aztec.network/errors/6")]
     #[contract_library_method]
     fn subtract_balance(account: AztecAddress, amount: u128, max_notes: u32) -> u128;
-
-    #[no_predicates]
-    #[contract_library_method]
-    fn compute_recurse_subtract_balance_call(context: PrivateContext, account: AztecAddress, remaining: u128) -> PrivateCall<25, 2, u128> {
-        Token::at(context.this_address())._recurse_subtract_balance(account, remaining)
-    }
 
     #[deprecated(deny, "Direct invocation of private functions is not supported. You attempted to call _recurse_subtract_balance. See https://docs.aztec.network/errors/6")]
     #[contract_library_method]
@@ -456,7 +448,7 @@ pub contract Token {
             aztec::context::calls::PublicCall::<11, 3, ()>::new(self.target_contract, selector, "burn_public", serialized_params)
         }
 
-        pub fn transfer(self, to: AztecAddress, amount: u128) -> PrivateCall<8, 2, ()> {
+        pub fn transfer(self, to: AztecAddress, amount: u128) -> aztec::context::calls::PrivateCall<8, 2, ()> {
             let mut serialized_params: [Field; 2] = [0_Field; 2];
             let mut offset: u32 = 0_u32;
             let serialized_member: [Field; 1] = <AztecAddress as aztec::protocol::traits::Serialize>::serialize(to);
@@ -472,10 +464,10 @@ pub contract Token {
             };
             offset = offset + serialized_member_len;
             let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(1968158567_Field);
-            PrivateCall::<8, 2, ()>::new(self.target_contract, selector, "transfer", serialized_params)
+            aztec::context::calls::PrivateCall::<8, 2, ()>::new(self.target_contract, selector, "transfer", serialized_params)
         }
 
-        pub fn finalize_transfer_to_private_from_private(self, from: AztecAddress, partial_note: PartialUintNote, amount: u128, authwit_nonce: Field) -> PrivateCall<41, 4, ()> {
+        pub fn finalize_transfer_to_private_from_private(self, from: AztecAddress, partial_note: PartialUintNote, amount: u128, authwit_nonce: Field) -> aztec::context::calls::PrivateCall<41, 4, ()> {
             let mut serialized_params: [Field; 4] = [0_Field; 4];
             let mut offset: u32 = 0_u32;
             let serialized_member: [Field; 1] = <AztecAddress as aztec::protocol::traits::Serialize>::serialize(from);
@@ -503,7 +495,7 @@ pub contract Token {
             };
             offset = offset + serialized_member_len;
             let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(4221842038_Field);
-            PrivateCall::<41, 4, ()>::new(self.target_contract, selector, "finalize_transfer_to_private_from_private", serialized_params)
+            aztec::context::calls::PrivateCall::<41, 4, ()>::new(self.target_contract, selector, "finalize_transfer_to_private_from_private", serialized_params)
         }
 
         pub fn mint_to_public(self, to: AztecAddress, amount: u128) -> aztec::context::calls::PublicCall<14, 2, ()> {
@@ -531,10 +523,10 @@ pub contract Token {
             aztec::context::calls::PublicStaticCall::<9, 1, bool>::new(self.target_contract, selector, "is_minter", serialized_params)
         }
 
-        pub fn cancel_authwit(self, inner_hash: Field) -> PrivateCall<14, 1, ()> {
+        pub fn cancel_authwit(self, inner_hash: Field) -> aztec::context::calls::PrivateCall<14, 1, ()> {
             let serialized_params: [Field; 1] = <Field as aztec::protocol::traits::Serialize>::serialize(inner_hash);
             let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(3755840242_Field);
-            PrivateCall::<14, 1, ()>::new(self.target_contract, selector, "cancel_authwit", serialized_params)
+            aztec::context::calls::PrivateCall::<14, 1, ()>::new(self.target_contract, selector, "cancel_authwit", serialized_params)
         }
 
         pub fn set_admin(self, new_admin: AztecAddress) -> aztec::context::calls::PublicCall<9, 1, ()> {
@@ -561,7 +553,7 @@ pub contract Token {
             aztec::context::calls::PublicStaticCall::<9, 0, Field>::new(self.target_contract, selector, "get_admin", serialized_params)
         }
 
-        pub fn transfer_to_public(self, from: AztecAddress, to: AztecAddress, amount: u128, authwit_nonce: Field) -> PrivateCall<18, 4, ()> {
+        pub fn transfer_to_public(self, from: AztecAddress, to: AztecAddress, amount: u128, authwit_nonce: Field) -> aztec::context::calls::PrivateCall<18, 4, ()> {
             let mut serialized_params: [Field; 4] = [0_Field; 4];
             let mut offset: u32 = 0_u32;
             let serialized_member: [Field; 1] = <AztecAddress as aztec::protocol::traits::Serialize>::serialize(from);
@@ -589,10 +581,10 @@ pub contract Token {
             };
             offset = offset + serialized_member_len;
             let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(3880081865_Field);
-            PrivateCall::<18, 4, ()>::new(self.target_contract, selector, "transfer_to_public", serialized_params)
+            aztec::context::calls::PrivateCall::<18, 4, ()>::new(self.target_contract, selector, "transfer_to_public", serialized_params)
         }
 
-        pub fn transfer_in_private_with_offchain_delivery(self, from: AztecAddress, to: AztecAddress, amount: u128, authwit_nonce: Field) -> PrivateCall<42, 4, ()> {
+        pub fn transfer_in_private_with_offchain_delivery(self, from: AztecAddress, to: AztecAddress, amount: u128, authwit_nonce: Field) -> aztec::context::calls::PrivateCall<42, 4, ()> {
             let mut serialized_params: [Field; 4] = [0_Field; 4];
             let mut offset: u32 = 0_u32;
             let serialized_member: [Field; 1] = <AztecAddress as aztec::protocol::traits::Serialize>::serialize(from);
@@ -620,10 +612,10 @@ pub contract Token {
             };
             offset = offset + serialized_member_len;
             let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(2994585803_Field);
-            PrivateCall::<42, 4, ()>::new(self.target_contract, selector, "transfer_in_private_with_offchain_delivery", serialized_params)
+            aztec::context::calls::PrivateCall::<42, 4, ()>::new(self.target_contract, selector, "transfer_in_private_with_offchain_delivery", serialized_params)
         }
 
-        pub fn mint_to_private(self, to: AztecAddress, amount: u128) -> PrivateCall<15, 2, ()> {
+        pub fn mint_to_private(self, to: AztecAddress, amount: u128) -> aztec::context::calls::PrivateCall<15, 2, ()> {
             let mut serialized_params: [Field; 2] = [0_Field; 2];
             let mut offset: u32 = 0_u32;
             let serialized_member: [Field; 1] = <AztecAddress as aztec::protocol::traits::Serialize>::serialize(to);
@@ -639,10 +631,10 @@ pub contract Token {
             };
             offset = offset + serialized_member_len;
             let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(4177019161_Field);
-            PrivateCall::<15, 2, ()>::new(self.target_contract, selector, "mint_to_private", serialized_params)
+            aztec::context::calls::PrivateCall::<15, 2, ()>::new(self.target_contract, selector, "mint_to_private", serialized_params)
         }
 
-        pub fn transfer_to_private(self, to: AztecAddress, amount: u128) -> PrivateCall<19, 2, ()> {
+        pub fn transfer_to_private(self, to: AztecAddress, amount: u128) -> aztec::context::calls::PrivateCall<19, 2, ()> {
             let mut serialized_params: [Field; 2] = [0_Field; 2];
             let mut offset: u32 = 0_u32;
             let serialized_member: [Field; 1] = <AztecAddress as aztec::protocol::traits::Serialize>::serialize(to);
@@ -658,7 +650,7 @@ pub contract Token {
             };
             offset = offset + serialized_member_len;
             let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(2306181952_Field);
-            PrivateCall::<19, 2, ()>::new(self.target_contract, selector, "transfer_to_private", serialized_params)
+            aztec::context::calls::PrivateCall::<19, 2, ()>::new(self.target_contract, selector, "transfer_to_private", serialized_params)
         }
 
         pub fn public_get_name(self) -> aztec::context::calls::PublicStaticCall<15, 0, FieldCompressedString> {
@@ -667,7 +659,7 @@ pub contract Token {
             aztec::context::calls::PublicStaticCall::<15, 0, FieldCompressedString>::new(self.target_contract, selector, "public_get_name", serialized_params)
         }
 
-        pub fn _recurse_subtract_balance(self, account: AztecAddress, amount: u128) -> PrivateCall<25, 2, u128> {
+        pub fn _recurse_subtract_balance(self, account: AztecAddress, amount: u128) -> aztec::context::calls::PrivateCall<25, 2, u128> {
             let mut serialized_params: [Field; 2] = [0_Field; 2];
             let mut offset: u32 = 0_u32;
             let serialized_member: [Field; 1] = <AztecAddress as aztec::protocol::traits::Serialize>::serialize(account);
@@ -683,7 +675,7 @@ pub contract Token {
             };
             offset = offset + serialized_member_len;
             let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(1536394406_Field);
-            PrivateCall::<25, 2, u128>::new(self.target_contract, selector, "_recurse_subtract_balance", serialized_params)
+            aztec::context::calls::PrivateCall::<25, 2, u128>::new(self.target_contract, selector, "_recurse_subtract_balance", serialized_params)
         }
 
         pub fn _finalize_transfer_to_private_unsafe(self, from_and_completer: AztecAddress, amount: u128, partial_note: PartialUintNote) -> aztec::context::calls::PublicCall<36, 3, ()> {
@@ -817,13 +809,13 @@ pub contract Token {
             aztec::context::calls::PublicCall::<18, 4, ()>::new(self.target_contract, selector, "transfer_in_public", serialized_params)
         }
 
-        pub fn prepare_private_balance_increase(self, to: AztecAddress) -> PrivateCall<32, 1, PartialUintNote> {
+        pub fn prepare_private_balance_increase(self, to: AztecAddress) -> aztec::context::calls::PrivateCall<32, 1, PartialUintNote> {
             let serialized_params: [Field; 1] = <AztecAddress as aztec::protocol::traits::Serialize>::serialize(to);
             let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(1824243228_Field);
-            PrivateCall::<32, 1, PartialUintNote>::new(self.target_contract, selector, "prepare_private_balance_increase", serialized_params)
+            aztec::context::calls::PrivateCall::<32, 1, PartialUintNote>::new(self.target_contract, selector, "prepare_private_balance_increase", serialized_params)
         }
 
-        pub fn transfer_to_public_and_prepare_private_balance_increase(self, from: AztecAddress, to: AztecAddress, amount: u128, authwit_nonce: Field) -> PrivateCall<55, 4, PartialUintNote> {
+        pub fn transfer_to_public_and_prepare_private_balance_increase(self, from: AztecAddress, to: AztecAddress, amount: u128, authwit_nonce: Field) -> aztec::context::calls::PrivateCall<55, 4, PartialUintNote> {
             let mut serialized_params: [Field; 4] = [0_Field; 4];
             let mut offset: u32 = 0_u32;
             let serialized_member: [Field; 1] = <AztecAddress as aztec::protocol::traits::Serialize>::serialize(from);
@@ -851,7 +843,7 @@ pub contract Token {
             };
             offset = offset + serialized_member_len;
             let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(2936463891_Field);
-            PrivateCall::<55, 4, PartialUintNote>::new(self.target_contract, selector, "transfer_to_public_and_prepare_private_balance_increase", serialized_params)
+            aztec::context::calls::PrivateCall::<55, 4, PartialUintNote>::new(self.target_contract, selector, "transfer_to_public_and_prepare_private_balance_increase", serialized_params)
         }
 
         pub fn balance_of_public(self, owner: AztecAddress) -> aztec::context::calls::PublicStaticCall<17, 1, u128> {
@@ -916,7 +908,7 @@ pub contract Token {
             aztec::context::calls::PrivateStaticCall::<16, 0, FieldCompressedString>::new(self.target_contract, selector, "private_get_name", serialized_params)
         }
 
-        pub fn transfer_in_private(self, from: AztecAddress, to: AztecAddress, amount: u128, authwit_nonce: Field) -> PrivateCall<19, 4, ()> {
+        pub fn transfer_in_private(self, from: AztecAddress, to: AztecAddress, amount: u128, authwit_nonce: Field) -> aztec::context::calls::PrivateCall<19, 4, ()> {
             let mut serialized_params: [Field; 4] = [0_Field; 4];
             let mut offset: u32 = 0_u32;
             let serialized_member: [Field; 1] = <AztecAddress as aztec::protocol::traits::Serialize>::serialize(from);
@@ -944,7 +936,7 @@ pub contract Token {
             };
             offset = offset + serialized_member_len;
             let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(3610465468_Field);
-            PrivateCall::<19, 4, ()>::new(self.target_contract, selector, "transfer_in_private", serialized_params)
+            aztec::context::calls::PrivateCall::<19, 4, ()>::new(self.target_contract, selector, "transfer_in_private", serialized_params)
         }
 
         pub fn public_get_decimals(self) -> aztec::context::calls::PublicStaticCall<19, 0, u8> {
@@ -953,7 +945,7 @@ pub contract Token {
             aztec::context::calls::PublicStaticCall::<19, 0, u8>::new(self.target_contract, selector, "public_get_decimals", serialized_params)
         }
 
-        pub fn burn_private(self, from: AztecAddress, amount: u128, authwit_nonce: Field) -> PrivateCall<12, 3, ()> {
+        pub fn burn_private(self, from: AztecAddress, amount: u128, authwit_nonce: Field) -> aztec::context::calls::PrivateCall<12, 3, ()> {
             let mut serialized_params: [Field; 3] = [0_Field; 3];
             let mut offset: u32 = 0_u32;
             let serialized_member: [Field; 1] = <AztecAddress as aztec::protocol::traits::Serialize>::serialize(from);
@@ -975,7 +967,7 @@ pub contract Token {
             };
             offset = offset + serialized_member_len;
             let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(3263360377_Field);
-            PrivateCall::<12, 3, ()>::new(self.target_contract, selector, "burn_private", serialized_params)
+            aztec::context::calls::PrivateCall::<12, 3, ()>::new(self.target_contract, selector, "burn_private", serialized_params)
         }
 
         pub fn _increase_public_balance(self, to: AztecAddress, amount: u128) -> aztec::context::calls::PublicCall<24, 2, ()> {
@@ -1341,7 +1333,7 @@ pub contract Token {
         }
     }
 
-    impl CallSelf<&mut PrivateContext> {
+    impl CallSelf<&mut aztec::context::PrivateContext> {
         pub fn transfer(self, to: AztecAddress, amount: u128) {
             let mut serialized_params: [Field; 2] = [0_Field; 2];
             let mut offset: u32 = 0_u32;
@@ -1717,7 +1709,7 @@ pub contract Token {
         }
     }
 
-    impl CallSelfStatic<&mut PrivateContext> {
+    impl CallSelfStatic<&mut aztec::context::PrivateContext> {
         pub fn private_get_symbol(self) -> FieldCompressedString {
             let serialized_params: [Field; 0] = [];
             let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(1295669651_Field);
@@ -1751,7 +1743,7 @@ pub contract Token {
         pub context: Context,
     }
 
-    impl EnqueueSelf<&mut PrivateContext> {
+    impl EnqueueSelf<&mut aztec::context::PrivateContext> {
         pub fn set_minter(self, minter: AztecAddress, approve: bool) {
             let mut serialized_params: [Field; 2] = [0_Field; 2];
             let mut offset: u32 = 0_u32;
@@ -2038,7 +2030,7 @@ pub contract Token {
         pub context: Context,
     }
 
-    impl EnqueueSelfStatic<&mut PrivateContext> {
+    impl EnqueueSelfStatic<&mut aztec::context::PrivateContext> {
         pub fn public_get_name(self) {
             let serialized_params: [Field; 0] = [];
             let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(3367753652_Field);
@@ -2130,7 +2122,7 @@ pub contract Token {
         }
     }
 
-    impl CallInternal<&mut PrivateContext> {
+    impl CallInternal<&mut aztec::context::PrivateContext> {
         pub fn subtract_balance(self, account: AztecAddress, amount: u128, max_notes: u32) -> u128 {
             __aztec_nr_internals__subtract_balance(self.context, account, amount, max_notes)
         }
@@ -2640,7 +2632,7 @@ pub contract Token {
 
     fn __aztec_nr_internals___recurse_subtract_balance(inputs: aztec::context::inputs::PrivateContextInputs, account: AztecAddress, amount: u128) -> return_data aztec::protocol::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs {
         aztec::oracle::version::assert_compatible_oracle_version();
-        let mut self: aztec::contract_self::contract_self_private::ContractSelfPrivate<Storage<&mut PrivateContext>, CallSelf<&mut PrivateContext>, EnqueueSelf<&mut PrivateContext>, CallSelfStatic<&mut PrivateContext>, EnqueueSelfStatic<&mut PrivateContext>, CallInternal<&mut PrivateContext>, CallSelfUtility> = {
+        let mut self: aztec::contract_self::contract_self_private::ContractSelfPrivate<Storage<&mut aztec::context::PrivateContext>, CallSelf<&mut aztec::context::PrivateContext>, EnqueueSelf<&mut aztec::context::PrivateContext>, CallSelfStatic<&mut aztec::context::PrivateContext>, EnqueueSelfStatic<&mut aztec::context::PrivateContext>, CallInternal<&mut aztec::context::PrivateContext>, CallSelfUtility> = {
             let mut serialized_params: [Field; 2] = [0_Field; 2];
             let mut offset: u32 = 0_u32;
             let serialized_member: [Field; 1] = <AztecAddress as aztec::protocol::traits::Serialize>::serialize(account);
@@ -2656,17 +2648,17 @@ pub contract Token {
             };
             offset = offset + serialized_member_len;
             let args_hash: Field = aztec::hash::hash_args(serialized_params);
-            let mut context: PrivateContext = PrivateContext::new(inputs, args_hash);
-            let storage: Storage<&mut PrivateContext> = Storage::<&mut PrivateContext>::init(&mut context);
+            let mut context: aztec::context::PrivateContext = aztec::context::PrivateContext::new(inputs, args_hash);
+            let storage: Storage<&mut aztec::context::PrivateContext> = Storage::<&mut aztec::context::PrivateContext>::init(&mut context);
             let self_address: AztecAddress = context.this_address();
-            let call_self: CallSelf<&mut PrivateContext> = CallSelf::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let enqueue_self: EnqueueSelf<&mut PrivateContext> = EnqueueSelf::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let call_self_static: CallSelfStatic<&mut PrivateContext> = CallSelfStatic::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let enqueue_self_static: EnqueueSelfStatic<&mut PrivateContext> = EnqueueSelfStatic::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let internal: CallInternal<&mut PrivateContext> = CallInternal::<&mut PrivateContext> { context: &mut context};
+            let call_self: CallSelf<&mut aztec::context::PrivateContext> = CallSelf::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let enqueue_self: EnqueueSelf<&mut aztec::context::PrivateContext> = EnqueueSelf::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let call_self_static: CallSelfStatic<&mut aztec::context::PrivateContext> = CallSelfStatic::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let enqueue_self_static: EnqueueSelfStatic<&mut aztec::context::PrivateContext> = EnqueueSelfStatic::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let internal: CallInternal<&mut aztec::context::PrivateContext> = CallInternal::<&mut aztec::context::PrivateContext> { context: &mut context};
             let call_self_utility: CallSelfUtility = CallSelfUtility { address: self_address};
             let utility: aztec::contract_self::contract_self_private::PrivateUtilityCalls<CallSelfUtility> = aztec::contract_self::contract_self_private::PrivateUtilityCalls::<CallSelfUtility> { call_self: call_self_utility};
-            aztec::contract_self::contract_self_private::ContractSelfPrivate::<Storage<&mut PrivateContext>, CallSelf<&mut PrivateContext>, EnqueueSelf<&mut PrivateContext>, CallSelfStatic<&mut PrivateContext>, EnqueueSelfStatic<&mut PrivateContext>, CallInternal<&mut PrivateContext>, CallSelfUtility>::new(&mut context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static, internal, utility)
+            aztec::contract_self::contract_self_private::ContractSelfPrivate::<Storage<&mut aztec::context::PrivateContext>, CallSelf<&mut aztec::context::PrivateContext>, EnqueueSelf<&mut aztec::context::PrivateContext>, CallSelfStatic<&mut aztec::context::PrivateContext>, EnqueueSelfStatic<&mut aztec::context::PrivateContext>, CallInternal<&mut aztec::context::PrivateContext>, CallSelfUtility>::new(&mut context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static, internal, utility)
         };
         let within_revertible_phase: bool = self.context.in_revertible_phase();
         assert(self.msg_sender() == self.address, "Function _recurse_subtract_balance can only be called by the same contract");
@@ -2679,7 +2671,7 @@ pub contract Token {
 
     fn __aztec_nr_internals__burn_private(inputs: aztec::context::inputs::PrivateContextInputs, from: AztecAddress, amount: u128, authwit_nonce: Field) -> return_data aztec::protocol::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs {
         aztec::oracle::version::assert_compatible_oracle_version();
-        let mut self: aztec::contract_self::contract_self_private::ContractSelfPrivate<Storage<&mut PrivateContext>, CallSelf<&mut PrivateContext>, EnqueueSelf<&mut PrivateContext>, CallSelfStatic<&mut PrivateContext>, EnqueueSelfStatic<&mut PrivateContext>, CallInternal<&mut PrivateContext>, CallSelfUtility> = {
+        let mut self: aztec::contract_self::contract_self_private::ContractSelfPrivate<Storage<&mut aztec::context::PrivateContext>, CallSelf<&mut aztec::context::PrivateContext>, EnqueueSelf<&mut aztec::context::PrivateContext>, CallSelfStatic<&mut aztec::context::PrivateContext>, EnqueueSelfStatic<&mut aztec::context::PrivateContext>, CallInternal<&mut aztec::context::PrivateContext>, CallSelfUtility> = {
             let mut serialized_params: [Field; 3] = [0_Field; 3];
             let mut offset: u32 = 0_u32;
             let serialized_member: [Field; 1] = <AztecAddress as aztec::protocol::traits::Serialize>::serialize(from);
@@ -2701,17 +2693,17 @@ pub contract Token {
             };
             offset = offset + serialized_member_len;
             let args_hash: Field = aztec::hash::hash_args(serialized_params);
-            let mut context: PrivateContext = PrivateContext::new(inputs, args_hash);
-            let storage: Storage<&mut PrivateContext> = Storage::<&mut PrivateContext>::init(&mut context);
+            let mut context: aztec::context::PrivateContext = aztec::context::PrivateContext::new(inputs, args_hash);
+            let storage: Storage<&mut aztec::context::PrivateContext> = Storage::<&mut aztec::context::PrivateContext>::init(&mut context);
             let self_address: AztecAddress = context.this_address();
-            let call_self: CallSelf<&mut PrivateContext> = CallSelf::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let enqueue_self: EnqueueSelf<&mut PrivateContext> = EnqueueSelf::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let call_self_static: CallSelfStatic<&mut PrivateContext> = CallSelfStatic::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let enqueue_self_static: EnqueueSelfStatic<&mut PrivateContext> = EnqueueSelfStatic::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let internal: CallInternal<&mut PrivateContext> = CallInternal::<&mut PrivateContext> { context: &mut context};
+            let call_self: CallSelf<&mut aztec::context::PrivateContext> = CallSelf::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let enqueue_self: EnqueueSelf<&mut aztec::context::PrivateContext> = EnqueueSelf::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let call_self_static: CallSelfStatic<&mut aztec::context::PrivateContext> = CallSelfStatic::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let enqueue_self_static: EnqueueSelfStatic<&mut aztec::context::PrivateContext> = EnqueueSelfStatic::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let internal: CallInternal<&mut aztec::context::PrivateContext> = CallInternal::<&mut aztec::context::PrivateContext> { context: &mut context};
             let call_self_utility: CallSelfUtility = CallSelfUtility { address: self_address};
             let utility: aztec::contract_self::contract_self_private::PrivateUtilityCalls<CallSelfUtility> = aztec::contract_self::contract_self_private::PrivateUtilityCalls::<CallSelfUtility> { call_self: call_self_utility};
-            aztec::contract_self::contract_self_private::ContractSelfPrivate::<Storage<&mut PrivateContext>, CallSelf<&mut PrivateContext>, EnqueueSelf<&mut PrivateContext>, CallSelfStatic<&mut PrivateContext>, EnqueueSelfStatic<&mut PrivateContext>, CallInternal<&mut PrivateContext>, CallSelfUtility>::new(&mut context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static, internal, utility)
+            aztec::contract_self::contract_self_private::ContractSelfPrivate::<Storage<&mut aztec::context::PrivateContext>, CallSelf<&mut aztec::context::PrivateContext>, EnqueueSelf<&mut aztec::context::PrivateContext>, CallSelfStatic<&mut aztec::context::PrivateContext>, EnqueueSelfStatic<&mut aztec::context::PrivateContext>, CallInternal<&mut aztec::context::PrivateContext>, CallSelfUtility>::new(&mut context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static, internal, utility)
         };
         let within_revertible_phase: bool = self.context.in_revertible_phase();
         aztec::macros::functions::initialization_utils::assert_is_initialized_private(self.context);
@@ -2728,20 +2720,20 @@ pub contract Token {
 
     fn __aztec_nr_internals__cancel_authwit(inputs: aztec::context::inputs::PrivateContextInputs, inner_hash: Field) -> return_data aztec::protocol::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs {
         aztec::oracle::version::assert_compatible_oracle_version();
-        let mut self: aztec::contract_self::contract_self_private::ContractSelfPrivate<Storage<&mut PrivateContext>, CallSelf<&mut PrivateContext>, EnqueueSelf<&mut PrivateContext>, CallSelfStatic<&mut PrivateContext>, EnqueueSelfStatic<&mut PrivateContext>, CallInternal<&mut PrivateContext>, CallSelfUtility> = {
+        let mut self: aztec::contract_self::contract_self_private::ContractSelfPrivate<Storage<&mut aztec::context::PrivateContext>, CallSelf<&mut aztec::context::PrivateContext>, EnqueueSelf<&mut aztec::context::PrivateContext>, CallSelfStatic<&mut aztec::context::PrivateContext>, EnqueueSelfStatic<&mut aztec::context::PrivateContext>, CallInternal<&mut aztec::context::PrivateContext>, CallSelfUtility> = {
             let serialized_params: [Field; 1] = <Field as aztec::protocol::traits::Serialize>::serialize(inner_hash);
             let args_hash: Field = aztec::hash::hash_args(serialized_params);
-            let mut context: PrivateContext = PrivateContext::new(inputs, args_hash);
-            let storage: Storage<&mut PrivateContext> = Storage::<&mut PrivateContext>::init(&mut context);
+            let mut context: aztec::context::PrivateContext = aztec::context::PrivateContext::new(inputs, args_hash);
+            let storage: Storage<&mut aztec::context::PrivateContext> = Storage::<&mut aztec::context::PrivateContext>::init(&mut context);
             let self_address: AztecAddress = context.this_address();
-            let call_self: CallSelf<&mut PrivateContext> = CallSelf::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let enqueue_self: EnqueueSelf<&mut PrivateContext> = EnqueueSelf::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let call_self_static: CallSelfStatic<&mut PrivateContext> = CallSelfStatic::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let enqueue_self_static: EnqueueSelfStatic<&mut PrivateContext> = EnqueueSelfStatic::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let internal: CallInternal<&mut PrivateContext> = CallInternal::<&mut PrivateContext> { context: &mut context};
+            let call_self: CallSelf<&mut aztec::context::PrivateContext> = CallSelf::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let enqueue_self: EnqueueSelf<&mut aztec::context::PrivateContext> = EnqueueSelf::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let call_self_static: CallSelfStatic<&mut aztec::context::PrivateContext> = CallSelfStatic::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let enqueue_self_static: EnqueueSelfStatic<&mut aztec::context::PrivateContext> = EnqueueSelfStatic::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let internal: CallInternal<&mut aztec::context::PrivateContext> = CallInternal::<&mut aztec::context::PrivateContext> { context: &mut context};
             let call_self_utility: CallSelfUtility = CallSelfUtility { address: self_address};
             let utility: aztec::contract_self::contract_self_private::PrivateUtilityCalls<CallSelfUtility> = aztec::contract_self::contract_self_private::PrivateUtilityCalls::<CallSelfUtility> { call_self: call_self_utility};
-            aztec::contract_self::contract_self_private::ContractSelfPrivate::<Storage<&mut PrivateContext>, CallSelf<&mut PrivateContext>, EnqueueSelf<&mut PrivateContext>, CallSelfStatic<&mut PrivateContext>, EnqueueSelfStatic<&mut PrivateContext>, CallInternal<&mut PrivateContext>, CallSelfUtility>::new(&mut context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static, internal, utility)
+            aztec::contract_self::contract_self_private::ContractSelfPrivate::<Storage<&mut aztec::context::PrivateContext>, CallSelf<&mut aztec::context::PrivateContext>, EnqueueSelf<&mut aztec::context::PrivateContext>, CallSelfStatic<&mut aztec::context::PrivateContext>, EnqueueSelfStatic<&mut aztec::context::PrivateContext>, CallInternal<&mut aztec::context::PrivateContext>, CallSelfUtility>::new(&mut context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static, internal, utility)
         };
         let within_revertible_phase: bool = self.context.in_revertible_phase();
         aztec::macros::functions::initialization_utils::assert_is_initialized_private(self.context);
@@ -2754,7 +2746,7 @@ pub contract Token {
 
     fn __aztec_nr_internals__finalize_transfer_to_private_from_private(inputs: aztec::context::inputs::PrivateContextInputs, from: AztecAddress, partial_note: PartialUintNote, amount: u128, authwit_nonce: Field) -> return_data aztec::protocol::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs {
         aztec::oracle::version::assert_compatible_oracle_version();
-        let mut self: aztec::contract_self::contract_self_private::ContractSelfPrivate<Storage<&mut PrivateContext>, CallSelf<&mut PrivateContext>, EnqueueSelf<&mut PrivateContext>, CallSelfStatic<&mut PrivateContext>, EnqueueSelfStatic<&mut PrivateContext>, CallInternal<&mut PrivateContext>, CallSelfUtility> = {
+        let mut self: aztec::contract_self::contract_self_private::ContractSelfPrivate<Storage<&mut aztec::context::PrivateContext>, CallSelf<&mut aztec::context::PrivateContext>, EnqueueSelf<&mut aztec::context::PrivateContext>, CallSelfStatic<&mut aztec::context::PrivateContext>, EnqueueSelfStatic<&mut aztec::context::PrivateContext>, CallInternal<&mut aztec::context::PrivateContext>, CallSelfUtility> = {
             let mut serialized_params: [Field; 4] = [0_Field; 4];
             let mut offset: u32 = 0_u32;
             let serialized_member: [Field; 1] = <AztecAddress as aztec::protocol::traits::Serialize>::serialize(from);
@@ -2782,17 +2774,17 @@ pub contract Token {
             };
             offset = offset + serialized_member_len;
             let args_hash: Field = aztec::hash::hash_args(serialized_params);
-            let mut context: PrivateContext = PrivateContext::new(inputs, args_hash);
-            let storage: Storage<&mut PrivateContext> = Storage::<&mut PrivateContext>::init(&mut context);
+            let mut context: aztec::context::PrivateContext = aztec::context::PrivateContext::new(inputs, args_hash);
+            let storage: Storage<&mut aztec::context::PrivateContext> = Storage::<&mut aztec::context::PrivateContext>::init(&mut context);
             let self_address: AztecAddress = context.this_address();
-            let call_self: CallSelf<&mut PrivateContext> = CallSelf::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let enqueue_self: EnqueueSelf<&mut PrivateContext> = EnqueueSelf::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let call_self_static: CallSelfStatic<&mut PrivateContext> = CallSelfStatic::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let enqueue_self_static: EnqueueSelfStatic<&mut PrivateContext> = EnqueueSelfStatic::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let internal: CallInternal<&mut PrivateContext> = CallInternal::<&mut PrivateContext> { context: &mut context};
+            let call_self: CallSelf<&mut aztec::context::PrivateContext> = CallSelf::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let enqueue_self: EnqueueSelf<&mut aztec::context::PrivateContext> = EnqueueSelf::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let call_self_static: CallSelfStatic<&mut aztec::context::PrivateContext> = CallSelfStatic::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let enqueue_self_static: EnqueueSelfStatic<&mut aztec::context::PrivateContext> = EnqueueSelfStatic::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let internal: CallInternal<&mut aztec::context::PrivateContext> = CallInternal::<&mut aztec::context::PrivateContext> { context: &mut context};
             let call_self_utility: CallSelfUtility = CallSelfUtility { address: self_address};
             let utility: aztec::contract_self::contract_self_private::PrivateUtilityCalls<CallSelfUtility> = aztec::contract_self::contract_self_private::PrivateUtilityCalls::<CallSelfUtility> { call_self: call_self_utility};
-            aztec::contract_self::contract_self_private::ContractSelfPrivate::<Storage<&mut PrivateContext>, CallSelf<&mut PrivateContext>, EnqueueSelf<&mut PrivateContext>, CallSelfStatic<&mut PrivateContext>, EnqueueSelfStatic<&mut PrivateContext>, CallInternal<&mut PrivateContext>, CallSelfUtility>::new(&mut context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static, internal, utility)
+            aztec::contract_self::contract_self_private::ContractSelfPrivate::<Storage<&mut aztec::context::PrivateContext>, CallSelf<&mut aztec::context::PrivateContext>, EnqueueSelf<&mut aztec::context::PrivateContext>, CallSelfStatic<&mut aztec::context::PrivateContext>, EnqueueSelfStatic<&mut aztec::context::PrivateContext>, CallInternal<&mut aztec::context::PrivateContext>, CallSelfUtility>::new(&mut context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static, internal, utility)
         };
         let within_revertible_phase: bool = self.context.in_revertible_phase();
         aztec::macros::functions::initialization_utils::assert_is_initialized_private(self.context);
@@ -2809,7 +2801,7 @@ pub contract Token {
 
     fn __aztec_nr_internals__mint_to_private(inputs: aztec::context::inputs::PrivateContextInputs, to: AztecAddress, amount: u128) -> return_data aztec::protocol::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs {
         aztec::oracle::version::assert_compatible_oracle_version();
-        let mut self: aztec::contract_self::contract_self_private::ContractSelfPrivate<Storage<&mut PrivateContext>, CallSelf<&mut PrivateContext>, EnqueueSelf<&mut PrivateContext>, CallSelfStatic<&mut PrivateContext>, EnqueueSelfStatic<&mut PrivateContext>, CallInternal<&mut PrivateContext>, CallSelfUtility> = {
+        let mut self: aztec::contract_self::contract_self_private::ContractSelfPrivate<Storage<&mut aztec::context::PrivateContext>, CallSelf<&mut aztec::context::PrivateContext>, EnqueueSelf<&mut aztec::context::PrivateContext>, CallSelfStatic<&mut aztec::context::PrivateContext>, EnqueueSelfStatic<&mut aztec::context::PrivateContext>, CallInternal<&mut aztec::context::PrivateContext>, CallSelfUtility> = {
             let mut serialized_params: [Field; 2] = [0_Field; 2];
             let mut offset: u32 = 0_u32;
             let serialized_member: [Field; 1] = <AztecAddress as aztec::protocol::traits::Serialize>::serialize(to);
@@ -2825,17 +2817,17 @@ pub contract Token {
             };
             offset = offset + serialized_member_len;
             let args_hash: Field = aztec::hash::hash_args(serialized_params);
-            let mut context: PrivateContext = PrivateContext::new(inputs, args_hash);
-            let storage: Storage<&mut PrivateContext> = Storage::<&mut PrivateContext>::init(&mut context);
+            let mut context: aztec::context::PrivateContext = aztec::context::PrivateContext::new(inputs, args_hash);
+            let storage: Storage<&mut aztec::context::PrivateContext> = Storage::<&mut aztec::context::PrivateContext>::init(&mut context);
             let self_address: AztecAddress = context.this_address();
-            let call_self: CallSelf<&mut PrivateContext> = CallSelf::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let enqueue_self: EnqueueSelf<&mut PrivateContext> = EnqueueSelf::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let call_self_static: CallSelfStatic<&mut PrivateContext> = CallSelfStatic::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let enqueue_self_static: EnqueueSelfStatic<&mut PrivateContext> = EnqueueSelfStatic::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let internal: CallInternal<&mut PrivateContext> = CallInternal::<&mut PrivateContext> { context: &mut context};
+            let call_self: CallSelf<&mut aztec::context::PrivateContext> = CallSelf::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let enqueue_self: EnqueueSelf<&mut aztec::context::PrivateContext> = EnqueueSelf::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let call_self_static: CallSelfStatic<&mut aztec::context::PrivateContext> = CallSelfStatic::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let enqueue_self_static: EnqueueSelfStatic<&mut aztec::context::PrivateContext> = EnqueueSelfStatic::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let internal: CallInternal<&mut aztec::context::PrivateContext> = CallInternal::<&mut aztec::context::PrivateContext> { context: &mut context};
             let call_self_utility: CallSelfUtility = CallSelfUtility { address: self_address};
             let utility: aztec::contract_self::contract_self_private::PrivateUtilityCalls<CallSelfUtility> = aztec::contract_self::contract_self_private::PrivateUtilityCalls::<CallSelfUtility> { call_self: call_self_utility};
-            aztec::contract_self::contract_self_private::ContractSelfPrivate::<Storage<&mut PrivateContext>, CallSelf<&mut PrivateContext>, EnqueueSelf<&mut PrivateContext>, CallSelfStatic<&mut PrivateContext>, EnqueueSelfStatic<&mut PrivateContext>, CallInternal<&mut PrivateContext>, CallSelfUtility>::new(&mut context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static, internal, utility)
+            aztec::contract_self::contract_self_private::ContractSelfPrivate::<Storage<&mut aztec::context::PrivateContext>, CallSelf<&mut aztec::context::PrivateContext>, EnqueueSelf<&mut aztec::context::PrivateContext>, CallSelfStatic<&mut aztec::context::PrivateContext>, EnqueueSelfStatic<&mut aztec::context::PrivateContext>, CallInternal<&mut aztec::context::PrivateContext>, CallSelfUtility>::new(&mut context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static, internal, utility)
         };
         let within_revertible_phase: bool = self.context.in_revertible_phase();
         aztec::macros::functions::initialization_utils::assert_is_initialized_private(self.context);
@@ -2847,20 +2839,20 @@ pub contract Token {
 
     fn __aztec_nr_internals__prepare_private_balance_increase(inputs: aztec::context::inputs::PrivateContextInputs, to: AztecAddress) -> return_data aztec::protocol::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs {
         aztec::oracle::version::assert_compatible_oracle_version();
-        let mut self: aztec::contract_self::contract_self_private::ContractSelfPrivate<Storage<&mut PrivateContext>, CallSelf<&mut PrivateContext>, EnqueueSelf<&mut PrivateContext>, CallSelfStatic<&mut PrivateContext>, EnqueueSelfStatic<&mut PrivateContext>, CallInternal<&mut PrivateContext>, CallSelfUtility> = {
+        let mut self: aztec::contract_self::contract_self_private::ContractSelfPrivate<Storage<&mut aztec::context::PrivateContext>, CallSelf<&mut aztec::context::PrivateContext>, EnqueueSelf<&mut aztec::context::PrivateContext>, CallSelfStatic<&mut aztec::context::PrivateContext>, EnqueueSelfStatic<&mut aztec::context::PrivateContext>, CallInternal<&mut aztec::context::PrivateContext>, CallSelfUtility> = {
             let serialized_params: [Field; 1] = <AztecAddress as aztec::protocol::traits::Serialize>::serialize(to);
             let args_hash: Field = aztec::hash::hash_args(serialized_params);
-            let mut context: PrivateContext = PrivateContext::new(inputs, args_hash);
-            let storage: Storage<&mut PrivateContext> = Storage::<&mut PrivateContext>::init(&mut context);
+            let mut context: aztec::context::PrivateContext = aztec::context::PrivateContext::new(inputs, args_hash);
+            let storage: Storage<&mut aztec::context::PrivateContext> = Storage::<&mut aztec::context::PrivateContext>::init(&mut context);
             let self_address: AztecAddress = context.this_address();
-            let call_self: CallSelf<&mut PrivateContext> = CallSelf::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let enqueue_self: EnqueueSelf<&mut PrivateContext> = EnqueueSelf::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let call_self_static: CallSelfStatic<&mut PrivateContext> = CallSelfStatic::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let enqueue_self_static: EnqueueSelfStatic<&mut PrivateContext> = EnqueueSelfStatic::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let internal: CallInternal<&mut PrivateContext> = CallInternal::<&mut PrivateContext> { context: &mut context};
+            let call_self: CallSelf<&mut aztec::context::PrivateContext> = CallSelf::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let enqueue_self: EnqueueSelf<&mut aztec::context::PrivateContext> = EnqueueSelf::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let call_self_static: CallSelfStatic<&mut aztec::context::PrivateContext> = CallSelfStatic::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let enqueue_self_static: EnqueueSelfStatic<&mut aztec::context::PrivateContext> = EnqueueSelfStatic::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let internal: CallInternal<&mut aztec::context::PrivateContext> = CallInternal::<&mut aztec::context::PrivateContext> { context: &mut context};
             let call_self_utility: CallSelfUtility = CallSelfUtility { address: self_address};
             let utility: aztec::contract_self::contract_self_private::PrivateUtilityCalls<CallSelfUtility> = aztec::contract_self::contract_self_private::PrivateUtilityCalls::<CallSelfUtility> { call_self: call_self_utility};
-            aztec::contract_self::contract_self_private::ContractSelfPrivate::<Storage<&mut PrivateContext>, CallSelf<&mut PrivateContext>, EnqueueSelf<&mut PrivateContext>, CallSelfStatic<&mut PrivateContext>, EnqueueSelfStatic<&mut PrivateContext>, CallInternal<&mut PrivateContext>, CallSelfUtility>::new(&mut context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static, internal, utility)
+            aztec::contract_self::contract_self_private::ContractSelfPrivate::<Storage<&mut aztec::context::PrivateContext>, CallSelf<&mut aztec::context::PrivateContext>, EnqueueSelf<&mut aztec::context::PrivateContext>, CallSelfStatic<&mut aztec::context::PrivateContext>, EnqueueSelfStatic<&mut aztec::context::PrivateContext>, CallInternal<&mut aztec::context::PrivateContext>, CallSelfUtility>::new(&mut context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static, internal, utility)
         };
         let within_revertible_phase: bool = self.context.in_revertible_phase();
         aztec::macros::functions::initialization_utils::assert_is_initialized_private(self.context);
@@ -2873,20 +2865,20 @@ pub contract Token {
 
     fn __aztec_nr_internals__private_get_decimals(inputs: aztec::context::inputs::PrivateContextInputs) -> return_data aztec::protocol::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs {
         aztec::oracle::version::assert_compatible_oracle_version();
-        let mut self: aztec::contract_self::contract_self_private::ContractSelfPrivate<Storage<&mut PrivateContext>, CallSelf<&mut PrivateContext>, EnqueueSelf<&mut PrivateContext>, CallSelfStatic<&mut PrivateContext>, EnqueueSelfStatic<&mut PrivateContext>, CallInternal<&mut PrivateContext>, CallSelfUtility> = {
+        let mut self: aztec::contract_self::contract_self_private::ContractSelfPrivate<Storage<&mut aztec::context::PrivateContext>, CallSelf<&mut aztec::context::PrivateContext>, EnqueueSelf<&mut aztec::context::PrivateContext>, CallSelfStatic<&mut aztec::context::PrivateContext>, EnqueueSelfStatic<&mut aztec::context::PrivateContext>, CallInternal<&mut aztec::context::PrivateContext>, CallSelfUtility> = {
             let serialized_params: [Field; 0] = [];
             let args_hash: Field = aztec::hash::hash_args(serialized_params);
-            let mut context: PrivateContext = PrivateContext::new(inputs, args_hash);
-            let storage: Storage<&mut PrivateContext> = Storage::<&mut PrivateContext>::init(&mut context);
+            let mut context: aztec::context::PrivateContext = aztec::context::PrivateContext::new(inputs, args_hash);
+            let storage: Storage<&mut aztec::context::PrivateContext> = Storage::<&mut aztec::context::PrivateContext>::init(&mut context);
             let self_address: AztecAddress = context.this_address();
-            let call_self: CallSelf<&mut PrivateContext> = CallSelf::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let enqueue_self: EnqueueSelf<&mut PrivateContext> = EnqueueSelf::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let call_self_static: CallSelfStatic<&mut PrivateContext> = CallSelfStatic::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let enqueue_self_static: EnqueueSelfStatic<&mut PrivateContext> = EnqueueSelfStatic::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let internal: CallInternal<&mut PrivateContext> = CallInternal::<&mut PrivateContext> { context: &mut context};
+            let call_self: CallSelf<&mut aztec::context::PrivateContext> = CallSelf::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let enqueue_self: EnqueueSelf<&mut aztec::context::PrivateContext> = EnqueueSelf::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let call_self_static: CallSelfStatic<&mut aztec::context::PrivateContext> = CallSelfStatic::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let enqueue_self_static: EnqueueSelfStatic<&mut aztec::context::PrivateContext> = EnqueueSelfStatic::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let internal: CallInternal<&mut aztec::context::PrivateContext> = CallInternal::<&mut aztec::context::PrivateContext> { context: &mut context};
             let call_self_utility: CallSelfUtility = CallSelfUtility { address: self_address};
             let utility: aztec::contract_self::contract_self_private::PrivateUtilityCalls<CallSelfUtility> = aztec::contract_self::contract_self_private::PrivateUtilityCalls::<CallSelfUtility> { call_self: call_self_utility};
-            aztec::contract_self::contract_self_private::ContractSelfPrivate::<Storage<&mut PrivateContext>, CallSelf<&mut PrivateContext>, EnqueueSelf<&mut PrivateContext>, CallSelfStatic<&mut PrivateContext>, EnqueueSelfStatic<&mut PrivateContext>, CallInternal<&mut PrivateContext>, CallSelfUtility>::new(&mut context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static, internal, utility)
+            aztec::contract_self::contract_self_private::ContractSelfPrivate::<Storage<&mut aztec::context::PrivateContext>, CallSelf<&mut aztec::context::PrivateContext>, EnqueueSelf<&mut aztec::context::PrivateContext>, CallSelfStatic<&mut aztec::context::PrivateContext>, EnqueueSelfStatic<&mut aztec::context::PrivateContext>, CallInternal<&mut aztec::context::PrivateContext>, CallSelfUtility>::new(&mut context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static, internal, utility)
         };
         let within_revertible_phase: bool = self.context.in_revertible_phase();
         aztec::macros::functions::initialization_utils::assert_is_initialized_private(self.context);
@@ -2900,20 +2892,20 @@ pub contract Token {
 
     fn __aztec_nr_internals__private_get_name(inputs: aztec::context::inputs::PrivateContextInputs) -> return_data aztec::protocol::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs {
         aztec::oracle::version::assert_compatible_oracle_version();
-        let mut self: aztec::contract_self::contract_self_private::ContractSelfPrivate<Storage<&mut PrivateContext>, CallSelf<&mut PrivateContext>, EnqueueSelf<&mut PrivateContext>, CallSelfStatic<&mut PrivateContext>, EnqueueSelfStatic<&mut PrivateContext>, CallInternal<&mut PrivateContext>, CallSelfUtility> = {
+        let mut self: aztec::contract_self::contract_self_private::ContractSelfPrivate<Storage<&mut aztec::context::PrivateContext>, CallSelf<&mut aztec::context::PrivateContext>, EnqueueSelf<&mut aztec::context::PrivateContext>, CallSelfStatic<&mut aztec::context::PrivateContext>, EnqueueSelfStatic<&mut aztec::context::PrivateContext>, CallInternal<&mut aztec::context::PrivateContext>, CallSelfUtility> = {
             let serialized_params: [Field; 0] = [];
             let args_hash: Field = aztec::hash::hash_args(serialized_params);
-            let mut context: PrivateContext = PrivateContext::new(inputs, args_hash);
-            let storage: Storage<&mut PrivateContext> = Storage::<&mut PrivateContext>::init(&mut context);
+            let mut context: aztec::context::PrivateContext = aztec::context::PrivateContext::new(inputs, args_hash);
+            let storage: Storage<&mut aztec::context::PrivateContext> = Storage::<&mut aztec::context::PrivateContext>::init(&mut context);
             let self_address: AztecAddress = context.this_address();
-            let call_self: CallSelf<&mut PrivateContext> = CallSelf::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let enqueue_self: EnqueueSelf<&mut PrivateContext> = EnqueueSelf::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let call_self_static: CallSelfStatic<&mut PrivateContext> = CallSelfStatic::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let enqueue_self_static: EnqueueSelfStatic<&mut PrivateContext> = EnqueueSelfStatic::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let internal: CallInternal<&mut PrivateContext> = CallInternal::<&mut PrivateContext> { context: &mut context};
+            let call_self: CallSelf<&mut aztec::context::PrivateContext> = CallSelf::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let enqueue_self: EnqueueSelf<&mut aztec::context::PrivateContext> = EnqueueSelf::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let call_self_static: CallSelfStatic<&mut aztec::context::PrivateContext> = CallSelfStatic::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let enqueue_self_static: EnqueueSelfStatic<&mut aztec::context::PrivateContext> = EnqueueSelfStatic::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let internal: CallInternal<&mut aztec::context::PrivateContext> = CallInternal::<&mut aztec::context::PrivateContext> { context: &mut context};
             let call_self_utility: CallSelfUtility = CallSelfUtility { address: self_address};
             let utility: aztec::contract_self::contract_self_private::PrivateUtilityCalls<CallSelfUtility> = aztec::contract_self::contract_self_private::PrivateUtilityCalls::<CallSelfUtility> { call_self: call_self_utility};
-            aztec::contract_self::contract_self_private::ContractSelfPrivate::<Storage<&mut PrivateContext>, CallSelf<&mut PrivateContext>, EnqueueSelf<&mut PrivateContext>, CallSelfStatic<&mut PrivateContext>, EnqueueSelfStatic<&mut PrivateContext>, CallInternal<&mut PrivateContext>, CallSelfUtility>::new(&mut context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static, internal, utility)
+            aztec::contract_self::contract_self_private::ContractSelfPrivate::<Storage<&mut aztec::context::PrivateContext>, CallSelf<&mut aztec::context::PrivateContext>, EnqueueSelf<&mut aztec::context::PrivateContext>, CallSelfStatic<&mut aztec::context::PrivateContext>, EnqueueSelfStatic<&mut aztec::context::PrivateContext>, CallInternal<&mut aztec::context::PrivateContext>, CallSelfUtility>::new(&mut context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static, internal, utility)
         };
         let within_revertible_phase: bool = self.context.in_revertible_phase();
         aztec::macros::functions::initialization_utils::assert_is_initialized_private(self.context);
@@ -2927,20 +2919,20 @@ pub contract Token {
 
     fn __aztec_nr_internals__private_get_symbol(inputs: aztec::context::inputs::PrivateContextInputs) -> return_data aztec::protocol::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs {
         aztec::oracle::version::assert_compatible_oracle_version();
-        let mut self: aztec::contract_self::contract_self_private::ContractSelfPrivate<Storage<&mut PrivateContext>, CallSelf<&mut PrivateContext>, EnqueueSelf<&mut PrivateContext>, CallSelfStatic<&mut PrivateContext>, EnqueueSelfStatic<&mut PrivateContext>, CallInternal<&mut PrivateContext>, CallSelfUtility> = {
+        let mut self: aztec::contract_self::contract_self_private::ContractSelfPrivate<Storage<&mut aztec::context::PrivateContext>, CallSelf<&mut aztec::context::PrivateContext>, EnqueueSelf<&mut aztec::context::PrivateContext>, CallSelfStatic<&mut aztec::context::PrivateContext>, EnqueueSelfStatic<&mut aztec::context::PrivateContext>, CallInternal<&mut aztec::context::PrivateContext>, CallSelfUtility> = {
             let serialized_params: [Field; 0] = [];
             let args_hash: Field = aztec::hash::hash_args(serialized_params);
-            let mut context: PrivateContext = PrivateContext::new(inputs, args_hash);
-            let storage: Storage<&mut PrivateContext> = Storage::<&mut PrivateContext>::init(&mut context);
+            let mut context: aztec::context::PrivateContext = aztec::context::PrivateContext::new(inputs, args_hash);
+            let storage: Storage<&mut aztec::context::PrivateContext> = Storage::<&mut aztec::context::PrivateContext>::init(&mut context);
             let self_address: AztecAddress = context.this_address();
-            let call_self: CallSelf<&mut PrivateContext> = CallSelf::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let enqueue_self: EnqueueSelf<&mut PrivateContext> = EnqueueSelf::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let call_self_static: CallSelfStatic<&mut PrivateContext> = CallSelfStatic::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let enqueue_self_static: EnqueueSelfStatic<&mut PrivateContext> = EnqueueSelfStatic::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let internal: CallInternal<&mut PrivateContext> = CallInternal::<&mut PrivateContext> { context: &mut context};
+            let call_self: CallSelf<&mut aztec::context::PrivateContext> = CallSelf::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let enqueue_self: EnqueueSelf<&mut aztec::context::PrivateContext> = EnqueueSelf::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let call_self_static: CallSelfStatic<&mut aztec::context::PrivateContext> = CallSelfStatic::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let enqueue_self_static: EnqueueSelfStatic<&mut aztec::context::PrivateContext> = EnqueueSelfStatic::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let internal: CallInternal<&mut aztec::context::PrivateContext> = CallInternal::<&mut aztec::context::PrivateContext> { context: &mut context};
             let call_self_utility: CallSelfUtility = CallSelfUtility { address: self_address};
             let utility: aztec::contract_self::contract_self_private::PrivateUtilityCalls<CallSelfUtility> = aztec::contract_self::contract_self_private::PrivateUtilityCalls::<CallSelfUtility> { call_self: call_self_utility};
-            aztec::contract_self::contract_self_private::ContractSelfPrivate::<Storage<&mut PrivateContext>, CallSelf<&mut PrivateContext>, EnqueueSelf<&mut PrivateContext>, CallSelfStatic<&mut PrivateContext>, EnqueueSelfStatic<&mut PrivateContext>, CallInternal<&mut PrivateContext>, CallSelfUtility>::new(&mut context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static, internal, utility)
+            aztec::contract_self::contract_self_private::ContractSelfPrivate::<Storage<&mut aztec::context::PrivateContext>, CallSelf<&mut aztec::context::PrivateContext>, EnqueueSelf<&mut aztec::context::PrivateContext>, CallSelfStatic<&mut aztec::context::PrivateContext>, EnqueueSelfStatic<&mut aztec::context::PrivateContext>, CallInternal<&mut aztec::context::PrivateContext>, CallSelfUtility>::new(&mut context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static, internal, utility)
         };
         let within_revertible_phase: bool = self.context.in_revertible_phase();
         aztec::macros::functions::initialization_utils::assert_is_initialized_private(self.context);
@@ -2954,7 +2946,7 @@ pub contract Token {
 
     fn __aztec_nr_internals__transfer(inputs: aztec::context::inputs::PrivateContextInputs, to: AztecAddress, amount: u128) -> return_data aztec::protocol::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs {
         aztec::oracle::version::assert_compatible_oracle_version();
-        let mut self: aztec::contract_self::contract_self_private::ContractSelfPrivate<Storage<&mut PrivateContext>, CallSelf<&mut PrivateContext>, EnqueueSelf<&mut PrivateContext>, CallSelfStatic<&mut PrivateContext>, EnqueueSelfStatic<&mut PrivateContext>, CallInternal<&mut PrivateContext>, CallSelfUtility> = {
+        let mut self: aztec::contract_self::contract_self_private::ContractSelfPrivate<Storage<&mut aztec::context::PrivateContext>, CallSelf<&mut aztec::context::PrivateContext>, EnqueueSelf<&mut aztec::context::PrivateContext>, CallSelfStatic<&mut aztec::context::PrivateContext>, EnqueueSelfStatic<&mut aztec::context::PrivateContext>, CallInternal<&mut aztec::context::PrivateContext>, CallSelfUtility> = {
             let mut serialized_params: [Field; 2] = [0_Field; 2];
             let mut offset: u32 = 0_u32;
             let serialized_member: [Field; 1] = <AztecAddress as aztec::protocol::traits::Serialize>::serialize(to);
@@ -2970,17 +2962,17 @@ pub contract Token {
             };
             offset = offset + serialized_member_len;
             let args_hash: Field = aztec::hash::hash_args(serialized_params);
-            let mut context: PrivateContext = PrivateContext::new(inputs, args_hash);
-            let storage: Storage<&mut PrivateContext> = Storage::<&mut PrivateContext>::init(&mut context);
+            let mut context: aztec::context::PrivateContext = aztec::context::PrivateContext::new(inputs, args_hash);
+            let storage: Storage<&mut aztec::context::PrivateContext> = Storage::<&mut aztec::context::PrivateContext>::init(&mut context);
             let self_address: AztecAddress = context.this_address();
-            let call_self: CallSelf<&mut PrivateContext> = CallSelf::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let enqueue_self: EnqueueSelf<&mut PrivateContext> = EnqueueSelf::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let call_self_static: CallSelfStatic<&mut PrivateContext> = CallSelfStatic::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let enqueue_self_static: EnqueueSelfStatic<&mut PrivateContext> = EnqueueSelfStatic::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let internal: CallInternal<&mut PrivateContext> = CallInternal::<&mut PrivateContext> { context: &mut context};
+            let call_self: CallSelf<&mut aztec::context::PrivateContext> = CallSelf::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let enqueue_self: EnqueueSelf<&mut aztec::context::PrivateContext> = EnqueueSelf::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let call_self_static: CallSelfStatic<&mut aztec::context::PrivateContext> = CallSelfStatic::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let enqueue_self_static: EnqueueSelfStatic<&mut aztec::context::PrivateContext> = EnqueueSelfStatic::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let internal: CallInternal<&mut aztec::context::PrivateContext> = CallInternal::<&mut aztec::context::PrivateContext> { context: &mut context};
             let call_self_utility: CallSelfUtility = CallSelfUtility { address: self_address};
             let utility: aztec::contract_self::contract_self_private::PrivateUtilityCalls<CallSelfUtility> = aztec::contract_self::contract_self_private::PrivateUtilityCalls::<CallSelfUtility> { call_self: call_self_utility};
-            aztec::contract_self::contract_self_private::ContractSelfPrivate::<Storage<&mut PrivateContext>, CallSelf<&mut PrivateContext>, EnqueueSelf<&mut PrivateContext>, CallSelfStatic<&mut PrivateContext>, EnqueueSelfStatic<&mut PrivateContext>, CallInternal<&mut PrivateContext>, CallSelfUtility>::new(&mut context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static, internal, utility)
+            aztec::contract_self::contract_self_private::ContractSelfPrivate::<Storage<&mut aztec::context::PrivateContext>, CallSelf<&mut aztec::context::PrivateContext>, EnqueueSelf<&mut aztec::context::PrivateContext>, CallSelfStatic<&mut aztec::context::PrivateContext>, EnqueueSelfStatic<&mut aztec::context::PrivateContext>, CallInternal<&mut aztec::context::PrivateContext>, CallSelfUtility>::new(&mut context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static, internal, utility)
         };
         let within_revertible_phase: bool = self.context.in_revertible_phase();
         aztec::macros::functions::initialization_utils::assert_is_initialized_private(self.context);
@@ -2995,7 +2987,7 @@ pub contract Token {
 
     fn __aztec_nr_internals__transfer_in_private(inputs: aztec::context::inputs::PrivateContextInputs, from: AztecAddress, to: AztecAddress, amount: u128, authwit_nonce: Field) -> return_data aztec::protocol::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs {
         aztec::oracle::version::assert_compatible_oracle_version();
-        let mut self: aztec::contract_self::contract_self_private::ContractSelfPrivate<Storage<&mut PrivateContext>, CallSelf<&mut PrivateContext>, EnqueueSelf<&mut PrivateContext>, CallSelfStatic<&mut PrivateContext>, EnqueueSelfStatic<&mut PrivateContext>, CallInternal<&mut PrivateContext>, CallSelfUtility> = {
+        let mut self: aztec::contract_self::contract_self_private::ContractSelfPrivate<Storage<&mut aztec::context::PrivateContext>, CallSelf<&mut aztec::context::PrivateContext>, EnqueueSelf<&mut aztec::context::PrivateContext>, CallSelfStatic<&mut aztec::context::PrivateContext>, EnqueueSelfStatic<&mut aztec::context::PrivateContext>, CallInternal<&mut aztec::context::PrivateContext>, CallSelfUtility> = {
             let mut serialized_params: [Field; 4] = [0_Field; 4];
             let mut offset: u32 = 0_u32;
             let serialized_member: [Field; 1] = <AztecAddress as aztec::protocol::traits::Serialize>::serialize(from);
@@ -3023,17 +3015,17 @@ pub contract Token {
             };
             offset = offset + serialized_member_len;
             let args_hash: Field = aztec::hash::hash_args(serialized_params);
-            let mut context: PrivateContext = PrivateContext::new(inputs, args_hash);
-            let storage: Storage<&mut PrivateContext> = Storage::<&mut PrivateContext>::init(&mut context);
+            let mut context: aztec::context::PrivateContext = aztec::context::PrivateContext::new(inputs, args_hash);
+            let storage: Storage<&mut aztec::context::PrivateContext> = Storage::<&mut aztec::context::PrivateContext>::init(&mut context);
             let self_address: AztecAddress = context.this_address();
-            let call_self: CallSelf<&mut PrivateContext> = CallSelf::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let enqueue_self: EnqueueSelf<&mut PrivateContext> = EnqueueSelf::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let call_self_static: CallSelfStatic<&mut PrivateContext> = CallSelfStatic::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let enqueue_self_static: EnqueueSelfStatic<&mut PrivateContext> = EnqueueSelfStatic::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let internal: CallInternal<&mut PrivateContext> = CallInternal::<&mut PrivateContext> { context: &mut context};
+            let call_self: CallSelf<&mut aztec::context::PrivateContext> = CallSelf::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let enqueue_self: EnqueueSelf<&mut aztec::context::PrivateContext> = EnqueueSelf::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let call_self_static: CallSelfStatic<&mut aztec::context::PrivateContext> = CallSelfStatic::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let enqueue_self_static: EnqueueSelfStatic<&mut aztec::context::PrivateContext> = EnqueueSelfStatic::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let internal: CallInternal<&mut aztec::context::PrivateContext> = CallInternal::<&mut aztec::context::PrivateContext> { context: &mut context};
             let call_self_utility: CallSelfUtility = CallSelfUtility { address: self_address};
             let utility: aztec::contract_self::contract_self_private::PrivateUtilityCalls<CallSelfUtility> = aztec::contract_self::contract_self_private::PrivateUtilityCalls::<CallSelfUtility> { call_self: call_self_utility};
-            aztec::contract_self::contract_self_private::ContractSelfPrivate::<Storage<&mut PrivateContext>, CallSelf<&mut PrivateContext>, EnqueueSelf<&mut PrivateContext>, CallSelfStatic<&mut PrivateContext>, EnqueueSelfStatic<&mut PrivateContext>, CallInternal<&mut PrivateContext>, CallSelfUtility>::new(&mut context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static, internal, utility)
+            aztec::contract_self::contract_self_private::ContractSelfPrivate::<Storage<&mut aztec::context::PrivateContext>, CallSelf<&mut aztec::context::PrivateContext>, EnqueueSelf<&mut aztec::context::PrivateContext>, CallSelfStatic<&mut aztec::context::PrivateContext>, EnqueueSelfStatic<&mut aztec::context::PrivateContext>, CallInternal<&mut aztec::context::PrivateContext>, CallSelfUtility>::new(&mut context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static, internal, utility)
         };
         let within_revertible_phase: bool = self.context.in_revertible_phase();
         aztec::macros::functions::initialization_utils::assert_is_initialized_private(self.context);
@@ -3050,7 +3042,7 @@ pub contract Token {
 
     fn __aztec_nr_internals__transfer_in_private_with_offchain_delivery(inputs: aztec::context::inputs::PrivateContextInputs, from: AztecAddress, to: AztecAddress, amount: u128, authwit_nonce: Field) -> return_data aztec::protocol::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs {
         aztec::oracle::version::assert_compatible_oracle_version();
-        let mut self: aztec::contract_self::contract_self_private::ContractSelfPrivate<Storage<&mut PrivateContext>, CallSelf<&mut PrivateContext>, EnqueueSelf<&mut PrivateContext>, CallSelfStatic<&mut PrivateContext>, EnqueueSelfStatic<&mut PrivateContext>, CallInternal<&mut PrivateContext>, CallSelfUtility> = {
+        let mut self: aztec::contract_self::contract_self_private::ContractSelfPrivate<Storage<&mut aztec::context::PrivateContext>, CallSelf<&mut aztec::context::PrivateContext>, EnqueueSelf<&mut aztec::context::PrivateContext>, CallSelfStatic<&mut aztec::context::PrivateContext>, EnqueueSelfStatic<&mut aztec::context::PrivateContext>, CallInternal<&mut aztec::context::PrivateContext>, CallSelfUtility> = {
             let mut serialized_params: [Field; 4] = [0_Field; 4];
             let mut offset: u32 = 0_u32;
             let serialized_member: [Field; 1] = <AztecAddress as aztec::protocol::traits::Serialize>::serialize(from);
@@ -3078,17 +3070,17 @@ pub contract Token {
             };
             offset = offset + serialized_member_len;
             let args_hash: Field = aztec::hash::hash_args(serialized_params);
-            let mut context: PrivateContext = PrivateContext::new(inputs, args_hash);
-            let storage: Storage<&mut PrivateContext> = Storage::<&mut PrivateContext>::init(&mut context);
+            let mut context: aztec::context::PrivateContext = aztec::context::PrivateContext::new(inputs, args_hash);
+            let storage: Storage<&mut aztec::context::PrivateContext> = Storage::<&mut aztec::context::PrivateContext>::init(&mut context);
             let self_address: AztecAddress = context.this_address();
-            let call_self: CallSelf<&mut PrivateContext> = CallSelf::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let enqueue_self: EnqueueSelf<&mut PrivateContext> = EnqueueSelf::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let call_self_static: CallSelfStatic<&mut PrivateContext> = CallSelfStatic::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let enqueue_self_static: EnqueueSelfStatic<&mut PrivateContext> = EnqueueSelfStatic::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let internal: CallInternal<&mut PrivateContext> = CallInternal::<&mut PrivateContext> { context: &mut context};
+            let call_self: CallSelf<&mut aztec::context::PrivateContext> = CallSelf::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let enqueue_self: EnqueueSelf<&mut aztec::context::PrivateContext> = EnqueueSelf::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let call_self_static: CallSelfStatic<&mut aztec::context::PrivateContext> = CallSelfStatic::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let enqueue_self_static: EnqueueSelfStatic<&mut aztec::context::PrivateContext> = EnqueueSelfStatic::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let internal: CallInternal<&mut aztec::context::PrivateContext> = CallInternal::<&mut aztec::context::PrivateContext> { context: &mut context};
             let call_self_utility: CallSelfUtility = CallSelfUtility { address: self_address};
             let utility: aztec::contract_self::contract_self_private::PrivateUtilityCalls<CallSelfUtility> = aztec::contract_self::contract_self_private::PrivateUtilityCalls::<CallSelfUtility> { call_self: call_self_utility};
-            aztec::contract_self::contract_self_private::ContractSelfPrivate::<Storage<&mut PrivateContext>, CallSelf<&mut PrivateContext>, EnqueueSelf<&mut PrivateContext>, CallSelfStatic<&mut PrivateContext>, EnqueueSelfStatic<&mut PrivateContext>, CallInternal<&mut PrivateContext>, CallSelfUtility>::new(&mut context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static, internal, utility)
+            aztec::contract_self::contract_self_private::ContractSelfPrivate::<Storage<&mut aztec::context::PrivateContext>, CallSelf<&mut aztec::context::PrivateContext>, EnqueueSelf<&mut aztec::context::PrivateContext>, CallSelfStatic<&mut aztec::context::PrivateContext>, EnqueueSelfStatic<&mut aztec::context::PrivateContext>, CallInternal<&mut aztec::context::PrivateContext>, CallSelfUtility>::new(&mut context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static, internal, utility)
         };
         let within_revertible_phase: bool = self.context.in_revertible_phase();
         aztec::macros::functions::initialization_utils::assert_is_initialized_private(self.context);
@@ -3106,7 +3098,7 @@ pub contract Token {
 
     fn __aztec_nr_internals__transfer_to_private(inputs: aztec::context::inputs::PrivateContextInputs, to: AztecAddress, amount: u128) -> return_data aztec::protocol::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs {
         aztec::oracle::version::assert_compatible_oracle_version();
-        let mut self: aztec::contract_self::contract_self_private::ContractSelfPrivate<Storage<&mut PrivateContext>, CallSelf<&mut PrivateContext>, EnqueueSelf<&mut PrivateContext>, CallSelfStatic<&mut PrivateContext>, EnqueueSelfStatic<&mut PrivateContext>, CallInternal<&mut PrivateContext>, CallSelfUtility> = {
+        let mut self: aztec::contract_self::contract_self_private::ContractSelfPrivate<Storage<&mut aztec::context::PrivateContext>, CallSelf<&mut aztec::context::PrivateContext>, EnqueueSelf<&mut aztec::context::PrivateContext>, CallSelfStatic<&mut aztec::context::PrivateContext>, EnqueueSelfStatic<&mut aztec::context::PrivateContext>, CallInternal<&mut aztec::context::PrivateContext>, CallSelfUtility> = {
             let mut serialized_params: [Field; 2] = [0_Field; 2];
             let mut offset: u32 = 0_u32;
             let serialized_member: [Field; 1] = <AztecAddress as aztec::protocol::traits::Serialize>::serialize(to);
@@ -3122,17 +3114,17 @@ pub contract Token {
             };
             offset = offset + serialized_member_len;
             let args_hash: Field = aztec::hash::hash_args(serialized_params);
-            let mut context: PrivateContext = PrivateContext::new(inputs, args_hash);
-            let storage: Storage<&mut PrivateContext> = Storage::<&mut PrivateContext>::init(&mut context);
+            let mut context: aztec::context::PrivateContext = aztec::context::PrivateContext::new(inputs, args_hash);
+            let storage: Storage<&mut aztec::context::PrivateContext> = Storage::<&mut aztec::context::PrivateContext>::init(&mut context);
             let self_address: AztecAddress = context.this_address();
-            let call_self: CallSelf<&mut PrivateContext> = CallSelf::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let enqueue_self: EnqueueSelf<&mut PrivateContext> = EnqueueSelf::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let call_self_static: CallSelfStatic<&mut PrivateContext> = CallSelfStatic::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let enqueue_self_static: EnqueueSelfStatic<&mut PrivateContext> = EnqueueSelfStatic::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let internal: CallInternal<&mut PrivateContext> = CallInternal::<&mut PrivateContext> { context: &mut context};
+            let call_self: CallSelf<&mut aztec::context::PrivateContext> = CallSelf::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let enqueue_self: EnqueueSelf<&mut aztec::context::PrivateContext> = EnqueueSelf::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let call_self_static: CallSelfStatic<&mut aztec::context::PrivateContext> = CallSelfStatic::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let enqueue_self_static: EnqueueSelfStatic<&mut aztec::context::PrivateContext> = EnqueueSelfStatic::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let internal: CallInternal<&mut aztec::context::PrivateContext> = CallInternal::<&mut aztec::context::PrivateContext> { context: &mut context};
             let call_self_utility: CallSelfUtility = CallSelfUtility { address: self_address};
             let utility: aztec::contract_self::contract_self_private::PrivateUtilityCalls<CallSelfUtility> = aztec::contract_self::contract_self_private::PrivateUtilityCalls::<CallSelfUtility> { call_self: call_self_utility};
-            aztec::contract_self::contract_self_private::ContractSelfPrivate::<Storage<&mut PrivateContext>, CallSelf<&mut PrivateContext>, EnqueueSelf<&mut PrivateContext>, CallSelfStatic<&mut PrivateContext>, EnqueueSelfStatic<&mut PrivateContext>, CallInternal<&mut PrivateContext>, CallSelfUtility>::new(&mut context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static, internal, utility)
+            aztec::contract_self::contract_self_private::ContractSelfPrivate::<Storage<&mut aztec::context::PrivateContext>, CallSelf<&mut aztec::context::PrivateContext>, EnqueueSelf<&mut aztec::context::PrivateContext>, CallSelfStatic<&mut aztec::context::PrivateContext>, EnqueueSelfStatic<&mut aztec::context::PrivateContext>, CallInternal<&mut aztec::context::PrivateContext>, CallSelfUtility>::new(&mut context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static, internal, utility)
         };
         let within_revertible_phase: bool = self.context.in_revertible_phase();
         aztec::macros::functions::initialization_utils::assert_is_initialized_private(self.context);
@@ -3145,7 +3137,7 @@ pub contract Token {
 
     fn __aztec_nr_internals__transfer_to_public(inputs: aztec::context::inputs::PrivateContextInputs, from: AztecAddress, to: AztecAddress, amount: u128, authwit_nonce: Field) -> return_data aztec::protocol::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs {
         aztec::oracle::version::assert_compatible_oracle_version();
-        let mut self: aztec::contract_self::contract_self_private::ContractSelfPrivate<Storage<&mut PrivateContext>, CallSelf<&mut PrivateContext>, EnqueueSelf<&mut PrivateContext>, CallSelfStatic<&mut PrivateContext>, EnqueueSelfStatic<&mut PrivateContext>, CallInternal<&mut PrivateContext>, CallSelfUtility> = {
+        let mut self: aztec::contract_self::contract_self_private::ContractSelfPrivate<Storage<&mut aztec::context::PrivateContext>, CallSelf<&mut aztec::context::PrivateContext>, EnqueueSelf<&mut aztec::context::PrivateContext>, CallSelfStatic<&mut aztec::context::PrivateContext>, EnqueueSelfStatic<&mut aztec::context::PrivateContext>, CallInternal<&mut aztec::context::PrivateContext>, CallSelfUtility> = {
             let mut serialized_params: [Field; 4] = [0_Field; 4];
             let mut offset: u32 = 0_u32;
             let serialized_member: [Field; 1] = <AztecAddress as aztec::protocol::traits::Serialize>::serialize(from);
@@ -3173,17 +3165,17 @@ pub contract Token {
             };
             offset = offset + serialized_member_len;
             let args_hash: Field = aztec::hash::hash_args(serialized_params);
-            let mut context: PrivateContext = PrivateContext::new(inputs, args_hash);
-            let storage: Storage<&mut PrivateContext> = Storage::<&mut PrivateContext>::init(&mut context);
+            let mut context: aztec::context::PrivateContext = aztec::context::PrivateContext::new(inputs, args_hash);
+            let storage: Storage<&mut aztec::context::PrivateContext> = Storage::<&mut aztec::context::PrivateContext>::init(&mut context);
             let self_address: AztecAddress = context.this_address();
-            let call_self: CallSelf<&mut PrivateContext> = CallSelf::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let enqueue_self: EnqueueSelf<&mut PrivateContext> = EnqueueSelf::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let call_self_static: CallSelfStatic<&mut PrivateContext> = CallSelfStatic::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let enqueue_self_static: EnqueueSelfStatic<&mut PrivateContext> = EnqueueSelfStatic::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let internal: CallInternal<&mut PrivateContext> = CallInternal::<&mut PrivateContext> { context: &mut context};
+            let call_self: CallSelf<&mut aztec::context::PrivateContext> = CallSelf::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let enqueue_self: EnqueueSelf<&mut aztec::context::PrivateContext> = EnqueueSelf::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let call_self_static: CallSelfStatic<&mut aztec::context::PrivateContext> = CallSelfStatic::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let enqueue_self_static: EnqueueSelfStatic<&mut aztec::context::PrivateContext> = EnqueueSelfStatic::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let internal: CallInternal<&mut aztec::context::PrivateContext> = CallInternal::<&mut aztec::context::PrivateContext> { context: &mut context};
             let call_self_utility: CallSelfUtility = CallSelfUtility { address: self_address};
             let utility: aztec::contract_self::contract_self_private::PrivateUtilityCalls<CallSelfUtility> = aztec::contract_self::contract_self_private::PrivateUtilityCalls::<CallSelfUtility> { call_self: call_self_utility};
-            aztec::contract_self::contract_self_private::ContractSelfPrivate::<Storage<&mut PrivateContext>, CallSelf<&mut PrivateContext>, EnqueueSelf<&mut PrivateContext>, CallSelfStatic<&mut PrivateContext>, EnqueueSelfStatic<&mut PrivateContext>, CallInternal<&mut PrivateContext>, CallSelfUtility>::new(&mut context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static, internal, utility)
+            aztec::contract_self::contract_self_private::ContractSelfPrivate::<Storage<&mut aztec::context::PrivateContext>, CallSelf<&mut aztec::context::PrivateContext>, EnqueueSelf<&mut aztec::context::PrivateContext>, CallSelfStatic<&mut aztec::context::PrivateContext>, EnqueueSelfStatic<&mut aztec::context::PrivateContext>, CallInternal<&mut aztec::context::PrivateContext>, CallSelfUtility>::new(&mut context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static, internal, utility)
         };
         let within_revertible_phase: bool = self.context.in_revertible_phase();
         aztec::macros::functions::initialization_utils::assert_is_initialized_private(self.context);
@@ -3200,7 +3192,7 @@ pub contract Token {
 
     fn __aztec_nr_internals__transfer_to_public_and_prepare_private_balance_increase(inputs: aztec::context::inputs::PrivateContextInputs, from: AztecAddress, to: AztecAddress, amount: u128, authwit_nonce: Field) -> return_data aztec::protocol::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs {
         aztec::oracle::version::assert_compatible_oracle_version();
-        let mut self: aztec::contract_self::contract_self_private::ContractSelfPrivate<Storage<&mut PrivateContext>, CallSelf<&mut PrivateContext>, EnqueueSelf<&mut PrivateContext>, CallSelfStatic<&mut PrivateContext>, EnqueueSelfStatic<&mut PrivateContext>, CallInternal<&mut PrivateContext>, CallSelfUtility> = {
+        let mut self: aztec::contract_self::contract_self_private::ContractSelfPrivate<Storage<&mut aztec::context::PrivateContext>, CallSelf<&mut aztec::context::PrivateContext>, EnqueueSelf<&mut aztec::context::PrivateContext>, CallSelfStatic<&mut aztec::context::PrivateContext>, EnqueueSelfStatic<&mut aztec::context::PrivateContext>, CallInternal<&mut aztec::context::PrivateContext>, CallSelfUtility> = {
             let mut serialized_params: [Field; 4] = [0_Field; 4];
             let mut offset: u32 = 0_u32;
             let serialized_member: [Field; 1] = <AztecAddress as aztec::protocol::traits::Serialize>::serialize(from);
@@ -3228,17 +3220,17 @@ pub contract Token {
             };
             offset = offset + serialized_member_len;
             let args_hash: Field = aztec::hash::hash_args(serialized_params);
-            let mut context: PrivateContext = PrivateContext::new(inputs, args_hash);
-            let storage: Storage<&mut PrivateContext> = Storage::<&mut PrivateContext>::init(&mut context);
+            let mut context: aztec::context::PrivateContext = aztec::context::PrivateContext::new(inputs, args_hash);
+            let storage: Storage<&mut aztec::context::PrivateContext> = Storage::<&mut aztec::context::PrivateContext>::init(&mut context);
             let self_address: AztecAddress = context.this_address();
-            let call_self: CallSelf<&mut PrivateContext> = CallSelf::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let enqueue_self: EnqueueSelf<&mut PrivateContext> = EnqueueSelf::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let call_self_static: CallSelfStatic<&mut PrivateContext> = CallSelfStatic::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let enqueue_self_static: EnqueueSelfStatic<&mut PrivateContext> = EnqueueSelfStatic::<&mut PrivateContext> { address: self_address, context: &mut context};
-            let internal: CallInternal<&mut PrivateContext> = CallInternal::<&mut PrivateContext> { context: &mut context};
+            let call_self: CallSelf<&mut aztec::context::PrivateContext> = CallSelf::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let enqueue_self: EnqueueSelf<&mut aztec::context::PrivateContext> = EnqueueSelf::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let call_self_static: CallSelfStatic<&mut aztec::context::PrivateContext> = CallSelfStatic::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let enqueue_self_static: EnqueueSelfStatic<&mut aztec::context::PrivateContext> = EnqueueSelfStatic::<&mut aztec::context::PrivateContext> { address: self_address, context: &mut context};
+            let internal: CallInternal<&mut aztec::context::PrivateContext> = CallInternal::<&mut aztec::context::PrivateContext> { context: &mut context};
             let call_self_utility: CallSelfUtility = CallSelfUtility { address: self_address};
             let utility: aztec::contract_self::contract_self_private::PrivateUtilityCalls<CallSelfUtility> = aztec::contract_self::contract_self_private::PrivateUtilityCalls::<CallSelfUtility> { call_self: call_self_utility};
-            aztec::contract_self::contract_self_private::ContractSelfPrivate::<Storage<&mut PrivateContext>, CallSelf<&mut PrivateContext>, EnqueueSelf<&mut PrivateContext>, CallSelfStatic<&mut PrivateContext>, EnqueueSelfStatic<&mut PrivateContext>, CallInternal<&mut PrivateContext>, CallSelfUtility>::new(&mut context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static, internal, utility)
+            aztec::contract_self::contract_self_private::ContractSelfPrivate::<Storage<&mut aztec::context::PrivateContext>, CallSelf<&mut aztec::context::PrivateContext>, EnqueueSelf<&mut aztec::context::PrivateContext>, CallSelfStatic<&mut aztec::context::PrivateContext>, EnqueueSelfStatic<&mut aztec::context::PrivateContext>, CallInternal<&mut aztec::context::PrivateContext>, CallSelfUtility>::new(&mut context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static, internal, utility)
         };
         let within_revertible_phase: bool = self.context.in_revertible_phase();
         aztec::macros::functions::initialization_utils::assert_is_initialized_private(self.context);
@@ -3488,18 +3480,18 @@ pub contract Token {
     }
 
     #[contract_library_method]
-    fn __aztec_nr_internals___prepare_private_balance_increase(context: &mut PrivateContext, to: AztecAddress) -> PartialUintNote {
-        let mut self: aztec::contract_self::contract_self_private::ContractSelfPrivate<Storage<&mut PrivateContext>, CallSelf<&mut PrivateContext>, EnqueueSelf<&mut PrivateContext>, CallSelfStatic<&mut PrivateContext>, EnqueueSelfStatic<&mut PrivateContext>, CallInternal<&mut PrivateContext>, CallSelfUtility> = {
-            let storage: Storage<&mut PrivateContext> = Storage::<&mut PrivateContext>::init(context);
+    fn __aztec_nr_internals___prepare_private_balance_increase(context: &mut aztec::context::PrivateContext, to: AztecAddress) -> PartialUintNote {
+        let mut self: aztec::contract_self::contract_self_private::ContractSelfPrivate<Storage<&mut aztec::context::PrivateContext>, CallSelf<&mut aztec::context::PrivateContext>, EnqueueSelf<&mut aztec::context::PrivateContext>, CallSelfStatic<&mut aztec::context::PrivateContext>, EnqueueSelfStatic<&mut aztec::context::PrivateContext>, CallInternal<&mut aztec::context::PrivateContext>, CallSelfUtility> = {
+            let storage: Storage<&mut aztec::context::PrivateContext> = Storage::<&mut aztec::context::PrivateContext>::init(context);
             let self_address: AztecAddress = context.this_address();
-            let call_self: CallSelf<&mut PrivateContext> = CallSelf::<&mut PrivateContext> { address: self_address, context: context};
-            let enqueue_self: EnqueueSelf<&mut PrivateContext> = EnqueueSelf::<&mut PrivateContext> { address: self_address, context: context};
-            let call_self_static: CallSelfStatic<&mut PrivateContext> = CallSelfStatic::<&mut PrivateContext> { address: self_address, context: context};
-            let enqueue_self_static: EnqueueSelfStatic<&mut PrivateContext> = EnqueueSelfStatic::<&mut PrivateContext> { address: self_address, context: context};
-            let internal: CallInternal<&mut PrivateContext> = CallInternal::<&mut PrivateContext> { context: context};
+            let call_self: CallSelf<&mut aztec::context::PrivateContext> = CallSelf::<&mut aztec::context::PrivateContext> { address: self_address, context: context};
+            let enqueue_self: EnqueueSelf<&mut aztec::context::PrivateContext> = EnqueueSelf::<&mut aztec::context::PrivateContext> { address: self_address, context: context};
+            let call_self_static: CallSelfStatic<&mut aztec::context::PrivateContext> = CallSelfStatic::<&mut aztec::context::PrivateContext> { address: self_address, context: context};
+            let enqueue_self_static: EnqueueSelfStatic<&mut aztec::context::PrivateContext> = EnqueueSelfStatic::<&mut aztec::context::PrivateContext> { address: self_address, context: context};
+            let internal: CallInternal<&mut aztec::context::PrivateContext> = CallInternal::<&mut aztec::context::PrivateContext> { context: context};
             let call_self_utility: CallSelfUtility = CallSelfUtility { address: self_address};
             let utility: aztec::contract_self::contract_self_private::PrivateUtilityCalls<CallSelfUtility> = aztec::contract_self::contract_self_private::PrivateUtilityCalls::<CallSelfUtility> { call_self: call_self_utility};
-            aztec::contract_self::contract_self_private::ContractSelfPrivate::<Storage<&mut PrivateContext>, CallSelf<&mut PrivateContext>, EnqueueSelf<&mut PrivateContext>, CallSelfStatic<&mut PrivateContext>, EnqueueSelfStatic<&mut PrivateContext>, CallInternal<&mut PrivateContext>, CallSelfUtility>::new(context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static, internal, utility)
+            aztec::contract_self::contract_self_private::ContractSelfPrivate::<Storage<&mut aztec::context::PrivateContext>, CallSelf<&mut aztec::context::PrivateContext>, EnqueueSelf<&mut aztec::context::PrivateContext>, CallSelfStatic<&mut aztec::context::PrivateContext>, EnqueueSelfStatic<&mut aztec::context::PrivateContext>, CallInternal<&mut aztec::context::PrivateContext>, CallSelfUtility>::new(context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static, internal, utility)
         };
         {
             let partial_note: PartialUintNote = UintNote::partial(to, self.context, to, self.msg_sender());
@@ -3508,18 +3500,18 @@ pub contract Token {
     }
 
     #[contract_library_method]
-    fn __aztec_nr_internals__subtract_balance(context: &mut PrivateContext, account: AztecAddress, amount: u128, max_notes: u32) -> u128 {
-        let mut self: aztec::contract_self::contract_self_private::ContractSelfPrivate<Storage<&mut PrivateContext>, CallSelf<&mut PrivateContext>, EnqueueSelf<&mut PrivateContext>, CallSelfStatic<&mut PrivateContext>, EnqueueSelfStatic<&mut PrivateContext>, CallInternal<&mut PrivateContext>, CallSelfUtility> = {
-            let storage: Storage<&mut PrivateContext> = Storage::<&mut PrivateContext>::init(context);
+    fn __aztec_nr_internals__subtract_balance(context: &mut aztec::context::PrivateContext, account: AztecAddress, amount: u128, max_notes: u32) -> u128 {
+        let mut self: aztec::contract_self::contract_self_private::ContractSelfPrivate<Storage<&mut aztec::context::PrivateContext>, CallSelf<&mut aztec::context::PrivateContext>, EnqueueSelf<&mut aztec::context::PrivateContext>, CallSelfStatic<&mut aztec::context::PrivateContext>, EnqueueSelfStatic<&mut aztec::context::PrivateContext>, CallInternal<&mut aztec::context::PrivateContext>, CallSelfUtility> = {
+            let storage: Storage<&mut aztec::context::PrivateContext> = Storage::<&mut aztec::context::PrivateContext>::init(context);
             let self_address: AztecAddress = context.this_address();
-            let call_self: CallSelf<&mut PrivateContext> = CallSelf::<&mut PrivateContext> { address: self_address, context: context};
-            let enqueue_self: EnqueueSelf<&mut PrivateContext> = EnqueueSelf::<&mut PrivateContext> { address: self_address, context: context};
-            let call_self_static: CallSelfStatic<&mut PrivateContext> = CallSelfStatic::<&mut PrivateContext> { address: self_address, context: context};
-            let enqueue_self_static: EnqueueSelfStatic<&mut PrivateContext> = EnqueueSelfStatic::<&mut PrivateContext> { address: self_address, context: context};
-            let internal: CallInternal<&mut PrivateContext> = CallInternal::<&mut PrivateContext> { context: context};
+            let call_self: CallSelf<&mut aztec::context::PrivateContext> = CallSelf::<&mut aztec::context::PrivateContext> { address: self_address, context: context};
+            let enqueue_self: EnqueueSelf<&mut aztec::context::PrivateContext> = EnqueueSelf::<&mut aztec::context::PrivateContext> { address: self_address, context: context};
+            let call_self_static: CallSelfStatic<&mut aztec::context::PrivateContext> = CallSelfStatic::<&mut aztec::context::PrivateContext> { address: self_address, context: context};
+            let enqueue_self_static: EnqueueSelfStatic<&mut aztec::context::PrivateContext> = EnqueueSelfStatic::<&mut aztec::context::PrivateContext> { address: self_address, context: context};
+            let internal: CallInternal<&mut aztec::context::PrivateContext> = CallInternal::<&mut aztec::context::PrivateContext> { context: context};
             let call_self_utility: CallSelfUtility = CallSelfUtility { address: self_address};
             let utility: aztec::contract_self::contract_self_private::PrivateUtilityCalls<CallSelfUtility> = aztec::contract_self::contract_self_private::PrivateUtilityCalls::<CallSelfUtility> { call_self: call_self_utility};
-            aztec::contract_self::contract_self_private::ContractSelfPrivate::<Storage<&mut PrivateContext>, CallSelf<&mut PrivateContext>, EnqueueSelf<&mut PrivateContext>, CallSelfStatic<&mut PrivateContext>, EnqueueSelfStatic<&mut PrivateContext>, CallInternal<&mut PrivateContext>, CallSelfUtility>::new(context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static, internal, utility)
+            aztec::contract_self::contract_self_private::ContractSelfPrivate::<Storage<&mut aztec::context::PrivateContext>, CallSelf<&mut aztec::context::PrivateContext>, EnqueueSelf<&mut aztec::context::PrivateContext>, CallSelfStatic<&mut aztec::context::PrivateContext>, EnqueueSelfStatic<&mut aztec::context::PrivateContext>, CallInternal<&mut aztec::context::PrivateContext>, CallSelfUtility>::new(context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static, internal, utility)
         };
         {
             let subtracted: u128 = self.storage.balances.at(account).try_sub(amount, max_notes);
@@ -3528,7 +3520,7 @@ pub contract Token {
                 subtracted - amount
             } else {
                 let remaining: u128 = amount - subtracted;
-                compute_recurse_subtract_balance_call(*context, account, remaining).call(context)
+                Token::at(context.this_address())._recurse_subtract_balance(account, remaining).call(context)
             }
         }
     }
@@ -4041,6 +4033,18 @@ mod test {
             env.call_private(owner, Token::at(token_contract_address).finalize_transfer_to_private_from_private(owner, partial_uint_note, amount, 0_Field));
             utils::check_private_balance(env, token_contract_address, recipient, amount);
             utils::check_private_balance(env, token_contract_address, owner, 0_u128);
+        }
+
+        /// Completes multiple partial notes in a single message-discovery sync: the recipient does not sync until both
+        /// completion logs have been emitted, so both pending partial notes are processed together.
+        #[test]
+        unconstrained fn transfer_to_private_external_orchestration_multiple_notes() {
+            let (env, token_contract_address, owner, recipient, amount): (aztec::test::helpers::test_environment::TestEnvironment, aztec::protocol::address::AztecAddress, aztec::protocol::address::AztecAddress, aztec::protocol::address::AztecAddress, u128) = utils::setup_and_mint_to_public(false);
+            let partial_uint_note_a: PartialUintNote = env.call_private(owner, Token::at(token_contract_address).prepare_private_balance_increase(recipient));
+            let partial_uint_note_b: PartialUintNote = env.call_private(owner, Token::at(token_contract_address).prepare_private_balance_increase(recipient));
+            env.call_public(owner, Token::at(token_contract_address).finalize_transfer_to_private(amount - 3_u128, partial_uint_note_a));
+            env.call_public(owner, Token::at(token_contract_address).finalize_transfer_to_private(3_u128, partial_uint_note_b));
+            utils::check_private_balance(env, token_contract_address, recipient, amount);
         }
 
         #[test(should_fail_with = "Invalid partial note or completer")]

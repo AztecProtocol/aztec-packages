@@ -63,6 +63,7 @@ export async function createPXE(
   const pxeLogger = loggers.pxe ?? createLogger('pxe:service', { actor });
   const pxe = await PXE.create({
     node: aztecNode,
+    nodeDebug: options.nodeDebug,
     store,
     proofCreator: prover,
     simulator,

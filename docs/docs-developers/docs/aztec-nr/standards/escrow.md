@@ -55,7 +55,7 @@ pub fn _get_escrow(
     let escrow_instance = ContractInstance {
         salt: context.this_address().to_field(),
         deployer: AztecAddress::from_field(0),
-        contract_class_id: ContractClassId::from_field(escrow_class_id),
+        original_contract_class_id: ContractClassId::from_field(escrow_class_id),
         initialization_hash: 0,
         public_keys: computed_public_keys,
     };
