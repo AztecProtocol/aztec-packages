@@ -22,8 +22,3 @@ output "frontend_load_balancer_ip" {
   description = "Global static IP assigned to the public GKE frontend Ingress."
   value       = module.environment.frontend_load_balancer_ip
 }
-
-output "gcp_managed_certificate_name" {
-  description = "GKE ManagedCertificate resource name for RPC hosts."
-  value       = module.environment.gcp_managed_certificate_name
-}
