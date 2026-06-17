@@ -1,5 +1,4 @@
 import { MAX_NOTE_HASHES_PER_TX } from '@aztec/constants';
-import { range } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { TxHash } from '@aztec/stdlib/tx';
 
@@ -9,7 +8,7 @@ import { TxHash } from '@aztec/stdlib/tx';
  * Carries the note hashes and first nullifier needed to discover notes that originated from the transaction, plus the
  * number and hash of the block in which it was mined.
  *
- * A TS version of the `ResolvedTx` struct in `oracle/tx.nr`.
+ * A TS version of the `ResolvedTx` struct in `oracle/tx_resolution.nr`.
  */
 export class ResolvedTx {
   constructor(
@@ -30,39 +29,8 @@ export class ResolvedTx {
     ];
   }
 
-  toNoirStruct() {
-    /* eslint-disable camelcase */
-    return {
-      tx_hash: this.txHash.hash,
-      unique_note_hashes_in_tx: this.uniqueNoteHashesInTx,
-      first_nullifier_in_tx: this.firstNullifierInTx,
-      block_number: this.blockNumber,
-      block_hash: this.blockHash,
-    };
-    /* eslint-enable camelcase */
-  }
-
   static empty(): ResolvedTx {
     return new ResolvedTx(TxHash.zero(), [], Fr.ZERO, 0, Fr.ZERO);
-  }
-
-  static toEmptyFields(): Fr[] {
-    const serializationLen =
-      1 /* txHash */ +
-      MAX_NOTE_HASHES_PER_TX +
-      1 /* uniqueNoteHashesInTx BVec */ +
-      1 /* firstNullifierInTx */ +
-      1 /* blockNumber */ +
-      1; /* blockHash */
-    return range(serializationLen).map(_ => Fr.zero());
-  }
-
-  static toSerializedOption(resolved: ResolvedTx | null): Fr[] {
-    if (resolved) {
-      return [new Fr(1), ...resolved.toFields()];
-    } else {
-      return [new Fr(0), ...ResolvedTx.toEmptyFields()];
-    }
   }
 }
 

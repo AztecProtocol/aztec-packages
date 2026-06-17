@@ -28,7 +28,6 @@ import {
   ContractClassLog,
   ContractClassLogFields,
   FlatPublicLogs,
-  MessageContext,
   PendingTaggedLog,
   PrivateLog,
   Tag,
@@ -370,10 +369,6 @@ export const LOG_RETRIEVAL_REQUEST: TypeMapping<LogRetrievalRequest> = {
 
 export const LOG_RETRIEVAL_RESPONSE: TypeMapping<LogRetrievalResponse> = {
   serialization: { fn: resp => [resp.toFields()] },
-};
-
-export const MESSAGE_CONTEXT: TypeMapping<MessageContext> = {
-  serialization: { fn: mc => [mc.toFields()] },
 };
 
 export const RESOLVED_TX: TypeMapping<ResolvedTx> = {

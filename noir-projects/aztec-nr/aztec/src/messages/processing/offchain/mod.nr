@@ -7,7 +7,7 @@ use crate::{
     entities::{Entity, Fact},
     ephemeral::EphemeralArray,
     messages::processing::{MessageContext, OffchainMessageWithContext},
-    oracle::{contract_sync::set_contract_sync_cache_invalid, tx::{get_resolved_txs, ResolvedTx}},
+    oracle::{contract_sync::set_contract_sync_cache_invalid, tx_resolution::{get_resolved_txs, ResolvedTx}},
     protocol::{address::AztecAddress, constants::MAX_TX_LIFETIME, hash::sha256_to_field},
 };
 

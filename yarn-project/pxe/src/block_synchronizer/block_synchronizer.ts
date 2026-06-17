@@ -27,15 +27,15 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
   protected readonly blockStream: L2BlockStream;
 
   constructor(
-    private node: AztecNode,
-    private store: AztecAsyncKVStore,
-    private anchorBlockStore: AnchorBlockStore,
-    private noteStore: NoteStore,
-    private privateEventStore: PrivateEventStore,
-    private entityStore: EntityStore,
-    private l2TipsStore: L2TipsKVStore,
-    private contractSyncService: ContractSyncService,
-    private config: Partial<BlockSynchronizerConfig> = {},
+    private readonly node: AztecNode,
+    private readonly store: AztecAsyncKVStore,
+    private readonly anchorBlockStore: AnchorBlockStore,
+    private readonly noteStore: NoteStore,
+    private readonly privateEventStore: PrivateEventStore,
+    private readonly entityStore: EntityStore,
+    private readonly l2TipsStore: L2TipsKVStore,
+    private readonly contractSyncService: ContractSyncService,
+    private readonly config: Partial<BlockSynchronizerConfig> = {},
     bindings?: LoggerBindings,
   ) {
     this.log = createLogger('pxe:block_synchronizer', bindings);
