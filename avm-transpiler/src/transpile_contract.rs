@@ -12,7 +12,7 @@ use noirc_evaluator::ErrorType;
 
 use crate::instructions::{AvmInstruction, AvmOperand, AvmTypeTag};
 use crate::opcodes::AvmOpcode;
-use crate::transpile::{brillig_to_avm, patch_debug_info_pcs};
+use crate::transpile::{TranspileError, patch_debug_info_pcs, try_brillig_to_avm};
 use crate::utils::extract_brillig_from_acir_program;
 
 /// Representation of a contract with some transpiled functions
@@ -84,10 +84,18 @@ pub enum AvmOrAcirContractFunctionArtifact {
     Avm(AvmContractFunctionArtifact),
 }
 
-/// Transpilation is performed when a TranspiledContract
-/// is constructed from a CompiledAcirContract
-impl From<CompiledAcirContractArtifact> for TranspiledContractArtifact {
-    fn from(contract: CompiledAcirContractArtifact) -> Self {
+impl TranspiledContractArtifact {
+    /// Transpile a compiled ACIR contract into AVM bytecode.
+    ///
+    /// This fallible entrypoint is used by FFI callers so out-of-range Brillig
+    /// memory addresses can be returned as errors instead of silently truncating operands.
+    ///
+    /// This is a named method rather than a `TryFrom` implementation because the
+    /// existing infallible `From<CompiledAcirContractArtifact>` API is preserved
+    /// for this scoped fix.
+    pub fn try_from_acir_contract(
+        contract: CompiledAcirContractArtifact,
+    ) -> Result<Self, TranspileError> {
         let mut functions: Vec<AvmOrAcirContractFunctionArtifact> = Vec::new();
         let mut has_public_dispatch = false;
 
@@ -103,7 +111,14 @@ impl From<CompiledAcirContractArtifact> for TranspiledContractArtifact {
                 info!("Extracted Brillig program has {} instructions", brillig_bytecode.len());
 
                 // Transpile to AVM
-                let (avm_bytecode, brillig_pcs_to_avm_pcs) = brillig_to_avm(brillig_bytecode);
+                let (avm_bytecode, brillig_pcs_to_avm_pcs) = try_brillig_to_avm(brillig_bytecode)
+                    .map_err(|source| {
+                    TranspileError::FunctionTranspilationFailed {
+                        contract: contract.name.clone(),
+                        function: function.name.clone(),
+                        source: Box::new(source),
+                    }
+                })?;
 
                 log::info!(
                     "{}::{}: bytecode is {} bytes",
@@ -142,14 +157,26 @@ impl From<CompiledAcirContractArtifact> for TranspiledContractArtifact {
             functions.push(create_revert_dispatch_fn());
         }
 
-        TranspiledContractArtifact {
+        Ok(TranspiledContractArtifact {
             transpiled: true,
             noir_version: contract.noir_version,
             name: contract.name,
             functions, // some acir, some transpiled avm functions
             outputs: contract.outputs,
             file_map: contract.file_map,
-        }
+        })
+    }
+}
+
+/// Preserve the existing `From` conversion API for Rust callers.
+///
+/// New call sites that need to report invalid Brillig input should use
+/// `TranspiledContractArtifact::try_from_acir_contract` instead. This wrapper
+/// panics when the fallible conversion rejects an out-of-range U16 operand.
+impl From<CompiledAcirContractArtifact> for TranspiledContractArtifact {
+    fn from(contract: CompiledAcirContractArtifact) -> Self {
+        Self::try_from_acir_contract(contract)
+            .unwrap_or_else(|err| panic!("Unable to transpile contract: {err}"))
     }
 }
 

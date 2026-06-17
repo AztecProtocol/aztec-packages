@@ -21,9 +21,67 @@ use crate::utils::{
     make_operand, make_unresolved_pc,
 };
 
+/// Errors returned by the scoped Brillig-to-AVM checked-narrowing path.
+///
+/// This intentionally models only #24115-relevant failures: fixed-width U16
+/// operands that cannot faithfully encode a Brillig memory address or immediate.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TranspileError {
+    U16MemoryAddressOutOfRange { address: u32 },
+    U16ImmediateOutOfRange { name: &'static str, value: u32 },
+    FunctionTranspilationFailed { contract: String, function: String, source: Box<TranspileError> },
+}
+
+impl std::fmt::Display for TranspileError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::U16MemoryAddressOutOfRange { address } => {
+                write!(f, "AVM memory address {address} does not fit in a U16 operand")
+            }
+            Self::U16ImmediateOutOfRange { name, value } => {
+                write!(f, "{name} value {value} does not fit in a U16 immediate")
+            }
+            Self::FunctionTranspilationFailed { contract, function, source } => {
+                write!(f, "Failed to transpile {contract}::{function}: {source}")
+            }
+        }
+    }
+}
+
+impl std::error::Error for TranspileError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::FunctionTranspilationFailed { source, .. } => Some(source.as_ref()),
+            _ => None,
+        }
+    }
+}
+
 enum Label {
     BrilligPC { pc: u32 },
     Procedure { label: ProcedureLabel },
+}
+
+fn u16_memory_address(address: &MemoryAddress) -> Result<u16, TranspileError> {
+    let address = address.to_u32();
+    u16::try_from(address).map_err(|_| TranspileError::U16MemoryAddressOutOfRange { address })
+}
+
+fn u16_address_operands<const N: usize>(
+    addresses: [&MemoryAddress; N],
+) -> Result<([u16; N], usize), TranspileError> {
+    let mut operands = [0u16; N];
+    let mut bits_needed = 8;
+    for (operand, address) in operands.iter_mut().zip(addresses) {
+        let checked = u16_memory_address(address)?;
+        bits_needed = bits_needed.max(bits_needed_for(&checked));
+        *operand = checked;
+    }
+    Ok((operands, bits_needed))
+}
+
+fn u16_immediate(name: &'static str, value: u32) -> Result<u16, TranspileError> {
+    u16::try_from(value).map_err(|_| TranspileError::U16ImmediateOutOfRange { name, value })
 }
 
 impl ProcedureLocalLabel {
@@ -50,7 +108,13 @@ impl ProcedureLabel {
 
 /// Transpile a Brillig program to AVM bytecode
 /// Returns the bytecode and a mapping from Brillig program counter to AVM program counter.
-pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<u8>, Vec<usize>) {
+/// Fallible Brillig lowering for checked U16 narrowing failures.
+///
+/// This is not a full malformed-Brillig validation API; legacy checks unrelated
+/// to #24115 may still panic and should be hardened separately.
+pub fn try_brillig_to_avm(
+    brillig_bytecode: &[BrilligOpcode<FieldElement>],
+) -> Result<(Vec<u8>, Vec<usize>), TranspileError> {
     dbg_print_brillig_program(brillig_bytecode);
 
     let mut avm_instrs: Vec<AvmInstruction> = Vec::new();
@@ -67,14 +131,8 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
 
         match brillig_instr {
             BrilligOpcode::BinaryFieldOp { destination, op, lhs, rhs } => {
-                let bits_needed =
-                    [*lhs, *rhs, *destination].iter().map(bits_needed_for).max().unwrap();
-
-                assert!(
-                    bits_needed == 8 || bits_needed == 16,
-                    "BinaryFieldOp only support 8 or 16 bit encodings, got: {}",
-                    bits_needed
-                );
+                let ([lhs_operand, rhs_operand, destination_operand], bits_needed) =
+                    u16_address_operands([lhs, rhs, destination])?;
 
                 let avm_opcode = match op {
                     BinaryFieldOp::Add => match bits_needed {
@@ -129,21 +187,16 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
                             .build(),
                     ),
                     operands: vec![
-                        make_operand(bits_needed, &lhs.to_u32()),
-                        make_operand(bits_needed, &rhs.to_u32()),
-                        make_operand(bits_needed, &destination.to_u32()),
+                        make_operand(bits_needed, &u32::from(lhs_operand)),
+                        make_operand(bits_needed, &u32::from(rhs_operand)),
+                        make_operand(bits_needed, &u32::from(destination_operand)),
                     ],
                     ..Default::default()
                 });
             }
             BrilligOpcode::BinaryIntOp { destination, op, lhs, rhs, .. } => {
-                let bits_needed =
-                    [*lhs, *rhs, *destination].iter().map(bits_needed_for).max().unwrap();
-                assert!(
-                    bits_needed == 8 || bits_needed == 16,
-                    "BinaryIntOp only support 8 or 16 bit encodings, got: {}",
-                    bits_needed
-                );
+                let ([lhs_operand, rhs_operand, destination_operand], bits_needed) =
+                    u16_address_operands([lhs, rhs, destination])?;
 
                 let avm_opcode = match op {
                     BinaryIntOp::Add => match bits_needed {
@@ -217,21 +270,16 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
                             .build(),
                     ),
                     operands: vec![
-                        make_operand(bits_needed, &lhs.to_u32()),
-                        make_operand(bits_needed, &rhs.to_u32()),
-                        make_operand(bits_needed, &destination.to_u32()),
+                        make_operand(bits_needed, &u32::from(lhs_operand)),
+                        make_operand(bits_needed, &u32::from(rhs_operand)),
+                        make_operand(bits_needed, &u32::from(destination_operand)),
                     ],
                     ..Default::default()
                 });
             }
             BrilligOpcode::Not { destination, source, .. } => {
-                let bits_needed =
-                    [*source, *destination].iter().map(bits_needed_for).max().unwrap();
-                assert!(
-                    bits_needed == 8 || bits_needed == 16,
-                    "Not only support 8 or 16 bit encodings, got: {}",
-                    bits_needed
-                );
+                let ([source_operand, destination_operand], bits_needed) =
+                    u16_address_operands([source, destination])?;
 
                 avm_instrs.push(AvmInstruction {
                     opcode: if bits_needed == 8 { AvmOpcode::NOT_8 } else { AvmOpcode::NOT_16 },
@@ -242,8 +290,8 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
                             .build(),
                     ),
                     operands: vec![
-                        make_operand(bits_needed, &source.to_u32()),
-                        make_operand(bits_needed, &destination.to_u32()),
+                        make_operand(bits_needed, &u32::from(source_operand)),
+                        make_operand(bits_needed, &u32::from(destination_operand)),
                     ],
                     ..Default::default()
                 });
@@ -259,12 +307,12 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
                             .build(),
                     ),
                     operands: vec![
-                        AvmOperand::U16 { value: size_address.to_u32() as u16 }, // sizeOffset
+                        AvmOperand::U16 { value: u16_memory_address(size_address)? }, // sizeOffset
                         AvmOperand::U16 {
-                            value: offset_address.to_u32() as u16, // cdOffset (calldata offset)
+                            value: u16_memory_address(offset_address)?, // cdOffset (calldata offset)
                         },
                         AvmOperand::U16 {
-                            value: destination_address.to_u32() as u16, // dstOffset
+                            value: u16_memory_address(destination_address)?, // dstOffset
                         },
                     ],
                     ..Default::default()
@@ -300,16 +348,16 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
                     addressing_mode: Some(
                         AddressingModeBuilder::default().direct_operand(condition).build(),
                     ),
-                    operands: vec![make_operand(16, &condition.to_u32())],
+                    operands: vec![AvmOperand::U16 { value: u16_memory_address(condition)? }],
                     immediates: vec![make_unresolved_pc()],
                     ..Default::default()
                 });
             }
             BrilligOpcode::Const { destination, value, bit_size } => {
-                handle_const(&mut avm_instrs, destination, value, bit_size, false);
+                handle_const(&mut avm_instrs, destination, value, bit_size, false)?;
             }
             BrilligOpcode::IndirectConst { destination_pointer, value, bit_size } => {
-                handle_const(&mut avm_instrs, destination_pointer, value, bit_size, true);
+                handle_const(&mut avm_instrs, destination_pointer, value, bit_size, true)?;
             }
             BrilligOpcode::Mov { destination, source } => {
                 avm_instrs.push(generate_mov_instruction(
@@ -319,9 +367,9 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
                             .direct_operand(destination)
                             .build(),
                     ),
-                    source.to_u32(),
-                    destination.to_u32(),
-                ));
+                    source,
+                    destination,
+                )?);
             }
             BrilligOpcode::ConditionalMov { destination, source_a, source_b, condition } => {
                 // Move source_a to destination, if condition is true jump to the next brillig opcode, else move source_b to destination
@@ -332,9 +380,9 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
                             .direct_operand(destination)
                             .build(),
                     ),
-                    source_a.to_u32(),
-                    destination.to_u32(),
-                ));
+                    source_a,
+                    destination,
+                )?);
 
                 unresolved_jumps.insert(
                     UnresolvedPCLocation {
@@ -349,7 +397,7 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
                     addressing_mode: Some(
                         AddressingModeBuilder::default().direct_operand(condition).build(),
                     ),
-                    operands: vec![make_operand(16, &condition.to_u32())],
+                    operands: vec![AvmOperand::U16 { value: u16_memory_address(condition)? }],
                     immediates: vec![make_unresolved_pc()],
                     ..Default::default()
                 });
@@ -361,9 +409,9 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
                             .direct_operand(destination)
                             .build(),
                     ),
-                    source_b.to_u32(),
-                    destination.to_u32(),
-                ));
+                    source_b,
+                    destination,
+                )?);
             }
             BrilligOpcode::Load { destination, source_pointer } => {
                 avm_instrs.push(generate_mov_instruction(
@@ -373,9 +421,9 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
                             .direct_operand(destination)
                             .build(),
                     ),
-                    source_pointer.to_u32(),
-                    destination.to_u32(),
-                ));
+                    source_pointer,
+                    destination,
+                )?);
             }
             BrilligOpcode::Store { destination_pointer, source } => {
                 avm_instrs.push(generate_mov_instruction(
@@ -385,9 +433,9 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
                             .indirect_operand(destination_pointer)
                             .build(),
                     ),
-                    source.to_u32(),
-                    destination_pointer.to_u32(),
-                ));
+                    source,
+                    destination_pointer,
+                )?);
             }
             BrilligOpcode::Call { location } => {
                 assert!(location.num_bits() <= 32);
@@ -412,17 +460,17 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
                     &mut avm_instrs,
                     &return_data.pointer,
                     &return_data.size,
-                );
+                )?;
             }
             BrilligOpcode::Trap { revert_data } => {
                 generate_revert_instruction(
                     &mut avm_instrs,
                     &revert_data.pointer,
                     &revert_data.size,
-                );
+                )?;
             }
             BrilligOpcode::Cast { destination, source, bit_size } => {
-                handle_cast(&mut avm_instrs, source, destination, *bit_size);
+                handle_cast(&mut avm_instrs, source, destination, *bit_size)?;
             }
             BrilligOpcode::ForeignCall {
                 function,
@@ -431,7 +479,7 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
                 destination_value_types: _,
                 input_value_types: _,
             } => {
-                handle_foreign_call(&mut avm_instrs, function, destinations, inputs);
+                handle_foreign_call(&mut avm_instrs, function, destinations, inputs)?;
             }
             BrilligOpcode::BlackBox(operation) => {
                 handle_black_box_function(
@@ -439,7 +487,7 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
                     operation,
                     &mut procedures_used,
                     &mut unresolved_jumps,
-                );
+                )?;
             }
         }
 
@@ -522,7 +570,16 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
         bytecode.extend_from_slice(&instruction.to_bytes());
     }
 
-    (bytecode, brillig_pcs_to_avm_pcs)
+    Ok((bytecode, brillig_pcs_to_avm_pcs))
+}
+
+/// Transpile a Brillig program to AVM bytecode.
+///
+/// This preserves the existing infallible Rust API. New callers that need to
+/// report checked-narrowing failures should use `try_brillig_to_avm` instead.
+pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<u8>, Vec<usize>) {
+    try_brillig_to_avm(brillig_bytecode)
+        .unwrap_or_else(|err| panic!("Unable to transpile Brillig bytecode: {err}"))
 }
 
 /// Handle brillig foreign calls
@@ -536,45 +593,50 @@ fn handle_foreign_call(
     function: &str,
     destinations: &[ValueOrArray],
     inputs: &[ValueOrArray],
-) {
+) -> Result<(), TranspileError> {
     match function {
-        "aztec_avm_call" => handle_external_call(avm_instrs, destinations, inputs, AvmOpcode::CALL),
+        "aztec_avm_call" => {
+            handle_external_call(avm_instrs, destinations, inputs, AvmOpcode::CALL)?;
+        }
         "aztec_avm_staticCall" => {
-            handle_external_call(avm_instrs, destinations, inputs, AvmOpcode::STATICCALL);
+            handle_external_call(avm_instrs, destinations, inputs, AvmOpcode::STATICCALL)?;
         }
         "aztec_avm_emitPublicLog" => {
-            handle_emit_public_log(avm_instrs, destinations, inputs);
+            handle_emit_public_log(avm_instrs, destinations, inputs)?;
         }
-        "aztec_avm_noteHashExists" => handle_note_hash_exists(avm_instrs, destinations, inputs),
+        "aztec_avm_noteHashExists" => handle_note_hash_exists(avm_instrs, destinations, inputs)?,
         "aztec_avm_emitNoteHash" | "aztec_avm_emitNullifier" => handle_emit_note_hash_or_nullifier(
             function == "aztec_avm_emitNullifier",
             avm_instrs,
             destinations,
             inputs,
-        ),
-        "aztec_avm_nullifierExists" => handle_nullifier_exists(avm_instrs, destinations, inputs),
-        "aztec_avm_l1ToL2MsgExists" => handle_l1_to_l2_msg_exists(avm_instrs, destinations, inputs),
-        "aztec_avm_sendL2ToL1Msg" => handle_send_l2_to_l1_msg(avm_instrs, destinations, inputs),
-        "aztec_avm_calldataCopy" => handle_calldata_copy(avm_instrs, destinations, inputs),
-        "aztec_avm_successCopy" => handle_success_copy(avm_instrs, destinations, inputs),
-        "aztec_avm_returndataSize" => handle_returndata_size(avm_instrs, destinations, inputs),
-        "aztec_avm_returndataCopy" => handle_returndata_copy(avm_instrs, destinations, inputs),
-        "aztec_avm_return" => handle_return(avm_instrs, destinations, inputs),
-        "aztec_avm_revert" => handle_revert(avm_instrs, destinations, inputs),
-        "aztec_avm_storageRead" => handle_storage_read(avm_instrs, destinations, inputs),
-        "aztec_avm_storageWrite" => handle_storage_write(avm_instrs, destinations, inputs),
-        "aztec_misc_log" => handle_debug_log(avm_instrs, destinations, inputs),
+        )?,
+        "aztec_avm_nullifierExists" => handle_nullifier_exists(avm_instrs, destinations, inputs)?,
+        "aztec_avm_l1ToL2MsgExists" => {
+            handle_l1_to_l2_msg_exists(avm_instrs, destinations, inputs)?;
+        }
+        "aztec_avm_sendL2ToL1Msg" => handle_send_l2_to_l1_msg(avm_instrs, destinations, inputs)?,
+        "aztec_avm_calldataCopy" => handle_calldata_copy(avm_instrs, destinations, inputs)?,
+        "aztec_avm_successCopy" => handle_success_copy(avm_instrs, destinations, inputs)?,
+        "aztec_avm_returndataSize" => handle_returndata_size(avm_instrs, destinations, inputs)?,
+        "aztec_avm_returndataCopy" => handle_returndata_copy(avm_instrs, destinations, inputs)?,
+        "aztec_avm_return" => handle_return(avm_instrs, destinations, inputs)?,
+        "aztec_avm_revert" => handle_revert(avm_instrs, destinations, inputs)?,
+        "aztec_avm_storageRead" => handle_storage_read(avm_instrs, destinations, inputs)?,
+        "aztec_avm_storageWrite" => handle_storage_write(avm_instrs, destinations, inputs)?,
+        "aztec_misc_log" => handle_debug_log(avm_instrs, destinations, inputs)?,
         // Getters.
         _ if inputs.is_empty() && destinations.len() == 1 => {
-            handle_getter_instruction(avm_instrs, function, destinations, inputs);
+            handle_getter_instruction(avm_instrs, function, destinations, inputs)?;
         }
         // Get contract instance variations.
         _ if function.starts_with("aztec_avm_getContractInstance") => {
-            handle_get_contract_instance(avm_instrs, function, destinations, inputs);
+            handle_get_contract_instance(avm_instrs, function, destinations, inputs)?;
         }
         // Anything else.
         _ => panic!("Transpiler doesn't know how to process ForeignCall function {}", function),
     }
+    Ok(())
 }
 
 /// Handle an AVM CALL
@@ -593,7 +655,7 @@ fn handle_external_call(
     destinations: &[ValueOrArray],
     inputs: &[ValueOrArray],
     opcode: AvmOpcode,
-) {
+) -> Result<(), TranspileError> {
     if !destinations.is_empty() || inputs.len() != 5 {
         panic!(
             "Transpiler expects ForeignCall (Static)Call to have 0 destinations and 5 inputs, got {} and {}.",
@@ -636,14 +698,15 @@ fn handle_external_call(
                 .build(),
         ),
         operands: vec![
-            AvmOperand::U16 { value: l2_gas_offset.to_u32() as u16 },
-            AvmOperand::U16 { value: da_gas_offset.to_u32() as u16 },
-            AvmOperand::U16 { value: address_offset.to_u32() as u16 },
-            AvmOperand::U16 { value: args_size_offset.to_u32() as u16 },
-            AvmOperand::U16 { value: args_offset_ptr.to_u32() as u16 },
+            AvmOperand::U16 { value: u16_memory_address(l2_gas_offset)? },
+            AvmOperand::U16 { value: u16_memory_address(da_gas_offset)? },
+            AvmOperand::U16 { value: u16_memory_address(address_offset)? },
+            AvmOperand::U16 { value: u16_memory_address(args_size_offset)? },
+            AvmOperand::U16 { value: u16_memory_address(args_offset_ptr)? },
         ],
         ..Default::default()
     });
+    Ok(())
 }
 
 fn handle_cast(
@@ -651,9 +714,10 @@ fn handle_cast(
     source: &MemoryAddress,
     destination: &MemoryAddress,
     bit_size: BitSize,
-) {
+) -> Result<(), TranspileError> {
     let tag = tag_from_bit_size(bit_size);
-    avm_instrs.push(generate_cast_instruction(source, false, destination, false, tag));
+    avm_instrs.push(generate_cast_instruction(source, false, destination, false, tag)?);
+    Ok(())
 }
 
 /// Handle an AVM NOTEHASHEXISTS instruction
@@ -662,7 +726,7 @@ fn handle_note_hash_exists(
     avm_instrs: &mut Vec<AvmInstruction>,
     destinations: &[ValueOrArray],
     inputs: &[ValueOrArray],
-) {
+) -> Result<(), TranspileError> {
     let (note_hash_offset_operand, leaf_index_offset_operand) = match inputs {
         [ValueOrArray::MemoryAddress(nh_offset), ValueOrArray::MemoryAddress(li_offset)] => {
             (nh_offset, li_offset)
@@ -689,19 +753,20 @@ fn handle_note_hash_exists(
                 .build(),
         ),
         operands: vec![
-            AvmOperand::U16 { value: note_hash_offset_operand.to_u32() as u16 },
-            AvmOperand::U16 { value: leaf_index_offset_operand.to_u32() as u16 },
-            AvmOperand::U16 { value: exists_offset_operand.to_u32() as u16 },
+            AvmOperand::U16 { value: u16_memory_address(note_hash_offset_operand)? },
+            AvmOperand::U16 { value: u16_memory_address(leaf_index_offset_operand)? },
+            AvmOperand::U16 { value: u16_memory_address(exists_offset_operand)? },
         ],
         ..Default::default()
     });
+    Ok(())
 }
 
 fn handle_emit_public_log(
     avm_instrs: &mut Vec<AvmInstruction>,
     destinations: &[ValueOrArray],
     inputs: &[ValueOrArray],
-) {
+) -> Result<(), TranspileError> {
     if !destinations.is_empty() || inputs.len() != 2 {
         panic!(
             "Transpiler expects ForeignCall::EMITPUBLICLOG to have 0 destinations and 2 inputs, got {} and {}",
@@ -726,11 +791,12 @@ fn handle_emit_public_log(
                 .build(),
         ),
         operands: vec![
-            AvmOperand::U16 { value: message_size_offset.to_u32() as u16 },
-            AvmOperand::U16 { value: message_offset.to_u32() as u16 },
+            AvmOperand::U16 { value: u16_memory_address(&message_size_offset)? },
+            AvmOperand::U16 { value: u16_memory_address(&message_offset)? },
         ],
         ..Default::default()
     });
+    Ok(())
 }
 
 /// Handle an AVM EMITNOTEHASH or EMITNULLIFIER instruction
@@ -741,7 +807,7 @@ fn handle_emit_note_hash_or_nullifier(
     avm_instrs: &mut Vec<AvmInstruction>,
     destinations: &[ValueOrArray],
     inputs: &[ValueOrArray],
-) {
+) -> Result<(), TranspileError> {
     let function_name = if is_nullifier { "EMITNULLIFIER" } else { "EMITNOTEHASH" };
 
     if !destinations.is_empty() || inputs.len() != 1 {
@@ -764,9 +830,10 @@ fn handle_emit_note_hash_or_nullifier(
         addressing_mode: Some(
             AddressingModeBuilder::default().direct_operand(offset_operand).build(),
         ),
-        operands: vec![AvmOperand::U16 { value: offset_operand.to_u32() as u16 }],
+        operands: vec![AvmOperand::U16 { value: u16_memory_address(offset_operand)? }],
         ..Default::default()
     });
+    Ok(())
 }
 
 /// Handle an AVM NULLIFIEREXISTS instruction
@@ -776,7 +843,7 @@ fn handle_nullifier_exists(
     avm_instrs: &mut Vec<AvmInstruction>,
     destinations: &[ValueOrArray],
     inputs: &[ValueOrArray],
-) {
+) -> Result<(), TranspileError> {
     if destinations.len() != 1 || inputs.len() != 1 {
         panic!(
             "Transpiler expects ForeignCall::CHECKNULLIFIEREXISTS to have 1 destinations and 1 input, got {} and {}",
@@ -805,11 +872,12 @@ fn handle_nullifier_exists(
                 .build(),
         ),
         operands: vec![
-            AvmOperand::U16 { value: siloed_nullifier_offset_operand.to_u32() as u16 },
-            AvmOperand::U16 { value: exists_offset_operand.to_u32() as u16 },
+            AvmOperand::U16 { value: u16_memory_address(siloed_nullifier_offset_operand)? },
+            AvmOperand::U16 { value: u16_memory_address(exists_offset_operand)? },
         ],
         ..Default::default()
     });
+    Ok(())
 }
 
 /// Handle an AVM L1TOL2MSGEXISTS instruction
@@ -819,7 +887,7 @@ fn handle_l1_to_l2_msg_exists(
     avm_instrs: &mut Vec<AvmInstruction>,
     destinations: &[ValueOrArray],
     inputs: &[ValueOrArray],
-) {
+) -> Result<(), TranspileError> {
     if destinations.len() != 1 || inputs.len() != 2 {
         panic!(
             "Transpiler expects ForeignCall::L1TOL2MSGEXISTS to have 1 destinations and 2 input, got {} and {}",
@@ -855,12 +923,13 @@ fn handle_l1_to_l2_msg_exists(
                 .build(),
         ),
         operands: vec![
-            AvmOperand::U16 { value: msg_hash_offset_operand.to_u32() as u16 },
-            AvmOperand::U16 { value: msg_leaf_index_offset_operand.to_u32() as u16 },
-            AvmOperand::U16 { value: exists_offset_operand.to_u32() as u16 },
+            AvmOperand::U16 { value: u16_memory_address(msg_hash_offset_operand)? },
+            AvmOperand::U16 { value: u16_memory_address(msg_leaf_index_offset_operand)? },
+            AvmOperand::U16 { value: u16_memory_address(exists_offset_operand)? },
         ],
         ..Default::default()
     });
+    Ok(())
 }
 
 /// Handle an AVM SENDL2TOL1MSG
@@ -870,7 +939,7 @@ fn handle_send_l2_to_l1_msg(
     avm_instrs: &mut Vec<AvmInstruction>,
     destinations: &[ValueOrArray],
     inputs: &[ValueOrArray],
-) {
+) -> Result<(), TranspileError> {
     if !destinations.is_empty() || inputs.len() != 2 {
         panic!(
             "Transpiler expects ForeignCall::SENDL2TOL1MSG to have 0 destinations and 2 inputs, got {} and {}",
@@ -899,11 +968,12 @@ fn handle_send_l2_to_l1_msg(
                 .build(),
         ),
         operands: vec![
-            AvmOperand::U16 { value: recipient_offset_operand.to_u32() as u16 },
-            AvmOperand::U16 { value: content_offset_operand.to_u32() as u16 },
+            AvmOperand::U16 { value: u16_memory_address(recipient_offset_operand)? },
+            AvmOperand::U16 { value: u16_memory_address(content_offset_operand)? },
         ],
         ..Default::default()
     });
+    Ok(())
 }
 
 /// Getter Instructions are instructions that take NO inputs, and return information
@@ -919,7 +989,7 @@ fn handle_getter_instruction(
     function: &str,
     destinations: &[ValueOrArray],
     inputs: &[ValueOrArray],
-) {
+) -> Result<(), TranspileError> {
     #[allow(clippy::upper_case_acronyms)]
     enum EnvironmentVariable {
         ADDRESS,
@@ -967,10 +1037,11 @@ fn handle_getter_instruction(
         addressing_mode: Some(
             AddressingModeBuilder::default().direct_operand(&dest_offset).build(),
         ),
-        operands: vec![AvmOperand::U16 { value: dest_offset.to_u32() as u16 }],
+        operands: vec![AvmOperand::U16 { value: u16_memory_address(&dest_offset)? }],
         immediates: vec![AvmOperand::U8 { value: var_idx as u8 }],
         ..Default::default()
     });
+    Ok(())
 }
 
 /// Handles Brillig's CONST opcode.
@@ -980,9 +1051,10 @@ fn handle_const(
     value: &FieldElement,
     bit_size: &BitSize,
     indirect: bool,
-) {
+) -> Result<(), TranspileError> {
     let tag = tag_from_bit_size(*bit_size);
-    avm_instrs.push(generate_set_instruction(tag, destination, value, indirect));
+    avm_instrs.push(generate_set_instruction(tag, destination, value, indirect)?);
+    Ok(())
 }
 
 /// Generates an AVM SET instruction.
@@ -991,9 +1063,10 @@ fn generate_set_instruction(
     dest: &MemoryAddress,
     value: &FieldElement,
     indirect: bool,
-) -> AvmInstruction {
+) -> Result<AvmInstruction, TranspileError> {
+    let dest_operand = u16_memory_address(dest)?;
     let bits_needed_val = bits_needed_for(value);
-    let bits_needed_mem = if bits_needed_val >= 16 { 16 } else { bits_needed_for(dest) };
+    let bits_needed_mem = if bits_needed_val >= 16 { 16 } else { bits_needed_for(&dest_operand) };
     assert!(bits_needed_mem <= 16);
     let bits_needed_opcode = bits_needed_val.max(bits_needed_mem);
 
@@ -1007,7 +1080,7 @@ fn generate_set_instruction(
         _ => panic!("Invalid bits needed for opcode: {}", bits_needed_opcode),
     };
 
-    AvmInstruction {
+    Ok(AvmInstruction {
         opcode: set_opcode,
         addressing_mode: if indirect {
             Some(AddressingModeBuilder::default().indirect_operand(dest).build())
@@ -1015,9 +1088,9 @@ fn generate_set_instruction(
             Some(AddressingModeBuilder::default().direct_operand(dest).build())
         },
         tag: Some(tag),
-        operands: vec![make_operand(bits_needed_mem, &(dest.to_u32()))],
+        operands: vec![make_operand(bits_needed_mem, &u32::from(dest_operand))],
         immediates: vec![make_operand(bits_needed_opcode, value)],
-    }
+    })
 }
 
 /// Generates an AVM CAST instruction.
@@ -1027,12 +1100,13 @@ fn generate_cast_instruction(
     destination: &MemoryAddress,
     destination_indirect: bool,
     dst_tag: AvmTypeTag,
-) -> AvmInstruction {
-    let bits_needed = bits_needed_for(source).max(bits_needed_for(destination));
+) -> Result<AvmInstruction, TranspileError> {
+    let ([source_operand, destination_operand], bits_needed) =
+        u16_address_operands([source, destination])?;
     let avm_opcode = match bits_needed {
         8 => AvmOpcode::CAST_8,
         16 => AvmOpcode::CAST_16,
-        _ => panic!("CAST only supports 8 and 16 bit encodings, needed {}", bits_needed),
+        _ => unreachable!("checked U16 cast operands only require 8 or 16 bit encodings"),
     };
     let mut indirect_flags = AddressingModeBuilder::default();
     indirect_flags = if source_indirect {
@@ -1047,16 +1121,16 @@ fn generate_cast_instruction(
         indirect_flags.direct_operand(destination)
     };
 
-    AvmInstruction {
+    Ok(AvmInstruction {
         opcode: avm_opcode,
         addressing_mode: Some(indirect_flags.build()),
         tag: Some(dst_tag),
         operands: vec![
-            make_operand(bits_needed, &(source.to_u32())),
-            make_operand(bits_needed, &(destination.to_u32())),
+            make_operand(bits_needed, &u32::from(source_operand)),
+            make_operand(bits_needed, &u32::from(destination_operand)),
         ],
         ..Default::default()
-    }
+    })
 }
 
 /// Generates an AVM REVERT instruction.
@@ -1064,13 +1138,18 @@ fn generate_revert_instruction(
     avm_instrs: &mut Vec<AvmInstruction>,
     revert_data_pointer: &MemoryAddress,
     revert_data_size_offset: &MemoryAddress,
-) {
-    let bits_needed =
-        *[revert_data_pointer, revert_data_size_offset].map(bits_needed_for).iter().max().unwrap();
+) -> Result<(), TranspileError> {
+    let revert_data_pointer_operand = u16_memory_address(revert_data_pointer)?;
+    let revert_data_size_offset_operand = u16_memory_address(revert_data_size_offset)?;
+    let bits_needed = [revert_data_pointer_operand, revert_data_size_offset_operand]
+        .iter()
+        .map(bits_needed_for)
+        .max()
+        .unwrap();
     let avm_opcode = match bits_needed {
         8 => AvmOpcode::REVERT_8,
         16 => AvmOpcode::REVERT_16,
-        _ => panic!("REVERT only support 8 or 16 bit encodings, got: {}", bits_needed),
+        _ => unreachable!("checked U16 revert operands only require 8 or 16 bit encodings"),
     };
     avm_instrs.push(AvmInstruction {
         opcode: avm_opcode,
@@ -1081,11 +1160,12 @@ fn generate_revert_instruction(
                 .build(),
         ),
         operands: vec![
-            make_operand(bits_needed, &revert_data_size_offset.to_u32()),
-            make_operand(bits_needed, &revert_data_pointer.to_u32()),
+            make_operand(bits_needed, &u32::from(revert_data_size_offset_operand)),
+            make_operand(bits_needed, &u32::from(revert_data_pointer_operand)),
         ],
         ..Default::default()
     });
+    Ok(())
 }
 
 /// Generates an AVM RETURN instruction.
@@ -1093,7 +1173,7 @@ fn generate_return_instruction(
     avm_instrs: &mut Vec<AvmInstruction>,
     return_data_pointer: &MemoryAddress,
     return_data_size_offset: &MemoryAddress,
-) {
+) -> Result<(), TranspileError> {
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::RETURN,
         addressing_mode: Some(
@@ -1103,46 +1183,54 @@ fn generate_return_instruction(
                 .build(),
         ),
         operands: vec![
-            AvmOperand::U16 { value: return_data_size_offset.to_u32() as u16 },
-            AvmOperand::U16 { value: return_data_pointer.to_u32() as u16 },
+            AvmOperand::U16 { value: u16_memory_address(return_data_size_offset)? },
+            AvmOperand::U16 { value: u16_memory_address(return_data_pointer)? },
         ],
         ..Default::default()
     });
+    Ok(())
 }
 
 /// Generates an AVM MOV instruction.
 fn generate_mov_instruction(
     addressing_mode: Option<AvmOperand>,
-    source: u32,
-    dest: u32,
-) -> AvmInstruction {
-    let bits_needed = [source, dest].iter().map(bits_needed_for).max().unwrap();
+    source: &MemoryAddress,
+    dest: &MemoryAddress,
+) -> Result<AvmInstruction, TranspileError> {
+    let ([source_operand, dest_operand], bits_needed) = u16_address_operands([source, dest])?;
 
     let mov_opcode = match bits_needed {
         8 => AvmOpcode::MOV_8,
         16 => AvmOpcode::MOV_16,
-        _ => panic!("MOV operands must fit in 16 bits but needed {}", bits_needed),
+        _ => unreachable!("checked U16 mov operands only require 8 or 16 bit encodings"),
     };
 
-    AvmInstruction {
+    Ok(AvmInstruction {
         opcode: mov_opcode,
         addressing_mode,
-        operands: vec![make_operand(bits_needed, &source), make_operand(bits_needed, &dest)],
+        operands: vec![
+            make_operand(bits_needed, &u32::from(source_operand)),
+            make_operand(bits_needed, &u32::from(dest_operand)),
+        ],
         ..Default::default()
-    }
+    })
 }
 
-fn generate_mov_to_procedure(source: &MemoryAddress, index: usize) -> AvmInstruction {
+fn generate_mov_to_procedure(
+    source: &MemoryAddress,
+    index: usize,
+) -> Result<AvmInstruction, TranspileError> {
     let target_address = SCRATCH_SPACE_START + index;
+    let target_address = MemoryAddress::direct(target_address as u32);
     generate_mov_instruction(
         Some(
             AddressingModeBuilder::default()
                 .direct_operand(source)
-                .direct_operand(&MemoryAddress::direct(target_address as u32))
+                .direct_operand(&target_address)
                 .build(),
         ),
-        source.to_u32(),
-        target_address as u32,
+        source,
+        &target_address,
     )
 }
 
@@ -1150,7 +1238,7 @@ fn generate_set_to_procedure(
     tag: AvmTypeTag,
     value: &FieldElement,
     index: usize,
-) -> AvmInstruction {
+) -> Result<AvmInstruction, TranspileError> {
     let target_address = SCRATCH_SPACE_START + index;
     generate_set_instruction(tag, &MemoryAddress::direct(target_address as u32), value, false)
 }
@@ -1178,13 +1266,9 @@ fn handle_black_box_function(
     operation: &BlackBoxOp,
     procedures_used: &mut HashSet<Procedure>,
     unresolved_jumps: &mut HashMap<UnresolvedPCLocation, Label>,
-) {
+) -> Result<(), TranspileError> {
     match operation {
         BlackBoxOp::Sha256Compression { input, hash_values, output } => {
-            let inputs_offset = input.pointer.to_u32();
-            let state_offset = hash_values.pointer.to_u32();
-            let output_offset = output.pointer.to_u32();
-
             avm_instrs.push(AvmInstruction {
                 opcode: AvmOpcode::SHA256COMPRESSION,
                 addressing_mode: Some(
@@ -1195,9 +1279,9 @@ fn handle_black_box_function(
                         .build(),
                 ),
                 operands: vec![
-                    AvmOperand::U16 { value: output_offset as u16 },
-                    AvmOperand::U16 { value: state_offset as u16 },
-                    AvmOperand::U16 { value: inputs_offset as u16 },
+                    AvmOperand::U16 { value: u16_memory_address(&output.pointer)? },
+                    AvmOperand::U16 { value: u16_memory_address(&hash_values.pointer)? },
+                    AvmOperand::U16 { value: u16_memory_address(&input.pointer)? },
                 ],
                 ..Default::default()
             });
@@ -1209,9 +1293,6 @@ fn handle_black_box_function(
                 SemiFlattenedLength(4),
                 "Poseidon2Permutation output size must be 4!"
             );
-            let input_state_offset = message.pointer.to_u32();
-            let output_state_offset = output.pointer.to_u32();
-
             avm_instrs.push(AvmInstruction {
                 opcode: AvmOpcode::POSEIDON2,
                 addressing_mode: Some(
@@ -1221,16 +1302,14 @@ fn handle_black_box_function(
                         .build(),
                 ),
                 operands: vec![
-                    AvmOperand::U16 { value: input_state_offset as u16 },
-                    AvmOperand::U16 { value: output_state_offset as u16 },
+                    AvmOperand::U16 { value: u16_memory_address(&message.pointer)? },
+                    AvmOperand::U16 { value: u16_memory_address(&output.pointer)? },
                 ],
                 ..Default::default()
             });
         }
         BlackBoxOp::Keccakf1600 { input, output } => {
-            let input_offset = input.pointer.to_u32();
             assert_eq!(input.size, SemiFlattenedLength(25), "Keccakf1600 input size must be 25!");
-            let dest_offset = output.pointer.to_u32();
             assert_eq!(output.size, SemiFlattenedLength(25), "Keccakf1600 output size must be 25!");
 
             avm_instrs.push(AvmInstruction {
@@ -1242,19 +1321,13 @@ fn handle_black_box_function(
                         .build(),
                 ),
                 operands: vec![
-                    AvmOperand::U16 { value: dest_offset as u16 },
-                    AvmOperand::U16 { value: input_offset as u16 },
+                    AvmOperand::U16 { value: u16_memory_address(&output.pointer)? },
+                    AvmOperand::U16 { value: u16_memory_address(&input.pointer)? },
                 ],
                 ..Default::default()
             });
         }
         BlackBoxOp::ToRadix { input, radix, output_pointer, num_limbs, output_bits } => {
-            let input_offset = input.to_u32();
-            let radix_offset = radix.to_u32();
-            let output_offset = output_pointer.to_u32();
-            let num_limbs_offset = num_limbs.to_u32();
-            let output_bits_offset = output_bits.to_u32();
-
             avm_instrs.push(AvmInstruction {
                 opcode: AvmOpcode::TORADIXBE,
                 addressing_mode: Some(
@@ -1267,11 +1340,11 @@ fn handle_black_box_function(
                         .build(),
                 ),
                 operands: vec![
-                    AvmOperand::U16 { value: input_offset as u16 },
-                    AvmOperand::U16 { value: radix_offset as u16 },
-                    AvmOperand::U16 { value: num_limbs_offset as u16 },
-                    AvmOperand::U16 { value: output_bits_offset as u16 },
-                    AvmOperand::U16 { value: output_offset as u16 },
+                    AvmOperand::U16 { value: u16_memory_address(input)? },
+                    AvmOperand::U16 { value: u16_memory_address(radix)? },
+                    AvmOperand::U16 { value: u16_memory_address(num_limbs)? },
+                    AvmOperand::U16 { value: u16_memory_address(output_bits)? },
+                    AvmOperand::U16 { value: u16_memory_address(output_pointer)? },
                 ],
                 ..Default::default()
             });
@@ -1296,11 +1369,11 @@ fn handle_black_box_function(
                     .build(),
             ),
             operands: vec![
-                AvmOperand::U16 { value: p1_x_offset.to_u32() as u16 },
-                AvmOperand::U16 { value: p1_y_offset.to_u32() as u16 },
-                AvmOperand::U16 { value: p2_x_offset.to_u32() as u16 },
-                AvmOperand::U16 { value: p2_y_offset.to_u32() as u16 },
-                AvmOperand::U16 { value: result.pointer.to_u32() as u16 },
+                AvmOperand::U16 { value: u16_memory_address(p1_x_offset)? },
+                AvmOperand::U16 { value: u16_memory_address(p1_y_offset)? },
+                AvmOperand::U16 { value: u16_memory_address(p2_x_offset)? },
+                AvmOperand::U16 { value: u16_memory_address(p2_y_offset)? },
+                AvmOperand::U16 { value: u16_memory_address(&result.pointer)? },
             ],
             ..Default::default()
         }),
@@ -1315,14 +1388,14 @@ fn handle_black_box_function(
             );
             assert_eq!(points.size.0 % 2, 0, "Points array size must be divisible by 2");
 
-            avm_instrs.push(generate_mov_to_procedure(&points.pointer, 0));
-            avm_instrs.push(generate_mov_to_procedure(&scalars.pointer, 1));
+            avm_instrs.push(generate_mov_to_procedure(&points.pointer, 0)?);
+            avm_instrs.push(generate_mov_to_procedure(&scalars.pointer, 1)?);
             avm_instrs.push(generate_set_to_procedure(
                 AvmTypeTag::UINT32,
                 &FieldElement::from(points.size.0 / 2),
                 2,
-            ));
-            avm_instrs.push(generate_mov_to_procedure(&outputs.pointer, 3));
+            )?);
+            avm_instrs.push(generate_mov_to_procedure(&outputs.pointer, 3)?);
             avm_instrs.push(generate_procedure_call(
                 Procedure::MultiScalarMul,
                 avm_instrs.len(),
@@ -1332,13 +1405,14 @@ fn handle_black_box_function(
         }
         _ => panic!("Transpiler doesn't know how to process {:?}", operation),
     }
+    Ok(())
 }
 
 fn handle_debug_log(
     avm_instrs: &mut Vec<AvmInstruction>,
     destinations: &[ValueOrArray],
     inputs: &[ValueOrArray],
-) {
+) -> Result<(), TranspileError> {
     // We need to handle two flavors here:
     //
     // #[oracle(aztec_misc_log)]
@@ -1403,14 +1477,17 @@ fn handle_debug_log(
                 .build(),
         ),
         operands: vec![
-            AvmOperand::U16 { value: level_offset.to_u32() as u16 },
-            AvmOperand::U16 { value: message_offset.to_u32() as u16 },
-            AvmOperand::U16 { value: fields_offset_ptr.to_u32() as u16 },
-            AvmOperand::U16 { value: fields_size_offset.to_u32() as u16 },
+            AvmOperand::U16 { value: u16_memory_address(level_offset)? },
+            AvmOperand::U16 { value: u16_memory_address(message_offset)? },
+            AvmOperand::U16 { value: u16_memory_address(fields_offset_ptr)? },
+            AvmOperand::U16 { value: u16_memory_address(fields_size_offset)? },
         ],
-        immediates: vec![AvmOperand::U16 { value: message_size.0 as u16 }],
+        immediates: vec![AvmOperand::U16 {
+            value: u16_immediate("debug log message size", message_size.0)?,
+        }],
         ..Default::default()
     });
+    Ok(())
 }
 
 // #[oracle(aztec_avm_calldataCopy)]
@@ -1419,7 +1496,7 @@ fn handle_calldata_copy(
     avm_instrs: &mut Vec<AvmInstruction>,
     destinations: &[ValueOrArray],
     inputs: &[ValueOrArray],
-) {
+) -> Result<(), TranspileError> {
     assert_eq!(inputs.len(), 2);
     assert_eq!(destinations.len(), 1);
 
@@ -1448,12 +1525,13 @@ fn handle_calldata_copy(
                 .build(),
         ),
         operands: vec![
-            AvmOperand::U16 { value: copy_size_offset.to_u32() as u16 },
-            AvmOperand::U16 { value: cd_offset.to_u32() as u16 },
-            AvmOperand::U16 { value: dest_offset.to_u32() as u16 },
+            AvmOperand::U16 { value: u16_memory_address(&copy_size_offset)? },
+            AvmOperand::U16 { value: u16_memory_address(&cd_offset)? },
+            AvmOperand::U16 { value: u16_memory_address(&dest_offset)? },
         ],
         ..Default::default()
     });
+    Ok(())
 }
 
 // #[oracle(aztec_avm_returndataSize)]
@@ -1462,7 +1540,7 @@ fn handle_returndata_size(
     avm_instrs: &mut Vec<AvmInstruction>,
     destinations: &[ValueOrArray],
     inputs: &[ValueOrArray],
-) {
+) -> Result<(), TranspileError> {
     assert!(inputs.is_empty());
     assert_eq!(destinations.len(), 1);
 
@@ -1476,9 +1554,10 @@ fn handle_returndata_size(
         addressing_mode: Some(
             AddressingModeBuilder::default().direct_operand(&dest_offset).build(),
         ),
-        operands: vec![AvmOperand::U16 { value: dest_offset.to_u32() as u16 }],
+        operands: vec![AvmOperand::U16 { value: u16_memory_address(&dest_offset)? }],
         ..Default::default()
     });
+    Ok(())
 }
 
 // #[oracle(aztec_avm_returndataCopy)]
@@ -1487,7 +1566,7 @@ fn handle_returndata_copy(
     avm_instrs: &mut Vec<AvmInstruction>,
     destinations: &[ValueOrArray],
     inputs: &[ValueOrArray],
-) {
+) -> Result<(), TranspileError> {
     assert_eq!(inputs.len(), 2);
     assert_eq!(destinations.len(), 2);
 
@@ -1519,9 +1598,9 @@ fn handle_returndata_copy(
                     .build(),
             ),
             operands: vec![
-                AvmOperand::U16 { value: copy_size_offset.to_u32() as u16 },
-                AvmOperand::U16 { value: cd_offset.to_u32() as u16 },
-                AvmOperand::U16 { value: dest_offset.to_u32() as u16 },
+                AvmOperand::U16 { value: u16_memory_address(&copy_size_offset)? },
+                AvmOperand::U16 { value: u16_memory_address(&cd_offset)? },
+                AvmOperand::U16 { value: u16_memory_address(&dest_offset)? },
             ],
             ..Default::default()
         },
@@ -1533,10 +1612,11 @@ fn handle_returndata_copy(
                     .direct_operand(&write_size_here_offset)
                     .build(),
             ),
-            copy_size_offset.to_u32(),
-            write_size_here_offset.to_u32(),
-        ),
+            &copy_size_offset,
+            &write_size_here_offset,
+        )?,
     ]);
+    Ok(())
 }
 
 // #[oracle(aztec_avm_return)]
@@ -1545,7 +1625,7 @@ fn handle_return(
     avm_instrs: &mut Vec<AvmInstruction>,
     destinations: &[ValueOrArray],
     inputs: &[ValueOrArray],
-) {
+) -> Result<(), TranspileError> {
     assert_eq!(inputs.len(), 2);
     assert!(destinations.is_empty());
 
@@ -1555,7 +1635,7 @@ fn handle_return(
         _ => panic!("Revert instruction's args input should be a HeapVector"),
     };
 
-    generate_return_instruction(avm_instrs, &return_data_offset, &return_data_size);
+    generate_return_instruction(avm_instrs, &return_data_offset, &return_data_size)
 }
 
 // #[oracle(aztec_avm_revert)]
@@ -1564,7 +1644,7 @@ fn handle_revert(
     avm_instrs: &mut Vec<AvmInstruction>,
     destinations: &[ValueOrArray],
     inputs: &[ValueOrArray],
-) {
+) -> Result<(), TranspileError> {
     assert_eq!(inputs.len(), 2);
     assert!(destinations.is_empty());
 
@@ -1574,7 +1654,7 @@ fn handle_revert(
         _ => panic!("Revert instruction's args input should be a HeapVector"),
     };
 
-    generate_revert_instruction(avm_instrs, &revert_data_offset, &revert_data_size_offset);
+    generate_revert_instruction(avm_instrs, &revert_data_offset, &revert_data_size_offset)
 }
 
 /// Emit a storage write opcode
@@ -1583,7 +1663,7 @@ fn handle_storage_write(
     avm_instrs: &mut Vec<AvmInstruction>,
     destinations: &[ValueOrArray],
     inputs: &[ValueOrArray],
-) {
+) -> Result<(), TranspileError> {
     assert_eq!(inputs.len(), 2);
     assert!(destinations.is_empty());
 
@@ -1608,11 +1688,12 @@ fn handle_storage_write(
                 .build(),
         ),
         operands: vec![
-            AvmOperand::U16 { value: src_offset.to_u32() as u16 },
-            AvmOperand::U16 { value: slot_offset.to_u32() as u16 },
+            AvmOperand::U16 { value: u16_memory_address(&src_offset)? },
+            AvmOperand::U16 { value: u16_memory_address(&slot_offset)? },
         ],
         ..Default::default()
     });
+    Ok(())
 }
 
 /// Emit a GETCONTRACTINSTANCE opcode
@@ -1621,7 +1702,7 @@ fn handle_get_contract_instance(
     function: &str,
     destinations: &[ValueOrArray],
     inputs: &[ValueOrArray],
-) {
+) -> Result<(), TranspileError> {
     #[allow(non_camel_case_types, clippy::upper_case_acronyms)]
     enum ContractInstanceMember {
         DEPLOYER,
@@ -1668,12 +1749,13 @@ fn handle_get_contract_instance(
                 .build(),
         ),
         operands: vec![
-            AvmOperand::U16 { value: address_offset.to_u32() as u16 },
-            AvmOperand::U16 { value: dest_offset.to_u32() as u16 },
+            AvmOperand::U16 { value: u16_memory_address(&address_offset)? },
+            AvmOperand::U16 { value: u16_memory_address(&dest_offset)? },
         ],
         immediates: vec![AvmOperand::U8 { value: member_idx as u8 }],
         ..Default::default()
     });
+    Ok(())
 }
 
 /// Emit a storage read opcode
@@ -1682,7 +1764,7 @@ fn handle_storage_read(
     avm_instrs: &mut Vec<AvmInstruction>,
     destinations: &[ValueOrArray],
     inputs: &[ValueOrArray],
-) {
+) -> Result<(), TranspileError> {
     assert_eq!(inputs.len(), 2); // slot, contract_address
     assert_eq!(destinations.len(), 1); // return value
 
@@ -1714,12 +1796,13 @@ fn handle_storage_read(
                 .build(),
         ),
         operands: vec![
-            AvmOperand::U16 { value: slot_offset.to_u32() as u16 },
-            AvmOperand::U16 { value: contract_address_offset.to_u32() as u16 },
-            AvmOperand::U16 { value: dest_offset.to_u32() as u16 },
+            AvmOperand::U16 { value: u16_memory_address(&slot_offset)? },
+            AvmOperand::U16 { value: u16_memory_address(&contract_address_offset)? },
+            AvmOperand::U16 { value: u16_memory_address(&dest_offset)? },
         ],
         ..Default::default()
     });
+    Ok(())
 }
 
 /// Patch a Noir function's debug info with updated PCs since transpilation injects extra
@@ -1768,7 +1851,7 @@ fn handle_success_copy(
     avm_instrs: &mut Vec<AvmInstruction>,
     destinations: &[ValueOrArray],
     inputs: &[ValueOrArray],
-) {
+) -> Result<(), TranspileError> {
     if destinations.len() != 1 || !inputs.is_empty() {
         panic!(
             "Transpiler expects SuccessCopy to have 1 destination and 0 inputs, got {} and {}.",
@@ -1785,7 +1868,184 @@ fn handle_success_copy(
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::SUCCESSCOPY,
         addressing_mode: Some(AddressingModeBuilder::default().direct_operand(&dst_offset).build()),
-        operands: vec![AvmOperand::U16 { value: dst_offset.to_u32() as u16 }],
+        operands: vec![AvmOperand::U16 { value: u16_memory_address(&dst_offset)? }],
         ..Default::default()
     });
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn oversized_address() -> MemoryAddress {
+        MemoryAddress::direct(u16::MAX as u32 + 1)
+    }
+
+    fn assert_oversized_address_error(opcode: BrilligOpcode<FieldElement>) {
+        let err = try_brillig_to_avm(&[opcode]).unwrap_err();
+
+        assert_eq!(
+            err,
+            TranspileError::U16MemoryAddressOutOfRange { address: u16::MAX as u32 + 1 }
+        );
+    }
+
+    #[test]
+    fn brillig_to_avm_preserves_existing_infallible_api_for_valid_input() {
+        let (bytecode, pc_map) = brillig_to_avm(&[BrilligOpcode::Mov {
+            destination: MemoryAddress::direct(1),
+            source: MemoryAddress::direct(0),
+        }]);
+
+        assert!(!bytecode.is_empty());
+        assert_eq!(pc_map.len(), 2);
+    }
+
+    #[test]
+    fn u16_memory_address_accepts_max_value() {
+        let address = MemoryAddress::direct(u16::MAX as u32);
+        assert_eq!(u16_memory_address(&address).unwrap(), u16::MAX);
+    }
+
+    #[test]
+    fn u16_memory_address_rejects_oversized_value() {
+        let address = MemoryAddress::direct(u16::MAX as u32 + 1);
+        assert_eq!(
+            u16_memory_address(&address).unwrap_err(),
+            TranspileError::U16MemoryAddressOutOfRange { address: u16::MAX as u32 + 1 }
+        );
+    }
+
+    #[test]
+    fn brillig_to_avm_rejects_oversized_u16_operand() {
+        assert_oversized_address_error(BrilligOpcode::CalldataCopy {
+            destination_address: oversized_address(),
+            size_address: MemoryAddress::direct(0),
+            offset_address: MemoryAddress::direct(1),
+        });
+    }
+
+    #[test]
+    fn try_brillig_to_avm_rejects_reported_wrapping_collision_address() {
+        let collision_address = 70_000;
+        let err = try_brillig_to_avm(&[BrilligOpcode::CalldataCopy {
+            destination_address: MemoryAddress::direct(collision_address),
+            size_address: MemoryAddress::direct(0),
+            offset_address: MemoryAddress::direct(1),
+        }])
+        .unwrap_err();
+
+        assert_eq!(err, TranspileError::U16MemoryAddressOutOfRange { address: collision_address });
+    }
+
+    #[test]
+    fn brillig_to_avm_rejects_oversized_jump_if_condition() {
+        assert_oversized_address_error(BrilligOpcode::JumpIf {
+            condition: oversized_address(),
+            location: 0,
+        });
+    }
+
+    #[test]
+    fn brillig_to_avm_rejects_oversized_const_destination() {
+        assert_oversized_address_error(BrilligOpcode::Const {
+            destination: oversized_address(),
+            value: FieldElement::from(u16::MAX as u32 + 1),
+            bit_size: BitSize::Integer(IntegerBitSize::U32),
+        });
+    }
+
+    #[test]
+    fn brillig_to_avm_rejects_oversized_indirect_const_destination() {
+        assert_oversized_address_error(BrilligOpcode::IndirectConst {
+            destination_pointer: oversized_address(),
+            value: FieldElement::from(u16::MAX as u32 + 1),
+            bit_size: BitSize::Integer(IntegerBitSize::U32),
+        });
+    }
+
+    #[test]
+    fn brillig_to_avm_rejects_oversized_binary_field_operand() {
+        assert_oversized_address_error(BrilligOpcode::BinaryFieldOp {
+            destination: MemoryAddress::direct(2),
+            op: BinaryFieldOp::Add,
+            lhs: oversized_address(),
+            rhs: MemoryAddress::direct(1),
+        });
+    }
+
+    #[test]
+    fn brillig_to_avm_rejects_oversized_binary_int_operand() {
+        assert_oversized_address_error(BrilligOpcode::BinaryIntOp {
+            destination: MemoryAddress::direct(2),
+            op: BinaryIntOp::Add,
+            bit_size: IntegerBitSize::U32,
+            lhs: MemoryAddress::direct(0),
+            rhs: oversized_address(),
+        });
+    }
+
+    #[test]
+    fn brillig_to_avm_rejects_oversized_not_operand() {
+        assert_oversized_address_error(BrilligOpcode::Not {
+            destination: MemoryAddress::direct(1),
+            source: oversized_address(),
+            bit_size: IntegerBitSize::U32,
+        });
+    }
+
+    #[test]
+    fn brillig_to_avm_rejects_oversized_mov_operand() {
+        assert_oversized_address_error(BrilligOpcode::Mov {
+            destination: oversized_address(),
+            source: MemoryAddress::direct(0),
+        });
+    }
+
+    #[test]
+    fn brillig_to_avm_rejects_oversized_conditional_mov_operand() {
+        assert_oversized_address_error(BrilligOpcode::ConditionalMov {
+            destination: MemoryAddress::direct(1),
+            source_a: MemoryAddress::direct(0),
+            source_b: oversized_address(),
+            condition: MemoryAddress::direct(2),
+        });
+    }
+
+    #[test]
+    fn brillig_to_avm_rejects_oversized_load_operand() {
+        assert_oversized_address_error(BrilligOpcode::Load {
+            destination: MemoryAddress::direct(0),
+            source_pointer: oversized_address(),
+        });
+    }
+
+    #[test]
+    fn brillig_to_avm_rejects_oversized_store_operand() {
+        assert_oversized_address_error(BrilligOpcode::Store {
+            destination_pointer: oversized_address(),
+            source: MemoryAddress::direct(0),
+        });
+    }
+
+    #[test]
+    fn brillig_to_avm_rejects_oversized_cast_operand() {
+        assert_oversized_address_error(BrilligOpcode::Cast {
+            destination: MemoryAddress::direct(1),
+            source: oversized_address(),
+            bit_size: BitSize::Integer(IntegerBitSize::U32),
+        });
+    }
+
+    #[test]
+    fn debug_log_message_size_rejects_oversized_u16_immediate() {
+        assert_eq!(
+            u16_immediate("debug log message size", u16::MAX as u32 + 1).unwrap_err(),
+            TranspileError::U16ImmediateOutOfRange {
+                name: "debug log message size",
+                value: u16::MAX as u32 + 1,
+            }
+        );
+    }
 }
