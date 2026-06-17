@@ -1,0 +1,79 @@
+[1mdiff --git a/noir-projects/aztec-nr/aztec/src/contract_self/contract_self_private.nr b/noir-projects/aztec-nr/aztec/src/contract_self/contract_self_private.nr[m
+[1mindex 2d5196da21..57a95da52b 100644[m
+[1m--- a/noir-projects/aztec-nr/aztec/src/contract_self/contract_self_private.nr[m
+[1m+++ b/noir-projects/aztec-nr/aztec/src/contract_self/contract_self_private.nr[m
+[36m@@ -181,7 +181,7 @@[m [mimpl<Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInte[m
+     ///[m
+     ///     let message: EventMessage = self.emit(Transfer { from, to, amount });[m
+     ///     message.deliver_to(from, MessageDelivery::offchain());[m
+[31m-    ///     message.deliver_to(to, MessageDelivery::onchain_constrained().with_sender(from));[m
+[32m+[m[32m    ///     message.deliver_to(to, MessageDelivery::onchain_constrained());[m
+     /// }[m
+     /// ```[m
+     ///[m
+[1mdiff --git a/noir-projects/aztec-nr/aztec/src/messages/delivery/builder.nr b/noir-projects/aztec-nr/aztec/src/messages/delivery/builder.nr[m
+[1mindex a5fa087116..31634e4511 100644[m
+[1m--- a/noir-projects/aztec-nr/aztec/src/messages/delivery/builder.nr[m
+[1m+++ b/noir-projects/aztec-nr/aztec/src/messages/delivery/builder.nr[m
+[36m@@ -284,8 +284,10 @@[m [mimpl OnchainConstrainedDelivery {[m
+     ///[m
+     /// On-chain messages are tagged so that the recipient can find them efficiently without scanning all logs. The tag[m
+     /// is derived from a shared secret between a "sender" and the recipient. By default, the sender is the[m
+[31m-    /// wallet-supplied address (typically the account that initiated the transaction), the same default as[m
+[31m-    /// [`OnchainUnconstrainedDelivery`]; override it when the intended sender differs from that account.[m
+[32m+[m[32m    /// wallet-supplied address (typically the account that initiated the transaction), but some contracts need to[m
+[32m+[m[32m    /// override it so that recipients can discover the notes correctly. This is the case for account contracts in their[m
+[32m+[m[32m    /// constructor: the deployer is the one that initiated the transaction, but any notes generated during deployment[m
+[32m+[m[32m    /// should be tagged by the account contract itself.[m
+     ///[m
+     /// ## Examples[m
+     ///[m
+[1mdiff --git a/noir-projects/aztec-nr/aztec/src/messages/delivery/mode.nr b/noir-projects/aztec-nr/aztec/src/messages/delivery/mode.nr[m
+[1mindex 0f19649a83..8bccdc2454 100644[m
+[1m--- a/noir-projects/aztec-nr/aztec/src/messages/delivery/mode.nr[m
+[1m+++ b/noir-projects/aztec-nr/aztec/src/messages/delivery/mode.nr[m
+[36m@@ -1,9 +1,6 @@[m
+ use crate::protocol::{traits::{Deserialize, Serialize, ToField}, utils::reader::Reader};[m
+ [m
+ /// Noir does not support enums, so this wrapper models delivery variants while keeping raw discriminants private.[m
+[31m-///[m
+[31m-/// This is the private superset covering every delivery medium (including off-chain);[m
+[31m-/// [`OnchainDeliveryMode`] is the serializable on-chain subset used in external ABIs.[m
+ pub(crate) struct DeliveryMode {[m
+     inner: u8,[m
+ }[m
+[1mdiff --git a/noir-projects/contract-snapshots/test_programs/compile_failure/delivery_constrained_address_secret/Nargo.toml b/noir-projects/contract-snapshots/test_programs/compile_failure/delivery_constrained_address_secret/Nargo.toml[m
+[1mdeleted file mode 100644[m
+[1mindex 1d6350eb9c..0000000000[m
+[1m--- a/noir-projects/contract-snapshots/test_programs/compile_failure/delivery_constrained_address_secret/Nargo.toml[m
+[1m+++ /dev/null[m
+[36m@@ -1,8 +0,0 @@[m
+[31m-[package][m
+[31m-name = "delivery_constrained_address_secret"[m
+[31m-authors = [""][m
+[31m-compiler_version = ">=0.25.0"[m
+[31m-type = "contract"[m
+[31m-[m
+[31m-[dependencies][m
+[31m-aztec = { path = "../../../../aztec-nr/aztec" }[m
+[1mdiff --git a/noir-projects/contract-snapshots/test_programs/compile_failure/delivery_constrained_address_secret/src/main.nr b/noir-projects/contract-snapshots/test_programs/compile_failure/delivery_constrained_address_secret/src/main.nr[m
+[1mdeleted file mode 100644[m
+[1mindex dd2904e05d..0000000000[m
+[1m--- a/noir-projects/contract-snapshots/test_programs/compile_failure/delivery_constrained_address_secret/src/main.nr[m
+[1m+++ /dev/null[m
+[36m@@ -1,15 +0,0 @@[m
+[31m-use aztec::macros::aztec;[m
+[31m-[m
+[31m-#[aztec][m
+[31m-contract DeliveryConstrainedAddressSecret {[m
+[31m-    use aztec::{[m
+[31m-        macros::functions::external,[m
+[31m-        messages::delivery::MessageDelivery,[m
+[31m-    };[m
+[31m-[m
+[31m-    #[external("private")][m
+[31m-    fn build_delivery() {[m
+[31m-        let mut delivery = MessageDelivery::onchain_constrained().with_sender(self.msg_sender());[m
+[31m-        let _ = delivery.via_address_derived_secret();[m
+[31m-    }[m
+[31m-}[m

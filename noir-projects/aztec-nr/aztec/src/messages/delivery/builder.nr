@@ -284,8 +284,10 @@ impl OnchainConstrainedDelivery {
     ///
     /// On-chain messages are tagged so that the recipient can find them efficiently without scanning all logs. The tag
     /// is derived from a shared secret between a "sender" and the recipient. By default, the sender is the
-    /// wallet-supplied address (typically the account that initiated the transaction), the same default as
-    /// [`OnchainUnconstrainedDelivery`]; override it when the intended sender differs from that account.
+    /// wallet-supplied address (typically the account that initiated the transaction), but some contracts need to
+    /// override it so that recipients can discover the notes correctly. This is the case for account contracts in their
+    /// constructor: the deployer is the one that initiated the transaction, but any notes generated during deployment
+    /// should be tagged by the account contract itself.
     ///
     /// ## Examples
     ///
