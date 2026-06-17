@@ -60,7 +60,7 @@ export class CppPublicTxSimulator extends PublicTxSimulator implements PublicTxS
     });
 
     const wsRevision = this.merkleTree.getRevision();
-    const wsdbSocketPath = this.merkleTree.getSocketPath();
+    const wsdbIpcPath = this.merkleTree.getIpcPath();
 
     this.log.trace(`Running C++ simulation with world state revision ${JSON.stringify(wsRevision)}`);
 
@@ -90,7 +90,7 @@ export class CppPublicTxSimulator extends PublicTxSimulator implements PublicTxS
     this.simulationPromise = avmSimulate(
       inputBuffer,
       contractProvider,
-      wsdbSocketPath,
+      wsdbIpcPath,
       this.log.level,
       undefined,
       this.cancellationToken,

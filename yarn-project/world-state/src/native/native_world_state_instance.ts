@@ -12,7 +12,7 @@ import type {
  *   - {@link IpcWorldState} — talks to a standalone aztec-wsdb process over UDS or shared memory.
  *
  * The legacy in-process NAPI implementation has been removed; the C++ AVM (NAPI) now connects to
- * the same aztec-wsdb process via UDS using the socket path returned by {@link getSocketPath}.
+ * the same aztec-wsdb process using the IPC path returned by {@link getIpcPath}.
  */
 export interface NativeWorldStateInstance {
   /**
@@ -30,10 +30,10 @@ export interface NativeWorldStateInstance {
   ): Promise<WorldStateResponse[T]>;
 
   /**
-   * UDS path the underlying aztec-wsdb process listens on. The C++ AVM uses this to attach to the
+   * IPC path the underlying aztec-wsdb process listens on. The C++ AVM uses this to attach to the
    * same world state instance the TS layer is using.
    */
-  getSocketPath(): string;
+  getIpcPath(): string;
 
   /**
    * Shut down the world state instance. Cancels any in-flight queues, closes the IPC channel, and

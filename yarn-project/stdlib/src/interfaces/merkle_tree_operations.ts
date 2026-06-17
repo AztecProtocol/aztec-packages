@@ -141,11 +141,11 @@ export interface MerkleTreeReadOperations {
   getRevision(): WorldStateRevision;
 
   /**
-   * Returns the UDS socket path of the underlying aztec-wsdb process. The C++ AVM (NAPI) uses this
-   * to connect to the same world state instance that the TS layer is using; the merkle tree fork
-   * and the AVM must point at the same WSDB process for the simulation to see consistent state.
+   * Returns the IPC path of the underlying aztec-wsdb process. The C++ AVM (NAPI) uses this to
+   * connect to the same world state instance that the TS layer is using; the merkle tree fork and
+   * the AVM must point at the same WSDB process for the simulation to see consistent state.
    */
-  getSocketPath(): string;
+  getIpcPath(): string;
 
   /**
    * Gets sibling path for a leaf.

@@ -87,7 +87,7 @@ export interface ContractProvider {
 const nativeAvmSimulate = nativeModule.avmSimulate as (
   inputs: Buffer,
   contractProvider: ContractProvider,
-  wsdbSocketPath: string,
+  wsdbIpcPath: string,
   logLevel: number,
   logFunction?: any,
   cancellationToken?: any,
@@ -156,8 +156,8 @@ async function withAvmConcurrencyLimit<T>(fn: () => Promise<T>): Promise<T> {
  *
  * @param inputs - Msgpack-serialized AvmFastSimulationInputs buffer
  * @param contractProvider - Object with callbacks for fetching contract instances and classes
- * @param wsdbSocketPath - UDS path of the running aztec-wsdb process. The C++ AVM connects per
- *                        simulation and constructs an IPC-backed merkle DB.
+ * @param wsdbIpcPath - IPC path of the running aztec-wsdb process. The C++ AVM connects per
+ *   simulation and constructs an IPC-backed merkle DB.
  * @param logLevel - Optional log level to control C++ verbosity (only used if loggerFunction is provided)
  * @param logger - Optional logger object for C++ logging callbacks
  * @param cancellationToken - Optional token to enable cancellation support
@@ -166,7 +166,7 @@ async function withAvmConcurrencyLimit<T>(fn: () => Promise<T>): Promise<T> {
 export function avmSimulate(
   inputs: Buffer,
   contractProvider: ContractProvider,
-  wsdbSocketPath: string,
+  wsdbIpcPath: string,
   logLevel: LogLevel = 'info',
   logger?: Logger,
   cancellationToken?: CancellationToken,
@@ -175,7 +175,7 @@ export function avmSimulate(
     nativeAvmSimulate(
       inputs,
       contractProvider,
-      wsdbSocketPath,
+      wsdbIpcPath,
       LogLevels.indexOf(logLevel),
       logger ? (level: LogLevel, msg: string) => logger[level](msg) : null,
       cancellationToken,

@@ -50,8 +50,8 @@ export class MerkleTreesFacade implements MerkleTreeReadOperations {
     return this.revision;
   }
 
-  getSocketPath(): string {
-    return this.instance.getSocketPath();
+  getIpcPath(): string {
+    return this.instance.getIpcPath();
   }
 
   findLeafIndices(treeId: MerkleTreeId, values: MerkleTreeLeafType<MerkleTreeId>[]): Promise<(bigint | undefined)[]> {
