@@ -55,13 +55,13 @@ endef
 
 # Fast bootstrap.
 fast: release-image barretenberg boxes playground docs aztec-up \
-		  bb-tests l1-contracts-tests yarn-project-tests boxes-tests playground-tests aztec-up-tests docs-tests noir-protocol-circuits-tests release-image-tests spartan claude-tests
+		  bb-tests l1-contracts-tests yarn-project-tests boxes-tests playground-tests aztec-up-tests docs-tests noir-protocol-circuits-tests release-image-tests spartan claude-tests ipc-codegen-tests
 
 # Full bootstrap.
 full: fast bb-full-tests bb-cpp-full yarn-project-benches
 
 # Release. Everything plus copy bb cross compiles to ts projects.
-release: fast bb-cpp-release-dir bb-ts-cross-copy
+release: fast bb-cpp-release-dir bb-ts-cross-copy ipc-runtime-cross
 
 #==============================================================================
 # Noir
@@ -211,7 +211,7 @@ bb-cpp-release-dir: bb-cpp-native bb-cpp-cross
 bb-cpp-full: bb-cpp bb-cpp-gcc bb-cpp-fuzzing bb-cpp-asan bb-cpp-smt bb-cpp-cross-arm64-macos bb-cpp-cross-arm64-ios bb-cpp-cross-arm64-android
 
 # BB TypeScript - TypeScript bindings
-bb-ts: bb-cpp-wasm bb-cpp-wasm-threads bb-cpp-native
+bb-ts: bb-cpp-wasm bb-cpp-wasm-threads bb-cpp-native ipc-runtime
 	$(call build,$@,barretenberg/ts)
 
 # Copies the cross-compiles into bb.js.
@@ -274,6 +274,37 @@ bb-rs-tests: bb-rs
 bb-tests: bb-cpp-native-tests bb-acir-tests bb-ts-tests bb-sol-tests bb-bbup-tests bb-docs-tests bb-rs-tests
 
 bb-full-tests: bb-cpp-wasm-threads-tests bb-cpp-asan-tests bb-cpp-smt-tests
+
+#==============================================================================
+# IPC Codegen
+#==============================================================================
+
+.PHONY: ipc-codegen ipc-codegen-tests
+ipc-codegen:
+	$(call build,$@,ipc-codegen)
+
+ipc-codegen-tests: ipc-codegen
+	$(call test,$@,ipc-codegen)
+
+.PHONY: ipc-runtime ipc-runtime-tests ipc-runtime-cross
+ipc-runtime:
+	$(call build,$@,ipc-runtime)
+
+ipc-runtime-tests: ipc-runtime
+	$(call test,$@,ipc-runtime)
+
+# Cross-compile the NAPI addon for the 3 non-host release targets.
+# Host (amd64-linux) addon is produced by the standalone `ipc-runtime` target.
+ipc-runtime-cross-arm64-linux:
+	$(call build,$@,ipc-runtime,build_cross arm64-linux)
+
+ipc-runtime-cross-amd64-macos:
+	$(call build,$@,ipc-runtime,build_cross amd64-macos)
+
+ipc-runtime-cross-arm64-macos:
+	$(call build,$@,ipc-runtime,build_cross arm64-macos)
+
+ipc-runtime-cross: ipc-runtime ipc-runtime-cross-arm64-linux ipc-runtime-cross-amd64-macos ipc-runtime-cross-arm64-macos
 
 #==============================================================================
 # .claude tooling
