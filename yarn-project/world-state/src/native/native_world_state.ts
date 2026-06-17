@@ -28,7 +28,6 @@ import type { MerkleTreeAdminDatabase as MerkleTreeDatabase } from '../world-sta
 import { IpcWorldState } from './ipc_world_state_instance.js';
 import { MerkleTreesFacade, MerkleTreesForkFacade, serializeLeaf } from './merkle_trees_facade.js';
 import {
-  WorldStateMessageType,
   type WorldStateStatusFull,
   type WorldStateStatusSummary,
   blockStateReference,
@@ -228,16 +227,15 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     blockNumber?: BlockNumber,
     opts: { closeDelayMs?: number } = {},
   ): Promise<MerkleTreeWriteOperations> {
-    const resp = await this.instance.call(WorldStateMessageType.CREATE_FORK, {
+    const forkId = await this.instance.createFork({
       latest: blockNumber === undefined,
       blockNumber: blockNumber ?? BlockNumber.ZERO,
-      canonical: true,
     });
     return new MerkleTreesForkFacade(
       this.instance,
       this.initialHeader!,
       new WorldStateRevision(
-        /*forkId=*/ resp.forkId,
+        /*forkId=*/ forkId,
         /* blockNumber=*/ WorldStateRevision.LATEST,
         /* includeUncommitted=*/ true,
       ),
@@ -281,22 +279,18 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     });
 
     try {
-      return await this.instance.call(
-        WorldStateMessageType.SYNC_BLOCK,
-        {
-          blockNumber: l2Block.number,
-          blockHeaderHash: (await l2Block.hash()).toBuffer(),
-          paddedL1ToL2Messages: paddedL1ToL2Messages.map(serializeLeaf),
-          paddedNoteHashes: paddedNoteHashes.map(serializeLeaf),
-          paddedNullifiers: paddedNullifiers.map(serializeLeaf),
-          publicDataWrites: publicDataWrites.map(serializeLeaf),
-          blockStateRef: blockStateReference(l2Block.header.state),
-          canonical: true,
-        },
-        this.sanitizeAndCacheSummaryFromFull.bind(this),
-        this.deleteCachedSummary.bind(this),
-      );
+      const status = await this.instance.syncBlock({
+        blockNumber: l2Block.number,
+        blockHeaderHash: (await l2Block.hash()).toBuffer(),
+        paddedL1ToL2Messages: paddedL1ToL2Messages.map(serializeLeaf),
+        paddedNoteHashes: paddedNoteHashes.map(serializeLeaf),
+        paddedNullifiers: paddedNullifiers.map(serializeLeaf),
+        publicDataWrites: publicDataWrites.map(serializeLeaf),
+        blockStateRef: blockStateReference(l2Block.header.state),
+      });
+      return this.sanitizeAndCacheSummaryFromFull(status);
     } catch (err) {
+      this.deleteCachedSummary();
       this.worldStateInstrumentation.incCriticalErrors('synch_pending_block');
       throw err;
     }
@@ -334,7 +328,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     return sanitized;
   }
 
-  private deleteCachedSummary(_: string) {
+  private deleteCachedSummary() {
     this.cachedStatusSummary = undefined;
   }
 
@@ -345,16 +339,9 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
    */
   public async setFinalized(toBlockNumber: BlockNumber) {
     try {
-      await this.instance.call(
-        WorldStateMessageType.FINALIZE_BLOCKS,
-        {
-          toBlockNumber,
-          canonical: true,
-        },
-        this.sanitizeAndCacheSummary.bind(this),
-        this.deleteCachedSummary.bind(this),
-      );
+      this.sanitizeAndCacheSummary(await this.instance.finalizeBlocks(toBlockNumber));
     } catch (err) {
+      this.deleteCachedSummary();
       this.worldStateInstrumentation.incCriticalErrors('finalize_block');
       throw err;
     }
@@ -368,16 +355,9 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
    */
   public async removeHistoricalBlocks(toBlockNumber: BlockNumber) {
     try {
-      return await this.instance.call(
-        WorldStateMessageType.REMOVE_HISTORICAL_BLOCKS,
-        {
-          toBlockNumber,
-          canonical: true,
-        },
-        this.sanitizeAndCacheSummaryFromFull.bind(this),
-        this.deleteCachedSummary.bind(this),
-      );
+      return this.sanitizeAndCacheSummaryFromFull(await this.instance.removeHistoricalBlocks(toBlockNumber));
     } catch (err) {
+      this.deleteCachedSummary();
       this.worldStateInstrumentation.incCriticalErrors('prune_historical_block');
       throw err;
     }
@@ -390,16 +370,9 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
    */
   public async unwindBlocks(toBlockNumber: BlockNumber) {
     try {
-      return await this.instance.call(
-        WorldStateMessageType.UNWIND_BLOCKS,
-        {
-          toBlockNumber,
-          canonical: true,
-        },
-        this.sanitizeAndCacheSummaryFromFull.bind(this),
-        this.deleteCachedSummary.bind(this),
-      );
+      return this.sanitizeAndCacheSummaryFromFull(await this.instance.unwindBlocks(toBlockNumber));
     } catch (err) {
+      this.deleteCachedSummary();
       this.worldStateInstrumentation.incCriticalErrors('prune_pending_block');
       throw err;
     }
@@ -409,11 +382,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     if (this.cachedStatusSummary !== undefined) {
       return { ...this.cachedStatusSummary };
     }
-    return await this.instance.call(
-      WorldStateMessageType.GET_STATUS,
-      { canonical: true },
-      this.sanitizeAndCacheSummary.bind(this),
-    );
+    return this.sanitizeAndCacheSummary(await this.instance.getStatus());
   }
 
   updateLeaf<ID extends IndexedTreeId>(
@@ -425,14 +394,14 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   }
 
   private async getInitialStateReference(): Promise<StateReference> {
-    const resp = await this.instance.call(WorldStateMessageType.GET_INITIAL_STATE_REFERENCE, { canonical: true });
+    const state = await this.instance.getInitialStateReference();
 
     return new StateReference(
-      treeStateReferenceToSnapshot(resp.state[MerkleTreeId.L1_TO_L2_MESSAGE_TREE]),
+      treeStateReferenceToSnapshot(state[MerkleTreeId.L1_TO_L2_MESSAGE_TREE]),
       new PartialStateReference(
-        treeStateReferenceToSnapshot(resp.state[MerkleTreeId.NOTE_HASH_TREE]),
-        treeStateReferenceToSnapshot(resp.state[MerkleTreeId.NULLIFIER_TREE]),
-        treeStateReferenceToSnapshot(resp.state[MerkleTreeId.PUBLIC_DATA_TREE]),
+        treeStateReferenceToSnapshot(state[MerkleTreeId.NOTE_HASH_TREE]),
+        treeStateReferenceToSnapshot(state[MerkleTreeId.NULLIFIER_TREE]),
+        treeStateReferenceToSnapshot(state[MerkleTreeId.PUBLIC_DATA_TREE]),
       ),
     );
   }
@@ -441,11 +410,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     dstPath: string,
     compact: boolean = true,
   ): Promise<Record<Exclude<SnapshotDataKeys, 'archiver'>, string>> {
-    await this.instance.call(WorldStateMessageType.COPY_STORES, {
-      dstPath,
-      compact,
-      canonical: true,
-    });
+    await this.instance.copyStores(dstPath, compact);
     return fromEntries(NATIVE_WORLD_STATE_DBS.map(([name, dir]) => [name, join(dstPath, dir, 'data.mdb')] as const));
   }
 }

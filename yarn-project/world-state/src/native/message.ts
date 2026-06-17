@@ -1,59 +1,7 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import type { Tuple } from '@aztec/foundation/serialize';
 import { AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/stdlib/trees';
 import type { StateReference } from '@aztec/stdlib/tx';
-import type { UInt32 } from '@aztec/stdlib/types';
-import type { WorldStateRevision } from '@aztec/stdlib/world-state';
-
-export enum WorldStateMessageType {
-  GET_TREE_INFO = 100,
-  GET_STATE_REFERENCE,
-  GET_INITIAL_STATE_REFERENCE,
-
-  GET_LEAF_VALUE,
-  GET_LEAF_PREIMAGE,
-  GET_SIBLING_PATH,
-  GET_BLOCK_NUMBERS_FOR_LEAF_INDICES,
-
-  FIND_LEAF_INDICES,
-  FIND_LOW_LEAF,
-  FIND_SIBLING_PATHS,
-
-  APPEND_LEAVES,
-  BATCH_INSERT,
-  SEQUENTIAL_INSERT,
-
-  UPDATE_ARCHIVE,
-
-  COMMIT,
-  ROLLBACK,
-
-  SYNC_BLOCK,
-
-  CREATE_FORK,
-  DELETE_FORK,
-
-  FINALIZE_BLOCKS,
-  UNWIND_BLOCKS,
-  REMOVE_HISTORICAL_BLOCKS,
-
-  GET_STATUS,
-
-  CREATE_CHECKPOINT,
-  COMMIT_CHECKPOINT,
-  REVERT_CHECKPOINT,
-  COMMIT_ALL_CHECKPOINTS,
-  REVERT_ALL_CHECKPOINTS,
-
-  COPY_STORES,
-
-  CLOSE = 999,
-}
-
-interface WithTreeId {
-  treeId: MerkleTreeId;
-}
 
 export interface WorldStateStatusSummary {
   /** Last block number that can still be unwound. */
@@ -279,32 +227,6 @@ export function sanitizeFullStatus(status: WorldStateStatusFull) {
   return status;
 }
 
-interface WithForkId {
-  forkId: number;
-}
-
-interface CreateCheckpointResponse {
-  depth: number;
-}
-
-/** Request to commit/revert all checkpoints down to a target depth. The resulting depth after the operation equals the given depth. */
-interface CheckpointDepthRequest extends WithForkId {
-  /** The target depth after the operation. All checkpoints above this depth are committed/reverted. */
-  depth: number;
-}
-
-interface WithWorldStateRevision {
-  revision: WorldStateRevision;
-}
-
-interface WithCanonicalForkId {
-  canonical: true;
-}
-
-interface WithLeafIndex {
-  leafIndex: bigint;
-}
-
 export type SerializedLeafValue =
   | Buffer // Fr
   | { nullifier: Buffer } // NullifierLeaf
@@ -316,241 +238,36 @@ export type SerializedIndexedLeaf = {
   nextKey: Buffer; // Fr
 };
 
-interface WithLeafValues {
-  leaves: SerializedLeafValue[];
-}
-
-interface BlockShiftRequest extends WithCanonicalForkId {
-  toBlockNumber: BlockNumber;
-}
-
-interface WithLeaves {
-  leaves: SerializedLeafValue[];
-}
-
-interface GetTreeInfoRequest extends WithTreeId, WithWorldStateRevision {}
-interface GetTreeInfoResponse {
-  treeId: MerkleTreeId;
-  depth: UInt32;
-  size: bigint | number;
-  root: Buffer;
-}
-
-interface GetBlockNumbersForLeafIndicesRequest extends WithTreeId, WithWorldStateRevision {
-  leafIndices: bigint[];
-}
-
-interface GetBlockNumbersForLeafIndicesResponse {
-  blockNumbers: bigint[];
-}
-
-interface GetSiblingPathRequest extends WithTreeId, WithLeafIndex, WithWorldStateRevision {}
-type GetSiblingPathResponse = Buffer[];
-
-interface GetStateReferenceRequest extends WithWorldStateRevision {}
-interface GetStateReferenceResponse {
-  state: Record<MerkleTreeId, TreeStateReference>;
-}
-
-interface GetLeafRequest extends WithTreeId, WithWorldStateRevision, WithLeafIndex {}
-type GetLeafResponse = SerializedLeafValue | undefined;
-
-interface GetLeafPreImageRequest extends WithTreeId, WithLeafIndex, WithWorldStateRevision {}
-type GetLeafPreImageResponse = SerializedIndexedLeaf | undefined;
-
-interface FindLeafIndicesRequest extends WithTreeId, WithLeafValues, WithWorldStateRevision {
-  startIndex: bigint;
-}
-interface FindLeafIndicesResponse {
-  indices: bigint[];
-}
-
-interface FindSiblingPathsRequest extends WithTreeId, WithLeafValues, WithWorldStateRevision {}
-
-interface SiblingPathAndIndex {
+export interface SerializedSiblingPathAndIndex {
   index: bigint;
   path: Buffer[];
 }
-interface FindSiblingPathsResponse {
-  paths: (SiblingPathAndIndex | undefined)[];
-}
 
-interface FindLowLeafRequest extends WithTreeId, WithWorldStateRevision {
-  key: Fr;
-}
-interface FindLowLeafResponse {
-  index: bigint | number;
-  alreadyPresent: boolean;
-}
-
-interface AppendLeavesRequest extends WithTreeId, WithForkId, WithLeaves {}
-
-interface BatchInsertRequest extends WithTreeId, WithForkId, WithLeaves {
-  subtreeDepth: number;
-}
-
-interface BatchInsertResponse {
+export interface SerializedBatchInsertionResult {
   lowLeafWitnessData: ReadonlyArray<{
     leaf: SerializedIndexedLeaf;
     index: bigint | number;
-    path: Tuple<Buffer, number>;
+    path: Buffer[];
   }>;
-  sortedLeaves: ReadonlyArray<[SerializedLeafValue, UInt32]>;
-  subtreePath: Tuple<Buffer, number>;
+  sortedLeaves: ReadonlyArray<readonly [SerializedLeafValue, number]>;
+  subtreePath: Buffer[];
 }
 
-interface SequentialInsertRequest extends WithTreeId, WithForkId, WithLeaves {}
-
-interface SequentialInsertResponse {
+export interface SerializedSequentialInsertionResult {
   lowLeafWitnessData: ReadonlyArray<{
     leaf: SerializedIndexedLeaf;
     index: bigint | number;
-    path: Tuple<Buffer, number>;
+    path: Buffer[];
   }>;
   insertionWitnessData: ReadonlyArray<{
     leaf: SerializedIndexedLeaf;
     index: bigint | number;
-    path: Tuple<Buffer, number>;
+    path: Buffer[];
   }>;
 }
 
-interface UpdateArchiveRequest extends WithForkId {
-  blockStateRef: BlockStateReference;
-  blockHeaderHash: Buffer;
-}
-
-interface SyncBlockRequest extends WithCanonicalForkId {
-  blockNumber: BlockNumber;
-  blockStateRef: BlockStateReference;
-  blockHeaderHash: Buffer;
-  paddedNoteHashes: readonly SerializedLeafValue[];
-  paddedL1ToL2Messages: readonly SerializedLeafValue[];
-  paddedNullifiers: readonly SerializedLeafValue[];
-  publicDataWrites: readonly SerializedLeafValue[];
-}
-
-interface CreateForkRequest extends WithCanonicalForkId {
-  latest: boolean;
-  blockNumber: BlockNumber;
-}
-
-interface CreateForkResponse {
-  forkId: number;
-}
-
-interface DeleteForkRequest extends WithForkId {}
-
-interface CopyStoresRequest extends WithCanonicalForkId {
-  dstPath: string;
-  compact: boolean;
-}
-
-export type WorldStateRequestCategories = WithForkId | WithWorldStateRevision | WithCanonicalForkId;
-
-export function isWithForkId(body: WorldStateRequestCategories): body is WithForkId {
-  return body && 'forkId' in body;
-}
-
-export function isWithRevision(body: WorldStateRequestCategories): body is WithWorldStateRevision {
-  return body && 'revision' in body;
-}
-
-export function isWithCanonical(body: WorldStateRequestCategories): body is WithCanonicalForkId {
-  return body && 'canonical' in body;
-}
-
-export type WorldStateRequest = {
-  [WorldStateMessageType.GET_TREE_INFO]: GetTreeInfoRequest;
-  [WorldStateMessageType.GET_STATE_REFERENCE]: GetStateReferenceRequest;
-  [WorldStateMessageType.GET_INITIAL_STATE_REFERENCE]: WithCanonicalForkId;
-
-  [WorldStateMessageType.GET_LEAF_VALUE]: GetLeafRequest;
-  [WorldStateMessageType.GET_LEAF_PREIMAGE]: GetLeafPreImageRequest;
-  [WorldStateMessageType.GET_SIBLING_PATH]: GetSiblingPathRequest;
-  [WorldStateMessageType.GET_BLOCK_NUMBERS_FOR_LEAF_INDICES]: GetBlockNumbersForLeafIndicesRequest;
-
-  [WorldStateMessageType.FIND_LEAF_INDICES]: FindLeafIndicesRequest;
-  [WorldStateMessageType.FIND_LOW_LEAF]: FindLowLeafRequest;
-  [WorldStateMessageType.FIND_SIBLING_PATHS]: FindSiblingPathsRequest;
-
-  [WorldStateMessageType.APPEND_LEAVES]: AppendLeavesRequest;
-  [WorldStateMessageType.BATCH_INSERT]: BatchInsertRequest;
-  [WorldStateMessageType.SEQUENTIAL_INSERT]: SequentialInsertRequest;
-
-  [WorldStateMessageType.UPDATE_ARCHIVE]: UpdateArchiveRequest;
-
-  [WorldStateMessageType.COMMIT]: WithCanonicalForkId;
-  [WorldStateMessageType.ROLLBACK]: WithCanonicalForkId;
-
-  [WorldStateMessageType.SYNC_BLOCK]: SyncBlockRequest;
-
-  [WorldStateMessageType.CREATE_FORK]: CreateForkRequest;
-  [WorldStateMessageType.DELETE_FORK]: DeleteForkRequest;
-
-  [WorldStateMessageType.REMOVE_HISTORICAL_BLOCKS]: BlockShiftRequest;
-  [WorldStateMessageType.UNWIND_BLOCKS]: BlockShiftRequest;
-  [WorldStateMessageType.FINALIZE_BLOCKS]: BlockShiftRequest;
-
-  [WorldStateMessageType.GET_STATUS]: WithCanonicalForkId;
-
-  [WorldStateMessageType.CREATE_CHECKPOINT]: WithForkId;
-  [WorldStateMessageType.COMMIT_CHECKPOINT]: WithForkId;
-  [WorldStateMessageType.REVERT_CHECKPOINT]: WithForkId;
-  [WorldStateMessageType.COMMIT_ALL_CHECKPOINTS]: CheckpointDepthRequest;
-  [WorldStateMessageType.REVERT_ALL_CHECKPOINTS]: CheckpointDepthRequest;
-
-  [WorldStateMessageType.COPY_STORES]: CopyStoresRequest;
-
-  [WorldStateMessageType.CLOSE]: WithCanonicalForkId;
-};
-
-export type WorldStateResponse = {
-  [WorldStateMessageType.GET_TREE_INFO]: GetTreeInfoResponse;
-  [WorldStateMessageType.GET_STATE_REFERENCE]: GetStateReferenceResponse;
-  [WorldStateMessageType.GET_INITIAL_STATE_REFERENCE]: GetStateReferenceResponse;
-
-  [WorldStateMessageType.GET_LEAF_VALUE]: GetLeafResponse;
-  [WorldStateMessageType.GET_LEAF_PREIMAGE]: GetLeafPreImageResponse;
-  [WorldStateMessageType.GET_SIBLING_PATH]: GetSiblingPathResponse;
-  [WorldStateMessageType.GET_BLOCK_NUMBERS_FOR_LEAF_INDICES]: GetBlockNumbersForLeafIndicesResponse;
-
-  [WorldStateMessageType.FIND_LEAF_INDICES]: FindLeafIndicesResponse;
-  [WorldStateMessageType.FIND_LOW_LEAF]: FindLowLeafResponse;
-  [WorldStateMessageType.FIND_SIBLING_PATHS]: FindSiblingPathsResponse;
-
-  [WorldStateMessageType.APPEND_LEAVES]: void;
-  [WorldStateMessageType.BATCH_INSERT]: BatchInsertResponse;
-  [WorldStateMessageType.SEQUENTIAL_INSERT]: SequentialInsertResponse;
-
-  [WorldStateMessageType.UPDATE_ARCHIVE]: void;
-
-  [WorldStateMessageType.COMMIT]: void;
-  [WorldStateMessageType.ROLLBACK]: void;
-
-  [WorldStateMessageType.SYNC_BLOCK]: WorldStateStatusFull;
-
-  [WorldStateMessageType.CREATE_FORK]: CreateForkResponse;
-  [WorldStateMessageType.DELETE_FORK]: void;
-
-  [WorldStateMessageType.REMOVE_HISTORICAL_BLOCKS]: WorldStateStatusFull;
-  [WorldStateMessageType.UNWIND_BLOCKS]: WorldStateStatusFull;
-  [WorldStateMessageType.FINALIZE_BLOCKS]: WorldStateStatusSummary;
-
-  [WorldStateMessageType.GET_STATUS]: WorldStateStatusSummary;
-
-  [WorldStateMessageType.CREATE_CHECKPOINT]: CreateCheckpointResponse;
-  [WorldStateMessageType.COMMIT_CHECKPOINT]: void;
-  [WorldStateMessageType.REVERT_CHECKPOINT]: void;
-  [WorldStateMessageType.COMMIT_ALL_CHECKPOINTS]: void;
-  [WorldStateMessageType.REVERT_ALL_CHECKPOINTS]: void;
-
-  [WorldStateMessageType.COPY_STORES]: void;
-
-  [WorldStateMessageType.CLOSE]: void;
-};
-
-type TreeStateReference = readonly [Buffer, number | bigint];
-type BlockStateReference = Map<Exclude<MerkleTreeId, MerkleTreeId.ARCHIVE>, TreeStateReference>;
+export type TreeStateReference = readonly [Buffer, number | bigint];
+export type BlockStateReference = Map<Exclude<MerkleTreeId, MerkleTreeId.ARCHIVE>, TreeStateReference>;
 
 export function treeStateReferenceToSnapshot([root, size]: TreeStateReference): AppendOnlyTreeSnapshot {
   return new AppendOnlyTreeSnapshot(Fr.fromBuffer(root), Number(size));
