@@ -97,7 +97,7 @@ describe('ResolvedTx', () => {
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     const fieldArrayStr = `[${serialized.map(f => f.toString()).join(',')}]`;
     updateInlineTestData(
-      'noir-projects/aztec-nr/aztec/src/oracle/tx.nr',
+      'noir-projects/aztec-nr/aztec/src/oracle/tx_resolution.nr',
       'serialized_resolved_tx_from_typescript',
       fieldArrayStr,
     );

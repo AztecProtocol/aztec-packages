@@ -9,7 +9,7 @@ import { TxHash } from '@aztec/stdlib/tx';
  * Carries the note hashes and first nullifier needed to discover notes that originated from the transaction, plus the
  * number and hash of the block in which it was mined.
  *
- * A TS version of the `ResolvedTx` struct in `oracle/tx.nr`.
+ * A TS version of the `ResolvedTx` struct in `oracle/tx_resolution.nr`.
  */
 export class ResolvedTx {
   constructor(
