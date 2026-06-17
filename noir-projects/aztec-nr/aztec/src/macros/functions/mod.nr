@@ -335,6 +335,16 @@ pub comptime fn authorize_once(f: FunctionDefinition, from_arg_name: CtString, n
     AUTHORIZE_ONCE_REGISTRY.insert(f, (from_arg_name, nonce_arg_name));
 }
 
+/// Names reserved for functions auto-injected by the `#[aztec]` macro (`sync_state` and `offchain_receive`).
+///
+/// A user function with one of these names is rejected by the `#[aztec]` macro itself, which emits the canonical
+/// diagnostic. We use this to avoid registering such a function for processing, so it isn't transformed into a
+/// contract-interface stub that overlaps the auto-generated one (cascading on top of that diagnostic).
+comptime fn is_reserved_fn_name(f: FunctionDefinition) -> bool {
+    let name = f.name();
+    (name == quote { sync_state }) | (name == quote { offchain_receive })
+}
+
 /// An external function is callable from outside the contract.
 ///
 /// There are three types of external functions:
@@ -349,27 +359,40 @@ pub comptime fn authorize_once(f: FunctionDefinition, from_arg_name: CtString, n
 /// behavior),
 /// [`authorize_once`] (for basic access control) and [`only_self`] (to prevent other contracts from calling them).
 pub comptime fn external(f: FunctionDefinition, f_type: CtString) {
-    // In this function we perform basic checks on the function to ensure it is valid and then we add the function to
-    // the external functions registry for later processing by the `#[aztec]` macro.
-
-    assert_return_type_serializable(f);
-    assert_params_serializable(f);
+    // We run every check (validation is non-halting, see `emit_error`) so all diagnostics for the function are
+    // reported together, and then either register it for processing by the `#[aztec]` macro or, if any check failed,
+    // `disable` it. Disabling replaces the body with a stub so an invalid function (and any code referencing it) does
+    // not produce a cascade of follow-on errors layered on top of the validation diagnostics already emitted.
+    let function_name = f.name();
+    // A reserved-named function is rejected by `#[aztec]` (which emits the diagnostic); skip registration here so it
+    // isn't processed into a stub that overlaps the auto-generated function of the same name.
+    let allowed = !is_reserved_fn_name(f);
+    let serializable = assert_return_type_serializable(f) & assert_params_serializable(f);
 
     if f_type.eq("private") {
-        assert_valid_private(f);
-        external_functions_registry::add_private(f);
+        if serializable & assert_valid_private(f) & allowed {
+            external_functions_registry::add_private(f);
+        } else {
+            f.disable(f"{function_name} is not a valid #[external(\"private\")] function");
+        }
     } else if f_type.eq("public") {
-        assert_valid_public(f);
-        external_functions_registry::add_public(f);
+        if serializable & assert_valid_public(f) & allowed {
+            external_functions_registry::add_public(f);
+        } else {
+            f.disable(f"{function_name} is not a valid #[external(\"public\")] function");
+        }
     } else if f_type.eq("utility") {
-        assert_valid_utility(f);
-        external_functions_registry::add_utility(f);
+        if serializable & assert_valid_utility(f) & allowed {
+            external_functions_registry::add_utility(f);
+        } else {
+            f.disable(f"{function_name} is not a valid #[external(\"utility\")] function");
+        }
     } else {
-        let function_name = f.name();
         emit_error(
             f"Function '{function_name}' is marked as #[external(\"{f_type}\")], but '{f_type}' is not a valid external function type. External functions must be one of 'private', 'public' or 'utility'",
             f.location(),
         );
+        f.disable(f"{function_name} has an invalid #[external(...)] function type");
     }
 }
 
@@ -382,29 +405,37 @@ pub comptime fn external(f: FunctionDefinition, f_type: CtString) {
 /// contract calls).
 pub comptime fn internal(f: FunctionDefinition, f_type: CtString) {
     let function_name = f.name();
+    let allowed = !is_reserved_fn_name(f);
     if is_fn_external(f) {
+        // The function is already registered and transformed as an external function. Skip internal
+        // registration so it is not processed twice (which fails with "Function already resolved").
         emit_error(
             f"The #[internal] attribute cannot be applied to external functions - {function_name} is marked as both #[external] and #[internal(\"{f_type}\")]",
             f.location(),
         );
-    }
-
-    if f_type.eq("private") {
-        assert_valid_private(f);
-        internal_functions_registry::add_private(f);
+    } else if f_type.eq("private") {
+        if assert_valid_private(f) & allowed {
+            internal_functions_registry::add_private(f);
+        } else {
+            f.disable(f"{function_name} is not a valid #[internal(\"private\")] function");
+        }
     } else if f_type.eq("public") {
-        assert_valid_public(f);
-        internal_functions_registry::add_public(f);
+        if assert_valid_public(f) & allowed {
+            internal_functions_registry::add_public(f);
+        } else {
+            f.disable(f"{function_name} is not a valid #[internal(\"public\")] function");
+        }
     } else {
-        let function_name = f.name();
         emit_error(
             f"Function '{function_name}' is marked as #[internal(\"{f_type}\")], but '{f_type}' is not a valid internal function type. Internal functions must be one of 'private', 'public'",
             f.location(),
         );
+        f.disable(f"{function_name} has an invalid #[internal(...)] function type");
     }
 }
 
-comptime fn assert_valid_private(f: FunctionDefinition) {
+comptime fn assert_valid_private(f: FunctionDefinition) -> bool {
+    let mut valid = true;
     let visibility = f.visibility();
     if visibility != quote {} {
         let name = f.name();
@@ -412,6 +443,7 @@ comptime fn assert_valid_private(f: FunctionDefinition) {
             f"A function marked as #[external(\"private\")] or #[internal(\"private\")] must not have public Noir visibility - {name}'s visibility is '{visibility}'",
             f.location(),
         );
+        valid = false;
     }
 
     if f.is_unconstrained() {
@@ -420,10 +452,14 @@ comptime fn assert_valid_private(f: FunctionDefinition) {
             f"#[external(\"private\")] or #[internal(\"private\")] functions must not be unconstrained - {name} is",
             f.location(),
         );
+        valid = false;
     }
+
+    valid
 }
 
-comptime fn assert_valid_public(f: FunctionDefinition) {
+comptime fn assert_valid_public(f: FunctionDefinition) -> bool {
+    let mut valid = true;
     let visibility = f.visibility();
     if visibility != quote {} {
         let name = f.name();
@@ -431,6 +467,7 @@ comptime fn assert_valid_public(f: FunctionDefinition) {
             f"A function marked as #[external(\"public\")] or #[internal(\"public\")] must not have public Noir visibility - {name}'s visibility is '{visibility}'",
             f.location(),
         );
+        valid = false;
     }
 
     if f.is_unconstrained() {
@@ -439,6 +476,7 @@ comptime fn assert_valid_public(f: FunctionDefinition) {
             f"#[external(\"public\")] or #[internal(\"public\")] functions must not be unconstrained - {name} is",
             f.location(),
         );
+        valid = false;
     }
 
     if fn_has_allow_phase_change(f) {
@@ -447,6 +485,7 @@ comptime fn assert_valid_public(f: FunctionDefinition) {
             f"The #[allow_phase_change] attribute cannot be applied to #[external(\"public\")] functions - {name}",
             f.location(),
         );
+        valid = false;
     }
 
     if f.name() == EMIT_PUBLIC_INIT_NULLIFIER_FN_NAME {
@@ -454,6 +493,7 @@ comptime fn assert_valid_public(f: FunctionDefinition) {
             f"Function name '{EMIT_PUBLIC_INIT_NULLIFIER_FN_NAME}' is reserved for internal use",
             f.location(),
         );
+        valid = false;
     }
 
     if f.name() == quote { public_dispatch } {
@@ -461,10 +501,14 @@ comptime fn assert_valid_public(f: FunctionDefinition) {
             f"Function name 'public_dispatch' is reserved for internal use",
             f.location(),
         );
+        valid = false;
     }
+
+    valid
 }
 
-comptime fn assert_valid_utility(f: FunctionDefinition) {
+comptime fn assert_valid_utility(f: FunctionDefinition) -> bool {
+    let mut valid = true;
     let visibility = f.visibility();
     if visibility != quote {} {
         let name = f.name();
@@ -472,6 +516,7 @@ comptime fn assert_valid_utility(f: FunctionDefinition) {
             f"A function marked as #[external(\"utility\")] must not have public Noir visibility - {name}'s visibility is '{visibility}'",
             f.location(),
         );
+        valid = false;
     }
 
     if !f.is_unconstrained() {
@@ -480,6 +525,7 @@ comptime fn assert_valid_utility(f: FunctionDefinition) {
             f"#[external(\"utility\")] must be unconstrained - {name} isn't",
             f.location(),
         );
+        valid = false;
     }
 
     // Utility functions cannot be used with the following modifiers: #[authorize_once], #[only_self], #[view],
@@ -493,6 +539,7 @@ comptime fn assert_valid_utility(f: FunctionDefinition) {
             f"The #[authorize_once] attribute cannot be applied to #[external(\"utility\")] functions - {name}",
             f.location(),
         );
+        valid = false;
     }
 
     if is_fn_only_self(f) {
@@ -501,6 +548,7 @@ comptime fn assert_valid_utility(f: FunctionDefinition) {
             f"The #[only_self] attribute cannot be applied to #[external(\"utility\")] functions - {name}",
             f.location(),
         );
+        valid = false;
     }
 
     if is_fn_view(f) {
@@ -509,6 +557,7 @@ comptime fn assert_valid_utility(f: FunctionDefinition) {
             f"The #[view] attribute cannot be applied to #[external(\"utility\")] functions - {name}",
             f.location(),
         );
+        valid = false;
     }
 
     if is_fn_initializer(f) {
@@ -517,6 +566,7 @@ comptime fn assert_valid_utility(f: FunctionDefinition) {
             f"The #[initializer] attribute cannot be applied to #[external(\"utility\")] functions - {name}",
             f.location(),
         );
+        valid = false;
     }
 
     if fn_has_noinitcheck(f) {
@@ -525,6 +575,7 @@ comptime fn assert_valid_utility(f: FunctionDefinition) {
             f"The #[noinitcheck] attribute cannot be applied to #[external(\"utility\")] functions - {name}",
             f.location(),
         );
+        valid = false;
     }
 
     if fn_has_allow_phase_change(f) {
@@ -533,5 +584,8 @@ comptime fn assert_valid_utility(f: FunctionDefinition) {
             f"The #[allow_phase_change] attribute cannot be applied to #[external(\"utility\")] functions - {name}",
             f.location(),
         );
+        valid = false;
     }
+
+    valid
 }

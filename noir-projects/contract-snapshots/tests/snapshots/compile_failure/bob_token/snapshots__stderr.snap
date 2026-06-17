@@ -37,18 +37,4 @@ error: Function _assert_is_owner must be marked as either #[external(...)], #[in
     │        ----------------
     │
 
-error: Function already resolved
-   ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/internals_functions_generation/internal.nr:<line>:<col>
-   │
-   │     let body = f.body();
-   │                -------- The function was previously called at compile-time or is in another crate
-   │
-
-error: cannot find `self` in this scope
-    ┌─ src/main.nr:109:28
-    │
-109 │         assert_eq(address, self.storage.owner.read(), "Only owner");
-    │                            ---- not found in this scope
-    │
-
-Aborting due to 7 previous errors
+Aborting due to 5 previous errors

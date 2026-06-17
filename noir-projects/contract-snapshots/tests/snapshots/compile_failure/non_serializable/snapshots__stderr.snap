@@ -44,18 +44,4 @@ error: Parameter '_p' of contract function 'bad_utility_param' has type NotSeria
    │                      -----------------
    │
 
-error: No matching impl found for `NotSerializable: Serialize<N = _>`
-   ┌─ <repo>/noir-projects/noir-protocol-circuits/crates/types/src/meta/utils.nr:<line>:<col>
-   │
-   │                     <$param_type as $crate::traits::Serialize>::N
-   │                       --------------------------------------- No impl for `NotSerializable: Serialize<N = _>`
-   │
-
-error: No impl found due to prior type error
-   ┌─ <repo>/noir-projects/noir-protocol-circuits/crates/types/src/meta/utils.nr:<line>:<col>
-   │
-   │                     <$param_type as $crate::traits::Serialize>::N
-   │                       ---------------------------------------
-   │
-
-Aborting due to 8 previous errors
+Aborting due to 6 previous errors

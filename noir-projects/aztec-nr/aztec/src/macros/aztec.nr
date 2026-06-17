@@ -148,13 +148,6 @@ pub comptime fn aztec(m: Module, args: [AztecConfig]) -> Quoted {
         Option::some(aztec::messages::processing::offchain::sync_inbox)
     };
 
-    if m.functions().any(|f| f.name() == quote { sync_state }) {
-        emit_error(
-            f"User-defined 'sync_state' is not allowed. Use AztecConfig::custom_sync_state() to customize sync behavior.",
-            m.location(),
-        );
-    }
-
     let custom_sync_handler = if config.custom_sync_state.is_some() {
         let handler = config.custom_sync_state.unwrap();
         Option::some(quote { $handler })
@@ -162,19 +155,32 @@ pub comptime fn aztec(m: Module, args: [AztecConfig]) -> Quoted {
         Option::none()
     };
 
-    let sync_state_fn_and_abi_export = generate_sync_state(
-        process_custom_message_option,
-        offchain_inbox_sync_option,
-        custom_sync_handler,
-    );
+    let sync_state_fn_and_abi_export = if m.functions().any(|f| f.name() == quote { sync_state }) {
+        // Skip generating the auto-injected `sync_state` so it doesn't collide with the user's definition and
+        // produce duplicate-definition errors on top of this diagnostic.
+        emit_error(
+            f"User-defined 'sync_state' is not allowed. Use AztecConfig::custom_sync_state() to customize sync behavior.",
+            m.location(),
+        );
+        quote {}
+    } else {
+        generate_sync_state(
+            process_custom_message_option,
+            offchain_inbox_sync_option,
+            custom_sync_handler,
+        )
+    };
 
-    if m.functions().any(|f| f.name() == quote { offchain_receive }) {
+    let offchain_receive_fn_and_abi_export = if m.functions().any(|f| f.name() == quote { offchain_receive }) {
+        // Skip generating the auto-injected `offchain_receive` so it doesn't collide with the user's definition.
         emit_error(
             f"User-defined 'offchain_receive' is not allowed. The function is auto-injected by the #[aztec] macro. See https://docs.aztec.network/errors/7",
             m.location(),
         );
-    }
-    let offchain_receive_fn_and_abi_export = generate_offchain_receive();
+        quote {}
+    } else {
+        generate_offchain_receive()
+    };
 
     let (has_public_init_nullifier_fn, emit_public_init_nullifier_fn_body) = generate_emit_public_init_nullifier(m);
     let public_dispatch = generate_public_dispatch(m, has_public_init_nullifier_fn);
@@ -353,6 +359,9 @@ comptime fn check_each_fn_macroified(m: Module) {
                 f"Function {name} must be marked as either #[external(...)], #[internal(...)], or #[test]",
                 f.location(),
             );
+            // Stub the body so its references to the macro-injected `self`/context don't cascade into
+            // "cannot find self" errors layered on top of the diagnostic above.
+            f.disable(f"Function {name} is not a valid contract function");
         }
     }
 }

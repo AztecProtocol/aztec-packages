@@ -21,12 +21,20 @@ pub comptime mut global STORAGE_LAYOUT_NAME: CHashMap<Module, Quoted> = CHashMap
 pub comptime fn storage(s: TypeDefinition) -> Quoted {
     let struct_name = s.name();
     if struct_name != quote { Storage } {
+        // Skip layout generation entirely; a wrongly-named struct would otherwise produce duplicate or
+        // unresolved `Storage` definitions layered on top of this diagnostic.
         emit_error(
             f"The #[storage] macro can only be applied to a struct with name 'Storage', got '{struct_name}' instead.",
             s.location(),
-        )
+        );
+        quote {}
+    } else {
+        generate_storage_layout(s)
     }
+}
 
+/// Builds the storage `init` impl and `StorageLayout` for a correctly-named `Storage` struct.
+comptime fn generate_storage_layout(s: TypeDefinition) -> Quoted {
     if s.has_named_attribute("storage_no_init") {
         emit_error(
             f"Only one of #[storage] and #[storage_no_init] can be applied to the Storage struct.",
@@ -50,32 +58,45 @@ pub comptime fn storage(s: TypeDefinition) -> Quoted {
             let _maybe_owned_context = std::meta::typ::fresh_type_variable();
             if typ.implements(quote { crate::state_vars::OwnedStateVariable<$_maybe_owned_context> }
                 .as_trait_constraint()) {
-                panic(
+                emit_error(
                     f"Type {typ} implements OwnedStateVariable and hence cannot be placed in Storage struct without being wrapped in Owned. Wrap the type in Owned<..., Context>.",
-                )
+                    s.location(),
+                );
+            } else {
+                emit_error(
+                    f"Type {typ} does not implement StateVariable and hence cannot be placed in Storage struct.",
+                    s.location(),
+                );
             }
 
-            panic(
-                f"Type {typ} does not implement StateVariable and hence cannot be placed in Storage struct.",
-            )
+            // The field has no valid storage size, so we can't build a real state variable for it. Push a zeroed
+            // dummy (and a zero-slot layout entry) so the generated `init` and `StorageLayout` stay complete,
+            // avoiding missing-field cascades on top of the diagnostic above.
+            storage_vars_constructors =
+                storage_vars_constructors.push_back(quote { $name: std::mem::zeroed() });
+            storage_layout_struct_members =
+                storage_layout_struct_members.push_back(quote { pub $name: aztec::state_vars::Storable });
+            storage_layout_constructors = storage_layout_constructors.push_back(
+                quote { $name: aztec::state_vars::Storable { slot: 0 } },
+            );
+        } else {
+            let storage_size = maybe_storage_size.as_constant().unwrap();
+            let slot_as_field = slot as Field;
+
+            storage_vars_constructors = storage_vars_constructors.push_back(
+                quote { $name: aztec::state_vars::StateVariable::<$storage_size, Context>::new(context, $slot_as_field) },
+            );
+
+            // We have `Storable` in a separate `.nr` file instead of defining it in the last quote of this function
+            // because that way a dev gets a more reasonable error if he defines a struct with the same name in a contract.
+            storage_layout_struct_members =
+                storage_layout_struct_members.push_back(quote { pub $name: aztec::state_vars::Storable });
+            storage_layout_constructors = storage_layout_constructors.push_back(
+                quote { $name: aztec::state_vars::Storable { slot: $slot_as_field } },
+            );
+
+            slot += storage_size;
         }
-
-        let storage_size = maybe_storage_size.as_constant().unwrap();
-        let slot_as_field = slot as Field;
-
-        storage_vars_constructors = storage_vars_constructors.push_back(
-            quote { $name: aztec::state_vars::StateVariable::<$storage_size, Context>::new(context, $slot_as_field) },
-        );
-
-        // We have `Storable` in a separate `.nr` file instead of defining it in the last quote of this function
-        // because that way a dev gets a more reasonable error if he defines a struct with the same name in a contract.
-        storage_layout_struct_members =
-            storage_layout_struct_members.push_back(quote { pub $name: aztec::state_vars::Storable });
-        storage_layout_constructors = storage_layout_constructors.push_back(
-            quote { $name: aztec::state_vars::Storable { slot: $slot_as_field } },
-        );
-
-        slot += storage_size;
     }
 
     let storage_vars_constructors = storage_vars_constructors.join(quote {,});

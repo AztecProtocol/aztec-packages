@@ -6,6 +6,6 @@ pub contract PanicOnIncorrectlyPerformedPrivateCall {
 
     #[external("private")]
     fn arbitrary_external_function() {
-        PanicOnIncorrectlyPerformedPrivateCall::at(AztecAddress::ZERO).arbitrary_external_function();
+        PanicOnIncorrectlyPerformedPrivateCall::at(AztecAddress::zero()).arbitrary_external_function();
     }
 }

@@ -2,24 +2,14 @@
 source: tests/snapshots.rs
 expression: stderr
 ---
-error: Could not resolve 'ZERO' in path
-  ┌─ src/main.nr:3:1
-  │
-3 │ #[aztec]
-  │ -------- While running this function attribute
-  ·
-9 │         PanicOnIncorrectlyPerformedPrivateCall::at(AztecAddress::ZERO).arbitrary_external_function();
-  │                                                                  ----
-  │
-
 error: Your private call needs to be passed into the `self.call(...)` method to be executed (e.g. `self.call(MyContract::at(address).my_private_function(...args))`
   ┌─ src/main.nr:3:1
   │
 3 │ #[aztec]
   │ -------- While running this function attribute
   ·
-9 │         PanicOnIncorrectlyPerformedPrivateCall::at(AztecAddress::ZERO).arbitrary_external_function();
-  │         -------------------------------------------------------------------------------------------- Unused expression result of type PrivateCall<27, 0, ()> which must be used
+9 │         PanicOnIncorrectlyPerformedPrivateCall::at(AztecAddress::zero()).arbitrary_external_function();
+  │         ---------------------------------------------------------------------------------------------- Unused expression result of type PrivateCall<27, 0, ()> which must be used
   │
 
-Aborting due to 2 previous errors
+Aborting due to 1 previous error

@@ -15,7 +15,7 @@ pub contract PanicOnIncorrectlyPerformedPrivateStaticCall {
 
     #[external("private")]
     fn call_static_function_without_view() {
-        PanicOnIncorrectlyPerformedPrivateStaticCall::at(AztecAddress::ZERO)
+        PanicOnIncorrectlyPerformedPrivateStaticCall::at(AztecAddress::zero())
             .arbitrary_view_function();
     }
 }

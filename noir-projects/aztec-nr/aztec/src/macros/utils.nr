@@ -137,7 +137,14 @@ pub(crate) comptime fn compute_struct_selector(s: TypeDefinition, from_signature
 }
 
 pub(crate) comptime fn module_has_storage(m: Module) -> bool {
-    m.structs().any(|s: TypeDefinition| s.has_named_attribute("storage") | s.has_named_attribute("storage_no_init"))
+    // The struct must also be named `Storage`: the function generators inject `Storage::init(...)`, which only
+    // resolves if a `Storage` type was actually declared/generated. A misnamed `#[storage]` struct is rejected by the
+    // `storage` macro and produces no `Storage` type, so it must not be reported as present here (otherwise the
+    // injected `Storage::init` cascades into unresolved-`Storage` errors on top of the struct-name diagnostic).
+    m.structs().any(|s: TypeDefinition| {
+        (s.name() == quote { Storage })
+            & (s.has_named_attribute("storage") | s.has_named_attribute("storage_no_init"))
+    })
 }
 
 pub(crate) comptime fn module_has_initializer(m: Module) -> bool {
@@ -161,7 +168,8 @@ pub(crate) comptime fn get_trait_impl_method(typ: Type, target_trait: Quoted, ta
 
 /// Asserts that the return type of a contract function implements both `Serialize` and `Deserialize`.
 /// Functions with a `()` return type are skipped since unit values are not serialized.
-pub(crate) comptime fn assert_return_type_serializable(f: FunctionDefinition) {
+pub(crate) comptime fn assert_return_type_serializable(f: FunctionDefinition) -> bool {
+    let mut valid = true;
     let return_type = f.return_type();
     if return_type != type_of(()) {
         let fn_name = f.name();
@@ -171,6 +179,7 @@ pub(crate) comptime fn assert_return_type_serializable(f: FunctionDefinition) {
                 f"Contract function '{fn_name}' returns a value of type {return_type}, which does not implement the Serialize trait. Add #[derive(Serialize)] to {return_type}'s declaration.",
                 f.location(),
             );
+            valid = false;
         }
         let deserialize_constraint = quote { crate::protocol::traits::Deserialize }.as_trait_constraint();
         if !return_type.implements(deserialize_constraint) {
@@ -178,12 +187,15 @@ pub(crate) comptime fn assert_return_type_serializable(f: FunctionDefinition) {
                 f"Contract function '{fn_name}' returns a value of type {return_type}, which does not implement the Deserialize trait. Add #[derive(Deserialize)] to {return_type}'s declaration.",
                 f.location(),
             );
+            valid = false;
         }
     }
+    valid
 }
 
 /// Asserts that all parameters of a contract function implement both `Serialize` and `Deserialize`.
-pub(crate) comptime fn assert_params_serializable(f: FunctionDefinition) {
+pub(crate) comptime fn assert_params_serializable(f: FunctionDefinition) -> bool {
+    let mut valid = true;
     let fn_name = f.name();
 
     for param in f.parameters() {
@@ -194,6 +206,7 @@ pub(crate) comptime fn assert_params_serializable(f: FunctionDefinition) {
                 f"Parameter '{name}' of contract function '{fn_name}' has type {param_type}, which does not implement the Serialize trait. Add #[derive(Serialize)] to {param_type}'s declaration.",
                 f.location(),
             );
+            valid = false;
         }
         let deserialize_constraint = quote { crate::protocol::traits::Deserialize }.as_trait_constraint();
         if !param_type.implements(deserialize_constraint) {
@@ -201,8 +214,10 @@ pub(crate) comptime fn assert_params_serializable(f: FunctionDefinition) {
                 f"Parameter '{name}' of contract function '{fn_name}' has type {param_type}, which does not implement the Deserialize trait. Add #[derive(Deserialize)] to {param_type}'s declaration.",
                 f.location(),
             );
+            valid = false;
         }
     }
+    valid
 }
 
 /// Generates a quote that implements `Serialize` for a given struct `s`. If the struct already implements `Serialize`,
