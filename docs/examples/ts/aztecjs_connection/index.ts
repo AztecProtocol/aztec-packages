@@ -97,6 +97,7 @@ const feeJuiceAccount = await wallet.createSchnorrAccount(
 import { createExtendedL1Client } from "@aztec/ethereum/client";
 import { L1FeeJuicePortalManager } from "@aztec/aztec.js/ethereum";
 import { createLogger } from "@aztec/aztec.js/log";
+import { waitForL1ToL2MessageReady } from "@aztec/aztec.js/messaging";
 
 // Create an L1 client (accepts a mnemonic or 0x-prefixed private key)
 const l1RpcUrl = process.env.ETHEREUM_HOST ?? "http://localhost:8545";
@@ -120,6 +121,11 @@ const claim = await portalManager.bridgeTokensPublic(
 
 console.log("Claim secret:", claim.claimSecret);
 console.log("Claim amount:", claim.claimAmount);
+
+// Wait until the bridged message is included in an L2 checkpoint and can be consumed.
+await waitForL1ToL2MessageReady(node, Fr.fromHexString(claim.messageHash), {
+  timeoutSeconds: 60,
+});
 // docs:end:bridge_fee_juice_execute
 
 // docs:start:deploy_contract
