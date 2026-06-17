@@ -44,7 +44,8 @@ export function computeBetaProducts(betas: bigint[], logNumMonomials: number): b
 
 export class GateSeparatorPolynomial {
   readonly betas: bigint[];
-  readonly betaProducts: bigint[];
+  private readonly logNumMonomials: number;
+  private _betaProducts: bigint[] | null = null;
   currentElementIdx = 0;
   periodicity = 2;
   partialEvaluationResult = 1n;
@@ -56,7 +57,18 @@ export class GateSeparatorPolynomial {
    */
   constructor(betas: bigint[], logNumMonomials: number = betas.length) {
     this.betas = betas.map(mod);
-    this.betaProducts = computeBetaProducts(this.betas, logNumMonomials);
+    this.logNumMonomials = logNumMonomials;
+  }
+
+  /**
+   * The length-2^logNumMonomials beta_products table, built lazily on first access.
+   * Only the host edge-scaling path (`at` / `edgeScaling`) needs it; the GPU sumcheck
+   * scales on-device from its own resident Montgomery table, so it never triggers this
+   * O(2^logNumMonomials) bigint build.
+   */
+  get betaProducts(): bigint[] {
+    if (this._betaProducts === null) this._betaProducts = computeBetaProducts(this.betas, this.logNumMonomials);
+    return this._betaProducts;
   }
 
   /** C++ operator[]: beta_products[(idx>>1)*periodicity]. idx is an even row index. */

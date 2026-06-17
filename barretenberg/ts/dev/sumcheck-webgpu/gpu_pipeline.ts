@@ -25,7 +25,7 @@ import { NUM_RELATIONS, assembleAccumulator } from '../../src/msm_webgpu/accumul
 import { ALL_RELATIONS } from './descriptors.js';
 import {
   type PipelineCache, type RelationDescriptor,
-  WG, sm, packParams, toMont, fromMont, writeLe32, le32ToBi,
+  WG, sm, mod, packParams, toMont, fromMont, writeLe32, le32ToBi,
 } from './harness.js';
 
 const REDUCE_WG = 128; // >= largest relation out_len (90)
@@ -33,6 +33,7 @@ const REDUCE_GROUPS = 64;
 
 export interface FoldRunner { layout: GPUBindGroupLayout; pipeline: GPUComputePipeline }
 export interface ReduceRunner { layout: GPUBindGroupLayout; pipeline: GPUComputePipeline }
+export interface KernelRunner { layout: GPUBindGroupLayout; pipeline: GPUComputePipeline }
 
 export async function makeFoldRunner(device: GPUDevice): Promise<FoldRunner> {
   const layout = create_bind_group_layout(device, ['read-only-storage', 'storage', 'uniform', 'read-only-storage']);
@@ -42,6 +43,20 @@ export async function makeFoldRunner(device: GPUDevice): Promise<FoldRunner> {
 export async function makeReduceRunner(device: GPUDevice): Promise<ReduceRunner> {
   const layout = create_bind_group_layout(device, ['read-only-storage', 'storage', 'uniform']);
   const pipeline = await create_compute_pipeline(device, [layout], sm.gen_reduce_test_shader(REDUCE_WG), 'reduce_main', 'reduce_main');
+  return { layout, pipeline };
+}
+/** Gate-separator beta_products scan: beta_buf (read_write), scalars, params. */
+export async function makeScanRunner(device: GPUDevice): Promise<KernelRunner> {
+  const layout = create_bind_group_layout(device, ['storage', 'read-only-storage', 'uniform']);
+  const code = sm.gen_gate_separator_scan_test_shader(WG);
+  const pipeline = await create_compute_pipeline(device, [layout], code, 'gate_separator_scan_main', 'gate_separator_scan_main');
+  return { layout, pipeline };
+}
+/** Gate-separator per-round edge-scaling gather: beta_buf, out_buf (read_write), params. */
+export async function makeGatherRunner(device: GPUDevice): Promise<KernelRunner> {
+  const layout = create_bind_group_layout(device, ['read-only-storage', 'storage', 'uniform']);
+  const code = sm.gen_gate_separator_gather_test_shader(WG);
+  const pipeline = await create_compute_pipeline(device, [layout], code, 'gate_separator_gather_main', 'gate_separator_gather_main');
   return { layout, pipeline };
 }
 
@@ -119,9 +134,9 @@ export async function runResidentGpuSumcheck(
   const foldRunner = shared?.foldRunner ?? (await makeFoldRunner(device));
   const reduceRunner = shared?.reduceRunner ?? (await makeReduceRunner(device));
 
-  // Opt-in per-kernel GPU timing, round 0 only (its acc+reduce+fold passes total
-  // 14*3 + 14 = 56 stages, under the 64 default and Metal's sample-buffer limit).
-  // No-ops (stage() -> undefined) when the device lacks timestamp-query.
+  // Opt-in per-kernel GPU timing, round 0 only (its gather + acc+reduce+fold passes
+  // total 1 + 14*3 + 14 = 57 stages, under the 64 default and Metal's sample-buffer
+  // limit). No-ops (stage() -> undefined) when the device lacks timestamp-query.
   const profiler = profile ? new Profiler(device, 64) : null;
   const prof = (round: number, label: string) => (round === 0 ? profiler?.stage(label) : undefined);
 
@@ -144,6 +159,9 @@ export async function runResidentGpuSumcheck(
     totalOutLen += desc.outLen;
   }
   const perEdge = create_sb(device, maxPerEdge * 32);
+  // Per-round gate-separator edge scaling, gathered on the GPU into this reused
+  // scratch (sized for round 0) — the relation accumulate kernels read it unchanged.
+  const scalScratch = create_sb(device, pairs0 * 32);
   // Two-level on-GPU reduction: pass 1 sums edges -> up to REDUCE_GROUPS partials per
   // column (partsScratch, reused per relation); pass 2 sums those -> ONE Fr per column
   // into finalParts (the whole 345-Fr accumulator). Only finalParts (~11 KB) is read
@@ -156,6 +174,33 @@ export async function runResidentGpuSumcheck(
   // copy that fills it — no onSubmittedWorkDone fence, no per-round allocation).
   const readbackBytes = totalOutLen * 32;
   const stagingBuf = create_readback_buffer(device, readbackBytes);
+
+  // Resident Montgomery beta_products table, built once on the GPU. A doubling
+  // subset-product scan (gate_separator_scan) fills beta_products[2^k + r] =
+  // beta_products[r] * betas[k] in d ordered passes, replacing the host's
+  // O(n log n) computeBetaProducts + the per-round toMont loop. Each round then
+  // gathers its strided slice (beta_products[p * 2^{round+1}]) off this buffer.
+  // Empty betas degenerate to beta_products = [0] (no passes; zero-initialized).
+  const scanRunner = relCache.get('gs:scan') ?? await makeScanRunner(device);
+  relCache.set('gs:scan', scanRunner);
+  const gatherRunner = relCache.get('gs:gather') ?? await makeGatherRunner(device);
+  relCache.set('gs:gather', gatherRunner);
+  const betaMontBuf = create_sb(device, n * 32); // zero-init == Montgomery 0 everywhere
+  if (betas.length > 0) {
+    const seed = new Uint8Array(32);
+    writeLe32(seed, 0, toMont(1n)); // beta_products[0] = Montgomery 1
+    device.queue.writeBuffer(betaMontBuf, 0, seed);
+    const scalarBuf = create_and_write_sb(device, packParams(betas.slice(0, d).map(mod)));
+    const scanEnc = device.createCommandEncoder();
+    for (let k = 0; k < d; k++) {
+      const count = 1 << k; // lower-half length / write offset / thread bound for pass k
+      const sBg = create_bind_group(device, scanRunner.layout, [
+        betaMontBuf, scalarBuf, create_and_write_ub(device, u32x4(count, k)),
+      ]);
+      await execute_pipeline(scanEnc, scanRunner.pipeline, sBg, Math.ceil(count / WG), 1, 1);
+    }
+    device.queue.submit([scanEnc.finish()]);
+  }
 
   // Cached accumulate pipeline per relation. Bindings: col_buf (resident columns),
   // out_buf (per-edge output), params, scaling, and param_buf for the four
@@ -191,18 +236,23 @@ export async function runResidentGpuSumcheck(
       const chunk = Math.max(1, Math.ceil(pairs / REDUCE_GROUPS));
       const groups = Math.ceil(pairs / chunk);
 
+      const enc = device.createCommandEncoder();
+      // Gather this round's per-pair edge scaling off the resident beta_products
+      // table: scalScratch[p] = beta_products[p * periodicity], periodicity =
+      // gs.periodicity = 2^{round+1}. No host bigint — the only per-round scaling
+      // work is encoding this one GPU copy, so scalingMs collapses toward 0.
       const ts = performance.now();
-      const scal = new Uint8Array(pairs * 32);
-      for (let p = 0; p < pairs; p++) writeLe32(scal, p * 32, toMont(gs.edgeScaling(p)));
-      const scalBuf = create_and_write_sb(device, scal);
+      const gBg = create_bind_group(device, gatherRunner.layout, [
+        betaMontBuf, scalScratch, create_and_write_ub(device, u32x4(pairs, gs.periodicity)),
+      ]);
+      await execute_pipeline(enc, gatherRunner.pipeline, gBg, Math.ceil(pairs / WG), 1, 1, prof(_round, 'gather'));
       scalingMs += performance.now() - ts;
 
-      const enc = device.createCommandEncoder();
       for (const desc of ALL_RELATIONS) {
         const r = desc.relationIndex;
         // accumulate: gather edges from resident columns + scaling -> per-edge output (perEdge)
         const acc = await accPipeline(desc);
-        const aBufs: GPUBuffer[] = [colBuf[r], perEdge, create_and_write_ub(device, u32x4(pairs)), scalBuf];
+        const aBufs: GPUBuffer[] = [colBuf[r], perEdge, create_and_write_ub(device, u32x4(pairs)), scalScratch];
         if (relParamBufs[r]) aBufs.push(relParamBufs[r]!);
         const aBg = create_bind_group(device, acc.layout, aBufs);
         await execute_pipeline(enc, acc.pipeline, aBg, Math.ceil(pairs / accWG), 1, 1, prof(_round, `acc:${desc.id}`));

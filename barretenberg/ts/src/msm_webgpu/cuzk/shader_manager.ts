@@ -39,6 +39,8 @@ import {
   field as field_funcs,
   field8 as field8_funcs,
   fold_test as fold_test_shader,
+  gate_separator_scan_test as gate_separator_scan_test_shader,
+  gate_separator_gather_test as gate_separator_gather_test_shader,
   reduce_test as reduce_test_shader,
   batch_test as batch_test_shader,
   poseidon2_transcript_test as poseidon2_transcript_test_shader,
@@ -440,6 +442,26 @@ ${packLines.join('\n')}
    */
   public gen_fold_test_shader(workgroup_size: number): string {
     return mustache.render(fold_test_shader, this.relationView(workgroup_size), this.relationPartials);
+  }
+
+  /**
+   * Gate-separator beta_products scan: builds the length-2^d Montgomery
+   * beta_products table on the GPU via d doubling passes (one Montgomery multiply
+   * per new entry), replacing the host's O(n log n) computeBetaProducts. One thread
+   * per upper-half entry; the host runs the d passes as ordered dispatches.
+   */
+  public gen_gate_separator_scan_test_shader(workgroup_size: number): string {
+    return mustache.render(gate_separator_scan_test_shader, this.relationView(workgroup_size), this.relationPartials);
+  }
+
+  /**
+   * Gate-separator per-round edge-scaling gather: copies the strided slice
+   * beta_products[p * periodicity] out of the resident Montgomery table into the
+   * contiguous per-pair scaling buffer the relation accumulate kernels read. One
+   * thread per pair; a plain 8x u32 copy (no field arithmetic, no partials).
+   */
+  public gen_gate_separator_gather_test_shader(workgroup_size: number): string {
+    return mustache.render(gate_separator_gather_test_shader, this.relationView(workgroup_size), {});
   }
 
   /**
@@ -1375,6 +1397,56 @@ ${packLines.join('\n')}
     }
     const multiply_body = mb.join('\n');
 
+    // ── Square multiply body (montgomery_square) ───────────────────────
+    // Same Karatsuba split / inner combine (pExpr) / outer combine (folds)
+    // as the product above, but every 5×5 schoolbook is a SQUARE: a 5-limb
+    // square is 5 diagonal a_i² + 10 off-diagonal a_i·a_j-once-doubled = 15
+    // unique products (vs 25), cutting the multiply phase ~225→135 limb-muls.
+    // The Yuval reduce / final drain / extract / conditional_reduce are reused
+    // verbatim (they act on the 40-limb t regardless of how it was formed).
+    //
+    // Carry-safe doubling: each column sums its off-diagonal products FIRST,
+    // then `<< 1u`, then adds the diagonal term — never a per-term 2u·a_i·a_j.
+    // The off-diagonal sum stays < 2^32 (worst slot ≈ 2.15e9, its double
+    // ≈ 4.29e9 < 2^32 by ~1e6), every directly-used column fits u32, and the
+    // only wrap is the cr half-product's C-square slot 4 (80·W²), unwound by
+    // the `c - ll - hh` subtraction exactly as in the product — so the square
+    // needs the SAME zero drains. Proven equal to montgomery_product(a,a)
+    // (byte-identical limbs) in scripts/montgomery_square_check.mjs.
+    const sqCol = (ap: string): string[] => [
+      `${ap}0 * ${ap}0`,
+      `(${ap}0 * ${ap}1) << 1u`,
+      `((${ap}0 * ${ap}2) << 1u) + ${ap}1 * ${ap}1`,
+      `(${ap}0 * ${ap}3 + ${ap}1 * ${ap}2) << 1u`,
+      `((${ap}0 * ${ap}4 + ${ap}1 * ${ap}3) << 1u) + ${ap}2 * ${ap}2`,
+      `(${ap}1 * ${ap}4 + ${ap}2 * ${ap}3) << 1u`,
+      `((${ap}2 * ${ap}4) << 1u) + ${ap}3 * ${ap}3`,
+      `(${ap}3 * ${ap}4) << 1u`,
+      `${ap}4 * ${ap}4`,
+    ];
+    const sb: string[] = [];
+    for (let s = 0; s < 2 * N; s++) sb.push(`    var t${s}: u32 = 0u;`);
+    for (const g of kgroups) {
+      sb.push('');
+      sb.push(`    {   // ===== half-product ${g.tag} (square) =====`);
+      const emitSq = (out: string, ap: string, bases: number[]): void => {
+        for (let k = 0; k < 5; k++) {
+          sb.push(`        let ${ap}${k}: u32 = ${chunkSum(xlimb, bases, k)};`);
+        }
+        const cols = sqCol(ap);
+        for (let m = 0; m < 9; m++) sb.push(`        let ${out}${m}: u32 = ${cols[m]};`);
+      };
+      emitSq('ll', `a${g.tag}l`, g.llB);
+      emitSq('hh', `a${g.tag}h`, g.hhB);
+      emitSq('c', `a${g.tag}c`, g.cB);
+      for (let k = 0; k < 19; k++) {
+        const folds = g.folds.map(f => `t${k + f.off} = t${k + f.off} ${f.sign} p;`).join(' ');
+        sb.push(`        { let p: u32 = ${pExpr(k)}; ${folds} }`);
+      }
+      sb.push('    }');
+    }
+    const square_multiply_body = sb.join('\n');
+
     const yuval_iters: Array<{ i: number; writes: Array<{ slot: number; r_idx: number; first: boolean }> }> = [];
     for (let i = 0; i < N - 1; i++) {
       const writes = [];
@@ -1407,6 +1479,7 @@ ${packLines.join('\n')}
       r_inv_consts,
       p_limbs_consts,
       multiply_body,
+      square_multiply_body,
       yuval_iters,
       i_std,
       standard_writes,
