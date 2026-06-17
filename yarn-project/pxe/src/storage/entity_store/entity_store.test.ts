@@ -178,20 +178,28 @@ describe('EntityStore', () => {
     expect(entities[0].facts).toHaveLength(0);
   });
 
-  it('createEntity rejects an entity already staged for creation in the same job', async () => {
+  it('createEntity is a no-op for an entity already staged in the same job (first write wins)', async () => {
+    const firstBody = [Fr.random()];
+    await store.createEntity(entityKey1, firstBody, undefined, JOB);
+    // A second create for the same key neither throws nor overwrites the first.
     await store.createEntity(entityKey1, [Fr.random()], undefined, JOB);
-    await expect(store.createEntity(entityKey1, [Fr.random()], undefined, JOB)).rejects.toThrow(
-      'already existing entity',
-    );
+
+    expect((await store.getEntity(entityKey1, JOB))!.body).toEqual(firstBody);
   });
 
-  it('createEntity rejects an entity already committed to disk', async () => {
-    await store.createEntity(entityKey1, [Fr.random()], undefined, JOB);
+  it('createEntity is a no-op for an already committed entity, preserving its facts (first write wins)', async () => {
+    const firstBody = [Fr.random()];
+    await store.createEntity(entityKey1, firstBody, undefined, JOB);
+    await store.recordFact(entityKey1, factTypeA, [Fr.random()], undefined, JOB);
     await kv.transactionAsync(() => store.commit(JOB));
 
-    await expect(store.createEntity(entityKey1, [Fr.random()], undefined, 'recreate-job')).rejects.toThrow(
-      'already existing entity',
-    );
+    // Re-creating the committed entity with a different body neither throws nor replaces it, and leaves its facts intact.
+    await store.createEntity(entityKey1, [Fr.random()], undefined, 'recreate-job');
+    await kv.transactionAsync(() => store.commit('recreate-job'));
+
+    const { body, facts } = (await store.getEntity(entityKey1, 'reader'))!;
+    expect(body).toEqual(firstBody);
+    expect(facts.map(f => f.factTypeId)).toEqual([factTypeA]);
   });
 
   it("reflects a job's own staged createEntity before commit (read-your-writes)", async () => {
@@ -342,7 +350,7 @@ describe('EntityStore', () => {
     await store.createEntity(entityKey1, [Fr.random()], { blockNumber: 6, blockHash: Fr.random() }, JOB);
     await kv.transactionAsync(() => store.commit(JOB));
 
-    // A plain re-create now rejects; terminate-then-create is the supported way to replace the entity.
+    // A plain re-create is a no-op (first write wins); terminate-then-create is the supported way to replace the entity.
     const JOB2 = 'replace-job';
     await store.terminateEntity(entityKey1, JOB2);
     await store.createEntity(entityKey1, replacementBody, undefined, JOB2);
@@ -467,15 +475,18 @@ describe('EntityStore', () => {
       await expect(kv.transactionAsync(() => store.rollback(0))).resolves.not.toThrow();
     });
 
-    it('commit rejects a createEntity whose entity was already committed by a racing job', async () => {
-      // The write-time guard only inspects the calling job's staged ops plus committed state, so two jobs can
-      // both stage a create for the same key without seeing each other. The second to commit must be rejected.
+    it('a createEntity racing another job to the same key resolves first commit wins', async () => {
+      // The staging path inspects only the calling job's ops plus committed state, so two jobs can both stage a create
+      // for the same key without seeing each other. On commit the first to land wins; the second is a silent no-op.
       const JOB2 = 'racing-job';
-      await store.createEntity(entityKey1, [Fr.random()], undefined, JOB);
+      const firstBody = [Fr.random()];
+      await store.createEntity(entityKey1, firstBody, undefined, JOB);
       await store.createEntity(entityKey1, [Fr.random()], undefined, JOB2);
 
       await kv.transactionAsync(() => store.commit(JOB));
-      await expect(kv.transactionAsync(() => store.commit(JOB2))).rejects.toThrow('already existing entity');
+      await expect(kv.transactionAsync(() => store.commit(JOB2))).resolves.not.toThrow();
+
+      expect((await store.getEntity(entityKey1, 'reader'))!.body).toEqual(firstBody);
     });
 
     it('discardStaged drops staged writes without touching committed state', async () => {

@@ -102,10 +102,22 @@ export class EntityStore implements StagedStore {
   }
 
   /**
-   * Creates an entity.
+   * Creates an entity. Idempotent, with first-write-wins semantics.
    *
    * If `originBlock === undefined`, the entity is non-retractable: it survives reorgs. A defined origin block makes the
    * entity retractable: on a prune above its block, the entity and all its facts are deleted.
+   *
+   * An entity is identified solely by its {@link EntityKey} (contract, scope, entityTypeId, entityId). If an entity
+   * with that key already exists, this call is a no-op: the existing entity, its body, origin block or lackthereof,
+   * and all its facts, are left untouched and the supplied `entityBody`/`originBlock` are ignored.
+   *
+   * Creating a duplicate key never throws, so callers may re-run creation unconditionally without first checking
+   * existence. This matters because Noir has no exception handling: a throw on an existing key would abort the whole
+   * utility run with no way to recover.
+   *
+   * Users that need different behavior (updating an entity, branching on its current state, or distinguishing
+   * instances by block, to cite a few examples) must either read it first via {@link getEntity} / {@link getEntities}
+   * and handle the preexisting case explicitly, encode the distinguishing data into the `entityId`, or leverage facts.
    */
   createEntity(
     entityKey: EntityKey,
@@ -113,14 +125,12 @@ export class EntityStore implements StagedStore {
     originBlock: OriginBlock | undefined,
     jobId: string,
   ): Promise<void> {
-    return this.#withJobLock(jobId, async () => {
-      if ((await this.getEntity(entityKey, jobId)) !== undefined) {
-        throw new Error(`Cannot create an already existing entity ${entityKey.toString()}`);
-      }
+    return this.#withJobLock(jobId, () => {
       this.#stagedOpsFor(jobId).push({
         kind: 'createEntity',
         entity: new StoredEntity(entityKey, entityBody, originBlock),
       });
+      return Promise.resolve();
     });
   }
 
@@ -393,15 +403,22 @@ export class EntityStore implements StagedStore {
     }
     for (const op of this.#stagedOpsFor(jobId)) {
       switch (op.kind) {
-        case 'createEntity':
-          if (typeKey === undefined || op.entity.key.entityTypeKey().toString() === typeKey) {
-            result.set(op.entity.key.toString(), {
+        case 'createEntity': {
+          // First-write-wins idempotency: materialize only when absent, so a re-create never clobbers an existing
+          // entity's body or facts (mirrors #commitEntity skipping an already-stored key).
+          const entityKeyStr = op.entity.key.toString();
+          if (
+            (typeKey === undefined || op.entity.key.entityTypeKey().toString() === typeKey) &&
+            !result.has(entityKeyStr)
+          ) {
+            result.set(entityKeyStr, {
               key: op.entity.key,
               body: op.entity.body,
               facts: new Map<FactKeyStr, Fact>(),
             });
           }
           break;
+        }
         case 'terminate':
           result.delete(op.key.toString());
           break;
@@ -427,11 +444,14 @@ export class EntityStore implements StagedStore {
 
   /**
    * Writes a newly created entity to persistent storage.
+   *
+   * First-write-wins: if an entity with this key already exists, this is a no-op that leaves the existing record and
+   * all of its facts untouched (see {@link createEntity}).
    */
   async #commitEntity(entity: StoredEntity): Promise<void> {
     const entityKey = entity.key.toString();
     if (await this.#entities.hasAsync(entityKey)) {
-      throw new Error(`Cannot commit createEntity for an already existing entity ${entityKey}`);
+      return;
     }
     await this.#entities.set(entityKey, entity.toBuffer());
     if (entity.originBlock !== undefined) {
