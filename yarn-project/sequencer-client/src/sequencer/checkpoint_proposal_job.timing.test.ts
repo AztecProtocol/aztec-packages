@@ -458,10 +458,6 @@ describe('CheckpointProposalJob Timing Tests', () => {
         block: { number: BlockNumber.ZERO, hash: '' },
         checkpoint: { number: CheckpointNumber(checkpointNumber - 1), hash: '' },
       },
-      proposedCheckpoint: {
-        block: { number: BlockNumber.ZERO, hash: '' },
-        checkpoint: { number: CheckpointNumber(checkpointNumber - 1), hash: '' },
-      },
       proven: {
         block: { number: BlockNumber.ZERO, hash: '' },
         checkpoint: { number: CheckpointNumber(0), hash: '' },

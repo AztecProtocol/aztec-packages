@@ -42,6 +42,7 @@ import { ReqRespSubProtocol, type ReqRespSubProtocolHandler } from '../services/
 import type {
   DuplicateAttestationInfo,
   DuplicateProposalInfo,
+  OversizedProposalInfo,
   P2PBlockReceivedCallback,
   P2PCheckpointReceivedCallback,
   P2PService,
@@ -177,6 +178,8 @@ export class P2PClient extends WithTracer implements P2P {
         await this.handlePruneL2Blocks(event.block, event.checkpointed.checkpoint);
         break;
       case 'chain-checkpointed':
+        break;
+      case 'chain-proposed':
         break;
       default: {
         const _: never = event;
@@ -412,6 +415,10 @@ export class P2PClient extends WithTracer implements P2P {
 
   public registerDuplicateProposalCallback(callback: (info: DuplicateProposalInfo) => void): void {
     this.p2pService.registerDuplicateProposalCallback(callback);
+  }
+
+  public registerOversizedProposalCallback(callback: (info: OversizedProposalInfo) => void): void {
+    this.p2pService.registerOversizedProposalCallback(callback);
   }
 
   public registerDuplicateAttestationCallback(callback: (info: DuplicateAttestationInfo) => void): void {

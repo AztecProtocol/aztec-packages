@@ -554,10 +554,32 @@ describe('ProposalValidator', () => {
       epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
     });
 
-    it('rejects a block proposal whose indexWithinCheckpoint equals the cap (5 >= 5)', async () => {
+    it('accepts a block proposal whose indexWithinCheckpoint equals the consensus cap (5 >= 5) as slashing evidence', async () => {
+      // Over the consensus limit but below the hard attestable ceiling: structurally valid proposer
+      // misbehavior, so gossip validation accepts it for retention/re-broadcast rather than rejecting.
       const proposal = await makeBlockProposal({
         blockHeader: makeBlockHeader(0, { slotNumber: currentSlot }),
         indexWithinCheckpoint: IndexWithinCheckpoint(5),
+        signer,
+      });
+      const result = await validator.validate(proposal);
+      expect(result).toEqual({ result: 'accept' });
+    });
+
+    it('accepts a block proposal at an over-consensus index well within the attestable ceiling', async () => {
+      const proposal = await makeBlockProposal({
+        blockHeader: makeBlockHeader(0, { slotNumber: currentSlot }),
+        indexWithinCheckpoint: IndexWithinCheckpoint(MAX_ATTESTABLE_BLOCKS_PER_CHECKPOINT - 1),
+        signer,
+      });
+      const result = await validator.validate(proposal);
+      expect(result).toEqual({ result: 'accept' });
+    });
+
+    it('rejects a block proposal at the hard attestable ceiling even with a lower consensus cap', async () => {
+      const proposal = await makeBlockProposal({
+        blockHeader: makeBlockHeader(0, { slotNumber: currentSlot }),
+        indexWithinCheckpoint: IndexWithinCheckpoint(MAX_ATTESTABLE_BLOCKS_PER_CHECKPOINT),
         signer,
       });
       const result = await validator.validate(proposal);
