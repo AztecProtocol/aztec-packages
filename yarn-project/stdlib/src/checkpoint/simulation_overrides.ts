@@ -6,8 +6,10 @@ import {
 } from '@aztec/ethereum/contracts';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import type { Logger } from '@aztec/foundation/log';
-import { type ProposedCheckpointData, computeCheckpointPayloadDigest } from '@aztec/stdlib/checkpoint';
-import type { CoordinationSignatureContext } from '@aztec/stdlib/p2p';
+
+import type { CoordinationSignatureContext } from '../p2p/signature_utils.js';
+import type { ProposedCheckpointData } from './checkpoint_data.js';
+import { computeCheckpointPayloadDigest } from './digest.js';
 
 type CheckpointSimulationOverridesPlanInput = {
   /** Target rollup contract. */

@@ -11,7 +11,6 @@ export * from '../../../telemetry-client/dest/start.js';
 export * from '../../../telemetry-client/dest/otel_propagation.js';
 export * from '../../../telemetry-client/dest/prom_otel_adapter.js';
 export * from '../../../telemetry-client/dest/wrappers/fetch.js';
-export * from '../../../telemetry-client/dest/wrappers/l2_block_stream.js';
 
 type MetricDefinition = { name: string; description: string; valueType: ValueType };
 

@@ -71,7 +71,9 @@ async function addMinter(l1TokenContract: EthAddress, l1TokenHandler: EthAddress
     abi: TestERC20Abi,
     client: l1Client,
   });
-  await contract.write.addMinter([l1TokenHandler.toString()]);
+  await l1Client.waitForTransactionReceipt({
+    hash: await contract.write.addMinter([l1TokenHandler.toString()]),
+  });
 }
 
 // To run these tests against a local network:
@@ -138,10 +140,16 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
     await l2TokenContract.methods.set_minter(l2BridgeContract.address, true).send({ from: ownerAztecAddress });
 
     // Initialize L1 portal contract
-    await l1Portal.write.initialize(
-      [l1ContractAddresses.registryAddress.toString(), l1TokenContract.toString(), l2BridgeContract.address.toString()],
-      {},
-    );
+    await l1Client.waitForTransactionReceipt({
+      hash: await l1Portal.write.initialize(
+        [
+          l1ContractAddresses.registryAddress.toString(),
+          l1TokenContract.toString(),
+          l2BridgeContract.address.toString(),
+        ],
+        {},
+      ),
+    });
     logger.info('L1 portal contract initialized');
 
     const l1PortalManager = new L1TokenPortalManager(

@@ -28,7 +28,12 @@ import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { Gas, GasSettings } from '@aztec/stdlib/gas';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 
-import { AUTOMINE_E2E_OPTS, MNEMONIC, getPaddedMaxFeesPerGas } from '../../fixtures/fixtures.js';
+import {
+  AUTOMINE_E2E_OPTS,
+  L1_DIRECT_WRITE_ACCOUNT_INDEX,
+  MNEMONIC,
+  getPaddedMaxFeesPerGas,
+} from '../../fixtures/fixtures.js';
 import { type EndToEndContext, type SetupOptions, setup, teardown } from '../../fixtures/setup.js';
 import { mintTokensToPrivate } from '../../fixtures/token_utils.js';
 import { setupSponsoredFPC } from '../../fixtures/utils.js';
@@ -235,7 +240,15 @@ export class ClientFlowsBenchmark {
     this.feeJuiceBridgeTestHarness = await FeeJuicePortalTestingHarnessFactory.create({
       aztecNode: this.context.aztecNodeService,
       aztecNodeAdmin: this.context.aztecNodeService,
-      l1Client: this.context.deployL1ContractsValues.l1Client,
+      // Bridge from a dedicated L1 account so its direct writes don't race the sequencer publisher's
+      // txs on the deployer account (see L1_DIRECT_WRITE_ACCOUNT_INDEX).
+      l1Client: createExtendedL1Client(
+        this.context.config.l1RpcUrls,
+        MNEMONIC,
+        undefined,
+        undefined,
+        L1_DIRECT_WRITE_ACCOUNT_INDEX,
+      ),
       wallet: this.adminWallet,
       logger: this.logger,
     });

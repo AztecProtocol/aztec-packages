@@ -41,7 +41,7 @@ import {
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
-import type { PublisherConfig, TxSenderConfig } from './config.js';
+import type { PublisherConfig, SequencerPublisherConfig, TxSenderConfig } from './config.js';
 import type { SequencerPublisherMetrics } from './sequencer-publisher-metrics.js';
 import { type Action, SequencerPublisher, compareActions } from './sequencer-publisher.js';
 
@@ -72,6 +72,7 @@ describe('SequencerPublisher', () => {
   let l1TxUtils: MockProxy<L1TxUtils>;
   let l1Metrics: MockProxy<SequencerPublisherMetrics>;
   let forwardSpy: jest.SpiedFunction<typeof Multicall3.forward>;
+  let dateProvider: TestDateProvider;
 
   let proposeTxHash: `0x${string}`;
   let proposeTxReceipt: GetTransactionReceiptReturnType;
@@ -121,9 +122,12 @@ describe('SequencerPublisher', () => {
       l1RpcUrls: [`http://127.0.0.1:8545`],
       l1ChainId: 1,
       aztecSlotDuration: 36,
+      sequencerPublisherPreviousL1BlockWaitTimeoutMs: 8_000,
+      sequencerPublisherPreviousL1BlockWaitPollIntervalMs: 500,
       ...defaultL1TxUtilsConfig,
     } as unknown as TxSenderConfig &
       PublisherConfig &
+      SequencerPublisherConfig &
       Pick<L1ContractsConfig, 'ethereumSlotDuration' | 'aztecSlotDuration'> &
       L1TxUtilsConfig;
 
@@ -149,6 +153,8 @@ describe('SequencerPublisher', () => {
       isEscapeHatchOpen: false,
     });
 
+    dateProvider = new TestDateProvider();
+
     publisher = new SequencerPublisher(config, {
       blobClient,
       rollupContract: rollup,
@@ -156,7 +162,7 @@ describe('SequencerPublisher', () => {
       epochCache,
       slashingProposerContract,
       governanceProposerContract,
-      dateProvider: new TestDateProvider(),
+      dateProvider,
       metrics: l1Metrics,
       lastActions: {},
     });
@@ -346,7 +352,13 @@ describe('SequencerPublisher', () => {
       });
 
       rotatingPublisher = new SequencerPublisher(
-        { ethereumSlotDuration: 12, aztecSlotDuration: 36, l1ChainId: 1 } as any,
+        {
+          ethereumSlotDuration: 12,
+          aztecSlotDuration: 36,
+          l1ChainId: 1,
+          sequencerPublisherPreviousL1BlockWaitTimeoutMs: 8_000,
+          sequencerPublisherPreviousL1BlockWaitPollIntervalMs: 500,
+        } as any,
         {
           blobClient,
           rollupContract: rollup,
@@ -739,6 +751,98 @@ describe('SequencerPublisher', () => {
       if (timeout) {
         clearTimeout(timeout);
       }
+    }
+  });
+
+  it('waits for the previous L1 block before sending scheduled requests', async () => {
+    jest.useFakeTimers({ doNotFake: ['nextTick', 'queueMicrotask', 'setImmediate'] });
+    try {
+      // EmptyL1RollupConstants has l1GenesisTime=0 and slotDuration=1s. With the publisher's
+      // ethereumSlotDuration=12s, slot 112 has submitAfter=100s.
+      jest.setSystemTime(new Date(100_000));
+      const targetSlot = SlotNumber(112);
+      const sendSpy = jest.spyOn(publisher, 'sendRequests').mockResolvedValue(undefined);
+      l1TxUtils.getBlock
+        .mockResolvedValueOnce({ timestamp: 99n } as any)
+        .mockResolvedValueOnce({ timestamp: 100n } as any);
+
+      const resultPromise = publisher.sendRequestsAt(targetSlot);
+      await jest.advanceTimersByTimeAsync(499);
+
+      expect(sendSpy).not.toHaveBeenCalled();
+
+      await jest.advanceTimersByTimeAsync(1);
+      await jest.advanceTimersByTimeAsync(500);
+      await expect(resultPromise).resolves.toBeUndefined();
+
+      expect(sendSpy).toHaveBeenCalledWith(targetSlot);
+      expect(l1TxUtils.getBlock).toHaveBeenCalledTimes(2);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('sends scheduled requests if the previous L1 block wait times out', async () => {
+    jest.useFakeTimers({ doNotFake: ['nextTick', 'queueMicrotask', 'setImmediate'] });
+    try {
+      jest.setSystemTime(new Date(100_000));
+      const targetSlot = SlotNumber(112);
+      const sendSpy = jest.spyOn(publisher, 'sendRequests').mockResolvedValue(undefined);
+      l1TxUtils.getBlock.mockResolvedValue({ timestamp: 99n } as any);
+
+      const resultPromise = publisher.sendRequestsAt(targetSlot);
+      await jest.advanceTimersByTimeAsync(8_000);
+      await jest.advanceTimersByTimeAsync(500);
+
+      await expect(resultPromise).resolves.toBeUndefined();
+      expect(sendSpy).toHaveBeenCalledWith(targetSlot);
+      expect(l1TxUtils.getBlock).toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('uses configured previous L1 block wait timing for scheduled requests', async () => {
+    jest.useFakeTimers({ doNotFake: ['nextTick', 'queueMicrotask', 'setImmediate'] });
+    try {
+      jest.setSystemTime(new Date(100_000));
+      const configuredPublisher = new SequencerPublisher(
+        {
+          ethereumSlotDuration: 12,
+          aztecSlotDuration: 36,
+          l1ChainId: 1,
+          sequencerPublisherPreviousL1BlockWaitTimeoutMs: 1_000,
+          sequencerPublisherPreviousL1BlockWaitPollIntervalMs: 250,
+        } as any,
+        {
+          blobClient,
+          rollupContract: rollup,
+          l1TxUtils,
+          epochCache,
+          slashingProposerContract,
+          governanceProposerContract,
+          dateProvider,
+          metrics: l1Metrics,
+          lastActions: {},
+        },
+      );
+      const targetSlot = SlotNumber(112);
+      const sendSpy = jest.spyOn(configuredPublisher, 'sendRequests').mockResolvedValue(undefined);
+      l1TxUtils.getBlock.mockResolvedValue({ timestamp: 99n } as any);
+
+      const resultPromise = configuredPublisher.sendRequestsAt(targetSlot);
+      await jest.advanceTimersByTimeAsync(999);
+
+      expect(sendSpy).not.toHaveBeenCalled();
+
+      await jest.advanceTimersByTimeAsync(1);
+      await jest.advanceTimersByTimeAsync(250);
+      await expect(resultPromise).resolves.toBeUndefined();
+
+      expect(sendSpy).toHaveBeenCalledWith(targetSlot);
+      expect(l1TxUtils.getBlock).toHaveBeenCalledTimes(4);
+    } finally {
+      jest.useRealTimers();
     }
   });
 
