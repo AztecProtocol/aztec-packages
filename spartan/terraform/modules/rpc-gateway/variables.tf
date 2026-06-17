@@ -320,9 +320,3 @@ variable "GCP_MANAGED_CERTIFICATE_ENABLED" {
   type        = bool
   default     = true
 }
-
-variable "GCP_MANAGED_CERTIFICATE_NAME" {
-  description = "Optional GKE ManagedCertificate resource name. Defaults to RELEASE_PREFIX-rpc-cert."
-  type        = string
-  default     = ""
-}

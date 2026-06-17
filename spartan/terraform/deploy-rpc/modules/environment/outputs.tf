@@ -36,7 +36,7 @@ output "frontend_load_balancer_ip" {
   value       = module.rpc_gateway.frontend_load_balancer_ip
 }
 
-output "gcp_managed_certificate_name" {
-  description = "GKE ManagedCertificate resource name for RPC hosts."
-  value       = module.rpc_gateway.gcp_managed_certificate_name
+output "gcp_managed_certificate_names" {
+  description = "GKE ManagedCertificate resource names keyed by RPC host."
+  value       = module.rpc_gateway.gcp_managed_certificate_names
 }

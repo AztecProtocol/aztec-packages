@@ -68,7 +68,7 @@ output "frontend_load_balancer_ip" {
   value       = local.frontend_load_balancer_ip
 }
 
-output "gcp_managed_certificate_name" {
-  description = "GKE ManagedCertificate resource name for RPC hosts."
-  value       = var.GCP_MANAGED_CERTIFICATE_ENABLED ? local.managed_certificate_name : null
+output "gcp_managed_certificate_names" {
+  description = "GKE ManagedCertificate resource names keyed by RPC host."
+  value       = var.GCP_MANAGED_CERTIFICATE_ENABLED ? local.managed_certificate_names : {}
 }

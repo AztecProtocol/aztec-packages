@@ -20,11 +20,15 @@ locals {
   upstream_policy_name         = "${var.RELEASE_PREFIX}-rpc-upstream-policy"
   frontend_static_ip_name      = var.FRONTEND_STATIC_IP_NAME != "" ? var.FRONTEND_STATIC_IP_NAME : "${var.RELEASE_PREFIX}-rpc-frontend"
   frontend_service_name        = var.FRONTEND_SERVICE_NAME != "" ? var.FRONTEND_SERVICE_NAME : "${local.kong_helm_release_name}-gateway-proxy"
-  managed_certificate_name     = var.GCP_MANAGED_CERTIFICATE_NAME != "" ? var.GCP_MANAGED_CERTIFICATE_NAME : "${var.RELEASE_PREFIX}-rpc-cert"
   frontend_backend_config_name = "${var.RELEASE_PREFIX}-rpc-kong-backend"
   frontend_hosts               = toset(flatten([for _, route in var.ROUTES : route.hosts]))
-  frontend_load_balancer_ip    = var.FRONTEND_ENABLED && var.FRONTEND_STATIC_IP_ENABLED ? try(google_compute_global_address.frontend[0].address, "") : ""
-  kong_trusted_ips             = concat(var.KONG_TRUSTED_IP_RANGES, var.FRONTEND_ENABLED && var.FRONTEND_STATIC_IP_ENABLED ? [local.frontend_load_balancer_ip] : [])
+  managed_certificate_names = {
+    for host in local.frontend_hosts :
+    host => "${var.RELEASE_PREFIX}-rpc-cert-${replace(host, ".", "-")}"
+  }
+  managed_certificate_annotation = join(",", [for host in sort(tolist(local.frontend_hosts)) : local.managed_certificate_names[host]])
+  frontend_load_balancer_ip      = var.FRONTEND_ENABLED && var.FRONTEND_STATIC_IP_ENABLED ? try(google_compute_global_address.frontend[0].address, "") : ""
+  kong_trusted_ips               = concat(var.KONG_TRUSTED_IP_RANGES, var.FRONTEND_ENABLED && var.FRONTEND_STATIC_IP_ENABLED ? [local.frontend_load_balancer_ip] : [])
 
   kong_proxy_service_annotations = merge(
     var.FRONTEND_ENABLED ? {
@@ -126,17 +130,17 @@ resource "google_compute_global_address" "frontend" {
 }
 
 resource "kubernetes_manifest" "managed_certificate" {
-  count = var.FRONTEND_ENABLED && var.GCP_MANAGED_CERTIFICATE_ENABLED ? 1 : 0
+  for_each = var.FRONTEND_ENABLED && var.GCP_MANAGED_CERTIFICATE_ENABLED ? local.managed_certificate_names : {}
 
   manifest = {
     apiVersion = "networking.gke.io/v1"
     kind       = "ManagedCertificate"
     metadata = {
-      name      = local.managed_certificate_name
+      name      = each.value
       namespace = local.kong_namespace
     }
     spec = {
-      domains = sort(tolist(local.frontend_hosts))
+      domains = [each.key]
     }
   }
 
@@ -184,7 +188,7 @@ resource "kubernetes_manifest" "frontend_ingress" {
           "kubernetes.io/ingress.allow-http"            = tostring(var.FRONTEND_ALLOW_HTTP)
         },
         var.GCP_MANAGED_CERTIFICATE_ENABLED ? {
-          "networking.gke.io/managed-certificates" = local.managed_certificate_name
+          "networking.gke.io/managed-certificates" = local.managed_certificate_annotation
         } : {}
       )
     }

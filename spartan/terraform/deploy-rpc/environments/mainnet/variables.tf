@@ -24,4 +24,5 @@ variable "V4_AZTEC_DOCKER_IMAGE" {
 variable "CANONICAL_AZTEC_DOCKER_IMAGE" {
   description = "Aztec Docker image to deploy for the canonical RPC once that route is enabled."
   type        = string
+  default     = ""
 }
