@@ -360,7 +360,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     if (!completeAddress) {
       throw new Error(
         `No public key registered for address ${account}.
-        Register it by calling wallet.registerSender(...).\nSee docs for context: https://docs.aztec.network/developers/docs/aztec-nr/debugging#contract-errors`,
+        Register it by calling wallet.registerSender(...).\nSee docs for context: https://docs.aztec.network/errors/14`,
       );
     }
     return completeAddress;

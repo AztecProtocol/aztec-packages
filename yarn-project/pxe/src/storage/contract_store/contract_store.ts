@@ -383,7 +383,7 @@ export class ContractStore {
     const contract = await this.getContract(to);
     if (!contract) {
       throw new Error(
-        `Unknown contract ${to}: register it by calling wallet.registerContract(...).\nSee docs for context: https://docs.aztec.network/developers/docs/aztec-nr/debugging#contract-errors`,
+        `Unknown contract ${to}: register it by calling wallet.registerContract(...).\nSee docs for context: https://docs.aztec.network/errors/14`,
       );
     }
 
