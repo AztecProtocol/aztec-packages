@@ -79,7 +79,7 @@ fn constrain_secret(
 
 /// Computes a constrained send's chain nullifier.
 ///
-/// Every constrained send at `index` must emit this nullifier so the next send under the same
+/// Every constrained send at `index > 0` must emit this nullifier so the next send under the same
 /// `(sender, recipient, secret)` can prove its predecessor exists.
 pub(crate) fn compute_constrained_msg_nullifier(
     sender: AztecAddress,
