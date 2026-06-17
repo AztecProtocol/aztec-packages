@@ -365,8 +365,7 @@ export class IpcWorldState implements NativeWorldStateInstance {
     return new IpcWorldState(wsdb, instrumentation, bindings);
   }
 
-  /** Returns the socket path of the underlying wsdb server. */
-  getSocketPath(): string {
+  getIpcPath(): string {
     return this.wsdb.getIpcPath();
   }
 

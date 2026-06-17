@@ -204,12 +204,12 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     this.log.info('World state cleared and reinitialized from genesis');
   }
 
-  /** Returns the socket path of the underlying IPC backend, if available. */
-  public getSocketPath(): string {
+  /** Returns the IPC path of the underlying IPC backend, if available. */
+  public getIpcPath(): string {
     if (this.instance instanceof IpcWorldState) {
-      return this.instance.getSocketPath();
+      return this.instance.getIpcPath();
     }
-    throw new Error('getSocketPath() is only available with IPC world state');
+    throw new Error('getIpcPath() is only available with IPC world state');
   }
 
   public getCommitted(): MerkleTreeReadOperations {

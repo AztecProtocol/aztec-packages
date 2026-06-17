@@ -81,7 +81,7 @@ export class CppVsTsPublicTxSimulator extends PublicTxSimulator implements Publi
     this.log.debug(`Running C++ simulation for tx ${txHash}`);
 
     const wsRevision = this.merkleTree.getRevision();
-    const wsdbSocketPath = this.merkleTree.getSocketPath();
+    const wsdbIpcPath = this.merkleTree.getIpcPath();
 
     this.log.debug(`Running C++ simulation with world state revision ${JSON.stringify(wsRevision)}`);
 
@@ -106,7 +106,7 @@ export class CppVsTsPublicTxSimulator extends PublicTxSimulator implements Publi
     let resultBuffer: Buffer;
     try {
       this.log.debug(`Calling C++ simulator for tx ${txHash}`);
-      resultBuffer = await avmSimulate(inputBuffer, contractProvider, wsdbSocketPath, logLevel);
+      resultBuffer = await avmSimulate(inputBuffer, contractProvider, wsdbIpcPath, logLevel);
     } catch (error: any) {
       throw new SimulationError(`C++ simulation failed: ${error.message}`, []);
     }

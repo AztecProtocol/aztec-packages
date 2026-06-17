@@ -229,13 +229,13 @@ Napi::Value AvmSimulateNapi::simulate(const Napi::CallbackInfo& cb_info)
             env, ContractCallbacks::get(contract_provider, CALLBACK_REVERT_CHECKPOINT), CALLBACK_REVERT_CHECKPOINT),
     };
 
-    /***************************************
-     *** WSDB socket path (required) ***
-     ***************************************/
+    /**********************************
+     *** WSDB IPC path (required) ***
+     **********************************/
     if (!cb_info[2].IsString()) {
-        throw Napi::TypeError::New(env, "Third argument must be a WSDB socket path (string)");
+        throw Napi::TypeError::New(env, "Third argument must be a WSDB IPC path (string)");
     }
-    std::string wsdb_socket_path = cb_info[2].As<Napi::String>().Utf8Value();
+    std::string wsdb_ipc_path = cb_info[2].As<Napi::String>().Utf8Value();
 
     /***************************
      *** LogLevel (optional) ***
@@ -282,9 +282,7 @@ Napi::Value AvmSimulateNapi::simulate(const Napi::CallbackInfo& cb_info)
 
     auto deferred = std::make_shared<Napi::Promise::Deferred>(env);
     ThreadedAsyncOperation::Run(
-        env,
-        deferred,
-        [data, tsfns, logger_tsfn, wsdb_socket_path, cancellation_token](msgpack::sbuffer& result_buffer) {
+        env, deferred, [data, tsfns, logger_tsfn, wsdb_ipc_path, cancellation_token](msgpack::sbuffer& result_buffer) {
             // Collect all thread-safe functions including logger for cleanup
             auto all_tsfns = tsfns.to_vector();
             all_tsfns.push_back(logger_tsfn);
@@ -309,10 +307,10 @@ Napi::Value AvmSimulateNapi::simulate(const Napi::CallbackInfo& cb_info)
                                                  *tsfns.commit_checkpoint,
                                                  *tsfns.revert_checkpoint);
 
-                // Connect to aztec-wsdb over UDS and wrap in a WsdbIpcMerkleDB that implements
+                // Connect to aztec-wsdb and wrap in a WsdbIpcMerkleDB that implements
                 // LowLevelMerkleDBInterface. The connection is per-simulation; aztec-wsdb is a
                 // long-running server that the TS layer spawned and owns.
-                bb::wsdb::WsdbIpcClient wsdb_client(wsdb_socket_path);
+                bb::wsdb::WsdbIpcClient wsdb_client(wsdb_ipc_path);
                 bb::avm2::simulation::WsdbIpcMerkleDB merkle_db(wsdb_client, inputs.ws_revision);
 
                 avm2::AvmSimAPI avm;
