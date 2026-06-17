@@ -228,7 +228,7 @@ export class EntityStore implements StagedStore {
           await this.#commitEntity(op.entity);
           break;
         case 'record':
-          await this.#commitRecord(op.fact);
+          await this.#commitFact(op.fact);
           break;
         case 'terminate':
           await this.#deleteEntity(op.key.toString());
@@ -462,7 +462,7 @@ export class EntityStore implements StagedStore {
   /**
    * Writes a fact to persistent storage.
    */
-  async #commitRecord(fact: StoredFact): Promise<void> {
+  async #commitFact(fact: StoredFact): Promise<void> {
     const factKey = factKeyStrOf(fact);
     if (await this.#facts.hasAsync(factKey)) {
       this.logger.debug(`Ignoring already recorded fact`, { factKey });
