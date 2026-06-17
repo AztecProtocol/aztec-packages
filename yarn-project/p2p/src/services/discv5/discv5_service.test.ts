@@ -365,6 +365,6 @@ describe('Discv5Service', () => {
       l2QueueSize: 100,
       ...overrides,
     };
-    return new DiscV5Service(peerId, config, testPackageVersion, undefined, undefined, overrides);
+    return new DiscV5Service(peerId, config, testPackageVersion, undefined, undefined, undefined, overrides);
   };
 });

@@ -1,5 +1,6 @@
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
+import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import { type ComponentsVersions, checkCompressedComponentVersion } from '@aztec/stdlib/versioning';
 import { OtelMetricsAdapter, type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
@@ -16,6 +17,11 @@ import { convertToMultiaddr } from '../../util.js';
 import { type PeerDiscoveryService, PeerDiscoveryState } from '../service.js';
 
 const delayBeforeStart = 2000; // 2sec
+
+/** Map name under which discovered peer ENRs are persisted so discovery can be re-seeded after a restart. */
+const PERSISTED_ENRS_MAP_NAME = 'discovered_peer_enrs';
+/** Upper bound on persisted peer ENRs, to keep the store bounded as peers churn. */
+const MAX_PERSISTED_PEER_ENRS = 100;
 
 /**
  * Peer discovery service using Discv5.
@@ -40,6 +46,9 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
 
   private currentIp: string | undefined;
 
+  /** Persistent store of discovered peer ENRs, used to re-seed discovery after a restart. */
+  private readonly persistedEnrs?: AztecAsyncMap<string, string>;
+
   private handlers = {
     onMultiaddrUpdated: this.onMultiaddrUpdated.bind(this),
     onDiscovered: this.onDiscovered.bind(this),
@@ -52,9 +61,12 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
     private readonly packageVersion: string,
     telemetry: TelemetryClient = getTelemetryClient(),
     private logger = createLogger('p2p:discv5_service'),
+    store?: AztecAsyncKVStore,
     configOverrides: Partial<IDiscv5CreateOptions> = {},
   ) {
     super();
+
+    this.persistedEnrs = store?.openMap(PERSISTED_ENRS_MAP_NAME);
 
     const { p2pIp, p2pPort, p2pBroadcastPort, bootstrapNodes, trustedPeers, privatePeers } = config;
 
@@ -220,6 +232,11 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
         this.discv5.addEnr(enr);
       }
     }
+
+    // Re-seed discovery from peers persisted on previous runs. This lets a node rejoin the network
+    // after a restart even when no bootstrap node is reachable: discv5 has no on-disk routing table,
+    // so without this its DHT would start empty and rediscovery would depend on inbound dials alone.
+    await this.reseedFromPersistedEnrs();
   }
 
   public async runRandomNodesQuery(): Promise<void> {
@@ -278,7 +295,75 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
     const multiAddrTcp = await enr.getFullMultiaddr('tcp');
     const multiAddrUdp = await enr.getFullMultiaddr('udp');
     this.logger.debug(`Added ENR ${enr.encodeTxt()}`, { multiAddrTcp, multiAddrUdp, nodeId: enr.nodeId });
+    // Persist valid, non-bootnode peers so we can re-seed discovery after a restart. Bootnodes are
+    // excluded because they are supplied via config and re-added on start.
+    if (!this.isOurBootnode(enr) && enr.nodeId !== this.enr.nodeId && this.validateEnr(enr)) {
+      await this.persistEnr(enr);
+    }
     this.onDiscovered(enr);
+  }
+
+  private async persistEnr(enr: ENR): Promise<void> {
+    if (!this.persistedEnrs) {
+      return;
+    }
+    try {
+      await this.persistedEnrs.set(enr.nodeId, enr.encodeTxt());
+      await this.prunePersistedEnrs();
+    } catch (err) {
+      this.logger.warn(`Failed to persist discovered ENR ${enr.nodeId}`, err);
+    }
+  }
+
+  private async prunePersistedEnrs(): Promise<void> {
+    if (!this.persistedEnrs) {
+      return;
+    }
+    let toDelete = (await this.persistedEnrs.sizeAsync()) - MAX_PERSISTED_PEER_ENRS;
+    if (toDelete <= 0) {
+      return;
+    }
+    for await (const key of this.persistedEnrs.keysAsync()) {
+      if (toDelete-- <= 0) {
+        break;
+      }
+      await this.persistedEnrs.delete(key);
+    }
+  }
+
+  private async reseedFromPersistedEnrs(): Promise<void> {
+    if (!this.persistedEnrs) {
+      return;
+    }
+    const stale: string[] = [];
+    let reseeded = 0;
+    for await (const [nodeId, enrTxt] of this.persistedEnrs.entriesAsync()) {
+      let enr: ENR;
+      try {
+        enr = ENR.decodeTxt(enrTxt);
+      } catch (err) {
+        this.logger.debug(`Dropping undecodable persisted ENR ${nodeId}`, err);
+        stale.push(nodeId);
+        continue;
+      }
+      // Drop peers that no longer pass version checks so we don't keep dialing incompatible nodes.
+      if (!this.validateEnr(enr)) {
+        stale.push(nodeId);
+        continue;
+      }
+      try {
+        this.discv5.addEnr(enr);
+        reseeded++;
+      } catch (err) {
+        this.logger.debug(`Error re-seeding persisted ENR ${nodeId}`, err);
+      }
+    }
+    for (const nodeId of stale) {
+      await this.persistedEnrs.delete(nodeId);
+    }
+    if (reseeded > 0) {
+      this.logger.info(`Re-seeded discovery with ${reseeded} persisted peer ENRs`);
+    }
   }
 
   private isOurBootnode(enr: ENR) {
