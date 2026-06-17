@@ -372,4 +372,224 @@ TEST(ShmTest, MpscEchoTwoClients)
     server->close();
 }
 
+/**
+ * Pipelined flood over a single MPSC client: a dedicated sender thread floods
+ * requests while a separate receiver thread drains responses concurrently,
+ * mirroring the NAPI async client (fire-and-forget send + background poll) that
+ * the world-state IPC client uses. The lockstep MpscEchoTwoClients test keeps
+ * only one request in flight and so never exercises this; SPSC handles the
+ * pattern (see SingleClientSmallRingHighVolume) and MPSC must too. A lost
+ * request or response surfaces here as a bounded receiver stall rather than an
+ * unbounded hang.
+ */
+TEST(ShmTest, MpscSingleClientPipelinedFlood)
+{
+    constexpr size_t RING_SIZE = 2UL * 1024;
+    constexpr size_t NUM_ITERATIONS = 200000;
+    constexpr size_t MAX_MSG_SIZE = (RING_SIZE / 2) - 4;
+    constexpr size_t NUM_CLIENTS = 1;
+
+    std::string base_name = "shm_mpscflood_" + std::to_string(getpid());
+    auto server = IpcServer::create_mpsc_shm(base_name, NUM_CLIENTS, RING_SIZE, RING_SIZE);
+    ASSERT_TRUE(server->listen()) << "MPSC flood server failed to listen";
+
+    std::atomic<bool> server_running{ true };
+    std::atomic<size_t> corruptions{ 0 };
+
+    std::thread server_thread([&]() {
+        while (server_running.load(std::memory_order_acquire)) {
+            server->accept();
+            int client_id = server->wait_for_data(10000000); // 10ms
+            if (client_id < 0) {
+                continue;
+            }
+            auto request_buf = server->receive(client_id);
+            if (request_buf.empty()) {
+                continue;
+            }
+            std::vector<uint8_t> request(request_buf.begin(), request_buf.end());
+            server->release(client_id, request.size());
+            uint8_t first = request[0];
+            for (size_t i = 0; i < std::min(request.size(), size_t(16)); i++) {
+                if (request[i] != static_cast<uint8_t>((first ^ i) & 0xFF)) {
+                    corruptions.fetch_add(1);
+                    break;
+                }
+            }
+            while (!server->send(client_id, request.data(), request.size())) {
+                // Response ring full - retry.
+            }
+        }
+    });
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+
+    auto client = IpcClient::create_mpsc_shm(base_name, 0);
+    ASSERT_TRUE(client->connect()) << "MPSC flood client failed to connect";
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<size_t> size_dist(1, MAX_MSG_SIZE);
+    std::vector<size_t> iteration_sizes(NUM_ITERATIONS);
+    for (size_t i = 0; i < NUM_ITERATIONS; i++) {
+        iteration_sizes[i] = size_dist(gen);
+    }
+
+    // Set by the receiver if it gives up; lets the sender abandon its send-retry
+    // loop so the test fails fast instead of deadlocking on a full ring.
+    std::atomic<bool> abort_flood{ false };
+
+    std::thread sender_thread([&]() {
+        std::vector<uint8_t> send_buffer(MAX_MSG_SIZE);
+        for (size_t iter = 0; iter < NUM_ITERATIONS && !abort_flood.load(std::memory_order_acquire); iter++) {
+            size_t size = iteration_sizes[iter];
+            uint8_t iter_byte = static_cast<uint8_t>(iter & 0xFF);
+            for (size_t i = 0; i < size; i++) {
+                send_buffer[i] = static_cast<uint8_t>((iter_byte ^ i) & 0xFF);
+            }
+            while (!client->send(send_buffer.data(), size, 100000000)) {
+                if (abort_flood.load(std::memory_order_acquire)) {
+                    return;
+                }
+            }
+        }
+    });
+
+    std::atomic<size_t> received{ 0 };
+    std::atomic<bool> stalled{ false };
+    std::thread receiver_thread([&]() {
+        for (size_t iter = 0; iter < NUM_ITERATIONS; iter++) {
+            size_t expected_size = iteration_sizes[iter];
+            std::span<const uint8_t> response;
+            size_t empties = 0;
+            // 50 * 100ms = 5s grace; a lost message shows up as a stall here.
+            while ((response = client->receive(100000000)).empty()) {
+                if (++empties > 50) {
+                    stalled.store(true);
+                    abort_flood.store(true, std::memory_order_release);
+                    return;
+                }
+            }
+            bool ok = response.size() == expected_size;
+            uint8_t iter_byte = static_cast<uint8_t>(iter & 0xFF);
+            for (size_t i = 0; ok && i < response.size(); i++) {
+                ok = response[i] == static_cast<uint8_t>((iter_byte ^ i) & 0xFF);
+            }
+            client->release(response.size());
+            if (!ok) {
+                corruptions.fetch_add(1);
+                abort_flood.store(true, std::memory_order_release);
+                return;
+            }
+            received.fetch_add(1);
+        }
+    });
+
+    sender_thread.join();
+    receiver_thread.join();
+    client->close();
+
+    server_running.store(false);
+    server->request_shutdown();
+    server_thread.join();
+    server->close();
+
+    EXPECT_FALSE(stalled.load()) << "receiver stalled after " << received.load() << "/" << NUM_ITERATIONS
+                                 << " responses — a request or response was lost over MPSC";
+    EXPECT_EQ(corruptions.load(), 0U) << "data corruption / size mismatch over MPSC pipelined flood";
+    EXPECT_EQ(received.load(), NUM_ITERATIONS) << "did not receive all responses over MPSC";
+}
+
+/**
+ * Burst depth over a single MPSC client: fire a large batch of requests
+ * back-to-back with no interleaved receive, so many requests and responses are
+ * simultaneously in flight, then drain in FIFO order. This matches the
+ * world-state IPC client, which issues a burst of concurrent calls from the JS
+ * thread before its background poll thread drains the responses. The dimension
+ * here is in-flight depth (a large ring so the burst is not throttled), not the
+ * wrap pressure that MpscSingleClientPipelinedFlood exercises.
+ */
+TEST(ShmTest, MpscSingleClientBurst)
+{
+    constexpr size_t BURST = 512;
+    constexpr size_t NUM_ROUNDS = 400;
+    constexpr size_t MSG_SIZE = 1500; // ~ a world-state sibling-path response
+    constexpr size_t RING_SIZE = 8UL * 1024 * 1024;
+    constexpr size_t NUM_CLIENTS = 1;
+
+    std::string base_name = "shm_mpscburst_" + std::to_string(getpid());
+    auto server = IpcServer::create_mpsc_shm(base_name, NUM_CLIENTS, RING_SIZE, RING_SIZE);
+    ASSERT_TRUE(server->listen()) << "MPSC burst server failed to listen";
+
+    std::atomic<bool> server_running{ true };
+    std::thread server_thread([&]() {
+        while (server_running.load(std::memory_order_acquire)) {
+            server->accept();
+            int client_id = server->wait_for_data(10000000); // 10ms
+            if (client_id < 0) {
+                continue;
+            }
+            auto request_buf = server->receive(client_id);
+            if (request_buf.empty()) {
+                continue;
+            }
+            std::vector<uint8_t> request(request_buf.begin(), request_buf.end());
+            server->release(client_id, request.size());
+            while (!server->send(client_id, request.data(), request.size())) {
+                // Response ring full - retry.
+            }
+        }
+    });
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+
+    auto client = IpcClient::create_mpsc_shm(base_name, 0);
+    ASSERT_TRUE(client->connect()) << "MPSC burst client failed to connect";
+
+    size_t total_received = 0;
+    bool stalled = false;
+    for (size_t round = 0; round < NUM_ROUNDS && !stalled; round++) {
+        // Fire the whole burst with no interleaved receive: BURST requests and
+        // their responses are all in flight before we drain any.
+        for (size_t i = 0; i < BURST; i++) {
+            std::vector<uint8_t> payload(MSG_SIZE, 0);
+            uint32_t tag = static_cast<uint32_t>(round * BURST + i);
+            std::memcpy(payload.data(), &tag, sizeof(tag));
+            while (!client->send(payload.data(), payload.size(), 1'000'000'000ULL)) {
+                // Ring full - retry.
+            }
+        }
+        // Drain the burst; responses come back in FIFO (send) order.
+        for (size_t i = 0; i < BURST; i++) {
+            std::span<const uint8_t> resp;
+            size_t empties = 0;
+            while ((resp = client->receive(100'000'000ULL)).empty()) {
+                if (++empties > 50) { // 5s grace
+                    stalled = true;
+                    break;
+                }
+            }
+            if (stalled) {
+                break;
+            }
+            uint32_t tag = 0;
+            std::memcpy(&tag, resp.data(), sizeof(tag));
+            EXPECT_EQ(tag, static_cast<uint32_t>(round * BURST + i)) << "lost/out-of-order at round " << round;
+            EXPECT_EQ(resp.size(), MSG_SIZE);
+            client->release(resp.size());
+            total_received++;
+        }
+    }
+
+    EXPECT_FALSE(stalled) << "receiver stalled after " << total_received
+                          << " responses — a request or response was lost over MPSC burst";
+    EXPECT_EQ(total_received, BURST * NUM_ROUNDS) << "did not receive all responses over MPSC burst";
+
+    client->close();
+    server_running.store(false);
+    server->request_shutdown();
+    server_thread.join();
+    server->close();
+}
+
 } // namespace
