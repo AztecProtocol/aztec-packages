@@ -38,7 +38,6 @@ impl PrivateCallDataValidator {
         self,
         tx_request: TxRequest,
         protocol_contracts: ProtocolContracts,
-        first_nullifier_hint: Field,
         claimed_revertible_counter: u32,
     ) {
         self.validate_common(
@@ -46,9 +45,6 @@ impl PrivateCallDataValidator {
             protocol_contracts,
             claimed_revertible_counter,
         );
-
-        // There must be at least one nullifier for the private execution, which is used to compute note hash nonces.
-        assert(!first_nullifier_hint.is_empty(), "first_nullifier_hint cannot be empty");
 
         self.validate_against_tx_request(tx_request);
 
