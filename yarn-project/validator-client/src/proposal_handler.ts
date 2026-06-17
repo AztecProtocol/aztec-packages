@@ -598,17 +598,21 @@ export class ProposalHandler {
     });
 
     try {
-      await retryUntil(
+      const { block } = await retryUntil(
         async () => {
           await this.blockSource.syncImmediate();
           const block = await this.blockSource.getBlockData({ number: blockNumber });
-          return block === undefined;
+          // Resolve once the existing block is gone (pruned) or has been replaced by one matching the
+          // proposal — the same condition as the early return above. A matching block is returned so the
+          // caller still treats it as a genuine duplicate; an `undefined` (pruned) block lets the proposal
+          // be processed. Wrap in an object so the `undefined` case is still a truthy retry result.
+          return block === undefined || block.archive.root.equals(proposalArchive) ? { block } : undefined;
         },
         `prune of stale block ${blockNumber}`,
         { deadline, dateProvider: this.dateProvider },
         0.5,
       );
-      return undefined;
+      return block;
     } catch (err) {
       if (err instanceof TimeoutError) {
         this.log.warn(`Timed out waiting for stale block ${blockNumber} to be pruned`, { blockNumber });
