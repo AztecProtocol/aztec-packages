@@ -17,10 +17,10 @@ The sentinel is one of several watchers registered with the slasher; it does not
 | Source | What it provides |
 |---|---|
 | `EpochCache` | Slot/epoch helpers, committee + proposer for a slot, escape-hatch state |
-| `L2BlockSource` (archiver) | Synced slot, `chain-checkpointed` events, block headers |
+| `L2BlockSource` (archiver) | Synced slot, `getCheckpoint({ slot })`, `getL2Tips()`, block headers |
 | `P2PClient` | `getCheckpointAttestationsForSlot(slot, payloadHash)`, `hasBlockProposalsForSlot(slot)` |
 | `CheckpointReexecutionTracker` | Local re-execution outcome for the proposal at each slot (`valid` / `invalid` / `unvalidated`) — populated by the validator client's `ProposalHandler` |
-| L1-checkpointed events | `chain-checkpointed` populates `slotNumberToCheckpoint` with the canonical attestor set |
+| L1-confirmed checkpoints | Fetched on demand per slot via `archiver.getCheckpoint({ slot })`, yielding the canonical attestor set |
 
 ## Two cadences
 
@@ -49,7 +49,7 @@ For each slot, the proposer is assigned one of six statuses, ranked highest-conf
 
 | # | Status | Trigger | Inactive party |
 |---|---|---|---|
-| 6 | `checkpoint-mined` | `slotNumberToCheckpoint.has(slot)` (a checkpoint covering this slot has landed on L1) | Attestors who didn't attest |
+| 6 | `checkpoint-mined` | `archiver.getCheckpoint({ slot })` returns a checkpoint (one covering this slot has landed on L1) | Attestors who didn't attest |
 | 5 | `checkpoint-valid` | `tracker.getOutcomeForSlot(slot) === 'valid'` | Attestors who didn't attest |
 | 4 | `checkpoint-invalid` | `tracker.getOutcomeForSlot(slot) === 'invalid'` (re-executed and rejected) | Proposer |
 | 3 | `checkpoint-unvalidated` | `tracker.getOutcomeForSlot(slot) === 'unvalidated'` (validation aborted: missing data, timeout, etc.) | Proposer |

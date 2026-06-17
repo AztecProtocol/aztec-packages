@@ -26,13 +26,19 @@ export const PIPELINED_FEE_PADDING = 30;
  *
  *     await setup(N, { ...PIPELINING_SETUP_OPTS, ...otherOpts });
  *
- * The preset sets:
+ * The preset runs the production Sequencer with the always-enforced timetable at real (wall-clock)
+ * timing, yielding exactly 2 blocks per slot. It sets:
  * - `inboxLag: 2` so the sequencer sources L1->L2 messages from checkpoint N-1 (already sealed),
  *   avoiding `L1ToL2MessagesNotReadyError` when building for slot N during slot N-1.
  * - `minTxsPerBlock: 0` so empty checkpoints land even when a tx arrives late in the build window
  *   (otherwise the chain stalls on alternating slots).
  * - `aztecSlotDuration: 12` / `ethereumSlotDuration: 4` so the pipelined cycle fits inside the
  *   default 300s Jest hook budget. Tests that depend on the env-default 72s/12s should override.
+ * - `blockDurationMs: 3000` to cut exactly 2 blocks per slot. With `ethereumSlotDuration < 8` the
+ *   timing model normalizes to `init=0.5`, `assemble=0.5`, `P=0`, `minExec=1`, so
+ *   `maxBlocks = floor((S - init - (assemble + 2P + D)) / D) = floor((12 - 0.5 - (0.5 + 0 + 3)) / 3)
+ *   = floor(8/3) = 2`. (`blockDurationMs: 2000` would give 4 blocks/slot; 3000 also matches the
+ *   production default.)
  * - `walletMinFeePadding: PIPELINED_FEE_PADDING` (30x) to absorb the wider fee evolution window.
  */
 export const PIPELINING_SETUP_OPTS = {
@@ -40,6 +46,7 @@ export const PIPELINING_SETUP_OPTS = {
   minTxsPerBlock: 0,
   aztecSlotDuration: 12,
   ethereumSlotDuration: 4,
+  blockDurationMs: 3000,
   walletMinFeePadding: PIPELINED_FEE_PADDING,
 } as const;
 
@@ -55,10 +62,7 @@ export const PIPELINING_SETUP_OPTS = {
  * - Swaps the production Sequencer for an AutomineSequencer that builds one block per
  *   submitted tx, publishes synchronously to L1, and owns all time control through a
  *   serial queue (see `sequencer-client/src/sequencer/automine/automine_sequencer.ts`).
- * - Disables the validator client and AnvilTestWatcher (the AutomineSequencer needs
- *   neither).
- * - Disables orphan proposed-block pruning in the archiver because automine owns test
- *   time and can advance past prune deadlines before local tx receipt polling observes the mined block.
+ * - Disables the validator client (the AutomineSequencer needs none).
  * - Uses `inboxLag: 1` (synchronous) since the AutomineSequencer publishes one block per tx.
  * - Switches anvil into automine mode at setup time (no interval mining); each L1 tx
  *   mines an L1 block immediately.
@@ -67,8 +71,6 @@ export const PIPELINING_SETUP_OPTS = {
  */
 export const AUTOMINE_E2E_OPTS = {
   useAutomineSequencer: true,
-  disableAnvilTestWatcher: true,
-  skipOrphanProposedBlockPruning: true,
   inboxLag: 1,
   minTxsPerBlock: 0,
   aztecSlotDuration: 12,
@@ -107,6 +109,14 @@ export const TEST_PEER_CHECK_INTERVAL_MS = 1000;
 export const TEST_MAX_PENDING_TX_POOL_COUNT = 10_000; // Number of max pending TXs ~ 1.56GB
 
 export const MNEMONIC = 'test test test test test test test test test test test junk';
+
+// Mnemonic account index for tests that issue direct L1 writes (e.g. bridging fee juice) while a
+// sequencer is running. The deployer/sequencer publisher uses index 0, the prover index 2, and
+// validators index 3+. Test-side viem writes and the publisher's l1-tx-utils track nonces
+// independently, so sharing an account causes "replacement transaction underpriced" races; index 1
+// is otherwise unused, so issuing those writes from it keeps them off the publisher's nonce stream.
+export const L1_DIRECT_WRITE_ACCOUNT_INDEX = 1;
+
 export const privateKey = Buffer.from('ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80', 'hex');
 export const privateKey2 = Buffer.from('59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d', 'hex');
 

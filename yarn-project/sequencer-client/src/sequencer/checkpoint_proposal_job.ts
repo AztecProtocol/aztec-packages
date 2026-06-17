@@ -14,12 +14,12 @@ import {
   generateUnrecoverableSignature,
 } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { InterruptError, TimeoutError } from '@aztec/foundation/error';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { filter } from '@aztec/foundation/iterator';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
-import { retryUntil } from '@aztec/foundation/retry';
-import { sleep, sleepUntil } from '@aztec/foundation/sleep';
+import { InterruptibleSleep } from '@aztec/foundation/sleep';
 import { type DateProvider, Timer } from '@aztec/foundation/timer';
 import { type TypedEventEmitter, isErrorClass, unfreeze } from '@aztec/foundation/types';
 import type { P2P } from '@aztec/p2p';
@@ -37,6 +37,7 @@ import {
 import {
   type Checkpoint,
   type ProposedCheckpointData,
+  buildCheckpointSimulationOverridesPlan,
   getPreviousCheckpointOutHashes,
   validateCheckpoint,
 } from '@aztec/stdlib/checkpoint';
@@ -68,7 +69,6 @@ import { DutyAlreadySignedError, SlashingProtectionError } from '@aztec/validato
 
 import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import type { InvalidateCheckpointRequest, SequencerPublisher } from '../publisher/sequencer-publisher.js';
-import { buildCheckpointSimulationOverridesPlan } from './chain_state_overrides.js';
 import type { CheckpointProposalJobMetricsRecorder } from './checkpoint_proposal_job_metrics.js';
 import { CheckpointVoter } from './checkpoint_voter.js';
 import { SequencerInterruptedError } from './errors.js';
@@ -79,6 +79,7 @@ import { SequencerState } from './utils.js';
 
 /** How much time to sleep while waiting for min transactions to accumulate for a block */
 const TXS_POLLING_MS = 500;
+const ARCHIVER_SYNC_POLLING_MS = 200;
 
 /** Result from proposeCheckpoint when a checkpoint was successfully built and broadcast. */
 type CheckpointProposalBroadcast = {
@@ -106,6 +107,8 @@ export class CheckpointProposalJob implements Traceable {
 
   /** Tracks the fire-and-forget L1 submission promise so it can be awaited during shutdown. */
   private pendingL1Submission: Promise<void> | undefined;
+  private readonly interruptibleSleep = new InterruptibleSleep();
+  private interrupted = false;
 
   /**
    * Chain state overrides built once per slot in proposeCheckpoint after the checkpoint is
@@ -184,6 +187,30 @@ export class CheckpointProposalJob implements Traceable {
   public async awaitPendingSubmission(): Promise<void> {
     this.log.info('Awaiting pending L1 payload submission');
     await this.pendingL1Submission;
+  }
+
+  /** Interrupts job-owned waits, including the publisher's send-at-slot sleep, so shutdown can finish. */
+  public interrupt(): void {
+    this.interrupted = true;
+    this.interruptibleSleep.interrupt(true);
+    this.publisher.interrupt();
+  }
+
+  private async awaitInterruptibleSleep(ms: number): Promise<void> {
+    if (this.interrupted) {
+      throw new SequencerInterruptedError();
+    }
+    if (ms <= 0) {
+      return;
+    }
+    try {
+      await this.interruptibleSleep.sleep(ms);
+    } catch (err) {
+      if (err instanceof InterruptError) {
+        throw new SequencerInterruptedError();
+      }
+      throw err;
+    }
   }
 
   private logCheckpointEvent(eventName: string, message: string, fields: Record<string, unknown>): void {
@@ -371,9 +398,7 @@ export class CheckpointProposalJob implements Traceable {
       }
     }
 
-    await this.publisher.enqueueProposeCheckpoint(checkpoint, attestations, attestationsSignature, {
-      txTimeoutAt,
-    });
+    await this.publisher.enqueueProposeCheckpoint(checkpoint, attestations, attestationsSignature, { txTimeoutAt });
   }
 
   /**
@@ -388,16 +413,21 @@ export class CheckpointProposalJob implements Traceable {
     const timeoutSeconds = Math.max(0.1, (targetSlotEndMs + syncDelayTolerance - this.dateProvider.now()) / 1000);
 
     try {
-      return await retryUntil(
-        async () => {
-          const syncedSlot = await this.l2BlockSource.getSyncedL2SlotNumber();
-          return syncedSlot !== undefined && syncedSlot >= waitForSlot;
-        },
-        `archiver sync past slot ${waitForSlot}`,
-        timeoutSeconds,
-        0.2,
-      );
-    } catch {
+      const timer = new Timer();
+      while (true) {
+        const syncedSlot = await this.l2BlockSource.getSyncedL2SlotNumber();
+        if (syncedSlot !== undefined && syncedSlot >= waitForSlot) {
+          return true;
+        }
+        if (timeoutSeconds && timer.s() > timeoutSeconds) {
+          throw new TimeoutError(`Timeout awaiting archiver sync past slot ${waitForSlot}`);
+        }
+        await this.awaitInterruptibleSleep(ARCHIVER_SYNC_POLLING_MS);
+      }
+    } catch (err) {
+      if (err instanceof SequencerInterruptedError) {
+        throw err;
+      }
       this.log.warn(
         `Archiver did not sync L1 past slot ${waitForSlot} before slot ${this.targetSlot} expired, discarding pipelined work`,
         { checkpointNumber: this.checkpointNumber },
@@ -876,8 +906,7 @@ export class CheckpointProposalJob implements Traceable {
         blockTimestamp: timestamp,
         // Create an empty block if we haven't already and this is the last one
         forceCreate: timingInfo.isLastBlock && blocksBuilt === 0 && this.config.buildCheckpointIfEmpty,
-        // Build deadline (absolute wall-clock seconds) is only set if we are enforcing the timetable
-        buildDeadline: timingInfo.deadline !== undefined ? new Date(timingInfo.deadline * 1000) : undefined,
+        buildDeadline: new Date(timingInfo.deadline * 1000),
         blockNumber,
         indexWithinCheckpoint,
         txHashesAlreadyIncluded,
@@ -885,8 +914,8 @@ export class CheckpointProposalJob implements Traceable {
 
       // If we failed to build the block due to insufficient txs, we try again if there is still time left in the slot
       if ('failure' in buildResult) {
-        // If this was the last subslot, or we're running with a single block per slot, we're done
-        if (timingInfo.isLastBlock || timingInfo.deadline === undefined) {
+        // If this was the last subslot, we're done.
+        if (timingInfo.isLastBlock) {
           break;
         }
         // Otherwise, if there is still time for more blocks, we wait until the next subslot and try again
@@ -992,7 +1021,7 @@ export class CheckpointProposalJob implements Traceable {
     this.log.verbose(`Waiting until time for the next block at ${nextSubslotStart}s`, {
       slot: this.targetSlot,
     });
-    await sleepUntil(new Date(nextSubslotStart * 1000), this.dateProvider.nowAsDate());
+    await this.awaitInterruptibleSleep(Math.max(0, nextSubslotStart * 1000 - this.dateProvider.now()));
   }
 
   /** Builds a single block. Called from the main block building loop. */
@@ -1078,6 +1107,7 @@ export class CheckpointProposalJob implements Traceable {
         minValidTxs,
         maxBlocksPerCheckpoint: this.timetable.getMaxBlocksPerCheckpoint(),
         perBlockAllocationMultiplier: this.config.perBlockAllocationMultiplier,
+        perBlockDAAllocationMultiplier: this.config.perBlockDAAllocationMultiplier,
       };
 
       // Actually build the block by executing txs. The builder throws InsufficientValidTxsError
@@ -1218,9 +1248,6 @@ export class CheckpointProposalJob implements Traceable {
     const minTxs = indexWithinCheckpoint > 0 && this.config.minTxsPerBlock === 0 ? 1 : this.config.minTxsPerBlock;
 
     // Latest time to keep waiting for txs: wait_for_txs_deadline = block_build_deadline(k) - min_block_duration.
-    // buildDeadline is block_build_deadline(k) (multi-block) or the split deadline (single-block), so this
-    // is the uniform spec formula. Undefined if we are not enforcing the timetable (buildDeadline
-    // undefined), meaning we exit immediately when out of time.
     const startBuildingDeadline = buildDeadline
       ? new Date(buildDeadline.getTime() - this.timetable.minBlockDuration * 1000)
       : undefined;
@@ -1316,11 +1343,8 @@ export class CheckpointProposalJob implements Traceable {
       );
     }
 
-    // Hard attestation-collection cutoff = the single consensus attestation_deadline
-    // (target_slot_start + S - 2E). When not enforcing the timetable, loosen to the full target slot.
-    const attestationDeadlineSeconds = this.config.enforceTimeTable
-      ? this.timetable.getAttestationDeadline(this.targetSlot)
-      : Number(getTimestampForSlot(this.targetSlot, this.l1Constants)) + this.l1Constants.slotDuration;
+    // Hard attestation-collection cutoff = the single consensus attestation_deadline (target_slot_start + S - 2E).
+    const attestationDeadlineSeconds = this.timetable.getAttestationDeadline(this.targetSlot);
     const attestationDeadline = new Date(attestationDeadlineSeconds * 1000);
 
     this.metrics.recordRequiredAttestations(
@@ -1608,7 +1632,7 @@ export class CheckpointProposalJob implements Traceable {
 
   /** Waits the polling interval for transactions. Extracted for test overriding. */
   protected async waitForTxsPollingInterval(): Promise<void> {
-    await sleep(TXS_POLLING_MS);
+    await this.awaitInterruptibleSleep(TXS_POLLING_MS);
   }
 
   public getPublisher() {

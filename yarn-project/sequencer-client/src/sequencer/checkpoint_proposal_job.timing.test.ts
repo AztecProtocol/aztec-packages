@@ -386,7 +386,6 @@ describe('CheckpointProposalJob Timing Tests', () => {
       p2pPropagationTime: P2P_PROPAGATION_TIME,
       checkpointProposalPrepareTime: CHECKPOINT_ASSEMBLE_TIME,
       blockDurationMs: BLOCK_DURATION * 1000,
-      enforce: true,
     });
 
     // Create timing-aware checkpoint builder
@@ -459,10 +458,6 @@ describe('CheckpointProposalJob Timing Tests', () => {
         block: { number: BlockNumber.ZERO, hash: '' },
         checkpoint: { number: CheckpointNumber(checkpointNumber - 1), hash: '' },
       },
-      proposedCheckpoint: {
-        block: { number: BlockNumber.ZERO, hash: '' },
-        checkpoint: { number: CheckpointNumber(checkpointNumber - 1), hash: '' },
-      },
       proven: {
         block: { number: BlockNumber.ZERO, hash: '' },
         checkpoint: { number: CheckpointNumber(0), hash: '' },
@@ -493,7 +488,6 @@ describe('CheckpointProposalJob Timing Tests', () => {
 
     config = {
       ...DefaultSequencerConfig,
-      enforceTimeTable: true,
       maxTxsPerBlock: 4,
       minTxsPerBlock: 1,
       publishTxsWithProposals: false,
@@ -550,7 +544,9 @@ describe('CheckpointProposalJob Timing Tests', () => {
           l1Constants,
           p2pPropagationTime: P2P_PROPAGATION_TIME,
           checkpointProposalPrepareTime: CHECKPOINT_ASSEMBLE_TIME,
-          enforce: true,
+          // 30s block duration in the 72s slot derives exactly one block, so the single built block is also
+          // the last block (isLastBlock=true), which is what this first-and-last-block path test asserts.
+          blockDurationMs: 30000,
         }),
       );
 

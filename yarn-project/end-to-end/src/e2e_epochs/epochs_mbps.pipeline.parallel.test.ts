@@ -73,11 +73,9 @@ describe('e2e_epochs/epochs_mbps_pipeline', () => {
       initialValidators: validators,
       mockGossipSubNetwork: true,
       mockGossipSubNetworkLatency: 500, // adverse network conditions
-      disableAnvilTestWatcher: true,
       startProverNode: true,
       perBlockAllocationMultiplier: 8,
       aztecEpochDuration: 4,
-      enforceTimeTable: true,
       ethereumSlotDuration: 12,
       aztecSlotDuration: 72,
       blockDurationMs: 5500,

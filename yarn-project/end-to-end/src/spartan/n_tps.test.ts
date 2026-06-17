@@ -3,7 +3,7 @@ import { NO_FROM } from '@aztec/aztec.js/account';
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import { NO_WAIT, toSendOptions } from '@aztec/aztec.js/contracts';
 import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
-import { type AztecNode, createAztecNodeClient } from '@aztec/aztec.js/node';
+import { type AztecNode, createAztecNodeClient, waitForTx } from '@aztec/aztec.js/node';
 import { AccountManager } from '@aztec/aztec.js/wallet';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
@@ -15,10 +15,11 @@ import { RunningPromise } from '@aztec/foundation/promise';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { BenchmarkingContract } from '@aztec/noir-test-contracts.js/Benchmarking';
-import { type Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
+import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { TopicType } from '@aztec/stdlib/p2p';
-import { Tx, TxHash } from '@aztec/stdlib/tx';
+import { Tx, TxHash, TxStatus } from '@aztec/stdlib/tx';
+import { getGasLimits } from '@aztec/wallet-sdk/base-wallet';
 
 import { jest } from '@jest/globals';
 import { mkdir, writeFile } from 'fs/promises';
@@ -324,18 +325,20 @@ describe('sustained N TPS test', () => {
           { salt },
         );
         const deployMethod = await manager.getDeployMethod();
-        // Explicit gas estimation: BaseWallet's fallback bakes
-        // APPROXIMATE_MAX_DA_GAS_PER_BLOCK=196_608 daGas into deploys, which exceeds
+        // Explicit gas estimation: BaseWallet's fallback bakes ~196_608 daGas into deploys, which exceeds
         // the proposer's per-block fair-share daGas (~94k at 10 blocks/checkpoint
         // with pipelining). Estimate first, send with the result. EmbeddedWallet
         // does this automatically; TestWallet (used here via WorkerWallet) does not.
         const deploySim = await deployMethod.simulate({
           from: NO_FROM,
-          fee: { paymentMethod: sponsor, estimateGas: true },
+          fee: { paymentMethod: sponsor },
+          includeMetadata: true,
         });
+        const { txsLimits } = await aztecNode.getNodeInfo();
+        const deployGasLimits = getGasLimits(deploySim.gasUsed!, Gas.from(txsLimits.gas));
         await deployMethod.send({
           from: NO_FROM,
-          fee: { paymentMethod: sponsor, gasSettings: deploySim.estimatedGas },
+          fee: { paymentMethod: sponsor, gasSettings: deployGasLimits },
           wait: { timeout: 2400 },
         });
         return address;
@@ -359,11 +362,14 @@ describe('sustained N TPS test', () => {
     const deploySim = await deployInteraction.simulate({
       from: accountAddresses[0],
       fee: { paymentMethod: sponsor },
+      includeMetadata: true,
     });
-    logger.info('Benchmark contract deploy estimated gas', { gasLimits: deploySim.estimatedGas?.gasLimits });
+    const { txsLimits } = await aztecNode.getNodeInfo();
+    const benchmarkDeployGasLimits = getGasLimits(deploySim.gasUsed!, Gas.from(txsLimits.gas));
+    logger.info('Benchmark contract deploy estimated gas', { gasLimits: benchmarkDeployGasLimits.gasLimits });
     ({ contract: benchmarkContract } = await deployInteraction.send({
       from: accountAddresses[0],
-      fee: { paymentMethod: sponsor, gasSettings: deploySim.estimatedGas },
+      fee: { paymentMethod: sponsor, gasSettings: benchmarkDeployGasLimits },
     }));
     logger.info('Benchmark contract deployed', { address: benchmarkContract.address.toString() });
 
@@ -374,9 +380,10 @@ describe('sustained N TPS test', () => {
     // Gas estimate is sender-independent, so one pre-warmed value for all senders.
     const estimateSim = await benchmarkContract.methods.sha256_hash_1024(Array(1024).fill(42)).simulate({
       from: accountAddresses[0],
-      fee: { paymentMethod: sponsor, estimateGas: true },
+      fee: { paymentMethod: sponsor },
+      includeMetadata: true,
     });
-    benchmarkGasEstimate = estimateSim.estimatedGas;
+    benchmarkGasEstimate = getGasLimits(estimateSim.gasUsed!, Gas.from(txsLimits.gas));
     logger.info('Benchmark tx estimated gas', { gasLimits: benchmarkGasEstimate?.gasLimits });
 
     const currentMinFees = await refreshMinFees();
@@ -600,8 +607,8 @@ describe('sustained N TPS test', () => {
 
     // Block-watcher: stamps wall-clock minedAtMs on each sent tx the first time
     // its block becomes visible to this client. Runs throughout sending AND the
-    // post-window waitForTx tail so late blocks still get a true client-observed
-    // timestamp. recordMinedTx (in waitForTx) is the slow-path fallback for any
+    // post-window inclusion wait so late blocks still get a true client-observed
+    // timestamp. recordMinedTx (in waitForHighValueTx) is the slow-path fallback for any
     // tx the watcher misses.
     let lastSeenBlock = await aztecNode.getBlockNumber();
     const blockWatcher = new RunningPromise(
@@ -639,26 +646,31 @@ describe('sustained N TPS test', () => {
     });
 
     const results: { success: boolean; txHash: string; error?: any }[] = [];
-    const waitForTx = async (txHash: string, txName: string) => {
+    const highValueInclusionWaitTimeoutSeconds = 300;
+    const waitForHighValueTx = async (txHash: string, txName: string) => {
       try {
-        const receipt = await aztecNode.getTxReceipt(TxHash.fromString(txHash));
-        if (receipt.blockNumber) {
-          logger.info(`${txName} included in block ${receipt.blockNumber}`);
-          logger.debug(`${txName} receipt details`, {
-            txHash: receipt.txHash.toString(),
-            status: receipt.status,
-            blockNumber: receipt.blockNumber,
-            transactionFee: receipt.transactionFee?.toString(),
-          });
-          await metrics.recordMinedTx(receipt);
-        } else {
-          throw new Error('Invalid txReceipt: ' + JSON.stringify(receipt));
-        }
+        const receipt = await waitForTx(aztecNode, TxHash.fromString(txHash), {
+          timeout: highValueInclusionWaitTimeoutSeconds,
+          waitForStatus: TxStatus.PROPOSED,
+        });
+        logger.info(`${txName} included in block ${receipt.blockNumber}`, {
+          txName,
+          blockNumber: receipt.blockNumber,
+        });
+        logger.debug(`${txName} receipt details`, {
+          txHash: receipt.txHash.toString(),
+          status: receipt.status,
+          blockNumber: receipt.blockNumber,
+          transactionFee: receipt.transactionFee?.toString(),
+        });
+        await metrics.recordMinedTx(receipt);
         results.push({ success: true, txHash });
       } catch (error) {
         const receipt = await aztecNode.getTxReceipt(TxHash.fromString(txHash)).catch(() => undefined);
-        logger.error(`${txName} was not included: ${error}`, {
+        logger.error(`${txName} was not included`, {
+          txName,
           txHash,
+          err: error,
           receiptStatus: receipt?.status,
           receiptBlockNumber: receipt?.blockNumber,
           receiptError: receipt?.error,
@@ -672,7 +684,7 @@ describe('sustained N TPS test', () => {
     logger.info('Waiting for high-value txs to be mined', { totalSent: totalHighValueSent });
     while (sentTxHashes.length > 0) {
       const chunk = sentTxHashes.splice(0, 10);
-      await Promise.all(chunk.map((txHash, idx) => waitForTx(txHash, `highValueTx_${idx + 1 + index}`)));
+      await Promise.all(chunk.map((txHash, idx) => waitForHighValueTx(txHash, `highValueTx_${idx + 1 + index}`)));
       index += chunk.length;
       logger.debug('Processed tx batch', { processed: index, remaining: sentTxHashes.length });
     }

@@ -86,7 +86,6 @@ describe('multi-blocks-per-slot network test', () => {
       minTxsPerBlock: 1,
       maxTxsPerBlock: 1,
       blockDurationMs: BLOCK_DURATION_MS,
-      enforceTimeTable: true,
       attestationPropagationTime: 0.5,
     });
     logger.info(
@@ -95,7 +94,6 @@ describe('multi-blocks-per-slot network test', () => {
           minTxsPerBlock: sequencerConfig.minTxsPerBlock,
           maxTxsPerBlock: sequencerConfig.maxTxsPerBlock,
           blockDurationMs: sequencerConfig.blockDurationMs,
-          enforceTimeTable: sequencerConfig.enforceTimeTable,
           attestationPropagationTime: sequencerConfig.attestationPropagationTime,
         })),
       )}`,

@@ -9,15 +9,16 @@
  *
  * Skipped by default; set VITE_BENCH=1 (and VITE_SQLITE_OPFS=1) to run.
  */
-import { createLogger } from '@aztec/foundation/log';
-
-import { mockLogger } from '../../interfaces/utils.js';
-import { AztecSQLiteOPFSStore } from '../../sqlite-opfs/store.js';
-import { describeAztecMapBench } from '../shared_map_bench.js';
-
 const shouldRun = (import.meta as ImportMeta & { env?: { VITE_BENCH?: string } }).env?.VITE_BENCH === '1';
 
 if (shouldRun) {
+  const [{ createLogger }, { mockLogger }, { AztecSQLiteOPFSStore }, { describeAztecMapBench }] = await Promise.all([
+    import('@aztec/foundation/log'),
+    import('../../interfaces/utils.js'),
+    import('../../sqlite-opfs/store.js'),
+    import('../shared_map_bench.js'),
+  ]);
+
   describeAztecMapBench(
     'SQLite-OPFS (chacha20)',
     () => {

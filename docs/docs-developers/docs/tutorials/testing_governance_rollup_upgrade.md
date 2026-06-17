@@ -43,7 +43,7 @@ Wait for output showing deployed contract addresses. To get the **Registry Addre
 
 ```bash
 curl -s http://localhost:8080 -X POST -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","method":"node_getNodeInfo","params":[],"id":1}' | jq '.result.l1ContractAddresses'
+  -d '{"jsonrpc":"2.0","method":"aztec_getNodeInfo","params":[],"id":1}' | jq '.result.l1ContractAddresses'
 ```
 
 Note the `registryAddress` from the output.

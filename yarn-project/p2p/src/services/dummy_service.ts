@@ -28,6 +28,7 @@ import {
   type P2PCheckpointReceivedCallback,
   type P2PDuplicateAttestationCallback,
   type P2PDuplicateProposalCallback,
+  type P2POversizedProposalCallback,
   type P2PService,
   type PeerDiscoveryService,
   PeerDiscoveryState,
@@ -97,6 +98,11 @@ export class DummyP2PService implements P2PService {
    * Register a callback for when a duplicate proposal is detected
    */
   public registerDuplicateProposalCallback(_callback: P2PDuplicateProposalCallback): void {}
+
+  /**
+   * Register a callback for when an oversized proposal is stored
+   */
+  public registerOversizedProposalCallback(_callback: P2POversizedProposalCallback): void {}
 
   /**
    * Register a callback for when a duplicate attestation is detected

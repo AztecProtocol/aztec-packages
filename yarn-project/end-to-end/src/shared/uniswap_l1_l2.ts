@@ -21,11 +21,7 @@ import { computeL2ToL1MessageHash } from '@aztec/stdlib/hash';
 import { jest } from '@jest/globals';
 import { type GetContractReturnType, getContract, parseEther, toFunctionSelector } from 'viem';
 
-import {
-  type EndToEndContext,
-  ensureAccountContractsPublished,
-  ensureAuthRegistryPublished,
-} from '../fixtures/utils.js';
+import { type EndToEndContext, ensureAuthRegistryPublished } from '../fixtures/utils.js';
 import type { TestWallet } from '../test-wallet/test_wallet.js';
 import { CrossChainTestHarness } from './cross_chain_test_harness.js';
 
@@ -88,8 +84,6 @@ export const uniswapL1L2TestSuite = (
 
       l1Client = deployL1ContractsValues.l1Client;
 
-      t.watcher.setIsMarkingAsProven(false);
-
       if (Number(await l1Client.getBlockNumber()) < expectedForkBlockNumber) {
         throw new Error('This test must be run on a fork of mainnet with the expected fork block');
       }
@@ -101,7 +95,6 @@ export const uniswapL1L2TestSuite = (
       version = Number(await rollup.getVersion());
       ownerEthAddress = EthAddress.fromString((await l1Client.getAddresses())[0]);
 
-      await ensureAccountContractsPublished(wallet, [ownerAddress, sponsorAddress]);
       await ensureAuthRegistryPublished(wallet, ownerAddress);
 
       logger.info('Deploying DAI Portal, initializing and deploying l2 contract...');

@@ -12,13 +12,7 @@ import { CONTRACT_INSTANCE_PUBLISHED_EVENT_TAG } from '@aztec/protocol-contracts
 import { bufferAsFields } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
-import {
-  FALLBACK_TEARDOWN_DA_GAS_LIMIT,
-  FALLBACK_TEARDOWN_L2_GAS_LIMIT,
-  Gas,
-  GasFees,
-  GasSettings,
-} from '@aztec/stdlib/gas';
+import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import {
   LogHash,
@@ -41,6 +35,9 @@ import {
 } from '@aztec/stdlib/tx';
 
 import { strict as assert } from 'assert';
+
+const TEARDOWN_DA_GAS_LIMIT = 98_304;
+const TEARDOWN_L2_GAS_LIMIT = 817_500;
 
 export type TestPrivateInsertions = {
   revertible?: {
@@ -132,9 +129,7 @@ export async function createTxForPublicCalls(
   }
 
   const maxFeesPerGas = feePayer.isZero() ? GasFees.empty() : new GasFees(10, 10);
-  const teardownGasLimits = teardownCallRequest
-    ? new Gas(FALLBACK_TEARDOWN_DA_GAS_LIMIT, FALLBACK_TEARDOWN_L2_GAS_LIMIT)
-    : Gas.empty();
+  const teardownGasLimits = teardownCallRequest ? new Gas(TEARDOWN_DA_GAS_LIMIT, TEARDOWN_L2_GAS_LIMIT) : Gas.empty();
   const gasSettings = new GasSettings(gasLimits, teardownGasLimits, maxFeesPerGas, GasFees.empty());
   const txContext = new TxContext(Fr.zero(), Fr.zero(), gasSettings);
   const header = BlockHeader.empty({ globalVariables: globals });
