@@ -1,4 +1,4 @@
-import { DomainSeparator } from '@aztec/constants';
+import { DomainSeparator, MAX_PROCESSABLE_L2_GAS, MAX_TX_DA_GAS } from '@aztec/constants';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
@@ -18,6 +18,8 @@ import { PendingNoteHashesContractArtifact } from '@aztec/noir-test-contracts.js
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { TestContractArtifact } from '@aztec/noir-test-contracts.js/Test';
 import { WASMSimulator } from '@aztec/simulator/client';
+import { HandshakeRegistryArtifact } from '@aztec/standard-contracts/handshake-registry';
+import { STANDARD_HANDSHAKE_REGISTRY_ADDRESS } from '@aztec/standard-contracts/handshake-registry/constants';
 import {
   type ContractArtifact,
   FunctionCall,
@@ -33,7 +35,7 @@ import {
   getContractClassFromArtifact,
   getContractInstanceFromInstantiationParams,
 } from '@aztec/stdlib/contract';
-import { GasFees, GasSettings } from '@aztec/stdlib/gas';
+import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import { computeNoteHashNonce, computeSecretHash, computeUniqueNoteHash, siloNoteHash } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
@@ -146,7 +148,10 @@ describe('Private Execution test suite', () => {
   const txContextFields: FieldsOf<TxContext> = {
     chainId: new Fr(10),
     version: new Fr(20),
-    gasSettings: GasSettings.fallback({ maxFeesPerGas: new GasFees(10, 10) }),
+    gasSettings: GasSettings.fallback({
+      gasLimits: new Gas(MAX_TX_DA_GAS, MAX_PROCESSABLE_L2_GAS),
+      maxFeesPerGas: new GasFees(10, 10),
+    }),
   };
 
   let contracts: { [address: string]: ContractArtifact };
@@ -298,6 +303,7 @@ describe('Private Execution test suite', () => {
       },
     );
     contracts = {};
+    contracts[STANDARD_HANDSHAKE_REGISTRY_ADDRESS.toString()] = HandshakeRegistryArtifact;
     anchorBlockHeader = makeBlockHeader();
     capsuleStore.readCapsuleArray.mockResolvedValue([]);
 
@@ -727,10 +733,11 @@ describe('Private Execution test suite', () => {
 
       expect(result.returnValues).toEqual([new Fr(privateIncrement)]);
 
-      // First fetch of the function artifact is the parent contract
-      // Second fetch is for sync_state on the child contract (calls[1])
-      // Third fetch is for the actual child function (calls[2])
-      expect(contractStore.getFunctionArtifact.mock.calls[2]).toEqual([childAddress, childSelector]);
+      expect(
+        contractStore.getFunctionArtifact.mock.calls.some(
+          ([addr, sel]) => addr.equals(childAddress) && sel.equals(childSelector),
+        ),
+      ).toBe(true);
       expect(result.nestedExecutionResults).toHaveLength(1);
       expect(result.nestedExecutionResults[0].returnValues).toEqual([new Fr(privateIncrement)]);
       expect(result.publicInputs.privateCallRequests.array[0].callContext).toEqual(

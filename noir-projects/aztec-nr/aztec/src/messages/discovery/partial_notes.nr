@@ -95,7 +95,13 @@ pub(crate) unconstrained fn fetch_and_process_partial_note_completion_logs(
     // index. Each inner array contains all matching LogRetrievalResponses.
     assert_eq(completion_logs.len(), pending_partial_notes.len());
 
-    completion_logs.for_each(|i, logs_for_tag: EphemeralArray<LogRetrievalResponse>| {
+    // Note: the loop runs backwards because it removes completed entries from `pending_partial_notes`, which is
+    // index-aligned with `completion_logs`. Going from last to first keeps the indices of not-yet-visited entries
+    // stable.
+    let mut i = completion_logs.len();
+    while i > 0 {
+        i -= 1;
+        let logs_for_tag: EphemeralArray<LogRetrievalResponse> = completion_logs.get(i);
         let pending_partial_note = pending_partial_notes.get(i);
         let num_logs = logs_for_tag.len();
 
@@ -172,5 +178,5 @@ pub(crate) unconstrained fn fetch_and_process_partial_note_completion_logs(
             // delete the pending work entry, regardless of whether it was actually completed or not.
             pending_partial_notes.remove(i);
         }
-    });
+    }
 }

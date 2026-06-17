@@ -95,6 +95,16 @@ describe('e2e_multi_eoa', () => {
       sequencer = sequencerClient! as TestSequencerClient;
       publisherManager = sequencer.publisherManager;
       aztecNodeAdmin = maybeAztecNodeAdmin!;
+
+      // Initializerless accounts deploy nothing during setup, so the chain sits at the single empty
+      // genesis block (one publisher used). Send a couple of txs from the default account so the
+      // sequencer publishes more blocks across rotated publishers.
+      for (let i = 0; i < 2; i++) {
+        await StatefulTestContract.deploy(wallet, defaultAccountAddress, 0, {
+          salt: Fr.random(),
+          deployer: defaultAccountAddress,
+        }).send({ from: defaultAccountAddress });
+      }
     });
 
     beforeEach(async () => {
@@ -114,7 +124,7 @@ describe('e2e_multi_eoa', () => {
     // We intercept the transaction and delete it from Anvil.
     // We also do the same for any cancel transactions.
     // We should then see that another block is published but this time with a different expected account
-    const testAccountRotation = async (expectedFirstSender: number, expectedSecondSender: number) => {
+    const testAccountRotation = async () => {
       // the L2 tx we are going to try and execute
       const deployMethod = StatefulTestContract.deploy(wallet, defaultAccountAddress, 0, {
         salt: Fr.random(),
@@ -124,14 +134,11 @@ describe('e2e_multi_eoa', () => {
 
       const l1Utils: L1TxUtils[] = (publisherManager as any).publishers;
 
-      const blockedSender = l1Utils[expectedFirstSender].getSenderAddress();
+      let blockedSender: EthAddress | undefined;
       const blockedTxs: Hex[] = [];
-      const fallbackSender = l1Utils[expectedSecondSender].getSenderAddress();
-      const fallbackTxs: Hex[] = [];
+      const fallbackTxs: { sender: EthAddress; txHash: Hex }[] = [];
 
-      logger.warn(
-        `Testing account rotation with blocked sender ${blockedSender} and fallback sender ${fallbackSender}`,
-      );
+      logger.warn('Testing account rotation by blocking the first publisher attempted');
 
       // Get unique clients - they may or may not be the same object
       const uniqueClients = [...new Set(l1Utils.map(u => u.client))];
@@ -144,6 +151,7 @@ describe('e2e_multi_eoa', () => {
           }),
         );
 
+        blockedSender ??= signerAddress;
         if (blockedSender.equals(signerAddress)) {
           const txHash = randomEthTxHash(); // block this sender/ Its txs don't actually reach any L1 nodes
           blockedTxs.push(txHash);
@@ -152,12 +160,8 @@ describe('e2e_multi_eoa', () => {
         } else {
           const originalFn = originalSendRawTransactions.get(this)!;
           const txHash = await originalFn.call(this, arg);
-          if (fallbackSender.equals(signerAddress)) {
-            logger.warn(`Found fallback tx from signer ${signerAddress.toString()} with hash ${txHash}`);
-            fallbackTxs.push(txHash);
-          } else {
-            logger.warn(`Found fallback tx from unexpected sender ${signerAddress.toString()} with hash ${txHash}`);
-          }
+          logger.warn(`Found fallback tx from signer ${signerAddress.toString()} with hash ${txHash}`);
+          fallbackTxs.push({ sender: signerAddress, txHash });
           return txHash;
         }
       };
@@ -173,76 +177,33 @@ describe('e2e_multi_eoa', () => {
       const receipt = await waitForTx(aztecNode, txHash);
       expect(receipt.isMined() && receipt.hasExecutionSucceeded()).toBe(true);
 
+      expect(blockedSender).toBeDefined();
       logger.warn(`Got ${blockedTxs.length} blocked txs for ${blockedSender}`);
       expect(blockedTxs.length).toBeGreaterThan(0);
 
-      logger.warn(`Got ${fallbackTxs.length} fallback txs for ${fallbackSender}`);
+      logger.warn(`Got ${fallbackTxs.length} fallback txs`);
       expect(fallbackTxs.length).toBeGreaterThan(0);
 
-      const transactionHashToKeep = fallbackTxs.at(-1)!;
+      const fallbackTx = fallbackTxs.at(-1)!;
+      expect(fallbackTx.sender.equals(blockedSender!)).toBeFalse();
       const l1Tx = await ethCheatCodes.publicClient.getTransaction({
-        hash: transactionHashToKeep,
+        hash: fallbackTx.txHash,
       });
       const senderEthAddress = EthAddress.fromString(l1Tx.from);
-      const expectedSenderEthAddress = EthAddress.fromString(sequencerKeysAndAddresses[expectedSecondSender].address);
-      const areSame = senderEthAddress.equals(expectedSenderEthAddress);
-      expect(areSame).toBeTrue();
+      expect(senderEthAddress.equals(fallbackTx.sender)).toBeTrue();
 
       // Dispose of all spies
       spies.forEach(spy => spy.mockRestore());
     };
 
     it('publishers are rotated by the sequencer', async () => {
-      // Helpers to identify which accounts are expected to be used
-      const getSortedAddressesByBalance = async (addressAndKeys: { address: `0x${string}` }[]) => {
-        const addressesWithBalance = await Promise.all(
-          addressAndKeys.map(async ka => {
-            return {
-              balance: await ethCheatCodes.publicClient.getBalance({ address: ka.address }),
-              address: ka.address,
-            };
-          }),
-        );
-
-        const sortedAddresses = addressesWithBalance.sort((a, b) => Number(b.balance - a.balance));
-        return sortedAddresses;
-      };
-
-      const getAddressIndex = (address: `0x${string}`) => {
-        return sequencerKeysAndAddresses.findIndex(ka => ka.address === address);
-      };
-
       // We should be at L2 block 2 or later (empty pipelined checkpoints can land between setup
       // and the first assertion, so accept >=2 rather than pinning to exactly 2).
       const blockNumber = await aztecNode.getBlockNumber();
       expect(blockNumber).toBeGreaterThanOrEqual(2);
 
-      // This means that 2 of our accounts have been used to send blocks to L1.
-      // We want to figure out which ones these are, they will be in the 'MINED' state within the sequencer
-      const sortedAddresses = await getSortedAddressesByBalance(sequencerKeysAndAddresses);
-
-      // We expect the highest balance account to be used first, then the second highest balance account
-      await testAccountRotation(
-        getAddressIndex(sortedAddresses[0].address),
-        getAddressIndex(sortedAddresses[1].address),
-      );
-
-      // The first sender used above will now be out of action as it is unable to get anything MINED.
-      const validAddresses = sortedAddresses.slice(1);
-      logger.warn(`Removing invalidated publisher ${sortedAddresses[0].address}`, {
-        validAddresses,
-        invalidAddress: sortedAddresses[0],
-      });
-
-      const sortedValidAddresses = await getSortedAddressesByBalance(validAddresses);
-      logger.warn(`Re-sorted valid addresses by balance`, { sortedValidAddresses });
-
-      // All of our valid addresses have published transactions so will be in MINED state
-      // the sequencer should select the 2 highest balance accounts in this next test
-      await testAccountRotation(
-        getAddressIndex(sortedValidAddresses[0].address),
-        getAddressIndex(sortedValidAddresses[1].address),
-      );
+      await testAccountRotation();
+      await testAccountRotation();
     });
   });
 });

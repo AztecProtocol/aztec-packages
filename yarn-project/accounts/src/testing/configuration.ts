@@ -18,6 +18,11 @@ export const INITIAL_TEST_SIGNING_KEYS = INITIAL_TEST_ENCRYPTION_KEYS;
 export const INITIAL_TEST_ACCOUNT_SALTS = [Fr.ZERO, Fr.ZERO, Fr.ZERO];
 
 /**
+ * The schnorr account contract variant a test account uses.
+ */
+export type InitialAccountType = 'schnorr' | 'schnorr_initializerless';
+
+/**
  * Data for generating an initial account.
  */
 export interface InitialAccountData {
@@ -37,4 +42,8 @@ export interface InitialAccountData {
    * Address of the schnorr account contract.
    */
   address: AztecAddress;
+  /**
+   * Account contract variant.
+   */
+  type?: InitialAccountType;
 }

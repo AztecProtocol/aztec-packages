@@ -2,7 +2,7 @@ import type { BBPrivateKernelProverOptions } from '@aztec/bb-prover/client';
 import type { Logger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { CircuitSimulator } from '@aztec/simulator/client';
-import type { PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
+import type { AztecNodeDebug, PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
 
 import type { ExecutionHooks } from '../hooks/index.js';
 import type { PreloadedContractsProvider } from '../pxe.js';
@@ -16,8 +16,14 @@ export type PXECreationOptions = {
   simulator?: CircuitSimulator;
   /** Optional hooks to observe and influence contract execution. */
   hooks?: ExecutionHooks;
-  /** Contracts to preload; used directly in place of the PXE's default (the standard multi-call entrypoint). */
+  /** Contracts to preload on startup. Replaces the default when set. */
   preloadedContractsProvider?: PreloadedContractsProvider;
+  /**
+   * Optional debug API client for the same node. When provided, public function signatures are registered so the
+   * node can produce named public-execution stack traces. Only available on nodes started with debug endpoints
+   * enabled; omitted in prod-like setups.
+   */
+  nodeDebug?: AztecNodeDebug;
 };
 
 /** Checks if the given value implements the PrivateKernelProver interface via duck-typing. */

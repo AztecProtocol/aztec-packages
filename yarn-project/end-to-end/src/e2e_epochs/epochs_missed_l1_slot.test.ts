@@ -87,8 +87,6 @@ describe('e2e_epochs/epochs_missed_l1_slot', () => {
       aztecSlotDurationInL1Slots: L1_SLOTS_PER_L2_SLOT,
       startProverNode: false,
       aztecProofSubmissionEpochs: 1024,
-      disableAnvilTestWatcher: true,
-      enforceTimeTable: true,
       inboxLag: 2,
       // Required for the proposer's own broadcasts to route through the local
       // proposal handler (the dummy p2p service drops them). Without this, the

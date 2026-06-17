@@ -8,6 +8,7 @@ import { Signature } from '@aztec/foundation/eth-signature';
 import type { P2P } from '@aztec/p2p';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { CommitteeAttestation, L2Block } from '@aztec/stdlib/block';
+import { DEFAULT_BLOCK_DURATION_MS } from '@aztec/stdlib/config';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { BlockProposal, CheckpointAttestation, CheckpointProposal, ConsensusPayload } from '@aztec/stdlib/p2p';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
@@ -41,16 +42,14 @@ export function makeProposerTimetable(opts: {
   minBlockDuration?: number;
   p2pPropagationTime?: number;
   checkpointProposalPrepareTime?: number;
-  enforce: boolean;
 }): ProposerTimetable {
   return new ProposerTimetable({
     l1Constants: opts.l1Constants,
-    blockDuration: opts.blockDurationMs !== undefined ? opts.blockDurationMs / 1000 : undefined,
+    blockDuration: (opts.blockDurationMs ?? DEFAULT_BLOCK_DURATION_MS) / 1000,
     minBlockDuration: opts.minBlockDuration ?? DEFAULT_MIN_BLOCK_DURATION,
     p2pPropagationTime: opts.p2pPropagationTime ?? DEFAULT_P2P_PROPAGATION_TIME,
     checkpointProposalPrepareTime: opts.checkpointProposalPrepareTime ?? DEFAULT_CHECKPOINT_PROPOSAL_PREPARE_TIME,
     checkpointProposalInitTime: DEFAULT_CHECKPOINT_PROPOSAL_INIT_TIME,
-    enforce: opts.enforce,
   });
 }
 

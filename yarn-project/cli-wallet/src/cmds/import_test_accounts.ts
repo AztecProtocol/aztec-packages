@@ -16,7 +16,11 @@ export async function importTestAccounts(wallet: CLIWallet, db: WalletDB, json: 
       const secret = testAccounts[i].secret;
       const salt = new Fr(account.salt);
       const address = account.address;
-      await db.storeAccount(address, { type: 'schnorr', secretKey: secret, salt, alias, publicKey: undefined }, log);
+      await db.storeAccount(
+        address,
+        { type: 'schnorr_initializerless', secretKey: secret, salt, alias, publicKey: undefined },
+        log,
+      );
 
       if (json) {
         out[alias] = {

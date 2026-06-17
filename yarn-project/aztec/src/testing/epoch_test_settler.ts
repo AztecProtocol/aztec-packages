@@ -1,10 +1,9 @@
-import { Fr } from '@aztec/aztec.js/fields';
 import { type EthCheatCodes, RollupCheatCodes } from '@aztec/ethereum/test';
-import { type EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import type { EpochNumber } from '@aztec/foundation/branded-types';
 import type { Logger } from '@aztec/foundation/log';
+import { settleEpochOutbox } from '@aztec/prover-client/test';
 import { EpochMonitor } from '@aztec/prover-node';
 import type { EthAddress, L2BlockSource } from '@aztec/stdlib/block';
-import { computeEpochOutHash } from '@aztec/stdlib/messaging';
 
 export class EpochTestSettler {
   private rollupCheatCodes: RollupCheatCodes;
@@ -31,33 +30,12 @@ export class EpochTestSettler {
   }
 
   async handleEpochReadyToProve(epoch: EpochNumber): Promise<boolean> {
-    const blocks = await this.l2BlockSource.getBlocks({ epoch, onlyCheckpointed: true });
-    this.log.info(
-      `Settling epoch ${epoch} with blocks ${blocks[0]?.header.getBlockNumber()} to ${blocks.at(-1)?.header.getBlockNumber()}`,
-      { blocks: blocks.map(b => b.toBlockInfo()) },
-    );
-    const messagesInEpoch: Fr[][][][] = [];
-    let previousSlotNumber = SlotNumber.ZERO;
-    let checkpointIndex = -1;
-
-    for (const block of blocks) {
-      const slotNumber = block.header.globalVariables.slotNumber;
-      if (slotNumber !== previousSlotNumber) {
-        checkpointIndex++;
-        messagesInEpoch[checkpointIndex] = [];
-        previousSlotNumber = slotNumber;
-      }
-      messagesInEpoch[checkpointIndex].push(block.body.txEffects.map(txEffect => txEffect.l2ToL1Msgs));
-    }
-
-    const outHash = computeEpochOutHash(messagesInEpoch);
-    if (!outHash.isZero()) {
-      await this.rollupCheatCodes.insertOutbox(epoch, messagesInEpoch.length, outHash.toBigInt());
-    } else {
-      this.log.info(`No L2 to L1 messages in epoch ${epoch}`);
-    }
-
-    const lastCheckpoint = blocks.at(-1)?.checkpointNumber;
+    const lastCheckpoint = await settleEpochOutbox({
+      rollupCheatCodes: this.rollupCheatCodes,
+      l2BlockSource: this.l2BlockSource,
+      epoch,
+      log: this.log,
+    });
     if (lastCheckpoint !== undefined) {
       await this.rollupCheatCodes.markAsProven(lastCheckpoint);
     } else {

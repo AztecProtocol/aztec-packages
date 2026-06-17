@@ -1,5 +1,6 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
+import { executeTimeout } from '@aztec/foundation/timer';
 import { FunctionCall, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
@@ -11,7 +12,7 @@ import { mock } from 'jest-mock-extended';
 
 import type { ContractStore } from '../storage/contract_store/contract_store.js';
 import type { NoteStore } from '../storage/note_store/note_store.js';
-import { ContractSyncService } from './contract_sync_service.js';
+import { ContractSyncService, MAX_CONCURRENT_SCOPE_SYNCS } from './contract_sync_service.js';
 
 describe('ContractSyncService', () => {
   let aztecNode: ReturnType<typeof mock<AztecNode>>;
@@ -135,6 +136,78 @@ describe('ContractSyncService', () => {
       ]);
       await Promise.all([p1, p2]);
       expectSyncedScopes([scopeA], [scopeB]);
+    });
+
+    // Regression test for the nested-sync deadlock. Each outer sync holds a slot while its sync_state triggers a
+    // nested sync (a cross-contract utility call) that needs a slot of its own. With a single shared limiter, the
+    // MAX_CONCURRENT_SCOPE_SYNCS outer syncs would hold every slot while awaiting nested syncs that can never
+    // acquire one. Per-call limiters give the nested syncs their own slots, so the batch completes.
+    it('does not deadlock when concurrent syncs each trigger a nested sync', async () => {
+      const outerContracts = Array.from({ length: MAX_CONCURRENT_SCOPE_SYNCS }, (_, i) =>
+        AztecAddress.fromBigInt(1000n + BigInt(i)),
+      );
+      const nestedContracts = Array.from({ length: MAX_CONCURRENT_SCOPE_SYNCS }, (_, i) =>
+        AztecAddress.fromBigInt(2000n + BigInt(i)),
+      );
+      const nestedByOuter = new Map(outerContracts.map((outer, i) => [outer.toString(), nestedContracts[i]]));
+
+      utilityExecutor.mockImplementation(async (call, scopes) => {
+        const nested = nestedByOuter.get(call.to.toString());
+        if (nested) {
+          await service.ensureContractSynced(nested, null, utilityExecutor, anchorBlockHeader, jobId, scopes);
+        }
+      });
+
+      const syncAll = Promise.all(
+        outerContracts.map(outer =>
+          service.ensureContractSynced(outer, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]),
+        ),
+      );
+
+      await executeTimeout(() => syncAll, 2000, 'nested sync deadlock');
+    });
+
+    it('bounds the number of concurrently syncing scopes within a single call', async () => {
+      const scopes = Array.from({ length: MAX_CONCURRENT_SCOPE_SYNCS + 3 }, (_, i) =>
+        AztecAddress.fromBigInt(500n + BigInt(i)),
+      );
+
+      let inFlight = 0;
+      let peak = 0;
+      const releases: Array<() => void> = [];
+      utilityExecutor.mockImplementation(() => {
+        inFlight++;
+        peak = Math.max(peak, inFlight);
+        return new Promise<void>(resolve =>
+          releases.push(() => {
+            inFlight--;
+            resolve();
+          }),
+        );
+      });
+
+      const syncAll = service.ensureContractSynced(
+        contractAddress,
+        null,
+        utilityExecutor,
+        anchorBlockHeader,
+        jobId,
+        scopes,
+      );
+
+      // The first wave saturates the limiter; the remaining scopes must queue rather than run.
+      await tick();
+      expect(inFlight).toBe(MAX_CONCURRENT_SCOPE_SYNCS);
+
+      // Releasing one in-flight sync admits exactly one queued scope, so the cap is never exceeded.
+      while (releases.length > 0) {
+        releases.shift()!();
+        await tick();
+      }
+
+      await syncAll;
+      expect(peak).toBe(MAX_CONCURRENT_SCOPE_SYNCS);
+      expect(utilityExecutor).toHaveBeenCalledTimes(scopes.length);
     });
 
     it('re-syncs if first sync fails', async () => {
@@ -400,4 +473,7 @@ describe('ContractSyncService', () => {
   };
 
   const expectNoSync = () => expect(utilityExecutor).not.toHaveBeenCalled();
+
+  /** Yields to the macrotask queue, draining all pending microtasks (semaphore acquires/releases) in between. */
+  const tick = () => new Promise<void>(resolve => setImmediate(resolve));
 });

@@ -8,6 +8,19 @@ const CPP_AZTEC_CONSTANTS_FILE = '../../../../barretenberg/cpp/src/barretenberg/
 const PIL_AZTEC_CONSTANTS_FILE = '../../../../barretenberg/cpp/pil/vm2/constants_gen.pil';
 const SOLIDITY_CONSTANTS_FILE = '../../../../l1-contracts/src/core/libraries/ConstantsGen.sol';
 
+// Additional Noir source files (outside constants.nr) to extract specific constants from, keyed by
+// file path (relative to this script) and the exact constant names to pull from each. Used for
+// constants that are defined alongside circuit code rather than in constants.nr, so they can be
+// exported to the generated TS constants without duplicating their definition. The referenced
+// constants may depend on constants.nr values, which are in scope because they are evaluated after
+// the main file's constants.
+const ADDITIONAL_NOIR_CONSTANT_FILES: { file: string; constants: string[] }[] = [
+  {
+    file: '../../../../noir-projects/noir-protocol-circuits/crates/types/src/blob_data/tx_blob_data.nr',
+    constants: ['MAX_TX_BLOB_DATA_SIZE_IN_FIELDS'],
+  },
+];
+
 // Whitelist of constants that will be copied to aztec_constants.hpp.
 // We don't copy everything as just a handful are needed, and updating them breaks the cache and triggers expensive bb builds.
 const CPP_CONSTANTS = [
@@ -360,6 +373,21 @@ interface ParsedContent {
 }
 
 /**
+ * Raw expressions parsed from a Noir file, prior to evaluation. Keeping expressions unevaluated lets
+ * us merge constants from multiple files and resolve cross-file references in a single evaluation pass.
+ */
+interface ParsedExpressions {
+  /**
+   * Ordered list of "CONSTANT_NAME: expression" pairs.
+   */
+  constantsExpressions: [string, string][];
+  /**
+   * DomainSeparatorEnum.
+   */
+  domainSeparatorEnum: { [key: string]: number };
+}
+
+/**
  * Processes a collection of constants and generates code to export them as TypeScript constants.
  *
  * @param constants - An object containing key-value pairs representing constants.
@@ -533,14 +561,20 @@ ${processConstantsSolidity(constants)}
 /**
  * Parse the content of the constants file in Noir.
  */
-function parseNoirFile(fileContent: string): ParsedContent {
+function parseNoirFile(
+  fileContent: string,
+  { stripLineComments = false }: { stripLineComments?: boolean } = {},
+): ParsedExpressions {
   const constantsExpressions: [string, string][] = [];
   const domainSeparatorEnum: { [key: string]: number } = {};
 
   const emptyExpression = (): { name: string; content: string[] } => ({ name: '', content: [] });
   let expression = emptyExpression();
   fileContent.split('\n').forEach(l => {
-    const line = l.trim();
+    // Strip trailing `//` line comments so multi-line expressions with inline comments (e.g.
+    // MAX_TX_BLOB_DATA_SIZE_IN_FIELDS) parse correctly. Disabled for constants.nr to keep its
+    // existing parsing behavior byte-for-byte unchanged.
+    const line = (stripLineComments ? l.replace(/\/\/.*$/, '') : l).trim();
 
     if (!line) {
       // Empty line.
@@ -592,9 +626,7 @@ function parseNoirFile(fileContent: string): ParsedContent {
     }
   });
 
-  const constants = evaluateExpressions(constantsExpressions);
-
-  return { constants, domainSeparatorEnum };
+  return { constantsExpressions, domainSeparatorEnum };
 }
 
 /**
@@ -662,7 +694,28 @@ function main(): void {
 
   const noirConstantsFile = join(__dirname, NOIR_CONSTANTS_FILE);
   const noirConstants = fs.readFileSync(noirConstantsFile, 'utf-8');
-  const parsedContent = parseNoirFile(noirConstants);
+  const { constantsExpressions, domainSeparatorEnum } = parseNoirFile(noirConstants);
+
+  // Pull in explicitly-listed constants defined outside constants.nr (e.g. alongside circuit code).
+  // They are appended after the main constants so they can reference them when evaluated together.
+  for (const { file, constants: names } of ADDITIONAL_NOIR_CONSTANT_FILES) {
+    const additionalContent = fs.readFileSync(join(__dirname, file), 'utf-8');
+    const { constantsExpressions: additionalExpressions } = parseNoirFile(additionalContent, {
+      stripLineComments: true,
+    });
+    for (const name of names) {
+      const expression = additionalExpressions.find(([exprName]) => exprName === name);
+      if (!expression) {
+        throw new Error(`Constant ${name} not found in ${file}`);
+      }
+      constantsExpressions.push(expression);
+    }
+  }
+
+  const parsedContent: ParsedContent = {
+    constants: evaluateExpressions(constantsExpressions),
+    domainSeparatorEnum,
+  };
 
   // Typescript
   const tsTargetPath = join(__dirname, TS_CONSTANTS_FILE);

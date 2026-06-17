@@ -21,7 +21,6 @@ export {
   WalletCapabilitiesSchema,
   ExecutionPayloadSchema,
   GasSettingsOptionSchema,
-  WalletSimulationFeeOptionSchema,
   WaitOptsSchema,
   SendOptionsSchema,
   SimulateOptionsSchema,

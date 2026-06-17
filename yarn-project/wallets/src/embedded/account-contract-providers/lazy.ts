@@ -16,6 +16,11 @@ export class LazyAccountContractsProvider implements AccountContractsProvider {
     return new SchnorrAccountContract(signingKey);
   }
 
+  async getSchnorrInitializerlessAccountContract(signingKey: Fq): Promise<AccountContract> {
+    const { SchnorrInitializerlessAccountContract } = await import('@aztec/accounts/schnorr/lazy');
+    return new SchnorrInitializerlessAccountContract(signingKey);
+  }
+
   async getEcdsaRAccountContract(signingKey: Buffer): Promise<AccountContract> {
     const { EcdsaRAccountContract } = await import('@aztec/accounts/ecdsa/lazy');
     return new EcdsaRAccountContract(signingKey);
@@ -28,20 +33,20 @@ export class LazyAccountContractsProvider implements AccountContractsProvider {
 
   async getStubAccountContractArtifact(type: AccountType): Promise<ContractArtifact> {
     if (type === 'schnorr') {
-      const { getStubSchnorrAccountContractArtifact } = await import('@aztec/accounts/stub/schnorr/lazy');
+      const { getStubSchnorrAccountContractArtifact } = await import('@aztec/accounts/schnorr/stub/lazy');
       return getStubSchnorrAccountContractArtifact();
     } else {
-      const { getStubEcdsaAccountContractArtifact } = await import('@aztec/accounts/stub/ecdsa/lazy');
+      const { getStubEcdsaAccountContractArtifact } = await import('@aztec/accounts/ecdsa/stub/lazy');
       return getStubEcdsaAccountContractArtifact();
     }
   }
 
   async createStubAccount(address: CompleteAddress, type: AccountType): Promise<Account> {
     if (type === 'schnorr') {
-      const { createStubSchnorrAccount } = await import('@aztec/accounts/stub/schnorr/lazy');
+      const { createStubSchnorrAccount } = await import('@aztec/accounts/schnorr/stub/lazy');
       return createStubSchnorrAccount(address);
     } else {
-      const { createStubEcdsaAccount } = await import('@aztec/accounts/stub/ecdsa/lazy');
+      const { createStubEcdsaAccount } = await import('@aztec/accounts/ecdsa/stub/lazy');
       return createStubEcdsaAccount(address);
     }
   }

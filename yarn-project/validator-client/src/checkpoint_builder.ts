@@ -219,10 +219,12 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
     if (opts.isBuildingProposal) {
       const remainingBlocks = Math.max(1, opts.maxBlocksPerCheckpoint - existingBlocks.length);
       const multiplier = opts.perBlockAllocationMultiplier;
+      // DA gas and blob fields use a higher multiplier so the largest contract class deploy fits a block.
+      const daMultiplier = opts.perBlockDAAllocationMultiplier ?? multiplier;
 
       cappedL2Gas = Math.min(cappedL2Gas, Math.ceil((remainingMana / remainingBlocks) * multiplier));
-      cappedDAGas = Math.min(cappedDAGas, Math.ceil((remainingDAGas / remainingBlocks) * multiplier));
-      cappedBlobFields = Math.min(cappedBlobFields, Math.ceil((maxBlobFieldsForTxs / remainingBlocks) * multiplier));
+      cappedDAGas = Math.min(cappedDAGas, Math.ceil((remainingDAGas / remainingBlocks) * daMultiplier));
+      cappedBlobFields = Math.min(cappedBlobFields, Math.ceil((maxBlobFieldsForTxs / remainingBlocks) * daMultiplier));
       cappedMaxTransactions = Math.min(cappedMaxTransactions, Math.ceil((remainingTxs / remainingBlocks) * multiplier));
     }
 

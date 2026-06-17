@@ -33,6 +33,7 @@ const NUM_TXS_PER_NODE = 2;
 const BOOT_NODE_UDP_PORT = process.env.BOOT_NODE_UDP_PORT ? parseInt(process.env.BOOT_NODE_UDP_PORT) : 4500;
 const AZTEC_SLOT_DURATION = 36;
 const AZTEC_EPOCH_DURATION = 4;
+const BLOCK_DURATION_MS = 16_000;
 
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'gossip-'));
 
@@ -66,6 +67,7 @@ describe('e2e_p2p_network', () => {
         ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
         aztecSlotDuration: AZTEC_SLOT_DURATION,
         aztecEpochDuration: AZTEC_EPOCH_DURATION,
+        blockDurationMs: BLOCK_DURATION_MS,
         slashingRoundSizeInEpochs: 2,
         slashingQuorum: 5,
         listenAddress: '127.0.0.1',

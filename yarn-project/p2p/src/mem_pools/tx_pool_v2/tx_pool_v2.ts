@@ -110,6 +110,10 @@ export class AztecKVTxPoolV2 extends (EventEmitter as new () => TypedEventEmitte
     return this.#queue.put(() => this.#impl.prepareForSlot(slotNumber));
   }
 
+  unprotectTxs(txHashes: TxHash[], slotNumber: SlotNumber): Promise<void> {
+    return this.#queue.put(() => this.#impl.unprotectTxs(txHashes, slotNumber));
+  }
+
   handlePrunedBlocks(latestBlock: L2BlockId, options?: { deleteAllTxs?: boolean }): Promise<void> {
     return this.#queue.put(() => this.#impl.handlePrunedBlocks(latestBlock, options));
   }

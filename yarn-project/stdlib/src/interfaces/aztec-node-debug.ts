@@ -1,9 +1,13 @@
+import { type CheckpointNumber, CheckpointNumberSchema } from '@aztec/foundation/branded-types';
 import { createSafeJsonRpcClient, defaultFetch } from '@aztec/foundation/json-rpc/client';
 
 import { z } from 'zod';
 
-import type { ApiSchemaFor } from '../schemas/schemas.js';
+import { type ApiSchemaFor, optional } from '../schemas/schemas.js';
 import { type ComponentsVersions, getVersioningResponseHandler } from '../versioning/index.js';
+
+const MAX_SIGNATURES_PER_REGISTER_CALL = 100;
+const MAX_SIGNATURE_LEN = 10000;
 
 /**
  * Debug interface for Aztec node available in sandbox/local-network mode.
@@ -19,10 +23,36 @@ export interface AztecNodeDebug {
    * @throws If no sequencer is running.
    */
   mineBlock(): Promise<void>;
+
+  /**
+   * Synthetically proves the L2 chain up to the given checkpoint (default: the latest checkpointed
+   * checkpoint), writing epoch out hashes into the L1 Outbox so L2-to-L1 messages become consumable
+   * and advancing the rollup's proven tip. There is no real proof — this is the local-network
+   * equivalent of an epoch proof landing on L1. The target is clamped to the latest checkpointed
+   * checkpoint and the call no-ops when it is already proven.
+   *
+   * @param upToCheckpoint - Checkpoint to prove up to; defaults to the latest checkpointed checkpoint.
+   * @returns The proven checkpoint number after the call.
+   * @throws If no automine sequencer is running (only the automine sequencer supports synthetic proving).
+   */
+  prove(upToCheckpoint?: CheckpointNumber): Promise<CheckpointNumber>;
+
+  /**
+   * Registers public function signatures so the node can resolve selectors to names in public-execution stack
+   * traces. The mapping lives only in unpersisted node memory, is not gossiped, and is exposed here (rather than on
+   * the main node API) because it is a debug-only, unauthenticated write that should not be reachable on prod nodes.
+   * @param functionSignatures - Decoded `name(paramTypes)` signatures to register by selector.
+   */
+  registerContractFunctionSignatures(functionSignatures: string[]): Promise<void>;
 }
 
 export const AztecNodeDebugApiSchema: ApiSchemaFor<AztecNodeDebug> = {
   mineBlock: z.function({ input: z.tuple([]), output: z.void() }),
+  prove: z.function({ input: z.tuple([optional(CheckpointNumberSchema)]), output: CheckpointNumberSchema }),
+  registerContractFunctionSignatures: z.function({
+    input: z.tuple([z.array(z.string().max(MAX_SIGNATURE_LEN)).max(MAX_SIGNATURES_PER_REGISTER_CALL)]),
+    output: z.void(),
+  }),
 };
 
 export function createAztecNodeDebugClient(
@@ -32,7 +62,7 @@ export function createAztecNodeDebugClient(
   apiKey?: string,
 ): AztecNodeDebug {
   return createSafeJsonRpcClient<AztecNodeDebug>(url, AztecNodeDebugApiSchema, {
-    namespaceMethods: 'nodeDebug',
+    namespaceMethods: 'aztecDebug',
     fetch,
     onResponse: getVersioningResponseHandler(versions),
     ...(apiKey ? { extraHeaders: { 'x-api-key': apiKey } } : {}),
