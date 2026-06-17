@@ -155,7 +155,7 @@ pub unconstrained fn sync_inbox(
     }
 
     // Ask PXE to resolve all requested tx hashes. The oracle returns responses in a new ephemeral array.
-    let resolved_txs = crate::oracle::tx::get_resolved_txs(context_resolution_requests);
+    let resolved_txs = crate::oracle::tx_resolution::get_resolved_txs(context_resolution_requests);
 
     assert_eq(resolved_txs.len(), inbox_len);
 

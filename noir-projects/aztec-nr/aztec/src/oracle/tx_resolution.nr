@@ -20,7 +20,7 @@ pub(crate) unconstrained fn get_resolved_txs(requests: EphemeralArray<Field>) ->
 unconstrained fn get_resolved_txs_oracle(requests: EphemeralArray<Field>) -> EphemeralArray<Option<ResolvedTx>> {}
 
 mod test {
-    use crate::oracle::tx::ResolvedTx;
+    use crate::oracle::tx_resolution::ResolvedTx;
     use crate::protocol::traits::Deserialize;
 
     #[test]

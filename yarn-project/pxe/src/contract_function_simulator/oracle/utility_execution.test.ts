@@ -1,4 +1,4 @@
-import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Grumpkin } from '@aztec/foundation/crypto/grumpkin';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
@@ -16,19 +16,10 @@ import {
 } from '@aztec/stdlib/contract';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { PublicKeys, deriveKeys, hashPublicKey } from '@aztec/stdlib/keys';
-import { AppTaggingSecret, AppTaggingSecretKind, MessageContext, SiloedTag } from '@aztec/stdlib/logs';
+import { AppTaggingSecret, AppTaggingSecretKind, SiloedTag } from '@aztec/stdlib/logs';
 import { Note, NoteDao } from '@aztec/stdlib/note';
 import { makeL2Tips } from '@aztec/stdlib/testing';
-import {
-  BlockHeader,
-  Capsule,
-  GlobalVariables,
-  MinedTxReceipt,
-  TxEffect,
-  TxExecutionResult,
-  TxHash,
-  TxStatus,
-} from '@aztec/stdlib/tx';
+import { BlockHeader, Capsule, GlobalVariables, TxHash } from '@aztec/stdlib/tx';
 
 import { mock } from 'jest-mock-extended';
 import type { _MockProxy } from 'jest-mock-extended/lib/Mock.js';
@@ -439,86 +430,6 @@ describe('Utility Execution test suite', () => {
           BoundedVec.from({ data: [scopeA, scopeB], maxLength: 2 }),
         );
         expect(contractSyncService.invalidateContractForScopes).toHaveBeenCalledWith(contractAddress, [scopeA, scopeB]);
-      });
-    });
-
-    // The `getMessageContextsByTxHash` oracle is a backwards-compatibility shim for contract artifacts that predate
-    // `get_resolved_txs`; it derives the lean `MessageContext` (without block fields) from the resolved tx.
-    describe('getMessageContextsByTxHash (compat shim)', () => {
-      const service = new EphemeralArrayService();
-
-      it('sets null in response for zero tx hashes', async () => {
-        const requests = EphemeralArray.fromValues(service, [Fr.ZERO]);
-
-        const response = await utilityExecutionOracle.getMessageContextsByTxHash(requests);
-        const [responseValue] = response.readAll(service);
-        expect(responseValue.isNone()).toBe(true);
-        expect(aztecNode.getTxReceipt).not.toHaveBeenCalled();
-      });
-
-      it('resolves a valid tx hash into a MessageContext', async () => {
-        const txHash = TxHash.random();
-        const noteHash = Fr.random();
-        const firstNullifier = Fr.random();
-        const blockHash = BlockHash.random();
-        const blockNumber = syncedBlockNumber - 1;
-
-        aztecNode.getTxReceipt.mockResolvedValueOnce(
-          new MinedTxReceipt(
-            txHash,
-            TxStatus.PROPOSED,
-            TxExecutionResult.SUCCESS,
-            0n,
-            blockHash,
-            BlockNumber(blockNumber),
-            SlotNumber(0),
-            0,
-            EpochNumber(1),
-            TxEffect.from({
-              ...(await TxEffect.random()),
-              txHash,
-              noteHashes: [noteHash],
-              nullifiers: [firstNullifier],
-            }),
-          ),
-        );
-
-        const requests = EphemeralArray.fromValues(service, [txHash.hash]);
-
-        const response = await utilityExecutionOracle.getMessageContextsByTxHash(requests);
-        const [responseValue] = response.readAll(service);
-        expect(responseValue.isSome()).toBe(true);
-        expect(responseValue.value).toEqual(new MessageContext(txHash, [noteHash], firstNullifier));
-      });
-
-      it('sets null in response for tx effects beyond anchor block', async () => {
-        const txHash = TxHash.random();
-
-        aztecNode.getTxReceipt.mockResolvedValueOnce(
-          new MinedTxReceipt(
-            txHash,
-            TxStatus.PROPOSED,
-            TxExecutionResult.SUCCESS,
-            0n,
-            BlockHash.random(),
-            BlockNumber(syncedBlockNumber + 1),
-            SlotNumber(0),
-            0,
-            EpochNumber(1),
-            TxEffect.from({
-              ...(await TxEffect.random()),
-              txHash,
-              noteHashes: [],
-              nullifiers: [Fr.random()],
-            }),
-          ),
-        );
-
-        const requests = EphemeralArray.fromValues(service, [txHash.hash]);
-
-        const response = await utilityExecutionOracle.getMessageContextsByTxHash(requests);
-        const [responseValue] = response.readAll(service);
-        expect(responseValue.isNone()).toBe(true);
       });
     });
 
