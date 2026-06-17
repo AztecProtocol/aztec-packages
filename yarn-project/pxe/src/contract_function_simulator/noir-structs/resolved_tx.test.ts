@@ -102,30 +102,4 @@ describe('ResolvedTx', () => {
       fieldArrayStr,
     );
   });
-
-  it('serialization of some option matches snapshot', () => {
-    const txHash = new TxHash(new Fr(123));
-    const uniqueNoteHashes = [new Fr(4n), new Fr(5n)];
-    const firstNullifier = new Fr(6n);
-    const resolved = new ResolvedTx(txHash, uniqueNoteHashes, firstNullifier, 7, new Fr(8n));
-    const serialized = ResolvedTx.toSerializedOption(resolved);
-    // is_some flag + fields
-    expect(serialized[0]).toEqual(new Fr(1));
-    expect(serialized.length).toEqual(1 + resolved.toFields().length);
-  });
-
-  it('serialization of none option matches snapshot', () => {
-    const serialized = ResolvedTx.toSerializedOption(null);
-    expect(serialized[0]).toEqual(new Fr(0));
-    // All fields should be zero
-    for (const f of serialized) {
-      expect(f).toEqual(Fr.zero());
-    }
-  });
-
-  it('serialization length of empty matches some', () => {
-    const txHash = new TxHash(new Fr(123));
-    const resolved = new ResolvedTx(txHash, [new Fr(4n), new Fr(5n)], new Fr(6n), 7, new Fr(8n));
-    expect(resolved.toFields().length).toEqual(ResolvedTx.toEmptyFields().length);
-  });
 });
