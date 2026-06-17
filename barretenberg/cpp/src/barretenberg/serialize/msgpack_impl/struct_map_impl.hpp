@@ -10,6 +10,9 @@
 #include "drop_keys.hpp"
 #include <msgpack.hpp>
 
+#ifndef IPC_CODEGEN_MSGPACK_STRUCT_MAP_ADAPTOR_DEFINED
+#define IPC_CODEGEN_MSGPACK_STRUCT_MAP_ADAPTOR_DEFINED
+
 namespace msgpack::adaptor {
 // reads structs with msgpack() method from a JSON-like dictionary
 template <msgpack_concepts::HasMsgPack T> struct convert<T> {
@@ -61,3 +64,5 @@ template <msgpack_concepts::HasMsgPack T> struct pack<T> {
 };
 
 } // namespace msgpack::adaptor
+
+#endif

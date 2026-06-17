@@ -71,6 +71,13 @@ export class TypeScriptPackageCodegen {
       name: this.opts.packageName,
       version: "0.1.0",
       type: "module",
+      // Put the native binary on the consumer's PATH. The bin target is a JS
+      // launcher (dest/bin.js), not the binary itself: the binary ships in the
+      // per-arch optional-dependency packages and is resolved at runtime, and
+      // npm only links the main package's own bin onto PATH.
+      ...(this.opts.binaryName
+        ? { bin: { [this.opts.binaryName]: "./dest/bin.js" } }
+        : {}),
       exports: {
         ".": {
           types: "./dest/index.d.ts",
@@ -93,6 +100,30 @@ export class TypeScriptPackageCodegen {
       },
     };
     return JSON.stringify(pkg, null, 2) + "\n";
+  }
+
+  generateBin(): string {
+    const findBinary = binaryFinderName(this.opts.prefix);
+    return `#!/usr/bin/env node
+import { spawnSync } from 'node:child_process';
+import { ${findBinary} } from './platform.js';
+
+const binaryPath = ${findBinary}();
+if (!binaryPath) {
+  console.error(
+    "${this.opts.binaryName}: native binary not found. Install the matching " +
+      "'${this.opts.packageName}-<platform>' package, set ${this.opts.binaryEnvVar}, or pass its path.",
+  );
+  process.exit(1);
+}
+
+const result = spawnSync(binaryPath, process.argv.slice(2), { stdio: 'inherit' });
+if (result.error) {
+  console.error(result.error.message);
+  process.exit(1);
+}
+process.exit(result.status ?? 1);
+`;
   }
 
   generateArchPackageJson(suffix: string, os: string, cpu: string): string {
