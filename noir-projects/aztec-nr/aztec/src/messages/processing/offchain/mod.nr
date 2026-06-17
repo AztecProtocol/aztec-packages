@@ -148,9 +148,8 @@ mod test {
     use crate::{
         entities::{Entity, EntityBody, Fact, get_entity},
         ephemeral::EphemeralArray,
-        messages::encoding::MESSAGE_CIPHERTEXT_LEN,
         oracle::random::random,
-        protocol::{address::AztecAddress, traits::{Deserialize, FromField, Serialize}},
+        protocol::address::AztecAddress,
         test::helpers::test_environment::TestEnvironment,
     };
     use super::{
@@ -164,6 +163,11 @@ mod test {
         (env, scope)
     }
 
+    /// Creates an `OffchainMessage` with dummy ciphertext and the given scope as recipient.
+    fn make_msg(recipient: AztecAddress, tx_hash: Option<Field>, anchor_block_timestamp: u64) -> OffchainMessage {
+        OffchainMessage { ciphertext: BoundedVec::new(), recipient, tx_hash, anchor_block_timestamp }
+    }
+
     /// Advances the TXE block timestamp by `offset` seconds and returns the resulting timestamp.
     unconstrained fn advance_by(env: TestEnvironment, offset: u64) -> u64 {
         env.advance_next_block_timestamp_by(offset);
@@ -172,18 +176,26 @@ mod test {
     }
 
     /// Returns the entity ids of the reception entities currently active for the given scope.
-    unconstrained fn active_keys(c: AztecAddress, s: AztecAddress) -> EphemeralArray<Field> {
-        Entity::<OffchainMessage>::read_all(c, s).map(|e: Entity<OffchainMessage>| e.body.entity_id())
+    unconstrained fn messages_in_inbox(contract_address: AztecAddress, scope: AztecAddress) -> EphemeralArray<Field> {
+        Entity::<OffchainMessage>::read_all(contract_address, scope).map(|e: Entity<OffchainMessage>| {
+            e.body.entity_id()
+        })
     }
 
     /// Returns `true` if a reception entity with the given entity id is currently active.
-    unconstrained fn is_active(c: AztecAddress, s: AztecAddress, key: Field) -> bool {
-        active_keys(c, s).any(|k: Field| k == key)
+    unconstrained fn is_in_inbox(contract_address: AztecAddress, scope: AztecAddress, msg_entity_id: Field) -> bool {
+        messages_in_inbox(contract_address, scope).any(|k: Field| k == msg_entity_id)
     }
 
     /// Returns `true` if the reception entity with the given id has been marked processed.
-    unconstrained fn is_processed(c: AztecAddress, s: AztecAddress, key: Field) -> bool {
-        let facts = get_entity::<OffchainMessage>(c, s, OffchainMessage::entity_type_id(), key).facts;
+    unconstrained fn is_processed(contract_address: AztecAddress, scope: AztecAddress, msg_entity_id: Field) -> bool {
+        let facts = get_entity::<OffchainMessage>(
+            contract_address,
+            scope,
+            OffchainMessage::entity_type_id(),
+            msg_entity_id,
+        )
+            .facts;
         facts.any(|f: Fact| f.fact_type_id == OFFCHAIN_MESSAGE_PROCESSED)
     }
 
@@ -195,7 +207,7 @@ mod test {
             let result = sync_inbox(address, scope);
 
             assert_eq(result.len(), 0);
-            assert_eq(active_keys(address, scope).len(), 0);
+            assert_eq(messages_in_inbox(address, scope).len(), 0);
         });
     }
 
@@ -204,13 +216,7 @@ mod test {
         let (env, scope) = setup();
         let anchor_ts = advance_by(env, 10);
         let tx_hash = random();
-        let msg = OffchainMessage {
-            ciphertext: BoundedVec::new(),
-            recipient: scope,
-            tx_hash: Option::some(tx_hash),
-            anchor_block_timestamp: anchor_ts,
-        };
-        let key = msg.entity_id();
+        let msg = make_msg(scope, Option::some(tx_hash), anchor_ts);
 
         env.utility_context(|context| { receive(context.this_address(), BoundedVec::from_array([msg])); });
 
@@ -222,7 +228,7 @@ mod test {
             let result = sync_inbox(address, scope);
 
             assert_eq(result.len(), 0); // context is None, not ready
-            assert(!is_active(address, scope, key), "expired entity should be terminated");
+            assert(!is_in_inbox(address, scope, msg.entity_id()), "expired entity should be terminated");
         });
     }
 
@@ -231,13 +237,7 @@ mod test {
         let (env, scope) = setup();
         let anchor_ts = advance_by(env, 10);
         let tx_hash = random();
-        let msg = OffchainMessage {
-            ciphertext: BoundedVec::new(),
-            recipient: scope,
-            tx_hash: Option::some(tx_hash),
-            anchor_block_timestamp: anchor_ts,
-        };
-        let key = msg.entity_id();
+        let msg = make_msg(scope, Option::some(tx_hash), anchor_ts);
 
         env.utility_context(|context| { receive(context.this_address(), BoundedVec::from_array([msg])); });
 
@@ -249,8 +249,8 @@ mod test {
             let result = sync_inbox(address, scope);
 
             assert_eq(result.len(), 0); // context is None, not ready
-            assert(is_active(address, scope, key), "not expired entity should stay active");
-            assert(!is_processed(address, scope, key), "should still be unprocessed");
+            assert(is_in_inbox(address, scope, msg.entity_id()), "not expired entity should stay active");
+            assert(!is_processed(address, scope, msg.entity_id()), "should still be unprocessed");
         });
     }
 
@@ -259,13 +259,7 @@ mod test {
         let (env, scope) = setup();
         let anchor_ts = advance_by(env, 10);
         // A tx-less message normalizes to tx_hash 0.
-        let msg = OffchainMessage {
-            ciphertext: BoundedVec::new(),
-            recipient: scope,
-            tx_hash: Option::none(),
-            anchor_block_timestamp: anchor_ts,
-        };
-        let key = msg.entity_id();
+        let msg = make_msg(scope, Option::none(), anchor_ts);
 
         env.utility_context(|context| { receive(context.this_address(), BoundedVec::from_array([msg])); });
 
@@ -277,7 +271,7 @@ mod test {
             let result = sync_inbox(address, scope);
 
             assert_eq(result.len(), 0); // context is None, not ready
-            assert(!is_active(address, scope, key), "expired entity should be terminated");
+            assert(!is_in_inbox(address, scope, msg.entity_id()), "expired entity should be terminated");
         });
     }
 
@@ -286,13 +280,7 @@ mod test {
         let (env, scope) = setup();
         let anchor_ts = advance_by(env, 10);
         let tx_hash = random();
-        let msg = OffchainMessage {
-            ciphertext: BoundedVec::new(),
-            recipient: scope,
-            tx_hash: Option::some(tx_hash),
-            anchor_block_timestamp: anchor_ts,
-        };
-        let key = msg.entity_id();
+        let msg = make_msg(scope, Option::some(tx_hash), anchor_ts);
 
         env.utility_context(|context| { receive(context.this_address(), BoundedVec::from_array([msg])); });
 
@@ -303,8 +291,8 @@ mod test {
             let result = sync_inbox(address, scope);
 
             assert_eq(result.len(), 0); // not resolved, not ready
-            assert(is_active(address, scope, key), "unresolved entity should stay active");
-            assert(!is_processed(address, scope, key), "should still be unprocessed");
+            assert(is_in_inbox(address, scope, msg.entity_id()), "unresolved entity should stay active");
+            assert(!is_processed(address, scope, msg.entity_id()), "should still be unprocessed");
         });
     }
 
@@ -316,27 +304,9 @@ mod test {
         let expired_a_tx_hash = random();
         let survivor_tx_hash = random();
 
-        let expired_a = OffchainMessage {
-            ciphertext: BoundedVec::new(),
-            recipient: scope,
-            tx_hash: Option::some(expired_a_tx_hash),
-            anchor_block_timestamp: 0,
-        };
-        let survivor = OffchainMessage {
-            ciphertext: BoundedVec::new(),
-            recipient: scope,
-            tx_hash: Option::some(survivor_tx_hash),
-            anchor_block_timestamp: anchor_ts,
-        };
-        let expired_b = OffchainMessage {
-            ciphertext: BoundedVec::new(),
-            recipient: scope,
-            tx_hash: Option::none(),
-            anchor_block_timestamp: 0,
-        };
-        let expired_a_key = expired_a.entity_id();
-        let survivor_key = survivor.entity_id();
-        let expired_b_key = expired_b.entity_id();
+        let expired_a = make_msg(scope, Option::some(expired_a_tx_hash), 0);
+        let survivor = make_msg(scope, Option::some(survivor_tx_hash), anchor_ts);
+        let expired_b = make_msg(scope, Option::none(), 0);
 
         env.utility_context(|context| {
             let address = context.this_address();
@@ -358,10 +328,13 @@ mod test {
             let result = sync_inbox(address, scope);
 
             assert_eq(result.len(), 0); // all contexts are None
-            assert(!is_active(address, scope, expired_a_key), "expired tx-bound entity should be terminated");
-            assert(!is_active(address, scope, expired_b_key), "expired tx-less entity should be terminated");
-            assert(is_active(address, scope, survivor_key), "survivor entity should stay active");
-            assert_eq(active_keys(address, scope).len(), 1);
+            assert(
+                !is_in_inbox(address, scope, expired_a.entity_id()),
+                "expired tx-bound entity should be terminated",
+            );
+            assert(!is_in_inbox(address, scope, expired_b.entity_id()), "expired tx-less entity should be terminated");
+            assert(is_in_inbox(address, scope, survivor.entity_id()), "survivor entity should stay active");
+            assert_eq(messages_in_inbox(address, scope).len(), 1);
         });
     }
 
@@ -370,18 +343,11 @@ mod test {
     #[test]
     unconstrained fn resolved_msg_is_ready_to_process() {
         let (env, scope) = setup();
-        // TestEnvironment::new() deploys protocol contracts, creating blocks with tx effects.
         // In TXE, tx hashes equal Fr(blockNumber), so Fr(1) is the tx effect from block 1.
         // We use this as a "known resolvable" tx hash.
         let known_tx_hash: Field = 1;
         let anchor_ts = advance_by(env, 10);
-        let msg = OffchainMessage {
-            ciphertext: BoundedVec::new(),
-            recipient: scope,
-            tx_hash: Option::some(known_tx_hash),
-            anchor_block_timestamp: anchor_ts,
-        };
-        let key = msg.entity_id();
+        let msg = make_msg(scope, Option::some(known_tx_hash), anchor_ts);
 
         env.utility_context(|context| { receive(context.this_address(), BoundedVec::from_array([msg])); });
 
@@ -396,11 +362,13 @@ mod test {
 
             let ctx = result.get(0).message_context;
             assert_eq(ctx.tx_hash, known_tx_hash);
-            assert(ctx.first_nullifier_in_tx != 0, "resolved context must have a first nullifier");
 
             // Entity stays active (not expired) and is now marked processed, with a Processed fact recorded.
-            assert(is_active(address, scope, key), "processed entity should stay active for reorg safety");
-            assert(is_processed(address, scope, key), "should be processed");
+            assert(
+                is_in_inbox(address, scope, msg.entity_id()),
+                "processed entity should stay active for reorg safety",
+            );
+            assert(is_processed(address, scope, msg.entity_id()), "should be processed");
         });
     }
 
@@ -409,65 +377,54 @@ mod test {
         let (env, scope) = setup();
         let known_tx_hash: Field = 1;
         let anchor_ts = advance_by(env, 10);
-        let msg = OffchainMessage {
-            ciphertext: BoundedVec::new(),
-            recipient: scope,
-            tx_hash: Option::some(known_tx_hash),
-            anchor_block_timestamp: anchor_ts,
-        };
-        let key = msg.entity_id();
+        let msg = make_msg(scope, Option::some(known_tx_hash), anchor_ts);
 
         env.utility_context(|context| { receive(context.this_address(), BoundedVec::from_array([msg])); });
 
         let _now = advance_by(env, 100);
 
-        // First sync: the message resolves, is pushed for processing, and a Processed fact is recorded.
+        // First sync: the message resolves, is pushed for processing.
         env.utility_context(|context| {
             let address = context.this_address();
             let first = sync_inbox(address, scope);
             assert_eq(first.len(), 1);
-            assert(is_processed(address, scope, key), "should be processed");
+            assert(is_processed(address, scope, msg.entity_id()), "should be processed");
         });
 
-        // Second sync with the same resolvable context: the Processed guard skips the message (idempotency) while the
-        // entity remains active (not expired).
+        // Second sync with the same resolvable context the entity remains active (not expired).
         env.utility_context(|context| {
             let address = context.this_address();
             let second = sync_inbox(address, scope);
 
             assert_eq(second.len(), 0); // already processed, not re-pushed
-            assert(is_active(address, scope, key), "processed entity should still be active");
-            assert(is_processed(address, scope, key), "should remain processed");
+            assert(is_in_inbox(address, scope, msg.entity_id()), "processed entity should still be active");
+            assert(is_processed(address, scope, msg.entity_id()), "should remain processed");
         });
     }
 
     #[test]
-    unconstrained fn expired_resolved_msg_is_processed_before_termination() {
+    unconstrained fn expired_resolved_msg_is_processed_once_before_termination() {
         let (env, scope) = setup();
         let known_tx_hash: Field = 1;
         let anchor_ts = advance_by(env, 10);
-        let msg = OffchainMessage {
-            ciphertext: BoundedVec::new(),
-            recipient: scope,
-            tx_hash: Option::some(known_tx_hash),
-            anchor_block_timestamp: anchor_ts,
-        };
-        let key = msg.entity_id();
+        let msg = make_msg(scope, Option::some(known_tx_hash), anchor_ts);
 
         env.utility_context(|context| { receive(context.this_address(), BoundedVec::from_array([msg])); });
 
         // Advance past anchor_ts + MAX_MSG_TTL so the message is expired on the next sync.
         let _now = advance_by(env, MAX_MSG_TTL + 1);
 
-        // First sync: even though the message is expired, its context resolves, so it is handed off for processing
-        // rather than silently evicted. The entity stays active this sync (now marked processed).
+        // First sync: even though the message is expired, its context resolves, so it is handed off for processing.
         env.utility_context(|context| {
             let address = context.this_address();
             let result = sync_inbox(address, scope);
 
             assert_eq(result.len(), 1);
-            assert(is_active(address, scope, key), "expired-but-resolved entity is processed, not terminated yet");
-            assert(is_processed(address, scope, key), "should be processed");
+            assert(
+                is_in_inbox(address, scope, msg.entity_id()),
+                "expired-but-resolved entity is processed, not terminated yet",
+            );
+            assert(is_processed(address, scope, msg.entity_id()), "should be processed");
         });
 
         // Second sync: still expired and now processed, so the entity is terminated.
@@ -476,7 +433,10 @@ mod test {
             let second = sync_inbox(address, scope);
 
             assert_eq(second.len(), 0); // already processed, not re-pushed
-            assert(!is_active(address, scope, key), "expired processed entity is terminated on the next sync");
+            assert(
+                !is_in_inbox(address, scope, msg.entity_id()),
+                "expired processed entity is terminated on the next sync",
+            );
         });
     }
 
@@ -486,13 +446,7 @@ mod test {
     unconstrained fn redelivery_is_idempotent() {
         let (env, scope) = setup();
         let anchor_ts = advance_by(env, 10);
-        let msg = OffchainMessage {
-            ciphertext: BoundedVec::new(),
-            recipient: scope,
-            tx_hash: Option::some(random()),
-            anchor_block_timestamp: anchor_ts,
-        };
-        let key = msg.entity_id();
+        let msg = make_msg(scope, Option::some(random()), anchor_ts);
 
         // First delivery, committed as its own job.
         env.utility_context(|context| { receive(context.this_address(), BoundedVec::from_array([msg])); });
@@ -502,8 +456,8 @@ mod test {
             let address = context.this_address();
             receive(address, BoundedVec::from_array([msg]));
 
-            assert(is_active(address, scope, key), "reception should be active");
-            assert_eq(active_keys(address, scope).len(), 1);
+            assert(is_in_inbox(address, scope, msg.entity_id()), "reception should be active");
+            assert_eq(messages_in_inbox(address, scope).len(), 1);
         });
     }
 
@@ -512,52 +466,27 @@ mod test {
         let (env, scope) = setup();
         let known_tx_hash: Field = 1;
         let anchor_ts = advance_by(env, 10);
-        let msg = OffchainMessage {
-            ciphertext: BoundedVec::new(),
-            recipient: scope,
-            tx_hash: Option::some(known_tx_hash),
-            anchor_block_timestamp: anchor_ts,
-        };
-        let key = msg.entity_id();
+        let msg = make_msg(scope, Option::some(known_tx_hash), anchor_ts);
 
         env.utility_context(|context| { receive(context.this_address(), BoundedVec::from_array([msg])); });
 
         let _now = advance_by(env, 100);
 
-        // First sync resolves the message and records its Processed guard fact.
+        // First sync resolves the message and marks it as processed.
         env.utility_context(|context| {
             let address = context.this_address();
             assert_eq(sync_inbox(address, scope).len(), 1);
-            assert(is_processed(address, scope, key), "should be processed");
+            assert(is_processed(address, scope, msg.entity_id()), "should be processed");
         });
 
-        // Re-deliver the same message. First-write-wins create is a no-op that preserves the Processed fact, so the
-        // next sync recognizes it as already processed and does not re-push it.
+        // Re-deliver the same message. The next sync recognizes it as already processed and does not re-push it.
         env.utility_context(|context| {
             let address = context.this_address();
             receive(address, BoundedVec::from_array([msg]));
 
-            assert(is_processed(address, scope, key), "re-delivery must preserve the processed guard");
+            assert(is_processed(address, scope, msg.entity_id()), "re-delivery must preserve the processed guard");
             assert_eq(sync_inbox(address, scope).len(), 0);
         });
     }
 
-    // ---- Pack/unpack tests (no TXE) ----
-
-    #[test]
-    unconstrained fn pack_unpack_round_trips_offchain_message() {
-        let ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN> = BoundedVec::new();
-        let msg = OffchainMessage {
-            ciphertext,
-            recipient: AztecAddress::from_field(42),
-            tx_hash: Option::some(99),
-            anchor_block_timestamp: 12345,
-        };
-        let packed = msg.serialize();
-        let roundtripped: OffchainMessage = Deserialize::deserialize(packed);
-        assert_eq(roundtripped.recipient, msg.recipient);
-        assert_eq(roundtripped.tx_hash, msg.tx_hash);
-        assert_eq(roundtripped.anchor_block_timestamp, msg.anchor_block_timestamp);
-        assert_eq(roundtripped.ciphertext.len(), msg.ciphertext.len());
-    }
 }

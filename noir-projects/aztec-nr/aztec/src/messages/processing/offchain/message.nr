@@ -48,3 +48,28 @@ impl EntityBody for OffchainMessage {
         poseidon2_hash(inputs)
     }
 }
+
+mod test {
+    use crate::{
+        messages::encoding::MESSAGE_CIPHERTEXT_LEN,
+        protocol::{address::AztecAddress, traits::{Deserialize, FromField, Serialize}},
+    };
+    use super::OffchainMessage;
+
+    #[test]
+    unconstrained fn pack_unpack_round_trips_offchain_message() {
+        let ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN> = BoundedVec::new();
+        let msg = OffchainMessage {
+            ciphertext,
+            recipient: AztecAddress::from_field(42),
+            tx_hash: Option::some(99),
+            anchor_block_timestamp: 12345,
+        };
+        let packed = msg.serialize();
+        let roundtripped: OffchainMessage = Deserialize::deserialize(packed);
+        assert_eq(roundtripped.recipient, msg.recipient);
+        assert_eq(roundtripped.tx_hash, msg.tx_hash);
+        assert_eq(roundtripped.anchor_block_timestamp, msg.anchor_block_timestamp);
+        assert_eq(roundtripped.ciphertext.len(), msg.ciphertext.len());
+    }
+}
