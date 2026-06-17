@@ -205,8 +205,8 @@ jobs:
           gcp_sa_key: ${{ secrets.GCP_SA_KEY }}
           gcp_project_id: ${{ secrets.GCP_PROJECT_ID }}
 
-  notify-bench-failure:
-    if: ${{ always() && failure() && github.event_name != 'workflow_dispatch' && github.repository == 'AztecProtocol/aztec-packages-private' }}
+  notify-bench:
+    if: ${{ always() && github.event_name != 'workflow_dispatch' && github.repository == 'AztecProtocol/aztec-packages-private' }}
     needs:
       - select-image
       - deploy-bench-network
@@ -221,7 +221,7 @@ jobs:
           ref: ${{ needs.select-image.outputs.source_ref }}
 
       - name: Notify Slack on success
-        if: success()
+        if: ${{ needs.benchmark.result == 'success' }}
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
         run: |
@@ -233,7 +233,7 @@ jobs:
             "#alerts-next-scenario"
 
       - name: Notify Slack and dispatch ClaudeBox on failure
-        if: failure()
+        if: ${{ needs.benchmark.result != 'success' }}
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
@@ -370,8 +370,8 @@ jobs:
           gcp_sa_key: ${{ secrets.GCP_SA_KEY }}
           gcp_project_id: ${{ secrets.GCP_PROJECT_ID }}
 
-  notify-proving-failure:
-    if: ${{ always() && failure() && github.event_name != 'workflow_dispatch' && github.repository == 'AztecProtocol/aztec-packages-private' }}
+  notify-proving:
+    if: ${{ always() && github.event_name != 'workflow_dispatch' && github.repository == 'AztecProtocol/aztec-packages-private' }}
     needs:
       - select-image
       - deploy-proving-network
@@ -386,7 +386,7 @@ jobs:
           ref: ${{ needs.select-image.outputs.source_ref }}
 
       - name: Notify Slack on success
-        if: success()
+        if: ${{ needs.proving-benchmark.result == 'success' }}
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
         run: |
@@ -398,7 +398,7 @@ jobs:
             "#alerts-next-scenario"
 
       - name: Notify Slack and dispatch ClaudeBox on failure
-        if: failure()
+        if: ${{ needs.proving-benchmark.result != 'success' }}
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
@@ -535,8 +535,8 @@ jobs:
           gcp_sa_key: ${{ secrets.GCP_SA_KEY }}
           gcp_project_id: ${{ secrets.GCP_PROJECT_ID }}
 
-  notify-block-capacity-failure:
-    if: ${{ always() && failure() && github.event_name != 'workflow_dispatch' && github.repository == 'AztecProtocol/aztec-packages-private' }}
+  notify-block-capacity:
+    if: ${{ always() && github.event_name != 'workflow_dispatch' && github.repository == 'AztecProtocol/aztec-packages-private' }}
     needs:
       - select-image
       - deploy-block-capacity-network
@@ -551,7 +551,7 @@ jobs:
           ref: ${{ needs.select-image.outputs.source_ref }}
 
       - name: Notify Slack on success
-        if: success()
+        if: ${{ needs.block-capacity-benchmark.result == 'success' }}
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
         run: |
@@ -563,7 +563,7 @@ jobs:
             "#alerts-next-scenario"
 
       - name: Notify Slack and dispatch ClaudeBox on failure
-        if: failure()
+        if: ${{ needs.block-capacity-benchmark.result != 'success' }}
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
