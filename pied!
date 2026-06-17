@@ -1,0 +1,15 @@
+[1mdiff --git a/noir-projects/noir-contracts/contracts/test/stateful_test_contract/src/main.nr b/noir-projects/noir-contracts/contracts/test/stateful_test_contract/src/main.nr[m
+[1mindex 04a92e3719..4c2e1648c3 100644[m
+[1m--- a/noir-projects/noir-contracts/contracts/test/stateful_test_contract/src/main.nr[m
+[1m+++ b/noir-projects/noir-contracts/contracts/test/stateful_test_contract/src/main.nr[m
+[36m@@ -61,7 +61,9 @@[m [mpub contract StatefulTest {[m
+ [m
+         let _ = self.storage.notes.at(sender).pop_notes(NoteGetterOptions::new().set_limit(2));[m
+ [m
+[31m-        self.storage.notes.at(recipient).insert(FieldNote { value: 92 }).deliver(MessageDelivery::onchain_unconstrained());[m
+[32m+[m[32m        self.storage.notes.at(recipient).insert(FieldNote { value: 92 }).deliver([m
+[32m+[m[32m            MessageDelivery::onchain_unconstrained(),[m
+[32m+[m[32m        );[m
+     }[m
+ [m
+     #[external("public")][m

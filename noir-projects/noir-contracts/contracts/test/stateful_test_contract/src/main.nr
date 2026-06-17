@@ -61,7 +61,9 @@ pub contract StatefulTest {
 
         let _ = self.storage.notes.at(sender).pop_notes(NoteGetterOptions::new().set_limit(2));
 
-        self.storage.notes.at(recipient).insert(FieldNote { value: 92 }).deliver(MessageDelivery::onchain_unconstrained());
+        self.storage.notes.at(recipient).insert(FieldNote { value: 92 }).deliver(
+            MessageDelivery::onchain_unconstrained(),
+        );
     }
 
     #[external("public")]
