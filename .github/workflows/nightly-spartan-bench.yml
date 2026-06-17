@@ -198,15 +198,12 @@ jobs:
           ref: ${{ needs.select-image.outputs.source_ref }}
 
       - name: Cleanup network resources
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
-          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
-          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-          NO_SPOT: 1
-        run: ./.github/ci3.sh network-teardown tps-scenario nightly-bench
+        uses: ./.github/actions/network-teardown
+        with:
+          env_file: tps-scenario
+          namespace: nightly-bench
+          gcp_sa_key: ${{ secrets.GCP_SA_KEY }}
+          gcp_project_id: ${{ secrets.GCP_PROJECT_ID }}
 
   notify-bench-failure:
     if: ${{ always() && failure() && github.event_name != 'workflow_dispatch' && github.repository == 'AztecProtocol/aztec-packages-private' }}
@@ -366,15 +363,12 @@ jobs:
           ref: ${{ needs.select-image.outputs.source_ref }}
 
       - name: Cleanup network resources
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
-          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
-          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-          NO_SPOT: 1
-        run: ./.github/ci3.sh network-teardown prove-n-tps-fake prove-n-tps-fake
+        uses: ./.github/actions/network-teardown
+        with:
+          env_file: prove-n-tps-fake
+          namespace: prove-n-tps-fake
+          gcp_sa_key: ${{ secrets.GCP_SA_KEY }}
+          gcp_project_id: ${{ secrets.GCP_PROJECT_ID }}
 
   notify-proving-failure:
     if: ${{ always() && failure() && github.event_name != 'workflow_dispatch' && github.repository == 'AztecProtocol/aztec-packages-private' }}
@@ -534,15 +528,12 @@ jobs:
           ref: ${{ needs.select-image.outputs.source_ref }}
 
       - name: Cleanup network resources
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
-          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
-          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-          NO_SPOT: 1
-        run: ./.github/ci3.sh network-teardown block-capacity nightly-block-capacity
+        uses: ./.github/actions/network-teardown
+        with:
+          env_file: block-capacity
+          namespace: nightly-block-capacity
+          gcp_sa_key: ${{ secrets.GCP_SA_KEY }}
+          gcp_project_id: ${{ secrets.GCP_PROJECT_ID }}
 
   notify-block-capacity-failure:
     if: ${{ always() && failure() && github.event_name != 'workflow_dispatch' && github.repository == 'AztecProtocol/aztec-packages-private' }}
