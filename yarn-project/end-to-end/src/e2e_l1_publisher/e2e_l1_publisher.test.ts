@@ -277,11 +277,25 @@ describe('L1Publisher integration', () => {
         }
         return Promise.resolve(undefined);
       },
-      getBlockData(query: BlockQuery) {
+      async getBlockData(query: BlockQuery) {
         if ('number' in query && Number(query.number) === 0) {
-          return Promise.resolve(genesisBlockData);
+          return genesisBlockData;
         }
-        return Promise.resolve(undefined);
+        // The block stream's reorg-detection walk asks the source for the hash of blocks the world state
+        // already holds (via header.hash()) before extending past them, so serve every block we've built
+        // -- not just genesis. Otherwise syncing past block 1 aborts with "Source has no data for a block
+        // at or below its proposed tip", which blocks proposing a third consecutive checkpoint.
+        const block = 'number' in query ? blocks.find(b => Number(b.number) === Number(query.number)) : undefined;
+        if (!block) {
+          return undefined;
+        }
+        return {
+          header: block.header,
+          archive: block.archive,
+          blockHash: await block.header.hash(),
+          checkpointNumber: CheckpointNumber.fromBlockNumber(block.number),
+          indexWithinCheckpoint: IndexWithinCheckpoint(0),
+        };
       },
       async getCheckpoints(query: CheckpointsQuery) {
         // Test uses 1-block-per-checkpoint, so we find block by checkpoint number
