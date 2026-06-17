@@ -121,11 +121,6 @@ const claim = await portalManager.bridgeTokensPublic(
 
 console.log("Claim secret:", claim.claimSecret);
 console.log("Claim amount:", claim.claimAmount);
-
-// Wait until the bridged message is included in an L2 checkpoint and can be consumed.
-await waitForL1ToL2MessageReady(node, Fr.fromHexString(claim.messageHash), {
-  timeoutSeconds: 60,
-});
 // docs:end:bridge_fee_juice_execute
 
 // docs:start:deploy_contract
@@ -151,6 +146,9 @@ console.log(`Transaction mined in block ${receipt.blockNumber}`);
 console.log(`Transaction fee: ${receipt.transactionFee}`);
 // docs:end:send_transaction
 
+// Advance the local sandbox far enough for the bridged L1 to L2 message to clear inbox lag.
+await token.methods.mint_to_public(bobAddress, 1n).send({ from: aliceAddress });
+
 // docs:start:simulate_function
 const { result: balance } = await token.methods
   .balance_of_public(aliceAddress)
@@ -163,6 +161,11 @@ console.log(`Alice's token balance: ${balance}`);
 import { FeeJuicePaymentMethodWithClaim } from "@aztec/aztec.js/fee";
 
 // claim is from the bridgeTokensPublic step above
+// Wait until the bridged message is included in an L2 checkpoint and can be consumed.
+await waitForL1ToL2MessageReady(node, Fr.fromHexString(claim.messageHash), {
+  timeoutSeconds: 180,
+});
+
 // Create a payment method that claims the bridged Fee Juice and uses it to pay
 const bridgePaymentMethod = new FeeJuicePaymentMethodWithClaim(
   feeJuiceAccount.address,

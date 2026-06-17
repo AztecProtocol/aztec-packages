@@ -52,7 +52,7 @@ export async function bridgeL1FeeJuice(
     log(
       `claimAmount=${claimAmount},claimSecret=${claimSecret},messageHash=${messageHash},messageLeafIndex=${messageLeafIndex}\n`,
     );
-    log(`Note: You need to wait for two L2 blocks before pulling them from the L2 side`);
+    log(`Note: Wait for the L1 to L2 message to be included in an L2 checkpoint before claiming it`);
     if (wait) {
       log(
         `This command will now continually poll every ${

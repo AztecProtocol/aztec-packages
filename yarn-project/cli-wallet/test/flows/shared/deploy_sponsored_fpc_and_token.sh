@@ -16,7 +16,7 @@ claimAmount=$(retrieve claimAmount)
 claimSecret=$(retrieve claimSecret)
 messageLeafIndex=$(retrieve messageLeafIndex)
 
-# The following produces two blocks, allowing the claim to be used in the next block.
+# The following produces enough checkpoints for the L1 to L2 message to be ready.
 source $flows/shared/deploy_token.sh $TOKEN_ALIAS test1
 
 # Claim the fee juice by calling the fee juice contract directly. Reference it via the registered
