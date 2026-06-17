@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../../../styles.css">
+<script defer src="../../../../../nargo_doc.js"></script>
+<title>Struct PrivateToRollupKernelCircuitPublicInputs documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">PrivateToRollupKernelCircuitPublicInputs</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct PrivateToRollupKernelCircuitPublicInputs</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#structfield.constants">constants</a></li>
+<li><a href="#structfield.end">end</a></li>
+<li><a href="#structfield.expiration_timestamp">expiration_timestamp</a></li>
+<li><a href="#structfield.fee_payer">fee_payer</a></li>
+<li><a href="#structfield.gas_used">gas_used</a></li>
+</ul>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-Deserialize-for-PrivateToRollupKernelCircuitPublicInputs">Deserialize</a></li>
+<li><a href="#impl-Empty-for-PrivateToRollupKernelCircuitPublicInputs">Empty</a></li>
+<li><a href="#impl-Eq-for-PrivateToRollupKernelCircuitPublicInputs">Eq</a></li>
+<li><a href="#impl-Hash-for-PrivateToRollupKernelCircuitPublicInputs">Hash</a></li>
+<li><a href="#impl-Serialize-for-PrivateToRollupKernelCircuitPublicInputs">Serialize</a></li>
+</ul>
+<h2>In module private_to_rollup_kernel_circuit_public_inputs</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.PrivateToRollupKernelCircuitPublicInputs.html">PrivateToRollupKernelCircuitPublicInputs</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../../../index.html">aztec-nr</a> - <a href="../../../../index.html">noir_aztec</a>::<a href="../../../index.html">protocol</a>::<a href="../../index.html">abis</a>::<a href="../index.html">kernel_circuit_public_inputs</a>::<a href="index.html">private_to_rollup_kernel_circuit_public_inputs</a></div>
+<h1>Struct <span id="struct" class="struct">PrivateToRollupKernelCircuitPublicInputs</span></h1>
+<pre><code>pub struct PrivateToRollupKernelCircuitPublicInputs {
+    pub constants: <a href="../../../../../protocol_types/abis/tx_constant_data/struct.TxConstantData.html" class="struct">TxConstantData</a>,
+    pub end: <a href="../../../../../protocol_types/abis/accumulated_data/private_to_rollup_accumulated_data/struct.PrivateToRollupAccumulatedData.html" class="struct">PrivateToRollupAccumulatedData</a>,
+    pub gas_used: <a href="../../../../../protocol_types/abis/gas/struct.Gas.html" class="struct">Gas</a>,
+    pub fee_payer: <a href="../../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
+    pub expiration_timestamp: <a href="../../../../../std/primitive.u64.html" class="primitive">u64</a>,
+}
+</code></pre>
+<h2>Fields</h2>
+<div id="structfield.constants" class="struct-field"><code class="code-header">constants: <a href="../../../../../protocol_types/abis/tx_constant_data/struct.TxConstantData.html" class="struct">TxConstantData</a></code></div>
+<div class="padded-description"></div><div id="structfield.end" class="struct-field"><code class="code-header">end: <a href="../../../../../protocol_types/abis/accumulated_data/private_to_rollup_accumulated_data/struct.PrivateToRollupAccumulatedData.html" class="struct">PrivateToRollupAccumulatedData</a></code></div>
+<div class="padded-description"></div><div id="structfield.gas_used" class="struct-field"><code class="code-header">gas_used: <a href="../../../../../protocol_types/abis/gas/struct.Gas.html" class="struct">Gas</a></code></div>
+<div class="padded-description"></div><div id="structfield.fee_payer" class="struct-field"><code class="code-header">fee_payer: <a href="../../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code></div>
+<div class="padded-description"></div><div id="structfield.expiration_timestamp" class="struct-field"><code class="code-header">expiration_timestamp: <a href="../../../../../std/primitive.u64.html" class="primitive">u64</a></code></div>
+<div class="padded-description"></div><h2>Trait implementations</h2>
+<h3 id="impl-Deserialize-for-PrivateToRollupKernelCircuitPublicInputs"><code class="code-header">impl <a href="../../../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../../../../protocol_types/abis/kernel_circuit_public_inputs/private_to_rollup_kernel_circuit_public_inputs/struct.PrivateToRollupKernelCircuitPublicInputs.html" class="struct">PrivateToRollupKernelCircuitPublicInputs</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(fields: [<a href="../../../../../std/primitive.Field.html" class="primitive">Field</a>; 1281]) -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">stream_deserialize</span>&lt;let K: <a href="../../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(reader: &mut <a href="../../../../../serde/reader/struct.Reader.html" class="struct">Reader</a>&lt;K&gt;) -> Self</code>
+
+</div><h3 id="impl-Empty-for-PrivateToRollupKernelCircuitPublicInputs"><code class="code-header">impl <a href="../../../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../../../../protocol_types/abis/kernel_circuit_public_inputs/private_to_rollup_kernel_circuit_public_inputs/struct.PrivateToRollupKernelCircuitPublicInputs.html" class="struct">PrivateToRollupKernelCircuitPublicInputs</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">empty</span>() -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">is_empty</span>(self: Self) -> <a href="../../../../../std/primitive.bool.html" class="primitive">bool</a>
+<div class="where-clause">where
+    Self: <a href="../../../../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
+
+<code class="code-header">pub fn <span class="fn">assert_empty</span>&lt;let S: <a href="../../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self: Self, msg: <a href="../../../../../std/primitive.str.html" class="primitive">str</a>&lt;S&gt;)
+<div class="where-clause">where
+    Self: <a href="../../../../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
+
+</div><h3 id="impl-Eq-for-PrivateToRollupKernelCircuitPublicInputs"><code class="code-header">impl <a href="../../../../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../../../../protocol_types/abis/kernel_circuit_public_inputs/private_to_rollup_kernel_circuit_public_inputs/struct.PrivateToRollupKernelCircuitPublicInputs.html" class="struct">PrivateToRollupKernelCircuitPublicInputs</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">eq</span>(_self: Self, _other: Self) -> <a href="../../../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+</div><h3 id="impl-Hash-for-PrivateToRollupKernelCircuitPublicInputs"><code class="code-header">impl <a href="../../../../../protocol_types/traits/trait.Hash.html" class="trait">Hash</a> for <a href="../../../../../protocol_types/abis/kernel_circuit_public_inputs/private_to_rollup_kernel_circuit_public_inputs/struct.PrivateToRollupKernelCircuitPublicInputs.html" class="struct">PrivateToRollupKernelCircuitPublicInputs</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">hash</span>(self) -> <a href="../../../../../std/primitive.Field.html" class="primitive">Field</a></code>
+
+</div><h3 id="impl-Serialize-for-PrivateToRollupKernelCircuitPublicInputs"><code class="code-header">impl <a href="../../../../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../../../../protocol_types/abis/kernel_circuit_public_inputs/private_to_rollup_kernel_circuit_public_inputs/struct.PrivateToRollupKernelCircuitPublicInputs.html" class="struct">PrivateToRollupKernelCircuitPublicInputs</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../../../../std/primitive.Field.html" class="primitive">Field</a>; 1281]</code>
+
+<code class="code-header">pub fn <span class="fn">stream_serialize</span>&lt;let K: <a href="../../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, writer: &mut <a href="../../../../../serde/writer/struct.Writer.html" class="struct">Writer</a>&lt;K&gt;)</code>
+
+</div></main>
+</span>
+</body>
+</html>
