@@ -164,18 +164,6 @@ mod test {
         (env, scope)
     }
 
-    /// Creates an `OffchainMessage` with dummy ciphertext and the given scope as recipient.
-    fn make_msg(recipient: AztecAddress, tx_hash: Option<Field>, anchor_block_timestamp: u64) -> OffchainMessage {
-        OffchainMessage { ciphertext: BoundedVec::new(), recipient, tx_hash, anchor_block_timestamp }
-    }
-
-    /// Wraps a single message in the bounded vec `receive` expects.
-    fn one(msg: OffchainMessage) -> BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL> {
-        let mut msgs: BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL> = BoundedVec::new();
-        msgs.push(msg);
-        msgs
-    }
-
     /// Advances the TXE block timestamp by `offset` seconds and returns the resulting timestamp.
     unconstrained fn advance_by(env: TestEnvironment, offset: u64) -> u64 {
         env.advance_next_block_timestamp_by(offset);
@@ -216,15 +204,15 @@ mod test {
         let (env, scope) = setup();
         let anchor_ts = advance_by(env, 10);
         let tx_hash = random();
+        let msg = OffchainMessage {
+            ciphertext: BoundedVec::new(),
+            recipient: scope,
+            tx_hash: Option::some(tx_hash),
+            anchor_block_timestamp: anchor_ts,
+        };
+        let key = msg.entity_id();
 
-        env.utility_context(|context| {
-            receive(
-                context.this_address(),
-                one(make_msg(scope, Option::some(tx_hash), anchor_ts)),
-            );
-        });
-
-        let key = make_msg(scope, Option::some(tx_hash), anchor_ts).entity_id();
+        env.utility_context(|context| { receive(context.this_address(), BoundedVec::from_array([msg])); });
 
         // Advance past anchor_ts + MAX_MSG_TTL.
         let _now = advance_by(env, MAX_MSG_TTL + 1);
@@ -243,15 +231,15 @@ mod test {
         let (env, scope) = setup();
         let anchor_ts = advance_by(env, 10);
         let tx_hash = random();
+        let msg = OffchainMessage {
+            ciphertext: BoundedVec::new(),
+            recipient: scope,
+            tx_hash: Option::some(tx_hash),
+            anchor_block_timestamp: anchor_ts,
+        };
+        let key = msg.entity_id();
 
-        env.utility_context(|context| {
-            receive(
-                context.this_address(),
-                one(make_msg(scope, Option::some(tx_hash), anchor_ts)),
-            );
-        });
-
-        let key = make_msg(scope, Option::some(tx_hash), anchor_ts).entity_id();
+        env.utility_context(|context| { receive(context.this_address(), BoundedVec::from_array([msg])); });
 
         // Advance, but not past anchor_ts + MAX_MSG_TTL.
         let _now = advance_by(env, 100);
@@ -270,16 +258,16 @@ mod test {
     unconstrained fn tx_less_msg_expires_after_max_msg_ttl() {
         let (env, scope) = setup();
         let anchor_ts = advance_by(env, 10);
-
-        env.utility_context(|context| {
-            receive(
-                context.this_address(),
-                one(make_msg(scope, Option::none(), anchor_ts)),
-            );
-        });
-
         // A tx-less message normalizes to tx_hash 0.
-        let key = make_msg(scope, Option::none(), anchor_ts).entity_id();
+        let msg = OffchainMessage {
+            ciphertext: BoundedVec::new(),
+            recipient: scope,
+            tx_hash: Option::none(),
+            anchor_block_timestamp: anchor_ts,
+        };
+        let key = msg.entity_id();
+
+        env.utility_context(|context| { receive(context.this_address(), BoundedVec::from_array([msg])); });
 
         // Advance past anchor_ts + MAX_MSG_TTL.
         let _now = advance_by(env, MAX_MSG_TTL + 1);
@@ -298,15 +286,15 @@ mod test {
         let (env, scope) = setup();
         let anchor_ts = advance_by(env, 10);
         let tx_hash = random();
+        let msg = OffchainMessage {
+            ciphertext: BoundedVec::new(),
+            recipient: scope,
+            tx_hash: Option::some(tx_hash),
+            anchor_block_timestamp: anchor_ts,
+        };
+        let key = msg.entity_id();
 
-        env.utility_context(|context| {
-            receive(
-                context.this_address(),
-                one(make_msg(scope, Option::some(tx_hash), anchor_ts)),
-            );
-        });
-
-        let key = make_msg(scope, Option::some(tx_hash), anchor_ts).entity_id();
+        env.utility_context(|context| { receive(context.this_address(), BoundedVec::from_array([msg])); });
 
         let _now = advance_by(env, 100);
 
@@ -328,21 +316,39 @@ mod test {
         let expired_a_tx_hash = random();
         let survivor_tx_hash = random();
 
+        let expired_a = OffchainMessage {
+            ciphertext: BoundedVec::new(),
+            recipient: scope,
+            tx_hash: Option::some(expired_a_tx_hash),
+            anchor_block_timestamp: 0,
+        };
+        let survivor = OffchainMessage {
+            ciphertext: BoundedVec::new(),
+            recipient: scope,
+            tx_hash: Option::some(survivor_tx_hash),
+            anchor_block_timestamp: anchor_ts,
+        };
+        let expired_b = OffchainMessage {
+            ciphertext: BoundedVec::new(),
+            recipient: scope,
+            tx_hash: Option::none(),
+            anchor_block_timestamp: 0,
+        };
+        let expired_a_key = expired_a.entity_id();
+        let survivor_key = survivor.entity_id();
+        let expired_b_key = expired_b.entity_id();
+
         env.utility_context(|context| {
             let address = context.this_address();
             let mut msgs: BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL> = BoundedVec::new();
             // Message 0: tx-bound, anchor=0 so it expires quickly.
-            msgs.push(make_msg(scope, Option::some(expired_a_tx_hash), 0));
+            msgs.push(expired_a);
             // Message 1: tx-bound, anchor_ts is recent so it survives.
-            msgs.push(make_msg(scope, Option::some(survivor_tx_hash), anchor_ts));
+            msgs.push(survivor);
             // Message 2: tx-less, anchor=0 so it also expires.
-            msgs.push(make_msg(scope, Option::none(), 0));
+            msgs.push(expired_b);
             receive(address, msgs);
         });
-
-        let expired_a_key = make_msg(scope, Option::some(expired_a_tx_hash), 0).entity_id();
-        let survivor_key = make_msg(scope, Option::some(survivor_tx_hash), anchor_ts).entity_id();
-        let expired_b_key = make_msg(scope, Option::none(), 0).entity_id();
 
         // Advance past MAX_MSG_TTL for anchor=0, but not for anchor_ts.
         let _now = advance_by(env, MAX_MSG_TTL);
@@ -369,15 +375,15 @@ mod test {
         // We use this as a "known resolvable" tx hash.
         let known_tx_hash: Field = 1;
         let anchor_ts = advance_by(env, 10);
+        let msg = OffchainMessage {
+            ciphertext: BoundedVec::new(),
+            recipient: scope,
+            tx_hash: Option::some(known_tx_hash),
+            anchor_block_timestamp: anchor_ts,
+        };
+        let key = msg.entity_id();
 
-        env.utility_context(|context| {
-            receive(
-                context.this_address(),
-                one(make_msg(scope, Option::some(known_tx_hash), anchor_ts)),
-            );
-        });
-
-        let key = make_msg(scope, Option::some(known_tx_hash), anchor_ts).entity_id();
+        env.utility_context(|context| { receive(context.this_address(), BoundedVec::from_array([msg])); });
 
         let _now = advance_by(env, 100);
 
@@ -403,15 +409,15 @@ mod test {
         let (env, scope) = setup();
         let known_tx_hash: Field = 1;
         let anchor_ts = advance_by(env, 10);
+        let msg = OffchainMessage {
+            ciphertext: BoundedVec::new(),
+            recipient: scope,
+            tx_hash: Option::some(known_tx_hash),
+            anchor_block_timestamp: anchor_ts,
+        };
+        let key = msg.entity_id();
 
-        env.utility_context(|context| {
-            receive(
-                context.this_address(),
-                one(make_msg(scope, Option::some(known_tx_hash), anchor_ts)),
-            );
-        });
-
-        let key = make_msg(scope, Option::some(known_tx_hash), anchor_ts).entity_id();
+        env.utility_context(|context| { receive(context.this_address(), BoundedVec::from_array([msg])); });
 
         let _now = advance_by(env, 100);
 
@@ -440,15 +446,15 @@ mod test {
         let (env, scope) = setup();
         let known_tx_hash: Field = 1;
         let anchor_ts = advance_by(env, 10);
+        let msg = OffchainMessage {
+            ciphertext: BoundedVec::new(),
+            recipient: scope,
+            tx_hash: Option::some(known_tx_hash),
+            anchor_block_timestamp: anchor_ts,
+        };
+        let key = msg.entity_id();
 
-        env.utility_context(|context| {
-            receive(
-                context.this_address(),
-                one(make_msg(scope, Option::some(known_tx_hash), anchor_ts)),
-            );
-        });
-
-        let key = make_msg(scope, Option::some(known_tx_hash), anchor_ts).entity_id();
+        env.utility_context(|context| { receive(context.this_address(), BoundedVec::from_array([msg])); });
 
         // Advance past anchor_ts + MAX_MSG_TTL so the message is expired on the next sync.
         let _now = advance_by(env, MAX_MSG_TTL + 1);
@@ -480,16 +486,21 @@ mod test {
     unconstrained fn redelivery_is_idempotent() {
         let (env, scope) = setup();
         let anchor_ts = advance_by(env, 10);
-        let msg = make_msg(scope, Option::some(random()), anchor_ts);
+        let msg = OffchainMessage {
+            ciphertext: BoundedVec::new(),
+            recipient: scope,
+            tx_hash: Option::some(random()),
+            anchor_block_timestamp: anchor_ts,
+        };
         let key = msg.entity_id();
 
         // First delivery, committed as its own job.
-        env.utility_context(|context| { receive(context.this_address(), one(msg)); });
+        env.utility_context(|context| { receive(context.this_address(), BoundedVec::from_array([msg])); });
 
         // Re-delivering the same content-addressed message must not panic and must not create a second reception.
         env.utility_context(|context| {
             let address = context.this_address();
-            receive(address, one(msg));
+            receive(address, BoundedVec::from_array([msg]));
 
             assert(is_active(address, scope, key), "reception should be active");
             assert_eq(active_keys(address, scope).len(), 1);
@@ -501,10 +512,15 @@ mod test {
         let (env, scope) = setup();
         let known_tx_hash: Field = 1;
         let anchor_ts = advance_by(env, 10);
-        let msg = make_msg(scope, Option::some(known_tx_hash), anchor_ts);
+        let msg = OffchainMessage {
+            ciphertext: BoundedVec::new(),
+            recipient: scope,
+            tx_hash: Option::some(known_tx_hash),
+            anchor_block_timestamp: anchor_ts,
+        };
         let key = msg.entity_id();
 
-        env.utility_context(|context| { receive(context.this_address(), one(msg)); });
+        env.utility_context(|context| { receive(context.this_address(), BoundedVec::from_array([msg])); });
 
         let _now = advance_by(env, 100);
 
@@ -519,7 +535,7 @@ mod test {
         // next sync recognizes it as already processed and does not re-push it.
         env.utility_context(|context| {
             let address = context.this_address();
-            receive(address, one(msg));
+            receive(address, BoundedVec::from_array([msg]));
 
             assert(is_processed(address, scope, key), "re-delivery must preserve the processed guard");
             assert_eq(sync_inbox(address, scope).len(), 0);
