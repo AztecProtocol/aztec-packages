@@ -61,17 +61,22 @@ fn write_eval(row: u32, k: u32, v: array<u32, 8>) {
 
 // S-box u = (w + c)^5, in length-7 Lagrange basis.
 fn sbox(m: Mono, out: ptr<function, Lag>) {
-  var x: Lag; lag_from_mono2(m, 7u, &x);
-  var t2: Lag; lag_sqr(&x, 7u, &t2);
-  var t4: Lag; lag_sqr(&t2, 7u, &t4);
-  lag_mul(&t4, &x, 7u, out);
+  // x^2 is degree-2, so compute it in the monomial basis (mono_sqr_g = 3 muls) and
+  // promote to Lagrange; x^4 and x^5 exceed degree-2 and stay in Lagrange. x^5 of a
+  // degree-1 line is degree-5, so the whole sbox runs at L=6 (one eval cheaper than 7);
+  // the L=7 lift is applied once per subrelation via lag_extend6 before the gate multiply.
+  var x: Lag; lag_from_mono2(m, 6u, &x);
+  var t2: Lag; lag_from_mono3(mono_sqr_g(m), 6u, &t2);
+  var t4: Lag; lag_sqr(&t2, 6u, &t4);
+  lag_mul(&t4, &x, 6u, out);
 }
 
 // subrel k: q_pos_by_scaling * (v_k - w_k_shift), written at out offset k0.
 fn accum_v(row: u32, k0: u32, v: ptr<function, Lag>, w_shift: Mono, qps: ptr<function, Lag>) {
-  var wsl: Lag; lag_from_mono2(w_shift, 7u, &wsl);
-  var d: Lag; lag_sub(v, &wsl, 7u, &d);
-  var s: Lag; lag_mul(qps, &d, 7u, &s);
+  var wsl: Lag; lag_from_mono2(w_shift, 6u, &wsl);
+  var d: Lag; lag_sub(v, &wsl, 6u, &d);
+  var de: Lag; lag_extend6(&d, &de);
+  var s: Lag; lag_mul(qps, &de, 7u, &s);
   for (var k: u32 = 0u; k < 7u; k = k + 1u) { write_eval(row, k0 + k, s[k]); }
 }
 
@@ -100,25 +105,27 @@ fn poseidon2_external_main(@builtin(global_invocation_id) gid: vec3<u32>) {
   var u3: Lag; sbox(mono_add(w3, c3), &u3);
   var u4: Lag; sbox(mono_add(w4, c4), &u4);
 
-  // M_E * u via additions (matches the C++ summand structure)
-  var t0: Lag; lag_add(&u1, &u2, 7u, &t0);   // u1 + u2
-  var t1: Lag; lag_add(&u3, &u4, 7u, &t1);   // u3 + u4
-  var t2a: Lag; lag_add(&u2, &u2, 7u, &t2a);
-  var t2: Lag; lag_add(&t2a, &t1, 7u, &t2);  // 2u2 + u3 + u4
-  var t3a: Lag; lag_add(&u4, &u4, 7u, &t3a);
-  var t3: Lag; lag_add(&t3a, &t0, 7u, &t3);  // u1 + u2 + 2u4
+  // M_E * u via additions (matches the C++ summand structure). The v_k are degree-5
+  // (linear combos of the degree-5 sbox outputs), carried at L=6; accum_v lifts to L=7.
+  var t0: Lag; lag_add(&u1, &u2, 6u, &t0);   // u1 + u2
+  var t1: Lag; lag_add(&u3, &u4, 6u, &t1);   // u3 + u4
+  var t2a: Lag; lag_add(&u2, &u2, 6u, &t2a);
+  var t2: Lag; lag_add(&t2a, &t1, 6u, &t2);  // 2u2 + u3 + u4
+  var t3a: Lag; lag_add(&u4, &u4, 6u, &t3a);
+  var t3: Lag; lag_add(&t3a, &t0, 6u, &t3);  // u1 + u2 + 2u4
 
-  var v4a: Lag; lag_add(&t1, &t1, 7u, &v4a);
-  var v4b: Lag; lag_add(&v4a, &v4a, 7u, &v4b);
-  var v4: Lag; lag_add(&v4b, &t3, 7u, &v4);  // 4u3+4u4 + (u1+u2+2u4) = u1+u2+4u3+6u4
+  var v4a: Lag; lag_add(&t1, &t1, 6u, &v4a);
+  var v4b: Lag; lag_add(&v4a, &v4a, 6u, &v4b);
+  var v4: Lag; lag_add(&v4b, &t3, 6u, &v4);  // 4u3+4u4 + (u1+u2+2u4) = u1+u2+4u3+6u4
 
-  var v2a: Lag; lag_add(&t0, &t0, 7u, &v2a);
-  var v2b: Lag; lag_add(&v2a, &v2a, 7u, &v2b);
-  var v2: Lag; lag_add(&v2b, &t2, 7u, &v2);  // 4u1+4u2 + (2u2+u3+u4) = 4u1+6u2+u3+u4
+  var v2a: Lag; lag_add(&t0, &t0, 6u, &v2a);
+  var v2b: Lag; lag_add(&v2a, &v2a, 6u, &v2b);
+  var v2: Lag; lag_add(&v2b, &t2, 6u, &v2);  // 4u1+4u2 + (2u2+u3+u4) = 4u1+6u2+u3+u4
 
-  var v1: Lag; lag_add(&t3, &v2, 7u, &v1);   // 5u1+7u2+u3+3u4
-  var v3: Lag; lag_add(&t2, &v4, 7u, &v3);   // u1+3u2+5u3+7u4
+  var v1: Lag; lag_add(&t3, &v2, 6u, &v1);   // 5u1+7u2+u3+3u4
+  var v3: Lag; lag_add(&t2, &v4, 6u, &v3);   // u1+3u2+5u3+7u4
 
+  // Gate scalar is degree-1; build it directly at L=7 (adds only) for the final multiply.
   var qps: Lag; lag_from_mono2(mono_mul_scalar(qpe, scaling), 7u, &qps);
 
   accum_v(row, 0u, &v1, w1s, &qps);

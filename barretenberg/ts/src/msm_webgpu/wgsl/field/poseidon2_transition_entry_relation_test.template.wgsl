@@ -61,10 +61,14 @@ fn write_eval(row: u32, k: u32, v: array<u32, 8>) {
 }
 
 fn sbox(m: Mono, out: ptr<function, Lag>) {
-  var x: Lag; lag_from_mono2(m, 7u, &x);
-  var t2: Lag; lag_sqr(&x, 7u, &t2);
-  var t4: Lag; lag_sqr(&t2, 7u, &t4);
-  lag_mul(&t4, &x, 7u, out);
+  // x^2 is degree-2, so compute it in the monomial basis (mono_sqr_g = 3 muls) and
+  // promote to Lagrange; x^4 and x^5 exceed degree-2 and stay in Lagrange. x^5 of a
+  // degree-1 line is degree-5, so the whole sbox runs at L=6 (one eval cheaper than 7);
+  // the L=7 lift is applied once per subrelation via lag_extend6 before the gate multiply.
+  var x: Lag; lag_from_mono2(m, 6u, &x);
+  var t2: Lag; lag_from_mono3(mono_sqr_g(m), 6u, &t2);
+  var t4: Lag; lag_sqr(&t2, 6u, &t4);
+  lag_mul(&t4, &x, 6u, out);
 }
 
 @compute @workgroup_size({{ workgroup_size }})
@@ -92,32 +96,35 @@ fn poseidon2_transition_entry_main(@builtin(global_invocation_id) gid: vec3<u32>
   var qbs: Lag; lag_from_mono2(mono_mul_scalar(q_sel, scaling), 7u, &qbs);
 
   // A_0: D1*u0 + (w_r + w_o + w_4) - w_r_shift
-  var d1u0: Lag; lag_scale(&u0, TE_D1, 7u, &d1u0);
+  var d1u0: Lag; lag_scale(&u0, TE_D1, 6u, &d1u0);
   let wp0 = mono_sub(mono_add(mono_add(w_r, w_o), w_4), w_rs);
-  var wp0l: Lag; lag_from_mono2(wp0, 7u, &wp0l);
-  var a0: Lag; lag_add(&d1u0, &wp0l, 7u, &a0);
-  var s0: Lag; lag_mul(&qbs, &a0, 7u, &s0);
+  var wp0l: Lag; lag_from_mono2(wp0, 6u, &wp0l);
+  var a0: Lag; lag_add(&d1u0, &wp0l, 6u, &a0);
+  var a0e: Lag; lag_extend6(&a0, &a0e);
+  var s0: Lag; lag_mul(&qbs, &a0e, 7u, &s0);
   for (var k: u32 = 0u; k < 7u; k = k + 1u) { write_eval(row, k, s0[k]); }
 
   // A_1: D1*u1 + 3*u0 + (A_one . (w_r,w_o,w_4)) - w_o_shift
-  var d1u1: Lag; lag_scale(&u1, TE_D1, 7u, &d1u1);
-  var tu0: Lag; lag_scale(&u0, TE_THREE, 7u, &tu0);
+  var d1u1: Lag; lag_scale(&u1, TE_D1, 6u, &d1u1);
+  var tu0: Lag; lag_scale(&u0, TE_THREE, 6u, &tu0);
   let wp1 = mono_sub(mono_add(mono_add(mono_mul_scalar(w_r, TE_A1_0), mono_mul_scalar(w_o, TE_A1_1)), mono_mul_scalar(w_4, TE_A1_2)), w_os);
-  var wp1l: Lag; lag_from_mono2(wp1, 7u, &wp1l);
-  var a1a: Lag; lag_add(&d1u1, &tu0, 7u, &a1a);
-  var a1: Lag; lag_add(&a1a, &wp1l, 7u, &a1);
-  var s1: Lag; lag_mul(&qbs, &a1, 7u, &s1);
+  var wp1l: Lag; lag_from_mono2(wp1, 6u, &wp1l);
+  var a1a: Lag; lag_add(&d1u1, &tu0, 6u, &a1a);
+  var a1: Lag; lag_add(&a1a, &wp1l, 6u, &a1);
+  var a1e: Lag; lag_extend6(&a1, &a1e);
+  var s1: Lag; lag_mul(&qbs, &a1e, 7u, &s1);
   for (var k: u32 = 0u; k < 7u; k = k + 1u) { write_eval(row, 7u + k, s1[k]); }
 
   // A_2: D1*u2 + 3*u1 + (Σ+6)*u0 + (A2_one . (w_r,w_o,w_4)) - w_4_shift
-  var d1u2: Lag; lag_scale(&u2, TE_D1, 7u, &d1u2);
-  var tu1: Lag; lag_scale(&u1, TE_THREE, 7u, &tu1);
-  var su0: Lag; lag_scale(&u0, TE_SUMA, 7u, &su0);
+  var d1u2: Lag; lag_scale(&u2, TE_D1, 6u, &d1u2);
+  var tu1: Lag; lag_scale(&u1, TE_THREE, 6u, &tu1);
+  var su0: Lag; lag_scale(&u0, TE_SUMA, 6u, &su0);
   let wp2 = mono_sub(mono_add(mono_add(mono_mul_scalar(w_r, TE_A2_0), mono_mul_scalar(w_o, TE_A2_1)), mono_mul_scalar(w_4, TE_A2_2)), w_4s);
-  var wp2l: Lag; lag_from_mono2(wp2, 7u, &wp2l);
-  var a2a: Lag; lag_add(&d1u2, &tu1, 7u, &a2a);
-  var a2b: Lag; lag_add(&a2a, &su0, 7u, &a2b);
-  var a2: Lag; lag_add(&a2b, &wp2l, 7u, &a2);
-  var s2: Lag; lag_mul(&qbs, &a2, 7u, &s2);
+  var wp2l: Lag; lag_from_mono2(wp2, 6u, &wp2l);
+  var a2a: Lag; lag_add(&d1u2, &tu1, 6u, &a2a);
+  var a2b: Lag; lag_add(&a2a, &su0, 6u, &a2b);
+  var a2: Lag; lag_add(&a2b, &wp2l, 6u, &a2);
+  var a2e: Lag; lag_extend6(&a2, &a2e);
+  var s2: Lag; lag_mul(&qbs, &a2e, 7u, &s2);
   for (var k: u32 = 0u; k < 7u; k = k + 1u) { write_eval(row, 14u + k, s2[k]); }
 }

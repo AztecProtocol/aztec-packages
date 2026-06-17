@@ -115,3 +115,40 @@ fn lag_neg(a: ptr<function, Lag>, L: u32, out: ptr<function, Lag>) {
   if (5u < L) { (*out)[5] = fr_sub_f8(z, (*a)[5]); }
   if (6u < L) { (*out)[6] = fr_sub_f8(z, (*a)[6]); }
 }
+
+// Extend a degree-<=5 univariate known at evals {0..5} (L=6) to add the eval at X=6,
+// producing the L=7 representation — EXACT for degree <= 5, and ADDS/SUBS ONLY (no
+// montgomery muls). Uses the Newton forward-difference table: for a degree-d poly the
+// d-th difference is constant, so P(6) = P(5) + D1[4] + D2[3] + D3[2] + D4[1] + D5[0].
+// Lets a degree-5 chain (e.g. the Poseidon x^5 sbox + its combination) run at L=6, with
+// the L=7 lift applied once, just before the final degree-1 gate-scalar multiply.
+fn lag_extend6(a: ptr<function, Lag>, out: ptr<function, Lag>) {
+  (*out)[0] = (*a)[0];
+  (*out)[1] = (*a)[1];
+  (*out)[2] = (*a)[2];
+  (*out)[3] = (*a)[3];
+  (*out)[4] = (*a)[4];
+  (*out)[5] = (*a)[5];
+  let e1_0 = fr_sub_f8((*a)[1], (*a)[0]);
+  let e1_1 = fr_sub_f8((*a)[2], (*a)[1]);
+  let e1_2 = fr_sub_f8((*a)[3], (*a)[2]);
+  let e1_3 = fr_sub_f8((*a)[4], (*a)[3]);
+  let e1_4 = fr_sub_f8((*a)[5], (*a)[4]);
+  let e2_0 = fr_sub_f8(e1_1, e1_0);
+  let e2_1 = fr_sub_f8(e1_2, e1_1);
+  let e2_2 = fr_sub_f8(e1_3, e1_2);
+  let e2_3 = fr_sub_f8(e1_4, e1_3);
+  let e3_0 = fr_sub_f8(e2_1, e2_0);
+  let e3_1 = fr_sub_f8(e2_2, e2_1);
+  let e3_2 = fr_sub_f8(e2_3, e2_2);
+  let e4_0 = fr_sub_f8(e3_1, e3_0);
+  let e4_1 = fr_sub_f8(e3_2, e3_1);
+  let e5_0 = fr_sub_f8(e4_1, e4_0);
+  var r = (*a)[5];
+  r = fr_add_f8(r, e1_4);
+  r = fr_add_f8(r, e2_3);
+  r = fr_add_f8(r, e3_2);
+  r = fr_add_f8(r, e4_1);
+  r = fr_add_f8(r, e5_0);
+  (*out)[6] = r;
+}

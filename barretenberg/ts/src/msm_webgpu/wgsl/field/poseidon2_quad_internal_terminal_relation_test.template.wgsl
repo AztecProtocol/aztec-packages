@@ -63,10 +63,14 @@ fn write_eval(row: u32, k: u32, v: array<u32, 8>) {
 }
 
 fn sbox(m: Mono, out: ptr<function, Lag>) {
-  var x: Lag; lag_from_mono2(m, 7u, &x);
-  var t2: Lag; lag_sqr(&x, 7u, &t2);
-  var t4: Lag; lag_sqr(&t2, 7u, &t4);
-  lag_mul(&t4, &x, 7u, out);
+  // x^2 is degree-2, so compute it in the monomial basis (mono_sqr_g = 3 muls) and
+  // promote to Lagrange; x^4 and x^5 exceed degree-2 and stay in Lagrange. x^5 of a
+  // degree-1 line is degree-5, so the whole sbox runs at L=6 (one eval cheaper than 7);
+  // the L=7 lift is applied once per subrelation via lag_extend6 before the gate multiply.
+  var x: Lag; lag_from_mono2(m, 6u, &x);
+  var t2: Lag; lag_from_mono3(mono_sqr_g(m), 6u, &t2);
+  var t4: Lag; lag_sqr(&t2, 6u, &t4);
+  lag_mul(&t4, &x, 6u, out);
 }
 
 // out_j body: u0*c3 + u1*c4 + u2*c5 + u3*c6 + (wire part), then * q_by_scaling.
@@ -76,17 +80,18 @@ fn accum_out(
   c3: array<u32, 8>, c4: array<u32, 8>, c5: array<u32, 8>, c6: array<u32, 8>,
   wp: Mono, qbs: ptr<function, Lag>,
 ) {
-  var acc: Lag; lag_scale(u0, c3, 7u, &acc);
+  var acc: Lag; lag_scale(u0, c3, 6u, &acc);
   var tmp: Lag;
-  lag_scale(u1, c4, 7u, &tmp);
-  var a1: Lag; lag_add(&acc, &tmp, 7u, &a1);
-  lag_scale(u2, c5, 7u, &tmp);
-  var a2: Lag; lag_add(&a1, &tmp, 7u, &a2);
-  lag_scale(u3, c6, 7u, &tmp);
-  var a3: Lag; lag_add(&a2, &tmp, 7u, &a3);
-  var wpl: Lag; lag_from_mono2(wp, 7u, &wpl);
-  var body: Lag; lag_add(&a3, &wpl, 7u, &body);
-  var s: Lag; lag_mul(qbs, &body, 7u, &s);
+  lag_scale(u1, c4, 6u, &tmp);
+  var a1: Lag; lag_add(&acc, &tmp, 6u, &a1);
+  lag_scale(u2, c5, 6u, &tmp);
+  var a2: Lag; lag_add(&a1, &tmp, 6u, &a2);
+  lag_scale(u3, c6, 6u, &tmp);
+  var a3: Lag; lag_add(&a2, &tmp, 6u, &a3);
+  var wpl: Lag; lag_from_mono2(wp, 6u, &wpl);
+  var body: Lag; lag_add(&a3, &wpl, 6u, &body);
+  var bodye: Lag; lag_extend6(&body, &bodye);
+  var s: Lag; lag_mul(qbs, &bodye, 7u, &s);
   for (var k: u32 = 0u; k < 7u; k = k + 1u) { write_eval(row, k0 + k, s[k]); }
 }
 
