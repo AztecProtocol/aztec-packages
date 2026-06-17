@@ -5,6 +5,14 @@
 // =====================
 
 #pragma once
+// This header hosts TWO implementations behind one facade:
+//   * `bb::scalar_multiplication::legacy::*`  — the pre-rewrite Pippenger MSM, bodies
+//     byte-identical to merge-train (only wrapped in the `legacy` sub-namespace).
+//   * the round-parallel rewrite in scalar_multiplication_fast.hpp (`*_fast`, `MSM_fast`).
+// The public facade (`pippenger`, `pippenger_unsafe`, `MSM`) at the bottom dispatches to
+// the rewrite by default, or to `legacy::` when `use_legacy_msm()` (env BB_MSM_LEGACY or API override).
+// Remove the legacy half + the facade dispatch once the rewrite has soaked.
+#include "./scalar_multiplication_fast.hpp"
 #include "barretenberg/ecc/groups/precomputed_generators_bn254_impl.hpp"
 #include "barretenberg/ecc/groups/precomputed_generators_grumpkin_impl.hpp"
 
@@ -14,7 +22,7 @@
 
 #include "./bitvector.hpp"
 #include "./process_buckets.hpp"
-namespace bb::scalar_multiplication {
+namespace bb::scalar_multiplication::legacy {
 
 template <typename Curve> class MSM {
   public:
@@ -393,5 +401,68 @@ typename Curve::Element pippenger_unsafe(PolynomialSpan<const typename Curve::Sc
 
 extern template class MSM<curve::Grumpkin>;
 extern template class MSM<curve::BN254>;
+
+} // namespace bb::scalar_multiplication::legacy
+
+// ===================================================================================
+// Public MSM facade — the surface every caller uses. Dispatches to the `_fast` rewrite
+// by default, or `legacy::` when use_legacy_msm() (env BB_MSM_LEGACY or API override).
+// Signatures match the rewrite; the legacy branch adapts (legacy has no dedup pre-pass,
+// and its batch entry takes per-MSM point spans).
+// ===================================================================================
+namespace bb::scalar_multiplication {
+
+[[nodiscard]] bool use_legacy_msm() noexcept;
+void set_legacy_msm_override(bool enabled) noexcept;
+void clear_legacy_msm_override() noexcept;
+
+template <typename Curve>
+typename Curve::Element pippenger(PolynomialSpan<const typename Curve::ScalarField> scalars,
+                                  std::span<const typename Curve::AffineElement> points,
+                                  bool handle_edge_cases = true,
+                                  bool dedup_hint = false) noexcept;
+
+template <typename Curve>
+typename Curve::Element pippenger_unsafe(PolynomialSpan<const typename Curve::ScalarField> scalars,
+                                         std::span<const typename Curve::AffineElement> points,
+                                         bool dedup_hint = false) noexcept;
+
+extern template curve::BN254::Element pippenger<curve::BN254>(PolynomialSpan<const curve::BN254::ScalarField> scalars,
+                                                              std::span<const curve::BN254::AffineElement> points,
+                                                              bool handle_edge_cases,
+                                                              bool dedup_hint) noexcept;
+extern template curve::Grumpkin::Element pippenger<curve::Grumpkin>(
+    PolynomialSpan<const curve::Grumpkin::ScalarField> scalars,
+    std::span<const curve::Grumpkin::AffineElement> points,
+    bool handle_edge_cases,
+    bool dedup_hint) noexcept;
+extern template curve::BN254::Element pippenger_unsafe<curve::BN254>(
+    PolynomialSpan<const curve::BN254::ScalarField> scalars,
+    std::span<const curve::BN254::AffineElement> points,
+    bool dedup_hint) noexcept;
+extern template curve::Grumpkin::Element pippenger_unsafe<curve::Grumpkin>(
+    PolynomialSpan<const curve::Grumpkin::ScalarField> scalars,
+    std::span<const curve::Grumpkin::AffineElement> points,
+    bool dedup_hint) noexcept;
+
+template <typename Curve> class MSM {
+  public:
+    using Element = typename Curve::Element;
+    using ScalarField = typename Curve::ScalarField;
+    using AffineElement = typename Curve::AffineElement;
+
+    static AffineElement msm(std::span<const AffineElement> points,
+                             PolynomialSpan<const ScalarField> scalars,
+                             bool handle_edge_cases = false,
+                             bool dedup_hint = false) noexcept;
+
+    static std::vector<AffineElement> batch_multi_scalar_mul(std::span<const AffineElement> points,
+                                                             std::span<PolynomialSpan<ScalarField>> scalars,
+                                                             bool handle_edge_cases = true,
+                                                             std::span<const uint8_t> dedup_hints = {}) noexcept;
+};
+
+extern template class MSM<curve::BN254>;
+extern template class MSM<curve::Grumpkin>;
 
 } // namespace bb::scalar_multiplication

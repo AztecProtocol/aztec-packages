@@ -24,10 +24,6 @@
 
 namespace bb::avm2 {
 
-// Maximum number of polynomials to batch commit at once.
-const size_t AVM_MAX_MSM_BATCH_SIZE =
-    getenv("AVM_MAX_MSM_BATCH_SIZE") != nullptr ? std::stoul(getenv("AVM_MAX_MSM_BATCH_SIZE")) : 32;
-
 using Flavor = AvmFlavor;
 using FF = Flavor::FF;
 
@@ -103,7 +99,7 @@ void AvmProver::execute_wire_commitments_round()
     for (const auto& [poly, label] : zip_view(prover_polynomials.get_wires(), prover_polynomials.get_wires_labels())) {
         batch.add_to_batch(poly, label);
     }
-    batch.commit_and_send_to_verifier(transcript, AVM_MAX_MSM_BATCH_SIZE);
+    batch.commit_and_send_to_verifier(transcript);
 }
 
 void AvmProver::execute_log_derivative_inverse_round()
@@ -147,7 +143,7 @@ void AvmProver::execute_log_derivative_inverse_commitments_round()
 
         batch.add_to_batch(derived_poly, label);
     }
-    batch.commit_and_send_to_verifier(transcript, AVM_MAX_MSM_BATCH_SIZE);
+    batch.commit_and_send_to_verifier(transcript);
 }
 
 /**
