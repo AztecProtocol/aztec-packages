@@ -2,6 +2,7 @@
 source: tests/snapshots.rs
 expression: stdout
 ---
+
 use aztec::macros::aztec;
 use aztec::macros::aztec;
 
@@ -113,6 +114,10 @@ pub contract Token {
     #[contract_library_method]
     fn private_get_decimals() -> pub u8;
 
+    #[deprecated(deny, "Direct invocation of public functions is not supported. You attempted to call get_admin. See https://docs.aztec.network/errors/6")]
+    #[contract_library_method]
+    fn get_admin() -> Field;
+
     #[abi(storage)]
     pub global STORAGE_LAYOUT_Token: StorageLayout<5> = StorageLayout::<5> {
         contract_name: "Token",
@@ -143,10 +148,6 @@ pub contract Token {
             },
         },
     };
-
-    #[deprecated(deny, "Direct invocation of public functions is not supported. You attempted to call get_admin. See https://docs.aztec.network/errors/6")]
-    #[contract_library_method]
-    fn get_admin() -> Field;
 
     #[deprecated(deny, "Direct invocation of public functions is not supported. You attempted to call is_minter. See https://docs.aztec.network/errors/6")]
     #[contract_library_method]
