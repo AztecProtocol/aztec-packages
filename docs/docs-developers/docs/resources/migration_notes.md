@@ -9,6 +9,34 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.nr] `ContractInstance.contract_class_id` renamed to `original_contract_class_id`
+
+The `contract_class_id` field of the `ContractInstance` struct (returned by `get_contract_instance`) has been renamed to `original_contract_class_id`. The struct is the contract's *address preimage*, so this field is the class id the contract was deployed with: for contracts whose class was later updated via the `ContractInstanceRegistry`, it is NOT the class currently executing. The rename makes that explicit.
+
+**Migration:**
+
+```diff
+let instance = get_contract_instance(address);
+- let class_id = instance.contract_class_id;
++ let class_id = instance.original_contract_class_id;
+```
+
+Note that this value is not available during public execution, which only has access to the _current_ contract class.
+
+### [Aztec.nr] `get_contract_instance_class_id_avm` renamed to `get_contract_instance_current_class_id_avm`
+
+The AVM contract-instance class id getter has been renamed to make explicit that it returns the *current* class id, i.e. it reflects updates performed via the `ContractInstanceRegistry`.
+
+**Migration:**
+
+```diff
+- use aztec::oracle::get_contract_instance::get_contract_instance_class_id_avm;
++ use aztec::oracle::get_contract_instance::get_contract_instance_current_class_id_avm;
+
+- let class_id = get_contract_instance_class_id_avm(address);
++ let class_id = get_contract_instance_current_class_id_avm(address);
+```
+
 ### [Aztec.nr] `for_each` visits elements in order; removing during iteration no longer supported
 
 `CapsuleArray::for_each` and `EphemeralArray::for_each` previously iterated backwards (from the last element to the first) so that the callback could safely remove the current element. They now visit elements in order, from first to last, as is usually expected in other languages. Structurally mutating the array (e.g. via `push` or `remove`) from inside the callback is no longer supported.
@@ -32,7 +60,7 @@ let _ = array.clear();
 kept.for_each(|_index, value| array.push(value));
 ```
 
-`EphemeralArray`'s are cheap and by nature not persistent though, so in most cases you probably can just work with the new copy instead of going through this hassle. 
+`EphemeralArray`'s are cheap and by nature not persistent though, so in most cases you probably can just work with the new copy instead of going through this hassle.
 
 `CapsuleArray` has no `filter`, so iterate manually, backwards. Removing the current element is safe in a backward loop because it only shifts elements at higher indices:
 
