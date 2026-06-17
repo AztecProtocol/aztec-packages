@@ -107,7 +107,8 @@ const logger = createLogger('integration_l1_publisher');
 
 const config: AztecNodeConfig = { ...getConfigEnvVars(), checkIntervalMs: 100, stallTimeMs: 6_000 };
 
-const numberOfConsecutiveBlocks = 2;
+// Must exceed the inbox lag (network default 2) so at least one checkpoint consumes a real L1->L2 message.
+const numberOfConsecutiveBlocks = 3;
 
 jest.setTimeout(1000000);
 
@@ -492,11 +493,10 @@ describe('L1Publisher integration', () => {
   describe('block building', () => {
     beforeEach(async () => {
       // This suite proposes consecutive checkpoints and models the inbox lag by hand (a checkpoint
-      // consumes the L1->L2 messages sent during the previous checkpoint -- see the shift at the
-      // bottom of buildAndPublishBlock). That bookkeeping assumes a single-checkpoint lag, so pin
-      // inboxLag to 1 rather than inheriting the network default (now 2); with only two consecutive
-      // blocks a lag of 2 would mean no checkpoint ever consumes a real message.
-      await setup({ inboxLag: 1 });
+      // consumes the L1->L2 messages sent inboxLag checkpoints earlier -- see the shift register in
+      // buildAndPublishBlock). It inherits the network default lag and proposes enough checkpoints
+      // that a real message is actually consumed and validated on L1.
+      await setup();
     });
 
     const buildAndPublishBlock = async (numTxs: number, jsonFileNamePrefix: string) => {
@@ -510,8 +510,11 @@ describe('L1Publisher integration', () => {
         '0x1647b194c649f5dd01d7c832f89b0f496043c9150797923ea89e93d5ac619a93',
       );
 
-      let currentL1ToL2Messages: Fr[] = [];
-      let nextL1ToL2Messages: Fr[] = [];
+      // The deployed rollup consumes L1->L2 messages with a lag of `inboxLag` checkpoints: a message
+      // inserted while building checkpoint N is only consumable at checkpoint N + inboxLag. Model that
+      // with a shift register so a real message is genuinely consumed and validated on L1.
+      const inboxLag = getL1ContractsConfigEnvVars().inboxLag;
+      const messagesInFlight: Fr[][] = Array.from({ length: inboxLag }, () => []);
       const blobFieldsPerCheckpoint: Fr[][] = [];
       // The below batched blob is used for testing different epochs with 1..numberOfConsecutiveBlocks blocks on L1.
       // For real usage, always collect ALL epoch blobs first then call .batch().
@@ -522,9 +525,14 @@ describe('L1Publisher integration', () => {
         // and causes a chain prune
         const l1ToL2Content = range(Math.min(16, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP), 128 * i + 1 + 0x400).map(fr);
 
+        const sentThisCheckpoint: Fr[] = [];
         for (let j = 0; j < l1ToL2Content.length; j++) {
-          nextL1ToL2Messages.push(await sendToL2(l1ToL2Content[j], recipientAddress));
+          sentThisCheckpoint.push(await sendToL2(l1ToL2Content[j], recipientAddress));
         }
+
+        // Consume the messages sent inboxLag checkpoints ago, then enqueue this checkpoint's messages.
+        const currentL1ToL2Messages = messagesInFlight.shift()!;
+        messagesInFlight.push(sentThisCheckpoint);
 
         // Ensure that each transaction has unique (non-intersecting nullifier values)
         const totalNullifiersPerBlock = 4 * MAX_NULLIFIERS_PER_TX;
@@ -648,11 +656,6 @@ describe('L1Publisher integration', () => {
           ],
         });
         expect(ethTx.input).toEqual(expectedData);
-
-        // There is a 1 block lag between before messages get consumed from the inbox
-        currentL1ToL2Messages = nextL1ToL2Messages;
-        // We wipe the messages from previous iteration
-        nextL1ToL2Messages = [];
 
         // Make sure that time have progressed to the next slot!
         await progressTimeBySlot();

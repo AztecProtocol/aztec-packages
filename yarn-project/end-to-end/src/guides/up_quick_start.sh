@@ -38,6 +38,11 @@ fi
 
 TRANSFER_AMOUNT=42
 
+# Alice's bridged fee-juice claim is only consumable inboxLag (2) checkpoints after the L1->L2 message
+# is inserted. The token deploy and mint above produced two blocks; force one more here (a public mint
+# from test0, which leaves the alice/bob private balances untouched) so the claim is available below.
+aztec-wallet send mint_to_public -ca last --args accounts:test0 1 -f test0
+
 aztec-wallet send transfer_in_private -ca last --args accounts:alice accounts:bob $TRANSFER_AMOUNT 0 -f alice --payment method=fee_juice,claim
 
 # Test end result
