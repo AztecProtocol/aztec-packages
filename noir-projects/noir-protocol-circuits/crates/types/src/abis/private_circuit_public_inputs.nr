@@ -105,6 +105,11 @@ pub struct PrivateCircuitPublicInputs {
     pub private_logs: ClaimedLengthArray<Counted<PrivateLogData>, MAX_PRIVATE_LOGS_PER_CALL>,
     // The hashes of the contract class logs created in this function call.
     pub contract_class_logs_hashes: ClaimedLengthArray<Counted<LogHash>, MAX_CONTRACT_CLASS_LOGS_PER_CALL>,
+
+    // The salt of the tx request. Set by the framework from the tx request, it binds this proof to a
+    // specific tx request: the init kernel asserts it equals `tx_request.salt`, so a third party cannot
+    // re-anchor the proof to a different tx request (and thus a different protocol nullifier).
+    pub salt: Field,
 }
 
 impl Empty for PrivateCircuitPublicInputs {
@@ -133,6 +138,7 @@ impl Empty for PrivateCircuitPublicInputs {
             expected_revertible_side_effect_counter: 0,
             anchor_block_header: BlockHeader::empty(),
             tx_context: TxContext::empty(),
+            salt: 0,
         }
     }
 }
