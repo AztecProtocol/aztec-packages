@@ -23,8 +23,6 @@ describe('constrained delivery', () => {
   let batchRecipient2: AztecAddress;
   let batchRecipient3: AztecAddress;
   let batchRecipient4: AztecAddress;
-  let defaultRecipient: AztecAddress;
-  let equivRecipient: AztecAddress;
   let contract: ConstrainedDeliveryTestContract;
   let registry: HandshakeRegistryContract;
 
@@ -32,17 +30,8 @@ describe('constrained delivery', () => {
     ({
       teardown,
       wallet,
-      accounts: [
-        sender,
-        recipient,
-        batchRecipient,
-        batchRecipient2,
-        batchRecipient3,
-        batchRecipient4,
-        defaultRecipient,
-        equivRecipient,
-      ],
-    } = await setup(8, { ...AUTOMINE_E2E_OPTS }));
+      accounts: [sender, recipient, batchRecipient, batchRecipient2, batchRecipient3, batchRecipient4],
+    } = await setup(6, { ...AUTOMINE_E2E_OPTS }));
 
     await ensureHandshakeRegistryPublished(wallet, sender);
     ({ contract } = await ConstrainedDeliveryTestContract.deploy(wallet).send({ from: sender }));
@@ -52,8 +41,8 @@ describe('constrained delivery', () => {
   afterAll(() => teardown());
 
   it('reuses an existing standard-registry constrained handshake', async () => {
-    await contract.methods.emit_note(sender, recipient).send({ from: sender });
-    await contract.methods.emit_event(sender, recipient).send({ from: sender });
+    await contract.methods.emit_note(recipient).send({ from: sender });
+    await contract.methods.emit_event(recipient).send({ from: sender });
 
     const { result: secret } = await registry.methods
       .get_app_siloed_secret(sender, recipient, ONCHAIN_CONSTRAINED, contract.address)
@@ -63,21 +52,6 @@ describe('constrained delivery', () => {
     const { result: index } = await contract.methods.next_index_for_secret(secret).simulate({ from: sender });
 
     expect(index).toEqual(2n);
-  });
-
-  // A method that omits `.with_sender(...)` falls back to the wallet's default tag sender. With no `sendMessagesAs`
-  // override, the wallet uses `from`, so the message is delivered on the `(from, recipient)` chain. Landing index 1
-  // proves the implicit default sender (here `sender`) drove tag derivation.
-  it('delivers a constrained send using the wallet default sender when no override is set', async () => {
-    await contract.methods.emit_note_default_sender(defaultRecipient).send({ from: sender });
-
-    const { result: secret } = await registry.methods
-      .get_app_siloed_secret(sender, defaultRecipient, ONCHAIN_CONSTRAINED, contract.address)
-      .simulate({ from: sender });
-    expect(secret).toBeDefined();
-
-    const { result: index } = await contract.methods.next_index_for_secret(secret).simulate({ from: sender });
-    expect(index).toEqual(1n);
   });
 
   // Constrained sends on one chain are strictly sequential, so concurrent and batched sends behave differently:
@@ -91,8 +65,8 @@ describe('constrained delivery', () => {
     // parallel sends on a single chain ever become supported. The working alternative is the batched test below.
     it.failing('cannot fan out constrained sends on the same chain in parallel', async () => {
       await Promise.all([
-        contract.methods.emit_note(sender, recipient).send({ from: sender }),
-        contract.methods.emit_note(sender, recipient).send({ from: sender }),
+        contract.methods.emit_note(recipient).send({ from: sender }),
+        contract.methods.emit_note(recipient).send({ from: sender }),
       ]);
     });
 
@@ -105,7 +79,7 @@ describe('constrained delivery', () => {
         .non_interactive_handshake(sender, batchRecipient, ONCHAIN_CONSTRAINED)
         .send({ from: sender });
 
-      await contract.methods.emit_two_events(sender, batchRecipient).send({ from: sender });
+      await contract.methods.emit_two_events(batchRecipient).send({ from: sender });
 
       const { result: secret } = await registry.methods
         .get_app_siloed_secret(sender, batchRecipient, ONCHAIN_CONSTRAINED, contract.address)
@@ -124,8 +98,8 @@ describe('constrained delivery', () => {
         .send({ from: sender });
 
       await new BatchCall(wallet, [
-        contract.methods.emit_note(sender, batchRecipient2),
-        contract.methods.emit_note(sender, batchRecipient2),
+        contract.methods.emit_note(batchRecipient2),
+        contract.methods.emit_note(batchRecipient2),
       ]).send({ from: sender });
 
       const { result: secret } = await registry.methods
@@ -143,7 +117,7 @@ describe('constrained delivery', () => {
     // registry keeps the second handshake, whose chain holds a single log, so the next index is 1, not 2. This is
     // why the established-chain tests above seed the handshake first.
     it('re-handshakes instead of reusing when sends bootstrap a new chain in the same tx', async () => {
-      await contract.methods.emit_two_events(sender, batchRecipient3).send({ from: sender });
+      await contract.methods.emit_two_events(batchRecipient3).send({ from: sender });
 
       const { result: secret } = await registry.methods
         .get_app_siloed_secret(sender, batchRecipient3, ONCHAIN_CONSTRAINED, contract.address)
@@ -159,8 +133,8 @@ describe('constrained delivery', () => {
     // so the next index is 1, not 2. Confirms the constraint is in the utility read, not the batching mechanism.
     it('re-handshakes instead of reusing when BatchCall sends bootstrap a new chain in the same tx', async () => {
       await new BatchCall(wallet, [
-        contract.methods.emit_note(sender, batchRecipient4),
-        contract.methods.emit_note(sender, batchRecipient4),
+        contract.methods.emit_note(batchRecipient4),
+        contract.methods.emit_note(batchRecipient4),
       ]).send({ from: sender });
 
       const { result: secret } = await registry.methods

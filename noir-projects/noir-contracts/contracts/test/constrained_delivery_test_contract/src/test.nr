@@ -45,7 +45,7 @@ unconstrained fn delivery_bootstraps_handshake_and_advances_index() {
     let test_contract = ConstrainedDeliveryTest::at(test_address);
     let registry = HandshakeRegistry::at(registry_address);
 
-    env.call_private_opts(sender, helper_options(registry_address), test_contract.emit_event(sender, recipient));
+    env.call_private_opts(sender, helper_options(registry_address), test_contract.emit_event(recipient));
 
     let secret = env
         .execute_utility(registry.get_app_siloed_secret(sender, recipient, ONCHAIN_CONSTRAINED, test_address))
@@ -62,7 +62,7 @@ unconstrained fn rehandshake_replaces_registry_secret_for_future_delivery() {
     let test_contract = ConstrainedDeliveryTest::at(test_address);
     let registry = HandshakeRegistry::at(registry_address);
 
-    env.call_private_opts(sender, helper_options(registry_address), test_contract.emit_event(sender, recipient));
+    env.call_private_opts(sender, helper_options(registry_address), test_contract.emit_event(recipient));
     let first_secret = env
         .execute_utility(registry.get_app_siloed_secret(sender, recipient, ONCHAIN_CONSTRAINED, test_address))
         .expect(f"first delivery should have stored a handshake");
@@ -73,7 +73,7 @@ unconstrained fn rehandshake_replaces_registry_secret_for_future_delivery() {
         .expect(f"re-handshake should have stored a replacement handshake");
     assert(first_secret != second_secret, "re-handshake should produce a distinct secret");
 
-    env.call_private_opts(sender, helper_options(registry_address), test_contract.emit_event(sender, recipient));
+    env.call_private_opts(sender, helper_options(registry_address), test_contract.emit_event(recipient));
 
     let next_index = env.call_private(sender, test_contract.next_index_for_secret(second_secret));
     assert_eq(next_index, 1);
@@ -90,7 +90,7 @@ unconstrained fn delivery_reuses_existing_secret_at_index_zero() {
         .execute_utility(registry.get_app_siloed_secret(sender, recipient, ONCHAIN_CONSTRAINED, test_address))
         .expect(f"seeded handshake should be siloed for the test contract");
 
-    env.call_private_opts(sender, helper_options(registry_address), test_contract.emit_event(sender, recipient));
+    env.call_private_opts(sender, helper_options(registry_address), test_contract.emit_event(recipient));
 
     let next_index = env.call_private(sender, test_contract.next_index_for_secret(app_secret));
     assert_eq(next_index, 1);
@@ -102,12 +102,12 @@ unconstrained fn second_delivery_proves_prior_nullifier_exists() {
     let test_contract = ConstrainedDeliveryTest::at(test_address);
     let registry = HandshakeRegistry::at(registry_address);
 
-    env.call_private_opts(sender, helper_options(registry_address), test_contract.emit_event(sender, recipient));
+    env.call_private_opts(sender, helper_options(registry_address), test_contract.emit_event(recipient));
     let secret = env
         .execute_utility(registry.get_app_siloed_secret(sender, recipient, ONCHAIN_CONSTRAINED, test_address))
         .expect(f"first delivery should have stored a handshake");
 
-    env.call_private_opts(sender, helper_options(registry_address), test_contract.emit_event(sender, recipient));
+    env.call_private_opts(sender, helper_options(registry_address), test_contract.emit_event(recipient));
 
     let next_index = env.call_private(sender, test_contract.next_index_for_secret(secret));
     assert_eq(next_index, 2);
@@ -124,7 +124,7 @@ unconstrained fn same_tx_delivery_reuse_proves_pending_prior_nullifier() {
         .execute_utility(registry.get_app_siloed_secret(sender, recipient, ONCHAIN_CONSTRAINED, test_address))
         .expect(f"seeded handshake should be siloed for the test contract");
 
-    env.call_private_opts(sender, helper_options(registry_address), test_contract.emit_two_events(sender, recipient));
+    env.call_private_opts(sender, helper_options(registry_address), test_contract.emit_two_events(recipient));
 
     let next_index = env.call_private(sender, test_contract.next_index_for_secret(secret));
     assert_eq(next_index, 2);
@@ -136,7 +136,7 @@ unconstrained fn note_delivery_advances_index_above_zero() {
     let test_contract = ConstrainedDeliveryTest::at(test_address);
     let registry = HandshakeRegistry::at(registry_address);
 
-    env.call_private_opts(sender, helper_options(registry_address), test_contract.emit_note(sender, recipient));
+    env.call_private_opts(sender, helper_options(registry_address), test_contract.emit_note(recipient));
 
     let secret = env
         .execute_utility(registry.get_app_siloed_secret(sender, recipient, ONCHAIN_CONSTRAINED, test_address))
@@ -153,7 +153,7 @@ unconstrained fn maybe_note_delivery_advances_index_above_zero() {
     let test_contract = ConstrainedDeliveryTest::at(test_address);
     let registry = HandshakeRegistry::at(registry_address);
 
-    env.call_private_opts(sender, helper_options(registry_address), test_contract.emit_maybe_note(sender, recipient));
+    env.call_private_opts(sender, helper_options(registry_address), test_contract.emit_maybe_note(recipient));
 
     let secret = env
         .execute_utility(registry.get_app_siloed_secret(sender, recipient, ONCHAIN_CONSTRAINED, test_address))
@@ -177,8 +177,7 @@ unconstrained fn fails_at_index_above_zero_without_prior_nullifier() {
 
     env.call_private(sender, test_contract.emit_constrained_log_without_nullifier(secret, 0));
 
-    let _ =
-        env.call_private_opts(sender, helper_options(registry_address), test_contract.emit_event(sender, recipient));
+    let _ = env.call_private_opts(sender, helper_options(registry_address), test_contract.emit_event(recipient));
 }
 
 #[test]
@@ -189,8 +188,8 @@ unconstrained fn distinct_pairs_have_independent_indexes() {
     let test_contract = ConstrainedDeliveryTest::at(test_address);
     let registry = HandshakeRegistry::at(registry_address);
 
-    env.call_private_opts(sender, helper_options(registry_address), test_contract.emit_event(sender, recipient_a));
-    env.call_private_opts(sender, helper_options(registry_address), test_contract.emit_event(sender, recipient_b));
+    env.call_private_opts(sender, helper_options(registry_address), test_contract.emit_event(recipient_a));
+    env.call_private_opts(sender, helper_options(registry_address), test_contract.emit_event(recipient_b));
 
     let secret_a = env
         .execute_utility(registry.get_app_siloed_secret(sender, recipient_a, ONCHAIN_CONSTRAINED, test_address))

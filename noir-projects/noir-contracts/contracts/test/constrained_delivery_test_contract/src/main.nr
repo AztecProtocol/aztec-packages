@@ -39,44 +39,24 @@ pub contract ConstrainedDeliveryTest {
     }
 
     #[external("private")]
-    fn emit_note(sender: AztecAddress, recipient: AztecAddress) {
-        self.storage.notes.at(recipient).insert(FieldNote { value: 1 }).deliver(MessageDelivery::onchain_constrained()
-            .with_sender(sender));
-    }
-
-    /// Like `emit_note`, but omits `.with_sender(...)` so the sender falls back to the wallet-provided default tag
-    /// sender (`get_sender_for_tags()`). Lets tests exercise the implicit-default and TS `sendMessagesAs` paths.
-    #[external("private")]
-    fn emit_note_default_sender(recipient: AztecAddress) {
+    fn emit_note(recipient: AztecAddress) {
         self.storage.notes.at(recipient).insert(FieldNote { value: 1 }).deliver(MessageDelivery::onchain_constrained());
     }
 
     #[external("private")]
-    fn emit_maybe_note(sender: AztecAddress, recipient: AztecAddress) {
-        self.storage.balances.at(recipient).add(1).deliver_to(
-            recipient,
-            MessageDelivery::onchain_constrained().with_sender(sender),
-        );
+    fn emit_maybe_note(recipient: AztecAddress) {
+        self.storage.balances.at(recipient).add(1).deliver_to(recipient, MessageDelivery::onchain_constrained());
     }
 
     #[external("private")]
-    fn emit_event(sender: AztecAddress, recipient: AztecAddress) {
-        self.emit(DeliveryEvent { value: 1 }).deliver_to(
-            recipient,
-            MessageDelivery::onchain_constrained().with_sender(sender),
-        );
+    fn emit_event(recipient: AztecAddress) {
+        self.emit(DeliveryEvent { value: 1 }).deliver_to(recipient, MessageDelivery::onchain_constrained());
     }
 
     #[external("private")]
-    fn emit_two_events(sender: AztecAddress, recipient: AztecAddress) {
-        self.emit(DeliveryEvent { value: 1 }).deliver_to(
-            recipient,
-            MessageDelivery::onchain_constrained().with_sender(sender),
-        );
-        self.emit(DeliveryEvent { value: 2 }).deliver_to(
-            recipient,
-            MessageDelivery::onchain_constrained().with_sender(sender),
-        );
+    fn emit_two_events(recipient: AztecAddress) {
+        self.emit(DeliveryEvent { value: 1 }).deliver_to(recipient, MessageDelivery::onchain_constrained());
+        self.emit(DeliveryEvent { value: 2 }).deliver_to(recipient, MessageDelivery::onchain_constrained());
     }
 
     /// Test-only: emits a log under the constrained tag for `(secret, index)` WITHOUT the chain nullifier. A landed
