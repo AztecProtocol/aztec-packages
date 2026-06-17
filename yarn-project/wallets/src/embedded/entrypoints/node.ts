@@ -36,7 +36,7 @@ export class NodeEmbeddedWallet extends EmbeddedWallet {
     const mergedCreationOverrides: PXECreationOptions = { ...options.pxeOptions, ...pxeCreationFromPxe };
 
     const pxeConfig: PXEConfig = Object.assign(getPXEConfig(), {
-      proverEnabled: mergedConfigOverrides.proverEnabled ?? false,
+      proverEnabled: mergedConfigOverrides.proverEnabled,
       dataDirectory: `pxe_data_${l1Contracts.rollupAddress}`,
       autoSync: false,
       ...mergedConfigOverrides,
