@@ -28,7 +28,8 @@ using Commands = ::testing::Types<bbapi::CircuitProve,
                                   bbapi::ChonkProve,
                                   bbapi::ChonkComputeVk,
                                   bbapi::ChonkCheckPrecomputedVk,
-                                  bbapi::ChonkBatchVerify>;
+                                  bbapi::ChonkBatchVerify,
+                                  bbapi::SetMsmLegacy>;
 
 // Typed test suites
 template <typename T> class BBApiMsgpack : public ::testing::Test {};
@@ -46,6 +47,21 @@ TYPED_TEST(BBApiMsgpack, DefaultConstructorRoundtrip)
     auto [actual_response, expected_response] = msgpack_roundtrip(response);
     EXPECT_EQ(actual_response, expected_response);
     std::cout << msgpack_schema_to_string(command) << " " << msgpack_schema_to_string(response) << std::endl;
+}
+
+TEST(BBApiConfig, SetMsmLegacyTogglesFacade)
+{
+    bbapi::BBApiRequest request{};
+
+    auto enabled = bbapi::SetMsmLegacy{ .enabled = true }.execute(request);
+    EXPECT_TRUE(enabled.enabled);
+    EXPECT_TRUE(scalar_multiplication::use_legacy_msm());
+
+    auto disabled = bbapi::SetMsmLegacy{ .enabled = false }.execute(request);
+    EXPECT_FALSE(disabled.enabled);
+    EXPECT_FALSE(scalar_multiplication::use_legacy_msm());
+
+    scalar_multiplication::clear_legacy_msm_override();
 }
 
 // Regression tests for input validation at API boundaries.

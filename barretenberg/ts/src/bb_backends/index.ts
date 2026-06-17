@@ -70,4 +70,10 @@ export type BackendOptions = {
    * don't need proving/verification capabilities.
    */
   skipSrsInit?: boolean;
+
+  /**
+   * @description Force the pre-rewrite Pippenger/MSM implementation.
+   * Mirrors setting BB_MSM_LEGACY=1 for native bb, and is also supported by WASM backends.
+   */
+  legacyMsm?: boolean;
 };

@@ -10,7 +10,7 @@
 //     byte-identical to merge-train (only wrapped in the `legacy` sub-namespace).
 //   * the round-parallel rewrite in scalar_multiplication_fast.hpp (`*_fast`, `MSM_fast`).
 // The public facade (`pippenger`, `pippenger_unsafe`, `MSM`) at the bottom dispatches to
-// the rewrite by default, or to `legacy::` when `use_legacy_msm()` (env BB_MSM_LEGACY).
+// the rewrite by default, or to `legacy::` when `use_legacy_msm()` (env BB_MSM_LEGACY or API override).
 // Remove the legacy half + the facade dispatch once the rewrite has soaked.
 #include "./scalar_multiplication_fast.hpp"
 #include "barretenberg/ecc/groups/precomputed_generators_bn254_impl.hpp"
@@ -406,13 +406,15 @@ extern template class MSM<curve::BN254>;
 
 // ===================================================================================
 // Public MSM facade — the surface every caller uses. Dispatches to the `_fast` rewrite
-// by default, or `legacy::` when use_legacy_msm() (env BB_MSM_LEGACY, read once).
+// by default, or `legacy::` when use_legacy_msm() (env BB_MSM_LEGACY or API override).
 // Signatures match the rewrite; the legacy branch adapts (legacy has no dedup pre-pass,
 // and its batch entry takes per-MSM point spans).
 // ===================================================================================
 namespace bb::scalar_multiplication {
 
 [[nodiscard]] bool use_legacy_msm() noexcept;
+void set_legacy_msm_override(bool enabled) noexcept;
+void clear_legacy_msm_override() noexcept;
 
 template <typename Curve>
 typename Curve::Element pippenger(PolynomialSpan<const typename Curve::ScalarField> scalars,
