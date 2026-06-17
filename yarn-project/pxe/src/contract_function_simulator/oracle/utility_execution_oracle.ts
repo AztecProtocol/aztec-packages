@@ -25,12 +25,7 @@ import { siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { PublicKeys, computeAddressSecret, hashPublicKey } from '@aztec/stdlib/keys';
-import {
-  AppTaggingSecret,
-  MessageContext,
-  type PendingTaggedLog,
-  deriveAppSiloedSharedSecret,
-} from '@aztec/stdlib/logs';
+import { AppTaggingSecret, type PendingTaggedLog, deriveAppSiloedSharedSecret } from '@aztec/stdlib/logs';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
@@ -646,31 +641,6 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     const resolved = await this.txResolver.resolveTxs(txHashes, this.anchorBlockHeader.getBlockNumber());
 
     const options = resolved.map(r => (r ? Option.some(r) : Option.none<ResolvedTx>(ResolvedTx.empty())));
-    return EphemeralArray.fromValues(this.ephemeralArrayService, options);
-  }
-
-  /**
-   * Backwards-compatibility shim for the to-be-deprecated `aztec_utl_getMessageContextsByTxHash` oracle.
-   *
-   * Contract artifacts pinned or compiled against an aztec-nr version that predates `get_resolved_txs` still call this
-   * oracle and expect an `Option<MessageContext>` (without block fields), so we derive the message context from the
-   * resolved tx.
-   *
-   * TODO: remove once all such artifacts (pinned standard contracts, committed account artifacts) have been recompiled
-   * against an aztec-nr version that uses `get_resolved_txs`.
-   */
-  public async getMessageContextsByTxHash(
-    requests: EphemeralArray<Fr>,
-  ): Promise<EphemeralArray<Option<MessageContext>>> {
-    const txHashes = requests.readAll(this.ephemeralArrayService);
-
-    const resolved = await this.txResolver.resolveTxs(txHashes, this.anchorBlockHeader.getBlockNumber());
-
-    const options = resolved.map(r =>
-      r
-        ? Option.some(new MessageContext(r.txHash, r.uniqueNoteHashesInTx, r.firstNullifierInTx))
-        : Option.none<MessageContext>(MessageContext.empty()),
-    );
     return EphemeralArray.fromValues(this.ephemeralArrayService, options);
   }
 
