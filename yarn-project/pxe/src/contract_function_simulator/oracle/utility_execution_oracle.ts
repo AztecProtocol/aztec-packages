@@ -76,11 +76,13 @@ import { buildACIRCallback } from './acir_callback.js';
 import type { IMiscOracle, IUtilityExecutionOracle } from './interfaces.js';
 import { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
 
-const STANDARD_HANDSHAKE_REGISTRY_GET_HANDSHAKES_SELECTOR =
-  FunctionSelector.fromSignature('get_handshakes((Field),u32)');
-const STANDARD_HANDSHAKE_REGISTRY_GET_APP_SILOED_SECRET_SELECTOR = FunctionSelector.fromSignature(
-  'get_app_siloed_secret((Field),(Field),(u8),(Field))',
-);
+const STANDARD_HANDSHAKE_REGISTRY_GET_HANDSHAKES_SIGNATURE = 'get_handshakes((Field),u32)';
+const STANDARD_HANDSHAKE_REGISTRY_GET_APP_SILOED_SECRET_SIGNATURE =
+  'get_app_siloed_secret((Field),(Field),(u8),(Field))';
+
+async function doesSelectorHaveSignature(functionSelector: FunctionSelector, signature: string): Promise<boolean> {
+  return functionSelector.equals(await FunctionSelector.fromSignature(signature));
+}
 
 async function isStandardHandshakeRegistryUtilityRead(
   targetContractAddress: AztecAddress,
@@ -92,12 +94,12 @@ async function isStandardHandshakeRegistryUtilityRead(
     return false;
   }
 
-  if (functionSelector.equals(await STANDARD_HANDSHAKE_REGISTRY_GET_HANDSHAKES_SELECTOR)) {
+  if (await doesSelectorHaveSignature(functionSelector, STANDARD_HANDSHAKE_REGISTRY_GET_HANDSHAKES_SIGNATURE)) {
     return true;
   }
 
   return (
-    functionSelector.equals(await STANDARD_HANDSHAKE_REGISTRY_GET_APP_SILOED_SECRET_SELECTOR) &&
+    (await doesSelectorHaveSignature(functionSelector, STANDARD_HANDSHAKE_REGISTRY_GET_APP_SILOED_SECRET_SIGNATURE)) &&
     args.length >= 4 &&
     // TODO(F-671): will be replaced with `self.msg_sender()` once utility context exposes it.
     args[3].equals(caller.toField())

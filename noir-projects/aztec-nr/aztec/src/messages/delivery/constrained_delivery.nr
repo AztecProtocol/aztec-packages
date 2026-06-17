@@ -6,88 +6,22 @@
 //! distinct chains and parallelize), and batching several sends onto one chain within a transaction requires an
 //! already-committed handshake.
 //!
-//! See [`constrain_secret`] for how a send is anchored to the registry, and
-//! [`get_or_create_app_siloed_handshake_secret`] for the bootstrap/reuse decision and its batching constraint.
+//! See [`constrain_secret`] for how a send is anchored to the registry,
 
 use crate::context::PrivateContext;
 use crate::messages::delivery::OnchainDeliveryMode;
 use crate::nullifier::utils::compute_nullifier_existence_request;
-use crate::oracle::call_utility_function::call_utility_function;
 
 use crate::protocol::{
-    abis::function_selector::FunctionSelector,
-    address::AztecAddress,
-    constants::DOM_SEP__CONSTRAINED_MSG_NULLIFIER,
-    hash::poseidon2_hash_with_separator,
-    traits::{Deserialize, ToField},
+    abis::function_selector::FunctionSelector, address::AztecAddress, constants::DOM_SEP__CONSTRAINED_MSG_NULLIFIER,
+    hash::poseidon2_hash_with_separator, traits::ToField,
 };
 
-// The helper cannot import the handshake registry interface because the registry contract depends on aztec-nr. These
-// selector constants pin the registry ABI surface this library calls. The registry's test suite compares them against
-// its macro-generated `HandshakeRegistry::at(...).method(...).selector` values so signature drift fails in tests.
-pub global GET_APP_SILOED_SECRET_SELECTOR: FunctionSelector =
-    comptime { FunctionSelector::from_signature("get_app_siloed_secret((Field),(Field),(u8),(Field))") };
-pub global NON_INTERACTIVE_HANDSHAKE_SELECTOR: FunctionSelector =
-    comptime { FunctionSelector::from_signature("non_interactive_handshake((Field),(Field),(u8))") };
+// The helper cannot import the handshake registry interface because the registry contract depends on aztec-nr. The
+// registry's test suite compares this against its macro-generated `HandshakeRegistry::at(...).method(...).selector`
+// value so signature drift fails in tests.
 pub global VALIDATE_HANDSHAKE_SELECTOR: FunctionSelector =
     comptime { FunctionSelector::from_signature("validate_handshake((Field),(Field),(u8),Field)") };
-
-/// Resolves the app-siloed handshake secret for `(sender, recipient, mode)`, bootstrapping a fresh handshake via
-/// the registry when none exists yet.
-///
-/// Returns `(secret, bootstrapped)`, where `bootstrapped` is true when this call created the handshake.
-///
-/// ## Batching
-///
-/// Several sends can share one transaction on the same chain (each later send proves its predecessor as a
-/// same-transaction pending nullifier), but only once the handshake is committed. The reuse-vs-bootstrap decision
-/// here is a utility call that reads committed state, so a bootstrap performed earlier in the same transaction is
-/// invisible: a later send re-handshakes onto a separate chain (each handshake mints a fresh secret) rather than
-/// reusing the pending one. A brand-new recipient therefore needs one landed transaction to establish the chain
-/// before further sends can be batched onto it.
-pub(crate) fn get_or_create_app_siloed_handshake_secret(
-    context: &mut PrivateContext,
-    registry: AztecAddress,
-    sender: AztecAddress,
-    recipient: AztecAddress,
-    mode: OnchainDeliveryMode,
-) -> (Field, bool) {
-    let caller = context.this_address();
-    let mode_field = mode.to_field();
-
-    // Safety: the response only selects which path runs. On `None` we bootstrap via `non_interactive_handshake`,
-    // whose constrained return value is the secret, so a forged empty response cannot fabricate one; it can only
-    // trigger an unnecessary re-handshake that replaces the registry note. The caller must constrain the returned
-    // `(secret, bootstrapped)` pair against the selected tagging index before emitting a constrained tag.
-    let maybe_secret: Option<Field> = unsafe {
-        let returns = call_utility_function(
-            registry,
-            GET_APP_SILOED_SECRET_SELECTOR,
-            // TODO(F-671): Replace explicit caller argument once utility context exposes msg_sender().
-            [sender.to_field(), recipient.to_field(), mode_field, caller.to_field()],
-        );
-        Deserialize::deserialize(returns)
-    };
-
-    if maybe_secret.is_none() {
-        // Bootstrap: no handshake exists yet. The registry inserts a fresh note and returns the app-siloed
-        // secret to the caller. The constrained return is the source of truth for the secret, so no separate
-        // `validate_handshake` is needed.
-        // TODO(F-660): dispatch to `perform_handshake(sender, recipient, handshake_type)` once interactive
-        // handshakes are supported.
-        let secret: Field = context
-            .call_private_function(
-                registry,
-                NON_INTERACTIVE_HANDSHAKE_SELECTOR,
-                [sender.to_field(), recipient.to_field(), mode_field],
-            )
-            .get_preimage();
-
-        (secret, true)
-    } else {
-        (maybe_secret.unwrap_unchecked(), false)
-    }
-}
 
 pub(crate) fn constrain_secret_and_emit_nullifier(
     context: &mut PrivateContext,
@@ -160,9 +94,27 @@ pub(crate) fn compute_constrained_msg_nullifier(
 }
 
 mod test {
-    use crate::protocol::{address::AztecAddress, traits::FromField};
+    use crate::context::PrivateContext;
+    use crate::hash::hash_args;
+    use crate::messages::delivery::OnchainDeliveryMode;
+    use crate::protocol::{address::AztecAddress, traits::{FromField, ToField}};
     use crate::test::helpers::test_environment::TestEnvironment;
-    use super::{compute_constrained_msg_nullifier, constrain_secret_and_emit_nullifier};
+    use super::{compute_constrained_msg_nullifier, constrain_secret_and_emit_nullifier, VALIDATE_HANDSHAKE_SELECTOR};
+    use std::test::OracleMock;
+
+    fn assert_current_nullifier_emitted(
+        context: &mut PrivateContext,
+        sender: AztecAddress,
+        recipient: AztecAddress,
+        secret: Field,
+        index: u32,
+    ) {
+        assert_eq(context.nullifiers.len(), 1);
+        assert_eq(
+            context.nullifiers.get(0).inner.value,
+            compute_constrained_msg_nullifier(sender, recipient, secret, index),
+        );
+    }
 
     #[test]
     unconstrained fn constrained_helper_emits_current_nullifier() {
@@ -176,11 +128,105 @@ mod test {
         env.private_context(|context| {
             constrain_secret_and_emit_nullifier(context, registry, sender, recipient, secret, true, index);
 
-            assert_eq(context.nullifiers.len(), 1);
+            assert_current_nullifier_emitted(context, sender, recipient, secret, index);
+            assert_eq(context.private_call_requests.len(), 0);
+            assert_eq(context.nullifier_read_requests.len(), 0);
+        });
+    }
+
+    #[test(should_fail_with = "freshly bootstrapped secret must start at index 0")]
+    unconstrained fn bootstrapped_secret_must_start_at_index_zero() {
+        let env = TestEnvironment::new();
+        let registry = AztecAddress::from_field(1);
+        let sender = AztecAddress::from_field(2);
+        let recipient = AztecAddress::from_field(4);
+
+        env.private_context(|context| {
+            constrain_secret_and_emit_nullifier(context, registry, sender, recipient, 1234, true, 1);
+        });
+    }
+
+    #[test]
+    unconstrained fn reused_secret_at_index_zero_validates_registry_and_emits_nullifier() {
+        let env = TestEnvironment::new();
+        let registry = AztecAddress::from_field(1);
+        let sender = AztecAddress::from_field(2);
+        let recipient = AztecAddress::from_field(4);
+        let secret: Field = 1234;
+        let index: u32 = 0;
+
+        env.private_context(|context| {
+            // The real registry call is covered by integration tests; this unit test only needs a coherent child
+            // call result so `PrivateContext` records the request.
+            let child_call_end_counter = (context.side_effect_counter + 1) as Field;
+            let empty_returns_hash: Field = 0;
+            let _ = OracleMock::mock("aztec_prv_callPrivateFunction")
+                .returns([child_call_end_counter, empty_returns_hash])
+                .times(1);
+
+            constrain_secret_and_emit_nullifier(context, registry, sender, recipient, secret, false, index);
+
+            assert_current_nullifier_emitted(context, sender, recipient, secret, index);
+            assert_eq(context.nullifier_read_requests.len(), 0);
+            assert_eq(context.private_call_requests.len(), 1);
+
+            let request = context.private_call_requests.get(0);
+            assert_eq(request.call_context.msg_sender, context.this_address());
+            assert_eq(request.call_context.contract_address, registry);
+            assert_eq(request.call_context.function_selector, VALIDATE_HANDSHAKE_SELECTOR);
+            assert(!request.call_context.is_static_call);
             assert_eq(
-                context.nullifiers.get(0).inner.value,
-                compute_constrained_msg_nullifier(sender, recipient, secret, index),
+                request.args_hash,
+                hash_args([
+                    sender.to_field(),
+                    recipient.to_field(),
+                    OnchainDeliveryMode::onchain_constrained().to_field(),
+                    secret,
+                ]),
             );
         });
+    }
+
+    #[test]
+    unconstrained fn reused_secret_above_index_zero_reads_previous_nullifier_and_emits_current_nullifier() {
+        let env = TestEnvironment::new();
+        let registry = AztecAddress::from_field(1);
+        let sender = AztecAddress::from_field(2);
+        let recipient = AztecAddress::from_field(4);
+        let secret: Field = 1234;
+        let index: u32 = 3;
+
+        env.private_context(|context| {
+            constrain_secret_and_emit_nullifier(context, registry, sender, recipient, secret, false, index);
+
+            assert_current_nullifier_emitted(context, sender, recipient, secret, index);
+            assert_eq(context.private_call_requests.len(), 0);
+            assert_eq(context.nullifier_read_requests.len(), 1);
+
+            let read_request = context.nullifier_read_requests.get(0);
+            assert_eq(read_request.contract_address, context.this_address());
+            assert_eq(
+                read_request.inner.inner,
+                compute_constrained_msg_nullifier(sender, recipient, secret, index - 1),
+            );
+        });
+    }
+
+    #[test]
+    fn constrained_msg_nullifier_depends_on_chain_inputs() {
+        let sender = AztecAddress::from_field(1);
+        let other_sender = AztecAddress::from_field(2);
+        let recipient = AztecAddress::from_field(3);
+        let other_recipient = AztecAddress::from_field(4);
+        let secret: Field = 1234;
+        let other_secret: Field = 5678;
+        let index: u32 = 5;
+
+        let base = compute_constrained_msg_nullifier(sender, recipient, secret, index);
+
+        assert(base != compute_constrained_msg_nullifier(other_sender, recipient, secret, index));
+        assert(base != compute_constrained_msg_nullifier(sender, other_recipient, secret, index));
+        assert(base != compute_constrained_msg_nullifier(sender, recipient, other_secret, index));
+        assert(base != compute_constrained_msg_nullifier(sender, recipient, secret, index + 1));
     }
 }

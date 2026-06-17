@@ -2,10 +2,8 @@ use crate::HandshakeRegistry;
 
 use aztec::{
     messages::delivery::{
-        constrained_delivery::{
-            GET_APP_SILOED_SECRET_SELECTOR, NON_INTERACTIVE_HANDSHAKE_SELECTOR, VALIDATE_HANDSHAKE_SELECTOR,
-        },
-        handshake::MAX_HANDSHAKES_PER_PAGE,
+        constrained_delivery::VALIDATE_HANDSHAKE_SELECTOR,
+        handshake::{GET_APP_SILOED_SECRET_SELECTOR, MAX_HANDSHAKES_PER_PAGE, NON_INTERACTIVE_HANDSHAKE_SELECTOR},
         MessageDelivery,
         OnchainDeliveryMode,
     },

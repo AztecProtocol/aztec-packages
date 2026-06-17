@@ -4,7 +4,7 @@
 
 use crate::context::PrivateContext;
 use crate::messages::delivery::{
-    constrained_delivery::{constrain_secret_and_emit_nullifier, get_or_create_app_siloed_handshake_secret},
+    constrained_delivery::constrain_secret_and_emit_nullifier, handshake::get_or_create_app_siloed_handshake_secret,
     OnchainDeliveryMode,
 };
 use crate::oracle::notes::{get_app_tagging_secret, get_next_tagging_index};
