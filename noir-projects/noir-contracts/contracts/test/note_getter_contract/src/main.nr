@@ -25,10 +25,9 @@ pub contract NoteGetter {
         packed_set: Owned<PrivateSet<PackedNote, Context>, Context>,
     }
 
-    // Uses unconstrained delivery on purpose: the note getter tests insert notes in parallel from the same sender,
-    // and constrained delivery serializes per `(sender, recipient, secret)` chain (parallel sends on one chain
-    // collide on the chain nullifier). These functions only exercise note filtering, so the delivery mode is
-    // incidental.
+    // This function is called from tests that execute it across many parallel txs.
+    // Since constrained delivery doesn't support it, this function must use unconstrained delivery instead.
+    // Constrained delivery itself is covered by e2e_constrained_delivery.
     #[external("private")]
     fn insert_note(value: Field) {
         let owner = self.msg_sender();
