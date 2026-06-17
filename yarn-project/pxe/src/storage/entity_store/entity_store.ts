@@ -155,7 +155,7 @@ export class EntityStore implements StagedStore {
     jobId: string,
   ): Promise<void> {
     return this.#withJobLock(jobId, async () => {
-      if ((await this.getEntity(entityKey, jobId)) === undefined) {
+      if (!(await this.#doesEntityExist(entityKey, jobId))) {
         throw new Error(`Cannot record a fact for non-existent entity ${entityKey.toString()}`);
       }
       this.#stagedOpsFor(jobId).push({
@@ -172,7 +172,7 @@ export class EntityStore implements StagedStore {
    */
   terminateEntity(key: EntityKey, jobId: string): Promise<void> {
     return this.#withJobLock(jobId, async () => {
-      if ((await this.getEntity(key, jobId)) === undefined) {
+      if (!(await this.#doesEntityExist(key, jobId))) {
         throw new Error(`Cannot terminate a non-existent entity ${key.toString()}`);
       }
       this.#stagedOpsFor(jobId).push({ kind: 'terminateEntity', key });
@@ -382,6 +382,22 @@ export class EntityStore implements StagedStore {
     // a sequence number so facts always come back in creation order without needing to resort to timestamps.
     loaded.sort((a, b) => a.seq - b.seq);
     return new Map(loaded.map(({ factKey, fact }) => [factKey, fact.toFact()]));
+  }
+
+  /**
+   * Whether an entity currently exists.
+   */
+  async #doesEntityExist(key: EntityKey, jobId: string): Promise<boolean> {
+    const entityKey = key.toString();
+    let exists = await this.#entities.hasAsync(entityKey);
+    for (const op of this.#stagedOpsFor(jobId)) {
+      if (op.kind === 'createEntity' && op.entity.key.toString() === entityKey) {
+        exists = true;
+      } else if (op.kind === 'terminateEntity' && op.key.toString() === entityKey) {
+        exists = false;
+      }
+    }
+    return exists;
   }
 
   /**
