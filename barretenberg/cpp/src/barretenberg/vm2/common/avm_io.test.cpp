@@ -365,5 +365,29 @@ TEST(AvmInputsTest, ValuesInColumns)
     EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_REVERTED_ROW_IDX], static_cast<uint8_t>(pi.reverted));
 }
 
+// C++ counterpart of the Noir `to_columns_writes_nothing_beyond_per_column_length` invariant.
+// Here to_columns() allocates each column at exactly its per-column length (the columns are jagged),
+// so there is no [Lᵢ, MAX_LENGTH) tail to inspect; a field mapped past Lᵢ is instead an out-of-bounds
+// write into the exactly-sized column. We pin each length to the last written row: populate the final
+// row of every column and assert it is non-zero. A length that is too large would leave a zero final
+// cell (caught here); a field added past Lᵢ would be an out-of-bounds write in to_columns (caught in
+// assert/sanitizer builds). Out-of-circuit test, so no gate impact.
+TEST(AvmInputsTest, ToColumnsPerColumnLengthsAreTight)
+{
+    PublicInputs pi;
+    pi.reverted = true;                                                 // col0 last row: reverted
+    pi.accumulated_data.public_data_writes.back().value = 0xdead;       // col1 last row: public_data_writes value
+    pi.accumulated_data.l2_to_l1_msgs.back().contract_address = 0xbeef; // col2 last row: l2_to_l1 contract_address
+    pi.public_teardown_call_request.calldata_hash = 0xcafe;             // col3 last row: teardown calldata_hash
+
+    auto cols = pi.to_columns();
+
+    for (size_t i = 0; i < AVM_NUM_PUBLIC_INPUT_COLUMNS; ++i) {
+        EXPECT_THAT(cols[i], SizeIs(AVM_PUBLIC_INPUTS_COLUMN_LENGTHS[i]));
+        // A populated final cell means the length matches the last written row exactly.
+        EXPECT_NE(cols[i].back(), FF(0)) << "column " << i << " last row is unexpectedly zero";
+    }
+}
+
 } // namespace
 } // namespace bb::avm2
