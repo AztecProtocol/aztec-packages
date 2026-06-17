@@ -2401,6 +2401,8 @@ __metadata:
       optional: true
     "@aztec/wsdb-linux-x64":
       optional: true
+  bin:
+    aztec-wsdb: ./dest/bin.js
   languageName: node
   linkType: soft
 

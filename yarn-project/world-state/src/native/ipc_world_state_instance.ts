@@ -158,6 +158,9 @@ function formatMap(map: Record<number, number> | undefined): string | undefined 
     .join(',')}}`;
 }
 
+/** SHM request/response ring size for the spawned aztec-wsdb process (32 MiB). */
+const WSDB_SHM_RING_SIZE = 32 * 1024 * 1024;
+
 function getWsdbThreadCount(): number {
   return Math.min(16, cpus().length);
 }
@@ -170,6 +173,14 @@ function getWsdbExtraArgs(
 ): string[] {
   const options = getWsdbOptions(dataDir, wsTreeMapSizes);
   const args = ['--data-dir', dataDir, '--threads', threads.toString()];
+
+  // Size the SHM rings generously. Responses such as batch-insertion witnesses
+  // run to a few MB, and an SHM frame is capped at half the ring (the wrap
+  // handling needs that headroom), so 32 MiB rings give ~16 MiB per message.
+  // Ignored by the UDS transport. Pages are demand-faulted, so unused capacity
+  // is cheap.
+  args.push('--request-ring-size', WSDB_SHM_RING_SIZE.toString());
+  args.push('--response-ring-size', WSDB_SHM_RING_SIZE.toString());
 
   const treeHeights = formatMap(options.treeHeights);
   if (treeHeights) {
@@ -358,8 +369,9 @@ export class IpcWorldState implements NativeWorldStateInstance {
     bindings?: LoggerBindings,
   ): Promise<IpcWorldState> {
     const threads = getWsdbThreadCount();
+    const transport = process.env.WSDB_TRANSPORT === 'shm' ? 'shm' : 'uds';
     const wsdb = await WsdbService.spawn({
-      transport: 'uds',
+      transport,
       extraArgs: getWsdbExtraArgs(dataDir, wsTreeMapSizes, genesis, threads),
       env: { HARDWARE_CONCURRENCY: threads.toString() },
     });
