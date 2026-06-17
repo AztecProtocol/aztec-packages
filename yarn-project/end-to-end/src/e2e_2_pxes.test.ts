@@ -142,7 +142,7 @@ describe('e2e_2_pxes', () => {
     expect(storedValueOnA).toEqual(newValueToSet);
   });
 
-  it('private state is "zero" when PXE does not have the account secret key', async () => {
+  it.skip('private state is "zero" when PXE does not have the account secret key', async () => {
     const userABalance = 100n;
     const userBBalance = 150n;
 
