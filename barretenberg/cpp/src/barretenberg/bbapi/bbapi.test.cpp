@@ -8,6 +8,7 @@
 #include "barretenberg/common/utils.hpp"
 #include "barretenberg/serialize/test_helper.hpp"
 #include "msgpack/v3/sbuffer_decl.hpp"
+#include <cstdlib>
 #include <gtest/gtest.h>
 
 using namespace bb;
@@ -52,6 +53,13 @@ TYPED_TEST(BBApiMsgpack, DefaultConstructorRoundtrip)
 TEST(BBApiConfig, SetMsmLegacyTogglesFacade)
 {
     bbapi::BBApiRequest request{};
+
+    // Legacy MSM is the default: with no API override and neither env var set, the facade
+    // routes to the legacy path.
+    scalar_multiplication::clear_legacy_msm_override();
+    if (std::getenv("BB_MSM_LEGACY") == nullptr && std::getenv("BB_MSM_NEW") == nullptr) {
+        EXPECT_TRUE(scalar_multiplication::use_legacy_msm());
+    }
 
     auto enabled = bbapi::SetMsmLegacy{ .enabled = true }.execute(request);
     EXPECT_TRUE(enabled.enabled);

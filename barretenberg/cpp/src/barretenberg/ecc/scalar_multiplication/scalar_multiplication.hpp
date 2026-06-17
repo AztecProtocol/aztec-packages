@@ -10,8 +10,9 @@
 //     byte-identical to merge-train (only wrapped in the `legacy` sub-namespace).
 //   * the round-parallel rewrite in scalar_multiplication_fast.hpp (`*_fast`, `MSM_fast`).
 // The public facade (`pippenger`, `pippenger_unsafe`, `MSM`) at the bottom dispatches to
-// the rewrite by default, or to `legacy::` when `use_legacy_msm()` (env BB_MSM_LEGACY or API override).
-// Remove the legacy half + the facade dispatch once the rewrite has soaked.
+// `legacy::` by default; the rewrite is opt-in via `use_legacy_msm()` (env BB_MSM_NEW, the API
+// override, or TS `legacyMsm: false`) while it soaks.
+// Flip the default back to the rewrite (then remove the legacy half) once it has soaked.
 #include "./scalar_multiplication_fast.hpp"
 #include "barretenberg/ecc/groups/precomputed_generators_bn254_impl.hpp"
 #include "barretenberg/ecc/groups/precomputed_generators_grumpkin_impl.hpp"
@@ -405,8 +406,9 @@ extern template class MSM<curve::BN254>;
 } // namespace bb::scalar_multiplication::legacy
 
 // ===================================================================================
-// Public MSM facade — the surface every caller uses. Dispatches to the `_fast` rewrite
-// by default, or `legacy::` when use_legacy_msm() (env BB_MSM_LEGACY or API override).
+// Public MSM facade — the surface every caller uses. Dispatches to `legacy::` by default;
+// the `_fast` rewrite is opt-in via use_legacy_msm() (env BB_MSM_NEW, the API override, or
+// TS `legacyMsm: false`).
 // Signatures match the rewrite; the legacy branch adapts (legacy has no dedup pre-pass,
 // and its batch entry takes per-MSM point spans).
 // ===================================================================================
