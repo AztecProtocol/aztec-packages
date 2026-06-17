@@ -1,33 +1,97 @@
+import type { BlockNumber } from '@aztec/foundation/branded-types';
+import type { Fr } from '@aztec/foundation/curves/bn254';
+import type { IndexedTreeId, TreeInfo } from '@aztec/stdlib/interfaces/server';
+import type { MerkleTreeId } from '@aztec/stdlib/trees';
+import type { WorldStateRevision } from '@aztec/stdlib/world-state';
+
 import type {
-  WorldStateMessageType,
-  WorldStateRequest,
-  WorldStateRequestCategories,
-  WorldStateResponse,
+  BlockStateReference,
+  SerializedBatchInsertionResult,
+  SerializedIndexedLeaf,
+  SerializedLeafValue,
+  SerializedSequentialInsertionResult,
+  SerializedSiblingPathAndIndex,
+  TreeStateReference,
+  WorldStateStatusFull,
+  WorldStateStatusSummary,
 } from './message.js';
 
 /**
  * Backend-agnostic handle to a running aztec-wsdb world state, accessed by the TS layer.
  *
- * Two implementations exist:
- *   - {@link IpcWorldState} — talks to a standalone aztec-wsdb process over UDS or shared memory.
- *
  * The legacy in-process NAPI implementation has been removed; the C++ AVM (NAPI) now connects to
  * the same aztec-wsdb process using the IPC path returned by {@link getIpcPath}.
  */
 export interface NativeWorldStateInstance {
-  /**
-   * Send a typed msgpack message to the backing world state and await its response.
-   *
-   * @param responseHandler — optional pre-resolution hook executed on the per-fork queue, useful
-   *   for caching responses while the queue still holds the fork lock.
-   * @param errorHandler — optional pre-rejection hook executed on the per-fork queue.
-   */
-  call<T extends WorldStateMessageType>(
-    messageType: T,
-    body: WorldStateRequest[T] & WorldStateRequestCategories,
-    responseHandler?: (response: WorldStateResponse[T]) => WorldStateResponse[T],
-    errorHandler?: (error: string) => void,
-  ): Promise<WorldStateResponse[T]>;
+  getTreeInfo(treeId: MerkleTreeId, revision: WorldStateRevision): Promise<TreeInfo>;
+  getStateReference(revision: WorldStateRevision): Promise<Record<number, TreeStateReference>>;
+  getInitialStateReference(): Promise<Record<number, TreeStateReference>>;
+  getLeafValue(
+    treeId: MerkleTreeId,
+    revision: WorldStateRevision,
+    leafIndex: bigint,
+  ): Promise<SerializedLeafValue | undefined>;
+  getLeafPreimage(
+    treeId: IndexedTreeId,
+    revision: WorldStateRevision,
+    leafIndex: bigint,
+  ): Promise<SerializedIndexedLeaf | undefined>;
+  getSiblingPath(treeId: MerkleTreeId, revision: WorldStateRevision, leafIndex: bigint): Promise<Buffer[]>;
+  getBlockNumbersForLeafIndices(
+    treeId: MerkleTreeId,
+    revision: WorldStateRevision,
+    leafIndices: bigint[],
+  ): Promise<(bigint | undefined)[]>;
+  findLeafIndices(
+    treeId: MerkleTreeId,
+    revision: WorldStateRevision,
+    leaves: SerializedLeafValue[],
+    startIndex: bigint,
+  ): Promise<(bigint | undefined)[]>;
+  findLowLeaf(
+    treeId: IndexedTreeId,
+    revision: WorldStateRevision,
+    key: Fr,
+  ): Promise<{ index: bigint; alreadyPresent: boolean }>;
+  findSiblingPaths(
+    treeId: MerkleTreeId,
+    revision: WorldStateRevision,
+    leaves: SerializedLeafValue[],
+  ): Promise<(SerializedSiblingPathAndIndex | undefined)[]>;
+  updateArchive(forkId: number, blockStateRef: BlockStateReference, blockHeaderHash: Buffer): Promise<void>;
+  appendLeaves(treeId: MerkleTreeId, forkId: number, leaves: SerializedLeafValue[]): Promise<void>;
+  batchInsert(
+    treeId: IndexedTreeId,
+    forkId: number,
+    leaves: SerializedLeafValue[],
+    subtreeDepth: number,
+  ): Promise<SerializedBatchInsertionResult>;
+  sequentialInsert(
+    treeId: IndexedTreeId,
+    forkId: number,
+    leaves: SerializedLeafValue[],
+  ): Promise<SerializedSequentialInsertionResult>;
+  syncBlock(input: {
+    blockNumber: BlockNumber;
+    blockStateRef: BlockStateReference;
+    blockHeaderHash: Buffer;
+    paddedNoteHashes: readonly SerializedLeafValue[];
+    paddedL1ToL2Messages: readonly SerializedLeafValue[];
+    paddedNullifiers: readonly SerializedLeafValue[];
+    publicDataWrites: readonly SerializedLeafValue[];
+  }): Promise<WorldStateStatusFull>;
+  createFork(input: { latest: boolean; blockNumber: BlockNumber }): Promise<number>;
+  deleteFork(forkId: number): Promise<void>;
+  finalizeBlocks(toBlockNumber: BlockNumber): Promise<WorldStateStatusSummary>;
+  unwindBlocks(toBlockNumber: BlockNumber): Promise<WorldStateStatusFull>;
+  removeHistoricalBlocks(toBlockNumber: BlockNumber): Promise<WorldStateStatusFull>;
+  getStatus(): Promise<WorldStateStatusSummary>;
+  createCheckpoint(forkId: number): Promise<number>;
+  commitCheckpoint(forkId: number): Promise<void>;
+  revertCheckpoint(forkId: number): Promise<void>;
+  commitAllCheckpoints(forkId: number, depth: number): Promise<void>;
+  revertAllCheckpoints(forkId: number, depth: number): Promise<void>;
+  copyStores(dstPath: string, compact: boolean): Promise<void>;
 
   /**
    * IPC path the underlying aztec-wsdb process listens on. The C++ AVM uses this to attach to the
