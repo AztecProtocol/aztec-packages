@@ -4,7 +4,7 @@
   "version": "0.5.0",
   "type": "module",
   "scripts": {
-    "build": "yarn workspaces foreach -A -p -v run build"
+    "build": "yarn workspaces foreach -A -v run build"
   },
   "workspaces": [
     "boxes/*"
