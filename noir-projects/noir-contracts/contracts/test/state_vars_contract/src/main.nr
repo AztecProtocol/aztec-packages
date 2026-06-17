@@ -93,10 +93,9 @@ pub contract StateVars {
         self.storage.public_immutable.read()
     }
 
-    // These private state-var writes use unconstrained delivery on purpose: the tests assert note-hash and nullifier
-    // counts to exercise state-var semantics (initialize creates a note, replace nullifies the prior one), not message
-    // delivery. Constrained delivery would add its handshake-bootstrap note hash and chain nullifier, which is
-    // incidental noise here; constrained delivery itself is covered by e2e_constrained_delivery.
+    // This function is called from tests that execute it across many parallel txs.
+    // Since constrained delivery doesn't support it, this function must use unconstrained delivery instead.
+    // Constrained delivery itself is covered by e2e_constrained_delivery.
     #[external("private")]
     fn initialize_private_immutable(randomness: Field, value: Field) {
         let owner = self.msg_sender();

@@ -66,7 +66,9 @@ pub contract TestLog {
         self.context.emit_private_log_unsafe(tag3, BoundedVec::from_array(payload3));
     }
 
-    // This function is called from tests that execute it across many parallel txs. Since constrained delivery doesn't support it, this function must use unconstrained delivery instead.
+    // This function is called from tests that execute it across many parallel txs.
+    // Since constrained delivery doesn't support it, this function must use unconstrained delivery instead.
+    // Constrained delivery itself is covered by e2e_constrained_delivery.
     #[external("private")]
     fn emit_encrypted_events(other: AztecAddress, preimages: [Field; 4]) {
         let event0 = ExampleEvent0 { value0: preimages[0], value1: preimages[1] };
