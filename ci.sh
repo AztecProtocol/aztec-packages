@@ -53,7 +53,11 @@ function print_usage {
 
 [ -n "$cmd" ] && shift
 
-instance_name=${INSTANCE_NAME:-$(echo -n "$BRANCH" | tr -c 'a-zA-Z0-9-' '_')_${arch}}
+# Keep this in sync with bootstrap_ec2's instance_name scheme (repo-scoped) so the
+# shell/kill/get-ip helpers find instances launched by a CI run for this repo.
+repo=${GITHUB_REPOSITORY:-aztec-packages}
+repo=${repo##*/}
+instance_name=${INSTANCE_NAME:-${repo}_$(echo -n "$BRANCH" | tr -c 'a-zA-Z0-9-' '_')_${arch}}
 [ -n "${INSTANCE_POSTFIX:-}" ] && instance_name+="_$INSTANCE_POSTFIX"
 
 function get_ip_for_instance {

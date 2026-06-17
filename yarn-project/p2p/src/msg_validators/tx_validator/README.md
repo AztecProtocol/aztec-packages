@@ -120,6 +120,8 @@ The `AllowedSetupCallsMetaValidator` checks a precomputed boolean flag (`TxMetaD
 \* Gas balance check is skipped when `skipFeeEnforcement` is set (testing/dev). `GasTxValidator` internally delegates to `GasLimitsValidator` and `MaxFeePerGasValidator` as its first steps, so gas limits and fee-per-gas are checked wherever `GasTxValidator` runs. Pool migration uses `GasLimitsValidator` and `MaxFeePerGasValidator` standalone because it doesn't need the balance check.
 \** Proof verification is skipped for simulations (no verifier provided).
 
+The gas-limit bounds `GasLimitsValidator` enforces here — the per-tx protocol maxima and the network admission limits — are documented in [`stdlib/src/gas/README.md`](../../../../stdlib/src/gas/README.md) under "Gas and Data Limits".
+
 ## Fee-Per-Gas Rejection Strategy
 
 The `MaxFeePerGasValidator` and `InsufficientFeePerGasEvictionRule` reject and evict transactions whose `maxFeesPerGas` falls below the current block's gas fees. This is a simple strategy: if a tx can't pay the current fees, it gets rejected on entry and evicted after each new block.

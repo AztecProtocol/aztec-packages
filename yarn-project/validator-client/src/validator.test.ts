@@ -95,6 +95,7 @@ describe('ValidatorClient', () => {
       | 'slashAttestInvalidCheckpointProposalPenalty'
     > & {
       disableTransactions: boolean;
+      blockDurationMs: number;
     };
   let validatorClient: ValidatorClient;
   let p2pClient: MockProxy<P2P>;
@@ -185,6 +186,7 @@ describe('ValidatorClient', () => {
     config = {
       validatorPrivateKeys: new SecretValue(validatorPrivateKeys),
       attestationPollingIntervalMs: 1000,
+      blockDurationMs: 3000,
       disableValidator: false,
       disabledValidators: [],
       slashBroadcastedInvalidBlockPenalty: 1n,
@@ -962,6 +964,26 @@ describe('ValidatorClient', () => {
 
       expect(isValid).toBe(false);
       expect(validatorClient.hasInvalidProposals(proposal.slotNumber)).toBe(true);
+    });
+
+    it('emits invalid block proposal offense for oversized proposals, deduped per proposer and slot', async () => {
+      await validatorClient.registerHandlers();
+      const oversizedProposalCallback = p2pClient.registerOversizedProposalCallback.mock.calls[0][0];
+      const emitSpy = jest.spyOn(validatorClient, 'emit');
+
+      const info = { slot: proposal.slotNumber, proposer: proposal.getSender()! };
+      oversizedProposalCallback(info);
+      oversizedProposalCallback(info);
+
+      expect(emitSpy).toHaveBeenCalledTimes(1);
+      expect(emitSpy).toHaveBeenCalledWith(WANT_TO_SLASH_EVENT, [
+        {
+          validator: info.proposer,
+          amount: config.slashBroadcastedInvalidBlockPenalty,
+          offenseType: OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL,
+          epochOrSlot: BigInt(proposal.slotNumber),
+        },
+      ]);
     });
 
     it('records proposal equivocation and emits clear event', async () => {

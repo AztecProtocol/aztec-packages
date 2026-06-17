@@ -1,8 +1,7 @@
-import type { InitialAccountData } from '@aztec/accounts/testing';
+import { generateSchnorrAccounts } from '@aztec/accounts/testing';
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { AztecNode } from '@aztec/aztec.js/node';
-import type { Wallet } from '@aztec/aztec.js/wallet';
 import { DomainSeparator, INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
@@ -21,6 +20,7 @@ import { jest } from '@jest/globals';
 
 import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
+import type { TestWallet } from './test-wallet/test_wallet.js';
 
 const TIMEOUT = 300_000;
 
@@ -33,22 +33,18 @@ describe('Keys', () => {
   let testContract: TestContract;
 
   let secret: Fr;
-  let wallet: Wallet;
+  let wallet: TestWallet;
   let defaultAccountAddress: AztecAddress;
 
   beforeAll(async () => {
-    let initialFundedAccounts: InitialAccountData[];
-    ({
-      aztecNode,
-      teardown,
-      wallet,
-      accounts: [defaultAccountAddress],
-      initialFundedAccounts,
-    } = await setup(1, { ...AUTOMINE_E2E_OPTS }));
+    // This test needs the account's secret, so we provide and create the account ourselves.
+    const [account] = await generateSchnorrAccounts(1);
+    ({ aztecNode, teardown, wallet } = await setup(0, { ...AUTOMINE_E2E_OPTS, additionallyFundedAccounts: [account] }));
+    await wallet.createSchnorrInitializerlessAccount(account.secret, account.salt, account.signingKey);
+    defaultAccountAddress = account.address;
+    secret = account.secret;
 
     ({ contract: testContract } = await TestContract.deploy(wallet).send({ from: defaultAccountAddress }));
-
-    secret = initialFundedAccounts[0].secret;
   });
 
   afterAll(() => teardown());

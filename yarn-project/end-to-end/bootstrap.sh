@@ -34,12 +34,12 @@ function test_cmds {
   fi
   echo "$prefix:TIMEOUT=25m:NAME=e2e_block_building $(set_dump_avm e2e_block_building) $run_test_script simple e2e_block_building"
   echo "$prefix:TIMEOUT=30m:NAME=e2e_avm_simulator $(set_dump_avm e2e_avm_simulator) $run_test_script simple src/e2e_avm_simulator.test.ts"
-
-
+  echo "$prefix:TIMEOUT=15m:NAME=e2e_epochs/epochs_long_proving_time $run_test_script simple src/e2e_epochs/epochs_long_proving_time.test.ts"
 
   local tests=(
     # List all standalone and nested tests, except for the ones listed above.
-    src/e2e_!(prover)/*.test.ts
+    src/e2e_!(prover|epochs)/*.test.ts
+    src/e2e_epochs/!(epochs_long_proving_time).test.ts
     src/e2e_p2p/reqresp/*.test.ts
     src/e2e_!(block_building|avm_simulator).test.ts
   )
@@ -96,7 +96,13 @@ function test_cmds {
   )
   for test in "${tests[@]}"; do
     # We must set ONLY_TERM_PARENT=1 to allow the script to fully control cleanup process.
-    echo "$hash:ONLY_TERM_PARENT=1:TIMEOUT=30m $run_test_script ha $test"
+    if [[ "$test" == *.parallel.test.ts ]]; then
+      while IFS= read -r test_name; do
+        echo "$hash:ONLY_TERM_PARENT=1:TIMEOUT=30m $run_test_script ha $test \"$test_name\""
+      done < <(extract_test_names "$test")
+    else
+      echo "$hash:ONLY_TERM_PARENT=1:TIMEOUT=30m $run_test_script ha $test"
+    fi
   done
 
   #echo "$hash:ONLY_TERM_PARENT=1 $run_test_script simple src/e2e_multi_validator/e2e_multi_validator_node.test.ts"
@@ -106,12 +112,8 @@ function test_cmds {
   # compose-based tests with custom scripts
   for flow in ../cli-wallet/test/flows/*.sh; do
     # Note these scripts are ran directly by docker-compose.yml because it ends in '.sh'.
-    # Set LOG_LEVEL=info for a better output experience. Deeper debugging should happen with other e2e tests.
-    if [[ "$flow" == *private_transfer.sh ]]; then
-      echo "$hash:ONLY_TERM_PARENT=1 LOG_LEVEL=info LOCAL_NETWORK_LOG_LEVEL='info; debug:p2p,sequencer,archiver,world-state,aztec-node' $run_test_script compose $flow"
-    else
-      echo "$hash:ONLY_TERM_PARENT=1 LOG_LEVEL=info $run_test_script compose $flow"
-    fi
+    # Run at LOG_LEVEL=verbose so the captured local-network logs are detailed enough for diagnostics.
+    echo "$hash:ONLY_TERM_PARENT=1 LOG_LEVEL=verbose $run_test_script compose $flow"
   done
 }
 

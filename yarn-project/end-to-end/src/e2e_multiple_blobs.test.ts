@@ -10,6 +10,7 @@ import { FIELDS_PER_BLOB } from '@aztec/constants';
 import { AvmGadgetsTestContract } from '@aztec/noir-test-contracts.js/AvmGadgetsTest';
 import { AvmTestContract } from '@aztec/noir-test-contracts.js/AvmTest';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
+import { type Sequencer, type SequencerClient, type SequencerEvents, SequencerState } from '@aztec/sequencer-client';
 import { L2Block } from '@aztec/stdlib/block';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
@@ -23,20 +24,47 @@ describe('e2e_multiple_blobs', () => {
   let defaultAccountAddress: AztecAddress;
   let aztecNode: AztecNode;
   let aztecNodeAdmin: AztecNodeAdmin;
+  let sequencer: Sequencer;
   let teardown: () => Promise<void>;
+
+  function waitForSequencerIdle(timeout = 30000): Promise<void> {
+    if (sequencer.status().state === SequencerState.IDLE) {
+      return Promise.resolve();
+    }
+
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        sequencer.off('state-changed', handler);
+        reject(new Error('Timeout waiting for sequencer IDLE state'));
+      }, timeout);
+
+      const handler = (args: Parameters<SequencerEvents['state-changed']>[0]) => {
+        if (args.newState === SequencerState.IDLE) {
+          clearTimeout(timer);
+          sequencer.off('state-changed', handler);
+          resolve();
+        }
+      };
+
+      sequencer.on('state-changed', handler);
+    });
+  }
 
   beforeAll(async () => {
     let maybeAztecNodeAdmin: AztecNodeAdmin | undefined;
+    let maybeSequencer: SequencerClient | undefined;
     ({
       logger,
       wallet,
       accounts: [defaultAccountAddress],
       aztecNode,
       aztecNodeAdmin: maybeAztecNodeAdmin,
+      sequencer: maybeSequencer,
       wallet,
       teardown,
     } = await setup(1, { ...PIPELINING_SETUP_OPTS }));
     aztecNodeAdmin = maybeAztecNodeAdmin!;
+    sequencer = maybeSequencer!.getSequencer();
 
     ({ contract } = await TestContract.deploy(wallet).send({ from: defaultAccountAddress }));
   });
@@ -47,6 +75,7 @@ describe('e2e_multiple_blobs', () => {
     // Increase the minimum number of txs per block so that all txs will be mined in the same block.
     const TX_COUNT = 3;
     await aztecNodeAdmin.setConfig({ minTxsPerBlock: TX_COUNT });
+    await waitForSequencerIdle();
 
     const provenTxs = [
       // 2 contract deployment txs.

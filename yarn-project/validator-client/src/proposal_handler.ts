@@ -165,7 +165,7 @@ export class ProposalHandler {
   };
 
   /** Archiver reference for setting proposed checkpoints (pipelining). Set via register(). */
-  private archiver?: Pick<Archiver, 'addProposedCheckpoint'>;
+  private archiver?: Pick<Archiver, 'addProposedCheckpoint' | 'getProposedCheckpointData'>;
 
   /** Returns current validator addresses for own-proposal detection. Set via register(). */
   private getOwnValidatorAddresses?: () => string[];
@@ -232,7 +232,7 @@ export class ProposalHandler {
   register(
     p2pClient: P2P,
     shouldReexecute: boolean,
-    archiver?: Pick<Archiver, 'addProposedCheckpoint'>,
+    archiver?: Pick<Archiver, 'addProposedCheckpoint' | 'getProposedCheckpointData'>,
     getOwnValidatorAddresses?: () => string[],
   ): ProposalHandler {
     this.p2pClient = p2pClient;
@@ -298,25 +298,29 @@ export class ProposalHandler {
           return undefined;
         }
 
-        // For own proposals, skip validation and return: the proposer already built and validated the
-        // checkpoint, and the sequencer's checkpoint proposal job pushed the proposed checkpoint to the
-        // archiver from local data before broadcasting. Gossipsub doesn't echo our own messages back, so
-        // this branch is normally unreachable — it remains as defense if an own proposal arrives by some
-        // other path.
+        // A proposal is "own" when it was signed by a validator key this node also owns. The true local
+        // proposer already built, validated, and stored this checkpoint before broadcasting, so a matching
+        // proposed checkpoint is already in its archiver — skip the redundant re-validation. An HA peer that
+        // shares the proposer's keys sees the same "own" proposal over gossip but never built it, so it has
+        // nothing stored; it falls through to the normal validate-and-persist path below to hydrate the
+        // proposed-checkpoint metadata it needs to build the next slot on top of this checkpoint.
         const proposer = proposal.getSender();
         const ownAddresses = this.getOwnValidatorAddresses?.();
         const isOwnProposal = proposer && ownAddresses?.some(addr => addr === proposer.toString());
 
         if (isOwnProposal) {
-          this.log.debug(`Skipping validation for own checkpoint proposal at slot ${proposal.slotNumber}`);
-          return undefined;
+          const existing = await this.archiver?.getProposedCheckpointData({ slot: proposal.slotNumber });
+          if (existing?.archive.root.equals(proposal.archive)) {
+            this.log.debug(`Skipping sync for existing own checkpoint proposal at slot ${proposal.slotNumber}`);
+            return undefined;
+          }
         }
 
         const result = await this.handleCheckpointProposal(proposal, proposalInfo);
         if (!result.isValid) {
           await this.checkpointProposalValidationFailureCallback?.(proposal, result, proposalInfo);
         } else if (this.archiver) {
-          const set = await this.setProposedCheckpointFromValidation(proposal);
+          const set = await this.setProposedCheckpoint(proposal);
           if (set) {
             this.metrics?.recordCheckpointProposalToPipelinedStateDuration(pipeliningTimer.ms());
           }
@@ -964,6 +968,7 @@ export class ProposalHandler {
       };
     }
 
+    // Note this condition should never trigger, since we dont process block proposals that exceed indexWithinCheckpoint
     const maxBlocksPerCheckpoint = this.config.maxBlocksPerCheckpoint;
     if (maxBlocksPerCheckpoint !== undefined && blocks.length > maxBlocksPerCheckpoint) {
       this.log.warn(`Checkpoint proposal exceeds maxBlocksPerCheckpoint`, {
@@ -1127,11 +1132,11 @@ export class ProposalHandler {
   }
 
   /**
-   * Derives proposed checkpoint data from validated blocks and sets it on the archiver.
-   * Used after successful validation of a foreign proposal.
-   * Does not retry since we already waited for the block during validation.
+   * Derives proposed checkpoint data from validated blocks and sets it on the archiver, so this node can
+   * pipeline building on top of the checkpoint. Does not retry, since validation already waited for the
+   * last block to sync.
    */
-  private async setProposedCheckpointFromValidation(proposal: CheckpointProposalCore): Promise<boolean> {
+  private async setProposedCheckpoint(proposal: CheckpointProposalCore): Promise<boolean> {
     if (!this.archiver) {
       return false;
     }

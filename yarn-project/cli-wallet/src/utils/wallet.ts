@@ -1,12 +1,16 @@
 import { EcdsaRAccountContract, EcdsaRSSHAccountContract } from '@aztec/accounts/ecdsa';
-import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
-import { StubEcdsaAccountContractArtifact, createStubEcdsaAccount } from '@aztec/accounts/stub/ecdsa';
-import { StubSchnorrAccountContractArtifact, createStubSchnorrAccount } from '@aztec/accounts/stub/schnorr';
+import { StubEcdsaAccountContractArtifact, createStubEcdsaAccount } from '@aztec/accounts/ecdsa/stub';
+import { SchnorrAccountContract, SchnorrInitializerlessAccountContract } from '@aztec/accounts/schnorr';
+import { StubSchnorrAccountContractArtifact, createStubSchnorrAccount } from '@aztec/accounts/schnorr/stub';
 import { getIdentities } from '@aztec/accounts/utils';
 import { type Account, type AccountContract, NO_FROM } from '@aztec/aztec.js/account';
-import { type InteractionFeeOptions, getContractClassFromArtifact, getGasLimits } from '@aztec/aztec.js/contracts';
+import {
+  ContractFunctionInteraction,
+  type InteractionFeeOptions,
+  getContractClassFromArtifact,
+} from '@aztec/aztec.js/contracts';
 import type { AztecNode } from '@aztec/aztec.js/node';
-import { AccountManager, type Aliased, type SimulateOptions } from '@aztec/aztec.js/wallet';
+import { AccountManager, type Aliased } from '@aztec/aztec.js/wallet';
 import { TxSimulationResultWithAppOffset } from '@aztec/aztec.js/wallet';
 import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
 import { DefaultEntrypoint } from '@aztec/entrypoints/default';
@@ -18,16 +22,19 @@ import type { PXE } from '@aztec/pxe/server';
 import { createPXE, getPXEConfig } from '@aztec/pxe/server';
 import { getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { Gas, GasUsed } from '@aztec/stdlib/gas';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { NoteDao } from '@aztec/stdlib/note';
 import type { SimulationOverrides, TxExecutionRequest, TxProvingResult } from '@aztec/stdlib/tx';
 import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
-import { BaseWallet, type SimulateViaEntrypointOptions } from '@aztec/wallet-sdk/base-wallet';
+import { BaseWallet, type SimulateViaEntrypointOptions, getGasLimits } from '@aztec/wallet-sdk/base-wallet';
 
 import type { WalletDB } from '../storage/wallet_db.js';
 import type { AccountType } from './constants.js';
 import { extractECDSAPublicKeyFromBase64String } from './ecdsa.js';
-import { printGasEstimates } from './options/fees.js';
+
+/** Padding the CLI wallet applies to simulated gas usage when deriving declared gas limits. */
+const DEFAULT_ESTIMATED_GAS_PADDING = 0.1;
 
 export class CLIWallet extends BaseWallet {
   private accountCache = new Map<string, Account>();
@@ -77,6 +84,7 @@ export class CLIWallet extends BaseWallet {
     await this.pxe.registerContractClass(StubEcdsaAccountContractArtifact);
 
     this.stubClassIds.set('schnorr', schnorrClassId);
+    this.stubClassIds.set('schnorr_initializerless', schnorrClassId);
     this.stubClassIds.set('ecdsasecp256k1', ecdsaClassId);
     this.stubClassIds.set('ecdsasecp256r1', ecdsaClassId);
     this.stubClassIds.set('ecdsasecp256r1ssh', ecdsaClassId);
@@ -90,6 +98,16 @@ export class CLIWallet extends BaseWallet {
         return { alias, item: AztecAddress.fromString(value) };
       }),
     );
+  }
+
+  /**
+   * Derives suggested total and teardown gas limits from simulated gas usage, padded and clamped to the
+   * network's per-tx admission limits.
+   * @param gasUsed - The gas consumed during simulation (from a `simulate({ includeMetadata: true })` result).
+   */
+  async estimateGasLimits(gasUsed: GasUsed): Promise<{ gasLimits: Gas; teardownGasLimits: Gas }> {
+    const maxTxGasLimits = await this.getMaxTxGasLimits();
+    return getGasLimits(gasUsed, maxTxGasLimits, DEFAULT_ESTIMATED_GAS_PADDING);
   }
 
   private async createCancellationTxExecutionRequest(
@@ -152,6 +170,20 @@ export class CLIWallet extends BaseWallet {
 
     await this.registerContract(instance, artifact, secret);
     this.accountCache.set(accountManager.address.toString(), await accountManager.getAccount());
+
+    // Initializerless accounts have no deployment tx; their address commits to the signing public key
+    // (via the contract's immutablesHash, resolved by AccountManager.create) and the constructor's
+    // storage writes are materialized locally via a simulated "store" call here.
+    if (contract instanceof SchnorrInitializerlessAccountContract) {
+      const constructorAbi = artifact.functions.find(f => f.name === 'constructor');
+      if (!constructorAbi) {
+        throw new Error('Could not create SchnorrInitializerlessAccount: constructor ABI not found');
+      }
+      const { x, y } = await contract.getSigningPublicKey();
+      const storeCall = new ContractFunctionInteraction(this, instance.address, constructorAbi, [x, y]);
+      await storeCall.simulate({ from: instance.address });
+    }
+
     return accountManager;
   }
 
@@ -177,6 +209,14 @@ export class CLIWallet extends BaseWallet {
     switch (type) {
       case 'schnorr': {
         account = await this.createAccount(secretKey, salt, new SchnorrAccountContract(deriveSigningKey(secretKey)));
+        break;
+      }
+      case 'schnorr_initializerless': {
+        account = await this.createAccount(
+          secretKey,
+          salt,
+          new SchnorrInitializerlessAccountContract(deriveSigningKey(secretKey)),
+        );
         break;
       }
       case 'ecdsasecp256r1': {
@@ -229,7 +269,9 @@ export class CLIWallet extends BaseWallet {
     }
     const { type } = await this.db!.retrieveAccount(address);
     const stubAccount =
-      type === 'schnorr' ? createStubSchnorrAccount(originalAddress) : createStubEcdsaAccount(originalAddress);
+      type === 'schnorr' || type === 'schnorr_initializerless'
+        ? createStubSchnorrAccount(originalAddress)
+        : createStubEcdsaAccount(originalAddress);
     const stubClassId = this.stubClassIds.get(type);
     if (!stubClassId) {
       throw new Error(
@@ -238,24 +280,6 @@ export class CLIWallet extends BaseWallet {
     }
     const instance = { ...contractInstance, currentContractClassId: stubClassId };
     return { account: stubAccount, instance };
-  }
-
-  override async simulateTx(
-    executionPayload: ExecutionPayload,
-    opts: SimulateOptions,
-  ): Promise<TxSimulationResultWithAppOffset> {
-    const simulationResults = await super.simulateTx(executionPayload, opts);
-
-    if (opts.fee?.estimateGas) {
-      const feeOptions = await this.completeFeeOptions({
-        from: opts.from,
-        feePayer: executionPayload.feePayer,
-        gasSettings: opts.fee?.gasSettings,
-      });
-      const limits = getGasLimits(simulationResults, opts.fee?.estimatedGasPadding);
-      printGasEstimates(feeOptions, limits, this.userLog);
-    }
-    return simulationResults;
   }
 
   /**

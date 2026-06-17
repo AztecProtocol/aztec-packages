@@ -75,10 +75,10 @@ export async function deploy(
   const localStart = performance.now();
   const sim = await deployInteraction.simulate({
     ...deployOpts,
-    fee: { ...deployOpts.fee, estimateGas: true },
+    includeMetadata: true,
   });
-  // estimateGas: true guarantees these fields are present
-  const estimatedGas = sim.estimatedGas!;
+  // includeMetadata: true guarantees these fields are present
+  const estimatedGas = await wallet.estimateGasLimits(sim.gasUsed!);
   const stats = sim.stats!;
 
   if (feeOpts.estimateOnly) {

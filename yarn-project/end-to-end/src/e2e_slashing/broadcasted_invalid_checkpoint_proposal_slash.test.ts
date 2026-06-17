@@ -37,6 +37,7 @@ const COMMITTEE_SIZE = NUM_VALIDATORS;
 const ETHEREUM_SLOT_DURATION = 4;
 const AZTEC_EPOCH_DURATION = 2;
 const AZTEC_SLOT_DURATION = ETHEREUM_SLOT_DURATION * AZTEC_EPOCH_DURATION;
+const BLOCK_DURATION_MS = 2000;
 const SLASHING_QUORUM = 5;
 const SLASHING_ROUND_SIZE = 8;
 const TERMINAL_BLOCK_INDEX = IndexWithinCheckpoint(1);
@@ -243,6 +244,7 @@ describe('e2e_slashing_broadcasted_invalid_checkpoint_proposal_slash', () => {
         aztecEpochDuration: AZTEC_EPOCH_DURATION,
         ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
         aztecSlotDuration: AZTEC_SLOT_DURATION,
+        blockDurationMs: BLOCK_DURATION_MS,
         aztecTargetCommitteeSize: COMMITTEE_SIZE,
         aztecProofSubmissionEpochs: 1024,
         minTxsPerBlock: 0,

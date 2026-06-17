@@ -17,7 +17,6 @@ pub contract Token {
 
     use aztec::{
         authwit::auth::compute_authwit_nullifier,
-        context::{PrivateCall, PrivateContext},
         macros::{
             events::event,
             functions::{authorize_once, external, initializer, internal, only_self, view},
@@ -247,20 +246,8 @@ pub contract Token {
             // try_sub failed to nullify enough notes to reach the target amount, so we compute the amount remaining
             // and try again.
             let remaining = amount - subtracted;
-            compute_recurse_subtract_balance_call(*context, account, remaining).call(context)
+            Token::at(context.this_address())._recurse_subtract_balance(account, remaining).call(context)
         }
-    }
-
-    // TODO(#7729): apply no_predicates to the contract interface method directly instead of having to use a wrapper
-    // like we do here.
-    #[no_predicates]
-    #[contract_library_method]
-    fn compute_recurse_subtract_balance_call(
-        context: PrivateContext,
-        account: AztecAddress,
-        remaining: u128,
-    ) -> PrivateCall<25, 2, u128> {
-        Token::at(context.this_address())._recurse_subtract_balance(account, remaining)
     }
 
     #[only_self]

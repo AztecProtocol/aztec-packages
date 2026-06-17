@@ -25,6 +25,7 @@ import {
   enrichPublicSimulationError,
 } from '@aztec/pxe/server';
 import {
+  CONTRACT_INSTANCE,
   ExecutionNoteCache,
   ExecutionTaggingIndexCache,
   HashedValuesCache,
@@ -286,14 +287,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       this.logger.debug(`Deployed ${artifact.name} at ${instance.address}`);
     }
 
-    return [
-      instance.salt,
-      instance.deployer.toField(),
-      instance.currentContractClassId,
-      instance.initializationHash,
-      instance.immutablesHash,
-      ...instance.publicKeys.toFields(),
-    ];
+    return CONTRACT_INSTANCE.serialization!.fn(instance).flat();
   }
 
   /**

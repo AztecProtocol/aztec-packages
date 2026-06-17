@@ -16,13 +16,21 @@ let token: TokenContract;
 
 // beforeAll equivalent - setup
 async function setup() {
-  const node = createAztecNodeClient(process.env.AZTEC_NODE_URL ?? "http://localhost:8080");
+  const node = createAztecNodeClient(
+    process.env.AZTEC_NODE_URL ?? "http://localhost:8080",
+  );
   await waitForNode(node);
   wallet = await EmbeddedWallet.create(node, { ephemeral: true });
   const testAccounts = await getInitialTestAccountsData();
   [aliceAddress, bobAddress] = await Promise.all(
     testAccounts.slice(0, 2).map(async (account) => {
-      return (await wallet.createSchnorrAccount(account.secret, account.salt, account.signingKey)).address;
+      return (
+        await wallet.createSchnorrInitializerlessAccount(
+          account.secret,
+          account.salt,
+          account.signingKey,
+        )
+      ).address;
     }),
   );
 
@@ -61,7 +69,9 @@ async function testTransferTokens() {
     .send({ from: aliceAddress });
 
   // Transfer to bob using public transfer
-  await token.methods.transfer_in_public(aliceAddress, bobAddress, 100n, 0n).send({ from: aliceAddress });
+  await token.methods
+    .transfer_in_public(aliceAddress, bobAddress, 100n, 0n)
+    .send({ from: aliceAddress });
 
   const { result: aliceBalance } = await token.methods
     .balance_of_public(aliceAddress)

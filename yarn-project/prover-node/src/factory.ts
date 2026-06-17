@@ -31,7 +31,6 @@ import { L1Metrics, type TelemetryClient, getTelemetryClient } from '@aztec/tele
 import { createPublicClient } from 'viem';
 
 import type { SpecificProverNodeConfig } from './config.js';
-import { EpochMonitor } from './monitors/epoch-monitor.js';
 import { ProverNode } from './prover-node.js';
 import { ProverPublisherFactory } from './prover-publisher-factory.js';
 
@@ -161,12 +160,6 @@ export async function createProverNode(
     ),
   };
 
-  const epochMonitor = await EpochMonitor.create(
-    archiver,
-    { pollingIntervalMs: config.proverNodePollingIntervalMs, provingDelayMs: config.proverNodeEpochProvingDelayMs },
-    telemetry,
-  );
-
   const l1Metrics = new L1Metrics(
     telemetry.getMeter('ProverNodeL1Metrics'),
     publicClient,
@@ -184,7 +177,6 @@ export async function createProverNode(
     archiver,
     worldStateSynchronizer,
     p2pClient,
-    epochMonitor,
     rollupContract,
     l1Metrics,
     proverNodeConfig,

@@ -155,14 +155,7 @@ pub(crate) unconstrained fn get_pending_partial_notes_completion_logs(
 ) -> EphemeralArray<EphemeralArray<LogRetrievalResponse>> {
     let log_retrieval_requests = EphemeralArray::at(LOG_RETRIEVAL_REQUESTS_ARRAY_BASE_SLOT);
 
-    // We create a LogRetrievalRequest for each PendingPartialNote in the EphemeralArray. Because we need the indices
-    // in the request array to match the indices in the partial note array, we can't use EphemeralArray::for_each, as
-    // that function has arbitrary iteration order. Instead, we manually iterate the array from the beginning and push
-    // into the requests array, which we expect to be empty.
-    let mut i = 0;
-    let pending_partial_notes_count = pending_partial_notes.len();
-    while i < pending_partial_notes_count {
-        let pending_partial_note = pending_partial_notes.get(i);
+    pending_partial_notes.for_each(|_i, pending_partial_note| {
         // Partial note completion logs are emitted with a domain-separated tag. To find matching logs, we apply the
         // same domain separation to the stored raw tag.
         let log_tag = compute_log_tag(
@@ -170,8 +163,7 @@ pub(crate) unconstrained fn get_pending_partial_notes_completion_logs(
             DOM_SEP__NOTE_COMPLETION_LOG_TAG,
         );
         log_retrieval_requests.push(LogRetrievalRequest::new(contract_address, log_tag));
-        i += 1;
-    }
+    });
 
     let responses = message_processing::get_logs_by_tag(log_retrieval_requests);
 

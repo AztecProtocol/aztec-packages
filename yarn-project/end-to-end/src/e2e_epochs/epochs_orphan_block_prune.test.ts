@@ -11,8 +11,8 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { bufferToHex } from '@aztec/foundation/string';
 import { timeoutPromise } from '@aztec/foundation/timer';
 import { type L2Block, L2BlockSourceEvents } from '@aztec/stdlib/block';
+import type { L2Tips } from '@aztec/stdlib/block';
 import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
-import type { ChainTips } from '@aztec/stdlib/interfaces/server';
 
 import { jest } from '@jest/globals';
 import { privateKeyToAccount } from 'viem/accounts';
@@ -60,11 +60,9 @@ describe('e2e_epochs/epochs_orphan_block_prune', () => {
       initialValidators: validators,
       inboxLag: 2,
       mockGossipSubNetwork: true,
-      disableAnvilTestWatcher: true,
       startProverNode: false,
       aztecEpochDuration: 4,
       aztecProofSubmissionEpochs: 1024,
-      enforceTimeTable: true,
       ethereumSlotDuration: 6,
       aztecSlotDuration: 36,
       blockDurationMs: 8000,
@@ -159,7 +157,7 @@ describe('e2e_epochs/epochs_orphan_block_prune', () => {
     // Subscribe to the prune event on every node before sequencers start, so we never miss it. We capture the chain
     // tips asynchronously inside the handler for log context, but do not assert on them — by the time the snapshot is
     // read, P2's rebuild may already have landed.
-    type PruneObservation = { slotNumber: SlotNumber; blocks: L2Block[]; tipsAtPrune: ChainTips };
+    type PruneObservation = { slotNumber: SlotNumber; blocks: L2Block[]; tipsAtPrune: L2Tips };
     const prunePromises: Promise<PruneObservation>[] = nodes.map(
       (node, idx) =>
         new Promise<PruneObservation>(resolve => {

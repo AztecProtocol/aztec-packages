@@ -260,7 +260,6 @@ describe('sequencer', () => {
     rollupContract.getManaTarget.mockResolvedValue(10_000n);
 
     globalVariableBuilder = mock<GlobalVariableBuilder>();
-    globalVariableBuilder.buildGlobalVariables.mockResolvedValue(globalVariables);
     globalVariableBuilder.buildCheckpointGlobalVariables.mockResolvedValue(omit(globalVariables, 'blockNumber'));
 
     p2p = mock<P2P>({
@@ -314,10 +313,6 @@ describe('sequencer', () => {
       getBlockNumber: mockFn().mockResolvedValue(lastBlockNumber),
       getL2Tips: mockFn().mockResolvedValue({
         proposed: { number: lastBlockNumber, hash },
-        proposedCheckpoint: {
-          block: { number: lastBlockNumber, hash },
-          checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
-        },
         checkpointed: {
           block: { number: lastBlockNumber, hash },
           checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
@@ -343,10 +338,6 @@ describe('sequencer', () => {
       getL1ToL2Messages: () => Promise.resolve(Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(Fr.ZERO)),
       getL2Tips: mockFn().mockResolvedValue({
         proposed: { number: lastBlockNumber, hash },
-        proposedCheckpoint: {
-          block: { number: lastBlockNumber, hash },
-          checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
-        },
         checkpointed: {
           block: { number: lastBlockNumber, hash },
           checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
@@ -377,9 +368,12 @@ describe('sequencer', () => {
 
     signatureContext = { chainId: chainId.toNumber(), rollupAddress: EthAddress.random() };
     const config: SequencerConfig & Pick<ChainConfig, 'l1ChainId' | 'rollupAddress'> = {
-      enforceTimeTable: true,
       maxTxsPerBlock: 4,
       l1ChainId: signatureContext.chainId,
+      // With aztecSlotDuration=8 and ethereumSlotDuration=4 (fast profile), a 2s block duration derives
+      // exactly one valid block sub-slot. The production default (3s) would derive zero blocks for this
+      // slot duration and make ProposerTimetable throw on construction.
+      blockDurationMs: 2000,
       rollupAddress: signatureContext.rollupAddress,
     };
     sequencer = new TestSequencer(
@@ -399,6 +393,18 @@ describe('sequencer', () => {
       config,
     );
     sequencer.updateConfig(config);
+  });
+
+  describe('perBlockAllocationMultiplier guard', () => {
+    it('rejects a multiplier below the network minimum', () => {
+      expect(() => sequencer.updateConfig({ perBlockAllocationMultiplier: 1.0 })).toThrow(
+        /perBlockAllocationMultiplier/,
+      );
+    });
+
+    it('accepts a multiplier at or above the network minimum', () => {
+      expect(() => sequencer.updateConfig({ perBlockAllocationMultiplier: 1.5 })).not.toThrow();
+    });
   });
 
   describe('block building', () => {
@@ -676,7 +682,7 @@ describe('sequencer', () => {
           nowSeconds: 1000n,
         });
 
-      sequencer.updateConfig({ enforceTimeTable: false, maxTxsPerBlock: 4 });
+      sequencer.updateConfig({ maxTxsPerBlock: 4 });
 
       // Build and publish 2 blocks, the sequencer should request a new publisher each time
       for (let i = 0; i < 2; i++) {
@@ -1136,8 +1142,8 @@ describe('sequencer', () => {
   });
 
   describe('modes', () => {
-    it('non-enforced mode', async () => {
-      sequencer.updateConfig({ enforceTimeTable: false, maxTxsPerBlock: 4 });
+    it('builds with the default real timetable', async () => {
+      sequencer.updateConfig({ maxTxsPerBlock: 4 });
 
       await setupSingleTxBlock();
 
@@ -1151,7 +1157,7 @@ describe('sequencer', () => {
     });
 
     it('single block mode', async () => {
-      sequencer.updateConfig({ enforceTimeTable: true, maxTxsPerBlock: 4 });
+      sequencer.updateConfig({ maxTxsPerBlock: 4 });
 
       await setupSingleTxBlock();
 
@@ -1166,7 +1172,7 @@ describe('sequencer', () => {
     });
 
     it('multi block mode', async () => {
-      sequencer.updateConfig({ enforceTimeTable: true, maxTxsPerBlock: 4, blockDurationMs: 500 });
+      sequencer.updateConfig({ maxTxsPerBlock: 4, blockDurationMs: 500 });
 
       const txs = await timesParallel(8, i => makeTx(i * 0x10000));
       block = await makeBlock(txs.slice(0, 4));
@@ -1178,6 +1184,27 @@ describe('sequencer', () => {
       expect(checkpointBuilder.buildBlockCalls.length).toBeGreaterThan(1);
       expect(validatorClient.createCheckpointProposal).toHaveBeenCalled();
       expect(publisher.enqueueProposeCheckpoint).toHaveBeenCalled();
+    });
+  });
+
+  describe('config updates', () => {
+    it('rejects a config with sub-minimum allocation multipliers without committing it', () => {
+      // Move to a 10-block geometry so the per-block allocation actually binds below the per-tx blob ceiling.
+      sequencer.updateConfig({ blockDurationMs: 500 });
+      const goodMultiplier = sequencer.getPerBlockAllocationMultiplier();
+      const goodTimetable = sequencer.getTimeTable();
+
+      // A sub-minimum multiplier must be rejected and must not mutate the live config or timetable. We drop
+      // the DA multiplier too so the DA dimension is checked against its (higher) network minimum.
+      expect(() =>
+        sequencer.updateConfig({ perBlockAllocationMultiplier: 0.5, perBlockDAAllocationMultiplier: 0.5 }),
+      ).toThrow(/perBlockDAAllocationMultiplier \(0.5\) is below the network minimum/);
+      expect(sequencer.getPerBlockAllocationMultiplier()).toBe(goodMultiplier);
+      expect(sequencer.getTimeTable()).toBe(goodTimetable);
+
+      // A subsequent valid update still applies, proving the rejected value never stuck.
+      sequencer.updateConfig({ maxTxsPerBlock: 7 });
+      expect(sequencer.getPerBlockAllocationMultiplier()).toBe(goodMultiplier);
     });
   });
 
@@ -1249,9 +1276,8 @@ describe('sequencer', () => {
       await setupSingleTxBlock();
 
       // Override to non-genesis state so checkSync doesn't take the genesis path.
-      // proposedCheckpoint is set with checkpoint number 1 > checkpointed tip 0, so hasProposedCheckpoint is true.
+      // The proposed checkpoint has number 1 > checkpointed tip 0, so hasProposedCheckpoint is true.
       const nonGenesisHash = Fr.random().toString();
-      const proposedCheckpointHash = Fr.random().toString();
       worldState.status.mockResolvedValue({
         state: WorldStateRunningState.IDLE,
         syncSummary: {
@@ -1264,10 +1290,6 @@ describe('sequencer', () => {
       } satisfies WorldStateSynchronizerStatus);
       const tipsWithBlock1 = {
         proposed: { number: BlockNumber(1), hash: nonGenesisHash },
-        proposedCheckpoint: {
-          block: { number: BlockNumber(1), hash: nonGenesisHash },
-          checkpoint: { number: CheckpointNumber(1), hash: proposedCheckpointHash },
-        },
         checkpointed: {
           block: { number: BlockNumber(1), hash: nonGenesisHash },
           checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
@@ -1302,7 +1324,7 @@ describe('sequencer', () => {
         blockCount: 1,
         totalManaUsed: 0n,
         feeAssetPriceModifier: 0n,
-      } satisfies ProposedCheckpointData);
+      });
 
       await sequencer.work();
 
@@ -1318,7 +1340,6 @@ describe('sequencer', () => {
       // Confirmed checkpoint is 1, pending is 2, proposed tip is in checkpoint 3.
       // So sequencer would try to build checkpoint 4, which exceeds the 1-deep pipeline limit.
       const nonGenesisHash = Fr.random().toString();
-      const proposedCheckpointHash = Fr.random().toString();
       const checkpointedHash = Fr.random().toString();
       worldState.status.mockResolvedValue({
         state: WorldStateRunningState.IDLE,
@@ -1332,10 +1353,6 @@ describe('sequencer', () => {
       } satisfies WorldStateSynchronizerStatus);
       const tips = {
         proposed: { number: BlockNumber(3), hash: nonGenesisHash },
-        proposedCheckpoint: {
-          block: { number: BlockNumber(2), hash: nonGenesisHash },
-          checkpoint: { number: CheckpointNumber(2), hash: proposedCheckpointHash },
-        },
         checkpointed: {
           block: { number: BlockNumber(1), hash: nonGenesisHash },
           checkpoint: { number: CheckpointNumber(1), hash: checkpointedHash },
@@ -1361,9 +1378,7 @@ describe('sequencer', () => {
         checkpointNumber: CheckpointNumber(3),
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
       } satisfies BlockData);
-      l2BlockSource.getProposedCheckpointData.mockResolvedValue({
-        checkpointNumber: CheckpointNumber(2),
-      } as any);
+      l2BlockSource.getProposedCheckpointData.mockResolvedValue({ checkpointNumber: CheckpointNumber(2) } as any);
 
       await sequencer.work();
 
@@ -1388,7 +1403,6 @@ describe('sequencer', () => {
 
       // Set up a pipelined parent (pending override = parentCheckpointNumber = 1).
       const nonGenesisHash = Fr.random().toString();
-      const proposedCheckpointHash = Fr.random().toString();
       worldState.status.mockResolvedValue({
         state: WorldStateRunningState.IDLE,
         syncSummary: {
@@ -1401,10 +1415,6 @@ describe('sequencer', () => {
       } satisfies WorldStateSynchronizerStatus);
       const tipsWithBlock1 = {
         proposed: { number: BlockNumber(1), hash: nonGenesisHash },
-        proposedCheckpoint: {
-          block: { number: BlockNumber(1), hash: nonGenesisHash },
-          checkpoint: { number: CheckpointNumber(1), hash: proposedCheckpointHash },
-        },
         checkpointed: {
           block: { number: BlockNumber(1), hash: nonGenesisHash },
           checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
@@ -1439,7 +1449,7 @@ describe('sequencer', () => {
         blockCount: 1,
         totalManaUsed: 0n,
         feeAssetPriceModifier: 0n,
-      } satisfies ProposedCheckpointData);
+      });
 
       await sequencer.work();
 
@@ -1474,18 +1484,17 @@ describe('sequencer', () => {
   describe('checkSync orphan-block guard', () => {
     // Mocks all sync sources so checkSync passes its earlier equality checks and reaches the orphan
     // guard, with the world-state tip at `blockNumber` (in `blockCheckpointNumber`) while the
-    // checkpointed and proposed-checkpoint tips sit at the given checkpoint numbers.
+    // checkpointed tip sits at `checkpointedCheckpointNumber`. The leading proposed checkpoint (if any)
+    // is supplied via `getProposedCheckpointData`.
     const setupSyncedToBlock = (opts: {
       blockNumber: BlockNumber;
       blockSlot: SlotNumber;
       blockCheckpointNumber: CheckpointNumber;
       checkpointedCheckpointNumber: CheckpointNumber;
-      proposedCheckpointTipNumber: CheckpointNumber;
-      proposedCheckpointData: ProposedCheckpointData | undefined;
+      proposedCheckpoint: ProposedCheckpointData | undefined;
     }) => {
       const hash = Fr.random().toString();
       const checkpointHash = Fr.random().toString();
-      const proposedCheckpointHash = Fr.random().toString();
       worldState.status.mockResolvedValue({
         state: WorldStateRunningState.IDLE,
         syncSummary: {
@@ -1498,10 +1507,6 @@ describe('sequencer', () => {
       } satisfies WorldStateSynchronizerStatus);
       const tips = {
         proposed: { number: opts.blockNumber, hash },
-        proposedCheckpoint: {
-          block: { number: opts.blockNumber, hash },
-          checkpoint: { number: opts.proposedCheckpointTipNumber, hash: proposedCheckpointHash },
-        },
         checkpointed: {
           block: { number: opts.blockNumber, hash },
           checkpoint: { number: opts.checkpointedCheckpointNumber, hash: checkpointHash },
@@ -1527,20 +1532,19 @@ describe('sequencer', () => {
         checkpointNumber: opts.blockCheckpointNumber,
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
       } satisfies BlockData);
-      l2BlockSource.getProposedCheckpointData.mockResolvedValue(opts.proposedCheckpointData);
+      l2BlockSource.getProposedCheckpointData.mockResolvedValue(opts.proposedCheckpoint);
     };
 
     it('returns undefined and logs debug while waiting for a matching proposed checkpoint', async () => {
-      // Local tip is a block at checkpoint 3, but the checkpointed and proposed-checkpoint tips are
-      // still at checkpoint 2 and no proposed checkpoint 3 exists: an orphan block-only tip whose
-      // enclosing checkpoint has not materialized into the archiver.
+      // Local tip is a block at checkpoint 3, but the checkpointed tip is still at checkpoint 2 and no
+      // proposed checkpoint 3 exists: an orphan block-only tip whose enclosing checkpoint has not
+      // materialized into the archiver.
       setupSyncedToBlock({
         blockNumber: BlockNumber(3),
         blockSlot: SlotNumber(3),
         blockCheckpointNumber: CheckpointNumber(3),
         checkpointedCheckpointNumber: CheckpointNumber(2),
-        proposedCheckpointTipNumber: CheckpointNumber(2),
-        proposedCheckpointData: undefined,
+        proposedCheckpoint: undefined,
       });
       const warnSpy = jest.spyOn(sequencer.getLogger(), 'warn');
       const debugSpy = jest.spyOn(sequencer.getLogger(), 'debug');
@@ -1554,8 +1558,7 @@ describe('sequencer', () => {
         expect.objectContaining({
           blockCheckpointNumber: CheckpointNumber(3),
           checkpointedCheckpointNumber: CheckpointNumber(2),
-          proposedCheckpointTipNumber: CheckpointNumber(2),
-          proposedCheckpointDataNumber: undefined,
+          proposedCheckpointTipNumber: undefined,
         }),
       );
     });
@@ -1566,8 +1569,7 @@ describe('sequencer', () => {
         blockSlot: SlotNumber(3),
         blockCheckpointNumber: CheckpointNumber(3),
         checkpointedCheckpointNumber: CheckpointNumber(2),
-        proposedCheckpointTipNumber: CheckpointNumber(3),
-        proposedCheckpointData: {
+        proposedCheckpoint: {
           checkpointNumber: CheckpointNumber(3),
           header: CheckpointHeader.empty(),
           archive: AppendOnlyTreeSnapshot.empty(),
@@ -1576,7 +1578,7 @@ describe('sequencer', () => {
           blockCount: 1,
           totalManaUsed: 0n,
           feeAssetPriceModifier: 0n,
-        } satisfies ProposedCheckpointData,
+        },
       });
 
       const result = await sequencer.checkSyncForTest({ ts: 1000n, slot: SlotNumber(2) });
@@ -1606,6 +1608,10 @@ class TestSequencer extends Sequencer {
 
   public getTimeTable() {
     return this.timetable;
+  }
+
+  public getPerBlockAllocationMultiplier() {
+    return this.config.perBlockAllocationMultiplier;
   }
 
   public getLastSlotForCheckpointProposalJob() {
