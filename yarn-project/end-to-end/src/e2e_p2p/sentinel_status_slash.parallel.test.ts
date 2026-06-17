@@ -18,7 +18,7 @@ import path from 'path';
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { createNodes } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest } from './p2p_network.js';
-import { awaitCommitteeExists } from './shared.js';
+import { awaitCommitteeExists, findUpcomingProposerSlot } from './shared.js';
 
 /**
  * Exercises the sentinel's six-case proposer-status taxonomy end-to-end by driving each of the
@@ -243,68 +243,36 @@ describe('e2e_p2p_sentinel_status_slash', () => {
     return targetAddress;
   }
 
+  // Land two slots before an upcoming slot in which `targetAddress` is the proposer, so the network
+  // has a slot of real-time to settle before the malicious node (which we control) builds.
+  const MIN_LEAD_SLOTS = 2;
+
   /**
-   * Finds the next slot at which `targetAddress` is the proposer and warps L1 time to the slot
-   * just before it (so the proposer-pipelining build phase for the target's slot lands on the
-   * malicious node immediately, with no need to poll for the slot to come around naturally).
+   * Warps L1 time to {@link MIN_LEAD_SLOTS} slots before an upcoming slot in which `targetAddress` is
+   * the proposer, so the proposer-pipelining build phase for the target's slot lands on the malicious
+   * node with a slot of real-time for the network to settle first.
    *
-   * Probes the NEXT epoch's slots only (further epochs revert with `EpochNotStable`). If the
-   * target isn't selected next epoch, advances one epoch and tries again.
+   * The proposer search is delegated to the shared `findUpcomingProposerSlot`, which scans forward
+   * from {@link MIN_LEAD_SLOTS} ahead — examining both epoch parities so the RANDAO-shuffled 1-of-N
+   * target is reliably found — and guarantees the returned slot is at least {@link MIN_LEAD_SLOTS}
+   * ahead, so the landing warp can never go backwards.
    */
-  async function warpToSlotBeforeTargetProposer(targetAddress: EthAddress): Promise<SlotNumber> {
+  async function warpToSlotBeforeTargetProposer(targetAddress: EthAddress): Promise<void> {
     const epochCache = (nodes[0] as TestAztecNodeService).epochCache;
     const cheatCodes = t.ctx.cheatCodes.rollup;
-    const maxEpochAttempts = 20;
-
-    for (let attempt = 0; attempt < maxEpochAttempts; attempt++) {
-      const currentSlot = Number(await cheatCodes.getSlot());
-      const currentEpoch = Math.floor(currentSlot / AZTEC_EPOCH_DURATION);
-      // Probe every slot of the next epoch. The current epoch is partly elapsed and the second-next
-      // epoch's committee may revert with EpochNotStable, so the next epoch is the only fully
-      // available window. Scan the WHOLE epoch — both slot parities: the proposer is a different
-      // RANDAO-shuffled committee member per slot, so probing only part of the epoch can
-      // systematically never land on the target. (Deriving the start from `currentSlot +
-      // minBufferSlots` previously collapsed this to a single, always-odd slot whenever the buffer
-      // was comparable to AZTEC_EPOCH_DURATION — here both are 2 — leaving the 1-of-N target
-      // effectively unreachable. The pre-warp buffer is unnecessary: landing at `targetSlot - 2`
-      // below already gives the network a full slot of real-time to settle after any warp.)
-      const searchStart = (currentEpoch + 1) * AZTEC_EPOCH_DURATION;
-      const searchEnd = (currentEpoch + 2) * AZTEC_EPOCH_DURATION - 1;
-
-      let targetSlot: number | undefined;
-      for (let s = searchStart; s <= searchEnd; s++) {
-        const proposer = await epochCache.getProposerAttesterAddressInSlot(SlotNumber(s));
-        if (proposer && targetAddress.equals(proposer)) {
-          targetSlot = s;
-          break;
-        }
-      }
-
-      if (targetSlot === undefined) {
-        t.logger.info(`Target not selected as proposer in slots ${searchStart}..${searchEnd}; advancing one epoch`);
-        await cheatCodes.advanceToNextEpoch();
-        continue;
-      }
-
-      // Land 2 slots before the target (clamped so we never warp backwards). The malicious's
-      // sequencer pipelines for slot N during slot N-1, so landing at N-2 gives the network one
-      // full slot (N-1) of real-time to settle after the warp before the malicious starts
-      // building. Use the absolute-slot helper rather than `advanceSlots(N)` so any real-time
-      // elapsed between the slot search above and this call doesn't push us past the intended
-      // landing slot.
-      const landingSlot = SlotNumber(Math.max(targetSlot - 2, currentSlot));
-      t.logger.warn(
-        `Target proposes at slot ${targetSlot}; warping to slot ${landingSlot} (target is 2 slots ahead to let gossipsub stabilise before the malicious broadcasts)`,
-      );
-      if (landingSlot > currentSlot) {
-        await cheatCodes.advanceToSlot(landingSlot);
-      }
-      return SlotNumber(targetSlot);
+    const targetSlot = await findUpcomingProposerSlot({
+      epochCache,
+      cheatCodes,
+      targetProposer: targetAddress,
+      logger: t.logger,
+      minLeadSlots: MIN_LEAD_SLOTS,
+    });
+    // The malicious sequencer pipelines for slot N during N-1, so landing at N - MIN_LEAD_SLOTS leaves
+    // slot N-1 of real-time for the network to settle before it broadcasts.
+    const landingSlot = SlotNumber(targetSlot - MIN_LEAD_SLOTS);
+    if (landingSlot > Number(await cheatCodes.getSlot())) {
+      await cheatCodes.advanceToSlot(landingSlot);
     }
-
-    throw new Error(
-      `Target proposer ${targetAddress} not found with sufficient buffer within ${maxEpochAttempts} epochs`,
-    );
   }
 
   /**
