@@ -87,7 +87,7 @@
       #controls button:hover:not(:disabled) { border-color: var(--accent); filter: none; }
 
       /* log panels */
-      #log, #bench-log {
+      #log, #bench-log, #profile-log {
         background: #070a10; color: #c4cee0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
         font-size: 12px; padding: 0.85rem 1rem; border-radius: 10px; white-space: pre-wrap;
         overflow-x: auto; min-height: 11rem; border: 1px solid var(--border);
@@ -116,6 +116,7 @@
     <div class="tabbar">
       <button id="tab-btn-bench" class="active" data-tab="bench">Benchmark</button>
       <button id="tab-btn-testing" data-tab="testing">Testing</button>
+      <button id="tab-btn-profile" data-tab="profile">Profile</button>
     </div>
 
     <!-- ===== Benchmark tab (WASM vs WebGPU, multi-pass) ===== -->
@@ -161,6 +162,26 @@
         <div id="controls"></div>
       </div>
       <div id="log"></div>
+    </section>
+
+    <!-- ===== Profile tab (per-kernel GPU timing) ===== -->
+    <section id="tab-profile" class="tab">
+      <p class="lede">
+        Per-kernel GPU timing via <code>timestamp-query</code> (Chrome/Metal has it; software/Firefox returns no
+        numbers). <strong>Per-kernel (round 0)</strong> profiles the multi-round engine's round 0 and breaks the
+        accumulate down <strong>per relation</strong> — the squaring sites <code>lag_sqr</code>/<code>mono_sqr</code>
+        live in <code>acc:pos2*</code>, <code>acc:elliptic</code>, <code>acc:memory</code>, <code>acc:logderiv</code>,
+        so a baseline-vs-optimized A/B shows the <code>montgomery_square</code> effect right on those lines.
+        <strong>Single-submit</strong> profiles all rounds of the single-command-buffer engine (aggregate accumulate).
+        <strong>Full report</strong> runs every pass and prints a paste-ready <code>PROFILE_DATA</code> (~1–3 min).
+      </p>
+      <div class="controls">
+        <label>count 2^<input id="profile-logn" type="number" value="16" min="4" max="20" /></label>
+        <button id="profile-run">Per-kernel (round 0)</button>
+        <button id="ssprofile-run">Single-submit (all rounds)</button>
+        <button id="profilereport-run">Full report (PROFILE_DATA)</button>
+      </div>
+      <div id="profile-log"></div>
     </section>
 
     <script type="module" src="/dev/sumcheck-webgpu/main.ts"></script>

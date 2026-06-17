@@ -38,7 +38,7 @@ import { roundsSuite } from './suite_rounds.js';
 import { batchSuite } from './batch_gpu.js';
 import { poseidon2Suite } from './poseidon2_gpu.js';
 import { singleSubmitSuite } from './suite_singlesubmit.js';
-import { runMultiPassBenchmark, type MultiPassRow } from './bench.js';
+import { runMultiPassBenchmark, runProfile, runSingleSubmitProfile, runProfileReport, type MultiPassRow } from './bench.js';
 
 const REGISTRY: Suite[] = [
   frSuite, monoSuite, arithSuite, deltaSuite, eccSuite, pos2InitSuite,
@@ -202,7 +202,54 @@ $benchRun.addEventListener('click', () => void (async () => {
   }
 })());
 
-// Autorun: ?autorun=bench | all | <suite id>
+// ===== Profile tab (per-kernel GPU timing) =====
+const $profileLog = document.getElementById('profile-log') as HTMLDivElement;
+const $profileLogn = document.getElementById('profile-logn') as HTMLInputElement;
+const $profileRun = document.getElementById('profile-run') as HTMLButtonElement;
+const $ssprofileRun = document.getElementById('ssprofile-run') as HTMLButtonElement;
+const $profilereportRun = document.getElementById('profilereport-run') as HTMLButtonElement;
+
+function profileLog(level: Level, msg: string): void {
+  const div = document.createElement('div');
+  if (level !== 'info') div.className = level;
+  div.textContent = msg;
+  $profileLog.appendChild(div);
+  // eslint-disable-next-line no-console
+  console.log(msg);
+}
+
+const profileLogN = (): number => Math.max(4, Math.min(20, parseInt($profileLogn.value, 10) || 16));
+
+// Run one profiling pass, guarding the shared `running` flag and emitting the
+// `[autorun] state=...` marker to #log so the headless driver detects completion.
+async function runProfileTask(task: (device: GPUDevice) => Promise<void>): Promise<void> {
+  if (running) return;
+  running = true;
+  const btns = [$profileRun, $ssprofileRun, $profilereportRun];
+  btns.forEach(b => (b.disabled = true));
+  $profileLog.replaceChildren();
+  let ok = true;
+  try {
+    const device = await getDevice();
+    await task(device);
+  } catch (e) {
+    ok = false;
+    profileLog('err', `error: ${(e as Error).message}`);
+    // eslint-disable-next-line no-console
+    console.error(e);
+  } finally {
+    running = false;
+    btns.forEach(b => (b.disabled = false));
+    profileLog('muted', 'done');
+    log('muted', `[autorun] state=${ok ? 'ok' : 'err'}`);
+  }
+}
+
+$profileRun.addEventListener('click', () => void runProfileTask(async d => { await runProfile(d, profileLogN(), profileLog); }));
+$ssprofileRun.addEventListener('click', () => void runProfileTask(async d => { await runSingleSubmitProfile(d, profileLogN(), profileLog); }));
+$profilereportRun.addEventListener('click', () => void runProfileTask(d => runProfileReport(d, profileLog)));
+
+// Autorun: ?autorun=bench | profile | ssprofile | profilereport | all | <suite id>
 const autorun = new URLSearchParams(window.location.search).get('autorun');
 if (autorun === 'bench') {
   (document.getElementById('tab-btn-bench') as HTMLButtonElement).click();
@@ -211,6 +258,14 @@ if (autorun === 'bench') {
   const lognParam = new URLSearchParams(window.location.search).get('logn');
   if (lognParam) $benchMax.value = lognParam;
   $benchRun.click();
+} else if (autorun === 'profile' || autorun === 'ssprofile' || autorun === 'profilereport') {
+  (document.getElementById('tab-btn-profile') as HTMLButtonElement).click();
+  // `?logn=N` sets the profile size (profilereport bakes its own sizes and ignores it).
+  const lognParam = new URLSearchParams(window.location.search).get('logn');
+  if (lognParam) $profileLogn.value = lognParam;
+  if (autorun === 'profile') $profileRun.click();
+  else if (autorun === 'ssprofile') $ssprofileRun.click();
+  else $profilereportRun.click();
 } else if (autorun) {
   (document.getElementById('tab-btn-testing') as HTMLButtonElement).click();
   const suites = autorun === 'all' ? REGISTRY : REGISTRY.filter(s => s.id === autorun);
