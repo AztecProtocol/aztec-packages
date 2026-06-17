@@ -52,7 +52,7 @@ describe('StoredFact', () => {
     expect(factKeyStrOf(atBlock5)).not.toBe(factKeyStrOf(atBlock10));
   });
 
-  it('gives distinct payload hashes for distinct payloads and equal for equal', () => {
+  it('derives distinct payload hashes for distinct payloads', () => {
     const a = new StoredFact(key, factType, [new Fr(1n)], undefined);
     const b = new StoredFact(key, factType, [new Fr(2n)], undefined);
     const c = new StoredFact(key, factType, [new Fr(1n)], undefined);
