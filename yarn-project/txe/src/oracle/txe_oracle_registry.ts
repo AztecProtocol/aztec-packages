@@ -146,7 +146,7 @@ const TXE_PRIVATE_EVENTS: TypeMapping<Fr[][]> = {
   },
 };
 
-export const TXE_ORACLE_REGISTRY: Record<string, OracleRegistryEntry> = {
+export const TXE_ORACLE_REGISTRY = {
   ...ORACLE_REGISTRY,
 
   aztec_txe_assertCompatibleOracleVersion: makeEntry({
@@ -369,7 +369,7 @@ export const TXE_ORACLE_REGISTRY: Record<string, OracleRegistryEntry> = {
     params: [{ name: 'address', type: AZTEC_ADDRESS }],
     returnType: CONTRACT_INSTANCE_MEMBER,
   }),
-};
+} satisfies Record<string, OracleRegistryEntry>;
 
 /**
  * Deserializes oracle inputs, calls the handler with typed params, serializes the result, and wraps

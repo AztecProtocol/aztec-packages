@@ -5,7 +5,7 @@ import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses'
 import type { ViemPublicClient, ViemPublicDebugClient } from '@aztec/ethereum/types';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
-import { merge, pick } from '@aztec/foundation/collection';
+import { merge } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -435,19 +435,23 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     const tips = await this.getL2Tips();
     const now = BigInt(this.dateProvider.nowInSeconds());
 
+    // Frontier block covered by a proposed (or, falling back, confirmed) checkpoint. Blocks beyond it
+    // have no enclosing checkpoint proposal and are the orphan-pruning candidates.
+    const proposedCheckpointBlockNumber = await this.stores.blocks.getProposedCheckpointL2BlockNumber();
+
     // The proposed tip is a proposed-checkpointed block, so there are no orphan proposed blocks to prune
-    if (tips.proposedCheckpoint.block.number === tips.proposed.number) {
-      this.log.trace(
-        `No orphan proposed blocks to prune: proposed tip ${tips.proposed.number} is checkpointed`,
-        pick(tips, 'proposed', 'proposedCheckpoint'),
-      );
+    if (proposedCheckpointBlockNumber === tips.proposed.number) {
+      this.log.trace(`No orphan proposed blocks to prune: proposed tip ${tips.proposed.number} is checkpointed`, {
+        proposed: tips.proposed,
+        proposedCheckpointBlockNumber,
+      });
       return;
     }
 
     // Load the blocks that are candidates for pruning (ie blocks without a proposed checkpoint covering them)
     const blocksWithoutProposedCheckpoint = await this.stores.blocks.getBlocksData({
-      from: BlockNumber(tips.proposedCheckpoint.block.number + 1),
-      limit: tips.proposed.number - tips.proposedCheckpoint.block.number,
+      from: BlockNumber(proposedCheckpointBlockNumber + 1),
+      limit: tips.proposed.number - proposedCheckpointBlockNumber,
     });
 
     // Iterate through them in order, the first one with a slot that should have received a proposed checkpoint

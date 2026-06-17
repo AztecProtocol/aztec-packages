@@ -12,8 +12,8 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { bufferToHex } from '@aztec/foundation/string';
 import { timeoutPromise } from '@aztec/foundation/timer';
 import { type L2Block, L2BlockSourceEvents } from '@aztec/stdlib/block';
+import type { L2Tips } from '@aztec/stdlib/block';
 import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
-import type { ChainTips } from '@aztec/stdlib/interfaces/server';
 
 import { jest } from '@jest/globals';
 import { privateKeyToAccount } from 'viem/accounts';
@@ -178,7 +178,7 @@ describe('e2e_epochs/epochs_missed_l1_publish', () => {
     // We capture the L2 tips synchronously inside the handler — the archiver has already removed
     // the pruned blocks at emit time, so this snapshot reflects the rolled-back state before any
     // new pipelined block can be applied.
-    type PruneObservation = { slotNumber: SlotNumber; blocks: L2Block[]; tipsAtPrune: ChainTips };
+    type PruneObservation = { slotNumber: SlotNumber; blocks: L2Block[]; tipsAtPrune: L2Tips };
     const prunePromises: Promise<PruneObservation>[] = nodes.map(
       (node, idx) =>
         new Promise<PruneObservation>(resolve => {

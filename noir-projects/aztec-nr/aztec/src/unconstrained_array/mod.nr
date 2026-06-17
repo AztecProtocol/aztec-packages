@@ -130,18 +130,17 @@ where
 
     /// Calls a function on each element of the array.
     ///
-    /// The function `f` is called once with each array value and its corresponding index. Iteration proceeds
-    /// backwards so that it is safe to remove the current element (and only the current element) inside the
-    /// callback.
+    /// The function `f` is called once with each array value and its corresponding index, in order (from the first
+    /// element to the last).
     ///
-    /// It is **not** safe to push new elements from inside the callback.
+    /// Structurally mutating the array from inside the callback (e.g. via `push`, `pop`, `remove` or `clear`) is
+    /// **not** supported: it can cause elements to be skipped, visited more than once, or read out of bounds.
     pub unconstrained fn for_each<Env>(self, f: unconstrained fn[Env](u32, T) -> ())
     where
         T: Deserialize,
     {
-        let mut i = self.len();
-        while i > 0 {
-            i -= 1;
+        let n = self.len();
+        for i in 0..n {
             f(i, self.get(i));
         }
     }

@@ -229,7 +229,8 @@ export const CONTRACT_INSTANCE: TypeMapping<ContractInstance> = {
     fn: v => [
       v.salt,
       v.deployer.toField(),
-      v.currentContractClassId,
+      // Note that the nr side of this struct does not contain the current class, only original
+      v.originalContractClassId,
       v.initializationHash,
       v.immutablesHash,
       ...v.publicKeys.toFields(),

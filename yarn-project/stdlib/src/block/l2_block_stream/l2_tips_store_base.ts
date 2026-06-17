@@ -76,10 +76,29 @@ export abstract class L2TipsStoreBase implements L2BlockStreamEventHandler, L2Bl
     });
   }
 
+  /**
+   * Records `(number → hash)` witnesses into the block-hash index without moving any tip cursor. In tips-only mode
+   * the hash history is sparse (one anchor per tip-moving poll), so a consumer that materializes per-height state
+   * should witness those heights or its prunes are over-deep by the gap to the nearest anchor. Witnesses are compared
+   * against the source, not trusted, so they cannot cause under-deep prunes; this is always safe to call.
+   */
+  public async recordBlockHashes(blocks: L2BlockId[]): Promise<void> {
+    await this.runInTransaction(async () => {
+      for (const block of blocks) {
+        if (block.hash) {
+          await this.setBlockHash(block.number, block.hash);
+        }
+      }
+    });
+  }
+
   public async handleBlockStreamEvent(event: L2BlockStreamEvent): Promise<void> {
     switch (event.type) {
       case 'blocks-added':
         await this.handleBlocksAdded(event);
+        break;
+      case 'chain-proposed':
+        await this.handleChainProposed(event);
         break;
       case 'chain-checkpointed':
         await this.handleChainCheckpointed(event);
@@ -148,17 +167,22 @@ export abstract class L2TipsStoreBase implements L2BlockStreamEventHandler, L2Bl
     });
   }
 
+  private async handleChainProposed(event: L2BlockStreamEvent): Promise<void> {
+    if (event.type !== 'chain-proposed') {
+      return;
+    }
+    // Records the proposed tip into the block-hash index the walk-back reads. In tips-only mode this is the sole
+    // writer of proposed-tip history, leaving one sparse anchor per tip-moving pass for reorg detection.
+    await this.runInTransaction(() => this.saveTag('proposed', event.block));
+  }
+
   private async handleChainCheckpointed(event: L2BlockStreamEvent): Promise<void> {
     if (event.type !== 'chain-checkpointed') {
       return;
     }
     await this.runInTransaction(async () => {
-      const checkpointId: CheckpointId = {
-        number: event.checkpoint.checkpoint.number,
-        hash: event.checkpoint.checkpoint.hash().toString(),
-      };
       await this.saveTag('checkpointed', event.block);
-      await this.setTipCheckpoint('checkpointed', checkpointId);
+      await this.setTipCheckpoint('checkpointed', event.checkpoint);
     });
   }
 
@@ -167,18 +191,15 @@ export abstract class L2TipsStoreBase implements L2BlockStreamEventHandler, L2Bl
       return;
     }
     await this.runInTransaction(async () => {
-      // A prune is a rollback: the proposed tip moves to the prune target unconditionally, but
-      // checkpoint-bearing cursors may only move backward. Forward-advancing them onto an
-      // uncheckpointed block leaves them on a block with no recorded checkpoint id, which getCheckpointId
-      // would then throw on.
+      // A prune is a rollback: the proposed tip moves to the prune target unconditionally, but checkpoint-bearing
+      // cursors may only move backward (advancing one onto an uncheckpointed block would leave it without a recorded
+      // checkpoint id, which getCheckpointId throws on).
       await this.saveTag('proposed', event.block);
 
-      // Clamp each checkpoint-bearing cursor down to its OWN source tip when it leads it. Clamping the proven
-      // cursor onto the checkpointed tip would transiently report unproven blocks as proven (the source's proven
-      // tip can sit below its checkpointed tip after a proof-tx reorg), until the corrective chain-proven event
-      // lands at the end of the same sync iteration. The event carries a valid (block, id) pair for each
-      // boundary, so the clamped cursor always resolves to a recorded id. The source guarantees proven <=
-      // checkpointed, so clamping each cursor to its own tip preserves the local proven <= checkpointed invariant.
+      // Clamp each checkpoint-bearing cursor down to its OWN source tip when it leads it; the event carries a valid
+      // (block, id) pair for each. Clamping the proven cursor onto the (possibly higher) checkpointed tip instead
+      // would transiently report unproven blocks as proven. The source guarantees proven <= checkpointed, so per-tip
+      // clamping preserves the local invariant.
       for (const { tag, sourceTip } of [
         { tag: 'checkpointed', sourceTip: event.checkpointed },
         { tag: 'proven', sourceTip: event.proven },
