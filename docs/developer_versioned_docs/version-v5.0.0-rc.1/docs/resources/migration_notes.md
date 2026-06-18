@@ -1,8 +1,8 @@
 ---
 title: Migration notes
 description: Read about migration notes from previous versions, which could solve problems while updating
-keywords: [local network, sandbox, aztec, notes, migration, updating, upgrading]
-tags: [migration, updating, sandbox, local network]
+keywords: [local network, aztec, notes, migration, updating, upgrading]
+tags: [migration, updating, local network]
 ---
 
 Aztec is in active development. Each version may introduce breaking changes that affect compatibility with previous versions. This page documents common errors and difficulties you might encounter when upgrading, along with guidance on how to resolve them.
@@ -193,11 +193,11 @@ Account contracts therefore no longer need to call `set_sender_for_tags(self.add
 
 ### [Protocol] Remaining protocol-contract addresses compacted to 1-3
 
-After the `auth_registry`, `public_checks`, and `multi_call_entrypoint` demotions freed up address slots `1`, `4`, and `6`, the three remaining protocol contracts have been compacted into the lowest slots: `ContractClassRegistry` moves from `3` to `1`, `ContractInstanceRegistry` stays at `2`, and `FeeJuice` moves from `5` to `3`. Code that hardcoded the previous values must be updated. `MAX_PROTOCOL_CONTRACTS` is unchanged (still `11`); only the assigned addresses moved.
+After the `auth_registry`, `multi_call_entrypoint`, and `public_checks` demotions freed up address slots `1`, `4`, and `6`, the three remaining protocol contracts have been compacted into the lowest slots: `ContractClassRegistry` moves from `3` to `1`, `ContractInstanceRegistry` stays at `2`, and `FeeJuice` moves from `5` to `3`. Code that hardcoded the previous values must be updated. `MAX_PROTOCOL_CONTRACTS` is unchanged (still `11`); only the assigned addresses moved.
 
 ### [Aztec.nr] `multi_call_entrypoint` demoted from protocol contract
 
-`multi_call_entrypoint` is no longer a protocol contract; its address is derived from its artifact rather than hardcoded at `6`, and PXE no longer auto-registers it. It is now a standard contract that PXE _preloads_: both `createPXE` and `EmbeddedWallet` preload the standard MultiCallEntrypoint automatically (and `EmbeddedWallet` additionally preloads `AuthRegistry`). **If you use the standard PXE or `EmbeddedWallet`, no changes are needed** — multicall keeps working out of the box.
+`multi_call_entrypoint` is no longer a protocol contract; its address is derived from its artifact rather than hardcoded at `4`, and PXE no longer auto-registers it. It is now a standard contract that PXE _preloads_: both `createPXE` and `EmbeddedWallet` preload the standard MultiCallEntrypoint automatically (and `EmbeddedWallet` additionally preloads `AuthRegistry`). **If you use the standard PXE or `EmbeddedWallet`, no changes are needed** — multicall keeps working out of the box.
 
 To preload a different set of standard contracts (for example to also preload `PublicChecks`, which is not preloaded by default), a wallet or app passes its own `preloadedContractsProvider` through the wallet's PXE options:
 
@@ -222,7 +222,7 @@ The provider _replaces_ the default list (it is not additive), so include every 
 
 ### [Aztec.nr] `public_checks` demoted from protocol contract
 
-`public_checks` is no longer a protocol contract. Its address is now derived from its artifact rather than hardcoded at `4`. The aztec-nr constant has moved and been renamed:
+`public_checks` is no longer a protocol contract. Its address is now derived from its artifact rather than hardcoded at `6`. The aztec-nr constant has moved and been renamed:
 
 ```diff
 - use protocol_types::constants::PUBLIC_CHECKS_ADDRESS;
@@ -440,7 +440,7 @@ If you need to customize source or block range, construct the struct manually wi
 
 Ships together with immutables hash changes (shown below).
 
-Per [AZIP-8](https://github.com/AztecProtocol/governance/blob/main/AZIPs/azip-8.md), `PublicKeys` no longer carries the four master public keys as elliptic curve points. Three of them (`npk_m`, `ovpk_m`, `tpk_m`) are now exposed only as their poseidon2 hash digests; only `ivpk_m` (the master incoming viewing key) remains a point because address derivation needs it as a curve point.
+Per [AZIP-8](https://github.com/AztecProtocol/governance/blob/main/AZIPs/azip-8.md), `PublicKeys` no longer carries its master public keys as elliptic curve points. All of them except `ivpk_m` (`npk_m`, `ovpk_m`, `tpk_m`, and the new `mspk_m` and `fbpk_m`) are now exposed only as their poseidon2 hash digests; only `ivpk_m` (the master incoming viewing key) remains a point because address derivation needs it as a curve point.
 
 **This is a hard fork:** every contract address and account address derived from a non-default `PublicKeys` changes.
 
@@ -457,13 +457,13 @@ The same field-rename applies to `.ovpk_m` and `.tpk_m`: these are now `.ovpk_m_
 
 **Custom account contracts.** Wallets that ship their own Noir account contracts must recompile. Macro-generated calldata extraction and the `request_nsk_app` / `request_ovsk_app` paths use the hash form natively.
 
-**TS / wallet author migration.** The `PublicKeys` constructor signature changes from four `Point`s to `(npkMHash: Fr, ivpkM: Point, ovpkMHash: Fr, tpkMHash: Fr)`. `KeyValidationRequest` carries `pkMHash: Fr` instead of `pkM: Point`. `KeyStore.getMasterSecretKey` now takes a `pkMHash: Fr` rather than a `Point`. Callers using the auto-generated TS binding pick this up automatically; callers that hand-roll the arg buffer must update.
+**TS / wallet author migration.** The `PublicKeys` constructor signature changes from four `Point`s to `(npkMHash: Fr, ivpkM: Point, ovpkMHash: Fr, tpkMHash: Fr, mspkMHash: Fr, fbpkMHash: Fr)` (the new `mspk_m` message-signing and `fbpk_m` fallback keys are also exposed as hashes). `KeyValidationRequest` carries `pkMHash: Fr` instead of `pkM: Point`. `KeyStore.getMasterSecretKey` now takes a `pkMHash: Fr` rather than a `Point`. Callers using the auto-generated TS binding pick this up automatically; callers that hand-roll the arg buffer must update.
 
 **Wallet UI.** Any panel that displayed `masterNullifierPublicKey`, `masterOutgoingViewingPublicKey`, or `masterTaggingPublicKey` as Grumpkin points will no longer compile against the new `PublicKeys` class. The points themselves are no longer in `ContractInstancePublished` and cannot be recovered from the onchain record. Switch to displaying the hashes (`npkMHash`, `ovpkMHash`, `tpkMHash`) or drop the display.
 
-**PXE storage migration.** `DatabaseVersionManager` deletes pre-v6 databases on first open: users will see registered accounts, contacts, address aliases, and synced notes wiped. Wallets should surface a "your local state was reset, please re-register accounts and re-sync" path. There is no forward migration because the address derived from a given secret changes (the new `public_keys_hash` is over four single-key digests, not four raw points). Previous addresses are not recoverable from the same secret; assets and notes attached to them are inaccessible at the protocol level.
+**PXE storage migration.** `DatabaseVersionManager` deletes pre-v6 databases on first open: users will see registered accounts, contacts, address aliases, and synced notes wiped. Wallets should surface a "your local state was reset, please re-register accounts and re-sync" path. There is no forward migration because the address derived from a given secret changes (the new `public_keys_hash` is over single-key digests, not raw points). Previous addresses are not recoverable from the same secret; assets and notes attached to them are inaccessible at the protocol level.
 
-**Indexer / event-decoder migration.** The `ContractInstancePublished` private log payload is now 13 fields:
+**Indexer / event-decoder migration.** The `ContractInstancePublished` private log payload is now 15 fields:
 
 ```text
 [ MAGIC, address, version, salt, class_id, init_hash,
@@ -472,6 +472,8 @@ The same field-rename applies to `.ovpk_m` and `.tpk_m`: these are now `.ovpk_m_
   ivpk_m.x, ivpk_m.y,
   ovpk_m_hash,
   tpk_m_hash,
+  mspk_m_hash,
+  fbpk_m_hash,
   deployer ]
 ```
 
@@ -493,7 +495,7 @@ salted_initialization_hash = poseidon2(DOM_SEP__SALTED_INITIALIZATION_HASH, [sal
 - You parse the `ContractInstancePublished` private log directly. The event payload has an extra field, with `immutables_hash` inserted between `initialization_hash` and the public-keys block:
 
   ```
-  [tag, address, version, salt, classId, initialization_hash, immutables_hash, ...publicKeys(5), deployer]
+  [tag, address, version, salt, classId, initialization_hash, immutables_hash, ...publicKeys(7), deployer]
   ```
 
 - You call `ContractInstanceRegistry.publish_for_public_execution` directly. The function now takes 6 arguments instead of 5, with `immutables_hash` inserted between `initialization_hash` and `public_keys`:
