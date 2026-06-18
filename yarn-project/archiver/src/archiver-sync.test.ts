@@ -920,6 +920,78 @@ describe('Archiver Sync', () => {
       expect(rejectedBad).toBeDefined();
       expect(rejectedValid).toBeDefined();
     }, 15_000);
+
+    it('rejects a checkpoint with invalid attestations even when its blob data is malformed', async () => {
+      // Regression for A-1252: the archiver fetched and decoded checkpoint blobs before validating
+      // committee attestations. A checkpoint with BOTH invalid attestations and malformed blob data threw
+      // BlobDeserializationError during decode before the invalid-attestation skip path ran, so it was
+      // never recorded as rejected and sync looped on it forever (taking the valid CP1 in the same batch
+      // down with it). Attestations must be validated from calldata first, so the malformed blob is never
+      // fetched/decoded.
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(0));
+
+      // Committee of 3 signers.
+      fake.setTargetCommitteeSize(3);
+      const signers = times(3, Secp256k1Signer.random);
+      const committee = signers.map(signer => signer.address);
+      epochCache.getCommitteeForEpoch.mockResolvedValue({ committee } as EpochCommitteeInfo);
+
+      const invalidCheckpointDetectedSpy = jest.fn();
+      archiver.events.on(L2BlockSourceEvents.InvalidAttestationsCheckpointDetected, invalidCheckpointDetectedSpy);
+
+      // Valid CP1 with correct attestations and well-formed blobs.
+      await fake.addCheckpoint(CheckpointNumber(1), {
+        l1BlockNumber: 70n,
+        messagesL1BlockNumber: 50n,
+        numL1ToL2Messages: 3,
+        signers,
+      });
+
+      // CP2 with BAD attestations (random signers not in committee).
+      const badSigners = times(3, Secp256k1Signer.random);
+      const { checkpoint: badCp2 } = await fake.addCheckpoint(CheckpointNumber(2), {
+        l1BlockNumber: 80n,
+        numL1ToL2Messages: 0,
+        signers: badSigners,
+      });
+
+      // Make ONLY CP2's blob malformed; CP1 keeps its real blobs. The default mock maps a blob sidecar to a
+      // checkpoint by its L1 block hash (Buffer32 of the L1 block number).
+      const cp2BlockId = Buffer32.fromBigInt(80n).toString();
+      const malformedBlob = await makeRandomBlob(3);
+      const defaultGetBlobSidecar = blobClient.getBlobSidecar.getMockImplementation()!;
+      blobClient.getBlobSidecar.mockImplementation((...args: Parameters<typeof blobClient.getBlobSidecar>) =>
+        args[0] === cp2BlockId ? Promise.resolve([malformedBlob]) : defaultGetBlobSidecar(...args),
+      );
+
+      fake.setL1BlockNumber(82n);
+
+      // Must not throw: attestations are checked from calldata before the malformed CP2 blob is fetched.
+      await expect(archiver.syncImmediate()).resolves.toBeUndefined();
+
+      // CP1 syncs; CP2 is rejected for invalid attestations (not a blob-decode failure).
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
+      expect(invalidCheckpointDetectedSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: L2BlockSourceEvents.InvalidAttestationsCheckpointDetected,
+          validationResult: expect.objectContaining({
+            valid: false,
+            checkpoint: expect.objectContaining({ checkpointNumber: 2 }),
+          }),
+        }),
+      );
+      const rejected = await archiverStore.blocks.getRejectedCheckpointByArchiveRoot(badCp2.archive.root);
+      expect(rejected).toBeDefined();
+
+      // Repeated polling over the same L1 state stays stable. Without the fix, the malformed CP2 blob
+      // throws on every sync and the batch never commits -- even the valid CP1 stays unsynced and the
+      // archiver is stuck re-querying the same L1 blocks forever (the sync point never advances past the
+      // throw). With the fix, CP2 is rejected from calldata, CP1 is synced, and re-polling is a no-op.
+      for (let i = 0; i < 3; i++) {
+        await expect(archiver.syncImmediate()).resolves.toBeUndefined();
+        expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
+      }
+    }, 20_000);
   });
 
   describe('reorg handling', () => {
