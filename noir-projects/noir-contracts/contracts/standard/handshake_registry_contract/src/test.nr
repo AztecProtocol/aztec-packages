@@ -536,8 +536,8 @@ unconstrained fn multiple_senders_discovered_for_same_recipient() {
         discovered.items.get(0).eph_pk.x != discovered.items.get(1).eph_pk.x,
         "distinct senders should produce distinct ephemeral public keys",
     );
-    assert_eq(discovered.items.get(0).mode, ONCHAIN_CONSTRAINED);
-    assert_eq(discovered.items.get(1).mode, ONCHAIN_UNCONSTRAINED);
+    assert_eq(discovered.items.get(0).mode, ONCHAIN_UNCONSTRAINED);
+    assert_eq(discovered.items.get(1).mode, ONCHAIN_CONSTRAINED);
 }
 
 #[test]
