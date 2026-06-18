@@ -106,14 +106,12 @@ class ProofCompressor {
     }
 
     /**
-     * @brief Walk a Merge proof (42 Fr, all BN254).
+     * @brief Walk a Merge proof (41 Fr, all BN254).
      * @details Layout from MergeProver::construct_proof.
      */
     template <typename ScalarFn, typename CommitmentFn>
     static void walk_merge_proof(ScalarFn&& process_scalar, CommitmentFn&& process_commitment)
     {
-        // shift_size
-        process_scalar();
         // 4 merged table commitments
         for (size_t i = 0; i < 4; i++) {
             process_commitment();
@@ -329,7 +327,6 @@ class ProofCompressor {
 
     // Merge — mirrors walk_merge_proof
     static constexpr size_t EXPECTED_MERGE_FRS =
-        1 * BN254_FRS_PER_SCALAR +  // shift_size
         5 * BN254_FRS_PER_COMM +    // 4 merged tables + 1 reversed batched left
         13 * BN254_FRS_PER_SCALAR + // evaluations
         2 * BN254_FRS_PER_COMM;     // shplonk Q + KZG W

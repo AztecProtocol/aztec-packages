@@ -24,7 +24,7 @@ static_assert(HIDING_KERNEL_PUBLIC_INPUTS_SIZE == 28,
               "HIDING_KERNEL_IO_PUBLIC_INPUTS_SIZE changed - update constants.nr");
 
 // Component proof lengths (used in Noir)
-static_assert(MERGE_PROOF_SIZE == 42,
+static_assert(MERGE_PROOF_SIZE == 41,
               "MERGE_PROOF_SIZE changed - update CHONK_MERGE_PROOF_SIZE in constants.nr "
               "and run `yarn remake-constants`");
 static_assert(ECCVMFlavor::PROOF_LENGTH == 612,
@@ -38,7 +38,7 @@ static_assert(
     ProofLength::Honk<UltraFlavor>::expected_proof_size<stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>(
         UltraFlavor::VIRTUAL_LOG_N) == 410,
     "RECURSIVE_PROOF_LENGTH changed - update constants.nr");
-static_assert(ChonkProof::PROOF_LENGTH == 1271, "CHONK_PROOF_LENGTH changed - update constants.nr");
+static_assert(ChonkProof::PROOF_LENGTH == 1270, "CHONK_PROOF_LENGTH changed - update constants.nr");
 static_assert(ChonkProof::HIDING_OINK_LENGTH == 48,
               "ChonkProof::HIDING_OINK_LENGTH changed - update CHONK_HIDING_OINK_LENGTH in constants.nr "
               "and run `yarn remake-constants`");

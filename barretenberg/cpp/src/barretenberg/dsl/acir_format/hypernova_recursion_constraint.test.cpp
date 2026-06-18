@@ -726,7 +726,7 @@ TEST_F(HypernovaRecursionConstraintTest, HidingKernelGateCount)
 
     // Assert ultra ops count
     size_t actual_ultra_ops = kernel.op_queue->get_current_subtable_size();
-    EXPECT_EQ(actual_ultra_ops, HIDING_KERNEL_ULTRA_OPS);
+    EXPECT_EQ(actual_ultra_ops, acir_format::HIDING_KERNEL_ULTRA_OPS);
 }
 
 // =====================================================================================
