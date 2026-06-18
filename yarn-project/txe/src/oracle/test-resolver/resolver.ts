@@ -180,13 +180,10 @@ function decodeScenarioName(inputs: ForeignCallArgs): string {
 
 function valuesEqual(actual: unknown, expected: unknown): boolean {
   if (actual instanceof Option && expected instanceof Option) {
-    if (actual.isSome() !== expected.isSome()) {
-      return false;
-    }
-    return actual.isNone() || valuesEqual(actual.value, expected.value);
+    return actual.equals(expected, valuesEqual);
   }
   if (actual instanceof BoundedVec && expected instanceof BoundedVec) {
-    return actual.maxLength === expected.maxLength && valuesEqual(actual.data, expected.data);
+    return actual.equals(expected, valuesEqual);
   }
   if (Array.isArray(actual) && Array.isArray(expected)) {
     return actual.length === expected.length && actual.every((v, i) => valuesEqual(v, expected[i]));

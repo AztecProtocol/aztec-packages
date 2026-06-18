@@ -13,9 +13,7 @@ import {
 import { synthesizeDefaultFixtures } from './default_fixtures.js';
 
 describe('synthesizeDefaultFixtures', () => {
-  it('synthesizes a BoundedVec<Byte> param', () => {
-    // Exercises the BYTE scalar leaf through the bounded-vec recursion, including the padding (data length below
-    // capacity).
+  it('synthesizes a BoundedVec<Byte> param, padding data below capacity', () => {
     const registry: Record<string, OracleRegistryEntry> = {
       push_bytes: makeEntry({
         params: [{ name: 'ciphertext', type: BOUNDED_VEC(BYTE) }],
@@ -25,15 +23,12 @@ describe('synthesizeDefaultFixtures', () => {
     const scenarios = synthesizeDefaultFixtures(registry)['push_bytes'];
     expect(scenarios).toHaveLength(1);
 
-    // ciphertext param: seed 0 -> bytes [10, 11, 12], capacity 5.
     const ciphertext = scenarios[0].inputs.ciphertext as BoundedVec<number>;
     expect(ciphertext.data).toEqual([10, 11, 12]);
     expect(ciphertext.maxLength).toBe(5);
   });
 
-  it('synthesizes an Option<BoundedVec<Byte>> return', () => {
-    // Exercises the BYTE leaf through nested Option-of-bounded-vec recursion, and the some/none scenario zip: the
-    // return has two scenarios so the synthesizer produces two cases named by the return's scenario names.
+  it('synthesizes an Option<BoundedVec<Byte>> return as two cases named some/none', () => {
     const registry: Record<string, OracleRegistryEntry> = {
       decrypt_bytes: makeEntry({
         returnType: OPTION(BOUNDED_VEC(BYTE)),
@@ -44,7 +39,6 @@ describe('synthesizeDefaultFixtures', () => {
     expect(scenarios).toHaveLength(2);
     expect(scenarios.map(s => s.scenario)).toEqual(['some', 'none']);
 
-    // Scenario 0 is `some` carrying the byte values, scenario 1 is `none`.
     const some = scenarios[0].output as Option<BoundedVec<number>>;
     expect(some.isSome()).toBe(true);
     if (some.isSome()) {

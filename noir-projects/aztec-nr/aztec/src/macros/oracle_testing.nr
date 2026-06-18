@@ -18,47 +18,32 @@
 //! ## The scenario convention
 //!
 //! [`OracleTestValue`] maps a `seed` to an array of [`Scenario`]s, each a canonical value plus the name of the
-//! serialization shape it exercises. The scenario count is the trait's `N` generic, so it sits on the impl itself and
-//! the macro reads it from there (see [`num_scenarios`]). The seed is the *parameter position*, so two parameters of
-//! the same type still get different values, which means a Noir/TS disagreement about parameter *order* fails the
-//! test instead of passing silently.
-//!
-//! Most types have a single, unnamed scenario. A type whose cases serialize differently declares several named
-//! scenarios instead. For example, `Option<T>` has two (`some`, `none`), because `Some` and `None` serialize
-//! differently. The macro emits one test per scenario (suffixed by index) and, for multi-scenario oracles, announces
-//! the scenario's name to the resolver so it knows which shape to expect.
+//! serialization shape it exercises. Most types have a single, unnamed scenario; a type whose cases serialize
+//! differently declares several named ones (`Option<T>` has `some` and `none`). The macro emits one test per scenario.
 //!
 //! ## What gets generated
 //!
-//! For an oracle generic over its array length:
-//!
 //! ```noir
 //! #[auto_serialization_test]
-//! #[oracle(aztec_utl_getAuthWitness)]
-//! unconstrained fn get_auth_witness_oracle<let N: u32>(message_hash: Field) -> [Field; N] {}
+//! #[oracle(aztec_avm_nullifierExists)]
+//! unconstrained fn nullifier_exists_opcode(siloed_nullifier: Field) -> bool {}
 //! ```
 //!
-//! the macro produces (roughly):
+//! produces:
 //!
 //! ```noir
 //! #[test]
-//! unconstrained fn __oracle_test__get_auth_witness_oracle() {
-//!     let __arg_0 = <Field as OracleTestValue<1>>::oracle_test_value(0)[0]; // for `message_hash`
-//!     let __ret = <[Field; 3] as OracleTestValue<1>>::oracle_test_value(0)[0]; // return (pinned length)
-//!     assert_eq(get_auth_witness_oracle(__arg_0.value), __ret.value, "...");
+//! unconstrained fn __oracle_test__nullifier_exists_opcode() {
+//!     let __arg_0 = <Field as OracleTestValue<1>>::oracle_test_value(0)[0];
+//!     let __ret = <bool as OracleTestValue<1>>::oracle_test_value(0)[0];
+//!     assert_eq(nullifier_exists_opcode(__arg_0.value), __ret.value, "...");
 //! }
 //! ```
-//!
-//! `Field` and `[Field; 3]` each have one unnamed scenario, so this is the only test and it announces nothing. The
-//! return type `[Field; N]` becomes `[Field; 3]`: the oracle is generic over the length but the test is not, so the
-//! macro substitutes a concrete length (see [`pinned_type`]) and the oracle's `N` is inferred from the expected value.
 //!
 //! ## Multiple scenarios
 //!
 //! A value with more than one serialization shape (e.g. an `Option`, which has two: `some` and `none`) makes the macro
-//! emit one test per scenario, each announcing its scenario's name to the resolver (read off the [`Scenario`] value at
-//! runtime). When several positions are multi-scenario, their scenarios are paired up by index, so the macro emits
-//! `max(counts)` tests, not the cross product. For example:
+//! emit one test per scenario. For example:
 //!
 //! ```noir
 //! #[auto_serialization_test]
@@ -66,36 +51,26 @@
 //! unconstrained fn get_witness_oracle(key: Option<Field>) -> Option<Field> {}
 //! ```
 //!
-//! produces two tests (`some+some` and `none+none`, not four). Each announces both the param and the return, and the
-//! resolver joins the announcements with `+` to match the fixture name the TS synthesizer builds:
-//!
-//! ```noir
-//! #[test]
-//! unconstrained fn __oracle_test__get_witness_oracle__0() {
-//!     let __arg_0 = <Option<Field> as OracleTestValue<2>>::oracle_test_value(0)[0];
-//!     add_scenario_to_oracle_test(__arg_0.name); // "some" (param)
-//!     let __ret = <Option<Field> as OracleTestValue<2>>::oracle_test_value(0)[0];
-//!     add_scenario_to_oracle_test(__ret.name); // "some" (return), accumulated as "some+some"
-//!     assert_eq(get_witness_oracle(__arg_0.value), __ret.value, "..."); // checks Option::some(..)
-//! }
-//!
-//! #[test]
-//! unconstrained fn __oracle_test__get_witness_oracle__1() {
-//!     let __arg_0 = <Option<Field> as OracleTestValue<2>>::oracle_test_value(0)[1];
-//!     add_scenario_to_oracle_test(__arg_0.name); // "none" (param)
-//!     let __ret = <Option<Field> as OracleTestValue<2>>::oracle_test_value(0)[1];
-//!     add_scenario_to_oracle_test(__ret.name); // "none" (return), accumulated as "none+none"
-//!     assert_eq(get_witness_oracle(__arg_0.value), __ret.value, "..."); // checks Option::none()
-//! }
-//! ```
+//! produces two tests: `some+some` and `none+none`. Each scenario becomes its own `#[test]`, suffixed by index
+//! (`__0`, `__1`, …).
 
 use crate::protocol::{abis::function_selector::FunctionSelector, address::AztecAddress, traits::FromField};
 
 /// Max capacity of [`Scenario`] names.
-global MAX_SCENARIO_NAME_LEN: u32 = 32;
+global MAX_SCENARIO_NAME_LEN: u32 = 64;
+
+/// The base every seed is offset by.
+///
+/// When generating test values we want two parameters of the same type to get different values, so that a Noir/TS
+/// disagreement about argument order shows up as a mismatch instead of passing silently. Each value is derived from a
+/// `seed`: argument `i` uses `SEED_BASE + i`, and the return value uses `SEED_BASE + len(args)` (the slot right after
+/// the last argument, so it stays distinct from every parameter). We start from a non-zero base because otherwise a
+/// serializer that zeroes or drops a field could match a coincidentally-zero expected value. Must match `SEED_BASE` in
+/// the TS synthesizer (`default_fixtures.ts`).
+global SEED_BASE: u32 = 10;
 
 /// One canonical test case for a type: the `value` to put on the wire (or expect back from it), and the `name` of the
-/// serialization shape it exercises. Single-scenario types leave the name empty; it is never announced.
+/// serialization shape it exercises. Single-scenario types leave the name empty; it is never sent to the resolver.
 pub struct Scenario<T> {
     pub value: T,
     pub name: BoundedVec<u8, MAX_SCENARIO_NAME_LEN>,
@@ -112,35 +87,35 @@ impl<T> Scenario<T> {
 }
 
 /// Maps a `seed` to the canonical test scenarios for a type, one per serialization shape. `N` is the scenario count,
-/// declared on each impl and read from there by [`num_scenarios`]. Mirrored exactly by the TS resolver's fixture
-/// synthesizer (`default_fixtures.ts`).
+/// declared on each impl and read from there by [`num_scenarios`]. See [`SEED_BASE`] for what `seed` is. Mirrored
+/// exactly by the TS resolver's fixture synthesizer (`default_fixtures.ts`).
 pub trait OracleTestValue<let N: u32> {
     fn oracle_test_value(seed: u32) -> [Scenario<Self>; N];
 }
 
 impl OracleTestValue<1> for Field {
     fn oracle_test_value(seed: u32) -> [Scenario<Self>; 1] {
-        [Scenario::unnamed(10 + seed as Field)]
+        [Scenario::unnamed(seed as Field)]
     }
 }
 impl OracleTestValue<1> for u32 {
     fn oracle_test_value(seed: u32) -> [Scenario<Self>; 1] {
-        [Scenario::unnamed(10 + seed)]
+        [Scenario::unnamed(seed)]
     }
 }
 impl OracleTestValue<1> for u64 {
     fn oracle_test_value(seed: u32) -> [Scenario<Self>; 1] {
-        [Scenario::unnamed(10 + seed as u64)]
+        [Scenario::unnamed(seed as u64)]
     }
 }
 impl OracleTestValue<1> for u128 {
     fn oracle_test_value(seed: u32) -> [Scenario<Self>; 1] {
-        [Scenario::unnamed(10 + seed as u128)]
+        [Scenario::unnamed(seed as u128)]
     }
 }
 impl OracleTestValue<1> for u8 {
     fn oracle_test_value(seed: u32) -> [Scenario<Self>; 1] {
-        [Scenario::unnamed(10 + seed as u8)]
+        [Scenario::unnamed(seed as u8)]
     }
 }
 impl OracleTestValue<1> for bool {
@@ -150,12 +125,12 @@ impl OracleTestValue<1> for bool {
 }
 impl OracleTestValue<1> for AztecAddress {
     fn oracle_test_value(seed: u32) -> [Scenario<Self>; 1] {
-        [Scenario::unnamed(AztecAddress::from_field(10 + seed as Field))]
+        [Scenario::unnamed(AztecAddress::from_field(seed as Field))]
     }
 }
 impl OracleTestValue<1> for FunctionSelector {
     fn oracle_test_value(seed: u32) -> [Scenario<Self>; 1] {
-        [Scenario::unnamed(FunctionSelector::from_field(10 + seed as Field))]
+        [Scenario::unnamed(FunctionSelector::from_field(seed as Field))]
     }
 }
 impl<T> OracleTestValue<2> for Option<T>
@@ -198,9 +173,7 @@ where
 }
 
 /// Generates a serialization roundtrip test for an `#[oracle(...)]` declaration. See the module docs for the full
-/// scheme. Each generated test is named `__oracle_test__<oracle_fn>` (with a `__<index>` suffix when the oracle has
-/// multiple scenarios) so the CI runner can target these separately and point them at the dedicated test resolver
-/// (rather than the normal PXE/TXE oracle resolver).
+/// scheme.
 ///
 /// ## Usage
 ///
@@ -249,7 +222,10 @@ comptime fn prepare_scenarios(f: FunctionDefinition) -> [(Quoted, Quoted)] {
         }
 
         let args = call_args.join(quote {,});
-        let (return_binding, assertion) = build_assertion(oracle, args, return_type, scenario);
+        // The return's position is the slot right after the last parameter (params take 0..len-1), so its value is
+        // distinct.
+        let return_position = params.len();
+        let (return_binding, assertion) = build_assertion(oracle, args, return_type, return_position, scenario);
         setup = setup.push_back(return_binding);
 
         result = result.push_back((setup.join(quote {}), assertion));
@@ -290,19 +266,11 @@ comptime fn total_scenarios(params: [(Quoted, Type)], return_type: Type) -> u32 
 }
 
 /// For one value (a parameter or the return) in one scenario, returns `(setup, value)`: the `let $binding = …;`
-/// statement that selects this scenario's [`Scenario`] (and announces it, when the type has more than one), and the
-/// expression that reads its value (`$binding.value`). `binding` is the name to bind to (e.g. `__arg_0`, `__ret`);
-/// `seed` varies the value (the parameter position) so two same-typed parameters still differ. The selected scenario
-/// index is `scenario % count`, so a type with fewer scenarios than the oracle's total reuses its values across the
-/// extra scenarios.
-///
-/// Example: `bind_scenario(Field, quote { __arg_0 }, 0, 0)` returns
-///   setup = `let __arg_0 = <Field as OracleTestValue<1>>::oracle_test_value(0)[0];`
-///   value = `__arg_0.value`
-comptime fn bind_scenario(typ: Type, binding: Quoted, seed: u32, scenario: u32) -> (Quoted, Quoted) {
+/// statement that selects this scenario's [`Scenario`], and the expression that reads its value (`$binding.value`).
+comptime fn bind_scenario(typ: Type, binding: Quoted, position: u32, scenario: u32) -> (Quoted, Quoted) {
     let idx_val = scenario % num_scenarios(typ);
     let idx = f"{idx_val}".quoted_contents();
-    let list = scenarios_expr(typ, seed);
+    let list = scenarios_expr(typ, position);
     let announce = set_scenario(typ, binding);
     (quote { let $binding = $list[$idx]; $announce }, quote { $binding.value })
 }
@@ -310,12 +278,18 @@ comptime fn bind_scenario(typ: Type, binding: Quoted, seed: u32, scenario: u32) 
 /// The `assertion` for one scenario, plus the extra `setup` it needs. A unit-returning oracle just calls it
 /// (`let _ = oracle(args)`) and needs no setup; otherwise this binds the expected return value (`__ret`) in
 /// `return_binding` and asserts the oracle's result equals it.
-comptime fn build_assertion(oracle: Quoted, args: Quoted, return_type: Type, scenario: u32) -> (Quoted, Quoted) {
+comptime fn build_assertion(
+    oracle: Quoted,
+    args: Quoted,
+    return_type: Type,
+    return_position: u32,
+    scenario: u32,
+) -> (Quoted, Quoted) {
     if return_type.is_unit() {
         (quote {}, quote { let _ = $oracle($args); })
     } else {
         let why = f"return serialization mismatch for {oracle}. Consider bumping the oracle version after fixing the mismatch";
-        let (return_binding, ret_value) = bind_scenario(return_type, quote { __ret }, 0, scenario);
+        let (return_binding, ret_value) = bind_scenario(return_type, quote { __ret }, return_position, scenario);
         (return_binding, quote { assert_eq($oracle($args), $ret_value, $why); })
     }
 }
@@ -333,15 +307,9 @@ comptime fn num_scenarios(typ: Type) -> u32 {
     }
 }
 
-/// Builds the quoted expression that produces `typ`'s scenarios (a `[Scenario<T>; N]`). The macro selects one element
-/// of it per scenario and reads `.value` / `.name` from that [`Scenario`].
-///
-/// Example: for `Field` with `seed = 0`, returns the quoted `<Field as OracleTestValue<1>>::oracle_test_value(0)`.
-///
-/// `typ` is run through [`pinned_type`] first to make generic array/bounded-vec lengths concrete. The trait call is
-/// fully qualified because a bare `OracleTestValue::oracle_test_value(...)` relies on return-type-driven dispatch,
-/// which does not resolve in macro-generated code (it crashes monomorphization).
-comptime fn scenarios_expr(typ: Type, seed: u32) -> Quoted {
+/// Builds the quoted expression that produces `typ`'s scenarios (a `[Scenario<T>; N]`).
+comptime fn scenarios_expr(typ: Type, position: u32) -> Quoted {
+    let seed = SEED_BASE + position;
     let seed = f"{seed}".quoted_contents();
     let n = num_scenarios(typ);
     let count = f"{n}".quoted_contents();
@@ -351,9 +319,8 @@ comptime fn scenarios_expr(typ: Type, seed: u32) -> Quoted {
     }
 }
 
-/// The announcement (if any) for a multi-scenario type: emits `add_scenario_to_oracle_test(...)` with the selected
-/// scenario's own name (`$binding.name`) so the resolver knows which shape to expect. Single-scenario types announce
-/// nothing.
+/// For a multi-scenario type, emits an `add_scenario_to_oracle_test(...)` call passing the selected scenario's name
+/// so the resolver knows which shape to expect. Single-scenario types emit nothing.
 comptime fn set_scenario(typ: Type, binding: Quoted) -> Quoted {
     if num_scenarios(typ) > 1 {
         quote { crate::macros::oracle_testing::add_scenario_to_oracle_test($binding.name); }
@@ -362,7 +329,7 @@ comptime fn set_scenario(typ: Type, binding: Quoted) -> Quoted {
     }
 }
 
-/// Adds a scenario name to the announcement for the session's next oracle call. Only the test resolver implements this
+/// Sends a scenario name to the resolver for the session's next oracle call. Only the test resolver implements this
 /// oracle (PXE and TXE do not); the tests `#[auto_serialization_test]` generates call it once per multi-scenario
 /// position before the oracle call, passing the selected [`Scenario`]'s name, and the resolver joins the names with
 /// `+`.

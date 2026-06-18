@@ -152,9 +152,9 @@ describe('OracleTestResolver', () => {
     });
   }
 
-  // Encodes `name` as Noir's `BoundedVec<u8, 32>` wire shape, via the same entry the resolver decodes it with.
+  // Encodes `name` as Noir's `BoundedVec<u8, 64>` wire shape, via the same entry the resolver decodes it with.
   function setScenario(name: string, sessionId: number) {
-    const bytes = BoundedVec.from({ data: Array.from(name, c => c.charCodeAt(0)), maxLength: 32 });
+    const bytes = BoundedVec.from({ data: Array.from(name, c => c.charCodeAt(0)), maxLength: 64 });
     const [data, length] = SET_SCENARIO_ENTRY.params[0].type.serialization!.fn(bytes) as [Fr[], Fr];
     return callOracle('aztec_oracle_test_set_scenario', [data.map(toHex), toHex(length)], sessionId);
   }
