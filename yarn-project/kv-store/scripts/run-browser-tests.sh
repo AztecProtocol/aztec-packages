@@ -15,10 +15,10 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-files=$(find src/browser src/indexeddb src/sqlite-opfs -name '*.test.ts' 2>/dev/null | sort)
+files=$(find src/browser src/deprecated/indexeddb src/sqlite-opfs -name '*.test.ts' 2>/dev/null | sort)
 
 if [ -z "$files" ]; then
-  echo "No test files found in src/browser, src/indexeddb or src/sqlite-opfs"
+  echo "No test files found in src/browser, src/deprecated/indexeddb or src/sqlite-opfs"
   exit 0
 fi
 

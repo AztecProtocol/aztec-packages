@@ -75,7 +75,7 @@ export default defineConfig({
           name: 'browser',
           include: [
             './src/browser/**/*.test.ts',
-            './src/indexeddb/**/*.test.ts',
+            './src/deprecated/indexeddb/**/*.test.ts',
             './src/sqlite-opfs/**/*.test.ts',
             // Benchmarks self-skip unless VITE_BENCH=1; include so they're discoverable.
             './src/bench/indexeddb/**/*.test.ts',
