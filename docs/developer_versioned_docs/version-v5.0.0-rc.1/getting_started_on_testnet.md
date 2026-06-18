@@ -15,7 +15,6 @@ This guide walks you through deploying your first contract on the Aztec testnet.
 |---------|-------------|---------|
 | **Environment** | Local machine | Decentralized network on Sepolia |
 | **Fees** | Free (test accounts prefunded) | Sponsored FPC available |
-| **Block times** | Instant | ~36 seconds |
 | **Proving** | Optional | Required |
 | **Accounts** | Test accounts pre-deployed | Must create and deploy your own |
 

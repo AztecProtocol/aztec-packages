@@ -36,7 +36,7 @@ We want to add a few more dependencies now before we start:
 
 ```bash
 cd hardhat-aztec-example
-yarn add @aztec/aztec.js@5.0.0-rc.1 @aztec/accounts@5.0.0-rc.1 @aztec/stdlib@5.0.0-rc.1 @aztec/wallets@5.0.0-rc.1 tsx
+yarn add @aztec/aztec.js@5.0.0-rc.1 @aztec/accounts@5.0.0-rc.1 @aztec/stdlib@5.0.0-rc.1 @aztec/wallets@5.0.0-rc.1 @aztec/viem@2.38.2 tsx
 ```
 
 Now start the local network in another terminal:
