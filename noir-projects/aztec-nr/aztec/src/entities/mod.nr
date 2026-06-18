@@ -37,7 +37,7 @@ impl RawEntity {
     {
         let n = <T as Deserialize>::N;
         assert_eq(self.body.len(), n, "entity body length mismatch");
-        let mut fields: [Field; <T as Deserialize>::N] = [0; <T as Deserialize>::N];
+        let mut fields = [0; <T as Deserialize>::N];
         for i in 0..n {
             fields[i] = self.body.get(i);
         }
