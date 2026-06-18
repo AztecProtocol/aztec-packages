@@ -41,6 +41,9 @@ const toPrivateKeyHex = (index: number): Hex => {
 const FUNDING_THRESHOLD = parseEther('2');
 const FUNDING_AMOUNT = parseEther('2.1');
 
+// Tests the PublisherManager's automatic L1 ETH top-up logic when a keystore carries two publishers and a
+// dedicated funding account. Uses PIPELINING_SETUP_OPTS (prod sequencer, ethSlot=4s, aztecSlot=12s) with
+// a pre-written keystore JSON and ethCheatCodes to drain and monitor publisher balances.
 describe('e2e_publisher_funding_multi', () => {
   jest.setTimeout(5 * 60 * 1000);
 
@@ -107,6 +110,9 @@ describe('e2e_publisher_funding_multi', () => {
     await rm(keyStoreDirectory, { recursive: true, force: true });
   });
 
+  // Sets both publisher L1 balances below the funding threshold via ethCheatCodes, waits for the
+  // PublisherManager's periodic funding loop to top them both up (round 1), then drains one publisher
+  // again and waits for a second funding round to confirm the loop is still healthy.
   it('funds both publishers when balances drop below threshold', async () => {
     const publishers: L1TxUtils[] = (publisherManager as any).publishers;
     const funder: L1TxUtils | undefined = (publisherManager as any).funder;
@@ -130,6 +136,8 @@ describe('e2e_publisher_funding_multi', () => {
 
     // The RunningPromise checks funding every 2 minutes, so we need to wait long enough
     // for the next cycle to detect the low balances and fund both publishers.
+    // REFACTOR: hand-rolled poll waiting for PublisherManager funding cycle; a helper like
+    // waitForPublisherBalancesAbove(publisherManager, threshold) should replace this retryUntil.
     await retryUntil(
       async () => {
         const balance1 = await ethCheatCodes.getBalance(publisher1Address);
@@ -166,6 +174,8 @@ describe('e2e_publisher_funding_multi', () => {
     const funderBalanceBefore2 = await ethCheatCodes.getBalance(funderAddress);
     logger.info(`Waiting for second funding round`);
 
+    // REFACTOR: hand-rolled poll waiting for a second PublisherManager funding cycle; same helper
+    // as above should cover this site.
     await retryUntil(
       async () => {
         const spent = funderBalanceBefore2 - (await ethCheatCodes.getBalance(funderAddress));
