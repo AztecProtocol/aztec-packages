@@ -2,22 +2,24 @@
 
 use crate::macros::oracle_testing::{generate_oracle_tests, generate_oracle_tests_excluding};
 
-// These oracles are not implemented by TXE/PXE, so we won't test them
 #[generate_oracle_tests_excluding(
     @[
+        // Not implemented by TXE/PXE, so we won't test them.
         quote { transaction_fee_opcode },
         quote { min_fee_per_l2_gas_opcode },
         quote { min_fee_per_da_gas_opcode },
         quote { l2_gas_left_opcode },
         quote { da_gas_left_opcode },
         quote { note_hash_exists_opcode },
-        quote { emit_public_log_opcode },
         quote { l1_to_l2_msg_exists_opcode },
         quote { send_l2_to_l1_msg_opcode },
         quote { calldata_copy_opcode },
-        quote { returndata_copy_opcode },
         quote { return_opcode },
         quote { revert_opcode },
+        // TODO: implement once we support more complex types
+        quote { emit_public_log_opcode },
+        quote { returndata_copy_opcode },
+        // TODO: requires fix on registry
         quote { call_opcode },
         quote { call_static_opcode },
         quote { success_copy_opcode },
