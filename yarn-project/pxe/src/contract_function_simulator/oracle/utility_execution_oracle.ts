@@ -51,17 +51,22 @@ import type { AddressStore } from '../../storage/address_store/address_store.js'
 import type { CapsuleService } from '../../storage/capsule_store/capsule_service.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
 import { EntityKey, EntityTypeKey } from '../../storage/entity_store/index.js';
-import type { Entity, EntityService, OriginBlock } from '../../storage/entity_store/index.js';
+import type {
+  Entity as EntityFromStore,
+  EntityService,
+  Fact as FactFromStore,
+  OriginBlock,
+} from '../../storage/entity_store/index.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../../storage/private_event_store/private_event_store.js';
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
 import type { SenderAddressBookStore } from '../../storage/tagging_store/sender_address_book_store.js';
 import { EphemeralArrayService } from '../ephemeral_array_service.js';
 import { BoundedVec } from '../noir-structs/bounded_vec.js';
-import type { EntityOutput } from '../noir-structs/entity_output.js';
+import type { Entity } from '../noir-structs/entity.js';
 import { EphemeralArray } from '../noir-structs/ephemeral_array.js';
 import type { EventValidationRequest } from '../noir-structs/event_validation_request.js';
-import type { FactOutput } from '../noir-structs/fact_output.js';
+import type { Fact } from '../noir-structs/fact.js';
 import type { LogRetrievalRequest } from '../noir-structs/log_retrieval_request.js';
 import type { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
 import type { NoteData } from '../noir-structs/note_data.js';
@@ -723,13 +728,13 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   }
 
   /** Builds the Noir-facing ENTITY output (body + facts as nested ephemeral arrays) from a stored entity. */
-  #toEntityOutput(entity: Entity): EntityOutput {
+  #toEntityOutput(entity: EntityFromStore): Entity {
     return {
       body: EphemeralArray.fromValues(this.ephemeralArrayService, entity.body),
       facts: EphemeralArray.fromValues(
         this.ephemeralArrayService,
         entity.facts.map(
-          (fact): FactOutput => ({
+          (fact: FactFromStore): Fact => ({
             factTypeId: fact.factTypeId,
             payload: EphemeralArray.fromValues(this.ephemeralArrayService, fact.payload),
           }),
@@ -789,7 +794,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     contractAddress: AztecAddress,
     scope: AztecAddress,
     entityTypeId: Fr,
-  ): Promise<EphemeralArray<EntityOutput>> {
+  ): Promise<EphemeralArray<Entity>> {
     this.#assertOwnContract(contractAddress);
     const entities = await this.entityService.getEntities(
       new EntityTypeKey(contractAddress, scope, entityTypeId),
@@ -807,7 +812,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     scope: AztecAddress,
     entityTypeId: Fr,
     entityId: Fr,
-  ): Promise<EntityOutput> {
+  ): Promise<Entity> {
     this.#assertOwnContract(contractAddress);
     const entity = await this.entityService.getEntity(
       new EntityKey(contractAddress, scope, entityTypeId, entityId),
