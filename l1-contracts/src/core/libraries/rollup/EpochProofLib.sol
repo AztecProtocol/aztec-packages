@@ -144,29 +144,6 @@ library EpochProofLib {
   }
 
   /**
-   * @notice Rehashes each provided checkpoint header and requires it to match the stored header hash
-   *
-   * @param _start The first checkpoint number in the epoch (inclusive)
-   * @param _end The last checkpoint number in the epoch (inclusive)
-   * @param _headers The proposed headers for each checkpoint in [_start, _end]
-   */
-  function verifyHeaders(uint256 _start, uint256 _end, ProposedHeader[] calldata _headers) private view {
-    uint256 numCheckpoints = _end - _start + 1;
-    require(
-      _headers.length == numCheckpoints, Errors.Rollup__InvalidCheckpointHeaderCount(numCheckpoints, _headers.length)
-    );
-
-    for (uint256 i = 0; i < numCheckpoints; i++) {
-      bytes32 expectedHeaderHash = STFLib.getHeaderHash(_start + i);
-      bytes32 providedHeaderHash = ProposedHeaderLib.hash(_headers[i]);
-      require(
-        providedHeaderHash == expectedHeaderHash,
-        Errors.Rollup__InvalidCheckpointHeader(expectedHeaderHash, providedHeaderHash)
-      );
-    }
-  }
-
-  /**
    * @notice Returns the computed public inputs for the given epoch proof.
    *
    * @dev Useful for debugging and testing. Allows submitter to compare their
@@ -352,6 +329,29 @@ library EpochProofLib {
     }
 
     ValidatorSelectionLib.verifyAttestations(epoch, _attestations, checkpointLog.payloadDigest);
+  }
+
+  /**
+   * @notice Rehashes each provided checkpoint header and requires it to match the stored header hash
+   *
+   * @param _start The first checkpoint number in the epoch (inclusive)
+   * @param _end The last checkpoint number in the epoch (inclusive)
+   * @param _headers The proposed headers for each checkpoint in [_start, _end]
+   */
+  function verifyHeaders(uint256 _start, uint256 _end, ProposedHeader[] calldata _headers) private view {
+    uint256 numCheckpoints = _end - _start + 1;
+    require(
+      _headers.length == numCheckpoints, Errors.Rollup__InvalidCheckpointHeaderCount(numCheckpoints, _headers.length)
+    );
+
+    for (uint256 i = 0; i < numCheckpoints; i++) {
+      bytes32 expectedHeaderHash = STFLib.getHeaderHash(_start + i);
+      bytes32 providedHeaderHash = ProposedHeaderLib.hash(_headers[i]);
+      require(
+        providedHeaderHash == expectedHeaderHash,
+        Errors.Rollup__InvalidCheckpointHeader(expectedHeaderHash, providedHeaderHash)
+      );
+    }
   }
 
   /**
