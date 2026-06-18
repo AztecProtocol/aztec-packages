@@ -109,6 +109,7 @@ export class TXEStateMachine {
         feeRecipient: block.header.globalVariables.feeRecipient,
         gasFees: block.header.globalVariables.gasFees,
         totalManaUsed: block.header.totalManaUsed,
+        accumulatedFees: block.header.totalFees,
       }),
       [block],
       checkpointNumber,

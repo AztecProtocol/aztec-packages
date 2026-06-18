@@ -83,6 +83,7 @@ export type ViemHeader = {
   feeRecipient: `0x${string}`;
   gasFees: ViemGasFees;
   totalManaUsed: bigint;
+  accumulatedFees: bigint;
 };
 
 export type ViemGasFees = {
@@ -812,7 +813,7 @@ export class RollupContract {
   }
 
   async getEpochProofPublicInputs(
-    args: readonly [bigint, bigint, EpochProofPublicInputArgs, readonly `0x${string}`[], `0x${string}`],
+    args: readonly [bigint, bigint, EpochProofPublicInputArgs, readonly ViemHeader[], `0x${string}`],
   ): Promise<Fr[]> {
     const result = await this.rollup.read.getEpochProofPublicInputs(args);
     return result.map(Fr.fromString);

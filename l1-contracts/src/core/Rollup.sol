@@ -297,9 +297,10 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     uint256 _start,
     uint256 _end,
     PublicInputArgs calldata _args,
+    ProposedHeader[] calldata _headers,
     bytes calldata _blobPublicInputs
   ) external view override(IRollup) returns (bytes32[] memory) {
-    return RollupOperationsExtLib.getEpochProofPublicInputs(_start, _end, _args, _blobPublicInputs);
+    return RollupOperationsExtLib.getEpochProofPublicInputs(_start, _end, _args, _headers, _blobPublicInputs);
   }
 
   /**

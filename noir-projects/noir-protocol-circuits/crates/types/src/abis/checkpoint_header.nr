@@ -30,6 +30,9 @@ pub struct CheckpointHeader {
     pub fee_recipient: AztecAddress,
     pub gas_fees: GasFees,
     pub total_mana_used: Field,
+    // The total fees accrued across the checkpoint. Committed here so the header hash binds the fee value the
+    // committee attested to, rather than relying on the epoch proof's verifier.
+    pub accumulated_fees: Field,
 }
 
 impl Empty for CheckpointHeader {
@@ -46,6 +49,7 @@ impl Empty for CheckpointHeader {
             fee_recipient: AztecAddress::zero(),
             gas_fees: GasFees::empty(),
             total_mana_used: 0,
+            accumulated_fees: 0,
         }
     }
 }
@@ -67,6 +71,7 @@ impl CheckpointHeader {
         let gas_fees_per_l2_gas_bytes: [u8; 16] =
             (self.gas_fees.fee_per_l2_gas as Field).to_be_bytes();
         let total_mana_used_bytes: [u8; 32] = self.total_mana_used.to_be_bytes();
+        let accumulated_fees_bytes: [u8; 32] = self.accumulated_fees.to_be_bytes();
 
         let mut offset = 0;
         for i in 0..32 {
@@ -111,6 +116,11 @@ impl CheckpointHeader {
         for i in 0..32 {
             bytes[i + offset] = total_mana_used_bytes[i];
         }
+        offset += total_mana_used_bytes.len();
+
+        for i in 0..32 {
+            bytes[i + offset] = accumulated_fees_bytes[i];
+        }
 
         bytes
     }
@@ -128,7 +138,7 @@ fn empty_checkpoint_header_hash_matches_ts() {
 
     // Generated from checkpoint_header.test.ts
     let empty_checkpoint_header_hash_from_ts =
-        0x007802c95d2f1ade746d97350a18ddbfdb9f5bee2803436917a3cf3d6a685a3a;
+        0x002e384af86a480f952aa16443fd29646a9063865e62d7c403fc7ed697bb7712;
 
     assert_eq(header.hash(), empty_checkpoint_header_hash_from_ts);
 }
@@ -147,6 +157,7 @@ fn checkpoint_header_hash_matches_ts() {
         fee_recipient: AztecAddress::from_field(101010),
         gas_fees: GasFees { fee_per_da_gas: 100, fee_per_l2_gas: 200 },
         total_mana_used: 151617,
+        accumulated_fees: 181920,
     };
     // We use the CHECKPOINT_HEADER_LENGTH constant to ensure that there is a match between the derived trait
     // implementation and the constant.
@@ -156,7 +167,7 @@ fn checkpoint_header_hash_matches_ts() {
 
     // Generated from checkpoint_header.test.ts
     let checkpoint_header_hash_from_ts =
-        0x007df45447387f2e48b4acae48b6c7f72eb63a9f6611c2f665df39f013a20dcf;
+        0x00d0dc440023ae006b0880b29ebfd5fda599d1aa7707f925229a362c5f24f3fc;
 
     assert_eq(header.hash(), checkpoint_header_hash_from_ts);
 }
@@ -180,6 +191,7 @@ fn checkpoint_header_hash_large_values_matches_ts() {
             fee_per_l2_gas: max_bytes_16 - 200,
         },
         total_mana_used: MAX_FIELD_VALUE - 151617,
+        accumulated_fees: MAX_FIELD_VALUE - 181920,
     };
 
     let serialized: [Field; CHECKPOINT_HEADER_LENGTH] = header.serialize();
@@ -188,7 +200,7 @@ fn checkpoint_header_hash_large_values_matches_ts() {
 
     // Generated from checkpoint_header.test.ts
     let checkpoint_header_hash_large_values_from_ts =
-        0x00f074f614b5872bfea51e9b457ef2bf61e8c8afa842baaae05f77d885852d3c;
+        0x0077f763e5840cc3f24686ac79f58ef8a7f08c6418fd757e7e84566dc2eb032a;
 
     assert_eq(header.hash(), checkpoint_header_hash_large_values_from_ts);
 }

@@ -2,21 +2,19 @@ import { BatchedBlob, getEthBlobEvaluationInputs } from '@aztec/blob-lib';
 import { MAX_CHECKPOINTS_PER_EPOCH } from '@aztec/constants';
 import type { RollupContract, ViemCommitteeAttestation } from '@aztec/ethereum/contracts';
 import type { L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
-import { makeTuple } from '@aztec/foundation/array';
 import { CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { areArraysEqual } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
-import type { Tuple } from '@aztec/foundation/serialize';
 import { Timer } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import type { PublisherConfig, TxSenderConfig } from '@aztec/sequencer-client';
 import { CommitteeAttestation, CommitteeAttestationsAndSigners } from '@aztec/stdlib/block';
 import { getProofSubmissionDeadlineTimestamp } from '@aztec/stdlib/epoch-helpers';
 import type { Proof } from '@aztec/stdlib/proofs';
-import type { FeeRecipient, RootRollupPublicInputs } from '@aztec/stdlib/rollup';
+import type { CheckpointHeader, RootRollupPublicInputs } from '@aztec/stdlib/rollup';
 import type { L1PublishProofStats } from '@aztec/stdlib/stats';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
@@ -33,7 +31,7 @@ export type L1SubmitEpochProofArgs = {
   endTimestamp: Fr;
   outHash: Fr;
   proverId: Fr;
-  fees: Tuple<FeeRecipient, typeof MAX_CHECKPOINTS_PER_EPOCH>;
+  headers: CheckpointHeader[];
   proof: Proof;
 };
 
@@ -95,6 +93,7 @@ export class ProverNodePublisher {
     fromCheckpoint: CheckpointNumber;
     toCheckpoint: CheckpointNumber;
     publicInputs: RootRollupPublicInputs;
+    headers: CheckpointHeader[];
     proof: Proof;
     batchedBlobInputs: BatchedBlob;
     attestations: ViemCommitteeAttestation[];
@@ -205,6 +204,7 @@ export class ProverNodePublisher {
     fromCheckpoint: CheckpointNumber;
     toCheckpoint: CheckpointNumber;
     publicInputs: RootRollupPublicInputs;
+    headers: CheckpointHeader[];
     proof: Proof;
     batchedBlobInputs: BatchedBlob;
     attestations: ViemCommitteeAttestation[];
@@ -278,6 +278,7 @@ export class ProverNodePublisher {
     fromCheckpoint: CheckpointNumber;
     toCheckpoint: CheckpointNumber;
     publicInputs: RootRollupPublicInputs;
+    headers: CheckpointHeader[];
     proof: Proof;
     batchedBlobInputs: BatchedBlob;
     attestations: ViemCommitteeAttestation[];
@@ -325,6 +326,7 @@ export class ProverNodePublisher {
     fromCheckpoint: CheckpointNumber;
     toCheckpoint: CheckpointNumber;
     publicInputs: RootRollupPublicInputs;
+    headers: CheckpointHeader[];
     proof: Proof;
     batchedBlobInputs: BatchedBlob;
     attestations: ViemCommitteeAttestation[];
@@ -340,6 +342,7 @@ export class ProverNodePublisher {
     fromCheckpoint: CheckpointNumber;
     toCheckpoint: CheckpointNumber;
     publicInputs: RootRollupPublicInputs;
+    headers: CheckpointHeader[];
     proof: Proof;
     batchedBlobInputs: BatchedBlob;
     attestations: ViemCommitteeAttestation[];
@@ -384,6 +387,7 @@ export class ProverNodePublisher {
     fromCheckpoint: CheckpointNumber;
     toCheckpoint: CheckpointNumber;
     publicInputs: RootRollupPublicInputs;
+    headers: CheckpointHeader[];
     batchedBlobInputs: BatchedBlob;
     attestations: ViemCommitteeAttestation[];
   }) {
@@ -397,11 +401,7 @@ export class ProverNodePublisher {
         outHash: args.publicInputs.outHash.toString(),
         proverId: EthAddress.fromField(args.publicInputs.constants.proverId).toString(),
       } /*_args*/,
-      makeTuple(MAX_CHECKPOINTS_PER_EPOCH * 2, i =>
-        i % 2 === 0
-          ? args.publicInputs.fees[i / 2].recipient.toField().toString()
-          : args.publicInputs.fees[(i - 1) / 2].value.toString(),
-      ) /*_fees*/,
+      args.headers.map(header => header.toViem()) /*_headers*/,
       getEthBlobEvaluationInputs(args.batchedBlobInputs) /*_blobPublicInputs*/,
     ] as const;
   }
@@ -410,6 +410,7 @@ export class ProverNodePublisher {
     fromCheckpoint: CheckpointNumber;
     toCheckpoint: CheckpointNumber;
     publicInputs: RootRollupPublicInputs;
+    headers: CheckpointHeader[];
     proof: Proof;
     batchedBlobInputs: BatchedBlob;
     attestations: ViemCommitteeAttestation[];
@@ -421,7 +422,7 @@ export class ProverNodePublisher {
       start: argsArray[0],
       end: argsArray[1],
       args: argsArray[2],
-      fees: argsArray[3],
+      headers: argsArray[3],
       attestations: CommitteeAttestationsAndSigners.packAttestations(
         args.attestations.map(a => CommitteeAttestation.fromViem(a)),
       ),

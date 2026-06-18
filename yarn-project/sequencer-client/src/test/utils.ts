@@ -98,6 +98,7 @@ function createCheckpointHeaderFromBlock(block: L2Block): CheckpointHeader {
     gv.feeRecipient,
     gv.gasFees,
     block.header.totalManaUsed,
+    block.header.totalFees,
   );
 }
 

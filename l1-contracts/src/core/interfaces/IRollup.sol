@@ -186,6 +186,7 @@ interface IRollup is IRollupCore, IHaveVersion {
     uint256 _start,
     uint256 _end,
     PublicInputArgs calldata _args,
+    ProposedHeader[] calldata _headers,
     bytes calldata _blobPublicInputs
   ) external view returns (bytes32[] memory);
 

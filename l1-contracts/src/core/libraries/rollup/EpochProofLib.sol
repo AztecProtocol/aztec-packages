@@ -176,12 +176,14 @@ library EpochProofLib {
    * @param  _start - The start of the epoch (inclusive)
    * @param  _end - The end of the epoch (inclusive)
    * @param  _args - Array of public inputs to the proof (previousArchive, endArchive, endTimestamp, outHash, proverId)
+   * @param  _headers - The proposed checkpoint headers supplying the fee recipient and value for each checkpoint
    * @param _blobPublicInputs- The blob public inputs for the proof
    */
   function getEpochProofPublicInputs(
     uint256 _start,
     uint256 _end,
     PublicInputArgs calldata _args,
+    ProposedHeader[] calldata _headers,
     bytes calldata _blobPublicInputs
   ) internal view returns (bytes32[] memory) {
     RollupStore storage rollupStore = STFLib.getStorage();
@@ -239,8 +241,12 @@ library EpochProofLib {
 
     uint256 offset = 3 + Constants.MAX_CHECKPOINTS_PER_EPOCH;
 
-    // Fee recipient/value come from the checkpoint headers (see {verifyHeaders}), not the proof. These public
-    // input slots stay reserved and are left as zero.
+    // Fee recipient/value are taken from the checkpoint headers verified in {verifyHeaders}, not from prover-supplied
+    // calldata, so an unsound verifier cannot let the prover forge them. Slots past numCheckpoints stay zero.
+    for (uint256 i = 0; i < numCheckpoints; i++) {
+      publicInputs[offset + 2 * i] = addressToField(_headers[i].coinbase);
+      publicInputs[offset + 2 * i + 1] = bytes32(_headers[i].accumulatedFees);
+    }
     offset += Constants.MAX_CHECKPOINTS_PER_EPOCH * 2;
 
     publicInputs[offset] = bytes32(block.chainid);
@@ -429,7 +435,8 @@ library EpochProofLib {
 
     BlobLib.validateBatchedBlob(_args.blobInputs);
 
-    bytes32[] memory publicInputs = getEpochProofPublicInputs(_args.start, _args.end, _args.args, _args.blobInputs);
+    bytes32[] memory publicInputs =
+      getEpochProofPublicInputs(_args.start, _args.end, _args.args, _args.headers, _args.blobInputs);
 
     require(rollupStore.config.epochProofVerifier.verify(_args.proof, publicInputs), Errors.Rollup__InvalidProof());
 
