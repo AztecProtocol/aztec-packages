@@ -12,6 +12,7 @@ pub struct PrivateContextInputs {
     pub anchor_block_header: BlockHeader,
     pub tx_context: TxContext,
     pub start_side_effect_counter: u32,
+    pub salt: Field,
 }
 impl Empty for PrivateContextInputs {
     fn empty() -> Self {
@@ -20,6 +21,7 @@ impl Empty for PrivateContextInputs {
             anchor_block_header: BlockHeader::empty(),
             tx_context: TxContext::empty(),
             start_side_effect_counter: 0 as u32,
+            salt: 0,
         }
     }
 }

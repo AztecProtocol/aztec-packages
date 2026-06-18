@@ -144,6 +144,10 @@ export class PrivateCircuitPublicInputs {
      * Hash of the contract class logs emitted in this function call.
      */
     public contractClassLogsHashes: ClaimedLengthArray<CountedLogHash, typeof MAX_CONTRACT_CLASS_LOGS_PER_CALL>,
+    /**
+     * The tx request salt, set by the framework so the init kernel can bind this proof to the tx request.
+     */
+    public salt: Fr,
   ) {}
 
   /**
@@ -188,6 +192,7 @@ export class PrivateCircuitPublicInputs {
       reader.readObject(ClaimedLengthArrayFromBuffer(CountedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_CALL)),
       reader.readObject(ClaimedLengthArrayFromBuffer(PrivateLogData, MAX_PRIVATE_LOGS_PER_CALL)),
       reader.readObject(ClaimedLengthArrayFromBuffer(CountedLogHash, MAX_CONTRACT_CLASS_LOGS_PER_CALL)),
+      reader.readObject(Fr),
     );
   }
 
@@ -219,6 +224,7 @@ export class PrivateCircuitPublicInputs {
       reader.readObject(ClaimedLengthArrayFromFields(CountedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_CALL)),
       reader.readObject(ClaimedLengthArrayFromFields(PrivateLogData, MAX_PRIVATE_LOGS_PER_CALL)),
       reader.readObject(ClaimedLengthArrayFromFields(CountedLogHash, MAX_CONTRACT_CLASS_LOGS_PER_CALL)),
+      reader.readField(),
     );
   }
 
@@ -251,6 +257,7 @@ export class PrivateCircuitPublicInputs {
       ClaimedLengthArray.empty(CountedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_CALL),
       ClaimedLengthArray.empty(PrivateLogData, MAX_PRIVATE_LOGS_PER_CALL),
       ClaimedLengthArray.empty(CountedLogHash, MAX_CONTRACT_CLASS_LOGS_PER_CALL),
+      Fr.ZERO,
     );
   }
 
@@ -278,7 +285,8 @@ export class PrivateCircuitPublicInputs {
       this.nullifiers.isEmpty() &&
       this.l2ToL1Msgs.isEmpty() &&
       this.privateLogs.isEmpty() &&
-      this.contractClassLogsHashes.isEmpty()
+      this.contractClassLogsHashes.isEmpty() &&
+      this.salt.isZero()
     );
   }
 
@@ -312,6 +320,7 @@ export class PrivateCircuitPublicInputs {
       fields.l2ToL1Msgs,
       fields.privateLogs,
       fields.contractClassLogsHashes,
+      fields.salt,
     ] as const;
   }
 
@@ -346,6 +355,7 @@ export class PrivateCircuitPublicInputs {
       this.l2ToL1Msgs,
       this.privateLogs,
       this.contractClassLogsHashes,
+      this.salt,
     ]);
   }
 

@@ -473,6 +473,7 @@ export function mapPrivateCircuitPublicInputsToNoir(
     min_revertible_side_effect_counter: mapFieldToNoir(privateCircuitPublicInputs.minRevertibleSideEffectCounter),
     is_fee_payer: privateCircuitPublicInputs.isFeePayer,
     expiration_timestamp: mapU64ToNoir(privateCircuitPublicInputs.expirationTimestamp),
+    salt: mapFieldToNoir(privateCircuitPublicInputs.salt),
   };
 }
 
