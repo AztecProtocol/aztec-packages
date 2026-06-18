@@ -25,6 +25,7 @@ import {
   field as field_funcs,
   field8 as field8_funcs,
   fr_pow as fr_pow_funcs,
+  mask_scalars as mask_scalars_shader,
   mont_pro_product_f32_22_sos3uv3 as montgomery_product_f32_22_sos3uv3_funcs,
   mont_pro_product_karat_yuval as montgomery_product_karat_yuval_funcs,
   mulhilo_22 as mulhilo_22_funcs,
@@ -349,6 +350,17 @@ ${packLines.join('\n')}
       { workgroup_size, windows_per_msm, recompile: this.recompile },
       {},
     );
+  }
+
+  /**
+   * Additive scalar-masking pre-pass. Rewrites each scalar in place to
+   * `(s + R[srs_offset + p]) mod r` so the downstream histogram / decompose
+   * see uniform full-width scalars instead of the structured shapes the
+   * bucket-accumulation pair-tree mishandles. The BN254 scalar modulus is
+   * hardcoded in the template; no per-call data beyond the workgroup size.
+   */
+  public gen_mask_scalars_shader(workgroup_size: number): string {
+    return mustache.render(mask_scalars_shader, { workgroup_size, recompile: this.recompile }, {});
   }
 
   /**

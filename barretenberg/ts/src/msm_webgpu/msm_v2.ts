@@ -100,6 +100,19 @@ export interface MsmConfig {
    * using batch mode and run the combine in the caller.
    */
   batchSize?: number;
+  /**
+   * Additive scalar masking. When set, `prepare()` runs a pre-pass that
+   * rewrites every uploaded scalar to `(s + R[srsOffset + p]) mod r` before
+   * the histogram, where `R` is this buffer: a per-SRS-position random vector
+   * laid out as `8 × u32` little-endian limbs per entry (same form/length as
+   * the pool's point buffers, indexed by absolute pool position). Masking
+   * turns the structured scalars (small / sparse / repeated) the bucket
+   * pair-tree mishandles into uniform full-width scalars — the MSM's known-
+   * good case. The caller is responsible for subtracting the matching offset
+   * `O = Σ R_i P_i` (per `(srsOffset, n)` point set) from the result; see the
+   * bridge's `WebGpuMsmHost` masking path. Default: undefined (no masking).
+   */
+  maskBuf?: GPUBuffer;
 }
 
 /** One timestamped GPU compute pass within a `run()`. `label` is the stage
@@ -1310,6 +1323,14 @@ export class MsmV2 {
   // start of `prepare()` to feed the level walk with GPU-computed counts —
   // replaces the 250 ms host Booth-decode walk at n=2^20.
   private histogramPipe!: GPUComputePipeline;
+  // Additive-masking pre-pass: rewrites scalarsRawBuf in place to
+  // (s + R[srsOffset+p]) mod r before the histogram. Only built when
+  // `config.maskBuf` is set; `maskBuf` is the per-pool R vector.
+  private maskPipe: GPUComputePipeline | null = null;
+  private maskBuf: GPUBuffer | null = null;
+  private maskParamsBuf: GPUBuffer | null = null;
+  private maskBind: GPUBindGroup | null = null;
+  private maskBindScalarsBuf: GPUBuffer | null = null;
   private xposeCountPipe!: GPUComputePipeline;
   private xposeReducePipe!: GPUComputePipeline;
   private xposeScanPipe!: GPUComputePipeline;
@@ -1328,6 +1349,7 @@ export class MsmV2 {
   private finalizeLayout!: GPUBindGroupLayout;
   private finalizeLayoutL0!: GPUBindGroupLayout;
   private decomposeLayout!: GPUBindGroupLayout;
+  private maskLayout: GPUBindGroupLayout | null = null;
   private histogramLayout!: GPUBindGroupLayout;
   private xposeCountLayout!: GPUBindGroupLayout;
   private xposeReduceLayout!: GPUBindGroupLayout;
@@ -1444,6 +1466,17 @@ export class MsmV2 {
    *  bucket-histogram dispatch (ms). 0 when profile is off. */
   get bucketHistogramGpuMs(): number {
     return this.lastBucketHistogramGpuMs;
+  }
+  /** Wall time of the histogram block (dispatch + the host-blocking mapAsync
+   *  readback) in the most recent prepare(). The readback stall ≈ this minus
+   *  `bucketHistogramGpuMs`; it serializes behind any prior queued GPU work. */
+  get prepHistogramWallMs(): number {
+    return this.lastPrepBoothDecodeMs;
+  }
+  /** Wall time of the host-side per-level planning walk in the most recent
+   *  prepare(). */
+  get prepLevelPlanMs(): number {
+    return this.lastPrepLevelPlanMs;
   }
   // Residual host_prepare time that isn't accounted for by scalar_upload_wall,
   // prep_booth_decode, or prep_level_plan — i.e. fits-check + ensureScratch +
@@ -1724,6 +1757,27 @@ export class MsmV2 {
     });
     // params = (n, num_windows, c, scalar_words). Fixed for this instance.
     device.queue.writeBuffer(m.histogramParamsBuf, 0, new Uint32Array([n, m.numWindows, m.c, 8]));
+
+    // Optional additive-masking pre-pass. Built only when the caller supplied
+    // an R buffer; binds (scalarsRawBuf read_write, maskBuf read, params). The
+    // bind group is rebuilt lazily in prepare() when scalarsRawBuf's identity
+    // changes (same signal the histogram bind group uses). The params uniform
+    // (total_scalars, n, srsOffset, scalar_words) is written per prepare()
+    // because srsOffset varies per call.
+    if (config?.maskBuf) {
+      if (m.useHostHistogram) {
+        throw new Error(
+          'MsmV2.create: maskBuf is incompatible with useHostHistogram — the host histogram reads the un-masked host scalar bytes, not the GPU-masked buffer',
+        );
+      }
+      m.maskBuf = config.maskBuf;
+      m.maskLayout = lt(['storage', 'read-only-storage', 'uniform']);
+      m.maskPipe = await compile(sm.gen_mask_scalars_shader(WGI), `mask-scalars`, m.maskLayout);
+      m.maskParamsBuf = device.createBuffer({
+        size: 16,
+        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+      });
+    }
     // Profile mode: a dedicated 2-slot timestamp-query for the prepare-time
     // histogram pass so we can split `prep_booth_decode` into "GPU dispatch
     // wall" vs "host mapAsync wait + readback".
@@ -1885,6 +1939,37 @@ export class MsmV2 {
     device.queue.writeBuffer(scalarsRawBuf, 0, scalars as BufferSource);
     this.lastScalarUploadMs = performance.now() - tScalarUpload0;
     this.lastScalarUploadBytes = scalars.byteLength;
+
+    // Additive-masking pre-pass: rewrite the just-uploaded scalars in place to
+    // (s + R[srsOffset + p]) mod r BEFORE the histogram reads them, so every
+    // downstream stage (histogram, level plan, decompose) sees uniform full-
+    // width scalars. Indexed by absolute pool position (srsOffset + p), so all
+    // batch slots share R and the single offset O the caller subtracts. The
+    // submit is ordered before the histogram submit below, so the histogram
+    // reads the masked values. Incompatible with the host-histogram bypass,
+    // which would read the un-masked host bytes (guarded in create()).
+    if (this.maskPipe && this.maskBuf && this.maskParamsBuf && this.maskLayout) {
+      if (this.maskBind === null || this.maskBindScalarsBuf !== scalarsRawBuf) {
+        this.maskBind = device.createBindGroup({
+          layout: this.maskLayout,
+          entries: [
+            { binding: 0, resource: { buffer: scalarsRawBuf } },
+            { binding: 1, resource: { buffer: this.maskBuf } },
+            { binding: 2, resource: { buffer: this.maskParamsBuf } },
+          ],
+        });
+        this.maskBindScalarsBuf = scalarsRawBuf;
+      }
+      // params = (total_scalars, input_size, srs_offset, scalar_words).
+      device.queue.writeBuffer(this.maskParamsBuf, 0, new Uint32Array([totalScalars, n, srsOffset, 8]));
+      const enc = device.createCommandEncoder();
+      const pass = enc.beginComputePass();
+      pass.setPipeline(this.maskPipe);
+      pass.setBindGroup(0, this.maskBind);
+      pass.dispatchWorkgroups(Math.ceil(totalScalars / this.wgi), 1, 1);
+      pass.end();
+      device.queue.submit([enc.finish()]);
+    }
     // Level-0 histogram. Default path: GPU dispatch. Bypass path
     // (`useHostHistogram`): host JS loop via `buildInitCounts`, no GPU
     // dispatch, no mapAsync, no readback memcpy. The bypass is an A/B
@@ -2948,5 +3033,12 @@ export class MsmV2 {
     this.histogramTsResolveBuf = null;
     this.histogramTsStagingBuf?.destroy();
     this.histogramTsStagingBuf = null;
+    // maskParamsBuf is instance-owned; maskBuf is caller-owned (pool/bridge)
+    // and is intentionally NOT destroyed here.
+    this.maskParamsBuf?.destroy();
+    this.maskParamsBuf = null;
+    this.maskBind = null;
+    this.maskBindScalarsBuf = null;
+    this.maskBuf = null;
   }
 }

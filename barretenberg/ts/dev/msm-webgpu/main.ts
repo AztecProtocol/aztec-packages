@@ -604,6 +604,427 @@ async function runWebGpuOnce(
   return { ms, xy: gpu, capture: gpu.profile ?? null };
 }
 
+/**
+ * Isolated single-MSM correctness probe for arbitrary `n` (NOT restricted to
+ * powers of two like the UI's logN sweep), an SRS point offset, and the
+ * `combineOnHost` mode. Runs `n` random scalars against SRS[srsOffset .. +n)
+ * on the GPU, recomputes the same MSM with noble, and logs MATCH / MISMATCH.
+ *
+ * The chonk failure is at n=131071 (=2^17-1), srsOffset=1, combineOnHost=false
+ * (the bridge mode). The UI only ever ran power-of-two n with combineOnHost
+ * the default, so it never covered that case. Matrix to separate the variables:
+ *   await testRawMsm(131072, 0, false)  // 2^17 control — expect MATCH
+ *   await testRawMsm(131071, 0, false)  // size 2^17-1 alone
+ *   await testRawMsm(131071, 1, false)  // the chonk case (size + offset)
+ *   await testRawMsm(131071, 1, true)   // does the combine mode matter?
+ */
+type ScalarMode = 'random' | 'small' | 'sparse' | 'binary' | 'repeated';
+
+async function testRawMsm(
+  n: number,
+  srsOffset = 0,
+  combineOnHost = false,
+  scalarMode: ScalarMode = 'random',
+  poolPoints?: number,
+): Promise<boolean> {
+  if (srsBuf === null) throw new Error('[raw] SRS not loaded yet — wait for the [srs] ready line');
+  // The bridge builds ONE pool from the full SRS and runs each MSM as an
+  // offset-prefix of it; the pool size (srsN) drives the convert-shader
+  // dispatch geometry (msm_v2.ts:1129 — 8 vs 32 X-workgroups at srsN>131072).
+  // Default here mimics that with a big pool unless an explicit size is given.
+  const poolN = poolPoints ?? Math.min(srsBuf.length / 64, Math.max(srsOffset + n, 1 << 18));
+  if (poolN < srsOffset + n) throw new Error(`[raw] poolPoints ${poolN} < srsOffset+n ${srsOffset + n}`);
+  if (poolN * 64 > srsBuf.length) {
+    throw new Error(`[raw] need ${poolN} SRS points but only ${srsBuf.length / 64} loaded`);
+  }
+  log(
+    'info',
+    `[raw] n=${n} srsOffset=${srsOffset} combineOnHost=${combineOnHost} scalars=${scalarMode} poolPoints=${poolN}`,
+  );
+  const G = bn254.G1.ProjectivePoint;
+
+  // Structured scalar generators that mimic the chonk translator polys:
+  // range-constrained limbs are SMALL (~14-bit), SPARSE (many zeros), and
+  // heavily REPEATED — exactly the shape that piles many points into one
+  // Pippenger bucket and stresses the affine-add pair tree (no P==±Q margin).
+  const MASK14 = (1n << 14n) - 1n;
+  const genScalar = (): bigint => {
+    const r = randomFr();
+    switch (scalarMode) {
+      case 'small':
+        return r & MASK14;
+      case 'sparse':
+        return r % 10n < 7n ? 0n : r & MASK14; // ~70% zero, rest small
+      case 'binary':
+        return r & 1n;
+      case 'repeated':
+        return BigInt(Number(r & 0xffn) % 8); // only 8 distinct small values
+      case 'random':
+      default:
+        return r;
+    }
+  };
+
+  const scalarBytes = new Uint8Array(n * 32);
+  const refPts: ReturnType<typeof G.fromAffine>[] = [];
+  const refScs: bigint[] = [];
+  for (let i = 0; i < n; i++) {
+    const s = genScalar();
+    scalarBytes.set(biToLe32(s, `scalar[${i}]`), i * 32);
+    if (s !== 0n) {
+      refPts.push(G.fromAffine(readSrsPointAt(srsBuf, srsOffset + i)));
+      refScs.push(s);
+    }
+  }
+  const toAff = (p: { toAffine: () => { x: bigint; y: bigint } }): { x: bigint; y: bigint } => {
+    try {
+      const a = p.toAffine();
+      return { x: a.x, y: a.y };
+    } catch {
+      return { x: 0n, y: 0n };
+    }
+  };
+  log('info', `[raw] noble reference over ${refScs.length} nonzero terms…`);
+  const cpu = refPts.length === 0 ? { x: 0n, y: 0n } : toAff(G.msm(refPts, refScs));
+
+  const device = await get_device();
+  const poolPts = new Uint8Array(srsBuf.buffer, srsBuf.byteOffset, poolN * 64);
+  const pool = await MsmV2Pool.create(device, poolPts);
+  const msm = await MsmV2.create(device, n, pool, { warmupRuns: 0, combineOnHost });
+  let gpu: { x: bigint; y: bigint };
+  try {
+    await msm.prepare(scalarBytes, srsOffset);
+    const out = (await msm.run()) as { x?: bigint; y?: bigint; windowSums?: { x: bigint; y: bigint }[]; c?: number };
+    if (combineOnHost) {
+      gpu = { x: out.x!, y: out.y! };
+    } else {
+      // Horner-fold the window sums exactly as the bridge / C++ combine_windows does.
+      const toPt = (p: { x: bigint; y: bigint }) => (p.x === 0n && p.y === 0n ? G.ZERO : G.fromAffine(p));
+      const W = out.windowSums!;
+      let acc = toPt(W[W.length - 1]);
+      for (let w = W.length - 2; w >= 0; w--) {
+        for (let d = 0; d < out.c!; d++) acc = acc.double();
+        acc = acc.add(toPt(W[w]));
+      }
+      gpu = toAff(acc);
+    }
+  } finally {
+    msm.destroy();
+    pool.destroy();
+  }
+
+  const match = gpu.x === cpu.x && gpu.y === cpu.y;
+  log(
+    match ? 'ok' : 'error',
+    `[raw] n=${n} srsOffset=${srsOffset} combineOnHost=${combineOnHost} → ${match ? 'MATCH ✓' : 'MISMATCH ✗'}`,
+  );
+  if (!match) {
+    log('error', `[raw]   gpu.x=0x${gpu.x.toString(16)}`);
+    log('error', `[raw]   cpu.x=0x${cpu.x.toString(16)}`);
+  }
+  return match;
+}
+(window as unknown as { testRawMsm: typeof testRawMsm }).testRawMsm = testRawMsm;
+
+/**
+ * Instance-reuse probe. The chonk bridge keeps ONE cached MsmV2 per n and runs
+ * every same-n commit through it (the 10 translator range polys + Z_PERM all
+ * share the n=131071 instance). This runs `count` independent MSMs (fresh
+ * random scalars each) through a SINGLE reused MsmV2 — cross-checking every one
+ * against noble — to catch state that leaks across prepare()/run() cycles.
+ * If the first matches but a later one mismatches, the reuse path is the bug.
+ */
+async function testRawMsmReuse(n: number, srsOffset = 1, count = 11, combineOnHost = false): Promise<void> {
+  if (srsBuf === null) throw new Error('[reuse] SRS not loaded yet');
+  if ((srsOffset + n) * 64 > srsBuf.length) throw new Error('[reuse] not enough SRS points');
+  const G = bn254.G1.ProjectivePoint;
+  const toAff = (p: { toAffine: () => { x: bigint; y: bigint } }) => {
+    try {
+      const a = p.toAffine();
+      return { x: a.x, y: a.y };
+    } catch {
+      return { x: 0n, y: 0n };
+    }
+  };
+  const toPt = (p: { x: bigint; y: bigint }) => (p.x === 0n && p.y === 0n ? G.ZERO : G.fromAffine(p));
+
+  const device = await get_device();
+  const poolPts = new Uint8Array(srsBuf.buffer, srsBuf.byteOffset, (srsOffset + n) * 64);
+  const pool = await MsmV2Pool.create(device, poolPts);
+  const msm = await MsmV2.create(device, n, pool, { warmupRuns: 0, combineOnHost });
+  log(
+    'info',
+    `[reuse] one MsmV2 instance, ${count} runs, n=${n} srsOffset=${srsOffset} combineOnHost=${combineOnHost}`,
+  );
+  try {
+    for (let k = 0; k < count; k++) {
+      const scalarBytes = new Uint8Array(n * 32);
+      const refPts: ReturnType<typeof G.fromAffine>[] = [];
+      const refScs: bigint[] = [];
+      for (let i = 0; i < n; i++) {
+        const s = randomFr();
+        scalarBytes.set(biToLe32(s, `s[${i}]`), i * 32);
+        if (s !== 0n) {
+          refPts.push(G.fromAffine(readSrsPointAt(srsBuf, srsOffset + i)));
+          refScs.push(s);
+        }
+      }
+      const cpu = refPts.length === 0 ? { x: 0n, y: 0n } : toAff(G.msm(refPts, refScs));
+      await msm.prepare(scalarBytes, srsOffset);
+      const out = (await msm.run()) as { x?: bigint; y?: bigint; windowSums?: { x: bigint; y: bigint }[]; c?: number };
+      let gpu: { x: bigint; y: bigint };
+      if (combineOnHost) {
+        gpu = { x: out.x!, y: out.y! };
+      } else {
+        const W = out.windowSums!;
+        let acc = toPt(W[W.length - 1]);
+        for (let w = W.length - 2; w >= 0; w--) {
+          for (let d = 0; d < out.c!; d++) acc = acc.double();
+          acc = acc.add(toPt(W[w]));
+        }
+        gpu = toAff(acc);
+      }
+      const match = gpu.x === cpu.x && gpu.y === cpu.y;
+      log(match ? 'ok' : 'error', `[reuse]   run ${k + 1}/${count} → ${match ? 'MATCH ✓' : 'MISMATCH ✗'}`);
+    }
+  } finally {
+    msm.destroy();
+    pool.destroy();
+  }
+}
+(window as unknown as { testRawMsmReuse: typeof testRawMsmReuse }).testRawMsmReuse = testRawMsmReuse;
+
+/**
+ * Faithful replica of the bridge's same-N collision path: B MSMs of identical
+ * n, all sharing ONE cached MsmV2 instance, PIPELINED — prepare + encodeIntoBatch
+ * + submit per MSM with NO await of GPU completion between them, then a single
+ * drain + readback at the end (exactly bridge/main.ts runBatchMsm same-N branch).
+ * This is what `testRawMsmReuse` did NOT do (it awaited each run). Each MSM gets
+ * its own random scalars; every result is cross-checked against noble.
+ * If the earlier MSMs mismatch (a later prepare clobbered the shared instance's
+ * buffers before their submitted GPU work ran), this is the chonk bug.
+ */
+async function testRawMsmSameN(n: number, srsOffset = 1, B = 10): Promise<void> {
+  if (srsBuf === null) throw new Error('[same-n] SRS not loaded yet');
+  if ((srsOffset + n) * 64 > srsBuf.length) throw new Error('[same-n] not enough SRS points');
+  const G = bn254.G1.ProjectivePoint;
+  const toAff = (p: { toAffine: () => { x: bigint; y: bigint } }) => {
+    try {
+      const a = p.toAffine();
+      return { x: a.x, y: a.y };
+    } catch {
+      return { x: 0n, y: 0n };
+    }
+  };
+  const toPt = (p: { x: bigint; y: bigint }) => (p.x === 0n && p.y === 0n ? G.ZERO : G.fromAffine(p));
+
+  const device = await get_device();
+  const poolPts = new Uint8Array(srsBuf.buffer, srsBuf.byteOffset, (srsOffset + n) * 64);
+  const pool = await MsmV2Pool.create(device, poolPts);
+  const msm = await MsmV2.create(device, n, pool, { warmupRuns: 0, combineOnHost: false });
+  log('info', `[same-n] ONE instance, ${B} PIPELINED same-n MSMs, n=${n} srsOffset=${srsOffset} (no await between)`);
+
+  // CPU references up front (independent of GPU).
+  const cpu: { x: bigint; y: bigint }[] = [];
+  const scalarSets: Uint8Array[] = [];
+  for (let k = 0; k < B; k++) {
+    const sb = new Uint8Array(n * 32);
+    const refPts: ReturnType<typeof G.fromAffine>[] = [];
+    const refScs: bigint[] = [];
+    for (let i = 0; i < n; i++) {
+      const s = randomFr();
+      sb.set(biToLe32(s, `s[${i}]`), i * 32);
+      if (s !== 0n) {
+        refPts.push(G.fromAffine(readSrsPointAt(srsBuf, srsOffset + i)));
+        refScs.push(s);
+      }
+    }
+    scalarSets.push(sb);
+    cpu.push(refPts.length === 0 ? { x: 0n, y: 0n } : toAff(G.msm(refPts, refScs)));
+  }
+
+  try {
+    // Pipelined dispatch — matches the bridge: prepare+encode+submit per MSM,
+    // collect stagings, drain once at the end.
+    const stagings: GPUBuffer[] = [];
+    for (let k = 0; k < B; k++) {
+      await msm.prepare(scalarSets[k], srsOffset);
+      const staging = device.createBuffer({
+        size: msm.windowSumsByteLength,
+        usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+      });
+      const enc = device.createCommandEncoder();
+      msm.encodeIntoBatch(enc, staging, 0);
+      device.queue.submit([enc.finish()]);
+      stagings.push(staging);
+    }
+    await device.queue.onSubmittedWorkDone();
+    for (let k = 0; k < B; k++) {
+      await stagings[k].mapAsync(GPUMapMode.READ);
+      const bytes = new Uint8Array(stagings[k].getMappedRange().slice(0));
+      stagings[k].unmap();
+      const W = msm.decodeWindowSumsFromBytes(bytes, 0);
+      let acc = toPt(W[W.length - 1]);
+      for (let w = W.length - 2; w >= 0; w--) {
+        for (let d = 0; d < msm.c; d++) acc = acc.double();
+        acc = acc.add(toPt(W[w]));
+      }
+      const gpu = toAff(acc);
+      const match = gpu.x === cpu[k].x && gpu.y === cpu[k].y;
+      log(match ? 'ok' : 'error', `[same-n]   msm ${k + 1}/${B} → ${match ? 'MATCH ✓' : 'MISMATCH ✗'}`);
+      stagings[k].destroy();
+    }
+  } finally {
+    msm.destroy();
+    pool.destroy();
+  }
+}
+(window as unknown as { testRawMsmSameN: typeof testRawMsmSameN }).testRawMsmSameN = testRawMsmSameN;
+
+/**
+ * Additive-masking correctness probe — the on-GPU test of the whole idea.
+ *
+ * For a column of structured scalars `s` (the GPU-breaking shapes) over an SRS
+ * prefix, this:
+ *   1. builds a per-row random mask vector R over the pool,
+ *   2. uploads R as a GPU `maskBuf` and creates a MASKED MsmV2 (config.maskBuf),
+ *   3. runs the masked MSM — the shader rewrites each scalar to (s+R) mod r, so
+ *      the GPU only ever sees uniform full-width scalars,
+ *   4. recovers C = C' - O by subtracting the offset O = Σ R_i·P_i, and
+ *   5. cross-checks C against noble's MSM of the ORIGINAL structured scalars.
+ *
+ * MATCH ⇒ masking makes the structured MSM correct on the real GPU. The control
+ * is `testRawMsm(n, srsOffset, false, scalarMode)` (no masking) on the same
+ * shape: it should MISMATCH where this MATCHES. O is computed two ways and
+ * cross-checked: noble (reference) and a GPU zero-scalar masked run (masked = R),
+ * which is exactly how the bridge derives offsets — so this also validates that
+ * derivation path. The chonk case is `testRawMsmMasked(131071, 1, 'sparse')`.
+ */
+async function testRawMsmMasked(
+  n: number,
+  srsOffset = 1,
+  scalarMode: ScalarMode = 'sparse',
+  poolPoints?: number,
+): Promise<boolean> {
+  if (srsBuf === null) throw new Error('[mask] SRS not loaded yet — wait for the [srs] ready line');
+  const poolN = poolPoints ?? Math.min(srsBuf.length / 64, Math.max(srsOffset + n, 1 << 18));
+  if (poolN < srsOffset + n) throw new Error(`[mask] poolPoints ${poolN} < srsOffset+n ${srsOffset + n}`);
+  if (poolN * 64 > srsBuf.length)
+    throw new Error(`[mask] need ${poolN} SRS points but only ${srsBuf.length / 64} loaded`);
+  log('info', `[mask] n=${n} srsOffset=${srsOffset} scalars=${scalarMode} poolPoints=${poolN}`);
+  const G = bn254.G1.ProjectivePoint;
+  const MASK14 = (1n << 14n) - 1n;
+  const genScalar = (): bigint => {
+    const r = randomFr();
+    switch (scalarMode) {
+      case 'small':
+        return r & MASK14;
+      case 'sparse':
+        return r % 10n < 7n ? 0n : r & MASK14;
+      case 'binary':
+        return r & 1n;
+      case 'repeated':
+        return BigInt(Number(r & 0xffn) % 8);
+      case 'random':
+      default:
+        return r;
+    }
+  };
+  const toAff = (p: { toAffine: () => { x: bigint; y: bigint } }): { x: bigint; y: bigint } => {
+    try {
+      const a = p.toAffine();
+      return { x: a.x, y: a.y };
+    } catch {
+      return { x: 0n, y: 0n };
+    }
+  };
+  const toPt = (p: { x: bigint; y: bigint }) => (p.x === 0n && p.y === 0n ? G.ZERO : G.fromAffine(p));
+  const fold = (W: { x: bigint; y: bigint }[], c: number): { x: bigint; y: bigint } => {
+    let acc = toPt(W[W.length - 1]);
+    for (let w = W.length - 2; w >= 0; w--) {
+      for (let d = 0; d < c; d++) acc = acc.double();
+      acc = acc.add(toPt(W[w]));
+    }
+    return toAff(acc);
+  };
+
+  // Per-row random mask R over the whole pool (8×u32 LE per entry), the layout
+  // the mask shader indexes by absolute pool position (srsOffset + p).
+  const Rvals = new Array<bigint>(poolN);
+  const maskBytes = new Uint8Array(poolN * 32);
+  for (let i = 0; i < poolN; i++) {
+    const ri = randomFr();
+    Rvals[i] = ri;
+    maskBytes.set(biToLe32(ri, `R[${i}]`), i * 32);
+  }
+
+  // Structured scalars + the two CPU references: O (offset) and C (truth).
+  const scalarBytes = new Uint8Array(n * 32);
+  const sVals = new Array<bigint>(n);
+  const offPts: ReturnType<typeof G.fromAffine>[] = [];
+  const offScs: bigint[] = [];
+  const truePts: ReturnType<typeof G.fromAffine>[] = [];
+  const trueScs: bigint[] = [];
+  for (let i = 0; i < n; i++) {
+    const s = genScalar();
+    sVals[i] = s;
+    scalarBytes.set(biToLe32(s, `s[${i}]`), i * 32);
+    const P = G.fromAffine(readSrsPointAt(srsBuf, srsOffset + i));
+    offPts.push(P);
+    offScs.push(Rvals[srsOffset + i]); // O uses R at the SAME positions the shader masks with
+    if (s !== 0n) {
+      truePts.push(P);
+      trueScs.push(s);
+    }
+  }
+  log('info', `[mask] noble references (offset over ${n}, truth over ${trueScs.length} nnz)…`);
+  const O_noble = toAff(G.msm(offPts, offScs));
+  const C_true = truePts.length === 0 ? { x: 0n, y: 0n } : toAff(G.msm(truePts, trueScs));
+
+  const device = await get_device();
+  const poolPts = new Uint8Array(srsBuf.buffer, srsBuf.byteOffset, poolN * 64);
+  const pool = await MsmV2Pool.create(device, poolPts);
+  const maskBuf = device.createBuffer({
+    size: maskBytes.byteLength,
+    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+  });
+  device.queue.writeBuffer(maskBuf, 0, maskBytes as BufferSource);
+  const msm = await MsmV2.create(device, n, pool, { warmupRuns: 0, combineOnHost: false, maskBuf });
+  let ok = false;
+  try {
+    // Offset via the GPU itself: a masked run over ZERO scalars yields
+    // masked = (0+R) mod r = R, so the result is exactly O. This is how the
+    // bridge derives offsets — cross-check it against noble.
+    const zeroBytes = new Uint8Array(n * 32);
+    await msm.prepare(zeroBytes, srsOffset);
+    const oOut = (await msm.run()) as { windowSums: { x: bigint; y: bigint }[]; c: number };
+    const O_gpu = fold(oOut.windowSums, oOut.c);
+    const oMatch = O_gpu.x === O_noble.x && O_gpu.y === O_noble.y;
+    log(oMatch ? 'ok' : 'err', `[mask]   offset O: gpu(zero-run) vs noble → ${oMatch ? 'MATCH ✓' : 'MISMATCH ✗'}`);
+
+    // The real masked run over the structured scalars, then recover C = C' - O.
+    await msm.prepare(scalarBytes, srsOffset);
+    const cOut = (await msm.run()) as { windowSums: { x: bigint; y: bigint }[]; c: number };
+    const Cprime = fold(cOut.windowSums, cOut.c);
+    const recovered = toAff(toPt(Cprime).add(toPt(O_noble).negate()));
+    ok = recovered.x === C_true.x && recovered.y === C_true.y;
+    log(
+      ok ? 'ok' : 'err',
+      `[mask] n=${n} srsOffset=${srsOffset} ${scalarMode} → C'-O vs truth: ${ok ? 'MATCH ✓ (masking fixes it)' : 'MISMATCH ✗'}`,
+    );
+    if (!ok) {
+      log('err', `[mask]   recovered.x=0x${recovered.x.toString(16)}`);
+      log('err', `[mask]   truth.x    =0x${C_true.x.toString(16)}`);
+    }
+  } finally {
+    msm.destroy();
+    maskBuf.destroy();
+    pool.destroy();
+  }
+  return ok;
+}
+(window as unknown as { testRawMsmMasked: typeof testRawMsmMasked }).testRawMsmMasked = testRawMsmMasked;
+
 // Decode + upload the inputs into the WASM worker's native point/scalar
 // vectors. UNTIMED — kept out of runWasmOnce's measured window so the
 // benchmark reports Pippenger compute, not input-structure population.

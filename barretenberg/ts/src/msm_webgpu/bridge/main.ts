@@ -1,3 +1,5 @@
+import { bn254 } from '@noble/curves/bn254';
+
 import { BatchMsmV2 } from '../batch_msm.js';
 import { MsmV2, MsmV2Pool } from '../msm_v2.js';
 import { buildPerfettoTrace, type TraceSpan } from '../perfetto_trace.js';
@@ -189,6 +191,26 @@ export class WebGpuMsmHost {
   // cached `BatchMsmV2` — the SRS coords end up duplicated in GPU memory
   // (~2 × 32 × srsN bytes per cache hit), capped by BATCH_MSM_LRU_CAP.
   private srsBytes: Uint8Array | null = null;
+
+  // ── Additive scalar masking (experiment) ─────────────────────────────────
+  // When `globalThis.__bridge_mask_msms === true` at SRS-publish time, every
+  // SRS-prefix MSM is computed on masked scalars (s + R) mod r and the host
+  // subtracts the per-(srsOffset,n) offset O = Σ R_i P_i to recover the true
+  // commitment. R is a per-SRS-position random vector laid out as 8×u32 LE per
+  // entry (same form/length as a scalar buffer), held on the host (`maskBytes`,
+  // for noble offset computation) and on the GPU (`maskBuf`, fed to MsmV2 as
+  // `config.maskBuf`). Frozen for the pool's lifetime — toggling the flag takes
+  // effect on the next OP_PUBLISH_SRS. See the mask_scalars shader + MsmV2's
+  // masking path. Offsets are cached by `${srsOffset}:${n}` and reused across
+  // every same-shape commit and every prove.
+  private maskingEnabled = false;
+  private maskBytes: Uint8Array | null = null;
+  private maskBuf: GPUBuffer | null = null;
+  private maskOffsetCache = new Map<string, { x: bigint; y: bigint }>();
+  // Reusable all-zero scalar buffer for the GPU offset zero-run (grown to the
+  // largest n seen). A masked run over zeros yields masked = (0+R) mod r = R.
+  private zeroScalars: Uint8Array | null = null;
+
   // BatchMsmV2 instances keyed by `(n << 16) | B`. Each holds its own
   // MsmV2Pool with a private SRS upload, plus a single MsmV2 configured
   // with `batchSize = B`. Activated by `__bridge_batch_enabled === true`
@@ -294,6 +316,15 @@ export class WebGpuMsmHost {
     } catch {
       /* idempotent */
     }
+    try {
+      this.maskBuf?.destroy();
+    } catch {
+      /* idempotent */
+    }
+    this.maskBuf = null;
+    this.maskBytes = null;
+    this.maskingEnabled = false;
+    this.maskOffsetCache.clear();
     this.srsMsm = null;
     this.lru.clear();
     this.slotPools.clear();
@@ -399,6 +430,10 @@ export class WebGpuMsmHost {
     for (const b of this.batchInstances.values()) b.destroy();
     this.batchInstances.clear();
     this.pool?.destroy();
+    this.maskBuf?.destroy();
+    this.maskBuf = null;
+    this.maskBytes = null;
+    this.maskOffsetCache.clear();
 
     const tSrs0 = performance.now();
     this.pool = await MsmV2Pool.create(device, srsBytes);
@@ -413,6 +448,121 @@ export class WebGpuMsmHost {
     // private pool per (n, B); the duplicate GPU-side coords are capped by
     // BATCH_MSM_LRU_CAP.
     this.srsBytes = srsBytes;
+
+    // Build the masking vector R if the experiment flag is set. Frozen for the
+    // life of this pool; every subsequent MsmV2 create() binds `maskBuf`.
+    this.maskingEnabled = (globalThis as any).__bridge_mask_msms === true;
+    if (this.maskingEnabled) {
+      const tMask0 = performance.now();
+      this.maskBytes = this.generateMaskVector(n);
+      this.maskBuf = device.createBuffer({
+        size: this.maskBytes.byteLength,
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+      });
+      device.queue.writeBuffer(this.maskBuf, 0, this.maskBytes as BufferSource);
+      console.log(
+        `[mask] enabled — R over ${n} SRS positions (${(this.maskBytes.byteLength / 1e6).toFixed(1)} MB) ` +
+          `in ${(performance.now() - tMask0).toFixed(0)}ms`,
+      );
+    }
+  }
+
+  /**
+   * Build the per-SRS-position random mask vector R: `srsN` scalars uniform in
+   * [0, r), packed as 8×u32 little-endian limbs each (the scalar buffer layout
+   * the mask_scalars shader indexes by absolute pool position). Generated in
+   * 64 KiB chunks of `crypto.getRandomValues`, masking the top 2 bits and
+   * rejection-clamping the rare draw ≥ r down by one reduction (uniform enough
+   * for masking — these never need to be cryptographically uniform, only
+   * structure-free and < r).
+   */
+  private generateMaskVector(srsN: number): Uint8Array {
+    const r = bn254.fields.Fr.ORDER;
+    const out = new Uint8Array(srsN * 32);
+    const CHUNK = 1 << 16; // bytes per getRandomValues call
+    for (let off = 0; off < out.byteLength; off += CHUNK) {
+      crypto.getRandomValues(out.subarray(off, Math.min(off + CHUNK, out.byteLength)));
+    }
+    // Per entry: clear the top 2 bits (so value < 2^254) and, if still ≥ r,
+    // subtract r once. r is ~2^254 so a single conditional subtraction lands
+    // every clamped value back in [0, r).
+    for (let i = 0; i < srsN; i++) {
+      const base = i * 32;
+      out[base + 31] &= 0x3f;
+      let v = 0n;
+      for (let k = 31; k >= 0; k--) v = (v << 8n) | BigInt(out[base + k]);
+      if (v >= r) {
+        v -= r;
+        for (let k = 0; k < 32; k++) {
+          out[base + k] = Number(v & 0xffn);
+          v >>= 8n;
+        }
+      }
+    }
+    return out;
+  }
+
+  /** Horner-fold per-window sums into one affine point (the C++ combine_windows
+   *  in JS): acc = acc·2^c + L[w], high→low; (0,0) is the point at infinity. */
+  private foldWindows(windows: { x: bigint; y: bigint }[], c: number): { x: bigint; y: bigint } {
+    const G = bn254.G1.ProjectivePoint;
+    const toPt = (x: bigint, y: bigint) => (x === 0n && y === 0n ? G.ZERO : G.fromAffine({ x, y }));
+    let acc = toPt(windows[windows.length - 1].x, windows[windows.length - 1].y);
+    for (let w = windows.length - 2; w >= 0; w--) {
+      for (let d = 0; d < c; d++) acc = acc.double();
+      acc = acc.add(toPt(windows[w].x, windows[w].y));
+    }
+    if (acc.equals(G.ZERO)) return { x: 0n, y: 0n };
+    const a = acc.toAffine();
+    return { x: a.x, y: a.y };
+  }
+
+  /**
+   * Offset point O = Σ_{i<n} R[srsOffset+i] · SRS[srsOffset+i] for one point set,
+   * computed on the GPU and cached. A masked run over ZERO scalars yields
+   * masked = (0 + R) mod r = R, so the result is exactly O — the same fast GPU
+   * path the real MSMs use (~one MSM) instead of seconds of single-threaded
+   * noble. Each (srsOffset, n) is computed once, then reused across every
+   * same-shape commit and every later round/prove.
+   */
+  private async getMaskOffset(srsOffset: number, n: number): Promise<{ x: bigint; y: bigint }> {
+    const key = `${srsOffset}:${n}`;
+    const hit = this.maskOffsetCache.get(key);
+    if (hit) return hit;
+    const t0 = performance.now();
+    if (this.zeroScalars === null || this.zeroScalars.byteLength < n * 32) {
+      this.zeroScalars = new Uint8Array(n * 32);
+    }
+    const zeros = this.zeroScalars.subarray(0, n * 32);
+    const msm = await this.getOrCreateMsm(n);
+    await msm.prepare(zeros, srsOffset);
+    const { windowSums, c } = await msm.run();
+    const O = this.foldWindows(windowSums, c);
+    this.maskOffsetCache.set(key, O);
+    console.log(`[mask] offset O(${key}) via GPU zero-run in ${(performance.now() - t0).toFixed(0)}ms`);
+    return O;
+  }
+
+  /**
+   * Recover the true commitment from a masked MSM's per-window sums: subtract
+   * the offset O from window 0 (weight 2^0 = 1) so the downstream Horner
+   * combine yields C = C' - O. Mutates `windows[0]` in place. No-op when
+   * masking is off. (0,0) is read/written as the point at infinity.
+   */
+  private async applyMaskOffset(srsOffset: number, n: number, windows: { x: bigint; y: bigint }[]): Promise<void> {
+    if (!this.maskingEnabled || windows.length === 0) return;
+    const O = await this.getMaskOffset(srsOffset, n);
+    if (O.x === 0n && O.y === 0n) return; // subtracting infinity is a no-op
+    const G = bn254.G1.ProjectivePoint;
+    const toPt = (x: bigint, y: bigint) => (x === 0n && y === 0n ? G.ZERO : G.fromAffine({ x, y }));
+    const w0 = windows[0];
+    const adj = toPt(w0.x, w0.y).add(toPt(O.x, O.y).negate());
+    if (adj.equals(G.ZERO)) {
+      windows[0] = { x: 0n, y: 0n };
+    } else {
+      const a = adj.toAffine();
+      windows[0] = { x: a.x, y: a.y };
+    }
   }
 
   /**
@@ -444,7 +594,14 @@ export class WebGpuMsmHost {
     // slots exist to break same-N submit serialization, not for timestamp
     // readback; their GPU compute is fungible with slot 0's at the same n.
     while (pools.length <= slot - 1) {
-      pools.push(await MsmV2.create(device, n, pool, { warmupRuns: 0, combineOnHost: false, profile: false }));
+      pools.push(
+        await MsmV2.create(device, n, pool, {
+          warmupRuns: 0,
+          combineOnHost: false,
+          profile: false,
+          maskBuf: this.maskBuf ?? undefined,
+        }),
+      );
     }
     return pools[slot - 1];
   }
@@ -454,7 +611,12 @@ export class WebGpuMsmHost {
     const pool = this.pool!;
     if (n === this.srsN) {
       if (this.srsMsm === null) {
-        this.srsMsm = await MsmV2.create(device, n, pool, { warmupRuns: 0, combineOnHost: false, profile: true });
+        this.srsMsm = await MsmV2.create(device, n, pool, {
+          warmupRuns: 0,
+          combineOnHost: false,
+          profile: true,
+          maskBuf: this.maskBuf ?? undefined,
+        });
       }
       return this.srsMsm;
     }
@@ -466,7 +628,12 @@ export class WebGpuMsmHost {
       return hit;
     }
     // Build before inserting — a throw leaves the cache clean.
-    const fresh = await MsmV2.create(device, n, pool, { warmupRuns: 0, combineOnHost: false, profile: true });
+    const fresh = await MsmV2.create(device, n, pool, {
+      warmupRuns: 0,
+      combineOnHost: false,
+      profile: true,
+      maskBuf: this.maskBuf ?? undefined,
+    });
     while (this.lru.size >= MSM_LRU_CAP) {
       const oldest = this.lru.keys().next().value as number;
       this.lru.get(oldest)!.destroy();
@@ -557,9 +724,16 @@ export class WebGpuMsmHost {
       const tPrepEnd = performance.now();
       const { windowSums, c } = await msm.run();
       const tRunEnd = performance.now();
+      // Masking applies only to SRS-prefix MSMs (off-SRS one-offs are built
+      // without maskBuf). Recover C = C' - O before writing + verifying, so the
+      // window sums shipped to C++ fold to the true commitment and the optional
+      // cross-check validates the full masking pipeline end to end.
+      if (pointsPtr === 0) await this.applyMaskOffset(srsOffset, n, windowSums);
       this.writeWindowSumsLE(resultPtr, windowSums);
       Atomics.store(this.ctrl, SLOT_NUM_WINDOWS, windowSums.length);
       Atomics.store(this.ctrl, SLOT_C, c);
+      // SRS-prefix solo MSM only — off-SRS one-offs use points the cross-check can't see.
+      if (pointsPtr === 0) this.verifyDelegatedMsm('(solo)', n, srsOffset, scalars, windowSums, c);
       // Per-MSM telemetry: get/prepare/run breakdown lets the bench see
       // whether MsmV2 instance setup (rebuild on LRU miss) or GPU dispatch
       // dominates. Costs only one console.log per delegated MSM.
@@ -610,6 +784,79 @@ export class WebGpuMsmHost {
     for (let w = 0; w < windows.length; w++) {
       writeBigIntLE(out, w * 64, windows[w].x, 32);
       writeBigIntLE(out, w * 64 + 32, windows[w].y, 32);
+    }
+  }
+
+  /**
+   * Debug cross-check (gated by `globalThis.__bridge_verify_msms === true`):
+   * recompute one delegated SRS-prefix MSM on the CPU with noble's tested
+   * `bn254` group ops — the same scalars + the same SRS points the GPU saw —
+   * and compare to the GPU's window-sums (Horner-folded the same way the C++
+   * `combine_windows` does, reading (0,0) as the point at infinity). Logs one
+   * `[msm-verify] OK|MISMATCH …` line per MSM so a single prove names the exact
+   * polynomial(s) the GPU computes wrong. Off by default — the noble MSM costs
+   * seconds at chonk sizes. No-op for off-SRS one-offs (no `srsBytes`).
+   */
+  private verifyDelegatedMsm(
+    label: string,
+    n: number,
+    srsOffset: number,
+    scalarsBytes: Uint8Array,
+    windows: { x: bigint; y: bigint }[],
+    c: number,
+  ): void {
+    if ((globalThis as any).__bridge_verify_msms !== true || this.srsBytes === null) return;
+    try {
+      const srs = this.srsBytes;
+      const readLE = (buf: Uint8Array, off: number, len: number): bigint => {
+        let v = 0n;
+        for (let i = len - 1; i >= 0; i--) v = (v << 8n) | BigInt(buf[off + i]);
+        return v;
+      };
+      const G = bn254.G1.ProjectivePoint;
+      const toPt = (x: bigint, y: bigint) => (x === 0n && y === 0n ? G.ZERO : G.fromAffine({ x, y }));
+      const affine = (p: ReturnType<typeof G.fromAffine>): { x: bigint; y: bigint } => {
+        try {
+          const a = p.toAffine();
+          return { x: a.x, y: a.y };
+        } catch {
+          return { x: 0n, y: 0n };
+        }
+      };
+
+      // CPU reference: sum_j scalar_j · SRS[srsOffset + j], dropping zero scalars.
+      const pts: ReturnType<typeof G.fromAffine>[] = [];
+      const scs: bigint[] = [];
+      for (let j = 0; j < n; j++) {
+        const s = readLE(scalarsBytes, j * 32, 32);
+        if (s === 0n) continue;
+        const pOff = (srsOffset + j) * 64;
+        pts.push(toPt(readLE(srs, pOff, 32), readLE(srs, pOff + 32, 32)));
+        scs.push(s);
+      }
+      const cpu = pts.length === 0 ? { x: 0n, y: 0n } : affine(G.msm(pts, scs));
+
+      // GPU: Horner-fold the per-window sums, acc = acc·2^c + L[w], high→low.
+      let acc = toPt(windows[windows.length - 1].x, windows[windows.length - 1].y);
+      for (let w = windows.length - 2; w >= 0; w--) {
+        for (let d = 0; d < c; d++) acc = acc.double();
+        acc = acc.add(toPt(windows[w].x, windows[w].y));
+      }
+      const gpu = affine(acc);
+
+      const match = gpu.x === cpu.x && gpu.y === cpu.y;
+      console.log(
+        `[msm-verify] ${match ? 'OK      ' : 'MISMATCH'} label=${label} n=${n} c=${c} srsOff=${srsOffset} nnz=${scs.length}`,
+      );
+      // On the first mismatch, capture the EXACT inputs (real scalars + the SRS
+      // pool) so the failure can be replayed in a clean solo MsmV2 on the same
+      // GPU — the definitive "is it the data?" test. Window-exposed replay below.
+      if (!match && !(globalThis as any).__capturedMsm) {
+        (globalThis as any).__capturedMsm = { label, n, srsOffset, c, scalars: scalarsBytes.slice(), srsBytes: srs };
+        console.log(`[msm-verify] captured ${label} n=${n} for replay — call await __replayCapturedMsm()`);
+      }
+    } catch (e) {
+      console.log(`[msm-verify] ERROR label=${label} n=${n}: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
 
@@ -792,6 +1039,7 @@ export class WebGpuMsmHost {
       for (let i = 0; i < batchCount; i++) {
         const msm = msms[i];
         const windows = msm.decodeWindowSumsFromBytes(stagingBytes, stagingOffsets[i]);
+        await this.applyMaskOffset(descs[i * 5 + 1], descs[i * 5 + 0], windows);
         const out = new Uint8Array(this.wasmMemory.buffer, resultsBase + resultOffs[i], windows.length * 64);
         for (let w = 0; w < windows.length; w++) {
           writeBigIntLE(out, w * 64, windows[w].x, 32);
@@ -799,6 +1047,14 @@ export class WebGpuMsmHost {
         }
         metaOut[i * 2 + 0] = windows.length;
         metaOut[i * 2 + 1] = msm.c;
+        this.verifyDelegatedMsm(
+          labels[i],
+          descs[i * 5 + 0],
+          descs[i * 5 + 1],
+          new Uint8Array(this.wasmMemory.buffer, scalarsBase + descs[i * 5 + 2], descs[i * 5 + 0] * SCALAR_BYTES),
+          windows,
+          msm.c,
+        );
       }
       const tDecodeEnd = performance.now();
       sharedStaging.destroy();
@@ -935,6 +1191,9 @@ export class WebGpuMsmHost {
       n: number;
       label: string;
       prepareMs: number;
+      uploadMs: number;
+      histWallMs: number;
+      planMs: number;
       submitMs: number;
       gpuMs: number;
       mapAsyncMs: number;
@@ -962,6 +1221,11 @@ export class WebGpuMsmHost {
       const tPrep0 = performance.now();
       await msm.prepare(scalarsBytes, srsOffset);
       const tPrep1 = performance.now();
+      // Capture prepare sub-phases now — the MsmV2 instance is shared across the
+      // same-N batch, so the next prepare() overwrites these fields.
+      const uploadMs = msm.scalarUploadMs;
+      const histWallMs = msm.prepHistogramWallMs;
+      const planMs = msm.prepLevelPlanMs;
       if (traceOn) {
         traceCpu(`prepare ${labels[i]}`, tPrep0, tPrep1, { n, idx: i });
         traceMem(`scalars ${labels[i]}`, tPrep0, tPrep0 + msm.scalarUploadMs, n * SCALAR_BYTES, 'h2d', { n, idx: i });
@@ -994,6 +1258,9 @@ export class WebGpuMsmHost {
             n,
             label,
             prepareMs: tPrep1 - tPrep0,
+            uploadMs,
+            histWallMs,
+            planMs,
             submitMs: tSub1 - tSub0,
             gpuMs: tGpu1 - tGpu0,
             mapAsyncMs: tMap1 - tGpu1,
@@ -1040,9 +1307,11 @@ export class WebGpuMsmHost {
     const perMsmMainEst = gpuAvg;
     const mainComputeSum = perMsmMainEst * batchCount;
     for (const p of phaseLog) {
+      const other = Math.max(0, p.prepareMs - p.uploadMs - p.histWallMs - p.planMs);
       console.log(
         `[msm] name=${p.label} n=${p.n} kind=same-n ` +
-          `prepare=${p.prepareMs.toFixed(1)}ms gpu_wait=${p.gpuMs.toFixed(2)}ms ` +
+          `prepare=${p.prepareMs.toFixed(1)}ms [upload=${p.uploadMs.toFixed(1)} histWall=${p.histWallMs.toFixed(1)} ` +
+          `plan=${p.planMs.toFixed(1)} other=${other.toFixed(1)}] gpu_wait=${p.gpuMs.toFixed(2)}ms ` +
           `gpu_avg=${gpuAvg.toFixed(2)}ms (batch_size=${phaseLog.length})`,
       );
     }
@@ -1090,6 +1359,7 @@ export class WebGpuMsmHost {
       const stagingBytes = new Uint8Array(p.staging.getMappedRange().slice(0));
       p.staging.unmap();
       const windows = p.msm.decodeWindowSumsFromBytes(stagingBytes, 0);
+      await this.applyMaskOffset(descs[i * 5 + 1], descs[i * 5 + 0], windows);
       const out = new Uint8Array(this.wasmMemory.buffer, resultsBase + p.resultByteOff, windows.length * 64);
       for (let w = 0; w < windows.length; w++) {
         writeBigIntLE(out, w * 64, windows[w].x, 32);
@@ -1097,6 +1367,14 @@ export class WebGpuMsmHost {
       }
       metaOut[i * 2 + 0] = windows.length;
       metaOut[i * 2 + 1] = p.msm.c;
+      this.verifyDelegatedMsm(
+        labels[i],
+        descs[i * 5 + 0],
+        descs[i * 5 + 1],
+        new Uint8Array(this.wasmMemory.buffer, scalarsBase + descs[i * 5 + 2], descs[i * 5 + 0] * SCALAR_BYTES),
+        windows,
+        p.msm.c,
+      );
       p.staging.destroy();
     }
     const tDecodeEnd = performance.now();
@@ -1150,7 +1428,10 @@ export class WebGpuMsmHost {
     } else {
       const device = await this.getDevice();
       const tCreate0 = performance.now();
-      batch = await BatchMsmV2.create(device, this.srsBytes, n, B);
+      // Under masking the batch's internal MsmV2 binds the same per-position R
+      // (maskBuf), so its B slots are masked exactly like the solo/same-N paths;
+      // the offset O(srsOffset, n) is subtracted from each combined result below.
+      batch = await BatchMsmV2.create(device, this.srsBytes, n, B, { maskBuf: this.maskBuf ?? undefined });
       console.log(`[batch-v2] create n=${n} B=${B} time=${(performance.now() - tCreate0).toFixed(1)}ms`);
       while (this.batchInstances.size >= BATCH_MSM_LRU_CAP) {
         const oldest = this.batchInstances.keys().next().value as number;
@@ -1171,6 +1452,27 @@ export class WebGpuMsmHost {
     const tPrep1 = performance.now();
     const { results, gpuMs, wallMs } = await batch.runAll();
     const tRun1 = performance.now();
+
+    // Masked batch: each slot's combined result is C_b + O; subtract the shared
+    // offset O(srsOffset, n) to recover C_b. results[] are already-combined
+    // affine points, so the subtraction is on the point directly (not window 0).
+    if (this.maskingEnabled) {
+      const O = await this.getMaskOffset(srsOffset, n);
+      if (!(O.x === 0n && O.y === 0n)) {
+        const G = bn254.G1.ProjectivePoint;
+        const toPt = (x: bigint, y: bigint) => (x === 0n && y === 0n ? G.ZERO : G.fromAffine({ x, y }));
+        const negO = toPt(O.x, O.y).negate();
+        for (let i = 0; i < B; i++) {
+          const adj = toPt(results[i].x, results[i].y).add(negO);
+          if (adj.equals(G.ZERO)) {
+            results[i] = { x: 0n, y: 0n };
+          } else {
+            const a = adj.toAffine();
+            results[i] = { x: a.x, y: a.y };
+          }
+        }
+      }
+    }
 
     const metaOut = new Uint32Array(this.wasmMemory!.buffer, metaBase, B * 2);
     const c = batch.instances[0].c;
@@ -1224,3 +1526,89 @@ function writeBigIntLE(out: Uint8Array, offset: number, v: bigint, byteLength: n
 }
 
 export { writeBigIntLE };
+
+/**
+ * Replay the MSM captured by `verifyDelegatedMsm` on the first mismatch: rebuild
+ * a fresh pool from the captured SRS bytes and run a clean solo `MsmV2` with the
+ * EXACT real scalars + srsOffset, on the same GPU, and cross-check vs noble.
+ * This is the definitive "is it the data?" test:
+ *   MISMATCH → the real scalars break a clean solo run → data-dependent compute bug (reproducible, minimisable).
+ *   MATCH    → real scalars are fine solo → the chonk failure is the same-N batch CONTEXT, not the data.
+ * Window-exposed as `__replayCapturedMsm`. Run a prove with `__bridge_verify_msms=true` first to populate the capture.
+ */
+async function replayCapturedMsm(opts?: { combineOnHost?: boolean }): Promise<void> {
+  const cap = (globalThis as any).__capturedMsm;
+  if (!cap) {
+    console.log('[replay] nothing captured — run a prove with window.__bridge_verify_msms=true first');
+    return;
+  }
+  const { label, n, srsOffset, scalars, srsBytes } = cap as {
+    label: string;
+    n: number;
+    srsOffset: number;
+    scalars: Uint8Array;
+    srsBytes: Uint8Array;
+  };
+  const combineOnHost = opts?.combineOnHost ?? false;
+  console.log(
+    `[replay] ${label} n=${n} srsOff=${srsOffset} combineOnHost=${combineOnHost} — clean solo MsmV2, REAL scalars`,
+  );
+  const G = bn254.G1.ProjectivePoint;
+  const readLE = (buf: Uint8Array, off: number, len: number): bigint => {
+    let v = 0n;
+    for (let i = len - 1; i >= 0; i--) v = (v << 8n) | BigInt(buf[off + i]);
+    return v;
+  };
+  const toPt = (x: bigint, y: bigint) => (x === 0n && y === 0n ? G.ZERO : G.fromAffine({ x, y }));
+  const toAff = (p: ReturnType<typeof G.fromAffine>): { x: bigint; y: bigint } => {
+    try {
+      const a = p.toAffine();
+      return { x: a.x, y: a.y };
+    } catch {
+      return { x: 0n, y: 0n };
+    }
+  };
+
+  const pts: ReturnType<typeof G.fromAffine>[] = [];
+  const scs: bigint[] = [];
+  for (let j = 0; j < n; j++) {
+    const s = readLE(scalars, j * 32, 32);
+    if (s === 0n) continue;
+    const o = (srsOffset + j) * 64;
+    pts.push(toPt(readLE(srsBytes, o, 32), readLE(srsBytes, o + 32, 32)));
+    scs.push(s);
+  }
+  const cpu = pts.length === 0 ? { x: 0n, y: 0n } : toAff(G.msm(pts, scs));
+
+  const device = await get_device();
+  const pool = await MsmV2Pool.create(device, srsBytes); // the exact chonk pool (full SRS)
+  const msm = await MsmV2.create(device, n, pool, { warmupRuns: 0, combineOnHost });
+  let gpu: { x: bigint; y: bigint };
+  try {
+    await msm.prepare(scalars, srsOffset);
+    const out = (await msm.run()) as { x?: bigint; y?: bigint; windowSums?: { x: bigint; y: bigint }[]; c?: number };
+    if (combineOnHost) {
+      gpu = { x: out.x!, y: out.y! };
+    } else {
+      const W = out.windowSums!;
+      let acc = toPt(W[W.length - 1].x, W[W.length - 1].y);
+      for (let w = W.length - 2; w >= 0; w--) {
+        for (let d = 0; d < out.c!; d++) acc = acc.double();
+        acc = acc.add(toPt(W[w].x, W[w].y));
+      }
+      gpu = toAff(acc);
+    }
+  } finally {
+    msm.destroy();
+    pool.destroy();
+  }
+  const match = gpu.x === cpu.x && gpu.y === cpu.y;
+  console.log(
+    `[replay] ${label} n=${n} → ${
+      match
+        ? 'MATCH ✓  → real scalars are correct in a clean solo run; the same-N BATCH CONTEXT is the bug'
+        : 'MISMATCH ✗ → real scalars break a clean solo run; DATA-dependent compute bug (reproducible)'
+    }`,
+  );
+}
+(globalThis as any).__replayCapturedMsm = replayCapturedMsm;

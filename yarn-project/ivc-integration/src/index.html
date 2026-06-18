@@ -214,15 +214,52 @@
       <div class="ctrl">
         <label>flow</label>
         <select id="flow">
-          <option value="ecdsar1+transfer_1_recursions+sponsored_fpc" selected>
-            ecdsar1+transfer_1_recursions+sponsored_fpc
-          </option>
+          <optgroup label="Transfer">
+            <option value="ecdsar1+transfer_1_recursions+sponsored_fpc" selected>
+              transfer · 1 recursion · sponsored FPC (ECDSA)
+            </option>
+            <option value="ecdsar1+transfer_0_recursions+sponsored_fpc">
+              transfer · 0 recursions · sponsored FPC (ECDSA)
+            </option>
+            <option value="ecdsar1+transfer_1_recursions+private_fpc">
+              transfer · 1 recursion · private FPC (ECDSA)
+            </option>
+            <option value="ecdsar1+transfer_0_recursions+private_fpc">
+              transfer · 0 recursions · private FPC (ECDSA)
+            </option>
+          </optgroup>
+          <optgroup label="DeFi / apps">
+            <option value="ecdsar1+amm_add_liquidity_1_recursions+sponsored_fpc">
+              AMM add liquidity · sponsored FPC (ECDSA)
+            </option>
+            <option value="ecdsar1+token_bridge_claim_private+sponsored_fpc">
+              token bridge claim (private) · sponsored FPC (ECDSA)
+            </option>
+            <option value="ecdsar1+storage_proof_7_layers+sponsored_fpc">
+              storage proof · 7 layers · sponsored FPC (ECDSA)
+            </option>
+          </optgroup>
+          <optgroup label="Deploy">
+            <option value="ecdsar1+deploy_tokenContract_with_registration+sponsored_fpc">
+              deploy token contract (w/ registration) · sponsored FPC (ECDSA)
+            </option>
+            <option value="schnorr+deploy_tokenContract_with_registration+sponsored_fpc">
+              deploy token contract (w/ registration) · sponsored FPC (Schnorr)
+            </option>
+            <option value="deploy_ecdsar1+sponsored_fpc">
+              deploy ECDSA account · sponsored FPC
+            </option>
+            <option value="deploy_schnorr+sponsored_fpc">
+              deploy Schnorr account · sponsored FPC
+            </option>
+          </optgroup>
         </select>
         <label>runs <input id="runs" type="number" value="5" min="1" max="20" step="1" style="width: 48px" /></label>
         <button id="warm-up" title="Build the 16-thread WASM backend + load the CRS once now, so the first Run WASM skips the ~13s setup. The backend stays warm and is reused across same-mode clicks; switching mode (WASM↔WebGPU↔batch) rebuilds it (only one is held). Tracing frees it.">Warm up</button>
         <button id="run-wasm" class="primary">Run WASM</button>
         <button id="run-webgpu" class="primary">Run WebGPU</button>
         <button id="run-webgpu-batch" class="primary">Run WebGPU (batch)</button>
+        <button id="toggle-mask" title="Additive scalar masking: arm to push EVERY MSM onto the GPU (empties the blocklist) and mask structured scalars into uniform ones the GPU computes correctly, recovering each commitment by subtracting a precomputed offset. Toggling rebuilds the warm backend on the next run. Set before warm-up/run.">Masking: off</button>
         <span id="status" class="status">idle</span>
       </div>
       <div class="ctrl" style="margin-top: 10px;">
@@ -233,10 +270,25 @@
         <button id="native-verify-webgpu" title="Prove ONCE on the GPU (WebGPU MSM), then POST the proof to the dev server which runs the native `bb verify --scheme chonk` and reports whether it's accepted. Needs serve-chonk-webgpu.mjs + a built native bb; on a hardware GPU (SwiftShader proofs do not verify).">Native verify (WebGPU)</button>
         <button id="clear-log">Clear log</button>
       </div>
+      <div class="ctrl" style="margin-top: 10px;">
+        <label>all examples:</label>
+        <label>rounds <input id="all-rounds" type="number" value="3" min="1" max="10" step="1" style="width: 44px" /></label>
+        <button id="run-all-wasm" title="Prove EVERY example in the dropdown, interleaved round-robin (ex1, ex2, …, exk), repeated N rounds — reports the median per example. WASM (CPU) path. One discarded warm-up prove first so the rounds are warm; no memory measurement. Results fill the table below.">Run all (WASM)</button>
+        <button id="run-all-webgpu" title="Same interleaved N-round sweep over every example, on the WebGPU MSM path. Fills the WebGPU column + speedup vs WASM in the table below. Needs a hardware GPU (SwiftShader proofs do not verify).">Run all (WebGPU)</button>
+      </div>
       <div id="progress" class="progress" style="display: none">
         <progress id="prog-bar" max="100"></progress>
         <span id="prog-text"></span>
       </div>
+    </div>
+
+    <div class="panel" id="allrun-panel" style="display: none">
+      <h2>All examples — interleaved sweep</h2>
+      <div style="margin-bottom: 10px; color: #8b949e; font-size: 12px">
+        Every example proven round-robin (ex1, ex2, …, exk), repeated N rounds; median per example. Run all (WASM) and
+        Run all (WebGPU) fill their own columns, so the speedup is over the same interleaved sweep. No memory measurement.
+      </div>
+      <div id="allrun-table"></div>
     </div>
 
     <div class="panel">

@@ -415,11 +415,32 @@ const TRANSLATOR_RANGE_CONSTRAINT_BLOCK_ENTRIES = [
   'ORDERED_RANGE_CONSTRAINTS_4@131071',
 ] as const;
 
+// Label-only blocks at ALL sizes — the affine pair-tree mishandles these
+// distributions for a reason that is NOT scalar magnitude/structure, so
+// additive masking (which only turns structured scalars uniform) does NOT fix
+// them. They remain blocked even under masking and run on the CPU; confirmed
+// empirically (VK_PRECOMPUTED_POLY @ n=17455 srsOff=1982 still mismatches the
+// CPU cross-check with masking armed).
+const PAIR_TREE_HOSTILE_LABELS = ['LOOKUP_READ_COUNTS', 'LOOKUP_READ_TAGS', 'VK_PRECOMPUTED_POLY'] as const;
+
+// Everything that stays on the CPU even when masking empties the rest of the
+// blocklist: only the non-structural pair-tree-hostile labels, which masking
+// does not fix. All correctly-maskable MSMs (including the B=3 wire groups)
+// run on the GPU.
+const MASKING_RESIDUAL_BLOCKLIST: readonly string[] = [...PAIR_TREE_HOSTILE_LABELS];
+
 const DEFAULT_WEBGPU_BLOCKLIST: readonly string[] = [
-  // Pair-tree-hostile distributions (block all sizes).
-  'LOOKUP_READ_COUNTS',
-  'LOOKUP_READ_TAGS',
-  'VK_PRECOMPUTED_POLY',
+  ...PAIR_TREE_HOSTILE_LABELS,
+  // The WebGPU MSM computes commitments at n = 131071 (= 2^17 - 1) wrong. A
+  // per-MSM CPU cross-check (bridge __bridge_verify_msms) shows every wrong
+  // commitment in a chonk prove is at exactly this size — the translator's
+  // polynomials — while the same labels/offsets at other sizes verify (e.g.
+  // W_L@46498 with srsOff=1 is correct, so this is not an SRS-offset bug). It's
+  // a size-specific MSM bug at 2^17-1. The 10 translator range-constraint polys
+  // (below) were already blocked for perf, which masked it; the translator's
+  // Z_PERM@131071 was not, which is what made the private-FPC proof fail to
+  // verify. Block it until the n=2^17-1 case is fixed in MsmV2.
+  'Z_PERM@131071',
   // (label, n) pairs where the GPU is a wash on Apple Metal (per-MSM
   // cpu_solo/gpu ≤ 1.5×, so production batched CPU is at parity or faster).
   // All of these are same-N triplets (W_L/W_R/W_O at a given size) or W_4
@@ -447,16 +468,27 @@ const DEFAULT_WEBGPU_BLOCKLIST: readonly string[] = [
   ...TRANSLATOR_RANGE_CONSTRAINT_BLOCK_ENTRIES,
 ];
 
-// Blocklist used by the "Run WebGPU (batch)" button: the solo list with
-// the 10 translator @131071 entries removed so the B=10 batch reaches the
-// bridge and routes through BatchMsmV2. Keeps every other entry — the
-// label-only blocks (LOOKUP_READ_*, VK_PRECOMPUTED_POLY) and the B=3
-// W_L/W_R/W_O `@N` blocks are independent of BatchMsmV2 and still apply
-// (B=3 doesn't qualify for the BatchMsmV2 route at chonk sizes anyway).
-const TRANSLATOR_BLOCK_SET: ReadonlySet<string> = new Set<string>(TRANSLATOR_RANGE_CONSTRAINT_BLOCK_ENTRIES);
-const DEFAULT_WEBGPU_BLOCKLIST_BATCH: readonly string[] = DEFAULT_WEBGPU_BLOCKLIST.filter(
-  e => !TRANSLATOR_BLOCK_SET.has(e),
-);
+// Blocklist used by the "Run WebGPU (batch)" button. Identical to the solo
+// list: the 10 translator @131071 polys (and the translator Z_PERM@131071)
+// are shifted commitments (srsOff = 1) that the GPU computes wrong, so they
+// must NOT be delegated even via BatchMsmV2 — routing them through the batch
+// path would just produce wrong commitments faster. Re-enable the batch route
+// for them only once MsmV2's srsOffset path is fixed.
+const DEFAULT_WEBGPU_BLOCKLIST_BATCH: readonly string[] = DEFAULT_WEBGPU_BLOCKLIST;
+
+/**
+ * Blocklist for an interactive WebGPU prove. Normally {@link DEFAULT_WEBGPU_BLOCKLIST};
+ * but when the additive-masking experiment is armed (`globalThis.__bridge_mask_msms
+ * === true`), masking turns structured scalars into uniform full-width ones the
+ * GPU computes correctly, so the size/structure/perf blocks are dropped and ALL
+ * those MSMs go to the GPU. The only residual blocks are {@link PAIR_TREE_HOSTILE_LABELS}
+ * — masking does not fix those, so they stay on the CPU. Set the flag before
+ * warm-up/init (the bridge freezes it at SRS-publish time) so the masking vector
+ * and the blocklist agree.
+ */
+function webgpuBlocklist(): readonly string[] {
+  return (globalThis as any).__bridge_mask_msms === true ? MASKING_RESIDUAL_BLOCKLIST : DEFAULT_WEBGPU_BLOCKLIST;
+}
 
 interface ChonkWebGpuBenchPartialResult {
   flow: string;
@@ -1460,7 +1492,7 @@ async function runChonkWebGpuTrace(
     /*msmCsvMode=*/ false,
     /*loggerOverride=*/ undefined,
     /*msmDistributionMode=*/ false,
-    /*webgpuMsmBlocklist=*/ webgpu ? DEFAULT_WEBGPU_BLOCKLIST : undefined,
+    /*webgpuMsmBlocklist=*/ webgpu ? webgpuBlocklist() : undefined,
     /*msmTraceMode=*/ false,
     /*benchTraceOpts=*/ { maxDepth: BENCH_TRACE_MAX_DEPTH, denylist: BENCH_TRACE_DENYLIST },
     /*warmupRuns=*/ warmupRuns,
@@ -1687,7 +1719,7 @@ async function runChonkMedian(
       threads: 16,
       logger: () => {},
       webgpuMsm: side.webgpu,
-      webgpuMsmBlocklist: side.webgpu ? DEFAULT_WEBGPU_BLOCKLIST : undefined,
+      webgpuMsmBlocklist: side.webgpu ? webgpuBlocklist() : undefined,
     });
     const totals: number[] = [];
     let allVerified = true;
@@ -1889,7 +1921,7 @@ async function disposeWarmBackend(): Promise<void> {
 }
 
 (window as any).ensureWarmBackend = (webgpu: boolean): Promise<{ bb: Barretenberg; initMs: number; reused: boolean }> =>
-  ensureWarmBackend(webgpu, webgpu ? DEFAULT_WEBGPU_BLOCKLIST : undefined);
+  ensureWarmBackend(webgpu, webgpu ? webgpuBlocklist() : undefined);
 (window as any).disposeWarmBackend = disposeWarmBackend;
 
 /**
@@ -1914,7 +1946,16 @@ async function runChonkModeMulti(
   const { bytecodes, witnesses, vks, functionNames } = await loadPinnedInputs(flow);
   const loadMs = performance.now() - tLoad0;
   const webgpu = mode !== 'wasm';
-  const blocklist = mode === 'batch' ? DEFAULT_WEBGPU_BLOCKLIST_BATCH : DEFAULT_WEBGPU_BLOCKLIST;
+  // Under masking only the pair-tree-hostile labels stay blocked (masking does
+  // not fix those); everything else is delegated to the GPU. Batch mode falls
+  // back to the per-MSM same-N path in the bridge when masking is on, so the
+  // same residual list is correct there too.
+  const blocklist =
+    (globalThis as any).__bridge_mask_msms === true
+      ? MASKING_RESIDUAL_BLOCKLIST
+      : mode === 'batch'
+        ? DEFAULT_WEBGPU_BLOCKLIST_BATCH
+        : DEFAULT_WEBGPU_BLOCKLIST;
   // Reuse the warm backend if this mode's config matches the live one; otherwise
   // it's torn down and rebuilt. The `(mem: X MiB)` high-water is captured by the
   // backend's bound `warmMemLogger` into module state — reset here so it reflects
@@ -1979,6 +2020,141 @@ async function runChonkModeMulti(
 }
 
 (window as any).runChonkModeMulti = runChonkModeMulti;
+
+type AllRunMode = 'wasm' | 'webgpu';
+
+/** Per-example result of an interleaved all-examples sweep: the prove time for
+ *  each round (in round order) plus the median/min/max over those rounds. */
+interface AllRunFlowResult {
+  flow: string;
+  /** Number of circuits (creator apps + kernels) in this example's stack. */
+  numCircuits: number;
+  /** Prove wall (ms) for this example, one entry per round, in round order. */
+  rounds: number[];
+  medianMs: number;
+  minMs: number;
+  maxMs: number;
+  /** True only if every round's in-browser verify passed. */
+  verified: boolean;
+}
+
+interface AllRunResult {
+  mode: AllRunMode;
+  rounds: number;
+  /** True when the warm backend was reused (no init paid) for this sweep. */
+  reused: boolean;
+  initMs: number;
+  results: AllRunFlowResult[];
+}
+
+interface AllRunProgress {
+  /** 1-based round, or 0 for the discarded warm-up prove. */
+  round: number;
+  rounds: number;
+  flowIndex: number;
+  flowCount: number;
+  flow: string;
+  phase: 'warmup' | 'proving' | 'done';
+  lastMs?: number;
+}
+
+/**
+ * Prove every example in `flows` interleaved — round-robin (ex1, ex2, …, exk),
+ * repeated `rounds` times — on ONE warm backend, and report the per-example
+ * median (+ min/max + per-round times) of the prove wall. Interleaving spreads
+ * any thermal / CPU-boost drift evenly across all examples rather than letting
+ * it bias whichever example a contiguous block happens to land on, so the
+ * per-example medians are comparable. No memory measurement (kept out so the
+ * sweep stays fast and the table stays tabular).
+ *
+ * The backend is config-keyed and reused across clicks; `mode==='webgpu'` runs
+ * the WebGPU MSM path (DEFAULT_WEBGPU_BLOCKLIST), `'wasm'` the CPU path. A fresh
+ * warm backend pays a one-time GPU cold-start on its first prove, so one
+ * discarded warm-up prove runs first (skipped when the backend is already warm).
+ * A prove error disposes the backend so a possibly-corrupt instance isn't reused.
+ */
+async function runChonkAllExamples(
+  mode: AllRunMode,
+  flows: string[],
+  rounds = 3,
+  onProgress?: (p: AllRunProgress) => void,
+): Promise<AllRunResult> {
+  rounds = Math.max(1, Math.floor(rounds));
+  const webgpu = mode === 'webgpu';
+  const blocklist = webgpu ? webgpuBlocklist() : undefined;
+
+  // Decode every example's inputs once up front (fetch + msgpack decode + gunzip)
+  // so the interleaved rounds time prove only — the decode cost is never charged
+  // to whichever example happens to be proven first.
+  const inputs = new Map<
+    string,
+    { bytecodes: Uint8Array[]; witnesses: Uint8Array[]; vks: Uint8Array[]; functionNames: string[] }
+  >();
+  for (const flow of flows) {
+    inputs.set(flow, await loadPinnedInputs(flow));
+  }
+
+  const { bb, initMs, reused } = await ensureWarmBackend(webgpu, blocklist);
+  const win = window as any;
+  if (webgpu) win.__bridge_gpu_mem_reset?.();
+
+  const perFlow = new Map<string, { rounds: number[]; verified: boolean; numCircuits: number }>();
+  for (const flow of flows) {
+    perFlow.set(flow, { rounds: [], verified: true, numCircuits: inputs.get(flow)!.bytecodes.length });
+  }
+
+  const proveOnce = async (flow: string): Promise<{ ms: number; verified: boolean }> => {
+    const { bytecodes, witnesses, vks, functionNames } = inputs.get(flow)!;
+    // Fresh backend wrapper per prove (cheap — bb is reused). Time prove only.
+    const backend = new AztecClientBackend(bytecodes, bb, functionNames);
+    const t0 = performance.now();
+    const { proof, vk } = await backend.prove(witnesses, vks);
+    const ms = performance.now() - t0;
+    const verified = await backend.verify(proof, vk);
+    return { ms, verified };
+  };
+
+  try {
+    // A fresh warm backend pays GPU cold-start (SRS upload, shader compile, pool
+    // alloc) on its first prove; run one discarded prove so the measured rounds
+    // reflect steady state. Already-warm backend has paid it — skip.
+    if (!reused && flows.length) {
+      onProgress?.({ round: 0, rounds, flowIndex: 0, flowCount: flows.length, flow: flows[0], phase: 'warmup' });
+      await proveOnce(flows[0]);
+    }
+    for (let r = 1; r <= rounds; r++) {
+      for (let i = 0; i < flows.length; i++) {
+        const flow = flows[i];
+        onProgress?.({ round: r, rounds, flowIndex: i, flowCount: flows.length, flow, phase: 'proving' });
+        const { ms, verified } = await proveOnce(flow);
+        const fr = perFlow.get(flow)!;
+        fr.rounds.push(ms);
+        fr.verified = fr.verified && verified;
+        onProgress?.({ round: r, rounds, flowIndex: i, flowCount: flows.length, flow, phase: 'done', lastMs: ms });
+        logger.info(`[all:${mode}] round ${r}/${rounds} ${flow}: prove=${ms.toFixed(0)}ms verified=${verified}`);
+      }
+    }
+  } catch (err) {
+    await disposeWarmBackend();
+    throw err;
+  }
+
+  const results: AllRunFlowResult[] = flows.map(flow => {
+    const fr = perFlow.get(flow)!;
+    return {
+      flow,
+      numCircuits: fr.numCircuits,
+      rounds: fr.rounds,
+      medianMs: median(fr.rounds),
+      minMs: Math.min(...fr.rounds),
+      maxMs: Math.max(...fr.rounds),
+      verified: fr.verified,
+    };
+  });
+  return { mode, rounds, reused, initMs, results };
+}
+
+(window as any).runChonkAllExamples = runChonkAllExamples;
 
 interface MsmCsvRow {
   seq: number;
@@ -2313,6 +2489,69 @@ async function runChonkMsmDistribution(flow: string = 'ecdsar1+transfer_1_recurs
 (window as any).runChonkMsmDistribution = runChonkMsmDistribution;
 
 /**
+ * Differential MSM diagnostic for the WebGPU verify failures. Captures the
+ * per-MSM distribution (webgpu OFF — deterministic, no GPU dependency) for a
+ * failing `badFlow` and a passing `goodFlow`, then prints — into the page log
+ * card via `console.log` — the MSMs that are BOTH new to `badFlow` (absent
+ * from the passing flow) AND currently delegated to the GPU. That intersection
+ * is the suspect set: an MSM the GPU has never been exercised against in the
+ * passing flow, yet still routed to the (edge-case-free) pair-tree. Sorted by
+ * bucket occupancy (`maxbucket`) so the most pair-tree-hostile shapes are on top.
+ */
+async function diagnoseChonkMsmDiff(
+  badFlow: string,
+  goodFlow: string = 'ecdsar1+transfer_1_recursions+sponsored_fpc',
+): Promise<void> {
+  const parse = (csv: string) =>
+    csv
+      .trim()
+      .split('\n')
+      .slice(1)
+      .filter(Boolean)
+      .map(line => {
+        const [seq, name, n, nnz, density, c, maxbits, mean_bits, maxbucket, p99bucket, mean_nonzero_bucket] =
+          line.split(',');
+        return {
+          key: `${name}@${n}`,
+          name,
+          n: parseInt(n, 10),
+          density: parseFloat(density),
+          c: parseInt(c, 10),
+          maxbits: parseInt(maxbits, 10),
+          maxbucket: parseInt(maxbucket, 10),
+          p99bucket: parseInt(p99bucket, 10),
+        };
+      });
+
+  console.log(`[msm-diff] capturing distributions: good=${goodFlow} bad=${badFlow} …`);
+  const good = parse((await runChonkMsmDistribution(goodFlow)).csv);
+  const bad = parse((await runChonkMsmDistribution(badFlow)).csv);
+  const goodKeys = new Set(good.map(r => r.key));
+
+  // New to the failing flow AND delegated to the GPU under the live blocklist.
+  const suspects = bad
+    .filter(r => !goodKeys.has(r.key))
+    .filter(r => isWebgpuEligible(r.name, r.n, DEFAULT_WEBGPU_BLOCKLIST))
+    .sort((a, b) => b.maxbucket - a.maxbucket);
+
+  const pad = (s: string | number, w: number) => String(s).padEnd(w);
+  console.log(
+    `[msm-diff] good=${good.length} bad=${bad.length} MSMs; ${suspects.length} are NEW to ${badFlow} AND GPU-delegated:`,
+  );
+  console.log(
+    `[msm-diff] ${pad('name', 34)}${pad('n', 9)}${pad('c', 4)}${pad('density', 10)}${pad('maxbits', 9)}${pad('maxbucket', 11)}p99`,
+  );
+  for (const r of suspects) {
+    console.log(
+      `[msm-diff] ${pad(r.name, 34)}${pad(r.n, 9)}${pad(r.c, 4)}${pad(r.density.toFixed(4), 10)}${pad(r.maxbits, 9)}${pad(r.maxbucket, 11)}${r.p99bucket}`,
+    );
+  }
+  console.log('[msm-diff] done. The high-maxbucket rows are the likely pair-tree-hostile culprits.');
+}
+
+(window as any).diagnoseChonkMsmDiff = diagnoseChonkMsmDiff;
+
+/**
  * Wire the chonk-webgpu HTML page (src/index.html) to the in-bundle bench
  * functions. Pulled out as a separate window-attached entry point so the
  * bundle stays usable as a Puppeteer test harness (the existing tests still
@@ -2338,6 +2577,7 @@ function setupChonkWebGpuPage(): void {
   const runWasm = $<HTMLButtonElement>('run-wasm');
   const runWebgpu = $<HTMLButtonElement>('run-webgpu');
   const runWebgpuBatch = $<HTMLButtonElement>('run-webgpu-batch');
+  const maskToggle = $<HTMLButtonElement>('toggle-mask');
   const warmUp = $<HTMLButtonElement>('warm-up');
   const clearLog = $<HTMLButtonElement>('clear-log');
   const flowSel = $<HTMLSelectElement>('flow');
@@ -2350,6 +2590,13 @@ function setupChonkWebGpuPage(): void {
   const traceBtnWasm = $<HTMLButtonElement>('trace-wasm');
   const runPerCircuit = $<HTMLButtonElement>('run-percircuit');
   const nativeVerifyWebgpu = $<HTMLButtonElement>('native-verify-webgpu');
+  // All-examples interleaved sweep: prove every dropdown example round-robin,
+  // N rounds, median per example; WASM and WebGPU fill a shared table.
+  const allRunWasm = $<HTMLButtonElement>('run-all-wasm');
+  const allRunWebgpu = $<HTMLButtonElement>('run-all-webgpu');
+  const allRoundsInput = $<HTMLInputElement>('all-rounds');
+  const allRunPanel = $('allrun-panel');
+  const allRunTable = $('allrun-table');
   // Per-circuit breakdown: each WASM/WebGPU run does one extra traced prove and
   // the table (shown empty from the start) fills in as each mode completes.
   const pcPanel = $('percircuit-panel');
@@ -2510,7 +2757,18 @@ function setupChonkWebGpuPage(): void {
   };
 
   const setBusy = (busy: boolean, label = 'Running…'): void => {
-    for (const b of [runWasm, runWebgpu, runWebgpuBatch, warmUp, traceBtnWebgpu, traceBtnWasm, runPerCircuit]) {
+    for (const b of [
+      runWasm,
+      runWebgpu,
+      runWebgpuBatch,
+      warmUp,
+      traceBtnWebgpu,
+      traceBtnWasm,
+      runPerCircuit,
+      allRunWasm,
+      allRunWebgpu,
+      maskToggle,
+    ]) {
       if (b) b.disabled = busy;
     }
     status.textContent = busy ? 'running…' : 'idle';
@@ -2840,6 +3098,181 @@ function setupChonkWebGpuPage(): void {
   runWasm.addEventListener('click', () => void runMode('wasm'));
   runWebgpu.addEventListener('click', () => void runMode('webgpu'));
   runWebgpuBatch.addEventListener('click', () => void runMode('batch'));
+
+  // Masking toggle — arms additive scalar masking (`__bridge_mask_msms`), which
+  // makes webgpuBlocklist() empty so EVERY MSM is delegated to the GPU and the
+  // bridge masks structured scalars + subtracts the precomputed offset. Toggling
+  // flips the blocklist, which changes the warm-backend key (so the next run
+  // rebuilds anyway); we also dispose explicitly to force a clean re-init whose
+  // SRS publish picks up the new masking state. Watch for the bridge's
+  // `[mask] enabled …` log line on the next WebGPU run to confirm it armed.
+  let maskingOn = false;
+  const renderMaskToggle = (): void => {
+    (window as any).__bridge_mask_msms = maskingOn;
+    if (!maskToggle) return;
+    maskToggle.textContent = `Masking: ${maskingOn ? 'ON' : 'off'}`;
+    maskToggle.style.background = maskingOn ? '#238636' : '';
+    maskToggle.style.color = maskingOn ? '#fff' : '';
+  };
+  renderMaskToggle();
+  maskToggle?.addEventListener('click', () => {
+    maskingOn = !maskingOn;
+    renderMaskToggle();
+    void disposeWarmBackend();
+    append(
+      maskingOn
+        ? 'masking ON — all eligible MSMs delegated to the GPU (blocklist empty); backend rebuilds on next run'
+        : 'masking off — default blocklist restored; backend rebuilds on next run',
+      'info',
+    );
+  });
+
+  // ── All-examples interleaved sweep ──────────────────────────────────────────
+  // The dropdown's option labels are the human-readable example names; reuse them
+  // verbatim in the table so the two stay in sync.
+  const allFlows = (): string[] => Array.from(flowSel.options).map(o => o.value);
+  const flowLabel = (flow: string): string => {
+    const opt = Array.from(flowSel.options).find(o => o.value === flow);
+    return opt?.textContent?.trim() || flow;
+  };
+  const getRounds = (): number => Math.max(1, Math.min(10, parseInt(allRoundsInput?.value ?? '3', 10) || 3));
+
+  // Per-example sweep results, keyed by flow; each mode fills its own column so
+  // a WASM sweep then a WebGPU sweep render side by side with the speedup.
+  const allRunData = new Map<string, { numCircuits: number; wasm?: AllRunFlowResult; webgpu?: AllRunFlowResult }>();
+  const renderAllRun = (): void => {
+    if (!allRunPanel || !allRunTable) return;
+    if (allRunData.size === 0) {
+      allRunPanel.style.display = 'none';
+      return;
+    }
+    const td = (html: string, style = ''): string => `<td style="padding:4px 10px;${style}">${html}</td>`;
+    const th = (html: string, style = ''): string =>
+      `<th style="padding:4px 10px;text-align:left;border-bottom:1px solid #30363d;${style}">${html}</th>`;
+    const runsTxt = (r?: AllRunFlowResult): string =>
+      r
+        ? `<span style="color:#8b949e;font-size:11px;">[${r.rounds.map(t => (t / 1000).toFixed(2)).join(', ')}]</span>`
+        : '';
+    const head =
+      th('Example') +
+      th('circuits', 'text-align:right;') +
+      th('WASM median', 'text-align:right;') +
+      th('WebGPU median', 'text-align:right;') +
+      th('speedup', 'text-align:right;') +
+      th('verified', 'text-align:center;');
+    let body = '';
+    let sumWasm = 0;
+    let sumWebgpu = 0;
+    let haveWasm = false;
+    let haveWebgpu = false;
+    let allVerified = true;
+    for (const flow of allFlows()) {
+      const d = allRunData.get(flow);
+      if (!d) continue;
+      const w = d.wasm;
+      const g = d.webgpu;
+      if (w) {
+        sumWasm += w.medianMs;
+        haveWasm = true;
+        allVerified = allVerified && w.verified;
+      }
+      if (g) {
+        sumWebgpu += g.medianMs;
+        haveWebgpu = true;
+        allVerified = allVerified && g.verified;
+      }
+      const speed = w && g && g.medianMs > 0 ? w.medianMs / g.medianMs : undefined;
+      const speedTxt =
+        speed == null ? '—' : `<span style="color:${speed >= 1 ? '#3fb950' : '#f85149'};">${speed.toFixed(2)}×</span>`;
+      const verified = (w?.verified ?? true) && (g?.verified ?? true);
+      const verTxt =
+        !w && !g ? '—' : verified ? '<span style="color:#3fb950;">✓</span>' : '<span style="color:#f85149;">✗</span>';
+      body +=
+        `<tr>` +
+        td(`<span style="color:#c9d1d9;">${flowLabel(flow)}</span>`) +
+        td(String(d.numCircuits), 'text-align:right;color:#8b949e;') +
+        td(w ? `${fmtMs(w.medianMs)} ${runsTxt(w)}` : '—', 'text-align:right;') +
+        td(g ? `${fmtMs(g.medianMs)} ${runsTxt(g)}` : '—', 'text-align:right;') +
+        td(speedTxt, 'text-align:right;') +
+        td(verTxt, 'text-align:center;') +
+        `</tr>`;
+    }
+    const tb = 'border-top:2px solid #30363d;font-weight:600;';
+    const totSpeed = haveWasm && haveWebgpu && sumWebgpu > 0 ? sumWasm / sumWebgpu : undefined;
+    body +=
+      `<tr>` +
+      td('total (sum of medians)', tb) +
+      td('', tb) +
+      td(haveWasm ? fmtMs(sumWasm) : '—', tb + 'text-align:right;') +
+      td(haveWebgpu ? fmtMs(sumWebgpu) : '—', tb + 'text-align:right;') +
+      td(
+        totSpeed == null
+          ? '—'
+          : `<span style="color:${totSpeed >= 1 ? '#3fb950' : '#f85149'};">${totSpeed.toFixed(2)}×</span>`,
+        tb + 'text-align:right;',
+      ) +
+      td(
+        allVerified ? '<span style="color:#3fb950;">✓</span>' : '<span style="color:#f85149;">✗</span>',
+        tb + 'text-align:center;',
+      ) +
+      `</tr>`;
+    allRunTable.innerHTML =
+      `<table style="border-collapse:collapse;font-size:12.5px;font-family:ui-monospace,monospace;width:100%;">` +
+      `<thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+    allRunPanel.style.display = 'block';
+  };
+
+  const runAll = async (mode: AllRunMode): Promise<void> => {
+    const flows = allFlows();
+    const rounds = getRounds();
+    const label = mode === 'wasm' ? 'WASM' : 'WebGPU';
+    setBusy(true, `Run all ${label}: ${flows.length} examples × ${rounds} rounds`);
+    try {
+      append(
+        `▶ Run all (${label}): ${flows.length} examples, interleaved round-robin, ${rounds} rounds each (median per example)`,
+        'info',
+      );
+      const res: AllRunResult = await (window as any).runChonkAllExamples(mode, flows, rounds, (p: AllRunProgress) => {
+        if (p.phase === 'warmup') {
+          setProg(`${label}: warm-up prove (discarded — pays GPU cold-start)…`);
+          return;
+        }
+        const done = (p.round - 1) * p.flowCount + (p.phase === 'done' ? p.flowIndex + 1 : p.flowIndex);
+        const tag =
+          p.phase === 'done'
+            ? `${label} round ${p.round}/${p.rounds} · ${flowLabel(p.flow)} done (${((p.lastMs ?? 0) / 1000).toFixed(1)}s)`
+            : `${label} round ${p.round}/${p.rounds} · ${flowLabel(p.flow)} (${p.flowIndex + 1}/${p.flowCount}) proving…`;
+        setProg(`${tag} · ${done}/${p.rounds * p.flowCount}`, done, p.rounds * p.flowCount);
+      });
+      for (const fr of res.results) {
+        const d = allRunData.get(fr.flow) ?? { numCircuits: fr.numCircuits };
+        d.numCircuits = fr.numCircuits;
+        d[mode] = fr;
+        allRunData.set(fr.flow, d);
+      }
+      renderAllRun();
+      const allOk = res.results.every(r => r.verified);
+      append(
+        `✓ Run all (${label}): ${res.results.length} examples × ${rounds} rounds, all verified=${allOk}` +
+          (res.reused ? ' · backend reused warm' : ` · init ${fmtMs(res.initMs)} (then warm)`),
+        allOk ? 'ok' : 'err',
+      );
+      for (const r of res.results) {
+        append(
+          `  ${flowLabel(r.flow)}: median=${fmtMs(r.medianMs)} [${fmtMs(r.minMs)}–${fmtMs(r.maxMs)}] ` +
+            `rounds=[${r.rounds.map(t => (t / 1000).toFixed(2)).join(', ')}]s verified=${r.verified}`,
+          r.verified ? 'info' : 'err',
+        );
+      }
+    } catch (err) {
+      append(`[ERR] run all ${label}: ${err instanceof Error ? err.message : String(err)}`, 'err');
+      console.error(err);
+    } finally {
+      setBusy(false);
+    }
+  };
+  allRunWasm?.addEventListener('click', () => void runAll('wasm'));
+  allRunWebgpu?.addEventListener('click', () => void runAll('webgpu'));
 
   // Pre-build the WASM backend (16 threads + CRS) now, so the first Run WASM pays
   // no init. The backend stays warm and is reused on same-mode clicks; switching
