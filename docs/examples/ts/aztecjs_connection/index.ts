@@ -153,6 +153,13 @@ const { result: balance } = await token.methods
 console.log(`Alice's token balance: ${balance}`);
 // docs:end:simulate_function
 
+// The bridged Fee Juice claim only becomes consumable once the network's inbox lag (2 checkpoints)
+// has elapsed since the L1->L2 message was inserted. The token deploy and mint above produced two
+// blocks; mine one more here so the claim is available when we pay with it below.
+await token.methods
+  .mint_to_public(aliceAddress, 1n)
+  .send({ from: aliceAddress });
+
 // docs:start:bridge_fee_juice_claim
 import { FeeJuicePaymentMethodWithClaim } from "@aztec/aztec.js/fee";
 
