@@ -18,7 +18,7 @@
 import {
   create_and_write_sb, create_and_write_ub, create_sb,
   create_bind_group_layout, create_bind_group, create_compute_pipeline,
-  execute_pipeline, read_from_gpu, create_readback_buffer, Profiler, setAllocCategory,
+  execute_pipeline, create_readback_buffer, Profiler, setAllocCategory,
 } from '../../src/msm_webgpu/cuzk/gpu.js';
 import { runSumcheckRounds } from '../../src/msm_webgpu/multiround.js';
 import { NUM_RELATIONS, assembleAccumulator } from '../../src/msm_webgpu/accumulator.js';
@@ -146,15 +146,22 @@ export async function runResidentGpuSumcheck(
 
   const tSetup = performance.now();
 
-  // Upload relation parameters once; columns become resident GPU buffers.
+  // Upload relation parameters once; columns become resident GPU buffers. Columns
+  // ping-pong between two reused sets (colBuf full length n, colAlt half length n/2)
+  // exactly like the single-submission engine: fold(round) writes colBuf -> colAlt,
+  // the two swap, and the next fold writes back into the first half of the larger
+  // buffer. This bounds the resident column footprint to 1.5x the witness instead of
+  // the ~2x of allocating a fresh fold output every round (which were never freed).
   const relParamBufs: (GPUBuffer | undefined)[] = new Array(NUM_RELATIONS).fill(undefined);
   let colBuf: GPUBuffer[] = new Array(NUM_RELATIONS);
+  let colAlt: GPUBuffer[] = new Array(NUM_RELATIONS);
   for (const desc of ALL_RELATIONS) {
     const r = desc.relationIndex;
     const rp = relParamBytes[r];
     if (rp) { setAllocCategory('relparams'); relParamBufs[r] = create_and_write_sb(device, rp); }
     setAllocCategory('columns');
     colBuf[r] = create_and_write_sb(device, initColBytes[r]);
+    colAlt[r] = create_sb(device, desc.numEdges * (n >> 1) * 32);
   }
 
   // Scratch buffers sized for round 0, reused for every relation and round.
@@ -307,17 +314,15 @@ export async function runResidentGpuSumcheck(
       setAllocCategory('transcript');
       const uBuf = create_and_write_sb(device, packParams([u]));
       const enc = device.createCommandEncoder();
-      const newCol: GPUBuffer[] = new Array(NUM_RELATIONS);
-      setAllocCategory('columns');
+      // Fold colBuf -> colAlt (both resident, reused across rounds); the two swap
+      // below so the next round folds back into the larger buffer's first half.
       for (const desc of ALL_RELATIONS) {
         const r = desc.relationIndex;
         const numOut = desc.numEdges * half;
-        const nb = create_sb(device, numOut * 32);
         const fBg = create_bind_group(device, foldRunner.layout, [
-          colBuf[r], nb, create_and_write_ub(device, u32x4(numOut, half)), uBuf,
+          colBuf[r], colAlt[r], create_and_write_ub(device, u32x4(numOut, half)), uBuf,
         ]);
         await execute_pipeline(enc, foldRunner.pipeline, fBg, Math.ceil(numOut / WG), 1, 1, prof(_round, `fold:${desc.id}`));
-        newCol[r] = nb;
       }
       // Round 0 is the only profiled round; resolve its query set into this encoder
       // before submit so report() can read it afterwards.
@@ -330,7 +335,7 @@ export async function runResidentGpuSumcheck(
       // it removes one of the two blocking syncs per round. The final length-1
       // readback after the loop awaits, covering the last round's fold.
       device.queue.submit([enc.finish()]);
-      colBuf = newCol;
+      [colBuf, colAlt] = [colAlt, colBuf];
       curLen = half;
     },
   });
@@ -340,13 +345,27 @@ export async function runResidentGpuSumcheck(
 
   // Trailing readback of the resident columns: length-1 for a full run (the
   // purported-value anchor), or the folded columns (size 2^(d-rounds)) for a
-  // partial run — the GPU->WASM handoff payload in the hybrid bench.
+  // partial run — the GPU->WASM handoff payload in the hybrid bench. Only the first
+  // numEdges*curLen elements of each ping-pong buffer are meaningful (the fold packs
+  // column c at c*curLen), so copy exactly that — reading the whole reused buffer
+  // would stage the full-length (n or n/2) buffer back, not the folded columns.
   const tReadback = performance.now();
-  const finalEnc = device.createCommandEncoder();
-  const finalBytes = await read_from_gpu(device, finalEnc, ALL_RELATIONS.map(desc => colBuf[desc.relationIndex]));
-  const finalReadbackMs = performance.now() - tReadback;
   const finalColBytes: Uint8Array[] = new Array(NUM_RELATIONS);
-  ALL_RELATIONS.forEach((desc, i) => { finalColBytes[desc.relationIndex] = finalBytes[i]; });
+  const sizes = ALL_RELATIONS.map(desc => desc.numEdges * curLen * 32);
+  const offs: number[] = [];
+  { let o = 0; for (const s of sizes) { offs.push(o); o += s; } }
+  const totalFinal = offs.length ? offs[offs.length - 1] + sizes[sizes.length - 1] : 0;
+  if (totalFinal > 0) {
+    const fStaging = create_readback_buffer(device, totalFinal);
+    const finalEnc = device.createCommandEncoder();
+    ALL_RELATIONS.forEach((desc, idx) => finalEnc.copyBufferToBuffer(colBuf[desc.relationIndex], 0, fStaging, offs[idx], sizes[idx]));
+    device.queue.submit([finalEnc.finish()]);
+    await fStaging.mapAsync(GPUMapMode.READ, 0, totalFinal);
+    const all = new Uint8Array(fStaging.getMappedRange(0, totalFinal).slice(0));
+    fStaging.unmap();
+    ALL_RELATIONS.forEach((desc, idx) => { finalColBytes[desc.relationIndex] = all.slice(offs[idx], offs[idx] + sizes[idx]); });
+  }
+  const finalReadbackMs = performance.now() - tReadback;
 
   return { univariates, challenges: used, finalColBytes, gpuMs, totalMs, finalReadbackMs, setupMs, scalingMs, decodeMs, profile: profileReport };
 }
