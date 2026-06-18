@@ -570,14 +570,10 @@ fn flat_columns_of_empty_avm_circuit_public_inputs() {
     assert(flat.len() == AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH);
 }
 
-// Invariant guard: serialize_to_columns only copies rows [0, AVM_PUBLIC_INPUTS_COLUMN_i_LENGTH) of
-// each column, so anything to_columns writes at a row >= that length is silently dropped from the
-// serialization and never bound by the AVM proof. Columns 1-3 are shorter than column 0; if a future
-// field is mapped past one of their lengths without bumping the corresponding length constant, the
-// value would vanish unnoticed (a soundness hole). Maximally populate every field with a non-zero
-// value (deserialize-from-ones covers all fields, including ones added later) and assert the trailing
-// rows of columns 1-3 stay zero, turning that footgun into a loud failure. This is an out-of-circuit
-// test, so it does not affect the in-circuit gate savings.
+// serialize_to_columns copies only rows [0, AVM_PUBLIC_INPUTS_COLUMN_i_LENGTH) of each column, so a
+// field written past a column's length is silently dropped (never bound by the proof). Maximally
+// populate every field (deserialize-from-ones, covering future fields too) and assert columns 1-3 are
+// zero beyond their lengths, so any such stray write fails loudly.
 #[test]
 fn to_columns_writes_nothing_beyond_per_column_length() {
     let item = AvmCircuitPublicInputs::deserialize([1; AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH]);

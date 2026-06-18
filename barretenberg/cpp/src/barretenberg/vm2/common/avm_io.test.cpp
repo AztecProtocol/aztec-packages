@@ -365,13 +365,8 @@ TEST(AvmInputsTest, ValuesInColumns)
     EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_REVERTED_ROW_IDX], static_cast<uint8_t>(pi.reverted));
 }
 
-// C++ counterpart of the Noir `to_columns_writes_nothing_beyond_per_column_length` invariant.
-// Here to_columns() allocates each column at exactly its per-column length (the columns are jagged),
-// so there is no [Lᵢ, MAX_LENGTH) tail to inspect; a field mapped past Lᵢ is instead an out-of-bounds
-// write into the exactly-sized column. We pin each length to the last written row: populate the final
-// row of every column and assert it is non-zero. A length that is too large would leave a zero final
-// cell (caught here); a field added past Lᵢ would be an out-of-bounds write in to_columns (caught in
-// assert/sanitizer builds). Out-of-circuit test, so no gate impact.
+// Checks each per-column length is tight: every column's final row is populated and asserted non-zero,
+// so an over-long length (zero final cell) or a field written past Lᵢ (out-of-bounds write) is caught.
 TEST(AvmInputsTest, ToColumnsPerColumnLengthsAreTight)
 {
     PublicInputs pi;
