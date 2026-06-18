@@ -4,7 +4,7 @@ import type { EphemeralArray } from './ephemeral_array.js';
 import type { Fact } from './fact.js';
 
 /**
- * Returned by `getEntity`/`getEntities`: the entity body plus its facts.
+ * Returned by EntityService `getEntity`/`getEntities`: the entity body plus its facts.
  *
  * A TS version of the `RawEntity` struct in `entities/mod.nr`.
  */
