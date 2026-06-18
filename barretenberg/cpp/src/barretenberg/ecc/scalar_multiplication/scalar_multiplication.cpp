@@ -635,8 +635,8 @@ template class bb::scalar_multiplication::legacy::MSM<bb::curve::BN254>;
 
 // ===================================================================================
 // Public MSM facade implementation (see scalar_multiplication.hpp). Routes to the
-// `legacy::` MSM by default; the round-parallel `_fast` rewrite is opt-in until it has
-// soaked (BB_MSM_NEW env, the API override, or TS `legacyMsm: false`).
+// `legacy::` MSM by default; the round-parallel `_fast` path is opt-in (BB_MSM_NEW env,
+// the API override, or TS `legacyMsm: false`).
 // ===================================================================================
 namespace bb::scalar_multiplication {
 
@@ -651,9 +651,9 @@ bool use_legacy_msm() noexcept
     if (selected_override != -1) {
         return selected_override != 0;
     }
-    // Legacy MSM is the default; the round-parallel rewrite is opt-in until it has soaked.
-    // Opt in with BB_MSM_NEW (or the API override / TS `legacyMsm: false`). BB_MSM_LEGACY is
-    // still honoured as an explicit force-legacy and wins if both are set.
+    // Legacy MSM is the default; the round-parallel path is opt-in via BB_MSM_NEW (or the API
+    // override / TS `legacyMsm: false`). BB_MSM_LEGACY forces legacy explicitly and wins if both
+    // env vars are set.
     static const bool legacy_forced = std::getenv("BB_MSM_LEGACY") != nullptr;
     static const bool new_selected = std::getenv("BB_MSM_NEW") != nullptr;
     return legacy_forced || !new_selected;
