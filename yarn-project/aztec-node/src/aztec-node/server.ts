@@ -527,6 +527,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   ): Promise<AztecNodeService> {
     const config = { ...inputConfig }; // Copy the config so we dont mutate the input object
     const log = deps.logger ?? createLogger('node');
+
+    // Initialise the bb.js sync WASM singleton here, before any subsystem runs.
+    const { BarretenbergSync } = await import('@aztec/bb.js');
+    await BarretenbergSync.initSingleton();
+
     const packageVersion = getPackageVersion();
     const telemetry = deps.telemetry ?? getTelemetryClient();
     const dateProvider = deps.dateProvider ?? new DateProvider();

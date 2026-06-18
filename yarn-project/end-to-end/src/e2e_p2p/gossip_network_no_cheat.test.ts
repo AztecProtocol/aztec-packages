@@ -13,7 +13,7 @@ import { sleep } from '@aztec/foundation/sleep';
 import { MockZKPassportVerifierAbi } from '@aztec/l1-artifacts/MockZKPassportVerifierAbi';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import type { SequencerClient } from '@aztec/sequencer-client';
-import { CheckpointAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
+import { CheckpointAttestation, ConsensusPayload, TopicType } from '@aztec/stdlib/p2p';
 import { ZkPassportProofParams } from '@aztec/stdlib/zkpassport';
 
 import { jest } from '@jest/globals';
@@ -201,8 +201,21 @@ describe('e2e_p2p_network', () => {
       shouldCollectMetrics(),
     );
 
-    // wait a bit for peers to discover each other
-    await sleep(8000);
+    // Wait for the gossipsub mesh to fully form before the committee starts producing. With
+    // skipInitialSequencer, the first blocks are built by this committee, and the first checkpoint
+    // must reach quorum (all 4 validators) to land on L1. If the proposal/checkpoint meshes are only
+    // partly formed, some committee members miss the first proposal, the first checkpoint stalls at
+    // 2/3, and every later slot rebuilds a competing un-checkpointed block 1 that peers reject as
+    // `block_number_already_exists` — a permanent 2/3 deadlock. Require a full mesh (N-1 peers per
+    // node) on the proposal/checkpoint topics so the first proposal reaches the whole committee.
+    await t.waitForP2PMeshConnectivity(
+      nodes,
+      NUM_VALIDATORS,
+      60,
+      0.5,
+      [TopicType.block_proposal, TopicType.checkpoint_proposal, TopicType.checkpoint_attestation],
+      NUM_VALIDATORS - 1,
+    );
 
     // Wait for the first checkpoint to be published to L1 before submitting transactions.
     // With skipInitialSequencer, no blocks exist from setup, so the first blocks are built by the
