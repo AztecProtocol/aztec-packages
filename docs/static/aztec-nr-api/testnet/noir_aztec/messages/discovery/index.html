@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
+<title>Module discovery documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">discovery</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#mod">Module discovery</a></h2>
+<h3>Module items</h3>
+<ul class="sidebar-list">
+<li><a href="#modules">Modules</a></li>
+<li><a href="#structs">Structs</a></li>
+<li><a href="#type-aliases">Type aliases</a></li>
+<li><a href="#functions">Functions</a></li>
+</ul>
+<h2>In module messages</h2>
+<h3>Modules</h3><ul class="item-list">
+<li><a href="../delivery/index.html">delivery</a></div></li>
+<li><a href="../discovery/index.html">discovery</a></div></li>
+<li><a href="../encoding/index.html">encoding</a></div></li>
+<li><a href="../encryption/index.html">encryption</a></div></li>
+<li><a href="../logs/index.html">logs</a></div></li>
+<li><a href="../msg_type/index.html">msg_type</a></div></li>
+<li><a href="../offchain_messages/index.html">offchain_messages</a></div></li>
+<li><a href="../processing/index.html">processing</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">messages</a>::discovery</div>
+<h1>Module <span id="mod" class="module">discovery</span></h1>
+<h2 id="modules">Modules</h2><ul class="item-list">
+<li><div class="item-name"><a href="private_notes/index.html" class="module">private_notes</a></div><div class="item-description"></div></li>
+<li><div class="item-name"><a href="process_message/index.html" class="module">process_message</a></div><div class="item-description"></div></li>
+</ul>
+<h2 id="structs">Structs</h2><ul class="item-list">
+<li><div class="item-name"><a href="struct.NoteHashAndNullifier.html" class="struct">NoteHashAndNullifier</a></div><div class="item-description"></div></li>
+</ul>
+<h2 id="type-aliases">Type aliases</h2><ul class="item-list">
+<li><div class="item-name"><a href="type.ComputeNoteHash.html" class="type">ComputeNoteHash</a></div><div class="item-description">A contract's way of computing note hashes.</div></li>
+<li><div class="item-name"><a href="type.ComputeNoteHashAndNullifier.html" class="type">ComputeNoteHashAndNullifier</a></div><div class="item-description">Deprecated: use <a href="../../../noir_aztec/messages/discovery/type.ComputeNoteHash.html"><code>ComputeNoteHash</code></a> and <a href="../../../noir_aztec/messages/discovery/type.ComputeNoteNullifier.html"><code>ComputeNoteNullifier</code></a> instead.</div></li>
+<li><div class="item-name"><a href="type.ComputeNoteNullifier.html" class="type">ComputeNoteNullifier</a></div><div class="item-description">A contract's way of computing note nullifiers.</div></li>
+<li><div class="item-name"><a href="type.CustomMessageHandler.html" class="type">CustomMessageHandler</a></div><div class="item-description">A handler for custom messages.</div></li>
+<li><div class="item-name"><a href="type.CustomSyncHandler.html" class="type">CustomSyncHandler</a></div><div class="item-description">Custom state synchronization handler.</div></li>
+</ul>
+<h2 id="functions">Functions</h2><ul class="item-list">
+<li><div class="item-name"><a href="fn.do_sync_state.html" class="fn">do_sync_state</a></div><div class="item-description">Synchronizes the contract's private state with the network.</div></li>
+<li><div class="item-name"><a href="fn.do_sync_state_without_handshake_discovery.html" class="fn">do_sync_state_without_handshake_discovery</a></div><div class="item-description">Variant of <a href="../../../noir_aztec/messages/discovery/fn.do_sync_state.html"><code>do_sync_state</code></a> that skips handshake secret discovery. Used by the HandshakeRegistry to avoid
+infinite recursion (the registry discovers handshakes for other contracts, not for itself).</div></li>
+</ul>
+</main>
+</span>
+</body>
+</html>
