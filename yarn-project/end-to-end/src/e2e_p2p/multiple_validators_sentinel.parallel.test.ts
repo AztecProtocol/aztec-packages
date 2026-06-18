@@ -27,8 +27,11 @@ const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'validators-sentinel-'));
 
 jest.setTimeout(1000 * 60 * 10);
 
-// Regression test for sentinel properly detecting attestations of validators
-// running on the same node as the proposer who pushed a given block.
+// Regression test for the sentinel correctly tracking attestations for multiple validators co-hosted on
+// the same physical node as the proposer. Uses P2PNetworkTest with real libp2p: 2 nodes each carrying 3
+// validator keys (6 validators total) plus a non-validator sentinel node and a fake prover. ethSlot=8s,
+// aztecSlot=36s, epoch=2, proofSubEpochs=1024, enforceTimeTable, sentinelEnabled. Dynamic port via
+// getBootNodeUdpPort(). Each it runs as an isolated CI job (parallel convention).
 // REFACTOR: This test shares much code with `validators_sentinel` so we may be able to refactor common parts out.
 describe('e2e_p2p_multiple_validators_sentinel', () => {
   let t: P2PNetworkTest;
@@ -120,6 +123,8 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
     );
   };
 
+  // Waits past the pipelining warm-up period, then observes SLOT_COUNT slots and asserts that every
+  // validator on every node has zero attestation-missed entries in the sentinel history for those slots.
   it('collects attestations for all validators on a node', async () => {
     // Ensure all nodes see each other, especially the sentinel, before starting slot counting
     await t.waitForP2PMeshConnectivity([...nodes, sentinel]);
@@ -161,6 +166,11 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
     }
   });
 
+  // Stops the second validator node mid-run so it can no longer build blocks. Finds a slot where one
+  // of the first node's validators is the proposer, then queries sentinel stats from the sentinel node
+  // and asserts: first-node validators have no missed entries for that slot; offline validators have
+  // missed entries; and at least one first-node validator has a checkpoint-mined or checkpoint-valid
+  // entry confirming the block was proposed.
   it('collects attestations for validators in proposer node when block is not published', async () => {
     // Ensure all nodes see each other, especially the sentinel
     await t.waitForP2PMeshConnectivity([...nodes, sentinel]);

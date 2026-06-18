@@ -42,6 +42,10 @@ const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'duplicate-proposal-slash
  * 2. The two nodes with the same key will both detect they are proposers for the same slot and naturally race to propose
  * 3. Since they have different coinbase addresses, their proposals will have different archives (different content)
  * 4. Other validators will detect the duplicate and emit a slash event
+ *
+ * Setup: P2PNetworkTest with mockGossipSubNetwork:true (in-memory bus, NOT real libp2p). 4 validators,
+ * ethSlot=8s, aztecSlot=24s, epoch=2, proofSubEpochs=1024, minTxsPerBlock=0, inboxLag=2, enforceTimeTable.
+ * Candidate for relocation to e2e_slashing/.
  */
 describe('e2e_p2p_duplicate_proposal_slash', () => {
   let t: P2PNetworkTest;
@@ -99,6 +103,11 @@ describe('e2e_p2p_duplicate_proposal_slash', () => {
     await t.ctx.cheatCodes.rollup.debugRollup();
   };
 
+  // Two malicious nodes share a validator key but have different coinbase addresses so their proposals
+  // differ. Honest nodes receive both proposals via mock gossip, detect the equivocation, and record a
+  // DUPLICATE_PROPOSAL offense. The test collects offenses from all nodes (equivocation may only be
+  // observed by whichever node processed both proposals before the slot closed) and asserts the offense
+  // is attributed to the shared key's address.
   it('slashes validator who sends duplicate proposals', async () => {
     const { rollup } = await t.getContracts();
 
