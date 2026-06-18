@@ -4,12 +4,12 @@ This directory computes the multi-scalar multiplication
 
 $$\mathrm{MSM}(\vec{s}, \vec{P}) \;=\; \sum_{i=0}^{n-1} s_i \cdot P_i,$$
 
-the dominant cost of an ECC-based proving system. The default implementation is **round-parallel**:
-it parallelises a single MSM by distributing its windows (rounds) across the thread pool, so each
-worker runs whole windows independently. The `legacy` namespace keeps the previous implementation,
-which parallelises the other axis — it partitions the points across threads, accumulates per-thread
-bucket sets, and reduces them. The two are selected at runtime via `BB_MSM_LEGACY` for A/B
-comparison.
+the dominant cost of an ECC-based proving system. The default implementation is **legacy**
+(`legacy` namespace): it parallelises an MSM by partitioning the points across threads, accumulating
+per-thread bucket sets, and reducing them. The **round-parallel** implementation parallelises the
+other axis — it distributes a single MSM's windows (rounds) across the thread pool, so each worker
+runs whole windows independently. The round-parallel implementation is opt-in via `BB_MSM_NEW` (or
+the API override), so the two can be A/B compared.
 
 ## Cost model
 
@@ -49,8 +49,9 @@ Constantine signed-Booth recoder.
 ## Entry points
 
 The public facade in `scalar_multiplication.hpp` (`namespace bb::scalar_multiplication`) dispatches
-to the round-parallel implementation by default, or to `legacy::` when `use_legacy_msm()` returns
-true (set by the `BB_MSM_LEGACY` environment variable or `set_legacy_msm_override`).
+to `legacy::` by default and to the round-parallel implementation when `use_legacy_msm()` returns
+false. Opt into the round-parallel path with the `BB_MSM_NEW` environment variable or
+`set_legacy_msm_override(false)`. `BB_MSM_LEGACY` forces legacy explicitly.
 
 | Facade | `handle_edge_cases` | Use when |
 |---|---|---|

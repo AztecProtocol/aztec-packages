@@ -72,8 +72,10 @@ export type BackendOptions = {
   skipSrsInit?: boolean;
 
   /**
-   * @description Force the pre-rewrite Pippenger/MSM implementation.
-   * Mirrors setting BB_MSM_LEGACY=1 for native bb, and is also supported by WASM backends.
+   * @description Selects the Pippenger/MSM implementation. The legacy MSM is the default, so leave
+   * this unset for it. Set `false` to opt into the round-parallel implementation (equivalent to
+   * BB_MSM_NEW for native bb); set `true` to force legacy explicitly. Honoured by both native and
+   * WASM backends.
    */
   legacyMsm?: boolean;
 };
