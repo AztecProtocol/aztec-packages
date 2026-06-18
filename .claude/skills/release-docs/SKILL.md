@@ -342,12 +342,25 @@ grep -r "<old_address>" docs/
 
 **For testnet releases:**
 
-There is no dedicated `getting_started_on_testnet.md` page. Instead:
+**File:** `docs/docs-developers/getting_started_on_testnet.md` (snapshotted into the
+versioned docs at cut time in Step 13)
+
+- Update `NODE_URL` to the testnet RPC endpoint, and keep it **identical** to the
+  RPC endpoint in `docs/docs/networks.md` (Step 9). These two are maintained
+  separately, so a `networks.md` RPC change that isn't mirrored here leaves the
+  guide's first command pointing at a dead host.
+- Update `SPONSORED_FPC_ADDRESS` from Step 4.
+- Update the install command and any hardcoded version references to the new version.
+- Review the page for correctness: CLI commands, FPC registration, fee payment
+  instructions, block explorer links.
+- Do **not** add a fixed block-time / slot-time figure to the comparison table.
+  Testnet block time is variable (roughly one block per 72s slot, but slots can be
+  skipped), so any single number goes stale; describe it qualitatively or omit it.
+
+Also:
 
 - Update any testnet RPC URLs or addresses in operator docs under `docs/docs-operate/`
 - Review the testnet section of `docs/docs/networks.md` for accuracy
-- Check `docs/docs-developers/getting_started_on_devnet.md` for any testnet references
-  that also need updating
 
 ### Step 11: Run `yarn build` and Fix Issues
 
@@ -406,8 +419,8 @@ Iterate until the build passes.
 **For devnet releases:** Read through `docs/docs-developers/getting_started_on_devnet.md`
 one final time after all changes are complete.
 
-**For testnet releases:** Read through the testnet section of `docs/docs/networks.md`
-and any updated operator docs.
+**For testnet releases:** Read through `docs/docs-developers/getting_started_on_testnet.md`,
+the testnet section of `docs/docs/networks.md`, and any updated operator docs.
 
 In both cases verify:
 
@@ -415,6 +428,7 @@ In both cases verify:
 - Fee payment instructions are accurate
 - Block explorer links are correct
 - The SponsoredFPC address matches step 4
+- `NODE_URL` matches the RPC endpoint in `networks.md` (testnet/devnet)
 
 Present a summary of the review to the user for approval.
 
