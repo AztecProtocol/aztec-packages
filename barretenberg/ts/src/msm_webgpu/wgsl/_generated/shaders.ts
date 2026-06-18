@@ -3137,6 +3137,9 @@ struct Params {
 @group(0) @binding(1) var<storage, read_write> out_buf: array<u32>;
 @group(0) @binding(2) var<uniform> params: Params;
 @group(0) @binding(3) var<storage, read> scaling: array<u32>;  // per-pair gate-separator scaling
+{{#shared}}
+@group(0) @binding(4) var<storage, read> entity_map: array<u32>;  // shared: local entity -> global column index
+{{/shared}}
 
 const IN_LEN: u32 = 27u;   // 13 entities x 2 evals + scaling
 const OUT_LEN: u32 = 11u;  // subrel0 (6) + subrel1 (5)
@@ -3145,7 +3148,7 @@ fn ld(row: u32, j: u32) -> array<u32, 8> {
   var v: array<u32, 8>;
   if (j + 1u < IN_LEN) {
     let col_len = 2u * params.n;
-    let base = ((j >> 1u) * col_len + 2u * row + (j & 1u)) * 8u;
+    let base = ({{#shared}}entity_map[j >> 1u]{{/shared}}{{^shared}}(j >> 1u){{/shared}} * col_len + 2u * row + (j & 1u)) * 8u;
 {{#f8_words}}
     v[{{i}}] = col_buf[base + {{i}}u];
 {{/f8_words}}
@@ -4035,6 +4038,9 @@ struct Params {
 @group(0) @binding(2) var<uniform> params: Params;
 @group(0) @binding(3) var<storage, read> scaling: array<u32>;  // per-pair gate-separator scaling
 @group(0) @binding(4) var<storage, read> param_buf: array<u32>; // [beta, gamma]
+{{#shared}}
+@group(0) @binding(5) var<storage, read> entity_map: array<u32>;  // shared: local entity -> global column index
+{{/shared}}
 
 const IN_LEN: u32 = 49u;   // 24 entities x 2 evals + scaling
 const OUT_LEN: u32 = 90u;  // 5 buses x 3 subrelations x 6
@@ -4043,7 +4049,7 @@ fn ld(row: u32, j: u32) -> array<u32, 8> {
   var v: array<u32, 8>;
   if (j + 1u < IN_LEN) {
     let col_len = 2u * params.n;
-    let base = ((j >> 1u) * col_len + 2u * row + (j & 1u)) * 8u;
+    let base = ({{#shared}}entity_map[j >> 1u]{{/shared}}{{^shared}}(j >> 1u){{/shared}} * col_len + 2u * row + (j & 1u)) * 8u;
 {{#f8_words}}
     v[{{i}}] = col_buf[base + {{i}}u];
 {{/f8_words}}
@@ -4174,6 +4180,9 @@ struct Params {
 @group(0) @binding(1) var<storage, read_write> out_buf: array<u32>;
 @group(0) @binding(2) var<uniform> params: Params;
 @group(0) @binding(3) var<storage, read> scaling: array<u32>;  // per-pair gate-separator scaling
+{{#shared}}
+@group(0) @binding(4) var<storage, read> entity_map: array<u32>;  // shared: local entity -> global column index
+{{/shared}}
 
 const IN_LEN: u32 = 13u;   // 6 entities x 2 evals + scaling
 const OUT_LEN: u32 = 24u;  // 4 subrelations x 6
@@ -4182,7 +4191,7 @@ fn ld(row: u32, j: u32) -> array<u32, 8> {
   var v: array<u32, 8>;
   if (j + 1u < IN_LEN) {
     let col_len = 2u * params.n;
-    let base = ((j >> 1u) * col_len + 2u * row + (j & 1u)) * 8u;
+    let base = ({{#shared}}entity_map[j >> 1u]{{/shared}}{{^shared}}(j >> 1u){{/shared}} * col_len + 2u * row + (j & 1u)) * 8u;
 {{#f8_words}}
     v[{{i}}] = col_buf[base + {{i}}u];
 {{/f8_words}}
@@ -4268,6 +4277,9 @@ struct Params {
 @group(0) @binding(1) var<storage, read_write> out_buf: array<u32>;
 @group(0) @binding(2) var<uniform> params: Params;
 @group(0) @binding(3) var<storage, read> scaling: array<u32>;  // per-pair gate-separator scaling
+{{#shared}}
+@group(0) @binding(4) var<storage, read> entity_map: array<u32>;  // shared: local entity -> global column index
+{{/shared}}
 
 const IN_LEN: u32 = 19u;   // 9 entities x 2 evals + scaling
 const OUT_LEN: u32 = 24u;  // 8 subrelations x 3
@@ -4276,7 +4288,7 @@ fn ld(row: u32, j: u32) -> array<u32, 8> {
   var v: array<u32, 8>;
   if (j + 1u < IN_LEN) {
     let col_len = 2u * params.n;
-    let base = ((j >> 1u) * col_len + 2u * row + (j & 1u)) * 8u;
+    let base = ({{#shared}}entity_map[j >> 1u]{{/shared}}{{^shared}}(j >> 1u){{/shared}} * col_len + 2u * row + (j & 1u)) * 8u;
 {{#f8_words}}
     v[{{i}}] = col_buf[base + {{i}}u];
 {{/f8_words}}
@@ -4372,6 +4384,9 @@ struct Params {
 @group(0) @binding(1) var<storage, read_write> out_buf: array<u32>;
 @group(0) @binding(2) var<uniform> params: Params;
 @group(0) @binding(3) var<storage, read> scaling: array<u32>;  // per-pair gate-separator scaling
+{{#shared}}
+@group(0) @binding(4) var<storage, read> entity_map: array<u32>;  // shared: local entity -> global column index
+{{/shared}}
 
 const IN_LEN: u32 = 19u;   // 9 entities x 2 evals + scaling
 const OUT_LEN: u32 = 12u;  // 2 subrelations x 6
@@ -4380,7 +4395,7 @@ fn ld(row: u32, j: u32) -> array<u32, 8> {
   var v: array<u32, 8>;
   if (j + 1u < IN_LEN) {
     let col_len = 2u * params.n;
-    let base = ((j >> 1u) * col_len + 2u * row + (j & 1u)) * 8u;
+    let base = ({{#shared}}entity_map[j >> 1u]{{/shared}}{{^shared}}(j >> 1u){{/shared}} * col_len + 2u * row + (j & 1u)) * 8u;
 {{#f8_words}}
     v[{{i}}] = col_buf[base + {{i}}u];
 {{/f8_words}}
@@ -5526,6 +5541,9 @@ struct Params {
 @group(0) @binding(2) var<uniform> params: Params;
 @group(0) @binding(3) var<storage, read> scaling: array<u32>;  // per-pair gate-separator scaling
 @group(0) @binding(4) var<storage, read> param_buf: array<u32>; // [gamma, beta, beta_sqr, beta_cube]
+{{#shared}}
+@group(0) @binding(5) var<storage, read> entity_map: array<u32>;  // shared: local entity -> global column index
+{{/shared}}
 
 const IN_LEN: u32 = 37u;   // 18 entities x 2 evals + scaling
 const OUT_LEN: u32 = 13u;  // 5 + 5 + 3
@@ -5534,7 +5552,7 @@ fn ld(row: u32, j: u32) -> array<u32, 8> {
   var v: array<u32, 8>;
   if (j + 1u < IN_LEN) {
     let col_len = 2u * params.n;
-    let base = ((j >> 1u) * col_len + 2u * row + (j & 1u)) * 8u;
+    let base = ({{#shared}}entity_map[j >> 1u]{{/shared}}{{^shared}}(j >> 1u){{/shared}} * col_len + 2u * row + (j & 1u)) * 8u;
 {{#f8_words}}
     v[{{i}}] = col_buf[base + {{i}}u];
 {{/f8_words}}
@@ -5682,6 +5700,9 @@ struct Params {
 @group(0) @binding(2) var<uniform> params: Params;
 @group(0) @binding(3) var<storage, read> scaling: array<u32>;  // per-pair gate-separator scaling
 @group(0) @binding(4) var<storage, read> param_buf: array<u32>; // [eta, eta_two, eta_three]
+{{#shared}}
+@group(0) @binding(5) var<storage, read> entity_map: array<u32>;  // shared: local entity -> global column index
+{{/shared}}
 
 const IN_LEN: u32 = 31u;   // 15 entities x 2 evals + scaling
 const OUT_LEN: u32 = 36u;  // 6 subrelations x 6
@@ -5690,7 +5711,7 @@ fn ld(row: u32, j: u32) -> array<u32, 8> {
   var v: array<u32, 8>;
   if (j + 1u < IN_LEN) {
     let col_len = 2u * params.n;
-    let base = ((j >> 1u) * col_len + 2u * row + (j & 1u)) * 8u;
+    let base = ({{#shared}}entity_map[j >> 1u]{{/shared}}{{^shared}}(j >> 1u){{/shared}} * col_len + 2u * row + (j & 1u)) * 8u;
 {{#f8_words}}
     v[{{i}}] = col_buf[base + {{i}}u];
 {{/f8_words}}
@@ -6161,6 +6182,9 @@ struct Params {
 @group(0) @binding(1) var<storage, read_write> out_buf: array<u32>;
 @group(0) @binding(2) var<uniform> params: Params;
 @group(0) @binding(3) var<storage, read> scaling: array<u32>;  // per-pair gate-separator scaling
+{{#shared}}
+@group(0) @binding(4) var<storage, read> entity_map: array<u32>;  // shared: local entity -> global column index
+{{/shared}}
 
 const IN_LEN: u32 = 27u;  // 13 entities x 2 evals + scaling
 const OUT_LEN: u32 = 6u;  // 1 subrelation x 6
@@ -6169,7 +6193,7 @@ fn ld(row: u32, j: u32) -> array<u32, 8> {
   var v: array<u32, 8>;
   if (j + 1u < IN_LEN) {
     let col_len = 2u * params.n;
-    let base = ((j >> 1u) * col_len + 2u * row + (j & 1u)) * 8u;
+    let base = ({{#shared}}entity_map[j >> 1u]{{/shared}}{{^shared}}(j >> 1u){{/shared}} * col_len + 2u * row + (j & 1u)) * 8u;
 {{#f8_words}}
     v[{{i}}] = col_buf[base + {{i}}u];
 {{/f8_words}}
@@ -6319,6 +6343,9 @@ struct Params {
 @group(0) @binding(2) var<uniform> params: Params;
 @group(0) @binding(3) var<storage, read> scaling: array<u32>;  // per-pair gate-separator scaling
 @group(0) @binding(4) var<storage, read> param_buf: array<u32>; // [beta, gamma, public_input_delta]
+{{#shared}}
+@group(0) @binding(5) var<storage, read> entity_map: array<u32>;  // shared: local entity -> global column index
+{{/shared}}
 
 const IN_LEN: u32 = 33u;   // 16 entities x 2 evals + scaling
 const OUT_LEN: u32 = 12u;  // 6 + 3 + 3
@@ -6327,7 +6354,7 @@ fn ld(row: u32, j: u32) -> array<u32, 8> {
   var v: array<u32, 8>;
   if (j + 1u < IN_LEN) {
     let col_len = 2u * params.n;
-    let base = ((j >> 1u) * col_len + 2u * row + (j & 1u)) * 8u;
+    let base = ({{#shared}}entity_map[j >> 1u]{{/shared}}{{^shared}}(j >> 1u){{/shared}} * col_len + 2u * row + (j & 1u)) * 8u;
 {{#f8_words}}
     v[{{i}}] = col_buf[base + {{i}}u];
 {{/f8_words}}
@@ -6475,6 +6502,9 @@ struct Params {
 @group(0) @binding(1) var<storage, read_write> out_buf: array<u32>;
 @group(0) @binding(2) var<uniform> params: Params;
 @group(0) @binding(3) var<storage, read> scaling: array<u32>;  // per-pair gate-separator scaling
+{{#shared}}
+@group(0) @binding(4) var<storage, read> entity_map: array<u32>;  // shared: local entity -> global column index
+{{/shared}}
 
 const IN_LEN: u32 = 27u;   // 13 entities x 2 evals + scaling
 const OUT_LEN: u32 = 28u;  // 4 subrelations x 7
@@ -6483,7 +6513,7 @@ fn ld(row: u32, j: u32) -> array<u32, 8> {
   var v: array<u32, 8>;
   if (j + 1u < IN_LEN) {
     let col_len = 2u * params.n;
-    let base = ((j >> 1u) * col_len + 2u * row + (j & 1u)) * 8u;
+    let base = ({{#shared}}entity_map[j >> 1u]{{/shared}}{{^shared}}(j >> 1u){{/shared}} * col_len + 2u * row + (j & 1u)) * 8u;
 {{#f8_words}}
     v[{{i}}] = col_buf[base + {{i}}u];
 {{/f8_words}}
@@ -6611,6 +6641,9 @@ struct Params {
 @group(0) @binding(1) var<storage, read_write> out_buf: array<u32>;
 @group(0) @binding(2) var<uniform> params: Params;
 @group(0) @binding(3) var<storage, read> scaling: array<u32>;  // per-pair gate-separator scaling
+{{#shared}}
+@group(0) @binding(4) var<storage, read> entity_map: array<u32>;  // shared: local entity -> global column index
+{{/shared}}
 
 const IN_LEN: u32 = 19u;   // 9 entities x 2 evals + scaling
 const OUT_LEN: u32 = 12u;  // 4 subrelations x 3
@@ -6619,7 +6652,7 @@ fn ld(row: u32, j: u32) -> array<u32, 8> {
   var v: array<u32, 8>;
   if (j + 1u < IN_LEN) {
     let col_len = 2u * params.n;
-    let base = ((j >> 1u) * col_len + 2u * row + (j & 1u)) * 8u;
+    let base = ({{#shared}}entity_map[j >> 1u]{{/shared}}{{^shared}}(j >> 1u){{/shared}} * col_len + 2u * row + (j & 1u)) * 8u;
 {{#f8_words}}
     v[{{i}}] = col_buf[base + {{i}}u];
 {{/f8_words}}
@@ -6720,6 +6753,9 @@ struct Params {
 @group(0) @binding(1) var<storage, read_write> out_buf: array<u32>;
 @group(0) @binding(2) var<uniform> params: Params;
 @group(0) @binding(3) var<storage, read> scaling: array<u32>;  // per-pair gate-separator scaling
+{{#shared}}
+@group(0) @binding(4) var<storage, read> entity_map: array<u32>;  // shared: local entity -> global column index
+{{/shared}}
 
 const IN_LEN: u32 = 33u;   // 16 entities x 2 evals + scaling
 const OUT_LEN: u32 = 28u;  // 4 subrelations x 7
@@ -6728,7 +6764,7 @@ fn ld(row: u32, j: u32) -> array<u32, 8> {
   var v: array<u32, 8>;
   if (j + 1u < IN_LEN) {
     let col_len = 2u * params.n;
-    let base = ((j >> 1u) * col_len + 2u * row + (j & 1u)) * 8u;
+    let base = ({{#shared}}entity_map[j >> 1u]{{/shared}}{{^shared}}(j >> 1u){{/shared}} * col_len + 2u * row + (j & 1u)) * 8u;
 {{#f8_words}}
     v[{{i}}] = col_buf[base + {{i}}u];
 {{/f8_words}}
@@ -6903,6 +6939,9 @@ struct Params {
 @group(0) @binding(1) var<storage, read_write> out_buf: array<u32>;
 @group(0) @binding(2) var<uniform> params: Params;
 @group(0) @binding(3) var<storage, read> scaling: array<u32>;  // per-pair gate-separator scaling
+{{#shared}}
+@group(0) @binding(4) var<storage, read> entity_map: array<u32>;  // shared: local entity -> global column index
+{{/shared}}
 
 const IN_LEN: u32 = 27u;   // 13 entities x 2 evals + scaling
 const OUT_LEN: u32 = 28u;  // 4 subrelations x 7
@@ -6911,7 +6950,7 @@ fn ld(row: u32, j: u32) -> array<u32, 8> {
   var v: array<u32, 8>;
   if (j + 1u < IN_LEN) {
     let col_len = 2u * params.n;
-    let base = ((j >> 1u) * col_len + 2u * row + (j & 1u)) * 8u;
+    let base = ({{#shared}}entity_map[j >> 1u]{{/shared}}{{^shared}}(j >> 1u){{/shared}} * col_len + 2u * row + (j & 1u)) * 8u;
 {{#f8_words}}
     v[{{i}}] = col_buf[base + {{i}}u];
 {{/f8_words}}
@@ -7426,6 +7465,9 @@ struct Params {
 @group(0) @binding(1) var<storage, read_write> out_buf: array<u32>;
 @group(0) @binding(2) var<uniform> params: Params;
 @group(0) @binding(3) var<storage, read> scaling: array<u32>;  // per-pair gate-separator scaling
+{{#shared}}
+@group(0) @binding(4) var<storage, read> entity_map: array<u32>;  // shared: local entity -> global column index
+{{/shared}}
 
 const IN_LEN: u32 = 23u;   // 11 entities x 2 evals + scaling
 const OUT_LEN: u32 = 21u;  // 3 subrelations x 7
@@ -7434,7 +7476,7 @@ fn ld(row: u32, j: u32) -> array<u32, 8> {
   var v: array<u32, 8>;
   if (j + 1u < IN_LEN) {
     let col_len = 2u * params.n;
-    let base = ((j >> 1u) * col_len + 2u * row + (j & 1u)) * 8u;
+    let base = ({{#shared}}entity_map[j >> 1u]{{/shared}}{{^shared}}(j >> 1u){{/shared}} * col_len + 2u * row + (j & 1u)) * 8u;
 {{#f8_words}}
     v[{{i}}] = col_buf[base + {{i}}u];
 {{/f8_words}}

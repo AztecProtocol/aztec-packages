@@ -33,6 +33,9 @@ struct Params {
 @group(0) @binding(1) var<storage, read_write> out_buf: array<u32>;
 @group(0) @binding(2) var<uniform> params: Params;
 @group(0) @binding(3) var<storage, read> scaling: array<u32>;  // per-pair gate-separator scaling
+{{#shared}}
+@group(0) @binding(4) var<storage, read> entity_map: array<u32>;  // shared: local entity -> global column index
+{{/shared}}
 
 const IN_LEN: u32 = 27u;   // 13 entities x 2 evals + scaling
 const OUT_LEN: u32 = 11u;  // subrel0 (6) + subrel1 (5)
@@ -41,7 +44,7 @@ fn ld(row: u32, j: u32) -> array<u32, 8> {
   var v: array<u32, 8>;
   if (j + 1u < IN_LEN) {
     let col_len = 2u * params.n;
-    let base = ((j >> 1u) * col_len + 2u * row + (j & 1u)) * 8u;
+    let base = ({{#shared}}entity_map[j >> 1u]{{/shared}}{{^shared}}(j >> 1u){{/shared}} * col_len + 2u * row + (j & 1u)) * 8u;
 {{#f8_words}}
     v[{{i}}] = col_buf[base + {{i}}u];
 {{/f8_words}}

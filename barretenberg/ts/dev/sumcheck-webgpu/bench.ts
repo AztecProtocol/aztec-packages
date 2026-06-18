@@ -16,7 +16,7 @@ import {
   runResidentGpuSumcheck, encodeColumnsToBytes, makeFoldRunner, makeReduceRunner,
   type FoldRunner, type ReduceRunner,
 } from './gpu_pipeline.js';
-import { runSingleSubmitSumcheck, makeBatchRunner, makeTranscriptRunner } from './single_submit.js';
+import { runSingleSubmitSumcheck, makeBatchRunner, makeTranscriptRunner, buildSharedColumns } from './single_submit.js';
 import { cpuReferenceUnivariates } from './cpu_reference.js';
 import { ALL_RELATIONS } from './descriptors.js';
 import { type PipelineCache, type Logger, WG, makeRng, packParams } from './harness.js';
@@ -833,6 +833,8 @@ export interface MemoryProfileData {
   logN: number;
   ss: BufferAllocStats;
   multi: BufferAllocStats;
+  // SS-hybrid with Idea 1 (shared 67-entity column set): same engine, sharedColumns on.
+  ssShared: BufferAllocStats;
 }
 
 export async function runMemoryProfile(device: GPUDevice, logN: number, log: Logger): Promise<MemoryProfileData> {
@@ -860,6 +862,14 @@ export async function runMemoryProfile(device: GPUDevice, logN: number, log: Log
   await runSingleSubmitSumcheck(device, n, alpha, betas, relParamBytes, initColBytes, ssShared);
   const ss = ssTracker.stop();
 
+  // Idea 1: same SS engine, shared 67-entity column set (185 -> 67 columns). Reuses the
+  // compiled runners/cache; the shared accumulate pipelines compile under a distinct key.
+  const { sharedColBytes } = buildSharedColumns(n, 0x5ba7ed_c01c01n);
+  const ssSharedTracker = new BufferTracker(device);
+  ssSharedTracker.start();
+  await runSingleSubmitSumcheck(device, n, alpha, betas, relParamBytes, initColBytes, { ...ssShared, sharedColumns: true, sharedColBytes });
+  const ssShared2 = ssSharedTracker.stop();
+
   const mpTracker = new BufferTracker(device);
   mpTracker.start();
   await runResidentGpuSumcheck(device, n, alpha, betas, challenges, relParamBytes, initColBytes, mpShared);
@@ -875,14 +885,21 @@ export async function runMemoryProfile(device: GPUDevice, logN: number, log: Log
   };
   log('info', `  GPU buffer memory · 2^${logN} (edges = ${n >> 1})`);
   report('SS-hybrid ', ss);
+  report('SS-shared ', ssShared2);
   report('multi-pass', multi);
   const colAllocs = (s: BufferAllocStats) => s.byCategory['columns']?.count ?? 0;
+  const colMb = (s: BufferAllocStats) => mb(s.byCategory['columns']?.bytes ?? 0);
   log(
     'info',
     `  column allocs: SS ${colAllocs(ss)} (2 reused ping-pong sets) vs multi-pass ${colAllocs(multi)} ` +
       `(fresh fold output every round) · peak live: SS ${mb(ss.peakLiveBytes)} MB vs multi-pass ${mb(multi.peakLiveBytes)} MB`,
   );
-  return { logN, ss, multi };
+  log(
+    'ok',
+    `  Idea 1 (shared 67-entity columns): SS columns ${colMb(ss)} -> ${colMb(ssShared2)} MB ` +
+      `(${colAllocs(ss)} -> ${colAllocs(ssShared2)} allocs) · peak live ${mb(ss.peakLiveBytes)} -> ${mb(ssShared2.peakLiveBytes)} MB`,
+  );
+  return { logN, ss, multi, ssShared: ssShared2 };
 }
 
 /**
@@ -950,7 +967,7 @@ export async function runProfileReport(device: GPUDevice, log: Logger): Promise<
       .map(([c, st]) => `${c}: ${mb(st.bytes)}`).join(', ');
     return `{ peakLiveMB: ${mb(s.peakLiveBytes)}, totalMB: ${mb(s.totalBytes)}, allocs: ${s.totalCount}, byCategoryMB: { ${cats} } }`;
   };
-  const memLit = `{ logN: ${mem.logN}, ss: ${memEng(mem.ss)}, multi: ${memEng(mem.multi)} }`;
+  const memLit = `{ logN: ${mem.logN}, ss: ${memEng(mem.ss)}, ssShared: ${memEng(mem.ssShared)}, multi: ${memEng(mem.multi)} }`;
 
   const literal =
     `const PROFILE_DATA = {\n` +

@@ -216,7 +216,16 @@ export interface RelationDescriptor {
   outLen: number; // == this relation's slice length in the 345-Fr accumulator
   entry: string;
   seed: bigint;
-  shader: () => string;
+  // Map this relation's local entity (WGSL edge order, 0..numEdges-1) to its global
+  // MegaFlavor entity index in GLOBAL_ENTITIES (descriptors.ts). Drives the shared
+  // resident column set: instead of numEdges per-relation columns, all 14 relations
+  // read one set of NUM_GLOBAL_ENTITIES columns, each relation gathering its slice via
+  // these indices (the accumulate kernel's entity_map binding in the `shared` variant).
+  globalEntityIndices: number[];
+  // `shared` renders the accumulate kernel against the shared column set (entity_map
+  // indirection); omitted/false keeps the per-relation contiguous layout the standalone
+  // suites use, byte-identical to before this option existed.
+  shader: (shared?: boolean) => string;
   // Draw this relation's relation_parameters from the rng (consumed BEFORE the
   // edges, matching the standalone suites). Omitted for parameter-free relations.
   makeParams?: (rng: () => bigint) => bigint[];
