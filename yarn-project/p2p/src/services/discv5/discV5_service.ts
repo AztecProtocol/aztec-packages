@@ -24,6 +24,27 @@ const PERSISTED_ENRS_MAP_NAME = 'discovered_peer_enrs';
 const MAX_PERSISTED_PEER_ENRS = 100;
 
 /**
+ * A persisted peer entry: the ENR text plus a monotonic sequence number recording when the peer was
+ * last seen. The sequence orders the store as a FIFO so eviction drops the oldest-seen peers first.
+ */
+interface PersistedEnr {
+  enr: string;
+  seq: number;
+}
+
+function parsePersistedEnr(value: string): PersistedEnr | undefined {
+  try {
+    const parsed = JSON.parse(value);
+    if (typeof parsed?.enr === 'string' && typeof parsed?.seq === 'number') {
+      return parsed;
+    }
+  } catch {
+    // Unparseable entry; caller treats it as stale.
+  }
+  return undefined;
+}
+
+/**
  * Peer discovery service using Discv5.
  */
 export class DiscV5Service extends EventEmitter implements PeerDiscoveryService {
@@ -48,6 +69,10 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
 
   /** Persistent store of discovered peer ENRs, used to re-seed discovery after a restart. */
   private readonly persistedEnrs?: AztecAsyncMap<string, string>;
+  /** The KV store backing {@link persistedEnrs}, retained so writes can run in a transaction. */
+  private readonly persistedEnrStore?: AztecAsyncKVStore;
+  /** Monotonic sequence stamped on each persisted ENR; seeded from the store's max on startup. */
+  private enrSeq = 0;
 
   private handlers = {
     onMultiaddrUpdated: this.onMultiaddrUpdated.bind(this),
@@ -66,6 +91,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
   ) {
     super();
 
+    this.persistedEnrStore = store;
     this.persistedEnrs = store?.openMap(PERSISTED_ENRS_MAP_NAME);
 
     const { p2pIp, p2pPort, p2pBroadcastPort, bootstrapNodes, trustedPeers, privatePeers } = config;
@@ -304,53 +330,65 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
   }
 
   private async persistEnr(enr: ENR): Promise<void> {
-    if (!this.persistedEnrs) {
+    const store = this.persistedEnrStore;
+    const map = this.persistedEnrs;
+    if (!store || !map) {
       return;
     }
+    const nodeId = enr.nodeId;
+    const enrTxt = enr.encodeTxt();
     try {
-      await this.persistedEnrs.set(enr.nodeId, enr.encodeTxt());
-      await this.prunePersistedEnrs();
+      // Write and evict atomically so concurrent ENR_ADDED events can't race the size check.
+      await store.transactionAsync(async () => {
+        await map.set(nodeId, JSON.stringify({ enr: enrTxt, seq: ++this.enrSeq }));
+        await this.evictOldestEnrs(map);
+      });
     } catch (err) {
-      this.logger.warn(`Failed to persist discovered ENR ${enr.nodeId}`, err);
+      this.logger.warn(`Failed to persist discovered ENR ${nodeId}`, err);
     }
   }
 
-  private async prunePersistedEnrs(): Promise<void> {
-    if (!this.persistedEnrs) {
+  /** Drops the oldest-seen ENRs (lowest sequence) once the store exceeds its cap. Runs inside a transaction. */
+  private async evictOldestEnrs(map: AztecAsyncMap<string, string>): Promise<void> {
+    const overflow = (await map.sizeAsync()) - MAX_PERSISTED_PEER_ENRS;
+    if (overflow <= 0) {
       return;
     }
-    let toDelete = (await this.persistedEnrs.sizeAsync()) - MAX_PERSISTED_PEER_ENRS;
-    if (toDelete <= 0) {
-      return;
+    const bySeq: { nodeId: string; seq: number }[] = [];
+    for await (const [nodeId, value] of map.entriesAsync()) {
+      bySeq.push({ nodeId, seq: parsePersistedEnr(value)?.seq ?? 0 });
     }
-    for await (const key of this.persistedEnrs.keysAsync()) {
-      if (toDelete-- <= 0) {
-        break;
-      }
-      await this.persistedEnrs.delete(key);
+    bySeq.sort((a, b) => a.seq - b.seq);
+    for (let i = 0; i < overflow; i++) {
+      await map.delete(bySeq[i].nodeId);
     }
   }
 
   private async reseedFromPersistedEnrs(): Promise<void> {
-    if (!this.persistedEnrs) {
+    const store = this.persistedEnrStore;
+    const map = this.persistedEnrs;
+    if (!store || !map) {
       return;
     }
     const stale: string[] = [];
     let reseeded = 0;
-    for await (const [nodeId, enrTxt] of this.persistedEnrs.entriesAsync()) {
-      let enr: ENR;
-      try {
-        enr = ENR.decodeTxt(enrTxt);
-      } catch (err) {
-        this.logger.debug(`Dropping undecodable persisted ENR ${nodeId}`, err);
+    let maxSeq = 0;
+    for await (const [nodeId, value] of map.entriesAsync()) {
+      const parsed = parsePersistedEnr(value);
+      let enr: ENR | undefined;
+      if (parsed) {
+        try {
+          enr = ENR.decodeTxt(parsed.enr);
+        } catch (err) {
+          this.logger.debug(`Dropping undecodable persisted ENR ${nodeId}`, err);
+        }
+      }
+      // Drop entries we can't parse/decode, or peers that no longer pass version checks.
+      if (!parsed || !enr || !this.validateEnr(enr)) {
         stale.push(nodeId);
         continue;
       }
-      // Drop peers that no longer pass version checks so we don't keep dialing incompatible nodes.
-      if (!this.validateEnr(enr)) {
-        stale.push(nodeId);
-        continue;
-      }
+      maxSeq = Math.max(maxSeq, parsed.seq);
       try {
         this.discv5.addEnr(enr);
         reseeded++;
@@ -358,8 +396,14 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
         this.logger.debug(`Error re-seeding persisted ENR ${nodeId}`, err);
       }
     }
-    for (const nodeId of stale) {
-      await this.persistedEnrs.delete(nodeId);
+    // Continue the sequence from the highest persisted value so FIFO order survives restarts.
+    this.enrSeq = maxSeq;
+    if (stale.length > 0) {
+      await store.transactionAsync(async () => {
+        for (const nodeId of stale) {
+          await map.delete(nodeId);
+        }
+      });
     }
     if (reseeded > 0) {
       this.logger.info(`Re-seeded discovery with ${reseeded} persisted peer ENRs`);
