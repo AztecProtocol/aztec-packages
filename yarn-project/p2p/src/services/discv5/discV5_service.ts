@@ -1,5 +1,6 @@
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
+import { DateProvider } from '@aztec/foundation/timer';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import { type ComponentsVersions, checkCompressedComponentVersion } from '@aztec/stdlib/versioning';
 import { OtelMetricsAdapter, type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
@@ -62,6 +63,8 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
   private bootstrapNodePeerIds: PeerId[] = [];
   public bootstrapNodeEnrs: ENR[] = [];
   private trustedPeerEnrs: ENR[] = [];
+  /** Node IDs of all config-provided peers (bootstrap, trusted, private); these are never persisted. */
+  private readonly configProvidedNodeIds: Set<string>;
 
   private startTime = 0;
 
@@ -88,6 +91,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
     private logger = createLogger('p2p:discv5_service'),
     store?: AztecAsyncKVStore,
     configOverrides: Partial<IDiscv5CreateOptions> = {},
+    private readonly dateProvider: DateProvider = new DateProvider(),
   ) {
     super();
 
@@ -100,6 +104,11 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
     this.bootstrapNodeEnrs = bootstrapNodes.map(x => ENR.decodeTxt(x));
     const privatePeerEnrs = new Set(privatePeers);
     this.trustedPeerEnrs = trustedPeers.filter(x => !privatePeerEnrs.has(x)).map(x => ENR.decodeTxt(x));
+    // Peers supplied via config are re-injected from config on every start, so they must never end up
+    // in the persisted (discovered-peer) store — private peers especially must not be written there.
+    this.configProvidedNodeIds = new Set(
+      [...bootstrapNodes, ...trustedPeers, ...privatePeers].map(x => ENR.decodeTxt(x).nodeId),
+    );
 
     // If no overridden broadcast port is provided, use the p2p port as the broadcast port
     if (!p2pBroadcastPort) {
@@ -206,7 +215,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
     }
     this.logger.debug('Starting DiscV5');
     await this.discv5.start();
-    this.startTime = Date.now();
+    this.startTime = this.dateProvider.now();
 
     const enrUpdateEnabled = this.config.queryForIp || !this.config.p2pIp;
     this.logger.info(`DiscV5 service started`, {
@@ -272,8 +281,8 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
 
     // First, wait some time before starting the peer discovery
     // reference: https://github.com/ChainSafe/lodestar/issues/3423
-    const msSinceStart = Date.now() - this.startTime;
-    if (Date.now() - this.startTime <= delayBeforeStart) {
+    const msSinceStart = this.dateProvider.now() - this.startTime;
+    if (this.dateProvider.now() - this.startTime <= delayBeforeStart) {
       await sleep(delayBeforeStart - msSinceStart);
     }
 
@@ -321,9 +330,9 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
     const multiAddrTcp = await enr.getFullMultiaddr('tcp');
     const multiAddrUdp = await enr.getFullMultiaddr('udp');
     this.logger.debug(`Added ENR ${enr.encodeTxt()}`, { multiAddrTcp, multiAddrUdp, nodeId: enr.nodeId });
-    // Persist valid, non-bootnode peers so we can re-seed discovery after a restart. Bootnodes are
-    // excluded because they are supplied via config and re-added on start.
-    if (!this.isOurBootnode(enr) && enr.nodeId !== this.enr.nodeId && this.validateEnr(enr)) {
+    // Persist organically-discovered peers so we can re-seed discovery after a restart. Config-provided
+    // peers (bootstrap/trusted/private) and our own ENR are excluded — they are re-injected on start.
+    if (!this.configProvidedNodeIds.has(enr.nodeId) && enr.nodeId !== this.enr.nodeId && this.validateEnr(enr)) {
       await this.persistEnr(enr);
     }
     this.onDiscovered(enr);
@@ -383,8 +392,9 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
           this.logger.debug(`Dropping undecodable persisted ENR ${nodeId}`, err);
         }
       }
-      // Drop entries we can't parse/decode, or peers that no longer pass version checks.
-      if (!parsed || !enr || !this.validateEnr(enr)) {
+      // Drop entries we can't parse/decode, peers that no longer pass version checks, or peers that are
+      // now provided via config (they get re-injected from config, so they don't belong in this store).
+      if (!parsed || !enr || !this.validateEnr(enr) || this.configProvidedNodeIds.has(nodeId)) {
         stale.push(nodeId);
         continue;
       }
