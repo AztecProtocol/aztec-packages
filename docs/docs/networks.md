@@ -74,7 +74,7 @@ Stable releases target roughly one per month, typically mid-month. Dates are not
 | **Slasher** | [`0x64E6e9Bb9f1E33D319578B9f8a9C719Ca6D46eBb`](https://etherscan.io/address/0x64E6e9Bb9f1E33D319578B9f8a9C719Ca6D46eBb) | [`0xd9f41c7dDcf571Cb212670BD54E78D6ef8bf2497`](https://sepolia.etherscan.io/address/0xd9f41c7dDcf571Cb212670BD54E78D6ef8bf2497) |
 | **Tally Slashing Proposer** | [`0xa4a38fD0108C00983E75616b638Ff3321FD26958`](https://etherscan.io/address/0xa4a38fD0108C00983E75616b638Ff3321FD26958) | [`0xaB9B3B436a98fF323C13A66D38eB9673e5Ab51EE`](https://sepolia.etherscan.io/address/0xaB9B3B436a98fF323C13A66D38eB9673e5Ab51EE) |
 | **Honk Verifier** | [`0x70aedda427f26480d240bc0f4308cedec8d31348`](https://etherscan.io/address/0x70aedda427f26480d240bc0f4308cedec8d31348) | [`0xD2A6AD93f5d3C32D1f1f22c9B54E52c39D49D534`](https://sepolia.etherscan.io/address/0xD2A6AD93f5d3C32D1f1f22c9B54E52c39D49D534) |
-| **Register New Rollup Version Payload** | N/A | [`0x11f7Ab2324CA94af929A388477a7959E0108C3d6`](https://sepolia.etherscan.io/address/0x11f7Ab2324CA94af929A388477a7959E0108C3d6) |
+| **Register New Rollup Version Payload** | N/A | N/A |
 | **Slash Payload Cloneable** | [`0xAA43220b7eb7c8Ffe75bc9C483f3C07b0a55B445`](https://etherscan.io/address/0xAA43220b7eb7c8Ffe75bc9C483f3C07b0a55B445) | [`0x10895F7a1418AA268E04767C6F37665727d07354`](https://sepolia.etherscan.io/address/0x10895F7a1418AA268E04767C6F37665727d07354) |
 
 ### L2 contract addresses
