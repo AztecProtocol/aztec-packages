@@ -372,6 +372,23 @@ GitHub URLs which require the `v` prefix), while `#include_version_without_prefi
 the `v` to produce the bare version (used for install commands and npm packages). If you
 omit the `v`, all GitHub links and git tag references in the versioned docs will be broken.
 
+**Not every `@aztec/*` dependency uses the Aztec release version.** A few packages are
+republished mirrors of upstream libraries and are pinned to the *upstream* version, not
+the Aztec release line. The known case is **`@aztec/viem`**, which tracks upstream `viem`
+(e.g. `@aztec/viem@2.38.2`) and has **no** `5.0.0-rc.1`-style version on npm. The monorepo
+aliases the bare name internally (`"viem": "npm:@aztec/viem@2.38.2"`), but external readers
+must install it explicitly. Do **not** rewrite these to `#include_version_without_prefix` or
+the release tag, and do not assume `yarn build`/snippet resolution catches it — the import
+type-checks against the auto-linked workspace copy in CI even when no installable version
+exists. When a tutorial's example code imports `@aztec/viem` (the token/aave/uniswap bridge
+tutorials), confirm its `yarn add`/`npm install` line lists `@aztec/viem` at its own pinned
+version (currently `2.38.2`); readers may instead substitute plain upstream `viem` at the
+same version. Find the pinned version with:
+
+```bash
+grep -rh '"viem": "npm:@aztec/viem@' yarn-project/*/package.json | head -1
+```
+
 ```bash
 cd docs && <TAG_VAR>=<new_version> RELEASE_TYPE=<release_type> COMMIT_TAG=v<nodeVersion> yarn build
 ```
