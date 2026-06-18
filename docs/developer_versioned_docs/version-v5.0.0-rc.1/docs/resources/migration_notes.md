@@ -7,7 +7,7 @@ tags: [migration, updating, sandbox, local network]
 
 Aztec is in active development. Each version may introduce breaking changes that affect compatibility with previous versions. This page documents common errors and difficulties you might encounter when upgrading, along with guidance on how to resolve them.
 
-## TBD
+## 5.0.0-rc.1
 
 ### [Aztec.js] Prefunded local network test accounts are now initializerless
 
@@ -91,8 +91,6 @@ The following exports have been removed from `@aztec/stdlib`:
 
 **Impact**: Any code that imported these symbols must switch to the live node-advertised limits via the node's `txsLimits.gas`.
 
-> > > > > > > ab5413c72dc5377107943b8614130ec8050bf06c
-
 ### [Aztec.nr] `messages::message_delivery` module moved to `messages::delivery`
 
 The `message_delivery` module has been renamed to `delivery`. Update imports accordingly:
@@ -132,7 +130,9 @@ The `set_sender_for_tags` oracle has been removed. Contracts that used it to ove
 + note.deliver(MessageDelivery::onchain_constrained().with_sender(some_address));
 ```
 
-When `with_sender` is not called, `MessageDelivery` uses the wallet-supplied default sender.
+When `with_sender` is not called, `MessageDelivery` uses the wallet-supplied default sender. The wallet SDK supplies that default from the transaction's `from` address, with an optional `sendMessagesAs` override for flows that have no signing account (e.g. self-paid deploys, which `DeployAccountMethod` sets automatically).
+
+Account contracts therefore no longer need to call `set_sender_for_tags(self.address)` in their entrypoints: those calls have been removed from the standard Schnorr and ECDSA account contracts, and you can drop them — along with the old `get` → `set(self.address)` → work → `set(prev)` save/restore idiom in constructors — from any custom account contract.
 
 ### [Aztec.nr] `MessageDelivery` API syntax change
 
@@ -222,7 +222,7 @@ The provider _replaces_ the default list (it is not additive), so include every 
 
 ### [Aztec.nr] `public_checks` demoted from protocol contract
 
-`public_checks` is no longer a protocol contract. Its address is now derived from its artifact rather than hardcoded at `6`. The aztec-nr constant has moved and been renamed:
+`public_checks` is no longer a protocol contract. Its address is now derived from its artifact rather than hardcoded at `4`. The aztec-nr constant has moved and been renamed:
 
 ```diff
 - use protocol_types::constants::PUBLIC_CHECKS_ADDRESS;
@@ -313,6 +313,7 @@ type LogResult = {
   blockHash: BlockHash;
   blockTimestamp: UInt64;
   txHash: TxHash;
+  txIndexWithinBlock: number;
   logIndexWithinTx: number;
   noteHashes?: Fr[]; // present only when includeEffects is set
   nullifiers?: Fr[]; // all nullifiers of the tx, not just the first
@@ -533,6 +534,21 @@ If you were already using `emit_private_log_vec_unsafe` / `emit_raw_note_log_vec
 + context.emit_raw_note_log_unsafe(tag, log, note_hash_counter);
 ```
 
+If you were manually padding an array and passing a shorter length, build a `BoundedVec` from just the meaningful fields instead:
+
+```diff
+- let padded = payload.concat([0; PRIVATE_LOG_CIPHERTEXT_LEN - 2]);
+- context.emit_private_log_unsafe(tag, padded, 2);
++ context.emit_private_log_unsafe(tag, BoundedVec::from_array(payload));
+```
+
+If you were passing the full array, wrap it with `BoundedVec::from_array`:
+
+```diff
+- context.emit_private_log_unsafe(tag, ciphertext, ciphertext.len());
++ context.emit_private_log_unsafe(tag, BoundedVec::from_array(ciphertext));
+```
+
 ### [bb.js / accounts / aztec.nr] Schnorr signatures switched to Poseidon2
 
 The Schnorr challenge hash function changed from `blake2s(pedersen(R.x, pubkey.x, pubkey.y) ‖ message)` to `Poseidon2(DST, R.x, pubkey.x, pubkey.y, message)`, where `DST = poseidon2_hash_bytes("schnorr_grumpkin_poseidon2")` is a domain separation tag binding signatures to this scheme. The change applies end-to-end across the native signer (`bb`), `@aztec/bb.js`, the noir verifier library (`noir-lang/schnorr` v0.2.0 → v0.4.0), and both standard Schnorr account contracts. The auth witness on-wire shape also changes from `[u8; 64]` (the serialized `(s, e)` bytes) to `[Field; 4]` (`[s.lo, s.hi, e.lo, e.hi]`, each scalar split into two 128-bit limbs).
@@ -680,7 +696,7 @@ await deploy.send({ from: bob }); // throws: deployer is locked to alice
 + const deploy = MyContract.deploy(wallet, ...args, { publicKeys });
 ```
 
-`ContractDeployer.deploy(...)` now takes the instantiation argument as its first parameter (pass `{}` to use defaults and rely on lazy locking from `from`):
+`ContractDeployer.deploy(...)` now takes the constructor args first and the instantiation options as its second argument (pass `{}` for the instantiation to use defaults and rely on lazy locking from `from`):
 
 ```diff
 - const cd = new ContractDeployer(artifact, wallet);
@@ -736,6 +752,8 @@ If you relied on a bundled bare-name binary for general use:
 - Or install Foundry / nargo separately via `foundryup` / `noirup`.
 
 If you set `Noir: Nargo Path` in the VS Code Noir extension to `$HOME/.aztec/current/bin/nargo`, change it to `$HOME/.aztec/current/bin/aztec-nargo` (the symlink is a drop-in for `nargo`). See the [Noir VSCode Extension guide](../aztec-nr/installation.md) for details.
+
+The installer also no longer adds `$HOME/.aztec/current/node_modules/.bin` to your shell `PATH`, so the ~40 transitive npm bins it used to leak (`jest`, `tsc`, `tsserver`, ...) are gone and no longer shadow your own installs. If you installed an earlier version, your shell profile (`~/.bashrc` / `~/.zshrc`) may still contain the old `PATH` line — re-run the installer once to replace it, open a fresh shell, and confirm `$HOME/.aztec/current/node_modules/.bin` no longer appears in `echo $PATH`.
 
 ### [Stdlib] `SimulationOverrides.contracts` entries no longer carry an artifact
 
@@ -808,14 +826,6 @@ pxe.proveTx(txRequest, { scopes });
 // When from === NO_FROM (e.g. self-paid account deploy), supply the tag sender explicitly:
 pxe.proveTx(txRequest, { scopes, senderForTags: deployedAddress });
 ```
-
-### [Aztec.nr] `set_sender_for_tags` is now scoped to the calling contract
-
-`set_sender_for_tags` previously persisted through nested calls. It is now scoped to the contract that calls it: nested calls, siblings, and parents are unaffected and always start from the initial default. This closes a silent note-discovery DoS vector where any nested callee could overwrite the tag sender for legitimate contracts called below it.
-
-The wallet SDK now supplies the default sender-for-tags from the transaction's `from` address, with an optional `sendMessagesAs` override for flows that don't have a signing account (e.g. self-paid deploys, which `DeployAccountMethod` sets automatically). Account contracts therefore no longer need to call `set_sender_for_tags(self.address)` in their entrypoints; those calls have been removed from the standard schnorr and ECDSA account contracts, and you can drop the equivalent call in any custom account contract.
-
-The save/restore idiom previously used in account-contract constructors (`get` → `set(self.address)` → work → `set(prev)`) is also no longer needed and has been removed: the override never leaks out of the constructor, so there is nothing to restore.
 
 ### [Aztec Node] Unified `getBlock` / `getCheckpoint` RPC API
 
@@ -923,24 +933,6 @@ If your code asks for `includeAttestations` / `includeL1PublishInfo` and might l
 
 Confirmed checkpoints previously reported `feeAssetPriceModifier = 0n` regardless of the value observed on L1, because the archiver dropped the field on checkpoint confirmation. The field is now persisted and returned correctly on `CheckpointResponse`. Any wallet or indexer logic that special-cased `0n` as a sentinel for "no modifier" will need to be updated; it is now a valid value in its own right.
 
-### [CLI] `aztec-up` no longer exposes transitive npm bins on PATH
-
-The `aztec-up` installer used to add `$HOME/.aztec/current/node_modules/.bin` to your shell `PATH`, which put ~40 transitive npm bins (`jest`, `tsc`, `tsserver`, `semver`, `uuid`, `json5`, ...) onto your interactive shell and silently shadowed your own installed versions of those tools. Only the seven `@aztec/*`-owned bins (`aztec`, `aztec-wallet`, `bb`, `bb-cli`, `blob-client`, `noir-codegen`, `txe`) are now exposed.
-
-If you had an Aztec version installed before this release, your shell profile (`~/.bashrc` or `~/.zshrc`) still contains the old `PATH` line. Re-run the installer once (replacing `[VERSION]` with whichever toolchain version you're on, e.g. `4.2.0`) to replace it:
-
-```bash
-VERSION=[VERSION] bash -i <(curl -sL https://install.aztec.network)
-```
-
-Open a fresh shell and confirm the leak is gone:
-
-```bash
-echo $PATH
-```
-
-`$HOME/.aztec/current/node_modules/.bin` should no longer appear in the output. You'll also see your own `jest`, `tsc`, etc. again instead of the ones bundled with the Aztec toolchain.
-
 ### [Protocol] Domain separators introduced for merkle-node, block-headers, and blob hashes
 
 Several protocol hashes that previously used bare `poseidon2_hash` are now domain-separated via `poseidon2_hash_with_separator`. This is a security hardening change — it prevents a value produced by one hash context from being reinterpreted in another (e.g. a sibling path from one tree being transported to another).
@@ -978,33 +970,6 @@ Regenerate these values from a fresh build of this release — do not copy them 
 `poseidon2HashWithSeparator` is exported from `@aztec/foundation/crypto/poseidon`; the `DomainSeparator` enum and the matching `DOM_SEP__*` constants are defined in `@aztec/constants`. The new entries listed above are additions — existing separator names are unchanged.
 
 For TypeScript consumers, `@aztec/stdlib/hash` exports ready-made helpers that wrap the right separator: `computeMerkleHash` (append-only), `computeNullifierMerkleHash`, and `computePublicDataMerkleHash`. Prefer these over calling `poseidon2HashWithSeparator` directly so the separator choice stays colocated with the tree.
-
-### [Aztec.nr] `emit_private_log_unsafe` / `emit_raw_note_log_unsafe` are deprecated
-
-`emit_private_log_unsafe` and `emit_raw_note_log_unsafe` are deprecated and will be removed in a future release. Migrate to the new `emit_private_log_vec_unsafe` / `emit_raw_note_log_vec_unsafe` functions, which take a `BoundedVec<Field, PRIVATE_LOG_CIPHERTEXT_LEN>` instead of the `(log: [Field; PRIVATE_LOG_CIPHERTEXT_LEN], length: u32)` pair.
-
-```diff
-- context.emit_private_log_unsafe(tag, log, length);
-+ context.emit_private_log_vec_unsafe(tag, bounded_vec_log);
-- context.emit_raw_note_log_unsafe(tag, log, length, note_hash_counter);
-+ context.emit_raw_note_log_vec_unsafe(tag, bounded_vec_log, note_hash_counter);
-```
-
-If you were manually padding an array and passing a shorter length, you can now create a `BoundedVec` from just the meaningful fields:
-
-```diff
-- let padded = payload.concat([0; PRIVATE_LOG_CIPHERTEXT_LEN - 2]);
-- context.emit_private_log_unsafe(tag, padded, 2);
-+ let log = BoundedVec::from_array(payload);
-+ context.emit_private_log_vec_unsafe(tag, log);
-```
-
-If you were passing the full array, wrap it with `BoundedVec::from_array`:
-
-```diff
-- context.emit_private_log_unsafe(tag, ciphertext, ciphertext.len());
-+ context.emit_private_log_vec_unsafe(tag, BoundedVec::from_array(ciphertext));
-```
 
 ### [aztec-nr] Nullifier membership witness oracle returns split types
 
@@ -1062,8 +1027,6 @@ The empire slashing model has been removed. Only the tally-based slashing model 
 ```
 
 `slashMinPenaltyPercentage` and `slashMaxPenaltyPercentage` removed from `SlasherConfig`.
-
-## Unreleased (v5)
 
 ### [Aztec Node] `getTxByHash`, `getTxsByHash` and `getPendingTxs` no longer return tx proofs by default
 
