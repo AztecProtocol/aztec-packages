@@ -128,6 +128,111 @@ export const create_sb = (device: GPUDevice, size: number) => {
   });
 };
 
+// ---- Opt-in GPU buffer accounting ----------------------------------------
+//
+// `BufferTracker` measures GPU memory pressure by monkeypatching a device's
+// `createBuffer` (and wrapping each returned buffer's `destroy`) for the span of
+// one profiled run, then restoring the original on `stop()`. It is entirely
+// opt-in: with no tracker installed the only cost anywhere is the module-global
+// string write in `setAllocCategory`, so the MSM/sumcheck hot paths are
+// unaffected. Storage buffers are attributed to the current category tag the
+// engine sets at each allocation phase; uniform/staging/query buffers
+// auto-classify by their usage flags so per-dispatch uniforms and readback
+// staging need no tagging.
+let __allocCategory = 'misc';
+
+/** Set the category that subsequent storage-buffer allocations are attributed
+ *  to while a BufferTracker is active. A no-op (one string write) otherwise. */
+export const setAllocCategory = (category: string): void => {
+  __allocCategory = category;
+};
+
+export interface CategoryStat {
+  bytes: number; // total bytes allocated in this category over the run
+  count: number; // number of allocations
+}
+
+export interface BufferAllocStats {
+  byCategory: Record<string, CategoryStat>;
+  totalBytes: number; // sum of every allocation over the run (alloc churn)
+  totalCount: number;
+  peakLiveBytes: number; // max concurrent live bytes (destroy-aware working set)
+}
+
+export class BufferTracker {
+  private readonly device: GPUDevice;
+  private orig: GPUDevice['createBuffer'] | null = null;
+  private byCategory: Map<string, CategoryStat> = new Map();
+  private totalBytes = 0;
+  private totalCount = 0;
+  private liveBytes = 0;
+  private peakLiveBytes = 0;
+
+  constructor(device: GPUDevice) {
+    this.device = device;
+  }
+
+  // Classify by usage so callers only tag the meaningful storage allocations.
+  private classify(usage: number): string {
+    if (usage & GPUBufferUsage.QUERY_RESOLVE) return 'profiler';
+    if (usage & GPUBufferUsage.MAP_READ) return 'staging';
+    if (usage & GPUBufferUsage.UNIFORM) return 'uniform';
+    return __allocCategory;
+  }
+
+  /** Begin intercepting allocations on the device. */
+  start(): void {
+    if (this.orig) return;
+    setAllocCategory('misc');
+    this.orig = this.device.createBuffer.bind(this.device);
+    const self = this;
+    this.device.createBuffer = function (descriptor: GPUBufferDescriptor): GPUBuffer {
+      const buffer = self.orig!(descriptor);
+      const size = descriptor.size;
+      const cat = self.classify(descriptor.usage);
+      const stat = self.byCategory.get(cat) ?? { bytes: 0, count: 0 };
+      stat.bytes += size;
+      stat.count += 1;
+      self.byCategory.set(cat, stat);
+      self.totalBytes += size;
+      self.totalCount += 1;
+      self.liveBytes += size;
+      if (self.liveBytes > self.peakLiveBytes) self.peakLiveBytes = self.liveBytes;
+      // Wrap destroy so freeing a buffer decrements the live working set exactly once.
+      const origDestroy = buffer.destroy.bind(buffer);
+      let freed = false;
+      buffer.destroy = function (): undefined {
+        if (!freed) {
+          freed = true;
+          self.liveBytes -= size;
+        }
+        return origDestroy();
+      };
+      return buffer;
+    } as GPUDevice['createBuffer'];
+  }
+
+  /** Restore the device's original createBuffer and return the collected stats. */
+  stop(): BufferAllocStats {
+    if (this.orig) {
+      this.device.createBuffer = this.orig;
+      this.orig = null;
+    }
+    return this.stats();
+  }
+
+  stats(): BufferAllocStats {
+    const byCategory: Record<string, CategoryStat> = {};
+    for (const [k, v] of this.byCategory) byCategory[k] = { ...v };
+    return {
+      byCategory,
+      totalBytes: this.totalBytes,
+      totalCount: this.totalCount,
+      peakLiveBytes: this.peakLiveBytes,
+    };
+  }
+}
+
 // Read from all the specified storage buffers and return the data as bytes.
 //
 // When a `cpu_timer` is provided, the readback is decomposed into two

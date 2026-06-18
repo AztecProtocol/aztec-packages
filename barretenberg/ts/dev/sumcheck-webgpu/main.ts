@@ -40,7 +40,7 @@ import { poseidon2Suite } from './poseidon2_gpu.js';
 import { singleSubmitSuite } from './suite_singlesubmit.js';
 import {
   runMultiPassBenchmark, runSingleSubmitHybridBenchmark, runProfile, runSingleSubmitProfile,
-  runProfileReport, type MultiPassRow, type SsHybridRow,
+  runProfileReport, runE2EProfile, runMemoryProfile, type MultiPassRow, type SsHybridRow,
 } from './bench.js';
 
 const REGISTRY: Suite[] = [
@@ -276,6 +276,10 @@ const $profileLog = document.getElementById('profile-log') as HTMLDivElement;
 const $profileLogn = document.getElementById('profile-logn') as HTMLInputElement;
 const $profileRun = document.getElementById('profile-run') as HTMLButtonElement;
 const $ssprofileRun = document.getElementById('ssprofile-run') as HTMLButtonElement;
+const $ssprofileTailRun = document.getElementById('ssprofile-tail-run') as HTMLButtonElement;
+const $ssprofileTail = document.getElementById('ssprofile-tail') as HTMLInputElement;
+const $e2eRun = document.getElementById('e2e-run') as HTMLButtonElement;
+const $memRun = document.getElementById('mem-run') as HTMLButtonElement;
 const $profilereportRun = document.getElementById('profilereport-run') as HTMLButtonElement;
 
 function profileLog(level: Level, msg: string): void {
@@ -288,13 +292,15 @@ function profileLog(level: Level, msg: string): void {
 }
 
 const profileLogN = (): number => Math.max(4, Math.min(20, parseInt($profileLogn.value, 10) || 16));
+// WASM tail rounds T, shared by the ss-tail profile and the e2e timeline (both hybrid, T >= 1).
+const profileTail = (): number => Math.max(1, Math.min(20, parseInt($ssprofileTail.value, 10) || 9));
 
 // Run one profiling pass, guarding the shared `running` flag and emitting the
 // `[autorun] state=...` marker to #log so the headless driver detects completion.
 async function runProfileTask(task: (device: GPUDevice) => Promise<void>): Promise<void> {
   if (running) return;
   running = true;
-  const btns = [$profileRun, $ssprofileRun, $profilereportRun];
+  const btns = [$profileRun, $ssprofileRun, $ssprofileTailRun, $e2eRun, $memRun, $profilereportRun];
   btns.forEach(b => (b.disabled = true));
   $profileLog.replaceChildren();
   let ok = true;
@@ -316,6 +322,9 @@ async function runProfileTask(task: (device: GPUDevice) => Promise<void>): Promi
 
 $profileRun.addEventListener('click', () => void runProfileTask(async d => { await runProfile(d, profileLogN(), profileLog); }));
 $ssprofileRun.addEventListener('click', () => void runProfileTask(async d => { await runSingleSubmitProfile(d, profileLogN(), profileLog); }));
+$ssprofileTailRun.addEventListener('click', () => void runProfileTask(async d => { await runSingleSubmitProfile(d, profileLogN(), profileLog, profileTail()); }));
+$e2eRun.addEventListener('click', () => void runProfileTask(async d => { await runE2EProfile(d, profileLogN(), profileTail(), profileLog); }));
+$memRun.addEventListener('click', () => void runProfileTask(async d => { await runMemoryProfile(d, profileLogN(), profileLog); }));
 $profilereportRun.addEventListener('click', () => void runProfileTask(d => runProfileReport(d, profileLog)));
 
 // Autorun: ?autorun=bench | profile | ssprofile | profilereport | all | <suite id>
@@ -336,13 +345,23 @@ if (autorun === 'bench') {
   const tParam = params.get('t');
   if (tParam) { $sshThresh.value = tParam; $sshThreshVal.textContent = tParam; }
   $sshRun.click();
-} else if (autorun === 'profile' || autorun === 'ssprofile' || autorun === 'profilereport') {
+} else if (
+  autorun === 'profile' || autorun === 'ssprofile' || autorun === 'ssprofiletail' ||
+  autorun === 'e2e' || autorun === 'memory' || autorun === 'profilereport'
+) {
   (document.getElementById('tab-btn-profile') as HTMLButtonElement).click();
-  // `?logn=N` sets the profile size (profilereport bakes its own sizes and ignores it).
-  const lognParam = new URLSearchParams(window.location.search).get('logn');
+  // `?logn=N` sets the profile size (profilereport bakes its own sizes and ignores it);
+  // `?t=N` sets the WASM-tail rounds for ssprofiletail/e2e.
+  const params = new URLSearchParams(window.location.search);
+  const lognParam = params.get('logn');
   if (lognParam) $profileLogn.value = lognParam;
+  const tParam = params.get('t');
+  if (tParam) $ssprofileTail.value = tParam;
   if (autorun === 'profile') $profileRun.click();
   else if (autorun === 'ssprofile') $ssprofileRun.click();
+  else if (autorun === 'ssprofiletail') $ssprofileTailRun.click();
+  else if (autorun === 'e2e') $e2eRun.click();
+  else if (autorun === 'memory') $memRun.click();
   else $profilereportRun.click();
 } else if (autorun) {
   (document.getElementById('tab-btn-testing') as HTMLButtonElement).click();

@@ -13,9 +13,13 @@ const which = argv.find(a => !a.startsWith('--')) ?? 'all';
 const logn = process.env.LOGN ?? '14';
 // The benchmark's WASM column uses bb.js threads, which need cross-origin
 // isolation (SharedArrayBuffer); request it via ?coi=1 for the WASM-backed targets.
-const coi = which === 'bench' || which === 'sshybrid' ? '&coi=1' : '';
-// `T=<n> drive.mjs sshybrid` sets the WASM-fallback threshold (last T rounds on WASM).
-const tParam = which === 'sshybrid' && process.env.T ? `&t=${process.env.T}` : '';
+// The WASM-backed targets use bb.js threads (SharedArrayBuffer), which need
+// cross-origin isolation; request it via ?coi=1. The e2e timeline times a WASM
+// tail/baseline, so it needs it too; the memory profile is GPU-only.
+const coi = which === 'bench' || which === 'sshybrid' || which === 'e2e' ? '&coi=1' : '';
+// `T=<n> drive.mjs sshybrid|e2e` sets the WASM tail rounds (sshybrid: fallback
+// threshold; e2e: hybrid split tail, k = d - T GPU front rounds).
+const tParam = (which === 'sshybrid' || which === 'e2e') && process.env.T ? `&t=${process.env.T}` : '';
 const target = `http://localhost:5173/dev/sumcheck-webgpu/index.html?autorun=${which}&logn=${logn}${coi}${tParam}`;
 
 const browser = await chromium.launch({

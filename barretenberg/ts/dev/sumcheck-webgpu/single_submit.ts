@@ -28,7 +28,7 @@ import { NUM_RELATIONS } from '../../src/msm_webgpu/accumulator.js';
 import { ALL_RELATIONS } from './descriptors.js';
 import {
   create_and_write_sb, create_and_write_ub, create_sb, create_bind_group_layout, create_bind_group,
-  create_compute_pipeline, execute_pipeline, create_readback_buffer, Profiler,
+  create_compute_pipeline, execute_pipeline, create_readback_buffer, Profiler, setAllocCategory,
 } from '../../src/msm_webgpu/cuzk/gpu.js';
 import {
   type PipelineCache, type RelationDescriptor, type Logger,
@@ -140,12 +140,14 @@ export async function runSingleSubmitSumcheck(
   const colB: GPUBuffer[] = new Array(NUM_RELATIONS);
   for (const desc of ALL_RELATIONS) {
     const r = desc.relationIndex;
-    if (relParamBytes[r]) relParamBufs[r] = create_and_write_sb(device, relParamBytes[r]!);
+    if (relParamBytes[r]) { setAllocCategory('relparams'); relParamBufs[r] = create_and_write_sb(device, relParamBytes[r]!); }
+    setAllocCategory('columns');
     colA[r] = create_and_write_sb(device, initColBytes[r]);
     colB[r] = create_sb(device, desc.numEdges * (n >> 1) * 32);
   }
 
   // Scratch + accumulators.
+  setAllocCategory('scratch');
   const pairs0 = n >> 1;
   let maxPerEdge = 0, totalOutLen = 0, maxOutLen = 0;
   for (const desc of ALL_RELATIONS) {
@@ -160,11 +162,13 @@ export async function runSingleSubmitSumcheck(
   // intra-encoder hazard tracking serializes gather(i+1) after round i's reads.
   const scalScratch = create_sb(device, pairs0 * 32);
   const partsScratch = create_sb(device, REDUCE_GROUPS * maxOutLen * 32);
+  setAllocCategory('accum');
   const accBuf = create_sb(device, ACC_LEN * 32);
   const finalBase: number[] = new Array(NUM_RELATIONS);
   { let b = 0; for (const desc of ALL_RELATIONS) { finalBase[desc.relationIndex] = b; b += desc.outLen; } }
 
   // Batch matrices (depend on alpha) + Poseidon2 constants (fixed) + IV.
+  setAllocCategory('consts');
   const { liBytes, ldBytes, powBytes } = buildBatchConsts(alpha);
   const liBuf = create_and_write_sb(device, liBytes);
   const ldBuf = create_and_write_sb(device, ldBytes);
@@ -181,6 +185,7 @@ export async function runSingleSubmitSumcheck(
   // (the dominant single-submit host cliff at large n). Each round gathers its strided
   // slice off this buffer inside the command buffer. The scan runs in its own setup
   // submit so betaMontBuf is fully populated (read-only) before the main encoder.
+  setAllocCategory('beta');
   const betaMontBuf = create_sb(device, n * 32); // zero-init == Montgomery 0 everywhere
   if (betas.length > 0) {
     const seed = new Uint8Array(32);
@@ -200,6 +205,7 @@ export async function runSingleSubmitSumcheck(
 
   // Per-round transcript scalars (challenge-independent, O(1)/round): beta_i for the
   // batch kernel and [beta_i, iv] for the Poseidon2 transcript.
+  setAllocCategory('transcript');
   const betaBufs: GPUBuffer[] = [];
   const scalarsBufs: GPUBuffer[] = [];
   for (let i = 0; i < rounds; i++) {

@@ -21,6 +21,7 @@ import { cpuReferenceUnivariates } from './cpu_reference.js';
 import { ALL_RELATIONS } from './descriptors.js';
 import { type PipelineCache, type Logger, WG, makeRng, packParams } from './harness.js';
 import { sumcheckRoundChallenge, SUMCHECK_TRANSCRIPT_SEED } from '../../src/msm_webgpu/cuzk/poseidon2_cpu.js';
+import { BufferTracker, type BufferAllocStats } from '../../src/msm_webgpu/cuzk/gpu.js';
 import { Barretenberg } from '../../src/barretenberg/index.js';
 
 // Above this size the independent CPU reference (O(n) bigint host work) is skipped;
@@ -606,24 +607,33 @@ export async function runProfile(device: GPUDevice, logN: number, log: Logger): 
 }
 
 /**
- * Per-kernel GPU profile of the SINGLE-SUBMISSION engine across ALL rounds, to find
- * where its time goes vs the multi-round engine. Sums each kernel type's dispatch
- * durations and reports the `encoder_all` span (full GPU wall incl. inter-pass
- * barriers); span minus summed compute is the "bubble" — GPU idle draining the
- * dependent chain (notably the single-threaded Poseidon2 transcript, once per round).
+ * Per-kernel GPU profile of the SINGLE-SUBMISSION engine, to find where its time
+ * goes vs the multi-round engine. Sums each kernel type's dispatch durations and
+ * reports the `encoder_all` span (full GPU wall incl. inter-pass barriers); span
+ * minus summed compute is the "bubble" — GPU idle draining the dependent chain
+ * (notably the single-threaded Poseidon2 transcript, once per round).
+ *
+ * `tailRounds` (default 0 = all rounds on the GPU) profiles the hybrid split: the
+ * first (logN − tailRounds) rounds run on the single-submission GPU engine and are
+ * profiled per-kernel here, while the trailing `tailRounds` are handed to the WASM
+ * prover so the report also shows the handoff readback + measured WASM tail + total.
  * Needs timestamp-query (Chrome/Metal has it; logs a warning and exits if absent).
  */
 export interface SsProfileData {
   logN: number;
+  gpuRounds: number;
   accumulateMs: number;
   reduceMs: number;
   batchMs: number;
   transcriptMs: number;
   foldMs: number;
   bubbleMs: number;
+  wasmTailMs: number | null;
 }
 
-export async function runSingleSubmitProfile(device: GPUDevice, logN: number, log: Logger): Promise<SsProfileData | null> {
+export async function runSingleSubmitProfile(
+  device: GPUDevice, logN: number, log: Logger, tailRounds = 0,
+): Promise<SsProfileData | null> {
   const alpha = makeRng(0xb0_07_5eedn)();
   const ssShared = {
     cache: new Map() as PipelineCache,
@@ -633,12 +643,17 @@ export async function runSingleSubmitProfile(device: GPUDevice, logN: number, lo
     transcript: await makeTranscriptRunner(device),
   };
   const n = 1 << logN;
+  // GPU front rounds: all of them when tailRounds == 0, else the leading rounds with
+  // the last `tailRounds` reserved for the WASM tail (at least one round on the GPU).
+  const gpuRounds = tailRounds > 0 ? Math.max(1, logN - tailRounds) : logN;
+  const tail = logN - gpuRounds;
   const betas = Array.from({ length: logN }, (_, i) => makeRng(0xbe7a_77n + BigInt(i))());
   const { initColBytes, relParamBytes } = buildInputs(n);
-  await runSingleSubmitSumcheck(device, n, alpha, betas, relParamBytes, initColBytes, ssShared); // warmup/compile
-  const r = await runSingleSubmitSumcheck(device, n, alpha, betas, relParamBytes, initColBytes, ssShared, WG, true);
+  await runSingleSubmitSumcheck(device, n, alpha, betas, relParamBytes, initColBytes, ssShared, WG, false, gpuRounds); // warmup/compile
+  const r = await runSingleSubmitSumcheck(device, n, alpha, betas, relParamBytes, initColBytes, ssShared, WG, true, gpuRounds);
 
-  log('info', `  single-submit per-kernel GPU profile · all ${logN} rounds · 2^${logN}`);
+  const scope = tail > 0 ? `${gpuRounds} GPU rounds + ${tail} WASM tail` : `all ${logN} rounds`;
+  log('info', `  single-submit per-kernel GPU profile · ${scope} · 2^${logN}`);
   if (!r.profile) { log('warn', '  timestamp-query unavailable — no per-kernel timing on this device.'); return null; }
   const sum = (label: string) => r.profile!.filter(e => e.label === label).reduce((s, e) => s + e.ms, 0);
   const accumulate = sum('accumulate'), reduce = sum('reduce'), batch = sum('batch');
@@ -658,10 +673,216 @@ export async function runSingleSubmitProfile(device: GPUDevice, logN: number, lo
   );
   log(
     'info',
-    `  transcript = ${logN} rounds @ ${(transcript / logN).toFixed(2)} ms/round · ` +
+    `  transcript = ${gpuRounds} rounds @ ${(transcript / gpuRounds).toFixed(2)} ms/round · ` +
       `wall ${r.totalMs.toFixed(1)} ms · gpuMs ${r.gpuMs.toFixed(1)} ms · setup ${r.setupMs.toFixed(1)} ms`,
   );
-  return { logN, accumulateMs: accumulate, reduceMs: reduce, batchMs: batch, transcriptMs: transcript, foldMs: fold, bubbleMs: bubble };
+
+  // Hybrid split: time the WASM tail at the handed-off size and report the end-to-end
+  // hybrid cost (GPU front wall + handoff readback + WASM tail) against full WASM.
+  let wasmTailMs: number | null = null;
+  if (tail > 0) {
+    const wasm = await initWasm(log);
+    wasmTailMs = await runWasmSumcheck(wasm, tail);
+    const fullWasmMs = await runWasmSumcheck(wasm, logN);
+    await wasm?.destroy();
+    const hybridMs = wasmTailMs === null ? null : r.totalMs + r.finalReadbackMs + wasmTailMs;
+    const speedup = hybridMs !== null && hybridMs > 0 && fullWasmMs !== null ? fullWasmMs / hybridMs : null;
+    log(
+      'ok',
+      `  hybrid: GPU front ${r.totalMs.toFixed(1)} + handoff ${r.finalReadbackMs.toFixed(1)} + ` +
+        `WASM tail ${wasmTailMs === null ? '—' : wasmTailMs.toFixed(1)} = ${hybridMs === null ? '—' : hybridMs.toFixed(1)} ms` +
+        ` · full WASM ${fullWasmMs === null ? '—' : fullWasmMs.toFixed(1)} ms` +
+        `${speedup === null ? '' : `  →  ${speedup.toFixed(2)}× vs WASM`}`,
+    );
+  }
+
+  return {
+    logN, gpuRounds, accumulateMs: accumulate, reduceMs: reduce, batchMs: batch,
+    transcriptMs: transcript, foldMs: fold, bubbleMs: bubble, wasmTailMs,
+  };
+}
+
+/**
+ * End-to-end WALL-CLOCK timeline for the hybrid split of both engines at one size,
+ * decomposing the whole sumcheck into the stages the per-kernel profilers miss:
+ * one-time host setup (column/param uploads + the GPU beta_products scan), the GPU
+ * front rounds (split into the GPU-bound submit/readback wait vs the host
+ * encode/decode that frames it), the GPU->WASM column handoff readback, and the
+ * WASM tail. `tailRounds = T` (>= 1) sets the split: k = d - T GPU front rounds +
+ * the T-round WASM tail, matching the bench tabs. The full WASM run is timed as the
+ * baseline. (There is always a WASM tail — the full-GPU pipeline is not a profiled
+ * mode here, since the deployment only ever runs the hybrid.)
+ */
+export interface EngineE2E {
+  setupMs: number; // upload + beta scan (one-time host precompute)
+  gpuRoundsMs: number; // wall of the GPU front rounds (totalMs)
+  gpuBoundMs: number; // of gpuRoundsMs, the GPU-bound submit/readback wait (gpuMs)
+  scalingMs: number; // host gate-separator gather framing (multi-pass only; 0 for SS)
+  decodeMs: number; // host univariate decode (multi-pass only; 0 for SS)
+  handoffMs: number; // GPU->WASM column readback (finalReadbackMs)
+  wasmTailMs: number | null; // T-round WASM tail (null if bb.js unavailable)
+  totalMs: number; // setupMs + gpuRoundsMs + handoffMs + wasmTailMs
+}
+export interface E2EProfileData {
+  logN: number;
+  gpuRounds: number; // k = d - tailRounds
+  tailRounds: number;
+  ss: EngineE2E;
+  multi: EngineE2E;
+  fullWasmMs: number | null;
+}
+
+export async function runE2EProfile(
+  device: GPUDevice,
+  logN: number,
+  tailRounds: number,
+  log: Logger,
+): Promise<E2EProfileData> {
+  const alpha = makeRng(0xb0_07_5eedn)();
+  const n = 1 << logN;
+  const d = logN;
+  // Always at least one WASM tail round — this profiles the hybrid split only.
+  const T = Math.max(1, Math.min(tailRounds, d - 1));
+  const k = d - T; // GPU front rounds (>= 1)
+  const betas = Array.from({ length: logN }, (_, i) => makeRng(0xbe7a_77n + BigInt(i))());
+  const challenges = Array.from({ length: logN }, (_, i) => makeRng(0xc4a1_77n + BigInt(i))());
+  const { initColBytes, relParamBytes } = buildInputs(n);
+
+  const mpShared = {
+    cache: new Map() as PipelineCache,
+    foldRunner: await makeFoldRunner(device),
+    reduceRunner: await makeReduceRunner(device),
+  };
+  const ssShared = {
+    cache: new Map() as PipelineCache,
+    foldRunner: mpShared.foldRunner,
+    reduceRunner: mpShared.reduceRunner,
+    batch: await makeBatchRunner(device),
+    transcript: await makeTranscriptRunner(device),
+  };
+  const wasm = await initWasm(log);
+  if (wasm) log('info', '  WASM backend ready (bb.js threads)');
+
+  // Warmup each engine at this size so per-stage timing excludes shader compilation.
+  await runResidentGpuSumcheck(device, n, alpha, betas, challenges, relParamBytes, initColBytes, mpShared, WG, false, k);
+  await runSingleSubmitSumcheck(device, n, alpha, betas, relParamBytes, initColBytes, ssShared, WG, false, k);
+
+  const ssRun = await runSingleSubmitSumcheck(device, n, alpha, betas, relParamBytes, initColBytes, ssShared, WG, false, k);
+  const mpRun = await runResidentGpuSumcheck(device, n, alpha, betas, challenges, relParamBytes, initColBytes, mpShared, WG, false, k);
+  const wasmTailMs = await runWasmSumcheck(wasm, T);
+  const fullWasmMs = await runWasmSumcheck(wasm, logN);
+  await wasm?.destroy();
+
+  const ss: EngineE2E = {
+    setupMs: ssRun.setupMs,
+    gpuRoundsMs: ssRun.totalMs,
+    gpuBoundMs: ssRun.gpuMs,
+    scalingMs: 0,
+    decodeMs: 0,
+    handoffMs: ssRun.finalReadbackMs,
+    wasmTailMs,
+    totalMs: ssRun.setupMs + ssRun.totalMs + ssRun.finalReadbackMs + (wasmTailMs ?? 0),
+  };
+  const multi: EngineE2E = {
+    setupMs: mpRun.setupMs,
+    gpuRoundsMs: mpRun.totalMs,
+    gpuBoundMs: mpRun.gpuMs,
+    scalingMs: mpRun.scalingMs,
+    decodeMs: mpRun.decodeMs,
+    handoffMs: mpRun.finalReadbackMs,
+    wasmTailMs,
+    totalMs: mpRun.setupMs + mpRun.totalMs + mpRun.finalReadbackMs + (wasmTailMs ?? 0),
+  };
+
+  log('info', `  end-to-end wall timeline · 2^${logN} · hybrid · ${k} GPU + ${T} WASM`);
+  const pct = (x: number, tot: number) => (tot ? (100 * x / tot).toFixed(1) : '0') + '%';
+  const line = (name: string, e: EngineE2E) => {
+    const tail = e.wasmTailMs ? ` · WASM tail ${e.wasmTailMs.toFixed(1)} (${pct(e.wasmTailMs, e.totalMs)})` : '';
+    log(
+      'ok',
+      `  ${name.padEnd(10)} total ${e.totalMs.toFixed(1)} ms = setup ${e.setupMs.toFixed(1)} (${pct(e.setupMs, e.totalMs)}) · ` +
+        `GPU rounds ${e.gpuRoundsMs.toFixed(1)} (${pct(e.gpuRoundsMs, e.totalMs)}) · handoff ${e.handoffMs.toFixed(1)} (${pct(e.handoffMs, e.totalMs)})${tail}`,
+    );
+    log(
+      'info',
+      `             └ of GPU rounds: GPU-bound ${e.gpuBoundMs.toFixed(1)} ms · host ${(e.gpuRoundsMs - e.gpuBoundMs).toFixed(1)} ms` +
+        (e.scalingMs || e.decodeMs ? ` (scaling ${e.scalingMs.toFixed(1)} · decode ${e.decodeMs.toFixed(1)})` : ''),
+    );
+  };
+  line('SS-hybrid', ss);
+  line('multi-pass', multi);
+  log('info', `  full WASM baseline: ${fullWasmMs === null ? '—' : fullWasmMs.toFixed(1) + ' ms'}`);
+
+  return { logN, gpuRounds: k, tailRounds: T, ss, multi, fullWasmMs };
+}
+
+/**
+ * GPU buffer-allocation accounting for both engines at one size. Each engine runs
+ * once with a `BufferTracker` patched onto the device, which attributes every
+ * allocation to a category (resident columns, scratch, accumulators, gate-separator
+ * beta table, transcript state, constants, per-dispatch uniforms, readback staging)
+ * and tracks the destroy-aware peak live bytes. Neither engine calls `destroy()` on
+ * its per-round buffers (it drops them for GC to reclaim), so peak live equals the
+ * total allocated — i.e. the high-water VRAM if GC has not yet run. The meaningful
+ * contrast is the per-category allocation COUNT: the single-submission engine
+ * ping-pongs two reused column sets (≈2·NUM_RELATIONS column allocs), while the
+ * multi-pass engine allocates a fresh folded-column set every round
+ * (≈NUM_RELATIONS·(d+1)), and both allocate per-dispatch uniforms each round.
+ */
+export interface MemoryProfileData {
+  logN: number;
+  ss: BufferAllocStats;
+  multi: BufferAllocStats;
+}
+
+export async function runMemoryProfile(device: GPUDevice, logN: number, log: Logger): Promise<MemoryProfileData> {
+  const alpha = makeRng(0xb0_07_5eedn)();
+  const n = 1 << logN;
+  const betas = Array.from({ length: logN }, (_, i) => makeRng(0xbe7a_77n + BigInt(i))());
+  const challenges = Array.from({ length: logN }, (_, i) => makeRng(0xc4a1_77n + BigInt(i))());
+  const { initColBytes, relParamBytes } = buildInputs(n);
+
+  const mpShared = {
+    cache: new Map() as PipelineCache,
+    foldRunner: await makeFoldRunner(device),
+    reduceRunner: await makeReduceRunner(device),
+  };
+  const ssShared = {
+    cache: new Map() as PipelineCache,
+    foldRunner: mpShared.foldRunner,
+    reduceRunner: mpShared.reduceRunner,
+    batch: await makeBatchRunner(device),
+    transcript: await makeTranscriptRunner(device),
+  };
+
+  const ssTracker = new BufferTracker(device);
+  ssTracker.start();
+  await runSingleSubmitSumcheck(device, n, alpha, betas, relParamBytes, initColBytes, ssShared);
+  const ss = ssTracker.stop();
+
+  const mpTracker = new BufferTracker(device);
+  mpTracker.start();
+  await runResidentGpuSumcheck(device, n, alpha, betas, challenges, relParamBytes, initColBytes, mpShared);
+  const multi = mpTracker.stop();
+
+  const mb = (b: number) => (b / (1 << 20)).toFixed(2);
+  const report = (name: string, s: BufferAllocStats) => {
+    log('ok', `  ${name}: peak live ${mb(s.peakLiveBytes)} MB across ${s.totalCount} buffers (no destroy — GC-reclaimed)`);
+    const cats = Object.entries(s.byCategory).sort((a, b) => b[1].bytes - a[1].bytes);
+    for (const [cat, st] of cats) {
+      log('info', `    ${cat.padEnd(11)} ${mb(st.bytes).padStart(8)} MB  · ${String(st.count).padStart(5)} allocs`);
+    }
+  };
+  log('info', `  GPU buffer memory · 2^${logN} (edges = ${n >> 1})`);
+  report('SS-hybrid ', ss);
+  report('multi-pass', multi);
+  const colAllocs = (s: BufferAllocStats) => s.byCategory['columns']?.count ?? 0;
+  log(
+    'info',
+    `  column allocs: SS ${colAllocs(ss)} (2 reused ping-pong sets) vs multi-pass ${colAllocs(multi)} ` +
+      `(fresh fold output every round) · peak live: SS ${mb(ss.peakLiveBytes)} MB vs multi-pass ${mb(multi.peakLiveBytes)} MB`,
+  );
+  return { logN, ss, multi };
 }
 
 /**
@@ -693,11 +914,17 @@ export async function runProfileReport(device: GPUDevice, log: Logger): Promise<
   log('info', '[3/5] single-submit per-kernel profile · 2^16…');
   const sp = await runSingleSubmitProfile(device, 16, log);
 
-  log('info', '[4/5] accumulate workgroup-size sweep · 2^16…');
+  log('info', '[4/7] accumulate workgroup-size sweep · 2^16…');
   const wg = await runWgSweep(device, 16, [32, 64, 96, 128, 192, 256], log);
 
-  log('info', '[5/5] hybrid GPU-front + WASM-tail · 2^18 · splits {1,2,3,4,6}…');
+  log('info', '[5/7] hybrid GPU-front + WASM-tail · 2^18 · splits {1,2,3,4,6}…');
   const hy = await runHybridBenchmark(device, [18], [1, 2, 3, 4, 6], log);
+
+  log('info', '[6/7] end-to-end wall timeline · 2^16 · hybrid 7 GPU + 9 WASM…');
+  const e2e = await runE2EProfile(device, 16, 9, log);
+
+  log('info', '[7/7] GPU buffer memory accounting · 2^16…');
+  const mem = await runMemoryProfile(device, 16, log);
 
   const sweepLits = sweep
     .map(r => `    { logN: ${pad(String(r.logN), 2)}, multiWallMs: ${pad(n1(r.webgpuWallMs), 6)}, ssWallMs: ${pad(n1(r.ssWallMs), 6)}, wasmMs: ${pad(n1(r.wasmMs), 6)} },`)
@@ -713,6 +940,17 @@ export async function runProfileReport(device: GPUDevice, log: Logger): Promise<
   const wgLit = wg.map(w => `{ wg: ${pad(String(w.wg), 3)}, gpuMs: ${pad(n1(w.gpuMs), 6)} }`).join(', ');
   const hyPoints = hy.map(h => `{ k: ${h.gpuRounds}, hybridMs: ${pad(n1(h.hybridMs), 7)} }`).join(', ');
   const hyLit = `{ logN: 18, fullWasmMs: ${n1(hy[0]?.fullWasmMs ?? null)}, fullGpuMs: ${n1(hy[0]?.fullGpuMs ?? null)}, points: [${hyPoints}] }`;
+  const e2eEng = (e: EngineE2E): string =>
+    `{ totalMs: ${n1(e.totalMs)}, setupMs: ${n1(e.setupMs)}, gpuRoundsMs: ${n1(e.gpuRoundsMs)}, ` +
+    `gpuBoundMs: ${n1(e.gpuBoundMs)}, scalingMs: ${n1(e.scalingMs)}, decodeMs: ${n1(e.decodeMs)}, handoffMs: ${n1(e.handoffMs)} }`;
+  const e2eLit = `{ logN: ${e2e.logN}, gpuRounds: ${e2e.gpuRounds}, ss: ${e2eEng(e2e.ss)}, multi: ${e2eEng(e2e.multi)}, fullWasmMs: ${n1(e2e.fullWasmMs)} }`;
+  const memEng = (s: BufferAllocStats): string => {
+    const mb = (b: number) => (b / (1 << 20)).toFixed(2);
+    const cats = Object.entries(s.byCategory).sort((a, b) => b[1].bytes - a[1].bytes)
+      .map(([c, st]) => `${c}: ${mb(st.bytes)}`).join(', ');
+    return `{ peakLiveMB: ${mb(s.peakLiveBytes)}, totalMB: ${mb(s.totalBytes)}, allocs: ${s.totalCount}, byCategoryMB: { ${cats} } }`;
+  };
+  const memLit = `{ logN: ${mem.logN}, ss: ${memEng(mem.ss)}, multi: ${memEng(mem.multi)} }`;
 
   const literal =
     `const PROFILE_DATA = {\n` +
@@ -721,6 +959,8 @@ export async function runProfileReport(device: GPUDevice, log: Logger): Promise<
     `  ssProfile: ${spLit},\n` +
     `  wgSweep: [${wgLit}],\n` +
     `  hybrid: ${hyLit},\n` +
+    `  e2e: ${e2eLit},\n` +
+    `  memory: ${memLit},\n` +
     `};`;
 
   log('ok', '═══ PROFILE_DATA (copy everything below) ═══');

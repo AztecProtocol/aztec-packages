@@ -18,7 +18,7 @@
 import {
   create_and_write_sb, create_and_write_ub, create_sb,
   create_bind_group_layout, create_bind_group, create_compute_pipeline,
-  execute_pipeline, read_from_gpu, create_readback_buffer, Profiler,
+  execute_pipeline, read_from_gpu, create_readback_buffer, Profiler, setAllocCategory,
 } from '../../src/msm_webgpu/cuzk/gpu.js';
 import { runSumcheckRounds } from '../../src/msm_webgpu/multiround.js';
 import { NUM_RELATIONS, assembleAccumulator } from '../../src/msm_webgpu/accumulator.js';
@@ -89,6 +89,10 @@ export interface ResidentSumcheckResult {
    * round ran (length-1 for a full run; length 2^(d-maxRounds) for a partial run).
    * For the hybrid bench this is the GPU->WASM handoff cost of the folded columns. */
   finalReadbackMs: number;
+  /** One-time host precompute before the rounds loop: column/param uploads and the
+   * GPU beta_products scan (encode + submit). Symmetric with the single-submission
+   * engine's setupMs, so the two e2e timelines line up phase-for-phase. */
+  setupMs: number;
   /** Host-side per-phase diagnostics (ms, summed over rounds). */
   scalingMs: number;
   decodeMs: number;
@@ -140,17 +144,21 @@ export async function runResidentGpuSumcheck(
   const profiler = profile ? new Profiler(device, 64) : null;
   const prof = (round: number, label: string) => (round === 0 ? profiler?.stage(label) : undefined);
 
+  const tSetup = performance.now();
+
   // Upload relation parameters once; columns become resident GPU buffers.
   const relParamBufs: (GPUBuffer | undefined)[] = new Array(NUM_RELATIONS).fill(undefined);
   let colBuf: GPUBuffer[] = new Array(NUM_RELATIONS);
   for (const desc of ALL_RELATIONS) {
     const r = desc.relationIndex;
     const rp = relParamBytes[r];
-    if (rp) relParamBufs[r] = create_and_write_sb(device, rp);
+    if (rp) { setAllocCategory('relparams'); relParamBufs[r] = create_and_write_sb(device, rp); }
+    setAllocCategory('columns');
     colBuf[r] = create_and_write_sb(device, initColBytes[r]);
   }
 
   // Scratch buffers sized for round 0, reused for every relation and round.
+  setAllocCategory('scratch');
   const pairs0 = n >> 1;
   let maxPerEdge = 0, totalOutLen = 0, maxOutLen = 0;
   for (const desc of ALL_RELATIONS) {
@@ -167,6 +175,7 @@ export async function runResidentGpuSumcheck(
   // into finalParts (the whole 345-Fr accumulator). Only finalParts (~11 KB) is read
   // back, so the host decodes totalOutLen Fr/round instead of REDUCE_GROUPS*totalOutLen.
   const partsScratch = create_sb(device, REDUCE_GROUPS * maxOutLen * 32);
+  setAllocCategory('accum');
   const finalParts = create_sb(device, totalOutLen * 32);
   const finalBase: number[] = new Array(NUM_RELATIONS); // each relation's Fr offset in finalParts
   { let b = 0; for (const desc of ALL_RELATIONS) { finalBase[desc.relationIndex] = b; b += desc.outLen; } }
@@ -185,6 +194,7 @@ export async function runResidentGpuSumcheck(
   relCache.set('gs:scan', scanRunner);
   const gatherRunner = relCache.get('gs:gather') ?? await makeGatherRunner(device);
   relCache.set('gs:gather', gatherRunner);
+  setAllocCategory('beta');
   const betaMontBuf = create_sb(device, n * 32); // zero-init == Montgomery 0 everywhere
   if (betas.length > 0) {
     const seed = new Uint8Array(32);
@@ -226,6 +236,7 @@ export async function runResidentGpuSumcheck(
 
   let curLen = n;
   let gpuMs = 0, scalingMs = 0, decodeMs = 0;
+  const setupMs = performance.now() - tSetup;
   const t0 = performance.now();
   const { univariates, challenges: used } = await runSumcheckRounds(betas, d, {
     numRounds: rounds,
@@ -293,9 +304,11 @@ export async function runResidentGpuSumcheck(
     fold: async (_round, u) => {
       const m = curLen;
       const half = m >> 1;
+      setAllocCategory('transcript');
       const uBuf = create_and_write_sb(device, packParams([u]));
       const enc = device.createCommandEncoder();
       const newCol: GPUBuffer[] = new Array(NUM_RELATIONS);
+      setAllocCategory('columns');
       for (const desc of ALL_RELATIONS) {
         const r = desc.relationIndex;
         const numOut = desc.numEdges * half;
@@ -335,5 +348,5 @@ export async function runResidentGpuSumcheck(
   const finalColBytes: Uint8Array[] = new Array(NUM_RELATIONS);
   ALL_RELATIONS.forEach((desc, i) => { finalColBytes[desc.relationIndex] = finalBytes[i]; });
 
-  return { univariates, challenges: used, finalColBytes, gpuMs, totalMs, finalReadbackMs, scalingMs, decodeMs, profile: profileReport };
+  return { univariates, challenges: used, finalColBytes, gpuMs, totalMs, finalReadbackMs, setupMs, scalingMs, decodeMs, profile: profileReport };
 }
