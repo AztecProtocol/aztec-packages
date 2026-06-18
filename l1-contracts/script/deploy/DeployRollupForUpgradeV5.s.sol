@@ -28,7 +28,7 @@ import {EthPerFeeAssetE12, EthValue} from "@aztec/core/libraries/rollup/FeeLib.s
 import {Bps, RewardConfig} from "@aztec/core/libraries/rollup/RewardLib.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
-import {IBooster, RewardBoostConfig} from "@aztec/core/reward-boost/RewardBooster.sol";
+import {IBooster, RewardBooster, RewardBoostConfig} from "@aztec/core/reward-boost/RewardBooster.sol";
 import {Slasher} from "@aztec/core/slashing/Slasher.sol";
 import {SlashingProposer} from "@aztec/core/slashing/SlashingProposer.sol";
 
@@ -487,6 +487,13 @@ contract DeployRollupForUpgradeV5 is Script, StdAssertions {
     assertEq(address(_p.ASSET()), address(IRollup(address(newRollup)).getFeeAsset()), "asset is not the fee asset");
     assertGt(bytes(_p.getURI()).length, 0, "payload uri empty");
 
+    // The v5 rollup binds its distributor immutably, so the distributor's own immutables must
+    // match the chain it serves: a wrong ASSET strands the drained pool (claim transfers ASSET,
+    // not whatever was deposited), a wrong REGISTRY breaks canonical resolution.
+    RewardDistributor newRd = RewardDistributor(address(_p.NEW_REWARD_DISTRIBUTOR()));
+    assertEq(address(newRd.ASSET()), expected.feeAsset, "new distributor asset mismatch");
+    assertEq(address(newRd.REGISTRY()), expected.registry, "new distributor registry mismatch");
+
     assertNotEq(address(_p.ESCAPE_HATCH()), address(0), "escape hatch missing");
     assertEq(_p.ESCAPE_HATCH().getRollup(), address(newRollup), "escape hatch rollup mismatch");
     assertEq(address(newRollup.getEscapeHatch()), address(0), "new rollup hatch slot not empty");
@@ -592,6 +599,16 @@ contract DeployRollupForUpgradeV5 is Script, StdAssertions {
       address(rollupCore.getRewardDistributor()), address(_p.NEW_REWARD_DISTRIBUTOR()), "rollup distributor mismatch"
     );
 
+    // The verifier is the one immutable that must never be a MockVerifier in production. Compare
+    // the deployed code's hash against the mock's compile-time runtime code so a mock is caught on
+    // both the run() path and the re-runnable validate(address) path (where _rollupOutput is unset).
+    IVerifier verifier = rollupCore.getEpochProofVerifier();
+    assertNotEq(address(verifier), address(0), "verifier missing");
+    assertTrue(address(verifier).codehash != keccak256(type(MockVerifier).runtimeCode), "verifier is a MockVerifier");
+    if (address(_rollupOutput.verifier) != address(0)) {
+      assertEq(address(verifier), address(_rollupOutput.verifier), "verifier mismatch");
+    }
+
     assertEq(rollup.getSlotDuration(), ec.slotDuration, "slot duration mismatch");
     assertEq(rollup.getEpochDuration(), ec.epochDuration, "epoch duration mismatch");
     assertEq(rollup.getTargetCommitteeSize(), ec.targetCommitteeSize, "committee size mismatch");
@@ -615,6 +632,7 @@ contract DeployRollupForUpgradeV5 is Script, StdAssertions {
     assertEq(Bps.unwrap(rewardConfig.sequencerBps), ec.sequencerBps, "sequencer bps mismatch");
     assertEq(rewardConfig.checkpointReward, ec.checkpointReward, "checkpoint reward mismatch");
     assertNotEq(address(rewardConfig.booster), address(0), "booster missing");
+    assertEq(address(RewardBooster(address(rewardConfig.booster)).ROLLUP()), address(rollup), "booster rollup mismatch");
     RewardBoostConfig memory boostConfig = IBooster(address(rewardConfig.booster)).getConfig();
     assertEq(boostConfig.increment, ec.rewardBoostConfig.increment, "boost increment mismatch");
     assertEq(boostConfig.maxScore, ec.rewardBoostConfig.maxScore, "boost max score mismatch");
@@ -675,6 +693,14 @@ contract DeployRollupForUpgradeV5 is Script, StdAssertions {
     assertEq(proposer.SLASH_AMOUNT_MEDIUM(), ec.slashAmountMedium, "proposer slash medium mismatch");
     assertEq(proposer.SLASH_AMOUNT_LARGE(), ec.slashAmountLarge, "proposer slash large mismatch");
     assertEq(proposer.COMMITTEE_SIZE(), ec.targetCommitteeSize, "proposer committee size mismatch");
+    assertNotEq(proposer.SLASH_PAYLOAD_IMPLEMENTATION(), address(0), "slash payload implementation missing");
+
+    // A freshly deployed rollup must carry no slasher-migration state: a non-zero legacy or
+    // pending slasher would mean the deploy inherited stale state and could slash unexpectedly.
+    (address legacySlasher,) = IStaking(address(_p.NEW_ROLLUP())).getLegacySlasher();
+    assertEq(legacySlasher, address(0), "unexpected legacy slasher on fresh rollup");
+    (address pendingSlasher,) = IStaking(address(_p.NEW_ROLLUP())).getPendingSlasher();
+    assertEq(pendingSlasher, address(0), "unexpected pending slasher on fresh rollup");
     console.log(unicode"[assert] slasher stack ✓");
   }
 
