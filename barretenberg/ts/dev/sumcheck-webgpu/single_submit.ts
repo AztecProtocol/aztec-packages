@@ -18,7 +18,7 @@
 // GPU-derived challenges) and the standalone batch / poseidon2 suites.
 
 import {
-  makeFoldRunner, makeReduceRunner, makeScanRunner, makeGatherRunner, encodeColumnsToBytes,
+  makeFoldRunner, makeReduceRunner, makeScanRunner, makeGatherRunner, encodeColumnsToBytes, entityMapBytes,
   injectSkipPrelude, injectBand, effPairsForRound,
   buildUberGroups, uberFusedSet, dispatchUberGroups,
   type FoldRunner, type ReduceRunner, type KernelRunner, type GateMode,
@@ -86,14 +86,6 @@ interface Shared {
   // path is unchanged.
   sharedColumns?: boolean;
   sharedColBytes?: Uint8Array;
-}
-
-/** Pack a relation's globalEntityIndices as a u32 storage buffer (the entity_map binding). */
-function entityMapBytes(indices: number[]): Uint8Array {
-  const out = new Uint8Array(indices.length * 4);
-  const dv = new DataView(out.buffer);
-  indices.forEach((g, i) => dv.setUint32(i * 4, g, true));
-  return out;
 }
 
 export async function makeBatchRunner(device: GPUDevice) {

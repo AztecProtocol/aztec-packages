@@ -18,7 +18,7 @@
 import {
   create_and_write_sb, create_and_write_ub, create_sb,
   create_bind_group_layout, create_bind_group, create_compute_pipeline,
-  execute_pipeline, read_from_gpu, create_readback_buffer, Profiler, setAllocCategory,
+  execute_pipeline, create_readback_buffer, Profiler, setAllocCategory,
 } from '../../src/msm_webgpu/cuzk/gpu.js';
 import { runSumcheckRounds } from '../../src/msm_webgpu/multiround.js';
 import {
@@ -26,7 +26,7 @@ import {
 } from '../../src/msm_webgpu/batch_tail.js';
 import { NUM_RELATIONS, assembleAccumulator } from '../../src/msm_webgpu/accumulator.js';
 import type { GateUberGate } from '../../src/msm_webgpu/cuzk/shader_manager.js';
-import { ALL_RELATIONS } from './descriptors.js';
+import { ALL_RELATIONS, NUM_GLOBAL_ENTITIES } from './descriptors.js';
 import {
   type PipelineCache, type RelationDescriptor,
   WG, sm, mod, packParams, toMont, fromMont, writeLe32, le32ToBi,
@@ -87,6 +87,15 @@ export async function makeGatherRunner(device: GPUDevice): Promise<KernelRunner>
   const code = sm.gen_gate_separator_gather_test_shader(WG);
   const pipeline = await create_compute_pipeline(device, [layout], code, 'gate_separator_gather_main', 'gate_separator_gather_main');
   return { layout, pipeline };
+}
+
+/** Pack a relation's globalEntityIndices as a u32 storage buffer (the entity_map binding
+ * for the shared-column accumulate variant). */
+export function entityMapBytes(indices: number[]): Uint8Array {
+  const out = new Uint8Array(indices.length * 4);
+  const dv = new DataView(out.buffer);
+  indices.forEach((g, i) => dv.setUint32(i * 4, g, true));
+  return out;
 }
 
 /** Encode canonical bigint columns to column-major Montgomery bytes (length n). */
@@ -477,6 +486,12 @@ interface Shared {
   cache?: PipelineCache;
   foldRunner?: FoldRunner;
   reduceRunner?: ReduceRunner;
+  // Idea 1: read all 14 relations from ONE resident set of NUM_GLOBAL_ENTITIES (67)
+  // columns (each relation gathers its entities via globalEntityIndices through an
+  // entity_map binding) instead of 185 per-relation copies. `sharedColBytes` are the
+  // 67 column-major Montgomery columns (length n). Off by default.
+  sharedColumns?: boolean;
+  sharedColBytes?: Uint8Array;
 }
 
 /**
@@ -550,15 +565,33 @@ export async function runResidentGpuSumcheck(
 
   const tSetup = performance.now();
 
-  // Upload relation parameters once; columns become resident GPU buffers.
+  // Upload relation parameters once; columns become resident GPU buffers. In shared mode
+  // the 185 per-relation columns collapse to ONE set of NUM_GLOBAL_ENTITIES (67) columns
+  // that every relation reads through its entity_map (a curS/otherS ping-pong); otherwise
+  // each relation keeps its own colBuf, folded fresh each round (the band-trim fold path).
+  const useShared = !!(shared?.sharedColumns && shared.sharedColBytes);
   const relParamBufs: (GPUBuffer | undefined)[] = new Array(NUM_RELATIONS).fill(undefined);
   let colBuf: GPUBuffer[] = new Array(NUM_RELATIONS);
+  const entityMapBufs: GPUBuffer[] = new Array(NUM_RELATIONS);
+  let curS: GPUBuffer | undefined;
+  let otherS: GPUBuffer | undefined;
   for (const desc of ALL_RELATIONS) {
     const r = desc.relationIndex;
     const rp = relParamBytes[r];
     if (rp) { setAllocCategory('relparams'); relParamBufs[r] = create_and_write_sb(device, rp); }
+  }
+  if (useShared) {
     setAllocCategory('columns');
-    colBuf[r] = create_and_write_sb(device, initColBytes[r]);
+    curS = create_and_write_sb(device, shared!.sharedColBytes!); // 67 columns, length n
+    otherS = create_sb(device, NUM_GLOBAL_ENTITIES * (n >> 1) * 32); // ping-pong half
+    setAllocCategory('relparams');
+    for (const desc of ALL_RELATIONS) entityMapBufs[desc.relationIndex] = create_and_write_sb(device, entityMapBytes(desc.globalEntityIndices));
+  } else {
+    for (const desc of ALL_RELATIONS) {
+      const r = desc.relationIndex;
+      setAllocCategory('columns');
+      colBuf[r] = create_and_write_sb(device, initColBytes[r]);
+    }
   }
 
   // Per-relation active-pair index lists (compaction): uploaded once, sliced per round by
@@ -636,16 +669,18 @@ export async function runResidentGpuSumcheck(
   type AccMode = 'comp' | 'band' | 'sk' | 'pl';
   const accPipeline = async (desc: RelationDescriptor, mode: AccMode) => {
     const hasParams = relParamBufs[desc.relationIndex] !== undefined;
-    const key = `acc:${desc.entry}|${hasParams ? 5 : 4}|wg${accWG}|${mode}`;
+    const key = `acc:${desc.entry}|${hasParams ? 5 : 4}|wg${accWG}|${mode}|s${useShared ? 1 : 0}`;
     let p = relCache.get(key);
     if (!p) {
       const types = ['read-only-storage', 'storage', 'uniform', 'read-only-storage'];
       if (hasParams) types.push('read-only-storage');
       if (mode === 'comp') types.push('read-only-storage'); // sk_active_idx (band/sk/pl add no binding)
+      if (useShared) types.push('read-only-storage'); // entity_map (bound last)
       const layout = create_bind_group_layout(device, types);
       // The relation shaders render at the global WG; retarget only the accumulate
       // kernel's workgroup size so the benchmark can sweep occupancy in isolation.
-      let code = accWG === WG ? desc.shader() : desc.shader().replace(`@workgroup_size(${WG})`, `@workgroup_size(${accWG})`);
+      const base = desc.shader(useShared);
+      let code = accWG === WG ? base : base.replace(`@workgroup_size(${WG})`, `@workgroup_size(${accWG})`);
       if (mode === 'comp') code = injectCompaction(code, desc, hasParams); // Phase 2 active-edge gather (scattered)
       else if (mode === 'band') code = injectBand(code, desc); // contiguous-band range dispatch (realistic)
       else if (mode === 'sk') code = injectSkipPrelude(code, desc); // Tier 1 per-edge skip early-out
@@ -712,8 +747,9 @@ export async function runResidentGpuSumcheck(
         // Edge-pairs this relation contributes to this round: a gathered active count
         // (compaction, scattered), a contiguous band range (realistic trace), its own active
         // prefix (Phase 1), or the global used prefix. params.n stays = pairs (column stride).
+        // Shared mode binds the one resident 67-column buffer + this relation's entity_map.
         let dispatchPairs: number;
-        const aBufs: GPUBuffer[] = [colBuf[r], perEdge];
+        const aBufs: GPUBuffer[] = [useShared ? curS! : colBuf[r], perEdge];
         if (mode === 'comp') {
           const { base, count } = compaction!.roundsByRel[r]![_round];
           if (count === 0) continue; // no active pairs -> 0 contribution (finalParts pre-cleared)
@@ -732,6 +768,7 @@ export async function runResidentGpuSumcheck(
           aBufs.push(accParam, scalScratch);
           if (relParamBufs[r]) aBufs.push(relParamBufs[r]!);
         }
+        if (useShared) aBufs.push(entityMapBufs[r]); // entity_map bound last
         const chunk = Math.max(1, Math.ceil(dispatchPairs / REDUCE_GROUPS));
         const groups = Math.ceil(dispatchPairs / chunk);
         const acc = await accPipeline(desc, mode);
@@ -832,25 +869,52 @@ export async function runResidentGpuSumcheck(
       setAllocCategory('transcript');
       const uBuf = create_and_write_sb(device, packParams([u]));
       const enc = device.createCommandEncoder();
+      // Fold cur -> other. Shared mode folds the whole 67-column ping-pong buffer (chunked
+      // by columns); non-shared allocates a fresh band-trimmed column per relation.
       const newCol: GPUBuffer[] = new Array(NUM_RELATIONS);
-      setAllocCategory('columns');
-      for (const desc of ALL_RELATIONS) {
-        const r = desc.relationIndex;
-        // New column is always full-size + zero-initialized; a band fold writes only its
-        // active sub-range [start, start+count) of each column (the rest stays the folded
-        // zero tail). The fold-output band equals this round's accumulate band.
-        const nb = create_sb(device, desc.numEdges * half * 32);
-        const fb = bands?.roundsByRel[r]?.[_round];
-        const bandStart = fb ? fb.start : 0;
-        const bandCount = fb ? fb.count : half;
-        if (bandCount > 0) {
-          const numOut = desc.numEdges * bandCount;
-          const fBg = create_bind_group(device, foldRunner.layout, [
-            colBuf[r], nb, create_and_write_ub(device, u32x4(numOut, half, bandCount, bandStart)), uBuf,
-          ]);
-          await execute_pipeline(enc, foldRunner.pipeline, fBg, Math.ceil(numOut / WG), 1, 1, prof(_round, `fold:${desc.id}`));
+      if (useShared) {
+        // Fold all 67 columns, chunked by columns so no dispatch exceeds
+        // maxComputeWorkgroupsPerDimension (one 67*half dispatch overflows it at
+        // n>=2^17). Each chunk binds a column-range sub-slice (whole-column offsets are
+        // storage-offset-aligned) and folds independently. Full fold per chunk
+        // (band_count = half, band_start = 0): the band-aware fold shader requires both.
+        const maxCols = Math.max(1, Math.floor((device.limits.maxComputeWorkgroupsPerDimension * WG) / Math.max(1, half)));
+        const inStride = m * 32;     // input column stride (length m = 2*half)
+        const outStride = half * 32; // output column stride (length half)
+        for (let c0 = 0; c0 < NUM_GLOBAL_ENTITIES; c0 += maxCols) {
+          const cc = Math.min(maxCols, NUM_GLOBAL_ENTITIES - c0);
+          const numOut = cc * half;
+          const fBg = device.createBindGroup({
+            layout: foldRunner.layout,
+            entries: [
+              { binding: 0, resource: { buffer: curS!, offset: c0 * inStride, size: cc * inStride } },
+              { binding: 1, resource: { buffer: otherS!, offset: c0 * outStride, size: cc * outStride } },
+              { binding: 2, resource: { buffer: create_and_write_ub(device, u32x4(numOut, half, half, 0)) } },
+              { binding: 3, resource: { buffer: uBuf } },
+            ],
+          });
+          await execute_pipeline(enc, foldRunner.pipeline, fBg, Math.ceil(numOut / WG), 1, 1, prof(_round, 'fold:shared'));
         }
-        newCol[r] = nb;
+      } else {
+        setAllocCategory('columns');
+        for (const desc of ALL_RELATIONS) {
+          const r = desc.relationIndex;
+          // New column is always full-size + zero-initialized; a band fold writes only its
+          // active sub-range [start, start+count) of each column (the rest stays the folded
+          // zero tail). The fold-output band equals this round's accumulate band.
+          const nb = create_sb(device, desc.numEdges * half * 32);
+          const fb = bands?.roundsByRel[r]?.[_round];
+          const bandStart = fb ? fb.start : 0;
+          const bandCount = fb ? fb.count : half;
+          if (bandCount > 0) {
+            const numOut = desc.numEdges * bandCount;
+            const fBg = create_bind_group(device, foldRunner.layout, [
+              colBuf[r], nb, create_and_write_ub(device, u32x4(numOut, half, bandCount, bandStart)), uBuf,
+            ]);
+            await execute_pipeline(enc, foldRunner.pipeline, fBg, Math.ceil(numOut / WG), 1, 1, prof(_round, `fold:${desc.id}`));
+          }
+          newCol[r] = nb;
+        }
       }
       // Round 0 is the only profiled round; resolve its query set into this encoder
       // before submit so report() can read it afterwards.
@@ -867,7 +931,8 @@ export async function runResidentGpuSumcheck(
       // it removes one of the two blocking syncs per round. The final length-1
       // readback after the loop awaits, covering the last round's fold.
       device.queue.submit([enc.finish()]);
-      colBuf = newCol;
+      if (useShared) { [curS, otherS] = [otherS, curS]; }
+      else { colBuf = newCol; }
       curLen = half;
     },
   });
@@ -883,11 +948,43 @@ export async function runResidentGpuSumcheck(
   // purported-value anchor), or the folded columns (size 2^(d-rounds)) for a
   // partial run — the GPU->WASM handoff payload in the hybrid bench.
   const tReadback = performance.now();
-  const finalEnc = device.createCommandEncoder();
-  const finalBytes = await read_from_gpu(device, finalEnc, ALL_RELATIONS.map(desc => colBuf[desc.relationIndex]));
-  const finalReadbackMs = performance.now() - tReadback;
   const finalColBytes: Uint8Array[] = new Array(NUM_RELATIONS);
-  ALL_RELATIONS.forEach((desc, i) => { finalColBytes[desc.relationIndex] = finalBytes[i]; });
+  if (useShared) {
+    // Read the folded 67-column shared buffer once, then gather each relation's slice
+    // (its globalEntityIndices) into the per-relation layout the caller expects.
+    const colBytes = curLen * 32;
+    const totalShared = NUM_GLOBAL_ENTITIES * colBytes;
+    if (totalShared > 0) {
+      const fStaging = create_readback_buffer(device, totalShared);
+      const finalEnc = device.createCommandEncoder();
+      finalEnc.copyBufferToBuffer(curS!, 0, fStaging, 0, totalShared);
+      device.queue.submit([finalEnc.finish()]);
+      await fStaging.mapAsync(GPUMapMode.READ, 0, totalShared);
+      const all = new Uint8Array(fStaging.getMappedRange(0, totalShared).slice(0));
+      fStaging.unmap();
+      for (const desc of ALL_RELATIONS) {
+        const buf = new Uint8Array(desc.numEdges * colBytes);
+        desc.globalEntityIndices.forEach((g, j) => buf.set(all.subarray(g * colBytes, (g + 1) * colBytes), j * colBytes));
+        finalColBytes[desc.relationIndex] = buf;
+      }
+    }
+  } else {
+    const sizes = ALL_RELATIONS.map(desc => desc.numEdges * curLen * 32);
+    const offs: number[] = [];
+    { let o = 0; for (const s of sizes) { offs.push(o); o += s; } }
+    const totalFinal = offs.length ? offs[offs.length - 1] + sizes[sizes.length - 1] : 0;
+    if (totalFinal > 0) {
+      const fStaging = create_readback_buffer(device, totalFinal);
+      const finalEnc = device.createCommandEncoder();
+      ALL_RELATIONS.forEach((desc, idx) => finalEnc.copyBufferToBuffer(colBuf[desc.relationIndex], 0, fStaging, offs[idx], sizes[idx]));
+      device.queue.submit([finalEnc.finish()]);
+      await fStaging.mapAsync(GPUMapMode.READ, 0, totalFinal);
+      const all = new Uint8Array(fStaging.getMappedRange(0, totalFinal).slice(0));
+      fStaging.unmap();
+      ALL_RELATIONS.forEach((desc, idx) => { finalColBytes[desc.relationIndex] = all.slice(offs[idx], offs[idx] + sizes[idx]); });
+    }
+  }
+  const finalReadbackMs = performance.now() - tReadback;
 
   return { univariates, challenges: used, finalColBytes, gpuMs, totalMs, finalReadbackMs, setupMs, scalingMs, decodeMs, profile: profileReport, fine: fineProfile ? fine : null };
 }

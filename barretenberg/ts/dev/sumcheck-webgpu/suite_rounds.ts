@@ -27,6 +27,7 @@ import {
 import { fold as cpuFold } from '../../src/msm_webgpu/fold.js';
 import { ALL_RELATIONS } from './descriptors.js';
 import { runResidentGpuSumcheck, encodeColumnsToBytes } from './gpu_pipeline.js';
+import { buildSharedColumns } from './single_submit.js';
 import {
   buildInstance, usedRows, activeRowsByRel, compactionPlan, bandByRel,
   REALISTIC_BLOCK_PROFILE, REALISTIC_BAND_PROFILE, REALISTIC_SCATTERED_PROFILE,
@@ -60,7 +61,12 @@ function cpuRelationSlice(desc: RelationDescriptor, cols: bigint[][], params: bi
   return reduceEdges(perEdge, desc.outLen);
 }
 
-async function run({ device, n, log }: SuiteCtx): Promise<boolean> {
+// `useShared` runs the engine against the shared 67-entity column set (Idea 1). The CPU
+// reference then reads each relation's columns by gathering them from the one shared
+// witness via globalEntityIndices — exactly what the GPU's entity_map does — so the same
+// checks validate the shared multi-pass path end to end.
+async function validateOnce({ device, n, log }: SuiteCtx, useShared: boolean): Promise<boolean> {
+  const tag = useShared ? 'shared' : 'per-rel';
   const d = Math.round(Math.log2(n));
   if (1 << d !== n) { log('err', '  rounds: n must be a power of 2'); return false; }
   if (d < 1) { log('err', '  rounds: need n >= 2'); return false; }
@@ -83,10 +89,22 @@ async function run({ device, n, log }: SuiteCtx): Promise<boolean> {
     initCols[desc.relationIndex] = Array.from({ length: desc.numEdges }, () => Array.from({ length: n }, () => rng()));
   }
 
+  // Shared mode: one 67-entity witness; each relation's CPU-reference columns are the
+  // gathered slice of it, replacing the relation's independent random columns.
+  let sharedColBytes: Uint8Array | undefined;
+  if (useShared) {
+    const sc = buildSharedColumns(n, 0x5ba7ed_c01c01n + BigInt(n));
+    sharedColBytes = sc.sharedColBytes;
+    for (const desc of ALL_RELATIONS) initCols[desc.relationIndex] = desc.globalEntityIndices.map(g => sc.sharedCols[g]);
+  }
+
   const initColBytes: Uint8Array[] = [];
   for (const desc of ALL_RELATIONS) initColBytes[desc.relationIndex] = encodeColumnsToBytes(initCols[desc.relationIndex], n);
 
-  const gpu = await runResidentGpuSumcheck(device, n, alpha, betas, challenges, relParamBytes, initColBytes);
+  const gpu = await runResidentGpuSumcheck(
+    device, n, alpha, betas, challenges, relParamBytes, initColBytes,
+    useShared ? { sharedColumns: true, sharedColBytes } : undefined,
+  );
 
   // (1) per-round GPU vs canonical CPU round univariate — full-fidelity, small n.
   const FULL_DIFF = n <= 1 << 10;
@@ -113,9 +131,9 @@ async function run({ device, n, log }: SuiteCtx): Promise<boolean> {
         }
       }
     }
-    log('ok', `  accumulate ✓  GPU round univariate matches CPU (all 8 evals) every round (${gpu.gpuMs.toFixed(1)} ms GPU)`);
+    log('ok', `  [${tag}] accumulate ✓  GPU round univariate matches CPU (all 8 evals) every round (${gpu.gpuMs.toFixed(1)} ms GPU)`);
   } else {
-    log('info', `  accumulate · per-edge CPU diff skipped for n=${n} (anchored by telescoping + purported); ${gpu.gpuMs.toFixed(1)} ms GPU`);
+    log('info', `  [${tag}] accumulate · per-edge CPU diff skipped for n=${n} (anchored by telescoping + purported); ${gpu.gpuMs.toFixed(1)} ms GPU`);
   }
 
   // (2) telescoping over the GPU univariates — a fold/chaining error breaks this.
@@ -125,7 +143,7 @@ async function run({ device, n, log }: SuiteCtx): Promise<boolean> {
     log('err', `  telescoping ✗  round ${f.round}: S(0)+S(1)=${f.got} != prev S(u)=${f.expected}`);
     return false;
   }
-  log('ok', `  telescoping ✓  S^i(0)+S^i(1) == S^{i-1}(u) for all ${d - 1} steps`);
+  log('ok', `  [${tag}] telescoping ✓  S^i(0)+S^i(1) == S^{i-1}(u) for all ${d - 1} steps`);
 
   // (3) absolute anchor: final round univariate at u_{d-1} == purported value at
   // the fully folded point. finalColBytes are length 1 (the multilinear evals).
@@ -151,8 +169,8 @@ async function run({ device, n, log }: SuiteCtx): Promise<boolean> {
     log('err', `  purported ✗  S^{d-1}(u)=${finalAtU} != F(u)=${purported}`);
     return false;
   }
-  log('ok', `  purported ✓  S^{d-1}(u_{d-1}) == batched relation at the folded point`);
-  log('info', `    rounds=${d}  GPU dispatch ${gpu.gpuMs.toFixed(1)} ms · wall ${gpu.totalMs.toFixed(1)} ms`);
+  log('ok', `  [${tag}] purported ✓  S^{d-1}(u_{d-1}) == batched relation at the folded point`);
+  log('info', `    [${tag}] rounds=${d}  GPU dispatch ${gpu.gpuMs.toFixed(1)} ms · wall ${gpu.totalMs.toFixed(1)} ms`);
 
   // (4) Skipping is a pure performance optimization. On the SAME sparse instance,
   // skip-ON (Tier 0 effective-size trim + Tier 1 per-edge skip) must produce
@@ -161,8 +179,9 @@ async function run({ device, n, log }: SuiteCtx): Promise<boolean> {
   // its contribution is exactly zero whether the row is skipped or fully computed —
   // including permutation/logderiv, whose skip() predicate is only zero-implying on a
   // real trace (see sparsity.ts). Run both block (whole-workgroup skip) and scattered
-  // (defeats per-edge skip, exercises only the effective-size trim) structures.
-  for (const profile of [REALISTIC_BLOCK_PROFILE, REALISTIC_BAND_PROFILE, REALISTIC_SCATTERED_PROFILE]) {
+  // (defeats per-edge skip, exercises only the effective-size trim) structures. The skip
+  // path exercises the per-relation layout, so validate it once (on the per-relation pass).
+  if (!useShared) for (const profile of [REALISTIC_BLOCK_PROFILE, REALISTIC_BAND_PROFILE, REALISTIC_SCATTERED_PROFILE]) {
     const inst = buildInstance(n, profile, false);
     const L = usedRows(profile, n);
     const off = await runResidentGpuSumcheck(device, n, alpha, betas, challenges, inst.relParamBytes, inst.initColBytes);
@@ -207,6 +226,13 @@ async function run({ device, n, log }: SuiteCtx): Promise<boolean> {
     }
   }
   return true;
+}
+
+// Validate both the per-relation engine and the shared 67-entity column engine (Idea 1).
+async function run(ctx: SuiteCtx): Promise<boolean> {
+  const perRel = await validateOnce(ctx, false);
+  if (!perRel) return false;
+  return validateOnce(ctx, true);
 }
 
 export const roundsSuite: Suite = { id: 'rounds', label: 'Multi-round sumcheck (GPU)', run };
