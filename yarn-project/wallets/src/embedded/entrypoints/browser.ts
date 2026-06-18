@@ -90,7 +90,3 @@ export { BrowserEmbeddedWallet as EmbeddedWallet };
 export type { EmbeddedWalletOptions, EmbeddedWalletPXEOptions } from '../embedded_wallet.js';
 export { WalletDB } from '../wallet_db.js';
 export type { AccountType } from '../wallet_db.js';
-
-// At-rest encryption helpers live on the `@aztec/wallets/embedded/store-encryption` sub-path rather than here:
-// they require a caller-supplied key and the paired-store open flow, which is a different creation path from
-// this default, unencrypted entrypoint.
