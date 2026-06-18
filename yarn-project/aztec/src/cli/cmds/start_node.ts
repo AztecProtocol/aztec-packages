@@ -165,7 +165,7 @@ export async function startNode(
   // Register prover-node services if the prover node subsystem is running
   const proverNode = node.getProverNode();
   if (proverNode) {
-    services.prover = [proverNode, ProverNodeApiSchema];
+    adminServices.prover = [proverNode, ProverNodeApiSchema];
     if (!nodeConfig.proverBrokerUrl) {
       services.provingJobSource = [proverNode.getProver().getProvingJobSource(), ProvingJobConsumerSchema];
     }
