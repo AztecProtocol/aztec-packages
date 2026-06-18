@@ -51,15 +51,22 @@ import type { AddressStore } from '../../storage/address_store/address_store.js'
 import type { CapsuleService } from '../../storage/capsule_store/capsule_service.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
 import { EntityKey, EntityTypeKey } from '../../storage/entity_store/index.js';
-import type { Entity, EntityService, OriginBlock } from '../../storage/entity_store/index.js';
+import type {
+  Entity as EntityFromStore,
+  EntityService,
+  Fact as FactFromStore,
+  OriginBlock,
+} from '../../storage/entity_store/index.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../../storage/private_event_store/private_event_store.js';
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
 import type { SenderAddressBookStore } from '../../storage/tagging_store/sender_address_book_store.js';
 import { EphemeralArrayService } from '../ephemeral_array_service.js';
 import { BoundedVec } from '../noir-structs/bounded_vec.js';
+import type { Entity } from '../noir-structs/entity.js';
 import { EphemeralArray } from '../noir-structs/ephemeral_array.js';
 import type { EventValidationRequest } from '../noir-structs/event_validation_request.js';
+import type { Fact } from '../noir-structs/fact.js';
 import type { LogRetrievalRequest } from '../noir-structs/log_retrieval_request.js';
 import type { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
 import type { NoteData } from '../noir-structs/note_data.js';
@@ -73,7 +80,6 @@ import type { TransientArrayService } from '../transient_array_service.js';
 import { buildACIRCallback } from './acir_callback.js';
 import type { IMiscOracle, IUtilityExecutionOracle } from './interfaces.js';
 import { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
-import type { EntityOutput, FactOutput } from './oracle_type_mappings.js';
 
 /** Args for UtilityExecutionOracle constructor. */
 export type UtilityExecutionOracleArgs = {
@@ -715,21 +721,20 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * Asserts the executing contract may access `contractAddress`'s entity store. Entities are isolated per contract, so
    * a contract may only operate on its own entities.
    */
-  private assertOwnContract(contractAddress: AztecAddress): void {
+  #assertOwnContract(contractAddress: AztecAddress): void {
     if (!contractAddress.equals(this.contractAddress)) {
-      // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
   }
 
   /** Builds the Noir-facing ENTITY output (body + facts as nested ephemeral arrays) from a stored entity. */
-  private toEntityOutput(entity: Entity): EntityOutput {
+  #toEntityOutput(entity: EntityFromStore): Entity {
     return {
       body: EphemeralArray.fromValues(this.ephemeralArrayService, entity.body),
       facts: EphemeralArray.fromValues(
         this.ephemeralArrayService,
         entity.facts.map(
-          (fact): FactOutput => ({
+          (fact: FactFromStore): Fact => ({
             factTypeId: fact.factTypeId,
             payload: EphemeralArray.fromValues(this.ephemeralArrayService, fact.payload),
           }),
@@ -750,7 +755,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     body: Fr[],
     originBlock: Option<OriginBlock>,
   ): Promise<void> {
-    this.assertOwnContract(contractAddress);
+    this.#assertOwnContract(contractAddress);
     return this.entityService.createEntity(
       new EntityKey(contractAddress, scope, entityTypeId, entityId),
       body,
@@ -772,7 +777,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     payload: Fr[],
     originBlock: Option<OriginBlock>,
   ): Promise<void> {
-    this.assertOwnContract(contractAddress);
+    this.#assertOwnContract(contractAddress);
     return this.entityService.recordFact(
       new EntityKey(contractAddress, scope, entityTypeId, entityId),
       factTypeId,
@@ -789,15 +794,15 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     contractAddress: AztecAddress,
     scope: AztecAddress,
     entityTypeId: Fr,
-  ): Promise<EphemeralArray<EntityOutput>> {
-    this.assertOwnContract(contractAddress);
+  ): Promise<EphemeralArray<Entity>> {
+    this.#assertOwnContract(contractAddress);
     const entities = await this.entityService.getEntities(
       new EntityTypeKey(contractAddress, scope, entityTypeId),
       this.jobId,
     );
     return EphemeralArray.fromValues(
       this.ephemeralArrayService,
-      entities.map(entity => this.toEntityOutput(entity)),
+      entities.map(entity => this.#toEntityOutput(entity)),
     );
   }
 
@@ -807,8 +812,8 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     scope: AztecAddress,
     entityTypeId: Fr,
     entityId: Fr,
-  ): Promise<EntityOutput> {
-    this.assertOwnContract(contractAddress);
+  ): Promise<Entity> {
+    this.#assertOwnContract(contractAddress);
     const entity = await this.entityService.getEntity(
       new EntityKey(contractAddress, scope, entityTypeId, entityId),
       this.jobId,
@@ -819,7 +824,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
           `typeId=${entityTypeId.toString()} id=${entityId.toString()}`,
       );
     }
-    return this.toEntityOutput(entity);
+    return this.#toEntityOutput(entity);
   }
 
   /** Permanently deletes an entity and all of its facts. */
@@ -829,7 +834,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     entityTypeId: Fr,
     entityId: Fr,
   ): Promise<void> {
-    this.assertOwnContract(contractAddress);
+    this.#assertOwnContract(contractAddress);
     return this.entityService.terminateEntity(
       new EntityKey(contractAddress, scope, entityTypeId, entityId),
       this.jobId,

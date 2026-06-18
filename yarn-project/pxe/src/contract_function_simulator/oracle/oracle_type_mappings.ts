@@ -38,8 +38,10 @@ import { BlockHeader, TxEffect, TxHash } from '@aztec/stdlib/tx';
 
 import type { OriginBlock } from '../../storage/entity_store/index.js';
 import { BoundedVec } from '../noir-structs/bounded_vec.js';
+import type { Entity } from '../noir-structs/entity.js';
 import { EphemeralArray } from '../noir-structs/ephemeral_array.js';
 import { EventValidationRequest } from '../noir-structs/event_validation_request.js';
+import type { Fact } from '../noir-structs/fact.js';
 import { LogRetrievalRequest } from '../noir-structs/log_retrieval_request.js';
 import { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
 import type { NoteData } from '../noir-structs/note_data.js';
@@ -375,25 +377,12 @@ export const RESOLVED_TX: TypeMapping<ResolvedTx> = {
   serialization: { fn: resolved => [resolved.toFields()] },
 };
 
-/**
- * A single fact returned within an entity by `getEntity`
- **/
-export type FactOutput = { factTypeId: Fr; payload: EphemeralArray<Fr> };
-
-/**
- * Output mapping for a fact. Serializes to `[factTypeId, payloadSlot]`, where `payloadSlot` is the slot of the
- * fact's payload (its own ephemeral array of fields). Output-only: facts are returned to Noir, never received.
- */
-export const FACT: TypeMapping<FactOutput> = {
+export const FACT: TypeMapping<Fact> = {
   serialization: {
     fn: f => [f.factTypeId, f.payload.materializeSlot(v => FIELD.serialization!.fn(v).flat() as Fr[])],
   },
 };
 
-/**
- * Input mapping for an optional entity/fact origin block. Reads two ACVM slots `blockNumber` (u32) and `blockHash`
- * (a field) into the store's `OriginBlock` shape. Used inside `OPTION(ORIGIN_BLOCK)`.
- */
 export const ORIGIN_BLOCK: TypeMapping<OriginBlock> = {
   deserialization: {
     fn: ([blockNumberReader, blockHashReader]) => ({
@@ -404,14 +393,7 @@ export const ORIGIN_BLOCK: TypeMapping<OriginBlock> = {
   },
 };
 
-/** Returned by `getEntity`/`getEntities`: the entity body plus its facts. */
-export type EntityOutput = { body: EphemeralArray<Fr>; facts: EphemeralArray<FactOutput> };
-
-/**
- * Output mapping for an entity. Serializes to `[bodySlot, factsSlot]`: the body as a slot of fields, and the facts as
- * a slot of `[factTypeId, payloadSlot]` rows. Output-only: entities are returned to Noir, never received.
- */
-export const ENTITY: TypeMapping<EntityOutput> = {
+export const ENTITY: TypeMapping<Entity> = {
   serialization: {
     fn: e => [
       e.body.materializeSlot(v => FIELD.serialization!.fn(v).flat() as Fr[]),
