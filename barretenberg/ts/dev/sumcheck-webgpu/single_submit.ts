@@ -336,11 +336,27 @@ export async function runSingleSubmitSumcheck(
     // fold every column at u_i (cur -> other). Shared mode folds the whole 67-column
     // buffer in one dispatch; non-shared folds each relation's columns.
     if (useShared) {
-      const numOut = NUM_GLOBAL_ENTITIES * pairs;
-      const fBg = create_bind_group(device, foldRunner.layout, [
-        curS!, otherS!, create_and_write_ub(device, u32x4(numOut, pairs)), uBuf,
-      ]);
-      await execute_pipeline(enc, foldRunner.pipeline, fBg, Math.ceil(numOut / WG), 1, 1, profiler?.stage('fold'));
+      // Fold all NUM_GLOBAL_ENTITIES columns, chunked by columns so no single dispatch
+      // exceeds maxComputeWorkgroupsPerDimension — one 67*pairs dispatch overflows it at
+      // n>=2^17. Each chunk binds a column-range sub-slice of curS/otherS (offsets are
+      // whole columns, so storage-offset-aligned) and folds it independently.
+      const maxCols = Math.max(1, Math.floor((device.limits.maxComputeWorkgroupsPerDimension * WG) / Math.max(1, pairs)));
+      const inStride = curLen * 32;  // input column stride (length curLen = 2*pairs)
+      const outStride = pairs * 32;  // output column stride (length pairs)
+      for (let c0 = 0; c0 < NUM_GLOBAL_ENTITIES; c0 += maxCols) {
+        const cc = Math.min(maxCols, NUM_GLOBAL_ENTITIES - c0);
+        const numOut = cc * pairs;
+        const fBg = device.createBindGroup({
+          layout: foldRunner.layout,
+          entries: [
+            { binding: 0, resource: { buffer: curS!, offset: c0 * inStride, size: cc * inStride } },
+            { binding: 1, resource: { buffer: otherS!, offset: c0 * outStride, size: cc * outStride } },
+            { binding: 2, resource: { buffer: create_and_write_ub(device, u32x4(numOut, pairs)) } },
+            { binding: 3, resource: { buffer: uBuf } },
+          ],
+        });
+        await execute_pipeline(enc, foldRunner.pipeline, fBg, Math.ceil(numOut / WG), 1, 1, profiler?.stage('fold'));
+      }
     } else {
       for (const desc of ALL_RELATIONS) {
         const r = desc.relationIndex;
@@ -451,6 +467,51 @@ export function buildSharedColumns(n: number, seed: bigint): { sharedColBytes: U
   return { sharedColBytes: encodeColumnsToBytes(sharedCols, n), sharedCols };
 }
 
+/**
+ * Inputs for a `shared`-mode SS run: the per-relation `relationParameters` plus ONE
+ * 67-entity witness. Builds only NUM_GLOBAL_ENTITIES columns (not the 185 per-relation
+ * copies), so both the host RNG and the GPU upload are ~2.76x smaller than buildInputs.
+ */
+export function buildSharedInputs(n: number): { sharedColBytes: Uint8Array; relParamBytes: (Uint8Array | undefined)[] } {
+  const relParamBytes: (Uint8Array | undefined)[] = [];
+  for (const desc of ALL_RELATIONS) {
+    const rng = makeRng((desc.seed ^ 0x5151_5151_5151n) + BigInt(n));
+    relParamBytes[desc.relationIndex] = desc.makeParams ? packParams(desc.makeParams(rng)) : undefined;
+  }
+  const { sharedColBytes } = buildSharedColumns(n, 0x5ba7ed_c01c01n + BigInt(n));
+  return { sharedColBytes, relParamBytes };
+}
+
+/**
+ * Whether the shared 67-entity resident set fits the device limits. Shared mode binds
+ * all columns as ONE buffer of NUM_GLOBAL_ENTITIES*n*32 bytes, so above the device's
+ * maxStorageBufferBindingSize (e.g. 256 MiB on Metal -> n=2^17 at 281 MB) that single
+ * binding is rejected. The per-relation layout never hits this (each buffer holds one
+ * relation's <=24 columns), so callers fall back to it for the larger sizes.
+ */
+export function sharedColumnsFit(device: GPUDevice, n: number): boolean {
+  const need = NUM_GLOBAL_ENTITIES * n * 32;
+  return need <= Math.min(device.limits.maxStorageBufferBindingSize, device.limits.maxBufferSize);
+}
+
+/**
+ * SS-engine inputs: the shared 67-entity set when it fits the device binding limit
+ * (smaller upload, less memory), else the per-relation layout. `sharedColBytes` is set
+ * iff shared mode was chosen; the caller passes `sharedColumns: true` only then.
+ */
+export function buildSSInputs(device: GPUDevice, n: number): {
+  relParamBytes: (Uint8Array | undefined)[];
+  initColBytes: Uint8Array[];
+  sharedColBytes?: Uint8Array;
+} {
+  if (sharedColumnsFit(device, n)) {
+    const { sharedColBytes, relParamBytes } = buildSharedInputs(n);
+    return { relParamBytes, initColBytes: [], sharedColBytes };
+  }
+  const { initColBytes, relParamBytes } = buildInputs(n);
+  return { relParamBytes, initColBytes };
+}
+
 export interface SSBenchRow {
   logN: number;
   gpuMs: number;
@@ -479,19 +540,24 @@ export async function runSingleSubmitBench(
   const wasm = await initWasm(log);
   if (wasm) log('info', '  WASM backend ready (bb.js threads)');
 
+  // Idea 1: the SS engine reads the shared 67-entity column set where it fits the
+  // device binding limit (~2.76x smaller upload than the 185 per-relation columns),
+  // else falls back to per-relation. Correctness is covered by suite_singlesubmit.
   {
     const wn = 1 << Math.min(...logNs);
-    const warm = buildInputs(wn);
+    const warm = buildSSInputs(device, wn);
     const wb = Array.from({ length: Math.round(Math.log2(wn)) }, (_, i) => makeRng(0x1234n + BigInt(i))());
-    await runSingleSubmitSumcheck(device, wn, alpha, wb, warm.relParamBytes, warm.initColBytes, shared);
+    const wopts = warm.sharedColBytes ? { ...shared, sharedColumns: true, sharedColBytes: warm.sharedColBytes } : shared;
+    await runSingleSubmitSumcheck(device, wn, alpha, wb, warm.relParamBytes, warm.initColBytes, wopts);
   }
 
   const rows: SSBenchRow[] = [];
   for (const logN of logNs) {
     const n = 1 << logN;
     const betas = Array.from({ length: logN }, (_, i) => makeRng(0xbe7a_77n + BigInt(i))());
-    const { initColBytes, relParamBytes } = buildInputs(n);
-    const gpu = await runSingleSubmitSumcheck(device, n, alpha, betas, relParamBytes, initColBytes, shared);
+    const { sharedColBytes, initColBytes, relParamBytes } = buildSSInputs(device, n);
+    const opts = sharedColBytes ? { ...shared, sharedColumns: true, sharedColBytes } : shared;
+    const gpu = await runSingleSubmitSumcheck(device, n, alpha, betas, relParamBytes, initColBytes, opts);
     const wasmMs = await runWasmSumcheck(wasm, logN);
     const row: SSBenchRow = {
       logN, gpuMs: gpu.gpuMs, wallMs: gpu.totalMs, setupMs: gpu.setupMs, wasmMs,

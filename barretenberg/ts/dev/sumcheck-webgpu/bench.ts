@@ -16,7 +16,7 @@ import {
   runResidentGpuSumcheck, encodeColumnsToBytes, makeFoldRunner, makeReduceRunner,
   type FoldRunner, type ReduceRunner,
 } from './gpu_pipeline.js';
-import { runSingleSubmitSumcheck, makeBatchRunner, makeTranscriptRunner, buildSharedColumns } from './single_submit.js';
+import { runSingleSubmitSumcheck, makeBatchRunner, makeTranscriptRunner, buildSharedColumns, buildSharedInputs, buildSSInputs, sharedColumnsFit } from './single_submit.js';
 import { cpuReferenceUnivariates } from './cpu_reference.js';
 import { ALL_RELATIONS } from './descriptors.js';
 import { type PipelineCache, type Logger, WG, makeRng, packParams } from './harness.js';
@@ -517,9 +517,13 @@ export async function runSingleSubmitHybridBenchmark(
   const gpuSizes = logNs.filter(d => d > threshold);
   if (gpuSizes.length) {
     const wn = 1 << Math.min(...gpuSizes);
-    const warm = buildInputs(wn);
     const wb = Array.from({ length: Math.round(Math.log2(wn)) }, (_, i) => makeRng(0x1234n + BigInt(i))());
-    await runSingleSubmitSumcheck(device, wn, alpha, wb, warm.relParamBytes, warm.initColBytes, ssShared);
+    // Warm both pipeline sets (shared + per-relation) so neither path pays shader
+    // compilation in a timed size (large sizes fall back to per-relation columns).
+    const ws = buildSharedInputs(wn);
+    await runSingleSubmitSumcheck(device, wn, alpha, wb, ws.relParamBytes, [], { ...ssShared, sharedColumns: true, sharedColBytes: ws.sharedColBytes });
+    const wp = buildInputs(wn);
+    await runSingleSubmitSumcheck(device, wn, alpha, wb, wp.relParamBytes, wp.initColBytes, ssShared);
   }
 
   const rows: SsHybridRow[] = [];
@@ -537,9 +541,10 @@ export async function runSingleSubmitHybridBenchmark(
       hybridMs = fullWasmMs;
     } else {
       const betas = Array.from({ length: logN }, (_, i) => makeRng(0xbe7a_77n + BigInt(i))());
-      const { initColBytes, relParamBytes } = buildInputs(n);
+      const { sharedColBytes, initColBytes, relParamBytes } = buildSSInputs(device, n);
+      const opts = sharedColBytes ? { ...ssShared, sharedColumns: true, sharedColBytes } : ssShared;
       const front = await runSingleSubmitSumcheck(
-        device, n, alpha, betas, relParamBytes, initColBytes, ssShared, WG, false, k,
+        device, n, alpha, betas, relParamBytes, initColBytes, opts, WG, false, k,
       );
       setupMs = front.setupMs;
       gpuFrontMs = front.totalMs;
@@ -648,9 +653,10 @@ export async function runSingleSubmitProfile(
   const gpuRounds = tailRounds > 0 ? Math.max(1, logN - tailRounds) : logN;
   const tail = logN - gpuRounds;
   const betas = Array.from({ length: logN }, (_, i) => makeRng(0xbe7a_77n + BigInt(i))());
-  const { initColBytes, relParamBytes } = buildInputs(n);
-  await runSingleSubmitSumcheck(device, n, alpha, betas, relParamBytes, initColBytes, ssShared, WG, false, gpuRounds); // warmup/compile
-  const r = await runSingleSubmitSumcheck(device, n, alpha, betas, relParamBytes, initColBytes, ssShared, WG, true, gpuRounds);
+  const { sharedColBytes, initColBytes, relParamBytes } = buildSSInputs(device, n);
+  const ssOpts = sharedColBytes ? { ...ssShared, sharedColumns: true, sharedColBytes } : ssShared;
+  await runSingleSubmitSumcheck(device, n, alpha, betas, relParamBytes, initColBytes, ssOpts, WG, false, gpuRounds); // warmup/compile
+  const r = await runSingleSubmitSumcheck(device, n, alpha, betas, relParamBytes, initColBytes, ssOpts, WG, true, gpuRounds);
 
   const scope = tail > 0 ? `${gpuRounds} GPU rounds + ${tail} WASM tail` : `all ${logN} rounds`;
   log('info', `  single-submit per-kernel GPU profile · ${scope} · 2^${logN}`);
@@ -747,6 +753,11 @@ export async function runE2EProfile(
   const betas = Array.from({ length: logN }, (_, i) => makeRng(0xbe7a_77n + BigInt(i))());
   const challenges = Array.from({ length: logN }, (_, i) => makeRng(0xc4a1_77n + BigInt(i))());
   const { initColBytes, relParamBytes } = buildInputs(n);
+  // SS reads the shared 67-entity set where it fits the binding limit, else falls back
+  // to the per-relation columns; multi-pass always keeps its per-relation columns.
+  const ssSharedColBytes = sharedColumnsFit(device, n)
+    ? buildSharedColumns(n, 0x5ba7ed_c01c01n + BigInt(n)).sharedColBytes
+    : undefined;
 
   const mpShared = {
     cache: new Map() as PipelineCache,
@@ -764,10 +775,12 @@ export async function runE2EProfile(
   if (wasm) log('info', '  WASM backend ready (bb.js threads)');
 
   // Warmup each engine at this size so per-stage timing excludes shader compilation.
+  const ssOpts = ssSharedColBytes ? { ...ssShared, sharedColumns: true, sharedColBytes: ssSharedColBytes } : ssShared;
+  const ssInit = ssSharedColBytes ? [] : initColBytes;
   await runResidentGpuSumcheck(device, n, alpha, betas, challenges, relParamBytes, initColBytes, mpShared, WG, false, k);
-  await runSingleSubmitSumcheck(device, n, alpha, betas, relParamBytes, initColBytes, ssShared, WG, false, k);
+  await runSingleSubmitSumcheck(device, n, alpha, betas, relParamBytes, ssInit, ssOpts, WG, false, k);
 
-  const ssRun = await runSingleSubmitSumcheck(device, n, alpha, betas, relParamBytes, initColBytes, ssShared, WG, false, k);
+  const ssRun = await runSingleSubmitSumcheck(device, n, alpha, betas, relParamBytes, ssInit, ssOpts, WG, false, k);
   const mpRun = await runResidentGpuSumcheck(device, n, alpha, betas, challenges, relParamBytes, initColBytes, mpShared, WG, false, k);
   const wasmTailMs = await runWasmSumcheck(wasm, T);
   const fullWasmMs = await runWasmSumcheck(wasm, logN);
@@ -864,11 +877,18 @@ export async function runMemoryProfile(device: GPUDevice, logN: number, log: Log
 
   // Idea 1: same SS engine, shared 67-entity column set (185 -> 67 columns). Reuses the
   // compiled runners/cache; the shared accumulate pipelines compile under a distinct key.
-  const { sharedColBytes } = buildSharedColumns(n, 0x5ba7ed_c01c01n);
-  const ssSharedTracker = new BufferTracker(device);
-  ssSharedTracker.start();
-  await runSingleSubmitSumcheck(device, n, alpha, betas, relParamBytes, initColBytes, { ...ssShared, sharedColumns: true, sharedColBytes });
-  const ssShared2 = ssSharedTracker.stop();
+  // Only when the single 67-column buffer fits the device binding limit (else the per-
+  // relation layout is the only option at this size; report it as the shared figure).
+  let ssShared2 = ss;
+  if (sharedColumnsFit(device, n)) {
+    const { sharedColBytes } = buildSharedColumns(n, 0x5ba7ed_c01c01n);
+    const ssSharedTracker = new BufferTracker(device);
+    ssSharedTracker.start();
+    await runSingleSubmitSumcheck(device, n, alpha, betas, relParamBytes, initColBytes, { ...ssShared, sharedColumns: true, sharedColBytes });
+    ssShared2 = ssSharedTracker.stop();
+  } else {
+    log('warn', `  shared 67-column buffer exceeds the device binding limit at 2^${logN} — shared SS run skipped`);
+  }
 
   const mpTracker = new BufferTracker(device);
   mpTracker.start();

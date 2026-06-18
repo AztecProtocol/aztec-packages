@@ -50,7 +50,10 @@ export const get_device = async (): Promise<GPUDevice> => {
   const grantedLimits = device.limits as unknown as Record<string, number>;
   console.log(
     `[gpu] requested maxComputeWorkgroupStorageSize=${wgStorageMax}B,` +
-      ` granted=${grantedLimits['maxComputeWorkgroupStorageSize']}B`,
+      ` granted=${grantedLimits['maxComputeWorkgroupStorageSize']}B` +
+      ` · maxStorageBufferBindingSize=${grantedLimits['maxStorageBufferBindingSize']}B` +
+      ` · maxBufferSize=${grantedLimits['maxBufferSize']}B` +
+      ` · maxComputeWorkgroupsPerDimension=${grantedLimits['maxComputeWorkgroupsPerDimension']}`,
   );
   return device;
 };
