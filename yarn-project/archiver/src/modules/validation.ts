@@ -10,7 +10,7 @@ import {
   type ValidateCheckpointResult,
   getAttestationInfoFromPayload,
 } from '@aztec/stdlib/block';
-import { type CheckpointInfo, type PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
+import type { CheckpointInfo, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import { type L1RollupConstants, computeQuorum, getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import { ConsensusPayload, type CoordinationSignatureContext } from '@aztec/stdlib/p2p';
 import type { CheckpointHeader } from '@aztec/stdlib/rollup';
@@ -33,7 +33,7 @@ export function getAttestationInfoFromPublishedCheckpoint(
  * Validates the attestations of a checkpoint already retrieved (with its blocks) from blobs.
  * Returns true if the attestations are valid and sufficient, false otherwise.
  */
-export async function validateCheckpointAttestations(
+export function validateCheckpointAttestations(
   publishedCheckpoint: PublishedCheckpoint,
   epochCache: EpochCache,
   constants: Pick<L1RollupConstants, 'epochDuration'>,
@@ -60,7 +60,7 @@ export type CalldataCheckpointForAttestations = {
  * calldata, so an invalid-attestation checkpoint can be rejected before any (possibly malformed) blob is
  * fetched and decoded. See A-1252.
  */
-export async function validateCheckpointAttestationsFromCalldata(
+export function validateCheckpointAttestationsFromCalldata(
   checkpoint: CalldataCheckpointForAttestations,
   epochCache: EpochCache,
   constants: Pick<L1RollupConstants, 'epochDuration'>,
