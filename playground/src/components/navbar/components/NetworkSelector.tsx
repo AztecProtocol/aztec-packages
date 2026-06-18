@@ -7,7 +7,7 @@ import AddIcon from '@mui/icons-material/Add';
 import { AddNetworksDialog } from './AddNetworkDialog';
 import CircularProgress from '@mui/material/CircularProgress';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
-import { createStore } from '@aztec/kv-store/indexeddb';
+import { createStore } from '@aztec/kv-store/browser';
 import { AztecContext } from '../../../aztecContext';
 import { navbarButtonStyle, navbarSelect } from '../../../styles/common';
 import { NETWORKS } from '../../../utils/networks';

@@ -30,6 +30,20 @@ export default defineConfig({
       },
     }),
   ],
+  // The default browser wallet backend (SQLite over OPFS) runs in a Web Worker.
+  // Vite bundles workers in a separate Rollup pass that does not inherit `plugins`,
+  // so the node-polyfill shim fix must be repeated here for the worker build to resolve.
+  worker: {
+    format: "es",
+    plugins: () => [
+      nodePolyfillsFix({
+        globals: {
+          process: true,
+          Buffer: true,
+        },
+      }),
+    ],
+  },
   server: {
     // Headers required for SharedArrayBuffer (needed by bb WASM)
     headers: {
