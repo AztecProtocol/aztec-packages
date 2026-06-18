@@ -66,7 +66,7 @@ l1-contracts: &l1-contracts-defaults
   # Proof & Block Configuration
   #---------------------------------------------------------------------------
   # Checkpoints to lag in inbox (prevents sequencer DOS attacks).
-  AZTEC_INBOX_LAG: 1
+  AZTEC_INBOX_LAG: 2
   # Epochs after end that proofs are still accepted.
   AZTEC_PROOF_SUBMISSION_EPOCHS: 1
   # Target mana consumption per block.
