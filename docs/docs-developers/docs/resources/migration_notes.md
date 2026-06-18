@@ -74,6 +74,36 @@ while i > 0 {
 }
 ```
 
+||||||| parent of f708bc9b8e (docs: migration notes for the note-nonce/cancellable changes; clarify tx_request salt comment)
+### [Aztec.nr / Aztec.js] Account entrypoint always emits the tx nonce nullifier; `cancellable` removed
+
+The account entrypoint no longer takes a `cancellable` flag. It now always emits a nullifier derived from the app payload's `tx_nonce`, so every transaction is replay-protected and cancellable by default. Re-proving the same payload collides on this nullifier, and a replacement transaction that reuses the same `tx_nonce` (for example with a higher priority fee) conflicts with the original, so only one can be mined.
+
+**Aztec.nr:** `AccountActions::entrypoint` drops its `cancellable` parameter. Account contracts that wrap it must update both the call and their own `entrypoint` function signature.
+
+```diff
+- fn entrypoint(app_payload: AppPayload, fee_payment_method: u8, cancellable: bool) {
++ fn entrypoint(app_payload: AppPayload, fee_payment_method: u8) {
+      let actions = AccountActions::init(self.context, is_valid_impl);
+-     actions.entrypoint(app_payload, fee_payment_method, cancellable);
++     actions.entrypoint(app_payload, fee_payment_method);
+  }
+```
+
+**Aztec.js:** `DefaultAccountEntrypointOptions.cancellable` is removed. Drop it from any options you pass; cancellation is now always available. Provide a unique `txNonce` per transaction (it defaults to a random value) so independent transactions do not collide on the nonce nullifier.
+
+```diff
+const executionOptions: DefaultAccountEntrypointOptions = {
+  txNonce,
+- cancellable: true,
+  feePaymentMethodOptions,
+};
+```
+
+### [Protocol] `PrivateCircuitPublicInputs` and `PrivateContextInputs` gain a `salt` field
+
+The init kernel now always injects the protocol nullifier (`H(tx_request)`) as the transaction's first nullifier and binds the entry-point proof to the tx request's `salt`. To support this, `PrivateCircuitPublicInputs` and `PrivateContextInputs` each carry a new `salt` field (set by the framework), and the `first_nullifier_hint` input to the init kernel is removed. This is handled automatically by the framework and PXE; contracts using the standard entrypoint need no changes beyond recompiling against the new protocol circuits.
+
 ### [Aztec.js] Prefunded local network test accounts are now initializerless
 
 The genesis-funded test accounts in the local network (sandbox), returned by `getInitialTestAccountsData()`, are now initializerless Schnorr accounts (`schnorr_initializerless`). An initializerless account has no onchain deployment transaction: its address commits to the signing public key (through `immutables_hash`) and its contract state is materialized locally in the PXE, so these accounts are usable right away.
