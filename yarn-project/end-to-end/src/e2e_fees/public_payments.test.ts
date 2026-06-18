@@ -12,6 +12,9 @@ import { PIPELINING_SETUP_OPTS, getPaddedMaxFeesPerGas } from '../fixtures/fixtu
 import { expectMapping } from '../fixtures/utils.js';
 import { FeesTest } from './fees_test.js';
 
+// Public fee payment via BananaCoin FPC (PublicFeePaymentMethod). Uses FeesTest (prod sequencer,
+// pipelining preset: ethSlot=4s, aztecSlot=12s, inboxLag=2, minTxsPerBlock=0), fake in-proc prover
+// node, and GasBridgingTestHarness for L1↔L2 fee-juice bridging (the FPC setup bridges fee juice).
 describe('e2e_fees public_payment', () => {
   // FeesTest.setup + applyFPCSetup + applyFundAliceWithBananas chains many dependent txs which run
   // at the ~24s/tx pipelined cadence, exceeding the default 5 min hook window.
@@ -64,6 +67,8 @@ describe('e2e_fees public_payment', () => {
     ]);
   });
 
+  // Alice sends 10 bananas to Bob using PublicFeePaymentMethod. Asserts Alice's banana balance
+  // decreases by bananasToSendToBob + fee, FPC public balance increases by fee, and FPC gas decreases.
   it('pays fees for tx that make public transfer', async () => {
     const bananasToSendToBob = 10n;
     const { receipt: tx } = await bananaCoin.methods
