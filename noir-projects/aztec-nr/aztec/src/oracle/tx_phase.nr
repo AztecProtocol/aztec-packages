@@ -1,4 +1,3 @@
-use crate::macros::oracle_testing::auto_serialization_test;
 /// Notifies PXE of the side effect counter at which the revertible phase begins.
 ///
 /// PXE uses it to classify notes and nullifiers as revertible or non-revertible in its note cache. This information is
@@ -18,10 +17,8 @@ unconstrained fn notify_revertible_phase_start_oracle_wrapper(counter: u32) {
     notify_revertible_phase_start_oracle(counter);
 }
 
-#[auto_serialization_test]
 #[oracle(aztec_prv_notifyRevertiblePhaseStart)]
 unconstrained fn notify_revertible_phase_start_oracle(_counter: u32) {}
 
-#[auto_serialization_test]
 #[oracle(aztec_prv_isExecutionInRevertiblePhase)]
 unconstrained fn is_execution_in_revertible_phase_oracle(current_counter: u32) -> bool {}

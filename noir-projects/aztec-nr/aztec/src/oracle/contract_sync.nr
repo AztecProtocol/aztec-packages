@@ -1,6 +1,5 @@
-use crate::{macros::oracle_testing::auto_serialization_test, protocol::address::AztecAddress};
+use crate::protocol::address::AztecAddress;
 
-#[auto_serialization_test]
 #[oracle(aztec_utl_setContractSyncCacheInvalid)]
 unconstrained fn set_contract_sync_cache_invalid_oracle<let N: u32>(
     contract_address: AztecAddress,

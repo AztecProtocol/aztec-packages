@@ -4,7 +4,8 @@
 //! drift (one side reorders fields, changes a type's wire layout, adds a value) calls silently corrupt, so we want a
 //! test that exercises the *real* serialization on both sides and checks they still match.
 //!
-//! `#[auto_serialization_test]` generates that test from an oracle's signature. The generated test:
+//! `#[generate_oracle_tests]`, applied to a module, generates that test from each oracle's signature. The generated
+//! test:
 //!   1. builds a canonical value for every parameter and the return type (via the [`OracleTestValue`] trait),
 //!   2. calls the real oracle, which serializes the arguments and sends them to a dedicated TS resolver,
 //!   3. the resolver deserializes the arguments, checks them against the same canonical values (which it rebuilds
@@ -23,13 +24,14 @@
 //!
 //! ## What gets generated
 //!
+//! Given an oracle in a module annotated with `#[generate_oracle_tests(...)]`:
+//!
 //! ```noir
-//! #[auto_serialization_test]
 //! #[oracle(aztec_avm_nullifierExists)]
 //! unconstrained fn nullifier_exists_opcode(siloed_nullifier: Field) -> bool {}
 //! ```
 //!
-//! produces:
+//! the macro produces:
 //!
 //! ```noir
 //! #[test]
@@ -46,7 +48,6 @@
 //! emit one test per scenario. For example:
 //!
 //! ```noir
-//! #[auto_serialization_test]
 //! #[oracle(aztec_utl_getWitness)]
 //! unconstrained fn get_witness_oracle(key: Option<Field>) -> Option<Field> {}
 //! ```
@@ -172,19 +173,53 @@ where
     }
 }
 
-/// Generates a serialization roundtrip test for an `#[oracle(...)]` declaration. See the module docs for the full
-/// scheme.
+/// Generates serialization roundtrip tests for every `#[oracle(...)]` declaration in a module. See the module docs for
+/// the full scheme. Use [`generate_oracle_tests_excluding`] when some of the module's oracles must be left out.
 ///
 /// ## Usage
 ///
 /// ```noir
-/// use crate::macros::oracle_testing::auto_serialization_test;
-///
-/// #[auto_serialization_test]
-/// #[oracle(aztec_misc_getRandomField)]
-/// unconstrained fn get_random_field_oracle() -> Field {}
+/// #[generate_oracle_tests]
+/// pub mod nullifiers;
 /// ```
-pub comptime fn auto_serialization_test(f: FunctionDefinition) -> Quoted {
+pub comptime fn generate_oracle_tests(m: Module) -> Quoted {
+    let none: [Quoted] = @[];
+    generate_oracle_tests_excluding(m, none)
+}
+
+/// Like [`generate_oracle_tests`], but leaves out the oracles named in `skip` (by Noir function name).
+///
+/// Every oracle in the module must be testable or excluded: if an oracle's parameters or return type can't be
+/// synthesized (no [`OracleTestValue`] impl), generating its test fails at compile time and the dev must add it to
+/// `skip`. Every `skip` entry must in turn match an oracle in the module.
+///
+/// ## Usage
+///
+/// ```noir
+/// #[generate_oracle_tests_excluding(@[
+///     quote { transaction_fee_opcode },
+/// ])]
+/// pub mod avm;
+/// ```
+pub comptime fn generate_oracle_tests_excluding(m: Module, skip: [Quoted]) -> Quoted {
+    let oracles = m.functions().filter(|f: FunctionDefinition| f.has_named_attribute("oracle"));
+
+    // Guard against stale skip-list entries: every name must match an oracle in this module.
+    for s in skip {
+        assert(
+            oracles.any(|f: FunctionDefinition| f.name() == s),
+            f"oracle test skip-list entry {s} matched no oracle in {m}",
+        );
+    }
+
+    let tests = oracles
+        .filter(|f: FunctionDefinition| !skip.any(|s: Quoted| s == f.name()))
+        .map(|f: FunctionDefinition| oracle_test_for(f));
+    tests.join(quote {})
+}
+
+/// Generates the roundtrip test(s) for a single oracle: one `#[test]` per scenario (see the module docs).
+comptime fn oracle_test_for(f: FunctionDefinition) -> Quoted {
     let oracle = f.name();
     let scenarios = prepare_scenarios(f);
     let multi = scenarios.len() > 1;
@@ -302,7 +337,10 @@ comptime fn num_scenarios(typ: Type) -> u32 {
     } else {
         let count = std::meta::typ::fresh_type_variable();
         let constraint = quote { crate::macros::oracle_testing::OracleTestValue<$count> }.as_trait_constraint();
-        assert(typ.implements(constraint), f"{typ} does not implement OracleTestValue");
+        assert(
+            typ.implements(constraint),
+            f"cannot build an oracle test value for {typ}: it does not implement OracleTestValue. Implement it, or exclude this oracle via generate_oracle_tests_excluding",
+        );
         count.as_constant().unwrap()
     }
 }
@@ -330,7 +368,7 @@ comptime fn set_scenario(typ: Type, binding: Quoted) -> Quoted {
 }
 
 /// Sends a scenario name to the resolver for the session's next oracle call. Only the test resolver implements this
-/// oracle (PXE and TXE do not); the tests `#[auto_serialization_test]` generates call it once per multi-scenario
+/// oracle (PXE and TXE do not); the tests `#[generate_oracle_tests]` generates call it once per multi-scenario
 /// position before the oracle call, passing the selected [`Scenario`]'s name, and the resolver joins the names with
 /// `+`.
 #[oracle(aztec_oracle_test_set_scenario)]

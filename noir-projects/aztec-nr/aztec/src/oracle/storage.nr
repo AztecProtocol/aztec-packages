@@ -1,9 +1,5 @@
-use crate::{
-    macros::oracle_testing::auto_serialization_test,
-    protocol::{abis::block_header::BlockHeader, address::AztecAddress, traits::{Hash, Packable, ToField}},
-};
+use crate::protocol::{abis::block_header::BlockHeader, address::AztecAddress, traits::{Hash, Packable, ToField}};
 
-#[auto_serialization_test]
 #[oracle(aztec_utl_getFromPublicStorage)]
 unconstrained fn get_from_public_storage_oracle<let N: u32>(
     block_hash: Field,

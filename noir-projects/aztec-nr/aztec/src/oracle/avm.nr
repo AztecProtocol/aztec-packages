@@ -3,7 +3,7 @@
 //! There are only available during public execution. Calling any of them from a private or utility function will
 //! result in runtime errors.
 
-use crate::{macros::oracle_testing::auto_serialization_test, protocol::address::{AztecAddress, EthAddress}};
+use crate::protocol::address::{AztecAddress, EthAddress};
 
 pub unconstrained fn address() -> AztecAddress {
     address_opcode()
@@ -118,30 +118,24 @@ pub unconstrained fn storage_write(storage_slot: Field, value: Field) {
     storage_write_opcode(storage_slot, value);
 }
 
-#[auto_serialization_test]
 #[oracle(aztec_avm_address)]
 unconstrained fn address_opcode() -> AztecAddress {}
 
-#[auto_serialization_test]
 #[oracle(aztec_avm_sender)]
 unconstrained fn sender_opcode() -> AztecAddress {}
 
 #[oracle(aztec_avm_transactionFee)]
 unconstrained fn transaction_fee_opcode() -> Field {}
 
-#[auto_serialization_test]
 #[oracle(aztec_avm_chainId)]
 unconstrained fn chain_id_opcode() -> Field {}
 
-#[auto_serialization_test]
 #[oracle(aztec_avm_version)]
 unconstrained fn version_opcode() -> Field {}
 
-#[auto_serialization_test]
 #[oracle(aztec_avm_blockNumber)]
 unconstrained fn block_number_opcode() -> u32 {}
 
-#[auto_serialization_test]
 #[oracle(aztec_avm_timestamp)]
 unconstrained fn timestamp_opcode() -> u64 {}
 
@@ -157,22 +151,18 @@ unconstrained fn l2_gas_left_opcode() -> u32 {}
 #[oracle(aztec_avm_daGasLeft)]
 unconstrained fn da_gas_left_opcode() -> u32 {}
 
-#[auto_serialization_test]
 #[oracle(aztec_avm_isStaticCall)]
 unconstrained fn is_static_call_opcode() -> bool {}
 
 #[oracle(aztec_avm_noteHashExists)]
 unconstrained fn note_hash_exists_opcode(note_hash: Field, leaf_index: u64) -> bool {}
 
-#[auto_serialization_test]
 #[oracle(aztec_avm_emitNoteHash)]
 unconstrained fn emit_note_hash_opcode(note_hash: Field) {}
 
-#[auto_serialization_test]
 #[oracle(aztec_avm_nullifierExists)]
 unconstrained fn nullifier_exists_opcode(siloed_nullifier: Field) -> bool {}
 
-#[auto_serialization_test]
 #[oracle(aztec_avm_emitNullifier)]
 unconstrained fn emit_nullifier_opcode(nullifier: Field) {}
 
@@ -188,7 +178,6 @@ unconstrained fn send_l2_to_l1_msg_opcode(recipient: EthAddress, content: Field)
 #[oracle(aztec_avm_calldataCopy)]
 unconstrained fn calldata_copy_opcode<let N: u32>(cdoffset: u32, copy_size: u32) -> [Field; N] {}
 
-#[auto_serialization_test]
 #[oracle(aztec_avm_returndataSize)]
 unconstrained fn returndata_size_opcode() -> u32 {}
 
@@ -228,10 +217,8 @@ unconstrained fn call_static_opcode<let N: u32>(
 #[oracle(aztec_avm_successCopy)]
 unconstrained fn success_copy_opcode() -> bool {}
 
-#[auto_serialization_test]
 #[oracle(aztec_avm_storageRead)]
 unconstrained fn storage_read_opcode(storage_slot: Field, contract_address: Field) -> Field {}
 
-#[auto_serialization_test]
 #[oracle(aztec_avm_storageWrite)]
 unconstrained fn storage_write_opcode(storage_slot: Field, value: Field) {}

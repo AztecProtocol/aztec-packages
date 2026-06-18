@@ -1,4 +1,3 @@
-use crate::macros::oracle_testing::auto_serialization_test;
 /// The oracle version constants are used to check that the oracle interface is in sync between PXE and Aztec.nr.
 /// We version the oracle interface as `major.minor` where:
 ///   - `major` = backward-breaking changes (must match exactly between PXE and Aztec.nr)
@@ -27,7 +26,6 @@ unconstrained fn assert_compatible_oracle_version_wrapper() {
     assert_compatible_oracle_version_oracle(ORACLE_VERSION_MAJOR, ORACLE_VERSION_MINOR);
 }
 
-#[auto_serialization_test]
 #[oracle(aztec_misc_assertCompatibleOracleVersion)]
 unconstrained fn assert_compatible_oracle_version_oracle(major: Field, minor: Field) {}
 

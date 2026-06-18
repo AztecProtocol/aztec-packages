@@ -1,4 +1,3 @@
-use crate::macros::oracle_testing::auto_serialization_test;
 /// Stores values represented as slice in execution cache to be later obtained by its hash.
 // TODO(F-498): review naming consistency
 pub fn store<let N: u32>(values: [Field; N], hash: Field) {
@@ -16,10 +15,8 @@ pub unconstrained fn load<let N: u32>(hash: Field) -> [Field; N] {
     get_hash_preimage_oracle(hash)
 }
 
-#[auto_serialization_test]
 #[oracle(aztec_prv_setHashPreimage)]
 unconstrained fn set_hash_preimage_oracle<let N: u32>(_values: [Field; N], _hash: Field) {}
 
-#[auto_serialization_test]
 #[oracle(aztec_prv_getHashPreimage)]
 unconstrained fn get_hash_preimage_oracle<let N: u32>(_hash: Field) -> [Field; N] {}
