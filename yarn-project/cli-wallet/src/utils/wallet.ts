@@ -49,7 +49,6 @@ export class CLIWallet extends BaseWallet {
     private db?: WalletDB,
   ) {
     super(pxe, node);
-    this.cancellableTransactions = true;
   }
 
   static async create(
@@ -126,7 +125,6 @@ export class CLIWallet extends BaseWallet {
     const chainInfo = await this.getChainInfo();
     const executionOptions: DefaultAccountEntrypointOptions = {
       txNonce,
-      cancellable: this.cancellableTransactions,
       // If from is an address, feeOptions include the way the account contract should handle the fee payment
       feePaymentMethodOptions: feeOptions.accountFeePaymentMethodOptions!,
     };
@@ -310,7 +308,6 @@ export class CLIWallet extends BaseWallet {
       };
       const executionOptions: DefaultAccountEntrypointOptions = {
         txNonce: Fr.random(),
-        cancellable: this.cancellableTransactions,
         // If from is an address, feeOptions include the way the account contract should handle the fee payment
         feePaymentMethodOptions: feeOptions.accountFeePaymentMethodOptions!,
       };

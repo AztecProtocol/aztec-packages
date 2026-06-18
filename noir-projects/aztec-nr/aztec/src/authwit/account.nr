@@ -48,11 +48,13 @@ impl AccountActions<&mut PrivateContext> {
     /// end setup phase - this is done by the FeeJuice contract after enqueuing a public call, which unlike most public
     /// calls is whitelisted to be executable during setup.
     ///
-    /// @param cancellable Controls whether to emit app_payload.tx_nonce as a nullifier, allowing a subsequent
-    /// transaction to be sent with a higher priority fee. This can be used to cancel the first transaction sent,
-    /// assuming it hasn't been mined yet.
+    /// Always emits `app_payload.tx_nonce` as a nullifier. This is the account's replay protection: re-proving the
+    /// same payload collides on this nullifier, so the transaction can only be mined once. It also enables
+    /// cancellation, since a replacement transaction reusing the same `tx_nonce` (e.g. with a higher priority fee)
+    /// collides with the original. `tx_nonce` is part of the signed `AppPayload`, while gas is not, so cancellation
+    /// does not require a new signature.
     ///
-    pub fn entrypoint(self, app_payload: AppPayload, fee_payment_method: u8, cancellable: bool) {
+    pub fn entrypoint(self, app_payload: AppPayload, fee_payment_method: u8) {
         let valid_fn = self.is_valid_impl;
 
         let message_hash = compute_authwit_message_hash(
@@ -72,10 +74,8 @@ impl AccountActions<&mut PrivateContext> {
         }
         app_payload.execute_calls(self.context);
 
-        if cancellable {
-            let tx_nullifier = poseidon2_hash_with_separator([app_payload.tx_nonce], DOM_SEP__TX_NULLIFIER);
-            self.context.push_nullifier_unsafe(tx_nullifier);
-        }
+        let tx_nullifier = poseidon2_hash_with_separator([app_payload.tx_nonce], DOM_SEP__TX_NULLIFIER);
+        self.context.push_nullifier_unsafe(tx_nullifier);
     }
 
     /// Verifies that the `msg_sender` is authorized to consume `inner_hash` by the account.

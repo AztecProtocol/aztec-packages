@@ -845,9 +845,10 @@ pub global DOM_SEP__SECRET_HASH: u32 = 4199652938;
 
 /// Domain separator for transaction nullifiers.
 ///
-/// Used to produce cancellable (replaceable) transactions.
+/// The account entrypoint derives a nullifier from the transaction nonce for replay protection (and to allow
+/// cancellation by reusing the nonce).
 ///
-/// This is not technically a protocol constant as cancellable transactions are an account contract feature.
+/// This is not technically a protocol constant as the transaction nullifier is an account contract feature.
 pub global DOM_SEP__TX_NULLIFIER: u32 = 1025801951;
 
 /// Domain separator for account contract payloads.

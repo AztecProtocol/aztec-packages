@@ -15,9 +15,8 @@ global ACCOUNT_MAX_CALLS: u32 = 5;
 #[derive(Deserialize, Serialize)]
 pub struct AppPayload {
     function_calls: [FunctionCall; ACCOUNT_MAX_CALLS],
-    // A nonce that enables transaction cancellation. When the cancellable flag is enabled, this nonce is used to
-    // compute a nullifier that is then emitted. This guarantees that we can cancel the transaction by using the same
-    // nonce.
+    // A per-transaction nonce. The account entrypoint always emits a nullifier derived from it, which provides replay
+    // protection and lets a transaction be cancelled by reusing the same nonce.
     pub tx_nonce: Field,
 }
 

@@ -49,9 +49,9 @@ export class EncodedAppEntrypointCalls implements EncodedCalls {
     /** The index of the generator to use for hashing */
     public domainSeparator: number,
     /**
-     * A nonce to inject into the payload of the transaction. When used with cancellable=true, this nonce will be
-     * used to compute a nullifier that allows cancelling this transaction by submitting a new one with the same nonce
-     * but higher fee. The nullifier ensures only one transaction can succeed.
+     * A nonce injected into the payload of the transaction. The account entrypoint always derives a nullifier from
+     * it, which provides replay protection and allows cancelling this transaction by submitting a new one with the
+     * same nonce but a higher fee (only one of the colliding nullifiers can succeed).
      */
     // eslint-disable-next-line camelcase
     public tx_nonce: Fr,
@@ -98,8 +98,8 @@ export class EncodedAppEntrypointCalls implements EncodedCalls {
   /**
    * Encodes the functions for the app-portion of a transaction from a set of function calls and a nonce
    * @param functionCalls - The function calls to execute
-   * @param txNonce - A nonce used to enable transaction cancellation when cancellable=true. Transactions with the same
-   * nonce can be replaced by submitting a new one with a higher fee.
+   * @param txNonce - A per-transaction nonce. The account entrypoint always nullifies it (replay protection), so two
+   * transactions with the same nonce conflict and a pending one can be replaced by submitting a new one with a higher fee.
    * @returns The encoded calls
    */
   static async create(

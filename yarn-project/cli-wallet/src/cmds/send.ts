@@ -20,7 +20,6 @@ export async function send(
   contractArtifactPath: string,
   contractAddress: AztecAddress,
   wait: boolean,
-  cancellable: boolean,
   feeOpts: CLIFeeArgs,
   authWitnesses: AuthWitness[],
   waitForStatus: TxStatus,

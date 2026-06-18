@@ -38,12 +38,10 @@ export enum AccountFeePaymentMethodOptions {
  * General options for the tx execution.
  */
 export type DefaultAccountEntrypointOptions = {
-  /** Whether the transaction can be cancelled. */
-  cancellable?: boolean;
   /**
-   * A nonce to inject into the app payload of the transaction. When used with cancellable=true, this nonce will be
-   * used to compute a nullifier that allows cancelling this transaction by submitting a new one with the same nonce
-   * but higher fee. The nullifier ensures only one transaction can succeed.
+   * A nonce injected into the app payload of the transaction. The account entrypoint always emits a nullifier derived
+   * from it, which provides replay protection and allows cancelling this transaction by submitting a new one with the
+   * same nonce but a higher fee (only one of the colliding nullifiers can succeed). Defaults to a random value.
    */
   txNonce?: Fr;
   /** Options that configure how the account contract behaves depending on the fee payment method of the tx */
@@ -126,12 +124,12 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
     options: DefaultAccountEntrypointOptions,
   ) {
     const { calls } = exec;
-    const { cancellable, txNonce, feePaymentMethodOptions } = options;
+    const { txNonce, feePaymentMethodOptions } = options;
 
     const encodedCalls = await EncodedAppEntrypointCalls.create(calls, txNonce);
 
     const abi = this.getEntrypointAbi();
-    const args = [encodedCalls, feePaymentMethodOptions, !!cancellable];
+    const args = [encodedCalls, feePaymentMethodOptions];
     const encodedArgs = encodeArguments(abi, args);
 
     const functionSelector = await FunctionSelector.fromNameAndParameters(abi.name, abi.parameters);
@@ -202,7 +200,6 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
           visibility: 'public',
         },
         { name: 'fee_payment_method', type: { kind: 'integer', sign: 'unsigned', width: 8 } },
-        { name: 'cancellable', type: { kind: 'boolean' } },
       ],
       returnTypes: [],
       errorTypes: {},

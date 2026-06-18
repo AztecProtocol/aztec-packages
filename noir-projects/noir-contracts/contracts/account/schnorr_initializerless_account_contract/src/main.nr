@@ -64,9 +64,9 @@ pub contract SchnorrInitializerlessAccount {
 
     #[external("private")]
     #[allow_phase_change]
-    fn entrypoint(app_payload: AppPayload, fee_payment_method: u8, cancellable: bool) {
+    fn entrypoint(app_payload: AppPayload, fee_payment_method: u8) {
         let actions = AccountActions::init(self.context, is_valid_impl);
-        actions.entrypoint(app_payload, fee_payment_method, cancellable);
+        actions.entrypoint(app_payload, fee_payment_method);
     }
 
     #[external("private")]
