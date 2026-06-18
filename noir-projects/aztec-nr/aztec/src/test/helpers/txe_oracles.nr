@@ -108,7 +108,7 @@ pub unconstrained fn set_private_txe_context(
 }
 
 pub unconstrained fn execute_utility_function<let M: u32, let N: u32, let T: u32>(
-    from: AztecAddress,
+    from: Option<AztecAddress>,
     contract_address: AztecAddress,
     function_selector: FunctionSelector,
     args: [Field; M],
@@ -279,7 +279,7 @@ unconstrained fn public_call_new_flow_oracle<let M: u32, let N: u32>(
 
 #[oracle(aztec_txe_executeUtilityFunction)]
 unconstrained fn execute_utility_function_oracle<let M: u32, let N: u32, let T: u32>(
-    from: AztecAddress,
+    from: Option<AztecAddress>,
     contract_address: AztecAddress,
     function_selector: FunctionSelector,
     args: [Field; M],

@@ -1,7 +1,7 @@
 use crate::protocol::{
     abis::{function_selector::FunctionSelector, gas::Gas, gas_fees::GasFees, gas_settings::GasSettings},
     address::AztecAddress,
-    constants::{MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, MAX_PROCESSABLE_L2_GAS, NULL_MSG_SENDER_CONTRACT_ADDRESS},
+    constants::{MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, MAX_PROCESSABLE_L2_GAS},
     traits::{Deserialize, Empty, FromField, Packable, Serialize},
 };
 
@@ -402,11 +402,9 @@ impl ExecuteUtilityOptions<0> {
 }
 
 impl<let T: u32> ExecuteUtilityOptions<T> {
-    /// Sets the `msg_sender` observed by the called utility function, simulating a cross-contract caller without
-    /// having to route through an actual nested utility call.
+    /// Sets the `msg_sender` simulating a cross-contract call.
     ///
-    /// In production only a nested (cross-contract) utility call has a `msg_sender`; a top-level call from a wallet or
-    /// dapp has no caller. By default no `from` is set and the called function observes no caller.
+    /// By default, an `Option::none` value is supplied to `maybe_msg_sender`.
     pub fn with_from(&mut self, from: AztecAddress) -> Self {
         self.from = Option::some(from);
         *self
@@ -1034,10 +1032,6 @@ impl TestEnvironment {
 
     /// Performs a utility contract function call and returns the result of the called function.
     ///
-    /// The called function observes no caller ([`maybe_msg_sender()`](crate::context::UtilityContext::maybe_msg_sender)
-    /// returns `Option::none`). To set the `msg_sender`
-    /// it observes, use [`TestEnvironment::execute_utility_opts`] with [`ExecuteUtilityOptions::with_from`].
-    ///
     /// The `call` value can be obtained by calling the appropriate method on a contract type. E.g.:
     ///
     /// ```noir
@@ -1052,7 +1046,7 @@ impl TestEnvironment {
     }
 
     /// Variant of `execute_utility` which allows specifying configuration values via `ExecuteUtilityOptions`, such as
-    /// the `msg_sender` observed by the called function or authorizing cross-contract utility calls.
+    /// `msg_sender` or authorizing cross-contract utility calls.
     pub unconstrained fn execute_utility_opts<let M: u32, let N: u32, let U: u32, T>(
         _self: Self,
         opts: ExecuteUtilityOptions<U>,
@@ -1062,7 +1056,7 @@ impl TestEnvironment {
         T: Deserialize,
     {
         let serialized_return_values = txe_oracles::execute_utility_function(
-            opts.from.unwrap_or(NULL_MSG_SENDER_CONTRACT_ADDRESS),
+            opts.from,
             call.target_contract,
             call.selector,
             call.args,

@@ -146,7 +146,7 @@ export interface TXESessionStateHandler {
 
   /** Executes a top-level utility function and commits the job. */
   executeUtilityFunction(
-    from: AztecAddress,
+    from: Option<AztecAddress>,
     targetContractAddress: AztecAddress,
     functionSelector: FunctionSelector,
     args: Fr[],
@@ -538,7 +538,7 @@ export class TXESession implements TXESessionStateHandler {
   }
 
   async executeUtilityFunction(
-    from: AztecAddress,
+    from: Option<AztecAddress>,
     targetContractAddress: AztecAddress,
     functionSelector: FunctionSelector,
     args: Fr[],
@@ -547,7 +547,7 @@ export class TXESession implements TXESessionStateHandler {
     const handler = this.handlerAsTxe();
     return await this.withTopLevelCallTracking(async () => {
       const returnValues = await handler.executeUtilityFunction(
-        from,
+        from?.value,
         targetContractAddress,
         functionSelector,
         args,

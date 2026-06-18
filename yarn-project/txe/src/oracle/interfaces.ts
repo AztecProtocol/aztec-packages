@@ -90,7 +90,7 @@ export interface ITxeExecutionOracle {
     gasSettings: GasSettings,
   ): Promise<{ returnValues: Fr[]; offchainEffects: Fr[][] }>;
   executeUtilityFunction(
-    from: AztecAddress,
+    from: AztecAddress | undefined,
     targetContractAddress: AztecAddress,
     functionSelector: FunctionSelector,
     args: Fr[],

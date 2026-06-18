@@ -49,7 +49,7 @@ impl UtilityContext {
     /// Important Note: utility functions are simulated client-side and never proven, so this value is whatever the
     /// simulator (PXE) set it to: nothing about it is verified onchain. It exists to assist simulation in a
     /// cooperative environment and must not be relied on as a security guarantee.
-    pub fn maybe_msg_sender(self) -> Option<AztecAddress> {
+    pub unconstrained fn maybe_msg_sender(self) -> Option<AztecAddress> {
         if self.msg_sender == NULL_MSG_SENDER_CONTRACT_ADDRESS {
             Option::none()
         } else {
