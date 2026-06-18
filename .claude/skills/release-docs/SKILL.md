@@ -353,9 +353,6 @@ versioned docs at cut time in Step 13)
 - Update the install command and any hardcoded version references to the new version.
 - Review the page for correctness: CLI commands, FPC registration, fee payment
   instructions, block explorer links.
-- Do **not** add a fixed block-time / slot-time figure to the comparison table.
-  Testnet block time is variable (roughly one block per 72s slot, but slots can be
-  skipped), so any single number goes stale; describe it qualitatively or omit it.
 
 Also:
 
