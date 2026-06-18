@@ -34,9 +34,7 @@ struct SubmitEpochRootProofArgs {
   uint256 start; // inclusive
   uint256 end; // inclusive
   PublicInputArgs args;
-  // The proposed headers for each checkpoint in [start, end]. Rehashed on chain and required to match the
-  // header hash attested by the committee at propose time; the fee recipient and value are read from these.
-  ProposedHeader[] headers;
+  ProposedHeader[] headers; // Must match what was proposed by the committee
   CommitteeAttestations attestations; // attestations for the last checkpoint in epoch
   bytes blobInputs;
   bytes proof;

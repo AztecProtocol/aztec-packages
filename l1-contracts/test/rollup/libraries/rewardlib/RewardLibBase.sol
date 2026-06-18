@@ -42,8 +42,6 @@ contract RewardLibBase is TestBase {
     _setHeaders(_count, _sequencer, 0);
   }
 
-  /// @dev Populates the storage-backed `args.headers` with `_count` headers whose coinbase and accumulatedFees
-  ///      drive reward distribution. Fields are set in place to avoid copying a memory struct array to storage.
   function _setHeaders(uint256 _count, address _sequencer, uint256 _amount) internal {
     delete args.headers;
     for (uint256 i = 0; i < _count; i++) {

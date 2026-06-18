@@ -40,6 +40,7 @@ contract DecoderBase is TestBase {
   }
 
   struct AlphabeticalHeader {
+    uint256 accumulatedFees;
     bytes32 blobsHash;
     bytes32 blockHeadersHash;
     address coinbase;
@@ -110,7 +111,7 @@ contract DecoderBase is TestBase {
           feeRecipient: full.checkpoint.header.feeRecipient,
           gasFees: full.checkpoint.header.gasFees,
           totalManaUsed: full.checkpoint.header.totalManaUsed,
-          accumulatedFees: 0
+          accumulatedFees: full.checkpoint.header.accumulatedFees
         }),
         headerHash: full.checkpoint.headerHash,
         numTxs: full.checkpoint.numTxs
@@ -119,9 +120,7 @@ contract DecoderBase is TestBase {
       populate: full.populate
     });
 
-    // TODO(gk-722): regenerate fixtures so their stored headerHash includes `accumulatedFees`, then drop this
-    // recompute and restore the equality assertion against full.checkpoint.headerHash.
-    result.checkpoint.headerHash = result.checkpoint.header.hash();
+    assertEq(result.checkpoint.headerHash, result.checkpoint.header.hash(), "headerHash mismatch when loading");
 
     return result;
   }

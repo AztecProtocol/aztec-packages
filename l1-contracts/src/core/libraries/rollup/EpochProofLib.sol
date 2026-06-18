@@ -218,8 +218,8 @@ library EpochProofLib {
 
     uint256 offset = 3 + Constants.MAX_CHECKPOINTS_PER_EPOCH;
 
-    // Fee recipient/value are taken from the checkpoint headers verified in {verifyHeaders}, not from prover-supplied
-    // calldata, so an unsound verifier cannot let the prover forge them. Slots past numCheckpoints stay zero.
+    // Taking recipient/value from the checkpoint headers rather than the prover
+    // as defense in depth. Slots past numCheckpoints stay zero.
     for (uint256 i = 0; i < numCheckpoints; i++) {
       publicInputs[offset + 2 * i] = addressToField(_headers[i].coinbase);
       publicInputs[offset + 2 * i + 1] = bytes32(_headers[i].accumulatedFees);

@@ -687,8 +687,6 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
 
     emit log("Time to propose");
 
-    // Record before arming expectRevert: getPendingCheckpointNumber is an external call and would otherwise
-    // consume the expectRevert intended for propose.
     proposedHeaders[rollup.getPendingCheckpointNumber() + 1] = ree.proposeArgs.header;
 
     if (_revertData != NO_REVERT) {

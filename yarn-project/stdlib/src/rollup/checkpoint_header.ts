@@ -52,8 +52,7 @@ export class CheckpointHeader {
     public gasFees: GasFees,
     /** Total mana used in the block, computed by the root rollup circuit */
     public totalManaUsed: Fr,
-    /** Total fees accrued across the checkpoint. Committed in the header hash so the value the committee attested
-     * to is bound on L1 independently of the epoch proof verifier. */
+    /** Total fees accrued across the checkpoint. */
     public accumulatedFees: Fr,
   ) {}
 

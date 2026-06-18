@@ -30,8 +30,6 @@ pub struct CheckpointHeader {
     pub fee_recipient: AztecAddress,
     pub gas_fees: GasFees,
     pub total_mana_used: Field,
-    // The total fees accrued across the checkpoint. Committed here so the header hash binds the fee value the
-    // committee attested to, rather than relying on the epoch proof's verifier.
     pub accumulated_fees: Field,
 }
 
