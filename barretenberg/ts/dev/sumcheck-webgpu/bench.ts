@@ -26,14 +26,16 @@ import { NUM_RELATIONS } from '../../src/msm_webgpu/accumulator.js';
 import { type PipelineCache, type Logger, WG, makeRng } from './harness.js';
 import { sumcheckRoundChallenge, SUMCHECK_TRANSCRIPT_SEED } from '../../src/msm_webgpu/cuzk/poseidon2_cpu.js';
 import { BufferTracker, type BufferAllocStats } from '../../src/msm_webgpu/cuzk/gpu.js';
-import { Barretenberg } from '../../src/barretenberg/index.js';
 
 // Above this size the independent CPU reference (O(n) bigint host work) is skipped;
 // the two GPU engines + the CPU Fiat-Shamir re-derivation still cross-check.
 const CPU_REF_MAX_LOGN = 12;
 
-// The bb.js async API once initialized; null if the WASM backend is unavailable.
-type WasmApi = Awaited<ReturnType<typeof Barretenberg.new>>;
+// The bb.js async API once initialized; null if the WASM backend is unavailable. bb.js
+// is dynamically imported (initWasm) so its module graph stays off the page-load path —
+// `typeof import` gives the type without pulling the module in at load time.
+type BbModule = typeof import('../../src/barretenberg/index.js');
+type WasmApi = Awaited<ReturnType<BbModule['Barretenberg']['new']>>;
 
 export interface BenchRow {
   logN: number;
@@ -130,21 +132,32 @@ function logProfile(log: Logger, profile: CircuitProfile, skip: boolean): void {
  * logs why) if COI is off or init fails, so the WASM column degrades gracefully.
  * SRS init is skipped: SumcheckBench computes no commitments.
  */
-export async function initWasm(log: Logger): Promise<WasmApi | null> {
+let wasmPromise: Promise<WasmApi | null> | undefined;
+export function initWasm(log: Logger): Promise<WasmApi | null> {
   if (!globalThis.crossOriginIsolated) {
     log('warn', '  WASM column needs cross-origin isolation — reload with ?coi=1 (threads/SharedArrayBuffer).');
-    return null;
+    return Promise.resolve(null);
   }
-  try {
-    return await Barretenberg.new({
-      wasmPath: '/dev/sumcheck-webgpu/barretenberg.wasm.gz', // fetchCode rewrites to -threads
-      skipSrsInit: true,
-      threads: globalThis.navigator?.hardwareConcurrency ?? 8,
-    });
-  } catch (e) {
-    log('warn', `  WASM backend init failed: ${(e as Error).message}`);
-    return null;
+  // Memoized: the bb.js threads backend (3 MB wasm + a worker per core) is spun up once
+  // and reused across every bench run, not init/destroy'd per run. bb.js is imported
+  // here (dynamically) so its module graph never reaches the page-load critical path.
+  if (!wasmPromise) {
+    wasmPromise = (async () => {
+      try {
+        const { Barretenberg } = await import('../../src/barretenberg/index.js');
+        return await Barretenberg.new({
+          wasmPath: '/dev/sumcheck-webgpu/barretenberg.wasm.gz', // fetchCode rewrites to -threads
+          skipSrsInit: true,
+          threads: globalThis.navigator?.hardwareConcurrency ?? 8,
+        });
+      } catch (e) {
+        log('warn', `  WASM backend init failed: ${(e as Error).message}`);
+        wasmPromise = undefined; // allow a later call to retry the init
+        return null;
+      }
+    })();
   }
+  return wasmPromise;
 }
 
 /**
@@ -278,7 +291,6 @@ export async function runBenchmark(device: GPUDevice, logNs: number[], log: Logg
       );
     }
   }
-  await wasm?.destroy();
   return rows;
 }
 
@@ -378,7 +390,6 @@ export async function runHybridBenchmark(
       );
     }
   }
-  await wasm?.destroy();
   return rows;
 }
 
@@ -487,7 +498,6 @@ export async function runMultiPassBenchmark(
             `${speedup === null ? '' : `  →  ${speedup.toFixed(2)}× vs WASM`}`,
     );
   }
-  await wasm?.destroy();
   return rows;
 }
 
@@ -603,7 +613,6 @@ export async function runSingleSubmitHybridBenchmark(
             `${speedup === null ? '' : `  →  ${speedup.toFixed(2)}× vs WASM`}`,
     );
   }
-  await wasm?.destroy();
   return rows;
 }
 
@@ -897,7 +906,6 @@ export async function runSingleSubmitProfile(
     const wasm = await initWasm(log);
     wasmTailMs = await runWasmSumcheck(wasm, tail, wasmSparsityFor(profile, tail));
     const fullWasmMs = await runWasmSumcheck(wasm, logN, wasmSparsityFor(profile, logN));
-    await wasm?.destroy();
     const hybridMs = wasmTailMs === null ? null : r.totalMs + r.finalReadbackMs + wasmTailMs;
     const speedup = hybridMs !== null && hybridMs > 0 && fullWasmMs !== null ? fullWasmMs / hybridMs : null;
     log(
@@ -991,7 +999,6 @@ export async function runE2EProfile(
   const mpRun = await runResidentGpuSumcheck(device, n, alpha, betas, challenges, relParamBytes, initColBytes, mpShared, WG, false, k, skip, usedLen, usedLensByRel, comp, bnd);
   const wasmTailMs = await runWasmSumcheck(wasm, T, wasmSparsityFor(profile, T));
   const fullWasmMs = await runWasmSumcheck(wasm, logN, wasmSparsityFor(profile, logN));
-  await wasm?.destroy();
 
   const ss: EngineE2E = {
     setupMs: ssRun.setupMs,
