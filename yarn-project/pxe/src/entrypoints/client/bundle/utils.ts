@@ -1,6 +1,6 @@
 import { BBBundlePrivateKernelProver } from '@aztec/bb-prover/client/bundle';
 import { createLogger } from '@aztec/foundation/log';
-import { createStore } from '@aztec/kv-store/indexeddb';
+import { createStore } from '@aztec/kv-store/browser';
 import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
 import { WASMSimulator } from '@aztec/simulator/client';
 import { getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry';
@@ -37,7 +37,7 @@ export async function createPXE(
     ...l1ContractAddresses,
   } as PXEConfig;
 
-  const storeLogger = loggers.store ?? createLogger('pxe:data:idb', { actor });
+  const storeLogger = loggers.store ?? createLogger('pxe:data', { actor });
 
   const store =
     options.store ?? (await createStore('pxe_data', configWithContracts, PXE_DATA_SCHEMA_VERSION, storeLogger));

@@ -124,6 +124,14 @@ export default defineConfig(({ mode }) => {
         ],
       },
     },
+    worker: {
+      format: 'es',
+      // The SQLite-OPFS backend (now the default browser KV-store) spawns a worker via
+      // `new Worker(new URL('./worker.js', import.meta.url))`. Vite bundles workers in a separate Rollup pass
+      // that does not inherit the main `plugins`, so the node-polyfill shim fix must be applied here too —
+      // otherwise the sqlite3 bundler-friendly loader's `process` shim import fails to resolve.
+      plugins: () => [nodePolyfillsFix({ include: ['buffer', 'path', 'process', 'net', 'tty'] })],
+    },
     plugins: [
       react({ jsxImportSource: '@emotion/react' }),
       nodePolyfillsFix({ include: ['buffer', 'path', 'process', 'net', 'tty'] }),
