@@ -16,7 +16,7 @@ import {
   runResidentGpuSumcheck, makeFoldRunner, makeReduceRunner,
   type FoldRunner, type ReduceRunner, type FineRoundProfile,
 } from './gpu_pipeline.js';
-import { runSingleSubmitSumcheck, makeBatchRunner, makeTranscriptRunner, buildSharedColumns } from './single_submit.js';
+import { runSingleSubmitSumcheck, makeBatchRunner, makeTranscriptRunner, buildSharedColumns, sharedColumnsFit } from './single_submit.js';
 import { cpuReferenceUnivariates } from './cpu_reference.js';
 import { ALL_RELATIONS } from './descriptors.js';
 import {
@@ -1091,11 +1091,18 @@ export async function runMemoryProfile(device: GPUDevice, logN: number, log: Log
 
   // Idea 1: same SS engine, shared 67-entity column set (185 -> 67 columns). Reuses the
   // compiled runners/cache; the shared accumulate pipelines compile under a distinct key.
-  const { sharedColBytes } = buildSharedColumns(n, 0x5ba7ed_c01c01n);
-  const ssSharedTracker = new BufferTracker(device);
-  ssSharedTracker.start();
-  await runSingleSubmitSumcheck(device, n, alpha, betas, relParamBytes, initColBytes, { ...ssShared, sharedColumns: true, sharedColBytes });
-  const ssShared2 = ssSharedTracker.stop();
+  // Only when the single 67-column buffer fits the device binding limit (else the per-
+  // relation layout is the only option at this size; report it as the shared figure).
+  let ssShared2 = ss;
+  if (sharedColumnsFit(device, n)) {
+    const { sharedColBytes } = buildSharedColumns(n, 0x5ba7ed_c01c01n);
+    const ssSharedTracker = new BufferTracker(device);
+    ssSharedTracker.start();
+    await runSingleSubmitSumcheck(device, n, alpha, betas, relParamBytes, initColBytes, { ...ssShared, sharedColumns: true, sharedColBytes });
+    ssShared2 = ssSharedTracker.stop();
+  } else {
+    log('warn', `  shared 67-column buffer exceeds the device binding limit at 2^${logN} — shared SS run skipped`);
+  }
 
   const mpTracker = new BufferTracker(device);
   mpTracker.start();
