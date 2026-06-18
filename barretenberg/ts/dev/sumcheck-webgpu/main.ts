@@ -40,7 +40,7 @@ import { poseidon2Suite } from './poseidon2_gpu.js';
 import { singleSubmitSuite } from './suite_singlesubmit.js';
 import {
   runMultiPassBenchmark, runSingleSubmitHybridBenchmark, runProfile, runSingleSubmitProfile,
-  runProfileReport, runE2EProfile, runMemoryProfile, type MultiPassRow, type SsHybridRow,
+  runProfileReport, runE2EProfile, runMemoryProfile, initWasm, type MultiPassRow, type SsHybridRow,
 } from './bench.js';
 
 const REGISTRY: Suite[] = [
@@ -369,3 +369,11 @@ if (autorun === 'bench') {
   if (suites.length > 0) void runSuites(suites);
   else log('err', `unknown autorun target "${autorun}" (have: ${REGISTRY.map(s => s.id).join(', ')}, all)`);
 }
+
+// Warm up the memoized bb.js threads backend on the FIRST user interaction (not on page
+// load), so the first WASM benchmark skips the ~1-3 s thread-pool spin-up without adding
+// any network/CPU work to a plain GPU-only page load. initWasm is memoized so the
+// redundant second listener is a no-op; a no-op too when COI is off.
+const warmWasm = () => void initWasm(() => {});
+globalThis.addEventListener?.('pointerdown', warmWasm, { once: true });
+globalThis.addEventListener?.('keydown', warmWasm, { once: true });

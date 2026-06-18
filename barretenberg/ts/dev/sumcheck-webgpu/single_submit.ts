@@ -559,6 +559,5 @@ export async function runSingleSubmitBench(
     onRow?.(row);
     log('ok', `  2^${logN}: WebGPU ${gpu.totalMs.toFixed(1)} ms (GPU ${gpu.gpuMs.toFixed(1)} · setup ${gpu.setupMs.toFixed(1)}) · WASM ${wasmMs === null ? '—' : wasmMs.toFixed(1)}${row.speedup ? `  →  ${row.speedup.toFixed(2)}×` : ''}`);
   }
-  await wasm?.destroy();
   return rows;
 }
