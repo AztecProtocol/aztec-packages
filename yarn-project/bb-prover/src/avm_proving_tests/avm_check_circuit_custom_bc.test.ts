@@ -11,6 +11,7 @@ import {
   invalidTagValueAndInstructionTruncatedTest,
   invalidTagValueTest,
   pcOutOfRangeTest,
+  setFieldOverflowTest,
   setTruncationTest,
 } from '@aztec/simulator/public/fixtures';
 import { NativeWorldStateService } from '@aztec/world-state';
@@ -120,6 +121,11 @@ describe('AVM custom bytecodes truncation', () => {
 
   it('CAST truncation to narrower target tags', async () => {
     const result = await castTruncationTest(tester);
+    expect(result.revertCode.isOK()).toBe(true);
+  }, 20_000);
+
+  it('SET_FF immediate overflowing the field modulus is reduced mod p', async () => {
+    const result = await setFieldOverflowTest(tester);
     expect(result.revertCode.isOK()).toBe(true);
   }, 20_000);
 });
