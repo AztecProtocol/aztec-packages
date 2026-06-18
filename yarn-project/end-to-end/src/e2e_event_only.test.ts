@@ -12,6 +12,7 @@ import { setup } from './fixtures/utils.js';
 const TIMEOUT = 300_000;
 
 /// Tests that a private event can be obtained for a contract that does not work with notes.
+// Single automine node, one genesis-funded account, EventOnlyContract deployed in beforeAll.
 describe('EventOnly', () => {
   let eventOnlyContract: EventOnlyContract;
   jest.setTimeout(TIMEOUT);
@@ -31,6 +32,8 @@ describe('EventOnly', () => {
 
   afterAll(() => teardown());
 
+  // Sends emit_event_for_msg_sender, then calls getPrivateEvents for TestEvent and asserts that
+  // exactly one event is returned with the correct value field.
   it('emits and retrieves a private event for a contract with no notes', async () => {
     const value = Fr.random();
     const { receipt: tx } = await eventOnlyContract.methods

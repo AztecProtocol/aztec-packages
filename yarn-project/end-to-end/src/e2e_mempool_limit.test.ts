@@ -9,6 +9,8 @@ import { type EndToEndContext, setup } from './fixtures/utils.js';
 import type { TestWallet } from './test-wallet/test_wallet.js';
 import { proveInteraction } from './test-wallet/utils.js';
 
+// Verifies that the node rejects incoming transactions when the mempool is at capacity. Uses a
+// single automine node with aztecNodeAdmin access; sequencer is paused to let txs accumulate.
 describe('e2e_mempool_limit', () => {
   let wallet: TestWallet;
   let defaultAccountAddress: AztecAddress;
@@ -41,6 +43,8 @@ describe('e2e_mempool_limit', () => {
 
   afterAll(() => teardown());
 
+  // Sets maxPendingTxCount=2, pauses the sequencer, submits 3 proven txs in order, and asserts
+  // the first two are accepted (status PENDING) while the third is rejected with LOW_PRIORITY_FEE.
   it('should evict txs if there are too many', async () => {
     const tx1 = await proveInteraction(
       wallet,

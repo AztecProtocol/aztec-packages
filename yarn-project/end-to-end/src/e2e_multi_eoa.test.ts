@@ -41,6 +41,10 @@ const createPublisherKeysAndAddresses = () => {
   });
 };
 
+// Covers the multi-EOA publisher rotation mechanism in the production sequencer. Uses
+// PIPELINING_SETUP_OPTS (prod seq, ethereumSlotDuration=4s, aztecSlotDuration=12s, minTxsPerBlock=0)
+// with NUM_PUBLISHERS=4 sequencer publisher keys. Tests that when one publisher's L1 tx is
+// intercepted (never lands on chain), the sequencer rotates to the next highest-balance publisher.
 describe('e2e_multi_eoa', () => {
   jest.setTimeout(5 * 60 * 1000); // 5 minutes
 
@@ -59,6 +63,8 @@ describe('e2e_multi_eoa', () => {
     jest.restoreAllMocks();
   });
 
+  // Exercises publisher rotation: mocks sendRawTransaction to block transactions from the highest-
+  // balance publisher, then verifies a fallback publisher takes over and the L2 tx is mined.
   describe('multi-txs block', () => {
     beforeAll(async () => {
       let sequencerClient: SequencerClient | undefined;
@@ -196,6 +202,9 @@ describe('e2e_multi_eoa', () => {
       spies.forEach(spy => spy.mockRestore());
     };
 
+    // Identifies the two highest-balance publisher accounts from L1 balances, calls
+    // testAccountRotation twice (simulating a first sender being blocked and a second rotation),
+    // and asserts that the fallback sender actually submitted the mined L1 block tx.
     it('publishers are rotated by the sequencer', async () => {
       // We should be at L2 block 2 or later (empty pipelined checkpoints can land between setup
       // and the first assertion, so accept >=2 rather than pinning to exactly 2).

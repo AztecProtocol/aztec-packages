@@ -14,6 +14,7 @@ const TIMEOUT = 300_000;
 
 // Verifies nested utility calls via pow_utility(x, n) = x^n (recursive utility→utility),
 // calling it from a private function via pow_private, and the default hook behavior.
+// Single automine node, one funded account, two NestedUtilityContract instances.
 describe('Nested utility calls', () => {
   let contractA: NestedUtilityContract;
   let contractB: NestedUtilityContract;
@@ -35,27 +36,35 @@ describe('Nested utility calls', () => {
 
   afterAll(() => teardown());
 
+  // Simulates pow_utility(2, 0) from the same contract; expects result == 1 with no recursion.
   it('pow_utility(x, 0) returns 1 (base case, no nested call)', async () => {
     const { result } = await contractA.methods.pow_utility(2n, 0).simulate({ from: defaultAccountAddress });
     expect(result).toEqual(1n);
   });
 
+  // Simulates pow_utility(2, 10) which recurses 10 times within the same contract; expects 1024.
   it('pow_utility(2, 10) returns 2^10 (10 levels of nesting)', async () => {
     const { result } = await contractA.methods.pow_utility(2n, 10).simulate({ from: defaultAccountAddress });
     expect(result).toEqual(2n ** 10n);
   });
 
+  // Simulates pow_private(2, 10) which calls pow_utility from a private function context; expects
+  // 1024.
   it('pow_private(2, 10) returns 2^10 (private function calling utility)', async () => {
     const { result } = await contractA.methods.pow_private(2n, 10).simulate({ from: defaultAccountAddress });
     expect(result).toEqual(2n ** 10n);
   });
 
+  // Simulates contractA.delegate_pow_utility(contractB, 2, 3) with no hook registered; expects
+  // 'Cross-contract utility call denied'.
   it('denies cross-contract utility call from utility context by default', async () => {
     await expect(
       contractA.methods.delegate_pow_utility(contractB.address, 2n, 3n).simulate({ from: defaultAccountAddress }),
     ).rejects.toThrow('Cross-contract utility call denied');
   });
 
+  // Simulates contractA.delegate_pow_private(contractB, 2, 3) with no hook; expects 'Cross-contract
+  // utility call denied'.
   it('denies cross-contract utility call from private function by default', async () => {
     await expect(
       contractA.methods.delegate_pow_private(contractB.address, 2n, 3n).simulate({ from: defaultAccountAddress }),
@@ -63,6 +72,9 @@ describe('Nested utility calls', () => {
   });
 });
 
+// Covers the authorizeUtilityCall PXE hook: verifies that the hook is invoked for cross-contract
+// utility calls and that its boolean return controls access. Also tests note sync for the target
+// contract before the call. Single automine node with a custom hook registered at setup time.
 describe('authorizeUtilityCall hook', () => {
   let contractA: NestedUtilityContract;
   let contractB: NestedUtilityContract;
@@ -104,6 +116,7 @@ describe('authorizeUtilityCall hook', () => {
     lastRequest = undefined;
   });
 
+  // Calls delegate_pow_utility with hookAllows=false; expects denial and checks lastRequest fields.
   it('denies cross-contract utility call from utility context when hook returns false', async () => {
     await expect(
       contractA.methods.delegate_pow_utility(contractB.address, 2n, 3n).simulate({ from: defaultAccountAddress }),
@@ -119,6 +132,7 @@ describe('authorizeUtilityCall hook', () => {
     });
   });
 
+  // Sets hookAllows=true, calls delegate_pow_utility, and asserts result=8 and lastRequest fields.
   it('allows cross-contract utility call from utility context when hook returns true', async () => {
     hookAllows = true;
     const { result } = await contractA.methods
@@ -136,6 +150,8 @@ describe('authorizeUtilityCall hook', () => {
     });
   });
 
+  // Calls delegate_pow_private with hookAllows=false; expects denial and checks lastRequest
+  // callerContext is 'private'.
   it('denies cross-contract utility call from private function when hook returns false', async () => {
     await expect(
       contractA.methods.delegate_pow_private(contractB.address, 2n, 3n).simulate({ from: defaultAccountAddress }),
@@ -151,6 +167,7 @@ describe('authorizeUtilityCall hook', () => {
     });
   });
 
+  // Sets hookAllows=true, calls delegate_pow_private, and asserts result=8 with 'private' context.
   it('allows cross-contract utility call from private function when hook returns true', async () => {
     hookAllows = true;
     const { result } = await contractA.methods
@@ -168,6 +185,7 @@ describe('authorizeUtilityCall hook', () => {
     });
   });
 
+  // Calls delegate_pow_view with hookAllows=false; expects denial with 'private view' context.
   it('denies cross-contract utility call from view function when hook returns false', async () => {
     await expect(
       contractA.methods.delegate_pow_view(contractB.address, 2n, 3n).simulate({ from: defaultAccountAddress }),
@@ -183,6 +201,7 @@ describe('authorizeUtilityCall hook', () => {
     });
   });
 
+  // Sets hookAllows=true, calls delegate_pow_view, and asserts result=8 with 'private view' context.
   it('allows cross-contract utility call from view function when hook returns true', async () => {
     hookAllows = true;
     const { result } = await contractA.methods
@@ -200,6 +219,9 @@ describe('authorizeUtilityCall hook', () => {
     });
   });
 
+  // Stores pow args as notes on contractB, then calls delegate_pow_from_storage from contractA
+  // (cross-contract). Asserts that contractB's notes are synced before the utility call so that
+  // the stored values are discoverable.
   it('syncs target contract notes on cross-contract utility call', async () => {
     hookAllows = true;
 
