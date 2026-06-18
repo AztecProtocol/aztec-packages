@@ -28,7 +28,7 @@ import { buildBatchConsts } from './batch_gpu.js';
 import { poseidon2ConstBytes, POSEIDON2_IV_9, p2ParamsBytes } from './poseidon2_gpu.js';
 import { initWasm, runWasmSumcheck } from './bench.js';
 import { NUM_RELATIONS } from '../../src/msm_webgpu/accumulator.js';
-import { ALL_RELATIONS } from './descriptors.js';
+import { ALL_RELATIONS, NUM_GLOBAL_ENTITIES } from './descriptors.js';
 import {
   create_and_write_sb, create_and_write_ub, create_sb, create_bind_group_layout, create_bind_group,
   create_compute_pipeline, execute_pipeline, create_readback_buffer, Profiler, setAllocCategory,
@@ -78,6 +78,22 @@ interface Shared {
   reduceRunner?: ReduceRunner;
   batch?: { layout: GPUBindGroupLayout; pipeline: GPUComputePipeline };
   transcript?: { layout: GPUBindGroupLayout; pipeline: GPUComputePipeline };
+  // Idea 1: read all 14 relations from ONE resident set of NUM_GLOBAL_ENTITIES (67)
+  // columns instead of 185 per-relation copies. Each relation's accumulate kernel
+  // (shared shader variant) gathers its entities via its globalEntityIndices through
+  // an entity_map binding. `sharedColBytes` are the 67 column-major Montgomery columns
+  // (length n) — required when sharedColumns is set. Off by default: the per-relation
+  // path is unchanged.
+  sharedColumns?: boolean;
+  sharedColBytes?: Uint8Array;
+}
+
+/** Pack a relation's globalEntityIndices as a u32 storage buffer (the entity_map binding). */
+function entityMapBytes(indices: number[]): Uint8Array {
+  const out = new Uint8Array(indices.length * 4);
+  const dv = new DataView(out.buffer);
+  indices.forEach((g, i) => dv.setUint32(i * 4, g, true));
+  return out;
 }
 
 export async function makeBatchRunner(device: GPUDevice) {
@@ -150,16 +166,33 @@ export async function runSingleSubmitSumcheck(
 
   const tSetup = performance.now();
 
-  // Resident inputs + ping-pong columns.
+  // Resident inputs + ping-pong columns. In shared mode (Idea 1) the 185 per-relation
+  // columns collapse to ONE set of NUM_GLOBAL_ENTITIES (67) columns that every relation
+  // reads through its entity_map; otherwise each relation keeps its own colA/colB.
+  const useShared = !!(shared?.sharedColumns && shared.sharedColBytes);
   const relParamBufs: (GPUBuffer | undefined)[] = new Array(NUM_RELATIONS).fill(undefined);
   const colA: GPUBuffer[] = new Array(NUM_RELATIONS);
   const colB: GPUBuffer[] = new Array(NUM_RELATIONS);
+  const entityMapBufs: GPUBuffer[] = new Array(NUM_RELATIONS);
+  let colSharedA: GPUBuffer | undefined;
+  let colSharedB: GPUBuffer | undefined;
   for (const desc of ALL_RELATIONS) {
     const r = desc.relationIndex;
     if (relParamBytes[r]) { setAllocCategory('relparams'); relParamBufs[r] = create_and_write_sb(device, relParamBytes[r]!); }
+  }
+  if (useShared) {
     setAllocCategory('columns');
-    colA[r] = create_and_write_sb(device, initColBytes[r]);
-    colB[r] = create_sb(device, desc.numEdges * (n >> 1) * 32);
+    colSharedA = create_and_write_sb(device, shared!.sharedColBytes!); // 67 columns, length n
+    colSharedB = create_sb(device, NUM_GLOBAL_ENTITIES * (n >> 1) * 32); // ping-pong half
+    setAllocCategory('relparams');
+    for (const desc of ALL_RELATIONS) entityMapBufs[desc.relationIndex] = create_and_write_sb(device, entityMapBytes(desc.globalEntityIndices));
+  } else {
+    for (const desc of ALL_RELATIONS) {
+      const r = desc.relationIndex;
+      setAllocCategory('columns');
+      colA[r] = create_and_write_sb(device, initColBytes[r]);
+      colB[r] = create_sb(device, desc.numEdges * (n >> 1) * 32);
+    }
   }
 
   // Scratch + accumulators.
@@ -248,13 +281,15 @@ export async function runSingleSubmitSumcheck(
   const accPipeline = async (desc: RelationDescriptor, band: boolean) => {
     const hasParams = relParamBufs[desc.relationIndex] !== undefined;
     const mode = band ? 'band' : inject ? 'sk' : 'pl';
-    const key = `acc:${desc.entry}|${hasParams ? 5 : 4}|wg${accWG}|${mode}`;
+    const key = `acc:${desc.entry}|${hasParams ? 5 : 4}|wg${accWG}|${mode}|s${useShared ? 1 : 0}`;
     let p = relCache.get(key);
     if (!p) {
       const types = ['read-only-storage', 'storage', 'uniform', 'read-only-storage'];
       if (hasParams) types.push('read-only-storage');
+      if (useShared) types.push('read-only-storage'); // entity_map (bound last)
       const layout = create_bind_group_layout(device, types);
-      let code = accWG === WG ? desc.shader() : desc.shader().replace(`@workgroup_size(${WG})`, `@workgroup_size(${accWG})`);
+      const base = desc.shader(useShared);
+      let code = accWG === WG ? base : base.replace(`@workgroup_size(${WG})`, `@workgroup_size(${accWG})`);
       if (band) code = injectBand(code, desc); // contiguous-band range dispatch (realistic trace)
       else if (inject) code = injectSkipPrelude(code, desc); // Tier 1 per-edge skip early-out
       const pipeline = await create_compute_pipeline(device, [layout], code, desc.entry, desc.entry);
@@ -281,7 +316,8 @@ export async function runSingleSubmitSumcheck(
   // ---- Encode the run rounds into ONE command buffer ----
   const t0 = performance.now();
   const enc = device.createCommandEncoder();
-  let cur = colA, other = colB;
+  let cur = colA, other = colB;            // per-relation ping-pong (non-shared)
+  let curS = colSharedA, otherS = colSharedB; // shared 67-column ping-pong
   let curLen = n;
   for (let i = 0; i < rounds; i++) {
     const pairs = curLen >> 1;
@@ -312,7 +348,9 @@ export async function runSingleSubmitSumcheck(
       if (fusedSet.has(r)) continue; // handled by the fused uber dispatch below
       const band = bands?.roundsByRel[r];
       let dispatchPairs: number;
-      const aBufs: GPUBuffer[] = [cur[r], perEdge];
+      // Shared mode binds the one resident 67-column buffer + this relation's entity_map
+      // (pushed last, after the optional relation params); non-shared binds cur[r].
+      const aBufs: GPUBuffer[] = [useShared ? curS! : cur[r], perEdge];
       if (band) {
         const { start, count } = band[i];
         if (count === 0) continue; // empty band this round -> 0 contribution (accBuf pre-cleared)
@@ -324,6 +362,7 @@ export async function runSingleSubmitSumcheck(
         aBufs.push(accParam, scalScratch);
         if (relParamBufs[r]) aBufs.push(relParamBufs[r]!);
       }
+      if (useShared) aBufs.push(entityMapBufs[r]);
       const chunk = Math.max(1, Math.ceil(dispatchPairs / REDUCE_GROUPS));
       const groups = Math.ceil(dispatchPairs / chunk);
       const acc = await accPipeline(desc, band !== undefined);
@@ -361,19 +400,29 @@ export async function runSingleSubmitSumcheck(
     await execute_pipeline(enc, transcript.pipeline, tBg, 1, 1, 1, profiler?.stage('transcript'));
     enc.copyBufferToBuffer(uBuf, 0, staging, chalOff + i * 32, 32);
 
-    // fold every column at u_i (cur -> other)
-    for (const desc of ALL_RELATIONS) {
-      const r = desc.relationIndex;
-      const numOut = desc.numEdges * pairs;
-      // Full fold (band_count = pairs, band_start = 0): the ping-pong columns are reused, not
-      // freshly zero-initialized, so a band-trimmed fold would leave stale data outside the
-      // band and corrupt the GPU->WASM handoff. SS still gets the band accumulate dispatch.
+    // fold every column at u_i (cur -> other). Shared mode folds the whole 67-column
+    // buffer in one dispatch; non-shared folds each relation's columns. Full fold
+    // (band_count = pairs, band_start = 0): the ping-pong columns are reused, not freshly
+    // zero-initialized, so a band-trimmed fold would leave stale data outside the band and
+    // corrupt the GPU->WASM handoff. SS still gets the band accumulate dispatch.
+    if (useShared) {
+      const numOut = NUM_GLOBAL_ENTITIES * pairs;
       const fBg = create_bind_group(device, foldRunner.layout, [
-        cur[r], other[r], create_and_write_ub(device, u32x4(numOut, pairs, pairs, 0)), uBuf,
+        curS!, otherS!, create_and_write_ub(device, u32x4(numOut, pairs, pairs, 0)), uBuf,
       ]);
       await execute_pipeline(enc, foldRunner.pipeline, fBg, Math.ceil(numOut / WG), 1, 1, profiler?.stage('fold'));
+    } else {
+      for (const desc of ALL_RELATIONS) {
+        const r = desc.relationIndex;
+        const numOut = desc.numEdges * pairs;
+        const fBg = create_bind_group(device, foldRunner.layout, [
+          cur[r], other[r], create_and_write_ub(device, u32x4(numOut, pairs, pairs, 0)), uBuf,
+        ]);
+        await execute_pipeline(enc, foldRunner.pipeline, fBg, Math.ceil(numOut / WG), 1, 1, profiler?.stage('fold'));
+      }
     }
     [cur, other] = [other, cur];
+    [curS, otherS] = [otherS, curS];
     curLen = pairs;
   }
 
@@ -401,20 +450,42 @@ export async function runSingleSubmitSumcheck(
   // the GPU->WASM handoff payload. Timed separately as finalReadbackMs (the handoff).
   const finalLen = n >> rounds;
   const finalColBytes: Uint8Array[] = new Array(NUM_RELATIONS);
-  const sizes = ALL_RELATIONS.map(desc => desc.numEdges * finalLen * 32);
-  const offs: number[] = [];
-  { let o = 0; for (const s of sizes) { offs.push(o); o += s; } }
-  const totalFinal = offs.length ? offs[offs.length - 1] + sizes[sizes.length - 1] : 0;
   const tReadback = performance.now();
-  if (totalFinal > 0) {
-    const fStaging = create_readback_buffer(device, totalFinal);
-    const fEnc = device.createCommandEncoder();
-    ALL_RELATIONS.forEach((desc, idx) => fEnc.copyBufferToBuffer(cur[desc.relationIndex], 0, fStaging, offs[idx], sizes[idx]));
-    device.queue.submit([fEnc.finish()]);
-    await fStaging.mapAsync(GPUMapMode.READ, 0, totalFinal);
-    const all = new Uint8Array(fStaging.getMappedRange(0, totalFinal).slice(0));
-    fStaging.unmap();
-    ALL_RELATIONS.forEach((desc, idx) => { finalColBytes[desc.relationIndex] = all.slice(offs[idx], offs[idx] + sizes[idx]); });
+  if (useShared) {
+    // Read the folded 67-column shared buffer once, then gather each relation's slice
+    // (its globalEntityIndices) into the per-relation layout the caller expects — so the
+    // handoff / purported-value anchor is identical to the non-shared path.
+    const colBytes = finalLen * 32;
+    const totalShared = NUM_GLOBAL_ENTITIES * colBytes;
+    if (totalShared > 0) {
+      const fStaging = create_readback_buffer(device, totalShared);
+      const fEnc = device.createCommandEncoder();
+      fEnc.copyBufferToBuffer(curS!, 0, fStaging, 0, totalShared);
+      device.queue.submit([fEnc.finish()]);
+      await fStaging.mapAsync(GPUMapMode.READ, 0, totalShared);
+      const all = new Uint8Array(fStaging.getMappedRange(0, totalShared).slice(0));
+      fStaging.unmap();
+      for (const desc of ALL_RELATIONS) {
+        const buf = new Uint8Array(desc.numEdges * colBytes);
+        desc.globalEntityIndices.forEach((g, j) => buf.set(all.subarray(g * colBytes, (g + 1) * colBytes), j * colBytes));
+        finalColBytes[desc.relationIndex] = buf;
+      }
+    }
+  } else {
+    const sizes = ALL_RELATIONS.map(desc => desc.numEdges * finalLen * 32);
+    const offs: number[] = [];
+    { let o = 0; for (const s of sizes) { offs.push(o); o += s; } }
+    const totalFinal = offs.length ? offs[offs.length - 1] + sizes[sizes.length - 1] : 0;
+    if (totalFinal > 0) {
+      const fStaging = create_readback_buffer(device, totalFinal);
+      const fEnc = device.createCommandEncoder();
+      ALL_RELATIONS.forEach((desc, idx) => fEnc.copyBufferToBuffer(cur[desc.relationIndex], 0, fStaging, offs[idx], sizes[idx]));
+      device.queue.submit([fEnc.finish()]);
+      await fStaging.mapAsync(GPUMapMode.READ, 0, totalFinal);
+      const all = new Uint8Array(fStaging.getMappedRange(0, totalFinal).slice(0));
+      fStaging.unmap();
+      ALL_RELATIONS.forEach((desc, idx) => { finalColBytes[desc.relationIndex] = all.slice(offs[idx], offs[idx] + sizes[idx]); });
+    }
   }
   const finalReadbackMs = performance.now() - tReadback;
 
@@ -435,6 +506,19 @@ function buildInputs(n: number): { initColBytes: Uint8Array[]; relParamBytes: (U
     initColBytes[desc.relationIndex] = encodeColumnsToBytes(cols, n);
   }
   return { initColBytes, relParamBytes };
+}
+
+/**
+ * Build the shared MegaFlavor witness for `shared` mode: NUM_GLOBAL_ENTITIES (67)
+ * random columns of length n. Returns the column-major Montgomery bytes the engine
+ * uploads (`sharedColBytes`) plus the canonical bigint columns (`sharedCols`) so a CPU
+ * reference can gather each relation's slice via its globalEntityIndices and reproduce
+ * exactly what the GPU reads (the per-relation columns are views into this one witness).
+ */
+export function buildSharedColumns(n: number, seed: bigint): { sharedColBytes: Uint8Array; sharedCols: bigint[][] } {
+  const rng = makeRng(seed);
+  const sharedCols = Array.from({ length: NUM_GLOBAL_ENTITIES }, () => Array.from({ length: n }, () => rng()));
+  return { sharedColBytes: encodeColumnsToBytes(sharedCols, n), sharedCols };
 }
 
 export interface SSBenchRow {

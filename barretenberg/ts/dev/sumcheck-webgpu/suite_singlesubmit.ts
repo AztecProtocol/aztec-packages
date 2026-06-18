@@ -16,7 +16,7 @@ import {
 } from '../../src/msm_webgpu/batch_tail.js';
 import { ALL_RELATIONS } from './descriptors.js';
 import { encodeColumnsToBytes } from './gpu_pipeline.js';
-import { runSingleSubmitSumcheck } from './single_submit.js';
+import { runSingleSubmitSumcheck, buildSharedColumns } from './single_submit.js';
 import { cpuReferenceUnivariates } from './cpu_reference.js';
 import {
   buildInstance, usedRows, activeRowsByRel, bandByRel,
@@ -39,7 +39,12 @@ for (let g = 0; g < NUM_SUBRELATIONS; g++) {
   subrelLocalFr.push(SUBREL_START[g] - RELATION_ACC_OFFSET[r]);
 }
 
-async function run({ device, n, log }: SuiteCtx): Promise<boolean> {
+// `useShared` runs the engine against the shared 67-entity column set (Idea 1). The
+// CPU reference then reads each relation's columns by gathering them from the one shared
+// witness via globalEntityIndices — exactly what the GPU's entity_map does — so the same
+// three checks validate the shared path end to end.
+async function validateOnce({ device, n, log }: SuiteCtx, useShared: boolean): Promise<boolean> {
+  const tag = useShared ? 'shared' : 'per-rel';
   const d = Math.round(Math.log2(n));
   if (1 << d !== n) { log('err', '  singlesubmit: n must be a power of 2'); return false; }
   if (d < 1) { log('err', '  singlesubmit: need n >= 2'); return false; }
@@ -61,7 +66,19 @@ async function run({ device, n, log }: SuiteCtx): Promise<boolean> {
   const initColBytes: Uint8Array[] = [];
   for (const desc of ALL_RELATIONS) initColBytes[desc.relationIndex] = encodeColumnsToBytes(initCols[desc.relationIndex], n);
 
-  const gpu = await runSingleSubmitSumcheck(device, n, alpha, betas, relParamBytes, initColBytes);
+  // Shared mode: one 67-entity witness; each relation's CPU-reference columns are the
+  // gathered slice of it, replacing the relation's independent random columns.
+  let sharedColBytes: Uint8Array | undefined;
+  if (useShared) {
+    const sc = buildSharedColumns(n, 0x5ba7ed_c01c01n);
+    sharedColBytes = sc.sharedColBytes;
+    for (const desc of ALL_RELATIONS) initCols[desc.relationIndex] = desc.globalEntityIndices.map(g => sc.sharedCols[g]);
+  }
+
+  const gpu = await runSingleSubmitSumcheck(
+    device, n, alpha, betas, relParamBytes, initColBytes,
+    useShared ? { sharedColumns: true, sharedColBytes } : undefined,
+  );
   const ch = gpu.challenges;
 
   // (3) small n: GPU univariates match CPU folded with the SAME GPU challenges, and
@@ -87,9 +104,9 @@ async function run({ device, n, log }: SuiteCtx): Promise<boolean> {
       }
       running = nextRunning;
     }
-    log('ok', `  accumulate+batch+fold+Fiat-Shamir ✓  GPU == CPU every round (${gpu.gpuMs.toFixed(1)} ms GPU)`);
+    log('ok', `  [${tag}] accumulate+batch+fold+Fiat-Shamir ✓  GPU == CPU every round (${gpu.gpuMs.toFixed(1)} ms GPU)`);
   } else {
-    log('info', `  CPU diff skipped for n=${n} (anchored by telescoping + purported); ${gpu.gpuMs.toFixed(1)} ms GPU`);
+    log('info', `  [${tag}] CPU diff skipped for n=${n} (anchored by telescoping + purported); ${gpu.gpuMs.toFixed(1)} ms GPU`);
   }
 
   // (1) telescoping over the GPU univariates + GPU-derived challenges.
@@ -99,7 +116,7 @@ async function run({ device, n, log }: SuiteCtx): Promise<boolean> {
     log('err', `  telescoping ✗  round ${f.round}: S(0)+S(1)=${f.got} != prev S(u)=${f.expected}`);
     return false;
   }
-  log('ok', `  telescoping ✓  S^i(0)+S^i(1) == S^{i-1}(u) for all ${d - 1} steps`);
+  log('ok', `  [${tag}] telescoping ✓  S^i(0)+S^i(1) == S^{i-1}(u) for all ${d - 1} steps`);
 
   // (2) absolute anchor at the GPU final challenge.
   let cd = 1n;
@@ -124,15 +141,16 @@ async function run({ device, n, log }: SuiteCtx): Promise<boolean> {
     log('err', `  purported ✗  S^{d-1}(u)=${finalAtU} != F(u)=${purported}`);
     return false;
   }
-  log('ok', `  purported ✓  S^{d-1}(u_{d-1}) == batched relation at the folded point`);
-  log('info', `    rounds=${d}  GPU ${gpu.gpuMs.toFixed(1)} ms · wall ${gpu.totalMs.toFixed(1)} ms · setup ${gpu.setupMs.toFixed(1)} ms`);
+  log('ok', `  [${tag}] purported ✓  S^{d-1}(u_{d-1}) == batched relation at the folded point`);
+  log('info', `    [${tag}] rounds=${d}  GPU ${gpu.gpuMs.toFixed(1)} ms · wall ${gpu.totalMs.toFixed(1)} ms · setup ${gpu.setupMs.toFixed(1)} ms`);
 
   // (4) Skipping is a pure performance optimization for the single-submission engine
   // too. On the SAME sparse instance, skip-ON (Tier 0 trim + Tier 1 per-edge skip) must
   // produce bit-identical univariates AND GPU-derived Fiat-Shamir challenges to skip-OFF
   // — the challenges are hashed from the univariates, so identical univariates each
-  // round force identical challenges, which keeps the next round identical.
-  for (const profile of [REALISTIC_BLOCK_PROFILE, REALISTIC_BAND_PROFILE, REALISTIC_SCATTERED_PROFILE]) {
+  // round force identical challenges, which keeps the next round identical. The skip path
+  // exercises the per-relation layout, so validate it once (on the per-relation pass).
+  if (!useShared) for (const profile of [REALISTIC_BLOCK_PROFILE, REALISTIC_BAND_PROFILE, REALISTIC_SCATTERED_PROFILE]) {
     const inst = buildInstance(n, profile, false);
     const L = usedRows(profile, n);
     const off = await runSingleSubmitSumcheck(device, n, alpha, betas, inst.relParamBytes, inst.initColBytes);
@@ -176,6 +194,13 @@ async function run({ device, n, log }: SuiteCtx): Promise<boolean> {
     }
   }
   return true;
+}
+
+// Validate both the per-relation engine and the shared 67-entity column engine (Idea 1).
+async function run(ctx: SuiteCtx): Promise<boolean> {
+  const perRel = await validateOnce(ctx, false);
+  if (!perRel) return false;
+  return validateOnce(ctx, true);
 }
 
 export const singleSubmitSuite: Suite = { id: 'singlesubmit', label: 'Single-submission sumcheck (GPU Fiat-Shamir)', run };

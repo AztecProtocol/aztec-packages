@@ -405,7 +405,7 @@ ${packLines.join('\n')}
    * and -1/2). One entry point `arithmetic_main`; one thread per edge writes the
    * 11-Fr per-edge contribution. Construct with field='scalar' for F_r.
    */
-  public gen_arithmetic_relation_test_shader(workgroup_size: number): string {
+  public gen_arithmetic_relation_test_shader(workgroup_size: number, shared = false): string {
     if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
       throw new Error(`gen_arithmetic_relation_test_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
     }
@@ -424,6 +424,7 @@ ${packLines.join('\n')}
     return mustache.render(
       arithmetic_relation_test_shader,
       {
+        shared,
         workgroup_size,
         p8_consts,
         r8_csv,
@@ -523,14 +524,22 @@ ${packLines.join('\n')}
     return mustache.render(poseidon2_transcript_par_test_shader, this.relationView(workgroup_size), this.relationPartials);
   }
 
-  /** Common Mustache view shared by every relation-accumulate test shader. */
-  private relationView(workgroup_size: number): Record<string, unknown> {
+  /**
+   * Common Mustache view shared by every relation-accumulate test shader. `shared`
+   * (default false) toggles the shared resident-column path: when true the accumulate
+   * kernel gathers each entity through an `entity_map` binding into one set of
+   * NUM_GLOBAL_ENTITIES columns instead of its own contiguous per-relation columns
+   * (descriptors.ts globalEntityIndices). false renders byte-identically to the
+   * per-relation kernel the standalone suites use.
+   */
+  private relationView(workgroup_size: number, shared = false): Record<string, unknown> {
     if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
       throw new Error(`relation shader: workgroup_size (${workgroup_size}) must be a positive integer`);
     }
     const dec = this.decoupledPackUnpackWgsl();
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
     return {
+      shared,
       workgroup_size,
       p8_consts,
       r8_csv,
@@ -575,10 +584,10 @@ ${packLines.join('\n')}
    * (relations/delta_range_constraint_relation.hpp). Four length-6 subrelations;
    * bakes FF(2)/FF(3). One thread per edge writes the 24-Fr contribution.
    */
-  public gen_delta_range_relation_test_shader(workgroup_size: number): string {
+  public gen_delta_range_relation_test_shader(workgroup_size: number, shared = false): string {
     return mustache.render(
       delta_range_relation_test_shader,
-      { ...this.relationView(workgroup_size), c2_csv: this.montWords8(2n), c3_csv: this.montWords8(3n) },
+      { ...this.relationView(workgroup_size, shared), c2_csv: this.montWords8(2n), c3_csv: this.montWords8(3n) },
       this.relationPartials,
     );
   }
@@ -588,8 +597,8 @@ ${packLines.join('\n')}
    * (relations/ecc_op_queue_relation.hpp). Eight length-3 subrelations; no field
    * constants. One thread per edge writes the 24-Fr contribution.
    */
-  public gen_ecc_op_queue_relation_test_shader(workgroup_size: number): string {
-    return mustache.render(ecc_op_queue_relation_test_shader, this.relationView(workgroup_size), this.relationPartials);
+  public gen_ecc_op_queue_relation_test_shader(workgroup_size: number, shared = false): string {
+    return mustache.render(ecc_op_queue_relation_test_shader, this.relationView(workgroup_size, shared), this.relationPartials);
   }
 
   /**
@@ -598,10 +607,10 @@ ${packLines.join('\n')}
    * subrelations; the external matrix is applied by repeated addition (no field
    * constants). One thread per edge writes the 12-Fr contribution.
    */
-  public gen_poseidon2_initial_relation_test_shader(workgroup_size: number): string {
+  public gen_poseidon2_initial_relation_test_shader(workgroup_size: number, shared = false): string {
     return mustache.render(
       poseidon2_initial_relation_test_shader,
-      this.relationView(workgroup_size),
+      this.relationView(workgroup_size, shared),
       this.relationPartials,
     );
   }
@@ -611,10 +620,10 @@ ${packLines.join('\n')}
    * (relations/non_native_field_relation.hpp). One length-6 subrelation; bakes
    * 2^68 and 2^14. One thread per edge writes the 6-Fr contribution.
    */
-  public gen_non_native_field_relation_test_shader(workgroup_size: number): string {
+  public gen_non_native_field_relation_test_shader(workgroup_size: number, shared = false): string {
     return mustache.render(
       non_native_field_relation_test_shader,
-      { ...this.relationView(workgroup_size), limb_size_csv: this.montWords8(1n << 68n), sublimb_csv: this.montWords8(1n << 14n) },
+      { ...this.relationView(workgroup_size, shared), limb_size_csv: this.montWords8(1n << 68n), sublimb_csv: this.montWords8(1n << 14n) },
       this.relationPartials,
     );
   }
@@ -625,10 +634,10 @@ ${packLines.join('\n')}
    * Grumpkin curve constant b = -17. One thread per edge writes the 12-Fr
    * contribution.
    */
-  public gen_elliptic_relation_test_shader(workgroup_size: number): string {
+  public gen_elliptic_relation_test_shader(workgroup_size: number, shared = false): string {
     return mustache.render(
       elliptic_relation_test_shader,
-      { ...this.relationView(workgroup_size), curve_b_csv: this.montWords8(-17n) },
+      { ...this.relationView(workgroup_size, shared), curve_b_csv: this.montWords8(-17n) },
       this.relationPartials,
     );
   }
@@ -639,8 +648,8 @@ ${packLines.join('\n')}
    * (beta/gamma/public_input_delta arrive at runtime via the binding(3) params
    * buffer). One thread per edge writes the 12-Fr contribution.
    */
-  public gen_permutation_relation_test_shader(workgroup_size: number): string {
-    return mustache.render(permutation_relation_test_shader, this.relationView(workgroup_size), this.relationPartials);
+  public gen_permutation_relation_test_shader(workgroup_size: number, shared = false): string {
+    return mustache.render(permutation_relation_test_shader, this.relationView(workgroup_size, shared), this.relationPartials);
   }
 
   /**
@@ -649,8 +658,8 @@ ${packLines.join('\n')}
    * is linearly dependent (no scaling factor). Params [gamma, beta, beta_sqr,
    * beta_cube] at binding(3). One thread per edge writes the 13-Fr contribution.
    */
-  public gen_logderiv_lookup_relation_test_shader(workgroup_size: number): string {
-    return mustache.render(logderiv_lookup_relation_test_shader, this.relationView(workgroup_size), this.relationPartials);
+  public gen_logderiv_lookup_relation_test_shader(workgroup_size: number, shared = false): string {
+    return mustache.render(logderiv_lookup_relation_test_shader, this.relationView(workgroup_size, shared), this.relationPartials);
   }
 
   /**
@@ -659,10 +668,10 @@ ${packLines.join('\n')}
    * bakes FF(1). Params [eta, eta_two, eta_three] at binding(3). One thread per
    * edge writes the 36-Fr contribution.
    */
-  public gen_memory_relation_test_shader(workgroup_size: number): string {
+  public gen_memory_relation_test_shader(workgroup_size: number, shared = false): string {
     return mustache.render(
       memory_relation_test_shader,
-      { ...this.relationView(workgroup_size), one_csv: this.montWords8(1n) },
+      { ...this.relationView(workgroup_size, shared), one_csv: this.montWords8(1n) },
       this.relationPartials,
     );
   }
@@ -673,10 +682,10 @@ ${packLines.join('\n')}
    * round constants are columns (no baked constants, no params buffer). One
    * thread per edge writes the 28-Fr contribution.
    */
-  public gen_poseidon2_external_relation_test_shader(workgroup_size: number): string {
+  public gen_poseidon2_external_relation_test_shader(workgroup_size: number, shared = false): string {
     return mustache.render(
       poseidon2_external_relation_test_shader,
-      this.relationView(workgroup_size),
+      this.relationView(workgroup_size, shared),
       this.relationPartials,
     );
   }
@@ -694,7 +703,7 @@ ${packLines.join('\n')}
    * subrelations; bakes the derived D1/A_one/A2_one/(Σ+6) quad constants. One
    * thread per edge writes the 21-Fr contribution.
    */
-  public gen_poseidon2_transition_entry_relation_test_shader(workgroup_size: number): string {
+  public gen_poseidon2_transition_entry_relation_test_shader(workgroup_size: number, shared = false): string {
     const c = poseidon2QuadConsts(this.p);
     const consts = {
       TE_D1: c.D1,
@@ -705,7 +714,7 @@ ${packLines.join('\n')}
     };
     return mustache.render(
       poseidon2_transition_entry_relation_test_shader,
-      { ...this.relationView(workgroup_size), quad_consts: this.quadConstsBlock(consts) },
+      { ...this.relationView(workgroup_size, shared), quad_consts: this.quadConstsBlock(consts) },
       this.relationPartials,
     );
   }
@@ -715,13 +724,13 @@ ${packLines.join('\n')}
    * subrelations; bakes the full 4x7 closed_form table (CF_{j}_{i}). One thread
    * per edge writes the 28-Fr contribution.
    */
-  public gen_poseidon2_quad_internal_terminal_relation_test_shader(workgroup_size: number): string {
+  public gen_poseidon2_quad_internal_terminal_relation_test_shader(workgroup_size: number, shared = false): string {
     const c = poseidon2QuadConsts(this.p);
     const consts: Record<string, bigint> = {};
     for (let j = 0; j < 4; j++) for (let i = 0; i < 7; i++) consts[`CF_${j}_${i}`] = c.closed_form[j][i];
     return mustache.render(
       poseidon2_quad_internal_terminal_relation_test_shader,
-      { ...this.relationView(workgroup_size), quad_consts: this.quadConstsBlock(consts) },
+      { ...this.relationView(workgroup_size, shared), quad_consts: this.quadConstsBlock(consts) },
       this.relationPartials,
     );
   }
@@ -732,7 +741,7 @@ ${packLines.join('\n')}
    * (FV_{k}_*) and the scalar quad constants. One thread per edge writes the
    * 28-Fr contribution.
    */
-  public gen_poseidon2_quad_internal_relation_test_shader(workgroup_size: number): string {
+  public gen_poseidon2_quad_internal_relation_test_shader(workgroup_size: number, shared = false): string {
     const c = poseidon2QuadConsts(this.p);
     const consts: Record<string, bigint> = {
       QI_D1: c.D1,
@@ -745,7 +754,7 @@ ${packLines.join('\n')}
     for (let k = 0; k < 3; k++) for (let i = 0; i < 7; i++) consts[`FV_${k}_${i}`] = c.forward_vandermonde_lhs[k][i];
     return mustache.render(
       poseidon2_quad_internal_relation_test_shader,
-      { ...this.relationView(workgroup_size), quad_consts: this.quadConstsBlock(consts) },
+      { ...this.relationView(workgroup_size, shared), quad_consts: this.quadConstsBlock(consts) },
       this.relationPartials,
     );
   }
@@ -900,10 +909,10 @@ ${packLines.join('\n')}
    * dependent (no scaling). Bakes FF(1); params [beta, gamma] at binding(3). One
    * thread per edge writes the 90-Fr contribution.
    */
-  public gen_databus_lookup_relation_test_shader(workgroup_size: number): string {
+  public gen_databus_lookup_relation_test_shader(workgroup_size: number, shared = false): string {
     return mustache.render(
       databus_lookup_relation_test_shader,
-      { ...this.relationView(workgroup_size), one_csv: this.montWords8(1n) },
+      { ...this.relationView(workgroup_size, shared), one_csv: this.montWords8(1n) },
       this.relationPartials,
     );
   }

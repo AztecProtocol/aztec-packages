@@ -43,7 +43,8 @@ function arithPolyRef(e: bigint[][], scaling: bigint): bigint[] {
 export const arithDescriptor: RelationDescriptor = {
   id: 'arith', label: 'Arithmetic', relationIndex: 0, numEdges: 13, inLen: 27, outLen: 11,
   entry: 'arithmetic_main', seed: 0x1badb002c0defacen,
-  shader: () => sm.gen_arithmetic_relation_test_shader(WG), build: arithBuild, polyRef: arithPolyRef,
+  globalEntityIndices: [0, 1, 2, 3, 65, 62, 4, 5, 6, 7, 8, 9, 10],
+  shader: (shared = false) => sm.gen_arithmetic_relation_test_shader(WG, shared), build: arithBuild, polyRef: arithPolyRef,
   skip: { kind: 'allZero', cols: [12] }, // q_arith.is_zero()
 };
 
@@ -72,7 +73,8 @@ export const permDescriptor: RelationDescriptor = {
   id: 'perm', label: 'UltraPerm', relationIndex: 1, numEdges: 16, inLen: 33, outLen: 12,
   entry: 'permutation_main', seed: 0x9e1d77abcd001234n,
   makeParams: rng => [rng(), rng(), rng()], // beta, gamma, public_input_delta
-  shader: () => sm.gen_permutation_relation_test_shader(WG), build: permBuild, polyRef: permPolyRef,
+  globalEntityIndices: [0, 1, 2, 3, 11, 12, 13, 14, 15, 16, 17, 18, 19, 66, 20, 21],
+  shader: (shared = false) => sm.gen_permutation_relation_test_shader(WG, shared), build: permBuild, polyRef: permPolyRef,
   skip: { kind: 'eqPair', cols: [12, 13] }, // (z_perm - z_perm_shift).is_zero()
 };
 
@@ -101,7 +103,8 @@ export const logderivDescriptor: RelationDescriptor = {
   id: 'logderiv', label: 'LogDeriv', relationIndex: 2, numEdges: 18, inLen: 37, outLen: 13,
   entry: 'logderiv_lookup_main', seed: 0x10adde4199887766n,
   makeParams: rng => { const beta = rng(); const gamma = rng(); return [gamma, beta, mod(beta * beta), mod(beta * beta * beta)]; },
-  shader: () => sm.gen_logderiv_lookup_relation_test_shader(WG), build: logderivBuild, polyRef: logderivPolyRef,
+  globalEntityIndices: [22, 23, 24, 25, 0, 1, 2, 62, 63, 64, 7, 6, 4, 9, 26, 27, 28, 29],
+  shader: (shared = false) => sm.gen_logderiv_lookup_relation_test_shader(WG, shared), build: logderivBuild, polyRef: logderivPolyRef,
   skip: { kind: 'allZero', cols: [15, 16] }, // q_lookup.is_zero() && lookup_read_counts.is_zero()
 };
 
@@ -124,7 +127,8 @@ function deltaPolyRef(e: bigint[][], scaling: bigint): bigint[] {
 export const deltaDescriptor: RelationDescriptor = {
   id: 'delta', label: 'DeltaRange', relationIndex: 3, numEdges: 6, inLen: 13, outLen: 24,
   entry: 'delta_range_main', seed: 0xde17a9a9c0ffee01n,
-  shader: () => sm.gen_delta_range_relation_test_shader(WG), build: deltaBuild, polyRef: deltaPolyRef,
+  globalEntityIndices: [0, 1, 2, 3, 62, 30],
+  shader: (shared = false) => sm.gen_delta_range_relation_test_shader(WG, shared), build: deltaBuild, polyRef: deltaPolyRef,
   skip: { kind: 'allZero', cols: [5] }, // q_delta_range.is_zero()
 };
 
@@ -161,7 +165,8 @@ function ellipticPolyRef(e: bigint[][], scaling: bigint): bigint[] {
 export const ellipticDescriptor: RelationDescriptor = {
   id: 'elliptic', label: 'Elliptic', relationIndex: 4, numEdges: 9, inLen: 19, outLen: 12,
   entry: 'elliptic_main', seed: 0xe11ec0de33445566n,
-  shader: () => sm.gen_elliptic_relation_test_shader(WG), build: ellipticBuild, polyRef: ellipticPolyRef,
+  globalEntityIndices: [1, 62, 63, 2, 65, 64, 31, 4, 5],
+  shader: (shared = false) => sm.gen_elliptic_relation_test_shader(WG, shared), build: ellipticBuild, polyRef: ellipticPolyRef,
   skip: { kind: 'allZero', cols: [6] }, // q_elliptic.is_zero()
 };
 
@@ -201,7 +206,8 @@ export const memoryDescriptor: RelationDescriptor = {
   id: 'memory', label: 'Memory', relationIndex: 5, numEdges: 15, inLen: 31, outLen: 36,
   entry: 'memory_main', seed: 0x3133700ddba11500n,
   makeParams: rng => [rng(), rng(), rng()], // eta, eta_two, eta_three
-  shader: () => sm.gen_memory_relation_test_shader(WG), build: memoryBuild, polyRef: memoryPolyRef,
+  globalEntityIndices: [0, 1, 2, 3, 62, 63, 64, 65, 5, 6, 7, 8, 4, 9, 32],
+  shader: (shared = false) => sm.gen_memory_relation_test_shader(WG, shared), build: memoryBuild, polyRef: memoryPolyRef,
   skip: { kind: 'allZero', cols: [14] }, // q_memory.is_zero()
 };
 
@@ -234,7 +240,8 @@ function nnfPolyRef(e: bigint[][], scaling: bigint): bigint[] {
 export const nnfDescriptor: RelationDescriptor = {
   id: 'nnf', label: 'NonNativeField', relationIndex: 6, numEdges: 13, inLen: 27, outLen: 6,
   entry: 'non_native_field_main', seed: 0x77facade01020304n,
-  shader: () => sm.gen_non_native_field_relation_test_shader(WG), build: nnfBuild, polyRef: nnfPolyRef,
+  globalEntityIndices: [0, 1, 2, 3, 62, 63, 64, 65, 6, 7, 8, 4, 33],
+  shader: (shared = false) => sm.gen_non_native_field_relation_test_shader(WG, shared), build: nnfBuild, polyRef: nnfPolyRef,
   skip: { kind: 'allZero', cols: [12] }, // q_nnf.is_zero()
 };
 
@@ -260,7 +267,8 @@ function eccPolyRef(e: bigint[][], scaling: bigint): bigint[] {
 export const eccDescriptor: RelationDescriptor = {
   id: 'ecc', label: 'EccOpQueue', relationIndex: 7, numEdges: 9, inLen: 19, outLen: 24,
   entry: 'ecc_op_queue_main', seed: 0xecc0a13573571100n,
-  shader: () => sm.gen_ecc_op_queue_relation_test_shader(WG), build: eccBuild, polyRef: eccPolyRef,
+  globalEntityIndices: [62, 63, 64, 65, 34, 35, 36, 37, 38],
+  shader: (shared = false) => sm.gen_ecc_op_queue_relation_test_shader(WG, shared), build: eccBuild, polyRef: eccPolyRef,
   skip: { kind: 'allZero', cols: [8] }, // lagrange_ecc_op.is_zero()
 };
 
@@ -294,7 +302,8 @@ export const databusDescriptor: RelationDescriptor = {
   id: 'databus', label: 'DatabusLookup', relationIndex: 8, numEdges: 24, inLen: 49, outLen: 90,
   entry: 'databus_lookup_main', seed: 0xda7ab5c0ffee0001n,
   makeParams: rng => [rng(), rng()], // beta, gamma
-  shader: () => sm.gen_databus_lookup_relation_test_shader(WG), build: databusBuild, polyRef: databusPolyRef,
+  globalEntityIndices: [0, 1, 39, 40, 41, 5, 42, 43, 44, 6, 45, 46, 47, 7, 48, 49, 50, 8, 51, 52, 53, 4, 54, 55],
+  shader: (shared = false) => sm.gen_databus_lookup_relation_test_shader(WG, shared), build: databusBuild, polyRef: databusPolyRef,
   skip: { kind: 'allZero', cols: [3, 7, 11, 15, 19, 23] }, // q_busread.is_zero() && all 5 read_counts.is_zero()
 };
 
@@ -318,7 +327,8 @@ function pos2ExtPolyRef(e: bigint[][], scaling: bigint): bigint[] {
 export const pos2ExtDescriptor: RelationDescriptor = {
   id: 'pos2ext', label: 'Poseidon2Ext', relationIndex: 9, numEdges: 13, inLen: 27, outLen: 28,
   entry: 'poseidon2_external_main', seed: 0x9051d0ec0fe5beefn,
-  shader: () => sm.gen_poseidon2_external_relation_test_shader(WG), build: pos2ExtBuild, polyRef: pos2ExtPolyRef,
+  globalEntityIndices: [0, 1, 2, 3, 62, 63, 64, 65, 5, 6, 7, 8, 56],
+  shader: (shared = false) => sm.gen_poseidon2_external_relation_test_shader(WG, shared), build: pos2ExtBuild, polyRef: pos2ExtPolyRef,
   skip: { kind: 'allZero', cols: [12] }, // q_poseidon2_external.is_zero()
 };
 
@@ -344,7 +354,8 @@ function pos2InitPolyRef(e: bigint[][], scaling: bigint): bigint[] {
 export const pos2InitDescriptor: RelationDescriptor = {
   id: 'pos2init', label: 'Poseidon2Init', relationIndex: 10, numEdges: 9, inLen: 19, outLen: 12,
   entry: 'poseidon2_initial_main', seed: 0x9051d02141711a10n,
-  shader: () => sm.gen_poseidon2_initial_relation_test_shader(WG), build: pos2InitBuild, polyRef: pos2InitPolyRef,
+  globalEntityIndices: [0, 1, 2, 3, 62, 63, 64, 65, 57],
+  shader: (shared = false) => sm.gen_poseidon2_initial_relation_test_shader(WG, shared), build: pos2InitBuild, polyRef: pos2InitPolyRef,
   skip: { kind: 'allZero', cols: [8] }, // q_poseidon2_external_initial.is_zero()
 };
 
@@ -380,7 +391,8 @@ function pos2QuadPolyRef(e: bigint[][], scaling: bigint): bigint[] {
 export const pos2QuadDescriptor: RelationDescriptor = {
   id: 'pos2quad', label: 'Poseidon2Quad', relationIndex: 11, numEdges: 16, inLen: 33, outLen: 28,
   entry: 'poseidon2_quad_internal_main', seed: 0x9051d0701a4d0000n,
-  shader: () => sm.gen_poseidon2_quad_internal_relation_test_shader(WG), build: pos2QuadBuild, polyRef: pos2QuadPolyRef,
+  globalEntityIndices: [0, 1, 2, 3, 62, 63, 64, 65, 5, 6, 7, 8, 4, 9, 58, 59],
+  shader: (shared = false) => sm.gen_poseidon2_quad_internal_relation_test_shader(WG, shared), build: pos2QuadBuild, polyRef: pos2QuadPolyRef,
   skip: { kind: 'allZero', cols: [15] }, // q_poseidon2_quad_internal.is_zero()
 };
 
@@ -410,7 +422,8 @@ function pos2QuadTermPolyRef(e: bigint[][], scaling: bigint): bigint[] {
 export const pos2QuadTermDescriptor: RelationDescriptor = {
   id: 'pos2quadterm', label: 'Poseidon2QuadTerm', relationIndex: 12, numEdges: 13, inLen: 27, outLen: 28,
   entry: 'poseidon2_quad_internal_terminal_main', seed: 0x9051d07e21a10000n,
-  shader: () => sm.gen_poseidon2_quad_internal_terminal_relation_test_shader(WG), build: pos2QuadTermBuild, polyRef: pos2QuadTermPolyRef,
+  globalEntityIndices: [0, 1, 2, 3, 62, 63, 64, 65, 5, 6, 7, 8, 60],
+  shader: (shared = false) => sm.gen_poseidon2_quad_internal_terminal_relation_test_shader(WG, shared), build: pos2QuadTermBuild, polyRef: pos2QuadTermPolyRef,
   skip: { kind: 'allZero', cols: [12] }, // q_poseidon2_quad_internal_terminal.is_zero()
 };
 
@@ -432,7 +445,8 @@ function pos2TransPolyRef(e: bigint[][], scaling: bigint): bigint[] {
 export const pos2TransDescriptor: RelationDescriptor = {
   id: 'pos2trans', label: 'Poseidon2Trans', relationIndex: 13, numEdges: 11, inLen: 23, outLen: 21,
   entry: 'poseidon2_transition_entry_main', seed: 0x9051d0747a5170n,
-  shader: () => sm.gen_poseidon2_transition_entry_relation_test_shader(WG), build: pos2TransBuild, polyRef: pos2TransPolyRef,
+  globalEntityIndices: [0, 1, 2, 3, 63, 64, 65, 5, 6, 7, 61],
+  shader: (shared = false) => sm.gen_poseidon2_transition_entry_relation_test_shader(WG, shared), build: pos2TransBuild, polyRef: pos2TransPolyRef,
   skip: { kind: 'allZero', cols: [10] }, // q_poseidon2_transition_entry.is_zero()
 };
 
@@ -442,3 +456,52 @@ export const ALL_RELATIONS: RelationDescriptor[] = [
   memoryDescriptor, nnfDescriptor, eccDescriptor, databusDescriptor, pos2ExtDescriptor,
   pos2InitDescriptor, pos2QuadDescriptor, pos2QuadTermDescriptor, pos2TransDescriptor,
 ];
+
+// ---- Shared MegaFlavor witness (the resident column set in `shared` mode) ----
+//
+// The 14 relations above each list `numEdges` local entities; summed that is 185
+// per-relation columns. But all 14 read slices of ONE MegaFlavor witness of 67
+// entities (authoritative: cpp/.../flavor/mega_flavor.hpp cross-checked against the
+// WGSL relation templates) — 35 precomputed + 27 witness + 5 shifted. In `shared`
+// mode every relation reads one resident set of these 67 columns, gathering its
+// slice via its `globalEntityIndices`, so the resident column count drops 185 -> 67
+// (~2.76x). Canonical order: 62 unshifted entities [0..61], then the 5 shifted
+// entities [62..66]. Each *_shift is the +1 shift of its base (w_l..w_4, z_perm).
+export const GLOBAL_ENTITIES: readonly string[] = [
+  'w_l', 'w_r', 'w_o', 'w_4', 'q_m', 'q_l', 'q_r', 'q_o', 'q_4', 'q_c', 'q_arith', 'id_1',
+  'id_2', 'id_3', 'id_4', 'sigma_1', 'sigma_2', 'sigma_3', 'sigma_4', 'z_perm',
+  'lagrange_first', 'lagrange_last', 'table_1', 'table_2', 'table_3', 'table_4',
+  'lookup_inverses', 'lookup_read_counts', 'q_lookup', 'lookup_read_tags', 'q_delta_range',
+  'q_elliptic', 'q_memory', 'q_nnf', 'ecc_op_wire_1', 'ecc_op_wire_2', 'ecc_op_wire_3',
+  'ecc_op_wire_4', 'lagrange_ecc_op', 'databus_id', 'q_busread', 'calldata',
+  'calldata_inverses', 'calldata_read_counts', 'secondary_calldata',
+  'secondary_calldata_inverses', 'secondary_calldata_read_counts', 'third_app_calldata',
+  'third_app_calldata_inverses', 'third_app_calldata_read_counts', 'fourth_app_calldata',
+  'fourth_app_calldata_inverses', 'fourth_app_calldata_read_counts', 'return_data',
+  'return_data_inverses', 'return_data_read_counts', 'q_poseidon2_external',
+  'q_poseidon2_external_initial', 'q_5', 'q_poseidon2_quad_internal',
+  'q_poseidon2_quad_internal_terminal', 'q_poseidon2_transition_entry', 'w_l_shift',
+  'w_r_shift', 'w_o_shift', 'w_4_shift', 'z_perm_shift',
+];
+export const NUM_GLOBAL_ENTITIES = GLOBAL_ENTITIES.length;
+/** First global index of the 5 shifted entities (w_l_shift..z_perm_shift live at 62..66). */
+export const FIRST_SHIFT_ENTITY = NUM_GLOBAL_ENTITIES - 5;
+/** For each shifted entity, the global index of the base poly it is a +1 shift of. */
+export const SHIFT_BASE: Readonly<Record<number, number>> = {
+  62: 0, // w_l_shift -> w_l
+  63: 1, // w_r_shift -> w_r
+  64: 2, // w_o_shift -> w_o
+  65: 3, // w_4_shift -> w_4
+  66: 19, // z_perm_shift -> z_perm
+};
+
+// Sanity: every relation's globalEntityIndices must have one entry per local entity
+// and index inside the universe; the shared model is only correct if these line up.
+for (const desc of ALL_RELATIONS) {
+  if (desc.globalEntityIndices.length !== desc.numEdges) {
+    throw new Error(`${desc.id}: globalEntityIndices length ${desc.globalEntityIndices.length} != numEdges ${desc.numEdges}`);
+  }
+  for (const g of desc.globalEntityIndices) {
+    if (g < 0 || g >= NUM_GLOBAL_ENTITIES) throw new Error(`${desc.id}: global entity index ${g} out of range`);
+  }
+}
