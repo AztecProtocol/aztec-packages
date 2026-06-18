@@ -11,6 +11,7 @@ import {
   MAX_OPCODE_VALUE,
   Opcode,
   OperandType,
+  getInstructionSize,
   getOperandSize,
 } from '../avm/serialization/instruction_serialization.js';
 import { deployAndExecuteCustomBytecode, deployCustomBytecode } from './custom_bytecode_tester.js';
@@ -381,16 +382,6 @@ export async function setFieldOverflowTest(tester: PublicTxSimulationTester) {
 
   const txLabel = 'SetFieldOverflow';
   return await deployAndExecuteCustomBytecode(bytecode, tester, txLabel);
-}
-
-/**
- * Returns the total byte size of an instruction given its wire format (including the opcode byte).
- *
- * @param wireFormat array of operand types
- * @returns byte size of the instruction
- */
-function getInstructionSize(wireFormat: OperandType[]): number {
-  return wireFormat.reduce((size, operand) => size + getOperandSize(operand), 0);
 }
 
 /**
