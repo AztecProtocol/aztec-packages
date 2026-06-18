@@ -291,6 +291,7 @@ describe('Private Execution test suite', () => {
     keyStore = mock<KeyStore>();
     capsuleStore = mock<CapsuleStore>();
     entityStore = mock<EntityStore>();
+    entityStore.getEntities.mockResolvedValue([]);
     l2TipsStore = mock<L2TipsProvider>();
     privateEventStore = mock<PrivateEventStore>();
     senderAddressBookStore = mock<SenderAddressBookStore>();
