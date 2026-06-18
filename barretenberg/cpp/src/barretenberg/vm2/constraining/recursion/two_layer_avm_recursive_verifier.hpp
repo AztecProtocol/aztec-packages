@@ -226,7 +226,7 @@ class TwoLayerAvmRecursiveVerifier {
         inner_public_inputs.reserve(AVM_NUM_PUBLIC_INPUT_COLUMNS);
         for (const auto& public_input_column : public_inputs) {
             std::vector<MegaFF> inner_public_input_column;
-            inner_public_input_column.reserve(AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH);
+            inner_public_input_column.reserve(public_input_column.size());
             for (const auto& public_input : public_input_column) {
                 inner_public_input_column.push_back(MegaFF::from_witness(&inner_builder, public_input.get_value()));
             }

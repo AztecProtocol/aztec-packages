@@ -115,7 +115,7 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
     // Add public inputs to transcript. This ensures that the Sumcheck challenge depends both on the public inputs sent
     // in the clear and on the committed columns.
     for (size_t i = 0; i < AVM_NUM_PUBLIC_INPUT_COLUMNS; i++) {
-        if (public_inputs[i].size() != AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH) {
+        if (public_inputs[i].size() != AVM_PUBLIC_INPUTS_COLUMN_LENGTHS[i]) {
             throw_or_abort("AvmRecursiveVerifier::verify_proof: public input size mismatch");
         }
         for (size_t j = 0; j < public_inputs[i].size(); j++) {

@@ -618,6 +618,9 @@ namespace tx;
     sel_l2_l1_msg_append * (constants.AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX + prev_num_l2_to_l1_messages - write_pi_offset) = 0;
 
     #[WRITE_L2_L1_MSG]
+    // ONE-WAY write: only the active rows [0, length) are constrained. Rows [length, MAX) are left
+    // free by the AVM and are defensively zero-checked by the public base rollup
+    // (validate_avm_accumulated_data_padding). See public_inputs.pil's NOTE ON NON-MALLEABILITY.
     sel_l2_l1_msg_append { write_pi_offset, l2_l1_msg_recipient, l2_l1_msg_content, l2_l1_msg_contract_address } in
     public_inputs.sel { precomputed.idx, public_inputs.cols[0], public_inputs.cols[1], public_inputs.cols[2] };
 

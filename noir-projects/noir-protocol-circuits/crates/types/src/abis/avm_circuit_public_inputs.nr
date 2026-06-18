@@ -30,6 +30,8 @@ use crate::{
         AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX,
         AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX,
         AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX,
+        AVM_PUBLIC_INPUTS_COLUMN_0_LENGTH, AVM_PUBLIC_INPUTS_COLUMN_1_LENGTH,
+        AVM_PUBLIC_INPUTS_COLUMN_2_LENGTH, AVM_PUBLIC_INPUTS_COLUMN_3_LENGTH,
         AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH, AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH,
         AVM_PUBLIC_INPUTS_EFFECTIVE_GAS_FEES_ROW_IDX, AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX,
         AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_L1_TO_L2_MESSAGE_TREE_ROW_IDX,
@@ -108,7 +110,7 @@ pub struct AvmCircuitPublicInputs {
     // Outputs.
     pub end_tree_snapshots: TreeSnapshots,
     pub end_gas_used: Gas,
-    // TODO(avm): Use this to check zero-padded arrays in accumulated data
+    // Use to delimit active arrays in accumulated data. Padding is zero-checked by validate_avm_accumulated_data_padding().
     pub accumulated_data_array_lengths: AvmAccumulatedDataArrayLengths,
     pub accumulated_data: AvmAccumulatedData,
     pub transaction_fee: Field,
@@ -525,10 +527,25 @@ impl SerializeToColumns<AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH> for AvmCircui
         let mut flat = [0; AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH];
 
         let cols = self.to_columns();
-        for col in 0..AVM_NUM_PUBLIC_INPUT_COLUMNS {
-            for row in 0..AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH {
-                flat[col * AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH + row] = cols[col][row];
-            }
+
+        // Columns are concatenated back-to-back using each column's exact length, so the trailing
+        // zeros of the shorter columns (1-3) are omitted. Offsets are cumulative, not a uniform stride.
+        let col0_offset = 0;
+        let col1_offset = col0_offset + AVM_PUBLIC_INPUTS_COLUMN_0_LENGTH;
+        let col2_offset = col1_offset + AVM_PUBLIC_INPUTS_COLUMN_1_LENGTH;
+        let col3_offset = col2_offset + AVM_PUBLIC_INPUTS_COLUMN_2_LENGTH;
+
+        for row in 0..AVM_PUBLIC_INPUTS_COLUMN_0_LENGTH {
+            flat[col0_offset + row] = cols[0][row];
+        }
+        for row in 0..AVM_PUBLIC_INPUTS_COLUMN_1_LENGTH {
+            flat[col1_offset + row] = cols[1][row];
+        }
+        for row in 0..AVM_PUBLIC_INPUTS_COLUMN_2_LENGTH {
+            flat[col2_offset + row] = cols[2][row];
+        }
+        for row in 0..AVM_PUBLIC_INPUTS_COLUMN_3_LENGTH {
+            flat[col3_offset + row] = cols[3][row];
         }
 
         flat
@@ -551,6 +568,26 @@ fn flat_columns_of_empty_avm_circuit_public_inputs() {
     let flat = item.serialize_to_columns();
     // some assertion just to make sure it isn't optimized away
     assert(flat.len() == AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH);
+}
+
+// serialize_to_columns copies only rows [0, AVM_PUBLIC_INPUTS_COLUMN_i_LENGTH) of each column, so a
+// field written past a column's length is silently dropped (never bound by the proof). Maximally
+// populate every field (deserialize-from-ones, covering future fields too) and assert columns 1-3 are
+// zero beyond their lengths, so any such stray write fails loudly.
+#[test]
+fn to_columns_writes_nothing_beyond_per_column_length() {
+    let item = AvmCircuitPublicInputs::deserialize([1; AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH]);
+    let cols = item.to_columns();
+
+    for row in AVM_PUBLIC_INPUTS_COLUMN_1_LENGTH..AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH {
+        assert_eq(cols[1][row], 0, "col1 written beyond AVM_PUBLIC_INPUTS_COLUMN_1_LENGTH");
+    }
+    for row in AVM_PUBLIC_INPUTS_COLUMN_2_LENGTH..AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH {
+        assert_eq(cols[2][row], 0, "col2 written beyond AVM_PUBLIC_INPUTS_COLUMN_2_LENGTH");
+    }
+    for row in AVM_PUBLIC_INPUTS_COLUMN_3_LENGTH..AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH {
+        assert_eq(cols[3][row], 0, "col3 written beyond AVM_PUBLIC_INPUTS_COLUMN_3_LENGTH");
+    }
 }
 
 #[test]
@@ -621,10 +658,10 @@ fn flat_columns_of_avm_circuit_public_inputs() {
     let flat = item.serialize_to_columns();
 
     // Verify length
-    // Define column offsets
+    // Define column offsets (cumulative per-column lengths, not a uniform stride)
     let col0_offset = 0;
-    let col1_offset = col0_offset + AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH;
-    let col2_offset = col1_offset + AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH;
+    let col1_offset = col0_offset + AVM_PUBLIC_INPUTS_COLUMN_0_LENGTH;
+    let col2_offset = col1_offset + AVM_PUBLIC_INPUTS_COLUMN_1_LENGTH;
 
     // Verify serialized values are at the expected positions
 
