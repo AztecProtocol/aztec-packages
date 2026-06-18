@@ -30,10 +30,8 @@ namespace execution; // virtual to execution.pil
     discard * (1 - discard) = 0;
 
     pol commit dying_context_id; // The context_id of this context's oldest ancestor that fails. This is nonzero if and only if discard is 1.
-    // NOTE: soundness does NOT require dying_context_id to equal the *actual* failing context. In the tx-discard
-    // case (see "Case 3" in the Analysis of correctness at the bottom of this file) a prover may pick any nonzero
-    // value distinct from the nested-call context_ids; the discard raise/resolve constraints below still force a
-    // real failure, so the freedom is harmless.
+                                 // For the special "tx-discard" case (see "Case 3" in the Analysis of correctness at the bottom of this file)
+                                 // dying_context_id is mostly unconstrained (see below for details).
     pol commit dying_context_id_inv; // inverse of dying_context_id
     // 2. Discard being 1 implies nonzero dying context and vice versa
     // discard == 1 <=> dying_context_id != 0
