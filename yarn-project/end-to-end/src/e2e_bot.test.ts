@@ -25,9 +25,11 @@ import { PIPELINED_FEE_PADDING, PIPELINING_SETUP_OPTS } from './fixtures/fixture
 import { getPrivateKeyFromIndex, setup } from './fixtures/utils.js';
 
 // Tests the transaction bot implementations (transfer bot, AMM bot, cross-chain bot).
-// Uses setup(0, PIPELINING_SETUP_OPTS) with one node, production sequencer. The bot subsuites
-// for bridge-resume and cross-chain exercise active L1 interactions (fee juice bridging,
-// inbox drift via advanceInboxInProgress, L2→L1 messages).
+// Uses setup(0, PIPELINING_SETUP_OPTS + aztecProofSubmissionEpochs:640) with one node, production
+// sequencer (ethereumSlotDuration=4s, aztecSlotDuration=12s, proofSubEpochs=640, minTxsPerBlock=0;
+// aztecEpochDuration is the setup() default). The bridge-resume, setup-via-bridging, and
+// cross-chain-bot subsuites actively drive L1 cross-chain bridging: fee-juice portal deposits,
+// advanceInboxInProgress, and L2→L1 messages via CrossChainBot.
 describe('e2e_bot', () => {
   let wallet: EmbeddedWallet;
   let aztecNode: AztecNode;

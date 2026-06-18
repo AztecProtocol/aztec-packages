@@ -35,7 +35,10 @@ import { proveInteraction } from './test-wallet/utils.js';
 
 // Tests block building mechanics under the production sequencer with pipelining:
 // multi-tx blocks, double-spend rejection, log ordering, regressions, and L1 reorgs.
-// Uses setup() with PIPELINING_SETUP_OPTS. CI job has TIMEOUT=25m.
+// Uses setup() with PIPELINING_SETUP_OPTS (ethereumSlotDuration=4s, aztecSlotDuration=12s,
+// minTxsPerBlock=0; aztecEpochDuration and aztecProofSubmissionEpochs are setup() defaults).
+// The `reorgs` describe uses RollupCheatCodes (advanceToNextEpoch, markAsProven, advanceToEpoch)
+// — other-active L1, not cross-chain bridging. CI job has TIMEOUT=25m.
 describe('e2e_block_building', () => {
   jest.setTimeout(20 * 60 * 1000); // 20 minutes
 
