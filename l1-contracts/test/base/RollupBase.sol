@@ -155,6 +155,9 @@ contract RollupBase is DecoderBase {
     full.checkpoint.header.gasFees.feePerL2Gas = minFee;
     full.checkpoint.header.totalManaUsed = _manaUsed;
     full.checkpoint.header.accumulatedFees = _manaUsed * minFee;
+    // Sequencer rewards are credited to the verified header's coinbase, so pin it to a known address tests can assert
+    // on.
+    full.checkpoint.header.coinbase = address(bytes20("sequencer"));
 
     checkpointFees[full.checkpoint.checkpointNumber] = _manaUsed * minFee;
 
