@@ -459,6 +459,7 @@ contract RollupTest is RollupBase {
 
       // We mess up the fees and say that someone is paying a massive priority which surpass the amount available.
       interim.feeAmount = interim.manaUsed * interim.minFee + interim.portalBalance;
+      header.accumulatedFees = interim.feeAmount;
 
       // Assert that balance have NOT been increased by proposing the checkpoint
       ProposeArgs memory args = ProposeArgs({header: header, archive: data.archive, oracleInput: OracleInput(0)});
@@ -469,6 +470,8 @@ contract RollupTest is RollupBase {
         attestationsAndSignersSignature,
         data.blobCommitments
       );
+
+      proposedHeaders[1] = header;
       assertEq(testERC20.balanceOf(header.coinbase), 0, "invalid coinbase balance");
     }
 
@@ -487,17 +490,7 @@ contract RollupTest is RollupBase {
           interim.feeAmount
         )
       );
-      _submitEpochProof(
-        1,
-        1,
-        checkpoint.archive,
-        data.archive,
-        data.batchedBlobInputs,
-        data.header.outHash,
-        prover,
-        header.coinbase,
-        interim.feeAmount
-      );
+      _submitEpochProof(1, 1, checkpoint.archive, data.archive, data.batchedBlobInputs, data.header.outHash, prover);
     }
     assertEq(testERC20.balanceOf(header.coinbase), 0, "invalid coinbase balance");
     assertEq(rollup.getSequencerRewards(header.coinbase), 0, "invalid sequencer rewards");
@@ -510,15 +503,7 @@ contract RollupTest is RollupBase {
 
       // When the checkpoint is proven we should have received the funds
       _submitEpochProof(
-        1,
-        1,
-        checkpoint.archive,
-        data.archive,
-        data.batchedBlobInputs,
-        data.header.outHash,
-        address(42),
-        header.coinbase,
-        interim.feeAmount
+        1, 1, checkpoint.archive, data.archive, data.batchedBlobInputs, data.header.outHash, address(42)
       );
 
       {
@@ -897,7 +882,7 @@ contract RollupTest is RollupBase {
     bytes memory _blobInputs,
     bytes32 _outHash
   ) internal {
-    _submitEpochProof(_start, _end, _prevArchive, _archive, _blobInputs, _outHash, address(0), address(0), 0);
+    _submitEpochProof(_start, _end, _prevArchive, _archive, _blobInputs, _outHash, address(0));
   }
 
   function _submitEpochProof(
@@ -907,24 +892,24 @@ contract RollupTest is RollupBase {
     bytes32 _archive,
     bytes memory _blobInputs,
     bytes32 _outHash,
-    address _prover,
-    address _coinbase,
-    uint256 _fee
+    address _prover
   ) internal {
     PublicInputArgs memory args = PublicInputArgs({
       previousArchive: _prevArchive, endArchive: _archive, outHash: _outHash, proverId: _prover
     });
 
-    bytes32[] memory fees = new bytes32[](Constants.MAX_CHECKPOINTS_PER_EPOCH * 2);
-    fees[0] = bytes32(uint256(uint160(bytes20(_coinbase)))); // Need the address to be left padded within the bytes32
-    fees[1] = bytes32(_fee);
+    uint256 size = _end - _start + 1;
+    ProposedHeader[] memory headers = new ProposedHeader[](size);
+    for (uint256 i = 0; i < size; i++) {
+      headers[i] = proposedHeaders[_start + i];
+    }
 
     rollup.submitEpochRootProof(
       SubmitEpochRootProofArgs({
         start: _start,
         end: _end,
         args: args,
-        fees: fees,
+        headers: headers,
         attestations: CommitteeAttestations({signatureIndices: "", signaturesOrAddresses: ""}),
         blobInputs: _blobInputs,
         proof: ""
