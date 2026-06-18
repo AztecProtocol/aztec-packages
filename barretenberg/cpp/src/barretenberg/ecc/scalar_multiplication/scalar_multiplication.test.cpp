@@ -518,6 +518,65 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
         }
     }
 
+    /**
+     * @brief Pin the concurrent small-member dispatch in the batch driver.
+     *
+     *        ECCVM-shaped batch: many MSMs at or below SMALL_MSM_BATCH_THRESHOLD (run
+     *        one-per-worker with a thread-capped pipeline out of per-worker arenas, the
+     *        dedup-hinted members exercising Phase A at num_threads=1) mixed with
+     *        boundary-size and large members that stay on the sequential shared-arena
+     *        path.
+     */
+    void test_batch_multi_scalar_mul_small_member_dispatch()
+    {
+        std::vector<size_t> sizes;
+        for (size_t k = 0; k < 24; ++k) {
+            sizes.push_back(600 + (257 * k));
+        }
+        sizes.push_back(scalar_multiplication::SMALL_MSM_BATCH_THRESHOLD);
+        sizes.push_back(scalar_multiplication::SMALL_MSM_BATCH_THRESHOLD + 1);
+        sizes.push_back(16384);
+        const size_t num_msms = sizes.size();
+
+        const uint256_t high_bit(0, 0, 0, uint64_t{ 1 } << (200 - 192));
+        std::vector<AffineElement> expected(num_msms);
+        std::vector<std::vector<ScalarField>> batch_scalars(num_msms);
+        std::vector<PolynomialSpan<ScalarField>> batch_scalars_spans;
+        std::vector<uint32_t> dedup_infos(num_msms, 0);
+
+        for (size_t k = 0; k < num_msms; ++k) {
+            const size_t n = sizes[k];
+            batch_scalars[k].resize(n);
+            const bool dup_heavy = (k % 3 == 0);
+            uint32_t dup_count = 0;
+            for (size_t i = 0; i < n; ++i) {
+                if (k % 5 == 4 && i % 3 != 0) {
+                    batch_scalars[k][i] = ScalarField::zero();
+                } else if (dup_heavy) {
+                    // Runs of 8 equal dedup-eligible values (msb >= any window the dispatch picks).
+                    batch_scalars[k][i] = ScalarField(high_bit + uint256_t((i / 8) + 1));
+                    dup_count += static_cast<uint32_t>(i % 8 != 0);
+                } else {
+                    batch_scalars[k][i] = scalars[((k * 31) + i) % num_points];
+                }
+            }
+            if (dup_heavy) {
+                // Alternate measured-count and bare (no-estimate) hints through the channel.
+                dedup_infos[k] = (k % 2 == 0) ? dup_count : uint32_t{ 1 };
+            }
+            std::span<const AffineElement> pts(&generators[0], n);
+            batch_scalars_spans.emplace_back(0, std::span<ScalarField>(batch_scalars[k]));
+            expected[k] = naive_msm(batch_scalars[k], pts);
+        }
+
+        std::vector<AffineElement> result = scalar_multiplication::MSM<Curve>::batch_multi_scalar_mul(
+            generators, batch_scalars_spans, /*handle_edge_cases=*/false, dedup_infos);
+
+        for (size_t k = 0; k < num_msms; ++k) {
+            EXPECT_EQ(result[k], expected[k]) << "MSM " << k << " (n=" << sizes[k] << ") mismatched";
+        }
+    }
+
     void test_msm()
     {
         const size_t start_index = 1234;
@@ -1621,7 +1680,7 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
         std::vector<std::vector<ScalarField>> scalar_copies(num_msms);
         std::vector<PolynomialSpan<ScalarField>> spans;
         std::vector<AffineElement> expected(num_msms);
-        std::vector<uint8_t> dedup_hints(num_msms, 0);
+        std::vector<uint32_t> dedup_hints(num_msms, 0);
 
         size_t offset = 0;
         for (size_t k = 0; k < num_msms; ++k) {
@@ -1634,7 +1693,7 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
                 batch_scalars[k][i] = all_zero ? ScalarField::zero() : scalars[offset + i];
                 scalar_copies[k][i] = batch_scalars[k][i];
             }
-            dedup_hints[k] = static_cast<uint8_t>((k % 2 == 0) ? 1 : 0);
+            dedup_hints[k] = (k % 2 == 0) ? 1U : 0U;
             spans.emplace_back(offset, std::span<ScalarField>(batch_scalars[k]));
             std::span<const AffineElement> pts(&generators[offset], n);
             expected[k] = naive_msm(batch_scalars[k], pts);
@@ -1642,7 +1701,7 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
         }
 
         std::vector<AffineElement> result = scalar_multiplication::MSM<Curve>::batch_multi_scalar_mul(
-            generators, spans, handle_edge_cases, std::span<const uint8_t>(dedup_hints));
+            generators, spans, handle_edge_cases, std::span<const uint32_t>(dedup_hints));
 
         ASSERT_EQ(result.size(), num_msms);
         for (size_t k = 0; k < num_msms; ++k) {
@@ -1757,6 +1816,10 @@ TYPED_TEST(ScalarMultiplicationTest, BatchMultiScalarMulLargeDense)
 TYPED_TEST(ScalarMultiplicationTest, BatchMultiScalarMulRagged)
 {
     this->test_batch_multi_scalar_mul_ragged();
+}
+TYPED_TEST(ScalarMultiplicationTest, BatchMultiScalarMulSmallMemberDispatch)
+{
+    this->test_batch_multi_scalar_mul_small_member_dispatch();
 }
 TYPED_TEST(ScalarMultiplicationTest, MSM)
 {
@@ -2091,9 +2154,8 @@ template <class Curve> class WindowSplitDispatchTest : public ::testing::Test {
         check_against_naive(ss, pts);
     }
 
-    // Correctness pin for the adaptive window dispatch: an all-sub-2^160 distribution checked
-    // bitwise against the naive MSM. A divergence points to a schedule-layout or bucket-range
-    // bookkeeping bug.
+    // Coverage at the 160-bit magnitude boundary: scalars below 2^160 exercise the GLV lattice
+    // reduction and window decomposition for non-trivial-msb inputs, checked against the naive MSM.
     void test_force_split_bitwise_identity()
     {
         auto pts = make_points(kN);

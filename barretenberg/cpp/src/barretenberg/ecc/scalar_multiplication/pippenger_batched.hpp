@@ -16,8 +16,8 @@ namespace round_parallel_detail {
 
 // One per shared-SRS-prefix group. Membership is keyed on identical
 // `point_arrays[m].data()` pointers — that is the actual sharing relation
-// `commit_to_wires` exposes. Lives for one batch-commit call: the GLV-doubled buffer is a local
-// `unique_ptr` (`master_doubled_owner`), recomputed per batch and freed at return.
+// `commit_to_wires` exposes. Lives for one `pippenger_round_parallel_batched`
+// call: the GLV-doubled buffer is recomputed per batch and freed at return.
 template <typename Curve> struct BatchMsmGlvGroup {
     const typename Curve::AffineElement* base_ptr = nullptr; // SRS prefix pointer
     size_t group_max_n = 0;                                  // max n_input across MSMs in this group
@@ -38,7 +38,7 @@ template <typename Curve>
 void pippenger_round_parallel_batched(std::span<std::span<typename Curve::ScalarField>> scalar_arrays,
                                       std::span<std::span<const typename Curve::AffineElement>> point_arrays,
                                       std::vector<typename Curve::Element>& out_results,
-                                      std::span<const uint8_t> dedup_hints = {}) noexcept
+                                      std::span<const uint32_t> dedup_infos = {}) noexcept
 {
     using AffineElement = typename Curve::AffineElement;
     using ScalarField = typename Curve::ScalarField;
@@ -50,7 +50,7 @@ void pippenger_round_parallel_batched(std::span<std::span<typename Curve::Scalar
     BB_ASSERT_EQ(point_arrays.size(), K);
     out_results.assign(K, Curve::Group::point_at_infinity);
 
-    auto hint_for = [&](size_t m) noexcept -> bool { return m < dedup_hints.size() && dedup_hints[m] != 0; };
+    auto info_for = [&](size_t m) noexcept -> size_t { return m < dedup_infos.size() ? dedup_infos[m] : 0; };
 
     if (K == 0) {
         return;
@@ -61,7 +61,7 @@ void pippenger_round_parallel_batched(std::span<std::span<typename Curve::Scalar
             return;
         }
         PolynomialSpan<const ScalarField> sp(0, std::span<const ScalarField>(scalar_arrays[0].data(), n));
-        out_results[0] = pippenger_round_parallel<Curve>(sp, point_arrays[0], hint_for(0));
+        out_results[0] = pippenger_round_parallel<Curve>(sp, point_arrays[0], info_for(0));
         return;
     }
 
@@ -175,24 +175,59 @@ void pippenger_round_parallel_batched(std::span<std::span<typename Curve::Scalar
         }
     }
 
-    // Shared dynamically-sized arena for all per-MSM_fast internal calls. Sized to the max
-    // requirement across the batch so each MSM_fast finds enough space. Single allocation
-    // across the batch (vs one per MSM_fast if we passed {} down). Freed at return.
-    // dedup_active varies per MSM_fast (gated by per-MSM_fast hint), so the budget query must
-    // mirror the predicate used inside pippenger_round_parallel.
-    size_t shared_arena_bytes = 0;
+    // Split members by size. Small MSMs (≤ SMALL_MSM_BATCH_THRESHOLD points) dispatch
+    // one-per-pool-worker with a single-threaded (max_threads=1) pipeline: at a few
+    // thousand points per member, the sequential path's per-stage parallel_for barriers
+    // and understuffed per-thread chunks cost more than the parallelism returns (the
+    // ECCVM wires batch — ~86 MSMs of 1k-7k points spanning the transcript/precompute/
+    // msm trace tables — ran at ~47% parallel efficiency). Large members keep the
+    // sequential internally-parallel dispatch: for them, interleaving would K-multiply
+    // the per-thread working set (see the header comment).
+    const size_t pool_width = bb::get_num_cpus();
+    std::vector<size_t> small_members;
+    std::vector<size_t> large_members;
+    small_members.reserve(K);
+    large_members.reserve(K);
     for (size_t m = 0; m < K; ++m) {
         if (n_input[m] == 0) {
             continue;
         }
+        if (pool_width > 1 && n_input[m] <= SMALL_MSM_BATCH_THRESHOLD) {
+            small_members.push_back(m);
+        } else {
+            large_members.push_back(m);
+        }
+    }
+    if (small_members.size() < 2) {
+        // A lone small member gains nothing from the concurrent path; keep it on the
+        // shared-arena sequential dispatch.
+        large_members.insert(large_members.end(), small_members.begin(), small_members.end());
+        std::sort(large_members.begin(), large_members.end());
+        small_members.clear();
+    }
+
+    auto external_glv_for = [&](size_t m, size_t n) noexcept -> std::span<const AffineElement> {
         const size_t g = msm_to_group[m];
-        const bool ext_glv =
-            g != std::numeric_limits<size_t>::max() && group_uses_glv[g] && !glv_groups[g].doubled.empty();
+        if (g != std::numeric_limits<size_t>::max() && group_uses_glv[g] && !glv_groups[g].doubled.empty()) {
+            // First 2*n entries of the group's interleaved doubled buffer are this MSM's GLV view,
+            // valid for any n <= Nmax (see BatchMsmGlvGroup::doubled for the layout).
+            return { glv_groups[g].doubled.data(), 2 * n };
+        }
+        return {};
+    };
+
+    // Shared dynamically-sized arena for the sequential (large-member) calls. Sized to
+    // the max requirement across those members so each MSM_fast finds enough space; a
+    // single allocation across the batch (vs one per MSM_fast if we passed {} down).
+    // dedup_active varies per MSM_fast (gated by per-MSM_fast hint), so the budget query must
+    // mirror the predicate used inside pippenger_round_parallel.
+    size_t shared_arena_bytes = 0;
+    for (size_t m : large_members) {
+        const bool ext_glv = !external_glv_for(m, n_input[m]).empty();
         // The internal short-circuits to trivial_msm_threaded for tiny MSMs, so the hint
         // alone is the right arena-sizing predicate (over-sizing for a path that bails
         // is harmless — under-sizing would crash).
-        const bool dedup_active_m = hint_for(m);
-        const size_t bytes = compute_arena_bytes_for_msm<Curve>(n_input[m], ext_glv, dedup_active_m);
+        const size_t bytes = compute_arena_bytes_for_msm<Curve>(n_input[m], ext_glv, info_for(m));
         shared_arena_bytes = std::max(shared_arena_bytes, bytes);
     }
     std::unique_ptr<std::byte[]> shared_arena_owner; // NOLINT(cppcoreguidelines-avoid-c-arrays)
@@ -203,26 +238,54 @@ void pippenger_round_parallel_batched(std::span<std::span<typename Curve::Scalar
         shared_arena = std::span<std::byte>(shared_arena_owner.get(), shared_arena_bytes);
     }
 
-    // Per-MSM_fast dispatch. Each call runs the full single-MSM_fast pipeline (its own from-Mont and
-    // to-Mont, schedule, Stage 1-6b). The only batched amortisation we share is the doubled
-    // SRS prefix above; the rest of the hot path runs at single-MSM_fast cost.
-    for (size_t m = 0; m < K; ++m) {
+    // Concurrent small-member dispatch: workers pull members off an atomic cursor and run
+    // each with a thread-capped pipeline (max_threads=1, so the member never re-enters the
+    // pool) out of a per-worker arena sized for the capped layout. The GLV-doubled buffer
+    // is read-only and shared across workers.
+    if (!small_members.empty()) {
+        BB_BENCH_NAME("MSM_fast::pippenger_round_parallel_batched/small_members");
+        size_t small_arena_bytes = 0;
+        for (size_t m : small_members) {
+            const bool ext_glv = !external_glv_for(m, n_input[m]).empty();
+            const size_t bytes =
+                compute_arena_bytes_for_msm<Curve>(n_input[m], ext_glv, info_for(m), /*max_threads=*/1);
+            small_arena_bytes = std::max(small_arena_bytes, bytes);
+        }
+        const size_t num_workers = std::min(pool_width, small_members.size());
+        std::unique_ptr<std::byte[]> small_arena_owner; // NOLINT(cppcoreguidelines-avoid-c-arrays)
+        if (small_arena_bytes > 0) {
+            small_arena_owner = std::make_unique_for_overwrite<std::byte[]>(
+                num_workers * small_arena_bytes); // NOLINT(cppcoreguidelines-avoid-c-arrays)
+        }
+        std::atomic<size_t> next_member{ 0 };
+        bb::parallel_for(num_workers, [&](size_t tid) {
+            std::span<std::byte> worker_arena;
+            if (small_arena_bytes > 0) {
+                worker_arena = { small_arena_owner.get() + (tid * small_arena_bytes), small_arena_bytes };
+            }
+            while (true) {
+                const size_t s = next_member.fetch_add(1, std::memory_order_relaxed);
+                if (s >= small_members.size()) {
+                    break;
+                }
+                const size_t m = small_members[s];
+                const size_t n = n_input[m];
+                PolynomialSpan<const ScalarField> sp(0, std::span<const ScalarField>(scalar_arrays[m].data(), n));
+                out_results[m] = pippenger_round_parallel<Curve>(
+                    sp, point_arrays[m], info_for(m), external_glv_for(m, n), worker_arena, /*max_threads=*/1);
+            }
+        });
+    }
+
+    // Sequential large-member dispatch. Each call runs the full single-MSM_fast pipeline (its
+    // own from-Mont and to-Mont, schedule, Stage 1-6b) at full pool width. The only batched
+    // amortisation we share is the doubled SRS prefix above; the rest of the hot path runs
+    // at single-MSM_fast cost.
+    for (size_t m : large_members) {
         const size_t n = n_input[m];
-        if (n == 0) {
-            continue;
-        }
         PolynomialSpan<const ScalarField> sp(0, std::span<const ScalarField>(scalar_arrays[m].data(), n));
-
-        const size_t g = msm_to_group[m];
-        std::span<const AffineElement> external_glv;
-        if (g != std::numeric_limits<size_t>::max() && group_uses_glv[g]) {
-            // `group.doubled` is interleaved `[P_0, φP_0, …]` of length 2*Nmax. The
-            // first 2*n entries are exactly the per-MSM_fast `[P_0, φP_0, …, P_{n-1}, φP_{n-1}]`
-            // view, regardless of whether n == Nmax (uniform batch) or n < Nmax (ragged).
-            external_glv = std::span<const AffineElement>(glv_groups[g].doubled.data(), 2 * n);
-        }
-
-        out_results[m] = pippenger_round_parallel<Curve>(sp, point_arrays[m], hint_for(m), external_glv, shared_arena);
+        out_results[m] =
+            pippenger_round_parallel<Curve>(sp, point_arrays[m], info_for(m), external_glv_for(m, n), shared_arena);
     }
 }
 } // namespace
@@ -232,7 +295,7 @@ std::vector<typename Curve::AffineElement> MSM_fast<Curve>::batch_multi_scalar_m
     std::span<const typename Curve::AffineElement> points,
     std::span<PolynomialSpan<typename Curve::ScalarField>> scalars,
     bool handle_edge_cases,
-    std::span<const uint8_t> dedup_hints) noexcept
+    std::span<const uint32_t> dedup_infos) noexcept
 {
     BB_BENCH_NAME("MSM_fast::batch_multi_scalar_mul");
     const size_t k = scalars.size();
@@ -253,7 +316,7 @@ std::vector<typename Curve::AffineElement> MSM_fast<Curve>::batch_multi_scalar_m
         scalar_subspans.push_back(scalars[i].span);
     }
 
-    auto hint_for = [&](size_t m) noexcept -> bool { return m < dedup_hints.size() && dedup_hints[m] != 0; };
+    auto info_for = [&](size_t m) noexcept -> size_t { return m < dedup_infos.size() ? dedup_infos[m] : 0; };
 
     if (handle_edge_cases) {
         std::vector<AffineElement> results(k);
@@ -262,13 +325,13 @@ std::vector<typename Curve::AffineElement> MSM_fast<Curve>::batch_multi_scalar_m
             PolynomialSpan<const ScalarField> scalar_span(0,
                                                           std::span<const ScalarField>(scalar_subspans[i].data(), n));
             results[i] =
-                AffineElement(pippenger_fast<Curve>(scalar_span, point_subspans[i], handle_edge_cases, hint_for(i)));
+                AffineElement(pippenger_fast<Curve>(scalar_span, point_subspans[i], handle_edge_cases, info_for(i)));
         }
         return results;
     }
 
     std::vector<typename Curve::Element> per_msm_jac;
-    pippenger_round_parallel_batched<Curve>(scalar_subspans, point_subspans, per_msm_jac, dedup_hints);
+    pippenger_round_parallel_batched<Curve>(scalar_subspans, point_subspans, per_msm_jac, dedup_infos);
 
     std::vector<AffineElement> results(k);
     for (size_t i = 0; i < k; ++i) {
