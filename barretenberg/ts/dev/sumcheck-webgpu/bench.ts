@@ -456,6 +456,118 @@ export async function runMultiPassBenchmark(
   return rows;
 }
 
+export interface SsHybridRow {
+  logN: number; // d = total sumcheck rounds
+  threshold: number; // T: sizes with d <= T run pure WASM; otherwise the last T rounds are the WASM tail
+  gpuRounds: number; // k = max(0, d - T): rounds run on the single-submission WebGPU front
+  setupMs: number; // one-time front setup (column upload + GPU beta_products scan + constants); 0 when pure WASM
+  gpuFrontMs: number; // wall for the k single-submission GPU rounds (excludes setup); 0 when pure WASM
+  handoffMs: number; // readback of the folded columns at the GPU->WASM handoff (length 2^T); 0 when pure WASM
+  wasmTailMs: number | null; // WASM time for the T-round tail (== full WASM when pure WASM)
+  hybridMs: number | null; // gpuFrontMs + handoffMs + wasmTailMs (setup excluded, like the multi-pass bench); == fullWasm when pure WASM
+  fullWasmMs: number | null; // baseline: full d-round WASM
+  speedup: number | null; // fullWasmMs / hybridMs (>1 => the split beats full WASM)
+}
+
+/**
+ * Single-submission threshold hybrid sweep — the SINGLE-SUBMISSION analogue of
+ * `runMultiPassBenchmark`. A WASM-fallback threshold `T` splits each size:
+ *
+ *   - d <= T: the whole sumcheck runs on WASM (no GPU); reported time IS full WASM,
+ *     so the speedup is 1.00x by construction.
+ *   - d  > T: the first k = d - T rounds run on the SINGLE-SUBMISSION WebGPU engine —
+ *     the whole k-round front (accumulate -> reduce -> batch -> on-GPU Poseidon2
+ *     Fiat-Shamir -> fold) in ONE command buffer with no per-round CPU<->GPU
+ *     round-trip — folding every column down to a 2^T hypercube; those folded columns
+ *     are read back (the handoff) and the WASM prover finishes the last T rounds.
+ *
+ * Sumcheck is recursive, so the T-round tail has the per-round cost of a fresh
+ * T-round sumcheck and is timed with `SumcheckBench(d - k = T)` — no resume command or
+ * wasm rebuild. The GPU->WASM column handoff readback is timed and reported. As in the
+ * multi-pass bench, the hybrid total EXCLUDES the one-time column upload (`setupMs`),
+ * which is reported separately, so a row is directly comparable to the multi-pass
+ * benchmark at the same threshold (same split, different GPU engine). Every size also
+ * times full WASM as the baseline. Timing-only: correctness of the GPU front is
+ * covered by the Testing tab's single-submission suite (GPU vs CPU reference).
+ */
+export async function runSingleSubmitHybridBenchmark(
+  device: GPUDevice,
+  logNs: number[],
+  threshold: number,
+  log: Logger,
+  onRow?: (row: SsHybridRow) => void,
+): Promise<SsHybridRow[]> {
+  const alpha = makeRng(0xb0_07_5eedn)();
+  const foldRunner: FoldRunner = await makeFoldRunner(device);
+  const reduceRunner: ReduceRunner = await makeReduceRunner(device);
+  const ssShared = {
+    cache: new Map() as PipelineCache,
+    foldRunner,
+    reduceRunner,
+    batch: await makeBatchRunner(device),
+    transcript: await makeTranscriptRunner(device),
+  };
+  const wasm = await initWasm(log);
+  if (wasm) log('info', '  WASM backend ready (bb.js threads)');
+
+  // Warmup the FULL pipeline at the smallest GPU-using size (d > threshold) so every
+  // shader (accumulate, reduce, batch, transcript, gate-separator scan/gather, fold)
+  // compiles into the cache and per-size timing excludes compilation.
+  const gpuSizes = logNs.filter(d => d > threshold);
+  if (gpuSizes.length) {
+    const wn = 1 << Math.min(...gpuSizes);
+    const warm = buildInputs(wn);
+    const wb = Array.from({ length: Math.round(Math.log2(wn)) }, (_, i) => makeRng(0x1234n + BigInt(i))());
+    await runSingleSubmitSumcheck(device, wn, alpha, wb, warm.relParamBytes, warm.initColBytes, ssShared);
+  }
+
+  const rows: SsHybridRow[] = [];
+  for (const logN of logNs) {
+    const n = 1 << logN;
+    const k = Math.max(0, logN - threshold);
+    const fullWasmMs = await runWasmSumcheck(wasm, logN);
+
+    let setupMs = 0, gpuFrontMs = 0, handoffMs = 0;
+    let wasmTailMs: number | null;
+    let hybridMs: number | null;
+    if (k === 0) {
+      // Pure WASM: the split run IS the full-WASM run, so reuse the baseline.
+      wasmTailMs = fullWasmMs;
+      hybridMs = fullWasmMs;
+    } else {
+      const betas = Array.from({ length: logN }, (_, i) => makeRng(0xbe7a_77n + BigInt(i))());
+      const { initColBytes, relParamBytes } = buildInputs(n);
+      const front = await runSingleSubmitSumcheck(
+        device, n, alpha, betas, relParamBytes, initColBytes, ssShared, WG, false, k,
+      );
+      setupMs = front.setupMs;
+      gpuFrontMs = front.totalMs;
+      handoffMs = front.finalReadbackMs;
+      wasmTailMs = await runWasmSumcheck(wasm, logN - k);
+      hybridMs = wasmTailMs === null ? null : gpuFrontMs + handoffMs + wasmTailMs;
+    }
+    const speedup =
+      hybridMs !== null && hybridMs > 0 && fullWasmMs !== null ? fullWasmMs / hybridMs : null;
+    const row: SsHybridRow = {
+      logN, threshold, gpuRounds: k, setupMs, gpuFrontMs, handoffMs, wasmTailMs, hybridMs, fullWasmMs, speedup,
+    };
+    rows.push(row);
+    onRow?.(row);
+    const split = k === 0 ? 'WASM only' : `SS-GPU ${k}r + WASM ${logN - k}r`;
+    log(
+      'ok',
+      k === 0
+        ? `  2^${logN} · ${split}: WASM ${fullWasmMs === null ? '—' : fullWasmMs.toFixed(1) + ' ms'}`
+        : `  2^${logN} · ${split}: setup ${setupMs.toFixed(1)} + GPU ${gpuFrontMs.toFixed(1)} + handoff ${handoffMs.toFixed(1)} + ` +
+            `WASM ${wasmTailMs === null ? '—' : wasmTailMs.toFixed(1)} = ${hybridMs === null ? '—' : hybridMs.toFixed(1)} ms` +
+            ` · full WASM ${fullWasmMs === null ? '—' : fullWasmMs.toFixed(1)} ms` +
+            `${speedup === null ? '' : `  →  ${speedup.toFixed(2)}× vs WASM`}`,
+    );
+  }
+  await wasm?.destroy();
+  return rows;
+}
+
 export interface MultiProfileData {
   logN: number;
   accumulateMs: number;

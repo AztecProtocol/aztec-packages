@@ -18,12 +18,12 @@
 // GPU-derived challenges) and the standalone batch / poseidon2 suites.
 
 import {
-  makeFoldRunner, makeReduceRunner, encodeColumnsToBytes, type FoldRunner, type ReduceRunner,
+  makeFoldRunner, makeReduceRunner, makeScanRunner, makeGatherRunner, encodeColumnsToBytes,
+  type FoldRunner, type ReduceRunner, type KernelRunner,
 } from './gpu_pipeline.js';
 import { buildBatchConsts } from './batch_gpu.js';
 import { poseidon2ConstBytes, POSEIDON2_IV_9, p2ParamsBytes } from './poseidon2_gpu.js';
 import { initWasm, runWasmSumcheck } from './bench.js';
-import { computeBetaProducts } from '../../src/msm_webgpu/gate_separator.js';
 import { NUM_RELATIONS } from '../../src/msm_webgpu/accumulator.js';
 import { ALL_RELATIONS } from './descriptors.js';
 import {
@@ -49,11 +49,18 @@ function u32x4(a: number, b = 0, c = 0, d = 0): Uint8Array {
 const frBytes = (x: bigint): Uint8Array => { const o = new Uint8Array(32); writeLe32(o, 0, toMont(mod(x))); return o; };
 
 export interface SingleSubmitResult {
-  univariates: bigint[][]; // d round univariates (GPU batch output)
-  challenges: bigint[];    // d GPU-derived Fiat-Shamir challenges
+  univariates: bigint[][]; // rounds round univariates (GPU batch output)
+  challenges: bigint[];    // rounds GPU-derived Fiat-Shamir challenges
+  // Resident columns after `rounds` folds: length-1 for a full run (the
+  // purported-value anchor), or the partially-folded columns (length 2^(d-rounds))
+  // for a k-round front — the GPU->WASM handoff payload in the hybrid bench.
   finalColBytes: Uint8Array[];
-  gpuMs: number;   // submit + the single readback await
+  gpuMs: number;   // submit + the univariate/challenge readback await
   totalMs: number; // rounds wall (encode + submit + readback + decode)
+  // Wall for the trailing readback of the resident columns (handoff payload). For a
+  // full run this is the tiny length-1 anchor; for a k-round front it is the
+  // GPU->WASM handoff of the folded columns at length 2^(d-rounds).
+  finalReadbackMs: number;
   setupMs: number; // one-time host precompute (schedule, matrices, constants, uploads)
   // Per-kernel GPU timing across ALL rounds (only when `profile` is set and the
   // device has timestamp-query): one entry per dispatch labelled by kernel type
@@ -78,13 +85,19 @@ export async function makeBatchRunner(device: GPUDevice) {
   const pipeline = await create_compute_pipeline(device, [layout], sm.gen_batch_test_shader(WG), 'batch_main', 'batch_main');
   return { layout, pipeline };
 }
-export async function makeTranscriptRunner(device: GPUDevice) {
+// The GPU Fiat-Shamir transcript runner. `parallel` (default) uses the lane-parallel
+// Poseidon2 kernel (@workgroup_size(4), one thread per state lane) which cuts the
+// formerly serial (@workgroup_size(1)) transcript — the single-largest single-
+// submission GPU cost. Both kernels share the exact bindings + single-workgroup
+// dispatch and are cross-checked against the CPU Poseidon2 reference by the
+// poseidon2 suite; `parallel=false` selects the serial reference kernel.
+export async function makeTranscriptRunner(device: GPUDevice, parallel = true) {
   const layout = create_bind_group_layout(device, [
     'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage', 'read-only-storage', 'uniform',
   ]);
-  const pipeline = await create_compute_pipeline(
-    device, [layout], sm.gen_poseidon2_transcript_test_shader(WG), 'poseidon2_transcript_main', 'poseidon2_transcript_main',
-  );
+  const code = parallel ? sm.gen_poseidon2_transcript_par_test_shader(WG) : sm.gen_poseidon2_transcript_test_shader(WG);
+  const entry = parallel ? 'poseidon2_transcript_par_main' : 'poseidon2_transcript_main';
+  const pipeline = await create_compute_pipeline(device, [layout], code, entry, entry);
   return { layout, pipeline };
 }
 
@@ -98,13 +111,26 @@ export async function runSingleSubmitSumcheck(
   shared?: Shared,
   accWG: number = WG,
   profile = false,
+  maxRounds?: number,
 ): Promise<SingleSubmitResult> {
   const d = Math.round(Math.log2(n));
+  // `maxRounds` (default d) stops the single-command-buffer run after that many
+  // rounds and reads back the partially-folded columns (length 2^(d-rounds)) — the
+  // GPU front of the single-submission hybrid, where the heavy early rounds run on
+  // the GPU (one command buffer, on-GPU Fiat-Shamir) and the cheap tail is handed to
+  // the WASM prover.
+  const rounds = Math.max(1, Math.min(maxRounds ?? d, d));
   const relCache: PipelineCache = shared?.cache ?? new Map();
   const foldRunner = shared?.foldRunner ?? (await makeFoldRunner(device));
   const reduceRunner = shared?.reduceRunner ?? (await makeReduceRunner(device));
   const batch = shared?.batch ?? (await makeBatchRunner(device));
   const transcript = shared?.transcript ?? (await makeTranscriptRunner(device));
+  // Gate-separator scaling runners (GPU-resident beta_products scan + per-round
+  // strided gather), cached like the multi-pass engine so they compile once.
+  const scanRunner: KernelRunner = relCache.get('gs:scan') ?? await makeScanRunner(device);
+  relCache.set('gs:scan', scanRunner);
+  const gatherRunner: KernelRunner = relCache.get('gs:gather') ?? await makeGatherRunner(device);
+  relCache.set('gs:gather', gatherRunner);
 
   const tSetup = performance.now();
 
@@ -129,6 +155,10 @@ export async function runSingleSubmitSumcheck(
   }
   if (totalOutLen !== ACC_LEN) throw new Error(`acc length ${totalOutLen} != ${ACC_LEN}`);
   const perEdge = create_sb(device, maxPerEdge * 32);
+  // Per-round gate-separator edge scaling, gathered on the GPU off the resident
+  // beta_products table into this reused scratch (sized for round 0). WebGPU's
+  // intra-encoder hazard tracking serializes gather(i+1) after round i's reads.
+  const scalScratch = create_sb(device, pairs0 * 32);
   const partsScratch = create_sb(device, REDUCE_GROUPS * maxOutLen * 32);
   const accBuf = create_sb(device, ACC_LEN * 32);
   const finalBase: number[] = new Array(NUM_RELATIONS);
@@ -145,18 +175,34 @@ export async function runSingleSubmitSumcheck(
   const p2pBuf = create_and_write_ub(device, p2ParamsBytes());
   const ivBytes = POSEIDON2_IV_9();
 
-  // Per-round host schedule (challenge-independent): edge scaling from beta_products,
-  // beta_i buffers, and the transcript scalars [beta_i, iv].
-  const betaProducts = computeBetaProducts(betas.map(mod), d);
-  const scalBufs: GPUBuffer[] = [];
+  // Resident Montgomery beta_products table, built once on the GPU by a doubling
+  // subset-product scan (gate_separator_scan) — the same kernel the multi-pass engine
+  // uses, replacing the host's O(n log n) computeBetaProducts + per-round toMont loop
+  // (the dominant single-submit host cliff at large n). Each round gathers its strided
+  // slice off this buffer inside the command buffer. The scan runs in its own setup
+  // submit so betaMontBuf is fully populated (read-only) before the main encoder.
+  const betaMontBuf = create_sb(device, n * 32); // zero-init == Montgomery 0 everywhere
+  if (betas.length > 0) {
+    const seed = new Uint8Array(32);
+    writeLe32(seed, 0, toMont(1n)); // beta_products[0] = Montgomery 1
+    device.queue.writeBuffer(betaMontBuf, 0, seed);
+    const scalarBuf = create_and_write_sb(device, packParams(betas.slice(0, d).map(mod)));
+    const scanEnc = device.createCommandEncoder();
+    for (let k = 0; k < d; k++) {
+      const count = 1 << k; // lower-half length / write offset / thread bound for pass k
+      const sBg = create_bind_group(device, scanRunner.layout, [
+        betaMontBuf, scalarBuf, create_and_write_ub(device, u32x4(count, k)),
+      ]);
+      await execute_pipeline(scanEnc, scanRunner.pipeline, sBg, Math.ceil(count / WG), 1, 1);
+    }
+    device.queue.submit([scanEnc.finish()]);
+  }
+
+  // Per-round transcript scalars (challenge-independent, O(1)/round): beta_i for the
+  // batch kernel and [beta_i, iv] for the Poseidon2 transcript.
   const betaBufs: GPUBuffer[] = [];
   const scalarsBufs: GPUBuffer[] = [];
-  for (let i = 0; i < d; i++) {
-    const pairs = n >> (i + 1);
-    const stride = 1 << (i + 1);
-    const scal = new Uint8Array(pairs * 32);
-    for (let p = 0; p < pairs; p++) writeLe32(scal, p * 32, toMont(betaProducts[p * stride]));
-    scalBufs.push(create_and_write_sb(device, scal));
+  for (let i = 0; i < rounds; i++) {
     betaBufs.push(create_and_write_sb(device, frBytes(betas[i])));
     const sc = new Uint8Array(2 * 32);
     writeLe32(sc, 0, toMont(mod(betas[i])));
@@ -170,10 +216,10 @@ export async function runSingleSubmitSumcheck(
   const univBuf = create_sb(device, BATCHED_LEN * 32);
   const uBuf = create_sb(device, 32);
 
-  // One staging buffer collects all rounds' univariates then challenges.
+  // One staging buffer collects the run rounds' univariates then challenges.
   const uniOff = 0;
-  const chalOff = d * BATCHED_LEN * 32;
-  const stagingBytes = chalOff + d * 32;
+  const chalOff = rounds * BATCHED_LEN * 32;
+  const stagingBytes = chalOff + rounds * 32;
   const staging = create_readback_buffer(device, stagingBytes);
 
   // Cached accumulate pipeline per relation (col_buf, out, params, scaling, [param_buf]).
@@ -194,26 +240,34 @@ export async function runSingleSubmitSumcheck(
   };
   const setupMs = performance.now() - tSetup;
 
-  // Per-kernel profiler: one timestamped stage per dispatch across ALL rounds (the
+  // Per-kernel profiler: one timestamped stage per dispatch across the run rounds (the
   // transcript cost is per-round, so round-0-only profiling would under-count it).
-  const passesPerRound = ALL_RELATIONS.length * 4 + 2; // acc+r1+r2+fold per rel, + batch + transcript
-  const profiler = profile ? new Profiler(device, d * passesPerRound + 4) : null;
+  const passesPerRound = ALL_RELATIONS.length * 4 + 3; // gather + (acc+r1+r2+fold)/rel + batch + transcript
+  const profiler = profile ? new Profiler(device, rounds * passesPerRound + 4) : null;
 
-  // ---- Encode ALL rounds into ONE command buffer ----
+  // ---- Encode the run rounds into ONE command buffer ----
   const t0 = performance.now();
   const enc = device.createCommandEncoder();
   let cur = colA, other = colB;
   let curLen = n;
-  for (let i = 0; i < d; i++) {
+  for (let i = 0; i < rounds; i++) {
     const pairs = curLen >> 1;
     const chunk = Math.max(1, Math.ceil(pairs / REDUCE_GROUPS));
     const groups = Math.ceil(pairs / chunk);
+
+    // Gather this round's per-pair edge scaling off the resident beta_products table:
+    // scalScratch[p] = beta_products[p * 2^{i+1}]. Reused across rounds; the WAR hazard
+    // (gather(i+1) write vs round i's accumulate reads) is auto-serialized in-encoder.
+    const gBg = create_bind_group(device, gatherRunner.layout, [
+      betaMontBuf, scalScratch, create_and_write_ub(device, u32x4(pairs, 1 << (i + 1))),
+    ]);
+    await execute_pipeline(enc, gatherRunner.pipeline, gBg, Math.ceil(pairs / WG), 1, 1, profiler?.stage('gather'));
 
     // accumulate + two-level reduce -> accBuf
     for (const desc of ALL_RELATIONS) {
       const r = desc.relationIndex;
       const acc = await accPipeline(desc);
-      const aBufs: GPUBuffer[] = [cur[r], perEdge, create_and_write_ub(device, u32x4(pairs)), scalBufs[i]];
+      const aBufs: GPUBuffer[] = [cur[r], perEdge, create_and_write_ub(device, u32x4(pairs)), scalScratch];
       if (relParamBufs[r]) aBufs.push(relParamBufs[r]!);
       await execute_pipeline(enc, acc.pipeline, create_bind_group(device, acc.layout, aBufs), Math.ceil(pairs / accWG), 1, 1, profiler?.stage('accumulate'));
       const r1 = create_bind_group(device, reduceRunner.layout, [
@@ -257,10 +311,10 @@ export async function runSingleSubmitSumcheck(
   staging.unmap();
   const gpuMs = performance.now() - tg;
 
-  // Decode the d univariates + d challenges.
+  // Decode the run rounds' univariates + challenges.
   const univariates: bigint[][] = [];
   const challenges: bigint[] = [];
-  for (let i = 0; i < d; i++) {
+  for (let i = 0; i < rounds; i++) {
     const u = new Array<bigint>(BATCHED_LEN);
     for (let e = 0; e < BATCHED_LEN; e++) u[e] = fromMont(le32ToBi(bytes, uniOff + (i * BATCHED_LEN + e) * 32));
     univariates.push(u);
@@ -268,12 +322,16 @@ export async function runSingleSubmitSumcheck(
   }
   const totalMs = performance.now() - t0;
 
-  // Final folded columns (length-1) for the purported-value anchor.
+  // Resident columns after `rounds` folds: length-1 for a full run (the purported-
+  // value anchor), or the folded columns (length 2^(d-rounds)) for a k-round front —
+  // the GPU->WASM handoff payload. Timed separately as finalReadbackMs (the handoff).
+  const finalLen = n >> rounds;
   const finalColBytes: Uint8Array[] = new Array(NUM_RELATIONS);
-  const sizes = ALL_RELATIONS.map(desc => desc.numEdges * 32); // finalLen = n >> d = 1
+  const sizes = ALL_RELATIONS.map(desc => desc.numEdges * finalLen * 32);
   const offs: number[] = [];
   { let o = 0; for (const s of sizes) { offs.push(o); o += s; } }
   const totalFinal = offs.length ? offs[offs.length - 1] + sizes[sizes.length - 1] : 0;
+  const tReadback = performance.now();
   if (totalFinal > 0) {
     const fStaging = create_readback_buffer(device, totalFinal);
     const fEnc = device.createCommandEncoder();
@@ -284,11 +342,12 @@ export async function runSingleSubmitSumcheck(
     fStaging.unmap();
     ALL_RELATIONS.forEach((desc, idx) => { finalColBytes[desc.relationIndex] = all.slice(offs[idx], offs[idx] + sizes[idx]); });
   }
+  const finalReadbackMs = performance.now() - tReadback;
 
   const profileReport = profiler ? (await profiler.report())?.map(e => ({ label: e.label, ms: e.ms })) ?? null : null;
   profiler?.destroy();
 
-  return { univariates, challenges, finalColBytes, gpuMs, totalMs, setupMs, profile: profileReport };
+  return { univariates, challenges, finalColBytes, gpuMs, totalMs, finalReadbackMs, setupMs, profile: profileReport };
 }
 
 // Build random per-relation inputs for one size (deterministic per (size, relation)).

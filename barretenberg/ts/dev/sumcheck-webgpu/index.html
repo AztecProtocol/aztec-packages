@@ -87,7 +87,7 @@
       #controls button:hover:not(:disabled) { border-color: var(--accent); filter: none; }
 
       /* log panels */
-      #log, #bench-log, #profile-log {
+      #log, #bench-log, #profile-log, #ssh-log {
         background: #070a10; color: #c4cee0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
         font-size: 12px; padding: 0.85rem 1rem; border-radius: 10px; white-space: pre-wrap;
         overflow-x: auto; min-height: 11rem; border: 1px solid var(--border);
@@ -115,6 +115,7 @@
 
     <div class="tabbar">
       <button id="tab-btn-bench" class="active" data-tab="bench">Benchmark</button>
+      <button id="tab-btn-sshybrid" data-tab="sshybrid">SS-Hybrid</button>
       <button id="tab-btn-testing" data-tab="testing">Testing</button>
       <button id="tab-btn-profile" data-tab="profile">Profile</button>
     </div>
@@ -148,6 +149,41 @@
         <tbody id="bench-tbody"></tbody>
       </table>
       <div id="bench-log"></div>
+    </section>
+
+    <!-- ===== SS-Hybrid tab (single-submission GPU front + WASM tail) ===== -->
+    <section id="tab-sshybrid" class="tab">
+      <p class="lede">
+        Same split as the <strong>Benchmark</strong> tab — a <strong>WASM-fallback threshold</strong> 2<sup>T</sup>,
+        the last <code>T</code> rounds always on WASM — but the GPU front runs on the <strong>single-submission</strong>
+        engine: the whole <code>d − T</code>-round front (accumulate → reduce → batch → on-GPU Poseidon2 Fiat–Shamir →
+        fold) in <strong>one command buffer</strong>, no per-round CPU↔GPU round-trip. Sizes ≤ 2<sup>T</sup> run
+        entirely on WASM. Larger sizes fold their first <code>d − T</code> rounds on the GPU down to a 2<sup>T</sup>
+        hypercube, then WASM finishes the last <code>T</code> rounds (timed as <code>SumcheckBench(T)</code>). The
+        hybrid total <strong>excludes</strong> the one-time column upload (<code>setup</code>, shown separately) so it
+        lines up with the Benchmark tab at the same threshold — read the two side by side to compare the
+        single-submission front vs the multi-pass front. <strong>vs WASM &gt; 1</strong> means the split wins. Needs
+        <code>?coi=1</code> + a WASM build.
+      </p>
+      <div class="controls">
+        <label>from 2^<input id="ssh-min" type="number" value="10" min="2" max="20" /></label>
+        <label>to 2^<input id="ssh-max" type="number" value="18" min="2" max="22" /></label>
+        <label class="slider-wrap">
+          WASM fallback ≤ 2^<span id="ssh-thresh-val" class="val">9</span>
+          <input id="ssh-thresh" type="range" min="4" max="20" value="9" step="1" />
+        </label>
+        <button id="ssh-run">Run SS-hybrid</button>
+      </div>
+      <table class="bench">
+        <thead>
+          <tr>
+            <th>size</th><th>split</th><th>setup (ms)</th><th>GPU front (ms)</th><th>handoff (ms)</th>
+            <th>WASM tail (ms)</th><th>hybrid (ms)</th><th>full WASM (ms)</th><th>vs WASM</th>
+          </tr>
+        </thead>
+        <tbody id="ssh-tbody"></tbody>
+      </table>
+      <div id="ssh-log"></div>
     </section>
 
     <!-- ===== Testing tab ===== -->

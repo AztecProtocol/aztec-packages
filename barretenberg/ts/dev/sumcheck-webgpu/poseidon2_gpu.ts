@@ -46,55 +46,65 @@ async function run({ device, log }: SuiteCtx): Promise<boolean> {
   const layout = create_bind_group_layout(device, [
     'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage', 'read-only-storage', 'uniform',
   ]);
-  const pipeline = await create_compute_pipeline(
-    device, [layout], sm.gen_poseidon2_transcript_test_shader(WG), 'poseidon2_transcript_main', 'poseidon2_transcript_main',
-  );
   const { rcBytes, diagBytes } = poseidon2ConstBytes();
   const rcBuf = create_and_write_sb(device, rcBytes);
   const diagBuf = create_and_write_sb(device, diagBytes);
   const p2pBuf = create_and_write_ub(device, p2ParamsBytes());
   const ivBytes = POSEIDON2_IV_9();
 
-  const rng = makeRng(0x9051d0_7a3c_0n);
+  // Both transcript kernels must match the CPU Poseidon2 reference bit-for-bit: the
+  // serial reference (@workgroup_size(1)) and the lane-parallel production kernel
+  // (@workgroup_size(4)). Same inputs, same expected outputs.
+  const variants: { label: string; code: string; entry: string }[] = [
+    { label: 'serial', code: sm.gen_poseidon2_transcript_test_shader(WG), entry: 'poseidon2_transcript_main' },
+    { label: 'parallel(t=4)', code: sm.gen_poseidon2_transcript_par_test_shader(WG), entry: 'poseidon2_transcript_par_main' },
+  ];
+
   let allOk = true;
-  for (let trial = 0; trial < 8; trial++) {
-    const running = rng();
-    const beta = rng();
-    const c = rng();
-    const uni = Array.from({ length: 8 }, () => rng());
+  for (const v of variants) {
+    const pipeline = await create_compute_pipeline(device, [layout], v.code, v.entry, v.entry);
+    const rng = makeRng(0x9051d0_7a3c_0n);
+    let variantOk = true;
+    for (let trial = 0; trial < 8; trial++) {
+      const running = rng();
+      const beta = rng();
+      const c = rng();
+      const uni = Array.from({ length: 8 }, () => rng());
 
-    const uniBytes = new Uint8Array(8 * 32);
-    for (let e = 0; e < 8; e++) writeLe32(uniBytes, e * 32, toMont(uni[e]));
-    const runBytes = new Uint8Array(32);
-    writeLe32(runBytes, 0, toMont(running));
-    const cBytes = new Uint8Array(32);
-    writeLe32(cBytes, 0, toMont(c));
-    const scalars = new Uint8Array(2 * 32);
-    writeLe32(scalars, 0, toMont(beta));
-    scalars.set(ivBytes, 32);
+      const uniBytes = new Uint8Array(8 * 32);
+      for (let e = 0; e < 8; e++) writeLe32(uniBytes, e * 32, toMont(uni[e]));
+      const runBytes = new Uint8Array(32);
+      writeLe32(runBytes, 0, toMont(running));
+      const cBytes = new Uint8Array(32);
+      writeLe32(cBytes, 0, toMont(c));
+      const scalars = new Uint8Array(2 * 32);
+      writeLe32(scalars, 0, toMont(beta));
+      scalars.set(ivBytes, 32);
 
-    const uniBuf = create_and_write_sb(device, uniBytes);
-    const runBuf = create_and_write_sb(device, runBytes);
-    const cBuf = create_and_write_sb(device, cBytes);
-    const outBuf = create_and_write_sb(device, new Uint8Array(32).fill(0xff));
-    const scBuf = create_and_write_sb(device, scalars);
+      const uniBuf = create_and_write_sb(device, uniBytes);
+      const runBuf = create_and_write_sb(device, runBytes);
+      const cBuf = create_and_write_sb(device, cBytes);
+      const outBuf = create_and_write_sb(device, new Uint8Array(32).fill(0xff));
+      const scBuf = create_and_write_sb(device, scalars);
 
-    const bg = create_bind_group(device, layout, [uniBuf, rcBuf, diagBuf, runBuf, cBuf, outBuf, scBuf, p2pBuf]);
-    const enc = device.createCommandEncoder();
-    await execute_pipeline(enc, pipeline, bg, 1);
-    const [outBytes, runOut, cOut] = await read_from_gpu(device, enc, [outBuf, runBuf, cBuf]);
+      const bg = create_bind_group(device, layout, [uniBuf, rcBuf, diagBuf, runBuf, cBuf, outBuf, scBuf, p2pBuf]);
+      const enc = device.createCommandEncoder();
+      await execute_pipeline(enc, pipeline, bg, 1);
+      const [outBytes, runOut, cOut] = await read_from_gpu(device, enc, [outBuf, runBuf, cBuf]);
 
-    const { challenge } = sumcheckRoundChallenge(running, uni);
-    const cNext = mul(c, mod(1n + mul(challenge, mod(beta - 1n))));
+      const { challenge } = sumcheckRoundChallenge(running, uni);
+      const cNext = mul(c, mod(1n + mul(challenge, mod(beta - 1n))));
 
-    const gotU = fromMont(le32ToBi(outBytes, 0));
-    const gotRunning = fromMont(le32ToBi(runOut, 0));
-    const gotC = fromMont(le32ToBi(cOut, 0));
-    if (gotU !== challenge) { allOk = false; log('err', `  p2 trial ${trial}: challenge got ${gotU} want ${challenge}`); }
-    if (gotRunning !== challenge) { allOk = false; log('err', `  p2 trial ${trial}: running got ${gotRunning} want ${challenge}`); }
-    if (gotC !== cNext) { allOk = false; log('err', `  p2 trial ${trial}: c_next got ${gotC} want ${cNext}`); }
+      const gotU = fromMont(le32ToBi(outBytes, 0));
+      const gotRunning = fromMont(le32ToBi(runOut, 0));
+      const gotC = fromMont(le32ToBi(cOut, 0));
+      if (gotU !== challenge) { variantOk = false; log('err', `  p2 ${v.label} trial ${trial}: challenge got ${gotU} want ${challenge}`); }
+      if (gotRunning !== challenge) { variantOk = false; log('err', `  p2 ${v.label} trial ${trial}: running got ${gotRunning} want ${challenge}`); }
+      if (gotC !== cNext) { variantOk = false; log('err', `  p2 ${v.label} trial ${trial}: c_next got ${gotC} want ${cNext}`); }
+    }
+    if (variantOk) log('ok', `  poseidon2 ${v.label} ✓  GPU transcript challenge + c-update match CPU Poseidon2 (8 trials)`);
+    allOk = allOk && variantOk;
   }
-  if (allOk) log('ok', `  poseidon2 ✓  GPU transcript challenge + c-update match CPU Poseidon2 (8 trials)`);
   return allOk;
 }
 

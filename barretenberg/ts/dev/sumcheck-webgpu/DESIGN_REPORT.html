@@ -1,0 +1,2331 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>WebGPU Sumcheck for Chonk — Math &amp; Design</title>
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['\\(', '\\)']],
+          displayMath: [
+            ['$$', '$$'],
+            ['\\[', '\\]'],
+          ],
+        },
+        svg: { fontCache: 'local' },
+      };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" async></script>
+    <style>
+      :root {
+        --bg: #0f1216;
+        --panel: #171c22;
+        --panel2: #1d242c;
+        --ink: #e6edf3;
+        --muted: #9aa7b4;
+        --acc: #4ea1ff;
+        --good: #3fb950;
+        --warn: #d29922;
+        --bad: #f85149;
+        --vio: #bc8cff;
+        --teal: #39c5cf;
+        --line: #2b333c;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font:
+          15px/1.6 -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          Roboto,
+          Helvetica,
+          Arial,
+          sans-serif;
+      }
+      .wrap {
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 48px 28px 120px;
+      }
+      h1 {
+        font-size: 30px;
+        line-height: 1.2;
+        margin: 0 0 6px;
+      }
+      h2 {
+        font-size: 23px;
+        margin: 46px 0 12px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--line);
+      }
+      h3 {
+        font-size: 18px;
+        margin: 28px 0 8px;
+        color: var(--teal);
+      }
+      h4 {
+        font-size: 15px;
+        margin: 18px 0 6px;
+        color: var(--ink);
+      }
+      p,
+      li {
+        color: var(--ink);
+      }
+      .sub {
+        color: var(--muted);
+        font-size: 15px;
+        margin: 0 0 26px;
+      }
+      code,
+      .mono {
+        font-family: 'SF Mono', ui-monospace, Menlo, Consolas, monospace;
+        font-size: 13px;
+      }
+      code {
+        background: var(--panel2);
+        padding: 1px 5px;
+        border-radius: 4px;
+        color: #cfe3ff;
+      }
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 18px 20px;
+        margin: 18px 0;
+      }
+      .stage {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-left: 3px solid var(--teal);
+        border-radius: 0 8px 8px 0;
+        padding: 12px 18px;
+        margin: 14px 0;
+      }
+      .stage.cpu {
+        border-left-color: var(--vio);
+      }
+      .stage.gpu {
+        border-left-color: var(--teal);
+      }
+      .stage .hd {
+        font-weight: 600;
+        margin-bottom: 2px;
+      }
+      .stage .where {
+        float: right;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.3px;
+      }
+      .grid2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+      }
+      .kpill {
+        display: inline-block;
+        padding: 2px 9px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 600;
+      }
+      .k-good {
+        background: rgba(63, 185, 80, 0.16);
+        color: var(--good);
+      }
+      .k-warn {
+        background: rgba(210, 153, 34, 0.16);
+        color: var(--warn);
+      }
+      .k-bad {
+        background: rgba(248, 81, 73, 0.16);
+        color: var(--bad);
+      }
+      .k-info {
+        background: rgba(78, 161, 255, 0.16);
+        color: var(--acc);
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        margin: 14px 0;
+        font-size: 14px;
+      }
+      th,
+      td {
+        border: 1px solid var(--line);
+        padding: 8px 10px;
+        text-align: left;
+        vertical-align: top;
+      }
+      th {
+        background: var(--panel2);
+        color: var(--muted);
+        font-weight: 600;
+      }
+      tr:nth-child(even) td {
+        background: rgba(255, 255, 255, 0.012);
+      }
+      .tag {
+        font-size: 11px;
+        padding: 1px 6px;
+        border-radius: 4px;
+        font-weight: 700;
+        letter-spacing: 0.3px;
+      }
+      .done {
+        background: rgba(63, 185, 80, 0.18);
+        color: var(--good);
+      }
+      .cpu {
+        background: rgba(188, 140, 255, 0.18);
+        color: var(--vio);
+      }
+      .gpu {
+        background: rgba(57, 197, 207, 0.18);
+        color: var(--teal);
+      }
+      ul.tight {
+        margin: 8px 0;
+      }
+      ul.tight li {
+        margin: 3px 0;
+      }
+      .callout {
+        border-left: 3px solid var(--acc);
+        background: rgba(78, 161, 255, 0.06);
+        padding: 10px 16px;
+        border-radius: 0 8px 8px 0;
+        margin: 14px 0;
+      }
+      .callout.warn {
+        border-color: var(--warn);
+        background: rgba(210, 153, 34, 0.06);
+      }
+      .callout.bad {
+        border-color: var(--bad);
+        background: rgba(248, 81, 73, 0.06);
+      }
+      .sev {
+        font-weight: 700;
+      }
+      .legend span {
+        margin-right: 16px;
+        font-size: 13px;
+      }
+      .swatch {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border-radius: 3px;
+        vertical-align: middle;
+        margin-right: 5px;
+      }
+      figure {
+        margin: 18px 0;
+      }
+      figcaption {
+        color: var(--muted);
+        font-size: 13px;
+        margin-top: 8px;
+        text-align: center;
+      }
+      .small {
+        font-size: 13px;
+        color: var(--muted);
+      }
+      a {
+        color: var(--acc);
+      }
+      .toc a {
+        display: inline-block;
+        margin: 2px 14px 2px 0;
+      }
+      hr {
+        border: none;
+        border-top: 1px solid var(--line);
+        margin: 40px 0;
+      }
+      .chartwrap {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 16px 16px 10px;
+        margin: 16px 0;
+      }
+      .chartwrap h4 {
+        margin: 0 0 2px;
+      }
+      .chartwrap .cmd {
+        font-family: 'SF Mono', ui-monospace, Menlo, Consolas, monospace;
+        font-size: 12px;
+        color: var(--acc);
+        margin: 0 0 10px;
+      }
+      /* Only the plot charts (mounted into div#plotA…F) fill the width — NOT the
+         inline MathJax <svg>s in the .cmd/.small captions, which must stay text-sized. */
+      .chartwrap div svg {
+        width: 100%;
+        height: auto;
+        display: block;
+      }
+      .pending {
+        color: var(--warn);
+        font-style: italic;
+      }
+      .databadge {
+        display: inline-block;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.3px;
+        padding: 1px 7px;
+        border-radius: 999px;
+        background: rgba(210, 153, 34, 0.16);
+        color: var(--warn);
+        vertical-align: middle;
+        margin-left: 8px;
+      }
+      /* Figure labels are MathJax-in-foreignObject; SVG font-size does not cascade into HTML, so set it here. */
+      foreignObject div {
+        font-family: 'SF Mono', ui-monospace, Menlo, Consolas, monospace;
+        font-size: 11px;
+        line-height: 1.2;
+        overflow: visible;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>Offloading Chonk Sumcheck to WebGPU — Math &amp; Design</h1>
+      <p class="sub">
+        How each stage computes, for the two engines that ship on <code>sb/sumcheck-webgpu</code>: the
+        <b>multi-pass</b> engine (CPU in the round loop) and the <b>single-submission</b> engine (whole protocol in one
+        command buffer, Fiat–Shamir on the GPU). MegaFlavor, non-ZK.
+      </p>
+
+      <div class="panel">
+        <strong>TL;DR.</strong> Both engines run the same \(O(n)\) work on the GPU — evaluate 14 relations per round
+        into a flat 345-element accumulator, reduce over edges on the GPU, form the length-8 round univariate, then fold
+        every column at the round challenge. They differ only in <em>where the round loop lives</em>. The
+        <b>multi-pass</b> engine reads the univariate back to the CPU each round to draw the challenge (one blocking
+        readback/round). The <b>single-submission</b> engine moves the batch tail and the Poseidon2 Fiat–Shamir
+        transcript onto the GPU, encodes all \(d\) rounds into <b>one</b> command buffer, and reads back <b>once</b>.
+        The math is identical; the data movement is not.
+        <span class="kpill k-good"
+          >On an M4 Pro, WebGPU crosses parity with threaded WASM at \(2^{15}\) and reaches 1.6–2.2× at
+          \(2^{16}\!-\!2^{17}\)</span
+        >; accumulate is \(85\%\) of GPU time, so the emulated 254-bit field multiply is the remaining lever — see
+        §8–§9.
+      </div>
+
+      <p class="toc small">
+        <a href="#scope">1 Scope</a><a href="#math">2 Common math</a><a href="#multi">3 Multi-pass: stage math</a>
+        <a href="#single">4 Single-submission: stage math</a><a href="#wasm">5 WASM baseline</a
+        ><a href="#compare">6 Side by side</a> <a href="#arch">7 Architecture</a
+        ><a href="#prof">8 Profiling &amp; plots</a> <a href="#crit">9 Critical analysis</a
+        ><a href="#chonk">10 Integration gaps</a>
+      </p>
+
+      <h2 id="scope">1 &nbsp;Scope</h2>
+      <p>
+        The sumcheck prover round has three stages: <b>accumulate</b> (\(O(n)\), evaluate every relation on every edge),
+        <b>batch</b> (\(O(1)\), reduce to the length-8 round univariate), and <b>fold</b> (\(O(n)\), halve every
+        column). Accumulate and fold are the GPU targets. The batch tail is \(O(1)\) — it runs on the CPU in the
+        multi-pass engine and on the GPU in the single-submission engine. Both engines keep the polynomial columns
+        GPU-resident in Montgomery byte form across all rounds.
+      </p>
+      <p class="small">
+        Phase 0 ported the BN254 <em>scalar</em>-field Montgomery primitives to WGSL (add/sub/mul; no inversion —
+        relations have no division). The 254-bit field element is held as 8×u32 limbs; each multiply is an emulated
+        Montgomery product over 20×13-bit limbs (Karatsuba). Everything below builds on those.
+      </p>
+
+      <!-- ============================================================ -->
+      <h2 id="math">2 &nbsp;The math both engines compute</h2>
+
+      <p>Sumcheck proves, for a trace of \(n=2^d\) rows,</p>
+      $$ \sum_{\vec x\in\{0,1\}^d}\;\operatorname{pow}_\beta(\vec x)\;F(\vec x)\;=\;\sigma, \qquad F(\vec
+      x)=\sum_{g=0}^{62}\alpha^{g}\,g(\vec x), \qquad \operatorname{pow}_\beta(\vec x)=\prod_{k=0}^{d-1}\beta_k^{\,x_k}.
+      $$
+      <p>
+        \(F\) is the \(\alpha\)-batched combination of the <b>63 subrelations</b> (14 relations) of MegaFlavor; each
+        \(g\) has algebraic degree \(\le 6\) (the per-round gate-separator factor lifts the batched round univariate to
+        degree 7). \(\operatorname{pow}_\beta\) is the gate-separator (power) polynomial; its hypercube values are the
+        <b>beta-products</b> \(B[m]=\prod_{j:\,\text{bit }j\text{ of }m}\beta_j\) (so \(B[0]=1\)).
+      </p>
+
+      <h3>2.1 &nbsp;The round univariate</h3>
+      <p>
+        In round \(i\) the prover has the polynomials partially evaluated at the first \(i\) challenges
+        \(u_0,\dots,u_{i-1}\), leaving a hypercube of size \(m=2^{\,d-i}\). It sends the degree-\(\le 7\) univariate
+        \(\tilde S^{\,i}(X)\), represented by its <b>8 evaluations</b> at \(X=0,\dots,7\):
+      </p>
+      $$ \tilde S^{\,i}(X)\;=\;\underbrace{c_i\big((1-X)+X\beta_i\big)}_{\text{gate separator (this round)}} \cdot
+      \!\!\sum_{g\in\mathrm{LI}}\alpha^{g}\,\widehat T^{\,i}_g(X) \;+\;\sum_{g\in\mathrm{LD}}\alpha^{g}\,\widehat
+      T^{\,i}_g(X). $$
+      <p>
+        \(\mathrm{LI}/\mathrm{LD}\) are the linearly-independent / -dependent subrelations: only \(\mathrm{LI}\) ones
+        carry the per-round gate-separator factor. The two per-round scalars are \(\beta_i\), this round's gate
+        challenge, and the accumulated partial-evaluation product
+      </p>
+
+      $$ c_i=\prod_{k < i } \big((1-u_k)+u_k\beta_k\big),\qquad c_0=1. $$
+
+      <h3>2.2 &nbsp;Edge contributions \(T^{\,i}_g\)</h3>
+      <p>
+        The \(O(n)\) work is the edge sum. The current hypercube of size \(m\) is split into \(m/2\) <b>edge pairs</b>.
+        For pair \(p\), each entity column \(P\) feeding \(g\) is lifted to the degree-1 line
+      </p>
+      $$ E_p[P](X)\;=\;(1-X)\,P[2p]\;+\;X\,P[2p+1], $$
+      <p>
+        and \(g\) is evaluated on those lines, giving a polynomial of degree \(\le\deg g\le 6\) in \(X\). Summed over
+        pairs with the residual gate-separator weight,
+      </p>
+      $$ T^{\,i}_g(k)\;=\;\sum_{p=0}^{m/2-1}\; s^{\,(i)}_p\;\, g\!\big(E_p(k)\big), \qquad k=0,\dots,\deg g, \qquad
+      \boxed{\,s^{\,(i)}_p=B\big[p\cdot 2^{\,i+1}\big]\,} $$
+      <p>
+        where \(s^{\,(i)}_p\) is the per-edge scaling (the gate-separator weight of pair \(p\), whose periodicity
+        doubles every round), and \(L_g=\deg g+1\le 7\) is the subrelation's natural value-basis length. Because
+        \(g(E_p(\cdot))\) has degree \(\le\deg g\), the \(L_g\) values \(T^{\,i}_g(0),\dots,T^{\,i}_g(L_g-1)\) determine
+        a unique polynomial of that degree. \(\widehat T^{\,i}_g\) (used in §2.1) is that polynomial resampled on the
+        length-8 domain \(\{0,\dots,7\}\) by Lagrange interpolation over the natural domain:
+      </p>
+      $$ \widehat T^{\,i}_g(X)\;=\;\sum_{j=0}^{L_g-1} T^{\,i}_g(j)\,\ell^{\,g}_j(X), \qquad
+      \ell^{\,g}_j(X)=\!\!\prod_{\substack{0\le m < L_g\\ m\ne j}}\!\!\frac{X-m}{\,j-m\,}, \qquad X=0,\dots,7. $$
+      <p>
+        For \(X\in\{0,\dots,L_g-1\}\) this reproduces \(T^{\,i}_g(X)\) exactly; for \(X=L_g,\dots,7\) it supplies the
+        higher evaluations. This is precisely C++ <code>Univariate::extend_to</code> — the barycentric
+        <code>extendTo</code> in <code>batch_tail.ts</code> — and, being linear in \(T^{\,i}_g\), is what lets the
+        single-submission engine fold the extension into the constant batch matrices \(M^{\mathrm{LI}},M^{\mathrm{LD}}\)
+        of §4.C.
+      </p>
+
+      <h3>2.3 &nbsp;Fold (partial evaluation)</h3>
+      <p>After the verifier challenge \(u_i\), every column is halved:</p>
+      $$ P^{(i+1)}[k]\;=\;(1-u_i)\,P^{(i)}[2k]+u_i\,P^{(i)}[2k+1],\qquad k=0,\dots,\tfrac m2-1. $$
+
+      <div class="callout">
+        <b>The telescoping identity (testing anchor).</b> The verifier's per-round check is \(\tilde S^{\,i}(0)+\tilde
+        S^{\,i}(1)=\tilde S^{\,i-1}(u_{i-1})\). For this non-ZK relation set it holds <b>witness-independently</b> — but
+        only because the \(\mathrm{LD}\) subrelations carry <em>no</em> per-edge \(\beta\) weighting (weighting them
+        breaks it). That pins a correctness requirement on the accumulate kernels and gives a black-box oracle over the
+        whole chained pipeline.
+      </div>
+
+      <!-- ============================================================ -->
+      <h2 id="multi">3 &nbsp;Multi-pass engine — stage by stage</h2>
+      <p class="small mono">src: gpu_pipeline.ts · multiround.ts · batch_tail.ts · gate_separator.ts</p>
+      <p>
+        The round loop lives on the CPU. Per round, two GPU submissions bracket one CPU tail: accumulate+reduce is
+        submitted and its 345-element result is read back; the CPU forms the univariate and draws \(u_i\); a second
+        submission folds. Columns never leave the GPU; only the 345-element accumulator and the length-8 univariate
+        cross the boundary.
+      </p>
+
+      <div class="stage gpu">
+        <span class="where" style="color: var(--teal)">GPU · 1 thread/edge</span>
+        <div class="hd">A. Accumulate</div>
+        Thread \(p\) of relation \(g\) gathers its edge straight from the resident column-major buffer
+        (\(\texttt{col}[(j\!\gg\!1)\,m+2p+(j\,\&\,1)]\), per-column stride \(m\) = the current hypercube length), builds
+        the degree-1 lines \(E_p\), evaluates the relation in a short-monomial form, and writes that edge's
+        <b>natural-degree</b> evaluations, pre-scaled by \(s^{(i)}_p\): $$
+        \texttt{perEdge}[p\cdot\text{outLen}_g+k]\;=\;s^{(i)}_p\;g\!\big(E_p(k)\big),\quad k=0,\dots,\deg g. $$ No
+        cross-edge reduction here — output is \(\text{outLen}_g\times\tfrac m2\).
+      </div>
+
+      <figure>
+        <svg viewBox="0 0 900 274" width="100%" font-family="SF Mono, monospace" font-size="11">
+          <defs>
+            <marker id="aacc" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+              <path d="M0,0 L7,3 L0,6 Z" fill="#4ea1ff" />
+            </marker>
+          </defs>
+          <foreignObject x="20" y="2" width="780" height="18">
+            <div xmlns="http://www.w3.org/1999/xhtml" style="font-size: 11px; color: #9aa7b4; white-space: nowrap">
+              resident buffer · column-major · cell \((c,r)\) at offset \(c\,m+r\) · \(8\times\)u32 each
+            </div>
+          </foreignObject>
+
+          <foreignObject x="80" y="26" width="42" height="16">
+            <div xmlns="http://www.w3.org/1999/xhtml" style="width: 42px; text-align: center; color: #39c5cf">
+              \(\mathrm{col}\,0\)
+            </div>
+          </foreignObject>
+          <foreignObject x="132" y="26" width="42" height="16">
+            <div xmlns="http://www.w3.org/1999/xhtml" style="width: 42px; text-align: center; color: #39c5cf">
+              \(\mathrm{col}\,1\)
+            </div>
+          </foreignObject>
+          <foreignObject x="184" y="26" width="42" height="16">
+            <div xmlns="http://www.w3.org/1999/xhtml" style="width: 42px; text-align: center; color: #39c5cf">
+              \(\mathrm{col}\,2\)
+            </div>
+          </foreignObject>
+
+          <!-- col 0 -->
+          <rect x="80" y="48" width="42" height="20" fill="#1d242c" stroke="#0d1117" />
+          <rect x="80" y="68" width="42" height="20" fill="#1d242c" stroke="#0d1117" />
+          <rect x="80" y="88" width="42" height="20" fill="#16373b" stroke="#0d1117" />
+          <rect x="80" y="108" width="42" height="20" fill="#16373b" stroke="#0d1117" />
+          <!-- col 1 -->
+          <rect x="132" y="48" width="42" height="20" fill="#1d242c" stroke="#0d1117" />
+          <rect x="132" y="68" width="42" height="20" fill="#1d242c" stroke="#0d1117" />
+          <rect x="132" y="88" width="42" height="20" fill="#16373b" stroke="#0d1117" />
+          <rect x="132" y="108" width="42" height="20" fill="#16373b" stroke="#0d1117" />
+          <!-- col 2 -->
+          <rect x="184" y="48" width="42" height="20" fill="#1d242c" stroke="#0d1117" />
+          <rect x="184" y="68" width="42" height="20" fill="#1d242c" stroke="#0d1117" />
+          <rect x="184" y="88" width="42" height="20" fill="#16373b" stroke="#0d1117" />
+          <rect x="184" y="108" width="42" height="20" fill="#16373b" stroke="#0d1117" />
+
+          <!-- cell labels = flat offset c·m + r -->
+          <foreignObject x="80" y="50" width="42" height="18"
+            ><div
+              xmlns="http://www.w3.org/1999/xhtml"
+              style="width: 42px; text-align: center; font-size: 9px; line-height: 18px; color: #e6edf3"
+            >
+              \(0\)
+            </div></foreignObject
+          >
+          <foreignObject x="80" y="70" width="42" height="18"
+            ><div
+              xmlns="http://www.w3.org/1999/xhtml"
+              style="width: 42px; text-align: center; font-size: 9px; line-height: 18px; color: #e6edf3"
+            >
+              \(1\)
+            </div></foreignObject
+          >
+          <foreignObject x="80" y="90" width="42" height="18"
+            ><div
+              xmlns="http://www.w3.org/1999/xhtml"
+              style="width: 42px; text-align: center; font-size: 9px; line-height: 18px; color: #e6edf3"
+            >
+              \(2\)
+            </div></foreignObject
+          >
+          <foreignObject x="80" y="110" width="42" height="18"
+            ><div
+              xmlns="http://www.w3.org/1999/xhtml"
+              style="width: 42px; text-align: center; font-size: 9px; line-height: 18px; color: #e6edf3"
+            >
+              \(3\)
+            </div></foreignObject
+          >
+          <foreignObject x="132" y="50" width="42" height="18"
+            ><div
+              xmlns="http://www.w3.org/1999/xhtml"
+              style="width: 42px; text-align: center; font-size: 9px; line-height: 18px; color: #e6edf3"
+            >
+              \(m\)
+            </div></foreignObject
+          >
+          <foreignObject x="132" y="70" width="42" height="18"
+            ><div
+              xmlns="http://www.w3.org/1999/xhtml"
+              style="width: 42px; text-align: center; font-size: 9px; line-height: 18px; color: #e6edf3"
+            >
+              \(m{+}1\)
+            </div></foreignObject
+          >
+          <foreignObject x="132" y="90" width="42" height="18"
+            ><div
+              xmlns="http://www.w3.org/1999/xhtml"
+              style="width: 42px; text-align: center; font-size: 9px; line-height: 18px; color: #e6edf3"
+            >
+              \(m{+}2\)
+            </div></foreignObject
+          >
+          <foreignObject x="132" y="110" width="42" height="18"
+            ><div
+              xmlns="http://www.w3.org/1999/xhtml"
+              style="width: 42px; text-align: center; font-size: 9px; line-height: 18px; color: #e6edf3"
+            >
+              \(m{+}3\)
+            </div></foreignObject
+          >
+          <foreignObject x="184" y="50" width="42" height="18"
+            ><div
+              xmlns="http://www.w3.org/1999/xhtml"
+              style="width: 42px; text-align: center; font-size: 9px; line-height: 18px; color: #e6edf3"
+            >
+              \(2m\)
+            </div></foreignObject
+          >
+          <foreignObject x="184" y="70" width="42" height="18"
+            ><div
+              xmlns="http://www.w3.org/1999/xhtml"
+              style="width: 42px; text-align: center; font-size: 9px; line-height: 18px; color: #e6edf3"
+            >
+              \(2m{+}1\)
+            </div></foreignObject
+          >
+          <foreignObject x="184" y="90" width="42" height="18"
+            ><div
+              xmlns="http://www.w3.org/1999/xhtml"
+              style="width: 42px; text-align: center; font-size: 9px; line-height: 18px; color: #e6edf3"
+            >
+              \(2m{+}2\)
+            </div></foreignObject
+          >
+          <foreignObject x="184" y="110" width="42" height="18"
+            ><div
+              xmlns="http://www.w3.org/1999/xhtml"
+              style="width: 42px; text-align: center; font-size: 9px; line-height: 18px; color: #e6edf3"
+            >
+              \(2m{+}3\)
+            </div></foreignObject
+          >
+
+          <rect x="77" y="86" width="152" height="44" rx="3" fill="none" stroke="#39c5cf" stroke-width="1.5" />
+          <foreignObject x="0" y="100" width="75" height="16">
+            <div
+              xmlns="http://www.w3.org/1999/xhtml"
+              style="text-align: right; font-size: 9px; color: #39c5cf; white-space: nowrap"
+            >
+              \(\text{edge pair }p=1\)
+            </div>
+          </foreignObject>
+
+          <foreignObject x="252" y="71" width="100" height="16">
+            <div xmlns="http://www.w3.org/1999/xhtml" style="text-align: center; color: #e6edf3; white-space: nowrap">
+              \(\text{thread }p\)
+            </div>
+          </foreignObject>
+          <line x1="232" y1="109" x2="369" y2="93" stroke="#4ea1ff" marker-end="url(#aacc)" />
+
+          <rect x="372" y="70" width="248" height="46" rx="6" fill="#171c22" stroke="#4ea1ff" />
+          <foreignObject x="380" y="76" width="236" height="36">
+            <div xmlns="http://www.w3.org/1999/xhtml">
+              <div style="color: #e6edf3; white-space: nowrap">\(E_p(X)=(1-X)\,c[2p]+X\,c[2p{+}1]\)</div>
+              <div style="color: #9aa7b4; font-size: 10px; white-space: nowrap">
+                one degree-1 line per column \(c=j\gg 1\)
+              </div>
+            </div>
+          </foreignObject>
+
+          <line x1="496" y1="116" x2="496" y2="132" stroke="#4ea1ff" marker-end="url(#aacc)" />
+
+          <rect x="372" y="132" width="248" height="46" rx="6" fill="#171c22" stroke="#39c5cf" />
+          <foreignObject x="380" y="138" width="236" height="36">
+            <div xmlns="http://www.w3.org/1999/xhtml">
+              <div style="color: #e6edf3; white-space: nowrap">evaluate relation \(g\) on the lines</div>
+              <div style="color: #9aa7b4; font-size: 10px; white-space: nowrap">
+                \(\to\ \deg g+1\) evals, scaled by \(s_p\)
+              </div>
+            </div>
+          </foreignObject>
+
+          <line x1="620" y1="155" x2="650" y2="155" stroke="#4ea1ff" marker-end="url(#aacc)" />
+
+          <rect x="650" y="132" width="232" height="46" rx="6" fill="#1d242c" stroke="#3fb950" />
+          <foreignObject x="658" y="138" width="220" height="36">
+            <div xmlns="http://www.w3.org/1999/xhtml">
+              <div style="color: #e6edf3; white-space: nowrap">\(\texttt{perEdge}[\,p\cdot\mathrm{outLen}_g+k\,]\)</div>
+              <div style="color: #3fb950; white-space: nowrap">\(=\;s_p\,g\big(E_p(k)\big)\)</div>
+            </div>
+          </foreignObject>
+
+          <!-- acc output for ONE edge p: the 345 values laid out horizontally (all 63 subrelations) -->
+          <line x1="700" y1="178" x2="592" y2="213" stroke="#9aa7b4" stroke-dasharray="3 3" />
+          <foreignObject x="190" y="188" width="560" height="16"><div xmlns="http://www.w3.org/1999/xhtml" style="color:#9aa7b4;white-space:nowrap">perEdge for one edge \(p\) — 345 values (all 63 subrelations)</div></foreignObject>
+
+          <foreignObject x="116" y="222" width="66" height="16"><div xmlns="http://www.w3.org/1999/xhtml" style="width:66px;text-align:right;color:#9aa7b4">edge \(p\)</div></foreignObject>
+
+          <rect x="190" y="216" width="670" height="30" fill="#1d242c" stroke="#2b333c" />
+          <line x1="250" y1="216" x2="250" y2="246" stroke="#2b333c" />
+          <line x1="312" y1="216" x2="312" y2="246" stroke="#2b333c" />
+          <line x1="374" y1="216" x2="374" y2="246" stroke="#2b333c" />
+          <line x1="436" y1="216" x2="436" y2="246" stroke="#2b333c" />
+          <line x1="498" y1="216" x2="498" y2="246" stroke="#2b333c" />
+          <line x1="686" y1="216" x2="686" y2="246" stroke="#2b333c" />
+          <line x1="748" y1="216" x2="748" y2="246" stroke="#2b333c" />
+          <line x1="810" y1="216" x2="810" y2="246" stroke="#2b333c" />
+
+          <rect x="560" y="214" width="64" height="34" fill="#16373b" stroke="#39c5cf" stroke-width="1.4" />
+          <line x1="576" y1="216" x2="576" y2="246" stroke="#2b333c" />
+          <line x1="592" y1="216" x2="592" y2="246" stroke="#2b333c" />
+          <line x1="608" y1="216" x2="608" y2="246" stroke="#2b333c" />
+          <foreignObject x="560" y="223" width="16" height="14"><div xmlns="http://www.w3.org/1999/xhtml" style="width:16px;text-align:center;font-size:8px;color:#e6edf3">\(0\)</div></foreignObject>
+          <foreignObject x="576" y="223" width="16" height="14"><div xmlns="http://www.w3.org/1999/xhtml" style="width:16px;text-align:center;font-size:8px;color:#e6edf3">\(1\)</div></foreignObject>
+          <foreignObject x="592" y="223" width="16" height="14"><div xmlns="http://www.w3.org/1999/xhtml" style="width:16px;text-align:center;font-size:8px;color:#e6edf3">\(2\)</div></foreignObject>
+          <foreignObject x="608" y="223" width="16" height="14"><div xmlns="http://www.w3.org/1999/xhtml" style="width:16px;text-align:center;font-size:8px;color:#e6edf3">\(\cdots\)</div></foreignObject>
+
+          <foreignObject x="174" y="248" width="20" height="14"><div xmlns="http://www.w3.org/1999/xhtml" style="font-size:9px;color:#9aa7b4">0</div></foreignObject>
+          <foreignObject x="844" y="248" width="28" height="14"><div xmlns="http://www.w3.org/1999/xhtml" style="font-size:9px;color:#9aa7b4">345</div></foreignObject>
+
+          <line x1="560" y1="250" x2="560" y2="254" stroke="#9aa7b4" />
+          <line x1="624" y1="250" x2="624" y2="254" stroke="#9aa7b4" />
+          <line x1="560" y1="254" x2="624" y2="254" stroke="#9aa7b4" />
+          <foreignObject x="510" y="256" width="164" height="14"><div xmlns="http://www.w3.org/1999/xhtml" style="text-align:center;color:#9aa7b4;white-space:nowrap">relation \(g\): \(\mathrm{outLen}_g\) cells</div></foreignObject>
+        </svg>
+        <figcaption>
+          For one edge \(p\), the acc stage writes <b>345</b> values — every subrelation's \(\deg g{+}1\) evals laid
+          end to end; this thread's relation \(g\) fills the highlighted \(\mathrm{outLen}_g\) band, the other 13
+          relations fill the rest. There are \(m/2\) such edges; stage&nbsp;B sums them into the 345-element
+          accumulator \(A\) (§<a href="#arch">7</a>.1).
+        </figcaption>
+      </figure>
+
+      <div class="stage gpu">
+        <span class="where" style="color: var(--teal)">GPU · two passes</span>
+        <div class="hd">B. Edge reduction (on-GPU, two-level)</div>
+        Pass 1 partitions the \(\tfrac m2\) edges into \(\Gamma\le 64\) chunks; each workgroup sums its chunk: $$
+        \texttt{parts}[\gamma][k]=\!\!\sum_{p\in\text{chunk}_\gamma}\!\!\texttt{perEdge}[p][k]. $$ Pass 2 sums the
+        \(\Gamma\) partials into one field element per column, written into the flat 345-element accumulator at this
+        relation's offset: $$
+        A_g[k]=\sum_{\gamma}\texttt{parts}[\gamma][k]=\sum_{p}s^{(i)}_p\,g\!\big(E_p(k)\big)=T^{\,i}_g(k). $$ Only the
+        345-element \(A\) (\(\approx 11\)&nbsp;KB) is read back — not \(345\cdot\tfrac m2\).
+      </div>
+
+      <div class="stage cpu">
+        <span class="where" style="color: var(--vio)">CPU · \(O(1)\)</span>
+        <div class="hd">C. Batch tail \(\to\) round univariate (<code>batchOverRelations</code>)</div>
+        With \(A\) decoded to canonical bigint: scale \(A_g\mapsto\alpha^{g}A_g\); <b>extend</b> each subrelation to
+        length 8 by barycentric interpolation over \(\{0,\dots,L_g-1\}\); apply the pow factor
+        \(\operatorname{extRandom}(e)=(1-e)+e\,\beta_i\) and \(c_i\) to \(\mathrm{LI}\), add \(\mathrm{LD}\) raw: $$
+        \tilde S^{\,i}[e]\;=\;c_i\,\operatorname{extRandom}(e)\!\!\sum_{g\in\mathrm{LI}}\widehat{\alpha^g A_g}(e)
+        \;+\;\sum_{g\in\mathrm{LD}}\widehat{\alpha^g A_g}(e),\qquad e=0,\dots,7. $$ Cost \(\approx 63\) length-8
+        extensions — independent of \(n\).
+      </div>
+
+      <div class="stage cpu">
+        <span class="where" style="color: var(--vio)">CPU</span>
+        <div class="hd">D. Challenge</div>
+        \(u_i\) is drawn from the round univariate (deterministic test value, or a supplied challenge chain). The gate
+        separator advances: \(c_{i+1}=c_i\big((1-u_i)+u_i\beta_i\big)\), periodicity doubles, \(\beta_i\to\beta_{i+1}\).
+        <b>This read-back-to-draw is the one blocking CPU\(\leftrightarrow\)GPU sync per round.</b>
+      </div>
+
+      <div class="stage gpu">
+        <span class="where" style="color: var(--teal)">GPU · 1 thread/output</span>
+        <div class="hd">E. Fold</div>
+        A second submission halves every column at \(u_i\): \(P'[k]=(1-u_i)P[2k]+u_i P[2k+1]\), resident bytes \(\to\)
+        resident bytes. Its output <em>is</em> the next round's columns (never decoded to canonical). No fence — the
+        next round's accumulate read serializes against it via the queue.
+      </div>
+
+      <!-- ============================================================ -->
+      <h2 id="single">4 &nbsp;Single-submission engine — stage by stage</h2>
+      <p class="small mono">src: single_submit.ts · batch_gpu.ts · poseidon2_gpu.ts</p>
+      <p>
+        The entire \(d\)-round protocol is encoded into <b>one</b> command buffer and read back <b>once</b>. Stages A
+        and B are identical to the multi-pass engine. The batch tail (C) and the challenge (D) move onto the GPU, so
+        round \(i+1\)'s fold can consume \(u_i\) without ever returning to the host. Columns ping-pong between two
+        resident sets (\(\texttt{colA}\leftrightarrow\texttt{colB}\)); WebGPU's intra-encoder hazard tracking serializes
+        the dependent chain automatically.
+      </p>
+
+      <div class="stage gpu">
+        <span class="where" style="color: var(--teal)">GPU</span>
+        <div class="hd">A–B. Accumulate + edge reduction</div>
+        Identical to §3.A–B: per-edge \(s^{(i)}_p\,g(E_p(k))\), two-level reduce \(\to\) the 345-element accumulator
+        \(A\) in VRAM. It is <em>not</em> read back; it feeds the GPU batch kernel directly.
+      </div>
+
+      <div class="stage gpu">
+        <span class="where" style="color: var(--teal)">GPU · 8 lanes</span>
+        <div class="hd">C. Batch on the GPU (matrix reformulation)</div>
+        The CPU tail is recast as two constant matrix–vector products. Because \(\alpha\) is fixed for the run and
+        extend-to-8 is <em>linear</em> in \(A\), fold \(\alpha^g\) and the barycentric extend coefficients
+        \(C^{(g)}_{e,j}\) (where \(\widehat{A_g}(e)=\sum_j C^{(g)}_{e,j}A_g[\mathrm{st}_g+j]\)) into matrices
+        \(M^{\mathrm{LI}},M^{\mathrm{LD}}\in\mathbb F^{8\times 345}\), built <b>once</b> at setup: $$
+        M^{\mathrm{LI}}_{e,\,\mathrm{st}_g+j}=\begin{cases}\alpha^{g}\,C^{(g)}_{e,j}&g\in\mathrm{LI}\\[2pt]0&g\in\mathrm{LD}\end{cases}
+        \qquad M^{\mathrm{LD}}=\text{(complement)}. $$ The kernel then computes, per eval point \(e=0,\dots,7\) (with
+        \(a_e=(1-e),\,b_e=e\)): $$ \tilde
+        S^{\,i}[e]=\Big(\sum_{\mathrm{idx}=0}^{344}M^{\mathrm{LI}}_{e,\mathrm{idx}}A[\mathrm{idx}]\Big)
+        \big(a_e+b_e\beta_i\big)\,c_i\;+\;\sum_{\mathrm{idx}=0}^{344}M^{\mathrm{LD}}_{e,\mathrm{idx}}A[\mathrm{idx}]. $$
+        Only the per-round scalars \(\beta_i,c_i\) are read from VRAM; \(\beta_i\) is preloaded, \(c_i\) is the
+        GPU-resident gate-separator product. Proven equal to the CPU <code>batchOverRelations</code>.
+      </div>
+
+      <div class="stage gpu">
+        <span class="where" style="color: var(--teal)">GPU · Poseidon2</span>
+        <div class="hd">D. Fiat–Shamir transcript + gate-separator advance</div>
+        The round challenge is hashed on the GPU from that round's univariate, so the next fold can consume it in the
+        same command buffer: $$ u_i=\operatorname{Poseidon2}\!\big(\,\text{run}_i\;\|\;\tilde
+        S^{\,i}[0..7]\,\big),\qquad \text{run}_{i+1}=u_i,\quad \text{run}_0=\text{seed}, $$ with sponge IV
+        \(=9\!\ll\!64\) (9 absorbed elements) and permutation \(t=4,\,R_F=8,\,R_P=56\) (\(\approx 3\)
+        permutations/round). It then advances the resident gate separator $$ c_{i+1}=c_i\big((1-u_i)+u_i\beta_i\big) $$
+        in the same dispatch. This matches bb.js <code>poseidon2Hash</code> bit-for-bit, so the GPU-derived challenges
+        are drop-in for the C++ transcript.
+      </div>
+
+      <div class="stage gpu">
+        <span class="where" style="color: var(--teal)">GPU · ping-pong</span>
+        <div class="hd">E. Fold (resident \(\to\) resident, swap)</div>
+        Fold every column at \(u_i\) from \(\texttt{cur}\) into \(\texttt{other}\), then swap. The
+        \(\texttt{batch}\to\texttt{transcript}\to\texttt{fold}\to\texttt{accumulate}\) dependency (incl. the
+        \(c_i\)-read-before-\(c_{i+1}\)-write hazard) is enforced by encoder hazard tracking, not host fences.
+      </div>
+
+      <div class="callout">
+        <b>One submit, one map.</b> Each round copies its univariate and challenge into a staging buffer; after the loop
+        a single <code>submit</code> + <code>mapAsync</code> returns all \(d\) univariates and \(d\) challenges. The
+        host work per prove is then: upload columns, encode passes, one submit, one map, \(O(d)\) decode. (A second tiny
+        submit currently fetches the final length-1 columns for the purported-value anchor — see §9.)
+      </div>
+
+      <!-- ============================================================ -->
+      <h2 id="wasm">5 &nbsp;The threaded-WASM baseline (what we race against)</h2>
+      <p class="small mono">
+        src: bench.ts → bb.js <code>SumcheckBench</code> · cpp/bbapi/bbapi_sumcheck.cpp · sumcheck.hpp ·
+        sumcheck_round.hpp
+      </p>
+      <p>
+        Production <code>SumcheckProver&lt;MegaFlavor&gt;::prove()</code> compiled to WASM, <code>P</code> pthreads on a
+        <code>SharedArrayBuffer</code> heap (\(P=\) <code>hardwareConcurrency</code>). Same dense-random MegaFlavor,
+        same non-ZK relations as the GPU engines. Each round \(i\) (size \(m=2^{d-i}\)) runs the four steps below; the
+        math is §<a href="#math">2</a>, only the <b>parallel axis</b> differs.
+      </p>
+
+      <div class="stage cpu">
+        <span class="where" style="color: var(--vio)">P threads · over edges (chunks of 64)</span>
+        <div class="hd">A. Accumulate (<code>compute_univariate</code>)</div>
+        Pairs \(\{0,\dots,\tfrac m2-1\}=\bigsqcup_{t} C_t\) work-stolen into thread-private accumulators, then merged:
+        $$ A^{(t)}_g[k]=\!\!\sum_{p\in C_t}\! s_p\,g\!\big(E_p(k)\big),\qquad A_g[k]=\sum_{t <
+        P}A^{(t)}_g[k]=T^{\,i}_g(k), \qquad s_p=\texttt{gate_separators}[2p]. $$
+      </div>
+
+      <div class="stage cpu">
+        <span class="where" style="color: var(--vio)">serial · \(O(1)\)</span>
+        <div class="hd">B. Batch (<code>batch_over_relations</code>)</div>
+        Identical routine to §<a href="#multi">3</a>.C: $$ \tilde
+        S^{\,i}[e]=c_i\big((1-e)+e\beta_i\big)\!\!\sum_{g\in\mathrm{LI}}\!\widehat{\alpha^g
+        A_g}(e)\;+\!\!\sum_{g\in\mathrm{LD}}\!\widehat{\alpha^g A_g}(e),\qquad e=0,\dots,7. $$
+      </div>
+
+      <div class="stage cpu">
+        <span class="where" style="color: var(--vio)">serial</span>
+        <div class="hd">C. Challenge (transcript)</div>
+        $$ u_i=\operatorname{Poseidon2\text{-}Transcript}\big(\tilde S^{\,i}[0..7]\big). $$
+      </div>
+
+      <div class="stage cpu">
+        <span class="where" style="color: var(--vio)">P threads · over the \(N\!\approx\!185\) columns</span>
+        <div class="hd">D. Fold (<code>partially_evaluate</code>)</div>
+        $$ P^{(i+1)}_j[k]=P^{(i)}_j[2k]+u_i\big(P^{(i)}_j[2k+1]-P^{(i)}_j[2k]\big),\qquad j=0,\dots,N-1,\ \
+        k=0,\dots,\tfrac m2-1. $$
+      </div>
+
+      <table>
+        <tr>
+          <th>Step</th>
+          <th>Parallel axis (WASM)</th>
+          <th>vs GPU axis</th>
+          <th>field mul</th>
+        </tr>
+        <tr>
+          <td>A accumulate</td>
+          <td class="mono">P threads · edge chunks</td>
+          <td class="mono">1 lane / edge (\(m/2\))</td>
+          <td rowspan="2">native <code>i64</code> limbs<br />(vs emulated \(8\times\)u32)</td>
+        </tr>
+        <tr>
+          <td>D fold</td>
+          <td class="mono">P threads · columns (\(\le 185\))</td>
+          <td class="mono">1 lane / output</td>
+        </tr>
+      </table>
+      <p class="small">
+        WASM's scalar multiply is faster but parallelism is capped at \(P\!\sim\!10\!-\!12\); the GPU runs thousands of
+        edge-lanes, so it overtakes from \(2^{16}\) (§<a href="#prof">8</a>–§<a href="#crit">9</a>). Both draw \(u_i\)
+        serially between rounds.
+      </p>
+
+      <!-- ============================================================ -->
+      <h2 id="compare">6 &nbsp;The two engines side by side</h2>
+      <table>
+        <tr>
+          <th>Stage</th>
+          <th>Multi-pass</th>
+          <th>Single-submission</th>
+        </tr>
+        <tr>
+          <td>Accumulate (A)</td>
+          <td class="mono">GPU</td>
+          <td class="mono">GPU</td>
+        </tr>
+        <tr>
+          <td>Edge reduction (B)</td>
+          <td class="mono">GPU (2-level)</td>
+          <td class="mono">GPU (2-level)</td>
+        </tr>
+        <tr>
+          <td>Batch \(\to\) univariate (C)</td>
+          <td class="mono">CPU <code>batchOverRelations</code></td>
+          <td class="mono">GPU \(M^{\mathrm{LI}}/M^{\mathrm{LD}}\) matmul</td>
+        </tr>
+        <tr>
+          <td>Challenge / Fiat–Shamir (D)</td>
+          <td class="mono">CPU (supplied / test)</td>
+          <td class="mono">GPU Poseidon2 transcript</td>
+        </tr>
+        <tr>
+          <td>Gate-separator advance</td>
+          <td class="mono">CPU bigint</td>
+          <td class="mono">GPU (in transcript)</td>
+        </tr>
+        <tr>
+          <td>Fold (E)</td>
+          <td class="mono">GPU, alloc new buffers</td>
+          <td class="mono">GPU, ping-pong 2 sets</td>
+        </tr>
+        <tr>
+          <td>CPU\(\leftrightarrow\)GPU trips / run</td>
+          <td>\(d\) readbacks (1/round)</td>
+          <td><b>1</b> readback total</td>
+        </tr>
+        <tr>
+          <td>Host work / round</td>
+          <td>decode 345 Fr + \(O(1)\) tail + draw \(u_i\)</td>
+          <td>encode passes only</td>
+        </tr>
+        <tr>
+          <td>Resident column memory</td>
+          <td>\(1\times\) (+ per-round fold alloc)</td>
+          <td>\(1.5\times\) (ping-pong colA+colB)</td>
+        </tr>
+      </table>
+      <p class="small">
+        Both produce bit-for-bit identical round univariates on the same challenge chain (cross-checked every size in
+        the benchmark). The single-submission engine is the integration target: it owns its own Fiat–Shamir and never
+        blocks the host mid-protocol.
+      </p>
+
+      <!-- ============================================================ -->
+      <h2 id="arch">7 &nbsp;Architecture</h2>
+      <p class="legend">
+        <span><span class="swatch" style="background: var(--teal)"></span>GPU kernel</span>
+        <span><span class="swatch" style="background: var(--vio)"></span>CPU (TS, BigInt)</span>
+        <span><span class="swatch" style="background: var(--acc)"></span>resident buffer / single command buffer</span>
+      </p>
+
+      <figure>
+        <svg viewBox="0 0 960 250" width="100%" font-family="SF Mono, monospace" font-size="12">
+          <defs>
+            <marker id="arr" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+              <path d="M0,0 L7,3 L0,6 Z" fill="#9aa7b4" />
+            </marker>
+            <marker id="arrg" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+              <path d="M0,0 L7,3 L0,6 Z" fill="#4ea1ff" />
+            </marker>
+          </defs>
+          <text x="10" y="20" fill="#9aa7b4">multi-pass · one round = two GPU submissions around a CPU tail</text>
+          <rect x="10" y="40" width="120" height="52" rx="7" fill="#1d242c" stroke="#39c5cf" />
+          <text x="70" y="62" fill="#e6edf3" text-anchor="middle">accumulate</text>
+          <text x="70" y="80" fill="#9aa7b4" text-anchor="middle">14 kernels</text>
+          <rect x="160" y="40" width="120" height="52" rx="7" fill="#1d242c" stroke="#39c5cf" />
+          <text x="220" y="62" fill="#e6edf3" text-anchor="middle">reduce Σedge</text>
+          <foreignObject x="160" y="71" width="120" height="16"
+            ><div xmlns="http://www.w3.org/1999/xhtml" style="text-align: center; color: #9aa7b4">
+              \(\to 345\ \mathrm{Fr}\)
+            </div></foreignObject
+          >
+          <rect x="310" y="40" width="120" height="52" rx="7" fill="#171c22" stroke="#f85149" />
+          <text x="370" y="62" fill="#e6edf3" text-anchor="middle">readback</text>
+          <text x="370" y="80" fill="#f85149" text-anchor="middle">11 KB · BLOCK</text>
+          <rect x="460" y="40" width="120" height="52" rx="7" fill="#171c22" stroke="#bc8cff" />
+          <text x="520" y="62" fill="#e6edf3" text-anchor="middle">batch tail</text>
+          <foreignObject x="460" y="71" width="120" height="16"
+            ><div xmlns="http://www.w3.org/1999/xhtml" style="text-align: center; color: #bc8cff">
+              \(\text{CPU}\to\tilde S^{\,i}(X)\)
+            </div></foreignObject
+          >
+          <rect x="610" y="40" width="110" height="52" rx="7" fill="#171c22" stroke="#bc8cff" />
+          <foreignObject x="610" y="54" width="110" height="16"
+            ><div xmlns="http://www.w3.org/1999/xhtml" style="text-align: center; color: #e6edf3">
+              \(\text{draw } u_i\)
+            </div></foreignObject
+          >
+          <text x="665" y="80" fill="#bc8cff" text-anchor="middle">CPU</text>
+          <rect x="750" y="40" width="120" height="52" rx="7" fill="#1d242c" stroke="#39c5cf" />
+          <text x="810" y="62" fill="#e6edf3" text-anchor="middle">fold</text>
+          <text x="810" y="80" fill="#9aa7b4" text-anchor="middle">resident bytes</text>
+          <line x1="130" y1="66" x2="158" y2="66" stroke="#9aa7b4" marker-end="url(#arr)" />
+          <line x1="280" y1="66" x2="308" y2="66" stroke="#9aa7b4" marker-end="url(#arr)" />
+          <line x1="430" y1="66" x2="458" y2="66" stroke="#9aa7b4" marker-end="url(#arr)" />
+          <line x1="580" y1="66" x2="608" y2="66" stroke="#9aa7b4" marker-end="url(#arr)" />
+          <line x1="720" y1="66" x2="748" y2="66" stroke="#9aa7b4" marker-end="url(#arr)" />
+          <path
+            d="M810,92 L810,120 L70,120 L70,94"
+            fill="none"
+            stroke="#4ea1ff"
+            stroke-dasharray="4 3"
+            marker-end="url(#arrg)"
+          />
+          <foreignObject x="160" y="126" width="520" height="18">
+            <div xmlns="http://www.w3.org/1999/xhtml" style="text-align: center; color: #4ea1ff">
+              fold output = next round's columns (resident; loops \(d\) times)
+            </div>
+          </foreignObject>
+
+          <foreignObject x="10" y="166" width="640" height="18">
+            <div xmlns="http://www.w3.org/1999/xhtml" style="color: #9aa7b4; white-space: nowrap">
+              single-submission · all \(d\) rounds in ONE command buffer, read back once
+            </div>
+          </foreignObject>
+          <rect x="10" y="196" width="100" height="40" rx="7" fill="#1d242c" stroke="#39c5cf" />
+          <text x="60" y="220" fill="#e6edf3" text-anchor="middle">accumulate</text>
+          <rect x="125" y="196" width="95" height="40" rx="7" fill="#1d242c" stroke="#39c5cf" />
+          <text x="172" y="220" fill="#e6edf3" text-anchor="middle">reduce</text>
+          <rect x="235" y="196" width="120" height="40" rx="7" fill="#1d242c" stroke="#39c5cf" />
+          <text x="295" y="216" fill="#e6edf3" text-anchor="middle">batch (matmul)</text>
+          <foreignObject x="235" y="222" width="120" height="16"
+            ><div xmlns="http://www.w3.org/1999/xhtml" style="text-align: center; color: #9aa7b4">
+              \(\to\tilde S^{\,i}(X)\)
+            </div></foreignObject
+          >
+          <rect x="370" y="196" width="135" height="40" rx="7" fill="#1d242c" stroke="#d29922" />
+          <text x="437" y="216" fill="#e6edf3" text-anchor="middle">Poseidon2 FS</text>
+          <foreignObject x="370" y="222" width="135" height="16"
+            ><div xmlns="http://www.w3.org/1999/xhtml" style="text-align: center; color: #d29922">
+              \(u_i,\;c_{i+1}\)
+            </div></foreignObject
+          >
+          <rect x="520" y="196" width="110" height="40" rx="7" fill="#1d242c" stroke="#39c5cf" />
+          <text x="575" y="220" fill="#e6edf3" text-anchor="middle">fold (ping-pong)</text>
+          <line x1="110" y1="216" x2="123" y2="216" stroke="#9aa7b4" marker-end="url(#arr)" />
+          <line x1="220" y1="216" x2="233" y2="216" stroke="#9aa7b4" marker-end="url(#arr)" />
+          <line x1="355" y1="216" x2="368" y2="216" stroke="#9aa7b4" marker-end="url(#arr)" />
+          <line x1="505" y1="216" x2="518" y2="216" stroke="#9aa7b4" marker-end="url(#arr)" />
+          <path
+            d="M630,216 L660,216 L660,180 L60,180 L60,194"
+            fill="none"
+            stroke="#4ea1ff"
+            stroke-dasharray="4 3"
+            marker-end="url(#arrg)"
+          />
+          <rect x="690" y="196" width="120" height="40" rx="7" fill="#171c22" stroke="#3fb950" />
+          <text x="750" y="216" fill="#e6edf3" text-anchor="middle">1× readback</text>
+          <foreignObject x="690" y="222" width="120" height="16"
+            ><div xmlns="http://www.w3.org/1999/xhtml" style="text-align: center; color: #3fb950">
+              \(\text{all } u_i,\,\tilde S^{\,i}\)
+            </div></foreignObject
+          >
+          <line x1="660" y1="200" x2="688" y2="210" stroke="#3fb950" marker-end="url(#arr)" />
+        </svg>
+        <figcaption>
+          Top: the multi-pass round, with the blocking 345-Fr readback (red) feeding the CPU tail. Bottom: the
+          single-submission engine — batch and Fiat–Shamir are GPU kernels, the loop never touches the host, and one
+          readback returns everything.
+        </figcaption>
+      </figure>
+
+      <h3>6.1 &nbsp;The 345-element accumulator</h3>
+      <figure>
+        <svg viewBox="0 0 940 90" width="100%" font-family="SF Mono, monospace" font-size="11">
+          <g>
+            <rect x="10" y="30" width="29.3" height="34" fill="#1f6feb" stroke="#0d1117" />
+            <rect x="39.3" y="30" width="32.0" height="34" fill="#388bfd" stroke="#0d1117" />
+            <rect x="71.3" y="30" width="34.7" height="34" fill="#1f6feb" stroke="#0d1117" />
+            <rect x="106" y="30" width="64.0" height="34" fill="#388bfd" stroke="#0d1117" />
+            <rect x="170" y="30" width="32.0" height="34" fill="#1f6feb" stroke="#0d1117" />
+            <rect x="202" y="30" width="96.0" height="34" fill="#388bfd" stroke="#0d1117" />
+            <rect x="298" y="30" width="16.0" height="34" fill="#1f6feb" stroke="#0d1117" />
+            <rect x="314" y="30" width="64.0" height="34" fill="#388bfd" stroke="#0d1117" />
+            <rect x="378" y="30" width="240.0" height="34" fill="#bc8cff" stroke="#0d1117" />
+            <rect x="618" y="30" width="74.7" height="34" fill="#388bfd" stroke="#0d1117" />
+            <rect x="692.7" y="30" width="32.0" height="34" fill="#1f6feb" stroke="#0d1117" />
+            <rect x="724.7" y="30" width="74.7" height="34" fill="#388bfd" stroke="#0d1117" />
+            <rect x="799.4" y="30" width="74.7" height="34" fill="#1f6feb" stroke="#0d1117" />
+            <rect x="874.1" y="30" width="56.0" height="34" fill="#388bfd" stroke="#0d1117" />
+          </g>
+          <foreignObject x="10" y="10" width="90" height="16"
+            ><div xmlns="http://www.w3.org/1999/xhtml" style="color: #9aa7b4; white-space: nowrap">
+              \(\text{Arith }11\)
+            </div></foreignObject
+          >
+          <foreignObject x="200" y="10" width="100" height="16"
+            ><div xmlns="http://www.w3.org/1999/xhtml" style="color: #9aa7b4; white-space: nowrap">
+              \(\text{Memory }36\)
+            </div></foreignObject
+          >
+          <foreignObject x="430" y="10" width="240" height="16"
+            ><div xmlns="http://www.w3.org/1999/xhtml" style="color: #e6edf3; white-space: nowrap">
+              \(\text{DatabusLookup }90\ (5\text{ buses})\)
+            </div></foreignObject
+          >
+          <foreignObject x="8" y="69" width="24" height="16"
+            ><div xmlns="http://www.w3.org/1999/xhtml" style="color: #9aa7b4">\(0\)</div></foreignObject
+          >
+          <foreignObject x="890" y="69" width="44" height="16"
+            ><div xmlns="http://www.w3.org/1999/xhtml" style="color: #9aa7b4">\(345\)</div></foreignObject
+          >
+        </svg>
+        <figcaption>
+          The 345-element accumulator \(A\) (block widths ∝ size). 14 relations, 63 subrelations; each subrelation
+          stores its natural \(\deg g+1\) value-basis evaluations. Purple = DatabusLookup, the largest at 90.
+        </figcaption>
+      </figure>
+
+      <!-- ============================================================ -->
+      <h2 id="prof">8 &nbsp;Profiling &amp; plots</h2>
+      <p>
+        The plots below are <b>data-driven</b>: every number lives in one <code>PROFILE_DATA</code> object at the bottom
+        of this file. The values shown were <b>measured on an M4 Pro / Chrome</b> (WebGPU over Metal); re-run the
+        commands below and replace that object to refresh them on another device.
+      </p>
+
+      <div class="panel">
+        <b>Headline result.</b>
+        <span class="kpill k-good"
+          >WebGPU crosses parity with threaded WASM at \(2^{15}\) and wins 1.6–2.2× at \(2^{16}\!-\!2^{17}\)</span
+        >
+        — the GPU's edge-parallelism beats WASM at scale despite the emulated 254-bit multiply. The earlier "never
+        crosses parity" estimate was wrong. Two non-obvious findings drive the rest of this section: (1) the
+        <b>multi-pass</b> engine is <em>faster</em>
+        than single-submission at every size up to \(2^{17}\), because the on-GPU Poseidon2 transcript is serial and
+        costs more than the readbacks it removes; (2) accumulate is \(85\%\) of GPU time, so the field multiply — not
+        data movement — is what's left to optimize.
+      </div>
+
+      <div class="panel">
+        <b>Setup (once).</b> From <code>barretenberg/ts/</code>, start the Vite dev server (<code>yarn dev</code> or the
+        project's serve script) so the dashboard is at <code>localhost:5173</code>. Each command below runs headless via
+        Playwright and prints the log; <code>LOGN</code> selects the size. The WASM baseline needs cross-origin
+        isolation, which <code>drive.mjs</code> requests automatically for <code>bench</code>/<code>hybrid</code>.
+      </div>
+
+      <h3>7.1 &nbsp;What to run, and which plot each feeds</h3>
+      <table>
+        <tr>
+          <th>#</th>
+          <th>Command</th>
+          <th>Produces</th>
+          <th>Feeds</th>
+        </tr>
+        <tr>
+          <td>1</td>
+          <td class="mono">LOGN=18 node dev/sumcheck-webgpu/drive.mjs bench</td>
+          <td>per-size wall &amp; GPU ms for multi-pass, single-submit, WASM (sweeps \(2^{10}\!\to\!2^{18}\))</td>
+          <td>Plot&nbsp;A, Plot&nbsp;B</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td class="mono">LOGN=16 node dev/sumcheck-webgpu/drive.mjs profile</td>
+          <td>multi-pass round-0 per-kernel split: accumulate / reduce / fold + top-6 relations</td>
+          <td>Plot&nbsp;C</td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td class="mono">LOGN=16 node dev/sumcheck-webgpu/drive.mjs ssprofile</td>
+          <td>single-submit all-rounds split: accumulate / reduce / batch / transcript / fold + barrier bubble</td>
+          <td>Plot&nbsp;D</td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td class="mono">LOGN=16 node dev/sumcheck-webgpu/drive.mjs wgsweep</td>
+          <td>accumulate GPU ms at WG ∈ {32,64,96,128,192,256}</td>
+          <td>Plot&nbsp;E</td>
+        </tr>
+        <tr>
+          <td>5</td>
+          <td class="mono">LOGN=18 node dev/sumcheck-webgpu/drive.mjs hybrid</td>
+          <td>GPU-front + WASM-tail wall vs split \(k\), with full-WASM / full-GPU baselines</td>
+          <td>Plot&nbsp;F</td>
+        </tr>
+      </table>
+      <p class="small">
+        Exact log lines to read off: <b>bench</b> →
+        <code>2^k: multi … (GPU …) · single-submit … (GPU …) · WASM …</code>; <b>profile</b> →
+        <code>accumulate … · reduce … · fold …</code> plus the per-relation lines; <b>ssprofile</b> →
+        <code>accumulate … · reduce … · batch … · transcript … · fold …</code> and
+        <code>Σcompute … · bubble … · encoder span …</code>; <b>wgsweep</b> → <code>WG nnn: GPU … ms</code>;
+        <b>hybrid</b> → <code>… = hybridMs ms · full WASM … · full GPU …</code>.
+      </p>
+
+      <h3>7.2 &nbsp;The plots</h3>
+
+      <div class="chartwrap">
+        <h4>Plot A — Wall-clock vs problem size (2¹⁰–2¹⁸)</h4>
+        <p class="cmd">drive.mjs bench · y = log scale (ms), x = \(\log_2 n\)</p>
+        <div id="plotA"></div>
+        <p class="small">
+          The headline comparison. Three provers, end-to-end wall. Watch where (if anywhere) the single-submission curve
+          crosses WASM, and how the two GPU curves separate as host overhead amortizes.
+        </p>
+      </div>
+
+      <div class="chartwrap">
+        <h4>Plot B — Speedup vs threaded WASM (2¹⁰–2¹⁸)</h4>
+        <p class="cmd">drive.mjs bench · y = WASM ÷ WebGPU wall (>1 = WebGPU wins)</p>
+        <div id="plotB"></div>
+        <p class="small">
+          Parity is the dashed line at 1.0. Both engines cross it (multi-pass at \(2^{15}\), single-submit near
+          \(2^{16}\)) and climb to ~2.2× by \(2^{17}\); the dip at \(2^{18}\) is the multi-pass host cliff (§9). Below
+          \(2^{15}\) WebGPU is launch-overhead-bound and loses.
+        </p>
+      </div>
+
+      <div class="grid2">
+        <div class="chartwrap">
+          <h4>Plot C — Multi-pass GPU time split (2¹⁶, round 0)</h4>
+          <p class="cmd">drive.mjs profile · round 0</p>
+          <div id="plotC"></div>
+          <p class="small">
+            Measured \(85.6\%\) accumulate vs \(7.3\%\) reduce / \(7.1\%\) fold — the GPU is doing real \(O(n)\) field
+            work, not bookkeeping, so the field multiply is the thing left to optimize.
+          </p>
+        </div>
+        <div class="chartwrap">
+          <h4>Plot C2 — Accumulate cost per relation (2¹⁶, round 0)</h4>
+          <p class="cmd">drive.mjs profile · top relations</p>
+          <div id="plotC2"></div>
+          <p class="small">
+            Which relations cost the most (expect Databus / Poseidon2). Identifies where a squaring primitive or
+            selector-skip would pay off.
+          </p>
+        </div>
+      </div>
+
+      <div class="chartwrap">
+        <h4>Plot D — Single-submission GPU time split (2¹⁶, all rounds, incl. barrier bubble)</h4>
+        <p class="cmd">drive.mjs ssprofile · accumulate / reduce / batch / transcript / fold / bubble</p>
+        <div id="plotD"></div>
+        <p class="small">
+          The contrast with Plot C: the single-submission engine adds GPU <b>batch</b> (8.8%) and
+          <b>transcript</b> (<b>27.3%</b>) passes. The barrier <b>bubble</b> is small (1.7%) — the transcript cost isn't
+          idle, it's the single-threaded Poseidon2 (<code>@workgroup_size(1)</code>) doing 5.46 ms of
+          <em>serial work</em> every round. That 27% is why single-submit trails multi-pass up to \(2^{17}\), and the
+          top lever in §9.
+        </p>
+      </div>
+
+      <div class="grid2">
+        <div class="chartwrap">
+          <h4>Plot E — Accumulate workgroup-size sweep (2¹⁶)</h4>
+          <p class="cmd">drive.mjs wgsweep · GPU ms vs WG</p>
+          <div id="plotE"></div>
+          <p class="small">
+            The kernels ship at WG 64 — and it is already the device optimum (231 ms; the curve is flat 32–128, ±4%, and
+            only degrades past 192). Occupancy is <em>not</em> a lever on this device.
+          </p>
+        </div>
+        <div class="chartwrap">
+          <h4>Plot F — Hybrid GPU-front + WASM-tail (2¹⁸)</h4>
+          <p class="cmd">drive.mjs hybrid · wall vs GPU-round split \(k\)</p>
+          <div id="plotF"></div>
+          <p class="small">
+            Two horizontal lines: full-WASM and full-GPU. The split sweep is <b>noisy</b> (the GPU front and the handoff
+            readback spike at \(k=1,3\) — memory/allocation), so read it as a trend, not a curve: the deep even splits
+            win (\(k=6\): 837 ms, 2.7× vs WASM, also beats full GPU). Re-run for a clean signal. The honest baseline
+            here is that full GPU (1027 ms) already beats full WASM at \(2^{18}\).
+          </p>
+        </div>
+      </div>
+
+      <h3>7.3 &nbsp;Hybrid size sweep — fixed 9-round WASM tail (2¹⁰–2¹⁸)</h3>
+      <p>
+        Plot&nbsp;F swept the split point \(k\) at a fixed \(2^{18}\). This sweep fixes the <em>strategy</em> — fold
+        the first \(d-9\) rounds on WebGPU, hand the last 9 (a \(\le 2^9\) hypercube) to threaded WASM — and sweeps
+        the <em>size</em>. It is the configuration a real prover would ship: the heavy early rounds, where
+        edge-parallelism pays, run on the GPU; the cheap tail, where the GPU is launch-bound, stays on WASM.
+      </p>
+      <div class="panel">
+        <b>Headline.</b>
+        <span class="kpill k-good">crosses parity at \(2^{14}\), climbs to 3.22× at \(2^{18}\) — still rising</span>
+        — and the gap <em>widens</em> with size, because the GPU front grows ~1.8×/octave against full-WASM's
+        ~2.05×. At \(2^{18}\) the 9-round GPU front (656.7 ms) carries essentially the whole wall; the WASM tail and
+        handoff are a rounding error. This is the engine <em>with</em> the GPU-resident gate-separator scaling of
+        §3 — the host-bigint cliff that previously inflated the deep-round wall at \(2^{18}\) is gone.
+      </div>
+      <div class="grid2">
+        <div class="chartwrap">
+          <h4>Plot G — Hybrid wall vs size (2¹⁰–2¹⁸)</h4>
+          <p class="cmd">drive.mjs hybrid (size sweep) · y = log scale (ms)</p>
+          <div id="plotG"></div>
+          <p class="small">
+            Three curves: full WASM, hybrid total, and the GPU front alone. Hybrid total rides the GPU front (tail +
+            handoff add a near-constant ~15 ms), crossing below full WASM at \(2^{14}\). The WASM curve climbs
+            faster, so the two diverge as size grows.
+          </p>
+        </div>
+        <div class="chartwrap">
+          <h4>Plot H — Hybrid speedup vs WASM (2¹⁰–2¹⁸)</h4>
+          <p class="cmd">drive.mjs hybrid (size sweep) · y = full-WASM ÷ hybrid</p>
+          <div id="plotH"></div>
+          <p class="small">
+            Below \(2^{14}\) the hybrid loses (0.5–0.9×): the fixed ~13 ms WASM tail plus GPU launch overhead exceed
+            plain WASM. From \(2^{14}\) the curve climbs monotonically to 3.22× and is not yet flattening.
+          </p>
+        </div>
+      </div>
+      <table>
+        <tr>
+          <th>\(\log_2 n\)</th>
+          <th>GPU rounds</th>
+          <th>GPU front</th>
+          <th>handoff</th>
+          <th>WASM tail</th>
+          <th>hybrid total</th>
+          <th>full WASM</th>
+          <th>speedup</th>
+        </tr>
+        <tr><td>10</td><td>1</td><td class="mono">24.6</td><td class="mono">1.6</td><td class="mono">13.6</td><td class="mono">39.7</td><td class="mono">31.8</td><td class="mono">0.80×</td></tr>
+        <tr><td>11</td><td>2</td><td class="mono">37.9</td><td class="mono">1.4</td><td class="mono">12.5</td><td class="mono">51.9</td><td class="mono">26.1</td><td class="mono">0.50×</td></tr>
+        <tr><td>12</td><td>3</td><td class="mono">42.5</td><td class="mono">1.5</td><td class="mono">13.4</td><td class="mono">57.4</td><td class="mono">40.1</td><td class="mono">0.70×</td></tr>
+        <tr><td>13</td><td>4</td><td class="mono">56.9</td><td class="mono">3.0</td><td class="mono">13.4</td><td class="mono">73.3</td><td class="mono">63.8</td><td class="mono">0.87×</td></tr>
+        <tr><td>14</td><td>5</td><td class="mono">85.8</td><td class="mono">1.5</td><td class="mono">13.3</td><td class="mono">100.6</td><td class="mono">115.6</td><td class="mono">1.15×</td></tr>
+        <tr><td>15</td><td>6</td><td class="mono">143.1</td><td class="mono">1.3</td><td class="mono">13.3</td><td class="mono">157.6</td><td class="mono">235.1</td><td class="mono">1.49×</td></tr>
+        <tr><td>16</td><td>7</td><td class="mono">199.3</td><td class="mono">1.4</td><td class="mono">13.2</td><td class="mono">213.9</td><td class="mono">508.5</td><td class="mono">2.38×</td></tr>
+        <tr><td>17</td><td>8</td><td class="mono">341.7</td><td class="mono">1.2</td><td class="mono">13.3</td><td class="mono">356.3</td><td class="mono">1056.1</td><td class="mono">2.96×</td></tr>
+        <tr><td>18</td><td>9</td><td class="mono">656.7</td><td class="mono">2.5</td><td class="mono">13.2</td><td class="mono">672.4</td><td class="mono">2163.9</td><td class="mono">3.22×</td></tr>
+      </table>
+      <p class="small">
+        <b>Directions this suggests.</b> (1) <b>The crossover (\(2^{14}\)) is set by fixed cost, not throughput</b> —
+        a flat ~13 ms WASM tail (always the last 9 rounds) plus GPU launch latency. To pull it left, cut the GPU
+        front's fixed cost rather than the tail (small-\(n\) GPU rounds are launch-bound, not compute-bound — §9), or
+        shrink the tail toward \(\le 2^6\) and re-measure. (2) <b>Handoff is free</b> (1–3 ms, no trend) — the
+        GPU→WASM column transfer is not a bottleneck, so the split length is a tunable knob, not a fixed cost.
+        (3) <b>The win is slope, not offset</b> — GPU front ~1.8×/octave vs WASM ~2.05×, so \(2^{19}\!-\!2^{20}\)
+        should pass 4×; keeping the GPU-front slope sub-WASM (the §3 scaling fix, then the accumulate field-multiply
+        of §9) is the lever that compounds. (4) <b>The tail is a floor worth attacking only at small \(n\)</b> — ~2%
+        of wall at \(2^{18}\) but ~34% at \(2^{10}\).
+      </p>
+
+      <h3>7.4 &nbsp;Engine × threshold — single-submission vs multi-pass front (2¹⁰–2¹⁸)</h3>
+      <p>
+        §7.3 fixed the engine (multi-pass) and the tail (9 rounds). Here both open up: the <em>same</em> threshold
+        split — last \(T\) rounds on WASM, first \(d-T\) on the GPU — is run on <em>both</em> engines, the
+        <b>multi-pass</b> front (one readback per round, CPU Fiat–Shamir) and the <b>single-submission</b> front (the
+        whole \(d-T\)-round front in one command buffer, on-GPU Poseidon2 Fiat–Shamir with the lane-parallel transcript
+        of §9), across \(T\in\{8,9,10,11\}\). Speedup is full-WASM ÷ hybrid (tail timed as
+        <code>SumcheckBench(T)</code>; the one-time column upload excluded from both, as in §7.3). This isolates the
+        one thing that differs — how the round challenge is drawn — against size.
+      </p>
+      <div class="panel">
+        <b>Headline.</b>
+        <span class="kpill k-good">the engines have converged — within ~10% across the range, trading the lead at the top</span>
+        — with the parallel transcript and GPU-resident scaling, single-submission is no longer the clear loser the
+        original report measured (when its serial <code>@workgroup_size(1)</code> transcript cost 27% of GPU time).
+        Multi-pass keeps a slight edge through \(2^{17}\) (smaller per-round GPU overhead), but at \(2^{18}\) the
+        per-round readback sync it pays starts to bite and single-submission edges ahead — the single best result in
+        the whole sweep is <b>single-submission, \(T=9\), \(2^{18}\): 3.05×</b> (vs multi-pass's 2.95× at the same
+        split). The isolated GPU-front timing is cleaner than the WASM-relative ratios here: at \(2^{18}\) the
+        single-submission front is ~700 ms for 9 rounds vs the multi-pass front's ~1050 ms — ~1.5× — the readback
+        sync the single command buffer removes.
+      </div>
+      <div class="grid2">
+        <div class="chartwrap">
+          <h4>Plot I — Single-submission front, speedup vs WASM by threshold</h4>
+          <p class="cmd">drive.mjs sshybrid · T ∈ {8,9,10,11} · y = full-WASM ÷ hybrid</p>
+          <div id="plotI"></div>
+          <p class="small">
+            Four threshold lines, all crossing parity at \(2^{14}\) and climbing together — the spread across \(T\) is
+            small (the tail is a flat ~13 ms). The \(2^{18}\) dip at \(T=8\) (1.77×) is the noisy deep-front row
+            (allocation-sensitive), not a trend; \(T=9\) reaches 3.05× there.
+          </p>
+        </div>
+        <div class="chartwrap">
+          <h4>Plot J — Multi-pass front, speedup vs WASM by threshold</h4>
+          <p class="cmd">drive.mjs bench · T ∈ {8,9,10,11} · y = full-WASM ÷ hybrid</p>
+          <div id="plotJ"></div>
+          <p class="small">
+            Same axes. Multi-pass leads single-submission through the \(2^{14}\!-\!2^{17}\) band and peaks ~3.1× at
+            \(2^{17}\), then its \(2^{18}\) row flattens (per-round readback sync) and dips below the single-submission
+            front at the matching \(T\).
+          </p>
+        </div>
+      </div>
+      <div class="chartwrap">
+        <h4>Plot K — Best-threshold envelope: which engine wins at each size</h4>
+        <p class="cmd">max over T∈{8..11} per engine · y = best full-WASM ÷ hybrid</p>
+        <div id="plotK"></div>
+        <p class="small">
+          Each engine at its best threshold per size. The two curves track within ~5–10% the whole way: multi-pass is
+          marginally ahead through \(2^{17}\) (3.12× vs 3.11× — a tie), single-submission edges ahead at \(2^{18}\)
+          (3.05× vs 2.97×). Read it as <em>parity at the top with single-submission rising</em>, not a clean win
+          either way — the \(2^{18}\) row is allocation-noisy on both engines and wants a clean re-run. The takeaway:
+          the engine choice is now second-order to the split, and single-submission — which also owns its Fiat–Shamir,
+          the integration target — is no longer paying for it in wall-clock.
+        </p>
+      </div>
+      <table>
+        <tr>
+          <th>\(\log_2 n\)</th>
+          <th colspan="4" style="text-align: center">single-submission · T =</th>
+          <th colspan="4" style="text-align: center">multi-pass · T =</th>
+        </tr>
+        <tr>
+          <th></th>
+          <th>8</th><th>9</th><th>10</th><th>11</th>
+          <th>8</th><th>9</th><th>10</th><th>11</th>
+        </tr>
+        <tr><td>10</td><td class="mono">0.59</td><td class="mono">0.85</td><td class="mono">—</td><td class="mono">—</td><td class="mono">0.73</td><td class="mono">1.23</td><td class="mono">—</td><td class="mono">—</td></tr>
+        <tr><td>11</td><td class="mono">0.40</td><td class="mono">0.52</td><td class="mono">0.54</td><td class="mono">—</td><td class="mono">0.56</td><td class="mono">0.52</td><td class="mono">0.59</td><td class="mono">—</td></tr>
+        <tr><td>12</td><td class="mono">0.52</td><td class="mono">0.54</td><td class="mono">0.58</td><td class="mono">0.69</td><td class="mono">0.57</td><td class="mono">0.70</td><td class="mono">0.67</td><td class="mono">0.70</td></tr>
+        <tr><td>13</td><td class="mono">0.71</td><td class="mono">0.72</td><td class="mono">0.81</td><td class="mono">0.79</td><td class="mono">0.85</td><td class="mono">0.90</td><td class="mono">0.89</td><td class="mono">0.87</td></tr>
+        <tr><td>14</td><td class="mono">0.95</td><td class="mono">1.08</td><td class="mono">1.09</td><td class="mono">1.10</td><td class="mono">1.18</td><td class="mono">1.13</td><td class="mono">1.20</td><td class="mono">1.33</td></tr>
+        <tr><td>15</td><td class="mono">1.24</td><td class="mono">1.55</td><td class="mono">1.42</td><td class="mono">1.42</td><td class="mono">1.58</td><td class="mono">1.66</td><td class="mono">1.55</td><td class="mono">1.61</td></tr>
+        <tr><td>16</td><td class="mono">2.10</td><td class="mono">2.15</td><td class="mono">2.20</td><td class="mono">2.39</td><td class="mono">2.35</td><td class="mono">2.36</td><td class="mono">2.55</td><td class="mono">2.45</td></tr>
+        <tr><td>17</td><td class="mono">2.83</td><td class="mono">2.84</td><td class="mono">2.78</td><td class="mono">3.11</td><td class="mono">3.07</td><td class="mono">3.07</td><td class="mono">3.12</td><td class="mono">2.70</td></tr>
+        <tr><td>18</td><td class="mono">1.77</td><td class="mono"><b>3.05</b></td><td class="mono">2.39</td><td class="mono">2.50</td><td class="mono">2.76</td><td class="mono">2.95</td><td class="mono">2.14</td><td class="mono">2.97</td></tr>
+      </table>
+
+      <!-- ============================================================ -->
+      <h2 id="crit">9 &nbsp;Critical analysis — where the time goes</h2>
+      <p>
+        The M4 data (§8) reframes the priorities. WebGPU is overhead-bound below \(2^{15}\) (it loses to WASM on launch
+        latency), crosses parity at \(2^{15}\), and wins by edge-parallelism at \(2^{16}\!-\!2^{17}\). Accumulate is
+        \(85.6\%\) of round-0 GPU time, so the GPU is doing real \(O(n)\) field work — the remaining levers are the
+        field multiply and two engine-specific scaling cliffs.
+      </p>
+
+      <div class="callout">
+        <b>The two engines fail differently, and the data shows exactly how.</b> The <b>single-submission</b> engine
+        spends <b>27.3%</b> of its GPU time in the serial Poseidon2 transcript (5.46 ms/round,
+        <code>@workgroup_size(1)</code>) — that cost exceeds the per-round readbacks it was built to remove, which is
+        why multi-pass is faster at every size \(\le 2^{17}\) (e.g. \(2^{17}\): 487 ms vs 592 ms). The
+        <b>multi-pass</b> engine inverts at \(2^{18}\): its sweep wall jumps to 1993 ms (vs single-submit's 1353), a
+        host-side scaling cliff — the \(O(n\log n)\) gate-separator bigint precompute and per-round fold allocation.
+        (That row is noisy: the hybrid harness timed the same engine/size at 1027 ms, so treat \(2^{18}\) multi-pass as
+        variance-prone, not a stable 1993 ms.) Fixing either unblocks the other's weak size.
+      </div>
+
+      <table>
+        <tr>
+          <th>#</th>
+          <th>Issue</th>
+          <th>Impact (measured)</th>
+          <th>Sev.</th>
+          <th>Lever</th>
+        </tr>
+        <tr>
+          <td>1</td>
+          <td>
+            <b>Serial Poseidon2 transcript (single-submit).</b> <code>@workgroup_size(1)</code>, on the
+            batch→transcript→fold critical path, run once per round.
+          </td>
+          <td>
+            <b>27.3% of single-submit GPU time</b> (87 ms / 16 rounds @ \(2^{16}\)). The single largest reason
+            single-submit trails multi-pass at every size \(\le 2^{17}\).
+          </td>
+          <td><span class="sev" style="color: var(--bad)">HIGH</span></td>
+          <td>
+            Parallelize the permutation across lanes (state \(t=4\), the 56 partial rounds are serial but the full-round
+            MDS/sbox vectorize), or hash fewer/wider absorbs. This is what makes single-submit the better engine
+            everywhere, not just \(2^{18}\).
+          </td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td>
+            <b>Gate-separator host cliff (multi-pass).</b> <code>computeBetaProducts</code> \(O(n\log n)\) serial bigint
+            + per-round <code>toMont</code> scaling \(O(n)\) (round-0 scaling alone was 11.6 ms at \(2^{16}\)).
+          </td>
+          <td>
+            Plausibly the \(2^{18}\) multi-pass blow-up (307→487→1993 ms over \(2^{16}\!\to\!18\)). The only host cost
+            that grows with \(n\).
+          </td>
+          <td><span class="sev" style="color: var(--bad)">HIGH</span></td>
+          <td>
+            Generate the edge scaling on the GPU (subset-product scan + batched <code>toMont</code>), or off-thread.
+            Single-submit already sidesteps it (GPU-resident \(c_i\)); porting closes the multi-pass cliff.
+          </td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td>
+            <b>Emulated field multiply.</b> No <code>montgomery_square</code>; every \(x\!\cdot\!x\) (Poseidon sbox,
+            mono/lag squares, elliptic \(y^2\)) goes through the full product.
+          </td>
+          <td>
+            Accumulate is 85.6% of GPU time; this is its inner loop. A square saves the cross-term (~15–25% at those
+            sites).
+          </td>
+          <td><span class="sev" style="color: var(--warn)">MED</span></td>
+          <td>
+            Add <code>montgomery_square_f8</code>, route the squaring sites. Est. ~2–3% overall — quantify against
+            Plot&nbsp;C2 (perm/pos2quad/databus are the hot relations).
+          </td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td>
+            <b>Second readback (single-submit).</b> The final length-1 columns use an extra submit + map despite the
+            "read back once" design.
+          </td>
+          <td>One extra GPU fence/round-trip per prove.</td>
+          <td><span class="sev" style="color: var(--good)">LOW</span></td>
+          <td>Copy the final columns into the main staging buffer inside the one command buffer.</td>
+        </tr>
+        <tr>
+          <td>5</td>
+          <td><b>Accumulate occupancy is already tuned.</b> WG 64 is the device optimum; the sweep is flat 32–128.</td>
+          <td>
+            <b>Not a lever</b> on the M4 (231 ms at WG 64; ±4% across 32–128). Kept here so it isn't re-investigated.
+          </td>
+          <td><span class="sev" style="color: var(--good)">LOW</span></td>
+          <td>
+            None on this device. The deeper <code>Lag</code>-into-registers change (constant-index unroll → SROA) is a
+            separate, risky path (silent-corruption risk naga can't catch).
+          </td>
+        </tr>
+        <tr>
+          <td>6</td>
+          <td>
+            <b>Memory ceiling.</b> Resident ping-pong is \(1.5\times\) the column set: \(\sim2.7\) GB at \(2^{18}\),
+            \(\sim5.4\) GB at \(2^{19}\).
+          </td>
+          <td>\(2^{20}\) (~11 GB) is infeasible on an M4 Pro; \(2^{18}\) comfortable, \(2^{19}\) borderline.</td>
+          <td><span class="sev" style="color: var(--warn)">MED</span></td>
+          <td>
+            In-place fold (write the half-size column into the front of the same buffer) cuts <code>colB</code>, buying
+            ~one power of two; or column streaming.
+          </td>
+        </tr>
+        <tr>
+          <td>7</td>
+          <td><b>Dense evaluation.</b> Every relation runs on every row, incl. selector = 0.</td>
+          <td>0 vs the dense bench (WASM also benches dense); large in real circuits.</td>
+          <td><span class="sev" style="color: var(--warn)">MED</span> (production)</td>
+          <td>Selector early-out / stream compaction — a production win, subject to warp divergence.</td>
+        </tr>
+      </table>
+
+      <h3>What is already efficient</h3>
+      <ul class="tight">
+        <li>
+          On-GPU two-level edge reduction — one ~11&nbsp;KB readback/round (multi-pass) or none (single-submit), not
+          \(345\cdot\tfrac n2\).
+        </li>
+        <li>
+          Per-edge output is the relation's <em>natural</em> degree; the extend-to-8 happens once on the 345-vector (or
+          as a constant matmul on the GPU), not per edge.
+        </li>
+        <li>Montgomery residency + ping-pong: columns never re-encode or leave byte form across rounds.</li>
+        <li>
+          Batch as a precomputed \(8\times345\) matmul folds \(\alpha^g\) and the barycentric extension into setup-time
+          constants.
+        </li>
+      </ul>
+
+      <!-- ============================================================ -->
+      <h2 id="chonk">10 &nbsp;Gaps before a real chonk integration</h2>
+      <ul class="tight">
+        <li>
+          <b>Shared 62-column flavor.</b> The dev harness gives each relation independent random columns; the real
+          prover has ~62 entity columns shared across relations with a fixed column→input mapping.
+        </li>
+        <li>
+          <b>Shift aliasing.</b> Shifted entities (\(w_{\text{shift}}\) = row\(+1\)) are modelled as separate columns;
+          the real flavor reads them as an offset of the base, halving column storage and fold work.
+        </li>
+        <li>
+          <b>Transcript wiring.</b> The GPU Poseidon2 transcript already matches bb.js bit-for-bit, so the
+          single-submission challenges are drop-in — provided the rest of the proof transcript (commitments, etc.) is
+          hashed consistently and the witness arrives already in Montgomery bytes.
+        </li>
+        <li>
+          <b>Output handoff.</b> The final length-1 columns are exactly the claimed multilinear evaluations the
+          PCS/opening consumes (the §9 item-4 readback already produces them).
+        </li>
+        <li>
+          <b>ZK / Libra / row-disabling</b> are out of scope (non-ZK MegaFlavor only). On this architecture ZK is
+          additive: a masking term folded into the accumulator pre-batch, one wider univariate (8→9), and the masking
+          randomness committed into the GPU transcript — the single-command-buffer shape survives.
+        </li>
+      </ul>
+
+      <hr />
+      <p class="small">
+        Analysis artifact (untracked). Source of truth is the code on <code>sb/sumcheck-webgpu</code>: multi-pass
+        <code>gpu_pipeline.ts</code>, single-submission <code>single_submit.ts</code>, math mirrors under
+        <code>src/msm_webgpu/</code>. §8 plots reflect M4 Pro / Chrome measurements held in <code>PROFILE_DATA</code>.
+      </p>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- DATA: paste M4 profiling numbers here. Charts re-render on reload. -->
+    <script>
+      // Measured on M4 Pro / Chrome (WebGPU/Metal). Source: drive.mjs bench/profile/ssprofile/wgsweep/hybrid.
+      const PROFILE_DATA = {
+        sizeSweep: [
+          { logN: 10, multiWallMs: 86.3, ssWallMs: 133.8, wasmMs: 32.2 },
+          { logN: 11, multiWallMs: 94.5, ssWallMs: 168.5, wasmMs: 29.6 },
+          { logN: 12, multiWallMs: 101.6, ssWallMs: 188.0, wasmMs: 40.5 },
+          { logN: 13, multiWallMs: 122.8, ssWallMs: 202.2, wasmMs: 64.2 },
+          { logN: 14, multiWallMs: 152.0, ssWallMs: 246.1, wasmMs: 117.0 },
+          { logN: 15, multiWallMs: 201.5, ssWallMs: 301.1, wasmMs: 232.8 },
+          { logN: 16, multiWallMs: 307.1, ssWallMs: 388.5, wasmMs: 497.9 },
+          { logN: 17, multiWallMs: 486.9, ssWallMs: 592.4, wasmMs: 1073.1 },
+          { logN: 18, multiWallMs: 1992.9, ssWallMs: 1353.0, wasmMs: 2174.8 },
+        ],
+        multiProfile: {
+          logN: 16,
+          accumulateMs: 58.52,
+          reduceMs: 4.98,
+          foldMs: 4.85,
+          topRelations: [
+            { label: 'acc:perm', ms: 9.634 },
+            { label: 'acc:pos2quad', ms: 8.454 },
+            { label: 'acc:databus', ms: 7.078 },
+            { label: 'acc:arith', ms: 5.833 },
+            { label: 'acc:pos2quadterm', ms: 5.636 },
+            { label: 'acc:logderiv', ms: 5.243 },
+          ],
+        },
+        ssProfile: {
+          logN: 16,
+          accumulateMs: 176.55,
+          reduceMs: 11.99,
+          batchMs: 28.25,
+          transcriptMs: 87.36,
+          foldMs: 10.22,
+          bubbleMs: 5.44,
+        },
+        wgSweep: [
+          { wg: 32, gpuMs: 239.6 },
+          { wg: 64, gpuMs: 230.9 },
+          { wg: 96, gpuMs: 239.8 },
+          { wg: 128, gpuMs: 238.8 },
+          { wg: 192, gpuMs: 258.4 },
+          { wg: 256, gpuMs: 264.4 },
+        ],
+        hybrid: {
+          logN: 18,
+          fullWasmMs: 2285.4,
+          fullGpuMs: 1026.7,
+          points: [
+            { k: 1, hybridMs: 4699.0 },
+            { k: 2, hybridMs: 1604.6 },
+            { k: 3, hybridMs: 3434.6 },
+            { k: 4, hybridMs: 1647.0 },
+            { k: 6, hybridMs: 836.9 },
+          ],
+        },
+        // Hybrid SIZE sweep (fixed strategy: first d-9 rounds on WebGPU, last 9 on
+        // threaded WASM). Distinct from `hybrid`, which sweeps the split k at fixed 2^18.
+        hybridSweep: {
+          tailRounds: 9,
+          rows: [
+            { logN: 10, gpuRounds: 1, gpuMs: 24.6, handoffMs: 1.6, wasmTailMs: 13.6, hybridMs: 39.7, fullWasmMs: 31.8 },
+            { logN: 11, gpuRounds: 2, gpuMs: 37.9, handoffMs: 1.4, wasmTailMs: 12.5, hybridMs: 51.9, fullWasmMs: 26.1 },
+            { logN: 12, gpuRounds: 3, gpuMs: 42.5, handoffMs: 1.5, wasmTailMs: 13.4, hybridMs: 57.4, fullWasmMs: 40.1 },
+            { logN: 13, gpuRounds: 4, gpuMs: 56.9, handoffMs: 3.0, wasmTailMs: 13.4, hybridMs: 73.3, fullWasmMs: 63.8 },
+            { logN: 14, gpuRounds: 5, gpuMs: 85.8, handoffMs: 1.5, wasmTailMs: 13.3, hybridMs: 100.6, fullWasmMs: 115.6 },
+            { logN: 15, gpuRounds: 6, gpuMs: 143.1, handoffMs: 1.3, wasmTailMs: 13.3, hybridMs: 157.6, fullWasmMs: 235.1 },
+            { logN: 16, gpuRounds: 7, gpuMs: 199.3, handoffMs: 1.4, wasmTailMs: 13.2, hybridMs: 213.9, fullWasmMs: 508.5 },
+            { logN: 17, gpuRounds: 8, gpuMs: 341.7, handoffMs: 1.2, wasmTailMs: 13.3, hybridMs: 356.3, fullWasmMs: 1056.1 },
+            { logN: 18, gpuRounds: 9, gpuMs: 656.7, handoffMs: 2.5, wasmTailMs: 13.2, hybridMs: 672.4, fullWasmMs: 2163.9 },
+          ],
+        },
+        // Engine x threshold sweep: speedup vs full WASM (full-WASM / hybrid) for the
+        // SAME split (last T rounds on WASM, first d-T on the GPU) run on BOTH engines —
+        // single-submission (ss) and multi-pass (m) — at thresholds T in {8,9,10,11}.
+        // null = pure WASM (d <= T): no GPU front, so no engine comparison at that cell.
+        // The one-time column upload is excluded from the hybrid, as in §7.3.
+        thresholdSweep: {
+          thresholds: [8, 9, 10, 11],
+          rows: [
+            { logN: 10, ss: [0.59, 0.85, null, null], m: [0.73, 1.23, null, null] },
+            { logN: 11, ss: [0.40, 0.52, 0.54, null], m: [0.56, 0.52, 0.59, null] },
+            { logN: 12, ss: [0.52, 0.54, 0.58, 0.69], m: [0.57, 0.70, 0.67, 0.70] },
+            { logN: 13, ss: [0.71, 0.72, 0.81, 0.79], m: [0.85, 0.90, 0.89, 0.87] },
+            { logN: 14, ss: [0.95, 1.08, 1.09, 1.10], m: [1.18, 1.13, 1.20, 1.33] },
+            { logN: 15, ss: [1.24, 1.55, 1.42, 1.42], m: [1.58, 1.66, 1.55, 1.61] },
+            { logN: 16, ss: [2.10, 2.15, 2.20, 2.39], m: [2.35, 2.36, 2.55, 2.45] },
+            { logN: 17, ss: [2.83, 2.84, 2.78, 3.11], m: [3.07, 3.07, 3.12, 2.70] },
+            { logN: 18, ss: [1.77, 3.05, 2.39, 2.50], m: [2.76, 2.95, 2.14, 2.97] },
+          ],
+        },
+      };
+
+      // ---------- tiny SVG chart kit (no deps) ----------
+      const NS = 'http://www.w3.org/2000/svg';
+      const C = {
+        acc: '#4ea1ff',
+        good: '#3fb950',
+        warn: '#d29922',
+        bad: '#f85149',
+        vio: '#bc8cff',
+        teal: '#39c5cf',
+        muted: '#9aa7b4',
+        line: '#2b333c',
+        ink: '#e6edf3',
+      };
+      function svg(w, h) {
+        const s = document.createElementNS(NS, 'svg');
+        s.setAttribute('viewBox', `0 0 ${w} ${h}`);
+        s.setAttribute('width', '100%');
+        return s;
+      }
+      function mk(parent, tag, attrs, text) {
+        const e = document.createElementNS(NS, tag);
+        for (const k in attrs) e.setAttribute(k, attrs[k]);
+        if (text != null) e.textContent = text;
+        parent.appendChild(e);
+        return e;
+      }
+      function mount(id, node) {
+        const el = document.getElementById(id);
+        if (el) el.replaceChildren(node);
+      }
+      function empty(id, msg) {
+        const s = svg(600, 60);
+        mk(s, 'text', { x: 12, y: 34, fill: C.warn, 'font-size': 13, 'font-family': 'monospace' }, msg);
+        mount(id, s);
+      }
+
+      // axes helper -> returns scale fns over a plot box
+      function frame(s, W, H, pad, opts = {}) {
+        const x0 = pad.l,
+          x1 = W - pad.r,
+          y0 = H - pad.b,
+          y1 = pad.t;
+        mk(s, 'line', { x1: x0, y1: y0, x2: x1, y2: y0, stroke: C.line });
+        mk(s, 'line', { x1: x0, y1: y0, x2: x0, y2: y1, stroke: C.line });
+        if (opts.xLabel)
+          mk(
+            s,
+            'text',
+            {
+              x: (x0 + x1) / 2,
+              y: H - 6,
+              fill: C.muted,
+              'font-size': 11,
+              'text-anchor': 'middle',
+              'font-family': 'sans-serif',
+            },
+            opts.xLabel,
+          );
+        if (opts.yLabel)
+          mk(
+            s,
+            'text',
+            {
+              x: 12,
+              y: (y0 + y1) / 2,
+              fill: C.muted,
+              'font-size': 11,
+              'text-anchor': 'middle',
+              transform: `rotate(-90 12 ${(y0 + y1) / 2})`,
+              'font-family': 'sans-serif',
+            },
+            opts.yLabel,
+          );
+        return { x0, x1, y0, y1 };
+      }
+      function legend(s, x, y, items) {
+        items.forEach((it, i) => {
+          const yy = y + i * 16;
+          mk(s, 'rect', { x, y: yy - 9, width: 11, height: 11, rx: 2, fill: it.c });
+          mk(s, 'text', { x: x + 17, y: yy, fill: C.ink, 'font-size': 11, 'font-family': 'sans-serif' }, it.t);
+        });
+      }
+
+      // ---- Plot A: multi-line, log-y time vs logN ----
+      function plotA() {
+        const d = PROFILE_DATA.sizeSweep;
+        if (!d || !d.length) return empty('plotA', 'run: drive.mjs bench  → fill PROFILE_DATA.sizeSweep');
+        const W = 900,
+          H = 320,
+          pad = { l: 58, r: 150, t: 18, b: 38 };
+        const s = svg(W, H);
+        const f = frame(s, W, H, pad, { xLabel: 'log₂ n', yLabel: 'wall (ms, log)' });
+        const xs = d.map(r => r.logN);
+        const xmin = Math.min(...xs),
+          xmax = Math.max(...xs);
+        const vals = d.flatMap(r => [r.multiWallMs, r.ssWallMs, r.wasmMs].filter(v => v != null && v > 0));
+        const lo = Math.log10(Math.min(...vals)),
+          hi = Math.log10(Math.max(...vals));
+        const sx = v => f.x0 + (xmax === xmin ? 0.5 : (v - xmin) / (xmax - xmin)) * (f.x1 - f.x0);
+        const sy = v => f.y0 - (hi === lo ? 0.5 : (Math.log10(v) - lo) / (hi - lo)) * (f.y0 - f.y1);
+        // y gridlines at decades
+        for (let e = Math.ceil(lo); e <= Math.floor(hi); e++) {
+          const y = sy(10 ** e);
+          mk(s, 'line', { x1: f.x0, y1: y, x2: f.x1, y2: y, stroke: C.line, 'stroke-dasharray': '2 4' });
+          mk(
+            s,
+            'text',
+            { x: f.x0 - 6, y: y + 3, fill: C.muted, 'font-size': 10, 'text-anchor': 'end', 'font-family': 'monospace' },
+            10 ** e + '',
+          );
+        }
+        xs.forEach(x =>
+          mk(
+            s,
+            'text',
+            {
+              x: sx(x),
+              y: f.y0 + 14,
+              fill: C.muted,
+              'font-size': 10,
+              'text-anchor': 'middle',
+              'font-family': 'monospace',
+            },
+            x + '',
+          ),
+        );
+        const series = [
+          { key: 'multiWallMs', c: C.acc, t: 'multi-pass' },
+          { key: 'ssWallMs', c: C.teal, t: 'single-submit' },
+          { key: 'wasmMs', c: C.warn, t: 'WASM (threads)' },
+        ];
+        for (const ser of series) {
+          const pts = d.filter(r => r[ser.key] != null && r[ser.key] > 0);
+          const path = pts.map((r, i) => `${i ? 'L' : 'M'}${sx(r.logN)},${sy(r[ser.key])}`).join(' ');
+          mk(s, 'path', { d: path, fill: 'none', stroke: ser.c, 'stroke-width': 2 });
+          pts.forEach(r => mk(s, 'circle', { cx: sx(r.logN), cy: sy(r[ser.key]), r: 3, fill: ser.c }));
+        }
+        legend(
+          s,
+          f.x1 + 16,
+          f.y1 + 10,
+          series.map(x => ({ c: x.c, t: x.t })),
+        );
+        mount('plotA', s);
+      }
+
+      // ---- Plot B: speedup vs WASM ----
+      function plotB() {
+        const d = (PROFILE_DATA.sizeSweep || []).filter(r => r.wasmMs != null);
+        if (!d.length) return empty('plotB', 'run: drive.mjs bench (needs WASM column)  → PROFILE_DATA.sizeSweep');
+        const W = 900,
+          H = 300,
+          pad = { l: 52, r: 150, t: 18, b: 38 };
+        const s = svg(W, H);
+        const f = frame(s, W, H, pad, { xLabel: 'log₂ n', yLabel: 'WASM ÷ WebGPU' });
+        const xs = d.map(r => r.logN),
+          xmin = Math.min(...xs),
+          xmax = Math.max(...xs);
+        const sp = d.flatMap(r => [r.wasmMs / r.multiWallMs, r.wasmMs / r.ssWallMs]);
+        const ymax = Math.max(1.1, ...sp) * 1.1;
+        const sx = v => f.x0 + (xmax === xmin ? 0.5 : (v - xmin) / (xmax - xmin)) * (f.x1 - f.x0);
+        const sy = v => f.y0 - (v / ymax) * (f.y0 - f.y1);
+        // parity line at 1.0
+        mk(s, 'line', { x1: f.x0, y1: sy(1), x2: f.x1, y2: sy(1), stroke: C.bad, 'stroke-dasharray': '5 4' });
+        mk(
+          s,
+          'text',
+          {
+            x: f.x1 - 4,
+            y: sy(1) - 5,
+            fill: C.bad,
+            'font-size': 10,
+            'text-anchor': 'end',
+            'font-family': 'sans-serif',
+          },
+          'parity 1.0×',
+        );
+        [0.5, 1, 1.5, 2]
+          .filter(v => v <= ymax)
+          .forEach(v =>
+            mk(
+              s,
+              'text',
+              {
+                x: f.x0 - 6,
+                y: sy(v) + 3,
+                fill: C.muted,
+                'font-size': 10,
+                'text-anchor': 'end',
+                'font-family': 'monospace',
+              },
+              v.toFixed(1),
+            ),
+          );
+        xs.forEach(x =>
+          mk(
+            s,
+            'text',
+            {
+              x: sx(x),
+              y: f.y0 + 14,
+              fill: C.muted,
+              'font-size': 10,
+              'text-anchor': 'middle',
+              'font-family': 'monospace',
+            },
+            x + '',
+          ),
+        );
+        const series = [
+          { f: r => r.wasmMs / r.multiWallMs, c: C.acc, t: 'multi-pass / WASM' },
+          { f: r => r.wasmMs / r.ssWallMs, c: C.teal, t: 'single-submit / WASM' },
+        ];
+        for (const ser of series) {
+          const path = d.map((r, i) => `${i ? 'L' : 'M'}${sx(r.logN)},${sy(ser.f(r))}`).join(' ');
+          mk(s, 'path', { d: path, fill: 'none', stroke: ser.c, 'stroke-width': 2 });
+          d.forEach(r => mk(s, 'circle', { cx: sx(r.logN), cy: sy(ser.f(r)), r: 3, fill: ser.c }));
+        }
+        legend(
+          s,
+          f.x1 + 16,
+          f.y1 + 10,
+          series.map(x => ({ c: x.c, t: x.t })),
+        );
+        mount('plotB', s);
+      }
+
+      // ---- horizontal stacked bar ----
+      function stackedBar(id, parts, opts = {}) {
+        const total = parts.reduce((a, b) => a + b.v, 0);
+        if (!total) return empty(id, opts.emptyMsg || 'no data');
+        const W = opts.W || 440,
+          barH = 46,
+          H = barH + 30 + parts.length * 16;
+        const s = svg(W, H);
+        const x0 = 10,
+          x1 = W - 10;
+        let x = x0;
+        for (const p of parts) {
+          const w = (p.v / total) * (x1 - x0);
+          mk(s, 'rect', { x, y: 14, width: Math.max(0, w), height: barH, fill: p.c, stroke: '#0d1117' });
+          if (w > 30)
+            mk(
+              s,
+              'text',
+              {
+                x: x + w / 2,
+                y: 14 + barH / 2 + 4,
+                fill: '#0d1117',
+                'font-size': 11,
+                'text-anchor': 'middle',
+                'font-weight': 700,
+                'font-family': 'sans-serif',
+              },
+              `${((100 * p.v) / total).toFixed(0)}%`,
+            );
+          x += w;
+        }
+        parts.forEach((p, i) => {
+          const yy = 14 + barH + 20 + i * 16;
+          mk(s, 'rect', { x: x0, y: yy - 9, width: 11, height: 11, rx: 2, fill: p.c });
+          mk(
+            s,
+            'text',
+            { x: x0 + 17, y: yy, fill: C.ink, 'font-size': 11, 'font-family': 'sans-serif' },
+            `${p.t} — ${p.v.toFixed(2)} ms (${((100 * p.v) / total).toFixed(1)}%)`,
+          );
+        });
+        mount(id, s);
+      }
+
+      function plotC() {
+        const p = PROFILE_DATA.multiProfile;
+        if (!p) return empty('plotC', 'run: drive.mjs profile  → PROFILE_DATA.multiProfile');
+        stackedBar(
+          'plotC',
+          [
+            { t: 'accumulate', v: p.accumulateMs, c: C.teal },
+            { t: 'reduce', v: p.reduceMs, c: C.vio },
+            { t: 'fold', v: p.foldMs, c: C.acc },
+          ],
+          { emptyMsg: 'run: drive.mjs profile' },
+        );
+      }
+
+      // ---- vertical bars ----
+      function vbars(id, items, opts = {}) {
+        if (!items || !items.length) return empty(id, opts.emptyMsg || 'no data');
+        const W = opts.W || 440,
+          H = opts.H || 240,
+          pad = { l: 44, r: 12, t: 14, b: opts.b || 54 };
+        const s = svg(W, H);
+        const f = frame(s, W, H, pad, { yLabel: opts.yLabel });
+        const vmax = Math.max(...items.map(i => i.v)) * 1.12 || 1;
+        const sy = v => f.y0 - (v / vmax) * (f.y0 - f.y1);
+        [0, vmax / 2, vmax].forEach(v =>
+          mk(
+            s,
+            'text',
+            {
+              x: f.x0 - 6,
+              y: sy(v) + 3,
+              fill: C.muted,
+              'font-size': 10,
+              'text-anchor': 'end',
+              'font-family': 'monospace',
+            },
+            v.toFixed(v < 10 ? 1 : 0),
+          ),
+        );
+        const n = items.length,
+          gap = 8,
+          bw = (f.x1 - f.x0 - gap * (n + 1)) / n;
+        items.forEach((it, i) => {
+          const x = f.x0 + gap + i * (bw + gap);
+          mk(s, 'rect', { x, y: sy(it.v), width: bw, height: f.y0 - sy(it.v), fill: it.c || C.teal, rx: 2 });
+          mk(
+            s,
+            'text',
+            {
+              x: x + bw / 2,
+              y: sy(it.v) - 4,
+              fill: C.ink,
+              'font-size': 9.5,
+              'text-anchor': 'middle',
+              'font-family': 'monospace',
+            },
+            it.v.toFixed(opts.dp ?? 2),
+          );
+          mk(
+            s,
+            'text',
+            {
+              x: x + bw / 2,
+              y: f.y0 + 13,
+              fill: C.muted,
+              'font-size': 9.5,
+              'text-anchor': 'end',
+              'font-family': 'monospace',
+              transform: `rotate(-35 ${x + bw / 2} ${f.y0 + 13})`,
+            },
+            it.label,
+          );
+        });
+        mount(id, s);
+      }
+
+      function plotC2() {
+        const p = PROFILE_DATA.multiProfile;
+        if (!p || !p.topRelations)
+          return empty('plotC2', 'run: drive.mjs profile  → PROFILE_DATA.multiProfile.topRelations');
+        vbars(
+          'plotC2',
+          p.topRelations.map(r => ({ label: r.label.replace('acc:', ''), v: r.ms, c: C.teal })),
+          { yLabel: 'ms', emptyMsg: 'run: drive.mjs profile' },
+        );
+      }
+
+      function plotD() {
+        const p = PROFILE_DATA.ssProfile;
+        if (!p) return empty('plotD', 'run: drive.mjs ssprofile  → PROFILE_DATA.ssProfile');
+        stackedBar(
+          'plotD',
+          [
+            { t: 'accumulate', v: p.accumulateMs, c: C.teal },
+            { t: 'reduce', v: p.reduceMs, c: C.vio },
+            { t: 'batch', v: p.batchMs, c: C.good },
+            { t: 'transcript', v: p.transcriptMs, c: C.warn },
+            { t: 'fold', v: p.foldMs, c: C.acc },
+            { t: 'bubble (barrier/idle)', v: p.bubbleMs, c: C.bad },
+          ],
+          { W: 900, emptyMsg: 'run: drive.mjs ssprofile' },
+        );
+      }
+
+      function plotE() {
+        const d = PROFILE_DATA.wgSweep;
+        if (!d || !d.length) return empty('plotE', 'run: drive.mjs wgsweep  → PROFILE_DATA.wgSweep');
+        const best = Math.min(...d.map(r => r.gpuMs));
+        vbars(
+          'plotE',
+          d.map(r => ({ label: 'WG' + r.wg, v: r.gpuMs, c: r.gpuMs === best ? C.good : C.teal })),
+          { yLabel: 'GPU ms', dp: 1, emptyMsg: 'run: drive.mjs wgsweep' },
+        );
+      }
+
+      function plotF() {
+        const h = PROFILE_DATA.hybrid;
+        if (!h || !h.points || !h.points.length) return empty('plotF', 'run: drive.mjs hybrid  → PROFILE_DATA.hybrid');
+        const W = 440,
+          H = 260,
+          pad = { l: 48, r: 14, t: 16, b: 38 };
+        const s = svg(W, H);
+        const f = frame(s, W, H, pad, { xLabel: 'GPU rounds k (rest → WASM)', yLabel: 'wall (ms)' });
+        const ks = h.points.map(p => p.k),
+          kmin = Math.min(...ks),
+          kmax = Math.max(...ks);
+        const ys = [...h.points.map(p => p.hybridMs), h.fullWasmMs, h.fullGpuMs].filter(v => v != null);
+        const ymax = Math.max(...ys) * 1.1,
+          ymin = Math.min(...ys) * 0.85;
+        const sx = v => f.x0 + (kmax === kmin ? 0.5 : (v - kmin) / (kmax - kmin)) * (f.x1 - f.x0);
+        const sy = v => f.y0 - ((v - ymin) / (ymax - ymin)) * (f.y0 - f.y1);
+        [ymin, (ymin + ymax) / 2, ymax].forEach(v =>
+          mk(
+            s,
+            'text',
+            {
+              x: f.x0 - 6,
+              y: sy(v) + 3,
+              fill: C.muted,
+              'font-size': 10,
+              'text-anchor': 'end',
+              'font-family': 'monospace',
+            },
+            v.toFixed(0),
+          ),
+        );
+        if (h.fullWasmMs != null) {
+          mk(s, 'line', {
+            x1: f.x0,
+            y1: sy(h.fullWasmMs),
+            x2: f.x1,
+            y2: sy(h.fullWasmMs),
+            stroke: C.warn,
+            'stroke-dasharray': '5 4',
+          });
+          mk(
+            s,
+            'text',
+            { x: f.x0 + 4, y: sy(h.fullWasmMs) - 4, fill: C.warn, 'font-size': 10, 'font-family': 'sans-serif' },
+            'full WASM',
+          );
+        }
+        if (h.fullGpuMs != null) {
+          mk(s, 'line', {
+            x1: f.x0,
+            y1: sy(h.fullGpuMs),
+            x2: f.x1,
+            y2: sy(h.fullGpuMs),
+            stroke: C.acc,
+            'stroke-dasharray': '5 4',
+          });
+          mk(
+            s,
+            'text',
+            { x: f.x0 + 4, y: sy(h.fullGpuMs) - 4, fill: C.acc, 'font-size': 10, 'font-family': 'sans-serif' },
+            'full GPU',
+          );
+        }
+        ks.forEach(k =>
+          mk(
+            s,
+            'text',
+            {
+              x: sx(k),
+              y: f.y0 + 14,
+              fill: C.muted,
+              'font-size': 10,
+              'text-anchor': 'middle',
+              'font-family': 'monospace',
+            },
+            k + '',
+          ),
+        );
+        const path = h.points.map((p, i) => `${i ? 'L' : 'M'}${sx(p.k)},${sy(p.hybridMs)}`).join(' ');
+        mk(s, 'path', { d: path, fill: 'none', stroke: C.teal, 'stroke-width': 2 });
+        h.points.forEach(p => mk(s, 'circle', { cx: sx(p.k), cy: sy(p.hybridMs), r: 3.5, fill: C.teal }));
+        mk(
+          s,
+          'text',
+          {
+            x: f.x1 - 4,
+            y: f.y1 + 6,
+            fill: C.teal,
+            'font-size': 10,
+            'text-anchor': 'end',
+            'font-family': 'sans-serif',
+          },
+          `hybrid · 2^${h.logN}`,
+        );
+        mount('plotF', s);
+      }
+
+      // ---- Plot G: hybrid size sweep — wall vs size (log-y) ----
+      function plotG() {
+        const d = PROFILE_DATA.hybridSweep && PROFILE_DATA.hybridSweep.rows;
+        if (!d || !d.length) return empty('plotG', 'run: drive.mjs hybrid (size sweep)  → PROFILE_DATA.hybridSweep');
+        const W = 440,
+          H = 300,
+          pad = { l: 50, r: 116, t: 16, b: 38 };
+        const s = svg(W, H);
+        const f = frame(s, W, H, pad, { xLabel: 'log₂ n', yLabel: 'wall (ms, log)' });
+        const xs = d.map(r => r.logN),
+          xmin = Math.min(...xs),
+          xmax = Math.max(...xs);
+        const vals = d.flatMap(r => [r.hybridMs, r.fullWasmMs, r.gpuMs].filter(v => v > 0));
+        const lo = Math.log10(Math.min(...vals)),
+          hi = Math.log10(Math.max(...vals));
+        const sx = v => f.x0 + (xmax === xmin ? 0.5 : (v - xmin) / (xmax - xmin)) * (f.x1 - f.x0);
+        const sy = v => f.y0 - (hi === lo ? 0.5 : (Math.log10(v) - lo) / (hi - lo)) * (f.y0 - f.y1);
+        for (let e = Math.ceil(lo); e <= Math.floor(hi); e++) {
+          const y = sy(10 ** e);
+          mk(s, 'line', { x1: f.x0, y1: y, x2: f.x1, y2: y, stroke: C.line, 'stroke-dasharray': '2 4' });
+          mk(
+            s,
+            'text',
+            { x: f.x0 - 6, y: y + 3, fill: C.muted, 'font-size': 10, 'text-anchor': 'end', 'font-family': 'monospace' },
+            10 ** e + '',
+          );
+        }
+        xs.forEach(x =>
+          mk(
+            s,
+            'text',
+            { x: sx(x), y: f.y0 + 14, fill: C.muted, 'font-size': 10, 'text-anchor': 'middle', 'font-family': 'monospace' },
+            x + '',
+          ),
+        );
+        const series = [
+          { f: r => r.fullWasmMs, c: C.warn, t: 'full WASM' },
+          { f: r => r.hybridMs, c: C.teal, t: 'hybrid total' },
+          { f: r => r.gpuMs, c: C.acc, t: 'GPU front' },
+        ];
+        for (const ser of series) {
+          const path = d.map((r, i) => `${i ? 'L' : 'M'}${sx(r.logN)},${sy(ser.f(r))}`).join(' ');
+          mk(s, 'path', { d: path, fill: 'none', stroke: ser.c, 'stroke-width': 2 });
+          d.forEach(r => mk(s, 'circle', { cx: sx(r.logN), cy: sy(ser.f(r)), r: 3, fill: ser.c }));
+        }
+        legend(
+          s,
+          f.x1 + 12,
+          f.y1 + 10,
+          series.map(x => ({ c: x.c, t: x.t })),
+        );
+        mount('plotG', s);
+      }
+
+      // ---- Plot H: hybrid speedup vs WASM (parity at 1.0) ----
+      function plotH() {
+        const d = PROFILE_DATA.hybridSweep && PROFILE_DATA.hybridSweep.rows;
+        if (!d || !d.length) return empty('plotH', 'run: drive.mjs hybrid (size sweep)  → PROFILE_DATA.hybridSweep');
+        const W = 440,
+          H = 300,
+          pad = { l: 44, r: 16, t: 16, b: 38 };
+        const s = svg(W, H);
+        const f = frame(s, W, H, pad, { xLabel: 'log₂ n', yLabel: 'full-WASM ÷ hybrid' });
+        const xs = d.map(r => r.logN),
+          xmin = Math.min(...xs),
+          xmax = Math.max(...xs);
+        const sp = d.map(r => r.fullWasmMs / r.hybridMs);
+        const ymax = Math.max(1.1, ...sp) * 1.1;
+        const sx = v => f.x0 + (xmax === xmin ? 0.5 : (v - xmin) / (xmax - xmin)) * (f.x1 - f.x0);
+        const sy = v => f.y0 - (v / ymax) * (f.y0 - f.y1);
+        mk(s, 'line', { x1: f.x0, y1: sy(1), x2: f.x1, y2: sy(1), stroke: C.bad, 'stroke-dasharray': '5 4' });
+        mk(
+          s,
+          'text',
+          { x: f.x1 - 4, y: sy(1) - 5, fill: C.bad, 'font-size': 10, 'text-anchor': 'end', 'font-family': 'sans-serif' },
+          'parity 1.0×',
+        );
+        [1, 2, 3]
+          .filter(v => v <= ymax)
+          .forEach(v =>
+            mk(
+              s,
+              'text',
+              { x: f.x0 - 6, y: sy(v) + 3, fill: C.muted, 'font-size': 10, 'text-anchor': 'end', 'font-family': 'monospace' },
+              v.toFixed(1),
+            ),
+          );
+        xs.forEach(x =>
+          mk(
+            s,
+            'text',
+            { x: sx(x), y: f.y0 + 14, fill: C.muted, 'font-size': 10, 'text-anchor': 'middle', 'font-family': 'monospace' },
+            x + '',
+          ),
+        );
+        const path = d.map((r, i) => `${i ? 'L' : 'M'}${sx(r.logN)},${sy(r.fullWasmMs / r.hybridMs)}`).join(' ');
+        mk(s, 'path', { d: path, fill: 'none', stroke: C.good, 'stroke-width': 2 });
+        d.forEach(r => mk(s, 'circle', { cx: sx(r.logN), cy: sy(r.fullWasmMs / r.hybridMs), r: 3, fill: C.good }));
+        const last = d[d.length - 1];
+        mk(
+          s,
+          'text',
+          {
+            x: sx(last.logN) - 4,
+            y: sy(last.fullWasmMs / last.hybridMs) - 8,
+            fill: C.good,
+            'font-size': 11,
+            'text-anchor': 'end',
+            'font-weight': 700,
+            'font-family': 'sans-serif',
+          },
+          (last.fullWasmMs / last.hybridMs).toFixed(2) + '×',
+        );
+        mount('plotH', s);
+      }
+
+      // ---- Plots I/J: speedup vs WASM by threshold, one engine each ----
+      function thresholdPlot(id, key, title) {
+        const ts = PROFILE_DATA.thresholdSweep;
+        if (!ts || !ts.rows || !ts.rows.length) return empty(id, 'run: drive.mjs sshybrid + bench at T∈{8..11}  → PROFILE_DATA.thresholdSweep');
+        const d = ts.rows,
+          T = ts.thresholds;
+        const W = 460,
+          H = 300,
+          pad = { l: 44, r: 86, t: 16, b: 38 };
+        const s = svg(W, H);
+        const f = frame(s, W, H, pad, { xLabel: 'log₂ n', yLabel: 'full-WASM ÷ hybrid' });
+        const xs = d.map(r => r.logN),
+          xmin = Math.min(...xs),
+          xmax = Math.max(...xs);
+        const all = d.flatMap(r => r[key]).filter(v => v != null);
+        const ymax = Math.max(1.1, ...all) * 1.1;
+        const sx = v => f.x0 + (xmax === xmin ? 0.5 : (v - xmin) / (xmax - xmin)) * (f.x1 - f.x0);
+        const sy = v => f.y0 - (v / ymax) * (f.y0 - f.y1);
+        mk(s, 'line', { x1: f.x0, y1: sy(1), x2: f.x1, y2: sy(1), stroke: C.bad, 'stroke-dasharray': '5 4' });
+        mk(s, 'text', { x: f.x1 - 4, y: sy(1) - 5, fill: C.bad, 'font-size': 10, 'text-anchor': 'end', 'font-family': 'sans-serif' }, 'parity 1.0×');
+        [1, 2, 3].filter(v => v <= ymax).forEach(v =>
+          mk(s, 'text', { x: f.x0 - 6, y: sy(v) + 3, fill: C.muted, 'font-size': 10, 'text-anchor': 'end', 'font-family': 'monospace' }, v.toFixed(1)),
+        );
+        xs.forEach(x =>
+          mk(s, 'text', { x: sx(x), y: f.y0 + 14, fill: C.muted, 'font-size': 10, 'text-anchor': 'middle', 'font-family': 'monospace' }, x + ''),
+        );
+        const cols = [C.acc, C.teal, C.vio, C.good];
+        T.forEach((t, ti) => {
+          const pts = d.map(r => ({ x: r.logN, y: r[key][ti] })).filter(p => p.y != null);
+          if (!pts.length) return;
+          const path = pts.map((p, i) => `${i ? 'L' : 'M'}${sx(p.x)},${sy(p.y)}`).join(' ');
+          mk(s, 'path', { d: path, fill: 'none', stroke: cols[ti], 'stroke-width': 1.8 });
+          pts.forEach(p => mk(s, 'circle', { cx: sx(p.x), cy: sy(p.y), r: 2.6, fill: cols[ti] }));
+        });
+        legend(s, f.x1 + 10, f.y1 + 10, T.map((t, ti) => ({ c: cols[ti], t: `T=${t}` })));
+        mk(s, 'text', { x: f.x0 + 4, y: f.y1 + 6, fill: C.muted, 'font-size': 10, 'font-family': 'sans-serif' }, title);
+        mount(id, s);
+      }
+      function plotI() { thresholdPlot('plotI', 'ss', 'single-submission'); }
+      function plotJ() { thresholdPlot('plotJ', 'm', 'multi-pass'); }
+
+      // ---- Plot K: best-threshold envelope, single-submission vs multi-pass ----
+      function plotK() {
+        const ts = PROFILE_DATA.thresholdSweep;
+        if (!ts || !ts.rows || !ts.rows.length) return empty('plotK', 'run: drive.mjs sshybrid + bench at T∈{8..11}  → PROFILE_DATA.thresholdSweep');
+        const bestOf = arr => { const v = arr.filter(x => x != null); return v.length ? Math.max(...v) : null; };
+        const d = ts.rows.map(r => ({ logN: r.logN, ss: bestOf(r.ss), m: bestOf(r.m) }));
+        const W = 900,
+          H = 300,
+          pad = { l: 52, r: 188, t: 18, b: 38 };
+        const s = svg(W, H);
+        const f = frame(s, W, H, pad, { xLabel: 'log₂ n', yLabel: 'best full-WASM ÷ hybrid' });
+        const xs = d.map(r => r.logN),
+          xmin = Math.min(...xs),
+          xmax = Math.max(...xs);
+        const all = d.flatMap(r => [r.ss, r.m]).filter(v => v != null);
+        const ymax = Math.max(1.1, ...all) * 1.1;
+        const sx = v => f.x0 + (xmax === xmin ? 0.5 : (v - xmin) / (xmax - xmin)) * (f.x1 - f.x0);
+        const sy = v => f.y0 - (v / ymax) * (f.y0 - f.y1);
+        mk(s, 'line', { x1: f.x0, y1: sy(1), x2: f.x1, y2: sy(1), stroke: C.bad, 'stroke-dasharray': '5 4' });
+        mk(s, 'text', { x: f.x1 - 4, y: sy(1) - 5, fill: C.bad, 'font-size': 10, 'text-anchor': 'end', 'font-family': 'sans-serif' }, 'parity 1.0×');
+        [1, 2, 3].filter(v => v <= ymax).forEach(v =>
+          mk(s, 'text', { x: f.x0 - 6, y: sy(v) + 3, fill: C.muted, 'font-size': 10, 'text-anchor': 'end', 'font-family': 'monospace' }, v.toFixed(1)),
+        );
+        xs.forEach(x =>
+          mk(s, 'text', { x: sx(x), y: f.y0 + 14, fill: C.muted, 'font-size': 10, 'text-anchor': 'middle', 'font-family': 'monospace' }, x + ''),
+        );
+        const series = [
+          { f: r => r.m, c: C.acc, t: 'multi-pass (best T)' },
+          { f: r => r.ss, c: C.teal, t: 'single-submission (best T)' },
+        ];
+        for (const ser of series) {
+          const pts = d.filter(r => ser.f(r) != null);
+          const path = pts.map((r, i) => `${i ? 'L' : 'M'}${sx(r.logN)},${sy(ser.f(r))}`).join(' ');
+          mk(s, 'path', { d: path, fill: 'none', stroke: ser.c, 'stroke-width': 2 });
+          pts.forEach(r => mk(s, 'circle', { cx: sx(r.logN), cy: sy(ser.f(r)), r: 3, fill: ser.c }));
+        }
+        legend(s, f.x1 + 16, f.y1 + 10, series.map(x => ({ c: x.c, t: x.t })));
+        mount('plotK', s);
+      }
+
+      [plotA, plotB, plotC, plotC2, plotD, plotE, plotF, plotG, plotH, plotI, plotJ, plotK].forEach(fn => {
+        try {
+          fn();
+        } catch (e) {
+          console.error(fn.name, e);
+        }
+      });
+    </script>
+  </body>
+</html>

@@ -38,7 +38,10 @@ import { roundsSuite } from './suite_rounds.js';
 import { batchSuite } from './batch_gpu.js';
 import { poseidon2Suite } from './poseidon2_gpu.js';
 import { singleSubmitSuite } from './suite_singlesubmit.js';
-import { runMultiPassBenchmark, runProfile, runSingleSubmitProfile, runProfileReport, type MultiPassRow } from './bench.js';
+import {
+  runMultiPassBenchmark, runSingleSubmitHybridBenchmark, runProfile, runSingleSubmitProfile,
+  runProfileReport, type MultiPassRow, type SsHybridRow,
+} from './bench.js';
 
 const REGISTRY: Suite[] = [
   frSuite, monoSuite, arithSuite, deltaSuite, eccSuite, pos2InitSuite,
@@ -202,6 +205,72 @@ $benchRun.addEventListener('click', () => void (async () => {
   }
 })());
 
+// ===== SS-Hybrid tab (single-submission GPU front + WASM tail) =====
+const $sshLog = document.getElementById('ssh-log') as HTMLDivElement;
+const $sshTbody = document.getElementById('ssh-tbody') as HTMLTableSectionElement;
+const $sshRun = document.getElementById('ssh-run') as HTMLButtonElement;
+const $sshMin = document.getElementById('ssh-min') as HTMLInputElement;
+const $sshMax = document.getElementById('ssh-max') as HTMLInputElement;
+const $sshThresh = document.getElementById('ssh-thresh') as HTMLInputElement;
+const $sshThreshVal = document.getElementById('ssh-thresh-val') as HTMLSpanElement;
+
+$sshThresh.addEventListener('input', () => { $sshThreshVal.textContent = $sshThresh.value; });
+
+function sshLog(level: Level, msg: string): void {
+  const div = document.createElement('div');
+  if (level !== 'info') div.className = level;
+  div.textContent = msg;
+  $sshLog.appendChild(div);
+  // eslint-disable-next-line no-console
+  console.log(msg);
+}
+
+function appendSsHybridRow(r: SsHybridRow): void {
+  const tr = document.createElement('tr');
+  const dash = '<span class="pending">—</span>';
+  const ms = (x: number | null): string => (x === null ? dash : x.toFixed(1));
+  const pureWasm = r.gpuRounds === 0;
+  const split = pureWasm
+    ? '<span class="muted">WASM only</span>'
+    : `<span class="split">${r.gpuRounds} SS-GPU</span><span class="muted"> + ${r.logN - r.gpuRounds} WASM</span>`;
+  tr.innerHTML =
+    `<td>2^${r.logN}</td><td>${split}</td>` +
+    `<td>${pureWasm ? dash : r.setupMs.toFixed(1)}</td><td>${pureWasm ? dash : r.gpuFrontMs.toFixed(1)}</td>` +
+    `<td>${pureWasm ? dash : r.handoffMs.toFixed(1)}</td>` +
+    `<td>${ms(r.wasmTailMs)}</td><td>${ms(r.hybridMs)}</td><td>${ms(r.fullWasmMs)}</td>` +
+    `<td>${fmtFactor(r.speedup)}</td>`;
+  $sshTbody.appendChild(tr);
+}
+
+$sshRun.addEventListener('click', () => void (async () => {
+  if (running) return;
+  running = true;
+  $sshRun.disabled = true;
+  $sshTbody.replaceChildren();
+  $sshLog.replaceChildren();
+  const lo = Math.max(2, Math.min(20, parseInt($sshMin.value, 10) || 10));
+  const hi = Math.max(lo, Math.min(22, parseInt($sshMax.value, 10) || 18));
+  const threshold = Math.max(2, Math.min(22, parseInt($sshThresh.value, 10) || 9));
+  const logNs = Array.from({ length: hi - lo + 1 }, (_, i) => lo + i);
+  sshLog('info', `single-submission GPU front, last ${threshold} rounds on WASM · sweeping 2^${lo} … 2^${hi} · WASM fallback ≤ 2^${threshold}`);
+  let ok = true;
+  try {
+    const device = await getDevice();
+    await runSingleSubmitHybridBenchmark(device, logNs, threshold, sshLog, appendSsHybridRow);
+    sshLog('ok', '✓ SS-hybrid benchmark complete');
+  } catch (e) {
+    ok = false;
+    sshLog('err', `error: ${(e as Error).message}`);
+    // eslint-disable-next-line no-console
+    console.error(e);
+  } finally {
+    running = false;
+    $sshRun.disabled = false;
+    sshLog('muted', 'done');
+    log('muted', `[autorun] state=${ok ? 'ok' : 'err'}`); // mirror to #log so the headless driver detects completion/failure
+  }
+})());
+
 // ===== Profile tab (per-kernel GPU timing) =====
 const $profileLog = document.getElementById('profile-log') as HTMLDivElement;
 const $profileLogn = document.getElementById('profile-logn') as HTMLInputElement;
@@ -258,6 +327,15 @@ if (autorun === 'bench') {
   const lognParam = new URLSearchParams(window.location.search).get('logn');
   if (lognParam) $benchMax.value = lognParam;
   $benchRun.click();
+} else if (autorun === 'sshybrid') {
+  (document.getElementById('tab-btn-sshybrid') as HTMLButtonElement).click();
+  // `?logn=N` raises the sweep's upper bound; `?t=N` sets the WASM-fallback threshold.
+  const params = new URLSearchParams(window.location.search);
+  const lognParam = params.get('logn');
+  if (lognParam) $sshMax.value = lognParam;
+  const tParam = params.get('t');
+  if (tParam) { $sshThresh.value = tParam; $sshThreshVal.textContent = tParam; }
+  $sshRun.click();
 } else if (autorun === 'profile' || autorun === 'ssprofile' || autorun === 'profilereport') {
   (document.getElementById('tab-btn-profile') as HTMLButtonElement).click();
   // `?logn=N` sets the profile size (profilereport bakes its own sizes and ignores it).

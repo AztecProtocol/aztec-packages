@@ -44,6 +44,7 @@ import {
   reduce_test as reduce_test_shader,
   batch_test as batch_test_shader,
   poseidon2_transcript_test as poseidon2_transcript_test_shader,
+  poseidon2_transcript_par_test as poseidon2_transcript_par_test_shader,
   fr_ops_test as fr_ops_test_shader,
   fr_pow as fr_pow_funcs,
   lag as lag_funcs,
@@ -491,6 +492,18 @@ ${packLines.join('\n')}
    */
   public gen_poseidon2_transcript_test_shader(workgroup_size: number): string {
     return mustache.render(poseidon2_transcript_test_shader, this.relationView(workgroup_size), this.relationPartials);
+  }
+
+  /**
+   * Lane-parallel GPU Fiat-Shamir transcript: same Poseidon2 hash + gate-separator
+   * c_i update as gen_poseidon2_transcript_test_shader, but the t=4 state is spread
+   * one lane per thread (@workgroup_size(4), fixed). Cuts the formerly serial
+   * (@workgroup_size(1)) transcript, the largest single-submission GPU cost. The
+   * workgroup_size argument is ignored (the kernel hardcodes 4 = state size).
+   * See poseidon2_transcript_par_test.template.wgsl.
+   */
+  public gen_poseidon2_transcript_par_test_shader(workgroup_size: number): string {
+    return mustache.render(poseidon2_transcript_par_test_shader, this.relationView(workgroup_size), this.relationPartials);
   }
 
   /** Common Mustache view shared by every relation-accumulate test shader. */

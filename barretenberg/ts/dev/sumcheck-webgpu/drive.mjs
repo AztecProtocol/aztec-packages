@@ -12,9 +12,11 @@ const headed = argv.includes('--headed');
 const which = argv.find(a => !a.startsWith('--')) ?? 'all';
 const logn = process.env.LOGN ?? '14';
 // The benchmark's WASM column uses bb.js threads, which need cross-origin
-// isolation (SharedArrayBuffer); request it via ?coi=1 for the bench target.
-const coi = which === 'bench' ? '&coi=1' : '';
-const target = `http://localhost:5173/dev/sumcheck-webgpu/index.html?autorun=${which}&logn=${logn}${coi}`;
+// isolation (SharedArrayBuffer); request it via ?coi=1 for the WASM-backed targets.
+const coi = which === 'bench' || which === 'sshybrid' ? '&coi=1' : '';
+// `T=<n> drive.mjs sshybrid` sets the WASM-fallback threshold (last T rounds on WASM).
+const tParam = which === 'sshybrid' && process.env.T ? `&t=${process.env.T}` : '';
+const target = `http://localhost:5173/dev/sumcheck-webgpu/index.html?autorun=${which}&logn=${logn}${coi}${tParam}`;
 
 const browser = await chromium.launch({
   channel: 'chrome',
