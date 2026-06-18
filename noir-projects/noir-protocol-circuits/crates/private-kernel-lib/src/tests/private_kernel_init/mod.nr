@@ -33,12 +33,7 @@ impl TestBuilder {
 
         let tx_request = private_call.to_tx_request();
 
-        TestBuilder {
-            tx_request,
-            private_call,
-            is_private_only: false,
-            revertible_counter_hint: 0,
-        }
+        TestBuilder { tx_request, private_call, is_private_only: false, revertible_counter_hint: 0 }
     }
 
     pub fn execute(self) -> PrivateKernelCircuitPublicInputs {
