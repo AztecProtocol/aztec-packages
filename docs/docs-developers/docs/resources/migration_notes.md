@@ -9,9 +9,9 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
-### [PXE] Browser KV-store default is now SQLite-OPFS; the IndexedDB entrypoint moved
+### [PXE] Browser KV-store default is now SQLite-OPFS; the IndexedDB entrypoint moved and will be deprecated
 
-The browser PXE data store and the embedded wallet (`@aztec/wallets`) now persist to SQLite-OPFS instead of IndexedDB. SQLite-OPFS is durable and encryption-at-rest capable, whereas the IndexedDB backend stores plaintext and its transaction model cannot span async work. The recommended way to obtain the browser backend is the new `@aztec/kv-store/browser` entrypoint, which aliases `@aztec/kv-store/sqlite-opfs`. The old `@aztec/kv-store/indexeddb` entrypoint has been removed; the IndexedDB backend now lives at `@aztec/kv-store/deprecated/indexeddb` and is deprecated.
+The browser PXE data store and the embedded wallet (`@aztec/wallets`) now persist to SQLite-OPFS instead of IndexedDB by default. SQLite-OPFS is durable and encryption-at-rest capable, whereas the IndexedDB backend stores plaintext and its transaction model cannot span async work. The recommended way to obtain the browser backend is the new `@aztec/kv-store/browser` entrypoint, which aliases `@aztec/kv-store/sqlite-opfs`. The old `@aztec/kv-store/indexeddb` entrypoint has been removed; the IndexedDB backend now lives at `@aztec/kv-store/deprecated/indexeddb` and still works, but is now considered deprecated.
 
 **Migration:**
 
@@ -27,7 +27,7 @@ If you must stay on IndexedDB for now, import from the deprecated entrypoint ins
 + import { createStore } from '@aztec/kv-store/deprecated/indexeddb';
 ```
 
-**Impact**: Existing IndexedDB-backed data is not migrated, so browser PXE and wallet state starts fresh on SQLite-OPFS (the v5 protocol upgrade wipes local state regardless). SQLite-OPFS also holds an exclusive, origin-wide lock on its store directory, so a second browser tab opening the same store will fail where IndexedDB allowed concurrent access; run a single tab per store for now.
+**Impact**: Existing IndexedDB-backed data is not migrated, so browser PXE and wallet state starts fresh on SQLite-OPFS (the v5 protocol upgrade wipes local state regardless). SQLite-OPFS also holds an exclusive, origin-wide lock on its store directory, so a second browser tab opening the same store will fail. Consequently, we recommend to explicitly manage this case in your app if it uses `EmbeddedWallet`.
 
 ### [Aztec.js] `getPublicEvents` is now cursor-paginated
 
