@@ -846,8 +846,9 @@ export interface MemoryProfileData {
   logN: number;
   ss: BufferAllocStats;
   multi: BufferAllocStats;
-  // SS-hybrid with Idea 1 (shared 67-entity column set): same engine, sharedColumns on.
+  // Idea 1 (shared 67-entity column set): same engines with sharedColumns on.
   ssShared: BufferAllocStats;
+  multiShared: BufferAllocStats;
 }
 
 export async function runMemoryProfile(device: GPUDevice, logN: number, log: Logger): Promise<MemoryProfileData> {
@@ -875,25 +876,29 @@ export async function runMemoryProfile(device: GPUDevice, logN: number, log: Log
   await runSingleSubmitSumcheck(device, n, alpha, betas, relParamBytes, initColBytes, ssShared);
   const ss = ssTracker.stop();
 
-  // Idea 1: same SS engine, shared 67-entity column set (185 -> 67 columns). Reuses the
-  // compiled runners/cache; the shared accumulate pipelines compile under a distinct key.
-  // Only when the single 67-column buffer fits the device binding limit (else the per-
-  // relation layout is the only option at this size; report it as the shared figure).
-  let ssShared2 = ss;
-  if (sharedColumnsFit(device, n)) {
-    const { sharedColBytes } = buildSharedColumns(n, 0x5ba7ed_c01c01n);
-    const ssSharedTracker = new BufferTracker(device);
-    ssSharedTracker.start();
-    await runSingleSubmitSumcheck(device, n, alpha, betas, relParamBytes, initColBytes, { ...ssShared, sharedColumns: true, sharedColBytes });
-    ssShared2 = ssSharedTracker.stop();
-  } else {
-    log('warn', `  shared 67-column buffer exceeds the device binding limit at 2^${logN} — shared SS run skipped`);
-  }
-
   const mpTracker = new BufferTracker(device);
   mpTracker.start();
   await runResidentGpuSumcheck(device, n, alpha, betas, challenges, relParamBytes, initColBytes, mpShared);
   const multi = mpTracker.stop();
+
+  // Idea 1: both engines on the shared 67-entity column set (185 -> 67 columns), reusing
+  // the compiled runners/cache (shared accumulate pipelines compile under a distinct key).
+  // Only when the single 67-column buffer fits the device binding limit; else the per-
+  // relation layout is the only option at this size, so report it as the shared figure.
+  let ssShared2 = ss, multiShared = multi;
+  if (sharedColumnsFit(device, n)) {
+    const { sharedColBytes } = buildSharedColumns(n, 0x5ba7ed_c01c01n);
+    const sst = new BufferTracker(device);
+    sst.start();
+    await runSingleSubmitSumcheck(device, n, alpha, betas, relParamBytes, initColBytes, { ...ssShared, sharedColumns: true, sharedColBytes });
+    ssShared2 = sst.stop();
+    const mst = new BufferTracker(device);
+    mst.start();
+    await runResidentGpuSumcheck(device, n, alpha, betas, challenges, relParamBytes, initColBytes, { ...mpShared, sharedColumns: true, sharedColBytes });
+    multiShared = mst.stop();
+  } else {
+    log('warn', `  shared 67-column buffer exceeds the device binding limit at 2^${logN} — shared runs skipped`);
+  }
 
   const mb = (b: number) => (b / (1 << 20)).toFixed(2);
   const report = (name: string, s: BufferAllocStats) => {
@@ -907,6 +912,7 @@ export async function runMemoryProfile(device: GPUDevice, logN: number, log: Log
   report('SS-hybrid ', ss);
   report('SS-shared ', ssShared2);
   report('multi-pass', multi);
+  report('MP-shared ', multiShared);
   const colAllocs = (s: BufferAllocStats) => s.byCategory['columns']?.count ?? 0;
   const colMb = (s: BufferAllocStats) => mb(s.byCategory['columns']?.bytes ?? 0);
   log(
@@ -916,10 +922,10 @@ export async function runMemoryProfile(device: GPUDevice, logN: number, log: Log
   );
   log(
     'ok',
-    `  Idea 1 (shared 67-entity columns): SS columns ${colMb(ss)} -> ${colMb(ssShared2)} MB ` +
-      `(${colAllocs(ss)} -> ${colAllocs(ssShared2)} allocs) · peak live ${mb(ss.peakLiveBytes)} -> ${mb(ssShared2.peakLiveBytes)} MB`,
+    `  Idea 1 (shared 67-entity columns): SS columns ${colMb(ss)} -> ${colMb(ssShared2)} MB / peak ${mb(ss.peakLiveBytes)} -> ${mb(ssShared2.peakLiveBytes)} MB` +
+      ` · multi-pass columns ${colMb(multi)} -> ${colMb(multiShared)} MB / peak ${mb(multi.peakLiveBytes)} -> ${mb(multiShared.peakLiveBytes)} MB`,
   );
-  return { logN, ss, multi, ssShared: ssShared2 };
+  return { logN, ss, multi, ssShared: ssShared2, multiShared };
 }
 
 /**
@@ -987,7 +993,7 @@ export async function runProfileReport(device: GPUDevice, log: Logger): Promise<
       .map(([c, st]) => `${c}: ${mb(st.bytes)}`).join(', ');
     return `{ peakLiveMB: ${mb(s.peakLiveBytes)}, totalMB: ${mb(s.totalBytes)}, allocs: ${s.totalCount}, byCategoryMB: { ${cats} } }`;
   };
-  const memLit = `{ logN: ${mem.logN}, ss: ${memEng(mem.ss)}, ssShared: ${memEng(mem.ssShared)}, multi: ${memEng(mem.multi)} }`;
+  const memLit = `{ logN: ${mem.logN}, ss: ${memEng(mem.ss)}, ssShared: ${memEng(mem.ssShared)}, multi: ${memEng(mem.multi)}, multiShared: ${memEng(mem.multiShared)} }`;
 
   const literal =
     `const PROFILE_DATA = {\n` +
