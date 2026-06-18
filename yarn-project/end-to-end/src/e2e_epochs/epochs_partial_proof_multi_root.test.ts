@@ -27,13 +27,13 @@ import { EpochsTestContext } from './epochs_test.js';
 
 jest.setTimeout(1000 * 60 * 10);
 
-// Since AZIP-14 the Outbox can hold up to MAX_CHECKPOINTS_PER_EPOCH partial-proof roots per epoch, one
-// per `numCheckpointsInEpoch` (1-indexed). This test stages three progressively-deeper roots for
-// the same epoch by driving the EpochTestSettler after each checkpointed tx, then tests:
-//   (a) consuming a message uses the smallest covering root the client helper picks,
-//   (b) the user can consume the same message against any covering root (both K=1 and K=2 cover
-//       a message in checkpoint 0), and the shared bitmap prevents double-consume across K, and
-//   (c) a message whose checkpoint is not yet covered by any root yields no witness.
+// Suite: verifies the AZIP-14 partial-proof multi-root Outbox design. Drives an EpochTestSettler
+// manually to stage progressively deeper partial-proof roots (K=1, 2, 3) for the same epoch, then
+// asserts: (a) the node picks the smallest covering root, (b) any covering root produces a valid
+// consume tx, (c) the shared bitmap blocks double-spend, and (d) K=4 can be staged later.
+// EpochsTestContext: single node, no prover, prod-seq, interval mining. Timing: ethSlot=default
+// (8s/12s CI), aztecSlot=default, epoch=1000, proofSubmissionEpochs=1024, disableAnvilTestWatcher.
+// The test actively calls the Outbox L1 contract to consume L2-to-L1 messages → cross-chain.
 describe('e2e_epochs/epochs_partial_proof_multi_root', () => {
   let test: EpochsTestContext;
   let logger: Logger;
@@ -88,6 +88,10 @@ describe('e2e_epochs/epochs_partial_proof_multi_root', () => {
     await test.teardown();
   });
 
+  // Deploys TestContract, advances past the setup epoch, then sends 4 L2-to-L1-message txs each
+  // in a fresh slot. After the first 3, calls settler.handleEpochReadyToProve to insert K=1, 2, 3
+  // partial-proof roots. Asserts Outbox roots match locally-computed values, verifies consume()
+  // succeeds under each covering K, and confirms the shared bitmap prevents re-consumption.
   it('stages 3 partial-proof roots and lets messages consume against any covering root', async () => {
     const { wallet } = test.context;
     const [from] = test.context.accounts;
@@ -219,6 +223,8 @@ describe('e2e_epochs/epochs_partial_proof_multi_root', () => {
 
     // Consume msg2 against the smallest covering root the node picks (K=2).
     {
+      // REFACTOR: hand-rolled retryUntil waiting for L2ToL1 membership witness availability; a
+      // DSL helper like waitForL2ToL1MembershipWitness(txHash, leaf) would encapsulate the retry.
       const witness = await retryUntil(
         () => node.getL2ToL1MembershipWitness(sends[1].receipt.txHash, sends[1].leaf),
         'K=2 membership witness',

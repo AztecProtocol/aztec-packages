@@ -25,6 +25,11 @@ jest.setTimeout(1000 * 60 * 10);
 const NODE_COUNT = 3;
 const TX_COUNT = 8;
 
+// Suite: verifies that 3 validator nodes can build blocks without sequencer errors. Uses a
+// lightweight RPC-only initial node (skipInitialSequencer), mockGossipSubNetwork, no prover.
+// Timing: ethSlot=12s, aztecSlot=3×12=36s, epoch=default 6, proofSubmissionEpochs=1024,
+// blockDurationMs=6s, enforceTimeTable=true, inboxLag=2. Pre-proved txs sent from hardcoded
+// genesis-funded account (no on-chain account deploy needed).
 // Sets up a lightweight RPC-only node without any account deployment, registers a test contract
 // locally, then spawns NODE_COUNT validator nodes connected via a mocked gossip sub network.
 // Mines N txs across N blocks, checking that no sequencer errors occur during block building.
@@ -79,6 +84,8 @@ describe('e2e_epochs/epochs_simple_block_building', () => {
     await test.teardown();
   });
 
+  // Pre-proves TX_COUNT transactions emitting unique nullifiers, sends them, waits for all to mine,
+  // then asserts no fail events were emitted by any of the 3 sequencers during the run.
   it('builds blocks without any errors', async () => {
     const sequencers = nodes.map(node => node.getSequencer()!);
     const { failEvents } = test.watchSequencerEvents(sequencers, i => ({ validator: validators[i].attester }));

@@ -56,6 +56,10 @@ jest.setTimeout(1000 * 60 * 10);
 //   - All slot-carrying sequencer state events report the target slot (the checkpoint job sets its
 //     state via setStateFn(state, targetSlot)). Slot N+2 is unique to this cycle: the prior cycle
 //     targeted N+1.
+// Suite: regression test for sequencer sync logic when L1 slot production stalls mid-slot.
+// EpochsTestContext with single-node + mockGossipSubNetwork, prod-seq, interval mining (automine
+// during L1 deploy only). Timing: ethSlot=8s (12s CI), aztecSlot=6×ethSlot, epoch=default 6,
+// proofSubmissionEpochs=1024, blockDurationMs=8000, enforceTimeTable=true, inboxLag=2. No prover.
 describe('e2e_epochs/epochs_missed_l1_slot', () => {
   let test: EpochsTestContext;
   let contract: TestContract;
@@ -109,6 +113,9 @@ describe('e2e_epochs/epochs_missed_l1_slot', () => {
     await test.teardown();
   });
 
+  // Asserts that the sequencer enters INITIALIZING_CHECKPOINT for wall-clock slot N+2 while L1
+  // mining is paused, proving checkSync no longer stalls when L1 blocks are absent. Then resumes
+  // mining, waits for the next checkpoint to land, and verifies multi-blocks-per-slot was exercised.
   it('builds a block after missed L1 slots when previous checkpoint is synced', async () => {
     const { logger, constants, monitor, context } = test;
     const eth = context.cheatCodes.eth;
@@ -130,6 +137,8 @@ describe('e2e_epochs/epochs_missed_l1_slot', () => {
     // slot (e.g. in the last L1 slot of L2 slot N), slotFromL1Sync would already be N and the
     // bug would not be exercised.
     logger.info('Waiting for a checkpoint published in the first half of its L2 slot...');
+    // REFACTOR: raw on-off subscription to ChainMonitor 'checkpoint' event; replace with a
+    // DSL helper that waits for the first checkpoint satisfying a predicate (e.g. inFirstHalfOfSlot).
     const checkpointEvent = await executeTimeout(
       signal =>
         new Promise<ChainMonitorEventMap['checkpoint'][0]>((res, rej) => {
@@ -208,6 +217,8 @@ describe('e2e_epochs/epochs_missed_l1_slot', () => {
       `Waiting for sequencer to reach INITIALIZING_CHECKPOINT for target slot ${targetSlotForBugFixCycle} ` +
         `(build slot ${nextSlotNumber}) during mining pause...`,
     );
+    // REFACTOR: raw on-off subscription to sequencer 'state-changed' event; a DSL helper that
+    // waits for a specific (state, slot) pair would eliminate the manual Promise + signal cleanup.
     await executeTimeout(
       signal =>
         new Promise<void>((res, rej) => {

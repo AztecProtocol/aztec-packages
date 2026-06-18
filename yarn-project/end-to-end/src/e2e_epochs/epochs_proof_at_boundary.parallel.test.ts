@@ -26,6 +26,11 @@ const NODE_COUNT = 3;
 type PreparingEvent = Parameters<SequencerEvents['preparing-checkpoint']>[0];
 type PublishedEvent = Parameters<SequencerEvents['checkpoint-published']>[0];
 
+// Suite: 5 parallel scenarios testing the interaction between the proof submission deadline and
+// the pipelining boundary slot. EpochsTestContext: 3 validator nodes + 1 prover node,
+// mockGossipSubNetwork, skipInitialSequencer. Timing: ethSlot=12s, aztecSlot=3×12=36s,
+// epoch=default 6, proofSubmissionEpochs=1 (overridden per test via setupTest), blockDurationMs=6s,
+// enforceTimeTable=true, inboxLag=2. The Delayer is used to steer proof tx timing.
 describe('e2e_epochs/epochs_proof_at_boundary', () => {
   let context: EndToEndContext;
   let logger: Logger;
@@ -96,6 +101,8 @@ describe('e2e_epochs/epochs_proof_at_boundary', () => {
   };
 
   const computeBoundarySlot = async () => {
+    // REFACTOR: hand-rolled retryUntil polling for first checkpoint; replace with
+    // test.waitUntilCheckpointNumber(CheckpointNumber(1)) from EpochsTestContext.
     await retryUntil(
       async () => {
         await test.monitor.run(true);
@@ -197,6 +204,9 @@ describe('e2e_epochs/epochs_proof_at_boundary', () => {
     await test?.teardown();
   });
 
+  // Delays the proof tx so it mines in the L2 slot immediately before the boundary. Asserts the
+  // boundary slot's checkpoint-published event fires (proven pin path was taken), the proof receipt
+  // is success, and the proof timestamp falls within (boundaryTs - L2_SLOT, boundaryTs).
   it('proof lands during slot build and checkpoint succeeds at boundary', async () => {
     // The proof for the unproven epoch lands AFTER the boundary slot's pipelined build starts but
     // BEFORE the publisher's preCheck. The proven pin lets the boundary checkpoint build before
@@ -242,6 +252,9 @@ describe('e2e_epochs/epochs_proof_at_boundary', () => {
     logger.warn(`Test passed. Final tip checkpoint=${test.monitor.checkpointNumber}`);
   });
 
+  // Sanity check: prover runs naturally; proof lands well before the boundary. Asserts the boundary
+  // checkpoint still publishes (proven pin is defensive only here) and the proof timestamp is
+  // earlier than boundaryTs - L2_SLOT_DURATION_IN_S.
   it('proof lands well before deadline and checkpoint succeeds at boundary', async () => {
     // Sanity check: the prover runs on its natural schedule, so the proof lands well before the
     // boundary epoch. By the time the boundary slot is built `tips.proven` is already advanced
@@ -273,6 +286,9 @@ describe('e2e_epochs/epochs_proof_at_boundary', () => {
     expect(Number(test.monitor.checkpointNumber)).toBeGreaterThanOrEqual(Number(boundaryPublished!.checkpoint));
   });
 
+  // Cancels the proof tx before starting the prover so the deadline is missed. Asserts no
+  // checkpoint-published event fires for the boundary slot, and that the first post-boundary
+  // checkpoint lands within 2 slots of the boundary (chain recovers via on-chain prune).
   it('proof never lands so no checkpoint submission is attempted', async () => {
     // The boundary slot's build applies the proven pin, but the publisher's preCheck rejects the
     // propose tx because the proof never landed. After the prune fires on a later slot, a fresh
@@ -307,6 +323,9 @@ describe('e2e_epochs/epochs_proof_at_boundary', () => {
     expect(getEpochAtSlot(firstPostBoundary.slot, test.constants)).toBe(boundaryEpoch);
   });
 
+  // Pauses proposing for slot N-1 (the slot before the boundary) so no proposed parent exists at
+  // the boundary. Proof still lands early. Asserts the boundary checkpoint publishes and no
+  // preparing event recorded a hadProposedParent=true for the boundary slot.
   it('proof lands without a proposed parent and boundary checkpoint succeeds', async () => {
     // The slot before the boundary is paused so the boundary slot's build does not see a proposed
     // parent. The proof still lands well before the deadline, so the proven pin is defensive only
@@ -344,6 +363,8 @@ describe('e2e_epochs/epochs_proof_at_boundary', () => {
     expect(Number(test.monitor.checkpointNumber)).toBeGreaterThanOrEqual(Number(boundaryPublished!.checkpoint));
   });
 
+  // Combines no-proposed-parent (slot N-1 paused) with cancelled proof tx. Asserts boundary did
+  // not propose, and the first post-boundary checkpoint lands within 2 slots (on-chain prune path).
   it('proof never lands without a proposed parent so no checkpoint submission is attempted', async () => {
     // Same as the no-parent variant above but with the proof never landing. The proven pin fires
     // (no parent + prune is due) but the publisher's preCheck rejects the propose, so no

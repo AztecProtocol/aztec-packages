@@ -12,6 +12,11 @@ import { EpochsTestContext } from './epochs_test.js';
 
 jest.setTimeout(1000 * 60 * 10);
 
+// Suite: checks that multiple prover nodes can each submit their own valid proof for the same epoch.
+// EpochsTestContext with startProverNode=false (test creates 3 prover nodes manually). Single
+// sequencer node. Timing: all defaults (ethSlot=8s/12s CI, aztecSlot=16s/24s, epoch=6,
+// proofSubmissionEpochs=1, fake prover). Staggered finalizeEpoch delays ensure provers don't
+// all land at the same L1 block.
 describe('e2e_epochs/epochs_multi_proof', () => {
   let context: EndToEndContext;
   let rollup: RollupContract;
@@ -34,6 +39,9 @@ describe('e2e_epochs/epochs_multi_proof', () => {
     await test.teardown();
   });
 
+  // Creates 3 prover nodes (deferred start), patches each to stagger finalizeEpoch by index *
+  // ethereumSlotDuration, then starts them all. Waits for epoch 1 to begin, then polls until all
+  // 3 provers have submitted proofs for epoch 0 via rollup.getHasSubmittedProof.
   it('submits proofs from multiple prover-nodes', async () => {
     // Create all three prover nodes without starting them
     // This allows us to apply the delay patches before any proving begins
@@ -79,6 +87,8 @@ describe('e2e_epochs/epochs_multi_proof', () => {
     logger.info(`Starting epoch 1 with length ${firstEpochLength} after L2 block ${firstEpochLastBlockNum}`);
 
     // Wait until all three provers have submitted proofs
+    // REFACTOR: hand-rolled retryUntil polling loop over Promise.all per-prover submission check;
+    // a DSL helper like waitForAllProversToSubmit(proverIds, epoch) would centralise this pattern.
     await retryUntil(
       async () => {
         const haveSubmitted = await Promise.all(

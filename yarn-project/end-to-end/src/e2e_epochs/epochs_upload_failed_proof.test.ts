@@ -19,6 +19,11 @@ import { EpochsTestContext } from './epochs_test.js';
 
 jest.setTimeout(1000 * 60 * 10);
 
+// Suite: verifies that a failed epoch-proving job uploads its state to a file store and that
+// rerunEpochProvingJob can re-prove from the downloaded data on a fresh instance. Uses
+// EpochsTestContext with a prover configured to use a temp file:// URL as the epoch failure store.
+// Timing: all defaults (ethSlot=8s/12s CI, aztecSlot=16s/24s, epoch=6, proofSubmissionEpochs=1,
+// fake prover). The test tears down mid-run and re-proves via a standalone helper.
 describe('e2e_epochs/epochs_upload_failed_proof', () => {
   let context: EndToEndContext;
   let logger: Logger;
@@ -52,6 +57,10 @@ describe('e2e_epochs/epochs_upload_failed_proof', () => {
     await tryRmDir(rerunDownloadDir, logger);
   });
 
+  // Patches the prover's finalizeEpoch to always throw, intercepts tryUploadEpochFailure to capture
+  // the upload URL, then waits for epoch 1 to start and for the upload to complete. Tears down the
+  // live context, downloads the proving job data, and re-runs it via rerunEpochProvingJob with fake
+  // proofs on a fresh config.
   it('uploads failed proving job state and re-runs it on a fresh instance', async () => {
     // Make initial prover node fail to prove, via the session's top-tree-prove hook.
     const proverNode = test.proverNodes[0].getProverNode() as TestProverNode;
@@ -74,6 +83,8 @@ describe('e2e_epochs/epochs_upload_failed_proof', () => {
     // Wait until the start of epoch one so prover node starts proving epoch 0,
     // and wait for the data to be uploaded to the remote file store
     await test.waitUntilEpochStarts(1);
+    // REFACTOR: hand-rolled retryUntil polling a local variable for the upload completion; a DSL
+    // helper or a Promise-based event on the prover node would avoid the polling loop.
     await retryUntil(() => epochUploadUrl !== undefined, 'Upload epoch failure', 240, 1);
 
     // Stop everything, we're going to prove on a fresh instance

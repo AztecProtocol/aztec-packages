@@ -21,6 +21,10 @@ jest.setTimeout(1000 * 60 * 10);
 // messages first. This causes a block header mismatch (different state roots, fees, mana) when a tx consumes
 // a message that was added to the L1-to-L2 message tree in the same block — the prover reverts the tx while
 // the sequencer processes it successfully.
+//
+// EpochsTestContext: 1 node + fake prover, prod-seq, interval mining. Timing: all defaults (ethSlot=8s/12s
+// CI, aztecSlot=16s/24s, epoch=6, proofSubmissionEpochs=1), minTxsPerBlock=1, disableAnvilTestWatcher=true.
+// Cross-chain: writes to L1 Inbox (sendL1ToL2Message), then claims the message in a public L2 function.
 describe('e2e_epochs/epochs_proof_public_cross_chain', () => {
   let context: EndToEndContext;
   let logger: Logger;
@@ -41,6 +45,9 @@ describe('e2e_epochs/epochs_proof_public_cross_chain', () => {
     await test.teardown();
   });
 
+  // Sends an L1→L2 message via the Inbox, waits for it to be synced, then sends a public tx
+  // consuming the message in the same block it lands. Waits for the epoch proof to cover that
+  // block, then confirms the message cannot be consumed a second time.
   it('submits proof with a tx with public l1-to-l2 message claim', async () => {
     // Deploy a contract that consumes L1 to L2 messages
     await context.aztecNodeAdmin.setConfig({ minTxsPerBlock: 0 });
@@ -74,6 +81,8 @@ describe('e2e_epochs/epochs_proof_public_cross_chain', () => {
 
     // Wait until a proof lands for the transaction
     logger.warn(`Waiting for proof for tx ${txReceipt.txHash} mined at ${txReceipt.blockNumber!}`);
+    // REFACTOR: hand-rolled retryUntil polling aztecNode.getBlockNumber('proven'); replace with
+    // test.waitUntilProvenCheckpointNumber or a waitForProvenBlock(blockNumber) DSL helper.
     await retryUntil(
       async () => {
         const provenBlockNumber = await context.aztecNode.getBlockNumber('proven');
