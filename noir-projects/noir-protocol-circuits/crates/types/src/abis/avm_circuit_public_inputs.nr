@@ -110,7 +110,7 @@ pub struct AvmCircuitPublicInputs {
     // Outputs.
     pub end_tree_snapshots: TreeSnapshots,
     pub end_gas_used: Gas,
-    // TODO(avm): Use this to check zero-padded arrays in accumulated data
+    // Use to delimit active arrays in accumulated data. Padding is zero-checked by validate_avm_accumulated_data_padding().
     pub accumulated_data_array_lengths: AvmAccumulatedDataArrayLengths,
     pub accumulated_data: AvmAccumulatedData,
     pub transaction_fee: Field,

@@ -418,6 +418,9 @@ namespace public_data_check;
     #[WRITE_IDX_INCREMENT]
     not_end * (write_idx + sel_write_to_public_inputs - write_idx') = 0;
 
+    // ONE-WAY write: only the active rows [0, length) are constrained. Rows [length, MAX) are left
+    // free by the AVM and are defensively zero-checked by the public base rollup
+    // (validate_avm_accumulated_data_padding). See public_inputs.pil's NOTE ON NON-MALLEABILITY.
     #[WRITE_PUBLIC_DATA_TO_PUBLIC_INPUTS]
     sel_write_to_public_inputs {
         write_idx,
