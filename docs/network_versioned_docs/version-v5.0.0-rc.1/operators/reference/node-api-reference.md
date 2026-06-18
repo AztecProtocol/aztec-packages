@@ -822,7 +822,7 @@ given mana usage estimate. Defaults to target usage (steady state).
 
 1. `manaUsage` - `ManaUsageEstimate | undefined` - Expected mana usage per checkpoint (none, target, or limit).
 
-**Returns**: `GasFees[]` - An array of GasFees, one per slot in the prediction window.
+**Returns**: `GasFees[]` - An array of GasFees with current min fees first, followed by one entry per predicted slot.
 
 **Example**:
 

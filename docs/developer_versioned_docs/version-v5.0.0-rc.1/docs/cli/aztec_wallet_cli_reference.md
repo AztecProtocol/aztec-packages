@@ -10,7 +10,7 @@ sidebar_position: 2
 *This documentation is auto-generated from the `aztec-wallet` CLI help output.*
 
 
-*Generated: Mon 18 May 2026 14:25:52 UTC*
+*Generated: Thu 18 Jun 2026 10:49:46 UTC*
 
 *Command: `aztec-wallet`*
 
@@ -40,7 +40,7 @@ Aztec wallet
 
 **Usage:**
 ```bash
-wallet [options] [command]
+aztec-wallet [options] [command]
 ```
 
 **Available Commands:**
@@ -69,7 +69,7 @@ wallet [options] [command]
 - `-V --version` - output the version number
 - `-d --data-dir <string>` - Storage directory for wallet data (default: "/home/josh/.aztec/wallet")
 - `-p --prover <string>` - The type of prover the wallet uses (choices: "wasm", "native", "none", default: "native", env: PXE_PROVER)
-- `-n --node-url <string>` - URL of the Aztec node to connect to (default: "http://host.docker.internal:8080", env: AZTEC_NODE_URL)
+- `-n --node-url <string>` - URL of the Aztec node to connect to (default: "http://localhost:8080", env: AZTEC_NODE_URL)
 - `-h --help` - display help for command
 
 ### Subcommands
@@ -80,29 +80,29 @@ Aliases information for easy reference.
 
 **Usage:**
 ```bash
-wallet alias [options] <type> <key> <value>
+aztec-wallet alias [options] <type> <key> <value>
 ```
 
 **Options:**
 
-- `-h --help` - display help for command
+- `-h, --help` - display help for command
 
 ### aztec-wallet authorize-action
 
-Authorizes a public call on the caller, so they can perform an action on behalf
+Authorizes a public call on the caller, so they can perform an action on behalf of the provided account
 
 **Usage:**
 ```bash
-wallet authorize-action [options] <functionName> <caller>
+aztec-wallet authorize-action [options] <functionName> <caller>
 ```
 
 **Options:**
 
-- `--args` - [args...]                        Function  arguments (default: [])
-- `-ca --contract-address <address>` - Aztec address of the contract.
-- `-c --contract-artifact <fileLocation>` - Path to a compiled Aztec contract's artifact in JSON format. If executed inside a nargo workspace, a package and contract name can be specified as package@contract
-- `-f --from <string>` - Alias or address of the account to simulate from
-- `-h --help` - display help for command
+- `--args [args...]` - Function  arguments (default: [])
+- `-ca, --contract-address <address>` - Aztec address of the contract.
+- `-c, --contract-artifact <fileLocation>` - Path to a compiled Aztec contract's artifact in JSON format. If executed inside a nargo workspace, a package and contract name can be specified as package@contract
+- `-f, --from <string>` - Alias or address of the account to simulate from
+- `-h, --help` - display help for command
 
 ### aztec-wallet bridge-fee-juice
 
@@ -110,70 +110,70 @@ Mints L1 Fee Juice and pushes them to L2.
 
 **Usage:**
 ```bash
-wallet bridge-fee-juice [options] <amount> <recipient>
+aztec-wallet bridge-fee-juice [options] <amount> <recipient>
 ```
 
 **Options:**
 
-- `--l1-rpc-urls <string>` - List of Ethereum host URLs. Chain identifiers
-- `-m --mnemonic <string>` - The mnemonic to use for deriving the Ethereum
+- `--l1-rpc-urls <string>` - List of Ethereum host URLs. Chain identifiers localhost and testnet can be used (comma separated) (default: ["http://localhost:8545"])
+- `-m, --mnemonic <string>` - The mnemonic to use for deriving the Ethereum address that will mint and bridge (default: "test test test test test test test test test test test junk")
 - `--mint` - Mint the tokens on L1 (default: false)
 - `--l1-private-key <string>` - The private key to the eth account bridging
-- `-c --l1-chain-id <number>` - Chain ID of the ethereum host (default: 31337,
+- `-c, --l1-chain-id <number>` - Chain ID of the ethereum host (default: 31337, env: L1_CHAIN_ID)
 - `--json` - Output the claim in JSON format
-- `--no-wait` - Wait for the bridged funds to be available in L2,
-- `--interval <number>` - The polling interval in seconds for the bridged
-- `-h --help` - display help for command
+- `--no-wait` - Wait for the bridged funds to be available in L2, polling every 60 seconds
+- `--interval <number>` - The polling interval in seconds for the bridged funds (default: "60")
+- `-h, --help` - display help for command
 
 ### aztec-wallet create-account
 
-Creates an aztec account that can be used for sending transactions. Registers
+Creates an aztec account that can be used for sending transactions. Registers the account on the PXE and deploys an account contract. Uses a Schnorr account which uses an immutable key for authentication.
 
 **Usage:**
 ```bash
-wallet create-account [options]
+aztec-wallet create-account [options]
 ```
 
 **Options:**
 
-- `-f --from <string>` - Alias or address of the account performing the deployment
+- `-f, --from <string>` - Alias or address of the account performing the deployment
 - `--skip-initialization` - Skip initializing the account contract. Useful for publicly deploying an existing account.
 - `--public-deploy` - Publishes the account contract instance (and the class, if needed). Needed if the contract contains public functions.
 - `--register-class` - Register the contract class (useful for when the contract class has not been deployed yet).
-- `-p --public-key <string>` - Public key that identifies a private signing key stored outside of the wallet. Used for ECDSA SSH accounts over the secp256r1 curve.
-- `-sk --secret-key <string>` - Secret key for account. Uses random by default. (env: SECRET_KEY)
-- `-a --alias <string>` - Alias for the account. Used for easy reference in subsequent commands.
-- `-t --type <string>` - Type of account to create (choices: "schnorr", "ecdsasecp256r1", "ecdsasecp256r1ssh", "ecdsasecp256k1", default: "schnorr")
-- `-s --salt <hex string>` - Optional deployment salt as a hex string for generating the deployment address. Defaults to 0.
+- `-p, --public-key <string>` - Public key that identifies a private signing key stored outside of the wallet. Used for ECDSA SSH accounts over the secp256r1 curve.
+- `-sk, --secret-key <string>` - Secret key for account. Uses random by default. (env: SECRET_KEY)
+- `-a, --alias <string>` - Alias for the account. Used for easy reference in subsequent commands.
+- `-t, --type <string>` - Type of account to create (choices: "schnorr", "schnorr_initializerless", "ecdsasecp256r1", "ecdsasecp256r1ssh", "ecdsasecp256k1", default: "schnorr")
+- `-s, --salt <hex string>` - Optional deployment salt as a hex string for generating the deployment address. Defaults to 0.
 - `--register-only` - Just register the account on the Wallet. Do not deploy or initialize the account contract.
 - `--json` - Emit output as json
 - `--no-wait` - Skip waiting for the contract to be deployed. Print the hash of deployment transaction
 - `--wait-for-status <status>` - Tx status to wait for: 'proposed' or 'checkpointed' (default: "proposed")
-- `-v --verbose` - Provide timings on all executed operations (synching, simulating, proving) (default: false)
-- `--payment <options>` - Fee payment method and arguments.
+- `-v, --verbose` - Provide timings on all executed operations (synching, simulating, proving) (default: false)
+- `--payment <options>` - Fee payment method and arguments. Parameters: method            Valid values: "fee_juice", "fpc-public", "fpc-private", "fpc-sponsored" Default: fee_juice asset             The asset used for fee payment. Required for "fpc-public" and "fpc-private". fpc               The FPC contract that pays in fee juice. Not required for the "fee_juice" method. claim             Whether to use a previously stored claim to bridge fee juice. claimSecret       The secret to claim fee juice on L1. claimAmount       The amount of fee juice to be claimed. messageLeafIndex  The index of the claim in the l1toL2Message tree.
 - `--gas-limits <da=100,l2=100,teardownDA=10,teardownL2=10>` - Gas limits for the tx.
 - `--max-fees-per-gas <da=100,l2=100>` - Maximum fees per gas unit for DA and L2 computation.
 - `--max-priority-fees-per-gas <da=0,l2=0>` - Maximum priority fees per gas unit for DA and L2 computation.
 - `--estimate-gas-only` - Only report gas estimation for the tx, do not send it.
-- `-h --help` - display help for command
+- `-h, --help` - display help for command
 
 ### aztec-wallet create-authwit
 
-Creates an authorization witness that can be privately sent to a caller so they
+Creates an authorization witness that can be privately sent to a caller so they can perform an action on behalf of the provided account
 
 **Usage:**
 ```bash
-wallet create-authwit [options] <functionName> <caller>
+aztec-wallet create-authwit [options] <functionName> <caller>
 ```
 
 **Options:**
 
-- `--args` - [args...]                        Function  arguments (default: [])
-- `-ca --contract-address <address>` - Aztec address of the contract.
-- `-c --contract-artifact <fileLocation>` - Path to a compiled Aztec contract's artifact in JSON format. If executed inside a nargo workspace, a package and contract name can be specified as package@contract
-- `-f --from <string>` - Alias or address of the account to simulate from
-- `-a --alias <string>` - Alias for the authorization witness. Used for easy reference in subsequent commands.
-- `-h --help` - display help for command
+- `--args [args...]` - Function  arguments (default: [])
+- `-ca, --contract-address <address>` - Aztec address of the contract.
+- `-c, --contract-artifact <fileLocation>` - Path to a compiled Aztec contract's artifact in JSON format. If executed inside a nargo workspace, a package and contract name can be specified as package@contract
+- `-f, --from <string>` - Alias or address of the account to simulate from
+- `-a, --alias <string>` - Alias for the authorization witness. Used for easy reference in subsequent commands.
+- `-h, --help` - display help for command
 
 ### aztec-wallet create-secret
 
@@ -181,13 +181,13 @@ Creates an aliased secret to use in other commands
 
 **Usage:**
 ```bash
-wallet create-secret [options]
+aztec-wallet create-secret [options]
 ```
 
 **Options:**
 
-- `-a --alias <string>` - Key to alias the secret with
-- `-h --help` - display help for command
+- `-a, --alias <string>` - Key to alias the secret with
+- `-h, --help` - display help for command
 
 ### aztec-wallet deploy
 
@@ -195,58 +195,58 @@ Deploys a compiled Aztec.nr contract to Aztec.
 
 **Usage:**
 ```bash
-wallet deploy [options] [artifact]
+aztec-wallet deploy [options] [artifact]
 ```
 
 **Options:**
 
 - `--init <string>` - The contract initializer function to call (default: "constructor")
 - `--no-init` - Leave the contract uninitialized
-- `-k --public-key <string>` - Optional encryption public key for this address. Set this value only if this contract is expected to receive private notes, which will be encrypted using this public key.
-- `-s --salt <hex string>` - Optional deployment salt as a hex string for generating the deployment address. Defaults to random.
+- `-k, --public-key <string>` - Optional encryption public key for this address. Set this value only if this contract is expected to receive private notes, which will be encrypted using this public key.
+- `-s, --salt <hex string>` - Optional deployment salt as a hex string for generating the deployment address. Defaults to random.
 - `--universal` - Do not mix the sender address into the deployment.
-- `--args` - [args...]                                          Constructor  arguments (default: [])
-- `-f --from <string>` - Alias or address of the account to deploy from
-- `-a --alias <string>` - Alias for the contract. Used for easy reference subsequent commands.
+- `--args [args...]` - Constructor  arguments (default: [])
+- `-f, --from <string>` - Alias or address of the account to deploy from
+- `-a, --alias <string>` - Alias for the contract. Used for easy reference subsequent commands.
 - `--json` - Emit output as json
 - `--no-wait` - Skip waiting for the contract to be deployed. Print the hash of deployment transaction
 - `--no-class-registration` - Don't register this contract class
 - `--no-public-deployment` - Don't emit this contract's public bytecode
 - `--timeout <number>` - The amount of time in seconds to wait for the deployment to post to L2
 - `--wait-for-status <status>` - Tx status to wait for: 'proposed' or 'checkpointed' (default: "proposed")
-- `-v --verbose` - Provide timings on all executed operations (synching, simulating, proving) (default: false)
-- `--payment <options>` - Fee payment method and arguments.
+- `-v, --verbose` - Provide timings on all executed operations (synching, simulating, proving) (default: false)
+- `--payment <options>` - Fee payment method and arguments. Parameters: method            Valid values: "fee_juice", "fpc-public", "fpc-private", "fpc-sponsored" Default: fee_juice asset             The asset used for fee payment. Required for "fpc-public" and "fpc-private". fpc               The FPC contract that pays in fee juice. Not required for the "fee_juice" method. claim             Whether to use a previously stored claim to bridge fee juice. claimSecret       The secret to claim fee juice on L1. claimAmount       The amount of fee juice to be claimed. messageLeafIndex  The index of the claim in the l1toL2Message tree.
 - `--gas-limits <da=100,l2=100,teardownDA=10,teardownL2=10>` - Gas limits for the tx.
 - `--max-fees-per-gas <da=100,l2=100>` - Maximum fees per gas unit for DA and L2 computation.
 - `--max-priority-fees-per-gas <da=0,l2=0>` - Maximum priority fees per gas unit for DA and L2 computation.
 - `--estimate-gas-only` - Only report gas estimation for the tx, do not send it.
-- `-h --help` - display help for command
+- `-h, --help` - display help for command
 
 ### aztec-wallet deploy-account
 
-Deploys an already registered aztec account that can be used for sending
+Deploys an already registered aztec account that can be used for sending transactions.
 
 **Usage:**
 ```bash
-wallet deploy-account [options] <address>
+aztec-wallet deploy-account [options] <address>
 ```
 
 **Options:**
 
-- `-f --from <string>` - Alias or address of the account performing the deployment
+- `-f, --from <string>` - Alias or address of the account performing the deployment
 - `--json` - Emit output as json
 - `--no-wait` - Skip waiting for the contract to be deployed. Print the hash of deployment transaction
 - `--register-class` - Register the contract class (useful for when the contract class has not been deployed yet).
 - `--public-deploy` - Publishes the account contract instance (and the class, if needed). Needed if the contract contains public functions.
 - `--skip-initialization` - Skip initializing the account contract. Useful for publicly deploying an existing account.
 - `--wait-for-status <status>` - Tx status to wait for: 'proposed' or 'checkpointed' (default: "proposed")
-- `-v --verbose` - Provide timings on all executed operations (synching, simulating, proving) (default: false)
-- `--payment <options>` - Fee payment method and arguments.
+- `-v, --verbose` - Provide timings on all executed operations (synching, simulating, proving) (default: false)
+- `--payment <options>` - Fee payment method and arguments. Parameters: method            Valid values: "fee_juice", "fpc-public", "fpc-private", "fpc-sponsored" Default: fee_juice asset             The asset used for fee payment. Required for "fpc-public" and "fpc-private". fpc               The FPC contract that pays in fee juice. Not required for the "fee_juice" method. claim             Whether to use a previously stored claim to bridge fee juice. claimSecret       The secret to claim fee juice on L1. claimAmount       The amount of fee juice to be claimed. messageLeafIndex  The index of the claim in the l1toL2Message tree.
 - `--gas-limits <da=100,l2=100,teardownDA=10,teardownL2=10>` - Gas limits for the tx.
 - `--max-fees-per-gas <da=100,l2=100>` - Maximum fees per gas unit for DA and L2 computation.
 - `--max-priority-fees-per-gas <da=0,l2=0>` - Maximum priority fees per gas unit for DA and L2 computation.
 - `--estimate-gas-only` - Only report gas estimation for the tx, do not send it.
-- `-h --help` - display help for command
+- `-h, --help` - display help for command
 
 ### aztec-wallet get-alias
 
@@ -254,12 +254,12 @@ Shows stored aliases
 
 **Usage:**
 ```bash
-wallet get-alias [options] [alias]
+aztec-wallet get-alias [options] [alias]
 ```
 
 **Options:**
 
-- `-h --help` - display help for command
+- `-h, --help` - display help for command
 
 ### aztec-wallet get-fee-juice-balance
 
@@ -267,29 +267,29 @@ Checks the Fee Juice balance for a given address.
 
 **Usage:**
 ```bash
-wallet get-fee-juice-balance [options] <address>
+aztec-wallet get-fee-juice-balance [options] <address>
 ```
 
 **Options:**
 
 - `--json` - Emit output as json
 - `--exact` - Show exact balance with all 18 decimal places
-- `-h --help` - display help for command
+- `-h, --help` - display help for command
 
 ### aztec-wallet get-tx
 
-Gets the status of the recent txs, or a detailed view if a specific transaction
+Gets the status of the recent txs, or a detailed view if a specific transaction hash is provided
 
 **Usage:**
 ```bash
-wallet get-tx [options] [txHash]
+aztec-wallet get-tx [options] [txHash]
 ```
 
 **Options:**
 
-- `-p --page <number>` - The page number to display (default: 1)
-- `-s --page-size <number>` - The number of transactions to display per page
-- `-h --help` - display help for command
+- `-p, --page <number>` - The page number to display (default: 1)
+- `-s, --page-size <number>` - The number of transactions to display per page (default: 10)
+- `-h, --help` - display help for command
 
 ### aztec-wallet import-test-accounts
 
@@ -297,37 +297,37 @@ Import test accounts from pxe.
 
 **Usage:**
 ```bash
-wallet import-test-accounts [options]
+aztec-wallet import-test-accounts [options]
 ```
 
 **Options:**
 
 - `--json` - Emit output as json
-- `-h --help` - display help for command
+- `-h, --help` - display help for command
 
 ### aztec-wallet profile
 
-Profiles a private function by counting the unconditional operations in its
+Profiles a private function by counting the unconditional operations in its execution steps
 
 **Usage:**
 ```bash
-wallet profile [options] <functionName>
+aztec-wallet profile [options] <functionName>
 ```
 
 **Options:**
 
-- `--args` - [args...]                                          Function  arguments (default: [])
-- `-ca --contract-address <address>` - Aztec address of the contract.
-- `-c --contract-artifact <fileLocation>` - Path to a compiled Aztec contract's artifact in JSON format. If executed inside a nargo workspace, a package and contract name can be specified as package@contract
+- `--args [args...]` - Function  arguments (default: [])
+- `-ca, --contract-address <address>` - Aztec address of the contract.
+- `-c, --contract-artifact <fileLocation>` - Path to a compiled Aztec contract's artifact in JSON format. If executed inside a nargo workspace, a package and contract name can be specified as package@contract
 - `--debug-execution-steps-dir <address>` - Directory to write execution step artifacts for bb profiling/debugging.
-- `-aw --auth-witness <string,...>` - Authorization witness to use for the simulation
-- `-f --from <string>` - Alias or address of the account to simulate from
-- `--payment <options>` - Fee payment method and arguments.
+- `-aw, --auth-witness <string,...>` - Authorization witness to use for the simulation
+- `-f, --from <string>` - Alias or address of the account to simulate from
+- `--payment <options>` - Fee payment method and arguments. Parameters: method            Valid values: "fee_juice", "fpc-public", "fpc-private", "fpc-sponsored" Default: fee_juice asset             The asset used for fee payment. Required for "fpc-public" and "fpc-private". fpc               The FPC contract that pays in fee juice. Not required for the "fee_juice" method. claim             Whether to use a previously stored claim to bridge fee juice. claimSecret       The secret to claim fee juice on L1. claimAmount       The amount of fee juice to be claimed. messageLeafIndex  The index of the claim in the l1toL2Message tree.
 - `--gas-limits <da=100,l2=100,teardownDA=10,teardownL2=10>` - Gas limits for the tx.
 - `--max-fees-per-gas <da=100,l2=100>` - Maximum fees per gas unit for DA and L2 computation.
 - `--max-priority-fees-per-gas <da=0,l2=0>` - Maximum priority fees per gas unit for DA and L2 computation.
 - `--estimate-gas-only` - Only report gas estimation for the tx, do not send it.
-- `-h --help` - display help for command
+- `-h, --help` - display help for command
 
 ### aztec-wallet register-contract
 
@@ -335,32 +335,32 @@ Registers a contract in this wallet's PXE
 
 **Usage:**
 ```bash
-wallet register-contract [options] [address] [artifact]
+aztec-wallet register-contract [options] [address] [artifact]
 ```
 
 **Options:**
 
-- `--init <string>` - The contract initializer function to call
-- `-k --public-key <string>` - Optional encryption public key for this address.
-- `-s --salt <hex string>` - Optional deployment salt as a hex string for
-- `--deployer <string>` - The address of the account that deployed the
-- `--args` - [args...]           Constructor  arguments (default: [])
-- `-a --alias <string>` - Alias for the contact. Used for easy reference in
-- `-h --help` - display help for command
+- `--init <string>` - The contract initializer function to call (default: "constructor")
+- `-k, --public-key <string>` - Optional encryption public key for this address. Set this value only if this contract is expected to receive private notes, which will be encrypted using this public key.
+- `-s, --salt <hex string>` - Optional deployment salt as a hex string for generating the deployment address.
+- `--deployer <string>` - The address of the account that deployed the contract
+- `--args [args...]` - Constructor  arguments (default: [])
+- `-a, --alias <string>` - Alias for the contact. Used for easy reference in subsequent commands.
+- `-h, --help` - display help for command
 
 ### aztec-wallet register-sender
 
-Registers a sender's address in the wallet, so the note synching process will
+Registers a sender's address in the wallet, so the note synching process will look for notes sent by them
 
 **Usage:**
 ```bash
-wallet register-sender [options] [address]
+aztec-wallet register-sender [options] [address]
 ```
 
 **Options:**
 
-- `-a --alias <string>` - Alias for the sender. Used for easy reference in
-- `-h --help` - display help for command
+- `-a, --alias <string>` - Alias for the sender. Used for easy reference in subsequent commands.
+- `-h, --help` - display help for command
 
 ### aztec-wallet send
 
@@ -368,26 +368,26 @@ Calls a function on an Aztec contract.
 
 **Usage:**
 ```bash
-wallet send [options] <functionName>
+aztec-wallet send [options] <functionName>
 ```
 
 **Options:**
 
-- `--args` - [args...]                                          Function  arguments (default: [])
-- `-c --contract-artifact <fileLocation>` - Path to a compiled Aztec contract's artifact in JSON format. If executed inside a nargo workspace, a package and contract name can be specified as package@contract
-- `-ca --contract-address <address>` - Aztec address of the contract.
-- `-a --alias <string>` - Alias for the transaction hash. Used for easy reference in subsequent commands.
-- `-aw --auth-witness <string,...>` - Authorization witness to use for the transaction. If using multiple, pass a comma separated string
-- `-f --from <string>` - Alias or address of the account to send the transaction from
+- `--args [args...]` - Function  arguments (default: [])
+- `-c, --contract-artifact <fileLocation>` - Path to a compiled Aztec contract's artifact in JSON format. If executed inside a nargo workspace, a package and contract name can be specified as package@contract
+- `-ca, --contract-address <address>` - Aztec address of the contract.
+- `-a, --alias <string>` - Alias for the transaction hash. Used for easy reference in subsequent commands.
+- `-aw, --auth-witness <string,...>` - Authorization witness to use for the transaction. If using multiple, pass a comma separated string
+- `-f, --from <string>` - Alias or address of the account to send the transaction from
 - `--no-wait` - Print transaction hash without waiting for it to be mined
 - `--wait-for-status <status>` - Tx status to wait for: 'proposed' or 'checkpointed' (default: "proposed")
-- `-v --verbose` - Provide timings on all executed operations (synching, simulating, proving) (default: false)
-- `--payment <options>` - Fee payment method and arguments.
+- `-v, --verbose` - Provide timings on all executed operations (synching, simulating, proving) (default: false)
+- `--payment <options>` - Fee payment method and arguments. Parameters: method            Valid values: "fee_juice", "fpc-public", "fpc-private", "fpc-sponsored" Default: fee_juice asset             The asset used for fee payment. Required for "fpc-public" and "fpc-private". fpc               The FPC contract that pays in fee juice. Not required for the "fee_juice" method. claim             Whether to use a previously stored claim to bridge fee juice. claimSecret       The secret to claim fee juice on L1. claimAmount       The amount of fee juice to be claimed. messageLeafIndex  The index of the claim in the l1toL2Message tree.
 - `--gas-limits <da=100,l2=100,teardownDA=10,teardownL2=10>` - Gas limits for the tx.
 - `--max-fees-per-gas <da=100,l2=100>` - Maximum fees per gas unit for DA and L2 computation.
 - `--max-priority-fees-per-gas <da=0,l2=0>` - Maximum priority fees per gas unit for DA and L2 computation.
 - `--estimate-gas-only` - Only report gas estimation for the tx, do not send it.
-- `-h --help` - display help for command
+- `-h, --help` - display help for command
 
 ### aztec-wallet simulate
 
@@ -395,21 +395,21 @@ Simulates the execution of a function on an Aztec contract.
 
 **Usage:**
 ```bash
-wallet simulate [options] <functionName>
+aztec-wallet simulate [options] <functionName>
 ```
 
 **Options:**
 
-- `--args` - [args...]                                          Function  arguments (default: [])
-- `-ca --contract-address <address>` - Aztec address of the contract.
-- `-c --contract-artifact <fileLocation>` - Path to a compiled Aztec contract's artifact in JSON format. If executed inside a nargo workspace, a package and contract name can be specified as package@contract
-- `-sk --secret-key <string>` - The sender's secret key (env: SECRET_KEY)
-- `-aw --auth-witness <string,...>` - Authorization witness to use for the simulation
-- `-f --from <string>` - Alias or address of the account to simulate from
-- `-v --verbose` - Provide timings on all executed operations (synching, simulating, proving) (default: false)
-- `--payment <options>` - Fee payment method and arguments.
+- `--args [args...]` - Function  arguments (default: [])
+- `-ca, --contract-address <address>` - Aztec address of the contract.
+- `-c, --contract-artifact <fileLocation>` - Path to a compiled Aztec contract's artifact in JSON format. If executed inside a nargo workspace, a package and contract name can be specified as package@contract
+- `-sk, --secret-key <string>` - The sender's secret key (env: SECRET_KEY)
+- `-aw, --auth-witness <string,...>` - Authorization witness to use for the simulation
+- `-f, --from <string>` - Alias or address of the account to simulate from
+- `-v, --verbose` - Provide timings on all executed operations (synching, simulating, proving) (default: false)
+- `--payment <options>` - Fee payment method and arguments. Parameters: method            Valid values: "fee_juice", "fpc-public", "fpc-private", "fpc-sponsored" Default: fee_juice asset             The asset used for fee payment. Required for "fpc-public" and "fpc-private". fpc               The FPC contract that pays in fee juice. Not required for the "fee_juice" method. claim             Whether to use a previously stored claim to bridge fee juice. claimSecret       The secret to claim fee juice on L1. claimAmount       The amount of fee juice to be claimed. messageLeafIndex  The index of the claim in the l1toL2Message tree.
 - `--gas-limits <da=100,l2=100,teardownDA=10,teardownL2=10>` - Gas limits for the tx.
 - `--max-fees-per-gas <da=100,l2=100>` - Maximum fees per gas unit for DA and L2 computation.
 - `--max-priority-fees-per-gas <da=0,l2=0>` - Maximum priority fees per gas unit for DA and L2 computation.
 - `--estimate-gas-only` - Only report gas estimation for the tx, do not send it.
-- `-h --help` - display help for command
+- `-h, --help` - display help for command

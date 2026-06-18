@@ -10,7 +10,7 @@ sidebar_position: 3
 *This documentation is auto-generated from the `aztec-up` CLI help output.*
 
 
-*Generated: Mon 18 May 2026 14:25:52 UTC*
+*Generated: Thu 18 Jun 2026 10:49:46 UTC*
 
 *Command: `aztec-up`*
 
@@ -20,6 +20,7 @@ sidebar_position: 3
   - [aztec-up env](#aztec-up-env)
   - [aztec-up install](#aztec-up-install)
   - [aztec-up list](#aztec-up-list)
+  - [aztec-up prune](#aztec-up-prune)
   - [aztec-up self-update](#aztec-up-self-update)
   - [aztec-up uninstall](#aztec-up-uninstall)
   - [aztec-up use](#aztec-up-use)
@@ -37,6 +38,7 @@ aztec-up [command] [options]
 - `env` - Output PATH for .aztecrc version (for eval)
 - `install <VERSION>` - Install a version and switch to it
 - `list` - List installed versions
+- `prune` - Remove all versions except the current one
 - `self-update` - Update aztec-up itself to the latest version
 - `uninstall <version>` - Remove an installed version
 - `use [<version>]` - Switch to an installed version (or read from .aztecrc)
@@ -90,6 +92,19 @@ List installed Aztec versions and available aliases
 **Usage:**
 ```bash
 aztec-up list
+```
+
+**Options:**
+
+- `-h, --help` - Print help
+
+### aztec-up prune
+
+Remove all installed versions except the currently active one
+
+**Usage:**
+```bash
+aztec-up prune
 ```
 
 **Options:**
