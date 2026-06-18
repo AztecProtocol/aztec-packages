@@ -9,6 +9,26 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [PXE] Browser KV-store default is now SQLite-OPFS; the IndexedDB entrypoint moved
+
+The browser PXE data store and the embedded wallet (`@aztec/wallets`) now persist to SQLite-OPFS instead of IndexedDB. SQLite-OPFS is durable and encryption-at-rest capable, whereas the IndexedDB backend stores plaintext and its transaction model cannot span async work. The recommended way to obtain the browser backend is the new `@aztec/kv-store/browser` entrypoint, which aliases `@aztec/kv-store/sqlite-opfs`. The old `@aztec/kv-store/indexeddb` entrypoint has been removed; the IndexedDB backend now lives at `@aztec/kv-store/deprecated/indexeddb` and is deprecated.
+
+**Migration:**
+
+```diff
+- import { createStore } from '@aztec/kv-store/indexeddb';
++ import { createStore } from '@aztec/kv-store/browser';
+```
+
+If you must stay on IndexedDB for now, import from the deprecated entrypoint instead:
+
+```diff
+- import { createStore } from '@aztec/kv-store/indexeddb';
++ import { createStore } from '@aztec/kv-store/deprecated/indexeddb';
+```
+
+**Impact**: Existing IndexedDB-backed data is not migrated, so browser PXE and wallet state starts fresh on SQLite-OPFS (the v5 protocol upgrade wipes local state regardless). SQLite-OPFS also holds an exclusive, origin-wide lock on its store directory, so a second browser tab opening the same store will fail where IndexedDB allowed concurrent access; run a single tab per store for now.
+
 ### [Aztec.js] `getPublicEvents` is now cursor-paginated
 
 `getPublicEvents` returns a single page of events (at most `MAX_LOGS_PER_TAG`, the node's per-tag page size) and pages instead of the `maxLogsHit` flag, which didn't provide any way to fetch the next page of events:
