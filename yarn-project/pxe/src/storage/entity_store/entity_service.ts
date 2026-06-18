@@ -6,9 +6,10 @@ import type { Entity, EntityStore } from './entity_store.js';
 import type { EntityKey, EntityTypeKey, OriginBlock } from './entity_store_keys.js';
 
 /**
- * Wraps an {@link EntityStore} with scope-based access control. Each operation asserts the scope embedded in the entity
- * key (or entity-type key) is in the allowed scopes list before delegating to the store, mirroring the role
- * `CapsuleService` plays for `CapsuleStore`. Per-contract isolation is enforced by the oracle handler.
+ * Wraps an {@link EntityStore} with scope-based access control.
+ *
+ * Each operation asserts the scope embedded in the entity key (or entity-type key) is in the allowed scopes list
+ * before delegating to the store.
  */
 export class EntityService {
   constructor(

@@ -30,7 +30,7 @@ pub(crate) struct RawEntity {
 }
 
 impl RawEntity {
-    /// Deserializes the raw body field-array into `T` and wraps it, with its location, as a typed [`Entity`].
+    /// Deserializes the raw body field-array into `T` and wraps it as a typed [`Entity`].
     unconstrained fn into_entity<T>(self, contract_address: AztecAddress, scope: AztecAddress) -> Entity<T>
     where
         T: Deserialize,
@@ -47,7 +47,7 @@ impl RawEntity {
 
 /// The identity a value carries when stored as an entity body.
 ///
-/// Implementors supply the two ids the store needs to address an entity: a per-type `entity_type_id` shared by every
+/// Implementors supply the two ids the store needs to identify an entity: a per-type `entity_type_id` shared by every
 /// entity of the same kind, and a per-instance `entity_id` derived from the value's content.
 pub trait EntityBody {
     /// The type id shared by all entities of this kind.
@@ -57,7 +57,7 @@ pub trait EntityBody {
     fn entity_id(self) -> Field;
 }
 
-/// A handle to an entity in the store: its location, typed body, and the facts recorded against it.
+/// A handle to an entity in the store.
 #[derive(Deserialize, Serialize)]
 pub struct Entity<T> {
     pub contract_address: AztecAddress,
@@ -107,7 +107,7 @@ where
         get_entities::<T>(contract_address, scope, T::entity_type_id())
     }
 
-    /// Records a retractable fact about this entity, originated at `(block_number, block_hash)`.
+    /// Logs a retractable fact about this entity, originated at `(block_number, block_hash)`.
     ///
     /// The fact is pruned from the store if that block is reorg'd away. Note a fact's retractability is independent of
     /// the entity's, so either kind of entity may carry retractable facts.

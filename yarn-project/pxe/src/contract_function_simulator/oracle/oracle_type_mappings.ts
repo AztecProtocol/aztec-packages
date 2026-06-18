@@ -38,8 +38,10 @@ import { BlockHeader, TxEffect, TxHash } from '@aztec/stdlib/tx';
 
 import type { OriginBlock } from '../../storage/entity_store/index.js';
 import { BoundedVec } from '../noir-structs/bounded_vec.js';
+import type { EntityOutput } from '../noir-structs/entity_output.js';
 import { EphemeralArray } from '../noir-structs/ephemeral_array.js';
 import { EventValidationRequest } from '../noir-structs/event_validation_request.js';
+import type { FactOutput } from '../noir-structs/fact_output.js';
 import { LogRetrievalRequest } from '../noir-structs/log_retrieval_request.js';
 import { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
 import type { NoteData } from '../noir-structs/note_data.js';
@@ -376,11 +378,6 @@ export const RESOLVED_TX: TypeMapping<ResolvedTx> = {
 };
 
 /**
- * A single fact returned within an entity by `getEntity`
- **/
-export type FactOutput = { factTypeId: Fr; payload: EphemeralArray<Fr> };
-
-/**
  * Output mapping for a fact. Serializes to `[factTypeId, payloadSlot]`, where `payloadSlot` is the slot of the
  * fact's payload (its own ephemeral array of fields). Output-only: facts are returned to Noir, never received.
  */
@@ -403,9 +400,6 @@ export const ORIGIN_BLOCK: TypeMapping<OriginBlock> = {
     slots: 2,
   },
 };
-
-/** Returned by `getEntity`/`getEntities`: the entity body plus its facts. */
-export type EntityOutput = { body: EphemeralArray<Fr>; facts: EphemeralArray<FactOutput> };
 
 /**
  * Output mapping for an entity. Serializes to `[bodySlot, factsSlot]`: the body as a slot of fields, and the facts as
