@@ -84,6 +84,10 @@ async function waitForSequencerIdleAfter(
   }
 }
 
+// Tests that the sequencer node's keystore can be hot-reloaded at runtime via the admin API.
+// One node with 4 validators staked, committee size 4. Initially only 3 validators are in the
+// keystore; after reload all 4 are active with new coinbases. Uses PIPELINING_SETUP_OPTS
+// (ethSlot=4s, aztecSlot=12s) with minTxsPerBlock=1, maxTxsPerBlock=1.
 describe('e2e_reload_keystore', () => {
   jest.setTimeout(540_000);
 
@@ -165,6 +169,9 @@ describe('e2e_reload_keystore', () => {
     await rm(keyStoreDirectory, { recursive: true, force: true });
   });
 
+  // Verifies that after writing an updated keystore file and calling reloadKeystore(), the validator
+  // client exposes all 4 validators with new coinbases, and blocks subsequently mined carry one of
+  // the new per-validator coinbases rather than the old shared one.
   it('should reload keystore, add a new validator, and use updated coinbase in blocks', async () => {
     // Access the sequencer's validator client to inspect keystore state
     const sequencer = (sequencerClient! as TestSequencerClient).getSequencer() as TestSequencer;

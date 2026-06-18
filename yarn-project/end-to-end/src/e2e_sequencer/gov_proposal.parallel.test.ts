@@ -41,6 +41,10 @@ const COMMITTEE_SIZE = 16;
 
 jest.setTimeout(1000 * 60 * 5);
 
+// Tests that a single sequencer node running a 16-validator committee can propose blocks while
+// simultaneously casting governance votes, and can cast votes even when block building is disabled.
+// Setup: plain setup(1, { ...PIPELINING_SETUP_OPTS, ethSlot=8s, aztecSlot=16s, committee=16,
+// proofSubEpochs=128, enforceTimeTable=true }). Uses cheatCodes.eth.warp + retryUntil for timing.
 describe('e2e_gov_proposal', () => {
   let logger: Logger;
   let teardown: () => Promise<void>;
@@ -170,6 +174,9 @@ describe('e2e_gov_proposal', () => {
     expect(signals).toBeGreaterThanOrEqual(expectedMinVotes);
   };
 
+  // Verifies that the sequencer proposes one block per slot (minTxsPerBlock=1) throughout an entire
+  // voting round while simultaneously casting a governance vote per slot. Sends roundDuration txs
+  // sequentially and waits for each to mine, then checks vote signals >= roundDuration.
   it('should propose blocks while voting', async () => {
     await aztecNodeAdmin!.setConfig({
       governanceProposerPayload: newGovernanceProposerAddress,
@@ -207,6 +214,9 @@ describe('e2e_gov_proposal', () => {
     await verifyVotes(round, roundDuration);
   });
 
+  // Verifies that the sequencer still casts governance votes even when block sync is disabled
+  // (blob client disabled + skipPushProposedBlocksToArchiver). Disables sync shortcuts, confirms
+  // a tx times out as unminable, then waits a full round and asserts votes >= roundDuration.
   it('should vote even when unable to build blocks', async () => {
     const monitor = new ChainMonitor(rollup, dateProvider).start();
 
@@ -238,6 +248,7 @@ describe('e2e_gov_proposal', () => {
     // Check that the checkpoint number has indeed increased on L1 so sequencers cant pass the sync check.
     // Allow another slot for any in-flight L1 propose to mine, since the work loop above hits its wait timeout the
     // moment the tx misses L2 sync, not the moment the L1 tx lands.
+    // REFACTOR: retryUntil polling ChainMonitor should be replaced with a ChainMonitor.waitForCheckpoint helper
     const checkpointAfterBlobDisable = await retryUntil(
       async () => {
         const snapshot = await monitor.run();
@@ -275,6 +286,7 @@ describe('e2e_gov_proposal', () => {
     const nextRoundEndsAtSlot = SlotNumber(nextRoundBeginsAtSlot + Number(roundDuration));
     const timeout = AZTEC_SLOT_DURATION * Number(roundDuration + 2n) + 20;
     logger.warn(`Waiting until slot ${nextRoundEndsAtSlot} for round to end (timeout ${timeout}s)`);
+    // REFACTOR: retryUntil on slot polling should be replaced with a rollup slot-wait helper
     await retryUntil(() => rollup.getSlotNumber().then(s => s > nextRoundEndsAtSlot), 'round end', timeout, 1);
 
     // We should have voted despite being unable to build blocks
