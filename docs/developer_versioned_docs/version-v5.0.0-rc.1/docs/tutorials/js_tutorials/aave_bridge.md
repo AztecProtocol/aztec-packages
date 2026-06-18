@@ -704,7 +704,7 @@ const node = createAztecNodeClient(
 await waitForNode(node);
 const aztecWallet = await EmbeddedWallet.create(node, { ephemeral: true });
 const [accData] = await getInitialTestAccountsData();
-const account = await aztecWallet.createSchnorrAccount(
+const account = await aztecWallet.createSchnorrInitializerlessAccount(
   accData.secret,
   accData.salt,
   accData.signingKey,
@@ -961,7 +961,10 @@ console.log("Block proven!\n");
 
 // Compute the membership witness using the message hash and the L2 tx hash.
 // The node picks the smallest partial-proof root that covers the tx's checkpoint.
-const witness = await node.getL2ToL1MembershipWitness(exitReceipt.txHash, msgLeaf);
+const witness = await node.getL2ToL1MembershipWitness(
+  exitReceipt.txHash,
+  msgLeaf,
+);
 const epoch = witness!.epochNumber;
 const numCheckpointsInEpoch = witness!.numCheckpointsInEpoch;
 
@@ -969,7 +972,7 @@ const siblingPathHex = witness!.siblingPath
   .toBufferArray()
   .map((buf: Buffer) => `0x${buf.toString("hex")}` as `0x${string}`);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/aave_bridge/index.ts#L234-L289" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aave_bridge/index.ts#L234-L289</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/aave_bridge/index.ts#L234-L292" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aave_bridge/index.ts#L234-L292</a></sub></sup>
 
 
 Execute the deposit on L1:
@@ -995,7 +998,7 @@ const depositToAaveHash = await l1Client.writeContract({
 await l1Client.waitForTransactionReceipt({ hash: depositToAaveHash });
 console.log("Tokens deposited into Aave!\n");
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/aave_bridge/index.ts#L291-L311" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aave_bridge/index.ts#L291-L311</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/aave_bridge/index.ts#L294-L314" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aave_bridge/index.ts#L294-L314</a></sub></sup>
 
 
 ### Claim from Aave with Yield (L1 → L2)
@@ -1030,7 +1033,7 @@ const claimReceipt = await l1Client.waitForTransactionReceipt({
 });
 console.log("Aave withdrawal complete, L1->L2 message sent");
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/aave_bridge/index.ts#L313-L338" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aave_bridge/index.ts#L313-L338</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/aave_bridge/index.ts#L316-L341" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aave_bridge/index.ts#L316-L341</a></sub></sup>
 
 
 Extract the message leaf index:
@@ -1072,7 +1075,7 @@ const messageSentLogs = claimReceipt.logs
 const messageLeafIndex = new Fr(messageSentLogs[0].decoded.args.index);
 console.log(`Message leaf index: ${messageLeafIndex}\n`);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/aave_bridge/index.ts#L340-L376" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aave_bridge/index.ts#L340-L376</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/aave_bridge/index.ts#L343-L379" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aave_bridge/index.ts#L343-L379</a></sub></sup>
 
 
 On the local network, L2 blocks are only produced when transactions are submitted. L1-to-L2 messages require 2 L2 blocks before they can be consumed on L2. This utility deploys two dummy contracts (with random salts for unique addresses) to force block production. On devnet or testnet, blocks are produced continuously and this step is unnecessary:
@@ -1123,7 +1126,7 @@ await l2Bridge.methods
   .send({ from: account.address });
 console.log("Tokens claimed on L2!\n");
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/aave_bridge/index.ts#L378-L394" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aave_bridge/index.ts#L378-L394</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/aave_bridge/index.ts#L381-L397" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aave_bridge/index.ts#L381-L397</a></sub></sup>
 
 
 ### Verify
@@ -1150,7 +1153,7 @@ console.log(
   `\nYield earned successfully: ${finalBalance >= expectedFinal ? "YES" : "NO"}`,
 );
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/aave_bridge/index.ts#L396-L417" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aave_bridge/index.ts#L396-L417</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/aave_bridge/index.ts#L399-L420" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aave_bridge/index.ts#L399-L420</a></sub></sup>
 
 
 Run the full flow:

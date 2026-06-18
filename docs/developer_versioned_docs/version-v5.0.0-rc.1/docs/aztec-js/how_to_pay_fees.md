@@ -41,14 +41,13 @@ When using `EmbeddedWallet`, gas is estimated automatically on every `send()` ca
 Before sending a transaction, you can read the mana it will consume by simulating with `includeMetadata: true` and reading `gasUsed` from the result:
 
 ```typescript title="estimate_mana" showLineNumbers 
-const { estimatedGas } = await token.methods
+const { gasUsed } = await token.methods
   .transfer_in_public(aliceAddress, bobAddress, 1n, 0n)
-  .simulate({
-    from: aliceAddress,
-    fee: { estimateGas: true, estimatedGasPadding: 0.1 },
-  });
+  .simulate({ from: aliceAddress, includeMetadata: true });
+// Pad the raw usage yourself to leave headroom for variance, e.g. 10%.
+const estimatedGasLimits = gasUsed!.totalGas.mul(1.1);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/aztecjs_advanced/index.ts#L377-L384" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_advanced/index.ts#L377-L384</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/aztecjs_advanced/index.ts#L378-L384" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_advanced/index.ts#L378-L384</a></sub></sup>
 
 
 The `gasUsed` object contains the raw gas the simulation consumed:
@@ -64,7 +63,7 @@ To calculate the expected fee from the padded gas, use the `computeFee` method w
 
 ```typescript title="compute_fee_from_estimate" showLineNumbers 
 const currentFees = await node.getCurrentMinFees();
-const estimatedFee = estimatedGas.gasLimits.computeFee(currentFees).toBigInt();
+const estimatedFee = estimatedGasLimits.computeFee(currentFees).toBigInt();
 console.log("Estimated fee:", estimatedFee);
 ```
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/aztecjs_advanced/index.ts#L386-L390" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_advanced/index.ts#L386-L390</a></sub></sup>
@@ -283,7 +282,10 @@ import { FeeJuicePaymentMethodWithClaim } from "@aztec/aztec.js/fee";
 
 // claim is from the bridgeTokensPublic step above
 // Create a payment method that claims the bridged Fee Juice and uses it to pay
-const bridgePaymentMethod = new FeeJuicePaymentMethodWithClaim(feeJuiceAccount.address, claim);
+const bridgePaymentMethod = new FeeJuicePaymentMethodWithClaim(
+  feeJuiceAccount.address,
+  claim,
+);
 
 // Use it to pay for any transaction; here we deploy the account in one step
 const deployMethodBridged = await feeJuiceAccount.getDeployMethod();
@@ -292,7 +294,7 @@ await deployMethodBridged.send({
   fee: { paymentMethod: bridgePaymentMethod },
 });
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/aztecjs_connection/index.ts#L156-L169" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_connection/index.ts#L156-L169</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/aztecjs_connection/index.ts#L156-L172" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_connection/index.ts#L156-L172</a></sub></sup>
 
 
 ## Configure gas settings
@@ -315,9 +317,17 @@ Set custom gas limits by importing from `stdlib`:
 ```typescript title="custom_gas_settings" showLineNumbers 
 // Query current network fees to set realistic limits
 const networkFees = await node.getCurrentMinFees();
+// Declare at most what the network admits per tx; these limits vary by network geometry,
+// so read them from the node rather than hardcoding values that may exceed a given network's maximum.
+const { txsLimits } = await node.getNodeInfo();
+const gasLimits = Gas.from(txsLimits.gas);
 const gasSettings = GasSettings.from({
-  gasLimits: { daGas: 100_000, l2Gas: 2_000_000 },
-  teardownGasLimits: { daGas: 100_000, l2Gas: 2_000_000 },
+  gasLimits,
+  // Teardown must be strictly less than the total limits so app logic has gas to run.
+  teardownGasLimits: {
+    daGas: Math.floor(gasLimits.daGas / 2),
+    l2Gas: Math.floor(gasLimits.l2Gas / 8),
+  },
   maxFeesPerGas: {
     feePerDaGas: networkFees.feePerDaGas * 2n,
     feePerL2Gas: networkFees.feePerL2Gas * 2n,
@@ -325,7 +335,7 @@ const gasSettings = GasSettings.from({
   maxPriorityFeesPerGas: { feePerDaGas: 0n, feePerL2Gas: 0n },
 });
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/aztecjs_advanced/index.ts#L416-L428" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_advanced/index.ts#L416-L428</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/aztecjs_advanced/index.ts#L416-L436" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_advanced/index.ts#L416-L436</a></sub></sup>
 
 
 Then pass the settings when sending:
@@ -338,7 +348,7 @@ const { receipt: gsReceipt } = await token.methods
     fee: { gasSettings },
   });
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/aztecjs_advanced/index.ts#L430-L437" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_advanced/index.ts#L430-L437</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/aztecjs_advanced/index.ts#L438-L445" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_advanced/index.ts#L438-L445</a></sub></sup>
 
 
 Note that `gasLimits` and `teardownGasLimits` use `daGas`/`l2Gas` field names, while `maxFeesPerGas` and `maxPriorityFeesPerGas` use `feePerDaGas`/`feePerL2Gas`.
@@ -350,19 +360,14 @@ When using `EmbeddedWallet`, gas estimation happens automatically on every `send
 :::
 
 ```typescript title="auto_gas_estimation" showLineNumbers 
-// Estimate gas for a transaction before sending
-const { estimatedGas: autoEstimate } = await token.methods
+// Read the gas a transaction would consume before sending, and pad it yourself.
+const { gasUsed: autoGasUsed } = await token.methods
   .mint_to_public(aliceAddress, 1n)
-  .simulate({
-    from: aliceAddress,
-    fee: {
-      estimateGas: true,
-      estimatedGasPadding: 0.2, // 20% padding
-    },
-  });
-console.log("Auto-estimated L2 gas:", autoEstimate.gasLimits.l2Gas);
+  .simulate({ from: aliceAddress, includeMetadata: true });
+const autoEstimate = autoGasUsed!.totalGas.mul(1.2); // 20% padding
+console.log("Auto-estimated L2 gas:", autoEstimate.l2Gas);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/aztecjs_advanced/index.ts#L466-L478" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_advanced/index.ts#L466-L478</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/aztecjs_advanced/index.ts#L474-L481" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_advanced/index.ts#L474-L481</a></sub></sup>
 
 
 :::tip

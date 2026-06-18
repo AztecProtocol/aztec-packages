@@ -25,19 +25,18 @@ The relationship is straightforward: PXE handles everything private (notes, keys
 Open `src/config.ts`. This determines which Aztec node to connect to and provides a helper for creating an in-browser PXE:
 
 ```typescript title="config" showLineNumbers 
-import { createAztecNodeClient } from '@aztec/aztec.js/node';
-import { getPXEConfig } from '@aztec/pxe/config';
-import { createPXE } from '@aztec/pxe/client/lazy';
+import { createAztecNodeClient } from "@aztec/aztec.js/node";
+import { getPXEConfig } from "@aztec/pxe/config";
+import { createPXE } from "@aztec/pxe/client/lazy";
 
-
-export type NetworkType = 'local' | 'remote';
+export type NetworkType = "local" | "remote";
 
 export function getNodeUrl(network: NetworkType): string {
-  if (network === 'local') {
-    return process.env.AZTEC_NODE_URL || 'http://localhost:8080';
+  if (network === "local") {
+    return process.env.AZTEC_NODE_URL || "http://localhost:8080";
   }
   // For remote networks, the wallet extension manages the node connection
-  return process.env.AZTEC_NODE_URL || 'http://localhost:8080';
+  return process.env.AZTEC_NODE_URL || "http://localhost:8080";
 }
 
 /**
@@ -48,16 +47,16 @@ export function getNodeUrl(network: NetworkType): string {
 export async function createLocalPXE(nodeUrl: string) {
   const aztecNode = createAztecNodeClient(nodeUrl);
   const config = getPXEConfig();
-  config.rollupAddress = (await aztecNode.getL1ContractAddresses()).rollupAddress;
-  const isLocal = nodeUrl.includes('localhost') || nodeUrl.includes('127.0.0.1');
+  const isLocal =
+    nodeUrl.includes("localhost") || nodeUrl.includes("127.0.0.1");
   config.proverEnabled = !isLocal;
   const pxe = await createPXE(aztecNode, config, {});
-  console.log('PXE connected to node at:', nodeUrl);
+  console.log("PXE connected to node at:", nodeUrl);
 
   return { pxe, aztecNode };
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/webapp-tutorial/src/config.ts#L1-L33" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/src/config.ts#L1-L33</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/webapp-tutorial/src/config.ts#L1-L32" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/src/config.ts#L1-L32</a></sub></sup>
 
 
 `createLocalPXE` sets up PXE in three steps:
@@ -84,19 +83,22 @@ Open `src/embedded-wallet.ts`:
 ### Imports
 
 ```typescript title="embedded-wallet-imports" showLineNumbers 
-import { type NoFrom, NO_FROM } from '@aztec/aztec.js/account';
-import { AztecAddress } from '@aztec/aztec.js/addresses';
-import { getContractInstanceFromInstantiationParams } from '@aztec/aztec.js/contracts';
-import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
-import { Fr } from '@aztec/aztec.js/fields';
-import { SPONSORED_FPC_SALT } from '@aztec/constants';
-import { AccountFeePaymentMethodOptions } from '@aztec/entrypoints/account';
-import { getInitialTestAccountsData } from '@aztec/accounts/testing/lazy';
-import type { ContractArtifact } from '@aztec/stdlib/abi';
-import { type CompleteFeeOptionsConfig, type FeeOptions } from '@aztec/wallet-sdk/base-wallet';
-import { EmbeddedWallet as BaseEmbeddedWallet } from '@aztec/wallets/embedded';
+import { NO_FROM } from "@aztec/aztec.js/account";
+import { AztecAddress } from "@aztec/aztec.js/addresses";
+import { getContractInstanceFromInstantiationParams } from "@aztec/aztec.js/contracts";
+import { SponsoredFeePaymentMethod } from "@aztec/aztec.js/fee";
+import { Fr } from "@aztec/aztec.js/fields";
+import { SPONSORED_FPC_SALT } from "@aztec/constants";
+import { AccountFeePaymentMethodOptions } from "@aztec/entrypoints/account";
+import { getInitialTestAccountsData } from "@aztec/accounts/testing/lazy";
+import type { ContractArtifact } from "@aztec/stdlib/abi";
+import {
+  type CompleteFeeOptionsConfig,
+  type FeeOptions,
+} from "@aztec/wallet-sdk/base-wallet";
+import { EmbeddedWallet as BaseEmbeddedWallet } from "@aztec/wallets/embedded";
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/webapp-tutorial/src/embedded-wallet.ts#L1-L13" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/src/embedded-wallet.ts#L1-L13</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/webapp-tutorial/src/embedded-wallet.ts#L1-L16" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/src/embedded-wallet.ts#L1-L16</a></sub></sup>
 
 
 ### Initialization
@@ -106,10 +108,10 @@ import { EmbeddedWallet as BaseEmbeddedWallet } from '@aztec/wallets/embedded';
  * Creates a new EmbeddedWallet connected to the given Aztec node URL.
  * Sets up an in-browser PXE and registers the SponsoredFPC contract.
  */
-static async initialize(nodeUrl: string): Promise<EmbeddedWallet> {
+static async initialize(nodeUrl: string) {
   const isLocal =
-    nodeUrl.includes('localhost') || nodeUrl.includes('127.0.0.1');
-  const wallet = await EmbeddedWallet.create<EmbeddedWallet>(nodeUrl, {
+    nodeUrl.includes("localhost") || nodeUrl.includes("127.0.0.1");
+  const wallet = await EmbeddedWallet.create(nodeUrl, {
     ephemeral: true,
     pxeConfig: { proverEnabled: !isLocal },
   });
@@ -121,7 +123,7 @@ static async initialize(nodeUrl: string): Promise<EmbeddedWallet> {
   return wallet;
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/webapp-tutorial/src/embedded-wallet.ts#L53-L72" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/src/embedded-wallet.ts#L53-L72</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/webapp-tutorial/src/embedded-wallet.ts#L61-L80" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/src/embedded-wallet.ts#L61-L80</a></sub></sup>
 
 
 The `initialize` factory calls the inherited `create()` method, which sets up an in-browser PXE and account storage. It then registers the SponsoredFPC contract with PXE so that fee payment works out of the box.
@@ -150,7 +152,7 @@ async connectTestAccount(index: number) {
   return this.connectedAccount;
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/webapp-tutorial/src/embedded-wallet.ts#L89-L108" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/src/embedded-wallet.ts#L89-L108</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/webapp-tutorial/src/embedded-wallet.ts#L96-L115" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/src/embedded-wallet.ts#L96-L115</a></sub></sup>
 
 
 ### Fee payment
@@ -166,24 +168,29 @@ SponsoredFPC only works on the local network. Production Aztec networks deployed
  * Uses SponsoredFPC for fee payment by default, so users
  * don't need to hold fee tokens.
  */
-override async completeFeeOptions(config: CompleteFeeOptionsConfig): Promise<FeeOptions> {
-  const base = await super.completeFeeOptions(config);
+override async completeFeeOptions(
+  config: CompleteFeeOptionsConfig,
+): Promise<FeeOptions> {
+  const feeOptions = await super.completeFeeOptions(config);
 
   if (config.feePayer) {
-    return base;
+    return feeOptions;
   }
 
   const fpc = await EmbeddedWallet.#getSponsoredFPCContract();
-
   return {
-    ...base,
-    walletFeePaymentMethod: new SponsoredFeePaymentMethod(fpc.instance.address),
+    ...feeOptions,
+    walletFeePaymentMethod: new SponsoredFeePaymentMethod(
+      fpc.instance.address,
+    ),
     accountFeePaymentMethodOptions:
-      config.from !== NO_FROM ? AccountFeePaymentMethodOptions.EXTERNAL : base.accountFeePaymentMethodOptions,
+      config.from !== NO_FROM
+        ? AccountFeePaymentMethodOptions.EXTERNAL
+        : feeOptions.accountFeePaymentMethodOptions,
   };
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/webapp-tutorial/src/embedded-wallet.ts#L30-L51" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/src/embedded-wallet.ts#L30-L51</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/webapp-tutorial/src/embedded-wallet.ts#L33-L59" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/src/embedded-wallet.ts#L33-L59</a></sub></sup>
 
 
 ### Full class
@@ -209,20 +216,25 @@ export class EmbeddedWallet extends BaseEmbeddedWallet {
    * Uses SponsoredFPC for fee payment by default, so users
    * don't need to hold fee tokens.
    */
-  override async completeFeeOptions(config: CompleteFeeOptionsConfig): Promise<FeeOptions> {
-    const base = await super.completeFeeOptions(config);
+  override async completeFeeOptions(
+    config: CompleteFeeOptionsConfig,
+  ): Promise<FeeOptions> {
+    const feeOptions = await super.completeFeeOptions(config);
 
     if (config.feePayer) {
-      return base;
+      return feeOptions;
     }
 
     const fpc = await EmbeddedWallet.#getSponsoredFPCContract();
-
     return {
-      ...base,
-      walletFeePaymentMethod: new SponsoredFeePaymentMethod(fpc.instance.address),
+      ...feeOptions,
+      walletFeePaymentMethod: new SponsoredFeePaymentMethod(
+        fpc.instance.address,
+      ),
       accountFeePaymentMethodOptions:
-        config.from !== NO_FROM ? AccountFeePaymentMethodOptions.EXTERNAL : base.accountFeePaymentMethodOptions,
+        config.from !== NO_FROM
+          ? AccountFeePaymentMethodOptions.EXTERNAL
+          : feeOptions.accountFeePaymentMethodOptions,
     };
   }
 
@@ -230,10 +242,10 @@ export class EmbeddedWallet extends BaseEmbeddedWallet {
    * Creates a new EmbeddedWallet connected to the given Aztec node URL.
    * Sets up an in-browser PXE and registers the SponsoredFPC contract.
    */
-  static async initialize(nodeUrl: string): Promise<EmbeddedWallet> {
+  static async initialize(nodeUrl: string) {
     const isLocal =
-      nodeUrl.includes('localhost') || nodeUrl.includes('127.0.0.1');
-    const wallet = await EmbeddedWallet.create<EmbeddedWallet>(nodeUrl, {
+      nodeUrl.includes("localhost") || nodeUrl.includes("127.0.0.1");
+    const wallet = await EmbeddedWallet.create(nodeUrl, {
       ephemeral: true,
       pxeConfig: { proverEnabled: !isLocal },
     });
@@ -246,9 +258,8 @@ export class EmbeddedWallet extends BaseEmbeddedWallet {
   }
 
   static async #getSponsoredFPCContract() {
-    const { SponsoredFPCContractArtifact } = await import(
-      '@aztec/noir-contracts.js/SponsoredFPC'
-    );
+    const { SponsoredFPCContractArtifact } =
+      await import("@aztec/noir-contracts.js/SponsoredFPC");
     const instance = await getContractInstanceFromInstantiationParams(
       SponsoredFPCContractArtifact,
       { salt: new Fr(SPONSORED_FPC_SALT) },
@@ -295,7 +306,7 @@ export class EmbeddedWallet extends BaseEmbeddedWallet {
     await this.registerContract(instance, artifact);
   }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/webapp-tutorial/src/embedded-wallet.ts#L15-L125" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/src/embedded-wallet.ts#L15-L125</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/webapp-tutorial/src/embedded-wallet.ts#L18-L132" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/src/embedded-wallet.ts#L18-L132</a></sub></sup>
 
 
 ## Wallet SDK (browser extension)

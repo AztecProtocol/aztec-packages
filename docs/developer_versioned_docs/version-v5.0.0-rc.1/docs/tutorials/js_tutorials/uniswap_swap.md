@@ -853,6 +853,7 @@ import {
   computeL2ToL1MessageHash,
   computeSecretHash,
 } from "@aztec/stdlib/hash";
+import { createAztecNodeDebugClient } from "@aztec/stdlib/interfaces/client";
 import { decodeEventLog, encodeFunctionData, pad } from "@aztec/viem";
 import { EmbeddedWallet } from "@aztec/wallets/embedded";
 import { foundry } from "@aztec/viem/chains";
@@ -874,7 +875,7 @@ const node = createAztecNodeClient(nodeUrl);
 await waitForNode(node);
 const wallet = await EmbeddedWallet.create(node, { ephemeral: true });
 const [accData] = await getInitialTestAccountsData();
-const account = await wallet.createSchnorrAccount(
+const account = await wallet.createSchnorrInitializerlessAccount(
   accData.secret,
   accData.salt,
   accData.signingKey,
@@ -885,7 +886,7 @@ const nodeInfo = await node.getNodeInfo();
 const registryAddress = nodeInfo.l1ContractAddresses.registryAddress.toString();
 const inboxAddress = nodeInfo.l1ContractAddresses.inboxAddress.toString();
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/example_swap/index.ts#L1-L47" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/example_swap/index.ts#L1-L47</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/example_swap/index.ts#L1-L48" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/example_swap/index.ts#L1-L48</a></sub></sup>
 
 
 ### Deploy L1 Contracts
@@ -936,7 +937,7 @@ console.log(`WETH Portal: ${wethPortalAddress}`);
 console.log(`DAI Portal: ${daiPortalAddress}`);
 console.log(`Uniswap Portal: ${uniswapPortalAddress}\n`);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/example_swap/index.ts#L49-L92" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/example_swap/index.ts#L49-L92</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/example_swap/index.ts#L50-L93" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/example_swap/index.ts#L50-L93</a></sub></sup>
 
 
 ### Deploy L2 Contracts
@@ -988,7 +989,7 @@ console.log(`L2 WETH Bridge: ${l2WethBridge.address}`);
 console.log(`L2 DAI Bridge: ${l2DaiBridge.address}`);
 console.log(`L2 Uniswap: ${l2Uniswap.address}\n`);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/example_swap/index.ts#L94-L138" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/example_swap/index.ts#L94-L138</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/example_swap/index.ts#L95-L139" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/example_swap/index.ts#L95-L139</a></sub></sup>
 
 
 ### Initialize and Fund
@@ -1045,7 +1046,7 @@ await l1Client.waitForTransactionReceipt({ hash: initUniswapPortal });
 
 console.log("All contracts initialized\n");
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/example_swap/index.ts#L140-L189" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/example_swap/index.ts#L140-L189</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/example_swap/index.ts#L141-L190" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/example_swap/index.ts#L141-L190</a></sub></sup>
 
 
 Fund the user with input tokens and pre-fund the uniswap portal with output tokens:
@@ -1078,7 +1079,7 @@ await l1Client.waitForTransactionReceipt({ hash: mintDaiHash });
 console.log(`Minted ${SWAP_AMOUNT} WETH to user`);
 console.log(`Pre-funded uniswap portal with ${SWAP_AMOUNT * 2n} DAI\n`);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/example_swap/index.ts#L191-L218" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/example_swap/index.ts#L191-L218</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/example_swap/index.ts#L192-L219" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/example_swap/index.ts#L192-L219</a></sub></sup>
 
 
 ### Deposit to L2
@@ -1159,7 +1160,7 @@ if (messageSentLogs.length === 0) {
 const depositLeafIndex = new Fr(messageSentLogs[0].decoded.args.index);
 console.log(`Deposit message leaf index: ${depositLeafIndex}\n`);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/example_swap/index.ts#L220-L293" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/example_swap/index.ts#L220-L293</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/example_swap/index.ts#L221-L294" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/example_swap/index.ts#L221-L294</a></sub></sup>
 
 
 :::tip Why use a secret hash?
@@ -1182,7 +1183,7 @@ async function mine2Blocks(
   });
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/example_swap/index.ts#L295-L308" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/example_swap/index.ts#L295-L308</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/example_swap/index.ts#L296-L309" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/example_swap/index.ts#L296-L309</a></sub></sup>
 
 
 Claim the deposited tokens on L2:
@@ -1207,7 +1208,7 @@ if (wethBalanceBefore !== SWAP_AMOUNT) {
 }
 console.log("✓ WETH claimed successfully on L2\n");
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/example_swap/index.ts#L310-L329" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/example_swap/index.ts#L310-L329</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/example_swap/index.ts#L311-L330" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/example_swap/index.ts#L311-L330</a></sub></sup>
 
 
 ### Execute the Swap
@@ -1264,7 +1265,7 @@ if (wethAfterSwap !== 0n) {
 }
 console.log("✓ WETH transferred to bridge for swap\n");
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/example_swap/index.ts#L331-L380" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/example_swap/index.ts#L331-L380</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/example_swap/index.ts#L332-L381" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/example_swap/index.ts#L332-L381</a></sub></sup>
 
 
 ### Waiting for Block Proofs
@@ -1272,6 +1273,14 @@ console.log("✓ WETH transferred to bridge for swap\n");
 L2→L1 messages can only be consumed on L1 after the L2 block containing them has been **proven**. Aztec batches blocks into [**epochs**](../../aztec-nr/framework-description/ethereum_aztec_messaging.md) and generates ZK proofs for each epoch. The proof confirms that the L2 state transition (including our swap messages) actually happened according to the protocol rules. Until the proof is submitted to L1, the messages exist but cannot be trusted.
 
 ```typescript title="wait_for_proof" showLineNumbers 
+const isLocalNetwork =
+  nodeUrl.includes("localhost") ||
+  nodeUrl.includes("127.0.0.1") ||
+  nodeUrl.includes("local-network");
+const nodeDebug = isLocalNetwork
+  ? createAztecNodeDebugClient(nodeUrl)
+  : undefined;
+
 console.log("Waiting for block to be proven...\n");
 
 let provenBlockNumber = await node.getBlockNumber("proven");
@@ -1279,13 +1288,16 @@ while (provenBlockNumber < swapReceipt.blockNumber!) {
   console.log(
     `   Waiting... (proven: ${provenBlockNumber}, needed: ${swapReceipt.blockNumber})`,
   );
+  if (nodeDebug) {
+    await nodeDebug.mineBlock();
+  }
   await new Promise((resolve) => setTimeout(resolve, 10000));
   provenBlockNumber = await node.getBlockNumber("proven");
 }
 
 console.log("Block proven!\n");
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/example_swap/index.ts#L382-L395" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/example_swap/index.ts#L382-L395</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/example_swap/index.ts#L383-L407" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/example_swap/index.ts#L383-L407</a></sub></sup>
 
 
 The [outbox](../../aztec-nr/framework-description/ethereum_aztec_messaging.md) stores L2→L1 messages in a Merkle tree. To consume a message, you must provide the **epoch** (which proof batch contains the message), the **leaf index** (position in the message tree), and the **sibling path** (Merkle proof showing the message is in the tree). These parameters are computed offchain by observing L2 blocks.
@@ -1340,15 +1352,41 @@ const exitMsgLeaf = computeL2ToL1MessageHash({
   chainId: new Fr(foundry.id),
 });
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/example_swap/index.ts#L397-L444" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/example_swap/index.ts#L397-L444</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/example_swap/index.ts#L409-L456" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/example_swap/index.ts#L409-L456</a></sub></sup>
 
 
 Next, compute Merkle membership witnesses for both L2→L1 messages -- the sibling path (proof of inclusion) for each. We also compute the swap intent message leaf using the same encoding as the Solidity portal:
 
 ```typescript title="consume_l1_messages_witnesses" showLineNumbers 
 // The node picks the smallest partial-proof root that covers each tx's checkpoint.
-const exitWitness = await node.getL2ToL1MembershipWitness(swapReceipt.txHash, exitMsgLeaf);
-const exitSiblingPath = exitWitness!.siblingPath
+const waitForL2ToL1MembershipWitness = async (
+  messageName: string,
+  messageLeaf: Fr,
+) => {
+  const maxAttempts = 30;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const witness = await node.getL2ToL1MembershipWitness(
+      swapReceipt.txHash,
+      messageLeaf,
+    );
+    if (witness) {
+      return witness;
+    }
+
+    console.log(
+      `   Waiting for ${messageName} L2->L1 witness (${attempt}/${maxAttempts})...`,
+    );
+    await new Promise((resolve) => setTimeout(resolve, 10000));
+  }
+
+  throw new Error(`Timed out waiting for ${messageName} L2->L1 witness`);
+};
+
+const exitWitness = await waitForL2ToL1MembershipWitness(
+  "token bridge exit",
+  exitMsgLeaf,
+);
+const exitSiblingPath = exitWitness.siblingPath
   .toBufferArray()
   .map((buf: Buffer) => `0x${buf.toString("hex")}` as `0x${string}`);
 
@@ -1397,12 +1435,15 @@ const swapMsgLeaf = computeL2ToL1MessageHash({
   chainId: new Fr(foundry.id),
 });
 
-const swapWitness = await node.getL2ToL1MembershipWitness(swapReceipt.txHash, swapMsgLeaf);
-const swapSiblingPath = swapWitness!.siblingPath
+const swapWitness = await waitForL2ToL1MembershipWitness(
+  "swap intent",
+  swapMsgLeaf,
+);
+const swapSiblingPath = swapWitness.siblingPath
   .toBufferArray()
   .map((buf: Buffer) => `0x${buf.toString("hex")}` as `0x${string}`);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/example_swap/index.ts#L446-L502" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/example_swap/index.ts#L446-L502</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/example_swap/index.ts#L458-L543" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/example_swap/index.ts#L458-L543</a></sub></sup>
 
 
 Next, call `swapPublic` on the L1 uniswap portal, passing both message proofs. The portal verifies both messages against the outbox, performs the mock swap, and deposits the output tokens back to L2:
@@ -1425,12 +1466,12 @@ const l1SwapHash = await l1Client.writeContract({
       dir: "left",
       size: 32,
     }),
-    [BigInt(exitWitness!.epochNumber), BigInt(swapWitness!.epochNumber)],
+    [BigInt(exitWitness.epochNumber), BigInt(swapWitness.epochNumber)],
     [
-      BigInt(exitWitness!.numCheckpointsInEpoch),
-      BigInt(swapWitness!.numCheckpointsInEpoch),
+      BigInt(exitWitness.numCheckpointsInEpoch),
+      BigInt(swapWitness.numCheckpointsInEpoch),
     ],
-    [BigInt(exitWitness!.leafIndex), BigInt(swapWitness!.leafIndex)],
+    [BigInt(exitWitness.leafIndex), BigInt(swapWitness.leafIndex)],
     [exitSiblingPath, swapSiblingPath],
   ],
 });
@@ -1439,7 +1480,7 @@ const l1SwapReceipt = await l1Client.waitForTransactionReceipt({
 });
 console.log(`L1 swap executed! Tx: ${l1SwapHash}\n`);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/example_swap/index.ts#L504-L535" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/example_swap/index.ts#L504-L535</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/example_swap/index.ts#L545-L576" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/example_swap/index.ts#L545-L576</a></sub></sup>
 
 
 Finally, claim the output DAI on L2:
@@ -1498,7 +1539,7 @@ if (daiBalance !== SWAP_AMOUNT) {
 }
 console.log("\n✓ All checks passed — public swap complete!\n");
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/example_swap/index.ts#L537-L590" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/example_swap/index.ts#L537-L590</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/example_swap/index.ts#L578-L631" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/example_swap/index.ts#L578-L631</a></sub></sup>
 
 
 ### Run It

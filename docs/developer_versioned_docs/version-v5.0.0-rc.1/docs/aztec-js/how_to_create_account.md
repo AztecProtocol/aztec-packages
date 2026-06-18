@@ -108,7 +108,10 @@ import { FeeJuicePaymentMethodWithClaim } from "@aztec/aztec.js/fee";
 
 // claim is from the bridgeTokensPublic step above
 // Create a payment method that claims the bridged Fee Juice and uses it to pay
-const bridgePaymentMethod = new FeeJuicePaymentMethodWithClaim(feeJuiceAccount.address, claim);
+const bridgePaymentMethod = new FeeJuicePaymentMethodWithClaim(
+  feeJuiceAccount.address,
+  claim,
+);
 
 // Use it to pay for any transaction; here we deploy the account in one step
 const deployMethodBridged = await feeJuiceAccount.getDeployMethod();
@@ -117,7 +120,7 @@ await deployMethodBridged.send({
   fee: { paymentMethod: bridgePaymentMethod },
 });
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/aztecjs_connection/index.ts#L156-L169" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_connection/index.ts#L156-L169</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/aztecjs_connection/index.ts#L156-L172" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_connection/index.ts#L156-L172</a></sub></sup>
 
 
 If the account already has Fee Juice on L2 (for example, from a faucet or a previously claimed bridge), no special payment method is needed — just call `send({ from: NO_FROM })` and Fee Juice is used automatically.
@@ -134,7 +137,7 @@ Confirm the account was deployed successfully. Substitute the account variable f
 const metadata = await wallet.getContractMetadata(newAccount.address);
 console.log("Account deployed:", metadata.initializationStatus);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/aztecjs_connection/index.ts#L171-L176" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_connection/index.ts#L171-L176</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/aztecjs_connection/index.ts#L174-L179" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_connection/index.ts#L174-L179</a></sub></sup>
 
 
 ## Next steps

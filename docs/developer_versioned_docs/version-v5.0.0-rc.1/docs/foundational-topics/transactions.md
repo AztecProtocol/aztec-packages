@@ -208,7 +208,7 @@ public async simulate(
   options: SimulateInteractionOptions = {} as SimulateInteractionOptions,
 ): Promise<SimulationResult> {
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/yarn-project/aztec.js/src/contract/contract_function_interaction.ts#L115-L130" target="_blank" rel="noopener noreferrer">Source code: yarn-project/aztec.js/src/contract/contract_function_interaction.ts#L115-L130</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/yarn-project/aztec.js/src/contract/contract_function_interaction.ts#L114-L129" target="_blank" rel="noopener noreferrer">Source code: yarn-project/aztec.js/src/contract/contract_function_interaction.ts#L114-L129</a></sub></sup>
 
 
 ##### `send`
@@ -250,7 +250,7 @@ export class BatchCall extends BaseContractInteraction {
     super(wallet);
   }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/yarn-project/aztec.js/src/contract/batch_call.ts#L18-L27" target="_blank" rel="noopener noreferrer">Source code: yarn-project/aztec.js/src/contract/batch_call.ts#L18-L27</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/yarn-project/aztec.js/src/contract/batch_call.ts#L17-L26" target="_blank" rel="noopener noreferrer">Source code: yarn-project/aztec.js/src/contract/batch_call.ts#L17-L26</a></sub></sup>
 
 
 ### Enabling Transaction Semantics

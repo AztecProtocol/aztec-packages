@@ -76,8 +76,8 @@ const nodeUrl = process.env.AZTEC_NODE_URL ?? "http://localhost:8080";
 const wallet = await EmbeddedWallet.create(nodeUrl, { ephemeral: true });
 
 const [alice, bob] = await getInitialTestAccountsData();
-await wallet.createSchnorrAccount(alice.secret, alice.salt);
-await wallet.createSchnorrAccount(bob.secret, bob.salt);
+await wallet.createSchnorrInitializerlessAccount(alice.secret, alice.salt);
+await wallet.createSchnorrInitializerlessAccount(bob.secret, bob.salt);
 ```
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/aztecjs_getting_started/index.ts#L1-L11" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_getting_started/index.ts#L1-L11</a></sub></sup>
 

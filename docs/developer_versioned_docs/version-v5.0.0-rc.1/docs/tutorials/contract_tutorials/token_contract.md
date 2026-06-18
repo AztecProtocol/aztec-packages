@@ -88,7 +88,7 @@ Since we're here, let's import more specific stuff from this library:
 pub contract BobToken {
     use aztec::{
         macros::{functions::{external, initializer, only_self}, storage::storage},
-        messages::message_delivery::MessageDelivery,
+        messages::delivery::MessageDelivery,
         protocol::address::AztecAddress,
         state_vars::{Map, Owned, PublicMutable},
     };
@@ -287,18 +287,19 @@ async function main() {
 
   const [giggleWalletData, aliceWalletData, bobClinicWalletData] =
     await getInitialTestAccountsData();
-  const giggleAccountManager = await wallet.createSchnorrAccount(
+  const giggleAccountManager = await wallet.createSchnorrInitializerlessAccount(
     giggleWalletData.secret,
     giggleWalletData.salt,
   );
-  const aliceAccountManager = await wallet.createSchnorrAccount(
+  const aliceAccountManager = await wallet.createSchnorrInitializerlessAccount(
     aliceWalletData.secret,
     aliceWalletData.salt,
   );
-  const bobClinicAccountManager = await wallet.createSchnorrAccount(
-    bobClinicWalletData.secret,
-    bobClinicWalletData.salt,
-  );
+  const bobClinicAccountManager =
+    await wallet.createSchnorrInitializerlessAccount(
+      bobClinicWalletData.secret,
+      bobClinicWalletData.salt,
+    );
 
   const giggleAddress = giggleAccountManager.address;
   const aliceAddress = aliceAccountManager.address;

@@ -151,7 +151,7 @@ pub contract NFTPunk {
         protocol::address::AztecAddress,
         state_vars::{DelayedPublicMutable, Map, Owned, PrivateSet, PublicImmutable},
     };
-    use aztec::messages::message_delivery::MessageDelivery;
+    use aztec::messages::delivery::MessageDelivery;
     use aztec::note::{
         note_getter_options::NoteGetterOptions, note_interface::NoteProperties,
         note_viewer_options::NoteViewerOptions,
@@ -653,7 +653,7 @@ console.log("Setting up L2...\n");
 const node = createAztecNodeClient("http://localhost:8080");
 const aztecWallet = await EmbeddedWallet.create(node);
 const [accData] = await getInitialTestAccountsData();
-const account = await aztecWallet.createSchnorrAccount(
+const account = await aztecWallet.createSchnorrInitializerlessAccount(
   accData.secret,
   accData.salt,
 );
@@ -988,7 +988,10 @@ console.log("Block proven!\n");
 
 // Compute the membership witness using the message hash and the L2 tx hash.
 // The node picks the smallest partial-proof root that covers the tx's checkpoint.
-const witness = await node.getL2ToL1MembershipWitness(exitReceipt.txHash, msgLeaf);
+const witness = await node.getL2ToL1MembershipWitness(
+  exitReceipt.txHash,
+  msgLeaf,
+);
 const epoch = witness!.epochNumber;
 const numCheckpointsInEpoch = witness!.numCheckpointsInEpoch;
 console.log(`   Epoch for block ${exitReceipt.blockNumber}: ${epoch}`);
@@ -997,7 +1000,7 @@ const siblingPathHex = witness!.siblingPath
   .toBufferArray()
   .map((buf: Buffer) => `0x${buf.toString("hex")}` as `0x${string}`);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/token_bridge/index.ts#L260-L315" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/token_bridge/index.ts#L260-L315</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/token_bridge/index.ts#L260-L318" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/token_bridge/index.ts#L260-L318</a></sub></sup>
 
 
 With this information, call the L1 contract and use the index and the sibling path to claim the L1 NFT:
@@ -1020,7 +1023,7 @@ const withdrawHash = await l1Client.writeContract({
 await l1Client.waitForTransactionReceipt({ hash: withdrawHash });
 console.log("NFT withdrawn to L1\n");
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/token_bridge/index.ts#L317-L334" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/token_bridge/index.ts#L317-L334</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/token_bridge/index.ts#L320-L337" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/token_bridge/index.ts#L320-L337</a></sub></sup>
 
 
 You can now try the whole flow with:

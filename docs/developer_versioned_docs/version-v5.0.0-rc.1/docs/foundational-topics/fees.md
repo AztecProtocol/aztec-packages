@@ -79,7 +79,7 @@ export class GasSettings {
     public readonly maxPriorityFeesPerGas: GasFees,
   ) {}
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/yarn-project/stdlib/src/gas/gas_settings.ts#L26-L35" target="_blank" rel="noopener noreferrer">Source code: yarn-project/stdlib/src/gas/gas_settings.ts#L26-L35</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/yarn-project/stdlib/src/gas/gas_settings.ts#L19-L28" target="_blank" rel="noopener noreferrer">Source code: yarn-project/stdlib/src/gas/gas_settings.ts#L19-L28</a></sub></sup>
 
 
 <Gas_Settings_Components />

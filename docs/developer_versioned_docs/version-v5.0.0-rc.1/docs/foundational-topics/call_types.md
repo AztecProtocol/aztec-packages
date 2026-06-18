@@ -302,7 +302,7 @@ This creates a transaction, generates proofs for private execution, broadcasts t
 ```typescript title="send_tx" showLineNumbers 
 await contract.methods.buy_pack(seed).send({ from: firstPlayer });
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/yarn-project/end-to-end/src/e2e_card_game.test.ts#L114-L116" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_card_game.test.ts#L114-L116</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/yarn-project/end-to-end/src/e2e_card_game.test.ts#L120-L122" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_card_game.test.ts#L120-L122</a></sub></sup>
 
 
 You can also use `send` to check for execution failures in testing contexts by expecting the transaction to throw:

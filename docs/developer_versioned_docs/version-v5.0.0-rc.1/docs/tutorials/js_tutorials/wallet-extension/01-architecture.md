@@ -145,7 +145,7 @@ async function ensurePXE(nodeUrl: string = NODE_URL): Promise<{ pxe: PXE; node: 
     try {
       const node = createAztecNodeClient(nodeUrl);
       const config = getPXEConfig();
-      config.rollupAddress = (await node.getL1ContractAddresses()).rollupAddress;
+      config.l1Contracts = await node.getL1ContractAddresses();
       const isLocal = nodeUrl.includes('localhost') || nodeUrl.includes('127.0.0.1');
       config.proverEnabled = !isLocal;
 

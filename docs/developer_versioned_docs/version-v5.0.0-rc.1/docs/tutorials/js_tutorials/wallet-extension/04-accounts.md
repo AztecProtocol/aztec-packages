@@ -454,7 +454,7 @@ async function handleUnlockWallet(password: string) {
   return { success: true };
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts#L605-L669" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts#L605-L669</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts#L601-L665" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts#L601-L665</a></sub></sup>
 
 
 Each account:
@@ -519,7 +519,7 @@ async function handleDeployAccount(address: string) {
   return { success: true, txHash: receipt.txHash?.toString() };
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts#L552-L603" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts#L552-L603</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts#L548-L599" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts#L548-L599</a></sub></sup>
 
 
 The deployment:

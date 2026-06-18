@@ -46,7 +46,7 @@ import { registerInitialLocalNetworkAccountsInWallet } from "@aztec/wallets/test
 // wallet is the EmbeddedWallet from the setup section above
 const [alice, bob] = await registerInitialLocalNetworkAccountsInWallet(wallet);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/aztecjs_testing/index.ts#L107-L112" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_testing/index.ts#L107-L112</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/aztecjs_testing/index.ts#L117-L122" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_testing/index.ts#L117-L122</a></sub></sup>
 
 
 ## Deploying contracts in tests
@@ -63,7 +63,7 @@ const { contract: testToken } = await TokenContract.deploy(
   18,
 ).send({ from: alice });
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/aztecjs_testing/index.ts#L114-L123" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_testing/index.ts#L114-L123</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/aztecjs_testing/index.ts#L124-L133" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_testing/index.ts#L124-L133</a></sub></sup>
 
 
 ## Verifying contract state
@@ -125,13 +125,21 @@ let token: TokenContract;
 
 // beforeAll equivalent - setup
 async function setup() {
-  const node = createAztecNodeClient(process.env.AZTEC_NODE_URL ?? "http://localhost:8080");
+  const node = createAztecNodeClient(
+    process.env.AZTEC_NODE_URL ?? "http://localhost:8080",
+  );
   await waitForNode(node);
   wallet = await EmbeddedWallet.create(node, { ephemeral: true });
   const testAccounts = await getInitialTestAccountsData();
   [aliceAddress, bobAddress] = await Promise.all(
     testAccounts.slice(0, 2).map(async (account) => {
-      return (await wallet.createSchnorrAccount(account.secret, account.salt, account.signingKey)).address;
+      return (
+        await wallet.createSchnorrInitializerlessAccount(
+          account.secret,
+          account.salt,
+          account.signingKey,
+        )
+      ).address;
     }),
   );
 
@@ -170,7 +178,9 @@ async function testTransferTokens() {
     .send({ from: aliceAddress });
 
   // Transfer to bob using public transfer
-  await token.methods.transfer_in_public(aliceAddress, bobAddress, 100n, 0n).send({ from: aliceAddress });
+  await token.methods
+    .transfer_in_public(aliceAddress, bobAddress, 100n, 0n)
+    .send({ from: aliceAddress });
 
   const { result: aliceBalance } = await token.methods
     .balance_of_public(aliceAddress)
@@ -212,7 +222,7 @@ async function runTests() {
 
 await runTests();
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/aztecjs_testing/index.ts#L1-L105" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_testing/index.ts#L1-L105</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/aztecjs_testing/index.ts#L1-L115" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_testing/index.ts#L1-L115</a></sub></sup>
 
 
 ## Testing failure cases
@@ -243,7 +253,7 @@ async function testRevertExample() {
 
 await testRevertExample();
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/aztecjs_testing/index.ts#L125-L148" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_testing/index.ts#L125-L148</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/aztecjs_testing/index.ts#L135-L158" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_testing/index.ts#L135-L158</a></sub></sup>
 
 
 Use `.simulate()` to test reverts without spending gas. The simulation will throw if the transaction would fail onchain.

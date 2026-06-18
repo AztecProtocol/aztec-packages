@@ -570,7 +570,7 @@ struct Storage<Context> {
 Allows us to modify the storage by inserting a note into the `PrivateSet`:
 
 ```rust title="private_set_insert" showLineNumbers 
-owner_balance.insert(note).deliver(MessageDelivery::onchain_constrained());
+owner_balance.insert(note).deliver(MessageDelivery::onchain_unconstrained());
 ```
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/noir-projects/noir-contracts/contracts/test/pending_note_hashes_contract/src/main.nr#L47-L49" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/pending_note_hashes_contract/src/main.nr#L47-L49</a></sub></sup>
 
@@ -597,7 +597,7 @@ This function pops (gets, removes and returns) the notes the account has access 
 let options = NoteGetterOptions::new().set_limit(1);
 let note = owner_balance.pop_notes(options).get(0);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/noir-projects/noir-contracts/contracts/test/pending_note_hashes_contract/src/main.nr#L133-L136" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/pending_note_hashes_contract/src/main.nr#L133-L136</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/noir-projects/noir-contracts/contracts/test/pending_note_hashes_contract/src/main.nr#L146-L149" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/pending_note_hashes_contract/src/main.nr#L146-L149</a></sub></sup>
 
 
 #### `remove`

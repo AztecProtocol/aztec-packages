@@ -539,10 +539,10 @@ async function getWallet() {
      * payment method to avoid calling sponsor_unconditionally() twice, which
      * would trigger "Cannot enter the revertible phase twice".
      */
-    protected async completeFeeOptions(config: any) {
-      const base = await super.completeFeeOptions(config);
+    protected async completeFeeOptions(from: any, feePayer?: any, gasSettings?: any) {
+      const base = await super.completeFeeOptions(from, feePayer, gasSettings);
       // If the payload already includes a fee payer, don't inject another one
-      if (config.feePayer) {
+      if (feePayer) {
         return {
           ...base,
           accountFeePaymentMethodOptions: EXTERNAL_FEE_PAYMENT,
@@ -553,7 +553,7 @@ async function getWallet() {
       return {
         ...base,
         walletFeePaymentMethod: new SponsoredFeePaymentMethod(address),
-        accountFeePaymentMethodOptions: config.from ? EXTERNAL_FEE_PAYMENT : base.accountFeePaymentMethodOptions,
+        accountFeePaymentMethodOptions: EXTERNAL_FEE_PAYMENT,
       };
     }
 
@@ -602,11 +602,7 @@ async function getWallet() {
 
       // Step 2: Simulate with the stub account swapped in via PXE overrides
       log.info('[offscreen] Step 2: Simulating tx with stub account...');
-      const feeOptions = await this.completeFeeOptions({
-        from,
-        feePayer: executionPayload.feePayer,
-        gasSettings: feeGasSettings,
-      });
+      const feeOptions = await this.completeFeeOptions(from, executionPayload.feePayer, feeGasSettings);
       const chainInfo = await this.getChainInfo();
       const txRequest = await stubAccount.createTxExecutionRequest(
         executionPayload,
@@ -667,7 +663,7 @@ async function getWallet() {
   return walletInstance;
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts#L157-L373" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts#L157-L373</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts#L157-L369" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts#L157-L369</a></sub></sup>
 
 
 ### What You Must Implement
@@ -761,7 +757,7 @@ async function handleWalletMethod(method: string, args: any[]): Promise<any> {
   return jsonSafe;
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts#L464-L523" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts#L464-L523</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts#L460-L519" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts#L460-L519</a></sub></sup>
 
 
 ## Session Lifecycle

@@ -66,7 +66,7 @@ and import dependencies from the Aztec.nr library.
 ```rust title="imports" showLineNumbers 
 use aztec::{
     macros::{functions::{external, initializer}, storage::storage},
-    messages::message_delivery::MessageDelivery,
+    messages::delivery::MessageDelivery,
     oracle::logging::debug_log_format,
     protocol::{address::AztecAddress, traits::ToField},
     state_vars::Owned,

@@ -45,14 +45,31 @@ webapp-tutorial/
 Aztec uses WASM modules that require `SharedArrayBuffer`, which needs specific HTTP headers. Open `vite.config.ts`:
 
 ```typescript title="vite-config" showLineNumbers 
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react-swc";
-import { nodePolyfills } from "vite-plugin-node-polyfills";
+import {
+  type PolyfillOptions,
+  nodePolyfills,
+} from "vite-plugin-node-polyfills";
+
+// Unfortunate, but needed due to https://github.com/davidmyersdev/vite-plugin-node-polyfills/issues/81
+const nodePolyfillsFix = (options?: PolyfillOptions): Plugin => ({
+  ...nodePolyfills(options),
+  resolveId(source: string) {
+    const m =
+      /^vite-plugin-node-polyfills\/shims\/(buffer|global|process)$/.exec(
+        source,
+      );
+    if (m) {
+      return `./node_modules/vite-plugin-node-polyfills/shims/${m[1]}/dist/index.cjs`;
+    }
+  },
+});
 
 export default defineConfig({
   plugins: [
     react(),
-    nodePolyfills({
+    nodePolyfillsFix({
       globals: {
         process: true,
         Buffer: true,
@@ -76,14 +93,9 @@ export default defineConfig({
       "@aztec/noir-noir_js",
     ],
   },
-  resolve: {
-    // Keep linked @aztec packages under this app so plugin-injected shim imports
-    // resolve from the webapp tutorial's node_modules.
-    preserveSymlinks: true,
-  },
 });
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/webapp-tutorial/vite.config.ts#L1-L39" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/vite.config.ts#L1-L39</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/webapp-tutorial/vite.config.ts#L1-L51" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/vite.config.ts#L1-L51</a></sub></sup>
 
 
 Why each piece is needed:

@@ -80,7 +80,7 @@ pub contract Counter {
 ```rust title="imports" showLineNumbers 
 use aztec::{
     macros::{functions::{external, initializer}, storage::storage},
-    messages::message_delivery::MessageDelivery,
+    messages::delivery::MessageDelivery,
     oracle::logging::debug_log_format,
     protocol::{address::AztecAddress, traits::ToField},
     state_vars::Owned,
@@ -130,9 +130,9 @@ Let’s create a constructor method to run on deployment that assigns an initial
 ```rust title="constructor" showLineNumbers 
 #[initializer]
 #[external("private")]
-// We can name our initializer anything we want as long as it's marked as #[initializer]
-fn constructor(initial_value: u128, owner: AztecAddress) {
-    self.storage.counters.at(owner).add(initial_value).deliver(
+// We can name our initializer anything we want as long as it's marked as aztec(initializer)
+fn initialize(headstart: u128, owner: AztecAddress) {
+    self.storage.counters.at(owner).add(headstart).deliver(
         MessageDelivery::onchain_constrained(),
     );
 }
