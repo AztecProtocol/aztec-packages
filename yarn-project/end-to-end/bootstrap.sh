@@ -199,10 +199,10 @@ function avm_check_circuit_cmds {
   local dump_dir_from_top="yarn-project/end-to-end/$default_avm_inputs_dump_dir"
 
   # Specify timeout and resources
-  # WARNING: theoretically, transactions could need more CPU and MEM than we allocate by default.
-  # In that case, they might start timing out. For now, all of the e2e test txs seem to be relatively
-  # small and the AVM can run check-circuit with limited resources.
-  local prefix="$hash:ISOLATE=1:TIMEOUT=30s"
+  # WARNING: transactions vary in trace size, and large ones can need more time
+  # than the default isolated command timeout.
+  local avm_check_circuit_timeout=${AVM_CHECK_CIRCUIT_TIMEOUT:-90s}
+  local prefix="$hash:ISOLATE=1:TIMEOUT=$avm_check_circuit_timeout"
 
   # Find all .bin files in the dump directory (handles nested dirs)
   for input_file in "$default_avm_inputs_dump_dir"/*/*.bin "$default_avm_inputs_dump_dir"/*/*/*.bin; do
