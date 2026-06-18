@@ -124,11 +124,6 @@ export default defineConfig(({ mode }) => {
         ],
       },
     },
-    worker: {
-      format: 'es',
-      // Needed for SQLite.
-      plugins: () => [nodePolyfillsFix({ include: ['buffer', 'path', 'process', 'net', 'tty'] })],
-    },
     plugins: [
       react({ jsxImportSource: '@emotion/react' }),
       nodePolyfillsFix({ include: ['buffer', 'path', 'process', 'net', 'tty'] }),

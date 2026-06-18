@@ -1,6 +1,6 @@
-import { defineConfig, loadEnv, searchForWorkspaceRoot } from 'vite';
-import react from '@vitejs/plugin-react-swc';
-import { PolyfillOptions, nodePolyfills } from 'vite-plugin-node-polyfills';
+import { defineConfig, loadEnv, searchForWorkspaceRoot } from "vite";
+import react from "@vitejs/plugin-react-swc";
+import { PolyfillOptions, nodePolyfills } from "vite-plugin-node-polyfills";
 
 const nodeModulesPath = `${searchForWorkspaceRoot(process.cwd())}/node_modules`;
 
@@ -11,7 +11,10 @@ const nodePolyfillsFix = (options?: PolyfillOptions | undefined): Plugin => {
     ...nodePolyfills(options),
     /* @ts-ignore */
     resolveId(source: string) {
-      const m = /^vite-plugin-node-polyfills\/shims\/(buffer|global|process)$/.exec(source);
+      const m =
+        /^vite-plugin-node-polyfills\/shims\/(buffer|global|process)$/.exec(
+          source,
+        );
       if (m) {
         return `${nodeModulesPath}/vite-plugin-node-polyfills/shims/${m[1]}/dist/index.cjs`;
       }
@@ -21,14 +24,14 @@ const nodePolyfillsFix = (options?: PolyfillOptions | undefined): Plugin => {
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, process.cwd(), '');
+  const env = loadEnv(mode, process.cwd(), "");
   return {
-    logLevel: 'error',
+    logLevel: "error",
     server: {
       // Headers needed for bb WASM to work in multithreaded mode
       headers: {
-        'Cross-Origin-Opener-Policy': 'same-origin',
-        'Cross-Origin-Embedder-Policy': 'require-corp',
+        "Cross-Origin-Opener-Policy": "same-origin",
+        "Cross-Origin-Embedder-Policy": "require-corp",
       },
       // Allow vite to serve files from these directories, since they are symlinked
       // These are the protocol circuit artifacts and noir/bb WASMs.
@@ -36,31 +39,20 @@ export default defineConfig(({ mode }) => {
       fs: {
         allow: [
           searchForWorkspaceRoot(process.cwd()),
-          '../../../yarn-project/noir-protocol-circuits-types/artifacts',
-          '../../../noir/packages/noirc_abi/web',
-          '../../../noir/packages/acvm_js/web',
+          "../../../yarn-project/noir-protocol-circuits-types/artifacts",
+          "../../../noir/packages/noirc_abi/web",
+          "../../../noir/packages/acvm_js/web",
         ],
       },
     },
     plugins: [
       react(),
       nodePolyfillsFix({
-        include: ['buffer', 'path', 'process', 'net', 'tty'],
+        include: ["buffer", "path", "process", "net", "tty"],
       }),
     ],
-    // The default browser wallet backend (SQLite over OPFS) runs in a Web Worker.
-    // Vite bundles workers in a separate Rollup pass that does not inherit `plugins`,
-    // so the node-polyfill shim fix must be repeated here for the worker build to resolve.
-    worker: {
-      format: 'es',
-      plugins: () => [
-        nodePolyfillsFix({
-          include: ['buffer', 'path', 'process', 'net', 'tty'],
-        }),
-      ],
-    },
     define: {
-      'process.env': JSON.stringify({
+      "process.env": JSON.stringify({
         AZTEC_NODE_URL: env.AZTEC_NODE_URL,
       }),
     },
