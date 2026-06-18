@@ -67,7 +67,7 @@ export const telemetryClientConfigMappings: ConfigMappingsType<TelemetryClientCo
   otelBspMaxQueueSize: {
     env: 'OTEL_BSP_MAX_QUEUE_SIZE',
     description: 'The maximum number of completed spans to queue before export.',
-    ...numberConfigHelper(2048),
+    ...numberConfigHelper(16384),
   },
   otelIncludeMetrics: {
     env: 'OTEL_INCLUDE_METRICS',

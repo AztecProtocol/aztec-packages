@@ -33,9 +33,9 @@ output "kong_namespace" {
   value       = local.kong_namespace
 }
 
-output "sticky_session_policy_name" {
-  description = "KongUpstreamPolicy name for sticky sessions, or null when disabled."
-  value       = var.STICKY_SESSIONS_ENABLED ? local.sticky_session_policy_name : null
+output "upstream_policy_name" {
+  description = "KongUpstreamPolicy name for RPC upstream balancing, or null when disabled."
+  value       = local.upstream_policy_name
 }
 
 output "metrics_service_name" {
@@ -68,7 +68,7 @@ output "frontend_load_balancer_ip" {
   value       = local.frontend_load_balancer_ip
 }
 
-output "gcp_managed_certificate_name" {
-  description = "GKE ManagedCertificate resource name for RPC hosts."
-  value       = var.GCP_MANAGED_CERTIFICATE_ENABLED ? local.managed_certificate_name : null
+output "gcp_managed_certificate_names" {
+  description = "GKE ManagedCertificate resource names keyed by RPC host."
+  value       = var.GCP_MANAGED_CERTIFICATE_ENABLED ? local.managed_certificate_names : {}
 }
