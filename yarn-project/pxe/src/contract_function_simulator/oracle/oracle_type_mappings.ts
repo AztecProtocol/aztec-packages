@@ -393,17 +393,19 @@ export function MEMBERSHIP_WITNESS<N extends number>(_height: N): TypeMapping<Me
   };
 }
 
-export function ARRAY<T>(element: TypeMapping<T>): TypeMapping<T[]> {
+export function ARRAY<T>(inner: TypeMapping<T>): TypeMapping<T[]> & { kind: 'array'; inner: TypeMapping<T> } {
   return {
-    serialization: element.serialization
-      ? { fn: values => [values.flatMap(v => element.serialization!.fn(v).flat())] }
+    kind: 'array',
+    inner,
+    serialization: inner.serialization
+      ? { fn: values => [values.flatMap(v => inner.serialization!.fn(v).flat())] }
       : undefined,
-    deserialization: element.deserialization
+    deserialization: inner.deserialization
       ? {
           fn: ([reader]) => {
             const result: T[] = [];
             while (!reader.isFinished()) {
-              result.push(element.deserialization!.fn([reader]));
+              result.push(inner.deserialization!.fn([reader]));
             }
             return result;
           },
@@ -426,27 +428,31 @@ export function ARRAY<T>(element: TypeMapping<T>): TypeMapping<T[]> {
  * slot 1: Fr(2)                                  // actual length
  * ```
  */
-export function BOUNDED_VEC<T>(element: TypeMapping<T>): TypeMapping<BoundedVec<T>> {
+export function BOUNDED_VEC<T>(
+  inner: TypeMapping<T>,
+): TypeMapping<BoundedVec<T>> & { kind: 'bounded-vec'; inner: TypeMapping<T> } {
   return {
-    serialization: element.serialization
+    kind: 'bounded-vec',
+    inner,
+    serialization: inner.serialization
       ? {
           fn: bv => {
             if (bv.data.length > bv.maxLength) {
               throw new Error(`Got ${bv.data.length} items, but maxLength is ${bv.maxLength}`);
             }
-            const flat = bv.data.flatMap(item => element.serialization!.fn(item).flat());
+            const flat = bv.data.flatMap(item => inner.serialization!.fn(item).flat());
             return [padArrayEnd(flat, Fr.ZERO, bv.maxLength * bv.elementSize), new Fr(bv.data.length)];
           },
         }
       : undefined,
-    deserialization: element.deserialization
+    deserialization: inner.deserialization
       ? {
           fn: ([storageReader, lengthReader]) => {
             const maxLength = storageReader.remainingFields();
             const length = lengthReader.readField().toNumber();
             const elements: T[] = [];
             for (let i = 0; i < length; i++) {
-              elements.push(element.deserialization!.fn([storageReader]));
+              elements.push(inner.deserialization!.fn([storageReader]));
             }
             // Drain the trailing zero-padding (maxLength - length unused element slots) so the storage reader is
             // fully consumed.
@@ -475,8 +481,10 @@ export function BOUNDED_VEC<T>(element: TypeMapping<T>): TypeMapping<BoundedVec<
  * slot 1: Fr(0)    // zero-filled using shape
  * ```
  */
-export function OPTION<T>(inner: TypeMapping<T>): TypeMapping<Option<T>> {
+export function OPTION<T>(inner: TypeMapping<T>): TypeMapping<Option<T>> & { kind: 'option'; inner: TypeMapping<T> } {
   return {
+    kind: 'option',
+    inner,
     serialization: inner.serialization
       ? {
           fn: opt => {
