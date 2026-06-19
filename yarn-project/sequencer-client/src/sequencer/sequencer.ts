@@ -18,7 +18,11 @@ import type {
   ProposedCheckpointSink,
   ValidateCheckpointResult,
 } from '@aztec/stdlib/block';
-import type { Checkpoint, ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
+import {
+  type Checkpoint,
+  type ProposedCheckpointData,
+  buildCheckpointSimulationOverridesPlan,
+} from '@aztec/stdlib/checkpoint';
 import type { ChainConfig } from '@aztec/stdlib/config';
 import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import {
@@ -45,7 +49,6 @@ import { DefaultSequencerConfig } from '../config.js';
 import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import type { SequencerPublisherFactory } from '../publisher/sequencer-publisher-factory.js';
 import type { InvalidateCheckpointRequest, SequencerPublisher } from '../publisher/sequencer-publisher.js';
-import { buildCheckpointSimulationOverridesPlan } from './chain_state_overrides.js';
 import { CheckpointProposalJob } from './checkpoint_proposal_job.js';
 import { CheckpointProposalJobMetrics } from './checkpoint_proposal_job_metrics.js';
 import { CheckpointVoter } from './checkpoint_voter.js';
@@ -798,9 +801,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         number: syncSummary.latestBlockNumber,
         hash: syncSummary.latestBlockHash,
       })),
-      this.l2BlockSource
-        .getL2Tips()
-        .then(t => ({ proposed: t.proposed, checkpointed: t.checkpointed, proposedCheckpoint: t.proposedCheckpoint })),
+      this.l2BlockSource.getL2Tips().then(t => ({ proposed: t.proposed, checkpointed: t.checkpointed })),
       this.p2pClient.getStatus().then(p2p => p2p.syncedToL2Block),
       this.l1ToL2MessageSource.getL2Tips().then(t => ({ proposed: t.proposed, checkpointed: t.checkpointed })),
       this.l2BlockSource.getPendingChainValidationStatus(),
@@ -845,16 +846,17 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // matching proposed checkpoint (e.g. it crashed before assembling it). Building on this orphan block
     // would fork the chain off a tip no other node can follow. The archiver prunes these orphan blocks
     // once their build slot ends; this guard is the correctness barrier during the grace window before.
+    // `getProposedCheckpointData()` returns the latest proposed checkpoint payload, which is always
+    // the leading one (a proposed entry is only stored beyond the confirmed frontier and is deleted
+    // on confirmation). It carries no tip, so there is no tip-vs-payload split read to reconcile.
     if (
       blockData.checkpointNumber > l2Tips.checkpointed.checkpoint.number &&
-      (l2Tips.proposedCheckpoint.checkpoint.number !== blockData.checkpointNumber ||
-        proposedCheckpointData?.checkpointNumber !== blockData.checkpointNumber)
+      proposedCheckpointData?.checkpointNumber !== blockData.checkpointNumber
     ) {
       const logCtx = {
         blockCheckpointNumber: blockData.checkpointNumber,
         checkpointedCheckpointNumber: l2Tips.checkpointed.checkpoint.number,
-        proposedCheckpointTipNumber: l2Tips.proposedCheckpoint.checkpoint.number,
-        proposedCheckpointDataNumber: proposedCheckpointData?.checkpointNumber,
+        proposedCheckpointTipNumber: proposedCheckpointData?.checkpointNumber,
         blockNumber: blockData.header.getBlockNumber(),
         blockSlot: blockData.header.getSlot(),
         syncedL2Slot,
@@ -865,27 +867,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       return undefined;
     }
 
-    const hasProposedCheckpoint = l2Tips.proposedCheckpoint.checkpoint.number > l2Tips.checkpointed.checkpoint.number;
-
-    // The l2Tips and proposedCheckpointData reads above come from independent archiver snapshots
-    // (a JS-side tips cache vs. a direct store read on `#proposedCheckpoints`). A concurrent archiver
-    // write that mutates both can be observed split, leaving us with `hasProposedCheckpoint=true` but
-    // no proposedCheckpointData (or one whose number doesn't match the tip). Refuse to proceed in that
-    // window — the next checkSync tick will see a coherent snapshot.
-    if (
-      hasProposedCheckpoint &&
-      (!proposedCheckpointData ||
-        proposedCheckpointData.checkpointNumber !== l2Tips.proposedCheckpoint.checkpoint.number)
-    ) {
-      this.log.warn(`Sequencer sync check failed: inconsistent proposed-checkpoint state`, {
-        proposedCheckpointTipNumber: l2Tips.proposedCheckpoint.checkpoint.number,
-        checkpointedTipNumber: l2Tips.checkpointed.checkpoint.number,
-        proposedCheckpointDataNumber: proposedCheckpointData?.checkpointNumber,
-        syncedL2Slot,
-        ...args,
-      });
-      return undefined;
-    }
+    const hasProposedCheckpoint = proposedCheckpointData !== undefined;
 
     // Check that the proposed checkpoint is indeed the parent of the checkpoint we'll be building
     // The checkpoint number to build is derived as blockData.checkpointNumber + 1

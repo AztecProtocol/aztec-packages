@@ -14,7 +14,7 @@ import { timesAsync } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { sleep } from '@aztec/foundation/sleep';
+import { retryUntil } from '@aztec/foundation/retry';
 import type { SiblingPath } from '@aztec/foundation/trees';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { L2Block } from '@aztec/stdlib/block';
@@ -960,7 +960,9 @@ describe('NativeWorldState', () => {
       await ws.unwindBlocks(BlockNumber.fromBigInt(2n));
       await expect(delayedFork.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, 0n)).rejects.toThrow('Fork not found');
 
-      await sleep(closeDelayMs * 3);
+      // The failed read above can recreate the JS-side per-fork queue after the native fork has already been
+      // destroyed, so wait for the "Fork not found" path to clean it up deterministically.
+      await retryUntil(() => !(ws as any).instance.queues.has(forkId), 'destroyed fork queue cleanup', 30, 0.1);
 
       expect(warnSpy).not.toHaveBeenCalled();
       expect((ws as any).instance.queues.has(forkId)).toBe(false);

@@ -6,19 +6,15 @@ import {
   createNamespacedSafeJsonRpcServer,
   startHttpRpcServer,
 } from '@aztec/foundation/json-rpc/server';
-import {
-  AztecNodeAdminApiSchema,
-  AztecNodeApiSchema,
-  AztecNodeDebugApiSchema,
-  type ChainTips,
-} from '@aztec/stdlib/interfaces/client';
+import type { L2Tips } from '@aztec/stdlib/block';
+import { AztecNodeAdminApiSchema, AztecNodeApiSchema, AztecNodeDebugApiSchema } from '@aztec/stdlib/interfaces/client';
 import { P2PApiSchema } from '@aztec/stdlib/interfaces/server';
 import type { ApiSchemaFor } from '@aztec/stdlib/schemas';
 
 import { registerAztecNodeRpcHandlers } from './register_node_rpc_handlers.js';
 import type { AztecNodeService } from './server.js';
 
-type GetChainTipsOnly = { getChainTips(): Promise<ChainTips> };
+type GetChainTipsOnly = { getChainTips(): Promise<L2Tips> };
 
 const GetChainTipsOnlySchema: ApiSchemaFor<GetChainTipsOnly> = {
   getChainTips: AztecNodeApiSchema.getChainTips,
@@ -28,7 +24,7 @@ const p2p = {};
 
 const mockNode = {
   getP2P: () => p2p,
-  getChainTips(): Promise<ChainTips> {
+  getChainTips(): Promise<L2Tips> {
     const tipId = {
       block: { number: BlockNumber(1), hash: `0x01` },
       checkpoint: { number: CheckpointNumber(1), hash: `0x01` },
@@ -90,7 +86,7 @@ describe('registerAztecNodeRpcHandlers', () => {
       headers: { 'content-type': 'application/json' },
       body: jsonStringify({ jsonrpc: '2.0', id: 1, method: 'node_getChainTips', params: [] }),
     });
-    const body = (await response.json()) as { result: ChainTips };
+    const body = (await response.json()) as { result: L2Tips };
     expect(body.result).toEqual(expected);
 
     httpServer.close();

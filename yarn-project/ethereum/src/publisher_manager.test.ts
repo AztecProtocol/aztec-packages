@@ -126,6 +126,30 @@ describe('PublisherManager', () => {
       expect(result).toBe(mockPublishers[2]); // undefined (0n) is lowest
     });
 
+    it('should not select a publisher with zero balance', async () => {
+      // Publisher 1 is IDLE (best state) but unfunded; a funded publisher should win instead.
+      mockPublishers[0].state = TxUtilsState.MINED;
+      mockPublishers[0].balance = 1000n;
+
+      mockPublishers[1].state = TxUtilsState.IDLE;
+      mockPublishers[1].balance = 0n;
+
+      mockPublishers[2].state = TxUtilsState.MINED;
+      mockPublishers[2].balance = 1000n;
+
+      const result = await publisherManager.getAvailablePublisher();
+
+      expect(result).not.toBe(mockPublishers[1]);
+    });
+
+    it('falls back to zero-balance publishers when none are funded', async () => {
+      mockPublishers.forEach(p => (p.balance = 0n));
+
+      const result = await publisherManager.getAvailablePublisher();
+
+      expect(result).toBeDefined();
+    });
+
     it('should apply filter correctly', async () => {
       mockPublishers[0].state = TxUtilsState.IDLE;
       mockPublishers[1].state = TxUtilsState.MINED;
