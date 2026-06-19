@@ -973,19 +973,21 @@ describe('e2e_epochs/epochs_blob_unavailable_prune', () => {
     const sequencers = nodes.map(node => node.getSequencer()!);
 
     // Produce a couple of healthy checkpoints (valid attestations), then freeze the chain so the latest
-    // one stays canonical — no honest proposer will prune it, isolating the observer's recovery to the fix.
+    // one stays canonical — no honest proposer prunes it yet, isolating the observer's recovery to the fix.
+    // We halt by raising minTxsPerBlock (rather than stopping the sequencer, which closes its store and
+    // can't be cleanly restarted) so we can resume production later in the same test.
     const initial = (await nodes[0].getChainTips()).checkpointed.checkpoint.number;
     await Promise.all(sequencers.map(s => s.start()));
     await test.waitUntilCheckpointNumber(CheckpointNumber(initial + 2), test.L2_SLOT_DURATION_IN_S * 16);
-    await Promise.all(sequencers.map(s => s.stop()));
-
-    const badCheckpointNumber = (await nodes[0].getChainTips()).checkpointed.checkpoint.number;
-    logger.warn(`Froze chain at checkpoint ${badCheckpointNumber}`);
+    // Halt all production: require txs that never arrive AND disable forced empty checkpoints.
+    sequencers.forEach(s => s.updateConfig({ minTxsPerBlock: 100, buildCheckpointIfEmpty: false }));
+    await sleep(test.L2_SLOT_DURATION_IN_S * 1500); // let any in-flight checkpoint land before reading the tip
 
     // Withhold the latest checkpoint's blob from the shared store.
     const proposedEvents = await rollupContract.getCheckpointProposedEvents(1n, await l1Client.getBlockNumber());
-    const badEvent = proposedEvents.find(e => e.args.checkpointNumber === badCheckpointNumber);
-    expect(badEvent).toBeDefined();
+    const badEvent = proposedEvents.reduce((a, b) => (b.args.checkpointNumber > a.args.checkpointNumber ? b : a));
+    const badCheckpointNumber = badEvent.args.checkpointNumber;
+    logger.warn(`Froze chain at checkpoint ${badCheckpointNumber}`);
     const badL1Timestamp = (await l1Client.getBlock({ blockNumber: badEvent!.l1BlockNumber })).timestamp;
     // The file blob store namespaces blobs under `<root>/aztec-{chainId}-{version}-0x{rollup}/blobs`.
     const sharedRoot = join(test.context.config.dataDirectory!, 'shared-blobs');
@@ -1010,6 +1012,7 @@ describe('e2e_epochs/epochs_blob_unavailable_prune', () => {
 
     // It cannot get past the bad checkpoint while its epoch is still provable: the blob fetch throws every
     // iteration and the sync clock never advances (getL1Timestamp stays undefined).
+    logger.warn(`Waiting for obersver node to attempt sync...`);
     await sleep(test.L2_SLOT_DURATION_IN_S * 1000);
     const frozenTs = await observer.getSyncedL1Timestamp();
     logger.warn(`Observer sync clock before window expiry: ${frozenTs} (bad checkpoint L1 ts ${badL1Timestamp})`);
@@ -1029,6 +1032,26 @@ describe('e2e_epochs/epochs_blob_unavailable_prune', () => {
         return ts !== undefined && ts > badL1Timestamp;
       },
       'observer sync clock unfreezes once the bad checkpoint becomes prunable',
+      test.L2_SLOT_DURATION_IN_S * 12,
+      0.5,
+    );
+
+    // Resume production: the next proposer prunes the doomed unproven epoch on L1 (prune-on-propose, since
+    // its proof window has expired) and the chain rebuilds. Every node — validators and the observer that
+    // skipped the unfetchable checkpoint — must progress past it. This also implicitly asserts the prune
+    // happened: had the chain instead built on top of the bad checkpoint, the observer (which never
+    // ingested it) could not ingest any descendant, so it could never get past badCheckpointNumber.
+    logger.warn(`Resuming production to let the chain prune and rebuild`);
+    sequencers.forEach(s => s.updateConfig({ minTxsPerBlock: 0, buildCheckpointIfEmpty: true }));
+
+    const allNodes = [...nodes, observer];
+    await retryUntil(
+      async () => {
+        const tips = await Promise.all(allNodes.map(n => n.getChainTips().then(t => t.checkpointed.checkpoint.number)));
+        logger.info(`Node checkpoint tips: ${tips.join(', ')} (target > ${badCheckpointNumber})`);
+        return tips.every(n => n > badCheckpointNumber);
+      },
+      'chain prunes and every node (incl. the previously-stuck observer) progresses past the bad checkpoint',
       test.L2_SLOT_DURATION_IN_S * 12,
       0.5,
     );
