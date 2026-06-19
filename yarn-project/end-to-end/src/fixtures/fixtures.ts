@@ -109,6 +109,14 @@ export const TEST_PEER_CHECK_INTERVAL_MS = 1000;
 export const TEST_MAX_PENDING_TX_POOL_COUNT = 10_000; // Number of max pending TXs ~ 1.56GB
 
 export const MNEMONIC = 'test test test test test test test test test test test junk';
+
+// Mnemonic account index for tests that issue direct L1 writes (e.g. bridging fee juice) while a
+// sequencer is running. The deployer/sequencer publisher uses index 0, the prover index 2, and
+// validators index 3+. Test-side viem writes and the publisher's l1-tx-utils track nonces
+// independently, so sharing an account causes "replacement transaction underpriced" races; index 1
+// is otherwise unused, so issuing those writes from it keeps them off the publisher's nonce stream.
+export const L1_DIRECT_WRITE_ACCOUNT_INDEX = 1;
+
 export const privateKey = Buffer.from('ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80', 'hex');
 export const privateKey2 = Buffer.from('59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d', 'hex');
 

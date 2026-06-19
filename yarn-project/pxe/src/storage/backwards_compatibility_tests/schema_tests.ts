@@ -291,7 +291,10 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
       await l2TipsStore.handleBlockStreamEvent({
         type: 'chain-checkpointed',
         block: { number: BlockNumber(71), hash: new Fr(73n).toString() },
-        checkpoint: publishedCheckpoint,
+        checkpoint: {
+          number: publishedCheckpoint.checkpoint.number,
+          hash: publishedCheckpoint.checkpoint.hash().toString(),
+        },
       });
       // `'chain-proven'` writes the 'proven' tag. `'finalized'` is omitted because its handler runs delete-before
       // logic that would depend on the order of preceding events.
