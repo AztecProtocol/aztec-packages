@@ -12,6 +12,7 @@
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -65,9 +66,25 @@ class MpscConsumer {
     /**
      * @brief Wait for data on any ring
      * @param timeout_ns Total timeout in nanoseconds (spins 10ms, then futex waits for remainder)
-     * @return Ring index with data, or -1 on timeout
+     * @param also_ready Optional predicate; if it returns true the wait returns
+     *        early with -1 (no ring data, but the caller has other work). It is
+     *        evaluated inside the same doorbell-seq-latched window as the final
+     *        ring scan, so a notify() that bumps the doorbell seq just before the
+     *        futex_wait cannot be slept through.
+     * @return Ring index with data, or -1 on timeout / early predicate wake
      */
-    int wait_for_data(uint64_t timeout_ns);
+    int wait_for_data(uint64_t timeout_ns, const std::function<bool()>& also_ready = {});
+
+    /**
+     * @brief Wake the consumer blocked in wait_for_data, without delivering ring
+     * data.
+     *
+     * Bumps the doorbell seq (release) then futex_wakes it — identical to the
+     * doorbell ring in MpscProducer::publish. The seq bump is what makes a
+     * consumer that is mid-wait see a value change and return from futex_wait
+     * instead of sleeping; a bare futex_wake (as in wakeup_all) would race.
+     */
+    void notify();
 
     /**
      * @brief Peek data from specific ring

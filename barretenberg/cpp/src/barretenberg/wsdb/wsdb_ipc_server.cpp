@@ -1,5 +1,6 @@
 #include "barretenberg/wsdb/wsdb_ipc_server.hpp"
 #include "barretenberg/common/log.hpp"
+#include "barretenberg/common/thread_pool.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/world_state/world_state.hpp"
@@ -10,11 +11,14 @@
 #include "ipc_runtime/serve_helper.hpp"
 #include "ipc_runtime/signal_handlers.hpp"
 
+#include <algorithm>
 #include <cstdint>
+#include <functional>
 #include <iostream>
 #include <memory>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <unordered_map>
 #include <vector>
 
@@ -186,7 +190,11 @@ int execute_wsdb_server(const std::string& input_path,
     // lifecycle signal handlers (SIGTERM/SIGINT → request_shutdown, SIGBUS/SIGSEGV
     // → close+exit, plus parent-death monitoring via prctl/kqueue).
     ipc::ServerOptions opts;
-    opts.max_shm_clients = 2; // TS backend (client 0) + AVM binary (client 1)
+    // TS backend (client 0) + the AVM simulator pool (one connection per
+    // aztec-vm-sim process). Sized to cover a default-size pool with headroom so
+    // SHM isn't capped to a single AVM client. (UDS, the default transport, is
+    // unaffected — it admits connections via the listen backlog.)
+    opts.max_shm_clients = 8;
     opts.shm_request_ring_size = request_ring_size;
     opts.shm_response_ring_size = response_ring_size;
     auto server = ipc::make_server(input_path, opts);
@@ -205,9 +213,22 @@ int execute_wsdb_server(const std::string& input_path,
     std::cerr << "aztec-wsdb IPC server ready" << '\n';
 
     auto handler = make_wsdb_handler(request);
-    server->run([&handler](int /*client_id*/, std::span<const uint8_t> raw) {
-        return handler(std::vector<uint8_t>(raw.begin(), raw.end()));
-    });
+
+    // Dispatch pool: services requests concurrently so parallel reads aren't
+    // serialized through the single reactor thread. It is deliberately DISTINCT
+    // from WorldState's own intra-op pool (the `threads` arg above): mutating
+    // handlers enqueue subtasks onto that pool and wait() on them, so dispatching
+    // those handlers onto the SAME pool could deadlock (bb::ThreadPool is
+    // blocking and non-work-stealing). Idle worker threads just sleep, so
+    // oversizing is cheap; concurrency is bounded by in-flight requests.
+    uint32_t dispatch_threads = std::max<uint32_t>(4, std::thread::hardware_concurrency());
+    bb::ThreadPool dispatch_pool(dispatch_threads);
+
+    server->run_reactor(
+        [&handler](int /*client_id*/, std::span<const uint8_t> raw) {
+            return handler(std::vector<uint8_t>(raw.begin(), raw.end()));
+        },
+        [&dispatch_pool](const std::function<void()>& task) { dispatch_pool.enqueue(task); });
 
     server->close();
     return 0;

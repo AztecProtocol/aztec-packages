@@ -1,9 +1,14 @@
 #include "ipc_runtime/ipc_client.hpp"
 #include "ipc_runtime/ipc_server.hpp"
 #include <cerrno>
+#include <chrono>
+#include <condition_variable>
 #include <cstdint>
 #include <cstring>
+#include <functional>
 #include <gtest/gtest.h>
+#include <mutex>
+#include <queue>
 #include <span>
 #include <string>
 #include <sys/socket.h>
@@ -19,6 +24,115 @@ namespace {
 std::string test_socket_path(const char* tag)
 {
     return "/tmp/ipc_socket_test_" + std::string(tag) + "_" + std::to_string(getpid()) + ".sock";
+}
+
+// Minimal fixed-size thread pool used as a run_reactor() executor in tests.
+class TestPool {
+  public:
+    explicit TestPool(size_t n)
+    {
+        for (size_t i = 0; i < n; i++) {
+            workers_.emplace_back([this] { loop(); });
+        }
+    }
+    ~TestPool()
+    {
+        {
+            std::lock_guard<std::mutex> lock(m_);
+            stop_ = true;
+        }
+        cv_.notify_all();
+        for (auto& w : workers_) {
+            w.join();
+        }
+    }
+    TestPool(const TestPool&) = delete;
+    TestPool& operator=(const TestPool&) = delete;
+
+    void enqueue(std::function<void()> task)
+    {
+        {
+            std::lock_guard<std::mutex> lock(m_);
+            q_.push(std::move(task));
+        }
+        cv_.notify_one();
+    }
+
+  private:
+    void loop()
+    {
+        for (;;) {
+            std::function<void()> task;
+            {
+                std::unique_lock<std::mutex> lock(m_);
+                cv_.wait(lock, [this] { return stop_ || !q_.empty(); });
+                if (stop_ && q_.empty()) {
+                    return;
+                }
+                task = std::move(q_.front());
+                q_.pop();
+            }
+            task();
+        }
+    }
+
+    std::vector<std::thread> workers_;
+    std::queue<std::function<void()>> q_;
+    std::mutex m_;
+    std::condition_variable cv_;
+    bool stop_ = false;
+};
+
+// run_reactor() must (a) execute pipelined requests on one connection
+// concurrently across the pool, and (b) still deliver responses in
+// per-connection request order even when handlers complete out of order. The
+// handler sleeps LONGER for earlier indices, so completions arrive roughly
+// reversed — the reorder buffer has to hold them until each is next-in-sequence.
+TEST(SocketTest, ReactorPipelinedConcurrencyAndOrder)
+{
+    std::string path = test_socket_path("reactor");
+    auto server = IpcServer::create_socket(path, 4);
+    ASSERT_TRUE(server->listen());
+
+    constexpr uint32_t N = 16;
+    TestPool pool(8);
+
+    std::thread server_thread([&] {
+        server->run_reactor(
+            [](int, std::span<const uint8_t> req) {
+                uint32_t idx = 0;
+                std::memcpy(&idx, req.data(), sizeof(idx));
+                std::this_thread::sleep_for(std::chrono::milliseconds(20 + (N - idx)));
+                return std::vector<uint8_t>(req.begin(), req.end());
+            },
+            [&pool](const std::function<void()>& task) { pool.enqueue(task); });
+    });
+
+    auto client = IpcClient::create_socket(path);
+    ASSERT_TRUE(client->connect());
+
+    auto t0 = std::chrono::steady_clock::now();
+    for (uint32_t i = 0; i < N; i++) {
+        ASSERT_TRUE(client->send(&i, sizeof(i), 1'000'000'000ULL));
+    }
+    for (uint32_t i = 0; i < N; i++) {
+        auto resp = client->receive(5'000'000'000ULL);
+        ASSERT_EQ(resp.size(), sizeof(uint32_t));
+        uint32_t got = 0;
+        std::memcpy(&got, resp.data(), sizeof(got));
+        EXPECT_EQ(got, i) << "responses must arrive in per-connection request order";
+        client->release(resp.size());
+    }
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count();
+
+    // Serial execution would be the sum of all sleeps (~456ms). With 8 workers
+    // it should be a small multiple of the longest single sleep; allow headroom.
+    EXPECT_LT(ms, 250) << "pipelined requests did not execute concurrently (took " << ms << "ms)";
+
+    client->close();
+    server->request_shutdown();
+    server_thread.join();
+    server->close();
 }
 
 TEST(SocketTest, EchoRoundTrip)
