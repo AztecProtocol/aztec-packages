@@ -743,73 +743,6 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     );
   });
 
-  // A-1252: a checkpoint with invalid attestations is detected from L1 calldata *before* its blob is
-  // fetched (the honest node assertion below), so a malformed or withheld blob can no longer stall
-  // detection. End-to-end this keeps the chain live: the bad checkpoint is invalidated and a fresh node
-  // that cannot obtain its blob (no gossiped copy to promote, blob deleted from the shared store) still
-  // syncs past it instead of looping on a blob-fetch error.
-  it('detects an invalid-attestations checkpoint from calldata and syncs a fresh node past its withheld blob', async () => {
-    const sequencers = nodes.map(node => node.getSequencer()!);
-    const initialCheckpointNumber = (await nodes[0].getChainTips()).checkpointed.checkpoint.number;
-
-    // Subscribe on an already-running honest node so we reliably capture the detection event (a fresh
-    // observer would process the bad checkpoint during its initial sync, before we could subscribe).
-    const detected: CheckpointNumber[] = [];
-    const onInvalid = (e: {
-      validationResult: { valid: boolean; checkpoint: { checkpointNumber: CheckpointNumber } };
-    }) => detected.push(e.validationResult.checkpoint.checkpointNumber);
-    const honestArchiver = nodes[0].getBlockSource() as Archiver;
-    honestArchiver.events.on(L2BlockSourceEvents.InvalidAttestationsCheckpointDetected, onInvalid);
-
-    // All sequencers post one checkpoint with insufficient attestations, then revert to honest config so
-    // the chain recovers by invalidating it. minTxsPerBlock:0 keeps empty checkpoints flowing afterwards.
-    sequencers.forEach(s => s.updateConfig({ skipCollectingAttestations: true, minTxsPerBlock: 0 }));
-    test.monitor.once('checkpoint', ({ checkpointNumber }) => {
-      logger.warn(`Disabling attack after checkpoint ${checkpointNumber} has been mined`);
-      sequencers.forEach(s => s.updateConfig({ skipCollectingAttestations: false, minTxsPerBlock: 0 }));
-    });
-    await Promise.all(sequencers.map(s => s.start()));
-
-    // Wait for the bad checkpoint to be invalidated on L1 and confirm it really landed with < quorum.
-    const { checkpointNumber: badCheckpointNumber } = await awaitCheckpointInvalidationEvent();
-    expect(badCheckpointNumber).toBeGreaterThan(initialCheckpointNumber);
-    await assertCheckpointInsufficientAttestations(badCheckpointNumber);
-
-    // Withhold the bad checkpoint's blob from the shared store. Its proposed event is the first one for
-    // that number (the later re-mined valid checkpoint has different content, hence different blob hashes,
-    // so deleting the bad one's blobs leaves the recovered chain syncable).
-    const proposedEvents = await rollupContract.getCheckpointProposedEvents(1n, await l1Client.getBlockNumber());
-    const badEvent = proposedEvents.find(e => e.args.checkpointNumber === badCheckpointNumber);
-    expect(badEvent).toBeDefined();
-    const sharedBlobsDir = join(test.context.config.dataDirectory!, 'shared-blobs', 'blobs');
-    for (const hash of badEvent!.args.versionedBlobHashes) {
-      await rm(join(sharedBlobsDir, `0x${hash.toString('hex')}.data`), { force: true });
-    }
-    logger.warn(
-      `Withheld ${badEvent!.args.versionedBlobHashes.length} blob(s) for bad checkpoint ${badCheckpointNumber}`,
-    );
-
-    // Let the recovered chain advance past the bad slot so the observer has a healthy tip to reach.
-    await test.waitUntilCheckpointNumber(CheckpointNumber(badCheckpointNumber + 1), test.L2_SLOT_DURATION_IN_S * 12);
-
-    // Create a fresh observer AFTER the bad checkpoint was gossiped, so it has no proposed copy to promote
-    // and must rely on L1 calldata. Attestations are validated from calldata first, the checkpoint is rejected, and sync proceeds.
-    const observer = await test.createNonValidatorNode();
-    const honestTip = (await nodes[0].getChainTips()).checkpointed.checkpoint.number;
-    await retryUntil(
-      async () => (await observer.getChainTips()).checkpointed.checkpoint.number >= honestTip,
-      'observer syncs past the bad checkpoint without its withheld blob',
-      test.L2_SLOT_DURATION_IN_S * 12,
-      0.5,
-    );
-
-    // The bad checkpoint was detected from calldata (the path that gates the blob fetch).
-    expect(detected).toContain(badCheckpointNumber);
-
-    logger.warn(`Test succeeded '${expect.getState().currentTestName}'`);
-    honestArchiver.events.removeListener(L2BlockSourceEvents.InvalidAttestationsCheckpointDetected, onInvalid);
-  });
-
   // All tests but this one disable invalidation by committee. This test disables invalidation by proposer and
   // instead waits for a committee member to invalidate the block after several proposers not doing so.
   it('committee member invalidates a block if proposer does not come through', async () => {
@@ -917,6 +850,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
 // so the node skips it and its sync clock advances again. This fixture uses a short proof window and no
 // prover, so epochs become prunable shortly after they end.
 describe('e2e_epochs/epochs_blob_unavailable_prune', () => {
+  let context: EndToEndContext;
   let logger: Logger;
   let l1Client: ExtendedViemWalletClient;
   let rollupContract: RollupContract;
@@ -925,6 +859,9 @@ describe('e2e_epochs/epochs_blob_unavailable_prune', () => {
   let test: EpochsTestContext;
   let validators: (Operator & { privateKey: `0x${string}` })[];
   let nodes: AztecNodeService[];
+  let testContract: TestContract;
+  let from: AztecAddress;
+  let nullifierSeed = 0;
 
   beforeEach(async () => {
     validators = times(VALIDATOR_COUNT, i => {
@@ -945,22 +882,33 @@ describe('e2e_epochs/epochs_blob_unavailable_prune', () => {
       aztecProofSubmissionEpochs: 1,
       startProverNode: false,
       aztecTargetCommitteeSize: VALIDATOR_COUNT,
+      // Disable all invalidation by default so a bad checkpoint stays canonical while we test it; the
+      // invalid-attestations test re-enables proposer invalidation only for its recovery phase.
       secondsBeforeInvalidatingBlockAsCommitteeMember: Number.MAX_SAFE_INTEGER,
+      secondsBeforeInvalidatingBlockAsNonCommitteeMember: Number.MAX_SAFE_INTEGER,
+      skipInvalidateBlockAsProposer: true,
       archiverPollingIntervalMS: 200,
       anvilAccounts: 20,
       anvilPort: BASE_ANVIL_PORT + ++portOffset,
-      minTxsPerBlock: 0,
+      // Require a tx to build a checkpoint and never build empty ones, so checkpoint production is driven
+      // deterministically by sending txs — we control exactly which checkpoint is "bad" and the chain stays
+      // frozen on it once we stop. This avoids racing sequencer-config changes against streaming empties.
+      minTxsPerBlock: 1,
       maxTxsPerBlock: 1,
+      buildCheckpointIfEmpty: false,
       skipInitialSequencer: true,
     });
 
-    ({ logger, l1Client } = test);
+    ({ context, logger, l1Client } = test);
     rollupContract = new RollupContract(l1Client, test.rollup.address);
+    from = context.accounts[0]; // auto-created by setup
+    nullifierSeed = 0;
 
     const validatorNodes = validators.slice(0, NODE_COUNT);
     nodes = await asyncMap(validatorNodes, ({ privateKey }) =>
-      test.createValidatorNode([privateKey], { dontStartSequencer: true, minTxsPerBlock: 0 }),
+      test.createValidatorNode([privateKey], { dontStartSequencer: true, minTxsPerBlock: 1, maxTxsPerBlock: 1 }),
     );
+    testContract = await test.registerTestContract(context.wallet);
     logger.warn(`Started ${NODE_COUNT} validator nodes.`);
   });
 
@@ -969,19 +917,130 @@ describe('e2e_epochs/epochs_blob_unavailable_prune', () => {
     await test.teardown();
   });
 
+  // Feed one tx and wait for exactly one new checkpoint to land. With empty checkpoints disabled and
+  // maxTxsPerBlock 1, a single tx produces a single checkpoint, then production halts (chain frozen).
+  const produceCheckpoint = async () => {
+    const start = (await nodes[0].getChainTips()).checkpointed.checkpoint.number;
+    void testContract.methods
+      .emit_nullifier(BigInt(++nullifierSeed))
+      .send({ from, wait: NO_WAIT })
+      .catch(() => {});
+    await test.waitUntilCheckpointNumber(CheckpointNumber(start + 1), test.L2_SLOT_DURATION_IN_S * 10);
+  };
+
+  // Keep feeding txs until nodes[0] reaches `target` (used to resume production and rebuild after a prune).
+  const driveToCheckpoint = (target: CheckpointNumber, timeoutSlots = 16) =>
+    retryUntil(
+      async () => {
+        const tip = (await nodes[0].getChainTips()).checkpointed.checkpoint.number;
+        if (tip >= target) {
+          return true;
+        }
+        void testContract.methods
+          .emit_nullifier(BigInt(++nullifierSeed))
+          .send({ from, wait: NO_WAIT })
+          .catch(() => {});
+        return false;
+      },
+      `drive chain to checkpoint ${target}`,
+      test.L2_SLOT_DURATION_IN_S * timeoutSlots,
+      2,
+    );
+
+  it('rejects a canonical invalid-attestations checkpoint from calldata without its blob', async () => {
+    const sequencers = nodes.map(node => node.getSequencer()!);
+
+    // Make every proposer skip collecting attestations BEFORE they start, so the first checkpoint they
+    // produce deterministically lands with insufficient attestations (setting it just before a specific
+    // checkpoint is racy under pipelining — the proposer may have already locked the prior config). We
+    // then feed exactly one tx to produce that one bad checkpoint and stop, so it stays the canonical tip
+    // (invalidation is disabled fixture-wide). Keeping it canonical is the whole point — it forces the
+    // observer down the attestation-from-calldata path rather than the archive-mismatch filter, which only
+    // drops checkpoints that are no longer canonical (e.g. already invalidated/replaced).
+    // Disable every invalidation path on the sequencers too (the fixture-level settings do not all
+    // propagate to the running sequencer), otherwise proposers thrash — invalidating and re-proposing the
+    // bad checkpoint every slot — instead of leaving it canonical.
+    sequencers.forEach(s =>
+      s.updateConfig({
+        skipCollectingAttestations: true,
+        skipInvalidateBlockAsProposer: true,
+        secondsBeforeInvalidatingBlockAsCommitteeMember: Number.MAX_SAFE_INTEGER,
+        secondsBeforeInvalidatingBlockAsNonCommitteeMember: Number.MAX_SAFE_INTEGER,
+      }),
+    );
+    await Promise.all(sequencers.map(s => s.start()));
+    await produceCheckpoint();
+
+    const proposedEvents = await rollupContract.getCheckpointProposedEvents(1n, await l1Client.getBlockNumber());
+    const badEvent = proposedEvents.reduce((a, b) => (b.args.checkpointNumber > a.args.checkpointNumber ? b : a));
+    const badCheckpointNumber = badEvent.args.checkpointNumber;
+    const badL1Timestamp = (await l1Client.getBlock({ blockNumber: badEvent.l1BlockNumber })).timestamp;
+    logger.warn(`Froze chain on invalid-attestations checkpoint ${badCheckpointNumber}`);
+
+    // Withhold its blob from the shared store (see the prune test for the namespaced path layout).
+    const sharedRoot = join(test.context.config.dataDirectory!, 'shared-blobs');
+    const namespaceDir = (await readdir(sharedRoot)).find(e => e.startsWith('aztec-'));
+    expect(namespaceDir).toBeDefined();
+    const blobsDir = join(sharedRoot, namespaceDir!, 'blobs');
+    const targetNames = badEvent.args.versionedBlobHashes.map(h => `0x${h.toString('hex')}.data`);
+    const before = await readdir(blobsDir);
+    for (const name of targetNames) {
+      expect(before).toContain(name);
+      await rm(join(blobsDir, name), { force: true });
+    }
+    logger.warn(`Withheld ${targetNames.length} blob(s) for checkpoint ${badCheckpointNumber}`);
+
+    // Late observer (started after the bad checkpoint was gossiped, so it has no proposed copy to promote)
+    // that also never promotes, forcing it to rely on L1. It must rely on the attestation check, not the
+    // archive-mismatch filter: that filter only drops checkpoints that are no longer canonical, and we have
+    // kept this one canonical (no invalidation). Its sync clock advancing past the checkpoint — while its
+    // blob is withheld — proves it rejected from calldata without fetching the blob; without the
+    // calldata-first ordering it would throw on the missing blob and its clock would stay frozen.
+    const observer = await test.createNonValidatorNode({
+      skipArchiverInitialSync: true,
+      skipPromoteProposedCheckpointDuringL1Sync: true,
+    });
+    await retryUntil(
+      async () => {
+        const ts = await observer.getSyncedL1Timestamp();
+        return ts !== undefined && ts >= badL1Timestamp;
+      },
+      'observer sync clock advances past the canonical invalid-attestations checkpoint without its blob',
+      test.L2_SLOT_DURATION_IN_S * 8,
+      0.5,
+    );
+
+    // Resume honest production AND re-enable proposer invalidation: a proposer invalidates the bad
+    // checkpoint and the chain rebuilds; every node — validators and the observer — progresses past it.
+    logger.warn(`Resuming honest production to let the chain invalidate and rebuild`);
+    sequencers.forEach(s =>
+      s.updateConfig({ skipCollectingAttestations: false, skipInvalidateBlockAsProposer: false }),
+    );
+    await driveToCheckpoint(CheckpointNumber(badCheckpointNumber + 1), 20);
+    const allNodes = [...nodes, observer];
+    await retryUntil(
+      async () => {
+        const tips = await Promise.all(allNodes.map(n => n.getChainTips().then(t => t.checkpointed.checkpoint.number)));
+        logger.info(`Node checkpoint tips: ${tips.join(', ')} (target > ${badCheckpointNumber})`);
+        return tips.every(n => n > badCheckpointNumber);
+      },
+      'chain invalidates the bad checkpoint and every node (incl. the observer) progresses past it',
+      test.L2_SLOT_DURATION_IN_S * 12,
+      0.5,
+    );
+
+    logger.warn(`Test succeeded '${expect.getState().currentTestName}'`);
+  });
+
   it('skips a checkpoint with an unfetchable blob once its epoch can be pruned, unfreezing the sync clock', async () => {
     const sequencers = nodes.map(node => node.getSequencer()!);
 
-    // Produce a couple of healthy checkpoints (valid attestations), then freeze the chain so the latest
-    // one stays canonical — no honest proposer prunes it yet, isolating the observer's recovery to the fix.
-    // We halt by raising minTxsPerBlock (rather than stopping the sequencer, which closes its store and
-    // can't be cleanly restarted) so we can resume production later in the same test.
-    const initial = (await nodes[0].getChainTips()).checkpointed.checkpoint.number;
+    // Produce a couple of healthy checkpoints (valid attestations) by feeding txs, then stop feeding them.
+    // With empty checkpoints disabled, production halts and the latest checkpoint stays canonical — no
+    // honest proposer prunes it yet, isolating the observer's recovery to the fix.
     await Promise.all(sequencers.map(s => s.start()));
-    await test.waitUntilCheckpointNumber(CheckpointNumber(initial + 2), test.L2_SLOT_DURATION_IN_S * 16);
-    // Halt all production: require txs that never arrive AND disable forced empty checkpoints.
-    sequencers.forEach(s => s.updateConfig({ minTxsPerBlock: 100, buildCheckpointIfEmpty: false }));
-    await sleep(test.L2_SLOT_DURATION_IN_S * 1500); // let any in-flight checkpoint land before reading the tip
+    await produceCheckpoint();
+    await produceCheckpoint();
 
     // Withhold the latest checkpoint's blob from the shared store.
     const proposedEvents = await rollupContract.getCheckpointProposedEvents(1n, await l1Client.getBlockNumber());
@@ -1042,7 +1101,7 @@ describe('e2e_epochs/epochs_blob_unavailable_prune', () => {
     // happened: had the chain instead built on top of the bad checkpoint, the observer (which never
     // ingested it) could not ingest any descendant, so it could never get past badCheckpointNumber.
     logger.warn(`Resuming production to let the chain prune and rebuild`);
-    sequencers.forEach(s => s.updateConfig({ minTxsPerBlock: 0, buildCheckpointIfEmpty: true }));
+    await driveToCheckpoint(CheckpointNumber(badCheckpointNumber + 1), 20);
 
     const allNodes = [...nodes, observer];
     await retryUntil(
