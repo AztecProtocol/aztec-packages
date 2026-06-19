@@ -8,10 +8,10 @@ import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 
 import { jest } from '@jest/globals';
 
-import { sendL1ToL2Message } from '../fixtures/l1_to_l2_messaging.js';
-import type { EndToEndContext } from '../fixtures/utils.js';
-import { waitForProvenBlock } from '../fixtures/wait_helpers.js';
-import { MultiNodeTestContext } from './multi_node_test_context.js';
+import { sendL1ToL2Message } from '../../fixtures/l1_to_l2_messaging.js';
+import type { EndToEndContext } from '../../fixtures/utils.js';
+import { waitForProvenBlock } from '../../fixtures/wait_helpers.js';
+import { SingleNodeTestContext } from '../single_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 10);
 
@@ -22,18 +22,18 @@ jest.setTimeout(1000 * 60 * 10);
 // a message that was added to the L1-to-L2 message tree in the same block — the prover reverts the tx while
 // the sequencer processes it successfully.
 //
-// MultiNodeTestContext: 1 node + fake prover, prod-seq, interval mining. Timing: all defaults (ethSlot=8s/12s
+// SingleNodeTestContext: 1 node + fake prover, prod-seq, interval mining. Timing: all defaults (ethSlot=8s/12s
 // CI, aztecSlot=16s/24s, epoch=6, proofSubmissionEpochs=1), minTxsPerBlock=1 (v5: the disableAnvilTestWatcher
 // override was removed). Cross-chain: writes to L1 Inbox (sendL1ToL2Message), then claims the message in a
 // public L2 function.
-describe('multi-node/proof_public_cross_chain', () => {
+describe('multi-node/single-node/proof_public_cross_chain', () => {
   let context: EndToEndContext;
   let logger: Logger;
 
-  let test: MultiNodeTestContext;
+  let test: SingleNodeTestContext;
 
   beforeEach(async () => {
-    test = await MultiNodeTestContext.setup({
+    test = await SingleNodeTestContext.setup({
       numberOfAccounts: 1,
       minTxsPerBlock: 1,
       sequencerPublisherAllowInvalidStates: true,

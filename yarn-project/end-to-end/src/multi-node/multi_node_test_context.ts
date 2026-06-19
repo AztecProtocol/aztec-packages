@@ -21,6 +21,7 @@ export {
   WORLD_STATE_BLOCK_CHECK_INTERVAL,
   ARCHIVER_POLL_INTERVAL,
   DEFAULT_L1_BLOCK_TIME,
+  FAST_REORG_TIMING,
   type TrackedSequencerEvent,
   type SingleNodeTestOpts,
 } from './single_node_test_context.js';
@@ -58,21 +59,6 @@ export const MOCK_GOSSIP_MULTI_VALIDATOR_OPTS = {
   startProverNode: false,
   aztecProofSubmissionEpochs: 1024,
   numberOfAccounts: 0,
-} as const;
-
-/**
- * Timing-only profile shared by the fast L1-reorg tests (the six `optimistic_proving` reorg blocks,
- * `l1_reorgs`, and adjacent prune/equivocation timings). Intentionally excludes `maxSpeedUpAttempts`,
- * `cancelTxOnTimeout`, and `aztecProofSubmissionEpochs` — those encode per-test scenario intent and
- * stay explicit. `aztecEpochDuration` is included as the common value of 4; tests that need a
- * different epoch length (e.g. 8) override it after the spread.
- */
-export const FAST_REORG_TIMING = {
-  ethereumSlotDuration: 4,
-  aztecSlotDuration: 36,
-  blockDurationMs: 8000,
-  aztecEpochDuration: 4,
-  anvilSlotsInAnEpoch: 32,
 } as const;
 
 /** The per-offense penalty knobs a slashing test tunes; all default to a single `unit`. */

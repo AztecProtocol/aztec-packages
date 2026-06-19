@@ -23,21 +23,21 @@ import { jest } from '@jest/globals';
 import 'jest-extended';
 import { keccak256, parseTransaction } from 'viem';
 
-import { sendL1ToL2Message } from '../fixtures/l1_to_l2_messaging.js';
-import type { EndToEndContext } from '../fixtures/utils.js';
-import { waitForNodeCheckpoint, waitForNodeProvenCheckpoint } from '../fixtures/wait_helpers.js';
-import { waitForL1ToL2MessageSeen } from '../shared/wait_for_l1_to_l2_message.js';
-import { proveInteraction } from '../test-wallet/utils.js';
-import { MultiNodeTestContext } from './multi_node_test_context.js';
+import { sendL1ToL2Message } from '../../fixtures/l1_to_l2_messaging.js';
+import type { EndToEndContext } from '../../fixtures/utils.js';
+import { waitForNodeCheckpoint, waitForNodeProvenCheckpoint } from '../../fixtures/wait_helpers.js';
+import { waitForL1ToL2MessageSeen } from '../../shared/wait_for_l1_to_l2_message.js';
+import { proveInteraction } from '../../test-wallet/utils.js';
+import { FAST_REORG_TIMING, SingleNodeTestContext } from '../single_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 20);
 
 // Single-node + prover-node suite exercising L1 reorg behavior for both block data and L1→L2
 // messages. Uses EthCheatCodes reorg/reorgWithReplacement to remove or insert L1 transactions
 // and verifies the archiver and node prune/restore their views accordingly. Prover and sequencer
-// delayers intercept L1 txs to enable controlled reorg scenarios. Uses MultiNodeTestContext defaults
+// delayers intercept L1 txs to enable controlled reorg scenarios. Uses SingleNodeTestContext defaults
 // (single initial sequencer, fake prover, no mock gossip); actively drives L1 via cheatcodes.
-describe('multi-node/l1_reorgs', () => {
+describe('multi-node/single-node/l1_reorgs', () => {
   let context: EndToEndContext;
   let logger: Logger;
   let node: AztecNode;
@@ -49,7 +49,7 @@ describe('multi-node/l1_reorgs', () => {
   let L1_BLOCK_TIME_IN_S: number;
   let L2_SLOT_DURATION_IN_S: number;
 
-  let test: MultiNodeTestContext;
+  let test: SingleNodeTestContext;
   let contract: TestContract;
   let from: AztecAddress;
 
@@ -68,22 +68,16 @@ describe('multi-node/l1_reorgs', () => {
   };
 
   beforeEach(async () => {
-    test = await MultiNodeTestContext.setup({
+    test = await SingleNodeTestContext.setup({
+      ...FAST_REORG_TIMING, // ethSlot=4s, aztecSlot=36s, block=8s, epoch=4, 32 slots/epoch (mainnet)
       numberOfAccounts: 1,
       maxSpeedUpAttempts: 0, // Do not speed up l1 txs, we dont want them to land
       cancelTxOnTimeout: false,
-      aztecEpochDuration: 4,
-      ethereumSlotDuration: 4,
-      aztecSlotDuration: 36,
-      blockDurationMs: 8000,
       minTxsPerBlock: 0,
       maxTxsPerBlock: 1,
       aztecProofSubmissionEpochs: 1,
-      // Use 32 slots/epoch (matching real Ethereum mainnet)
-      anvilSlotsInAnEpoch: 32,
       // Pipelining + multi-blocks-per-slot: 8s blocks fit ~4 blocks per 36s slot, and TX_COUNT=8
       // ensures multiple checkpoints have multiple blocks
-      inboxLag: 2,
     });
     ({ proverDelayer, sequencerDelayer, context, logger, monitor, L1_BLOCK_TIME_IN_S, L2_SLOT_DURATION_IN_S } = test);
     node = context.aztecNode;

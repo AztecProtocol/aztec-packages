@@ -78,6 +78,21 @@ export type TrackedSequencerEvent = {
 }[keyof SequencerEvents];
 
 /**
+ * Timing-only profile shared by the fast L1-reorg tests (the six `optimistic_proving` reorg blocks,
+ * `l1_reorgs`, and adjacent prune/equivocation timings). Intentionally excludes `maxSpeedUpAttempts`,
+ * `cancelTxOnTimeout`, and `aztecProofSubmissionEpochs` — those encode per-test scenario intent and
+ * stay explicit. `aztecEpochDuration` is included as the common value of 4; tests that need a
+ * different epoch length (e.g. 8) override it after the spread.
+ */
+export const FAST_REORG_TIMING = {
+  ethereumSlotDuration: 4,
+  aztecSlotDuration: 36,
+  blockDurationMs: 8000,
+  aztecEpochDuration: 4,
+  anvilSlotsInAnEpoch: 32,
+} as const;
+
+/**
  * Base class for the prod-sequencer single-node test topology: one node running the production
  * sequencer with fast block times and short epochs, an optional fake-proof prover node, and the
  * environment it runs in (in-proc anvil + L1 deploy). Owns node spawning
