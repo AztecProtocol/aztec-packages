@@ -66,4 +66,11 @@ export class Option<T> {
   isNone(): this is Option<T> & { value: undefined } {
     return this.value === undefined;
   }
+
+  equals(other: Option<T>, innerEquals: (a: T, b: T) => boolean): boolean {
+    if (this.isSome() && other.isSome()) {
+      return innerEquals(this.value, other.value);
+    }
+    return this.isNone() && other.isNone();
+  }
 }
