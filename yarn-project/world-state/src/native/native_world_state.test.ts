@@ -960,10 +960,9 @@ describe('NativeWorldState', () => {
       await ws.unwindBlocks(BlockNumber.fromBigInt(2n));
       await expect(delayedFork.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, 0n)).rejects.toThrow('Fork not found');
 
-      // The delayed close fires after closeDelayMs and then asynchronously deletes the per-fork queue entry
-      // once its DELETE_FORK round-trip settles. Under a loaded CI grind that cleanup can take longer than a
-      // fixed sleep, so wait for it deterministically instead of racing closeDelayMs * 3.
-      await retryUntil(() => !(ws as any).instance.queues.has(forkId), 'delayed-close fork queue cleanup', 30, 0.1);
+      // The failed read above can recreate the JS-side per-fork queue after the native fork has already been
+      // destroyed, so wait for the "Fork not found" path to clean it up deterministically.
+      await retryUntil(() => !(ws as any).instance.queues.has(forkId), 'destroyed fork queue cleanup', 30, 0.1);
 
       expect(warnSpy).not.toHaveBeenCalled();
       expect((ws as any).instance.queues.has(forkId)).toBe(false);

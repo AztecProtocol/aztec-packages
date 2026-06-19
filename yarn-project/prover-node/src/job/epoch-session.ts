@@ -347,7 +347,7 @@ export class EpochSession implements Traceable {
           { uuid: this.uuid, ...this.spec },
         );
         this.state = 'completed';
-        this.deps.metrics.recordProvingJob(timer.ms(), timer.ms(), checkpointCount, epochSizeBlocks, epochSizeTxs);
+        this.deps.metrics.recordProvingJob(timer.ms(), checkpointCount, epochSizeBlocks, epochSizeTxs);
         return;
       case 'superseded':
         this.log.info(`EpochSession ${this.uuid} superseded by a longer candidate`, {
