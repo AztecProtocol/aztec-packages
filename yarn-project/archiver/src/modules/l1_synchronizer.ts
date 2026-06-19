@@ -1,4 +1,5 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
+import { BlobDeserializationError } from '@aztec/blob-lib';
 import { EpochCache } from '@aztec/epoch-cache';
 import { InboxContract, type InboxContractState, RollupContract } from '@aztec/ethereum/contracts';
 import type { L1BlockId } from '@aztec/ethereum/l1-types';
@@ -29,7 +30,7 @@ import { computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import type { CoordinationSignatureContext } from '@aztec/stdlib/p2p';
 import { type Traceable, type Tracer, execInSpan, trackSpan } from '@aztec/telemetry-client';
 
-import { InitialCheckpointNumberNotSequentialError } from '../errors.js';
+import { InitialCheckpointNumberNotSequentialError, NoBlobBodiesFoundError } from '../errors.js';
 import {
   type RetrievedCheckpointFromCalldata,
   getCheckpointBlobDataFromBlobs,
@@ -58,6 +59,15 @@ type RollupStatus = {
   /** Last checkpoint observed on L1 across both valid and rejected entries on this iteration */
   lastSeenCheckpoint?: { checkpointNumber: CheckpointNumber; l1: L1PublishedData };
 };
+
+/**
+ * Outcome of fetching and building a single checkpoint from its blobs. A blob that is missing or
+ * undecodable yields a `blobError` sentinel instead of rejecting the whole fetch pool, so the caller
+ * can decide in checkpoint order whether the failure is fatal. See A-1252 (rows 4/5).
+ */
+type BlobFetchOutcome =
+  | { checkpoint: RetrievedCheckpointFromCalldata; published: PublishedCheckpoint }
+  | { checkpoint: RetrievedCheckpointFromCalldata; blobError: NoBlobBodiesFoundError | BlobDeserializationError };
 
 /**
  * Handles L1 synchronization for the archiver.
@@ -195,7 +205,12 @@ export class ArchiverL1Synchronizer implements Traceable {
     if (currentL1BlockNumber > blocksSynchedTo) {
       // First we retrieve new checkpoints and L2 blocks and store them in the DB. This will also update the
       // pending chain validation status, proven checkpoint number, and synched L1 block number.
-      const rollupStatus = await this.handleCheckpoints(blocksSynchedTo, currentL1BlockNumber, initialSyncComplete);
+      const rollupStatus = await this.handleCheckpoints(
+        blocksSynchedTo,
+        currentL1BlockNumber,
+        currentL1Timestamp,
+        initialSyncComplete,
+      );
 
       // Then we try pruning uncheckpointed blocks if a new slot was mined without checkpoints
       await this.pruneUncheckpointedBlocks(currentL1Timestamp);
@@ -620,6 +635,7 @@ export class ArchiverL1Synchronizer implements Traceable {
   private async handleCheckpoints(
     blocksSynchedTo: bigint,
     currentL1BlockNumber: bigint,
+    currentL1Timestamp: bigint,
     initialSyncComplete: boolean,
   ): Promise<RollupStatus> {
     const localPendingCheckpointNumber = await this.stores.blocks.getLatestCheckpointNumber();
@@ -846,7 +862,7 @@ export class ArchiverL1Synchronizer implements Traceable {
       // blobs, so a malformed blob can no longer throw during decode before the rejection path runs and
       // stall sync. See A-1252. The signed consensus payload (header, archive root, fee asset price
       // modifier) is fully available from calldata.
-      const checkpointsToIngest: RetrievedCheckpointFromCalldata[] = [];
+      let checkpointsToIngest: RetrievedCheckpointFromCalldata[] = [];
 
       for (const calldataCheckpoint of calldataCheckpoints) {
         // Check the attestations uploaded by the publisher to L1 are correct.
@@ -967,10 +983,13 @@ export class ArchiverL1Synchronizer implements Traceable {
       const toFetchBlobs = checkpointToPromote
         ? checkpointsToIngest.filter(c => c.checkpointNumber !== checkpointToPromote.checkpoint.number)
         : checkpointsToIngest;
-      const blobFetched = await asyncPool(10, toFetchBlobs, async checkpoint =>
-        retrievedToPublishedCheckpoint({
-          ...checkpoint,
-          checkpointBlobData: await getCheckpointBlobDataFromBlobs(
+
+      // Fetch blobs concurrently, but tolerate per-checkpoint blob failures instead of rejecting the whole
+      // pool: a missing/undecodable blob yields a sentinel so we can decide, in checkpoint order, whether it
+      // is fatal.
+      const blobResults = await asyncPool(10, toFetchBlobs, async (checkpoint): Promise<BlobFetchOutcome> => {
+        try {
+          const checkpointBlobData = await getCheckpointBlobDataFromBlobs(
             this.blobClient,
             checkpoint.l1.blockHash,
             checkpoint.blobHashes,
@@ -979,13 +998,60 @@ export class ArchiverL1Synchronizer implements Traceable {
             !initialSyncComplete,
             checkpoint.parentBeaconBlockRoot,
             checkpoint.l1.timestamp,
-          ),
-        }),
-      );
+          );
+          return { checkpoint, published: await retrievedToPublishedCheckpoint({ ...checkpoint, checkpointBlobData }) };
+        } catch (err) {
+          if (err instanceof NoBlobBodiesFoundError || err instanceof BlobDeserializationError) {
+            return { checkpoint, blobError: err };
+          }
+          throw err;
+        }
+      });
 
-      // Index the built checkpoints by number so we can ingest them in calldata order, slotting in the
-      // promoted checkpoint (built from a local proposed block rather than blobs).
-      const publishedByNumber = new Map(blobFetched.map(published => [published.checkpoint.number, published]));
+      // A blob fetch/decode failure is only fatal while the checkpoint's epoch can still be proven. Once the
+      // proof-submission window has expired (the rollup can prune on the next L1 block), the checkpoint is
+      // destined for pruning, so we stop treating it as fatal: we skip it (and every later checkpoint) and
+      // let the epoch-prune recovery proceed. Otherwise a single bribed-committee checkpoint with a withheld
+      // blob would freeze the sync clock and halt every honest proposer, preventing the prune. See A-1252.
+      const firstBlobFailure = blobResults
+        .flatMap(r => ('blobError' in r ? [r] : []))
+        .sort((a, b) => a.checkpoint.checkpointNumber - b.checkpoint.checkpointNumber)[0];
+
+      let stopAfterBatch = false;
+      if (firstBlobFailure) {
+        const failedNumber = firstBlobFailure.checkpoint.checkpointNumber;
+        if (!(await this.canPrune(currentL1BlockNumber, currentL1Timestamp))) {
+          // The checkpoint is canonical and may still be proven, so the blob must eventually become
+          // available. Rethrow to retry on the next iteration (preserving the pre-A-1252 behavior).
+          this.log.error(
+            `Failed to fetch blob for checkpoint ${failedNumber} whose epoch can still be proven; will retry`,
+            { checkpointNumber: failedNumber, l1BlockNumber: firstBlobFailure.checkpoint.l1.blockNumber },
+          );
+          throw firstBlobFailure.blobError;
+        }
+
+        this.log.warn(
+          `Skipping checkpoint ${failedNumber} and any later checkpoints this iteration due to an unfetchable ` +
+            `blob in a prunable epoch; deferring to epoch-prune recovery`,
+          {
+            checkpointNumber: failedNumber,
+            l1BlockNumber: firstBlobFailure.checkpoint.l1.blockNumber,
+            reason: firstBlobFailure.blobError.message,
+          },
+        );
+
+        // Drop the failed checkpoint and every later one in this batch from ingestion (they belong to the
+        // doomed unproven epoch), and stop the batch loop so we do not pull in still-later checkpoints.
+        checkpointsToIngest = checkpointsToIngest.filter(c => c.checkpointNumber < failedNumber);
+        stopAfterBatch = true;
+      }
+
+      // Index the successfully-built checkpoints by number so we can ingest them in calldata order, slotting
+      // in the promoted checkpoint (built from a local proposed block rather than blobs).
+      const publishedCheckpoints = blobResults.flatMap(r => ('published' in r ? [r.published] : []));
+      const publishedByNumber = new Map(
+        publishedCheckpoints.map(published => [published.checkpoint.number, published]),
+      );
       if (checkpointToPromote) {
         publishedByNumber.set(checkpointToPromote.checkpoint.number, checkpointToPromote);
       }
@@ -1132,6 +1198,11 @@ export class ArchiverL1Synchronizer implements Traceable {
         checkpointNumber: lastCalldataCheckpoint.checkpointNumber,
         l1: lastCalldataCheckpoint.l1,
       };
+
+      // A prunable blob failure means every later checkpoint is in the doomed epoch; stop fetching them.
+      if (stopAfterBatch) {
+        break;
+      }
     } while (searchEndBlock < currentL1BlockNumber);
 
     // Important that we update AFTER inserting the blocks.

@@ -992,6 +992,123 @@ describe('Archiver Sync', () => {
         expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
       }
     }, 20_000);
+
+    it('throws on a malformed blob with valid attestations while the epoch can still be proven', async () => {
+      // A-1252 rows 4/5 boundary: a checkpoint with VALID attestations but an unfetchable/undecodable blob
+      // must still be treated as fatal while its epoch can be proven (rollup cannot prune yet). The blob is
+      // canonical and must eventually become available, so we keep retrying rather than skipping it.
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(0));
+
+      fake.setTargetCommitteeSize(3);
+      const signers = times(3, Secp256k1Signer.random);
+      const committee = signers.map(signer => signer.address);
+      epochCache.getCommitteeForEpoch.mockResolvedValue({ committee } as EpochCommitteeInfo);
+
+      // CP1 valid with well-formed blobs.
+      await fake.addCheckpoint(CheckpointNumber(1), {
+        l1BlockNumber: 70n,
+        messagesL1BlockNumber: 50n,
+        numL1ToL2Messages: 3,
+        signers,
+      });
+
+      // CP2 with VALID attestations (signed by the committee) but a malformed blob.
+      await fake.addCheckpoint(CheckpointNumber(2), {
+        l1BlockNumber: 80n,
+        numL1ToL2Messages: 0,
+        signers,
+      });
+
+      const cp2BlockId = Buffer32.fromBigInt(80n).toString();
+      const malformedBlob = await makeRandomBlob(3);
+      const defaultGetBlobSidecar = blobClient.getBlobSidecar.getMockImplementation()!;
+      blobClient.getBlobSidecar.mockImplementation((...args: Parameters<typeof blobClient.getBlobSidecar>) =>
+        args[0] === cp2BlockId ? Promise.resolve([malformedBlob]) : defaultGetBlobSidecar(...args),
+      );
+
+      // Rollup cannot prune yet: the epoch is still provable, so the malformed blob is fatal.
+      fake.setCanPrune(false);
+      fake.setL1BlockNumber(82n);
+
+      await expect(archiver.syncImmediate()).rejects.toThrow();
+    }, 20_000);
+
+    it('skips a malformed-blob checkpoint and recovers once its epoch can be pruned', async () => {
+      // A-1252 rows 4/5: a bribed-committee checkpoint (valid attestations) whose blob is withheld would,
+      // before this fix, throw during blob decode on every iteration — freezing the L1 sync clock and
+      // halting every honest proposer so the prune that recovers the chain never fires. Once the proof
+      // window has expired (rollup can prune), the archiver must skip the unfetchable checkpoint, advance
+      // its clock, and let the epoch-prune machinery roll the pending chain back to the proven tip.
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(0));
+
+      fake.setTargetCommitteeSize(3);
+      const signers = times(3, Secp256k1Signer.random);
+      const committee = signers.map(signer => signer.address);
+      epochCache.getCommitteeForEpoch.mockResolvedValue({ committee } as EpochCommitteeInfo);
+
+      // CP1 and CP2: valid attestations, well-formed blobs. Both sync normally.
+      const { checkpoint: cp1 } = await fake.addCheckpoint(CheckpointNumber(1), {
+        l1BlockNumber: 70n,
+        messagesL1BlockNumber: 50n,
+        numL1ToL2Messages: 3,
+        signers,
+      });
+      await fake.addCheckpoint(CheckpointNumber(2), {
+        l1BlockNumber: 80n,
+        messagesL1BlockNumber: 60n,
+        numL1ToL2Messages: 3,
+        signers,
+      });
+
+      fake.setL1BlockNumber(90n);
+      await archiver.syncImmediate();
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(2));
+      const l1TimestampBefore = await archiver.getL1Timestamp();
+
+      // CP1 gets proven; CP2 sits in the unproven epoch.
+      fake.markCheckpointAsProven(CheckpointNumber(1));
+
+      // CP3 arrives with VALID attestations (committee-signed) but a withheld/undecodable blob.
+      await fake.addCheckpoint(CheckpointNumber(3), {
+        l1BlockNumber: 100n,
+        numL1ToL2Messages: 0,
+        signers,
+      });
+      const cp3BlockId = Buffer32.fromBigInt(100n).toString();
+      const malformedBlob = await makeRandomBlob(3);
+      const defaultGetBlobSidecar = blobClient.getBlobSidecar.getMockImplementation()!;
+      blobClient.getBlobSidecar.mockImplementation((...args: Parameters<typeof blobClient.getBlobSidecar>) =>
+        args[0] === cp3BlockId ? Promise.resolve([malformedBlob]) : defaultGetBlobSidecar(...args),
+      );
+
+      const pruneSpy = jest.fn();
+      archiver.events.on(L2BlockSourceEvents.L2PruneUnproven, pruneSpy);
+
+      // Proof window expired: the rollup would prune on the next L1 block.
+      fake.setCanPrune(true);
+      fake.setL1BlockNumber(101n);
+
+      // Must not throw: the unfetchable CP3 is in a prunable epoch, so it is skipped rather than fatal.
+      await expect(archiver.syncImmediate()).resolves.toBeUndefined();
+
+      // CP3 is never ingested, and the unproven CP2 is rolled back to the proven tip (CP1).
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
+      expect(await archiver.getProvenCheckpointNumber()).toEqual(CheckpointNumber(1));
+      expect(await archiver.getCheckpoints({ from: CheckpointNumber(3), limit: 1 })).toEqual([]);
+      expect(pruneSpy).toHaveBeenCalled();
+
+      // The sync clock advanced rather than freezing on the blob error — honest proposers stay live.
+      const l1TimestampAfter = await archiver.getL1Timestamp();
+      expect(l1TimestampAfter).toEqual(fake.getTimestampAtL1Block(101n));
+      expect(l1TimestampAfter!).toBeGreaterThan(l1TimestampBefore!);
+
+      // L2Tips reflect the rollback to checkpoint 1.
+      const tips = await archiver.getL2Tips();
+      expect(tips.checkpointed.checkpoint.number).toEqual(CheckpointNumber(1));
+      expect(tips.checkpointed.block.number).toEqual(cp1.blocks[cp1.blocks.length - 1].number);
+
+      archiver.events.off(L2BlockSourceEvents.L2PruneUnproven, pruneSpy);
+    }, 20_000);
   });
 
   describe('reorg handling', () => {
@@ -1736,6 +1853,64 @@ describe('Archiver Sync', () => {
       });
       expect(checkpointedBlocks).toHaveLength(1);
       expect(checkpointedBlocks[0].checkpointNumber).toEqual(2);
+    }, 10_000);
+
+    it('promotes a matching local checkpoint even when its on-chain blob is malformed', async () => {
+      // A-1252 row 2: a checkpoint with a withheld/malformed blob is immune to the blob-decode stall when a
+      // matching local proposed copy exists, because it is promoted from local blocks and the blob fetch is
+      // skipped entirely. This must hold regardless of the blob being unfetchable.
+      await fake.addCheckpoint(CheckpointNumber(1), {
+        l1BlockNumber: 70n,
+        messagesL1BlockNumber: 60n,
+        numL1ToL2Messages: 3,
+      });
+
+      fake.setL1BlockNumber(100n);
+      await archiver.syncImmediate();
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
+
+      // Checkpoint 2 on L1 at a far-future block, with a malformed blob that would throw if ever fetched.
+      const { checkpoint: cp2 } = await fake.addCheckpoint(CheckpointNumber(2), {
+        l1BlockNumber: 5000n,
+        messagesL1BlockNumber: 4990n,
+        numL1ToL2Messages: 3,
+      });
+      const cp2BlockId = Buffer32.fromBigInt(5000n).toString();
+      const malformedBlob = await makeRandomBlob(3);
+      const defaultGetBlobSidecar = blobClient.getBlobSidecar.getMockImplementation()!;
+      blobClient.getBlobSidecar.mockImplementation((...args: Parameters<typeof blobClient.getBlobSidecar>) =>
+        args[0] === cp2BlockId ? Promise.resolve([malformedBlob]) : defaultGetBlobSidecar(...args),
+      );
+
+      // Register checkpoint 2's blocks and a matching proposed checkpoint directly on the store, so the
+      // archiver has a local copy to promote (the archive root is computed from the stored blocks). We go
+      // through the store rather than archiver.addBlock/addProposedCheckpoint to avoid those methods firing
+      // background sync runs that would race with the explicit sync below.
+      for (const block of cp2.blocks) {
+        await archiverStore.blocks.addProposedBlock(block);
+      }
+      await archiverStore.blocks.addProposedCheckpoint({
+        checkpointNumber: CheckpointNumber(2),
+        header: cp2.header,
+        startBlock: cp2.blocks[0].number,
+        blockCount: cp2.blocks.length,
+        totalManaUsed: 0n,
+        feeAssetPriceModifier: cp2.feeAssetPriceModifier,
+      });
+
+      blobClient.getBlobSidecar.mockClear();
+
+      fake.setL1BlockNumber(5010n);
+      await expect(archiver.syncImmediate()).resolves.toBeUndefined();
+
+      // Checkpoint 2 is ingested via promotion; its malformed blob was never fetched.
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(2));
+      expect(pruneSpy).not.toHaveBeenCalled();
+      expect(blobClient.getBlobSidecar).not.toHaveBeenCalledWith(cp2BlockId, expect.anything(), expect.anything());
+
+      const tips = await archiver.getL2Tips();
+      expect(tips.checkpointed.checkpoint.number).toEqual(CheckpointNumber(2));
+      expect(tips.checkpointed.block.number).toEqual(cp2.blocks[cp2.blocks.length - 1].number);
     }, 10_000);
 
     it('rejects adding blocks that are already checkpointed', async () => {
