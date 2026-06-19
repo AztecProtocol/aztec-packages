@@ -19,8 +19,12 @@ import { encodeColumnsToBytes } from './gpu_pipeline.js';
 import { runSingleSubmitSumcheck, buildSharedColumns } from './single_submit.js';
 import { cpuReferenceUnivariates } from './cpu_reference.js';
 import {
+  buildInstance, usedRows, activeRowsByRel, compactionPlan, relationsPerRow,
+  REALISTIC_BLOCK_PROFILE, REALISTIC_SCATTERED_PROFILE,
+} from './sparsity.js';
+import {
   type Suite, type SuiteCtx,
-  mod, makeRng, packParams, fromMont, le32ToBi,
+  WG, mod, makeRng, packParams, fromMont, le32ToBi,
 } from './harness.js';
 
 const add = (a: bigint, b: bigint): bigint => mod(a + b);
@@ -142,11 +146,52 @@ async function validateOnce({ device, n, log }: SuiteCtx, useShared: boolean): P
   return true;
 }
 
-// Validate both the per-relation engine and the shared 67-entity column engine (Idea 1).
+// Skipping is a pure performance optimization for the single-submission engine too. On
+// the SAME sparse instance, skip-ON (Tier 0 trim + Tier 1 per-edge skip + Tier 2
+// compaction) must produce bit-identical univariates AND GPU-derived Fiat-Shamir
+// challenges to skip-OFF — the challenges are hashed from the univariates on-GPU, so
+// identical univariates each round force identical challenges, keeping the next round
+// identical. Block exercises the per-relation prefix dispatch; scattered exercises the
+// Tier-0 trim + Tier-2 active-edge compaction (new in the single-submission engine).
+async function validateSkip({ device, n, log }: SuiteCtx): Promise<boolean> {
+  const d = Math.round(Math.log2(n));
+  const alpha = makeRng(0xa1fa_5eed_77n)();
+  const betaRng = makeRng(0xbe7a_5eed_77n);
+  const betas = Array.from({ length: d }, () => betaRng());
+  for (const profile of [REALISTIC_BLOCK_PROFILE, REALISTIC_SCATTERED_PROFILE]) {
+    const inst = buildInstance(n, profile, false);
+    const L = usedRows(profile, n);
+    const off = await runSingleSubmitSumcheck(device, n, alpha, betas, inst.relParamBytes, inst.initColBytes);
+    const on = await runSingleSubmitSumcheck(
+      device, n, alpha, betas, inst.relParamBytes, inst.initColBytes, undefined, WG, false, undefined,
+      true, L, activeRowsByRel(profile, n), compactionPlan(profile, n),
+    );
+    for (let i = 0; i < d; i++) {
+      if (off.challenges[i] !== on.challenges[i]) {
+        log('err', `  skip ✗  [${profile.name}] round ${i}: skip-off challenge ${off.challenges[i]} != skip-on ${on.challenges[i]}`);
+        return false;
+      }
+      for (let k = 0; k < off.univariates[i].length; k++) {
+        if (off.univariates[i][k] !== on.univariates[i][k]) {
+          log('err', `  skip ✗  [${profile.name}] round ${i} k=${k}: skip-off ${off.univariates[i][k]} != skip-on ${on.univariates[i][k]}`);
+          return false;
+        }
+      }
+    }
+    const rpr = relationsPerRow(profile, n);
+    log('ok', `  skip ✓  [${profile.name}] skip-ON == skip-OFF univariates + GPU challenges (all ${d} rounds) · used ${L}/${n}`);
+    log('info', `    [${profile.name}] round-0 relations/row — achieved ${rpr.achieved.toFixed(2)} vs ideal ${rpr.ideal.toFixed(2)} (dense ${rpr.dense}) · ${rpr.mode}`);
+  }
+  return true;
+}
+
+// Validate the per-relation engine, the shared 67-entity column engine (Idea 1), and the
+// skip path (Tier 0/1/2 incl. on-GPU-Fiat-Shamir-consistent compaction).
 async function run(ctx: SuiteCtx): Promise<boolean> {
   const perRel = await validateOnce(ctx, false);
   if (!perRel) return false;
-  return validateOnce(ctx, true);
+  if (!(await validateOnce(ctx, true))) return false;
+  return validateSkip(ctx);
 }
 
 export const singleSubmitSuite: Suite = { id: 'singlesubmit', label: 'Single-submission sumcheck (GPU Fiat-Shamir)', run };

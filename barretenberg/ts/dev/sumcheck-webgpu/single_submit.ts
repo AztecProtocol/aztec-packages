@@ -19,8 +19,10 @@
 
 import {
   makeFoldRunner, makeReduceRunner, makeScanRunner, makeGatherRunner, encodeColumnsToBytes, entityMapBytes,
+  injectSkipPrelude, injectCompaction, effPairsForRound,
   type FoldRunner, type ReduceRunner, type KernelRunner,
 } from './gpu_pipeline.js';
+import type { CompactionPlan } from './sparsity.js';
 import { buildBatchConsts } from './batch_gpu.js';
 import { poseidon2ConstBytes, POSEIDON2_IV_9, p2ParamsBytes } from './poseidon2_gpu.js';
 import { initWasm, runWasmSumcheck } from './bench.js';
@@ -120,8 +122,21 @@ export async function runSingleSubmitSumcheck(
   accWG: number = WG,
   profile = false,
   maxRounds?: number,
+  skip = false,
+  usedLen?: number,
+  usedLensByRel?: number[],
+  compaction?: CompactionPlan,
 ): Promise<SingleSubmitResult> {
   const d = Math.round(Math.log2(n));
+  // Skip path (Tier 0/1/2) — inert when `skip` is false (dense; shaders + dispatch
+  // identical to before this option). Effective used length for Tier-0 trim (default =
+  // n => no trim); the column stride stays full `n`. `usedLensByRel` (block sparsity)
+  // overrides this per relation in the round loop.
+  const effUsedLen = skip ? Math.max(2, Math.min(n, usedLen ?? n)) : n;
+  // Tier 1 prelude only for the global-dispatch (scattered) path; block (`usedLensByRel`)
+  // dispatches exactly the active prefix and compaction gathers exactly the active pairs,
+  // so the prelude never fires there — run the plain kernel (cache shared with dense).
+  const inject = skip && !usedLensByRel && !compaction;
   // `maxRounds` (default d) stops the single-command-buffer run after that many
   // rounds and reads back the partially-folded columns (length 2^(d-rounds)) — the
   // GPU front of the single-submission hybrid, where the heavy early rounds run on
@@ -146,6 +161,9 @@ export async function runSingleSubmitSumcheck(
   // columns collapse to ONE set of NUM_GLOBAL_ENTITIES (67) columns that every relation
   // reads through its entity_map; otherwise each relation keeps its own colA/colB.
   const useShared = !!(shared?.sharedColumns && shared.sharedColBytes);
+  // Compaction (Tier 2) rewrites the per-relation kernel and binds sk_active_idx where the
+  // shared variant binds entity_map (the "two-index" landmine), so the two are exclusive.
+  if (compaction && useShared) throw new Error('compaction (Tier 2) is incompatible with shared 67-column mode');
   const relParamBufs: (GPUBuffer | undefined)[] = new Array(NUM_RELATIONS).fill(undefined);
   const colA: GPUBuffer[] = new Array(NUM_RELATIONS);
   const colB: GPUBuffer[] = new Array(NUM_RELATIONS);
@@ -168,6 +186,19 @@ export async function runSingleSubmitSumcheck(
       setAllocCategory('columns');
       colA[r] = create_and_write_sb(device, initColBytes[r]);
       colB[r] = create_sb(device, desc.numEdges * (n >> 1) * 32);
+    }
+  }
+
+  // Per-relation active-pair index lists (Tier 2 compaction): uploaded once, sliced per
+  // round by (base, count). Only relations the plan covers get a buffer; compaction => !useShared.
+  const activeIdxBuf: (GPUBuffer | undefined)[] = new Array(NUM_RELATIONS).fill(undefined);
+  if (compaction) {
+    setAllocCategory('scratch');
+    for (const desc of ALL_RELATIONS) {
+      const idx = compaction.idxByRel[desc.relationIndex];
+      if (idx && idx.length > 0) {
+        activeIdxBuf[desc.relationIndex] = create_and_write_sb(device, new Uint8Array(idx.buffer, idx.byteOffset, idx.byteLength));
+      }
     }
   }
 
@@ -254,17 +285,21 @@ export async function runSingleSubmitSumcheck(
   const staging = create_readback_buffer(device, stagingBytes);
 
   // Cached accumulate pipeline per relation (col_buf, out, params, scaling, [param_buf]).
-  const accPipeline = async (desc: RelationDescriptor) => {
+  const accPipeline = async (desc: RelationDescriptor, compact: boolean) => {
     const hasParams = relParamBufs[desc.relationIndex] !== undefined;
-    const key = `acc:${desc.entry}|${hasParams ? 5 : 4}|wg${accWG}|s${useShared ? 1 : 0}`;
+    const mode = compact ? 'comp' : inject ? 'sk' : 'pl';
+    const key = `acc:${desc.entry}|${hasParams ? 5 : 4}|wg${accWG}|s${useShared ? 1 : 0}|${mode}`;
     let p = relCache.get(key);
     if (!p) {
       const types = ['read-only-storage', 'storage', 'uniform', 'read-only-storage'];
       if (hasParams) types.push('read-only-storage');
       if (useShared) types.push('read-only-storage'); // entity_map (bound last)
+      if (compact) types.push('read-only-storage'); // sk_active_idx (binding 4 or 5; !useShared)
       const layout = create_bind_group_layout(device, types);
       const base = desc.shader(useShared);
-      const code = accWG === WG ? base : base.replace(`@workgroup_size(${WG})`, `@workgroup_size(${accWG})`);
+      let code = accWG === WG ? base : base.replace(`@workgroup_size(${WG})`, `@workgroup_size(${accWG})`);
+      if (compact) code = injectCompaction(code, desc, hasParams); // Tier 2 active-edge gather
+      else if (inject) code = injectSkipPrelude(code, desc); // Tier 1 per-edge skip early-out
       const pipeline = await create_compute_pipeline(device, [layout], code, desc.entry, desc.entry);
       p = { layout, pipeline };
       relCache.set(key, p);
@@ -286,27 +321,50 @@ export async function runSingleSubmitSumcheck(
   let curLen = n;
   for (let i = 0; i < rounds; i++) {
     const pairs = curLen >> 1;
-    const chunk = Math.max(1, Math.ceil(pairs / REDUCE_GROUPS));
-    const groups = Math.ceil(pairs / chunk);
+    // Tier 0 (global, densest relation): sizes only the shared scaling gather. == pairs
+    // when skip is off. Per-relation dispatch is sized below. The full-length fold keeps
+    // the ping-pong tail consistent for the handoff regardless.
+    const effPairs = effPairsForRound(effUsedLen, i, curLen);
 
     // Gather this round's per-pair edge scaling off the resident beta_products table:
     // scalScratch[p] = beta_products[p * 2^{i+1}]. Reused across rounds; the WAR hazard
     // (gather(i+1) write vs round i's accumulate reads) is auto-serialized in-encoder.
     const gBg = create_bind_group(device, gatherRunner.layout, [
-      betaMontBuf, scalScratch, create_and_write_ub(device, u32x4(pairs, 1 << (i + 1))),
+      betaMontBuf, scalScratch, create_and_write_ub(device, u32x4(effPairs, 1 << (i + 1))),
     ]);
-    await execute_pipeline(enc, gatherRunner.pipeline, gBg, Math.ceil(pairs / WG), 1, 1, profiler?.stage('gather'));
+    await execute_pipeline(enc, gatherRunner.pipeline, gBg, Math.ceil(effPairs / WG), 1, 1, profiler?.stage('gather'));
 
-    // accumulate + two-level reduce -> accBuf
+    // accumulate + two-level reduce -> accBuf, each relation over its OWN active prefix.
+    // params.n = pairs (full column stride) is shared, so allocate that uniform once.
+    const accParam = create_and_write_ub(device, u32x4(pairs));
+    // With a compaction plan, a relation with zero active pairs this round is skipped, so
+    // pre-clear accBuf to keep its slice zero rather than carrying the prior round's value.
+    if (compaction) enc.clearBuffer(accBuf);
     for (const desc of ALL_RELATIONS) {
       const r = desc.relationIndex;
-      const acc = await accPipeline(desc);
-      const aBufs: GPUBuffer[] = [useShared ? curS! : cur[r], perEdge, create_and_write_ub(device, u32x4(pairs)), scalScratch];
-      if (relParamBufs[r]) aBufs.push(relParamBufs[r]!);
-      if (useShared) aBufs.push(entityMapBufs[r]);
-      await execute_pipeline(enc, acc.pipeline, create_bind_group(device, acc.layout, aBufs), Math.ceil(pairs / accWG), 1, 1, profiler?.stage('accumulate'));
+      const compIdx = activeIdxBuf[r];
+      const compact = compIdx !== undefined;
+      let dispatchPairs: number;
+      const aBufs: GPUBuffer[] = [useShared ? curS! : cur[r], perEdge];
+      if (compact) {
+        const { base, count } = compaction!.roundsByRel[r]![i];
+        if (count === 0) continue; // no active pairs -> 0 contribution (accBuf pre-cleared)
+        dispatchPairs = count;
+        aBufs.push(create_and_write_ub(device, u32x4(pairs, count, base)), scalScratch);
+        if (relParamBufs[r]) aBufs.push(relParamBufs[r]!);
+        aBufs.push(compIdx); // sk_active_idx (gathered pair indices)
+      } else {
+        dispatchPairs = effPairsForRound(usedLensByRel ? Math.max(2, Math.min(n, usedLensByRel[r])) : effUsedLen, i, curLen);
+        aBufs.push(accParam, scalScratch);
+        if (relParamBufs[r]) aBufs.push(relParamBufs[r]!);
+        if (useShared) aBufs.push(entityMapBufs[r]);
+      }
+      const chunk = Math.max(1, Math.ceil(dispatchPairs / REDUCE_GROUPS));
+      const groups = Math.ceil(dispatchPairs / chunk);
+      const acc = await accPipeline(desc, compact);
+      await execute_pipeline(enc, acc.pipeline, create_bind_group(device, acc.layout, aBufs), Math.ceil(dispatchPairs / accWG), 1, 1, profiler?.stage('accumulate'));
       const r1 = create_bind_group(device, reduceRunner.layout, [
-        perEdge, partsScratch, create_and_write_ub(device, u32x4(pairs, desc.outLen, chunk, 0)),
+        perEdge, partsScratch, create_and_write_ub(device, u32x4(dispatchPairs, desc.outLen, chunk, 0)),
       ]);
       await execute_pipeline(enc, reduceRunner.pipeline, r1, groups, 1, 1, profiler?.stage('reduce'));
       const r2 = create_bind_group(device, reduceRunner.layout, [

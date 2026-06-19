@@ -29,8 +29,12 @@ import { ALL_RELATIONS } from './descriptors.js';
 import { runResidentGpuSumcheck, encodeColumnsToBytes } from './gpu_pipeline.js';
 import { buildSharedColumns } from './single_submit.js';
 import {
+  buildInstance, usedRows, activeRowsByRel, compactionPlan, relationsPerRow,
+  REALISTIC_BLOCK_PROFILE, REALISTIC_SCATTERED_PROFILE,
+} from './sparsity.js';
+import {
   type Suite, type SuiteCtx, type RelationDescriptor,
-  mod, makeRng, packParams, fromMont, le32ToBi,
+  WG, mod, makeRng, packParams, fromMont, le32ToBi,
 } from './harness.js';
 
 const add = (a: bigint, b: bigint): bigint => mod(a + b);
@@ -170,11 +174,56 @@ async function validateOnce({ device, n, log }: SuiteCtx, useShared: boolean): P
   return true;
 }
 
-// Validate both the per-relation engine and the shared 67-entity column engine (Idea 1).
+// Skipping is a pure performance optimization: on the SAME sparse instance, skip-ON
+// (Tier 0 effective-size trim + Tier 1 per-edge skip + Tier 2 compaction) must produce
+// bit-identical round univariates to skip-OFF (full dense dispatch). This holds exactly
+// because an inactive row zeroes ALL of a relation's columns, so its contribution is
+// exactly zero whether the row is skipped or fully computed — including permutation/
+// logderiv, whose skip() predicate is only zero-implying on a real trace (see sparsity.ts).
+// Block exercises whole-workgroup prefix dispatch; scattered exercises Tier-0 trim +
+// Tier-2 compaction. Also reports the brief's achieved-vs-ideal relations/row.
+async function validateSkip({ device, n, log }: SuiteCtx): Promise<boolean> {
+  const d = Math.round(Math.log2(n));
+  const alpha = makeRng(0xa1fa_5eed_77n)();
+  const betaRng = makeRng(0xbe7a_5eed_77n);
+  const betas = Array.from({ length: d }, () => betaRng());
+  const chRng = makeRng(0xc4a1_1e6e_77n);
+  const challenges = Array.from({ length: d }, () => chRng());
+  for (const profile of [REALISTIC_BLOCK_PROFILE, REALISTIC_SCATTERED_PROFILE]) {
+    const inst = buildInstance(n, profile, false);
+    const L = usedRows(profile, n);
+    const off = await runResidentGpuSumcheck(device, n, alpha, betas, challenges, inst.relParamBytes, inst.initColBytes);
+    const on = await runResidentGpuSumcheck(
+      device, n, alpha, betas, challenges, inst.relParamBytes, inst.initColBytes, undefined, WG, false, undefined,
+      true, L, activeRowsByRel(profile, n), compactionPlan(profile, n),
+    );
+    for (let i = 0; i < d; i++) {
+      for (let k = 0; k < off.univariates[i].length; k++) {
+        if (off.univariates[i][k] !== on.univariates[i][k]) {
+          log('err', `  skip ✗  [${profile.name}] round ${i} k=${k}: skip-off ${off.univariates[i][k]} != skip-on ${on.univariates[i][k]}`);
+          return false;
+        }
+      }
+    }
+    const tel = checkTelescoping(on.univariates, on.challenges);
+    if (!tel.ok) {
+      log('err', `  skip ✗  [${profile.name}] telescoping broke under skipping at round ${tel.failures[0].round}`);
+      return false;
+    }
+    const rpr = relationsPerRow(profile, n);
+    log('ok', `  skip ✓  [${profile.name}] skip-ON == skip-OFF (all ${d} rounds × 8 evals) + telescopes · used ${L}/${n}`);
+    log('info', `    [${profile.name}] round-0 relations/row — achieved ${rpr.achieved.toFixed(2)} vs ideal ${rpr.ideal.toFixed(2)} (dense ${rpr.dense}) · ${rpr.mode}`);
+  }
+  return true;
+}
+
+// Validate the per-relation engine, the shared 67-entity column engine (Idea 1), and
+// the skip path (Tier 0/1/2) bit-for-bit against the dense dispatch.
 async function run(ctx: SuiteCtx): Promise<boolean> {
   const perRel = await validateOnce(ctx, false);
   if (!perRel) return false;
-  return validateOnce(ctx, true);
+  if (!(await validateOnce(ctx, true))) return false;
+  return validateSkip(ctx);
 }
 
 export const roundsSuite: Suite = { id: 'rounds', label: 'Multi-round sumcheck (GPU)', run };

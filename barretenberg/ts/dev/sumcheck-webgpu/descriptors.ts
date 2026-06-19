@@ -45,6 +45,7 @@ export const arithDescriptor: RelationDescriptor = {
   entry: 'arithmetic_main', seed: 0x1badb002c0defacen,
   globalEntityIndices: [0, 1, 2, 3, 65, 62, 4, 5, 6, 7, 8, 9, 10],
   shader: (shared = false) => sm.gen_arithmetic_relation_test_shader(WG, shared), build: arithBuild, polyRef: arithPolyRef,
+  skip: { kind: 'allZero', cols: [12] }, // q_arith.is_zero()
 };
 
 // ---- UltraPermutation (idx 1): OUT_LEN 12 = [6,3,3]; params [beta,gamma,pid] ----
@@ -74,6 +75,7 @@ export const permDescriptor: RelationDescriptor = {
   makeParams: rng => [rng(), rng(), rng()], // beta, gamma, public_input_delta
   globalEntityIndices: [0, 1, 2, 3, 11, 12, 13, 14, 15, 16, 17, 18, 19, 66, 20, 21],
   shader: (shared = false) => sm.gen_permutation_relation_test_shader(WG, shared), build: permBuild, polyRef: permPolyRef,
+  skip: { kind: 'eqPair', cols: [12, 13] }, // (z_perm - z_perm_shift).is_zero()
 };
 
 // ---- LogDerivLookup (idx 2): OUT_LEN 13 = [5,5,3]; params [gamma,beta,beta^2,beta^3] ----
@@ -103,6 +105,7 @@ export const logderivDescriptor: RelationDescriptor = {
   makeParams: rng => { const beta = rng(); const gamma = rng(); return [gamma, beta, mod(beta * beta), mod(beta * beta * beta)]; },
   globalEntityIndices: [22, 23, 24, 25, 0, 1, 2, 62, 63, 64, 7, 6, 4, 9, 26, 27, 28, 29],
   shader: (shared = false) => sm.gen_logderiv_lookup_relation_test_shader(WG, shared), build: logderivBuild, polyRef: logderivPolyRef,
+  skip: { kind: 'allZero', cols: [15, 16] }, // q_lookup.is_zero() && lookup_read_counts.is_zero()
 };
 
 // ---- DeltaRangeConstraint (idx 3): OUT_LEN 24 = [6,6,6,6] ----
@@ -126,6 +129,7 @@ export const deltaDescriptor: RelationDescriptor = {
   entry: 'delta_range_main', seed: 0xde17a9a9c0ffee01n,
   globalEntityIndices: [0, 1, 2, 3, 62, 30],
   shader: (shared = false) => sm.gen_delta_range_relation_test_shader(WG, shared), build: deltaBuild, polyRef: deltaPolyRef,
+  skip: { kind: 'allZero', cols: [5] }, // q_delta_range.is_zero()
 };
 
 // ---- Elliptic (idx 4): OUT_LEN 12 = [6,6]; curve_b = -17 ----
@@ -163,6 +167,7 @@ export const ellipticDescriptor: RelationDescriptor = {
   entry: 'elliptic_main', seed: 0xe11ec0de33445566n,
   globalEntityIndices: [1, 62, 63, 2, 65, 64, 31, 4, 5],
   shader: (shared = false) => sm.gen_elliptic_relation_test_shader(WG, shared), build: ellipticBuild, polyRef: ellipticPolyRef,
+  skip: { kind: 'allZero', cols: [6] }, // q_elliptic.is_zero()
 };
 
 // ---- Memory (idx 5): OUT_LEN 36 = [6]x6; params [eta,eta_two,eta_three] ----
@@ -203,6 +208,7 @@ export const memoryDescriptor: RelationDescriptor = {
   makeParams: rng => [rng(), rng(), rng()], // eta, eta_two, eta_three
   globalEntityIndices: [0, 1, 2, 3, 62, 63, 64, 65, 5, 6, 7, 8, 4, 9, 32],
   shader: (shared = false) => sm.gen_memory_relation_test_shader(WG, shared), build: memoryBuild, polyRef: memoryPolyRef,
+  skip: { kind: 'allZero', cols: [14] }, // q_memory.is_zero()
 };
 
 // ---- NonNativeField (idx 6): OUT_LEN 6 ----
@@ -236,6 +242,7 @@ export const nnfDescriptor: RelationDescriptor = {
   entry: 'non_native_field_main', seed: 0x77facade01020304n,
   globalEntityIndices: [0, 1, 2, 3, 62, 63, 64, 65, 6, 7, 8, 4, 33],
   shader: (shared = false) => sm.gen_non_native_field_relation_test_shader(WG, shared), build: nnfBuild, polyRef: nnfPolyRef,
+  skip: { kind: 'allZero', cols: [12] }, // q_nnf.is_zero()
 };
 
 // ---- EccOpQueue (idx 7): OUT_LEN 24 = [3]x8 ----
@@ -262,6 +269,7 @@ export const eccDescriptor: RelationDescriptor = {
   entry: 'ecc_op_queue_main', seed: 0xecc0a13573571100n,
   globalEntityIndices: [62, 63, 64, 65, 34, 35, 36, 37, 38],
   shader: (shared = false) => sm.gen_ecc_op_queue_relation_test_shader(WG, shared), build: eccBuild, polyRef: eccPolyRef,
+  skip: { kind: 'allZero', cols: [8] }, // lagrange_ecc_op.is_zero()
 };
 
 // ---- DatabusLookup (idx 8): OUT_LEN 90 = [6,6,6]x5 buses; params [beta,gamma] ----
@@ -296,6 +304,7 @@ export const databusDescriptor: RelationDescriptor = {
   makeParams: rng => [rng(), rng()], // beta, gamma
   globalEntityIndices: [0, 1, 39, 40, 41, 5, 42, 43, 44, 6, 45, 46, 47, 7, 48, 49, 50, 8, 51, 52, 53, 4, 54, 55],
   shader: (shared = false) => sm.gen_databus_lookup_relation_test_shader(WG, shared), build: databusBuild, polyRef: databusPolyRef,
+  skip: { kind: 'allZero', cols: [3, 7, 11, 15, 19, 23] }, // q_busread.is_zero() && all 5 read_counts.is_zero()
 };
 
 // ---- Poseidon2External (idx 9): OUT_LEN 28 = [7]x4 ----
@@ -320,6 +329,7 @@ export const pos2ExtDescriptor: RelationDescriptor = {
   entry: 'poseidon2_external_main', seed: 0x9051d0ec0fe5beefn,
   globalEntityIndices: [0, 1, 2, 3, 62, 63, 64, 65, 5, 6, 7, 8, 56],
   shader: (shared = false) => sm.gen_poseidon2_external_relation_test_shader(WG, shared), build: pos2ExtBuild, polyRef: pos2ExtPolyRef,
+  skip: { kind: 'allZero', cols: [12] }, // q_poseidon2_external.is_zero()
 };
 
 // ---- Poseidon2InitialExternal (idx 10): OUT_LEN 12 = [3,3,3,3] ----
@@ -346,6 +356,7 @@ export const pos2InitDescriptor: RelationDescriptor = {
   entry: 'poseidon2_initial_main', seed: 0x9051d02141711a10n,
   globalEntityIndices: [0, 1, 2, 3, 62, 63, 64, 65, 57],
   shader: (shared = false) => sm.gen_poseidon2_initial_relation_test_shader(WG, shared), build: pos2InitBuild, polyRef: pos2InitPolyRef,
+  skip: { kind: 'allZero', cols: [8] }, // q_poseidon2_external_initial.is_zero()
 };
 
 // ---- Poseidon2QuadInternal (idx 11): OUT_LEN 28 = [7]x4 ----
@@ -382,6 +393,7 @@ export const pos2QuadDescriptor: RelationDescriptor = {
   entry: 'poseidon2_quad_internal_main', seed: 0x9051d0701a4d0000n,
   globalEntityIndices: [0, 1, 2, 3, 62, 63, 64, 65, 5, 6, 7, 8, 4, 9, 58, 59],
   shader: (shared = false) => sm.gen_poseidon2_quad_internal_relation_test_shader(WG, shared), build: pos2QuadBuild, polyRef: pos2QuadPolyRef,
+  skip: { kind: 'allZero', cols: [15] }, // q_poseidon2_quad_internal.is_zero()
 };
 
 // ---- Poseidon2QuadInternalTerminal (idx 12): OUT_LEN 28 = [7]x4 ----
@@ -412,6 +424,7 @@ export const pos2QuadTermDescriptor: RelationDescriptor = {
   entry: 'poseidon2_quad_internal_terminal_main', seed: 0x9051d07e21a10000n,
   globalEntityIndices: [0, 1, 2, 3, 62, 63, 64, 65, 5, 6, 7, 8, 60],
   shader: (shared = false) => sm.gen_poseidon2_quad_internal_terminal_relation_test_shader(WG, shared), build: pos2QuadTermBuild, polyRef: pos2QuadTermPolyRef,
+  skip: { kind: 'allZero', cols: [12] }, // q_poseidon2_quad_internal_terminal.is_zero()
 };
 
 // ---- Poseidon2TransitionEntry (idx 13): OUT_LEN 21 = [7,7,7] ----
@@ -434,6 +447,7 @@ export const pos2TransDescriptor: RelationDescriptor = {
   entry: 'poseidon2_transition_entry_main', seed: 0x9051d0747a5170n,
   globalEntityIndices: [0, 1, 2, 3, 63, 64, 65, 5, 6, 7, 61],
   shader: (shared = false) => sm.gen_poseidon2_transition_entry_relation_test_shader(WG, shared), build: pos2TransBuild, polyRef: pos2TransPolyRef,
+  skip: { kind: 'allZero', cols: [10] }, // q_poseidon2_transition_entry.is_zero()
 };
 
 /** All 14 MegaFlavor relation descriptors, in Relations_ tuple order. */

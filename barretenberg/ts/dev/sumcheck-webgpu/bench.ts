@@ -19,6 +19,10 @@ import {
 import { runSingleSubmitSumcheck, makeBatchRunner, makeTranscriptRunner, buildSharedColumns, buildSharedInputs, buildSSInputs, sharedColumnsFit } from './single_submit.js';
 import { cpuReferenceUnivariates } from './cpu_reference.js';
 import { ALL_RELATIONS } from './descriptors.js';
+import {
+  type CircuitProfile, DENSE_PROFILE, buildInstance, usedRows, activeRowsByRel, compactionPlan,
+  profileIsSparse, relationsPerRow,
+} from './sparsity.js';
 import { type PipelineCache, type Logger, WG, makeRng, packParams } from './harness.js';
 import { sumcheckRoundChallenge, SUMCHECK_TRANSCRIPT_SEED } from '../../src/msm_webgpu/cuzk/poseidon2_cpu.js';
 import { BufferTracker, type BufferAllocStats } from '../../src/msm_webgpu/cuzk/gpu.js';
@@ -103,6 +107,15 @@ function buildInputsFull(n: number): FullInputs {
 function buildInputs(n: number): { initColBytes: Uint8Array[]; relParamBytes: (Uint8Array | undefined)[] } {
   const { initColBytes, relParamBytes } = buildInputsFull(n);
   return { initColBytes, relParamBytes };
+}
+
+// Annotate the active sparsity instance + the brief's achieved-vs-ideal relations/row, so a
+// profiled run is interpretable. Off (dense) prints a one-liner; on prints the achieved count.
+function logProfile(log: Logger, profile: CircuitProfile, skip: boolean, n: number): void {
+  if (!skip) { log('info', '  instance: dense (every relation on every row) — skipping OFF'); return; }
+  const rpr = relationsPerRow(profile, n);
+  log('warn', `  instance: ${profile.name}${profile.synthetic ? ' (SYNTHETIC)' : ''} — skipping ON · used ${(profile.usedFraction * 100).toFixed(0)}% of rows · ${profile.structure}`);
+  log('info', `    round-0 relations/row — achieved ${rpr.achieved.toFixed(2)} vs ideal ${rpr.ideal.toFixed(2)} (dense ${rpr.dense}) · ${rpr.mode}`);
 }
 
 /**
@@ -596,16 +609,21 @@ export interface MultiProfileData {
  * (the ceiling argument rests on accumulate dominating reduce + fold). Needs
  * timestamp-query (Chrome/Metal has it; logs a warning and returns null if absent).
  */
-export async function runProfile(device: GPUDevice, logN: number, log: Logger): Promise<MultiProfileData | null> {
+export async function runProfile(device: GPUDevice, logN: number, log: Logger, profile: CircuitProfile = DENSE_PROFILE): Promise<MultiProfileData | null> {
   const alpha = makeRng(0xb0_07_5eedn)();
   const cache: PipelineCache = new Map();
   const shared = { cache, foldRunner: await makeFoldRunner(device), reduceRunner: await makeReduceRunner(device) };
   const n = 1 << logN;
+  const skip = profileIsSparse(profile);
+  const usedLen = usedRows(profile, n);
+  const usedLensByRel = activeRowsByRel(profile, n);
+  const comp = compactionPlan(profile, n);
+  logProfile(log, profile, skip, n);
   const betas = Array.from({ length: logN }, (_, i) => makeRng(0xbe7a_77n + BigInt(i))());
   const challenges = Array.from({ length: logN }, (_, i) => makeRng(0xc4a1_77n + BigInt(i))());
-  const { initColBytes, relParamBytes } = buildInputs(n);
-  await runResidentGpuSumcheck(device, n, alpha, betas, challenges, relParamBytes, initColBytes, shared, WG); // warmup/compile
-  const r = await runResidentGpuSumcheck(device, n, alpha, betas, challenges, relParamBytes, initColBytes, shared, WG, true);
+  const { initColBytes, relParamBytes } = buildInstance(n, profile, false);
+  await runResidentGpuSumcheck(device, n, alpha, betas, challenges, relParamBytes, initColBytes, shared, WG, false, undefined, skip, usedLen, usedLensByRel, comp); // warmup/compile
+  const r = await runResidentGpuSumcheck(device, n, alpha, betas, challenges, relParamBytes, initColBytes, shared, WG, true, undefined, skip, usedLen, usedLensByRel, comp);
 
   log('info', `  per-kernel GPU profile · round 0 · 2^${logN} (edges = ${n >> 1})`);
   if (!r.profile) { log('warn', '  timestamp-query unavailable — no per-kernel timing on this device.'); return null; }
@@ -646,7 +664,7 @@ export interface SsProfileData {
 }
 
 export async function runSingleSubmitProfile(
-  device: GPUDevice, logN: number, log: Logger, tailRounds = 0,
+  device: GPUDevice, logN: number, log: Logger, tailRounds = 0, profile: CircuitProfile = DENSE_PROFILE,
 ): Promise<SsProfileData | null> {
   const alpha = makeRng(0xb0_07_5eedn)();
   const ssShared = {
@@ -661,11 +679,21 @@ export async function runSingleSubmitProfile(
   // the last `tailRounds` reserved for the WASM tail (at least one round on the GPU).
   const gpuRounds = tailRounds > 0 ? Math.max(1, logN - tailRounds) : logN;
   const tail = logN - gpuRounds;
+  const skip = profileIsSparse(profile);
+  const usedLen = usedRows(profile, n);
+  const usedLensByRel = activeRowsByRel(profile, n);
+  const comp = compactionPlan(profile, n);
+  logProfile(log, profile, skip, n);
   const betas = Array.from({ length: logN }, (_, i) => makeRng(0xbe7a_77n + BigInt(i))());
-  const { sharedColBytes, initColBytes, relParamBytes } = buildSSInputs(device, n);
+  // Skip needs the per-relation sparse instance (incompatible with the shared 67-column
+  // binding, the "two-index" landmine); dense keeps the shared upload where it fits.
+  const sparseInst = skip ? buildInstance(n, profile, false) : null;
+  const { sharedColBytes, initColBytes, relParamBytes } = sparseInst
+    ? { sharedColBytes: undefined as Uint8Array | undefined, initColBytes: sparseInst.initColBytes, relParamBytes: sparseInst.relParamBytes }
+    : buildSSInputs(device, n);
   const ssOpts = sharedColBytes ? { ...ssShared, sharedColumns: true, sharedColBytes } : ssShared;
-  await runSingleSubmitSumcheck(device, n, alpha, betas, relParamBytes, initColBytes, ssOpts, WG, false, gpuRounds); // warmup/compile
-  const r = await runSingleSubmitSumcheck(device, n, alpha, betas, relParamBytes, initColBytes, ssOpts, WG, true, gpuRounds);
+  await runSingleSubmitSumcheck(device, n, alpha, betas, relParamBytes, initColBytes, ssOpts, WG, false, gpuRounds, skip, usedLen, usedLensByRel, comp); // warmup/compile
+  const r = await runSingleSubmitSumcheck(device, n, alpha, betas, relParamBytes, initColBytes, ssOpts, WG, true, gpuRounds, skip, usedLen, usedLensByRel, comp);
 
   const scope = tail > 0 ? `${gpuRounds} GPU rounds + ${tail} WASM tail` : `all ${logN} rounds`;
   log('info', `  single-submit per-kernel GPU profile · ${scope} · 2^${logN}`);

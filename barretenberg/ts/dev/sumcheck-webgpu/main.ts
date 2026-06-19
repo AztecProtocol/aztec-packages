@@ -42,6 +42,14 @@ import {
   runMultiPassBenchmark, runSingleSubmitHybridBenchmark, runProfile, runSingleSubmitProfile,
   runProfileReport, runE2EProfile, runMemoryProfile, initWasm, type MultiPassRow, type SsHybridRow,
 } from './bench.js';
+import { type CircuitProfile, DENSE_PROFILE, PROFILES } from './sparsity.js';
+
+// Resolve the active sparsity profile from a tab's skip checkbox + profile select:
+// unchecked => dense (skipping off, original behavior); checked => the chosen profile.
+function selectedProfile(skipEl: HTMLInputElement, profEl: HTMLSelectElement): CircuitProfile {
+  if (!skipEl.checked) return DENSE_PROFILE;
+  return PROFILES[profEl.value] ?? DENSE_PROFILE;
+}
 
 const REGISTRY: Suite[] = [
   frSuite, monoSuite, arithSuite, deltaSuite, eccSuite, pos2InitSuite,
@@ -274,6 +282,8 @@ $sshRun.addEventListener('click', () => void (async () => {
 // ===== Profile tab (per-kernel GPU timing) =====
 const $profileLog = document.getElementById('profile-log') as HTMLDivElement;
 const $profileLogn = document.getElementById('profile-logn') as HTMLInputElement;
+const $profileSkip = document.getElementById('profile-skip') as HTMLInputElement;
+const $profileProfile = document.getElementById('profile-profile') as HTMLSelectElement;
 const $profileRun = document.getElementById('profile-run') as HTMLButtonElement;
 const $ssprofileRun = document.getElementById('ssprofile-run') as HTMLButtonElement;
 const $ssprofileTailRun = document.getElementById('ssprofile-tail-run') as HTMLButtonElement;
@@ -320,9 +330,9 @@ async function runProfileTask(task: (device: GPUDevice) => Promise<void>): Promi
   }
 }
 
-$profileRun.addEventListener('click', () => void runProfileTask(async d => { await runProfile(d, profileLogN(), profileLog); }));
-$ssprofileRun.addEventListener('click', () => void runProfileTask(async d => { await runSingleSubmitProfile(d, profileLogN(), profileLog); }));
-$ssprofileTailRun.addEventListener('click', () => void runProfileTask(async d => { await runSingleSubmitProfile(d, profileLogN(), profileLog, profileTail()); }));
+$profileRun.addEventListener('click', () => void runProfileTask(async d => { await runProfile(d, profileLogN(), profileLog, selectedProfile($profileSkip, $profileProfile)); }));
+$ssprofileRun.addEventListener('click', () => void runProfileTask(async d => { await runSingleSubmitProfile(d, profileLogN(), profileLog, 0, selectedProfile($profileSkip, $profileProfile)); }));
+$ssprofileTailRun.addEventListener('click', () => void runProfileTask(async d => { await runSingleSubmitProfile(d, profileLogN(), profileLog, profileTail(), selectedProfile($profileSkip, $profileProfile)); }));
 $e2eRun.addEventListener('click', () => void runProfileTask(async d => { await runE2EProfile(d, profileLogN(), profileTail(), profileLog); }));
 $memRun.addEventListener('click', () => void runProfileTask(async d => { await runMemoryProfile(d, profileLogN(), profileLog); }));
 $profilereportRun.addEventListener('click', () => void runProfileTask(d => runProfileReport(d, profileLog)));
@@ -357,6 +367,12 @@ if (autorun === 'bench') {
   if (lognParam) $profileLogn.value = lognParam;
   const tParam = params.get('t');
   if (tParam) $ssprofileTail.value = tParam;
+  // `?skip=1` enables realistic sparsity; `?profile=realistic-block|realistic-scattered`
+  // picks the instance — lets the headless driver exercise the skip path on the profile tab.
+  const skipParam = params.get('skip');
+  if (skipParam && skipParam !== '0' && skipParam !== 'false') $profileSkip.checked = true;
+  const profParam = params.get('profile');
+  if (profParam) $profileProfile.value = profParam;
   if (autorun === 'profile') $profileRun.click();
   else if (autorun === 'ssprofile') $ssprofileRun.click();
   else if (autorun === 'ssprofiletail') $ssprofileTailRun.click();

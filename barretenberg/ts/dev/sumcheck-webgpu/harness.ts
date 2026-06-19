@@ -204,6 +204,21 @@ export interface EdgeRow {
   s: bigint; // scaling factor
 }
 
+// Declarative mirror of a relation's C++ `Relation::skip(in)` predicate, evaluated
+// per edge-pair on the GPU. The relation contributes zero on a pair iff the predicate
+// holds, so skipping is a pure performance optimization (the contribution it elides is
+// provably zero). Indices are entity column indices (the `e[idx]` index in build):
+//   - allZero: skip iff EVERY listed selector column is Montgomery-zero on both edge
+//     evals (covers the single-`is_zero()` relations and the compound AND ones —
+//     logderiv `[q_lookup, read_counts]`, databus `[q_busread, 5×read_counts]`).
+//   - eqPair: skip iff columns [a,b] are byte-equal on both edge evals — the
+//     permutation relation's `(z_perm - z_perm_shift).is_zero()`.
+// Montgomery 0 is all-zero bytes and stored columns are canonical Montgomery, so both
+// predicates reduce to cheap byte tests on-GPU (no fromMont). See descriptors.ts.
+export type SkipPredicate =
+  | { kind: 'allZero'; cols: number[] }
+  | { kind: 'eqPair'; cols: [number, number] };
+
 // A relation's per-edge isolation kernel + reference, packaged so both its
 // standalone suite and the end-to-end integration suite can drive it. `build`
 // produces one edge row; `polyRef` is the per-edge polynomial golden (outLen Fr).
@@ -231,6 +246,10 @@ export interface RelationDescriptor {
   makeParams?: (rng: () => bigint) => bigint[];
   build: (rng: () => bigint, i: number) => EdgeRow;
   polyRef: (e: bigint[][], s: bigint, params: bigint[]) => bigint[];
+  // The relation's skip predicate (mirrors C++ Relation::skip). The GPU skip path
+  // (gpu_pipeline.injectSkipPrelude) and the sparse-instance generator (sparsity.ts)
+  // both read this; the same column indices appear as the "skip path" rows in `build`.
+  skip: SkipPredicate;
 }
 
 // Pack n test edges into the resident column layout the relation kernels read:
