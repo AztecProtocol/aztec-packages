@@ -20,7 +20,6 @@ export class StoredEntity {
   }
 
   toBuffer(): Buffer {
-    const originBlockTag = this.originBlock ? 1 : 0;
     return serializeToBuffer(
       this.key.contractAddress,
       this.key.scope,
@@ -28,7 +27,7 @@ export class StoredEntity {
       this.key.entityId,
       this.body.length,
       ...this.body,
-      originBlockTag,
+      this.originBlock !== undefined,
       this.originBlock ? this.originBlock.blockNumber : 0,
       this.originBlock ? this.originBlock.blockHash : Fr.ZERO,
     );
@@ -42,10 +41,10 @@ export class StoredEntity {
     const entityId = reader.readObject(Fr);
     const bodyLen = reader.readNumber();
     const body = reader.readArray(bodyLen, Fr);
-    const originBlockTag = reader.readNumber();
+    const hasOriginBlock = reader.readBoolean();
     const blockNumber = reader.readNumber();
     const blockHash = reader.readObject(Fr);
-    const originBlock = originBlockTag === 1 ? { blockNumber, blockHash } : undefined;
+    const originBlock = hasOriginBlock ? { blockNumber, blockHash } : undefined;
     return new StoredEntity(new EntityKey(contractAddress, scope, entityTypeId, entityId), [...body], originBlock);
   }
 }

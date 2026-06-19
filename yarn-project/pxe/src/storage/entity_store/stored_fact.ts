@@ -35,7 +35,6 @@ export class StoredFact {
   }
 
   toBuffer(): Buffer {
-    const originBlockTag = this.originBlock ? 1 : 0;
     return serializeToBuffer(
       this.entityKey.contractAddress,
       this.entityKey.scope,
@@ -44,7 +43,7 @@ export class StoredFact {
       this.factTypeId,
       this.payload.length,
       ...this.payload,
-      originBlockTag,
+      this.originBlock !== undefined,
       this.originBlock ? this.originBlock.blockNumber : 0,
       this.originBlock ? this.originBlock.blockHash : Fr.ZERO,
     );
@@ -59,10 +58,10 @@ export class StoredFact {
     const factTypeId = reader.readObject(Fr);
     const payloadLen = reader.readNumber();
     const payload = reader.readArray(payloadLen, Fr);
-    const originBlockTag = reader.readNumber();
+    const hasOriginBlock = reader.readBoolean();
     const blockNumber = reader.readNumber();
     const blockHash = reader.readObject(Fr);
-    const originBlock = originBlockTag === 1 ? { blockNumber, blockHash } : undefined;
+    const originBlock = hasOriginBlock ? { blockNumber, blockHash } : undefined;
     return new StoredFact(
       new EntityKey(contractAddress, scope, entityTypeId, entityId),
       factTypeId,
