@@ -72,7 +72,7 @@ describe('Archiver Sync', () => {
   // beforeEach default instance and by tests that need a second archiver with a different config.
   const buildArchiver = async (
     storeName: string,
-    configOverrides: { skipOrphanProposedBlockPruning?: boolean } = {},
+    configOverrides: { skipOrphanProposedBlockPruning?: boolean; batchSize?: number } = {},
   ): Promise<{ archiver: Archiver; synchronizer: ArchiverL1Synchronizer; archiverStore: ArchiverDataStores }> => {
     const store = createArchiverDataStores(await openTmpStore(storeName), GENESIS_BLOCK_HEADER_HASH);
 
@@ -1108,6 +1108,62 @@ describe('Archiver Sync', () => {
       expect(tips.checkpointed.block.number).toEqual(cp1.blocks[cp1.blocks.length - 1].number);
 
       archiver.events.off(L2BlockSourceEvents.L2PruneUnproven, pruneSpy);
+    }, 20_000);
+
+    it('does not ingest a later-batch checkpoint that builds on a skipped prunable one', async () => {
+      // Covers the loop-break (stopAfterBatch) in handleCheckpoints, distinct from the in-batch filter:
+      // once a prunable blob failure skips checkpoint N, every later checkpoint this iteration must be
+      // skipped too — including ones that land in a *later* L1-block batch. If such a checkpoint (valid
+      // attestations, fetchable blob, but building on the skipped N) were pulled in, addCheckpoints would
+      // throw InitialCheckpointNumberNotSequentialError on the gap and re-freeze sync. We use a tiny batch
+      // size so CP2 (bad blob) and CP3 (good blob, builds on CP2) fall in separate batches.
+      const { archiver: smallBatchArchiver } = await buildArchiver('archiver_small_batch', { batchSize: 1 });
+      try {
+        fake.setTargetCommitteeSize(3);
+        const signers = times(3, Secp256k1Signer.random);
+        epochCache.getCommitteeForEpoch.mockResolvedValue({
+          committee: signers.map(s => s.address),
+        } as EpochCommitteeInfo);
+
+        // CP1: valid attestations + good blob. Synced and proven — the tip we expect to roll back to.
+        await fake.addCheckpoint(CheckpointNumber(1), {
+          l1BlockNumber: 2n,
+          messagesL1BlockNumber: 1n,
+          numL1ToL2Messages: 3,
+          signers,
+        });
+        fake.setL1BlockNumber(3n);
+        await smallBatchArchiver.syncImmediate();
+        expect(await smallBatchArchiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
+        fake.markCheckpointAsProven(CheckpointNumber(1));
+
+        // CP2 (valid attestations, malformed blob) and CP3 (valid attestations, good blob, chains off CP2),
+        // spaced >2 L1 blocks apart so they land in separate batches given batchSize 1 (2 L1 blocks/batch).
+        await fake.addCheckpoint(CheckpointNumber(2), { l1BlockNumber: 5n, numL1ToL2Messages: 0, signers });
+        await fake.addCheckpoint(CheckpointNumber(3), { l1BlockNumber: 8n, numL1ToL2Messages: 0, signers });
+        const cp2BlockId = Buffer32.fromBigInt(5n).toString();
+        const malformedBlob = await makeRandomBlob(3);
+        const defaultGetBlobSidecar = blobClient.getBlobSidecar.getMockImplementation()!;
+        blobClient.getBlobSidecar.mockImplementation((...args: Parameters<typeof blobClient.getBlobSidecar>) =>
+          args[0] === cp2BlockId ? Promise.resolve([malformedBlob]) : defaultGetBlobSidecar(...args),
+        );
+
+        fake.setCanPrune(true);
+        fake.setL1BlockNumber(10n);
+
+        // Must not throw: CP2 is skipped as prunable, and CP3 (in a later batch, building on CP2) must not
+        // be pulled in — otherwise its ingestion would hit the sequential-number gap and rethrow.
+        await expect(smallBatchArchiver.syncImmediate()).resolves.toBeUndefined();
+
+        // Neither CP2 nor CP3 ingested; the chain stayed at the proven tip CP1.
+        expect(await smallBatchArchiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
+        expect(await smallBatchArchiver.getProvenCheckpointNumber()).toEqual(CheckpointNumber(1));
+        expect(await smallBatchArchiver.getCheckpoints({ from: CheckpointNumber(2), limit: 2 })).toEqual([]);
+
+        blobClient.getBlobSidecar.mockImplementation(defaultGetBlobSidecar);
+      } finally {
+        await smallBatchArchiver.stop();
+      }
     }, 20_000);
   });
 
