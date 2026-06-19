@@ -12,17 +12,17 @@ import { TxExecutionResult } from '@aztec/stdlib/tx';
 
 import { expect, jest } from '@jest/globals';
 
-import type { EndToEndContext } from '../fixtures/utils.js';
-import { waitForNodeCheckpoint } from '../fixtures/wait_helpers.js';
-import { proveInteraction } from '../test-wallet/utils.js';
-import { MultiNodeTestContext } from './multi_node_test_context.js';
+import type { EndToEndContext } from '../../fixtures/utils.js';
+import { waitForNodeCheckpoint } from '../../fixtures/wait_helpers.js';
+import { proveInteraction } from '../../test-wallet/utils.js';
+import { FAST_REORG_TIMING, SingleNodeTestContext } from '../single_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 20);
 
 /**
  * E2E tests for optimistic (checkpoint-driven) proving with reorg scenarios.
  *
- * Setup: a single sequencer/validator node from `MultiNodeTestContext.setup` plus the context's fake prover-node (no
+ * Setup: a single sequencer/validator node from `SingleNodeTestContext.setup` plus the context's fake prover-node (no
  * `mockGossipSubNetwork`, so no gossip bus), making this a `single-node` test on the production `Sequencer`. Each of the
  * six `describe` blocks builds a fresh context in its own `beforeEach` and tears it down in the shared `afterEach`. The
  * happy-path pair uses defaults (`numberOfAccounts: 1`; ethSlot=8s local/12s CI, aztecSlot=16s/24s, epoch=6,
@@ -40,7 +40,7 @@ jest.setTimeout(1000 * 60 * 20);
  * Proposed category: `single-node` (epochs/). Heavy hand-rolled coordination throughout — see the inline REFACTOR
  * markers below for the raw-async sites a DSL helper should replace.
  */
-describe('multi-node/optimistic_proving', () => {
+describe('multi-node/single-node/optimistic_proving', () => {
   let context: EndToEndContext;
   let rollup: RollupContract;
   let logger: Logger;
@@ -48,7 +48,7 @@ describe('multi-node/optimistic_proving', () => {
 
   let L2_SLOT_DURATION_IN_S: number;
 
-  let test: MultiNodeTestContext;
+  let test: SingleNodeTestContext;
 
   /**
    * Looks up the epoch a given checkpoint sits in by reading its slot from the archiver.
@@ -144,7 +144,7 @@ describe('multi-node/optimistic_proving', () => {
 
   describe('happy path', () => {
     beforeEach(async () => {
-      test = await MultiNodeTestContext.setup({ numberOfAccounts: 1 });
+      test = await SingleNodeTestContext.setup({ numberOfAccounts: 1 });
       ({ rollup, logger, context } = test);
       ({ L2_SLOT_DURATION_IN_S } = test);
       node = context.aztecNode;
@@ -227,7 +227,8 @@ describe('multi-node/optimistic_proving', () => {
 
   describe('mid-epoch checkpoint reorg with replacement', () => {
     beforeEach(async () => {
-      test = await MultiNodeTestContext.setup({
+      test = await SingleNodeTestContext.setup({
+        ...FAST_REORG_TIMING,
         maxSpeedUpAttempts: 0,
         cancelTxOnTimeout: false,
         // Use a longer epoch so the replacement checkpoint has room to land in the same
@@ -236,13 +237,8 @@ describe('multi-node/optimistic_proving', () => {
         // boundary (see CI failure on `+2` reorg, replacement landed two slots into the
         // next epoch).
         aztecEpochDuration: 8,
-        ethereumSlotDuration: 4,
-        aztecSlotDuration: 36,
-        blockDurationMs: 8000,
         minTxsPerBlock: 0,
         aztecProofSubmissionEpochs: 1000,
-        anvilSlotsInAnEpoch: 32,
-        inboxLag: 2,
       });
       ({ rollup, logger, context } = test);
       ({ L2_SLOT_DURATION_IN_S } = test);
@@ -369,17 +365,13 @@ describe('multi-node/optimistic_proving', () => {
 
   describe('mid-epoch checkpoint reorg moving a tx', () => {
     beforeEach(async () => {
-      test = await MultiNodeTestContext.setup({
+      test = await SingleNodeTestContext.setup({
+        ...FAST_REORG_TIMING,
         numberOfAccounts: 1,
         maxSpeedUpAttempts: 0,
         cancelTxOnTimeout: false,
-        aztecEpochDuration: 4,
-        ethereumSlotDuration: 4,
-        aztecSlotDuration: 36,
-        blockDurationMs: 8000,
         minTxsPerBlock: 0,
         aztecProofSubmissionEpochs: 1000,
-        anvilSlotsInAnEpoch: 32,
       });
       ({ rollup, logger, context } = test);
       ({ L2_SLOT_DURATION_IN_S } = test);
@@ -471,16 +463,12 @@ describe('multi-node/optimistic_proving', () => {
 
   describe('mid-epoch checkpoint reorg without replacement', () => {
     beforeEach(async () => {
-      test = await MultiNodeTestContext.setup({
+      test = await SingleNodeTestContext.setup({
+        ...FAST_REORG_TIMING,
         maxSpeedUpAttempts: 0,
         cancelTxOnTimeout: false,
-        aztecEpochDuration: 4,
-        ethereumSlotDuration: 4,
-        aztecSlotDuration: 36,
-        blockDurationMs: 8000,
         minTxsPerBlock: 0,
         aztecProofSubmissionEpochs: 1000,
-        anvilSlotsInAnEpoch: 32,
       });
       ({ rollup, logger, context } = test);
       ({ L2_SLOT_DURATION_IN_S } = test);
@@ -550,17 +538,12 @@ describe('multi-node/optimistic_proving', () => {
 
   describe('last-slot checkpoint reorg without replacement', () => {
     beforeEach(async () => {
-      test = await MultiNodeTestContext.setup({
+      test = await SingleNodeTestContext.setup({
+        ...FAST_REORG_TIMING,
         maxSpeedUpAttempts: 0,
         cancelTxOnTimeout: false,
-        aztecEpochDuration: 4,
-        ethereumSlotDuration: 4,
-        aztecSlotDuration: 36,
-        blockDurationMs: 8000,
         minTxsPerBlock: 0,
         aztecProofSubmissionEpochs: 1000,
-        anvilSlotsInAnEpoch: 32,
-        inboxLag: 2,
         // Apply a delay between "epoch complete on L1" and the prover-node hand-off so
         // the reorg below has time to be processed before finalization starts.
         proverNodeConfig: { proverNodeEpochProvingDelayMs: 10_000 },
@@ -632,16 +615,12 @@ describe('multi-node/optimistic_proving', () => {
 
   describe('checkpoint reorg during proving', () => {
     beforeEach(async () => {
-      test = await MultiNodeTestContext.setup({
+      test = await SingleNodeTestContext.setup({
+        ...FAST_REORG_TIMING,
         maxSpeedUpAttempts: 0,
         cancelTxOnTimeout: false,
-        aztecEpochDuration: 4,
-        ethereumSlotDuration: 4,
-        aztecSlotDuration: 36,
-        blockDurationMs: 8000,
         minTxsPerBlock: 0,
         aztecProofSubmissionEpochs: 1000,
-        anvilSlotsInAnEpoch: 32,
       });
       ({ rollup, logger, context } = test);
       ({ L2_SLOT_DURATION_IN_S } = test);
@@ -767,18 +746,14 @@ describe('multi-node/optimistic_proving', () => {
 
   describe('prover-node starts mid-epoch', () => {
     beforeEach(async () => {
-      test = await MultiNodeTestContext.setup({
+      test = await SingleNodeTestContext.setup({
+        ...FAST_REORG_TIMING,
         // Don't start the prover-node automatically — we spin it up mid-epoch in the test.
         startProverNode: false,
         maxSpeedUpAttempts: 0,
         cancelTxOnTimeout: false,
-        aztecEpochDuration: 4,
-        ethereumSlotDuration: 4,
-        aztecSlotDuration: 36,
-        blockDurationMs: 8000,
         minTxsPerBlock: 0,
         aztecProofSubmissionEpochs: 1000,
-        anvilSlotsInAnEpoch: 32,
       });
       ({ rollup, logger, context } = test);
       ({ L2_SLOT_DURATION_IN_S } = test);

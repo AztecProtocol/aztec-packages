@@ -12,19 +12,19 @@ import { mkdtemp } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { getACVMConfig } from '../fixtures/get_acvm_config.js';
-import { getBBConfig } from '../fixtures/get_bb_config.js';
-import type { EndToEndContext } from '../fixtures/utils.js';
-import { MultiNodeTestContext } from './multi_node_test_context.js';
+import { getACVMConfig } from '../../fixtures/get_acvm_config.js';
+import { getBBConfig } from '../../fixtures/get_bb_config.js';
+import type { EndToEndContext } from '../../fixtures/utils.js';
+import { SingleNodeTestContext } from '../single_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 10);
 
 // Suite: verifies that a failed epoch-proving job uploads its state to a file store and that
 // rerunEpochProvingJob can re-prove from the downloaded data on a fresh instance. Uses
-// MultiNodeTestContext with a prover configured to use a temp file:// URL as the epoch failure store.
+// SingleNodeTestContext with a prover configured to use a temp file:// URL as the epoch failure store.
 // Timing: all defaults (ethSlot=8s/12s CI, aztecSlot=16s/24s, epoch=6, proofSubmissionEpochs=1,
 // fake prover). The test tears down mid-run and re-proves via a standalone helper.
-describe('multi-node/upload_failed_proof', () => {
+describe('multi-node/single-node/upload_failed_proof', () => {
   let context: EndToEndContext;
   let logger: Logger;
   let config: AztecNodeConfig;
@@ -34,7 +34,7 @@ describe('multi-node/upload_failed_proof', () => {
   let rerunDataDir: string;
   let rerunDownloadDir: string;
 
-  let test: MultiNodeTestContext;
+  let test: SingleNodeTestContext;
 
   beforeEach(async () => {
     rerunDataDir = await mkdtemp(join(tmpdir(), 'rerun-data-'));
@@ -42,7 +42,7 @@ describe('multi-node/upload_failed_proof', () => {
     uploadPath = await mkdtemp(join(tmpdir(), 'failed-proofs-'));
     uploadUrl = `file://${uploadPath}`;
 
-    test = await MultiNodeTestContext.setup({
+    test = await SingleNodeTestContext.setup({
       proverNodeConfig: { proverNodeFailedEpochStore: uploadUrl },
     });
     ({ context, logger } = test);

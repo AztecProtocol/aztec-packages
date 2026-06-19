@@ -267,7 +267,7 @@ tests:
       - *charlie
       - *adam
 
-  - regex: "src/multi-node/l1_reorgs.parallel.test.ts"
+  - regex: "src/multi-node/single-node/l1_reorgs.parallel.test.ts"
     owners:
       - *phil
 

@@ -7,18 +7,18 @@ import { type L1RollupConstants, getSlotRangeForEpoch } from '@aztec/stdlib/epoc
 
 import { jest } from '@jest/globals';
 
-import type { EndToEndContext } from '../fixtures/utils.js';
-import { MultiNodeTestContext } from './multi_node_test_context.js';
+import type { EndToEndContext } from '../../fixtures/utils.js';
+import { SingleNodeTestContext } from '../single_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 10);
 
 // Suite: checks that multiple prover nodes can each submit their own valid proof for the same epoch.
-// MultiNodeTestContext with startProverNode=false (test creates 3 prover nodes manually). Single
+// SingleNodeTestContext with startProverNode=false (test creates 3 prover nodes manually). Single
 // sequencer node. Timing: all defaults (ethSlot=8s/12s CI, aztecSlot=16s/24s, epoch=6,
 // proofSubmissionEpochs=1, fake prover). Staggered top-tree-prove delays (v5 patches
 // createTopTreeOrchestrator's prove() per node; pre-v5 it patched finalizeEpoch) ensure provers don't
 // all land at the same L1 block.
-describe('multi-node/multi_proof', () => {
+describe('multi-node/single-node/multi_proof', () => {
   let context: EndToEndContext;
   let rollup: RollupContract;
   let constants: L1RollupConstants;
@@ -26,12 +26,12 @@ describe('multi-node/multi_proof', () => {
 
   let L1_BLOCK_TIME_IN_S: number;
 
-  let test: MultiNodeTestContext;
+  let test: SingleNodeTestContext;
 
   beforeEach(async () => {
     // Don't start prover node during setup - we'll create and manage all prover nodes in the test
     // This ensures we can apply delay patches before any prover starts proving
-    test = await MultiNodeTestContext.setup({ startProverNode: false });
+    test = await SingleNodeTestContext.setup({ startProverNode: false });
     ({ context, rollup, constants, logger, L1_BLOCK_TIME_IN_S } = test);
   });
 

@@ -13,8 +13,8 @@ import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 
 import { jest } from '@jest/globals';
 
-import { proveInteraction } from '../test-wallet/utils.js';
-import { MultiNodeTestContext } from './multi_node_test_context.js';
+import { proveInteraction } from '../../test-wallet/utils.js';
+import { SingleNodeTestContext } from '../single_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 10);
 
@@ -57,12 +57,12 @@ jest.setTimeout(1000 * 60 * 10);
 //     state via setStateFn(state, targetSlot)). Slot N+2 is unique to this cycle: the prior cycle
 //     targeted N+1.
 // Suite: regression test for sequencer sync logic when L1 slot production stalls mid-slot.
-// MultiNodeTestContext with single-node + mockGossipSubNetwork, prod-seq, interval mining (automine
+// SingleNodeTestContext with single-node + mockGossipSubNetwork, prod-seq, interval mining (automine
 // during L1 deploy only). Timing: ethSlot=8s (12s CI), aztecSlot=6×ethSlot, epoch=default 6,
 // proofSubmissionEpochs=1024, blockDurationMs=8000, inboxLag=2 (v5 always enforces the timetable, so
 // the former enforceTimeTable/disableAnvilTestWatcher overrides are gone). No prover.
-describe('multi-node/missed_l1_slot', () => {
-  let test: MultiNodeTestContext;
+describe('multi-node/single-node/missed_l1_slot', () => {
+  let test: SingleNodeTestContext;
   let contract: TestContract;
   let from: AztecAddress;
 
@@ -80,7 +80,7 @@ describe('multi-node/missed_l1_slot', () => {
   const TX_COUNT = 12;
 
   beforeEach(async () => {
-    test = await MultiNodeTestContext.setup({
+    test = await SingleNodeTestContext.setup({
       numberOfAccounts: 0,
       // The 8s blockDurationMs leaves a per-block DA gas budget too small to fit an account
       // deploy, so use the hardcoded-account fast-path (funded via genesis) even though we
@@ -92,7 +92,6 @@ describe('multi-node/missed_l1_slot', () => {
       aztecSlotDurationInL1Slots: L1_SLOTS_PER_L2_SLOT,
       startProverNode: false,
       aztecProofSubmissionEpochs: 1024,
-      inboxLag: 2,
       // Required for the proposer's own broadcasts to route through the local
       // proposal handler (the dummy p2p service drops them). Without this, the
       // archiver's #proposedCheckpoints map stays empty and the pipelining

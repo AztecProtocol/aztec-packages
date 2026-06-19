@@ -34,12 +34,12 @@ function test_cmds {
   fi
   echo "$prefix:TIMEOUT=25m:NAME=e2e_block_building $(set_dump_avm e2e_block_building) $run_test_script simple e2e_block_building"
   echo "$prefix:TIMEOUT=30m:NAME=e2e_avm_simulator $(set_dump_avm e2e_avm_simulator) $run_test_script simple src/e2e_avm_simulator.test.ts"
-  echo "$prefix:TIMEOUT=15m:NAME=multi-node/long_proving_time $run_test_script simple src/multi-node/long_proving_time.test.ts"
 
   local tests=(
     # List all standalone and nested tests, except for the ones listed above.
     src/e2e_!(prover)/*.test.ts
-    src/multi-node/!(long_proving_time).test.ts
+    src/multi-node/*.test.ts
+    src/multi-node/single-node/*.test.ts
     src/multi-node/slashing/*.test.ts
     src/e2e_p2p/reqresp/*.test.ts
     src/e2e_!(block_building|avm_simulator).test.ts
@@ -58,6 +58,10 @@ function test_cmds {
         ;;
       e2e_cross_chain_messaging/l1_to_l2)
         test_prefix="$prefix:TIMEOUT=20m"
+        ;;
+      multi-node/single-node/proving.parallel)
+        # The long-proving-time scenario waits out a multi-epoch prover delay.
+        test_prefix="$prefix:TIMEOUT=15m"
         ;;
     esac
 
