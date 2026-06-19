@@ -54,8 +54,6 @@ export class PersistedEnrStore {
     try {
       await this.store.transactionAsync(async () => {
         const seq = ++this.seq;
-        // Reads inside a write transaction see committed state, not our own pending set, so gather the
-        // existing entries first and account for the one we're about to add when deciding what to evict.
         const others: { nodeId: string; seq: number }[] = [];
         for await (const [id, value] of this.enrs.entriesAsync()) {
           if (id !== nodeId) {
