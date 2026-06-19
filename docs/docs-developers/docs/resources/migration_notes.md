@@ -9,7 +9,6 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
-<<<<<<< HEAD
 ### [Prover Node JSON-RPC] Prover API moved to the admin endpoint; `getL2Tips`/`getWorldStateSyncStatus` removed
 
 The prover node's JSON-RPC methods (`prover_*`) have moved off the public node RPC server and onto the admin RPC server. They now require the admin API key and are served on the admin port (8880) instead of the public port (8080).
@@ -87,9 +86,8 @@ while i > 0 {
     }
 }
 ```
-=======
+
 ## 5.0.0-rc.1
->>>>>>> origin/public-next
 
 ### [Aztec.js] Prefunded local network test accounts are now initializerless
 
@@ -173,11 +171,6 @@ The following exports have been removed from `@aztec/stdlib`:
 
 **Impact**: Any code that imported these symbols must switch to the live node-advertised limits via the node's `txsLimits.gas`.
 
-<<<<<<< HEAD
-> > > > > > > ab5413c72dc5377107943b8614130ec8050bf06c
-
-=======
->>>>>>> origin/public-next
 ### [Aztec.nr] `messages::message_delivery` module moved to `messages::delivery`
 
 The `message_delivery` module has been renamed to `delivery`. Update imports accordingly:
@@ -200,15 +193,12 @@ All Aztec node JSON-RPC method prefixes have changed:
 If you call the node RPC directly (e.g. via `curl` or a custom client), update all method names accordingly.
 Clients created via `createAztecNodeClient`, `createAztecNodeAdminClient`, and `createAztecNodeDebugClient` are updated automatically.
 
-<<<<<<< HEAD
 ### [Node RPC] `registerContractFunctionSignatures` moved to the debug API
 
 `registerContractFunctionSignatures` is no longer part of the main node JSON-RPC API (`aztec_` namespace). It is now a debug-only method exposed under the `aztecDebug_` namespace, which is only mounted when the node runs with debug endpoints enabled (`--node-debug`, always on in the in-process sandbox). This removes an unauthenticated write to node memory from prod-like nodes.
 
 Clients that registered public function signatures over `aztec_registerContractFunctionSignatures` should call `aztecDebug_registerContractFunctionSignatures` against a debug-enabled node instead. In the PXE, this is now driven by an optional debug client: pass a `nodeDebug` client (e.g. `createAztecNodeDebugClient(nodeUrl)`) when creating the PXE to keep named public-execution traces; when it is absent, signature registration is skipped. Client-side error enrichment from the contract ABI is unaffected.
 
-=======
->>>>>>> origin/public-next
 ### [Aztec.nr] `get_pending_tagged_logs` oracle interface updated (oracle version 28)
 
 The `aztec_utl_getPendingTaggedLogs` oracle now takes an additional `provided_secrets` parameter of type `EphemeralArray<ProvidedSecret>`. This lets apps pass tagging secrets that PXE cannot derive on its own (e.g. handshake-derived secrets) alongside the secrets PXE manages internally.
@@ -293,11 +283,7 @@ After the `auth_registry`, `multi_call_entrypoint`, and `public_checks` demotion
 
 ### [Aztec.nr] `multi_call_entrypoint` demoted from protocol contract
 
-<<<<<<< HEAD
-`multi_call_entrypoint` is no longer a protocol contract; its address is derived from its artifact rather than hardcoded at `6`, and PXE no longer auto-registers it. It is now a standard contract that PXE _preloads_: both `createPXE` and `EmbeddedWallet` preload the standard MultiCallEntrypoint automatically (and `EmbeddedWallet` additionally preloads `AuthRegistry`). **If you use the standard PXE or `EmbeddedWallet`, no changes are needed** — multicall keeps working out of the box.
-=======
 `multi_call_entrypoint` is no longer a protocol contract; its address is derived from its artifact rather than hardcoded at `4`, and PXE no longer auto-registers it. It is now a standard contract that PXE _preloads_: both `createPXE` and `EmbeddedWallet` preload the standard MultiCallEntrypoint automatically (and `EmbeddedWallet` additionally preloads `AuthRegistry`). **If you use the standard PXE or `EmbeddedWallet`, no changes are needed** — multicall keeps working out of the box.
->>>>>>> origin/public-next
 
 To preload a different set of standard contracts (for example to also preload `PublicChecks`, which is not preloaded by default), a wallet or app passes its own `preloadedContractsProvider` through the wallet's PXE options:
 
