@@ -147,6 +147,8 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
   // Track attestations by checkpoint number for proof submission
   mapping(uint256 => CommitteeAttestations) internal checkpointAttestations;
 
+  mapping(uint256 => ProposedHeader) internal checkpointHeaders;
+
   Multicall3 internal multicall = new Multicall3();
 
   address internal slashingProposer;
@@ -270,6 +272,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     header.feeRecipient = bytes32(0);
     header.gasFees.feePerL2Gas = manaMinFee;
     header.totalManaUsed = manaSpent;
+    header.accumulatedFees = uint256(manaMinFee) * manaSpent;
 
     ProposeArgs memory proposeArgs = ProposeArgs({
       header: header,
@@ -449,9 +452,10 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
         skipBlobCheck(address(rollup));
 
-        // Store the attestations for the current checkpoint number
+        // Store the attestations and header for the current checkpoint number
         uint256 currentCheckpointNumber = rollup.getPendingCheckpointNumber() + 1;
         checkpointAttestations[currentCheckpointNumber] = AttestationLibHelper.packAttestations(b.attestations);
+        checkpointHeaders[currentCheckpointNumber] = b.proposeArgs.header;
 
         if (_slashing == TestSlash.TALLY) {
           SlashRound slashRound = SlashingProposer(slashingProposer).getCurrentRound();
@@ -496,16 +500,9 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
           epochSize++;
         }
 
-        bytes32[] memory fees = new bytes32[](Constants.MAX_CHECKPOINTS_PER_EPOCH * 2);
-
-        for (uint256 feeIndex = 0; feeIndex < epochSize; feeIndex++) {
-          // we need the minFee, and we cannot just take it from the point. Because it is different
-          Timestamp ts = rollup.getTimestampForSlot(Slot.wrap(start + feeIndex));
-          uint256 manaMinFee = rollup.getManaMinFeeAt(ts, true);
-          uint256 fee = rollup.getFeeHeader(start + feeIndex).manaUsed * manaMinFee;
-
-          fees[feeIndex * 2] = bytes32(uint256(uint160(bytes20(coinbase))));
-          fees[feeIndex * 2 + 1] = bytes32(fee);
+        ProposedHeader[] memory headers = new ProposedHeader[](epochSize);
+        for (uint256 headerIndex = 0; headerIndex < epochSize; headerIndex++) {
+          headers[headerIndex] = checkpointHeaders[start + headerIndex];
         }
 
         CheckpointLog memory endCheckpoint = rollup.getCheckpoint(start + epochSize - 1);
@@ -522,7 +519,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
             start: start,
             end: start + epochSize - 1,
             args: args,
-            fees: fees,
+            headers: headers,
             attestations: checkpointAttestations[start + epochSize - 1],
             blobInputs: full.checkpoint.batchedBlobInputs,
             proof: ""
