@@ -40,6 +40,7 @@ function test_cmds {
     # List all standalone and nested tests, except for the ones listed above.
     src/e2e_!(prover)/*.test.ts
     src/multi-node/!(long_proving_time).test.ts
+    src/multi-node/e2e_slashing/*.test.ts
     src/e2e_p2p/reqresp/*.test.ts
     src/e2e_!(block_building|avm_simulator).test.ts
   )
