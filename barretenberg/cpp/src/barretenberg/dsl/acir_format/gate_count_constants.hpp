@@ -45,8 +45,8 @@ template <typename Builder>
 inline constexpr size_t POSEIDON2_PERMUTATION = (IsMegaBuilder<Builder> ? 27 : 73) + ZERO_GATE + MEGA_OFFSET<Builder>;
 template <typename Builder> inline constexpr size_t MULTI_SCALAR_MUL = 3557 + ZERO_GATE;
 template <typename Builder> inline constexpr size_t EC_ADD = 76 + ZERO_GATE + MEGA_OFFSET<Builder>;
-template <typename Builder> inline constexpr size_t BLOCK_ROM_READ = 9 + ZERO_GATE + MEGA_OFFSET<Builder>;
-template <typename Builder> inline constexpr size_t BLOCK_RAM_READ = 9 + ZERO_GATE + MEGA_OFFSET<Builder>;
+template <typename Builder> inline constexpr size_t BLOCK_ROM_READ = 4 + ZERO_GATE + MEGA_OFFSET<Builder>;
+template <typename Builder> inline constexpr size_t BLOCK_RAM_READ = 4 + ZERO_GATE + MEGA_OFFSET<Builder>;
 template <typename Builder> inline constexpr size_t BLOCK_RAM_WRITE = 18 + ZERO_GATE + MEGA_OFFSET<Builder>;
 // 4 = 1 busread (trace read) + 2 busreads (per-slot init reads bound to the witnesses, emitted by set_values) +
 // 1 constant-witness gate (fix_witness for the slot-index constant FF(1); FF(0) reuses zero_idx). Specific to the
@@ -59,7 +59,7 @@ template <typename Builder> inline constexpr size_t ASSERT_EQUALITY = ZERO_GATE 
 // Honk Recursion Constants
 // ========================================
 
-inline constexpr size_t ROOT_ROLLUP_GATE_COUNT = 6351528;
+inline constexpr size_t ROOT_ROLLUP_GATE_COUNT = 6351570;
 
 template <typename RecursiveFlavor>
 constexpr std::tuple<size_t, size_t> HONK_RECURSION_CONSTANTS(
@@ -71,34 +71,34 @@ constexpr std::tuple<size_t, size_t> HONK_RECURSION_CONSTANTS(
     if constexpr (std::is_same_v<RecursiveFlavor, bb::UltraRecursiveFlavor_<UltraCircuitBuilder>>) {
         switch (mode) {
         case PredicateTestCase::ConstantTrue:
-            return std::make_tuple(681736, 0);
+            return std::make_tuple(681757, 0);
         case PredicateTestCase::WitnessTrue:
         case PredicateTestCase::WitnessFalse:
-            return std::make_tuple(682793, 0);
+            return std::make_tuple(682814, 0);
         }
     } else if constexpr (std::is_same_v<RecursiveFlavor, bb::UltraZKRecursiveFlavor_<UltraCircuitBuilder>>) {
         switch (mode) {
         case PredicateTestCase::ConstantTrue:
-            return std::make_tuple(703514, 0);
+            return std::make_tuple(703537, 0);
         case PredicateTestCase::WitnessTrue:
         case PredicateTestCase::WitnessFalse:
-            return std::make_tuple(704667, 0);
+            return std::make_tuple(704690, 0);
         }
     } else if constexpr (std::is_same_v<RecursiveFlavor, bb::UltraRecursiveFlavor_<MegaCircuitBuilder>>) {
         switch (mode) {
         case PredicateTestCase::ConstantTrue:
-            return std::make_tuple(11848, 73);
+            return std::make_tuple(11869, 73);
         case PredicateTestCase::WitnessTrue:
         case PredicateTestCase::WitnessFalse:
-            return std::make_tuple(12905, 73);
+            return std::make_tuple(12926, 73);
         }
     } else if constexpr (std::is_same_v<RecursiveFlavor, bb::UltraZKRecursiveFlavor_<MegaCircuitBuilder>>) {
         switch (mode) {
         case PredicateTestCase::ConstantTrue:
-            return std::make_tuple(14540, 77);
+            return std::make_tuple(14563, 77);
         case PredicateTestCase::WitnessTrue:
         case PredicateTestCase::WitnessFalse:
-            return std::make_tuple(15693, 77);
+            return std::make_tuple(15716, 77);
         }
     } else if constexpr (std::is_same_v<RecursiveFlavor, bb::MegaZKRecursiveFlavor_<UltraCircuitBuilder>>) {
         if (mode != PredicateTestCase::ConstantTrue) {
@@ -128,22 +128,22 @@ inline constexpr size_t MSM_ROWS_OFFSET = 2;
 
 // Init kernel gate counts (verifies OINK proof)
 
-inline constexpr size_t INIT_KERNEL_GATE_COUNT = 12589;
+inline constexpr size_t INIT_KERNEL_GATE_COUNT = 12610;
 inline constexpr size_t INIT_KERNEL_ECC_ROWS = 524 + MSM_ROWS_OFFSET;
 inline constexpr size_t INIT_KERNEL_ULTRA_OPS = 60;
 
-// Inner kernel gate counts (verifies HN proof for previous kernel + HN for app, then a width-3 per-kernel batching)
-inline constexpr size_t INNER_KERNEL_GATE_COUNT_HN = 26430;
+// Inner kernel gate counts (verifies HN proof for previous kernel + HN for app)
+inline constexpr size_t INNER_KERNEL_GATE_COUNT_HN = 26472;
 inline constexpr size_t INNER_KERNEL_ECC_ROWS = 1242 + MSM_ROWS_OFFSET;
 inline constexpr size_t INNER_KERNEL_ULTRA_OPS = 140;
 
-// Tail kernel gate counts (verifies HN_TAIL proof, then a width-2 per-kernel batching)
-inline constexpr size_t TAIL_KERNEL_GATE_COUNT = 16601;
+// Tail kernel gate counts (verifies HN_TAIL proof)
+inline constexpr size_t TAIL_KERNEL_GATE_COUNT = 16622;
 inline constexpr size_t TAIL_KERNEL_ECC_ROWS = 718 + MSM_ROWS_OFFSET;
 inline constexpr size_t TAIL_KERNEL_ULTRA_OPS = 73;
 
-// Hiding kernel gate counts (verifies HN_FINAL proof, then a width-2 per-kernel batching + decider)
-inline constexpr size_t HIDING_KERNEL_GATE_COUNT = 41207;
+// Hiding kernel gate counts (verifies HN_FINAL proof)
+inline constexpr size_t HIDING_KERNEL_GATE_COUNT = 41228;
 inline constexpr size_t HIDING_KERNEL_ECC_ROWS = 5330 + MSM_ROWS_OFFSET;
 inline constexpr size_t HIDING_KERNEL_ULTRA_OPS = 359;
 

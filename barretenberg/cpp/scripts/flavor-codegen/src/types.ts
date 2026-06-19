@@ -13,18 +13,6 @@ export interface EntityDecl {
 // in declaration order.
 export type SubsetMap = Readonly<Record<string, readonly EntityName[]>>;
 
-// Which Fiat-Shamir challenge derivatives this relation reads from `RelationParameters`.
-// Powers above the first are only needed by a subset of relations; flavors that don't include
-// any consumer skip both the FS sample (for `etaPowers`) and the extra multiplications. Beta /
-// gamma themselves are always sampled (permutation argument), so only the squared/cubed powers
-// need conditional emission.
-export interface RelationChallengeUsage {
-    // Reads `params.eta`, `params.eta_two`, `params.eta_three`.
-    readonly etaPowers?: boolean;
-    // Reads `params.beta_sqr`, `params.beta_cube`.
-    readonly betaPowers?: boolean;
-}
-
 export interface Relation {
     // Stable identity (survives module re-evaluation); keyed by capability-bool emission.
     readonly id: string;
@@ -45,10 +33,6 @@ export interface Relation {
     // polynomial (e.g. ArithmeticRelation → "arithmetic"). Aggregated per flavor into
     // `get_gate_blocks()`.
     readonly gateBlockName?: string;
-    // Per-relation declaration of which FS-challenge powers this relation consumes. ORed across
-    // relations to produce `Flavor::UsesEtaPowers` / `Flavor::UsesBetaPowers`, which oink uses
-    // to gate the sample/compute. Defaults to all-false.
-    readonly usesChallenges: RelationChallengeUsage;
 }
 
 // Layout is derived: kind-bucketed (masking → precomputed → witness) per-relation walk; subsets

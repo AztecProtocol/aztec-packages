@@ -139,10 +139,6 @@ template <> class RelationChecker<bb::UltraFlavor> : public RelationChecker<void
         if (!ultra_elliptic_subrelation_failures.empty()) {
             all_subrelation_failures["UltraElliptic"] = ultra_elliptic_subrelation_failures;
         }
-        auto ultra_memory_subrelation_failures = Base::check<MemoryRelation<FF>>(polynomials, params, "Memory");
-        if (!ultra_memory_subrelation_failures.empty()) {
-            all_subrelation_failures["UltraMemory"] = ultra_memory_subrelation_failures;
-        }
         auto ultra_non_native_field_subrelation_failures =
             Base::check<NonNativeFieldRelation<FF>>(polynomials, params, "NonNativeField");
         if (!ultra_non_native_field_subrelation_failures.empty()) {
@@ -164,6 +160,12 @@ template <> class RelationChecker<bb::UltraFlavor> : public RelationChecker<void
             Base::check<LogDerivLookupRelation<FF>, true>(polynomials, params, "LogDerivLookup");
         if (!ultra_log_derivative_subrelation_failures.empty()) {
             all_subrelation_failures["UltraLogDerivative"] = ultra_log_derivative_subrelation_failures;
+        }
+        // Memory's ROM-LogUp sum subrelation is linearly dependent; it must be summed over the trace
+        // rather than checked per-row.
+        auto ultra_memory_subrelation_failures = Base::check<MemoryRelation<FF>, true>(polynomials, params, "Memory");
+        if (!ultra_memory_subrelation_failures.empty()) {
+            all_subrelation_failures["UltraMemory"] = ultra_memory_subrelation_failures;
         }
         return all_subrelation_failures;
     }

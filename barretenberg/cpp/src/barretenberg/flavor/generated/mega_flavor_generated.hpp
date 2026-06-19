@@ -173,8 +173,6 @@ class MegaFlavor_Generated {
     static constexpr bool HasMemory = true;
     static constexpr bool HasNonNativeField = true;
     static constexpr bool HasEccOpQueue = true;
-    static constexpr bool UsesEtaPowers = true;
-    static constexpr bool UsesBetaPowers = true;
     static constexpr size_t NUM_COMMITTED_WITNESS_ENTITIES = NUM_WITNESS_ENTITIES + NUM_MASKING_ENTITIES;
     static constexpr size_t NUM_UNSHIFTED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_COMMITTED_WITNESS_ENTITIES;
     static constexpr size_t NUM_ALL_ENTITIES = NUM_UNSHIFTED_ENTITIES + NUM_SHIFTED_ENTITIES;

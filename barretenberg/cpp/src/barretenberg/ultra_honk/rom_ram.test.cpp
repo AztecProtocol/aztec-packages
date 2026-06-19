@@ -43,6 +43,7 @@ template <typename Flavor> class MemoryTests_ : public UltraHonkTests<Flavor> {
         const size_t read_operations = 0,
         bool final_arithmetic_gate_and_read = true) // toggles whether we apply a final arithmetic gate and read gate
     {
+        BB_ASSERT_GTE(array_length, 1U, "The array length should be at least 1");
         BB_ASSERT_LTE(num_pair_elts_in_ROM_table,
                       array_length,
                       "cannot set the number of 'pairs of elements to add to the ROM table' to be greater than the "
@@ -57,28 +58,36 @@ template <typename Flavor> class MemoryTests_ : public UltraHonkTests<Flavor> {
             witness = circuit_builder.add_variable(variable);
         }
 
-        // array pointing to the witness indicies whose associated real variable is `i`. this makes testing a bit more
-        // ergonomic.
-        std::vector<uint32_t> index_witness_indices(array_length);
-        for (size_t i = 0; i < array_length; ++i) {
-            index_witness_indices[i] = circuit_builder.put_constant_variable(static_cast<uint64_t>(i));
-        }
-
         // build our "native" ROM table to check our operations
         NativeRomTable native_rom_table(array_length);
-        // build out in-circuit ROM table
-        size_t rom_table_id = circuit_builder.create_ROM_array(array_length);
-
         const size_t num_single_elts_in_ROM_table = array_length - num_pair_elts_in_ROM_table;
-        // set some single ROM elements for the chunk
+
+        // Single-value and pair-value entries live on _separate_ ROM arrays: single uses the LogUp scheme and
+        // pair uses the sorted-trace scheme; the two cannot share an array. We still keep a single
+        // `native_rom_table` for the test oracle. Convert from logical index to per-array index by subtracting
+        // num_single_elts_in_ROM_table for the pair side.
+        size_t rom_single_id = circuit_builder.create_ROM_array(num_single_elts_in_ROM_table);
+        size_t rom_pair_id = circuit_builder.create_ROM_array(num_pair_elts_in_ROM_table);
+
+        // Per-array index witnesses so reads pass the right witness for each array's local index space.
+        std::vector<uint32_t> single_index_witnesses(num_single_elts_in_ROM_table);
         for (size_t i = 0; i < num_single_elts_in_ROM_table; ++i) {
-            circuit_builder.set_ROM_element(rom_table_id, i, variable_witnesses[i]);
+            single_index_witnesses[i] = circuit_builder.put_constant_variable(static_cast<uint64_t>(i));
+        }
+        std::vector<uint32_t> pair_index_witnesses(num_pair_elts_in_ROM_table);
+        for (size_t i = 0; i < num_pair_elts_in_ROM_table; ++i) {
+            pair_index_witnesses[i] = circuit_builder.put_constant_variable(static_cast<uint64_t>(i));
+        }
+        // single ROM elements
+        for (size_t i = 0; i < num_single_elts_in_ROM_table; ++i) {
+            circuit_builder.set_ROM_element(rom_single_id, i, variable_witnesses[i]);
             native_rom_table[i] = std::array{ variables[i], fr::zero() };
         }
-        // set pairs of ROM values for the second chunk
+        // pair ROM elements (indexed locally on the pair array)
         for (size_t i = num_single_elts_in_ROM_table; i < array_length; ++i) {
+            const size_t pair_local = i - num_single_elts_in_ROM_table;
             circuit_builder.set_ROM_element_pair(
-                rom_table_id, i, std::array{ variable_witnesses[i], variable_witnesses[i + 1] });
+                rom_pair_id, pair_local, std::array{ variable_witnesses[i], variable_witnesses[i + 1] });
             native_rom_table[i] = std::array{ variables[i], variables[i + 1] };
         }
         //  perform some random read operations (which add rows to the execution trace) and check "natively" that the
@@ -90,14 +99,15 @@ template <typename Flavor> class MemoryTests_ : public UltraHonkTests<Flavor> {
 
             if (random_read_index < num_single_elts_in_ROM_table) {
                 uint32_t read_witness_index =
-                    circuit_builder.read_ROM_array(rom_table_id, index_witness_indices[random_read_index]);
+                    circuit_builder.read_ROM_array(rom_single_id, single_index_witnesses[random_read_index]);
                 // check fidelity of the memory read
                 auto actually_read_value = circuit_builder.get_variable(read_witness_index);
                 auto expected_value = native_rom_table[random_read_index][0];
                 BB_ASSERT_EQ(actually_read_value, expected_value);
             } else {
+                const size_t pair_local = random_read_index - num_single_elts_in_ROM_table;
                 auto [read_witness_index_1, read_witness_index_2] =
-                    circuit_builder.read_ROM_array_pair(rom_table_id, index_witness_indices[random_read_index]);
+                    circuit_builder.read_ROM_array_pair(rom_pair_id, pair_index_witnesses[pair_local]);
                 // check fidelity of the pair memory read
                 std::array<fr, 2> actually_read_values = { circuit_builder.get_variable(read_witness_index_1),
                                                            circuit_builder.get_variable(read_witness_index_2) };
@@ -114,15 +124,12 @@ template <typename Flavor> class MemoryTests_ : public UltraHonkTests<Flavor> {
             // build three random indices, store their witnesses for the final check.
             // in the case when there are _pairs_ of element in the ROM table row, we only use the _first_ entry for our
             // gate check.
-            std::array<uint32_t, 3> random_index_witnesses_to_check_computation;
             std::array<uint32_t, 3> random_indices_to_check_computation;
             std::array<fr, 3> native_fr_elts_to_check_computation;
             for (size_t i = 0; i < 3; i++) {
                 uint32_t random_index_to_check_computation =
                     static_cast<uint32_t>(engine.get_random_uint32() % array_length);
                 random_indices_to_check_computation[i] = random_index_to_check_computation;
-                random_index_witnesses_to_check_computation[i] =
-                    index_witness_indices[random_index_to_check_computation];
                 native_fr_elts_to_check_computation[i] =
                     native_rom_table[random_index_to_check_computation]
                                     [0]; // note that we only use the first entry of
@@ -133,13 +140,15 @@ template <typename Flavor> class MemoryTests_ : public UltraHonkTests<Flavor> {
             std::array<uint32_t, 3> final_check_read_witnesses;
             for (size_t i = 0; i < 3; i++) {
                 const auto random_idx = random_indices_to_check_computation[i];
-                const auto random_idx_witness = random_index_witnesses_to_check_computation[i];
 
                 if (random_idx < num_single_elts_in_ROM_table) {
-                    final_check_read_witnesses[i] = circuit_builder.read_ROM_array(rom_table_id, random_idx_witness);
+                    final_check_read_witnesses[i] =
+                        circuit_builder.read_ROM_array(rom_single_id, single_index_witnesses[random_idx]);
                 } else {
                     // For pairs, we only use the first element in the final check
-                    auto [first, _] = circuit_builder.read_ROM_array_pair(rom_table_id, random_idx_witness);
+                    const size_t pair_local = random_idx - num_single_elts_in_ROM_table;
+                    auto [first, _] =
+                        circuit_builder.read_ROM_array_pair(rom_pair_id, pair_index_witnesses[pair_local]);
                     final_check_read_witnesses[i] = first;
                 }
             }
@@ -160,11 +169,19 @@ template <typename Flavor> class MemoryTests_ : public UltraHonkTests<Flavor> {
                 0,
             });
             // add a read row, to make sure we can intersperse the operations, as expected.
-            uint32_t random_read_index = static_cast<uint32_t>(
-                engine.get_random_uint32() %
-                num_single_elts_in_ROM_table); // a random index to read from in my ROM array. we read from
-                                               // the part of the table that only has _single_ ROM entries.
-            circuit_builder.read_ROM_array(rom_table_id, index_witness_indices[random_read_index]);
+            if (num_single_elts_in_ROM_table > 0) {
+                uint32_t random_read_index = static_cast<uint32_t>(
+                    engine.get_random_uint32() %
+                    num_single_elts_in_ROM_table); // a random index to read from in my ROM array. we read from
+                                                   // the part of the table that only has _single_ ROM entries.
+                circuit_builder.read_ROM_array(rom_single_id, single_index_witnesses[random_read_index]);
+            } else {
+                uint32_t random_read_index = static_cast<uint32_t>(
+                    engine.get_random_uint32() %
+                    num_pair_elts_in_ROM_table); // a random index to read from in my ROM array. we read from
+                                                 // the part of the table that only has _single_ ROM entries.
+                circuit_builder.read_ROM_array_pair(rom_pair_id, pair_index_witnesses[random_read_index]);
+            }
         }
     }
 
@@ -181,12 +198,19 @@ template <typename Flavor> class MemoryTests_ : public UltraHonkTests<Flavor> {
         auto random_num = fr::random_element();
         auto random_variable_idx = circuit_builder.add_variable(random_num);
         switch (rom_failure_type) {
-        // one element is doubly initialized
+        // One element is doubly initialized. This uses the pair API because the two schemes reject double-init
+        // in different places: the sorted-trace (pair) scheme rejects it in-circuit via its adjacent-row
+        // consistency check, yielding an unsatisfiable circuit that prove_and_verify can detect; the
+        // single-value LogUp scheme instead rejects it at construction time (set_ROM_element asserts the cell
+        // is uninitialized, see rom_ram_logic.cpp), so its rejection cannot be expressed as a failing circuit
+        // here, especially with asserts disabled above. Hence the in-circuit failure path is tested via pairs.
         case ROMFailureType::DoubleInit: {
             for (size_t i = 0; i < array_length; ++i) {
-                circuit_builder.set_ROM_element(rom_id, i, zero_idx);
+                circuit_builder.set_ROM_element_pair(rom_id, i, std::array{ zero_idx, zero_idx });
             }
-            circuit_builder.set_ROM_element(rom_id, engine.get_random_uint32() % array_length, random_variable_idx);
+            circuit_builder.set_ROM_element_pair(rom_id,
+                                                 engine.get_random_uint32() % array_length,
+                                                 std::array{ random_variable_idx, random_variable_idx });
             break;
         }
         // we try to read a single element at a ROM entry that contains a _pair_ of values.
@@ -451,7 +475,9 @@ TYPED_TEST(UltraHonkTests, RomMaliciousInitValue)
 // a malicious prover could read/write fake values at index p-1. The fix uses zero_idx(), whose
 // fix_witness arithmetic gate (w1 * 1 + 0 = 0) catches any attempted mutation to p-1.
 
-// Test that a malicious prover cannot start the ROM sorted chain at p-1.
+// Test that a malicious prover cannot start the ROM sorted chain at p-1. The defense lives in the
+// sorted-trace scheme used by the pair-value ROM API; the single-value LogUp scheme has no sorted chain and
+// is not susceptible to this attack vector, so the test exercises the pair API specifically.
 TYPED_TEST(UltraHonkTests, RomMaliciousFieldWrap)
 {
     using Flavor = TypeParam;
@@ -460,15 +486,17 @@ TYPED_TEST(UltraHonkTests, RomMaliciousFieldWrap)
 
     Builder circuit_builder;
 
-    // Build a small ROM: values [1, 2, 3] at indices [0, 1, 2].
+    // Build a small ROM: pairs (1, 0), (2, 0), (3, 0) at indices [0, 1, 2]. Uses the pair API so we go
+    // through the sorted-trace scheme; the second pair entry is unused by the test logic below.
+    const uint32_t zero_idx = circuit_builder.zero_idx();
     size_t rom_id = circuit_builder.create_ROM_array(3);
-    circuit_builder.set_ROM_element(rom_id, 0, circuit_builder.add_variable(FF(1)));
-    circuit_builder.set_ROM_element(rom_id, 1, circuit_builder.add_variable(FF(2)));
-    circuit_builder.set_ROM_element(rom_id, 2, circuit_builder.add_variable(FF(3)));
+    circuit_builder.set_ROM_element_pair(rom_id, 0, std::array{ circuit_builder.add_variable(FF(1)), zero_idx });
+    circuit_builder.set_ROM_element_pair(rom_id, 1, std::array{ circuit_builder.add_variable(FF(2)), zero_idx });
+    circuit_builder.set_ROM_element_pair(rom_id, 2, std::array{ circuit_builder.add_variable(FF(3)), zero_idx });
 
     // Read at index 0 via a variable index witness so an attacker can later change it.
     uint32_t idx_witness = circuit_builder.add_variable(FF(0));
-    uint32_t result_witness = circuit_builder.read_ROM_array(rom_id, idx_witness);
+    auto [result_witness, _unused] = circuit_builder.read_ROM_array_pair(rom_id, idx_witness);
 
     TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
 
@@ -511,6 +539,174 @@ TYPED_TEST(UltraHonkTests, RomMaliciousFieldWrap)
     // Run full protocol.
     TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
     TestFixture::prove_and_verify(bad_builder, /*expected_result=*/false);
+}
+
+// Cross-array read binding: the single-value ROM LogUp sum runs over the whole trace, so the fingerprint
+// includes the array id (carried in q_c) to keep each read matched to a table entry of its own array. This
+// test exercises that binding by forging a cross-array read: array A holds 100 at index 0, array B holds 200
+// at index 0; the malicious witness makes B's read return A's value (100) and rebalances the per-array
+// multiplicities (m_A: 1 -> 2, m_B: 1 -> 0) so that an id-blind sum would still vanish. The array id in the
+// fingerprint gives A's and B's rows distinct denominators, so the forged witness is rejected.
+TYPED_TEST(UltraHonkTests, RomMaliciousCrossArrayRead)
+{
+    using Flavor = TypeParam;
+    using Builder = typename Flavor::CircuitBuilder;
+    using FF = typename Flavor::FF;
+
+    Builder circuit_builder;
+
+    // Two single-value ROM arrays, same index, different values.
+    size_t rom_a = circuit_builder.create_ROM_array(1);
+    size_t rom_b = circuit_builder.create_ROM_array(1);
+    circuit_builder.set_ROM_element(rom_a, 0, circuit_builder.add_variable(FF(100)));
+    circuit_builder.set_ROM_element(rom_b, 0, circuit_builder.add_variable(FF(200)));
+
+    // Read each array once at index 0.
+    circuit_builder.read_ROM_array(rom_a, circuit_builder.add_variable(FF(0)));
+    const uint32_t b_read_value_witness = circuit_builder.read_ROM_array(rom_b, circuit_builder.add_variable(FF(0)));
+
+    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
+    circuit_builder.finalize_circuit();
+
+    // Locate, in the memory block, the multiplicity (w_o) witnesses of each array's table row. Table rows
+    // carry (q_memory=1, q_2=1, q_1=0); we tell A's row from B's by its stored value.
+    auto& mem = circuit_builder.blocks.memory;
+    uint32_t m_a_witness = std::numeric_limits<uint32_t>::max();
+    uint32_t m_b_witness = std::numeric_limits<uint32_t>::max();
+    for (size_t i = 0; i < mem.size(); ++i) {
+        const bool is_logup_table =
+            mem.gate_selector_for(GateKind::Memory)[i] == 1 && mem.q_1()[i] == 0 && mem.q_2()[i] == 1;
+        if (!is_logup_table) {
+            continue;
+        }
+        const FF value = circuit_builder.get_variable(mem.w_r()[i]);
+        if (value == FF(100)) {
+            m_a_witness = mem.w_o()[i];
+        } else if (value == FF(200)) {
+            m_b_witness = mem.w_o()[i];
+        }
+    }
+    ASSERT_NE(m_a_witness, std::numeric_limits<uint32_t>::max()) << "array A table row not found";
+    ASSERT_NE(m_b_witness, std::numeric_limits<uint32_t>::max()) << "array B table row not found";
+
+    // Forge the witness: B's read returns A's value (200 -> 100), with multiplicities rebalanced so the
+    // global LogUp sum is still zero (A now absorbs two reads of value 100, B absorbs none).
+    Builder bad_builder = circuit_builder;
+    auto& vars = const_cast<std::vector<FF>&>(bad_builder.get_variables());
+    vars[bad_builder.real_variable_index[b_read_value_witness]] = FF(100);
+    vars[bad_builder.real_variable_index[m_a_witness]] = FF(2);
+    vars[bad_builder.real_variable_index[m_b_witness]] = FF(0);
+
+    EXPECT_TRUE(CircuitChecker::check(circuit_builder));
+    EXPECT_FALSE(CircuitChecker::check(bad_builder));
+
+    TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
+    TestFixture::prove_and_verify(bad_builder, /*expected_result=*/false);
+}
+
+// Forged read value: a read must return the value the table holds at its index. Here array A holds 100 at
+// index 0 and 200 at index 1; the malicious witness makes the read at index 0 return 200 (a value that is in
+// the table, but at a different index). Because the index is part of the fingerprint, (index 0, value 200)
+// matches no table entry, so no choice of multiplicities can rebalance the global sum.
+TYPED_TEST(UltraHonkTests, RomMaliciousForgedReadValue)
+{
+    using Flavor = TypeParam;
+    using Builder = typename Flavor::CircuitBuilder;
+    using FF = typename Flavor::FF;
+
+    Builder circuit_builder;
+
+    size_t rom_id = circuit_builder.create_ROM_array(2);
+    circuit_builder.set_ROM_element(rom_id, 0, circuit_builder.add_variable(FF(100)));
+    circuit_builder.set_ROM_element(rom_id, 1, circuit_builder.add_variable(FF(200)));
+    const uint32_t read_value_witness = circuit_builder.read_ROM_array(rom_id, circuit_builder.add_variable(FF(0)));
+
+    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
+    circuit_builder.finalize_circuit();
+
+    // Forge the index-0 read to return 200 (the value stored at index 1).
+    Builder bad_builder = circuit_builder;
+    auto& vars = const_cast<std::vector<FF>&>(bad_builder.get_variables());
+    vars[bad_builder.real_variable_index[read_value_witness]] = FF(200);
+
+    EXPECT_TRUE(CircuitChecker::check(circuit_builder));
+    EXPECT_FALSE(CircuitChecker::check(bad_builder));
+
+    TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
+    TestFixture::prove_and_verify(bad_builder, /*expected_result=*/false);
+}
+
+// Tampered multiplicity: the per-index read count lives in a single-use w_o witness, pinned only by the
+// global LogUp sum. Understating it (here m_0: 1 -> 0, claiming the read never happened) leaves the read's
+// term uncancelled, so the sum no longer vanishes.
+TYPED_TEST(UltraHonkTests, RomMaliciousMultiplicity)
+{
+    using Flavor = TypeParam;
+    using Builder = typename Flavor::CircuitBuilder;
+    using FF = typename Flavor::FF;
+
+    Builder circuit_builder;
+
+    size_t rom_id = circuit_builder.create_ROM_array(1);
+    circuit_builder.set_ROM_element(rom_id, 0, circuit_builder.add_variable(FF(100)));
+    circuit_builder.read_ROM_array(rom_id, circuit_builder.add_variable(FF(0)));
+
+    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
+    circuit_builder.finalize_circuit();
+
+    // Find the table row's multiplicity (w_o) witness: q_memory=1, q_2=1, q_1=0.
+    auto& mem = circuit_builder.blocks.memory;
+    uint32_t m_witness = std::numeric_limits<uint32_t>::max();
+    for (size_t i = 0; i < mem.size(); ++i) {
+        if (mem.gate_selector_for(GateKind::Memory)[i] == 1 && mem.q_1()[i] == 0 && mem.q_2()[i] == 1) {
+            m_witness = mem.w_o()[i];
+            break;
+        }
+    }
+    ASSERT_NE(m_witness, std::numeric_limits<uint32_t>::max()) << "ROM-LogUp table row not found";
+
+    Builder bad_builder = circuit_builder;
+    auto& vars = const_cast<std::vector<FF>&>(bad_builder.get_variables());
+    vars[bad_builder.real_variable_index[m_witness]] = FF(0);
+
+    EXPECT_TRUE(CircuitChecker::check(circuit_builder));
+    EXPECT_FALSE(CircuitChecker::check(bad_builder));
+
+    TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
+    TestFixture::prove_and_verify(bad_builder, /*expected_result=*/false);
+}
+
+// Init-only array (no reads): all multiplicities are zero so the LogUp sum vanishes trivially, but the
+// per-row inverse subrelation is still active on every table row. Exercises the empty-read edge case.
+TYPED_TEST(UltraHonkTests, RomLogupInitOnly)
+{
+    using Flavor = TypeParam;
+    using FF = typename Flavor::FF;
+    auto circuit_builder = UltraCircuitBuilder();
+
+    size_t rom_id = circuit_builder.create_ROM_array(3);
+    for (size_t i = 0; i < 3; ++i) {
+        circuit_builder.set_ROM_element(rom_id, i, circuit_builder.add_variable(FF(10 + i)));
+    }
+
+    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
+    TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
+}
+
+// Double-init guard: the single-value LogUp scheme requires at most one table row per (array, index) key and
+// does not enforce this in-circuit, so set_ROM_element asserts each cell is uninitialized (see
+// rom_ram_logic.cpp). Initializing the same index twice must be rejected at construction time.
+TYPED_TEST(UltraHonkTests, RomSingleValueDoubleInitThrows)
+{
+    using Flavor = TypeParam;
+    using FF = typename Flavor::FF;
+    auto circuit_builder = UltraCircuitBuilder();
+
+    size_t rom_id = circuit_builder.create_ROM_array(1);
+    circuit_builder.set_ROM_element(rom_id, 0, circuit_builder.add_variable(FF(100)));
+
+    EXPECT_THROW_WITH_MESSAGE(circuit_builder.set_ROM_element(rom_id, 0, circuit_builder.add_variable(FF(200))),
+                              "UNINITIALIZED_MEMORY_RECORD");
 }
 
 // Test that a malicious prover cannot start the RAM sorted chain at p-1.

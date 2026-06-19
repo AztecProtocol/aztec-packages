@@ -23,11 +23,12 @@ template <typename T> struct RelationParameters {
     static constexpr int NUM_CHALLENGE_POWERS_IN_GOBLIN_TRANSLATOR = 4;
     static constexpr size_t NUM_MULTILINEAR_BATCHING_CHALLENGES = CHONK_MAX_CLAIMS_PER_KERNEL;
 
-    T eta{ 0 };       // Aux Memory (eta)
-    T eta_two{ 0 };   // Aux Memory (eta²)
-    T eta_three{ 0 }; // Aux Memory (eta³)
-    T beta{ 0 };      // Permutation + Lookup (column batching)
-    T gamma{ 0 };     // Permutation + Lookup
+    T eta{ 0 };             // Aux Memory (eta)
+    T eta_two{ 0 };         // Aux Memory (eta²)
+    T eta_three{ 0 };       // Aux Memory (eta³)
+    T rom_logup_gamma{ 0 }; // ROM-LogUp additive offset
+    T beta{ 0 };            // Permutation + Lookup (column batching)
+    T gamma{ 0 };           // Permutation + Lookup
 
     T public_input_delta{ 0 }; // Permutation
     T beta_sqr{ 0 };
@@ -89,7 +90,8 @@ template <typename T> struct RelationParameters {
     static RelationParameters get_random()
     {
         RelationParameters result;
-        result.compute_eta_powers(T::random_element());  // eta, eta_two = eta², eta_three = eta³
+        result.compute_eta_powers(T::random_element()); // eta, eta_two = eta², eta_three = eta³
+        result.rom_logup_gamma = T::random_element();
         result.compute_beta_powers(T::random_element()); // beta, beta_sqr = beta², beta_cube = beta³
         result.gamma = T::random_element();
         result.public_input_delta = T::random_element();

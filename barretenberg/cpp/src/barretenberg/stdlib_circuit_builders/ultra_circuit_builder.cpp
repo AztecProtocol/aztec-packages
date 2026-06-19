@@ -980,6 +980,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_sort_constraint_with_edges(
  * | RAM timestamp check          | 1     | 1   | 0   | 0   | 1   | 0   | --- |
  * | ROM consistency check        | 1     | 1   | 1   | 0   | 0   | 0   | --- |
  * | RAM consistency check        | 1     | 0   | 0   | 1   | 0   | 0   | 0   |
+ * | ROM LogUp table entry        | 1     | 0   | 1   | 0   | 0   | 0   | 0   |
+ * | ROM LogUp read access        | 1     | 0   | 0   | 0   | 1   | 0   | 0   |
  *
  * @param type
  */
@@ -1072,6 +1074,36 @@ void UltraCircuitBuilder_<ExecutionTrace>::apply_memory_selectors(const MEMORY_S
         block.q_5().emplace_back(0);
         block.q_m().emplace_back(1); // validate record witness is correctly computed
         block.q_c().emplace_back(1); // read/write flag stored in q_c
+        check_selector_length_consistency();
+        break;
+    }
+    case MEMORY_SELECTORS::ROM_LOGUP_TABLE: {
+        // Single-value ROM table entry under the LogUp scheme. The row holds
+        // (index, value, multiplicity, inverse) and contributes -m_i * inv to the LogUp sum.
+        // Pattern: q_2 = 1 alone (combined with q_1 = 0) uniquely identifies this gate within
+        // the q_memory-gated context (ROM_CONSISTENCY_CHECK shares q_2 but also sets q_1).
+        block.q_1().emplace_back(0);
+        block.q_2().emplace_back(1);
+        block.q_3().emplace_back(0);
+        block.q_4().emplace_back(0);
+        block.q_5().emplace_back(0);
+        block.q_m().emplace_back(0);
+        block.q_c().emplace_back(0);
+        check_selector_length_consistency();
+        break;
+    }
+    case MEMORY_SELECTORS::ROM_LOGUP_READ: {
+        // Single-value ROM read access under the LogUp scheme. The row holds
+        // (index, value, +1, inverse) and contributes +inv to the LogUp sum.
+        // Pattern: q_4 = 1 alone (combined with q_1 = 0) uniquely identifies this gate within
+        // the q_memory-gated context (RAM_TIMESTAMP_CHECK shares q_4 but also sets q_1).
+        block.q_1().emplace_back(0);
+        block.q_2().emplace_back(0);
+        block.q_3().emplace_back(0);
+        block.q_4().emplace_back(1);
+        block.q_5().emplace_back(0);
+        block.q_m().emplace_back(0);
+        block.q_c().emplace_back(0);
         check_selector_length_consistency();
         break;
     }

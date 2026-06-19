@@ -30,8 +30,6 @@ template <typename ExecutionTrace> size_t RomRamLogic_<ExecutionTrace>::create_R
  * initialized
  *
  * @note This method does not know what the value of `record_witness` will be.
- * @note There is nothing stopping us from running `set_ROM_element` on the same `rom_id` and `index_value` twice, as
- * long as the `value_witness` is the same both times.
  **/
 template <typename ExecutionTrace>
 void RomRamLogic_<ExecutionTrace>::set_ROM_element(CircuitBuilder* builder,
@@ -41,22 +39,30 @@ void RomRamLogic_<ExecutionTrace>::set_ROM_element(CircuitBuilder* builder,
 {
     BB_ASSERT_GT(rom_arrays.size(), rom_id);
     RomTranscript& rom_array = rom_arrays[rom_id];
+    // First single-value op commits this array to the LogUp scheme. If pair ops have already been issued on
+    // this array, the mismatch is a programmer error (the two schemes coexist across arrays, not within one).
+    BB_ASSERT(rom_array.records.empty() || rom_array.use_logup,
+              "ROM array: single-value op issued on an array already using pair gates");
+    rom_array.use_logup = true;
     const uint32_t index_witness =
         (index_value == 0) ? builder->zero_idx() : builder->put_constant_variable((uint64_t)index_value);
     BB_ASSERT_GT(rom_array.state.size(), index_value);
+    // Each index must be initialized exactly once: the LogUp argument relies on at most one table row per
+    // (array, index) key and does not enforce this in-circuit (see memory_relation.hpp).
     BB_ASSERT_EQ(rom_array.state[index_value][0], UNINITIALIZED_MEMORY_RECORD);
 
     RomRecord new_record{
         .index_witness = index_witness,
         .value_column1_witness = value_witness,
-        .value_column2_witness = builder->zero_idx(),
+        .value_column2_witness = builder->zero_idx(), // multiplicity placeholder; replaced at finalize
         .index = static_cast<uint32_t>(index_value),
+        .access_type = RomRecord::AccessType::TABLE_ENTRY,
         .record_witness = 0,
         .gate_index = 0,
     };
     rom_array.state[index_value][0] = value_witness;
     rom_array.state[index_value][1] = builder->zero_idx();
-    create_ROM_gate(builder, new_record);
+    create_ROM_logup_gate(builder, new_record, rom_id, /*is_read=*/false);
     rom_array.records.emplace_back(new_record);
 }
 /**
@@ -70,6 +76,7 @@ void RomRamLogic_<ExecutionTrace>::set_ROM_element_pair(CircuitBuilder* builder,
 {
     BB_ASSERT_GT(rom_arrays.size(), rom_id);
     RomTranscript& rom_array = rom_arrays[rom_id];
+    BB_ASSERT(!rom_array.use_logup, "ROM array: pair op issued on an array already using LogUp single-value gates");
     const uint32_t index_witness = builder->put_constant_variable((uint64_t)index_value);
     BB_ASSERT_GT(rom_array.state.size(), index_value);
     BB_ASSERT_EQ(rom_array.state[index_value][0], UNINITIALIZED_MEMORY_RECORD);
@@ -78,6 +85,7 @@ void RomRamLogic_<ExecutionTrace>::set_ROM_element_pair(CircuitBuilder* builder,
         .value_column1_witness = value_witnesses[0],
         .value_column2_witness = value_witnesses[1],
         .index = static_cast<uint32_t>(index_value),
+        .access_type = RomRecord::AccessType::TABLE_ENTRY,
         .record_witness = 0,
         .gate_index = 0,
     };
@@ -95,6 +103,8 @@ uint32_t RomRamLogic_<ExecutionTrace>::read_ROM_array(CircuitBuilder* builder,
 {
     BB_ASSERT_GT(rom_arrays.size(), rom_id);
     RomTranscript& rom_array = rom_arrays[rom_id];
+    BB_ASSERT(rom_array.use_logup,
+              "ROM array: single-value read issued before any set_ROM_element; or pair-ops already started");
     const uint32_t index = static_cast<uint32_t>(uint256_t(builder->get_variable(index_witness)));
     BB_ASSERT_GT(rom_array.state.size(), index);
     BB_ASSERT(rom_array.state[index][0] != UNINITIALIZED_MEMORY_RECORD);
@@ -105,10 +115,11 @@ uint32_t RomRamLogic_<ExecutionTrace>::read_ROM_array(CircuitBuilder* builder,
         .value_column1_witness = value_witness,
         .value_column2_witness = builder->zero_idx(),
         .index = index,
+        .access_type = RomRecord::AccessType::READ,
         .record_witness = 0,
         .gate_index = 0,
     };
-    create_ROM_gate(builder, new_record);
+    create_ROM_logup_gate(builder, new_record, rom_id, /*is_read=*/true);
     rom_array.records.emplace_back(new_record);
 
     return value_witness;
@@ -124,6 +135,7 @@ std::array<uint32_t, 2> RomRamLogic_<ExecutionTrace>::read_ROM_array_pair(Circui
     const uint32_t index = static_cast<uint32_t>(uint256_t(builder->get_variable(index_witness)));
     BB_ASSERT_GT(rom_arrays.size(), rom_id);
     RomTranscript& rom_array = rom_arrays[rom_id];
+    BB_ASSERT(!rom_array.use_logup, "ROM array: pair read issued on an array already using LogUp single-value gates");
     BB_ASSERT_GT(rom_array.state.size(), index);
     BB_ASSERT(rom_array.state[index][0] != UNINITIALIZED_MEMORY_RECORD);
     BB_ASSERT(rom_array.state[index][1] != UNINITIALIZED_MEMORY_RECORD);
@@ -136,6 +148,7 @@ std::array<uint32_t, 2> RomRamLogic_<ExecutionTrace>::read_ROM_array_pair(Circui
         .value_column1_witness = value_witnesses[0],
         .value_column2_witness = value_witnesses[1],
         .index = index,
+        .access_type = RomRecord::AccessType::READ,
         .record_witness = 0,
         .gate_index = 0,
     };
@@ -174,6 +187,40 @@ void RomRamLogic_<ExecutionTrace>::create_sorted_ROM_gate(CircuitBuilder* builde
         record.index_witness, record.value_column1_witness, record.value_column2_witness, record.record_witness);
     // Note: record the index into the memory block that contains the RAM/ROM gates
     record.gate_index = builder->blocks.memory.size() - 1;
+    builder->check_selector_length_consistency();
+    builder->increment_num_gates();
+}
+
+// ---- ROM LogUp gate creators ----
+//
+// ROM-LogUp wire layout (table-entry and read-access gates alike):
+//   w_l = index,  w_r = value,  w_o = multiplicity (table) or zero (read),  w_4 = inverse helper.
+// `record_witness` (w_4) is a placeholder filled by the prover in oink once `eta`/`rom_logup_gamma` are known.
+// `value_column2_witness` (w_o) is `zero_idx()` at creation time; on table rows `process_ROM_logup_array`
+// repoints the wire at a witness holding the read count `m_i` during finalization.
+// The q_c selector carries the ROM array id, which the memory relation folds into the LogUp fingerprint so
+// that reads are bound to the array they were issued against (the sum is global across the trace).
+// The gate index is appended to `builder->rom_logup_records` so the prover knows which rows need inverse-fill.
+
+template <typename ExecutionTrace>
+void RomRamLogic_<ExecutionTrace>::create_ROM_logup_gate(CircuitBuilder* builder,
+                                                         RomRecord& record,
+                                                         const size_t rom_id,
+                                                         const bool is_read)
+{
+    // record_witness (w_4) holds the inverse helper, filled by the prover once challenges are known.
+    record.record_witness = builder->add_variable(FF(0));
+    builder->update_used_witnesses(record.record_witness);
+    builder->apply_memory_selectors(is_read ? CircuitBuilder::MEMORY_SELECTORS::ROM_LOGUP_READ
+                                            : CircuitBuilder::MEMORY_SELECTORS::ROM_LOGUP_TABLE);
+    // Tag the row with the array id via q_c (apply_memory_selectors emplaced 0). This is a precomputed
+    // selector, so the array separation is committed in the VK.
+    auto& q_c = builder->blocks.memory.q_c();
+    q_c.set(q_c.size() - 1, FF(static_cast<uint64_t>(rom_id)));
+    builder->blocks.memory.populate_wires(
+        record.index_witness, record.value_column1_witness, record.value_column2_witness, record.record_witness);
+    record.gate_index = builder->blocks.memory.size() - 1;
+    builder->rom_logup_records.push_back(static_cast<uint32_t>(record.gate_index));
     builder->check_selector_length_consistency();
     builder->increment_num_gates();
 }
@@ -239,6 +286,7 @@ void RomRamLogic_<ExecutionTrace>::process_ROM_array(CircuitBuilder* builder, co
             .value_column1_witness = value1_witness,
             .value_column2_witness = value2_witness,
             .index = index,
+            .access_type = record.access_type,
             .record_witness = 0,
             .gate_index = 0,
         };
@@ -294,10 +342,47 @@ void RomRamLogic_<ExecutionTrace>::process_ROM_array(CircuitBuilder* builder, co
         false);
 }
 
+template <typename ExecutionTrace>
+void RomRamLogic_<ExecutionTrace>::process_ROM_logup_array(CircuitBuilder* builder, const size_t rom_id)
+{
+    auto& rom_array = rom_arrays[rom_id];
+    BB_ASSERT(rom_array.use_logup);
+
+    // Every cell must have been initialized. An uninitialized cell is a programmer error and would either
+    // leak an arbitrary witness or break the LogUp sum.
+    for (size_t i = 0; i < rom_array.state.size(); ++i) {
+        BB_ASSERT_NEQ(rom_array.state[i][0], UNINITIALIZED_MEMORY_RECORD);
+    }
+
+    // Derive each index's table-row gate and read count from the records.
+    std::vector<size_t> table_row_gate_indices(rom_array.state.size(), 0);
+    std::vector<uint64_t> read_counts(rom_array.state.size(), 0);
+    for (const auto& record : rom_array.records) {
+        if (record.access_type == RomRecord::AccessType::TABLE_ENTRY) {
+            table_row_gate_indices[record.index] = record.gate_index;
+        } else {
+            read_counts[record.index]++;
+        }
+    }
+
+    // Point each table row's w_o wire at a witness holding that row's read count. The wire vectors of the
+    // memory block are still mutable here (finalization has not yet handed them to trace construction), so
+    // this is the same mechanism as any finalize-time gate that adds witnesses with known values.
+    for (size_t i = 0; i < rom_array.state.size(); ++i) {
+        const uint32_t count_witness = builder->add_variable(FF(read_counts[i]));
+        builder->update_used_witnesses(count_witness);
+        builder->blocks.memory.w_o()[table_row_gate_indices[i]] = count_witness;
+    }
+}
+
 template <typename ExecutionTrace> void RomRamLogic_<ExecutionTrace>::process_ROM_arrays(CircuitBuilder* builder)
 {
     for (size_t i = 0; i < rom_arrays.size(); ++i) {
-        process_ROM_array(builder, i);
+        if (rom_arrays[i].use_logup) {
+            process_ROM_logup_array(builder, i);
+        } else {
+            process_ROM_array(builder, i);
+        }
     }
 }
 

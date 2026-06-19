@@ -408,6 +408,16 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_rom_table_
                 gate_variables.emplace_back(vc2_witness);
             }
             gate_variables.emplace_back(record_witness);
+        } else if (q_1.is_zero() && q_3.is_zero() && q_m.is_zero() &&
+                   ((q_2 == FF::one() && q_4.is_zero()) || (q_4 == FF::one() && q_2.is_zero()))) {
+            // ROM-LogUp gate: (w_1, w_2, w_3, w_4) = (index, value, multiplicity-or-zero, inverse). The
+            // multiplicity (table rows) and inverse are internal and excused via update_used_witnesses; here we
+            // connect the index and value so the ACIR-visible witnesses join the ROM component. Table entries
+            // set q_2, read accesses set q_4.
+            gate_variables.emplace_back(index_witness);
+            if (vc1_witness != circuit_builder.zero_idx()) {
+                gate_variables.emplace_back(vc1_witness);
+            }
         }
         gate_variables = to_real(gate_variables);
         process_gate_variables(gate_variables, gate_index, memory_block);

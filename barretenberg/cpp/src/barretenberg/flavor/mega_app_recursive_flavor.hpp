@@ -47,8 +47,6 @@ class MegaAppRecursiveFlavor {
     static constexpr bool HasMemory = MegaAppFlavor::HasMemory;
     static constexpr bool HasNonNativeField = MegaAppFlavor::HasNonNativeField;
     static constexpr bool HasEccOpQueue = MegaAppFlavor::HasEccOpQueue;
-    static constexpr bool UsesEtaPowers = MegaAppFlavor::UsesEtaPowers;
-    static constexpr bool UsesBetaPowers = MegaAppFlavor::UsesBetaPowers;
 
     using Relations = MegaAppFlavor::Relations_<FF>;
 

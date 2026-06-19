@@ -126,18 +126,23 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_wires()
 template <typename Flavor> void OinkProver<Flavor>::commit_to_lookup_counts_and_w4()
 {
     BB_BENCH_NAME("OinkProver::commit_to_lookup_counts_and_w4");
-    // `Flavor::UsesEtaPowers` is true iff some relation reads `params.eta_two` / `params.eta_three`.
-    // When false, skip the FS sample and the squared/cubed powers so the verifier (which gates on
-    // the same flag) stays in lockstep on the FS state.
-    if constexpr (Flavor::UsesEtaPowers) {
-        auto eta = transcript->template get_challenge<FF>("eta");
+    // The memory relation is the sole consumer of the eta powers and the ROM-LogUp offset
+    // `rom_logup_gamma`, so `Flavor::HasMemory` gates their FS samples and the power computation.
+    // When false, skip them so the verifier (which gates on the same flag) stays in lockstep on the
+    // FS state.
+    if constexpr (Flavor::HasMemory) {
+        auto [eta, rom_logup_gamma] =
+            transcript->template get_challenges<FF>(std::array<std::string, 2>{ "eta", "rom_logup_gamma" });
         prover_instance->relation_parameters.eta = eta;
         prover_instance->relation_parameters.eta_two = eta * eta;
         prover_instance->relation_parameters.eta_three = prover_instance->relation_parameters.eta_two * eta;
+        prover_instance->relation_parameters.rom_logup_gamma = rom_logup_gamma;
     }
 
-    // Memory record indices are in the active trace region (after disabled rows), so masking is preserved
+    // Memory record and ROM-LogUp row indices are in the active trace region (after disabled rows), so
+    // masking is preserved
     add_ram_rom_memory_records_to_wire_4(*prover_instance);
+    add_rom_logup_inverses_to_wire_4(*prover_instance);
 
     auto batch = commitment_key.start_batch();
     if constexpr (Flavor::HasLogDerivLookup) {
@@ -165,9 +170,10 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_logderiv_inverses(
     auto [beta, gamma] = transcript->template get_challenges<FF>(std::array<std::string, 2>{ "beta", "gamma" });
     prover_instance->relation_parameters.beta = beta;
     prover_instance->relation_parameters.gamma = gamma;
-    // `Flavor::UsesBetaPowers` is true iff some relation reads `params.beta_sqr` / `params.beta_cube`.
-    // When false, skip the extra multiplications to stay symmetric with the verifier.
-    if constexpr (Flavor::UsesBetaPowers) {
+    // The log-derivative lookup relation is the sole consumer of the squared/cubed beta powers, so
+    // `Flavor::HasLogDerivLookup` gates their computation. When false, skip the extra multiplications
+    // to stay symmetric with the verifier.
+    if constexpr (Flavor::HasLogDerivLookup) {
         prover_instance->relation_parameters.beta_sqr = beta * beta;
         prover_instance->relation_parameters.beta_cube = prover_instance->relation_parameters.beta_sqr * beta;
     }
@@ -265,6 +271,43 @@ template <typename Flavor> void OinkProver<Flavor>::add_ram_rom_memory_records_t
         wires[3].at(gate_idx) += wires[1][gate_idx] * eta_two;
         wires[3].at(gate_idx) += wires[0][gate_idx] * eta;
         wires[3].at(gate_idx) += 1;
+    }
+}
+
+/**
+ * @brief Populate the inverse helper w_4 = 1 / (rom_logup_gamma + w_1 + eta * w_2 + eta_two * q_c) at every
+ * ROM-LogUp row
+ *
+ * @details This operation must be performed after the eta and rom_logup_gamma challenges have been generated
+ * but before w_4 is committed to. (See the ROM LogUp subrelations in the Memory relation for details.)
+ *
+ * @tparam Flavor
+ * @param instance prover instance whose polynomials, rom_logup_records, and challenges are used
+ */
+template <typename Flavor> void OinkProver<Flavor>::add_rom_logup_inverses_to_wire_4(ProverInstance& instance)
+{
+    BB_BENCH_NAME("OinkProver::add_rom_logup_inverses_to_wire_4");
+    if (instance.rom_logup_records.empty()) {
+        return;
+    }
+    auto wires = instance.polynomials.get_wires();
+    const auto& q_c = instance.polynomials.q_c();
+    const auto& eta = instance.relation_parameters.eta;
+    const auto& eta_two = instance.relation_parameters.eta_two;
+    const auto& rom_logup_gamma = instance.relation_parameters.rom_logup_gamma;
+
+    // The denominators are nonzero with overwhelming probability over the choice of rom_logup_gamma
+    std::vector<FF> denominators;
+    denominators.reserve(instance.rom_logup_records.size());
+    for (const auto& gate_idx : instance.rom_logup_records) {
+        const FF index_val = wires[0][gate_idx];
+        const FF value_val = wires[1][gate_idx];
+        const FF array_id = q_c[gate_idx]; // q_c carries the ROM array id
+        denominators.emplace_back(rom_logup_gamma + index_val + eta * value_val + eta_two * array_id);
+    }
+    FF::batch_invert(denominators);
+    for (size_t i = 0; i < instance.rom_logup_records.size(); ++i) {
+        wires[3].at(instance.rom_logup_records[i]) = denominators[i];
     }
 }
 

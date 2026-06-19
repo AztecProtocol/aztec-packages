@@ -40,8 +40,9 @@ template <typename F> static TranscriptManifest build_expected_folding_manifest(
 
     size_t round = 0;
 
-    // Round 0: Oink preamble + wires + ECC ops + databus -> eta challenge
-    manifest.add_challenge(round, "eta");
+    // Round 0: Oink preamble + wires + ECC ops + databus -> eta + rom_logup_gamma challenges
+    // (both MegaKernelFlavor and MegaAppFlavor carry the memory relation)
+    manifest.add_challenge(round, std::array{ "eta", "rom_logup_gamma" });
     manifest.add_entry(round, "vk_hash", 1);
     for (size_t i = 0; i < 4; ++i) {
         manifest.add_entry(round, "public_input_" + std::to_string(i), 1);

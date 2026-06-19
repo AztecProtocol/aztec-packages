@@ -47,8 +47,6 @@ class MegaKernelRecursiveFlavor {
     static constexpr bool HasMemory = MegaKernelFlavor::HasMemory;
     static constexpr bool HasNonNativeField = MegaKernelFlavor::HasNonNativeField;
     static constexpr bool HasEccOpQueue = MegaKernelFlavor::HasEccOpQueue;
-    static constexpr bool UsesEtaPowers = MegaKernelFlavor::UsesEtaPowers;
-    static constexpr bool UsesBetaPowers = MegaKernelFlavor::UsesBetaPowers;
 
     using Relations = MegaKernelFlavor::Relations_<FF>;
 
