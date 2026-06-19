@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../styles.css">
+<script defer src="../../nargo_doc.js"></script>
+<title>Function privately_check_block_number documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">privately_check_block_number</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../index.html">aztec-nr</a></h1>
+<div><a href="../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2>In module public_checks</h2>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.privately_check_block_number.html">privately_check_block_number</a></div></li>
+<li><a href="fn.privately_check_timestamp.html">privately_check_timestamp</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">noir_aztec</a>::<a href="index.html">public_checks</a></div>
+<h1>Function <span class="fn">privately_check_block_number</span></h1>
+<pre><code>pub fn privately_check_block_number(
+    operation: <a href="../../std/primitive.u8.html" class="primitive">u8</a>,
+    value: <a href="../../std/primitive.u32.html" class="primitive">u32</a>,
+    context: &mut <a href="../../noir_aztec/context/struct.PrivateContext.html" class="struct">PrivateContext</a>,
+)</code></pre>
+
+<div class="comments">
+<p>Asserts that the current block number in the enqueued public call enqueued by <code>check_block_number</code> satisfies
+the <code>operation</code> with respect to the <code>value. Preserves privacy by performing the check via the public checks contract. This conceals an address of the calling contract by setting </code>context.msg_sender` to the public checks contract
+address.</p>
+</div>
+</main>
+</span>
+</body>
+</html>

@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
+<title>Function get_notes documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">get_notes</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2>In module note_getter</h2>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.get_note.html">get_note</a></div></li>
+<li><a href="fn.get_notes.html">get_notes</a></div></li>
+<li><a href="fn.view_note.html">view_note</a></div></li>
+<li><a href="fn.view_notes.html">view_notes</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">note</a>::<a href="index.html">note_getter</a></div>
+<h1>Function <span class="fn">get_notes</span></h1>
+<pre><code>pub fn get_notes&lt;Note, let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, PreprocessorArgs, FilterArgs&gt;(
+    context: &mut <a href="../../../noir_aztec/context/struct.PrivateContext.html" class="struct">PrivateContext</a>,
+    storage_slot: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
+    options: <a href="../../../noir_aztec/note/note_getter_options/struct.NoteGetterOptions.html" class="struct">NoteGetterOptions</a>&lt;Note, M, PreprocessorArgs, FilterArgs&gt;,
+) -> <a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../noir_aztec/note/struct.ConfirmedNote.html" class="struct">ConfirmedNote</a>&lt;Note&gt;, 16&gt;
+<div class="where-clause">where
+    Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
+    Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a>,
+    Note: <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a>,
+    Note: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>&lt;N = M&gt;</div></code></pre>
+
+<div class="comments">
+<p>Returns a BoundedVec of notes that have been proven to have been created by this contract, either in the current or
+past transactions (i.e. pending or settled notes). A second BoundedVec contains the note hashes used for the read
+requests, which can save constraints when computing the note's nullifiers.</p>
+<p>WARNING: recall that notes are never destroyed! Note existence therefore does not imply that the note is <em>current</em>
+or <em>valid</em> - this typically requires also emitting the note's nullifier to prove that it had not been emitted
+before. Because of this, calling this function directly from end-user applications should be discouraged, and safe
+abstractions such as aztec-nr's state variables should be used instead.</p>
+</div>
+</main>
+</span>
+</body>
+</html>

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../../styles.css">
+<script defer src="../../../../nargo_doc.js"></script>
+<title>Struct PrivateAccumulatedData documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">PrivateAccumulatedData</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../../index.html">protocol_types</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct PrivateAccumulatedData</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#structfield.contract_class_logs_hashes">contract_class_logs_hashes</a></li>
+<li><a href="#structfield.l2_to_l1_msgs">l2_to_l1_msgs</a></li>
+<li><a href="#structfield.note_hashes">note_hashes</a></li>
+<li><a href="#structfield.nullifiers">nullifiers</a></li>
+<li><a href="#structfield.private_call_stack">private_call_stack</a></li>
+<li><a href="#structfield.private_logs">private_logs</a></li>
+<li><a href="#structfield.public_call_requests">public_call_requests</a></li>
+</ul>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-Empty-for-PrivateAccumulatedData">Empty</a></li>
+<li><a href="#impl-Eq-for-PrivateAccumulatedData">Eq</a></li>
+</ul>
+<h2>In module private_accumulated_data</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.PrivateAccumulatedData.html">PrivateAccumulatedData</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../../index.html">aztec-nr</a> - <a href="../../../index.html">protocol_types</a>::<a href="../../index.html">abis</a>::<a href="../index.html">accumulated_data</a>::<a href="index.html">private_accumulated_data</a></div>
+<h1>Struct <span id="struct" class="struct">PrivateAccumulatedData</span></h1>
+<pre><code>pub struct PrivateAccumulatedData {
+    pub note_hashes: <a href="../../../../protocol_types/utils/arrays/struct.ClaimedLengthArray.html" class="struct">ClaimedLengthArray</a>&lt;<a href="../../../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;<a href="../../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../../../protocol_types/abis/note_hash/type.NoteHash.html" class="type">NoteHash</a>&gt;&gt;, 64&gt;,
+    pub nullifiers: <a href="../../../../protocol_types/utils/arrays/struct.ClaimedLengthArray.html" class="struct">ClaimedLengthArray</a>&lt;<a href="../../../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;<a href="../../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../../../protocol_types/abis/nullifier/struct.Nullifier.html" class="struct">Nullifier</a>&gt;&gt;, 64&gt;,
+    pub l2_to_l1_msgs: <a href="../../../../protocol_types/utils/arrays/struct.ClaimedLengthArray.html" class="struct">ClaimedLengthArray</a>&lt;<a href="../../../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;<a href="../../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../../../protocol_types/messaging/l2_to_l1_message/struct.L2ToL1Message.html" class="struct">L2ToL1Message</a>&gt;&gt;, 8&gt;,
+    pub private_logs: <a href="../../../../protocol_types/utils/arrays/struct.ClaimedLengthArray.html" class="struct">ClaimedLengthArray</a>&lt;<a href="../../../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;<a href="../../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../../../protocol_types/abis/private_log/struct.PrivateLogData.html" class="struct">PrivateLogData</a>&gt;&gt;, 64&gt;,
+    pub contract_class_logs_hashes: <a href="../../../../protocol_types/utils/arrays/struct.ClaimedLengthArray.html" class="struct">ClaimedLengthArray</a>&lt;<a href="../../../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;<a href="../../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../../../protocol_types/abis/log_hash/struct.LogHash.html" class="struct">LogHash</a>&gt;&gt;, 1&gt;,
+    pub public_call_requests: <a href="../../../../protocol_types/utils/arrays/struct.ClaimedLengthArray.html" class="struct">ClaimedLengthArray</a>&lt;<a href="../../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../../../protocol_types/abis/public_call_request/struct.PublicCallRequest.html" class="struct">PublicCallRequest</a>&gt;, 32&gt;,
+    pub private_call_stack: <a href="../../../../protocol_types/utils/arrays/struct.ClaimedLengthArray.html" class="struct">ClaimedLengthArray</a>&lt;<a href="../../../../protocol_types/abis/private_call_request/struct.PrivateCallRequest.html" class="struct">PrivateCallRequest</a>, 16&gt;,
+}
+</code></pre>
+<h2>Fields</h2>
+<div id="structfield.note_hashes" class="struct-field"><code class="code-header">note_hashes: <a href="../../../../protocol_types/utils/arrays/struct.ClaimedLengthArray.html" class="struct">ClaimedLengthArray</a>&lt;<a href="../../../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;<a href="../../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../../../protocol_types/abis/note_hash/type.NoteHash.html" class="type">NoteHash</a>&gt;&gt;, 64&gt;</code></div>
+<div class="padded-description"></div><div id="structfield.nullifiers" class="struct-field"><code class="code-header">nullifiers: <a href="../../../../protocol_types/utils/arrays/struct.ClaimedLengthArray.html" class="struct">ClaimedLengthArray</a>&lt;<a href="../../../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;<a href="../../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../../../protocol_types/abis/nullifier/struct.Nullifier.html" class="struct">Nullifier</a>&gt;&gt;, 64&gt;</code></div>
+<div class="padded-description"></div><div id="structfield.l2_to_l1_msgs" class="struct-field"><code class="code-header">l2_to_l1_msgs: <a href="../../../../protocol_types/utils/arrays/struct.ClaimedLengthArray.html" class="struct">ClaimedLengthArray</a>&lt;<a href="../../../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;<a href="../../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../../../protocol_types/messaging/l2_to_l1_message/struct.L2ToL1Message.html" class="struct">L2ToL1Message</a>&gt;&gt;, 8&gt;</code></div>
+<div class="padded-description"></div><div id="structfield.private_logs" class="struct-field"><code class="code-header">private_logs: <a href="../../../../protocol_types/utils/arrays/struct.ClaimedLengthArray.html" class="struct">ClaimedLengthArray</a>&lt;<a href="../../../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;<a href="../../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../../../protocol_types/abis/private_log/struct.PrivateLogData.html" class="struct">PrivateLogData</a>&gt;&gt;, 64&gt;</code></div>
+<div class="padded-description"></div><div id="structfield.contract_class_logs_hashes" class="struct-field"><code class="code-header">contract_class_logs_hashes: <a href="../../../../protocol_types/utils/arrays/struct.ClaimedLengthArray.html" class="struct">ClaimedLengthArray</a>&lt;<a href="../../../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;<a href="../../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../../../protocol_types/abis/log_hash/struct.LogHash.html" class="struct">LogHash</a>&gt;&gt;, 1&gt;</code></div>
+<div class="padded-description"></div><div id="structfield.public_call_requests" class="struct-field"><code class="code-header">public_call_requests: <a href="../../../../protocol_types/utils/arrays/struct.ClaimedLengthArray.html" class="struct">ClaimedLengthArray</a>&lt;<a href="../../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../../../protocol_types/abis/public_call_request/struct.PublicCallRequest.html" class="struct">PublicCallRequest</a>&gt;, 32&gt;</code></div>
+<div class="padded-description"></div><div id="structfield.private_call_stack" class="struct-field"><code class="code-header">private_call_stack: <a href="../../../../protocol_types/utils/arrays/struct.ClaimedLengthArray.html" class="struct">ClaimedLengthArray</a>&lt;<a href="../../../../protocol_types/abis/private_call_request/struct.PrivateCallRequest.html" class="struct">PrivateCallRequest</a>, 16&gt;</code></div>
+<div class="padded-description"></div><h2>Trait implementations</h2>
+<h3 id="impl-Empty-for-PrivateAccumulatedData"><code class="code-header">impl <a href="../../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../../../protocol_types/abis/accumulated_data/private_accumulated_data/struct.PrivateAccumulatedData.html" class="struct">PrivateAccumulatedData</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">empty</span>() -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">is_empty</span>(self: Self) -> <a href="../../../../std/primitive.bool.html" class="primitive">bool</a>
+<div class="where-clause">where
+    Self: <a href="../../../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
+
+<code class="code-header">pub fn <span class="fn">assert_empty</span>&lt;let S: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self: Self, msg: <a href="../../../../std/primitive.str.html" class="primitive">str</a>&lt;S&gt;)
+<div class="where-clause">where
+    Self: <a href="../../../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
+
+</div><h3 id="impl-Eq-for-PrivateAccumulatedData"><code class="code-header">impl <a href="../../../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../../../protocol_types/abis/accumulated_data/private_accumulated_data/struct.PrivateAccumulatedData.html" class="struct">PrivateAccumulatedData</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">eq</span>(_self: Self, _other: Self) -> <a href="../../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+</div></main>
+</span>
+</body>
+</html>

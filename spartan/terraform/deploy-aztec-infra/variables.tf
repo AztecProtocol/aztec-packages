@@ -918,12 +918,6 @@ variable "RPC_GATEWAY_GCP_MANAGED_CERTIFICATE_ENABLED" {
   default     = true
 }
 
-variable "RPC_GATEWAY_GCP_MANAGED_CERTIFICATE_NAME" {
-  description = "Optional GKE ManagedCertificate name for RPC gateway hosts. Defaults to RELEASE_PREFIX-rpc-cert."
-  type        = string
-  default     = ""
-}
-
 variable "PROVER_FAILED_PROOF_STORE" {
   description = "Optional GCS/URI to store failed proofs from the prover"
   type        = string

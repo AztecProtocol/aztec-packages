@@ -15,9 +15,9 @@ output "kong_routes" {
   value       = module.rpc_gateway.route_names
 }
 
-output "kong_sticky_session_policy_name" {
-  description = "Kong sticky session policy name."
-  value       = module.rpc_gateway.sticky_session_policy_name
+output "kong_upstream_policy_name" {
+  description = "Kong upstream policy name."
+  value       = module.rpc_gateway.upstream_policy_name
 }
 
 output "kong_metrics_service" {
@@ -36,7 +36,7 @@ output "frontend_load_balancer_ip" {
   value       = module.rpc_gateway.frontend_load_balancer_ip
 }
 
-output "gcp_managed_certificate_name" {
-  description = "GKE ManagedCertificate resource name for RPC hosts."
-  value       = module.rpc_gateway.gcp_managed_certificate_name
+output "gcp_managed_certificate_names" {
+  description = "GKE ManagedCertificate resource names keyed by RPC host."
+  value       = module.rpc_gateway.gcp_managed_certificate_names
 }

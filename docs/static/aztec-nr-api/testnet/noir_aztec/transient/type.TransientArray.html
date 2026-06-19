@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../styles.css">
+<script defer src="../../nargo_doc.js"></script>
+<title>Type alias TransientArray documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">TransientArray</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../index.html">aztec-nr</a></h1>
+<div><a href="../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2>In module transient</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.TransientOracles.html">TransientOracles</a></div></li>
+<li><a href="struct.TransientValue.html">TransientValue</a></div></li>
+</ul>
+<h3>Type aliases</h3><ul class="item-list">
+<li><a href="type.TransientArray.html">TransientArray</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">noir_aztec</a>::<a href="index.html">transient</a></div>
+<h1>Type alias <span class="type">TransientArray</span></h1>
+<pre><code>pub type TransientArray&lt;T&gt; = <a href="../../noir_aztec/unconstrained_array/struct.UnconstrainedArray.html" class="struct">UnconstrainedArray</a>&lt;T, <a href="../../noir_aztec/transient/struct.TransientOracles.html" class="struct">TransientOracles</a>&gt;;</code></pre>
+
+<div class="comments">
+<p>A dynamically sized array that lives for the duration of a single top-level PXE call.</p>
+<p>Like <a href="../../noir_aztec/ephemeral/type.EphemeralArray.html"><code>EphemeralArray</code></a>, transient arrays are backed by in-memory storage on the
+PXE side rather than a persistent database, and each logical operation is a single oracle call. The difference is
+lifetime and visibility: a <code>TransientArray</code> is shared across <strong>all call frames of the same contract (private and
+utility alike)</strong> within one top-level PXE call (transaction simulation or utility call), whereas an
+<code>EphemeralArray</code> is confined to a single call frame.</p>
+<p>In order of increasing lifetime: an <a href="../../noir_aztec/ephemeral/type.EphemeralArray.html"><code>EphemeralArray</code></a> lives for one call frame, a
+<code>TransientArray</code> for one top-level PXE call, and a <a href="../../noir_aztec/capsules/struct.CapsuleArray.html"><code>CapsuleArray</code></a> is persistent.</p>
+<h2>Privacy / Isolation</h2>
+<p>Arrays are keyed by <code>(executing contract address, slot)</code>. The contract address is supplied by PXE from the
+executing context, so a contract can only ever access its own transient arrays; other contracts called within the
+same top-level PXE call cannot see them, and this isolation holds across the private/utility boundary.</p>
+<p><strong>Note on re-entrancy:</strong> because visibility is flat within a contract, if the same contract is entered more than
+once in a top-level PXE call (e.g. it calls back into itself, or a private frame calls one of its own functions),
+those frames share the same arrays at the same slots. This differs from <code>EphemeralArray</code>, where even two frames of
+the same contract are isolated.</p>
+<h2>Use Cases</h2>
+<p>Use this to pass not-to-be-persisted data between a contract's own frames (private or utility) within one top-level
+PXE call. For data confined to a single call frame, prefer <a href="../../noir_aztec/ephemeral/type.EphemeralArray.html"><code>EphemeralArray</code></a>.
+For data that must persist indefinitely, use <a href="../../noir_aztec/capsules/struct.CapsuleArray.html"><code>CapsuleArray</code></a>.</p></div>
+</main>
+</span>
+</body>
+</html>

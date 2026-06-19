@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
+<title>Struct Counted documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">Counted</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">protocol_types</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct Counted</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#structfield.counter">counter</a></li>
+<li><a href="#structfield.inner">inner</a></li>
+</ul>
+<h3>Methods</h3>
+<ul class="sidebar-list">
+<li><a href="#expose_to_public">expose_to_public</a></li>
+<li><a href="#is_non_revertible">is_non_revertible</a></li>
+<li><a href="#new">new</a></li>
+<li><a href="#scope">scope</a></li>
+</ul>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-Deserialize-for-Counted<T>">Deserialize</a></li>
+<li><a href="#impl-Empty-for-Counted<T>">Empty</a></li>
+<li><a href="#impl-Eq-for-Counted<T>">Eq</a></li>
+<li><a href="#impl-Ordered-for-Counted<T>">Ordered</a></li>
+<li><a href="#impl-Ordered-for-Scoped<Counted<T>>">Ordered</a></li>
+<li><a href="#impl-Serialize-for-Counted<T>">Serialize</a></li>
+</ul>
+<h2>In module counted</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.Counted.html">Counted</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">protocol_types</a>::<a href="../index.html">side_effect</a>::<a href="index.html">counted</a></div>
+<h1>Struct <span id="struct" class="struct">Counted</span></h1>
+<pre><code>pub struct Counted&lt;T&gt; {
+    pub inner: T,
+    pub counter: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>,
+}
+</code></pre>
+<h2>Fields</h2>
+<div id="structfield.inner" class="struct-field"><code class="code-header">inner: T</code></div>
+<div class="padded-description"></div><div id="structfield.counter" class="struct-field"><code class="code-header">counter: <a href="../../../std/primitive.u32.html" class="primitive">u32</a></code></div>
+<div class="padded-description"></div><h2>Implementations</h2>
+<h3><code class="code-header">impl <a href="../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../../protocol_types/abis/public_call_request/struct.PublicCallRequest.html" class="struct">PublicCallRequest</a>&gt;</code></h3>
+
+<div class="padded-methods"><code id="expose_to_public" class="code-header">pub fn <a href="#expose_to_public"><span class="fn">expose_to_public</span></a>(self) -> <a href="../../../protocol_types/abis/public_call_request/struct.PublicCallRequest.html" class="struct">PublicCallRequest</a></code>
+
+</div><h3><code class="code-header">impl&lt;T&gt; <a href="../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;T&gt;</code></h3>
+
+<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new"><span class="fn">new</span></a>(inner: T, counter: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>) -> Self</code>
+
+<code id="is_non_revertible" class="code-header">pub fn <a href="#is_non_revertible"><span class="fn">is_non_revertible</span></a>(
+    self,
+    is_private_only: <a href="../../../std/primitive.bool.html" class="primitive">bool</a>,
+    claimed_revertible_counter: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>,
+) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+</div><h3><code class="code-header">impl&lt;T&gt; <a href="../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;T&gt;</code></h3>
+
+<div class="padded-methods"><code id="scope" class="code-header">pub fn <a href="#scope"><span class="fn">scope</span></a>(self, contract_address: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>) -> <a href="../../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;Self&gt;</code>
+
+</div><h2>Trait implementations</h2>
+<h3 id="impl-Deserialize-for-Counted<T>"><code class="code-header">impl&lt;T&gt; <a href="../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;T&gt;
+<div class="where-clause">where
+    T: <a href="../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a></div></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(fields: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; &lt;(resolved type) as Deserialize&gt;::N + 1]) -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">stream_deserialize</span>&lt;let K: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(reader: &mut <a href="../../../serde/reader/struct.Reader.html" class="struct">Reader</a>&lt;K&gt;) -> Self</code>
+
+</div><h3 id="impl-Empty-for-Counted<T>"><code class="code-header">impl&lt;T&gt; <a href="../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;T&gt;
+<div class="where-clause">where
+    T: <a href="../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a></div></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">empty</span>() -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">is_empty</span>(self: Self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a>
+<div class="where-clause">where
+    Self: <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
+
+<code class="code-header">pub fn <span class="fn">assert_empty</span>&lt;let S: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self: Self, msg: <a href="../../../std/primitive.str.html" class="primitive">str</a>&lt;S&gt;)
+<div class="where-clause">where
+    Self: <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
+
+</div><h3 id="impl-Eq-for-Counted<T>"><code class="code-header">impl&lt;T&gt; <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;T&gt;
+<div class="where-clause">where
+    T: <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">eq</span>(self, other: Self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+</div><h3 id="impl-Ordered-for-Counted<T>"><code class="code-header">impl&lt;T&gt; <a href="../../../protocol_types/side_effect/trait.Ordered.html" class="trait">Ordered</a> for <a href="../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;T&gt;</code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">counter</span>(self) -> <a href="../../../std/primitive.u32.html" class="primitive">u32</a></code>
+
+</div><h3 id="impl-Ordered-for-Scoped<Counted<T>>"><code class="code-header">impl&lt;T&gt; <a href="../../../protocol_types/side_effect/trait.Ordered.html" class="trait">Ordered</a> for <a href="../../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;<a href="../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;T&gt;&gt;</code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">counter</span>(self) -> <a href="../../../std/primitive.u32.html" class="primitive">u32</a></code>
+
+</div><h3 id="impl-Serialize-for-Counted<T>"><code class="code-header">impl&lt;T&gt; <a href="../../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;T&gt;
+<div class="where-clause">where
+    T: <a href="../../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a></div></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; &lt;(resolved type) as Serialize&gt;::N + 1]</code>
+
+<code class="code-header">pub fn <span class="fn">stream_serialize</span>&lt;let K: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, writer: &mut <a href="../../../serde/writer/struct.Writer.html" class="struct">Writer</a>&lt;K&gt;)</code>
+
+</div></main>
+</span>
+</body>
+</html>

@@ -1,3 +1,6 @@
+alerts:
+  internalNetworkNamespacesRegex: "next-net|staging-internal|staging-public"
+
 opentelemetry-collector:
   mode: deployment
 
@@ -119,7 +122,7 @@ grafana:
     server:
       domain:
   env:
-    STAGING_REGEX: "^staging$"
+    STAGING_REGEX: "staging-public|staging-internal"
     NEXT_SCENARIO_REGEX: "v[0-9]+-scenario|next-scenario"
     NEXT_NET_REGEX: "next-net"
     TESTNET_NAMESPACES_REGEX: "testnet|v[0-9]+-testnet"
