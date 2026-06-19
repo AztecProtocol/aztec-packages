@@ -27,6 +27,7 @@ environments/*
 !environments/staging-internal.env
 !environments/testnet-canary.env
 !environments/testnet.env
+!environments/testnet-v4.env
 !environments/mainnet.env
 !environments/tps-scenario.env
 !environments/kind-minimal.env
