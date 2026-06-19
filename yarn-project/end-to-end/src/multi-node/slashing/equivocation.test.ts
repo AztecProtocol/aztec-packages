@@ -1,13 +1,9 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { EthAddress } from '@aztec/aztec.js/addresses';
-import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import { times } from '@aztec/foundation/collection';
-import { SecretValue } from '@aztec/foundation/config';
 import { retryUntil } from '@aztec/foundation/retry';
-import { bufferToHex } from '@aztec/foundation/string';
 import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { OffenseType } from '@aztec/stdlib/slashing';
@@ -15,8 +11,12 @@ import { OffenseType } from '@aztec/stdlib/slashing';
 import { jest } from '@jest/globals';
 import { privateKeyToAccount } from 'viem/accounts';
 
-import { getPrivateKeyFromIndex } from '../../fixtures/utils.js';
-import { MultiNodeTestContext } from '../multi_node_test_context.js';
+import {
+  MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
+  MultiNodeTestContext,
+  buildMockGossipValidators,
+  withOnlyOffense,
+} from '../multi_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 15);
 
@@ -55,12 +55,8 @@ describe('multi-node/slashing/equivocation', () => {
   // then for A's L1-confirmed checkpoint to override it on those nodes. Stops A, re-enables
   // publishing on B/C, waits for chain recovery, and asserts DUPLICATE_PROPOSAL offense on B and C.
   it('L1-confirmed checkpoint overrides gossip-only equivocating proposal', async () => {
-    // Build 4 validators (V1..V4) using getPrivateKeyFromIndex(i+3), same convention as other epoch tests.
-    const validators = times(NODE_COUNT, i => {
-      const privateKey = bufferToHex(getPrivateKeyFromIndex(i + 3)!);
-      const attester = EthAddress.fromString(privateKeyToAccount(privateKey).address);
-      return { attester, withdrawer: attester, privateKey, bn254SecretKey: new SecretValue(Fr.random().toBigInt()) };
-    });
+    // Build 4 validators (V1..V4) using the shared deterministic builder (keys from index 3).
+    const validators = buildMockGossipValidators(NODE_COUNT);
 
     // Timing calculation for 3 blocks per checkpoint with 8s sub-slots:
     // - initializationOffset = 0.5s (test mode, ethereumSlotDuration < 8)
@@ -70,19 +66,14 @@ describe('multi-node/slashing/equivocation', () => {
     // - Total: 0.5 + 24 + 8 + 2.5 = 35s => use 36s
     const slashingUnit = BigInt(1e14);
     test = await MultiNodeTestContext.setup({
-      numberOfAccounts: 0,
+      ...MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
       initialValidators: validators,
-      inboxLag: 2,
-      mockGossipSubNetwork: true,
-      startProverNode: false,
       aztecEpochDuration: 4,
-      aztecProofSubmissionEpochs: 1024,
       ethereumSlotDuration: 6,
       aztecSlotDuration: 36,
       blockDurationMs: 8000,
       attestationPropagationTime: 0.5,
       aztecTargetCommitteeSize: 4,
-      skipInitialSequencer: true,
       // Enable the slasher so we can assert the equivocating proposer is detected for slashing.
       // Round size is aztecEpochDuration * slashingRoundSizeInEpochs = 4 slots; the L1 contract
       // requires QUORUM > ROUND_SIZE / 2, so quorum must be at least 3.
@@ -94,17 +85,8 @@ describe('multi-node/slashing/equivocation', () => {
       slashAmountMedium: slashingUnit * 2n,
       slashAmountLarge: slashingUnit * 3n,
       slashSelfAllowed: true,
-      slashDuplicateProposalPenalty: slashingUnit,
-      // Disable other offense penalties so we only see the equivocation offense.
-      slashInactivityPenalty: 0n,
-      slashDataWithholdingPenalty: 0n,
-      slashBroadcastedInvalidBlockPenalty: 0n,
-      slashBroadcastedInvalidCheckpointProposalPenalty: 0n,
-      slashDuplicateAttestationPenalty: 0n,
-      slashProposeInvalidAttestationsPenalty: 0n,
-      slashProposeDescendantOfCheckpointWithInvalidAttestationsPenalty: 0n,
-      slashAttestInvalidCheckpointProposalPenalty: 0n,
-      slashUnknownPenalty: 0n,
+      // Isolate the equivocation offense: only the duplicate-proposal penalty is non-zero.
+      ...withOnlyOffense('slashDuplicateProposalPenalty', slashingUnit),
     });
 
     logger = test.logger;

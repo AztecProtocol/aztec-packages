@@ -2,22 +2,18 @@ import { type Archiver, CalldataRetriever } from '@aztec/archiver';
 import type { AztecNodeService } from '@aztec/aztec-node';
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import { NO_WAIT } from '@aztec/aztec.js/contracts';
-import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import { waitForTx } from '@aztec/aztec.js/node';
 import { RollupContract } from '@aztec/ethereum/contracts';
-import type { Operator } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import type { ExtendedViemWalletClient, ViemPublicClient, ViemPublicDebugClient } from '@aztec/ethereum/types';
 import { range } from '@aztec/foundation/array';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { times, timesAsync } from '@aztec/foundation/collection';
-import { SecretValue } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { retryUntil } from '@aztec/foundation/retry';
-import { bufferToHex } from '@aztec/foundation/string';
 import { executeTimeout, timeoutPromise } from '@aztec/foundation/timer';
 import type { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { OffenseType } from '@aztec/slasher';
@@ -26,11 +22,15 @@ import { computeQuorum, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers'
 
 import { jest } from '@jest/globals';
 import type { Log } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
 
 import { getAnvilPort } from '../../fixtures/fixtures.js';
-import { type EndToEndContext, getPrivateKeyFromIndex } from '../../fixtures/utils.js';
-import { MultiNodeTestContext } from '../multi_node_test_context.js';
+import type { EndToEndContext } from '../../fixtures/utils.js';
+import {
+  MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
+  MultiNodeTestContext,
+  type RegisteredValidator,
+  buildMockGossipValidators,
+} from '../multi_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 10);
 
@@ -54,29 +54,22 @@ describe('multi-node/slashing/invalidate_block', () => {
   let anvilPortOffset = 0;
 
   let test: MultiNodeTestContext;
-  let validators: (Operator & { privateKey: `0x${string}` })[];
+  let validators: RegisteredValidator[];
   let nodes: AztecNodeService[];
   let testContract: TestContract;
   let from: AztecAddress;
 
   beforeEach(async () => {
-    validators = times(VALIDATOR_COUNT, i => {
-      const privateKey = bufferToHex(getPrivateKeyFromIndex(i + 3)!);
-      const attester = EthAddress.fromString(privateKeyToAccount(privateKey).address);
-      return { attester, withdrawer: attester, privateKey, bn254SecretKey: new SecretValue(Fr.random().toBigInt()) };
-    });
+    validators = buildMockGossipValidators(VALIDATOR_COUNT);
 
     // Setup context with the given set of validators and a mocked gossip sub network.
     // Uses multiple-blocks-per-slot timing configuration.
     test = await MultiNodeTestContext.setup({
+      ...MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
       ethereumSlotDuration: 8,
       aztecSlotDuration: 32,
       blockDurationMs: 6000,
-      numberOfAccounts: 0,
       initialValidators: validators,
-      mockGossipSubNetwork: true,
-      aztecProofSubmissionEpochs: 1024,
-      startProverNode: false,
       aztecTargetCommitteeSize: VALIDATOR_COUNT,
       secondsBeforeInvalidatingBlockAsCommitteeMember: Number.MAX_SAFE_INTEGER,
       archiverPollingIntervalMS: 200,
@@ -87,8 +80,6 @@ describe('multi-node/slashing/invalidate_block', () => {
       slasherEnabled: true,
       minTxsPerBlock: 1,
       maxTxsPerBlock: 1,
-      skipInitialSequencer: true,
-      inboxLag: 2,
     });
 
     ({ context, logger, l1Client } = test);
