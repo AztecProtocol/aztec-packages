@@ -1,23 +1,20 @@
 import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
-import { EthAddress } from '@aztec/aztec.js/addresses';
-import { Fr } from '@aztec/aztec.js/fields';
+import type { EthAddress } from '@aztec/aztec.js/addresses';
 import type { Logger } from '@aztec/aztec.js/log';
 import { RollupContract, type SlashingProposerContract } from '@aztec/ethereum/contracts';
-import type { Operator } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import type { ViemClient } from '@aztec/ethereum/types';
-import { times } from '@aztec/foundation/collection';
-import { SecretValue } from '@aztec/foundation/config';
-import { bufferToHex } from '@aztec/foundation/string';
 import { SlasherAbi } from '@aztec/l1-artifacts';
 
 import { type GetContractReturnType, getAddress, getContract } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
 
-import { getPrivateKeyFromIndex } from '../fixtures/utils.js';
-import { MultiNodeTestContext, type MultiNodeTestOpts } from './multi_node_test_context.js';
+import {
+  MultiNodeTestContext,
+  type MultiNodeTestOpts,
+  type RegisteredValidator,
+  buildMockGossipValidators,
+} from './multi_node_test_context.js';
 
-/** A validator with its on-chain operator data and the L1 private key its node signs with. */
-export type RegisteredValidator = Operator & { privateKey: `0x${string}` };
+export type { RegisteredValidator } from './multi_node_test_context.js';
 
 /** The slasher and slashing-proposer L1 contracts a slashing test interacts with. */
 export type SlashingContracts = {
@@ -62,7 +59,7 @@ export class ValidatorRegistrationHarness {
    * online via `createValidatorNode`, leaving the rest registered-but-offline.
    */
   public static async create(opts: ValidatorRegistrationHarnessOpts): Promise<ValidatorRegistrationHarness> {
-    const validators = ValidatorRegistrationHarness.buildValidators(opts.numberOfValidators);
+    const validators = buildMockGossipValidators(opts.numberOfValidators);
     const context = await MultiNodeTestContext.setup({
       mockGossipSubNetwork: true,
       skipInitialSequencer: true,
@@ -76,7 +73,7 @@ export class ValidatorRegistrationHarness {
 
   /** Builds the deterministic validator set used for registration (indices 3..3+count). */
   public static buildValidators(count: number): RegisteredValidator[] {
-    return times(count, i => ValidatorRegistrationHarness.validatorForIndex(i));
+    return buildMockGossipValidators(count);
   }
 
   /** Returns the validator at on-chain index `index` (0-based into the registered set). */
@@ -120,13 +117,5 @@ export class ValidatorRegistrationHarness {
 
   public teardown(): Promise<void> {
     return this.context.teardown();
-  }
-
-  private static validatorForIndex(index: number): RegisteredValidator {
-    // Match P2PNetworkTest's ATTESTER_PRIVATE_KEYS_START_INDEX (3): keys 0..2 are reserved for the
-    // setup account, bootstrap node, and prover node, so validator keys begin at index 3.
-    const privateKey = bufferToHex(getPrivateKeyFromIndex(index + 3)!);
-    const attester = EthAddress.fromString(privateKeyToAccount(privateKey).address);
-    return { attester, withdrawer: attester, privateKey, bn254SecretKey: new SecretValue(Fr.random().toBigInt()) };
   }
 }

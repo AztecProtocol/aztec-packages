@@ -1,4 +1,4 @@
-# `e2e_slashing` (multi-node sub-folder)
+# `slashing` (multi-node sub-folder)
 
 Slashing and sentinel tests. They are `multi-node` tests — their subject (duplicate proposals /
 attestations, inactivity, the slashing veto flow, sentinel observability) is driven by proposals and
