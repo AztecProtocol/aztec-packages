@@ -9,12 +9,7 @@ import { getStandardMultiCallEntrypoint } from '@aztec/standard-contracts/multi-
 
 import { LazyAccountContractsProvider } from '../account-contract-providers/lazy.js';
 import type { AccountContractsProvider } from '../account-contract-providers/types.js';
-import {
-  EmbeddedWallet,
-  type EmbeddedWalletOptions,
-  applyEmbeddedWalletHookDefaults,
-  splitPxeOptions,
-} from '../embedded_wallet.js';
+import { EmbeddedWallet, type EmbeddedWalletOptions, splitPxeOptions } from '../embedded_wallet.js';
 import { WalletDB } from '../wallet_db.js';
 
 export class BrowserEmbeddedWallet extends EmbeddedWallet {
@@ -59,7 +54,6 @@ export class BrowserEmbeddedWallet extends EmbeddedWallet {
           await getStandardHandshakeRegistry(),
         ],
       },
-      hooks: applyEmbeddedWalletHookDefaults(mergedCreationOverrides.hooks),
       loggers: {
         store: rootLogger.createChild('pxe:data'),
         pxe: rootLogger.createChild('pxe:service'),

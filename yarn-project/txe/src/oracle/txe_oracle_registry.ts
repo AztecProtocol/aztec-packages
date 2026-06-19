@@ -14,7 +14,6 @@ import {
   BIGINT,
   BLOCK_NUMBER,
   BOOL,
-  DELIVERY_PRIVACY_PREFERENCE,
   FIELD,
   FUNCTION_SELECTOR,
   type InputSlot,
@@ -24,6 +23,7 @@ import {
   type OracleRegistryEntry,
   type ParamTypes,
   STR,
+  TAGGING_SECRET_SOURCE,
   type TypeMapping,
   U32,
   makeEntry,
@@ -220,8 +220,8 @@ export const TXE_ORACLE_REGISTRY: Record<string, OracleRegistryEntry> = {
     ],
   }),
 
-  aztec_txe_setDeliveryPrivacyPreference: makeEntry({
-    params: [{ name: 'preference', type: DELIVERY_PRIVACY_PREFERENCE }],
+  aztec_txe_setTaggingSecretSource: makeEntry({
+    params: [{ name: 'source', type: OPTION(TAGGING_SECRET_SOURCE) }],
   }),
 
   aztec_txe_getLastBlockTimestamp: makeEntry({

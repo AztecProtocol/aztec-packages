@@ -14,7 +14,6 @@ import {
   CapsuleService,
   CapsuleStore,
   type ContractStore,
-  type DeliveryPrivacyPreference,
   type ExecutionHooks,
   NoteStore,
   ORACLE_VERSION_MAJOR,
@@ -22,6 +21,7 @@ import {
   RecipientTaggingStore,
   SenderAddressBookStore,
   SenderTaggingStore,
+  type TaggingSecretSource,
   composeHooks,
   enrichPublicSimulationError,
 } from '@aztec/pxe/server';
@@ -30,6 +30,7 @@ import {
   ExecutionTaggingIndexCache,
   HashedValuesCache,
   type IMiscOracle,
+  type Option,
   PrivateExecutionOracle,
   TransientArrayService,
   UtilityExecutionOracle,
@@ -114,7 +115,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     private version: Fr,
     private chainId: Fr,
     private authwits: Map<string, AuthWitness>,
-    private deliveryPrivacyPreference: DeliveryPrivacyPreference,
+    private taggingSecretSource: TaggingSecretSource | undefined,
     private readonly artifactResolver: TXEArtifactResolver,
     private readonly rootPath: string,
     private readonly packageName: string,
@@ -354,8 +355,8 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     this.authwits.set(authWitness.requestHash.toString(), authWitness);
   }
 
-  setDeliveryPrivacyPreference(preference: DeliveryPrivacyPreference): void {
-    this.deliveryPrivacyPreference = preference;
+  setTaggingSecretSource(source: Option<TaggingSecretSource>): void {
+    this.taggingSecretSource = source.value;
   }
 
   async mineBlock(options: { nullifiers?: Fr[] } = {}) {
@@ -443,6 +444,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     const simulator = new WASMSimulator();
 
     const transientArrayService = new TransientArrayService();
+    const taggingSecretSource = this.taggingSecretSource;
     const privateExecutionOracle = new PrivateExecutionOracle({
       argsHash,
       txContext,
@@ -480,7 +482,8 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
           isStaticCall ? 'private view' : 'private',
           authorizedUtilityCallTargets,
         ),
-        getDeliveryPrivacyPreference: () => Promise.resolve(this.deliveryPrivacyPreference),
+        // Only configure the hook when a source was explicitly set, so that otherwise the default tagging secret source is exercised.
+        resolveTaggingSecret: taggingSecretSource ? () => Promise.resolve(taggingSecretSource) : undefined,
       }),
       transientArrayService,
     });
@@ -885,9 +888,9 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     }
   }
 
-  close(): [bigint, Map<string, AuthWitness>, DeliveryPrivacyPreference] {
+  close(): [bigint, Map<string, AuthWitness>, TaggingSecretSource | undefined] {
     this.logger.debug('Exiting Top Level Context');
-    return [this.nextBlockTimestamp, this.authwits, this.deliveryPrivacyPreference];
+    return [this.nextBlockTimestamp, this.authwits, this.taggingSecretSource];
   }
 
   private async getLastBlockNumber(): Promise<BlockNumber> {

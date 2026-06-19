@@ -37,10 +37,6 @@ import {
 import { NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import { BlockHeader, TxEffect, TxHash } from '@aztec/stdlib/tx';
 
-import {
-  type DeliveryPrivacyPreference,
-  deliveryPrivacyPreferenceFromNumber,
-} from '../../hooks/get_delivery_privacy_preference.js';
 import { BoundedVec } from '../noir-structs/bounded_vec.js';
 import { EphemeralArray } from '../noir-structs/ephemeral_array.js';
 import { EventValidationRequest } from '../noir-structs/event_validation_request.js';
@@ -50,6 +46,11 @@ import type { NoteData } from '../noir-structs/note_data.js';
 import { NoteValidationRequest } from '../noir-structs/note_validation_request.js';
 import { Option } from '../noir-structs/option.js';
 import { ProvidedSecret } from '../noir-structs/provided_secret.js';
+import {
+  type TaggingSecretSource,
+  taggingSecretSourceFromFields,
+  taggingSecretSourceToFields,
+} from '../noir-structs/tagging_secret_source.js';
 import { UtilityContext } from '../noir-structs/utility_context.js';
 import { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
 import { packAsHintedNote } from './note_packing_utils.js';
@@ -155,11 +156,12 @@ export const DELIVERY_MODE: TypeMapping<AppTaggingSecretKind> = {
   },
 };
 
-export const DELIVERY_PRIVACY_PREFERENCE: TypeMapping<DeliveryPrivacyPreference> = {
-  serialization: { fn: preference => [new Fr(preference)] },
+export const TAGGING_SECRET_SOURCE: TypeMapping<TaggingSecretSource> = {
+  serialization: { fn: source => taggingSecretSourceToFields(source) },
   deserialization: {
-    fn: readers => deliveryPrivacyPreferenceFromNumber(BYTE.deserialization!.fn(readers)),
-    slots: BYTE.deserialization!.slots,
+    fn: ([kindReader, secretReader]) =>
+      taggingSecretSourceFromFields(kindReader.readField().toNumber(), secretReader.readField()),
+    slots: 2,
   },
 };
 

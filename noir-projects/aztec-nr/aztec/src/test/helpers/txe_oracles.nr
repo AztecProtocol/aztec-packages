@@ -1,7 +1,7 @@
 use crate::{
     context::inputs::PrivateContextInputs,
     event::EventSelector,
-    messages::{delivery::DeliveryPrivacyPreference, encoding::MESSAGE_CIPHERTEXT_LEN},
+    messages::{delivery::TaggingSecretSource, encoding::MESSAGE_CIPHERTEXT_LEN},
     test::helpers::utils::TestAccount,
 };
 
@@ -255,8 +255,8 @@ pub unconstrained fn add_account(secret: Field) -> TestAccount {}
 #[oracle(aztec_txe_addAuthWitness)]
 pub unconstrained fn add_authwit(address: AztecAddress, message_hash: Field) {}
 
-#[oracle(aztec_txe_setDeliveryPrivacyPreference)]
-pub unconstrained fn set_delivery_privacy_preference(preference: DeliveryPrivacyPreference) {}
+#[oracle(aztec_txe_setTaggingSecretSource)]
+pub unconstrained fn set_tagging_secret_source(source: Option<TaggingSecretSource>) {}
 
 #[oracle(aztec_txe_privateCallNewFlow)]
 unconstrained fn private_call_new_flow_oracle<let M: u32, let N: u32, let S: u32, let T: u32>(

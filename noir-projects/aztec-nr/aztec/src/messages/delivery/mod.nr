@@ -1,7 +1,7 @@
 mod builder;
 mod mode;
-mod privacy_preference;
 mod tag_secret_derivation;
+mod tagging_secret_source;
 
 pub mod handshake;
 
@@ -22,7 +22,7 @@ pub use builder::{
     MessageDelivery, MessageDeliveryBuilder, OffchainDelivery, OnchainConstrainedDelivery, OnchainUnconstrainedDelivery,
 };
 pub use mode::OnchainDeliveryMode;
-pub use privacy_preference::DeliveryPrivacyPreference;
+pub use tagging_secret_source::TaggingSecretSource;
 
 /// Performs private delivery of a message to `recipient` according to `delivery_mode`.
 ///

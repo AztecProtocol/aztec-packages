@@ -13,7 +13,7 @@ use crate::{
     event::{event_interface::EventInterface, EventMessage},
     hash::hash_args,
     messages::{
-        delivery::DeliveryPrivacyPreference,
+        delivery::TaggingSecretSource,
         discovery::{
             ComputeNoteHash, ComputeNoteNullifier, CustomMessageHandler, process_message::process_message_plaintext,
         },
@@ -89,29 +89,27 @@ pub struct TestEnvironment {
 /// methods setting each value, e.g.:
 /// ```noir
 /// let env = TestEnvironment::new_opts(
-///     TestEnvironmentOptions::new().with_delivery_privacy_preference(DeliveryPrivacyPreference::best_effort()),
+///     TestEnvironmentOptions::new().with_tagging_secret_source(TaggingSecretSource::non_interactive_handshake()),
 /// );
 /// ```
 pub struct TestEnvironmentOptions {
-    delivery_privacy_preference: Option<DeliveryPrivacyPreference>,
+    tagging_secret_source: Option<TaggingSecretSource>,
 }
 
 impl TestEnvironmentOptions {
     /// Creates a new `TestEnvironmentOptions` with default values, i.e. the same as if using
-    /// [`TestEnvironment::new`] instead of [`TestEnvironment::new_opts`]. Use
-    /// [`with_delivery_privacy_preference`](TestEnvironmentOptions::with_delivery_privacy_preference) and other
-    /// methods to set the desired configuration values.
+    /// [`TestEnvironment::new`] instead of [`TestEnvironment::new_opts`].
     pub fn new() -> Self {
-        Self { delivery_privacy_preference: Option::none() }
+        Self { tagging_secret_source: Option::none() }
     }
 
-    /// Sets the [`DeliveryPrivacyPreference`](crate::messages::delivery::DeliveryPrivacyPreference) that the wallet
-    /// reports through the oracle in [`delivery_privacy_preference`](crate::oracle::delivery_privacy_preference),
-    /// affecting message delivery in private executions.
+    /// Sets the [`TaggingSecretSource`](crate::messages::delivery::TaggingSecretSource) that the wallet reports through
+    /// the oracle in [`resolve_tagging_secret`](crate::oracle::resolve_tagging_secret), affecting message delivery in
+    /// private executions.
     ///
-    /// If not set, defaults to [`DeliveryPrivacyPreference::max_privacy`].
-    pub fn with_delivery_privacy_preference(&mut self, preference: DeliveryPrivacyPreference) -> Self {
-        self.delivery_privacy_preference = Option::some(preference);
+    /// If not set, the wallet hook is left unconfigured and the private execution environment applies its own default.
+    pub fn with_tagging_secret_source(&mut self, source: TaggingSecretSource) -> Self {
+        self.tagging_secret_source = Option::some(source);
         *self
     }
 }
@@ -603,16 +601,15 @@ impl TestEnvironment {
     /// ### Sample usage
     /// ```noir
     /// let env = TestEnvironment::new_opts(
-    ///     TestEnvironmentOptions::new().with_delivery_privacy_preference(DeliveryPrivacyPreference::best_effort()),
+    ///     TestEnvironmentOptions::new().with_tagging_secret_source(TaggingSecretSource::non_interactive_handshake()),
     /// );
     /// ```
     pub unconstrained fn new_opts(options: TestEnvironmentOptions) -> Self {
         assert_compatible_oracle_version();
         txe_oracles::assert_compatible_txe_oracle_version();
 
-        if options.delivery_privacy_preference.is_some() {
-            txe_oracles::set_delivery_privacy_preference(options.delivery_privacy_preference.unwrap());
-        }
+        // Forward the configured source to the wallet, clearing it (None) when unset.
+        txe_oracles::set_tagging_secret_source(options.tagging_secret_source);
 
         Self {
             // Use an offset to avoid secret collision with account secrets. Without this, when

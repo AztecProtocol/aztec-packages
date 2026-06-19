@@ -10,12 +10,7 @@ import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 
 import { BundleAccountContractsProvider } from '../account-contract-providers/bundle.js';
 import type { AccountContractsProvider } from '../account-contract-providers/types.js';
-import {
-  EmbeddedWallet,
-  type EmbeddedWalletOptions,
-  applyEmbeddedWalletHookDefaults,
-  splitPxeOptions,
-} from '../embedded_wallet.js';
+import { EmbeddedWallet, type EmbeddedWalletOptions, splitPxeOptions } from '../embedded_wallet.js';
 import { WalletDB } from '../wallet_db.js';
 
 export class NodeEmbeddedWallet extends EmbeddedWallet {
@@ -60,7 +55,6 @@ export class NodeEmbeddedWallet extends EmbeddedWallet {
           await getStandardHandshakeRegistry(),
         ],
       },
-      hooks: applyEmbeddedWalletHookDefaults(mergedCreationOverrides.hooks),
       loggers: {
         store: rootLogger.createChild('pxe:data'),
         pxe: rootLogger.createChild('pxe:service'),

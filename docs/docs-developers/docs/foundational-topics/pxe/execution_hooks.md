@@ -13,7 +13,6 @@ Pass a `hooks` object when creating the PXE:
 
 ```typescript
 import { createPXE } from "@aztec/pxe/server";
-import { DeliveryPrivacyPreference } from "@aztec/pxe/config";
 
 const pxe = await createPXE(node, config, {
   hooks: {
@@ -23,8 +22,8 @@ const pxe = await createPXE(node, config, {
         ? { authorized: true }
         : { authorized: false, reason: "Unknown target" };
     },
-    // Accept the privacy leak of on-the-fly handshakes so messages reach recipients that haven't registered the sender.
-    getDeliveryPrivacyPreference: async () => DeliveryPrivacyPreference.BEST_EFFORT,
+    // When there's no established way to reach the recipient, fall back to a non-interactive handshake.
+    resolveTaggingSecret: async () => ({ type: "non-interactive-handshake" }),
   },
 });
 ```
@@ -75,22 +74,22 @@ Pass an `authorizeUtilityCall` hook when [creating the PXE](#configuring-hooks).
 
 When the hook is absent, cross-contract utility calls are denied. See [Cross-contract utility call denied](../../aztec-nr/debugging.md#cross-contract-utility-call-denied) for the resulting error.
 
-## `getDeliveryPrivacyPreference`
+## `resolveTaggingSecret`
 
-Called when message delivery must establish a new tagging secret rather than reuse an existing handshake, and the executing contract has not pinned a tag-secret derivation. An existing handshake is reused without invoking the hook. The hook lets the wallet choose between maximum privacy and delivery that requires no sender-recipient coordination; see [Delivery privacy preference](../../aztec-nr/framework-description/note_delivery.md#delivery-privacy-preference) for the trade-offs and the defaults in each environment.
+Called as a fallback when message delivery has no established tagging secret to reuse for a sender-recipient pair: an established secret is reused without invoking the hook, so it only fires when none exists yet. The wallet returns a concrete `TaggingSecretSource` (and any material the chosen derivation needs); see [Tagging secret source](../../aztec-nr/framework-description/note_delivery.md#tagging-secret-source) for the variants, the trade-offs, and the defaults in each environment.
 
 ### In Noir tests
 
-When testing in Noir, `TestEnvironment` defaults to max privacy like a bare PXE. Set the preference when creating the environment; it affects message delivery in private executions:
+When testing in Noir, leaving the source unset makes `TestEnvironment` fall back to the bare PXE default. Set a source when creating the environment to exercise a specific one; it affects message delivery in private executions:
 
 ```rust
 let env = TestEnvironment::new_opts(
-    TestEnvironmentOptions::new().with_delivery_privacy_preference(DeliveryPrivacyPreference::best_effort()),
+    TestEnvironmentOptions::new().with_tagging_secret_source(TaggingSecretSource::non_interactive_handshake()),
 );
 ```
 
 ### In production
 
-Pass a `getDeliveryPrivacyPreference` hook when [creating the PXE](#configuring-hooks). It receives a `DeliveryPrivacyPreferenceRequest` with the executing contract's address and the message's sender, recipient, and delivery mode (`'constrained'` or `'unconstrained'`), so a wallet can apply per-application or per-recipient policies, or surface the decision to the user, instead of returning a fixed value.
+Pass a `resolveTaggingSecret` hook when [creating the PXE](#configuring-hooks). It receives a `TaggingSecretSourceRequest` with the executing contract's address and the message's sender, recipient, and delivery mode (`'constrained'` or `'unconstrained'`), so a wallet can apply per-application or per-recipient policies, or surface the decision to the user, instead of returning a fixed value.
 
-When the hook is absent, the PXE assumes `DeliveryPrivacyPreference.MAX_PRIVACY`, so privacy is never weakened without the wallet opting in.
+When the hook is absent, the PXE applies a privacy-safe default: unconstrained delivery uses an address-derived (Diffie-Hellman) shared secret, which leaves no on-chain trace, while constrained delivery fails rather than silently revealing the recipient through a non-interactive handshake.

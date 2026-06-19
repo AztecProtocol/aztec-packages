@@ -1,5 +1,5 @@
 import type { AuthorizeUtilityCall } from './authorize_utility_call.js';
-import type { GetDeliveryPrivacyPreference } from './get_delivery_privacy_preference.js';
+import type { ResolveTaggingSecret } from './resolve_tagging_secret.js';
 
 /**
  * Hooks that PXE invokes during client-side simulation to gate or steer operations that the protocol
@@ -12,11 +12,6 @@ import type { GetDeliveryPrivacyPreference } from './get_delivery_privacy_prefer
  * to allow it. A static allowlist would not work here because neither the app nor the wallet can predict ahead of
  * time which contracts will be invoked during execution. Calls to standard contracts (such as the HandshakeRegistry)
  * bypass this hook and are always authorized. When the hook is absent, cross-contract utility calls are denied.
- *
- * Similarly, {@link getDeliveryPrivacyPreference} is called when message delivery must establish a new tagging
- * secret rather than reuse an existing handshake, and the contract has not pinned a tag-secret derivation, letting
- * the wallet choose between maximum privacy and delivery that requires no sender-recipient coordination. An existing
- * handshake is reused without invoking the hook. When the hook is absent, PXE assumes maximum privacy.
  *
  * Note: hooks are unrelated to authentication witnesses (authwits). Authwits are an on-chain
  * mechanism where a contract verifies that a caller was authorized by a specific account; hooks
@@ -33,9 +28,8 @@ import type { GetDeliveryPrivacyPreference } from './get_delivery_privacy_prefer
  *         ? { authorized: true }
  *         : { authorized: false, reason: 'Unknown target' };
  *     },
- *     // Accept the privacy leak of on-the-fly handshakes so messages reach recipients that haven't registered
- *     // the sender.
- *     getDeliveryPrivacyPreference: async () => DeliveryPrivacyPreference.BEST_EFFORT,
+ *     // When there's no established way to reach the recipient, fall back to a non-interactive handshake.
+ *     resolveTaggingSecret: async () => ({ type: 'non-interactive-handshake' }),
  *   },
  * });
  * ```
@@ -44,10 +38,11 @@ export interface ExecutionHooks {
   /** Called when a contract attempts a cross-contract utility call. Calls are denied when absent. */
   authorizeUtilityCall?: AuthorizeUtilityCall;
   /**
-   * Called when message delivery must establish a new tagging secret rather than reuse an existing handshake, and
-   * the contract has not pinned a tag-secret derivation. Maximum privacy is assumed when absent.
+   * Resolves a message's tagging secret when none is already established for the sender/recipient pair, letting the
+   * wallet apply per-recipient policy. PXE applies a privacy-safe default when absent.
+   * See {@link ResolveTaggingSecret} for the request shape and defaults.
    */
-  getDeliveryPrivacyPreference?: GetDeliveryPrivacyPreference;
+  resolveTaggingSecret?: ResolveTaggingSecret;
 }
 
 /**

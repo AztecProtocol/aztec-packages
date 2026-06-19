@@ -18,7 +18,6 @@ import {
   CONTRACT_CLASS_LOG_INPUT,
   CONTRACT_INSTANCE,
   DELIVERY_MODE,
-  DELIVERY_PRIVACY_PREFERENCE,
   EPHEMERAL_ARRAY,
   EVENT_VALIDATION_REQUEST,
   FIELD,
@@ -43,6 +42,7 @@ import {
   PUBLIC_DATA_WITNESS,
   PUBLIC_KEYS_AND_PARTIAL_ADDRESS,
   STR,
+  TAGGING_SECRET_SOURCE,
   TX_EFFECT,
   TX_HASH,
   type TypeMapping,
@@ -61,7 +61,7 @@ export {
   BUFFER,
   BYTE,
   DELIVERY_MODE,
-  DELIVERY_PRIVACY_PREFERENCE,
+  TAGGING_SECRET_SOURCE,
   EPHEMERAL_ARRAY,
   EVENT_VALIDATION_REQUEST,
   FIELD,
@@ -144,7 +144,7 @@ type OracleRegistryName =
   | 'aztec_prv_getAppTaggingSecret'
   | 'aztec_prv_getNextTaggingIndex'
   | 'aztec_prv_getSenderForTags'
-  | 'aztec_prv_getDeliveryPrivacyPreference';
+  | 'aztec_prv_resolveTaggingSecret';
 
 type OracleRegistry = Record<OracleRegistryName, OracleRegistryEntry>;
 
@@ -570,13 +570,13 @@ export const ORACLE_REGISTRY: OracleRegistry = {
 
   aztec_prv_getSenderForTags: makeEntry({ returnType: OPTION(AZTEC_ADDRESS) }),
 
-  aztec_prv_getDeliveryPrivacyPreference: makeEntry({
+  aztec_prv_resolveTaggingSecret: makeEntry({
     params: [
       { name: 'sender', type: AZTEC_ADDRESS },
       { name: 'recipient', type: AZTEC_ADDRESS },
       { name: 'deliveryMode', type: DELIVERY_MODE },
     ],
-    returnType: DELIVERY_PRIVACY_PREFERENCE,
+    returnType: TAGGING_SECRET_SOURCE,
   }),
 };
 

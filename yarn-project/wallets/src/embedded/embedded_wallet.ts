@@ -25,7 +25,6 @@ import { Fq, Fr } from '@aztec/foundation/curves/bn254';
 import type { Logger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { PXEConfig, PXECreationOptions } from '@aztec/pxe/client/lazy';
-import { DeliveryPrivacyPreference, type ExecutionHooks } from '@aztec/pxe/config';
 import type { PXE } from '@aztec/pxe/server';
 import type { ContractArtifact, EventMetadataDefinition, FunctionCall } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -49,13 +48,7 @@ import { BaseWallet, type SimulateViaEntrypointOptions, getGasLimits } from '@az
 import type { AccountContractsProvider } from './account-contract-providers/types.js';
 import { type AccountType, WalletDB } from './wallet_db.js';
 
-/**
- * Options for the PXE instance created by the EmbeddedWallet.
- *
- * Unless overridden via `hooks.getDeliveryPrivacyPreference`, the embedded wallet reports a best-effort delivery
- * privacy preference (a bare PXE defaults to max privacy), trading the privacy cost of on-chain handshakes for
- * message delivery that works without sender and recipient having to coordinate.
- */
+/** Options for the PXE instance created by the EmbeddedWallet. */
 export type EmbeddedWalletPXEOptions = Partial<PXEConfig> & PXECreationOptions;
 
 /** Splits a unified EmbeddedWalletPXEOptions into PXEConfig overrides and PXECreationOptions. */
@@ -71,17 +64,6 @@ export function splitPxeOptions(pxe?: EmbeddedWalletPXEOptions): {
   return {
     config,
     creation: { loggers, loggerActorLabel, proverOrOptions, store, simulator, hooks, preloadedContractsProvider },
-  };
-}
-
-/**
- * Applies the embedded wallet's default execution hooks on top of user-provided ones, defaulting the delivery
- * privacy preference to best effort (see {@link EmbeddedWalletPXEOptions} for why).
- */
-export function applyEmbeddedWalletHookDefaults(hooks: ExecutionHooks | undefined): ExecutionHooks {
-  return {
-    getDeliveryPrivacyPreference: () => Promise.resolve(DeliveryPrivacyPreference.BEST_EFFORT),
-    ...hooks,
   };
 }
 

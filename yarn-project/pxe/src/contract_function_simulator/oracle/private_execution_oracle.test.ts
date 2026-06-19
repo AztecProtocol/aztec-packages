@@ -6,6 +6,7 @@ import { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2TipsProvider } from '@aztec/stdlib/block';
+import { SerializableContractInstance } from '@aztec/stdlib/contract';
 import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { AppTaggingSecretKind } from '@aztec/stdlib/logs';
@@ -15,10 +16,7 @@ import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
 
 import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
-import {
-  DeliveryPrivacyPreference,
-  type GetDeliveryPrivacyPreference,
-} from '../../hooks/get_delivery_privacy_preference.js';
+import type { ResolveTaggingSecret, TaggingSecretSource } from '../../hooks/resolve_tagging_secret.js';
 import type { MessageContextService } from '../../messages/message_context_service.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import { CapsuleService } from '../../storage/capsule_store/capsule_service.js';
@@ -32,6 +30,7 @@ import type { SenderTaggingStore } from '../../storage/tagging_store/sender_tagg
 import { ExecutionNoteCache } from '../execution_note_cache.js';
 import { ExecutionTaggingIndexCache } from '../execution_tagging_index_cache.js';
 import { HashedValuesCache } from '../hashed_values_cache.js';
+import { Option } from '../noir-structs/option.js';
 import { TransientArrayService } from '../transient_array_service.js';
 import { PrivateExecutionOracle, type PrivateExecutionOracleArgs } from './private_execution_oracle.js';
 
@@ -75,7 +74,7 @@ describe('PrivateExecutionOracle', () => {
     });
   });
 
-  describe('deliveryPrivacyPreference', () => {
+  describe('resolveTaggingSecret', () => {
     let sender: AztecAddress;
     let recipient: AztecAddress;
 
@@ -84,28 +83,42 @@ describe('PrivateExecutionOracle', () => {
       recipient = await AztecAddress.random();
     });
 
-    it('defaults to max privacy when no hooks are configured', async () => {
+    it('defaults unconstrained delivery to an address-derived shared secret when no hooks are configured', async () => {
       const oracle = makeOracle();
+      const secret = Fr.random();
+      jest.spyOn(oracle, 'getAppTaggingSecret').mockResolvedValue(Option.some(secret));
 
-      await expect(
-        oracle.getDeliveryPrivacyPreference(sender, recipient, AppTaggingSecretKind.CONSTRAINED),
-      ).resolves.toEqual(DeliveryPrivacyPreference.MAX_PRIVACY);
+      await expect(oracle.resolveTaggingSecret(sender, recipient, AppTaggingSecretKind.UNCONSTRAINED)).resolves.toEqual(
+        { type: 'shared-secret', secret },
+      );
     });
 
-    it('returns the preference reported by the wallet hook', async () => {
-      const getDeliveryPrivacyPreference = jest
-        .fn<GetDeliveryPrivacyPreference>()
-        .mockResolvedValue(DeliveryPrivacyPreference.BEST_EFFORT);
-      const oracle = makeOracle({ hooks: { getDeliveryPrivacyPreference } });
+    it('fails constrained delivery when no hooks are configured', async () => {
+      const oracle = makeOracle();
 
-      await expect(
-        oracle.getDeliveryPrivacyPreference(sender, recipient, AppTaggingSecretKind.UNCONSTRAINED),
-      ).resolves.toEqual(DeliveryPrivacyPreference.BEST_EFFORT);
-      expect(getDeliveryPrivacyPreference).toHaveBeenCalledWith({
+      await expect(oracle.resolveTaggingSecret(sender, recipient, AppTaggingSecretKind.CONSTRAINED)).rejects.toThrow(
+        /requires a configured resolveTaggingSecret hook/,
+      );
+    });
+
+    it('returns the source reported by the wallet hook', async () => {
+      const source: TaggingSecretSource = { type: 'non-interactive-handshake' };
+      const resolveTaggingSecret = jest.fn<ResolveTaggingSecret>().mockResolvedValue(source);
+      const oracle = makeOracle({ hooks: { resolveTaggingSecret } });
+      const contractClassId = Fr.random();
+      jest
+        .spyOn(oracle, 'getContractInstance')
+        .mockResolvedValue(await SerializableContractInstance.random({ currentContractClassId: contractClassId }));
+
+      await expect(oracle.resolveTaggingSecret(sender, recipient, AppTaggingSecretKind.CONSTRAINED)).resolves.toEqual(
+        source,
+      );
+      expect(resolveTaggingSecret).toHaveBeenCalledWith({
         contractAddress,
+        contractClassId,
         sender,
         recipient,
-        deliveryMode: AppTaggingSecretKind.UNCONSTRAINED,
+        deliveryMode: AppTaggingSecretKind.CONSTRAINED,
       });
     });
   });

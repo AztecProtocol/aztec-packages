@@ -28,7 +28,7 @@ import {
   type TxContext,
 } from '@aztec/stdlib/tx';
 
-import { DeliveryPrivacyPreference } from '../../hooks/get_delivery_privacy_preference.js';
+import type { TaggingSecretSource } from '../../hooks/resolve_tagging_secret.js';
 import { NoteService } from '../../notes/note_service.js';
 import type { SenderTaggingStore } from '../../storage/tagging_store/sender_tagging_store.js';
 import { syncSenderTaggingIndexes } from '../../tagging/index.js';
@@ -188,28 +188,48 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   }
 
   /**
-   * Returns the wallet's delivery privacy preference, which message delivery consults when it must establish a new
-   * tagging secret with a recipient and the executing contract has not pinned a delivery mechanism (see
-   * {@link DeliveryPrivacyPreference} for the trade-offs involved).
-   *
-   * The value is sourced from the wallet's `getDeliveryPrivacyPreference` execution hook, which receives the executing
-   * contract plus the message's sender, recipient and delivery mode so it can answer per message instead of with a
-   * fixed policy. When no hook is configured this defaults to max privacy, so that privacy is never weakened without
-   * the wallet opting in.
+   * Resolves the {@link TaggingSecretSource} for a message via the wallet's `resolveTaggingSecret` hook. When no hook
+   * is configured, applies a privacy-safe default.
    */
-  public getDeliveryPrivacyPreference(
+  public async resolveTaggingSecret(
     sender: AztecAddress,
     recipient: AztecAddress,
     deliveryMode: AppTaggingSecretKind,
-  ): Promise<DeliveryPrivacyPreference> {
-    return (
-      this.hooks?.getDeliveryPrivacyPreference?.({
+  ): Promise<TaggingSecretSource> {
+    const hook = this.hooks?.resolveTaggingSecret;
+    if (hook) {
+      const { currentContractClassId } = await this.getContractInstance(this.contractAddress);
+      return hook({
         contractAddress: this.contractAddress,
+        contractClassId: currentContractClassId,
         sender,
         recipient,
         deliveryMode,
-      }) ?? Promise.resolve(DeliveryPrivacyPreference.MAX_PRIVACY)
-    );
+      });
+    }
+    return this.#defaultTaggingSecretSource(sender, recipient, deliveryMode);
+  }
+
+  /** The privacy-safe tagging secret source used when no `resolveTaggingSecret` hook is configured. */
+  async #defaultTaggingSecretSource(
+    sender: AztecAddress,
+    recipient: AztecAddress,
+    deliveryMode: AppTaggingSecretKind,
+  ): Promise<TaggingSecretSource> {
+    if (deliveryMode === AppTaggingSecretKind.CONSTRAINED) {
+      // Constrained delivery has no "safe" default: a non-interactive handshake would reveal the recipient on-chain,
+      // and an interactive handshake always needs a wallet interaction (i.e. a configured hook). With no hook there is
+      // nothing safe to fall back to, so we always fail.
+      throw new Error(`Constrained delivery to ${recipient} requires a configured resolveTaggingSecret hook.`);
+    }
+
+    // Unconstrained default: an address-derived (Diffie-Hellman) shared secret, which leaves no on-chain trace. Callers
+    // must validate the recipient in-circuit before reaching here, so an invalid one is unexpected.
+    const secret = await this.getAppTaggingSecret(sender, recipient);
+    if (!secret.isSome()) {
+      throw new Error(`Cannot derive a default tagging secret for invalid recipient ${recipient}`);
+    }
+    return { type: 'shared-secret', secret: secret.value };
   }
 
   /**
