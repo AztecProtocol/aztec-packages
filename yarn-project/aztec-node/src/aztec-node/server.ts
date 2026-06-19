@@ -683,10 +683,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       const globalVariableBuilder = new GlobalVariableBuilder(publicClient, globalVariableBuilderConfig);
       const feeProvider = new FeeProviderImpl(dateProvider, publicClient, globalVariableBuilderConfig);
 
-      const proverOnly = config.enableProverNode && config.disableValidator;
-      if (proverOnly) {
-        log.info('Starting in prover-only mode: skipping validator, sequencer, sentinel, and slasher subsystems');
-      }
+      const collectOffenses = !config.disableValidator || config.enableOffenseCollection;
 
       // create the tx pool and the p2p client, which will need the l2 block source
       const p2pClient = await createP2PClient(
@@ -789,19 +786,18 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       // Start p2p. Note that it depends on world state to be running.
       await p2pClient.start();
 
-      let validatorsSentinel: Awaited<ReturnType<typeof createSentinel>> | undefined;
       let dataWithholdingWatcher: DataWithholdingWatcher | undefined;
       let attestationsBlockWatcher: AttestationsBlockWatcher | undefined;
       let attestedInvalidProposalWatcher: AttestedInvalidProposalWatcher | undefined;
       let broadcastedInvalidCheckpointProposalWatcher: BroadcastedInvalidCheckpointProposalWatcher | undefined;
       let checkpointEquivocationWatcher: CheckpointEquivocationWatcher | undefined;
 
-      if (!proverOnly) {
-        validatorsSentinel = await createSentinel(epochCache, archiver, p2pClient, reexecutionTracker, config);
-        if (validatorsSentinel) {
-          watchers.push(validatorsSentinel);
-        }
+      const validatorsSentinel = await createSentinel(epochCache, archiver, p2pClient, reexecutionTracker, config);
+      if (validatorsSentinel) {
+        watchers.push(validatorsSentinel);
+      }
 
+      if (collectOffenses) {
         dataWithholdingWatcher = new DataWithholdingWatcher(
           epochCache,
           archiver,
@@ -872,9 +868,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       let sequencer: SequencerClient | undefined;
       let automineSequencer: AutomineSequencer | undefined;
       let slasherClient: SlasherClientInterface | undefined;
-      if (!config.disableValidator && validatorClient) {
-        // We create a slasher only if we have a sequencer, since all slashing actions go through the sequencer publisher
-        // as they are executed when the node is selected as proposer.
+
+      // The slasher can run standalone to collect offenses for non-validators; it only writes to L1 when a
+      // proposer is elected (which requires a sequencer), so running it read-only on a non-validator is safe.
+      if (collectOffenses) {
         const validatorAddresses = keyStoreManager
           ? NodeKeystoreAdapter.fromKeyStoreManager(keyStoreManager).getAddresses()
           : [];
@@ -891,7 +888,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
         );
         await slasherClient.start();
         started.push(slasherClient);
+      }
 
+      if (!config.disableValidator && validatorClient) {
         const l1TxUtils = config.sequencerPublisherForwarderAddress
           ? await createForwarderL1TxUtilsFromSigners(
               publicClient,
