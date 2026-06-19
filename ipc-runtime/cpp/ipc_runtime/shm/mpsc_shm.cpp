@@ -293,6 +293,16 @@ void MpscConsumer::wakeup_all()
     }
 }
 
+bool MpscConsumer::has_data() const
+{
+    for (const auto& ring : rings_) {
+        if (ring.available() > 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void MpscConsumer::notify()
 {
     // Mirror MpscProducer::publish's doorbell ring: bump seq (release) BEFORE the

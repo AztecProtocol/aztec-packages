@@ -100,6 +100,13 @@ class MpscShmServer : public IpcServer {
         }
     }
 
+    bool has_pending_request() override
+    {
+        // Side-effect-free ring scan — must not perturb the consumer's spin /
+        // round-robin state, which a wait_for_data(0) peek would.
+        return request_consumer_.has_value() && request_consumer_->has_data();
+    }
+
     std::span<const uint8_t> receive(int client_id) override
     {
         if (!request_consumer_.has_value() || client_id < 0 || static_cast<size_t>(client_id) >= max_clients_) {

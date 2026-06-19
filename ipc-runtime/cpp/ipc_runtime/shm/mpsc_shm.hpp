@@ -76,6 +76,15 @@ class MpscConsumer {
     int wait_for_data(uint64_t timeout_ns, const std::function<bool()>& also_ready = {});
 
     /**
+     * @brief Non-blocking, side-effect-free check for any ring with data.
+     *
+     * Unlike wait_for_data(0) this does NOT touch the round-robin cursor or the
+     * adaptive-spin state, so it is safe to call as a frequent "is more pending?"
+     * peek without degrading the next real wait.
+     */
+    bool has_data() const;
+
+    /**
      * @brief Wake the consumer blocked in wait_for_data, without delivering ring
      * data.
      *

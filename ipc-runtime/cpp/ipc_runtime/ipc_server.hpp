@@ -92,6 +92,17 @@ class IpcServer {
     virtual void notify() {}
 
     /**
+     * @brief Non-blocking check for whether another request is already waiting.
+     *
+     * Used by run_reactor()'s inline fast path to distinguish "idle / sequential"
+     * from "a burst is arriving". Must be cheap and side-effect-free — it is
+     * polled per request at low load. The default polls via wait_for_data(0)
+     * (fine for sockets: epoll is stateless); SHM overrides it with a check that
+     * does not disturb its round-robin cursor or adaptive-spin state.
+     */
+    virtual bool has_pending_request() { return wait_for_data(0) >= 0; }
+
+    /**
      * @brief Receive next message from a specific client
      *
      * Blocks until a complete message is available. Returns a span pointing to
@@ -301,14 +312,18 @@ class IpcServer {
             return false;
         };
 
+        // Place a completed response into the reorder stash. No wake — used by the
+        // inline fast path, where the reactor itself drains right after.
+        auto stash_response = [&](int client, uint64_t seq, std::vector<uint8_t> bytes) {
+            std::lock_guard<std::mutex> lock(mtx);
+            conns[client].stash.emplace(seq, std::move(bytes));
+        };
+
         // Called from worker threads: stash the response, then wake the reactor.
         // Push-before-notify is required so the reactor (or its predicate) always
         // observes the entry that the wake corresponds to.
         auto post_response = [&](int client, uint64_t seq, std::vector<uint8_t> bytes) {
-            {
-                std::lock_guard<std::mutex> lock(mtx);
-                conns[client].stash.emplace(seq, std::move(bytes));
-            }
+            stash_response(client, seq, std::move(bytes));
             notify();
         };
 
@@ -354,21 +369,40 @@ class IpcServer {
             release(client_id, request.size());
 
             uint64_t seq = next_seq[client_id]++;
-            inflight.fetch_add(1, std::memory_order_relaxed);
-            executor([this, client_id, seq, &handler, &post_response, &inflight, buf = std::move(buf)]() mutable {
-                try {
-                    auto response = handler(client_id, std::span<const uint8_t>(buf));
-                    post_response(client_id, seq, std::move(response));
-                } catch (...) {
-                    // Still occupy this sequence with an (empty) response so the
-                    // connection's FIFO drain is not permanently stalled.
-                    post_response(client_id, seq, std::vector<uint8_t>{});
-                }
-                inflight.fetch_sub(1, std::memory_order_release);
-                notify();
-            });
 
-            drain_and_send(); // emit immediately for an inline executor
+            // Inline fast path: when nothing is in flight AND no further request
+            // is already pending, run the handler on the reactor thread. There is
+            // no concurrency to exploit here, so the pool handoff + wakeup would be
+            // pure latency (the single-in-flight / sequential case). The
+            // `inflight == 0` test short-circuits the wait_for_data(0) poll, so a
+            // burst (which keeps inflight > 0 once it starts) never pays for it and
+            // stays fully on the dispatch path. `wait_for_data(0)` is a
+            // non-blocking peek for another ready request on any connection.
+            bool run_inline = inflight.load(std::memory_order_acquire) == 0 && !has_pending_request();
+
+            if (run_inline) {
+                try {
+                    stash_response(client_id, seq, handler(client_id, std::span<const uint8_t>(buf)));
+                } catch (...) {
+                    stash_response(client_id, seq, std::vector<uint8_t>{});
+                }
+            } else {
+                inflight.fetch_add(1, std::memory_order_relaxed);
+                executor([this, client_id, seq, &handler, &post_response, &inflight, buf = std::move(buf)]() mutable {
+                    try {
+                        auto response = handler(client_id, std::span<const uint8_t>(buf));
+                        post_response(client_id, seq, std::move(response));
+                    } catch (...) {
+                        // Still occupy this sequence with an (empty) response so the
+                        // connection's FIFO drain is not permanently stalled.
+                        post_response(client_id, seq, std::vector<uint8_t>{});
+                    }
+                    inflight.fetch_sub(1, std::memory_order_release);
+                    notify();
+                });
+            }
+
+            drain_and_send(); // emit immediately for the inline path / an inline executor
         }
 
         // Quiesce before returning: in-flight tasks capture this frame's stash,
