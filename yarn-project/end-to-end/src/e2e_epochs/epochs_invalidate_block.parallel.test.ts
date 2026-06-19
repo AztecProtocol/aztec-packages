@@ -25,6 +25,8 @@ import { L2BlockSourceEvents } from '@aztec/stdlib/block';
 import { computeQuorum, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 
 import { jest } from '@jest/globals';
+import { rm } from 'node:fs/promises';
+import { join } from 'node:path';
 import type { Log } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
@@ -738,6 +740,74 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
       L2BlockSourceEvents.DescendentOfInvalidAttestationsCheckpointDetected,
       onDescendant,
     );
+  });
+
+  // A-1252: a checkpoint with invalid attestations is detected from L1 calldata *before* its blob is
+  // fetched (the honest node assertion below), so a malformed or withheld blob can no longer stall
+  // detection. End-to-end this keeps the chain live: the bad checkpoint is invalidated and a fresh node
+  // that cannot obtain its blob (no gossiped copy to promote, blob deleted from the shared store) still
+  // syncs past it instead of looping on a blob-fetch error.
+  it('detects an invalid-attestations checkpoint from calldata and syncs a fresh node past its withheld blob', async () => {
+    const sequencers = nodes.map(node => node.getSequencer()!);
+    const initialCheckpointNumber = (await nodes[0].getChainTips()).checkpointed.checkpoint.number;
+
+    // Subscribe on an already-running honest node so we reliably capture the detection event (a fresh
+    // observer would process the bad checkpoint during its initial sync, before we could subscribe).
+    const detected: CheckpointNumber[] = [];
+    const onInvalid = (e: {
+      validationResult: { valid: boolean; checkpoint: { checkpointNumber: CheckpointNumber } };
+    }) => detected.push(e.validationResult.checkpoint.checkpointNumber);
+    const honestArchiver = nodes[0].getBlockSource() as Archiver;
+    honestArchiver.events.on(L2BlockSourceEvents.InvalidAttestationsCheckpointDetected, onInvalid);
+
+    // All sequencers post one checkpoint with insufficient attestations, then revert to honest config so
+    // the chain recovers by invalidating it. minTxsPerBlock:0 keeps empty checkpoints flowing afterwards.
+    sequencers.forEach(s => s.updateConfig({ skipCollectingAttestations: true, minTxsPerBlock: 0 }));
+    test.monitor.once('checkpoint', ({ checkpointNumber }) => {
+      logger.warn(`Disabling attack after checkpoint ${checkpointNumber} has been mined`);
+      sequencers.forEach(s => s.updateConfig({ skipCollectingAttestations: false, minTxsPerBlock: 0 }));
+    });
+    await Promise.all(sequencers.map(s => s.start()));
+
+    // Wait for the bad checkpoint to be invalidated on L1 and confirm it really landed with < quorum.
+    const { checkpointNumber: badCheckpointNumber } = await awaitCheckpointInvalidationEvent();
+    expect(badCheckpointNumber).toBeGreaterThan(initialCheckpointNumber);
+    await assertCheckpointInsufficientAttestations(badCheckpointNumber);
+
+    // Withhold the bad checkpoint's blob from the shared store. Its proposed event is the first one for
+    // that number (the later re-mined valid checkpoint has different content, hence different blob hashes,
+    // so deleting the bad one's blobs leaves the recovered chain syncable).
+    const proposedEvents = await rollupContract.getCheckpointProposedEvents(1n, await l1Client.getBlockNumber());
+    const badEvent = proposedEvents.find(e => e.args.checkpointNumber === badCheckpointNumber);
+    expect(badEvent).toBeDefined();
+    const sharedBlobsDir = join(test.context.config.dataDirectory!, 'shared-blobs', 'blobs');
+    for (const hash of badEvent!.args.versionedBlobHashes) {
+      await rm(join(sharedBlobsDir, `0x${hash.toString('hex')}.data`), { force: true });
+    }
+    logger.warn(
+      `Withheld ${badEvent!.args.versionedBlobHashes.length} blob(s) for bad checkpoint ${badCheckpointNumber}`,
+    );
+
+    // Let the recovered chain advance past the bad slot so the observer has a healthy tip to reach.
+    await test.waitUntilCheckpointNumber(CheckpointNumber(badCheckpointNumber + 1), test.L2_SLOT_DURATION_IN_S * 12);
+
+    // Create a fresh observer AFTER the bad checkpoint was gossiped, so it has no proposed copy to promote
+    // and must rely on L1 calldata. Without the A-1252 reorder it would stall fetching the withheld blob;
+    // with it, attestations are validated from calldata first, the checkpoint is rejected, and sync proceeds.
+    const observer = await test.createNonValidatorNode();
+    const honestTip = (await nodes[0].getChainTips()).checkpointed.checkpoint.number;
+    await retryUntil(
+      async () => (await observer.getChainTips()).checkpointed.checkpoint.number >= honestTip,
+      'observer syncs past the bad checkpoint without its withheld blob',
+      test.L2_SLOT_DURATION_IN_S * 12,
+      0.5,
+    );
+
+    // The bad checkpoint was detected from calldata (the path that gates the blob fetch).
+    expect(detected).toContain(badCheckpointNumber);
+
+    logger.warn(`Test succeeded '${expect.getState().currentTestName}'`);
+    honestArchiver.events.removeListener(L2BlockSourceEvents.InvalidAttestationsCheckpointDetected, onInvalid);
   });
 
   // All tests but this one disable invalidation by committee. This test disables invalidation by proposer and
