@@ -275,6 +275,13 @@ tests:
     owners:
       - *sean
 
+  # Asserts all late txs land in the checkpoint's last block, but the proposer seals the last block as
+  # soon as one tx is available and snapshots the mempool, so late txs still propagating over gossip
+  # spill into the next checkpoint. Flaky until the sequencer waits for the last block's tx window.
+  - regex: "src/e2e_epochs/epochs_mbps_redistribution.test.ts"
+    owners:
+      - *phil
+
   # Blanket flake patterns for unstable p2p, epoch, and l1 tx utils tests
   # This is a temporary measure while team bandwidth is constrained
   # Replaced many specific patterns - see https://github.com/AztecProtocol/aztec-packages/pull/17962 for historical context

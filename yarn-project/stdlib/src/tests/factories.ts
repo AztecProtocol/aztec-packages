@@ -1741,10 +1741,6 @@ export function makeL2Tips(
       block: { number: bn, hash },
       checkpoint: { number: cpn, hash: cph },
     },
-    proposedCheckpoint: {
-      block: { number: bn, hash },
-      checkpoint: { number: cpn, hash: cph },
-    },
     proven: {
       block: { number: bn, hash },
       checkpoint: { number: cpn, hash: cph },

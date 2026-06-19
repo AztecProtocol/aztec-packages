@@ -109,6 +109,8 @@ export async function setupSharedBlobStorage(config: { dataDirectory?: string } 
 /**
  * Sets up Private eXecution Environment (PXE) and returns the corresponding test wallet.
  * @param aztecNode - An instance of Aztec Node.
+ * @param nodeDebug - The node's debug API, used to register public function signatures for named traces; pass
+ *   `undefined` when the node does not expose it.
  * @param opts - Partial configuration for the PXE.
  * @param logger - The logger to be used.
  * @param actor - Actor label to include in log output (e.g., 'pxe-test').
@@ -116,6 +118,7 @@ export async function setupSharedBlobStorage(config: { dataDirectory?: string } 
  */
 export async function setupPXEAndGetWallet(
   aztecNode: AztecNode,
+  nodeDebug: AztecNodeDebug | undefined,
   opts: Partial<PXEConfig> = {},
   logger = getLogger(),
   actor?: string,
@@ -136,7 +139,10 @@ export async function setupPXEAndGetWallet(
 
   const teardown = configuredDataDirectory ? () => Promise.resolve() : () => tryRmDir(PXEConfig.dataDirectory!);
 
-  const wallet = await TestWallet.create(aztecNode, PXEConfig, { loggerActorLabel: actor });
+  const wallet = await TestWallet.create(aztecNode, PXEConfig, {
+    loggerActorLabel: actor,
+    nodeDebug,
+  });
 
   return {
     wallet,
@@ -598,6 +604,8 @@ export async function setup(
     pxeConfig.proverEnabled = !!pxeOpts.proverEnabled;
     const wallet = await TestWallet.create(aztecNodeService, pxeConfig, {
       loggerActorLabel: 'pxe-0',
+      // In-process node implements the debug API, so register public function signatures for named traces.
+      nodeDebug: aztecNodeService,
       ...opts.pxeCreationOptions,
     });
 

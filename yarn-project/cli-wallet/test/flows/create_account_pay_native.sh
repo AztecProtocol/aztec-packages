@@ -11,8 +11,11 @@ aztec-wallet bridge-fee-juice 1000000000000000000000 main --mint --no-wait
 
 section "Use a pre-funded test account to send dummy txs to force block creations"
 
+# The bridged claim is only consumable inboxLag (2) checkpoints after the L1->L2 message is inserted,
+# so we force three blocks here (deploy + two increments) before claiming below.
 aztec-wallet import-test-accounts
 aztec-wallet deploy counter_contract@Counter --init initialize --args 0 accounts:test0 -f test0 -a counter
+aztec-wallet send increment -ca counter --args accounts:test0 -f test0
 aztec-wallet send increment -ca counter --args accounts:test0 -f test0
 
 section "Deploy main account claiming the fee juice, use it later"
