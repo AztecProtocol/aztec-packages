@@ -12,7 +12,7 @@ import {Registry} from "@aztec/governance/Registry.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
+import {ProposedHeader, ProposedHeaderLib} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 
 import {
   IRollupCore,
@@ -872,6 +872,47 @@ contract RollupTest is RollupBase {
     // The earlier root at K=1 remains addressable, and the new root sits at K=2.
     assertEq(outbox.getRootData(Epoch.wrap(0), 1), outHash1, "Root at K=1 should remain outHash1");
     assertEq(outbox.getRootData(Epoch.wrap(0), 2), outHash2, "Root at K=2 should be outHash2");
+  }
+
+  // getEpochProofPublicInputs is the view that the prover-publisher calls off-chain to validate its inputs before
+  // submitting. Because the fee recipient/value public inputs are taken from the supplied headers, the header check
+  // must run here too - not only on the submit path - so a mismatch is caught before publishing rather than reverting
+  // on-chain.
+  function testGetEpochProofPublicInputsVerifiesHeaders() public setUpFor("empty_checkpoint_1") {
+    _proposeCheckpoint("empty_checkpoint_1", 1);
+
+    DecoderBase.Data memory data = load("empty_checkpoint_1").checkpoint;
+    CheckpointLog memory checkpoint = rollup.getCheckpoint(0);
+
+    PublicInputArgs memory args = PublicInputArgs({
+      previousArchive: checkpoint.archive, endArchive: data.archive, outHash: data.header.outHash, proverId: address(0)
+    });
+
+    ProposedHeader[] memory headers = new ProposedHeader[](1);
+    headers[0] = proposedHeaders[1];
+
+    // With the canonical header, the getter assembles the public inputs, sourcing the fee recipient/value from the
+    // header.
+    bytes32[] memory publicInputs = rollup.getEpochProofPublicInputs(1, 1, args, headers, data.batchedBlobInputs);
+    assertEq(publicInputs.length, Constants.ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH, "Unexpected public inputs length");
+
+    uint256 feesOffset = 3 + Constants.MAX_CHECKPOINTS_PER_EPOCH;
+    assertEq(
+      publicInputs[feesOffset], bytes32(uint256(uint160(headers[0].coinbase))), "Coinbase not sourced from header"
+    );
+    assertEq(
+      publicInputs[feesOffset + 1], bytes32(headers[0].accumulatedFees), "Accumulated fees not sourced from header"
+    );
+
+    // Tamper a fee field so the header no longer hashes to the stored value; the getter must reject it.
+    bytes32 expectedHeaderHash = ProposedHeaderLib.hash(headers[0]);
+    headers[0].accumulatedFees += 1;
+    bytes32 providedHeaderHash = ProposedHeaderLib.hash(headers[0]);
+
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.Rollup__InvalidCheckpointHeader.selector, expectedHeaderHash, providedHeaderHash)
+    );
+    rollup.getEpochProofPublicInputs(1, 1, args, headers, data.batchedBlobInputs);
   }
 
   function _submitEpochProof(

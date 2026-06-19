@@ -109,8 +109,6 @@ library EpochProofLib {
 
     Epoch endEpoch = assertAcceptable(_args.start, _args.end);
 
-    verifyHeaders(_args.start, _args.end, _args.headers);
-
     // Verify attestations for the last checkpoint in the epoch
     // -> This serves as training wheels for the public part of the system (proving systems used in public and AVM)
     // ensuring committee agreement on the epoch's validity alongside the cryptographic proof verification below.
@@ -163,6 +161,8 @@ library EpochProofLib {
     ProposedHeader[] calldata _headers,
     bytes calldata _blobPublicInputs
   ) internal view returns (bytes32[] memory) {
+    verifyHeaders(_start, _end, _headers);
+
     RollupStore storage rollupStore = STFLib.getStorage();
 
     {
