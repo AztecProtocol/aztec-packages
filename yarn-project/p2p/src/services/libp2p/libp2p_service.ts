@@ -368,6 +368,7 @@ export class LibP2PService extends WithTracer implements P2PService {
       packageVersion,
       telemetry,
       createLogger(`${logger.module}:discv5_service`, logger.getBindings()),
+      peerStore,
     );
 
     // Seed libp2p's bootstrap discovery with private and trusted peers

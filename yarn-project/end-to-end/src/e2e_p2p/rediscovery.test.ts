@@ -1,7 +1,6 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { waitForTx } from '@aztec/aztec.js/node';
 import { TxHash } from '@aztec/aztec.js/tx';
-import { sleep } from '@aztec/foundation/sleep';
 
 import fs from 'fs';
 import os from 'os';
@@ -67,8 +66,9 @@ describe('e2e_p2p_rediscovery', () => {
       shouldCollectMetrics(),
     );
 
-    // wait a bit for peers to discover each other
-    await sleep(8000);
+    // Wait for the nodes to form a full mesh before tearing down, so each one persists every peer's
+    // ENR to its store. Without this guarantee there would be nothing to rediscover after the restart.
+    await t.waitForP2PMeshConnectivity(nodes, NUM_VALIDATORS, 120);
 
     // We need to `createNodes` before we setup account, because
     // those nodes actually form the committee, and so we cannot build
@@ -78,16 +78,17 @@ describe('e2e_p2p_rediscovery', () => {
     // stop bootstrap node
     await t.bootstrapNode?.stop();
 
-    // create new nodes from datadir
-    const newNodes: AztecNodeService[] = [];
-
-    // stop all nodes
+    // Bring the whole network down before bringing any node back up. This is the real test of
+    // rediscovery: with every node stopped there are no live peers left to dial the restarted nodes,
+    // so they can only rejoin by re-seeding discovery from the peers they persisted to disk.
     for (let i = 0; i < NUM_VALIDATORS; i++) {
-      const node = nodes[i];
-      await node.stop();
+      await nodes[i].stop();
       t.logger.info(`Node ${i} stopped`);
-      await sleep(2500);
+    }
 
+    // recreate all nodes from their data dirs, without a bootstrap node
+    const newNodes: AztecNodeService[] = [];
+    for (let i = 0; i < NUM_VALIDATORS; i++) {
       const newNode = await createNode(
         t.ctx.aztecNodeConfig,
         t.ctx.dateProvider,
