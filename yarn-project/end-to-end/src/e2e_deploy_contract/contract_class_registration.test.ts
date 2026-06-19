@@ -151,7 +151,7 @@ describe('e2e_deploy_contract contract class registration', () => {
             logs[0].toBuffer(),
           );
 
-          const deployed = await aztecNode.getContract('latest', instance.address);
+          const deployed = await aztecNode.getContract(instance.address);
           expect(deployed).toBeDefined();
           expect(deployed!.address).toEqual(instance.address);
           expect(deployed!.currentContractClassId).toEqual(contractClass.id);

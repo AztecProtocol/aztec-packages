@@ -1220,8 +1220,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   }
 
   public async getContract(
-    referenceBlock: BlockParameter,
     address: AztecAddress,
+    referenceBlock: BlockParameter = 'latest',
   ): Promise<ContractInstanceWithAddress | undefined> {
     const blockData = await this.getBlockData(referenceBlock);
     if (!blockData) {

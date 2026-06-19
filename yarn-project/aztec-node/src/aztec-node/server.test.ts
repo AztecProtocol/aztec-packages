@@ -448,12 +448,18 @@ describe('aztec node', () => {
       });
 
       it('resolves the reference block to its timestamp and reads the instance as of that block', async () => {
-        expect(await node.getContract(BlockNumber(1), address)).toEqual(instance);
+        expect(await node.getContract(address, BlockNumber(1))).toEqual(instance);
+      });
+
+      it('defaults to the latest block when no reference block is given', async () => {
+        const getBlockData = jest.spyOn(node, 'getBlockData');
+        expect(await node.getContract(address)).toEqual(instance);
+        expect(getBlockData).toHaveBeenCalledWith('latest');
       });
 
       it('throws when the reference block is not part of the chain', async () => {
         l2BlockSource.getBlockData.mockResolvedValue(undefined);
-        await expect(node.getContract(BlockHash.random(), address)).rejects.toThrow(/not found/);
+        await expect(node.getContract(address, BlockHash.random())).rejects.toThrow(/not found/);
       });
     });
 

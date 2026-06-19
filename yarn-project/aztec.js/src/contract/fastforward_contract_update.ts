@@ -31,7 +31,7 @@ export async function fastForwardContractUpdate(args: {
 }): Promise<SimulationOverrides> {
   const { instanceAddress, newClassId, node } = args;
 
-  const instance = await node.getContract('latest', instanceAddress);
+  const instance = await node.getContract(instanceAddress);
   if (!instance) {
     throw new Error(`Instance not deployed at ${instanceAddress}. Deploy it before fast-forwarding an update.`);
   }

@@ -23,7 +23,7 @@ export async function readCurrentClassId(
   aztecNode: AztecNode,
   header: BlockHeader,
 ) {
-  const nodeInstance = await aztecNode.getContract(await header.hash(), contractAddress);
+  const nodeInstance = await aztecNode.getContract(contractAddress, await header.hash());
   // If the contract was upgraded then the node WILL know of that and return a non-undefined instance. An undefined
   // result therefore means that no upgrade has happened, and therefore that the original class is the current one.
   return nodeInstance?.currentContractClassId ?? instance.originalContractClassId;

@@ -124,7 +124,7 @@ export class EmbeddedWallet extends BaseEmbeddedWallet {
     address: AztecAddress,
     artifact: ContractArtifact,
   ) {
-    const instance = await this.aztecNode.getContract("latest", address);
+    const instance = await this.aztecNode.getContract(address);
     if (!instance) {
       throw new Error(`Contract not found onchain at ${address}`);
     }

@@ -162,7 +162,7 @@ describe('e2e_node_rpc_perf', () => {
     logger.info(`Token contract deployed at ${contractAddress}`);
 
     // Get contract class ID for benchmarking getContractClass
-    const contractInstance = await aztecNode.getContract('latest', contractAddress);
+    const contractInstance = await aztecNode.getContract(contractAddress);
     contractClassId = contractInstance!.currentContractClassId;
 
     logger.info(`Building ${BLOCKS_TO_BUILD} blocks with transactions...`);
@@ -264,7 +264,7 @@ describe('e2e_node_rpc_perf', () => {
     });
 
     it('benchmarks getContract', async () => {
-      const { stats } = await benchmark('getContract', () => aztecNode.getContract('latest', contractAddress));
+      const { stats } = await benchmark('getContract', () => aztecNode.getContract(contractAddress));
       addResult('getContract', stats);
       expect(stats.avg).toBeLessThan(2000);
     });

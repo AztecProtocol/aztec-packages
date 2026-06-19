@@ -529,10 +529,11 @@ export interface AztecNode {
    * on the `ContractInstanceRegistry`). A contract whose class has been updated will never return `undefined`:
    * scheduling an update requires the contract's deployment nullifier, which is only emitted by publishing, so any
    * updatable contract has necessarily been published.
-   * @param referenceBlock - The block parameter (block number, block hash, or 'latest') at which to get the data.
    * @param address - Address of the deployed contract.
+   * @param referenceBlock - The block parameter (block number, block hash, or 'latest') at which to get the data.
+   *        Defaults to 'latest'.
    */
-  getContract(referenceBlock: BlockParameter, address: AztecAddress): Promise<ContractInstanceWithAddress | undefined>;
+  getContract(address: AztecAddress, referenceBlock?: BlockParameter): Promise<ContractInstanceWithAddress | undefined>;
 
   /**
    * Returns the ENR of this node for peer discovery, if available.
@@ -765,7 +766,7 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   getContractClass: z.function({ input: z.tuple([schemas.Fr]), output: ContractClassPublicSchema.optional() }),
 
   getContract: z.function({
-    input: z.tuple([BlockParameterSchema, schemas.AztecAddress]),
+    input: z.tuple([schemas.AztecAddress, optional(BlockParameterSchema)]),
     output: ContractInstanceWithAddressSchema.optional(),
   }),
 

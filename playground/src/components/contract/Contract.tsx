@@ -200,7 +200,7 @@ export function ContractComponent() {
       if (currentContractAddress) {
         const { isContractPublished } = await wallet.getContractMetadata(currentContractAddress);
         if (isContractPublished) {
-          const contractInstance = await node.getContract('latest', currentContractAddress);
+          const contractInstance = await node.getContract(currentContractAddress);
 
           await wallet.registerContract(contractInstance, currentContractArtifact);
           const contract = Contract.at(currentContractAddress, currentContractArtifact, wallet);

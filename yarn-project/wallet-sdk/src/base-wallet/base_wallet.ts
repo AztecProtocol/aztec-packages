@@ -612,7 +612,7 @@ export abstract class BaseWallet implements Wallet {
    */
   async getContractMetadata(address: AztecAddress) {
     const instance = await this.pxe.getContractInstance(address);
-    const publiclyRegisteredContractPromise = this.aztecNode.getContract('latest', address);
+    const publiclyRegisteredContractPromise = this.aztecNode.getContract(address);
 
     let initializationStatus: ContractInitializationStatus;
     if (instance) {
