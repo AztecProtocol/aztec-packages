@@ -1,7 +1,6 @@
 import type { Logger } from '@aztec/aztec.js/log';
 import type { ChainMonitor } from '@aztec/ethereum/test';
 import { CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
-import { retryUntil } from '@aztec/foundation/retry';
 
 import { jest } from '@jest/globals';
 
@@ -38,9 +37,7 @@ describe('multi-node/partial_proof', () => {
     logger.info(`Kicking off partial proof`);
 
     await test.context.proverNode!.getProverNode()!.startProof(EpochNumber(0));
-    // REFACTOR: hand-rolled retryUntil polling ChainMonitor.provenCheckpointNumber; replace with
-    // test.waitUntilProvenCheckpointNumber(CheckpointNumber(1)) from MultiNodeTestContext.
-    await retryUntil(() => monitor.provenCheckpointNumber > CheckpointNumber(0), 'proof', 120, 1);
+    await test.waitUntilProvenCheckpointNumber(CheckpointNumber(1));
 
     logger.info(`Test succeeded with proven checkpoint number ${monitor.provenCheckpointNumber}`);
   });

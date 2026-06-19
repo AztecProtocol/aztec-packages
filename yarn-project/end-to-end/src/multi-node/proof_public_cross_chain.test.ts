@@ -4,13 +4,13 @@ import type { Logger } from '@aztec/aztec.js/log';
 import { waitForL1ToL2MessageReady } from '@aztec/aztec.js/messaging';
 import { TxExecutionResult } from '@aztec/aztec.js/tx';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { retryUntil } from '@aztec/foundation/retry';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 
 import { jest } from '@jest/globals';
 
 import { sendL1ToL2Message } from '../fixtures/l1_to_l2_messaging.js';
 import type { EndToEndContext } from '../fixtures/utils.js';
+import { waitForProvenBlock } from '../fixtures/wait_helpers.js';
 import { MultiNodeTestContext } from './multi_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 10);
@@ -82,17 +82,9 @@ describe('multi-node/proof_public_cross_chain', () => {
 
     // Wait until a proof lands for the transaction
     logger.warn(`Waiting for proof for tx ${txReceipt.txHash} mined at ${txReceipt.blockNumber!}`);
-    // REFACTOR: hand-rolled retryUntil polling aztecNode.getBlockNumber('proven'); replace with
-    // test.waitUntilProvenCheckpointNumber or a waitForProvenBlock(blockNumber) DSL helper.
-    await retryUntil(
-      async () => {
-        const provenBlockNumber = await context.aztecNode.getBlockNumber('proven');
-        logger.info(`Proven block number is ${provenBlockNumber}`);
-        return provenBlockNumber >= txReceipt.blockNumber!;
-      },
-      'Proof has been submitted',
-      test.L2_SLOT_DURATION_IN_S * test.epochDuration * 3,
-    );
+    await waitForProvenBlock(context.aztecNode, txReceipt.blockNumber!, {
+      timeout: test.L2_SLOT_DURATION_IN_S * test.epochDuration * 3,
+    });
 
     const provenBlockNumber = await context.aztecNode.getBlockNumber('proven');
     expect(provenBlockNumber).toBeGreaterThanOrEqual(txReceipt.blockNumber!);

@@ -1,9 +1,9 @@
 import type { WaitOpts } from '@aztec/aztec.js/contracts';
 import { waitForTx } from '@aztec/aztec.js/node';
-import type { BlockNumber } from '@aztec/foundation/branded-types';
+import type { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { retryUntil } from '@aztec/foundation/retry';
 import type { L2BlockTag } from '@aztec/stdlib/block';
-import type { AztecNode } from '@aztec/stdlib/interfaces/client';
+import type { AztecNode, CheckpointTag } from '@aztec/stdlib/interfaces/client';
 import type { TxHash, TxReceipt } from '@aztec/stdlib/tx';
 
 /** Options for the block-number polling helpers. */
@@ -41,6 +41,64 @@ export function waitForProvenBlock(
   opts: Omit<WaitForBlockOpts, 'tag'> = {},
 ): Promise<BlockNumber> {
   return waitForBlockNumber(node, target, { ...opts, tag: 'proven' });
+}
+
+/** How the polled checkpoint number must relate to the target before {@link waitForNodeCheckpoint} resolves. */
+export type CheckpointComparison = 'eq' | 'gte' | 'gt' | 'lte' | 'lt';
+
+const checkpointComparators: Record<CheckpointComparison, (actual: number, target: number) => boolean> = {
+  eq: (actual, target) => actual === target,
+  gte: (actual, target) => actual >= target,
+  gt: (actual, target) => actual > target,
+  lte: (actual, target) => actual <= target,
+  lt: (actual, target) => actual < target,
+};
+
+/** Options for {@link waitForNodeCheckpoint}. */
+export type WaitForCheckpointOpts = {
+  /** Which checkpoint tip to read; defaults to 'checkpointed'. */
+  tag?: CheckpointTag;
+  /** How the node's checkpoint number must relate to `target`; defaults to 'gte'. */
+  comparison?: CheckpointComparison;
+  /** Seconds before the poll rejects; defaults to 30. */
+  timeout?: number;
+  /** Seconds between polls; defaults to 0.5. */
+  interval?: number;
+};
+
+/**
+ * Polls a single node's checkpoint number until it relates to `target` per `opts.comparison`.
+ * Replaces the `retryUntil(() => node.getChainTips().then(tips => tips.<tag>.checkpoint.number <op> target))`
+ * polls duplicated across the reorg/proving tests, where the node may sync forward ('gte'/'gt'), prune
+ * backward ('lte'/'lt'), or land exactly on a value ('eq').
+ * @returns The node's checkpoint number once the comparison holds.
+ */
+export function waitForNodeCheckpoint(
+  node: AztecNode,
+  target: number,
+  opts: WaitForCheckpointOpts = {},
+): Promise<CheckpointNumber> {
+  const tag = opts.tag ?? 'checkpointed';
+  const comparison = opts.comparison ?? 'gte';
+  const matches = checkpointComparators[comparison];
+  return retryUntil(
+    async () => {
+      const checkpointNumber = await node.getCheckpointNumber(tag);
+      return matches(checkpointNumber, target) ? checkpointNumber : undefined;
+    },
+    `node checkpoint ${tag} ${comparison} ${target}`,
+    opts.timeout ?? 30,
+    opts.interval ?? 0.5,
+  );
+}
+
+/** Convenience for {@link waitForNodeCheckpoint} on the proven tip. */
+export function waitForNodeProvenCheckpoint(
+  node: AztecNode,
+  target: number,
+  opts: Omit<WaitForCheckpointOpts, 'tag'> = {},
+): Promise<CheckpointNumber> {
+  return waitForNodeCheckpoint(node, target, { ...opts, tag: 'proven' });
 }
 
 /**

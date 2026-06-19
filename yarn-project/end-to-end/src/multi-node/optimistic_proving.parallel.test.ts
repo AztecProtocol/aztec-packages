@@ -11,6 +11,7 @@ import { TxExecutionResult } from '@aztec/stdlib/tx';
 import { expect, jest } from '@jest/globals';
 
 import type { EndToEndContext } from '../fixtures/utils.js';
+import { waitForNodeCheckpoint } from '../fixtures/wait_helpers.js';
 import { proveInteraction } from '../test-wallet/utils.js';
 import { MultiNodeTestContext } from './multi_node_test_context.js';
 
@@ -46,8 +47,6 @@ describe('multi-node/optimistic_proving', () => {
   let L2_SLOT_DURATION_IN_S: number;
 
   let test: MultiNodeTestContext;
-
-  const getCheckpointNumber = (n: AztecNode) => n.getCheckpointNumber('checkpointed');
 
   /**
    * Looks up the epoch a given checkpoint sits in by reading its slot from the archiver.
@@ -299,12 +298,7 @@ describe('multi-node/optimistic_proving', () => {
       logger.info(`After reorg: checkpoint ${afterReorgCheckpoint} (was ${checkpointBeforeReorg})`);
 
       // Verify node detects the reorg.
-      await retryUntil(
-        () => getCheckpointNumber(node).then(cp => cp <= afterReorgCheckpoint),
-        'reorg detected',
-        30,
-        0.5,
-      );
+      await waitForNodeCheckpoint(node, afterReorgCheckpoint, { comparison: 'lte', timeout: 30 });
 
       // Verify the prover-node observes the prune. `markPruned()` fires reactively when
       // the L2BlockStream emits the prune; the SlotWatcher then reaps the (now pruned)
@@ -422,12 +416,7 @@ describe('multi-node/optimistic_proving', () => {
       await context.cheatCodes.eth.reorgWithReplacement(reorgDepth);
 
       // The node detects the prune and drops back below the reorged-out checkpoint.
-      await retryUntil(
-        () => getCheckpointNumber(node).then(cpNum => cpNum < originalCheckpoint),
-        'node detects reorg',
-        60,
-        0.5,
-      );
+      await waitForNodeCheckpoint(node, originalCheckpoint, { comparison: 'lt', timeout: 60 });
       logger.info(`Node observed the reorg removing checkpoint ${originalCheckpoint}`);
 
       // The tx returns to the mempool and is remined into a fresh checkpoint. Poll for a
@@ -532,12 +521,7 @@ describe('multi-node/optimistic_proving', () => {
       logger.info(`After reorg: checkpoint ${afterReorgCheckpoint} (was ${checkpointBeforeReorg})`);
 
       // Verify node detects the reorg.
-      await retryUntil(
-        () => getCheckpointNumber(node).then(cp => cp <= afterReorgCheckpoint),
-        'reorg detected',
-        30,
-        0.5,
-      );
+      await waitForNodeCheckpoint(node, afterReorgCheckpoint, { comparison: 'lte', timeout: 30 });
 
       // The survivor must still be in the epoch we reorged within — otherwise the reorg removed
       // the only in-epoch checkpoint and the test isn't exercising mid-epoch removal.
@@ -631,12 +615,7 @@ describe('multi-node/optimistic_proving', () => {
       expect(survivor.header.slotNumber).toBeLessThan(epochEndSlot);
 
       // Verify node detects the reorg.
-      await retryUntil(
-        () => getCheckpointNumber(node).then(cp => cp <= afterReorgCheckpoint),
-        'reorg detected',
-        30,
-        0.5,
-      );
+      await waitForNodeCheckpoint(node, afterReorgCheckpoint, { comparison: 'lte', timeout: 30 });
 
       // Wait for the next epoch to start, then for proof to land with the surviving checkpoints.
       await test.waitUntilEpochStarts(epoch + 1);
