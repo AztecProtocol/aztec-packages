@@ -17,7 +17,7 @@ import { jest } from '@jest/globals';
 import { privateKeyToAccount } from 'viem/accounts';
 
 import { type EndToEndContext, getPrivateKeyFromIndex } from '../fixtures/utils.js';
-import { EpochsTestContext, type EpochsTestOpts } from './epochs_test.js';
+import { MultiNodeTestContext, type MultiNodeTestOpts } from '../multi-node/multi_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 10);
 
@@ -27,7 +27,7 @@ type PreparingEvent = Parameters<SequencerEvents['preparing-checkpoint']>[0];
 type PublishedEvent = Parameters<SequencerEvents['checkpoint-published']>[0];
 
 // Suite: 5 parallel scenarios testing the interaction between the proof submission deadline and
-// the pipelining boundary slot. EpochsTestContext: 3 validator nodes + 1 prover node,
+// the pipelining boundary slot. MultiNodeTestContext: 3 validator nodes + 1 prover node,
 // mockGossipSubNetwork, skipInitialSequencer. Timing: ethSlot=12s, aztecSlot=3×12=36s,
 // epoch=default 6, proofSubmissionEpochs=1 (overridden per test via setupTest), blockDurationMs=6s,
 // inboxLag=2 (v5 always enforces the timetable, so the former enforceTimeTable/disableAnvilTestWatcher
@@ -36,13 +36,13 @@ describe('e2e_epochs/epochs_proof_at_boundary', () => {
   let context: EndToEndContext;
   let logger: Logger;
 
-  let test: EpochsTestContext;
+  let test: MultiNodeTestContext;
   let validators: (Operator & { privateKey: `0x${string}` })[];
   let nodes: AztecNodeService[];
   let proverNode: AztecNodeService;
 
   const setupTest = async (
-    overrides: Partial<EpochsTestOpts> = {},
+    overrides: Partial<MultiNodeTestOpts> = {},
     validatorOverrides: { minTxsPerBlock?: number; maxTxsPerBlock?: number } = {},
   ) => {
     validators = times(NODE_COUNT, i => {
@@ -51,7 +51,7 @@ describe('e2e_epochs/epochs_proof_at_boundary', () => {
       return { attester, withdrawer: attester, privateKey, bn254SecretKey: new SecretValue(Fr.random().toBigInt()) };
     });
 
-    test = await EpochsTestContext.setup({
+    test = await MultiNodeTestContext.setup({
       numberOfAccounts: 0,
       initialValidators: validators,
       mockGossipSubNetwork: true,
@@ -103,7 +103,7 @@ describe('e2e_epochs/epochs_proof_at_boundary', () => {
 
   const computeBoundarySlot = async () => {
     // REFACTOR: hand-rolled retryUntil polling for first checkpoint; replace with
-    // test.waitUntilCheckpointNumber(CheckpointNumber(1)) from EpochsTestContext.
+    // test.waitUntilCheckpointNumber(CheckpointNumber(1)) from MultiNodeTestContext.
     await retryUntil(
       async () => {
         await test.monitor.run(true);

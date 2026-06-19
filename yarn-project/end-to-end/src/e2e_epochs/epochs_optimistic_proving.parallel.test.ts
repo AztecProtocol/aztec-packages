@@ -11,15 +11,15 @@ import { TxExecutionResult } from '@aztec/stdlib/tx';
 import { expect, jest } from '@jest/globals';
 
 import type { EndToEndContext } from '../fixtures/utils.js';
+import { MultiNodeTestContext } from '../multi-node/multi_node_test_context.js';
 import { proveInteraction } from '../test-wallet/utils.js';
-import { EpochsTestContext } from './epochs_test.js';
 
 jest.setTimeout(1000 * 60 * 20);
 
 /**
  * E2E tests for optimistic (checkpoint-driven) proving with reorg scenarios.
  *
- * Setup: a single sequencer/validator node from `EpochsTestContext.setup` plus the context's fake prover-node (no
+ * Setup: a single sequencer/validator node from `MultiNodeTestContext.setup` plus the context's fake prover-node (no
  * `mockGossipSubNetwork`, so no gossip bus), making this a `single-node` test on the production `Sequencer`. Each of the
  * six `describe` blocks builds a fresh context in its own `beforeEach` and tears it down in the shared `afterEach`. The
  * happy-path pair uses defaults (`numberOfAccounts: 1`; ethSlot=8s local/12s CI, aztecSlot=16s/24s, epoch=6,
@@ -45,7 +45,7 @@ describe('e2e_epochs/epochs_optimistic_proving', () => {
 
   let L2_SLOT_DURATION_IN_S: number;
 
-  let test: EpochsTestContext;
+  let test: MultiNodeTestContext;
 
   const getCheckpointNumber = (n: AztecNode) => n.getCheckpointNumber('checkpointed');
 
@@ -143,7 +143,7 @@ describe('e2e_epochs/epochs_optimistic_proving', () => {
 
   describe('happy path', () => {
     beforeEach(async () => {
-      test = await EpochsTestContext.setup({ numberOfAccounts: 1 });
+      test = await MultiNodeTestContext.setup({ numberOfAccounts: 1 });
       ({ rollup, logger, context } = test);
       ({ L2_SLOT_DURATION_IN_S } = test);
       node = context.aztecNode;
@@ -226,7 +226,7 @@ describe('e2e_epochs/epochs_optimistic_proving', () => {
 
   describe('mid-epoch checkpoint reorg with replacement', () => {
     beforeEach(async () => {
-      test = await EpochsTestContext.setup({
+      test = await MultiNodeTestContext.setup({
         maxSpeedUpAttempts: 0,
         cancelTxOnTimeout: false,
         // Use a longer epoch so the replacement checkpoint has room to land in the same
@@ -373,7 +373,7 @@ describe('e2e_epochs/epochs_optimistic_proving', () => {
 
   describe('mid-epoch checkpoint reorg moving a tx', () => {
     beforeEach(async () => {
-      test = await EpochsTestContext.setup({
+      test = await MultiNodeTestContext.setup({
         numberOfAccounts: 1,
         maxSpeedUpAttempts: 0,
         cancelTxOnTimeout: false,
@@ -480,7 +480,7 @@ describe('e2e_epochs/epochs_optimistic_proving', () => {
 
   describe('mid-epoch checkpoint reorg without replacement', () => {
     beforeEach(async () => {
-      test = await EpochsTestContext.setup({
+      test = await MultiNodeTestContext.setup({
         maxSpeedUpAttempts: 0,
         cancelTxOnTimeout: false,
         aztecEpochDuration: 4,
@@ -564,7 +564,7 @@ describe('e2e_epochs/epochs_optimistic_proving', () => {
 
   describe('last-slot checkpoint reorg without replacement', () => {
     beforeEach(async () => {
-      test = await EpochsTestContext.setup({
+      test = await MultiNodeTestContext.setup({
         maxSpeedUpAttempts: 0,
         cancelTxOnTimeout: false,
         aztecEpochDuration: 4,
@@ -651,7 +651,7 @@ describe('e2e_epochs/epochs_optimistic_proving', () => {
 
   describe('checkpoint reorg during proving', () => {
     beforeEach(async () => {
-      test = await EpochsTestContext.setup({
+      test = await MultiNodeTestContext.setup({
         maxSpeedUpAttempts: 0,
         cancelTxOnTimeout: false,
         aztecEpochDuration: 4,
@@ -782,7 +782,7 @@ describe('e2e_epochs/epochs_optimistic_proving', () => {
 
   describe('prover-node starts mid-epoch', () => {
     beforeEach(async () => {
-      test = await EpochsTestContext.setup({
+      test = await MultiNodeTestContext.setup({
         // Don't start the prover-node automatically — we spin it up mid-epoch in the test.
         startProverNode: false,
         maxSpeedUpAttempts: 0,

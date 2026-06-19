@@ -4,7 +4,7 @@ import { sleep } from '@aztec/foundation/sleep';
 
 import { jest } from '@jest/globals';
 
-import { EpochsTestContext } from './epochs_test.js';
+import { MultiNodeTestContext } from '../multi-node/multi_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 15);
 
@@ -14,7 +14,7 @@ const MAX_JOB_COUNT = 20;
 // epochs (proverTestDelayMs ≈ 3 epochs) still eventually submits valid proofs while proving several
 // epochs concurrently (proverNodeMaxPendingJobs=20, proverBrokerMaxEpochsToKeepResultsFor=10) without
 // the broker rejecting in-flight jobs as stale. (v5: previously capped at one job at a time with
-// proverNodeMaxPendingJobs=1; now exercises concurrent multi-epoch proving.) Uses EpochsTestContext
+// proverNodeMaxPendingJobs=1; now exercises concurrent multi-epoch proving.) Uses MultiNodeTestContext
 // default setup (single sequencer, fake prover with delay, no mock gossip).
 describe('e2e_epochs/epochs_long_proving_time', () => {
   let logger: Logger;
@@ -22,19 +22,19 @@ describe('e2e_epochs/epochs_long_proving_time', () => {
 
   let L1_BLOCK_TIME_IN_S: number;
 
-  let test: EpochsTestContext;
+  let test: MultiNodeTestContext;
 
   beforeEach(async () => {
     // Given empty blocks and 2-block epochs, the circuits needed for proving an epoch are:
     //  1) base parity, 2) root parity, 3) empty block, and 4) epoch root.
     // So we delay proving of each circuit such that each epoch takes 3 epochs to prove.
     const aztecEpochDuration = 2;
-    const { aztecSlotDuration } = EpochsTestContext.getSlotDurations({ aztecEpochDuration });
+    const { aztecSlotDuration } = MultiNodeTestContext.getSlotDurations({ aztecEpochDuration });
     const epochDurationInSeconds = aztecSlotDuration * aztecEpochDuration;
     const proverTestDelayMs = (epochDurationInSeconds * 1000 * 3) / 4;
     // Each epoch takes ~3 epochs to prove, so the broker needs to keep results for
     // at least that many epochs to avoid rejecting jobs as stale.
-    test = await EpochsTestContext.setup({
+    test = await MultiNodeTestContext.setup({
       aztecEpochDuration,
       aztecProofSubmissionEpochs: 1000, // Effectively don't re-org
       proverTestDelayMs,

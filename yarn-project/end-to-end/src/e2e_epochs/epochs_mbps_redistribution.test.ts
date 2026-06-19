@@ -22,9 +22,9 @@ import { jest } from '@jest/globals';
 import { privateKeyToAccount } from 'viem/accounts';
 
 import { type EndToEndContext, getPrivateKeyFromIndex } from '../fixtures/utils.js';
+import { MultiNodeTestContext } from '../multi-node/multi_node_test_context.js';
 import { TestWallet } from '../test-wallet/test_wallet.js';
 import { proveInteraction } from '../test-wallet/utils.js';
-import { EpochsTestContext } from './epochs_test.js';
 
 jest.setTimeout(1000 * 60 * 20);
 
@@ -54,7 +54,7 @@ const TOTAL_TX_COUNT = EARLY_TX_COUNT + LATE_TX_COUNT;
 // (1) standard redistribution — early blocks consume minimal budget, late txs all fit across the last
 // blocks; (2) validators should NOT apply the proposer's fair-share multiplier during re-execution —
 // nodes with different perBlockAllocationMultiplier values must still attest for each other's blocks.
-// Uses EpochsTestContext with mockGossipSubNetwork, startProverNode, no initial sequencer.
+// Uses MultiNodeTestContext with mockGossipSubNetwork, startProverNode, no initial sequencer.
 /**
  * Verifies that checkpoint budget redistribution lets a burst of late transactions fit into the last
  * blocks of a checkpoint when the earlier blocks were light.
@@ -82,7 +82,7 @@ describe('e2e_epochs/epochs_mbps_redistribution', () => {
   let rollup: RollupContract;
   let archiver: Archiver;
 
-  let test: EpochsTestContext;
+  let test: MultiNodeTestContext;
   let validators: (Operator & { privateKey: `0x${string}` })[];
   let nodes: AztecNodeService[];
   let contract: TestContract;
@@ -108,7 +108,7 @@ describe('e2e_epochs/epochs_mbps_redistribution', () => {
     // budgets collapse to init + 2P + prepCp = 1 + 2*0.5 + 0.5 = 2.5s, so floor((36 - 2.5 - 6) / 6) =
     // floor(27.5/6) = 4. (At the old D = 8s this was floor((36 - 2.5 - 8) / 8) = 3.) The chosen 36s slot
     // leaves room for the 4 sub-slots plus L1 publish and final-block re-execution.
-    test = await EpochsTestContext.setup({
+    test = await MultiNodeTestContext.setup({
       numberOfAccounts: 0,
       initialValidators: validators,
       inboxLag: 2,

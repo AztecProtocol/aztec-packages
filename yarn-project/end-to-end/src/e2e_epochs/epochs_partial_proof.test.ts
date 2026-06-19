@@ -5,22 +5,22 @@ import { retryUntil } from '@aztec/foundation/retry';
 
 import { jest } from '@jest/globals';
 
-import { EpochsTestContext } from './epochs_test.js';
+import { MultiNodeTestContext } from '../multi-node/multi_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 10);
 
 // Suite: verifies that manually triggering epoch proving via startProof() results in a partial-proof
-// being submitted on L1. EpochsTestContext with single node + fake prover. Timing: ethSlot=default
+// being submitted on L1. MultiNodeTestContext with single node + fake prover. Timing: ethSlot=default
 // (8s/12s CI), aztecSlot=default, epoch=1000 (overridden to a very long epoch so the epoch never
 // ends during the test), proofSubmissionEpochs=1 (default). prod-seq, interval mining.
 describe('e2e_epochs/epochs_partial_proof', () => {
   let logger: Logger;
   let monitor: ChainMonitor;
 
-  let test: EpochsTestContext;
+  let test: MultiNodeTestContext;
 
   beforeEach(async () => {
-    test = await EpochsTestContext.setup({ aztecEpochDuration: 1000 });
+    test = await MultiNodeTestContext.setup({ aztecEpochDuration: 1000 });
     ({ monitor, logger } = test);
   });
 
@@ -39,7 +39,7 @@ describe('e2e_epochs/epochs_partial_proof', () => {
 
     await test.context.proverNode!.getProverNode()!.startProof(EpochNumber(0));
     // REFACTOR: hand-rolled retryUntil polling ChainMonitor.provenCheckpointNumber; replace with
-    // test.waitUntilProvenCheckpointNumber(CheckpointNumber(1)) from EpochsTestContext.
+    // test.waitUntilProvenCheckpointNumber(CheckpointNumber(1)) from MultiNodeTestContext.
     await retryUntil(() => monitor.provenCheckpointNumber > CheckpointNumber(0), 'proof', 120, 1);
 
     logger.info(`Test succeeded with proven checkpoint number ${monitor.provenCheckpointNumber}`);

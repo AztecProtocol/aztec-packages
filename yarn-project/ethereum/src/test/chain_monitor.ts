@@ -273,6 +273,22 @@ export class ChainMonitor extends EventEmitter<ChainMonitorEventMap> {
     });
   }
 
+  /** Resolves once the proven checkpoint number reaches `checkpointNumber`. */
+  public waitUntilCheckpointProven(checkpointNumber: CheckpointNumber): Promise<void> {
+    if (this.provenCheckpointNumber >= checkpointNumber) {
+      return Promise.resolve();
+    }
+    return new Promise(resolve => {
+      const listener = (data: { provenCheckpointNumber: CheckpointNumber; timestamp: bigint }) => {
+        if (data.provenCheckpointNumber >= checkpointNumber) {
+          this.off('checkpoint-proven', listener);
+          resolve();
+        }
+      };
+      this.on('checkpoint-proven', listener);
+    });
+  }
+
   private async fetchFeeData(timestamp: bigint): Promise<L2FeeData> {
     const [components, minFeePerMana, l1Fees, ethPerFeeAsset, manaTarget] = await Promise.all([
       this.rollup.getManaMinFeeComponentsAt(timestamp, true),

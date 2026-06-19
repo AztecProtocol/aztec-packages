@@ -16,7 +16,7 @@ import { jest } from '@jest/globals';
 import { privateKeyToAccount } from 'viem/accounts';
 
 import { getPrivateKeyFromIndex } from '../fixtures/utils.js';
-import { EpochsTestContext } from './epochs_test.js';
+import { MultiNodeTestContext } from '../multi-node/multi_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 15);
 
@@ -38,11 +38,11 @@ const NODE_COUNT = 4;
  * It additionally verifies that the chain heals after node A is stopped, and that every observing
  * validator records a DUPLICATE_PROPOSAL slashing offense.
  *
- * Uses EpochsTestContext with mockGossipSubNetwork, no initial sequencer, and slasherEnabled.
+ * Uses MultiNodeTestContext with mockGossipSubNetwork, no initial sequencer, and slasherEnabled.
  */
 describe('e2e_epochs/epochs_equivocation', () => {
   let logger: Logger;
-  let test: EpochsTestContext;
+  let test: MultiNodeTestContext;
   let nodes: AztecNodeService[];
 
   afterEach(async () => {
@@ -69,7 +69,7 @@ describe('e2e_epochs/epochs_equivocation', () => {
     // - finalBlockDuration = 8s (re-execution)
     // - Total: 0.5 + 24 + 8 + 2.5 = 35s => use 36s
     const slashingUnit = BigInt(1e14);
-    test = await EpochsTestContext.setup({
+    test = await MultiNodeTestContext.setup({
       numberOfAccounts: 0,
       initialValidators: validators,
       inboxLag: 2,

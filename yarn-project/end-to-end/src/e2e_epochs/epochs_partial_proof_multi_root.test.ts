@@ -23,7 +23,7 @@ import { type TxReceipt, TxStatus } from '@aztec/stdlib/tx';
 import { jest } from '@jest/globals';
 import { type Hex, decodeEventLog } from 'viem';
 
-import { EpochsTestContext } from './epochs_test.js';
+import { MultiNodeTestContext } from '../multi-node/multi_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 10);
 
@@ -31,13 +31,13 @@ jest.setTimeout(1000 * 60 * 10);
 // manually to stage progressively deeper partial-proof roots (K=1, 2, 3) for the same epoch, then
 // asserts: (a) the node picks the smallest covering root, (b) any covering root produces a valid
 // consume tx, (c) the shared bitmap blocks double-spend, and (d) K=4 can be staged later.
-// EpochsTestContext: single node, no prover, prod-seq, interval mining. Timing: ethSlot=default
+// MultiNodeTestContext: single node, no prover, prod-seq, interval mining. Timing: ethSlot=default
 // (8s/12s CI), aztecSlot=default, epoch=1000, proofSubmissionEpochs=1024 (v5: the disableAnvilTestWatcher
 // override was removed and a perBlockAllocationMultiplier=1.3 was added so the first block of the
 // now-up-to-5-block checkpoint has enough DA budget for the TestContract deploy tx). The test actively
 // calls the Outbox L1 contract to consume L2-to-L1 messages → cross-chain.
 describe('e2e_epochs/epochs_partial_proof_multi_root', () => {
-  let test: EpochsTestContext;
+  let test: MultiNodeTestContext;
   let logger: Logger;
   let node: AztecNode;
   let l1Client: ExtendedViemWalletClient;
@@ -50,7 +50,7 @@ describe('e2e_epochs/epochs_partial_proof_multi_root', () => {
   let recipient: EthAddress;
 
   beforeEach(async () => {
-    test = await EpochsTestContext.setup({
+    test = await MultiNodeTestContext.setup({
       numberOfAccounts: 1,
       minTxsPerBlock: 1,
       // With the enforced timetable this setup can have 5 blocks per checkpoint. The default

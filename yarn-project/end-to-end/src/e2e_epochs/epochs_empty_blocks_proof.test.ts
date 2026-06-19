@@ -6,11 +6,11 @@ import { sleep } from '@aztec/foundation/sleep';
 import { jest } from '@jest/globals';
 
 import type { EndToEndContext } from '../fixtures/utils.js';
-import { EpochsTestContext } from './epochs_test.js';
+import { MultiNodeTestContext } from '../multi-node/multi_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 15);
 
-// Single-node epoch suite (default EpochsTestContext, no extra validator nodes). Starts a prover
+// Single-node epoch suite (default MultiNodeTestContext, no extra validator nodes). Starts a prover
 // node (fake proofs). Sets minTxsPerBlock=1 after setup so blocks are empty, then verifies that
 // the prover still submits a proof for those empty-block checkpoints within the proof submission
 // window.
@@ -22,10 +22,10 @@ describe('e2e_epochs/epochs_empty_blocks_proof', () => {
 
   let L1_BLOCK_TIME_IN_S: number;
 
-  let test: EpochsTestContext;
+  let test: MultiNodeTestContext;
 
   beforeEach(async () => {
-    test = await EpochsTestContext.setup({});
+    test = await MultiNodeTestContext.setup({});
     ({ context, rollup, logger, monitor, L1_BLOCK_TIME_IN_S } = test);
   });
 

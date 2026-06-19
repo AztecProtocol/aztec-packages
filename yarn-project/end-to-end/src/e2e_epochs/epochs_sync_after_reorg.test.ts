@@ -6,12 +6,12 @@ import { executeTimeout } from '@aztec/foundation/timer';
 import { jest } from '@jest/globals';
 
 import type { EndToEndContext } from '../fixtures/utils.js';
-import { EpochsTestContext } from './epochs_test.js';
+import { MultiNodeTestContext } from '../multi-node/multi_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 10);
 
 // Suite: regression test ensuring a new node can sync world-state after an unpruned reorg
-// (issue #12206). EpochsTestContext with single node, no prover, prod-seq, interval mining.
+// (issue #12206). MultiNodeTestContext with single node, no prover, prod-seq, interval mining.
 // Timing: all defaults (ethSlot=8s/12s CI, aztecSlot=16s/24s, epoch=6, proofSubmissionEpochs=1).
 // The test stops the sequencer mid-run, advances into epoch 2 via waitUntilEpochStarts, then
 // creates a second node and verifies it syncs cleanly despite the reorg window.
@@ -21,10 +21,10 @@ describe('e2e_epochs/epochs_sync_after_reorg', () => {
 
   let L2_SLOT_DURATION_IN_S: number;
 
-  let test: EpochsTestContext;
+  let test: MultiNodeTestContext;
 
   beforeEach(async () => {
-    test = await EpochsTestContext.setup({ startProverNode: false }); // no prover!
+    test = await MultiNodeTestContext.setup({ startProverNode: false }); // no prover!
     ({ context, logger } = test);
     ({ L2_SLOT_DURATION_IN_S } = test);
   });

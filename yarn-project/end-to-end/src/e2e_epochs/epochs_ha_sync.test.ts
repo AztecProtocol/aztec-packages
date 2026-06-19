@@ -19,9 +19,9 @@ import { jest } from '@jest/globals';
 import { privateKeyToAccount } from 'viem/accounts';
 
 import { type EndToEndContext, getPrivateKeyFromIndex } from '../fixtures/utils.js';
+import { MultiNodeTestContext } from '../multi-node/multi_node_test_context.js';
 import { TestWallet } from '../test-wallet/test_wallet.js';
 import { proveInteraction } from '../test-wallet/utils.js';
-import { EpochsTestContext } from './epochs_test.js';
 
 jest.setTimeout(1000 * 60 * 20);
 
@@ -36,7 +36,7 @@ const TX_COUNT = 6;
  * Creates two HA pairs (nodes sharing validator keys) with a shared SlashingProtectionDatabase per
  * pair, and disables checkpoint publishing on all validator nodes so every node — including the HA
  * peer that did NOT build a given block — must sync to the proposed chain tip via P2P before any
- * checkpoint lands on L1. Uses EpochsTestContext with mockGossipSubNetwork and pxeOpts
+ * checkpoint lands on L1. Uses MultiNodeTestContext with mockGossipSubNetwork and pxeOpts
  * syncChainTip='proposed'.
  */
 describe('e2e_epochs/epochs_ha_sync', () => {
@@ -44,7 +44,7 @@ describe('e2e_epochs/epochs_ha_sync', () => {
   let logger: Logger;
   let rollup: RollupContract;
 
-  let test: EpochsTestContext;
+  let test: MultiNodeTestContext;
   let validators: (Operator & { privateKey: `0x${string}` })[];
   let nodes: AztecNodeService[];
   let contract: TestContract;
@@ -60,7 +60,7 @@ describe('e2e_epochs/epochs_ha_sync', () => {
 
     // Do NOT set skipPublishingCheckpointsPercent here: the initial sequencer needs to
     // publish checkpoints during setup (account deployment). We disable it per-validator-node below.
-    test = await EpochsTestContext.setup({
+    test = await MultiNodeTestContext.setup({
       numberOfAccounts: 1,
       initialValidators: validators,
       mockGossipSubNetwork: true,
