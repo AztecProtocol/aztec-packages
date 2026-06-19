@@ -90,8 +90,14 @@ export class PersistedEnrStore {
         if (!existing) {
           return;
         }
-        const storedSeq = this.decodeStoredEnr(existing)?.seq;
-        if (storedSeq !== undefined && enr.seq <= storedSeq) {
+        // Two unrelated sequence numbers are in play:
+        //  - the ENR sequence (`enr.seq` / `storedEnrSeq`) is set by the *peer* and bumped whenever it
+        //    revises its record (e.g. changes address); we compare these to decide whether the incoming
+        //    ENR is genuinely newer and worth keeping.
+        //  - our storage sequence (`this.seq`) is an internal counter used only for FIFO eviction; we
+        //    stamp a fresh one so this entry counts as most-recently-seen.
+        const storedEnrSeq = this.decodeStoredEnr(existing)?.seq;
+        if (storedEnrSeq !== undefined && enr.seq <= storedEnrSeq) {
           return;
         }
         await this.enrs.set(nodeId, JSON.stringify({ enr: enr.encodeTxt(), seq: ++this.seq }));
