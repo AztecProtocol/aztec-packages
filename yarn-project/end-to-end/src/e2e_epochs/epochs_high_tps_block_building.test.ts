@@ -30,8 +30,9 @@ const NODE_COUNT = 3;
 // checkpoint tx lands on the 2nd L1 block of its target slot.
 //
 // Config: aztecSlotDuration=36s, ethereumSlotDuration=12s (3 L1 blocks / L2 slot), blockDuration=6s,
-//         fakeProcessingDelayPerTxMs=2500ms, attestationPropagationTime=1s, l1PublishingTime=12s,
-//         txDelayerMaxInclusionTimeIntoSlot=1s.
+//         fakeProcessingDelayPerTxMs=2500ms, attestationPropagationTime=1s,
+//         txDelayerMaxInclusionTimeIntoSlot=1s. (v5: the explicit l1PublishingTime override was dropped —
+//         EpochsTestContext no longer takes it; the publish window is now the framework default.)
 //
 // Time inside a build slot (36s total):
 //   T=0-1    (1s)  init (checkpointInitializationTime)

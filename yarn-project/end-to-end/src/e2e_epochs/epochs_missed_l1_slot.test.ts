@@ -59,7 +59,8 @@ jest.setTimeout(1000 * 60 * 10);
 // Suite: regression test for sequencer sync logic when L1 slot production stalls mid-slot.
 // EpochsTestContext with single-node + mockGossipSubNetwork, prod-seq, interval mining (automine
 // during L1 deploy only). Timing: ethSlot=8s (12s CI), aztecSlot=6×ethSlot, epoch=default 6,
-// proofSubmissionEpochs=1024, blockDurationMs=8000, enforceTimeTable=true, inboxLag=2. No prover.
+// proofSubmissionEpochs=1024, blockDurationMs=8000, inboxLag=2 (v5 always enforces the timetable, so
+// the former enforceTimeTable/disableAnvilTestWatcher overrides are gone). No prover.
 describe('e2e_epochs/epochs_missed_l1_slot', () => {
   let test: EpochsTestContext;
   let contract: TestContract;

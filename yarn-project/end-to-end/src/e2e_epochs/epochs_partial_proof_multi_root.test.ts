@@ -32,8 +32,10 @@ jest.setTimeout(1000 * 60 * 10);
 // asserts: (a) the node picks the smallest covering root, (b) any covering root produces a valid
 // consume tx, (c) the shared bitmap blocks double-spend, and (d) K=4 can be staged later.
 // EpochsTestContext: single node, no prover, prod-seq, interval mining. Timing: ethSlot=default
-// (8s/12s CI), aztecSlot=default, epoch=1000, proofSubmissionEpochs=1024, disableAnvilTestWatcher.
-// The test actively calls the Outbox L1 contract to consume L2-to-L1 messages → cross-chain.
+// (8s/12s CI), aztecSlot=default, epoch=1000, proofSubmissionEpochs=1024 (v5: the disableAnvilTestWatcher
+// override was removed and a perBlockAllocationMultiplier=1.3 was added so the first block of the
+// now-up-to-5-block checkpoint has enough DA budget for the TestContract deploy tx). The test actively
+// calls the Outbox L1 contract to consume L2-to-L1 messages → cross-chain.
 describe('e2e_epochs/epochs_partial_proof_multi_root', () => {
   let test: EpochsTestContext;
   let logger: Logger;

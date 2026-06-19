@@ -23,8 +23,9 @@ jest.setTimeout(1000 * 60 * 10);
 // the sequencer processes it successfully.
 //
 // EpochsTestContext: 1 node + fake prover, prod-seq, interval mining. Timing: all defaults (ethSlot=8s/12s
-// CI, aztecSlot=16s/24s, epoch=6, proofSubmissionEpochs=1), minTxsPerBlock=1, disableAnvilTestWatcher=true.
-// Cross-chain: writes to L1 Inbox (sendL1ToL2Message), then claims the message in a public L2 function.
+// CI, aztecSlot=16s/24s, epoch=6, proofSubmissionEpochs=1), minTxsPerBlock=1 (v5: the disableAnvilTestWatcher
+// override was removed). Cross-chain: writes to L1 Inbox (sendL1ToL2Message), then claims the message in a
+// public L2 function.
 describe('e2e_epochs/epochs_proof_public_cross_chain', () => {
   let context: EndToEndContext;
   let logger: Logger;

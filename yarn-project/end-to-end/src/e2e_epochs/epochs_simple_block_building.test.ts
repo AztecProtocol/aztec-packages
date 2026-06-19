@@ -28,7 +28,8 @@ const TX_COUNT = 8;
 // Suite: verifies that 3 validator nodes can build blocks without sequencer errors. Uses a
 // lightweight RPC-only initial node (skipInitialSequencer), mockGossipSubNetwork, no prover.
 // Timing: ethSlot=12s, aztecSlot=3×12=36s, epoch=default 6, proofSubmissionEpochs=1024,
-// blockDurationMs=6s, enforceTimeTable=true, inboxLag=2. Pre-proved txs sent from hardcoded
+// blockDurationMs=6s, inboxLag=2 (v5 always enforces the timetable, so the former enforceTimeTable/
+// disableAnvilTestWatcher overrides are gone). Pre-proved txs sent from hardcoded
 // genesis-funded account (no on-chain account deploy needed).
 // Sets up a lightweight RPC-only node without any account deployment, registers a test contract
 // locally, then spawns NODE_COUNT validator nodes connected via a mocked gossip sub network.

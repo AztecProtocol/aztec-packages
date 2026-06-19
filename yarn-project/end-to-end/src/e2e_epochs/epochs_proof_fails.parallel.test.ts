@@ -25,7 +25,8 @@ jest.setTimeout(1000 * 60 * 10);
 // Suite: 2 parallel scenarios testing proof-submission failure paths. EpochsTestContext with single
 // sequencer node, no initial prover (prover nodes created in test bodies). Timing: ethSlot=8s,
 // aztecSlot=2×8=16s, epoch=8, proofSubmissionEpochs=1 (default), blockDurationMs=3s,
-// cancelTxOnTimeout=false, enforceTimeTable=true, inboxLag=2. Prover Delayer steers proof tx timing.
+// cancelTxOnTimeout=false, inboxLag=2 (v5 always enforces the timetable, so the former enforceTimeTable
+// override is gone). Prover Delayer steers proof tx timing.
 describe('e2e_epochs/epochs_proof_fails', () => {
   let context: EndToEndContext;
   let l1Client: ViemClient;
@@ -124,10 +125,11 @@ describe('e2e_epochs/epochs_proof_fails', () => {
     logger.warn(`Test succeeded`);
   });
 
-  // Injects a sleep delay of epochDuration * L2_SLOT_DURATION into finalizeEpoch via a jest spy,
-  // ensuring the prover misses the epoch 1 deadline before finalizing. Asserts that after
-  // finalizeEpoch resolves, no proof tx was submitted (the prover aborted), and the proven
-  // checkpoint number remained 0 through epoch 1.
+  // Injects a sleep delay of epochDuration * L2_SLOT_DURATION into each top tree's prove() (patched
+  // via createTopTreeOrchestrator with a jest spy; v5 split epoch proving into per-checkpoint top
+  // trees, replacing the former finalizeEpoch patch), ensuring the prover misses the epoch 1 deadline.
+  // Asserts that after the gated prove resolves, no proof tx was submitted (the prover aborted), and
+  // the proven checkpoint number remained 0 through epoch 1.
   it('aborts proving if end of next epoch is reached', async () => {
     // Create prover node after test setup to avoid early proving
     const proverNode = await test.createProverNode({ cancelTxOnTimeout: false, maxSpeedUpAttempts: 0 });

@@ -11,9 +11,11 @@ jest.setTimeout(1000 * 60 * 15);
 const MAX_JOB_COUNT = 20;
 
 // Single-node + prover-node suite verifying that a prover node whose proving time spans multiple
-// epochs (proverTestDelayMs ≈ 3 epochs) still eventually submits valid proofs, and that it only
-// runs one proving job at a time (proverNodeMaxPendingJobs=1). Uses EpochsTestContext default setup
-// (single sequencer, fake prover with delay, no mock gossip).
+// epochs (proverTestDelayMs ≈ 3 epochs) still eventually submits valid proofs while proving several
+// epochs concurrently (proverNodeMaxPendingJobs=20, proverBrokerMaxEpochsToKeepResultsFor=10) without
+// the broker rejecting in-flight jobs as stale. (v5: previously capped at one job at a time with
+// proverNodeMaxPendingJobs=1; now exercises concurrent multi-epoch proving.) Uses EpochsTestContext
+// default setup (single sequencer, fake prover with delay, no mock gossip).
 describe('e2e_epochs/epochs_long_proving_time', () => {
   let logger: Logger;
   let monitor: ChainMonitor;
@@ -50,7 +52,8 @@ describe('e2e_epochs/epochs_long_proving_time', () => {
 
   // Polls the prover node's job queue until provenCheckpointNumber reaches targetProvenEpochs.
   // Asserts that checkpointNumber advanced at least 3× the proven epoch count, confirming proving
-  // lagged behind block production. Asserts maxJobCount equals 1, verifying sequential job dispatch.
+  // lagged behind block production. Asserts maxJobCount stays within MAX_JOB_COUNT (20), confirming
+  // the node may run multiple proving jobs in parallel up to the configured cap.
   it('generates proof over multiple epochs', async () => {
     const targetProvenEpochs = process.env.TARGET_PROVEN_EPOCHS ? parseInt(process.env.TARGET_PROVEN_EPOCHS) : 1;
     const targetProvenBlockNumber = targetProvenEpochs * test.epochDuration;

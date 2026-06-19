@@ -30,7 +30,8 @@ type PublishedEvent = Parameters<SequencerEvents['checkpoint-published']>[0];
 // the pipelining boundary slot. EpochsTestContext: 3 validator nodes + 1 prover node,
 // mockGossipSubNetwork, skipInitialSequencer. Timing: ethSlot=12s, aztecSlot=3×12=36s,
 // epoch=default 6, proofSubmissionEpochs=1 (overridden per test via setupTest), blockDurationMs=6s,
-// enforceTimeTable=true, inboxLag=2. The Delayer is used to steer proof tx timing.
+// inboxLag=2 (v5 always enforces the timetable, so the former enforceTimeTable/disableAnvilTestWatcher
+// overrides are gone). The Delayer is used to steer proof tx timing.
 describe('e2e_epochs/epochs_proof_at_boundary', () => {
   let context: EndToEndContext;
   let logger: Logger;

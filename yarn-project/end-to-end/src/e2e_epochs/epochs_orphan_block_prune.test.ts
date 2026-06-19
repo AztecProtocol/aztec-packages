@@ -38,8 +38,9 @@ const NODE_COUNT = 4;
  * every archiver, and (b) build a fresh checkpoint for S2 that lands on L1.
  *
  * EpochsTestContext with 4 validator nodes, mockGossipSubNetwork, no prover. Timing: ethSlot=6s,
- * aztecSlot=36s, epoch=4, proofSubmissionEpochs=1024, blockDurationMs=8000, enforceTimeTable=true,
- * inboxLag=2. L1 is time-warped to align with the target S1 build slot.
+ * aztecSlot=36s, epoch=4, proofSubmissionEpochs=1024, blockDurationMs=8000, inboxLag=2 (v5 always
+ * enforces the timetable, so the former enforceTimeTable/disableAnvilTestWatcher overrides are gone).
+ * L1 is time-warped to align with the target S1 build slot.
  */
 describe('e2e_epochs/epochs_orphan_block_prune', () => {
   let logger: Logger;
