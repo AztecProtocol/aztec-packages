@@ -5,8 +5,8 @@
  *
  * The Noir counterparts are in `noir-projects/aztec-nr/aztec/src/test/helpers/txe_oracles.nr`.
  */
-export const TXE_ORACLE_VERSION_MAJOR = 1;
-export const TXE_ORACLE_VERSION_MINOR = 2;
+export const TXE_ORACLE_VERSION_MAJOR = 2;
+export const TXE_ORACLE_VERSION_MINOR = 0;
 
 /**
  * This hash is computed from the TXE oracle interfaces (IAvmExecutionOracle and ITxeExecutionOracle) and is used to
@@ -14,4 +14,4 @@ export const TXE_ORACLE_VERSION_MINOR = 2;
  *   - TXE_ORACLE_VERSION_MAJOR (and reset MINOR to 0) for breaking changes, or
  *   - TXE_ORACLE_VERSION_MINOR for additive changes (new oracle method added).
  */
-export const TXE_ORACLE_INTERFACE_HASH = '9e5f6ad5fd170d1de5ddd417f19cce47b17382567e08360dc6a783154828e218';
+export const TXE_ORACLE_INTERFACE_HASH = 'bd7eec24e782e49b0a6dc6120b463fb67be3b582bc5a5e6db075aa8c4db7d3f1';
