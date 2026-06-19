@@ -28,7 +28,7 @@ import type { BlockSynchronizerConfig } from '../config/index.js';
 import type { ContractSyncService } from '../contract_sync/contract_sync_service.js';
 import { AnchorBlockStore } from '../storage/anchor_block_store/anchor_block_store.js';
 import { EntityStore } from '../storage/entity_store/entity_store.js';
-import { EntityKey, EntityTypeKey, type OriginBlock } from '../storage/entity_store/entity_store_keys.js';
+import { EntityKey, EntityTypeKey } from '../storage/entity_store/entity_store_keys.js';
 import { NoteStore } from '../storage/note_store/note_store.js';
 import { PrivateEventStore } from '../storage/private_event_store/private_event_store.js';
 import { BlockSynchronizer } from './block_synchronizer.js';
