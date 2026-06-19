@@ -153,6 +153,7 @@ import {
   FullNodeCheckpointsBuilder as CheckpointsBuilder,
   FullNodeCheckpointsBuilder,
   NodeKeystoreAdapter,
+  ProposalHandler,
   ValidatorClient,
   createProposalHandler,
   createValidatorClient,
@@ -723,6 +724,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
 
       let validatorClient: ValidatorClient | undefined;
 
+      // The proposal handler (validator-owned or standalone) tracks invalid-proposal/equivocation slots and
+      // feeds the attested-invalid-proposal watcher, so the watcher works on non-validator nodes too.
+      let proposalHandler: ProposalHandler | undefined;
+
       // Tracks successful checkpoint re-execution by a checkpoint proposal handler.
       const reexecutionTracker = new CheckpointReexecutionTracker();
 
@@ -751,7 +756,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
 
           const vc = validatorClient;
           const getValidatorAddresses = () => vc.getValidatorAddresses().map(a => a.toString());
-          validatorClient.getProposalHandler().register(p2pClient, true, archiver, getValidatorAddresses);
+          proposalHandler = validatorClient.getProposalHandler();
+          proposalHandler.register(p2pClient, true, archiver, getValidatorAddresses);
 
           if (!options.dontStartSequencer) {
             await validatorClient.registerHandlers();
@@ -766,7 +772,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       if (!validatorClient) {
         const reexecute = !!config.alwaysReexecuteBlockProposals;
         log.info(`Setting up proposal handler` + (reexecute ? ' with reexecution of proposals' : ''));
-        createProposalHandler(config, {
+        proposalHandler = createProposalHandler(config, {
           checkpointsBuilder: validatorCheckpointsBuilder,
           worldState: worldStateSynchronizer,
           epochCache,
@@ -777,7 +783,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
           dateProvider,
           telemetry,
           reexecutionTracker,
-        }).register(p2pClient, reexecute, archiver);
+        });
+        proposalHandler.register(p2pClient, reexecute, archiver);
       }
 
       // Start world state and wait for it to sync to the archiver.
@@ -817,10 +824,12 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
         );
         watchers.push(broadcastedInvalidCheckpointProposalWatcher);
 
-        if (validatorClient) {
+        // The proposal handler (validator-owned or standalone) is the source of invalid-proposal/equivocation
+        // slots, so the watcher runs on non-validator offense collectors too.
+        if (proposalHandler) {
           attestedInvalidProposalWatcher = new AttestedInvalidProposalWatcher(
             p2pClient,
-            validatorClient,
+            proposalHandler,
             archiver,
             epochCache,
             config,
