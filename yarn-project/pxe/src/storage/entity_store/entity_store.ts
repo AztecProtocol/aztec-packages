@@ -37,6 +37,12 @@ type StagedOp =
 /**
  * Stores immutable facts about entities, isolated by contract and scope.
  *
+ * An entity is a contract-defined record identified by an {@link EntityKey} (contract, scope, entity type, and
+ * id) and carrying an opaque (to PXE) body. A fact is a contract-defined immutable, typed datum attached to an entity.
+ *
+ * What makes this store different to, for example, the `CapsuleStore`, is that it is designed to support use cases
+ * where resilience to reorgs is needed, for which we need to introduce the concept of retractability.
+ *
  * Both entities and facts can be retractable or non-retractable. They are retractable if they are associated to an
  * origin block; they are non-retractable if they are not associated to an origin block.
  *
