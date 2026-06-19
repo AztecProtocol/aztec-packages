@@ -127,9 +127,11 @@ describe('e2e_fees gas_estimation', () => {
       teardownGasLimits: inspect(estimatedGas.teardownGasLimits),
     });
 
-  // Simulates a public token transfer with estimateGas=true, then sends two copies — one with the
-  // estimated gas limits, one without. Asserts the estimated tx and the default tx pay the same fee,
-  // and that the estimated teardown gas is zero for a Fee Juice payment (no teardown work).
+  // Simulates a public token transfer with includeMetadata=true and derives zero-padded gas limits from
+  // the reported gasUsed (v5: the old estimateGas=true / estimatedGasPadding=0 flow was replaced by
+  // simulate(includeMetadata) + estimateGasLimits, which yields gasLimits == manaUsed), then sends two
+  // copies — one with the estimated gas limits, one without. Asserts the estimated tx and the default tx
+  // pay the same fee, and that the estimated teardown gas is zero for a Fee Juice payment (no teardown work).
   it('estimates gas with Fee Juice payment method', async () => {
     const sim = await makeTransferRequest().simulate({
       from: aliceAddress,
@@ -210,8 +212,10 @@ describe('e2e_fees gas_estimation', () => {
     expect(estimatedFee).toEqual(withEstimate.transactionFee!);
   });
 
-  // Deploys a BananaCoin contract with estimateGas=true, then sends two deployments — one with
-  // estimated limits, one with defaults. Asserts both pay the same fee and estimated teardown is zero.
+  // Deploys a BananaCoin contract, simulating with includeMetadata=true and deriving zero-padded gas
+  // limits from gasUsed (v5: replaces the old estimateGas=true flow — see note above), then sends two
+  // deployments — one with estimated limits, one with defaults. Asserts both pay the same fee and
+  // estimated teardown is zero.
   it('estimates gas for public contract initialization with Fee Juice payment method', async () => {
     const deployMethod = () => BananaCoin.deploy(wallet, aliceAddress, 'TKN', 'TKN', 8);
     const deployOpts = (limits?: Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>) => {
