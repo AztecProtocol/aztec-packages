@@ -859,8 +859,8 @@ export class ArchiverL1Synchronizer implements Traceable {
 
       // Validate attestations from CALLDATA before fetching any blobs. A checkpoint with invalid
       // attestations (or one descending from a rejected ancestor) is rejected here without fetching its
-      // blobs, so a malformed blob can no longer throw during decode before the rejection path runs and
-      // stall sync. See A-1252. The signed consensus payload (header, archive root, fee asset price
+      // blobs, so a malformed blob does not throw during decode before the rejection path runs and
+      // stall sync. The signed consensus payload (header, archive root, fee asset price
       // modifier) is fully available from calldata.
       let checkpointsToIngest: RetrievedCheckpointFromCalldata[] = [];
 
@@ -1011,8 +1011,7 @@ export class ArchiverL1Synchronizer implements Traceable {
       // A blob fetch/decode failure is only fatal while the checkpoint's epoch can still be proven. Once the
       // proof-submission window has expired (the rollup can prune on the next L1 block), the checkpoint is
       // destined for pruning, so we stop treating it as fatal: we skip it (and every later checkpoint) and
-      // let the epoch-prune recovery proceed. Otherwise a single bribed-committee checkpoint with a withheld
-      // blob would freeze the sync clock and halt every honest proposer, preventing the prune. See A-1252.
+      // let the epoch-prune recovery proceed.
       const firstBlobFailure = blobResults
         .flatMap(r => ('blobError' in r ? [r] : []))
         .sort((a, b) => a.checkpoint.checkpointNumber - b.checkpoint.checkpointNumber)[0];
@@ -1022,7 +1021,7 @@ export class ArchiverL1Synchronizer implements Traceable {
         const failedNumber = firstBlobFailure.checkpoint.checkpointNumber;
         if (!(await this.canPrune(currentL1BlockNumber, currentL1Timestamp))) {
           // The checkpoint is canonical and may still be proven, so the blob must eventually become
-          // available. Rethrow to retry on the next iteration (preserving the pre-A-1252 behavior).
+          // available. Rethrow to retry on the next iteration.
           this.log.error(
             `Failed to fetch blob for checkpoint ${failedNumber} whose epoch can still be proven; will retry`,
             { checkpointNumber: failedNumber, l1BlockNumber: firstBlobFailure.checkpoint.l1.blockNumber },

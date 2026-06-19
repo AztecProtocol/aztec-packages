@@ -1032,7 +1032,7 @@ describe('e2e_epochs/epochs_blob_unavailable_prune', () => {
     logger.warn(`Test succeeded '${expect.getState().currentTestName}'`);
   });
 
-  it('skips a checkpoint with an unfetchable blob once its epoch can be pruned, unfreezing the sync clock', async () => {
+  it('skips a checkpoint with an unfetchable blob once its epoch can be pruned', async () => {
     const sequencers = nodes.map(node => node.getSequencer()!);
 
     // Produce a couple of healthy checkpoints (valid attestations) by feeding txs, then stop feeding them.
