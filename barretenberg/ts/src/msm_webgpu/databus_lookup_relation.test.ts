@@ -130,6 +130,7 @@ describe('DatabusLookup shader codegen (F_r)', () => {
   it('renders the entry point and binds the params buffer', () => {
     const src = sm.gen_databus_lookup_relation_test_shader(64);
     expect(src).toMatch(/fn\s+databus_lookup_main\b/);
-    expect(src).toMatch(/@group\(0\) @binding\(3\) var<storage, read> param_buf/);
+    expect(src).toMatch(/@group\(0\) @binding\(3\) var<storage, read> scaling/);
+    expect(src).toMatch(/@group\(0\) @binding\(4\) var<storage, read> param_buf/);
   });
 });

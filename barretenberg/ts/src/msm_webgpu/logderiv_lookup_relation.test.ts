@@ -136,6 +136,7 @@ describe('LogDerivLookup shader codegen (F_r)', () => {
   it('renders the entry point and binds the params buffer', () => {
     const src = sm.gen_logderiv_lookup_relation_test_shader(64);
     expect(src).toMatch(/@workgroup_size\(64\)\s*\nfn\s+logderiv_lookup_main\b/);
-    expect(src).toMatch(/@group\(0\) @binding\(3\) var<storage, read> param_buf/);
+    expect(src).toMatch(/@group\(0\) @binding\(3\) var<storage, read> scaling/);
+    expect(src).toMatch(/@group\(0\) @binding\(4\) var<storage, read> param_buf/);
   });
 });
