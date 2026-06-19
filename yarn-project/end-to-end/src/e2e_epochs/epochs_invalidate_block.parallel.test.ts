@@ -17,6 +17,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { retryUntil } from '@aztec/foundation/retry';
+import { sleep } from '@aztec/foundation/sleep';
 import { bufferToHex } from '@aztec/foundation/string';
 import { executeTimeout, timeoutPromise } from '@aztec/foundation/timer';
 import type { TestContract } from '@aztec/noir-test-contracts.js/Test';
@@ -25,7 +26,7 @@ import { L2BlockSourceEvents } from '@aztec/stdlib/block';
 import { computeQuorum, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 
 import { jest } from '@jest/globals';
-import { rm } from 'node:fs/promises';
+import { readdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { Log } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
@@ -792,8 +793,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     await test.waitUntilCheckpointNumber(CheckpointNumber(badCheckpointNumber + 1), test.L2_SLOT_DURATION_IN_S * 12);
 
     // Create a fresh observer AFTER the bad checkpoint was gossiped, so it has no proposed copy to promote
-    // and must rely on L1 calldata. Without the A-1252 reorder it would stall fetching the withheld blob;
-    // with it, attestations are validated from calldata first, the checkpoint is rejected, and sync proceeds.
+    // and must rely on L1 calldata. Attestations are validated from calldata first, the checkpoint is rejected, and sync proceeds.
     const observer = await test.createNonValidatorNode();
     const honestTip = (await nodes[0].getChainTips()).checkpointed.checkpoint.number;
     await retryUntil(
@@ -906,5 +906,133 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
       attackConfig: { shuffleAttestationOrdering: true },
       disableConfig: { shuffleAttestationOrdering: false },
     });
+  });
+});
+
+// A-1252 rows 4/5: a checkpoint with VALID attestations but an unfetchable blob
+// cannot be rejected by attestation validation — the node must fetch the blob to
+// ingest it. Before the fix, the blob-decode/fetch failure threw on every sync iteration, freezing the
+// L1 sync clock (this.l1Timestamp is only advanced at the end of syncFromL1) and halting the node. The
+// fix makes the failure non-fatal once the checkpoint's epoch can be pruned (its proof window expired),
+// so the node skips it and its sync clock advances again. This fixture uses a short proof window and no
+// prover, so epochs become prunable shortly after they end.
+describe('e2e_epochs/epochs_blob_unavailable_prune', () => {
+  let logger: Logger;
+  let l1Client: ExtendedViemWalletClient;
+  let rollupContract: RollupContract;
+  let portOffset = 100;
+
+  let test: EpochsTestContext;
+  let validators: (Operator & { privateKey: `0x${string}` })[];
+  let nodes: AztecNodeService[];
+
+  beforeEach(async () => {
+    validators = times(VALIDATOR_COUNT, i => {
+      const privateKey = bufferToHex(getPrivateKeyFromIndex(i + 3)!);
+      const attester = EthAddress.fromString(privateKeyToAccount(privateKey).address);
+      return { attester, withdrawer: attester, privateKey, bn254SecretKey: new SecretValue(Fr.random().toBigInt()) };
+    });
+
+    test = await EpochsTestContext.setup({
+      ethereumSlotDuration: 8,
+      aztecSlotDuration: 32,
+      aztecEpochDuration: 6,
+      blockDurationMs: 6000,
+      numberOfAccounts: 0,
+      initialValidators: validators,
+      mockGossipSubNetwork: true,
+      // Short proof window + no prover, so a checkpoint's epoch becomes prunable shortly after it ends.
+      aztecProofSubmissionEpochs: 1,
+      startProverNode: false,
+      aztecTargetCommitteeSize: VALIDATOR_COUNT,
+      secondsBeforeInvalidatingBlockAsCommitteeMember: Number.MAX_SAFE_INTEGER,
+      archiverPollingIntervalMS: 200,
+      anvilAccounts: 20,
+      anvilPort: BASE_ANVIL_PORT + ++portOffset,
+      minTxsPerBlock: 0,
+      maxTxsPerBlock: 1,
+      skipInitialSequencer: true,
+    });
+
+    ({ logger, l1Client } = test);
+    rollupContract = new RollupContract(l1Client, test.rollup.address);
+
+    const validatorNodes = validators.slice(0, NODE_COUNT);
+    nodes = await asyncMap(validatorNodes, ({ privateKey }) =>
+      test.createValidatorNode([privateKey], { dontStartSequencer: true, minTxsPerBlock: 0 }),
+    );
+    logger.warn(`Started ${NODE_COUNT} validator nodes.`);
+  });
+
+  afterEach(async () => {
+    jest.restoreAllMocks();
+    await test.teardown();
+  });
+
+  it('skips a checkpoint with an unfetchable blob once its epoch can be pruned, unfreezing the sync clock', async () => {
+    const sequencers = nodes.map(node => node.getSequencer()!);
+
+    // Produce a couple of healthy checkpoints (valid attestations), then freeze the chain so the latest
+    // one stays canonical — no honest proposer will prune it, isolating the observer's recovery to the fix.
+    const initial = (await nodes[0].getChainTips()).checkpointed.checkpoint.number;
+    await Promise.all(sequencers.map(s => s.start()));
+    await test.waitUntilCheckpointNumber(CheckpointNumber(initial + 2), test.L2_SLOT_DURATION_IN_S * 16);
+    await Promise.all(sequencers.map(s => s.stop()));
+
+    const badCheckpointNumber = (await nodes[0].getChainTips()).checkpointed.checkpoint.number;
+    logger.warn(`Froze chain at checkpoint ${badCheckpointNumber}`);
+
+    // Withhold the latest checkpoint's blob from the shared store.
+    const proposedEvents = await rollupContract.getCheckpointProposedEvents(1n, await l1Client.getBlockNumber());
+    const badEvent = proposedEvents.find(e => e.args.checkpointNumber === badCheckpointNumber);
+    expect(badEvent).toBeDefined();
+    const badL1Timestamp = (await l1Client.getBlock({ blockNumber: badEvent!.l1BlockNumber })).timestamp;
+    // The file blob store namespaces blobs under `<root>/aztec-{chainId}-{version}-0x{rollup}/blobs`.
+    const sharedRoot = join(test.context.config.dataDirectory!, 'shared-blobs');
+    const namespaceDir = (await readdir(sharedRoot)).find(e => e.startsWith('aztec-'));
+    expect(namespaceDir).toBeDefined();
+    const blobsDir = join(sharedRoot, namespaceDir!, 'blobs');
+    const targetNames = badEvent!.args.versionedBlobHashes.map(h => `0x${h.toString('hex')}.data`);
+    const before = await readdir(blobsDir);
+    for (const name of targetNames) {
+      expect(before).toContain(name); // guards against the blob path layout drifting and silently passing
+      await rm(join(blobsDir, name), { force: true });
+    }
+    expect((await readdir(blobsDir)).length).toEqual(before.length - targetNames.length);
+    logger.warn(`Withheld ${targetNames.length} blob(s) for checkpoint ${badCheckpointNumber} from ${blobsDir}`);
+
+    // Spin up a fresh observer that never promotes (so it must fetch the blob) and does not block on its
+    // initial sync (so it can stall in the background while we drive the clock forward).
+    const observer = await test.createNonValidatorNode({
+      skipArchiverInitialSync: true,
+      skipPromoteProposedCheckpointDuringL1Sync: true,
+    });
+
+    // It cannot get past the bad checkpoint while its epoch is still provable: the blob fetch throws every
+    // iteration and the sync clock never advances (getL1Timestamp stays undefined).
+    await sleep(test.L2_SLOT_DURATION_IN_S * 1000);
+    const frozenTs = await observer.getSyncedL1Timestamp();
+    logger.warn(`Observer sync clock before window expiry: ${frozenTs} (bad checkpoint L1 ts ${badL1Timestamp})`);
+    expect(frozenTs === undefined || frozenTs < badL1Timestamp).toBeTrue();
+
+    // Advance L1 past the bad checkpoint's epoch proof-submission window, making it prunable.
+    const now = BigInt(await test.context.cheatCodes.eth.lastBlockTimestamp());
+    const windowSeconds = (test.constants.proofSubmissionEpochs + 2) * test.epochDuration * test.L2_SLOT_DURATION_IN_S;
+    await test.context.cheatCodes.eth.warp(Number(now + BigInt(windowSeconds)), { resetBlockInterval: true });
+    logger.warn(`Warped L1 forward by ${windowSeconds}s so checkpoint ${badCheckpointNumber} can be pruned`);
+
+    // With the fix the observer skips the unfetchable checkpoint and its sync clock advances past it.
+    // Without the fix it keeps throwing on the withheld blob and getL1Timestamp stays frozen/undefined.
+    await retryUntil(
+      async () => {
+        const ts = await observer.getSyncedL1Timestamp();
+        return ts !== undefined && ts > badL1Timestamp;
+      },
+      'observer sync clock unfreezes once the bad checkpoint becomes prunable',
+      test.L2_SLOT_DURATION_IN_S * 12,
+      0.5,
+    );
+
+    logger.warn(`Test succeeded '${expect.getState().currentTestName}'`);
   });
 });
