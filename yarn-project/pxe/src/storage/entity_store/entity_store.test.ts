@@ -431,6 +431,71 @@ describe('EntityStore', () => {
       await expect(kv.transactionAsync(() => store.rollback(0))).resolves.not.toThrow();
     });
 
+    it('a staged create-then-terminate makes the entity non-existent to later ops in the same job', async () => {
+      await store.createEntity(entityKey1, [Fr.random()], undefined, JOB);
+      await store.terminateEntity(entityKey1, JOB);
+
+      await expect(store.recordFact(entityKey1, factTypeA, [Fr.random()], undefined, JOB)).rejects.toThrow(
+        'non-existent entity',
+      );
+      await expect(store.terminateEntity(entityKey1, JOB)).rejects.toThrow('non-existent entity');
+
+      // Committing the create-then-terminate pair persists nothing.
+      await kv.transactionAsync(() => store.commit(JOB));
+      expect(await store.getEntity(entityKey1, 'reader')).toBeUndefined();
+      expect(await store.getEntities(entityTypeKey, 'reader')).toHaveLength(0);
+    });
+
+    it('a staged create-then-terminate drops a committed entity for later ops in the same job', async () => {
+      await store.createEntity(entityKey1, [Fr.random()], undefined, JOB);
+      await kv.transactionAsync(() => store.commit(JOB));
+
+      const JOB2 = 'recreate-then-terminate-job';
+      await store.createEntity(entityKey1, [Fr.random()], undefined, JOB2);
+      await store.terminateEntity(entityKey1, JOB2);
+
+      await expect(store.recordFact(entityKey1, factTypeA, [Fr.random()], undefined, JOB2)).rejects.toThrow(
+        'non-existent entity',
+      );
+      await expect(store.terminateEntity(entityKey1, JOB2)).rejects.toThrow('non-existent entity');
+
+      // Committing JOB2 removes the previously committed entity.
+      await kv.transactionAsync(() => store.commit(JOB2));
+      expect(await store.getEntity(entityKey1, 'reader')).toBeUndefined();
+      expect(await store.getEntities(entityTypeKey, 'reader')).toHaveLength(0);
+    });
+
+    it('repeated staged creates followed by a single terminate leave the entity non-existent', async () => {
+      // The idea of this test is to cover entity creation idempotency
+      await store.createEntity(entityKey1, [Fr.random()], undefined, JOB);
+      await store.createEntity(entityKey1, [Fr.random()], undefined, JOB);
+      await store.createEntity(entityKey1, [Fr.random()], undefined, JOB);
+      await store.terminateEntity(entityKey1, JOB);
+
+      expect(await store.getEntity(entityKey1, JOB)).toBeUndefined();
+      await expect(store.recordFact(entityKey1, factTypeA, [Fr.random()], undefined, JOB)).rejects.toThrow(
+        'non-existent entity',
+      );
+      await expect(store.terminateEntity(entityKey1, JOB)).rejects.toThrow('non-existent entity');
+
+      // Committing the collapsed creates plus the terminate persists nothing.
+      await kv.transactionAsync(() => store.commit(JOB));
+      expect(await store.getEntity(entityKey1, 'reader')).toBeUndefined();
+      expect(await store.getEntities(entityTypeKey, 'reader')).toHaveLength(0);
+    });
+
+    it('a staged terminate-then-create makes a committed entity exist again for later ops in the same job', async () => {
+      await store.createEntity(entityKey1, [Fr.random()], undefined, JOB);
+      await kv.transactionAsync(() => store.commit(JOB));
+
+      const JOB2 = 'recreate-job';
+      await store.terminateEntity(entityKey1, JOB2);
+      await store.createEntity(entityKey1, [Fr.random()], undefined, JOB2);
+
+      await expect(store.recordFact(entityKey1, factTypeA, [Fr.random()], undefined, JOB2)).resolves.not.toThrow();
+      await expect(store.terminateEntity(entityKey1, JOB2)).resolves.not.toThrow();
+    });
+
     it('recording a fact before its entity is created in the same job is rejected', async () => {
       await expect(store.recordFact(entityKey1, factTypeA, [Fr.random()], undefined, JOB)).rejects.toThrow(
         'non-existent entity',
