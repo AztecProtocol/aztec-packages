@@ -163,6 +163,12 @@ variable "REGISTRY_CONTRACT_ADDRESS" {
   type        = string
 }
 
+variable "ROLLUP_VERSION" {
+  description = "The rollup version to target. Leave empty to follow the canonical rollup"
+  type        = string
+  default     = ""
+}
+
 variable "FEE_ASSET_HANDLER_CONTRACT_ADDRESS" {
   description = "The fee asset handler contract address"
   type        = string
