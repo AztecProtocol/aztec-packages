@@ -22,9 +22,9 @@ import { jest } from '@jest/globals';
 import { privateKeyToAccount } from 'viem/accounts';
 
 import { type EndToEndContext, getPrivateKeyFromIndex } from '../fixtures/utils.js';
-import { MultiNodeTestContext } from '../multi-node/multi_node_test_context.js';
 import { TestWallet } from '../test-wallet/test_wallet.js';
 import { proveInteraction } from '../test-wallet/utils.js';
+import { MultiNodeTestContext } from './multi_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 20);
 
@@ -76,7 +76,7 @@ const TOTAL_TX_COUNT = EARLY_TX_COUNT + LATE_TX_COUNT;
  * checkpoint block index, not by global block number, so a spilled tx in the next checkpoint does not
  * masquerade as a redistributed one.
  */
-describe('e2e_epochs/epochs_mbps_redistribution', () => {
+describe('multi-node/mbps_redistribution', () => {
   let context: EndToEndContext;
   let logger: Logger;
   let rollup: RollupContract;

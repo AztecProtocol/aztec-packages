@@ -22,13 +22,12 @@ auth/scoring, transport behavior) belong in the `p2p` category instead.
 
 ### Node count is a knob, not a category boundary
 
-Single-node-topology epochs tests (one sequencer plus a prover node, no second validator) use the
-*same* base with one node — they are not a separate category. These members live in this category
-and move here as the epochs cluster migrates: `epochs_empty_blocks_proof`, `epochs_long_proving_time`,
-`epochs_multiple`, `epochs_multi_proof`, `epochs_partial_proof`, `epochs_proof_fails.parallel`,
-`epochs_sync_after_reorg`, `epochs_upload_failed_proof`, `epochs_l1_reorgs.parallel`,
-`epochs_manual_rollback`, `epochs_partial_proof_multi_root`, `epochs_proof_public_cross_chain`, and
-`epochs_optimistic_proving.parallel`.
+Single-node-topology proving tests (one sequencer plus a prover node, no second validator) use the
+*same* base with one node — they are not a separate category. These members live here alongside the
+multi-validator tests: `empty_blocks_proof`, `long_proving_time`, `multiple`, `multi_proof`,
+`partial_proof`, `proof_fails.parallel`, `sync_after_reorg`, `upload_failed_proof`,
+`l1_reorgs.parallel`, `manual_rollback`, `partial_proof_multi_root`, `proof_public_cross_chain`, and
+`optimistic_proving.parallel`.
 
 `e2e_slashing` sits here as a sub-folder.
 

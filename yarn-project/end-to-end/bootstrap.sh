@@ -34,18 +34,20 @@ function test_cmds {
   fi
   echo "$prefix:TIMEOUT=25m:NAME=e2e_block_building $(set_dump_avm e2e_block_building) $run_test_script simple e2e_block_building"
   echo "$prefix:TIMEOUT=30m:NAME=e2e_avm_simulator $(set_dump_avm e2e_avm_simulator) $run_test_script simple src/e2e_avm_simulator.test.ts"
-  echo "$prefix:TIMEOUT=15m:NAME=e2e_epochs/epochs_long_proving_time $run_test_script simple src/e2e_epochs/epochs_long_proving_time.test.ts"
+  echo "$prefix:TIMEOUT=15m:NAME=multi-node/long_proving_time $run_test_script simple src/multi-node/long_proving_time.test.ts"
 
   local tests=(
     # List all standalone and nested tests, except for the ones listed above.
-    src/e2e_!(prover|epochs)/*.test.ts
-    src/e2e_epochs/!(epochs_long_proving_time).test.ts
+    src/e2e_!(prover)/*.test.ts
+    src/multi-node/!(long_proving_time).test.ts
     src/e2e_p2p/reqresp/*.test.ts
     src/e2e_!(block_building|avm_simulator).test.ts
   )
   for test in "${tests[@]}"; do
-    local name=${test#*e2e_}
-    name=e2e_${name%.test.ts}
+    # Derive a CI test name from the path: drop the leading "src/" and trailing ".test.ts".
+    # This keeps e2e_<dir>/<file> names while also handling the multi-node/ category folder.
+    local name=${test#src/}
+    name=${name%.test.ts}
 
     # Per-test bash TIMEOUT overrides — keep in sync with the test file's jest.setTimeout.
     local test_prefix="$prefix"

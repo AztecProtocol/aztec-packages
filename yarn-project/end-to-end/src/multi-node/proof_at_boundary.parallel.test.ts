@@ -17,7 +17,7 @@ import { jest } from '@jest/globals';
 import { privateKeyToAccount } from 'viem/accounts';
 
 import { type EndToEndContext, getPrivateKeyFromIndex } from '../fixtures/utils.js';
-import { MultiNodeTestContext, type MultiNodeTestOpts } from '../multi-node/multi_node_test_context.js';
+import { MultiNodeTestContext, type MultiNodeTestOpts } from './multi_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 10);
 
@@ -32,7 +32,7 @@ type PublishedEvent = Parameters<SequencerEvents['checkpoint-published']>[0];
 // epoch=default 6, proofSubmissionEpochs=1 (overridden per test via setupTest), blockDurationMs=6s,
 // inboxLag=2 (v5 always enforces the timetable, so the former enforceTimeTable/disableAnvilTestWatcher
 // overrides are gone). The Delayer is used to steer proof tx timing.
-describe('e2e_epochs/epochs_proof_at_boundary', () => {
+describe('multi-node/proof_at_boundary', () => {
   let context: EndToEndContext;
   let logger: Logger;
 

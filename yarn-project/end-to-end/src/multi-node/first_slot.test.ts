@@ -22,8 +22,8 @@ import { jest } from '@jest/globals';
 import { privateKeyToAccount } from 'viem/accounts';
 
 import { type EndToEndContext, getPrivateKeyFromIndex } from '../fixtures/utils.js';
-import { MultiNodeTestContext } from '../multi-node/multi_node_test_context.js';
 import { proveInteraction } from '../test-wallet/utils.js';
+import { MultiNodeTestContext } from './multi_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 10);
 
@@ -37,7 +37,7 @@ const TX_COUNT = 8;
 // the pipelined proposer's first build window targets the epoch's first slot. Verifies that
 // blocks are built on both the first and second slots of the new epoch.
 // Uses MultiNodeTestContext with mockGossipSubNetwork, no initial sequencer, no prover node.
-describe('e2e_epochs/epochs_first_slot', () => {
+describe('multi-node/first_slot', () => {
   let context: EndToEndContext;
   let logger: Logger;
 

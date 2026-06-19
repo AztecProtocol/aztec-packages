@@ -17,7 +17,7 @@ import { jest } from '@jest/globals';
 import { privateKeyToAccount } from 'viem/accounts';
 
 import { getPrivateKeyFromIndex } from '../fixtures/utils.js';
-import { MultiNodeTestContext } from '../multi-node/multi_node_test_context.js';
+import { MultiNodeTestContext } from './multi_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 15);
 
@@ -41,7 +41,7 @@ const NODE_COUNT = 4;
  * enforces the timetable, so the former enforceTimeTable/disableAnvilTestWatcher overrides are gone).
  * L1 is time-warped to align with the target S1 build slot.
  */
-describe('e2e_epochs/epochs_orphan_block_prune', () => {
+describe('multi-node/orphan_block_prune', () => {
   let logger: Logger;
   let test: MultiNodeTestContext;
   let nodes: AztecNodeService[];

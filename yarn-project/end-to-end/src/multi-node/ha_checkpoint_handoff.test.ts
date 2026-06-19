@@ -19,7 +19,7 @@ import { jest } from '@jest/globals';
 import { privateKeyToAccount } from 'viem/accounts';
 
 import { type EndToEndContext, getPrivateKeyFromIndex } from '../fixtures/utils.js';
-import { MultiNodeTestContext } from '../multi-node/multi_node_test_context.js';
+import { MultiNodeTestContext } from './multi_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 20);
 
@@ -71,7 +71,7 @@ const VALIDATOR_COUNT = 4;
  * `epochs_orphan_block_prune` / `epochs_simple_block_building`). See the inline REFACTOR markers for hand-rolled
  * coordination a DSL helper should replace.
  */
-describe('e2e_epochs/epochs_ha_checkpoint_handoff', () => {
+describe('multi-node/ha_checkpoint_handoff', () => {
   let context: EndToEndContext;
   let logger: Logger;
   let rollup: RollupContract;

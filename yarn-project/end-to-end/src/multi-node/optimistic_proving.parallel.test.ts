@@ -11,8 +11,8 @@ import { TxExecutionResult } from '@aztec/stdlib/tx';
 import { expect, jest } from '@jest/globals';
 
 import type { EndToEndContext } from '../fixtures/utils.js';
-import { MultiNodeTestContext } from '../multi-node/multi_node_test_context.js';
 import { proveInteraction } from '../test-wallet/utils.js';
+import { MultiNodeTestContext } from './multi_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 20);
 
@@ -37,7 +37,7 @@ jest.setTimeout(1000 * 60 * 20);
  * Proposed category: `single-node` (epochs/). Heavy hand-rolled coordination throughout — see the inline REFACTOR
  * markers below for the raw-async sites a DSL helper should replace.
  */
-describe('e2e_epochs/epochs_optimistic_proving', () => {
+describe('multi-node/optimistic_proving', () => {
   let context: EndToEndContext;
   let rollup: RollupContract;
   let logger: Logger;

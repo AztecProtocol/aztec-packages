@@ -7,14 +7,14 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { jest } from '@jest/globals';
 
 import type { EndToEndContext } from '../fixtures/utils.js';
-import { MultiNodeTestContext, type MultiNodeTestOpts } from '../multi-node/multi_node_test_context.js';
+import { MultiNodeTestContext, type MultiNodeTestOpts } from './multi_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 10);
 
 // Single-node suite exercising the aztecNodeAdmin.rollbackTo() API. Default MultiNodeTestContext with
 // a very long epoch (aztecEpochDuration=100) so there are no L2 reorgs, no finalized blocks, and
 // the full pending chain is prunable. Actively drives L1 via cheatcodes (reorgTo to remove blocks).
-describe('e2e_epochs/manual_rollback', () => {
+describe('multi-node/manual_rollback', () => {
   let context: EndToEndContext;
   let logger: Logger;
   let node: AztecNode;
