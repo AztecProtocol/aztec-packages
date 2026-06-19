@@ -371,6 +371,11 @@ export const TXE_ORACLE_REGISTRY = {
   }),
 } satisfies Record<string, OracleRegistryEntry>;
 
+export function toInputSlots(inputs: ForeignCallArgs): InputSlot[] {
+  // TXE foreign calls use bare hex strings, but Fr.fromString requires a 0x prefix to parse as hex.
+  return inputs.map(v => (Array.isArray(v) ? (v as string[]).map(withHexPrefix) : [withHexPrefix(v as string)]));
+}
+
 /**
  * Deserializes oracle inputs, calls the handler with typed params, serializes the result, and wraps
  * it in a `ForeignCallResult`. Normalizes `ForeignCallArgs` (which may contain bare strings) into
@@ -388,11 +393,7 @@ export async function callTxeHandler<K extends keyof typeof TXE_ORACLE_REGISTRY>
   ) => MaybePromise<Parameters<(typeof TXE_ORACLE_REGISTRY)[K]['serializeReturn']>[0]>;
 }): Promise<ForeignCallResult> {
   const entry = TXE_ORACLE_REGISTRY[oracle] as OracleRegistryEntry;
-  // TXE foreign calls use bare hex strings, but Fr.fromString requires a 0x prefix to parse as hex.
-  const normalized: InputSlot[] = inputs.map(v =>
-    Array.isArray(v) ? (v as string[]).map(withHexPrefix) : [withHexPrefix(v as string)],
-  );
-  const named = entry.deserializeParams(normalized);
+  const named = entry.deserializeParams(toInputSlots(inputs));
   const positional = named.map((p: { value: unknown }) => p.value);
   const result = await handler(positional as any);
   const outputSlots = entry.serializeReturn(result);

@@ -1,5 +1,6 @@
 import type { Archiver } from '@aztec/archiver';
 import type { BlobClientInterface } from '@aztec/blob-client/client';
+import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
 import { MAX_FEE_ASSET_PRICE_MODIFIER_BPS } from '@aztec/ethereum/contracts';
 import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
@@ -19,6 +20,7 @@ import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import {
   TEST_COORDINATION_SIGNATURE_CONTEXT,
   makeBlockHeader,
+  makeBlockProposal,
   makeCheckpointHeader,
   makeCheckpointProposal,
 } from '@aztec/stdlib/testing';
@@ -637,6 +639,95 @@ describe('ProposalHandler checkpoint validation', () => {
       const proposal = await makeProposal({ archiveRoot, checkpointHeader: makeHeader() });
       await handler.handleCheckpointProposal(proposal, proposalInfo);
       expect(mockDispose).toHaveBeenCalled();
+    });
+  });
+
+  // Regression for A-1218: during a reorg the archiver can still hold a stale block at the proposal's
+  // number (a different archive, about to be pruned) while the proposal carries the rebuilt replacement.
+  // The block-number guard used to key on number only and permanently drop the rebuilt proposal, so the
+  // node never re-acquired the block and missed the later checkpoint attestation. The guard must reject
+  // only genuine duplicates (same archive) and otherwise wait for the local prune.
+  describe('handleBlockProposal block-number guard (reorg-aware)', () => {
+    /**
+     * Builds a proposal whose parent resolves to genesis (so blockNumber = INITIAL_L2_BLOCK_NUM) and a
+     * handler wired to accept it up to the block-number guard.
+     */
+    async function setupGenesisProposal(proposalArchive: Fr) {
+      const proposal = await makeBlockProposal({
+        blockHeader: makeBlockHeader(1, { slotNumber: SlotNumber(1) }),
+        archiveRoot: proposalArchive,
+      });
+
+      // Parent archive == genesis archive → genesis path → blockNumber = INITIAL_L2_BLOCK_NUM.
+      blockSource.getGenesisValues.mockResolvedValue({
+        genesisArchiveRoot: proposal.blockHeader.lastArchive.root,
+      } as any);
+
+      const blockProposalValidator = mock<BlockProposalValidator>();
+      blockProposalValidator.validate.mockResolvedValue({ result: 'accept' } as any);
+
+      const txProvider = mock<ITxProvider>();
+      txProvider.getTxsForBlockProposal.mockResolvedValue({ txs: [], missingTxs: [] } as any);
+
+      const blockHandler = new ProposalHandler(
+        checkpointsBuilder,
+        mock<WorldStateSynchronizer>(),
+        blockSource,
+        l1ToL2MessageSource,
+        txProvider,
+        blockProposalValidator,
+        epochCache,
+        consensusTimetable,
+        config,
+        mock<BlobClientInterface>(),
+        new CheckpointReexecutionTracker(),
+        metrics,
+        dateProvider,
+      );
+      return { proposal, blockHandler };
+    }
+
+    /** Block-data stub at the target number with the given archive root. */
+    const blockAt = (archiveRoot: Fr) => ({ archive: new AppendOnlyTreeSnapshot(archiveRoot, 1) }) as BlockData;
+
+    it('rejects a genuine duplicate (existing block has the same archive)', async () => {
+      const archive = Fr.random();
+      const { proposal, blockHandler } = await setupGenesisProposal(archive);
+      blockSource.getBlockData.mockResolvedValue(blockAt(archive));
+
+      const result = await blockHandler.handleBlockProposal(proposal, {} as any, false);
+      expect(result).toEqual({
+        isValid: false,
+        blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM),
+        reason: 'block_number_already_exists',
+      });
+    });
+
+    it('processes a rebuilt proposal once the stale fork at this number is pruned', async () => {
+      const { proposal, blockHandler } = await setupGenesisProposal(Fr.random());
+      // Well before the slot-1 attestation deadline (40s), so the prune wait has budget to retry.
+      dateProvider.setTime(1_000);
+      // Stale block (different archive) on the first read, then pruned (undefined) on the retry.
+      blockSource.getBlockData.mockResolvedValueOnce(blockAt(Fr.random())).mockResolvedValue(undefined);
+
+      const result = await blockHandler.handleBlockProposal(proposal, {} as any, false);
+      expect(result).toEqual({ isValid: true, blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM) });
+      expect(blockSource.syncImmediate).toHaveBeenCalled();
+    });
+
+    it('falls back to block_number_already_exists when the stale fork is not pruned before the deadline', async () => {
+      const { proposal, blockHandler } = await setupGenesisProposal(Fr.random());
+      // A different block keeps occupying this number and never gets pruned.
+      blockSource.getBlockData.mockResolvedValue(blockAt(Fr.random()));
+      // attestation_deadline(slot=1) = 40s; hold wall-clock past it so the wait fails fast.
+      dateProvider.setTime(41_000);
+
+      const result = await blockHandler.handleBlockProposal(proposal, {} as any, false);
+      expect(result).toEqual({
+        isValid: false,
+        blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM),
+        reason: 'block_number_already_exists',
+      });
     });
   });
 });
