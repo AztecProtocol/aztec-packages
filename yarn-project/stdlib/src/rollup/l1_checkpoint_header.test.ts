@@ -41,7 +41,7 @@ describe('L1CheckpointHeader', () => {
   });
 
   describe('out-of-range field detection', () => {
-    // The exploitable Fr-valued fields per A-1254 plus the others that are also Fr-valued on the wire.
+    // The exploitable Fr-valued fields plus the others that are also Fr-valued on the wire.
     const exploitableFields: (keyof L1CheckpointHeader)[] = [
       'lastArchiveRoot',
       'blockHeadersHash',

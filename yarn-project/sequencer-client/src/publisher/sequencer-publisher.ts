@@ -144,7 +144,7 @@ type EnqueueProposeCheckpointOpts = {
   txTimeoutAt?: Date;
   /**
    * When set, overwrite the propose calldata header's `accumulatedFees` with a value above the BN254 field modulus
-   * before encoding, producing a checkpoint that honest archivers cannot decode (for testing only, A-1254 repro).
+   * before encoding, producing a checkpoint that honest archivers cannot decode (for testing only).
    */
   injectOutOfRangeCheckpointHeader?: boolean;
 };
@@ -1328,11 +1328,11 @@ export class SequencerPublisher {
 
     const viemHeader = toL1CheckpointHeader(encodedData.header);
     if (opts.injectOutOfRangeCheckpointHeader) {
-      // A-1254 repro: overwrite a uint256 header field with a value above the BN254 field modulus. The clean
+      // Repro: overwrite a uint256 header field with a value above the BN254 field modulus. The clean
       // CheckpointHeader on encodedData is left untouched so the pre-broadcast validateBlockHeader simulation still
       // passes; only the calldata sent to L1 carries the out-of-range value, which honest archivers cannot decode.
       viemHeader.accumulatedFees = 2n ** 256n - 1n;
-      this.log.warn('INJECTING out-of-range accumulatedFees into checkpoint header (A-1254 repro)', {
+      this.log.warn('INJECTING out-of-range accumulatedFees into checkpoint header (repro)', {
         accumulatedFees: viemHeader.accumulatedFees.toString(),
         slotNumber: viemHeader.slotNumber.toString(),
       });

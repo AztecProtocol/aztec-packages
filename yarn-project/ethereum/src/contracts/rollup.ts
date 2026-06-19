@@ -224,7 +224,7 @@ export type RollupStatusResponse = {
   provenCheckpointNumber: CheckpointNumber;
   // Archive roots are carried as raw bytes (not Fr) on the L1-read path. A malicious proposer can store a
   // checkpoint whose archive root is out of the BN254 field; eagerly converting it to Fr would throw and
-  // brick L1 sync. Conversion to Fr happens only at the checkpoint ingestion boundary (see A-1254).
+  // brick L1 sync. Conversion to Fr happens only at the checkpoint ingestion boundary.
   provenArchive: Buffer32;
   pendingCheckpointNumber: CheckpointNumber;
   pendingArchive: Buffer32;

@@ -78,7 +78,7 @@ type AddCheckpointOptions = {
   messagesL1BlockNumber?: bigint;
   /**
    * If set, the propose calldata carries a header whose `accumulatedFees` is the given out-of-range value
-   * (e.g. `2n ** 256n - 1n`), simulating the A-1254 malicious-proposer attack. The clean checkpoint, its
+   * (e.g. `2n ** 256n - 1n`), simulating the out-of-range-header malicious-proposer attack. The clean checkpoint, its
    * stored archive root, and the attestation signatures are unchanged, so an honest archiver decodes the raw
    * header without throwing and rejects it via insufficient/invalid attestations.
    */

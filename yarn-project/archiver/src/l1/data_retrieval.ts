@@ -40,7 +40,7 @@ import { CalldataRetriever } from './calldata_retriever.js';
 type RetrievedCheckpointBase = {
   checkpointNumber: CheckpointNumber;
   // Raw archive root and header from L1 calldata. They may carry out-of-range field values and are only
-  // converted to Fr/CheckpointHeader at the ingestion boundary, after attestation validation (see A-1254).
+  // converted to Fr/CheckpointHeader at the ingestion boundary, after attestation validation.
   archiveRoot: Buffer32;
   feeAssetPriceModifier: bigint;
   header: L1CheckpointHeader;
@@ -74,8 +74,8 @@ export async function retrievedToPublishedCheckpoint({
 }: RetrievedCheckpoint): Promise<PublishedCheckpoint> {
   // Ingestion boundary: convert the raw header/archive root into validated Fr-valued domain types. The
   // synchronizer only builds a published checkpoint for entries whose attestations validated, so reaching
-  // an out-of-range field here is the catastrophic "a quorum signed an out-of-range header" case (A-1254
-  // Fix 2 makes it unreachable on a patched chain); toCheckpointHeader/Fr surface it loudly by throwing.
+  // an out-of-range field here is the catastrophic "a quorum signed an out-of-range header" case (the L1
+  // range checks make it unreachable on a patched chain); toCheckpointHeader/Fr surface it loudly by throwing.
   const checkpointHeader = toCheckpointHeader(rawCheckpointHeader);
   const archiveRoot = Fr.fromString(rawArchiveRoot.toString());
   const { blocks: blocksBlobData } = checkpointBlobData;

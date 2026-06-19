@@ -921,8 +921,8 @@ describe('Archiver Sync', () => {
       expect(rejectedValid).toBeDefined();
     }, 15_000);
 
-    it('skips a checkpoint whose propose calldata carries an out-of-range header field without stalling (A-1254)', async () => {
-      // Regression for A-1254: a malicious proposer posts a checkpoint whose header carries a uint256 field
+    it('skips a checkpoint whose propose calldata carries an out-of-range header field without stalling', async () => {
+      // Regression: a malicious proposer posts a checkpoint whose header carries a uint256 field
       // above the BN254 modulus. The honest archiver must decode the raw header without throwing, recognize
       // the corrupted header via failed attestation recovery, skip the checkpoint, and keep advancing — not
       // brick its L1 sync point.

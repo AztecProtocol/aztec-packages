@@ -22,7 +22,7 @@ export type { ValidateCheckpointResult };
  * Raw checkpoint data needed to validate attestations. The header and archive root are kept in their raw,
  * possibly out-of-range form (an `L1CheckpointHeader` and `Buffer32`) so that a malicious out-of-range
  * field cannot make validation throw — its consensus digest is derived purely from the raw header hash and
- * raw archive bytes, both of which are always in range (see A-1254).
+ * raw archive bytes, both of which are always in range.
  */
 export type CheckpointForValidation = {
   checkpointNumber: CheckpointNumber;

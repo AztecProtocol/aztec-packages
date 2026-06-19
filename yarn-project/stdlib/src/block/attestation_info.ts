@@ -53,7 +53,7 @@ export function getAttestationInfoFromPayload(
 
 /**
  * Extracts attestation information given a precomputed consensus digest. Used when the digest must be derived
- * from raw (possibly out-of-range) header/archive bytes without building a full ConsensusPayload (see A-1254).
+ * from raw (possibly out-of-range) header/archive bytes without building a full ConsensusPayload.
  */
 export function getAttestationInfoFromDigest(
   hashedPayload: Buffer32,

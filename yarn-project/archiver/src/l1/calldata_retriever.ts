@@ -32,7 +32,7 @@ import type { CallInfo } from './types.js';
  * Decoded checkpoint data from a propose calldata. The header and archive root are kept in their raw,
  * unvalidated form (a structurally-viem `L1CheckpointHeader` and `Buffer32`) so that a malicious
  * out-of-range field cannot make decoding throw. The caller (the L1 synchronizer) decides validity and
- * performs the conversion to `CheckpointHeader`/`Fr` at the ingestion boundary (see A-1254).
+ * performs the conversion to `CheckpointHeader`/`Fr` at the ingestion boundary.
  */
 type CheckpointData = {
   checkpointNumber: CheckpointNumber;

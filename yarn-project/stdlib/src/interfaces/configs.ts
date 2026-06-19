@@ -128,7 +128,7 @@ export interface SequencerConfig {
   pauseProposingForSlots?: SlotNumber[];
   /**
    * Overwrite the propose calldata's checkpoint header `accumulatedFees` with a value above the BN254 field modulus
-   * before sending to L1, producing a checkpoint that honest archivers cannot decode (for testing only, A-1254 repro).
+   * before sending to L1, producing a checkpoint that honest archivers cannot decode (for testing only).
    */
   injectOutOfRangeCheckpointHeader?: boolean;
 }

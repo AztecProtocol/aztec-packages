@@ -87,7 +87,7 @@ export type RejectedCheckpoint = {
   checkpointNumber: CheckpointNumber;
   /**
    * Archive root produced by this rejected checkpoint (matched against descendants' `lastArchiveRoot`).
-   * `Fr | Buffer32` so a checkpoint rejected for an out-of-range archive root is still recordable (A-1254).
+   * `Fr | Buffer32` so a checkpoint rejected for an out-of-range archive root is still recordable.
    */
   archiveRoot: Fr | Buffer32;
   /** `lastArchiveRoot` from this checkpoint's header (the ancestor it built on). */

@@ -885,7 +885,7 @@ export class ArchiverL1Synchronizer implements Traceable {
       // Build the per-checkpoint raw view used for attestation validation. We validate BEFORE building the
       // PublishedCheckpoint (which requires blob fetch and Fr/CheckpointHeader conversion), so a malicious
       // out-of-range header/archive is rejected via the normal insufficient/invalid-attestations path
-      // instead of throwing during decode and stalling the L1 sync point (A-1254). The promoted checkpoint
+      // instead of throwing during decode and stalling the L1 sync point. The promoted checkpoint
       // (built from local, in-range proposed data) is folded in via its raw form.
       const promotedRaw: RawCheckpointEntry[] = checkpointToPromote
         ? [

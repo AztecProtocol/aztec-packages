@@ -14,7 +14,7 @@ import { z } from 'zod';
 export type CheckpointInfo = {
   /**
    * Archive root after this checkpoint. Carried as `Fr | Buffer32` so a rejected checkpoint with an
-   * out-of-range archive root (which cannot be represented as an `Fr`) is still describable (see A-1254).
+   * out-of-range archive root (which cannot be represented as an `Fr`) is still describable.
    */
   archive: Fr | Buffer32;
   lastArchive: Fr;
