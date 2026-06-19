@@ -54,7 +54,7 @@ const TX_COUNT = 10;
  * and prover proving MBPS checkpoints. Uses MultiNodeTestContext with mockGossipSubNetwork and no
  * initial sequencer.
  */
-describe('e2e_epochs/epochs_mbps', () => {
+describe('multi-node/mbps', () => {
   let context: EndToEndContext;
   let logger: Logger;
   let rollup: RollupContract;

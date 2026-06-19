@@ -4,7 +4,7 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 
 import { jest } from '@jest/globals';
 
-import { MultiNodeTestContext, WORLD_STATE_CHECKPOINT_HISTORY } from '../multi-node/multi_node_test_context.js';
+import { MultiNodeTestContext, WORLD_STATE_CHECKPOINT_HISTORY } from './multi_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 15);
 
@@ -13,7 +13,7 @@ jest.setTimeout(1000 * 60 * 15);
 // prod-seq, interval mining, ethSlot=8s (12s CI), aztecSlot=16s (24s CI), epoch=6,
 // proofSubmissionEpochs=1, fake prover. TARGET_PROVEN_EPOCHS env var controls iteration count.
 // Assumes one block per checkpoint
-describe('e2e_epochs/epochs_multiple', () => {
+describe('multi-node/multiple', () => {
   let rollup: RollupContract;
   let logger: Logger;
 

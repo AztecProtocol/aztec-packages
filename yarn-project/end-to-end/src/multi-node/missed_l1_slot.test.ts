@@ -13,8 +13,8 @@ import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 
 import { jest } from '@jest/globals';
 
-import { MultiNodeTestContext } from '../multi-node/multi_node_test_context.js';
 import { proveInteraction } from '../test-wallet/utils.js';
+import { MultiNodeTestContext } from './multi_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 10);
 
@@ -61,7 +61,7 @@ jest.setTimeout(1000 * 60 * 10);
 // during L1 deploy only). Timing: ethSlot=8s (12s CI), aztecSlot=6×ethSlot, epoch=default 6,
 // proofSubmissionEpochs=1024, blockDurationMs=8000, inboxLag=2 (v5 always enforces the timetable, so
 // the former enforceTimeTable/disableAnvilTestWatcher overrides are gone). No prover.
-describe('e2e_epochs/epochs_missed_l1_slot', () => {
+describe('multi-node/missed_l1_slot', () => {
   let test: MultiNodeTestContext;
   let contract: TestContract;
   let from: AztecAddress;

@@ -50,7 +50,7 @@ const NODE_COUNT = 4;
  *
  * Uses MultiNodeTestContext with mockGossipSubNetwork, no initial sequencer, and no prover node.
  */
-describe('e2e_epochs/epochs_missed_l1_publish', () => {
+describe('multi-node/missed_l1_publish', () => {
   let logger: Logger;
   let test: MultiNodeTestContext;
   let nodes: AztecNodeService[];

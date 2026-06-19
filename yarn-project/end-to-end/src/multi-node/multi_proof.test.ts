@@ -8,7 +8,7 @@ import { type L1RollupConstants, getSlotRangeForEpoch } from '@aztec/stdlib/epoc
 import { jest } from '@jest/globals';
 
 import type { EndToEndContext } from '../fixtures/utils.js';
-import { MultiNodeTestContext } from '../multi-node/multi_node_test_context.js';
+import { MultiNodeTestContext } from './multi_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 10);
 
@@ -18,7 +18,7 @@ jest.setTimeout(1000 * 60 * 10);
 // proofSubmissionEpochs=1, fake prover). Staggered top-tree-prove delays (v5 patches
 // createTopTreeOrchestrator's prove() per node; pre-v5 it patched finalizeEpoch) ensure provers don't
 // all land at the same L1 block.
-describe('e2e_epochs/epochs_multi_proof', () => {
+describe('multi-node/multi_proof', () => {
   let context: EndToEndContext;
   let rollup: RollupContract;
   let constants: L1RollupConstants;

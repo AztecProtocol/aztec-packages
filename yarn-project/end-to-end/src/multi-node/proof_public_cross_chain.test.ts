@@ -11,7 +11,7 @@ import { jest } from '@jest/globals';
 
 import { sendL1ToL2Message } from '../fixtures/l1_to_l2_messaging.js';
 import type { EndToEndContext } from '../fixtures/utils.js';
-import { MultiNodeTestContext } from '../multi-node/multi_node_test_context.js';
+import { MultiNodeTestContext } from './multi_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 10);
 
@@ -26,7 +26,7 @@ jest.setTimeout(1000 * 60 * 10);
 // CI, aztecSlot=16s/24s, epoch=6, proofSubmissionEpochs=1), minTxsPerBlock=1 (v5: the disableAnvilTestWatcher
 // override was removed). Cross-chain: writes to L1 Inbox (sendL1ToL2Message), then claims the message in a
 // public L2 function.
-describe('e2e_epochs/epochs_proof_public_cross_chain', () => {
+describe('multi-node/proof_public_cross_chain', () => {
   let context: EndToEndContext;
   let logger: Logger;
 

@@ -5,7 +5,7 @@ import { retryUntil } from '@aztec/foundation/retry';
 
 import { jest } from '@jest/globals';
 
-import { MultiNodeTestContext } from '../multi-node/multi_node_test_context.js';
+import { MultiNodeTestContext } from './multi_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 10);
 
@@ -13,7 +13,7 @@ jest.setTimeout(1000 * 60 * 10);
 // being submitted on L1. MultiNodeTestContext with single node + fake prover. Timing: ethSlot=default
 // (8s/12s CI), aztecSlot=default, epoch=1000 (overridden to a very long epoch so the epoch never
 // ends during the test), proofSubmissionEpochs=1 (default). prod-seq, interval mining.
-describe('e2e_epochs/epochs_partial_proof', () => {
+describe('multi-node/partial_proof', () => {
   let logger: Logger;
   let monitor: ChainMonitor;
 

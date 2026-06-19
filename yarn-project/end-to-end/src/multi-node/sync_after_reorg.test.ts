@@ -6,7 +6,7 @@ import { executeTimeout } from '@aztec/foundation/timer';
 import { jest } from '@jest/globals';
 
 import type { EndToEndContext } from '../fixtures/utils.js';
-import { MultiNodeTestContext } from '../multi-node/multi_node_test_context.js';
+import { MultiNodeTestContext } from './multi_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 10);
 
@@ -15,7 +15,7 @@ jest.setTimeout(1000 * 60 * 10);
 // Timing: all defaults (ethSlot=8s/12s CI, aztecSlot=16s/24s, epoch=6, proofSubmissionEpochs=1).
 // The test stops the sequencer mid-run, advances into epoch 2 via waitUntilEpochStarts, then
 // creates a second node and verifies it syncs cleanly despite the reorg window.
-describe('e2e_epochs/epochs_sync_after_reorg', () => {
+describe('multi-node/sync_after_reorg', () => {
   let context: EndToEndContext;
   let logger: Logger;
 

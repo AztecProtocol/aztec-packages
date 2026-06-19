@@ -4,7 +4,7 @@ import { sleep } from '@aztec/foundation/sleep';
 
 import { jest } from '@jest/globals';
 
-import { MultiNodeTestContext } from '../multi-node/multi_node_test_context.js';
+import { MultiNodeTestContext } from './multi_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 15);
 
@@ -16,7 +16,7 @@ const MAX_JOB_COUNT = 20;
 // the broker rejecting in-flight jobs as stale. (v5: previously capped at one job at a time with
 // proverNodeMaxPendingJobs=1; now exercises concurrent multi-epoch proving.) Uses MultiNodeTestContext
 // default setup (single sequencer, fake prover with delay, no mock gossip).
-describe('e2e_epochs/epochs_long_proving_time', () => {
+describe('multi-node/long_proving_time', () => {
   let logger: Logger;
   let monitor: ChainMonitor;
 

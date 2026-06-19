@@ -24,9 +24,9 @@ import { jest } from '@jest/globals';
 import { privateKeyToAccount } from 'viem/accounts';
 
 import { type EndToEndContext, getPrivateKeyFromIndex } from '../fixtures/utils.js';
-import { MultiNodeTestContext } from '../multi-node/multi_node_test_context.js';
 import { TestWallet } from '../test-wallet/test_wallet.js';
 import { proveInteraction } from '../test-wallet/utils.js';
+import { MultiNodeTestContext } from './multi_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 20);
 
@@ -47,7 +47,7 @@ const TX_COUNT = 34;
  * uncheckpointed-blocks prune followed by recovery. Uses MultiNodeTestContext with mockGossipSubNetwork
  * and no initial sequencer.
  */
-describe('e2e_epochs/epochs_mbps_pipeline', () => {
+describe('multi-node/mbps_pipeline', () => {
   let context: EndToEndContext;
   let logger: Logger;
   let rollup: RollupContract;

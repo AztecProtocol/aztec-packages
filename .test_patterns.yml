@@ -267,18 +267,18 @@ tests:
       - *charlie
       - *adam
 
-  - regex: "src/e2e_epochs/epochs_l1_reorgs.parallel.test.ts"
+  - regex: "src/multi-node/l1_reorgs.parallel.test.ts"
     owners:
       - *phil
 
-  - regex: "epochs_mbps.pipeline.parallel.test.ts.*prunes uncheckpointed"
+  - regex: "mbps.pipeline.parallel.test.ts.*prunes uncheckpointed"
     owners:
       - *sean
 
   # Asserts all late txs land in the checkpoint's last block, but the proposer seals the last block as
   # soon as one tx is available and snapshots the mempool, so late txs still propagating over gossip
   # spill into the next checkpoint. Flaky until the sequencer waits for the last block's tx window.
-  - regex: "src/e2e_epochs/epochs_mbps_redistribution.test.ts"
+  - regex: "src/multi-node/mbps_redistribution.test.ts"
     owners:
       - *phil
 
@@ -290,7 +290,7 @@ tests:
     owners:
       - *phil
 
-  - regex: "src/e2e_epochs/.*\\.test\\.ts"
+  - regex: "src/multi-node/.*\\.test\\.ts"
     flake_group_id: e2e-p2p-epoch-flakes
     owners:
       - *palla

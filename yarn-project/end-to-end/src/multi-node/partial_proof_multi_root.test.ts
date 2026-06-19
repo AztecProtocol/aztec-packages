@@ -23,7 +23,7 @@ import { type TxReceipt, TxStatus } from '@aztec/stdlib/tx';
 import { jest } from '@jest/globals';
 import { type Hex, decodeEventLog } from 'viem';
 
-import { MultiNodeTestContext } from '../multi-node/multi_node_test_context.js';
+import { MultiNodeTestContext } from './multi_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 10);
 
@@ -36,7 +36,7 @@ jest.setTimeout(1000 * 60 * 10);
 // override was removed and a perBlockAllocationMultiplier=1.3 was added so the first block of the
 // now-up-to-5-block checkpoint has enough DA budget for the TestContract deploy tx). The test actively
 // calls the Outbox L1 contract to consume L2-to-L1 messages → cross-chain.
-describe('e2e_epochs/epochs_partial_proof_multi_root', () => {
+describe('multi-node/partial_proof_multi_root', () => {
   let test: MultiNodeTestContext;
   let logger: Logger;
   let node: AztecNode;

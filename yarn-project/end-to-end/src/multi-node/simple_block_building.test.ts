@@ -34,7 +34,7 @@ const TX_COUNT = 8;
 // Sets up a lightweight RPC-only node without any account deployment, registers a test contract
 // locally, then spawns NODE_COUNT validator nodes connected via a mocked gossip sub network.
 // Mines N txs across N blocks, checking that no sequencer errors occur during block building.
-describe('e2e_epochs/epochs_simple_block_building', () => {
+describe('multi-node/simple_block_building', () => {
   let context: EndToEndContext;
   let logger: Logger;
 
