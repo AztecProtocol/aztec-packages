@@ -739,8 +739,8 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       return;
     }
 
-    this.markInvalidProposalSlot(proposal.slotNumber);
-
+    // The slot is already marked invalid by the all-nodes checkpoint handler that invokes this callback,
+    // so we only emit the proposer slash event here.
     if (this.slashInvalidCheckpointProposal(proposal)) {
       this.log.info(`Detected invalid checkpoint proposal offense`, {
         ...proposalInfo,

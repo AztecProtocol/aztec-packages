@@ -327,9 +327,14 @@ export class ProposalHandler {
         } else {
           // Track invalid proposals / equivocations so offense observers (the attested-invalid-proposal
           // watcher) work on non-validator nodes too. Validators populate these via their own handlers.
+          // Skip invalid-proposal marking while the escape hatch is open, matching the validator path,
+          // which intentionally disables invalid-block slashing then.
           if (result.reason === 'checkpoint_proposal_equivocation') {
             this.markProposalEquivocation(slotNumber);
-          } else if (SLASHABLE_BLOCK_PROPOSAL_VALIDATION_RESULT.includes(result.reason)) {
+          } else if (
+            SLASHABLE_BLOCK_PROPOSAL_VALIDATION_RESULT.includes(result.reason) &&
+            !(await this.epochCache.isEscapeHatchOpenAtSlot(slotNumber))
+          ) {
             this.markInvalidProposalSlot(slotNumber);
           }
           this.log.warn(
@@ -345,6 +350,11 @@ export class ProposalHandler {
     };
 
     p2pClient.registerBlockProposalHandler(blockHandler);
+
+    // p2p detects duplicate (equivocated) proposals without routing them through the handlers above, so mark
+    // the slot as equivocated here. This suppresses false-positive attested-to-invalid-proposal slashing on
+    // non-validator offense collectors. Validators overwrite this with their own richer handler.
+    p2pClient.registerDuplicateProposalCallback(info => this.markProposalEquivocation(info.slot));
 
     // All-nodes checkpoint proposal handler: validates, caches, and sets proposed checkpoint for pipelining.
     // Runs for all nodes (validators and non-validators). Validators get the cached result in the
