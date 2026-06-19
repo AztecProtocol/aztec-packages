@@ -71,6 +71,13 @@ export type EpochProofPublicInputArgs = {
   proverId: `0x${string}`;
 };
 
+/**
+ * The viem ABI boundary shape of a checkpoint header. Structurally identical to
+ * `L1CheckpointHeader` in `@aztec/stdlib`, which is the canonical raw-header type used by all
+ * stdlib-and-downstream code. This package cannot depend on stdlib, so it keeps a local alias for the
+ * low-level viem calls (`validateHeader`, `getEpochProofPublicInputs`); callers pass `L1CheckpointHeader`,
+ * which is assignable to it.
+ */
 export type ViemHeader = {
   lastArchiveRoot: `0x${string}`;
   blockHeadersHash: `0x${string}`;
@@ -215,16 +222,20 @@ export type AttesterView = {
  */
 export type RollupStatusResponse = {
   provenCheckpointNumber: CheckpointNumber;
-  provenArchive: Fr;
+  // Archive roots are carried as raw bytes (not Fr) on the L1-read path. A malicious proposer can store a
+  // checkpoint whose archive root is out of the BN254 field; eagerly converting it to Fr would throw and
+  // brick L1 sync. Conversion to Fr happens only at the checkpoint ingestion boundary (see A-1254).
+  provenArchive: Buffer32;
   pendingCheckpointNumber: CheckpointNumber;
-  pendingArchive: Fr;
-  archiveOfMyCheckpoint: Fr;
+  pendingArchive: Buffer32;
+  archiveOfMyCheckpoint: Buffer32;
 };
 
 /** Arguments for the CheckpointProposed event. */
 export type CheckpointProposedArgs = {
   checkpointNumber: CheckpointNumber;
-  archive: Fr;
+  /** Raw archive root bytes; may be out of the BN254 field (see RollupStatusResponse). */
+  archive: Buffer32;
   versionedBlobHashes: Buffer[];
   /** Hash of attestations emitted in the CheckpointProposed event. */
   attestationsHash: Buffer32;
@@ -1157,10 +1168,10 @@ export class RollupContract {
     const result = await this.rollup.read.status([BigInt(checkpointNumber)], options);
     return {
       provenCheckpointNumber: CheckpointNumber.fromBigInt(result[0]),
-      provenArchive: Fr.fromString(result[1]),
+      provenArchive: Buffer32.fromString(result[1]),
       pendingCheckpointNumber: CheckpointNumber.fromBigInt(result[2]),
-      pendingArchive: Fr.fromString(result[3]),
-      archiveOfMyCheckpoint: Fr.fromString(result[4]),
+      pendingArchive: Buffer32.fromString(result[3]),
+      archiveOfMyCheckpoint: Buffer32.fromString(result[4]),
     };
   }
 
@@ -1173,8 +1184,8 @@ export class RollupContract {
     return Fr.fromString(await this.rollup.read.archive());
   }
 
-  async archiveAt(checkpointNumber: CheckpointNumber): Promise<Fr> {
-    return Fr.fromString(await this.rollup.read.archiveAt([BigInt(checkpointNumber)]));
+  async archiveAt(checkpointNumber: CheckpointNumber): Promise<Buffer32> {
+    return Buffer32.fromString(await this.rollup.read.archiveAt([BigInt(checkpointNumber)]));
   }
 
   getSequencerRewards(address: Hex | EthAddress): Promise<bigint> {
@@ -1371,7 +1382,7 @@ export class RollupContract {
         l1TransactionHash: log.transactionHash!,
         args: {
           checkpointNumber: CheckpointNumber.fromBigInt(log.args.checkpointNumber!),
-          archive: Fr.fromString(log.args.archive!),
+          archive: Buffer32.fromString(log.args.archive!),
           versionedBlobHashes: log.args.versionedBlobHashes!.map(h => Buffer.from(h.slice(2), 'hex')),
           attestationsHash: (() => {
             if (!log.args.attestationsHash) {

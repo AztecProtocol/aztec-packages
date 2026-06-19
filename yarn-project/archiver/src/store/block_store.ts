@@ -1,5 +1,6 @@
 import { INITIAL_CHECKPOINT_NUMBER, INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { toArray } from '@aztec/foundation/iterable';
 import { createLogger } from '@aztec/foundation/log';
@@ -84,8 +85,11 @@ export type RejectedCheckpointReason = 'invalid-attestations' | 'descends-from-i
 export type RejectedCheckpoint = {
   /** Checkpoint number this entry represents. */
   checkpointNumber: CheckpointNumber;
-  /** Archive root produced by this rejected checkpoint (matched against descendants' `lastArchiveRoot`). */
-  archiveRoot: Fr;
+  /**
+   * Archive root produced by this rejected checkpoint (matched against descendants' `lastArchiveRoot`).
+   * `Fr | Buffer32` so a checkpoint rejected for an out-of-range archive root is still recordable (A-1254).
+   */
+  archiveRoot: Fr | Buffer32;
   /** `lastArchiveRoot` from this checkpoint's header (the ancestor it built on). */
   parentArchiveRoot: Fr;
   /** Slot number of the rejected checkpoint. */
@@ -1463,7 +1467,7 @@ export class BlockStore {
   }
 
   /** Returns the rejected-checkpoint entry with the given archive root, or undefined if not present. */
-  async getRejectedCheckpointByArchiveRoot(archiveRoot: Fr): Promise<RejectedCheckpoint | undefined> {
+  async getRejectedCheckpointByArchiveRoot(archiveRoot: Fr | Buffer32): Promise<RejectedCheckpoint | undefined> {
     const stored = await this.#rejectedCheckpoints.getAsync(archiveRoot.toString());
     return stored ? this.rejectedCheckpointFromStorage(stored) : undefined;
   }
@@ -1485,7 +1489,7 @@ export class BlockStore {
   }
 
   /** Removes a rejected-checkpoint entry by its archive root (used when an entry no longer matches L1). */
-  async removeRejectedCheckpointByArchiveRoot(archiveRoot: Fr): Promise<void> {
+  async removeRejectedCheckpointByArchiveRoot(archiveRoot: Fr | Buffer32): Promise<void> {
     const archiveRootHex = archiveRoot.toString();
     const stored = await this.#rejectedCheckpoints.getAsync(archiveRootHex);
     await this.#rejectedCheckpoints.delete(archiveRootHex);
@@ -1515,7 +1519,11 @@ export class BlockStore {
   private rejectedCheckpointFromStorage(stored: RejectedCheckpointStorage): RejectedCheckpoint {
     return {
       checkpointNumber: CheckpointNumber(stored.checkpointNumber),
-      archiveRoot: Fr.fromBuffer(stored.archiveRoot),
+      // The archive root may be out of the BN254 field; keep it as Buffer32 in that case rather than throwing.
+      archiveRoot:
+        BigInt(`0x${stored.archiveRoot.toString('hex')}`) < Fr.MODULUS
+          ? Fr.fromBuffer(stored.archiveRoot)
+          : Buffer32.fromBuffer(stored.archiveRoot),
       parentArchiveRoot: Fr.fromBuffer(stored.parentArchiveRoot),
       slotNumber: SlotNumber(stored.slotNumber),
       l1: L1PublishedData.fromBuffer(stored.l1),

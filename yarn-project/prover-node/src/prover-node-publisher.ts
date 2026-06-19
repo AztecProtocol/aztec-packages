@@ -12,7 +12,7 @@ import { RollupAbi } from '@aztec/l1-artifacts';
 import type { PublisherConfig, TxSenderConfig } from '@aztec/sequencer-client';
 import { CommitteeAttestation, CommitteeAttestationsAndSigners } from '@aztec/stdlib/block';
 import type { Proof } from '@aztec/stdlib/proofs';
-import type { CheckpointHeader, RootRollupPublicInputs } from '@aztec/stdlib/rollup';
+import { type CheckpointHeader, type RootRollupPublicInputs, toL1CheckpointHeader } from '@aztec/stdlib/rollup';
 import type { L1PublishProofStats } from '@aztec/stdlib/stats';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
@@ -331,7 +331,7 @@ export class ProverNodePublisher {
         outHash: args.publicInputs.outHash.toString(),
         proverId: EthAddress.fromField(args.publicInputs.constants.proverId).toString(),
       } /*_args*/,
-      args.headers.map(header => header.toViem()) /*_headers*/,
+      args.headers.map(header => toL1CheckpointHeader(header)) /*_headers*/,
       getEthBlobEvaluationInputs(args.batchedBlobInputs) /*_blobPublicInputs*/,
     ] as const;
   }

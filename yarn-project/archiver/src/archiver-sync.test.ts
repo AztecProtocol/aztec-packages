@@ -920,6 +920,60 @@ describe('Archiver Sync', () => {
       expect(rejectedBad).toBeDefined();
       expect(rejectedValid).toBeDefined();
     }, 15_000);
+
+    it('skips a checkpoint whose propose calldata carries an out-of-range header field without stalling (A-1254)', async () => {
+      // Regression for A-1254: a malicious proposer posts a checkpoint whose header carries a uint256 field
+      // above the BN254 modulus. The honest archiver must decode the raw header without throwing, recognize
+      // the corrupted header via failed attestation recovery, skip the checkpoint, and keep advancing — not
+      // brick its L1 sync point.
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(0));
+
+      fake.setTargetCommitteeSize(3);
+      const signers = times(3, Secp256k1Signer.random);
+      const committee = signers.map(s => s.address);
+      epochCache.getCommitteeForEpoch.mockResolvedValue({ committee, seed: 0n } as EpochCommitteeInfo);
+
+      const invalidCheckpointDetectedSpy = jest.fn();
+      archiver.events.on(L2BlockSourceEvents.InvalidAttestationsCheckpointDetected, invalidCheckpointDetectedSpy);
+
+      // Valid CP1.
+      const { checkpoint: cp1 } = await fake.addCheckpoint(CheckpointNumber(1), {
+        l1BlockNumber: 70n,
+        messagesL1BlockNumber: 50n,
+        numL1ToL2Messages: 3,
+        signers,
+      });
+      const cp1Archive = cp1.blocks.at(-1)!.archive;
+
+      // Malicious CP2: honest signers attest the clean header, but the broadcast calldata carries an
+      // accumulatedFees field above the field modulus. Honest attestations no longer recover against the
+      // corrupted header, so it is rejected for insufficient/invalid attestations.
+      const { checkpoint: maliciousCp2 } = await fake.addCheckpoint(CheckpointNumber(2), {
+        l1BlockNumber: 80n,
+        numL1ToL2Messages: 0,
+        signers,
+        previousArchive: cp1Archive,
+        injectOutOfRangeAccumulatedFees: 2n ** 256n - 1n,
+      });
+
+      fake.setL1BlockNumber(85n);
+
+      // The sync must complete without throwing despite the out-of-range field.
+      await expect(archiver.syncImmediate()).resolves.not.toThrow();
+
+      // The archiver synced CP1 and skipped the malicious CP2 rather than bricking.
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
+      expect(invalidCheckpointDetectedSpy).toHaveBeenCalled();
+
+      // The malicious checkpoint is recorded as rejected (keyed by its in-range archive root).
+      const rejected = await archiverStore.blocks.getRejectedCheckpointByArchiveRoot(maliciousCp2.archive.root);
+      expect(rejected).toBeDefined();
+
+      // The L1 sync point advanced past the malicious checkpoint's L1 block, proving it did not stall.
+      const syncedL1 = await archiverStore.blocks.getSynchedL1BlockNumber();
+      expect(syncedL1).toBeDefined();
+      expect(syncedL1!).toBeGreaterThanOrEqual(80n);
+    }, 15_000);
   });
 
   describe('reorg handling', () => {

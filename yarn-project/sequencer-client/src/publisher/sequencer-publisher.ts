@@ -50,7 +50,7 @@ import {
   getNextL1SlotTimestamp,
   getTimestampForSlot,
 } from '@aztec/stdlib/epoch-helpers';
-import type { CheckpointHeader } from '@aztec/stdlib/rollup';
+import { type CheckpointHeader, toL1CheckpointHeader } from '@aztec/stdlib/rollup';
 import type { L1PublishCheckpointStats } from '@aztec/stdlib/stats';
 import { type TelemetryClient, type Tracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
@@ -773,7 +773,7 @@ export class SequencerPublisher {
     const flags = { ignoreDA: true, ignoreSignatures: true };
 
     const args = [
-      header.toViem(),
+      toL1CheckpointHeader(header),
       CommitteeAttestationsAndSigners.packAttestations([]),
       [], // no signers
       Signature.empty().toViemSignature(),
@@ -1326,7 +1326,7 @@ export class SequencerPublisher {
     }
     const signers = encodedData.attestationsAndSigners.getSigners().map(signer => signer.toString());
 
-    const viemHeader = encodedData.header.toViem();
+    const viemHeader = toL1CheckpointHeader(encodedData.header);
     if (opts.injectOutOfRangeCheckpointHeader) {
       // A-1254 repro: overwrite a uint256 header field with a value above the BN254 field modulus. The clean
       // CheckpointHeader on encodedData is left untouched so the pre-broadcast validateBlockHeader simulation still

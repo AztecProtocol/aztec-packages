@@ -12,10 +12,11 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { CommitteeAttestation, CommitteeAttestationsAndSigners, L2Block } from '@aztec/stdlib/block';
-import { Checkpoint } from '@aztec/stdlib/checkpoint';
+import { Checkpoint, computeCheckpointPayloadDigest } from '@aztec/stdlib/checkpoint';
 import { getSlotAtTimestamp } from '@aztec/stdlib/epoch-helpers';
 import { InboxLeaf } from '@aztec/stdlib/messaging';
 import { ConsensusPayload, getHashedSignaturePayloadTypedData } from '@aztec/stdlib/p2p';
+import { l1CheckpointHeaderHash, toL1CheckpointHeader } from '@aztec/stdlib/rollup';
 import { mockCheckpointAndMessages } from '@aztec/stdlib/testing';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 
@@ -75,6 +76,13 @@ type AddCheckpointOptions = {
   numL1ToL2Messages?: number;
   /** L1 block number where messages were sent. Default: l1BlockNumber - 3 */
   messagesL1BlockNumber?: bigint;
+  /**
+   * If set, the propose calldata carries a header whose `accumulatedFees` is the given out-of-range value
+   * (e.g. `2n ** 256n - 1n`), simulating the A-1254 malicious-proposer attack. The clean checkpoint, its
+   * stored archive root, and the attestation signatures are unchanged, so an honest archiver decodes the raw
+   * header without throwing and rejects it via insufficient/invalid attestations.
+   */
+  injectOutOfRangeAccumulatedFees?: bigint;
 };
 
 /** Result from adding a checkpoint. */
@@ -212,7 +220,11 @@ export class FakeL1State {
     this.addMessages(checkpointNumber, messagesL1BlockNumber, messages);
 
     // Create the transaction, blobs, and event hashes
-    const { tx, attestationsHash, payloadDigest } = await this.makeRollupTx(checkpoint, signers);
+    const { tx, attestationsHash, payloadDigest } = await this.makeRollupTx(
+      checkpoint,
+      signers,
+      options.injectOutOfRangeAccumulatedFees,
+    );
     const blobHashes = await this.makeVersionedBlobHashes(checkpoint);
     const blobs = await this.makeBlobsFromCheckpoint(checkpoint);
 
@@ -397,8 +409,8 @@ export class FakeL1State {
   getRollupStatus(): {
     provenCheckpointNumber: CheckpointNumber;
     pendingCheckpointNumber: CheckpointNumber;
-    provenArchive: Fr;
-    pendingArchive: Fr;
+    provenArchive: Buffer32;
+    pendingArchive: Buffer32;
   } {
     return {
       provenCheckpointNumber: this.provenCheckpointNumber,
@@ -571,9 +583,9 @@ export class FakeL1State {
       .reduce((max, cpData) => (cpData.checkpointNumber > max ? cpData.checkpointNumber : max), CheckpointNumber(0));
   }
 
-  private getArchiveAt(checkpointNumber: CheckpointNumber): Fr {
+  private getArchiveAt(checkpointNumber: CheckpointNumber): Buffer32 {
     if (checkpointNumber === 0) {
-      return this.config.genesisArchiveRoot;
+      return Buffer32.fromField(this.config.genesisArchiveRoot);
     }
     // Find the latest non-pruned entry for this checkpoint number
     const entries = this.checkpoints.filter(cpData => cpData.checkpointNumber === checkpointNumber);
@@ -583,7 +595,7 @@ export class FakeL1State {
       // For pruned or missing checkpoints, return the previous non-pruned checkpoint's archive
       return this.getArchiveAt(CheckpointNumber(checkpointNumber - 1));
     }
-    return latestEntry.checkpoint.archive.root;
+    return Buffer32.fromField(latestEntry.checkpoint.archive.root);
   }
 
   private getNextBlockNumber(checkpointNumber: CheckpointNumber): BlockNumber {
@@ -603,7 +615,7 @@ export class FakeL1State {
         l1TransactionHash: cpData.tx.hash as `0x${string}`,
         args: {
           checkpointNumber: cpData.checkpointNumber,
-          archive: cpData.checkpoint.archive.root,
+          archive: Buffer32.fromField(cpData.checkpoint.archive.root),
           versionedBlobHashes: cpData.blobHashes.map(h => Buffer.from(h.slice(2), 'hex')),
           attestationsHash: cpData.attestationsHash,
           payloadDigest: cpData.payloadDigest,
@@ -658,6 +670,7 @@ export class FakeL1State {
   private async makeRollupTx(
     checkpoint: Checkpoint,
     signers: Secp256k1Signer[],
+    injectOutOfRangeAccumulatedFees?: bigint,
   ): Promise<{ tx: Transaction; attestationsHash: Buffer32; payloadDigest: Buffer32 }> {
     const signatureContext = this.getSignatureContext();
     const consensusPayload = ConsensusPayload.fromCheckpoint(checkpoint, signatureContext);
@@ -666,7 +679,12 @@ export class FakeL1State {
       .map(signer => CommitteeAttestation.fromSignature(signer.sign(attestationDigest)))
       .map(committeeAttestation => committeeAttestation.toViem());
 
-    const header = checkpoint.header.toViem();
+    const header = toL1CheckpointHeader(checkpoint.header);
+    if (injectOutOfRangeAccumulatedFees !== undefined) {
+      // Mirror the malicious-proposer injection: the broadcast calldata carries an out-of-range header field
+      // while the clean checkpoint, archive root, and attestations are untouched.
+      header.accumulatedFees = injectOutOfRangeAccumulatedFees;
+    }
     const blobInput = getPrefixedEthBlobCommitments(await getBlobsPerL1Block(checkpoint.toBlobFields()));
     const archive = toHex(checkpoint.archive.root.toBuffer());
     const attestationsAndSigners = new CommitteeAttestationsAndSigners(
@@ -719,8 +737,14 @@ export class FakeL1State {
       keccak256(encodeAbiParameters([this.getCommitteeAttestationsStructDef()], [packedAttestations])),
     );
 
-    // Compute payloadDigest (same logic as CalldataRetriever)
-    const payloadDigest = getHashedSignaturePayloadTypedData(consensusPayload);
+    // Compute payloadDigest from the (possibly out-of-range) calldata header, matching what the on-chain
+    // CheckpointProposed event would emit for the broadcast header — this is what the archiver verifies against.
+    const payloadDigest = computeCheckpointPayloadDigest({
+      headerHash: l1CheckpointHeaderHash(header),
+      archiveRoot: Buffer32.fromString(archive),
+      feeAssetPriceModifier: 0n,
+      signatureContext,
+    });
 
     const tx = {
       input: multiCallInput,

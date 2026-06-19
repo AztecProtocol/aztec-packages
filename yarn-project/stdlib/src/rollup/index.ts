@@ -11,6 +11,7 @@ export * from './checkpoint_merge_rollup_private_inputs.js';
 export * from './checkpoint_rollup_public_inputs.js';
 export * from './checkpoint_root_rollup_private_inputs.js';
 export * from './epoch_constant_data.js';
+export * from './l1_checkpoint_header.js';
 export * from './private_tx_base_rollup_private_inputs.js';
 export * from './public_tx_base_rollup_private_inputs.js';
 export * from './public_chonk_verifier_private_inputs.js';

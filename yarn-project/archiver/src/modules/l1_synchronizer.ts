@@ -6,7 +6,7 @@ import { getFinalizedL1Block } from '@aztec/ethereum/queries';
 import type { ViemPublicClient, ViemPublicDebugClient } from '@aztec/ethereum/types';
 import { asyncPool } from '@aztec/foundation/async-pool';
 import { maxBigint } from '@aztec/foundation/bigint';
-import { BlockNumber, CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
 import { compactArray, partition, pick } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -16,11 +16,29 @@ import { retryTimes } from '@aztec/foundation/retry';
 import { count } from '@aztec/foundation/string';
 import { DateProvider, Timer, elapsed } from '@aztec/foundation/timer';
 import { isDefined, isErrorClass } from '@aztec/foundation/types';
-import { type ArchiverEmitter, L2BlockSourceEvents, type ValidateCheckpointResult } from '@aztec/stdlib/block';
-import { Checkpoint, type CheckpointData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
+import {
+  type ArchiverEmitter,
+  type CommitteeAttestation,
+  L2BlockSourceEvents,
+  type ValidateCheckpointResult,
+} from '@aztec/stdlib/block';
+import {
+  Checkpoint,
+  type CheckpointData,
+  type CheckpointInfo,
+  L1PublishedData,
+  PublishedCheckpoint,
+  archiveFromBuffer,
+} from '@aztec/stdlib/checkpoint';
 import { type L1RollupConstants, getEpochAtSlot, getSlotAtNextL1Block } from '@aztec/stdlib/epoch-helpers';
 import { computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import type { CoordinationSignatureContext } from '@aztec/stdlib/p2p';
+import {
+  type L1CheckpointHeader,
+  OutOfRangeFieldError,
+  l1CheckpointHeaderHash,
+  toL1CheckpointHeader,
+} from '@aztec/stdlib/rollup';
 import { type Traceable, type Tracer, execInSpan, trackSpan } from '@aztec/telemetry-client';
 
 import { InitialCheckpointNumberNotSequentialError } from '../errors.js';
@@ -39,7 +57,35 @@ import { MessageStoreError } from '../store/message_store.js';
 import type { InboxMessage } from '../structs/inbox_message.js';
 import { ArchiverDataStoreUpdater } from './data_store_updater.js';
 import type { ArchiverInstrumentation } from './instrumentation.js';
-import { validateCheckpointAttestations } from './validation.js';
+import { type CheckpointForValidation, validateCheckpointAttestations } from './validation.js';
+
+/** Byte-level equality of two archive roots, regardless of whether each is carried as an Fr or raw Buffer32. */
+function archiveRootsEqual(a: Fr | Buffer32, b: Fr | Buffer32): boolean {
+  return a.toString() === b.toString();
+}
+
+/**
+ * A checkpoint observed on L1 in its raw form, used to validate attestations and classify the checkpoint as
+ * valid/invalid/descendant-of-rejected before any blob fetch or Fr/CheckpointHeader conversion. Either a freshly
+ * retrieved calldata checkpoint or one promoted from local proposed data (already in range).
+ */
+type RawCheckpointEntry = {
+  checkpointNumber: CheckpointNumber;
+  header: L1CheckpointHeader;
+  /** Raw archive root, used for digest/validation; may be out of range. */
+  archiveRoot: Buffer32;
+  /** Archive root normalized to Fr when in range, used for persisted records and emitted events. */
+  normalizedArchiveRoot: Fr | Buffer32;
+  feeAssetPriceModifier: bigint;
+  attestations: CommitteeAttestation[];
+  l1: L1PublishedData;
+  /** `lastArchiveRoot` of this checkpoint (always in range), as Fr, for rejected-ancestor lookups. */
+  lastArchiveRoot: Fr;
+  slotNumber: SlotNumber;
+} & (
+  | { kind: 'calldata'; calldata: RetrievedCheckpointFromCalldata }
+  | { kind: 'promoted'; promoted: PublishedCheckpoint }
+);
 
 type RollupStatus = {
   provenCheckpointNumber: CheckpointNumber;
@@ -678,7 +724,7 @@ export class ArchiverL1Synchronizer implements Traceable {
 
       if (
         localCheckpointForDestinationProvenCheckpointNumber &&
-        provenArchive.equals(localCheckpointForDestinationProvenCheckpointNumber.archive.root)
+        archiveRootsEqual(provenArchive, localCheckpointForDestinationProvenCheckpointNumber.archive.root)
       ) {
         const localProvenCheckpointNumber = await this.stores.blocks.getProvenCheckpointNumber();
         if (localProvenCheckpointNumber !== provenCheckpointNumber) {
@@ -740,7 +786,8 @@ export class ArchiverL1Synchronizer implements Traceable {
         return rollupStatus;
       }
 
-      const localPendingCheckpointInChain = archiveForLocalPendingCheckpointNumber.equals(
+      const localPendingCheckpointInChain = archiveRootsEqual(
+        archiveForLocalPendingCheckpointNumber,
         localPendingCheckpoint.archive.root,
       );
       if (!localPendingCheckpointInChain) {
@@ -768,7 +815,7 @@ export class ArchiverL1Synchronizer implements Traceable {
               archiveLocal: candidateCheckpoint.archive.root.toString(),
             },
           );
-          if (archiveAtContract.equals(candidateCheckpoint.archive.root)) {
+          if (archiveRootsEqual(archiveAtContract, candidateCheckpoint.archive.root)) {
             break;
           }
           tipAfterUnwind--;
@@ -835,37 +882,65 @@ export class ArchiverL1Synchronizer implements Traceable {
       const evictProposedFrom =
         promoteResult && 'diverged' in promoteResult ? promoteResult.fromCheckpointNumber : undefined;
 
-      // Then fetch blobs in parallel and build the full published checkpoints
-      const toFetchBlobs = checkpointToPromote ? calldataCheckpoints.slice(0, -1) : calldataCheckpoints;
-      const blobFetched = await asyncPool(10, toFetchBlobs, async checkpoint =>
-        retrievedToPublishedCheckpoint({
-          ...checkpoint,
-          checkpointBlobData: await getCheckpointBlobDataFromBlobs(
-            this.blobClient,
-            checkpoint.l1.blockHash,
-            checkpoint.blobHashes,
-            checkpoint.checkpointNumber,
-            this.log,
-            !initialSyncComplete,
-            checkpoint.parentBeaconBlockRoot,
-            checkpoint.l1.timestamp,
-          ),
-        }),
-      );
+      // Build the per-checkpoint raw view used for attestation validation. We validate BEFORE building the
+      // PublishedCheckpoint (which requires blob fetch and Fr/CheckpointHeader conversion), so a malicious
+      // out-of-range header/archive is rejected via the normal insufficient/invalid-attestations path
+      // instead of throwing during decode and stalling the L1 sync point (A-1254). The promoted checkpoint
+      // (built from local, in-range proposed data) is folded in via its raw form.
+      const promotedRaw: RawCheckpointEntry[] = checkpointToPromote
+        ? [
+            {
+              kind: 'promoted',
+              checkpointNumber: checkpointToPromote.checkpoint.number,
+              header: toL1CheckpointHeader(checkpointToPromote.checkpoint.header),
+              archiveRoot: Buffer32.fromField(checkpointToPromote.checkpoint.archive.root),
+              normalizedArchiveRoot: checkpointToPromote.checkpoint.archive.root,
+              feeAssetPriceModifier: checkpointToPromote.checkpoint.feeAssetPriceModifier,
+              attestations: checkpointToPromote.attestations,
+              l1: checkpointToPromote.l1,
+              lastArchiveRoot: checkpointToPromote.checkpoint.header.lastArchiveRoot,
+              slotNumber: checkpointToPromote.checkpoint.header.slotNumber,
+              promoted: checkpointToPromote,
+            },
+          ]
+        : [];
+      const calldataRaw: RawCheckpointEntry[] = (
+        checkpointToPromote ? calldataCheckpoints.slice(0, -1) : calldataCheckpoints
+      ).map(checkpoint => ({
+        kind: 'calldata',
+        checkpointNumber: checkpoint.checkpointNumber,
+        header: checkpoint.header,
+        archiveRoot: checkpoint.archiveRoot,
+        normalizedArchiveRoot: archiveFromBuffer(checkpoint.archiveRoot.toBuffer()),
+        feeAssetPriceModifier: checkpoint.feeAssetPriceModifier,
+        attestations: checkpoint.attestations,
+        l1: checkpoint.l1,
+        lastArchiveRoot: Fr.fromString(checkpoint.header.lastArchiveRoot),
+        slotNumber: SlotNumber.fromBigInt(checkpoint.header.slotNumber),
+        calldata: checkpoint,
+      }));
+      // Calldata checkpoints come first (in their L1 order), then the promoted one (the latest tip).
+      const rawCheckpoints: RawCheckpointEntry[] = [...calldataRaw, ...promotedRaw];
 
-      // And add the promoted checkpoint to the list of all checkpoints
-      const publishedCheckpoints = checkpointToPromote ? [...blobFetched, checkpointToPromote] : blobFetched;
       const validCheckpoints: PublishedCheckpoint[] = [];
 
-      // Now loop through all checkpoints and validate their attestations
-      for (const published of publishedCheckpoints) {
+      // Validate attestations and classify each checkpoint before any blob fetch / Fr conversion.
+      for (const raw of rawCheckpoints) {
+        const validationInput: CheckpointForValidation = {
+          checkpointNumber: raw.checkpointNumber,
+          header: raw.header,
+          archiveRoot: raw.archiveRoot,
+          feeAssetPriceModifier: raw.feeAssetPriceModifier,
+          attestations: raw.attestations,
+        };
+
         // Check the attestations uploaded by the publisher to L1 are correct
         // Rollup contract does not validate attestations to save on gas, so this
         // falls on the nodes to verify offchain and skip those checkpoints.
         const validationResult = this.config.skipValidateCheckpointAttestations
           ? { valid: true as const }
           : await validateCheckpointAttestations(
-              published,
+              validationInput,
               this.epochCache,
               this.l1Constants,
               this.getSignatureContext(),
@@ -876,9 +951,7 @@ export class ArchiverL1Synchronizer implements Traceable {
         // this, addCheckpoints would throw InitialCheckpointNumberNotSequentialError when the
         // ancestor was skipped earlier (e.g. due to invalid attestations), the catch handler
         // would roll back the L1 sync point, and the next iteration would re-fetch and re-throw.
-        const rejectedAncestor = await this.stores.blocks.getRejectedCheckpointByArchiveRoot(
-          published.checkpoint.header.lastArchiveRoot,
-        );
+        const rejectedAncestor = await this.stores.blocks.getRejectedCheckpointByArchiveRoot(raw.lastArchiveRoot);
 
         // Update the validation result if it has changed, so we can keep track of the first invalid checkpoint
         // in case there is a sequence of more than one invalid checkpoint, as we need to invalidate the first one.
@@ -899,9 +972,9 @@ export class ArchiverL1Synchronizer implements Traceable {
         }
 
         if (!validationResult.valid) {
-          this.log.warn(`Skipping checkpoint ${published.checkpoint.number} due to invalid attestations`, {
-            checkpointHash: published.checkpoint.hash(),
-            l1BlockNumber: published.l1.blockNumber,
+          this.log.warn(`Skipping checkpoint ${raw.checkpointNumber} due to invalid attestations`, {
+            checkpointNumber: raw.checkpointNumber,
+            l1BlockNumber: raw.l1.blockNumber,
             ...pick(validationResult, 'reason'),
           });
 
@@ -915,11 +988,11 @@ export class ArchiverL1Synchronizer implements Traceable {
           // is detected and skipped (rather than tripping the addCheckpoints consecutive-number
           // check and causing the sync point to roll back in a loop).
           await this.stores.blocks.addRejectedCheckpoint({
-            checkpointNumber: published.checkpoint.number,
-            archiveRoot: published.checkpoint.archive.root,
-            parentArchiveRoot: published.checkpoint.header.lastArchiveRoot,
-            slotNumber: published.checkpoint.header.slotNumber,
-            l1: published.l1,
+            checkpointNumber: raw.checkpointNumber,
+            archiveRoot: raw.normalizedArchiveRoot,
+            parentArchiveRoot: raw.lastArchiveRoot,
+            slotNumber: raw.slotNumber,
+            l1: raw.l1,
             reason: 'invalid-attestations' as const,
           });
 
@@ -927,15 +1000,20 @@ export class ArchiverL1Synchronizer implements Traceable {
         }
 
         if (rejectedAncestor) {
-          const descendantInfo = published.checkpoint.toCheckpointInfo();
+          const descendantInfo: CheckpointInfo = {
+            archive: raw.normalizedArchiveRoot,
+            lastArchive: raw.lastArchiveRoot,
+            slotNumber: raw.slotNumber,
+            checkpointNumber: raw.checkpointNumber,
+            timestamp: raw.header.timestamp,
+          };
           this.log.warn(
-            `Skipping checkpoint ${published.checkpoint.number} as it is a descendant of ` +
+            `Skipping checkpoint ${raw.checkpointNumber} as it is a descendant of ` +
               `rejected checkpoint ${rejectedAncestor.checkpointNumber} (${rejectedAncestor.reason})`,
             {
-              checkpointNumber: published.checkpoint.number,
-              checkpointHash: published.checkpoint.hash(),
-              l1BlockNumber: published.l1.blockNumber,
-              l1BlockHash: published.l1.blockHash,
+              checkpointNumber: raw.checkpointNumber,
+              l1BlockNumber: raw.l1.blockNumber,
+              l1BlockHash: raw.l1.blockHash,
               ancestorCheckpointNumber: rejectedAncestor.checkpointNumber,
               ancestorArchiveRoot: rejectedAncestor.archiveRoot.toString(),
               ancestorReason: rejectedAncestor.reason,
@@ -952,15 +1030,48 @@ export class ArchiverL1Synchronizer implements Traceable {
           // Persist this chainpoint as rejected as well, so we can construct a chain of
           // skipped checkpoints starting from the first one with invalid attestations.
           await this.stores.blocks.addRejectedCheckpoint({
-            checkpointNumber: published.checkpoint.number,
-            archiveRoot: published.checkpoint.archive.root,
-            parentArchiveRoot: published.checkpoint.header.lastArchiveRoot,
-            slotNumber: published.checkpoint.header.slotNumber,
-            l1: published.l1,
+            checkpointNumber: raw.checkpointNumber,
+            archiveRoot: raw.normalizedArchiveRoot,
+            parentArchiveRoot: raw.lastArchiveRoot,
+            slotNumber: raw.slotNumber,
+            l1: raw.l1,
             reason: 'descends-from-invalid-attestations' as const,
           });
 
           continue;
+        }
+
+        // Build the full PublishedCheckpoint for a checkpoint that passed validation. This is the ingestion
+        // boundary where the raw header/archive root are converted to CheckpointHeader/Fr. Because attestations
+        // validated, an out-of-range field here means a committee quorum signed an out-of-range header — a
+        // catastrophic, Fix-2-unreachable state we deliberately surface (fail loud) rather than recover from.
+        let published: PublishedCheckpoint;
+        try {
+          published =
+            raw.kind === 'promoted'
+              ? raw.promoted
+              : await retrievedToPublishedCheckpoint({
+                  ...raw.calldata,
+                  checkpointBlobData: await getCheckpointBlobDataFromBlobs(
+                    this.blobClient,
+                    raw.calldata.l1.blockHash,
+                    raw.calldata.blobHashes,
+                    raw.calldata.checkpointNumber,
+                    this.log,
+                    !initialSyncComplete,
+                    raw.calldata.parentBeaconBlockRoot,
+                    raw.calldata.l1.timestamp,
+                  ),
+                });
+        } catch (err) {
+          if (isErrorClass(err, OutOfRangeFieldError)) {
+            this.log.fatal(
+              `Checkpoint ${raw.checkpointNumber} carries out-of-range header/archive fields yet its attestations ` +
+                `validated. A committee quorum signed an out-of-range header — refusing to ingest.`,
+              { checkpointNumber: raw.checkpointNumber, fields: err.fields, l1BlockNumber: raw.l1.blockNumber },
+            );
+          }
+          throw err;
         }
 
         // Check the inHash of the checkpoint against the l1->l2 messages.
@@ -1095,7 +1206,10 @@ export class ArchiverL1Synchronizer implements Traceable {
         });
       }
       lastRetrievedCheckpoint = validCheckpoints.at(-1) ?? lastRetrievedCheckpoint;
-      lastSeenCheckpoint = publishedCheckpoints.at(-1) ?? lastSeenCheckpoint;
+      // Invalid checkpoints are no longer built into PublishedCheckpoints; they are persisted as rejected
+      // entries, so the reorg fallback in checkForNewCheckpointsBeforeL1SyncPoint recovers their L1 block via
+      // getLatestRejectedCheckpointNumber / getRejectedCheckpointByNumber.
+      lastSeenCheckpoint = validCheckpoints.at(-1) ?? lastSeenCheckpoint;
     } while (searchEndBlock < currentL1BlockNumber);
 
     // Important that we update AFTER inserting the blocks.
@@ -1125,9 +1239,13 @@ export class ArchiverL1Synchronizer implements Traceable {
       return undefined;
     }
 
+    // The calldata header is raw (L1CheckpointHeader) and may be out of range; compare by header hash and
+    // archive root bytes rather than converting it into a CheckpointHeader (which could throw).
     if (
-      !proposed.header.equals(calldataCheckpoint.header) ||
-      !proposed.archive.root.equals(calldataCheckpoint.archiveRoot)
+      !l1CheckpointHeaderHash(toL1CheckpointHeader(proposed.header)).equals(
+        l1CheckpointHeaderHash(calldataCheckpoint.header),
+      ) ||
+      !archiveRootsEqual(proposed.archive.root, calldataCheckpoint.archiveRoot)
     ) {
       this.log.warn(
         `Local proposed checkpoint ${proposed.checkpointNumber} does not match checkpoint retrieved from L1, overriding with L1 data`,
@@ -1136,7 +1254,7 @@ export class ArchiverL1Synchronizer implements Traceable {
           proposedHeader: proposed.header.toInspect(),
           proposedArchiveRoot: proposed.archive.root.toString(),
           calldataCheckpointNumber: calldataCheckpoint.checkpointNumber,
-          calldataHeader: calldataCheckpoint.header.toInspect(),
+          calldataHeader: calldataCheckpoint.header,
           calldataArchiveRoot: calldataCheckpoint.archiveRoot.toString(),
         },
       );
@@ -1144,10 +1262,10 @@ export class ArchiverL1Synchronizer implements Traceable {
       // slot proposer; emit a divergence event so the slasher can attribute equivocation.
       // Only emit when the slots match — uncheckpointed entries are pruned above so this
       // should always hold, but guard defensively to avoid mis-attributing a slash.
-      if (proposed.header.slotNumber === calldataCheckpoint.header.slotNumber) {
+      if (BigInt(proposed.header.slotNumber) === calldataCheckpoint.header.slotNumber) {
         this.events.emit(L2BlockSourceEvents.CheckpointEquivocationDetected, {
           type: L2BlockSourceEvents.CheckpointEquivocationDetected,
-          slotNumber: calldataCheckpoint.header.slotNumber,
+          slotNumber: SlotNumber.fromBigInt(calldataCheckpoint.header.slotNumber),
           checkpointNumber: calldataCheckpoint.checkpointNumber,
           l1ArchiveRoot: calldataCheckpoint.archiveRoot,
           proposedArchiveRoot: proposed.archive.root,
@@ -1204,13 +1322,15 @@ export class ArchiverL1Synchronizer implements Traceable {
     const { lastSeenCheckpoint, pendingCheckpointNumber } = status;
     // Compare the last checkpoint (valid or not) we have (either retrieved in this round or loaded from store)
     // with what the rollup contract told us was the latest one (pinned at the currentL1BlockNumber).
+    // Invalid checkpoints are persisted as rejected entries (not as PublishedCheckpoints), so the latest
+    // rejected number must always be folded in — otherwise a freshly-rejected tip would be treated as
+    // "behind L1" and trigger a spurious sync-point rollback.
     const latestLocalCheckpointNumber =
-      lastSeenCheckpoint?.checkpoint.number ??
       CheckpointNumber.max(
+        lastSeenCheckpoint?.checkpoint.number ?? CheckpointNumber.ZERO,
         await this.stores.blocks.getLatestCheckpointNumber(),
         await this.stores.blocks.getLatestRejectedCheckpointNumber(),
-      ) ??
-      CheckpointNumber.ZERO;
+      ) ?? CheckpointNumber.ZERO;
 
     if (latestLocalCheckpointNumber < pendingCheckpointNumber) {
       // Here we have consumed all logs until the `currentL1Block` we pinned at the beginning of the archiver loop,

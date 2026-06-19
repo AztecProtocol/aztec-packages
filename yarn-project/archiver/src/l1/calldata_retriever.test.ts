@@ -11,9 +11,13 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { withHexPrefix } from '@aztec/foundation/string';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { Signature } from '@aztec/stdlib/block';
-import { GasFees } from '@aztec/stdlib/gas';
-import { ConsensusPayload, getHashedSignaturePayloadTypedData } from '@aztec/stdlib/p2p';
-import { CheckpointHeader } from '@aztec/stdlib/rollup';
+import { computeCheckpointPayloadDigest } from '@aztec/stdlib/checkpoint';
+import {
+  CheckpointHeader,
+  l1CheckpointHeaderHash,
+  toCheckpointHeader,
+  toL1CheckpointHeader,
+} from '@aztec/stdlib/rollup';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -106,7 +110,7 @@ describe('CalldataRetriever', () => {
   });
 
   function makeViemHeader(): ViemHeader {
-    return CheckpointHeader.random().toViem();
+    return toL1CheckpointHeader(CheckpointHeader.random());
   }
 
   function makeViemCommitteeAttestations(): ViemCommitteeAttestations {
@@ -187,8 +191,8 @@ describe('CalldataRetriever', () => {
       const result = await retriever.getCheckpointFromRollupTx(txHash, [], checkpointNumber, hashes);
 
       expect(result.checkpointNumber).toBe(checkpointNumber);
-      expect(result.header).toBeInstanceOf(CheckpointHeader);
-      expect(result.archiveRoot).toBeInstanceOf(Fr);
+      expect(toCheckpointHeader(result.header)).toBeInstanceOf(CheckpointHeader);
+      expect(result.archiveRoot).toBeInstanceOf(Buffer32);
       expect(Array.isArray(result.attestations)).toBe(true);
       expect(result.blockHash).toBe(tx.blockHash);
       expect(instrumentation.recordBlockProposalTxTarget).toHaveBeenCalledWith(MULTI_CALL_3_ADDRESS, false);
@@ -211,7 +215,7 @@ describe('CalldataRetriever', () => {
       const result = await retriever.getCheckpointFromRollupTx(txHash, [], checkpointNumber, hashes);
 
       expect(result.checkpointNumber).toBe(checkpointNumber);
-      expect(result.header).toBeInstanceOf(CheckpointHeader);
+      expect(toCheckpointHeader(result.header)).toBeInstanceOf(CheckpointHeader);
       expect(instrumentation.recordBlockProposalTxTarget).toHaveBeenCalledWith(rollupAddress.toString(), false);
     });
 
@@ -329,7 +333,7 @@ describe('CalldataRetriever', () => {
       });
 
       expect(result.checkpointNumber).toBe(checkpointNumber);
-      expect(result.header).toBeInstanceOf(CheckpointHeader);
+      expect(toCheckpointHeader(result.header)).toBeInstanceOf(CheckpointHeader);
     });
 
     it('should throw when attestationsHash does not match', async () => {
@@ -379,14 +383,14 @@ describe('CalldataRetriever', () => {
       const tx = makeMulticall3Transaction([{ target: rollupAddress.toString(), callData: proposeCalldata }]);
       publicClient.getTransaction.mockResolvedValue(tx);
 
-      // Compute the expected payloadDigest using the same EIP-712 typed data hash
+      // Compute the expected payloadDigest using the same raw EIP-712 typed data hash
       // that CalldataRetriever.computePayloadDigest uses under the hood.
-      const checkpointHeader = CheckpointHeader.fromViem(header);
-      const consensusPayload = new ConsensusPayload(checkpointHeader, archiveRoot, feeAssetPriceModifier, {
-        chainId: 1,
-        rollupAddress,
-      });
-      const expectedPayloadDigest = getHashedSignaturePayloadTypedData(consensusPayload).toString() as Hex;
+      const expectedPayloadDigest = computeCheckpointPayloadDigest({
+        headerHash: l1CheckpointHeaderHash(header),
+        archiveRoot,
+        feeAssetPriceModifier,
+        signatureContext: { chainId: 1, rollupAddress },
+      }).toString() as Hex;
 
       // Mock only attestationsHash computation; use real payloadDigest
       jest
@@ -399,7 +403,7 @@ describe('CalldataRetriever', () => {
       });
 
       expect(result.checkpointNumber).toBe(checkpointNumber);
-      expect(result.header).toBeInstanceOf(CheckpointHeader);
+      expect(toCheckpointHeader(result.header)).toBeInstanceOf(CheckpointHeader);
     });
 
     it('should throw when payloadDigest does not match', async () => {
@@ -431,8 +435,8 @@ describe('CalldataRetriever', () => {
       const result = retriever.tryDecodeMulticall3(tx, hashes, checkpointNumber, blockHash as Hex);
 
       expect(result).toBeDefined();
-      expect(result!.header).toBeInstanceOf(CheckpointHeader);
-      expect(result!.archiveRoot).toBeInstanceOf(Fr);
+      expect(toCheckpointHeader(result!.header)).toBeInstanceOf(CheckpointHeader);
+      expect(result!.archiveRoot).toBeInstanceOf(Buffer32);
       expect(result!.checkpointNumber).toBe(checkpointNumber);
     });
 
@@ -452,7 +456,7 @@ describe('CalldataRetriever', () => {
       const result = retriever.tryDecodeMulticall3(tx, hashes, checkpointNumber, blockHash as Hex);
 
       expect(result).toBeDefined();
-      expect(result!.header).toBeInstanceOf(CheckpointHeader);
+      expect(toCheckpointHeader(result!.header)).toBeInstanceOf(CheckpointHeader);
     });
 
     it('should decode multicall3 with unknown calls when propose is hash-verified', () => {
@@ -467,7 +471,7 @@ describe('CalldataRetriever', () => {
 
       const result = retriever.tryDecodeMulticall3(tx, hashes, checkpointNumber, blockHash as Hex);
       expect(result).toBeDefined();
-      expect(result!.header).toBeInstanceOf(CheckpointHeader);
+      expect(toCheckpointHeader(result!.header)).toBeInstanceOf(CheckpointHeader);
     });
 
     it('should return first when multiple propose candidates all verify (with warning)', () => {
@@ -483,7 +487,7 @@ describe('CalldataRetriever', () => {
       const warnSpy = jest.spyOn(logger, 'warn');
       const result = retriever.tryDecodeMulticall3(tx, hashes, checkpointNumber, blockHash as Hex);
       expect(result).toBeDefined();
-      expect(result!.header).toBeInstanceOf(CheckpointHeader);
+      expect(toCheckpointHeader(result!.header)).toBeInstanceOf(CheckpointHeader);
       expect(warnSpy).toHaveBeenCalledWith(
         expect.stringContaining('Multiple propose candidates verified'),
         expect.any(Object),
@@ -502,8 +506,8 @@ describe('CalldataRetriever', () => {
         if (calldata === proposeCalldata1) {
           return {
             checkpointNumber,
-            archiveRoot: Fr.random(),
-            header: CheckpointHeader.random(),
+            archiveRoot: Buffer32.fromField(Fr.random()),
+            header: toL1CheckpointHeader(CheckpointHeader.random()),
             attestations: [],
             blockHash,
             feeAssetPriceModifier: 0n,
@@ -654,8 +658,8 @@ describe('CalldataRetriever', () => {
       const result = retriever.tryDecodeDirectPropose(tx, hashes, checkpointNumber, blockHash as Hex);
 
       expect(result).toBeDefined();
-      expect(result!.header).toBeInstanceOf(CheckpointHeader);
-      expect(result!.archiveRoot).toBeInstanceOf(Fr);
+      expect(toCheckpointHeader(result!.header)).toBeInstanceOf(CheckpointHeader);
+      expect(result!.archiveRoot).toBeInstanceOf(Buffer32);
       expect(result!.checkpointNumber).toBe(checkpointNumber);
     });
 
@@ -1148,8 +1152,8 @@ describe('CalldataRetriever', () => {
 
       expect(result).toBeDefined();
       expect(result!.checkpointNumber).toBe(checkpointNumber);
-      expect(result!.header).toBeInstanceOf(CheckpointHeader);
-      expect(result!.archiveRoot).toBeInstanceOf(Fr);
+      expect(toCheckpointHeader(result!.header)).toBeInstanceOf(CheckpointHeader);
+      expect(result!.archiveRoot).toBeInstanceOf(Buffer32);
       expect(Array.isArray(result!.attestations)).toBe(true);
       expect(result!.blockHash).toBe(blockHash);
     });
@@ -1239,14 +1243,14 @@ describe('CalldataRetriever', () => {
 
       expect(result).toBeDefined();
       expect(result.checkpointNumber).toBe(checkpointNumber);
-      expect(result.header).toBeInstanceOf(CheckpointHeader);
-      expect(result.archiveRoot).toBeInstanceOf(Fr);
+      expect(toCheckpointHeader(result.header)).toBeInstanceOf(CheckpointHeader);
+      expect(result.archiveRoot).toBeInstanceOf(Buffer32);
       expect(Array.isArray(result.attestations)).toBe(true);
       expect(result.blockHash).toBe(tx.blockHash);
 
       // Verify all components are properly decoded
-      expect(result.header.inHash).toBeInstanceOf(Fr);
-      expect(result.header.gasFees).toBeInstanceOf(GasFees);
+      expect(typeof result.header.inHash).toBe('string');
+      expect(typeof result.header.gasFees.feePerDaGas).toBe('bigint');
 
       // Verify instrumentation was called
       expect(instrumentation.recordBlockProposalTxTarget).toHaveBeenCalledWith(MULTI_CALL_3_ADDRESS, false);
@@ -1313,14 +1317,14 @@ describe('CalldataRetriever', () => {
 
       expect(result).toBeDefined();
       expect(result.checkpointNumber).toBe(checkpointNumber);
-      expect(result.header).toBeInstanceOf(CheckpointHeader);
-      expect(result.archiveRoot).toBeInstanceOf(Fr);
+      expect(toCheckpointHeader(result.header)).toBeInstanceOf(CheckpointHeader);
+      expect(result.archiveRoot).toBeInstanceOf(Buffer32);
       expect(Array.isArray(result.attestations)).toBe(true);
       expect(result.blockHash).toBe(blockHash);
 
       // Verify all components are properly decoded
-      expect(result.header.inHash).toBeInstanceOf(Fr);
-      expect(result.header.gasFees).toBeInstanceOf(GasFees);
+      expect(typeof result.header.inHash).toBe('string');
+      expect(typeof result.header.gasFees.feePerDaGas).toBe('bigint');
 
       // Verify proxy implementation was checked
       expect(publicClient.getStorageAt).toHaveBeenCalled();
@@ -1347,8 +1351,8 @@ describe('CalldataRetriever', () => {
       const result = await retriever.getCheckpointFromRollupTx(txHash, [], checkpointNumber, hashes);
 
       expect(result.checkpointNumber).toBe(checkpointNumber);
-      expect(result.header).toBeInstanceOf(CheckpointHeader);
-      expect(result.archiveRoot).toBeInstanceOf(Fr);
+      expect(toCheckpointHeader(result.header)).toBeInstanceOf(CheckpointHeader);
+      expect(result.archiveRoot).toBeInstanceOf(Buffer32);
       expect(instrumentation.recordBlockProposalTxTarget).toHaveBeenCalledWith(MULTI_CALL_3_ADDRESS, false);
     });
 
@@ -1423,7 +1427,7 @@ describe('CalldataRetriever', () => {
       const result = await retriever.getCheckpointFromRollupTx(txHash, [], checkpointNumber, hashes);
 
       expect(result.checkpointNumber).toBe(checkpointNumber);
-      expect(result.header).toBeInstanceOf(CheckpointHeader);
+      expect(toCheckpointHeader(result.header)).toBeInstanceOf(CheckpointHeader);
       expect(instrumentation.recordBlockProposalTxTarget).toHaveBeenCalledWith(SPIRE_PROPOSER_ADDRESS, false);
     });
 

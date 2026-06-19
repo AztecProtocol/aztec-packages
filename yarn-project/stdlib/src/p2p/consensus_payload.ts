@@ -1,3 +1,4 @@
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { keccak256 } from '@aztec/foundation/crypto/keccak';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { schemas } from '@aztec/foundation/schemas';
@@ -21,6 +22,30 @@ import {
   readCoordinationSignatureContext,
   serializeCoordinationSignatureContext,
 } from './signature_utils.js';
+
+/**
+ * Encodes the L1 `ProposePayload` (archive, oracleInput, headerHash) that validators sign and the rollup
+ * verifies during `propose()`. Works on raw 32-byte values, so it can encode an out-of-range archive root
+ * or header hash (the bytes are taken verbatim). Mirrors `ConsensusPayload.getPayloadToSign`.
+ */
+export function encodeCheckpointPayloadToSign(
+  archiveRoot: Fr | Buffer32,
+  headerHash: Fr,
+  feeAssetPriceModifier: bigint,
+): Buffer {
+  // Matches the L1 ProposePayload struct in ProposeLib.sol.
+  const abi = parseAbiParameters(
+    '(' +
+      'bytes32, ' + // archive
+      '(int256), ' + // oracleInput
+      'bytes32' + // headerHash
+      ')',
+  );
+  const encodedData = encodeAbiParameters(abi, [
+    [archiveRoot.toString(), [feeAssetPriceModifier], headerHash.toString()],
+  ] as const);
+  return hexToBuffer(encodedData);
+}
 
 /** Checkpoint consensus payload as signed by validators and verified on L1. */
 export class ConsensusPayload implements Signable {
@@ -55,19 +80,7 @@ export class ConsensusPayload implements Signable {
   }
 
   getPayloadToSign(): Buffer {
-    // Matches the L1 ProposePayload struct in ProposeLib.sol.
-    const abi = parseAbiParameters(
-      '(' +
-        'bytes32, ' + // archive
-        '(int256), ' + // oracleInput
-        'bytes32' + // headerHash
-        ')',
-    );
-    const archiveRoot = this.archive.toString();
-    const headerHash = this.header.hash().toString();
-    const encodedData = encodeAbiParameters(abi, [[archiveRoot, [this.feeAssetPriceModifier], headerHash]] as const);
-
-    return hexToBuffer(encodedData);
+    return encodeCheckpointPayloadToSign(this.archive, this.header.hash(), this.feeAssetPriceModifier);
   }
 
   /**

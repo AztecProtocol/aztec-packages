@@ -1,3 +1,4 @@
+import type { Buffer32 } from '@aztec/foundation/buffer';
 import { recoverAddress } from '@aztec/foundation/crypto/secp256k1-signer';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 
@@ -47,8 +48,17 @@ export function getAttestationInfoFromPayload(
   payload: ConsensusPayload,
   attestations: CommitteeAttestation[],
 ): AttestationInfo[] {
-  const hashedPayload = getHashedSignaturePayloadTypedData(payload);
+  return getAttestationInfoFromDigest(getHashedSignaturePayloadTypedData(payload), attestations);
+}
 
+/**
+ * Extracts attestation information given a precomputed consensus digest. Used when the digest must be derived
+ * from raw (possibly out-of-range) header/archive bytes without building a full ConsensusPayload (see A-1254).
+ */
+export function getAttestationInfoFromDigest(
+  hashedPayload: Buffer32,
+  attestations: CommitteeAttestation[],
+): AttestationInfo[] {
   return attestations.map(attestation => {
     // If signature is empty, check if we have an address directly
     if (attestation.signature.isEmpty()) {

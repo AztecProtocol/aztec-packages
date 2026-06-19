@@ -17,6 +17,7 @@ import type {
 import type { ViemPublicClient, ViemPublicDebugClient } from '@aztec/ethereum/types';
 import { asyncPool } from '@aztec/foundation/async-pool';
 import { CheckpointNumber, IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -24,7 +25,7 @@ import { RollupAbi } from '@aztec/l1-artifacts';
 import { Body, CommitteeAttestation, L2Block } from '@aztec/stdlib/block';
 import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import { Proof } from '@aztec/stdlib/proofs';
-import { CheckpointHeader } from '@aztec/stdlib/rollup';
+import { type L1CheckpointHeader, toCheckpointHeader } from '@aztec/stdlib/rollup';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { BlockHeader, GlobalVariables, PartialStateReference, StateReference } from '@aztec/stdlib/tx';
 
@@ -38,9 +39,11 @@ import { CalldataRetriever } from './calldata_retriever.js';
 
 type RetrievedCheckpointBase = {
   checkpointNumber: CheckpointNumber;
-  archiveRoot: Fr;
+  // Raw archive root and header from L1 calldata. They may carry out-of-range field values and are only
+  // converted to Fr/CheckpointHeader at the ingestion boundary, after attestation validation (see A-1254).
+  archiveRoot: Buffer32;
   feeAssetPriceModifier: bigint;
-  header: CheckpointHeader;
+  header: L1CheckpointHeader;
   l1: L1PublishedData;
   chainId: Fr;
   version: Fr;
@@ -60,15 +63,21 @@ export type RetrievedCheckpointFromCalldata = RetrievedCheckpointBase & {
 
 export async function retrievedToPublishedCheckpoint({
   checkpointNumber,
-  archiveRoot,
+  archiveRoot: rawArchiveRoot,
   feeAssetPriceModifier,
-  header: checkpointHeader,
+  header: rawCheckpointHeader,
   checkpointBlobData,
   l1,
   chainId,
   version,
   attestations,
 }: RetrievedCheckpoint): Promise<PublishedCheckpoint> {
+  // Ingestion boundary: convert the raw header/archive root into validated Fr-valued domain types. The
+  // synchronizer only builds a published checkpoint for entries whose attestations validated, so reaching
+  // an out-of-range field here is the catastrophic "a quorum signed an out-of-range header" case (A-1254
+  // Fix 2 makes it unreachable on a patched chain); toCheckpointHeader/Fr surface it loudly by throwing.
+  const checkpointHeader = toCheckpointHeader(rawCheckpointHeader);
+  const archiveRoot = Fr.fromString(rawArchiveRoot.toString());
   const { blocks: blocksBlobData } = checkpointBlobData;
 
   // The lastArchiveRoot of a block is the new archive for the previous block.

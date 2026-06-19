@@ -126,7 +126,7 @@ describe('AttestationsBlockWatcher', () => {
     // (extends a rejected ancestor) for the same checkpoint.
     const childCheckpointInfo: CheckpointInfo = {
       archive: Fr.random(),
-      lastArchive: checkpointInfo.archive, // Parent archive (the rejected ancestor)
+      lastArchive: Fr.fromBuffer(checkpointInfo.archive.toBuffer()), // Parent archive (the rejected ancestor)
       slotNumber: SlotNumber(2),
       checkpointNumber: CheckpointNumber(2),
       timestamp: BigInt(Math.floor(Date.now() / 1000)),
@@ -203,7 +203,7 @@ describe('AttestationsBlockWatcher', () => {
 
     const descendantCheckpointInfo: CheckpointInfo = {
       archive: Fr.random(),
-      lastArchive: checkpointInfo.archive,
+      lastArchive: Fr.fromBuffer(checkpointInfo.archive.toBuffer()),
       slotNumber: SlotNumber(2),
       checkpointNumber: CheckpointNumber(2),
       timestamp: BigInt(Math.floor(Date.now() / 1000)),

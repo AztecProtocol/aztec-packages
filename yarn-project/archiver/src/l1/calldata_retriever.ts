@@ -1,14 +1,14 @@
 import { MULTI_CALL_3_ADDRESS, type ViemCommitteeAttestations, type ViemHeader } from '@aztec/ethereum/contracts';
 import type { ViemPublicClient, ViemPublicDebugClient } from '@aztec/ethereum/types';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { LruSet } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Logger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { CommitteeAttestation } from '@aztec/stdlib/block';
 import { computeCheckpointPayloadDigest } from '@aztec/stdlib/checkpoint';
-import { CheckpointHeader } from '@aztec/stdlib/rollup';
+import { type L1CheckpointHeader, l1CheckpointHeaderHash } from '@aztec/stdlib/rollup';
 
 import {
   type AbiParameter,
@@ -28,11 +28,16 @@ import { getCallsFromSpireProposer } from './spire_proposer.js';
 import { getSuccessfulCallsFromTrace } from './trace_tx.js';
 import type { CallInfo } from './types.js';
 
-/** Decoded checkpoint data from a propose calldata. */
+/**
+ * Decoded checkpoint data from a propose calldata. The header and archive root are kept in their raw,
+ * unvalidated form (a structurally-viem `L1CheckpointHeader` and `Buffer32`) so that a malicious
+ * out-of-range field cannot make decoding throw. The caller (the L1 synchronizer) decides validity and
+ * performs the conversion to `CheckpointHeader`/`Fr` at the ingestion boundary (see A-1254).
+ */
 type CheckpointData = {
   checkpointNumber: CheckpointNumber;
-  archiveRoot: Fr;
-  header: CheckpointHeader;
+  archiveRoot: Buffer32;
+  header: L1CheckpointHeader;
   attestations: CommitteeAttestation[];
   blockHash: string;
   feeAssetPriceModifier: bigint;
@@ -426,9 +431,11 @@ export class CalldataRetriever {
         return undefined;
       }
 
-      // Verify payloadDigest
-      const header = CheckpointHeader.fromViem(decodedArgs.header);
-      const archiveRoot = new Fr(Buffer.from(hexToBytes(decodedArgs.archive)));
+      // Keep the header and archive root raw. We compute the payload digest from the raw header hash and raw
+      // archive bytes (both always in range, even when a field is not), so we can still positively identify the
+      // correct propose candidate for a malicious header without ever converting it into a CheckpointHeader/Fr.
+      const header: L1CheckpointHeader = decodedArgs.header;
+      const archiveRoot = Buffer32.fromString(decodedArgs.archive);
       const feeAssetPriceModifier = decodedArgs.oracleInput.feeAssetPriceModifier;
       const computedPayloadDigest = this.computePayloadDigest(header, archiveRoot, feeAssetPriceModifier);
       if (
@@ -471,10 +478,10 @@ export class CalldataRetriever {
     return keccak256(encodeAbiParameters([this.getCommitteeAttestationsStructDef()], [packedAttestations]));
   }
 
-  /** Computes the keccak256 payload digest from the checkpoint header, archive root, and fee asset price modifier. */
-  private computePayloadDigest(header: CheckpointHeader, archiveRoot: Fr, feeAssetPriceModifier: bigint): Hex {
+  /** Computes the keccak256 payload digest from the raw checkpoint header, archive root, and fee asset price modifier. */
+  private computePayloadDigest(header: L1CheckpointHeader, archiveRoot: Buffer32, feeAssetPriceModifier: bigint): Hex {
     return computeCheckpointPayloadDigest({
-      header,
+      headerHash: l1CheckpointHeaderHash(header),
       archiveRoot,
       feeAssetPriceModifier,
       signatureContext: this.getSignatureContext(),

@@ -1,4 +1,3 @@
-import type { ViemHeader } from '@aztec/ethereum/contracts';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import { sha256ToField } from '@aztec/foundation/crypto/sha256';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -230,49 +229,12 @@ export class CheckpointHeader {
     return CheckpointHeader.fromBuffer(hexToBuffer(str));
   }
 
-  static fromViem(header: ViemHeader) {
-    return new CheckpointHeader(
-      Fr.fromString(header.lastArchiveRoot),
-      Fr.fromString(header.blockHeadersHash),
-      Fr.fromString(header.blobsHash),
-      Fr.fromString(header.inHash),
-      Fr.fromString(header.outHash),
-      SlotNumber.fromBigInt(header.slotNumber),
-      header.timestamp,
-      new EthAddress(hexToBuffer(header.coinbase)),
-      new AztecAddress(hexToBuffer(header.feeRecipient)),
-      new GasFees(header.gasFees.feePerDaGas, header.gasFees.feePerL2Gas),
-      new Fr(header.totalManaUsed),
-      new Fr(header.accumulatedFees),
-    );
-  }
-
   /**
    * Returns the slot number as a SlotNumber branded type.
    * @deprecated Use slotNumber directly instead.
    */
   getSlotNumber(): SlotNumber {
     return this.slotNumber;
-  }
-
-  toViem(): ViemHeader {
-    return {
-      lastArchiveRoot: this.lastArchiveRoot.toString(),
-      blockHeadersHash: this.blockHeadersHash.toString(),
-      blobsHash: this.blobsHash.toString(),
-      inHash: this.inHash.toString(),
-      outHash: this.epochOutHash.toString(),
-      slotNumber: BigInt(this.slotNumber),
-      timestamp: this.timestamp,
-      coinbase: this.coinbase.toString(),
-      feeRecipient: `0x${this.feeRecipient.toBuffer().toString('hex').padStart(64, '0')}`,
-      gasFees: {
-        feePerDaGas: this.gasFees.feePerDaGas,
-        feePerL2Gas: this.gasFees.feePerL2Gas,
-      },
-      totalManaUsed: this.totalManaUsed.toBigInt(),
-      accumulatedFees: this.accumulatedFees.toBigInt(),
-    };
   }
 
   toInspect() {

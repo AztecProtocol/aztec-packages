@@ -80,7 +80,7 @@ import {
   getHashedSignaturePayloadTypedData,
   orderAttestations,
 } from '@aztec/stdlib/p2p';
-import { CheckpointHeader } from '@aztec/stdlib/rollup';
+import { CheckpointHeader, toL1CheckpointHeader } from '@aztec/stdlib/rollup';
 import { fr, mockProcessedTx } from '@aztec/stdlib/testing';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import type { BlockHeader, CheckpointGlobalVariables, ProcessedTx } from '@aztec/stdlib/tx';
@@ -644,7 +644,7 @@ describe('L1Publisher integration', () => {
           functionName: 'propose',
           args: [
             {
-              header: checkpoint.header.toViem(),
+              header: toL1CheckpointHeader(checkpoint.header),
               archive: `0x${block.archive.root.toBuffer().toString('hex')}`,
               oracleInput: {
                 feeAssetPriceModifier: 0n,

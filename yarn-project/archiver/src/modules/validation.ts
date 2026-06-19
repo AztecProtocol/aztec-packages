@@ -1,29 +1,71 @@
 import type { EpochCache } from '@aztec/epoch-cache';
-import { EpochNumber } from '@aztec/foundation/branded-types';
+import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import type { Buffer32 } from '@aztec/foundation/buffer';
 import { compactArray } from '@aztec/foundation/collection';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import type { Logger } from '@aztec/foundation/log';
 import {
   type AttestationInfo,
+  type CommitteeAttestation,
   type ValidateCheckpointNegativeResult,
   type ValidateCheckpointResult,
-  getAttestationInfoFromPayload,
+  getAttestationInfoFromDigest,
 } from '@aztec/stdlib/block';
-import type { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
+import { type CheckpointInfo, computeCheckpointPayloadDigest } from '@aztec/stdlib/checkpoint';
 import { type L1RollupConstants, computeQuorum, getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
-import { ConsensusPayload, type CoordinationSignatureContext } from '@aztec/stdlib/p2p';
+import type { CoordinationSignatureContext } from '@aztec/stdlib/p2p';
+import { type L1CheckpointHeader, l1CheckpointHeaderHash } from '@aztec/stdlib/rollup';
 
 export type { ValidateCheckpointResult };
 
 /**
- * Extracts attestation information from a published checkpoint.
- * Returns info for each attestation, preserving array indices.
+ * Raw checkpoint data needed to validate attestations. The header and archive root are kept in their raw,
+ * possibly out-of-range form (an `L1CheckpointHeader` and `Buffer32`) so that a malicious out-of-range
+ * field cannot make validation throw — its consensus digest is derived purely from the raw header hash and
+ * raw archive bytes, both of which are always in range (see A-1254).
  */
-export function getAttestationInfoFromPublishedCheckpoint(
-  { checkpoint, attestations }: PublishedCheckpoint,
+export type CheckpointForValidation = {
+  checkpointNumber: CheckpointNumber;
+  header: L1CheckpointHeader;
+  archiveRoot: Buffer32;
+  feeAssetPriceModifier: bigint;
+  attestations: CommitteeAttestation[];
+};
+
+/** Builds the CheckpointInfo identifying a (possibly out-of-range) raw checkpoint. */
+function toCheckpointInfo(checkpoint: CheckpointForValidation, header: L1CheckpointHeader): CheckpointInfo {
+  return {
+    archive: checkpoint.archiveRoot,
+    lastArchive: lastArchiveRootToFr(header.lastArchiveRoot),
+    slotNumber: SlotNumber.fromBigInt(header.slotNumber),
+    checkpointNumber: checkpoint.checkpointNumber,
+    timestamp: header.timestamp,
+  };
+}
+
+/**
+ * Returns the `lastArchiveRoot` as an `Fr`. `lastArchiveRoot` is forced equal to the on-chain tip archive,
+ * which is always field-reduced once it has been stored, so this is in range in practice; we reduce defensively.
+ */
+function lastArchiveRootToFr(lastArchiveRoot: `0x${string}`): Fr {
+  return Fr.fromBufferReduce(Buffer.from(lastArchiveRoot.slice(2).padStart(64, '0'), 'hex'));
+}
+
+/**
+ * Extracts attestation information from a raw checkpoint, recovering signers against the consensus digest
+ * built from the raw header hash and raw archive root.
+ */
+export function getAttestationInfoFromCheckpoint(
+  checkpoint: CheckpointForValidation,
   signatureContext: CoordinationSignatureContext,
 ): AttestationInfo[] {
-  const payload = ConsensusPayload.fromCheckpoint(checkpoint, signatureContext);
-  return getAttestationInfoFromPayload(payload, attestations);
+  const hashedPayload = computeCheckpointPayloadDigest({
+    headerHash: l1CheckpointHeaderHash(checkpoint.header),
+    archiveRoot: checkpoint.archiveRoot,
+    feeAssetPriceModifier: checkpoint.feeAssetPriceModifier,
+    signatureContext,
+  });
+  return getAttestationInfoFromDigest(hashedPayload, checkpoint.attestations);
 }
 
 /**
@@ -31,28 +73,31 @@ export function getAttestationInfoFromPublishedCheckpoint(
  * Returns true if the attestations are valid and sufficient, false otherwise.
  */
 export async function validateCheckpointAttestations(
-  publishedCheckpoint: PublishedCheckpoint,
+  checkpoint: CheckpointForValidation,
   epochCache: EpochCache,
   constants: Pick<L1RollupConstants, 'epochDuration'>,
   signatureContext: CoordinationSignatureContext,
   logger?: Logger,
 ): Promise<ValidateCheckpointResult> {
-  const attestorInfos = getAttestationInfoFromPublishedCheckpoint(publishedCheckpoint, signatureContext);
+  const { header, attestations } = checkpoint;
+  const attestorInfos = getAttestationInfoFromCheckpoint(checkpoint, signatureContext);
   const attestors = compactArray(attestorInfos.map(info => ('address' in info ? info.address : undefined)));
-  const { checkpoint, attestations } = publishedCheckpoint;
-  const headerHash = checkpoint.header.hash();
-  const archiveRoot = checkpoint.archive.root.toString();
-  const slot = checkpoint.header.slotNumber;
+  const headerHash = l1CheckpointHeaderHash(header);
+  const archiveRoot = checkpoint.archiveRoot.toString();
+  const slot = SlotNumber.fromBigInt(header.slotNumber);
   const epoch: EpochNumber = getEpochAtSlot(slot, constants);
   const { committee, seed } = await epochCache.getCommitteeForEpoch(epoch);
-  const logData = { checkpointNumber: checkpoint.number, slot, epoch, headerHash, archiveRoot };
+  const logData = { checkpointNumber: checkpoint.checkpointNumber, slot, epoch, headerHash, archiveRoot };
 
-  logger?.debug(`Validating attestations for checkpoint ${checkpoint.number} at slot ${slot} in epoch ${epoch}`, {
-    committee: (committee ?? []).map(member => member.toString()),
-    recoveredAttestors: attestorInfos,
-    postedAttestations: attestations.map(a => (a.address.isZero() ? a.signature : a.address).toString()),
-    ...logData,
-  });
+  logger?.debug(
+    `Validating attestations for checkpoint ${checkpoint.checkpointNumber} at slot ${slot} in epoch ${epoch}`,
+    {
+      committee: (committee ?? []).map(member => member.toString()),
+      recoveredAttestors: attestorInfos,
+      postedAttestations: attestations.map(a => (a.address.isZero() ? a.signature : a.address).toString()),
+      ...logData,
+    },
+  );
 
   if (!committee || committee.length === 0) {
     logger?.warn(
@@ -72,7 +117,7 @@ export async function validateCheckpointAttestations(
   const failedValidationResult = <TReason extends ValidateCheckpointNegativeResult['reason']>(reason: TReason) => ({
     valid: false as const,
     reason,
-    checkpoint: checkpoint.toCheckpointInfo(),
+    checkpoint: toCheckpointInfo(checkpoint, header),
     committee,
     seed,
     epoch,
@@ -123,7 +168,7 @@ export async function validateCheckpointAttestations(
   }
 
   logger?.debug(
-    `Checkpoint attestations validated successfully for checkpoint ${checkpoint.number} at slot ${slot}`,
+    `Checkpoint attestations validated successfully for checkpoint ${checkpoint.checkpointNumber} at slot ${slot}`,
     logData,
   );
   return { valid: true };

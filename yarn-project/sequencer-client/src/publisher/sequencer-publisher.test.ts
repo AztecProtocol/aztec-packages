@@ -24,7 +24,7 @@ import { EmpireBaseAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { CommitteeAttestationsAndSigners, L2Block, Signature } from '@aztec/stdlib/block';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import { EmptyL1RollupConstants } from '@aztec/stdlib/epoch-helpers';
-import { CheckpointHeader } from '@aztec/stdlib/rollup';
+import { CheckpointHeader, toL1CheckpointHeader } from '@aztec/stdlib/rollup';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -251,7 +251,7 @@ describe('SequencerPublisher', () => {
 
     const args = [
       {
-        header: header.toViem(),
+        header: toL1CheckpointHeader(header),
         archive: toHex(archive),
         oracleInput: {
           feeAssetPriceModifier: 0n,

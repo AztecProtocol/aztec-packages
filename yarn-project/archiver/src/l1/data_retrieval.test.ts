@@ -1,9 +1,10 @@
 import { type BlockBlobData, type CheckpointBlobData, makeBlockEndBlobData } from '@aztec/blob-lib/encoding';
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { Body, CommitteeAttestation } from '@aztec/stdlib/block';
 import { L1PublishedData } from '@aztec/stdlib/checkpoint';
-import { CheckpointHeader } from '@aztec/stdlib/rollup';
+import { CheckpointHeader, toL1CheckpointHeader } from '@aztec/stdlib/rollup';
 
 import { type RetrievedCheckpoint, retrievedToPublishedCheckpoint } from './data_retrieval.js';
 
@@ -28,13 +29,13 @@ describe('data_retrieval', () => {
         checkpointEndMarker: { numBlobFields },
       };
 
-      const archiveRoot = Fr.random();
+      const archiveRoot = Buffer32.fromField(Fr.random());
 
       const retrievedCheckpoint: RetrievedCheckpoint = {
         checkpointNumber: CheckpointNumber(1),
         archiveRoot,
         feeAssetPriceModifier: 0n,
-        header: CheckpointHeader.random(),
+        header: toL1CheckpointHeader(CheckpointHeader.random()),
         checkpointBlobData,
         l1: new L1PublishedData(1n, 1000n, '0x1234'),
         chainId: new Fr(1),
@@ -90,13 +91,13 @@ describe('data_retrieval', () => {
         checkpointEndMarker: { numBlobFields: 50 },
       };
 
-      const archiveRoot = Fr.random();
+      const archiveRoot = Buffer32.fromField(Fr.random());
 
       const retrievedCheckpoint: RetrievedCheckpoint = {
         checkpointNumber: CheckpointNumber(1),
         archiveRoot,
         feeAssetPriceModifier: 0n,
-        header: CheckpointHeader.random(),
+        header: toL1CheckpointHeader(CheckpointHeader.random()),
         checkpointBlobData,
         l1: new L1PublishedData(1n, 1000n, '0x1234'),
         chainId: new Fr(1),

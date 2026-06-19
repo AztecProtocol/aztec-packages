@@ -8,6 +8,7 @@ import {
   type SlotNumber,
   SlotNumberSchema,
 } from '@aztec/foundation/branded-types';
+import type { Buffer32 } from '@aztec/foundation/buffer';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { schemas } from '@aztec/foundation/schemas';
@@ -445,7 +446,8 @@ export type CheckpointEquivocationDetectedEvent = {
   type: 'checkpointEquivocationDetected';
   slotNumber: SlotNumber;
   checkpointNumber: CheckpointNumber;
-  l1ArchiveRoot: Fr;
+  /** Archive root from the L1-confirmed checkpoint; may be raw bytes if the malicious header was out of range. */
+  l1ArchiveRoot: Fr | Buffer32;
   proposedArchiveRoot: Fr;
 };
 
@@ -459,8 +461,8 @@ export type DescendentOfInvalidAttestationsCheckpointEvent = {
   type: 'descendentOfInvalidAttestationsCheckpointDetected';
   /** The descendant checkpoint being rejected. */
   checkpoint: CheckpointInfo;
-  /** Archive root of the rejected ancestor this descendant builds on. */
-  ancestorArchiveRoot: Fr;
+  /** Archive root of the rejected ancestor this descendant builds on; may be raw bytes if out of range. */
+  ancestorArchiveRoot: Fr | Buffer32;
   /** Checkpoint number of the rejected ancestor. */
   ancestorCheckpointNumber: CheckpointNumber;
 };
