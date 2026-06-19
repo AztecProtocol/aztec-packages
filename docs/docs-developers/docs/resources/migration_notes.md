@@ -9,6 +9,19 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Prover Node JSON-RPC] Prover API moved to the admin endpoint; `getL2Tips`/`getWorldStateSyncStatus` removed
+
+The prover node's JSON-RPC methods (`prover_*`) have moved off the public node RPC server and onto the admin RPC server. They now require the admin API key and are served on the admin port (8880) instead of the public port (8080).
+
+In addition, `prover_getL2Tips` and `prover_getWorldStateSyncStatus` have been removed from the prover API. They duplicated data already served by the node: use `aztec_getChainTips` (same shape as the old `getL2Tips`) and `aztec_getWorldStateSyncStatus` instead.
+
+If you call the prover RPC directly (e.g. via `curl`), point at the admin endpoint with the API key and use the remaining methods:
+
+- `prover_startProof` — schedule proving for an epoch
+- `prover_getJobs` — list proving jobs
+
+A client factory `createProverNodeAdminClient(url, versions?, fetch?, apiKey?)` is now exported from `@aztec/stdlib/interfaces/server`, and the CLI exposes `aztec prover start-proof --epoch <n> --admin-url <url> --api-key <key>` and `aztec prover get-jobs` (the API key defaults to `AZTEC_ADMIN_API_KEY`).
+
 ### [Aztec.nr] `ContractInstance.contract_class_id` renamed to `original_contract_class_id`
 
 The `contract_class_id` field of the `ContractInstance` struct (returned by `get_contract_instance`) has been renamed to `original_contract_class_id`. The struct is the contract's *address preimage*, so this field is the class id the contract was deployed with: for contracts whose class was later updated via the `ContractInstanceRegistry`, it is NOT the class currently executing. The rename makes that explicit.
