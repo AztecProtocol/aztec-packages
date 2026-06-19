@@ -83,72 +83,7 @@ export {
   type TypeMapping,
 } from './oracle_type_mappings.js';
 
-type OracleRegistryName =
-  | 'aztec_misc_assertCompatibleOracleVersion'
-  | 'aztec_misc_getRandomField'
-  | 'aztec_misc_log'
-  | 'aztec_utl_getUtilityContext'
-  | 'aztec_utl_getKeyValidationRequest'
-  | 'aztec_utl_getContractInstance'
-  | 'aztec_utl_getNoteHashMembershipWitness'
-  | 'aztec_utl_getBlockHashMembershipWitness'
-  | 'aztec_utl_getNullifierMembershipWitness'
-  | 'aztec_utl_getLowNullifierMembershipWitness'
-  | 'aztec_utl_getPublicDataWitness'
-  | 'aztec_utl_getBlockHeader'
-  | 'aztec_utl_getAuthWitness'
-  | 'aztec_utl_getPublicKeysAndPartialAddress'
-  | 'aztec_utl_doesNullifierExist'
-  | 'aztec_utl_getL1ToL2MembershipWitness'
-  | 'aztec_utl_getFromPublicStorage'
-  | 'aztec_utl_getNotes'
-  | 'aztec_utl_getPendingTaggedLogs'
-  | 'aztec_utl_validateAndStoreEnqueuedNotesAndEvents'
-  | 'aztec_utl_getLogsByTag'
-  | 'aztec_utl_getMessageContextsByTxHash'
-  | 'aztec_utl_getTxEffect'
-  | 'aztec_utl_setCapsule'
-  | 'aztec_utl_getCapsule'
-  | 'aztec_utl_deleteCapsule'
-  | 'aztec_utl_copyCapsule'
-  | 'aztec_utl_decryptAes128'
-  | 'aztec_utl_getSharedSecrets'
-  | 'aztec_utl_setContractSyncCacheInvalid'
-  | 'aztec_utl_emitOffchainEffect'
-  | 'aztec_utl_callUtilityFunction'
-  | 'aztec_utl_pushEphemeral'
-  | 'aztec_utl_popEphemeral'
-  | 'aztec_utl_getEphemeral'
-  | 'aztec_utl_setEphemeral'
-  | 'aztec_utl_getEphemeralLen'
-  | 'aztec_utl_removeEphemeral'
-  | 'aztec_utl_clearEphemeral'
-  | 'aztec_utl_pushTransient'
-  | 'aztec_utl_popTransient'
-  | 'aztec_utl_getTransient'
-  | 'aztec_utl_setTransient'
-  | 'aztec_utl_getTransientLen'
-  | 'aztec_utl_removeTransient'
-  | 'aztec_utl_clearTransient'
-  | 'aztec_prv_setHashPreimage'
-  | 'aztec_prv_getHashPreimage'
-  | 'aztec_prv_notifyCreatedNote'
-  | 'aztec_prv_notifyNullifiedNote'
-  | 'aztec_prv_notifyCreatedNullifier'
-  | 'aztec_prv_isNullifierPending'
-  | 'aztec_prv_notifyCreatedContractClassLog'
-  | 'aztec_prv_callPrivateFunction'
-  | 'aztec_prv_assertValidPublicCalldata'
-  | 'aztec_prv_notifyRevertiblePhaseStart'
-  | 'aztec_prv_isExecutionInRevertiblePhase'
-  | 'aztec_prv_getAppTaggingSecret'
-  | 'aztec_prv_getNextTaggingIndex'
-  | 'aztec_prv_getSenderForTags'
-  | 'aztec_prv_resolveTaggingSecret';
-
-type OracleRegistry = Record<OracleRegistryName, OracleRegistryEntry>;
-
-export const ORACLE_REGISTRY: OracleRegistry = {
+export const ORACLE_REGISTRY = {
   aztec_misc_assertCompatibleOracleVersion: makeEntry({
     params: [
       { name: 'major', type: U32 },
@@ -578,7 +513,7 @@ export const ORACLE_REGISTRY: OracleRegistry = {
     ],
     returnType: TAGGING_SECRET_SOURCE,
   }),
-};
+} satisfies Record<string, OracleRegistryEntry>;
 
 // ─── Registry Infrastructure ─────────────────────────────────────────────────
 
@@ -596,6 +531,10 @@ export interface OracleRegistryEntry<
   deserializeParams(inputs: InputSlot[]): TDeserializedParams;
   /** Serialize a handler return value into ACVM output slots. */
   serializeReturn(result: TReturnValue): OutputSlot[];
+  /** The ordered named parameters with their {@link TypeMapping}s. Lets callers introspect the oracle's wire ABI. */
+  readonly params: readonly RegistryParam[];
+  /** The return {@link TypeMapping}, or `undefined` for oracles that return nothing. */
+  readonly returnType?: TypeMapping<TReturnValue>;
 }
 
 export function makeEntry<const TParams extends RegistryParam[] = [], TReturnValue = void>({
@@ -606,6 +545,8 @@ export function makeEntry<const TParams extends RegistryParam[] = [], TReturnVal
   returnType?: TypeMapping<TReturnValue>;
 } = {}): OracleRegistryEntry<InferDeserializedParams<TParams>, TReturnValue> {
   return {
+    params: params ?? [],
+    returnType,
     deserializeParams(inputs: InputSlot[]): InferDeserializedParams<TParams> {
       const resolvedParams: RegistryParam[] = params ?? [];
       // Walk the input slots left-to-right, advancing by each param's slot count.
@@ -639,7 +580,7 @@ export function makeEntry<const TParams extends RegistryParam[] = [], TReturnVal
 }
 
 /** A named oracle parameter with its TypeMapping. */
-interface RegistryParam<TName extends string = string, T = any> {
+export interface RegistryParam<TName extends string = string, T = any> {
   name: TName;
   type: TypeMapping<T>;
 }

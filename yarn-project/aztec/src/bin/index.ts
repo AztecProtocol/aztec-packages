@@ -18,6 +18,7 @@ import { Command } from 'commander';
 import { injectCompileCommand } from '../cli/cmds/compile.js';
 import { injectMigrateCommand } from '../cli/cmds/migrate_ha_db.js';
 import { injectProfileCommand } from '../cli/cmds/profile.js';
+import { injectProverCommand } from '../cli/cmds/prover.js';
 import { injectAztecCommands } from '../cli/index.js';
 
 const NETWORK_FLAG = 'network';
@@ -61,6 +62,7 @@ async function main() {
   program = injectCompileCommand(program, userLog);
   program = injectProfileCommand(program, userLog);
   program = injectMigrateCommand(program, userLog);
+  program = injectProverCommand(program, userLog);
 
   await program.parseAsync(process.argv);
 }

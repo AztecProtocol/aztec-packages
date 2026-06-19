@@ -928,9 +928,14 @@ describe('ValidatorClient', () => {
     });
 
     it('should not validate proposal if the proposed block number is taken', async () => {
-      // Parent block lookup (by archive) returns valid data; existence check (by number) also returns data → block taken.
+      // Parent block lookup (by archive) returns valid data; existence check (by number) returns a block
+      // with the same archive as the proposal → a genuine duplicate, so the number is taken.
       blockSource.getBlockData.mockImplementation(query =>
-        Promise.resolve('number' in query ? ({ header: {} as BlockHeader } as any) : parentBlockData),
+        Promise.resolve(
+          'number' in query
+            ? ({ header: {} as BlockHeader, archive: { root: proposal.archive } } as any)
+            : parentBlockData,
+        ),
       );
       const isValid = await validatorClient.validateBlockProposal(proposal, sender);
       expect(isValid).toBe(false);
@@ -964,6 +969,26 @@ describe('ValidatorClient', () => {
 
       expect(isValid).toBe(false);
       expect(validatorClient.hasInvalidProposals(proposal.slotNumber)).toBe(true);
+    });
+
+    it('emits invalid block proposal offense for oversized proposals, deduped per proposer and slot', async () => {
+      await validatorClient.registerHandlers();
+      const oversizedProposalCallback = p2pClient.registerOversizedProposalCallback.mock.calls[0][0];
+      const emitSpy = jest.spyOn(validatorClient, 'emit');
+
+      const info = { slot: proposal.slotNumber, proposer: proposal.getSender()! };
+      oversizedProposalCallback(info);
+      oversizedProposalCallback(info);
+
+      expect(emitSpy).toHaveBeenCalledTimes(1);
+      expect(emitSpy).toHaveBeenCalledWith(WANT_TO_SLASH_EVENT, [
+        {
+          validator: info.proposer,
+          amount: config.slashBroadcastedInvalidBlockPenalty,
+          offenseType: OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL,
+          epochOrSlot: BigInt(proposal.slotNumber),
+        },
+      ]);
     });
 
     it('records proposal equivocation and emits clear event', async () => {

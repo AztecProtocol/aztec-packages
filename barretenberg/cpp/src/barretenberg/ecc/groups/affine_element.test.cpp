@@ -247,6 +247,30 @@ template <typename G1> class TestAffineElement : public testing::Test {
         EXPECT_NE(P < Q, Q < P);
     }
 
+    // Regression test: from_compressed must reject non-canonical encodings (x_coordinate >= modulus).
+    // Without the range check, Fq(x) silently reduces mod p, so distinct compressed bytestrings whose
+    // x values differ by a multiple of p would decompress to the same point (encoding malleability).
+    static void test_point_compression_non_canonical_x()
+    {
+        using Fq = typename G1::Fq;
+        // x1 = 1 and x2 = 1 + p both fit in 255 bits because p_BN254 < 2^254 and p_Grumpkin < 2^254.
+        // They are distinct as 255-bit integers but equal mod p.
+        uint256_t x1 = uint256_t(1);
+        uint256_t x2 = uint256_t(1) + Fq::modulus;
+        ASSERT_NE(x1, x2);
+        ASSERT_LT(x2, uint256_t(1) << 255);
+
+        affine_element pt1 = affine_element::from_compressed(x1);
+        affine_element pt2 = affine_element::from_compressed(x2);
+
+        // Canonical input (x = 1) decompresses to a valid point on these curves.
+        EXPECT_TRUE(pt1.on_curve());
+        // Non-canonical input must return the (0, 0) sentinel rather than the same point as x1.
+        EXPECT_EQ(pt2.x, Fq::zero());
+        EXPECT_EQ(pt2.y, Fq::zero());
+        EXPECT_NE(pt1, pt2);
+    }
+
     // Verify that from_compressed with an x that has no y on the curve returns the (0,0) sentinel.
     static void test_point_compression_invalid_x()
     {
@@ -560,6 +584,16 @@ TYPED_TEST(TestAffineElement, PointCompressionInvalidX)
         GTEST_SKIP(); // from_compressed is not used on large-modulus curves
     } else {
         TestFixture::test_point_compression_invalid_x();
+    }
+}
+
+// Regression test: from_compressed must reject non-canonical x >= modulus.
+TYPED_TEST(TestAffineElement, PointCompressionNonCanonicalX)
+{
+    if constexpr (TypeParam::Fq::modulus.data[3] >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) {
+        GTEST_SKIP(); // from_compressed is not used on large-modulus curves
+    } else {
+        TestFixture::test_point_compression_non_canonical_x();
     }
 }
 

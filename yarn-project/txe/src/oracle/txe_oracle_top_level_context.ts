@@ -26,6 +26,7 @@ import {
   enrichPublicSimulationError,
 } from '@aztec/pxe/server';
 import {
+  CONTRACT_INSTANCE,
   ExecutionNoteCache,
   ExecutionTaggingIndexCache,
   HashedValuesCache,
@@ -177,7 +178,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     return (await this.stateMachine.node.getBlockData('latest'))!.header.globalVariables.timestamp;
   }
 
-  async getLastTxEffects(): ReturnType<ITxeExecutionOracle['getLastTxEffects']> {
+  async getLastTxEffects() {
     const latestBlockNumber = await this.stateMachine.archiver.getBlockNumber();
     const block = await this.stateMachine.archiver.getBlock({ number: latestBlockNumber });
 
@@ -289,14 +290,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       this.logger.debug(`Deployed ${artifact.name} at ${instance.address}`);
     }
 
-    return [
-      instance.salt,
-      instance.deployer.toField(),
-      instance.currentContractClassId,
-      instance.initializationHash,
-      instance.immutablesHash,
-      ...instance.publicKeys.toFields(),
-    ];
+    return CONTRACT_INSTANCE.serialization!.fn(instance).flat();
   }
 
   /**
