@@ -42,7 +42,7 @@ const BLOCK_DURATION = 4;
  * libp2p). 4 validators, ethSlot=8s, aztecSlot=24s, epoch=2, proofSubEpochs=1024, minTxsPerBlock=0, inboxLag=2
  * (v5 always enforces the timetable).
  */
-describe('multi-node/e2e_slashing/duplicate_attestation_slash', () => {
+describe('multi-node/slashing/duplicate_attestation_slash', () => {
   let harness: ValidatorRegistrationHarness;
   let nodes: AztecNodeService[];
 
