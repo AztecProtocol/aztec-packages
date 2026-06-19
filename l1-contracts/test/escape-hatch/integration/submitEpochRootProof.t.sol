@@ -7,8 +7,8 @@ import {IEscapeHatchCore, Status, CandidateInfo, Hatch} from "@aztec/core/interf
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Epoch} from "@aztec/shared/libraries/TimeMath.sol";
 import {CommitteeAttestations, CommitteeAttestation} from "@aztec/core/libraries/rollup/AttestationLib.sol";
-import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {SubmitEpochRootProofArgs, PublicInputArgs} from "@aztec/core/interfaces/IRollup.sol";
+import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 import {AttestationLibHelper} from "@test/helper_libraries/AttestationLibHelper.sol";
 
 /**
@@ -115,16 +115,15 @@ contract submitEpochRootProofTest is EscapeHatchIntegrationBase {
       previousArchive: previousArchive, endArchive: endArchive, outHash: outHash, proverId: address(this)
     });
 
-    bytes32[] memory fees = new bytes32[](Constants.MAX_CHECKPOINTS_PER_EPOCH * 2);
-    fees[0] = bytes32(uint256(uint160(bytes20(("sequencer")))));
-    fees[1] = bytes32(0);
+    ProposedHeader[] memory headers = new ProposedHeader[](1);
+    headers[0] = proposedHeaders[1];
 
     rollup.submitEpochRootProof(
       SubmitEpochRootProofArgs({
         start: 1,
         end: 1,
         args: args,
-        fees: fees,
+        headers: headers,
         attestations: AttestationLibHelper.packAttestations(_attestations),
         blobInputs: full.checkpoint.batchedBlobInputs,
         proof: ""

@@ -52,6 +52,8 @@ export class CheckpointHeader {
     public gasFees: GasFees,
     /** Total mana used in the block, computed by the root rollup circuit */
     public totalManaUsed: Fr,
+    /** Total fees accrued across the checkpoint. */
+    public accumulatedFees: Fr,
   ) {}
 
   static get schema(): ZodFor<CheckpointHeader> {
@@ -68,6 +70,7 @@ export class CheckpointHeader {
         feeRecipient: schemas.AztecAddress,
         gasFees: GasFees.schema,
         totalManaUsed: schemas.Fr,
+        accumulatedFees: schemas.Fr,
       })
       .transform(CheckpointHeader.from);
   }
@@ -85,6 +88,7 @@ export class CheckpointHeader {
       fields.feeRecipient,
       fields.gasFees,
       fields.totalManaUsed,
+      fields.accumulatedFees,
     ] as const;
   }
 
@@ -107,6 +111,7 @@ export class CheckpointHeader {
       reader.readObject(AztecAddress),
       reader.readObject(GasFees),
       reader.readObject(Fr),
+      reader.readObject(Fr),
     );
   }
 
@@ -122,7 +127,8 @@ export class CheckpointHeader {
       this.coinbase.equals(other.coinbase) &&
       this.feeRecipient.equals(other.feeRecipient) &&
       this.gasFees.equals(other.gasFees) &&
-      this.totalManaUsed.equals(other.totalManaUsed)
+      this.totalManaUsed.equals(other.totalManaUsed) &&
+      this.accumulatedFees.equals(other.accumulatedFees)
     );
   }
 
@@ -151,6 +157,7 @@ export class CheckpointHeader {
       this.feeRecipient,
       this.gasFees,
       this.totalManaUsed,
+      this.accumulatedFees,
     ]);
   }
 
@@ -171,6 +178,7 @@ export class CheckpointHeader {
       feeRecipient: AztecAddress.ZERO,
       gasFees: GasFees.empty(),
       totalManaUsed: Fr.ZERO,
+      accumulatedFees: Fr.ZERO,
       ...fields,
     });
   }
@@ -188,6 +196,7 @@ export class CheckpointHeader {
       feeRecipient: new AztecAddress(Fr.random()),
       gasFees: GasFees.random(),
       totalManaUsed: new Fr(BigInt(Math.floor(Math.random() * 1000000))),
+      accumulatedFees: new Fr(BigInt(Math.floor(Math.random() * 1000000))),
       ...overrides,
     });
   }
@@ -204,7 +213,8 @@ export class CheckpointHeader {
       this.coinbase.isZero() &&
       this.feeRecipient.isZero() &&
       this.gasFees.isEmpty() &&
-      this.totalManaUsed.isZero()
+      this.totalManaUsed.isZero() &&
+      this.accumulatedFees.isZero()
     );
   }
 
@@ -233,6 +243,7 @@ export class CheckpointHeader {
       new AztecAddress(hexToBuffer(header.feeRecipient)),
       new GasFees(header.gasFees.feePerDaGas, header.gasFees.feePerL2Gas),
       new Fr(header.totalManaUsed),
+      new Fr(header.accumulatedFees),
     );
   }
 
@@ -260,6 +271,7 @@ export class CheckpointHeader {
         feePerL2Gas: this.gasFees.feePerL2Gas,
       },
       totalManaUsed: this.totalManaUsed.toBigInt(),
+      accumulatedFees: this.accumulatedFees.toBigInt(),
     };
   }
 
@@ -276,6 +288,7 @@ export class CheckpointHeader {
       feeRecipient: this.feeRecipient.toString(),
       gasFees: this.gasFees.toInspect(),
       totalManaUsed: this.totalManaUsed.toBigInt(),
+      accumulatedFees: this.accumulatedFees.toBigInt(),
     };
   }
 
@@ -292,6 +305,7 @@ export class CheckpointHeader {
   feeRecipient: ${this.feeRecipient.toString()},
   gasFees: { da:${this.gasFees.feePerDaGas}, l2:${this.gasFees.feePerL2Gas} },
   totalManaUsed: ${this.totalManaUsed.toBigInt()},
+  accumulatedFees: ${this.accumulatedFees.toBigInt()},
 }`;
   }
 }

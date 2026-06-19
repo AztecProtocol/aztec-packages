@@ -11,6 +11,7 @@ import {
 import {CompressedFeeHeader, FeeHeaderLib, FeeHeader} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
 import {ChainTipsLib, CompressedChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {FieldLib} from "@aztec/core/libraries/rollup/FieldLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
 
@@ -107,6 +108,9 @@ library STFLib {
     rollupStore.config.vkTreeRoot = _genesisState.vkTreeRoot;
     rollupStore.config.protocolContractsHash = _genesisState.protocolContractsHash;
 
+    // The genesis archive root is decoded as an Fr off chain and propagates into the first header's lastArchiveRoot,
+    // so it must be a valid field element.
+    FieldLib.requireValidFieldElement(_genesisState.genesisArchiveRoot);
     rollupStore.archives[0] = _genesisState.genesisArchiveRoot;
   }
 
