@@ -15,6 +15,7 @@ import { type BootnodeConfig, DEFAULT_PUBLIC_IP_SERVICES, type P2PConfig, getP2P
 import { AZTEC_ENR_CLIENT_VERSION_KEY } from '../../types/index.js';
 import { PeerDiscoveryState } from '../service.js';
 import { DiscV5Service } from './discV5_service.js';
+import { PersistedEnrStore } from './persisted_enr_store.js';
 
 /**
  * Runs discovery queries on all nodes until the condition is met or timeout expires.
@@ -223,28 +224,73 @@ describe('Discv5Service', () => {
 
   // Test is flakey, so skipping for now.
   // TODO: Investigate: #6246
-  it.skip('should persist peers without bootnode', async () => {
-    const node1 = await createNode();
-    const node2 = await createNode();
-    await node1.start();
-    await node2.start();
+  it('resurrects persisted peers from the store on restart with no bootnode', async () => {
+    const peerIdA = await createSecp256k1PeerId();
+    const portA = ++basePort;
 
-    await runDiscoveryUntil([node1, node2], () => node2.getKadValues().length >= 2);
+    // nodeA is backed by the suite's store (the only KV store in play — the bootnode shares it), so it
+    // persists the peers it discovers. We can recreate it as a fresh instance with the same identity,
+    // port and store to model a process restart. nodeB has no store; it's only a peer for nodeA to find.
+    const makeNodeA = (useBootnode: boolean) =>
+      new DiscV5Service(
+        peerIdA,
+        {
+          ...getP2PDefaultConfig(),
+          ...emptyChainConfig,
+          p2pIp: `127.0.0.1`,
+          listenAddress: `127.0.0.1`,
+          p2pPort: portA,
+          bootstrapNodes: useBootnode ? [bootNode.getENR().encodeTxt()] : [],
+          blockCheckIntervalMS: 50,
+          peerCheckIntervalMS: 50,
+          p2pEnabled: true,
+          l2QueueSize: 100,
+        },
+        testPackageVersion,
+        undefined,
+        undefined,
+        store,
+      );
 
-    await node2.stop();
+    let nodeA = makeNodeA(true);
+    const nodeB = await createNode();
+    await nodeA.start();
+    await nodeB.start();
+
+    // A read-only view of the same store, to assert what nodeA persists.
+    const persistedView = new PersistedEnrStore(store, 1000);
+    const persistedNodeIds = async () => (await persistedView.load(() => true)).map(enr => enr.nodeId);
+
+    // Drive discovery until nodeA has found nodeB and persisted its ENR — exercising the persist hook
+    // for a discovered, non-bootnode peer.
+    await retryUntil(
+      async () => {
+        await Promise.all([nodeA, nodeB].map(n => n.runRandomNodesQuery()));
+        return (await persistedNodeIds()).includes(nodeB.getEnr().nodeId) || undefined;
+      },
+      'nodeB persisted by nodeA',
+      30,
+      0.2,
+    );
+
+    // The bootnode is config-provided, so it must never be persisted.
+    expect(await persistedNodeIds()).not.toContain(bootNode.getENR().nodeId);
+
+    // Tear the live network down so nothing can re-teach nodeA about nodeB.
+    await nodeA.stop();
+    await nodeB.stop();
     await bootNode.stop();
 
-    await node2.start();
+    // Recreate nodeA as a fresh instance on the same store with no bootnode. Its discv5 routing table
+    // starts empty, so the only way it can know nodeB is by resurrecting the persisted ENR on start().
+    nodeA = makeNodeA(false);
+    await nodeA.start();
 
-    await runDiscoveryUntil([node1, node2], () => node2.getKadValues().length >= 1);
+    const resurrected = await Promise.all(nodeA.getKadValues().map(async enr => (await enr.peerId()).toString()));
+    expect(resurrected).toContain(nodeB.getPeerId().toString());
+    expect(resurrected).not.toContain(bootNodePeerId.toString());
 
-    const node2Peers = await Promise.all(node2.getKadValues().map(async peer => (await peer.peerId()).toString()));
-    // NOTE: bootnode seems to still be present in list of peers sometimes, will investigate
-    // expect(node2Peers).toHaveLength(1);
-    expect(node2Peers).toContain(node1.getPeerId().toString());
-
-    await node1.stop();
-    await node2.stop();
+    await nodeA.stop();
   });
 
   it('should use trusted peers for discovery', async () => {
