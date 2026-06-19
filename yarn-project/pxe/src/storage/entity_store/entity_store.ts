@@ -305,25 +305,22 @@ export class EntityStore implements StagedStore {
    *  Requires to be run in a transactionAsync context.
    */
   async #retractFacts(toBlock: BlockNum): Promise<number> {
-    // Snapshot the orphaned (block, factKey) pairs before mutating so we never delete from the cursor we are iterating.
-    const factsToRetract: { block: BlockNum; factKey: FactKeyStr }[] = [];
-    for await (const [block, factKey] of this.#factsByBlock.entriesAsync({ start: toBlock + 1 })) {
-      factsToRetract.push({ block, factKey });
+    // Snapshot the orphaned fact keys before mutating so we never delete from the cursor we are iterating.
+    const factKeysToRetract: FactKeyStr[] = [];
+    for await (const [, factKey] of this.#factsByBlock.entriesAsync({ start: toBlock + 1 })) {
+      factKeysToRetract.push(factKey);
     }
     await Promise.all(
-      factsToRetract.map(async ({ block, factKey }) => {
+      factKeysToRetract.map(async factKey => {
         const buf = await this.#facts.getAsync(factKey);
         if (!buf) {
           return;
         }
         const { fact } = deserializeFact(buf);
-        const entityKey = fact.entityKey.toString();
-        await this.#facts.delete(factKey);
-        await this.#factsByBlock.deleteValue(block, factKey);
-        await this.#factsByEntity.deleteValue(entityKey, factKey);
+        await this.#deleteFact(factKey, fact);
       }),
     );
-    return factsToRetract.length;
+    return factKeysToRetract.length;
   }
 
   /**
@@ -528,6 +525,19 @@ export class EntityStore implements StagedStore {
   }
 
   /**
+   * Deletes a fact from the primary store and its indexes (`#factsByEntity`, plus `#factsByBlock` if retractable).
+   *
+   * Caller must wrap in a transaction.
+   */
+  async #deleteFact(factKey: FactKeyStr, fact: StoredFact): Promise<void> {
+    await this.#facts.delete(factKey);
+    await this.#factsByEntity.deleteValue(fact.entityKey.toString(), factKey);
+    if (fact.originBlock !== undefined) {
+      await this.#factsByBlock.deleteValue(fact.originBlock.blockNumber, factKey);
+    }
+  }
+
+  /**
    * Deletes an entity from persistent storage.
    */
   async #deleteEntity(entityKey: EntityKeyStr): Promise<void> {
@@ -545,11 +555,7 @@ export class EntityStore implements StagedStore {
           throw new Error(`Fact not found for factKey ${factKey}`);
         }
         const { fact } = deserializeFact(buf);
-        await this.#facts.delete(factKey);
-        await this.#factsByEntity.deleteValue(entityKey, factKey);
-        if (fact.originBlock !== undefined) {
-          await this.#factsByBlock.deleteValue(fact.originBlock.blockNumber, factKey);
-        }
+        await this.#deleteFact(factKey, fact);
       }),
     );
     const entityBuf = await this.#entities.getAsync(entityKey);
