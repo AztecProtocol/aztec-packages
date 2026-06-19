@@ -44,7 +44,10 @@ const createPublisherKeysAndAddresses = () => {
 // Covers the multi-EOA publisher rotation mechanism in the production sequencer. Uses
 // PIPELINING_SETUP_OPTS (prod seq, ethereumSlotDuration=4s, aztecSlotDuration=12s, minTxsPerBlock=0)
 // with NUM_PUBLISHERS=4 sequencer publisher keys. Tests that when one publisher's L1 tx is
-// intercepted (never lands on chain), the sequencer rotates to the next highest-balance publisher.
+// intercepted (never lands on chain), the sequencer rotates to a different publisher. (v5: the test no
+// longer sorts publishers by balance or pins which one is used; it blocks the first publisher attempted
+// and asserts a different one takes over. Initializerless accounts deploy nothing at setup, so the
+// beforeAll sends a couple of txs to get blocks published across rotated publishers first.)
 describe('e2e_multi_eoa', () => {
   jest.setTimeout(5 * 60 * 1000); // 5 minutes
 
@@ -63,8 +66,8 @@ describe('e2e_multi_eoa', () => {
     jest.restoreAllMocks();
   });
 
-  // Exercises publisher rotation: mocks sendRawTransaction to block transactions from the highest-
-  // balance publisher, then verifies a fallback publisher takes over and the L2 tx is mined.
+  // Exercises publisher rotation: mocks sendRawTransaction to block transactions from the first
+  // publisher attempted, then verifies a different fallback publisher takes over and the L2 tx is mined.
   describe('multi-txs block', () => {
     beforeAll(async () => {
       let sequencerClient: SequencerClient | undefined;

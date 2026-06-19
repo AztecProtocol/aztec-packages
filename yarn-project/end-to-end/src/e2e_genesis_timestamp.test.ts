@@ -10,8 +10,10 @@ import { proveInteraction } from './test-wallet/utils.js';
 // Verifies that genesis-anchored transactions (proved while PXE is pinned to block 0) can be
 // included in blocks after block 1, and that PXE can prove transactions anchored to genesis even
 // after the chain has advanced (public data tree diverged). Uses AUTOMINE_E2E_OPTS with
-// skipAccountDeployment and pxe syncChainTip='proven' so the anchor stays at genesis until a real
-// proof lands, which never happens in these tests (no prover node running).
+// advancePastGenesis=false, two deployable accounts in additionallyFundedAccounts, and pxe
+// syncChainTip='proven' so the anchor stays at genesis until a real proof lands, which never happens
+// in these tests (no prover node running). (v5: replaced skipAccountDeployment with
+// advancePastGenesis=false + explicit additionallyFundedAccounts.)
 describe('e2e_genesis_timestamp', () => {
   let context: EndToEndContext;
 

@@ -31,6 +31,8 @@ describe('e2e_multiple_blobs', () => {
   let sequencer: Sequencer;
   let teardown: () => Promise<void>;
 
+  // REFACTOR: hand-rolled state-changed on/off subscription with a manual timeout — a
+  // waitForSequencerState(IDLE, timeout) DSL helper should replace it.
   function waitForSequencerIdle(timeout = 30000): Promise<void> {
     if (sequencer.status().state === SequencerState.IDLE) {
       return Promise.resolve();
