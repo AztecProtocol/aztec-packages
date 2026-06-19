@@ -11,13 +11,16 @@ import { setup } from './fixtures/utils.js';
  * Tests the circuit recorder is working as expected. To read more about it, check JSDoc of CircuitRecorder class.
  */
 // Tests that setting CIRCUIT_RECORD_DIR activates the CircuitRecorder and produces recording files
-// for both user circuits (SchnorrAccount constructor) and protocol circuits (PrivateKernelInit variant).
+// for both user circuits (the SchnorrInitializerlessAccount entrypoint exercised by deploying a
+// ChildContract) and protocol circuits (PrivateKernelInit variant). (v5: the default account is now
+// initializerless, so the user circuit recorded is the entrypoint, not a SchnorrAccount constructor.)
 // Uses setup(1, AUTOMINE_E2E_OPTS) with one node, automine sequencer, one account.
 describe('Circuit Recorder', () => {
   const RECORD_DIR = './circuit_recordings';
 
-  // Sets CIRCUIT_RECORD_DIR env var, runs setup to trigger circuit execution, then asserts
-  // that recording files exist for SchnorrAccount_constructor and a PrivateKernelInit variant.
+  // Sets CIRCUIT_RECORD_DIR env var, runs setup + a ChildContract deploy to trigger circuit execution,
+  // then asserts recording files exist for SchnorrInitializerlessAccount_entrypoint and a
+  // PrivateKernelInit variant.
   it('records circuit execution', async () => {
     // Set recording directory env var - this will activate the circuit recorder
     process.env.CIRCUIT_RECORD_DIR = RECORD_DIR;

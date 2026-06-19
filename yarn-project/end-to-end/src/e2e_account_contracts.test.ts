@@ -40,8 +40,9 @@ export class TestWalletInternals extends TestWallet {
 const itShouldBehaveLikeAnAccountContract = (
   getAccountContract: (encryptionKey: GrumpkinScalar) => AccountContract,
 ) => {
-  // Shared suite parametrized over account contract type. Deploys one account using the supplied
-  // AccountContract implementation and exercises private calls, public calls, and signature failure.
+  // Shared suite parametrized over account contract type. Creates one account from the supplied
+  // AccountContract implementation (deploying it only if it has an initializer — initializerless
+  // variants skip the deploy tx) and exercises private calls, public calls, and signature failure.
   describe(`behaves like an account contract`, () => {
     let aztecNode: AztecNode;
     let logger: Logger;
@@ -114,9 +115,11 @@ const itShouldBehaveLikeAnAccountContract = (
   });
 };
 
-// Tests that multiple account contract implementations (Schnorr and ECDSA stored-key) satisfy
-// the common account contract interface. Each variant gets its own setup(0, AUTOMINE_E2E_OPTS)
-// with an initialFundedAccounts override, one node, automine sequencer, no extra nodes.
+// Tests that multiple account contract implementations (Schnorr, Schnorr-initializerless, and ECDSA
+// stored-key) satisfy the common account contract interface. Each variant gets its own
+// setup(0, AUTOMINE_E2E_OPTS) with an additionallyFundedAccounts override, one node, automine sequencer,
+// no extra nodes. (v5: added the initializerless variant and renamed initialFundedAccounts →
+// additionallyFundedAccounts.)
 describe('e2e_account_contracts', () => {
   describe('schnorr account', () => {
     itShouldBehaveLikeAnAccountContract(() => new SchnorrAccountContract(GrumpkinScalar.random()));

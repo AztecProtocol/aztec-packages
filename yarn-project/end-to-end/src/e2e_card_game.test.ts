@@ -57,8 +57,11 @@ const GAME_ID = 42;
 const TIMEOUT = 600_000;
 
 // End-to-end test for the CardGame contract: buying packs, joining games, playing rounds,
-// claiming won cards. Uses setup(3, AUTOMINE_E2E_OPTS) with one node, automine sequencer,
-// and three funded accounts (players). jest.setTimeout(600s).
+// claiming won cards. Uses setup(0, AUTOMINE_E2E_OPTS, additionallyFundedAccounts: 3 players) with one
+// node, automine sequencer, and three funded accounts (players) the test generates and creates itself as
+// initializerless accounts — it derives nullifier-hiding keys from the players' secrets, so it owns the
+// keys. (v5: was setup(3, …); the explicit account provisioning is a setup-mechanics change, not a
+// category change.) jest.setTimeout(600s).
 describe('e2e_card_game', () => {
   jest.setTimeout(TIMEOUT);
 

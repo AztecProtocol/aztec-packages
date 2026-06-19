@@ -36,7 +36,10 @@ const UPDATED_CONTRACT_PUBLIC_VALUE = 27n;
 
 // Tests the contract class update mechanism: scheduling an upgrade, time-warping past the delay,
 // and verifying the new class is active. Also tests simulation overrides for post-upgrade calls.
-// Uses setup(1, AUTOMINE_E2E_OPTS) with genesisPublicData and initialFundedAccounts per test.
+// Uses setup(0, AUTOMINE_E2E_OPTS) with genesisPublicData and a deterministic initializerless account
+// in additionallyFundedAccounts (whose address is known before setup so the delay can be seeded in
+// genesis for it). (v5: was setup(1, …) with initialFundedAccounts; the renamed option and
+// initializerless account are setup-mechanics changes, not category changes.)
 describe('e2e_contract_updates', () => {
   let wallet: TestWallet;
   let defaultAccountAddress: AztecAddress;
