@@ -15,6 +15,7 @@ import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {BlobLib} from "@aztec-blob-lib/BlobLib.sol";
 import {ProposeArgs, OracleInput, ProposeLib} from "@aztec/core/libraries/rollup/ProposeLib.sol";
+import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 import {
   CommitteeAttestation,
   CommitteeAttestations,
@@ -37,6 +38,7 @@ contract RollupBase is DecoderBase {
   Signature internal attestationsAndSignersSignature;
 
   mapping(uint256 => uint256) internal checkpointFees;
+  mapping(uint256 => ProposedHeader) internal proposedHeaders;
 
   function _proveCheckpoints(string memory _name, uint256 _start, uint256 _end, address _prover) internal {
     _proveCheckpoints(_name, _start, _end, _prover, "");
@@ -79,13 +81,10 @@ contract RollupBase is DecoderBase {
       proverId: _prover
     });
 
-    bytes32[] memory fees = new bytes32[](Constants.MAX_CHECKPOINTS_PER_EPOCH * 2);
-
     uint256 size = endCheckpointNumber - startCheckpointNumber + 1;
+    ProposedHeader[] memory headers = new ProposedHeader[](size);
     for (uint256 i = 0; i < size; i++) {
-      fees[i * 2] = bytes32(uint256(uint160(bytes20(("sequencer"))))); // Need the address to be left padded within the
-        // bytes32
-      fees[i * 2 + 1] = bytes32(uint256(checkpointFees[startCheckpointNumber + i]));
+      headers[i] = proposedHeaders[startCheckpointNumber + i];
     }
 
     // All the way down here if reverting.
@@ -99,7 +98,7 @@ contract RollupBase is DecoderBase {
         start: startCheckpointNumber,
         end: endCheckpointNumber,
         args: args,
-        fees: fees,
+        headers: headers,
         attestations: CommitteeAttestations({signatureIndices: "", signaturesOrAddresses: ""}),
         blobInputs: endFull.checkpoint.batchedBlobInputs,
         proof: ""
@@ -155,6 +154,10 @@ contract RollupBase is DecoderBase {
     uint128 minFee = SafeCast.toUint128(rollup.getManaMinFeeAt(full.checkpoint.header.timestamp, true));
     full.checkpoint.header.gasFees.feePerL2Gas = minFee;
     full.checkpoint.header.totalManaUsed = _manaUsed;
+    full.checkpoint.header.accumulatedFees = _manaUsed * minFee;
+    // Sequencer rewards are credited to the verified header's coinbase, so pin it to a known address tests can assert
+    // on.
+    full.checkpoint.header.coinbase = address(bytes20("sequencer"));
 
     checkpointFees[full.checkpoint.checkpointNumber] = _manaUsed * minFee;
 
@@ -189,6 +192,8 @@ contract RollupBase is DecoderBase {
         skipBlobCheck(address(rollup));
       }
     }
+
+    proposedHeaders[full.checkpoint.checkpointNumber] = full.checkpoint.header;
 
     ProposeArgs memory args =
       ProposeArgs({header: full.checkpoint.header, archive: full.checkpoint.archive, oracleInput: OracleInput(0)});
