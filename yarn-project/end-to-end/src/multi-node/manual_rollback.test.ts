@@ -2,11 +2,11 @@ import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { RollupContract } from '@aztec/ethereum/contracts';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
-import { retryUntil } from '@aztec/foundation/retry';
 
 import { jest } from '@jest/globals';
 
 import type { EndToEndContext } from '../fixtures/utils.js';
+import { waitForBlockNumber } from '../fixtures/wait_helpers.js';
 import { MultiNodeTestContext, type MultiNodeTestOpts } from './multi_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 10);
@@ -48,7 +48,7 @@ describe('multi-node/manual_rollback', () => {
       const targetCheckpointNumber = CheckpointNumber(4);
       // With pipelining, each checkpoint takes ~2 L2 slots on a solo-sequencer setup.
       await test.waitUntilCheckpointNumber(targetCheckpointNumber, test.L2_SLOT_DURATION_IN_S * 12);
-      await retryUntil(async () => await node.getBlockNumber().then(b => b >= 4), 'sync to 4', 10, 0.1);
+      await waitForBlockNumber(node, 4, { timeout: 10 });
 
       logger.info(`Synced to checkpoint 4. Pausing syncing and rolling back the chain.`);
       await context.aztecNodeAdmin.pauseSync();
@@ -64,7 +64,7 @@ describe('multi-node/manual_rollback', () => {
       expect(await node.getBlockNumber()).toEqual(blockAfterReorg);
 
       logger.info(`Waiting for node to re-sync to ${blockAfterReorg}.`);
-      await retryUntil(async () => await node.getBlockNumber().then(b => b >= blockAfterReorg), 'resync', 10, 0.1);
+      await waitForBlockNumber(node, blockAfterReorg, { timeout: 10 });
     });
   });
 });

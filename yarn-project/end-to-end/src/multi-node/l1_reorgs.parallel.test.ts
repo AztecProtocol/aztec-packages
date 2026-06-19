@@ -25,6 +25,7 @@ import { keccak256, parseTransaction } from 'viem';
 
 import { sendL1ToL2Message } from '../fixtures/l1_to_l2_messaging.js';
 import type { EndToEndContext } from '../fixtures/utils.js';
+import { waitForNodeCheckpoint, waitForNodeProvenCheckpoint } from '../fixtures/wait_helpers.js';
 import { waitForL1ToL2MessageSeen } from '../shared/wait_for_l1_to_l2_message.js';
 import { proveInteraction } from '../test-wallet/utils.js';
 import { MultiNodeTestContext } from './multi_node_test_context.js';
@@ -105,14 +106,6 @@ describe('multi-node/l1_reorgs', () => {
       }
       return await Promise.all(parsedTx.sidecars!.map(sidecar => Blob.fromBlobBuffer(hexToBuffer(sidecar.blob))));
     };
-
-    /** Returns the last synced checkpoint number for a node */
-    const getCheckpointNumber = (node: AztecNode) =>
-      node.getChainTips().then(tips => tips.checkpointed.checkpoint.number);
-
-    /** Returns the last proven checkpoint number for a node */
-    const getProvenCheckpointNumber = (node: AztecNode) =>
-      node.getChainTips().then(tips => tips.proven.checkpoint.number);
 
     // Waits for an initial proof to land, stops the prover, reorgs L1 to remove the proof block,
     // waits for the proof submission window to expire, spins up a new sync-only node, and verifies
@@ -196,27 +189,29 @@ describe('multi-node/l1_reorgs', () => {
       // Ensure that a new node sees the reorg
       logger.warn(`Syncing new node to test reorg`);
       const newNode = await executeTimeout(() => test.createNonValidatorNode(), 10_000, `new node sync`);
-      expect(await getProvenCheckpointNumber(newNode)).toEqual(initialProvenCheckpoint);
+      expect(await newNode.getCheckpointNumber('proven')).toEqual(initialProvenCheckpoint);
 
       // Latest checkpointed block seen by the node may be from the current checkpoint, or one less if it was *just* mined.
       // This is because the call to createNonValidatorNode will block until the initial sync is completed,
       // but the initial sync is done to the latest L1 block _at the time the initial sync starts_. So a new
       // checkpoint may have appeared while the initial sync runs, that's why we account for a small span.
       const currentCheckpointNumber = (await monitor.run(true)).checkpointNumber;
-      expect(await getCheckpointNumber(newNode)).toBeWithin(currentCheckpointNumber - 1, currentCheckpointNumber + 1);
+      expect(await newNode.getCheckpointNumber('checkpointed')).toBeWithin(
+        currentCheckpointNumber - 1,
+        currentCheckpointNumber + 1,
+      );
 
       // And check that the old node has processed the reorg as well
       logger.warn(`Testing old node after reorg`);
-      // REFACTOR: hand-rolled poll on proven checkpoint equality; replace with
-      // test.waitUntilProvenCheckpointNumber(initialProvenCheckpoint, timeout).
-      await retryUntil(
-        () => getProvenCheckpointNumber(node).then(cp => cp === initialProvenCheckpoint),
-        'prune',
-        L2_SLOT_DURATION_IN_S * 4,
-        0.1,
-      );
+      await waitForNodeProvenCheckpoint(node, initialProvenCheckpoint, {
+        comparison: 'eq',
+        timeout: L2_SLOT_DURATION_IN_S * 4,
+      });
       await logState('old-node-synced');
-      expect(await getCheckpointNumber(node)).toBeWithin(monitor.checkpointNumber - 1, monitor.checkpointNumber + 1);
+      expect(await node.getCheckpointNumber('checkpointed')).toBeWithin(
+        monitor.checkpointNumber - 1,
+        monitor.checkpointNumber + 1,
+      );
 
       // Verify multi-block checkpoints were built
       await test.assertMultipleBlocksPerSlot(2);
@@ -244,7 +239,7 @@ describe('multi-node/l1_reorgs', () => {
         targetProvenCheckpoint,
         epochDurationSeconds * 4,
       );
-      await retryUntil(() => getProvenCheckpointNumber(node).then(cp => cp >= provenCheckpoint), 'node sync', 10, 0.1);
+      await waitForNodeProvenCheckpoint(node, provenCheckpoint, { timeout: 10 });
 
       // Stop the prover node (by stopping its hosting aztec node)
       await test.proverNodes[0].stop();
@@ -260,13 +255,11 @@ describe('multi-node/l1_reorgs', () => {
 
       // Check that the node has followed along
       logger.warn(`Testing old node`);
-      await retryUntil(
-        () => getProvenCheckpointNumber(node).then(cp => cp >= provenCheckpointRetry),
-        'proof sync',
-        10,
-        0.1,
+      await waitForNodeProvenCheckpoint(node, provenCheckpointRetry, { timeout: 10 });
+      expect(await node.getCheckpointNumber('checkpointed')).toBeWithin(
+        monitor.checkpointNumber - 1,
+        monitor.checkpointNumber + 1,
       );
-      expect(await getCheckpointNumber(node)).toBeWithin(monitor.checkpointNumber - 1, monitor.checkpointNumber + 1);
 
       // Verify multi-block checkpoints were built
       await test.assertMultipleBlocksPerSlot(2);
@@ -290,12 +283,7 @@ describe('multi-node/l1_reorgs', () => {
       proverDelayer.cancelNextTx();
 
       // Expect pending chain to advance, so there's something to be pruned
-      await retryUntil(
-        () => getCheckpointNumber(node).then(cp => cp > initialCheckpoint),
-        'node sync',
-        L2_SLOT_DURATION_IN_S * 4,
-        0.1,
-      );
+      await waitForNodeCheckpoint(node, initialCheckpoint, { comparison: 'gt', timeout: L2_SLOT_DURATION_IN_S * 4 });
 
       // Wait until the end of the proof submission window for the first unproven epoch
       const firstUnprovenCheckpoint = CheckpointNumber(initialProvenCheckpoint + 1);
@@ -315,14 +303,9 @@ describe('multi-node/l1_reorgs', () => {
 
       // Wait for the node to prune
       const syncTimeout = L2_SLOT_DURATION_IN_S * 2;
-      await retryUntil(
-        () => getCheckpointNumber(node).then(cp => cp <= initialProvenCheckpoint + 1),
-        'node prune',
-        syncTimeout,
-        0.1,
-      );
+      await waitForNodeCheckpoint(node, initialProvenCheckpoint + 1, { comparison: 'lte', timeout: syncTimeout });
       expect(monitor.provenCheckpointNumber).toEqual(initialProvenCheckpoint);
-      expect(await getProvenCheckpointNumber(node)).toEqual(initialProvenCheckpoint);
+      expect(await node.getCheckpointNumber('proven')).toEqual(initialProvenCheckpoint);
 
       // But not all is lost, for a reorg gets the proof back on chain!
       logger.warn(`Reorging proof back (L1 block ${await monitor.run(true).then(m => m.l1BlockNumber)}).`);
@@ -336,18 +319,8 @@ describe('multi-node/l1_reorgs', () => {
       expect(provenCheckpointNumber).toBeGreaterThan(initialProvenCheckpoint);
 
       // And so the node undoes its reorg
-      await retryUntil(
-        () => getCheckpointNumber(node).then(b => b >= checkpointNumber),
-        'node resync',
-        syncTimeout,
-        0.1,
-      );
-      await retryUntil(
-        () => getProvenCheckpointNumber(node).then(b => b >= provenCheckpointNumber),
-        'proof sync',
-        1,
-        0.1,
-      );
+      await waitForNodeCheckpoint(node, checkpointNumber, { timeout: syncTimeout });
+      await waitForNodeProvenCheckpoint(node, provenCheckpointNumber, { timeout: 1 });
 
       // Verify multi-block checkpoints were built
       await test.assertMultipleBlocksPerSlot(2);
@@ -375,7 +348,7 @@ describe('multi-node/l1_reorgs', () => {
       await context.sequencer!.stop();
       logger.warn(`Sequencer stopped`);
       // Wait for node to sync to the checkpoint.
-      await retryUntil(() => getCheckpointNumber(node).then(b => b === CHECKPOINT_NUMBER), 'node sync', 10, 0.1);
+      await waitForNodeCheckpoint(node, CHECKPOINT_NUMBER, { comparison: 'eq', timeout: 10 });
       logger.warn(`Reached checkpoint ${CHECKPOINT_NUMBER}`);
 
       // Verify multi-block checkpoints were built before we do the reorg
@@ -390,7 +363,7 @@ describe('multi-node/l1_reorgs', () => {
 
       // And expect the node to prune the block
       const expectedCheckpointNumber = CHECKPOINT_NUMBER - 1;
-      await retryUntil(() => getCheckpointNumber(node).then(b => b === expectedCheckpointNumber), 'node sync', 30, 0.1);
+      await waitForNodeCheckpoint(node, expectedCheckpointNumber, { comparison: 'eq', timeout: 30 });
     });
 
     // Cancels the next sequencer L1 tx (blocking CHECKPOINT_NUMBER from landing), waits for
@@ -409,7 +382,7 @@ describe('multi-node/l1_reorgs', () => {
       await test.waitUntilCheckpointNumber(prevCheckpointNumber, L2_SLOT_DURATION_IN_S * 10);
       expect(monitor.checkpointNumber).toEqual(prevCheckpointNumber);
       // Wait for node to sync to the checkpoint
-      await retryUntil(() => getCheckpointNumber(node).then(b => b === prevCheckpointNumber), 'node sync', 5, 0.1);
+      await waitForNodeCheckpoint(node, prevCheckpointNumber, { comparison: 'eq', timeout: 5 });
 
       // Verify multi-block checkpoints were built before we do the reorg
       await test.assertMultipleBlocksPerSlot(2);
@@ -429,7 +402,7 @@ describe('multi-node/l1_reorgs', () => {
       // Wait until a few more L1 blocks go by
       await retryUntil(() => monitor.l1BlockNumber > l1BlockNumber + 1, 'l1 block number', L1_BLOCK_TIME_IN_S * 4, 0.1);
       await retryUntil(() => archiver.getL1BlockNumber()! > l1BlockNumber + 1, 'archiver sync', 10, 0.1);
-      expect(await getCheckpointNumber(node)).toEqual(prevCheckpointNumber);
+      expect(await node.getCheckpointNumber('checkpointed')).toEqual(prevCheckpointNumber);
 
       // Manually update the archiver's L1 syncpoint to ensure we look back when needed
       // Otherwise this test just passes because we do not update the L1 syncpoint in the archiver since there are no new blocks
@@ -461,7 +434,7 @@ describe('multi-node/l1_reorgs', () => {
       await blobClient.sendBlobsToFilestore(blobs);
 
       // And wait for the node to see the new block
-      await retryUntil(() => getCheckpointNumber(node).then(b => b === CHECKPOINT_NUMBER), 'node sync', 20, 0.1);
+      await waitForNodeCheckpoint(node, CHECKPOINT_NUMBER, { comparison: 'eq', timeout: 20 });
     });
   });
 
