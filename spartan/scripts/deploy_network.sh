@@ -724,7 +724,6 @@ append_optional_tfvar "${DEPLOY_AZTEC_INFRA_DIR}/terraform.tfvars" RPC_GATEWAY_C
 append_optional_tfvar "${DEPLOY_AZTEC_INFRA_DIR}/terraform.tfvars" RPC_GATEWAY_DNS_ZONE_NAME string
 append_optional_tfvar "${DEPLOY_AZTEC_INFRA_DIR}/terraform.tfvars" RPC_GATEWAY_DNS_TTL
 append_optional_tfvar "${DEPLOY_AZTEC_INFRA_DIR}/terraform.tfvars" RPC_GATEWAY_FRONTEND_STATIC_IP_NAME string
-append_optional_tfvar "${DEPLOY_AZTEC_INFRA_DIR}/terraform.tfvars" RPC_GATEWAY_GCP_MANAGED_CERTIFICATE_NAME string
 append_optional_tfvar "${DEPLOY_AZTEC_INFRA_DIR}/terraform.tfvars" RPC_GATEWAY_KONG_OTEL_METRICS_GCP_SECRET_NAME string
 
 k8s_denoise "tf_run "${DEPLOY_AZTEC_INFRA_DIR}" "${DESTROY_AZTEC_INFRA}" "${CREATE_AZTEC_INFRA}""

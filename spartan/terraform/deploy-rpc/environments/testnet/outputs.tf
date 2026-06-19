@@ -8,9 +8,9 @@ output "kong_routes" {
   value       = module.environment.kong_routes
 }
 
-output "kong_sticky_session_policy_name" {
-  description = "Kong sticky session policy name, or null when disabled."
-  value       = module.environment.kong_sticky_session_policy_name
+output "kong_upstream_policy_name" {
+  description = "Kong upstream policy name, or null when disabled."
+  value       = module.environment.kong_upstream_policy_name
 }
 
 output "kong_metrics_service" {
@@ -21,9 +21,4 @@ output "kong_metrics_service" {
 output "frontend_load_balancer_ip" {
   description = "Global static IP assigned to the public GKE frontend Ingress."
   value       = module.environment.frontend_load_balancer_ip
-}
-
-output "gcp_managed_certificate_name" {
-  description = "GKE ManagedCertificate resource name for RPC hosts."
-  value       = module.environment.gcp_managed_certificate_name
 }

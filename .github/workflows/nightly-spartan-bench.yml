@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   select-image:
-    if: ${{ github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' || github.repository == 'AztecProtocol/aztec-packages-private' }}
+    if: ${{ github.repository == 'AztecProtocol/aztec-packages-private' }}
     runs-on: ubuntu-latest
     outputs:
       nightly_tag: ${{ steps.nightly-tag.outputs.nightly_tag }}
@@ -84,7 +84,7 @@ jobs:
   # ---------------------------------------------------------------------------
   deploy-bench-network:
     needs: select-image
-    if: ${{ github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' || github.repository == 'AztecProtocol/aztec-packages-private' }}
+    if: ${{ github.repository == 'AztecProtocol/aztec-packages-private' }}
     uses: ./.github/workflows/deploy-network.yml
     with:
       network: tps-scenario
@@ -99,7 +99,7 @@ jobs:
     needs:
       - select-image
       - deploy-bench-network
-    if: ${{ github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' || github.repository == 'AztecProtocol/aztec-packages-private' }}
+    if: ${{ github.repository == 'AztecProtocol/aztec-packages-private' }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
@@ -130,7 +130,7 @@ jobs:
     needs:
       - select-image
       - wait-bench-l2-block
-    if: ${{ github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' || github.repository == 'AztecProtocol/aztec-packages-private' }}
+    if: ${{ github.repository == 'AztecProtocol/aztec-packages-private' }}
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -188,7 +188,7 @@ jobs:
           max-items-in-chart: 100
 
   cleanup-bench:
-    if: ${{ always() && (github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' || github.repository == 'AztecProtocol/aztec-packages-private') }}
+    if: ${{ always() && github.repository == 'AztecProtocol/aztec-packages-private' }}
     needs:
       - select-image
       - deploy-bench-network
@@ -211,6 +211,7 @@ jobs:
           aws-region: us-east-2
 
       - name: Cleanup network resources
+<<<<<<< HEAD
         env:
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
@@ -218,9 +219,17 @@ jobs:
           GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
           NO_SPOT: 1
         run: ./.github/ci3.sh network-teardown tps-scenario nightly-bench
+=======
+        uses: ./.github/actions/network-teardown
+        with:
+          env_file: tps-scenario
+          namespace: nightly-bench
+          gcp_sa_key: ${{ secrets.GCP_SA_KEY }}
+          gcp_project_id: ${{ secrets.GCP_PROJECT_ID }}
+>>>>>>> origin/public-next
 
-  notify-bench-failure:
-    if: ${{ always() && failure() && github.event_name != 'workflow_dispatch' && (github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' || github.repository == 'AztecProtocol/aztec-packages-private') }}
+  notify-bench:
+    if: ${{ always() && github.event_name != 'workflow_dispatch' && github.repository == 'AztecProtocol/aztec-packages-private' }}
     needs:
       - select-image
       - deploy-bench-network
@@ -235,7 +244,7 @@ jobs:
           ref: ${{ needs.select-image.outputs.source_ref }}
 
       - name: Notify Slack on success
-        if: success()
+        if: ${{ needs.benchmark.result == 'success' }}
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
         run: |
@@ -247,7 +256,7 @@ jobs:
             "#alerts-next-scenario"
 
       - name: Notify Slack and dispatch ClaudeBox on failure
-        if: failure()
+        if: ${{ needs.benchmark.result != 'success' }}
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
@@ -264,7 +273,7 @@ jobs:
   # ---------------------------------------------------------------------------
   deploy-proving-network:
     needs: select-image
-    if: ${{ github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' || github.repository == 'AztecProtocol/aztec-packages-private' }}
+    if: ${{ github.repository == 'AztecProtocol/aztec-packages-private' }}
     uses: ./.github/workflows/deploy-network.yml
     with:
       network: prove-n-tps-fake
@@ -279,7 +288,7 @@ jobs:
     needs:
       - select-image
       - deploy-proving-network
-    if: ${{ github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' || github.repository == 'AztecProtocol/aztec-packages-private' }}
+    if: ${{ github.repository == 'AztecProtocol/aztec-packages-private' }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
@@ -310,7 +319,7 @@ jobs:
     needs:
       - select-image
       - wait-proving-l2-block
-    if: ${{ github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' || github.repository == 'AztecProtocol/aztec-packages-private' }}
+    if: ${{ github.repository == 'AztecProtocol/aztec-packages-private' }}
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -367,7 +376,7 @@ jobs:
           max-items-in-chart: 100
 
   cleanup-proving:
-    if: ${{ always() && (github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' || github.repository == 'AztecProtocol/aztec-packages-private') }}
+    if: ${{ always() && github.repository == 'AztecProtocol/aztec-packages-private' }}
     needs:
       - select-image
       - deploy-proving-network
@@ -390,6 +399,7 @@ jobs:
           aws-region: us-east-2
 
       - name: Cleanup network resources
+<<<<<<< HEAD
         env:
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
@@ -397,9 +407,17 @@ jobs:
           GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
           NO_SPOT: 1
         run: ./.github/ci3.sh network-teardown prove-n-tps-fake prove-n-tps-fake
+=======
+        uses: ./.github/actions/network-teardown
+        with:
+          env_file: prove-n-tps-fake
+          namespace: prove-n-tps-fake
+          gcp_sa_key: ${{ secrets.GCP_SA_KEY }}
+          gcp_project_id: ${{ secrets.GCP_PROJECT_ID }}
+>>>>>>> origin/public-next
 
-  notify-proving-failure:
-    if: ${{ always() && failure() && github.event_name != 'workflow_dispatch' && (github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' || github.repository == 'AztecProtocol/aztec-packages-private') }}
+  notify-proving:
+    if: ${{ always() && github.event_name != 'workflow_dispatch' && github.repository == 'AztecProtocol/aztec-packages-private' }}
     needs:
       - select-image
       - deploy-proving-network
@@ -414,7 +432,7 @@ jobs:
           ref: ${{ needs.select-image.outputs.source_ref }}
 
       - name: Notify Slack on success
-        if: success()
+        if: ${{ needs.proving-benchmark.result == 'success' }}
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
         run: |
@@ -426,7 +444,7 @@ jobs:
             "#alerts-next-scenario"
 
       - name: Notify Slack and dispatch ClaudeBox on failure
-        if: failure()
+        if: ${{ needs.proving-benchmark.result != 'success' }}
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
@@ -443,7 +461,7 @@ jobs:
   # ---------------------------------------------------------------------------
   deploy-block-capacity-network:
     needs: select-image
-    if: ${{ github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' || github.repository == 'AztecProtocol/aztec-packages-private' }}
+    if: ${{ github.repository == 'AztecProtocol/aztec-packages-private' }}
     uses: ./.github/workflows/deploy-network.yml
     with:
       network: block-capacity
@@ -458,7 +476,7 @@ jobs:
     needs:
       - select-image
       - deploy-block-capacity-network
-    if: ${{ github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' || github.repository == 'AztecProtocol/aztec-packages-private' }}
+    if: ${{ github.repository == 'AztecProtocol/aztec-packages-private' }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
@@ -489,7 +507,7 @@ jobs:
     needs:
       - select-image
       - wait-block-capacity-l2-block
-    if: ${{ github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' || github.repository == 'AztecProtocol/aztec-packages-private' }}
+    if: ${{ github.repository == 'AztecProtocol/aztec-packages-private' }}
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -546,7 +564,7 @@ jobs:
           max-items-in-chart: 100
 
   cleanup-block-capacity:
-    if: ${{ always() && (github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' || github.repository == 'AztecProtocol/aztec-packages-private') }}
+    if: ${{ always() && github.repository == 'AztecProtocol/aztec-packages-private' }}
     needs:
       - select-image
       - deploy-block-capacity-network
@@ -569,6 +587,7 @@ jobs:
           aws-region: us-east-2
 
       - name: Cleanup network resources
+<<<<<<< HEAD
         env:
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
@@ -576,9 +595,17 @@ jobs:
           GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
           NO_SPOT: 1
         run: ./.github/ci3.sh network-teardown block-capacity nightly-block-capacity
+=======
+        uses: ./.github/actions/network-teardown
+        with:
+          env_file: block-capacity
+          namespace: nightly-block-capacity
+          gcp_sa_key: ${{ secrets.GCP_SA_KEY }}
+          gcp_project_id: ${{ secrets.GCP_PROJECT_ID }}
+>>>>>>> origin/public-next
 
-  notify-block-capacity-failure:
-    if: ${{ always() && failure() && github.event_name != 'workflow_dispatch' && (github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' || github.repository == 'AztecProtocol/aztec-packages-private') }}
+  notify-block-capacity:
+    if: ${{ always() && github.event_name != 'workflow_dispatch' && github.repository == 'AztecProtocol/aztec-packages-private' }}
     needs:
       - select-image
       - deploy-block-capacity-network
@@ -593,7 +620,7 @@ jobs:
           ref: ${{ needs.select-image.outputs.source_ref }}
 
       - name: Notify Slack on success
-        if: success()
+        if: ${{ needs.block-capacity-benchmark.result == 'success' }}
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
         run: |
@@ -605,7 +632,7 @@ jobs:
             "#alerts-next-scenario"
 
       - name: Notify Slack and dispatch ClaudeBox on failure
-        if: failure()
+        if: ${{ needs.block-capacity-benchmark.result != 'success' }}
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
@@ -620,7 +647,7 @@ jobs:
   status:
     runs-on: ubuntu-latest
     needs: [benchmark, proving-benchmark, block-capacity-benchmark]
-    if: ${{ always() && (github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' || github.repository == 'AztecProtocol/aztec-packages-private') }}
+    if: ${{ always() && github.repository == 'AztecProtocol/aztec-packages-private' }}
     steps:
       - name: Check benchmark results
         run: |

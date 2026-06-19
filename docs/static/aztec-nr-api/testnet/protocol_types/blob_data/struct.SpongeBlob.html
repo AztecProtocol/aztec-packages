@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../styles.css">
+<script defer src="../../nargo_doc.js"></script>
+<title>Struct SpongeBlob documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">SpongeBlob</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../index.html">aztec-nr</a></h1>
+<div><a href="../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../index.html">protocol_types</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct SpongeBlob</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#structfield.num_absorbed_fields">num_absorbed_fields</a></li>
+<li><a href="#structfield.sponge">sponge</a></li>
+</ul>
+<h3>Methods</h3>
+<ul class="sidebar-list">
+<li><a href="#absorb">absorb</a></li>
+<li><a href="#absorb_block_end_data">absorb_block_end_data</a></li>
+<li><a href="#absorb_checkpoint_end_marker">absorb_checkpoint_end_marker</a></li>
+<li><a href="#absorb_tx_blob_data">absorb_tx_blob_data</a></li>
+<li><a href="#init">init</a></li>
+<li><a href="#squeeze">squeeze</a></li>
+</ul>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-Deserialize-for-SpongeBlob">Deserialize</a></li>
+<li><a href="#impl-Empty-for-SpongeBlob">Empty</a></li>
+<li><a href="#impl-Eq-for-SpongeBlob">Eq</a></li>
+<li><a href="#impl-Serialize-for-SpongeBlob">Serialize</a></li>
+</ul>
+<h2>In module blob_data</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.SpongeBlob.html">SpongeBlob</a></div></li>
+<li><a href="struct.TxEffect.html">TxEffect</a></div></li>
+<li><a href="struct.TxEffectArrayLengths.html">TxEffectArrayLengths</a></div></li>
+</ul>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.create_block_end_blob_data.html">create_block_end_blob_data</a></div></li>
+<li><a href="fn.create_block_end_marker.html">create_block_end_marker</a></div></li>
+<li><a href="fn.create_block_end_state_field.html">create_block_end_state_field</a></div></li>
+<li><a href="fn.create_checkpoint_end_marker.html">create_checkpoint_end_marker</a></div></li>
+<li><a href="fn.create_tx_start_marker.html">create_tx_start_marker</a></div></li>
+</ul>
+<h3>Globals</h3><ul class="item-list">
+<li><a href="global.MAX_TX_BLOB_DATA_SIZE_IN_FIELDS.html">MAX_TX_BLOB_DATA_SIZE_IN_FIELDS</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">protocol_types</a>::<a href="index.html">blob_data</a></div>
+<h1>Struct <span id="struct" class="struct">SpongeBlob</span></h1>
+<pre><code>pub struct SpongeBlob {
+    pub sponge: <a href="../../protocol_types/poseidon2/struct.Poseidon2Sponge.html" class="struct">Poseidon2Sponge</a>,
+    pub num_absorbed_fields: <a href="../../std/primitive.u32.html" class="primitive">u32</a>,
+}
+</code></pre>
+<div class="comments">
+<p>A Poseidon2 sponge used to accumulate data that will be added to blob(s).
+(More accurately called BlobSponge, but that's not as fun).</p>
+<p>The journey of a SpongeBlob:</p>
+<p>Tx base: each tx absorbs its effects into the given &quot;start&quot; SpongeBlob and outputs it as the &quot;end&quot; SpongeBlob.</p>
+<p>Tx merge or block root checks that the start SpongeBlob of a tx matches the end SpongeBlob of the previous tx.</p>
+<p>Block root: the end SpongeBlob of the last tx absorbs a special block end marker indicating the number of txs in
+the block, along with the end state of the block. The block header commits to the value squeezed from this
+SpongeBlob. This updated SpongeBlob is then output as the end SpongeBlob of the block root.</p>
+<p>In block merge or checkpoint root, the start SpongeBlob is checked against the end SpongeBlob of the previous block.</p>
+<p>Checkpoint root: receives all fields as private inputs and checks that hashing them matches the final hash squeezed
+from the end SpongeBlob of the last block, after absorbing a checkpoint end marker indicating the number of fields
+absorbed. It also checks that the start SpongeBlob of the first tx in the block does not have any fields absorbed.</p>
+<p>The final hash is used as part of the blob challenge, proving that all fields of the blob(s) are included.</p>
+<p>Note: The hash squeezed from the SpongeBlob is NOT a standard poseidon2 hash.</p>
+</div>
+<h2>Fields</h2>
+<div id="structfield.sponge" class="struct-field"><code class="code-header">sponge: <a href="../../protocol_types/poseidon2/struct.Poseidon2Sponge.html" class="struct">Poseidon2Sponge</a></code></div>
+<div class="padded-description"></div><div id="structfield.num_absorbed_fields" class="struct-field"><code class="code-header">num_absorbed_fields: <a href="../../std/primitive.u32.html" class="primitive">u32</a></code></div>
+<div class="padded-description"></div><h2>Implementations</h2>
+<h3><code class="code-header">impl <a href="../../protocol_types/blob_data/struct.SpongeBlob.html" class="struct">SpongeBlob</a></code></h3>
+
+<div class="padded-methods"><code id="init" class="code-header">pub fn <a href="#init"><span class="fn">init</span></a>() -> Self</code>
+
+<div class="padded-description"><div class="comments">
+<p>Initialize the sponge with the maximum number of fields allowed in a checkpoint.
+This allows proposers to start creating blocks and signing block headers (which contain the hash squeezed from
+the this sponge) before receiving all txs in a checkpoint slot.</p>
+</div>
+</div><code id="absorb_tx_blob_data" class="code-header">pub fn <a href="#absorb_tx_blob_data"><span class="fn">absorb_tx_blob_data</span></a>(
+    &mut self,
+    tx_effect: <a href="../../protocol_types/blob_data/struct.TxEffect.html" class="struct">TxEffect</a>,
+    array_lengths: <a href="../../protocol_types/blob_data/struct.TxEffectArrayLengths.html" class="struct">TxEffectArrayLengths</a>,
+)</code>
+
+<div class="padded-description"><div class="comments">
+<p>|----------|--------------------------------|-------------------------------------|
+| Field 0  | TX_START_PREFIX                | 64 bits                             |
+|          | num_note_hashes                | 16 bits                             |
+|          | num_nullifiers                 | 16 bits                             |
+|          | num_l1_to_l2_msgs              | 16 bits                             |
+|          | num_public_data_writes         | 16 bits                             |
+|          | num_private_logs               | 16 bits                             |
+|          | private_logs_length            | 16 bits                             |
+|          | public_logs_length             | 32 bits                             |
+|          | contract_class_log_length      | 16 bits                             |
+|          | revert_code                    |  8 bits                             |</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>num_blob_fields</th>
+<th>32 bits</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Field 1</td>
+<td>tx_effect.tx_hash</td>
+<td>A field</td>
+</tr>
+<tr>
+<td>----------</td>
+<td>--------------------------------</td>
+<td>-------------------------------------</td>
+</tr>
+<tr>
+<td>Field 2</td>
+<td>tx_effect.transaction_fee</td>
+<td>A field</td>
+</tr>
+<tr>
+<td>----------</td>
+<td>--------------------------------</td>
+<td>-------------------------------------</td>
+</tr>
+<tr>
+<td></td>
+<td>tx_effect.note_hashes</td>
+<td><code>num_note_hashes</code> fields</td>
+</tr>
+<tr>
+<td>----------</td>
+<td>--------------------------------</td>
+<td>-------------------------------------</td>
+</tr>
+<tr>
+<td></td>
+<td>tx_effect.nullifiers</td>
+<td><code>num_nullifiers</code> fields</td>
+</tr>
+<tr>
+<td>----------</td>
+<td>--------------------------------</td>
+<td>-------------------------------------</td>
+</tr>
+<tr>
+<td></td>
+<td>tx_effect.l2_to_l1_msgs</td>
+<td><code>num_l1_to_l2_msgs</code> fields</td>
+</tr>
+<tr>
+<td>----------</td>
+<td>--------------------------------</td>
+<td>-------------------------------------</td>
+</tr>
+<tr>
+<td></td>
+<td>tx_effect.public_data_writes</td>
+<td><code>num_public_data_writes * 2</code> fields</td>
+</tr>
+<tr>
+<td>----------</td>
+<td>--------------------------------</td>
+<td>-------------------------------------</td>
+</tr>
+<tr>
+<td></td>
+<td>(tx_effect.private_logs):</td>
+<td>(private_logs_length)</td>
+</tr>
+<tr>
+<td></td>
+<td>Where, for each log:</td>
+<td></td>
+</tr>
+<tr>
+<td></td>
+<td>log.length</td>
+<td>A field</td>
+</tr>
+<tr>
+<td></td>
+<td>log.fields</td>
+<td><code>log.length</code> fields</td>
+</tr>
+<tr>
+<td>----------</td>
+<td>--------------------------------</td>
+<td>-------------------------------------</td>
+</tr>
+<tr>
+<td></td>
+<td>tx_effect.public_logs.payload</td>
+<td><code>public_logs.length</code> fields</td>
+</tr>
+<tr>
+<td>----------</td>
+<td>--------------------------------</td>
+<td>-------------------------------------</td>
+</tr>
+<tr>
+<td></td>
+<td>tx_effect.contract_class_logs</td>
+<td>(contract_class_log_length)</td>
+</tr>
+<tr>
+<td></td>
+<td>Where, for each log:</td>
+<td></td>
+</tr>
+<tr>
+<td></td>
+<td>log.contract_address</td>
+<td>A field</td>
+</tr>
+<tr>
+<td></td>
+<td>log.fields</td>
+<td><code>log.length</code> fields</td>
+</tr>
+<tr>
+<td>----------</td>
+<td>--------------------------------</td>
+<td>-------------------------------------</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div><code id="absorb_block_end_data" class="code-header">pub fn <a href="#absorb_block_end_data"><span class="fn">absorb_block_end_data</span></a>(
+    &mut self,
+    global_variables: <a href="../../protocol_types/abis/global_variables/struct.GlobalVariables.html" class="struct">GlobalVariables</a>,
+    last_archive: <a href="../../protocol_types/abis/append_only_tree_snapshot/struct.AppendOnlyTreeSnapshot.html" class="struct">AppendOnlyTreeSnapshot</a>,
+    state: <a href="../../protocol_types/abis/state_reference/struct.StateReference.html" class="struct">StateReference</a>,
+    num_txs: <a href="../../std/primitive.u16.html" class="primitive">u16</a>,
+    total_mana_used: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
+    is_first_block_in_checkpoint: <a href="../../std/primitive.bool.html" class="primitive">bool</a>,
+)</code>
+
+<div class="padded-description"><div class="comments">
+<p>|----------|---------------------------------------------|---------|
+| Field 0  | BLOCK_END_PREFIX                            | 72 bits |
+|          | timestamp                                   | 64 bits |
+|          | block_number                                | 32 bits |</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>num_txs</th>
+<th>16 bits</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Field 1</td>
+<td>l1_to_l2_message_next_available_leaf_index</td>
+<td>36 bits</td>
+</tr>
+<tr>
+<td></td>
+<td>note_hash_next_available_leaf_index</td>
+<td>42 bits</td>
+</tr>
+<tr>
+<td></td>
+<td>nullifier_next_available_leaf_index</td>
+<td>42 bits</td>
+</tr>
+<tr>
+<td></td>
+<td>public_data_next_available_leaf_index</td>
+<td>40 bits</td>
+</tr>
+<tr>
+<td></td>
+<td>total_mana_used</td>
+<td>48 bits</td>
+</tr>
+<tr>
+<td>----------</td>
+<td>---------------------------------------------</td>
+<td>---------</td>
+</tr>
+<tr>
+<td>Field 2</td>
+<td>last_archive.root</td>
+<td>A field</td>
+</tr>
+<tr>
+<td>----------</td>
+<td>---------------------------------------------</td>
+<td>---------</td>
+</tr>
+<tr>
+<td>Field 3</td>
+<td>note_hash_tree.root</td>
+<td>A field</td>
+</tr>
+<tr>
+<td>----------</td>
+<td>---------------------------------------------</td>
+<td>---------</td>
+</tr>
+<tr>
+<td>Field 4</td>
+<td>nullifier_tree.root</td>
+<td>A field</td>
+</tr>
+<tr>
+<td>----------</td>
+<td>---------------------------------------------</td>
+<td>---------</td>
+</tr>
+<tr>
+<td>Field 5</td>
+<td>public_data_tree.root</td>
+<td>A field</td>
+</tr>
+<tr>
+<td>----------</td>
+<td>---------------------------------------------</td>
+<td>---------</td>
+</tr>
+<tr>
+<td>Field 6</td>
+<td>l1_to_l2_message_tree.root</td>
+<td>A field</td>
+</tr>
+<tr>
+<td>----------</td>
+<td>---------------------------------------------</td>
+<td>---------</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div><code id="absorb_checkpoint_end_marker" class="code-header">pub fn <a href="#absorb_checkpoint_end_marker"><span class="fn">absorb_checkpoint_end_marker</span></a>(&mut self)</code>
+
+<div class="padded-description"><div class="comments">
+<p>|----------|---------------------------------------------|---------|
+| Field 0  | CHECKPOINT_END_PREFIX                       | 112 bits|</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>num_blob_fields</th>
+<th>32 bits</th>
+</tr>
+</thead>
+</table>
+</div>
+</div><code id="absorb" class="code-header">pub fn <a href="#absorb"><span class="fn">absorb</span></a>&lt;let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(&mut self, input: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; N], in_len: <a href="../../std/primitive.u32.html" class="primitive">u32</a>)</code>
+
+<div class="padded-description"><div class="comments">
+<p>Absorb the first <code>in_len</code> fields of the <code>input</code> to the sponge. Fields beyond <code>in_len</code> are ignored.</p>
+</div>
+</div><code id="squeeze" class="code-header">pub fn <a href="#squeeze"><span class="fn">squeeze</span></a>(&mut self) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
+
+<div class="padded-description"><div class="comments">
+<p>Finalize the sponge and output the non-standard poseidon2 hash of all fields absorbed.</p>
+</div>
+</div></div><h2>Trait implementations</h2>
+<h3 id="impl-Deserialize-for-SpongeBlob"><code class="code-header">impl <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/blob_data/struct.SpongeBlob.html" class="struct">SpongeBlob</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(fields: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 10]) -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">stream_deserialize</span>&lt;let K: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(reader: &mut <a href="../../serde/reader/struct.Reader.html" class="struct">Reader</a>&lt;K&gt;) -> Self</code>
+
+</div><h3 id="impl-Empty-for-SpongeBlob"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/blob_data/struct.SpongeBlob.html" class="struct">SpongeBlob</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">empty</span>() -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">is_empty</span>(self: Self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a>
+<div class="where-clause">where
+    Self: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
+
+<code class="code-header">pub fn <span class="fn">assert_empty</span>&lt;let S: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self: Self, msg: <a href="../../std/primitive.str.html" class="primitive">str</a>&lt;S&gt;)
+<div class="where-clause">where
+    Self: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
+
+</div><h3 id="impl-Eq-for-SpongeBlob"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../protocol_types/blob_data/struct.SpongeBlob.html" class="struct">SpongeBlob</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">eq</span>(_self: Self, _other: Self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+</div><h3 id="impl-Serialize-for-SpongeBlob"><code class="code-header">impl <a href="../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/blob_data/struct.SpongeBlob.html" class="struct">SpongeBlob</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 10]</code>
+
+<code class="code-header">pub fn <span class="fn">stream_serialize</span>&lt;let K: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, writer: &mut <a href="../../serde/writer/struct.Writer.html" class="struct">Writer</a>&lt;K&gt;)</code>
+
+</div></main>
+</span>
+</body>
+</html>

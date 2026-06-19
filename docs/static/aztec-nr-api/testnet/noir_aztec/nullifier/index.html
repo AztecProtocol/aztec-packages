@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../styles.css">
+<script defer src="../../nargo_doc.js"></script>
+<title>Module nullifier documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">nullifier</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../index.html">aztec-nr</a></h1>
+<div><a href="../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#mod">Module nullifier</a></h2>
+<h3>Module items</h3>
+<ul class="sidebar-list">
+<li><a href="#modules">Modules</a></li>
+</ul>
+<h2>In crate nullifier</h2>
+<h3>Modules</h3><ul class="item-list">
+<li><a href="../authwit/index.html">authwit</a></div></li>
+<li><a href="../capsules/index.html">capsules</a></div></li>
+<li><a href="../context/index.html">context</a></div></li>
+<li><a href="../contract_self/index.html">contract_self</a></div></li>
+<li><a href="../ephemeral/index.html">ephemeral</a></div></li>
+<li><a href="../event/index.html">event</a></div></li>
+<li><a href="../hash/index.html">hash</a></div></li>
+<li><a href="../history/index.html">history</a></div></li>
+<li><a href="../keys/index.html">keys</a></div></li>
+<li><a href="../macros/index.html">macros</a></div></li>
+<li><a href="../messages/index.html">messages</a></div></li>
+<li><a href="../note/index.html">note</a></div></li>
+<li><a href="../nullifier/index.html">nullifier</a></div></li>
+<li><a href="../oracle/index.html">oracle</a></div></li>
+<li><a href="../protocol/index.html">protocol</a></div></li>
+<li><a href="../public_checks/index.html">public_checks</a></div></li>
+<li><a href="../publish_contract_instance/index.html">publish_contract_instance</a></div></li>
+<li><a href="../standard_addresses/index.html">standard_addresses</a></div></li>
+<li><a href="../state_vars/index.html">state_vars</a></div></li>
+<li><a href="../test/index.html">test</a></div></li>
+<li><a href="../transient/index.html">transient</a></div></li>
+<li><a href="../unconstrained_array/index.html">unconstrained_array</a></div></li>
+<li><a href="../utils/index.html">utils</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">noir_aztec</a>::nullifier</div>
+<h1>Module <span id="mod" class="module">nullifier</span></h1>
+<div class="comments">
+<p>Nullifier-related utilities.</p>
+<p>Nullifiers are one of the key primitives of private state. A nullifier is a <code>Field</code> value that is stored in one of
+the Aztec state trees: the nullifier tree. Only unique values can be inserted into this tree: attempting to create
+an
+already existing nullifier (a duplicate nullifier) will result in either the transaction being unprovable, invalid,
+or reverting, depending on exactly when the duplicate is created.</p>
+<p>Generally, nullifiers are used to prevent an action from happening more than once, or to more generally 'consume' a
+resource. This can include preventing re-initialization of contracts, replay attacks of signatures, repeated claims
+of a deposit, double-spends of received funds, etc. To achieve this, nullifiers must be computed
+<strong>deterministically</strong> from the resource they're consuming. For example a contract initialization nullifier might
+use
+its address, or a signature replay protection could use the signature hash.</p>
+<p>One of the key properties of nullifiers is that they can be created by private functions, resulting in transactions
+that do not reveal which actions they've performed. Their computation often involves a <strong>secret parameter</strong>, often
+derived from a nullifier hiding key (<code>nhk</code>) which prevents linking of the resource that was consumed from the
+nullifier. For example, it is not possible to determine which nullifier corresponds to a given note hash without
+knowledge of the <code>nhk</code>, and so the transactions that created the note and nullifier remain unlinked.</p>
+<p>In other words, a nullifier is (in most cases) a random-looking but deterministic record of a private, one-time
+action, which does not leak what action has been taken, and which preserves the property of transaction
+unlinkability.</p>
+<p>In some cases, nullifiers cannot be secret as knowledge of them <strong>must</strong> be public information. For example,
+contracts used by multiple people (like tokens) cannot have secrets in their initialization nullifiers: for users
+to
+use the contract they must prove that it has been initialized, and this requires them being able to compute the
+initialization nullifier.</p>
+<h2>Nullifier Creation</h2>
+<p>The low-level mechanisms to create new nullifiers are <a href="../../noir_aztec/context/struct.PrivateContext.html#push_nullifier_unsafe"><code>crate::context::PrivateContext::push_nullifier_unsafe</code></a> and
+<a href="../../noir_aztec/context/struct.PublicContext.html#push_nullifier_unsafe"><code>crate::context::PublicContext::push_nullifier_unsafe</code></a>, but these require care and can be hard to use correctly.
+Higher-level abstractions exist which safely create nullifiers, such as <a href="../../noir_aztec/note/lifecycle/fn.destroy_note.html"><code>crate::note::lifecycle::destroy_note</code></a>
+and
+<a href="../../noir_aztec/state_vars/struct.SingleUseClaim.html"><code>crate::state_vars::SingleUseClaim</code></a>.</p>
+<h2>Reading Nullifiers</h2>
+<p>Private functions can prove that nullifiers have been created via
+<a href="../../noir_aztec/context/struct.PrivateContext.html#assert_nullifier_exists"><code>crate::context::PrivateContext::assert_nullifier_exists</code></a> and
+<a href="../../noir_aztec/history/nullifier/fn.assert_nullifier_existed_by.html"><code>crate::history::nullifier::assert_nullifier_existed_by</code></a>, but the only general mechanism to privately prove that
+a
+nullifier <em>does not</em> exist is to create it - which can only be done once.</p>
+<p>Public functions on the other hand can prove both nullifier existence and non-existence via
+<a href="../../noir_aztec/context/struct.PublicContext.html#nullifier_exists_unsafe"><code>crate::context::PublicContext::nullifier_exists_unsafe</code></a>.</p></div>
+<h2 id="modules">Modules</h2><ul class="item-list">
+<li><div class="item-name"><a href="utils/index.html" class="module">utils</a></div><div class="item-description"></div></li>
+</ul>
+</main>
+</span>
+</body>
+</html>
