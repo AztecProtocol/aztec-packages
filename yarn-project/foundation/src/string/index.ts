@@ -17,7 +17,17 @@ export function isHex(str: string): boolean {
   return /^(0x)?[0-9a-fA-F]*$/.test(str);
 }
 
+export function isHexBufferString(str: string): boolean {
+  return isHex(str) && withoutHexPrefix(str).length % 2 === 0;
+}
+
 export function hexToBuffer(str: string): Buffer {
+  if (!isHex(str)) {
+    throw new Error(`Invalid hex string: ${str}`);
+  }
+  if (!isHexBufferString(str)) {
+    throw new Error(`Invalid hex string length: ${str}`);
+  }
   return Buffer.from(withoutHexPrefix(str), 'hex');
 }
 

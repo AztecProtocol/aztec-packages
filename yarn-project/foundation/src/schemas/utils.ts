@@ -1,7 +1,7 @@
 import { type ZodObject, type ZodRawShape, type ZodType, type ZodTypeAny, z } from 'zod';
 
 import { pick } from '../collection/object.js';
-import { isHex, withoutHexPrefix } from '../string/index.js';
+import { hexToBuffer, isHex, isHexBufferString, withoutHexPrefix } from '../string/index.js';
 import type { ZodFor } from './types.js';
 
 export const hexSchema = z.string().refine(isHex, 'Not a valid hex string').transform(withoutHexPrefix);
@@ -60,7 +60,10 @@ export function hexSchemaFor<TClass extends { fromString(str: string): any } | {
   const hexSchema = stringSchema.refine(isHex, 'Not a valid hex string');
   return 'fromString' in klazz
     ? hexSchema.transform(klazz.fromString.bind(klazz))
-    : hexSchema.transform(str => Buffer.from(withoutHexPrefix(str), 'hex')).transform(klazz.fromBuffer.bind(klazz));
+    : hexSchema
+        .refine(isHexBufferString, 'Hex string must have an even number of characters')
+        .transform(hexToBuffer)
+        .transform(klazz.fromBuffer.bind(klazz));
 }
 
 /**

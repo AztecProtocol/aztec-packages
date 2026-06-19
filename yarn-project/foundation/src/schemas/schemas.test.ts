@@ -11,6 +11,18 @@ describe('schemas', () => {
     });
   });
 
+  describe('BufferHex', () => {
+    it('rejects odd-length hex strings instead of truncating the last nibble', () => {
+      expect(schemas.BufferHex.safeParse('0xabc').success).toBe(false);
+    });
+  });
+
+  describe('Fr', () => {
+    it('continues to parse odd-length numeric hex strings', () => {
+      expect(schemas.Fr.parse('0x1').toBigInt()).toBe(1n);
+    });
+  });
+
   describe('Boolean', () => {
     it('accepts a boolean value', () => {
       expect(schemas.Boolean.parse(true)).toEqual(true);
