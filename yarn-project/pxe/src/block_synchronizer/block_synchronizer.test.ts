@@ -806,6 +806,7 @@ describe('BlockSynchronizer', () => {
         anchorBlockStore,
         noteStore,
         privateEventStore,
+        entityStore,
         tipsStore,
         contractSyncService,
         { syncChainTip: 'proposed' },
