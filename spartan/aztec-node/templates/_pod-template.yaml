@@ -96,6 +96,13 @@ spec:
 
           {{- if .Values.service.p2p.publicIP }}
             export P2P_QUERY_FOR_IP=true
+          {{- else if .Values.service.p2p.clusterIP.enabled }}
+            for i in $(seq 1 30); do
+              export P2P_IP=$(getent hosts {{ include "chart.fullname" . }}-p2p.{{ .Release.Namespace }}.svc.cluster.local | awk '{ print $1 }')
+              [ -n "${P2P_IP:-}" ] && break
+              echo "Waiting for {{ include "chart.fullname" . }}-p2p Service ClusterIP to resolve...";
+              sleep 2
+            done
           {{- else }}
             export P2P_IP=$(hostname -i)
           {{- end }}

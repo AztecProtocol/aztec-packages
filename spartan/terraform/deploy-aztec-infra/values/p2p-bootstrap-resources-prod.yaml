@@ -11,8 +11,19 @@ node:
       cpu: "1"
       memory: "1Gi"
 
+# Persist the data directory so the discv5/peer-id private key (stored at
+# DATA_DIRECTORY/p2p-private-key) survives restarts. This keeps the bootstrap's
+# node id stable across rollouts, so its ENR does not change out from under peers.
 persistence:
-  enabled: false
+  enabled: true
 
 statefulSet:
-  enabled: false
+  enabled: true
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: 2Gi

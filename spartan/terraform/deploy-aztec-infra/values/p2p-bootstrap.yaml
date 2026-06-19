@@ -19,6 +19,10 @@ service:
   p2p:
     enabled: true
     nodePortEnabled: false
+    # Advertise a stable cluster-internal ClusterIP in the ENR (when not using a
+    # public IP) so the bootstrap ENR survives pod restarts and rollouts.
+    clusterIP:
+      enabled: true
   admin:
     enabled: false
   headless:

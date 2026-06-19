@@ -224,6 +224,13 @@ service:
     hostPortEnabled: true
     port: 40400
     announcePort: 40400
+    # -- Expose P2P through a stable cluster-internal ClusterIP Service and advertise
+    # that ClusterIP in the ENR instead of the ephemeral pod IP. Only takes effect
+    # when publicIP is false. Keeps the advertised address stable across pod
+    # restarts so a rollout does not strand peers on a dead ENR.
+    clusterIP:
+      enabled: false
+      annotations: {}
 
 ingress:
   rpc:

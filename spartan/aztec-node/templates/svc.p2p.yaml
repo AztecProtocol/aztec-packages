@@ -1,0 +1,27 @@
+{{- if and .Values.service.p2p.enabled .Values.service.p2p.clusterIP.enabled (not .Values.service.p2p.publicIP) }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "chart.fullname" . }}-p2p
+  labels:
+    {{- include "chart.labels" . | nindent 4 }}
+    type: p2p
+  {{- with .Values.service.p2p.clusterIP.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: p2p-tcp
+      port: {{ .Values.service.p2p.announcePort }}
+      targetPort: p2p-tcp
+      protocol: TCP
+    - name: p2p-udp
+      port: {{ .Values.service.p2p.announcePort }}
+      targetPort: p2p-udp
+      protocol: UDP
+  selector:
+    {{- include "chart.selectorLabels" . | nindent 4 }}
+    app: node
+{{- end }}
