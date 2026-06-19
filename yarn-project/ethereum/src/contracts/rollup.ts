@@ -124,7 +124,10 @@ export type FeeHeader = {
  * Checkpoint log data returned from the rollup contract
  */
 export type CheckpointLog = {
-  archive: Fr;
+  // Archive root carried as raw bytes (not Fr) on the L1-read path. A malicious proposer can store a checkpoint
+  // whose archive root is out of the BN254 field; eagerly converting it to Fr would throw and brick any node that
+  // reads this checkpoint on a sync/startup path. Conversion to Fr happens only at the ingestion boundary.
+  archive: Buffer32;
   headerHash: Buffer32;
   blobCommitmentsHash: Buffer32;
   attestationsHash: Buffer32;
@@ -696,7 +699,7 @@ export class RollupContract {
     await checkBlockTag(options?.blockNumber, this.client);
     const result = await this.rollup.read.getCheckpoint([BigInt(checkpointNumber)], options);
     return {
-      archive: Fr.fromString(result.archive),
+      archive: Buffer32.fromString(result.archive),
       headerHash: Buffer32.fromString(result.headerHash),
       blobCommitmentsHash: Buffer32.fromString(result.blobCommitmentsHash),
       attestationsHash: Buffer32.fromString(result.attestationsHash),

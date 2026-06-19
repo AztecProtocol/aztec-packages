@@ -3,6 +3,7 @@ import { MAX_CHECKPOINTS_PER_EPOCH } from '@aztec/constants';
 import type { RollupContract, ViemCommitteeAttestation } from '@aztec/ethereum/contracts';
 import type { L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import { CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { areArraysEqual } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -152,9 +153,11 @@ export class ProverNodePublisher {
       );
     }
 
-    // Check the archive for the immediate checkpoint before the epoch
+    // Check the archive for the immediate checkpoint before the epoch. The on-chain archive is carried as raw
+    // bytes (a malicious proposer can store an out-of-BN254-range value); compare via Buffer32 rather than
+    // converting it to Fr, so a mismatching out-of-range value reports a mismatch instead of throwing.
     const checkpointLog = await this.rollupContract.getCheckpoint(CheckpointNumber(fromCheckpoint - 1));
-    if (!publicInputs.previousArchiveRoot.equals(checkpointLog.archive)) {
+    if (!checkpointLog.archive.equals(Buffer32.fromField(publicInputs.previousArchiveRoot))) {
       throw new Error(
         `Previous archive root mismatch: ${publicInputs.previousArchiveRoot.toString()} !== ${checkpointLog.archive.toString()}`,
       );
@@ -162,7 +165,7 @@ export class ProverNodePublisher {
 
     // Check the archive for the last checkpoint in the epoch
     const endCheckpointLog = await this.rollupContract.getCheckpoint(toCheckpoint);
-    if (!publicInputs.endArchiveRoot.equals(endCheckpointLog.archive)) {
+    if (!endCheckpointLog.archive.equals(Buffer32.fromField(publicInputs.endArchiveRoot))) {
       throw new Error(
         `End archive root mismatch: ${publicInputs.endArchiveRoot.toString()} !== ${endCheckpointLog.archive.toString()}`,
       );

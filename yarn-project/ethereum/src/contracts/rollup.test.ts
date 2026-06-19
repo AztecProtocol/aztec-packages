@@ -8,7 +8,7 @@ import { DateProvider } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 
 import { jest } from '@jest/globals';
-import { type Abi, RpcRequestError, encodeErrorResult } from 'viem';
+import { type Abi, RpcRequestError, encodeAbiParameters, encodeErrorResult, hexToBigInt, keccak256 } from 'viem';
 import { foundry } from 'viem/chains';
 
 import { DefaultL1ContractsConfig } from '../config.js';
@@ -601,6 +601,36 @@ describe('Rollup', () => {
 
       const checkpoint = await rollup.getCheckpoint(CheckpointNumber(0));
       expect(BigInt(checkpoint.slotNumber)).toBe(testSlotNumber);
+    });
+  });
+
+  describe('getCheckpoint with out-of-range archive', () => {
+    /** Computes the storage slot for `archives[checkpointNumber]` (mapping base is stfStorageSlot + 1). */
+    function archiveStorageSlot(checkpointNumber: bigint): bigint {
+      const archivesMappingBase = hexToBigInt(RollupContract.stfStorageSlot) + 1n;
+      return hexToBigInt(
+        keccak256(
+          encodeAbiParameters([{ type: 'uint256' }, { type: 'uint256' }], [checkpointNumber, archivesMappingBase]),
+        ),
+      );
+    }
+
+    it('does not throw when the stored archive root is outside the BN254 field', async () => {
+      // A malicious proposer can land a checkpoint whose archive root is >= the BN254 modulus. An honest node
+      // reading it on a sync/startup path (e.g. the tx-pool fee provider booting against the pending tip) must
+      // not brick. The archive is therefore carried as raw bytes; converting to Fr would throw here.
+      await cheatCodes.store(
+        EthAddress.fromString(rollupAddress),
+        RollupContract.chainTipsStorageSlot,
+        RollupContract.packChainTips(0n, 0n),
+      );
+
+      // 2^256 - 1: maximal bytes32, far above the BN254 modulus, so Fr.fromString would reject it.
+      const outOfRange = (1n << 256n) - 1n;
+      await cheatCodes.store(EthAddress.fromString(rollupAddress), archiveStorageSlot(0n), outOfRange);
+
+      const checkpoint = await rollup.getCheckpoint(CheckpointNumber(0));
+      expect(checkpoint.archive).toEqual(Buffer32.fromBigInt(outOfRange));
     });
   });
 });

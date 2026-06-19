@@ -133,12 +133,11 @@ describe('prover-node-publisher', () => {
       // Return the requested checkpoint
       rollup.getCheckpoint.mockImplementation((checkpointNumber: CheckpointNumber) =>
         Promise.resolve({
-          archive: checkpoints[checkpointNumber - 1].endArchiveRoot,
+          archive: Buffer32.fromField(checkpoints[checkpointNumber - 1].endArchiveRoot),
           attestationsHash: Buffer32.ZERO, // unused,
           payloadDigest: Buffer32.ZERO, // unused,
           headerHash: Buffer32.ZERO, // unused,
           blobCommitmentsHash: Buffer32.ZERO, // unused,
-          outHash: '0x', // unused,
           slotNumber: SlotNumber(0), // unused,
           feeHeader: {
             excessMana: 0n, // unused
@@ -201,12 +200,11 @@ describe('prover-node-publisher', () => {
     const checkpoints = Array.from({ length: 100 }, () => RootRollupPublicInputs.random());
     rollup.getCheckpoint.mockImplementation((n: CheckpointNumber) =>
       Promise.resolve({
-        archive: checkpoints[n - 1].endArchiveRoot,
+        archive: Buffer32.fromField(checkpoints[n - 1].endArchiveRoot),
         attestationsHash: Buffer32.ZERO,
         payloadDigest: Buffer32.ZERO,
         headerHash: Buffer32.ZERO,
         blobCommitmentsHash: Buffer32.ZERO,
-        outHash: '0x',
         slotNumber: SlotNumber(0),
         feeHeader: { excessMana: 0n, manaUsed: 0n, ethPerFeeAsset: 0n, congestionCost: 0n, proverCost: 0n },
       }),
@@ -264,12 +262,11 @@ describe('prover-node-publisher', () => {
     // Return the requested checkpoint
     rollup.getCheckpoint.mockImplementation((checkpointNumber: CheckpointNumber) =>
       Promise.resolve({
-        archive: checkpoints[checkpointNumber - 1].endArchiveRoot,
+        archive: Buffer32.fromField(checkpoints[checkpointNumber - 1].endArchiveRoot),
         attestationsHash: Buffer32.ZERO, // unused,
         payloadDigest: Buffer32.ZERO, // unused,
         headerHash: Buffer32.ZERO, // unused,
         blobCommitmentsHash: Buffer32.ZERO, // unused,
-        outHash: '0x', // unused,
         slotNumber: SlotNumber(0), // unused,
         feeHeader: {
           excessMana: 0n, // unused
