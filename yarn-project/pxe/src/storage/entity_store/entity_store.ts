@@ -41,10 +41,10 @@ type StagedOp =
  * id) and carrying an opaque (to PXE) body. A fact is a contract-defined immutable, typed datum attached to an entity.
  *
  * What makes this store different to, for example, the `CapsuleStore`, is that it is designed to support use cases
- * where resilience to reorgs is needed, for which we need to introduce the concept of retractability.
+ * where resilience to reorgs is needed, via what be call _retractability_.
  *
  * Both entities and facts can be retractable or non-retractable. They are retractable if they are associated to an
- * origin block; they are non-retractable if they are not associated to an origin block.
+ * origin block.
  *
  * Retractable entities and all their facts are removed from the store when their origin block is pruned (typically due
  * to a reorg). Retractable facts are likewise removed from the store when their origin block is pruned.
@@ -69,19 +69,19 @@ export class EntityStore implements StagedStore {
 
   #store: AztecAsyncKVStore;
 
-  /** Primary entity records; each holds the entity body and optional origin block. */
+  /** Primary index of entity records. Each holds the entity body and optional origin block. */
   #entities: AztecAsyncMap<EntityKeyStr, StoredEntityBuffer>;
 
   /** Index for delete-on-prune of retractable entities (those with an origin block). */
   #entitiesByBlock: AztecAsyncMultiMap<BlockNum, EntityKeyStr>;
 
-  /** Primary fact records, deduplicated by fact key. */
+  /** Primary index of fact records. */
   #facts: AztecAsyncMap<FactKeyStr, FactBuffer>;
 
   /** Index for efficient entity-level fold. */
   #factsByEntity: AztecAsyncMultiMap<EntityKeyStr, FactKeyStr>;
 
-  /** Index for delete-on-prune (retractable facts only). */
+  /** Index for delete-on-prune of retractable facts (those with an origin block). */
   #factsByBlock: AztecAsyncMultiMap<BlockNum, FactKeyStr>;
 
   /** Monotonic counter assigning each newly committed fact its creation-order sequence number. */
@@ -111,15 +111,15 @@ export class EntityStore implements StagedStore {
    * Creates an entity. Idempotent, with first-write-wins semantics.
    *
    * If `originBlock === undefined`, the entity is non-retractable: it survives reorgs. A defined origin block makes the
-   * entity retractable: on a prune above its block, the entity and all its facts are deleted.
+   * entity retractable: on a prune below its block, the entity and all its facts are deleted.
    *
    * An entity is identified solely by its {@link EntityKey} (contract, scope, entityTypeId, entityId). If an entity
    * with that key already exists, this call is a no-op: the existing entity, its body, origin block or lackthereof,
    * and all its facts, are left untouched and the supplied `entityBody`/`originBlock` are ignored.
    *
    * Creating a duplicate key never throws, so callers may re-run creation unconditionally without first checking
-   * existence. This matters because Noir has no exception handling: a throw on an existing key would abort the whole
-   * utility run with no way to recover.
+   * existence. This matters because Noir has no exception handling: a throw on an existing key would abort contract
+   * execution with no way to recover.
    *
    * Users that need different behavior (updating an entity, branching on its current state, or distinguishing
    * instances by block, to cite a few examples) must either read it first via {@link getEntity} / {@link getEntities}
@@ -145,8 +145,8 @@ export class EntityStore implements StagedStore {
    *
    * Rejects if its entity does not exist.
    *
-   * `originBlock === undefined` marks the fact non-retractable (it survives reorgs); a defined origin block ties the
-   * fact to a specific block and it will be deleted on prune.
+   * If `originBlock === undefined`, the fact is non-retractable: it survives reorgs. A defined origin block makes the
+   * fact retractable: on a prune below its block, it will be deleted.
    *
    * Facts are returned in creation order by the getEntity and getEntities read methods.
    *
@@ -173,6 +173,9 @@ export class EntityStore implements StagedStore {
 
   /**
    * Terminate an entity, making it (and all its facts) unavailable.
+   *
+   * This is typically done when the entity has finalized and there's no more work to do, to save disk space and to
+   * avoid re-processing the entity indefinitely.
    *
    * Throws if the entity does not exist.
    */
@@ -239,6 +242,10 @@ export class EntityStore implements StagedStore {
         case 'terminateEntity':
           await this.#deleteEntity(op.key.toString());
           break;
+        default: {
+          const _exhaustive: never = op;
+          throw new Error(`Unhandled EntityStore staged op kind: ${JSON.stringify(_exhaustive)}`);
+        }
       }
     }
     this.#clearJobData(jobId);
@@ -264,7 +271,11 @@ export class EntityStore implements StagedStore {
       throw new Error('PXE entity store rollback is not allowed while jobs are running');
     }
 
+    // Remove all affected retractable entities and all their facts
     const removedEntities = await this.#retractEntities(toBlock);
+
+    // Remove all affected retractable facts remaining (facts belonging to retractable entities were removed by
+    // #retractEntities, see above)
     const removedFacts = await this.#retractFacts(toBlock);
 
     this.logger.verbose('rolled back entity store', { removedEntities, removedFacts, toBlock });
@@ -272,12 +283,13 @@ export class EntityStore implements StagedStore {
 
   /**
    * Deletes every retractable entity (and all its facts) whose origin block is above `toBlock`, returning the count
-   * removed. Snapshots the by-block index before mutating so we never delete from the multimap we are iterating.
+   * removed.
    *
    * Requires to be run in a transactionAsync context.
    */
   async #retractEntities(toBlock: BlockNum): Promise<number> {
     const entitiesToRetract: EntityKeyStr[] = [];
+    // Snapshot the by-block index before mutating so we never delete from the multimap we are iterating.
     for await (const [, entityKey] of this.#entitiesByBlock.entriesAsync({ start: toBlock + 1 })) {
       entitiesToRetract.push(entityKey);
     }
@@ -334,7 +346,7 @@ export class EntityStore implements StagedStore {
   /**
    * Reads the given entity records by key into a Map keyed by entity key, skipping keys with no committed record.
    *
-   * This is purely auxiliary function that produces the input shape {@link #readFactsFromDb} consumes, it exists
+   * This is a purely auxiliary function that produces the input shape {@link #readFactsFromDb} consumes, it exists
    * mainly for better readability of the store.
    *
    * Reads are not wrapped in a transaction: the caller owns the transaction boundary.
@@ -464,6 +476,10 @@ export class EntityStore implements StagedStore {
             current.facts.set(fKey, op.fact.toFact());
           }
           break;
+        }
+        default: {
+          const _exhaustive: never = op;
+          throw new Error(`Unhandled EntityStore staged op kind: ${JSON.stringify(_exhaustive)}`);
         }
       }
     }
