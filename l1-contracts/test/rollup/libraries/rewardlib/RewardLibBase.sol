@@ -31,24 +31,24 @@ contract RewardLibBase is TestBase {
     deal(address(feeAsset), address(wrapper.rewardDistributor()), checkpointReward * 300);
     deal(address(feeAsset), address(wrapper.feePortal()), checkpointReward * 100);
 
-    args.fees = _fees(1, sequencer);
+    _setHeaders(1, sequencer);
 
     args.args.proverId = prover;
 
     _;
   }
 
-  function _fees(uint256 _count, address _sequencer) internal pure returns (bytes32[] memory) {
-    return _fees(_count, _sequencer, 0);
+  function _setHeaders(uint256 _count, address _sequencer) internal {
+    _setHeaders(_count, _sequencer, 0);
   }
 
-  function _fees(uint256 _count, address _sequencer, uint256 _amount) internal pure returns (bytes32[] memory) {
-    bytes32[] memory fees = new bytes32[](_count * 2);
+  function _setHeaders(uint256 _count, address _sequencer, uint256 _amount) internal {
+    delete args.headers;
     for (uint256 i = 0; i < _count; i++) {
-      fees[i * 2] = bytes32(uint256(uint160(bytes20(_sequencer))));
-      fees[i * 2 + 1] = bytes32(uint256(_amount));
+      args.headers.push();
+      args.headers[i].coinbase = _sequencer;
+      args.headers[i].accumulatedFees = _amount;
     }
-    return fees;
   }
 
   function _addFeeHeaders(uint256 _count) internal {

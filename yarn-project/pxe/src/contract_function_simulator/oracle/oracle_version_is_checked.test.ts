@@ -9,7 +9,7 @@ import type { L2TipsProvider } from '@aztec/stdlib/block';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
-import { BlockHeader, HashedValues, TxContext, TxExecutionRequest } from '@aztec/stdlib/tx';
+import { BlockHeader, CallContext, HashedValues, TxContext, TxExecutionRequest } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
@@ -153,8 +153,6 @@ describe('Oracle Version Check test suite', () => {
       const msgSender = await AztecAddress.random();
       const senderForTags = await AztecAddress.random();
       await acirSimulator.run(txRequest, {
-        contractAddress,
-        selector,
         msgSender,
         anchorBlockHeader,
         senderForTags,
@@ -200,7 +198,7 @@ describe('Oracle Version Check test suite', () => {
 
     beforeEach(() => {
       oracle = new UtilityExecutionOracle({
-        contractAddress,
+        callContext: new CallContext(AztecAddress.NULL_MSG_SENDER, contractAddress, FunctionSelector.empty(), true),
         authWitnesses: [],
         capsules: [],
         anchorBlockHeader,

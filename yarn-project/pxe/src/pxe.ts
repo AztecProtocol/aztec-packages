@@ -477,8 +477,6 @@ export class PXE {
       );
 
       const result = await contractFunctionSimulator.run(txRequest, {
-        contractAddress,
-        selector: functionSelector,
         anchorBlockHeader,
         scopes,
         jobId,

@@ -281,7 +281,11 @@ export const MESSAGE_LOAD_ORACLE_INPUTS: TypeMapping<MessageLoadOracleInputs<typ
 
 export const UTILITY_CONTEXT: TypeMapping<UtilityContext> = {
   serialization: {
-    fn: (ctx: UtilityContext) => [...ctx.blockHeader.toFields(), ctx.contractAddress.toField()],
+    fn: (ctx: UtilityContext) => [
+      ...ctx.blockHeader.toFields(),
+      ctx.contractAddress.toField(),
+      ctx.msgSender.toField(),
+    ],
   },
 };
 

@@ -22,7 +22,7 @@ describe('CheckpointHeader', () => {
     const header = CheckpointHeader.empty();
     const hash = header.hash().toString();
 
-    expect(hash).toMatchInlineSnapshot('"0x007802c95d2f1ade746d97350a18ddbfdb9f5bee2803436917a3cf3d6a685a3a"');
+    expect(hash).toMatchInlineSnapshot('"0x002e384af86a480f952aa16443fd29646a9063865e62d7c403fc7ed697bb7712"');
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(
@@ -45,10 +45,11 @@ describe('CheckpointHeader', () => {
       feeRecipient: AztecAddress.fromField(new Fr(101010)),
       gasFees: new GasFees(100, 200),
       totalManaUsed: new Fr(151617),
+      accumulatedFees: new Fr(181920),
     });
     const hash = header.hash().toString();
 
-    expect(hash).toMatchInlineSnapshot('"0x007df45447387f2e48b4acae48b6c7f72eb63a9f6611c2f665df39f013a20dcf"');
+    expect(hash).toMatchInlineSnapshot('"0x00d0dc440023ae006b0880b29ebfd5fda599d1aa7707f925229a362c5f24f3fc"');
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(
@@ -71,13 +72,14 @@ describe('CheckpointHeader', () => {
       feeRecipient: AztecAddress.fromField(new Fr(MAX_FIELD_VALUE - 101010n)),
       gasFees: new GasFees(2n ** 128n - 1n - 100n, 2n ** 128n - 1n - 200n),
       totalManaUsed: new Fr(MAX_FIELD_VALUE - 151617n),
+      accumulatedFees: new Fr(MAX_FIELD_VALUE - 181920n),
     });
     // Override the slot number and ignore the type check so it could be the large value same as in the noir test.
     header.slotNumber = (MAX_FIELD_VALUE - 1234n) as any;
 
     const hash = header.hash().toString();
 
-    expect(hash).toMatchInlineSnapshot('"0x00f074f614b5872bfea51e9b457ef2bf61e8c8afa842baaae05f77d885852d3c"');
+    expect(hash).toMatchInlineSnapshot('"0x0077f763e5840cc3f24686ac79f58ef8a7f08c6418fd757e7e84566dc2eb032a"');
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(

@@ -1,6 +1,6 @@
 use crate::NestedUtility;
 use aztec::{
-    protocol::address::AztecAddress,
+    protocol::{address::AztecAddress, traits::FromField},
     test::helpers::test_environment::{CallPrivateOptions, ExecuteUtilityOptions, TestEnvironment, ViewPrivateOptions},
 };
 
@@ -86,4 +86,35 @@ unconstrained fn cross_contract_utility_call_from_private_view_succeeds_with_aut
         NestedUtility::at(addr_a).delegate_pow_view(addr_b, 2, 3),
     );
     assert_eq(result, 8);
+}
+
+#[test]
+unconstrained fn top_level_utility_observes_no_caller_by_default() {
+    let (env, _, addr_a, _) = setup();
+
+    let result = env.execute_utility(NestedUtility::at(addr_a).get_msg_sender());
+    assert_eq(result, Option::none());
+}
+
+#[test]
+unconstrained fn with_from_sets_observed_msg_sender() {
+    let (env, _, addr_a, _) = setup();
+    let caller = AztecAddress::from_field(42);
+
+    let result = env.execute_utility_opts(
+        ExecuteUtilityOptions::new().with_from(caller),
+        NestedUtility::at(addr_a).get_msg_sender(),
+    );
+    assert_eq(result, Option::some(caller));
+}
+
+#[test]
+unconstrained fn cross_contract_utility_call_observes_calling_contract_as_msg_sender() {
+    let (env, _, addr_a, addr_b) = setup();
+
+    let result = env.execute_utility_opts(
+        ExecuteUtilityOptions::new().with_authorized_utility_call_targets([addr_b]),
+        NestedUtility::at(addr_a).delegate_get_msg_sender(addr_b),
+    );
+    assert_eq(result, Option::some(addr_a));
 }

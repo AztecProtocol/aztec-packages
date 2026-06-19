@@ -6,7 +6,7 @@ import {EscapeHatchIntegrationBase} from "../EscapeHatchIntegrationBase.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Epoch} from "@aztec/shared/libraries/TimeMath.sol";
 import {CheckpointLog, SubmitEpochRootProofArgs, PublicInputArgs} from "@aztec/core/interfaces/IRollup.sol";
-import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
+import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 import {
   CommitteeAttestations,
   CommitteeAttestation,
@@ -63,12 +63,8 @@ contract OutHashValidationSkippedTest is EscapeHatchIntegrationBase {
       proverId: address(this)
     });
 
-    bytes32[] memory fees = new bytes32[](Constants.MAX_CHECKPOINTS_PER_EPOCH * 2);
-    uint256 size = 1;
-    for (uint256 i = 0; i < size; i++) {
-      fees[i * 2] = bytes32(uint256(uint160(bytes20(("sequencer")))));
-      fees[i * 2 + 1] = bytes32(0);
-    }
+    ProposedHeader[] memory headers = new ProposedHeader[](1);
+    headers[0] = proposedHeaders[1];
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidOutHash.selector, correctOutHash, wrongOutHash));
     rollup.submitEpochRootProof(
@@ -76,7 +72,7 @@ contract OutHashValidationSkippedTest is EscapeHatchIntegrationBase {
         start: 1,
         end: 1,
         args: args,
-        fees: fees,
+        headers: headers,
         attestations: CommitteeAttestations({signatureIndices: "", signaturesOrAddresses: ""}),
         blobInputs: full.checkpoint.batchedBlobInputs,
         proof: ""
