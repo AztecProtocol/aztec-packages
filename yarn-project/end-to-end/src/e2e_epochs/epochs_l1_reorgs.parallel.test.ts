@@ -25,16 +25,16 @@ import { keccak256, parseTransaction } from 'viem';
 
 import { sendL1ToL2Message } from '../fixtures/l1_to_l2_messaging.js';
 import type { EndToEndContext } from '../fixtures/utils.js';
+import { MultiNodeTestContext } from '../multi-node/multi_node_test_context.js';
 import { waitForL1ToL2MessageSeen } from '../shared/wait_for_l1_to_l2_message.js';
 import { proveInteraction } from '../test-wallet/utils.js';
-import { EpochsTestContext } from './epochs_test.js';
 
 jest.setTimeout(1000 * 60 * 20);
 
 // Single-node + prover-node suite exercising L1 reorg behavior for both block data and L1→L2
 // messages. Uses EthCheatCodes reorg/reorgWithReplacement to remove or insert L1 transactions
 // and verifies the archiver and node prune/restore their views accordingly. Prover and sequencer
-// delayers intercept L1 txs to enable controlled reorg scenarios. Uses EpochsTestContext defaults
+// delayers intercept L1 txs to enable controlled reorg scenarios. Uses MultiNodeTestContext defaults
 // (single initial sequencer, fake prover, no mock gossip); actively drives L1 via cheatcodes.
 describe('e2e_epochs/epochs_l1_reorgs', () => {
   let context: EndToEndContext;
@@ -48,7 +48,7 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
   let L1_BLOCK_TIME_IN_S: number;
   let L2_SLOT_DURATION_IN_S: number;
 
-  let test: EpochsTestContext;
+  let test: MultiNodeTestContext;
   let contract: TestContract;
   let from: AztecAddress;
 
@@ -67,7 +67,7 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
   };
 
   beforeEach(async () => {
-    test = await EpochsTestContext.setup({
+    test = await MultiNodeTestContext.setup({
       numberOfAccounts: 1,
       maxSpeedUpAttempts: 0, // Do not speed up l1 txs, we dont want them to land
       cancelTxOnTimeout: false,

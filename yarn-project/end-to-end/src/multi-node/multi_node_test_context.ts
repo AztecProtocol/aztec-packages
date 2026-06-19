@@ -16,20 +16,22 @@ import { RollupContract } from '@aztec/ethereum/contracts';
 import { Delayer, createDelayer, waitUntilL1Timestamp, wrapClientWithDelayer } from '@aztec/ethereum/l1-tx-utils';
 import { ChainMonitor } from '@aztec/ethereum/test';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
-import { BlockNumber, CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import { withLoggerBindings } from '@aztec/foundation/log/server';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
+import { executeTimeout } from '@aztec/foundation/timer';
 import { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { getMockPubSubP2PServiceFactory } from '@aztec/p2p/test-helpers';
 import type { ProverNodeConfig } from '@aztec/prover-node';
 import type { PXEConfig } from '@aztec/pxe/config';
-import { type SequencerClient, type SequencerEvents, SequencerState } from '@aztec/sequencer-client';
-import { type BlockParameter, EthAddress } from '@aztec/stdlib/block';
+import { type Sequencer, type SequencerClient, type SequencerEvents, SequencerState } from '@aztec/sequencer-client';
+import { type BlockParameter, EthAddress, type L2Tips } from '@aztec/stdlib/block';
 import { type L1RollupConstants, getProofSubmissionDeadlineTimestamp } from '@aztec/stdlib/epoch-helpers';
+import type { AztecNode, BlockResponse } from '@aztec/stdlib/interfaces/client';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import type { SlashingProtectionDatabase } from '@aztec/validator-ha-signer/types';
 
@@ -55,7 +57,7 @@ export const WORLD_STATE_BLOCK_CHECK_INTERVAL = 50;
 export const ARCHIVER_POLL_INTERVAL = 50;
 export const DEFAULT_L1_BLOCK_TIME = process.env.CI ? 12 : 8;
 
-export type EpochsTestOpts = Partial<SetupOptions> & {
+export type MultiNodeTestOpts = Partial<SetupOptions> & {
   numberOfAccounts?: number;
   pxeOpts?: Partial<PXEConfig>;
   aztecSlotDurationInL1Slots?: number;
@@ -77,11 +79,14 @@ export type TrackedSequencerEvent = {
 }[keyof SequencerEvents];
 
 /**
- * Tests building of epochs using fast block times and short epochs.
- * Spawns an aztec node and a prover node with fake proofs.
- * Sequencer is allowed to build empty blocks.
+ * Base class for the `multi-node` test category: N validator nodes sharing the in-memory
+ * `MockGossipSubNetwork` bus, with fast block times and short epochs. Owns the environment
+ * (in-proc anvil + L1 deploy), node spawning (`createValidatorNode` / `createNonValidatorNode` /
+ * `createProverNode`), the `ChainMonitor`, the epoch/proof-window waiters, and the multi-node
+ * convergence helpers. Node count is a knob: single-node-topology tests use the same base with
+ * one node. A prover node with fake proofs runs by default and the sequencer may build empty blocks.
  */
-export class EpochsTestContext {
+export class MultiNodeTestContext {
   public context!: EndToEndContext;
   public l1Client!: ExtendedViemWalletClient;
   public rollup!: RollupContract;
@@ -100,13 +105,13 @@ export class EpochsTestContext {
   public L1_BLOCK_TIME_IN_S!: number;
   public L2_SLOT_DURATION_IN_S!: number;
 
-  public static async setup(opts: EpochsTestOpts = {}) {
-    const test = new EpochsTestContext();
+  public static async setup(opts: MultiNodeTestOpts = {}) {
+    const test = new MultiNodeTestContext();
     await test.setup(opts);
     return test;
   }
 
-  public static getSlotDurations(opts: EpochsTestOpts = {}) {
+  public static getSlotDurations(opts: MultiNodeTestOpts = {}) {
     const envEthereumSlotDuration = process.env.L1_BLOCK_TIME
       ? parseInt(process.env.L1_BLOCK_TIME)
       : DEFAULT_L1_BLOCK_TIME;
@@ -122,9 +127,9 @@ export class EpochsTestContext {
     };
   }
 
-  public async setup(opts: EpochsTestOpts = {}) {
+  public async setup(opts: MultiNodeTestOpts = {}) {
     const { ethereumSlotDuration, aztecSlotDuration, aztecEpochDuration, aztecProofSubmissionEpochs } =
-      EpochsTestContext.getSlotDurations(opts);
+      MultiNodeTestContext.getSlotDurations(opts);
 
     this.L1_BLOCK_TIME_IN_S = ethereumSlotDuration;
     this.L2_SLOT_DURATION_IN_S = aztecSlotDuration;
@@ -136,7 +141,7 @@ export class EpochsTestContext {
     const useHardcodedAccount = (opts.skipInitialSequencer || opts.useHardcodedAccount) && !opts.skipHardcodedAccount;
     let hardcodedAccountData: InitialAccountData | undefined;
     if (useHardcodedAccount) {
-      hardcodedAccountData = await EpochsTestContext.getHardcodedAccountData(Fr.random(), Fr.random());
+      hardcodedAccountData = await MultiNodeTestContext.getHardcodedAccountData(Fr.random(), Fr.random());
     }
 
     // Set up system without any account nor protocol contracts
@@ -439,6 +444,116 @@ export class EpochsTestContext {
     }
   }
 
+  /**
+   * Polls every node until `predicate(tips, node)` holds for all of them. The multi-node
+   * generalization of {@link waitForNodeToSync} — replaces hand-rolled
+   * `Promise.all(this.nodes.map(node => retryUntil(...)))` fan-out blocks.
+   * @param nodes - Nodes to poll; defaults to all validator nodes (`this.nodes`).
+   */
+  public async waitForAllNodes(
+    predicate: (tips: L2Tips, node: AztecNode) => boolean | Promise<boolean>,
+    opts: { nodes?: AztecNode[]; timeout?: number; interval?: number; description?: string } = {},
+  ): Promise<void> {
+    const nodes = opts.nodes ?? this.nodes;
+    const timeout = opts.timeout ?? this.L2_SLOT_DURATION_IN_S * 4;
+    const interval = opts.interval ?? 0.5;
+    const description = opts.description ?? 'all nodes to reach target';
+    await Promise.all(
+      nodes.map((node, idx) =>
+        retryUntil(
+          async () => {
+            const tips = await node.getChainTips();
+            return (await predicate(tips, node)) || undefined;
+          },
+          `node ${idx} ${description}`,
+          timeout,
+          interval,
+        ),
+      ),
+    );
+  }
+
+  /** Waits until every node's proven checkpoint tip reaches `target`. */
+  public waitForAllNodesToReachProvenCheckpoint(
+    target: CheckpointNumber,
+    opts: { nodes?: AztecNode[]; timeout?: number; interval?: number } = {},
+  ): Promise<void> {
+    return this.waitForAllNodes(tips => tips.proven.checkpoint.number >= target, {
+      ...opts,
+      description: `proven checkpoint >= ${target}`,
+    });
+  }
+
+  /**
+   * Waits until every node's `proposed` or `checkpointed` tip points at a block whose slot
+   * satisfies `match` (defaults to "slot equals `slot`"). Polls the block referenced by the tip.
+   */
+  public waitForAllNodesToReachBlockAtSlot(
+    slot: SlotNumber,
+    tag: 'proposed' | 'checkpointed',
+    match: (block: BlockResponse) => boolean = block => block.header.globalVariables.slotNumber === slot,
+    opts: { nodes?: AztecNode[]; timeout?: number; interval?: number } = {},
+  ): Promise<void> {
+    return this.waitForAllNodes(
+      async (tips, node) => {
+        const blockNumber = tag === 'proposed' ? tips.proposed.number : tips.checkpointed.block.number;
+        if (blockNumber === 0) {
+          return false;
+        }
+        const block = await node.getBlock(blockNumber);
+        return !!block && match(block);
+      },
+      { ...opts, description: `${tag} block at slot ${slot}` },
+    );
+  }
+
+  /**
+   * Finds `count` consecutive slots (starting from `opts.fromSlot` or the current slot plus a
+   * margin) whose proposers satisfy `predicate`, warping the L1 clock forward one epoch and
+   * retrying when the rollup reports `ValidatorSelection__EpochNotStable` for a future epoch.
+   * Returns the matched slots and their proposer addresses. Encapsulates the slot-search loop
+   * duplicated across the epochs tests.
+   */
+  public async findSlotsWithProposers(
+    count: number,
+    predicate: (proposers: EthAddress[]) => boolean,
+    opts: { fromSlot?: SlotNumber; margin?: number; maxAttempts?: number } = {},
+  ): Promise<{ slots: SlotNumber[]; proposers: EthAddress[] }> {
+    const margin = opts.margin ?? 4;
+    const maxAttempts = opts.maxAttempts ?? 200;
+    let candidate = opts.fromSlot ?? SlotNumber(Number(this.epochCache.getEpochAndSlotNow().slot) + margin);
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        const slots = Array.from({ length: count }, (_, i) => SlotNumber(candidate + i));
+        const maybeProposers = await Promise.all(
+          slots.map(slot => this.epochCache.getProposerAttesterAddressInSlot(slot)),
+        );
+        if (maybeProposers.every((p): p is EthAddress => p !== undefined) && predicate(maybeProposers)) {
+          return { slots, proposers: maybeProposers };
+        }
+        candidate = SlotNumber(candidate + 1);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (!msg.includes('EpochNotStable')) {
+          throw err;
+        }
+        const block = await this.l1Client.getBlock({ includeTransactions: false });
+        const warpBy = this.epochDuration * this.L2_SLOT_DURATION_IN_S;
+        const newTs = Number(block.timestamp) + warpBy;
+        this.logger.warn(`Hit EpochNotStable at candidate ${candidate}, warping L1 forward by ${warpBy}s to ${newTs}`);
+        await this.context.cheatCodes.eth.warp(newTs, { resetBlockInterval: true });
+        const newCurrentSlot = Number(this.epochCache.getEpochAndSlotNow().slot);
+        if (candidate < newCurrentSlot + margin) {
+          candidate = SlotNumber(newCurrentSlot + margin);
+        }
+      }
+    }
+    throw new Error(
+      `Could not find ${count} consecutive slots matching the proposer predicate after ${maxAttempts} attempts`,
+    );
+  }
+
   /** Registers the SpamContract on the given wallet. */
   public async registerSpamContract(wallet: Wallet, salt = Fr.ZERO) {
     const instance = await getContractInstanceFromInstantiationParams(SpamContract.artifact, {
@@ -585,6 +700,36 @@ export class EpochsTestContext {
     });
 
     return { failEvents, stateChanges };
+  }
+
+  /**
+   * Resolves with the event args the first time `sequencer` emits `event` with args matching
+   * `match`. Rejects after `opts.timeout` ms (default 60s). Wraps the
+   * `executeTimeout(signal => new Promise(...))` one-shot subscription boilerplate, cleaning up
+   * the listener on both the resolve and the abort paths.
+   */
+  public waitForSequencerEvent<E extends keyof SequencerEvents>(
+    sequencer: Sequencer,
+    event: E,
+    match: (args: Parameters<SequencerEvents[E]>[0]) => boolean = () => true,
+    opts: { timeout?: number } = {},
+  ): Promise<Parameters<SequencerEvents[E]>[0]> {
+    const timeout = opts.timeout ?? 60_000;
+    return executeTimeout(
+      signal =>
+        new Promise<Parameters<SequencerEvents[E]>[0]>(resolve => {
+          const listener = (args: Parameters<SequencerEvents[E]>[0]) => {
+            if (match(args)) {
+              sequencer.off(event, listener as SequencerEvents[E]);
+              resolve(args);
+            }
+          };
+          signal.addEventListener('abort', () => sequencer.off(event, listener as SequencerEvents[E]), { once: true });
+          sequencer.on(event, listener as SequencerEvents[E]);
+        }),
+      timeout,
+      `wait for sequencer event ${String(event)}`,
+    );
   }
 
   public assertNoFailuresFromSequencers(failEvents: TrackedSequencerEvent[]) {

@@ -18,11 +18,11 @@ import { RootRollupPublicInputs } from '@aztec/stdlib/rollup';
 import { jest } from '@jest/globals';
 
 import type { EndToEndContext } from '../fixtures/utils.js';
-import { EpochsTestContext } from './epochs_test.js';
+import { MultiNodeTestContext } from '../multi-node/multi_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 10);
 
-// Suite: 2 parallel scenarios testing proof-submission failure paths. EpochsTestContext with single
+// Suite: 2 parallel scenarios testing proof-submission failure paths. MultiNodeTestContext with single
 // sequencer node, no initial prover (prover nodes created in test bodies). Timing: ethSlot=8s,
 // aztecSlot=2×8=16s, epoch=8, proofSubmissionEpochs=1 (default), blockDurationMs=3s,
 // cancelTxOnTimeout=false, inboxLag=2 (v5 always enforces the timetable, so the former enforceTimeTable
@@ -38,10 +38,10 @@ describe('e2e_epochs/epochs_proof_fails', () => {
 
   let L2_SLOT_DURATION_IN_S: number;
 
-  let test: EpochsTestContext;
+  let test: MultiNodeTestContext;
 
   beforeEach(async () => {
-    test = await EpochsTestContext.setup({
+    test = await MultiNodeTestContext.setup({
       maxSpeedUpAttempts: 0, // No speed ups
       startProverNode: false, // Avoid early proving
       ethereumSlotDuration: 8,

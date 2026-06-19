@@ -4,7 +4,6 @@ import { EthAddress } from '@aztec/aztec.js/addresses';
 import { NO_WAIT } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
-import { waitForTx } from '@aztec/aztec.js/node';
 import type { Operator } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { times, timesAsync } from '@aztec/foundation/collection';
@@ -17,8 +16,9 @@ import { jest } from '@jest/globals';
 import { privateKeyToAccount } from 'viem/accounts';
 
 import { type EndToEndContext, getPrivateKeyFromIndex } from '../fixtures/utils.js';
+import { waitForTxs } from '../fixtures/wait_helpers.js';
 import { proveInteraction } from '../test-wallet/utils.js';
-import { EpochsTestContext } from './epochs_test.js';
+import { MultiNodeTestContext } from './multi_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 10);
 
@@ -38,7 +38,7 @@ describe('e2e_epochs/epochs_simple_block_building', () => {
   let context: EndToEndContext;
   let logger: Logger;
 
-  let test: EpochsTestContext;
+  let test: MultiNodeTestContext;
   let validators: (Operator & { privateKey: `0x${string}` })[];
   let nodes: AztecNodeService[];
   let contract: TestContract;
@@ -53,7 +53,7 @@ describe('e2e_epochs/epochs_simple_block_building', () => {
 
     // Setup context with no initial sequencer (lightweight RPC-only node).
     // The hardcoded account is funded via genesis without needing on-chain deployment.
-    test = await EpochsTestContext.setup({
+    test = await MultiNodeTestContext.setup({
       numberOfAccounts: 0,
       initialValidators: validators,
       mockGossipSubNetwork: true,
@@ -103,10 +103,7 @@ describe('e2e_epochs/epochs_simple_block_building', () => {
 
     // Wait until all txs are mined
     const timeout = test.L2_SLOT_DURATION_IN_S * (TX_COUNT * 2 + 1);
-    await executeTimeout(
-      () => Promise.all(txHashes.map(txHash => waitForTx(context.aztecNode, txHash, { timeout }))),
-      timeout * 1000,
-    );
+    await executeTimeout(() => waitForTxs(context.aztecNode, txHashes, { timeout }), timeout * 1000);
     logger.warn(`All txs have been mined`);
 
     // Expect no failures from sequencers during block building

@@ -30,7 +30,7 @@ import { privateKeyToAccount } from 'viem/accounts';
 
 import { getAnvilPort } from '../fixtures/fixtures.js';
 import { type EndToEndContext, getPrivateKeyFromIndex } from '../fixtures/utils.js';
-import { EpochsTestContext } from './epochs_test.js';
+import { MultiNodeTestContext } from '../multi-node/multi_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 10);
 
@@ -44,7 +44,7 @@ const BASE_ANVIL_PORT = getAnvilPort();
 // a mocked gossip bus. The setup injects bad configs (insufficient attestations, fake/high-s/
 // unrecoverable signatures, shuffled attestations, parent-validity bypasses) to force invalid
 // checkpoints, then verifies the next good proposer invalidates them and the chain progresses.
-// Slasher is enabled. Uses EpochsTestContext with mockGossipSubNetwork, no initial sequencer, no
+// Slasher is enabled. Uses MultiNodeTestContext with mockGossipSubNetwork, no initial sequencer, no
 // prover node; ports are port-bumped per test via anvilPortOffset to support parallel execution.
 describe('e2e_epochs/epochs_invalidate_block', () => {
   let context: EndToEndContext;
@@ -53,7 +53,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
   let rollupContract: RollupContract;
   let anvilPortOffset = 0;
 
-  let test: EpochsTestContext;
+  let test: MultiNodeTestContext;
   let validators: (Operator & { privateKey: `0x${string}` })[];
   let nodes: AztecNodeService[];
   let testContract: TestContract;
@@ -68,7 +68,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
 
     // Setup context with the given set of validators and a mocked gossip sub network.
     // Uses multiple-blocks-per-slot timing configuration.
-    test = await EpochsTestContext.setup({
+    test = await MultiNodeTestContext.setup({
       ethereumSlotDuration: 8,
       aztecSlotDuration: 32,
       blockDurationMs: 6000,

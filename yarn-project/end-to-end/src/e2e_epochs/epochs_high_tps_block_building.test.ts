@@ -19,8 +19,8 @@ import { jest } from '@jest/globals';
 import { privateKeyToAccount } from 'viem/accounts';
 
 import { type EndToEndContext, getPrivateKeyFromIndex } from '../fixtures/utils.js';
+import { MultiNodeTestContext } from '../multi-node/multi_node_test_context.js';
 import { proveInteraction } from '../test-wallet/utils.js';
-import { EpochsTestContext } from './epochs_test.js';
 
 jest.setTimeout(1000 * 60 * 10);
 
@@ -32,7 +32,7 @@ const NODE_COUNT = 3;
 // Config: aztecSlotDuration=36s, ethereumSlotDuration=12s (3 L1 blocks / L2 slot), blockDuration=6s,
 //         fakeProcessingDelayPerTxMs=2500ms, attestationPropagationTime=1s,
 //         txDelayerMaxInclusionTimeIntoSlot=1s. (v5: the explicit l1PublishingTime override was dropped —
-//         EpochsTestContext no longer takes it; the publish window is now the framework default.)
+//         MultiNodeTestContext no longer takes it; the publish window is now the framework default.)
 //
 // Time inside a build slot (36s total):
 //   T=0-1    (1s)  init (checkpointInitializationTime)
@@ -72,12 +72,12 @@ const L1_BLOCK_TIME_S = 12;
 // (4 blocks × 2 txs each) under proposer pipelining with fake tx processing delays. Asserts that
 // CHECKPOINTS_TO_CHECK consecutive checkpoints at or after the target slot each have at least
 // BLOCKS_PER_CHECKPOINT-1 blocks and that the checkpoint tx lands in the 1st or 2nd L1 block of the
-// target slot. Uses EpochsTestContext with mockGossipSubNetwork, no initial sequencer, no prover node.
+// target slot. Uses MultiNodeTestContext with mockGossipSubNetwork, no initial sequencer, no prover node.
 describe('e2e_epochs/epochs_high_tps_block_building', () => {
   let context: EndToEndContext;
   let logger: Logger;
 
-  let test: EpochsTestContext;
+  let test: MultiNodeTestContext;
   let validators: (Operator & { privateKey: `0x${string}` })[];
   let nodes: AztecNodeService[];
   let contract: SpamContract;
@@ -90,7 +90,7 @@ describe('e2e_epochs/epochs_high_tps_block_building', () => {
       return { attester, withdrawer: attester, privateKey, bn254SecretKey: new SecretValue(Fr.random().toBigInt()) };
     });
 
-    test = await EpochsTestContext.setup({
+    test = await MultiNodeTestContext.setup({
       numberOfAccounts: 0,
       initialValidators: validators,
       mockGossipSubNetwork: true,

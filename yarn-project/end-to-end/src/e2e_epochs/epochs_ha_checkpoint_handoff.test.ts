@@ -19,7 +19,7 @@ import { jest } from '@jest/globals';
 import { privateKeyToAccount } from 'viem/accounts';
 
 import { type EndToEndContext, getPrivateKeyFromIndex } from '../fixtures/utils.js';
-import { EpochsTestContext } from './epochs_test.js';
+import { MultiNodeTestContext } from '../multi-node/multi_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 20);
 
@@ -55,7 +55,7 @@ const VALIDATOR_COUNT = 4;
  * checkpoint. With the fix, checkpoint 1 (covering S1, built by the builder) and checkpoint 2 (covering
  * S2, built by the peer) both land on L1, and S2's covered block carries the peer's distinct coinbase.
  *
- * Setup: `EpochsTestContext.setup` with 4 validators (`skipInitialSequencer: true`) wired onto the in-memory
+ * Setup: `MultiNodeTestContext.setup` with 4 validators (`skipInitialSequencer: true`) wired onto the in-memory
  * `mockGossipSubNetwork` bus, then 4 validator nodes created via `test.createValidatorNode` in 2 HA pairs. Each pair
  * shares its two validator keys plus an in-memory `createSharedSlashingProtectionDb` (so only one peer signs per duty)
  * — explicitly NOT the Postgres-backed docker-compose HA suite, so this is an in-proc `multi-node` test, not infra.
@@ -76,7 +76,7 @@ describe('e2e_epochs/epochs_ha_checkpoint_handoff', () => {
   let logger: Logger;
   let rollup: RollupContract;
 
-  let test: EpochsTestContext;
+  let test: MultiNodeTestContext;
   let validators: (Operator & { privateKey: `0x${string}` })[];
   let nodes: AztecNodeService[];
 
@@ -105,7 +105,7 @@ describe('e2e_epochs/epochs_ha_checkpoint_handoff', () => {
     // (buildCheckpointIfEmpty + minTxsPerBlock: 0) so no transactions are needed. We keep checkpoint
     // publishing ENABLED (unlike epochs_ha_sync.test.ts): the handoff must produce a real on-chain
     // checkpoint.
-    test = await EpochsTestContext.setup({
+    test = await MultiNodeTestContext.setup({
       initialValidators: validators,
       mockGossipSubNetwork: true,
       startProverNode: false,

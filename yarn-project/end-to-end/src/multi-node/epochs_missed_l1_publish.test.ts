@@ -8,7 +8,6 @@ import { asyncMap } from '@aztec/foundation/async-map';
 import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
-import { retryUntil } from '@aztec/foundation/retry';
 import { bufferToHex } from '@aztec/foundation/string';
 import { timeoutPromise } from '@aztec/foundation/timer';
 import { type L2Block, L2BlockSourceEvents, type L2Tips } from '@aztec/stdlib/block';
@@ -18,7 +17,7 @@ import { jest } from '@jest/globals';
 import { privateKeyToAccount } from 'viem/accounts';
 
 import { getPrivateKeyFromIndex } from '../fixtures/utils.js';
-import { EpochsTestContext } from './epochs_test.js';
+import { MultiNodeTestContext } from './multi_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 15);
 
@@ -49,11 +48,11 @@ const NODE_COUNT = 4;
  *    checkpointed tip → `proposed` advances again.
  *  - During slotThree, that pipelined work is published → `checkpointed` finally advances.
  *
- * Uses EpochsTestContext with mockGossipSubNetwork, no initial sequencer, and no prover node.
+ * Uses MultiNodeTestContext with mockGossipSubNetwork, no initial sequencer, and no prover node.
  */
 describe('e2e_epochs/epochs_missed_l1_publish', () => {
   let logger: Logger;
-  let test: EpochsTestContext;
+  let test: MultiNodeTestContext;
   let nodes: AztecNodeService[];
 
   afterEach(async () => {
@@ -74,7 +73,7 @@ describe('e2e_epochs/epochs_missed_l1_publish', () => {
       return { attester, withdrawer: attester, privateKey, bn254SecretKey: new SecretValue(Fr.random().toBigInt()) };
     });
 
-    test = await EpochsTestContext.setup({
+    test = await MultiNodeTestContext.setup({
       numberOfAccounts: 0,
       initialValidators: validators,
       inboxLag: 2,
@@ -107,64 +106,19 @@ describe('e2e_epochs/epochs_missed_l1_publish', () => {
       validators: attesterAddresses.map((a, i) => ({ idx: i, attester: a.toString() })),
     });
 
-    // Find slotOne (>=4 ahead) such that proposers for slotOne, slotTwo, slotThree are three
-    // distinct validators. The +4 margin (vs +2 in equivocation) gives the warp+sequencer-start
-    // path enough headroom to reach the build window for slotZero even if node creation jitters.
-    //
-    // The L1 rollup contract only exposes proposers for epochs whose randao seed is "stable"
-    // (i.e. queryable on L1 right now). When we look too far into the future the contract
-    // reverts with `ValidatorSelection__EpochNotStable`. We handle this by warping L1 forward
-    // one epoch at a time and retrying — after each warp the previously-unstable epoch becomes
-    // queryable, and we bump the candidate to keep the +4 slot margin from the new "now".
-    // REFACTOR: hand-rolled slot-search with EpochNotStable warp fallback looking for three
-    // consecutive distinct-proposer slots; replace with a shared helper such as
-    // findConsecutiveSlotsWithDistinctProposers(test, fromSlot, count) that encapsulates this pattern.
-    let slotOne: SlotNumber | undefined;
-    let proposerOne: EthAddress | undefined;
-    let proposerTwo: EthAddress | undefined;
-    let proposerThree: EthAddress | undefined;
-    let candidate = Number(test.epochCache.getEpochAndSlotNow().slot) + 4;
-    const maxAttempts = 200;
-    for (let attempt = 0; attempt < maxAttempts && slotOne === undefined; attempt++) {
-      try {
-        const [p1, p2, p3] = await Promise.all([
-          test.epochCache.getProposerAttesterAddressInSlot(SlotNumber(candidate)),
-          test.epochCache.getProposerAttesterAddressInSlot(SlotNumber(candidate + 1)),
-          test.epochCache.getProposerAttesterAddressInSlot(SlotNumber(candidate + 2)),
-        ]);
-        if (p1 && p2 && p3 && !p1.equals(p2) && !p1.equals(p3) && !p2.equals(p3)) {
-          slotOne = SlotNumber(candidate);
-          proposerOne = p1;
-          proposerTwo = p2;
-          proposerThree = p3;
-          break;
-        }
-        candidate++;
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        if (!msg.includes('EpochNotStable')) {
-          throw err;
-        }
-        const block = await test.l1Client.getBlock({ includeTransactions: false });
-        const warpBy = test.epochDuration * test.L2_SLOT_DURATION_IN_S;
-        const newTs = Number(block.timestamp) + warpBy;
-        logger.warn(`Hit EpochNotStable at candidate ${candidate}, warping L1 forward by ${warpBy}s to ${newTs}`);
-        await test.context.cheatCodes.eth.warp(newTs, { resetBlockInterval: true });
-        const newCurrentSlot = Number(test.epochCache.getEpochAndSlotNow().slot);
-        if (candidate < newCurrentSlot + 4) {
-          candidate = newCurrentSlot + 4;
-        }
-      }
-    }
-    if (slotOne === undefined || !proposerOne || !proposerTwo || !proposerThree) {
-      throw new Error(`Could not find a slot with three distinct consecutive proposers after ${maxAttempts} attempts`);
-    }
+    // Find slotOne..slotThree (>=4 slots ahead) with three distinct proposers. The +4 margin (vs +2
+    // in equivocation) gives the warp+sequencer-start path enough headroom to reach the build window
+    // for slotZero even if node creation jitters. findSlotsWithProposers handles the EpochNotStable
+    // warp-and-retry: the L1 rollup only exposes proposers for epochs whose randao seed is queryable
+    // now, so the helper warps L1 forward one epoch at a time until the candidate epoch is stable.
+    const {
+      slots: [slotOne, slotTwo, slotThree],
+      proposers: [proposerOne, proposerTwo, proposerThree],
+    } = await test.findSlotsWithProposers(3, ([p1, p2, p3]) => !p1.equals(p2) && !p1.equals(p3) && !p2.equals(p3));
 
     const slotZero = SlotNumber(slotOne - 1);
-    const slotTwo = SlotNumber(slotOne + 1);
-    const slotThree = SlotNumber(slotOne + 2);
 
-    const proposerOneNodeIndex = validators.findIndex(v => v.attester.equals(proposerOne!));
+    const proposerOneNodeIndex = validators.findIndex(v => v.attester.equals(proposerOne));
     if (proposerOneNodeIndex < 0) {
       throw new Error(`No node holds the key for proposer ${proposerOne}`);
     }
@@ -220,14 +174,10 @@ describe('e2e_epochs/epochs_missed_l1_publish', () => {
     const sequencers = nodes.map(n => n.getSequencer()!);
     const { failEvents } = test.watchSequencerEvents(sequencers, i => ({ validator: `V${i + 1}` }));
 
-    // Subscribe to the proposerTwo pipelined-discard event — this is the most direct signal
-    // that the pipelined slotTwo work was correctly thrown away because parent slotOne did not land.
-    const proposerTwoNodeIndex = validators.findIndex(v => v.attester.equals(proposerTwo!));
-    const pipelinedDiscardEvents: { slot: SlotNumber; checkpointNumber: number; reason: string }[] = [];
-    sequencers[proposerTwoNodeIndex].getSequencer().on('pipelined-checkpoint-discarded', args => {
-      pipelinedDiscardEvents.push({ slot: args.slot, checkpointNumber: args.checkpointNumber, reason: args.reason });
-      logger.warn(`proposerTwo (node ${proposerTwoNodeIndex}) discarded pipelined work`, args);
-    });
+    // The proposerTwo pipelined-discard event (the most direct signal that pipelined slotTwo work was
+    // thrown away because parent slotOne did not land) is captured by watchSequencerEvents above and
+    // tolerated in the final fail-event filter.
+    const proposerTwoNodeIndex = validators.findIndex(v => v.attester.equals(proposerTwo));
 
     await Promise.all(sequencers.map(s => s.start()));
     logger.warn('All sequencers started');
@@ -236,46 +186,11 @@ describe('e2e_epochs/epochs_missed_l1_publish', () => {
 
     // (1) During slotZero: the pipelined proposer for slotOne broadcasts. Every node sees a proposed block at slotOne.
     logger.warn(`Waiting for proposed chain to reach slot ${slotOne} on all nodes (build during slotZero)`);
-    // REFACTOR: duplicated Promise.all+retryUntil block checking proposed slot on all nodes;
-    // replace with a shared helper such as waitUntilAllNodesProposedSlot(nodes, slot, timeout).
-    await Promise.all(
-      nodes.map((node, idx) =>
-        retryUntil(
-          async () => {
-            const tips = await node.getChainTips();
-            if (tips.proposed.number === 0) {
-              return false;
-            }
-            const block = await node.getBlock(tips.proposed.number);
-            return !!block && block.header.globalVariables.slotNumber === slotOne;
-          },
-          `node ${idx} proposed advanced to slot ${slotOne}`,
-          slotAdvanceTimeout,
-          0.5,
-        ),
-      ),
-    );
+    await test.waitForAllNodesToReachBlockAtSlot(slotOne, 'proposed', undefined, { timeout: slotAdvanceTimeout });
 
     // (2) During slotOne: the pipelined proposer for slotTwo broadcasts on top of slotOne → proposed reaches slotTwo.
     logger.warn(`Waiting for proposed chain to reach slot ${slotTwo} on all nodes (build during slotOne)`);
-    // REFACTOR: same pattern as above — duplicated Promise.all+retryUntil; extract to helper.
-    await Promise.all(
-      nodes.map((node, idx) =>
-        retryUntil(
-          async () => {
-            const tips = await node.getChainTips();
-            if (tips.proposed.number === 0) {
-              return false;
-            }
-            const block = await node.getBlock(tips.proposed.number);
-            return !!block && block.header.globalVariables.slotNumber === slotTwo;
-          },
-          `node ${idx} proposed advanced to slot ${slotTwo}`,
-          slotAdvanceTimeout,
-          0.5,
-        ),
-      ),
-    );
+    await test.waitForAllNodesToReachBlockAtSlot(slotTwo, 'proposed', undefined, { timeout: slotAdvanceTimeout });
 
     // (3) Wait until slotOne has fully ended on L1 — the archiver only prunes once slotAtNextL1Block > slotOne.
     // The end-of-slotOne timestamp equals the start-of-slotTwo timestamp.
@@ -316,22 +231,11 @@ describe('e2e_epochs/epochs_missed_l1_publish', () => {
     expect(postPruneProposedNumbers[0]).toBe(0);
 
     logger.warn(`Waiting for proposed chain to advance to slot ${slotThree} on all nodes (build during slotTwo)`);
-    await Promise.all(
-      nodes.map((node, idx) =>
-        retryUntil(
-          async () => {
-            const tips = await node.getChainTips();
-            if (tips.proposed.number === 0) {
-              return false;
-            }
-            const block = await node.getBlock(tips.proposed.number);
-            return !!block && block.header.globalVariables.slotNumber >= slotThree;
-          },
-          `node ${idx} proposed advanced to slot >= ${slotThree}`,
-          slotAdvanceTimeout,
-          0.5,
-        ),
-      ),
+    await test.waitForAllNodesToReachBlockAtSlot(
+      slotThree,
+      'proposed',
+      block => block.header.globalVariables.slotNumber >= slotThree,
+      { timeout: slotAdvanceTimeout },
     );
 
     // The first block in the chain after the prune must be the slotThree block — there should be
@@ -344,24 +248,11 @@ describe('e2e_epochs/epochs_missed_l1_publish', () => {
 
     // (7) During slotThree: proposerThree publishes → checkpointed advances on every node.
     logger.warn(`Waiting for checkpointed chain to reach slot >= ${slotThree} on all nodes`);
-    await Promise.all(
-      nodes.map((node, idx) =>
-        retryUntil(
-          async () => {
-            const tips = await node.getChainTips();
-            if (tips.checkpointed.checkpoint.number === 0) {
-              return false;
-            }
-            const block = await node.getBlock(tips.checkpointed.block.number);
-            return (
-              !!block && block.header.globalVariables.slotNumber >= slotThree && tips.checkpointed.block.number > 0
-            );
-          },
-          `node ${idx} checkpointed advanced to slot >= ${slotThree}`,
-          slotAdvanceTimeout,
-          0.5,
-        ),
-      ),
+    await test.waitForAllNodesToReachBlockAtSlot(
+      slotThree,
+      'checkpointed',
+      block => block.header.globalVariables.slotNumber >= slotThree,
+      { timeout: slotAdvanceTimeout },
     );
 
     // Sanity: the only fail events we tolerate are the deliberate skip-publish on the suppressed

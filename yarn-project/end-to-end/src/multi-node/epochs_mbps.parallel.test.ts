@@ -6,7 +6,6 @@ import { generateClaimSecret } from '@aztec/aztec.js/ethereum';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import { isL1ToL2MessageReady } from '@aztec/aztec.js/messaging';
-import { waitForTx } from '@aztec/aztec.js/node';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import type { Operator } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { waitUntilL1Timestamp } from '@aztec/ethereum/l1-tx-utils';
@@ -28,9 +27,10 @@ import { privateKeyToAccount } from 'viem/accounts';
 
 import { sendL1ToL2Message } from '../fixtures/l1_to_l2_messaging.js';
 import { type EndToEndContext, getPrivateKeyFromIndex } from '../fixtures/utils.js';
+import { waitForBlockNumber, waitForTxs } from '../fixtures/wait_helpers.js';
 import { TestWallet } from '../test-wallet/test_wallet.js';
 import { proveInteraction } from '../test-wallet/utils.js';
-import { EpochsTestContext, type TrackedSequencerEvent } from './epochs_test.js';
+import { MultiNodeTestContext, type TrackedSequencerEvent } from './multi_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 20);
 
@@ -51,7 +51,7 @@ const TX_COUNT = 10;
  * Four-validator suite under mock gossip with a prover node (fake proofs); PXE mode varies per test
  * (checkpointed vs proposed). Exercises MBPS with: checkpointed-anchored txs, proposed-anchored txs,
  * L2→L1 messages, L1→L2 messages, non-validator re-execution sync, cross-slot contract deploy+call,
- * and prover proving MBPS checkpoints. Uses EpochsTestContext with mockGossipSubNetwork and no
+ * and prover proving MBPS checkpoints. Uses MultiNodeTestContext with mockGossipSubNetwork and no
  * initial sequencer.
  */
 describe('e2e_epochs/epochs_mbps', () => {
@@ -60,7 +60,7 @@ describe('e2e_epochs/epochs_mbps', () => {
   let rollup: RollupContract;
   let archiver: Archiver;
 
-  let test: EpochsTestContext;
+  let test: MultiNodeTestContext;
   let validators: (Operator & { privateKey: `0x${string}` })[];
   let nodes: AztecNodeService[];
   let contract: TestContract;
@@ -92,7 +92,7 @@ describe('e2e_epochs/epochs_mbps', () => {
     // epochs_mbps.pipeline.parallel test (72s L2 slots, 12s L1 slots, 5500ms blocks).
     // The tighter 36s/4s timing produces CheckpointNumberNotSequentialError on non-proposer
     // nodes when the pipelined proposer races ahead of L1 confirmation (see A-914).
-    test = await EpochsTestContext.setup({
+    test = await MultiNodeTestContext.setup({
       numberOfAccounts: 0,
       initialValidators: validators,
       mockGossipSubNetwork: true,
@@ -229,10 +229,7 @@ describe('e2e_epochs/epochs_mbps', () => {
 
     // Wait until all txs are mined
     const timeout = test.L2_SLOT_DURATION_IN_S * 5;
-    await executeTimeout(
-      () => Promise.all(txHashes.map(txHash => waitForTx(context.aztecNode, txHash, { timeout }))),
-      timeout * 1000,
-    );
+    await executeTimeout(() => waitForTxs(context.aztecNode, txHashes, { timeout }), timeout * 1000);
     logger.warn(`All txs have been mined`);
 
     const multiBlockCheckpoint = await assertMultipleBlocksPerSlot(EXPECTED_BLOCKS_PER_CHECKPOINT, logger);
@@ -312,18 +309,16 @@ describe('e2e_epochs/epochs_mbps', () => {
 
     // Wait until all txs are mined
     const timeout = test.L2_SLOT_DURATION_IN_S * 5;
-    const receipts = await Promise.all(txHashes.map(txHash => waitForTx(context.aztecNode, txHash, { timeout })));
+    const receipts = await waitForTxs(context.aztecNode, txHashes, { timeout });
     logger.warn(`All L2→L1 message txs have been mined`);
 
-    // wait for the other node to synch
+    // wait for the other node to synch (nodes[0]'s block source is `archiver`)
     const maxBlockNumber = Math.max(...receipts.map(r => r.blockNumber!));
-    await retryUntil(
-      async () =>
-        ((await archiver.getBlockNumber({ tag: 'checkpointed' })) ?? 0) >= maxBlockNumber ? true : undefined,
-      `archiver to checkpoint block ${maxBlockNumber}`,
-      test.L2_SLOT_DURATION_IN_S * 3,
-      0.1,
-    );
+    await waitForBlockNumber(nodes[0], maxBlockNumber, {
+      tag: 'checkpointed',
+      timeout: test.L2_SLOT_DURATION_IN_S * 3,
+      interval: 0.1,
+    });
 
     // Mirror the sibling MBPS tests: we may lose one sub-slot to pipelined overhead, so accept >= 2
     // blocks per checkpoint rather than the legacy 3-block expectation.
@@ -390,10 +385,7 @@ describe('e2e_epochs/epochs_mbps', () => {
 
     // Wait for filler txs to be mined first - this ensures the chain has advanced enough for messages to be ready
     const timeout = test.L2_SLOT_DURATION_IN_S * 5;
-    await executeTimeout(
-      () => Promise.all(fillerTxHashes.map(txHash => waitForTx(context.aztecNode, txHash, { timeout }))),
-      timeout * 1000,
-    );
+    await executeTimeout(() => waitForTxs(context.aztecNode, fillerTxHashes, { timeout }), timeout * 1000);
     logger.warn(`All filler txs have been mined`);
 
     // Wait for all messages to be ready in parallel (chain has advanced, messages should be available)
@@ -433,7 +425,7 @@ describe('e2e_epochs/epochs_mbps', () => {
     logger.warn(`Sent ${consumeTxHashes.length} consume transactions`);
 
     // Wait for all consume txs to be mined
-    await Promise.all(consumeTxHashes.map(txHash => waitForTx(context.aztecNode, txHash, { timeout })));
+    await waitForTxs(context.aztecNode, consumeTxHashes, { timeout });
     logger.warn(`All ${consumeTxHashes.length} L1→L2 messages consumed`);
 
     const multiBlockCheckpoint = await assertMultipleBlocksPerSlot(2, logger);
@@ -599,11 +591,7 @@ describe('e2e_epochs/epochs_mbps', () => {
     await sleep(1000);
     const callTxHash = await callTx.send({ wait: NO_WAIT });
     const [deployReceipt, callReceipt] = await executeTimeout(
-      () =>
-        Promise.all([
-          waitForTx(context.aztecNode, deployTxHash, { timeout }),
-          waitForTx(context.aztecNode, callTxHash, { timeout }),
-        ]),
+      () => waitForTxs(context.aztecNode, [deployTxHash, callTxHash], { timeout }),
       timeout * 1000,
     );
     logger.warn(`Both txs checkpointed`, {
