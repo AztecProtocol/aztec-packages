@@ -19,6 +19,9 @@ const BLOCK_DURATION_MS = 10_000;
 
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'rediscovery-'));
 
+// Tests that nodes can rediscover each other from their stored peer tables after a full restart,
+// without a bootstrap node. Uses P2PNetworkTest real libp2p, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES
+// (ethSlot=4s, aztecSlot=24s, proofSubEpochs=640), 4 validators, inboxLag=2.
 describe('e2e_p2p_rediscovery', () => {
   let t: P2PNetworkTest;
   let nodes: AztecNodeService[];
@@ -52,6 +55,11 @@ describe('e2e_p2p_rediscovery', () => {
     }
   });
 
+  // Forms an initial 4-node mesh, stops the bootstrap node, then restarts each validator from its data
+  // directory without any bootstrap ENR. Submits txs to each restarted node and asserts they mine,
+  // proving that discv5 peer-store entries are sufficient for re-discovery.
+  // REFACTOR: sequential sleep(2500) between node restarts is hand-rolled; the delay exists to avoid
+  // port conflicts but should be replaced with a port-readiness check or staggered createNode calls
   it('should re-discover stored peers without bootstrap node', async () => {
     const txsSentViaDifferentNodes: TxHash[][] = [];
     nodes = await createNodes(

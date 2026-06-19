@@ -95,6 +95,9 @@ async function benchmark<T>(
   };
 }
 
+// Node RPC performance benchmark. Uses setup() with PIPELINING_SETUP_OPTS, builds BLOCKS_TO_BUILD blocks,
+// then iterates all RPC endpoints measuring avg/min/max latency; emits BENCH_OUTPUT JSON for the bench
+// pipeline. Not in test_cmds; runs via bench_cmds.
 describe('e2e_node_rpc_perf', () => {
   jest.setTimeout(10 * 60 * 1000); // 10 minutes
 

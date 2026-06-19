@@ -40,6 +40,12 @@ const VALIDATOR_COUNT = 6;
 
 const BASE_ANVIL_PORT = getAnvilPort();
 
+// Six-validator suite (one key per node) exercising checkpoint invalidation paths. All nodes use
+// a mocked gossip bus. The setup injects bad configs (insufficient attestations, fake/high-s/
+// unrecoverable signatures, shuffled attestations, parent-validity bypasses) to force invalid
+// checkpoints, then verifies the next good proposer invalidates them and the chain progresses.
+// Slasher is enabled. Uses EpochsTestContext with mockGossipSubNetwork, no initial sequencer, no
+// prover node; ports are port-bumped per test via anvilPortOffset to support parallel execution.
 describe('e2e_epochs/epochs_invalidate_block', () => {
   let context: EndToEndContext;
   let logger: Logger;
@@ -256,6 +262,11 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     logger.warn(`Test succeeded '${expect.getState().currentTestName}'`);
   }
 
+  // Configures all sequencers to skip attestation collection and sets minBlocksForCheckpoint=2.
+  // Sends 2 txs, waits for the first bad checkpoint to land (insufficient attestations), then
+  // lets a slot pass, sends more txs, and waits for a good proposer to invalidate the bad
+  // checkpoint in the same L1 tx as a new valid checkpoint. Verifies PROPOSED_INSUFFICIENT_ATTESTATIONS
+  // offense is recorded and chain progresses to checkpoint+2.
   // To be able to post its own checkpoint under pipelining, there should be no "proposed" checkpoint in flight,
   // otherwise we consider it's the proposed checkpoint that will invalidate the previous one. If it's the
   // proposed checkpoint the one that ends up being invalid, we need to discard our work, and cannot post our own.
@@ -360,6 +371,10 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     logger.warn(`Test succeeded '${expect.getState().currentTestName}'`);
   });
 
+  // Starts sequencers with good config, waits for the first checkpoint, then searches for two
+  // consecutive bad slots with distinct proposers. Applies skipCollectingAttestations to both bad
+  // proposers and waits for both bad checkpoints to land. Asserts the earliest is invalidated by
+  // the next good proposer, restores good config, and verifies the chain can produce checkpoint+3.
   // Here we disable invalidation checks from two of the proposers. Our goal is to get two invalid checkpoints
   // in a row, so the third proposer invalidates the earliest one, and the chain progresses. Note that the
   // second invalid checkpoint will also have invalid attestations, we are *not* testing the scenario where the
@@ -533,6 +548,12 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     logger.warn(`Test succeeded '${expect.getState().currentTestName}'`);
   });
 
+  // Regression for archiver infinite-loop on P1 (insufficient attestations) + P2 (valid descendant
+  // of P1 but bypasses the parent-validity gate). Warps L1 to the build window, starts sequencers,
+  // waits for both P1 and P2 checkpoints to land on L1. Asserts the chain advances past P2 (archiver
+  // no longer stalls), the DescendentOfInvalidAttestationsCheckpointDetected event fires, and both
+  // P1/P2 proposers are flagged for slashing (PROPOSED_INSUFFICIENT_ATTESTATIONS and
+  // PROPOSED_DESCENDANT_OF_CHECKPOINT_WITH_INVALID_ATTESTATIONS respectively).
   // P1 publishes a checkpoint with insufficient attestations; the next proposer P2 publishes a
   // valid descendant without first invalidating P1. Before the fix, the archiver tripped its
   // `InitialCheckpointNumberNotSequentialError` consecutive-number guard, rolled back the L1
@@ -554,6 +575,9 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
         minTxsPerBlock: 0,
       }),
     );
+    // REFACTOR: hand-rolled slot-search with EpochNotStable warp fallback; replace with a shared
+    // helper such as findNextTwoSlotsWithDistinctProposers(test, fromSlot) that encapsulates the
+    // EpochNotStable retry-and-warp loop.
     let badSlot1: SlotNumber | undefined;
     let p1Proposer: EthAddress | undefined;
     let p2Proposer: EthAddress | undefined;
@@ -740,6 +764,10 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     );
   });
 
+  // All sequencers skip attestation collection and invalidation-as-proposer. Waits for the first
+  // bad checkpoint to land, then waits for a committee member to trigger invalidation after the
+  // configured delay. Asserts the invalidation happened at or after the slot's timestamp plus the
+  // committee invalidation delay.
   // All tests but this one disable invalidation by committee. This test disables invalidation by proposer and
   // instead waits for a committee member to invalidate the block after several proposers not doing so.
   it('committee member invalidates a block if proposer does not come through', async () => {
@@ -790,6 +818,10 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     logger.warn(`Test succeeded '${expect.getState().currentTestName}'`);
   });
 
+  // All sequencers use skipCollectingAttestations. After the second CheckpointInvalidated event
+  // (same checkpoint number invalidated twice), re-enables attestation collection and verifies the
+  // chain produces checkpoint+2. Guards against the regression where the invalidator used the
+  // wrong checkpoint when the re-invalidated checkpoint number changed.
   // Regression for an issue where, if the invalidator proposed another invalid checkpoint, the next proposer would
   // try invalidating the first one, which would fail due to mismatching attestations. For example:
   // Slot S:   Checkpoint N is proposed with invalid attestations
@@ -802,6 +834,8 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     });
   });
 
+  // Same double-invalidation scenario as above but using injectFakeAttestation instead of
+  // skipCollectingAttestations. Regression for a London Q4-2025 attack vector.
   // Regression for Joe's Q42025 London attack. Same as above but with an invalid signature instead of insufficient ones.
   it('chain progresses if a checkpoint with an invalid attestation is invalidated with an invalid one', async () => {
     await runDoubleInvalidationTest({
@@ -810,6 +844,8 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     });
   });
 
+  // Injects a high-s ECDSA signature (rejected by L1 OpenZeppelin ECDSA but valid offchain),
+  // waits for the resulting bad checkpoint, then verifies a good proposer invalidates it.
   // Regression for A-71: Ensure the node correctly invalidates checkpoints where an attestation has a malleable
   // signature (high-s value). The Rollup contract uses OpenZeppelin's ECDSA recover which rejects high-s values
   // per EIP-2, so these signatures recover to address(0) on L1 but may succeed offchain.
@@ -820,6 +856,8 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     });
   });
 
+  // Injects an unrecoverable signature (e.g. r=0; ecrecover returns address(0) on L1).
+  // Waits for the bad checkpoint then verifies a good proposer invalidates it. Regression for A-71.
   // Regression for A-71: Ensure the node correctly invalidates checkpoints where an attestation's signature
   // cannot be recovered (e.g. r=0). On L1, ecrecover returns address(0) for such signatures.
   it('proposer invalidates checkpoint with unrecoverable signature attestation', async () => {
@@ -829,6 +867,8 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     });
   });
 
+  // Injects shuffled attestation ordering (accepted offchain but rejected by L1 which requires the
+  // committee order). Waits for the bad checkpoint then verifies a good proposer invalidates it.
   // Regression for the node accepting attestations that did not conform to the committee order,
   // but L1 requires the same ordering. See #18219.
   it('proposer invalidates previous block with shuffled attestations', async () => {

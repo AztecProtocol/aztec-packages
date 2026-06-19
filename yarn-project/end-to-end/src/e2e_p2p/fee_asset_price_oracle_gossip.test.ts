@@ -43,6 +43,10 @@ const qosAlerts: AlertConfig[] = [
   },
 ];
 
+// Tests that the fee-asset price oracle value set on a mock L1 StateView contract gossips through the
+// real libp2p validator network and converges on the rollup's on-chain price. Uses P2PNetworkTest with
+// SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES (ethSlot=4s, aztecSlot=24s, epoch=4, proofSubEpochs=640) plus a
+// real prover node. CHECK_ALERTS env var gates optional Grafana alert validation.
 describe('e2e_p2p_network', () => {
   let t: P2PNetworkTest;
   let nodes: AztecNodeService[];
@@ -89,6 +93,10 @@ describe('e2e_p2p_network', () => {
     }
   });
 
+  // Deploys a MockStateView L1 contract, sets an initial oracle price, then starts 4 validator nodes
+  // and a prover. Adjusts the oracle price twice and uses retryUntil to confirm the rollup's on-chain
+  // price converges to each target within the gossip propagation window.
+  // REFACTOR: sleep(8000) for peer discovery is hand-rolled; replace with t.waitForP2PMeshConnectivity
   it('should rollup txs from all peers', async () => {
     // create the bootstrap node for the network
     if (!t.bootstrapNodeEnr) {

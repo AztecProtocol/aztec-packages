@@ -5,6 +5,9 @@ import { sendThroughAuthwitProxy, simulateThroughAuthwitProxy } from '../fixture
 import { AUTOMINE_E2E_OPTS, DUPLICATE_NULLIFIER_ERROR } from '../fixtures/fixtures.js';
 import { TokenContractTest } from './token_contract_test.js';
 
+// Covers the transfer_to_public entry point on Token contract (private→public): direct, authwit-delegated
+// via proxy, and error paths. Setup: single node with AutomineSequencer, 3 accounts, Token deployed with
+// initial mint.
 describe('e2e_token_contract transfer_to_public', () => {
   const t = new TokenContractTest('transfer_to_public');
   let { asset, wallet, adminAddress, account1Address, tokenSim } = t;
@@ -25,6 +28,7 @@ describe('e2e_token_contract transfer_to_public', () => {
     await t.tokenSim.check();
   });
 
+  // Transfers half of admin's private balance to admin's public balance and verifies via TokenSimulator.
   it('on behalf of self', async () => {
     const { result: balancePriv } = await asset.methods
       .balance_of_private(adminAddress)
@@ -37,6 +41,8 @@ describe('e2e_token_contract transfer_to_public', () => {
     tokenSim.transferToPublic(adminAddress, adminAddress, amount);
   });
 
+  // Creates a private authwit for transfer_to_public to account1, sends through proxy, verifies TokenSimulator,
+  // then asserts replay reverts with DUPLICATE_NULLIFIER_ERROR.
   it('on behalf of other', async () => {
     const { result: balancePriv0 } = await asset.methods
       .balance_of_private(adminAddress)
@@ -58,7 +64,9 @@ describe('e2e_token_contract transfer_to_public', () => {
     ).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
   });
 
+  // Error paths: more-than-balance, invalid nonce, over-balance via authwit, wrong caller.
   describe('failure cases', () => {
+    // Transfers more than private balance to public (self); expects 'Balance too low'.
     it('on behalf of self (more than balance)', async () => {
       const { result: balancePriv } = await asset.methods
         .balance_of_private(adminAddress)
@@ -71,6 +79,7 @@ describe('e2e_token_contract transfer_to_public', () => {
       ).rejects.toThrow('Assertion failed: Balance too low');
     });
 
+    // Self-transfer_to_public with nonce=1; expects the invalid-nonce assertion.
     it('on behalf of self (invalid authwit nonce)', async () => {
       const { result: balancePriv } = await asset.methods
         .balance_of_private(adminAddress)
@@ -85,6 +94,7 @@ describe('e2e_token_contract transfer_to_public', () => {
       );
     });
 
+    // Creates authwit for a transfer_to_public exceeding private balance; expects 'Balance too low'.
     it('on behalf of other (more than balance)', async () => {
       const { result: balancePriv0 } = await asset.methods
         .balance_of_private(adminAddress)
@@ -102,6 +112,7 @@ describe('e2e_token_contract transfer_to_public', () => {
       ).rejects.toThrow('Assertion failed: Balance too low');
     });
 
+    // Creates authwit designating account1 as caller but sends through proxy; expects unknown-authwit error.
     it('on behalf of other (invalid designated caller)', async () => {
       const { result: balancePriv0 } = await asset.methods
         .balance_of_private(adminAddress)

@@ -34,6 +34,10 @@ jest.setTimeout(1000 * 60 * 10);
 /**
  * This tests emulate the same test as in l1-contracts/test/governance/scenario/UpgradeGovernanceProposerTest.t.sol
  * but it does so in an end-to-end manner with multiple "real" nodes.
+ *
+ * Setup: P2PNetworkTest real libp2p, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES (ethSlot=4s, aztecSlot=12s,
+ * proofSubEpochs=640), 4 validators, governanceProposerRoundSize=10, activationThreshold=1e22,
+ * ejectionThreshold=5e21, minTxsPerBlock=0, inboxLag=2. No prover. jest.setTimeout=10m.
  */
 describe('e2e_p2p_governance_proposer', () => {
   let t: P2PNetworkTest;
@@ -73,6 +77,10 @@ describe('e2e_p2p_governance_proposer', () => {
     }
   });
 
+  // Creates 4 validator nodes configured to signal a new GovernanceProposerPayload. Waits for quorum,
+  // warps past round boundary, submits the round winner, then drives the full governance lifecycle
+  // (vote, execution delay, execute). Asserts the governance contract's governanceProposer changes.
+  // REFACTOR: while(true) + sleep(12000) polling for quorum is hand-rolled; replace with retryUntil
   it('should cast votes to upgrade governanceProposer', async () => {
     // create the bootstrap node for the network
     if (!t.bootstrapNodeEnr) {
