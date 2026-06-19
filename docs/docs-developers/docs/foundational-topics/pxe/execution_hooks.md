@@ -92,4 +92,4 @@ let env = TestEnvironment::new_opts(
 
 Pass a `resolveTaggingSecret` hook when [creating the PXE](#configuring-hooks). It receives a `TaggingSecretSourceRequest` with the executing contract's address and the message's sender, recipient, and delivery mode (`'constrained'` or `'unconstrained'`), so a wallet can apply per-application or per-recipient policies, or surface the decision to the user, instead of returning a fixed value.
 
-When the hook is absent, the PXE applies a privacy-safe default: unconstrained delivery uses an address-derived (Diffie-Hellman) shared secret, which leaves no on-chain trace, while constrained delivery fails rather than silently revealing the recipient through a non-interactive handshake.
+When the hook is absent, the PXE applies a privacy-safe default: unconstrained delivery uses an address-derived (Diffie-Hellman) shared secret, which leaves no onchain trace, while constrained delivery fails rather than silently revealing the recipient through a non-interactive handshake.
