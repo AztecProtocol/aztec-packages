@@ -40,6 +40,9 @@ function test_cmds {
     src/e2e_!(prover)/*.test.ts
     src/multi-node/*.test.ts
     src/multi-node/single-node/*.test.ts
+    src/multi-node/consensus/*.test.ts
+    src/multi-node/prune/*.test.ts
+    src/multi-node/ha/*.test.ts
     src/multi-node/slashing/*.test.ts
     src/e2e_p2p/reqresp/*.test.ts
     src/e2e_!(block_building|avm_simulator).test.ts

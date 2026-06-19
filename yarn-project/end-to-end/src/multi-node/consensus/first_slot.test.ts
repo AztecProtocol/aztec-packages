@@ -1,29 +1,28 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
-import { EthAddress } from '@aztec/aztec.js/addresses';
 import { getTimestampRangeForEpoch } from '@aztec/aztec.js/block';
 import { NO_WAIT } from '@aztec/aztec.js/contracts';
-import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import { waitForTx } from '@aztec/aztec.js/node';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/aztec.js/protocol';
-import type { Operator } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import { times, timesAsync } from '@aztec/foundation/collection';
-import { SecretValue } from '@aztec/foundation/config';
+import { timesAsync } from '@aztec/foundation/collection';
 import { retryUntil } from '@aztec/foundation/retry';
-import { bufferToHex } from '@aztec/foundation/string';
 import { executeTimeout } from '@aztec/foundation/timer';
 import type { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import { getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
 
 import { jest } from '@jest/globals';
-import { privateKeyToAccount } from 'viem/accounts';
 
-import { type EndToEndContext, getPrivateKeyFromIndex } from '../fixtures/utils.js';
-import { proveInteraction } from '../test-wallet/utils.js';
-import { MultiNodeTestContext } from './multi_node_test_context.js';
+import type { EndToEndContext } from '../../fixtures/utils.js';
+import { proveInteraction } from '../../test-wallet/utils.js';
+import {
+  MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
+  MultiNodeTestContext,
+  type RegisteredValidator,
+  buildMockGossipValidators,
+} from '../multi_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 10);
 
@@ -37,42 +36,33 @@ const TX_COUNT = 8;
 // the pipelined proposer's first build window targets the epoch's first slot. Verifies that
 // blocks are built on both the first and second slots of the new epoch.
 // Uses MultiNodeTestContext with mockGossipSubNetwork, no initial sequencer, no prover node.
-describe('multi-node/first_slot', () => {
+describe('multi-node/consensus/first_slot', () => {
   let context: EndToEndContext;
   let logger: Logger;
 
   let test: MultiNodeTestContext;
-  let validators: (Operator & { privateKey: `0x${string}` })[];
+  let validators: RegisteredValidator[];
   let nodes: AztecNodeService[];
   let contract: SpamContract;
   let from: AztecAddress;
 
   beforeEach(async () => {
-    validators = times(NODE_COUNT, i => {
-      const privateKey = bufferToHex(getPrivateKeyFromIndex(i + 3)!);
-      const attester = EthAddress.fromString(privateKeyToAccount(privateKey).address);
-      return { attester, withdrawer: attester, privateKey, bn254SecretKey: new SecretValue(Fr.random().toBigInt()) };
-    });
+    validators = buildMockGossipValidators(NODE_COUNT);
 
     // Setup context with the given set of validators, no reorgs, and a mocked gossip sub network.
     // We expect 4 blocks per checkpoint with this config
     test = await MultiNodeTestContext.setup({
-      numberOfAccounts: 0,
+      ...MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
       initialValidators: validators,
-      mockGossipSubNetwork: true,
-      aztecProofSubmissionEpochs: 1024,
       aztecEpochDuration: 32,
       aztecSlotDurationInL1Slots: 3,
       ethereumSlotDuration: 12,
       blockDurationMs: 6000,
-      startProverNode: false,
       aztecTargetCommitteeSize: COMMITTEE_SIZE,
       minTxsPerBlock: 1,
       maxTxsPerBlock: 1,
       attestationPropagationTime: 0.5,
       archiverPollingIntervalMS: 200,
-      skipInitialSequencer: true,
-      inboxLag: 2,
     });
 
     ({ context, logger } = test);

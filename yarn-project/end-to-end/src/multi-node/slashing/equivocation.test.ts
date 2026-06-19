@@ -15,8 +15,8 @@ import { OffenseType } from '@aztec/stdlib/slashing';
 import { jest } from '@jest/globals';
 import { privateKeyToAccount } from 'viem/accounts';
 
-import { getPrivateKeyFromIndex } from '../fixtures/utils.js';
-import { MultiNodeTestContext } from './multi_node_test_context.js';
+import { getPrivateKeyFromIndex } from '../../fixtures/utils.js';
+import { MultiNodeTestContext } from '../multi_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 15);
 
@@ -40,7 +40,7 @@ const NODE_COUNT = 4;
  *
  * Uses MultiNodeTestContext with mockGossipSubNetwork, no initial sequencer, and slasherEnabled.
  */
-describe('multi-node/equivocation', () => {
+describe('multi-node/slashing/equivocation', () => {
   let logger: Logger;
   let test: MultiNodeTestContext;
   let nodes: AztecNodeService[];

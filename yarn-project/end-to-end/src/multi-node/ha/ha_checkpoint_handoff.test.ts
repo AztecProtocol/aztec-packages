@@ -1,25 +1,24 @@
 import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { EthAddress } from '@aztec/aztec.js/addresses';
-import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import { RollupContract } from '@aztec/ethereum/contracts';
-import type { Operator } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import { times } from '@aztec/foundation/collection';
-import { SecretValue } from '@aztec/foundation/config';
 import { retryUntil } from '@aztec/foundation/retry';
-import { bufferToHex } from '@aztec/foundation/string';
 import type { BlockData } from '@aztec/stdlib/block';
 import type { CheckpointData, ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
 import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
-import { createSharedSlashingProtectionDb } from '@aztec/validator-ha-signer/factory';
 
 import { jest } from '@jest/globals';
-import { privateKeyToAccount } from 'viem/accounts';
 
-import { type EndToEndContext, getPrivateKeyFromIndex } from '../fixtures/utils.js';
-import { MultiNodeTestContext } from './multi_node_test_context.js';
+import type { EndToEndContext } from '../../fixtures/utils.js';
+import {
+  MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
+  MultiNodeTestContext,
+  type RegisteredValidator,
+  buildMockGossipValidators,
+  setupHaPairs,
+} from '../multi_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 20);
 
@@ -71,13 +70,13 @@ const VALIDATOR_COUNT = 4;
  * `epochs_orphan_block_prune` / `epochs_simple_block_building`). See the inline REFACTOR markers for hand-rolled
  * coordination a DSL helper should replace.
  */
-describe('multi-node/ha_checkpoint_handoff', () => {
+describe('multi-node/ha/ha_checkpoint_handoff', () => {
   let context: EndToEndContext;
   let logger: Logger;
   let rollup: RollupContract;
 
   let test: MultiNodeTestContext;
-  let validators: (Operator & { privateKey: `0x${string}` })[];
+  let validators: RegisteredValidator[];
   let nodes: AztecNodeService[];
 
   /**
@@ -95,85 +94,41 @@ describe('multi-node/ha_checkpoint_handoff', () => {
   let haPairs: HaPair[];
 
   async function setupTest() {
-    validators = times(VALIDATOR_COUNT, i => {
-      const privateKey = bufferToHex(getPrivateKeyFromIndex(i + 3)!);
-      const attester = EthAddress.fromString(privateKeyToAccount(privateKey).address);
-      return { attester, withdrawer: attester, privateKey, bn254SecretKey: new SecretValue(Fr.random().toBigInt()) };
-    });
+    validators = buildMockGossipValidators(VALIDATOR_COUNT);
 
     // No initial sequencer: the validator nodes do all the building, and they build empty checkpoints
     // (buildCheckpointIfEmpty + minTxsPerBlock: 0) so no transactions are needed. We keep checkpoint
-    // publishing ENABLED (unlike epochs_ha_sync.test.ts): the handoff must produce a real on-chain
-    // checkpoint.
+    // publishing ENABLED (unlike ha_sync.test.ts): the handoff must produce a real on-chain checkpoint.
     test = await MultiNodeTestContext.setup({
+      ...MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
       initialValidators: validators,
-      mockGossipSubNetwork: true,
-      startProverNode: false,
-      skipInitialSequencer: true,
       aztecEpochDuration: 8,
-      aztecProofSubmissionEpochs: 1024,
       ethereumSlotDuration: 6,
       aztecSlotDuration: 36,
       blockDurationMs: 8000,
       attestationPropagationTime: 0.5,
       aztecTargetCommitteeSize: VALIDATOR_COUNT,
-      inboxLag: 2,
     });
 
     ({ context, logger, rollup } = test);
 
-    // Create 4 nodes in 2 HA pairs: each pair shares the same two validator keys.
-    const pk1 = validators[0].privateKey;
-    const pk2 = validators[1].privateKey;
-    const pk3 = validators[2].privateKey;
-    const pk4 = validators[3].privateKey;
-
-    const addressesA = [pk1, pk2].map(pk => privateKeyToAccount(pk).address.toLowerCase());
-    const addressesB = [pk3, pk4].map(pk => privateKeyToAccount(pk).address.toLowerCase());
-
-    // Use different coinbase addresses per node so HA peers build distinguishable blocks (the secondary
-    // assertion relies on this to prove which node produced S2's checkpoint). Each HA pair shares a
-    // slashing protection DB so only one peer signs per duty. buildCheckpointIfEmpty + minTxsPerBlock: 0
-    // lets proposers build empty checkpoints without txs.
-    const baseOpts = { dontStartSequencer: true, buildCheckpointIfEmpty: true, minTxsPerBlock: 0 } as const;
-    const sharedDb1 = await createSharedSlashingProtectionDb(context.dateProvider);
-    const sharedDb2 = await createSharedSlashingProtectionDb(context.dateProvider);
-
-    const coinbaseA1 = EthAddress.fromNumber(1);
-    const coinbaseA2 = EthAddress.fromNumber(2);
-    const coinbaseB1 = EthAddress.fromNumber(3);
-    const coinbaseB2 = EthAddress.fromNumber(4);
-
+    // Create 4 nodes in 2 HA pairs (pk1+pk2, pk3+pk4) sharing keys + a per-pair slashing-protection DB.
+    // Distinct coinbases per node let the secondary assertion prove which peer produced S2's checkpoint;
+    // buildCheckpointIfEmpty + minTxsPerBlock: 0 lets proposers build empty checkpoints without txs.
     logger.warn(`Creating 4 validator nodes in 2 HA pairs.`);
-    nodes = [
-      // Pair A: {nodes[0], nodes[1]} share {pk1, pk2}
-      await test.createValidatorNode([pk1, pk2], {
-        ...baseOpts,
-        coinbase: coinbaseA1,
-        slashingProtectionDb: sharedDb1,
-      }),
-      await test.createValidatorNode([pk1, pk2], {
-        ...baseOpts,
-        coinbase: coinbaseA2,
-        slashingProtectionDb: sharedDb1,
-      }),
-      // Pair B: {nodes[2], nodes[3]} share {pk3, pk4}
-      await test.createValidatorNode([pk3, pk4], {
-        ...baseOpts,
-        coinbase: coinbaseB1,
-        slashingProtectionDb: sharedDb2,
-      }),
-      await test.createValidatorNode([pk3, pk4], {
-        ...baseOpts,
-        coinbase: coinbaseB2,
-        slashingProtectionDb: sharedDb2,
-      }),
-    ];
+    const { nodes: haNodes, pairs } = await setupHaPairs(test, validators, {
+      baseOpts: { dontStartSequencer: true, buildCheckpointIfEmpty: true, minTxsPerBlock: 0 },
+    });
+    nodes = haNodes;
 
-    haPairs = [
-      { nodes: [nodes[0], nodes[1]], addresses: addressesA, coinbases: [coinbaseA1, coinbaseA2] },
-      { nodes: [nodes[2], nodes[3]], addresses: addressesB, coinbases: [coinbaseB1, coinbaseB2] },
-    ];
+    haPairs = pairs.map((pair, pairIndex) => ({
+      nodes: pair.nodes,
+      // The two validators backing this pair: pair 0 → validators[0..1], pair 1 → validators[2..3].
+      addresses: [validators[pairIndex * 2], validators[pairIndex * 2 + 1]].map(v =>
+        v.attester.toString().toLowerCase(),
+      ),
+      coinbases: pair.coinbases,
+    }));
 
     logger.warn(`Created 4 validator nodes.`);
     logger.warn(`Test setup completed.`);

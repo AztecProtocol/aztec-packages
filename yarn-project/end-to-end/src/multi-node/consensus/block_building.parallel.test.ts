@@ -1,30 +1,112 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
-import { EthAddress } from '@aztec/aztec.js/addresses';
 import { NO_WAIT } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import { waitForTx } from '@aztec/aztec.js/node';
-import type { Operator } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import { chunkBy, times, timesAsync } from '@aztec/foundation/collection';
-import { SecretValue } from '@aztec/foundation/config';
+import { chunkBy, timesAsync } from '@aztec/foundation/collection';
 import { sleepUntil } from '@aztec/foundation/sleep';
-import { bufferToHex } from '@aztec/foundation/string';
+import { executeTimeout } from '@aztec/foundation/timer';
 import type { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
+import type { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { getSlotAtTimestamp, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 
 import { jest } from '@jest/globals';
-import { privateKeyToAccount } from 'viem/accounts';
 
-import { type EndToEndContext, getPrivateKeyFromIndex } from '../fixtures/utils.js';
-import { proveInteraction } from '../test-wallet/utils.js';
-import { MultiNodeTestContext } from './multi_node_test_context.js';
+import type { EndToEndContext } from '../../fixtures/utils.js';
+import { waitForTxs } from '../../fixtures/wait_helpers.js';
+import { proveInteraction } from '../../test-wallet/utils.js';
+import {
+  MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
+  MultiNodeTestContext,
+  type RegisteredValidator,
+  buildMockGossipValidators,
+} from '../multi_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 10);
 
 const NODE_COUNT = 3;
+
+// Merged consensus block-building suites for 3-validator clusters on the mock-gossip bus. Both assert
+// that the sequencers build blocks without emitting fail events; they differ only in load profile, so
+// each keeps its own per-`it` setup. `.parallel` so CI splits the light canary and the MBPS scenario
+// into independent jobs.
+
+const TX_COUNT_SIMPLE = 8;
+
+// Verifies that 3 validator nodes can build blocks without sequencer errors. Lightweight RPC-only
+// initial node (skipInitialSequencer), mockGossipSubNetwork, no prover. Timing: ethSlot=12s,
+// aztecSlot=36s, epoch=default 6, proofSubmissionEpochs=1024, blockDurationMs=6s. Pre-proved txs sent
+// from the hardcoded genesis-funded account (no on-chain account deploy needed).
+describe('multi-node/consensus/block_building/simple', () => {
+  let context: EndToEndContext;
+  let logger: Logger;
+
+  let test: MultiNodeTestContext;
+  let validators: RegisteredValidator[];
+  let nodes: AztecNodeService[];
+  let contract: TestContract;
+  let from: AztecAddress;
+
+  beforeEach(async () => {
+    validators = buildMockGossipValidators(NODE_COUNT);
+
+    // Setup context with no initial sequencer (lightweight RPC-only node).
+    // The hardcoded account is funded via genesis without needing on-chain deployment.
+    test = await MultiNodeTestContext.setup({
+      ...MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
+      initialValidators: validators,
+      aztecSlotDurationInL1Slots: 3,
+      ethereumSlotDuration: 12,
+      blockDurationMs: 6000,
+    });
+
+    ({ context, logger } = test);
+    from = context.accounts[0]; // auto-created by setup
+
+    // Register test contract locally for sending txs (no on-chain deployment needed).
+    contract = await test.registerTestContract(context.wallet);
+
+    // Start the validator nodes.
+    logger.warn(`Initial setup complete. Starting ${NODE_COUNT} validator nodes.`);
+    nodes = await asyncMap(validators, ({ privateKey }) =>
+      test.createValidatorNode([privateKey], { minTxsPerBlock: 1, maxTxsPerBlock: 1 }),
+    );
+    logger.warn(`Test setup completed.`, { validators: validators.map(v => v.attester.toString()) });
+  });
+
+  afterEach(async () => {
+    jest.restoreAllMocks();
+    await test.teardown();
+  });
+
+  // Pre-proves TX_COUNT transactions emitting unique nullifiers, sends them, waits for all to mine,
+  // then asserts no fail events were emitted by any of the 3 sequencers during the run.
+  it('builds blocks without any errors', async () => {
+    const sequencers = nodes.map(node => node.getSequencer()!);
+    const { failEvents } = test.watchSequencerEvents(sequencers, i => ({ validator: validators[i].attester }));
+
+    // Create and submit txs from the hardcoded account. Each tx emits a unique
+    // nullifier, which is enough side-effect to produce a non-empty block.
+    const txs = await timesAsync(TX_COUNT_SIMPLE, _i =>
+      proveInteraction(context.wallet, contract.methods.emit_nullifier(Fr.random()), { from }),
+    );
+    const txHashes = await Promise.all(txs.map(tx => tx.send({ wait: NO_WAIT })));
+    logger.warn(`Sent ${txHashes.length} transactions`, {
+      txs: txHashes,
+    });
+
+    // Wait until all txs are mined
+    const timeout = test.L2_SLOT_DURATION_IN_S * (TX_COUNT_SIMPLE * 2 + 1);
+    await executeTimeout(() => waitForTxs(context.aztecNode, txHashes, { timeout }), timeout * 1000);
+    logger.warn(`All txs have been mined`);
+
+    // Expect no failures from sequencers during block building
+    test.assertNoFailuresFromSequencers(failEvents);
+  });
+});
 
 // Multi-block-per-slot test under pipelining. Exercises a full checkpoint (4 blocks × 2 txs) and verifies the
 // checkpoint tx lands on the 2nd L1 block of its target slot.
@@ -62,7 +144,7 @@ const TXS_PER_BLOCK = 2;
 const CHECKPOINTS_TO_CHECK = 3;
 // Extra txs beyond the ones we assert on: one partial checkpoint at startup (sequencers start mid-slot with
 // only one blockDuration of slack) plus a buffer at the tail.
-const TX_COUNT = BLOCKS_PER_CHECKPOINT * TXS_PER_BLOCK * (CHECKPOINTS_TO_CHECK + 1);
+const TX_COUNT_HIGH = BLOCKS_PER_CHECKPOINT * TXS_PER_BLOCK * (CHECKPOINTS_TO_CHECK + 1);
 const TX_DURATION_MS = 2500;
 const BLOCK_DURATION_MS = 6000;
 const L2_SLOT_DURATION_S = 36;
@@ -72,30 +154,23 @@ const L1_BLOCK_TIME_S = 12;
 // (4 blocks × 2 txs each) under proposer pipelining with fake tx processing delays. Asserts that
 // CHECKPOINTS_TO_CHECK consecutive checkpoints at or after the target slot each have at least
 // BLOCKS_PER_CHECKPOINT-1 blocks and that the checkpoint tx lands in the 1st or 2nd L1 block of the
-// target slot. Uses MultiNodeTestContext with mockGossipSubNetwork, no initial sequencer, no prover node.
-describe('multi-node/high_tps_block_building', () => {
+// target slot. mockGossipSubNetwork, no initial sequencer, no prover node.
+describe('multi-node/consensus/block_building/high_tps', () => {
   let context: EndToEndContext;
   let logger: Logger;
 
   let test: MultiNodeTestContext;
-  let validators: (Operator & { privateKey: `0x${string}` })[];
+  let validators: RegisteredValidator[];
   let nodes: AztecNodeService[];
   let contract: SpamContract;
   let from: AztecAddress;
 
   beforeEach(async () => {
-    validators = times(NODE_COUNT, i => {
-      const privateKey = bufferToHex(getPrivateKeyFromIndex(i + 3)!);
-      const attester = EthAddress.fromString(privateKeyToAccount(privateKey).address);
-      return { attester, withdrawer: attester, privateKey, bn254SecretKey: new SecretValue(Fr.random().toBigInt()) };
-    });
+    validators = buildMockGossipValidators(NODE_COUNT);
 
     test = await MultiNodeTestContext.setup({
-      numberOfAccounts: 0,
+      ...MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
       initialValidators: validators,
-      mockGossipSubNetwork: true,
-      aztecProofSubmissionEpochs: 1024,
-      startProverNode: false,
       ethereumSlotDuration: L1_BLOCK_TIME_S,
       aztecSlotDuration: L2_SLOT_DURATION_S,
       blockDurationMs: BLOCK_DURATION_MS,
@@ -103,8 +178,6 @@ describe('multi-node/high_tps_block_building', () => {
       attestationPropagationTime: 1,
       minTxsPerBlock: 1,
       maxTxsPerBlock: 100,
-      skipInitialSequencer: true,
-      inboxLag: 2,
     });
 
     ({ context, logger } = test);
@@ -135,7 +208,7 @@ describe('multi-node/high_tps_block_building', () => {
   // count, per-block tx count, and L1 submission offset. Expects zero fail events.
   it('builds blocks without any errors', async () => {
     // Pre-prove and send all txs so the proposer has a full backlog ready in the pool when it starts building.
-    const txs = await timesAsync(TX_COUNT, i =>
+    const txs = await timesAsync(TX_COUNT_HIGH, i =>
       proveInteraction(context.wallet, contract.methods.spam(i, 1n, false), { from }),
     );
     const txHashes = await Promise.all(txs.map(tx => tx.send({ wait: NO_WAIT })));
