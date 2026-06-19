@@ -1,20 +1,20 @@
-import { ProtocolContractAddress, isProtocolContract } from '@aztec/protocol-contracts';
+import { isProtocolContract } from '@aztec/protocol-contracts';
 import type { FunctionCall, FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstance } from '@aztec/stdlib/contract';
-import { DelayedPublicMutableValues, DelayedPublicMutableValuesWithHash } from '@aztec/stdlib/delayed-public-mutable';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 
 import type { ContractStore } from '../storage/contract_store/contract_store.js';
 
 /**
- * Read the current class id of a contract from the execution data provider or AztecNode. If not found, class id
- * from the instance is used.
+ * Read the current class id of a contract as of the given block, as seen by the AztecNode. The node resolves it from
+ * the same scheduled value change the AVM enforces against the public data tree. If the node has no record of the
+ * instance (e.g. it was never publicly deployed), the original class id from the local instance is used.
  * @param contractAddress - The address of the contract to read the class id for.
- * @param instance - The instance of the contract.
- * @param aztecNode - The Aztec node to query for storage.
- * @param header - The header of the block at which to load the DelayedPublicMutable storing the class id.
+ * @param instance - The local instance of the contract, used as a fallback when the node doesn't know it.
+ * @param aztecNode - The Aztec node to query.
+ * @param header - The header of the block at which to resolve the current class id.
  * @returns The current class id.
  */
 export async function readCurrentClassId(
@@ -23,17 +23,10 @@ export async function readCurrentClassId(
   aztecNode: AztecNode,
   header: BlockHeader,
 ) {
-  const blockHash = await header.hash();
-  const timestamp = header.globalVariables.timestamp;
-  const { delayedPublicMutableSlot } = await DelayedPublicMutableValuesWithHash.getContractUpdateSlots(contractAddress);
-  const delayedPublicMutableValues = await DelayedPublicMutableValues.readFromTree(delayedPublicMutableSlot, slot =>
-    aztecNode.getPublicStorageAt(blockHash, ProtocolContractAddress.ContractInstanceRegistry, slot),
-  );
-  let currentClassId = delayedPublicMutableValues.svc.getCurrentAt(timestamp)[0];
-  if (currentClassId.isZero()) {
-    currentClassId = instance.originalContractClassId;
-  }
-  return currentClassId;
+  const nodeInstance = await aztecNode.getContract(await header.hash(), contractAddress);
+  // If the contract was upgraded then the node WILL know of that and return a non-undefined instance. An undefined
+  // result therefore means that no upgrade has happened, and therefore that the original class is the current one.
+  return nodeInstance?.currentContractClassId ?? instance.originalContractClassId;
 }
 
 export async function syncScope(

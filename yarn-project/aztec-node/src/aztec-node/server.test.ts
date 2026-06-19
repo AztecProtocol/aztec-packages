@@ -33,14 +33,14 @@ import {
   type L2Tips,
 } from '@aztec/stdlib/block';
 import type { CheckpointData, ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
-import type { ContractDataSource } from '@aztec/stdlib/contract';
+import type { ContractDataSource, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { EmptyL1RollupConstants, type L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { L2LogsSource, MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { InboxLeaf } from '@aztec/stdlib/messaging';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
-import { mockTx } from '@aztec/stdlib/testing';
+import { mockTx, randomContractInstanceWithAddress } from '@aztec/stdlib/testing';
 import {
   AppendOnlyTreeSnapshot,
   MerkleTreeId,
@@ -116,6 +116,7 @@ describe('aztec node', () => {
   let merkleTreeOps: MockProxy<MerkleTreeReadOperations>;
   let worldState: MockProxy<WorldStateSynchronizer>;
   let l2BlockSource: MockProxy<L2BlockSource>;
+  let contractSource: MockProxy<ContractDataSource>;
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
   let lastBlockNumber: BlockNumber;
   let node: TestAztecNodeService;
@@ -204,7 +205,7 @@ describe('aztec node', () => {
     l1ToL2MessageSource = mock<L1ToL2MessageSource>();
 
     // all txs use the same allowed FPC class
-    const contractSource = mock<ContractDataSource>();
+    contractSource = mock<ContractDataSource>();
 
     const nodeConfigFromEnvVars: AztecNodeConfig = getConfigEnvVars();
     nodeConfig = {
@@ -419,6 +420,40 @@ describe('aztec node', () => {
       it('returns undefined for non-existent block', async () => {
         l2BlockSource.getBlockData.mockResolvedValue(undefined);
         expect(await node.getBlock(BlockNumber(3))).toEqual(undefined);
+      });
+    });
+
+    describe('getContract', () => {
+      let address: AztecAddress;
+      let instance: ContractInstanceWithAddress;
+      const referenceTimestamp = 4242n;
+
+      beforeEach(async () => {
+        instance = await randomContractInstanceWithAddress();
+        address = instance.address;
+
+        l2BlockSource.getBlockData.mockResolvedValue({
+          header: BlockHeader.empty({
+            globalVariables: GlobalVariables.empty({ blockNumber: BlockNumber(1), timestamp: referenceTimestamp }),
+          }),
+          archive: L2Block.empty().archive,
+          blockHash: BlockHash.random(),
+          checkpointNumber: CheckpointNumber(1),
+          indexWithinCheckpoint: IndexWithinCheckpoint(0),
+        });
+
+        contractSource.getContract.mockImplementation((_address, timestamp) =>
+          Promise.resolve(timestamp === referenceTimestamp ? instance : undefined),
+        );
+      });
+
+      it('resolves the reference block to its timestamp and reads the instance as of that block', async () => {
+        expect(await node.getContract(BlockNumber(1), address)).toEqual(instance);
+      });
+
+      it('throws when the reference block is not part of the chain', async () => {
+        l2BlockSource.getBlockData.mockResolvedValue(undefined);
+        await expect(node.getContract(BlockHash.random(), address)).rejects.toThrow(/not found/);
       });
     });
 

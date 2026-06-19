@@ -1219,8 +1219,17 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     return this.contractDataSource.getContractClass(id);
   }
 
-  public getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
-    return this.contractDataSource.getContract(address);
+  public async getContract(
+    referenceBlock: BlockParameter,
+    address: AztecAddress,
+  ): Promise<ContractInstanceWithAddress | undefined> {
+    const blockData = await this.getBlockData(referenceBlock);
+    if (!blockData) {
+      throw new Error(
+        `Reference block ${inspectBlockParameter(referenceBlock)} not found when querying contract ${address}. If the node API has been queried with an anchor block hash, possibly a reorg has occurred.`,
+      );
+    }
+    return this.contractDataSource.getContract(address, blockData.header.globalVariables.timestamp);
   }
 
   public getPrivateLogsByTags(query: PrivateLogsQuery): Promise<LogResult[][]> {

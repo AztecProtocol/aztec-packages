@@ -23,7 +23,7 @@ export async function registerContract(
   const contractArtifact = await getContractArtifact(artifactPath, log);
   const hasInitializer = getAllFunctionAbis(contractArtifact).some(fn => fn.isInitializer);
   const constructorArtifact = hasInitializer ? getInitializer(contractArtifact, initializer) : undefined;
-  let contractInstance = await node.getContract(address);
+  let contractInstance = await node.getContract('latest', address);
   if (!contractInstance) {
     log(`Contract not found in the node at ${address}. Computing instance locally...`);
     contractInstance = await getContractInstanceFromInstantiationParams(contractArtifact, {

@@ -239,7 +239,7 @@ describe('Aztec persistence', () => {
     });
 
     it('the node has the contract', async () => {
-      await expect(context.aztecNode.getContract(contractAddress)).resolves.toBeDefined();
+      await expect(context.aztecNode.getContract('latest', contractAddress)).resolves.toBeDefined();
     });
 
     it('pxe does not know of the deployed contract', async () => {

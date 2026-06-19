@@ -156,7 +156,7 @@ async function deployAccountWithDiagnostics(
   await retry(
     async () => {
       // Check if already deployed (handles case where previous attempt succeeded but waitForTx timed out)
-      const existing = await aztecNode.getContract(account.address);
+      const existing = await aztecNode.getContract('latest', account.address);
       if (existing) {
         logger.info(`${accountLabel} already deployed at ${account.address}, skipping`);
         return;

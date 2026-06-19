@@ -80,8 +80,9 @@ export class EmbeddedWallet extends BaseEmbeddedWallet {
   // docs:end:initialize
 
   static async #getSponsoredFPCContract() {
-    const { SponsoredFPCContractArtifact } =
-      await import("@aztec/noir-contracts.js/SponsoredFPC");
+    const { SponsoredFPCContractArtifact } = await import(
+      "@aztec/noir-contracts.js/SponsoredFPC"
+    );
     const instance = await getContractInstanceFromInstantiationParams(
       SponsoredFPCContractArtifact,
       { salt: new Fr(SPONSORED_FPC_SALT) },
@@ -123,7 +124,7 @@ export class EmbeddedWallet extends BaseEmbeddedWallet {
     address: AztecAddress,
     artifact: ContractArtifact,
   ) {
-    const instance = await this.aztecNode.getContract(address);
+    const instance = await this.aztecNode.getContract("latest", address);
     if (!instance) {
       throw new Error(`Contract not found onchain at ${address}`);
     }

@@ -55,8 +55,9 @@ describe('ContractSyncService', () => {
     } as ContractInstanceWithAddress);
 
     aztecNode = mock<AztecNode>();
-    // readCurrentClassId reads from public storage; Fr.ZERO causes fallback to originalContractClassId
-    aztecNode.getPublicStorageAt.mockResolvedValue(Fr.ZERO);
+    // verifyCurrentClassId reads the instance from the node at the anchor block; returning undefined causes
+    // readCurrentClassId to fall back to the local originalContractClassId, which matches so verification passes.
+    aztecNode.getContract.mockResolvedValue(undefined);
 
     noteStore = mock<NoteStore>();
     // syncNoteNullifiers returns early when no notes

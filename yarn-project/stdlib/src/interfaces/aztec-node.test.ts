@@ -532,7 +532,7 @@ describe('AztecNodeApiSchema', () => {
   });
 
   it('getContract', async () => {
-    const response = await context.client.getContract(await AztecAddress.random());
+    const response = await context.client.getContract('latest', await AztecAddress.random());
     expect(response).toEqual({
       address: expect.any(AztecAddress),
       currentContractClassId: expect.any(Fr),
@@ -916,7 +916,11 @@ class MockAztecNode implements AztecNode {
     const contractClass = await getContractClassFromArtifact(this.artifact);
     return contractClass;
   }
-  async getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
+  async getContract(
+    referenceBlock: BlockParameter,
+    address: AztecAddress,
+  ): Promise<ContractInstanceWithAddress | undefined> {
+    expect(referenceBlock).toEqual('latest');
     expect(address).toBeInstanceOf(AztecAddress);
     const instance = {
       version: 2 as const,
