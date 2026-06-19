@@ -30,7 +30,8 @@ jest.setTimeout(1000 * 60 * 10);
 // Regression test for the sentinel correctly tracking attestations for multiple validators co-hosted on
 // the same physical node as the proposer. Uses P2PNetworkTest with real libp2p: 2 nodes each carrying 3
 // validator keys (6 validators total) plus a non-validator sentinel node and a fake prover. ethSlot=8s,
-// aztecSlot=36s, epoch=2, proofSubEpochs=1024, enforceTimeTable, sentinelEnabled. Dynamic port via
+// aztecSlot=36s, epoch=2, proofSubEpochs=1024, sentinelEnabled (v5 always enforces the timetable, so the
+// former enforceTimeTable/l1PublishingTime overrides are gone). Dynamic port via
 // getBootNodeUdpPort(). Each it runs as an isolated CI job (parallel convention).
 // REFACTOR: This test shares much code with `validators_sentinel` so we may be able to refactor common parts out.
 describe('e2e_p2p_multiple_validators_sentinel', () => {

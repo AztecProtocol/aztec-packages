@@ -44,7 +44,8 @@ const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'duplicate-proposal-slash
  * 4. Other validators will detect the duplicate and emit a slash event
  *
  * Setup: P2PNetworkTest with mockGossipSubNetwork:true (in-memory bus, NOT real libp2p). 4 validators,
- * ethSlot=8s, aztecSlot=24s, epoch=2, proofSubEpochs=1024, minTxsPerBlock=0, inboxLag=2, enforceTimeTable.
+ * ethSlot=8s, aztecSlot=24s, epoch=2, proofSubEpochs=1024, minTxsPerBlock=0, inboxLag=2 (v5 always enforces
+ * the timetable, so the former enforceTimeTable override is gone).
  * Candidate for relocation to e2e_slashing/.
  */
 describe('e2e_p2p_duplicate_proposal_slash', () => {
