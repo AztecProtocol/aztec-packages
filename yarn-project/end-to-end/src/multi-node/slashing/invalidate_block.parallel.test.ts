@@ -28,9 +28,9 @@ import { jest } from '@jest/globals';
 import type { Log } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
-import { getAnvilPort } from '../fixtures/fixtures.js';
-import { type EndToEndContext, getPrivateKeyFromIndex } from '../fixtures/utils.js';
-import { MultiNodeTestContext } from './multi_node_test_context.js';
+import { getAnvilPort } from '../../fixtures/fixtures.js';
+import { type EndToEndContext, getPrivateKeyFromIndex } from '../../fixtures/utils.js';
+import { MultiNodeTestContext } from '../multi_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 10);
 
@@ -46,7 +46,7 @@ const BASE_ANVIL_PORT = getAnvilPort();
 // checkpoints, then verifies the next good proposer invalidates them and the chain progresses.
 // Slasher is enabled. Uses MultiNodeTestContext with mockGossipSubNetwork, no initial sequencer, no
 // prover node; ports are port-bumped per test via anvilPortOffset to support parallel execution.
-describe('multi-node/invalidate_block', () => {
+describe('multi-node/slashing/invalidate_block', () => {
   let context: EndToEndContext;
   let logger: Logger;
   let l1Client: ExtendedViemWalletClient;

@@ -1,23 +1,21 @@
 import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { EthAddress } from '@aztec/aztec.js/addresses';
-import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import { times } from '@aztec/foundation/collection';
-import { SecretValue } from '@aztec/foundation/config';
 import { retryUntil } from '@aztec/foundation/retry';
-import { bufferToHex } from '@aztec/foundation/string';
 import { timeoutPromise } from '@aztec/foundation/timer';
 import { type L2Block, L2BlockSourceEvents, type L2Tips } from '@aztec/stdlib/block';
 import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 
 import { jest } from '@jest/globals';
-import { privateKeyToAccount } from 'viem/accounts';
 
-import { getPrivateKeyFromIndex } from '../fixtures/utils.js';
-import { MultiNodeTestContext } from './multi_node_test_context.js';
+import {
+  MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
+  MultiNodeTestContext,
+  buildMockGossipValidators,
+} from '../multi_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 15);
 
@@ -41,7 +39,7 @@ const NODE_COUNT = 4;
  * enforces the timetable, so the former enforceTimeTable/disableAnvilTestWatcher overrides are gone).
  * L1 is time-warped to align with the target S1 build slot.
  */
-describe('multi-node/orphan_block_prune', () => {
+describe('multi-node/prune/orphan_block_prune', () => {
   let logger: Logger;
   let test: MultiNodeTestContext;
   let nodes: AztecNodeService[];
@@ -57,26 +55,18 @@ describe('multi-node/orphan_block_prune', () => {
   // different archive root from the orphan.
   it('all nodes prune the orphan block and S2 rebuilds the checkpoint chain', async () => {
     // Build 4 distinct validators (V1..V4). One key per node, no overlap.
-    const validators = times(NODE_COUNT, i => {
-      const privateKey = bufferToHex(getPrivateKeyFromIndex(i + 3)!);
-      const attester = EthAddress.fromString(privateKeyToAccount(privateKey).address);
-      return { attester, withdrawer: attester, privateKey, bn254SecretKey: new SecretValue(Fr.random().toBigInt()) };
-    });
+    const validators = buildMockGossipValidators(NODE_COUNT);
 
     test = await MultiNodeTestContext.setup({
+      ...MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
       numberOfAccounts: 1,
       initialValidators: validators,
-      inboxLag: 2,
-      mockGossipSubNetwork: true,
-      startProverNode: false,
       aztecEpochDuration: 4,
-      aztecProofSubmissionEpochs: 1024,
       ethereumSlotDuration: 6,
       aztecSlotDuration: 36,
       blockDurationMs: 8000,
       attestationPropagationTime: 0.5,
       aztecTargetCommitteeSize: NODE_COUNT,
-      skipInitialSequencer: true,
     });
 
     ({ logger } = test);
@@ -96,57 +86,18 @@ describe('multi-node/orphan_block_prune', () => {
 
     // Find S1 (>=4 ahead) such that proposers for S1 and S2=S1+1 are two distinct validators. The +4 margin gives the
     // warp+sequencer-start path enough headroom to reach the build window for S1-1 (the pipelining build slot for S1)
-    // even if node creation jitters.
-    //
-    // The L1 rollup contract only exposes proposers for epochs whose randao seed is "stable" (i.e. queryable on L1
-    // right now). When we look too far into the future the contract reverts with `ValidatorSelection__EpochNotStable`.
-    // We handle this by warping L1 forward one epoch at a time and retrying.
-    // REFACTOR: hand-rolled slot-search loop with per-epoch warp and EpochNotStable retry; a DSL
-    // helper like findConsecutiveSlotsWithDistinctProposers(minAhead, maxAttempts) would encapsulate
-    // the epoch-stable query, warp cadence, and candidate-advance logic.
-    let S1: SlotNumber | undefined;
-    let proposerOne: EthAddress | undefined;
-    let proposerTwo: EthAddress | undefined;
-    let candidate = Number(test.epochCache.getEpochAndSlotNow().slot) + 4;
-    const maxAttempts = 200;
-    for (let attempt = 0; attempt < maxAttempts && S1 === undefined; attempt++) {
-      try {
-        const [p1, p2] = await Promise.all([
-          test.epochCache.getProposerAttesterAddressInSlot(SlotNumber(candidate)),
-          test.epochCache.getProposerAttesterAddressInSlot(SlotNumber(candidate + 1)),
-        ]);
-        const p1Index = p1 ? validators.findIndex(v => v.attester.equals(p1)) : -1;
-        const p2Index = p2 ? validators.findIndex(v => v.attester.equals(p2)) : -1;
-        if (p1 && p2 && !p1.equals(p2) && p1Index >= 0 && p2Index >= 0) {
-          S1 = SlotNumber(candidate);
-          proposerOne = p1;
-          proposerTwo = p2;
-          break;
-        }
-        candidate++;
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        if (!msg.includes('EpochNotStable')) {
-          throw err;
-        }
-        const block = await test.l1Client.getBlock({ includeTransactions: false });
-        const warpBy = test.epochDuration * test.L2_SLOT_DURATION_IN_S;
-        const newTs = Number(block.timestamp) + warpBy;
-        logger.warn(`Hit EpochNotStable at candidate ${candidate}, warping L1 forward by ${warpBy}s to ${newTs}`);
-        await test.context.cheatCodes.eth.warp(newTs, { resetBlockInterval: true });
-        const newCurrentSlot = Number(test.epochCache.getEpochAndSlotNow().slot);
-        if (candidate < newCurrentSlot + 4) {
-          candidate = newCurrentSlot + 4;
-        }
-      }
-    }
-    if (S1 === undefined || !proposerOne || !proposerTwo) {
-      throw new Error(`Could not find a slot with two distinct consecutive proposers after ${maxAttempts} attempts`);
-    }
+    // even if node creation jitters. The context helper handles the per-epoch warp + EpochNotStable retry.
+    const {
+      slots: [S1, S2],
+      proposers: [proposerOne, proposerTwo],
+    } = await test.findSlotsWithProposers(
+      2,
+      ([p1, p2]) =>
+        !p1.equals(p2) && validators.some(v => v.attester.equals(p1)) && validators.some(v => v.attester.equals(p2)),
+    );
 
-    const S2 = SlotNumber(S1 + 1);
-    const p1Index = validators.findIndex(v => v.attester.equals(proposerOne!));
-    const p2Index = validators.findIndex(v => v.attester.equals(proposerTwo!));
+    const p1Index = validators.findIndex(v => v.attester.equals(proposerOne));
+    const p2Index = validators.findIndex(v => v.attester.equals(proposerTwo));
 
     logger.warn(`Selected target S1=${S1}`, {
       S1,

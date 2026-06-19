@@ -1,27 +1,27 @@
 import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
+import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import { NO_WAIT } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import { RollupContract } from '@aztec/ethereum/contracts';
-import type { Operator } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import { times, timesAsync } from '@aztec/foundation/collection';
-import { SecretValue } from '@aztec/foundation/config';
+import { timesAsync } from '@aztec/foundation/collection';
 import { retryUntil } from '@aztec/foundation/retry';
-import { bufferToHex } from '@aztec/foundation/string';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
-import { createSharedSlashingProtectionDb } from '@aztec/validator-ha-signer/factory';
 
 import { jest } from '@jest/globals';
-import { privateKeyToAccount } from 'viem/accounts';
 
-import { type EndToEndContext, getPrivateKeyFromIndex } from '../fixtures/utils.js';
-import { TestWallet } from '../test-wallet/test_wallet.js';
-import { proveInteraction } from '../test-wallet/utils.js';
-import { MultiNodeTestContext } from './multi_node_test_context.js';
+import type { EndToEndContext } from '../../fixtures/utils.js';
+import { TestWallet } from '../../test-wallet/test_wallet.js';
+import { proveInteraction } from '../../test-wallet/utils.js';
+import {
+  MultiNodeTestContext,
+  type RegisteredValidator,
+  buildMockGossipValidators,
+  setupHaPairs,
+} from '../multi_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 20);
 
@@ -39,27 +39,24 @@ const TX_COUNT = 6;
  * checkpoint lands on L1. Uses MultiNodeTestContext with mockGossipSubNetwork and pxeOpts
  * syncChainTip='proposed'.
  */
-describe('multi-node/ha_sync', () => {
+describe('multi-node/ha/ha_sync', () => {
   let context: EndToEndContext;
   let logger: Logger;
   let rollup: RollupContract;
 
   let test: MultiNodeTestContext;
-  let validators: (Operator & { privateKey: `0x${string}` })[];
+  let validators: RegisteredValidator[];
   let nodes: AztecNodeService[];
   let contract: TestContract;
   let wallet: TestWallet;
   let from: AztecAddress;
 
   async function setupTest() {
-    validators = times(VALIDATOR_COUNT, i => {
-      const privateKey = bufferToHex(getPrivateKeyFromIndex(i + 3)!);
-      const attester = EthAddress.fromString(privateKeyToAccount(privateKey).address);
-      return { attester, withdrawer: attester, privateKey, bn254SecretKey: new SecretValue(Fr.random().toBigInt()) };
-    });
+    validators = buildMockGossipValidators(VALIDATOR_COUNT);
 
-    // Do NOT set skipPublishingCheckpointsPercent here: the initial sequencer needs to
-    // publish checkpoints during setup (account deployment). We disable it per-validator-node below.
+    // Do NOT set skipInitialSequencer / skipPublishingCheckpointsPercent here: the initial sequencer
+    // needs to publish checkpoints during setup (account deployment). We disable publishing
+    // per-validator-node below.
     test = await MultiNodeTestContext.setup({
       numberOfAccounts: 1,
       initialValidators: validators,
@@ -73,7 +70,6 @@ describe('multi-node/ha_sync', () => {
       minTxsPerBlock: 1,
       maxTxsPerBlock: 2,
       pxeOpts: { syncChainTip: 'proposed' },
-      inboxLag: 2,
     });
 
     ({ context, logger, rollup } = test);
@@ -84,44 +80,13 @@ describe('multi-node/ha_sync', () => {
     logger.warn(`Stopping sequencer in initial aztec node.`);
     await context.sequencer!.stop();
 
-    // Create 4 nodes in 2 HA pairs: each pair shares the same two validator keys.
-    const pk1 = validators[0].privateKey;
-    const pk2 = validators[1].privateKey;
-    const pk3 = validators[2].privateKey;
-    const pk4 = validators[3].privateKey;
-
-    // Disable checkpoint publishing on validator nodes so we can assert proposed chain sync
-    // strictly before any checkpoint is published by the validators.
-    // Use different coinbase addresses per node so HA peers would build different blocks
-    // if the proposer's block isn't correctly propagated to its HA peer.
-    // Each HA pair shares a slashing protection DB so only one peer can sign per duty.
-    const baseOpts = { dontStartSequencer: true, skipPublishingCheckpointsPercent: 100 } as const;
-    const sharedDb1 = await createSharedSlashingProtectionDb(context.dateProvider);
-    const sharedDb2 = await createSharedSlashingProtectionDb(context.dateProvider);
-
+    // Create 4 nodes in 2 HA pairs sharing keys. Disable checkpoint publishing on the validator nodes
+    // so we can assert proposed chain sync strictly before any checkpoint is published by the
+    // validators; distinct coinbases let us detect if a peer builds a different block than its proposer.
     logger.warn(`Creating 4 validator nodes in 2 HA pairs.`);
-    nodes = [
-      await test.createValidatorNode([pk1, pk2], {
-        ...baseOpts,
-        coinbase: EthAddress.fromNumber(1),
-        slashingProtectionDb: sharedDb1,
-      }),
-      await test.createValidatorNode([pk1, pk2], {
-        ...baseOpts,
-        coinbase: EthAddress.fromNumber(2),
-        slashingProtectionDb: sharedDb1,
-      }),
-      await test.createValidatorNode([pk3, pk4], {
-        ...baseOpts,
-        coinbase: EthAddress.fromNumber(3),
-        slashingProtectionDb: sharedDb2,
-      }),
-      await test.createValidatorNode([pk3, pk4], {
-        ...baseOpts,
-        coinbase: EthAddress.fromNumber(4),
-        slashingProtectionDb: sharedDb2,
-      }),
-    ];
+    ({ nodes } = await setupHaPairs(test, validators, {
+      baseOpts: { dontStartSequencer: true, skipPublishingCheckpointsPercent: 100 },
+    }));
     logger.warn(`Created 4 validator nodes.`);
 
     // Point the wallet at a validator node so it tracks proposed blocks.

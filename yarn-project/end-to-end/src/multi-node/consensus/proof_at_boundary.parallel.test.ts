@@ -1,23 +1,22 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { EthAddress } from '@aztec/aztec.js/addresses';
-import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
-import type { Operator } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import type { Delayer } from '@aztec/ethereum/l1-tx-utils';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import { times } from '@aztec/foundation/collection';
-import { SecretValue } from '@aztec/foundation/config';
 import { retryUntil } from '@aztec/foundation/retry';
-import { bufferToHex } from '@aztec/foundation/string';
 import type { SequencerClient, SequencerEvents } from '@aztec/sequencer-client';
 import { getEpochAtSlot, getEpochNumberAtTimestamp, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 
 import { jest } from '@jest/globals';
-import { privateKeyToAccount } from 'viem/accounts';
 
-import { type EndToEndContext, getPrivateKeyFromIndex } from '../fixtures/utils.js';
-import { MultiNodeTestContext, type MultiNodeTestOpts } from './multi_node_test_context.js';
+import type { EndToEndContext } from '../../fixtures/utils.js';
+import {
+  MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
+  MultiNodeTestContext,
+  type MultiNodeTestOpts,
+  type RegisteredValidator,
+  buildMockGossipValidators,
+} from '../multi_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 10);
 
@@ -32,12 +31,12 @@ type PublishedEvent = Parameters<SequencerEvents['checkpoint-published']>[0];
 // epoch=default 6, proofSubmissionEpochs=1 (overridden per test via setupTest), blockDurationMs=6s,
 // inboxLag=2 (v5 always enforces the timetable, so the former enforceTimeTable/disableAnvilTestWatcher
 // overrides are gone). The Delayer is used to steer proof tx timing.
-describe('multi-node/proof_at_boundary', () => {
+describe('multi-node/consensus/proof_at_boundary', () => {
   let context: EndToEndContext;
   let logger: Logger;
 
   let test: MultiNodeTestContext;
-  let validators: (Operator & { privateKey: `0x${string}` })[];
+  let validators: RegisteredValidator[];
   let nodes: AztecNodeService[];
   let proverNode: AztecNodeService;
 
@@ -45,23 +44,14 @@ describe('multi-node/proof_at_boundary', () => {
     overrides: Partial<MultiNodeTestOpts> = {},
     validatorOverrides: { minTxsPerBlock?: number; maxTxsPerBlock?: number } = {},
   ) => {
-    validators = times(NODE_COUNT, i => {
-      const privateKey = bufferToHex(getPrivateKeyFromIndex(i + 3)!);
-      const attester = EthAddress.fromString(privateKeyToAccount(privateKey).address);
-      return { attester, withdrawer: attester, privateKey, bn254SecretKey: new SecretValue(Fr.random().toBigInt()) };
-    });
+    validators = buildMockGossipValidators(NODE_COUNT);
 
     test = await MultiNodeTestContext.setup({
-      numberOfAccounts: 0,
+      ...MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
       initialValidators: validators,
-      mockGossipSubNetwork: true,
-      aztecProofSubmissionEpochs: 1024,
       aztecSlotDurationInL1Slots: 3,
       ethereumSlotDuration: 12,
       blockDurationMs: 6000,
-      startProverNode: false,
-      skipInitialSequencer: true,
-      inboxLag: 2,
       ...overrides,
     });
 

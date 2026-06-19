@@ -1,23 +1,21 @@
 import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { EthAddress } from '@aztec/aztec.js/addresses';
-import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import { waitUntilL1Timestamp } from '@aztec/ethereum/l1-tx-utils';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import { times } from '@aztec/foundation/collection';
-import { SecretValue } from '@aztec/foundation/config';
-import { bufferToHex } from '@aztec/foundation/string';
 import { timeoutPromise } from '@aztec/foundation/timer';
 import { type L2Block, L2BlockSourceEvents, type L2Tips } from '@aztec/stdlib/block';
 import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 
 import { jest } from '@jest/globals';
-import { privateKeyToAccount } from 'viem/accounts';
 
-import { getPrivateKeyFromIndex } from '../fixtures/utils.js';
-import { MultiNodeTestContext } from './multi_node_test_context.js';
+import {
+  MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
+  MultiNodeTestContext,
+  buildMockGossipValidators,
+} from '../multi_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 15);
 
@@ -50,7 +48,7 @@ const NODE_COUNT = 4;
  *
  * Uses MultiNodeTestContext with mockGossipSubNetwork, no initial sequencer, and no prover node.
  */
-describe('multi-node/missed_l1_publish', () => {
+describe('multi-node/prune/missed_l1_publish', () => {
   let logger: Logger;
   let test: MultiNodeTestContext;
   let nodes: AztecNodeService[];
@@ -67,26 +65,17 @@ describe('multi-node/missed_l1_publish', () => {
   // produces a checkpointed block at slotThree. Sanity-checks no unexpected fail events.
   it('all nodes prune and recover when proposer fails to publish to L1', async () => {
     // Build 4 distinct validators (V1..V4). One key per node, no overlap.
-    const validators = times(NODE_COUNT, i => {
-      const privateKey = bufferToHex(getPrivateKeyFromIndex(i + 3)!);
-      const attester = EthAddress.fromString(privateKeyToAccount(privateKey).address);
-      return { attester, withdrawer: attester, privateKey, bn254SecretKey: new SecretValue(Fr.random().toBigInt()) };
-    });
+    const validators = buildMockGossipValidators(NODE_COUNT);
 
     test = await MultiNodeTestContext.setup({
-      numberOfAccounts: 0,
+      ...MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
       initialValidators: validators,
-      inboxLag: 2,
-      mockGossipSubNetwork: true,
-      startProverNode: false,
       aztecEpochDuration: 4,
-      aztecProofSubmissionEpochs: 1024,
       ethereumSlotDuration: 6,
       aztecSlotDuration: 36,
       blockDurationMs: 8000,
       attestationPropagationTime: 0.5,
       aztecTargetCommitteeSize: NODE_COUNT,
-      skipInitialSequencer: true,
     });
 
     logger = test.logger;

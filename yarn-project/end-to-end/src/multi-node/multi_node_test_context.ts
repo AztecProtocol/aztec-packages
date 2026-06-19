@@ -1,4 +1,4 @@
-import type { AztecNodeConfig } from '@aztec/aztec-node';
+import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Operator } from '@aztec/ethereum/deploy-aztec-l1-contracts';
@@ -9,6 +9,7 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { bufferToHex } from '@aztec/foundation/string';
 import type { L2Tips } from '@aztec/stdlib/block';
 import type { AztecNode, BlockResponse } from '@aztec/stdlib/interfaces/client';
+import { createSharedSlashingProtectionDb } from '@aztec/validator-ha-signer/factory';
 import type { SlashingProtectionDatabase } from '@aztec/validator-ha-signer/types';
 
 import { privateKeyToAccount } from 'viem/accounts';
@@ -105,6 +106,63 @@ export function defaultSlashingPenalties(unit: bigint = BigInt(1e14)): SlashingP
  */
 export function withOnlyOffense(offense: keyof SlashingPenalties, unit: bigint = BigInt(1e14)): SlashingPenalties {
   return Object.fromEntries(SLASHING_PENALTY_KEYS.map(key => [key, key === offense ? unit : 0n])) as SlashingPenalties;
+}
+
+/** One HA pair: its two member nodes, the two shared validator keys, and the per-node coinbases. */
+export type HaPairNodes = {
+  nodes: [AztecNodeService, AztecNodeService];
+  privateKeys: [`0x${string}`, `0x${string}`];
+  coinbases: [EthAddress, EthAddress];
+};
+
+/**
+ * Stands up two HA pairs from the first four registered validators: nodes[0]/nodes[1] share keys
+ * pk1+pk2, nodes[2]/nodes[3] share pk3+pk4. Each pair shares an in-memory slashing-protection DB (so
+ * only one peer signs per duty) and each node gets a distinct coinbase. Encapsulates the ~40-line
+ * pair-wiring duplicated by both HA tests; the per-test divergence (publishing disabled vs. enabled,
+ * empty-checkpoint building) is passed through `baseOpts`.
+ * @returns The four nodes flat, plus the two `HaPairNodes` descriptors.
+ */
+export async function setupHaPairs(
+  test: MultiNodeTestContext,
+  validators: RegisteredValidator[],
+  opts: { baseOpts?: Partial<AztecNodeConfig> & { dontStartSequencer?: boolean }; coinbases?: EthAddress[] } = {},
+): Promise<{ nodes: AztecNodeService[]; pairs: [HaPairNodes, HaPairNodes] }> {
+  const baseOpts = opts.baseOpts ?? {};
+  const coinbases = opts.coinbases ?? [1, 2, 3, 4].map(n => EthAddress.fromNumber(n));
+  const [pk1, pk2, pk3, pk4] = validators.map(v => v.privateKey);
+  const sharedDb1 = await createSharedSlashingProtectionDb(test.context.dateProvider);
+  const sharedDb2 = await createSharedSlashingProtectionDb(test.context.dateProvider);
+
+  const nodes = [
+    await test.createValidatorNode([pk1, pk2], {
+      ...baseOpts,
+      coinbase: coinbases[0],
+      slashingProtectionDb: sharedDb1,
+    }),
+    await test.createValidatorNode([pk1, pk2], {
+      ...baseOpts,
+      coinbase: coinbases[1],
+      slashingProtectionDb: sharedDb1,
+    }),
+    await test.createValidatorNode([pk3, pk4], {
+      ...baseOpts,
+      coinbase: coinbases[2],
+      slashingProtectionDb: sharedDb2,
+    }),
+    await test.createValidatorNode([pk3, pk4], {
+      ...baseOpts,
+      coinbase: coinbases[3],
+      slashingProtectionDb: sharedDb2,
+    }),
+  ];
+
+  const pairs: [HaPairNodes, HaPairNodes] = [
+    { nodes: [nodes[0], nodes[1]], privateKeys: [pk1, pk2], coinbases: [coinbases[0], coinbases[1]] },
+    { nodes: [nodes[2], nodes[3]], privateKeys: [pk3, pk4], coinbases: [coinbases[2], coinbases[3]] },
+  ];
+
+  return { nodes, pairs };
 }
 
 /**
