@@ -222,8 +222,6 @@ describe('Discv5Service', () => {
     await stopNodes(node1, node2, node3);
   });
 
-  // Test is flakey, so skipping for now.
-  // TODO: Investigate: #6246
   it('resurrects persisted peers from the store on restart with no bootnode', async () => {
     const peerIdA = await createSecp256k1PeerId();
     const portA = ++basePort;
