@@ -64,6 +64,7 @@ export const DefaultSequencerConfig = {
   injectUnrecoverableSignatureAttestation: false,
   fishermanMode: false,
   shuffleAttestationOrdering: false,
+  injectOutOfRangeCheckpointHeader: false,
   skipPushProposedBlocksToArchiver: false,
   skipPublishingCheckpointsPercent: 0,
   maxBlocksPerCheckpoint: DEFAULT_MAX_BLOCKS_PER_CHECKPOINT,
@@ -234,6 +235,12 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
   shuffleAttestationOrdering: {
     description: 'Shuffle attestation ordering to create invalid ordering (for testing only)',
     ...booleanConfigHelper(DefaultSequencerConfig.shuffleAttestationOrdering),
+  },
+  injectOutOfRangeCheckpointHeader: {
+    description:
+      'Overwrite the propose calldata checkpoint header accumulatedFees with a value above the field modulus, ' +
+      'producing a checkpoint honest archivers cannot decode (for testing only)',
+    ...booleanConfigHelper(DefaultSequencerConfig.injectOutOfRangeCheckpointHeader),
   },
   ...sharedSequencerConfigMappings,
   buildCheckpointIfEmpty: {

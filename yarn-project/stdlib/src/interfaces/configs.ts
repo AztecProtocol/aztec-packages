@@ -126,6 +126,11 @@ export interface SequencerConfig {
   skipBroadcastCheckpointProposal?: boolean;
   /** List of slots for which the sequencer will not produce a proposal (for testing only). Attestation paths are unaffected. */
   pauseProposingForSlots?: SlotNumber[];
+  /**
+   * Overwrite the propose calldata's checkpoint header `accumulatedFees` with a value above the BN254 field modulus
+   * before sending to L1, producing a checkpoint that honest archivers cannot decode (for testing only, A-1254 repro).
+   */
+  injectOutOfRangeCheckpointHeader?: boolean;
 }
 
 export const SequencerConfigSchema = zodFor<SequencerConfig>()(
@@ -177,6 +182,7 @@ export const SequencerConfigSchema = zodFor<SequencerConfig>()(
     skipBroadcastProposals: z.boolean().optional(),
     skipBroadcastCheckpointProposal: z.boolean().optional(),
     pauseProposingForSlots: z.array(SlotNumberSchema).optional(),
+    injectOutOfRangeCheckpointHeader: z.boolean().optional(),
   }),
 );
 

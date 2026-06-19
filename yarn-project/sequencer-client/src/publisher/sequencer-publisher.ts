@@ -142,6 +142,11 @@ export type InvalidateCheckpointRequest = {
 
 type EnqueueProposeCheckpointOpts = {
   txTimeoutAt?: Date;
+  /**
+   * When set, overwrite the propose calldata header's `accumulatedFees` with a value above the BN254 field modulus
+   * before encoding, producing a checkpoint that honest archivers cannot decode (for testing only, A-1254 repro).
+   */
+  injectOutOfRangeCheckpointHeader?: boolean;
 };
 
 export interface RequestWithExpiry {
@@ -1162,7 +1167,10 @@ export class SequencerPublisher {
       ...checkpoint.toCheckpointInfo(),
       txTimeoutAt: opts.txTimeoutAt,
     });
-    await this.addProposeTx(checkpoint, proposeTxArgs, { txTimeoutAt: opts.txTimeoutAt });
+    await this.addProposeTx(checkpoint, proposeTxArgs, {
+      txTimeoutAt: opts.txTimeoutAt,
+      injectOutOfRangeCheckpointHeader: opts.injectOutOfRangeCheckpointHeader,
+    });
   }
 
   public enqueueInvalidateCheckpoint(
@@ -1254,7 +1262,10 @@ export class SequencerPublisher {
     this.l1TxUtils.restart();
   }
 
-  private async prepareProposeTx(encodedData: L1ProcessArgs) {
+  private async prepareProposeTx(
+    encodedData: L1ProcessArgs,
+    opts: { injectOutOfRangeCheckpointHeader?: boolean } = {},
+  ) {
     const kzg = Blob.getViemKzgInstance();
     const blobInput = getPrefixedEthBlobCommitments(encodedData.blobs);
     this.log.debug('Validating blob input', { blobInput });
@@ -1315,9 +1326,21 @@ export class SequencerPublisher {
     }
     const signers = encodedData.attestationsAndSigners.getSigners().map(signer => signer.toString());
 
+    const viemHeader = encodedData.header.toViem();
+    if (opts.injectOutOfRangeCheckpointHeader) {
+      // A-1254 repro: overwrite a uint256 header field with a value above the BN254 field modulus. The clean
+      // CheckpointHeader on encodedData is left untouched so the pre-broadcast validateBlockHeader simulation still
+      // passes; only the calldata sent to L1 carries the out-of-range value, which honest archivers cannot decode.
+      viemHeader.accumulatedFees = 2n ** 256n - 1n;
+      this.log.warn('INJECTING out-of-range accumulatedFees into checkpoint header (A-1254 repro)', {
+        accumulatedFees: viemHeader.accumulatedFees.toString(),
+        slotNumber: viemHeader.slotNumber.toString(),
+      });
+    }
+
     const args = [
       {
-        header: encodedData.header.toViem(),
+        header: viemHeader,
         archive: toHex(encodedData.archive),
         oracleInput: {
           feeAssetPriceModifier: encodedData.feeAssetPriceModifier,
@@ -1342,7 +1365,9 @@ export class SequencerPublisher {
     const slot = checkpoint.header.slotNumber;
     const timer = new Timer();
     const kzg = Blob.getViemKzgInstance();
-    const { rollupData, blobEvaluationGas } = await this.prepareProposeTx(encodedData);
+    const { rollupData, blobEvaluationGas } = await this.prepareProposeTx(encodedData, {
+      injectOutOfRangeCheckpointHeader: opts.injectOutOfRangeCheckpointHeader,
+    });
     const startBlock = await this.l1TxUtils.getBlockNumber();
 
     // Send the blobs to the blob client preemptively. This helps in tests where the sequencer mistakingly thinks that the propose

@@ -398,7 +398,10 @@ export class CheckpointProposalJob implements Traceable {
       }
     }
 
-    await this.publisher.enqueueProposeCheckpoint(checkpoint, attestations, attestationsSignature, { txTimeoutAt });
+    await this.publisher.enqueueProposeCheckpoint(checkpoint, attestations, attestationsSignature, {
+      txTimeoutAt,
+      injectOutOfRangeCheckpointHeader: this.config.injectOutOfRangeCheckpointHeader,
+    });
   }
 
   /**
