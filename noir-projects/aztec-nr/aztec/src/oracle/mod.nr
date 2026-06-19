@@ -43,6 +43,11 @@ pub(crate) mod transient_oracles;
 pub mod contract_sync;
 #[generate_oracle_tests]
 pub mod public_call;
+#[generate_oracle_tests_excluding(
+    @[
+        quote { resolve_tagging_secret_oracle }, // TODO: implement once we support more complex types
+    ],
+)]
 pub mod resolve_tagging_secret;
 #[generate_oracle_tests]
 pub mod tx_phase;
