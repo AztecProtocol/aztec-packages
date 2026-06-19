@@ -83,6 +83,12 @@ type AddCheckpointOptions = {
    * header without throwing and rejects it via insufficient/invalid attestations.
    */
   injectOutOfRangeAccumulatedFees?: bigint;
+  /**
+   * If set, the propose calldata carries a header whose `lastArchiveRoot` is the given out-of-range value
+   * (e.g. `2n ** 256n - 1n`), simulating a checkpoint built on a prior out-of-range archive root. Exercises the
+   * synchronizer's eager raw-header decode path, which must carry the field as raw bytes rather than throw.
+   */
+  injectOutOfRangeLastArchiveRoot?: bigint;
 };
 
 /** Result from adding a checkpoint. */
@@ -224,6 +230,7 @@ export class FakeL1State {
       checkpoint,
       signers,
       options.injectOutOfRangeAccumulatedFees,
+      options.injectOutOfRangeLastArchiveRoot,
     );
     const blobHashes = await this.makeVersionedBlobHashes(checkpoint);
     const blobs = await this.makeBlobsFromCheckpoint(checkpoint);
@@ -671,6 +678,7 @@ export class FakeL1State {
     checkpoint: Checkpoint,
     signers: Secp256k1Signer[],
     injectOutOfRangeAccumulatedFees?: bigint,
+    injectOutOfRangeLastArchiveRoot?: bigint,
   ): Promise<{ tx: Transaction; attestationsHash: Buffer32; payloadDigest: Buffer32 }> {
     const signatureContext = this.getSignatureContext();
     const consensusPayload = ConsensusPayload.fromCheckpoint(checkpoint, signatureContext);
@@ -684,6 +692,11 @@ export class FakeL1State {
       // Mirror the malicious-proposer injection: the broadcast calldata carries an out-of-range header field
       // while the clean checkpoint, archive root, and attestations are untouched.
       header.accumulatedFees = injectOutOfRangeAccumulatedFees;
+    }
+    if (injectOutOfRangeLastArchiveRoot !== undefined) {
+      // Same idea for the parent archive root: the raw calldata header carries an out-of-range `lastArchiveRoot`
+      // (the clean checkpoint and attestations are untouched), which the synchronizer must decode without throwing.
+      header.lastArchiveRoot = toHex(injectOutOfRangeLastArchiveRoot, { size: 32 });
     }
     const blobInput = getPrefixedEthBlobCommitments(await getBlobsPerL1Block(checkpoint.toBlobFields()));
     const archive = toHex(checkpoint.archive.root.toBuffer());

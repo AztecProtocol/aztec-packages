@@ -17,7 +17,8 @@ export type CheckpointInfo = {
    * out-of-range archive root (which cannot be represented as an `Fr`) is still describable.
    */
   archive: Fr | Buffer32;
-  lastArchive: Fr;
+  /** Archive root this checkpoint builds on; `Fr | Buffer32` for the same out-of-range reason as `archive`. */
+  lastArchive: Fr | Buffer32;
   slotNumber: SlotNumber;
   checkpointNumber: CheckpointNumber;
   timestamp: bigint;
@@ -35,7 +36,7 @@ export function randomCheckpointInfo(checkpointNumber?: CheckpointNumber | numbe
 
 export const CheckpointInfoSchema = z.object({
   archive: z.union([schemas.Fr, schemas.Buffer32]),
-  lastArchive: schemas.Fr,
+  lastArchive: z.union([schemas.Fr, schemas.Buffer32]),
   slotNumber: SlotNumberSchema,
   checkpointNumber: CheckpointNumberSchema,
   timestamp: schemas.BigInt,
@@ -52,7 +53,8 @@ export function deserializeCheckpointInfo(buffer: Buffer | BufferReader): Checkp
     // The archive root may be out of the BN254 field (rejected out-of-range checkpoint), so read the raw 32
     // bytes and only narrow to Fr when in range, falling back to Buffer32 otherwise.
     archive: archiveFromBuffer(reader.readBytes(32)),
-    lastArchive: reader.readObject(Fr),
+    // Mirror `archive`: read the raw 32 bytes and only narrow to Fr when in range.
+    lastArchive: archiveFromBuffer(reader.readBytes(32)),
     slotNumber: SlotNumber(reader.readNumber()),
     checkpointNumber: CheckpointNumber(reader.readNumber()),
     timestamp: reader.readBigInt(),

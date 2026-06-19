@@ -79,8 +79,12 @@ type RawCheckpointEntry = {
   feeAssetPriceModifier: bigint;
   attestations: CommitteeAttestation[];
   l1: L1PublishedData;
-  /** `lastArchiveRoot` of this checkpoint (always in range), as Fr, for rejected-ancestor lookups. */
-  lastArchiveRoot: Fr;
+  /**
+   * `lastArchiveRoot` of this checkpoint, used for rejected-ancestor lookups. Carried as `Fr | Buffer32`
+   * because a checkpoint can build on an out-of-range archive root (it equals the prior checkpoint's stored
+   * archive), so converting it eagerly would throw and stall the L1 sync point.
+   */
+  lastArchiveRoot: Fr | Buffer32;
   slotNumber: SlotNumber;
 } & (
   | { kind: 'calldata'; calldata: RetrievedCheckpointFromCalldata }
@@ -915,7 +919,7 @@ export class ArchiverL1Synchronizer implements Traceable {
         feeAssetPriceModifier: checkpoint.feeAssetPriceModifier,
         attestations: checkpoint.attestations,
         l1: checkpoint.l1,
-        lastArchiveRoot: Fr.fromString(checkpoint.header.lastArchiveRoot),
+        lastArchiveRoot: Buffer32.fromString(checkpoint.header.lastArchiveRoot),
         slotNumber: SlotNumber.fromBigInt(checkpoint.header.slotNumber),
         calldata: checkpoint,
       }));

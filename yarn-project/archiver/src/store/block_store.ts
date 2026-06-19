@@ -90,8 +90,11 @@ export type RejectedCheckpoint = {
    * `Fr | Buffer32` so a checkpoint rejected for an out-of-range archive root is still recordable.
    */
   archiveRoot: Fr | Buffer32;
-  /** `lastArchiveRoot` from this checkpoint's header (the ancestor it built on). */
-  parentArchiveRoot: Fr;
+  /**
+   * `lastArchiveRoot` from this checkpoint's header (the ancestor it built on). `Fr | Buffer32` because a
+   * rejected checkpoint can build on an out-of-range archive root.
+   */
+  parentArchiveRoot: Fr | Buffer32;
   /** Slot number of the rejected checkpoint. */
   slotNumber: SlotNumber;
   /** L1 publication data for the rejected checkpoint (block number, hash, timestamp). */
@@ -1524,7 +1527,11 @@ export class BlockStore {
         BigInt(`0x${stored.archiveRoot.toString('hex')}`) < Fr.MODULUS
           ? Fr.fromBuffer(stored.archiveRoot)
           : Buffer32.fromBuffer(stored.archiveRoot),
-      parentArchiveRoot: Fr.fromBuffer(stored.parentArchiveRoot),
+      // The parent archive root may also be out of the BN254 field; keep it as Buffer32 in that case.
+      parentArchiveRoot:
+        BigInt(`0x${stored.parentArchiveRoot.toString('hex')}`) < Fr.MODULUS
+          ? Fr.fromBuffer(stored.parentArchiveRoot)
+          : Buffer32.fromBuffer(stored.parentArchiveRoot),
       slotNumber: SlotNumber(stored.slotNumber),
       l1: L1PublishedData.fromBuffer(stored.l1),
       reason: stored.reason,

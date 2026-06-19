@@ -33,7 +33,7 @@ import {
 import { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { trimmedBytesLength } from '@aztec/foundation/buffer';
 import { pick } from '@aztec/foundation/collection';
-import type { Fr } from '@aztec/foundation/curves/bn254';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { TimeoutError } from '@aztec/foundation/error';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
@@ -857,7 +857,9 @@ export class SequencerPublisher {
         gasUsed,
         checkpointNumber,
         forcePendingCheckpointNumber: CheckpointNumber(checkpointNumber - 1),
-        lastArchive: validationResult.checkpoint.lastArchive,
+        // The rollback target is checkpoint N-1 (the last valid checkpoint), whose archive is always in
+        // range, so narrowing the raw `Fr | Buffer32` back to `Fr` here is safe.
+        lastArchive: Fr.fromBuffer(validationResult.checkpoint.lastArchive.toBuffer()),
         reason,
       };
     } catch (err) {
