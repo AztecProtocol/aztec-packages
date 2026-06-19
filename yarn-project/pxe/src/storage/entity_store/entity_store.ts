@@ -364,7 +364,7 @@ export class EntityStore implements StagedStore {
         entities.set(entityKey, StoredEntity.fromBuffer(buf));
       } else {
         // Expected for entities that exist only as staged ops or not at all (staged ops are layered on by the caller).
-        this.logger.debug('No committed record for entity key; skipping', { entityKey });
+        this.logger.debug('No committed record for entity key: skipping', { entityKey });
       }
     });
     return entities;
