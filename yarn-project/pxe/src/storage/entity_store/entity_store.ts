@@ -314,6 +314,11 @@ export class EntityStore implements StagedStore {
       factKeysToRetract.map(async factKey => {
         const buf = await this.#facts.getAsync(factKey);
         if (!buf) {
+          // The by-block index just yielded this factKey, so a missing primary record means the indexes are out of
+          // sync. Log as this should be unreachable unless there is a bug.
+          this.logger.warn('Skipping retraction of a fact missing from the primary store: by-block index is stale', {
+            factKey,
+          });
           return;
         }
         const { fact } = deserializeFact(buf);
@@ -357,6 +362,9 @@ export class EntityStore implements StagedStore {
       const buf = bufs[i];
       if (buf !== undefined) {
         entities.set(entityKey, StoredEntity.fromBuffer(buf));
+      } else {
+        // Expected for entities that exist only as staged ops or not at all (staged ops are layered on by the caller).
+        this.logger.debug('No committed record for entity key; skipping', { entityKey });
       }
     });
     return entities;
