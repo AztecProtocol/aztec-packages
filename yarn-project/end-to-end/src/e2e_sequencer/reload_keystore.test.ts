@@ -33,6 +33,9 @@ const VALIDATOR_COUNT = 4;
 const COMMITTEE_SIZE = VALIDATOR_COUNT;
 const INITIAL_KEYSTORE_COUNT = 3;
 
+// REFACTOR: hand-rolled state-changed on/off subscription with a manual timeout that runs an action and
+// waits for the sequencer to return to IDLE — a waitForSequencerState(IDLE, { after }) DSL helper should
+// replace it (also duplicated as waitForSequencerIdle in e2e_multiple_blobs / e2e_fees / l2_to_l1).
 async function waitForSequencerIdleAfter(
   sequencer: TestSequencer,
   action: () => Promise<unknown>,
