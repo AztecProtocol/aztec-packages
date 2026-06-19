@@ -15,19 +15,25 @@ import { NativeWorldStateService } from './native_world_state.js';
  * connection — here the load is spread across N request/response rings, which is
  * what the simulator pool actually does.
  *
- * The client layer is still TypeScript (same as the in-process baseline measured
- * by parallel_read.bench.test.ts), so the two are directly comparable: the only
- * thing that changes between in-process and here is the server/transport. The
- * in-process counterpart of "N sequential connections" is "N concurrent read
- * streams" — i.e. the in-process concurrency=N row of parallel_read.bench.
+ * NOTE on comparing to in-process: this bench calls the generated AsyncApi
+ * directly, bypassing the WorldStateOpsQueue + MerkleTreesFacade that
+ * NativeWorldStateService (and therefore the in-process numbers in
+ * parallel_read.bench) goes through. That facade adds ~40% overhead (compare the
+ * 1-connection number here to parallel_read's concurrency=1), so these raw
+ * figures are NOT directly comparable to in-process — they measure server
+ * capability with a lean client. The apples-to-apples in-process comparison is
+ * parallel_read.bench, where both sides share the facade.
  *
  * Skips on the in-process build (no IPC path). Run with LOG_LEVEL=info.
  */
 describe('world-state multi-connection read throughput', () => {
   const logger = createLogger('bench:ws-multi-conn-read');
   const TOTAL_READS = 20_000;
-  // Capped at 7 so that, together with the NativeWorldStateService's own
-  // connection (SHM client 0), we stay within the server's max_shm_clients (8).
+  // Max 7 connections: this mirrors the production SHM ceiling. The server caps
+  // SHM at max_shm_clients (8) ring-pairs; the TS world-state client holds one
+  // (modeled here by NativeWorldStateService = client 0), leaving 7 for the AVM
+  // simulator pool. (UDS has no such cap — it is backlog-bound — but we use the
+  // same counts for a like-for-like transport comparison.)
   const CONNECTION_COUNTS = [1, 2, 4, 7];
   const TREE = MerkleTreeId.PUBLIC_DATA_TREE;
   // Committed snapshot — mirrors WorldStateRevision.empty() / LATEST.
