@@ -17,11 +17,7 @@
 #include "barretenberg/serialize/msgpack_check_eq.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 
-<<<<<<< HEAD
 #ifdef BB_HAS_BATCH_VERIFIER_SERVICE
-=======
-#ifndef __wasm__
->>>>>>> origin/public-next
 #include <algorithm>
 #include <cerrno>
 #include <chrono>
@@ -413,16 +409,10 @@ namespace {
 bool write_all(int fd, const uint8_t* ptr, size_t len)
 {
     while (len > 0) {
-<<<<<<< HEAD
         // ::write takes a size_t count on POSIX but an unsigned int on Windows (MinGW _write), so cap each
         // call to INT_MAX and cast explicitly to keep the count in range and the return value representable.
         const auto chunk = static_cast<unsigned int>(std::min(len, static_cast<size_t>(INT_MAX)));
         const ssize_t written = ::write(fd, ptr, chunk);
-=======
-        const auto chunk_len =
-            static_cast<unsigned int>(std::min<size_t>(len, std::numeric_limits<unsigned int>::max()));
-        const ssize_t written = ::write(fd, ptr, chunk_len);
->>>>>>> origin/public-next
         if (written > 0) {
             ptr += written;
             len -= static_cast<size_t>(written);

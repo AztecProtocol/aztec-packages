@@ -211,22 +211,12 @@ jobs:
           aws-region: us-east-2
 
       - name: Cleanup network resources
-<<<<<<< HEAD
-        env:
-          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
-          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
-          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-          NO_SPOT: 1
-        run: ./.github/ci3.sh network-teardown tps-scenario nightly-bench
-=======
         uses: ./.github/actions/network-teardown
         with:
           env_file: tps-scenario
           namespace: nightly-bench
           gcp_sa_key: ${{ secrets.GCP_SA_KEY }}
           gcp_project_id: ${{ secrets.GCP_PROJECT_ID }}
->>>>>>> origin/public-next
 
   notify-bench:
     if: ${{ always() && github.event_name != 'workflow_dispatch' && github.repository == 'AztecProtocol/aztec-packages-private' }}
@@ -399,22 +389,12 @@ jobs:
           aws-region: us-east-2
 
       - name: Cleanup network resources
-<<<<<<< HEAD
-        env:
-          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
-          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
-          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-          NO_SPOT: 1
-        run: ./.github/ci3.sh network-teardown prove-n-tps-fake prove-n-tps-fake
-=======
         uses: ./.github/actions/network-teardown
         with:
           env_file: prove-n-tps-fake
           namespace: prove-n-tps-fake
           gcp_sa_key: ${{ secrets.GCP_SA_KEY }}
           gcp_project_id: ${{ secrets.GCP_PROJECT_ID }}
->>>>>>> origin/public-next
 
   notify-proving:
     if: ${{ always() && github.event_name != 'workflow_dispatch' && github.repository == 'AztecProtocol/aztec-packages-private' }}
@@ -587,22 +567,12 @@ jobs:
           aws-region: us-east-2
 
       - name: Cleanup network resources
-<<<<<<< HEAD
-        env:
-          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
-          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
-          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-          NO_SPOT: 1
-        run: ./.github/ci3.sh network-teardown block-capacity nightly-block-capacity
-=======
         uses: ./.github/actions/network-teardown
         with:
           env_file: block-capacity
           namespace: nightly-block-capacity
           gcp_sa_key: ${{ secrets.GCP_SA_KEY }}
           gcp_project_id: ${{ secrets.GCP_PROJECT_ID }}
->>>>>>> origin/public-next
 
   notify-block-capacity:
     if: ${{ always() && github.event_name != 'workflow_dispatch' && github.repository == 'AztecProtocol/aztec-packages-private' }}
