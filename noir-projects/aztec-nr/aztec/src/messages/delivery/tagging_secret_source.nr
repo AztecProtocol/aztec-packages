@@ -3,13 +3,15 @@ use crate::protocol::{traits::{Deserialize, Serialize}, utils::reader::Reader};
 global NON_INTERACTIVE_HANDSHAKE: u8 = 1;
 global SHARED_SECRET: u8 = 2;
 
-/// How the tagging secret for a message is sourced, as decided by the wallet through the
+/// How a message's tagging secret is sourced.
+///
+/// The wallet makes this choice through the
 /// [`resolve_tagging_secret`](crate::oracle::resolve_tagging_secret) oracle.
 ///
 /// Message delivery tags each on-chain message so the recipient can find it without scanning every log. The tag is
-/// derived from a secret shared between sender and recipient. When one has already been established for the pair it is
-/// reused. Otherwise, the wallet must decide how to source it: this type is that decision, carrying any material the
-/// chosen derivation needs.
+/// derived from a secret shared between sender and recipient. When an on-chain handshake has been registered for the
+/// pair the secret derived from it is reused. Otherwise, the wallet must decide how to source it: this type is that
+/// decision, carrying any material the chosen derivation needs.
 #[derive(Eq, Serialize)]
 pub struct TaggingSecretSource {
     kind: u8,
@@ -17,15 +19,17 @@ pub struct TaggingSecretSource {
 }
 
 impl TaggingSecretSource {
-    /// A secret established through a non-interactive handshake, derivable by the recipient from the on-chain handshake
-    /// registry.
+    /// A secret established through a non-interactive handshake.
+    ///
+    /// The recipient can derive it from the on-chain handshake registry.
     pub fn non_interactive_handshake() -> Self {
         Self { kind: NON_INTERACTIVE_HANDSHAKE, secret: 0 }
     }
 
-    /// A secret the two parties already share off-chain: they must have coordinated somehow to both know it (e.g.
-    /// derived via Diffie-Hellman from each other's address keys). Because nothing on-chain proves the recipient knows
-    /// it, this is only sound for unconstrained delivery.
+    /// A secret the two parties already share off-chain.
+    ///
+    /// They must have coordinated somehow to both know it (e.g. derived via Diffie-Hellman from each other's address
+    /// keys). Because nothing on-chain proves the recipient knows it, this is only sound for unconstrained delivery.
     pub fn shared_secret(secret: Field) -> Self {
         Self { kind: SHARED_SECRET, secret }
     }

@@ -4,8 +4,9 @@ use crate::protocol::address::AztecAddress;
 
 /// Sources the tagging secret for a message to `recipient`.
 ///
-/// Consulted only when no tagging secret has been established for the `(sender, recipient)` pair yet; an established
-/// secret is reused without asking the wallet. See [`TaggingSecretSource`] for the variants and their trade-offs.
+/// Consulted only when no on-chain handshake has been registered for the `(sender, recipient)` pair yet; the secret
+/// from a registered handshake is reused without asking the wallet. See [`TaggingSecretSource`] for the variants and
+/// their trade-offs.
 ///
 /// An invalid recipient has no shared secret to derive. Unconstrained delivery returns a random source (an
 /// undiscoverable tag) rather than letting a malformed recipient abort the send; constrained delivery instead fails,

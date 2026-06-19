@@ -22,7 +22,7 @@ const pxe = await createPXE(node, config, {
         ? { authorized: true }
         : { authorized: false, reason: "Unknown target" };
     },
-    // When there's no established way to reach the recipient, fall back to a non-interactive handshake.
+    // When no onchain handshake is registered for the recipient, fall back to a non-interactive handshake.
     resolveTaggingSecret: async () => ({ type: "non-interactive-handshake" }),
   },
 });
@@ -76,7 +76,7 @@ When the hook is absent, cross-contract utility calls are denied. See [Cross-con
 
 ## `resolveTaggingSecret`
 
-Called as a fallback when message delivery has no established tagging secret to reuse for a sender-recipient pair: an established secret is reused without invoking the hook, so it only fires when none exists yet. The wallet returns a concrete `TaggingSecretSource` (and any material the chosen derivation needs); see [Tagging secret source](../../aztec-nr/framework-description/note_delivery.md#tagging-secret-source) for the variants, the trade-offs, and the defaults in each environment.
+Called as a fallback for message delivery: a registered onchain handshake's secret is reused directly, so this hook only fires when the sender-recipient pair has none yet. The wallet returns a concrete `TaggingSecretSource` (and any material the chosen derivation needs); see [Tagging secret source](../../aztec-nr/framework-description/note_delivery.md#tagging-secret-source) for the variants, the trade-offs, and the defaults in each environment.
 
 ### In Noir tests
 
