@@ -63,10 +63,11 @@ contract RollupStub {
 ///         GSE, governance, and v4 RewardDistributor — exactly the actions
 ///         `Governance.execute()` would run — then asserts the resulting on-chain state.
 ///
-/// Every address other than the registry and the flush rewarder is discovered from the registry
-/// on-chain, so a subclass only supplies its network's registry, flush rewarder (zero when the
-/// network has none), and RPC env var. Tests self-skip when the RPC env var is unset, keeping
-/// the suite green offline.
+/// Every address other than the registry is discovered from the registry on-chain, so a subclass
+/// only supplies its network's registry, RPC env var, and a flush rewarder to migrate — either the
+/// live one or, on a network that never wired one, a freshly deployed and funded rewarder so the
+/// migration branch is still exercised. Tests self-skip when the RPC env var is unset, keeping the
+/// suite green offline.
 ///
 /// Set `PAYLOAD=0x...` to simulate an already-deployed payload (from DeployRollupForUpgradeV5)
 /// instead of an ephemeral one; the assertions are identical.
@@ -77,6 +78,12 @@ abstract contract V5UpgradePayloadForkBase is Test {
   GSE internal gse;
   IERC20 internal feeAsset;
 
+  /// @notice The flush rewarder serving the v4 rollup that this upgrade migrates, or zero on a
+  ///         network with none. Resolved once in `setUp`: a network that wired its own returns
+  ///         that live address; a network that never did deploys and funds one so the migration
+  ///         branch is still exercised.
+  address internal oldFlushRewarder;
+
   bool internal forked;
 
   /// @return The env var holding this network's archive RPC URL.
@@ -85,8 +92,12 @@ abstract contract V5UpgradePayloadForkBase is Test {
   /// @return This network's live v4 Registry.
   function _registry() internal pure virtual returns (address);
 
-  /// @return The flush rewarder serving this network's v4 rollup, or zero if it has none.
-  function _oldFlushRewarder() internal pure virtual returns (address);
+  /// @notice Resolves the flush rewarder serving this network's v4 rollup. Called once from
+  ///         `setUp`, after the registry-derived addresses (`governance`, `feeAsset`, the v4
+  ///         rollup) are populated, so an implementation may deploy and fund a rewarder against
+  ///         live state.
+  /// @return The old flush rewarder to migrate, or zero if this network has none.
+  function _setUpOldFlushRewarder() internal virtual returns (address);
 
   /// @return The fork block, or 0 to fork at the chain head.
   function _forkBlock() internal pure virtual returns (uint256);
@@ -110,6 +121,8 @@ abstract contract V5UpgradePayloadForkBase is Test {
     IStaking v4 = IStaking(address(registry.getCanonicalRollup()));
     gse = v4.getGSE();
     feeAsset = IRollup(address(v4)).getFeeAsset();
+
+    oldFlushRewarder = _setUpOldFlushRewarder();
   }
 
   /// @notice Documents the interface mismatch that makes the deployed v4 distributor the binding
@@ -147,14 +160,14 @@ abstract contract V5UpgradePayloadForkBase is Test {
     (V5UpgradePayload payload, address newRollup, address newRd) = _resolvePayload();
     assertEq(payload.OLD_REWARD_DISTRIBUTOR(), oldRd, "payload captured the live v4 distributor");
     assertEq(payload.ESCAPE_HATCH().getRollup(), newRollup, "hatch points at the new rollup");
-    assertEq(address(payload.OLD_FLUSH_REWARDER()), _oldFlushRewarder(), "payload wired to the live flush rewarder");
+    assertEq(address(payload.OLD_FLUSH_REWARDER()), oldFlushRewarder, "payload wired to the live flush rewarder");
 
     // Pre-state.
     uint256 oldBalancePre = feeAsset.balanceOf(oldRd);
     uint256 newBalancePre = feeAsset.balanceOf(newRd);
     uint256 flushAvailablePre = 0;
-    if (_oldFlushRewarder() != address(0)) {
-      flushAvailablePre = FlushRewarder(_oldFlushRewarder()).rewardsAvailable();
+    if (oldFlushRewarder != address(0)) {
+      flushAvailablePre = FlushRewarder(oldFlushRewarder).rewardsAvailable();
     }
     assertFalse(gse.isRollupRegistered(newRollup), "new rollup not yet in GSE");
     assertTrue(address(registry.getCanonicalRollup()) != newRollup, "new rollup not yet canonical");
@@ -165,7 +178,7 @@ abstract contract V5UpgradePayloadForkBase is Test {
 
     // Execute every action exactly as Governance.execute() would.
     IPayload.Action[] memory actions = payload.getActions();
-    assertEq(actions.length, _oldFlushRewarder() == address(0) ? 5 : 6, "action count");
+    assertEq(actions.length, oldFlushRewarder == address(0) ? 5 : 6, "action count");
     for (uint256 i = 0; i < actions.length; i++) {
       vm.startStateDiffRecording();
       vm.prank(governance);
@@ -187,9 +200,9 @@ abstract contract V5UpgradePayloadForkBase is Test {
     assertEq(
       RollupStub(newRollup).getEscapeHatch(), address(payload.ESCAPE_HATCH()), "escape hatch activated on v5 rollup"
     );
-    if (_oldFlushRewarder() != address(0)) {
+    if (oldFlushRewarder != address(0)) {
       FlushRewarder newFlushRewarder = payload.NEW_FLUSH_REWARDER();
-      assertEq(FlushRewarder(_oldFlushRewarder()).rewardsAvailable(), 0, "old flush rewarder has no rewards left");
+      assertEq(FlushRewarder(oldFlushRewarder).rewardsAvailable(), 0, "old flush rewarder has no rewards left");
       assertEq(
         newFlushRewarder.REWARD_ASSET().balanceOf(address(newFlushRewarder)),
         flushAvailablePre,
@@ -197,6 +210,7 @@ abstract contract V5UpgradePayloadForkBase is Test {
       );
       assertEq(address(newFlushRewarder.ROLLUP()), newRollup, "new flush rewarder bound to the v5 rollup");
       assertEq(newFlushRewarder.owner(), governance, "new flush rewarder owned by governance");
+      console.log("flush rewards migrated:            ", flushAvailablePre);
     }
 
     console.log("v5 distributor balance after drain:", feeAsset.balanceOf(newRd));
@@ -232,7 +246,7 @@ abstract contract V5UpgradePayloadForkBase is Test {
       )
     );
     payload = new V5UpgradePayload(
-      registry, IInstance(newRollup), IRewardDistributor(newRd), feeAsset, hatch, FlushRewarder(_oldFlushRewarder())
+      registry, IInstance(newRollup), IRewardDistributor(newRd), feeAsset, hatch, FlushRewarder(oldFlushRewarder)
     );
     console.log("deployed ephemeral payload:", address(payload));
   }
@@ -255,6 +269,11 @@ abstract contract V5UpgradePayloadForkBase is Test {
 /// @notice Sepolia testnet (registry 0xa0bf...c6ba). Run with:
 ///   SEPOLIA_RPC_URL=<url> forge test --match-contract V5UpgradePayloadSepoliaForkTest -vv
 contract V5UpgradePayloadSepoliaForkTest is V5UpgradePayloadForkBase {
+  /// @dev Funds the deployed flush rewarder, and so the amount the migration moves into the v5
+  ///      flush rewarder.
+  uint256 internal constant FLUSH_REWARDER_FUNDING = 1000e18;
+  uint256 internal constant FLUSH_REWARD_PER_INSERTION = 1e18;
+
   function _rpcEnvVar() internal pure override returns (string memory) {
     return "SEPOLIA_RPC_URL";
   }
@@ -263,9 +282,16 @@ contract V5UpgradePayloadSepoliaForkTest is V5UpgradePayloadForkBase {
     return 0xA0BFb1B494FB49041e5c6e8c2C1BE09cD171c6Ba;
   }
 
-  /// @dev Sepolia's rollup adoptions never wired a flush rewarder.
-  function _oldFlushRewarder() internal pure override returns (address) {
-    return address(0);
+  /// @dev Sepolia's live rollup adoptions never wired a flush rewarder, so deploy one bound to the
+  ///      v4 rollup and owned by governance (the only caller allowed to `recover`), then fund it
+  ///      with the fee asset. This exercises the payload's flush-rewarder migration branch end to
+  ///      end against live Sepolia state.
+  function _setUpOldFlushRewarder() internal override returns (address) {
+    FlushRewarder rewarder = new FlushRewarder(
+      governance, IInstance(address(registry.getCanonicalRollup())), feeAsset, FLUSH_REWARD_PER_INSERTION
+    );
+    deal(address(feeAsset), address(rewarder), FLUSH_REWARDER_FUNDING);
+    return address(rewarder);
   }
 
   function _forkBlock() internal pure override returns (uint256) {
@@ -287,7 +313,7 @@ contract V5UpgradePayloadMainnetForkTest is V5UpgradePayloadForkBase {
   /// @dev Deployed by the v4 AlphaPayload constructor; holds the entry-queue flush incentive
   ///      funds (governance proposal 2's `FlushRewarder.recover` action targeted its
   ///      predecessor and funded this one).
-  function _oldFlushRewarder() internal pure override returns (address) {
+  function _setUpOldFlushRewarder() internal pure override returns (address) {
     return 0xf1AcfB0C6ADd7104e700b8FAd3Ea025dbB041F34;
   }
 
