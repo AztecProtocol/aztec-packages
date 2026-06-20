@@ -22,6 +22,7 @@ import {
 } from '../../src/msm_webgpu/cuzk/gpu.js';
 import { runSumcheckRounds } from '../../src/msm_webgpu/multiround.js';
 import { NUM_RELATIONS, assembleAccumulator } from '../../src/msm_webgpu/accumulator.js';
+import type { GateUberGate } from '../../src/msm_webgpu/cuzk/shader_manager.js';
 import { ALL_RELATIONS } from './descriptors.js';
 import {
   type PipelineCache, type RelationDescriptor,
@@ -31,6 +32,30 @@ import type { CompactionPlan, BandPlan } from './sparsity.js';
 
 const REDUCE_WG = 128; // >= largest relation out_len (90)
 const REDUCE_GROUPS = 64;
+
+/** How the gate relations are dispatched in band mode (realistic-band profile only).
+ *  'perRelation' = one band-trimmed dispatch per relation (the default; what every
+ *  other profile uses). 'uber' = fuse the register-light gate relations into ONE
+ *  occupancy-filling dispatch (gen_gate_uber_shader), leaving permutation and the
+ *  register-heavy gates on the per-relation path. Bit-identical to 'perRelation'. */
+export type GateMode = 'perRelation' | 'uber';
+
+/** Relation indices fused by the 'uber' gate mode, grouped into INDEPENDENT fused
+ *  dispatches (one pipeline each, so register pressure is isolated per group — Metal
+ *  allocates the register file at a pipeline's worst switch arm). Group 0 is the
+ *  register-light gates; group 1 is the register-heavy trio (databus 8 / poseidon2
+ *  quad 11 / quad-terminal 12), which are still small occupancy-bound band dispatches
+ *  worth fusing but kept off the light pipeline. Excluded entirely: permutation (1,
+ *  dense — already full-occupancy) and arithmetic (0, its 40% band already fills the
+ *  GPU). Order within a group is its slot order in that uber kernel. */
+const UBER_GROUPS: number[][] = [
+  [2, 3, 4, 5, 6, 7, 9, 10, 13], // register-light gates
+  [8, 11, 12],                   // register-heavy trio (isolated pipeline)
+];
+// Min storage-binding offset alignment (WebGPU default): a perEdge sub-region bound to
+// the reduce must start on a 256-byte (= 8 Fr) boundary, so each gate's perEdge band is
+// padded up to a multiple of 8 Fr.
+const FR_ALIGN = 8;
 
 export interface FoldRunner { layout: GPUBindGroupLayout; pipeline: GPUComputePipeline }
 export interface ReduceRunner { layout: GPUBindGroupLayout; pipeline: GPUComputePipeline }
@@ -188,6 +213,214 @@ export function effPairsForRound(usedLen: number, round: number, curLen: number)
   return Math.max(1, effLen >> 1);
 }
 
+/** Per-fused-gate metadata the engine needs to lay out fused_col / uber_param /
+ *  perEdge and to drive the per-gate reduce (a superset of GateUberGate). */
+export interface FusedGateMeta {
+  relIdx: number;
+  desc: RelationDescriptor;
+  slot: number;
+  numEdgesPrefix: number; // entity-column offset of this gate inside fused_col
+  numEdges: number;
+  outLen: number;
+  hasParam: boolean;
+}
+
+/**
+ * Lay out the fused-gate set for the 'uber' gate mode: the concatenated column buffer
+ * order (`numEdgesPrefix`), the concatenated relation_parameters buffer (`uberParamBytes`
+ * + per-gate `paramBase`), and the slot order. Returns the GateUberGate specs (for
+ * gen_gate_uber_shader) alongside the engine-side metadata.
+ */
+function buildUberLayout(
+  fusedRelIdx: number[],
+  relParamBytes: (Uint8Array | undefined)[],
+): { gates: GateUberGate[]; meta: FusedGateMeta[]; uberParamBytes: Uint8Array } {
+  const byIdx = new Map(ALL_RELATIONS.map(d => [d.relationIndex, d] as const));
+  const gates: GateUberGate[] = [];
+  const meta: FusedGateMeta[] = [];
+  const paramChunks: Uint8Array[] = [];
+  let numEdgesPrefix = 0, paramBase = 0;
+  fusedRelIdx.forEach((relIdx, slot) => {
+    const desc = byIdx.get(relIdx);
+    if (!desc) throw new Error(`buildUberLayout: no descriptor for relation ${relIdx}`);
+    const rp = relParamBytes[relIdx];
+    const hasParam = rp !== undefined && rp.length > 0;
+    gates.push({ id: desc.id, entry: desc.entry, hasParam, numEdgesPrefix, paramBase: hasParam ? paramBase : 0, standalone: desc.shader() });
+    meta.push({ relIdx, desc, slot, numEdgesPrefix, numEdges: desc.numEdges, outLen: desc.outLen, hasParam });
+    if (hasParam) { paramChunks.push(rp!); paramBase += rp!.length / 32; }
+    numEdgesPrefix += desc.numEdges;
+  });
+  const totalParamFr = paramChunks.reduce((a, c) => a + c.length / 32, 0);
+  const uberParamBytes = new Uint8Array(Math.max(1, totalParamFr) * 32); // >=1 Fr so the binding is non-empty
+  let off = 0;
+  for (const c of paramChunks) { uberParamBytes.set(c, off); off += c.length; }
+  return { gates, meta, uberParamBytes };
+}
+
+/** A compiled fused-gate uber group: pipeline + constant param buffer (+ a concat scratch
+ *  when `direct` is false). The per-round BandTable buffers are created fresh each round in
+ *  dispatchUberGroups. Shared by both engines via buildUberGroups. */
+export interface UberGroup {
+  meta: FusedGateMeta[];
+  runner: KernelRunner;
+  direct: boolean;          // bind resident col_bufs directly (no per-round copy)
+  fusedColBuf?: GPUBuffer;  // concat scratch (only when !direct)
+  uberParamBuf: GPUBuffer;  // concatenated relation_parameters (constant across rounds)
+}
+
+/**
+ * Build the fused-gate uber groups (UBER_GROUPS) for either engine: one occupancy-filling
+ * pipeline per group. Each group binds its gates' resident column buffers DIRECTLY (zero
+ * copy) when the device exposes enough storage bindings (N+6 per group); otherwise it falls
+ * back to a per-round concat copy into fusedColBuf. Pipelines are cached in `relCache`.
+ * Returns [] when not fusing.
+ */
+export async function buildUberGroups(
+  device: GPUDevice,
+  relCache: PipelineCache,
+  relParamBytes: (Uint8Array | undefined)[],
+  n: number,
+): Promise<UberGroup[]> {
+  const groups: UberGroup[] = [];
+  const maxStorage = device.limits.maxStorageBuffersPerShaderStage ?? 8;
+  for (const relIdxList of UBER_GROUPS) {
+    const layout0 = buildUberLayout(relIdxList, relParamBytes);
+    const N = layout0.meta.length;
+    const direct = N + 6 <= maxStorage; // N gcol + perEdge/scaling/uber_param/cum_bound/band_start/pe_base
+    const cacheKey = `uber:${relIdxList.join(',')}|wg${WG}|${direct ? 'd' : 'c'}`;
+    let runner = relCache.get(cacheKey);
+    if (!runner) {
+      const types = direct
+        ? [...Array(N).fill('read-only-storage'), 'storage', 'uniform', 'read-only-storage',
+          'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage']
+        : ['read-only-storage', 'storage', 'uniform', 'read-only-storage',
+          'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage'];
+      const layout = create_bind_group_layout(device, types);
+      const code = sm.gen_gate_uber_shader(WG, layout0.gates, direct);
+      const pipeline = await create_compute_pipeline(device, [layout], code, 'gate_uber_main', cacheKey);
+      runner = { layout, pipeline };
+      relCache.set(cacheKey, runner);
+    }
+    let fusedColBuf: GPUBuffer | undefined;
+    if (!direct) {
+      const totalFusedEdges = layout0.meta.reduce((a, g) => a + g.numEdges, 0);
+      setAllocCategory('columns');
+      fusedColBuf = create_sb(device, totalFusedEdges * n * 32);
+    }
+    setAllocCategory('relparams');
+    const uberParamBuf = create_and_write_sb(device, layout0.uberParamBytes);
+    groups.push({ meta: layout0.meta, runner, direct, fusedColBuf, uberParamBuf });
+  }
+  return groups;
+}
+
+/** Union of relation indices covered by the uber groups (skip these on the per-relation path). */
+export function uberFusedSet(groups: UberGroup[]): Set<number> {
+  const s = new Set<number>();
+  for (const g of groups) for (const m of g.meta) s.add(m.relIdx);
+  return s;
+}
+
+/** Per-round context for dispatchUberGroups — the few buffers/values that differ between
+ *  the two engines (current columns + the accumulator target + the profiler labelling). */
+export interface UberDispatchCtx {
+  device: GPUDevice;
+  enc: GPUCommandEncoder;
+  groups: UberGroup[];
+  round: number;
+  m: number;     // curLen (column length this round)
+  pairs: number; // m >> 1 (= params.n, the column stride)
+  cols: GPUBuffer[];       // current resident columns (colBuf for multi-pass, cur for single-submit)
+  perEdge: GPUBuffer;
+  partsScratch: GPUBuffer;
+  scalScratch: GPUBuffer;
+  finalBuf: GPUBuffer;     // finalParts (multi-pass) / accBuf (single-submit)
+  finalBase: number[];
+  reduceRunner: ReduceRunner;
+  bands: BandPlan;
+  maxPerEdge: number;
+  profAcc: (groupIdx: number) => GPUComputePassTimestampWrites | undefined;
+  profReduce: (gateId: string, pass: 'r1' | 'r2') => GPUComputePassTimestampWrites | undefined;
+}
+
+/**
+ * Dispatch every uber group this round: per group, build the BandTable, (copy columns
+ * into fusedColBuf unless direct), run ONE fused accumulate over all the group's active
+ * pairs, then the existing reduce per gate over its compacted perEdge sub-region into
+ * `finalBuf`. `finalBuf` must already be cleared this round (both engines clear it when
+ * bands are set), so a gate with an empty band contributes its pre-cleared zero slice.
+ */
+export async function dispatchUberGroups(ctx: UberDispatchCtx): Promise<void> {
+  const { device, enc, groups, round, m, pairs, cols, perEdge, partsScratch, scalScratch,
+    finalBuf, finalBase, reduceRunner, bands, maxPerEdge, profAcc, profReduce } = ctx;
+  for (let gi = 0; gi < groups.length; gi++) {
+    const grp = groups[gi];
+    const N = grp.meta.length;
+    const cumBound = new Uint32Array(N + 1);
+    const bandStartArr = new Uint32Array(N);
+    const peBaseArr = new Uint32Array(N);
+    let peBase = 0, gateTotal = 0;
+    for (let s = 0; s < N; s++) {
+      const g = grp.meta[s];
+      const b = bands.roundsByRel[g.relIdx]?.[round];
+      const count = b ? b.count : 0;
+      bandStartArr[s] = b ? b.start : 0;
+      peBaseArr[s] = peBase;
+      cumBound[s] = gateTotal;
+      gateTotal += count;
+      peBase += Math.ceil((count * g.outLen) / FR_ALIGN) * FR_ALIGN; // 256-byte (8-Fr) aligned for the reduce sub-view
+    }
+    cumBound[N] = gateTotal;
+    if (peBase > maxPerEdge) throw new Error(`uber perEdge overflow: ${peBase} Fr > ${maxPerEdge} capacity`);
+    if (gateTotal === 0) continue;
+    // FRESH per-round BandTable buffers, NOT a reused buffer written via queue.writeBuffer:
+    // the single-submission engine encodes every round before ONE submit, so all rounds'
+    // queue writes would land before any GPU work and only the last round's values would
+    // survive. Baking each round's values into its own buffer keeps both engines correct.
+    const cumBoundBuf = create_and_write_sb(device, new Uint8Array(cumBound.buffer, 0, (N + 1) * 4));
+    const bandStartBuf = create_and_write_sb(device, new Uint8Array(bandStartArr.buffer, 0, N * 4));
+    const peBaseBuf = create_and_write_sb(device, new Uint8Array(peBaseArr.buffer, 0, N * 4));
+    const accUB = create_and_write_ub(device, u32x4(pairs, gateTotal));
+    let uBg: GPUBindGroup;
+    if (grp.direct) {
+      uBg = create_bind_group(device, grp.runner.layout, [
+        ...grp.meta.map(g => cols[g.relIdx]),
+        perEdge, accUB, scalScratch, grp.uberParamBuf, cumBoundBuf, bandStartBuf, peBaseBuf,
+      ]);
+    } else {
+      // Concat fallback: ONE contiguous copy per gate (its numEdges columns are contiguous
+      // in cols[r]); a per-column band-only copy issues numEdges× more blits, and Metal
+      // serializes disjoint blits to one buffer, costing far more than the bandwidth saved.
+      for (let s = 0; s < N; s++) {
+        const g = grp.meta[s];
+        if (cumBound[s + 1] - cumBound[s] === 0) continue;
+        enc.copyBufferToBuffer(cols[g.relIdx], 0, grp.fusedColBuf!, g.numEdgesPrefix * m * 32, g.numEdges * m * 32);
+      }
+      uBg = create_bind_group(device, grp.runner.layout, [
+        grp.fusedColBuf!, perEdge, accUB, scalScratch, grp.uberParamBuf, cumBoundBuf, bandStartBuf, peBaseBuf,
+      ]);
+    }
+    await execute_pipeline(enc, grp.runner.pipeline, uBg, Math.ceil(gateTotal / WG), 1, 1, profAcc(gi));
+    for (let s = 0; s < N; s++) {
+      const g = grp.meta[s];
+      const count = cumBound[s + 1] - cumBound[s];
+      if (count === 0) continue; // empty band this round -> pre-cleared zero slice
+      const chunk = Math.max(1, Math.ceil(count / REDUCE_GROUPS));
+      const groupsR = Math.ceil(count / chunk);
+      const r1 = device.createBindGroup({ layout: reduceRunner.layout, entries: [
+        { binding: 0, resource: { buffer: perEdge, offset: peBaseArr[s] * 32, size: count * g.outLen * 32 } },
+        { binding: 1, resource: { buffer: partsScratch } },
+        { binding: 2, resource: { buffer: create_and_write_ub(device, u32x4(count, g.outLen, chunk, 0)) } },
+      ] });
+      await execute_pipeline(enc, reduceRunner.pipeline, r1, groupsR, 1, 1, profReduce(g.desc.id, 'r1'));
+      const r2 = create_bind_group(device, reduceRunner.layout, [
+        partsScratch, finalBuf, create_and_write_ub(device, u32x4(groupsR, g.outLen, groupsR, finalBase[g.relIdx])),
+      ]);
+      await execute_pipeline(enc, reduceRunner.pipeline, r2, 1, 1, 1, profReduce(g.desc.id, 'r2'));
+    }
+  }
+}
+
 export interface ResidentSumcheckResult {
   univariates: bigint[][];
   challenges: bigint[];
@@ -249,6 +482,7 @@ export async function runResidentGpuSumcheck(
   usedLensByRel?: number[],
   compaction?: CompactionPlan,
   bands?: BandPlan,
+  gateMode: GateMode = 'perRelation',
 ): Promise<ResidentSumcheckResult> {
   const d = Math.round(Math.log2(n));
   const rounds = Math.max(1, Math.min(maxRounds ?? d, d));
@@ -383,6 +617,15 @@ export async function runResidentGpuSumcheck(
     return p;
   };
 
+  // ── Fused gate "uber" accumulate (realistic-band only) ───────────────────────
+  // On a sparse band trace each gate relation dispatches a tiny, occupancy-bound grid
+  // and serializes on the shared scratch. Each uber group fuses its gates into ONE
+  // occupancy-filling dispatch (gen_gate_uber_shader), binding resident columns directly
+  // (zero copy) when the device allows. permutation and arithmetic stay per-relation.
+  const uberOn = gateMode === 'uber' && !!bands;
+  const uberGroups = uberOn ? await buildUberGroups(device, relCache, relParamBytes, n) : [];
+  const fusedSet = uberFusedSet(uberGroups);
+
   let curLen = n;
   let gpuMs = 0, scalingMs = 0, decodeMs = 0;
   const setupMs = performance.now() - tSetup;
@@ -420,6 +663,7 @@ export async function runResidentGpuSumcheck(
       if (compaction || bands) enc.clearBuffer(finalParts);
       for (const desc of ALL_RELATIONS) {
         const r = desc.relationIndex;
+        if (fusedSet.has(r)) continue; // handled by the fused uber dispatch below
         const compIdx = activeIdxBuf[r];
         const band = bands?.roundsByRel[r];
         const mode: AccMode = compIdx ? 'comp' : band ? 'band' : inject ? 'sk' : 'pl';
@@ -461,6 +705,18 @@ export async function runResidentGpuSumcheck(
           partsScratch, finalParts, create_and_write_ub(device, u32x4(groups, desc.outLen, groups, finalBase[r])),
         ]);
         await execute_pipeline(enc, reduceRunner.pipeline, r2, 1, 1, 1, prof(_round, `r2:${desc.id}`));
+      }
+
+      // Fused gate uber dispatches: per group, ONE occupancy-filling acc over all its
+      // gates, then the existing reduce per gate into finalParts (shared helper).
+      if (uberGroups.length > 0) {
+        await dispatchUberGroups({
+          device, enc, groups: uberGroups, round: _round, m, pairs,
+          cols: colBuf, perEdge, partsScratch, scalScratch, finalBuf: finalParts, finalBase,
+          reduceRunner, bands: bands!, maxPerEdge,
+          profAcc: gi => prof(_round, `acc:uber${gi}`),
+          profReduce: (id, pass) => prof(_round, `${pass}:${id}`),
+        });
       }
       const tg = performance.now();
       enc.copyBufferToBuffer(finalParts, 0, stagingBuf, 0, readbackBytes);

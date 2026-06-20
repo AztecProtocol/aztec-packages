@@ -152,6 +152,28 @@ async function run({ device, n, log }: SuiteCtx): Promise<boolean> {
       }
     }
     log('ok', `  skip ✓  [${profile.name}] skip-ON == skip-OFF univariates + GPU challenges (all ${d} rounds) · used ${L}/${n}`);
+
+    // Fused gate "uber" dispatch (band profile only): must be bit-identical to the
+    // per-relation single-submission result (univariates + GPU-derived challenges).
+    if (profile.name === REALISTIC_BAND_PROFILE.name) {
+      const uber = await runSingleSubmitSumcheck(
+        device, n, alpha, betas, inst.relParamBytes, inst.initColBytes, undefined, WG, false, undefined,
+        true, L, activeRowsByRel(profile, n), bandByRel(profile, n), 'uber',
+      );
+      for (let i = 0; i < d; i++) {
+        if (off.challenges[i] !== uber.challenges[i]) {
+          log('err', `  uber ✗  [${profile.name}] round ${i}: per-relation challenge ${off.challenges[i]} != uber ${uber.challenges[i]}`);
+          return false;
+        }
+        for (let k = 0; k < off.univariates[i].length; k++) {
+          if (off.univariates[i][k] !== uber.univariates[i][k]) {
+            log('err', `  uber ✗  [${profile.name}] round ${i} k=${k}: per-relation ${off.univariates[i][k]} != uber ${uber.univariates[i][k]}`);
+            return false;
+          }
+        }
+      }
+      log('ok', `  uber ✓  [${profile.name}] fused-gate dispatch == per-relation (univariates + GPU challenges, all ${d} rounds)`);
+    }
   }
   return true;
 }

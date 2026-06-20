@@ -20,7 +20,8 @@
 import {
   makeFoldRunner, makeReduceRunner, makeScanRunner, makeGatherRunner, encodeColumnsToBytes,
   injectSkipPrelude, injectBand, effPairsForRound,
-  type FoldRunner, type ReduceRunner, type KernelRunner,
+  buildUberGroups, uberFusedSet, dispatchUberGroups,
+  type FoldRunner, type ReduceRunner, type KernelRunner, type GateMode,
 } from './gpu_pipeline.js';
 import type { BandPlan } from './sparsity.js';
 import { buildBatchConsts } from './batch_gpu.js';
@@ -118,6 +119,7 @@ export async function runSingleSubmitSumcheck(
   usedLen?: number,
   usedLensByRel?: number[],
   bands?: BandPlan,
+  gateMode: GateMode = 'perRelation',
 ): Promise<SingleSubmitResult> {
   const d = Math.round(Math.log2(n));
   // Effective used length for Tier-0 trimming (default = n => no trim). Only consulted
@@ -261,6 +263,14 @@ export async function runSingleSubmitSumcheck(
     }
     return p;
   };
+
+  // Fused gate "uber" accumulate (realistic-band only): fuse the register-light /
+  // heavy-trio gate relations into ONE occupancy-filling dispatch each, binding the
+  // resident ping-pong columns directly (zero copy — they are already GPU-resident and
+  // fully folded each round). permutation + arithmetic stay on the per-relation path.
+  const uberOn = gateMode === 'uber' && !!bands;
+  const uberGroups = uberOn ? await buildUberGroups(device, relCache, relParamBytes, n) : [];
+  const fusedSet = uberFusedSet(uberGroups);
   const setupMs = performance.now() - tSetup;
 
   // Per-kernel profiler: one timestamped stage per dispatch across the run rounds (the
@@ -299,6 +309,7 @@ export async function runSingleSubmitSumcheck(
     if (bands) enc.clearBuffer(accBuf);
     for (const desc of ALL_RELATIONS) {
       const r = desc.relationIndex;
+      if (fusedSet.has(r)) continue; // handled by the fused uber dispatch below
       const band = bands?.roundsByRel[r];
       let dispatchPairs: number;
       const aBufs: GPUBuffer[] = [cur[r], perEdge];
@@ -325,6 +336,19 @@ export async function runSingleSubmitSumcheck(
         partsScratch, accBuf, create_and_write_ub(device, u32x4(groups, desc.outLen, groups, finalBase[r])),
       ]);
       await execute_pipeline(enc, reduceRunner.pipeline, r2, 1, 1, 1, profiler?.stage('reduce'));
+    }
+
+    // Fused gate uber dispatches into accBuf (before batch reads it). The resident
+    // ping-pong columns `cur` are bound directly (zero copy); SS folds them in full each
+    // round so any band of cur[r] is valid. No per-round readback amortizes the win here.
+    if (uberGroups.length > 0) {
+      await dispatchUberGroups({
+        device, enc, groups: uberGroups, round: i, m: curLen, pairs,
+        cols: cur, perEdge, partsScratch, scalScratch, finalBuf: accBuf, finalBase,
+        reduceRunner, bands: bands!, maxPerEdge,
+        profAcc: () => profiler?.stage('accumulate'),
+        profReduce: () => profiler?.stage('reduce'),
+      });
     }
 
     // batch: accBuf -> univBuf (round univariate); reads beta_i + GPU c_i

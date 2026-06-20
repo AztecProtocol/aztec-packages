@@ -612,13 +612,42 @@ export interface MultiProfileData {
   accumulateMs: number;
   reduceMs: number;
   foldMs: number;
+  /** Accumulate split: permutation (dense, irreducible) vs all gate relations. */
+  permAccMs: number;
+  gateAccMs: number;
   topRelations: { label: string; ms: number }[];
+}
+
+/** Per-round-0 GPU breakdown from a profiled run's per-kernel labels. */
+function profileBreakdown(prof: { label: string; ms: number }[], logN: number): MultiProfileData {
+  const sum = (pred: (l: string) => boolean) => prof.filter(e => pred(e.label)).reduce((s, e) => s + e.ms, 0);
+  const acc = sum(l => l.startsWith('acc:'));
+  const permAcc = sum(l => l === 'acc:perm');
+  const accByRel = prof.filter(e => e.label.startsWith('acc:')).sort((a, b) => b.ms - a.ms);
+  return {
+    logN, accumulateMs: acc, reduceMs: sum(l => l.startsWith('r1:') || l.startsWith('r2:')),
+    foldMs: sum(l => l.startsWith('fold:')), permAccMs: permAcc, gateAccMs: acc - permAcc,
+    topRelations: accByRel.slice(0, 6).map(e => ({ label: e.label, ms: e.ms })),
+  };
+}
+
+function logBreakdown(log: Logger, tag: string, b: MultiProfileData, top: { label: string; ms: number }[]): void {
+  const tot = b.accumulateMs + b.reduceMs + b.foldMs;
+  const pct = (x: number) => (tot ? (100 * x / tot).toFixed(1) : '0') + '%';
+  log('ok', `  [${tag}] accumulate ${b.accumulateMs.toFixed(2)} ms (${pct(b.accumulateMs)}) · reduce ${b.reduceMs.toFixed(2)} ms (${pct(b.reduceMs)}) · fold ${b.foldMs.toFixed(2)} ms (${pct(b.foldMs)})`);
+  log('info', `    accumulate split: perm ${b.permAccMs.toFixed(2)} ms (irreducible) · gates ${b.gateAccMs.toFixed(2)} ms`);
+  for (const e of top.slice(0, 6)) log('info', `    ${e.label.padEnd(18)} ${e.ms.toFixed(3)} ms`);
 }
 
 /**
  * Per-kernel GPU profile of round 0 at one size, to confirm where GPU time goes
  * (the ceiling argument rests on accumulate dominating reduce + fold). Needs
  * timestamp-query (Chrome/Metal has it; logs a warning and returns null if absent).
+ *
+ * On a `band` profile this also runs the fused-gate "uber" dispatch back-to-back with
+ * the per-relation path and reports the decisive gate-stream A/B: the gate-accumulate
+ * ms under each mode (perm is irreducible and identical under both). The returned
+ * MultiProfileData is the per-relation run, for the baked profilereport.
  */
 export async function runProfile(device: GPUDevice, logN: number, log: Logger, profile: CircuitProfile = DENSE_PROFILE): Promise<MultiProfileData | null> {
   const alpha = makeRng(0xb0_07_5eedn)();
@@ -634,20 +663,37 @@ export async function runProfile(device: GPUDevice, logN: number, log: Logger, p
   const usedLensByRel = activeRowsByRel(profile, n);
   const comp = compactionPlan(profile, n);
   const bnd = bandByRel(profile, n);
-  await runResidentGpuSumcheck(device, n, alpha, betas, challenges, relParamBytes, initColBytes, shared, WG, false, undefined, skip, usedLen, usedLensByRel, comp, bnd); // warmup/compile
-  const r = await runResidentGpuSumcheck(device, n, alpha, betas, challenges, relParamBytes, initColBytes, shared, WG, true, undefined, skip, usedLen, usedLensByRel, comp, bnd);
+  const runMode = async (gateMode: 'perRelation' | 'uber', prof: boolean) =>
+    runResidentGpuSumcheck(device, n, alpha, betas, challenges, relParamBytes, initColBytes, shared, WG, prof, undefined, skip, usedLen, usedLensByRel, comp, bnd, gateMode);
+
+  await runMode('perRelation', false); // warmup/compile
+  const r = await runMode('perRelation', true);
 
   log('info', `  per-kernel GPU profile · round 0 · 2^${logN} (edges = ${n >> 1})`);
   if (!r.profile) { log('warn', '  timestamp-query unavailable — no per-kernel timing on this device.'); return null; }
-  const sum = (pfx: string) => r.profile!.filter(e => e.label.startsWith(pfx)).reduce((s, e) => s + e.ms, 0);
-  const acc = sum('acc:'), r1 = sum('r1:'), r2 = sum('r2:'), fold = sum('fold:');
-  const tot = acc + r1 + r2 + fold;
-  const pct = (x: number) => (tot ? (100 * x / tot).toFixed(1) : '0') + '%';
-  log('ok', `  accumulate ${acc.toFixed(2)} ms (${pct(acc)}) · reduce ${(r1 + r2).toFixed(2)} ms (${pct(r1 + r2)}) · fold ${fold.toFixed(2)} ms (${pct(fold)})  [round-0 GPU passes]`);
-  const accByRel = r.profile.filter(e => e.label.startsWith('acc:')).sort((a, b) => b.ms - a.ms);
-  for (const e of accByRel.slice(0, 6)) log('info', `    ${e.label.padEnd(18)} ${e.ms.toFixed(3)} ms`);
+  const base = profileBreakdown(r.profile, logN);
+  logBreakdown(log, 'per-relation', base, base.topRelations);
   log('info', `  host: decode ${r.decodeMs.toFixed(1)} ms · scaling ${r.scalingMs.toFixed(1)} ms · wall ${r.totalMs.toFixed(1)} ms · gpuMs ${r.gpuMs.toFixed(1)} ms`);
-  return { logN, accumulateMs: acc, reduceMs: r1 + r2, foldMs: fold, topRelations: accByRel.slice(0, 6).map(e => ({ label: e.label, ms: e.ms })) };
+
+  // Fused-gate uber A/B (band profile only): same perm cost, fewer gate dispatches.
+  if (bnd) {
+    // Direct col_buf binding (zero copy) needs N+6 storage buffers per group; otherwise
+    // the group falls back to a per-round concat copy. Surface which path will run.
+    const maxStorage = device.limits.maxStorageBuffersPerShaderStage ?? 8;
+    log('info', `  uber binding: maxStorageBuffersPerShaderStage=${maxStorage} → light(9 gates) ${15 <= maxStorage ? 'DIRECT (zero-copy)' : 'concat-copy'}, heavy(3 gates) ${9 <= maxStorage ? 'DIRECT (zero-copy)' : 'concat-copy'}`);
+    await runMode('uber', false); // warmup/compile the uber pipeline
+    const u = await runMode('uber', true);
+    if (u.profile) {
+      const ub = profileBreakdown(u.profile, logN);
+      logBreakdown(log, 'uber', ub, ub.topRelations);
+      const delta = base.gateAccMs - ub.gateAccMs;
+      const speedup = ub.gateAccMs > 0 ? base.gateAccMs / ub.gateAccMs : 0;
+      log(delta > 0 ? 'ok' : 'warn',
+        `  gate-stream A/B (round-0 accumulate): per-relation ${base.gateAccMs.toFixed(2)} ms → uber ${ub.gateAccMs.toFixed(2)} ms  (${delta >= 0 ? '−' : '+'}${Math.abs(delta).toFixed(2)} ms, ${speedup.toFixed(2)}×)`);
+      log('info', `    full-run GPU time (all ${logN} rounds): per-relation ${r.gpuMs.toFixed(1)} ms → uber ${u.gpuMs.toFixed(1)} ms · wall ${r.totalMs.toFixed(1)} → ${u.totalMs.toFixed(1)} ms`);
+    }
+  }
+  return base;
 }
 
 /**
@@ -698,8 +744,10 @@ export async function runSingleSubmitProfile(
   const { initColBytes, relParamBytes } = buildInputs(n, profile);
   const usedLensByRel = activeRowsByRel(profile, n);
   const bnd = bandByRel(profile, n);
-  await runSingleSubmitSumcheck(device, n, alpha, betas, relParamBytes, initColBytes, ssShared, WG, false, gpuRounds, skip, usedLen, usedLensByRel, bnd); // warmup/compile
-  const r = await runSingleSubmitSumcheck(device, n, alpha, betas, relParamBytes, initColBytes, ssShared, WG, true, gpuRounds, skip, usedLen, usedLensByRel, bnd);
+  const runMode = (gateMode: 'perRelation' | 'uber', prof: boolean) =>
+    runSingleSubmitSumcheck(device, n, alpha, betas, relParamBytes, initColBytes, ssShared, WG, prof, gpuRounds, skip, usedLen, usedLensByRel, bnd, gateMode);
+  await runMode('perRelation', false); // warmup/compile
+  const r = await runMode('perRelation', true);
 
   const scope = tail > 0 ? `${gpuRounds} GPU rounds + ${tail} WASM tail` : `all ${logN} rounds`;
   log('info', `  single-submit per-kernel GPU profile · ${scope} · 2^${logN}`);
@@ -725,6 +773,23 @@ export async function runSingleSubmitProfile(
     `  transcript = ${gpuRounds} rounds @ ${(transcript / gpuRounds).toFixed(2)} ms/round · ` +
       `wall ${r.totalMs.toFixed(1)} ms · gpuMs ${r.gpuMs.toFixed(1)} ms · setup ${r.setupMs.toFixed(1)} ms`,
   );
+
+  // Fused-gate uber A/B (band profile, all-GPU run): the single-submission engine has
+  // no per-round readback, so the fused accumulate should translate to wall time here.
+  if (bnd && tail === 0) {
+    const maxStorage = device.limits.maxStorageBuffersPerShaderStage ?? 8;
+    log('info', `  uber binding: maxStorageBuffersPerShaderStage=${maxStorage} → light(9) ${15 <= maxStorage ? 'DIRECT (zero-copy)' : 'concat-copy'}, heavy(3) ${9 <= maxStorage ? 'DIRECT' : 'concat-copy'}`);
+    await runMode('uber', false); // warmup/compile the uber pipelines
+    const u = await runMode('uber', true);
+    if (u.profile) {
+      const usum = (label: string) => u.profile!.filter(e => e.label === label).reduce((s, e) => s + e.ms, 0);
+      const uAcc = usum('accumulate');
+      const aSpeedup = uAcc > 0 ? accumulate / uAcc : 0;
+      log(aSpeedup >= 1 ? 'ok' : 'warn',
+        `  uber A/B: accumulate ${accumulate.toFixed(2)} → ${uAcc.toFixed(2)} ms (${aSpeedup.toFixed(2)}×) · ` +
+        `gpuMs ${r.gpuMs.toFixed(1)} → ${u.gpuMs.toFixed(1)} · wall ${r.totalMs.toFixed(1)} → ${u.totalMs.toFixed(1)} ms`);
+    }
+  }
 
   // Hybrid split: time the WASM tail at the handed-off size and report the end-to-end
   // hybrid cost (GPU front wall + handoff readback + WASM tail) against full WASM.

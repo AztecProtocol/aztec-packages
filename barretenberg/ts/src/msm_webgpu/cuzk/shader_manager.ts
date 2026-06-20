@@ -82,6 +82,23 @@ import { poseidon2QuadConsts } from './poseidon2_quad_consts.js';
 // suite.
 export type FieldChoice = 'base' | 'scalar';
 
+/**
+ * One gate relation fused into the `gen_gate_uber_shader` kernel. `standalone` is the
+ * relation's rendered accumulate shader (its body is lifted verbatim); `entry` is its
+ * `@compute` entry fn name (e.g. `arithmetic_main`). `numEdgesPrefix` is the gate's
+ * column-offset (in entity columns) inside the concatenated `fused_col` buffer, and
+ * `paramBase` is its Fr offset inside the concatenated `uber_param` buffer (ignored
+ * unless `hasParam`). The gate's slot is its index in the array passed to the generator.
+ */
+export interface GateUberGate {
+  id: string;
+  entry: string;
+  hasParam: boolean;
+  numEdgesPrefix: number;
+  paramBase: number;
+  standalone: string;
+}
+
 // Modular inverse via extended Euclidean. Returns a^-1 mod m. Both inputs > 0.
 function modinv(a: bigint, m: bigint): bigint {
   let [old_r, r] = [((a % m) + m) % m, m];
@@ -730,6 +747,149 @@ ${packLines.join('\n')}
       poseidon2_quad_internal_relation_test_shader,
       { ...this.relationView(workgroup_size), quad_consts: this.quadConstsBlock(consts) },
       this.relationPartials,
+    );
+  }
+
+  /**
+   * Fused multi-relation "gate uber" accumulate kernel: evaluate N gate relations
+   * (each active on its own contiguous edge-pair band) in ONE dispatch, restoring
+   * GPU occupancy that the tiny per-relation band dispatches waste on a sparse
+   * (realistic) trace. The 6 shared partials are emitted ONCE; each gate's body is
+   * lifted verbatim from its standalone accumulate shader (so the per-edge arithmetic
+   * is byte-identical to the standalone golden), with every symbol it declares
+   * namespaced `${id}_…` and only its I/O retargeted: reads gather from a single
+   * concatenated column buffer at the gate's `numEdgesPrefix`, writes land COMPACTED
+   * in the gate's perEdge sub-region (so the existing reduce is reused unchanged), and
+   * params read a concatenated param buffer at the gate's `paramBase`. One thread per
+   * active pair across all gates; a per-thread prefix-sum search over the round's
+   * `cum_bound` picks the gate slot and the pair index `g = band_start[s] + offset`.
+   *
+   * Bit-identity: each thread runs exactly the standalone body for pair `g` of its
+   * gate, so summing each gate's compacted output over its band yields the same
+   * finalParts as the per-relation path (validated by suite_rounds skip-on==skip-off
+   * on REALISTIC_BAND, plus a structural body-equivalence check in the dev harness).
+   */
+  public gen_gate_uber_shader(workgroup_size: number, gates: GateUberGate[], direct = false): string {
+    if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
+      throw new Error(`gen_gate_uber_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
+    }
+    if (gates.length === 0) throw new Error('gen_gate_uber_shader: no gates');
+    const PSTART = 'struct Point {';
+    const fromPartials = (code: string): string => code.slice(code.indexOf(PSTART));
+    const lcp = (a: string, b: string): string => {
+      let i = 0; const n = Math.min(a.length, b.length);
+      while (i < n && a[i] === b[i]) i++;
+      return a.slice(0, i);
+    };
+    // The shared partials are the longest common prefix (from `struct Point {`) of two
+    // maximally-divergent relation shaders: arithmetic bakes consts immediately after
+    // the partials, ecc_op_queue goes straight to `struct Params` — so their first
+    // post-partials byte differs and the LCP is exactly the partials.
+    let partials = lcp(
+      fromPartials(this.gen_arithmetic_relation_test_shader(workgroup_size)),
+      fromPartials(this.gen_ecc_op_queue_relation_test_shader(workgroup_size)),
+    );
+    partials = partials.slice(0, partials.lastIndexOf('\n') + 1);
+    if (partials.includes('struct Params {')) {
+      throw new Error('gen_gate_uber_shader: partials boundary over-ran into relation code');
+    }
+
+    const declaredSymbols = (rel: string): string[] => {
+      const names = new Set<string>();
+      for (const re of [/^const\s+([A-Za-z_][A-Za-z0-9_]*)/gm, /^fn\s+([A-Za-z_][A-Za-z0-9_]*)/gm, /^struct\s+([A-Za-z_][A-Za-z0-9_]*)/gm]) {
+        for (const m of rel.matchAll(re)) names.add(m[1]);
+      }
+      return [...names].filter(s => s !== 'Params').sort((a, b) => b.length - a.length);
+    };
+
+    const fragments = gates.map((gate, slot) => {
+      const body = fromPartials(gate.standalone);
+      let rel = body.slice(partials.length);
+      // Drop the per-relation Params struct + binding declarations (the uber owns its own).
+      rel = rel.replace(/struct Params \{\n  n: u32,\n\}\n/, '');
+      rel = rel.replace(/@group\(0\) @binding\(\d+\) var<[^;]+;[^\n]*\n/g, '');
+      // Namespace every symbol this relation declares (whole-word; longest-first so a
+      // name that prefixes another can't partial-match). Renames declarations AND call
+      // sites uniformly; shared-partial names (Mono/Lag/mono_*/fr_*) are never declared
+      // here so they are untouched.
+      for (const s of declaredSymbols(rel)) rel = rel.replace(new RegExp(`\\b${s}\\b`, 'g'), `${gate.id}_${s}`);
+      // Retarget reads. 'direct' binds each gate's own resident col_buf (no concat, no
+      // per-round copy) — the gate reads gcol_${id} at the unchanged stride. 'concat'
+      // gathers from one shared buffer at this gate's numEdges prefix (needs a copy but
+      // only one storage binding). Both keep the column-major stride-2 access verbatim.
+      if (direct) {
+        rel = rel.replace(/col_buf\[base/g, `gcol_${gate.id}[base`);
+      } else {
+        rel = rel.replace(
+          'let base = ((j >> 1u) * col_len + 2u * row + (j & 1u)) * 8u;',
+          `let base = ((${gate.numEdgesPrefix}u + (j >> 1u)) * col_len + 2u * row + (j & 1u)) * 8u;`,
+        );
+        rel = rel.replace(/col_buf\[base/g, 'fused_col[base');
+      }
+      // Retarget writes to a COMPACTED perEdge slot at the gate's band base. The body
+      // calls write_eval with the pair index `g` (row := g below); localRow = g - band_start.
+      const weRe = new RegExp(`fn ${gate.id}_write_eval\\(row: u32, k: u32, v: array<u32, 8>\\) \\{[\\s\\S]*?\\n\\}`);
+      rel = rel.replace(weRe,
+        `fn ${gate.id}_write_eval(row: u32, k: u32, v: array<u32, 8>) {\n` +
+        `  let lr = row - band_start[${slot}u];\n` +
+        `  let base = (pe_base[${slot}u] + lr * ${gate.id}_OUT_LEN + k) * 8u;\n` +
+        `  for (var uw: u32 = 0u; uw < 8u; uw = uw + 1u) { perEdge[base + uw] = v[uw]; }\n}`);
+      // Retarget params (param-bearing gates) to the concatenated uber param buffer.
+      if (gate.hasParam) {
+        rel = rel.replace('let base = j * 8u;', `let base = (${gate.paramBase}u + j) * 8u;`);
+        rel = rel.replace(/param_buf\[base/g, 'uber_param[base');
+      }
+      // Convert the @compute entry into fn ${id}_body(g): row := g so reads use g,
+      // write_eval recovers the compacted localRow from g internally.
+      const entryRe = new RegExp(
+        `@compute @workgroup_size\\(${workgroup_size}\\)\\nfn ${gate.id}_${gate.entry}\\(@builtin\\(global_invocation_id\\) gid: vec3<u32>\\) \\{\\n  let row = gid\\.x;\\n  if \\(row >= params\\.n\\) \\{ return; \\}`);
+      rel = rel.replace(entryRe, `fn ${gate.id}_body(g: u32) {\n  let row = g;`);
+      return rel;
+    });
+
+    const n = gates.length;
+    const switchArms = gates.map((g, s) => `    case ${s}u: { ${g.id}_body(g); }`).join('\n');
+    // Binding layout. 'direct': one resident col_buf per gate at bindings 0..N-1, then
+    // the shared bindings shifted after. 'concat': a single fused_col at binding 0.
+    let b = 0;
+    const bindings = direct
+      ? gates.map(g => `@group(0) @binding(${b++}) var<storage, read> gcol_${g.id}: array<u32>;`).join('\n') + '\n' +
+        `@group(0) @binding(${b++}) var<storage, read_write> perEdge: array<u32>;\n` +
+        `@group(0) @binding(${b++}) var<uniform> params: Params;\n` +
+        `@group(0) @binding(${b++}) var<storage, read> scaling: array<u32>;\n` +
+        `@group(0) @binding(${b++}) var<storage, read> uber_param: array<u32>;\n` +
+        `@group(0) @binding(${b++}) var<storage, read> cum_bound: array<u32>;\n` +
+        `@group(0) @binding(${b++}) var<storage, read> band_start: array<u32>;\n` +
+        `@group(0) @binding(${b++}) var<storage, read> pe_base: array<u32>;`
+      : '@group(0) @binding(0) var<storage, read> fused_col: array<u32>;\n' +
+        '@group(0) @binding(1) var<storage, read_write> perEdge: array<u32>;\n' +
+        '@group(0) @binding(2) var<uniform> params: Params;\n' +
+        '@group(0) @binding(3) var<storage, read> scaling: array<u32>;\n' +
+        '@group(0) @binding(4) var<storage, read> uber_param: array<u32>;\n' +
+        '@group(0) @binding(5) var<storage, read> cum_bound: array<u32>;\n' +
+        '@group(0) @binding(6) var<storage, read> band_start: array<u32>;\n' +
+        '@group(0) @binding(7) var<storage, read> pe_base: array<u32>;';
+    return (
+      `${partials}\n` +
+      'struct Params {\n  n: u32,\n  gate_total: u32,\n}\n\n' +
+      `${bindings}\n\n` +
+      `${fragments.join('\n\n')}\n\n` +
+      `@compute @workgroup_size(${workgroup_size})\n` +
+      'fn gate_uber_main(@builtin(global_invocation_id) gid: vec3<u32>) {\n' +
+      '  let t = gid.x;\n' +
+      '  if (t >= params.gate_total) { return; }\n' +
+      '  var s: u32 = 0u;\n' +
+      '  loop {\n' +
+      `    if (s + 1u >= ${n}u) { break; }\n` +
+      '    if (t < cum_bound[s + 1u]) { break; }\n' +
+      '    s = s + 1u;\n' +
+      '  }\n' +
+      '  let g = band_start[s] + (t - cum_bound[s]);\n' +
+      '  switch (s) {\n' +
+      `${switchArms}\n` +
+      '    default: {}\n' +
+      '  }\n' +
+      '}\n'
     );
   }
 
