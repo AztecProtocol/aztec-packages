@@ -19,8 +19,12 @@ import { encodeColumnsToBytes } from './gpu_pipeline.js';
 import { runSingleSubmitSumcheck } from './single_submit.js';
 import { cpuReferenceUnivariates } from './cpu_reference.js';
 import {
+  buildInstance, usedRows, activeRowsByRel, bandByRel,
+  REALISTIC_BLOCK_PROFILE, REALISTIC_BAND_PROFILE, REALISTIC_SCATTERED_PROFILE,
+} from './sparsity.js';
+import {
   type Suite, type SuiteCtx,
-  mod, makeRng, packParams, fromMont, le32ToBi,
+  WG, mod, makeRng, packParams, fromMont, le32ToBi,
 } from './harness.js';
 
 const add = (a: bigint, b: bigint): bigint => mod(a + b);
@@ -122,6 +126,33 @@ async function run({ device, n, log }: SuiteCtx): Promise<boolean> {
   }
   log('ok', `  purported ✓  S^{d-1}(u_{d-1}) == batched relation at the folded point`);
   log('info', `    rounds=${d}  GPU ${gpu.gpuMs.toFixed(1)} ms · wall ${gpu.totalMs.toFixed(1)} ms · setup ${gpu.setupMs.toFixed(1)} ms`);
+
+  // (4) Skipping is a pure performance optimization for the single-submission engine
+  // too. On the SAME sparse instance, skip-ON (Tier 0 trim + Tier 1 per-edge skip) must
+  // produce bit-identical univariates AND GPU-derived Fiat-Shamir challenges to skip-OFF
+  // — the challenges are hashed from the univariates, so identical univariates each
+  // round force identical challenges, which keeps the next round identical.
+  for (const profile of [REALISTIC_BLOCK_PROFILE, REALISTIC_BAND_PROFILE, REALISTIC_SCATTERED_PROFILE]) {
+    const inst = buildInstance(n, profile, false);
+    const L = usedRows(profile, n);
+    const off = await runSingleSubmitSumcheck(device, n, alpha, betas, inst.relParamBytes, inst.initColBytes);
+    const on = await runSingleSubmitSumcheck(
+      device, n, alpha, betas, inst.relParamBytes, inst.initColBytes, undefined, WG, false, undefined, true, L, activeRowsByRel(profile, n), bandByRel(profile, n),
+    );
+    for (let i = 0; i < d; i++) {
+      if (off.challenges[i] !== on.challenges[i]) {
+        log('err', `  skip ✗  [${profile.name}] round ${i}: skip-off challenge ${off.challenges[i]} != skip-on ${on.challenges[i]}`);
+        return false;
+      }
+      for (let k = 0; k < off.univariates[i].length; k++) {
+        if (off.univariates[i][k] !== on.univariates[i][k]) {
+          log('err', `  skip ✗  [${profile.name}] round ${i} k=${k}: skip-off ${off.univariates[i][k]} != skip-on ${on.univariates[i][k]}`);
+          return false;
+        }
+      }
+    }
+    log('ok', `  skip ✓  [${profile.name}] skip-ON == skip-OFF univariates + GPU challenges (all ${d} rounds) · used ${L}/${n}`);
+  }
   return true;
 }
 

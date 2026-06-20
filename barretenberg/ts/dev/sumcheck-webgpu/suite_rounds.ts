@@ -28,8 +28,12 @@ import { fold as cpuFold } from '../../src/msm_webgpu/fold.js';
 import { ALL_RELATIONS } from './descriptors.js';
 import { runResidentGpuSumcheck, encodeColumnsToBytes } from './gpu_pipeline.js';
 import {
+  buildInstance, usedRows, activeRowsByRel, compactionPlan, bandByRel,
+  REALISTIC_BLOCK_PROFILE, REALISTIC_BAND_PROFILE, REALISTIC_SCATTERED_PROFILE,
+} from './sparsity.js';
+import {
   type Suite, type SuiteCtx, type RelationDescriptor,
-  mod, makeRng, packParams, fromMont, le32ToBi,
+  WG, mod, makeRng, packParams, fromMont, le32ToBi,
 } from './harness.js';
 
 const add = (a: bigint, b: bigint): bigint => mod(a + b);
@@ -149,6 +153,37 @@ async function run({ device, n, log }: SuiteCtx): Promise<boolean> {
   }
   log('ok', `  purported ✓  S^{d-1}(u_{d-1}) == batched relation at the folded point`);
   log('info', `    rounds=${d}  GPU dispatch ${gpu.gpuMs.toFixed(1)} ms · wall ${gpu.totalMs.toFixed(1)} ms`);
+
+  // (4) Skipping is a pure performance optimization. On the SAME sparse instance,
+  // skip-ON (Tier 0 effective-size trim + Tier 1 per-edge skip) must produce
+  // bit-identical round univariates to skip-OFF (full dense dispatch, no prelude).
+  // This holds exactly because an inactive row zeroes ALL of a relation's columns, so
+  // its contribution is exactly zero whether the row is skipped or fully computed —
+  // including permutation/logderiv, whose skip() predicate is only zero-implying on a
+  // real trace (see sparsity.ts). Run both block (whole-workgroup skip) and scattered
+  // (defeats per-edge skip, exercises only the effective-size trim) structures.
+  for (const profile of [REALISTIC_BLOCK_PROFILE, REALISTIC_BAND_PROFILE, REALISTIC_SCATTERED_PROFILE]) {
+    const inst = buildInstance(n, profile, false);
+    const L = usedRows(profile, n);
+    const off = await runResidentGpuSumcheck(device, n, alpha, betas, challenges, inst.relParamBytes, inst.initColBytes);
+    const on = await runResidentGpuSumcheck(
+      device, n, alpha, betas, challenges, inst.relParamBytes, inst.initColBytes, undefined, WG, false, undefined, true, L, activeRowsByRel(profile, n), compactionPlan(profile, n), bandByRel(profile, n),
+    );
+    for (let i = 0; i < d; i++) {
+      for (let k = 0; k < off.univariates[i].length; k++) {
+        if (off.univariates[i][k] !== on.univariates[i][k]) {
+          log('err', `  skip ✗  [${profile.name}] round ${i} k=${k}: skip-off ${off.univariates[i][k]} != skip-on ${on.univariates[i][k]}`);
+          return false;
+        }
+      }
+    }
+    const tel2 = checkTelescoping(on.univariates, on.challenges);
+    if (!tel2.ok) {
+      log('err', `  skip ✗  [${profile.name}] telescoping broke under skipping at round ${tel2.failures[0].round}`);
+      return false;
+    }
+    log('ok', `  skip ✓  [${profile.name}] skip-ON == skip-OFF (all ${d} rounds × 8 evals) + telescopes · used ${L}/${n}`);
+  }
   return true;
 }
 

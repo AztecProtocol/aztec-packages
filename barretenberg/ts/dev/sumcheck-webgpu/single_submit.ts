@@ -19,8 +19,10 @@
 
 import {
   makeFoldRunner, makeReduceRunner, makeScanRunner, makeGatherRunner, encodeColumnsToBytes,
+  injectSkipPrelude, injectBand, effPairsForRound,
   type FoldRunner, type ReduceRunner, type KernelRunner,
 } from './gpu_pipeline.js';
+import type { BandPlan } from './sparsity.js';
 import { buildBatchConsts } from './batch_gpu.js';
 import { poseidon2ConstBytes, POSEIDON2_IV_9, p2ParamsBytes } from './poseidon2_gpu.js';
 import { initWasm, runWasmSumcheck } from './bench.js';
@@ -112,8 +114,20 @@ export async function runSingleSubmitSumcheck(
   accWG: number = WG,
   profile = false,
   maxRounds?: number,
+  skip = false,
+  usedLen?: number,
+  usedLensByRel?: number[],
+  bands?: BandPlan,
 ): Promise<SingleSubmitResult> {
   const d = Math.round(Math.log2(n));
+  // Effective used length for Tier-0 trimming (default = n => no trim). Only consulted
+  // when `skip` is on; the column stride stays full `n` regardless. `usedLensByRel`
+  // (block sparsity) overrides this per relation in the round loop.
+  const effUsedLen = skip ? Math.max(2, Math.min(n, usedLen ?? n)) : n;
+  // Tier 1 prelude only for the global-dispatch skip path (scattered); per-relation
+  // prefix dispatch (`usedLensByRel`, block) dispatches exactly the active edges, so the
+  // prelude never fires — run the plain kernel (cache shared with dense). See gpu_pipeline.
+  const inject = skip && !usedLensByRel && !bands;
   // `maxRounds` (default d) stops the single-command-buffer run after that many
   // rounds and reads back the partially-folded columns (length 2^(d-rounds)) — the
   // GPU front of the single-submission hybrid, where the heavy early rounds run on
@@ -229,15 +243,18 @@ export async function runSingleSubmitSumcheck(
   const staging = create_readback_buffer(device, stagingBytes);
 
   // Cached accumulate pipeline per relation (col_buf, out, params, scaling, [param_buf]).
-  const accPipeline = async (desc: RelationDescriptor) => {
+  const accPipeline = async (desc: RelationDescriptor, band: boolean) => {
     const hasParams = relParamBufs[desc.relationIndex] !== undefined;
-    const key = `acc:${desc.entry}|${hasParams ? 5 : 4}|wg${accWG}`;
+    const mode = band ? 'band' : inject ? 'sk' : 'pl';
+    const key = `acc:${desc.entry}|${hasParams ? 5 : 4}|wg${accWG}|${mode}`;
     let p = relCache.get(key);
     if (!p) {
       const types = ['read-only-storage', 'storage', 'uniform', 'read-only-storage'];
       if (hasParams) types.push('read-only-storage');
       const layout = create_bind_group_layout(device, types);
-      const code = accWG === WG ? desc.shader() : desc.shader().replace(`@workgroup_size(${WG})`, `@workgroup_size(${accWG})`);
+      let code = accWG === WG ? desc.shader() : desc.shader().replace(`@workgroup_size(${WG})`, `@workgroup_size(${accWG})`);
+      if (band) code = injectBand(code, desc); // contiguous-band range dispatch (realistic trace)
+      else if (inject) code = injectSkipPrelude(code, desc); // Tier 1 per-edge skip early-out
       const pipeline = await create_compute_pipeline(device, [layout], code, desc.entry, desc.entry);
       p = { layout, pipeline };
       relCache.set(key, p);
@@ -258,26 +275,50 @@ export async function runSingleSubmitSumcheck(
   let curLen = n;
   for (let i = 0; i < rounds; i++) {
     const pairs = curLen >> 1;
-    const chunk = Math.max(1, Math.ceil(pairs / REDUCE_GROUPS));
-    const groups = Math.ceil(pairs / chunk);
+    // Tier 0, per relation: each relation accumulates/reduces only over ITS active prefix
+    // (round(density_r·L) edge-pairs); the folded zero tail contributes exactly zero,
+    // params.n = pairs stays the full column stride, and the full-length fold keeps the
+    // ping-pong tail consistent for the handoff. `effPairs` (global, densest relation)
+    // sizes only the shared gather. == pairs when dense/off.
+    const effPairs = effPairsForRound(effUsedLen, i, curLen);
 
     // Gather this round's per-pair edge scaling off the resident beta_products table:
     // scalScratch[p] = beta_products[p * 2^{i+1}]. Reused across rounds; the WAR hazard
     // (gather(i+1) write vs round i's accumulate reads) is auto-serialized in-encoder.
     const gBg = create_bind_group(device, gatherRunner.layout, [
-      betaMontBuf, scalScratch, create_and_write_ub(device, u32x4(pairs, 1 << (i + 1))),
+      betaMontBuf, scalScratch, create_and_write_ub(device, u32x4(effPairs, 1 << (i + 1))),
     ]);
-    await execute_pipeline(enc, gatherRunner.pipeline, gBg, Math.ceil(pairs / WG), 1, 1, profiler?.stage('gather'));
+    await execute_pipeline(enc, gatherRunner.pipeline, gBg, Math.ceil(effPairs / WG), 1, 1, profiler?.stage('gather'));
 
-    // accumulate + two-level reduce -> accBuf
+    // accumulate + two-level reduce -> accBuf. Each relation runs over its own active region:
+    // a contiguous band range (realistic trace) or its active prefix (Phase 1 / global).
+    // params.n = pairs (full column stride) is shared, so allocate that uniform once. With a
+    // band plan, a relation whose band is empty this round contributes nothing — pre-clear
+    // accBuf so its (skipped) slice stays zero before the batch kernel reads it.
+    const accParam = create_and_write_ub(device, u32x4(pairs));
+    if (bands) enc.clearBuffer(accBuf);
     for (const desc of ALL_RELATIONS) {
       const r = desc.relationIndex;
-      const acc = await accPipeline(desc);
-      const aBufs: GPUBuffer[] = [cur[r], perEdge, create_and_write_ub(device, u32x4(pairs)), scalScratch];
-      if (relParamBufs[r]) aBufs.push(relParamBufs[r]!);
-      await execute_pipeline(enc, acc.pipeline, create_bind_group(device, acc.layout, aBufs), Math.ceil(pairs / accWG), 1, 1, profiler?.stage('accumulate'));
+      const band = bands?.roundsByRel[r];
+      let dispatchPairs: number;
+      const aBufs: GPUBuffer[] = [cur[r], perEdge];
+      if (band) {
+        const { start, count } = band[i];
+        if (count === 0) continue; // empty band this round -> 0 contribution (accBuf pre-cleared)
+        dispatchPairs = count;
+        aBufs.push(create_and_write_ub(device, u32x4(pairs, count, start)), scalScratch);
+        if (relParamBufs[r]) aBufs.push(relParamBufs[r]!);
+      } else {
+        dispatchPairs = effPairsForRound(usedLensByRel ? Math.max(2, Math.min(n, usedLensByRel[r])) : effUsedLen, i, curLen);
+        aBufs.push(accParam, scalScratch);
+        if (relParamBufs[r]) aBufs.push(relParamBufs[r]!);
+      }
+      const chunk = Math.max(1, Math.ceil(dispatchPairs / REDUCE_GROUPS));
+      const groups = Math.ceil(dispatchPairs / chunk);
+      const acc = await accPipeline(desc, band !== undefined);
+      await execute_pipeline(enc, acc.pipeline, create_bind_group(device, acc.layout, aBufs), Math.ceil(dispatchPairs / accWG), 1, 1, profiler?.stage('accumulate'));
       const r1 = create_bind_group(device, reduceRunner.layout, [
-        perEdge, partsScratch, create_and_write_ub(device, u32x4(pairs, desc.outLen, chunk, 0)),
+        perEdge, partsScratch, create_and_write_ub(device, u32x4(dispatchPairs, desc.outLen, chunk, 0)),
       ]);
       await execute_pipeline(enc, reduceRunner.pipeline, r1, groups, 1, 1, profiler?.stage('reduce'));
       const r2 = create_bind_group(device, reduceRunner.layout, [
@@ -300,8 +341,11 @@ export async function runSingleSubmitSumcheck(
     for (const desc of ALL_RELATIONS) {
       const r = desc.relationIndex;
       const numOut = desc.numEdges * pairs;
+      // Full fold (band_count = pairs, band_start = 0): the ping-pong columns are reused, not
+      // freshly zero-initialized, so a band-trimmed fold would leave stale data outside the
+      // band and corrupt the GPU->WASM handoff. SS still gets the band accumulate dispatch.
       const fBg = create_bind_group(device, foldRunner.layout, [
-        cur[r], other[r], create_and_write_ub(device, u32x4(numOut, pairs)), uBuf,
+        cur[r], other[r], create_and_write_ub(device, u32x4(numOut, pairs, pairs, 0)), uBuf,
       ]);
       await execute_pipeline(enc, foldRunner.pipeline, fBg, Math.ceil(numOut / WG), 1, 1, profiler?.stage('fold'));
     }

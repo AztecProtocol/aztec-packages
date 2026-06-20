@@ -43,6 +43,8 @@ async function run({ device, n, log }: SuiteCtx): Promise<boolean> {
   const dv = new DataView(params.buffer);
   dv.setUint32(0, numOut, true);
   dv.setUint32(4, halfLen, true);
+  dv.setUint32(8, halfLen, true); // band_count = half_len (full fold)
+  dv.setUint32(12, 0, true); //      band_start = 0 (full fold)
   const bg = create_bind_group(device, layout, [
     inBuf, outBuf, create_and_write_ub(device, params), create_and_write_sb(device, packParams([u])),
   ]);

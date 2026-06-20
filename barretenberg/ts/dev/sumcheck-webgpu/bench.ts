@@ -13,13 +13,17 @@
 // whatever drives the page.
 
 import {
-  runResidentGpuSumcheck, encodeColumnsToBytes, makeFoldRunner, makeReduceRunner,
+  runResidentGpuSumcheck, makeFoldRunner, makeReduceRunner,
   type FoldRunner, type ReduceRunner,
 } from './gpu_pipeline.js';
 import { runSingleSubmitSumcheck, makeBatchRunner, makeTranscriptRunner } from './single_submit.js';
 import { cpuReferenceUnivariates } from './cpu_reference.js';
 import { ALL_RELATIONS } from './descriptors.js';
-import { type PipelineCache, type Logger, WG, makeRng, packParams } from './harness.js';
+import {
+  type CircuitProfile, DENSE_PROFILE, buildInstance, usedRows, activeRowsByRel, compactionPlan, bandByRel, profileIsSparse, densitiesBp,
+} from './sparsity.js';
+import { NUM_RELATIONS } from '../../src/msm_webgpu/accumulator.js';
+import { type PipelineCache, type Logger, WG, makeRng } from './harness.js';
 import { sumcheckRoundChallenge, SUMCHECK_TRANSCRIPT_SEED } from '../../src/msm_webgpu/cuzk/poseidon2_cpu.js';
 import { BufferTracker, type BufferAllocStats } from '../../src/msm_webgpu/cuzk/gpu.js';
 import { Barretenberg } from '../../src/barretenberg/index.js';
@@ -74,33 +78,50 @@ interface FullInputs {
   paramsByRel: bigint[][];
 }
 
-// Build the per-relation inputs for one size: random columns + fixed relation_parameters,
-// in BOTH the resident Montgomery-byte form (for the GPU) and the canonical bigint form
-// (for the CPU reference) — from the same draws, so the two are provably identical data.
-// Deterministic per (size, relation).
-function buildInputsFull(n: number): FullInputs {
-  const initColBytes: Uint8Array[] = [];
-  const relParamBytes: (Uint8Array | undefined)[] = [];
-  const initCols: bigint[][][] = [];
-  const paramsByRel: bigint[][] = [];
-  for (const desc of ALL_RELATIONS) {
-    const r = desc.relationIndex;
-    const rng = makeRng((desc.seed ^ 0x5151_5151_5151n) + BigInt(n));
-    const params = desc.makeParams ? desc.makeParams(rng) : [];
-    paramsByRel[r] = params;
-    relParamBytes[r] = desc.makeParams ? packParams(params) : undefined;
-    const cols = Array.from({ length: desc.numEdges }, () => Array.from({ length: n }, () => rng()));
-    initCols[r] = cols;
-    initColBytes[r] = encodeColumnsToBytes(cols, n);
-  }
-  return { initColBytes, relParamBytes, initCols, paramsByRel };
+// Build the per-relation inputs for one size under `profile` (default dense): random
+// columns + fixed relation_parameters, in BOTH the resident Montgomery-byte form (for
+// the GPU) and the canonical bigint form (for the CPU reference) — from the same draws,
+// so the two are provably identical data. The dense profile reproduces the original
+// fully-dense instance exactly; a sparse profile zeroes every inactive row's columns
+// (see sparsity.ts). Deterministic per (size, relation).
+function buildInputsFull(n: number, profile: CircuitProfile = DENSE_PROFILE): FullInputs {
+  const inst = buildInstance(n, profile, true);
+  return { initColBytes: inst.initColBytes, relParamBytes: inst.relParamBytes, initCols: inst.initCols, paramsByRel: inst.paramsByRel };
 }
 
 // GPU-only inputs (bytes). The bigint columns are materialized transiently and dropped,
 // so large sizes pay no bigint-retention cost.
-function buildInputs(n: number): { initColBytes: Uint8Array[]; relParamBytes: (Uint8Array | undefined)[] } {
-  const { initColBytes, relParamBytes } = buildInputsFull(n);
-  return { initColBytes, relParamBytes };
+function buildInputs(n: number, profile: CircuitProfile = DENSE_PROFILE): { initColBytes: Uint8Array[]; relParamBytes: (Uint8Array | undefined)[] } {
+  const inst = buildInstance(n, profile, false);
+  return { initColBytes: inst.initColBytes, relParamBytes: inst.relParamBytes };
+}
+
+// On-wire sparsity descriptor for the WASM SumcheckBench command. usedRows == n and all
+// densities 10000 (basis points) mean "dense" — the C++ side then runs exactly as before.
+export interface WasmSparsity { usedRows: number; structure: number; densities: number[] }
+
+function wasmSparsityFor(profile: CircuitProfile, logN: number): WasmSparsity {
+  const n = 1 << logN;
+  return {
+    usedRows: usedRows(profile, n),
+    structure: profile.structure === 'scattered' ? 1 : 0,
+    densities: densitiesBp(profile),
+  };
+}
+
+// Self-documenting annotation of the active sparsity profile, so a benchmark's rows are
+// interpretable (which instance produced these numbers). Emitted by the bench itself.
+function logProfile(log: Logger, profile: CircuitProfile, skip: boolean): void {
+  if (!skip) {
+    log('info', '  instance: dense (every relation active on every row) — skipping OFF');
+    return;
+  }
+  log(
+    'warn',
+    `  instance: ${profile.name}${profile.synthetic ? ' (SYNTHETIC)' : ''} — skipping ON · ` +
+      `used ${(profile.usedFraction * 100).toFixed(0)}% of rows · ${profile.structure}`,
+  );
+  log('info', `    per-relation density: ${ALL_RELATIONS.map(d => `${d.id} ${(profile.density[d.relationIndex] * 100).toFixed(0)}%`).join(', ')}`);
 }
 
 /**
@@ -131,10 +152,19 @@ export async function initWasm(log: Logger): Promise<WasmApi | null> {
  * `SumcheckBench` command. Returns the prover-reported ms, or null if the backend
  * is unavailable.
  */
-export async function runWasmSumcheck(api: WasmApi | null, logN: number): Promise<number | null> {
+export async function runWasmSumcheck(
+  api: WasmApi | null,
+  logN: number,
+  sparsity?: WasmSparsity,
+): Promise<number | null> {
   if (!api) return null;
+  // Always send the sparsity fields (the bbapi command requires them); default to a
+  // dense descriptor so the C++ side runs the original fully-dense instance unchanged.
+  const s = sparsity ?? { usedRows: 1 << logN, structure: 0, densities: new Array(NUM_RELATIONS).fill(10000) };
   try {
-    const { microseconds } = await api.sumcheckBench({ logN });
+    const { microseconds } = await api.sumcheckBench({
+      logN, usedRows: s.usedRows, structure: s.structure, densities: s.densities,
+    });
     return microseconds / 1000;
   } catch {
     return null;
@@ -388,32 +418,36 @@ export async function runMultiPassBenchmark(
   threshold: number,
   log: Logger,
   onRow?: (row: MultiPassRow) => void,
+  profile: CircuitProfile = DENSE_PROFILE,
 ): Promise<MultiPassRow[]> {
   const alpha = makeRng(0xb0_07_5eedn)();
   const cache: PipelineCache = new Map();
   const foldRunner: FoldRunner = await makeFoldRunner(device);
   const reduceRunner: ReduceRunner = await makeReduceRunner(device);
   const shared = { cache, foldRunner, reduceRunner };
+  const skip = profileIsSparse(profile);
+  logProfile(log, profile, skip);
   const wasm = await initWasm(log);
   if (wasm) log('info', '  WASM backend ready (bb.js threads)');
 
   // Warmup the GPU pipelines (compile every shader into the shared cache) at the
   // smallest size that actually uses the GPU, so per-size timing excludes compilation.
+  // Warm the SAME (skip vs non-skip) pipeline variant the timed runs use.
   const gpuSizes = logNs.filter(d => d > threshold);
   if (gpuSizes.length) {
     const wn = 1 << Math.min(...gpuSizes);
     const wd = Math.round(Math.log2(wn));
-    const warm = buildInputs(wn);
+    const warm = buildInputs(wn, profile);
     const wb = Array.from({ length: wd }, (_, i) => makeRng(0x1234n + BigInt(i))());
     const wc = Array.from({ length: wd }, (_, i) => makeRng(0x9999n + BigInt(i))());
-    await runResidentGpuSumcheck(device, wn, alpha, wb, wc, warm.relParamBytes, warm.initColBytes, shared);
+    await runResidentGpuSumcheck(device, wn, alpha, wb, wc, warm.relParamBytes, warm.initColBytes, shared, WG, false, undefined, skip, usedRows(profile, wn), activeRowsByRel(profile, wn), compactionPlan(profile, wn), bandByRel(profile, wn));
   }
 
   const rows: MultiPassRow[] = [];
   for (const logN of logNs) {
     const n = 1 << logN;
     const k = Math.max(0, logN - threshold);
-    const fullWasmMs = await runWasmSumcheck(wasm, logN);
+    const fullWasmMs = await runWasmSumcheck(wasm, logN, wasmSparsityFor(profile, logN));
 
     let gpuMs = 0;
     let handoffMs = 0;
@@ -426,13 +460,13 @@ export async function runMultiPassBenchmark(
     } else {
       const betas = Array.from({ length: logN }, (_, i) => makeRng(0xbe7a_77n + BigInt(i))());
       const challenges = Array.from({ length: logN }, (_, i) => makeRng(0xc4a1_77n + BigInt(i))());
-      const { initColBytes, relParamBytes } = buildInputs(n);
+      const { initColBytes, relParamBytes } = buildInputs(n, profile);
       const part = await runResidentGpuSumcheck(
-        device, n, alpha, betas, challenges, relParamBytes, initColBytes, shared, WG, false, k,
+        device, n, alpha, betas, challenges, relParamBytes, initColBytes, shared, WG, false, k, skip, usedRows(profile, n), activeRowsByRel(profile, n), compactionPlan(profile, n), bandByRel(profile, n),
       );
       gpuMs = part.totalMs;
       handoffMs = part.finalReadbackMs;
-      wasmTailMs = await runWasmSumcheck(wasm, logN - k);
+      wasmTailMs = await runWasmSumcheck(wasm, logN - k, wasmSparsityFor(profile, logN - k));
       multipassMs = wasmTailMs === null ? null : gpuMs + handoffMs + wasmTailMs;
     }
     const speedup =
@@ -497,6 +531,7 @@ export async function runSingleSubmitHybridBenchmark(
   threshold: number,
   log: Logger,
   onRow?: (row: SsHybridRow) => void,
+  profile: CircuitProfile = DENSE_PROFILE,
 ): Promise<SsHybridRow[]> {
   const alpha = makeRng(0xb0_07_5eedn)();
   const foldRunner: FoldRunner = await makeFoldRunner(device);
@@ -508,25 +543,28 @@ export async function runSingleSubmitHybridBenchmark(
     batch: await makeBatchRunner(device),
     transcript: await makeTranscriptRunner(device),
   };
+  const skip = profileIsSparse(profile);
+  logProfile(log, profile, skip);
   const wasm = await initWasm(log);
   if (wasm) log('info', '  WASM backend ready (bb.js threads)');
 
   // Warmup the FULL pipeline at the smallest GPU-using size (d > threshold) so every
   // shader (accumulate, reduce, batch, transcript, gate-separator scan/gather, fold)
-  // compiles into the cache and per-size timing excludes compilation.
+  // compiles into the cache and per-size timing excludes compilation. Warm the SAME
+  // (skip vs non-skip) pipeline variant the timed runs use.
   const gpuSizes = logNs.filter(d => d > threshold);
   if (gpuSizes.length) {
     const wn = 1 << Math.min(...gpuSizes);
-    const warm = buildInputs(wn);
+    const warm = buildInputs(wn, profile);
     const wb = Array.from({ length: Math.round(Math.log2(wn)) }, (_, i) => makeRng(0x1234n + BigInt(i))());
-    await runSingleSubmitSumcheck(device, wn, alpha, wb, warm.relParamBytes, warm.initColBytes, ssShared);
+    await runSingleSubmitSumcheck(device, wn, alpha, wb, warm.relParamBytes, warm.initColBytes, ssShared, WG, false, undefined, skip, usedRows(profile, wn), activeRowsByRel(profile, wn), bandByRel(profile, wn));
   }
 
   const rows: SsHybridRow[] = [];
   for (const logN of logNs) {
     const n = 1 << logN;
     const k = Math.max(0, logN - threshold);
-    const fullWasmMs = await runWasmSumcheck(wasm, logN);
+    const fullWasmMs = await runWasmSumcheck(wasm, logN, wasmSparsityFor(profile, logN));
 
     let setupMs = 0, gpuFrontMs = 0, handoffMs = 0;
     let wasmTailMs: number | null;
@@ -537,14 +575,14 @@ export async function runSingleSubmitHybridBenchmark(
       hybridMs = fullWasmMs;
     } else {
       const betas = Array.from({ length: logN }, (_, i) => makeRng(0xbe7a_77n + BigInt(i))());
-      const { initColBytes, relParamBytes } = buildInputs(n);
+      const { initColBytes, relParamBytes } = buildInputs(n, profile);
       const front = await runSingleSubmitSumcheck(
-        device, n, alpha, betas, relParamBytes, initColBytes, ssShared, WG, false, k,
+        device, n, alpha, betas, relParamBytes, initColBytes, ssShared, WG, false, k, skip, usedRows(profile, n), activeRowsByRel(profile, n), bandByRel(profile, n),
       );
       setupMs = front.setupMs;
       gpuFrontMs = front.totalMs;
       handoffMs = front.finalReadbackMs;
-      wasmTailMs = await runWasmSumcheck(wasm, logN - k);
+      wasmTailMs = await runWasmSumcheck(wasm, logN - k, wasmSparsityFor(profile, logN - k));
       hybridMs = wasmTailMs === null ? null : gpuFrontMs + handoffMs + wasmTailMs;
     }
     const speedup =
@@ -582,16 +620,22 @@ export interface MultiProfileData {
  * (the ceiling argument rests on accumulate dominating reduce + fold). Needs
  * timestamp-query (Chrome/Metal has it; logs a warning and returns null if absent).
  */
-export async function runProfile(device: GPUDevice, logN: number, log: Logger): Promise<MultiProfileData | null> {
+export async function runProfile(device: GPUDevice, logN: number, log: Logger, profile: CircuitProfile = DENSE_PROFILE): Promise<MultiProfileData | null> {
   const alpha = makeRng(0xb0_07_5eedn)();
   const cache: PipelineCache = new Map();
   const shared = { cache, foldRunner: await makeFoldRunner(device), reduceRunner: await makeReduceRunner(device) };
   const n = 1 << logN;
+  const skip = profileIsSparse(profile);
+  const usedLen = usedRows(profile, n);
+  logProfile(log, profile, skip);
   const betas = Array.from({ length: logN }, (_, i) => makeRng(0xbe7a_77n + BigInt(i))());
   const challenges = Array.from({ length: logN }, (_, i) => makeRng(0xc4a1_77n + BigInt(i))());
-  const { initColBytes, relParamBytes } = buildInputs(n);
-  await runResidentGpuSumcheck(device, n, alpha, betas, challenges, relParamBytes, initColBytes, shared, WG); // warmup/compile
-  const r = await runResidentGpuSumcheck(device, n, alpha, betas, challenges, relParamBytes, initColBytes, shared, WG, true);
+  const { initColBytes, relParamBytes } = buildInputs(n, profile);
+  const usedLensByRel = activeRowsByRel(profile, n);
+  const comp = compactionPlan(profile, n);
+  const bnd = bandByRel(profile, n);
+  await runResidentGpuSumcheck(device, n, alpha, betas, challenges, relParamBytes, initColBytes, shared, WG, false, undefined, skip, usedLen, usedLensByRel, comp, bnd); // warmup/compile
+  const r = await runResidentGpuSumcheck(device, n, alpha, betas, challenges, relParamBytes, initColBytes, shared, WG, true, undefined, skip, usedLen, usedLensByRel, comp, bnd);
 
   log('info', `  per-kernel GPU profile · round 0 · 2^${logN} (edges = ${n >> 1})`);
   if (!r.profile) { log('warn', '  timestamp-query unavailable — no per-kernel timing on this device.'); return null; }
@@ -632,7 +676,7 @@ export interface SsProfileData {
 }
 
 export async function runSingleSubmitProfile(
-  device: GPUDevice, logN: number, log: Logger, tailRounds = 0,
+  device: GPUDevice, logN: number, log: Logger, tailRounds = 0, profile: CircuitProfile = DENSE_PROFILE,
 ): Promise<SsProfileData | null> {
   const alpha = makeRng(0xb0_07_5eedn)();
   const ssShared = {
@@ -647,10 +691,15 @@ export async function runSingleSubmitProfile(
   // the last `tailRounds` reserved for the WASM tail (at least one round on the GPU).
   const gpuRounds = tailRounds > 0 ? Math.max(1, logN - tailRounds) : logN;
   const tail = logN - gpuRounds;
+  const skip = profileIsSparse(profile);
+  const usedLen = usedRows(profile, n);
+  logProfile(log, profile, skip);
   const betas = Array.from({ length: logN }, (_, i) => makeRng(0xbe7a_77n + BigInt(i))());
-  const { initColBytes, relParamBytes } = buildInputs(n);
-  await runSingleSubmitSumcheck(device, n, alpha, betas, relParamBytes, initColBytes, ssShared, WG, false, gpuRounds); // warmup/compile
-  const r = await runSingleSubmitSumcheck(device, n, alpha, betas, relParamBytes, initColBytes, ssShared, WG, true, gpuRounds);
+  const { initColBytes, relParamBytes } = buildInputs(n, profile);
+  const usedLensByRel = activeRowsByRel(profile, n);
+  const bnd = bandByRel(profile, n);
+  await runSingleSubmitSumcheck(device, n, alpha, betas, relParamBytes, initColBytes, ssShared, WG, false, gpuRounds, skip, usedLen, usedLensByRel, bnd); // warmup/compile
+  const r = await runSingleSubmitSumcheck(device, n, alpha, betas, relParamBytes, initColBytes, ssShared, WG, true, gpuRounds, skip, usedLen, usedLensByRel, bnd);
 
   const scope = tail > 0 ? `${gpuRounds} GPU rounds + ${tail} WASM tail` : `all ${logN} rounds`;
   log('info', `  single-submit per-kernel GPU profile · ${scope} · 2^${logN}`);
@@ -682,8 +731,8 @@ export async function runSingleSubmitProfile(
   let wasmTailMs: number | null = null;
   if (tail > 0) {
     const wasm = await initWasm(log);
-    wasmTailMs = await runWasmSumcheck(wasm, tail);
-    const fullWasmMs = await runWasmSumcheck(wasm, logN);
+    wasmTailMs = await runWasmSumcheck(wasm, tail, wasmSparsityFor(profile, tail));
+    const fullWasmMs = await runWasmSumcheck(wasm, logN, wasmSparsityFor(profile, logN));
     await wasm?.destroy();
     const hybridMs = wasmTailMs === null ? null : r.totalMs + r.finalReadbackMs + wasmTailMs;
     const speedup = hybridMs !== null && hybridMs > 0 && fullWasmMs !== null ? fullWasmMs / hybridMs : null;
@@ -737,6 +786,7 @@ export async function runE2EProfile(
   logN: number,
   tailRounds: number,
   log: Logger,
+  profile: CircuitProfile = DENSE_PROFILE,
 ): Promise<E2EProfileData> {
   const alpha = makeRng(0xb0_07_5eedn)();
   const n = 1 << logN;
@@ -744,9 +794,11 @@ export async function runE2EProfile(
   // Always at least one WASM tail round — this profiles the hybrid split only.
   const T = Math.max(1, Math.min(tailRounds, d - 1));
   const k = d - T; // GPU front rounds (>= 1)
+  const skip = profileIsSparse(profile);
+  const usedLen = usedRows(profile, n);
   const betas = Array.from({ length: logN }, (_, i) => makeRng(0xbe7a_77n + BigInt(i))());
   const challenges = Array.from({ length: logN }, (_, i) => makeRng(0xc4a1_77n + BigInt(i))());
-  const { initColBytes, relParamBytes } = buildInputs(n);
+  const { initColBytes, relParamBytes } = buildInputs(n, profile);
 
   const mpShared = {
     cache: new Map() as PipelineCache,
@@ -762,15 +814,19 @@ export async function runE2EProfile(
   };
   const wasm = await initWasm(log);
   if (wasm) log('info', '  WASM backend ready (bb.js threads)');
+  logProfile(log, profile, skip);
 
   // Warmup each engine at this size so per-stage timing excludes shader compilation.
-  await runResidentGpuSumcheck(device, n, alpha, betas, challenges, relParamBytes, initColBytes, mpShared, WG, false, k);
-  await runSingleSubmitSumcheck(device, n, alpha, betas, relParamBytes, initColBytes, ssShared, WG, false, k);
+  const usedLensByRel = activeRowsByRel(profile, n);
+  const comp = compactionPlan(profile, n);
+  const bnd = bandByRel(profile, n);
+  await runResidentGpuSumcheck(device, n, alpha, betas, challenges, relParamBytes, initColBytes, mpShared, WG, false, k, skip, usedLen, usedLensByRel, comp, bnd);
+  await runSingleSubmitSumcheck(device, n, alpha, betas, relParamBytes, initColBytes, ssShared, WG, false, k, skip, usedLen, usedLensByRel, bnd);
 
-  const ssRun = await runSingleSubmitSumcheck(device, n, alpha, betas, relParamBytes, initColBytes, ssShared, WG, false, k);
-  const mpRun = await runResidentGpuSumcheck(device, n, alpha, betas, challenges, relParamBytes, initColBytes, mpShared, WG, false, k);
-  const wasmTailMs = await runWasmSumcheck(wasm, T);
-  const fullWasmMs = await runWasmSumcheck(wasm, logN);
+  const ssRun = await runSingleSubmitSumcheck(device, n, alpha, betas, relParamBytes, initColBytes, ssShared, WG, false, k, skip, usedLen, usedLensByRel, bnd);
+  const mpRun = await runResidentGpuSumcheck(device, n, alpha, betas, challenges, relParamBytes, initColBytes, mpShared, WG, false, k, skip, usedLen, usedLensByRel, comp, bnd);
+  const wasmTailMs = await runWasmSumcheck(wasm, T, wasmSparsityFor(profile, T));
+  const fullWasmMs = await runWasmSumcheck(wasm, logN, wasmSparsityFor(profile, logN));
   await wasm?.destroy();
 
   const ss: EngineE2E = {

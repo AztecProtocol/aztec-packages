@@ -42,6 +42,14 @@ import {
   runMultiPassBenchmark, runSingleSubmitHybridBenchmark, runProfile, runSingleSubmitProfile,
   runProfileReport, runE2EProfile, runMemoryProfile, type MultiPassRow, type SsHybridRow,
 } from './bench.js';
+import { type CircuitProfile, DENSE_PROFILE, PROFILES } from './sparsity.js';
+
+// Resolve the active sparsity profile from a tab's skip checkbox + profile select:
+// unchecked => dense (skipping off, original behavior); checked => the chosen profile.
+function selectedProfile(skipEl: HTMLInputElement, profEl: HTMLSelectElement): CircuitProfile {
+  if (!skipEl.checked) return DENSE_PROFILE;
+  return PROFILES[profEl.value] ?? DENSE_PROFILE;
+}
 
 const REGISTRY: Suite[] = [
   frSuite, monoSuite, arithSuite, deltaSuite, eccSuite, pos2InitSuite,
@@ -141,6 +149,8 @@ const $benchMin = document.getElementById('bench-min') as HTMLInputElement;
 const $benchMax = document.getElementById('bench-max') as HTMLInputElement;
 const $thresh = document.getElementById('bench-thresh') as HTMLInputElement;
 const $threshVal = document.getElementById('bench-thresh-val') as HTMLSpanElement;
+const $benchSkip = document.getElementById('bench-skip') as HTMLInputElement;
+const $benchProfile = document.getElementById('bench-profile') as HTMLSelectElement;
 
 $thresh.addEventListener('input', () => { $threshVal.textContent = $thresh.value; });
 
@@ -185,13 +195,14 @@ $benchRun.addEventListener('click', () => void (async () => {
   const hi = Math.max(lo, Math.min(22, parseInt($benchMax.value, 10) || 18));
   const threshold = Math.max(2, Math.min(22, parseInt($thresh.value, 10) || 13));
   const logNs = Array.from({ length: hi - lo + 1 }, (_, i) => lo + i);
+  const profile = selectedProfile($benchSkip, $benchProfile);
   benchLog(
     'info',
     `sweeping 2^${lo} … 2^${hi}  ·  WASM fallback ≤ 2^${threshold}  ·  larger sizes fold their first (d−${threshold}) rounds on WebGPU`,
   );
   try {
     const device = await getDevice();
-    await runMultiPassBenchmark(device, logNs, threshold, benchLog, appendMultiPassRow);
+    await runMultiPassBenchmark(device, logNs, threshold, benchLog, appendMultiPassRow, profile);
     benchLog('ok', '✓ benchmark complete');
   } catch (e) {
     benchLog('err', `error: ${(e as Error).message}`);
@@ -213,6 +224,8 @@ const $sshMin = document.getElementById('ssh-min') as HTMLInputElement;
 const $sshMax = document.getElementById('ssh-max') as HTMLInputElement;
 const $sshThresh = document.getElementById('ssh-thresh') as HTMLInputElement;
 const $sshThreshVal = document.getElementById('ssh-thresh-val') as HTMLSpanElement;
+const $sshSkip = document.getElementById('ssh-skip') as HTMLInputElement;
+const $sshProfile = document.getElementById('ssh-profile') as HTMLSelectElement;
 
 $sshThresh.addEventListener('input', () => { $sshThreshVal.textContent = $sshThresh.value; });
 
@@ -252,11 +265,12 @@ $sshRun.addEventListener('click', () => void (async () => {
   const hi = Math.max(lo, Math.min(22, parseInt($sshMax.value, 10) || 18));
   const threshold = Math.max(2, Math.min(22, parseInt($sshThresh.value, 10) || 9));
   const logNs = Array.from({ length: hi - lo + 1 }, (_, i) => lo + i);
+  const profile = selectedProfile($sshSkip, $sshProfile);
   sshLog('info', `single-submission GPU front, last ${threshold} rounds on WASM · sweeping 2^${lo} … 2^${hi} · WASM fallback ≤ 2^${threshold}`);
   let ok = true;
   try {
     const device = await getDevice();
-    await runSingleSubmitHybridBenchmark(device, logNs, threshold, sshLog, appendSsHybridRow);
+    await runSingleSubmitHybridBenchmark(device, logNs, threshold, sshLog, appendSsHybridRow, profile);
     sshLog('ok', '✓ SS-hybrid benchmark complete');
   } catch (e) {
     ok = false;
@@ -274,6 +288,8 @@ $sshRun.addEventListener('click', () => void (async () => {
 // ===== Profile tab (per-kernel GPU timing) =====
 const $profileLog = document.getElementById('profile-log') as HTMLDivElement;
 const $profileLogn = document.getElementById('profile-logn') as HTMLInputElement;
+const $profileSkip = document.getElementById('profile-skip') as HTMLInputElement;
+const $profileProfile = document.getElementById('profile-profile') as HTMLSelectElement;
 const $profileRun = document.getElementById('profile-run') as HTMLButtonElement;
 const $ssprofileRun = document.getElementById('ssprofile-run') as HTMLButtonElement;
 const $ssprofileTailRun = document.getElementById('ssprofile-tail-run') as HTMLButtonElement;
@@ -320,21 +336,33 @@ async function runProfileTask(task: (device: GPUDevice) => Promise<void>): Promi
   }
 }
 
-$profileRun.addEventListener('click', () => void runProfileTask(async d => { await runProfile(d, profileLogN(), profileLog); }));
-$ssprofileRun.addEventListener('click', () => void runProfileTask(async d => { await runSingleSubmitProfile(d, profileLogN(), profileLog); }));
-$ssprofileTailRun.addEventListener('click', () => void runProfileTask(async d => { await runSingleSubmitProfile(d, profileLogN(), profileLog, profileTail()); }));
-$e2eRun.addEventListener('click', () => void runProfileTask(async d => { await runE2EProfile(d, profileLogN(), profileTail(), profileLog); }));
+$profileRun.addEventListener('click', () => void runProfileTask(async d => { await runProfile(d, profileLogN(), profileLog, selectedProfile($profileSkip, $profileProfile)); }));
+$ssprofileRun.addEventListener('click', () => void runProfileTask(async d => { await runSingleSubmitProfile(d, profileLogN(), profileLog, 0, selectedProfile($profileSkip, $profileProfile)); }));
+$ssprofileTailRun.addEventListener('click', () => void runProfileTask(async d => { await runSingleSubmitProfile(d, profileLogN(), profileLog, profileTail(), selectedProfile($profileSkip, $profileProfile)); }));
+$e2eRun.addEventListener('click', () => void runProfileTask(async d => { await runE2EProfile(d, profileLogN(), profileTail(), profileLog, selectedProfile($profileSkip, $profileProfile)); }));
 $memRun.addEventListener('click', () => void runProfileTask(async d => { await runMemoryProfile(d, profileLogN(), profileLog); }));
 $profilereportRun.addEventListener('click', () => void runProfileTask(d => runProfileReport(d, profileLog)));
 
 // Autorun: ?autorun=bench | profile | ssprofile | profilereport | all | <suite id>
 const autorun = new URLSearchParams(window.location.search).get('autorun');
+// `?skip=1` enables realistic sparsity; `?profile=realistic-block|realistic-scattered`
+// picks the instance (default realistic-block). Lets the headless driver exercise the
+// skip path on both tabs.
+function applySkipParams(params: URLSearchParams, skipEl: HTMLInputElement, profEl: HTMLSelectElement): void {
+  const skipParam = params.get('skip');
+  if (skipParam && skipParam !== '0' && skipParam !== 'false') skipEl.checked = true;
+  const profParam = params.get('profile');
+  if (profParam) profEl.value = profParam;
+}
+
 if (autorun === 'bench') {
   (document.getElementById('tab-btn-bench') as HTMLButtonElement).click();
   // Let `?logn=N` (LOGN=N via drive.mjs) raise the sweep's upper bound, e.g. to probe
   // 2^17+ where the GPU front carries more rounds before the WASM tail.
-  const lognParam = new URLSearchParams(window.location.search).get('logn');
+  const params = new URLSearchParams(window.location.search);
+  const lognParam = params.get('logn');
   if (lognParam) $benchMax.value = lognParam;
+  applySkipParams(params, $benchSkip, $benchProfile);
   $benchRun.click();
 } else if (autorun === 'sshybrid') {
   (document.getElementById('tab-btn-sshybrid') as HTMLButtonElement).click();
@@ -344,6 +372,7 @@ if (autorun === 'bench') {
   if (lognParam) $sshMax.value = lognParam;
   const tParam = params.get('t');
   if (tParam) { $sshThresh.value = tParam; $sshThreshVal.textContent = tParam; }
+  applySkipParams(params, $sshSkip, $sshProfile);
   $sshRun.click();
 } else if (
   autorun === 'profile' || autorun === 'ssprofile' || autorun === 'ssprofiletail' ||
@@ -357,6 +386,7 @@ if (autorun === 'bench') {
   if (lognParam) $profileLogn.value = lognParam;
   const tParam = params.get('t');
   if (tParam) $ssprofileTail.value = tParam;
+  applySkipParams(params, $profileSkip, $profileProfile);
   if (autorun === 'profile') $profileRun.click();
   else if (autorun === 'ssprofile') $ssprofileRun.click();
   else if (autorun === 'ssprofiletail') $ssprofileTailRun.click();

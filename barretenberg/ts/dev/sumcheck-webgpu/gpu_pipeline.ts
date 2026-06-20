@@ -27,6 +27,7 @@ import {
   type PipelineCache, type RelationDescriptor,
   WG, sm, mod, packParams, toMont, fromMont, writeLe32, le32ToBi,
 } from './harness.js';
+import type { CompactionPlan, BandPlan } from './sparsity.js';
 
 const REDUCE_WG = 128; // >= largest relation out_len (90)
 const REDUCE_GROUPS = 64;
@@ -73,6 +74,118 @@ function u32x4(a: number, b = 0, c = 0, d = 0): Uint8Array {
   const dv = new DataView(out.buffer);
   dv.setUint32(0, a, true); dv.setUint32(4, b, true); dv.setUint32(8, c, true); dv.setUint32(12, d, true);
   return out;
+}
+
+const ZERO8_WGSL = 'array<u32, 8>(0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u)';
+
+/**
+ * Inject a relation's skip predicate (Tier 1) into its generated accumulate WGSL: a
+ * per-edge early-out that mirrors C++ `Relation::skip()`. Each thread tests its own
+ * edge-pair's selector via the existing `ld(row, j)` accessor (an entity column c's two
+ * edge evals are `ld(row, 2c)` and `ld(row, 2c+1)`); Montgomery 0 is all-zero bytes, so
+ * the test is `is_zero_f8` (no fromMont). On a skipped edge the prelude writes OUT_LEN
+ * zeros and returns — the zero-write is REQUIRED because the reduce sums over every
+ * edge slot and the per-edge scratch is reused across relations, so a skipped slot must
+ * not carry stale data. For block-contiguous sparsity an entire workgroup of inactive
+ * edges takes this cheap branch uniformly (no divergence); scattered sparsity diverges,
+ * which is why it is the worst case. Inserted after the `row >= params.n` guard so
+ * out-of-range threads are unaffected; the column stride (`ld`) is unchanged.
+ */
+export function injectSkipPrelude(code: string, desc: RelationDescriptor): string {
+  const guard = 'if (row >= params.n) { return; }';
+  if (!code.includes(guard)) throw new Error(`injectSkipPrelude: guard not found in ${desc.entry}`);
+  // WGSL reserves the `__` identifier prefix, so injected names use `sk_`.
+  const sk = desc.skip;
+  let pred: string;
+  let out = code;
+  if (sk.kind === 'allZero') {
+    pred = sk.cols.map(c => `is_zero_f8(ld(row, ${2 * c}u)) && is_zero_f8(ld(row, ${2 * c + 1}u))`).join(' && ');
+  } else {
+    const [a, b] = sk.cols;
+    pred = `sk_eq8(ld(row, ${2 * a}u), ld(row, ${2 * b}u)) && sk_eq8(ld(row, ${2 * a + 1}u), ld(row, ${2 * b + 1}u))`;
+    // eqPair needs a byte-equality helper; declare it before the (single) compute entry.
+    const helper =
+      'fn sk_eq8(a: array<u32, 8>, b: array<u32, 8>) -> bool {\n' +
+      '  return a[0] == b[0] && a[1] == b[1] && a[2] == b[2] && a[3] == b[3] && a[4] == b[4] && a[5] == b[5] && a[6] == b[6] && a[7] == b[7];\n' +
+      '}\n';
+    out = out.replace('@compute', helper + '@compute');
+  }
+  const prelude =
+    `\n  if (${pred}) {\n` +
+    `    let sk_zero8 = ${ZERO8_WGSL};\n` +
+    '    for (var sk_k: u32 = 0u; sk_k < OUT_LEN; sk_k = sk_k + 1u) { write_eval(row, sk_k, sk_zero8); }\n' +
+    '    return;\n' +
+    '  }';
+  return out.replace(guard, guard + prelude);
+}
+
+/**
+ * Inject active-edge compaction (Phase 2) into a relation's generated accumulate WGSL:
+ * each thread handles one ACTIVE edge-pair, gathered from a precomputed dense index list,
+ * instead of one grid position + a per-edge skip test. Reads stay indexed by the gathered
+ * pair `row`, so the columns AND the gate-separator scaling — both read via `ld(row, ·)` —
+ * are gathered for free; only the OUTPUT is redirected to the compacted slot `sk_t`, so the
+ * reduce sums a dense `[0, count)` range. This removes the SIMD divergence that neuters
+ * per-edge skip on scattered instances (no inactive lane is ever dispatched). The thread
+ * bound becomes `params.sk_active` (the round's active count); `params.n` (= pairs, the
+ * full column stride that `ld` uses) is unchanged. Mutually exclusive with injectSkipPrelude.
+ */
+export function injectCompaction(code: string, desc: RelationDescriptor, hasParams: boolean): string {
+  const ldSig = 'fn ld(row: u32, j: u32) -> array<u32, 8> {';
+  const guard = 'if (row >= params.n) { return; }';
+  if (!code.includes(ldSig) || !code.includes(guard)) throw new Error(`injectCompaction: anchors not found in ${desc.entry}`);
+  const idxBinding = hasParams ? 5 : 4; // sk_active_idx after param_buf(4) or scaling(3) — must match the engine's bind-group layout
+  let out = code;
+  out = out.replace('@compute', `@group(0) @binding(${idxBinding}) var<storage, read> sk_active_idx: array<u32>;\n@compute`);
+  // Round's active count + base offset into the index list.
+  out = out.replace('struct Params {\n  n: u32,\n}', 'struct Params {\n  n: u32,\n  sk_active: u32,\n  sk_base: u32,\n}');
+  // Thread bound is the compacted active count; `row` (= gid.x) stays the COMPACTED slot, so
+  // writes (write_eval(row, ·), incl. those inside per-relation output helpers) land in a
+  // dense [0, sk_active) range that the reduce sums unchanged.
+  out = out.replace(guard, 'if (row >= params.sk_active) { return; }');
+  // Only the READ path is gathered: `ld` maps the compacted `row` to its active edge-pair `g`,
+  // so both the column reads (2u*g) and the gate-separator scaling (g*8u, the else branch) pull
+  // the active pair. `params.n` (= pairs, the column stride in col_len) is unchanged.
+  out = out.replace(ldSig, ldSig + '\n  let g = sk_active_idx[params.sk_base + row];');
+  out = out.replace('2u * row + (j & 1u)', '2u * g + (j & 1u)');
+  out = out.replace('let base = row * 8u;', 'let base = g * 8u;');
+  return out;
+}
+
+/**
+ * Inject a contiguous-band range dispatch (the realistic trace layout: each relation occupies
+ * one block at an OFFSET). Identical to injectCompaction except the gathered pair is computed
+ * by ARITHMETIC — `g = sk_start + row` — instead of an index buffer: a real block is contiguous,
+ * so consecutive threads read consecutive rows (coalesced) and no index list is needed. The
+ * thread bound is `params.sk_count`; `row` (= gid.x) stays the compacted write slot, so the reduce
+ * reads a dense [0, count). `params.n` (= pairs, column stride) is unchanged. Adds NO binding, so
+ * the bind-group layout is the plain one. Subsumes Phase 1's prefix dispatch (offset 0).
+ */
+export function injectBand(code: string, desc: RelationDescriptor): string {
+  const ldSig = 'fn ld(row: u32, j: u32) -> array<u32, 8> {';
+  const guard = 'if (row >= params.n) { return; }';
+  if (!code.includes(ldSig) || !code.includes(guard)) throw new Error(`injectBand: anchors not found in ${desc.entry}`);
+  let out = code;
+  out = out.replace('struct Params {\n  n: u32,\n}', 'struct Params {\n  n: u32,\n  sk_count: u32,\n  sk_start: u32,\n}');
+  out = out.replace(guard, 'if (row >= params.sk_count) { return; }');
+  out = out.replace(ldSig, ldSig + '\n  let g = params.sk_start + row;');
+  out = out.replace('2u * row + (j & 1u)', '2u * g + (j & 1u)');
+  out = out.replace('let base = row * 8u;', 'let base = g * 8u;');
+  return out;
+}
+
+/**
+ * Active edge-pairs to accumulate this round under effective-size trimming (Tier 0,
+ * mirrors `compute_effective_round_size`). After `round` folds, only the first
+ * ceil(usedLen / 2^round) rows can be nonzero; the rest are the folded zero tail and
+ * contribute exactly zero, so the accumulate/reduce/gather are trimmed to them. The
+ * column stride (params.n = full `pairs`) is unchanged — this is purely a smaller
+ * dispatch. Dense (usedLen == n) yields effPairs == pairs (no trim).
+ */
+export function effPairsForRound(usedLen: number, round: number, curLen: number): number {
+  const usedThisRound = Math.ceil(usedLen / 2 ** round);
+  const effLen = Math.min(curLen, usedThisRound + (usedThisRound & 1));
+  return Math.max(1, effLen >> 1);
 }
 
 export interface ResidentSumcheckResult {
@@ -131,9 +244,27 @@ export async function runResidentGpuSumcheck(
   accWG: number = WG,
   profile = false,
   maxRounds?: number,
+  skip = false,
+  usedLen?: number,
+  usedLensByRel?: number[],
+  compaction?: CompactionPlan,
+  bands?: BandPlan,
 ): Promise<ResidentSumcheckResult> {
   const d = Math.round(Math.log2(n));
   const rounds = Math.max(1, Math.min(maxRounds ?? d, d));
+  // Effective used length for Tier-0 trimming (default = n => no trim). Only consulted
+  // when `skip` is on; the column stride stays full `n` regardless. `usedLensByRel`
+  // (block sparsity) overrides this per relation in the accumulate loop.
+  const effUsedLen = skip ? Math.max(2, Math.min(n, usedLen ?? n)) : n;
+  // Tier 1 (per-edge skip prelude) is needed only for the global-dispatch skip path
+  // (scattered): there the dispatched grid still straddles inactive edges. With
+  // per-relation prefix dispatch (`usedLensByRel`, block) the dispatched edges are
+  // exactly the active ones, so the prelude would never fire — drop it and run the plain
+  // kernel (no per-edge selector read/branch, and the cache is shared with dense runs).
+  // Compaction (Phase 2, scattered) replaces the per-edge skip for the relations it covers:
+  // each thread handles one ACTIVE pair gathered from a precomputed index list, so Tier 1 is
+  // off for those and the global-skip prelude is off entirely when a compaction plan is given.
+  const inject = skip && !usedLensByRel && !compaction && !bands;
   const relCache: PipelineCache = shared?.cache ?? new Map();
   const foldRunner = shared?.foldRunner ?? (await makeFoldRunner(device));
   const reduceRunner = shared?.reduceRunner ?? (await makeReduceRunner(device));
@@ -155,6 +286,19 @@ export async function runResidentGpuSumcheck(
     if (rp) { setAllocCategory('relparams'); relParamBufs[r] = create_and_write_sb(device, rp); }
     setAllocCategory('columns');
     colBuf[r] = create_and_write_sb(device, initColBytes[r]);
+  }
+
+  // Per-relation active-pair index lists (compaction): uploaded once, sliced per round by
+  // (base, count). Only the relations the plan covers (density < 1) get a buffer.
+  const activeIdxBuf: (GPUBuffer | undefined)[] = new Array(NUM_RELATIONS).fill(undefined);
+  if (compaction) {
+    setAllocCategory('scratch');
+    for (const desc of ALL_RELATIONS) {
+      const idx = compaction.idxByRel[desc.relationIndex];
+      if (idx && idx.length > 0) {
+        activeIdxBuf[desc.relationIndex] = create_and_write_sb(device, new Uint8Array(idx.buffer, idx.byteOffset, idx.byteLength));
+      }
+    }
   }
 
   // Scratch buffers sized for round 0, reused for every relation and round.
@@ -216,17 +360,22 @@ export async function runResidentGpuSumcheck(
   // out_buf (per-edge output), params, scaling, and param_buf for the four
   // parameter-bearing relations — the accumulate kernel gathers edges from the
   // resident columns itself, so there is no separate gather pass / edge buffer.
-  const accPipeline = async (desc: RelationDescriptor) => {
+  type AccMode = 'comp' | 'band' | 'sk' | 'pl';
+  const accPipeline = async (desc: RelationDescriptor, mode: AccMode) => {
     const hasParams = relParamBufs[desc.relationIndex] !== undefined;
-    const key = `acc:${desc.entry}|${hasParams ? 5 : 4}|wg${accWG}`;
+    const key = `acc:${desc.entry}|${hasParams ? 5 : 4}|wg${accWG}|${mode}`;
     let p = relCache.get(key);
     if (!p) {
       const types = ['read-only-storage', 'storage', 'uniform', 'read-only-storage'];
       if (hasParams) types.push('read-only-storage');
+      if (mode === 'comp') types.push('read-only-storage'); // sk_active_idx (band/sk/pl add no binding)
       const layout = create_bind_group_layout(device, types);
       // The relation shaders render at the global WG; retarget only the accumulate
       // kernel's workgroup size so the benchmark can sweep occupancy in isolation.
-      const code = accWG === WG ? desc.shader() : desc.shader().replace(`@workgroup_size(${WG})`, `@workgroup_size(${accWG})`);
+      let code = accWG === WG ? desc.shader() : desc.shader().replace(`@workgroup_size(${WG})`, `@workgroup_size(${accWG})`);
+      if (mode === 'comp') code = injectCompaction(code, desc, hasParams); // Phase 2 active-edge gather (scattered)
+      else if (mode === 'band') code = injectBand(code, desc); // contiguous-band range dispatch (realistic)
+      else if (mode === 'sk') code = injectSkipPrelude(code, desc); // Tier 1 per-edge skip early-out
       const pipeline = await create_compute_pipeline(device, [layout], code, desc.entry, desc.entry);
       p = { layout, pipeline };
       relCache.set(key, p);
@@ -244,8 +393,12 @@ export async function runResidentGpuSumcheck(
     accumulate: async (_round, gs) => {
       const m = curLen;
       const pairs = m >> 1;
-      const chunk = Math.max(1, Math.ceil(pairs / REDUCE_GROUPS));
-      const groups = Math.ceil(pairs / chunk);
+      // Tier 0, per relation: each relation accumulates/reduces only over ITS active
+      // prefix (round(density_r·L) edge-pairs) — a 1%-active relation launches a 1% grid.
+      // The folded zero tail contributes exactly zero; params.n stays = pairs (the full
+      // column stride), so this is purely a smaller dispatch. `effPairs` (global, the
+      // densest relation) sizes only the shared gather below; == pairs when dense/off.
+      const effPairs = effPairsForRound(effUsedLen, _round, m);
 
       const enc = device.createCommandEncoder();
       // Gather this round's per-pair edge scaling off the resident beta_products
@@ -254,22 +407,53 @@ export async function runResidentGpuSumcheck(
       // work is encoding this one GPU copy, so scalingMs collapses toward 0.
       const ts = performance.now();
       const gBg = create_bind_group(device, gatherRunner.layout, [
-        betaMontBuf, scalScratch, create_and_write_ub(device, u32x4(pairs, gs.periodicity)),
+        betaMontBuf, scalScratch, create_and_write_ub(device, u32x4(effPairs, gs.periodicity)),
       ]);
-      await execute_pipeline(enc, gatherRunner.pipeline, gBg, Math.ceil(pairs / WG), 1, 1, prof(_round, 'gather'));
+      await execute_pipeline(enc, gatherRunner.pipeline, gBg, Math.ceil(effPairs / WG), 1, 1, prof(_round, 'gather'));
       scalingMs += performance.now() - ts;
 
+      // The accumulate uniform (params.n = pairs = full column stride) is identical for the
+      // non-compacted relations; allocate it once. With a compaction plan, a relation with
+      // zero active pairs this round contributes nothing — pre-clear finalParts so its
+      // (skipped) slice stays zero rather than holding the prior round's value.
+      const accParam = create_and_write_ub(device, u32x4(pairs));
+      if (compaction || bands) enc.clearBuffer(finalParts);
       for (const desc of ALL_RELATIONS) {
         const r = desc.relationIndex;
-        // accumulate: gather edges from resident columns + scaling -> per-edge output (perEdge)
-        const acc = await accPipeline(desc);
-        const aBufs: GPUBuffer[] = [colBuf[r], perEdge, create_and_write_ub(device, u32x4(pairs)), scalScratch];
-        if (relParamBufs[r]) aBufs.push(relParamBufs[r]!);
+        const compIdx = activeIdxBuf[r];
+        const band = bands?.roundsByRel[r];
+        const mode: AccMode = compIdx ? 'comp' : band ? 'band' : inject ? 'sk' : 'pl';
+        // Edge-pairs this relation contributes to this round: a gathered active count
+        // (compaction, scattered), a contiguous band range (realistic trace), its own active
+        // prefix (Phase 1), or the global used prefix. params.n stays = pairs (column stride).
+        let dispatchPairs: number;
+        const aBufs: GPUBuffer[] = [colBuf[r], perEdge];
+        if (mode === 'comp') {
+          const { base, count } = compaction!.roundsByRel[r]![_round];
+          if (count === 0) continue; // no active pairs -> 0 contribution (finalParts pre-cleared)
+          dispatchPairs = count;
+          aBufs.push(create_and_write_ub(device, u32x4(pairs, count, base)), scalScratch);
+          if (relParamBufs[r]) aBufs.push(relParamBufs[r]!);
+          aBufs.push(compIdx!); // sk_active_idx (gathered pair indices; defined when mode === 'comp')
+        } else if (mode === 'band') {
+          const { start, count } = band![_round];
+          if (count === 0) continue; // empty band this round -> 0 contribution (finalParts pre-cleared)
+          dispatchPairs = count;
+          aBufs.push(create_and_write_ub(device, u32x4(pairs, count, start)), scalScratch);
+          if (relParamBufs[r]) aBufs.push(relParamBufs[r]!);
+        } else {
+          dispatchPairs = effPairsForRound(usedLensByRel ? Math.max(2, Math.min(n, usedLensByRel[r])) : effUsedLen, _round, m);
+          aBufs.push(accParam, scalScratch);
+          if (relParamBufs[r]) aBufs.push(relParamBufs[r]!);
+        }
+        const chunk = Math.max(1, Math.ceil(dispatchPairs / REDUCE_GROUPS));
+        const groups = Math.ceil(dispatchPairs / chunk);
+        const acc = await accPipeline(desc, mode);
         const aBg = create_bind_group(device, acc.layout, aBufs);
-        await execute_pipeline(enc, acc.pipeline, aBg, Math.ceil(pairs / accWG), 1, 1, prof(_round, `acc:${desc.id}`));
+        await execute_pipeline(enc, acc.pipeline, aBg, Math.ceil(dispatchPairs / accWG), 1, 1, prof(_round, `acc:${desc.id}`));
         // reduce pass 1: per-edge output -> up to `groups` partials per column (partsScratch, offset 0)
         const r1 = create_bind_group(device, reduceRunner.layout, [
-          perEdge, partsScratch, create_and_write_ub(device, u32x4(pairs, desc.outLen, chunk, 0)),
+          perEdge, partsScratch, create_and_write_ub(device, u32x4(dispatchPairs, desc.outLen, chunk, 0)),
         ]);
         await execute_pipeline(enc, reduceRunner.pipeline, r1, groups, 1, 1, prof(_round, `r1:${desc.id}`));
         // reduce pass 2: those `groups` partials -> ONE Fr per column, into finalParts at finalBase[r]
@@ -311,12 +495,20 @@ export async function runResidentGpuSumcheck(
       setAllocCategory('columns');
       for (const desc of ALL_RELATIONS) {
         const r = desc.relationIndex;
-        const numOut = desc.numEdges * half;
-        const nb = create_sb(device, numOut * 32);
-        const fBg = create_bind_group(device, foldRunner.layout, [
-          colBuf[r], nb, create_and_write_ub(device, u32x4(numOut, half)), uBuf,
-        ]);
-        await execute_pipeline(enc, foldRunner.pipeline, fBg, Math.ceil(numOut / WG), 1, 1, prof(_round, `fold:${desc.id}`));
+        // New column is always full-size + zero-initialized; a band fold writes only its
+        // active sub-range [start, start+count) of each column (the rest stays the folded
+        // zero tail). The fold-output band equals this round's accumulate band.
+        const nb = create_sb(device, desc.numEdges * half * 32);
+        const fb = bands?.roundsByRel[r]?.[_round];
+        const bandStart = fb ? fb.start : 0;
+        const bandCount = fb ? fb.count : half;
+        if (bandCount > 0) {
+          const numOut = desc.numEdges * bandCount;
+          const fBg = create_bind_group(device, foldRunner.layout, [
+            colBuf[r], nb, create_and_write_ub(device, u32x4(numOut, half, bandCount, bandStart)), uBuf,
+          ]);
+          await execute_pipeline(enc, foldRunner.pipeline, fBg, Math.ceil(numOut / WG), 1, 1, prof(_round, `fold:${desc.id}`));
+        }
         newCol[r] = nb;
       }
       // Round 0 is the only profiled round; resolve its query set into this encoder

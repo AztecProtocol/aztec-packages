@@ -15,8 +15,10 @@
 {{> field8_funcs }}
 
 struct Params {
-  num_out: u32,  // total output elements = num_cols * half_len
-  half_len: u32, // output length per column = len / 2
+  num_out: u32,    // total dispatched output elements = num_cols * band_count
+  half_len: u32,   // output length per column = len / 2 (out_buf column stride)
+  band_count: u32, // output rows written per column this round (== half_len for a full fold)
+  band_start: u32, // first output row per column (== 0 for a full fold)
 }
 
 @group(0) @binding(0) var<storage, read> in_buf: array<u32>;
@@ -43,8 +45,12 @@ fn st(idx: u32, v: array<u32, 8>) {
 fn fold_main(@builtin(global_invocation_id) gid: vec3<u32>) {
   let o = gid.x;
   if (o >= params.num_out) { return; }
-  let c = o / params.half_len;
-  let k = o % params.half_len;
+  // One thread = one OUTPUT row of one column. For a full fold band_count == half_len and
+  // band_start == 0, so k == o % half_len and the write index is o (the original behavior).
+  // For a band fold (realistic trace), only [band_start, band_start+band_count) of each
+  // column is written; the rest of the freshly-allocated (zero-initialized) column stays 0.
+  let c = o / params.band_count;
+  let k = params.band_start + (o % params.band_count);
   let base = c * params.half_len * 2u; // start of column c (len = 2 * half_len)
   let a = ld(base + 2u * k);
   let b = ld(base + 2u * k + 1u);
@@ -52,5 +58,5 @@ fn fold_main(@builtin(global_invocation_id) gid: vec3<u32>) {
 {{#f8_words}}
   u[{{i}}] = challenge[{{i}}u];
 {{/f8_words}}
-  st(o, fr_add_f8(a, montgomery_product_f8(u, fr_sub_f8(b, a))));
+  st(c * params.half_len + k, fr_add_f8(a, montgomery_product_f8(u, fr_sub_f8(b, a))));
 }

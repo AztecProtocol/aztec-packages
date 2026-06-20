@@ -58,6 +58,12 @@
         border-radius: 6px; color: var(--text); font-size: 0.85rem; font-family: ui-monospace, monospace; text-align: center;
       }
       input[type="number"]:focus, input[type="range"]:focus { outline: none; border-color: var(--accent); }
+      select {
+        padding: 0.3rem 0.5rem; background: var(--panel-2); border: 1px solid var(--border);
+        border-radius: 6px; color: var(--text); font-size: 0.85rem; font-family: ui-monospace, monospace;
+      }
+      select:focus { outline: none; border-color: var(--accent); }
+      input[type="checkbox"] { accent-color: var(--accent); cursor: pointer; }
 
       button {
         padding: 0.45rem 1.05rem; cursor: pointer; background: var(--accent); color: #0a0d14;
@@ -137,6 +143,14 @@
           WASM fallback ≤ 2^<span id="bench-thresh-val" class="val">13</span>
           <input id="bench-thresh" type="range" min="4" max="20" value="13" step="1" />
         </label>
+        <label><input id="bench-skip" type="checkbox" /> Realistic sparsity (skip)</label>
+        <label>profile
+          <select id="bench-profile">
+            <option value="realistic-block">realistic — block</option>
+            <option value="realistic-band">realistic — band (trace)</option>
+            <option value="realistic-scattered">realistic — scattered</option>
+          </select>
+        </label>
         <button id="bench-run">Run benchmark</button>
       </div>
       <table class="bench">
@@ -171,6 +185,14 @@
         <label class="slider-wrap">
           WASM fallback ≤ 2^<span id="ssh-thresh-val" class="val">9</span>
           <input id="ssh-thresh" type="range" min="4" max="20" value="9" step="1" />
+        </label>
+        <label><input id="ssh-skip" type="checkbox" /> Realistic sparsity (skip)</label>
+        <label>profile
+          <select id="ssh-profile">
+            <option value="realistic-block">realistic — block</option>
+            <option value="realistic-band">realistic — band (trace)</option>
+            <option value="realistic-scattered">realistic — scattered</option>
+          </select>
         </label>
         <button id="ssh-run">Run SS-hybrid</button>
       </div>
@@ -219,6 +241,14 @@
       <div class="controls">
         <label>count 2^<input id="profile-logn" type="number" value="16" min="4" max="20" /></label>
         <label>WASM tail <input id="ssprofile-tail" type="number" value="9" min="1" max="20" /></label>
+        <label><input id="profile-skip" type="checkbox" /> Realistic sparsity (skip)</label>
+        <label>profile
+          <select id="profile-profile">
+            <option value="realistic-block">realistic — block</option>
+            <option value="realistic-band">realistic — band (trace)</option>
+            <option value="realistic-scattered">realistic — scattered</option>
+          </select>
+        </label>
         <button id="profile-run">Per-kernel (round 0)</button>
         <button id="ssprofile-run">Single-submit (all rounds)</button>
         <button id="ssprofile-tail-run">Single-submit (WASM tail)</button>

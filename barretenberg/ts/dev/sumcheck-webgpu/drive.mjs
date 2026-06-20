@@ -20,7 +20,16 @@ const coi = which === 'bench' || which === 'sshybrid' || which === 'e2e' ? '&coi
 // `T=<n> drive.mjs sshybrid|e2e` sets the WASM tail rounds (sshybrid: fallback
 // threshold; e2e: hybrid split tail, k = d - T GPU front rounds).
 const tParam = (which === 'sshybrid' || which === 'e2e') && process.env.T ? `&t=${process.env.T}` : '';
-const target = `http://localhost:5173/dev/sumcheck-webgpu/index.html?autorun=${which}&logn=${logn}${coi}${tParam}`;
+// `SKIP=1 [PROFILE=realistic-scattered] drive.mjs bench|sshybrid|profile|ssprofile|ssprofiletail|e2e`
+// runs the realistic sparse instance (skipping ON) instead of the dense default. The
+// profile-tab passes (profile/ssprofile/ssprofiletail/e2e) honor it too; memory and
+// profilereport stay dense (skip doesn't change buffer accounting / the baked report).
+const skipCapable =
+  which === 'bench' || which === 'sshybrid' ||
+  which === 'profile' || which === 'ssprofile' || which === 'ssprofiletail' || which === 'e2e';
+const skipParam = skipCapable && process.env.SKIP ? `&skip=${process.env.SKIP}` : '';
+const profileParam = skipCapable && process.env.PROFILE ? `&profile=${process.env.PROFILE}` : '';
+const target = `http://localhost:5173/dev/sumcheck-webgpu/index.html?autorun=${which}&logn=${logn}${coi}${tParam}${skipParam}${profileParam}`;
 
 const browser = await chromium.launch({
   channel: 'chrome',
