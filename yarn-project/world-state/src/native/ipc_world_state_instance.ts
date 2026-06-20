@@ -47,7 +47,7 @@ import type {
   WorldStateStatusSummary,
 } from './message.js';
 import type { NativeWorldStateInstance } from './native_world_state_instance.js';
-import { type WorldStateOperationName, WorldStateOpsQueue } from './world_state_ops_queue.js';
+import type { WorldStateOperationName } from './world_state_operation.js';
 
 // ————— Request conversion helpers —————
 
@@ -341,7 +341,6 @@ function convertSiblingPathAndIndex(
  */
 export class IpcWorldState implements NativeWorldStateInstance {
   private open = true;
-  private queues = new Map<number, WorldStateOpsQueue>();
   private api: AsyncApi;
   /** Tracks checkpoint depth per fork (WSDB IPC doesn't return depth in response). */
   private checkpointDepths = new Map<number, number>();
@@ -353,7 +352,6 @@ export class IpcWorldState implements NativeWorldStateInstance {
     private readonly log: Logger = createLogger('world-state:ipc-database', bindings),
   ) {
     this.api = wsdb;
-    this.queues.set(0, new WorldStateOpsQueue());
     this.log.info('Created IPC-backed world state instance');
   }
 
@@ -387,10 +385,6 @@ export class IpcWorldState implements NativeWorldStateInstance {
       return;
     }
     this.open = false;
-    const queue = this.queues.get(0)!;
-
-    await queue.stop();
-
     await this.wsdb.destroy();
   }
 
@@ -767,35 +761,21 @@ export class IpcWorldState implements NativeWorldStateInstance {
     });
   }
 
+  // Read/write ordering is enforced server-side by the wsdb per-fork scheduler,
+  // so the client no longer queues: every op is sent immediately and the server
+  // serializes writes per fork while running reads concurrently. `_forkId` and
+  // `_committedOnly` are retained in the signature (they describe the op) but are
+  // no longer needed for client-side ordering.
   private async execute<T>(
     operation: WorldStateOperationName,
-    forkId: number,
-    committedOnly: boolean,
+    _forkId: number,
+    _committedOnly: boolean,
     request: () => Promise<T>,
   ): Promise<T> {
-    let requestQueue = this.queues.get(forkId);
-    if (requestQueue === undefined) {
-      requestQueue = new WorldStateOpsQueue();
-      this.queues.set(forkId, requestQueue);
+    if (!this.open) {
+      throw new Error('IPC instance is closed');
     }
-
-    try {
-      return await requestQueue.execute(
-        async () => {
-          if (!this.open) {
-            throw new Error('IPC instance is closed');
-          }
-          return await this.send(operation, request);
-        },
-        operation,
-        committedOnly,
-      );
-    } finally {
-      if (operation === 'deleteFork') {
-        await requestQueue.stop();
-        this.queues.delete(forkId);
-      }
-    }
+    return await this.send(operation, request);
   }
 
   private async send<T>(operation: WorldStateOperationName, request: () => Promise<T>): Promise<T> {
