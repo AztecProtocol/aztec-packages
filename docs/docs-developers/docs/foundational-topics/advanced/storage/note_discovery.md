@@ -23,7 +23,13 @@ In Aztec, each emitted log is an array of fields, e.g. `[tag, x, y, z]`. The fir
 
 #### Tag derivation
 
-The sender and recipient share a predictable scheme for generating tags. Tags are derived through a layered hashing process that makes them specific to a particular sender-recipient pair, contract, and sequence number.
+Every tag is derived the same way: `poseidon2(secret, index)`.
+
+What varies is how the sender and recipient come to share `secret`. This is the [tagging secret source](../../../aztec-nr/framework-description/note_delivery.md#tagging-secret-source), chosen by the wallet.
+
+##### Address-derived secret
+
+When the secret is derived from addresses, the sender and recipient compute a value specific to their pair and the contract through a layered hashing process:
 
 ```mermaid
 flowchart LR
@@ -53,9 +59,9 @@ When the log is emitted, the protocol kernel **siloes** the tag with the contrac
 
 #### The sender in note tagging
 
-The "sender" in note tagging is **not necessarily the transaction sender**. It's the **sender for tags**, which the wallet supplies as a default (typically the originating account address). Contracts can override this at message delivery by using `MessageDelivery::onchain_unconstrained().with_sender(address)`.
+The "sender" in note tagging is **not necessarily the transaction sender**. It's the **sender for tags**, which the wallet supplies as a default (typically the originating account address). Contracts can override this at message delivery by using `with_sender`, for both constrained and unconstrained delivery, e.g. `MessageDelivery::onchain_constrained().with_sender(address)`.
 
-This sender address is used along with the recipient address to compute the shared secret via Diffie-Hellman key exchange, which is then used to derive the tag.
+This sender address, along with the recipient address, determines which tagging secret is used to derive the tag.
 
 #### Registering known senders
 
@@ -96,26 +102,17 @@ This means there's a practical limit on how many logs a single sender can emit t
 
 ### Limitations and solutions
 
-#### You cannot receive tagged notes from an unknown sender
+#### You cannot receive address-secret tagged notes from an unknown sender
 
-Without knowing the sender's address, you cannot create the shared secret needed to derive the note tag. This is a fundamental limitation of the current tagging scheme.
+When the tag's secret is [address-derived](#address-derived-secret), you cannot compute it without knowing the sender's address, so you cannot discover those notes from a sender you haven't registered. This is a limitation of address-secret tagging, not of tagging in general.
 
 There are three broad families of solutions to this problem:
 
 **a) Brute force search** - Scan every single log and test if it decrypts. This has obvious performance issues as the network grows and becomes prohibitively expensive.
 
-**b) Tagging with known sender** (current implementation) - You know who will send you messages and search for those specifically. This is very fast and allows you to remove senders who spam you. However, we don't currently have a mechanism for constraining this (i.e., guaranteeing that the recipient will find the message).
+**b) Tagging with known sender** - You know who will send you messages and search for those specifically. This is very fast and allows you to remove senders who spam you. However, it cannot be constrained, i.e., it cannot guarantee that the recipient will find the message. It also requires registering each sender's address in advance with `wallet.registerSender(address)`, so you must learn that address first.
 
-**c) Tagging with handshaking** - An intermediate solution where you can be notified of new senders. A handshake occurs onchain that lets the recipient discover a new sender, and from that point on there's regular tagging. This design either:
-- Is fast but leaks privacy (e.g., a public event with "new handshake for Alice!")
-- Is slow but doesn't leak (you brute force scan all logs from a handshake contract, testing if any handshakes are for you)
-
-The handshaking design space is large — for example, you could set up infrastructure where a server searches handshakes for you, trading off infrastructure requirements for performance.
-
-**Handshaking is not currently implemented in Aztec.nr.** For now, if you need to receive notes from unknown senders, potential workarounds include:
-- Having senders register themselves in a contract first, allowing recipients to search for note tags from all registered senders
-- Using offchain communication to share sender addresses with recipients, who then call `wallet.registerSender(address)` to enable discovery
-- Implementing a custom discovery mechanism in your contract
+**c) Tagging with a handshake** - The sender and recipient execute a handshake to agree on a tagging secret, after which regular tagging works, so the recipient can discover messages without having registered the sender in advance. A handshake can be interactive (the two coordinate off-chain) or non-interactive (published onchain, which needs no prior coordination but reveals information about the recipient). The wallet is the one that determines the type of handshake to use (see [tagging secret source](../../../aztec-nr/framework-description/note_delivery.md#tagging-secret-source)).
 
 See the [Note Delivery](../../../aztec-nr/framework-description/note_delivery.md) documentation for more details on how the sender is used when delivering notes.
 

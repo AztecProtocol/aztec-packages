@@ -195,28 +195,15 @@ When a note is delivered, recipients need to discover it among all the encrypted
 
 The "sender" for note discovery is **not the contract calling `.deliver()`**. Instead, it's the **account contract** that initiated the transaction.
 
-When your wallet submits a transaction, it tells PXE which address to use as the sender for tags (typically the originating account). This sender address is then used along with the recipient address to compute a shared secret (via [Diffie-Hellman key exchange](https://www.geeksforgeeks.org/computer-networks/diffie-hellman-key-exchange-and-perfect-forward-secrecy/)), which generates the tag that allows recipients to efficiently find their notes. Contracts can override the sender at message delivery via the `with_sender` builder method, e.g. `MessageDelivery::onchain_unconstrained().with_sender(address)`.
+When your wallet submits a transaction, it tells PXE which address to use as the sender for tags (typically the originating account). The tag recipients use to find their notes is computed from a secret shared between the sender and recipient, and there is [more than one way to establish that secret](#tagging-secret-source), chosen by the wallet. Contracts can override the sender at message delivery via the `with_sender` builder method, which works for both constrained and unconstrained delivery, e.g. `MessageDelivery::onchain_constrained().with_sender(address)`.
 
 **Example:** If Alice uses her account contract to call a token contract that mints tokens to Bob, the "sender for tags" is Alice's account contract address, not the token contract address.
 
 ### Discovering Notes from Unknown Senders
 
-**You cannot receive notes from an unknown sender** without additional mechanisms. The tagging system requires you to know the sender's address in advance to compute the shared secret needed to find the note (i.e., the sender needs to be added to your wallet).
+When the tag is derived from an address-based shared secret, you cannot compute it for a sender you haven't registered in advance, so you cannot receive those notes from an unknown sender. Handshake protocols let the two parties agree on the secret another way and lift this restriction.
 
-There are three approaches to solve this:
-
-**a) Brute force search** - Download every log and attempt to decrypt it. This becomes prohibitively expensive as the network grows.
-
-**b) Known sender tagging** (current implementation) - Only receive notes from senders whose addresses you've registered in your PXE. This is very fast and allows you to block spammers by removing them from your sender list. However, you must know who might send you notes in advance.
-
-**c) Handshaking protocols** (not yet implemented) - A two-phase approach where senders first perform a "handshake" that notifies you of their existence, then use regular tagging afterward. This trades off either privacy (public handshake events) or performance (scanning all handshake logs).
-
-**Workarounds for receiving notes from unknown senders:**
-- Require senders to register in a contract first, then search for notes from all registered senders
-- Share sender addresses through offchain communication
-- Implement a custom discovery mechanism in your contract
-
-See the [Note Discovery](../../foundational-topics/advanced/storage/note_discovery.md) documentation for technical details on the tagging mechanism.
+See [You cannot receive address-secret tagged notes from an unknown sender](../../foundational-topics/advanced/storage/note_discovery.md#you-cannot-receive-address-secret-tagged-notes-from-an-unknown-sender) in the note discovery documentation for the approaches and workarounds.
 
 ## Delivering to Someone Other Than the Note Owner
 
