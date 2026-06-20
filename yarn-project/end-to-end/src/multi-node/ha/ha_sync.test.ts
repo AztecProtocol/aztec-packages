@@ -17,6 +17,7 @@ import type { EndToEndContext } from '../../fixtures/utils.js';
 import { TestWallet } from '../../test-wallet/test_wallet.js';
 import { proveInteraction } from '../../test-wallet/utils.js';
 import {
+  MV_REORG_TIMING,
   MultiNodeTestContext,
   type RegisteredValidator,
   buildMockGossipValidators,
@@ -58,14 +59,10 @@ describe('multi-node/ha/ha_sync', () => {
     // needs to publish checkpoints during setup (account deployment). We disable publishing
     // per-validator-node below.
     test = await MultiNodeTestContext.setup({
+      ...MV_REORG_TIMING,
       numberOfAccounts: 1,
       initialValidators: validators,
       mockGossipSubNetwork: true,
-      aztecEpochDuration: 4,
-      ethereumSlotDuration: 4,
-      aztecSlotDuration: 36,
-      blockDurationMs: 8000,
-      attestationPropagationTime: 0.5,
       aztecTargetCommitteeSize: VALIDATOR_COUNT,
       minTxsPerBlock: 1,
       maxTxsPerBlock: 2,
