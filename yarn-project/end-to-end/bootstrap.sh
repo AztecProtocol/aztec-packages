@@ -71,8 +71,10 @@ function test_cmds {
     if [[ "$test" == *.parallel.test.ts ]]; then
       # Extract individual test names and create a command for each
       while IFS= read -r test_name; do
-        # Create a safe name for the individual test (replace spaces with underscores)
-        local safe_test_name=$(echo "$test_name" | sed 's/ /_/g')
+        # Create a safe name for the individual test. This becomes the docker container name via
+        # docker_isolate, so every character outside docker's allowed set [a-zA-Z0-9_.-] (spaces,
+        # parentheses, etc.) must be collapsed to an underscore or `docker run --name` rejects it.
+        local safe_test_name=$(echo "$test_name" | sed 's/[^a-zA-Z0-9_.-]/_/g')
         local full_name="${name}_${safe_test_name}"
         echo "$test_prefix:NAME=$full_name $(set_dump_avm $full_name) $run_test_script simple $test \"$test_name\""
       done < <(extract_test_names "$test")
@@ -285,7 +287,9 @@ function compat_test_cmds {
 
     if [[ "$test" == *.parallel.test.ts ]]; then
       while IFS= read -r test_name; do
-        local safe_test_name=$(echo "$test_name" | sed 's/ /_/g')
+        # See the matching note in test_cmds: collapse docker-illegal characters so NAME is a valid
+        # container name for docker_isolate.
+        local safe_test_name=$(echo "$test_name" | sed 's/[^a-zA-Z0-9_.-]/_/g')
         local full_name="compat_${version}_${name}_${safe_test_name}"
         echo "$prefix:NAME=$full_name $compat_env $run_test_script simple $test \"$test_name\""
       done < <(extract_test_names "$test")
