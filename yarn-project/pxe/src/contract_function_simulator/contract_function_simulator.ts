@@ -114,10 +114,6 @@ import { TransientArrayService } from './transient_array_service.js';
 
 /** Options for ContractFunctionSimulator.run. */
 export type ContractSimulatorRunOpts = {
-  /** The address of the contract (should match request.origin). */
-  contractAddress: AztecAddress;
-  /** The function selector of the entry point. */
-  selector: FunctionSelector;
   /** The address calling the function. Can be replaced to simulate a call from another contract or account. */
   msgSender?: AztecAddress;
   /** The block header to use as base state for this run. */
@@ -196,9 +192,7 @@ export class ContractFunctionSimulator {
   public async run(
     request: TxExecutionRequest,
     {
-      contractAddress,
-      selector,
-      msgSender = AztecAddress.fromField(Fr.MAX_FIELD_VALUE),
+      msgSender = AztecAddress.NULL_MSG_SENDER,
       anchorBlockHeader,
       senderForTags,
       scopes,
@@ -207,16 +201,15 @@ export class ContractFunctionSimulator {
   ): Promise<PrivateExecutionResult> {
     const simulatorSetupTimer = new Timer();
 
-    const entryPointArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(contractAddress, selector);
+    const contractAddress = request.origin;
+
+    const entryPointArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(
+      contractAddress,
+      request.functionSelector,
+    );
 
     if (entryPointArtifact.functionType !== FunctionType.PRIVATE) {
       throw new Error(`Cannot run ${entryPointArtifact.functionType} function as private`);
-    }
-
-    if (request.origin !== contractAddress) {
-      throw new Error(
-        `Request origin does not match contract address in simulation. Request origin: ${request.origin}, contract address: ${contractAddress}`,
-      );
     }
 
     // reserve the first side effect for the tx hash (inserted by the private kernel)
@@ -325,10 +318,6 @@ export class ContractFunctionSimulator {
   /**
    * Runs a utility function.
    * @param call - The function call to execute.
-   * @param authwits - Authentication witnesses required for the function call.
-   * @param anchorBlockHeader - The block header to use as base state for this run.
-   * @param scopes - Optional array of account addresses whose notes can be accessed in this call. Defaults to all
-   * accounts if not specified.
    * @returns A return value of the utility function in a form as returned by the simulator (Noir fields)
    */
   public async runUtility(
@@ -349,7 +338,12 @@ export class ContractFunctionSimulator {
     };
 
     const oracle = new UtilityExecutionOracle({
-      contractAddress: call.to,
+      callContext: CallContext.from({
+        msgSender: AztecAddress.NULL_MSG_SENDER,
+        contractAddress: call.to,
+        functionSelector: call.selector,
+        isStaticCall: true,
+      }),
       authWitnesses: authwits,
       capsules: [],
       anchorBlockHeader,

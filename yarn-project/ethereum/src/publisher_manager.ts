@@ -133,8 +133,17 @@ export class PublisherManager<UtilsType extends L1TxUtils = L1TxUtils> {
       }),
     );
 
+    // Discount unfunded publishers: a publisher with no ETH cannot send a tx, so it must never win
+    // selection regardless of how favourable its state or last-used time is. Fall back to the full
+    // set only if every candidate is unfunded, so behaviour is no worse than before.
+    let fundedPublishers = publishersWithBalance.filter(p => p.balance > 0n);
+    if (fundedPublishers.length === 0) {
+      this.log.warn(`All candidate publishers have zero balance; selecting from unfunded publishers.`);
+      fundedPublishers = publishersWithBalance;
+    }
+
     // Sort based on state, then balance, then time since last use
-    const sortedPublishers = publishersWithBalance.sort((a, b) => {
+    const sortedPublishers = fundedPublishers.sort((a, b) => {
       const stateComparison = sortOrder.indexOf(a.publisher.state) - sortOrder.indexOf(b.publisher.state);
       if (stateComparison !== 0) {
         return stateComparison;

@@ -66,6 +66,7 @@ export async function writeJson(
           feePerL2Gas: Number(checkpointHeader.gasFees.feePerL2Gas),
         },
         totalManaUsed: checkpointHeader.totalManaUsed.toNumber(),
+        accumulatedFees: checkpointHeader.accumulatedFees.toNumber(),
       },
       headerHash: asHex(checkpointHeader.hash()),
       numTxs: block.body.txEffects.length,
