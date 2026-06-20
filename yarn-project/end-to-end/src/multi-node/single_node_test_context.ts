@@ -16,7 +16,7 @@ import { RollupContract } from '@aztec/ethereum/contracts';
 import { Delayer, createDelayer, waitUntilL1Timestamp, wrapClientWithDelayer } from '@aztec/ethereum/l1-tx-utils';
 import { ChainMonitor } from '@aztec/ethereum/test';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
-import { BlockNumber, CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import { withLoggerBindings } from '@aztec/foundation/log/server';
@@ -30,7 +30,11 @@ import type { ProverNodeConfig } from '@aztec/prover-node';
 import type { PXEConfig } from '@aztec/pxe/config';
 import { type Sequencer, type SequencerClient, type SequencerEvents, SequencerState } from '@aztec/sequencer-client';
 import { type BlockParameter, EthAddress } from '@aztec/stdlib/block';
-import { type L1RollupConstants, getProofSubmissionDeadlineTimestamp } from '@aztec/stdlib/epoch-helpers';
+import {
+  type L1RollupConstants,
+  getProofSubmissionDeadlineTimestamp,
+  getTimestampForSlot,
+} from '@aztec/stdlib/epoch-helpers';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import type { SlashingProtectionDatabase } from '@aztec/validator-ha-signer/types';
 
@@ -76,6 +80,9 @@ export type TrackedSequencerEvent = {
     validator: EthAddress;
   };
 }[keyof SequencerEvents];
+
+/** A `block-proposed` sequencer event captured for the pipelining-offset assertion. */
+export type BlockProposedEvent = { blockNumber: BlockNumber; slot: SlotNumber; buildSlot: SlotNumber };
 
 /**
  * Timing-only profile shared by the fast L1-reorg tests (the six `optimistic_proving` reorg blocks,
@@ -535,6 +542,62 @@ export class SingleNodeTestContext {
     }
 
     expect(targetFound).toBe(true);
+  }
+
+  /**
+   * Asserts pipelining by comparing the build slot (from block-proposed events) against the
+   * submission slot (from block headers). With pipelining, the block is built in slot N but its
+   * header carries submission slot N+1. Also checks each block's coinbase matches the expected
+   * proposer for its submission slot. Reads checkpoints from `archiver` (typically a validator
+   * node's block source).
+   */
+  public async assertProposerPipelining(
+    archiver: Archiver,
+    blockProposedEvents: BlockProposedEvent[],
+    logger: Logger,
+  ): Promise<void> {
+    const checkpoints = await archiver.getCheckpoints({ from: CheckpointNumber(1), limit: 50 });
+    const allBlocks = checkpoints.flatMap(pc => pc.checkpoint.blocks);
+
+    logger.warn(`assertProposerPipelining: ${allBlocks.length} blocks, ${blockProposedEvents.length} events`, {
+      blockNumbers: allBlocks.map(b => b.number),
+      eventBlockNumbers: blockProposedEvents.map(e => e.blockNumber),
+    });
+
+    let foundPipelining = false;
+
+    for (const block of allBlocks) {
+      const headerSlot = block.header.globalVariables.slotNumber; // submission slot (N+1)
+      const coinbase = block.header.globalVariables.coinbase;
+
+      // Find the block-proposed event for this block (use Number() for safe comparison)
+      const event = blockProposedEvents.find(e => Number(e.blockNumber) === Number(block.number));
+      // if there is no event, then it was probably block number one - which was proposed in setup
+      if (!event) {
+        continue;
+      }
+
+      const buildSlot = event.buildSlot; // build slot (N)
+
+      // Verify the pipelining offset: block built in slot N, submitted in slot N+1
+      expect(Number(headerSlot)).toBe(Number(buildSlot) + 1);
+      foundPipelining = true;
+
+      // Verify coinbase matches the expected proposer for the submission slot
+      const expectedProposer = await this.rollup.getProposerAt(getTimestampForSlot(headerSlot, this.constants));
+      expect(coinbase).toEqual(expectedProposer);
+
+      logger.warn(`Block ${block.number}: buildSlot=${buildSlot}, submissionSlot=${headerSlot}, coinbase=${coinbase}`, {
+        blockNumber: block.number,
+        buildSlot,
+        headerSlot,
+        coinbase: coinbase.toString(),
+        expectedProposer: expectedProposer.toString(),
+      });
+    }
+
+    expect(foundPipelining).toBe(true);
+    logger.warn(`Pipelining assertion passed for ${allBlocks.length} blocks`);
   }
 
   public watchSequencerEvents(
