@@ -49,11 +49,20 @@ export function msgIdToStrFn(msgId: Uint8Array): string {
  * Follows similarly to:
  * https://github.com/ethereum/consensus-specs/blob/v1.1.0-alpha.7/specs/altair/p2p-interface.md#topics-and-messages
  *
+ * The topic length is framed into the hash input (`uint32be(topicLen) || topic || data`) so the
+ * `(topic, data)` boundary is unambiguous. A raw `topic || data` concatenation is not injective —
+ * shifting bytes across the boundary (e.g. `(topic + data[0], data[1:])`) yields the same bytes and
+ * thus the same id, letting an unsubscribed-topic message pre-occupy a real message's seenCache slot
+ * and suppress it as a duplicate.
+ *
  * @param message - The libp2p message
  * @returns The message identifier
  */
-export async function getMsgIdFn({ topic, data }: Message): Promise<Uint8Array> {
-  const buffer = Buffer.concat([Buffer.from(topic), data]);
+export async function getMsgIdFn({ topic, data }: Pick<Message, 'topic' | 'data'>): Promise<Uint8Array> {
+  const topicBytes = Buffer.from(topic);
+  const framedTopicLength = Buffer.allocUnsafe(4);
+  framedTopicLength.writeUInt32BE(topicBytes.length);
+  const buffer = Buffer.concat([framedTopicLength, topicBytes, data]);
   const hash = await webcrypto.subtle.digest('SHA-256', buffer);
   return Buffer.from(hash.slice(0, 20));
 }

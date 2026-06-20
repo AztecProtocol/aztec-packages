@@ -413,6 +413,13 @@ export class LibP2PService extends WithTracer implements P2PService {
       expectedBlockProposalsPerSlot: config.expectedBlockProposalsPerSlot,
     });
 
+    // Restrict gossipsub to exactly the topics we subscribe to. Without this, an arbitrary-topic
+    // message is transformed, msg-id'd and inserted into the seenCache before the subscription check,
+    // so a crafted topic colliding on msg id can suppress a real message as a duplicate.
+    const allowedTopics = getTopicsForConfig(config.disableTransactions).map(topic =>
+      createTopicString(topic, protocolVersion),
+    );
+
     const node = await createLibp2p({
       start: false,
       peerId,
@@ -497,6 +504,7 @@ export class LibP2PService extends WithTracer implements P2PService {
           mcacheLength: config.gossipsubMcacheLength,
           mcacheGossip: config.gossipsubMcacheGossip,
           seenTTL: config.gossipsubSeenTTL,
+          allowedTopics,
           msgIdFn: getMsgIdFn,
           msgIdToStrFn: msgIdToStrFn,
           fastMsgIdFn: fastMsgIdFn,
