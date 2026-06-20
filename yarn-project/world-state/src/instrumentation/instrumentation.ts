@@ -11,7 +11,7 @@ import {
 } from '@aztec/telemetry-client';
 
 import type { DBStats, TreeDBStats, TreeMeta, WorldStateStatusFull } from '../native/message.js';
-import type { WorldStateOperationName } from '../native/world_state_ops_queue.js';
+import type { WorldStateOperationName } from '../native/world_state_operation.js';
 
 type DBTypeString = 'leaf_preimage' | 'leaf_indices' | 'nodes' | 'blocks' | 'block_indices';
 

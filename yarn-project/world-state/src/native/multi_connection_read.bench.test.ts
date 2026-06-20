@@ -16,9 +16,9 @@ import { NativeWorldStateService } from './native_world_state.js';
  * what the simulator pool actually does.
  *
  * NOTE on comparing to in-process: this bench calls the generated AsyncApi
- * directly, bypassing the WorldStateOpsQueue + MerkleTreesFacade that
+ * directly, bypassing the IpcWorldState + MerkleTreesFacade wrapper layers that
  * NativeWorldStateService (and therefore the in-process numbers in
- * parallel_read.bench) goes through. That facade adds ~40% overhead (compare the
+ * parallel_read.bench) goes through. That wrapper adds ~40% overhead (compare the
  * 1-connection number here to parallel_read's concurrency=1), so these raw
  * figures are NOT directly comparable to in-process — they measure server
  * capability with a lean client. The apples-to-apples in-process comparison is

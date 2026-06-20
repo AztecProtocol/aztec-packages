@@ -941,7 +941,7 @@ describe('NativeWorldState', () => {
 
     // Regression test for A-1055: a delayed-close fork that the C++ side has already destroyed (via
     // remove_forks_for_block on an unwind or historical prune) must dispose silently rather than logging a
-    // warning, and its JS-side per-fork queue entry must be cleaned up.
+    // warning.
     it('does not fail when a delayed-close fork is destroyed by a reorg before its close fires', async () => {
       const baseFork = await ws.fork();
       for (let i = 0; i < 3; i++) {
@@ -952,7 +952,6 @@ describe('NativeWorldState', () => {
 
       const closeDelayMs = 1000;
       const delayedFork = await ws.fork(undefined, { closeDelayMs });
-      const forkId = (delayedFork as any).revision.forkId;
       const warnSpy = jest.spyOn((delayedFork as any).log, 'warn');
 
       await (delayedFork as any)[Symbol.asyncDispose]();
@@ -963,7 +962,6 @@ describe('NativeWorldState', () => {
       await sleep(closeDelayMs * 3);
 
       expect(warnSpy).not.toHaveBeenCalled();
-      expect((ws as any).instance.queues.has(forkId)).toBe(false);
     });
   });
 
