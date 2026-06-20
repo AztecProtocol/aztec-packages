@@ -38,11 +38,18 @@ export function bufferAsFields(input: Buffer, targetLength: number): Fr[] {
  * bytecode commitment computations to diverge from what the circuit produced.
  *
  * @param fields - An output from bufferAsFields: [byteLength, ...payloadFields].
+ * @param maxByteLength - Optional upper bound on the declared byte length. When the field array comes
+ *   from untrusted input (e.g. a gossiped contract-class log), pass the payload capacity so an
+ *   attacker-declared length cannot force a large `Buffer.alloc` before the value is otherwise
+ *   rejected. Throws if the declared length exceeds it, before allocating.
  * @returns A buffer of exactly `byteLength` bytes.
  */
-export function bufferFromFields(fields: Fr[]): Buffer {
+export function bufferFromFields(fields: Fr[], maxByteLength?: number): Buffer {
   const [length, ...payload] = fields;
   const byteLength = length.toNumber();
+  if (maxByteLength !== undefined && byteLength > maxByteLength) {
+    throw new Error(`Declared byte length ${byteLength} exceeds maximum ${maxByteLength}`);
+  }
   const raw = Buffer.concat(payload.map(f => f.toBuffer().subarray(1)));
   if (raw.length >= byteLength) {
     return raw.subarray(0, byteLength);
