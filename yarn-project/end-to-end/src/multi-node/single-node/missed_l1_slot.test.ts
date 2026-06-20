@@ -58,7 +58,7 @@ jest.setTimeout(1000 * 60 * 10);
 //     targeted N+1.
 // Suite: regression test for sequencer sync logic when L1 slot production stalls mid-slot.
 // SingleNodeTestContext with single-node + mockGossipSubNetwork, prod-seq, interval mining (automine
-// during L1 deploy only). Timing: ethSlot=8s (12s CI), aztecSlot=6×ethSlot, epoch=default 6,
+// during L1 deploy only). Timing: ethSlot=6s, aztecSlot=6×ethSlot=36s, epoch=default 6,
 // proofSubmissionEpochs=1024, blockDurationMs=8000, inboxLag=2 (v5 always enforces the timetable, so
 // the former enforceTimeTable/disableAnvilTestWatcher overrides are gone). No prover.
 describe('multi-node/single-node/missed_l1_slot', () => {
@@ -67,13 +67,13 @@ describe('multi-node/single-node/missed_l1_slot', () => {
   let from: AztecAddress;
 
   // Use enough L1 slots per L2 slot to have room for pausing mining mid-slot.
-  // With 6 L1 slots per L2 slot (L1=8s, L2=48s), we have plenty of time to
+  // With 6 L1 slots per L2 slot (L1=6s, L2=36s), we have plenty of time to
   // publish a checkpoint and pause mining without accidentally skipping a slot.
   const L1_SLOTS_PER_L2_SLOT = 6;
 
   // Block duration tuned to reliably produce 2+ blocks per checkpoint under pipelining:
   // timeAvailableForBlocks = aztecSlotDuration - checkpointInitializationTime - timeReservedAtEnd
-  //   = 48 - 1 - (1 + 4 + 8) = 34s, which fits ~4 blocks of 8s each.
+  //   = 36 - 1 - (1 + 3 + 8) = 23s, which fits ~2-3 blocks of 8s each.
   const BLOCK_DURATION_MS = 8_000;
 
   // Pre-prove this many txs at the start so blocks have content during the test.
@@ -89,6 +89,9 @@ describe('multi-node/single-node/missed_l1_slot', () => {
       minTxsPerBlock: 0,
       maxTxsPerBlock: 1,
       blockDurationMs: BLOCK_DURATION_MS,
+      // Pin the L1 slot to 6s so the L2 slot is 6 L1 slots * 6s = 36s (the multi-node mode), while
+      // preserving the load-bearing 6-L1-slots-per-L2-slot invariant this test's pause math relies on.
+      ethereumSlotDuration: 6,
       aztecSlotDurationInL1Slots: L1_SLOTS_PER_L2_SLOT,
       startProverNode: false,
       aztecProofSubmissionEpochs: 1024,
@@ -97,10 +100,10 @@ describe('multi-node/single-node/missed_l1_slot', () => {
       // archiver's #proposedCheckpoints map stays empty and the pipelining
       // override path is never taken.
       mockGossipSubNetwork: true,
-      // With L1=12s on CI, aztecSlotDuration=72s and blockDurationMs=8000ms gives only ~1/9 of
-      // slot mana per block — too small for emit_nullifier's daGas (~196k) under the default
-      // 1.2 allocation. Bump it so the pre-proved txs actually land and step 6's
-      // assertMultipleBlocksPerSlot has data to verify against.
+      // With aztecSlotDuration=36s and blockDurationMs=8000ms each block gets only a few seconds of
+      // slot mana — too small for emit_nullifier's daGas (~196k) under the default 1.2 allocation.
+      // Bump it so the pre-proved txs actually land and step 6's assertMultipleBlocksPerSlot has data
+      // to verify against.
       perBlockAllocationMultiplier: 8,
     });
 

@@ -14,6 +14,7 @@ import { jest } from '@jest/globals';
 import type { EndToEndContext } from '../../fixtures/utils.js';
 import {
   MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
+  MV_REORG_TIMING,
   MultiNodeTestContext,
   type RegisteredValidator,
   buildMockGossipValidators,
@@ -58,7 +59,7 @@ const VALIDATOR_COUNT = 4;
  * `mockGossipSubNetwork` bus, then 4 validator nodes created via `test.createValidatorNode` in 2 HA pairs. Each pair
  * shares its two validator keys plus an in-memory `createSharedSlashingProtectionDb` (so only one peer signs per duty)
  * — explicitly NOT the Postgres-backed docker-compose HA suite, so this is an in-proc `multi-node` test, not infra.
- * Production `Sequencer`, no prover node. Timing: ethSlot=6s, aztecSlot=36s, epoch=8, proofSubEpochs=1024,
+ * Production `Sequencer`, no prover node. Timing: ethSlot=6s, aztecSlot=36s, epoch=4, proofSubEpochs=1024,
  * blockDurationMs=8s, committeeSize=4, attestationPropagationTime=0.5, inboxLag=2; anvil on interval mining. Nodes build
  * empty checkpoints (`buildCheckpointIfEmpty` + `minTxsPerBlock: 0`) so no txs are needed, and each node uses a distinct
  * coinbase so the secondary assertion can prove which peer produced S2. Time is warped with `cheatCodes.eth.warp`:
@@ -101,12 +102,8 @@ describe('multi-node/ha/ha_checkpoint_handoff', () => {
     // publishing ENABLED (unlike ha_sync.test.ts): the handoff must produce a real on-chain checkpoint.
     test = await MultiNodeTestContext.setup({
       ...MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
+      ...MV_REORG_TIMING,
       initialValidators: validators,
-      aztecEpochDuration: 8,
-      ethereumSlotDuration: 6,
-      aztecSlotDuration: 36,
-      blockDurationMs: 8000,
-      attestationPropagationTime: 0.5,
       aztecTargetCommitteeSize: VALIDATOR_COUNT,
     });
 

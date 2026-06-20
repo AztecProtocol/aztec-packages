@@ -67,7 +67,7 @@ describe('multi-node/slashing/invalidate_block', () => {
     test = await MultiNodeTestContext.setup({
       ...MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
       ethereumSlotDuration: 8,
-      aztecSlotDuration: 32,
+      aztecSlotDuration: 36,
       blockDurationMs: 6000,
       initialValidators: validators,
       aztecTargetCommitteeSize: VALIDATOR_COUNT,
