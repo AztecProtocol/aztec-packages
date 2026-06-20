@@ -9,6 +9,7 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+<<<<<<< HEAD
 ### [Protocol] `PrivateCircuitPublicInputs` and `PrivateContextInputs` gain a `tx_request_salt` field
 
 The init kernel now always injects the protocol nullifier (`H(tx_request)`) as the transaction's first nullifier and binds the entry-point proof to the tx request's salt. To support this, `PrivateCircuitPublicInputs` and `PrivateContextInputs` each carry a new `tx_request_salt` field (set by the framework), and the `first_nullifier_hint` input to the init kernel is removed. This is handled automatically by the framework and PXE; contracts using the standard entrypoint need no changes beyond recompiling against the new protocol circuits.
@@ -16,6 +17,24 @@ The init kernel now always injects the protocol nullifier (`H(tx_request)`) as t
 The salt serves two purposes. It keeps `H(tx_request)` (the protocol nullifier) unpredictable, preventing a dictionary attack that guesses the tx-request preimage to recompute the nullifier. It also lets the init kernel bind the proof to a specific tx request: the kernel asserts `tx_request_salt` equals `tx_request.salt`, so a third party holding the proof cannot rebind it to a different request (and thus a different protocol nullifier).
 
 Because `tx_request_salt` is now part of the private function's public inputs, an app or account contract can read it. Together with the other public inputs (the call context, `args_hash`, `tx_context`, and the function selector), an entrypoint can reconstruct the full `tx_request` and verify a signature over `tx_request.hash()`, instead of over a separate payload. This lets an account authorize the complete, kernel-checked transaction request rather than just the calls it contains. Building on that, the protocol nullifier can be made to provide a transaction's replay protection and cancellation directly, reducing the number of nullifiers an account needs to emit. This is not done by the standard entrypoint today; see issues #461 (the protocol/design direction) and #462 (the Aztec.nr account-layer work) for the full picture.
+=======
+### Cross-contract utility calls now have a `msg_sender`
+
+A utility function called by another contract (utility to utility, or private to utility) can read the calling contract's address via `self.msg_sender()`, mirroring private and public functions. A top-level utility call (e.g. invoked directly by a wallet or dapp) has no caller: `self.msg_sender()` panics, and `self.context.maybe_msg_sender()` returns `Option::none()`.
+
+`msg_sender` is only set for cross-contract calls, where it is taken from the call graph and so cannot be forged. A directly-invoked utility (from a wallet or dapp) has no verifiable caller, so it exposes none rather than trusting a value the caller could pick freely.
+
+#### [Aztec.nr] `ExecuteUtilityOptions` gains `with_from` to simulate a cross-contract caller in tests
+
+In `TestEnvironment`, use `execute_utility_opts` with the new `ExecuteUtilityOptions::with_from` builder method to set the `msg_sender` a utility observes, simulating a cross-contract caller without routing through an actual nested call (by default it observes no caller):
+
+```rust
+let secret = env.execute_utility_opts(
+    ExecuteUtilityOptions::new().with_from(caller),
+    Registry::at(registry_address).get_app_siloed_secret(sender, recipient, mode),
+);
+```
+>>>>>>> 4df72438bf (feat: merge-train/fairies-v5 (#24206))
 
 ### [Prover Node JSON-RPC] Prover API moved to the admin endpoint; `getL2Tips`/`getWorldStateSyncStatus` removed
 

@@ -43,11 +43,14 @@ import { executePrivateFunction } from './private_execution.js';
 import { UtilityExecutionOracle, type UtilityExecutionOracleArgs } from './utility_execution_oracle.js';
 
 /** Args for PrivateExecutionOracle constructor. */
-export type PrivateExecutionOracleArgs = Omit<UtilityExecutionOracleArgs, 'contractAddress'> & {
+export type PrivateExecutionOracleArgs = UtilityExecutionOracleArgs & {
   argsHash: Fr;
   txContext: TxContext;
+<<<<<<< HEAD
   txRequestSalt: Fr;
   callContext: CallContext;
+=======
+>>>>>>> 4df72438bf (feat: merge-train/fairies-v5 (#24206))
   executionCache: HashedValuesCache;
   noteCache: ExecutionNoteCache;
   taggingIndexCache: ExecutionTaggingIndexCache;
@@ -78,8 +81,11 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
 
   private readonly argsHash: Fr;
   private readonly txContext: TxContext;
+<<<<<<< HEAD
   private readonly txRequestSalt: Fr;
   private readonly callContext: CallContext;
+=======
+>>>>>>> 4df72438bf (feat: merge-train/fairies-v5 (#24206))
   private readonly executionCache: HashedValuesCache;
   private readonly noteCache: ExecutionNoteCache;
   private readonly taggingIndexCache: ExecutionTaggingIndexCache;
@@ -92,13 +98,15 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   constructor(args: PrivateExecutionOracleArgs) {
     super({
       ...args,
-      contractAddress: args.callContext.contractAddress,
       log: args.log ?? createLogger('simulator:client_execution_context'),
     });
     this.argsHash = args.argsHash;
     this.txContext = args.txContext;
+<<<<<<< HEAD
     this.txRequestSalt = args.txRequestSalt;
     this.callContext = args.callContext;
+=======
+>>>>>>> 4df72438bf (feat: merge-train/fairies-v5 (#24206))
     this.executionCache = args.executionCache;
     this.noteCache = args.noteCache;
     this.taggingIndexCache = args.taggingIndexCache;
