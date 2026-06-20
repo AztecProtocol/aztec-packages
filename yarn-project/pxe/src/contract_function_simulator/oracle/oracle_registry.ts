@@ -107,7 +107,10 @@ export const ORACLE_REGISTRY = {
   aztec_utl_getUtilityContext: makeEntry({ returnType: UTILITY_CONTEXT }),
 
   aztec_utl_getKeyValidationRequest: makeEntry({
-    params: [{ name: 'pkMHash', type: FIELD }],
+    params: [
+      { name: 'pkMHash', type: FIELD },
+      { name: 'keyIndex', type: FIELD },
+    ],
     returnType: KEY_VALIDATION_REQUEST,
   }),
 
@@ -544,7 +547,7 @@ export function makeEntry<const TParams extends RegistryParam[] = [], TReturnVal
       const resolvedParams: RegistryParam[] = params ?? [];
       // Walk the input slots left-to-right, advancing by each param's slot count.
       let offset = 0;
-      return resolvedParams.map(param => {
+      const named = resolvedParams.map(param => {
         if (!param.type.deserialization) {
           throw new Error(`Param '${param.name}' has no deserialization defined`);
         }
@@ -559,7 +562,13 @@ export function makeEntry<const TParams extends RegistryParam[] = [], TReturnVal
         const value = param.type.deserialization.fn(readers);
         assertReadersConsumed(readers);
         return { name: param.name, value };
-      }) as unknown as InferDeserializedParams<TParams>;
+      });
+      // Every input slot must be modelled by a param: oracles whose Noir decl passes an extra field must declare it
+      // (the handler can ignore it). Otherwise an under-declared shape would silently drop a field into nothing.
+      if (offset !== inputs.length) {
+        throw new Error(`Oracle received ${inputs.length} input slot(s) but the registry models ${offset}`);
+      }
+      return named as unknown as InferDeserializedParams<TParams>;
     },
     serializeReturn(result: TReturnValue): OutputSlot[] {
       if (returnType?.serialization === undefined) {

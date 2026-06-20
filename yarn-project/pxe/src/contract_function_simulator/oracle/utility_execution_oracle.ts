@@ -205,7 +205,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @throws If the keys are not registered in the key store.
    * @throws If scopes are defined and the account is not in the scopes.
    */
-  public async getKeyValidationRequest(pkMHash: Fr): Promise<KeyValidationRequest> {
+  public async getKeyValidationRequest(pkMHash: Fr, _keyIndex: Fr): Promise<KeyValidationRequest> {
     let hasAccess = false;
     for (let i = 0; i < this.scopes.length && !hasAccess; i++) {
       if (await this.keyStore.accountHasKey(this.scopes[i], pkMHash)) {

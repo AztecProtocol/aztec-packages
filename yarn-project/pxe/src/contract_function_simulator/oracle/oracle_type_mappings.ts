@@ -288,9 +288,13 @@ export const MESSAGE_LOAD_ORACLE_INPUTS: TypeMapping<MessageLoadOracleInputs<typ
 
 export const UTILITY_CONTEXT: TypeMapping<UtilityContext> = {
   serialization: {
-    fn: (ctx: UtilityContext) => [...ctx.blockHeader.toFields(), ctx.contractAddress.toField()],
+    fn: (ctx: UtilityContext) => [
+      ...ctx.blockHeader.toFields(),
+      ctx.contractAddress.toField(),
+      ctx.msgSender.toField(),
+    ],
   },
-  shape: Array<SlotShape>(BLOCK_HEADER_LENGTH + 1).fill('scalar'), // block header + contract address
+  shape: Array<SlotShape>(BLOCK_HEADER_LENGTH + 2).fill('scalar'), // block header + contract address + msg sender
 };
 
 export const CALL_PRIVATE_RESULT: TypeMapping<{ endSideEffectCounter: Fr; returnsHash: Fr }> = {
@@ -457,7 +461,9 @@ export function ARRAY<T>(inner: TypeMapping<T>): TypeMapping<T[]> & { kind: 'arr
             while (!reader.isFinished()) {
               const fields = reader.readFieldArray(elementWidth);
               const elementReader = splitByShape(fields, inner.shape);
-              result.push(inner.deserialization!.fn(elementReader));
+              const value = inner.deserialization!.fn(elementReader);
+              assertReadersConsumed(elementReader);
+              result.push(value);
             }
             return result;
           },
@@ -510,7 +516,9 @@ export function BOUNDED_VEC<T>(
             for (let i = 0; i < length; i++) {
               const fields = storageReader.readFieldArray(elementWidth);
               const elementReader = splitByShape(fields, inner.shape);
-              elements.push(inner.deserialization!.fn(elementReader));
+              const value = inner.deserialization!.fn(elementReader);
+              assertReadersConsumed(elementReader);
+              elements.push(value);
             }
             // Drain the trailing zero-padding (maxLength - length unused element slots) so the storage reader is
             // fully consumed.
@@ -603,7 +611,9 @@ export function EPHEMERAL_ARRAY<T>(element: TypeMapping<T>): TypeMapping<Ephemer
             return value;
           },
         },
-        shape: element.shape,
+        // `fn` reads the whole row from one reader, so this is one variable-width slot, not the element's multi-slot
+        // shape.
+        shape: ['variable'],
       }
     : undefined;
   return {
