@@ -19,7 +19,6 @@
 #include <memory>
 #include <sstream>
 #include <string>
-#include <thread>
 #include <unordered_map>
 #include <vector>
 
@@ -218,9 +217,14 @@ int execute_wsdb_server(const std::string& input_path,
     // from WorldState's own intra-op pool (the `threads` arg above): mutating
     // handlers enqueue subtasks onto that pool and wait() on them, so dispatching
     // those handlers onto the SAME pool could deadlock (bb::ThreadPool is
-    // blocking and non-work-stealing). Idle worker threads just sleep, so
-    // oversizing is cheap; concurrency is bounded by in-flight requests.
-    uint32_t dispatch_threads = std::max<uint32_t>(4, std::thread::hardware_concurrency());
+    // blocking and non-work-stealing).
+    //
+    // Sized from the caller-provided `threads` budget (the same value used for
+    // the WorldState pool), NOT std::thread::hardware_concurrency() — the latter
+    // ignores cgroup CPU limits and reports the host core count (e.g. 192 in a
+    // 2-CPU CI container), which would spawn a huge pool per wsdb process and
+    // exhaust the per-UID thread limit (pthread_create EAGAIN).
+    uint32_t dispatch_threads = std::max<uint32_t>(2, threads);
     bb::ThreadPool dispatch_pool(dispatch_threads);
 
     // Server-side ordering: the database, not the client, guarantees per-fork
