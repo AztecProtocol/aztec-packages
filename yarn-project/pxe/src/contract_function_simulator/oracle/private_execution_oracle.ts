@@ -43,10 +43,9 @@ import { executePrivateFunction } from './private_execution.js';
 import { UtilityExecutionOracle, type UtilityExecutionOracleArgs } from './utility_execution_oracle.js';
 
 /** Args for PrivateExecutionOracle constructor. */
-export type PrivateExecutionOracleArgs = Omit<UtilityExecutionOracleArgs, 'contractAddress'> & {
+export type PrivateExecutionOracleArgs = UtilityExecutionOracleArgs & {
   argsHash: Fr;
   txContext: TxContext;
-  callContext: CallContext;
   executionCache: HashedValuesCache;
   noteCache: ExecutionNoteCache;
   taggingIndexCache: ExecutionTaggingIndexCache;
@@ -77,7 +76,6 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
 
   private readonly argsHash: Fr;
   private readonly txContext: TxContext;
-  private readonly callContext: CallContext;
   private readonly executionCache: HashedValuesCache;
   private readonly noteCache: ExecutionNoteCache;
   private readonly taggingIndexCache: ExecutionTaggingIndexCache;
@@ -90,12 +88,10 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   constructor(args: PrivateExecutionOracleArgs) {
     super({
       ...args,
-      contractAddress: args.callContext.contractAddress,
       log: args.log ?? createLogger('simulator:client_execution_context'),
     });
     this.argsHash = args.argsHash;
     this.txContext = args.txContext;
-    this.callContext = args.callContext;
     this.executionCache = args.executionCache;
     this.noteCache = args.noteCache;
     this.taggingIndexCache = args.taggingIndexCache;

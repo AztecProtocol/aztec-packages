@@ -20,6 +20,7 @@ import { Note, NoteDao } from '@aztec/stdlib/note';
 import { makeL2Tips } from '@aztec/stdlib/testing';
 import {
   BlockHeader,
+  CallContext,
   Capsule,
   GlobalVariables,
   MinedTxReceipt,
@@ -591,10 +592,16 @@ describe('Utility Execution test suite', () => {
       });
     });
 
-    const makeOracle = (overrides?: Partial<UtilityExecutionOracleArgs>) => {
-      const scopes = overrides?.scopes ?? [];
+    const makeOracle = (overrides?: Partial<UtilityExecutionOracleArgs> & { contractAddress?: AztecAddress }) => {
+      const { contractAddress: contractAddressOverride, ...rest } = overrides ?? {};
+      const scopes = rest.scopes ?? [];
       return new UtilityExecutionOracle({
-        contractAddress,
+        callContext: CallContext.from({
+          msgSender: AztecAddress.NULL_MSG_SENDER,
+          contractAddress: contractAddressOverride ?? contractAddress,
+          functionSelector: FunctionSelector.empty(),
+          isStaticCall: true,
+        }),
         authWitnesses: [],
         capsules: [],
         anchorBlockHeader,
@@ -615,7 +622,7 @@ describe('Utility Execution test suite', () => {
         simulator,
         utilityExecutor: () => Promise.resolve(),
         transientArrayService: new TransientArrayService(),
-        ...overrides,
+        ...rest,
       });
     };
   });
