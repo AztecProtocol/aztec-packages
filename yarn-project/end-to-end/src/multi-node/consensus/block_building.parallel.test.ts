@@ -83,7 +83,7 @@ describe('multi-node/consensus/block_building/simple', () => {
 
   // Pre-proves TX_COUNT transactions emitting unique nullifiers, sends them, waits for all to mine,
   // then asserts no fail events were emitted by any of the 3 sequencers during the run.
-  it('builds blocks without any errors', async () => {
+  it('builds simple blocks without any errors', async () => {
     const sequencers = nodes.map(node => node.getSequencer()!);
     const { failEvents } = test.watchSequencerEvents(sequencers, i => ({ validator: validators[i].attester }));
 
@@ -201,7 +201,7 @@ describe('multi-node/consensus/block_building/high_tps', () => {
   // build window is reachable. Starts all sequencers and waits for all txs to be mined. Groups
   // blocks by checkpoint number and for each checkpoint at or after the target slot asserts block
   // count, per-block tx count, and L1 submission offset. Expects zero fail events.
-  it('builds blocks without any errors', async () => {
+  it('builds high-tps blocks without any errors', async () => {
     // Pre-prove and send all txs so the proposer has a full backlog ready in the pool when it starts building.
     const txs = await timesAsync(TX_COUNT_HIGH, i =>
       proveInteraction(context.wallet, contract.methods.spam(i, 1n, false), { from }),
