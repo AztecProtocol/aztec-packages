@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+
+export CI=1
+export CI_REDIS_AVAILABLE=0
+export ci3="$root/ci3"
+
+source "$root/ci3/source_redis"
+
+echo "checking redis_setexz without Redis"
+echo "CI booting..." | redis_setexz source-redis-test 1
+echo "ok"
