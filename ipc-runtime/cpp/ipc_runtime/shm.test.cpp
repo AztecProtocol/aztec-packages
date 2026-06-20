@@ -672,14 +672,15 @@ TEST(ShmTest, MpscReactorPipelinedConcurrencyAndOrder)
 
     ReactorTestPool pool(8);
     std::thread server_thread([&]() {
-        server->run_reactor(
-            [](int, std::span<const uint8_t> req) {
+        server->run_reactor([&pool](int, std::span<const uint8_t> req, IpcServer::Respond respond) {
+            std::vector<uint8_t> r(req.begin(), req.end());
+            pool.enqueue([r = std::move(r), respond = std::move(respond)]() mutable {
                 uint32_t idx = 0;
-                std::memcpy(&idx, req.data(), sizeof(idx));
+                std::memcpy(&idx, r.data(), sizeof(idx));
                 std::this_thread::sleep_for(std::chrono::milliseconds(20 + (N - idx)));
-                return std::vector<uint8_t>(req.begin(), req.end());
-            },
-            [&pool](const std::function<void()>& task) { pool.enqueue(task); });
+                respond(std::move(r));
+            });
+        });
     });
 
     std::this_thread::sleep_for(std::chrono::milliseconds(100));

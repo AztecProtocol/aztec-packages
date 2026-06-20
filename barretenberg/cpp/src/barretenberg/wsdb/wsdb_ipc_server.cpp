@@ -7,6 +7,7 @@
 #include "barretenberg/wsdb/generated/wsdb_ipc_server.hpp"
 #include "barretenberg/wsdb/wsdb_handlers.hpp"
 #include "barretenberg/wsdb/wsdb_request.hpp"
+#include "barretenberg/wsdb/wsdb_scheduler.hpp"
 #include "ipc_runtime/ipc_server.hpp"
 #include "ipc_runtime/serve_helper.hpp"
 #include "ipc_runtime/signal_handlers.hpp"
@@ -212,8 +213,6 @@ int execute_wsdb_server(const std::string& input_path,
 
     std::cerr << "aztec-wsdb IPC server ready" << '\n';
 
-    auto handler = make_wsdb_handler(request);
-
     // Dispatch pool: services requests concurrently so parallel reads aren't
     // serialized through the single reactor thread. It is deliberately DISTINCT
     // from WorldState's own intra-op pool (the `threads` arg above): mutating
@@ -224,11 +223,20 @@ int execute_wsdb_server(const std::string& input_path,
     uint32_t dispatch_threads = std::max<uint32_t>(4, std::thread::hardware_concurrency());
     bb::ThreadPool dispatch_pool(dispatch_threads);
 
-    server->run_reactor(
-        [&handler](int /*client_id*/, std::span<const uint8_t> raw) {
-            return handler(std::vector<uint8_t>(raw.begin(), raw.end()));
-        },
-        [&dispatch_pool](const std::function<void()>& task) { dispatch_pool.enqueue(task); });
+    // Server-side ordering: the database, not the client, guarantees per-fork
+    // read/write consistency. Each handler hands its work to this scheduler via
+    // schedule_read / schedule_write (which run reads concurrently and serialize
+    // writes per fork — see WsdbScheduler), so the context carries it.
+    auto scheduler = std::make_shared<WsdbScheduler>(dispatch_pool, *server);
+    request.scheduler = scheduler.get();
+
+    // Async dispatch: the reactor reads each request and hands it to the
+    // generated handler with a respond callback; the handler decodes, schedules
+    // its work, and responds when done (possibly from a pool thread).
+    auto handler = make_wsdb_handler(request);
+    server->run_reactor([&handler](int /*client_id*/, std::span<const uint8_t> raw, ipc::IpcServer::Respond respond) {
+        handler(raw, std::move(respond));
+    });
 
     server->close();
     return 0;

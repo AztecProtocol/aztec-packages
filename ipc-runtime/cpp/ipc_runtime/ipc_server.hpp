@@ -180,16 +180,27 @@ class IpcServer {
     using Handler = std::function<std::vector<uint8_t>(int client_id, std::span<const uint8_t> request)>;
 
     /**
-     * @brief Executor that decides where a handler invocation runs.
+     * @brief Asynchronous request handler used by run_reactor().
      *
-     * Given a task, it must eventually run it (exactly once). An "inline"
-     * executor (`[](auto t){ t(); }`) runs it synchronously on the calling
-     * thread — equivalent to the serial run() loop. A thread-pool executor
-     * (`[&pool](auto t){ pool.enqueue(std::move(t)); }`) runs it on a worker so
-     * the reactor can keep reading. ipc-runtime owns no pool and spawns no
-     * thread; concurrency is entirely the caller's choice of executor.
+     * The transport hands the application a request and a `respond` callback; the
+     * application does everything else — decode/dispatch, any classification, any
+     * ordering, and choice of thread — then calls `respond(response)` exactly once
+     * when the result is ready (possibly later, on another thread). ipc-runtime
+     * does not interpret the request; it only correlates the response (per-client
+     * FIFO ordering, reorder stash, and wake) inside `respond`.
+     *
+     * This keeps all policy — concurrency, ordering, inline-vs-pool — on the
+     * application side while ipc-runtime stays transport-only. The wsdb's handler
+     * classifies the request, serializes writes per-fork, runs the generated
+     * dispatch on a thread pool, and calls `respond` with the encoded result.
+     *
+     * The `request` span is owned by the runtime and stays valid until `respond`
+     * is invoked, so a handler that defers work may capture the span and read it
+     * on the worker thread. A `respond` of an empty vector is a valid zero-length
+     * response.
      */
-    using Executor = std::function<void(std::function<void()>)>;
+    using Respond = std::function<void(std::vector<uint8_t>)>;
+    using AsyncHandler = std::function<void(int client_id, std::span<const uint8_t> request, Respond respond)>;
 
     /**
      * @brief Accept pending client connections without blocking (optional for
@@ -265,16 +276,16 @@ class IpcServer {
     }
 
     /**
-     * @brief Run the event loop as a non-blocking reactor with a pluggable
-     * executor — the concurrent counterpart to run().
+     * @brief Run the event loop as a non-blocking reactor driving an async
+     * handler — the concurrent counterpart to run().
      *
-     * The reactor thread owns ALL ring/socket I/O: it reads requests and is the
-     * sole caller of send(). It never blocks on a handler. For each request it
-     * copies the bytes out, release()s the slot immediately, assigns a
-     * per-connection sequence number, and hands the handler call to `executor`.
-     * A worker (or, for an inline executor, the reactor itself) runs the handler
-     * and calls the internal post_response, which stashes the result and
-     * notify()s the reactor.
+     * The reactor thread owns ALL ring/socket I/O: it reads each request and is
+     * the sole caller of send(). It never blocks on the handler. For each request
+     * it copies the bytes into a runtime-owned buffer, release()s the ring slot
+     * immediately, assigns a per-connection sequence number, and invokes the
+     * handler with a `respond` callback. The handler does decode/dispatch, any
+     * classification/ordering, and chooses its own thread; it calls `respond`
+     * exactly once when the result is ready (inline or later, from any thread).
      *
      * Responses are sent in per-connection request order (a small reorder stash
      * keyed by the sequence number), so the wire stays FIFO with no request-id
@@ -282,12 +293,11 @@ class IpcServer {
      * its single-producer/lock-free property and writes are serial for free; the
      * only lock is over the in-process stash, never over a ring.
      *
-     * With an inline executor this degrades to a serial loop that additionally
-     * pays the stash + notify() — so it is NOT the zero-overhead path; serial
-     * services should keep calling run(). Concurrency comes from passing a
-     * thread-pool executor.
+     * All scheduling policy — concurrency, ordering, and any inline-vs-deferred
+     * fast path — lives in the handler, not here. A handler that responds inline
+     * on the reactor thread degrades this to a serial loop.
      */
-    void run_reactor(const Handler& handler, const Executor& executor)
+    void run_reactor(const AsyncHandler& handler)
     {
         struct Conn {
             uint64_t next_send_seq = 0;                     // next sequence to release to the wire
@@ -297,10 +307,10 @@ class IpcServer {
         std::mutex mtx;                             // guards `conns` only (never a ring)
         std::unordered_map<int, Conn> conns;        // per-connection reorder state
         std::unordered_map<int, uint64_t> next_seq; // reactor-only: next sequence to assign
-        std::atomic<int> inflight{ 0 };             // handler tasks not yet completed
+        std::atomic<int> inflight{ 0 };             // requests whose respond() has not fired
 
         // True iff some connection has its next-expected response ready. Called
-        // (under mtx) inside the SHM wait's seq-latched window, so a completion
+        // (under mtx) inside the SHM wait's seq-latched window, so a response
         // posted just before the futex_wait is not slept through.
         auto have_ready = [&]() -> bool {
             std::lock_guard<std::mutex> lock(mtx);
@@ -310,21 +320,6 @@ class IpcServer {
                 }
             }
             return false;
-        };
-
-        // Place a completed response into the reorder stash. No wake — used by the
-        // inline fast path, where the reactor itself drains right after.
-        auto stash_response = [&](int client, uint64_t seq, std::vector<uint8_t> bytes) {
-            std::lock_guard<std::mutex> lock(mtx);
-            conns[client].stash.emplace(seq, std::move(bytes));
-        };
-
-        // Called from worker threads: stash the response, then wake the reactor.
-        // Push-before-notify is required so the reactor (or its predicate) always
-        // observes the entry that the wake corresponds to.
-        auto post_response = [&](int client, uint64_t seq, std::vector<uint8_t> bytes) {
-            stash_response(client, seq, std::move(bytes));
-            notify();
         };
 
         // Reactor-only: emit every response that is now next-in-sequence. Collect
@@ -363,50 +358,37 @@ class IpcServer {
                 continue;
             }
 
-            // Copy the request out and free the ring slot before dispatching: a
-            // worker cannot hold a zero-copy span into a slot we want to reuse.
-            std::vector<uint8_t> buf(request.begin(), request.end());
+            // Own the request bytes until respond() fires: the handler may defer
+            // work to another thread and read the span there. release() the ring
+            // slot now so the client can keep producing.
+            auto buf = std::make_shared<std::vector<uint8_t>>(request.begin(), request.end());
             release(client_id, request.size());
 
             uint64_t seq = next_seq[client_id]++;
+            inflight.fetch_add(1, std::memory_order_relaxed);
 
-            // Inline fast path: when nothing is in flight AND no further request
-            // is already pending, run the handler on the reactor thread. There is
-            // no concurrency to exploit here, so the pool handoff + wakeup would be
-            // pure latency (the single-in-flight / sequential case). The
-            // `inflight == 0` test short-circuits the wait_for_data(0) poll, so a
-            // burst (which keeps inflight > 0 once it starts) never pays for it and
-            // stays fully on the dispatch path. `wait_for_data(0)` is a
-            // non-blocking peek for another ready request on any connection.
-            bool run_inline = inflight.load(std::memory_order_acquire) == 0 && !has_pending_request();
-
-            if (run_inline) {
-                try {
-                    stash_response(client_id, seq, handler(client_id, std::span<const uint8_t>(buf)));
-                } catch (...) {
-                    stash_response(client_id, seq, std::vector<uint8_t>{});
+            // respond(): invoked exactly once, possibly on another thread. Stash
+            // the response (push) then notify the reactor to send it — push before
+            // notify so the reactor's have_ready predicate observes it and a SHM
+            // wake is never lost. Holds `buf` alive until invoked. Captures reactor
+            // locals by reference, valid because run_reactor does not return until
+            // inflight hits 0 (quiesce) and the final respond drives it there.
+            Respond respond = [this, client_id, seq, buf, &mtx, &conns, &inflight](std::vector<uint8_t> response) {
+                {
+                    std::lock_guard<std::mutex> lock(mtx);
+                    conns[client_id].stash.emplace(seq, std::move(response));
                 }
-            } else {
-                inflight.fetch_add(1, std::memory_order_relaxed);
-                executor([this, client_id, seq, &handler, &post_response, &inflight, buf = std::move(buf)]() mutable {
-                    try {
-                        auto response = handler(client_id, std::span<const uint8_t>(buf));
-                        post_response(client_id, seq, std::move(response));
-                    } catch (...) {
-                        // Still occupy this sequence with an (empty) response so the
-                        // connection's FIFO drain is not permanently stalled.
-                        post_response(client_id, seq, std::vector<uint8_t>{});
-                    }
-                    inflight.fetch_sub(1, std::memory_order_release);
-                    notify();
-                });
-            }
+                inflight.fetch_sub(1, std::memory_order_release);
+                notify();
+            };
 
-            drain_and_send(); // emit immediately for the inline path / an inline executor
+            handler(client_id, std::span<const uint8_t>(*buf), std::move(respond));
+            drain_and_send(); // emit immediately if the handler responded inline
         }
 
-        // Quiesce before returning: in-flight tasks capture this frame's stash,
-        // mutex and `this`, so we must not unwind until they have all completed.
+        // Quiesce before returning: in-flight handlers capture this frame's state
+        // (mtx, conns, inflight), so we must not unwind until every respond() has
+        // fired.
         while (inflight.load(std::memory_order_acquire) > 0) {
             drain_and_send();
             wait_for_data_or_ready(10000000, have_ready);
