@@ -200,9 +200,11 @@ function avm_check_circuit_cmds {
 
   # Specify timeout and resources
   # WARNING: theoretically, transactions could need more CPU and MEM than we allocate by default.
-  # In that case, they might start timing out. For now, all of the e2e test txs seem to be relatively
-  # small and the AVM can run check-circuit with limited resources.
-  local prefix="$hash:ISOLATE=1:TIMEOUT=30s"
+  # In that case, they might start timing out. Most e2e test txs run check-circuit in well under
+  # 10s, but heavy ones (e.g. e2e_multiple_blobs, which deploys the large AVM test contracts and
+  # emits more than a blob's worth of data) take ~35s and were exceeding a 30s budget under parallel
+  # load, failing the whole job via --halt now,fail=1. 60s gives those comfortable headroom.
+  local prefix="$hash:ISOLATE=1:TIMEOUT=60s"
 
   # Find all .bin files in the dump directory (handles nested dirs)
   for input_file in "$default_avm_inputs_dump_dir"/*/*.bin "$default_avm_inputs_dump_dir"/*/*/*.bin; do
