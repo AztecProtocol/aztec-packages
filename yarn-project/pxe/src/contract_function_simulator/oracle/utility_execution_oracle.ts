@@ -259,7 +259,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     const witness = await this.#queryWithBlockHashNotAfterAnchor(referenceBlockHash, () =>
       this.aztecNode.getBlockHashMembershipWitness(referenceBlockHash, blockHash),
     );
-    return witness ? Option.some(witness) : Option.none(MembershipWitness.empty(ARCHIVE_HEIGHT));
+    return witness ? Option.some(witness) : Option.none();
   }
 
   /**
@@ -351,7 +351,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   ): Promise<Option<{ publicKeys: PublicKeys; partialAddress: PartialAddress }>> {
     const completeAddress = await this.addressStore.getCompleteAddress(account);
     if (!completeAddress) {
-      return Option.none({ publicKeys: PublicKeys.default(), partialAddress: Fr.ZERO });
+      return Option.none();
     }
     return Option.some({ publicKeys: completeAddress.publicKeys, partialAddress: completeAddress.partialAddress });
   }
@@ -650,9 +650,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       this.anchorBlockHeader.getBlockNumber(),
     );
 
-    const options = maybeMessageContexts.map(mc =>
-      mc ? Option.some(mc) : Option.none<MessageContext>(MessageContext.empty()),
-    );
+    const options = maybeMessageContexts.map(mc => (mc ? Option.some(mc) : Option.none<MessageContext>()));
     return EphemeralArray.fromValues(this.ephemeralArrayService, options);
   }
 
@@ -667,7 +665,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
 
     const receipt = await this.aztecNode.getTxReceipt(txHash, { includeTxEffect: true });
     if (!receipt.isMined() || !receipt.txEffect || receipt.blockNumber > this.anchorBlockHeader.getBlockNumber()) {
-      return Option.none(TxEffect.empty());
+      return Option.none();
     }
 
     return Option.some(receipt.txEffect);
@@ -692,7 +690,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
     const values = await this.capsuleService.getCapsule(contractAddress, slot, this.jobId, scope, this.capsules);
-    return values ? Option.some(values) : Option.none(new Array(tSize).fill(Fr.ZERO));
+    return values ? Option.some(values) : Option.none({ length: tSize });
   }
 
   public deleteCapsule(contractAddress: AztecAddress, slot: Fr, scope: AztecAddress): void {
@@ -740,7 +738,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       const plaintext = await aes128.decryptBufferCBC(Buffer.from(ciphertext.data), iv, symKey);
       return Option.some(BoundedVec.from<number>({ data: [...plaintext], maxLength: capacity }));
     } catch {
-      return Option.none(BoundedVec.empty<number>({ maxLength: capacity }));
+      return Option.none({ maxLength: capacity });
     }
   }
 

@@ -48,6 +48,7 @@ import {
   U32,
   UTILITY_CONTEXT,
   assertReadersConsumed,
+  slotsOf,
 } from './oracle_type_mappings.js';
 
 export {
@@ -59,6 +60,7 @@ export {
   BOUNDED_VEC,
   BUFFER,
   BYTE,
+  CONTRACT_CLASS_LOG_INPUT,
   DELIVERY_MODE,
   EPHEMERAL_ARRAY,
   EVENT_VALIDATION_REQUEST,
@@ -75,9 +77,11 @@ export {
   PROVIDED_SECRET,
   STR,
   U32,
+  slotsOf,
   type InputSlot,
   type MaybePromise,
   type OutputSlot,
+  type SlotShape,
   type TypeMapping,
 } from './oracle_type_mappings.js';
 
@@ -545,7 +549,7 @@ export function makeEntry<const TParams extends RegistryParam[] = [], TReturnVal
           throw new Error(`Param '${param.name}' has no deserialization defined`);
         }
         // Collect the slots for this param and wrap each in a FieldReader.
-        const slotCount = param.type.deserialization.slots;
+        const slotCount = slotsOf(param.type);
         const readers = inputs
           .slice(offset, offset + slotCount)
           .map(slot => new FieldReader(slot.map(hex => Fr.fromString(hex))));
