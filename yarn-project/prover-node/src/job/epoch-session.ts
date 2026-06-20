@@ -92,7 +92,7 @@ export type EpochSessionDeps = {
  *
  * Lifecycle (happy path):
  *
- *   initialized → awaiting-checkpoints → completed
+ *   initialized → awaiting-checkpoints → awaiting-root → publishing-proof → completed
  *
  * Terminal states map the publishing outcome: `published` → `completed`, `superseded` →
  * `superseded`, `failed` → `failed`, `expired` → `timed-out`, `withdrawn` → `cancelled`.
@@ -320,6 +320,12 @@ export class EpochSession implements Traceable {
       0,
     );
 
+    // Reflect the publish phase. Guard against a terminal state set concurrently by cancel() — the
+    // post-submit isTerminal() check below relies on cancel still winning.
+    if (!this.isTerminal()) {
+      this.state = 'publishing-proof';
+    }
+
     const outcome = await this.deps.publishingService.submit({
       id: this.uuid,
       epoch: this.spec.epochNumber,
@@ -410,15 +416,20 @@ export class EpochSession implements Traceable {
     }
   }
 
-  private toTopTreeHooks(): TopTreeJobHooks | undefined {
+  private toTopTreeHooks(): TopTreeJobHooks {
     const hooks = this.deps.hooks;
-    if (!hooks?.beforeTopTreeProve && !hooks?.afterTopTreeProve && !hooks?.topTreeProveOverride) {
-      return undefined;
-    }
     return {
-      beforeProve: hooks.beforeTopTreeProve,
-      afterProve: hooks.afterTopTreeProve,
-      proveOverride: hooks.topTreeProveOverride,
+      // `beforeProve` fires once the sub-tree (checkpoint block) proofs are ready and the root prove is
+      // about to start — the boundary between `awaiting-checkpoints` and proving the top tree. Don't
+      // clobber a terminal state set concurrently by cancel().
+      beforeProve: async () => {
+        if (!this.isTerminal()) {
+          this.state = 'awaiting-root';
+        }
+        await hooks?.beforeTopTreeProve?.();
+      },
+      afterProve: hooks?.afterTopTreeProve,
+      proveOverride: hooks?.topTreeProveOverride,
     };
   }
 }
