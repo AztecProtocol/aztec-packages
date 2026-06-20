@@ -85,18 +85,76 @@ export type TrackedSequencerEvent = {
 export type BlockProposedEvent = { blockNumber: BlockNumber; slot: SlotNumber; buildSlot: SlotNumber };
 
 /**
- * Timing-only profile shared by the fast L1-reorg tests (the six `optimistic_proving` reorg blocks,
- * `l1_reorgs`, and adjacent prune/equivocation timings). Intentionally excludes `maxSpeedUpAttempts`,
- * `cancelTxOnTimeout`, and `aztecProofSubmissionEpochs` — those encode per-test scenario intent and
- * stay explicit. `aztecEpochDuration` is included as the common value of 4; tests that need a
- * different epoch length (e.g. 8) override it after the spread.
+ * The 36s-slot reorg cadence shared by every reorg/prune/HA test, regardless of single-node vs
+ * multi-validator topology: a 36s L2 slot, 8s blocks, and a 4-slot epoch. The two concrete reorg
+ * profiles ({@link FAST_REORG_TIMING}, {@link MV_REORG_TIMING}) extend this with their topology's L1
+ * slot duration and any extra knobs. Kept timing-only — `maxSpeedUpAttempts`, `cancelTxOnTimeout`, and
+ * `aztecProofSubmissionEpochs` encode per-test scenario intent and stay explicit at the call site.
  */
-export const FAST_REORG_TIMING = {
-  ethereumSlotDuration: 4,
+export const REORG_TIMING_BASE = {
   aztecSlotDuration: 36,
   blockDurationMs: 8000,
   aztecEpochDuration: 4,
+} as const;
+
+/**
+ * Timing-only profile shared by the fast single-node L1-reorg tests (the six `optimistic_proving`
+ * reorg blocks and `l1_reorgs`). Extends {@link REORG_TIMING_BASE} with mainnet-style 32-slot anvil
+ * epochs and a 4s L1 slot. Note: `ethereumSlotDuration` stays at 4 here (not unified to
+ * {@link MV_REORG_TIMING}'s 6) — at eth=6 the proof-submission-window timing in `l1_reorgs`'
+ * proof-removal/proof-restore reorg assertions starves and times out, so the 4s L1 slot is
+ * load-bearing for the single-node reorg path. Tests that need a different epoch length (e.g. 8 for
+ * the "with replacement" case) override `aztecEpochDuration` after the spread.
+ */
+export const FAST_REORG_TIMING = {
+  ...REORG_TIMING_BASE,
+  ethereumSlotDuration: 4,
   anvilSlotsInAnEpoch: 32,
+} as const;
+
+/**
+ * Timing-only profile naming the 36s/6s reorg-and-prune cadence copied verbatim across the
+ * multi-validator prune/HA/equivocation tests (`orphan_block_prune`, `missed_l1_publish`,
+ * `equivocation`, `ha_sync`, `ha_checkpoint_handoff`). The multi-validator analogue of
+ * {@link FAST_REORG_TIMING}, adding the 0.5s attestation-propagation budget those committee tests
+ * need. Timing-only: committee size, `aztecProofSubmissionEpochs`, and the slasher block stay
+ * per-test. Spread BEFORE per-test overrides so a test can still bump e.g. `aztecEpochDuration`.
+ */
+export const MV_REORG_TIMING = {
+  ...REORG_TIMING_BASE,
+  ethereumSlotDuration: 6,
+  attestationPropagationTime: 0.5,
+} as const;
+
+/**
+ * Timing-only profile naming the 36s/12s multi-validator consensus/pipelining cadence copied across
+ * `block_building` (simple + high_tps), `first_slot`, and `proof_at_boundary`. Uses
+ * `aztecSlotDurationInL1Slots: 3` rather than an explicit `aztecSlotDuration: 36` so the L2 slot stays
+ * coupled to `ethereumSlotDuration` if a test overrides eth. Deliberately omits
+ * `attestationPropagationTime` (per-scenario: default 2, 0.5, or 1) — set it per test. Spread BEFORE
+ * per-test overrides.
+ */
+export const MV_CONSENSUS_TIMING = {
+  ethereumSlotDuration: 12,
+  aztecSlotDurationInL1Slots: 3,
+  blockDurationMs: 6000,
+} as const;
+
+/**
+ * Timing-only profile naming the 72s wide-slot multi-block-per-slot cadence copied across the MBPS
+ * consensus/prune tests (`mbps.parallel`'s `setupMbps`, `mbps/pipelining`, `pipeline_prune`). A-914:
+ * pipelined MBPS needs this 72s/12s cadence (not the tighter 36s/4s), otherwise non-proposer nodes hit
+ * `CheckpointNumberNotSequentialError` when the pipelined proposer races ahead of L1 confirmation. The
+ * larger `perBlockAllocationMultiplier` lets each of the several blocks per slot fit non-trivial txs.
+ * Spread BEFORE per-test overrides (e.g. `mockGossipSubNetworkLatency`, `maxTxsPerCheckpoint`).
+ */
+export const MBPS_TIMING = {
+  ethereumSlotDuration: 12,
+  aztecSlotDuration: 72,
+  blockDurationMs: 5500,
+  aztecEpochDuration: 4,
+  perBlockAllocationMultiplier: 8,
+  aztecTargetCommitteeSize: 3,
 } as const;
 
 /**

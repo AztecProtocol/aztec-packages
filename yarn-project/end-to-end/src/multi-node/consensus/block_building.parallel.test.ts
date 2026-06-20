@@ -20,6 +20,7 @@ import { waitForTxs } from '../../fixtures/wait_helpers.js';
 import { proveInteraction } from '../../test-wallet/utils.js';
 import {
   MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
+  MV_CONSENSUS_TIMING,
   MultiNodeTestContext,
   type RegisteredValidator,
   buildMockGossipValidators,
@@ -57,10 +58,8 @@ describe('multi-node/consensus/block_building/simple', () => {
     // The hardcoded account is funded via genesis without needing on-chain deployment.
     test = await MultiNodeTestContext.setup({
       ...MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
+      ...MV_CONSENSUS_TIMING,
       initialValidators: validators,
-      aztecSlotDurationInL1Slots: 3,
-      ethereumSlotDuration: 12,
-      blockDurationMs: 6000,
     });
 
     ({ context, logger } = test);
@@ -147,8 +146,6 @@ const CHECKPOINTS_TO_CHECK = 3;
 const TX_COUNT_HIGH = BLOCKS_PER_CHECKPOINT * TXS_PER_BLOCK * (CHECKPOINTS_TO_CHECK + 1);
 const TX_DURATION_MS = 2500;
 const BLOCK_DURATION_MS = 6000;
-const L2_SLOT_DURATION_S = 36;
-const L1_BLOCK_TIME_S = 12;
 
 // Multi-block-per-slot suite verifying that 3 validator nodes can build fully-filled checkpoints
 // (4 blocks × 2 txs each) under proposer pipelining with fake tx processing delays. Asserts that
@@ -170,10 +167,8 @@ describe('multi-node/consensus/block_building/high_tps', () => {
 
     test = await MultiNodeTestContext.setup({
       ...MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
+      ...MV_CONSENSUS_TIMING,
       initialValidators: validators,
-      ethereumSlotDuration: L1_BLOCK_TIME_S,
-      aztecSlotDuration: L2_SLOT_DURATION_S,
-      blockDurationMs: BLOCK_DURATION_MS,
       fakeProcessingDelayPerTxMs: TX_DURATION_MS,
       attestationPropagationTime: 1,
       minTxsPerBlock: 1,

@@ -13,6 +13,7 @@ import { privateKeyToAccount } from 'viem/accounts';
 
 import {
   MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
+  MV_REORG_TIMING,
   MultiNodeTestContext,
   buildMockGossipValidators,
   withOnlyOffense,
@@ -67,12 +68,8 @@ describe('multi-node/slashing/equivocation', () => {
     const slashingUnit = BigInt(1e14);
     test = await MultiNodeTestContext.setup({
       ...MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
+      ...MV_REORG_TIMING,
       initialValidators: validators,
-      aztecEpochDuration: 4,
-      ethereumSlotDuration: 6,
-      aztecSlotDuration: 36,
-      blockDurationMs: 8000,
-      attestationPropagationTime: 0.5,
       aztecTargetCommitteeSize: 4,
       // Enable the slasher so we can assert the equivocating proposer is detected for slashing.
       // Round size is aztecEpochDuration * slashingRoundSizeInEpochs = 4 slots; the L1 contract

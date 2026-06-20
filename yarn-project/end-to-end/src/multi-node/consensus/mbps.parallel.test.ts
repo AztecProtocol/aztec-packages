@@ -30,6 +30,7 @@ import type { TestWallet } from '../../test-wallet/test_wallet.js';
 import { proveInteraction } from '../../test-wallet/utils.js';
 import {
   type BlockProposedEvent,
+  MBPS_TIMING,
   MultiNodeTestContext,
   type RegisteredValidator,
   type TrackedSequencerEvent,
@@ -88,28 +89,14 @@ async function setupMbps(opts: {
 
   const validators = buildMockGossipValidators(NODE_COUNT);
 
-  // Setup context with the given set of validators and MBPS configuration.
-  // Pipelining is enabled, so we adopt the wider timing used by the dedicated
-  // epochs_mbps.pipeline.parallel test (72s L2 slots, 12s L1 slots, 5500ms blocks).
-  // The tighter 36s/4s timing produces CheckpointNumberNotSequentialError on non-proposer
-  // nodes when the pipelined proposer races ahead of L1 confirmation (see A-914).
+  // MBPS_TIMING is the wide 72s/12s pipelining cadence (see A-914 on why the tighter 36s/4s breaks
+  // non-proposer nodes); the JSDoc on the profile carries the full rationale.
   const test = await MultiNodeTestContext.setup({
+    ...MBPS_TIMING,
     numberOfAccounts: 0,
     initialValidators: validators,
     mockGossipSubNetwork: true,
     startProverNode: true,
-    // Mirrors the pipeline-MBPS sibling: more blocks per slot needs a larger per-block gas
-    // allocation multiplier so each block can fit non-trivial txs.
-    perBlockAllocationMultiplier: 8,
-    aztecEpochDuration: 4,
-    // L1 slot duration - mirrors the pipeline-MBPS test for headroom on the parent's L1 tx
-    ethereumSlotDuration: 12,
-    // L2 slot duration - should fit several blocks (5.5s each) with pipelining overhead
-    aztecSlotDuration: 72,
-    // Block duration of 5.5s, matches the pipeline sibling
-    blockDurationMs: 5500,
-    // Committee size of 3
-    aztecTargetCommitteeSize: 3,
     // Additional options (minTxsPerBlock, maxTxsPerBlock, etc.)
     ...setupOpts,
     // PXE options for chain tip syncing
@@ -680,18 +667,13 @@ describe('multi-node/consensus/mbps/pipelining', () => {
     const validators = buildMockGossipValidators(NODE_COUNT);
 
     const test = await MultiNodeTestContext.setup({
+      ...MBPS_TIMING,
       numberOfAccounts: 0,
       initialValidators: validators,
       mockGossipSubNetwork: true,
       mockGossipSubNetworkLatency: 500, // adverse network conditions
       startProverNode: true,
-      perBlockAllocationMultiplier: 8,
-      aztecEpochDuration: 4,
-      ethereumSlotDuration: 12,
-      aztecSlotDuration: 72,
-      blockDurationMs: 5500,
       maxTxsPerCheckpoint: 24,
-      aztecTargetCommitteeSize: 3,
       inboxLag: 2,
       minTxsPerBlock: 1,
       maxTxsPerBlock: 2,
