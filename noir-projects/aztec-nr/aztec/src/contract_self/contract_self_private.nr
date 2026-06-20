@@ -187,7 +187,7 @@ impl<Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInte
     ///
     /// # Cost
     ///
-    /// Private event emission always results in the csreation of a nullifer, which acts as a commitment to the event
+    /// Private event emission always results in the creation of a nullifer, which acts as a commitment to the event
     /// and is used by third parties to verify its authenticity. See [`EventMessage::deliver_to`] for the costs
     /// associated to delivery.
     ///

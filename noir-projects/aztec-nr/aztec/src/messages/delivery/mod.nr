@@ -35,7 +35,7 @@ pub use mode::OnchainDeliveryMode;
 /// note hash's side effect counter is passed and constrained tagging is not in use, then the log will be squashed
 /// alongside the note should its nullifier be emitted in the current transaction. Constrained-tagged logs are not tied
 /// to note squashing, because recipient discovery scans those tags sequentially and a removed log would break the
-/// per-secret index chain.
+/// per-secret index sequence.
 ///
 /// ## Privacy
 ///
@@ -123,14 +123,14 @@ fn do_onchain_private_message_delivery<Env, let MESSAGE_PLAINTEXT_LEN: u32>(
         recipient,
     );
 
-    // We forbid this value not being constant to avoid predicating the context calls below, which might result in
+    // This value must be constant to avoid predicating the context calls below, which might result in
     // the context's arrays having unknown compile time write indices and hence dramatically increasing constraints
     // when accessing them. In practice this restriction is not a problem as we always know at compile time whether
     // we're emitting a note or non-note message.
     assert_constant(maybe_note_hash_counter.is_some());
 
     // Constrained-tagged logs must not be squashed alongside the note: the recipient discovers them by scanning
-    // the per-secret tag sequence, so removing a log would break the index chain.
+    // the per-secret tag sequence, so removing a log would break the index sequence.
     let squashable_note_log = maybe_note_hash_counter.is_some() & !is_constrained;
 
     let log = BoundedVec::from_array(ciphertext);

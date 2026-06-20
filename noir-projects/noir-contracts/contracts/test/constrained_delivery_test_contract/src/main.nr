@@ -59,7 +59,7 @@ pub contract ConstrainedDeliveryTest {
         self.emit(DeliveryEvent { value: 2 }).deliver_to(recipient, MessageDelivery::onchain_constrained());
     }
 
-    /// Test-only: emits a log under the constrained tag for `(secret, index)` WITHOUT the chain nullifier. A landed
+    /// Test-only: emits a log under the constrained tag for `(secret, index)` WITHOUT the sequence nullifier. A landed
     /// constrained-tagged log advances the PXE's per-secret index, so this lets tests reach the `index > 0` branch;
     /// deliberately skipping the nullifier drives the negative test.
     #[external("private")]

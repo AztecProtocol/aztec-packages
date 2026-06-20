@@ -44,20 +44,22 @@ pub global GET_APP_SILOED_SECRET_SELECTOR: FunctionSelector =
     comptime { FunctionSelector::from_signature("get_app_siloed_secret((Field),(Field),(u8),(Field))") };
 pub global NON_INTERACTIVE_HANDSHAKE_SELECTOR: FunctionSelector =
     comptime { FunctionSelector::from_signature("non_interactive_handshake((Field),(Field),(u8))") };
+pub global GET_HANDSHAKES_SELECTOR: FunctionSelector =
+    comptime { FunctionSelector::from_signature("get_handshakes((Field),u32)") };
 
-/// Resolves the app-siloed handshake secret for `(sender, recipient, mode)`, bootstrapping a fresh handshake via
-/// the registry when none exists yet.
+/// Resolves the app-siloed handshake secret, bootstrapping when none exists.
+///
+/// Resolves the secret for `(sender, recipient, mode)`, creating it via the registry's `non_interactive_handshake`
+/// when no handshake exists yet.
 ///
 /// Returns `(secret, bootstrapped)`, where `bootstrapped` is true when this call created the handshake.
 ///
 /// ## Batching
 ///
-/// Several sends can share one transaction on the same chain (each later send proves its predecessor as a
-/// same-transaction pending nullifier), but only once the handshake is committed. The reuse-vs-bootstrap decision
-/// here is a utility call that reads committed state, so a bootstrap performed earlier in the same transaction is
-/// invisible: a later send re-handshakes onto a separate chain (each handshake mints a fresh secret) rather than
-/// reusing the pending one. A brand-new recipient therefore needs one landed transaction to establish the chain
-/// before further sends can be batched onto it.
+/// The reuse-vs-bootstrap decision is a utility call that reads committed state. If no handshake exists yet,
+/// multiple sends in the same transaction can't see each other's pending bootstrap, so each one creates its own
+/// handshake (a fresh secret on a separate sequence) rather than reusing one. A brand-new recipient therefore needs
+/// one landed transaction to establish the handshake before further sends can be batched onto it.
 pub(crate) fn get_or_create_app_siloed_handshake_secret(
     context: &mut PrivateContext,
     registry: AztecAddress,
@@ -82,7 +84,7 @@ pub(crate) fn get_or_create_app_siloed_handshake_secret(
         Deserialize::deserialize(returns)
     };
 
-    if maybe_secret.is_none() {
+    maybe_secret.map(|secret| (secret, false)).unwrap_or_else(|| {
         // Bootstrap: no handshake exists yet. The registry inserts a fresh note and returns the app-siloed
         // secret to the caller. The constrained return is the source of truth for the secret, so no separate
         // `validate_handshake` is needed by constrained delivery.
@@ -97,9 +99,7 @@ pub(crate) fn get_or_create_app_siloed_handshake_secret(
             .get_preimage();
 
         (secret, true)
-    } else {
-        (maybe_secret.unwrap_unchecked(), false)
-    }
+    })
 }
 
 /// Fetches discovered handshakes from the HandshakeRegistry and derives app-siloed tagging secrets for each,
@@ -141,9 +141,12 @@ pub(crate) unconstrained fn get_handshake_secrets(
 
 /// Calls the HandshakeRegistry's `get_handshakes` utility function and deserializes the response.
 unconstrained fn fetch_handshake_page(recipient: AztecAddress, page_offset: u32) -> HandshakePage {
-    let selector = comptime { FunctionSelector::from_signature("get_handshakes((Field),u32)") };
     let args: [Field; 2] = [recipient.to_field(), page_offset as Field];
-    let response = call_utility_function(STANDARD_HANDSHAKE_REGISTRY_ADDRESS, selector, args);
+    let response = call_utility_function(
+        STANDARD_HANDSHAKE_REGISTRY_ADDRESS,
+        GET_HANDSHAKES_SELECTOR,
+        args,
+    );
     HandshakePage::deserialize(response)
 }
 

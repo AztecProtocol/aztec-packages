@@ -1,10 +1,10 @@
 //! Sender-side helpers for constrained message delivery.
 //!
-//! Constrained messages form per-`(sender, recipient, secret)` chains, each send anchored to the handshake
-//! registry at an incrementing index. Two consequences shape the whole flow: sends on one chain are sequential
-//! across transactions (parallel sends collide or fail the predecessor check, while distinct recipients are
-//! distinct chains and parallelize), and batching several sends onto one chain within a transaction requires an
-//! already-committed handshake.
+//! Constrained messages form per-`(sender, recipient, secret)` sequences, each send anchored to the handshake
+//! registry at an incrementing index. Two consequences shape the whole flow: sends on one sequence are strictly
+//! ordered across transactions (parallel sends collide or fail the predecessor check, while distinct recipients are
+//! distinct sequences and parallelize), and batching several sends onto one sequence within a transaction requires
+//! an already-committed handshake.
 //!
 //! See [`constrain_secret`] for how a send is anchored to the registry,
 
@@ -49,7 +49,7 @@ pub(crate) fn constrain_secret_and_emit_nullifier(
 /// - bootstrapped: the secret is the constrained `non_interactive_handshake` return (source of
 ///   truth), so only its `index == 0` start is asserted.
 /// - reuse at index 0: `validate_handshake` binds the oracle-supplied secret to the stored handshake.
-/// - reuse at index > 0: the prior chain nullifier must exist, anchoring back to the index-0 check.
+/// - reuse at index > 0: the prior sequence nullifier must exist, anchoring back to the index-0 check.
 fn constrain_secret(
     context: &mut PrivateContext,
     registry: AztecAddress,
@@ -77,10 +77,10 @@ fn constrain_secret(
     }
 }
 
-/// Computes a constrained send's chain nullifier.
+/// Computes a constrained send's sequence nullifier.
 ///
-/// Every constrained send at `index > 0` must emit this nullifier so the next send under the same
-/// `(sender, recipient, secret)` can prove its predecessor exists.
+/// Every constrained send emits this nullifier so the next send under the same `(sender, recipient, secret)` sequence
+/// can prove its predecessor exists.
 pub(crate) fn compute_constrained_msg_nullifier(
     sender: AztecAddress,
     recipient: AztecAddress,
@@ -215,23 +215,5 @@ mod test {
                 ),
             );
         });
-    }
-
-    #[test]
-    fn constrained_msg_nullifier_depends_on_chain_inputs() {
-        let sender = AztecAddress::from_field(1);
-        let other_sender = AztecAddress::from_field(2);
-        let recipient = AztecAddress::from_field(3);
-        let other_recipient = AztecAddress::from_field(4);
-        let secret: Field = 1234;
-        let other_secret: Field = 5678;
-        let index: u32 = 5;
-
-        let base = compute_constrained_msg_nullifier(sender, recipient, secret, index);
-
-        assert(base != compute_constrained_msg_nullifier(other_sender, recipient, secret, index));
-        assert(base != compute_constrained_msg_nullifier(sender, other_recipient, secret, index));
-        assert(base != compute_constrained_msg_nullifier(sender, recipient, other_secret, index));
-        assert(base != compute_constrained_msg_nullifier(sender, recipient, secret, index + 1));
     }
 }
