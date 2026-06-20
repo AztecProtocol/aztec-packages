@@ -3,16 +3,22 @@
  * @file wsdb_request.hpp
  * @brief Service-level context passed to every wsdb handler.
  *
- * Each codegen-emitted handler in wsdb_handlers.hpp takes a WsdbRequest&
- * as its `Ctx`. The struct owns no state of its own — it just bundles the
- * WorldState reference handlers need to do their work.
+ * Each codegen-emitted handler takes a WsdbRequest& as its `Ctx`. It bundles the
+ * WorldState the handlers operate on and the WsdbScheduler they hand deferred
+ * work to (so reads run concurrently and writes are serialized per fork — see
+ * wsdb_schedule.hpp / wsdb_scheduler.hpp).
  */
 #include "barretenberg/world_state/world_state.hpp"
 
 namespace bb::wsdb {
 
+class WsdbScheduler;
+
 struct WsdbRequest {
     world_state::WorldState& world_state;
+    // Set once before serving; handlers submit their work through it via the
+    // schedule_read / schedule_write helpers in wsdb_schedule.hpp.
+    WsdbScheduler* scheduler = nullptr;
 };
 
 } // namespace bb::wsdb
