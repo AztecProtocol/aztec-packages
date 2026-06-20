@@ -23,6 +23,7 @@ export {
   ARCHIVER_POLL_INTERVAL,
   DEFAULT_L1_BLOCK_TIME,
   FAST_REORG_TIMING,
+  type BlockProposedEvent,
   type TrackedSequencerEvent,
   type SingleNodeTestOpts,
 } from './single_node_test_context.js';
