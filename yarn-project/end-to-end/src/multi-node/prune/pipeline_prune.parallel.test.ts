@@ -22,6 +22,7 @@ import type { TestWallet } from '../../test-wallet/test_wallet.js';
 import { proveInteraction } from '../../test-wallet/utils.js';
 import {
   type BlockProposedEvent,
+  MBPS_TIMING,
   MultiNodeTestContext,
   type RegisteredValidator,
   buildMockGossipValidators,
@@ -69,18 +70,13 @@ describe('multi-node/prune/pipeline_prune', () => {
     validators = buildMockGossipValidators(NODE_COUNT);
 
     test = await MultiNodeTestContext.setup({
+      ...MBPS_TIMING,
       numberOfAccounts: 0,
       initialValidators: validators,
       mockGossipSubNetwork: true,
       mockGossipSubNetworkLatency: 500, // adverse network conditions
       startProverNode: true,
-      perBlockAllocationMultiplier: 8,
-      aztecEpochDuration: 4,
-      ethereumSlotDuration: 12,
-      aztecSlotDuration: 72,
-      blockDurationMs: 5500,
       maxTxsPerCheckpoint: 24,
-      aztecTargetCommitteeSize: 3,
       inboxLag: 2,
       ...setupOpts,
       pxeOpts: { syncChainTip },

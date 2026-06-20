@@ -12,6 +12,7 @@ import { jest } from '@jest/globals';
 import type { EndToEndContext } from '../../fixtures/utils.js';
 import {
   MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
+  MV_CONSENSUS_TIMING,
   MultiNodeTestContext,
   type MultiNodeTestOpts,
   type RegisteredValidator,
@@ -48,10 +49,8 @@ describe('multi-node/consensus/proof_at_boundary', () => {
 
     test = await MultiNodeTestContext.setup({
       ...MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
+      ...MV_CONSENSUS_TIMING,
       initialValidators: validators,
-      aztecSlotDurationInL1Slots: 3,
-      ethereumSlotDuration: 12,
-      blockDurationMs: 6000,
       ...overrides,
     });
 

@@ -13,6 +13,7 @@ import { jest } from '@jest/globals';
 
 import {
   MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
+  MV_REORG_TIMING,
   MultiNodeTestContext,
   buildMockGossipValidators,
 } from '../multi_node_test_context.js';
@@ -59,13 +60,9 @@ describe('multi-node/prune/orphan_block_prune', () => {
 
     test = await MultiNodeTestContext.setup({
       ...MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
+      ...MV_REORG_TIMING,
       numberOfAccounts: 1,
       initialValidators: validators,
-      aztecEpochDuration: 4,
-      ethereumSlotDuration: 6,
-      aztecSlotDuration: 36,
-      blockDurationMs: 8000,
-      attestationPropagationTime: 0.5,
       aztecTargetCommitteeSize: NODE_COUNT,
     });
 

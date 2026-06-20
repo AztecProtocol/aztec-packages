@@ -19,6 +19,7 @@ import type { EndToEndContext } from '../../fixtures/utils.js';
 import { proveInteraction } from '../../test-wallet/utils.js';
 import {
   MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
+  MV_CONSENSUS_TIMING,
   MultiNodeTestContext,
   type RegisteredValidator,
   buildMockGossipValidators,
@@ -53,11 +54,9 @@ describe('multi-node/consensus/first_slot', () => {
     // We expect 4 blocks per checkpoint with this config
     test = await MultiNodeTestContext.setup({
       ...MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
+      ...MV_CONSENSUS_TIMING,
       initialValidators: validators,
       aztecEpochDuration: 32,
-      aztecSlotDurationInL1Slots: 3,
-      ethereumSlotDuration: 12,
-      blockDurationMs: 6000,
       aztecTargetCommitteeSize: COMMITTEE_SIZE,
       minTxsPerBlock: 1,
       maxTxsPerBlock: 1,
