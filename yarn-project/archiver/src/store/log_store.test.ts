@@ -5,7 +5,14 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash, GENESIS_BLOCK_HEADER_HASH } from '@aztec/stdlib/block';
 import { Checkpoint, type PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import { MAX_LOGS_PER_TAG } from '@aztec/stdlib/interfaces/api-limit';
-import { LogCursor, SiloedTag, Tag, queryAllPrivateLogsByTags, queryAllPublicLogsByTags } from '@aztec/stdlib/logs';
+import {
+  LogCursor,
+  PublicLog,
+  SiloedTag,
+  Tag,
+  queryAllPrivateLogsByTags,
+  queryAllPublicLogsByTags,
+} from '@aztec/stdlib/logs';
 import '@aztec/stdlib/testing/jest';
 import type { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 
@@ -98,6 +105,29 @@ describe('LogStore', () => {
 
       const after = await logStore.getPrivateLogsByTags({ tags: [tag] });
       expect(after[0].length).toBe(0);
+    });
+
+    it('ingests a zero-field public log without throwing and omits it from tagged lookup', async () => {
+      const ckpt = await makeCheckpointWithLogs(1, {
+        numTxsPerBlock: 1,
+        publicLogs: { numLogsPerTx: 1, contractAddress: CONTRACT },
+      });
+      const block = ckpt.checkpoint.blocks[0];
+      // A protocol-valid public log can carry zero fields (raw AVM EMITPUBLICLOG with logSize=0); it has
+      // no tag. Previously fieldHex(fields[0]) read off an empty array and aborted the whole store txn.
+      block.body.txEffects[0].publicLogs[0] = new PublicLog(CONTRACT, []);
+      await blockStore.addProposedBlock(block);
+
+      await expect(logStore.addLogs([block])).resolves.toBe(true);
+
+      // The untagged log is still retrievable via the per-block read...
+      const pub = await logStore.getPublicLogsForBlock(block.number);
+      expect(pub.length).toBe(1);
+      expect(pub[0].logData).toEqual([]);
+
+      // ...but a real (64-hex-char) tag query never matches it.
+      const [byTag] = await logStore.getPublicLogsByTags({ contractAddress: CONTRACT, tags: [new Tag(Fr.ZERO)] });
+      expect(byTag).toEqual([]);
     });
   });
 
