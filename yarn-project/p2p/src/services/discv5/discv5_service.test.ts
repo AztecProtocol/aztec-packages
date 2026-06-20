@@ -8,11 +8,13 @@ import { getTelemetryClient } from '@aztec/telemetry-client';
 import { jest } from '@jest/globals';
 import type { PeerId } from '@libp2p/interface';
 import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
+import { multiaddr } from '@multiformats/multiaddr';
 import type { IDiscv5CreateOptions } from '@nethermindeth/discv5';
+import { ENR, SignableENR } from '@nethermindeth/enr';
 
 import { BootstrapNode } from '../../bootstrap/bootstrap.js';
 import { type BootnodeConfig, DEFAULT_PUBLIC_IP_SERVICES, type P2PConfig, getP2PDefaultConfig } from '../../config.js';
-import { AZTEC_ENR_CLIENT_VERSION_KEY } from '../../types/index.js';
+import { AZTEC_ENR_CLIENT_VERSION_KEY, AZTEC_ENR_KEY, PeerEvent } from '../../types/index.js';
 import { PeerDiscoveryState } from '../service.js';
 import { DiscV5Service } from './discV5_service.js';
 import { PersistedEnrStore } from './persisted_enr_store.js';
@@ -389,6 +391,45 @@ describe('Discv5Service', () => {
     const node = await createNode();
     const enr = node.getEnr();
     expect(enr.kvs.get(AZTEC_ENR_CLIENT_VERSION_KEY)?.toString()).toEqual(testPackageVersion);
+  });
+
+  describe('malformed ENR address handling', () => {
+    // Builds an ENR with valid ip/udp and a (correct-version) aztec key, but a malformed 3-byte TCP
+    // value that makes @nethermindeth/enr throw while parsing the multiaddr. Returns the malformed ENR
+    // and a valid control built from the same identity (valid version, no malformed TCP).
+    const makeMalformedTcpEnr = async (aztecKey: Buffer) => {
+      const peerId = await createSecp256k1PeerId();
+      const signable = SignableENR.createFromPeerId(peerId);
+      signable.setLocationMultiaddr(multiaddr('/ip4/127.0.0.1/udp/9999'));
+      signable.set(AZTEC_ENR_KEY, aztecKey);
+      const control = ENR.decodeTxt(signable.encodeTxt());
+      signable.set('tcp', Buffer.from([0x00, 0x00, 0x00]));
+      const malformed = ENR.decodeTxt(signable.encodeTxt());
+      return { control, malformed };
+    };
+
+    it('validateEnr rejects an ENR whose TCP address will not parse', async () => {
+      const service = await createNode();
+      const aztecKey = Buffer.from(service.getEnr().kvs.get(AZTEC_ENR_KEY)!);
+      const { control, malformed } = await makeMalformedTcpEnr(aztecKey);
+
+      // The control (same valid version, no malformed TCP) validates; only the malformed TCP is rejected.
+      expect((service as any).validateEnr(control)).toBe(true);
+      expect((service as any).validateEnr(malformed)).toBe(false);
+    });
+
+    it('onEnrAdded does not reject or emit DISCOVERED for a malformed-TCP ENR', async () => {
+      const service = await createNode();
+      const aztecKey = Buffer.from(service.getEnr().kvs.get(AZTEC_ENR_KEY)!);
+      const { malformed } = await makeMalformedTcpEnr(aztecKey);
+
+      const discovered: ENR[] = [];
+      service.on(PeerEvent.DISCOVERED, (enr: ENR) => discovered.push(enr));
+
+      // Before the fix this rejected with a RangeError, crashing the process as an unhandled rejection.
+      await expect((service as any).onEnrAdded(malformed)).resolves.toBeUndefined();
+      expect(discovered).toEqual([]);
+    });
   });
 
   const testPackageVersion = 'test-discv5-service';
