@@ -81,6 +81,12 @@ function redis_cli {
 }
 
 function redis_setexz {
+  if [ "$CI_REDIS_AVAILABLE" -ne 1 ]; then
+    # Drain stdin so the producer doesn't take a SIGPIPE/broken-pipe failure,
+    # which under set -o pipefail would abort the caller.
+    cat >/dev/null
+    return 0
+  fi
   gzip | redis_cli -x SETEX $1 $2 &>/dev/null
 }
 
