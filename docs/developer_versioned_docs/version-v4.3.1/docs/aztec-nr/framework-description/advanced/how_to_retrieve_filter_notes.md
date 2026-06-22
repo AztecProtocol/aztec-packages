@@ -33,8 +33,8 @@ This returns up to `MAX_NOTE_HASH_READ_REQUESTS_PER_CALL` notes without filterin
 ### Step 2: Retrieve notes from storage
 
 ```rust
-// Returns BoundedVec<HintedNote<MyNote>, ...>
-let hinted_notes = storage.my_notes.at(owner).get_notes(options);
+// Returns BoundedVec<ConfirmedNote<MyNote>, ...>
+let confirmed_notes = storage.my_notes.at(owner).get_notes(options);
 ```
 
 :::tip get_notes vs pop_notes
