@@ -1,0 +1,58 @@
+prometheus.scrape "rpc_kong" {
+  targets = [{
+    __address__ = "${metrics_service_address}",
+  }]
+  forward_to      = [prometheus.relabel.rpc_irm.receiver]
+  job_name        = "rpc-kong"
+  metrics_path    = "/metrics"
+  scrape_interval = "${scrape_interval}"
+}
+
+prometheus.relabel "rpc_irm" {
+  forward_to = [prometheus.remote_write.grafana_cloud.receiver]
+
+  rule {
+    action        = "keep"
+    source_labels = ["__name__"]
+    regex         = "${metric_regex}"
+  }
+
+  rule {
+    action        = "replace"
+    source_labels = ["__name__"]
+    regex         = ".*"
+    target_label  = "network"
+    replacement   = "${network}"
+  }
+
+  rule {
+    action        = "replace"
+    source_labels = ["__name__"]
+    regex         = ".*"
+    target_label  = "rpc_namespace"
+    replacement   = "${namespace}"
+  }
+
+  rule {
+    action        = "replace"
+    source_labels = ["__name__"]
+    regex         = ".*"
+    target_label  = "k8s_namespace_name"
+    replacement   = "${namespace}"
+  }
+
+  rule {
+    action = "labelkeep"
+    regex  = "${labelkeep_regex}"
+  }
+}
+
+prometheus.remote_write "grafana_cloud" {
+  endpoint {
+    url = "${remote_write_url}"
+    basic_auth {
+      username      = "${remote_write_username}"
+      password_file = "/etc/alloy/secret/grafana-cloud-password"
+    }
+  }
+}

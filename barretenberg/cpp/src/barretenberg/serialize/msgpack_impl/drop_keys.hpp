@@ -1,6 +1,9 @@
 #pragma once
 #include <tuple>
 
+#ifndef IPC_CODEGEN_MSGPACK_DROP_KEYS_DEFINED
+#define IPC_CODEGEN_MSGPACK_DROP_KEYS_DEFINED
+
 namespace msgpack {
 template <typename Tuple, std::size_t... Is> auto drop_keys_impl(Tuple&& tuple, std::index_sequence<Is...>)
 {
@@ -20,3 +23,5 @@ template <typename... Args> auto drop_keys(std::tuple<Args...>&& tuple)
     return drop_keys_impl(tuple, compile_time_0_to_n_div_2);
 }
 } // namespace msgpack
+
+#endif

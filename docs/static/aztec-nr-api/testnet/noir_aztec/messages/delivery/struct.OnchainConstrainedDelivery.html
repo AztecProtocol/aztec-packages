@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
+<title>Struct OnchainConstrainedDelivery documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">OnchainConstrainedDelivery</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct OnchainConstrainedDelivery</a></h2>
+<h3>Methods</h3>
+<ul class="sidebar-list">
+<li><a href="#via_non_interactive_handshake">via_non_interactive_handshake</a></li>
+<li><a href="#with_sender">with_sender</a></li>
+</ul>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-MessageDeliveryBuilder-for-OnchainConstrainedDelivery">MessageDeliveryBuilder</a></li>
+</ul>
+<h2>In module delivery</h2>
+<h3>Modules</h3><ul class="item-list">
+<li><a href="handshake/index.html">handshake</a></div></li>
+</ul>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.MessageDelivery.html">MessageDelivery</a></div></li>
+<li><a href="struct.OffchainDelivery.html">OffchainDelivery</a></div></li>
+<li><a href="struct.OnchainConstrainedDelivery.html">OnchainConstrainedDelivery</a></div></li>
+<li><a href="struct.OnchainDeliveryMode.html">OnchainDeliveryMode</a></div></li>
+<li><a href="struct.OnchainUnconstrainedDelivery.html">OnchainUnconstrainedDelivery</a></div></li>
+</ul>
+<h3>Traits</h3><ul class="item-list">
+<li><a href="trait.MessageDeliveryBuilder.html">MessageDeliveryBuilder</a></div></li>
+</ul>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.do_private_message_delivery.html">do_private_message_delivery</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">messages</a>::<a href="index.html">delivery</a></div>
+<h1>Struct <span id="struct" class="struct">OnchainConstrainedDelivery</span></h1>
+<pre><code>pub struct OnchainConstrainedDelivery
+{ <span class="comment">/* private fields */</span> }
+</code></pre>
+<div class="comments">
+<p>On-chain delivery with constrained encryption/tagging. Returned by <a href="../../../noir_aztec/messages/delivery/struct.MessageDelivery.html#onchain_constrained"><code>MessageDelivery::onchain_constrained</code></a>.</p></div>
+<h2>Implementations</h2>
+<h3><code class="code-header">impl <a href="../../../noir_aztec/messages/delivery/struct.OnchainConstrainedDelivery.html" class="struct">OnchainConstrainedDelivery</a></code></h3>
+
+<div class="padded-methods"><code id="with_sender" class="code-header">pub fn <a href="#with_sender"><span class="fn">with_sender</span></a>(&mut self, sender: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>) -> Self</code>
+
+<div class="padded-description"><div class="comments">
+<p>Overrides the sender address used for discovery tag derivation.</p>
+<p>On-chain messages are tagged so that the recipient can find them efficiently without scanning all logs. The tag
+is derived from a shared secret between a &quot;sender&quot; and the recipient. By default, the sender is the
+wallet-supplied address (typically the account that initiated the transaction), but some contracts need to
+override it so that recipients can discover the notes correctly. This is the case for account contracts in their
+constructor: the deployer is the one that initiated the transaction, but any notes generated during deployment
+should be tagged by the account contract itself.</p>
+<h4>Examples</h4>
+<pre><code>MessageDelivery::onchain_constrained().with_sender(self.address)</code></pre></div>
+</div><code id="via_non_interactive_handshake" class="code-header">pub fn <a href="#via_non_interactive_handshake"><span class="fn">via_non_interactive_handshake</span></a>(&mut self) -> Self</code>
+
+<div class="padded-description"><div class="comments">
+<p>Uses the standard handshake registry's non-interactive handshake secret for discovery tags.</p>
+</div>
+</div></div><h2>Trait implementations</h2>
+<h3 id="impl-MessageDeliveryBuilder-for-OnchainConstrainedDelivery"><code class="code-header">impl <a href="../../../noir_aztec/messages/delivery/trait.MessageDeliveryBuilder.html" class="trait">MessageDeliveryBuilder</a> for <a href="../../../noir_aztec/messages/delivery/struct.OnchainConstrainedDelivery.html" class="struct">OnchainConstrainedDelivery</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">build_message_delivery</span>(self) -> <a href="../../../noir_aztec/messages/delivery/struct.MessageDelivery.html" class="struct">MessageDelivery</a></code>
+
+</div></main>
+</span>
+</body>
+</html>

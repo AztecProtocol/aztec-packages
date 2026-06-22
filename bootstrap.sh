@@ -435,6 +435,18 @@ function build_and_test {
       start_txes
       make noir-projects-txe-tests
 
+      # Benches (full builds only). Uploadable runs (BENCH_UPLOAD=1 — the first instance of
+      # a run) bench on a dedicated fixed-hardware box for stable numbers: launched here,
+      # logged like the test engine, waited on below, and the sole uploader. Everything
+      # else benches inline as ordinary tests — a breakage check only, no upload.
+      if [ "$1" == full ]; then
+        if [ "${BENCH_UPLOAD:-0}" == 1 ]; then
+          setsid color_prefix "bench" "denoise './ci.sh bench'" & bench_pid=$!
+        else
+          bench_cmds >> $test_cmds_file
+        fi
+      fi
+
       # Signal tests complete, handled by parallel -E STOP.
       echo STOP >> $test_cmds_file
     fi
@@ -446,6 +458,14 @@ function build_and_test {
   done
 
   stop_txes
+
+  # Benches (full builds only). Inline benches above are a breakage check only — the
+  # dedicated box is the sole uploader. Wait on it here: fatal, matching the old inline
+  # `bench`, since a benchmark that fails to build/run is a real breakage.
+  if [ "$1" == full ] && [ -n "${bench_pid:-}" ]; then
+    echo "Waiting for dedicated bench run..."
+    wait "$bench_pid"
+  fi
 
   return 0
 }
@@ -468,6 +488,16 @@ function bench_merge {
 
 }
 
+# Merge all component bench-out/*.bench.json into one and upload it to the
+# bench-<treehash> cache key, which the GA "Upload benchmarks" step then publishes.
+# Used both by `bench` (dedicated box) and by the inline benches-as-tests path.
+function bench_publish {
+  rm -rf bench-out
+  mkdir -p bench-out
+  bench_merge
+  cache_upload bench-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
+}
+
 function bench {
   # TODO bench for arm64.
   if [ $(arch) == arm64 ]; then
@@ -476,12 +506,7 @@ function bench {
   echo_header "bench all"
   bench_cmds > $bench_cmds_file
   denoise "bench_engine $bench_cmds_file"
-
-  rm -rf bench-out
-  mkdir -p bench-out
-  bench_merge
-  cache_upload bench-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
-
+  bench_publish
 }
 
 ### RELEASING ##########################################################################################################
@@ -547,6 +572,8 @@ function release {
 
   projects=(
     barretenberg/cpp
+    ipc-runtime
+    wsdb
     barretenberg/ts
     barretenberg/rust
     noir
@@ -830,13 +857,22 @@ case "$cmd" in
     export USE_TEST_CACHE=1
     export CI_FULL=1
     build_and_test full
-    bench
     ;;
   "ci-full-no-test-cache")
     export CI=1
     export USE_TEST_CACHE=0
     export CI_FULL=1
     build_and_test full
+    ;;
+  "ci-bench")
+    # Run on a dedicated, fixed, on-demand instance (launched by the build
+    # instance via './ci.sh bench') for stable benchmark numbers. The build is a
+    # near-instant cache pull, as the launching build instance already populated
+    # the cache for this commit. No test engine; bench uploads bench-<treehash>.
+    export CI=1
+    export CI_FULL=1
+    prep
+    make bench
     bench
     ;;
   "ci-chonk-input-update")

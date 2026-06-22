@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../styles.css">
+<script defer src="../../nargo_doc.js"></script>
+<title>Struct Map documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">Map</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../index.html">aztec-nr</a></h1>
+<div><a href="../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct Map</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#structfield.context">context</a></li>
+</ul>
+<h3>Methods</h3>
+<ul class="sidebar-list">
+<li><a href="#at">at</a></li>
+</ul>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-StateVariable&lt;1, Context&gt;-for-Map<K, V, Context>">StateVariable&lt;1, Context&gt;</a></li>
+</ul>
+<h2>In module state_vars</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.DelayedPublicMutable.html">DelayedPublicMutable</a></div></li>
+<li><a href="struct.Map.html">Map</a></div></li>
+<li><a href="struct.Owned.html">Owned</a></div></li>
+<li><a href="struct.PrivateImmutable.html">PrivateImmutable</a></div></li>
+<li><a href="struct.PrivateMutable.html">PrivateMutable</a></div></li>
+<li><a href="struct.PrivateSet.html">PrivateSet</a></div></li>
+<li><a href="struct.PublicImmutable.html">PublicImmutable</a></div></li>
+<li><a href="struct.PublicMutable.html">PublicMutable</a></div></li>
+<li><a href="struct.SinglePrivateImmutable.html">SinglePrivateImmutable</a></div></li>
+<li><a href="struct.SinglePrivateMutable.html">SinglePrivateMutable</a></div></li>
+<li><a href="struct.SingleUseClaim.html">SingleUseClaim</a></div></li>
+<li><a href="struct.Storable.html">Storable</a></div></li>
+</ul>
+<h3>Traits</h3><ul class="item-list">
+<li><a href="trait.OwnedStateVariable.html">OwnedStateVariable</a></div></li>
+<li><a href="trait.StateVariable.html">StateVariable</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">noir_aztec</a>::<a href="index.html">state_vars</a></div>
+<h1>Struct <span id="struct" class="struct">Map</span></h1>
+<pre><code>pub struct Map&lt;K, V, Context&gt; {
+    pub context: Context,
+    <span class="comment">/* private fields */</span>
+}
+</code></pre>
+<div class="comments">
+<p>A key-value container for state variables.</p>
+<p>A <code>Map</code> wraps another state variable type (the 'value') and creates independent instances of it for each key,
+resulting in effectively as many state variables as there are key values. This behavior is similar to a Solidity
+<code>mapping (K =&gt; V)</code>.</p>
+<h2>Use Cases</h2>
+<p>Any scenario in which a fixed number of variables is insufficient to represent contract state requires <code>Map</code> e.g.
+per-election configuration in a voting contract, per-user state, etc. <code>Map</code> also composes naturally into more
+complex containers: an array could be implemented as a <code>Map</code> with indices as keys.</p>
+<p>Note that some private state variables, such as <a href="../../noir_aztec/state_vars/struct.PrivateMutable.html"><code>PrivateMutable</code></a> and
+<a href="../../noir_aztec/state_vars/struct.PrivateSet.html"><code>PrivateSet</code></a> cannot be wrapped in a <code>Map</code>. These types implement the
+<a href="../../noir_aztec/state_vars/trait.OwnedStateVariable.html"><code>OwnedStateVariable</code></a> trait, and as such should instead be wrapped using the
+<a href="../../noir_aztec/state_vars/struct.Owned.html"><code>Owned</code></a> container, which can be thought of as a specialization of <code>Map</code> for private
+state 'owned' by a single account.</p>
+<h2>Examples</h2>
+<p>Since <code>Map</code> is also a <a href="../../noir_aztec/state_vars/trait.StateVariable.html"><code>StateVariable</code></a>, it is declared in the contract's
+<a href="../../noir_aztec/macros/storage/fn.storage.html"><code>#[storage]</code></a> struct along with all others:</p>
+<pre><code>#[storage]
+<span class="kw">struct</span> Storage&lt;C&gt; {
+    is_admin: Map&lt;AztecAddress, PublicMutable&lt;bool, C&gt;, C&gt;,
+    vote_tallies: Map&lt;ElectionId, PublicMutable&lt;u128, C&gt;, C&gt;,
+}</code></pre>
+<h3>Multiple <code>Map</code>s</h3>
+<p>There is no limit to how many <code>Map</code> containers a contract can have, and <code>Map</code>s can themselves wrap other <code>Map</code>s,
+resulting in nested layouts.</p>
+<pre><code>#[storage]
+<span class="kw">struct</span> Storage&lt;C&gt; {
+    <span class="comment">// A nested map where the first key is an address and the second a `Year` type, such that</span>
+    <span class="comment">// self.storage.user_yearly_config.at(user).at(year) results in distinct `UserConfig` variables for each</span>
+    <span class="comment">// `(user, year)` tuple.</span>
+    user_yearly_config: Map&lt;AztecAddress, Map&lt;Year, UserConfig&lt;C&gt;, C&gt;, C&gt;,
+}</code></pre>
+<h2>Requirements</h2>
+<p>The value type <code>V</code> must implement the <a href="../../noir_aztec/state_vars/trait.StateVariable.html"><code>StateVariable</code></a> trait. The key type <code>K</code> must implement the <a href="../../protocol_types/traits/trait.ToField.html"><code>ToField</code></a> trait
+in such a way that the <code>Field</code> representation is unique for each key.</p>
+<p>For key types that cannot be converted into a <code>Field</code>, consider wrapping them in a type that implements <code>ToField</code> as
+the hash of the key.</p>
+<pre><code><span class="kw">struct</span> MyKey {
+    a: Field,
+    b: Field,
+}
+
+<span class="kw">struct</span> MyKeyWrapper {
+    inner: MyKey,
+}
+
+<span class="kw">impl</span> ToField <span class="kw">for</span> MyKeyWrapper {
+    <span class="kw">fn</span> to_field(self) -&gt; Field {
+        poseidon2_hash([self.inner.a, self.inner.b])
+    }
+}
+
+#[storage]
+<span class="kw">struct</span> Storage&lt;C&gt; {
+    a: Map&lt;MyKeyWrapper, PublicMutable&lt;bool, C&gt;, C&gt;,
+}</code></pre>
+<h2>Implementation Details</h2>
+<p>Like all other state variables, <code>Map</code> gets assigned a unique storage slot. It uses this value to derive unique
+storage slots for each key, resulting in independent state variables. Nothing gets stored at <code>Map</code>'s storage slot.
+This is equivalent to Solidity's implementation of <code>mapping</code>.</p>
+<p>Because the storage slot derivation is done using a hash function, it is not possible to compute the key (preimage)
+used to obtain a given derived state variable slot.</p></div>
+<h2>Fields</h2>
+<div id="structfield.context" class="struct-field"><code class="code-header">context: Context</code></div>
+<div class="padded-description"></div><h2>Implementations</h2>
+<h3><code class="code-header">impl&lt;Context, K, V&gt; <a href="../../noir_aztec/state_vars/struct.Map.html" class="struct">Map</a>&lt;K, V, Context&gt;</code></h3>
+
+<div class="padded-methods"><code id="at" class="code-header">pub fn <a href="#at"><span class="fn">at</span></a>&lt;let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, key: K) -> V
+<div class="where-clause">where
+    K: <a href="../../protocol_types/traits/trait.ToField.html" class="trait">ToField</a>,
+    V: <a href="../../noir_aztec/state_vars/trait.StateVariable.html" class="trait">StateVariable</a>&lt;N, Context&gt;</div></code>
+
+<div class="padded-description"><div class="comments">
+<p>Returns the state variable for a key.</p>
+<p>This derives a unique storage slot for <code>key</code> and returns a state variable of type <code>V</code> at that slot. It is
+equivalent to accessing a <code>mapping</code> via the <code>[]</code> operator in Solidity (e.g. <code>balances[user]</code> would be
+<code>balances.at(user)</code>).</p>
+<h4>Example</h4>
+<pre><code>#[external(<span class="string">"utility"</span>)]
+<span class="kw">fn</span> get_election_vote_tallies(election: ElectionId) -&gt; u128 {
+    self.storage.vote_tallies.at(election).read()
+}</code></pre></div>
+</div></div><h2>Trait implementations</h2>
+<h3 id="impl-StateVariable&lt;1, Context&gt;-for-Map<K, V, Context>"><code class="code-header">impl&lt;Context, K, V&gt; <a href="../../noir_aztec/state_vars/trait.StateVariable.html" class="trait">StateVariable</a>&lt;1, Context&gt; for <a href="../../noir_aztec/state_vars/struct.Map.html" class="struct">Map</a>&lt;K, V, Context&gt;</code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">new</span>(context: Context, storage_slot: <a href="../../std/primitive.Field.html" class="primitive">Field</a>) -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">get_storage_slot</span>(self) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
+
+</div></main>
+</span>
+</body>
+</html>

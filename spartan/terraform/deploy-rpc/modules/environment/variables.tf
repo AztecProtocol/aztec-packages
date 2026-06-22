@@ -40,6 +40,54 @@ variable "OTEL_COLLECTOR_ENDPOINT_GCP_SECRET_NAME" {
   default     = "otel-collector-url"
 }
 
+variable "IRM_METRICS_ENABLED" {
+  description = "Whether to deploy Alloy to forward allowlisted RPC gateway metrics to Grafana Cloud."
+  type        = bool
+  default     = false
+}
+
+variable "IRM_GRAFANA_CLOUD_SECRET_NAME" {
+  description = "GCP Secret Manager secret name containing the Grafana Cloud remote-write password/token."
+  type        = string
+  default     = "grafana-cloud-password"
+}
+
+variable "IRM_GRAFANA_CLOUD_REMOTE_WRITE_URL" {
+  description = "Grafana Cloud Prometheus remote-write endpoint for RPC IRM metrics."
+  type        = string
+  default     = "https://prometheus-prod-55-prod-gb-south-1.grafana.net/api/prom/push"
+}
+
+variable "IRM_GRAFANA_CLOUD_USERNAME" {
+  description = "Grafana Cloud Prometheus remote-write username for RPC IRM metrics."
+  type        = string
+  default     = "2476101"
+}
+
+variable "IRM_ALLOY_SCRAPE_INTERVAL" {
+  description = "How often Alloy scrapes the RPC Kong metrics service."
+  type        = string
+  default     = "60s"
+}
+
+variable "IRM_ALLOY_RESOURCES" {
+  description = "Resource requests and limits for the RPC IRM Alloy deployment."
+  type = object({
+    requests = map(string)
+    limits   = map(string)
+  })
+  default = {
+    requests = {
+      cpu    = "50m"
+      memory = "64Mi"
+    }
+    limits = {
+      cpu    = "100m"
+      memory = "128Mi"
+    }
+  }
+}
+
 variable "CONSUMERS" {
   description = "Kong consumers keyed by team name. Configured consumers can use every keyed RPC route in the environment."
   type = map(object({

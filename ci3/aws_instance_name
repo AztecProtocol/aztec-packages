@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# Derive the canonical build-instance EC2 "Name" tag. Single source of truth for
+# the launch path (bootstrap_ec2) and the connect/kill helpers (ci.sh), so the two
+# can never drift.
+#
+# Usage: aws_instance_name [ref] [arch] [postfix]
+#   ref     default $REF_NAME, else the current git branch.
+#   arch    default $ARCH, else amd64. Normalised: x86_64->amd64, aarch64|arm64->arm64.
+#   postfix default $INSTANCE_POSTFIX (the per-job suffix, e.g. x-fast, bench); optional.
+#
+# The repo prefix is $GITHUB_REPOSITORY's basename (default aztec-packages) so that
+# aztec-packages and aztec-packages-private don't collide on names.
+set -eu
+
+ref=${1:-${REF_NAME:-$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)}}
+arch=${2:-${ARCH:-amd64}}
+postfix=${3:-${INSTANCE_POSTFIX:-}}
+
+# Normalise to the CI arch convention (amd64/arm64), not the kernel's (x86_64/aarch64).
+case "$arch" in
+  x86_64 | amd64) arch=amd64 ;;
+  aarch64 | arm64) arch=arm64 ;;
+esac
+
+repo=${GITHUB_REPOSITORY:-aztec-packages}
+repo=${repo##*/}
+
+# Merge-queue refs look like gh-readonly-queue/<target>/pr-<N>-<sha>; key on pr-<N>
+# so every attempt for a PR shares one name. Otherwise sanitise the ref (cap to 50).
+if [[ "$ref" =~ ^gh-readonly-queue/.*(pr-[0-9]+) ]]; then
+  name="${repo}_${BASH_REMATCH[1]}_${arch}"
+else
+  name="${repo}_$(printf '%s' "$ref" | head -c 50 | tr -c 'a-zA-Z0-9-' '_')_${arch}"
+fi
+[ -n "$postfix" ] && name+="_${postfix}"
+
+printf '%s\n' "$name"
