@@ -83,7 +83,7 @@ import { type PubSubLibp2p, convertToMultiaddr } from '../../util.js';
 import { getVersions } from '../../versioning.js';
 import { AztecDatastore } from '../data_store.js';
 import { DiscV5Service } from '../discv5/discV5_service.js';
-import { SnappyTransform, fastMsgIdFn, getMsgIdFn, msgIdToStrFn } from '../encoding.js';
+import { SnappyTransform, getMsgIdFn, msgIdToStrFn } from '../encoding.js';
 import { APP_SPECIFIC_WEIGHT, gossipScoreThresholds } from '../gossipsub/scoring.js';
 import { createAllTopicScoreParams } from '../gossipsub/topic_score_params.js';
 import type { PeerManagerInterface } from '../peer-manager/interface.js';
@@ -413,6 +413,13 @@ export class LibP2PService extends WithTracer implements P2PService {
       expectedBlockProposalsPerSlot: config.expectedBlockProposalsPerSlot,
     });
 
+    // Restrict gossipsub to exactly the topics we subscribe to. Without this, an arbitrary-topic
+    // message is transformed, msg-id'd and inserted into the seenCache before the subscription check,
+    // so a crafted topic colliding on msg id can suppress a real message as a duplicate.
+    const allowedTopics = getTopicsForConfig(config.disableTransactions).map(topic =>
+      createTopicString(topic, protocolVersion),
+    );
+
     const node = await createLibp2p({
       start: false,
       peerId,
@@ -497,9 +504,13 @@ export class LibP2PService extends WithTracer implements P2PService {
           mcacheLength: config.gossipsubMcacheLength,
           mcacheGossip: config.gossipsubMcacheGossip,
           seenTTL: config.gossipsubSeenTTL,
+          allowedTopics,
+          // No fastMsgIdFn: the fast-path dedup cache keys on a non-cryptographic 64-bit hash of the
+          // raw data only (no topic), so a collision — accidental or engineered via a weak seed — drops
+          // a different message with no fallback to the full id. Dedup instead rests solely on the
+          // cryptographic, topic-framed msgIdFn below.
           msgIdFn: getMsgIdFn,
           msgIdToStrFn: msgIdToStrFn,
-          fastMsgIdFn: fastMsgIdFn,
           dataTransform: new SnappyTransform(),
           metricsRegister: otelMetricsAdapter,
           metricsTopicStrToLabel: metricsTopicStrToLabels(protocolVersion),
