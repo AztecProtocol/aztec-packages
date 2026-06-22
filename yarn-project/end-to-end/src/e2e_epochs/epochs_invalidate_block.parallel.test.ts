@@ -842,13 +842,10 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
   });
 });
 
-// A-1252 rows 4/5: a checkpoint with VALID attestations but an unfetchable blob
-// cannot be rejected by attestation validation — the node must fetch the blob to
-// ingest it. Before the fix, the blob-decode/fetch failure threw on every sync iteration, freezing the
-// L1 sync clock (this.l1Timestamp is only advanced at the end of syncFromL1) and halting the node. The
-// fix makes the failure non-fatal once the checkpoint's epoch can be pruned (its proof window expired),
-// so the node skips it and its sync clock advances again. This fixture uses a short proof window and no
-// prover, so epochs become prunable shortly after they end.
+// Handling of unavailable or malformed blobs. Injecting malformed blobs is difficult to
+// achieve so we use the absence of blobs to achieve the same thing, it has the same failure mode.
+// Whether the proposals carry valid or invalid attestations should not matter,
+// the node should correctly handle blobs being unavailable
 describe('e2e_epochs/epochs_blob_unavailable_prune', () => {
   let context: EndToEndContext;
   let logger: Logger;
@@ -968,6 +965,7 @@ describe('e2e_epochs/epochs_blob_unavailable_prune', () => {
         secondsBeforeInvalidatingBlockAsNonCommitteeMember: Number.MAX_SAFE_INTEGER,
       }),
     );
+    // Create a point with invalid attestations
     await Promise.all(sequencers.map(s => s.start()));
     await produceCheckpoint();
 
@@ -977,7 +975,7 @@ describe('e2e_epochs/epochs_blob_unavailable_prune', () => {
     const badL1Timestamp = (await l1Client.getBlock({ blockNumber: badEvent.l1BlockNumber })).timestamp;
     logger.warn(`Froze chain on invalid-attestations checkpoint ${badCheckpointNumber}`);
 
-    // Withhold its blob from the shared store (see the prune test for the namespaced path layout).
+    // Withhold its blob from the shared store.
     const sharedRoot = join(test.context.config.dataDirectory!, 'shared-blobs');
     const namespaceDir = (await readdir(sharedRoot)).find(e => e.startsWith('aztec-'));
     expect(namespaceDir).toBeDefined();
@@ -1003,7 +1001,7 @@ describe('e2e_epochs/epochs_blob_unavailable_prune', () => {
     await retryUntil(
       async () => {
         const ts = await observer.getSyncedL1Timestamp();
-        return ts !== undefined && ts >= badL1Timestamp;
+        return ts !== undefined && ts > badL1Timestamp;
       },
       'observer sync clock advances past the canonical invalid-attestations checkpoint without its blob',
       test.L2_SLOT_DURATION_IN_S * 8,
