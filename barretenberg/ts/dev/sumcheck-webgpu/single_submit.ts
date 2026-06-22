@@ -20,7 +20,7 @@
 import {
   makeFoldRunner, makeReduceRunner, makeScanRunner, makeGatherRunner, encodeColumnsToBytes, entityMapBytes,
   injectSkipPrelude, injectBand, effPairsForRound,
-  buildUberGroups, uberFusedSet, dispatchUberGroups,
+  buildUberGroups, uberFusedSet, dispatchUberGroups, UBER_MIN_PAIRS_SINGLESUBMIT,
   type FoldRunner, type ReduceRunner, type KernelRunner, type GateMode,
 } from './gpu_pipeline.js';
 import type { BandPlan } from './sparsity.js';
@@ -295,7 +295,9 @@ export async function runSingleSubmitSumcheck(
   // heavy-trio gate relations into ONE occupancy-filling dispatch each, binding the
   // resident ping-pong columns directly (zero copy — they are already GPU-resident and
   // fully folded each round). permutation + arithmetic stay on the per-relation path.
-  const uberOn = gateMode === 'uber' && !!bands;
+  // SS keeps columns resident and never reads back, so every round's fusion is a net win —
+  // UBER_MIN_PAIRS_SINGLESUBMIT is 0 (no gate). Kept as a tunable for symmetry with multi-pass.
+  const uberOn = gateMode === 'uber' && !!bands && (n >> 1) >= UBER_MIN_PAIRS_SINGLESUBMIT;
   const uberGroups = uberOn ? await buildUberGroups(device, relCache, relParamBytes, n) : [];
   const fusedSet = uberFusedSet(uberGroups);
   const setupMs = performance.now() - tSetup;
@@ -313,6 +315,8 @@ export async function runSingleSubmitSumcheck(
   let curLen = n;
   for (let i = 0; i < rounds; i++) {
     const pairs = curLen >> 1;
+    // Fuse the gate relations whenever they are grouped (SS gate is 0 — every round wins).
+    const useUber = uberGroups.length > 0 && pairs >= UBER_MIN_PAIRS_SINGLESUBMIT;
     // Tier 0, per relation: each relation accumulates/reduces only over ITS active prefix
     // (round(density_r·L) edge-pairs); the folded zero tail contributes exactly zero,
     // params.n = pairs stays the full column stride, and the full-length fold keeps the
@@ -337,7 +341,7 @@ export async function runSingleSubmitSumcheck(
     if (bands) enc.clearBuffer(accBuf);
     for (const desc of ALL_RELATIONS) {
       const r = desc.relationIndex;
-      if (fusedSet.has(r)) continue; // handled by the fused uber dispatch below
+      if (useUber && fusedSet.has(r)) continue; // handled by the fused uber dispatch below
       const band = bands?.roundsByRel[r];
       let dispatchPairs: number;
       // Shared mode binds the one resident 67-column buffer + this relation's entity_map
@@ -372,7 +376,7 @@ export async function runSingleSubmitSumcheck(
     // Fused gate uber dispatches into accBuf (before batch reads it). The resident
     // ping-pong columns `cur` are bound directly (zero copy); SS folds them in full each
     // round so any band of cur[r] is valid. No per-round readback amortizes the win here.
-    if (uberGroups.length > 0) {
+    if (useUber) {
       await dispatchUberGroups({
         device, enc, groups: uberGroups, round: i, m: curLen, pairs,
         cols: cur, perEdge, partsScratch, scalScratch, finalBuf: accBuf, finalBase,

@@ -14,6 +14,7 @@
 
 import {
   runResidentGpuSumcheck, makeFoldRunner, makeReduceRunner,
+  UBER_MIN_PAIRS_MULTIPASS, UBER_MIN_PAIRS_SINGLESUBMIT,
   type FoldRunner, type ReduceRunner, type FineRoundProfile,
 } from './gpu_pipeline.js';
 import { runSingleSubmitSumcheck, makeBatchRunner, makeTranscriptRunner, buildSharedColumns, sharedColumnsFit } from './single_submit.js';
@@ -567,7 +568,7 @@ export async function runSingleSubmitHybridBenchmark(
     const wn = 1 << Math.min(...gpuSizes);
     const warm = buildInputs(wn, profile);
     const wb = Array.from({ length: Math.round(Math.log2(wn)) }, (_, i) => makeRng(0x1234n + BigInt(i))());
-    await runSingleSubmitSumcheck(device, wn, alpha, wb, warm.relParamBytes, warm.initColBytes, ssShared, WG, false, undefined, skip, usedRows(profile, wn), activeRowsByRel(profile, wn), bandByRel(profile, wn));
+    await runSingleSubmitSumcheck(device, wn, alpha, wb, warm.relParamBytes, warm.initColBytes, ssShared, WG, false, undefined, skip, usedRows(profile, wn), activeRowsByRel(profile, wn), bandByRel(profile, wn), 'uber');
   }
 
   const rows: SsHybridRow[] = [];
@@ -586,8 +587,10 @@ export async function runSingleSubmitHybridBenchmark(
     } else {
       const betas = Array.from({ length: logN }, (_, i) => makeRng(0xbe7a_77n + BigInt(i))());
       const { initColBytes, relParamBytes } = buildInputs(n, profile);
+      // 'uber' fuses the gate relations; it only activates when a band plan is present
+      // (realistic-band + skip), so dense/non-band profiles auto-fall-back to perRelation.
       const front = await runSingleSubmitSumcheck(
-        device, n, alpha, betas, relParamBytes, initColBytes, ssShared, WG, false, k, skip, usedRows(profile, n), activeRowsByRel(profile, n), bandByRel(profile, n),
+        device, n, alpha, betas, relParamBytes, initColBytes, ssShared, WG, false, k, skip, usedRows(profile, n), activeRowsByRel(profile, n), bandByRel(profile, n), 'uber',
       );
       setupMs = front.setupMs;
       gpuFrontMs = front.totalMs;
@@ -690,6 +693,8 @@ export async function runProfile(device: GPUDevice, logN: number, log: Logger, p
     // the group falls back to a per-round concat copy. Surface which path will run.
     const maxStorage = device.limits.maxStorageBuffersPerShaderStage ?? 8;
     log('info', `  uber binding: maxStorageBuffersPerShaderStage=${maxStorage} → light(9 gates) ${15 <= maxStorage ? 'DIRECT (zero-copy)' : 'concat-copy'}, heavy(3 gates) ${9 <= maxStorage ? 'DIRECT (zero-copy)' : 'concat-copy'}`);
+    const fusedRounds = Math.max(0, logN - Math.round(Math.log2(UBER_MIN_PAIRS_MULTIPASS)));
+    log('info', `  uber gate (multi-pass): ≥2^${Math.round(Math.log2(UBER_MIN_PAIRS_MULTIPASS))} pairs → ${fusedRounds > 0 ? `rounds 0..${fusedRounds - 1} fused (${fusedRounds}/${logN}), rest per-relation` : 'no round fused at this size'}`);
     await runMode('uber', false); // warmup/compile the uber pipeline
     const u = await runMode('uber', true);
     if (u.profile) {
@@ -887,6 +892,9 @@ export async function runSingleSubmitProfile(
   if (bnd && tail === 0) {
     const maxStorage = device.limits.maxStorageBuffersPerShaderStage ?? 8;
     log('info', `  uber binding: maxStorageBuffersPerShaderStage=${maxStorage} → light(9) ${15 <= maxStorage ? 'DIRECT (zero-copy)' : 'concat-copy'}, heavy(3) ${9 <= maxStorage ? 'DIRECT' : 'concat-copy'}`);
+    log('info', UBER_MIN_PAIRS_SINGLESUBMIT <= 1
+      ? `  uber gate (single-submit): none — all ${gpuRounds} rounds fused`
+      : `  uber gate (single-submit): ≥2^${Math.round(Math.log2(UBER_MIN_PAIRS_SINGLESUBMIT))} pairs → first rounds fused, rest per-relation`);
     await runMode('uber', false); // warmup/compile the uber pipelines
     const u = await runMode('uber', true);
     if (u.profile) {

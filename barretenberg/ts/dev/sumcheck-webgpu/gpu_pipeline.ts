@@ -281,6 +281,23 @@ export interface UberGroup {
 }
 
 /**
+ * Round-gate for the fused-gate "uber" path, PER ENGINE — fuse a round only while it still
+ * dispatches at least this many edge-pairs. The two engines have opposite optima because
+ * their per-round overhead differs:
+ *  • MULTI-PASS reads back every round and re-copies the concat columns each round, so the
+ *    fixed per-round uber overhead (the light group's concat copy when storage bindings are
+ *    scarce, plus register pressure) makes the small late rounds net-NEGATIVE. Whole-run
+ *    uber was +105ms here; gate the small rounds out and keep only the large ones (rounds
+ *    0–1 at 2^16). Measured win is at 2^15 edges (round 0); 2^14 is the one-round extrapolation.
+ *  • SINGLE-SUBMIT keeps columns resident (zero/cheap copy) and never reads back, so the
+ *    per-round overhead is tiny and EVERY round's fusion is a net win (measured: fusing all
+ *    16 rounds beat gating to 2 by ~8ms of accumulate). Do not gate — fuse whenever fused.
+ * Tune against the M4 A/B.
+ */
+export const UBER_MIN_PAIRS_MULTIPASS = 1 << 14;
+export const UBER_MIN_PAIRS_SINGLESUBMIT = 0;
+
+/**
  * Build the fused-gate uber groups (UBER_GROUPS) for either engine: one occupancy-filling
  * pipeline per group. Each group binds its gates' resident column buffers DIRECTLY (zero
  * copy) when the device exposes enough storage bindings (N+6 per group); otherwise it falls
@@ -696,7 +713,9 @@ export async function runResidentGpuSumcheck(
   // and serializes on the shared scratch. Each uber group fuses its gates into ONE
   // occupancy-filling dispatch (gen_gate_uber_shader), binding resident columns directly
   // (zero copy) when the device allows. permutation and arithmetic stay per-relation.
-  const uberOn = gateMode === 'uber' && !!bands;
+  // Build the uber pipelines only when at least round 0 (n/2 pairs) clears the gate; below
+  // that no round ever fuses, so skip the compile entirely.
+  const uberOn = gateMode === 'uber' && !!bands && (n >> 1) >= UBER_MIN_PAIRS_MULTIPASS;
   const uberGroups = uberOn ? await buildUberGroups(device, relCache, relParamBytes, n) : [];
   const fusedSet = uberFusedSet(uberGroups);
 
@@ -710,6 +729,9 @@ export async function runResidentGpuSumcheck(
     accumulate: async (_round, gs) => {
       const m = curLen;
       const pairs = m >> 1;
+      // Fuse the gate relations only while this round's grid is large enough to amortize the
+      // uber overhead; below the gate the fused relations fall back to the per-relation path.
+      const useUber = uberGroups.length > 0 && pairs >= UBER_MIN_PAIRS_MULTIPASS;
       // Tier 0, per relation: each relation accumulates/reduces only over ITS active
       // prefix (round(density_r·L) edge-pairs) — a 1%-active relation launches a 1% grid.
       // The folded zero tail contributes exactly zero; params.n stays = pairs (the full
@@ -740,7 +762,7 @@ export async function runResidentGpuSumcheck(
       if (compaction || bands) enc.clearBuffer(finalParts);
       for (const desc of ALL_RELATIONS) {
         const r = desc.relationIndex;
-        if (fusedSet.has(r)) continue; // handled by the fused uber dispatch below
+        if (useUber && fusedSet.has(r)) continue; // handled by the fused uber dispatch below
         const compIdx = activeIdxBuf[r];
         const band = bands?.roundsByRel[r];
         const mode: AccMode = compIdx ? 'comp' : band ? 'band' : inject ? 'sk' : 'pl';
@@ -788,7 +810,7 @@ export async function runResidentGpuSumcheck(
 
       // Fused gate uber dispatches: per group, ONE occupancy-filling acc over all its
       // gates, then the existing reduce per gate into finalParts (shared helper).
-      if (uberGroups.length > 0) {
+      if (useUber) {
         await dispatchUberGroups({
           device, enc, groups: uberGroups, round: _round, m, pairs,
           cols: colBuf, perEdge, partsScratch, scalScratch, finalBuf: finalParts, finalBase,
