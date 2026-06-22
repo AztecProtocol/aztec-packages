@@ -2,7 +2,6 @@ import type { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { Semaphore } from '@aztec/foundation/queue';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap } from '@aztec/kv-store';
-import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import type { StagedStore } from '../../job_coordinator/job_coordinator.js';
 import { FactCollectionKey, type FactCollectionTypeKey, type OriginBlock } from './fact_store_keys.js';
@@ -14,24 +13,18 @@ type FactBuffer = Buffer;
 type FactCollectionTypeKeyStr = string;
 type FactCollectionKeyStr = string;
 type FactKeyStr = string;
-type ScopeStr = string;
 
 /** A fact collection as returned by the store. */
 export type FactCollection = { key: FactCollectionKey; facts: Fact[] };
 
-/** A fact together with the set of scopes it is visible under. */
-type FactWithScopes = { fact: Fact; scopes: Set<ScopeStr> };
-
 /** Internal auxiliary type assembling a collection. */
-type CollectionWithFacts = { key: FactCollectionKey; facts: Map<FactKeyStr, FactWithScopes> };
+type CollectionWithFacts = { key: FactCollectionKey; facts: Map<FactKeyStr, Fact> };
 
-/** A pending operation for a job: record a fact under a scope, or remove (descope) a collection from a scope. */
-type StagedOp =
-  | { kind: 'recordFact'; fact: StoredFact; scope: AztecAddress }
-  | { kind: 'removeFactCollection'; key: FactCollectionKey; scope: AztecAddress };
+/** A pending operation for a job: record a fact, or delete a fact collection. */
+type StagedOp = { kind: 'recordFact'; fact: StoredFact } | { kind: 'deleteFactCollection'; key: FactCollectionKey };
 
 /**
- * Stores immutable facts grouped into collections, isolated by contract and scoped per fact.
+ * Stores immutable facts grouped into collections, isolated by contract and scope.
  *
  * A fact collection is a contract-defined bag of facts identified by a {@link FactCollectionKey} (contract, collection
  * type, and id). A fact is a contract-defined immutable, typed datum in a collection. Collections are implicit: one
@@ -45,8 +38,8 @@ type StagedOp =
  * Non-retractable facts survive reorgs; they must then be explicitly deleted, so as not to keep consuming resources
  * (storage and compute) indefinitely.
  *
- * Scoping is per fact. Facts are only visible at scopes they were written to. A scope never sees facts recorded solely
- * under another scope, even within the same collection.
+ * Scope is part of a collection's identity (encoded in its key): the same (contract, type, id) under two scopes are
+ * two independent collections. Reads target one scope, carried inside the key.
  *
  * This store is designed to enable Aztec.nr to implement complex workflows such as offchain reception or partial note
  * processing by storing structured data that is guaranteed to exist conditionally to specific blocks being included in
@@ -69,9 +62,6 @@ export class FactStore implements StagedStore {
   /** Index for per-collection fact enumeration and by-type collection discovery. */
   #factsByCollection: AztecAsyncMultiMap<FactCollectionKeyStr, FactKeyStr>;
 
-  /** The set of scopes each fact is visible under. */
-  #scopesByFact: AztecAsyncMultiMap<FactKeyStr, ScopeStr>;
-
   /** Index for delete-on-prune of retractable facts (those with an origin block). */
   #factsByBlock: AztecAsyncMultiMap<BlockNum, FactKeyStr>;
 
@@ -87,7 +77,6 @@ export class FactStore implements StagedStore {
     this.#store = store;
     this.#facts = store.openMap('facts');
     this.#factsByCollection = store.openMultiMap('facts_by_collection');
-    this.#scopesByFact = store.openMultiMap('scopes_by_fact');
     this.#factsByBlock = store.openMultiMap('facts_by_block');
     this.#opsForJob = new Map();
     this.#jobLocks = new Map();
@@ -110,45 +99,33 @@ export class FactStore implements StagedStore {
     factTypeId: Fr,
     payload: Fr[],
     originBlock: OriginBlock | undefined,
-    scope: AztecAddress,
     jobId: string,
   ): Promise<void> {
     return this.#withJobLock(jobId, () => {
       this.#stagedOpsFor(jobId).push({
         kind: 'recordFact',
         fact: new StoredFact(factCollectionKey, factTypeId, payload, originBlock),
-        scope,
       });
       return Promise.resolve();
     });
   }
 
   /**
-   * Removes a fact collection from the given scope: removes that scope from every one of the collection's facts,
-   * reaping any fact thereby left with no scope.
+   * Deletes a fact collection: removes every fact under the (scope-qualified) collection key.
    *
-   * This is typically done when the collection has finalized for that scope and there's no more work to do, to save
-   * disk space and to avoid re-processing it indefinitely. A scope only ever retracts its own view: facts another
-   * scope still references survive.
-   *
-   * Idempotent: descoping a collection (or fact) that is not visible under the given scope is a no-op.
+   * Idempotent: deleting a collection that does not exist is a no-op.
    */
-  removeFactCollection(factCollectionKey: FactCollectionKey, scope: AztecAddress, jobId: string): Promise<void> {
+  deleteFactCollection(factCollectionKey: FactCollectionKey, jobId: string): Promise<void> {
     return this.#withJobLock(jobId, () => {
-      this.#stagedOpsFor(jobId).push({ kind: 'removeFactCollection', key: factCollectionKey, scope });
+      this.#stagedOpsFor(jobId).push({ kind: 'deleteFactCollection', key: factCollectionKey });
       return Promise.resolve();
     });
   }
 
   /**
-   * Returns one fact collection, holding the facts visible under any of the given scopes, or undefined if no fact of
-   * the collection is visible under them.
+   * Returns the fact collection for the (scope-qualified) key, or undefined if it has no facts.
    */
-  async getFactCollection(
-    factCollectionKey: FactCollectionKey,
-    scopes: AztecAddress[],
-    jobId: string,
-  ): Promise<FactCollection | undefined> {
+  async getFactCollection(factCollectionKey: FactCollectionKey, jobId: string): Promise<FactCollection | undefined> {
     const collectionKey = factCollectionKey.toString();
     const committed = await this.#store.transactionAsync(() => this.#readCollectionsFromDb([factCollectionKey]));
 
@@ -156,24 +133,22 @@ export class FactStore implements StagedStore {
     if (!collection) {
       return undefined;
     }
-    const facts = this.#visibleFacts(collection, scopes);
+    const facts = [...collection.facts.values()];
     return facts.length > 0 ? { key: factCollectionKey, facts } : undefined;
   }
 
   /**
-   * Returns every fact collection of the given type that has at least one fact visible under the given scopes, each
-   * holding only its facts visible under them.
+   * Returns every fact collection of the given type for the queried scope, each holding its facts.
    */
   async getFactCollectionsByType(
     factCollectionTypeKey: FactCollectionTypeKey,
-    scopes: AztecAddress[],
     jobId: string,
   ): Promise<FactCollection[]> {
     const typeKey = factCollectionTypeKey.toString();
     const committed = await this.#readCollectionsFromDbByType(typeKey);
 
     return Array.from(this.#foldStagedOps(committed, jobId, typeKey).values())
-      .map(collection => ({ key: collection.key, facts: this.#visibleFacts(collection, scopes) }))
+      .map(collection => ({ key: collection.key, facts: [...collection.facts.values()] }))
       .filter(collection => collection.facts.length > 0);
   }
 
@@ -190,10 +165,10 @@ export class FactStore implements StagedStore {
     for (const op of this.#stagedOpsFor(jobId)) {
       switch (op.kind) {
         case 'recordFact':
-          await this.#commitFact(op.fact, op.scope);
+          await this.#commitFact(op.fact);
           break;
-        case 'removeFactCollection':
-          await this.#descopeCollection(op.key.toString(), op.scope.toString());
+        case 'deleteFactCollection':
+          await this.#deleteCollection(op.key.toString());
           break;
         default: {
           const _exhaustive: never = op;
@@ -277,9 +252,6 @@ export class FactStore implements StagedStore {
     return result;
   }
 
-  /**
-   * Reads every committed collection of the given type with its facts and their scopes, in a single pass.
-   */
   #readCollectionsFromDbByType(typeKey: FactCollectionTypeKeyStr) {
     return this.#store.transactionAsync(async () => {
       const factReadsByCollection = new Map<FactCollectionKeyStr, Map<FactKeyStr, Promise<FactBuffer | undefined>>>();
@@ -295,26 +267,15 @@ export class FactStore implements StagedStore {
         reads.set(factKey, this.#facts.getAsync(factKey));
       }
 
-      const scopesByFactKey = await this.#readScopesByFactKey(typeKey);
-
       const result = new Map<FactCollectionKeyStr, CollectionWithFacts>();
       for (const [collectionKey, reads] of factReadsByCollection) {
-        const collection = await this.#assembleCollection(
-          FactCollectionKey.fromString(collectionKey),
-          reads,
-          scopesByFactKey,
-        );
+        const collection = await this.#assembleCollection(FactCollectionKey.fromString(collectionKey), reads);
         result.set(collectionKey, collection);
       }
       return result;
     });
   }
 
-  /**
-   * Loads and returns a committed collection or undefined if it has no committed facts.
-   *
-   * Caller must wrap in a transaction.
-   */
   async #loadCommittedCollection(collectionKey: FactCollectionKey): Promise<CollectionWithFacts | undefined> {
     // Kick off each fact read while iterating the index so a DB request is always pending. Draining the cursor and only
     // then reading the facts one `await` at a time would let the IndexedDB transaction auto-commit at the boundary
@@ -328,47 +289,21 @@ export class FactStore implements StagedStore {
       return undefined;
     }
 
-    const scopesByFactKey = await this.#readScopesByFactKey(collectionKey.toString());
-
-    return this.#assembleCollection(collectionKey, factReads, scopesByFactKey);
+    return this.#assembleCollection(collectionKey, factReads);
   }
 
   /**
-   * Read all scopes that can view a fact
-   *
-   * Caller must wrap in a transaction.
-   */
-  async #readScopesByFactKey(factKeyPrefix: string): Promise<Map<FactKeyStr, Set<ScopeStr>>> {
-    const scopesByFactKey = new Map<FactKeyStr, Set<ScopeStr>>();
-    for await (const [factKey, scope] of this.#scopesByFact.entriesAsync({
-      start: `${factKeyPrefix}:`,
-      end: `${factKeyPrefix};`,
-    })) {
-      let scopes = scopesByFactKey.get(factKey);
-      if (!scopes) {
-        scopes = new Set<ScopeStr>();
-        scopesByFactKey.set(factKey, scopes);
-      }
-      scopes.add(scope);
-    }
-    return scopesByFactKey;
-  }
-
-  /**
-   * Assemble a collection's facts and their scopes from a collection of in-flight DB reads.
-   *
-   * This is an auxiliary function.
+   * Assemble a collection's facts from a set of in-flight DB reads.
    */
   async #assembleCollection(
     collectionKey: FactCollectionKey,
     reads: Map<FactKeyStr, Promise<FactBuffer | undefined>>,
-    scopesByFactKey: Map<FactKeyStr, Set<ScopeStr>>,
   ): Promise<CollectionWithFacts> {
     const factKeys = [...reads.keys()];
     const bufs = await Promise.all(reads.values());
 
     // Await-free tail: deserialize. No DB ops from here on.
-    const facts = new Map<FactKeyStr, FactWithScopes>();
+    const facts = new Map<FactKeyStr, Fact>();
     for (let i = 0; i < factKeys.length; i++) {
       const factKey = factKeys[i];
       const buf = bufs[i];
@@ -383,22 +318,14 @@ export class FactStore implements StagedStore {
         // corrupt.
         throw new Error(`Fact ${factKey} does not belong to collection ${collectionKey}`);
       }
-      facts.set(factKey, { fact: stored.toFact(), scopes: scopesByFactKey.get(factKey) ?? new Set<ScopeStr>() });
+      facts.set(factKey, stored.toFact());
     }
     return { key: collectionKey, facts };
   }
 
-  /** The facts of the collection visible under any of the given scopes. */
-  #visibleFacts(collection: CollectionWithFacts, queryScopes: AztecAddress[]): Fact[] {
-    const queried = new Set<ScopeStr>(queryScopes.map(scope => scope.toString()));
-    return Array.from(collection.facts.values(), ({ fact, scopes }) =>
-      [...scopes].some(scope => queried.has(scope)) ? fact : undefined,
-    ).filter((fact): fact is Fact => fact !== undefined);
-  }
-
   /**
-   * Assembles the current view of a collection of collections together with their facts and per-fact scopes, combining
-   * the committed with staged data.
+   * Assembles the current view of a collection of collections together with their facts, combining the committed with
+   * staged data.
    *
    * When `typeKey` is given, staged records of other types are ignored, so the result holds only that type.
    */
@@ -409,21 +336,17 @@ export class FactStore implements StagedStore {
   ): Map<FactCollectionKeyStr, CollectionWithFacts> {
     const result = new Map<FactCollectionKeyStr, CollectionWithFacts>();
 
-    // Copy to avoid mutating contents of `committed` (including each fact's scope set)
+    // Copy to avoid mutating the contents of `committed`.
     for (const [collectionKey, { key, facts }] of committed) {
-      const copied = new Map<FactKeyStr, FactWithScopes>();
-      for (const [factKey, { fact, scopes }] of facts) {
-        copied.set(factKey, { fact, scopes: new Set(scopes) });
-      }
-      result.set(collectionKey, { key, facts: copied });
+      result.set(collectionKey, { key, facts: new Map(facts) });
     }
     for (const op of this.#stagedOpsFor(jobId)) {
       switch (op.kind) {
         case 'recordFact':
           this.#foldRecordFact(result, op, typeKey);
           break;
-        case 'removeFactCollection':
-          this.#foldRemoveFactCollection(result, op);
+        case 'deleteFactCollection':
+          this.#foldDeleteFactCollection(result, op);
           break;
         default: {
           const _exhaustive: never = op;
@@ -456,82 +379,51 @@ export class FactStore implements StagedStore {
 
     // Collection didn't exist before this point, the created fact brings it into existence
     if (!collection) {
-      collection = { key, facts: new Map<FactKeyStr, FactWithScopes>() };
+      collection = { key, facts: new Map<FactKeyStr, Fact>() };
       result.set(collectionKey, collection);
     }
 
     const fKey = factKeyStrOf(op.fact);
-    let factWithScopes = collection.facts.get(fKey);
-
-    if (!factWithScopes) {
-      // Fact is actually new, initialize
-      factWithScopes = { fact: op.fact.toFact(), scopes: new Set<ScopeStr>() };
-      collection.facts.set(fKey, factWithScopes);
+    if (!collection.facts.has(fKey)) {
+      collection.facts.set(fKey, op.fact.toFact());
     }
-
-    // Add fact to scope
-    factWithScopes.scopes.add(op.scope.toString());
   }
 
   /**
-   * Folds a staged `removeFactCollection` op into the view.
+   * Folds a staged `deleteFactCollection` op into the view: the scope-qualified collection is removed outright.
    */
-  #foldRemoveFactCollection(
+  #foldDeleteFactCollection(
     result: Map<FactCollectionKeyStr, CollectionWithFacts>,
-    op: Extract<StagedOp, { kind: 'removeFactCollection' }>,
+    op: Extract<StagedOp, { kind: 'deleteFactCollection' }>,
   ): void {
-    const collection = result.get(op.key.toString());
-    if (!collection) {
-      return;
-    }
-
-    // Remove any facts viewable by the op given scope
-    const scopeStr = op.scope.toString();
-    for (const [factKey, { scopes }] of collection.facts) {
-      scopes.delete(scopeStr);
-
-      // If no scopes retain access to this fact, remove the fact altogether
-      if (scopes.size === 0) {
-        collection.facts.delete(factKey);
-      }
-    }
-
-    // If no facts remain after the scoped cleanse, remove the collection itself
-    if (collection.facts.size === 0) {
-      result.delete(op.key.toString());
-    }
+    result.delete(op.key.toString());
   }
 
   /**
-   * Writes a fact to persistent storage and adds its scope to that fact's scope set.
-   *
-   * First-write-wins on the fact body: if an identical fact already exists (same scope-free identity) it is left
-   * untouched, so the same fact recorded under several scopes is stored once. The scope is added regardless (the
-   * multimap dedups identical entries), so the new scope joins the fact's set.
+   * Writes a fact to persistent storage. Idempotent: an identical fact (same scope-qualified key) is left untouched.
    */
-  async #commitFact(fact: StoredFact, scope: AztecAddress): Promise<void> {
+  async #commitFact(fact: StoredFact): Promise<void> {
     const factKey = factKeyStrOf(fact);
     if (await this.#facts.hasAsync(factKey)) {
       this.logger.debug(`Ignoring already recorded fact`, { factKey });
-    } else {
-      await this.#facts.set(factKey, fact.toBuffer());
-      await this.#factsByCollection.set(fact.factCollectionKey.toString(), factKey);
-      if (fact.originBlock !== undefined) {
-        await this.#factsByBlock.set(fact.originBlock.blockNumber, factKey);
-      }
+      return;
     }
-    await this.#scopesByFact.set(factKey, scope.toString());
+    await this.#facts.set(factKey, fact.toBuffer());
+    await this.#factsByCollection.set(fact.factCollectionKey.toString(), factKey);
+    if (fact.originBlock !== undefined) {
+      await this.#factsByBlock.set(fact.originBlock.blockNumber, factKey);
+    }
   }
 
   /**
-   * Removes `scope` from every fact in the collection, reaping any fact thereby left with no scope.
+   * Deletes every fact under the (scope-qualified) collection key.
    *
    * Caller must wrap in a transaction.
    */
-  async #descopeCollection(collectionKey: FactCollectionKeyStr, scope: ScopeStr): Promise<void> {
+  async #deleteCollection(collectionKey: FactCollectionKeyStr): Promise<void> {
     // Snapshot the fact index before mutating so we never delete from the cursor we are iterating, kicking off each
     // fact-body read during the scan so a DB request stays pending across the cursor-to-mutation boundary (a drained
-    // cursor with no read in flight would let the transaction auto-commit before the descope writes).
+    // cursor with no read in flight would let the transaction auto-commit before the deletes).
     const factReads = new Map<FactKeyStr, Promise<FactBuffer | undefined>>();
     for await (const factKey of this.#factsByCollection.getValuesAsync(collectionKey)) {
       factReads.set(factKey, this.#facts.getAsync(factKey));
@@ -539,10 +431,6 @@ export class FactStore implements StagedStore {
     await Promise.all(
       Array.from(factReads, async ([factKey, read]) => {
         const buf = await read;
-        await this.#scopesByFact.deleteValue(factKey, scope);
-        if ((await this.#scopesByFact.getValueCountAsync(factKey)) > 0) {
-          return;
-        }
         if (!buf) {
           // A #factsByCollection entry must always reference a live #facts entry, a missing one means the indexes are
           // corrupt.
@@ -554,15 +442,14 @@ export class FactStore implements StagedStore {
   }
 
   /**
-   * Deletes a fact from the primary store and all its indexes (`#factsByCollection`, `#scopesByFact`, plus
-   * `#factsByBlock` if retractable).
+   * Deletes a fact from the primary store and all its indexes (`#factsByCollection`, plus `#factsByBlock` if
+   * retractable).
    *
    * Caller must wrap in a transaction.
    */
   async #deleteFact(factKey: FactKeyStr, fact: StoredFact): Promise<void> {
     await this.#facts.delete(factKey);
     await this.#factsByCollection.deleteValue(fact.factCollectionKey.toString(), factKey);
-    await this.#scopesByFact.delete(factKey);
     if (fact.originBlock !== undefined) {
       await this.#factsByBlock.deleteValue(fact.originBlock.blockNumber, factKey);
     }
