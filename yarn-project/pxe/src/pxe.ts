@@ -274,7 +274,7 @@ export class PXE {
       capsuleStore,
       keyStore,
       l2TipsStore,
-      entityStore,
+      factStore,
     } = openPxeStores(store, initialBlockHash);
     const contractSyncService = new ContractSyncService(
       node,
@@ -290,7 +290,7 @@ export class PXE {
       anchorBlockStore,
       noteStore,
       privateEventStore,
-      entityStore,
+      factStore,
       l2TipsStore,
       contractSyncService,
       config,
@@ -304,7 +304,7 @@ export class PXE {
       recipientTaggingStore,
       privateEventStore,
       noteStore,
-      entityStore,
+      factStore,
       contractSyncService,
     ]);
 
