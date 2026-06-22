@@ -74,22 +74,11 @@ pub contract ConstrainedDeliveryTest {
         self.call(registry.get_app_siloed_secret(sender, recipient, mode))
     }
 
-    /// Returns the number of `FieldNote`s discovered for `owner`.
+    /// Returns the values of all `FieldNote`s discovered for `owner`. The e2e test derives both the count and the
+    /// sum from this, confirming each delivered note was discovered and decrypted.
     #[external("utility")]
-    unconstrained fn get_note_count(owner: AztecAddress) -> u32 {
-        self.storage.notes.at(owner).view_notes(NoteViewerOptions::new()).len()
-    }
-
-    /// Returns the sum of all `FieldNote` values discovered for `owner`. With distinct delivered values, the sum
-    /// confirms each note was actually decrypted rather than merely counted.
-    #[external("utility")]
-    unconstrained fn get_notes_sum(owner: AztecAddress) -> Field {
-        let notes = self.storage.notes.at(owner).view_notes(NoteViewerOptions::new());
-        let mut sum: Field = 0;
-        for i in 0..notes.len() {
-            sum += notes.get(i).value;
-        }
-        sum
+    unconstrained fn get_note_values(owner: AztecAddress) -> BoundedVec<Field, 10> {
+        self.storage.notes.at(owner).view_notes(NoteViewerOptions::new()).map(|note| note.value)
     }
 
     /// Test-only: emits a log under the constrained tag for `(secret, index)` WITHOUT the sequence nullifier. A landed

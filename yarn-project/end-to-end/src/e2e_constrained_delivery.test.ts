@@ -172,56 +172,56 @@ describe('cross-PXE constrained delivery', () => {
   jest.setTimeout(300_000);
 
   let aztecNode: AztecNode & AztecNodeDebug;
-  let walletA: TestWallet;
-  let walletB: TestWallet;
+  let walletSender: TestWallet;
+  let walletRecipient: TestWallet;
   let sender: AztecAddress;
   let recipient: AztecAddress;
   let additionallyFundedAccounts: InitialAccountData[];
-  let contract: ConstrainedDeliveryTestContract;
-  let teardownA: () => Promise<void>;
-  let teardownB: () => Promise<void>;
+  let contractSender: ConstrainedDeliveryTestContract;
+  let teardownSender: () => Promise<void>;
+  let teardownRecipient: () => Promise<void>;
 
   beforeAll(async () => {
     // PXE A holds the sender. The recipient is funded at genesis here but created and deployed on PXE B below.
     ({
       aztecNode,
       additionallyFundedAccounts,
-      wallet: walletA,
+      wallet: walletSender,
       accounts: [sender],
-      teardown: teardownA,
+      teardown: teardownSender,
     } = await setup(1, {
       ...AUTOMINE_E2E_OPTS,
       additionallyFundedAccounts: await generateSchnorrAccounts(1, 'schnorr'),
     }));
 
     // PXE B holds the recipient on the same node; the recipient account's keys live only here.
-    ({ wallet: walletB, teardown: teardownB } = await setupPXEAndGetWallet(
+    ({ wallet: walletRecipient, teardown: teardownRecipient } = await setupPXEAndGetWallet(
       aztecNode,
       aztecNode,
       {},
       undefined,
       'pxe-b',
     ));
-    const recipientAccount = await walletB.createSchnorrAccount(
+    const recipientAccount = await walletRecipient.createSchnorrAccount(
       additionallyFundedAccounts[0].secret,
       additionallyFundedAccounts[0].salt,
     );
     await (await recipientAccount.getDeployMethod()).send({ from: NO_FROM });
     recipient = recipientAccount.address;
 
-    await ensureHandshakeRegistryPublished(walletA, sender);
-    const { contract: deployed, instance } = await ConstrainedDeliveryTestContract.deploy(walletA).send({
+    await ensureHandshakeRegistryPublished(walletSender, sender);
+    const { contract: deployed, instance } = await ConstrainedDeliveryTestContract.deploy(walletSender).send({
       from: sender,
     });
-    contract = deployed;
+    contractSender = deployed;
 
-    await ensureHandshakeRegistryPublished(walletB, recipient);
-    await walletB.registerContract(instance, ConstrainedDeliveryTestContract.artifact);
+    await ensureHandshakeRegistryPublished(walletRecipient, recipient);
+    await walletRecipient.registerContract(instance, ConstrainedDeliveryTestContract.artifact);
   });
 
   afterAll(async () => {
-    await teardownB();
-    await teardownA();
+    await teardownRecipient();
+    await teardownSender();
   });
 
   it('delivers multiple constrained events from PXE A that PXE B discovers', async () => {
@@ -231,18 +231,21 @@ describe('cross-PXE constrained delivery', () => {
     const eventValues = [10n, 20n, 30n];
     const blockNumbers: number[] = [];
     for (const value of eventValues) {
-      const { receipt } = await contract.methods.emit_event(recipient, value).send({ from: sender });
+      const { receipt } = await contractSender.methods.emit_event(recipient, value).send({ from: sender });
       blockNumbers.push(receipt.blockNumber!);
     }
 
-    await walletB.sync();
+    await walletRecipient.sync();
 
-    const events = await walletB.getPrivateEvents<DeliveryEvent>(ConstrainedDeliveryTestContract.events.DeliveryEvent, {
-      contractAddress: contract.address,
-      fromBlock: BlockNumber(Math.min(...blockNumbers)),
-      toBlock: BlockNumber(Math.max(...blockNumbers) + 1),
-      scopes: [recipient],
-    });
+    const events = await walletRecipient.getPrivateEvents<DeliveryEvent>(
+      ConstrainedDeliveryTestContract.events.DeliveryEvent,
+      {
+        contractAddress: contractSender.address,
+        fromBlock: BlockNumber(Math.min(...blockNumbers)),
+        toBlock: BlockNumber(Math.max(...blockNumbers) + 1),
+        scopes: [recipient],
+      },
+    );
 
     const discovered = events.map(e => e.event.value);
     expect(discovered.length).toBe(eventValues.length);
@@ -255,19 +258,16 @@ describe('cross-PXE constrained delivery', () => {
     // Same recipient and handshake as the events above, so these notes land at the following sequence indices.
     const noteValues = [40n, 50n, 60n];
     for (const value of noteValues) {
-      await contract.methods.emit_note(recipient, value).send({ from: sender });
+      await contractSender.methods.emit_note(recipient, value).send({ from: sender });
     }
 
-    await walletB.sync();
+    await walletRecipient.sync();
 
-    const constrainedDeliveryB = ConstrainedDeliveryTestContract.at(contract.address, walletB);
+    const contractRecipient = ConstrainedDeliveryTestContract.at(contractSender.address, walletRecipient);
     // Count proves every delivered note was discovered; the sum of distinct values proves each was decrypted.
-    const { result: count } = await constrainedDeliveryB.methods
-      .get_note_count(recipient)
-      .simulate({ from: recipient });
-    expect(count).toEqual(BigInt(noteValues.length));
-
-    const { result: sum } = await constrainedDeliveryB.methods.get_notes_sum(recipient).simulate({ from: recipient });
-    expect(sum).toEqual(noteValues.reduce((acc, value) => acc + value, 0n));
+    const { result } = await contractRecipient.methods.get_note_values(recipient).simulate({ from: recipient });
+    const values: bigint[] = result.storage.slice(0, Number(result.len));
+    expect(values.length).toBe(noteValues.length);
+    expect(values.reduce((acc, value) => acc + value, 0n)).toEqual(noteValues.reduce((acc, value) => acc + value, 0n));
   });
 });
