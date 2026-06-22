@@ -224,7 +224,7 @@ TEST(MegaCircuitBuilder, EmptyCircuitFinalization)
     EXPECT_EQ(builder.blocks.elliptic.size(), 0);
     EXPECT_EQ(builder.blocks.memory.size(), 0);
     EXPECT_EQ(builder.blocks.nnf.size(), 0);
-    EXPECT_EQ(builder.blocks.poseidon2_external.size(), 0);
+    EXPECT_EQ(builder.blocks.poseidon2.size(), 0);
     EXPECT_EQ(builder.get_calldata(BusId::KERNEL_CALLDATA).size(), 0);
     EXPECT_EQ(builder.get_calldata(BusId::APP_CALLDATA).size(), 0);
     EXPECT_EQ(builder.get_return_data().size(), 0);

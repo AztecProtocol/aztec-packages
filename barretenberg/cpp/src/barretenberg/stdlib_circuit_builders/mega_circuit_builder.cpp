@@ -290,13 +290,35 @@ template <typename FF> void MegaCircuitBuilder_<FF>::apply_databus_selectors(con
 }
 
 /**
+ * @brief Poseidon2 external-round gate. Mega routes it into the shared `poseidon2` block (Ultra instead uses a
+ * dedicated external block) so every permutation's rows are contiguous and the external/terminal round relations
+ * bind across the external<->internal boundary via `w_shift`.
+ */
+template <typename FF>
+void MegaCircuitBuilder_<FF>::create_poseidon2_external_gate(const poseidon2_external_gate_<FF>& in)
+{
+    auto& block = this->blocks.poseidon2;
+    block.populate_wires(in.a, in.b, in.c, in.d);
+    block.q_m().emplace_back(0);
+    block.q_1().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][0]);
+    block.q_2().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][1]);
+    block.q_3().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][2]);
+    block.q_c().emplace_back(0);
+    block.q_4().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][3]);
+    block.q_5().emplace_back(0);
+    block.set_gate_selector(GateKind::Poseidon2Ext, 1);
+    this->check_selector_length_consistency();
+    this->increment_num_gates();
+}
+
+/**
  * @brief Poseidon2 initial linear layer gate, activates the q_poseidon2_external_initial selector and relation.
  * @details Constrains the whole initial linear layer with a bespoke row.
  */
 template <typename FF>
 void MegaCircuitBuilder_<FF>::create_poseidon2_initial_external_gate(const poseidon2_initial_external_gate_<FF>& in)
 {
-    auto& block = this->blocks.poseidon2_external;
+    auto& block = this->blocks.poseidon2;
     block.populate_wires(in.a, in.b, in.c, in.d);
     block.q_m().emplace_back(0);
     block.q_1().emplace_back(0);
@@ -322,7 +344,7 @@ void MegaCircuitBuilder_<FF>::create_poseidon2_initial_external_gate(const posei
 template <typename FF>
 void MegaCircuitBuilder_<FF>::create_poseidon2_quad_internal_gate(const poseidon2_quad_internal_gate_<FF>& in)
 {
-    auto& block = this->blocks.poseidon2_quad_internal;
+    auto& block = this->blocks.poseidon2;
     block.populate_wires(in.a, in.b, in.c, in.d);
     const auto& rc = crypto::Poseidon2Bn254ScalarFieldParams::round_constants;
     block.q_1().emplace_back(rc[in.round_idx_start + 0][0]);
@@ -357,7 +379,7 @@ void MegaCircuitBuilder_<FF>::create_poseidon2_quad_internal_gate(const poseidon
 template <typename FF>
 void MegaCircuitBuilder_<FF>::create_poseidon2_transition_entry_gate(const poseidon2_transition_entry_gate_<FF>& in)
 {
-    auto& block = this->blocks.poseidon2_quad_internal;
+    auto& block = this->blocks.poseidon2;
     block.populate_wires(in.a, in.b, in.c, in.d);
     const auto& rc = crypto::Poseidon2Bn254ScalarFieldParams::round_constants;
     block.q_m().emplace_back(0);

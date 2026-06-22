@@ -1,5 +1,6 @@
 import { flavor } from "../flavor.js";
 import * as R from "../relations/index.js";
+import { megaPoseidon2Relations } from "./mega_poseidon2.js";
 
 // App-circuit flavor for Chonk. Apps do not read the kernel/app calldata buses, so those four
 // bus-lookup relations are dropped. The return_data bus is kept (the app writes its outputs there
@@ -29,11 +30,8 @@ export const MegaApp = flavor({
       indicator: "return_data_indicator",
       selector: "q_m",
     }),
-    R.Poseidon2ExternalRelation,
-    R.Poseidon2InitialExternalRelation,
-    R.Poseidon2QuadInternalRelation,
-    R.Poseidon2QuadInternalTerminalRelation,
-    R.Poseidon2TransitionEntryRelation,
+    // All five poseidon2 gate kinds share the single `poseidon2` block (see mega_poseidon2.ts).
+    ...megaPoseidon2Relations,
   ],
   composites: {
     selectors: ["non_gate_selectors", "gate_selectors"],

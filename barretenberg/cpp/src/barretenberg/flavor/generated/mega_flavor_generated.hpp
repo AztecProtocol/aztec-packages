@@ -201,11 +201,11 @@ class MegaFlavor_Generated {
             &blocks.memory,
             &blocks.nnf,
             &blocks.busread,
-            &blocks.poseidon2_external,
-            &blocks.poseidon2_external,
-            &blocks.poseidon2_quad_internal,
-            &blocks.poseidon2_quad_internal,
-            &blocks.poseidon2_quad_internal,
+            &blocks.poseidon2,
+            &blocks.poseidon2,
+            &blocks.poseidon2,
+            &blocks.poseidon2,
+            &blocks.poseidon2,
         });
     }
 
@@ -221,11 +221,11 @@ class MegaFlavor_Generated {
             &blocks.memory,
             &blocks.nnf,
             &blocks.busread,
-            &blocks.poseidon2_external,
-            &blocks.poseidon2_external,
-            &blocks.poseidon2_quad_internal,
-            &blocks.poseidon2_quad_internal,
-            &blocks.poseidon2_quad_internal,
+            &blocks.poseidon2,
+            &blocks.poseidon2,
+            &blocks.poseidon2,
+            &blocks.poseidon2,
+            &blocks.poseidon2,
         });
     }
 

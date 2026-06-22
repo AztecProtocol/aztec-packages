@@ -51,6 +51,14 @@ class UltraCircuitChecker {
      */
     template <typename Builder> static bool check(const Builder& builder_in);
 
+    /**
+     * @brief Evaluate a single `Relation` at `block`'s row `row_idx` in isolation, returning true iff every
+     * subrelation vanishes. Unlike `check`, which short-circuits on the first failing relation, this attributes a
+     * constraint to a specific (relation, row) pair. The builder's gates must already be emitted (no finalization).
+     */
+    template <typename Relation, typename Builder, typename Block>
+    static bool check_relation_at_row(Builder& builder, Block& block, size_t row_idx);
+
   private:
     struct TagCheckData;           // Container for data pertaining to generalized permutation tag check
     struct MemoryCheckData;        // Container for data pertaining to RAM/RAM record check

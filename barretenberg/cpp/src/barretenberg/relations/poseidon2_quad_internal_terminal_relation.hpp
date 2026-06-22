@@ -9,8 +9,8 @@ namespace bb {
  * @brief Terminal variant of the K=4 compressed internal-round relation.
  *
  * @details Same four-round closed-form computation as `Poseidon2QuadInternalRelationImpl`, but
- * the successor is the standard-encoded bridge row rather than another compressed row. The four
- * subrelations directly match (out_0, out_1, out_2, out_3) against
+ * the successor is the standard-encoded first final-external row rather than another compressed
+ * row. The four subrelations directly match (out_0, out_1, out_2, out_3) against
  * (w_l_shift, w_r_shift, w_o_shift, w_4_shift).
  *
  * This ties the compressed chain's output state (state[0..3] after 56 internal rounds) to
@@ -70,7 +70,7 @@ template <typename FF_> class Poseidon2QuadInternalTerminalRelationImpl {
         auto u_2 = pow5(Accumulator(w_o + q_o));
         auto u_3 = pow5(Accumulator(w_4 + q_4));
 
-        // Closed-form output rows, with shifted bridge-row terms folded into the wire part.
+        // Closed-form output rows, with shifted successor-row terms folded into the wire part.
         const auto& C = QuadParams::tables.closed_form;
         auto wp_0 = w_r * C[0][0] + w_o * C[0][1] + w_4 * C[0][2] - w_l_shift;
         auto wp_1 = w_r * C[1][0] + w_o * C[1][1] + w_4 * C[1][2] - w_r_shift;

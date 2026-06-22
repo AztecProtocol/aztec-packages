@@ -536,8 +536,16 @@ unconstrained fn multiple_senders_discovered_for_same_recipient() {
         discovered.items.get(0).eph_pk.x != discovered.items.get(1).eph_pk.x,
         "distinct senders should produce distinct ephemeral public keys",
     );
-    assert_eq(discovered.items.get(0).mode, ONCHAIN_CONSTRAINED);
-    assert_eq(discovered.items.get(1).mode, ONCHAIN_UNCONSTRAINED);
+    // Discovery order across senders sharing a recipient tag is not a guarantee (it follows the
+    // address-siloed log order), so assert one of each mode regardless of position.
+  assert(
+      discovered.items.any(|h| h.mode == ONCHAIN_CONSTRAINED),
+      "expected a constrained handshake",
+  );
+  assert(
+      discovered.items.any(|h| h.mode == ONCHAIN_UNCONSTRAINED),
+      "expected an unconstrained handshake",
+  );
 }
 
 #[test]
