@@ -98,6 +98,7 @@ describe('ProofPublishingService', () => {
       proof: overrides.proof ?? Proof.empty(),
       batchedBlobInputs: overrides.batchedBlobInputs ?? makeBlob(),
       attestations: overrides.attestations ?? [],
+      headers: overrides.headers ?? [],
     };
   }
 

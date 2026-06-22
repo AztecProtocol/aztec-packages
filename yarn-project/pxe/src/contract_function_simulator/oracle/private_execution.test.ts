@@ -206,8 +206,6 @@ describe('Private Execution test suite', () => {
     });
 
     return acirSimulator.run(txRequest, {
-      contractAddress,
-      selector,
       msgSender,
       anchorBlockHeader,
       senderForTags,
@@ -480,40 +478,6 @@ describe('Private Execution test suite', () => {
       const privateLogs = result.entrypoint.publicInputs.privateLogs;
       expect(privateLogs.claimedLength).toBe(1);
     });
-  });
-
-  it('throws when request origin does not match contract address', async () => {
-    const contractAddress = await mockContractInstance(TestContractArtifact);
-    const differentAddress = await AztecAddress.random();
-    contracts[differentAddress.toString()] = TestContractArtifact;
-
-    const functionArtifact = getFunctionArtifactByName(TestContractArtifact, 'emit_array_as_encrypted_log');
-    const selector = await FunctionSelector.fromNameAndParameters(functionArtifact.name, functionArtifact.parameters);
-    const hashedArguments = await HashedValues.fromArgs(
-      encodeArguments(functionArtifact, [Fr.ZERO, times(5, () => Fr.random()), owner, false]),
-    );
-
-    const txRequest = TxExecutionRequest.from({
-      origin: differentAddress,
-      firstCallArgsHash: hashedArguments.hash,
-      functionSelector: selector,
-      txContext: TxContext.from(txContextFields),
-      argsOfCalls: [hashedArguments],
-      authWitnesses: [],
-      capsules: [],
-      salt: Fr.random(),
-    });
-
-    await expect(
-      acirSimulator.run(txRequest, {
-        contractAddress,
-        selector,
-        anchorBlockHeader,
-        senderForTags,
-        jobId: TEST_JOB_ID,
-        scopes: [owner],
-      }),
-    ).rejects.toThrow('Request origin does not match contract address');
   });
 
   describe('stateful test contract', () => {

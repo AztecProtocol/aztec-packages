@@ -43,6 +43,8 @@ abstract contract EscapeHatchIntegrationBase is ValidatorSelectionTestBase {
   Hatch internal targetHatch;
   DecoderBase.Full internal full;
 
+  mapping(uint256 => ProposedHeader) internal proposedHeaders;
+
   // Test addresses
   address internal CANDIDATE1 = makeAddr("CANDIDATE1");
   address internal CANDIDATE2 = makeAddr("CANDIDATE2");
@@ -148,7 +150,8 @@ abstract contract EscapeHatchIntegrationBase is ValidatorSelectionTestBase {
       gasFees: GasFees({
         feePerDaGas: 0, feePerL2Gas: uint128(rollup.getManaMinFeeAt(Timestamp.wrap(block.timestamp), true))
       }),
-      totalManaUsed: 0
+      totalManaUsed: 0,
+      accumulatedFees: 0
     });
 
     args = ProposeArgs({header: header, archive: archive, oracleInput: OracleInput({feeAssetPriceModifier: 0})});
@@ -165,6 +168,8 @@ abstract contract EscapeHatchIntegrationBase is ValidatorSelectionTestBase {
     (ProposeArgs memory args, bytes memory blobs) = _buildProposeArgs(_proposer);
 
     skipBlobCheck(address(rollup));
+
+    proposedHeaders[rollup.getPendingCheckpointNumber() + 1] = args.header;
 
     vm.prank(_proposer);
     rollup.propose(
@@ -230,6 +235,8 @@ abstract contract EscapeHatchIntegrationBase is ValidatorSelectionTestBase {
     ).signature;
 
     // Propose the checkpoint
+    proposedHeaders[rollup.getPendingCheckpointNumber() + 1] = proposeArgs.header;
+
     vm.prank(proposer);
     rollup.propose(
       proposeArgs,
@@ -320,11 +327,10 @@ abstract contract EscapeHatchIntegrationBase is ValidatorSelectionTestBase {
       proverId: _prover
     });
 
-    bytes32[] memory fees = new bytes32[](Constants.MAX_CHECKPOINTS_PER_EPOCH * 2);
     uint256 size = _end - _start + 1;
+    ProposedHeader[] memory headers = new ProposedHeader[](size);
     for (uint256 i = 0; i < size; i++) {
-      fees[i * 2] = bytes32(uint256(uint160(bytes20(("sequencer")))));
-      fees[i * 2 + 1] = bytes32(0);
+      headers[i] = proposedHeaders[_start + i];
     }
 
     rollup.submitEpochRootProof(
@@ -332,7 +338,7 @@ abstract contract EscapeHatchIntegrationBase is ValidatorSelectionTestBase {
         start: _start,
         end: _end,
         args: args,
-        fees: fees,
+        headers: headers,
         attestations: CommitteeAttestations({signatureIndices: "", signaturesOrAddresses: ""}),
         blobInputs: endFull.checkpoint.batchedBlobInputs,
         proof: ""
