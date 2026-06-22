@@ -420,6 +420,14 @@ export class WebGpuMsmHost {
    * is preserved. No-op before the first `OP_PUBLISH_SRS` (no cached SRS yet) or after
    * destroy. Exposed to the page as `__bridge_reset` (see setup.ts) so the chonk page
    * can isolate each flow between proves while keeping the WASM threads + CRS warm.
+   *
+   * By default it keeps the SRS `pool` (its `poolX`/`poolY` upload + shared scratch)
+   * and only clears the per-(n) instance caches — skipping the per-flow SRS re-upload.
+   * The shared scratch is rewritten per MSM, so it carries no cross-flow state; the
+   * cross-flow corruption lives in the cleared instances (confirmed bit-exact via the
+   * page's VK-match across all 11 example flows on Metal-3). Set
+   * `globalThis.__bridge_reset_keep_pool === false` to force the full pool rebuild
+   * (the slower, maximally-conservative path) as an escape hatch.
    */
   public async reset(): Promise<void> {
     if (this.destroyed || this.srsBytes === null) return;
@@ -432,6 +440,7 @@ export class WebGpuMsmHost {
     this.slotPools.clear();
     for (const b of this.batchInstances.values()) b.destroy();
     this.batchInstances.clear();
+    if ((globalThis as any).__bridge_reset_keep_pool !== false) return;
     this.pool?.destroy();
     this.pool = await MsmV2Pool.create(device, this.srsBytes);
   }
