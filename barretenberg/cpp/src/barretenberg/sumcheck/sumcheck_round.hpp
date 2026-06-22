@@ -61,6 +61,13 @@ template <typename Flavor> class SumcheckProverRound {
                                              typename Flavor::ExtendedEdges>;
     // See HasLazyShortEdges: native Ultra/Mega materialize edges lazily per column; others extend eagerly.
     static constexpr bool USE_LAZY_SHORT_EDGES = HasLazyShortEdges<Flavor>;
+    // Flavors whose edge container is materialized on demand (`set_current_edge`) rather than eagerly extended:
+    // AVM (flavor-provided lazy container) and native Ultra/Mega (LazyExtendedEdges wrapper).
+    static constexpr bool USE_LAZY_EDGES = isAvmFlavor<Flavor> || USE_LAZY_SHORT_EDGES;
+
+    // Edge-pairs per work-stealing chunk in the main sumcheck loop. AVM uses smaller (finer-grained) chunks
+    // for better load balance; other flavors use 64.
+    static constexpr size_t ROWS_PER_CHUNK = isAvmFlavor<Flavor> ? 16 : 64;
     using ZKData = ZKSumcheckData<Flavor>;
     /**
      * @brief In Round \f$i = 0,\ldots, d-1\f$, equals \f$2^{d-i}\f$.
@@ -125,11 +132,9 @@ template <typename Flavor> class SumcheckProverRound {
         }
 
         size_t effective = max_end_index + (max_end_index % 2); // round up to next even
-        if constexpr (Flavor::HasZK) {
-            if constexpr (!UseRowDisablingPolynomial<Flavor>) {
-                // ZK flavors without row disabling (e.g. Translator) must iterate over the full round_size.
-                return round_size;
-            }
+        // ZK flavors without row disabling (e.g. Translator) must iterate over the full round_size.
+        if constexpr (Flavor::HasZK && !UseRowDisablingPolynomial<Flavor>) {
+            return round_size;
         }
         return std::min(round_size, effective);
     }
@@ -242,7 +247,7 @@ template <typename Flavor> class SumcheckProverRound {
     template <typename Edges, typename Multivariates>
     void load_edge(Edges& edges, const Multivariates& multivariates, const size_t edge_idx)
     {
-        if constexpr (isAvmFlavor<Flavor> || USE_LAZY_SHORT_EDGES) {
+        if constexpr (USE_LAZY_EDGES) {
             edges.set_current_edge(edge_idx);
         } else {
             extend_edges(edges, multivariates, edge_idx);
@@ -267,28 +272,8 @@ template <typename Flavor> class SumcheckProverRound {
     {
         BB_BENCH_NAME("compute_univariate");
 
-        constexpr bool has_static_row_skip_manifest =
-            HAS_STATIC_ROW_SKIP_MANIFEST<ProverPolynomialsOrPartiallyEvaluatedMultivariates>;
-        constexpr bool can_skip_rows = isRowSkippable<Flavor, decltype(polynomials), size_t>;
-        constexpr bool uses_row_manifest = has_static_row_skip_manifest || can_skip_rows;
-
-        // AVM uses smaller (finer-grained) chunks for better load balance; other flavors use 64.
-        constexpr size_t rows_per_chunk = isAvmFlavor<Flavor> ? 16 : 64;
-
-        if constexpr (uses_row_manifest) {
-            std::vector<EdgeRange> round_manifest;
-            {
-                BB_BENCH_NAME("compute_univariate/compute_manifest");
-                round_manifest = compute_edge_ranges(polynomials);
-            }
-            ListedEdgeChunks chunks{ round_manifest, rows_per_chunk };
-            accumulate_edge_chunks(chunks, polynomials, relation_parameters, gate_separators);
-        } else {
-            // Short traces don't need to iterate over the zero tail of the polynomial.
-            const size_t effective_round_size = compute_effective_round_size(polynomials);
-            ContiguousEdgeChunks chunks{ excluded_head_size, effective_round_size, rows_per_chunk };
-            accumulate_edge_chunks(chunks, polynomials, relation_parameters, gate_separators);
-        }
+        auto chunks = make_edge_chunks(polynomials);
+        accumulate_edge_chunks(chunks, polynomials, relation_parameters, gate_separators);
 
         return batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulators, alphas, gate_separators);
     }
@@ -374,6 +359,26 @@ template <typename Flavor> class SumcheckProverRound {
         }
     };
 
+    // Build the work-stealing scheduler for the round's active edges. Row-skipping flavors (ECCVM/Translator) get a
+    // manifest of live edge ranges; dense flavors (Ultra/Mega/AVM/MultilinearBatching) get the single contiguous
+    // active range. Returns one of two scheduler types, selected at compile time.
+    template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
+    auto make_edge_chunks(ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials)
+    {
+        if constexpr (USES_ROW_MANIFEST<ProverPolynomialsOrPartiallyEvaluatedMultivariates>) {
+            std::vector<EdgeRange> round_manifest;
+            {
+                BB_BENCH_NAME("compute_univariate/compute_manifest");
+                round_manifest = compute_edge_ranges(polynomials);
+            }
+            return ListedEdgeChunks{ round_manifest, ROWS_PER_CHUNK };
+        } else {
+            // Short traces don't need to iterate over the zero tail of the polynomial.
+            const size_t effective_round_size = compute_effective_round_size(polynomials);
+            return ContiguousEdgeChunks{ excluded_head_size, effective_round_size, ROWS_PER_CHUNK };
+        }
+    }
+
     template <typename EdgeChunks, typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
     void accumulate_edge_chunks(EdgeChunks& chunks,
                                 ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
@@ -413,6 +418,19 @@ template <typename Flavor> class SumcheckProverRound {
         requires(const ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials) {
             Flavor::row_skip_active_prefix_end(polynomials);
         };
+
+    // True when the flavor exposes a per-row `skip_entire_row` predicate, used to dynamically scan the trace for
+    // contiguous runs of relation-active rows.
+    template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
+    static constexpr bool CAN_SKIP_ROWS =
+        isRowSkippable<Flavor, ProverPolynomialsOrPartiallyEvaluatedMultivariates&, size_t>;
+
+    // True when the round univariate is computed over a manifest of relation-active edge ranges (ECCVM/Translator)
+    // rather than the whole contiguous active range (Ultra/Mega/AVM/MultilinearBatching).
+    template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
+    static constexpr bool USES_ROW_MANIFEST =
+        HAS_STATIC_ROW_SKIP_MANIFEST<ProverPolynomialsOrPartiallyEvaluatedMultivariates> ||
+        CAN_SKIP_ROWS<ProverPolynomialsOrPartiallyEvaluatedMultivariates>;
 
     static size_t round_up_to_even(const size_t value) { return value + (value & 1U); }
 
@@ -505,15 +523,11 @@ template <typename Flavor> class SumcheckProverRound {
         const size_t effective_round_size = compute_effective_round_size(polynomials);
 
         std::vector<EdgeRange> result;
-        constexpr bool has_static_row_skip_manifest =
-            HAS_STATIC_ROW_SKIP_MANIFEST<ProverPolynomialsOrPartiallyEvaluatedMultivariates>;
-        constexpr bool can_skip_rows = (isRowSkippable<Flavor, decltype(polynomials), size_t>);
-
-        if constexpr (has_static_row_skip_manifest) {
+        if constexpr (HAS_STATIC_ROW_SKIP_MANIFEST<ProverPolynomialsOrPartiallyEvaluatedMultivariates>) {
             // Static row manifests describe the relation-active edge pairs directly, avoiding the old per-row skip
             // scan over the whole trace.
             result = compute_row_skip_edge_ranges(polynomials, effective_round_size);
-        } else if constexpr (can_skip_rows) {
+        } else if constexpr (CAN_SKIP_ROWS<ProverPolynomialsOrPartiallyEvaluatedMultivariates>) {
             // Iterate over edge-pairs (stride-2) so each thread gets an even-aligned range.
             const std::vector<EdgeRange> scan_ranges = compute_row_skip_edge_ranges(polynomials, effective_round_size);
             // Cost per iteration: skip_entire_row reads across polynomial columns.
