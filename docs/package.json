@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "build": "yarn clean && yarn preprocess && yarn spellcheck && yarn preprocess:move && yarn validate:redirects && yarn validate:api-ref-links && yarn docusaurus build && node scripts/augment_sitemap.js && node scripts/append_api_docs_to_llms.js",
+    "build": "yarn clean && yarn preprocess && yarn spellcheck && yarn preprocess:move && yarn validate:redirects && yarn validate:api-ref-links && yarn docusaurus build && node scripts/append_api_docs_to_llms.js && node scripts/inject_md_directive.js && node scripts/inject_llms_directive.js",
     "validate:redirects": "./scripts/validate_redirect_targets.sh",
     "validate:api-ref-links": "./scripts/validate_api_ref_links.sh",
     "check:orphaned-urls": "./scripts/check_orphaned_urls.sh",
@@ -31,6 +31,7 @@
     "@docusaurus/theme-mermaid": "3.10.1",
     "@getbrevo/brevo": "^3.0.1",
     "@rspack/core": "^1.0.0",
+    "@signalwire/docusaurus-plugin-llms-txt": "^1.2.2",
     "clsx": "^2.1.1",
     "docusaurus-theme-search-typesense": "0.25.0",
     "prism-react-renderer": "^2.4.1",
@@ -46,7 +47,6 @@
     "@docusaurus/tsconfig": "3.10.1",
     "@tsconfig/docusaurus": "^1.0.7",
     "cspell": "^8.19.4",
-    "docusaurus-plugin-llms": "^0.4.0",
     "dotenv": "^16.6.1",
     "netlify-cli": "^24.3.0"
   },

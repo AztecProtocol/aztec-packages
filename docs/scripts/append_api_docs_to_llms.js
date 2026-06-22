@@ -15,9 +15,8 @@ const path = require("path");
 const BUILD_DIR = path.join(__dirname, "..", "build");
 const STATIC_DIR = path.join(__dirname, "..", "static");
 
-// Site URL used to build absolute links, matching the rest of llms.txt (which
-// docusaurus-plugin-llms generates with absolute URLs). Read from
-// docusaurus.config.js so it tracks the configured domain. Trailing slash
+// Site URL used to build absolute links for the API reference sections. Read
+// from docusaurus.config.js so it tracks the configured domain. Trailing slash
 // stripped so it can be concatenated with leading-slash paths.
 function loadSiteUrl() {
   try {
@@ -299,8 +298,9 @@ function findMarkdownFiles(dir) {
 }
 
 /**
- * Get the absolute URL for a file, matching the absolute-URL style used by the
- * rest of llms.txt.
+ * Get the absolute URL for an API reference file. API links stay absolute; the
+ * page links the llms-txt plugin emits are root-relative. Both resolve on the
+ * deployed site.
  */
 function getUrlPath(filePath, staticDir) {
   const relativePath = path.relative(staticDir, filePath);
@@ -408,6 +408,23 @@ function insertAiToolingPointer(content) {
 }
 
 /**
+ * Truncate `content` at the earliest of the given sentinel strings, dropping it
+ * and everything after. Returns the content unchanged when no sentinel is
+ * present. Used to make the section appends below idempotent: a re-run strips
+ * the sections a previous run added, then re-appends fresh ones, instead of
+ * duplicating them. (`yarn build` always starts with `yarn clean`, so on the
+ * normal path nothing is stripped; this only guards manual or repeated runs.)
+ */
+function stripFrom(content, ...sentinels) {
+  let cut = -1;
+  for (const sentinel of sentinels) {
+    const i = content.indexOf(sentinel);
+    if (i !== -1 && (cut === -1 || i < cut)) cut = i;
+  }
+  return cut === -1 ? content : content.slice(0, cut);
+}
+
+/**
  * Main function to append API docs to llms.txt files.
  */
 function main() {
@@ -425,6 +442,19 @@ function main() {
     ? fs.readFileSync(llmsFullTxtPath, "utf-8")
     : "";
 
+  // Drop any sections a previous run of this script appended so re-running it
+  // replaces rather than duplicates them (the top-of-file insertions below are
+  // separately idempotent).
+  llmsTxtContent = stripFrom(
+    llmsTxtContent,
+    "\n\n## API Reference\n\n",
+    "\n\n## Optional\n\n",
+  );
+  llmsFullTxtContent = stripFrom(
+    llmsFullTxtContent,
+    "\n\n---\n\n## API Reference Documentation\n\n",
+  );
+
   // Point readers at the single-file dump up front. It sits right after the H1
   // title (and its optional blockquote summary) so an agent sees it before any
   // section, but stays out of the H1 to keep a single top-level heading.
@@ -435,7 +465,7 @@ function main() {
   let totalFiles = 0;
   let sectionsAdded = 0;
   // Per the llms.txt spec there is a single H1 (the project title, emitted by
-  // docusaurus-plugin-llms). Everything we append is an H2 section. The
+  // the llms-txt plugin). Everything we append is an H2 section. The
   // `## Optional` section has special meaning: its links may be skipped when a
   // shorter context is needed, so secondary community resources live there and
   // are ordered last. Community resources are independent of the generated API
