@@ -1030,6 +1030,8 @@ describe('e2e_epochs/epochs_blob_unavailable_prune', () => {
     logger.warn(`Test succeeded '${expect.getState().currentTestName}'`);
   });
 
+  // This time, the checkpoint has valid attestations but is unavailable (same failure mode as malformed)
+  // In this situation the chain gets pruned as no proof can be produced.
   it('skips a checkpoint with an unfetchable blob once its epoch can be pruned', async () => {
     const sequencers = nodes.map(node => node.getSequencer()!);
 
