@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="color-scheme" content="dark" />
-    <title>sumcheck-webgpu — benchmark & tests</title>
+    <title>sumcheck-webgpu — benchmark & profile</title>
     <style>
       :root {
         --bg: #0a0d14;
@@ -28,7 +28,7 @@
       }
       h1 { font-size: 1.35rem; font-weight: 650; letter-spacing: -0.01em; margin: 0 0 0.2rem; }
       h1 .tag { color: var(--muted); font-size: 0.78rem; font-weight: 400; }
-      .lede { color: var(--muted); font-size: 0.875rem; max-width: 72ch; margin: 0 0 1.25rem; }
+      .lede { color: var(--muted); font-size: 0.875rem; max-width: 78ch; margin: 0 0 1.25rem; }
       a { color: var(--accent); }
       code {
         background: var(--panel-2); border: 1px solid var(--border);
@@ -47,12 +47,18 @@
       .tabbar button.active { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
       .tab { display: none; } .tab.active { display: block; }
 
+      /* prose-on-demand */
+      details.help { margin: -0.4rem 0 1.1rem; }
+      details.help summary { color: var(--muted); font-size: 0.8rem; cursor: pointer; }
+      details.help .lede { margin: 0.5rem 0 0; }
+
       /* controls panel */
       .controls {
         display: flex; gap: 1.4rem; align-items: center; flex-wrap: wrap; margin: 1.25rem 0;
         padding: 0.95rem 1.1rem; background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
       }
       .controls label { display: inline-flex; align-items: center; gap: 0.45rem; font-size: 0.85rem; color: var(--muted); }
+      .spacer { flex: 1; }
       input[type="number"] {
         width: 4.5rem; padding: 0.3rem 0.5rem; background: var(--panel-2); border: 1px solid var(--border);
         border-radius: 6px; color: var(--text); font-size: 0.85rem; font-family: ui-monospace, monospace; text-align: center;
@@ -71,12 +77,14 @@
       }
       button:hover:not(:disabled) { filter: brightness(1.08); }
       button:disabled { opacity: 0.45; cursor: not-allowed; }
+      button.secondary { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); font-weight: 500; }
+      button.secondary:hover:not(:disabled) { border-color: var(--accent); filter: none; }
 
       /* threshold slider */
       .slider-wrap { display: inline-flex; align-items: center; gap: 0.7rem; }
       .slider-wrap .val { font-family: ui-monospace, monospace; color: var(--accent-2); font-weight: 700; min-width: 1.5ch; text-align: right; }
       input[type="range"] {
-        -webkit-appearance: none; appearance: none; height: 4px; width: 150px;
+        -webkit-appearance: none; appearance: none; height: 4px; width: 130px;
         background: var(--border); border-radius: 3px; cursor: pointer;
       }
       input[type="range"]::-webkit-slider-thumb {
@@ -87,13 +95,8 @@
         width: 15px; height: 15px; border-radius: 50%; background: var(--accent); border: 2px solid var(--bg); cursor: pointer;
       }
 
-      /* suite buttons (Testing tab) */
-      #controls { display: flex; gap: 0.4rem; flex-wrap: wrap; }
-      #controls button { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); font-weight: 500; }
-      #controls button:hover:not(:disabled) { border-color: var(--accent); filter: none; }
-
       /* log panels */
-      #log, #bench-log, #profile-log, #ssh-log {
+      #log, #profile-log {
         background: #070a10; color: #c4cee0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
         font-size: 12px; padding: 0.85rem 1rem; border-radius: 10px; white-space: pre-wrap;
         overflow-x: auto; min-height: 11rem; border: 1px solid var(--border);
@@ -121,149 +124,105 @@
 
     <div class="tabbar">
       <button id="tab-btn-bench" class="active" data-tab="bench">Benchmark</button>
-      <button id="tab-btn-sshybrid" data-tab="sshybrid">SS-Hybrid</button>
-      <button id="tab-btn-testing" data-tab="testing">Testing</button>
       <button id="tab-btn-profile" data-tab="profile">Profile</button>
     </div>
 
-    <!-- ===== Benchmark tab (WASM vs WebGPU, multi-pass) ===== -->
+    <!-- ===== Benchmark tab (GPU front + WASM tail hybrid, + correctness) ===== -->
     <section id="tab-bench" class="tab active">
       <p class="lede">
-        One sumcheck benchmark with a configurable <strong>WASM-fallback threshold</strong> 2<sup>T</sup>.
-        Sizes ≤ 2<sup>T</sup> run entirely on the <strong>WASM</strong> prover. Larger sizes fold their first
-        <code>d − T</code> rounds on the <strong>WebGPU</strong> engine — the heavy front, where round 0 alone is
-        ~half the field work and each later round halves the rest — then hand the folded columns to WASM for the
-        final <code>T</code> rounds. Each row also times full WASM as the baseline; <strong>vs WASM &gt; 1</strong>
-        means the split wins. The WASM column needs <code>?coi=1</code> + a WASM build.
+        GPU front + WASM tail hybrid. Sizes ≤ 2<sup>T</sup> run pure <strong>WASM</strong>; larger sizes fold their
+        first <code>d − T</code> rounds on the <strong>WebGPU</strong> engine, then WASM finishes the last
+        <code>T</code>. <strong>vs WASM &gt; 1</strong> means the split wins. The WASM column needs
+        <code>?coi=1</code> + a WASM build.
       </p>
+      <details class="help">
+        <summary>engine · columns · correctness</summary>
+        <p class="lede">
+          The GPU front runs on the <strong>single-submission</strong> engine by default — the whole front
+          (accumulate → reduce → batch → on-GPU Poseidon2 Fiat–Shamir → fold) in <strong>one command buffer</strong>,
+          no per-round CPU↔GPU round-trip. Switch <em>engine</em> to <strong>multi-pass</strong> for the per-round
+          baseline (one readback per round). The hybrid <code>total</code> excludes the one-time column upload
+          (<code>setup</code>, shown separately); the multi-pass engine reports no separate setup.
+          <strong>Check correctness</strong> diffs the WebGPU kernels (F<sub>r</sub> primitives, accumulate, fold,
+          full sumcheck) against CPU references at 2<sup>14</sup> — no WASM build needed.
+        </p>
+      </details>
       <div class="controls">
         <label>from 2^<input id="bench-min" type="number" value="10" min="2" max="20" /></label>
         <label>to 2^<input id="bench-max" type="number" value="18" min="2" max="22" /></label>
-        <label class="slider-wrap">
-          WASM fallback ≤ 2^<span id="bench-thresh-val" class="val">13</span>
-          <input id="bench-thresh" type="range" min="4" max="20" value="13" step="1" />
-        </label>
-        <label><input id="bench-skip" type="checkbox" /> Realistic sparsity (skip)</label>
-        <label>profile
-          <select id="bench-profile">
-            <option value="realistic-block">realistic — block</option>
-            <option value="realistic-band">realistic — band (trace)</option>
-            <option value="realistic-scattered">realistic — scattered</option>
+        <label>engine
+          <select id="bench-engine">
+            <option value="ss">single-submit</option>
+            <option value="multipass">multi-pass</option>
           </select>
         </label>
-        <button id="bench-run">Run benchmark</button>
+        <label class="slider-wrap">
+          WASM tail ≤ 2^<span id="bench-thresh-val" class="val">9</span>
+          <input id="bench-thresh" type="range" min="4" max="20" value="9" step="1" />
+        </label>
+        <label><input id="bench-skip" type="checkbox" /> skip</label>
+        <label>profile
+          <select id="bench-profile">
+            <option value="realistic-block">block</option>
+            <option value="realistic-band">band (trace)</option>
+            <option value="realistic-scattered">scattered</option>
+          </select>
+        </label>
+        <span class="spacer"></span>
+        <button id="bench-run">Run</button>
+        <button id="bench-correctness" class="secondary">Check correctness</button>
       </div>
       <table class="bench">
         <thead>
           <tr>
-            <th>size</th><th>split</th><th>GPU (ms)</th><th>handoff (ms)</th>
-            <th>WASM tail (ms)</th><th>multi-pass (ms)</th><th>full WASM (ms)</th><th>vs WASM</th>
+            <th>size</th><th>split</th><th>setup (ms)</th><th>GPU (ms)</th><th>handoff (ms)</th>
+            <th>WASM tail (ms)</th><th>total (ms)</th><th>full WASM (ms)</th><th>vs WASM</th>
           </tr>
         </thead>
         <tbody id="bench-tbody"></tbody>
       </table>
-      <div id="bench-log"></div>
-    </section>
-
-    <!-- ===== SS-Hybrid tab (single-submission GPU front + WASM tail) ===== -->
-    <section id="tab-sshybrid" class="tab">
-      <p class="lede">
-        Same split as the <strong>Benchmark</strong> tab — a <strong>WASM-fallback threshold</strong> 2<sup>T</sup>,
-        the last <code>T</code> rounds always on WASM — but the GPU front runs on the <strong>single-submission</strong>
-        engine: the whole <code>d − T</code>-round front (accumulate → reduce → batch → on-GPU Poseidon2 Fiat–Shamir →
-        fold) in <strong>one command buffer</strong>, no per-round CPU↔GPU round-trip. Sizes ≤ 2<sup>T</sup> run
-        entirely on WASM. Larger sizes fold their first <code>d − T</code> rounds on the GPU down to a 2<sup>T</sup>
-        hypercube, then WASM finishes the last <code>T</code> rounds (timed as <code>SumcheckBench(T)</code>). The
-        hybrid total <strong>excludes</strong> the one-time column upload (<code>setup</code>, shown separately) so it
-        lines up with the Benchmark tab at the same threshold — read the two side by side to compare the
-        single-submission front vs the multi-pass front. <strong>vs WASM &gt; 1</strong> means the split wins. Needs
-        <code>?coi=1</code> + a WASM build.
-      </p>
-      <div class="controls">
-        <label>from 2^<input id="ssh-min" type="number" value="10" min="2" max="20" /></label>
-        <label>to 2^<input id="ssh-max" type="number" value="18" min="2" max="22" /></label>
-        <label class="slider-wrap">
-          WASM fallback ≤ 2^<span id="ssh-thresh-val" class="val">9</span>
-          <input id="ssh-thresh" type="range" min="4" max="20" value="9" step="1" />
-        </label>
-        <label><input id="ssh-skip" type="checkbox" /> Realistic sparsity (skip)</label>
-        <label>profile
-          <select id="ssh-profile">
-            <option value="realistic-block">realistic — block</option>
-            <option value="realistic-band">realistic — band (trace)</option>
-            <option value="realistic-scattered">realistic — scattered</option>
-          </select>
-        </label>
-        <button id="ssh-run">Run SS-hybrid</button>
-      </div>
-      <table class="bench">
-        <thead>
-          <tr>
-            <th>size</th><th>split</th><th>setup (ms)</th><th>GPU front (ms)</th><th>handoff (ms)</th>
-            <th>WASM tail (ms)</th><th>hybrid (ms)</th><th>full WASM (ms)</th><th>vs WASM</th>
-          </tr>
-        </thead>
-        <tbody id="ssh-tbody"></tbody>
-      </table>
-      <div id="ssh-log"></div>
-    </section>
-
-    <!-- ===== Testing tab ===== -->
-    <section id="tab-testing" class="tab">
-      <p class="lede">
-        WebGPU correctness checks diffed against CPU references: the F<sub>r</sub> Montgomery primitives, the
-        short-monomial (<code>Mono</code>) arithmetic, the relation accumulate kernels, the fold, and the full
-        multi-round sumcheck. Pick a suite or <strong>Run All</strong>. Needs no WASM build.
-      </p>
-      <div class="controls">
-        <label>count 2^<input id="logn" type="number" value="14" min="4" max="20" /></label>
-        <div id="controls"></div>
-      </div>
       <div id="log"></div>
     </section>
 
-    <!-- ===== Profile tab (per-kernel GPU timing) ===== -->
+    <!-- ===== Profile tab (GPU timing + memory) ===== -->
     <section id="tab-profile" class="tab">
       <p class="lede">
-        Per-kernel GPU timing via <code>timestamp-query</code> (Chrome/Metal has it; software/Firefox returns no
-        numbers). <strong>Per-kernel (round 0)</strong> profiles the multi-round engine's round 0 and breaks the
-        accumulate down <strong>per relation</strong> — the squaring sites <code>lag_sqr</code>/<code>mono_sqr</code>
-        live in <code>acc:pos2*</code>, <code>acc:elliptic</code>, <code>acc:memory</code>, <code>acc:logderiv</code>,
-        so a baseline-vs-optimized A/B shows the <code>montgomery_square</code> effect right on those lines.
-        <strong>Fine per-round (multi-pass)</strong> attributes <em>every</em> round's wall to host phases
-        (encode-acc / decode / univariate <code>scale·extend·batch</code> / encode-fold) and splits the blocking
-        gpu-wait into real GPU-active vs idle/transfer bubble — the host critical path (the <code>extend</code>
-        inversions, the readback stall) the round-0 profiler can't see.
-        <strong>Single-submit</strong> profiles all rounds of the single-command-buffer engine (aggregate accumulate).
-        <strong>Single-submit (WASM tail)</strong> profiles only the leading GPU rounds, handing the last
-        <em>WASM tail</em> rounds to the WASM prover, and reports the end-to-end hybrid split.
-        <strong>MP vs SS floor</strong> runs both engines back-to-back on the same size + profile and prints a
-        verdict: the multi-pass per-round gpu-wait floor (one blocking readback per round) vs the single
-        submission's lone encoder bubble, and how much wall the single submission recovers.
+        Where the time and memory go.
+        <strong>MP vs SS floor</strong> runs both engines back-to-back and prints a verdict: the multi-pass per-round
+        gpu-wait floor (one blocking readback per round) vs the single submission's lone encoder bubble, and how much
+        wall the single submission recovers.
         <strong>E2E timeline</strong> decomposes the whole-run wall of the hybrid split
-        (setup → GPU front rounds → handoff → WASM tail) for both engines, using the same <em>WASM tail</em> value (k = d−T GPU rounds).
+        (setup → GPU front → handoff → WASM tail) for both engines.
         <strong>Memory</strong> accounts every GPU buffer by category and reports the peak live working set per engine.
         <strong>Full report</strong> runs every pass and prints a paste-ready <code>PROFILE_DATA</code> (~1–3 min).
       </p>
+      <details class="help">
+        <summary>need a per-kernel / per-round breakdown?</summary>
+        <p class="lede">
+          The finer A/B passes are wired headless via the driver:
+          <code>?autorun=profile</code> (per-kernel round 0, per-relation accumulate),
+          <code>?autorun=fineprofile</code> (multi-pass host-vs-GPU per round),
+          <code>?autorun=ssprofile</code> (single-submit all rounds),
+          <code>?autorun=ssprofiletail</code> (single-submit leading rounds + WASM tail).
+          <strong>Full report</strong> runs all of them.
+        </p>
+      </details>
       <div class="controls">
         <label>count 2^<input id="profile-logn" type="number" value="16" min="4" max="20" /></label>
         <label>WASM tail <input id="ssprofile-tail" type="number" value="9" min="1" max="20" /></label>
-        <label><input id="profile-skip" type="checkbox" /> Realistic sparsity (skip)</label>
+        <label><input id="profile-skip" type="checkbox" /> skip</label>
         <label>profile
           <select id="profile-profile">
-            <option value="realistic-block">realistic — block</option>
-            <option value="realistic-band">realistic — band (trace)</option>
-            <option value="realistic-scattered">realistic — scattered</option>
+            <option value="realistic-block">block</option>
+            <option value="realistic-band">band (trace)</option>
+            <option value="realistic-scattered">scattered</option>
           </select>
         </label>
-        <button id="profile-run">Per-kernel (round 0)</button>
-        <button id="fineprofile-run">Fine per-round (multi-pass)</button>
-        <button id="ssprofile-run">Single-submit (all rounds)</button>
-        <button id="ssprofile-tail-run">Single-submit (WASM tail)</button>
+        <span class="spacer"></span>
         <button id="floorcmp-run">MP vs SS floor</button>
         <button id="e2e-run">E2E timeline</button>
         <button id="mem-run">Memory</button>
-        <button id="profilereport-run">Full report (PROFILE_DATA)</button>
+        <button id="profilereport-run" class="secondary">Full report</button>
       </div>
       <div id="profile-log"></div>
     </section>
