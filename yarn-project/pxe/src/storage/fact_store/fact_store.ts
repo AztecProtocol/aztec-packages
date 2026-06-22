@@ -237,14 +237,16 @@ export class FactStore implements StagedStore {
    * Requires to be run in a transactionAsync context.
    */
   async #retractFacts(toBlock: BlockNum): Promise<number> {
-    // Snapshot the orphaned fact keys before mutating so we never delete from the cursor we are iterating.
-    const factKeysToRetract: FactKeyStr[] = [];
+    // Snapshot the orphaned fact keys before mutating so we never delete from the cursor we are iterating, kicking off
+    // each fact-body read during the scan so a DB request stays pending across the cursor-to-delete boundary (a drained
+    // cursor with no read in flight would let the transaction auto-commit before the deletes).
+    const factReads = new Map<FactKeyStr, Promise<FactBuffer | undefined>>();
     for await (const [, factKey] of this.#factsByBlock.entriesAsync({ start: toBlock + 1 })) {
-      factKeysToRetract.push(factKey);
+      factReads.set(factKey, this.#facts.getAsync(factKey));
     }
     await Promise.all(
-      factKeysToRetract.map(async factKey => {
-        const buf = await this.#facts.getAsync(factKey);
+      Array.from(factReads, async ([factKey, read]) => {
+        const buf = await read;
         if (!buf) {
           // The by-block index just yielded this factKey, so a missing primary record means the indexes are out of
           // sync. Log as this should be unreachable unless there is a bug.
@@ -256,7 +258,7 @@ export class FactStore implements StagedStore {
         await this.#deleteFact(factKey, StoredFact.fromBuffer(buf));
       }),
     );
-    return factKeysToRetract.length;
+    return factReads.size;
   }
 
   /**
@@ -277,26 +279,35 @@ export class FactStore implements StagedStore {
   }
 
   /**
-   * Reads every committed collection of the given type with its facts and their scopes.
+   * Reads every committed collection of the given type with its facts and their scopes, in a single pass.
    *
-   * Note collection keys are `${typeKey}:${collectionId}`, which lets us discover a type's collections by range-scanning
-   * the by-collection index without additional indexes.
+   * Collection keys are `${typeKey}:${collectionId}` and fact keys carry the collection key (hence the type key) as a
+   * prefix, so one range scan of each index spans the whole type. Fact-body reads are kicked off during the first scan
+   * and stay pending through the second, keeping a DB request live throughout so the transaction never auto-commits
+   * mid-read.
    */
   #readCollectionsFromDbByType(typeKey: FactCollectionTypeKeyStr) {
     return this.#store.transactionAsync(async () => {
-      const collectionKeys = new Set<FactCollectionKeyStr>();
-      for await (const [collectionKey] of this.#factsByCollection.entriesAsync({
+      const factReadsByCollection = new Map<FactCollectionKeyStr, Map<FactKeyStr, Promise<FactBuffer | undefined>>>();
+      for await (const [collectionKey, factKey] of this.#factsByCollection.entriesAsync({
         start: `${typeKey}:`,
         end: `${typeKey};`,
       })) {
-        collectionKeys.add(collectionKey);
-      }
-      const result = new Map<FactCollectionKeyStr, CollectionWithFacts>();
-      for (const collectionKey of collectionKeys) {
-        const collection = await this.#loadCommittedCollection(collectionKey);
-        if (collection) {
-          result.set(collectionKey, collection);
+        let reads = factReadsByCollection.get(collectionKey);
+        if (!reads) {
+          reads = new Map<FactKeyStr, Promise<FactBuffer | undefined>>();
+          factReadsByCollection.set(collectionKey, reads);
         }
+        reads.set(factKey, this.#facts.getAsync(factKey));
+      }
+
+      // The fact point-reads are now in flight; drain every scope of the type in one range scan while they remain
+      // pending. Then await the (already issued) reads to assemble — no further DB requests are issued.
+      const scopesByFactKey = await this.#readScopesByFactKey(typeKey);
+
+      const result = new Map<FactCollectionKeyStr, CollectionWithFacts>();
+      for (const [collectionKey, reads] of factReadsByCollection) {
+        result.set(collectionKey, await this.#assembleCollection(reads, scopesByFactKey));
       }
       return result;
     });
@@ -322,10 +333,22 @@ export class FactStore implements StagedStore {
 
     // The fact point-reads are now in flight; drain every scope of the collection in one prefix range scan (fact keys
     // carry the collection key as a prefix) while those reads remain pending, keeping a DB request live throughout.
+    const scopesByFactKey = await this.#readScopesByFactKey(collectionKey);
+
+    return this.#assembleCollection(factReads, scopesByFactKey);
+  }
+
+  /**
+   * Drains the scope index for a fact-key prefix (a collection key, or a type key to span every collection of a type)
+   * into a map of fact key to scope set, in a single range scan.
+   *
+   * Caller must wrap in a transaction.
+   */
+  async #readScopesByFactKey(factKeyPrefix: string): Promise<Map<FactKeyStr, Set<ScopeStr>>> {
     const scopesByFactKey = new Map<FactKeyStr, Set<ScopeStr>>();
     for await (const [factKey, scope] of this.#scopesByFact.entriesAsync({
-      start: `${collectionKey}:`,
-      end: `${collectionKey};`,
+      start: `${factKeyPrefix}:`,
+      end: `${factKeyPrefix};`,
     })) {
       let scopes = scopesByFactKey.get(factKey);
       if (!scopes) {
@@ -334,9 +357,22 @@ export class FactStore implements StagedStore {
       }
       scopes.add(scope);
     }
+    return scopesByFactKey;
+  }
 
-    const factKeys = [...factReads.keys()];
-    const bufs = await Promise.all(factReads.values());
+  /**
+   * Awaits a collection's in-flight fact-body reads and assembles them with their scopes into a {@link
+   * CollectionWithFacts}. The collection key is recovered from a stored fact, so no key-string parsing is needed.
+   *
+   * `reads` must already be issued (pending) so awaiting them keeps the transaction alive; this method issues no new DB
+   * requests.
+   */
+  async #assembleCollection(
+    reads: Map<FactKeyStr, Promise<FactBuffer | undefined>>,
+    scopesByFactKey: Map<FactKeyStr, Set<ScopeStr>>,
+  ): Promise<CollectionWithFacts> {
+    const factKeys = [...reads.keys()];
+    const bufs = await Promise.all(reads.values());
 
     // Await-free tail: deserialize. No DB ops from here on.
     let key: FactCollectionKey | undefined;
@@ -461,18 +497,20 @@ export class FactStore implements StagedStore {
    * Caller must wrap in a transaction.
    */
   async #descopeCollection(collectionKey: FactCollectionKeyStr, scope: ScopeStr): Promise<void> {
-    // Snapshot the fact index before mutating so we never delete from the cursor we are iterating.
-    const factKeys: FactKeyStr[] = [];
+    // Snapshot the fact index before mutating so we never delete from the cursor we are iterating, kicking off each
+    // fact-body read during the scan so a DB request stays pending across the cursor-to-mutation boundary (a drained
+    // cursor with no read in flight would let the transaction auto-commit before the descope writes).
+    const factReads = new Map<FactKeyStr, Promise<FactBuffer | undefined>>();
     for await (const factKey of this.#factsByCollection.getValuesAsync(collectionKey)) {
-      factKeys.push(factKey);
+      factReads.set(factKey, this.#facts.getAsync(factKey));
     }
     await Promise.all(
-      factKeys.map(async factKey => {
+      Array.from(factReads, async ([factKey, read]) => {
+        const buf = await read;
         await this.#scopesByFact.deleteValue(factKey, scope);
         if ((await this.#scopesByFact.getValueCountAsync(factKey)) > 0) {
           return;
         }
-        const buf = await this.#facts.getAsync(factKey);
         if (!buf) {
           // A #factsByCollection entry must always reference a live #facts entry, a missing one means the indexes are
           // corrupt.
