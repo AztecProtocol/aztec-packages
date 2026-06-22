@@ -34,15 +34,17 @@ describe('FactStore', () => {
     collectionId2 = Fr.random();
     collectionKey1 = FactCollectionKey.from({
       contractAddress: contract,
+      scope,
       factCollectionTypeId,
       factCollectionId: collectionId1,
     });
     collectionKey2 = FactCollectionKey.from({
       contractAddress: contract,
+      scope,
       factCollectionTypeId,
       factCollectionId: collectionId2,
     });
-    typeKey = FactCollectionTypeKey.from({ contractAddress: contract, factCollectionTypeId });
+    typeKey = FactCollectionTypeKey.from({ contractAddress: contract, scope, factCollectionTypeId });
 
     kv = await openTmpStore('fact-store-test');
     store = new FactStore(kv);
@@ -413,7 +415,12 @@ describe('FactStore', () => {
       const type2 = Fr.random();
       await store.recordFact(collectionKey1, factTypeA, [Fr.random()], undefined, scope, JOB);
       await store.recordFact(
-        FactCollectionKey.from({ contractAddress: contract2, factCollectionTypeId, factCollectionId: collectionId1 }),
+        FactCollectionKey.from({
+          contractAddress: contract2,
+          scope,
+          factCollectionTypeId,
+          factCollectionId: collectionId1,
+        }),
         factTypeA,
         [Fr.random()],
         undefined,
@@ -423,6 +430,7 @@ describe('FactStore', () => {
       await store.recordFact(
         FactCollectionKey.from({
           contractAddress: contract,
+          scope,
           factCollectionTypeId: type2,
           factCollectionId: collectionId1,
         }),
@@ -437,14 +445,14 @@ describe('FactStore', () => {
       expect(await store.getFactCollectionsByType(typeKey, [scope], JOB)).toHaveLength(1);
       expect(
         await store.getFactCollectionsByType(
-          FactCollectionTypeKey.from({ contractAddress: contract2, factCollectionTypeId }),
+          FactCollectionTypeKey.from({ contractAddress: contract2, scope, factCollectionTypeId }),
           [scope],
           JOB,
         ),
       ).toHaveLength(1);
       expect(
         await store.getFactCollectionsByType(
-          FactCollectionTypeKey.from({ contractAddress: contract, factCollectionTypeId: type2 }),
+          FactCollectionTypeKey.from({ contractAddress: contract, scope, factCollectionTypeId: type2 }),
           [scope],
           JOB,
         ),
