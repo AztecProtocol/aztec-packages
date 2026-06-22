@@ -46,10 +46,6 @@
       "kind": "multimap"
     },
     {
-      "name": "fact_seq",
-      "kind": "singleton"
-    },
-    {
       "name": "facts",
       "kind": "map"
     },

@@ -2,7 +2,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import { EntityKey } from './entity_store_keys.js';
-import { StoredFact, deserializeFact, factKeyStrOf, serializeFact } from './stored_fact.js';
+import { StoredFact, factKeyStrOf } from './stored_fact.js';
 
 describe('StoredFact', () => {
   const contract = AztecAddress.fromBigInt(100n);
@@ -58,17 +58,5 @@ describe('StoredFact', () => {
     const c = new StoredFact(key, factType, [new Fr(1n)], undefined);
     expect(a.payloadHash()).not.toEqual(b.payloadHash());
     expect(a.payloadHash()).toEqual(c.payloadHash());
-  });
-
-  it('round-trips a stored fact with its sequence number', () => {
-    const fact = new StoredFact(key, factType, [new Fr(9n)], {
-      blockNumber: 12,
-      blockHash: new Fr(0xabcn),
-    });
-    for (const seq of [0, 1, 2 ** 32 - 1]) {
-      const back = deserializeFact(serializeFact(seq, fact));
-      expect(back.seq).toBe(seq);
-      expect(back.fact).toEqual(fact);
-    }
   });
 });

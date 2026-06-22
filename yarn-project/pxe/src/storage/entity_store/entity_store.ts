@@ -1,12 +1,12 @@
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { Semaphore } from '@aztec/foundation/queue';
-import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap, AztecAsyncSingleton } from '@aztec/kv-store';
+import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap } from '@aztec/kv-store';
 
 import type { StagedStore } from '../../job_coordinator/job_coordinator.js';
 import type { EntityKey, EntityTypeKey, OriginBlock } from './entity_store_keys.js';
 import { StoredEntity } from './stored_entity.js';
-import { type Fact, StoredFact, deserializeFact, factKeyStrOf, serializeFact } from './stored_fact.js';
+import { type Fact, StoredFact, factKeyStrOf } from './stored_fact.js';
 
 type JobId = string;
 type BlockNum = number;
@@ -22,10 +22,10 @@ type EntityKeyStr = string;
 /** Serialized form of a fact's identity (built by {@link factKeyStrOf}), used as kv-store map keys. */
 type FactKeyStr = string;
 
-/** An entity as returned by the store: its key and body, plus its facts in creation order. */
+/** An entity as returned by the store: its key and body, plus its facts. Facts are returned in no particular order. */
 export type Entity = { key: EntityKey; body: Fr[]; facts: Fact[] };
 
-/** Internal auxiliary type to deal with fact ordering and idempotency */
+/** Internal auxiliary type that keys facts by their identity, so re-recording the same fact is idempotent. */
 type EntityWithFacts = { key: EntityKey; body: Fr[]; facts: Map<FactKeyStr, Fact> };
 
 /** A pending mutation for a job: create an entity, record a fact, or terminate (delete) an entity. */
@@ -51,8 +51,6 @@ type StagedOp =
  *
  * Conversely, non-retractable entities and facts survive reorgs. Non-retractable entities must then be explicitly
  * terminated, so as not to keep consuming resources (storage and compute) indefinitely.
- *
- * Order of facts in an entity is stable, respecting original creation order.
  *
  * This enables Aztec.nr to implement complex workflows such as offchain reception or partial note processing by
  * storing structured data that is guaranteed to exist conditionally to certain blocks being included in the chain,
@@ -84,9 +82,6 @@ export class EntityStore implements StagedStore {
   /** Index for delete-on-prune of retractable facts (those with an origin block). */
   #factsByBlock: AztecAsyncMultiMap<BlockNum, FactKeyStr>;
 
-  /** Monotonic counter assigning each newly committed fact its creation-order sequence number. */
-  #factSeq: AztecAsyncSingleton<number>;
-
   /** Job uncommitted data */
   #opsForJob: Map<JobId, StagedOp[]>;
 
@@ -102,7 +97,6 @@ export class EntityStore implements StagedStore {
     this.#facts = store.openMap('facts');
     this.#factsByEntity = store.openMultiMap('facts_by_entity');
     this.#factsByBlock = store.openMultiMap('facts_by_block');
-    this.#factSeq = store.openSingleton('fact_seq');
     this.#opsForJob = new Map();
     this.#jobLocks = new Map();
   }
@@ -148,10 +142,8 @@ export class EntityStore implements StagedStore {
    * If `originBlock === undefined`, the fact is non-retractable: it survives reorgs. A defined origin block makes the
    * fact retractable: on a prune below its block, it will be deleted.
    *
-   * Facts are returned in creation order by the getEntity and getEntities read methods.
-   *
-   * Idempotent: re-recording an identical fact (same entity, fact type, payload, and origin block) is a no-op,
-   * keeping its creation position. The same payload tied to a different origin block is a distinct fact.
+   * Idempotent: re-recording an identical fact (same entity, fact type, payload, and origin block) is a no-op. The
+   * same payload tied to a different origin block is a distinct fact.
    */
   recordFact(
     entityKey: EntityKey,
@@ -207,7 +199,7 @@ export class EntityStore implements StagedStore {
   }
 
   /**
-   * Returns all active entities of a given type, together with their facts in creation order.
+   * Returns all active entities of a given type, together with their facts.
    */
   async getEntities(entityTypeKey: EntityTypeKey, jobId: string): Promise<Entity[]> {
     const typeKey = entityTypeKey.toString();
@@ -321,7 +313,7 @@ export class EntityStore implements StagedStore {
           });
           return;
         }
-        const { fact } = deserializeFact(buf);
+        const fact = StoredFact.fromBuffer(buf);
         await this.#deleteFact(factKey, fact);
       }),
     );
@@ -371,7 +363,7 @@ export class EntityStore implements StagedStore {
   }
 
   /**
-   * Attaches each entity's committed facts (in creation order), returning the entities-with-facts keyed by entity key.
+   * Attaches each entity's committed facts, returning the entities-with-facts keyed by entity key.
    *
    * Reads are not wrapped in a transaction: the caller owns the transaction boundary.
    */
@@ -384,7 +376,7 @@ export class EntityStore implements StagedStore {
   }
 
   /**
-   * Loads the committed facts for an entity keyed by their fact key, in creation order.
+   * Loads the committed facts for an entity keyed by their fact key.
    *
    * Caller must wrap in a transaction.
    */
@@ -400,8 +392,8 @@ export class EntityStore implements StagedStore {
     const factKeys = [...factReads.keys()];
     const bufs = await Promise.all(factReads.values());
 
-    // Await-free tail: deserialize and order. No DB ops from here on.
-    const loaded: { factKey: FactKeyStr; seq: number; fact: StoredFact }[] = [];
+    // Await-free tail: deserialize. No DB ops from here on.
+    const facts = new Map<FactKeyStr, Fact>();
     for (let i = 0; i < factKeys.length; i++) {
       const factKey = factKeys[i];
       const buf = bufs[i];
@@ -410,14 +402,9 @@ export class EntityStore implements StagedStore {
         // are corrupt.
         throw new Error(`Fact not found for factKey ${factKey}`);
       }
-      const { seq, fact } = deserializeFact(buf);
-      loaded.push({ factKey, seq, fact });
+      facts.set(factKey, StoredFact.fromBuffer(buf).toFact());
     }
-
-    // Multimap value order is backend-dependent (insertion order on IndexedDB, value-sorted on LMDB). We sort by the
-    // sequence number so facts always come back in creation order without needing to resort to timestamps.
-    loaded.sort((a, b) => a.seq - b.seq);
-    return new Map(loaded.map(({ factKey, fact }) => [factKey, fact.toFact()]));
+    return facts;
   }
 
   /**
@@ -491,13 +478,6 @@ export class EntityStore implements StagedStore {
     return result;
   }
 
-  /** Returns the next fact sequence number, persisting the incremented counter. */
-  async #nextFactSeq(): Promise<number> {
-    const next = ((await this.#factSeq.getAsync()) ?? 0) + 1;
-    await this.#factSeq.set(next);
-    return next;
-  }
-
   /**
    * Writes a newly created entity to persistent storage.
    *
@@ -524,8 +504,7 @@ export class EntityStore implements StagedStore {
       this.logger.debug(`Ignoring already recorded fact`, { factKey });
       return;
     }
-    const seq = await this.#nextFactSeq();
-    await this.#facts.set(factKey, serializeFact(seq, fact));
+    await this.#facts.set(factKey, fact.toBuffer());
     await this.#factsByEntity.set(fact.entityKey.toString(), factKey);
     if (fact.originBlock !== undefined) {
       await this.#factsByBlock.set(fact.originBlock.blockNumber, factKey);
@@ -562,7 +541,7 @@ export class EntityStore implements StagedStore {
           // corrupt.
           throw new Error(`Fact not found for factKey ${factKey}`);
         }
-        const { fact } = deserializeFact(buf);
+        const fact = StoredFact.fromBuffer(buf);
         await this.#deleteFact(factKey, fact);
       }),
     );

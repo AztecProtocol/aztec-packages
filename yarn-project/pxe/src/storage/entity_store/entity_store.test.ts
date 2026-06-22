@@ -50,29 +50,12 @@ describe('EntityStore', () => {
     await kv.transactionAsync(() => store.commit(JOB));
 
     const { facts } = (await store.getEntity(entityKey1, JOB))!;
-    expect(facts.map(f => f.factTypeId)).toEqual([factTypeA, factTypeB]);
+    expect(new Set(facts.map(f => f.factTypeId.toString()))).toEqual(
+      new Set([factTypeA, factTypeB].map(f => f.toString())),
+    );
   });
 
-  it('returns facts in creation order', async () => {
-    const payloads = Array.from({ length: 8 }, () => Fr.random());
-    await store.createEntity(entityKey1, [], undefined, JOB);
-    for (const payload of payloads.slice(0, 5)) {
-      await store.recordFact(entityKey1, factTypeA, [payload], undefined, JOB);
-    }
-    await kv.transactionAsync(() => store.commit(JOB));
-
-    // Later facts, committed by a second job, follow the earlier ones.
-    const JOB2 = 'later-job';
-    for (const payload of payloads.slice(5)) {
-      await store.recordFact(entityKey1, factTypeA, [payload], undefined, JOB2);
-    }
-    await kv.transactionAsync(() => store.commit(JOB2));
-
-    const { facts } = (await store.getEntity(entityKey1, JOB))!;
-    expect(facts.map(f => f.payload[0])).toEqual(payloads);
-  });
-
-  it('staged facts follow committed facts in creation order (read-your-writes)', async () => {
+  it('a job sees its own staged facts alongside committed ones (read-your-writes)', async () => {
     const payloads = Array.from({ length: 4 }, () => Fr.random());
     await store.createEntity(entityKey1, [], undefined, JOB);
     await store.recordFact(entityKey1, factTypeA, [payloads[0]], undefined, JOB);
@@ -84,7 +67,7 @@ describe('EntityStore', () => {
     await store.recordFact(entityKey1, factTypeA, [payloads[3]], undefined, JOB2);
 
     const { facts } = (await store.getEntity(entityKey1, JOB2))!;
-    expect(facts.map(f => f.payload[0])).toEqual(payloads);
+    expect(new Set(facts.map(f => f.payload[0].toString()))).toEqual(new Set(payloads.map(f => f.toString())));
   });
 
   it('dedups identical (entity, factType, payload, originBlock) fact records idempotently', async () => {
@@ -98,7 +81,7 @@ describe('EntityStore', () => {
     expect(facts).toHaveLength(1);
   });
 
-  it('re-recording an identical fact (same origin block) is a no-op keeping its original fact position', async () => {
+  it('re-recording an identical fact (same origin block) is a no-op', async () => {
     const blockFiveFact = Fr.random();
     const plainFact = Fr.random();
     const origin5 = { blockNumber: 5, blockHash: Fr.random() };
@@ -113,8 +96,10 @@ describe('EntityStore', () => {
     await kv.transactionAsync(() => store.commit(JOB2));
 
     const { facts } = (await store.getEntity(entityKey1, JOB))!;
-    expect(facts.map(f => f.payload[0])).toEqual([blockFiveFact, plainFact]);
-    expect(facts[0].originBlock?.blockNumber).toBe(5);
+    expect(new Set(facts.map(f => f.payload[0].toString()))).toEqual(
+      new Set([blockFiveFact, plainFact].map(f => f.toString())),
+    );
+    expect(facts.find(f => f.payload[0].equals(blockFiveFact))!.originBlock?.blockNumber).toBe(5);
   });
 
   it('the same payload at a different origin block is a distinct fact', async () => {
@@ -125,7 +110,8 @@ describe('EntityStore', () => {
     await kv.transactionAsync(() => store.commit(JOB));
 
     const { facts } = (await store.getEntity(entityKey1, JOB))!;
-    expect(facts.map(f => f.originBlock?.blockNumber)).toEqual([5, 10]);
+    expect(facts).toHaveLength(2);
+    expect(new Set(facts.map(f => f.originBlock?.blockNumber))).toEqual(new Set([5, 10]));
   });
 
   it('the same payload at two origin blocks yields independent facts pruned per block', async () => {
@@ -156,7 +142,7 @@ describe('EntityStore', () => {
     expect(entityIdsOf(entities).sort()).toEqual([entityId1, entityId2].sort());
   });
 
-  it('getEntities returns each entity complete with body and facts in creation order', async () => {
+  it('getEntities returns each entity complete with body and facts', async () => {
     const entityBody = [Fr.random()];
     await store.createEntity(entityKey1, entityBody, undefined, JOB);
     await store.recordFact(entityKey1, factTypeA, [Fr.random()], undefined, JOB);
@@ -166,7 +152,9 @@ describe('EntityStore', () => {
     const entities = await store.getEntities(entityTypeKey, JOB);
     expect(entities).toHaveLength(1);
     expect(entities[0].body).toEqual(entityBody);
-    expect(entities[0].facts.map(f => f.factTypeId)).toEqual([factTypeA, factTypeB]);
+    expect(new Set(entities[0].facts.map(f => f.factTypeId.toString()))).toEqual(
+      new Set([factTypeA, factTypeB].map(f => f.toString())),
+    );
   });
 
   it('lists an entity as active even when it has zero facts', async () => {
@@ -225,7 +213,9 @@ describe('EntityStore', () => {
 
     const { body, facts } = (await store.getEntity(entityKey1, JOB))!;
     expect(body).toEqual(entityBody);
-    expect(facts.map(f => f.factTypeId)).toEqual([factTypeA, factTypeB]);
+    expect(new Set(facts.map(f => f.factTypeId.toString()))).toEqual(
+      new Set([factTypeA, factTypeB].map(f => f.toString())),
+    );
   });
 
   it('getEntity returns the body and empty facts for an entity with zero facts', async () => {
@@ -522,10 +512,14 @@ describe('EntityStore', () => {
 
       // Only job 1's fact is committed; job 2 still layers its staged fact on top.
       expect((await store.getEntity(entityKey1, 'reader'))!.facts.map(f => f.payload[0])).toEqual([payloads[0]]);
-      expect((await store.getEntity(entityKey1, JOB2))!.facts.map(f => f.payload[0])).toEqual(payloads);
+      expect(new Set((await store.getEntity(entityKey1, JOB2))!.facts.map(f => f.payload[0].toString()))).toEqual(
+        new Set(payloads.map(f => f.toString())),
+      );
 
       await kv.transactionAsync(() => store.commit(JOB2));
-      expect((await store.getEntity(entityKey1, 'reader'))!.facts.map(f => f.payload[0])).toEqual(payloads);
+      expect(new Set((await store.getEntity(entityKey1, 'reader'))!.facts.map(f => f.payload[0].toString()))).toEqual(
+        new Set(payloads.map(f => f.toString())),
+      );
     });
 
     it('a job that has only read still blocks rollback until it is discarded', async () => {
@@ -622,76 +616,32 @@ describe('EntityStore', () => {
     });
   });
 
-  describe('creation order', () => {
-    it('per-entity creation order is preserved when recording interleaves entities', async () => {
-      const aPayloads = [Fr.random(), Fr.random()];
-      const bPayloads = [Fr.random(), Fr.random()];
-      await store.createEntity(entityKey1, [], undefined, JOB);
-      await store.createEntity(entityKey2, [], undefined, JOB);
-      await store.recordFact(entityKey1, factTypeA, [aPayloads[0]], undefined, JOB);
-      await store.recordFact(entityKey2, factTypeA, [bPayloads[0]], undefined, JOB);
-      await store.recordFact(entityKey1, factTypeA, [aPayloads[1]], undefined, JOB);
-      await store.recordFact(entityKey2, factTypeA, [bPayloads[1]], undefined, JOB);
-      await kv.transactionAsync(() => store.commit(JOB));
+  it('attributes interleaved fact recordings to the correct entity', async () => {
+    const aPayloads = [Fr.random(), Fr.random()];
+    const bPayloads = [Fr.random(), Fr.random()];
+    await store.createEntity(entityKey1, [], undefined, JOB);
+    await store.createEntity(entityKey2, [], undefined, JOB);
+    await store.recordFact(entityKey1, factTypeA, [aPayloads[0]], undefined, JOB);
+    await store.recordFact(entityKey2, factTypeA, [bPayloads[0]], undefined, JOB);
+    await store.recordFact(entityKey1, factTypeA, [aPayloads[1]], undefined, JOB);
+    await store.recordFact(entityKey2, factTypeA, [bPayloads[1]], undefined, JOB);
+    await kv.transactionAsync(() => store.commit(JOB));
 
-      expect((await store.getEntity(entityKey1, JOB))!.facts.map(f => f.payload[0])).toEqual(aPayloads);
-      expect((await store.getEntity(entityKey2, JOB))!.facts.map(f => f.payload[0])).toEqual(bPayloads);
-      // getEntities returns the same per-entity order. byId keys on bigint, not Fr: object keys compare by reference.
-      const entities = await store.getEntities(entityTypeKey, JOB);
-      const byId = new Map(entities.map(e => [e.key.entityId.toBigInt(), e.facts]));
-      expect(byId.get(entityId1.toBigInt())!.map(f => f.payload[0])).toEqual(aPayloads);
-      expect(byId.get(entityId2.toBigInt())!.map(f => f.payload[0])).toEqual(bPayloads);
-    });
-
-    it('creation order is preserved after a prune removes facts from the middle', async () => {
-      const first = Fr.random();
-      const middle = Fr.random();
-      const last = Fr.random();
-      await store.createEntity(entityKey1, [], undefined, JOB);
-      await store.recordFact(entityKey1, factTypeA, [first], undefined, JOB);
-      await store.recordFact(entityKey1, factTypeA, [middle], { blockNumber: 6, blockHash: Fr.random() }, JOB);
-      await store.recordFact(entityKey1, factTypeA, [last], undefined, JOB);
-      await kv.transactionAsync(() => store.commit(JOB));
-
-      await kv.transactionAsync(() => store.rollback(5));
-
-      expect((await store.getEntity(entityKey1, JOB))!.facts.map(f => f.payload[0])).toEqual([first, last]);
-    });
-
-    it('facts re-recorded after a terminate take fresh creation positions', async () => {
-      const [p1, p2] = [Fr.random(), Fr.random()];
-      await store.createEntity(entityKey1, [], undefined, JOB);
-      await store.recordFact(entityKey1, factTypeA, [p1], undefined, JOB);
-      await store.recordFact(entityKey1, factTypeA, [p2], undefined, JOB);
-      await kv.transactionAsync(() => store.commit(JOB));
-
-      // Terminate wipes the facts; re-recording them in reverse order is a new creation order.
-      const JOB2 = 'replay-job';
-      await store.terminateEntity(entityKey1, JOB2);
-      await store.createEntity(entityKey1, [], undefined, JOB2);
-      await store.recordFact(entityKey1, factTypeA, [p2], undefined, JOB2);
-      await store.recordFact(entityKey1, factTypeA, [p1], undefined, JOB2);
-      await kv.transactionAsync(() => store.commit(JOB2));
-
-      expect((await store.getEntity(entityKey1, JOB))!.facts.map(f => f.payload[0])).toEqual([p2, p1]);
-    });
-
-    it('creation order continues across store reopens', async () => {
-      const payloads = Array.from({ length: 4 }, () => Fr.random());
-      await store.createEntity(entityKey1, [], undefined, JOB);
-      await store.recordFact(entityKey1, factTypeA, [payloads[0]], undefined, JOB);
-      await store.recordFact(entityKey1, factTypeA, [payloads[1]], undefined, JOB);
-      await kv.transactionAsync(() => store.commit(JOB));
-
-      // A fresh EntityStore over the same kv store continues the persisted sequence instead of restarting it.
-      const reopened = new EntityStore(kv);
-      const JOB2 = 'reopened-job';
-      await reopened.recordFact(entityKey1, factTypeA, [payloads[2]], undefined, JOB2);
-      await reopened.recordFact(entityKey1, factTypeA, [payloads[3]], undefined, JOB2);
-      await kv.transactionAsync(() => reopened.commit(JOB2));
-
-      expect((await reopened.getEntity(entityKey1, JOB2))!.facts.map(f => f.payload[0])).toEqual(payloads);
-    });
+    expect(new Set((await store.getEntity(entityKey1, JOB))!.facts.map(f => f.payload[0].toString()))).toEqual(
+      new Set(aPayloads.map(f => f.toString())),
+    );
+    expect(new Set((await store.getEntity(entityKey2, JOB))!.facts.map(f => f.payload[0].toString()))).toEqual(
+      new Set(bPayloads.map(f => f.toString())),
+    );
+    // getEntities attributes the same facts to each entity. byId keys on bigint, not Fr: object keys compare by reference.
+    const entities = await store.getEntities(entityTypeKey, JOB);
+    const byId = new Map(entities.map(e => [e.key.entityId.toBigInt(), e.facts]));
+    expect(new Set(byId.get(entityId1.toBigInt())!.map(f => f.payload[0].toString()))).toEqual(
+      new Set(aPayloads.map(f => f.toString())),
+    );
+    expect(new Set(byId.get(entityId2.toBigInt())!.map(f => f.payload[0].toString()))).toEqual(
+      new Set(bPayloads.map(f => f.toString())),
+    );
   });
 
   describe('rollback boundaries and index hygiene', () => {

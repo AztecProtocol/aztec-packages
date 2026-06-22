@@ -78,18 +78,3 @@ export function factKeyStrOf(fact: StoredFact): string {
   const origin = fact.originBlock ? `${fact.originBlock.blockNumber}:${fact.originBlock.blockHash}` : 'none';
   return `${fact.entityKey}:${fact.factTypeId}:${fact.payloadHash()}:${origin}`;
 }
-
-/**
- * Serializes a fact for storage, prefixed with the monotonic sequence number assigned when it was first committed.
- */
-export function serializeFact(seq: number, fact: StoredFact): Buffer {
-  return serializeToBuffer(seq, fact);
-}
-
-/** Deserializes a fact. */
-export function deserializeFact(buffer: Buffer): { seq: number; fact: StoredFact } {
-  const reader = BufferReader.asReader(buffer);
-  const seq = reader.readNumber();
-  const fact = StoredFact.fromBuffer(reader);
-  return { seq, fact };
-}

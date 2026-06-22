@@ -240,7 +240,6 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
       facts: await snapshotMap(kvStore.openMap<string, Buffer>('facts')),
       facts_by_entity: await snapshotMap(kvStore.openMultiMap<string, string>('facts_by_entity')),
       facts_by_block: await snapshotMap(kvStore.openMultiMap<number, string>('facts_by_block')),
-      fact_seq: await snapshotSingleton(kvStore.openSingleton<number>('fact_seq')),
     }),
   },
 
