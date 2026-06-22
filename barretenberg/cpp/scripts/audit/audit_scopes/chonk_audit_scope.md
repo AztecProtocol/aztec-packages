@@ -11,72 +11,71 @@ Chonk is an RCG system designed for proving private smart contract execution on 
 Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 
 ### HyperNova Components
-1. `hypernova/hypernova_prover.cpp`
-2. `hypernova/hypernova_prover.hpp`
-3. `hypernova/hypernova_decider_prover.cpp`
-4. `hypernova/hypernova_decider_prover.hpp`
-5. `hypernova/hypernova_verifier.cpp`
-6. `hypernova/hypernova_verifier.hpp`
-7. `hypernova/hypernova_decider_verifier.cpp`
-8. `hypernova/hypernova_decider_verifier.hpp`
-9. `hypernova/hypernova_batching_challenges.hpp`
+1. `hypernova/hypernova_prover.hpp`
+2. `hypernova/hypernova_decider_prover.cpp`
+3. `hypernova/hypernova_decider_prover.hpp`
+4. `hypernova/hypernova_verifier.cpp`
+5. `hypernova/hypernova_verifier.hpp`
+6. `hypernova/hypernova_decider_verifier.cpp`
+7. `hypernova/hypernova_decider_verifier.hpp`
+8. `hypernova/hypernova_batching_challenges.hpp`
 
 ### Multilinear Batching Components
-10. `multilinear_batching/multilinear_batching_prover.cpp`
-11. `multilinear_batching/multilinear_batching_prover.hpp`
-12. `multilinear_batching/multilinear_batching_claims.hpp`
-13. `multilinear_batching/multilinear_batching_verifier.cpp`
-14. `multilinear_batching/multilinear_batching_verifier.hpp`
+9. `multilinear_batching/multilinear_batching_prover.cpp`
+10. `multilinear_batching/multilinear_batching_prover.hpp`
+11. `multilinear_batching/multilinear_batching_claims.hpp`
+12. `multilinear_batching/multilinear_batching_verifier.cpp`
+13. `multilinear_batching/multilinear_batching_verifier.hpp`
 
 ### Merge Protocol
-15. `goblin/merge_prover.cpp`
-16. `goblin/merge_prover.hpp`
-17. `goblin/merge_verifier.cpp`
-18. `goblin/merge_verifier.hpp`
-19. `goblin/batch_merge_prover.cpp`
-20. `goblin/batch_merge_prover.hpp`
-21. `goblin/batch_merge_verifier.cpp`
-22. `goblin/batch_merge_verifier.hpp`
+14. `goblin/merge_prover.cpp`
+15. `goblin/merge_prover.hpp`
+16. `goblin/merge_verifier.cpp`
+17. `goblin/merge_verifier.hpp`
+18. `goblin/batch_merge_prover.cpp`
+19. `goblin/batch_merge_prover.hpp`
+20. `goblin/batch_merge_verifier.cpp`
+21. `goblin/batch_merge_verifier.hpp`
 
 ### Chonk Core
-23. `chonk/chonk.cpp`
-24. `chonk/chonk.hpp`
-25. `chonk/private_execution_steps.hpp`
-26. `chonk/private_execution_steps.cpp`
-27. `chonk/chonk_proof.cpp`
-28. `chonk/chonk_proof.hpp`
-29. `chonk/chonk_step_processor.cpp`
-30. `chonk/chonk_step_processor.hpp`
-31. `chonk/proof_compression.hpp`
+22. `chonk/chonk.cpp`
+23. `chonk/chonk.hpp`
+24. `chonk/private_execution_steps.hpp`
+25. `chonk/private_execution_steps.cpp`
+26. `chonk/chonk_proof.cpp`
+27. `chonk/chonk_proof.hpp`
+28. `chonk/chonk_step_processor.cpp`
+29. `chonk/chonk_step_processor.hpp`
+30. `chonk/proof_compression.hpp`
 
 ### Batched Honk Translator
-32. `chonk/batched_honk_translator/batched_honk_translator_prover.hpp`
-33. `chonk/batched_honk_translator/batched_honk_translator_prover.cpp`
+31. `chonk/batched_honk_translator/batched_honk_translator_prover.hpp`
+32. `chonk/batched_honk_translator/batched_honk_translator_prover.cpp`
 
 ### Relations
-34. `relations/multilinear_batching/multilinear_batching_relation.hpp`
-35. `relations/databus_lookup_relation.hpp`
+33. `relations/multilinear_batching/multilinear_batching_relation.hpp`
+34. `relations/databus_lookup_relation.hpp`
 
 ### Special Public Inputs
-36. `special_public_inputs/special_public_inputs.hpp`
-37. `stdlib/primitives/public_input_component/public_input_component.hpp`
+35. `special_public_inputs/special_public_inputs.hpp`
+36. `stdlib/primitives/public_input_component/public_input_component.hpp`
 
 ### Flavor
-38. `flavor/multilinear_batching_flavor.hpp`
-39. `flavor/multilinear_batching_flavor.cpp`
-40. `flavor/multilinear_batching_recursive_flavor.hpp`
+37. `flavor/multilinear_batching_flavor.hpp`
+38. `flavor/multilinear_batching_flavor.cpp`
+39. `flavor/multilinear_batching_recursive_flavor.hpp`
 
 ### Databus
-41. `stdlib/primitives/databus/databus.hpp`
-42. `stdlib/primitives/databus/databus.cpp`
-43. `dsl/acir_format/block_constraint.cpp` (only the databus parts: `CallData`/`ReturnData` handling. The RAM/ROM parts are covered by the RAM/ROM audit scope.)
+40. `stdlib/primitives/databus/databus.hpp`
+41. `stdlib/primitives/databus/databus.cpp`
+42. `dsl/acir_format/block_constraint.cpp` (only the databus parts: `CallData`/`ReturnData` handling. The RAM/ROM parts are covered by the RAM/ROM audit scope.)
 
 ### ACIR Integration
-44. `dsl/acir_format/hypernova_recursion_constraint.hpp`
-45. `dsl/acir_format/hypernova_recursion_constraint.cpp`
-46. `dsl/acir_format/recursion_constraint.cpp` (only `process_hn_recursion_constraints()` method)
-47. `dsl/acir_format/chonk_recursion_constraints.hpp`
-48. `dsl/acir_format/chonk_recursion_constraints.cpp`
+43. `dsl/acir_format/hypernova_recursion_constraint.hpp`
+44. `dsl/acir_format/hypernova_recursion_constraint.cpp`
+45. `dsl/acir_format/recursion_constraint.cpp` (only `process_hn_recursion_constraints()` method)
+46. `dsl/acir_format/chonk_recursion_constraints.hpp`
+47. `dsl/acir_format/chonk_recursion_constraints.cpp`
 ---
 
 ## Critical Files
