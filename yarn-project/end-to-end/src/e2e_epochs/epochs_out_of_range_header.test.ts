@@ -52,6 +52,12 @@ const VALIDATOR_COUNT = 4;
  * sequencer runs first, lands and corrupts checkpoint 1, and is then stopped before the honest sequencers
  * start. The honest validators recover via the L1-sync invalidation path, which reads the corrupted tip
  * only through the hardened `status()`/`archiveAt()` reads.
+ *
+ * The corruption is deliberately delayed until the honest archivers have ingested checkpoint 1 with its
+ * real in-range archive root and flagged it as under-attested (step 3b). A node only learns the pending
+ * tip is under-attested by ingesting the checkpoint and running attestation validation; once the stored
+ * archive root is corrupted, the archiver drops the checkpoint on an archive-root mismatch before
+ * validating it, so a node that has not yet ingested checkpoint 1 could never detect the under-attestation.
  */
 describe('e2e_epochs/epochs_out_of_range_header', () => {
   let context: EndToEndContext;
@@ -206,6 +212,31 @@ describe('e2e_epochs/epochs_out_of_range_header', () => {
     await test.waitUntilCheckpointNumber(corruptCheckpoint, test.L2_SLOT_DURATION_IN_S * 6);
     expect(await rollupContract.getCheckpointNumber()).toBeGreaterThanOrEqual(corruptCheckpoint);
     logger.warn(`Checkpoint ${corruptCheckpoint} landed on L1.`);
+
+    // 3b. Wait for the honest validators' archivers to ingest checkpoint 1 with its real (in-range) archive root
+    // and flag the pending chain as under-attested, BEFORE we corrupt the stored slot in step 4. This is the
+    // recovery precondition: a node only learns the pending tip is under-attested when its archiver successfully
+    // ingests the checkpoint (its calldata archive matches the stored archive) and runs attestation validation;
+    // it can then invalidate it via the L1-sync path. Once the stored slot is corrupted, the archiver drops
+    // checkpoint 1 on an archive-root mismatch (calldata real root != corrupted stored root) before validating it,
+    // so a node that has not yet ingested it can never detect the under-attestation. waitUntilCheckpointNumber
+    // above only reads the on-chain checkpoint number directly from L1, not any node's archiver, so without this
+    // gate the corruption races the archivers' poll loop and the honest nodes intermittently never invalidate.
+    await retryUntil(
+      async () => {
+        const statuses = await Promise.all(honestNodes.map(n => n.getBlockSource().getPendingChainValidationStatus()));
+        const detected = statuses.filter(s => !s.valid && s.reason === 'insufficient-attestations').length;
+        logger.info(`Honest archivers that flagged checkpoint ${corruptCheckpoint} as under-attested`, {
+          detected,
+          total: honestNodes.length,
+        });
+        return detected === honestNodes.length;
+      },
+      'honest archivers ingest checkpoint 1 and flag it as under-attested before corruption',
+      test.L2_SLOT_DURATION_IN_S * 4,
+      0.5,
+    );
+    logger.warn(`Honest archivers ingested checkpoint ${corruptCheckpoint} and flagged it as under-attested.`);
 
     // 4. Corrupt the stored archive root of checkpoint 1 to an out-of-range value. We do this AFTER it has
     // landed so `propose` (which now reverts on out-of-range fields, PR #24199) has already written the real
