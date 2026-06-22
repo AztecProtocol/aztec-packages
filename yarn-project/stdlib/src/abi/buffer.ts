@@ -45,6 +45,11 @@ export function bufferAsFields(input: Buffer, targetLength: number): Fr[] {
  * @returns A buffer of exactly `byteLength` bytes.
  */
 export function bufferFromFields(fields: Fr[], maxByteLength?: number): Buffer {
+  // A valid bufferAsFields output always has at least the leading byte-length field, so an empty
+  // input encodes no data. Guard so `length` (the destructured head) is never undefined.
+  if (fields.length === 0) {
+    return Buffer.alloc(0);
+  }
   const [length, ...payload] = fields;
   const byteLength = length.toNumber();
   if (maxByteLength !== undefined && byteLength > maxByteLength) {
