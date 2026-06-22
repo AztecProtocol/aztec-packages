@@ -158,7 +158,7 @@ jobs:
           fi
 
       - name: Upload benchmarks
-        if: env.SHOULD_UPLOAD_BENCHMARKS == '1'
+        if: env.BENCH_UPLOAD == '1'
         uses: benchmark-action/github-action-benchmark@52576c92bccf6ac60c8223ec7eb2565637cae9ba # v1.22.1
         with: &ci_benchmark_args
           name: Aztec Benchmarks
@@ -208,7 +208,7 @@ jobs:
       fail-fast: false
       matrix:
         test_set: ["1", "2"]
-    # We run on current nightly tags only, or when the ci-network-scenario label is present in a PR.
+    # We run on the current v5-next nightly tag (private repo only), or when the ci-network-scenario label is present in a PR.
     needs: [ci, validate-nightly-tag]
     if: |
       always()
@@ -216,7 +216,11 @@ jobs:
       && github.event.pull_request.head.repo.fork != true
       && github.event.pull_request.draft == false
       && (
-        needs.validate-nightly-tag.outputs.is_current == 'true'
+        (
+          needs.validate-nightly-tag.outputs.is_current == 'true'
+          && github.repository == 'AztecProtocol/aztec-packages-private'
+          && startsWith(github.ref_name, 'v5.')
+        )
         || contains(github.event.pull_request.labels.*.name, 'ci-network-scenario')
       )
     steps:

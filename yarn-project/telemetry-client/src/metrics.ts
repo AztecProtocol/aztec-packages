@@ -542,6 +542,11 @@ export const SEQUENCER_SLASHING_ATTEMPTS_COUNT: MetricDefinition = {
   description: 'The number of slashing action attempts',
   valueType: ValueType.INT,
 };
+export const SLASHER_ROUND_EXECUTED_COUNT: MetricDefinition = {
+  name: 'aztec.slasher.round.executed_count',
+  description: 'The number of slashing rounds executed',
+  valueType: ValueType.INT,
+};
 export const SEQUENCER_CHECKPOINT_SUCCESS_COUNT: MetricDefinition = {
   name: 'aztec.sequencer.checkpoint.success_count',
   description: 'The number of times checkpoint publishing succeeded',

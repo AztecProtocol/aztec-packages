@@ -119,6 +119,21 @@ spec:
         timeoutSeconds: {{ .Values.node.startupProbe.timeoutSeconds }}
         initialDelaySeconds: {{ .Values.node.startupProbe.initialDelaySeconds }}
         failureThreshold: {{ .Values.node.startupProbe.failureThreshold }}
+      {{- if .Values.node.readinessProbe.enabled }}
+      readinessProbe:
+        {{- if .Values.node.readinessProbe.exec }}
+        exec:
+{{ toYaml .Values.node.readinessProbe.exec | indent 10 }}
+        {{- else if .Values.node.readinessProbe.httpGet }}
+        httpGet:
+{{ toYaml .Values.node.readinessProbe.httpGet | indent 10 }}
+        {{- end }}
+        periodSeconds: {{ .Values.node.readinessProbe.periodSeconds }}
+        timeoutSeconds: {{ .Values.node.readinessProbe.timeoutSeconds }}
+        initialDelaySeconds: {{ .Values.node.readinessProbe.initialDelaySeconds }}
+        failureThreshold: {{ .Values.node.readinessProbe.failureThreshold }}
+        successThreshold: {{ .Values.node.readinessProbe.successThreshold }}
+      {{- end }}
       volumeMounts:
         - name: shared
           mountPath: /shared
@@ -144,6 +159,20 @@ spec:
         {{- if .Values.node.secret.envEnabled }}
         - secretRef:
             name: {{ include "chart.fullname" . }}-env
+        {{- end }}
+        {{- range .Values.node.envFrom.configMaps }}
+        - configMapRef:
+            name: {{ tpl .name $ | quote }}
+            {{- if hasKey . "optional" }}
+            optional: {{ .optional }}
+            {{- end }}
+        {{- end }}
+        {{- range .Values.node.envFrom.secrets }}
+        - secretRef:
+            name: {{ tpl .name $ | quote }}
+            {{- if hasKey . "optional" }}
+            optional: {{ .optional }}
+            {{- end }}
         {{- end }}
       env:
         - name: POD_IP
@@ -325,7 +354,7 @@ spec:
         - name: PROVER_ID
           value: {{ .Values.node.coinbase | quote }}
         {{- end }}
-        {{- range $key, $value := .Values.node.env }}
+        {{- range $key, $value := mergeOverwrite (dict) .Values.global.aztecEnv .Values.node.env }}
         - name: {{ $key }}
           value: {{ $value | quote }}
         {{- end }}

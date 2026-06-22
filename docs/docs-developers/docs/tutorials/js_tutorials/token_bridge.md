@@ -36,7 +36,7 @@ We want to add a few more dependencies now before we start:
 
 ```bash
 cd hardhat-aztec-example
-yarn add @aztec/aztec.js@#include_version_without_prefix @aztec/accounts@#include_version_without_prefix @aztec/stdlib@#include_version_without_prefix @aztec/wallets@#include_version_without_prefix tsx
+yarn add @aztec/aztec.js@#include_version_without_prefix @aztec/accounts@#include_version_without_prefix @aztec/stdlib@#include_version_without_prefix @aztec/wallets@#include_version_without_prefix @aztec/viem@2.38.2 tsx
 ```
 
 :::note Match the `@aztec/l1-contracts` version

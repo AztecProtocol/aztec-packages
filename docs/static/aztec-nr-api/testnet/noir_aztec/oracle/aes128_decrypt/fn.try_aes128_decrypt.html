@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
+<title>Function try_aes128_decrypt documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">try_aes128_decrypt</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2>In module aes128_decrypt</h2>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.try_aes128_decrypt.html">try_aes128_decrypt</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">oracle</a>::<a href="index.html">aes128_decrypt</a></div>
+<h1>Function <span class="fn">try_aes128_decrypt</span></h1>
+<pre><code>pub unconstrained fn try_aes128_decrypt&lt;let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
+    ciphertext: <a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../std/primitive.u8.html" class="primitive">u8</a>, N&gt;,
+    iv: [<a href="../../../std/primitive.u8.html" class="primitive">u8</a>; 16],
+    sym_key: [<a href="../../../std/primitive.u8.html" class="primitive">u8</a>; 16],
+) -> <a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../std/primitive.u8.html" class="primitive">u8</a>, N&gt;&gt;</code></pre>
+
+<div class="comments">
+<p>Attempts to decrypt a ciphertext using AES128.</p>
+<p>Returns <code>Option::some(plaintext)</code> on success, or <code>Option::none()</code> if decryption fails (e.g. due to malformed
+ciphertext or invalid PKCS#7 padding). Note that decryption with the wrong key will almost always return <code>None</code>
+because the decrypted garbage data will have invalid PKCS#7 padding.</p>
+<p>Note that we accept ciphertext as a BoundedVec, not as an array. This is because this function is typically used
+when processing logs and at that point we don't have comptime information about the length of the ciphertext as
+the log is not specific to any individual note.</p>
+</div>
+</main>
+</span>
+</body>
+</html>

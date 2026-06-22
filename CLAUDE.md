@@ -83,6 +83,10 @@ Tests should validate behavior, not mock call-count. Prefer `expect(result).toEq
 Before writing a new helper, utility, or component, search for an existing one with Grep or Glob. Reuse or refactor to a shared module; do not introduce a parallel implementation.
 </reuse_before_writing>
 
+<agent_and_workflow_restraint>
+Do the work in this session by default. Do not spawn parallel subagents (the Agent/Task tool) or launch dynamic workflows (the Workflow tool) unless the user explicitly asks for it. Each extra agent multiplies token spend — roughly 2x for one helper and far more when a request fans out to many — and the user cannot see the fan-out coming or stop it; a single prompt that quietly started ~30 agents has exhausted an operator's budget. Searching the codebase, summarizing, researching, and ordinary multi-file edits are inline work: run the tool calls yourself. Reach for a subagent only when the user requested orchestration, or when one clearly-scoped read-heavy helper genuinely needs isolation from the main context — prefer a single agent over many, and never start a dynamic workflow by default. If a task would benefit from parallel agents but the user has not asked, either do it directly or describe the multi-agent option and ask before spending the budget.
+</agent_and_workflow_restraint>
+
 <preserve_todos>
 Preserve existing `// TODO`, `// TODO(name)`, and `// NOTE:` comments unless the current task is to resolve them. A "tidy up" refactor that deletes another author's deferred-work markers destroys context that is not recoverable from git history.
 

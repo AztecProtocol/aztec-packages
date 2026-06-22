@@ -1,0 +1,238 @@
+name: Deploy RPC
+
+on:
+  workflow_call:
+    inputs:
+      rpc_environment:
+        description: "RPC environment to deploy: testnet or mainnet."
+        required: true
+        type: string
+      v4_aztec_docker_image:
+        description: "Full Aztec Docker image for the v4 RPC, for example aztecprotocol/aztec:4.3.1."
+        required: true
+        type: string
+      canonical_aztec_docker_image:
+        description: "Full Aztec Docker image for canonical RPC. Accepted now, used when the canonical RPC block is enabled."
+        required: true
+        type: string
+        default: ""
+      ref:
+        description: "Git ref to checkout. Defaults to the caller ref."
+        required: false
+        type: string
+      gcp_project_id:
+        description: "GCP project id for the RPC deployment."
+        required: false
+        type: string
+        default: "testnet-440309"
+      gcp_region:
+        description: "GCP region passed to Terraform."
+        required: false
+        type: string
+        default: "us-west1"
+      cluster:
+        description: "GKE cluster name."
+        required: false
+        type: string
+        default: "aztec-gke-public"
+      cluster_location:
+        description: "GKE cluster location used by gcloud."
+        required: false
+        type: string
+        default: "us-west1-a"
+      k8s_cluster_context:
+        description: "Kubernetes context override. Defaults to gke_<project>_<location>_<cluster>."
+        required: false
+        type: string
+        default: ""
+      respect_tf_lock:
+        description: "Whether Terraform should respect state locking."
+        required: false
+        type: boolean
+        default: true
+    secrets:
+      GCP_SA_KEY:
+        description: "GCP service account key for Terraform, GCS state, and GKE access."
+        required: true
+  workflow_dispatch:
+    inputs:
+      rpc_environment:
+        description: "RPC environment to deploy."
+        required: true
+        type: choice
+        options:
+          - testnet
+          - mainnet
+      v4_aztec_docker_image:
+        description: "Full Aztec Docker image for the v4 RPC, for example aztecprotocol/aztec:4.3.1."
+        required: true
+        type: string
+      canonical_aztec_docker_image:
+        description: "Full Aztec Docker image for canonical RPC. Accepted now, used when the canonical RPC block is enabled."
+        required: true
+        type: string
+      ref:
+        description: "Git ref to checkout. Leave empty to use the current ref."
+        required: false
+        type: string
+      gcp_project_id:
+        description: "GCP project id for the RPC deployment."
+        required: false
+        type: string
+        default: "testnet-440309"
+      gcp_region:
+        description: "GCP region passed to Terraform."
+        required: false
+        type: string
+        default: "us-west1"
+      cluster:
+        description: "GKE cluster name."
+        required: false
+        type: string
+        default: "aztec-gke-public"
+      cluster_location:
+        description: "GKE cluster location used by gcloud."
+        required: false
+        type: string
+        default: "us-west1-a"
+      k8s_cluster_context:
+        description: "Kubernetes context override. Defaults to gke_<project>_<location>_<cluster>."
+        required: false
+        type: string
+      respect_tf_lock:
+        description: "Whether Terraform should respect state locking."
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-rpc-${{ inputs.rpc_environment }}
+  cancel-in-progress: false
+
+jobs:
+  deploy-rpc:
+    runs-on: ubuntu-latest
+    env:
+      GCP_PROJECT_ID: ${{ inputs.gcp_project_id }}
+      GCP_REGION: ${{ inputs.gcp_region }}
+      CLUSTER_NAME: ${{ inputs.cluster }}
+      CLUSTER_LOCATION: ${{ inputs.cluster_location }}
+    steps:
+      - name: Determine checkout ref
+        id: checkout-ref
+        env:
+          REQUESTED_REF: ${{ inputs.ref }}
+        run: |
+          if [[ -n "$REQUESTED_REF" ]]; then
+            echo "ref=$REQUESTED_REF" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=${{ github.ref }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          ref: ${{ steps.checkout-ref.outputs.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve deployment inputs
+        env:
+          RPC_ENVIRONMENT: ${{ inputs.rpc_environment }}
+          V4_AZTEC_DOCKER_IMAGE: ${{ inputs.v4_aztec_docker_image }}
+          CANONICAL_AZTEC_DOCKER_IMAGE: ${{ inputs.canonical_aztec_docker_image }}
+          K8S_CLUSTER_CONTEXT: ${{ inputs.k8s_cluster_context }}
+        run: |
+          if [[ "$RPC_ENVIRONMENT" != "testnet" && "$RPC_ENVIRONMENT" != "mainnet" ]]; then
+            echo "Error: rpc_environment must be testnet or mainnet, got '$RPC_ENVIRONMENT'"
+            exit 1
+          fi
+
+          if [[ ! "$V4_AZTEC_DOCKER_IMAGE" =~ ^.+:.+$ ]]; then
+            echo "Error: v4_aztec_docker_image must be in repository:tag form"
+            exit 1
+          fi
+
+          if [[ -n "$CANONICAL_AZTEC_DOCKER_IMAGE" && ! "$CANONICAL_AZTEC_DOCKER_IMAGE" =~ ^.+:.+$ ]]; then
+            echo "Error: canonical_aztec_docker_image must be empty or in repository:tag form"
+            exit 1
+          fi
+
+          resolved_context="$K8S_CLUSTER_CONTEXT"
+          if [[ -z "$resolved_context" ]]; then
+            resolved_context="gke_${GCP_PROJECT_ID}_${CLUSTER_LOCATION}_${CLUSTER_NAME}"
+          fi
+
+          namespace="${RPC_ENVIRONMENT}-rpc"
+          terraform_dir="spartan/terraform/deploy-rpc/environments/${RPC_ENVIRONMENT}"
+          state_path="${CLUSTER_NAME}/${namespace}/deploy-rpc"
+
+          if [[ ! -d "$terraform_dir" ]]; then
+            echo "Error: Terraform environment not found: $terraform_dir"
+            exit 1
+          fi
+
+          {
+            echo "RPC_ENVIRONMENT=$RPC_ENVIRONMENT"
+            echo "NAMESPACE=$namespace"
+            echo "TERRAFORM_DIR=$terraform_dir"
+            echo "STATE_PATH=$state_path"
+            echo "K8S_CLUSTER_CONTEXT=$resolved_context"
+            echo "TF_VAR_GCP_PROJECT_ID=$GCP_PROJECT_ID"
+            echo "TF_VAR_GCP_REGION=$GCP_REGION"
+            echo "TF_VAR_K8S_CLUSTER_CONTEXT=$resolved_context"
+            echo "TF_VAR_V4_AZTEC_DOCKER_IMAGE=$V4_AZTEC_DOCKER_IMAGE"
+            echo "TF_VAR_CANONICAL_AZTEC_DOCKER_IMAGE=$CANONICAL_AZTEC_DOCKER_IMAGE"
+          } >> "$GITHUB_ENV"
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+        with:
+          install_components: gke-gcloud-auth-plugin
+
+      - name: Configure kubectl
+        run: |
+          gcloud container clusters get-credentials "$CLUSTER_NAME" \
+            --region "$CLUSTER_LOCATION" \
+            --project "$GCP_PROJECT_ID"
+          kubectl config use-context "$K8S_CLUSTER_CONTEXT"
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: "1.7.5"
+          terraform_wrapper: false
+
+      - name: Configure Terraform backend
+        run: spartan/scripts/override_terraform_backend.sh "$TERRAFORM_DIR" "$CLUSTER_NAME" "$STATE_PATH"
+
+      - name: Terraform Init
+        run: terraform -chdir="$TERRAFORM_DIR" init -reconfigure
+
+      - name: Terraform Plan
+        run: terraform -chdir="$TERRAFORM_DIR" plan -out=tfplan -lock=${{ inputs.respect_tf_lock }}
+
+      - name: Terraform Apply
+        run: terraform -chdir="$TERRAFORM_DIR" apply -auto-approve -lock=${{ inputs.respect_tf_lock }} tfplan
+
+      - name: Write summary
+        if: always()
+        run: |
+          {
+            echo "## RPC deployment"
+            echo
+            echo "| Field | Value |"
+            echo "|---|---|"
+            echo "| Environment | \`${RPC_ENVIRONMENT:-${{ inputs.rpc_environment }}}\` |"
+            echo "| Namespace | \`${NAMESPACE:-unknown}\` |"
+            echo "| v4 image | \`${TF_VAR_V4_AZTEC_DOCKER_IMAGE:-unknown}\` |"
+            echo "| Terraform state | \`${STATE_PATH:-unknown}\` |"
+          } >> "$GITHUB_STEP_SUMMARY"

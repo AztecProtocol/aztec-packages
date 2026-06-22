@@ -1,0 +1,18 @@
+[package]
+name = "ipc-runtime"
+version = "0.1.0"
+edition = "2021"
+description = "Safe Rust bindings to the ipc-runtime C ABI (UDS + MPSC-SHM transport)."
+license = "Apache-2.0"
+
+[lib]
+name = "ipc_runtime"
+path = "src/lib.rs"
+
+# We compile the C++ runtime sources ourselves via the `cc` crate. There's
+# no prebuilt libipc_runtime.a to find — cargo's toolchain picks the C++
+# stdlib (libstdc++ on most linux toolchains; libc++ on macOS), and the
+# resulting archive is internally consistent with whatever the final cargo
+# binary links.
+[build-dependencies]
+cc = "1.0"
