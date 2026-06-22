@@ -40,7 +40,7 @@ const TEST_FIXTURES: Record<string, OracleTestScenario[]> = {
   test_single: [{ inputs: { slot: new Fr(10), addr: AztecAddress.fromNumberUnsafe(1) }, output: new Fr(42) }],
   test_multi: [
     { scenario: 'some', inputs: {}, output: Option.some(AztecAddress.fromNumberUnsafe(7)) },
-    { scenario: 'none', inputs: {}, output: Option.none(AztecAddress.ZERO) },
+    { scenario: 'none', inputs: {}, output: Option.none() },
   ],
   test_labeled: [
     { scenario: 'some', inputs: { slot: new Fr(10) }, output: Option.some(new Fr(1)) },

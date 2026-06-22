@@ -2,6 +2,7 @@
 import { CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, PRIVATE_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
 import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { Point } from '@aztec/foundation/curves/grumpkin';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Tuple } from '@aztec/foundation/serialize';
 import { KeyStore } from '@aztec/key-store';
@@ -41,7 +42,7 @@ import { CapsuleStore } from '../capsule_store/capsule_store.js';
 import { ContractStore } from '../contract_store/contract_store.js';
 import { NoteStore } from '../note_store/note_store.js';
 import { PrivateEventStore } from '../private_event_store/private_event_store.js';
-import { RecipientTaggingStore, SenderAddressBookStore, SenderTaggingStore } from '../tagging_store/index.js';
+import { RecipientTaggingStore, SenderTaggingStore, TaggingSecretSourcesStore } from '../tagging_store/index.js';
 import { snapshotArray, snapshotMap, snapshotSingleton } from './kv_store_snapshot.js';
 
 /**
@@ -506,16 +507,30 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
   },
 
   {
-    name: 'SenderAddressBookStore',
+    name: 'TaggingSecretSourcesStore',
     writeToStore: async kvStore => {
-      const senderAddressBookStore = new SenderAddressBookStore(kvStore);
+      const taggingSecretSourcesStore = new TaggingSecretSourcesStore(kvStore);
 
-      await senderAddressBookStore.addSender(AztecAddress.fromBigIntUnsafe(2n));
-      await senderAddressBookStore.addSender(AztecAddress.fromBigIntUnsafe(3n));
-      await senderAddressBookStore.addSender(AztecAddress.fromBigIntUnsafe(5n));
+      await taggingSecretSourcesStore.addSender(AztecAddress.fromBigIntUnsafe(2n));
+      await taggingSecretSourcesStore.addSender(AztecAddress.fromBigIntUnsafe(3n));
+      await taggingSecretSourcesStore.addSender(AztecAddress.fromBigIntUnsafe(5n));
+
+      await taggingSecretSourcesStore.addSharedSecret(
+        AztecAddress.fromBigIntUnsafe(7n),
+        new Point(new Fr(2n), new Fr(3n)),
+      );
+      await taggingSecretSourcesStore.addSharedSecret(
+        AztecAddress.fromBigIntUnsafe(7n),
+        new Point(new Fr(5n), new Fr(7n)),
+      );
+      await taggingSecretSourcesStore.addSharedSecret(
+        AztecAddress.fromBigIntUnsafe(11n),
+        new Point(new Fr(13n), new Fr(17n)),
+      );
     },
     snapshotStore: async kvStore => ({
-      address_book: await snapshotMap(kvStore.openMap<string, true>('address_book')),
+      senders: await snapshotMap(kvStore.openMap<string, true>('senders')),
+      recipient_shared_secrets: await snapshotMap(kvStore.openMultiMap<string, string>('recipient_shared_secrets')),
     }),
   },
 

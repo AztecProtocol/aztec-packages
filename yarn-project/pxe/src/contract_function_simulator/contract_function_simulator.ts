@@ -100,8 +100,8 @@ import type { ContractStore } from '../storage/contract_store/contract_store.js'
 import type { NoteStore } from '../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../storage/private_event_store/private_event_store.js';
 import type { RecipientTaggingStore } from '../storage/tagging_store/recipient_tagging_store.js';
-import type { SenderAddressBookStore } from '../storage/tagging_store/sender_address_book_store.js';
 import type { SenderTaggingStore } from '../storage/tagging_store/sender_tagging_store.js';
+import type { TaggingSecretSourcesStore } from '../storage/tagging_store/tagging_secret_sources_store.js';
 import type { BenchmarkedNode } from './benchmarked_node.js';
 import { ExecutionNoteCache } from './execution_note_cache.js';
 import { ExecutionTaggingIndexCache } from './execution_tagging_index_cache.js';
@@ -136,7 +136,7 @@ export type ContractFunctionSimulatorArgs = {
   l2TipsStore: L2TipsProvider;
   senderTaggingStore: SenderTaggingStore;
   recipientTaggingStore: RecipientTaggingStore;
-  senderAddressBookStore: SenderAddressBookStore;
+  taggingSecretSourcesStore: TaggingSecretSourcesStore;
   capsuleStore: CapsuleStore;
   privateEventStore: PrivateEventStore;
   simulator: CircuitSimulator;
@@ -158,7 +158,7 @@ export class ContractFunctionSimulator {
   private readonly l2TipsStore: L2TipsProvider;
   private readonly senderTaggingStore: SenderTaggingStore;
   private readonly recipientTaggingStore: RecipientTaggingStore;
-  private readonly senderAddressBookStore: SenderAddressBookStore;
+  private readonly taggingSecretSourcesStore: TaggingSecretSourcesStore;
   private readonly capsuleStore: CapsuleStore;
   private readonly privateEventStore: PrivateEventStore;
   private readonly simulator: CircuitSimulator;
@@ -175,7 +175,7 @@ export class ContractFunctionSimulator {
     this.l2TipsStore = args.l2TipsStore;
     this.senderTaggingStore = args.senderTaggingStore;
     this.recipientTaggingStore = args.recipientTaggingStore;
-    this.senderAddressBookStore = args.senderAddressBookStore;
+    this.taggingSecretSourcesStore = args.taggingSecretSourcesStore;
     this.capsuleStore = args.capsuleStore;
     this.privateEventStore = args.privateEventStore;
     this.simulator = args.simulator;
@@ -251,7 +251,7 @@ export class ContractFunctionSimulator {
       aztecNode: this.aztecNode,
       senderTaggingStore: this.senderTaggingStore,
       recipientTaggingStore: this.recipientTaggingStore,
-      senderAddressBookStore: this.senderAddressBookStore,
+      taggingSecretSourcesStore: this.taggingSecretSourcesStore,
       capsuleService: new CapsuleService(this.capsuleStore, scopes),
       privateEventStore: this.privateEventStore,
       messageContextService: this.messageContextService,
@@ -353,7 +353,7 @@ export class ContractFunctionSimulator {
       addressStore: this.addressStore,
       aztecNode: this.aztecNode,
       recipientTaggingStore: this.recipientTaggingStore,
-      senderAddressBookStore: this.senderAddressBookStore,
+      taggingSecretSourcesStore: this.taggingSecretSourcesStore,
       capsuleService: new CapsuleService(this.capsuleStore, scopes),
       privateEventStore: this.privateEventStore,
       messageContextService: this.messageContextService,

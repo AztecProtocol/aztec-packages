@@ -59,7 +59,7 @@ import type { ContractStore } from '../../storage/contract_store/contract_store.
 import type { NoteStore } from '../../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../../storage/private_event_store/private_event_store.js';
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
-import type { SenderAddressBookStore } from '../../storage/tagging_store/sender_address_book_store.js';
+import type { TaggingSecretSourcesStore } from '../../storage/tagging_store/tagging_secret_sources_store.js';
 import { EphemeralArrayService } from '../ephemeral_array_service.js';
 import { BoundedVec } from '../noir-structs/bounded_vec.js';
 import { EphemeralArray } from '../noir-structs/ephemeral_array.js';
@@ -90,7 +90,7 @@ export type UtilityExecutionOracleArgs = {
   addressStore: AddressStore;
   aztecNode: AztecNode;
   recipientTaggingStore: RecipientTaggingStore;
-  senderAddressBookStore: SenderAddressBookStore;
+  taggingSecretSourcesStore: TaggingSecretSourcesStore;
   capsuleService: CapsuleService;
   privateEventStore: PrivateEventStore;
   messageContextService: MessageContextService;
@@ -132,7 +132,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   protected readonly addressStore: AddressStore;
   protected readonly aztecNode: AztecNode;
   protected readonly recipientTaggingStore: RecipientTaggingStore;
-  protected readonly senderAddressBookStore: SenderAddressBookStore;
+  protected readonly taggingSecretSourcesStore: TaggingSecretSourcesStore;
   protected readonly capsuleService: CapsuleService;
   protected readonly privateEventStore: PrivateEventStore;
   protected readonly messageContextService: MessageContextService;
@@ -156,7 +156,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     this.addressStore = args.addressStore;
     this.aztecNode = args.aztecNode;
     this.recipientTaggingStore = args.recipientTaggingStore;
-    this.senderAddressBookStore = args.senderAddressBookStore;
+    this.taggingSecretSourcesStore = args.taggingSecretSourcesStore;
     this.capsuleService = args.capsuleService;
     this.privateEventStore = args.privateEventStore;
     this.messageContextService = args.messageContextService;
@@ -201,11 +201,12 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   /**
    * Retrieve keys associated with a specific master public key and app address.
    * @param pkMHash - The master public key hash.
+   * @param _keyIndex - Sent by the Noir oracle caller but unused here; kept to match the oracle signature.
    * @returns A Promise that resolves to nullifier keys.
    * @throws If the keys are not registered in the key store.
    * @throws If scopes are defined and the account is not in the scopes.
    */
-  public async getKeyValidationRequest(pkMHash: Fr): Promise<KeyValidationRequest> {
+  public async getKeyValidationRequest(pkMHash: Fr, _keyIndex: Fr): Promise<KeyValidationRequest> {
     let hasAccess = false;
     for (let i = 0; i < this.scopes.length && !hasAccess; i++) {
       if (await this.keyStore.accountHasKey(this.scopes[i], pkMHash)) {
@@ -259,7 +260,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     const witness = await this.#queryWithBlockHashNotAfterAnchor(referenceBlockHash, () =>
       this.aztecNode.getBlockHashMembershipWitness(referenceBlockHash, blockHash),
     );
-    return witness ? Option.some(witness) : Option.none(MembershipWitness.empty(ARCHIVE_HEIGHT));
+    return witness ? Option.some(witness) : Option.none();
   }
 
   /**
@@ -351,7 +352,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   ): Promise<Option<{ publicKeys: PublicKeys; partialAddress: PartialAddress }>> {
     const completeAddress = await this.addressStore.getCompleteAddress(account);
     if (!completeAddress) {
-      return Option.none({ publicKeys: PublicKeys.default(), partialAddress: Fr.ZERO });
+      return Option.none();
     }
     return Option.some({ publicKeys: completeAddress.publicKeys, partialAddress: completeAddress.partialAddress });
   }
@@ -585,7 +586,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       this.l2TipsStore,
       this.keyStore,
       this.recipientTaggingStore,
-      this.senderAddressBookStore,
+      this.taggingSecretSourcesStore,
       this.addressStore,
       this.jobId,
       this.logger.getBindings(),
@@ -650,9 +651,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       this.anchorBlockHeader.getBlockNumber(),
     );
 
-    const options = maybeMessageContexts.map(mc =>
-      mc ? Option.some(mc) : Option.none<MessageContext>(MessageContext.empty()),
-    );
+    const options = maybeMessageContexts.map(mc => (mc ? Option.some(mc) : Option.none<MessageContext>()));
     return EphemeralArray.fromValues(this.ephemeralArrayService, options);
   }
 
@@ -667,7 +666,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
 
     const receipt = await this.aztecNode.getTxReceipt(txHash, { includeTxEffect: true });
     if (!receipt.isMined() || !receipt.txEffect || receipt.blockNumber > this.anchorBlockHeader.getBlockNumber()) {
-      return Option.none(TxEffect.empty());
+      return Option.none();
     }
 
     return Option.some(receipt.txEffect);
@@ -692,7 +691,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
     const values = await this.capsuleService.getCapsule(contractAddress, slot, this.jobId, scope, this.capsules);
-    return values ? Option.some(values) : Option.none(new Array(tSize).fill(Fr.ZERO));
+    return values ? Option.some(values) : Option.none({ length: tSize });
   }
 
   public deleteCapsule(contractAddress: AztecAddress, slot: Fr, scope: AztecAddress): void {
@@ -740,7 +739,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       const plaintext = await aes128.decryptBufferCBC(Buffer.from(ciphertext.data), iv, symKey);
       return Option.some(BoundedVec.from<number>({ data: [...plaintext], maxLength: capacity }));
     } catch {
-      return Option.none(BoundedVec.empty<number>({ maxLength: capacity }));
+      return Option.none({ maxLength: capacity });
     }
   }
 
@@ -907,7 +906,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       addressStore: this.addressStore,
       aztecNode: this.aztecNode,
       recipientTaggingStore: this.recipientTaggingStore,
-      senderAddressBookStore: this.senderAddressBookStore,
+      taggingSecretSourcesStore: this.taggingSecretSourcesStore,
       capsuleService: this.capsuleService,
       privateEventStore: this.privateEventStore,
       messageContextService: this.messageContextService,

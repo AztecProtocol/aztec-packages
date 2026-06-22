@@ -177,9 +177,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * Returns the wallet-supplied default sender for tags, or `None` if no default was provided.
    */
   public getSenderForTags(): Promise<Option<AztecAddress>> {
-    return Promise.resolve(
-      this.defaultSenderForTags ? Option.some(this.defaultSenderForTags) : Option.none(AztecAddress.ZERO),
-    );
+    return Promise.resolve(this.defaultSenderForTags ? Option.some(this.defaultSenderForTags) : Option.none());
   }
 
   /**
@@ -199,7 +197,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       this.logger.warn(`Computing a tagging secret for invalid recipient ${recipient} - returning no secret`, {
         contractAddress: this.contractAddress,
       });
-      return Option.none(Fr.ZERO);
+      return Option.none();
     }
 
     return Option.some(extendedSecret.secret);
@@ -559,7 +557,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       aztecNode: this.aztecNode,
       senderTaggingStore: this.senderTaggingStore,
       recipientTaggingStore: this.recipientTaggingStore,
-      senderAddressBookStore: this.senderAddressBookStore,
+      taggingSecretSourcesStore: this.taggingSecretSourcesStore,
       capsuleService: this.capsuleService,
       privateEventStore: this.privateEventStore,
       messageContextService: this.messageContextService,
