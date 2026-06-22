@@ -26,7 +26,7 @@ import {
   getContractClassFromArtifact,
 } from '@aztec/stdlib/contract';
 import { SimulationError } from '@aztec/stdlib/errors';
-import type { AztecNode, PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
+import type { AztecNode, AztecNodeDebug, PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
 import type {
   PrivateExecutionStep,
   PrivateKernelExecutionProofOutput,
@@ -78,7 +78,7 @@ import { AddressStore } from './storage/address_store/address_store.js';
 import { AnchorBlockStore } from './storage/anchor_block_store/anchor_block_store.js';
 import { CapsuleStore } from './storage/capsule_store/capsule_store.js';
 import { ContractStore } from './storage/contract_store/contract_store.js';
-import { EntityStore } from './storage/entity_store/index.js';
+import { FactStore } from './storage/fact_store/index.js';
 import { NoteStore } from './storage/note_store/note_store.js';
 import { openPxeStores } from './storage/open_pxe_stores.js';
 import { PrivateEventStore } from './storage/private_event_store/private_event_store.js';
@@ -161,6 +161,11 @@ export type PreloadedContractsProvider = {
 export type PXECreateArgs = {
   /** The Aztec node to connect to. */
   node: AztecNode;
+  /**
+   * Optional debug API client. When provided, public function signatures are registered with the node so that
+   * node-side public-execution stack traces can be named. Skipped when the node does not expose the debug API.
+   */
+  nodeDebug?: AztecNodeDebug;
   /** The key-value store for persisting PXE state. */
   store: AztecAsyncKVStore;
   /** The prover for generating private kernel proofs. */
@@ -190,13 +195,14 @@ export type PXECreateArgs = {
 export class PXE {
   private constructor(
     private node: AztecNode,
+    private nodeDebug: AztecNodeDebug | undefined,
     private db: AztecAsyncKVStore,
     private blockStateSynchronizer: BlockSynchronizer,
     private keyStore: KeyStore,
     private contractStore: ContractStore,
     private noteStore: NoteStore,
     private capsuleStore: CapsuleStore,
-    private entityStore: EntityStore,
+    private factStore: FactStore,
     private anchorBlockStore: AnchorBlockStore,
     private senderTaggingStore: SenderTaggingStore,
     private senderAddressBookStore: SenderAddressBookStore,
@@ -228,6 +234,7 @@ export class PXE {
    */
   public static async create({
     node,
+    nodeDebug,
     store,
     proofCreator,
     simulator,
@@ -269,7 +276,7 @@ export class PXE {
       capsuleStore,
       keyStore,
       l2TipsStore,
-      entityStore,
+      factStore,
     } = openPxeStores(store, initialBlockHash);
     const contractSyncService = new ContractSyncService(
       node,
@@ -285,7 +292,7 @@ export class PXE {
       anchorBlockStore,
       noteStore,
       privateEventStore,
-      entityStore,
+      factStore,
       l2TipsStore,
       contractSyncService,
       config,
@@ -299,7 +306,7 @@ export class PXE {
       recipientTaggingStore,
       privateEventStore,
       noteStore,
-      entityStore,
+      factStore,
       contractSyncService,
     ]);
 
@@ -309,13 +316,14 @@ export class PXE {
 
     const pxe = new PXE(
       node,
+      nodeDebug,
       store,
       synchronizer,
       keyStore,
       contractStore,
       noteStore,
       capsuleStore,
-      entityStore,
+      factStore,
       anchorBlockStore,
       senderTaggingStore,
       senderAddressBookStore,
@@ -367,7 +375,7 @@ export class PXE {
       recipientTaggingStore: this.recipientTaggingStore,
       senderAddressBookStore: this.senderAddressBookStore,
       capsuleStore: this.capsuleStore,
-      entityStore: this.entityStore,
+      factStore: this.factStore,
       privateEventStore: this.privateEventStore,
       simulator: this.simulator,
       contractSyncService: this.contractSyncService,
@@ -773,7 +781,7 @@ export class PXE {
         .filter(fn => fn.functionType === FunctionType.PUBLIC)
         .map(fn => decodeFunctionSignature(fn.name, fn.parameters));
       if (publicFunctionSignatures.length > 0) {
-        await this.node.registerContractFunctionSignatures(publicFunctionSignatures);
+        await this.nodeDebug?.registerContractFunctionSignatures(publicFunctionSignatures);
       }
     } else {
       // Otherwise, make sure there is an artifact already registered for that class id
@@ -822,7 +830,7 @@ export class PXE {
         .filter(fn => fn.functionType === FunctionType.PUBLIC)
         .map(fn => decodeFunctionSignature(fn.name, fn.parameters));
       if (publicFunctionSignatures.length > 0) {
-        await this.node.registerContractFunctionSignatures(publicFunctionSignatures);
+        await this.nodeDebug?.registerContractFunctionSignatures(publicFunctionSignatures);
       }
 
       currentInstance.currentContractClassId = contractClass.id;

@@ -1,16 +1,19 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
-import { EntityKey } from './entity_store_keys.js';
-import { StoredFact, deserializeFact, factKeyStrOf, serializeFact } from './stored_fact.js';
+import { FactCollectionKey } from './fact_store_keys.js';
+import { StoredFact, factKeyStrOf } from './stored_fact.js';
 
 describe('StoredFact', () => {
   const contract = AztecAddress.fromBigInt(100n);
-  const scope = AztecAddress.fromBigInt(1n);
-  const entityType = new Fr(7n);
-  const entityId = new Fr(42n);
+  const collectionType = new Fr(7n);
+  const collectionId = new Fr(42n);
   const factType = new Fr(3n);
-  const key = EntityKey.from({ contractAddress: contract, scope, entityTypeId: entityType, entityId });
+  const key = FactCollectionKey.from({
+    contractAddress: contract,
+    factCollectionTypeId: collectionType,
+    factCollectionId: collectionId,
+  });
 
   it('round-trips a retractable fact through buffer serialization', () => {
     const fact = new StoredFact(key, factType, [new Fr(9n), new Fr(10n)], {
@@ -31,16 +34,16 @@ describe('StoredFact', () => {
 
   it('derives stable composite keys including the origin block', () => {
     const nonRetractable = new StoredFact(key, factType, [new Fr(9n)], undefined);
-    expect(nonRetractable.entityKey.entityTypeKey().toString()).toBe(`${contract}:${scope}:${entityType}`);
-    expect(nonRetractable.entityKey.toString()).toBe(`${contract}:${scope}:${entityType}:${entityId}`);
+    expect(nonRetractable.factCollectionKey.factCollectionTypeKey().toString()).toBe(`${contract}:${collectionType}`);
+    expect(nonRetractable.factCollectionKey.toString()).toBe(`${contract}:${collectionType}:${collectionId}`);
     expect(factKeyStrOf(nonRetractable)).toBe(
-      nonRetractable.entityKey.toString() + `:${factType}:${nonRetractable.payloadHash()}:none`,
+      nonRetractable.factCollectionKey.toString() + `:${factType}:${nonRetractable.payloadHash()}:none`,
     );
 
     const blockHash = new Fr(0xabcn);
     const retractable = new StoredFact(key, factType, [new Fr(9n)], { blockNumber: 5, blockHash });
     expect(factKeyStrOf(retractable)).toBe(
-      retractable.entityKey.toString() + `:${factType}:${retractable.payloadHash()}:5:${blockHash}`,
+      retractable.factCollectionKey.toString() + `:${factType}:${retractable.payloadHash()}:5:${blockHash}`,
     );
   });
 
@@ -58,17 +61,5 @@ describe('StoredFact', () => {
     const c = new StoredFact(key, factType, [new Fr(1n)], undefined);
     expect(a.payloadHash()).not.toEqual(b.payloadHash());
     expect(a.payloadHash()).toEqual(c.payloadHash());
-  });
-
-  it('round-trips a stored fact with its sequence number', () => {
-    const fact = new StoredFact(key, factType, [new Fr(9n)], {
-      blockNumber: 12,
-      blockHash: new Fr(0xabcn),
-    });
-    for (const seq of [0, 1, 2 ** 32 - 1]) {
-      const back = deserializeFact(serializeFact(seq, fact));
-      expect(back.seq).toBe(seq);
-      expect(back.fact).toEqual(fact);
-    }
   });
 });

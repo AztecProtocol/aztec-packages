@@ -30,8 +30,8 @@ import type { AddressStore } from '../../storage/address_store/address_store.js'
 import { CapsuleService } from '../../storage/capsule_store/capsule_service.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
-import { EntityService, EntityStore } from '../../storage/entity_store/index.js';
-import type { OriginBlock } from '../../storage/entity_store/index.js';
+import { FactService, FactStore } from '../../storage/fact_store/index.js';
+import type { OriginBlock } from '../../storage/fact_store/index.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../../storage/private_event_store/private_event_store.js';
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
@@ -58,7 +58,7 @@ describe('Utility Execution test suite', () => {
   let recipientTaggingStore: ReturnType<typeof mock<RecipientTaggingStore>>;
   let senderAddressBookStore: ReturnType<typeof mock<SenderAddressBookStore>>;
   let capsuleStore: ReturnType<typeof mock<CapsuleStore>>;
-  let entityStore: EntityStore;
+  let factStore: FactStore;
   let privateEventStore: ReturnType<typeof mock<PrivateEventStore>>;
   let contractSyncService: ReturnType<typeof mock<ContractSyncService>>;
   let l2TipsStore: ReturnType<typeof mock<L2TipsProvider>>;
@@ -83,7 +83,7 @@ describe('Utility Execution test suite', () => {
     recipientTaggingStore = mock<RecipientTaggingStore>();
     senderAddressBookStore = mock<SenderAddressBookStore>();
     capsuleStore = mock<CapsuleStore>();
-    entityStore = new EntityStore(await openTmpStore('utility-exec-entity-test'));
+    factStore = new FactStore(await openTmpStore('utility-exec-fact-test'));
     privateEventStore = mock<PrivateEventStore>();
     contractSyncService = mock<ContractSyncService>();
     l2TipsStore = mock<L2TipsProvider>();
@@ -117,7 +117,7 @@ describe('Utility Execution test suite', () => {
       recipientTaggingStore,
       senderAddressBookStore,
       capsuleStore,
-      entityStore,
+      factStore,
       privateEventStore,
       simulator,
       contractSyncService,
@@ -513,89 +513,91 @@ describe('Utility Execution test suite', () => {
       });
     });
 
-    describe('entity store', () => {
+    describe('fact store', () => {
       const service = new EphemeralArrayService();
       const typeId = new Fr(10);
-      const entityId = new Fr(20);
+      const collectionId = new Fr(20);
       const factTypeId = new Fr(30);
       const noBlock = Option.none<OriginBlock>();
+      const scopesVec = (scopes: AztecAddress[]) => BoundedVec.from({ data: scopes, maxLength: scopes.length });
 
-      it('creates an entity and reads it back via getEntity', async () => {
+      it('records a fact and reads it back via getFactCollection', async () => {
         const oracle = makeOracle({ scopes: [scope] });
-        await oracle.createEntity(contractAddress, scope, typeId, entityId, [new Fr(99)], noBlock);
+        await oracle.recordFact(contractAddress, scope, typeId, collectionId, factTypeId, [new Fr(7)], noBlock);
 
-        const entity = await oracle.getEntity(contractAddress, scope, typeId, entityId);
-        expect(entity.body.readAll(service)).toEqual([new Fr(99)]);
-        expect(entity.facts.readAll(service)).toEqual([]);
-      });
-
-      it('records a fact and returns it within the entity', async () => {
-        const oracle = makeOracle({ scopes: [scope] });
-        await oracle.createEntity(contractAddress, scope, typeId, entityId, [new Fr(99)], noBlock);
-        await oracle.recordFact(contractAddress, scope, typeId, entityId, factTypeId, [new Fr(7)], noBlock);
-
-        const entity = await oracle.getEntity(contractAddress, scope, typeId, entityId);
-        const facts = entity.facts.readAll(service);
+        const collection = await oracle.getFactCollection(contractAddress, scopesVec([scope]), typeId, collectionId);
+        expect(collection.factCollectionId).toEqual(collectionId);
+        const facts = collection.facts.readAll(service);
         expect(facts).toHaveLength(1);
         expect(facts[0].factTypeId).toEqual(factTypeId);
         expect(facts[0].payload.readAll(service)).toEqual([new Fr(7)]);
       });
 
-      it('returns only the surviving entities of a type after some are terminated', async () => {
+      it('returns an empty collection when none of its facts are visible', async () => {
+        const oracle = makeOracle({ scopes: [scope] });
+        const collection = await oracle.getFactCollection(contractAddress, scopesVec([scope]), typeId, collectionId);
+        expect(collection.facts.readAll(service)).toEqual([]);
+      });
+
+      it('returns only the surviving collections of a type after some are removed', async () => {
         const oracle = makeOracle({ scopes: [scope] });
 
-        // Create a handful of entities of the same type, each with a distinct id and a body that encodes that id, so
-        // we can tell which ones come back.
+        // Record a fact into a handful of collections of the same type, each with a distinct id, so we can tell which
+        // ones come back.
         const ids = [1, 2, 3, 4, 5];
         for (const id of ids) {
-          await oracle.createEntity(contractAddress, scope, typeId, new Fr(id), [new Fr(100 + id)], noBlock);
+          await oracle.recordFact(contractAddress, scope, typeId, new Fr(id), factTypeId, [new Fr(100 + id)], noBlock);
         }
 
-        // Terminate two of them; the rest must remain active.
-        await oracle.terminateEntity(contractAddress, scope, typeId, new Fr(2));
-        await oracle.terminateEntity(contractAddress, scope, typeId, new Fr(4));
+        // Remove two of them; the rest must remain.
+        await oracle.removeFactCollection(contractAddress, scope, typeId, new Fr(2));
+        await oracle.removeFactCollection(contractAddress, scope, typeId, new Fr(4));
 
-        const entities = (await oracle.getEntities(contractAddress, scope, typeId)).readAll(service);
+        const collections = (
+          await oracle.getFactCollectionsByType(contractAddress, scopesVec([scope]), typeId)
+        ).readAll(service);
 
-        // Exactly the survivors come back, with their bodies intact (order is not guaranteed, so compare as a set).
-        const bodies = entities.map(entity => entity.body.readAll(service));
-        expect(bodies.every(body => body.length === 1)).toBe(true);
-        const survivingValues = bodies.map(([value]) => value.toNumber()).sort((a, b) => a - b);
-        expect(survivingValues).toEqual([101, 103, 105]);
+        // Exactly the survivors come back (order is not guaranteed, so compare as a set).
+        const survivingIds = collections
+          .map(collection => collection.factCollectionId.toNumber())
+          .sort((a, b) => a - b);
+        expect(survivingIds).toEqual([1, 3, 5]);
       });
 
-      it('stores a retractable entity when given an origin block', async () => {
+      it('stores a retractable fact when given an origin block', async () => {
         const oracle = makeOracle({ scopes: [scope] });
         const originBlock = Option.some<OriginBlock>({ blockNumber: 5, blockHash: new Fr(0xabc) });
-        await oracle.createEntity(contractAddress, scope, typeId, entityId, [new Fr(42)], originBlock);
+        await oracle.recordFact(contractAddress, scope, typeId, collectionId, factTypeId, [new Fr(42)], originBlock);
 
-        const entity = await oracle.getEntity(contractAddress, scope, typeId, entityId);
-        expect(entity.body.readAll(service)).toEqual([new Fr(42)]);
+        const collection = await oracle.getFactCollection(contractAddress, scopesVec([scope]), typeId, collectionId);
+        expect(collection.facts.readAll(service)).toHaveLength(1);
       });
 
-      it('terminates an entity', async () => {
+      it('removes a fact collection', async () => {
         const oracle = makeOracle({ scopes: [scope] });
-        await oracle.createEntity(contractAddress, scope, typeId, entityId, [new Fr(1)], noBlock);
-        await oracle.terminateEntity(contractAddress, scope, typeId, entityId);
+        await oracle.recordFact(contractAddress, scope, typeId, collectionId, factTypeId, [new Fr(1)], noBlock);
+        await oracle.removeFactCollection(contractAddress, scope, typeId, collectionId);
 
-        const entities = (await oracle.getEntities(contractAddress, scope, typeId)).readAll(service);
-        expect(entities).toEqual([]);
+        const collections = (
+          await oracle.getFactCollectionsByType(contractAddress, scopesVec([scope]), typeId)
+        ).readAll(service);
+        expect(collections).toEqual([]);
       });
 
       it('rejects access to another contract', async () => {
         const oracle = makeOracle({ scopes: [scope] });
         const otherContract = await AztecAddress.random();
-        expect(() => oracle.createEntity(otherContract, scope, typeId, entityId, [new Fr(1)], noBlock)).toThrow(
-          /not allowed to access/,
-        );
+        expect(() =>
+          oracle.recordFact(otherContract, scope, typeId, collectionId, factTypeId, [new Fr(1)], noBlock),
+        ).toThrow(/not allowed to access/);
       });
 
       it('rejects a scope outside the allowed list', async () => {
         const oracle = makeOracle({ scopes: [scope] });
         const otherScope = await AztecAddress.random();
-        expect(() => oracle.createEntity(contractAddress, otherScope, typeId, entityId, [new Fr(1)], noBlock)).toThrow(
-          /not in the allowed scopes/,
-        );
+        expect(() =>
+          oracle.recordFact(contractAddress, otherScope, typeId, collectionId, factTypeId, [new Fr(1)], noBlock),
+        ).toThrow(/not in the allowed scopes/);
       });
     });
 
@@ -614,7 +616,7 @@ describe('Utility Execution test suite', () => {
         recipientTaggingStore,
         senderAddressBookStore,
         capsuleService: new CapsuleService(capsuleStore, scopes),
-        entityService: new EntityService(entityStore, scopes),
+        factService: new FactService(factStore, scopes),
         privateEventStore,
         txResolver,
         contractSyncService,

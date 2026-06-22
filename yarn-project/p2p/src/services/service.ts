@@ -58,6 +58,19 @@ export type DuplicateProposalInfo = {
  */
 export type P2PDuplicateProposalCallback = (info: DuplicateProposalInfo) => void;
 
+/** Minimal info passed to the oversized proposal callback. */
+export type OversizedProposalInfo = {
+  slot: SlotNumber;
+  proposer: EthAddress;
+};
+
+/**
+ * Callback for when a block proposal whose index lands at or beyond the consensus per-checkpoint block
+ * limit is stored and re-broadcast as slashing evidence. May fire multiple times per (slot, proposer)
+ * if the proposer signed several oversized proposals; consumers are expected to dedup.
+ */
+export type P2POversizedProposalCallback = (info: OversizedProposalInfo) => void;
+
 /** Minimal info passed to the duplicate attestation callback. */
 export type DuplicateAttestationInfo = {
   slot: SlotNumber;
@@ -107,6 +120,12 @@ export interface P2PService {
    * The callback is triggered on the first duplicate (when count goes from 1 to 2).
    */
   registerDuplicateProposalCallback(callback: P2PDuplicateProposalCallback): void;
+
+  /**
+   * Registers a callback invoked when an oversized block proposal (index at or beyond the consensus
+   * per-checkpoint block limit) is stored and re-broadcast as slashing evidence.
+   */
+  registerOversizedProposalCallback(callback: P2POversizedProposalCallback): void;
 
   /**
    * Registers a callback invoked when a duplicate attestation is detected (equivocation).

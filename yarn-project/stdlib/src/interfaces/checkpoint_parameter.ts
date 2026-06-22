@@ -2,18 +2,18 @@ import { CheckpointNumberSchema, SlotNumberSchema } from '@aztec/foundation/bran
 
 import { z } from 'zod';
 
-import { ChainTipSchema } from './chain_tips.js';
+import { CheckpointTagSchema } from './chain_tips.js';
 
 /**
  * Selector for a checkpoint in RPC calls.
  *
  * Accepts a numeric checkpoint number (or `{ number }`), a slot number (`{ slot }`),
- * or a chain-tip name (e.g. `'proposed'`, `'proven'`).
+ * or a checkpoint-tip name (e.g. `'checkpointed'`, `'proven'`, `'finalized'`).
  */
 export const CheckpointParameterSchema = z.union([
   z.object({ number: CheckpointNumberSchema }).strict(),
   z.object({ slot: SlotNumberSchema }).strict(),
-  ChainTipSchema,
+  CheckpointTagSchema,
   CheckpointNumberSchema,
 ]);
 

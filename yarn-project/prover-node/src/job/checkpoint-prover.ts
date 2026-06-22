@@ -277,6 +277,8 @@ export class CheckpointProver {
             checkpointNumber: this.checkpoint.number,
             blockProofCount: result.blockProofOutputs.length,
           });
+          // Spans processing + proving (from executeCheckpoint start, after tx gathering) to proofs ready.
+          this.deps.metrics.recordCheckpointProving(checkpointTimer.ms());
           this.blockProofs.resolve(result.blockProofOutputs);
         },
         err => this.blockProofs.reject(err),
@@ -344,7 +346,8 @@ export class CheckpointProver {
       }
 
       this.completed = true;
-      this.deps.metrics.recordCheckpointProcessing(checkpointTimer.ms());
+      const numTxs = this.checkpoint.blocks.reduce((acc, block) => acc + block.body.txEffects.length, 0);
+      this.deps.metrics.recordCheckpointProcessing(checkpointTimer.ms(), this.checkpoint.blocks.length, numTxs);
       this.deps.log.info(
         `Finished enqueueing block-level proving for checkpoint ${this.checkpoint.number} in ${checkpointTimer.ms()}ms`,
         {

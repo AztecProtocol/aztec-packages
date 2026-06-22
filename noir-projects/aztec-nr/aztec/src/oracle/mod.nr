@@ -10,7 +10,7 @@ pub mod capsules;
 pub(crate) mod ephemeral_oracles;
 pub(crate) mod transient_oracles;
 pub mod contract_sync;
-pub mod entity_store;
+pub mod fact_store;
 pub mod public_call;
 pub mod tx_resolution;
 pub mod tx_phase;
