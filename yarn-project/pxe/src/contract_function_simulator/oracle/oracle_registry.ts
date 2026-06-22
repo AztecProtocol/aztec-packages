@@ -48,6 +48,7 @@ import {
   U32,
   UTILITY_CONTEXT,
   assertReadersConsumed,
+  slotsOf,
 } from './oracle_type_mappings.js';
 
 export {
@@ -59,6 +60,7 @@ export {
   BOUNDED_VEC,
   BUFFER,
   BYTE,
+  CONTRACT_CLASS_LOG_INPUT,
   DELIVERY_MODE,
   EPHEMERAL_ARRAY,
   EVENT_VALIDATION_REQUEST,
@@ -75,9 +77,11 @@ export {
   PROVIDED_SECRET,
   STR,
   U32,
+  slotsOf,
   type InputSlot,
   type MaybePromise,
   type OutputSlot,
+  type SlotShape,
   type TypeMapping,
 } from './oracle_type_mappings.js';
 
@@ -103,7 +107,10 @@ export const ORACLE_REGISTRY = {
   aztec_utl_getUtilityContext: makeEntry({ returnType: UTILITY_CONTEXT }),
 
   aztec_utl_getKeyValidationRequest: makeEntry({
-    params: [{ name: 'pkMHash', type: FIELD }],
+    params: [
+      { name: 'pkMHash', type: FIELD },
+      { name: 'keyIndex', type: FIELD },
+    ],
     returnType: KEY_VALIDATION_REQUEST,
   }),
 
@@ -540,12 +547,12 @@ export function makeEntry<const TParams extends RegistryParam[] = [], TReturnVal
       const resolvedParams: RegistryParam[] = params ?? [];
       // Walk the input slots left-to-right, advancing by each param's slot count.
       let offset = 0;
-      return resolvedParams.map(param => {
+      const named = resolvedParams.map(param => {
         if (!param.type.deserialization) {
           throw new Error(`Param '${param.name}' has no deserialization defined`);
         }
         // Collect the slots for this param and wrap each in a FieldReader.
-        const slotCount = param.type.deserialization.slots;
+        const slotCount = slotsOf(param.type);
         const readers = inputs
           .slice(offset, offset + slotCount)
           .map(slot => new FieldReader(slot.map(hex => Fr.fromString(hex))));
@@ -555,7 +562,13 @@ export function makeEntry<const TParams extends RegistryParam[] = [], TReturnVal
         const value = param.type.deserialization.fn(readers);
         assertReadersConsumed(readers);
         return { name: param.name, value };
-      }) as unknown as InferDeserializedParams<TParams>;
+      });
+      // Every input slot must be specified by a param: oracles whose Noir decl passes an extra field must declare it
+      // (the handler can ignore it). Otherwise an under-declared shape would silently drop a field into nothing.
+      if (offset !== inputs.length) {
+        throw new Error(`Oracle received ${inputs.length} input slot(s) but the registry specifies ${offset}`);
+      }
+      return named as unknown as InferDeserializedParams<TParams>;
     },
     serializeReturn(result: TReturnValue): OutputSlot[] {
       if (returnType?.serialization === undefined) {

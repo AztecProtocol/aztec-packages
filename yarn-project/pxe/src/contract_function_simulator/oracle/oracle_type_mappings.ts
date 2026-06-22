@@ -1,6 +1,6 @@
 import {
   BLOCK_HEADER_LENGTH,
-  KEY_VALIDATION_REQUEST_LENGTH,
+  CONTRACT_INSTANCE_LENGTH,
   L1_TO_L2_MSG_TREE_HEIGHT,
   MAX_CONTRACT_CLASS_LOGS_PER_TX,
   MAX_L2_TO_L1_MSGS_PER_TX,
@@ -59,6 +59,18 @@ export type InputSlot = ACVMField[];
 export type OutputSlot = ACVMField | ACVMField[];
 
 /**
+ * Wire layout of a single slot:
+ * - `'scalar'` — a bare field (one `Fr`); on the ACVM/Noir wire a `Field`.
+ * - `{ len }`  — an array of exactly `len` fields (`Fr[]`); a `[Field; len]`.
+ * - `'variable'` — a slot whose field count is not statically known and cannot be sized on demand (a string, a
+ *   length-prefixed struct). It contributes to the slot count but can never be zero-filled.
+ * - `{ lenFrom: fn }` — like `'variable'`, but its field count can be resolved from a runtime size descriptor. The
+ *   descriptor's shape is type-specific (e.g. `{ length }`, `{ maxLength }`), so `size` is typed `any`: a single union
+ *   can't type each mapping's distinct `lenFrom` under parameter contravariance.
+ */
+export type SlotShape = 'scalar' | { len: number } | 'variable' | { lenFrom: (size: any) => number };
+
+/**
  * Describes how to serialize and/or deserialize a single typed value to/from ACVM wire format.
  * Either side is optional — output-only types omit `deserialization`, input-only types omit `serialization`.
  */
@@ -68,18 +80,18 @@ export interface TypeMapping<T = any> {
     fn: (value: T) => (Fr | Fr[])[];
   };
   deserialization?: {
-    /** Read a typed value from one FieldReader per consumed slot. */
+    /** Read a typed value from its slots — one {@link FieldReader} per slot, as laid out by {@link shape}. */
     fn: (readers: FieldReader[]) => T;
-    /**
-     * Number of InputSlots this type reads from. `deserialization.fn` receives one FieldReader per slot in `readers`.
-     *
-     * Examples:
-     * - `FIELD`, `U32`, `AZTEC_ADDRESS` — single slot         → `slots: 1`
-     * - `OPTION(T)` — discriminant + inner slots              → `slots: T.slots + 1`
-     * - `CONTRACT_CLASS_LOG_INPUT` — [addr], [fields], [len]  → `slots: 3`
-     */
-    slots: number;
   };
+  /**
+   * The type's wire layout, one entry per slot.
+   *
+   * Examples:
+   * - `FIELD` → `['scalar']` // single slot
+   * - `OPTION(T)` → `['scalar', ...T.shape]` // [discriminant], [...inner.shape]
+   * - `CONTRACT_CLASS_LOG_INPUT` → `['scalar', 'variable', 'scalar']` // [addr], [fields], [len]
+   */
+  shape: SlotShape[];
 }
 
 export type MaybePromise<T> = T | Promise<T>;
@@ -101,12 +113,14 @@ export function assertReadersConsumed(readers: FieldReader[]): void {
 
 export const FIELD: TypeMapping<Fr> = {
   serialization: { fn: v => [v] },
-  deserialization: { fn: ([reader]) => reader.readField(), slots: 1 },
+  deserialization: { fn: ([reader]) => reader.readField() },
+  shape: ['scalar'],
 };
 
 export const BOOL: TypeMapping<boolean> = {
   serialization: { fn: v => [new Fr(v ? 1n : 0n)] },
-  deserialization: { fn: ([reader]) => !reader.readField().isZero(), slots: 1 },
+  deserialization: { fn: ([reader]) => !reader.readField().isZero() },
+  shape: ['scalar'],
 };
 
 export const U32: TypeMapping<number> = {
@@ -119,13 +133,14 @@ export const U32: TypeMapping<number> = {
       }
       return Number(value);
     },
-    slots: 1,
   },
+  shape: ['scalar'],
 };
 
 export const BLOCK_NUMBER: TypeMapping<BlockNumber> = {
   serialization: { fn: v => [new Fr(v)] },
-  deserialization: { fn: ([reader]) => BlockNumber(reader.readField().toNumber()), slots: 1 },
+  deserialization: { fn: ([reader]) => BlockNumber(reader.readField().toNumber()) },
+  shape: ['scalar'],
 };
 
 /** A u8 byte: serializes to a single Fr; deserializes from a single Fr to a number in [0, 255]. */
@@ -139,21 +154,22 @@ export const BYTE: TypeMapping<number> = {
       }
       return Number(value);
     },
-    slots: 1,
   },
+  shape: ['scalar'],
 };
 
 // Noir passes `MessageDelivery` onchain variants here.
 export const DELIVERY_MODE: TypeMapping<AppTaggingSecretKind> = {
   deserialization: {
     fn: readers => appTaggingSecretKindFromDeliveryMode(BYTE.deserialization!.fn(readers)),
-    slots: BYTE.deserialization!.slots,
   },
+  shape: BYTE.shape,
 };
 
 export const BIGINT: TypeMapping<bigint> = {
   serialization: { fn: v => [new Fr(v)] },
-  deserialization: { fn: ([reader]) => reader.readField().toBigInt(), slots: 1 },
+  deserialization: { fn: ([reader]) => reader.readField().toBigInt() },
+  shape: ['scalar'],
 };
 
 /** Reads every field in the slot as a UTF-8 character code. */
@@ -167,61 +183,62 @@ export const STR: TypeMapping<string> = {
       }
       return chars.join('');
     },
-    slots: 1,
   },
+  shape: ['variable'],
 };
 
 export const AZTEC_ADDRESS: TypeMapping<AztecAddress> = {
   serialization: { fn: v => [v.toField()] },
-  deserialization: { fn: ([reader]) => AztecAddress.fromField(reader.readField()), slots: 1 },
+  deserialization: { fn: ([reader]) => AztecAddress.fromField(reader.readField()) },
+  shape: ['scalar'],
 };
 
 export const BLOCK_HASH: TypeMapping<BlockHash> = {
   serialization: { fn: v => [new Fr(v.toBuffer())] },
-  deserialization: { fn: ([reader]) => new BlockHash(reader.readField()), slots: 1 },
+  deserialization: { fn: ([reader]) => new BlockHash(reader.readField()) },
+  shape: ['scalar'],
 };
 
 export const FUNCTION_SELECTOR: TypeMapping<FunctionSelector> = {
   serialization: { fn: v => [v.toField()] },
-  deserialization: { fn: ([reader]) => FunctionSelector.fromField(reader.readField()), slots: 1 },
+  deserialization: { fn: ([reader]) => FunctionSelector.fromField(reader.readField()) },
+  shape: ['scalar'],
 };
 
 export const NOTE_SELECTOR: TypeMapping<NoteSelector> = {
   serialization: { fn: v => [v.toField()] },
-  deserialization: { fn: ([reader]) => NoteSelector.fromField(reader.readField()), slots: 1 },
+  deserialization: { fn: ([reader]) => NoteSelector.fromField(reader.readField()) },
+  shape: ['scalar'],
 };
 
 export const TX_HASH: TypeMapping<TxHash> = {
   serialization: { fn: v => [v.hash] },
-  deserialization: { fn: ([reader]) => TxHash.fromField(reader.readField()), slots: 1 },
+  deserialization: { fn: ([reader]) => TxHash.fromField(reader.readField()) },
+  shape: ['scalar'],
 };
 
 export const TAG: TypeMapping<Tag> = {
   serialization: { fn: v => [v.value] },
-  deserialization: { fn: ([reader]) => new Tag(reader.readField()), slots: 1 },
+  deserialization: { fn: ([reader]) => new Tag(reader.readField()) },
+  shape: ['scalar'],
 };
 
 export const POINT: TypeMapping<Point> = {
   serialization: { fn: p => [p.toFields()] },
-  deserialization: {
-    fn: ([reader]) => Point.fromFields([reader.readField(), reader.readField()]),
-    slots: 1,
-  },
+  deserialization: { fn: ([reader]) => Point.fromFields([reader.readField(), reader.readField()]) },
+  shape: [{ len: 2 }],
 };
 
 // ─── Struct Type Mappings ────────────────────────────────────────────────────
 
 export const BLOCK_HEADER: TypeMapping<BlockHeader> = {
   serialization: { fn: v => v.toFields() },
-  deserialization: { fn: ([reader]) => BlockHeader.fromFields(reader.readFieldArray(BLOCK_HEADER_LENGTH)), slots: 1 },
+  shape: Array<SlotShape>(BLOCK_HEADER_LENGTH).fill('scalar'),
 };
 
 export const KEY_VALIDATION_REQUEST: TypeMapping<KeyValidationRequest> = {
   serialization: { fn: v => v.toFields() },
-  deserialization: {
-    fn: ([reader]) => KeyValidationRequest.fromFields(reader.readFieldArray(KEY_VALIDATION_REQUEST_LENGTH)),
-    slots: 1,
-  },
+  shape: ['scalar', 'scalar'],
 };
 
 export const CONTRACT_INSTANCE: TypeMapping<ContractInstance> = {
@@ -236,6 +253,7 @@ export const CONTRACT_INSTANCE: TypeMapping<ContractInstance> = {
       ...v.publicKeys.toFields(),
     ],
   },
+  shape: Array<SlotShape>(CONTRACT_INSTANCE_LENGTH).fill('scalar'),
 };
 
 export const NULLIFIER_MEMBERSHIP_WITNESS: TypeMapping<NullifierMembershipWitness> = {
@@ -245,6 +263,7 @@ export const NULLIFIER_MEMBERSHIP_WITNESS: TypeMapping<NullifierMembershipWitnes
         .toNoirRepresentation()
         .map(slot => (Array.isArray(slot) ? slot.map(s => Fr.fromString(s)) : Fr.fromString(slot as string))),
   },
+  shape: ['scalar', 'scalar', 'scalar', 'scalar', { len: 42 }],
 };
 
 export const PUBLIC_DATA_WITNESS: TypeMapping<PublicDataWitness> = {
@@ -254,6 +273,7 @@ export const PUBLIC_DATA_WITNESS: TypeMapping<PublicDataWitness> = {
         .toNoirRepresentation()
         .map(slot => (Array.isArray(slot) ? slot.map(s => Fr.fromString(s)) : Fr.fromString(slot as string))),
   },
+  shape: ['scalar', 'scalar', 'scalar', 'scalar', 'scalar', { len: 40 }],
 };
 
 export const MESSAGE_LOAD_ORACLE_INPUTS: TypeMapping<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>> = {
@@ -263,6 +283,7 @@ export const MESSAGE_LOAD_ORACLE_INPUTS: TypeMapping<MessageLoadOracleInputs<typ
         .toNoirRepresentation()
         .map(slot => (Array.isArray(slot) ? slot.map(s => Fr.fromString(s)) : Fr.fromString(slot as string))),
   },
+  shape: ['scalar', { len: L1_TO_L2_MSG_TREE_HEIGHT }], // leaf index + sibling path
 };
 
 export const UTILITY_CONTEXT: TypeMapping<UtilityContext> = {
@@ -273,10 +294,12 @@ export const UTILITY_CONTEXT: TypeMapping<UtilityContext> = {
       ctx.msgSender.toField(),
     ],
   },
+  shape: Array<SlotShape>(BLOCK_HEADER_LENGTH + 2).fill('scalar'), // block header + contract address + msg sender
 };
 
 export const CALL_PRIVATE_RESULT: TypeMapping<{ endSideEffectCounter: Fr; returnsHash: Fr }> = {
   serialization: { fn: v => [[v.endSideEffectCounter, v.returnsHash]] },
+  shape: [{ len: 2 }],
 };
 
 export const PUBLIC_KEYS_AND_PARTIAL_ADDRESS: TypeMapping<{
@@ -286,19 +309,20 @@ export const PUBLIC_KEYS_AND_PARTIAL_ADDRESS: TypeMapping<{
   serialization: {
     fn: v => [[...v.publicKeys.toFields(), v.partialAddress]],
   },
+  shape: [{ len: 8 }], // a single slot of 7 public-key fields + partial address
 };
 
 export const CONTRACT_CLASS_LOG_INPUT: TypeMapping<ContractClassLog> = {
   deserialization: {
     fn: ([addrReader, fieldsReader, lengthReader]) => {
       const addr = AztecAddress.fromField(addrReader.readField());
-      const fields = new ContractClassLogFields([...fieldsReader.readFieldArray(fieldsReader.remainingFields())]);
+      const fields = new ContractClassLogFields(fieldsReader.readFieldArray(fieldsReader.remainingFields()));
       const length = lengthReader.readField().toNumber();
       return new ContractClassLog(addr, fields, length);
     },
-    // ContractClassLog input occupies 3 ACVM slots: [contractAddress], [message fields...], [length].
-    slots: 3,
   },
+  // ContractClassLog input occupies 3 slots: [contractAddress], [message fields...], [length].
+  shape: ['scalar', 'variable', 'scalar'],
 };
 
 export const TX_EFFECT: TypeMapping<TxEffect> = {
@@ -328,6 +352,21 @@ export const TX_EFFECT: TypeMapping<TxEffect> = {
       ] as (Fr | Fr[])[];
     },
   },
+  // Mirrors the output above: revertCode, txHash, fee, then padded note hashes / nullifiers / l2-to-l1 msgs /
+  // public-data writes / private logs, the public-logs length, the public-logs payload, and the contract-class logs.
+  shape: [
+    'scalar',
+    'scalar',
+    'scalar',
+    { len: 64 },
+    { len: 64 },
+    { len: 8 },
+    { len: 128 },
+    { len: 1088 },
+    'scalar',
+    { len: 4096 },
+    { len: 3025 },
+  ],
 };
 
 export const NOTE: TypeMapping<NoteData> = {
@@ -343,57 +382,64 @@ export const NOTE: TypeMapping<NoteData> = {
         note: noteData.note,
       }),
   },
+  // A packed note is the note's (variable-count) field items followed by 6 metadata scalars, emitted as one field
+  // output per element. Its length depends on the note, so it is described as a single variable-width run.
+  shape: ['variable'],
 };
 
 export const PENDING_TAGGED_LOG: TypeMapping<PendingTaggedLog> = {
   serialization: { fn: log => [log.toFields()] },
+  shape: [{ len: 84 }],
 };
 
 export const NOTE_VALIDATION_REQUEST: TypeMapping<NoteValidationRequest> = {
   deserialization: {
     fn: ([reader]) => NoteValidationRequest.fromFields(reader),
-    slots: 1,
   },
+  shape: ['variable'],
 };
 
 export const EVENT_VALIDATION_REQUEST: TypeMapping<EventValidationRequest> = {
   deserialization: {
     fn: ([reader]) => EventValidationRequest.fromFields(reader),
-    slots: 1,
   },
+  shape: ['variable'],
 };
 
 export const LOG_RETRIEVAL_REQUEST: TypeMapping<LogRetrievalRequest> = {
   serialization: { fn: req => [req.toFields()] },
   deserialization: {
     fn: ([reader]) => LogRetrievalRequest.fromFields(reader),
-    slots: 1,
   },
+  // address, tag, source, then (isSome, value) for each of fromBlock and toBlock.
+  shape: [{ len: 7 }],
 };
 
 export const LOG_RETRIEVAL_RESPONSE: TypeMapping<LogRetrievalResponse> = {
   serialization: { fn: resp => [resp.toFields()] },
+  shape: [{ len: 83 }],
 };
 
 export const MESSAGE_CONTEXT: TypeMapping<MessageContext> = {
   serialization: { fn: mc => [mc.toFields()] },
+  shape: [{ len: 67 }],
 };
 
 export const PROVIDED_SECRET: TypeMapping<ProvidedSecret> = {
   deserialization: {
     fn: ([reader]) => ProvidedSecret.fromFields(reader),
-    slots: 1,
   },
+  shape: [{ len: 2 }],
 };
 
 // ─── Combinator Type Mappings ────────────────────────────────────────────────
 
-/** `_height` is unused at runtime but lets TypeScript infer the exact `N` for `MembershipWitness<N>`. */
-export function MEMBERSHIP_WITNESS<N extends number>(_height: N): TypeMapping<MembershipWitness<N>> {
+export function MEMBERSHIP_WITNESS<N extends number>(height: N): TypeMapping<MembershipWitness<N>> {
   return {
     serialization: {
       fn: (witness: MembershipWitness<N>) => [new Fr(witness.leafIndex), [...witness.siblingPath]],
     },
+    shape: ['scalar', { len: height }],
   };
 }
 
@@ -407,15 +453,23 @@ export function ARRAY<T>(inner: TypeMapping<T>): TypeMapping<T[]> & { kind: 'arr
     deserialization: inner.deserialization
       ? {
           fn: ([reader]) => {
+            // All elements are flattened into one slot; read them out one (fixed-width) element at a time, giving each
+            // its own per-slot readers reconstructed from the element's shape.
+            const elementWidth = fieldWidth(inner.shape);
             const result: T[] = [];
             while (!reader.isFinished()) {
-              result.push(inner.deserialization!.fn([reader]));
+              const fields = reader.readFieldArray(elementWidth);
+              const elementReader = splitByShape(fields, inner.shape);
+              const value = inner.deserialization!.fn(elementReader);
+              assertReadersConsumed(elementReader);
+              result.push(value);
             }
             return result;
           },
-          slots: 1,
         }
       : undefined,
+    // One slot of variable length (all elements flattened into it).
+    shape: [{ lenFrom: (size: { length: number }) => size.length * fieldWidth(inner.shape) }],
   };
 }
 
@@ -452,26 +506,36 @@ export function BOUNDED_VEC<T>(
     deserialization: inner.deserialization
       ? {
           fn: ([storageReader, lengthReader]) => {
-            const maxLength = storageReader.remainingFields();
+            // slot 0 is the padded storage, slot 1 the actual length. Parse only the first `length` elements out of
+            // storage; the trailing zero-padding is left untouched.
+            const elementWidth = fieldWidth(inner.shape);
+            const maxLength = storageReader.remainingFields() / elementWidth;
             const length = lengthReader.readField().toNumber();
             const elements: T[] = [];
             for (let i = 0; i < length; i++) {
-              elements.push(inner.deserialization!.fn([storageReader]));
+              const fields = storageReader.readFieldArray(elementWidth);
+              const elementReader = splitByShape(fields, inner.shape);
+              const value = inner.deserialization!.fn(elementReader);
+              assertReadersConsumed(elementReader);
+              elements.push(value);
             }
             // Drain the trailing zero-padding (maxLength - length unused element slots) so the storage reader is
             // fully consumed.
             storageReader.skip(storageReader.remainingFields());
             return BoundedVec.from<T>({ data: elements, maxLength });
           },
-          slots: 2,
         }
       : undefined,
+    // slot 0: variable-length storage; slot 1: the length scalar.
+    shape: [{ lenFrom: (size: { maxLength: number }) => size.maxLength * fieldWidth(inner.shape) }, 'scalar'],
   };
 }
 
 /**
- * Wraps an inner TypeMapping in Noir-style `Option<T>`. Adds a discriminant slot and uses the handler-provided
- * `Option.none(shape)` template to produce a correctly-sized zero-filled output for the None case.
+ * Wraps an inner TypeMapping in Noir-style `Option<T>`, adding a leading discriminant slot.
+ *
+ * For the `None` case, the inner's slots must still be present on the wire as zero-padding (so `Some` and `None` have
+ * identical size). That padding is derived entirely from `inner.shape`.
  *
  * @example Serializing `Option.some(AztecAddress.fromField(Fr(42)))` with `OPTION(AZTEC_ADDRESS)`:
  * ```
@@ -479,10 +543,10 @@ export function BOUNDED_VEC<T>(
  * slot 1: Fr(42)   // inner value
  * ```
  *
- * @example Serializing `Option.empty(AztecAddress.ZERO)` with `OPTION(AZTEC_ADDRESS)`:
+ * @example Serializing `Option.none()` with `OPTION(AZTEC_ADDRESS)`:
  * ```
  * slot 0: Fr(0)    // discriminant: None
- * slot 1: Fr(0)    // zero-filled using shape
+ * slot 1: Fr(0)    // zero-filled from AZTEC_ADDRESS.shape
  * ```
  */
 export function OPTION<T>(inner: TypeMapping<T>): TypeMapping<Option<T>> & { kind: 'option'; inner: TypeMapping<T> } {
@@ -491,36 +555,27 @@ export function OPTION<T>(inner: TypeMapping<T>): TypeMapping<Option<T>> & { kin
     inner,
     serialization: inner.serialization
       ? {
-          fn: opt => {
-            if (opt.isSome()) {
-              return [Fr.ONE, ...inner.serialization!.fn(opt.value)];
-            }
-            if (opt.template === undefined) {
-              throw new Error(
-                'Cannot serialize Option.empty() without an emptyTemplate — provide one via Option.empty(emptyTemplate)',
-              );
-            }
-            const zeroSlots = inner
-              .serialization!.fn(opt.template)
-              .map(s => (Array.isArray(s) ? Array(s.length).fill(Fr.ZERO) : Fr.ZERO));
-            return [Fr.ZERO, ...zeroSlots];
-          },
+          fn: opt =>
+            opt.isSome()
+              ? [Fr.ONE, ...inner.serialization!.fn(opt.value)]
+              : [Fr.ZERO, ...zeroSlotsFromShape(inner.shape, opt.size)],
         }
       : undefined,
     deserialization: inner.deserialization
       ? {
           fn: ([discriminant, ...innerReaders]) => {
             if (discriminant.readField().isZero()) {
-              // None still carries zero-filled inner slots on the wire; drain them so the inner readers are fully
-              // consumed.
+              // None still carries the inner's zero-padded slots; consume them without parsing, since an inner that
+              // validates its fields would reject the zeros.
               innerReaders.forEach(reader => reader.skip(reader.remainingFields()));
-              return Option.none<T>(undefined as unknown as T);
+              return Option.none<T>();
             }
             return Option.some(inner.deserialization!.fn(innerReaders));
           },
-          slots: inner.deserialization.slots + 1,
         }
       : undefined,
+    // A leading discriminant slot followed by the inner's slots.
+    shape: ['scalar', ...inner.shape],
   };
 }
 
@@ -535,24 +590,29 @@ export function BUFFER(bitSize: number): TypeMapping<Buffer> {
         const fields = reader.readFieldArray(reader.remainingFields()).map(f => f.toString());
         return fromUintArray(fields, bitSize);
       },
-      slots: 1,
     },
+    shape: ['variable'],
   };
 }
 
 export function EPHEMERAL_ARRAY<T>(element: TypeMapping<T>): TypeMapping<EphemeralArray<T>> {
-  // An EphemeralArray param is a single slot; the per-param assert covers that slot but never sees the
-  // per-row readers materialized in readAll(). Assert full consumption per row here.
+  // EphemeralArray.readAll hands each row's flat fields in as a single reader; reconstruct the element's per-slot
+  // readers from its shape, deserialize, and assert the row was fully consumed so a row with trailing fields is
+  // rejected.
   const rowElement: TypeMapping<T> | undefined = element.deserialization
     ? {
         deserialization: {
-          fn: readers => {
+          fn: ([rowReader]) => {
+            const fields = rowReader.readFieldArray(rowReader.remainingFields());
+            const readers = splitByShape(fields, element.shape);
             const value = element.deserialization!.fn(readers);
             assertReadersConsumed(readers);
             return value;
           },
-          slots: element.deserialization.slots,
         },
+        // `fn` reads the whole row from one reader, so this is one variable-width slot, not the element's multi-slot
+        // shape.
+        shape: ['variable'],
       }
     : undefined;
   return {
@@ -560,7 +620,75 @@ export function EPHEMERAL_ARRAY<T>(element: TypeMapping<T>): TypeMapping<Ephemer
       ? { fn: ea => [ea.materializeSlot(v => element.serialization!.fn(v).flat() as Fr[])] }
       : undefined,
     deserialization: rowElement
-      ? { fn: ([reader]) => EphemeralArray.fromSlot(reader.readField(), rowElement), slots: 1 }
+      ? { fn: ([reader]) => EphemeralArray.fromSlot(reader.readField(), rowElement) }
       : undefined,
+    // A single slot carrying the array's service-slot id.
+    shape: ['scalar'],
   };
+}
+
+/** Number of InputSlots a deserializable type spans, derived from its {@link TypeMapping.shape}. */
+export function slotsOf(mapping: TypeMapping): number {
+  return mapping.shape.length;
+}
+
+/** Number of fields a fully-static shape occupies. Throws on a variable-width shape, whose field count isn't known. */
+function fieldWidth(shape: SlotShape[]): number {
+  return shape.reduce((acc, slot) => {
+    if (slot === 'scalar') {
+      return acc + 1;
+    }
+    if (typeof slot === 'object' && 'len' in slot) {
+      return acc + slot.len;
+    }
+    throw new Error('Cannot compute a fixed field width for a variable-width shape');
+  }, 0);
+}
+
+/** Reconstructs a value's per-slot readers from a flat run of fields, using its shape (inverse of slot-flattening). */
+function splitByShape(fields: Fr[], shape: SlotShape[]): FieldReader[] {
+  const readers: FieldReader[] = [];
+  let cursor = 0;
+  shape.forEach((slot, i) => {
+    if (slot === 'scalar' || (typeof slot === 'object' && 'len' in slot)) {
+      const width = slot === 'scalar' ? 1 : slot.len;
+      if (cursor + width > fields.length) {
+        throw new Error(`Not enough fields to reconstruct shape: needed ${width}, had ${fields.length - cursor}`);
+      }
+      readers.push(new FieldReader(fields.slice(cursor, cursor + width)));
+      cursor += width;
+    } else {
+      // A variable slot (sized or not) takes whatever remains, so it must be last.
+      if (i !== shape.length - 1) {
+        throw new Error('A variable-width slot must be last to be reconstructed from a flat field array');
+      }
+      readers.push(new FieldReader(fields.slice(cursor)));
+      cursor = fields.length;
+    }
+  });
+  if (cursor !== fields.length) {
+    throw new Error(`Malformed flattened value: ${fields.length - cursor} unexpected trailing field(s)`);
+  }
+  return readers;
+}
+
+/** Builds the zero-filled slots for a `None`, matching a `Some`'s wire shape (variable slots sized from `size`). */
+function zeroSlotsFromShape(shape: SlotShape[], size: unknown): (Fr | Fr[])[] {
+  return shape.map(slot => {
+    if (slot === 'scalar') {
+      return Fr.ZERO;
+    }
+    if (slot === 'variable') {
+      throw new Error('Cannot zero-fill an unsized variable-width slot');
+    }
+    if ('len' in slot) {
+      return Array<Fr>(slot.len).fill(Fr.ZERO);
+    }
+    if (size === undefined) {
+      throw new Error(
+        'Serializing Option.none() over a variable-size inner needs a size, e.g. Option.none({ length: n })',
+      );
+    }
+    return Array<Fr>(slot.lenFrom(size)).fill(Fr.ZERO);
+  });
 }
