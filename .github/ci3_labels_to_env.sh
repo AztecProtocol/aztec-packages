@@ -155,7 +155,6 @@ function main {
   echo "CI_MODE=$ci_mode" >> $GITHUB_ENV
   echo "CI mode: $ci_mode"
 
-<<<<<<< HEAD
   # Private-repo safety gate. The release flow can publish to DockerHub/npmjs/crates.io/github; that
   # MUST NEVER run in the private fork. So whenever this repo would release — for ANY trigger (a pushed
   # nightly tag, a ci-release-pr tag, anything future) — force the private path: publish only the docker
@@ -167,14 +166,11 @@ function main {
     echo "SKIP_COMPAT_E2E=1" >> $GITHUB_ENV
   fi
 
-  # Determine if benchmarks should be uploaded (merge-queue, full, or full-no-test-cache modes)
-=======
   # Benching modes run their benches on a dedicated, fixed-hardware box (stable numbers)
   # and publish the result; ci-fast never benches. For grind runs (merge-queue-heavy fires
   # ~10 instances) only the first instance keeps BENCH_UPLOAD=1 — multi_job_run forces the
   # rest to 0 so they bench inline as a breakage check without racing the upload. The
   # destination (bench/next vs bench/prs) is BENCH_BRANCH below.
->>>>>>> origin/public-next
   if [[ "$ci_mode" == "merge-queue" || "$ci_mode" == "merge-queue-heavy" || "$ci_mode" == "full" || "$ci_mode" == "full-no-test-cache" ]]; then
     echo "BENCH_UPLOAD=1" >> $GITHUB_ENV
   fi

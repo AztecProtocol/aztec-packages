@@ -55,11 +55,7 @@ endef
 
 # Fast bootstrap.
 fast: release-image barretenberg boxes playground docs aztec-up \
-<<<<<<< HEAD
-		  bb-tests l1-contracts-tests yarn-project-tests boxes-tests playground-tests aztec-up-tests docs-tests noir-protocol-circuits-tests contract-snapshots-tests release-image-tests spartan claude-tests
-=======
-		  bb-tests l1-contracts-tests yarn-project-tests boxes-tests playground-tests aztec-up-tests docs-tests noir-protocol-circuits-tests release-image-tests spartan claude-tests ipc-codegen-tests
->>>>>>> origin/public-next
+		  bb-tests l1-contracts-tests yarn-project-tests boxes-tests playground-tests aztec-up-tests docs-tests noir-protocol-circuits-tests contract-snapshots-tests release-image-tests spartan claude-tests ipc-codegen-tests
 
 # Full bootstrap.
 full: fast bb-full-tests bb-cpp-full yarn-project-benches
