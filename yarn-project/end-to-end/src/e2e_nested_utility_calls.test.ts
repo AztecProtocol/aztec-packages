@@ -161,10 +161,6 @@ describe('authorizeUtilityCall hook', () => {
     });
   });
 
-<<<<<<< ours
-  // Calls delegate_pow_private with hookAllows=false; expects denial and checks lastRequest
-  // callerContext is 'private'.
-=======
   it('nested utility call sees the calling contract as its msg_sender', async () => {
     hookAllows = true;
     const { result } = await contractA.methods
@@ -173,7 +169,8 @@ describe('authorizeUtilityCall hook', () => {
     expect(result).toEqual(contractA.address);
   });
 
->>>>>>> theirs
+  // Calls delegate_pow_private with hookAllows=false; expects denial and checks lastRequest
+  // callerContext is 'private'.
   it('denies cross-contract utility call from private function when hook returns false', async () => {
     await expect(
       contractA.methods.delegate_pow_private(contractB.address, 2n, 3n).simulate({ from: defaultAccountAddress }),
