@@ -267,7 +267,6 @@ describe('cross-PXE constrained delivery', () => {
     // Count proves every delivered note was discovered; the sum of distinct values proves each was decrypted.
     const { result } = await contractRecipient.methods.get_note_values(recipient).simulate({ from: recipient });
     const values: bigint[] = result.storage.slice(0, Number(result.len));
-    expect(values.length).toBe(noteValues.length);
-    expect(values.reduce((acc, value) => acc + value, 0n)).toEqual(noteValues.reduce((acc, value) => acc + value, 0n));
+    expect(values).toEqual(noteValues);
   });
 });
