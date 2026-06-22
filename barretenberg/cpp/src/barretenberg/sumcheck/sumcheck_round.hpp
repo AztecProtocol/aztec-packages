@@ -283,6 +283,12 @@ template <typename Flavor> class SumcheckProverRound {
         size_t end;
     };
 
+    // Number of fixed-size chunks needed to cover `span` edges.
+    static size_t chunk_count(const size_t span, const size_t rows_per_chunk)
+    {
+        return span / rows_per_chunk + (span % rows_per_chunk > 0 ? 1 : 0);
+    }
+
     // Work-stealing chunk scheduler for a single contiguous edge range. Chunk bounds are computed
     // arithmetically in `pop()`, so it allocates nothing -- preferred for the large, dense ranges of
     // AVM/Ultra/Mega where materializing every chunk up front would be wasteful.
@@ -297,7 +303,7 @@ template <typename Flavor> class SumcheckProverRound {
             : begin(begin)
             , end(end)
             , rows_per_chunk(rows_per_chunk)
-            , total_chunks(((end - begin) / rows_per_chunk) + ((end - begin) % rows_per_chunk > 0 ? 1 : 0))
+            , total_chunks(chunk_count(end - begin, rows_per_chunk))
         {
             BB_ASSERT(begin % 2 == 0, "edge range begin must be even");
             BB_ASSERT(end % 2 == 0, "edge range end must be even");
@@ -334,8 +340,7 @@ template <typename Flavor> class SumcheckProverRound {
                 BB_ASSERT(range.begin % 2 == 0, "edge range begin must be even");
                 BB_ASSERT(range.end % 2 == 0, "edge range end must be even");
                 BB_ASSERT(range.begin <= range.end, "edge range begin must not exceed end");
-                const size_t range_size = range.end - range.begin;
-                num_chunks += (range_size / rows_per_chunk) + (range_size % rows_per_chunk > 0 ? 1 : 0);
+                num_chunks += chunk_count(range.end - range.begin, rows_per_chunk);
             }
 
             chunks.reserve(num_chunks);
