@@ -127,7 +127,9 @@ let value = public_storage_historical_read(header, storage_slot, contract_addres
 
 An uninitialized slot reads as `0`.
 
-Higher-level state variables build on this: reading a `PublicImmutable` or `DelayedPublicMutable` from a private function performs a historical public storage read internally (through `WithHash`), so you rarely need to call `public_storage_historical_read` directly.
+Because this proves the value against a past block header rather than reading the live chain tip, a private function can read public state this way **without enqueuing a public call**. Enqueuing a public call is only needed to read the _current_ value or to write to public storage.
+
+Higher-level state variables build on this. Reading a `PublicImmutable` or `DelayedPublicMutable` from a private function performs a historical public storage read internally (through `WithHash`), so you rarely need to call `public_storage_historical_read` directly. Both types are designed so that a historical read is also a correct read of the current value: a `PublicImmutable` can only be initialized once, so its value never changes, while a `DelayedPublicMutable` delays every write and sets the transaction's expiration timestamp so the transaction is only valid for as long as the value it read still holds.
 
 ## Available history functions
 
@@ -146,3 +148,5 @@ The `aztec::history` module provides these functions:
 | `assert_contract_was_initialized_by` | `history::deployment` | Prove a contract was initialized |
 | `assert_contract_was_not_initialized_by` | `history::deployment` | Prove a contract was not initialized |
 | `public_storage_historical_read` | `history::storage` | Read a public storage value at a historical block |
+
+The nullifier functions take a _siloed_ nullifier: the nullifier hashed together with the contract address, which is the value actually stored in the global nullifier tree. Use `compute_siloed_nullifier` to convert an inner nullifier (the value passed to `push_nullifier_unsafe`) into its siloed form.
