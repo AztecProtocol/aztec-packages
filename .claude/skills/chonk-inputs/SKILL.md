@@ -25,10 +25,17 @@ There are two current pins to keep in sync:
 
 If a bb/proof-system change can affect VKs, refresh in this order:
 
-1. Repin Noir artifacts with native bb, e.g. `AVM=0 ./bootstrap.sh pin-build` from `noir-projects/`.
-2. Keep the tracked `noir-projects/mock-protocol-circuits/pinned-build.tar.gz` diff.
-3. Remove the generated untracked `noir-projects/noir-protocol-circuits/pinned-build.tar.gz` unless intentionally reintroducing that large pin.
-4. Recapture and upload Chonk flows with `barretenberg/cpp/scripts/chonk_inputs.sh update`.
+1. Rebuild the AVM-enabled bb binary so the regenerated VKs reflect the change. `cmake --build build --target bb` is not enough: `noir-projects/noir-protocol-circuits/bootstrap.sh` resolves the bb binary via `barretenberg/cpp/scripts/find-bb`, which returns `bb-avm` (not `bb`) unless `AVM=0`. From `barretenberg/cpp/`:
+   ```bash
+   cmake --preset default -DAVM=ON
+   cmake --build build --target bb-avm
+   ```
+2. Repin Noir artifacts with the AVM-enabled binary: `./bootstrap.sh pin-build` from `noir-projects/`. Do not set `AVM=0` — the `*-tx-base-public` circuits verify an AVM proof, so non-AVM `bb` fails their VK generation with "AVM recursion is not supported in this build". Because pin-build runs under `set +e`, that failure does not abort the run; it silently archives an incomplete `pinned-build.tar.gz` with stale/missing VKs.
+3. Keep the tracked `noir-projects/mock-protocol-circuits/pinned-build.tar.gz` diff.
+4. Remove the generated untracked `noir-projects/noir-protocol-circuits/pinned-build.tar.gz` unless intentionally reintroducing that large pin.
+5. Recapture and upload Chonk flows with `barretenberg/cpp/scripts/chonk_inputs.sh update`.
+
+After pin-build, sanity-check that the tracked tarball is a full pin, not the empty/incomplete shell a silent failure leaves behind: `tar tzf noir-projects/mock-protocol-circuits/pinned-build.tar.gz | grep -c '\.json$'` should list every circuit (a 400-byte tarball containing only `./` and `./keys/` means the build produced nothing).
 
 A refreshed Chonk flow pin alone can still contain stale VKs if the capture used stale Noir artifacts. `ChonkPinnedIvcInputsTest.AllPinnedFlows` uses the embedded VKs with the default policy, so stale VKs may surface later as generated-proof verification failure rather than the explicit `chonk_inputs.sh check` VK-mismatch message.
 
