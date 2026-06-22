@@ -37,6 +37,7 @@ export class StoredFact {
   toBuffer(): Buffer {
     return serializeToBuffer(
       this.factCollectionKey.contractAddress,
+      this.factCollectionKey.scope,
       this.factCollectionKey.factCollectionTypeId,
       this.factCollectionKey.factCollectionId,
       this.factTypeId,
@@ -51,6 +52,7 @@ export class StoredFact {
   static fromBuffer(buffer: Buffer | BufferReader): StoredFact {
     const reader = BufferReader.asReader(buffer);
     const contractAddress = reader.readObject(AztecAddress);
+    const scope = reader.readObject(AztecAddress);
     const factCollectionTypeId = reader.readObject(Fr);
     const factCollectionId = reader.readObject(Fr);
     const factTypeId = reader.readObject(Fr);
@@ -61,7 +63,7 @@ export class StoredFact {
     const blockHash = reader.readObject(Fr);
     const originBlock = hasOriginBlock ? { blockNumber, blockHash } : undefined;
     return new StoredFact(
-      new FactCollectionKey(contractAddress, factCollectionTypeId, factCollectionId),
+      new FactCollectionKey(contractAddress, scope, factCollectionTypeId, factCollectionId),
       factTypeId,
       [...payload],
       originBlock,
