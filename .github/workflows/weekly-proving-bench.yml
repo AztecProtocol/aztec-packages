@@ -16,6 +16,7 @@ concurrency:
 
 jobs:
   select-image:
+    if: ${{ github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' }}
     runs-on: ubuntu-latest
     outputs:
       nightly_tag: ${{ steps.nightly-tag.outputs.nightly_tag }}
@@ -66,19 +67,21 @@ jobs:
 
   deploy-real-proving-network:
     needs: select-image
+    if: ${{ github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' }}
     uses: ./.github/workflows/deploy-network.yml
     with:
       network: prove-n-tps-real
       namespace: prove-n-tps-real
       aztec_docker_image: ${{ needs.select-image.outputs.docker_image }}
       ref: ${{ needs.select-image.outputs.source_ref }}
-      notify_on_failure: false
+      skip_notify_on_failure: true
     secrets: inherit
 
   wait-for-first-l2-block:
     needs:
       - select-image
       - deploy-real-proving-network
+    if: ${{ github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
@@ -108,6 +111,7 @@ jobs:
     needs:
       - select-image
       - wait-for-first-l2-block
+    if: ${{ github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -151,6 +155,7 @@ jobs:
           tool: "customSmallerIsBetter"
           output-file-path: ./bench-out/bench.json
           github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          gh-repository: github.com/AztecProtocol/benchmark-page-data
           auto-push: true
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
           alert-threshold: "120%"
@@ -159,7 +164,7 @@ jobs:
           max-items-in-chart: 100
 
   cleanup:
-    if: always()
+    if: ${{ always() && (github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages') }}
     needs:
       - select-image
       - deploy-real-proving-network
@@ -183,8 +188,8 @@ jobs:
           NO_SPOT: 1
         run: ./.github/ci3.sh network-teardown prove-n-tps-real prove-n-tps-real
 
-  notify-failure:
-    if: ${{ always() && failure() && github.event_name != 'workflow_dispatch' }}
+  notify:
+    if: (success() || failure()) && github.event_name != 'workflow_dispatch' && (github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages')
     needs:
       - select-image
       - deploy-real-proving-network
@@ -198,7 +203,20 @@ jobs:
         with:
           ref: ${{ needs.select-image.outputs.source_ref }}
 
+      - name: Notify Slack on success
+        if: success()
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        run: |
+          export CI=1
+          TAG="${{ needs.select-image.outputs.nightly_tag || 'unknown' }}"
+          RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          ./ci3/slack_notify \
+            "Weekly real proving benchmark passed (nightly tag ${TAG}) :white_check_mark: <${RUN_URL}|View Run>" \
+            "#alerts-next-scenario"
+
       - name: Notify Slack and dispatch ClaudeBox on failure
+        if: failure()
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}

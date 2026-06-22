@@ -153,22 +153,108 @@ function validate-webapp-tutorial {
     rm -rf node_modules .yarn .yarnrc.yml
     : > yarn.lock
 
-    # Replace #include_aztec_version with link: paths to local yarn-project packages
+    # Replace #include_aztec_version with link: paths to local workspace
+    # packages. link: does not install workspace transitive deps, so add the
+    # local @aztec dependency closure that published npm packages would bring in.
     echo_stderr "Linking local @aztec packages..."
-    node -e "
+    REPO_ROOT="$REPO_ROOT" YP="$YP" node <<'NODE'
       const fs = require('fs');
+      const path = require('path');
+
+      const repoRoot = process.env.REPO_ROOT;
+      const yp = process.env.YP;
       const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-      const yp = '$YP';
+      const packageDirs = new Map();
+
+      function addPackageDir(dir) {
+        const pkgPath = path.join(dir, 'package.json');
+        if (!fs.existsSync(pkgPath)) return;
+        const manifest = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+        if (manifest.name?.startsWith('@aztec/')) {
+          packageDirs.set(manifest.name, dir);
+        }
+      }
+
+      for (const base of [yp, path.join(repoRoot, 'barretenberg/ts'), path.join(repoRoot, 'noir/packages')]) {
+        if (!fs.existsSync(base)) continue;
+        addPackageDir(base);
+        for (const entry of fs.readdirSync(base, { withFileTypes: true })) {
+          if (entry.isDirectory()) addPackageDir(path.join(base, entry.name));
+        }
+      }
+
+      function setLinkedDependency(name, dir) {
+        let replaced = false;
+        for (const section of ['dependencies', 'devDependencies']) {
+          if (pkg[section]?.[name]) {
+            pkg[section][name] = 'link:' + dir;
+            replaced = true;
+          }
+        }
+        if (!replaced) {
+          pkg.dependencies ??= {};
+          pkg.dependencies[name] = 'link:' + dir;
+        }
+      }
+
+      function addNpmDependency(name, ver) {
+        if (pkg.dependencies?.[name] || pkg.devDependencies?.[name]) return;
+        ver = String(ver);
+        if (ver.startsWith('workspace:') || ver.startsWith('portal:') || ver.startsWith('file:')) return;
+        pkg.dependencies ??= {};
+        pkg.dependencies[name] = ver;
+      }
+
+      function registerLocalDependency(ownerDir, dep, ver) {
+        if (!dep.startsWith('@aztec/')) return false;
+        ver = String(ver);
+
+        if (ver.startsWith('workspace:')) {
+          return packageDirs.has(dep);
+        }
+
+        if (ver.startsWith('portal:') || ver.startsWith('file:')) {
+          addPackageDir(path.resolve(ownerDir, ver.replace(/^(portal:|file:)/, '')));
+          return packageDirs.has(dep);
+        }
+
+        return false;
+      }
+
+      const queue = [];
+      const queued = new Set();
       for (const section of ['dependencies', 'devDependencies']) {
         for (const [name, ver] of Object.entries(pkg[section] || {})) {
           if (ver === '#include_aztec_version' && name.startsWith('@aztec/')) {
-            const dir = name.replace('@aztec/', '');
-            pkg[section][name] = 'link:' + yp + '/' + dir;
+            queue.push(name);
+            queued.add(name);
           }
         }
       }
+
+      for (let i = 0; i < queue.length; i++) {
+        const name = queue[i];
+        const dir = packageDirs.get(name);
+        if (!dir) {
+          throw new Error(`Could not find local package for ${name}`);
+        }
+        setLinkedDependency(name, dir);
+
+        const manifest = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8'));
+        for (const section of ['dependencies', 'peerDependencies']) {
+          for (const [dep, ver] of Object.entries(manifest[section] || {})) {
+            if (!queued.has(dep) && registerLocalDependency(dir, dep, ver)) {
+              queue.push(dep);
+              queued.add(dep);
+            } else if (section === 'dependencies') {
+              addNpmDependency(dep, ver);
+            }
+          }
+        }
+      }
+
       fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
-    "
+NODE
 
     # Fresh yarn setup for linking
     yarn config set nodeLinker node-modules 2>/dev/null || true
@@ -209,11 +295,56 @@ function execute-examples {
   run_compose_test "docs_examples" "docs-examples" "$COMPOSE_DIR"
 }
 
+# Runs the Noir TXE tests for the example test packages (the type = "lib" packages
+# that the `compile` step skips). A local TXE server resolves the foreign calls the
+# tests make: account creation, deployment, and private/utility execution.
+function test-contracts {
+  echo_header "Testing example contracts (TXE)"
+  local test_packages=("counter_contract_test" "logging_example_test")
+  local txe_port=${TXE_PORT:-14745}
+
+  # Run in a subshell so the EXIT trap that stops the TXE is scoped to this step.
+  (
+    set -euo pipefail
+    if command -v check_port >/dev/null 2>&1; then
+      check_port "$txe_port" || {
+        echo_stderr "Cannot start TXE: port $txe_port is already in use."
+        exit 1
+      }
+    fi
+    cd "$REPO_ROOT/yarn-project/txe"
+    UV_THREADPOOL_SIZE=8 LOG_LEVEL=silent TXE_PORT="$txe_port" yarn start >/dev/null &
+    txe_pid=$!
+    trap 'kill "$txe_pid" &>/dev/null || true' EXIT
+
+    echo_stderr "Waiting for TXE to start on port $txe_port..."
+    j=0
+    while ! nc -z 127.0.0.1 "$txe_port" &>/dev/null; do
+      [ "$j" -ge 60 ] && {
+        echo_stderr "TXE failed to start on port $txe_port after 60s."
+        exit 1
+      }
+      sleep 1
+      j=$((j + 1))
+    done
+
+    export RAYON_NUM_THREADS=1
+    export NARGO_FOREIGN_CALL_TIMEOUT=300000
+    cd "$REPO_ROOT/docs"
+    for pkg in "${test_packages[@]}"; do
+      echo_stderr "Running $pkg..."
+      $NARGO test --silence-warnings --skip-brillig-constraints-check \
+        --oracle-resolver "http://127.0.0.1:$txe_port" --package "$pkg"
+    done
+  )
+}
+
 function test_cmds {
   # Bumped from the default 600s by ~50% (now 15m) to absorb cumulative-runtime growth
   # under merge-queue load — example_swap's `wait-for-proven` poll was tipping SIGTERM
   # near the old limit. See PR #23253 dequeue log http://ci.aztec-labs.com/b08ac48286302949.
   echo "$hash:ONLY_TERM_PARENT=1:TIMEOUT=15m docs/examples/bootstrap.sh execute"
+  echo "$hash:ONLY_TERM_PARENT=1 docs/examples/bootstrap.sh test-contracts"
 }
 
 function test {
@@ -285,9 +416,11 @@ function run_step {
   local step_func=$2
   local output exit_code
 
-  # Disable errexit for command substitution to properly capture exit code
+  # Disable errexit only around the assignment so we can capture the exit code.
+  # Re-enable it inside the command substitution; otherwise step functions can
+  # continue after a failing command and report success.
   set +e
-  output=$($step_func 2>&1)
+  output=$(set -e; "$step_func" 2>&1)
   exit_code=$?
   set -e
   echo "$output"
@@ -296,7 +429,7 @@ function run_step {
   if [[ $exit_code -ne 0 ]]; then
     echo "WARNING: $step_name failed (exit code $exit_code), retrying..."
     set +e
-    output=$($step_func 2>&1)
+    output=$(set -e; "$step_func" 2>&1)
     exit_code=$?
     set -e
     echo "$output"
@@ -392,6 +525,9 @@ case "$cmd" in
     ;;
   execute)
     execute-examples
+    ;;
+  test-contracts)
+    test-contracts
     ;;
   *)
     default_cmd_handler "$@"

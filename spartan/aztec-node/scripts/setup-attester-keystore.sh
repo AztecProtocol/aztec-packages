@@ -95,9 +95,11 @@ for ((v = 0; v < VALIDATORS_PER_NODE; v++)); do
     attester="${private_keys[$v]}"
   fi
 
+  coinbase="${COINBASE:-$attester}"
+
   validators_json+="{
     \"attester\": \"$attester\",
-    \"coinbase\": \"$attester\",
+    \"coinbase\": \"$coinbase\",
     \"feeRecipient\": \"0x0000000000000000000000000000000000000000000000000000000000000000\"
   }"
 done

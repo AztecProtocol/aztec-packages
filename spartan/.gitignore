@@ -23,9 +23,8 @@ environments/*
 !environments/next-scenario.env
 !environments/scenario.local.env
 !environments/source-env.sh
-!environments/staging-ignition.env
-!environments/staging.env
-!environments/staging.local.env
+!environments/staging-public.env
+!environments/staging-internal.env
 !environments/testnet-canary.env
 !environments/testnet.env
 !environments/mainnet.env
@@ -37,3 +36,4 @@ environments/*
 !environments/bench-10tps.env
 *.tfvars
 !terraform/deploy-external-secrets/*.tfvars
+!terraform/deploy-rpc/modules/environment/alloy-*.tgz

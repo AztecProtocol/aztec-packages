@@ -30,7 +30,8 @@ export class BlockTxsRequest {
     // block (proposal) with the same archive root but different txs. We include a commitment to the tx hashes
     // so that the responder can verify this (for its own sake, and not be penalized).
     readonly blockTxHashesCommitment: Buffer32,
-    // Hashes of txs we are requesting (optional). Used as a fallback if the peer doesn't have the block.
+    // Explicit hashes of txs we are requesting (optional). The peer will try to serve these txs even if
+    // it doesn't have the block. If the requester lists txs from the block here, this serves as a fallback.
     // Note: if a hash here is NOT part of the block (proposal), the peer can decide to return it or not.
     readonly txHashes: TxHashArray,
   ) {}

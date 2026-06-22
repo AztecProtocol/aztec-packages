@@ -352,6 +352,7 @@ tskm
 tvsk
 txns
 unbrick
+uncheckpointed
 uncompressable
 undeflow
 Undercollateralized
@@ -441,4 +442,5 @@ reentrancy
 variadic
 Wonderland
 indistinguishability
+llmstxt
 nightlies

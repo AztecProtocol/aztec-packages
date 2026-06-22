@@ -107,7 +107,7 @@ function main {
     ci_mode="skip"
   elif [ "${GITHUB_EVENT_NAME:-}" == "merge_group" ] || has_label "ci-merge-queue"; then
     ci_mode="merge-queue"
-    # Check if this is a merge-train/spartan PR entering the merge queue.
+    # Check if this is a spartan merge-train PR entering the merge queue.
     # If so, use the heavier merge-queue-heavy mode (10 grind runs).
     if [ "${GITHUB_EVENT_NAME:-}" == "merge_group" ] && [ -n "${GITHUB_TOKEN:-}" ]; then
       # GITHUB_REF_NAME in merge_group is like: gh-readonly-queue/next/pr-XXX-SHA
@@ -116,7 +116,7 @@ function main {
       if [ -n "$pr_number" ]; then
         local head_branch
         head_branch=$(GH_TOKEN="$GITHUB_TOKEN" gh pr view "$pr_number" --json headRefName -q '.headRefName' 2>/dev/null || true)
-        if [ "$head_branch" == "merge-train/spartan" ]; then
+        if [ "$head_branch" == "merge-train/spartan-v5" ]; then
           ci_mode="merge-queue-heavy"
         elif [ "$head_branch" == "merge-train/ci" ]; then
           ci_mode="merge-queue-ci"
@@ -149,9 +149,13 @@ function main {
   echo "CI_MODE=$ci_mode" >> $GITHUB_ENV
   echo "CI mode: $ci_mode"
 
-  # Determine if benchmarks should be uploaded (merge-queue, full, or full-no-test-cache modes)
+  # Benching modes run their benches on a dedicated, fixed-hardware box (stable numbers)
+  # and publish the result; ci-fast never benches. For grind runs (merge-queue-heavy fires
+  # ~10 instances) only the first instance keeps BENCH_UPLOAD=1 — multi_job_run forces the
+  # rest to 0 so they bench inline as a breakage check without racing the upload. The
+  # destination (bench/next vs bench/prs) is BENCH_BRANCH below.
   if [[ "$ci_mode" == "merge-queue" || "$ci_mode" == "merge-queue-heavy" || "$ci_mode" == "full" || "$ci_mode" == "full-no-test-cache" ]]; then
-    echo "SHOULD_UPLOAD_BENCHMARKS=1" >> $GITHUB_ENV
+    echo "BENCH_UPLOAD=1" >> $GITHUB_ENV
   fi
 
   # Determine the branch label for benchmark publishing.

@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
+<title>Function assert_nullifier_did_not_exist_by documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">assert_nullifier_did_not_exist_by</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2>In module nullifier</h2>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.assert_nullifier_did_not_exist_by.html">assert_nullifier_did_not_exist_by</a></div></li>
+<li><a href="fn.assert_nullifier_existed_by.html">assert_nullifier_existed_by</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">history</a>::<a href="index.html">nullifier</a></div>
+<h1>Function <span class="fn">assert_nullifier_did_not_exist_by</span></h1>
+<pre><code>pub fn assert_nullifier_did_not_exist_by(
+    block_header: <a href="../../../protocol_types/abis/block_header/struct.BlockHeader.html" class="struct">BlockHeader</a>,
+    siloed_nullifier: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
+)</code></pre>
+
+<div class="comments">
+<p>Asserts that a nullifier did not exist by the time a block was mined.</p>
+<p>This function takes a <em>siloed</em> nullifier, i.e. the value that is actually stored in the tree. Use
+<a href="../../../protocol_types/hash/fn.compute_siloed_nullifier.html"><code>crate::protocol::hash::compute_siloed_nullifier</code></a> to convert an inner nullifier
+(what <a href="../../../noir_aztec/context/struct.PrivateContext.html#push_nullifier_unsafe"><code>PrivateContext::push_nullifier_unsafe</code></a>
+takes) into a siloed one.</p>
+<p>In order to prove that a nullifier <strong>did</strong> exist by <code>block_header</code>, use <a href="../../../noir_aztec/history/nullifier/fn.assert_nullifier_existed_by.html"><code>assert_nullifier_existed_by</code></a>.</p>
+<h2>Nullifier Non-Existence</h2>
+<p>Proving nullifier non-existence is always nuanced, as it is not possible to privately prove that a nullifier does
+not exist by the time a transaction is executed. What this function does instead is assert that once all
+transactions from <code>block_header</code> were executed, the nullifier was not in the tree.</p>
+<p>If you <strong>must</strong> prove that a nullifier does not exist by the time a transaction is executed, there only two ways to
+do this: by actually emitting the nullifier via
+<a href="../../../noir_aztec/context/struct.PrivateContext.html#push_nullifier_unsafe"><code>PrivateContext::push_nullifier_unsafe</code></a>
+(which can of course only be done once), or by calling a public contract function that calls
+<a href="../../../noir_aztec/context/struct.PublicContext.html#nullifier_exists_unsafe"><code>PublicContext::nullifier_exists_unsafe</code></a> (which leaks
+that this nullifier is being checked):</p>
+<pre><code>#[external(<span class="string">"public"</span>)]
+#[only_self]
+<span class="kw">fn</span> _assert_nullifier_does_not_exist(unsileod_nullifier: Field, contract_address: AztecAddress) {
+    <span class="kw">assert</span>(!self.context.nullifier_exists_unsafe(unsiloed_nullifier, contract_address));
+}</code></pre>
+<h2>Cost</h2>
+<p>This function performs a single merkle tree inclusion proof, which is ~4k gates.</p></div>
+</main>
+</span>
+</body>
+</html>

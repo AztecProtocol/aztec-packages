@@ -10,6 +10,11 @@ on:
         description: Complete docker image to use (e.g., aztecprotocol/aztec:some-tag)
         required: true
         type: string
+      ref:
+        description: Git ref to checkout for the scenario runner.
+        required: false
+        type: string
+        default: next
       namespace:
         description: Kubernetes namespace to use (will be sanitized for k8s naming)
         required: true
@@ -39,6 +44,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          ref: ${{ inputs.ref }}
 
       - name: Run Network Scenarios
         timeout-minutes: 350
@@ -60,16 +67,13 @@ jobs:
 
       - name: Cleanup network resources
         if: always()
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
-          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
-          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-          NO_SPOT: 1
-        run: |
-          ./.github/ci3.sh network-teardown "${{ inputs.env_file }}" "${NAMESPACE}-${{ matrix.test_set }}" || true
+        continue-on-error: true
+        uses: ./.github/actions/network-teardown
+        with:
+          env_file: ${{ inputs.env_file }}
+          namespace: ${{ env.NAMESPACE }}-${{ matrix.test_set }}
+          gcp_sa_key: ${{ secrets.GCP_SA_KEY }}
+          gcp_project_id: ${{ secrets.GCP_PROJECT_ID }}
 
       - name: Notify Slack and dispatch ClaudeBox on failure
         if: failure()

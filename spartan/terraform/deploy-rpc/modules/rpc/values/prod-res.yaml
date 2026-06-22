@@ -1,0 +1,23 @@
+nodeSelector:
+  local-ssd: "false"
+  node-type: "network"
+
+affinity:
+  nodeAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        preference:
+          matchExpressions:
+            - key: cores
+              operator: In
+              values:
+                - "2"
+
+node:
+  resources:
+    requests:
+      cpu: "0.5"
+      memory: "2Gi"
+    limits:
+      cpu: "1.9"
+      memory: "6Gi"

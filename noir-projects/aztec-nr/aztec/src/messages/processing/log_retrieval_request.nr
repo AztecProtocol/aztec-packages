@@ -1,16 +1,16 @@
 use crate::protocol::{address::AztecAddress, traits::Serialize};
 
-pub(crate) struct LogSourceEnum {
+pub struct LogSourceEnum {
     pub PRIVATE: Field,
     pub PUBLIC: Field,
     pub PUBLIC_AND_PRIVATE: Field,
 }
 
-pub(crate) global LogSource: LogSourceEnum = LogSourceEnum { PRIVATE: 0, PUBLIC: 1, PUBLIC_AND_PRIVATE: 2 };
+pub global LogSource: LogSourceEnum = LogSourceEnum { PRIVATE: 0, PUBLIC: 1, PUBLIC_AND_PRIVATE: 2 };
 
 /// A request for the `bulk_retrieve_logs` oracle to fetch all logs matching a tag.
 #[derive(Serialize)]
-pub(crate) struct LogRetrievalRequest {
+pub struct LogRetrievalRequest {
     pub contract_address: AztecAddress,
     pub unsiloed_tag: Field,
     /// Which log source to query: public, private, or both (the default). See [`LogSource`].

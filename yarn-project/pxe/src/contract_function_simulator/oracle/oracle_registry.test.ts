@@ -1,13 +1,14 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { FieldReader } from '@aztec/foundation/serialize';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { Tag } from '@aztec/stdlib/logs';
+import { AppTaggingSecretKind, Tag } from '@aztec/stdlib/logs';
 
 import { EphemeralArrayService } from '../ephemeral_array_service.js';
 import { LogRetrievalRequest } from '../noir-structs/log_retrieval_request.js';
 import {
   BOUNDED_VEC,
   BYTE,
+  DELIVERY_MODE,
   EPHEMERAL_ARRAY,
   FIELD,
   LOG_RETRIEVAL_REQUEST,
@@ -46,6 +47,20 @@ describe('oracle_registry type mappings', () => {
 
     it('rejects values exceeding u8 max', () => {
       expect(() => deserialize(BYTE, new Fr(256))).toThrow('BYTE overflow');
+    });
+  });
+
+  describe('DELIVERY_MODE', () => {
+    it('maps onchain unconstrained delivery to unconstrained tagging', () => {
+      expect(deserialize(DELIVERY_MODE, new Fr(2))).toBe(AppTaggingSecretKind.UNCONSTRAINED);
+    });
+
+    it('maps onchain constrained delivery to constrained tagging', () => {
+      expect(deserialize(DELIVERY_MODE, new Fr(3))).toBe(AppTaggingSecretKind.CONSTRAINED);
+    });
+
+    it('rejects offchain delivery', () => {
+      expect(() => deserialize(DELIVERY_MODE, new Fr(1))).toThrow('Unrecognized delivery mode for tagging');
     });
   });
 

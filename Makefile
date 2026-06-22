@@ -47,7 +47,7 @@ endef
 # PHONY TARGETS - List every target that has a file/dir of the same name.
 #==============================================================================
 
-.PHONY: noir barretenberg noir-projects l1-contracts release-image boxes playground docs aztec-up spartan
+.PHONY: noir barretenberg noir-projects l1-contracts release-image boxes playground docs aztec-up spartan wsdb
 
 #==============================================================================
 # BOOTSTRAP TARGETS
@@ -55,13 +55,21 @@ endef
 
 # Fast bootstrap.
 fast: release-image barretenberg boxes playground docs aztec-up \
-		  bb-tests l1-contracts-tests yarn-project-tests boxes-tests playground-tests aztec-up-tests docs-tests noir-protocol-circuits-tests release-image-tests spartan claude-tests
+		  bb-tests l1-contracts-tests yarn-project-tests boxes-tests playground-tests aztec-up-tests docs-tests noir-protocol-circuits-tests release-image-tests spartan claude-tests ipc-codegen-tests
 
 # Full bootstrap.
 full: fast bb-full-tests bb-cpp-full yarn-project-benches
 
+# Everything required to run the full benchmark suite (see bootstrap.sh bench_cmds),
+# and nothing more. yarn-project-benches transitively builds the bb native/wasm bench
+# binaries (via bb-ts -> bb-cpp-native/wasm-threads), the e2e bench inputs, noir-projects
+# and l1-contracts; bb-sol adds the Solidity gas benchmark's generated verifier; bb-acir
+# builds barretenberg/acir_tests, whose headless-test harness (ts-node) the bb browser
+# memory bench (ci_benchmark_browser_memory.sh) drives.
+bench: yarn-project-benches bb-sol bb-acir
+
 # Release. Everything plus copy bb cross compiles to ts projects.
-release: fast bb-cpp-release-dir bb-ts-cross-copy
+release: fast bb-cpp-release-dir bb-ts-cross-copy ipc-runtime-cross
 
 #==============================================================================
 # Noir
@@ -205,13 +213,13 @@ bb-cpp-asan:
 bb-cpp-smt:
 	$(call build,$@,barretenberg/cpp,build_smt_verification)
 
-bb-cpp-release-dir: bb-cpp-native bb-cpp-cross
+bb-cpp-release-dir: bb-cpp-native bb-cpp-cross bb-cpp-wasm bb-cpp-wasm-threads
 	$(call build,$@,barretenberg/cpp,build_release_dir)
 
 bb-cpp-full: bb-cpp bb-cpp-gcc bb-cpp-fuzzing bb-cpp-asan bb-cpp-smt bb-cpp-cross-arm64-macos bb-cpp-cross-arm64-ios bb-cpp-cross-arm64-android
 
 # BB TypeScript - TypeScript bindings
-bb-ts: bb-cpp-wasm bb-cpp-wasm-threads bb-cpp-native
+bb-ts: bb-cpp-wasm bb-cpp-wasm-threads bb-cpp-native ipc-runtime
 	$(call build,$@,barretenberg/ts)
 
 # Copies the cross-compiles into bb.js.
@@ -274,6 +282,44 @@ bb-rs-tests: bb-rs
 bb-tests: bb-cpp-native-tests bb-acir-tests bb-ts-tests bb-sol-tests bb-bbup-tests bb-docs-tests bb-rs-tests
 
 bb-full-tests: bb-cpp-wasm-threads-tests bb-cpp-asan-tests bb-cpp-smt-tests
+
+#==============================================================================
+# IPC Codegen
+#==============================================================================
+
+.PHONY: ipc-codegen ipc-codegen-tests
+ipc-codegen:
+	$(call build,$@,ipc-codegen)
+
+ipc-codegen-tests: ipc-codegen
+	$(call test,$@,ipc-codegen)
+
+.PHONY: ipc-runtime ipc-runtime-tests ipc-runtime-cross
+ipc-runtime:
+	$(call build,$@,ipc-runtime)
+
+ipc-runtime-tests: ipc-runtime
+	$(call test,$@,ipc-runtime)
+
+# Cross-compile the NAPI addon for the 3 non-host release targets.
+# Host (amd64-linux) addon is produced by the standalone `ipc-runtime` target.
+ipc-runtime-cross-arm64-linux:
+	$(call build,$@,ipc-runtime,build_cross arm64-linux)
+
+ipc-runtime-cross-amd64-macos:
+	$(call build,$@,ipc-runtime,build_cross amd64-macos)
+
+ipc-runtime-cross-arm64-macos:
+	$(call build,$@,ipc-runtime,build_cross arm64-macos)
+
+ipc-runtime-cross: ipc-runtime ipc-runtime-cross-arm64-linux ipc-runtime-cross-amd64-macos ipc-runtime-cross-arm64-macos
+
+#==============================================================================
+# WSDB
+#==============================================================================
+
+wsdb: ipc-codegen ipc-runtime bb-cpp-native
+	$(call build,$@,wsdb)
 
 #==============================================================================
 # .claude tooling
@@ -341,7 +387,7 @@ l1-contracts-tests: l1-contracts-verifier
 # Yarn Project - TypeScript monorepo with all TS packages
 #==============================================================================
 
-yarn-project: bb-ts noir-projects l1-contracts
+yarn-project: bb-ts noir-projects l1-contracts wsdb
 	$(call build,$@,yarn-project)
 
 yarn-project-tests: yarn-project

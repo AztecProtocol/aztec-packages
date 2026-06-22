@@ -2,6 +2,16 @@
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
+#include "barretenberg/relations/translator_vm/translator_decomposition_relation_impl.hpp"
+#include "barretenberg/relations/translator_vm/translator_decomposition_short_relation_impl.hpp"
+#include "barretenberg/relations/translator_vm/translator_delta_range_constraint_relation_impl.hpp"
+#include "barretenberg/relations/translator_vm/translator_delta_range_constraint_short_relation_impl.hpp"
+#include "barretenberg/relations/translator_vm/translator_extra_relations_impl.hpp"
+#include "barretenberg/relations/translator_vm/translator_extra_short_relations_impl.hpp"
+#include "barretenberg/relations/translator_vm/translator_non_native_field_relation_impl.hpp"
+#include "barretenberg/relations/translator_vm/translator_non_native_field_short_relation_impl.hpp"
+#include "barretenberg/relations/translator_vm/translator_permutation_relation_impl.hpp"
+#include "barretenberg/relations/translator_vm/translator_permutation_short_relation_impl.hpp"
 #include "barretenberg/sumcheck/sumcheck_round.hpp"
 #include "barretenberg/transcript/transcript_manifest.hpp"
 #include "barretenberg/translator_vm/translator_circuit_builder.hpp"
@@ -247,6 +257,77 @@ class TranslatorTests : public ::testing::Test {
         auto result = verifier.reduce_to_pairing_check();
         return result.pairing_points.check() && result.reduction_succeeded;
     }
+
+    static bool prove_and_verify_short_monomial(const CircuitBuilder& circuit_builder,
+                                                const Fq& evaluation_challenge_x,
+                                                const Fq& batching_challenge_v)
+    {
+        auto prover_transcript = std::make_shared<Transcript>();
+        prover_transcript->send_to_verifier("init", Fq::random_element());
+        auto initial_transcript = prover_transcript->export_proof();
+
+        auto verifier_transcript = std::make_shared<Transcript>(initial_transcript);
+        verifier_transcript->template receive_from_prover<Fq>("init");
+
+        auto proving_key = std::make_shared<TranslatorProvingKey>(circuit_builder);
+        TranslatorProver prover{ proving_key, prover_transcript };
+        auto proof = prover.construct_proof();
+        EXPECT_EQ(proof.size(), TranslatorFlavor::PROOF_LENGTH);
+
+        std::array<TranslatorFlavor::Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES> op_queue_commitments;
+        op_queue_commitments[0] =
+            proving_key->proving_key->commitment_key.commit(proving_key->proving_key->polynomials.op);
+        op_queue_commitments[1] =
+            proving_key->proving_key->commitment_key.commit(proving_key->proving_key->polynomials.x_lo_y_hi);
+        op_queue_commitments[2] =
+            proving_key->proving_key->commitment_key.commit(proving_key->proving_key->polynomials.x_hi_z_1);
+        op_queue_commitments[3] =
+            proving_key->proving_key->commitment_key.commit(proving_key->proving_key->polynomials.y_lo_z_2);
+
+        TranslatorVerifier verifier(verifier_transcript,
+                                    proof,
+                                    evaluation_challenge_x,
+                                    batching_challenge_v,
+                                    prover.get_accumulated_result(),
+                                    op_queue_commitments);
+
+        auto result = verifier.reduce_to_pairing_check();
+        return result.pairing_points.check() && result.reduction_succeeded;
+    }
+
+    template <typename FullRelation, typename ShortRelation>
+    static void expect_short_relation_matches_full_edges(const TranslatorShortMonomialFlavor::ProverUnivariates<2>& in,
+                                                         const RelationParameters<FF>& params,
+                                                         const FF& scaling_factor)
+    {
+        typename TranslatorFlavor::ExtendedEdges extended_edges;
+        for (auto [extended_edge, short_edge] : zip_view(extended_edges.get_all(), in.get_all())) {
+            extended_edge = short_edge.template extend_to<TranslatorFlavor::MAX_PARTIAL_RELATION_LENGTH>();
+        }
+
+        typename FullRelation::SumcheckTupleOfUnivariatesOverSubrelations full_accumulators{};
+        typename ShortRelation::SumcheckTupleOfUnivariatesOverSubrelations short_accumulators{};
+        FullRelation::accumulate(full_accumulators, extended_edges, params, scaling_factor);
+        ShortRelation::accumulate(short_accumulators, in, params, scaling_factor);
+
+        EXPECT_EQ(short_accumulators, full_accumulators);
+    }
+
+    static TranslatorShortMonomialFlavor::ProverUnivariates<2> get_short_edge_input(bool random_inputs)
+    {
+        TranslatorShortMonomialFlavor::ProverUnivariates<2> result;
+        FF value = 0;
+        for (auto& edge : result.get_all()) {
+            if (random_inputs) {
+                edge = bb::Univariate<FF, 2>({ FF::random_element(), FF::random_element() });
+            } else {
+                value += 1;
+                edge = bb::Univariate<FF, 2>({ value, value + 1 });
+                value += 1;
+            }
+        }
+        return result;
+    }
 };
 
 /**
@@ -296,6 +377,54 @@ TEST_F(TranslatorTests, Basic)
     EXPECT_TRUE(TranslatorCircuitChecker::check(circuit_builder));
     bool verified = prove_and_verify(circuit_builder, evaluation_challenge_x, batching_challenge_v);
     EXPECT_TRUE(verified);
+}
+
+TEST_F(TranslatorTests, ShortMonomialRelationsMatchFullEdgeRelations)
+{
+    const auto run_test = [&](bool random_inputs) {
+        using FF = TranslatorFlavor::FF;
+        const auto input = get_short_edge_input(random_inputs);
+        const auto params = RelationParameters<FF>::get_random();
+        const FF scaling_factor = random_inputs ? FF::random_element() : FF(7);
+
+        expect_short_relation_matches_full_edges<TranslatorPermutationRelation<FF>,
+                                                 TranslatorPermutationShortRelation<FF>>(input, params, scaling_factor);
+        expect_short_relation_matches_full_edges<TranslatorDeltaRangeConstraintRelation<FF>,
+                                                 TranslatorDeltaRangeConstraintShortRelation<FF>>(
+            input, params, scaling_factor);
+        expect_short_relation_matches_full_edges<TranslatorOpcodeConstraintRelation<FF>,
+                                                 TranslatorOpcodeConstraintShortRelation<FF>>(
+            input, params, scaling_factor);
+        expect_short_relation_matches_full_edges<TranslatorAccumulatorTransferRelation<FF>,
+                                                 TranslatorAccumulatorTransferShortRelation<FF>>(
+            input, params, scaling_factor);
+        expect_short_relation_matches_full_edges<TranslatorDecompositionRelation<FF>,
+                                                 TranslatorDecompositionShortRelation<FF>>(
+            input, params, scaling_factor);
+        expect_short_relation_matches_full_edges<TranslatorNonNativeFieldRelation<FF>,
+                                                 TranslatorNonNativeFieldShortRelation<FF>>(
+            input, params, scaling_factor);
+        expect_short_relation_matches_full_edges<TranslatorZeroConstraintsRelation<FF>,
+                                                 TranslatorZeroConstraintsShortRelation<FF>>(
+            input, params, scaling_factor);
+    };
+
+    run_test(/*random_inputs=*/false);
+    run_test(/*random_inputs=*/true);
+}
+
+TEST_F(TranslatorTests, ShortMonomialProverVerifies)
+{
+    using Fq = fq;
+
+    Fq batching_challenge_v = Fq::random_element();
+    Fq evaluation_challenge_x = Fq::random_element();
+
+    CircuitBuilder circuit_builder = generate_test_circuit(batching_challenge_v, evaluation_challenge_x);
+
+    EXPECT_TRUE(TranslatorCircuitChecker::check(circuit_builder));
+    EXPECT_TRUE(prove_and_verify(circuit_builder, evaluation_challenge_x, batching_challenge_v));
+    EXPECT_TRUE(prove_and_verify_short_monomial(circuit_builder, evaluation_challenge_x, batching_challenge_v));
 }
 
 /**

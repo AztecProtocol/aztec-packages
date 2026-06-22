@@ -337,35 +337,50 @@ function start_txes {
   # Until Kev's kzg lib stops using Tokio.
   export TOKIO_WORKER_THREADS=1
 
-  # Starting txe servers with incrementing port numbers.
-  # Base port is below the Linux ephemeral range (32768-60999) to avoid conflicts.
-  local txe_base_port=14730
-  for i in $(seq 0 $((NUM_TXES-1))); do
-    port=$((txe_base_port + i))
-    existing_pid=$(lsof -ti :$port || true)
+  kill_port() {
+    local port=$1
+    local existing_pid=$(lsof -ti :$port || true)
     if [ -n "$existing_pid" ]; then
       echo "Killing existing process $existing_pid on port: $port"
       check_port $port
       kill -9 $existing_pid &>/dev/null || true
       while kill -0 $existing_pid &>/dev/null; do sleep 0.1; done
     fi
+  }
+
+  # Starting txe servers with incrementing port numbers.
+  # Base port is below the Linux ephemeral range (32768-60999) to avoid conflicts.
+  local txe_base_port=14730
+  for i in $(seq 0 $((NUM_TXES-1))); do
+    port=$((txe_base_port + i))
+    kill_port $port
     dump_fail "LOG_LEVEL=info TXE_PORT=$port retry 'node --no-warnings ./yarn-project/txe/dest/bin/index.js'" &
     txe_pids+="$! "
   done
 
-  echo "Waiting for TXE's to start..."
+  # Start the oracle test resolver for __oracle_test__-prefixed tests.
+  local resolver_port=14830
+  kill_port $resolver_port
+  dump_fail "LOG_LEVEL=error ORACLE_TEST_PORT=$resolver_port node --no-warnings ./yarn-project/txe/dest/bin/oracle_test_server.js" &
+  txe_pids+="$! "
+
+  wait_for_port() {
+    local port=$1 name=$2 j=0
+    echo "Waiting for $name to start..."
+    while ! nc -z 127.0.0.1 $port &>/dev/null; do
+      if [ $j == 60 ]; then
+        echo_stderr "$name failed to start on port $port after 60s."
+        check_port $port
+        exit 1
+      fi
+      sleep 1
+      j=$((j+1))
+    done
+  }
   for i in $(seq 0 $((NUM_TXES-1))); do
-      local j=0
-      while ! nc -z 127.0.0.1 $((txe_base_port + i)) &>/dev/null; do
-        if [ $j == 60 ]; then
-          echo_stderr "TXE $i failed to start on port $((txe_base_port + i)) after 60s."
-          check_port $((txe_base_port + i))
-          exit 1
-        fi
-        sleep 1
-        j=$((j+1))
-      done
+    wait_for_port $((txe_base_port + i)) "TXE $i"
   done
+  wait_for_port $resolver_port "oracle test resolver"
 }
 
 function stop_txes {
@@ -420,6 +435,18 @@ function build_and_test {
       start_txes
       make noir-projects-txe-tests
 
+      # Benches (full builds only). Uploadable runs (BENCH_UPLOAD=1 — the first instance of
+      # a run) bench on a dedicated fixed-hardware box for stable numbers: launched here,
+      # logged like the test engine, waited on below, and the sole uploader. Everything
+      # else benches inline as ordinary tests — a breakage check only, no upload.
+      if [ "$1" == full ]; then
+        if [ "${BENCH_UPLOAD:-0}" == 1 ]; then
+          setsid color_prefix "bench" "denoise './ci.sh bench'" & bench_pid=$!
+        else
+          bench_cmds >> $test_cmds_file
+        fi
+      fi
+
       # Signal tests complete, handled by parallel -E STOP.
       echo STOP >> $test_cmds_file
     fi
@@ -431,6 +458,14 @@ function build_and_test {
   done
 
   stop_txes
+
+  # Benches (full builds only). Inline benches above are a breakage check only — the
+  # dedicated box is the sole uploader. Wait on it here: fatal, matching the old inline
+  # `bench`, since a benchmark that fails to build/run is a real breakage.
+  if [ "$1" == full ] && [ -n "${bench_pid:-}" ]; then
+    echo "Waiting for dedicated bench run..."
+    wait "$bench_pid"
+  fi
 
   return 0
 }
@@ -453,6 +488,16 @@ function bench_merge {
 
 }
 
+# Merge all component bench-out/*.bench.json into one and upload it to the
+# bench-<treehash> cache key, which the GA "Upload benchmarks" step then publishes.
+# Used both by `bench` (dedicated box) and by the inline benches-as-tests path.
+function bench_publish {
+  rm -rf bench-out
+  mkdir -p bench-out
+  bench_merge
+  cache_upload bench-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
+}
+
 function bench {
   # TODO bench for arm64.
   if [ $(arch) == arm64 ]; then
@@ -461,12 +506,7 @@ function bench {
   echo_header "bench all"
   bench_cmds > $bench_cmds_file
   denoise "bench_engine $bench_cmds_file"
-
-  rm -rf bench-out
-  mkdir -p bench-out
-  bench_merge
-  cache_upload bench-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
-
+  bench_publish
 }
 
 ### RELEASING ##########################################################################################################
@@ -521,6 +561,8 @@ function release {
 
   projects=(
     barretenberg/cpp
+    ipc-runtime
+    wsdb
     barretenberg/ts
     barretenberg/rust
     noir
@@ -735,13 +777,22 @@ case "$cmd" in
     export USE_TEST_CACHE=1
     export CI_FULL=1
     build_and_test full
-    bench
     ;;
   "ci-full-no-test-cache")
     export CI=1
     export USE_TEST_CACHE=0
     export CI_FULL=1
     build_and_test full
+    ;;
+  "ci-bench")
+    # Run on a dedicated, fixed, on-demand instance (launched by the build
+    # instance via './ci.sh bench') for stable benchmark numbers. The build is a
+    # near-instant cache pull, as the launching build instance already populated
+    # the cache for this commit. No test engine; bench uploads bench-<treehash>.
+    export CI=1
+    export CI_FULL=1
+    prep
+    make bench
     bench
     ;;
   "ci-chonk-input-update")

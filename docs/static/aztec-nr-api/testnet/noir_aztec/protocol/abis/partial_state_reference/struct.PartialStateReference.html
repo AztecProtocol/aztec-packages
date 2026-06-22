@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../../styles.css">
+<script defer src="../../../../nargo_doc.js"></script>
+<title>Struct PartialStateReference documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">PartialStateReference</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct PartialStateReference</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#structfield.note_hash_tree">note_hash_tree</a></li>
+<li><a href="#structfield.nullifier_tree">nullifier_tree</a></li>
+<li><a href="#structfield.public_data_tree">public_data_tree</a></li>
+</ul>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-Deserialize-for-PartialStateReference">Deserialize</a></li>
+<li><a href="#impl-Empty-for-PartialStateReference">Empty</a></li>
+<li><a href="#impl-Eq-for-PartialStateReference">Eq</a></li>
+<li><a href="#impl-Serialize-for-PartialStateReference">Serialize</a></li>
+</ul>
+<h2>In module partial_state_reference</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.PartialStateReference.html">PartialStateReference</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../../index.html">aztec-nr</a> - <a href="../../../index.html">noir_aztec</a>::<a href="../../index.html">protocol</a>::<a href="../index.html">abis</a>::<a href="index.html">partial_state_reference</a></div>
+<h1>Struct <span id="struct" class="struct">PartialStateReference</span></h1>
+<pre><code>pub struct PartialStateReference {
+    pub note_hash_tree: <a href="../../../../protocol_types/abis/append_only_tree_snapshot/struct.AppendOnlyTreeSnapshot.html" class="struct">AppendOnlyTreeSnapshot</a>,
+    pub nullifier_tree: <a href="../../../../protocol_types/abis/append_only_tree_snapshot/struct.AppendOnlyTreeSnapshot.html" class="struct">AppendOnlyTreeSnapshot</a>,
+    pub public_data_tree: <a href="../../../../protocol_types/abis/append_only_tree_snapshot/struct.AppendOnlyTreeSnapshot.html" class="struct">AppendOnlyTreeSnapshot</a>,
+}
+</code></pre>
+<div class="comments">
+<p>A subset of <code>TreeSnapshots</code> that contains only the trees updated at the tx level.
+TODO: Rename to <code>TxStateTreeSnapshots</code>.</p>
+</div>
+<h2>Fields</h2>
+<div id="structfield.note_hash_tree" class="struct-field"><code class="code-header">note_hash_tree: <a href="../../../../protocol_types/abis/append_only_tree_snapshot/struct.AppendOnlyTreeSnapshot.html" class="struct">AppendOnlyTreeSnapshot</a></code></div>
+<div class="padded-description"></div><div id="structfield.nullifier_tree" class="struct-field"><code class="code-header">nullifier_tree: <a href="../../../../protocol_types/abis/append_only_tree_snapshot/struct.AppendOnlyTreeSnapshot.html" class="struct">AppendOnlyTreeSnapshot</a></code></div>
+<div class="padded-description"></div><div id="structfield.public_data_tree" class="struct-field"><code class="code-header">public_data_tree: <a href="../../../../protocol_types/abis/append_only_tree_snapshot/struct.AppendOnlyTreeSnapshot.html" class="struct">AppendOnlyTreeSnapshot</a></code></div>
+<div class="padded-description"></div><h2>Trait implementations</h2>
+<h3 id="impl-Deserialize-for-PartialStateReference"><code class="code-header">impl <a href="../../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../../../protocol_types/abis/partial_state_reference/struct.PartialStateReference.html" class="struct">PartialStateReference</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(fields: [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; 6]) -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">stream_deserialize</span>&lt;let K: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(reader: &mut <a href="../../../../serde/reader/struct.Reader.html" class="struct">Reader</a>&lt;K&gt;) -> Self</code>
+
+</div><h3 id="impl-Empty-for-PartialStateReference"><code class="code-header">impl <a href="../../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../../../protocol_types/abis/partial_state_reference/struct.PartialStateReference.html" class="struct">PartialStateReference</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">empty</span>() -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">is_empty</span>(self: Self) -> <a href="../../../../std/primitive.bool.html" class="primitive">bool</a>
+<div class="where-clause">where
+    Self: <a href="../../../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
+
+<code class="code-header">pub fn <span class="fn">assert_empty</span>&lt;let S: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self: Self, msg: <a href="../../../../std/primitive.str.html" class="primitive">str</a>&lt;S&gt;)
+<div class="where-clause">where
+    Self: <a href="../../../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
+
+</div><h3 id="impl-Eq-for-PartialStateReference"><code class="code-header">impl <a href="../../../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../../../protocol_types/abis/partial_state_reference/struct.PartialStateReference.html" class="struct">PartialStateReference</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">eq</span>(_self: Self, _other: Self) -> <a href="../../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+</div><h3 id="impl-Serialize-for-PartialStateReference"><code class="code-header">impl <a href="../../../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../../../protocol_types/abis/partial_state_reference/struct.PartialStateReference.html" class="struct">PartialStateReference</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; 6]</code>
+
+<code class="code-header">pub fn <span class="fn">stream_serialize</span>&lt;let K: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, writer: &mut <a href="../../../../serde/writer/struct.Writer.html" class="struct">Writer</a>&lt;K&gt;)</code>
+
+</div></main>
+</span>
+</body>
+</html>

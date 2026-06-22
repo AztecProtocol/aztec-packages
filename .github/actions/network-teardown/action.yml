@@ -1,0 +1,52 @@
+name: "Spartan network teardown"
+description: >
+  Tear down a deployed Spartan network (delete any Chaos Mesh experiments and
+  the Kubernetes namespace) directly on the GitHub runner. This replaces the
+  EC2-backed `ci3.sh network-teardown` path for cleanup: teardown is pure
+  gcloud/kubectl work, so there is no need to provision a build instance.
+inputs:
+  env_file:
+    description: "Spartan environment file name (e.g. tps-scenario), used to source CLUSTER and GCP_REGION."
+    required: true
+  namespace:
+    description: "Kubernetes namespace to tear down."
+    required: true
+  gcp_sa_key:
+    description: "GCP service account key JSON (secrets.GCP_SA_KEY)."
+    required: true
+  gcp_project_id:
+    description: "GCP project id (secrets.GCP_PROJECT_ID)."
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Setup gcloud and install GKE auth plugin
+      uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v2.1.4
+      with:
+        install_components: "gke-gcloud-auth-plugin"
+
+    - name: Tear down network
+      shell: bash
+      env:
+        GCP_SA_KEY: ${{ inputs.gcp_sa_key }}
+        GCP_PROJECT_ID: ${{ inputs.gcp_project_id }}
+        NAMESPACE: ${{ inputs.namespace }}
+        ENV_FILE: ${{ inputs.env_file }}
+        GOOGLE_APPLICATION_CREDENTIALS: /tmp/gcp-key.json
+        CI: "1"
+      run: |
+        set -euo pipefail
+        # Store the GCP service account key for gcloud auth and the teardown.
+        set +x
+        umask 077
+        printf '%s' "$GCP_SA_KEY" > "$GOOGLE_APPLICATION_CREDENTIALS"
+        jq -e . "$GOOGLE_APPLICATION_CREDENTIALS" >/dev/null
+
+        cd "$(git rev-parse --show-toplevel)/spartan"
+        # Reuse the same env + auth + teardown scripts the EC2 path runs, but
+        # execute them directly on the runner instead of via bootstrap_ec2.
+        source ./scripts/source_env_basic.sh
+        source ./scripts/gcp_auth.sh
+        source_env_basic "$ENV_FILE"
+        gcp_auth
+        ./scripts/network_teardown.sh

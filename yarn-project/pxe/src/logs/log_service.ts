@@ -166,12 +166,17 @@ export class LogService {
     );
   }
 
-  public async fetchTaggedLogs(contractAddress: AztecAddress, recipient: AztecAddress): Promise<PendingTaggedLog[]> {
+  public async fetchTaggedLogs(
+    contractAddress: AztecAddress,
+    recipient: AztecAddress,
+    providedSecrets: AppTaggingSecret[],
+  ): Promise<PendingTaggedLog[]> {
     this.log.verbose(`Fetching tagged logs for ${contractAddress.toString()}`);
 
     const l2Tips = await this.l2TipsStore.getL2Tips();
-    // Get all secrets for this recipient (one per sender)
-    const secrets = await this.#getSecretsForSenders(contractAddress, recipient);
+    // The secrets PXE derives or stores internally, plus any the app supplies explicitly for secrets PXE cannot
+    // enumerate itself (e.g. handshake-derived ones).
+    const secrets = [...(await this.#getSecretsForSenders(contractAddress, recipient)), ...providedSecrets];
 
     const logs = await syncTaggedPrivateLogs(
       secrets,

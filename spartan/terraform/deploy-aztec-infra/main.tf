@@ -18,6 +18,10 @@ terraform {
       source  = "hashicorp/kubernetes"
       version = "~> 2.38.0"
     }
+    google = {
+      source  = "hashicorp/google"
+      version = "~> 5.0"
+    }
   }
 }
 
@@ -33,6 +37,11 @@ provider "helm" {
     config_path    = "~/.kube/config"
     config_context = var.K8S_CLUSTER_CONTEXT
   }
+}
+
+provider "google" {
+  project = var.GCP_PROJECT_ID
+  region  = var.GCP_REGION
 }
 
 module "web3signer" {
@@ -103,6 +112,27 @@ locals {
 
   # Detect local kind context (e.g., "kind-kind") to gate Service types
   is_kind = can(regex("^kind", var.K8S_CLUSTER_CONTEXT))
+
+  rpc_gateway_simple_consumers = {
+    for secret_name in var.RPC_GATEWAY_API_KEY_SECRET_NAMES : secret_name => {
+      username                       = secret_name
+      gcp_secret_manager_secret_name = secret_name
+      rate_limit_minute              = 0
+    }
+  }
+
+  rpc_gateway_consumers = merge(local.rpc_gateway_simple_consumers, var.RPC_GATEWAY_CONSUMERS)
+
+  rpc_gateway_routes = {
+    canonical = {
+      hosts                       = var.RPC_GATEWAY_HOSTS
+      route_namespace             = var.NAMESPACE
+      upstream_service_name       = "${var.RELEASE_PREFIX}-rpc-aztec-node"
+      upstream_service_port       = 8080
+      auth_mode                   = var.RPC_GATEWAY_ALLOW_ANONYMOUS ? "keyed_with_anonymous" : "keyed_only"
+      anonymous_rate_limit_minute = var.RPC_GATEWAY_ANONYMOUS_RATE_LIMIT_MINUTE
+    }
+  }
 
   internal_boot_node_url = var.DEPLOY_INTERNAL_BOOTNODE ? "http://${var.RELEASE_PREFIX}-p2p-bootstrap-node.${var.NAMESPACE}.svc.cluster.local:8080" : ""
 
@@ -179,65 +209,67 @@ locals {
   }
 
   validator_common_settings = {
-    "validator.service.p2p.nodePortEnabled"                       = var.P2P_NODEPORT_ENABLED
-    "validator.web3signerUrl"                                     = "http://${var.RELEASE_PREFIX}-signer-web3signer.${var.NAMESPACE}.svc.cluster.local:9000/"
-    "validator.mnemonic"                                          = var.VALIDATOR_MNEMONIC
-    "validator.mnemonicStartIndex"                                = var.VALIDATOR_MNEMONIC_START_INDEX
-    "validator.validatorsPerNode"                                 = var.VALIDATORS_PER_NODE
-    "validator.publishersPerReplica"                              = var.VALIDATOR_PUBLISHERS_PER_REPLICA
-    "validator.publisherMnemonicStartIndex"                       = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX
-    "validator.sentinel.enabled"                                  = var.SENTINEL_ENABLED
-    "validator.slash.inactivityTargetPercentage"                  = var.SLASH_INACTIVITY_TARGET_PERCENTAGE
-    "validator.slash.inactivityPenalty"                           = var.SLASH_INACTIVITY_PENALTY
-    "validator.slash.dataWithholdingPenalty"                      = var.SLASH_DATA_WITHHOLDING_PENALTY
-    "validator.slash.dataWithholdingToleranceSlots"               = var.SLASH_DATA_WITHHOLDING_TOLERANCE_SLOTS
-    "validator.slash.proposeInvalidAttestationsPenalty"           = var.SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY
-    "validator.slash.duplicateProposalPenalty"                    = var.SLASH_DUPLICATE_PROPOSAL_PENALTY
-    "validator.slash.duplicateAttestationPenalty"                 = var.SLASH_DUPLICATE_ATTESTATION_PENALTY
-    "validator.slash.proposeDescendantOfCheckpointWithInvalidAttestationsPenalty"           = var.SLASH_PROPOSE_DESCENDANT_OF_CHECKPOINT_WITH_INVALID_ATTESTATIONS_PENALTY
-    "validator.slash.attestInvalidCheckpointProposalPenalty"       = var.SLASH_ATTEST_INVALID_CHECKPOINT_PROPOSAL_PENALTY
-    "validator.slash.unknownPenalty"                              = var.SLASH_UNKNOWN_PENALTY
-    "validator.slash.invalidBlockPenalty"                         = var.SLASH_INVALID_BLOCK_PENALTY
-    "validator.slash.invalidCheckpointProposalPenalty"            = var.SLASH_INVALID_CHECKPOINT_PROPOSAL_PENALTY
-    "validator.slash.offenseExpirationRounds"                     = var.SLASH_OFFENSE_EXPIRATION_ROUNDS
-    "validator.slash.maxPayloadSize"                              = var.SLASH_MAX_PAYLOAD_SIZE
-    "validator.node.env.TRANSACTIONS_DISABLED"                    = var.TRANSACTIONS_DISABLED
-    "validator.node.env.DEBUG_FORCE_TX_PROOF_VERIFICATION"        = var.DEBUG_FORCE_TX_PROOF_VERIFICATION
-    "validator.node.env.KEY_INDEX_START"                          = var.VALIDATOR_MNEMONIC_START_INDEX
-    "validator.node.env.PUBLISHER_KEY_INDEX_START"                = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX
-    "validator.node.env.VALIDATORS_PER_NODE"                      = var.VALIDATORS_PER_NODE
-    "validator.node.env.VALIDATOR_PUBLISHERS_PER_REPLICA"         = var.VALIDATOR_PUBLISHERS_PER_REPLICA
-    "validator.node.proverRealProofs"                             = var.PROVER_REAL_PROOFS
-    "validator.node.env.SEQ_MIN_TX_PER_BLOCK"                     = var.SEQ_MIN_TX_PER_BLOCK
-    "validator.node.env.SEQ_MAX_TX_PER_BLOCK"                     = var.SEQ_MAX_TX_PER_BLOCK
-    "validator.node.env.SEQ_MAX_TX_PER_CHECKPOINT"                = var.SEQ_MAX_TX_PER_CHECKPOINT
-    "validator.node.env.P2P_MAX_PENDING_TX_COUNT"                 = var.P2P_MAX_PENDING_TX_COUNT
-    "validator.node.env.SEQ_PER_BLOCK_ALLOCATION_MULTIPLIER"      = var.SEQ_PER_BLOCK_ALLOCATION_MULTIPLIER
-    "validator.node.env.SEQ_BLOCK_DURATION_MS"                    = var.SEQ_BLOCK_DURATION_MS
-    "validator.node.env.SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT" = var.SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT
-    "validator.node.env.SEQ_BUILD_CHECKPOINT_IF_EMPTY"            = var.SEQ_BUILD_CHECKPOINT_IF_EMPTY
-    "validator.node.env.AZTEC_EPOCHS_LAG"                         = var.AZTEC_EPOCHS_LAG
-    "validator.node.env.SEQ_ENFORCE_TIME_TABLE"                   = var.SEQ_ENFORCE_TIME_TABLE
-    "validator.node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG"       = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
-    "validator.node.env.L1_PRIORITY_FEE_BUMP_PERCENTAGE"          = var.VALIDATOR_L1_PRIORITY_FEE_BUMP_PERCENTAGE
-    "validator.node.env.L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE"    = var.VALIDATOR_L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE
-    "validator.node.env.BLOB_ALLOW_EMPTY_SOURCES"                 = var.BLOB_ALLOW_EMPTY_SOURCES
-    "validator.node.env.PROVER_TEST_VERIFICATION_DELAY_MS"        = var.PROVER_TEST_VERIFICATION_DELAY_MS
-    "validator.node.env.BB_CHONK_VERIFY_MAX_BATCH"                = var.BB_CHONK_VERIFY_MAX_BATCH
-    "validator.node.env.BB_CHONK_VERIFY_BATCH_CONCURRENCY"        = var.BB_CHONK_VERIFY_BATCH_CONCURRENCY
-    "validator.node.env.DEBUG_P2P_INSTRUMENT_MESSAGES"            = var.DEBUG_P2P_INSTRUMENT_MESSAGES
-    "validator.node.secret.envEnabled"                            = true
-    "validator.node.secret.mnemonic"                              = var.VALIDATOR_MNEMONIC
-    "validator.node.secret.mnemonicIndex"                         = var.VALIDATOR_MNEMONIC_START_INDEX
-    "validator.node.env.P2P_GOSSIPSUB_D"                          = var.P2P_GOSSIPSUB_D
-    "validator.node.env.P2P_GOSSIPSUB_DLO"                        = var.P2P_GOSSIPSUB_DLO
-    "validator.node.env.P2P_GOSSIPSUB_DHI"                        = var.P2P_GOSSIPSUB_DHI
-    "validator.node.env.P2P_DROP_TX_CHANCE"                       = var.P2P_DROP_TX_CHANCE
-    "validator.node.env.WS_NUM_HISTORIC_CHECKPOINTS"              = var.WS_NUM_HISTORIC_CHECKPOINTS
-    "validator.node.env.TX_COLLECTION_FILE_STORE_URLS"            = var.TX_COLLECTION_FILE_STORE_URLS
-    "validator.node.env.SEQ_SKIP_CHECKPOINT_PUBLISH_PERCENT"      = var.SEQ_SKIP_CHECKPOINT_PUBLISH_PERCENT
-    "validator.node.env.L1_TX_FAILED_STORE"                       = var.L1_TX_FAILED_STORE
-    "validator.node.adminApiKeyHash"                              = var.ADMIN_API_KEY_HASH
+    "validator.service.p2p.nodePortEnabled"                                       = var.P2P_NODEPORT_ENABLED
+    "validator.service.p2p.hostPortEnabled"                                       = var.P2P_HOSTPORT_ENABLED
+    "validator.web3signerUrl"                                                     = "http://${var.RELEASE_PREFIX}-signer-web3signer.${var.NAMESPACE}.svc.cluster.local:9000/"
+    "validator.mnemonic"                                                          = var.VALIDATOR_MNEMONIC
+    "validator.mnemonicStartIndex"                                                = var.VALIDATOR_MNEMONIC_START_INDEX
+    "validator.validatorsPerNode"                                                 = var.VALIDATORS_PER_NODE
+    "validator.publishersPerReplica"                                              = var.VALIDATOR_PUBLISHERS_PER_REPLICA
+    "validator.publisherMnemonicStartIndex"                                       = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX
+    "validator.node.env.COINBASE"                                                 = var.VALIDATOR_COINBASE
+    "validator.sentinel.enabled"                                                  = var.SENTINEL_ENABLED
+    "validator.slash.inactivityTargetPercentage"                                  = var.SLASH_INACTIVITY_TARGET_PERCENTAGE
+    "validator.slash.inactivityPenalty"                                           = var.SLASH_INACTIVITY_PENALTY
+    "validator.slash.dataWithholdingPenalty"                                      = var.SLASH_DATA_WITHHOLDING_PENALTY
+    "validator.slash.dataWithholdingToleranceSlots"                               = var.SLASH_DATA_WITHHOLDING_TOLERANCE_SLOTS
+    "validator.slash.proposeInvalidAttestationsPenalty"                           = var.SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY
+    "validator.slash.duplicateProposalPenalty"                                    = var.SLASH_DUPLICATE_PROPOSAL_PENALTY
+    "validator.slash.duplicateAttestationPenalty"                                 = var.SLASH_DUPLICATE_ATTESTATION_PENALTY
+    "validator.slash.proposeDescendantOfCheckpointWithInvalidAttestationsPenalty" = var.SLASH_PROPOSE_DESCENDANT_OF_CHECKPOINT_WITH_INVALID_ATTESTATIONS_PENALTY
+    "validator.slash.attestInvalidCheckpointProposalPenalty"                      = var.SLASH_ATTEST_INVALID_CHECKPOINT_PROPOSAL_PENALTY
+    "validator.slash.unknownPenalty"                                              = var.SLASH_UNKNOWN_PENALTY
+    "validator.slash.invalidBlockPenalty"                                         = var.SLASH_INVALID_BLOCK_PENALTY
+    "validator.slash.invalidCheckpointProposalPenalty"                            = var.SLASH_INVALID_CHECKPOINT_PROPOSAL_PENALTY
+    "validator.slash.offenseExpirationRounds"                                     = var.SLASH_OFFENSE_EXPIRATION_ROUNDS
+    "validator.slash.maxPayloadSize"                                              = var.SLASH_MAX_PAYLOAD_SIZE
+    "validator.node.env.TRANSACTIONS_DISABLED"                                    = var.TRANSACTIONS_DISABLED
+    "validator.node.env.DEBUG_FORCE_TX_PROOF_VERIFICATION"                        = var.DEBUG_FORCE_TX_PROOF_VERIFICATION
+    "validator.node.env.KEY_INDEX_START"                                          = var.VALIDATOR_MNEMONIC_START_INDEX
+    "validator.node.env.PUBLISHER_KEY_INDEX_START"                                = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX
+    "validator.node.env.VALIDATORS_PER_NODE"                                      = var.VALIDATORS_PER_NODE
+    "validator.node.env.VALIDATOR_PUBLISHERS_PER_REPLICA"                         = var.VALIDATOR_PUBLISHERS_PER_REPLICA
+    "validator.node.proverRealProofs"                                             = var.PROVER_REAL_PROOFS
+    "validator.node.env.SEQ_MIN_TX_PER_BLOCK"                                     = var.SEQ_MIN_TX_PER_BLOCK
+    "validator.node.env.SEQ_MAX_TX_PER_BLOCK"                                     = var.SEQ_MAX_TX_PER_BLOCK
+    "validator.node.env.SEQ_MAX_TX_PER_CHECKPOINT"                                = var.SEQ_MAX_TX_PER_CHECKPOINT
+    "validator.node.env.P2P_MAX_PENDING_TX_COUNT"                                 = var.P2P_MAX_PENDING_TX_COUNT
+    "validator.node.env.SEQ_PER_BLOCK_ALLOCATION_MULTIPLIER"                      = var.SEQ_PER_BLOCK_ALLOCATION_MULTIPLIER
+    "validator.node.env.SEQ_BLOCK_DURATION_MS"                                    = var.SEQ_BLOCK_DURATION_MS
+    "validator.node.env.SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT"                 = var.SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT
+    "validator.node.env.SEQ_BUILD_CHECKPOINT_IF_EMPTY"                            = var.SEQ_BUILD_CHECKPOINT_IF_EMPTY
+    "validator.node.env.AZTEC_EPOCHS_LAG"                                         = var.AZTEC_EPOCHS_LAG
+    "validator.node.env.SEQ_ENFORCE_TIME_TABLE"                                   = var.SEQ_ENFORCE_TIME_TABLE
+    "validator.node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG"                       = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
+    "validator.node.env.L1_PRIORITY_FEE_BUMP_PERCENTAGE"                          = var.VALIDATOR_L1_PRIORITY_FEE_BUMP_PERCENTAGE
+    "validator.node.env.L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE"                    = var.VALIDATOR_L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE
+    "validator.node.env.BLOB_ALLOW_EMPTY_SOURCES"                                 = var.BLOB_ALLOW_EMPTY_SOURCES
+    "validator.node.env.PROVER_TEST_VERIFICATION_DELAY_MS"                        = var.PROVER_TEST_VERIFICATION_DELAY_MS
+    "validator.node.env.BB_CHONK_VERIFY_MAX_BATCH"                                = var.BB_CHONK_VERIFY_MAX_BATCH
+    "validator.node.env.BB_CHONK_VERIFY_BATCH_CONCURRENCY"                        = var.BB_CHONK_VERIFY_BATCH_CONCURRENCY
+    "validator.node.env.DEBUG_P2P_INSTRUMENT_MESSAGES"                            = var.DEBUG_P2P_INSTRUMENT_MESSAGES
+    "validator.node.secret.envEnabled"                                            = true
+    "validator.node.secret.mnemonic"                                              = var.VALIDATOR_MNEMONIC
+    "validator.node.secret.mnemonicIndex"                                         = var.VALIDATOR_MNEMONIC_START_INDEX
+    "validator.node.env.P2P_GOSSIPSUB_D"                                          = var.P2P_GOSSIPSUB_D
+    "validator.node.env.P2P_GOSSIPSUB_DLO"                                        = var.P2P_GOSSIPSUB_DLO
+    "validator.node.env.P2P_GOSSIPSUB_DHI"                                        = var.P2P_GOSSIPSUB_DHI
+    "validator.node.env.P2P_DROP_TX_CHANCE"                                       = var.P2P_DROP_TX_CHANCE
+    "validator.node.env.WS_NUM_HISTORIC_CHECKPOINTS"                              = var.WS_NUM_HISTORIC_CHECKPOINTS
+    "validator.node.env.TX_COLLECTION_FILE_STORE_URLS"                            = var.TX_COLLECTION_FILE_STORE_URLS
+    "validator.node.env.SEQ_SKIP_CHECKPOINT_PUBLISH_PERCENT"                      = var.SEQ_SKIP_CHECKPOINT_PUBLISH_PERCENT
+    "validator.node.env.L1_TX_FAILED_STORE"                                       = var.L1_TX_FAILED_STORE
+    "validator.node.adminApiKeyHash"                                              = var.ADMIN_API_KEY_HASH
   }
 
   # Note: nonsensitive() is required here because helm_releases is used in for_each,
@@ -309,6 +341,7 @@ locals {
       custom_settings = {
         "nodeType"                          = "p2p-bootstrap"
         "service.p2p.nodePortEnabled"       = var.P2P_NODEPORT_ENABLED
+        "service.p2p.hostPortEnabled"       = var.P2P_HOSTPORT_ENABLED
         "service.p2p.announcePort"          = local.p2p_port_p2p_bootstrap
         "service.p2p.port"                  = local.p2p_port_p2p_bootstrap
         "node.env.P2P_MAX_PENDING_TX_COUNT" = var.P2P_MAX_PENDING_TX_COUNT
@@ -412,6 +445,7 @@ locals {
           "node.node.env.WS_NUM_HISTORIC_CHECKPOINTS"           = var.WS_NUM_HISTORIC_CHECKPOINTS
           "node.node.env.TX_COLLECTION_FILE_STORE_URLS"         = var.TX_COLLECTION_FILE_STORE_URLS
           "node.service.p2p.nodePortEnabled"                    = var.P2P_NODEPORT_ENABLED
+          "node.service.p2p.hostPortEnabled"                    = var.P2P_HOSTPORT_ENABLED
           "node.service.p2p.announcePort"                       = local.p2p_port_prover
           "node.service.p2p.port"                               = local.p2p_port_prover
         },
@@ -433,30 +467,7 @@ locals {
         "rpc.yaml",
         "rpc-resources-${var.RPC_RESOURCE_PROFILE}.yaml"
       ]
-      inline_values = concat(var.RPC_INGRESS_ENABLED ? [yamlencode({
-        service = {
-          p2p = { publicIP = var.P2P_PUBLIC_IP }
-          rpc = {
-            annotations = {
-              "cloud.google.com/neg" = jsonencode({ ingress = true })
-              "cloud.google.com/backend-config" = jsonencode({
-                default = "${var.RELEASE_PREFIX}-rpc-ingress-backend"
-              })
-            }
-          }
-        }
-        ingress = {
-          rpc = {
-            hosts = var.RPC_INGRESS_HOSTS
-            annotations = {
-              "kubernetes.io/ingress.class"                 = "gce"
-              "kubernetes.io/ingress.global-static-ip-name" = var.RPC_INGRESS_STATIC_IP_NAME
-              "ingress.gcp.kubernetes.io/pre-shared-cert"   = join(",", var.RPC_INGRESS_SSL_CERT_NAMES)
-              "kubernetes.io/ingress.allow-http"            = "false"
-            }
-          }
-        }
-        })] : [yamlencode({
+      inline_values = [yamlencode({
         service = {
           p2p = { publicIP = var.P2P_PUBLIC_IP }
           rpc = {
@@ -464,17 +475,17 @@ locals {
             type    = local.is_kind ? "ClusterIP" : "LoadBalancer"
           }
         }
-      })])
+      })]
 
       custom_settings = merge({
         "replicaCount"                = var.RPC_REPLICAS
         "service.p2p.nodePortEnabled" = var.P2P_NODEPORT_ENABLED
+        "service.p2p.hostPortEnabled" = var.P2P_HOSTPORT_ENABLED
         "service.p2p.announcePort"    = local.p2p_port_rpc
         "service.p2p.port"            = local.p2p_port_rpc
 
         # Ensure the JSON-RPC server binds the same port the probe checks
         "node.proverRealProofs"                       = var.PROVER_REAL_PROOFS
-        "ingress.rpc.enabled"                         = var.RPC_INGRESS_ENABLED
         "node.env.AWS_ACCESS_KEY_ID"                  = var.R2_ACCESS_KEY_ID
         "node.env.AWS_SECRET_ACCESS_KEY"              = var.R2_SECRET_ACCESS_KEY
         "node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG" = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
@@ -519,6 +530,7 @@ locals {
       custom_settings = {
         "replicaCount"                                = var.FISHERMAN_REPLICAS
         "service.p2p.nodePortEnabled"                 = var.P2P_NODEPORT_ENABLED
+        "service.p2p.hostPortEnabled"                 = var.P2P_HOSTPORT_ENABLED
         "service.p2p.announcePort"                    = local.p2p_port_fisherman
         "service.p2p.port"                            = local.p2p_port_fisherman
         "node.proverRealProofs"                       = var.PROVER_REAL_PROOFS
@@ -557,6 +569,7 @@ locals {
         "nodeType"                                    = "full-node"
         "replicaCount"                                = var.FULL_NODE_REPLICAS
         "service.p2p.nodePortEnabled"                 = var.P2P_NODEPORT_ENABLED
+        "service.p2p.hostPortEnabled"                 = var.P2P_HOSTPORT_ENABLED
         "service.p2p.announcePort"                    = local.p2p_port_full_node
         "service.p2p.port"                            = local.p2p_port_full_node
         "node.proverRealProofs"                       = var.PROVER_REAL_PROOFS
@@ -717,45 +730,52 @@ resource "helm_release" "releases" {
   }
 }
 
-resource "kubernetes_manifest" "rpc_ingress_backend" {
-  count    = var.RPC_INGRESS_ENABLED ? 1 : 0
-  provider = kubernetes.gke-cluster
+module "rpc_gateway" {
+  count = var.RPC_GATEWAY_ENABLED ? 1 : 0
 
-  manifest = {
-    apiVersion = "cloud.google.com/v1"
-    kind       = "BackendConfig"
-    metadata = {
-      name      = "${var.RELEASE_PREFIX}-rpc-ingress-backend"
-      namespace = var.NAMESPACE
-    }
-    spec = merge(
-      {
-        healthCheck = {
-          checkIntervalSec   = 15
-          timeoutSec         = 5
-          healthyThreshold   = 2
-          unhealthyThreshold = 2
-          type               = "HTTP"
-          port               = 8080
-          requestPath        = "/status"
-        }
-      },
-      var.RPC_CLOUD_ARMOR_POLICY_NAME != "" ? {
-        securityPolicy = {
-          name = var.RPC_CLOUD_ARMOR_POLICY_NAME
-        }
-      } : {},
-      var.RPC_INGRESS_SESSION_AFFINITY != "" ? {
-        sessionAffinity = {
-          affinityType = var.RPC_INGRESS_SESSION_AFFINITY
-        }
-      } : {},
-      var.RPC_INGRESS_LOG_SAMPLE_RATE != null ? {
-        logging = {
-          enable     = true
-          sampleRate = var.RPC_INGRESS_LOG_SAMPLE_RATE
-        }
-      } : {}
-    )
+  source = "../modules/rpc-gateway"
+
+  providers = {
+    helm       = helm.gke-cluster
+    kubernetes = kubernetes.gke-cluster
+    google     = google
   }
+
+  RELEASE_PREFIX     = var.RELEASE_PREFIX
+  CONSUMER_NAMESPACE = var.NAMESPACE
+
+  KONG_NAMESPACE                                   = var.RPC_GATEWAY_KONG_NAMESPACE != "" ? var.RPC_GATEWAY_KONG_NAMESPACE : var.NAMESPACE
+  KONG_HELM_RELEASE_NAME                           = var.RPC_GATEWAY_KONG_HELM_RELEASE_NAME
+  KONG_HELM_CHART_VERSION                          = var.RPC_GATEWAY_KONG_HELM_CHART_VERSION
+  KONG_INGRESS_CLASS                               = var.RPC_GATEWAY_KONG_INGRESS_CLASS
+  KONG_PROXY_SERVICE_TYPE                          = var.RPC_GATEWAY_KONG_PROXY_SERVICE_TYPE
+  KONG_PROXY_SERVICE_ANNOTATIONS                   = var.RPC_GATEWAY_KONG_PROXY_SERVICE_ANNOTATIONS
+  KONG_EXTRA_HELM_VALUES                           = var.RPC_GATEWAY_KONG_EXTRA_HELM_VALUES
+  KONG_SERVICE_MONITOR_ENABLED                     = var.RPC_GATEWAY_KONG_SERVICE_MONITOR_ENABLED
+  KONG_METRICS_SERVICE_ENABLED                     = var.RPC_GATEWAY_KONG_METRICS_SERVICE_ENABLED
+  KONG_METRICS_SERVICE_NAME                        = var.RPC_GATEWAY_KONG_METRICS_SERVICE_NAME
+  KONG_METRICS_SERVICE_TYPE                        = var.RPC_GATEWAY_KONG_METRICS_SERVICE_TYPE
+  KONG_METRICS_SERVICE_ANNOTATIONS                 = var.RPC_GATEWAY_KONG_METRICS_SERVICE_ANNOTATIONS
+  KONG_METRICS_SERVICE_LOAD_BALANCER_IP            = var.RPC_GATEWAY_KONG_METRICS_SERVICE_LOAD_BALANCER_IP
+  KONG_METRICS_SERVICE_LOAD_BALANCER_SOURCE_RANGES = var.RPC_GATEWAY_KONG_METRICS_SERVICE_LOAD_BALANCER_SOURCE_RANGES
+  KONG_METRICS_SERVICE_EXTERNAL_TRAFFIC_POLICY     = var.RPC_GATEWAY_KONG_METRICS_SERVICE_EXTERNAL_TRAFFIC_POLICY
+  KONG_OTEL_METRICS_GCP_SECRET_NAME                = var.RPC_GATEWAY_KONG_OTEL_METRICS_GCP_SECRET_NAME
+
+  API_KEY_HEADER_NAME              = var.RPC_GATEWAY_API_KEY_HEADER_NAME
+  ROUTES                           = local.rpc_gateway_routes
+  CONSUMERS                        = local.rpc_gateway_consumers
+  EXTERNAL_SECRET_STORE_NAME       = var.RPC_GATEWAY_EXTERNAL_SECRET_STORE_NAME
+  EXTERNAL_SECRET_STORE_KIND       = var.RPC_GATEWAY_EXTERNAL_SECRET_STORE_KIND
+  EXTERNAL_SECRET_REFRESH_INTERVAL = var.RPC_GATEWAY_EXTERNAL_SECRET_REFRESH_INTERVAL
+
+  CREATE_DNS                      = var.RPC_GATEWAY_CREATE_DNS
+  DNS_ZONE_NAME                   = var.RPC_GATEWAY_DNS_ZONE_NAME
+  DNS_TTL                         = var.RPC_GATEWAY_DNS_TTL
+  FRONTEND_ENABLED                = var.RPC_GATEWAY_FRONTEND_ENABLED
+  FRONTEND_STATIC_IP_ENABLED      = var.RPC_GATEWAY_FRONTEND_STATIC_IP_ENABLED
+  FRONTEND_STATIC_IP_NAME         = var.RPC_GATEWAY_FRONTEND_STATIC_IP_NAME
+  FRONTEND_ALLOW_HTTP             = var.RPC_GATEWAY_FRONTEND_ALLOW_HTTP
+  GCP_MANAGED_CERTIFICATE_ENABLED = var.RPC_GATEWAY_GCP_MANAGED_CERTIFICATE_ENABLED
+
+  depends_on = [helm_release.releases]
 }

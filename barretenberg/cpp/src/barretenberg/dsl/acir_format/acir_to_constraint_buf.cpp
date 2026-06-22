@@ -301,12 +301,14 @@ T deserialize_msgpack_compact(std::vector<uint8_t>&& buf, std::function<T(msgpac
 {
     BB_ASSERT(!buf.empty(), "deserialize_msgpack_compact: buffer is empty");
 
-    // Expect format marker for msgpack or msgpack-compact
+    // Expect format marker for msgpack, msgpack-compact or msgpack-tagged
     const uint8_t FORMAT_MSGPACK = 2;
     const uint8_t FORMAT_MSGPACK_COMPACT = 3;
+    const uint8_t FORMAT_MSGPACK_TAGGED = 4;
     uint8_t format_u8 = buf[0];
-    BB_ASSERT(format_u8 == FORMAT_MSGPACK || format_u8 == FORMAT_MSGPACK_COMPACT,
-              "deserialize_msgpack_compact: expected msgpack format marker (2 or 3), got " + std::to_string(format_u8));
+    BB_ASSERT(format_u8 == FORMAT_MSGPACK || format_u8 == FORMAT_MSGPACK_COMPACT || format_u8 == FORMAT_MSGPACK_TAGGED,
+              "deserialize_msgpack_compact: expected msgpack format marker (2, 3 or 4), got " +
+                  std::to_string(format_u8));
 
     // Skip the format marker to get the data.
     const char* buffer = &reinterpret_cast<const char*>(buf.data())[1];
@@ -316,8 +318,10 @@ T deserialize_msgpack_compact(std::vector<uint8_t>&& buf, std::function<T(msgpac
     auto o = oh.get();
 
     // Expect ARRAY type for msgpack-compact format
-    BB_ASSERT(o.type == msgpack::type::ARRAY,
-              "deserialize_msgpack_compact: expected ARRAY type, got " + std::to_string(o.type));
+    if (format_u8 == FORMAT_MSGPACK_COMPACT) {
+        BB_ASSERT(o.type == msgpack::type::ARRAY,
+                  "deserialize_msgpack_compact: expected ARRAY type, got " + std::to_string(o.type));
+    }
 
     return decode_msgpack(o);
 }
