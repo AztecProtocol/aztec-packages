@@ -218,11 +218,6 @@ describe('cross-PXE constrained delivery', () => {
     // PXE B simulates both the app contract and the registry while discovering, so it must know both.
     await ensureHandshakeRegistryPublished(walletB, recipient);
     await walletB.registerContract(instance, ConstrainedDeliveryTestContract.artifact);
-
-    // The sender needs the recipient's keys to bootstrap the non-interactive handshake. Discovery on PXE B is
-    // registry-based (it reads the HandshakeRegistry with the recipient's own keys), so PXE B intentionally does
-    // not register `sender`.
-    await walletA.registerSender(recipient);
   });
 
   afterAll(async () => {
