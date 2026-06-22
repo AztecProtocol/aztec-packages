@@ -38,8 +38,7 @@ type StagedOp = { kind: 'recordFact'; fact: StoredFact } | { kind: 'deleteFactCo
  * Non-retractable facts survive reorgs; they must then be explicitly deleted, so as not to keep consuming resources
  * (storage and compute) indefinitely.
  *
- * Scope is part of a collection's identity (encoded in its key): a given (contract, type, id) yields a distinct
- * collection per scope. Reads target one scope, carried inside the key.
+ * Fact collections are isolated by scope.
  *
  * This store is designed to enable Aztec.nr to implement complex workflows such as offchain reception or partial note
  * processing by storing structured data that is guaranteed to exist conditionally to specific blocks being included in
