@@ -486,6 +486,10 @@ export class Profiler {
   private used = 0;
   private labels: string[] = [];
   private kinds: ProfileEntryKind[] = [];
+  // Optional grouping key per stage (e.g. a sumcheck round index). When set,
+  // `report()` also emits one `round_span` region per group: the span of that
+  // group's stages, the trustworthy per-group GPU wall (vs overlap-inflated sums).
+  private groups: (number | undefined)[] = [];
 
   constructor(device: GPUDevice, capacity = 64) {
     this.capacity = capacity;
@@ -510,7 +514,7 @@ export class Profiler {
     return this.enabled;
   }
 
-  stage(label: string): GPUComputePassTimestampWrites | undefined {
+  stage(label: string, group?: number): GPUComputePassTimestampWrites | undefined {
     if (!this.enabled || this.querySet === null) return undefined;
     if (this.used >= this.capacity) {
       console.warn(`Profiler capacity ${this.capacity} exceeded; skipping "${label}"`);
@@ -520,6 +524,7 @@ export class Profiler {
     const endIndex = beginIndex + 1;
     this.labels.push(label);
     this.kinds.push('stage');
+    this.groups.push(group);
     this.used += 1;
     return {
       querySet: this.querySet,
@@ -544,7 +549,7 @@ export class Profiler {
     commandEncoder.copyBufferToBuffer(this.resolveBuffer, 0, this.readBuffer, 0, this.used * 2 * 8);
   }
 
-  async report(): Promise<{ label: string; ms: number; kind: ProfileEntryKind }[] | null> {
+  async report(): Promise<{ label: string; ms: number; kind: ProfileEntryKind; group?: number }[] | null> {
     if (!this.enabled || this.readBuffer === null || this.used === 0) {
       return null;
     }
@@ -553,7 +558,11 @@ export class Profiler {
     const raw = this.readBuffer.getMappedRange(0, byteCount).slice(0);
     this.readBuffer.unmap();
     const data = new BigUint64Array(raw);
-    const out: { label: string; ms: number; kind: ProfileEntryKind }[] = [];
+    const out: { label: string; ms: number; kind: ProfileEntryKind; group?: number }[] = [];
+    // Per-group begin/end, for the trustworthy per-group span (a group's stages
+    // serialize, so summing their durations overlap-inflates; min-begin..max-end does not).
+    const groupMin = new Map<number, bigint>();
+    const groupMax = new Map<number, bigint>();
     // Derive the encoder-wide span from the raw timestamps as we go:
     // min(begin_ts) over all stages = GPU time the first stage started;
     // max(end_ts) = GPU time the last stage ended. Their difference is
@@ -570,12 +579,23 @@ export class Profiler {
       const e = data[i * 2 + 1];
       if (minBegin === null || b < minBegin) minBegin = b;
       if (maxEnd === null || e > maxEnd) maxEnd = e;
+      const g = this.groups[i];
+      if (g !== undefined) {
+        const gb = groupMin.get(g);
+        if (gb === undefined || b < gb) groupMin.set(g, b);
+        const ge = groupMax.get(g);
+        if (ge === undefined || e > ge) groupMax.set(g, e);
+      }
       const ns = Number(e - b);
-      out.push({ label: this.labels[i], ms: ns / 1e6, kind: this.kinds[i] });
+      out.push({ label: this.labels[i], ms: ns / 1e6, kind: this.kinds[i], group: g });
     }
     if (minBegin !== null && maxEnd !== null) {
       const spanNs = Number(maxEnd - minBegin);
       out.push({ label: 'encoder_all', ms: spanNs / 1e6, kind: 'region' });
+    }
+    for (const g of [...groupMin.keys()].sort((a, b) => a - b)) {
+      const spanNs = Number(groupMax.get(g)! - groupMin.get(g)!);
+      out.push({ label: 'round_span', ms: spanNs / 1e6, kind: 'region', group: g });
     }
     return out;
   }

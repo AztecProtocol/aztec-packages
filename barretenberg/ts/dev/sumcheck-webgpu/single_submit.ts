@@ -67,10 +67,35 @@ export interface SingleSubmitResult {
   setupMs: number; // one-time host precompute (schedule, matrices, constants, uploads)
   // Per-kernel GPU timing across ALL rounds (only when `profile` is set and the
   // device has timestamp-query): one entry per dispatch labelled by kernel type
-  // (accumulate/reduce/batch/transcript/fold), plus an `encoder_all` region whose
-  // ms is the full GPU span (first pass begin -> last pass end, barriers included).
-  profile: { label: string; ms: number }[] | null;
+  // (accumulate/reduce/batch/transcript/fold) and tagged with its `group` (round
+  // index), plus an `encoder_all` region (full GPU span) and one `round_span` region
+  // per round whose ms is that round's GPU wall (barriers included).
+  profile: { label: string; ms: number; group?: number }[] | null;
+  // Set only on an `accOnly` run (accumulate-stage isolation profile): the WALL of the
+  // accumulate-only command buffer (gather + accumulate + reduce [+ fold]) timed by
+  // `onSubmittedWorkDone`, vs the SUM of the per-kernel timestamps for the same buffer.
+  // Their ratio is the overlap-inflation factor that makes the single-submit profile's
+  // summed `accumulate` label over-report the true accumulate GPU cost.
+  accProfile?: AccProfile;
 }
+
+export interface AccProfile {
+  variant: 'r0' | 'full';   // round-0-only (compute-bound) or full d-round run (with fold)
+  gateMode: GateMode;
+  samples: number;          // median over this many measured submits (warm excluded)
+  wallMedianMs: number;     // median onSubmittedWorkDone wall of the accumulate-only buffer
+  wallMinMs: number;        // best-case wall (least scheduler noise)
+  summedAccMs: number;      // Σ per-kernel `accumulate` timestamps (the inflated number)
+  summedReduceMs: number;   // Σ per-kernel `reduce` timestamps
+  summedGatherMs: number;   // Σ per-kernel `gather` timestamps
+  summedAccReduceMs: number;// accumulate + reduce + gather (the whole accumulate stage)
+  spanMs: number;           // encoder_all GPU span of the profiled pass (true GPU wall)
+  inflation: number;        // summedAccMs / wallMedianMs (how inflated the `acc 77ms` is)
+}
+
+// Accumulate-only profile: warm submits to compile + settle, then median over this many.
+const ACC_WARM = 5;
+const ACC_SAMPLES = 25;
 
 interface Shared {
   cache?: PipelineCache;
@@ -128,6 +153,15 @@ export async function runSingleSubmitSumcheck(
   usedLensByRel?: number[],
   bands?: BandPlan,
   gateMode: GateMode = 'perRelation',
+  // Accumulate-stage isolation profile. When set, the command buffer encodes ONLY the
+  // accumulate work (gather + per-relation/uber accumulate + reduce, plus fold for
+  // 'full') — no batch, no transcript — and the run is timed by WALL
+  // (onSubmittedWorkDone), warm-then-median over ACC_SAMPLES, with one extra profiled
+  // submit to also sum the per-kernel timestamps. 'r0' is round 0 only (no fold, the
+  // compute-bound number); 'full' runs all `rounds` with a fixed dummy fold challenge
+  // (GPU fold work is challenge-value-independent — only edge counts matter). The normal
+  // univariates/challenges/finalColBytes are empty on these runs; read `accProfile`.
+  accOnly: 'r0' | 'full' | null = null,
 ): Promise<SingleSubmitResult> {
   const d = Math.round(Math.log2(n));
   // Effective used length for Tier-0 trimming (default = n => no trim). Only consulted
@@ -330,7 +364,7 @@ export async function runSingleSubmitSumcheck(
     const gBg = create_bind_group(device, gatherRunner.layout, [
       betaMontBuf, scalScratch, create_and_write_ub(device, u32x4(effPairs, 1 << (i + 1))),
     ]);
-    await execute_pipeline(enc, gatherRunner.pipeline, gBg, Math.ceil(effPairs / WG), 1, 1, profiler?.stage('gather'));
+    await execute_pipeline(enc, gatherRunner.pipeline, gBg, Math.ceil(effPairs / WG), 1, 1, profiler?.stage('gather', i));
 
     // accumulate + two-level reduce -> accBuf. Each relation runs over its own active region:
     // a contiguous band range (realistic trace) or its active prefix (Phase 1 / global).
@@ -362,15 +396,15 @@ export async function runSingleSubmitSumcheck(
       const chunk = Math.max(1, Math.ceil(dispatchPairs / REDUCE_GROUPS));
       const groups = Math.ceil(dispatchPairs / chunk);
       const acc = await accPipeline(desc, band !== undefined);
-      await execute_pipeline(enc, acc.pipeline, create_bind_group(device, acc.layout, aBufs), Math.ceil(dispatchPairs / accWG), 1, 1, profiler?.stage('accumulate'));
+      await execute_pipeline(enc, acc.pipeline, create_bind_group(device, acc.layout, aBufs), Math.ceil(dispatchPairs / accWG), 1, 1, profiler?.stage('accumulate', i));
       const r1 = create_bind_group(device, reduceRunner.layout, [
         perEdge, partsScratch, create_and_write_ub(device, u32x4(dispatchPairs, desc.outLen, chunk, 0)),
       ]);
-      await execute_pipeline(enc, reduceRunner.pipeline, r1, groups, 1, 1, profiler?.stage('reduce'));
+      await execute_pipeline(enc, reduceRunner.pipeline, r1, groups, 1, 1, profiler?.stage('reduce', i));
       const r2 = create_bind_group(device, reduceRunner.layout, [
         partsScratch, accBuf, create_and_write_ub(device, u32x4(groups, desc.outLen, groups, finalBase[r])),
       ]);
-      await execute_pipeline(enc, reduceRunner.pipeline, r2, 1, 1, 1, profiler?.stage('reduce'));
+      await execute_pipeline(enc, reduceRunner.pipeline, r2, 1, 1, 1, profiler?.stage('reduce', i));
     }
 
     // Fused gate uber dispatches into accBuf (before batch reads it). The resident
@@ -381,19 +415,19 @@ export async function runSingleSubmitSumcheck(
         device, enc, groups: uberGroups, round: i, m: curLen, pairs,
         cols: cur, perEdge, partsScratch, scalScratch, finalBuf: accBuf, finalBase,
         reduceRunner, bands: bands!, maxPerEdge,
-        profAcc: () => profiler?.stage('accumulate'),
-        profReduce: () => profiler?.stage('reduce'),
+        profAcc: () => profiler?.stage('accumulate', i),
+        profReduce: () => profiler?.stage('reduce', i),
       });
     }
 
     // batch: accBuf -> univBuf (round univariate); reads beta_i + GPU c_i
     const bBg = create_bind_group(device, batch.layout, [accBuf, liBuf, ldBuf, powBuf, betaBufs[i], cBuf, univBuf]);
-    await execute_pipeline(enc, batch.pipeline, bBg, Math.ceil(BATCHED_LEN / WG), 1, 1, profiler?.stage('batch'));
+    await execute_pipeline(enc, batch.pipeline, bBg, Math.ceil(BATCHED_LEN / WG), 1, 1, profiler?.stage('batch', i));
     enc.copyBufferToBuffer(univBuf, 0, staging, uniOff + i * BATCHED_LEN * 32, BATCHED_LEN * 32);
 
     // transcript: univBuf -> u_i (uBuf), advance running + c
     const tBg = create_bind_group(device, transcript.layout, [univBuf, rcBuf, diagBuf, runBuf, cBuf, uBuf, scalarsBufs[i], p2pBuf]);
-    await execute_pipeline(enc, transcript.pipeline, tBg, 1, 1, 1, profiler?.stage('transcript'));
+    await execute_pipeline(enc, transcript.pipeline, tBg, 1, 1, 1, profiler?.stage('transcript', i));
     enc.copyBufferToBuffer(uBuf, 0, staging, chalOff + i * 32, 32);
 
     // fold every column at u_i (cur -> other). Shared mode folds the whole 67-column
@@ -422,7 +456,7 @@ export async function runSingleSubmitSumcheck(
             { binding: 3, resource: { buffer: uBuf } },
           ],
         });
-        await execute_pipeline(enc, foldRunner.pipeline, fBg, Math.ceil(numOut / WG), 1, 1, profiler?.stage('fold'));
+        await execute_pipeline(enc, foldRunner.pipeline, fBg, Math.ceil(numOut / WG), 1, 1, profiler?.stage('fold', i));
       }
     } else {
       for (const desc of ALL_RELATIONS) {
@@ -431,7 +465,7 @@ export async function runSingleSubmitSumcheck(
         const fBg = create_bind_group(device, foldRunner.layout, [
           cur[r], other[r], create_and_write_ub(device, u32x4(numOut, pairs, pairs, 0)), uBuf,
         ]);
-        await execute_pipeline(enc, foldRunner.pipeline, fBg, Math.ceil(numOut / WG), 1, 1, profiler?.stage('fold'));
+        await execute_pipeline(enc, foldRunner.pipeline, fBg, Math.ceil(numOut / WG), 1, 1, profiler?.stage('fold', i));
       }
     }
     [cur, other] = [other, cur];
@@ -502,7 +536,7 @@ export async function runSingleSubmitSumcheck(
   }
   const finalReadbackMs = performance.now() - tReadback;
 
-  const profileReport = profiler ? (await profiler.report())?.map(e => ({ label: e.label, ms: e.ms })) ?? null : null;
+  const profileReport = profiler ? (await profiler.report())?.map(e => ({ label: e.label, ms: e.ms, group: e.group })) ?? null : null;
   profiler?.destroy();
 
   return { univariates, challenges, finalColBytes, gpuMs, totalMs, finalReadbackMs, setupMs, profile: profileReport };

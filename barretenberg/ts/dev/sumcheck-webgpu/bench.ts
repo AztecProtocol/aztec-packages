@@ -710,6 +710,13 @@ export async function runProfile(device: GPUDevice, logN: number, log: Logger, p
   return base;
 }
 
+export interface FineProfileResult {
+  rounds: FineRoundProfile[];
+  wallMs: number; // full multi-pass wall (host + per-round gpu-wait + other)
+  gpuWaitMs: number; // Σ per-round blocking gpu-wait across all d round-trips
+  hostMs: number; // Σ host phases (encode-acc / decode / univariate / encode-fold)
+}
+
 /**
  * Fine per-round attribution of the MULTI-PASS engine at one size — the engine the
  * headline bench uses. Splits each round's wall into host phases (encode-acc /
@@ -721,7 +728,7 @@ export async function runProfile(device: GPUDevice, logN: number, log: Logger, p
  */
 export async function runFineProfile(
   device: GPUDevice, logN: number, log: Logger, profile: CircuitProfile = DENSE_PROFILE,
-): Promise<FineRoundProfile[] | null> {
+): Promise<FineProfileResult | null> {
   const alpha = makeRng(0xb0_07_5eedn)();
   const shared = {
     cache: new Map() as PipelineCache,
@@ -806,7 +813,7 @@ export async function runFineProfile(
     const top = [...rel0].sort((a, b) => b.ms - a.ms);
     log('info', `  per-relation accumulate (round 0, GPU-active, desc): ${top.map(e => `${e.id} ${f1(e.ms)}`).join('  ')}`);
   }
-  return fine;
+  return { rounds: fine, wallMs: wall, gpuWaitMs: tWait, hostMs: host };
 }
 
 /**
@@ -832,6 +839,8 @@ export interface SsProfileData {
   foldMs: number;
   bubbleMs: number;
   wasmTailMs: number | null;
+  wallMs: number; // r.totalMs: encode + the single submit/readback + decode
+  spanMs: number; // encoder_all GPU span (one submission, all rounds)
 }
 
 export async function runSingleSubmitProfile(
@@ -887,6 +896,35 @@ export async function runSingleSubmitProfile(
       `wall ${r.totalMs.toFixed(1)} ms · gpuMs ${r.gpuMs.toFixed(1)} ms · setup ${r.setupMs.toFixed(1)} ms`,
   );
 
+  // Per-round GPU-active table (apples-to-apples with the multi-pass fine profiler). The
+  // single submission has no per-round host wait — `round_span` is the round's GPU wall
+  // (min-begin..max-end of its stages, the trustworthy number); the per-kernel columns are
+  // summed durations, which overlap-inflate because the stages within a round serialize.
+  // `edges` mirrors the fine profiler: the densest relation's active edge-pairs that round.
+  const groups = [...new Set(r.profile.filter(e => e.group !== undefined).map(e => e.group as number))].sort((a, b) => a - b);
+  if (groups.length) {
+    const f1 = (x: number) => x.toFixed(1);
+    const padn = (s: string | number, w: number) => String(s).padStart(w);
+    const byRound = (label: string, g: number) =>
+      r.profile!.filter(e => e.label === label && e.group === g).reduce((s, e) => s + e.ms, 0);
+    const spanOf = (g: number) => r.profile!.find(e => e.label === 'round_span' && e.group === g)?.ms ?? null;
+    log('info', `  per-round GPU-active · ${groups.length} rounds (round_span = round GPU wall; kernel sums overlap-inflate)`);
+    log('info', `  ${padn('rnd', 3)} ${padn('edges', 8)} ${padn('span', 7)} ${padn('gather', 7)} ${padn('accum', 7)} ${padn('reduce', 7)} ${padn('batch', 6)} ${padn('transc', 7)} ${padn('fold', 7)}`);
+    let tSpan = 0;
+    for (const g of groups) {
+      const sp = spanOf(g);
+      if (sp !== null) tSpan += sp;
+      const edges = Math.max(1, usedLen >> (g + 1));
+      log(
+        'info',
+        `  ${padn(g, 3)} ${padn(edges, 8)} ${padn(sp === null ? 'n/a' : f1(sp), 7)} ${padn(f1(byRound('gather', g)), 7)} ` +
+          `${padn(f1(byRound('accumulate', g)), 7)} ${padn(f1(byRound('reduce', g)), 7)} ${padn(f1(byRound('batch', g)), 6)} ` +
+          `${padn(f1(byRound('transcript', g)), 7)} ${padn(f1(byRound('fold', g)), 7)}`,
+      );
+    }
+    log('ok', `  Σ round_span ${f1(tSpan)} ms (sum of per-round GPU walls) vs encoder span ${f1(span)} ms (whole submission) — gap = inter-round overlap the single buffer hides`);
+  }
+
   // Fused-gate uber A/B (band profile, all-GPU run): the single-submission engine has
   // no per-round readback, so the fused accumulate should translate to wall time here.
   if (bnd && tail === 0) {
@@ -928,7 +966,52 @@ export async function runSingleSubmitProfile(
   return {
     logN, gpuRounds, accumulateMs: accumulate, reduceMs: reduce, batchMs: batch,
     transcriptMs: transcript, foldMs: fold, bubbleMs: bubble, wasmTailMs,
+    wallMs: r.totalMs, spanMs: span,
   };
+}
+
+/**
+ * Apples-to-apples MP-vs-SS "floor" comparison at one size + profile. Runs the
+ * single-submission per-kernel profile and the multi-pass fine per-round profile
+ * back-to-back, then prints a verdict contrasting the two walls. The multi-pass engine
+ * pays one BLOCKING gpu-wait per round (a fixed per-round floor that dominates the deep
+ * rounds, where a handful of edges still cost a full readback round-trip), while the
+ * single-submission engine encodes all d rounds into ONE command buffer read back once.
+ * The recovered wall = MP wall - SS wall; the multi-pass floor (the minimum per-round
+ * gpu-wait, extrapolated over d rounds) collapses to SS's lone encoder-span bubble.
+ * Needs timestamp-query on the device (logs a warning and skips the verdict otherwise).
+ */
+export async function runFloorComparison(
+  device: GPUDevice, logN: number, log: Logger, profile: CircuitProfile = DENSE_PROFILE,
+): Promise<void> {
+  log('info', `floor comparison · 2^${logN} · ${profile.name} · single-submit vs multi-pass (perRelation)`);
+  log('info', '— single-submission engine (one command buffer, one readback) —');
+  const ss = await runSingleSubmitProfile(device, logN, log, 0, profile);
+  log('info', '— multi-pass engine (one readback per round) —');
+  const mp = await runFineProfile(device, logN, log, profile);
+
+  if (!ss || !mp || mp.rounds.length === 0) {
+    log('warn', '  floor comparison needs timestamp-query on both engines — verdict skipped.');
+    return;
+  }
+
+  const f1 = (x: number) => x.toFixed(1);
+  const rounds = mp.rounds.length;
+  // The fixed per-round cost is the cheapest round's blocking wait: the deepest rounds
+  // carry a handful of edges yet still pay a full submit+readback round-trip, so their
+  // gpu-wait IS the floor. Extrapolated over all d rounds it is the irreducible cost the
+  // single submission removes by reading back once.
+  const minWait = Math.min(...mp.rounds.map(r => r.gpuWaitMs));
+  const floor = minWait * rounds;
+  const recovered = mp.wallMs - ss.wallMs;
+  const pct = mp.wallMs > 0 ? ((100 * recovered) / mp.wallMs).toFixed(0) : '0';
+  log('ok', `  multi-pass : wall ${f1(mp.wallMs)} ms · gpu-wait ${f1(mp.gpuWaitMs)} ms · ${rounds} round-trips · fixed floor ≈ ${f1(minWait)} ms/round × ${rounds} = ${f1(floor)} ms`);
+  log('ok', `  single-sub : wall ${f1(ss.wallMs)} ms · encoder span ${f1(ss.spanMs)} ms · bubble ${f1(ss.bubbleMs)} ms · 1 round-trip`);
+  log(
+    recovered > 0 ? 'ok' : 'warn',
+    `  → single-submit ${recovered >= 0 ? 'recovers' : 'loses'} ${f1(Math.abs(recovered))} ms (${pct}% of MP wall); ` +
+      `the per-round floor (≈${f1(floor)} ms over ${rounds} round-trips) collapses to one ${f1(ss.bubbleMs)} ms encoder bubble`,
+  );
 }
 
 /**

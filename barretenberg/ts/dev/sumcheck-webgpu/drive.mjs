@@ -26,7 +26,7 @@ const tParam = (which === 'sshybrid' || which === 'e2e') && process.env.T ? `&t=
 // profilereport stay dense (skip doesn't change buffer accounting / the baked report).
 const skipCapable =
   which === 'bench' || which === 'sshybrid' ||
-  which === 'profile' || which === 'ssprofile' || which === 'ssprofiletail' || which === 'e2e';
+  which === 'profile' || which === 'ssprofile' || which === 'ssprofiletail' || which === 'floorcmp' || which === 'e2e';
 const skipParam = skipCapable && process.env.SKIP ? `&skip=${process.env.SKIP}` : '';
 const profileParam = skipCapable && process.env.PROFILE ? `&profile=${process.env.PROFILE}` : '';
 const target = `http://localhost:5173/dev/sumcheck-webgpu/index.html?autorun=${which}&logn=${logn}${coi}${tParam}${skipParam}${profileParam}`;

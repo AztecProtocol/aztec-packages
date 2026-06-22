@@ -40,7 +40,7 @@ import { poseidon2Suite } from './poseidon2_gpu.js';
 import { singleSubmitSuite } from './suite_singlesubmit.js';
 import {
   runMultiPassBenchmark, runSingleSubmitHybridBenchmark, runProfile, runFineProfile, runSingleSubmitProfile,
-  runProfileReport, runE2EProfile, runMemoryProfile, initWasm, type MultiPassRow, type SsHybridRow,
+  runFloorComparison, runProfileReport, runE2EProfile, runMemoryProfile, initWasm, type MultiPassRow, type SsHybridRow,
 } from './bench.js';
 import { type CircuitProfile, DENSE_PROFILE, PROFILES } from './sparsity.js';
 
@@ -294,6 +294,7 @@ const $profileRun = document.getElementById('profile-run') as HTMLButtonElement;
 const $fineprofileRun = document.getElementById('fineprofile-run') as HTMLButtonElement;
 const $ssprofileRun = document.getElementById('ssprofile-run') as HTMLButtonElement;
 const $ssprofileTailRun = document.getElementById('ssprofile-tail-run') as HTMLButtonElement;
+const $floorcmpRun = document.getElementById('floorcmp-run') as HTMLButtonElement;
 const $ssprofileTail = document.getElementById('ssprofile-tail') as HTMLInputElement;
 const $e2eRun = document.getElementById('e2e-run') as HTMLButtonElement;
 const $memRun = document.getElementById('mem-run') as HTMLButtonElement;
@@ -317,7 +318,7 @@ const profileTail = (): number => Math.max(1, Math.min(20, parseInt($ssprofileTa
 async function runProfileTask(task: (device: GPUDevice) => Promise<void>): Promise<void> {
   if (running) return;
   running = true;
-  const btns = [$profileRun, $fineprofileRun, $ssprofileRun, $ssprofileTailRun, $e2eRun, $memRun, $profilereportRun];
+  const btns = [$profileRun, $fineprofileRun, $ssprofileRun, $ssprofileTailRun, $floorcmpRun, $e2eRun, $memRun, $profilereportRun];
   btns.forEach(b => (b.disabled = true));
   $profileLog.replaceChildren();
   let ok = true;
@@ -341,6 +342,7 @@ $profileRun.addEventListener('click', () => void runProfileTask(async d => { awa
 $fineprofileRun.addEventListener('click', () => void runProfileTask(async d => { await runFineProfile(d, profileLogN(), profileLog, selectedProfile($profileSkip, $profileProfile)); }));
 $ssprofileRun.addEventListener('click', () => void runProfileTask(async d => { await runSingleSubmitProfile(d, profileLogN(), profileLog, 0, selectedProfile($profileSkip, $profileProfile)); }));
 $ssprofileTailRun.addEventListener('click', () => void runProfileTask(async d => { await runSingleSubmitProfile(d, profileLogN(), profileLog, profileTail(), selectedProfile($profileSkip, $profileProfile)); }));
+$floorcmpRun.addEventListener('click', () => void runProfileTask(async d => { await runFloorComparison(d, profileLogN(), profileLog, selectedProfile($profileSkip, $profileProfile)); }));
 $e2eRun.addEventListener('click', () => void runProfileTask(async d => { await runE2EProfile(d, profileLogN(), profileTail(), profileLog, selectedProfile($profileSkip, $profileProfile)); }));
 $memRun.addEventListener('click', () => void runProfileTask(async d => { await runMemoryProfile(d, profileLogN(), profileLog); }));
 $profilereportRun.addEventListener('click', () => void runProfileTask(d => runProfileReport(d, profileLog)));
@@ -378,7 +380,7 @@ if (autorun === 'bench') {
   $sshRun.click();
 } else if (
   autorun === 'profile' || autorun === 'fineprofile' || autorun === 'ssprofile' || autorun === 'ssprofiletail' ||
-  autorun === 'e2e' || autorun === 'memory' || autorun === 'profilereport'
+  autorun === 'floorcmp' || autorun === 'e2e' || autorun === 'memory' || autorun === 'profilereport'
 ) {
   (document.getElementById('tab-btn-profile') as HTMLButtonElement).click();
   // `?logn=N` sets the profile size (profilereport bakes its own sizes and ignores it);
@@ -393,6 +395,7 @@ if (autorun === 'bench') {
   else if (autorun === 'fineprofile') $fineprofileRun.click();
   else if (autorun === 'ssprofile') $ssprofileRun.click();
   else if (autorun === 'ssprofiletail') $ssprofileTailRun.click();
+  else if (autorun === 'floorcmp') $floorcmpRun.click();
   else if (autorun === 'e2e') $e2eRun.click();
   else if (autorun === 'memory') $memRun.click();
   else $profilereportRun.click();

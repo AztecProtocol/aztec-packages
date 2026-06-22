@@ -237,6 +237,9 @@
         <strong>Single-submit</strong> profiles all rounds of the single-command-buffer engine (aggregate accumulate).
         <strong>Single-submit (WASM tail)</strong> profiles only the leading GPU rounds, handing the last
         <em>WASM tail</em> rounds to the WASM prover, and reports the end-to-end hybrid split.
+        <strong>MP vs SS floor</strong> runs both engines back-to-back on the same size + profile and prints a
+        verdict: the multi-pass per-round gpu-wait floor (one blocking readback per round) vs the single
+        submission's lone encoder bubble, and how much wall the single submission recovers.
         <strong>E2E timeline</strong> decomposes the whole-run wall of the hybrid split
         (setup → GPU front rounds → handoff → WASM tail) for both engines, using the same <em>WASM tail</em> value (k = d−T GPU rounds).
         <strong>Memory</strong> accounts every GPU buffer by category and reports the peak live working set per engine.
@@ -257,6 +260,7 @@
         <button id="fineprofile-run">Fine per-round (multi-pass)</button>
         <button id="ssprofile-run">Single-submit (all rounds)</button>
         <button id="ssprofile-tail-run">Single-submit (WASM tail)</button>
+        <button id="floorcmp-run">MP vs SS floor</button>
         <button id="e2e-run">E2E timeline</button>
         <button id="mem-run">Memory</button>
         <button id="profilereport-run">Full report (PROFILE_DATA)</button>
