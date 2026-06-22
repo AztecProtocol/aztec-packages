@@ -36,6 +36,29 @@ const inv = (a: bigint): bigint => {
   return mod(os);
 };
 
+// Opt-in instrumentation for the fine profiler. extendTo (barycentric
+// interpolation) is the bulk of the per-round host univariate tail and does one
+// modular inversion per (extra-point, source-eval) pair — none of which depends on
+// the field data, so it is the same recomputed work every round. Both the wall time
+// and the inversion count are accumulated here so the engine can attribute that
+// tail. Gated by `_extendStatsOn`: genuinely inert on the production/warmup path
+// (no performance.now(), no counter writes) until resetExtendStats() flips it on,
+// and disableExtendStats() turns it back off so a fine run never taxes a later bench.
+let _extendStatsOn = false;
+let _extendMs = 0;
+let _invCount = 0;
+export function resetExtendStats(): void {
+  _extendStatsOn = true;
+  _extendMs = 0;
+  _invCount = 0;
+}
+export function disableExtendStats(): void {
+  _extendStatsOn = false;
+}
+export function extendStats(): { extendMs: number; invCount: number } {
+  return { extendMs: _extendMs, invCount: _invCount };
+}
+
 export const BATCHED_LEN = 8; // BATCHED_RELATION_PARTIAL_LENGTH (MAX_PARTIAL_RELATION_LENGTH 7 + 1)
 export const NUM_BUS_COLUMNS = 5; // MAX_APPS_PER_KERNEL(3) + kernel_calldata + return_data
 
@@ -128,6 +151,7 @@ export function extendTo(evals: bigint[], to: number): bigint[] {
   if (to < L) {
     throw new Error(`extendTo: target ${to} < source length ${L}`);
   }
+  const _t0 = _extendStatsOn ? performance.now() : 0;
   const out = evals.map(mod);
   // Lagrange denominators d_j = prod_{m != j} (j - m).
   const dj: bigint[] = [];
@@ -144,10 +168,12 @@ export function extendTo(evals: bigint[], to: number): bigint[] {
     for (let i = 0; i < L; i++) bk = mul(bk, BigInt(k - i));
     let acc = 0n;
     for (let j = 0; j < L; j++) {
+      if (_extendStatsOn) _invCount++;
       acc = add(acc, mul(evals[j], inv(mul(dj[j], BigInt(k - j)))));
     }
     out[k] = mul(acc, bk);
   }
+  if (_extendStatsOn) _extendMs += performance.now() - _t0;
   return out;
 }
 

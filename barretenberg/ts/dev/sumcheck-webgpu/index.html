@@ -230,6 +230,10 @@
         accumulate down <strong>per relation</strong> — the squaring sites <code>lag_sqr</code>/<code>mono_sqr</code>
         live in <code>acc:pos2*</code>, <code>acc:elliptic</code>, <code>acc:memory</code>, <code>acc:logderiv</code>,
         so a baseline-vs-optimized A/B shows the <code>montgomery_square</code> effect right on those lines.
+        <strong>Fine per-round (multi-pass)</strong> attributes <em>every</em> round's wall to host phases
+        (encode-acc / decode / univariate <code>scale·extend·batch</code> / encode-fold) and splits the blocking
+        gpu-wait into real GPU-active vs idle/transfer bubble — the host critical path (the <code>extend</code>
+        inversions, the readback stall) the round-0 profiler can't see.
         <strong>Single-submit</strong> profiles all rounds of the single-command-buffer engine (aggregate accumulate).
         <strong>Single-submit (WASM tail)</strong> profiles only the leading GPU rounds, handing the last
         <em>WASM tail</em> rounds to the WASM prover, and reports the end-to-end hybrid split.
@@ -250,6 +254,7 @@
           </select>
         </label>
         <button id="profile-run">Per-kernel (round 0)</button>
+        <button id="fineprofile-run">Fine per-round (multi-pass)</button>
         <button id="ssprofile-run">Single-submit (all rounds)</button>
         <button id="ssprofile-tail-run">Single-submit (WASM tail)</button>
         <button id="e2e-run">E2E timeline</button>

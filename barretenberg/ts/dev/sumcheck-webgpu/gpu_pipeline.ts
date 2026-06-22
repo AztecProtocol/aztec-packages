@@ -21,6 +21,9 @@ import {
   execute_pipeline, read_from_gpu, create_readback_buffer, Profiler, setAllocCategory,
 } from '../../src/msm_webgpu/cuzk/gpu.js';
 import { runSumcheckRounds } from '../../src/msm_webgpu/multiround.js';
+import {
+  scaleUnivariates, extendAndBatch, resetExtendStats, disableExtendStats, extendStats,
+} from '../../src/msm_webgpu/batch_tail.js';
 import { NUM_RELATIONS, assembleAccumulator } from '../../src/msm_webgpu/accumulator.js';
 import type { GateUberGate } from '../../src/msm_webgpu/cuzk/shader_manager.js';
 import { ALL_RELATIONS } from './descriptors.js';
@@ -445,6 +448,29 @@ export interface ResidentSumcheckResult {
   /** Per-kernel GPU timing for round 0 (only when `profile` is set and the device
    * supports timestamp-query); null otherwise. Labels: acc:/r1:/r2:/fold:<id>. */
   profile: { label: string; ms: number }[] | null;
+  /** Per-round fine attribution (only when `fineProfile` is set); null otherwise.
+   * One entry per round splitting the wall into host phases (encode / decode /
+   * univariate sub-steps / fold-encode) and, when timestamp-query is available, the
+   * GPU-active span of that round's accumulate encoder (so gpu-wait can be split
+   * into real GPU compute vs idle/transfer bubble). */
+  fine: FineRoundProfile[] | null;
+}
+
+/** Per-round attribution emitted by the fine profiler. All ms are host wall unless
+ * noted. `gpuActiveMs`/`perRelAccMs` are null when the device lacks timestamp-query. */
+export interface FineRoundProfile {
+  round: number;
+  edges: number; // gather grid this round = densest relation's active edge-pairs (== n>>(round+1) when dense)
+  encodeAccMs: number; // host time building the gather+accumulate+reduce command buffer
+  gpuWaitMs: number; // submit + blocking mapAsync readback of the 345-Fr accumulator
+  gpuActiveMs: number | null; // timestamped GPU span of the accumulate encoder
+  decodeMs: number; // fromMont decode of the 345-Fr accumulator
+  scaleMs: number; // scaleUnivariates (alpha powers)
+  extendMs: number; // extendTo barycentric interpolation (the modular inversions)
+  batchMs: number; // extendAndBatch minus the extend time (the pow/c_i batching)
+  invCount: number; // modular inversions performed this round
+  encodeFoldMs: number; // host time building the fold command buffer
+  perRelAccMs: { id: string; ms: number }[] | null; // per-relation accumulate GPU time
 }
 
 interface Shared {
@@ -483,6 +509,7 @@ export async function runResidentGpuSumcheck(
   compaction?: CompactionPlan,
   bands?: BandPlan,
   gateMode: GateMode = 'perRelation',
+  fineProfile = false,
 ): Promise<ResidentSumcheckResult> {
   const d = Math.round(Math.log2(n));
   const rounds = Math.max(1, Math.min(maxRounds ?? d, d));
@@ -507,7 +534,19 @@ export async function runResidentGpuSumcheck(
   // total 1 + 14*3 + 14 = 57 stages, under the 64 default and Metal's sample-buffer
   // limit). No-ops (stage() -> undefined) when the device lacks timestamp-query.
   const profiler = profile ? new Profiler(device, 64) : null;
-  const prof = (round: number, label: string) => (round === 0 ? profiler?.stage(label) : undefined);
+  // Fine profiler: a fresh Profiler per round times ONLY that round's accumulate
+  // encoder (gather+acc+reduce, never the fold), and is resolved + read back +
+  // DESTROYED within the same round (below) so at most ONE QuerySet is ever live.
+  // Apple Metal draws QuerySets from a small shared pool and silently no-ops a whole
+  // CommandBuffer once it is exhausted, so keeping d of them alive would corrupt both
+  // the profile and the computed univariates on the measurement device (gpu.ts:583).
+  let roundProfiler: Profiler | null = null;
+  const fine: FineRoundProfile[] = [];
+  let curFine: Partial<FineRoundProfile> = {};
+  const prof = (round: number, label: string) => {
+    if (fineProfile) return label.startsWith('fold') ? undefined : roundProfiler?.stage(label);
+    return round === 0 ? profiler?.stage(label) : undefined;
+  };
 
   const tSetup = performance.now();
 
@@ -643,6 +682,9 @@ export async function runResidentGpuSumcheck(
       // densest relation) sizes only the shared gather below; == pairs when dense/off.
       const effPairs = effPairsForRound(effUsedLen, _round, m);
 
+      // Fine path stages gather+acc+reduce (not fold) -> at most 1+14*3 = 43 stages < 64.
+      if (fineProfile) roundProfiler = new Profiler(device, 64);
+      const tAccStart = performance.now();
       const enc = device.createCommandEncoder();
       // Gather this round's per-pair edge scaling off the resident beta_products
       // table: scalScratch[p] = beta_products[p * periodicity], periodicity =
@@ -718,13 +760,33 @@ export async function runResidentGpuSumcheck(
           profReduce: (id, pass) => prof(_round, `${pass}:${id}`),
         });
       }
-      const tg = performance.now();
       enc.copyBufferToBuffer(finalParts, 0, stagingBuf, 0, readbackBytes);
+      if (fineProfile && roundProfiler) roundProfiler.resolve(enc); // timestamp resolve encoded into the acc encoder
+      const tg = performance.now(); // after the copy+resolve ENCODE: gpuWait is pure submit + blocking map
       device.queue.submit([enc.finish()]);
       await stagingBuf.mapAsync(GPUMapMode.READ, 0, readbackBytes);
       const pbytes = new Uint8Array(stagingBuf.getMappedRange(0, readbackBytes).slice(0));
       stagingBuf.unmap();
-      gpuMs += performance.now() - tg;
+      const waitMs = performance.now() - tg;
+      gpuMs += waitMs;
+      if (fineProfile) {
+        // The acc submit has completed, so this round's timestamps are ready: read them
+        // and DESTROY the QuerySet now (only one is ever live). gpuActiveMs is the
+        // acc-encoder GPU span; fold is NOT timestamped (it runs un-fenced and its GPU
+        // time drains into the NEXT round's gpuWait), so gpuActiveMs is acc-only.
+        let gpuActiveMs: number | null = null;
+        let perRelAccMs: { id: string; ms: number }[] | null = null;
+        if (roundProfiler) {
+          const rep = await roundProfiler.report();
+          if (rep) {
+            gpuActiveMs = rep.find(e => e.label === 'encoder_all')?.ms ?? null;
+            perRelAccMs = rep.filter(e => e.label.startsWith('acc:')).map(e => ({ id: e.label.slice(4), ms: e.ms }));
+          }
+          roundProfiler.destroy();
+          roundProfiler = null;
+        }
+        curFine = { round: _round, edges: effPairs, encodeAccMs: tg - tAccStart, gpuWaitMs: waitMs, gpuActiveMs, perRelAccMs };
+      }
 
       // finalParts already holds the cross-edge sum (one Fr per column), so the host
       // just decodes totalOutLen Fr — no per-group summing.
@@ -737,11 +799,34 @@ export async function runResidentGpuSumcheck(
         for (let k = 0; k < desc.outLen; k++) slice[k] = fromMont(le32ToBi(pbytes, (base + k) * 32));
         slices[r] = slice;
       }
-      decodeMs += performance.now() - td;
+      const decMs = performance.now() - td;
+      decodeMs += decMs;
+      if (fineProfile) curFine.decodeMs = decMs;
       return assembleAccumulator(slices);
     },
-    roundUnivariate: (acc, gs) => gs.roundUnivariate(acc, alpha),
+    roundUnivariate: (acc, gs) => {
+      if (!fineProfile) return gs.roundUnivariate(acc, alpha);
+      // Replicate batchOverRelations = extendAndBatch(scaleUnivariates(acc, alpha), ...)
+      // with the scale / extend (barycentric inversions) / batch sub-steps timed.
+      // resetExtendStats() (enable+zero the extend counters) sits OUTSIDE [tsc,teb] so it
+      // is not charged to batchMs; it calls no extendTo, so scaleMs absorbing its sub-µs
+      // cost is harmless. batchMs is clamped: extendMs is a sum of inner now() deltas
+      // that timer quantization can push just past the single outer delta.
+      const ts = performance.now();
+      const scaled = scaleUnivariates(acc, alpha);
+      resetExtendStats();
+      const tsc = performance.now();
+      const uni = extendAndBatch(scaled, gs.currentElement(), gs.partialEvaluationResult);
+      const teb = performance.now();
+      const { extendMs, invCount } = extendStats();
+      curFine.scaleMs = tsc - ts;
+      curFine.extendMs = extendMs;
+      curFine.batchMs = Math.max(0, teb - tsc - extendMs);
+      curFine.invCount = invCount;
+      return uni;
+    },
     fold: async (_round, u) => {
+      const tFoldStart = performance.now();
       const m = curLen;
       const half = m >> 1;
       setAllocCategory('transcript');
@@ -770,6 +855,10 @@ export async function runResidentGpuSumcheck(
       // Round 0 is the only profiled round; resolve its query set into this encoder
       // before submit so report() can read it afterwards.
       if (_round === 0) profiler?.resolve(enc);
+      if (fineProfile) {
+        curFine.encodeFoldMs = performance.now() - tFoldStart;
+        fine.push(curFine as FineRoundProfile);
+      }
       // No fence here. Fold and the next round's accumulate share device.queue, which
       // serializes fold-before-read and tracks the colBuf write->read hazard, so the
       // next readback's await already covers fold's execution. The per-round fold
@@ -786,6 +875,10 @@ export async function runResidentGpuSumcheck(
   const profileReport = profiler ? (await profiler.report())?.map(e => ({ label: e.label, ms: e.ms })) ?? null : null;
   profiler?.destroy();
 
+  // Per-round timestamps were already read back and the QuerySets destroyed in-round
+  // (above). Turn the extendTo instrumentation back off so it never taxes a later run.
+  if (fineProfile) disableExtendStats();
+
   // Trailing readback of the resident columns: length-1 for a full run (the
   // purported-value anchor), or the folded columns (size 2^(d-rounds)) for a
   // partial run — the GPU->WASM handoff payload in the hybrid bench.
@@ -796,5 +889,5 @@ export async function runResidentGpuSumcheck(
   const finalColBytes: Uint8Array[] = new Array(NUM_RELATIONS);
   ALL_RELATIONS.forEach((desc, i) => { finalColBytes[desc.relationIndex] = finalBytes[i]; });
 
-  return { univariates, challenges: used, finalColBytes, gpuMs, totalMs, finalReadbackMs, setupMs, scalingMs, decodeMs, profile: profileReport };
+  return { univariates, challenges: used, finalColBytes, gpuMs, totalMs, finalReadbackMs, setupMs, scalingMs, decodeMs, profile: profileReport, fine: fineProfile ? fine : null };
 }

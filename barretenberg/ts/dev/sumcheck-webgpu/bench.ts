@@ -14,7 +14,7 @@
 
 import {
   runResidentGpuSumcheck, makeFoldRunner, makeReduceRunner,
-  type FoldRunner, type ReduceRunner,
+  type FoldRunner, type ReduceRunner, type FineRoundProfile,
 } from './gpu_pipeline.js';
 import { runSingleSubmitSumcheck, makeBatchRunner, makeTranscriptRunner } from './single_submit.js';
 import { cpuReferenceUnivariates } from './cpu_reference.js';
@@ -694,6 +694,105 @@ export async function runProfile(device: GPUDevice, logN: number, log: Logger, p
     }
   }
   return base;
+}
+
+/**
+ * Fine per-round attribution of the MULTI-PASS engine at one size — the engine the
+ * headline bench uses. Splits each round's wall into host phases (encode-acc /
+ * decode / univariate sub-steps scale·extend·batch / encode-fold) and, when the
+ * device has timestamp-query, the accumulate encoder's GPU-active span — so the
+ * blocking gpu-wait is split into real GPU compute vs idle/transfer bubble. Prints a
+ * per-round table, totals, a host-vs-GPU verdict, and the round-0 per-relation
+ * accumulate cost. Runs the perRelation gate mode (what the bench runs), all d rounds.
+ */
+export async function runFineProfile(
+  device: GPUDevice, logN: number, log: Logger, profile: CircuitProfile = DENSE_PROFILE,
+): Promise<FineRoundProfile[] | null> {
+  const alpha = makeRng(0xb0_07_5eedn)();
+  const shared = {
+    cache: new Map() as PipelineCache,
+    foldRunner: await makeFoldRunner(device),
+    reduceRunner: await makeReduceRunner(device),
+  };
+  const n = 1 << logN;
+  const skip = profileIsSparse(profile);
+  logProfile(log, profile, skip);
+  const betas = Array.from({ length: logN }, (_, i) => makeRng(0xbe7a_77n + BigInt(i))());
+  const challenges = Array.from({ length: logN }, (_, i) => makeRng(0xc4a1_77n + BigInt(i))());
+  const { initColBytes, relParamBytes } = buildInputs(n, profile);
+  const usedLen = usedRows(profile, n);
+  const usedLensByRel = activeRowsByRel(profile, n);
+  const comp = compactionPlan(profile, n);
+  const bnd = bandByRel(profile, n);
+  const run = (fine: boolean) =>
+    runResidentGpuSumcheck(
+      device, n, alpha, betas, challenges, relParamBytes, initColBytes, shared, WG, false, undefined,
+      skip, usedLen, usedLensByRel, comp, bnd, 'perRelation', fine,
+    );
+
+  await run(false); // warmup/compile (no fine timers, so compilation is excluded)
+  const r = await run(true);
+  const fine = r.fine;
+  if (!fine || fine.length === 0) {
+    log('warn', '  fine profile produced no rounds.');
+    return null;
+  }
+
+  const hasGpu = fine.some(f => f.gpuActiveMs !== null);
+  log('info', `  fine per-round profile · multi-pass · 2^${logN} · ${profile.name} (perRelation)${hasGpu ? '' : ' · no timestamp-query (gpu-active n/a)'}`);
+  const f1 = (x: number) => x.toFixed(1);
+  const pad = (s: string | number, w: number) => String(s).padStart(w);
+  // wOvhd (per round) = gpuWait - accGPU = the part of the blocking wait NOT acc compute:
+  // submit/transfer/map sync PLUS the prior round's un-fenced, un-timestamped fold GPU
+  // drain (fold lands here, not in gpuAct). It is NOT pure idle — do not read it as such.
+  log(
+    'info',
+    `  ${pad('rnd', 3)} ${pad('gEdges', 8)} ${pad('encAcc', 7)} ${pad('gpuWait', 8)} ${pad('accGPU', 7)} ${pad('wOvhd', 7)} ${pad('decode', 7)} ${pad('univ', 6)} ${pad('sc/ext/bat', 13)} ${pad('#inv', 6)} ${pad('encFold', 7)}`,
+  );
+  let tEnc = 0, tWait = 0, tAct = 0, tOvhd = 0, tDec = 0, tUniv = 0, tExt = 0, tFold = 0, tInv = 0;
+  let gpuKnown = true;
+  for (const f of fine) {
+    const univ = f.scaleMs + f.extendMs + f.batchMs;
+    const act = f.gpuActiveMs;
+    const ovhd = act === null ? null : Math.max(0, f.gpuWaitMs - act);
+    tEnc += f.encodeAccMs; tWait += f.gpuWaitMs; tDec += f.decodeMs; tUniv += univ; tExt += f.extendMs; tFold += f.encodeFoldMs; tInv += f.invCount;
+    if (act === null) gpuKnown = false; else { tAct += act; tOvhd += ovhd ?? 0; }
+    log(
+      'info',
+      `  ${pad(f.round, 3)} ${pad(f.edges, 8)} ${pad(f1(f.encodeAccMs), 7)} ${pad(f1(f.gpuWaitMs), 8)} ${pad(act === null ? 'n/a' : f1(act), 7)} ${pad(ovhd === null ? 'n/a' : f1(ovhd), 7)} ${pad(f1(f.decodeMs), 7)} ${pad(f1(univ), 6)} ${pad(`${f1(f.scaleMs)}/${f1(f.extendMs)}/${f1(f.batchMs)}`, 13)} ${pad(f.invCount, 6)} ${pad(f1(f.encodeFoldMs), 7)}`,
+    );
+  }
+  const host = tEnc + tDec + tUniv + tFold;
+  const wall = r.totalMs;
+  // Closed accounting: wall = host + gpu-wait + other. "other" = assembleAccumulator,
+  // the per-round timestamp readback (fine-mode only), Profiler alloc, gs.partiallyEvaluate,
+  // the un-fenced fold submit, and driver/loop gaps — none on the host or gpu-wait spans.
+  const other = wall - host - tWait;
+  const pct = (x: number) => `${((100 * x) / wall).toFixed(0)}%`;
+  log(
+    'ok',
+    `  TOTAL wall ${f1(wall)} ms = host ${f1(host)} (${pct(host)}) + gpu-wait ${f1(tWait)} (${pct(tWait)}) + other ${f1(other)} (${pct(other)})  ` +
+      `[host: encAcc ${f1(tEnc)} · decode ${f1(tDec)} · univ ${f1(tUniv)} (extend/inv ${f1(tExt)}) · encFold ${f1(tFold)}]`,
+  );
+  // Verdict on the BLOCKING critical path: gpu-wait is all GPU time the host waits on
+  // (acc compute + fold drain + transfer/sync); host is the CPU tail that runs while the
+  // GPU is idle. Comparing these two is honest even though fold GPU time is not separately
+  // timestamped (it is inside gpu-wait, just not inside accGPU).
+  const verdict = tWait > host ? 'GPU-bound (blocking GPU wait > host tail)' : 'HOST-bound (host tail > blocking GPU wait)';
+  const extShare = host > 0 ? ((100 * tExt) / host).toFixed(0) : '0';
+  log('ok', `  verdict: ${verdict} · host tail ${pct(host)} of wall; extend/inversions = ${extShare}% of host (${tInv} inv/run; data-independent → memoizable)`);
+  if (gpuKnown) {
+    const accShare = tWait > 0 ? ((100 * tAct) / tWait).toFixed(0) : '0';
+    log('ok', `  gpu-wait ${f1(tWait)} ms: measured accumulate-compute ${f1(tAct)} (${accShare}%) + wOvhd ${f1(tOvhd)} (transfer/sync + un-timestamped fold drain)`);
+  } else {
+    log('warn', `  accGPU unavailable (no timestamp-query); gpu-wait ${f1(tWait)} ms not split (acc-compute vs transfer/fold)`);
+  }
+  const rel0 = fine[0]?.perRelAccMs;
+  if (rel0 && rel0.length) {
+    const top = [...rel0].sort((a, b) => b.ms - a.ms);
+    log('info', `  per-relation accumulate (round 0, GPU-active, desc): ${top.map(e => `${e.id} ${f1(e.ms)}`).join('  ')}`);
+  }
+  return fine;
 }
 
 /**

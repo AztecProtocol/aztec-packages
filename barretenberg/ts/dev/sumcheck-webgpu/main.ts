@@ -39,7 +39,7 @@ import { batchSuite } from './batch_gpu.js';
 import { poseidon2Suite } from './poseidon2_gpu.js';
 import { singleSubmitSuite } from './suite_singlesubmit.js';
 import {
-  runMultiPassBenchmark, runSingleSubmitHybridBenchmark, runProfile, runSingleSubmitProfile,
+  runMultiPassBenchmark, runSingleSubmitHybridBenchmark, runProfile, runFineProfile, runSingleSubmitProfile,
   runProfileReport, runE2EProfile, runMemoryProfile, type MultiPassRow, type SsHybridRow,
 } from './bench.js';
 import { type CircuitProfile, DENSE_PROFILE, PROFILES } from './sparsity.js';
@@ -291,6 +291,7 @@ const $profileLogn = document.getElementById('profile-logn') as HTMLInputElement
 const $profileSkip = document.getElementById('profile-skip') as HTMLInputElement;
 const $profileProfile = document.getElementById('profile-profile') as HTMLSelectElement;
 const $profileRun = document.getElementById('profile-run') as HTMLButtonElement;
+const $fineprofileRun = document.getElementById('fineprofile-run') as HTMLButtonElement;
 const $ssprofileRun = document.getElementById('ssprofile-run') as HTMLButtonElement;
 const $ssprofileTailRun = document.getElementById('ssprofile-tail-run') as HTMLButtonElement;
 const $ssprofileTail = document.getElementById('ssprofile-tail') as HTMLInputElement;
@@ -316,7 +317,7 @@ const profileTail = (): number => Math.max(1, Math.min(20, parseInt($ssprofileTa
 async function runProfileTask(task: (device: GPUDevice) => Promise<void>): Promise<void> {
   if (running) return;
   running = true;
-  const btns = [$profileRun, $ssprofileRun, $ssprofileTailRun, $e2eRun, $memRun, $profilereportRun];
+  const btns = [$profileRun, $fineprofileRun, $ssprofileRun, $ssprofileTailRun, $e2eRun, $memRun, $profilereportRun];
   btns.forEach(b => (b.disabled = true));
   $profileLog.replaceChildren();
   let ok = true;
@@ -337,6 +338,7 @@ async function runProfileTask(task: (device: GPUDevice) => Promise<void>): Promi
 }
 
 $profileRun.addEventListener('click', () => void runProfileTask(async d => { await runProfile(d, profileLogN(), profileLog, selectedProfile($profileSkip, $profileProfile)); }));
+$fineprofileRun.addEventListener('click', () => void runProfileTask(async d => { await runFineProfile(d, profileLogN(), profileLog, selectedProfile($profileSkip, $profileProfile)); }));
 $ssprofileRun.addEventListener('click', () => void runProfileTask(async d => { await runSingleSubmitProfile(d, profileLogN(), profileLog, 0, selectedProfile($profileSkip, $profileProfile)); }));
 $ssprofileTailRun.addEventListener('click', () => void runProfileTask(async d => { await runSingleSubmitProfile(d, profileLogN(), profileLog, profileTail(), selectedProfile($profileSkip, $profileProfile)); }));
 $e2eRun.addEventListener('click', () => void runProfileTask(async d => { await runE2EProfile(d, profileLogN(), profileTail(), profileLog, selectedProfile($profileSkip, $profileProfile)); }));
@@ -375,7 +377,7 @@ if (autorun === 'bench') {
   applySkipParams(params, $sshSkip, $sshProfile);
   $sshRun.click();
 } else if (
-  autorun === 'profile' || autorun === 'ssprofile' || autorun === 'ssprofiletail' ||
+  autorun === 'profile' || autorun === 'fineprofile' || autorun === 'ssprofile' || autorun === 'ssprofiletail' ||
   autorun === 'e2e' || autorun === 'memory' || autorun === 'profilereport'
 ) {
   (document.getElementById('tab-btn-profile') as HTMLButtonElement).click();
@@ -388,6 +390,7 @@ if (autorun === 'bench') {
   if (tParam) $ssprofileTail.value = tParam;
   applySkipParams(params, $profileSkip, $profileProfile);
   if (autorun === 'profile') $profileRun.click();
+  else if (autorun === 'fineprofile') $fineprofileRun.click();
   else if (autorun === 'ssprofile') $ssprofileRun.click();
   else if (autorun === 'ssprofiletail') $ssprofileTailRun.click();
   else if (autorun === 'e2e') $e2eRun.click();
