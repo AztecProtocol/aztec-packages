@@ -67,7 +67,7 @@ aztec-wallet [options] [command]
 **Options:**
 
 - `-V --version` - output the version number
-- `-d --data-dir <string>` - Storage directory for wallet data (default: "/home/josh/.aztec/wallet")
+- `-d --data-dir <string>` - Storage directory for wallet data (default: "~/.aztec/wallet")
 - `-p --prover <string>` - The type of prover the wallet uses (choices: "wasm", "native", "none", default: "native", env: PXE_PROVER)
 - `-n --node-url <string>` - URL of the Aztec node to connect to (default: "http://localhost:8080", env: AZTEC_NODE_URL)
 - `-h --help` - display help for command
