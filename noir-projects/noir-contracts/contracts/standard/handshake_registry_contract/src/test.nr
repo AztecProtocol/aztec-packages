@@ -538,11 +538,14 @@ unconstrained fn multiple_senders_discovered_for_same_recipient() {
     );
     // Discovery order across senders sharing a recipient tag is not a guarantee (it follows the
     // address-siloed log order), so assert one of each mode regardless of position.
-    let mode_0 = discovered.items.get(0).mode;
-    let mode_1 = discovered.items.get(1).mode;
-    let one_of_each = ((mode_0 == ONCHAIN_CONSTRAINED) & (mode_1 == ONCHAIN_UNCONSTRAINED))
-        | ((mode_0 == ONCHAIN_UNCONSTRAINED) & (mode_1 == ONCHAIN_CONSTRAINED));
-    assert(one_of_each, "expected one constrained and one unconstrained handshake");
+  assert(
+      discovered.items.any(|h| h.mode == ONCHAIN_CONSTRAINED),
+      "expected a constrained handshake",
+  );
+  assert(
+      discovered.items.any(|h| h.mode == ONCHAIN_UNCONSTRAINED),
+      "expected an unconstrained handshake",
+  );
 }
 
 #[test]
