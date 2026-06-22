@@ -2,12 +2,10 @@
 import { createLogger } from '@aztec/foundation/log';
 import { MAX_TX_SIZE_KB, TopicType, getTopicFromString } from '@aztec/stdlib/p2p';
 
-import type { RPC } from '@chainsafe/libp2p-gossipsub/message';
 import type { DataTransform } from '@chainsafe/libp2p-gossipsub/types';
 import type { Message } from '@libp2p/interface';
 import { webcrypto } from 'node:crypto';
 import { compressSync, uncompressSync } from 'snappy';
-import xxhashFactory from 'xxhash-wasm';
 
 /** Thrown when a Snappy-compressed response exceeds the allowed decompressed size. */
 export class OversizedSnappyResponseError extends Error {
@@ -17,25 +15,8 @@ export class OversizedSnappyResponseError extends Error {
   }
 }
 
-// Load WASM
-const xxhash = await xxhashFactory();
-
-// Use salt to prevent msgId from being mined for collisions
-const h64Seed = BigInt(Math.floor(Math.random() * 1e9));
-
 // Shared buffer to convert msgId to string
 const sharedMsgIdBuf = Buffer.alloc(20);
-
-/**
- * The function used to generate a gossipsub message id
- * We use the first 8 bytes of SHA256(data) for content addressing
- */
-export function fastMsgIdFn(rpcMsg: RPC.Message): string {
-  if (rpcMsg.data) {
-    return xxhash.h64Raw(rpcMsg.data, h64Seed).toString(16);
-  }
-  return '0000000000000000';
-}
 
 export function msgIdToStrFn(msgId: Uint8Array): string {
   // This happens serially, no need to reallocate the buffer
