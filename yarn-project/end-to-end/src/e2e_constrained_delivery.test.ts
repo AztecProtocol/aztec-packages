@@ -215,7 +215,6 @@ describe('cross-PXE constrained delivery', () => {
     });
     contract = deployed;
 
-    // PXE B simulates both the app contract and the registry while discovering, so it must know both.
     await ensureHandshakeRegistryPublished(walletB, recipient);
     await walletB.registerContract(instance, ConstrainedDeliveryTestContract.artifact);
   });
