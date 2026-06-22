@@ -116,7 +116,7 @@ assert_contract_was_initialized_by(header, contract_address, instance.initializa
 
 ## Read historical public storage
 
-To read the value a public storage slot held at a past block, use `public_storage_historical_read`. It returns the stored value and constrains it against the public data tree root in the given block header:
+To read the value a public storage slot held at a past block in a private function, use `public_storage_historical_read`. It returns the stored value and constrains it against the public data tree root in the given block header:
 
 ```rust
 use aztec::history::storage::public_storage_historical_read;
