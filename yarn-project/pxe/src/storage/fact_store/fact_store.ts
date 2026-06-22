@@ -38,8 +38,8 @@ type StagedOp = { kind: 'recordFact'; fact: StoredFact } | { kind: 'deleteFactCo
  * Non-retractable facts survive reorgs; they must then be explicitly deleted, so as not to keep consuming resources
  * (storage and compute) indefinitely.
  *
- * Scope is part of a collection's identity (encoded in its key): the same (contract, type, id) under two scopes are
- * two independent collections. Reads target one scope, carried inside the key.
+ * Scope is part of a collection's identity (encoded in its key): a given (contract, type, id) yields a distinct
+ * collection per scope. Reads target one scope, carried inside the key.
  *
  * This store is designed to enable Aztec.nr to implement complex workflows such as offchain reception or partial note
  * processing by storing structured data that is guaranteed to exist conditionally to specific blocks being included in
@@ -205,8 +205,8 @@ export class FactStore implements StagedStore {
   }
 
   /**
-   * Deletes retractable facts originating above `toBlock` (taking their scope entries with them), returning the number
-   * of by-block entries scanned. A reorg invalidates a fact for every scope, so this is scope-agnostic.
+   * Deletes retractable facts originating above `toBlock`, returning the number of by-block entries scanned.
+   * Retraction is scope-agnostic: a reorg invalidates a fact regardless of which scope's collection it belongs to.
    *
    * Requires to be run in a transactionAsync context.
    */
@@ -236,7 +236,7 @@ export class FactStore implements StagedStore {
   }
 
   /**
-   * Reads the given collections (their facts, each with its scopes) by key into a Map keyed by collection key, skipping
+   * Reads the given collections (their facts) by key into a Map keyed by collection key, skipping
    * keys with no committed facts.
    *
    * Reads are not wrapped in a transaction: the caller owns the transaction boundary.
