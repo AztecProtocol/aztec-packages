@@ -25,6 +25,17 @@ import { TxHash } from '@aztec/stdlib/tx';
 import type { BlockStore } from './block_store.js';
 
 /**
+ * Tag key for a log: the string form of its first field, or the empty string when the log carries no
+ * fields. A protocol-valid public log can carry zero fields (e.g. a raw AVM `EMITPUBLICLOG` with
+ * `logSize = 0`), which has no tag to index by. Keying it under the empty tag keeps it retrievable via
+ * the per-block read (and droppable on reorg) while never matching a real tag query — instead of reading
+ * `fields[0]` off an empty array and aborting the whole block-ingestion transaction.
+ */
+function tagKeyForLog(fields: Fr[]): string {
+  return fields.length > 0 ? fields[0].toString() : '';
+}
+
+/**
  * A store for logs
  */
 export class LogStore {
@@ -70,11 +81,12 @@ export class LogStore {
       const txHash = txEffect.txHash;
 
       txEffect.privateLogs.forEach(log => {
-        // Private logs use SiloedTag (already siloed by kernel)
-        const tag = log.fields[0];
-        this.#log.debug(`Found private log with tag ${tag.toString()} in block ${block.number}`);
+        // Private logs use SiloedTag (already siloed by kernel). A zero-field log has no tag and is keyed
+        // under the empty tag rather than throwing on log.fields[0].
+        const tagKey = tagKeyForLog(log.fields);
+        this.#log.debug(`Found private log with tag ${tagKey} in block ${block.number}`);
 
-        const currentLogs = privateTaggedLogs.get(tag.toString()) ?? [];
+        const currentLogs = privateTaggedLogs.get(tagKey) ?? [];
         currentLogs.push(
           new TxScopedL2Log(
             txHash,
@@ -85,16 +97,17 @@ export class LogStore {
             txEffect.nullifiers[0],
           ).toBuffer(),
         );
-        privateTaggedLogs.set(tag.toString(), currentLogs);
+        privateTaggedLogs.set(tagKey, currentLogs);
       });
 
       txEffect.publicLogs.forEach(log => {
-        // Public logs use Tag directly (not siloed) and are stored with contract address
-        const tag = log.fields[0];
+        // Public logs use Tag directly (not siloed) and are stored with contract address. A zero-field
+        // log has no tag and is keyed under the empty tag rather than throwing on log.fields[0].
+        const tagKey = tagKeyForLog(log.fields);
         const contractAddress = log.contractAddress;
-        const key = `${contractAddress.toString()}_${tag.toString()}`;
+        const key = `${contractAddress.toString()}_${tagKey}`;
         this.#log.debug(
-          `Found public log with tag ${tag.toString()} from contract ${contractAddress.toString()} in block ${block.number}`,
+          `Found public log with tag ${tagKey} from contract ${contractAddress.toString()} in block ${block.number}`,
         );
 
         const currentLogs = publicTaggedLogs.get(key) ?? [];
