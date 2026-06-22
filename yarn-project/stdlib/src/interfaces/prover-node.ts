@@ -8,6 +8,7 @@ import { type ComponentsVersions, getVersioningResponseHandler } from '../versio
 const EpochProvingJobState = [
   'initialized',
   'awaiting-checkpoints',
+  'awaiting-root',
   'awaiting-predecessor',
   'publishing-proof',
   'completed',
