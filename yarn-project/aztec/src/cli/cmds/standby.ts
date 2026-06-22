@@ -23,7 +23,7 @@ const ROLLUP_POLL_INTERVAL_S = 60;
 export async function computeExpectedGenesisRoot(config: GenesisStateConfig, userLog: LogFn) {
   const testAccounts = config.testAccounts ? (await getInitialTestAccountsData()).map(a => a.address) : [];
   const sponsoredFPCAccounts = config.sponsoredFPC ? [await getSponsoredFPCAddress()] : [];
-  const prefundAddresses = (config.prefundAddresses ?? []).map(a => AztecAddress.fromString(a));
+  const prefundAddresses = (config.prefundAddresses ?? []).map(a => AztecAddress.fromStringUnsafe(a));
   const initialFundedAccounts = testAccounts.concat(sponsoredFPCAccounts).concat(prefundAddresses);
 
   userLog(`Initial funded accounts: ${initialFundedAccounts.map(a => a.toString()).join(', ')}`);

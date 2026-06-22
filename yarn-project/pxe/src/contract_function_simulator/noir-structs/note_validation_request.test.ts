@@ -29,8 +29,8 @@ describe('NoteValidationRequest', () => {
 
     const request = NoteValidationRequest.fromFields(serialized);
 
-    expect(request.contractAddress).toEqual(AztecAddress.fromBigInt(1n));
-    expect(request.owner).toEqual(AztecAddress.fromBigInt(50n));
+    expect(request.contractAddress).toEqual(AztecAddress.fromBigIntUnsafe(1n));
+    expect(request.owner).toEqual(AztecAddress.fromBigIntUnsafe(50n));
     expect(request.storageSlot).toEqual(new Fr(2));
     expect(request.randomness).toEqual(new Fr(42));
     expect(request.noteNonce).toEqual(new Fr(3));

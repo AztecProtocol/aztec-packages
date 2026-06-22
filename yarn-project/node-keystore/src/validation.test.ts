@@ -371,7 +371,7 @@ describe('Keystore Duplication Validation', () => {
     expect(v0.publisher).toBeDefined(); // array including private key, address, remote signer account, json v3 dir
     expect(
       (v0.feeRecipient as AztecAddress).equals(
-        AztecAddress.fromString('0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'),
+        AztecAddress.fromStringUnsafe('0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'),
       ),
     ).toBeTruthy();
     expect(typeof v0.remoteSigner === 'string').toBe(true);
@@ -382,7 +382,7 @@ describe('Keystore Duplication Validation', () => {
     expect(v1.publisher).toBeDefined(); // mnemonic config
     expect(
       (v1.feeRecipient as AztecAddress).equals(
-        AztecAddress.fromString('0x0bcdef0bcdef0bcdef0bcdef0bcdef0bcdef0bcdef0bcdef0bcdef0bcdef0bcd'),
+        AztecAddress.fromStringUnsafe('0x0bcdef0bcdef0bcdef0bcdef0bcdef0bcdef0bcdef0bcdef0bcdef0bcdef0bcd'),
       ),
     ).toBeTruthy();
     expect(v1.fundingAccount).toBeDefined();

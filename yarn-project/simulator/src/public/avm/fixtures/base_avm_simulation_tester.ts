@@ -149,7 +149,7 @@ export abstract class BaseAvmSimulationTester {
 
   private async insertContractAddressNullifier(contractAddress: AztecAddress) {
     const contractAddressNullifier = await siloNullifier(
-      AztecAddress.fromNumber(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS),
+      AztecAddress.fromNumberUnsafe(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS),
       contractAddress.toField(),
     );
     await this.merkleTrees.sequentialInsert(MerkleTreeId.NULLIFIER_TREE, [contractAddressNullifier.toBuffer()]);

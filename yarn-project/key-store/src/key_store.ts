@@ -109,7 +109,7 @@ export class KeyStore {
     const allMapKeys = await toArray(this.#keys.keysAsync());
     // We return account addresses based on the map keys that end with '-ivsk_m'
     const accounts = allMapKeys.filter(key => key.endsWith('-ivsk_m')).map(key => key.split('-')[0]);
-    return accounts.map(account => AztecAddress.fromString(account));
+    return accounts.map(account => AztecAddress.fromStringUnsafe(account));
   }
 
   /** Checks whether an account is registered in the key store. */
@@ -340,7 +340,7 @@ export class KeyStore {
       if (Buffer.from(val).equals(valueBuffer)) {
         for (const prefix of KEY_PREFIXES) {
           if (key.includes(`-${prefix}`)) {
-            const account = AztecAddress.fromString(key.split('-')[0]);
+            const account = AztecAddress.fromStringUnsafe(key.split('-')[0]);
             return [prefix, account];
           }
         }

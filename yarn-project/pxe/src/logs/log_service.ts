@@ -210,7 +210,7 @@ export class LogService {
 
     // We deduplicate the senders by adding them to a set and then converting the set back to an array
     const deduplicatedSenders = Array.from(new Set(allSenders.map(sender => sender.toString()))).map(sender =>
-      AztecAddress.fromString(sender),
+      AztecAddress.fromStringUnsafe(sender),
     );
 
     return Promise.all(

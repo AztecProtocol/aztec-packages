@@ -37,7 +37,7 @@ describe('PrivateExecutionOracle', () => {
   beforeAll(async () => {
     contractAddress = await AztecAddress.random();
     callContext = new CallContext(
-      AztecAddress.fromField(Fr.MAX_FIELD_VALUE),
+      AztecAddress.fromFieldUnsafe(Fr.MAX_FIELD_VALUE),
       contractAddress,
       FunctionSelector.empty(),
       false,

@@ -30,7 +30,7 @@ export class SenderAddressBookStore {
 
   getSenders(): Promise<AztecAddress[]> {
     return this.#store.transactionAsync(async () => {
-      return (await toArray(this.#addressBook.keysAsync())).map(AztecAddress.fromString);
+      return (await toArray(this.#addressBook.keysAsync())).map(AztecAddress.fromStringUnsafe);
     });
   }
 

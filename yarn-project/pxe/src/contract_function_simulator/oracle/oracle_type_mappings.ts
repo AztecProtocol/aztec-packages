@@ -173,7 +173,7 @@ export const STR: TypeMapping<string> = {
 
 export const AZTEC_ADDRESS: TypeMapping<AztecAddress> = {
   serialization: { fn: v => [v.toField()] },
-  deserialization: { fn: ([reader]) => AztecAddress.fromField(reader.readField()), slots: 1 },
+  deserialization: { fn: ([reader]) => AztecAddress.fromFieldUnsafe(reader.readField()), slots: 1 },
 };
 
 export const BLOCK_HASH: TypeMapping<BlockHash> = {
@@ -291,7 +291,7 @@ export const PUBLIC_KEYS_AND_PARTIAL_ADDRESS: TypeMapping<{
 export const CONTRACT_CLASS_LOG_INPUT: TypeMapping<ContractClassLog> = {
   deserialization: {
     fn: ([addrReader, fieldsReader, lengthReader]) => {
-      const addr = AztecAddress.fromField(addrReader.readField());
+      const addr = AztecAddress.fromFieldUnsafe(addrReader.readField());
       const fields = new ContractClassLogFields([...fieldsReader.readFieldArray(fieldsReader.remainingFields())]);
       const length = lengthReader.readField().toNumber();
       return new ContractClassLog(addr, fields, length);
@@ -473,7 +473,7 @@ export function BOUNDED_VEC<T>(
  * Wraps an inner TypeMapping in Noir-style `Option<T>`. Adds a discriminant slot and uses the handler-provided
  * `Option.none(shape)` template to produce a correctly-sized zero-filled output for the None case.
  *
- * @example Serializing `Option.some(AztecAddress.fromField(Fr(42)))` with `OPTION(AZTEC_ADDRESS)`:
+ * @example Serializing `Option.some(AztecAddress.fromFieldUnsafe(Fr(42)))` with `OPTION(AZTEC_ADDRESS)`:
  * ```
  * slot 0: Fr(1)    // discriminant: Some
  * slot 1: Fr(42)   // inner value

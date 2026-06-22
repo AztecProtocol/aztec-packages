@@ -21,9 +21,9 @@ describe('ContractSyncService', () => {
   let service: ContractSyncService;
   let utilityExecutor: jest.Mock<(call: FunctionCall, scopes: AztecAddress[]) => Promise<void>>;
 
-  const contractAddress = AztecAddress.fromBigInt(100n);
-  const scopeA = AztecAddress.fromBigInt(200n);
-  const scopeB = AztecAddress.fromBigInt(201n);
+  const contractAddress = AztecAddress.fromBigIntUnsafe(100n);
+  const scopeA = AztecAddress.fromBigIntUnsafe(200n);
+  const scopeB = AztecAddress.fromBigIntUnsafe(201n);
   const jobId = 'job-1';
   const anchorBlockHeader = makeBlockHeader(0);
   const classId = Fr.fromHexString('0xdeadbeef');
@@ -145,10 +145,10 @@ describe('ContractSyncService', () => {
     // acquire one. Per-call limiters give the nested syncs their own slots, so the batch completes.
     it('does not deadlock when concurrent syncs each trigger a nested sync', async () => {
       const outerContracts = Array.from({ length: MAX_CONCURRENT_SCOPE_SYNCS }, (_, i) =>
-        AztecAddress.fromBigInt(1000n + BigInt(i)),
+        AztecAddress.fromBigIntUnsafe(1000n + BigInt(i)),
       );
       const nestedContracts = Array.from({ length: MAX_CONCURRENT_SCOPE_SYNCS }, (_, i) =>
-        AztecAddress.fromBigInt(2000n + BigInt(i)),
+        AztecAddress.fromBigIntUnsafe(2000n + BigInt(i)),
       );
       const nestedByOuter = new Map(outerContracts.map((outer, i) => [outer.toString(), nestedContracts[i]]));
 
@@ -170,7 +170,7 @@ describe('ContractSyncService', () => {
 
     it('bounds the number of concurrently syncing scopes within a single call', async () => {
       const scopes = Array.from({ length: MAX_CONCURRENT_SCOPE_SYNCS + 3 }, (_, i) =>
-        AztecAddress.fromBigInt(500n + BigInt(i)),
+        AztecAddress.fromBigIntUnsafe(500n + BigInt(i)),
       );
 
       let inFlight = 0;
@@ -252,7 +252,7 @@ describe('ContractSyncService', () => {
   });
 
   describe('class ID verification deduplication', () => {
-    const contract2 = AztecAddress.fromBigInt(300n);
+    const contract2 = AztecAddress.fromBigIntUnsafe(300n);
 
     it('verifies class ID only once per contract across scope batches', async () => {
       await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
@@ -354,7 +354,7 @@ describe('ContractSyncService', () => {
   });
 
   describe('invalidateContractForScopes', () => {
-    const contract2 = AztecAddress.fromBigInt(300n);
+    const contract2 = AztecAddress.fromBigIntUnsafe(300n);
 
     it('only invalidates the targeted scope', async () => {
       await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [
