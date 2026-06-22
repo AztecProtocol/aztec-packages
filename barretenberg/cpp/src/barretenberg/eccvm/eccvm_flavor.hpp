@@ -134,6 +134,11 @@ class ECCVMFlavor {
     static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
     using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS - 1>;
 
+    // Batch each relation's subrelation accumulators in parallel during sumcheck. The many high-degree ECCVM
+    // subrelations make per-round batching a serial floor that dominates the geometrically shrinking sumcheck tail,
+    // so the per-relation thread dispatch pays off here (unlike the lighter Mega/Ultra/Translator flavors).
+    static constexpr bool PARALLELIZE_RELATION_BATCHING = true;
+
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
 
     // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`

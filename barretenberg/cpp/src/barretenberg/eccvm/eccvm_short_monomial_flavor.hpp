@@ -57,6 +57,9 @@ class ECCVMShortMonomialFlavor : public ECCVMFlavor {
     static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
     using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS - 1>;
 
+    // See ECCVMFlavor::PARALLELIZE_RELATION_BATCHING.
+    static constexpr bool PARALLELIZE_RELATION_BATCHING = true;
+
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 2;
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;

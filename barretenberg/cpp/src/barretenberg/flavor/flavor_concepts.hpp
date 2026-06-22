@@ -63,6 +63,21 @@ concept IsKeccakFlavor = IsAnyOf<T, UltraKeccakFlavor, UltraKeccakZKFlavor>;
 template <typename T>
 concept isMultilinearBatchingFlavor = IsMultilinearBatchingFlavorImpl<T>::value || IsMultilinearBatchingRecursiveFlavorImpl<T>::value;
 
+// Sumcheck-prover opt-in: batch each relation's subrelation accumulators in parallel rather than serially.
+// Worthwhile only for flavors with many high-degree subrelations (ECCVM), where the fixed per-round batching cost
+// becomes a serial floor; flavors that don't declare the flag default to the serial loop.
+template <typename T> concept ParallelizesRelationBatching = requires { requires T::PARALLELIZE_RELATION_BATCHING; };
+
+// Short-monomial flavors that expose the codegen'd array layout -- a `Generated` member (the generated
+// relation/entity definitions) together with an EntityId-keyed ProverUnivariates -- i.e. native Ultra/Mega.
+// The sumcheck prover materializes their edges lazily per column. ECCVM/Translator are short-monomial but lack the
+// nested EntityId, and AVM is dispatched separately, so all of those keep the eager edge-extension path.
+template <typename T>
+concept HasLazyShortEdges = T::USE_SHORT_MONOMIALS && requires {
+    typename T::Generated;
+    typename T::template ProverUnivariates<2>::EntityId;
+};
+
 // This concept is relevant for the Sumcheck Prover, where the logic differs between BN254 and Grumpkin
 template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, ECCVMFlavor, ECCVMShortMonomialFlavor, ECCVMRecursiveFlavor, SumcheckTestFlavorGrumpkinZK>;
 
