@@ -201,6 +201,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   /**
    * Retrieve keys associated with a specific master public key and app address.
    * @param pkMHash - The master public key hash.
+   * @param _keyIndex - Sent by the Noir oracle caller but unused here; kept to match the oracle signature.
    * @returns A Promise that resolves to nullifier keys.
    * @throws If the keys are not registered in the key store.
    * @throws If scopes are defined and the account is not in the scopes.
