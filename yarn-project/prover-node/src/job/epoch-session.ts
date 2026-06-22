@@ -339,6 +339,7 @@ export class EpochSession implements Traceable {
       proof: proof.proof,
       batchedBlobInputs: proof.batchedBlobInputs,
       attestations,
+      headers: this.checkpoints.map(c => c.checkpoint.header),
     });
 
     if (this.isTerminal()) {

@@ -1,3 +1,4 @@
+import { NO_FROM } from '@aztec/aztec.js/account';
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import type { Fr } from '@aztec/foundation/curves/bn254';
@@ -69,6 +70,16 @@ describe('Nested utility calls', () => {
     await expect(
       contractA.methods.delegate_pow_private(contractB.address, 2n, 3n).simulate({ from: defaultAccountAddress }),
     ).rejects.toThrow('Cross-contract utility call denied');
+  });
+
+  it('top-level utility has no caller, so its msg_sender is none', async () => {
+    // A top-level utility call is not reached via a cross-contract call, so it observes no caller regardless of the
+    // `from` supplied for the simulation.
+    const withFrom = await contractA.methods.get_msg_sender().simulate({ from: defaultAccountAddress });
+    expect(withFrom.result).toBeUndefined();
+
+    const withoutFrom = await contractA.methods.get_msg_sender().simulate({ from: NO_FROM });
+    expect(withoutFrom.result).toBeUndefined();
   });
 });
 
@@ -148,6 +159,14 @@ describe('authorizeUtilityCall hook', () => {
       functionName: 'pow_utility',
       callerContext: 'utility',
     });
+  });
+
+  it('nested utility call sees the calling contract as its msg_sender', async () => {
+    hookAllows = true;
+    const { result } = await contractA.methods
+      .delegate_get_msg_sender(contractB.address)
+      .simulate({ from: defaultAccountAddress });
+    expect(result).toEqual(contractA.address);
   });
 
   // Calls delegate_pow_private with hookAllows=false; expects denial and checks lastRequest
