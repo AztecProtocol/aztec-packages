@@ -226,32 +226,26 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
       const factCollectionTypeId = new Fr(7n);
       const keyA = FactCollectionKey.from({
         contractAddress: contract,
+        scope,
         factCollectionTypeId,
         factCollectionId: new Fr(0xaan),
       });
       const keyB = FactCollectionKey.from({
         contractAddress: contract,
+        scope,
         factCollectionTypeId,
         factCollectionId: new Fr(0xbbn),
       });
       // A collection whose only fact is retractable (origin block 6): pruned on a reorg above block 6.
-      await factStore.recordFact(
-        keyA,
-        new Fr(3n),
-        [new Fr(5n)],
-        { blockNumber: 6, blockHash: new Fr(2n) },
-        scope,
-        jobId,
-      );
+      await factStore.recordFact(keyA, new Fr(3n), [new Fr(5n)], { blockNumber: 6, blockHash: new Fr(2n) }, jobId);
       // A collection with a non-retractable and a retractable fact.
-      await factStore.recordFact(keyB, new Fr(1n), [new Fr(9n)], undefined, scope, jobId);
-      await factStore.recordFact(keyB, new Fr(2n), [], { blockNumber: 5, blockHash: new Fr(1n) }, scope, jobId);
+      await factStore.recordFact(keyB, new Fr(1n), [new Fr(9n)], undefined, jobId);
+      await factStore.recordFact(keyB, new Fr(2n), [], { blockNumber: 5, blockHash: new Fr(1n) }, jobId);
       await kvStore.transactionAsync(() => factStore.commit(jobId));
     },
     snapshotStore: async kvStore => ({
       facts: await snapshotMap(kvStore.openMap<string, Buffer>('facts')),
       facts_by_collection: await snapshotMap(kvStore.openMultiMap<string, string>('facts_by_collection')),
-      scopes_by_fact: await snapshotMap(kvStore.openMultiMap<string, string>('scopes_by_fact')),
       facts_by_block: await snapshotMap(kvStore.openMultiMap<number, string>('facts_by_block')),
     }),
   },
