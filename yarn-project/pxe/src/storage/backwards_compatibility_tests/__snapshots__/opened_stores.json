@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 8,
+  "schemaVersion": 9,
   "stores": [
     {
       "name": "address_book",
@@ -108,10 +108,6 @@
     {
       "name": "pxe_l2_tips",
       "kind": "map"
-    },
-    {
-      "name": "scopes_by_fact",
-      "kind": "multimap"
     }
   ]
 }

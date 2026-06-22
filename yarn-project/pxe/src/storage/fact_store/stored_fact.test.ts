@@ -6,11 +6,13 @@ import { StoredFact, factKeyStrOf } from './stored_fact.js';
 
 describe('StoredFact', () => {
   const contract = AztecAddress.fromBigInt(100n);
+  const scope = AztecAddress.fromBigInt(1n);
   const collectionType = new Fr(7n);
   const collectionId = new Fr(42n);
   const factType = new Fr(3n);
   const key = FactCollectionKey.from({
     contractAddress: contract,
+    scope,
     factCollectionTypeId: collectionType,
     factCollectionId: collectionId,
   });
@@ -34,8 +36,10 @@ describe('StoredFact', () => {
 
   it('derives stable composite keys including the origin block', () => {
     const nonRetractable = new StoredFact(key, factType, [new Fr(9n)], undefined);
-    expect(nonRetractable.factCollectionKey.factCollectionTypeKey().toString()).toBe(`${contract}:${collectionType}`);
-    expect(nonRetractable.factCollectionKey.toString()).toBe(`${contract}:${collectionType}:${collectionId}`);
+    expect(nonRetractable.factCollectionKey.factCollectionTypeKey().toString()).toBe(
+      `${contract}:${scope}:${collectionType}`,
+    );
+    expect(nonRetractable.factCollectionKey.toString()).toBe(`${contract}:${scope}:${collectionType}:${collectionId}`);
     expect(factKeyStrOf(nonRetractable)).toBe(
       nonRetractable.factCollectionKey.toString() + `:${factType}:${nonRetractable.payloadHash()}:none`,
     );

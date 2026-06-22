@@ -1,4 +1,5 @@
 import { MAX_NOTE_HASHES_PER_TX } from '@aztec/constants';
+import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { TxHash } from '@aztec/stdlib/tx';
 
@@ -35,19 +36,18 @@ export class ResolvedTx {
 }
 
 /**
- * Helper function to serialize a bounded vector according to Noir's BoundedVec format
+ * Helper function to serialize a bounded vector according to Noir's BoundedVec format: the storage array padded to
+ * `maxLength`, followed by the actual length.
  * @param values - The values to serialize
  * @param maxLength - The maximum length of the bounded vector
  * @returns The serialized bounded vector as Fr[]
- * @dev Copied over from message_context.ts.
  */
 function serializeBoundedVec(values: Fr[], maxLength: number): Fr[] {
-  if (values.length > maxLength) {
-    throw new Error(`Attempted to serialize ${values} values into a BoundedVec with max length ${maxLength}`);
-  }
-
-  const lengthDiff = maxLength - values.length;
-  const zeroPaddingArray = Array(lengthDiff).fill(Fr.ZERO);
-  const storage = values.concat(zeroPaddingArray);
+  const storage = padArrayEnd(
+    values,
+    Fr.ZERO,
+    maxLength,
+    `Attempted to serialize ${values} values into a BoundedVec with max length ${maxLength}`,
+  );
   return [...storage, new Fr(values.length)];
 }

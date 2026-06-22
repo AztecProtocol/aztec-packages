@@ -334,13 +334,14 @@ describe('BlockSynchronizer', () => {
       const contractAddress = await AztecAddress.random();
       const scope = await AztecAddress.random();
       const factCollectionTypeId = Fr.random();
-      const typeKey = FactCollectionTypeKey.from({ contractAddress, factCollectionTypeId });
+      const typeKey = FactCollectionTypeKey.from({ contractAddress, scope, factCollectionTypeId });
 
       // A collection whose only fact is retractable and anchored to the fork point (block 5): the fork point is kept,
       // so the fact and its collection must survive.
       const survivingCollectionId = Fr.random();
       const survivingCollectionKey = FactCollectionKey.from({
         contractAddress,
+        scope,
         factCollectionTypeId,
         factCollectionId: survivingCollectionId,
       });
@@ -349,7 +350,6 @@ describe('BlockSynchronizer', () => {
         Fr.random(),
         [Fr.random()],
         { blockNumber: lastSurvivingBlock.number, blockHash: (await lastSurvivingBlock.hash()).toFr() },
-        scope,
         jobId,
       );
 
@@ -358,6 +358,7 @@ describe('BlockSynchronizer', () => {
       const retractedCollectionId = Fr.random();
       const retractedCollectionKey = FactCollectionKey.from({
         contractAddress,
+        scope,
         factCollectionTypeId,
         factCollectionId: retractedCollectionId,
       });
@@ -366,14 +367,13 @@ describe('BlockSynchronizer', () => {
         Fr.random(),
         [Fr.random()],
         { blockNumber: lastSurvivingBlock.number + 1, blockHash: Fr.random() },
-        scope,
         jobId,
       );
 
       await store.transactionAsync(() => factStore.commit(jobId));
 
       // Both collections must be present before the prune.
-      expect(await factStore.getFactCollectionsByType(typeKey, [scope], jobId)).toHaveLength(2);
+      expect(await factStore.getFactCollectionsByType(typeKey, jobId)).toHaveLength(2);
       // Release the read job so the prune's rollback is not blocked by an in-flight job.
       await factStore.discardStaged(jobId);
 
@@ -399,11 +399,11 @@ describe('BlockSynchronizer', () => {
       });
 
       // Only the fork-point collection survives. The one whose sole fact originated above the fork is gone.
-      const collections = await factStore.getFactCollectionsByType(typeKey, [scope], jobId);
+      const collections = await factStore.getFactCollectionsByType(typeKey, jobId);
       expect(collections).toHaveLength(1);
       expect(collections[0].key.factCollectionId.equals(survivingCollectionId)).toBe(true);
-      expect(await factStore.getFactCollection(retractedCollectionKey, [scope], jobId)).toBeUndefined();
-      expect((await factStore.getFactCollection(survivingCollectionKey, [scope], jobId))!.facts).toHaveLength(1);
+      expect(await factStore.getFactCollection(retractedCollectionKey, jobId)).toBeUndefined();
+      expect((await factStore.getFactCollection(survivingCollectionKey, jobId))!.facts).toHaveLength(1);
     });
 
     it('chain-pruned keeps a collection and its facts up to the fork point, deleting only those above it', async () => {
@@ -421,19 +421,18 @@ describe('BlockSynchronizer', () => {
       const forkPointFactType = Fr.random();
       const nonRetractableFactType = Fr.random();
 
-      const typeKey = FactCollectionTypeKey.from({ contractAddress, factCollectionTypeId });
-      const collectionKey = FactCollectionKey.from({ contractAddress, factCollectionTypeId, factCollectionId });
+      const typeKey = FactCollectionTypeKey.from({ contractAddress, scope, factCollectionTypeId });
+      const collectionKey = FactCollectionKey.from({ contractAddress, scope, factCollectionTypeId, factCollectionId });
 
       // A collection carrying three facts: a non-retractable one, a retractable one anchored to the fork point (block
       // 5), and a retractable one originating just above it (block 6). The prune must keep the collection, its
       // non-retractable fact, and the fork-point fact, deleting only the orphaned fact.
-      await factStore.recordFact(collectionKey, nonRetractableFactType, [Fr.random()], undefined, scope, jobId);
+      await factStore.recordFact(collectionKey, nonRetractableFactType, [Fr.random()], undefined, jobId);
       await factStore.recordFact(
         collectionKey,
         forkPointFactType,
         [],
         { blockNumber: lastSurvivingBlock.number, blockHash: (await lastSurvivingBlock.hash()).toFr() },
-        scope,
         jobId,
       );
       await factStore.recordFact(
@@ -441,14 +440,13 @@ describe('BlockSynchronizer', () => {
         retractedFactType,
         [],
         { blockNumber: lastSurvivingBlock.number + 1, blockHash: Fr.random() },
-        scope,
         jobId,
       );
       await store.transactionAsync(() => factStore.commit(jobId));
 
       // The collection and all three facts must be present before the prune.
-      expect(await factStore.getFactCollectionsByType(typeKey, [scope], jobId)).toHaveLength(1);
-      expect((await factStore.getFactCollection(collectionKey, [scope], jobId))!.facts).toHaveLength(3);
+      expect(await factStore.getFactCollectionsByType(typeKey, jobId)).toHaveLength(1);
+      expect((await factStore.getFactCollection(collectionKey, jobId))!.facts).toHaveLength(3);
       // Release the read job so the prune's rollback is not blocked by an in-flight job.
       await factStore.discardStaged(jobId);
 
@@ -475,11 +473,11 @@ describe('BlockSynchronizer', () => {
 
       // The collection survives, keeping its non-retractable fact and the fork-point fact. Only the fact originating
       // above the fork is gone.
-      const collections = await factStore.getFactCollectionsByType(typeKey, [scope], jobId);
+      const collections = await factStore.getFactCollectionsByType(typeKey, jobId);
       expect(collections).toHaveLength(1);
       expect(collections[0].key.factCollectionId.equals(factCollectionId)).toBe(true);
 
-      const remainingFactTypes = (await factStore.getFactCollection(collectionKey, [scope], jobId))!.facts.map(
+      const remainingFactTypes = (await factStore.getFactCollection(collectionKey, jobId))!.facts.map(
         fact => fact.factTypeId,
       );
       expect(remainingFactTypes).toHaveLength(2);
