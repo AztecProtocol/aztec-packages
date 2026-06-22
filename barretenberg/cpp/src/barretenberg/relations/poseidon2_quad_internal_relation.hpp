@@ -151,7 +151,7 @@ template <typename FF_> class Poseidon2QuadInternalRelationImpl {
         auto u_0_next = pow5(w_l_shift + q_m); // u_0' = (next_s_0^(0) + c_{4(i+1)})^5
         auto u_1_next = pow5(w_r_shift + q_c); // u_1' = (next_s_0^(1) + c_{4(i+1)+1})^5
         auto u_2_next = pow5(w_o_shift + q_5); // u_2' = (next_s_0^(2) + c_{4(i+1)+2})^5
-        auto u_0_next_D1 = u_0_next * D1;                   // CSE: D_1 · u_0' is reused in A_1 and A_2
+        auto u_0_next_D1 = u_0_next * D1;      // CSE: D_1 · u_0' is reused in A_1 and A_2
 
         // Precomputed coefficient vectors. Each is indexed [W_R, W_O, W_4, U_0, U_1, U_2, U_3].
         const auto& cf0 = QuadParams::tables.closed_form[0];            // out_0 (row-end lane 0)

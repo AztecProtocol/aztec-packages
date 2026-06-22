@@ -400,8 +400,10 @@ void register_flavor_benches(const std::string& name, const bool fragmented, con
     benchmark::RegisterBenchmark((name + "/accumulate_relations_only").c_str(),
                                  &bench_accumulate_relations_only<Flavor>)
         ->UseRealTime();
-    auto* loop_static = benchmark::RegisterBenchmark(
-        (name + "/loop_static_blocks").c_str(), &bench_sumcheck_loop_shape<Flavor>, Scheduler::STATIC_BLOCKS, fragmented);
+    auto* loop_static = benchmark::RegisterBenchmark((name + "/loop_static_blocks").c_str(),
+                                                     &bench_sumcheck_loop_shape<Flavor>,
+                                                     Scheduler::STATIC_BLOCKS,
+                                                     fragmented);
     auto* loop_stealing = benchmark::RegisterBenchmark((name + "/loop_chunk_stealing").c_str(),
                                                        &bench_sumcheck_loop_shape<Flavor>,
                                                        Scheduler::CHUNK_STEALING,

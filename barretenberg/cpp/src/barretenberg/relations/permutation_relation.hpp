@@ -254,8 +254,7 @@ template <typename FF_> class UltraPermutationRelationImpl {
         if constexpr (requires { Accumulator::LENGTH; }) {
             if (lagrange_first_m.is_zero() && lagrange_last_m.is_zero()) {
                 const Accumulator public_input_term(z_perm_shift_m);
-                std::get<0>(accumulators) +=
-                    ((Accumulator(z_perm_m) * numerator) - (public_input_term * denominator));
+                std::get<0>(accumulators) += ((Accumulator(z_perm_m) * numerator) - (public_input_term * denominator));
                 return;
             }
         }
