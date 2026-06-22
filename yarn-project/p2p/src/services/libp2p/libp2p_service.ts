@@ -1,6 +1,6 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { BlockNumber, type SlotNumber } from '@aztec/foundation/branded-types';
-import { maxBy, merge } from '@aztec/foundation/collection';
+import { compactArray, maxBy, merge } from '@aztec/foundation/collection';
 import { type Logger, createLibp2pComponentLogger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { Timer } from '@aztec/foundation/timer';
@@ -383,21 +383,27 @@ export class LibP2PService extends WithTracer implements P2PService {
     const protocolVersion = compressComponentVersions(versions);
 
     const preferredPeersEnrs: ENR[] = config.preferredPeers.map(enr => ENR.decodeTxt(enr));
-    const directPeers = (
+    const directPeers = compactArray(
       await Promise.all(
         preferredPeersEnrs.map(async enr => {
-          const peerId = await enr.peerId();
-          const address = enr.getLocationMultiaddr('tcp');
-          if (address === undefined) {
-            throw new Error(`Direct peer ${peerId.toString()} has no TCP address, ENR: ${enr.encodeTxt()}`);
+          try {
+            const peerId = await enr.peerId();
+            const address = enr.getLocationMultiaddr('tcp');
+            if (address === undefined) {
+              throw new Error(`Direct peer ${peerId.toString()} has no TCP address, ENR: ${enr.encodeTxt()}`);
+            }
+            return {
+              id: peerId,
+              addrs: [address],
+            };
+          } catch (err) {
+            // A malformed configured ENR shouldn't abort node setup — skip it and log.
+            logger.warn(`Skipping preferred peer with invalid ENR`, { err });
+            return undefined;
           }
-          return {
-            id: peerId,
-            addrs: [address],
-          };
         }),
-      )
-    ).filter(peer => peer !== undefined);
+      ),
+    );
 
     const announceTcpMultiaddr = config.p2pIp ? [convertToMultiaddr(config.p2pIp, p2pPort, 'tcp')] : [];
 

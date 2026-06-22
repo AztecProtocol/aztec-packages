@@ -1,4 +1,5 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
+import { compactArray } from '@aztec/foundation/collection';
 import { makeEthSignDigest, tryRecoverAddress } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
@@ -199,21 +200,27 @@ export class PeerManager implements PeerManagerInterface {
       .then(peerIds => peerIds.forEach(peerId => this.preferredPeers.add(peerId.toString())))
       .catch(e => this.logger.error('Error initializing preferred peers', e));
 
-    const directPeers = (
+    const directPeers = compactArray(
       await Promise.all(
         preferredPeersEnrs.map(async enr => {
-          const peerId = await enr.peerId();
-          const address = enr.getLocationMultiaddr('tcp');
-          if (address === undefined) {
-            throw new Error(`Direct peer ${peerId.toString()} has no TCP address, ENR: ${enr.encodeTxt()}`);
+          try {
+            const peerId = await enr.peerId();
+            const address = enr.getLocationMultiaddr('tcp');
+            if (address === undefined) {
+              throw new Error(`Direct peer ${peerId.toString()} has no TCP address, ENR: ${enr.encodeTxt()}`);
+            }
+            return {
+              id: peerId,
+              addrs: [address],
+            };
+          } catch (err) {
+            // A malformed configured ENR shouldn't abort preferred-peer setup — skip it and log.
+            this.logger.warn(`Skipping preferred peer with invalid ENR`, { err });
+            return undefined;
           }
-          return {
-            id: peerId,
-            addrs: [address],
-          };
         }),
-      )
-    ).filter(peer => peer !== undefined);
+      ),
+    );
 
     await Promise.all(
       directPeers.map(peer => {
