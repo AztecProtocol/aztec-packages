@@ -54,6 +54,22 @@ const VALIDATOR_COUNT = 4;
  * checkpoint it prunes the S1 block as an orphan, rebuilds checkpoint 1 itself, and never produces S2's
  * checkpoint. With the fix, checkpoint 1 (covering S1, built by the builder) and checkpoint 2 (covering
  * S2, built by the peer) both land on L1, and S2's covered block carries the peer's distinct coinbase.
+ *
+ * Setup: `EpochsTestContext.setup` with 4 validators (`skipInitialSequencer: true`) wired onto the in-memory
+ * `mockGossipSubNetwork` bus, then 4 validator nodes created via `test.createValidatorNode` in 2 HA pairs. Each pair
+ * shares its two validator keys plus an in-memory `createSharedSlashingProtectionDb` (so only one peer signs per duty)
+ * — explicitly NOT the Postgres-backed docker-compose HA suite, so this is an in-proc `multi-node` test, not infra.
+ * Production `Sequencer`, no prover node. Timing: ethSlot=6s, aztecSlot=36s, epoch=8, proofSubEpochs=1024,
+ * blockDurationMs=8s, committeeSize=4, attestationPropagationTime=0.5, inboxLag=2; anvil on interval mining. Nodes build
+ * empty checkpoints (`buildCheckpointIfEmpty` + `minTxsPerBlock: 0`) so no txs are needed, and each node uses a distinct
+ * coinbase so the secondary assertion can prove which peer produced S2. Time is warped with `cheatCodes.eth.warp`:
+ * `findConsecutiveSamePairSlots` recovers from `ValidatorSelection__EpochNotStable` by warping forward one epoch, and
+ * the test warps to one L1 slot before S1's build slot before starting the sequencers. Routing of S1→builder and
+ * S2→peer uses the test-only `pauseProposingForSlots` hook.
+ *
+ * Proposed category: `multi-node` (epochs/) — 4 validators on the mock gossip bus (mirrors
+ * `epochs_orphan_block_prune` / `epochs_simple_block_building`). See the inline REFACTOR markers for hand-rolled
+ * coordination a DSL helper should replace.
  */
 describe('e2e_epochs/epochs_ha_checkpoint_handoff', () => {
   let context: EndToEndContext;
@@ -192,6 +208,9 @@ describe('e2e_epochs/epochs_ha_checkpoint_handoff', () => {
         ? undefined
         : haPairs.find(pair => pair.addresses.includes(proposer.toString().toLowerCase()));
 
+    // REFACTOR: hand-rolled slot-search loop with manual epoch arithmetic and warp-on-EpochNotStable retry
+    // (same pattern as epochs_invalidate_block / epochs_orphan_block_prune) — a shared "find slots matching a
+    // proposer predicate, warping past EpochNotStable" helper should replace it.
     let candidate = Number(test.epochCache.getEpochAndSlotNow().slot) + 4;
     const maxAttempts = 200;
     for (let attempt = 0; attempt < maxAttempts; attempt++) {

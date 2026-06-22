@@ -22,7 +22,13 @@ import { awaitCommitteeExists, findUpcomingProposerSlot } from './shared.js';
 
 /**
  * Exercises the sentinel's six-case proposer-status taxonomy end-to-end by driving each of the
- * status variants via in-tree validator-config flags (no jest stubbing of internals):
+ * status variants via in-tree validator-config flags (no jest stubbing of internals).
+ *
+ * Setup: P2PNetworkTest with mockGossipSubNetwork:true (in-memory bus, NOT real libp2p). 6 validators,
+ * ethSlot varies by CI (4s local / 8s CI), aztecSlot=2x ethSlot, epoch=2, proofSubEpochs=1024,
+ * minTxsPerBlock=0, inboxLag=2, sentinelEnabled, fake prover (startProverNode:true).
+ * Each it runs as an isolated CI job (parallel convention).
+ * Candidate for relocation to e2e_slashing/.
  *
  *   1. `checkpoint-unvalidated` (case 3) — one validator runs with `broadcastInvalidBlockProposal`,
  *      so honest observers reject its block proposals (state_mismatch) and never push them to
@@ -136,6 +142,9 @@ describe('e2e_p2p_sentinel_status_slash', () => {
     }
   });
 
+  // Spawns one malicious node with broadcastInvalidBlockProposal:true; honest observers reject via
+  // re-execution state_mismatch and record `checkpoint-unvalidated` for that proposer slot. The sentinel
+  // then emits an INACTIVITY offense. Asserts all honest observers agree on the fault slot and status.
   it('slashes the proposer with INACTIVITY when checkpoint validation records unvalidated', async () => {
     // One malicious node broadcasts invalid block proposals; honest observers reject them via
     // re-execution state_mismatch and therefore never push to their archivers, so the malicious
@@ -158,6 +167,10 @@ describe('e2e_p2p_sentinel_status_slash', () => {
     await assertInactivityOffenseFor(targetAddress, nodes[1]);
   });
 
+  // Spawns one malicious node with broadcastInvalidCheckpointProposalOnly:true; block proposals are
+  // valid (land in archivers) but checkpoint proposals carry a random archive. Observers detect
+  // header_mismatch and record `checkpoint-invalid`. The sentinel emits INACTIVITY. Asserts all
+  // observers agree and the malicious node self-records `checkpoint-valid`.
   it('slashes the proposer with INACTIVITY when checkpoint validation records invalid', async () => {
     // One malicious node broadcasts invalid CHECKPOINT proposals while keeping the underlying
     // block proposals valid; observers accept the blocks (so they land in the archiver) but
@@ -173,6 +186,9 @@ describe('e2e_p2p_sentinel_status_slash', () => {
     await assertInactivityOffenseFor(targetAddress, nodes[1]);
   });
 
+  // Starts 6 honest validators, waits for P2P mesh and committee, then stops the last validator.
+  // Asserts that all remaining observers record `attestation-missed` for the stopped node and that
+  // an INACTIVITY offense is emitted for it.
   it('slashes an attestor that gets stopped after the network is running', async () => {
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,

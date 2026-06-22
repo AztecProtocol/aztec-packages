@@ -50,6 +50,10 @@ const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'data-withholding-slash-'
  *      a slot-keyed DATA_WITHHOLDING for the three attesters (A, B, C).
  *   8. With slashSelfAllowed the offense reaches quorum; A, B, C are slashed on L1. D is
  *      not slashed because it never attested.
+ *
+ * Setup: P2PNetworkTest with real libp2p (no mockGossipSubNetwork). 4 validators, ethSlot=4s,
+ * aztecSlot=12s, epoch=2, proofSubEpochs=1024, minTxsPerBlock=1, inboxLag=2, slashSelfAllowed.
+ * Uses jest.spyOn to suppress tx gossip and stub proposal handlers on specific nodes.
  */
 describe('e2e_p2p_data_withholding_slash', () => {
   let t: P2PNetworkTest;
@@ -108,6 +112,10 @@ describe('e2e_p2p_data_withholding_slash', () => {
     }
   });
 
+  // Configures a 4-node real-libp2p network with a malicious proposer (tx gossip suppressed), two blind
+  // attesters (accept any proposal without re-execution), and one honest node that refuses to attest. After
+  // the tolerance window the watchers detect DATA_WITHHOLDING offenses for the three attesters (A, B, C)
+  // and assert only D — the honest non-attester — is not slashed.
   it('slashes attesters that attest to proposals containing withheld transactions', async () => {
     if (!t.bootstrapNodeEnr) {
       throw new Error('Bootstrap node ENR is not available');

@@ -275,6 +275,7 @@ export class LightweightCheckpointBuilder {
     const timestamp = blocks[blocks.length - 1].timestamp;
 
     const totalManaUsed = blocks.reduce((acc, block) => acc.add(block.header.totalManaUsed), Fr.ZERO);
+    const accumulatedFees = blocks.reduce((acc, block) => acc.add(block.header.totalFees), Fr.ZERO);
 
     const header = CheckpointHeader.from({
       lastArchiveRoot: this.lastArchives[0].root,
@@ -288,6 +289,7 @@ export class LightweightCheckpointBuilder {
       feeRecipient,
       gasFees,
       totalManaUsed,
+      accumulatedFees,
     });
 
     this.logger.debug(`Completed checkpoint ${this.checkpointNumber}`, {

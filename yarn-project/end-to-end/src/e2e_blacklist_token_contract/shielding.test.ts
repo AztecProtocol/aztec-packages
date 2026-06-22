@@ -5,6 +5,9 @@ import { AUTOMINE_E2E_OPTS } from '../fixtures/fixtures.js';
 import { U128_UNDERFLOW_ERROR } from '../fixtures/index.js';
 import { BlacklistTokenContractTest } from './blacklist_token_contract_test.js';
 
+// Covers the shield (public→private) and redeem_shield operations on TokenBlacklist, including
+// authwit-delegated shielding and blacklist enforcement. Setup: single node with AutomineSequencer,
+// 3 accounts, initial mint applied. Time-warp required during setup to cross role-change delay.
 describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
   const t = new BlacklistTokenContractTest('shield');
   let { asset, tokenSim, wallet, adminAddress, otherAddress, blacklistedAddress } = t;
@@ -31,6 +34,8 @@ describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
     secretHash = await computeSecretHash(secret);
   });
 
+  // Shields half the admin's public balance to private, registers the note in PXE, redeems it, and
+  // verifies the result against TokenSimulator.
   it('on behalf of self', async () => {
     const balancePub = await asset.methods
       .balance_of_public(adminAddress)
@@ -50,6 +55,8 @@ describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
     await t.tokenSim.check();
   });
 
+  // Sets a public authwit allowing otherAddress to shield admin's tokens, executes the shield from
+  // otherAddress, verifies replay fails (unauthorized), redeems, and checks TokenSimulator.
   it('on behalf of other', async () => {
     const balancePub = await asset.methods
       .balance_of_public(adminAddress)
@@ -84,7 +91,9 @@ describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
     await t.tokenSim.check();
   });
 
+  // Error paths: more-than-balance, invalid nonce, wrong caller, missing approval, blacklist.
   describe('failure cases', () => {
+    // Shields more than public balance (self); expects U128_UNDERFLOW_ERROR.
     it('on behalf of self (more than balance)', async () => {
       const balancePub = await asset.methods
         .balance_of_public(adminAddress)
@@ -98,6 +107,7 @@ describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
       ).rejects.toThrow(U128_UNDERFLOW_ERROR);
     });
 
+    // Self-shield with nonce=1; expects invalid-nonce assertion failure.
     it('on behalf of self (invalid authwit nonce)', async () => {
       const balancePub = await asset.methods
         .balance_of_public(adminAddress)
@@ -113,6 +123,7 @@ describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
       );
     });
 
+    // Authwit-shields more than balance via otherAddress; expects U128_UNDERFLOW_ERROR.
     it('on behalf of other (more than balance)', async () => {
       const balancePub = await asset.methods
         .balance_of_public(adminAddress)
@@ -134,6 +145,7 @@ describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
       await expect(action.simulate({ from: otherAddress })).rejects.toThrow(U128_UNDERFLOW_ERROR);
     });
 
+    // Approves otherAddress as caller, executes from blacklistedAddress; expects unauthorized.
     it('on behalf of other (wrong designated caller)', async () => {
       const balancePub = await asset.methods
         .balance_of_public(adminAddress)
@@ -155,6 +167,7 @@ describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
       await expect(action.simulate({ from: blacklistedAddress })).rejects.toThrow(/unauthorized/);
     });
 
+    // Calls shield for admin from otherAddress without any authwit; expects unauthorized.
     it('on behalf of other (without approval)', async () => {
       const balance = await asset.methods
         .balance_of_public(adminAddress)
@@ -169,6 +182,7 @@ describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
       ).rejects.toThrow(/unauthorized/);
     });
 
+    // Attempts shield from the blacklisted account; expects 'Blacklisted: Sender' assertion.
     it('shielding from blacklisted account', async () => {
       await expect(
         asset.methods.shield(blacklistedAddress, 1n, secretHash, 0).simulate({ from: blacklistedAddress }),

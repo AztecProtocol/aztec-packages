@@ -520,6 +520,10 @@ export interface OracleRegistryEntry<
   deserializeParams(inputs: InputSlot[]): TDeserializedParams;
   /** Serialize a handler return value into ACVM output slots. */
   serializeReturn(result: TReturnValue): OutputSlot[];
+  /** The ordered named parameters with their {@link TypeMapping}s. Lets callers introspect the oracle's wire ABI. */
+  readonly params: readonly RegistryParam[];
+  /** The return {@link TypeMapping}, or `undefined` for oracles that return nothing. */
+  readonly returnType?: TypeMapping<TReturnValue>;
 }
 
 export function makeEntry<const TParams extends RegistryParam[] = [], TReturnValue = void>({
@@ -530,6 +534,8 @@ export function makeEntry<const TParams extends RegistryParam[] = [], TReturnVal
   returnType?: TypeMapping<TReturnValue>;
 } = {}): OracleRegistryEntry<InferDeserializedParams<TParams>, TReturnValue> {
   return {
+    params: params ?? [],
+    returnType,
     deserializeParams(inputs: InputSlot[]): InferDeserializedParams<TParams> {
       const resolvedParams: RegistryParam[] = params ?? [];
       // Walk the input slots left-to-right, advancing by each param's slot count.
@@ -563,7 +569,7 @@ export function makeEntry<const TParams extends RegistryParam[] = [], TReturnVal
 }
 
 /** A named oracle parameter with its TypeMapping. */
-interface RegistryParam<TName extends string = string, T = any> {
+export interface RegistryParam<TName extends string = string, T = any> {
   name: TName;
   type: TypeMapping<T>;
 }

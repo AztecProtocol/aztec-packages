@@ -10,8 +10,8 @@
 /// the PXE and used to provide helpful error messages if a contract calls an oracle that doesn't exist. We don't throw
 /// immediately if AZTEC_NR_MINOR > PXE_MINOR because if a contract is updated to use a newer Aztec.nr dependency
 /// without actually using any of the new oracles then there is no reason to throw.
-pub global ORACLE_VERSION_MAJOR: Field = 29;
-pub global ORACLE_VERSION_MINOR: Field = 1;
+pub global ORACLE_VERSION_MAJOR: Field = 30;
+pub global ORACLE_VERSION_MINOR: Field = 0;
 
 /// Asserts that the version of the oracle is compatible with the version expected by the contract.
 pub fn assert_compatible_oracle_version() {

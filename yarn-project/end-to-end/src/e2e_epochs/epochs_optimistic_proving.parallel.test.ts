@@ -18,6 +18,24 @@ jest.setTimeout(1000 * 60 * 20);
 
 /**
  * E2E tests for optimistic (checkpoint-driven) proving with reorg scenarios.
+ *
+ * Setup: a single sequencer/validator node from `EpochsTestContext.setup` plus the context's fake prover-node (no
+ * `mockGossipSubNetwork`, so no gossip bus), making this a `single-node` test on the production `Sequencer`. Each of the
+ * six `describe` blocks builds a fresh context in its own `beforeEach` and tears it down in the shared `afterEach`. The
+ * happy-path pair uses defaults (`numberOfAccounts: 1`; ethSlot=8s local/12s CI, aztecSlot=16s/24s, epoch=6,
+ * proofSubEpochs=1); the five reorg describes use a faster cadence (ethSlot=4s, aztecSlot=36s, epoch=4 — or 8 for the
+ * with-replacement case so the replacement lands in-epoch — proofSubEpochs=1000, blockDurationMs=8s, minTxsPerBlock=0,
+ * anvilSlotsInAnEpoch=32, maxSpeedUpAttempts=0, cancelTxOnTimeout=false). The `prover-node starts mid-epoch` describe
+ * sets `startProverNode: false` and spins up the prover via `test.createProverNode()` partway through the epoch.
+ *
+ * L1 reorgs are driven by `cheatCodes.eth.reorgWithReplacement` and treated as `other-active L1` per the rubric — NOT
+ * cross-chain bridging — so the file stays `single-node` (mirrors `epochs_partial_proof` / `epochs_sync_after_reorg`).
+ * Block production is paused/resumed mid-test via the `skipPublishingCheckpointsPercent` node-admin config, and the
+ * `checkpoint reorg during proving` describe gates top-tree proving with the prover's `beforeTopTreeProve` session hook.
+ * Anvil runs on interval mining; time advances naturally (the reorgs and `waitUntilNextEpochStarts` do the warping).
+ *
+ * Proposed category: `single-node` (epochs/). Heavy hand-rolled coordination throughout — see the inline REFACTOR
+ * markers below for the raw-async sites a DSL helper should replace.
  */
 describe('e2e_epochs/epochs_optimistic_proving', () => {
   let context: EndToEndContext;
@@ -89,6 +107,8 @@ describe('e2e_epochs/epochs_optimistic_proving', () => {
     /** epoch -> earliest wall-clock slot at which a CheckpointProver for that epoch was registered. */
     const provingStartedAtSlot = new Map<EpochNumber, SlotNumber>();
     let stopped = false;
+    // REFACTOR: hand-rolled setTimeout sampler loop with a `stopped` flag — a polling/observe helper
+    // (e.g. a sampler that records earliest-observed values per key until disposed) should replace it.
     const loop = (async () => {
       while (!stopped) {
         const { epoch, slot } = test.epochCache.getEpochAndSlotNow();

@@ -125,6 +125,8 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
   bytes4 NO_REVERT = bytes4(0);
   bytes4 ANY_REVERT = bytes4(0xFFFFFFFF);
 
+  mapping(uint256 => ProposedHeader) internal proposedHeaders;
+
   function getAttesters() internal view returns (address[] memory) {
     GSE gse = rollup.getGSE();
     uint256 count = rollup.getActiveAttesterCount();
@@ -684,6 +686,9 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     }
 
     emit log("Time to propose");
+
+    proposedHeaders[rollup.getPendingCheckpointNumber() + 1] = ree.proposeArgs.header;
+
     if (_revertData != NO_REVERT) {
       if (_revertData == ANY_REVERT) {
         vm.expectRevert();
@@ -743,7 +748,11 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       proverId: prover
     });
 
-    bytes32[] memory fees = new bytes32[](Constants.MAX_CHECKPOINTS_PER_EPOCH * 2);
+    uint256 size = endCheckpointNumber - startCheckpointNumber + 1;
+    ProposedHeader[] memory headers = new ProposedHeader[](size);
+    for (uint256 i = 0; i < size; i++) {
+      headers[i] = proposedHeaders[startCheckpointNumber + i];
+    }
 
     if (_revertData != NO_REVERT) {
       vm.expectPartialRevert(_revertData);
@@ -754,7 +763,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
         start: startCheckpointNumber,
         end: endCheckpointNumber,
         args: args,
-        fees: fees,
+        headers: headers,
         attestations: _attestations,
         blobInputs: endFull.checkpoint.batchedBlobInputs,
         proof: ""

@@ -7,7 +7,7 @@ import { SerialQueue } from '@aztec/foundation/queue';
 import type { DateProvider } from '@aztec/foundation/timer';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { Proof } from '@aztec/stdlib/proofs';
-import type { RootRollupPublicInputs } from '@aztec/stdlib/rollup';
+import type { CheckpointHeader, RootRollupPublicInputs } from '@aztec/stdlib/rollup';
 
 import type { ProverNodePublisher } from './prover-node-publisher.js';
 import type { ProverPublisherFactory } from './prover-publisher-factory.js';
@@ -45,6 +45,8 @@ export type PublishCandidate = {
   proof: Proof;
   batchedBlobInputs: BatchedBlob;
   attestations: ViemCommitteeAttestation[];
+  /** Committee-attested checkpoint headers for the range, supplying the L1-verified fee recipient/value. */
+  headers: CheckpointHeader[];
 };
 
 /** Terminal outcome for a candidate. The promise from `submit()` resolves with one of these. */
@@ -333,6 +335,7 @@ export class ProofPublishingService {
       proof: candidate.proof,
       batchedBlobInputs: candidate.batchedBlobInputs,
       attestations: candidate.attestations,
+      headers: candidate.headers,
       // Stop the L1 tx retrying past the candidate's submission-window deadline.
       deadline: candidate.deadline,
     };

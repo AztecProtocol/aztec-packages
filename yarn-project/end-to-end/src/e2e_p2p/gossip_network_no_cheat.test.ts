@@ -50,6 +50,10 @@ const qosAlerts: AlertConfig[] = [
   },
 ];
 
+// Tests gossip propagation using the real CLI validator-registration path (addL1Validator + ZkPassport mock)
+// instead of the MultiAdder cheat shortcut used by applyBaseSetup. Uses P2PNetworkTest with
+// SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES (ethSlot=4s, aztecSlot=24s, proofSubEpochs=640) and real libp2p.
+// Distinct from gossip_network.test.ts specifically because of the validator-registration flow.
 describe('e2e_p2p_network', () => {
   let t: P2PNetworkTest;
   let nodes: AztecNodeService[];
@@ -93,6 +97,9 @@ describe('e2e_p2p_network', () => {
     }
   });
 
+  // Registers validators via the real addL1Validator CLI path (with ZkPassport mock proof), submits
+  // transactions to each node, and asserts all txs are mined and that attestation signers match
+  // the registered validator set. Validates the non-cheat registration flow end-to-end.
   it('should rollup txs from all peers (and add the validators without cheating)', async () => {
     // create the bootstrap node for the network
     if (!t.bootstrapNodeEnr) {

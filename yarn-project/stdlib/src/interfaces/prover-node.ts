@@ -1,8 +1,9 @@
+import { createSafeJsonRpcClient, defaultFetch } from '@aztec/foundation/json-rpc/client';
+
 import { z } from 'zod';
 
-import { type L2Tips, L2TipsSchema } from '../block/l2_block_source.js';
 import { type ApiSchemaFor, schemas } from '../schemas/index.js';
-import { type WorldStateSyncStatus, WorldStateSyncStatusSchema } from './world_state.js';
+import { type ComponentsVersions, getVersioningResponseHandler } from '../versioning/index.js';
 
 const EpochProvingJobState = [
   'initialized',
@@ -30,7 +31,7 @@ export const EpochProvingJobTerminalState: EpochProvingJobState[] = [
 
 export type EpochProvingJobTerminalState = (typeof EpochProvingJobTerminalState)[number];
 
-/** JSON RPC public interface to a prover node. */
+/** JSON RPC admin interface to a prover node. */
 export interface ProverNodeApi {
   getJobs(): Promise<{ uuid: string; status: EpochProvingJobState; epochNumber: number }[]>;
 
@@ -40,10 +41,6 @@ export interface ProverNodeApi {
    * track the returned job's progress.
    */
   startProof(epochNumber: number): Promise<string>;
-
-  getL2Tips(): Promise<L2Tips>;
-
-  getWorldStateSyncStatus(): Promise<WorldStateSyncStatus>;
 }
 
 /** Schemas for prover node API functions. */
@@ -54,8 +51,18 @@ export const ProverNodeApiSchema: ApiSchemaFor<ProverNodeApi> = {
   }),
 
   startProof: z.function({ input: z.tuple([schemas.Integer]), output: z.string() }),
-
-  getL2Tips: z.function({ input: z.tuple([]), output: L2TipsSchema }),
-
-  getWorldStateSyncStatus: z.function({ input: z.tuple([]), output: WorldStateSyncStatusSchema }),
 };
+
+export function createProverNodeAdminClient(
+  url: string,
+  versions: Partial<ComponentsVersions> = {},
+  fetch = defaultFetch,
+  apiKey?: string,
+): ProverNodeApi {
+  return createSafeJsonRpcClient<ProverNodeApi>(url, ProverNodeApiSchema, {
+    namespaceMethods: 'prover',
+    fetch,
+    onResponse: getVersioningResponseHandler(versions),
+    ...(apiKey ? { extraHeaders: { 'x-api-key': apiKey } } : {}),
+  });
+}

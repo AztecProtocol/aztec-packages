@@ -23,6 +23,9 @@ import {
 
 const logger = createLogger('e2e:spartan-test:validator-ha');
 
+// Validator high-availability test against a live k8s deployment. Kills KILL_PERCENT of sequencers via
+// Chaos Mesh in repeated rounds, waits for the chain to recover to the next checkpoint each time, and
+// asserts liveness is maintained throughout.
 describe('validator ha', () => {
   jest.setTimeout(60 * 60 * 1000);
 

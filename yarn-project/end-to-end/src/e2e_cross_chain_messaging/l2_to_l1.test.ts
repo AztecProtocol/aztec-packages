@@ -24,6 +24,8 @@ import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';
  * the next checkpoint job rather than racing with an in-flight one. Mirrors the helper in
  * `e2e_fees/gas_estimation.test.ts`.
  */
+// REFACTOR: duplicated from e2e_fees/gas_estimation.test.ts; extract to a shared fixture helper
+// (e.g. waitForSequencerState) so both call sites can share it without copy-pasting.
 function waitForSequencerIdle(sequencer: Sequencer, timeout = 30000): Promise<void> {
   if (sequencer.status().state === SequencerState.IDLE) {
     return Promise.resolve();
@@ -44,6 +46,10 @@ function waitForSequencerIdle(sequencer: Sequencer, timeout = 30000): Promise<vo
   });
 }
 
+// L2→L1 messaging via Outbox: tree structure, multi-tx blocks, and multi-block checkpoints.
+// Uses CrossChainMessagingTest with startProverNode=true (prod sequencer, pipelining preset:
+// ethSlot=4s, aztecSlot=12s), fake in-proc prover node, CrossChainTestHarness for L1↔L2 token
+// portal bridging, and real epoch proving via advanceToEpochProven before Outbox consumption.
 describe('e2e_cross_chain_messaging l2_to_l1', () => {
   // Pipelining slows wall-clock chain progress (12s slots); advanceToEpochProven plus the per-test
   // multi-tx flows exceed the default 300s per-test budget.
@@ -84,6 +90,9 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
 
   // Note: We register one portal address when deploying contract but that address is no-longer the only address
   // allowed to receive messages from the given contract. In the following test we'll test that it's really the case.
+  // Sends one tx with two L2→L1 messages (one from private, one from public) to a non-registered portal.
+  // Proves the epoch, then consumes both messages from L1 via the Outbox and asserts the MessageConsumed
+  // event is emitted and the message cannot be consumed a second time.
   it('1 tx with 2 messages, one from public, one from private, to a non-registered portal address', async () => {
     const recipient = crossChainTestHarness.ethAccount;
     const contents = [Fr.random(), Fr.random()];
@@ -183,6 +192,8 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
 
   // When the block contains a tx with no messages, the zero txOutHash is skipped and won't be included in the top tree.
   // In this test, we test that the correct tree class is used, and the final out hash equals the only message leaf.
+  // Two txs packed into the same block: one emitting an L2→L1 message, one with no messages. Verifies
+  // the message tree is built correctly (zero txOutHash skipped) and the single message is consumable.
   it('2 txs in the same block, one with no messages, one with a message', async () => {
     const content = Fr.random();
     const recipient = msgSender;
@@ -210,6 +221,8 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
     await expectConsumeMessageToSucceed(message, withMessageReceipt.txHash);
   });
 
+  // Two txs with 3 and 4 messages respectively. Verifies the mixed-height subtree structure is
+  // built correctly and representative messages from each tx are consumable after epoch proving.
   it('2 txs (balanced), one with 3 messages (unbalanced), one with 4 messages (balanced)', async () => {
     // Force txs to be in the same block.
     await aztecNodeAdmin!.setConfig({ minTxsPerBlock: 2 });
@@ -263,6 +276,8 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
     }
   });
 
+  // Three txs with 3, 1, and 2 messages. The 1-message tx's subtree root is the leaf itself; the
+  // 3-message tx is unbalanced. Verifies representative messages from each tx are consumable.
   it('3 txs (unbalanced), one with 3 messages (unbalanced), one with 1 message (the subtree root), one with 2 messages (balanced)', async () => {
     // Force txs to be in the same block.
     await aztecNodeAdmin!.setConfig({ minTxsPerBlock: 3 });
@@ -317,9 +332,10 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
     }
   });
 
-  // Two txs, each emitting one L2-to-L1 message, packed into separate blocks of a single checkpoint.
-  // This exercises the checkpoint level of the L2-to-L1 message tree (the block out hashes within a
-  // checkpoint), which the single-block-per-checkpoint cases above never reach. See #17027.
+  // Two txs, each with one message, packed into separate blocks of the same checkpoint. Exercises the
+  // checkpoint-level L2→L1 tree (block out hashes within a checkpoint), which the single-block
+  // cases above never reach (see #17027). Membership witnesses span the checkpoint's block subtree;
+  // verifies both messages are consumable after epoch proving.
   it('2 txs each with a message, in different blocks of the same checkpoint', async () => {
     const recipient = msgSender;
     const contents = [Fr.random(), Fr.random()];

@@ -14,6 +14,9 @@ import 'jest-extended';
 import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 
+// Smoke tests for the AutomineSequencer: verifies that sequential and parallel txs land correctly,
+// time warps work, mineBlock produces checkpoints, and revertToCheckpoint restores chain state.
+// Uses setup(1, AUTOMINE_E2E_OPTS) providing one node with AutomineSequencer.
 describe('e2e_automine_smoke', () => {
   jest.setTimeout(10 * 60 * 1000);
 
@@ -40,6 +43,8 @@ describe('e2e_automine_smoke', () => {
 
   afterAll(() => teardown());
 
+  // Sends 5 txs sequentially and asserts each lands in its own consecutive block,
+  // confirming the automine sequencer serializes dependent txs correctly.
   it('mines sequential dependent txs back-to-back', async () => {
     const startBlock = await aztecNode.getBlockNumber();
     const blockNumbers: number[] = [];
@@ -53,6 +58,8 @@ describe('e2e_automine_smoke', () => {
     expect(blockNumbers).toEqual(range(5, startBlock + 1));
   });
 
+  // Sends 5 txs in parallel (Promise.all) and asserts all receipts have a block number
+  // greater than the starting block.
   it('parallel sends all land', async () => {
     const startBlock = await aztecNode.getBlockNumber();
 
@@ -65,6 +72,8 @@ describe('e2e_automine_smoke', () => {
     }
   });
 
+  // Calls warpL2TimeAtLeastBy(24s), then asserts the L1 timestamp advanced by at least 24s and
+  // the next sent tx lands in a valid block.
   it('warp advances L1 timestamp and the next tx lands at a fresh slot', async () => {
     const before = await cheatCodes.eth.lastBlockTimestamp();
     const warpBy = 24;
@@ -97,6 +106,7 @@ describe('e2e_automine_smoke', () => {
     expect(await aztecNode.prove(CheckpointNumber(checkpointed + 100))).toBe(checkpointed);
   });
 
+  // Calls aztecNode.mineBlock() and asserts both checkpointed block and checkpoint numbers advance.
   it('mineBlock produces an empty checkpoint', async () => {
     const before = await aztecNode.getChainTips();
     await aztecNode.mineBlock();
@@ -105,6 +115,8 @@ describe('e2e_automine_smoke', () => {
     expect(after.checkpointed.block.number).toBeGreaterThan(before.checkpointed.block.number);
   });
 
+  // Mines two checkpoints, then calls automine.revertToCheckpoint(first). Asserts the archiver tip
+  // reverts to the earlier checkpoint and a fresh tx lands cleanly on the reverted chain.
   it('revertToCheckpoint rolls back L1+L2 state', async () => {
     // Land a tx and record the checkpoint it landed at.
     await contract.methods.emit_nullifier_public(BigInt(5000)).send({ from: owner });
@@ -128,6 +140,8 @@ describe('e2e_automine_smoke', () => {
     expect(r3.blockNumber).toBeGreaterThan(0);
   });
 
+  // Fires 6 tx sends without awaiting, inserting warpL2TimeAtLeastBy(24) between every two sends.
+  // Awaits all via Promise.all and verifies all 6 receipts have valid block numbers.
   it('interleaved txs and warps all land successfully', async () => {
     const startBlock = await aztecNode.getBlockNumber();
     const startL1Ts = await cheatCodes.eth.lastBlockTimestamp();

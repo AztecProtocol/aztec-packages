@@ -9,6 +9,36 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### Cross-contract utility calls now have a `msg_sender`
+
+A utility function called by another contract (utility to utility, or private to utility) can read the calling contract's address via `self.msg_sender()`, mirroring private and public functions. A top-level utility call (e.g. invoked directly by a wallet or dapp) has no caller: `self.msg_sender()` panics, and `self.context.maybe_msg_sender()` returns `Option::none()`.
+
+`msg_sender` is only set for cross-contract calls, where it is taken from the call graph and so cannot be forged. A directly-invoked utility (from a wallet or dapp) has no verifiable caller, so it exposes none rather than trusting a value the caller could pick freely.
+
+#### [Aztec.nr] `ExecuteUtilityOptions` gains `with_from` to simulate a cross-contract caller in tests
+
+In `TestEnvironment`, use `execute_utility_opts` with the new `ExecuteUtilityOptions::with_from` builder method to set the `msg_sender` a utility observes, simulating a cross-contract caller without routing through an actual nested call (by default it observes no caller):
+
+```rust
+let secret = env.execute_utility_opts(
+    ExecuteUtilityOptions::new().with_from(caller),
+    Registry::at(registry_address).get_app_siloed_secret(sender, recipient, mode),
+);
+```
+
+### [Prover Node JSON-RPC] Prover API moved to the admin endpoint; `getL2Tips`/`getWorldStateSyncStatus` removed
+
+The prover node's JSON-RPC methods (`prover_*`) have moved off the public node RPC server and onto the admin RPC server. They now require the admin API key and are served on the admin port (8880) instead of the public port (8080).
+
+In addition, `prover_getL2Tips` and `prover_getWorldStateSyncStatus` have been removed from the prover API. They duplicated data already served by the node: use `aztec_getChainTips` (same shape as the old `getL2Tips`) and `aztec_getWorldStateSyncStatus` instead.
+
+If you call the prover RPC directly (e.g. via `curl`), point at the admin endpoint with the API key and use the remaining methods:
+
+- `prover_startProof` — schedule proving for an epoch
+- `prover_getJobs` — list proving jobs
+
+A client factory `createProverNodeAdminClient(url, versions?, fetch?, apiKey?)` is now exported from `@aztec/stdlib/interfaces/server`, and the CLI exposes `aztec prover start-proof --epoch <n> --admin-url <url> --api-key <key>` and `aztec prover get-jobs` (the API key defaults to `AZTEC_ADMIN_API_KEY`).
+
 ### [Aztec.nr] `ContractInstance.contract_class_id` renamed to `original_contract_class_id`
 
 The `contract_class_id` field of the `ContractInstance` struct (returned by `get_contract_instance`) has been renamed to `original_contract_class_id`. The struct is the contract's *address preimage*, so this field is the class id the contract was deployed with: for contracts whose class was later updated via the `ContractInstanceRegistry`, it is NOT the class currently executing. The rename makes that explicit.
@@ -155,8 +185,6 @@ The following exports have been removed from `@aztec/stdlib`:
 - `FALLBACK_TEARDOWN_DA_GAS_LIMIT`
 
 **Impact**: Any code that imported these symbols must switch to the live node-advertised limits via the node's `txsLimits.gas`.
-
-> > > > > > > ab5413c72dc5377107943b8614130ec8050bf06c
 
 ### [Aztec.nr] `messages::message_delivery` module moved to `messages::delivery`
 

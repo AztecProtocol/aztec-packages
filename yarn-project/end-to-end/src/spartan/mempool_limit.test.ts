@@ -53,6 +53,9 @@ const TX_FLOOD_SIZE = 15;
 const TX_MEMPOOL_LIMIT = 10;
 const CONCURRENCY = 5;
 
+// Tests mempool size limits on a live k8s deployment. Floods the mempool with more transactions than
+// the configured limit, then verifies that the sequencer respects the cap and that excess transactions
+// are either dropped or deferred without crashing the node.
 describe('mempool limiter test', () => {
   jest.setTimeout(10 * 60 * 2000); // 20 minutes
   let node: ReturnType<typeof createAztecNodeClient>;

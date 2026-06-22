@@ -9,6 +9,8 @@ import type { TestWallet } from './test-wallet/test_wallet.js';
 
 // TODO: Ideally these would be unit tests for PXE, but some functions like simulateTx, proveTx, etc require
 // more complex setup
+//
+// Exercises PXE simulation error paths that require a running node. Single node with AutomineSequencer.
 describe('e2e_pxe', () => {
   let wallet: TestWallet;
   let defaultAccountAddress: AztecAddress;
@@ -27,6 +29,8 @@ describe('e2e_pxe', () => {
 
   afterAll(() => teardown());
 
+  // Emits a nullifier on-chain, then simulates the same nullifier emission again; asserts the simulation
+  // throws an error that includes the TX_ERROR_EXISTING_NULLIFIER reason string.
   it('simulate includes validation reason in error', async () => {
     const nullifier = Fr.random();
     await contract.methods.emit_nullifier(nullifier).send({ from: defaultAccountAddress });
