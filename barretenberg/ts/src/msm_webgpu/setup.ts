@@ -39,9 +39,7 @@ export interface WebGpuBridgeHandle {
  * `installWorkerStub(...)` with the payload before instantiating
  * its WASM module — otherwise the WASM hooks won't find the bridge.
  */
-export async function setupWebGpuMsmBridge(
-  worker: Worker,
-): Promise<WebGpuBridgeHandle> {
+export async function setupWebGpuMsmBridge(worker: Worker): Promise<WebGpuBridgeHandle> {
   const controlSab = createControlBuffer();
   const host = new WebGpuMsmHost(controlSab);
 
@@ -55,11 +53,7 @@ export async function setupWebGpuMsmBridge(
     // worker_stub.ts:signalAndWait). Anything else is unrelated.
     if (e.data === 'msm_request') {
       void host.handleMessage(e.data);
-    } else if (
-      e.data &&
-      typeof e.data === 'object' &&
-      e.data.kind === 'webgpu-wasm-memory'
-    ) {
+    } else if (e.data && typeof e.data === 'object' && e.data.kind === 'webgpu-wasm-memory') {
       // The worker posts its WASM memory back to us once it's
       // instantiated. We need this to read out request payloads.
       host.setWasmMemory(e.data.memory);
@@ -67,8 +61,20 @@ export async function setupWebGpuMsmBridge(
   };
   worker.addEventListener('message', messageHandler);
 
+  // Decoupled page hook (same pattern as the bridge's other `__bridge_*` globals,
+  // so serve.ts can call it without importing this module and coupling the bundle):
+  // reset the GPU bridge to a clean post-publish state between proves, letting one
+  // warm GPU backend prove many different chonk flows correctly. Returns a promise.
+  const resetHook = (): Promise<void> => host.reset();
+  (globalThis as any).__bridge_reset = resetHook;
+
   const destroy = async () => {
     worker.removeEventListener('message', messageHandler);
+    // Clear our hook only if it's still ours (a newer bridge may have replaced it).
+    // host.reset() is a no-op after destroy anyway, so a stale hook is harmless.
+    if ((globalThis as any).__bridge_reset === resetHook) {
+      (globalThis as any).__bridge_reset = undefined;
+    }
     await host.destroy();
   };
   return { controlSab, host, destroy };
@@ -81,9 +87,6 @@ export async function setupWebGpuMsmBridge(
  * `wasm.setExtraEnvImports(stub.getEnvImports())` before
  * `WebAssembly.instantiate` runs.
  */
-export function installWorkerStub(
-  controlSab: SharedArrayBuffer,
-  post: (msg: string) => void,
-): WebGpuMsmWorkerStub {
+export function installWorkerStub(controlSab: SharedArrayBuffer, post: (msg: string) => void): WebGpuMsmWorkerStub {
   return new WebGpuMsmWorkerStub(controlSab, post);
 }

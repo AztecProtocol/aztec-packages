@@ -1880,44 +1880,65 @@ function warmConfigKey(webgpu: boolean, blocklist?: readonly string[]): string {
   return `${webgpu}|${(blocklist ?? []).join(',')}`;
 }
 
+// Serializes warm-backend lifecycle ops (build / reuse / dispose). The button
+// handlers are already mutually exclusive via setBusy, but the page-load eager
+// warm-up runs WITHOUT setBusy, so it can race a Run click. Interleaving two
+// build/destroy ops would corrupt the config-keyed singleton (initSingleton
+// bakes webgpuMsm at first build), so every op runs after the previous settles.
+let warmOpChain: Promise<unknown> = Promise.resolve();
+function serializeWarmOp<T>(op: () => Promise<T>): Promise<T> {
+  const run = warmOpChain.then(op, op);
+  warmOpChain = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
+}
+
 /** Return the warm backend for this config, building it (and tearing down a
  *  differently-configured one) only when the config changed. `initMs` is 0 and
- *  `reused` true when the live backend was reused. */
-async function ensureWarmBackend(
+ *  `reused` true when the live backend was reused. Serialized against other
+ *  warm-backend ops so a page-load warm-up can't race a Run click. */
+function ensureWarmBackend(
   webgpu: boolean,
   blocklist: readonly string[] | undefined,
 ): Promise<{ bb: Barretenberg; initMs: number; reused: boolean }> {
-  const key = warmConfigKey(webgpu, webgpu ? blocklist : undefined);
-  if (warmKey === key) {
-    try {
-      return { bb: Barretenberg.getSingleton(), initMs: 0, reused: true };
-    } catch {
-      // The singleton was torn down out from under us (e.g. a trace run); rebuild.
+  return serializeWarmOp(async () => {
+    const key = warmConfigKey(webgpu, webgpu ? blocklist : undefined);
+    if (warmKey === key) {
+      try {
+        return { bb: Barretenberg.getSingleton(), initMs: 0, reused: true };
+      } catch {
+        // The singleton was torn down out from under us (e.g. a trace run); rebuild.
+        warmKey = undefined;
+      }
+    }
+    if (warmKey !== undefined) {
+      await Barretenberg.destroySingleton();
       warmKey = undefined;
     }
-  }
-  if (warmKey !== undefined) {
-    await Barretenberg.destroySingleton();
-    warmKey = undefined;
-  }
-  const t0 = performance.now();
-  const bb = await Barretenberg.initSingleton({
-    threads: 16,
-    logger: warmMemLogger,
-    webgpuMsm: webgpu,
-    webgpuMsmBlocklist: webgpu ? blocklist : undefined,
+    const t0 = performance.now();
+    const bb = await Barretenberg.initSingleton({
+      threads: 16,
+      logger: warmMemLogger,
+      webgpuMsm: webgpu,
+      webgpuMsmBlocklist: webgpu ? blocklist : undefined,
+    });
+    warmKey = key;
+    return { bb, initMs: performance.now() - t0, reused: false };
   });
-  warmKey = key;
-  return { bb, initMs: performance.now() - t0, reused: false };
 }
 
 /** Tear down the warm backend, if any. The trace path calls this so its fresh
- *  benchTrace instance isn't shadowed by the config-blind singleton. */
-async function disposeWarmBackend(): Promise<void> {
-  if (warmKey !== undefined) {
-    await Barretenberg.destroySingleton();
-    warmKey = undefined;
-  }
+ *  benchTrace instance isn't shadowed by the config-blind singleton. Serialized
+ *  against build/reuse ops. */
+function disposeWarmBackend(): Promise<void> {
+  return serializeWarmOp(async () => {
+    if (warmKey !== undefined) {
+      await Barretenberg.destroySingleton();
+      warmKey = undefined;
+    }
+  });
 }
 
 (window as any).ensureWarmBackend = (webgpu: boolean): Promise<{ bb: Barretenberg; initMs: number; reused: boolean }> =>
@@ -2155,6 +2176,282 @@ async function runChonkAllExamples(
 }
 
 (window as any).runChonkAllExamples = runChonkAllExamples;
+
+/** Per-example result of a paired GPU-then-WASM sweep (see runChonkPairedSweep). */
+interface PairedFlowResult {
+  flow: string;
+  /** Number of circuits (creator apps + kernels) in this example's stack; 0 if inputs failed to load. */
+  numCircuits: number;
+  /** WebGPU MSM path: prove/verify wall, verified flag, MSM-phase + memory. Undefined if the GPU prove threw. */
+  gpu?: ChonkWebGpuBenchRunResult;
+  /** WASM (all-CPU) path. Undefined if the WASM prove threw. */
+  wasm?: ChonkWebGpuBenchRunResult;
+  /** GPU VK byte-equal to WASM VK — the gold-standard correctness signal that the
+   *  GPU-delegated MSMs produced the same commitments as the all-CPU path. False
+   *  when either prove failed. */
+  vkMatch: boolean;
+  /** wasm.proveMs / gpu.proveMs (>1 ⇒ GPU faster). 0 when a prove failed or gpu.proveMs is 0. */
+  speedup: number;
+  /** Set when a prove (or the input load) threw, so one bad example doesn't abort the whole sweep. */
+  error?: string;
+}
+
+interface PairedSweepResult {
+  results: PairedFlowResult[];
+}
+
+interface PairedSweepProgress {
+  flowIndex: number;
+  flowCount: number;
+  flow: string;
+  mode: 'webgpu' | 'wasm';
+  phase: 'warmup' | 'proving' | 'done';
+  lastMs?: number;
+}
+
+/** Per-(flow) prove outcome within one mode pass. */
+interface PairedPassEntry {
+  result?: ChonkWebGpuBenchRunResult;
+  vk?: Uint8Array;
+  error?: string;
+}
+
+/**
+ * Prove every example in `flows` on the WebGPU MSM path and on the WASM path, and
+ * return a per-example summary (GPU vs WASM prove/verify, speedup, and the GPU↔WASM
+ * VK byte-match as the correctness signal).
+ *
+ * Backend strategy — reuse, isolating the GPU bridge between flows:
+ *
+ *   - GPU pass: ONE warm backend; between flows call `__bridge_reset`, which clears
+ *     the bridge's cached per-flow MsmV2 instances and rebuilds the SRS pool on the
+ *     same GPUDevice. Those cached instances accumulate per-flow state that otherwise
+ *     corrupts a later, differently-shaped flow (a flow that verifies on its own
+ *     fails mid-sweep); resetting isolates each flow the way a fresh backend would,
+ *     but keeps the ~13s WASM threads + CRS warm. Falls back to a fresh backend per
+ *     flow when the reset hook is unavailable (older bundle / no GPU), since warm
+ *     reuse WITHOUT a reset is incorrect.
+ *
+ *   - WASM pass: ONE warm backend reused across all examples. The native Pippenger
+ *     path has no GPU bridge, so cross-flow reuse is correct (every flow verifies),
+ *     and reuse pays the ~13s init once instead of per flow.
+ *
+ * Inputs are decoded once up front so the proves time prove-only. The GPU pass
+ * applies webgpuBlocklist() — the same routing the single Run WebGPU button uses.
+ * Exposed on `window` for the headless harness / tests.
+ */
+async function runChonkPairedSweep(
+  flows: string[],
+  onProgress?: (p: PairedSweepProgress) => void,
+): Promise<PairedSweepResult> {
+  const blocklist = webgpuBlocklist();
+  const errMsg = (e: unknown): string => (e instanceof Error ? e.message : String(e));
+
+  // Decode every example's inputs once up front so the proves time prove-only and
+  // the decode cost isn't charged to whichever example runs first.
+  type Inputs = { bytecodes: Uint8Array[]; witnesses: Uint8Array[]; vks: Uint8Array[]; functionNames: string[] };
+  const inputs = new Map<string, Inputs | { error: string }>();
+  for (const flow of flows) {
+    try {
+      inputs.set(flow, await loadPinnedInputs(flow));
+    } catch (e) {
+      logger.error(`[paired] ${flow} input load failed: ${errMsg(e)}`);
+      inputs.set(flow, { error: errMsg(e) });
+    }
+  }
+  const firstReady = flows.map(f => inputs.get(f)).find((v): v is Inputs => v !== undefined && !('error' in v));
+
+  // GPU pass. Preferred: ONE warm GPU backend, resetting the bridge between flows
+  // (`__bridge_reset` clears the cached per-flow MsmV2 instances + rebuilds the SRS
+  // pool on the SAME device — isolating each flow without rebuilding the ~13s WASM
+  // threads + CRS). Falls back to a FRESH backend per flow when the reset hook is
+  // unavailable (older bundle / no GPU), since reusing the GPU backend WITHOUT a
+  // reset corrupts cross-flow commitments.
+  const gpuByFlow = new Map<string, PairedPassEntry>();
+  await disposeWarmBackend(); // clean slate; serialize after the page-load pre-warm
+  const win = window as any;
+
+  let warmBb: Barretenberg | undefined;
+  let canReset = false;
+  try {
+    onProgress?.({ flowIndex: 0, flowCount: flows.length, flow: flows[0], mode: 'webgpu', phase: 'warmup' });
+    const built = await ensureWarmBackend(true, blocklist);
+    warmBb = built.bb;
+    win.__bridge_gpu_mem_reset?.();
+    canReset = typeof win.__bridge_reset === 'function';
+    // Warm-up prove: publishes the SRS + compiles shaders; reset to a clean baseline
+    // so flow 0 starts isolated and warm. (The reset is a no-op before the SRS is
+    // published, so the warm-up prove must happen first.)
+    if (canReset && firstReady) {
+      const w = new AztecClientBackend(firstReady.bytecodes, warmBb, firstReady.functionNames);
+      await w.prove(firstReady.witnesses, firstReady.vks);
+      await win.__bridge_reset();
+    }
+  } catch (e) {
+    logger.error(`[paired] GPU warm backend build failed; falling back to fresh-per-flow: ${errMsg(e)}`);
+    canReset = false;
+    warmBb = undefined;
+    await disposeWarmBackend();
+  }
+  logger.info(`[paired] GPU pass mode: ${canReset ? 'warm + __bridge_reset between flows' : 'fresh backend per flow'}`);
+
+  for (let i = 0; i < flows.length; i++) {
+    const flow = flows[i];
+    const inp = inputs.get(flow);
+    if (!inp || 'error' in inp) {
+      gpuByFlow.set(flow, { error: `load: ${inp && 'error' in inp ? inp.error : 'missing'}` });
+      continue;
+    }
+    onProgress?.({ flowIndex: i, flowCount: flows.length, flow, mode: 'webgpu', phase: 'proving' });
+    try {
+      let result: ChonkWebGpuBenchRunResult;
+      let vk: Uint8Array;
+      if (canReset && warmBb) {
+        const backend = new AztecClientBackend(inp.bytecodes, warmBb, inp.functionNames);
+        const t0 = performance.now();
+        const r = await backend.prove(inp.witnesses, inp.vks);
+        const proveMs = performance.now() - t0;
+        const t1 = performance.now();
+        const verified = await backend.verify(r.proof, r.vk);
+        const verifyMs = performance.now() - t1;
+        result = {
+          proveMs,
+          verifyMs,
+          verified,
+          proofLength: r.proof.length,
+          msmPhaseMs: 0,
+          wasmHeapPeakMb: 0,
+          gpuPeakMb: 0,
+          jsHeapMb: 0,
+        };
+        vk = r.vk;
+      } else {
+        // Fallback: fresh backend per flow (correct, slower).
+        const g = await runChonkOnce(
+          true,
+          inp.bytecodes,
+          inp.witnesses,
+          inp.vks,
+          inp.functionNames,
+          false,
+          undefined,
+          false,
+          blocklist,
+        );
+        result = g.result;
+        vk = g.vk;
+      }
+      gpuByFlow.set(flow, { result, vk });
+      onProgress?.({
+        flowIndex: i,
+        flowCount: flows.length,
+        flow,
+        mode: 'webgpu',
+        phase: 'done',
+        lastMs: result.proveMs,
+      });
+      logger.info(
+        `[paired] ${flow} GPU(${canReset ? 'warm+reset' : 'fresh'}): prove=${result.proveMs.toFixed(
+          0,
+        )}ms verify=${result.verifyMs.toFixed(0)}ms verified=${result.verified}`,
+      );
+    } catch (e) {
+      gpuByFlow.set(flow, { error: errMsg(e) });
+      logger.error(`[paired] ${flow} GPU prove failed: ${errMsg(e)}`);
+    } finally {
+      // Reset the bridge between flows so the next flow starts on a clean GPU state.
+      if (canReset) {
+        try {
+          await win.__bridge_reset();
+        } catch (e) {
+          logger.error(`[paired] __bridge_reset failed: ${errMsg(e)}`);
+        }
+      }
+    }
+  }
+
+  // WASM pass — ONE warm backend reused across all examples (correct + fast).
+  const runWasmPass = async (): Promise<Map<string, PairedPassEntry>> => {
+    const out = new Map<string, PairedPassEntry>();
+    onProgress?.({ flowIndex: 0, flowCount: flows.length, flow: flows[0], mode: 'wasm', phase: 'warmup' });
+    const { bb } = await ensureWarmBackend(false, undefined);
+    // One discarded warm-up prove so example 1 isn't skewed by thread/JIT warm-up.
+    if (firstReady) {
+      try {
+        const warm = new AztecClientBackend(firstReady.bytecodes, bb, firstReady.functionNames);
+        await warm.prove(firstReady.witnesses, firstReady.vks);
+      } catch (e) {
+        logger.error(`[paired] wasm warm-up prove failed: ${errMsg(e)}`);
+      }
+    }
+    for (let i = 0; i < flows.length; i++) {
+      const flow = flows[i];
+      const inp = inputs.get(flow);
+      if (!inp || 'error' in inp) {
+        out.set(flow, { error: `load: ${inp && 'error' in inp ? inp.error : 'missing'}` });
+        continue;
+      }
+      onProgress?.({ flowIndex: i, flowCount: flows.length, flow, mode: 'wasm', phase: 'proving' });
+      try {
+        const backend = new AztecClientBackend(inp.bytecodes, bb, inp.functionNames);
+        const t0 = performance.now();
+        const { proof, vk } = await backend.prove(inp.witnesses, inp.vks);
+        const proveMs = performance.now() - t0;
+        const t1 = performance.now();
+        const verified = await backend.verify(proof, vk);
+        const verifyMs = performance.now() - t1;
+        out.set(flow, {
+          result: {
+            proveMs,
+            verifyMs,
+            verified,
+            proofLength: proof.length,
+            msmPhaseMs: 0,
+            wasmHeapPeakMb: 0,
+            gpuPeakMb: 0,
+            jsHeapMb: 0,
+          },
+          vk,
+        });
+        onProgress?.({ flowIndex: i, flowCount: flows.length, flow, mode: 'wasm', phase: 'done', lastMs: proveMs });
+        logger.info(
+          `[paired] ${flow} WASM: prove=${proveMs.toFixed(0)}ms verify=${verifyMs.toFixed(0)}ms verified=${verified}`,
+        );
+      } catch (e) {
+        out.set(flow, { error: errMsg(e) });
+        logger.error(`[paired] ${flow} wasm prove failed: ${errMsg(e)}`);
+      }
+    }
+    return out;
+  };
+
+  let wasmByFlow: Map<string, PairedPassEntry>;
+  try {
+    wasmByFlow = await runWasmPass();
+  } catch (err) {
+    // A backend build/teardown failure (not a caught per-prove throw) — drop the
+    // warm backend so a possibly-corrupt instance isn't reused, then rethrow.
+    await disposeWarmBackend();
+    throw err;
+  }
+
+  const results: PairedFlowResult[] = flows.map(flow => {
+    const g = gpuByFlow.get(flow) ?? {};
+    const w = wasmByFlow.get(flow) ?? {};
+    const inp = inputs.get(flow);
+    const numCircuits = inp && !('error' in inp) ? inp.bytecodes.length : 0;
+    const gv = g.vk;
+    const wv = w.vk;
+    const vkMatch = gv !== undefined && wv !== undefined && gv.length === wv.length && gv.every((b, j) => b === wv[j]);
+    const speedup = g.result && w.result && g.result.proveMs > 0 ? w.result.proveMs / g.result.proveMs : 0;
+    const error = [g.error && `GPU: ${g.error}`, w.error && `WASM: ${w.error}`].filter(Boolean).join('; ') || undefined;
+    return { flow, numCircuits, gpu: g.result, wasm: w.result, vkMatch, speedup, error };
+  });
+  logger.info(`[paired] done: ${results.length} examples (grouped GPU pass then WASM pass, warm backend reused)`);
+  return { results };
+}
+
+(window as any).runChonkPairedSweep = runChonkPairedSweep;
 
 interface MsmCsvRow {
   seq: number;
@@ -2597,6 +2894,16 @@ function setupChonkWebGpuPage(): void {
   const allRoundsInput = $<HTMLInputElement>('all-rounds');
   const allRunPanel = $('allrun-panel');
   const allRunTable = $('allrun-table');
+  // Paired GPU↔WASM sweep: prove every example once on WebGPU then once on WASM,
+  // example by example; per-example summary table (its own panel).
+  const allRunPaired = $<HTMLButtonElement>('run-all-paired');
+  const pairedPanel = $('paired-panel');
+  const pairedTable = $('paired-table');
+  const pairedNote = $('paired-note');
+  // Backend warm-up banner (its own animated bar) — shown on page load while the
+  // WebGPU backend builds, and during a sweep while each mode's backend warms.
+  const warmStatusEl = $('warm-status');
+  const warmStatusLabel = $('warm-status-label');
   // Per-circuit breakdown: each WASM/WebGPU run does one extra traced prove and
   // the table (shown empty from the start) fills in as each mode completes.
   const pcPanel = $('percircuit-panel');
@@ -2767,6 +3074,7 @@ function setupChonkWebGpuPage(): void {
       runPerCircuit,
       allRunWasm,
       allRunWebgpu,
+      allRunPaired,
       maskToggle,
     ]) {
       if (b) b.disabled = busy;
@@ -2774,6 +3082,19 @@ function setupChonkWebGpuPage(): void {
     status.textContent = busy ? 'running…' : 'idle';
     if (busy) startProg(label);
     else stopProg();
+  };
+
+  // Show/hide the backend warm-up banner (an animated indeterminate bar). `label`
+  // null hides it. Used for the page-load WebGPU pre-warm and for each pass's
+  // backend build during a sweep, so "WebGPU/WASM backend warming up" is visible.
+  const setWarmStatus = (label: string | null): void => {
+    if (!warmStatusEl || !warmStatusLabel) return;
+    if (label === null) {
+      warmStatusEl.style.display = 'none';
+      return;
+    }
+    warmStatusLabel.textContent = label;
+    warmStatusEl.style.display = 'block';
   };
 
   // POST a built Perfetto trace JSON to the server sink under `filename`
@@ -3274,6 +3595,147 @@ function setupChonkWebGpuPage(): void {
   allRunWasm?.addEventListener('click', () => void runAll('wasm'));
   allRunWebgpu?.addEventListener('click', () => void runAll('webgpu'));
 
+  // ── Paired GPU↔WASM sweep (ex1 GPU → ex1 WASM → ex2 GPU → …) ─────────────────
+  const renderPaired = (results: PairedFlowResult[]): void => {
+    if (!pairedPanel || !pairedTable) return;
+    if (results.length === 0) {
+      pairedPanel.style.display = 'none';
+      return;
+    }
+    const td = (html: string, style = ''): string => `<td style="padding:4px 10px;${style}">${html}</td>`;
+    const th = (html: string, style = ''): string =>
+      `<th style="padding:4px 10px;text-align:left;border-bottom:1px solid #30363d;${style}">${html}</th>`;
+    const tick = (ok: boolean): string =>
+      ok ? '<span style="color:#3fb950;">✓</span>' : '<span style="color:#f85149;">✗</span>';
+    const head =
+      th('Example') +
+      th('circuits', 'text-align:right;') +
+      th('GPU prove', 'text-align:right;') +
+      th('WASM prove', 'text-align:right;') +
+      th('speedup', 'text-align:right;') +
+      th('GPU ✓', 'text-align:center;') +
+      th('WASM ✓', 'text-align:center;') +
+      th('VK match', 'text-align:center;');
+    let body = '';
+    let sumGpu = 0;
+    let sumWasm = 0;
+    let allGpuOk = true;
+    let allWasmOk = true;
+    let allVk = true;
+    for (const r of results) {
+      sumGpu += r.gpu?.proveMs ?? 0;
+      sumWasm += r.wasm?.proveMs ?? 0;
+      allGpuOk = allGpuOk && !!r.gpu?.verified;
+      allWasmOk = allWasmOk && !!r.wasm?.verified;
+      allVk = allVk && r.vkMatch;
+      const speedTxt =
+        r.speedup > 0
+          ? `<span style="color:${r.speedup >= 1 ? '#3fb950' : '#f85149'};">${r.speedup.toFixed(2)}×</span>`
+          : '—';
+      const nameCell =
+        `<span style="color:#c9d1d9;">${flowLabel(r.flow)}</span>` +
+        (r.error ? `<br><span style="color:#f85149;font-size:11px;">⚠ ${r.error}</span>` : '');
+      body +=
+        `<tr>` +
+        td(nameCell) +
+        td(r.numCircuits ? String(r.numCircuits) : '—', 'text-align:right;color:#8b949e;') +
+        td(r.gpu ? fmtMs(r.gpu.proveMs) : '—', 'text-align:right;') +
+        td(r.wasm ? fmtMs(r.wasm.proveMs) : '—', 'text-align:right;') +
+        td(speedTxt, 'text-align:right;') +
+        td(r.gpu ? tick(r.gpu.verified) : '—', 'text-align:center;') +
+        td(r.wasm ? tick(r.wasm.verified) : '—', 'text-align:center;') +
+        td(tick(r.vkMatch), 'text-align:center;') +
+        `</tr>`;
+    }
+    const tb = 'border-top:2px solid #30363d;font-weight:600;';
+    const totSpeed = sumGpu > 0 ? sumWasm / sumGpu : undefined;
+    body +=
+      `<tr>` +
+      td('total (sum of single-shot proves)', tb) +
+      td('', tb) +
+      td(fmtMs(sumGpu), tb + 'text-align:right;') +
+      td(fmtMs(sumWasm), tb + 'text-align:right;') +
+      td(
+        totSpeed == null
+          ? '—'
+          : `<span style="color:${totSpeed >= 1 ? '#3fb950' : '#f85149'};">${totSpeed.toFixed(2)}×</span>`,
+        tb + 'text-align:right;',
+      ) +
+      td(tick(allGpuOk), tb + 'text-align:center;') +
+      td(tick(allWasmOk), tb + 'text-align:center;') +
+      td(tick(allVk), tb + 'text-align:center;') +
+      `</tr>`;
+    pairedTable.innerHTML =
+      `<table style="border-collapse:collapse;font-size:12.5px;font-family:ui-monospace,monospace;width:100%;">` +
+      `<thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+    pairedPanel.style.display = 'block';
+  };
+
+  const runAllPaired = async (): Promise<void> => {
+    const flows = allFlows();
+    setBusy(true, `Run all (GPU↔WASM): ${flows.length} examples`);
+    // Software WebGPU (SwiftShader) is not bit-exact for BN254 affine arithmetic,
+    // so its GPU proofs won't verify and the VK won't match — flag it so a red
+    // column isn't mistaken for a real regression.
+    const swiftshader = /swiftshader/i.test(adapter.textContent ?? '');
+    if (pairedNote) {
+      pairedNote.textContent = swiftshader
+        ? 'Software WebGPU (SwiftShader) detected — GPU proofs will NOT verify and VK will NOT match. Run on a hardware GPU for a meaningful result.'
+        : '';
+    }
+    try {
+      append(
+        `▶ Run all (GPU↔WASM): ${flows.length} examples — GPU pass (one warm backend, bridge reset between flows) then WASM pass (one warm backend)`,
+        'info',
+      );
+      const res: PairedSweepResult = await (window as any).runChonkPairedSweep(flows, (p: PairedSweepProgress) => {
+        const modeLabel = p.mode === 'webgpu' ? 'GPU' : 'WASM';
+        const total = flows.length * 2;
+        if (p.phase === 'warmup') {
+          // This pass's backend is building + running its discarded warm-up prove.
+          // Surface it on the warm banner (the run bar holds at the pass boundary).
+          setWarmStatus(`⏳ Warming ${modeLabel} backend (build + warm-up prove)…`);
+          setProg(`${modeLabel} backend warming up…`);
+          return;
+        }
+        // Backend is warm once real examples start; clear the warm banner.
+        setWarmStatus(null);
+        // Grouped order: GPU pass fills proves 0..flowCount-1, WASM pass the rest.
+        const provesDone = (p.mode === 'wasm' ? p.flowCount : 0) + p.flowIndex + (p.phase === 'done' ? 1 : 0);
+        const tag =
+          p.phase === 'done'
+            ? `${flowLabel(p.flow)} ${modeLabel} done (${((p.lastMs ?? 0) / 1000).toFixed(1)}s)`
+            : `${flowLabel(p.flow)} (${p.flowIndex + 1}/${p.flowCount}) ${modeLabel} proving…`;
+        setProg(`${tag} · ${provesDone}/${total}`, provesDone, total);
+      });
+      renderPaired(res.results);
+      const allOk = res.results.every(r => r.gpu?.verified && r.wasm?.verified && r.vkMatch);
+      const allVerified = res.results.every(r => r.gpu?.verified && r.wasm?.verified);
+      const allVk = res.results.every(r => r.vkMatch);
+      append(
+        `✓ Run all (GPU↔WASM): ${res.results.length} examples; all verified=${allVerified}; all VK match=${allVk}`,
+        allOk ? 'ok' : 'err',
+      );
+      for (const r of res.results) {
+        const gpuTxt = r.gpu ? `${fmtMs(r.gpu.proveMs)} (verified=${r.gpu.verified})` : 'FAILED';
+        const wasmTxt = r.wasm ? `${fmtMs(r.wasm.proveMs)} (verified=${r.wasm.verified})` : 'FAILED';
+        append(
+          `  ${flowLabel(r.flow)}: GPU prove=${gpuTxt} · WASM prove=${wasmTxt} · ` +
+            `speedup=${r.speedup > 0 ? r.speedup.toFixed(2) + '×' : '—'} · VK match=${r.vkMatch}` +
+            (r.error ? ` · error: ${r.error}` : ''),
+          r.gpu?.verified && r.wasm?.verified && r.vkMatch ? 'info' : 'err',
+        );
+      }
+    } catch (err) {
+      append(`[ERR] run all (GPU↔WASM): ${err instanceof Error ? err.message : String(err)}`, 'err');
+      console.error(err);
+    } finally {
+      setWarmStatus(null);
+      setBusy(false);
+    }
+  };
+  allRunPaired?.addEventListener('click', () => void runAllPaired());
+
   // Pre-build the WASM backend (16 threads + CRS) now, so the first Run WASM pays
   // no init. The backend stays warm and is reused on same-mode clicks; switching
   // mode rebuilds it (only one is held). Lazy anyway — a Run click warms if cold.
@@ -3299,6 +3761,37 @@ function setupChonkWebGpuPage(): void {
       setBusy(false);
     }
   });
+
+  // Eager, invisible warm-up on page load: build the WebGPU-capable backend
+  // (16 threads + CRS + GPU device + SRS upload) in the background so the first
+  // Run WebGPU / paired sweep starts warm instead of paying the ~13s+ init.
+  // Non-blocking (no setBusy) so the page stays interactive; if a Run click lands
+  // first it shares the same singleton init. Updates the status line only while it
+  // still reads as warming, so it never clobbers a "running…" state. Best-effort.
+  void (async () => {
+    try {
+      status.textContent = 'warming backend (background)…';
+      setWarmStatus('⏳ Warming WebGPU backend — 16-thread WASM + CRS + GPU device & SRS upload…');
+      const r = await (window as any).ensureWarmBackend(true);
+      if (status.textContent === 'warming backend (background)…') {
+        status.textContent = 'backend warm: WebGPU';
+      }
+      setWarmStatus(`✓ WebGPU backend ready (${r.reused ? 'reused' : fmtMs(r.initMs)}) — runs start warm`);
+      // Auto-hide the banner shortly after it reads ready (leave it up if a sweep
+      // re-showed it for a WASM-pass warm-up in the meantime).
+      setTimeout(() => {
+        if (warmStatusLabel?.textContent?.startsWith('✓ WebGPU backend ready')) setWarmStatus(null);
+      }, 5000);
+      append(
+        `✓ backend pre-warmed on load (${r.reused ? 'reused' : fmtMs(r.initMs)}) — WebGPU runs start warm`,
+        'info',
+      );
+    } catch (err) {
+      if (status.textContent === 'warming backend (background)…') status.textContent = 'idle';
+      setWarmStatus(null);
+      append(`[warn] background warm-up skipped: ${err instanceof Error ? err.message : String(err)}`, 'warn');
+    }
+  })();
 
   // Single-run e2e Perfetto trace: ONE prove with phase-level BB_BENCH capture,
   // merged onto one clock, POSTed + downloaded. Separate from the N× run buttons

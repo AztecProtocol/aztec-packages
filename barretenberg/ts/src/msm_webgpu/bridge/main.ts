@@ -410,6 +410,33 @@ export class WebGpuMsmHost {
   }
 
   /**
+   * Reset the GPU bridge to a clean post-publish baseline WITHOUT a backend rebuild,
+   * so ONE warm GPU backend can prove many different chonk flows correctly. Tears
+   * down every cached per-prove MsmV2 / BatchMsmV2 instance — these accumulate
+   * per-flow state that corrupts a later, differently-shaped flow — and rebuilds the
+   * SRS pool from the cached raw bytes on the SAME GPUDevice: no SRS re-download, and
+   * the driver keeps the compiled shader pipelines, so the next flow stays warm.
+   * Masking state (maskBuf/maskBytes/offset cache) is tied to the unchanged SRS and
+   * is preserved. No-op before the first `OP_PUBLISH_SRS` (no cached SRS yet) or after
+   * destroy. Exposed to the page as `__bridge_reset` (see setup.ts) so the chonk page
+   * can isolate each flow between proves while keeping the WASM threads + CRS warm.
+   */
+  public async reset(): Promise<void> {
+    if (this.destroyed || this.srsBytes === null) return;
+    const device = await this.getDevice();
+    this.srsMsm?.destroy();
+    this.srsMsm = null;
+    for (const m of this.lru.values()) m.destroy();
+    this.lru.clear();
+    for (const pools of this.slotPools.values()) for (const m of pools) m.destroy();
+    this.slotPools.clear();
+    for (const b of this.batchInstances.values()) b.destroy();
+    this.batchInstances.clear();
+    this.pool?.destroy();
+    this.pool = await MsmV2Pool.create(device, this.srsBytes);
+  }
+
+  /**
    * `OP_PUBLISH_SRS` — stream the SRS to the GPU once. Builds the shared
    * `MsmV2Pool` (raw upload + GPU Montgomery conversion); any previously cached
    * instances/pool are torn down first.

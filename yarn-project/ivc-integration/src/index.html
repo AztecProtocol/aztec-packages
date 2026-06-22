@@ -275,10 +275,18 @@
         <label>rounds <input id="all-rounds" type="number" value="3" min="1" max="10" step="1" style="width: 44px" /></label>
         <button id="run-all-wasm" title="Prove EVERY example in the dropdown, interleaved round-robin (ex1, ex2, …, exk), repeated N rounds — reports the median per example. WASM (CPU) path. One discarded warm-up prove first so the rounds are warm; no memory measurement. Results fill the table below.">Run all (WASM)</button>
         <button id="run-all-webgpu" title="Same interleaved N-round sweep over every example, on the WebGPU MSM path. Fills the WebGPU column + speedup vs WASM in the table below. Needs a hardware GPU (SwiftShader proofs do not verify).">Run all (WebGPU)</button>
+        <button id="run-all-paired" title="Prove EVERY example on WebGPU (one warm backend; the bridge is reset between flows so cached per-flow GPU state can't corrupt the next flow) then on WASM (one warm backend, reused). Fills the paired summary table below: per-example GPU vs WASM prove/verify, speedup, and GPU-vs-WASM VK match (the correctness signal). Needs a hardware GPU for the GPU proofs to verify.">Run all (GPU↔WASM)</button>
       </div>
       <div id="progress" class="progress" style="display: none">
         <progress id="prog-bar" max="100"></progress>
         <span id="prog-text"></span>
+      </div>
+      <div
+        id="warm-status"
+        style="display: none; margin-top: 10px; padding: 8px 10px; border: 1px solid #30363d; border-radius: 6px; background: #0d1117;"
+      >
+        <span id="warm-status-label" style="color: #d29922; font-size: 12.5px;">Warming backend…</span>
+        <progress id="warm-status-bar" style="display: block; width: 100%; height: 6px; margin-top: 6px;"></progress>
       </div>
     </div>
 
@@ -289,6 +297,18 @@
         Run all (WebGPU) fill their own columns, so the speedup is over the same interleaved sweep. No memory measurement.
       </div>
       <div id="allrun-table"></div>
+    </div>
+
+    <div class="panel" id="paired-panel" style="display: none">
+      <h2>All examples — GPU↔WASM paired sweep</h2>
+      <div style="margin-bottom: 10px; color: #8b949e; font-size: 12px">
+        Every example proven on WebGPU (<b>one warm backend</b>; the GPU bridge is reset between flows — clearing the
+        cached per-flow MsmV2 state that would otherwise corrupt the next flow — so the WASM threads + CRS stay warm) then
+        on WASM (one warm backend, reused). <b>VK match</b> (GPU VK byte-equal to WASM VK) is the correctness signal: ✓
+        means the GPU-delegated MSMs produced the same commitments as the all-CPU path.
+      </div>
+      <div id="paired-note" style="margin-bottom: 8px; color: #d29922; font-size: 12px"></div>
+      <div id="paired-table"></div>
     </div>
 
     <div class="panel">
