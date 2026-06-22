@@ -303,8 +303,14 @@ WsdbRollback::Response WsdbRollback::execute(WsdbRequest& request) &&
 
 WsdbSyncBlock::Response WsdbSyncBlock::execute(WsdbRequest& request) &&
 {
-    WorldStateStatusFull status = request.world_state.sync_block(
-        blockStateRef, blockHeaderHash, paddedNoteHashes, paddedL1ToL2Messages, paddedNullifiers, publicDataWrites);
+    WorldStateStatusFull status = request.world_state.sync_block(blockStateRef,
+                                                                 blockHeaderHash,
+                                                                 paddedNoteHashes,
+                                                                 paddedL1ToL2Messages,
+                                                                 paddedNullifiers,
+                                                                 publicDataWrites,
+                                                                 expectedArchiveRoot,
+                                                                 expectedPreviousArchiveRoot);
     return Response{ .status = status };
 }
 

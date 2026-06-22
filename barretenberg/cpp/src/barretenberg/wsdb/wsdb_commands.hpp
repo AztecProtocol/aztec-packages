@@ -320,6 +320,8 @@ struct WsdbSyncBlock {
     block_number_t blockNumber;
     StateReference blockStateRef;
     bb::fr blockHeaderHash;
+    bb::fr expectedArchiveRoot;
+    bb::fr expectedPreviousArchiveRoot;
     std::vector<bb::fr> paddedNoteHashes;
     std::vector<bb::fr> paddedL1ToL2Messages;
     std::vector<NullifierLeafValue> paddedNullifiers;
@@ -328,6 +330,8 @@ struct WsdbSyncBlock {
     SERIALIZATION_FIELDS(blockNumber,
                          blockStateRef,
                          blockHeaderHash,
+                         expectedArchiveRoot,
+                         expectedPreviousArchiveRoot,
                          paddedNoteHashes,
                          paddedL1ToL2Messages,
                          paddedNullifiers,
