@@ -353,6 +353,7 @@ tskm
 tvsk
 txns
 unbrick
+uncheckpointed
 uncompressable
 undeflow
 Undercollateralized

@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
+<title>Module delivery documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">delivery</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#mod">Module delivery</a></h2>
+<h3>Module items</h3>
+<ul class="sidebar-list">
+<li><a href="#modules">Modules</a></li>
+<li><a href="#structs">Structs</a></li>
+<li><a href="#traits">Traits</a></li>
+<li><a href="#functions">Functions</a></li>
+</ul>
+<h2>In module messages</h2>
+<h3>Modules</h3><ul class="item-list">
+<li><a href="../delivery/index.html">delivery</a></div></li>
+<li><a href="../discovery/index.html">discovery</a></div></li>
+<li><a href="../encoding/index.html">encoding</a></div></li>
+<li><a href="../encryption/index.html">encryption</a></div></li>
+<li><a href="../logs/index.html">logs</a></div></li>
+<li><a href="../msg_type/index.html">msg_type</a></div></li>
+<li><a href="../offchain_messages/index.html">offchain_messages</a></div></li>
+<li><a href="../processing/index.html">processing</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">messages</a>::delivery</div>
+<h1>Module <span id="mod" class="module">delivery</span></h1>
+<h2 id="modules">Modules</h2><ul class="item-list">
+<li><div class="item-name"><a href="handshake/index.html" class="module">handshake</a></div><div class="item-description"></div></li>
+</ul>
+<h2 id="structs">Structs</h2><ul class="item-list">
+<li><div class="item-name"><a href="struct.MessageDelivery.html" class="struct">MessageDelivery</a></div><div class="item-description">Specifies how to deliver a message to a recipient.</div></li>
+<li><div class="item-name"><a href="struct.OffchainDelivery.html" class="struct">OffchainDelivery</a></div><div class="item-description">Off-chain delivery. Returned by <a href="../../../noir_aztec/messages/delivery/struct.MessageDelivery.html#offchain"><code>MessageDelivery::offchain</code></a>.</div></li>
+<li><div class="item-name"><a href="struct.OnchainConstrainedDelivery.html" class="struct">OnchainConstrainedDelivery</a></div><div class="item-description">On-chain delivery with constrained encryption/tagging. Returned by <a href="../../../noir_aztec/messages/delivery/struct.MessageDelivery.html#onchain_constrained"><code>MessageDelivery::onchain_constrained</code></a>.</div></li>
+<li><div class="item-name"><a href="struct.OnchainDeliveryMode.html" class="struct">OnchainDeliveryMode</a></div><div class="item-description">The mode of an on-chain message delivery: unconstrained or constrained tagging.</div></li>
+<li><div class="item-name"><a href="struct.OnchainUnconstrainedDelivery.html" class="struct">OnchainUnconstrainedDelivery</a></div><div class="item-description">On-chain delivery without constrained encryption/tagging. Returned by <a href="../../../noir_aztec/messages/delivery/struct.MessageDelivery.html#onchain_unconstrained"><code>MessageDelivery::onchain_unconstrained</code></a>.</div></li>
+</ul>
+<h2 id="traits">Traits</h2><ul class="item-list">
+<li><div class="item-name"><a href="trait.MessageDeliveryBuilder.html" class="trait">MessageDeliveryBuilder</a></div><div class="item-description">Builds the <a href="../../../noir_aztec/messages/delivery/struct.MessageDelivery.html"><code>MessageDelivery</code></a> configuration consumed by the message delivery APIs (e.g. <code>NoteMessage::deliver</code> and
+<code>EventMessage::deliver</code>). Implemented by the builder types returned from the <a href="../../../noir_aztec/messages/delivery/struct.MessageDelivery.html"><code>MessageDelivery</code></a> constructors.</div></li>
+</ul>
+<h2 id="functions">Functions</h2><ul class="item-list">
+<li><div class="item-name"><a href="fn.do_private_message_delivery.html" class="fn">do_private_message_delivery</a></div><div class="item-description">Performs private delivery of a message to <code>recipient</code> according to <code>delivery_mode</code>.</div></li>
+</ul>
+</main>
+</span>
+</body>
+</html>

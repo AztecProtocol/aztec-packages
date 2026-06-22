@@ -1,0 +1,387 @@
+#include "mpsc_shm.hpp"
+#include "futex.hpp"
+#include "utilities.hpp"
+#include <atomic>
+#include <cerrno>
+#include <climits>
+#include <cstdint>
+#include <cstring>
+#include <fcntl.h>
+#include <stdexcept>
+#include <string>
+#include <sys/mman.h>
+#include <unistd.h>
+#include <utility>
+#include <vector>
+
+namespace ipc {
+
+// ----- MpscConsumer Implementation -----
+
+MpscConsumer::MpscConsumer(std::vector<SpscShm>&& rings, int doorbell_fd, size_t doorbell_len, MpscDoorbell* doorbell)
+    : rings_(std::move(rings))
+    , doorbell_fd_(doorbell_fd)
+    , doorbell_len_(doorbell_len)
+    , doorbell_(doorbell)
+{}
+
+MpscConsumer::MpscConsumer(MpscConsumer&& other) noexcept
+    : rings_(std::move(other.rings_))
+    , doorbell_fd_(other.doorbell_fd_)
+    , doorbell_len_(other.doorbell_len_)
+    , doorbell_(other.doorbell_)
+    , last_served_(other.last_served_)
+{
+    other.doorbell_fd_ = -1;
+    other.doorbell_len_ = 0;
+    other.doorbell_ = nullptr;
+    other.last_served_ = 0;
+}
+
+MpscConsumer& MpscConsumer::operator=(MpscConsumer&& other) noexcept
+{
+    if (this != &other) {
+        // Clean up current resources
+        if (doorbell_ != nullptr) {
+            munmap(doorbell_, doorbell_len_);
+        }
+        if (doorbell_fd_ >= 0) {
+            ::close(doorbell_fd_);
+        }
+
+        // Move from other
+        rings_ = std::move(other.rings_);
+        doorbell_fd_ = other.doorbell_fd_;
+        doorbell_len_ = other.doorbell_len_;
+        doorbell_ = other.doorbell_;
+        last_served_ = other.last_served_;
+
+        // Clear other
+        other.doorbell_fd_ = -1;
+        other.doorbell_len_ = 0;
+        other.doorbell_ = nullptr;
+        other.last_served_ = 0;
+    }
+    return *this;
+}
+
+MpscConsumer::~MpscConsumer()
+{
+    if (doorbell_ != nullptr) {
+        munmap(doorbell_, doorbell_len_);
+    }
+    if (doorbell_fd_ >= 0) {
+        ::close(doorbell_fd_);
+    }
+}
+
+MpscConsumer MpscConsumer::create(const std::string& name, size_t num_producers, size_t ring_capacity)
+{
+    if (name.empty() || num_producers == 0) {
+        throw std::runtime_error("MpscConsumer::create: invalid arguments");
+    }
+
+    // Create doorbell shared memory
+    std::string doorbell_name = name + "_doorbell";
+    size_t doorbell_len = sizeof(MpscDoorbell);
+
+    int doorbell_fd = shm_open(doorbell_name.c_str(), O_RDWR | O_CREAT | O_EXCL, 0600);
+    if (doorbell_fd < 0) {
+        throw std::runtime_error("MpscConsumer::create: shm_open doorbell failed: " +
+                                 std::string(std::strerror(errno)));
+    }
+
+    if (ftruncate(doorbell_fd, static_cast<off_t>(doorbell_len)) != 0) {
+        int e = errno;
+        ::close(doorbell_fd);
+        shm_unlink(doorbell_name.c_str());
+        throw std::runtime_error("MpscConsumer::create: ftruncate doorbell failed: " + std::string(std::strerror(e)));
+    }
+
+    auto* doorbell =
+        static_cast<MpscDoorbell*>(mmap(nullptr, doorbell_len, PROT_READ | PROT_WRITE, MAP_SHARED, doorbell_fd, 0));
+    if (doorbell == MAP_FAILED) {
+        int e = errno;
+        ::close(doorbell_fd);
+        shm_unlink(doorbell_name.c_str());
+        throw std::runtime_error("MpscConsumer::create: mmap doorbell failed: " + std::string(std::strerror(e)));
+    }
+
+    // Initialize doorbell (use placement new to avoid memset on non-trivial type)
+    new (doorbell) MpscDoorbell{};
+    doorbell->seq.store(0, std::memory_order_release);
+
+    // Create all SPSC rings
+    std::vector<SpscShm> rings;
+    rings.reserve(num_producers);
+
+    try {
+        for (size_t i = 0; i < num_producers; i++) {
+            std::string ring_name = name + "_ring_" + std::to_string(i);
+            rings.push_back(SpscShm::create(ring_name, ring_capacity));
+        }
+    } catch (...) {
+        // Cleanup on failure
+        for (size_t i = 0; i < rings.size(); i++) {
+            std::string ring_name = name + "_ring_" + std::to_string(i);
+            SpscShm::unlink(ring_name);
+        }
+        munmap(doorbell, doorbell_len);
+        ::close(doorbell_fd);
+        shm_unlink(doorbell_name.c_str());
+        throw;
+    }
+
+    return MpscConsumer(std::move(rings), doorbell_fd, doorbell_len, doorbell);
+}
+
+bool MpscConsumer::unlink(const std::string& name, size_t num_producers)
+{
+    std::string doorbell_name = name + "_doorbell";
+    shm_unlink(doorbell_name.c_str());
+
+    for (size_t i = 0; i < num_producers; i++) {
+        std::string ring_name = name + "_ring_" + std::to_string(i);
+        SpscShm::unlink(ring_name);
+    }
+
+    return true;
+}
+
+int MpscConsumer::wait_for_data(uint64_t timeout_ns)
+{
+    size_t num_rings = rings_.size();
+
+    // Phase 1: Quick poll - check if data already available
+    for (size_t i = 0; i < num_rings; i++) {
+        size_t idx = (last_served_ + 1 + i) % num_rings;
+        if (rings_[idx].available() > 0) {
+            last_served_ = idx;
+            previous_had_data_ = true; // Found data - enable spinning on next call
+            return static_cast<int>(idx);
+        }
+    }
+
+    // Adaptive spinning: only spin if previous call found data
+    constexpr uint64_t SPIN_NS = 100000; // 100us
+    uint64_t spin_duration;
+    uint64_t remaining_timeout;
+
+    if (previous_had_data_) {
+        // Previous call found data - do full spin (optimistic)
+        spin_duration = (timeout_ns < SPIN_NS) ? timeout_ns : SPIN_NS;
+        remaining_timeout = (timeout_ns > SPIN_NS) ? (timeout_ns - SPIN_NS) : 0;
+    } else {
+        // Previous call timed out - skip spinning (idle channel)
+        spin_duration = 0;
+        remaining_timeout = timeout_ns;
+    }
+
+    // Phase 2: Spin phase (only if previous call found data)
+    if (spin_duration > 0) {
+        uint64_t start = mono_ns_now();
+        // NOLINTNEXTLINE(cppcoreguidelines-avoid-do-while)
+        do {
+            for (size_t i = 0; i < num_rings; i++) {
+                size_t idx = (last_served_ + 1 + i) % num_rings;
+                if (rings_[idx].available() > 0) {
+                    last_served_ = idx;
+                    previous_had_data_ = true; // Found data during spin
+                    return static_cast<int>(idx);
+                }
+            }
+            IPC_PAUSE();
+        } while ((mono_ns_now() - start) < spin_duration);
+
+        // Check after spin
+        for (size_t i = 0; i < num_rings; i++) {
+            size_t idx = (last_served_ + 1 + i) % num_rings;
+            if (rings_[idx].available() > 0) {
+                last_served_ = idx;
+                previous_had_data_ = true; // Found data after spin
+                return static_cast<int>(idx);
+            }
+        }
+    }
+
+    // No more time or didn't spin - check if we can block
+    if (remaining_timeout == 0) {
+        previous_had_data_ = false; // Timeout - disable spinning on next call
+        return -1;
+    }
+
+    // About to block. Capture the doorbell seq and arm the futex against it.
+    // Producers bump seq on every publish and wake unconditionally (see
+    // MpscProducer::publish), and futex_wait re-checks *seq == seq atomically, so
+    // a publish that lands before we sleep returns EAGAIN. The arm-value plus the
+    // unconditional wake are the whole protocol — no "blocked" flag.
+    uint32_t seq = doorbell_->seq.load(std::memory_order_acquire);
+
+    // Final check before blocking
+    for (size_t i = 0; i < num_rings; i++) {
+        size_t idx = (last_served_ + 1 + i) % num_rings;
+        if (rings_[idx].available() > 0) {
+            last_served_ = idx;
+            previous_had_data_ = true; // Found data before blocking
+            return static_cast<int>(idx);
+        }
+    }
+
+    futex_wait_timeout(reinterpret_cast<volatile uint32_t*>(&doorbell_->seq), seq, remaining_timeout);
+
+    // After waking, poll again
+    for (size_t i = 0; i < num_rings; i++) {
+        size_t idx = (last_served_ + 1 + i) % num_rings;
+        if (rings_[idx].available() > 0) {
+            last_served_ = idx;
+            previous_had_data_ = true; // Found data after waking
+            return static_cast<int>(idx);
+        }
+    }
+
+    previous_had_data_ = false; // Timeout - disable spinning on next call
+    return -1;                  // No data available (timeout)
+}
+
+void* MpscConsumer::peek(size_t ring_idx, size_t want, uint64_t timeout_ns)
+{
+    if (ring_idx >= rings_.size()) {
+        return nullptr;
+    }
+    return rings_[ring_idx].peek(want, timeout_ns);
+}
+
+void MpscConsumer::release(size_t ring_idx, size_t n)
+{
+    if (ring_idx < rings_.size()) {
+        rings_[ring_idx].release(n);
+    }
+}
+
+void MpscConsumer::wakeup_all()
+{
+    // Wake consumer blocked on doorbell
+    futex_wake(reinterpret_cast<volatile uint32_t*>(&doorbell_->seq), INT_MAX);
+
+    // Wake all producers blocked on their rings
+    for (auto& ring : rings_) {
+        ring.wakeup_all();
+    }
+}
+
+// ----- MpscProducer Implementation -----
+
+MpscProducer::MpscProducer(
+    SpscShm&& ring, int doorbell_fd, size_t doorbell_len, MpscDoorbell* doorbell, size_t producer_id)
+    : ring_(std::move(ring))
+    , doorbell_fd_(doorbell_fd)
+    , doorbell_len_(doorbell_len)
+    , doorbell_(doorbell)
+    , producer_id_(producer_id)
+{}
+
+MpscProducer::MpscProducer(MpscProducer&& other) noexcept
+    : ring_(std::move(other.ring_))
+    , doorbell_fd_(other.doorbell_fd_)
+    , doorbell_len_(other.doorbell_len_)
+    , doorbell_(other.doorbell_)
+    , producer_id_(other.producer_id_)
+{
+    other.doorbell_fd_ = -1;
+    other.doorbell_len_ = 0;
+    other.doorbell_ = nullptr;
+    other.producer_id_ = 0;
+}
+
+MpscProducer& MpscProducer::operator=(MpscProducer&& other) noexcept
+{
+    if (this != &other) {
+        // Clean up current resources
+        if (doorbell_ != nullptr) {
+            munmap(doorbell_, doorbell_len_);
+        }
+        if (doorbell_fd_ >= 0) {
+            ::close(doorbell_fd_);
+        }
+
+        // Move from other
+        ring_ = std::move(other.ring_);
+        doorbell_fd_ = other.doorbell_fd_;
+        doorbell_len_ = other.doorbell_len_;
+        doorbell_ = other.doorbell_;
+        producer_id_ = other.producer_id_;
+
+        // Clear other
+        other.doorbell_fd_ = -1;
+        other.doorbell_len_ = 0;
+        other.doorbell_ = nullptr;
+        other.producer_id_ = 0;
+    }
+    return *this;
+}
+
+MpscProducer::~MpscProducer()
+{
+    if (doorbell_ != nullptr) {
+        munmap(doorbell_, doorbell_len_);
+    }
+    if (doorbell_fd_ >= 0) {
+        ::close(doorbell_fd_);
+    }
+}
+
+MpscProducer MpscProducer::connect(const std::string& name, size_t producer_id)
+{
+    if (name.empty()) {
+        throw std::runtime_error("MpscProducer::connect: empty name");
+    }
+
+    // Connect to doorbell
+    std::string doorbell_name = name + "_doorbell";
+    size_t doorbell_len = sizeof(MpscDoorbell);
+
+    int doorbell_fd = shm_open(doorbell_name.c_str(), O_RDWR, 0600);
+    if (doorbell_fd < 0) {
+        throw std::runtime_error("MpscProducer::connect: shm_open doorbell failed: " +
+                                 std::string(std::strerror(errno)));
+    }
+
+    auto* doorbell =
+        static_cast<MpscDoorbell*>(mmap(nullptr, doorbell_len, PROT_READ | PROT_WRITE, MAP_SHARED, doorbell_fd, 0));
+    if (doorbell == MAP_FAILED) {
+        int e = errno;
+        ::close(doorbell_fd);
+        throw std::runtime_error("MpscProducer::connect: mmap doorbell failed: " + std::string(std::strerror(e)));
+    }
+
+    // Connect to assigned ring
+    std::string ring_name = name + "_ring_" + std::to_string(producer_id);
+    try {
+        SpscShm ring = SpscShm::connect(ring_name);
+        return MpscProducer(std::move(ring), doorbell_fd, doorbell_len, doorbell, producer_id);
+    } catch (...) {
+        munmap(doorbell, doorbell_len);
+        ::close(doorbell_fd);
+        throw;
+    }
+}
+
+void* MpscProducer::claim(size_t want, uint64_t timeout_ns)
+{
+    return ring_.claim(want, timeout_ns);
+}
+
+void MpscProducer::publish(size_t n)
+{
+    // Publish to ring first
+    ring_.publish(n);
+
+    // Ring doorbell to wake the consumer. Bump seq (release) so a consumer
+    // mid-block sees the value change and its futex_wait returns immediately,
+    // then wake unconditionally — never gated on a "consumer blocked" flag (see
+    // SpscShm::publish for why that handshake is unsafe across processes).
+    doorbell_->seq.fetch_add(1, std::memory_order_release);
+    futex_wake(reinterpret_cast<volatile uint32_t*>(&doorbell_->seq), 1);
+}
+
+} // namespace ipc
