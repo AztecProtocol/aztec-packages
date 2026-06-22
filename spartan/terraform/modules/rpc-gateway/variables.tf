@@ -15,7 +15,7 @@ variable "INSTALL_KONG" {
 }
 
 variable "KONG_NAMESPACE" {
-  description = "Namespace for the Kong Helm release. Defaults to RELEASE_PREFIX-rpc-kong when empty."
+  description = "Namespace for the Kong Helm release. Defaults to CONSUMER_NAMESPACE when empty."
   type        = string
   default     = ""
 }
@@ -58,6 +58,12 @@ variable "KONG_PROXY_SERVICE_LOAD_BALANCER_IP" {
 
 variable "KONG_PROXY_SERVICE_LOAD_BALANCER_SOURCE_RANGES" {
   description = "Optional source CIDRs allowed to reach the Kong proxy LoadBalancer Service."
+  type        = list(string)
+  default     = []
+}
+
+variable "KONG_TRUSTED_IP_RANGES" {
+  description = "Trusted proxy CIDR ranges for Kong real IP handling. The frontend load balancer IP is appended automatically when allocated by this module."
   type        = list(string)
   default     = []
 }
@@ -168,30 +174,6 @@ variable "KONG_OTEL_METRICS_COLLECTOR_RESOURCES" {
       memory = "256Mi"
     }
   }
-}
-
-variable "STICKY_SESSIONS_ENABLED" {
-  description = "Whether to create KongUpstreamPolicy resources for RPC backend pods."
-  type        = bool
-  default     = false
-}
-
-variable "STICKY_SESSION_POLICY_NAME" {
-  description = "Optional KongUpstreamPolicy name. Defaults to RELEASE_PREFIX-rpc-sticky-sessions."
-  type        = string
-  default     = ""
-}
-
-variable "STICKY_SESSION_COOKIE_NAME" {
-  description = "Cookie name used by Kong sticky-sessions upstream balancing."
-  type        = string
-  default     = "aztec_rpc_backend"
-}
-
-variable "STICKY_SESSION_COOKIE_PATH" {
-  description = "Cookie path used by Kong sticky-sessions upstream balancing."
-  type        = string
-  default     = "/"
 }
 
 variable "API_KEY_HEADER_NAME" {
@@ -337,10 +319,4 @@ variable "GCP_MANAGED_CERTIFICATE_ENABLED" {
   description = "Whether to create a GKE ManagedCertificate for RPC hosts."
   type        = bool
   default     = true
-}
-
-variable "GCP_MANAGED_CERTIFICATE_NAME" {
-  description = "Optional GKE ManagedCertificate resource name. Defaults to RELEASE_PREFIX-rpc-cert."
-  type        = string
-  default     = ""
 }

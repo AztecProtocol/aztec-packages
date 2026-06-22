@@ -9,7 +9,7 @@ jq --arg v $version '.version = $v' package.json >$tmp && mv $tmp package.json
 
 # We update every category of dependency.
 # While we don't strictly need to update devDependencies, 'workspace:^' is not a valid URL in npm.
-for deps in dependencies devDependencies peerDependencies; do
+for deps in dependencies devDependencies peerDependencies optionalDependencies; do
   # Update each dependency @aztec package version in package.json.
   for pkg in $(jq --raw-output "(.$deps // {}) | keys[] | select(contains(\"@aztec/\"))" package.json); do
     jq --arg v $version ".$deps[\"$pkg\"] = \$v" package.json >$tmp

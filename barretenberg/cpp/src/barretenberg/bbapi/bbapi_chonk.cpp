@@ -17,11 +17,13 @@
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 
 #ifndef __wasm__
+#include <algorithm>
 #include <cerrno>
 #include <chrono>
 #include <csignal>
 #include <cstring>
 #include <fcntl.h>
+#include <limits>
 #include <sys/stat.h>
 #include <thread>
 #include <unistd.h>
@@ -450,7 +452,9 @@ namespace {
 bool write_all(int fd, const uint8_t* ptr, size_t len)
 {
     while (len > 0) {
-        const ssize_t written = ::write(fd, ptr, len);
+        const auto chunk_len =
+            static_cast<unsigned int>(std::min<size_t>(len, std::numeric_limits<unsigned int>::max()));
+        const ssize_t written = ::write(fd, ptr, chunk_len);
         if (written > 0) {
             ptr += written;
             len -= static_cast<size_t>(written);
@@ -508,7 +512,9 @@ void ChonkBatchVerifierService::start(std::vector<std::shared_ptr<MegaZKFlavor::
         }
     }
 
+#ifdef SIGPIPE
     (void)std::signal(SIGPIPE, SIG_IGN);
+#endif
     fifo_path_ = fifo_path;
     fifo_failed_.store(false);
 
@@ -570,6 +576,7 @@ bool ChonkBatchVerifierService::ensure_fifo_open()
         return false;
     }
 
+#ifndef _WIN32
     struct stat statbuf;
     if (lstat(fifo_path_.c_str(), &statbuf) != 0) {
         info("ChonkBatchVerifierService: failed to stat FIFO '", fifo_path_, "': ", std::strerror(errno));
@@ -579,10 +586,16 @@ bool ChonkBatchVerifierService::ensure_fifo_open()
         info("ChonkBatchVerifierService: result path is not a FIFO: ", fifo_path_);
         return false;
     }
+#endif
 
     for (size_t attempt = 0; attempt < 100; ++attempt) {
+#ifndef _WIN32
         fifo_fd_ = open(fifo_path_.c_str(), O_WRONLY | O_NONBLOCK | O_CLOEXEC | O_NOFOLLOW);
+#else
+        fifo_fd_ = open(fifo_path_.c_str(), O_WRONLY);
+#endif
         if (fifo_fd_ >= 0) {
+#ifndef _WIN32
             struct stat opened_statbuf;
             if (fstat(fifo_fd_, &opened_statbuf) != 0 || !S_ISFIFO(opened_statbuf.st_mode)) {
                 info("ChonkBatchVerifierService: opened result path is not a FIFO: ", fifo_path_);
@@ -590,6 +603,7 @@ bool ChonkBatchVerifierService::ensure_fifo_open()
                 fifo_fd_ = -1;
                 return false;
             }
+#endif
             return true;
         }
         if (errno != ENXIO && errno != EINTR) {

@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../../styles.css">
+<script defer src="../../../../nargo_doc.js"></script>
+<title>Struct ExecuteUtilityOptions documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">ExecuteUtilityOptions</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct ExecuteUtilityOptions</a></h2>
+<h3>Methods</h3>
+<ul class="sidebar-list">
+<li><a href="#new">new</a></li>
+<li><a href="#with_authorized_utility_call_targets">with_authorized_utility_call_targets</a></li>
+</ul>
+<h2>In module test_environment</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.CallPrivateOptions.html">CallPrivateOptions</a></div></li>
+<li><a href="struct.CallPublicOptions.html">CallPublicOptions</a></div></li>
+<li><a href="struct.DeployOptions.html">DeployOptions</a></div></li>
+<li><a href="struct.ExecuteUtilityOptions.html">ExecuteUtilityOptions</a></div></li>
+<li><a href="struct.PrivateContextOptions.html">PrivateContextOptions</a></div></li>
+<li><a href="struct.TestEnvironment.html">TestEnvironment</a></div></li>
+<li><a href="struct.ViewPrivateOptions.html">ViewPrivateOptions</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../../index.html">aztec-nr</a> - <a href="../../../index.html">noir_aztec</a>::<a href="../../index.html">test</a>::<a href="../index.html">helpers</a>::<a href="index.html">test_environment</a></div>
+<h1>Struct <span id="struct" class="struct">ExecuteUtilityOptions</span></h1>
+<pre><code>pub struct ExecuteUtilityOptions&lt;let T: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;
+{ <span class="comment">/* private fields */</span> }
+</code></pre>
+<div class="comments">
+<p>Configuration for <a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html#execute_utility_opts"><code>TestEnvironment::execute_utility_opts</code></a>.</p>
+<p>Constructed by calling <a href="../../../../noir_aztec/test/helpers/test_environment/struct.ExecuteUtilityOptions.html#new"><code>ExecuteUtilityOptions::new</code></a> and then chaining methods:</p>
+<pre><code>env.execute_utility_opts(
+    ExecuteUtilityOptions::new().with_authorized_utility_call_targets([target]),
+    SomeContract::at(addr).some_utility_function(),
+);</code></pre></div>
+<h2>Implementations</h2>
+<h3><code class="code-header">impl&lt;let T: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt; <a href="../../../../noir_aztec/test/helpers/test_environment/struct.ExecuteUtilityOptions.html" class="struct">ExecuteUtilityOptions</a>&lt;T&gt;</code></h3>
+
+<div class="padded-methods"><code id="with_authorized_utility_call_targets" class="code-header">pub fn <a href="#with_authorized_utility_call_targets"><span class="fn">with_authorized_utility_call_targets</span></a>&lt;let T_2: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
+    _self: Self,
+    targets: [<a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>; T_2],
+) -> <a href="../../../../noir_aztec/test/helpers/test_environment/struct.ExecuteUtilityOptions.html" class="struct">ExecuteUtilityOptions</a>&lt;T_2&gt;</code>
+
+<div class="padded-description"><div class="comments">
+<p>Authorizes cross-contract utility calls to given targets.</p>
+<p>By default, cross-contract utility calls are denied. This method lets the test author specify which target
+contracts are allowed to be called via utility functions during execution.</p>
+</div>
+</div></div><h3><code class="code-header">impl <a href="../../../../noir_aztec/test/helpers/test_environment/struct.ExecuteUtilityOptions.html" class="struct">ExecuteUtilityOptions</a>&lt;0&gt;</code></h3>
+
+<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new"><span class="fn">new</span></a>() -> Self</code>
+
+<div class="padded-description"><div class="comments">
+<p>Creates default <code>ExecuteUtilityOptions</code>.</p>
+</div>
+</div></div></main>
+</span>
+</body>
+</html>

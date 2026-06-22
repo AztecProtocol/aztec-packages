@@ -3,7 +3,14 @@
 #include <string>
 
 // Tool to make header only libraries (i.e. CLI11 and msgpack, though it has a bundled copy)
-// not use exceptions with minimally invaslive changes
+// not use exceptions with minimally invaslive changes.
+//
+// Macros are guarded so any parent project (e.g. ipc_codegen/throw.hpp under
+// codegen-emitted code) that predefines them wins. Same convention as
+// ipc_codegen/throw.hpp, so the two headers can be #included in any order
+// without redefinition warnings.
+
+#ifndef THROW
 
 #ifdef BB_NO_EXCEPTIONS
 struct __AbortStream {
@@ -21,3 +28,5 @@ struct __AbortStream {
 #define THROW throw
 #define RETHROW THROW
 #endif
+
+#endif // THROW
