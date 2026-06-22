@@ -1,6 +1,6 @@
-import type { Fr } from '@aztec/foundation/curves/bn254';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import type { FieldsOf } from '@aztec/foundation/types';
-import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 /**
  * The block a retractable fact originates from.
@@ -33,6 +33,16 @@ export class FactCollectionKey {
 
   static from(fields: FieldsOf<FactCollectionKey>): FactCollectionKey {
     return new FactCollectionKey(fields.contractAddress, fields.factCollectionTypeId, fields.factCollectionId);
+  }
+
+  /** Inverse of toString */
+  static fromString(str: string): FactCollectionKey {
+    const [contractAddress, factCollectionTypeId, factCollectionId] = str.split(':');
+    return new FactCollectionKey(
+      AztecAddress.fromString(contractAddress),
+      Fr.fromString(factCollectionTypeId),
+      Fr.fromString(factCollectionId),
+    );
   }
 
   /** The key grouping this collection with the other collections of its type within the same contract. */
