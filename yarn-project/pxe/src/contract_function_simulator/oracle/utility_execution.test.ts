@@ -445,11 +445,9 @@ describe('Utility Execution test suite', () => {
     });
 
     // Pins the production oracle's default-authorization allowlist for cross-contract utility reads of the
-    // standard HandshakeRegistry: only get_handshakes and caller-bound get_app_siloed_secret are allowed,
-    // everything else is denied.
+    // standard HandshakeRegistry: only get_handshakes and get_app_siloed_secret are allowed, everything else is
+    // denied.
     describe('cross-contract utility authorization', () => {
-      const defaultAuthorizedHandshakeRegistryReads = new Set(['get_handshakes', 'get_app_siloed_secret']);
-
       const prepareNestedUtilityCall = async (
         targetContractAddress: AztecAddress,
         contractArtifact: ContractArtifact,
@@ -483,12 +481,27 @@ describe('Utility Execution test suite', () => {
         return nestedSimulator;
       };
 
-      it('default-authorizes only the standard HandshakeRegistry read allowlist', async () => {
-        const nestedSimulator = makeNestedSimulator();
-        const seenDefaultAuthorizedReads = new Set<string>();
-        utilityExecutionOracle = makeOracle({ simulator: nestedSimulator });
+      let nestedSimulator: ReturnType<typeof makeNestedSimulator>;
+      // The standard HandshakeRegistry reads the oracle default-authorizes, mapped to the args each is called with.
+      let defaultAuthorizedHandshakeRegistryReads: Map<string, Fr[]>;
 
-        for (const { name } of HandshakeRegistryArtifact.functions) {
+      beforeEach(() => {
+        nestedSimulator = makeNestedSimulator();
+        utilityExecutionOracle = makeOracle({ simulator: nestedSimulator });
+        defaultAuthorizedHandshakeRegistryReads = new Map<string, Fr[]>([
+          ['get_handshakes', []],
+          ['get_app_siloed_secret', [Fr.random(), Fr.random(), new Fr(3), contractAddress.toField()]],
+        ]);
+      });
+
+      afterEach(() => {
+        contractSyncService.ensureContractSynced.mockClear();
+        nestedSimulator.executeUserCircuit.mockClear();
+      });
+
+      it.each(HandshakeRegistryArtifact.functions.map(fn => fn.name))(
+        'authorizes %s only if it is in the standard HandshakeRegistry read allowlist',
+        async name => {
           const selector = await prepareNestedUtilityCall(
             STANDARD_HANDSHAKE_REGISTRY_ADDRESS,
             HandshakeRegistryArtifact,
@@ -496,9 +509,7 @@ describe('Utility Execution test suite', () => {
           );
 
           if (defaultAuthorizedHandshakeRegistryReads.has(name)) {
-            seenDefaultAuthorizedReads.add(name);
-            const args =
-              name === 'get_app_siloed_secret' ? [Fr.random(), Fr.random(), new Fr(3), contractAddress.toField()] : [];
+            const args = defaultAuthorizedHandshakeRegistryReads.get(name) ?? [];
             await expect(
               utilityExecutionOracle.callUtilityFunction(STANDARD_HANDSHAKE_REGISTRY_ADDRESS, selector, args),
             ).resolves.toEqual([]);
@@ -511,35 +522,8 @@ describe('Utility Execution test suite', () => {
             expect(contractSyncService.ensureContractSynced).not.toHaveBeenCalled();
             expect(nestedSimulator.executeUserCircuit).not.toHaveBeenCalled();
           }
-
-          contractSyncService.ensureContractSynced.mockClear();
-          nestedSimulator.executeUserCircuit.mockClear();
-        }
-
-        expect(seenDefaultAuthorizedReads).toEqual(defaultAuthorizedHandshakeRegistryReads);
-      });
-
-      it('does not default-authorize get_app_siloed_secret for a different caller argument', async () => {
-        const nestedSimulator = makeNestedSimulator();
-        utilityExecutionOracle = makeOracle({ simulator: nestedSimulator });
-        const selector = await prepareNestedUtilityCall(
-          STANDARD_HANDSHAKE_REGISTRY_ADDRESS,
-          HandshakeRegistryArtifact,
-          'get_app_siloed_secret',
-        );
-        const otherCaller = await AztecAddress.random();
-
-        await expect(
-          utilityExecutionOracle.callUtilityFunction(STANDARD_HANDSHAKE_REGISTRY_ADDRESS, selector, [
-            Fr.random(),
-            Fr.random(),
-            new Fr(3),
-            otherCaller.toField(),
-          ]),
-        ).rejects.toThrow('Cross-contract utility call denied: No execution hooks configured');
-        expect(contractSyncService.ensureContractSynced).not.toHaveBeenCalled();
-        expect(nestedSimulator.executeUserCircuit).not.toHaveBeenCalled();
-      });
+        },
+      );
     });
 
     describe('getMessageContextsByTxHash', () => {

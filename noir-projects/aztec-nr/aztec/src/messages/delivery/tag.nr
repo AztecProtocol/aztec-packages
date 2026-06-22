@@ -1,6 +1,6 @@
 //! Discovery tag derivation for on-chain message delivery.
 //!
-//! Constrained derivation also emits the chain nullifier; see [`super::constrained_delivery`].
+//! Constrained derivation also emits the sequence nullifier; see [`super::constrained_delivery`].
 
 use crate::context::PrivateContext;
 use crate::messages::delivery::{
@@ -17,7 +17,7 @@ use crate::protocol::{
 use crate::standard_addresses::STANDARD_HANDSHAKE_REGISTRY_ADDRESS;
 use super::tag_secret_derivation::TagSecretDerivation;
 
-/// Derives the discovery log tag for an on-chain delivery; the handshake path also emits the chain
+/// Derives the discovery log tag for an on-chain delivery; the handshake path also emits the sequence
 /// nullifier (see [`derive_handshake_log_tag`]).
 pub(crate) fn derive_log_tag(
     context: &mut PrivateContext,
@@ -34,7 +34,9 @@ pub(crate) fn derive_log_tag(
 }
 
 fn derive_address_secret_log_tag(sender: AztecAddress, recipient: AztecAddress, mode: OnchainDeliveryMode) -> Field {
-    // Safety: address-derived delivery is unconstrained; invalid recipients get a random tag to preserve log shape.
+    // Safety: address-derived delivery is unconstrained. The oracle returns `None` for an invalid recipient (one
+    // whose address is not on the curve). To prevent king-of-the-hill attacks we emit a random tag instead of
+    // failing: the log keeps its expected shape, even though no recipient will ever be able to discover the note.
     unsafe {
         get_app_tagging_secret(sender, recipient).map_or_else(
             || compute_log_tag(random(), tag_domain_separator(mode)),
@@ -114,17 +116,6 @@ mod test {
         assert_eq(
             tag_from_secret_and_index(secret, index, OnchainDeliveryMode::onchain_constrained()),
             compute_log_tag(raw_tag, DOM_SEP__CONSTRAINED_MSG_LOG_TAG),
-        );
-    }
-
-    #[test]
-    fn same_secret_and_index_have_distinct_tags_across_modes() {
-        let secret: Field = 1234;
-        let index: u32 = 7;
-
-        assert(
-            tag_from_secret_and_index(secret, index, OnchainDeliveryMode::onchain_unconstrained())
-                != tag_from_secret_and_index(secret, index, OnchainDeliveryMode::onchain_constrained()),
         );
     }
 

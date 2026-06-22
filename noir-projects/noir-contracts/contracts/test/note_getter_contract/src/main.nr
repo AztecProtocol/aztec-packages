@@ -27,7 +27,6 @@ pub contract NoteGetter {
 
     // This function is called from tests that execute it across many parallel txs.
     // Since constrained delivery doesn't support it, this function must use unconstrained delivery instead.
-    // Constrained delivery itself is covered by e2e_constrained_delivery.
     #[external("private")]
     fn insert_note(value: Field) {
         let owner = self.msg_sender();

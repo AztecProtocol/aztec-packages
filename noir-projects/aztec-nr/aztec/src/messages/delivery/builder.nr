@@ -19,7 +19,7 @@ use super::tag_secret_derivation::TagSecretDerivation;
 /// ## Construction
 ///
 /// The fields are private and there is no public constructor: a `MessageDelivery` can only be produced by a
-/// [`MessageDeliveryBuilder`]. The delivery APIs validate the built configuration before consuming it.
+/// [`MessageDeliveryBuilder`].
 pub struct MessageDelivery {
     mode: DeliveryMode,
     tag_secret_derivation: TagSecretDerivation,

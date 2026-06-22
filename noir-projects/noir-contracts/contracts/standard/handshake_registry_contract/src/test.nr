@@ -3,7 +3,10 @@ use crate::HandshakeRegistry;
 use aztec::{
     messages::delivery::{
         constrained_delivery::VALIDATE_HANDSHAKE_SELECTOR,
-        handshake::{GET_APP_SILOED_SECRET_SELECTOR, MAX_HANDSHAKES_PER_PAGE, NON_INTERACTIVE_HANDSHAKE_SELECTOR},
+        handshake::{
+            GET_APP_SILOED_SECRET_SELECTOR, GET_HANDSHAKES_SELECTOR, MAX_HANDSHAKES_PER_PAGE,
+            NON_INTERACTIVE_HANDSHAKE_SELECTOR,
+        },
         MessageDelivery,
         OnchainDeliveryMode,
     },
@@ -67,6 +70,7 @@ unconstrained fn selectors_match_the_constrained_delivery_helper() {
         registry.validate_handshake(sender, recipient, ONCHAIN_CONSTRAINED, 0).selector,
         VALIDATE_HANDSHAKE_SELECTOR,
     );
+    assert_eq(registry.get_handshakes(recipient, 0).selector, GET_HANDSHAKES_SELECTOR);
 }
 
 #[test]
