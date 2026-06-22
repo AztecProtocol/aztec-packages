@@ -67,8 +67,9 @@ function capture_inputs {
   make yarn-project
   # The capture's getBBConfig defaults to bin/bb-avm but silently falls back to non-AVM
   # proving when it is absent, baking stale public-path VKs (e.g. the public hiding kernel
-  # used by deploy flows) into the fixtures. Build it so the capture uses AVM.
-  barretenberg/cpp/bootstrap.sh build_preset "$bb_preset" --target bb-avm
+  # used by deploy flows) into the fixtures. Build just that binary so the capture uses AVM
+  # (cmake_build forwards --target; build_preset would ignore it and rebuild the whole preset).
+  barretenberg/cpp/bootstrap.sh cmake_build "$bb_preset" --target bb-avm
   cd "$root/yarn-project/end-to-end"
   ./bootstrap.sh build_bench_capture
 }
