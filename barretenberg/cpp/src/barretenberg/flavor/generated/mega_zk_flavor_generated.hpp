@@ -139,11 +139,11 @@ class MegaZKFlavor_Generated {
             &blocks.arithmetic,
             &blocks.delta_range,
             &blocks.busread,
-            &blocks.poseidon2_external,
-            &blocks.poseidon2_external,
-            &blocks.poseidon2_quad_internal,
-            &blocks.poseidon2_quad_internal,
-            &blocks.poseidon2_quad_internal,
+            &blocks.poseidon2,
+            &blocks.poseidon2,
+            &blocks.poseidon2,
+            &blocks.poseidon2,
+            &blocks.poseidon2,
         });
     }
 
@@ -155,11 +155,11 @@ class MegaZKFlavor_Generated {
             &blocks.arithmetic,
             &blocks.delta_range,
             &blocks.busread,
-            &blocks.poseidon2_external,
-            &blocks.poseidon2_external,
-            &blocks.poseidon2_quad_internal,
-            &blocks.poseidon2_quad_internal,
-            &blocks.poseidon2_quad_internal,
+            &blocks.poseidon2,
+            &blocks.poseidon2,
+            &blocks.poseidon2,
+            &blocks.poseidon2,
+            &blocks.poseidon2,
         });
     }
 

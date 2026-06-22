@@ -42,7 +42,7 @@ template <typename Builder> inline constexpr size_t BLAKE2S = 2952 + ZERO_GATE +
 template <typename Builder> inline constexpr size_t BLAKE3 = 2158 + ZERO_GATE + MEGA_OFFSET<Builder>;
 template <typename Builder> inline constexpr size_t KECCAK_PERMUTATION = 17387 + ZERO_GATE + MEGA_OFFSET<Builder>;
 template <typename Builder>
-inline constexpr size_t POSEIDON2_PERMUTATION = (IsMegaBuilder<Builder> ? 27 : 73) + ZERO_GATE + MEGA_OFFSET<Builder>;
+inline constexpr size_t POSEIDON2_PERMUTATION = (IsMegaBuilder<Builder> ? 25 : 73) + ZERO_GATE + MEGA_OFFSET<Builder>;
 template <typename Builder> inline constexpr size_t MULTI_SCALAR_MUL = 3557 + ZERO_GATE;
 template <typename Builder> inline constexpr size_t EC_ADD = 76 + ZERO_GATE + MEGA_OFFSET<Builder>;
 template <typename Builder> inline constexpr size_t BLOCK_ROM_READ = 9 + ZERO_GATE + MEGA_OFFSET<Builder>;
@@ -87,18 +87,18 @@ constexpr std::tuple<size_t, size_t> HONK_RECURSION_CONSTANTS(
     } else if constexpr (std::is_same_v<RecursiveFlavor, bb::UltraRecursiveFlavor_<MegaCircuitBuilder>>) {
         switch (mode) {
         case PredicateTestCase::ConstantTrue:
-            return std::make_tuple(11848, 73);
+            return std::make_tuple(11458, 73);
         case PredicateTestCase::WitnessTrue:
         case PredicateTestCase::WitnessFalse:
-            return std::make_tuple(12905, 73);
+            return std::make_tuple(12515, 73);
         }
     } else if constexpr (std::is_same_v<RecursiveFlavor, bb::UltraZKRecursiveFlavor_<MegaCircuitBuilder>>) {
         switch (mode) {
         case PredicateTestCase::ConstantTrue:
-            return std::make_tuple(14540, 77);
+            return std::make_tuple(14084, 77);
         case PredicateTestCase::WitnessTrue:
         case PredicateTestCase::WitnessFalse:
-            return std::make_tuple(15693, 77);
+            return std::make_tuple(15237, 77);
         }
     } else if constexpr (std::is_same_v<RecursiveFlavor, bb::MegaZKRecursiveFlavor_<UltraCircuitBuilder>>) {
         if (mode != PredicateTestCase::ConstantTrue) {
@@ -128,22 +128,22 @@ inline constexpr size_t MSM_ROWS_OFFSET = 2;
 
 // Init kernel gate counts (verifies OINK proof)
 
-inline constexpr size_t INIT_KERNEL_GATE_COUNT = 12589;
+inline constexpr size_t INIT_KERNEL_GATE_COUNT = 12161;
 inline constexpr size_t INIT_KERNEL_ECC_ROWS = 524 + MSM_ROWS_OFFSET;
 inline constexpr size_t INIT_KERNEL_ULTRA_OPS = 60;
 
 // Inner kernel gate counts (verifies HN proof for previous kernel + HN for app, then a width-3 per-kernel batching)
-inline constexpr size_t INNER_KERNEL_GATE_COUNT_HN = 26430;
+inline constexpr size_t INNER_KERNEL_GATE_COUNT_HN = 25412;
 inline constexpr size_t INNER_KERNEL_ECC_ROWS = 1242 + MSM_ROWS_OFFSET;
 inline constexpr size_t INNER_KERNEL_ULTRA_OPS = 140;
 
 // Tail kernel gate counts (verifies HN_TAIL proof, then a width-2 per-kernel batching)
-inline constexpr size_t TAIL_KERNEL_GATE_COUNT = 16601;
+inline constexpr size_t TAIL_KERNEL_GATE_COUNT = 16003;
 inline constexpr size_t TAIL_KERNEL_ECC_ROWS = 718 + MSM_ROWS_OFFSET;
 inline constexpr size_t TAIL_KERNEL_ULTRA_OPS = 73;
 
 // Hiding kernel gate counts (verifies HN_FINAL proof, then a width-2 per-kernel batching + decider)
-inline constexpr size_t HIDING_KERNEL_GATE_COUNT = 41207;
+inline constexpr size_t HIDING_KERNEL_GATE_COUNT = 39617;
 inline constexpr size_t HIDING_KERNEL_ECC_ROWS = 5330 + MSM_ROWS_OFFSET;
 inline constexpr size_t HIDING_KERNEL_ULTRA_OPS = 359;
 

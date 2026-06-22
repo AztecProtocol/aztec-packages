@@ -14,6 +14,24 @@ Pinned Chonk IVC inputs live in an S3 tarball keyed by `barretenberg/cpp/scripts
 
 Use the scripts instead of open-coding URLs, hashes, temp paths, or bucket listings.
 
+## Artifact Pin vs Flow Pin
+
+There are two current pins to keep in sync:
+
+- The tracked artifact pin is `noir-projects/mock-protocol-circuits/pinned-build.tar.gz`. It freezes mock protocol circuit bytecode and VKs used by Chonk fixture capture.
+- The Chonk flow pin is `barretenberg/cpp/scripts/chonk-inputs.hash`, which points to the S3 tarball of captured `ivc-inputs.msgpack` flows. Those msgpacks embed bytecode, witnesses, circuit kinds, and precomputed VKs.
+
+`noir-projects/noir-protocol-circuits/pinned-build.tar.gz` is not a current tracked pin on the `next` line. `noir-projects/bootstrap.sh pin-build` may generate it as untracked local build output; do not commit it unless intentionally reintroducing that large artifact pin.
+
+If a bb/proof-system change can affect VKs, refresh in this order:
+
+1. Repin Noir artifacts with native bb, e.g. `AVM=0 ./bootstrap.sh pin-build` from `noir-projects/`.
+2. Keep the tracked `noir-projects/mock-protocol-circuits/pinned-build.tar.gz` diff.
+3. Remove the generated untracked `noir-projects/noir-protocol-circuits/pinned-build.tar.gz` unless intentionally reintroducing that large pin.
+4. Recapture and upload Chonk flows with `barretenberg/cpp/scripts/chonk_inputs.sh update`.
+
+A refreshed Chonk flow pin alone can still contain stale VKs if the capture used stale Noir artifacts. `ChonkPinnedIvcInputsTest.AllPinnedFlows` uses the embedded VKs with the default policy, so stale VKs may surface later as generated-proof verification failure rather than the explicit `chonk_inputs.sh check` VK-mismatch message.
+
 ## Common Commands
 
 Download or repair the local fixture directory:

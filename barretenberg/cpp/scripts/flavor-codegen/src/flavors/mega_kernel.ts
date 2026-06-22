@@ -1,6 +1,7 @@
 import { flavor } from "../flavor.js";
 import * as R from "../relations/index.js";
 import type { SingleBusLookupSpec } from "../relations/index.js";
+import { megaPoseidon2Relations } from "./mega_poseidon2.js";
 
 // Kernel-circuit flavor for Chonk. Kernels use no lookups or non-native-field gates, so
 // LogDerivLookupRelation and NonNativeFieldRelation are dropped. Elliptic/Memory/EccOpQueue and all
@@ -35,11 +36,8 @@ export const MegaKernel = flavor({
     R.MemoryRelation,
     R.EccOpQueueRelation,
     ...busSpecs.map(R.singleBusLookupRelation),
-    R.Poseidon2ExternalRelation,
-    R.Poseidon2InitialExternalRelation,
-    R.Poseidon2QuadInternalRelation,
-    R.Poseidon2QuadInternalTerminalRelation,
-    R.Poseidon2TransitionEntryRelation,
+    // All five poseidon2 gate kinds share the single `poseidon2` block (see mega_poseidon2.ts).
+    ...megaPoseidon2Relations,
   ],
   composites: {
     selectors: ["non_gate_selectors", "gate_selectors"],

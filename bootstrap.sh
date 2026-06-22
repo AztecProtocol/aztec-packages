@@ -844,6 +844,7 @@ case "$cmd" in
     export USE_TEST_CACHE=1
     export CI_FULL=0
     prep
+    barretenberg/crs/bootstrap.sh
     barretenberg/cpp/bootstrap.sh chonk_input_update
     ;;
   "ci-grind-test")

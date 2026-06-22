@@ -16,6 +16,6 @@ export const Poseidon2QuadInternalTerminalRelation = relation({
         { name: "q_poseidon2_quad_internal_terminal", kind: "precomputed" },
     ],
     shiftedEntities: ["w_l", "w_r", "w_o", "w_4"],
-    gateBlockName: "poseidon2_quad_internal",
+    gateBlockName: "poseidon2",
     subsets: { gate_selectors: ["q_poseidon2_quad_internal_terminal"] },
 });
