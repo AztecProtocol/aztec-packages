@@ -12,6 +12,7 @@ import type {
   InboxContract,
   MessageSentLog,
   RollupContract,
+  ViemHeader,
 } from '@aztec/ethereum/contracts';
 import type { ViemPublicClient, ViemPublicDebugClient } from '@aztec/ethereum/types';
 import { asyncPool } from '@aztec/foundation/async-pool';
@@ -460,7 +461,7 @@ export async function getProofFromSubmitProofTx(
         start: bigint;
         end: bigint;
         args: EpochProofPublicInputArgs;
-        fees: readonly Hex[];
+        headers: readonly ViemHeader[];
         proof: Hex;
       },
     ];
