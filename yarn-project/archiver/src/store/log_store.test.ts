@@ -129,6 +129,33 @@ describe('LogStore', () => {
       const [byTag] = await logStore.getPublicLogsByTags({ contractAddress: CONTRACT, tags: [new Tag(Fr.ZERO)] });
       expect(byTag).toEqual([]);
     });
+
+    it('prunes a zero-field public log alongside normal logs (empty-tag key tracked for deletion)', async () => {
+      const ckpt = await makeCheckpointWithLogs(1, {
+        numTxsPerBlock: 1,
+        publicLogs: { numLogsPerTx: 2, contractAddress: CONTRACT },
+      });
+      const block = ckpt.checkpoint.blocks[0];
+      // First public log carries zero fields (no tag, indexed under the empty tag); the second keeps a
+      // normal tagged form. Both must be dropped when the block is pruned on reorg.
+      block.body.txEffects[0].publicLogs[0] = new PublicLog(CONTRACT, []);
+      const normalTag = new Tag(new Fr(0xc0ffee));
+      block.body.txEffects[0].publicLogs[1].fields[0] = normalTag.value;
+      await blockStore.addProposedBlock(block);
+      await logStore.addLogs([block]);
+
+      // Both logs are indexed for the block, and the tagged one is queryable.
+      expect((await logStore.getPublicLogsForBlock(block.number)).length).toBe(2);
+      const [taggedBefore] = await logStore.getPublicLogsByTags({ contractAddress: CONTRACT, tags: [normalTag] });
+      expect(taggedBefore.length).toBe(1);
+
+      await logStore.deleteLogs([block]);
+
+      // The reorg trim drops every key recorded for the block — including the empty-tag one.
+      expect(await logStore.getPublicLogsForBlock(block.number)).toEqual([]);
+      const [taggedAfter] = await logStore.getPublicLogsByTags({ contractAddress: CONTRACT, tags: [normalTag] });
+      expect(taggedAfter).toEqual([]);
+    });
   });
 
   describe('getPrivateLogsByTags', () => {
