@@ -28,7 +28,7 @@ export class Option<T> {
   /**
    * Construct an absent Option.
    *
-   * When serialized back to ACVM, the `None` case must produce the same number of fields as `Some`. For an inner whose
+   * When serialized back to ACVM, the `None` case must produce the same number of fields as `Some`. For an inner type whose
    * wire size varies per call site (`BoundedVec`, an array), pass a `size` descriptor so the inner type's shape can
    * resolve how many zero fields to emit; fixed-size inners take no argument.
    *
