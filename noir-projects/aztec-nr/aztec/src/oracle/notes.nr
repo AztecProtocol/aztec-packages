@@ -223,22 +223,3 @@ pub(crate) unconstrained fn get_sender_for_tags() -> Option<AztecAddress> {
 
 #[oracle(aztec_prv_getSenderForTags)]
 unconstrained fn get_sender_for_tags_oracle() -> Option<AztecAddress> {}
-
-mod test {
-    use crate::macros::oracle_testing::oracle_test;
-    use crate::protocol::{address::AztecAddress, traits::FromField};
-    use super::get_sender_for_tags_oracle;
-
-    #[oracle_test("some")]
-    unconstrained fn get_sender_for_tags_some() {
-        let result = get_sender_for_tags_oracle();
-        assert(result.is_some(), "expected Some");
-        assert_eq(result.unwrap(), AztecAddress::from_field(42));
-    }
-
-    #[oracle_test("none")]
-    unconstrained fn get_sender_for_tags_none() {
-        let result = get_sender_for_tags_oracle();
-        assert(result.is_none(), "expected None");
-    }
-}

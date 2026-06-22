@@ -146,6 +146,7 @@ export interface TXESessionStateHandler {
 
   /** Executes a top-level utility function and commits the job. */
   executeUtilityFunction(
+    from: Option<AztecAddress>,
     targetContractAddress: AztecAddress,
     functionSelector: FunctionSelector,
     args: Fr[],
@@ -537,6 +538,7 @@ export class TXESession implements TXESessionStateHandler {
   }
 
   async executeUtilityFunction(
+    from: Option<AztecAddress>,
     targetContractAddress: AztecAddress,
     functionSelector: FunctionSelector,
     args: Fr[],
@@ -545,6 +547,7 @@ export class TXESession implements TXESessionStateHandler {
     const handler = this.handlerAsTxe();
     return await this.withTopLevelCallTracking(async () => {
       const returnValues = await handler.executeUtilityFunction(
+        from?.value,
         targetContractAddress,
         functionSelector,
         args,
@@ -796,7 +799,13 @@ export class TXESession implements TXESessionStateHandler {
     ).syncNoteNullifiers(contractAddress, await this.keyStore.getAccounts());
 
     this.oracleHandler = new UtilityExecutionOracle({
-      contractAddress,
+      callContext: CallContext.from({
+        msgSender: AztecAddress.NULL_MSG_SENDER,
+        contractAddress,
+        // No specific function is being executed in this inlined utility context, hence the empty selector.
+        functionSelector: FunctionSelector.empty(),
+        isStaticCall: true,
+      }),
       authWitnesses: [],
       capsules: [],
       anchorBlockHeader,
@@ -898,7 +907,12 @@ export class TXESession implements TXESessionStateHandler {
       try {
         const simulator = new WASMSimulator();
         const oracle = new UtilityExecutionOracle({
-          contractAddress: call.to,
+          callContext: CallContext.from({
+            msgSender: AztecAddress.NULL_MSG_SENDER,
+            contractAddress: call.to,
+            functionSelector: call.selector,
+            isStaticCall: true,
+          }),
           authWitnesses: [],
           capsules: [],
           anchorBlockHeader: anchorBlock!,

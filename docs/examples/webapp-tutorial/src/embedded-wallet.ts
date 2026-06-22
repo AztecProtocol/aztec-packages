@@ -80,8 +80,9 @@ export class EmbeddedWallet extends BaseEmbeddedWallet {
   // docs:end:initialize
 
   static async #getSponsoredFPCContract() {
-    const { SponsoredFPCContractArtifact } =
-      await import("@aztec/noir-contracts.js/SponsoredFPC");
+    const { SponsoredFPCContractArtifact } = await import(
+      "@aztec/noir-contracts.js/SponsoredFPC"
+    );
     const instance = await getContractInstanceFromInstantiationParams(
       SponsoredFPCContractArtifact,
       { salt: new Fr(SPONSORED_FPC_SALT) },

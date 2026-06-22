@@ -133,10 +133,11 @@ pub contract HandshakeRegistry {
 
     /// Returns the app-siloed shared secret for an existing handshake in `mode`.
     ///
-    /// This is the existing-handshake retrieval surface. It returns `silo(S, caller)`, never raw `S`; a different
-    /// caller receives a different app-siloed value for the same registry note.
-    /// Contracts should still call [HandshakeRegistry::validate_handshake] when they need a constrained proof that a
-    /// supplied app-siloed secret matches the current registry handshake.
+    /// This is the existing-handshake retrieval surface. It returns `silo(S, msg_sender)`, never raw `S`; a different
+    /// caller receives a different app-siloed value for the same registry note. Siloing by `self.msg_sender()` means
+    /// a hostile contract cannot read another app's siloed secret: whatever arguments a caller passes, it only ever
+    /// learns values siloed to its own address. Contracts should still call [HandshakeRegistry::validate_handshake]
+    /// when they need a constrained proof that a supplied app-siloed secret matches the current handshake.
     ///
     /// # Panics
     /// If `mode` is not a recognized delivery mode.
@@ -145,15 +146,11 @@ pub contract HandshakeRegistry {
         sender: AztecAddress,
         recipient: AztecAddress,
         mode: OnchainDeliveryMode,
-        // TODO(F-671): replace with `self.msg_sender()` once utility context exposes it.
-        // The explicit param forces hooks to also gate on the caller; otherwise any contract that can authorize
-        // (target, selector) can read another caller's siloed secret.
-        caller: AztecAddress,
     ) -> Option<Field> {
         let handshake = self.storage.handshakes.at(recipient).at(mode).at(sender);
 
         if handshake.is_initialized() {
-            Option::some(handshake.view_note().siloed_for(caller))
+            Option::some(handshake.view_note().siloed_for(self.msg_sender()))
         } else {
             Option::none()
         }

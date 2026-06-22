@@ -293,9 +293,9 @@ describe('PXE', () => {
         finalized: tipId,
       });
 
-      // This is read when PXE tries to resolve the
-      // class id of a contract instance
-      node.getPublicStorageAt.mockResolvedValue(Fr.ZERO);
+      // Read when PXE resolves the current class id of a contract instance at the anchor block. Returning undefined
+      // makes readCurrentClassId fall back to the local instance's originalContractClassId.
+      node.getContract.mockResolvedValue(undefined);
 
       // Used to sync private logs from the node - the return array needs to have the same length as the number of tags
       // on the input.
