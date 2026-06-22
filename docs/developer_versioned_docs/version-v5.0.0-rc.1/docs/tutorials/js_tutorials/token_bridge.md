@@ -39,6 +39,16 @@ cd hardhat-aztec-example
 yarn add @aztec/aztec.js@5.0.0-rc.1 @aztec/accounts@5.0.0-rc.1 @aztec/stdlib@5.0.0-rc.1 @aztec/wallets@5.0.0-rc.1 @aztec/viem@2.38.2 tsx
 ```
 
+:::note Match the `@aztec/l1-contracts` version
+The starter repo pins its `@aztec/l1-contracts` dependency to an older release. In `package.json`, update the tag to match the network version used in this tutorial, then run `yarn install` again:
+
+```json
+"@aztec/l1-contracts": "git+https://github.com/AztecProtocol/l1-contracts.git#v5.0.0-rc.1"
+```
+
+The L1 interfaces the portal imports later in this tutorial must match the contracts deployed by your running network.
+:::
+
 Now start the local network in another terminal:
 
 ```bash
@@ -274,7 +284,7 @@ aztec compile
 
 We have built the L2 NFT contract. This is the L2 representation of an NFT that is locked on the L1 bridge.
 
-The L2 bridge is the contract that talks to the L1 bridge through cross-chain messaging. You can read more about this protocol [here](../../../docs/foundational-topics/ethereum-aztec-messaging/index.md).
+The L2 bridge is the contract that talks to the L1 bridge through cross-chain messaging. You can read more about this protocol [here](../../foundational-topics/ethereum-aztec-messaging/index.md).
 
 ```mermaid
 graph LR
@@ -667,6 +677,19 @@ const inboxAddress = nodeInfo.l1ContractAddresses.inboxAddress.toString();
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-rc.1/docs/examples/ts/token_bridge/index.ts#L1-L41" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/token_bridge/index.ts#L1-L41</a></sub></sup>
 
 
+:::warning Adjust the artifact imports for this project's layout
+The snippet above comes from the monorepo's runnable example, and its artifact imports point at that repo's layout. In the Hardhat project used in this tutorial, replace the four artifact imports with:
+
+```typescript
+import NFTPortal from "../artifacts/contracts/NFTPortal.sol/NFTPortal.json" with { type: "json" };
+import SimpleNFT from "../artifacts/contracts/SimpleNFT.sol/SimpleNFT.json" with { type: "json" };
+import { NFTBridgeContract } from "../contracts/aztec/artifacts/NFTBridge.js";
+import { NFTPunkContract } from "../contracts/aztec/artifacts/NFTPunk.js";
+```
+
+`npx hardhat compile` writes the Solidity artifacts to `artifacts/contracts/`, and the `aztec codegen` commands from earlier wrote the TypeScript bindings to `contracts/aztec/artifacts/`. Hardhat artifacts also store the bytecode as a plain string, so in the deployment snippet below use `SimpleNFT.bytecode` and `NFTPortal.bytecode` instead of `.bytecode.object`.
+:::
+
 You now have wallets for both chains, correctly connected to their respective chains. Next, deploy the L1 contracts:
 
 ```typescript title="deploy_l1_contracts" showLineNumbers 
@@ -1028,8 +1051,8 @@ console.log("NFT withdrawn to L1\n");
 
 You can now try the whole flow with:
 
-```typescript
-npx hardhat run scripts/index.ts --network localhost
+```bash
+npx tsx scripts/index.ts
 ```
 
 ## What You Built
