@@ -292,6 +292,10 @@ jobs:
           fi
 
           CHANNEL="#alerts-${{ inputs.network }}"
+          # staging-internal deploy failures are routed to the staging-public alerts channel.
+          if [ "${{ inputs.network }}" = "staging-internal" ]; then
+            CHANNEL="#alerts-staging-public"
+          fi
           RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           TEXT="Deploy Network workflow FAILED for *${{ inputs.network }}*: <${RUN_URL}|View Run> (🤖)"
 
