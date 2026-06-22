@@ -26,8 +26,8 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import type { BlockSynchronizerConfig } from '../config/index.js';
 import type { ContractSyncService } from '../contract_sync/contract_sync_service.js';
 import { AnchorBlockStore } from '../storage/anchor_block_store/anchor_block_store.js';
-import { EntityStore } from '../storage/entity_store/entity_store.js';
-import { EntityKey, EntityTypeKey } from '../storage/entity_store/entity_store_keys.js';
+import { FactStore } from '../storage/fact_store/fact_store.js';
+import { FactCollectionKey, FactCollectionTypeKey } from '../storage/fact_store/fact_store_keys.js';
 import { NoteStore } from '../storage/note_store/note_store.js';
 import { PrivateEventStore } from '../storage/private_event_store/private_event_store.js';
 import { BlockSynchronizer } from './block_synchronizer.js';
@@ -45,7 +45,7 @@ describe('BlockSynchronizer', () => {
   let anchorBlockStore: AnchorBlockStore;
   let noteStore: NoteStore;
   let privateEventStore: PrivateEventStore;
-  let entityStore: EntityStore;
+  let factStore: FactStore;
   let aztecNode: MockProxy<AztecNode>;
   let getBlock: NodeGetBlockMock;
   let blockStream: MockProxy<L2BlockStream>;
@@ -64,7 +64,7 @@ describe('BlockSynchronizer', () => {
       anchorBlockStore,
       noteStore,
       privateEventStore,
-      entityStore,
+      factStore,
       tipsStore,
       contractSyncService,
       config,
@@ -125,7 +125,7 @@ describe('BlockSynchronizer', () => {
     anchorBlockStore = new AnchorBlockStore(store);
     noteStore = new NoteStore(store);
     privateEventStore = new PrivateEventStore(store);
-    entityStore = new EntityStore(store);
+    factStore = new FactStore(store);
     contractSyncService = mock<ContractSyncService>();
     synchronizer = createSynchronizer();
   });
@@ -325,61 +325,57 @@ describe('BlockSynchronizer', () => {
       expect(await privateEventStore.eventIdsAtBlock(9)).toEqual([eventId9.toString()]);
     });
 
-    it('chain-pruned retracts retractable entity at pruned block heights or above', async () => {
-      const jobId = 'entity-job';
+    it('chain-pruned retracts facts at pruned block heights or above, dropping collections left empty', async () => {
+      const jobId = 'fact-job';
 
       // Block 5 will be the fork point: the prune keeps it and abandons only blocks strictly above it.
       const lastSurvivingBlock = await L2Block.random(BlockNumber(5));
 
       const contractAddress = await AztecAddress.random();
       const scope = await AztecAddress.random();
+      const factCollectionTypeId = Fr.random();
+      const typeKey = FactCollectionTypeKey.from({ contractAddress, factCollectionTypeId });
 
-      const entityTypeId = Fr.random();
-
-      const survivingEntityId = Fr.random();
-      const survivingEntityKey = EntityKey.from({
+      // A collection whose only fact is retractable and anchored to the fork point (block 5): the fork point is kept,
+      // so the fact and its collection must survive.
+      const survivingCollectionId = Fr.random();
+      const survivingCollectionKey = FactCollectionKey.from({
         contractAddress,
-        scope,
-        entityTypeId,
-        entityId: survivingEntityId,
+        factCollectionTypeId,
+        factCollectionId: survivingCollectionId,
       });
-
-      // A retractable entity originating exactly at the fork point: the fork point is kept, so it must survive.
-      await entityStore.createEntity(
-        survivingEntityKey,
+      await factStore.recordFact(
+        survivingCollectionKey,
+        Fr.random(),
         [Fr.random()],
-        {
-          blockNumber: lastSurvivingBlock.number,
-          blockHash: (await lastSurvivingBlock.hash()).toFr(),
-        },
+        { blockNumber: lastSurvivingBlock.number, blockHash: (await lastSurvivingBlock.hash()).toFr() },
+        scope,
         jobId,
       );
 
-      const retractedEntityId = Fr.random();
-      const retractedEntityKey = EntityKey.from({
-        contractAddress: contractAddress,
-        scope,
-        entityTypeId,
-        entityId: retractedEntityId,
+      // A collection whose only fact is retractable and originates just above the fork (block 6): the prune deletes the
+      // fact, and the now-empty collection disappears entirely.
+      const retractedCollectionId = Fr.random();
+      const retractedCollectionKey = FactCollectionKey.from({
+        contractAddress,
+        factCollectionTypeId,
+        factCollectionId: retractedCollectionId,
       });
-
-      // A retractable entity originating just above the fork, carrying a non-retractable fact: the prune must delete
-      // the entity, taking said non-retractable fact with it.
-      await entityStore.createEntity(
-        retractedEntityKey,
+      await factStore.recordFact(
+        retractedCollectionKey,
+        Fr.random(),
         [Fr.random()],
         { blockNumber: lastSurvivingBlock.number + 1, blockHash: Fr.random() },
+        scope,
         jobId,
       );
-      await entityStore.recordFact(retractedEntityKey, Fr.random(), [Fr.random()], undefined, jobId);
 
-      await store.transactionAsync(() => entityStore.commit(jobId));
+      await store.transactionAsync(() => factStore.commit(jobId));
 
-      // Both entities must be present before the prune.
-      expect(
-        await entityStore.getEntities(EntityTypeKey.from({ contractAddress, scope, entityTypeId }), jobId),
-      ).toHaveLength(2);
-      await store.transactionAsync(() => entityStore.commit(jobId));
+      // Both collections must be present before the prune.
+      expect(await factStore.getFactCollectionsByType(typeKey, [scope], jobId)).toHaveLength(2);
+      // Release the read job so the prune's rollback is not blocked by an in-flight job.
+      await factStore.discardStaged(jobId);
 
       // Some blocks later...
       const anchorBlock10 = await L2Block.random(BlockNumber(10));
@@ -388,7 +384,7 @@ describe('BlockSynchronizer', () => {
       // The node serves the fork-point block (number 5), so it becomes the new anchor after the prune.
       await serveBlock(lastSurvivingBlock);
 
-      // Prune back to block 5, dropping block 6 where the retractable entity originates.
+      // Prune back to block 5, dropping block 6 where the retracted fact originates.
       await synchronizer.handleBlockStreamEvent({
         type: 'chain-pruned',
         block: await blockId(lastSurvivingBlock),
@@ -402,19 +398,16 @@ describe('BlockSynchronizer', () => {
         },
       });
 
-      // Only the fork-point entity survives. The one originating above the fork is gone.
-      const entities = await entityStore.getEntities(
-        EntityTypeKey.from({ contractAddress, scope, entityTypeId }),
-        jobId,
-      );
-      expect(entities).toHaveLength(1);
-      expect(entities[0].key.entityId.equals(survivingEntityId)).toBe(true);
-      expect(await entityStore.getEntity(retractedEntityKey, jobId)).toBeUndefined();
-      expect((await entityStore.getEntity(survivingEntityKey, jobId))!.facts).toHaveLength(0);
+      // Only the fork-point collection survives. The one whose sole fact originated above the fork is gone.
+      const collections = await factStore.getFactCollectionsByType(typeKey, [scope], jobId);
+      expect(collections).toHaveLength(1);
+      expect(collections[0].key.factCollectionId.equals(survivingCollectionId)).toBe(true);
+      expect(await factStore.getFactCollection(retractedCollectionKey, [scope], jobId)).toBeUndefined();
+      expect((await factStore.getFactCollection(survivingCollectionKey, [scope], jobId))!.facts).toHaveLength(1);
     });
 
-    it('chain-pruned keeps a non-retractable entity and its facts up to the fork point, deleting only those above it', async () => {
-      const jobId = 'entity-job';
+    it('chain-pruned keeps a collection and its facts up to the fork point, deleting only those above it', async () => {
+      const jobId = 'fact-job';
 
       // Block 5 is the fork point: the prune keeps it and abandons only blocks strictly above it.
       const lastSurvivingBlock = await L2Block.random(BlockNumber(5));
@@ -422,45 +415,42 @@ describe('BlockSynchronizer', () => {
       const contractAddress = await AztecAddress.random();
       const scope = await AztecAddress.random();
 
-      const entityTypeId = Fr.random();
-      const entityId = Fr.random();
+      const factCollectionTypeId = Fr.random();
+      const factCollectionId = Fr.random();
       const retractedFactType = Fr.random();
       const forkPointFactType = Fr.random();
       const nonRetractableFactType = Fr.random();
 
-      const entityKey = EntityKey.from({ contractAddress, scope, entityTypeId, entityId });
+      const typeKey = FactCollectionTypeKey.from({ contractAddress, factCollectionTypeId });
+      const collectionKey = FactCollectionKey.from({ contractAddress, factCollectionTypeId, factCollectionId });
 
-      // A non-retractable entity carrying three facts: a non-retractable one, a retractable one anchored to the fork
-      // point (block 5), and a retractable one originating just above it (block 6). The prune must keep the entity, its
+      // A collection carrying three facts: a non-retractable one, a retractable one anchored to the fork point (block
+      // 5), and a retractable one originating just above it (block 6). The prune must keep the collection, its
       // non-retractable fact, and the fork-point fact, deleting only the orphaned fact.
-      await entityStore.createEntity(entityKey, [Fr.random()], undefined, jobId);
-      await entityStore.recordFact(entityKey, nonRetractableFactType, [Fr.random()], undefined, jobId);
-      await entityStore.recordFact(
-        entityKey,
+      await factStore.recordFact(collectionKey, nonRetractableFactType, [Fr.random()], undefined, scope, jobId);
+      await factStore.recordFact(
+        collectionKey,
         forkPointFactType,
         [],
-        {
-          blockNumber: lastSurvivingBlock.number,
-          blockHash: (await lastSurvivingBlock.hash()).toFr(),
-        },
+        { blockNumber: lastSurvivingBlock.number, blockHash: (await lastSurvivingBlock.hash()).toFr() },
+        scope,
         jobId,
       );
-      await entityStore.recordFact(
-        entityKey,
+      await factStore.recordFact(
+        collectionKey,
         retractedFactType,
         [],
         { blockNumber: lastSurvivingBlock.number + 1, blockHash: Fr.random() },
+        scope,
         jobId,
       );
-      await store.transactionAsync(() => entityStore.commit(jobId));
+      await store.transactionAsync(() => factStore.commit(jobId));
 
-      // The entity and all three facts must be present before the prune.
-      expect(
-        await entityStore.getEntities(EntityTypeKey.from({ contractAddress, scope, entityTypeId }), jobId),
-      ).toHaveLength(1);
-      expect((await entityStore.getEntity(entityKey, jobId))!.facts).toHaveLength(3);
-
-      await store.transactionAsync(() => entityStore.commit(jobId));
+      // The collection and all three facts must be present before the prune.
+      expect(await factStore.getFactCollectionsByType(typeKey, [scope], jobId)).toHaveLength(1);
+      expect((await factStore.getFactCollection(collectionKey, [scope], jobId))!.facts).toHaveLength(3);
+      // Release the read job so the prune's rollback is not blocked by an in-flight job.
+      await factStore.discardStaged(jobId);
 
       // Some blocks later...
       const anchorBlock10 = await L2Block.random(BlockNumber(10));
@@ -483,16 +473,15 @@ describe('BlockSynchronizer', () => {
         },
       });
 
-      // The non-retractable entity survives, keeping its non-retractable fact and the fork-point fact. Only the fact
-      // originating above the fork is gone.
-      const entities = await entityStore.getEntities(
-        EntityTypeKey.from({ contractAddress: contractAddress, scope, entityTypeId }),
-        jobId,
-      );
-      expect(entities).toHaveLength(1);
-      expect(entities[0].key.entityId.equals(entityId)).toBe(true);
+      // The collection survives, keeping its non-retractable fact and the fork-point fact. Only the fact originating
+      // above the fork is gone.
+      const collections = await factStore.getFactCollectionsByType(typeKey, [scope], jobId);
+      expect(collections).toHaveLength(1);
+      expect(collections[0].key.factCollectionId.equals(factCollectionId)).toBe(true);
 
-      const remainingFactTypes = (await entityStore.getEntity(entityKey, jobId))!.facts.map(fact => fact.factTypeId);
+      const remainingFactTypes = (await factStore.getFactCollection(collectionKey, [scope], jobId))!.facts.map(
+        fact => fact.factTypeId,
+      );
       expect(remainingFactTypes).toHaveLength(2);
       expect(remainingFactTypes.some(factType => factType.equals(nonRetractableFactType))).toBe(true);
       expect(remainingFactTypes.some(factType => factType.equals(forkPointFactType))).toBe(true);
@@ -806,7 +795,7 @@ describe('BlockSynchronizer', () => {
         anchorBlockStore,
         noteStore,
         privateEventStore,
-        entityStore,
+        factStore,
         tipsStore,
         contractSyncService,
         { syncChainTip: 'proposed' },

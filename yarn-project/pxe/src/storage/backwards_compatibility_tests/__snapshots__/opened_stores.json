@@ -30,14 +30,6 @@
       "kind": "map"
     },
     {
-      "name": "entities",
-      "kind": "map"
-    },
-    {
-      "name": "entities_by_block",
-      "kind": "multimap"
-    },
-    {
       "name": "events_by_block_number",
       "kind": "multimap"
     },
@@ -54,7 +46,7 @@
       "kind": "multimap"
     },
     {
-      "name": "facts_by_entity",
+      "name": "facts_by_collection",
       "kind": "multimap"
     },
     {
@@ -116,6 +108,10 @@
     {
       "name": "pxe_l2_tips",
       "kind": "map"
+    },
+    {
+      "name": "scopes_by_fact",
+      "kind": "multimap"
     }
   ]
 }
