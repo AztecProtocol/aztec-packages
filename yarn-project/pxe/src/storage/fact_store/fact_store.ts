@@ -69,8 +69,7 @@ export class FactStore implements StagedStore {
   /** Index for per-collection fact enumeration and by-type collection discovery. */
   #factsByCollection: AztecAsyncMultiMap<FactCollectionKeyStr, FactKeyStr>;
 
-  /** The scope dimension: the set of scopes each fact is visible under. Keyed by fact key, which carries the collection
-   * key as a prefix, so a collection's scopes are recoverable via a prefix range scan. */
+  /** The set of scopes each fact is visible under. */
   #scopesByFact: AztecAsyncMultiMap<FactKeyStr, ScopeStr>;
 
   /** Index for delete-on-prune of retractable facts (those with an origin block). */
@@ -270,7 +269,7 @@ export class FactStore implements StagedStore {
   async #readCollectionsFromDb(keys: FactCollectionKey[]): Promise<Map<FactCollectionKeyStr, CollectionWithFacts>> {
     const result = new Map<FactCollectionKeyStr, CollectionWithFacts>();
     for (const key of keys) {
-      const collection = await this.#loadCommittedCollection(key.toString());
+      const collection = await this.#loadCommittedCollection(key);
       if (collection) {
         result.set(key.toString(), collection);
       }
@@ -280,11 +279,6 @@ export class FactStore implements StagedStore {
 
   /**
    * Reads every committed collection of the given type with its facts and their scopes, in a single pass.
-   *
-   * Collection keys are `${typeKey}:${collectionId}` and fact keys carry the collection key (hence the type key) as a
-   * prefix, so one range scan of each index spans the whole type. Fact-body reads are kicked off during the first scan
-   * and stay pending through the second, keeping a DB request live throughout so the transaction never auto-commits
-   * mid-read.
    */
   #readCollectionsFromDbByType(typeKey: FactCollectionTypeKeyStr) {
     return this.#store.transactionAsync(async () => {
@@ -301,46 +295,46 @@ export class FactStore implements StagedStore {
         reads.set(factKey, this.#facts.getAsync(factKey));
       }
 
-      // The fact point-reads are now in flight; drain every scope of the type in one range scan while they remain
-      // pending. Then await the (already issued) reads to assemble — no further DB requests are issued.
       const scopesByFactKey = await this.#readScopesByFactKey(typeKey);
 
       const result = new Map<FactCollectionKeyStr, CollectionWithFacts>();
       for (const [collectionKey, reads] of factReadsByCollection) {
-        result.set(collectionKey, await this.#assembleCollection(reads, scopesByFactKey));
+        const collection = await this.#assembleCollection(
+          FactCollectionKey.fromString(collectionKey),
+          reads,
+          scopesByFactKey,
+        );
+        result.set(collectionKey, collection);
       }
       return result;
     });
   }
 
   /**
-   * Loads a committed collection or undefined if it has no committed facts.
+   * Loads and returns a committed collection or undefined if it has no committed facts.
    *
    * Caller must wrap in a transaction.
    */
-  async #loadCommittedCollection(collectionKey: FactCollectionKeyStr): Promise<CollectionWithFacts | undefined> {
+  async #loadCommittedCollection(collectionKey: FactCollectionKey): Promise<CollectionWithFacts | undefined> {
     // Kick off each fact read while iterating the index so a DB request is always pending. Draining the cursor and only
     // then reading the facts one `await` at a time would let the IndexedDB transaction auto-commit at the boundary
     // (IndexedDB auto-commits once control returns to the event loop with no pending request), throwing mid-read on the
     // browser backend.
     const factReads = new Map<FactKeyStr, Promise<FactBuffer | undefined>>();
-    for await (const factKey of this.#factsByCollection.getValuesAsync(collectionKey)) {
+    for await (const factKey of this.#factsByCollection.getValuesAsync(collectionKey.toString())) {
       factReads.set(factKey, this.#facts.getAsync(factKey));
     }
     if (factReads.size === 0) {
       return undefined;
     }
 
-    // The fact point-reads are now in flight; drain every scope of the collection in one prefix range scan (fact keys
-    // carry the collection key as a prefix) while those reads remain pending, keeping a DB request live throughout.
-    const scopesByFactKey = await this.#readScopesByFactKey(collectionKey);
+    const scopesByFactKey = await this.#readScopesByFactKey(collectionKey.toString());
 
-    return this.#assembleCollection(factReads, scopesByFactKey);
+    return this.#assembleCollection(collectionKey, factReads, scopesByFactKey);
   }
 
   /**
-   * Drains the scope index for a fact-key prefix (a collection key, or a type key to span every collection of a type)
-   * into a map of fact key to scope set, in a single range scan.
+   * Read all scopes that can view a fact
    *
    * Caller must wrap in a transaction.
    */
@@ -361,13 +355,12 @@ export class FactStore implements StagedStore {
   }
 
   /**
-   * Awaits a collection's in-flight fact-body reads and assembles them with their scopes into a {@link
-   * CollectionWithFacts}. The collection key is recovered from a stored fact, so no key-string parsing is needed.
+   * Assemble a collection's facts and their scopes from a collection of in-flight DB reads.
    *
-   * `reads` must already be issued (pending) so awaiting them keeps the transaction alive; this method issues no new DB
-   * requests.
+   * This is an auxiliary function.
    */
   async #assembleCollection(
+    collectionKey: FactCollectionKey,
     reads: Map<FactKeyStr, Promise<FactBuffer | undefined>>,
     scopesByFactKey: Map<FactKeyStr, Set<ScopeStr>>,
   ): Promise<CollectionWithFacts> {
@@ -375,7 +368,6 @@ export class FactStore implements StagedStore {
     const bufs = await Promise.all(reads.values());
 
     // Await-free tail: deserialize. No DB ops from here on.
-    let key: FactCollectionKey | undefined;
     const facts = new Map<FactKeyStr, FactWithScopes>();
     for (let i = 0; i < factKeys.length; i++) {
       const factKey = factKeys[i];
@@ -386,10 +378,14 @@ export class FactStore implements StagedStore {
         throw new Error(`Fact not found for factKey ${factKey}`);
       }
       const stored = StoredFact.fromBuffer(buf);
-      key ??= stored.factCollectionKey;
+      if (stored.factCollectionKey.toString() !== collectionKey.toString()) {
+        // Defensive: every read fact must belong to the collection being assembled. A mismatch means the indexes are
+        // corrupt.
+        throw new Error(`Fact ${factKey} does not belong to collection ${collectionKey}`);
+      }
       facts.set(factKey, { fact: stored.toFact(), scopes: scopesByFactKey.get(factKey) ?? new Set<ScopeStr>() });
     }
-    return { key: key!, facts };
+    return { key: collectionKey, facts };
   }
 
   /** The facts of the collection visible under any of the given scopes. */
@@ -423,44 +419,12 @@ export class FactStore implements StagedStore {
     }
     for (const op of this.#stagedOpsFor(jobId)) {
       switch (op.kind) {
-        case 'recordFact': {
-          const key = op.fact.factCollectionKey;
-          if (typeKey !== undefined && key.factCollectionTypeKey().toString() !== typeKey) {
-            break;
-          }
-          const collectionKey = key.toString();
-          let collection = result.get(collectionKey);
-          if (!collection) {
-            collection = { key, facts: new Map<FactKeyStr, FactWithScopes>() };
-            result.set(collectionKey, collection);
-          }
-          // Fact dedup is scope-free: re-recording the same fact under a new scope keeps one fact and unions the scope.
-          const fKey = factKeyStrOf(op.fact);
-          let factWithScopes = collection.facts.get(fKey);
-          if (!factWithScopes) {
-            factWithScopes = { fact: op.fact.toFact(), scopes: new Set<ScopeStr>() };
-            collection.facts.set(fKey, factWithScopes);
-          }
-          factWithScopes.scopes.add(op.scope.toString());
+        case 'recordFact':
+          this.#foldRecordFact(result, op, typeKey);
           break;
-        }
-        case 'removeFactCollection': {
-          // Descope: drop the scope from each of the collection's facts, reaping facts left with no scope.
-          const collection = result.get(op.key.toString());
-          if (collection) {
-            const scopeStr = op.scope.toString();
-            for (const [factKey, { scopes }] of collection.facts) {
-              scopes.delete(scopeStr);
-              if (scopes.size === 0) {
-                collection.facts.delete(factKey);
-              }
-            }
-            if (collection.facts.size === 0) {
-              result.delete(op.key.toString());
-            }
-          }
+        case 'removeFactCollection':
+          this.#foldRemoveFactCollection(result, op);
           break;
-        }
         default: {
           const _exhaustive: never = op;
           throw new Error(`Unhandled FactStore staged op kind: ${JSON.stringify(_exhaustive)}`);
@@ -468,6 +432,74 @@ export class FactStore implements StagedStore {
       }
     }
     return result;
+  }
+
+  /**
+   * Folds a staged `recordFact` op into view.
+   *
+   * When `typeKey` is given, an op of another type is ignored, keeping the view limited to that type.
+   */
+  #foldRecordFact(
+    result: Map<FactCollectionKeyStr, CollectionWithFacts>,
+    op: Extract<StagedOp, { kind: 'recordFact' }>,
+    typeKey?: FactCollectionTypeKeyStr,
+  ): void {
+    const key = op.fact.factCollectionKey;
+
+    // Type filter doesn't match, nothing to do with this fact
+    if (typeKey !== undefined && key.factCollectionTypeKey().toString() !== typeKey) {
+      return;
+    }
+
+    const collectionKey = key.toString();
+    let collection = result.get(collectionKey);
+
+    // Collection didn't exist before this point, the created fact brings it into existence
+    if (!collection) {
+      collection = { key, facts: new Map<FactKeyStr, FactWithScopes>() };
+      result.set(collectionKey, collection);
+    }
+
+    const fKey = factKeyStrOf(op.fact);
+    let factWithScopes = collection.facts.get(fKey);
+
+    if (!factWithScopes) {
+      // Fact is actually new, initialize
+      factWithScopes = { fact: op.fact.toFact(), scopes: new Set<ScopeStr>() };
+      collection.facts.set(fKey, factWithScopes);
+    }
+
+    // Add fact to scope
+    factWithScopes.scopes.add(op.scope.toString());
+  }
+
+  /**
+   * Folds a staged `removeFactCollection` op into the view.
+   */
+  #foldRemoveFactCollection(
+    result: Map<FactCollectionKeyStr, CollectionWithFacts>,
+    op: Extract<StagedOp, { kind: 'removeFactCollection' }>,
+  ): void {
+    const collection = result.get(op.key.toString());
+    if (!collection) {
+      return;
+    }
+
+    // Remove any facts viewable by the op given scope
+    const scopeStr = op.scope.toString();
+    for (const [factKey, { scopes }] of collection.facts) {
+      scopes.delete(scopeStr);
+
+      // If no scopes retain access to this fact, remove the fact altogether
+      if (scopes.size === 0) {
+        collection.facts.delete(factKey);
+      }
+    }
+
+    // If no facts remain after the scoped cleanse, remove the collection itself
+    if (collection.facts.size === 0) {
+      result.delete(op.key.toString());
+    }
   }
 
   /**
