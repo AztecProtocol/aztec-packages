@@ -4,8 +4,17 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
 import type { KeyStore } from '@aztec/key-store';
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
-import { WASMSimulator } from '@aztec/simulator/client';
-import { FunctionCall, FunctionSelector, FunctionType, encodeArguments } from '@aztec/stdlib/abi';
+import { type CircuitSimulator, WASMSimulator } from '@aztec/simulator/client';
+import { HandshakeRegistryArtifact } from '@aztec/standard-contracts/handshake-registry';
+import { STANDARD_HANDSHAKE_REGISTRY_ADDRESS } from '@aztec/standard-contracts/handshake-registry/constants';
+import {
+  type ContractArtifact,
+  FunctionCall,
+  FunctionSelector,
+  FunctionType,
+  encodeArguments,
+  getFunctionArtifactByName,
+} from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash, type L2TipsProvider } from '@aztec/stdlib/block';
 import {
@@ -17,7 +26,7 @@ import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { PublicKeys, deriveKeys, hashPublicKey } from '@aztec/stdlib/keys';
 import { AppTaggingSecret, AppTaggingSecretKind, MessageContext, SiloedTag } from '@aztec/stdlib/logs';
 import { Note, NoteDao } from '@aztec/stdlib/note';
-import { makeL2Tips } from '@aztec/stdlib/testing';
+import { makeL2Tips, randomContractInstanceWithAddress } from '@aztec/stdlib/testing';
 import {
   BlockHeader,
   CallContext,
@@ -434,6 +443,88 @@ describe('Utility Execution test suite', () => {
         );
         expect(contractSyncService.invalidateContractForScopes).toHaveBeenCalledWith(contractAddress, [scopeA, scopeB]);
       });
+    });
+
+    // Pins the production oracle's default-authorization allowlist for cross-contract utility reads of the
+    // standard HandshakeRegistry: only get_handshakes and get_app_siloed_secret are allowed, everything else is
+    // denied.
+    describe('cross-contract utility authorization', () => {
+      const prepareNestedUtilityCall = async (
+        targetContractAddress: AztecAddress,
+        contractArtifact: ContractArtifact,
+        functionName: string,
+      ) => {
+        const functionArtifact = {
+          ...getFunctionArtifactByName(contractArtifact, functionName),
+          contractName: contractArtifact.name,
+        };
+        const selector = await FunctionSelector.fromNameAndParameters(functionName, functionArtifact.parameters);
+        const callerInstance = await randomContractInstanceWithAddress({}, contractAddress);
+        const targetInstance = await randomContractInstanceWithAddress({}, targetContractAddress);
+
+        contractStore.getFunctionArtifactWithDebugMetadata.mockResolvedValue(functionArtifact);
+        contractStore.getContractInstance.mockImplementation(address => {
+          if (address.equals(contractAddress)) {
+            return Promise.resolve(callerInstance);
+          }
+          if (address.equals(targetContractAddress)) {
+            return Promise.resolve(targetInstance);
+          }
+          return Promise.reject(new Error(`Unexpected contract instance lookup for ${address}`));
+        });
+
+        return selector;
+      };
+
+      const makeNestedSimulator = () => {
+        const nestedSimulator = mock<CircuitSimulator>();
+        nestedSimulator.executeUserCircuit.mockResolvedValue({ partialWitness: new Map(), returnWitness: new Map() });
+        return nestedSimulator;
+      };
+
+      let nestedSimulator: ReturnType<typeof makeNestedSimulator>;
+      // The standard HandshakeRegistry reads the oracle default-authorizes, mapped to the args each is called with.
+      let defaultAuthorizedHandshakeRegistryReads: Map<string, Fr[]>;
+
+      beforeEach(() => {
+        nestedSimulator = makeNestedSimulator();
+        utilityExecutionOracle = makeOracle({ simulator: nestedSimulator });
+        defaultAuthorizedHandshakeRegistryReads = new Map<string, Fr[]>([
+          ['get_handshakes', []],
+          ['get_app_siloed_secret', [Fr.random(), Fr.random(), new Fr(3)]],
+        ]);
+      });
+
+      afterEach(() => {
+        contractSyncService.ensureContractSynced.mockClear();
+        nestedSimulator.executeUserCircuit.mockClear();
+      });
+
+      it.each(HandshakeRegistryArtifact.functions.map(fn => fn.name))(
+        'authorizes %s only if it is in the standard HandshakeRegistry read allowlist',
+        async name => {
+          const selector = await prepareNestedUtilityCall(
+            STANDARD_HANDSHAKE_REGISTRY_ADDRESS,
+            HandshakeRegistryArtifact,
+            name,
+          );
+
+          if (defaultAuthorizedHandshakeRegistryReads.has(name)) {
+            const args = defaultAuthorizedHandshakeRegistryReads.get(name) ?? [];
+            await expect(
+              utilityExecutionOracle.callUtilityFunction(STANDARD_HANDSHAKE_REGISTRY_ADDRESS, selector, args),
+            ).resolves.toEqual([]);
+            expect(contractSyncService.ensureContractSynced).toHaveBeenCalled();
+            expect(nestedSimulator.executeUserCircuit).toHaveBeenCalled();
+          } else {
+            await expect(
+              utilityExecutionOracle.callUtilityFunction(STANDARD_HANDSHAKE_REGISTRY_ADDRESS, selector, []),
+            ).rejects.toThrow('Cross-contract utility call denied: No execution hooks configured');
+            expect(contractSyncService.ensureContractSynced).not.toHaveBeenCalled();
+            expect(nestedSimulator.executeUserCircuit).not.toHaveBeenCalled();
+          }
+        },
+      );
     });
 
     describe('getMessageContextsByTxHash', () => {

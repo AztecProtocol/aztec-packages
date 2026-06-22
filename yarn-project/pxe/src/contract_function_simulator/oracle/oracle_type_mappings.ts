@@ -434,7 +434,6 @@ export const PROVIDED_SECRET: TypeMapping<ProvidedSecret> = {
 
 // ─── Combinator Type Mappings ────────────────────────────────────────────────
 
-/** `_height` is unused at runtime but lets TypeScript infer the exact `N` for `MembershipWitness<N>`. */
 export function MEMBERSHIP_WITNESS<N extends number>(height: N): TypeMapping<MembershipWitness<N>> {
   return {
     serialization: {

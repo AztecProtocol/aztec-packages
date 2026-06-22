@@ -3,6 +3,7 @@ use crate::protocol::point::EmbeddedCurvePoint;
 use crate::protocol::traits::{Deserialize, Serialize};
 
 use crate::{
+    context::PrivateContext,
     ephemeral::EphemeralArray,
     messages::processing::provided_secret::ProvidedSecret,
     oracle::{call_utility_function::call_utility_function, shared_secret::get_shared_secrets},
@@ -35,6 +36,69 @@ pub(crate) global PROVIDED_SECRETS_ARRAY_BASE_SLOT: Field =
 global HANDSHAKE_EPH_PKS_SLOT: Field = sha256_to_field("AZTEC_NR::HANDSHAKE_EPH_PKS_SLOT".as_bytes());
 
 global HANDSHAKE_MODES_SLOT: Field = sha256_to_field("AZTEC_NR::HANDSHAKE_MODES_SLOT".as_bytes());
+
+// The helper cannot import the handshake registry interface because the registry contract depends on aztec-nr. These
+// selector constants pin the registry ABI surface this library calls. The registry's test suite compares them against
+// its macro-generated `HandshakeRegistry::at(...).method(...).selector` values so signature drift fails in tests.
+pub global GET_APP_SILOED_SECRET_SELECTOR: FunctionSelector =
+    comptime { FunctionSelector::from_signature("get_app_siloed_secret((Field),(Field),(u8))") };
+pub global NON_INTERACTIVE_HANDSHAKE_SELECTOR: FunctionSelector =
+    comptime { FunctionSelector::from_signature("non_interactive_handshake((Field),(Field),(u8))") };
+pub global GET_HANDSHAKES_SELECTOR: FunctionSelector =
+    comptime { FunctionSelector::from_signature("get_handshakes((Field),u32)") };
+
+/// Resolves the app-siloed handshake secret, bootstrapping when none exists.
+///
+/// Resolves the secret for `(sender, recipient, mode)`, creating it via the registry's `non_interactive_handshake`
+/// when no handshake exists yet.
+///
+/// Returns `(secret, bootstrapped)`, where `bootstrapped` is true when this call created the handshake.
+///
+/// ## Batching
+///
+/// The reuse-vs-bootstrap decision is a utility call that reads committed state. If no handshake exists yet,
+/// multiple sends in the same transaction can't see each other's pending bootstrap, so each one creates its own
+/// handshake (a fresh secret on a separate sequence) rather than reusing one. A brand-new recipient therefore needs
+/// one landed transaction to establish the handshake before further sends can be batched onto it.
+pub(crate) fn get_or_create_app_siloed_handshake_secret(
+    context: &mut PrivateContext,
+    registry: AztecAddress,
+    sender: AztecAddress,
+    recipient: AztecAddress,
+    mode: OnchainDeliveryMode,
+) -> (Field, bool) {
+    let mode_field = mode.to_field();
+
+    // Safety: the response only selects which path runs. On `None` we bootstrap via `non_interactive_handshake`,
+    // whose constrained return value is the secret, so a forged empty response cannot fabricate one; it can only
+    // trigger an unnecessary re-handshake that replaces the registry note. The caller must constrain the returned
+    // `(secret, bootstrapped)` pair against the selected tagging index before emitting a handshake-derived tag.
+    let maybe_secret: Option<Field> = unsafe {
+        let returns = call_utility_function(
+            registry,
+            GET_APP_SILOED_SECRET_SELECTOR,
+            [sender.to_field(), recipient.to_field(), mode_field],
+        );
+        Deserialize::deserialize(returns)
+    };
+
+    maybe_secret.map(|secret| (secret, false)).unwrap_or_else(|| {
+        // Bootstrap: no handshake exists yet. The registry inserts a fresh note and returns the app-siloed
+        // secret to the caller. The constrained return is the source of truth for the secret, so no separate
+        // `validate_handshake` is needed by constrained delivery.
+        // TODO(F-660): dispatch to `perform_handshake(sender, recipient, handshake_type)` once interactive
+        // handshakes are supported.
+        let secret: Field = context
+            .call_private_function(
+                registry,
+                NON_INTERACTIVE_HANDSHAKE_SELECTOR,
+                [sender.to_field(), recipient.to_field(), mode_field],
+            )
+            .get_preimage();
+
+        (secret, true)
+    })
+}
 
 /// Fetches discovered handshakes from the HandshakeRegistry and derives app-siloed tagging secrets for each,
 /// returning them so that [`get_pending_tagged_logs`](crate::oracle::message_processing::get_pending_tagged_logs)
@@ -75,9 +139,12 @@ pub(crate) unconstrained fn get_handshake_secrets(
 
 /// Calls the HandshakeRegistry's `get_handshakes` utility function and deserializes the response.
 unconstrained fn fetch_handshake_page(recipient: AztecAddress, page_offset: u32) -> HandshakePage {
-    let selector = comptime { FunctionSelector::from_signature("get_handshakes((Field),u32)") };
     let args: [Field; 2] = [recipient.to_field(), page_offset as Field];
-    let response = call_utility_function(STANDARD_HANDSHAKE_REGISTRY_ADDRESS, selector, args);
+    let response = call_utility_function(
+        STANDARD_HANDSHAKE_REGISTRY_ADDRESS,
+        GET_HANDSHAKES_SELECTOR,
+        args,
+    );
     HandshakePage::deserialize(response)
 }
 

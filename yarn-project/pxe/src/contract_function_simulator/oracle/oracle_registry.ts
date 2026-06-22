@@ -563,10 +563,10 @@ export function makeEntry<const TParams extends RegistryParam[] = [], TReturnVal
         assertReadersConsumed(readers);
         return { name: param.name, value };
       });
-      // Every input slot must be modelled by a param: oracles whose Noir decl passes an extra field must declare it
+      // Every input slot must be specified by a param: oracles whose Noir decl passes an extra field must declare it
       // (the handler can ignore it). Otherwise an under-declared shape would silently drop a field into nothing.
       if (offset !== inputs.length) {
-        throw new Error(`Oracle received ${inputs.length} input slot(s) but the registry models ${offset}`);
+        throw new Error(`Oracle received ${inputs.length} input slot(s) but the registry specifies ${offset}`);
       }
       return named as unknown as InferDeserializedParams<TParams>;
     },

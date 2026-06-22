@@ -201,6 +201,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   /**
    * Retrieve keys associated with a specific master public key and app address.
    * @param pkMHash - The master public key hash.
+   * @param _keyIndex - Sent by the Noir oracle caller but unused here; kept to match the oracle signature.
    * @returns A Promise that resolves to nullifier keys.
    * @throws If the keys are not registered in the key store.
    * @throws If scopes are defined and the account is not in the scopes.
@@ -845,12 +846,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     );
 
     if (!targetContractAddress.equals(this.contractAddress)) {
-      // The HandshakeRegistry is called during every contract's sync to discover handshake secrets.
-      // It is a standard contract that only reads its own state, so it is always authorized.
-      const isHandshakeRegistryRead =
-        targetContractAddress.equals(STANDARD_HANDSHAKE_REGISTRY_ADDRESS) &&
-        functionSelector.equals(await FunctionSelector.fromSignature('get_handshakes((Field),u32)'));
-      if (!isHandshakeRegistryRead) {
+      if (!(await isStandardHandshakeRegistryUtilityRead(targetContractAddress, functionSelector))) {
         const [callerInstance, targetInstance] = await Promise.all([
           this.getContractInstance(this.contractAddress),
           this.getContractInstance(targetContractAddress),
@@ -1014,4 +1010,26 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   protected get contractAddress(): AztecAddress {
     return this.callContext.contractAddress;
   }
+}
+
+const STANDARD_HANDSHAKE_REGISTRY_GET_HANDSHAKES_SIGNATURE = 'get_handshakes((Field),u32)';
+const STANDARD_HANDSHAKE_REGISTRY_GET_APP_SILOED_SECRET_SIGNATURE = 'get_app_siloed_secret((Field),(Field),(u8))';
+
+async function doesSelectorHaveSignature(functionSelector: FunctionSelector, signature: string): Promise<boolean> {
+  return functionSelector.equals(await FunctionSelector.fromSignature(signature));
+}
+
+async function isStandardHandshakeRegistryUtilityRead(
+  targetContractAddress: AztecAddress,
+  functionSelector: FunctionSelector,
+): Promise<boolean> {
+  if (!targetContractAddress.equals(STANDARD_HANDSHAKE_REGISTRY_ADDRESS)) {
+    return false;
+  }
+
+  const [isGetHandshakes, isGetAppSiloedSecret] = await Promise.all([
+    doesSelectorHaveSignature(functionSelector, STANDARD_HANDSHAKE_REGISTRY_GET_HANDSHAKES_SIGNATURE),
+    doesSelectorHaveSignature(functionSelector, STANDARD_HANDSHAKE_REGISTRY_GET_APP_SILOED_SECRET_SIGNATURE),
+  ]);
+  return isGetHandshakes || isGetAppSiloedSecret;
 }
