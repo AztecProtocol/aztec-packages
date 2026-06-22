@@ -491,7 +491,7 @@ describe('Utility Execution test suite', () => {
         utilityExecutionOracle = makeOracle({ simulator: nestedSimulator });
         defaultAuthorizedHandshakeRegistryReads = new Map<string, Fr[]>([
           ['get_handshakes', []],
-          ['get_app_siloed_secret', [Fr.random(), Fr.random(), new Fr(3), contractAddress.toField()]],
+          ['get_app_siloed_secret', [Fr.random(), Fr.random(), new Fr(3)]],
         ]);
       });
 

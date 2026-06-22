@@ -59,7 +59,7 @@ unconstrained fn selectors_match_the_constrained_delivery_helper() {
     let recipient = AztecAddress::from_field(3);
 
     assert_eq(
-        registry.get_app_siloed_secret(sender, recipient, ONCHAIN_CONSTRAINED, sender).selector,
+        registry.get_app_siloed_secret(sender, recipient, ONCHAIN_CONSTRAINED).selector,
         GET_APP_SILOED_SECRET_SELECTOR,
     );
     assert_eq(

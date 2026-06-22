@@ -43,15 +43,15 @@ describe('constrained delivery', () => {
   it('reuses an existing standard-registry constrained handshake', async () => {
     await contract.methods.emit_note(recipient).send({ from: sender });
 
-    const { result: secretAfterFirstSend } = await registry.methods
-      .get_app_siloed_secret(sender, recipient, ONCHAIN_CONSTRAINED, contract.address)
+    const { result: secretAfterFirstSend } = await contract.methods
+      .get_app_siloed_secret(sender, recipient, ONCHAIN_CONSTRAINED)
       .simulate({ from: sender });
     expect(secretAfterFirstSend).toBeDefined();
 
     await contract.methods.emit_event(recipient).send({ from: sender });
 
-    const { result: secret } = await registry.methods
-      .get_app_siloed_secret(sender, recipient, ONCHAIN_CONSTRAINED, contract.address)
+    const { result: secret } = await contract.methods
+      .get_app_siloed_secret(sender, recipient, ONCHAIN_CONSTRAINED)
       .simulate({ from: sender });
     // The second send reuses the handshake rather than bootstrapping a new one: the secret is unchanged.
     expect(secret).toEqual(secretAfterFirstSend);
@@ -89,8 +89,8 @@ describe('constrained delivery', () => {
 
       await contract.methods.emit_two_events(batchRecipient).send({ from: sender });
 
-      const { result: secret } = await registry.methods
-        .get_app_siloed_secret(sender, batchRecipient, ONCHAIN_CONSTRAINED, contract.address)
+      const { result: secret } = await contract.methods
+        .get_app_siloed_secret(sender, batchRecipient, ONCHAIN_CONSTRAINED)
         .simulate({ from: sender });
       expect(secret).toBeDefined();
 
@@ -110,8 +110,8 @@ describe('constrained delivery', () => {
         contract.methods.emit_note(batchRecipient2),
       ]).send({ from: sender });
 
-      const { result: secret } = await registry.methods
-        .get_app_siloed_secret(sender, batchRecipient2, ONCHAIN_CONSTRAINED, contract.address)
+      const { result: secret } = await contract.methods
+        .get_app_siloed_secret(sender, batchRecipient2, ONCHAIN_CONSTRAINED)
         .simulate({ from: sender });
       expect(secret).toBeDefined();
 
@@ -127,8 +127,8 @@ describe('constrained delivery', () => {
     it('re-handshakes instead of reusing when sends bootstrap a new recipient in the same tx', async () => {
       await contract.methods.emit_two_events(batchRecipient3).send({ from: sender });
 
-      const { result: secret } = await registry.methods
-        .get_app_siloed_secret(sender, batchRecipient3, ONCHAIN_CONSTRAINED, contract.address)
+      const { result: secret } = await contract.methods
+        .get_app_siloed_secret(sender, batchRecipient3, ONCHAIN_CONSTRAINED)
         .simulate({ from: sender });
       expect(secret).toBeDefined();
 
@@ -145,8 +145,8 @@ describe('constrained delivery', () => {
         contract.methods.emit_note(batchRecipient4),
       ]).send({ from: sender });
 
-      const { result: secret } = await registry.methods
-        .get_app_siloed_secret(sender, batchRecipient4, ONCHAIN_CONSTRAINED, contract.address)
+      const { result: secret } = await contract.methods
+        .get_app_siloed_secret(sender, batchRecipient4, ONCHAIN_CONSTRAINED)
         .simulate({ from: sender });
       expect(secret).toBeDefined();
 

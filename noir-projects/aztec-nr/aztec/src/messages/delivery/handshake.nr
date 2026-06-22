@@ -41,7 +41,7 @@ global HANDSHAKE_MODES_SLOT: Field = sha256_to_field("AZTEC_NR::HANDSHAKE_MODES_
 // selector constants pin the registry ABI surface this library calls. The registry's test suite compares them against
 // its macro-generated `HandshakeRegistry::at(...).method(...).selector` values so signature drift fails in tests.
 pub global GET_APP_SILOED_SECRET_SELECTOR: FunctionSelector =
-    comptime { FunctionSelector::from_signature("get_app_siloed_secret((Field),(Field),(u8),(Field))") };
+    comptime { FunctionSelector::from_signature("get_app_siloed_secret((Field),(Field),(u8))") };
 pub global NON_INTERACTIVE_HANDSHAKE_SELECTOR: FunctionSelector =
     comptime { FunctionSelector::from_signature("non_interactive_handshake((Field),(Field),(u8))") };
 pub global GET_HANDSHAKES_SELECTOR: FunctionSelector =
@@ -67,7 +67,6 @@ pub(crate) fn get_or_create_app_siloed_handshake_secret(
     recipient: AztecAddress,
     mode: OnchainDeliveryMode,
 ) -> (Field, bool) {
-    let caller = context.this_address();
     let mode_field = mode.to_field();
 
     // Safety: the response only selects which path runs. On `None` we bootstrap via `non_interactive_handshake`,
@@ -78,8 +77,7 @@ pub(crate) fn get_or_create_app_siloed_handshake_secret(
         let returns = call_utility_function(
             registry,
             GET_APP_SILOED_SECRET_SELECTOR,
-            // TODO(F-671): Replace explicit caller argument once utility context exposes msg_sender().
-            [sender.to_field(), recipient.to_field(), mode_field, caller.to_field()],
+            [sender.to_field(), recipient.to_field(), mode_field],
         );
         Deserialize::deserialize(returns)
     };
