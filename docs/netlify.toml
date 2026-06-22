@@ -7,10 +7,9 @@
   command = "yarn build"
   functions = "netlify/functions"
 
-# Serve pre-built markdown to agents that request `Accept: text/markdown`.
-[[edge_functions]]
-  path = "/*"
-  function = "markdown-negotiation"
+# The markdown content-negotiation edge function declares its own `path` via the
+# inline `config` export in netlify/edge-functions/markdown-negotiation.js, so it
+# does not need a [[edge_functions]] entry here (declaring both runs it twice).
 
 # Install nargo only for preview deploys (not needed for production)
 [context.deploy-preview]
