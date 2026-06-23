@@ -1,8 +1,3 @@
-pub mod message;
-
-pub use message::OffchainMessage;
-use message::OFFCHAIN_RECEPTION_TYPE;
-
 use crate::{
     context::UtilityContext,
     ephemeral::EphemeralArray,
@@ -10,15 +5,40 @@ use crate::{
         delete_fact_collection, Fact, FactCollection, get_fact_collections_by_type, OriginBlock,
         record_non_retractable_fact, record_retractable_fact,
     },
-    messages::processing::{MessageContext, OffchainMessageWithContext},
+    messages::{encoding::MESSAGE_CIPHERTEXT_LEN, processing::{MessageContext, OffchainMessageWithContext}},
     oracle::{contract_sync::set_contract_sync_cache_invalid, tx_resolution::{get_resolved_txs, ResolvedTx}},
     protocol::{
         address::AztecAddress,
         constants::MAX_TX_LIFETIME,
-        hash::sha256_to_field,
+        hash::{poseidon2_hash, sha256_to_field},
         traits::{Deserialize, Serialize},
     },
 };
+
+/// A message delivered via the `offchain_receive` utility function.
+#[derive(Serialize, Deserialize)]
+pub struct OffchainMessage {
+    /// The encrypted message payload.
+    pub ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN>,
+    /// The intended recipient of the message.
+    pub recipient: AztecAddress,
+    /// The hash of the transaction that produced this message. `Option::none` indicates a tx-less message.
+    pub tx_hash: Option<Field>,
+    /// Anchor block timestamp at message emission.
+    pub anchor_block_timestamp: u64,
+}
+
+/// Fact-collection type id shared by every offchain message reception in the fact store.
+global OFFCHAIN_RECEPTION_TYPE: Field = sha256_to_field("AZTEC_NR::OFFCHAIN_RECEPTION_TYPE".as_bytes());
+
+/// Computes the fact-collection id that identifies a message's reception in the fact store.
+///
+/// The id is a poseidon2 hash over the full serialized message. Re-delivering a byte-identical message therefore
+/// maps to the same collection, making `receive` idempotent; a message differing in any field (recipient, tx hash,
+/// anchor timestamp, or ciphertext) is a distinct reception.
+fn fact_collection_id(message: OffchainMessage) -> Field {
+    poseidon2_hash(message.serialize())
+}
 
 /// Maximum number of offchain messages accepted by `offchain_receive` in a single call.
 pub global MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL: u32 = 16;
@@ -76,7 +96,7 @@ pub unconstrained fn receive(
             contract_address,
             msg.recipient,
             OFFCHAIN_RECEPTION_TYPE,
-            msg.fact_collection_id(),
+            fact_collection_id(msg),
             OFFCHAIN_MESSAGE,
             encode_message(msg),
         );
@@ -224,14 +244,13 @@ mod test {
     use crate::{
         ephemeral::EphemeralArray,
         facts::{Fact, FactCollection, get_fact_collection, get_fact_collections_by_type},
-        messages::processing::offchain::message::OFFCHAIN_RECEPTION_TYPE,
         oracle::random::random,
         protocol::address::AztecAddress,
         test::helpers::test_environment::TestEnvironment,
     };
     use super::{
-        MAX_MSG_TTL, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL, OFFCHAIN_MESSAGE_PROCESSED, OffchainMessage, receive,
-        sync_inbox,
+        fact_collection_id, MAX_MSG_TTL, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL, OFFCHAIN_MESSAGE_PROCESSED,
+        OFFCHAIN_RECEPTION_TYPE, OffchainMessage, receive, sync_inbox,
     };
 
     unconstrained fn setup() -> (TestEnvironment, AztecAddress) {
@@ -308,7 +327,7 @@ mod test {
             let result = sync_inbox(address, scope);
 
             assert_eq(result.len(), 0); // context is None, not ready
-            assert(!is_in_inbox(address, scope, msg.fact_collection_id()), "expired reception should be terminated");
+            assert(!is_in_inbox(address, scope, fact_collection_id(msg)), "expired reception should be terminated");
         });
     }
 
@@ -329,8 +348,8 @@ mod test {
             let result = sync_inbox(address, scope);
 
             assert_eq(result.len(), 0); // context is None, not ready
-            assert(is_in_inbox(address, scope, msg.fact_collection_id()), "not expired reception should stay active");
-            assert(!is_processed(address, scope, msg.fact_collection_id()), "should still be unprocessed");
+            assert(is_in_inbox(address, scope, fact_collection_id(msg)), "not expired reception should stay active");
+            assert(!is_processed(address, scope, fact_collection_id(msg)), "should still be unprocessed");
         });
     }
 
@@ -351,7 +370,7 @@ mod test {
             let result = sync_inbox(address, scope);
 
             assert_eq(result.len(), 0); // context is None, not ready
-            assert(!is_in_inbox(address, scope, msg.fact_collection_id()), "expired reception should be terminated");
+            assert(!is_in_inbox(address, scope, fact_collection_id(msg)), "expired reception should be terminated");
         });
     }
 
@@ -371,8 +390,8 @@ mod test {
             let result = sync_inbox(address, scope);
 
             assert_eq(result.len(), 0); // not resolved, not ready
-            assert(is_in_inbox(address, scope, msg.fact_collection_id()), "unresolved reception should stay active");
-            assert(!is_processed(address, scope, msg.fact_collection_id()), "should still be unprocessed");
+            assert(is_in_inbox(address, scope, fact_collection_id(msg)), "unresolved reception should stay active");
+            assert(!is_processed(address, scope, fact_collection_id(msg)), "should still be unprocessed");
         });
     }
 
@@ -409,17 +428,14 @@ mod test {
 
             assert_eq(result.len(), 0); // all contexts are None
             assert(
-                !is_in_inbox(address, scope, expired_a.fact_collection_id()),
+                !is_in_inbox(address, scope, fact_collection_id(expired_a)),
                 "expired tx-bound reception should be terminated",
             );
             assert(
-                !is_in_inbox(address, scope, expired_b.fact_collection_id()),
+                !is_in_inbox(address, scope, fact_collection_id(expired_b)),
                 "expired tx-less reception should be terminated",
             );
-            assert(
-                is_in_inbox(address, scope, survivor.fact_collection_id()),
-                "survivor reception should stay active",
-            );
+            assert(is_in_inbox(address, scope, fact_collection_id(survivor)), "survivor reception should stay active");
             assert_eq(messages_in_inbox(address, scope).len(), 1);
         });
     }
@@ -451,10 +467,10 @@ mod test {
 
             // Reception stays active (not expired) and is now marked processed, with a Processed fact recorded.
             assert(
-                is_in_inbox(address, scope, msg.fact_collection_id()),
+                is_in_inbox(address, scope, fact_collection_id(msg)),
                 "processed reception should stay active for reorg safety",
             );
-            assert(is_processed(address, scope, msg.fact_collection_id()), "should be processed");
+            assert(is_processed(address, scope, fact_collection_id(msg)), "should be processed");
         });
     }
 
@@ -474,7 +490,7 @@ mod test {
             let address = context.this_address();
             let first = sync_inbox(address, scope);
             assert_eq(first.len(), 1);
-            assert(is_processed(address, scope, msg.fact_collection_id()), "should be processed");
+            assert(is_processed(address, scope, fact_collection_id(msg)), "should be processed");
         });
 
         // Second sync with the same resolvable context the reception remains active (not expired).
@@ -483,11 +499,8 @@ mod test {
             let second = sync_inbox(address, scope);
 
             assert_eq(second.len(), 0); // already processed, not re-pushed
-            assert(
-                is_in_inbox(address, scope, msg.fact_collection_id()),
-                "processed reception should still be active",
-            );
-            assert(is_processed(address, scope, msg.fact_collection_id()), "should remain processed");
+            assert(is_in_inbox(address, scope, fact_collection_id(msg)), "processed reception should still be active");
+            assert(is_processed(address, scope, fact_collection_id(msg)), "should remain processed");
         });
     }
 
@@ -510,10 +523,10 @@ mod test {
 
             assert_eq(result.len(), 1);
             assert(
-                is_in_inbox(address, scope, msg.fact_collection_id()),
+                is_in_inbox(address, scope, fact_collection_id(msg)),
                 "expired-but-resolved reception is processed, not terminated yet",
             );
-            assert(is_processed(address, scope, msg.fact_collection_id()), "should be processed");
+            assert(is_processed(address, scope, fact_collection_id(msg)), "should be processed");
         });
 
         // Second sync: still expired and now processed, so the reception is terminated.
@@ -523,7 +536,7 @@ mod test {
 
             assert_eq(second.len(), 0); // already processed, not re-pushed
             assert(
-                !is_in_inbox(address, scope, msg.fact_collection_id()),
+                !is_in_inbox(address, scope, fact_collection_id(msg)),
                 "expired processed reception is terminated on the next sync",
             );
         });
@@ -545,7 +558,7 @@ mod test {
             let address = context.this_address();
             receive(address, BoundedVec::from_array([msg]));
 
-            assert(is_in_inbox(address, scope, msg.fact_collection_id()), "reception should be active");
+            assert(is_in_inbox(address, scope, fact_collection_id(msg)), "reception should be active");
             assert_eq(messages_in_inbox(address, scope).len(), 1);
         });
     }
@@ -565,7 +578,7 @@ mod test {
         env.utility_context(|context| {
             let address = context.this_address();
             assert_eq(sync_inbox(address, scope).len(), 1);
-            assert(is_processed(address, scope, msg.fact_collection_id()), "should be processed");
+            assert(is_processed(address, scope, fact_collection_id(msg)), "should be processed");
         });
 
         // Re-deliver the same message. The next sync recognizes it as already processed and does not re-push it.
@@ -574,7 +587,7 @@ mod test {
             receive(address, BoundedVec::from_array([msg]));
 
             assert(
-                is_processed(address, scope, msg.fact_collection_id()),
+                is_processed(address, scope, fact_collection_id(msg)),
                 "re-delivery must preserve the processed guard",
             );
             assert_eq(sync_inbox(address, scope).len(), 0);
