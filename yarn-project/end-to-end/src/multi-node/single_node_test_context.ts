@@ -167,7 +167,7 @@ export const MBPS_TIMING = {
  *
  * {@link MultiNodeTestContext} extends this with the N-validator topology (validator-node spawning,
  * committee/proposal/attestation convergence helpers). Single-node-topology tests use this base
- * directly; the eventual promotion to a top-level `single-node/` category is then a pure folder move.
+ * directly from the sibling `single-node/` category.
  */
 export class SingleNodeTestContext {
   public context!: EndToEndContext;
