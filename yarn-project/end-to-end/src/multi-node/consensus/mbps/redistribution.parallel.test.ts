@@ -1,3 +1,4 @@
+import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeConfig } from '@aztec/aztec-node';
 import { NO_WAIT } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
@@ -93,7 +94,7 @@ describe('multi-node/consensus/mbps/redistribution', () => {
 
     // Point the wallet at a validator node.
     wallet.updateNode(nodes[0]);
-    const archiver = nodes[0].getBlockSource() as any;
+    const archiver = nodes[0].getBlockSource() as Archiver;
 
     // Register the test contract.
     const contract = await test.registerTestContract(wallet);
@@ -199,8 +200,8 @@ describe('multi-node/consensus/mbps/redistribution', () => {
     const earlyTxHashStrings = new Set(earlyTxHashes.map(h => h.toString()));
     const checkpoints = await archiver.getCheckpoints({ from: CheckpointNumber(1), limit: 50 });
     const checkpointHasTx = (pc: (typeof checkpoints)[number], hash: string) =>
-      pc.checkpoint.blocks.some((b: any) => b.body.txEffects.some((e: any) => e.txHash.toString() === hash));
-    const targetCheckpoint = checkpoints.find((pc: any) => [...earlyTxHashStrings].every(h => checkpointHasTx(pc, h)));
+      pc.checkpoint.blocks.some(b => b.body.txEffects.some(e => e.txHash.toString() === hash));
+    const targetCheckpoint = checkpoints.find(pc => [...earlyTxHashStrings].every(h => checkpointHasTx(pc, h)));
     expect(targetCheckpoint).toBeDefined();
 
     const blocks = targetCheckpoint!.checkpoint.blocks;
@@ -210,7 +211,7 @@ describe('multi-node/consensus/mbps/redistribution', () => {
     // regression into an explicit, diagnostic failure rather than a confusing redistribution mismatch.
     expect(blocks.length).toBe(MAX_BLOCKS_PER_CHECKPOINT);
     const lateCountPerBlock = blocks.map(
-      (b: any) => b.body.txEffects.filter((e: any) => lateTxHashStrings.has(e.txHash.toString())).length,
+      b => b.body.txEffects.filter(e => lateTxHashStrings.has(e.txHash.toString())).length,
     );
     logger.warn(
       `Target checkpoint ${targetCheckpoint!.checkpoint.number}: ${blocks.length} blocks, ` +
@@ -309,8 +310,8 @@ describe('multi-node/consensus/mbps/redistribution', () => {
           }
           lastSeenCheckpoint = pc.checkpoint.number;
 
-          const blockTxCounts = pc.checkpoint.blocks.map((b: any) => b.body.txEffects.length);
-          const totalTxs = blockTxCounts.reduce((a: number, b: number) => a + b, 0);
+          const blockTxCounts = pc.checkpoint.blocks.map(b => b.body.txEffects.length);
+          const totalTxs = blockTxCounts.reduce((a, b) => a + b, 0);
 
           // Skip empty checkpoints (no txs to analyze).
           if (totalTxs === 0) {

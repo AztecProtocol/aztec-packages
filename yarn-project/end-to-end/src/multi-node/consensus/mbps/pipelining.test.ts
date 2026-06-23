@@ -17,7 +17,7 @@ import {
   MultiNodeTestContext,
   buildMockGossipValidators,
 } from '../../multi_node_test_context.js';
-import { type MbpsFixture, NODE_COUNT, jest, waitForProvenCheckpoint } from './setup.js';
+import { MBPS_TIMING, type MbpsFixture, NODE_COUNT, jest, waitForProvenCheckpoint } from './setup.js';
 
 const PIPELINE_TX_COUNT = 34;
 const PIPELINE_EXPECTED_BLOCKS_PER_CHECKPOINT = 8;
