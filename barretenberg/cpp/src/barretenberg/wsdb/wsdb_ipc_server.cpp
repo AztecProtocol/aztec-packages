@@ -175,12 +175,18 @@ int execute_wsdb_server(const std::string& input_path,
 
     // Create WorldState
     std::cerr << "Creating WorldState at " << data_dir << " with " << threads << " threads" << '\n';
+    // This standalone IPC server is non-production tooling and does not accept prefilled genesis nullifiers over the
+    // wire (the production node path is the napi nodejs_module, which seeds the canonical protocol contract
+    // registration nullifiers). It must NOT be used to initialize canonical/consensus genesis: an empty nullifier set
+    // here yields a different genesis root than production and would diverge from consensus.
+    std::vector<bb::fr> prefilled_nullifiers;
     auto ws = std::make_unique<WorldState>(threads,
                                            data_dir,
                                            map_size,
                                            tree_height,
                                            tree_prefill,
                                            prefilled_public_data,
+                                           prefilled_nullifiers,
                                            initial_header_generator_point,
                                            genesis_timestamp);
 

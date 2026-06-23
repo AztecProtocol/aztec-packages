@@ -168,13 +168,35 @@ void assert_fork_state_unchanged(const WorldState& ws,
 
 TEST_F(WorldStateTest, GetInitialTreeInfoForAllTrees)
 {
-    WorldState ws(thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);
+    // The canonical protocol contract registration nullifiers seeded into the genesis nullifier tree in production.
+    // These must stay in sync with `ProtocolContractGenesisNullifiers` in
+    // yarn-project/protocol-contracts/src/protocol_contract_data.ts (regenerated from the noir artifacts). They are
+    // sorted ascending because the indexed nullifier tree requires its prefilled leaves to be unique and strictly
+    // increasing. The genesis archive root and block header hash below depend on these values.
+    std::vector<bb::fr> prefilled_nullifiers = {
+        bb::fr("0x005c0a9bddf634b60b266dddcd84552e9b7845b43d5d1a938d996e6709793839"),
+        bb::fr("0x0d99507b7ecac720c73bf197a0e7366a5ed80c1c1b0afe8ff8c6ecc7b5a7aefe"),
+        bb::fr("0x0eb50b367fb754d3a7d1238bfc105cc9b391a02e187be69038876ae9a502e877"),
+        bb::fr("0x0eef0cc0fb564969f5f28dfb46ec3c271dd4cf4af1d355abf8d89ff9f6265000"),
+        bb::fr("0x1cea539e01abaa5db980e7ff52ef0d2a7772310306ac625783ae435756ee326d"),
+        bb::fr("0x237d1818f0030cf4062b26f367a2c8ba0faa6dfaa7349d8df1b6c237d0985568"),
+    };
+    WorldState ws(thread_pool_size,
+                  data_dir,
+                  map_size,
+                  tree_heights,
+                  tree_prefill,
+                  std::vector<PublicDataLeafValue>(),
+                  prefilled_nullifiers,
+                  initial_header_generator_point);
 
     {
         auto info = ws.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::NULLIFIER_TREE);
+        // The prefilled nullifiers occupy the last slots of the 128-leaf initial prefill region (they replace padding
+        // leaves rather than being appended), so the tree size stays 128 but the root reflects the seeded values.
         EXPECT_EQ(info.meta.size, 128);
         EXPECT_EQ(info.meta.depth, tree_heights.at(MerkleTreeId::NULLIFIER_TREE));
-        EXPECT_EQ(info.meta.root, bb::fr("0x18935581a8ed73d08ffd00386fba55ba6c89f3ab848a76b8fedfa9034cee0454"));
+        EXPECT_EQ(info.meta.root, bb::fr("0x1bcda34f33b87d40db8bb8ee1378ef7123c16c197da1ded6ea47659230559f42"));
     }
 
     {
@@ -225,6 +247,7 @@ TEST_F(WorldStateTest, GetInitialTreeInfoWithPrefilledPublicData)
                             tree_heights,
                             tree_prefill,
                             prefilled_values,
+                            std::vector<bb::fr>(),
                             initial_header_generator_point);
 
     WorldState ws(thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);

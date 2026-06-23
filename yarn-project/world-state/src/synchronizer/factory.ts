@@ -1,8 +1,9 @@
 import type { LoggerBindings } from '@aztec/foundation/log';
+import { DEFAULT_GENESIS_DATA } from '@aztec/protocol-contracts';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
-import { EMPTY_GENESIS_DATA, type GenesisData, isGenesisData } from '@aztec/stdlib/world-state';
+import { type GenesisData, isGenesisData } from '@aztec/stdlib/world-state';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
@@ -44,7 +45,7 @@ export async function createWorldState(
     | 'publicDataTreeMapSizeKb'
   > &
     Pick<DataStoreConfig, 'dataDirectory' | 'dataStoreMapSizeKb' | 'rollupAddress'>,
-  genesis: GenesisData = EMPTY_GENESIS_DATA,
+  genesis: GenesisData = DEFAULT_GENESIS_DATA,
   instrumentation: WorldStateInstrumentation = new WorldStateInstrumentation(getTelemetryClient()),
   bindings?: LoggerBindings,
 ) {

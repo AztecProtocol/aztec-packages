@@ -10,8 +10,9 @@ import {
 } from '@aztec/constants';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { NativeWorldState as BaseNativeWorldState, MsgpackChannel } from '@aztec/native';
+import { DEFAULT_GENESIS_DATA } from '@aztec/protocol-contracts';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
-import { EMPTY_GENESIS_DATA, type GenesisData } from '@aztec/stdlib/world-state';
+import type { GenesisData } from '@aztec/stdlib/world-state';
 
 import assert from 'assert';
 import { cpus } from 'os';
@@ -55,7 +56,7 @@ export class NativeWorldState implements NativeWorldStateInstance {
   constructor(
     private readonly dataDir: string,
     private readonly wsTreeMapSizes: WorldStateTreeMapSizes,
-    private readonly genesis: GenesisData = EMPTY_GENESIS_DATA,
+    private readonly genesis: GenesisData = DEFAULT_GENESIS_DATA,
     private readonly instrumentation: WorldStateInstrumentation,
     bindings?: LoggerBindings,
     private readonly log: Logger = createLogger('world-state:database', bindings),
@@ -71,6 +72,18 @@ export class NativeWorldState implements NativeWorldStateInstance {
       d.slot.toBuffer(),
       d.value.toBuffer(),
     ]);
+    // The canonical protocol contract registration nullifiers are seeded by default (via DEFAULT_GENESIS_DATA) so that
+    // an on-chain re-publish of a bundled protocol class id is rejected as a duplicate nullifier. Callers opt out (e.g.
+    // low-level tree tests) by passing an explicit empty array. The native indexed tree requires its prefilled leaves
+    // to be unique and strictly increasing, so we enforce that here before handing them over rather than failing deep
+    // inside the C++ tree construction.
+    for (let i = 1; i < genesis.prefilledNullifiers.length; i++) {
+      assert(
+        genesis.prefilledNullifiers[i].toBigInt() > genesis.prefilledNullifiers[i - 1].toBigInt(),
+        'Prefilled genesis nullifiers must be unique and strictly increasing',
+      );
+    }
+    const prefilledNullifiersBufferArray = genesis.prefilledNullifiers.map(n => n.toBuffer());
     const ws = new BaseNativeWorldState(
       dataDir,
       {
@@ -85,6 +98,7 @@ export class NativeWorldState implements NativeWorldStateInstance {
         [MerkleTreeId.PUBLIC_DATA_TREE]: 2 * MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
       },
       prefilledPublicDataBufferArray,
+      prefilledNullifiersBufferArray,
       DomainSeparator.BLOCK_HEADER_HASH,
       Number(genesis.genesisTimestamp),
       {

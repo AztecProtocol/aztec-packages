@@ -39,6 +39,7 @@ WorldState::WorldState(uint64_t thread_pool_size,
                        const std::unordered_map<MerkleTreeId, uint32_t>& tree_heights,
                        const std::unordered_map<MerkleTreeId, index_t>& tree_prefill,
                        const std::vector<PublicDataLeafValue>& prefilled_public_data,
+                       const std::vector<bb::fr>& prefilled_nullifiers,
                        uint32_t initial_header_generator_point,
                        uint64_t genesis_timestamp,
                        bool ephemeral)
@@ -51,7 +52,7 @@ WorldState::WorldState(uint64_t thread_pool_size,
 {
     // We set the max readers to be high, at least the number of given threads or the default if higher
     uint64_t maxReaders = std::max(thread_pool_size, DEFAULT_MIN_NUMBER_OF_READERS);
-    create_canonical_fork(data_dir, map_size, prefilled_public_data, maxReaders, ephemeral);
+    create_canonical_fork(data_dir, map_size, prefilled_public_data, prefilled_nullifiers, maxReaders, ephemeral);
     try {
         attempt_tree_resync();
     } catch (std::exception& e) {
@@ -73,6 +74,7 @@ WorldState::WorldState(uint64_t thread_pool_size,
                              tree_heights,
                              tree_prefill,
                              std::vector<PublicDataLeafValue>(),
+                             std::vector<bb::fr>(),
                              initial_header_generator_point,
                              genesis_timestamp,
                              ephemeral)
@@ -84,6 +86,7 @@ WorldState::WorldState(uint64_t thread_pool_size,
                        const std::unordered_map<MerkleTreeId, uint32_t>& tree_heights,
                        const std::unordered_map<MerkleTreeId, index_t>& tree_prefill,
                        const std::vector<PublicDataLeafValue>& prefilled_public_data,
+                       const std::vector<bb::fr>& prefilled_nullifiers,
                        uint32_t initial_header_generator_point,
                        uint64_t genesis_timestamp,
                        bool ephemeral)
@@ -99,6 +102,7 @@ WorldState::WorldState(uint64_t thread_pool_size,
                  tree_heights,
                  tree_prefill,
                  prefilled_public_data,
+                 prefilled_nullifiers,
                  initial_header_generator_point,
                  genesis_timestamp,
                  ephemeral)
@@ -118,6 +122,7 @@ WorldState::WorldState(uint64_t thread_pool_size,
                  tree_heights,
                  tree_prefill,
                  std::vector<PublicDataLeafValue>(),
+                 std::vector<bb::fr>(),
                  initial_header_generator_point,
                  genesis_timestamp,
                  ephemeral)
@@ -126,6 +131,7 @@ WorldState::WorldState(uint64_t thread_pool_size,
 void WorldState::create_canonical_fork(const std::string& dataDir,
                                        const std::unordered_map<MerkleTreeId, uint64_t>& dbSize,
                                        const std::vector<PublicDataLeafValue>& prefilled_public_data,
+                                       const std::vector<bb::fr>& prefilled_nullifiers,
                                        uint64_t maxReaders,
                                        bool ephemeral)
 {
@@ -148,9 +154,15 @@ void WorldState::create_canonical_fork(const std::string& dataDir,
     {
         uint32_t levels = _tree_heights.at(MerkleTreeId::NULLIFIER_TREE);
         index_t initial_size = _initial_tree_size.at(MerkleTreeId::NULLIFIER_TREE);
+        std::vector<NullifierLeafValue> prefilled_nullifier_leaves;
+        prefilled_nullifier_leaves.reserve(prefilled_nullifiers.size());
+        for (const auto& nullifier : prefilled_nullifiers) {
+            prefilled_nullifier_leaves.emplace_back(nullifier);
+        }
         auto store = std::make_unique<NullifierStore>(
             getMerkleTreeName(MerkleTreeId::NULLIFIER_TREE), levels, _persistentStores->nullifierStore);
-        auto tree = std::make_unique<NullifierTree>(std::move(store), _workers, initial_size);
+        auto tree =
+            std::make_unique<NullifierTree>(std::move(store), _workers, initial_size, prefilled_nullifier_leaves);
         fork->_trees.insert({ MerkleTreeId::NULLIFIER_TREE, TreeWithStore(std::move(tree)) });
     }
     {

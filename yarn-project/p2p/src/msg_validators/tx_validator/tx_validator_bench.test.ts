@@ -3,7 +3,7 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { padArrayEnd, times } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { Timer } from '@aztec/foundation/timer';
-import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import { DEFAULT_GENESIS_DATA, ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash } from '@aztec/stdlib/block';
@@ -147,6 +147,7 @@ describe('TxValidator: Benchmarks', () => {
     // Create real LMDB-backed world state with fee payer balance
     const feePayerLeafSlot = await computeFeePayerBalanceLeafSlot(gasTx.data.feePayer);
     const genesis: GenesisData = {
+      ...DEFAULT_GENESIS_DATA,
       prefilledPublicData: [new PublicDataTreeLeaf(feePayerLeafSlot, new Fr(10n ** 18n))],
       genesisTimestamp: 0n,
     };
@@ -369,6 +370,7 @@ describe('TxValidator: Benchmarks', () => {
       // Create world state with fee payer balance only (initial tree size limits prefilled data)
       const feePayerLeafSlot = await computeFeePayerBalanceLeafSlot(gasTx.data.feePayer);
       localWs = await NativeWorldStateService.tmp(undefined, true, {
+        ...DEFAULT_GENESIS_DATA,
         prefilledPublicData: [new PublicDataTreeLeaf(feePayerLeafSlot, new Fr(10n ** 18n))],
         genesisTimestamp: 0n,
       });

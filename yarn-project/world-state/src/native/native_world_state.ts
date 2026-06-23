@@ -5,6 +5,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { tryRmDir } from '@aztec/foundation/fs';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
+import { DEFAULT_GENESIS_DATA } from '@aztec/protocol-contracts';
 import type { L2Block } from '@aztec/stdlib/block';
 import { DatabaseVersionManager } from '@aztec/stdlib/database-version/manager';
 import type {
@@ -15,7 +16,7 @@ import type {
 import type { SnapshotDataKeys } from '@aztec/stdlib/snapshots';
 import { MerkleTreeId, NullifierLeaf, type NullifierLeafPreimage, PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { BlockHeader, GlobalVariables, PartialStateReference, StateReference } from '@aztec/stdlib/tx';
-import { EMPTY_GENESIS_DATA, type GenesisData, WorldStateRevision } from '@aztec/stdlib/world-state';
+import { type GenesisData, WorldStateRevision } from '@aztec/stdlib/world-state';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import assert from 'assert/strict';
@@ -76,7 +77,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     protected instance: NativeWorldState,
     protected readonly worldStateInstrumentation: WorldStateInstrumentation,
     protected readonly log: Logger,
-    private readonly genesis: GenesisData = EMPTY_GENESIS_DATA,
+    private readonly genesis: GenesisData = DEFAULT_GENESIS_DATA,
     private readonly cleanup = () => Promise.resolve(),
   ) {}
 
@@ -89,7 +90,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     rollupAddress: EthAddress,
     dataDir: string,
     wsTreeMapSizes: WorldStateTreeMapSizes,
-    genesis: GenesisData = EMPTY_GENESIS_DATA,
+    genesis: GenesisData = DEFAULT_GENESIS_DATA,
     instrumentation = new WorldStateInstrumentation(getTelemetryClient()),
     bindings?: LoggerBindings,
     cleanup = () => Promise.resolve(),
@@ -138,7 +139,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   static async tmp(
     rollupAddress = EthAddress.ZERO,
     cleanupTmpDir = true,
-    genesis: GenesisData = EMPTY_GENESIS_DATA,
+    genesis: GenesisData = DEFAULT_GENESIS_DATA,
     instrumentation = new WorldStateInstrumentation(getTelemetryClient()),
     bindings?: LoggerBindings,
   ): Promise<NativeWorldStateService> {
@@ -164,7 +165,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
    * there is no on-disk schema to bind to and no rollup address is taken.
    */
   static async ephemeral(
-    genesis: GenesisData = EMPTY_GENESIS_DATA,
+    genesis: GenesisData = DEFAULT_GENESIS_DATA,
     instrumentation = new WorldStateInstrumentation(getTelemetryClient()),
     bindings?: LoggerBindings,
   ): Promise<NativeWorldStateService> {

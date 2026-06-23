@@ -3,7 +3,7 @@ import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/bra
 import { timesAsync } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
-import { ProtocolContractsList } from '@aztec/protocol-contracts';
+import { DEFAULT_GENESIS_DATA, ProtocolContractsList } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -32,6 +32,7 @@ describe('LightweightCheckpointBuilder', () => {
     feePayerBalance = new Fr(10n ** 20n);
     const feePayerSlot = await computeFeePayerBalanceLeafSlot(feePayer);
     const genesis: GenesisData = {
+      ...DEFAULT_GENESIS_DATA,
       prefilledPublicData: [new PublicDataTreeLeaf(feePayerSlot, feePayerBalance)],
       genesisTimestamp: 0n,
     };
