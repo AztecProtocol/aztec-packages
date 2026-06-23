@@ -20,8 +20,9 @@ MsgpackClientWrapper::MsgpackClientWrapper(const Napi::CallbackInfo& info)
     }
     std::string shm_name = info[0].As<Napi::String>();
 
-    // Optional second arg: MPSC client slot id (defaults to 0).
-    std::size_t client_id = 0;
+    // Optional second arg pins a specific MPSC slot; otherwise self-allocate one
+    // on connect (kAutoClientId).
+    std::size_t client_id = ipc::kAutoClientId;
     if (info.Length() >= 2 && info[1].IsNumber()) {
         client_id = static_cast<std::size_t>(info[1].As<Napi::Number>().Uint32Value());
     }
