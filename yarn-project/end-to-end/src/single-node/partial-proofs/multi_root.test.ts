@@ -6,9 +6,8 @@ import { EpochTestSettler } from '@aztec/aztec/testing';
 import { MAX_CHECKPOINTS_PER_EPOCH } from '@aztec/constants';
 import { OutboxContract, type ViemL2ToL1Msg } from '@aztec/ethereum/contracts';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
-import type { ChainMonitor } from '@aztec/ethereum/test';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
-import { CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { retryUntil } from '@aztec/foundation/retry';
 import { OutboxAbi } from '@aztec/l1-artifacts';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
@@ -21,12 +20,9 @@ import {
 } from '@aztec/stdlib/messaging';
 import { type TxReceipt, TxStatus } from '@aztec/stdlib/tx';
 
-import { jest } from '@jest/globals';
 import { type Hex, decodeEventLog } from 'viem';
 
-import { SingleNodeTestContext } from '../single_node_test_context.js';
-
-jest.setTimeout(1000 * 60 * 10);
+import { SingleNodeTestContext, jest } from './setup.js';
 
 // Suite: verifies the AZIP-14 partial-proof multi-root Outbox design. Drives an EpochTestSettler
 // manually to stage progressively deeper partial-proof roots (K=1, 2, 3) for the same epoch, then
@@ -37,7 +33,7 @@ jest.setTimeout(1000 * 60 * 10);
 // override was removed and a perBlockAllocationMultiplier=1.3 was added so the first block of the
 // now-up-to-5-block checkpoint has enough DA budget for the TestContract deploy tx). The test actively
 // calls the Outbox L1 contract to consume L2-to-L1 messages → cross-chain.
-describe('multi-node/single-node/partial_proof_multi_root', () => {
+describe('multi-node/single-node/partial-proofs/multi_root', () => {
   let test: SingleNodeTestContext;
   let logger: Logger;
   let node: AztecNode;
@@ -374,39 +370,4 @@ describe('multi-node/single-node/partial_proof_multi_root', () => {
     expect(decoded.args.messageHash).toBe(leaf.toString());
     expect(decoded.args.leafId).toBe(getL2ToL1MessageLeafId(witness));
   }
-});
-
-// Co-located with the multi-root suite above: both manually drive partial-epoch proving on a
-// single node with a very long epoch. This one is the only coverage of the prover-node `startProof`
-// path (the multi-root suite hand-drives an EpochTestSettler with no prover), so it stays its own
-// `describe` with its own setup rather than folding into the multi-root `beforeEach`.
-describe('multi-node/single-node/partial_proof', () => {
-  let logger: Logger;
-  let monitor: ChainMonitor;
-
-  let test: SingleNodeTestContext;
-
-  beforeEach(async () => {
-    test = await SingleNodeTestContext.setup({ aztecEpochDuration: 1000 });
-    ({ monitor, logger } = test);
-  });
-
-  afterEach(async () => {
-    jest.restoreAllMocks();
-    await test.teardown();
-  });
-
-  // Waits for 4 checkpoints to land, then calls proverNode.startProof(epoch=0) and polls
-  // ChainMonitor.provenCheckpointNumber until it exceeds 0, confirming a partial proof was
-  // accepted on-chain.
-  it('submits partial proofs when instructed manually', async () => {
-    // With pipelining, each checkpoint takes ~2 L2 slots on a solo-sequencer setup.
-    await test.waitUntilCheckpointNumber(CheckpointNumber(4), test.L2_SLOT_DURATION_IN_S * 12);
-    logger.info(`Kicking off partial proof`);
-
-    await test.context.proverNode!.getProverNode()!.startProof(EpochNumber(0));
-    await test.waitUntilProvenCheckpointNumber(CheckpointNumber(1));
-
-    logger.info(`Test succeeded with proven checkpoint number ${monitor.provenCheckpointNumber}`);
-  });
 });

@@ -8,10 +8,10 @@ import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 
 import { jest } from '@jest/globals';
 
-import { sendL1ToL2Message } from '../../fixtures/l1_to_l2_messaging.js';
-import type { EndToEndContext } from '../../fixtures/utils.js';
-import { waitForProvenBlock } from '../../fixtures/wait_helpers.js';
-import { SingleNodeTestContext } from '../single_node_test_context.js';
+import { sendL1ToL2Message } from '../fixtures/l1_to_l2_messaging.js';
+import type { EndToEndContext } from '../fixtures/utils.js';
+import { waitForProvenBlock } from '../fixtures/wait_helpers.js';
+import { SingleNodeTestContext } from './single_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 10);
 

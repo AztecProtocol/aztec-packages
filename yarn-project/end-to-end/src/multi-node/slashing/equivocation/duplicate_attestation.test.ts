@@ -6,14 +6,7 @@ import { OffenseType } from '@aztec/slasher';
 
 import { advanceToEpochBeforeProposer, awaitCommitteeExists, awaitOffenseDetected } from '../../../e2e_p2p/shared.js';
 import { ValidatorRegistrationHarness } from '../../validator_registration_harness.js';
-import {
-  AZTEC_SLOT_DURATION,
-  aztecEpochDuration,
-  baseHarnessOpts,
-  jest,
-  slashingRoundSize,
-  slashingUnit,
-} from './setup.js';
+import { AZTEC_SLOT_DURATION, aztecEpochDuration, baseHarnessOpts, slashingRoundSize, slashingUnit } from './setup.js';
 
 /**
  * Test that slashing occurs when a validator sends duplicate attestations (equivocation).

@@ -12,10 +12,10 @@ import { TxExecutionResult } from '@aztec/stdlib/tx';
 
 import { expect, jest } from '@jest/globals';
 
-import type { EndToEndContext } from '../../fixtures/utils.js';
-import { waitForNodeCheckpoint } from '../../fixtures/wait_helpers.js';
-import { proveInteraction } from '../../test-wallet/utils.js';
-import { FAST_REORG_TIMING, SingleNodeTestContext } from '../single_node_test_context.js';
+import type { EndToEndContext } from '../fixtures/utils.js';
+import { waitForNodeCheckpoint } from '../fixtures/wait_helpers.js';
+import { proveInteraction } from '../test-wallet/utils.js';
+import { FAST_REORG_TIMING, SingleNodeTestContext } from './single_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 20);
 
