@@ -576,7 +576,7 @@ ${this.opts.wireNamespace ? `} // namespace ${this.opts.wireNamespace}` : ""}
         const method = toSnakeCase(
           c.name.startsWith(prefix) ? c.name.slice(prefix.length) : c.name,
         );
-        return `template<typename Ctx>\nwire::${c.responseType} handle_${method}(Ctx& ctx, wire::${c.name}&& cmd);`;
+        return `template<typename Ctx>\nvoid handle_${method}(Ctx& ctx, wire::${c.name}&& cmd, Responder<wire::${c.responseType}> respond);`;
       })
       .join("\n\n");
 
@@ -594,20 +594,18 @@ ${this.opts.wireNamespace ? `} // namespace ${this.opts.wireNamespace}` : ""}
             ? `wire::${cmd.name} wire_cmd; payload.convert(wire_cmd);`
             : `wire::${cmd.name} wire_cmd;`;
 
-        return `            { "${cmd.name}", [](Ctx& ctx, [[maybe_unused]] const msgpack::object& payload) -> std::vector<uint8_t> {
+        return `            { "${cmd.name}", [](Ctx& ctx, [[maybe_unused]] const msgpack::object& payload, RawRespond raw_respond) {
                 ${deserialize}
-                auto wire_resp = handle_${method}(ctx, std::move(wire_cmd));
-                if constexpr (requires { ctx.error_message; }) {
-                    if (!ctx.error_message.empty()) {
-                        std::string msg = std::move(ctx.error_message);
-                        ctx.error_message.clear();
-                        return detail::make_error(msg);
-                    }
+                Responder<wire::${cmd.responseType}> responder(std::move(raw_respond), "${cmd.responseType}");
+#ifdef BB_NO_EXCEPTIONS
+                handle_${method}(ctx, std::move(wire_cmd), responder);
+#else
+                try {
+                    handle_${method}(ctx, std::move(wire_cmd), responder);
+                } catch (const std::exception& e) {
+                    responder.error(e.what());
                 }
-                msgpack::sbuffer buf;
-                msgpack::packer<msgpack::sbuffer> pk(buf);
-                pk.pack_array(2); pk.pack(std::string("${cmd.responseType}")); pk.pack(wire_resp);
-                return std::vector<uint8_t>(buf.data(), buf.data() + buf.size());
+#endif
             } }`;
       })
       .join(",\n");
@@ -626,17 +624,12 @@ ${this.opts.wireNamespace ? `} // namespace ${this.opts.wireNamespace}` : ""}
 
 #include <functional>
 #include <iostream>
+#include <span>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
 namespace ${ns} {
-
-// Wire types are in the 'wire' sub-namespace (from ${typesHeader})
-// Handler declarations — implement these in your handler file.
-// Template specializations must be visible before make_handler() is instantiated.
-
-${handlerDecls}
 
 // ---------------------------------------------------------------------------
 // Dispatch — template on service context type
@@ -658,30 +651,73 @@ inline std::vector<uint8_t> make_error(const std::string& message)
 
 } // namespace detail
 
-// Dispatcher signature — independent of the chosen IPC server backend.
-using DispatchHandler = std::function<std::vector<uint8_t>(const std::vector<uint8_t>&)>;
+// Raw (byte-level) response sink supplied by the server backend. It delivers a
+// finished response frame and may be invoked from any thread.
+using RawRespond = std::function<void(std::vector<uint8_t>)>;
+
+// Typed response callback handed to each handler. Exactly one of ok()/error()
+// must be called exactly once — possibly later and from another thread, so a
+// handler may defer its work (e.g. to a thread pool) and respond when ready.
+template <typename Resp>
+class Responder {
+  public:
+    Responder(RawRespond raw, const char* resp_type)
+        : raw_(std::move(raw))
+        , resp_type_(resp_type)
+    {}
+
+    void ok(const Resp& resp) const
+    {
+        msgpack::sbuffer buf;
+        msgpack::packer<msgpack::sbuffer> pk(buf);
+        pk.pack_array(2);
+        pk.pack(std::string(resp_type_));
+        pk.pack(resp);
+        raw_(std::vector<uint8_t>(buf.data(), buf.data() + buf.size()));
+    }
+
+    void error(const std::string& message) const { raw_(detail::make_error(message)); }
+
+  private:
+    RawRespond raw_;
+    const char* resp_type_;
+};
+
+// Wire types are in the 'wire' sub-namespace (from ${typesHeader}).
+// Handler declarations — implement these in your handler file. Each handler
+// produces its result by calling respond.ok(value) / respond.error(message),
+// synchronously or later from another thread. Specializations must be visible
+// before make_handler() is instantiated.
+
+${handlerDecls}
+
+// Dispatcher signature — asynchronous: takes the raw request frame and a sink
+// for the (eventual) response frame. Independent of the IPC server backend.
+using AsyncDispatchHandler = std::function<void(std::span<const uint8_t>, RawRespond)>;
 
 template<typename Ctx>
-DispatchHandler make_${toSnakeCase(prefix)}_handler(Ctx& ctx)
+AsyncDispatchHandler make_${toSnakeCase(prefix)}_handler(Ctx& ctx)
 {
-    using HandlerFn = std::function<std::vector<uint8_t>(Ctx&, const msgpack::object&)>;
+    using HandlerFn = std::function<void(Ctx&, const msgpack::object&, RawRespond)>;
     static const std::unordered_map<std::string, HandlerFn> table = {
 ${handlerEntries},
     };
 
-    return [&ctx](const std::vector<uint8_t>& raw_request) -> std::vector<uint8_t> {
+    return [&ctx](std::span<const uint8_t> raw_request, RawRespond raw_respond) {
         auto unpacked = msgpack::unpack(
             reinterpret_cast<const char*>(raw_request.data()), raw_request.size());
         auto obj = unpacked.get();
 
         if (obj.type != msgpack::type::ARRAY || obj.via.array.size != 1) {
-            return detail::make_error("malformed request: expected outer array of size 1");
+            raw_respond(detail::make_error("malformed request: expected outer array of size 1"));
+            return;
         }
 
         auto& inner = obj.via.array.ptr[0];
         if (inner.type != msgpack::type::ARRAY || inner.via.array.size != 2 ||
             inner.via.array.ptr[0].type != msgpack::type::STR) {
-            return detail::make_error("malformed request: expected [CommandName, {payload}]");
+            raw_respond(detail::make_error("malformed request: expected [CommandName, {payload}]"));
+            return;
         }
 
         std::string cmd_name(inner.via.array.ptr[0].via.str.ptr, inner.via.array.ptr[0].via.str.size);
@@ -689,18 +725,14 @@ ${handlerEntries},
 
         auto it = table.find(cmd_name);
         if (it == table.end()) {
-            return detail::make_error("unknown command: " + cmd_name);
+            raw_respond(detail::make_error("unknown command: " + cmd_name));
+            return;
         }
-#ifdef BB_NO_EXCEPTIONS
-        return it->second(ctx, cmd_payload);
-#else
-        try {
-            return it->second(ctx, cmd_payload);
-        } catch (const std::exception& e) {
-            std::cerr << "Error processing " << cmd_name << ": " << e.what() << '\\n';
-            return detail::make_error(e.what());
-        }
-#endif
+        // The entry decodes the payload synchronously (while the unpacked zone is
+        // alive), then runs or defers the handler. Synchronous handler throws
+        // become error frames inside the entry; a deferred handler owns its errors
+        // via Responder::error.
+        it->second(ctx, cmd_payload, std::move(raw_respond));
     };
 }
 
@@ -740,9 +772,10 @@ void serve(const std::string& input_path, Ctx& ctx)
         throw std::runtime_error("ipc::IpcServer::listen() failed for " + input_path);
     }
     auto handler = make_${toSnakeCase(prefix)}_handler(ctx);
-    server->run([&handler](int /*client_id*/, std::span<const uint8_t> raw) {
-        return handler(std::vector<uint8_t>(raw.begin(), raw.end()));
-    });
+    server->run_reactor(
+        [&handler](int /*client_id*/, std::span<const uint8_t> raw, ::ipc::IpcServer::Respond respond) {
+            handler(raw, std::move(respond));
+        });
 }
 
 } // namespace ${ns}

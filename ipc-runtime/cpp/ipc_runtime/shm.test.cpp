@@ -7,12 +7,15 @@
 #include <array>
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <csignal>
 #include <cstddef>
 #include <cstring>
 #include <functional>
 #include <gtest/gtest.h>
 #include <iostream>
+#include <mutex>
+#include <queue>
 #include <random>
 #include <sstream>
 #include <thread>
@@ -367,6 +370,136 @@ TEST(ShmTest, MpscEchoTwoClients)
     }
 
     server_running.store(false);
+    server->request_shutdown();
+    server_thread.join();
+    server->close();
+}
+
+
+namespace {
+// Minimal fixed-size thread pool used as a run_reactor() executor.
+class ReactorTestPool {
+  public:
+    explicit ReactorTestPool(size_t n)
+    {
+        for (size_t i = 0; i < n; i++) {
+            workers_.emplace_back([this] { loop(); });
+        }
+    }
+    ~ReactorTestPool()
+    {
+        {
+            std::lock_guard<std::mutex> lock(m_);
+            stop_ = true;
+        }
+        cv_.notify_all();
+        for (auto& w : workers_) {
+            w.join();
+        }
+    }
+    ReactorTestPool(const ReactorTestPool&) = delete;
+    ReactorTestPool& operator=(const ReactorTestPool&) = delete;
+
+    void enqueue(std::function<void()> task)
+    {
+        {
+            std::lock_guard<std::mutex> lock(m_);
+            q_.push(std::move(task));
+        }
+        cv_.notify_one();
+    }
+
+  private:
+    void loop()
+    {
+        for (;;) {
+            std::function<void()> task;
+            {
+                std::unique_lock<std::mutex> lock(m_);
+                cv_.wait(lock, [this] { return stop_ || !q_.empty(); });
+                if (stop_ && q_.empty()) {
+                    return;
+                }
+                task = std::move(q_.front());
+                q_.pop();
+            }
+            task();
+        }
+    }
+
+    std::vector<std::thread> workers_;
+    std::queue<std::function<void()>> q_;
+    std::mutex m_;
+    std::condition_variable cv_;
+    bool stop_ = false;
+};
+} // namespace
+
+// run_reactor() over MPSC-SHM: this is the wsdb's actual SHM transport, and the
+// trickiest correctness path — the completion wake is a doorbell-seq bump that
+// the reactor must observe inside its futex-arm window (see MpscConsumer::notify
+// / wait_for_data). Pipeline N requests on one connection whose handlers sleep
+// LONGER for earlier indices, so completions arrive reversed: a lost wake would
+// stall, and a missing reorder buffer would deliver out of order.
+TEST(ShmTest, MpscReactorPipelinedConcurrencyAndOrder)
+{
+    constexpr uint32_t N = 16;
+    constexpr size_t NUM_CLIENTS = 1;
+    constexpr size_t RING_SIZE = 16UL * 1024;
+
+    std::string base_name = "shm_mpsc_reactor_" + std::to_string(getpid());
+    auto server = IpcServer::create_mpsc_shm(base_name, NUM_CLIENTS, RING_SIZE, RING_SIZE);
+    ASSERT_TRUE(server->listen()) << "MPSC reactor server failed to listen";
+
+    ReactorTestPool pool(8);
+    std::thread server_thread([&]() {
+        server->run_reactor([&pool](int, std::span<const uint8_t> req, IpcServer::Respond respond) {
+            std::vector<uint8_t> r(req.begin(), req.end());
+            pool.enqueue([r = std::move(r), respond = std::move(respond)]() mutable {
+                uint32_t idx = 0;
+                std::memcpy(&idx, r.data(), sizeof(idx));
+                std::this_thread::sleep_for(std::chrono::milliseconds(20 + (N - idx)));
+                respond(std::move(r));
+            });
+        });
+    });
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    auto client = IpcClient::create_mpsc_shm(base_name, 0);
+    ASSERT_TRUE(client->connect()) << "MPSC reactor client failed to connect";
+
+    auto t0 = std::chrono::steady_clock::now();
+    for (uint32_t i = 0; i < N; i++) {
+        while (!client->send(&i, sizeof(i), 100'000'000ULL)) {
+            // Retry on a transient full request ring.
+        }
+    }
+    bool stalled = false;
+    for (uint32_t i = 0; i < N; i++) {
+        std::span<const uint8_t> resp;
+        size_t empties = 0;
+        while ((resp = client->receive(100'000'000ULL)).empty()) {
+            if (++empties > 50) { // 5s grace — a lost wake shows up as a stall
+                stalled = true;
+                break;
+            }
+        }
+        if (stalled) {
+            break;
+        }
+        ASSERT_EQ(resp.size(), sizeof(uint32_t));
+        uint32_t got = 0;
+        std::memcpy(&got, resp.data(), sizeof(got));
+        EXPECT_EQ(got, i) << "responses must arrive in per-connection request order";
+        client->release(resp.size());
+    }
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count();
+
+    EXPECT_FALSE(stalled) << "receiver stalled — a completion wake was lost over MPSC";
+    // Serial would be the sum of sleeps (~456ms); 8 workers should be far less.
+    EXPECT_LT(ms, 250) << "pipelined requests did not execute concurrently (took " << ms << "ms)";
+
+    client->close();
     server->request_shutdown();
     server_thread.join();
     server->close();
