@@ -536,8 +536,15 @@ unconstrained fn multiple_senders_discovered_for_same_recipient() {
         discovered.items.get(0).eph_pk.x != discovered.items.get(1).eph_pk.x,
         "distinct senders should produce distinct ephemeral public keys",
     );
-    assert_eq(discovered.items.get(0).mode, ONCHAIN_UNCONSTRAINED);
-    assert_eq(discovered.items.get(1).mode, ONCHAIN_CONSTRAINED);
+
+    // TXE does not guarantee discovery order, so assert on the set of modes rather than their slot positions.
+    let mode_0 = discovered.items.get(0).mode;
+    let mode_1 = discovered.items.get(1).mode;
+    assert(
+        ((mode_0 == ONCHAIN_UNCONSTRAINED) & (mode_1 == ONCHAIN_CONSTRAINED))
+            | ((mode_0 == ONCHAIN_CONSTRAINED) & (mode_1 == ONCHAIN_UNCONSTRAINED)),
+        "expected one unconstrained and one constrained handshake",
+    );
 }
 
 #[test]

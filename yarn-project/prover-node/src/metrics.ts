@@ -22,7 +22,6 @@ import type { CheckpointStore } from './checkpoint-store.js';
 import type { SessionManager } from './session-manager.js';
 
 export class ProverNodeJobMetrics {
-  proverEpochExecutionDuration: Histogram;
   provingJobDuration: Histogram;
   provingJobCheckpoints: Gauge;
   provingJobBlocks: Gauge;
@@ -31,6 +30,9 @@ export class ProverNodeJobMetrics {
   private blobProcessingDuration: Gauge;
   private blockProcessingDuration: Histogram;
   private checkpointProcessingDuration: Histogram;
+  private checkpointProvingDuration: Histogram;
+  private checkpointBlocks: Histogram;
+  private checkpointTransactions: Histogram;
 
   /** Observable gauges for live state. Registered via `observeState(...)` once the
    *  CheckpointStore and SessionManager are available. */
@@ -44,7 +46,6 @@ export class ProverNodeJobMetrics {
     public readonly tracer: Tracer,
     private logger = createLogger('prover-node:publisher:metrics'),
   ) {
-    this.proverEpochExecutionDuration = this.meter.createHistogram(Metrics.PROVER_NODE_EXECUTION_DURATION);
     this.provingJobDuration = this.meter.createHistogram(Metrics.PROVER_NODE_JOB_DURATION);
     this.provingJobCheckpoints = this.meter.createGauge(Metrics.PROVER_NODE_JOB_CHECKPOINTS);
     this.provingJobBlocks = this.meter.createGauge(Metrics.PROVER_NODE_JOB_BLOCKS);
@@ -53,16 +54,12 @@ export class ProverNodeJobMetrics {
     this.blobProcessingDuration = this.meter.createGauge(Metrics.PROVER_NODE_BLOB_PROCESSING_LAST_DURATION);
     this.blockProcessingDuration = this.meter.createHistogram(Metrics.PROVER_NODE_BLOCK_PROCESSING_DURATION);
     this.checkpointProcessingDuration = this.meter.createHistogram(Metrics.PROVER_NODE_CHECKPOINT_PROCESSING_DURATION);
+    this.checkpointProvingDuration = this.meter.createHistogram(Metrics.PROVER_NODE_CHECKPOINT_PROVING_DURATION);
+    this.checkpointBlocks = this.meter.createHistogram(Metrics.PROVER_NODE_CHECKPOINT_BLOCKS);
+    this.checkpointTransactions = this.meter.createHistogram(Metrics.PROVER_NODE_CHECKPOINT_TRANSACTIONS);
   }
 
-  public recordProvingJob(
-    executionTimeMs: number,
-    totalTimeMs: number,
-    numCheckpoints: number,
-    numBlocks: number,
-    numTxs: number,
-  ) {
-    this.proverEpochExecutionDuration.record(Math.ceil(executionTimeMs));
+  public recordProvingJob(totalTimeMs: number, numCheckpoints: number, numBlocks: number, numTxs: number) {
     this.provingJobDuration.record(totalTimeMs / 1000);
     this.provingJobCheckpoints.record(Math.floor(numCheckpoints));
     this.provingJobBlocks.record(Math.floor(numBlocks));
@@ -77,8 +74,14 @@ export class ProverNodeJobMetrics {
     this.blockProcessingDuration.record(Math.ceil(durationMs));
   }
 
-  public recordCheckpointProcessing(durationMs: number) {
+  public recordCheckpointProcessing(durationMs: number, numBlocks: number, numTxs: number) {
     this.checkpointProcessingDuration.record(Math.ceil(durationMs));
+    this.checkpointBlocks.record(Math.floor(numBlocks));
+    this.checkpointTransactions.record(Math.floor(numTxs));
+  }
+
+  public recordCheckpointProving(durationMs: number) {
+    this.checkpointProvingDuration.record(Math.ceil(durationMs));
   }
 
   /**

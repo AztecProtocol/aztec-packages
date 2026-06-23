@@ -39,8 +39,8 @@ import { AddressStore } from '../address_store/address_store.js';
 import { AnchorBlockStore } from '../anchor_block_store/index.js';
 import { CapsuleStore } from '../capsule_store/capsule_store.js';
 import { ContractStore } from '../contract_store/contract_store.js';
-import { EntityStore } from '../entity_store/entity_store.js';
-import { EntityKey } from '../entity_store/entity_store_keys.js';
+import { FactStore } from '../fact_store/fact_store.js';
+import { FactCollectionKey } from '../fact_store/fact_store_keys.js';
 import { NoteStore } from '../note_store/note_store.js';
 import { PrivateEventStore } from '../private_event_store/private_event_store.js';
 import { RecipientTaggingStore, SenderAddressBookStore, SenderTaggingStore } from '../tagging_store/index.js';
@@ -217,30 +217,36 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
   },
 
   {
-    name: 'EntityStore',
+    name: 'FactStore',
     writeToStore: async kvStore => {
-      const entityStore = new EntityStore(kvStore);
+      const factStore = new FactStore(kvStore);
       const jobId = 'fixture-job';
       const contract = AztecAddress.fromBigInt(100n);
       const scope = AztecAddress.fromBigInt(1n);
-      const entityTypeId = new Fr(7n);
-      const keyA = EntityKey.from({ contractAddress: contract, scope, entityTypeId, entityId: new Fr(0xaan) });
-      const keyB = EntityKey.from({ contractAddress: contract, scope, entityTypeId, entityId: new Fr(0xbbn) });
-      // Retractable entity (origin block 6): the entity and all its facts are pruned on a reorg above block 6.
-      await entityStore.createEntity(keyA, [new Fr(5n)], { blockNumber: 6, blockHash: new Fr(2n) }, jobId);
-      // Non-retractable entity carrying a body, with a non-retractable and a retractable fact.
-      await entityStore.createEntity(keyB, [new Fr(8n)], undefined, jobId);
-      await entityStore.recordFact(keyB, new Fr(1n), [new Fr(9n)], undefined, jobId);
-      await entityStore.recordFact(keyB, new Fr(2n), [], { blockNumber: 5, blockHash: new Fr(1n) }, jobId);
-      await kvStore.transactionAsync(() => entityStore.commit(jobId));
+      const factCollectionTypeId = new Fr(7n);
+      const keyA = FactCollectionKey.from({
+        contractAddress: contract,
+        scope,
+        factCollectionTypeId,
+        factCollectionId: new Fr(0xaan),
+      });
+      const keyB = FactCollectionKey.from({
+        contractAddress: contract,
+        scope,
+        factCollectionTypeId,
+        factCollectionId: new Fr(0xbbn),
+      });
+      // A collection whose only fact is retractable (origin block 6): pruned on a reorg above block 6.
+      await factStore.recordFact(keyA, new Fr(3n), [new Fr(5n)], { blockNumber: 6, blockHash: new Fr(2n) }, jobId);
+      // A collection with a non-retractable and a retractable fact.
+      await factStore.recordFact(keyB, new Fr(1n), [new Fr(9n)], undefined, jobId);
+      await factStore.recordFact(keyB, new Fr(2n), [], { blockNumber: 5, blockHash: new Fr(1n) }, jobId);
+      await kvStore.transactionAsync(() => factStore.commit(jobId));
     },
     snapshotStore: async kvStore => ({
-      entities: await snapshotMap(kvStore.openMap<string, Buffer>('entities')),
-      entities_by_block: await snapshotMap(kvStore.openMultiMap<number, string>('entities_by_block')),
       facts: await snapshotMap(kvStore.openMap<string, Buffer>('facts')),
-      facts_by_entity: await snapshotMap(kvStore.openMultiMap<string, string>('facts_by_entity')),
+      facts_by_collection: await snapshotMap(kvStore.openMultiMap<string, string>('facts_by_collection')),
       facts_by_block: await snapshotMap(kvStore.openMultiMap<number, string>('facts_by_block')),
-      fact_seq: await snapshotSingleton(kvStore.openSingleton<number>('fact_seq')),
     }),
   },
 
@@ -291,7 +297,10 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
       await l2TipsStore.handleBlockStreamEvent({
         type: 'chain-checkpointed',
         block: { number: BlockNumber(71), hash: new Fr(73n).toString() },
-        checkpoint: publishedCheckpoint,
+        checkpoint: {
+          number: publishedCheckpoint.checkpoint.number,
+          hash: publishedCheckpoint.checkpoint.hash().toString(),
+        },
       });
       // `'chain-proven'` writes the 'proven' tag. `'finalized'` is omitted because its handler runs delete-before
       // logic that would depend on the order of preceding events.

@@ -1,6 +1,6 @@
 import { ARCHIVE_HEIGHT } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
-import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { timesAsync } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { L2BlockSource } from '@aztec/stdlib/block';
@@ -56,7 +56,7 @@ describe('CheckpointStore', () => {
 
     const first = await store.addOrUpdate(cp, makeRegisterData());
     expect(first.isPruned()).toBe(false);
-    store.markPrunedAfter(CheckpointNumber(0));
+    store.markPrunedAboveBlock(BlockNumber(0));
     expect(first.isPruned()).toBe(true);
 
     // Re-adding the identical checkpoint (same archive root) reuses the existing prover.
@@ -81,7 +81,7 @@ describe('CheckpointStore', () => {
 
     // After the predecessor is pruned, the replacement is accepted and keys to a distinct
     // prover (different archive root → different content id).
-    store.markPrunedAfter(CheckpointNumber(0));
+    store.markPrunedAboveBlock(BlockNumber(0));
     expect(proverA.isPruned()).toBe(true);
     const proverB = await store.addOrUpdate(b, makeRegisterData());
     expect(proverB).not.toBe(proverA);
@@ -89,14 +89,33 @@ describe('CheckpointStore', () => {
     expect(stubs.length).toBe(2);
   });
 
-  it('markPrunedAfter marks every prover above the threshold and returns them', async () => {
-    const cps = await timesAsync(4, i => Checkpoint.random(CheckpointNumber(i + 1), { numBlocks: 1 }));
+  it('markPrunedAboveBlock marks every prover holding a block above the target and returns them', async () => {
+    // Four single-block checkpoints occupying blocks 1..4 (one block each). Pruning to block 2 orphans the
+    // checkpoints whose last block is above 2 — checkpoints 3 and 4 — and leaves 1 and 2 canonical.
+    const cps = await timesAsync(4, i =>
+      Checkpoint.random(CheckpointNumber(i + 1), {
+        numBlocks: 1,
+        startBlockNumber: i + 1,
+        slotNumber: SlotNumber(i + 1),
+      }),
+    );
     for (const cp of cps) {
       await store.addOrUpdate(cp, makeRegisterData());
     }
-    const affected = store.markPrunedAfter(CheckpointNumber(2));
+    const affected = store.markPrunedAboveBlock(BlockNumber(2));
     expect(affected.map(p => p.checkpoint.number)).toEqual([3, 4]);
     expect(store.listCanonical().map(p => p.checkpoint.number)).toEqual([1, 2]);
+  });
+
+  it('markPrunedAboveBlock marks a checkpoint whose block range straddles the target (partially orphaned)', async () => {
+    // A single checkpoint spanning blocks 5..8. A prune to block 6 lands mid-checkpoint: the checkpoint is partially
+    // orphaned (blocks 7, 8 are gone) and must be marked, since its last block (8) is above the target.
+    const cp = await Checkpoint.random(CheckpointNumber(1), { numBlocks: 4, startBlockNumber: 5 });
+    await store.addOrUpdate(cp, makeRegisterData());
+
+    const affected = store.markPrunedAboveBlock(BlockNumber(6));
+    expect(affected.map(p => p.checkpoint.number)).toEqual([1]);
+    expect(store.listCanonical()).toEqual([]);
   });
 
   it('reapExpired drops canonical provers whose epoch is ≤ expiredEpoch', async () => {
@@ -117,7 +136,7 @@ describe('CheckpointStore', () => {
   it('reapExpired leaves pruned provers in place', async () => {
     const cp = await Checkpoint.random(CheckpointNumber(1), { numBlocks: 1, slotNumber: SlotNumber(1) });
     await store.addOrUpdate(cp, makeRegisterData());
-    store.markPrunedAfter(CheckpointNumber(0));
+    store.markPrunedAboveBlock(BlockNumber(0));
     store.reapExpired(EpochNumber(10));
     expect(store.listAll().map(p => p.checkpoint.number)).toEqual([1]);
   });
@@ -132,7 +151,7 @@ describe('CheckpointStore', () => {
       await store.addOrUpdate(cp, makeRegisterData());
     }
     // Prune everything above checkpoint 0 ⇒ all three flip to pruned.
-    store.markPrunedAfter(CheckpointNumber(0));
+    store.markPrunedAboveBlock(BlockNumber(0));
     blockSource.getSyncedL2SlotNumber.mockResolvedValue(SlotNumber(3));
 
     await store.triggerSlotWatcherTick();
@@ -160,7 +179,7 @@ describe('CheckpointStore', () => {
   it('slot watcher no-ops when getSyncedL2SlotNumber returns undefined', async () => {
     const cp = await Checkpoint.random(CheckpointNumber(1), { numBlocks: 1, slotNumber: SlotNumber(1) });
     await store.addOrUpdate(cp, makeRegisterData());
-    store.markPrunedAfter(CheckpointNumber(0));
+    store.markPrunedAboveBlock(BlockNumber(0));
     blockSource.getSyncedL2SlotNumber.mockResolvedValue(undefined);
 
     await store.triggerSlotWatcherTick();
@@ -174,7 +193,7 @@ describe('CheckpointStore', () => {
   it('slot watcher swallows getSyncedL2SlotNumber errors instead of crashing the tick', async () => {
     const cp = await Checkpoint.random(CheckpointNumber(1), { numBlocks: 1, slotNumber: SlotNumber(1) });
     await store.addOrUpdate(cp, makeRegisterData());
-    store.markPrunedAfter(CheckpointNumber(0));
+    store.markPrunedAboveBlock(BlockNumber(0));
     blockSource.getSyncedL2SlotNumber.mockRejectedValue(new Error('archiver unavailable'));
 
     await expect(store.triggerSlotWatcherTick()).resolves.toBeUndefined();

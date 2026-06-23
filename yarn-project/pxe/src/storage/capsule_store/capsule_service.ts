@@ -10,10 +10,15 @@ import type { CapsuleStore } from './capsule_store.js';
  * allowed scopes list before delegating to the underlying store.
  */
 export class CapsuleService {
+  private readonly allowedScopes: AztecAddress[];
+
   constructor(
     private readonly capsuleStore: CapsuleStore,
-    private readonly allowedScopes: AztecAddress[],
-  ) {}
+    allowedScopes: AztecAddress[],
+  ) {
+    // The zero address denotes the global capsule scope, which is always permitted.
+    this.allowedScopes = [...allowedScopes, AztecAddress.ZERO];
+  }
 
   setCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[], jobId: string, scope: AztecAddress) {
     assertAllowedScope(scope, this.allowedScopes);

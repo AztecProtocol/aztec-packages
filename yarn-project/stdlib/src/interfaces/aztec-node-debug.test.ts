@@ -32,6 +32,10 @@ describe('AztecNodeDebugApiSchema', () => {
     expect(await context.client.prove()).toEqual(7);
     expect(await context.client.prove(CheckpointNumber(3))).toEqual(3);
   });
+
+  it('registerContractFunctionSignatures', async () => {
+    await context.client.registerContractFunctionSignatures(['test()']);
+  });
 });
 
 class MockAztecNodeDebug implements AztecNodeDebug {
@@ -41,5 +45,9 @@ class MockAztecNodeDebug implements AztecNodeDebug {
 
   prove(upToCheckpoint?: CheckpointNumber): Promise<CheckpointNumber> {
     return Promise.resolve(upToCheckpoint ?? CheckpointNumber(7));
+  }
+
+  registerContractFunctionSignatures(_signatures: string[]): Promise<void> {
+    return Promise.resolve();
   }
 }

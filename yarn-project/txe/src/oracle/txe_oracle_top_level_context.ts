@@ -14,9 +14,9 @@ import {
   CapsuleService,
   CapsuleStore,
   type ContractStore,
-  EntityService,
-  EntityStore,
   type ExecutionHooks,
+  FactService,
+  FactStore,
   NoteStore,
   ORACLE_VERSION_MAJOR,
   PrivateEventStore,
@@ -27,6 +27,7 @@ import {
   enrichPublicSimulationError,
 } from '@aztec/pxe/server';
 import {
+  CONTRACT_INSTANCE,
   ExecutionNoteCache,
   ExecutionTaggingIndexCache,
   HashedValuesCache,
@@ -110,7 +111,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     private recipientTaggingStore: RecipientTaggingStore,
     private senderAddressBookStore: SenderAddressBookStore,
     private capsuleStore: CapsuleStore,
-    private entityStore: EntityStore,
+    private factStore: FactStore,
     private privateEventStore: PrivateEventStore,
     private nextBlockTimestamp: bigint,
     private version: Fr,
@@ -177,7 +178,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     return (await this.stateMachine.node.getBlockData('latest'))!.header.globalVariables.timestamp;
   }
 
-  async getLastTxEffects(): ReturnType<ITxeExecutionOracle['getLastTxEffects']> {
+  async getLastTxEffects() {
     const latestBlockNumber = await this.stateMachine.archiver.getBlockNumber();
     const block = await this.stateMachine.archiver.getBlock({ number: latestBlockNumber });
 
@@ -289,14 +290,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       this.logger.debug(`Deployed ${artifact.name} at ${instance.address}`);
     }
 
-    return [
-      instance.salt,
-      instance.deployer.toField(),
-      instance.currentContractClassId,
-      instance.initializationHash,
-      instance.immutablesHash,
-      ...instance.publicKeys.toFields(),
-    ];
+    return CONTRACT_INSTANCE.serialization!.fn(instance).flat();
   }
 
   /**
@@ -460,7 +454,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       recipientTaggingStore: this.recipientTaggingStore,
       senderAddressBookStore: this.senderAddressBookStore,
       capsuleService: new CapsuleService(this.capsuleStore, scopes),
-      entityService: new EntityService(this.entityStore, scopes),
+      factService: new FactService(this.factStore, scopes),
       privateEventStore: this.privateEventStore,
       contractSyncService: this.stateMachine.contractSyncService,
       jobId,
@@ -846,7 +840,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
         recipientTaggingStore: this.recipientTaggingStore,
         senderAddressBookStore: this.senderAddressBookStore,
         capsuleService: new CapsuleService(this.capsuleStore, scopes),
-        entityService: new EntityService(this.entityStore, scopes),
+        factService: new FactService(this.factStore, scopes),
         privateEventStore: this.privateEventStore,
         txResolver: this.stateMachine.txResolver,
         contractSyncService: this.stateMachine.contractSyncService,

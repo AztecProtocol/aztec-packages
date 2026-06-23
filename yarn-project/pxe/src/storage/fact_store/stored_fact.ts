@@ -3,17 +3,17 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
-import { EntityKey, type OriginBlock } from './entity_store_keys.js';
+import { FactCollectionKey, type OriginBlock } from './fact_store_keys.js';
 
-/** A fact as returned by the entity store: its type and payload, plus the optional origin block it is tied to. */
+/** A fact as returned by the fact store. */
 export type Fact = { factTypeId: Fr; payload: Fr[]; originBlock: OriginBlock | undefined };
 
 /**
- * A single immutable fact about an entity.
+ * A single immutable fact belonging to a fact collection.
  */
 export class StoredFact {
   constructor(
-    public readonly entityKey: EntityKey,
+    public readonly factCollectionKey: FactCollectionKey,
     public readonly factTypeId: Fr,
     public readonly payload: Fr[],
     public readonly originBlock: OriginBlock | undefined,
@@ -24,7 +24,7 @@ export class StoredFact {
     return this.originBlock !== undefined;
   }
 
-  /** Stable digest of the payload, used to deduplicate. */
+  /** Stable digest of the payload, used for fact idempotency. */
   payloadHash(): Fr {
     return sha256ToField([this.payload.length, ...this.payload]);
   }
@@ -35,16 +35,15 @@ export class StoredFact {
   }
 
   toBuffer(): Buffer {
-    const originBlockTag = this.originBlock ? 1 : 0;
     return serializeToBuffer(
-      this.entityKey.contractAddress,
-      this.entityKey.scope,
-      this.entityKey.entityTypeId,
-      this.entityKey.entityId,
+      this.factCollectionKey.contractAddress,
+      this.factCollectionKey.scope,
+      this.factCollectionKey.factCollectionTypeId,
+      this.factCollectionKey.factCollectionId,
       this.factTypeId,
       this.payload.length,
       ...this.payload,
-      originBlockTag,
+      this.originBlock !== undefined,
       this.originBlock ? this.originBlock.blockNumber : 0,
       this.originBlock ? this.originBlock.blockHash : Fr.ZERO,
     );
@@ -54,17 +53,17 @@ export class StoredFact {
     const reader = BufferReader.asReader(buffer);
     const contractAddress = reader.readObject(AztecAddress);
     const scope = reader.readObject(AztecAddress);
-    const entityTypeId = reader.readObject(Fr);
-    const entityId = reader.readObject(Fr);
+    const factCollectionTypeId = reader.readObject(Fr);
+    const factCollectionId = reader.readObject(Fr);
     const factTypeId = reader.readObject(Fr);
     const payloadLen = reader.readNumber();
     const payload = reader.readArray(payloadLen, Fr);
-    const originBlockTag = reader.readNumber();
+    const hasOriginBlock = reader.readBoolean();
     const blockNumber = reader.readNumber();
     const blockHash = reader.readObject(Fr);
-    const originBlock = originBlockTag === 1 ? { blockNumber, blockHash } : undefined;
+    const originBlock = hasOriginBlock ? { blockNumber, blockHash } : undefined;
     return new StoredFact(
-      new EntityKey(contractAddress, scope, entityTypeId, entityId),
+      new FactCollectionKey(contractAddress, scope, factCollectionTypeId, factCollectionId),
       factTypeId,
       [...payload],
       originBlock,
@@ -77,20 +76,5 @@ export class StoredFact {
  */
 export function factKeyStrOf(fact: StoredFact): string {
   const origin = fact.originBlock ? `${fact.originBlock.blockNumber}:${fact.originBlock.blockHash}` : 'none';
-  return `${fact.entityKey}:${fact.factTypeId}:${fact.payloadHash()}:${origin}`;
-}
-
-/**
- * Serializes a fact for storage, prefixed with the monotonic sequence number assigned when it was first committed.
- */
-export function serializeFact(seq: number, fact: StoredFact): Buffer {
-  return serializeToBuffer(seq, fact);
-}
-
-/** Deserializes a fact. */
-export function deserializeFact(buffer: Buffer): { seq: number; fact: StoredFact } {
-  const reader = BufferReader.asReader(buffer);
-  const seq = reader.readNumber();
-  const fact = StoredFact.fromBuffer(reader);
-  return { seq, fact };
+  return `${fact.factCollectionKey}:${fact.factTypeId}:${fact.payloadHash()}:${origin}`;
 }

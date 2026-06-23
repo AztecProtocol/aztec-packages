@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 8,
+  "schemaVersion": 9,
   "stores": [
     {
       "name": "address_book",
@@ -30,24 +30,12 @@
       "kind": "map"
     },
     {
-      "name": "entities",
-      "kind": "map"
-    },
-    {
-      "name": "entities_by_block",
-      "kind": "multimap"
-    },
-    {
       "name": "events_by_block_number",
       "kind": "multimap"
     },
     {
       "name": "events_by_contract_selector",
       "kind": "multimap"
-    },
-    {
-      "name": "fact_seq",
-      "kind": "singleton"
     },
     {
       "name": "facts",
@@ -58,7 +46,7 @@
       "kind": "multimap"
     },
     {
-      "name": "facts_by_entity",
+      "name": "facts_by_collection",
       "kind": "multimap"
     },
     {

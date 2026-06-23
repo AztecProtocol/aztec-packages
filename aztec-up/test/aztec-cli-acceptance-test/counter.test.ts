@@ -26,7 +26,7 @@ test('Counter deploys and increments through codegen bindings', async () => {
   const wallet = await EmbeddedWallet.create(NODE_URL, { ephemeral: true });
 
   const [test0] = await getInitialTestAccountsData();
-  await wallet.createSchnorrAccount(test0.secret, test0.salt, test0.signingKey);
+  await wallet.createSchnorrInitializerlessAccount(test0.secret, test0.salt, test0.signingKey);
   const owner = test0.address;
 
   const { contract: counter } = await CounterContract.deploy(wallet, INITIAL_COUNTER_VALUE, owner).send({

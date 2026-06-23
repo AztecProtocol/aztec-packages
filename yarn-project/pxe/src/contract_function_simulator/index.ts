@@ -16,6 +16,7 @@ export {
   BOUNDED_VEC,
   BUFFER,
   BYTE,
+  CONTRACT_INSTANCE,
   DELIVERY_MODE,
   EPHEMERAL_ARRAY,
   EVENT_VALIDATION_REQUEST,
@@ -41,6 +42,7 @@ export { ExecutionTaggingIndexCache } from './execution_tagging_index_cache.js';
 export { HashedValuesCache } from './hashed_values_cache.js';
 export { pickNotes } from './pick_notes.js';
 export type { IMiscOracle, IUtilityExecutionOracle, IPrivateExecutionOracle } from './oracle/interfaces.js';
+export type { FactCollection } from './noir-structs/fact_collection.js';
 export type { NoteData } from './noir-structs/note_data.js';
 export { MessageLoadOracleInputs } from './oracle/message_load_oracle_inputs.js';
 export { TxResolverService } from '../messages/tx_resolver_service.js';

@@ -410,8 +410,12 @@ export class ProposalHandler {
         : BlockNumber(parentBlock.header.getBlockNumber() + 1);
     proposalInfo.blockNumber = blockNumber;
 
-    // Check that this block number does not exist already
-    const existingBlock = await this.blockSource.getBlockData({ number: blockNumber });
+    // Check that this block number does not exist already. During a reorg the archiver can still hold a
+    // stale block at this number (a different archive, about to be pruned) while the proposal carries the
+    // rebuilt replacement; resolveExistingBlockAtNumber waits for the local prune in that case so the
+    // rebuilt block is processed in time to attest, rather than being permanently dropped on a bare
+    // number collision.
+    const existingBlock = await this.resolveExistingBlockAtNumber(blockNumber, proposal.archive, slotNumber);
     if (existingBlock) {
       this.log.warn(`Block number ${blockNumber} already exists, skipping processing`, proposalInfo);
       return { isValid: false, blockNumber, reason: 'block_number_already_exists' };
@@ -558,6 +562,63 @@ export class ProposalHandler {
         this.log.error('Error getting parent block by archive root', err, { parentArchive });
       }
       return undefined;
+    }
+  }
+
+  /**
+   * Resolves whether a block genuinely already exists at `blockNumber`. Returns the existing block only if
+   * it is a true duplicate of the proposal (matching archive). During a reorg the archiver can still hold a
+   * stale fork at this number (different archive) that is about to be pruned; in that case this forces L1
+   * sync and waits, bounded by the re-execution deadline, for the prune to land, then returns `undefined` so
+   * the rebuilt block proposal can be processed in time to attest. If the prune does not complete before the
+   * deadline it returns the stale block, so the caller falls back to the safe `block_number_already_exists`
+   * rejection.
+   */
+  private async resolveExistingBlockAtNumber(
+    blockNumber: BlockNumber,
+    proposalArchive: Fr,
+    slotNumber: SlotNumber,
+  ): Promise<BlockData | undefined> {
+    const existingBlock = await this.blockSource.getBlockData({ number: blockNumber });
+    if (!existingBlock || existingBlock.archive.root.equals(proposalArchive)) {
+      return existingBlock;
+    }
+
+    // A different block already occupies this number: it may be a stale fork being pruned during a reorg, not a
+    // genuine duplicate. Wait for the local prune rather than permanently rejecting the proposal.
+    const deadline = this.getReexecutionDeadline(slotNumber);
+    if (deadline.getTime() - this.dateProvider.now() <= 0) {
+      return existingBlock;
+    }
+
+    this.log.warn(`Block number ${blockNumber} already exists, awaiting potential prune`, {
+      blockNumber,
+      existingArchive: existingBlock.archive.root.toString(),
+      proposalArchive: proposalArchive.toString(),
+    });
+
+    try {
+      const { block } = await retryUntil(
+        async () => {
+          await this.blockSource.syncImmediate();
+          const block = await this.blockSource.getBlockData({ number: blockNumber });
+          // Resolve once the existing block is gone (pruned) or has been replaced by one matching the
+          // proposal — the same condition as the early return above. A matching block is returned so the
+          // caller still treats it as a genuine duplicate; an `undefined` (pruned) block lets the proposal
+          // be processed. Wrap in an object so the `undefined` case is still a truthy retry result.
+          return block === undefined || block.archive.root.equals(proposalArchive) ? { block } : undefined;
+        },
+        `prune of stale block ${blockNumber}`,
+        { deadline, dateProvider: this.dateProvider },
+        0.5,
+      );
+      return block;
+    } catch (err) {
+      if (err instanceof TimeoutError) {
+        this.log.warn(`Timed out waiting for stale block ${blockNumber} to be pruned`, { blockNumber });
+        return existingBlock;
+      }
+      throw err;
     }
   }
 
@@ -968,6 +1029,7 @@ export class ProposalHandler {
       };
     }
 
+    // Note this condition should never trigger, since we dont process block proposals that exceed indexWithinCheckpoint
     const maxBlocksPerCheckpoint = this.config.maxBlocksPerCheckpoint;
     if (maxBlocksPerCheckpoint !== undefined && blocks.length > maxBlocksPerCheckpoint) {
       this.log.warn(`Checkpoint proposal exceeds maxBlocksPerCheckpoint`, {

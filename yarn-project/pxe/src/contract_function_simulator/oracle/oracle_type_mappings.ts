@@ -36,12 +36,12 @@ import {
 import { NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import { BlockHeader, TxEffect, TxHash } from '@aztec/stdlib/tx';
 
-import type { OriginBlock } from '../../storage/entity_store/index.js';
+import type { OriginBlock } from '../../storage/fact_store/index.js';
 import { BoundedVec } from '../noir-structs/bounded_vec.js';
-import type { Entity } from '../noir-structs/entity.js';
 import { EphemeralArray } from '../noir-structs/ephemeral_array.js';
 import { EventValidationRequest } from '../noir-structs/event_validation_request.js';
 import type { Fact } from '../noir-structs/fact.js';
+import type { FactCollection } from '../noir-structs/fact_collection.js';
 import { LogRetrievalRequest } from '../noir-structs/log_retrieval_request.js';
 import { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
 import type { NoteData } from '../noir-structs/note_data.js';
@@ -232,7 +232,8 @@ export const CONTRACT_INSTANCE: TypeMapping<ContractInstance> = {
     fn: v => [
       v.salt,
       v.deployer.toField(),
-      v.currentContractClassId,
+      // Note that the nr side of this struct does not contain the current class, only original
+      v.originalContractClassId,
       v.initializationHash,
       v.immutablesHash,
       ...v.publicKeys.toFields(),
@@ -377,13 +378,8 @@ export const RESOLVED_TX: TypeMapping<ResolvedTx> = {
   serialization: { fn: resolved => [resolved.toFields()] },
 };
 
-export const FACT: TypeMapping<Fact> = {
-  serialization: {
-    fn: f => [f.factTypeId, f.payload.materializeSlot(v => FIELD.serialization!.fn(v).flat() as Fr[])],
-  },
-};
-
 export const ORIGIN_BLOCK: TypeMapping<OriginBlock> = {
+  serialization: { fn: ob => [new Fr(ob.blockNumber), ob.blockHash] },
   deserialization: {
     fn: ([blockNumberReader, blockHashReader]) => ({
       blockNumber: blockNumberReader.readField().toNumber(),
@@ -393,11 +389,24 @@ export const ORIGIN_BLOCK: TypeMapping<OriginBlock> = {
   },
 };
 
-export const ENTITY: TypeMapping<Entity> = {
+export const FACT: TypeMapping<Fact> = {
   serialization: {
-    fn: e => [
-      e.body.materializeSlot(v => FIELD.serialization!.fn(v).flat() as Fr[]),
-      e.facts.materializeSlot(v => FACT.serialization!.fn(v).flat() as Fr[]),
+    fn: f => [
+      f.factTypeId,
+      f.payload.materializeSlot(v => FIELD.serialization!.fn(v).flat() as Fr[]),
+      ...OPTION(ORIGIN_BLOCK).serialization!.fn(f.originBlock),
+    ],
+  },
+};
+
+export const FACT_COLLECTION: TypeMapping<FactCollection> = {
+  serialization: {
+    fn: c => [
+      c.contractAddress.toField(),
+      c.scope.toField(),
+      c.factCollectionTypeId,
+      c.factCollectionId,
+      c.facts.materializeSlot(v => FACT.serialization!.fn(v).flat() as Fr[]),
     ],
   },
 };
