@@ -288,7 +288,7 @@ bb-full-tests: bb-cpp-wasm-threads-tests bb-cpp-asan-tests bb-cpp-smt-tests
 #==============================================================================
 
 .PHONY: ipc-codegen ipc-codegen-tests
-ipc-codegen:
+ipc-codegen: ipc-runtime
 	$(call build,$@,ipc-codegen)
 
 ipc-codegen-tests: ipc-codegen
