@@ -149,7 +149,7 @@ ValidTranslatorState build_valid_accumulator_transfer_state()
     for (size_t i = 0; i < Flavor::CircuitBuilder::NUM_RANDOM_OPS_END; i++) {
         op_queue->random_op_ultra_only();
     }
-    op_queue->merge_fixed_append(op_queue->get_append_offset());
+    op_queue->merge_fixed_append(op_queue->get_append_offset_for_prover());
 
     const auto batching_challenge_v = BF::random_element(&engine);
     const auto evaluation_input_x = BF::random_element(&engine);

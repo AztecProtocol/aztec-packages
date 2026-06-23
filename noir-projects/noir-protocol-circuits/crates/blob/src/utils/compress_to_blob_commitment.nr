@@ -1,4 +1,5 @@
 use crate::abis::{batching_blob_commitment::BatchingBlobCommitment, BLSPoint};
+use super::validate_canonical_representation_if_infinity;
 use bignum::{BigNum, BLS12_381_Fq};
 
 // TODO(MW): get_flags() and compress_to_bytes() will eventually be part of BigCurve.
@@ -13,6 +14,9 @@ use bignum::{BigNum, BLS12_381_Fq};
  * and noble-curves/src/bls12-381.ts -> setMask()
  */
 pub fn compress_to_blob_commitment(point: BLSPoint) -> (BatchingBlobCommitment) {
+    // A point at infinity must be canonically encoded (x == 0 && y == 0); otherwise a non-zero
+    // coordinate would leak into the compressed output and produce a non-canonical encoding.
+    validate_canonical_representation_if_infinity(point);
     let (flags, x) = get_flags(point);
     let mut compressed = x.to_be_bytes();
     let most_sig_bits: [bool; 8] = (compressed[0] as Field).to_be_bits();
@@ -102,6 +106,21 @@ mod tests {
         let mut expected_bytes = [0; BLS12_POINT_COMPRESSED_BYTES];
         expected_bytes[0] = 0xc0; // 0b11000000
         assert_eq(expected_bytes, compress_to_blob_commitment(point).compressed);
+    }
+
+    #[test(should_fail_with = "Non canonical x coordinate at infinity")]
+    fn non_canonical_infinity_point_fails() {
+        let point =
+            BLSPoint { x: BLS12_381_Fq::from(1), y: BLS12_381_Fq::zero(), is_infinity: true };
+        let _ = compress_to_blob_commitment(point);
+    }
+
+    #[test(should_fail_with = "Non canonical y coordinate at infinity")]
+    fn non_canonical_infinity_point_y_fails() {
+        // x is canonical (0) but y is not: the y-coordinate check must still reject it.
+        let point =
+            BLSPoint { x: BLS12_381_Fq::zero(), y: BLS12_381_Fq::from(1), is_infinity: true };
+        let _ = compress_to_blob_commitment(point);
     }
 
     #[test]

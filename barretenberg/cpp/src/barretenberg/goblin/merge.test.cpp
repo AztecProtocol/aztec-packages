@@ -48,7 +48,7 @@ template <typename Curve> class MergeTests : public testing::Test {
     // Builder type is only available in recursive context
     using BuilderType = typename BuilderTypeHelper<Curve>::type;
 
-    enum class TamperProofMode : uint8_t { None, Shift, MCommitment, LEval };
+    enum class TamperProofMode : uint8_t { None, MCommitment, LEval };
 
     static std::shared_ptr<ECCOpQueue> construct_final_merge_op_queue(const size_t num_subtables_up_to_tail = 1)
     {
@@ -66,6 +66,14 @@ template <typename Curve> class MergeTests : public testing::Test {
 
         InnerBuilder hiding_circuit{ op_queue };
         GoblinMockCircuits::construct_simple_circuit(hiding_circuit);
+
+        // The merge protocol is only used for the hiding kernel, whose subtable has a fixed size. The prover and
+        // verifier both rely on this (the verifier hard-codes the shift size from it), so pad the final subtable to
+        // match.
+        BB_ASSERT_LTE(op_queue->get_current_subtable_size(), bb::HIDING_KERNEL_ULTRA_OPS);
+        while (op_queue->get_current_subtable_size() < bb::HIDING_KERNEL_ULTRA_OPS) {
+            op_queue->no_op_ultra_only();
+        }
         return op_queue;
     }
 
@@ -134,15 +142,10 @@ template <typename Curve> class MergeTests : public testing::Test {
      */
     static void tamper_with_proof(std::vector<bb::fr>& merge_proof, const TamperProofMode tampering_mode)
     {
-        const size_t shift_idx = 0;        // Index of shift_size in the merge proof
-        const size_t m_commitment_idx = 1; // Index of first commitment to merged table in merge proof
-        const size_t l_eval_idx = 22;      // Index of first evaluation of l(1/kappa) in merge proof
+        const size_t m_commitment_idx = 0; // Index of first commitment to merged table in merge proof
+        const size_t l_eval_idx = 21;      // Index of first evaluation of l(1/kappa) in merge proof
 
         switch (tampering_mode) {
-        case TamperProofMode::Shift:
-            // Tamper with the shift size in the proof
-            merge_proof[shift_idx] += bb::fr(1);
-            break;
         case TamperProofMode::MCommitment: {
             // Tamper with the commitment in the proof
             auto m_commitment =
@@ -268,16 +271,6 @@ template <typename Curve> class MergeTests : public testing::Test {
     }
 
     /**
-     * @brief Test failure when degree(l) > shift_size (as read from the proof)
-     */
-    static void test_degree_check_failure()
-    {
-        auto op_queue = construct_final_merge_op_queue();
-
-        prove_and_verify_merge(op_queue, TamperProofMode::Shift, false);
-    }
-
-    /**
      * @brief Test failure when m ≠ l + X^k r
      */
     static void test_merge_failure()
@@ -298,45 +291,51 @@ template <typename Curve> class MergeTests : public testing::Test {
     }
 
     /**
-     * @brief Test that an honestly constructed merge proof with shift_size = 0 (empty left table) verifies
-     * @details Manually constructs a merge proof where the left table is empty, M = R, and all PCS
-     * openings are computed honestly. This bypasses the op queue (which structurally prevents empty
-     * subtables) to test the protocol math directly.
+     * @brief Test failure when deg(l) ≥ shift_size
+     * @details The verifier hard-codes the shift size, so a malicious prover cannot lie about it. Instead we
+     * exhibit an (ad-hoc) op queue whose left table is larger than the hard-coded shift size and construct an
+     * otherwise-honest proof for it: the concatenation identity M = L + X^shift·R and all PCS openings hold, but
+     * the degree-check polynomial G can only reverse the first `shift` coefficients of the batched left table, so
+     * the degree identity Σᵢ Lᵢ(κ)·βᵢ = G(κ⁻¹)·κ^{shift-1} fails on the dropped high-degree coefficients. This is
+     * the structural guarantee that the op queue's fixed-append asserts enforce on the honest path.
      */
-    static void test_honest_empty_left_table()
+    static void test_degree_check_failure()
     {
         if constexpr (IsRecursive) {
             GTEST_SKIP() << "Native-only test";
             return;
         }
         if constexpr (!IsRecursive) {
-
-            using InnerFlavor = MegaFlavor;
-            using InnerBuilder = typename InnerFlavor::CircuitBuilder;
             using Polynomial = bb::Polynomial<bb::fr>;
             using CommitmentKey = bb::CommitmentKey<curve::BN254>;
 
-            // Build an op queue with some ops to serve as the right (previous) table
-            auto op_queue = std::make_shared<ECCOpQueue>();
-            InnerBuilder circuit{ op_queue };
-            GoblinMockCircuits::construct_simple_circuit(circuit);
-            op_queue->merge();
+            // The shift size the verifier hard-codes (see MergeVerifier::reduce_to_pairing_check).
+            const size_t shift_size =
+                ECCOpQueue::compute_fixed_append_offset(ECCOpQueue::get_append_offset_for_verifier());
 
-            // Right table = the merged previous table; Left table = empty
-            std::array<Polynomial, NUM_WIRES> right_table =
-                op_queue->construct_ultra_ops_table_columns(/*include_zk_ops=*/false);
+            // Left table deliberately exceeds the hard-coded shift size; right table is small.
+            const size_t left_size = shift_size + 2;
+            const size_t right_size = 4;
+            const size_t merged_size = shift_size + right_size;
+
             std::array<Polynomial, NUM_WIRES> left_table;
+            std::array<Polynomial, NUM_WIRES> right_table;
             std::array<Polynomial, NUM_WIRES> merged_table;
             for (size_t idx = 0; idx < NUM_WIRES; idx++) {
-                left_table[idx] = Polynomial(0);                  // empty
-                merged_table[idx] = Polynomial(right_table[idx]); // M = R
+                left_table[idx] = Polynomial::random(left_size);
+                right_table[idx] = Polynomial::random(right_size);
+                // M = L + X^shift·R, so the concatenation identity holds and only the degree check fails.
+                merged_table[idx] = Polynomial(merged_size);
+                for (size_t i = 0; i < left_size; i++) {
+                    merged_table[idx].at(i) += left_table[idx].at(i);
+                }
+                for (size_t i = 0; i < right_size; i++) {
+                    merged_table[idx].at(shift_size + i) += right_table[idx].at(i);
+                }
             }
 
-            CommitmentKey ck(right_table[0].size());
+            CommitmentKey ck(merged_size);
             auto prover_transcript = std::make_shared<NativeTranscript>();
-
-            // === Replicate MergeProver::construct_proof with shift_size = 0 ===
-            prover_transcript->send_to_verifier("shift_size", static_cast<uint32_t>(0));
 
             for (size_t idx = 0; idx < NUM_WIRES; idx++) {
                 prover_transcript->send_to_verifier("MERGED_TABLE_" + std::to_string(idx),
@@ -347,19 +346,28 @@ template <typename Curve> class MergeTests : public testing::Test {
                                                          "LEFT_TABLE_DEGREE_CHECK_1",
                                                          "LEFT_TABLE_DEGREE_CHECK_2",
                                                          "LEFT_TABLE_DEGREE_CHECK_3" };
-            // Consume challenges to advance transcript state (values unused since L is empty)
-            prover_transcript->template get_challenges<bb::fr>(degree_labels);
-            Polynomial reversed_batched_left_tables(0); // empty
+            auto degree_check_challenges = prover_transcript->template get_challenges<bb::fr>(degree_labels);
+
+            // Batched left table, then keep only the first `shift_size` coefficients when reversing into G. The
+            // high-degree coefficients at indices ≥ shift_size are silently dropped — exactly what makes the degree
+            // identity fail at the verifier.
+            Polynomial batched_left_tables(left_size);
+            for (size_t idx = 0; idx < NUM_WIRES; idx++) {
+                batched_left_tables.add_scaled(left_table[idx], degree_check_challenges[idx]);
+            }
+            Polynomial reversed_batched_left_tables(shift_size);
+            for (size_t j = 0; j < shift_size; j++) {
+                reversed_batched_left_tables.at(j) = batched_left_tables.at(shift_size - 1 - j);
+            }
             prover_transcript->send_to_verifier("REVERSED_BATCHED_LEFT_TABLES",
                                                 ck.commit(reversed_batched_left_tables));
 
             bb::fr kappa = prover_transcript->template get_challenge<bb::fr>("kappa");
             bb::fr kappa_inv = kappa.invert();
 
-            // Evaluations at kappa
             std::vector<bb::fr> evals;
             for (size_t idx = 0; idx < NUM_WIRES; idx++) {
-                evals.emplace_back(left_table[idx].evaluate(kappa)); // L_j(κ) = 0
+                evals.emplace_back(left_table[idx].evaluate(kappa));
                 prover_transcript->send_to_verifier("LEFT_TABLE_EVAL_" + std::to_string(idx), evals.back());
             }
             for (size_t idx = 0; idx < NUM_WIRES; idx++) {
@@ -370,11 +378,9 @@ template <typename Curve> class MergeTests : public testing::Test {
                 evals.emplace_back(merged_table[idx].evaluate(kappa));
                 prover_transcript->send_to_verifier("MERGED_TABLE_EVAL_" + std::to_string(idx), evals.back());
             }
-            evals.emplace_back(reversed_batched_left_tables.evaluate(kappa_inv)); // G(κ⁻¹) = 0
+            evals.emplace_back(reversed_batched_left_tables.evaluate(kappa_inv));
             prover_transcript->send_to_verifier("REVERSED_BATCHED_LEFT_TABLES_EVAL", evals.back());
 
-            // Shplonk batched quotient: Q such that Q·(X-κ)·(X-κ⁻¹) = ...
-            // With L=0 and G=0, only R and M (=R) terms contribute at kappa.
             std::array<std::string, 13> shplonk_labels = {
                 "SHPLONK_MERGE_BATCHING_CHALLENGE_0",  "SHPLONK_MERGE_BATCHING_CHALLENGE_1",
                 "SHPLONK_MERGE_BATCHING_CHALLENGE_2",  "SHPLONK_MERGE_BATCHING_CHALLENGE_3",
@@ -386,39 +392,41 @@ template <typename Curve> class MergeTests : public testing::Test {
             };
             auto shplonk_batching_challenges = prover_transcript->template get_challenges<bb::fr>(shplonk_labels);
 
-            size_t poly_size = merged_table[0].size();
-            Polynomial shplonk_batched_quotient(poly_size);
-
-            for (size_t idx = 0; idx < NUM_WIRES; idx++) {
-                // L terms: zero (left_table is empty)
-                // R terms
-                bb::fr beta_r = shplonk_batching_challenges[NUM_WIRES + idx];
-                shplonk_batched_quotient.add_scaled(right_table[idx], beta_r);
-                shplonk_batched_quotient.at(0) -= beta_r * evals[NUM_WIRES + idx];
-                // M terms
-                bb::fr beta_m = shplonk_batching_challenges[2 * NUM_WIRES + idx];
-                shplonk_batched_quotient.add_scaled(merged_table[idx], beta_m);
-                shplonk_batched_quotient.at(0) -= beta_m * evals[2 * NUM_WIRES + idx];
+            // Replicate MergeProver's Shplonk batched quotient so the PCS opening verifies honestly.
+            std::array<std::array<Polynomial, NUM_WIRES>*, 3> tables = { &left_table, &right_table, &merged_table };
+            Polynomial shplonk_batched_quotient(merged_size);
+            for (size_t table_idx = 0; table_idx < 3; table_idx++) {
+                for (size_t idx = 0; idx < NUM_WIRES; idx++) {
+                    bb::fr challenge = shplonk_batching_challenges[(table_idx * NUM_WIRES) + idx];
+                    shplonk_batched_quotient.add_scaled((*tables[table_idx])[idx], challenge);
+                    shplonk_batched_quotient.at(0) -= challenge * evals[(table_idx * NUM_WIRES) + idx];
+                }
             }
             shplonk_batched_quotient.factor_roots(kappa);
-            // G term at kappa_inv: G=0 so nothing to add
-
+            {
+                Polynomial reversed_copy(reversed_batched_left_tables);
+                reversed_copy.at(0) -= evals.back();
+                reversed_copy.factor_roots(kappa_inv);
+                shplonk_batched_quotient.add_scaled(reversed_copy, shplonk_batching_challenges.back());
+            }
             prover_transcript->send_to_verifier("SHPLONK_BATCHED_QUOTIENT", ck.commit(shplonk_batched_quotient));
 
-            // Shplonk opening claim
             bb::fr z = prover_transcript->template get_challenge<bb::fr>("shplonk_opening_challenge");
             Polynomial Q_prime(std::move(shplonk_batched_quotient));
             Q_prime *= -(z - kappa);
-
-            for (size_t idx = 0; idx < NUM_WIRES; idx++) {
-                bb::fr beta_r = shplonk_batching_challenges[NUM_WIRES + idx];
-                Q_prime.add_scaled(right_table[idx], beta_r);
-                Q_prime.at(0) -= beta_r * evals[NUM_WIRES + idx];
-                bb::fr beta_m = shplonk_batching_challenges[2 * NUM_WIRES + idx];
-                Q_prime.add_scaled(merged_table[idx], beta_m);
-                Q_prime.at(0) -= beta_m * evals[2 * NUM_WIRES + idx];
+            for (size_t table_idx = 0; table_idx < 3; table_idx++) {
+                for (size_t idx = 0; idx < NUM_WIRES; idx++) {
+                    bb::fr challenge = shplonk_batching_challenges[(table_idx * NUM_WIRES) + idx];
+                    Q_prime.add_scaled((*tables[table_idx])[idx], challenge);
+                    Q_prime.at(0) -= challenge * evals[(table_idx * NUM_WIRES) + idx];
+                }
             }
-            // G term: G=0, so (G-g)·factor = 0, nothing to add
+            {
+                Polynomial reversed_copy(reversed_batched_left_tables);
+                reversed_copy.at(0) -= evals.back();
+                Q_prime.add_scaled(reversed_copy,
+                                   shplonk_batching_challenges.back() * (z - kappa) * (z - kappa_inv).invert());
+            }
 
             ProverOpeningClaim<curve::BN254> opening_claim = { .polynomial = std::move(Q_prime),
                                                                .opening_pair = { z, bb::fr(0) } };
@@ -426,7 +434,6 @@ template <typename Curve> class MergeTests : public testing::Test {
 
             auto native_proof = prover_transcript->export_proof();
 
-            // Build input commitments: T_prev = empty (zero commits), t = right table
             InputCommitments input_commitments;
             for (size_t idx = 0; idx < NUM_WIRES; idx++) {
                 input_commitments.t_commitments[idx] = ck.commit(right_table[idx]);
@@ -437,9 +444,9 @@ template <typename Curve> class MergeTests : public testing::Test {
             MergeVerifierType verifier{ verifier_transcript };
             auto result = verifier.reduce_to_pairing_check(native_proof, input_commitments);
 
-            bool pairing_verified = result.pairing_points.check();
-            bool verified = pairing_verified && result.reduction_succeeded;
-            EXPECT_TRUE(verified);
+            // The PCS opening (pairing) is honest and passes; the degree check is what rejects the proof.
+            EXPECT_TRUE(result.pairing_points.check());
+            EXPECT_FALSE(result.reduction_succeeded);
         } // if constexpr (!IsRecursive)
     }
 };
@@ -466,11 +473,6 @@ TYPED_TEST(MergeTests, MultipleMerges)
     TestFixture::test_multiple_merges();
 }
 
-TYPED_TEST(MergeTests, DegreeCheckFailure)
-{
-    TestFixture::test_degree_check_failure();
-}
-
 TYPED_TEST(MergeTests, MergeFailure)
 {
     TestFixture::test_merge_failure();
@@ -481,9 +483,9 @@ TYPED_TEST(MergeTests, EvalFailure)
     TestFixture::test_eval_failure();
 }
 
-TYPED_TEST(MergeTests, HonestEmptyLeftTable)
+TYPED_TEST(MergeTests, DegreeCheckFailure)
 {
-    TestFixture::test_honest_empty_left_table();
+    TestFixture::test_degree_check_failure();
 }
 
 /**
@@ -612,12 +614,10 @@ class MergeTranscriptTests : public ::testing::Test {
         // Size calculations
         size_t frs_per_Fr = 1;                                                      // Native field element
         size_t frs_per_G = FrCodec::calc_num_fields<curve::BN254::AffineElement>(); // Commitment = 4 frs
-        size_t frs_per_uint32 = 1;                                                  // shift_size
 
         size_t round = 0;
 
-        // Round 0: Prover sends shift_size and merged table commitments, gets degree check challenges
-        manifest_expected.add_entry(round, "shift_size", frs_per_uint32);
+        // Round 0: Prover sends merged table commitments, gets degree check challenges
         for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
             manifest_expected.add_entry(round, "MERGED_TABLE_" + std::to_string(idx), frs_per_G);
         }

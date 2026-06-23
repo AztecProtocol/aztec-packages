@@ -120,10 +120,9 @@ typename MergeVerifier_<Curve>::ReductionResult MergeVerifier_<Curve>::reduce_to
     BB_BENCH_NAME("MergeVerifier::reduce");
     transcript->load_proof(proof);
 
-    // Receive shift size from prover
-    // For native: shift_size is uint32_t
-    // For stdlib: shift_size is FF (we'll get the value later)
-    const FF shift_size = transcript->template receive_from_prover<FF>("shift_size");
+    // Hard-coded shift size: the merge is only used when verifying the hiding kernel, in which case the shift size is
+    // fixed to preserve zero-knowledge
+    const FF shift_size = FF(ECCOpQueue::compute_fixed_append_offset(ECCOpQueue::get_append_offset_for_verifier()));
 
     // Store T_commitments of the verifier
     TableCommitments merged_table_commitments;

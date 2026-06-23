@@ -117,7 +117,7 @@ constexpr std::tuple<size_t, size_t> HONK_RECURSION_CONSTANTS(
 // ========================================
 
 // Gate count for Chonk recursive verification (Ultra with RollupIO)
-inline constexpr size_t CHONK_RECURSION_GATES = 1368262;
+inline constexpr size_t CHONK_RECURSION_GATES = 1368123;
 
 // ========================================
 // Hypernova Recursion Constants
@@ -145,7 +145,7 @@ inline constexpr size_t TAIL_KERNEL_ULTRA_OPS = 77;
 // Hiding kernel gate counts (verifies HN_FINAL proof)
 inline constexpr size_t HIDING_KERNEL_GATE_COUNT = 38940;
 inline constexpr size_t HIDING_KERNEL_ECC_ROWS = 4773 + MSM_ROWS_OFFSET;
-inline constexpr size_t HIDING_KERNEL_ULTRA_OPS = 331;
+inline constexpr size_t HIDING_KERNEL_ULTRA_OPS = bb::HIDING_KERNEL_ULTRA_OPS;
 
 // ========================================
 // ECCVM Recursive Verifier Constants
