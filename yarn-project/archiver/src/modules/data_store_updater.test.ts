@@ -219,7 +219,12 @@ describe('ArchiverDataStoreUpdater', () => {
   });
 
   describe('l2 tips cache refresh', () => {
-    it('does not refresh the cache when the writer transaction aborts', async () => {
+    // Regression guard for the v4 block-stream/cache race (A-1235): the tips cache must never be replaced with
+    // tips derived from a writer transaction's uncommitted view. The failure is injected at commit time, i.e.
+    // *after* the transaction body has run, so a regressed implementation that refreshes the cache inside the
+    // writer transaction would have already read the (rolled-back) block and polluted the cache. Aborting on the
+    // first write instead cannot catch this, since the in-transaction refresh would never be reached.
+    it('does not replace the tips cache when the writer transaction aborts at commit', async () => {
       const tipsCache = new L2TipsCache(store.blockStore);
       const updaterWithCache = new ArchiverDataStoreUpdater(store, tipsCache);
 
@@ -230,13 +235,25 @@ describe('ArchiverDataStoreUpdater', () => {
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
       });
 
-      const failure = new Error('forced failure inside writer transaction');
-      const addProposedBlockSpy = jest.spyOn(store.blockStore, 'addProposedBlock').mockRejectedValueOnce(failure);
+      // Run the real writer transaction (so its body observes the written block via read-your-writes), then throw
+      // once the body has completed to simulate a commit failure that rolls the whole transaction back.
+      const failure = new Error('forced failure committing writer transaction');
+      const realTransactionAsync = store.transactionAsync.bind(store);
+      const transactionSpy = jest.spyOn(store, 'transactionAsync').mockImplementation(
+        <T>(callback: () => Promise<T>) =>
+          // The wrapped thunk always rejects, so the resolved type is irrelevant; cast to satisfy the generic signature.
+          realTransactionAsync(async () => {
+            await callback();
+            throw failure;
+          }) as Promise<T>,
+      );
 
       await expect(updaterWithCache.addProposedBlock(block)).rejects.toBe(failure);
+
+      // The aborted transaction rolled the block back, so the cache must still reflect committed (genesis) state.
       await expect(tipsCache.getL2Tips()).resolves.toEqual(tipsBefore);
 
-      addProposedBlockSpy.mockRestore();
+      transactionSpy.mockRestore();
     });
   });
 });
