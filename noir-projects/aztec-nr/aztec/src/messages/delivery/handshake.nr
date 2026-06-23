@@ -4,7 +4,7 @@ use crate::protocol::traits::{Deserialize, Serialize};
 use crate::{
     context::PrivateContext,
     ephemeral::EphemeralArray,
-    messages::processing::provided_secret::ProvidedSecret,
+    messages::{delivery::OnchainDeliveryMode, processing::provided_secret::ProvidedSecret},
     oracle::{call_utility_function::call_utility_function, shared_secret::get_shared_secrets},
     protocol::{
         abis::function_selector::FunctionSelector, address::AztecAddress, hash::sha256_to_field, traits::ToField,
@@ -120,7 +120,10 @@ pub(crate) unconstrained fn get_handshake_secrets(
     if eph_pks.len() > 0 {
         let secrets = get_shared_secrets(scope, eph_pks, contract_address);
         for j in 0..secrets.len() {
-            provided_secrets.push(ProvidedSecret { secret: secrets.get(j) });
+            let secret = secrets.get(j);
+            // Handshakes are mode-agnostic; emit one entry per on-chain tag domain for PXE to scan literally.
+            provided_secrets.push(ProvidedSecret { secret, mode: OnchainDeliveryMode::onchain_unconstrained() });
+            provided_secrets.push(ProvidedSecret { secret, mode: OnchainDeliveryMode::onchain_constrained() });
         }
     }
 
@@ -143,15 +146,16 @@ mod test {
     use crate::messages::delivery::handshake::{
         DiscoveredHandshake, get_handshake_secrets, HandshakePage, MAX_HANDSHAKES_PER_PAGE,
     };
-    use crate::protocol::{address::AztecAddress, traits::Serialize};
+    use crate::messages::delivery::OnchainDeliveryMode;
+    use crate::protocol::{address::AztecAddress, traits::{FromField, Serialize}};
     use crate::test::helpers::test_environment::TestEnvironment;
     use crate::utils::point::point_from_x_coord;
     use std::test::OracleMock;
 
     #[test]
     unconstrained fn get_handshake_secrets_returns_secrets_from_single_page() {
-        let mut env = TestEnvironment::new();
-        let scope = env.create_light_account();
+        let env = TestEnvironment::new();
+        let scope = AztecAddress::from_field(1);
         let contract_address = AztecAddress { inner: 0xdeadbeef };
 
         env.utility_context_at(contract_address, |_| {
@@ -170,16 +174,22 @@ mod test {
 
             let secrets = get_handshake_secrets(contract_address, scope);
 
-            assert_eq(secrets.len(), 2);
+            assert_eq(secrets.len(), 4);
             assert_eq(secrets.get(0).secret, secret_a);
-            assert_eq(secrets.get(1).secret, secret_b);
+            assert(secrets.get(0).mode == OnchainDeliveryMode::onchain_unconstrained());
+            assert_eq(secrets.get(1).secret, secret_a);
+            assert(secrets.get(1).mode == OnchainDeliveryMode::onchain_constrained());
+            assert_eq(secrets.get(2).secret, secret_b);
+            assert(secrets.get(2).mode == OnchainDeliveryMode::onchain_unconstrained());
+            assert_eq(secrets.get(3).secret, secret_b);
+            assert(secrets.get(3).mode == OnchainDeliveryMode::onchain_constrained());
         });
     }
 
     #[test]
     unconstrained fn get_handshake_secrets_fetches_multiple_pages() {
-        let mut env = TestEnvironment::new();
-        let scope = env.create_light_account();
+        let env = TestEnvironment::new();
+        let scope = AztecAddress::from_field(1);
         let contract_address = AztecAddress { inner: 0xdeadbeef };
 
         env.utility_context_at(contract_address, |_| {
@@ -202,10 +212,19 @@ mod test {
             mock_get_shared_secrets([111, 222, 333]);
 
             let secrets = get_handshake_secrets(contract_address, scope);
-            assert_eq(secrets.len(), 3);
+            assert_eq(secrets.len(), 6);
             assert_eq(secrets.get(0).secret, 111);
-            assert_eq(secrets.get(1).secret, 222);
-            assert_eq(secrets.get(2).secret, 333);
+            assert(secrets.get(0).mode == OnchainDeliveryMode::onchain_unconstrained());
+            assert_eq(secrets.get(1).secret, 111);
+            assert(secrets.get(1).mode == OnchainDeliveryMode::onchain_constrained());
+            assert_eq(secrets.get(2).secret, 222);
+            assert(secrets.get(2).mode == OnchainDeliveryMode::onchain_unconstrained());
+            assert_eq(secrets.get(3).secret, 222);
+            assert(secrets.get(3).mode == OnchainDeliveryMode::onchain_constrained());
+            assert_eq(secrets.get(4).secret, 333);
+            assert(secrets.get(4).mode == OnchainDeliveryMode::onchain_unconstrained());
+            assert_eq(secrets.get(5).secret, 333);
+            assert(secrets.get(5).mode == OnchainDeliveryMode::onchain_constrained());
         });
     }
 

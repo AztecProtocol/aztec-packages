@@ -429,7 +429,7 @@ export const PROVIDED_SECRET: TypeMapping<ProvidedSecret> = {
   deserialization: {
     fn: ([reader]) => ProvidedSecret.fromFields(reader),
   },
-  shape: [{ len: 1 }],
+  shape: [{ len: 2 }],
 };
 
 // ─── Combinator Type Mappings ────────────────────────────────────────────────

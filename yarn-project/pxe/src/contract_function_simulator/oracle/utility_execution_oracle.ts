@@ -26,7 +26,6 @@ import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { PublicKeys, computeAddressSecret, hashPublicKey } from '@aztec/stdlib/keys';
 import {
-  ALL_APP_TAGGING_SECRET_KINDS,
   AppTaggingSecret,
   MessageContext,
   type PendingTaggedLog,
@@ -571,14 +570,9 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     scope: AztecAddress,
     providedSecrets: EphemeralArray<ProvidedSecret>,
   ): Promise<EphemeralArray<PendingTaggedLog>> {
-    // A discovered handshake secret is mode-agnostic, so scan it under every on-chain delivery mode (the sender may
-    // have tagged messages in either). The recipient tagging store keys per (kind, secret, app), so the modes are
-    // tracked as independent tag sequences.
     const secrets = providedSecrets
       .readAll(this.ephemeralArrayService)
-      .flatMap(ps =>
-        ALL_APP_TAGGING_SECRET_KINDS.map(kind => new AppTaggingSecret(ps.secret, this.contractAddress, kind)),
-      );
+      .map(ps => new AppTaggingSecret(ps.secret, this.contractAddress, ps.mode));
 
     const logService = this.#createLogService();
     const logs = await logService.fetchTaggedLogs(this.contractAddress, scope, secrets);

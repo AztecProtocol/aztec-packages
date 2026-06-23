@@ -25,8 +25,8 @@ import {
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { PublicKeys, deriveKeys, hashPublicKey } from '@aztec/stdlib/keys';
 import {
-  ALL_APP_TAGGING_SECRET_KINDS,
   AppTaggingSecret,
+  AppTaggingSecretKind,
   MessageContext,
   PendingTaggedLog,
   SiloedTag,
@@ -664,51 +664,35 @@ describe('Utility Execution test suite', () => {
     describe('getPendingTaggedLogs', () => {
       const service = new EphemeralArrayService();
 
-      it('returns logs for each delivery mode derived from a provided handshake secret', async () => {
+      it("queries logs for the provided secret's delivery mode", async () => {
         const providedSecret = Fr.random();
-        const providedSecrets = [new ProvidedSecret(providedSecret)];
-        expect(providedSecrets).toHaveLength(1);
-
-        const expectedLogs = await Promise.all(
-          ALL_APP_TAGGING_SECRET_KINDS.map(async kind => {
-            const tag = await SiloedTag.compute({
-              extendedSecret: new AppTaggingSecret(providedSecret, contractAddress, kind),
-              index: 0,
-            });
-            const log = {
-              logData: [Fr.random(), Fr.random()],
-              blockNumber: anchorBlockHeader.globalVariables.blockNumber,
-              blockHash: await anchorBlockHeader.hash(),
-              blockTimestamp: anchorBlockHeader.globalVariables.timestamp,
-              txHash: TxHash.random(),
-              txIndexWithinBlock: 0,
-              logIndexWithinTx: 0,
-              noteHashes: [Fr.random()],
-              nullifiers: [Fr.random()],
-            };
-
-            return {
-              tag,
-              log,
-              pendingLogFields: new PendingTaggedLog(
-                log.logData,
-                log.txHash,
-                log.noteHashes,
-                log.nullifiers[0],
-              ).toFields(),
-            };
-          }),
-        );
-        const logsByTag = new Map(expectedLogs.map(({ tag, log }) => [tag.value.toString(), log]));
-        const expectedTags = expectedLogs.map(({ tag }) => tag.value.toString());
-        const expectedPendingLogs = expectedLogs.map(({ pendingLogFields }) => pendingLogFields);
+        const providedMode = AppTaggingSecretKind.CONSTRAINED;
+        const providedSecrets = [new ProvidedSecret(providedSecret, providedMode)];
+        const expectedTag = await SiloedTag.compute({
+          extendedSecret: new AppTaggingSecret(providedSecret, contractAddress, providedMode),
+          index: 0,
+        });
+        const otherModeTag = await SiloedTag.compute({
+          extendedSecret: new AppTaggingSecret(providedSecret, contractAddress, AppTaggingSecretKind.UNCONSTRAINED),
+          index: 0,
+        });
+        const log = {
+          logData: [Fr.random(), Fr.random()],
+          blockNumber: anchorBlockHeader.globalVariables.blockNumber,
+          blockHash: await anchorBlockHeader.hash(),
+          blockTimestamp: anchorBlockHeader.globalVariables.timestamp,
+          txHash: TxHash.random(),
+          txIndexWithinBlock: 0,
+          logIndexWithinTx: 0,
+          noteHashes: [Fr.random()],
+          nullifiers: [Fr.random()],
+        };
 
         aztecNode.getPrivateLogsByTags.mockImplementation(query => {
           return Promise.resolve(
             query.tags.map(entry => {
               const tag = 'tag' in entry ? entry.tag : entry;
-              const log = logsByTag.get(tag.value.toString());
-              return log ? [log] : [];
+              return tag.equals(expectedTag) ? [log] : [];
             }),
           );
         });
@@ -721,10 +705,12 @@ describe('Utility Execution test suite', () => {
         const queried = aztecNode.getPrivateLogsByTags.mock.calls.flatMap(([query]) =>
           query.tags.map(entry => ('tag' in entry ? entry.tag.value.toString() : entry.value.toString())),
         );
-        expect(queried).toEqual(expect.arrayContaining(expectedTags));
+        expect(queried).toContain(expectedTag.value.toString());
+        expect(queried).not.toContain(otherModeTag.value.toString());
         const resultLogs = result.readAll(service).map(log => log.toFields());
-        expect(resultLogs).toHaveLength(ALL_APP_TAGGING_SECRET_KINDS.length);
-        expect(resultLogs).toEqual(expect.arrayContaining(expectedPendingLogs));
+        expect(resultLogs).toEqual([
+          new PendingTaggedLog(log.logData, log.txHash, log.noteHashes, log.nullifiers[0]).toFields(),
+        ]);
       });
     });
 
