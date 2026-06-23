@@ -48,10 +48,21 @@ if (/swiftshader/i.test(adapter)) {
   );
 }
 
+// Optional FLOWS env: comma-separated subset (or substrings) to run instead of all
+// dropdown examples. Lets a memory-constrained device (e.g. a phone) start with one
+// light flow. e.g. FLOWS=transfer_0_recursions+sponsored
+const flowFilter = (process.env.FLOWS || '').split(',').map(s => s.trim()).filter(Boolean);
+if (flowFilter.length) console.log(`flow filter: ${flowFilter.join(', ')}`);
+
 // Kick the sweep off without blocking the evaluate (it runs for minutes); poll a marker.
-await page.evaluate(() => {
+await page.evaluate(filter => {
   window.__sweep = undefined;
-  const flows = Array.from(document.querySelectorAll('#flow option')).map(o => o.value);
+  let flows = Array.from(document.querySelectorAll('#flow option')).map(o => o.value);
+  if (filter.length) flows = flows.filter(f => filter.some(s => f.includes(s)));
+  if (flows.length === 0) {
+    window.__sweep = { fatal: 'no flows matched the filter' };
+    return;
+  }
   window
     .runChonkPairedSweep(flows)
     .then(r => {
@@ -70,7 +81,7 @@ await page.evaluate(() => {
     .catch(e => {
       window.__sweep = { fatal: e instanceof Error ? e.message : String(e) };
     });
-});
+}, flowFilter);
 
 console.log('sweep running on the remote GPU… (driver-side poll every 4s)');
 // Driver-side poll with short evaluate calls (each returns immediately when the
