@@ -505,4 +505,218 @@ TEST(ShmTest, MpscReactorPipelinedConcurrencyAndOrder)
     server->close();
 }
 
+TEST(ShmTest, MpscReactorMultiClientResponseRouting)
+{
+    constexpr uint32_t NUM_CLIENTS = 4;
+    constexpr uint32_t K = 128;
+    constexpr size_t RING_SIZE = 64UL * 1024;
+
+    std::string base_name = "shm_mpsc_multi_" + std::to_string(getpid());
+    auto server = IpcServer::create_mpsc_shm(base_name, NUM_CLIENTS, RING_SIZE, RING_SIZE);
+    ASSERT_TRUE(server->listen()) << "MPSC multi-client server failed to listen";
+
+    ReactorTestPool pool(8);
+    std::thread server_thread([&]() {
+        server->run_reactor([&pool](int, std::span<const uint8_t> req, IpcServer::Respond respond) {
+            std::vector<uint8_t> r(req.begin(), req.end());
+            pool.enqueue([r = std::move(r), respond = std::move(respond)]() mutable {
+                uint32_t seq = 0;
+                std::memcpy(&seq, r.data() + sizeof(uint32_t), sizeof(uint32_t));
+                std::this_thread::sleep_for(std::chrono::microseconds(20 * (seq % 8)));
+                respond(std::move(r));
+            });
+        });
+    });
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    std::atomic<int> wrong_client{ 0 };
+    std::atomic<int> out_of_order{ 0 };
+    std::atomic<int> stalls{ 0 };
+
+    auto run_client = [&](uint32_t c) {
+        auto client = IpcClient::create_mpsc_shm(base_name, c);
+        if (!client->connect()) {
+            stalls++;
+            return;
+        }
+        for (uint32_t s = 0; s < K; s++) {
+            uint32_t msg[2] = { c, s };
+            while (!client->send(msg, sizeof(msg), 100'000'000ULL)) {
+            }
+        }
+        for (uint32_t s = 0; s < K; s++) {
+            std::span<const uint8_t> resp;
+            size_t empties = 0;
+            while ((resp = client->receive(100'000'000ULL)).empty()) {
+                if (++empties > 50) {
+                    stalls++;
+                    break;
+                }
+            }
+            if (resp.empty()) {
+                break;
+            }
+            uint32_t got[2] = { 0, 0 };
+            std::memcpy(got, resp.data(), sizeof(got));
+            if (got[0] != c) {
+                wrong_client++;
+            }
+            if (got[1] != s) {
+                out_of_order++;
+            }
+            client->release(resp.size());
+        }
+        client->close();
+    };
+
+    std::vector<std::thread> clients;
+    for (uint32_t c = 0; c < NUM_CLIENTS; c++) {
+        clients.emplace_back(run_client, c);
+    }
+    for (auto& t : clients) {
+        t.join();
+    }
+
+    server->request_shutdown();
+    server_thread.join();
+    server->close();
+
+    EXPECT_EQ(wrong_client.load(), 0) << "responses were routed to the wrong client";
+    EXPECT_EQ(out_of_order.load(), 0) << "responses arrived out of order within a client";
+    EXPECT_EQ(stalls.load(), 0) << "a client stalled waiting for its responses";
+}
+
+TEST(ShmTest, MpscReactorAutoClaimMultiClient)
+{
+    constexpr uint32_t NUM_CLIENTS = 4;
+    constexpr uint32_t K = 128;
+    constexpr size_t RING_SIZE = 64UL * 1024;
+
+    std::string base_name = "shm_mpsc_autoclaim_" + std::to_string(getpid());
+    auto server = IpcServer::create_mpsc_shm(base_name, NUM_CLIENTS, RING_SIZE, RING_SIZE);
+    ASSERT_TRUE(server->listen()) << "MPSC auto-claim server failed to listen";
+
+    ReactorTestPool pool(8);
+    std::thread server_thread([&]() {
+        server->run_reactor([&pool](int, std::span<const uint8_t> req, IpcServer::Respond respond) {
+            std::vector<uint8_t> r(req.begin(), req.end());
+            pool.enqueue([r = std::move(r), respond = std::move(respond)]() mutable {
+                uint32_t seq = 0;
+                std::memcpy(&seq, r.data() + sizeof(uint32_t), sizeof(uint32_t));
+                std::this_thread::sleep_for(std::chrono::microseconds(20 * (seq % 8)));
+                respond(std::move(r));
+            });
+        });
+    });
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    std::atomic<int> wrong_client{ 0 };
+    std::atomic<int> out_of_order{ 0 };
+    std::atomic<int> stalls{ 0 };
+
+    auto run_client = [&](uint32_t c) {
+        auto client = IpcClient::create_mpsc_shm(base_name);
+        if (!client->connect()) {
+            stalls++;
+            return;
+        }
+        for (uint32_t s = 0; s < K; s++) {
+            uint32_t msg[2] = { c, s };
+            while (!client->send(msg, sizeof(msg), 100'000'000ULL)) {
+            }
+        }
+        for (uint32_t s = 0; s < K; s++) {
+            std::span<const uint8_t> resp;
+            size_t empties = 0;
+            while ((resp = client->receive(100'000'000ULL)).empty()) {
+                if (++empties > 50) {
+                    stalls++;
+                    break;
+                }
+            }
+            if (resp.empty()) {
+                break;
+            }
+            uint32_t got[2] = { 0, 0 };
+            std::memcpy(got, resp.data(), sizeof(got));
+            if (got[0] != c) {
+                wrong_client++;
+            }
+            if (got[1] != s) {
+                out_of_order++;
+            }
+            client->release(resp.size());
+        }
+        client->close();
+    };
+
+    std::vector<std::thread> clients;
+    for (uint32_t c = 0; c < NUM_CLIENTS; c++) {
+        clients.emplace_back(run_client, c);
+    }
+    for (auto& t : clients) {
+        t.join();
+    }
+
+    server->request_shutdown();
+    server_thread.join();
+    server->close();
+
+    EXPECT_EQ(wrong_client.load(), 0) << "self-allocated clients aliased onto a shared slot";
+    EXPECT_EQ(out_of_order.load(), 0) << "responses arrived out of order within a client";
+    EXPECT_EQ(stalls.load(), 0) << "a client stalled";
+}
+
+TEST(ShmTest, MpscSlotFreedOnDisconnectAndReclaimed)
+{
+    constexpr size_t NUM_CLIENTS = 1;
+    constexpr size_t RING_SIZE = 16UL * 1024;
+
+    std::string base_name = "shm_mpsc_reuse_" + std::to_string(getpid());
+    auto server = IpcServer::create_mpsc_shm(base_name, NUM_CLIENTS, RING_SIZE, RING_SIZE);
+    ASSERT_TRUE(server->listen()) << "server failed to listen";
+
+    ReactorTestPool pool(2);
+    std::thread server_thread([&]() {
+        server->run_reactor([&pool](int, std::span<const uint8_t> req, IpcServer::Respond respond) {
+            std::vector<uint8_t> r(req.begin(), req.end());
+            pool.enqueue([r = std::move(r), respond = std::move(respond)]() mutable { respond(std::move(r)); });
+        });
+    });
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    auto round_trip = [](IpcClient& client, uint32_t value) -> bool {
+        if (!client.send(&value, sizeof(value), 100'000'000ULL)) {
+            return false;
+        }
+        std::span<const uint8_t> resp;
+        size_t empties = 0;
+        while ((resp = client.receive(100'000'000ULL)).empty()) {
+            if (++empties > 50) {
+                return false;
+            }
+        }
+        uint32_t got = 0;
+        std::memcpy(&got, resp.data(), sizeof(got));
+        client.release(resp.size());
+        return got == value;
+    };
+
+    {
+        auto a = IpcClient::create_mpsc_shm(base_name);
+        ASSERT_TRUE(a->connect()) << "client A failed to connect";
+        EXPECT_TRUE(round_trip(*a, 0x1111)) << "client A round-trip failed";
+        a->close();
+    }
+
+    auto b = IpcClient::create_mpsc_shm(base_name);
+    ASSERT_TRUE(b->connect()) << "client B failed to reclaim the freed slot";
+    EXPECT_TRUE(round_trip(*b, 0x2222)) << "client B round-trip over the reused ring failed";
+    b->close();
+
+    server->request_shutdown();
+    server_thread.join();
+    server->close();
+}
+
 } // namespace

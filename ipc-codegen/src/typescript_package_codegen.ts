@@ -311,7 +311,9 @@ async function connectClient(
       }
 ${supportsShm ? `      if (transport === 'shm') {
         return createNapiShmAsyncClient(ipcPath.replace(/\\.shm$/, ''), {
-          clientId: options.clientId ?? 0,
+          // Pass clientId through as-is: when unset, the client self-allocates a
+          // free producer slot (don't default to 0, which aliases every client).
+          clientId: options.clientId,
           customAddonPath: options.napiPath,
         });
       }
