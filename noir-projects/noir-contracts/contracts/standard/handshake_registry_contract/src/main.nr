@@ -51,7 +51,7 @@ pub contract HandshakeRegistry {
     /// for the calling contract.
     ///
     /// The handshake establishes a single shared secret per `(recipient, sender)` pair, independent of delivery
-    /// mode: the recipient derives per-mode tags from it when scanning. The handshake note is always stored onchain.
+    /// mode: the recipient should derive per-mode tags from it when scanning. The handshake note is always stored onchain.
     ///
     /// Generates a fresh ephemeral key pair `(eph_sk, eph_pk)`, computes the raw ECDH shared secret point
     /// `S = eph_sk * recipient_address_point`, and produces three effects:
