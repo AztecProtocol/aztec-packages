@@ -3,15 +3,34 @@ source: tests/snapshots.rs
 expression: stderr
 ---
 error: The #[storage] macro can only be applied to a struct with name 'Storage', got 'Storage2' instead.
-  ┌─ std/panic.nr:8:12
+  ┌─ src/main.nr:9:5
   │
-8 │     assert(false, message);
-  │            ----- Assertion failed
+9 │     struct Storage2<Context> {}
+  │     ---------------------------
   │
-  = Call stack:
-    1: IncorrectStorageStructName::#[storage]
-            at src/main.nr:8:5
-    2: storage
-            at <repo>/noir-projects/aztec-nr/aztec/src/macros/storage.nr:<line>:<col>
 
-Aborting due to 1 previous error
+error: Could not resolve 'Storage' in path
+   ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/storage.nr:<line>:<col>
+   │
+   │         impl<Context> Storage<Context> {
+   │                       -------
+   │
+   ┌─ src/main.nr:8:5
+   │
+ 8 │     #[storage]
+   │     ---------- While running this function attribute
+   │
+
+error: Only struct types can be used in constructor expressions
+   ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/storage.nr:<line>:<col>
+   │
+   │                 Self {
+   │                 ---- error has no fields to construct it with
+   │
+   ┌─ src/main.nr:8:5
+   │
+ 8 │     #[storage]
+   │     ---------- While running this function attribute
+   │
+
+Aborting due to 3 previous errors

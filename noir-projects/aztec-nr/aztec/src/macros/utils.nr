@@ -1,6 +1,12 @@
 use crate::protocol::meta::derive_serialize;
 use std::meta::{ctstring::AsCtString, type_of, unquote};
 
+/// Emits a non-halting comptime error at `location`. Unlike `panic`/`assert`, macro validation
+/// continues after this call, so multiple diagnostics can be collected in a single compilation.
+pub(crate) comptime fn emit_error<let N: u32, T>(message: fmtstr<N, T>, location: Location) {
+    std::meta::error(message, Option::none(), location);
+}
+
 pub(crate) comptime fn is_fn_external(f: FunctionDefinition) -> bool {
     f.has_named_attribute("external")
 }
@@ -160,15 +166,19 @@ pub(crate) comptime fn assert_return_type_serializable(f: FunctionDefinition) {
     if return_type != type_of(()) {
         let fn_name = f.name();
         let serialize_constraint = quote { crate::protocol::traits::Serialize }.as_trait_constraint();
-        assert(
-            return_type.implements(serialize_constraint),
-            f"Contract function '{fn_name}' returns a value of type {return_type}, which does not implement the Serialize trait. Add #[derive(Serialize)] to {return_type}'s declaration.",
-        );
+        if !return_type.implements(serialize_constraint) {
+            emit_error(
+                f"Contract function '{fn_name}' returns a value of type {return_type}, which does not implement the Serialize trait. Add #[derive(Serialize)] to {return_type}'s declaration.",
+                f.location(),
+            );
+        }
         let deserialize_constraint = quote { crate::protocol::traits::Deserialize }.as_trait_constraint();
-        assert(
-            return_type.implements(deserialize_constraint),
-            f"Contract function '{fn_name}' returns a value of type {return_type}, which does not implement the Deserialize trait. Add #[derive(Deserialize)] to {return_type}'s declaration.",
-        );
+        if !return_type.implements(deserialize_constraint) {
+            emit_error(
+                f"Contract function '{fn_name}' returns a value of type {return_type}, which does not implement the Deserialize trait. Add #[derive(Deserialize)] to {return_type}'s declaration.",
+                f.location(),
+            );
+        }
     }
 }
 
@@ -179,15 +189,19 @@ pub(crate) comptime fn assert_params_serializable(f: FunctionDefinition) {
     for param in f.parameters() {
         let (name, param_type) = param;
         let serialize_constraint = quote { crate::protocol::traits::Serialize }.as_trait_constraint();
-        assert(
-            param_type.implements(serialize_constraint),
-            f"Parameter '{name}' of contract function '{fn_name}' has type {param_type}, which does not implement the Serialize trait. Add #[derive(Serialize)] to {param_type}'s declaration.",
-        );
+        if !param_type.implements(serialize_constraint) {
+            emit_error(
+                f"Parameter '{name}' of contract function '{fn_name}' has type {param_type}, which does not implement the Serialize trait. Add #[derive(Serialize)] to {param_type}'s declaration.",
+                f.location(),
+            );
+        }
         let deserialize_constraint = quote { crate::protocol::traits::Deserialize }.as_trait_constraint();
-        assert(
-            param_type.implements(deserialize_constraint),
-            f"Parameter '{name}' of contract function '{fn_name}' has type {param_type}, which does not implement the Deserialize trait. Add #[derive(Deserialize)] to {param_type}'s declaration.",
-        );
+        if !param_type.implements(deserialize_constraint) {
+            emit_error(
+                f"Parameter '{name}' of contract function '{fn_name}' has type {param_type}, which does not implement the Deserialize trait. Add #[derive(Deserialize)] to {param_type}'s declaration.",
+                f.location(),
+            );
+        }
     }
 }
 

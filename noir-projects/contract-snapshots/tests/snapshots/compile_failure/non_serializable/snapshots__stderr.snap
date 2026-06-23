@@ -3,75 +3,59 @@ source: tests/snapshots.rs
 expression: stderr
 ---
 error: Contract function 'bad_private_return' returns a value of type NotSerializable, which does not implement the Serialize trait. Add #[derive(Serialize)] to NotSerializable's declaration.
-    ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/utils.nr:<line>:<col>
-    │
-    │             return_type.implements(serialize_constraint),
-    │             -------------------------------------------- Assertion failed
-    │
-    = Call stack:
-      1: ?
-              at src/main.nr:15:5
-      2: external
-              at <repo>/noir-projects/aztec-nr/aztec/src/macros/functions/mod.nr:<line>:<col>
+   ┌─ src/main.nr:16:8
+   │
+16 │     fn bad_private_return() -> pub NotSerializable {
+   │        ------------------
+   │
 
 error: Parameter '_p' of contract function 'bad_private_param' has type NotSerializable, which does not implement the Serialize trait. Add #[derive(Serialize)] to NotSerializable's declaration.
-    ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/utils.nr:<line>:<col>
-    │
-    │             param_type.implements(serialize_constraint),
-    │             ------------------------------------------- Assertion failed
-    │
-    = Call stack:
-      1: ?
-              at src/main.nr:20:5
-      2: external
-              at <repo>/noir-projects/aztec-nr/aztec/src/macros/functions/mod.nr:<line>:<col>
+   ┌─ src/main.nr:21:8
+   │
+21 │     fn bad_private_param(_p: NotSerializable) {}
+   │        -----------------
+   │
 
 error: Contract function 'bad_public_return' returns a value of type NotSerializable, which does not implement the Serialize trait. Add #[derive(Serialize)] to NotSerializable's declaration.
-    ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/utils.nr:<line>:<col>
-    │
-    │             return_type.implements(serialize_constraint),
-    │             -------------------------------------------- Assertion failed
-    │
-    = Call stack:
-      1: ?
-              at src/main.nr:23:5
-      2: external
-              at <repo>/noir-projects/aztec-nr/aztec/src/macros/functions/mod.nr:<line>:<col>
+   ┌─ src/main.nr:24:8
+   │
+24 │     fn bad_public_return() -> pub NotSerializable {
+   │        -----------------
+   │
 
 error: Parameter '_p' of contract function 'bad_public_param' has type NotSerializable, which does not implement the Serialize trait. Add #[derive(Serialize)] to NotSerializable's declaration.
-    ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/utils.nr:<line>:<col>
-    │
-    │             param_type.implements(serialize_constraint),
-    │             ------------------------------------------- Assertion failed
-    │
-    = Call stack:
-      1: ?
-              at src/main.nr:28:5
-      2: external
-              at <repo>/noir-projects/aztec-nr/aztec/src/macros/functions/mod.nr:<line>:<col>
+   ┌─ src/main.nr:29:8
+   │
+29 │     fn bad_public_param(_p: NotSerializable) {}
+   │        ----------------
+   │
 
 error: Contract function 'bad_utility_return' returns a value of type NotSerializable, which does not implement the Serialize trait. Add #[derive(Serialize)] to NotSerializable's declaration.
-    ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/utils.nr:<line>:<col>
-    │
-    │             return_type.implements(serialize_constraint),
-    │             -------------------------------------------- Assertion failed
-    │
-    = Call stack:
-      1: ?
-              at src/main.nr:31:5
-      2: external
-              at <repo>/noir-projects/aztec-nr/aztec/src/macros/functions/mod.nr:<line>:<col>
+   ┌─ src/main.nr:32:22
+   │
+32 │     unconstrained fn bad_utility_return() -> pub NotSerializable {
+   │                      ------------------
+   │
 
 error: Parameter '_p' of contract function 'bad_utility_param' has type NotSerializable, which does not implement the Serialize trait. Add #[derive(Serialize)] to NotSerializable's declaration.
-    ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/utils.nr:<line>:<col>
-    │
-    │             param_type.implements(serialize_constraint),
-    │             ------------------------------------------- Assertion failed
-    │
-    = Call stack:
-      1: ?
-              at src/main.nr:36:5
-      2: external
-              at <repo>/noir-projects/aztec-nr/aztec/src/macros/functions/mod.nr:<line>:<col>
+   ┌─ src/main.nr:37:22
+   │
+37 │     unconstrained fn bad_utility_param(_p: NotSerializable) {}
+   │                      -----------------
+   │
 
-Aborting due to 6 previous errors
+error: No matching impl found for `NotSerializable: Serialize<N = _>`
+   ┌─ <repo>/noir-projects/noir-protocol-circuits/crates/types/src/meta/utils.nr:<line>:<col>
+   │
+   │                     <$param_type as $crate::traits::Serialize>::N
+   │                       --------------------------------------- No impl for `NotSerializable: Serialize<N = _>`
+   │
+
+error: No impl found due to prior type error
+   ┌─ <repo>/noir-projects/noir-protocol-circuits/crates/types/src/meta/utils.nr:<line>:<col>
+   │
+   │                     <$param_type as $crate::traits::Serialize>::N
+   │                       ---------------------------------------
+   │
+
+Aborting due to 8 previous errors

@@ -3,17 +3,25 @@ source: tests/snapshots.rs
 expression: stderr
 ---
 error: Function name 'public_dispatch' is reserved for internal use
-  ┌─ std/panic.nr:8:12
-  │
-8 │     assert(false, message);
-  │            ----- Assertion failed
-  │
-  = Call stack:
-    1: ?
-            at src/main.nr:9:5
-    2: external
-            at <repo>/noir-projects/aztec-nr/aztec/src/macros/functions/mod.nr:<line>:<col>
-    3: assert_valid_public
-            at <repo>/noir-projects/aztec-nr/aztec/src/macros/functions/mod.nr:<line>:<col>
+   ┌─ src/main.nr:10:8
+   │
+10 │     fn public_dispatch() {}
+   │        ---------------
+   │
 
-Aborting due to 1 previous error
+error: Duplicate definitions of function with name public_dispatch found
+    ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/dispatch.nr:<line>:<col>
+    │
+    │             pub unconstrained fn public_dispatch(selector: Field) {
+    │                                  --------------- Second function found here
+    │
+    ┌─ src/main.nr:5:1
+    │
+  5 │ #[aztec]
+    │ -------- While running this function attribute
+    ·
+ 10 │     fn public_dispatch() {}
+    │        --------------- First function found here
+    │
+
+Aborting due to 2 previous errors

@@ -3,15 +3,74 @@ source: tests/snapshots.rs
 expression: stderr
 ---
 error: User-defined 'offchain_receive' is not allowed. The function is auto-injected by the #[aztec] macro. See https://docs.aztec.network/errors/7
-  ┌─ std/panic.nr:8:12
+  ┌─ src/main.nr:5:10
   │
-8 │     assert(false, message);
-  │            ----- Assertion failed
+5 │ contract UserDefinedOffchainReceive {
+  │          --------------------------
   │
-  = Call stack:
-    1: #[aztec]
-            at src/main.nr:4:1
-    2: aztec
-            at <repo>/noir-projects/aztec-nr/aztec/src/macros/aztec.nr:<line>:<col>
 
-Aborting due to 1 previous error
+error: Duplicate definitions of type definition with name offchain_receive_parameters found
+    ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/aztec.nr:<line>:<col>
+    │
+    │     let parameters_struct_name = f"{OFFCHAIN_RECEIVE_FN_NAME}_parameters".quoted_contents();
+    │                                  ---------------------------------------------------------- Second type definition found here
+    │
+    ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/internals_functions_generation/abi_export.nr:<line>:<col>
+    │
+    │     let parameters_struct_name = f"{name}_parameters".quoted_contents();
+    │                                  -------------------------------------- First type definition found here
+    │
+    ┌─ src/main.nr:4:1
+    │
+  4 │ #[aztec]
+    │ -------- While running this function attribute
+    │
+
+error: Duplicate definitions of type definition with name offchain_receive_abi found
+    ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/aztec.nr:<line>:<col>
+    │
+    │     let abi_struct_name = f"{OFFCHAIN_RECEIVE_FN_NAME}_abi".quoted_contents();
+    │                           --------------------------------------------------- Second type definition found here
+    │
+    ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/internals_functions_generation/abi_export.nr:<line>:<col>
+    │
+    │     let abi_struct_name = f"{name}_abi".quoted_contents();
+    │                           ------------------------------- First type definition found here
+    │
+    ┌─ src/main.nr:4:1
+    │
+  4 │ #[aztec]
+    │ -------- While running this function attribute
+    │
+
+error: Duplicate definitions of function with name offchain_receive found
+   ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/offchain_receive.nr:<line>:<col>
+   │
+   │ pub(crate) comptime global OFFCHAIN_RECEIVE_FN_NAME: Quoted = quote { offchain_receive };
+   │                                                                       ---------------- Second function found here
+   │
+   ┌─ src/main.nr:4:1
+   │
+ 4 │ #[aztec]
+   │ -------- While running this function attribute
+   ·
+ 9 │     fn offchain_receive() {}
+   │        ---------------- First function found here
+   │
+
+error: Impl for type `UserDefinedOffchainReceive` overlaps with existing impl
+   ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/calls_generation/external_functions_stubs.nr:<line>:<col>
+   │
+   │     function_selector_typ.get_trait_impl(from_field_trait).unwrap().methods().filter(|m| {
+   │                                                                       ---------------- Overlapping impl
+   ·
+   │     create_stub_base_from_parts(f.name(), f.parameters())
+   │                                 -------- Previous impl defined here
+   │
+   ┌─ src/main.nr:4:1
+   │
+ 4 │ #[aztec]
+   │ -------- While running this function attribute
+   │
+
+Aborting due to 5 previous errors
