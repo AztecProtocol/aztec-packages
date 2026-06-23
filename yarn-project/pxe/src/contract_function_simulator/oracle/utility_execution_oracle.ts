@@ -26,6 +26,7 @@ import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { PublicKeys, computeAddressSecret, hashPublicKey } from '@aztec/stdlib/keys';
 import {
+  ALL_APP_TAGGING_SECRET_KINDS,
   AppTaggingSecret,
   MessageContext,
   type PendingTaggedLog,
@@ -570,9 +571,14 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     scope: AztecAddress,
     providedSecrets: EphemeralArray<ProvidedSecret>,
   ): Promise<EphemeralArray<PendingTaggedLog>> {
+    // A discovered handshake secret is mode-agnostic, so scan it under every on-chain delivery mode (the sender may
+    // have tagged messages in either). The recipient tagging store keys per (kind, secret, app), so the modes are
+    // tracked as independent tag sequences.
     const secrets = providedSecrets
       .readAll(this.ephemeralArrayService)
-      .map(ps => new AppTaggingSecret(ps.secret, this.contractAddress, ps.mode));
+      .flatMap(ps =>
+        ALL_APP_TAGGING_SECRET_KINDS.map(kind => new AppTaggingSecret(ps.secret, this.contractAddress, kind)),
+      );
 
     const logService = this.#createLogService();
     const logs = await logService.fetchTaggedLogs(this.contractAddress, scope, secrets);
@@ -1013,7 +1019,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
 }
 
 const STANDARD_HANDSHAKE_REGISTRY_GET_HANDSHAKES_SIGNATURE = 'get_handshakes((Field),u32)';
-const STANDARD_HANDSHAKE_REGISTRY_GET_APP_SILOED_SECRET_SIGNATURE = 'get_app_siloed_secret((Field),(Field),(u8))';
+const STANDARD_HANDSHAKE_REGISTRY_GET_APP_SILOED_SECRET_SIGNATURE = 'get_app_siloed_secret((Field),(Field))';
 
 async function doesSelectorHaveSignature(functionSelector: FunctionSelector, signature: string): Promise<boolean> {
   return functionSelector.equals(await FunctionSelector.fromSignature(signature));

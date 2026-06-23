@@ -1,16 +1,16 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { FieldReader } from '@aztec/foundation/serialize';
-import { AppTaggingSecretKind, appTaggingSecretKindFromDeliveryMode } from '@aztec/stdlib/logs';
 
-/** A tagging secret an app supplies explicitly to `getPendingTaggedLogs` when PXE cannot derive it internally. */
+/**
+ * A tagging secret an app supplies explicitly to `getPendingTaggedLogs` when PXE cannot derive it internally.
+ *
+ * It is mode-agnostic: the recipient derives per-mode tags from it when scanning.
+ */
 export class ProvidedSecret {
-  constructor(
-    public secret: Fr,
-    public mode: AppTaggingSecretKind,
-  ) {}
+  constructor(public secret: Fr) {}
 
   static fromFields(fields: Fr[] | FieldReader): ProvidedSecret {
     const reader = FieldReader.asReader(fields);
-    return new ProvidedSecret(reader.readField(), appTaggingSecretKindFromDeliveryMode(reader.readField().toNumber()));
+    return new ProvidedSecret(reader.readField());
   }
 }

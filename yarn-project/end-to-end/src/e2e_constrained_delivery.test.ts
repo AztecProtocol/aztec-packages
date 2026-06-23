@@ -10,8 +10,6 @@ import { jest } from '@jest/globals';
 import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import { ensureHandshakeRegistryPublished, setup } from './fixtures/setup.js';
 
-const ONCHAIN_CONSTRAINED = { inner: 3 };
-
 describe('constrained delivery', () => {
   jest.setTimeout(300_000);
 
@@ -44,14 +42,14 @@ describe('constrained delivery', () => {
     await contract.methods.emit_note(recipient).send({ from: sender });
 
     const { result: secretAfterFirstSend } = await contract.methods
-      .get_app_siloed_secret(sender, recipient, ONCHAIN_CONSTRAINED)
+      .get_app_siloed_secret(sender, recipient)
       .simulate({ from: sender });
     expect(secretAfterFirstSend).toBeDefined();
 
     await contract.methods.emit_event(recipient).send({ from: sender });
 
     const { result: secret } = await contract.methods
-      .get_app_siloed_secret(sender, recipient, ONCHAIN_CONSTRAINED)
+      .get_app_siloed_secret(sender, recipient)
       .simulate({ from: sender });
     // The second send reuses the handshake rather than bootstrapping a new one: the secret is unchanged.
     expect(secret).toEqual(secretAfterFirstSend);
@@ -83,14 +81,12 @@ describe('constrained delivery', () => {
     // committed (see the re-handshake test below), so it is established first; a fresh recipient starts at index 0,
     // so two emits land indices 0 and 1 and the next index is 2.
     it('lands multiple constrained sends from a single contract call on an established handshake', async () => {
-      await registry.methods
-        .non_interactive_handshake(sender, batchRecipient, ONCHAIN_CONSTRAINED)
-        .send({ from: sender });
+      await registry.methods.non_interactive_handshake(sender, batchRecipient).send({ from: sender });
 
       await contract.methods.emit_two_events(batchRecipient).send({ from: sender });
 
       const { result: secret } = await contract.methods
-        .get_app_siloed_secret(sender, batchRecipient, ONCHAIN_CONSTRAINED)
+        .get_app_siloed_secret(sender, batchRecipient)
         .simulate({ from: sender });
       expect(secret).toBeDefined();
 
@@ -101,9 +97,7 @@ describe('constrained delivery', () => {
     // CAN batch (2): client-side BatchCall aggregates separate calls into one tx with the same effect. The two
     // emit_note calls that fail as parallel txs (above) succeed batched, given an established handshake.
     it('lands the same two sends when aggregated into one tx with BatchCall', async () => {
-      await registry.methods
-        .non_interactive_handshake(sender, batchRecipient2, ONCHAIN_CONSTRAINED)
-        .send({ from: sender });
+      await registry.methods.non_interactive_handshake(sender, batchRecipient2).send({ from: sender });
 
       await new BatchCall(wallet, [
         contract.methods.emit_note(batchRecipient2),
@@ -111,7 +105,7 @@ describe('constrained delivery', () => {
       ]).send({ from: sender });
 
       const { result: secret } = await contract.methods
-        .get_app_siloed_secret(sender, batchRecipient2, ONCHAIN_CONSTRAINED)
+        .get_app_siloed_secret(sender, batchRecipient2)
         .simulate({ from: sender });
       expect(secret).toBeDefined();
 
@@ -128,7 +122,7 @@ describe('constrained delivery', () => {
       await contract.methods.emit_two_events(batchRecipient3).send({ from: sender });
 
       const { result: secret } = await contract.methods
-        .get_app_siloed_secret(sender, batchRecipient3, ONCHAIN_CONSTRAINED)
+        .get_app_siloed_secret(sender, batchRecipient3)
         .simulate({ from: sender });
       expect(secret).toBeDefined();
 
@@ -146,7 +140,7 @@ describe('constrained delivery', () => {
       ]).send({ from: sender });
 
       const { result: secret } = await contract.methods
-        .get_app_siloed_secret(sender, batchRecipient4, ONCHAIN_CONSTRAINED)
+        .get_app_siloed_secret(sender, batchRecipient4)
         .simulate({ from: sender });
       expect(secret).toBeDefined();
 

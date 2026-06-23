@@ -24,7 +24,13 @@ import {
 } from '@aztec/stdlib/contract';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { PublicKeys, deriveKeys, hashPublicKey } from '@aztec/stdlib/keys';
-import { AppTaggingSecret, AppTaggingSecretKind, MessageContext, SiloedTag } from '@aztec/stdlib/logs';
+import {
+  AppTaggingSecret,
+  AppTaggingSecretKind,
+  MessageContext,
+  PendingTaggedLog,
+  SiloedTag,
+} from '@aztec/stdlib/logs';
 import { Note, NoteDao } from '@aztec/stdlib/note';
 import { makeL2Tips, randomContractInstanceWithAddress } from '@aztec/stdlib/testing';
 import {
@@ -492,7 +498,7 @@ describe('Utility Execution test suite', () => {
         utilityExecutionOracle = makeOracle({ simulator: nestedSimulator });
         defaultAuthorizedHandshakeRegistryReads = new Map<string, Fr[]>([
           ['get_handshakes', []],
-          ['get_app_siloed_secret', [Fr.random(), Fr.random(), new Fr(3)]],
+          ['get_app_siloed_secret', [Fr.random(), Fr.random()]],
         ]);
       });
 
@@ -658,29 +664,53 @@ describe('Utility Execution test suite', () => {
     describe('getPendingTaggedLogs', () => {
       const service = new EphemeralArrayService();
 
-      it('searches tags derived from provided secrets', async () => {
-        // Capture every tag the node is queried with so we can assert the provided secret was searched.
-        const queriedTags: Fr[] = [];
-        aztecNode.getPrivateLogsByTags.mockImplementation(query => {
-          for (const entry of query.tags) {
-            queriedTags.push('tag' in entry ? entry.tag.value : entry.value);
-          }
-          return Promise.resolve(query.tags.map(() => []));
-        });
-
+      it('returns logs for each delivery mode derived from a provided handshake secret', async () => {
         const providedSecret = Fr.random();
-        const providedSecrets = EphemeralArray.fromValues(service, [
-          new ProvidedSecret(providedSecret, AppTaggingSecretKind.UNCONSTRAINED),
-        ]);
+        const expectedLogs = await Promise.all(
+          [AppTaggingSecretKind.CONSTRAINED, AppTaggingSecretKind.UNCONSTRAINED].map(async kind => ({
+            tag: await SiloedTag.compute({
+              extendedSecret: new AppTaggingSecret(providedSecret, contractAddress, kind),
+              index: 0,
+            }),
+            log: {
+              logData: [Fr.random(), Fr.random()],
+              blockNumber: anchorBlockHeader.globalVariables.blockNumber,
+              blockHash: await anchorBlockHeader.hash(),
+              blockTimestamp: anchorBlockHeader.globalVariables.timestamp,
+              txHash: TxHash.random(),
+              txIndexWithinBlock: 0,
+              logIndexWithinTx: 0,
+              noteHashes: [Fr.random()],
+              nullifiers: [Fr.random()],
+            },
+          })),
+        );
+        const logsByTag = new Map(expectedLogs.map(({ tag, log }) => [tag.value.toString(), log]));
 
-        await utilityExecutionOracle.getPendingTaggedLogs(owner, providedSecrets);
-
-        // The first-window tag of the provided secret must appear among the tags queried against the node.
-        const expectedTag = await SiloedTag.compute({
-          extendedSecret: new AppTaggingSecret(providedSecret, contractAddress, AppTaggingSecretKind.UNCONSTRAINED),
-          index: 0,
+        aztecNode.getPrivateLogsByTags.mockImplementation(query => {
+          return Promise.resolve(
+            query.tags.map(entry => {
+              const tag = 'tag' in entry ? entry.tag : entry;
+              const log = logsByTag.get(tag.value.toString());
+              return log ? [log] : [];
+            }),
+          );
         });
-        expect(queriedTags.map(tag => tag.toString())).toContain(expectedTag.value.toString());
+
+        const providedSecrets = EphemeralArray.fromValues(service, [new ProvidedSecret(providedSecret)]);
+
+        const result = await utilityExecutionOracle.getPendingTaggedLogs(owner, providedSecrets);
+
+        const queried = aztecNode.getPrivateLogsByTags.mock.calls.flatMap(([query]) =>
+          query.tags.map(entry => ('tag' in entry ? entry.tag.value.toString() : entry.value.toString())),
+        );
+        expect(queried).toEqual(expect.arrayContaining(expectedLogs.map(({ tag }) => tag.value.toString())));
+        const resultLogs = result.readAll(service).map(log => log.toFields());
+        const expectedPendingLogs = expectedLogs.map(({ log }) =>
+          new PendingTaggedLog(log.logData, log.txHash, log.noteHashes, log.nullifiers[0]).toFields(),
+        );
+        expect(resultLogs).toHaveLength(expectedPendingLogs.length);
+        expect(resultLogs).toEqual(expect.arrayContaining(expectedPendingLogs));
       });
     });
 

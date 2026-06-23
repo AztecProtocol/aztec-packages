@@ -7,7 +7,7 @@ mod test;
 pub contract ConstrainedDeliveryTest {
     use aztec::{
         macros::{events::event, functions::external, storage::storage},
-        messages::delivery::{MessageDelivery, OnchainDeliveryMode},
+        messages::delivery::MessageDelivery,
         oracle::notes::get_next_tagging_index,
         protocol::{
             address::AztecAddress,
@@ -64,13 +64,9 @@ pub contract ConstrainedDeliveryTest {
     /// Test reads go through this wrapper so the registry sees this contract as
     /// [HandshakeRegistry::get_app_siloed_secret]'s msg_sender.
     #[external("utility")]
-    unconstrained fn get_app_siloed_secret(
-        sender: AztecAddress,
-        recipient: AztecAddress,
-        mode: OnchainDeliveryMode,
-    ) -> Option<Field> {
+    unconstrained fn get_app_siloed_secret(sender: AztecAddress, recipient: AztecAddress) -> Option<Field> {
         let registry = HandshakeRegistry::at(STANDARD_HANDSHAKE_REGISTRY_ADDRESS);
-        self.call(registry.get_app_siloed_secret(sender, recipient, mode))
+        self.call(registry.get_app_siloed_secret(sender, recipient))
     }
 
     /// Test-only: emits a log under the constrained tag for `(secret, index)` WITHOUT the sequence nullifier. A landed

@@ -7,15 +7,11 @@
 use crate::ConstrainedDeliveryTest;
 
 use aztec::{
-    messages::delivery::{MessageDelivery, OnchainDeliveryMode},
     protocol::address::AztecAddress,
     standard_addresses::STANDARD_HANDSHAKE_REGISTRY_ADDRESS,
     test::helpers::test_environment::{CallPrivateOptions, DeployOptions, ExecuteUtilityOptions, TestEnvironment},
 };
 use handshake_registry_contract::HandshakeRegistry;
-
-// Modes have no public constructors, so the tests derive them through the delivery builder API.
-global ONCHAIN_CONSTRAINED: OnchainDeliveryMode = MessageDelivery::onchain_constrained().into();
 
 unconstrained fn setup() -> (TestEnvironment, AztecAddress, AztecAddress, AztecAddress, AztecAddress) {
     let mut env = TestEnvironment::new();
@@ -49,15 +45,15 @@ unconstrained fn rehandshake_replaces_registry_secret_for_future_delivery() {
     let first_secret = env
         .execute_utility_opts(
             ExecuteUtilityOptions::new().with_from(test_address),
-            registry.get_app_siloed_secret(sender, recipient, ONCHAIN_CONSTRAINED),
+            registry.get_app_siloed_secret(sender, recipient),
         )
         .expect(f"first delivery should have stored a handshake");
 
-    let _ = env.call_private(sender, registry.non_interactive_handshake(sender, recipient, ONCHAIN_CONSTRAINED));
+    let _ = env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
     let second_secret = env
         .execute_utility_opts(
             ExecuteUtilityOptions::new().with_from(test_address),
-            registry.get_app_siloed_secret(sender, recipient, ONCHAIN_CONSTRAINED),
+            registry.get_app_siloed_secret(sender, recipient),
         )
         .expect(f"re-handshake should have stored a replacement handshake");
     assert(first_secret != second_secret, "re-handshake should produce a distinct secret");
@@ -74,11 +70,11 @@ unconstrained fn fails_at_index_above_zero_without_prior_nullifier() {
     let test_contract = ConstrainedDeliveryTest::at(test_address);
     let registry = HandshakeRegistry::at(registry_address);
 
-    let _ = env.call_private(sender, registry.non_interactive_handshake(sender, recipient, ONCHAIN_CONSTRAINED));
+    let _ = env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
     let secret = env
         .execute_utility_opts(
             ExecuteUtilityOptions::new().with_from(test_address),
-            registry.get_app_siloed_secret(sender, recipient, ONCHAIN_CONSTRAINED),
+            registry.get_app_siloed_secret(sender, recipient),
         )
         .expect(f"handshake should be siloed for the test contract");
 

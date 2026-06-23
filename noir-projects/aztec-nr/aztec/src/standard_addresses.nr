@@ -14,5 +14,5 @@ pub global STANDARD_PUBLIC_CHECKS_ADDRESS: AztecAddress = AztecAddress::from_fie
 );
 
 pub global STANDARD_HANDSHAKE_REGISTRY_ADDRESS: AztecAddress = AztecAddress::from_field(
-    0x19fca351f28a726da8bd3c66c10f22314bbe6359a61440efbbc0721e019167ef,
+    0x215f91f8907b8d6406a9b209b88b3d8d01c764c81d3704af257a2de6f0cd908d,
 );
