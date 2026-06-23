@@ -33,18 +33,16 @@ pub struct FactCollection {
     pub facts: EphemeralArray<Fact>,
 }
 
-/// Records a fact into a collection.
-///
-/// `Some` origin block makes the fact retractable: it is pruned if that block is reorg'd away. A `None` origin block
-///  makes it non-retractable, surviving reorgs. Re-recording an identical fact is a no-op.
-pub unconstrained fn record_fact<let N: u32>(
+/// Records a retractable fact into a collection: PXE prunes it if `origin_block` is reorg'd away. Re-recording an
+/// identical fact is a no-op.
+pub unconstrained fn record_retractable_fact<let N: u32>(
     contract_address: AztecAddress,
     scope: AztecAddress,
     fact_collection_type_id: Field,
     fact_collection_id: Field,
     fact_type_id: Field,
     payload: [Field; N],
-    origin_block: Option<OriginBlock>,
+    origin_block: OriginBlock,
 ) {
     record_fact_oracle(
         contract_address,
@@ -53,7 +51,28 @@ pub unconstrained fn record_fact<let N: u32>(
         fact_collection_id,
         fact_type_id,
         payload,
-        origin_block,
+        Option::some(origin_block),
+    );
+}
+
+/// Records a non-retractable fact into a collection: it survives reorgs and will persist until the fact collection
+/// itself is deleted. Re-recording an identical fact is a no-op.
+pub unconstrained fn record_non_retractable_fact<let N: u32>(
+    contract_address: AztecAddress,
+    scope: AztecAddress,
+    fact_collection_type_id: Field,
+    fact_collection_id: Field,
+    fact_type_id: Field,
+    payload: [Field; N],
+) {
+    record_fact_oracle(
+        contract_address,
+        scope,
+        fact_collection_type_id,
+        fact_collection_id,
+        fact_type_id,
+        payload,
+        Option::none(),
     );
 }
 
@@ -100,7 +119,8 @@ pub unconstrained fn get_fact_collections_by_type(
 
 mod test {
     use crate::facts::{
-        delete_fact_collection, get_fact_collection, get_fact_collections_by_type, OriginBlock, record_fact,
+        delete_fact_collection, get_fact_collection, get_fact_collections_by_type, OriginBlock,
+        record_non_retractable_fact, record_retractable_fact,
     };
     use crate::protocol::address::AztecAddress;
     use crate::protocol::traits::{FromField, ToField};
@@ -121,14 +141,13 @@ mod test {
         let (env, scope) = setup();
         env.private_context(|context| {
             let contract_address = context.this_address();
-            record_fact(
+            record_non_retractable_fact(
                 contract_address,
                 scope,
                 TYPE_ID,
                 COLLECTION_ID,
                 FACT_TYPE_ID,
                 [123],
-                Option::none(),
             );
 
             let collection = get_fact_collection(contract_address, scope, TYPE_ID, COLLECTION_ID).unwrap();
@@ -150,14 +169,13 @@ mod test {
         let (env, scope) = setup();
         env.private_context(|context| {
             let contract_address = context.this_address();
-            record_fact(
+            record_non_retractable_fact(
                 contract_address,
                 scope,
                 TYPE_ID,
                 COLLECTION_ID,
                 FACT_TYPE_ID,
                 [123],
-                Option::none(),
             );
 
             let collections = get_fact_collections_by_type(contract_address, scope, TYPE_ID);
@@ -171,14 +189,14 @@ mod test {
         let (env, scope) = setup();
         env.private_context(|context| {
             let contract_address = context.this_address();
-            record_fact(
+            record_retractable_fact(
                 contract_address,
                 scope,
                 TYPE_ID,
                 COLLECTION_ID,
                 FACT_TYPE_ID,
                 [123],
-                Option::some(OriginBlock { block_number: 5, block_hash: 0xabc }),
+                OriginBlock { block_number: 5, block_hash: 0xabc },
             );
 
             let collection = get_fact_collection(contract_address, scope, TYPE_ID, COLLECTION_ID).unwrap();
@@ -195,14 +213,13 @@ mod test {
         let (env, scope) = setup();
         env.private_context(|context| {
             let contract_address = context.this_address();
-            record_fact(
+            record_non_retractable_fact(
                 contract_address,
                 scope,
                 TYPE_ID,
                 COLLECTION_ID,
                 FACT_TYPE_ID,
                 [123],
-                Option::none(),
             );
             delete_fact_collection(contract_address, scope, TYPE_ID, COLLECTION_ID);
 
@@ -226,15 +243,7 @@ mod test {
         let (env, scope) = setup();
         env.private_context(|context| {
             let other = AztecAddress::from_field(context.this_address().to_field() + 1);
-            record_fact(
-                other,
-                scope,
-                TYPE_ID,
-                COLLECTION_ID,
-                FACT_TYPE_ID,
-                [123],
-                Option::none(),
-            );
+            record_non_retractable_fact(other, scope, TYPE_ID, COLLECTION_ID, FACT_TYPE_ID, [123]);
         });
     }
 }
