@@ -29,16 +29,7 @@ pub struct OffchainMessage {
 }
 
 /// Fact-collection type id shared by every offchain message reception in the fact store.
-global OFFCHAIN_RECEPTION_TYPE: Field = sha256_to_field("AZTEC_NR::OFFCHAIN_RECEPTION_TYPE".as_bytes());
-
-/// Computes the fact-collection id that identifies a message's reception in the fact store.
-///
-/// The id is a poseidon2 hash over the full serialized message. Re-delivering a byte-identical message therefore
-/// maps to the same collection, making `receive` idempotent; a message differing in any field (recipient, tx hash,
-/// anchor timestamp, or ciphertext) is a distinct reception.
-fn fact_collection_id(message: OffchainMessage) -> Field {
-    poseidon2_hash(message.serialize())
-}
+global OFFCHAIN_RECEPTION_TYPE_ID: Field = sha256_to_field("AZTEC_NR::OFFCHAIN_RECEPTION_TYPE_ID".as_bytes());
 
 /// Maximum number of offchain messages accepted by `offchain_receive` in a single call.
 pub global MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL: u32 = 16;
@@ -74,6 +65,14 @@ global OFFCHAIN_MESSAGE_PROCESSED: Field = sha256_to_field("AZTEC_NR::OFFCHAIN_M
 pub type OffchainInboxSync = unconstrained fn(
 /* contract_address */AztecAddress, /* scope */ AztecAddress) -> EphemeralArray<OffchainMessageWithContext>;
 
+/// Computes the fact-collection id that identifies a message's reception workflow in the fact store.
+///
+/// The id is a hash over the full serialized message. Re-delivering a byte-identical message therefore is idempotent,
+/// and a message differing in any of its fields triggers a completely new reception workflow.
+fn fact_collection_id(message: OffchainMessage) -> Field {
+    poseidon2_hash(message.serialize())
+}
+
 /// Delivers offchain messages to the given contract's offchain inbox for subsequent processing.
 ///
 /// Offchain messages are transaction effects that are not broadcasted via onchain logs. Instead, the sender shares the
@@ -95,7 +94,7 @@ pub unconstrained fn receive(
         record_non_retractable_fact(
             contract_address,
             msg.recipient,
-            OFFCHAIN_RECEPTION_TYPE,
+            OFFCHAIN_RECEPTION_TYPE_ID,
             fact_collection_id(msg),
             OFFCHAIN_MESSAGE,
             encode_message(msg),
@@ -117,9 +116,6 @@ unconstrained fn encode_message(message: OffchainMessage) -> EphemeralArray<Fiel
 }
 
 /// Reads the message body fact back out of a reception collection.
-///
-/// Every collection returned by the store carries exactly one `OFFCHAIN_MESSAGE` fact: the collection only exists
-/// because `receive` recorded it, and that fact is non-retractable so it is never pruned.
 unconstrained fn decode_message(reception: FactCollection) -> OffchainMessage {
     let message_fact = reception.facts.find(|f: Fact| f.fact_type_id == OFFCHAIN_MESSAGE).unwrap();
     let n = <OffchainMessage as Deserialize>::N;
@@ -178,17 +174,8 @@ unconstrained fn process_reception(
     maybe_resolved: Option<ResolvedTx>,
     now: u64,
 ) -> Option<OffchainMessageWithContext> {
-    // TODO(@mverzilli): we could annotate retractable entities and facts as "final" when their corresponding blocks
-    // are below the final tip. Then we could use that as termination condition instead of relying on timestamp
-    // arithmetics.
-    //
-    // Alternatively, we could accept a block on `terminate`, which would make the termination itself retractable.
-    // The "problem" with that is that we would need some sort of heuristic to cleanup. Maybe the whole
-    // retractable/non-retractable distinction is useless at the entity level. We can simply handle entities and
-    // if they are started with a block, they are retracted with a block; if they are terminated with a block, they
-    // are "unterminated" with a block, but also are removed when a block is final.
-    // This, in offchain reception's particular case, would make facts entirely unnecessary (at least at its present
-    // functionality).
+    // TODO(@mverzilli): we could annotate retractable facts as "final" when their corresponding blocks are below the
+    // final tip. Then we could use that as termination condition instead of relying on timestamp arithmetics.
     let expired = now > message.anchor_block_timestamp + MAX_MSG_TTL;
     let already_processed = is_processed(reception);
 
@@ -216,22 +203,20 @@ pub unconstrained fn sync_inbox(
     contract_address: AztecAddress,
     scope: AztecAddress,
 ) -> EphemeralArray<OffchainMessageWithContext> {
-    let receptions = get_fact_collections_by_type(contract_address, scope, OFFCHAIN_RECEPTION_TYPE);
+    let active_receptions = get_fact_collections_by_type(contract_address, scope, OFFCHAIN_RECEPTION_TYPE_ID);
+    let messages = active_receptions.map(|reception: FactCollection| decode_message(reception));
 
     // Ask PXE to resolve each message's originating tx. We pass the tx hashes in reception order, so the resolved txs
     // come back aligned with the reception indices and can be matched back positionally.
-    let resolved_txs = get_resolved_txs(receptions.map(|reception: FactCollection| {
-        decode_message(reception).tx_hash.unwrap_or(0)
-    }));
-
-    assert_eq(resolved_txs.len(), receptions.len());
+    let resolved_txs = get_resolved_txs(
+        messages.map(|msg: OffchainMessage| msg.tx_hash.unwrap_or(0)),
+    );
 
     let processable_messages: EphemeralArray<OffchainMessageWithContext> = EphemeralArray::empty();
     let now = UtilityContext::new().timestamp();
 
-    receptions.for_each(|i, reception| {
-        let message = decode_message(reception);
-        let maybe_message = process_reception(reception, message, resolved_txs.get(i), now);
+    active_receptions.for_each(|i, reception| {
+        let maybe_message = process_reception(reception, messages.get(i), resolved_txs.get(i), now);
         if maybe_message.is_some() {
             processable_messages.push(maybe_message.unwrap());
         }
@@ -250,7 +235,7 @@ mod test {
     };
     use super::{
         fact_collection_id, MAX_MSG_TTL, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL, OFFCHAIN_MESSAGE_PROCESSED,
-        OFFCHAIN_RECEPTION_TYPE, OffchainMessage, receive, sync_inbox,
+        OFFCHAIN_RECEPTION_TYPE_ID, OffchainMessage, receive, sync_inbox,
     };
 
     unconstrained fn setup() -> (TestEnvironment, AztecAddress) {
@@ -273,7 +258,7 @@ mod test {
 
     /// Returns the collection ids of the receptions currently active for the given scope.
     unconstrained fn messages_in_inbox(contract_address: AztecAddress, scope: AztecAddress) -> EphemeralArray<Field> {
-        get_fact_collections_by_type(contract_address, scope, OFFCHAIN_RECEPTION_TYPE).map(|c: FactCollection| {
+        get_fact_collections_by_type(contract_address, scope, OFFCHAIN_RECEPTION_TYPE_ID).map(|c: FactCollection| {
             c.fact_collection_id
         })
     }
@@ -288,7 +273,7 @@ mod test {
         let maybe_collection = get_fact_collection(
             contract_address,
             scope,
-            OFFCHAIN_RECEPTION_TYPE,
+            OFFCHAIN_RECEPTION_TYPE_ID,
             collection_id,
         );
         if maybe_collection.is_some() {
