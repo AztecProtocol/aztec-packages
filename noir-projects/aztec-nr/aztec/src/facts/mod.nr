@@ -133,7 +133,7 @@ mod test {
     global TYPE_ID: Field = 42;
     global COLLECTION_ID: Field = 7;
     global FACT_TYPE_ID: Field = 99;
-    global PAYLOAD: Field = 123;
+    global PAYLOAD: [Field; 3] = [123, 456, 789];
 
     unconstrained fn setup() -> (TestEnvironment, AztecAddress) {
         let mut env = TestEnvironment::new();
@@ -141,10 +141,19 @@ mod test {
         (env, scope)
     }
 
-    unconstrained fn make_payload(value: Field) -> EphemeralArray<Field> {
+    unconstrained fn make_payload<let N: u32>(values: [Field; N]) -> EphemeralArray<Field> {
         let payload: EphemeralArray<Field> = EphemeralArray::empty();
-        payload.push(value);
+        for i in 0..N {
+            payload.push(values[i]);
+        }
         payload
+    }
+
+    unconstrained fn assert_payload(payload: EphemeralArray<Field>) {
+        assert_eq(payload.len(), PAYLOAD.len());
+        for i in 0..PAYLOAD.len() {
+            assert_eq(payload.get(i), PAYLOAD[i]);
+        }
     }
 
     #[test]
@@ -170,7 +179,7 @@ mod test {
 
             let fact = collection.facts.get(0);
             assert_eq(fact.fact_type_id, FACT_TYPE_ID);
-            assert_eq(fact.payload.get(0), PAYLOAD);
+            assert_payload(fact.payload);
             assert(fact.origin_block.is_none());
         });
     }
@@ -191,7 +200,14 @@ mod test {
 
             let collections = get_fact_collections_by_type(contract_address, scope, TYPE_ID);
             assert_eq(collections.len(), 1);
-            assert_eq(collections.get(0).fact_collection_id, COLLECTION_ID);
+
+            let collection = collections.get(0);
+            assert_eq(collection.fact_collection_id, COLLECTION_ID);
+            assert_eq(collection.facts.len(), 1);
+
+            let fact = collection.facts.get(0);
+            assert_eq(fact.fact_type_id, FACT_TYPE_ID);
+            assert_payload(fact.payload);
         });
     }
 
@@ -213,7 +229,11 @@ mod test {
             let collection = get_fact_collection(contract_address, scope, TYPE_ID, COLLECTION_ID).unwrap();
             assert_eq(collection.facts.len(), 1);
 
-            let origin_block = collection.facts.get(0).origin_block.unwrap();
+            let fact = collection.facts.get(0);
+            assert_eq(fact.fact_type_id, FACT_TYPE_ID);
+            assert_payload(fact.payload);
+
+            let origin_block = fact.origin_block.unwrap();
             assert_eq(origin_block.block_number, 5);
             assert_eq(origin_block.block_hash, 0xabc);
         });
