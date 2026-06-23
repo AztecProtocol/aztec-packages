@@ -519,13 +519,14 @@ describe('Utility Execution test suite', () => {
       const collectionId = new Fr(20);
       const factTypeId = new Fr(30);
       const noBlock = Option.none<OriginBlock>();
-      const scopesVec = (scopes: AztecAddress[]) => BoundedVec.from({ data: scopes, maxLength: scopes.length });
 
       it('records a fact and reads it back via getFactCollection', async () => {
         const oracle = makeOracle({ scopes: [scope] });
         await oracle.recordFact(contractAddress, scope, typeId, collectionId, factTypeId, [new Fr(7)], noBlock);
 
-        const collection = await oracle.getFactCollection(contractAddress, scopesVec([scope]), typeId, collectionId);
+        const result = await oracle.getFactCollection(contractAddress, scope, typeId, collectionId);
+        expect(result.isSome()).toBe(true);
+        const collection = result.value!;
         expect(collection.factCollectionId).toEqual(collectionId);
         const facts = collection.facts.readAll(service);
         expect(facts).toHaveLength(1);
@@ -533,10 +534,10 @@ describe('Utility Execution test suite', () => {
         expect(facts[0].payload.readAll(service)).toEqual([new Fr(7)]);
       });
 
-      it('returns an empty collection when none of its facts are visible', async () => {
+      it('returns None for an unrecorded collection', async () => {
         const oracle = makeOracle({ scopes: [scope] });
-        const collection = await oracle.getFactCollection(contractAddress, scopesVec([scope]), typeId, collectionId);
-        expect(collection.facts.readAll(service)).toEqual([]);
+        const result = await oracle.getFactCollection(contractAddress, scope, typeId, collectionId);
+        expect(result.isNone()).toBe(true);
       });
 
       it('returns only the surviving collections of a type after some are removed', async () => {
@@ -550,12 +551,10 @@ describe('Utility Execution test suite', () => {
         }
 
         // Remove two of them; the rest must remain.
-        await oracle.removeFactCollection(contractAddress, scope, typeId, new Fr(2));
-        await oracle.removeFactCollection(contractAddress, scope, typeId, new Fr(4));
+        await oracle.deleteFactCollection(contractAddress, scope, typeId, new Fr(2));
+        await oracle.deleteFactCollection(contractAddress, scope, typeId, new Fr(4));
 
-        const collections = (
-          await oracle.getFactCollectionsByType(contractAddress, scopesVec([scope]), typeId)
-        ).readAll(service);
+        const collections = (await oracle.getFactCollectionsByType(contractAddress, scope, typeId)).readAll(service);
 
         // Exactly the survivors come back (order is not guaranteed, so compare as a set).
         const survivingIds = collections
@@ -569,18 +568,17 @@ describe('Utility Execution test suite', () => {
         const originBlock = Option.some<OriginBlock>({ blockNumber: 5, blockHash: new Fr(0xabc) });
         await oracle.recordFact(contractAddress, scope, typeId, collectionId, factTypeId, [new Fr(42)], originBlock);
 
-        const collection = await oracle.getFactCollection(contractAddress, scopesVec([scope]), typeId, collectionId);
-        expect(collection.facts.readAll(service)).toHaveLength(1);
+        const result = await oracle.getFactCollection(contractAddress, scope, typeId, collectionId);
+        expect(result.isSome()).toBe(true);
+        expect(result.value!.facts.readAll(service)).toHaveLength(1);
       });
 
-      it('removes a fact collection', async () => {
+      it('deletes a fact collection', async () => {
         const oracle = makeOracle({ scopes: [scope] });
         await oracle.recordFact(contractAddress, scope, typeId, collectionId, factTypeId, [new Fr(1)], noBlock);
-        await oracle.removeFactCollection(contractAddress, scope, typeId, collectionId);
+        await oracle.deleteFactCollection(contractAddress, scope, typeId, collectionId);
 
-        const collections = (
-          await oracle.getFactCollectionsByType(contractAddress, scopesVec([scope]), typeId)
-        ).readAll(service);
+        const collections = (await oracle.getFactCollectionsByType(contractAddress, scope, typeId)).readAll(service);
         expect(collections).toEqual([]);
       });
 

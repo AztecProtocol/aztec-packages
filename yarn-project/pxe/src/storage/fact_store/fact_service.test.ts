@@ -20,8 +20,10 @@ describe('FactService', () => {
   const factTypeId = new Fr(30);
   const factPayload = new Fr(40);
 
-  const key = new FactCollectionKey(contract, typeId, collectionId);
-  const typeKey = new FactCollectionTypeKey(contract, typeId);
+  const factCollectionKey = new FactCollectionKey(contract, allowedScope, typeId, collectionId);
+  const factCollectionTypeKey = new FactCollectionTypeKey(contract, allowedScope, typeId);
+  const disallowedCollectionKey = new FactCollectionKey(contract, disallowedScope, typeId, collectionId);
+  const disallowedCollectionTypeKey = new FactCollectionTypeKey(contract, disallowedScope, typeId);
 
   beforeEach(async () => {
     kv = await openTmpStore('fact-service-test');
@@ -30,57 +32,51 @@ describe('FactService', () => {
 
   it('delegates record+get for an allowed scope', async () => {
     const service = new FactService(store, [allowedScope]);
-    await service.recordFact(key, factTypeId, [factPayload], undefined, allowedScope, jobId);
+    await service.recordFact(factCollectionKey, factTypeId, [factPayload], undefined, jobId);
 
-    const collection = await service.getFactCollection(key, [allowedScope], jobId);
+    const collection = await service.getFactCollection(factCollectionKey, jobId);
     expect(collection?.facts).toEqual([{ factTypeId, payload: [factPayload], originBlock: undefined }]);
   });
 
   it('delegates getFactCollectionsByType for an allowed scope', async () => {
     const service = new FactService(store, [allowedScope]);
-    await service.recordFact(key, factTypeId, [factPayload], undefined, allowedScope, jobId);
+    await service.recordFact(factCollectionKey, factTypeId, [factPayload], undefined, jobId);
 
-    const collections = await service.getFactCollectionsByType(typeKey, [allowedScope], jobId);
-    expect(collections).toEqual([{ key, facts: [{ factTypeId, payload: [factPayload], originBlock: undefined }] }]);
+    const collections = await service.getFactCollectionsByType(factCollectionTypeKey, jobId);
+    expect(collections).toEqual([
+      { key: factCollectionKey, facts: [{ factTypeId, payload: [factPayload], originBlock: undefined }] },
+    ]);
   });
 
-  it('delegates removeFactCollection (descope) for an allowed scope', async () => {
+  it('delegates deleteFactCollection for an allowed scope', async () => {
     const service = new FactService(store, [allowedScope]);
-    await service.recordFact(key, factTypeId, [factPayload], undefined, allowedScope, jobId);
-    await service.removeFactCollection(key, allowedScope, jobId);
+    await service.recordFact(factCollectionKey, factTypeId, [factPayload], undefined, jobId);
+    await service.deleteFactCollection(factCollectionKey, jobId);
 
-    expect(await service.getFactCollection(key, [allowedScope], jobId)).toBeUndefined();
+    expect(await service.getFactCollection(factCollectionKey, jobId)).toBeUndefined();
   });
 
   it('rejects a disallowed scope on recordFact', () => {
     const service = new FactService(store, [allowedScope]);
-    expect(() => service.recordFact(key, factTypeId, [factPayload], undefined, disallowedScope, jobId)).toThrow(
+    expect(() => service.recordFact(disallowedCollectionKey, factTypeId, [factPayload], undefined, jobId)).toThrow(
       /not in the allowed scopes/,
     );
   });
 
-  it('rejects a disallowed scope on removeFactCollection', () => {
+  it('rejects a disallowed scope on deleteFactCollection', () => {
     const service = new FactService(store, [allowedScope]);
-    expect(() => service.removeFactCollection(key, disallowedScope, jobId)).toThrow(/not in the allowed scopes/);
+    expect(() => service.deleteFactCollection(disallowedCollectionKey, jobId)).toThrow(/not in the allowed scopes/);
   });
 
   it('rejects a disallowed scope on getFactCollection', () => {
     const service = new FactService(store, [allowedScope]);
-    expect(() => service.getFactCollection(key, [disallowedScope], jobId)).toThrow(/not in the allowed scopes/);
+    expect(() => service.getFactCollection(disallowedCollectionKey, jobId)).toThrow(/not in the allowed scopes/);
   });
 
   it('rejects a disallowed scope on getFactCollectionsByType', () => {
     const service = new FactService(store, [allowedScope]);
-    expect(() => service.getFactCollectionsByType(typeKey, [disallowedScope], jobId)).toThrow(
+    expect(() => service.getFactCollectionsByType(disallowedCollectionTypeKey, jobId)).toThrow(
       /not in the allowed scopes/,
     );
-  });
-
-  it('always allows the zero (global) scope', async () => {
-    const service = new FactService(store, []);
-    await service.recordFact(key, factTypeId, [factPayload], undefined, AztecAddress.ZERO, jobId);
-
-    const collection = await service.getFactCollection(key, [AztecAddress.ZERO], jobId);
-    expect(collection?.facts).toEqual([{ factTypeId, payload: [factPayload], originBlock: undefined }]);
   });
 });

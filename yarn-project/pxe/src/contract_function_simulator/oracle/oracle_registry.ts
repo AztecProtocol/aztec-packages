@@ -325,7 +325,7 @@ export const ORACLE_REGISTRY = {
     ],
   }),
 
-  aztec_utl_removeFactCollection: makeEntry({
+  aztec_utl_deleteFactCollection: makeEntry({
     params: [
       { name: 'contractAddress', type: AZTEC_ADDRESS },
       { name: 'scope', type: AZTEC_ADDRESS },
@@ -337,17 +337,17 @@ export const ORACLE_REGISTRY = {
   aztec_utl_getFactCollection: makeEntry({
     params: [
       { name: 'contractAddress', type: AZTEC_ADDRESS },
-      { name: 'scopes', type: BOUNDED_VEC(AZTEC_ADDRESS) },
+      { name: 'scope', type: AZTEC_ADDRESS },
       { name: 'factCollectionTypeId', type: FIELD },
       { name: 'factCollectionId', type: FIELD },
     ],
-    returnType: FACT_COLLECTION,
+    returnType: OPTION(FACT_COLLECTION),
   }),
 
   aztec_utl_getFactCollectionsByType: makeEntry({
     params: [
       { name: 'contractAddress', type: AZTEC_ADDRESS },
-      { name: 'scopes', type: BOUNDED_VEC(AZTEC_ADDRESS) },
+      { name: 'scope', type: AZTEC_ADDRESS },
       { name: 'factCollectionTypeId', type: FIELD },
     ],
     returnType: EPHEMERAL_ARRAY(FACT_COLLECTION),

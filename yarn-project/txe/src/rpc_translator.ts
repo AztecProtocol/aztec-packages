@@ -825,12 +825,12 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_removeFactCollection(...inputs: ForeignCallArgs) {
+  aztec_utl_deleteFactCollection(...inputs: ForeignCallArgs) {
     return callTxeHandler({
-      oracle: 'aztec_utl_removeFactCollection',
+      oracle: 'aztec_utl_deleteFactCollection',
       inputs,
       handler: ([contractAddress, scope, factCollectionTypeId, factCollectionId]) =>
-        this.handlerAsUtility().removeFactCollection(contractAddress, scope, factCollectionTypeId, factCollectionId),
+        this.handlerAsUtility().deleteFactCollection(contractAddress, scope, factCollectionTypeId, factCollectionId),
     });
   }
 
@@ -839,8 +839,8 @@ export class RPCTranslator {
     return callTxeHandler({
       oracle: 'aztec_utl_getFactCollection',
       inputs,
-      handler: ([contractAddress, scopes, factCollectionTypeId, factCollectionId]) =>
-        this.handlerAsUtility().getFactCollection(contractAddress, scopes, factCollectionTypeId, factCollectionId),
+      handler: ([contractAddress, scope, factCollectionTypeId, factCollectionId]) =>
+        this.handlerAsUtility().getFactCollection(contractAddress, scope, factCollectionTypeId, factCollectionId),
     });
   }
 
@@ -849,8 +849,8 @@ export class RPCTranslator {
     return callTxeHandler({
       oracle: 'aztec_utl_getFactCollectionsByType',
       inputs,
-      handler: ([contractAddress, scopes, factCollectionTypeId]) =>
-        this.handlerAsUtility().getFactCollectionsByType(contractAddress, scopes, factCollectionTypeId),
+      handler: ([contractAddress, scope, factCollectionTypeId]) =>
+        this.handlerAsUtility().getFactCollectionsByType(contractAddress, scope, factCollectionTypeId),
     });
   }
 

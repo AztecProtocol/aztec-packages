@@ -739,8 +739,8 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   }
 
   /**
-   * Records a fact into a collection, visible under `scope`. A `Some` origin block makes the fact retractable (pruned
-   * on reorg of that block); a `None` origin block makes it permanent, surviving reorgs.
+   * Records a fact into a collection. A `Some` origin block makes the fact retractable (pruned on reorg of that
+   * block), a `None` origin block makes it non-retractable, surviving reorgs.
    */
   public recordFact(
     contractAddress: AztecAddress,
@@ -753,59 +753,58 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   ): Promise<void> {
     this.#assertOwnContract(contractAddress);
     return this.factService.recordFact(
-      new FactCollectionKey(contractAddress, factCollectionTypeId, factCollectionId),
+      new FactCollectionKey(contractAddress, scope, factCollectionTypeId, factCollectionId),
       factTypeId,
       payload,
       originBlock.isSome() ? originBlock.value : undefined,
-      scope,
       this.jobId,
     );
   }
 
   /**
-   * Removes a fact collection from `scope`: drops that scope from each of the collection's facts, reaping any fact
-   * thereby left with no scope. A no-op if the collection is not visible under `scope`.
+   * Deletes a fact collection, removing all its facts. A no-op if no such collection exists.
    */
-  public removeFactCollection(
+  public deleteFactCollection(
     contractAddress: AztecAddress,
     scope: AztecAddress,
     factCollectionTypeId: Fr,
     factCollectionId: Fr,
   ): Promise<void> {
     this.#assertOwnContract(contractAddress);
-    return this.factService.removeFactCollection(
-      new FactCollectionKey(contractAddress, factCollectionTypeId, factCollectionId),
-      scope,
+    return this.factService.deleteFactCollection(
+      new FactCollectionKey(contractAddress, scope, factCollectionTypeId, factCollectionId),
       this.jobId,
     );
   }
 
-  /** Returns one fact collection, holding the facts visible under any of `scopes` (empty if none are). */
+  /**
+   * Returns a fact collection.
+   */
   public async getFactCollection(
     contractAddress: AztecAddress,
-    scopes: BoundedVec<AztecAddress>,
+    scope: AztecAddress,
     factCollectionTypeId: Fr,
     factCollectionId: Fr,
-  ): Promise<FactCollection> {
+  ): Promise<Option<FactCollection>> {
     this.#assertOwnContract(contractAddress);
     const collection = await this.factService.getFactCollection(
-      new FactCollectionKey(contractAddress, factCollectionTypeId, factCollectionId),
-      scopes.data,
+      new FactCollectionKey(contractAddress, scope, factCollectionTypeId, factCollectionId),
       this.jobId,
     );
-    return this.#toFactCollectionOutput(factCollectionId, collection?.facts ?? []);
+    return collection
+      ? Option.some(this.#toFactCollectionOutput(factCollectionId, collection.facts))
+      : Option.none(this.#toFactCollectionOutput(Fr.ZERO, []));
   }
 
-  /** Returns every fact collection of `factCollectionTypeId` with at least one fact visible under any of `scopes`. */
+  /** Returns every fact collection of `factCollectionTypeId`. */
   public async getFactCollectionsByType(
     contractAddress: AztecAddress,
-    scopes: BoundedVec<AztecAddress>,
+    scope: AztecAddress,
     factCollectionTypeId: Fr,
   ): Promise<EphemeralArray<FactCollection>> {
     this.#assertOwnContract(contractAddress);
     const collections = await this.factService.getFactCollectionsByType(
-      new FactCollectionTypeKey(contractAddress, factCollectionTypeId),
-      scopes.data,
+      new FactCollectionTypeKey(contractAddress, scope, factCollectionTypeId),
       this.jobId,
     );
     return EphemeralArray.fromValues(
