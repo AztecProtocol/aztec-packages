@@ -8,11 +8,13 @@ import { L2Block } from '@aztec/stdlib/block';
 import { ContractClassLog, PrivateLog } from '@aztec/stdlib/logs';
 import '@aztec/stdlib/testing/jest';
 
+import { jest } from '@jest/globals';
 import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
 
 import { KVArchiverDataStore } from '../store/kv_archiver_store.js';
+import { L2TipsCache } from '../store/l2_tips_cache.js';
 import { makeCheckpoint, makePublishedCheckpoint } from '../test/mock_structs.js';
 import { ArchiverDataStoreUpdater } from './data_store_updater.js';
 
@@ -213,6 +215,28 @@ describe('ArchiverDataStoreUpdater', () => {
       // Verify logs are removed
       const publicLogsAfter = await store.getPublicLogs({});
       expect(publicLogsAfter.logs.length).toBe(0);
+    });
+  });
+
+  describe('l2 tips cache refresh', () => {
+    it('does not refresh the cache when the writer transaction aborts', async () => {
+      const tipsCache = new L2TipsCache(store.blockStore);
+      const updaterWithCache = new ArchiverDataStoreUpdater(store, tipsCache);
+
+      const tipsBefore = await tipsCache.getL2Tips();
+
+      const block = await L2Block.random(BlockNumber(1), {
+        checkpointNumber: CheckpointNumber(1),
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
+      });
+
+      const failure = new Error('forced failure inside writer transaction');
+      const addProposedBlockSpy = jest.spyOn(store.blockStore, 'addProposedBlock').mockRejectedValueOnce(failure);
+
+      await expect(updaterWithCache.addProposedBlock(block)).rejects.toBe(failure);
+      await expect(tipsCache.getL2Tips()).resolves.toEqual(tipsBefore);
+
+      addProposedBlockSpy.mockRestore();
     });
   });
 });
