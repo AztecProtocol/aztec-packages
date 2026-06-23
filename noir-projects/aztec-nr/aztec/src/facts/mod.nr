@@ -20,11 +20,15 @@ pub struct OriginBlock {
 pub struct Fact {
     pub fact_type_id: Field,
     pub payload: EphemeralArray<Field>,
+    pub origin_block: Option<OriginBlock>,
 }
 
 /// A fact collection as returned by the store.
 #[derive(Deserialize, Serialize)]
 pub struct FactCollection {
+    pub contract_address: AztecAddress,
+    pub scope: AztecAddress,
+    pub fact_collection_type_id: Field,
     pub fact_collection_id: Field,
     pub facts: EphemeralArray<Fact>,
 }
@@ -128,9 +132,16 @@ mod test {
             );
 
             let collection = get_fact_collection(contract_address, scope, TYPE_ID, COLLECTION_ID).unwrap();
+            assert_eq(collection.contract_address, contract_address);
+            assert_eq(collection.scope, scope);
+            assert_eq(collection.fact_collection_type_id, TYPE_ID);
             assert_eq(collection.fact_collection_id, COLLECTION_ID);
             assert_eq(collection.facts.len(), 1);
-            assert_eq(collection.facts.get(0).fact_type_id, FACT_TYPE_ID);
+
+            let fact = collection.facts.get(0);
+            assert_eq(fact.fact_type_id, FACT_TYPE_ID);
+            assert_eq(fact.payload.get(0), 123);
+            assert(fact.origin_block.is_none());
         });
     }
 
@@ -172,6 +183,10 @@ mod test {
 
             let collection = get_fact_collection(contract_address, scope, TYPE_ID, COLLECTION_ID).unwrap();
             assert_eq(collection.facts.len(), 1);
+
+            let origin_block = collection.facts.get(0).origin_block.unwrap();
+            assert_eq(origin_block.block_number, 5);
+            assert_eq(origin_block.block_hash, 0xabc);
         });
     }
 

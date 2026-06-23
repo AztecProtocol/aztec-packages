@@ -527,11 +527,15 @@ describe('Utility Execution test suite', () => {
         const result = await oracle.getFactCollection(contractAddress, scope, typeId, collectionId);
         expect(result.isSome()).toBe(true);
         const collection = result.value!;
+        expect(collection.contractAddress).toEqual(contractAddress);
+        expect(collection.scope).toEqual(scope);
+        expect(collection.factCollectionTypeId).toEqual(typeId);
         expect(collection.factCollectionId).toEqual(collectionId);
         const facts = collection.facts.readAll(service);
         expect(facts).toHaveLength(1);
         expect(facts[0].factTypeId).toEqual(factTypeId);
         expect(facts[0].payload.readAll(service)).toEqual([new Fr(7)]);
+        expect(facts[0].originBlock.isNone()).toBe(true);
       });
 
       it('returns None for an unrecorded collection', async () => {
@@ -570,7 +574,10 @@ describe('Utility Execution test suite', () => {
 
         const result = await oracle.getFactCollection(contractAddress, scope, typeId, collectionId);
         expect(result.isSome()).toBe(true);
-        expect(result.value!.facts.readAll(service)).toHaveLength(1);
+        const facts = result.value!.facts.readAll(service);
+        expect(facts).toHaveLength(1);
+        expect(facts[0].originBlock.isSome()).toBe(true);
+        expect(facts[0].originBlock.value!).toEqual({ blockNumber: 5, blockHash: new Fr(0xabc) });
       });
 
       it('deletes a fact collection', async () => {

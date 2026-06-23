@@ -722,9 +722,18 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     }
   }
 
-  /** Builds the Noir-facing FACT_COLLECTION output (id plus facts as nested ephemeral arrays) from stored facts. */
-  #toFactCollectionOutput(factCollectionId: Fr, facts: FactFromStore[]): FactCollection {
+  /** Builds the Noir-facing FACT_COLLECTION output (full identity plus facts as nested ephemeral arrays) from stored facts. */
+  #toFactCollectionOutput(
+    contractAddress: AztecAddress,
+    scope: AztecAddress,
+    factCollectionTypeId: Fr,
+    factCollectionId: Fr,
+    facts: FactFromStore[],
+  ): FactCollection {
     return {
+      contractAddress,
+      scope,
+      factCollectionTypeId,
       factCollectionId,
       facts: EphemeralArray.fromValues(
         this.ephemeralArrayService,
@@ -732,6 +741,9 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
           (fact: FactFromStore): Fact => ({
             factTypeId: fact.factTypeId,
             payload: EphemeralArray.fromValues(this.ephemeralArrayService, fact.payload),
+            originBlock: fact.originBlock
+              ? Option.some(fact.originBlock)
+              : Option.none<OriginBlock>({ blockNumber: 0, blockHash: Fr.ZERO }),
           }),
         ),
       ),
@@ -792,8 +804,16 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       this.jobId,
     );
     return collection
-      ? Option.some(this.#toFactCollectionOutput(factCollectionId, collection.facts))
-      : Option.none(this.#toFactCollectionOutput(Fr.ZERO, []));
+      ? Option.some(
+          this.#toFactCollectionOutput(
+            contractAddress,
+            scope,
+            factCollectionTypeId,
+            factCollectionId,
+            collection.facts,
+          ),
+        )
+      : Option.none(this.#toFactCollectionOutput(contractAddress, scope, factCollectionTypeId, factCollectionId, []));
   }
 
   /** Returns every fact collection of `factCollectionTypeId`. */
@@ -809,7 +829,15 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     );
     return EphemeralArray.fromValues(
       this.ephemeralArrayService,
-      collections.map(collection => this.#toFactCollectionOutput(collection.key.factCollectionId, collection.facts)),
+      collections.map(collection =>
+        this.#toFactCollectionOutput(
+          collection.key.contractAddress,
+          collection.key.scope,
+          collection.key.factCollectionTypeId,
+          collection.key.factCollectionId,
+          collection.facts,
+        ),
+      ),
     );
   }
 

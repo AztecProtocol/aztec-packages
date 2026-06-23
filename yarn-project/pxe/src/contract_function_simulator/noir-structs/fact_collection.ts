@@ -1,11 +1,16 @@
 import type { Fr } from '@aztec/foundation/curves/bn254';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import type { EphemeralArray } from './ephemeral_array.js';
 import type { Fact } from './fact.js';
 
 /**
- * A fact collection as returned by the fact store oracles: its id together with its visible facts.
- *
- * A TS version of the `FactCollection` struct in `facts/mod.nr`.
+ * A fact collection.
  */
-export type FactCollection = { factCollectionId: Fr; facts: EphemeralArray<Fact> };
+export type FactCollection = {
+  contractAddress: AztecAddress;
+  scope: AztecAddress;
+  factCollectionTypeId: Fr;
+  factCollectionId: Fr;
+  facts: EphemeralArray<Fact>;
+};

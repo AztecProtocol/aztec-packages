@@ -378,13 +378,8 @@ export const RESOLVED_TX: TypeMapping<ResolvedTx> = {
   serialization: { fn: resolved => [resolved.toFields()] },
 };
 
-export const FACT: TypeMapping<Fact> = {
-  serialization: {
-    fn: f => [f.factTypeId, f.payload.materializeSlot(v => FIELD.serialization!.fn(v).flat() as Fr[])],
-  },
-};
-
 export const ORIGIN_BLOCK: TypeMapping<OriginBlock> = {
+  serialization: { fn: ob => [new Fr(ob.blockNumber), ob.blockHash] },
   deserialization: {
     fn: ([blockNumberReader, blockHashReader]) => ({
       blockNumber: blockNumberReader.readField().toNumber(),
@@ -394,9 +389,25 @@ export const ORIGIN_BLOCK: TypeMapping<OriginBlock> = {
   },
 };
 
+export const FACT: TypeMapping<Fact> = {
+  serialization: {
+    fn: f => [
+      f.factTypeId,
+      f.payload.materializeSlot(v => FIELD.serialization!.fn(v).flat() as Fr[]),
+      ...OPTION(ORIGIN_BLOCK).serialization!.fn(f.originBlock),
+    ],
+  },
+};
+
 export const FACT_COLLECTION: TypeMapping<FactCollection> = {
   serialization: {
-    fn: c => [c.factCollectionId, c.facts.materializeSlot(v => FACT.serialization!.fn(v).flat() as Fr[])],
+    fn: c => [
+      c.contractAddress.toField(),
+      c.scope.toField(),
+      c.factCollectionTypeId,
+      c.factCollectionId,
+      c.facts.materializeSlot(v => FACT.serialization!.fn(v).flat() as Fr[]),
+    ],
   },
 };
 
