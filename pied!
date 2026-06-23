@@ -1,0 +1,32 @@
+[1mdiff --git a/yarn-project/pxe/src/contract_function_simulator/noir-structs/provided_secret.test.ts b/yarn-project/pxe/src/contract_function_simulator/noir-structs/provided_secret.test.ts[m
+[1mindex e7435bb29e..c884a78f31 100644[m
+[1m--- a/yarn-project/pxe/src/contract_function_simulator/noir-structs/provided_secret.test.ts[m
+[1m+++ b/yarn-project/pxe/src/contract_function_simulator/noir-structs/provided_secret.test.ts[m
+[36m@@ -4,19 +4,21 @@[m [mimport { AppTaggingSecretKind } from '@aztec/stdlib/logs';[m
+ import { ProvidedSecret } from './provided_secret.js';[m
+ [m
+ describe('ProvidedSecret', () => {[m
+[31m-  it('deserializes mode 2 as unconstrained', () => {[m
+[32m+[m[32m  it('deserializes delivery mode 2 as unconstrained', () => {[m
+     const provided = ProvidedSecret.fromFields([new Fr(42), new Fr(2)]);[m
+     expect(provided.secret).toEqual(new Fr(42));[m
+[31m-    expect(provided.mode).toBe(AppTaggingSecretKind.UNCONSTRAINED);[m
+[32m+[m[32m    expect(provided.mode).toEqual(AppTaggingSecretKind.UNCONSTRAINED);[m
+   });[m
+ [m
+[31m-  it('deserializes mode 3 as constrained', () => {[m
+[32m+[m[32m  it('deserializes delivery mode 3 as constrained', () => {[m
+     const provided = ProvidedSecret.fromFields([new Fr(42), new Fr(3)]);[m
+     expect(provided.secret).toEqual(new Fr(42));[m
+[31m-    expect(provided.mode).toBe(AppTaggingSecretKind.CONSTRAINED);[m
+[32m+[m[32m    expect(provided.mode).toEqual(AppTaggingSecretKind.CONSTRAINED);[m
+   });[m
+ [m
+[31m-  it('rejects invalid modes', () => {[m
+[31m-    expect(() => ProvidedSecret.fromFields([new Fr(42), new Fr(1)])).toThrow('Unrecognized delivery mode for tagging');[m
+[32m+[m[32m  it('rejects an invalid mode value', () => {[m
+[32m+[m[32m    expect(() => ProvidedSecret.fromFields([Fr.random(), new Fr(99)])).toThrow([m
+[32m+[m[32m      'Unrecognized delivery mode for tagging',[m
+[32m+[m[32m    );[m
+   });[m
+ });[m
