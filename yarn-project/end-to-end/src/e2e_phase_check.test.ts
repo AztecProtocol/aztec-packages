@@ -15,6 +15,9 @@ import type { TestWallet } from './test-wallet/test_wallet.js';
 
 // Private functions should receive automatically a phase check that avoids any nested call changing the phase.
 // Functions that opt out of this phase check can be marked with #[allow_phase_change].
+//
+// Uses a single node with AutomineSequencer. The setup pre-funds a custom SponsoredFPC via genesisPublicData
+// so that fee payment can be crafted without ending the setup phase, which is needed to trigger the phase-change error.
 describe('Phase check', () => {
   let wallet: TestWallet;
   let defaultAccountAddress: AztecAddress;
@@ -53,6 +56,8 @@ describe('Phase check', () => {
     return new PublicDataTreeLeaf(balanceLeafSlot, defaultInitialAccountFeeJuice);
   }
 
+  // Simulates a tx that calls a function which internally invokes a nested call that ends the setup phase,
+  // triggering the automatic phase-check guard; asserts the simulation throws with the expected message.
   it('should fail when a nested call changes the phase', async () => {
     await expect(
       contract.methods.call_function_that_ends_setup().simulate({
@@ -64,6 +69,8 @@ describe('Phase check', () => {
     ).rejects.toThrow('Phase change detected on function with phase check.');
   });
 
+  // Same scenario but the function is annotated with #[allow_phase_change]; asserts the simulation
+  // succeeds without throwing.
   it('should not fail when a nested call changes the phase if #[allow_phase_change] is used', async () => {
     await contract.methods.call_function_that_ends_setup_without_phase_check().simulate({
       from: defaultAccountAddress,

@@ -109,6 +109,8 @@ type WalletTxProducer = {
   readyTx: Tx | null;
 };
 
+// End-to-end proving throughput test at TARGET_TPS against a live k8s deployment. Sends transactions,
+// waits for the proven chain to advance by a full epoch, and collects Prometheus proving-queue metrics.
 describe(`prove ${TARGET_TPS}TPS test`, () => {
   // 4 hours: epoch boundary wait + tx sending (~40min) + tx mining + proving (~30min)
   jest.setTimeout(4 * 60 * 60 * 1000);

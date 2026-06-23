@@ -9,6 +9,7 @@ const { AZTEC_NODE_URL = 'http://localhost:8080', ETHEREUM_HOSTS = 'http://local
 
 // Unlike the non-composed e2e_cheat_codes.test.ts these tests are testing that the AztecNodeDebug endpoints get
 // correctly exposed on the node.
+// Runs against a pre-started docker-compose network (AZTEC_NODE_URL + ETHEREUM_HOSTS); no in-proc setup().
 describe('e2e_cheat_codes', () => {
   const logger = createLogger('e2e:cheat_codes');
   let aztecNode: AztecNode;

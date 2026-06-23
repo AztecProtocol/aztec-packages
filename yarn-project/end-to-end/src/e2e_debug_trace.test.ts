@@ -18,6 +18,12 @@ import { type Hex, decodeFunctionData, encodeFunctionData, multicall3Abi } from 
 
 import { getPrivateKeyFromIndex, setup } from './fixtures/utils.js';
 
+// Tests that the sequencer can successfully process blocks when L1 block proposals are forwarded
+// via a proxy contract (Forwarder). Also tests that a corrupted first propose call (failing with
+// allowFailure:true) followed by a valid second call still produces blocks.
+// Uses setup(2, {ethereumSlotDuration:4, aztecSlotDuration:12, proofSubEpochs:640, minTxsPerBlock:0,
+// aztecEpochDuration=default}) — production sequencer, anvil interval mining. The L1 interaction is
+// Forwarder/Multicall3/Rollup contract interception for block-proposal routing, not cross-chain bridging.
 describe('e2e_debug_trace_transaction', () => {
   jest.setTimeout(5 * 60 * 1000); // 5 minutes
 
@@ -81,6 +87,8 @@ describe('e2e_debug_trace_transaction', () => {
   afterAll(() => teardown());
 
   // In this test we deploy a simple forwarder contract to L1, this serves as an additional proxy
+  // Intercepts sendAndMonitorTransaction to forward the Multicall3 call via the Forwarder proxy.
+  // Waits for 2 new blocks via retryUntil; asserts the chain advances.
   it('can process blocks using debug trace', async () => {
     // We intercept calls to sendAndMonitorTransaction to forward inner calls via the forwarder
     const l1Utils: L1TxUtils[] = (publisherManager as any).publishers;
@@ -129,6 +137,7 @@ describe('e2e_debug_trace_transaction', () => {
     const numBlocksToMine = 2;
     const startBlockNumber = await aztecNode.getBlockNumber();
     await aztecNodeAdmin.setConfig({ minTxsPerBlock: 0 });
+    // REFACTOR: raw retryUntil poll on block number; replace with a waitForBlock(n) DSL helper
     const result = await retryUntil(
       async () => {
         const blockNumber = await aztecNode.getBlockNumber();
@@ -144,6 +153,9 @@ describe('e2e_debug_trace_transaction', () => {
     l1Utils[0].sendAndMonitorTransaction = originalSendAndMonitor;
   });
 
+  // Intercepts Multicall3 aggregate3, prepends a corrupted call (coinbase zeroed, allowFailure=true)
+  // before the original calls. Waits for 3 new blocks; asserts the chain advances despite the
+  // first inner call reverting.
   it('can process blocks with a failing call followed by a successful call', async () => {
     // We intercept calls to sendAndMonitorTransaction to:
     // 1. Decode the Multicall3 aggregate3 call
@@ -247,6 +259,7 @@ describe('e2e_debug_trace_transaction', () => {
     const numBlocksToMine = 3;
     const startBlockNumber = await aztecNode.getBlockNumber();
     await aztecNodeAdmin.setConfig({ minTxsPerBlock: 0 });
+    // REFACTOR: raw retryUntil poll on block number; replace with a waitForBlock(n) DSL helper
     const result = await retryUntil(
       async () => {
         const blockNumber = await aztecNode.getBlockNumber();
