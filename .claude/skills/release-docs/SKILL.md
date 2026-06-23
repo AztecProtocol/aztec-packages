@@ -528,9 +528,17 @@ is actually visible:
 
 3. See what `next` changed **directly in the previous versioned snapshot with the same major version number**, and
    apply the equivalent fix to the same file in the new snapshot wherever that file
-   also exists there (`<prev_version>` is the previous version from
-   `developer_version_config.json` / `network_version_config.json`, including its
-   `v` prefix):
+   also exists there. Steps 5 and 13 have already overwritten the local version
+   configs with the new version, so resolve `<prev_version>` (the previous version
+   for this release type, including its `v` prefix) from `origin/next`, **not** the
+   working tree:
+
+   ```bash
+   git show origin/next:docs/developer_version_config.json
+   git show origin/next:docs/network_version_config.json
+   ```
+
+   Then diff the previous snapshot against the tag:
 
    ```bash
    git diff v<new_version>..origin/next -- \
