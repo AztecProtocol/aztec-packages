@@ -3,8 +3,6 @@ import { FieldReader } from '@aztec/foundation/serialize';
 
 /**
  * A tagging secret an app supplies explicitly to `getPendingTaggedLogs` when PXE cannot derive it internally.
- *
- * It is mode-agnostic: the recipient derives per-mode tags from it when scanning.
  */
 export class ProvidedSecret {
   constructor(public secret: Fr) {}
